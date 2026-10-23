@@ -126,6 +126,9 @@ SHORT_DIP_MAX_FRAMES: int = (
 SHORT_DIP_RATIO: float = (
     0.6  #: measured: Hall 1306-1418 (2026-10-19), 1403 dipped to 20,129 px vs 33,748/36,052 px and 1409-1410 dipped to 2,413-5,736 px vs 36,585/47,200 px (<60% of smaller flanking anchor)
 )
+SHORT_DIP_BOUND_LEAST_SHARE: float = (
+    0.25  #: reasoned (2026-10-23): a frame bounds a short dip only when its tube holds a whole head, at least this share of the shot's own median tube px over the frames that have a tube; with no floor a 1-5 px speck bounded a dip and let a 7-frame gap be bridged (a blind reader's cases, check_head_tube_parts::_case_short_dip_bounds_are_whole_heads). Chosen under every bound of every dip bridged in data/ before it (the lowest, 0.32 of its shot's median, second_hfp_1093b's 1098, 2026-10-20; second_hfp_4647b's 4690 is 0.40) and far over a speck; a starting value
+)
 REGAIN_FACE_POINTS_MIN: int = (
     9  #: measured: 2026-10-21, on every frame the head tube re-seeded from the person track on second_hfp_4912e, 1093c, 4647d, 4726c, 5011e and 5889e and lead_fp_0606d (own_part_face_points on each capture's own inputs): at most 1 such point where the seed held no head of hers (4912e's 4943; her raised hand on 4921-4923 and 4941-4945, which her class map calls face and hair), at least 17 where it held her face (4726c's 4751); the gap's midpoint, a starting value. Not seen by it: 5889e's 5923 and 5926, 38 points piled at the frame's edge as she leaves it
 )
@@ -385,8 +388,12 @@ def sam31_head_tube(
     tracker: Callable[..., np.ndarray | torch.Tensor] | None = None,
     regain_face_points: Sequence[int] | None = None,
     regain_least: int = REGAIN_FACE_POINTS_MIN,
+    hidden_frames: Sequence[int] | set[int] | None = None,
 ) -> dict[str, Any]:
     """Produce a continuous per-frame boolean head tube ``(T, H, W)`` bounded by ``person_track`` and one fixed ``shot_box``.
+
+    ``hidden_frames`` (frames of the tube, 0 = its first) are the frames a person marked her head ``hidden`` on (the plan's
+    ``head_marks``): ``bridge_short_tube_dips`` never bridges onto one, and none bounds a dip.
 
     Where the tube is lost on a frame and ``person_track`` still holds the subject, a head is re-seeded from the top of the
     person track only when ``regain_face_points[t]`` (``own_part_face_points``: her face points over the line on her own
@@ -543,10 +550,10 @@ def sam31_head_tube(
                 tube[t] = regain_seed
                 if t not in regained_from_person_track_frames:
                     regained_from_person_track_frames.append(t)
-        tube, bridged_short_dips = bridge_short_tube_dips(tube, pt_bool)
+        tube, bridged_short_dips, short_dips = bridge_short_tube_dips(tube, pt_bool, hidden_frames=hidden_frames)
     else:
         outside_person_track_clipped_px = [0] * num_frames
-        bridged_short_dips = []
+        bridged_short_dips, short_dips = [], None
 
     if not np.any(tube[seed_frame]):
         raise SystemExit(
@@ -564,8 +571,45 @@ def sam31_head_tube(
         "regained_from_person_track_frames": sorted(regained_from_person_track_frames),
         "regain_refused": regain_refused,
         "bridged_short_dips": bridged_short_dips,
+        "short_dips": short_dips,
         "normalized_range": normalized_range,
     }
+
+
+def _short_dip_spans(
+    counts: np.ndarray,
+    track_present: np.ndarray,
+    may_bound: np.ndarray,
+    max_dip_frames: int,
+    dip_ratio: float,
+) -> list[tuple[int, int]]:
+    """The dips ``(s, e)`` of ``bridge_short_tube_dips``'s scan, left to right, on per-frame tube px. ``may_bound[t]``: frame
+    ``t`` may bound a dip. Read on the counts before any bridging: no bound or run frame of a later dip is a frame bridged
+    earlier, since the scan goes on after each dip's right bound."""
+    num_frames = len(counts)
+    spans: list[tuple[int, int]] = []
+    s = 1
+    while s < num_frames - 1:
+        left_px = int(counts[s - 1])
+        if not may_bound[s - 1] or not track_present[s - 1] or counts[s] >= dip_ratio * left_px:
+            s += 1
+            continue
+        dip_end: int | None = None
+        for e in range(min(s + max_dip_frames - 1, num_frames - 2), s - 1, -1):
+            right_px = int(counts[e + 1])
+            if (
+                may_bound[e + 1]
+                and bool(track_present[s - 1 : e + 2].all())
+                and int(counts[s : e + 1].max()) < dip_ratio * min(left_px, right_px)
+            ):
+                dip_end = e
+                break
+        if dip_end is None:
+            s += 1
+            continue
+        spans.append((s, dip_end))
+        s = dip_end + 2
+    return spans
 
 
 def bridge_short_tube_dips(
@@ -573,58 +617,91 @@ def bridge_short_tube_dips(
     track_bool: np.ndarray,
     max_dip_frames: int = SHORT_DIP_MAX_FRAMES,
     dip_ratio: float = SHORT_DIP_RATIO,
-) -> tuple[np.ndarray, list[dict[str, Any]]]:
-    """Bridge sharp <= ``max_dip_frames`` dips in ``tube`` from flanking frames when ``track_bool`` is present."""
+    *,
+    hidden_frames: Sequence[int] | set[int] | None = None,
+    bound_least_share: float = SHORT_DIP_BOUND_LEAST_SHARE,
+) -> tuple[np.ndarray, list[dict[str, Any]], dict[str, Any]]:
+    """Bridge every short dip in ``tube`` from the two frames that bound it, where ``track_bool`` holds the subject.
+
+    A dip is a run of frames ``s..e``, 1 to ``max_dip_frames`` long, bounded by frames ``s - 1`` and ``e + 1`` that each
+    hold a whole head, with ``track_bool`` present on ``s - 1..e + 1`` and every frame of the run under ``dip_ratio`` times
+    the smaller of the two bounding frames' pixels. A whole head is at least ``bound_least_share`` of the shot's own
+    median tube px over the frames that have a tube, on a frame not in ``hidden_frames``. Each dip frame takes the union of
+    the two bounding frames' tubes, clipped to its own ``track_bool``, except a frame in ``hidden_frames`` (a person marked
+    her head hidden there), which is left as it is. The scan goes left to right; from a start ``s`` it takes the longest
+    run that is a dip and goes on after that run's right bound, and where no run from ``s`` is a dip it moves on one frame.
+
+    Until 2026-10-23 the right bound was the first frame back at ``dip_ratio`` of the LEFT bound, and a run that did
+    not get back there within ``max_dip_frames`` was jumped over whole (or ended the scan at the clip's end), so a
+    short dip after a partial recovery was never looked at: on second_hfp_4647b, 4691 inside the long run from 4673,
+    and 4697-4698 inside the run from 4695 that never came back (``tube_px`` in that capture's
+    ``subjects/second/head_tube__shot_c_4647e.json``). Where the old rule took a run from ``s``, it is the longest
+    run from ``s`` that is a dip, so the new rule takes the same one from that start. Until then too, a bound of any size
+    counted, so a speck of a few px bounded a dip, and a frame marked hidden was bridged like any other.
+
+    Returns the tube, one record a dip with a frame bridged (``{"span": [s, e], "flank_px": [px of s - 1, px of e + 1],
+    "before_px": [...], "after_px": [...], "hidden_left": [frames of the span left as they are]}``), and the rule as it
+    was applied: ``{"median_tube_px", "bound_least_share", "bound_least_px", "hidden_frames", "left_on_hidden"}``, where
+    ``left_on_hidden`` holds each dip the scan finds when the marks are not read whose frames or bounds hold a marked
+    frame: ``{"span", "flank_px", "hidden": [marked frames of s - 1..e + 1], "bridged": [its frames bridged]}``.
+    """
     out = np.asarray(tube, dtype=bool).copy()
     tr = np.asarray(track_bool, dtype=bool)
     num_frames = out.shape[0]
+    hidden = sorted({int(f) for f in (hidden_frames or ()) if 0 <= int(f) < num_frames})
+    rule: dict[str, Any] = {
+        "median_tube_px": 0.0,
+        "bound_least_share": float(bound_least_share),
+        "bound_least_px": 0.0,
+        "hidden_frames": hidden,
+        "left_on_hidden": [],
+    }
     if num_frames < 3 or max_dip_frames < 1:
-        return out, []
+        return out, [], rule
     counts = out.reshape(num_frames, -1).sum(axis=1).astype(np.int64)
     track_present = tr.reshape(num_frames, -1).any(axis=1)
+    held = np.zeros(num_frames, dtype=bool)
+    held[hidden] = True
+    filled = counts[counts > 0]
+    median_px = float(np.median(filled)) if filled.size else 0.0
+    least_px = float(bound_least_share) * median_px
+    rule["median_tube_px"], rule["bound_least_px"] = round(median_px, 1), round(least_px, 1)
+    whole = (counts > 0) & (counts >= least_px)
+
     bridged_list: list[dict[str, Any]] = []
-    s = 1
-    while s < num_frames - 1:
-        left_px = int(counts[s - 1])
-        if left_px <= 0 or not track_present[s - 1] or counts[s] >= dip_ratio * left_px:
-            s += 1
-            continue
-        # Find the first frame r > s where the tube recovers to at least dip_ratio * left_px.
-        r = s + 1
-        while r < num_frames and counts[r] < dip_ratio * left_px:
-            r += 1
-        if r >= num_frames:
-            break
-        e = r - 1
-        span_len = e - s + 1
-        if span_len > max_dip_frames:
-            # Dip is longer than max_dip_frames: skip past the entire unrecovered run.
-            s = r + 1
-            continue
-        right_px = int(counts[e + 1])
-        thresh = dip_ratio * min(left_px, right_px)
-        if (
-            right_px > 0
-            and bool(track_present[s - 1 : e + 2].all())
-            and all(counts[t] < thresh for t in range(s, e + 1))
-        ):
-            before_px = [int(counts[t]) for t in range(s, e + 1)]
-            flank_union = out[s - 1] | out[e + 1]
-            for t in range(s, e + 1):
+    bridged_frames: set[int] = set()
+    for s, e in _short_dip_spans(counts, track_present, whole & ~held, max_dip_frames, dip_ratio):
+        before_px = [int(counts[t]) for t in range(s, e + 1)]
+        flank_union = out[s - 1] | out[e + 1]
+        left = [t for t in range(s, e + 1) if held[t]]
+        for t in range(s, e + 1):
+            if not held[t]:
                 out[t] = out[t] | (flank_union & tr[t])
-                counts[t] = int(out[t].sum())
-            after_px = [int(counts[t]) for t in range(s, e + 1)]
-            bridged_list.append(
-                {
-                    "span": [int(s), int(e)],
-                    "before_px": before_px,
-                    "after_px": after_px,
-                }
-            )
-            s = e + 2
-        else:
-            s += 1
-    return out, bridged_list
+                bridged_frames.add(t)
+        if len(left) == e - s + 1:
+            continue
+        bridged_list.append(
+            {
+                "span": [int(s), int(e)],
+                "flank_px": [int(counts[s - 1]), int(counts[e + 1])],
+                "before_px": before_px,
+                "after_px": [int(out[t].sum()) for t in range(s, e + 1)],
+                "hidden_left": left,
+            }
+        )
+    if held.any():
+        for s, e in _short_dip_spans(counts, track_present, whole, max_dip_frames, dip_ratio):
+            marked = [t for t in range(s - 1, e + 2) if held[t]]
+            if marked:
+                rule["left_on_hidden"].append(
+                    {
+                        "span": [int(s), int(e)],
+                        "flank_px": [int(counts[s - 1]), int(counts[e + 1])],
+                        "hidden": marked,
+                        "bridged": [t for t in range(s, e + 1) if t in bridged_frames],
+                    }
+                )
+    return out, bridged_list, rule
 
 
 def temporal_smooth_probs(
@@ -1331,6 +1408,7 @@ def build_provenance_record(
     regain_refused: Sequence[dict[str, Any]] | None = None,
     bridged_short_dips: Sequence[dict[str, Any]] | None = None,
     source_facial_hair: dict[str, Any] | None = None,
+    short_dips: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Assemble the JSON-serializable provenance record for a shot's head-tube part masks. `source_facial_hair`, where the
     capture keeps it (`face_piece_kept_whole`), is written whole; absent, the key is left out."""
@@ -1362,6 +1440,12 @@ def build_provenance_record(
         "regained_from_person_track_frames": regained_frames,
         "regain_refused": list(regain_refused) if regain_refused is not None else [],
         "bridged_short_dips": list(bridged_short_dips) if bridged_short_dips is not None else [],
+        # the short-dip rule as applied (`bridge_short_tube_dips`): the whole-head floor a bound is held to, the frames marked
+        # hidden it was given, and each dip it would bridge but for a mark; None where no person track bounded the tube
+        "short_dip_rule": (
+            {k: v for k, v in short_dips.items() if k != "left_on_hidden"} if short_dips is not None else None
+        ),
+        "short_dips_left_on_hidden": list(short_dips["left_on_hidden"]) if short_dips is not None else [],
         "face_points_in_tube": (
             list(pose_check["face_points_in_tube"]) if pose_check is not None else []
         ),
@@ -1469,6 +1553,7 @@ def run_head_tube_parts(
         regained_from_person_track_frames=tube_info["regained_from_person_track_frames"],
         regain_refused=tube_info["regain_refused"],
         bridged_short_dips=tube_info["bridged_short_dips"],
+        short_dips=tube_info["short_dips"],
     )
     if provenance_out is not None:
         provenance_out.parent.mkdir(parents=True, exist_ok=True)
@@ -1767,8 +1852,15 @@ def head_tube_for_capture(
     masks_out: Path | None = None,
     keep_facial_hair: bool = False,
     others: np.ndarray | None = None,
+    hidden_frames: Sequence[int] | set[int] | None = None,
 ) -> dict[str, Any]:
     """Run person-track-bounded head-tube smoothing on a capture's track, parts, class map, and 308-point file.
+
+    `hidden_frames` (the capture's frames, 0 = `first_frame`, a person marked her head `hidden` on: the plan's `head_marks`
+    as `bench/shot_to_load.py::head_marks_of` cuts them to the load): no short dip is bridged onto one or bounded by one
+    (`bridge_short_tube_dips`), and the provenance's `short_dips_left_on_hidden` lists each dip a mark held back; the 1-2 frame
+    fill of the candidate tube neither fills one nor fills a neighbour from one. The re-seed of a lost head
+    (`sam31_head_tube`, on her own face points) does not read them.
 
     `keep_facial_hair` (a face-only part whose plan says the source shows facial hair to replace): the piece of the part joined to
     the face that the tube cut below the jaw is kept, within the face's columns and less `others` (every other person's mask,
@@ -1866,9 +1958,16 @@ def head_tube_for_capture(
 
     # Bridge 1-2 frame segmentation dropouts inside the person track when forming the continuous head tube,
     # while leaving off-person pixels unclipped in candidate_tube so sam31_head_tube records outside_person_track_clipped_px.
+    # A frame marked hidden (`hidden_frames`) is neither filled here nor lends its pixels to a neighbour's fill.
     candidate_tube = raw_head.copy()
     in_person = raw_head & track_bool
+    hidden_set = {int(f) for f in (hidden_frames or ()) if 0 <= int(f) < num_frames}
+    if hidden_set:
+        in_person = in_person.copy()
+        in_person[sorted(hidden_set)] = False
     for t in range(num_frames):
+        if t in hidden_set:
+            continue
         p1 = in_person[max(0, t - 1)]
         n1 = in_person[min(num_frames - 1, t + 1)]
         p2 = in_person[max(0, t - 2)]
@@ -1900,6 +1999,7 @@ def head_tube_for_capture(
         regain_face_points=(
             own_part_face_points(pose_kps, own_part, keypoint_index=kp_idx) if pose_kps is not None else None
         ),
+        hidden_frames=hidden_frames,
     )
     x0, y0, x1, y1 = tube_info["shot_box"]
     cmap_box = np.clip(cmap_arr[:, y0:y1, x0:x1], 0, len(CLASS_NAMES) - 1).copy()
@@ -1944,6 +2044,8 @@ def head_tube_for_capture(
                 r_in = np.isin(r_cls, part_ids)
                 donor = np.where(l_in, l_cls, np.where(r_in, r_cls, np.uint8(face_id)))
                 for t in range(s, e + 1):
+                    if t in dip["hidden_left"]:      # a frame marked hidden is not bridged, so its classes are not lent either
+                        continue
                     uncls_t = tube_box_crop[t] & ~np.isin(cmap_box[t], part_ids)
                     cmap_box[t] = np.where(uncls_t, donor, cmap_box[t])
 
@@ -2076,6 +2178,7 @@ def head_tube_for_capture(
         regain_refused=tube_info["regain_refused"],
         bridged_short_dips=tube_info["bridged_short_dips"],
         source_facial_hair=facial_hair,
+        short_dips=tube_info["short_dips"],
     )
     if provenance_out is not None:
         provenance_out.parent.mkdir(parents=True, exist_ok=True)

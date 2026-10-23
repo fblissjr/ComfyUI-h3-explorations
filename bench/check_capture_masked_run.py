@@ -2952,6 +2952,13 @@ def head_tube_in_the_files_step() -> str:
             except SystemExit as exc:
                 assert "head_tube=1 or --head-tube" in str(exc), exc
 
+            # head_hidden= (a person's `hidden` mark on her head, the plan's head_marks; 2026-10-23): the head tube is handed the
+            # marked frame and does not fill it
+            hid_dir = Path(tmp) / "cap_hidden"
+            written_hid: dict[str, np.ndarray] = {}
+            cap.write_mask_video = lambda p, m: written_hid.__setitem__(Path(p).name, m.copy())
+            cap._files(args_on, hid_dir, [("a", {**spec_a, "head_hidden": "102"})], [], [])
+
             # With head_track= passed in --mask: reads head_track, bounds parts to it, records it in sighting inputs, and refuses a short head_track
             ht_head = rect(30, 16, 50, 36, n)
             cap.read_mask = lambda p, *_a: (
@@ -2986,6 +2993,9 @@ def head_tube_in_the_files_step() -> str:
         assert prov["outside_person_track_clipped_px"] == [0, 16 * 16, 0, 0], prov["outside_person_track_clipped_px"]
         assert not (written_on["parts__pv.mkv"] & ~ht_track).any(), "parts__pv.mkv leaked outside person_track"
         assert int(written_on["parts__pv.mkv"][2, 14:38, 28:52].sum()) == 24 * 24, "1-frame dropout on frame 2 was not bridged by head_tube"
+        prov_hid = json.loads((hid_dir / "subjects" / "a" / "head_tube__pv.json").read_text())
+        assert prov_hid["short_dip_rule"]["hidden_frames"] == [2], prov_hid["short_dip_rule"]
+        assert int(written_hid["parts__pv.mkv"][2].sum()) == 0, "frame 2, marked hidden, was filled by the head tube"
         on_sighting = json.loads((on_dir / "manifest.json").read_text())["subjects"][0]["sightings"][0]
         assert on_sighting.get("head_tube") is True and on_sighting.get("head_tube_provenance") == "subjects/a/head_tube__pv.json", on_sighting
         for k in ("facing_frames", "side_with_eye_frames", "back_of_head_frames", "proposed_drop_frames"):
@@ -2996,7 +3006,8 @@ def head_tube_in_the_files_step() -> str:
             assert k in on_pg, f"missing {k} in part_grades.json: {on_pg}"
         on_classes = np.load(on_dir / "subjects" / "a" / "classes__pv.npz")["classes"]
         assert (on_classes[:, 44:70, 26:54] == torso_cls).all(), "non-head body classes in classes__pv.npz were lost"
-    return "off by default; when on, bounds head tube by person_track (or head_track=), bridges 1-frame dropout, preserves torso classes, and writes provenance"
+    return ("off by default; when on, bounds head tube by person_track (or head_track=), bridges 1-frame dropout (not on a frame marked "
+            "head_hidden=), preserves torso classes, and writes provenance")
 
 
 def back_of_head_and_no_face_never_held_by_grade() -> str:

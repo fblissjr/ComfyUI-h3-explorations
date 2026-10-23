@@ -184,7 +184,9 @@ score still holds her is a lost head: the capture cannot seed SAM again, so the 
 (`her_head_lost_in_view`). (3) The part model's Hair in her room (round her head, or her nearest whole head) that no one's mask
 holds and the hole does not is added; a piece that touches another person is a refusal (`unclaimed_hair_touches_another`). A
 person answers on the plan's `head_marks` (`hidden`, `hers`, `not hers`; `bench/shot_to_load.py::head_marks_of`), which the next
-capture reads (`head_hidden=`, `hair_hers=`, `hair_not_hers=` on `--mask`). Her hair is read from the whole-frame class map the
+capture reads (`head_hidden=`, `hair_hers=`, `hair_not_hers=` on `--mask`); the head tube reads `head_hidden=` too, and bridges no
+short dip onto or from a marked frame (`head_tube_parts.bridge_short_tube_dips`, `short_dips_left_on_hidden` in
+`head_tube__<by>.json`). Her hair is read from the whole-frame class map the
 strangers record names (`whole_frame_hair`), else from her own class map as the preview saved it. What was added and why, a frame
 at a time, is `subjects/<s>/hair_in_hole__<by>.json`, with a line in the manifest; what it cannot see is in the record.
 `hair-in-hole CAPTURE` works the same out on a capture that exists and writes it elsewhere.
@@ -2492,6 +2494,9 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
             }
             noface_rel = word_frames(m.get("noface"), first, frames) if m.get("noface") else set()
             word_rel = word_frames(m.get("word"), first, frames) if m.get("word") else set()
+            # a person's `hidden` marks on her head (the plan's head_marks, `head_hidden=` as `shot_to_load.py::head_marks_of` cuts them to the
+            # load; `her_hair_in_hole` reads the same): the tube bridges no short dip onto one of these frames, nor from one
+            hidden_rel = word_frames(m.get(HEAD_MARK_KEYS["hidden"]), first, frames) if m.get(HEAD_MARK_KEYS["hidden"]) else set()
             (out / "subjects" / label).mkdir(parents=True, exist_ok=True)
             # THE SOURCE'S FACIAL HAIR (`facial_hair=keep`, the plan's `source_facial_hair` through `bench/shot_to_load.py job`): the tube
             # keeps the part's Face_Neck under the mouth that it would cut, less every other person's mask as its file holds it
@@ -2512,6 +2517,7 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
                 masks_out=out / "subjects" / label / f"head_tube__{by}.npz",
                 keep_facial_hair=facial_hair_others is not None,
                 others=facial_hair_others,
+                hidden_frames=hidden_rel,
             )
             parts = ht_res["part_mask"]
             off_frags = {f for f in off_frags if not parts[f].any()}
@@ -2525,6 +2531,11 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
                   f"facing={len(head_tube_prov['facing_frames'])}, "
                   f"side_with_eye={len(head_tube_prov['side_with_eye_frames'])}, "
                   f"back_of_head={len(head_tube_prov['back_of_head_frames'])})", flush=True)
+            for dip in head_tube_prov.get("short_dips_left_on_hidden") or []:
+                print(f"  {label}: a short head-tube dip on {first + dip['span'][0]}-{first + dip['span'][1]} is not bridged onto or from her `hidden` "
+                      f"frames {_spans_text(frame_spans([first + f for f in dip['hidden']]))}; bridged of it: "
+                      f"{_spans_text(frame_spans([first + f for f in dip['bridged']])) or 'none'} (subjects/{label}/head_tube__{by}.json, "
+                      "`short_dips_left_on_hidden`)", flush=True)
             if "source_facial_hair" in head_tube_prov:
                 fh = head_tube_prov["source_facial_hair"]
                 print(f"  {label}: the source's facial hair: the face's piece below the jaw kept, {sum(fh['kept_px'])} px ("

@@ -877,8 +877,9 @@ def _case_short_tube_dips_bridged() -> str:
     info = htp.sam31_head_tube(tube, seed_frame=0, person_track=track_bool)
     bridged = info["bridged_short_dips"]
     assert bridged == [
-        {"span": [2, 4], "before_px": [150, 150, 150], "after_px": [1000, 1000, 1000]},
-        {"span": [7, 10], "before_px": [500, 100, 150, 400], "after_px": [1000, 1000, 1000, 1000]},
+        {"span": [2, 4], "flank_px": [1000, 1000], "before_px": [150, 150, 150], "after_px": [1000, 1000, 1000], "hidden_left": []},
+        {"span": [7, 10], "flank_px": [1000, 1000], "before_px": [500, 100, 150, 400], "after_px": [1000, 1000, 1000, 1000],
+         "hidden_left": []},
     ], f"unexpected bridged_short_dips: {bridged}"
     for t in (2, 3, 4, 7, 8, 9, 10):
         assert int(info["tube"][t].sum()) == 1000, f"frame {t} was not bridged to 1000 px"
@@ -900,6 +901,188 @@ def _case_short_tube_dips_bridged() -> str:
             f"head_tube_for_capture part_mask on bridged dip frame {t} is {int(cap_res['part_mask'][t].sum())}, expected 1000"
         )
     return "3-frame and 4-frame dips bridged to 1000 px in tube and part_mask; 7-frame dip and untracked dip left unbridged"
+
+
+def _case_nested_short_dips_bridged() -> str:
+    """A short dip after a partial recovery is bridged from the two frames that bound it (second_hfp_4647b, 2026-10-23:
+    4691 inside the long run from 4673, and 4697-4698 inside the run from 4695 that never came back, were missed).
+
+    Every frame is the same 25 rows from one corner, so a frame's px is 25 x its width and two frames' union is the wider.
+    Under the rule before 2026-10-23 only the middle dip below was bridged: from frame 2 the tube first gets back to
+    0.6 x 1000 on frame 12, ten frames on, so the scan jumped to frame 13; from frame 18 it never gets back, so the scan
+    stopped. The middle dip (100, 500, 100 between 1000s) is the longest run from its start, the one that rule took, and
+    is bridged whole, not as two one-frame dips around the 500."""
+    widths = [40, 40, 20, 0, 0, 0, 0, 0, 0, 0, 16, 0, 36, 40, 4, 20, 4, 40, 13, 16, 0, 0, 18, 20, 20, 20]
+    num_frames, height, width = len(widths), 64, 64
+    track_bool = np.zeros((num_frames, height, width), dtype=bool)
+    track_bool[:, 6:58, 10:54] = True
+    tube = np.zeros((num_frames, height, width), dtype=bool)
+    for t, w in enumerate(widths):
+        tube[t, 10:35, 12 : 12 + w] = True
+    before = [25 * w for w in widths]
+
+    info = htp.sam31_head_tube(tube, seed_frame=0, person_track=track_bool)
+    bridged = info["bridged_short_dips"]
+    assert bridged == [
+        # 400, 0, 900: one frame under 0.6 x 400, bounded by frames 10 and 12
+        {"span": [11, 11], "flank_px": [400, 900], "before_px": [0], "after_px": [900], "hidden_left": []},
+        # 1000, 100, 500, 100, 1000: three frames under 0.6 x 1000, bridged whole
+        {"span": [14, 16], "flank_px": [1000, 1000], "before_px": [100, 500, 100], "after_px": [1000, 1000, 1000], "hidden_left": []},
+        # 400, 0, 0, 450: two frames under 0.6 x 400, bounded by frames 19 and 22
+        {"span": [20, 21], "flank_px": [400, 450], "before_px": [0, 0], "after_px": [450, 450], "hidden_left": []},
+    ], f"unexpected bridged_short_dips: {bridged}"
+    after = [int(info["tube"][t].sum()) for t in range(num_frames)]
+    expected = list(before)
+    expected[11], expected[14:17], expected[20:22] = 900, [1000, 1000, 1000], [450, 450]
+    # the 7-frame empty run (3-9), and frame 2 (500) and 18-19 (325, 400), which are under 0.6 of the frame before them
+    # but are not a dip under both their bounds, are left as they are
+    assert after == expected, f"tube px {after}, expected {expected}"
+
+    # the function alone, as sam31_head_tube calls it, gives the same records and leaves its input unchanged
+    out, alone, _ = htp.bridge_short_tube_dips(tube, track_bool)
+    assert alone == bridged and [int(tube[t].sum()) for t in range(num_frames)] == before, alone
+    assert [int(out[t].sum()) for t in range(num_frames)] == expected
+    return ("1-frame dip (400, 0, 900) after a 7-frame gap and 2-frame dip (400, 0, 0, 450) in a run that never came back "
+            "bridged from their own bounds; a dip with a partial recovery inside it (100, 500, 100) bridged whole")
+
+
+def _row_tube(px: list[int], track: list[int] | None = None) -> tuple[np.ndarray, np.ndarray]:
+    """A tube of one row a frame, frame t holding its first px[t] pixels, so two frames' union is the wider; the track
+    covers the row on every frame, or on the frames `track` says."""
+    n, w = len(px), max(max(px), 1)
+    tube = np.zeros((n, 1, w), dtype=bool)
+    for t, v in enumerate(px):
+        tube[t, 0, :v] = True
+    track_bool = np.ones((n, 1, w), dtype=bool)
+    if track is not None:
+        for t, on in enumerate(track):
+            track_bool[t] = bool(on)
+    return tube, track_bool
+
+
+def _case_short_dip_bounds_are_whole_heads() -> str:
+    """A frame bounds a short dip only when it holds a whole head: at least SHORT_DIP_BOUND_LEAST_SHARE of the shot's own
+    median tube px (2026-10-23). Until then a speck of a few px bounded one, so a 7-frame gap was bridged as two short dips
+    either side of it. The cases are a blind reader's (2026-10-23); the fade (B) sits after twelve frames of her whole head,
+    as it would in a shot where she is mostly in view, since on its own the fade is most of the shot and its median is the
+    fade's (a limit of a median: on the eleven frames alone frame 2's 100 px is a whole head and 3-8 are bridged)."""
+    whole = [1000] * 12
+    cases = {
+        "A: a 5 px speck inside a 7-frame empty run": ([1000, 0, 0, 0, 5, 0, 0, 0, 1000, 1000], None, []),
+        "B: an 8-frame fade under 0.6, then back": (whole + [1000, 300, 100, 30, 10, 3, 1, 0, 0, 1000, 1000], None, []),
+        "C: a dip on the first frame and on the last": ([0, 1000, 1000, 1000, 0], None, []),
+        "D: a 700 px bound between two dips": ([1000, 0, 700, 0, 1000], None, [([1, 1], [1000, 700]), ([3, 3], [700, 1000])]),
+        "E: an 8-frame dip, then a 1-frame dip": ([1000, 0, 0, 0, 0, 0, 0, 0, 0, 1000, 0, 1000], None, [([10, 10], [1000, 1000])]),
+        "F: an empty bound at the clip's end": ([1000, 0, 0, 0, 1000, 0, 0, 0], None, [([1, 3], [1000, 1000])]),
+        "G: no track on frame 2 of a 3-frame dip": ([1000, 0, 0, 0, 1000], [1, 1, 0, 1, 1], []),
+        "H: a 2 px bound, then the head goes behind something": ([1000, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0], None, []),
+        "I: a 7-frame run of 100s between 1000s": ([1000] + [100] * 7 + [1000], None, []),
+        "J: a 1 px bound inside a 9-frame gap": ([1000, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1000], None, []),
+    }
+    for name, (px, track, want) in cases.items():
+        tube, track_bool = _row_tube(px, track)
+        out, bridged, rule = htp.bridge_short_tube_dips(tube, track_bool)
+        got = [(d["span"], d["flank_px"]) for d in bridged]
+        assert got == want, f"{name}: bridged {got}, expected {want} (rule {rule})"
+        for d in bridged:
+            s, e = d["span"]
+            assert d["after_px"] == [max(d["flank_px"])] * (e - s + 1), f"{name}: {d}"
+        assert rule["bound_least_share"] == htp.SHORT_DIP_BOUND_LEAST_SHARE, rule
+    # the floor is of the shot's own median: 2 px bounds count in a shot whose frames are all a few px
+    tube, track_bool = _row_tube([2, 0, 2, 4, 4, 4])
+    _, bridged, rule = htp.bridge_short_tube_dips(tube, track_bool)
+    assert [(d["span"], d["flank_px"]) for d in bridged] == [([1, 1], [2, 2])], bridged
+    assert rule["median_tube_px"] == 4.0 and rule["bound_least_px"] == 1.0, rule
+    return (f"{len(cases)} cases: no bound of a speck (1, 2 or 5 px), a fade or an empty frame; a 700 px bound kept; the floor is "
+            f"{htp.SHORT_DIP_BOUND_LEAST_SHARE} of the shot's own median")
+
+
+def _case_hidden_frames_not_bridged() -> str:
+    """No short dip is bridged onto a frame a person marked her head hidden on, or bounded by one (the plan's head_marks,
+    2026-10-23); each dip the marks held back is listed with the frames of it bridged anyway. The first dip is second_hfp_1093i's
+    shape: her head hidden on three empty frames and back in part on the fourth (1096-1099)."""
+    px = [1000, 1000, 1000, 0, 0, 0, 200, 1000, 1000, 0, 1000, 1000, 0, 0, 1000, 1000]
+    hidden = [3, 4, 5, 10, 12, 13]
+    tube, track_bool = _row_tube(px)
+    _, plain, _ = htp.bridge_short_tube_dips(tube, track_bool)
+    assert [d["span"] for d in plain] == [[3, 6], [9, 9], [12, 13]], plain     # unmarked, all three are bridged
+    out, bridged, rule = htp.bridge_short_tube_dips(tube, track_bool, hidden_frames=hidden)
+    assert bridged == [
+        {"span": [3, 6], "flank_px": [1000, 1000], "before_px": [0, 0, 0, 200], "after_px": [0, 0, 0, 1000], "hidden_left": [3, 4, 5]},
+    ], bridged
+    assert rule["hidden_frames"] == hidden and rule["left_on_hidden"] == [
+        {"span": [3, 6], "flank_px": [1000, 1000], "hidden": [3, 4, 5], "bridged": [6]},
+        # bounded on the right by a marked frame (whose tube is no head of hers, by the mark), so not a dip
+        {"span": [9, 9], "flank_px": [1000, 1000], "hidden": [10], "bridged": []},
+        # every frame of it marked
+        {"span": [12, 13], "flank_px": [1000, 1000], "hidden": [12, 13], "bridged": []},
+    ], rule["left_on_hidden"]
+    assert [int(out[t].sum()) for t in range(len(px))] == [1000, 1000, 1000, 0, 0, 0, 1000] + px[7:]
+
+    # through head_tube_for_capture (no head track, as on 1306c/f): the marked frames stay empty, the 1-2 frame fill of the
+    # candidate tube included (unmarked it fills frame 4 with frames 2 and 6 in common), and the provenance lists the dip
+    widths = [40, 40, 40, 0, 0, 0, 8, 40, 40, 40]
+    n = len(widths)
+    track = np.zeros((n, 64, 64), dtype=bool)
+    track[:, 6:58, 10:54] = True
+    parts = np.zeros((n, 64, 64), dtype=bool)
+    for t, w in enumerate(widths):
+        parts[t, 10:35, 12 : 12 + w] = True
+    cmap = np.where(parts, htp.NAME_TO_ID["Face_Neck"], 0).astype(np.uint8)
+    unmarked = htp.head_tube_for_capture(track, parts, cmap, head_parts=("Face_Neck",))
+    assert [int(unmarked["part_mask"][t].sum()) for t in (3, 4, 5, 6)] == [1000] * 4, "unmarked, 3-6 are bridged"
+    res = htp.head_tube_for_capture(track, parts, cmap, head_parts=("Face_Neck",), hidden_frames={3, 4, 5})
+    got = [int(res["part_mask"][t].sum()) for t in range(n)]
+    assert got == [1000, 1000, 1000, 0, 0, 0, 1000, 1000, 1000, 1000], got
+    tube_px = [int(res["tube_info"]["tube"][t].sum()) for t in range(n)]
+    assert tube_px == got, f"the tube itself, marked frames included, is {tube_px}"
+    prov = res["provenance"]
+    assert prov["short_dips_left_on_hidden"] == [{"span": [3, 6], "flank_px": [1000, 1000], "hidden": [3, 4, 5], "bridged": [6]}], prov
+    assert prov["bridged_short_dips"][0]["hidden_left"] == [3, 4, 5] and prov["short_dip_rule"]["hidden_frames"] == [3, 4, 5], prov
+    return ("marked frames left empty, by the dip bridge and the candidate tube's fill; a marked bound bounds no dip; the three dips "
+            "the marks held back listed, with the one frame bridged anyway")
+
+
+def _case_marked_frames_lend_nothing() -> str:
+    """A frame marked hidden gives the head tube nothing: no pixels to a neighbour's 1-2 frame fill of the candidate tube,
+    and no class is lent onto it from a dip's bounds (head_tube_for_capture with no head track, a face-only part)."""
+    face_id, hair_id = htp.NAME_TO_ID["Face_Neck"], htp.NAME_TO_ID["Hair"]
+
+    def frames(kinds: list[str]) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """`face`: her face, 25 x 40 = 1000 px of Face_Neck in the part; `hair`: a 10 x 10 patch of Hair in the class map
+        inside where the face would be, not in the part; `-`: nothing."""
+        n = len(kinds)
+        track = np.zeros((n, 64, 64), dtype=bool)
+        track[:, 6:58, 10:54] = True
+        parts = np.zeros((n, 64, 64), dtype=bool)
+        cmap = np.zeros((n, 64, 64), dtype=np.uint8)
+        for t, k in enumerate(kinds):
+            if k == "face":
+                parts[t, 10:35, 12:52] = True
+                cmap[t, 10:35, 12:52] = face_id
+            elif k == "hair":
+                cmap[t, 12:22, 14:24] = hair_id
+        return track, parts, cmap
+
+    # 1. her face on a marked frame between two empty ones: unmarked, the fill takes the empty frames from it and the frames
+    # beside; marked, it lends them nothing, and no dip is bounded by it
+    track, parts, cmap = frames(["face", "-", "face", "-", "face", "face", "face", "face"])
+    unmarked = htp.head_tube_for_capture(track, parts, cmap, head_parts=("Face_Neck",))
+    assert [int(unmarked["tube_info"]["tube"][t].sum()) for t in (1, 3)] == [1000, 1000], "unmarked, the fill takes 1 and 3"
+    res = htp.head_tube_for_capture(track, parts, cmap, head_parts=("Face_Neck",), hidden_frames={2})
+    got = [int(res["tube_info"]["tube"][t].sum()) for t in range(len(parts))]
+    assert got == [1000, 0, 1000, 0, 1000, 1000, 1000, 1000], f"a marked frame lent the fill its pixels: tube {got}"
+
+    # 2. a patch of her hair on two marked frames inside a 4-frame dip: the two unmarked frames are bridged and take her
+    # face's class from the bounds; the marked frames keep their own class and stay out of a face-only part
+    track, parts, cmap = frames(["face", "-", "hair", "hair", "-", "face", "face", "face", "face"])
+    res = htp.head_tube_for_capture(track, parts, cmap, head_parts=("Face_Neck",), hidden_frames={2, 3})
+    dips = res["provenance"]["bridged_short_dips"]
+    assert [(d["span"], d["hidden_left"]) for d in dips] == [([1, 4], [2, 3])], dips
+    got = [int(res["part_mask"][t].sum()) for t in range(len(parts))]
+    assert got == [1000, 1000, 0, 0, 1000, 1000, 1000, 1000, 1000], f"a class was lent onto a marked frame: part {got}"
+    assert (res["class_map"][2:4, 12:22, 14:24] == hair_id).all(), "the marked frames' own Hair was relabelled"
+    return "a marked frame lends no pixels to the 1-2 frame fill, and no class is lent onto one from a dip's bounds"
 
 
 def _points_file(folder: Path, per_frame: list[tuple[tuple[float, float], tuple[float, float], float]]) -> Path:
@@ -1073,6 +1256,10 @@ def main() -> int:
     case("off_head_islands_not_resurrected", _case_off_head_islands_not_resurrected)
     case("head_track_seed_mask_and_neighbour_fill", _case_head_track_seed_mask)
     case("short_tube_dips_bridged", _case_short_tube_dips_bridged)
+    case("nested_short_tube_dips_bridged", _case_nested_short_dips_bridged)
+    case("short_dip_bounds_are_whole_heads", _case_short_dip_bounds_are_whole_heads)
+    case("hidden_frames_not_bridged", _case_hidden_frames_not_bridged)
+    case("marked_frames_lend_nothing", _case_marked_frames_lend_nothing)
     case("real_0613g_three_states", _case_real_0613g_three_states)
     case("provenance_json_and_cli", _case_provenance_and_cli)
     case("refuses_invalid_inputs", _case_refuses_invalid_inputs)
