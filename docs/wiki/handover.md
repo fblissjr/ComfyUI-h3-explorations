@@ -62,11 +62,16 @@ after the close's reviews (decisions.md, 2026-10-24); where the two differ, this
 
 1. Its section 0: the cut is current, the server unarmed, the tree clean, the owner's answers read to the end. Then
    the name check (bug 1, bench only), before any new job: `free_name`'s `taken` also counts every day's
-   `data/*_jobs/<name>.json`, a moved-aside `<name>.json.<suffix>` included (4053b's evening clash was one).
+   `data/*_jobs/<name>.json`, a moved-aside `<name>.json.<suffix>` included (4053b's evening clash was one). And
+   the 2026-10-24T0045Z cut (`Video/fun/day_2026-10-24/`) registered as the pass-2 source (`../masked_v2v/PROTOCOL.md`
+   1.1); until then the manifest's newest, 2026-10-23T1631Z, already holds every piece laid on the shots below.
 2. The third subject's loads back on the default margin.
-3. The previews that need no new code, on the card while steps 4-5 are built (landed only with the card held): 3967
-   (bug 26), 4912; 4227, 3476, 4774, 5044; 4310, 5935c, 6105, 3595; 3240 (lead_fp_3240e's fault, bug 17, is the
-   strangers form 14838f44 replaced). 4647 after its missing boxes (bugs 20, 23).
+3. The previews that need no new code, on the card while steps 4-5 are built (landed only with the card held), each
+   on its pass's source (what is laid is `data/fun/laid.jsonl`):
+   - The working copy, nothing laid on the shot: the lead's 3967 (bug 26), 4227, 3476, 4774, 5044, 4310, 5935c,
+     6105, 3595 and 3240 (lead_fp_3240e's fault, bug 17, is the strangers form 14838f44 replaced); the second's 4912.
+   - The newest cut, `--for` the subject: the third's 5675, 5011, 5461 and 4479 (the second is laid on each; step 6
+     reads these previews); the second's 4647 after its missing boxes (bugs 20, 23; third_fp_4653b is laid there).
 4. A pose-table printout per drawing: the frames where the marks miss the grey face. It decides nothing; a reader
    names the bad ones. Then a small drawing-only word that leaves those frames' eye, brow and nose marks out and keeps
    the part (`bench/draw_face_points.py --bare` already draws nothing on named frames: wire it through, rather than
@@ -75,14 +80,18 @@ after the close's reviews (decisions.md, 2026-10-24); where the two differ, this
    reference's one crop box: pass those frames to `bench/head_reference.py::fill_from_neighbours` too, or compare the
    box with them left out. A filled frame is still drawn, at the interpolated points (only `faceless` reaches the
    drawing as `bare`), so the word must put 3969-3970 in `faceless` without passing `--no-face-on` to the capture.
-6. The beard: first, on CPU, the classes under his jaw on 5675, 5011, 5114 and 5461 from the preview's class video
+6. The beard: first, on CPU, the classes under his jaw on 5675, 5011 and 5461 from the step 3 preview's class video
    (a capture's `classes__*.npz` is the head tube's clipped map). Then one render of 5675, the region grown downward
-   only at the default margin, against 5675c; 5011, 5114 and 5461 by its result.
+   only at the default margin, against 5675c; 5011 and 5461 by its result. Not 5114 yet: the second's piece there,
+   second_hfp_5114i, is a stand-in remade at step 9, and a third made on it would be made again on the new cut
+   (`../masked_v2v/AGENTS.md`, "A re-render is not a pass").
 7. 4479: the drawing-only word on the frames named, then a zoom test on its own.
-8. 1419: a reader's sheet, hidden marks where she is truly hidden. Not `--hold-part`: it holds a part unmoved, and she
-   walks across 1426-1459. Expect the boxes not to seed 1431-1436 (bug 22): plan the `_head_seed` fix
+8. 1419, the second's third pass (lead_fp_1419d and third_fp_1419d are laid): its preview on the newest cut,
+   `--for second`. A reader's sheet, hidden marks where she is truly hidden. Not `--hold-part`: it holds a part
+   unmoved, and she walks across 1426-1459. Expect the boxes not to seed 1431-1436 (bug 22): plan the `_head_seed` fix
    (`subject_track.py:1237`) and the day's one restart, with the card held, if the sheet shows her visible there.
-9. second_hfp_5114i's closed-mouth remake, once the chin guard is landed (above).
+9. second_hfp_5114i's closed-mouth remake, once the chin guard is landed (above). Once the owner keeps it and the cut
+   is rebuilt, the third's 5114 on that cut (step 6's form).
 
 Waiting on the owner: 0516c's frame 597 and 3759b's 3856-3857 (the share's `Video/fun/looks/2026-10-23_head_marks/`).
 

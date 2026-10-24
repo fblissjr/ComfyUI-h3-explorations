@@ -29,6 +29,13 @@ Older history lives elsewhere and is not copied here:
   video and a read of the drawings' enlargement (the larger margin may not be the whole cause of the white lines,
   bug 27); `--hold-part` dropped for 1419 (it holds a part unmoved, and she walks); and the chin guard's place made
   explicit, since 5114i waits on it. The owner's order, the landed tools before new tracker code, is unchanged.
+- **The same order, by pass** (Gemini Spark's check of the multi-pass chain, at the owner's question; each shot checked
+  against `data/fun/laid.jsonl`). The revised order had listed previews with no source. Now each is on its pass's
+  source: the third's 5675, 5011, 5461 and 4479 (the second laid on each) and the second's 4647 (third_fp_4653b
+  laid) and 1419 (the lead and the third laid) on the newest cut with `--for`, and the third's beard shots join the
+  early previews. The third's 5114 waits for second_hfp_5114i's remake and a rebuilt cut: made on the stand-in, it
+  would be made twice. Three of the review's shot facts did not hold: on 4647 the laid piece is the third's, not the
+  lead's, so the second is pass 2 there, not the third pass 3; nothing is laid on 4774 or 4912.
 
 ## 2026-10-23
 
