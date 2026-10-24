@@ -629,6 +629,19 @@ def left_out_and_highlights() -> str:
     kp_up = face(CENTRES[:1])[0].copy()
     kp_up[:, 1] -= 3.0 * H
     assert df.find_mesh_chin_y(chin_mesh[0], kp_up, INDEX) == 0.0
+    # steep profile with an under-nose black notch (5114i, 2026-10-24): bottom_center_of_nose protrudes past the mouth corners
+    # (prof > PROFILE_NOSE_OFFSET_MIN) over a black notch above the lit lower lip/chin; find_mesh_chin_y skips the notch and finds
+    # the true chin, while a frontal/non-profile face with a chin-to-collar gap below the lips does not jump onto the collar
+    kp_prof = face(CENTRES[:1])[0].copy()
+    kp_prof[INDEX["bottom_center_of_nose"], 0] += 40.0  # prof > 0.50
+    notch_mesh = chin_mesh[0].copy()
+    nose_y_i = int(round(kp_prof[INDEX["bottom_center_of_nose"], 1]))
+    lip_y_i = int(round(max(kp_prof[INDEX["r_outer_corner_of_mouth"], 1], kp_prof[INDEX["l_outer_corner_of_mouth"], 1], kp_prof[INDEX["center_of_lower_inner_lip"], 1])))
+    notch_mesh[nose_y_i + 2:lip_y_i - 2, :] = 0  # under-nose black notch above the lit lower lip
+    assert abs(df.find_mesh_chin_y(notch_mesh, kp_prof, INDEX) - 160.0) <= 2.0, df.find_mesh_chin_y(notch_mesh, kp_prof, INDEX)
+    collar_mesh = chin_mesh[0].copy()
+    collar_mesh[165:175, :] = 120  # lit collar below the chin-to-collar black gap at y=160..164
+    assert abs(df.find_mesh_chin_y(collar_mesh, face(CENTRES[:1])[0], INDEX) - 160.0) <= 2.0, df.find_mesh_chin_y(collar_mesh, face(CENTRES[:1])[0], INDEX)
     sh_low, masks_low = df.lip_shape(kp_low, INDEX, (W, H), (low_whole, low_hole))
     sh_fit, m_fit = df.fit_mouth_to_head(chin_mesh[0], kp_low, INDEX, sh_low, masks_low)
     assert float(sh_fit[1][:, 1].max()) <= chin_y - df.MOUTH_CHIN_CLEAR_MIN_PX + 0.5, (float(sh_fit[1][:, 1].max()), chin_y)

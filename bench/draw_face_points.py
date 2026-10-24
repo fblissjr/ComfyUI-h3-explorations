@@ -305,6 +305,14 @@ HEAD_DARKEN_SCALE = 0.67
 #: clean grey chin below the lower lip across all 21 frames (`22.5 px` at `1356`) with `0/21` mouths cut by the head silhouette.
 MOUTH_CHIN_CLEAR_FRAC = 0.14
 MOUTH_CHIN_CLEAR_MIN_PX = 8.0
+#: Minimum horizontal offset of `bottom_center_of_nose` from the midpoint of `[r_outer_corner_of_mouth, l_outer_corner_of_mouth]`
+#: as a fraction of the eye-line span `abs(l_outer_end_of_upper_lash_line_x - r_outer_end_of_upper_lash_line_x)` (`find_mesh_chin_y`)
+#: at which a column's first black pixel above the lower lip (`yb < lip_y`) is skipped as the under-nose profile notch over black
+#: background. Measured 2026-10-24 across kept drawings `0014g` (`0/154` frames changed, `prof = 0.00-0.46`), `3909b` (`0/58` changed,
+#: `prof = 0.13-0.38`), `4726b` (`0/48` changed, `prof = 0.01-0.25`), `4602c` (`0/45` changed, `prof = 0.14-0.63`), `4479d` (`0/31`
+#: changed, `prof = 0.25-0.46`), and steep profile `5114i` (`prof = 0.62-0.96`, where `7/16` frames `5115-5117, 5121-5124` had
+#: `find_mesh_chin_y` stop at the under-nose notch `y = 328..350` above `lip_y = 381..389`, and now read the true chin `y = 467..558`).
+PROFILE_NOSE_OFFSET_MIN = 0.50
 #: Share of the iris ring outside the eyelids (`between_the_lids`) at or above which an eye is narrowed or downcast enough that
 #: under `smooth_lips` (`--closed-lip-line`), `--iris contrast` draws it DARK (`dark_irises`, since 2026-10-22): no white sclera, the iris
 #: its black disc clipped to the lids, no ring; from 2026-10-20 to 2026-10-22 it drew the between-the-lids iris arc (`_iris_ring`) with no
@@ -713,13 +721,29 @@ def find_mesh_chin_y(frame: np.ndarray, p: np.ndarray, index: dict) -> float:
         return float(min(h - 1, max(0, int(round(chin_kp_y)))))
     mx0 = int(round(min(p[index["r_outer_corner_of_mouth"], 0], p[index["l_outer_corner_of_mouth"], 0], p[index["tip_of_chin"], 0])))
     mx1 = int(round(max(p[index["r_outer_corner_of_mouth"], 0], p[index["l_outer_corner_of_mouth"], 0], p[index["tip_of_chin"], 0])))
+    lx = float(p[index["l_outer_end_of_upper_lash_line"], 0])
+    rx = float(p[index["r_outer_end_of_upper_lash_line"], 0])
+    mid_x = 0.5 * (float(p[index["r_outer_corner_of_mouth"], 0]) + float(p[index["l_outer_corner_of_mouth"], 0]))
+    nose_x = float(p[index["bottom_center_of_nose"], 0])
+    prof = abs(nose_x - mid_x) / max(abs(lx - rx), 1.0)
+    lip_y = max(float(p[index["r_outer_corner_of_mouth"], 1]), float(p[index["l_outer_corner_of_mouth"], 1]), float(p[index["center_of_lower_inner_lip"], 1]))
+    y_lip = min(y_end, max(y_start, int(round(lip_y))))
     first_black = []
     for x in range(max(0, mx0), min(w, mx1 + 1)):
         if not lit[y_start, x]:
             continue
-        b = np.nonzero(~lit[y_start:y_end + 1, x])[0]
-        if len(b):
-            first_black.append(y_start + int(b[0]))
+        blacks = np.nonzero(~lit[y_start:y_end + 1, x])[0]
+        if len(blacks):
+            yb = y_start + int(blacks[0])
+            # On steep profile frames (5114i, 2026-10-24), bottom_center_of_nose protrudes past the upper lip over a black notch
+            # above the lit lower lip/chin: if the first black pixel is above the lower lip and the lower-lip row is lit, scan from y_lip
+            if prof > PROFILE_NOSE_OFFSET_MIN and yb < lip_y and lit[y_lip, x]:
+                b2 = np.nonzero(~lit[y_lip:y_end + 1, x])[0]
+                if len(b2):
+                    yb = y_lip + int(b2[0])
+                else:
+                    continue
+            first_black.append(yb)
     if len(first_black) >= max(3, int(0.25 * max(mx1 - mx0 + 1, 1))):
         return float(np.median(first_black))
     return float(min(y_end, int(round(chin_kp_y))))
@@ -1522,10 +1546,12 @@ def run(mesh_path: str, points_path: str, first: int, count: int, out: Path, by:
     if mouths and len(mouths) != count:
         raise SystemExit(f"{len(mouths)} class-map mouths for {count} frames")
     # THE CLASS MAP'S LIPS a frame at a time, for the outlined forms' placement (`anchored_mouth`); a frame whose class map holds no lips
-    # takes its nearest neighbour's, as the mouth gate's runs hold a frame on its neighbours (head_reference.MOUTH_RUNS)
+    # takes its nearest neighbour's within MOUTH_RUNS["fill_frames"] (2 frames), translated by the pose mouth's move between the two frames
     lips_at = [m[0] if m is not None and m[0].any() else None for m in (mouths or [None] * count)]
     have = [f for f in range(count) if lips_at[f] is not None]
-    lips_from = [f if lips_at[f] is not None else (min(have, key=lambda g: (abs(g - f), g)) if have else None) for f in range(count)]
+    lips_from = [f if lips_at[f] is not None else (
+        min(have, key=lambda g: (abs(g - f), g)) if have and min(abs(g - f) for g in have) <= 2 else None
+    ) for f in range(count)]
     outlined_said: dict = {"held_from": {}, "shrunk": {}}
     # the frames the closed-lip line calls closed (it draws no mouth there), and under the closed mouth's "outlined" what is drawn on them
     closed_at: set[int] = set()
@@ -1553,12 +1579,23 @@ def run(mesh_path: str, points_path: str, first: int, count: int, out: Path, by:
         closed_said[f"bent_{kind}"].append(first + f)
         return got
 
+    def _borrow_lips(f: int, g: int) -> np.ndarray:
+        if f == g:
+            return lips_at[g]
+        import cv2
+        mc = ("r_outer_corner_of_mouth", "l_outer_corner_of_mouth", "center_of_upper_inner_lip", "center_of_lower_inner_lip")
+        ids_m = [idx[k] for k in mc if k in idx]
+        delta = (points["keypoints"][f][ids_m].mean(0) - points["keypoints"][g][ids_m].mean(0)) if ids_m else np.zeros(2)
+        M = np.array([[1.0, 0.0, float(delta[0])], [0.0, 1.0, float(delta[1])]], dtype=np.float32)
+        shifted = cv2.warpAffine(lips_at[g].astype(np.uint8), M, (w, h), flags=cv2.INTER_NEAREST) > 0
+        return shifted if shifted.any() else lips_at[g]
+
     def anchored(f: int, hole: np.ndarray | None) -> tuple[np.ndarray, np.ndarray] | None:
         if lips_from[f] is None:
             return None
         if lips_from[f] != f:
             outlined_said["held_from"][first + f] = first + lips_from[f]
-        o, i, figs = anchored_mouth(points["keypoints"][f], idx, lips_at[lips_from[f]], hole, (w, h))
+        o, i, figs = anchored_mouth(points["keypoints"][f], idx, _borrow_lips(f, lips_from[f]), hole, (w, h))
         if figs["shrunk_by"] < 1.0:
             outlined_said["shrunk"][first + f] = round(figs["shrunk_by"], 3)
         return o, i
@@ -1568,7 +1605,7 @@ def run(mesh_path: str, points_path: str, first: int, count: int, out: Path, by:
             return None
         if lips_from[f] != f:
             closed_said["held_from"][first + f] = first + lips_from[f]
-        o, line_c, figs = anchored_closed_mouth(points["keypoints"][f], idx, lips_at[lips_from[f]])
+        o, line_c, figs = anchored_closed_mouth(points["keypoints"][f], idx, _borrow_lips(f, lips_from[f]))
         if figs["shrunk_by"] < 1.0:
             closed_said["shrunk"][first + f] = round(figs["shrunk_by"], 3)
         return o, line_c
@@ -1648,7 +1685,7 @@ def run(mesh_path: str, points_path: str, first: int, count: int, out: Path, by:
                     sh_c = bent(f, [("closed_mouth_outer", got_c[0], True), ("closed_mouth_line", got_c[1], False)], "closed")
                     none_ = np.zeros((h, w), bool)
                     fit_c, _ = fit_mouth_shapes_to_head(mesh[f], points["keypoints"][f], idx, sh_c, (none_, none_))
-                    lips_c = lips_at[lips_from[f]]
+                    lips_c = _borrow_lips(f, lips_from[f])
                     ys_l, xs_l = np.nonzero(lips_c)
                     placed[f] = {"lips_box": [int(xs_l.min()), int(ys_l.min()), int(xs_l.max()) + 1, int(ys_l.max()) + 1],
                                  "fit_would_move_px": round(max(float(np.abs(a_ - b_).max()) for (_, a_, _), (_, b_, _) in zip(fit_c, sh_c) if len(a_)), 1)}
