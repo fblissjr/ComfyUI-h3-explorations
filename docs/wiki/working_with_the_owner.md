@@ -58,6 +58,9 @@ this page is corrected. Each line carries the date it was asked for; the reasons
   card, below). A total gap, or something
   obviously wrong that can be fixed, is flagged; something minor for a frame or two is not. When they say a
   deviation is not worth time, stop. (2026-10-13)
+- **A verdict reported names its subject and frames** (2026-10-24). Whenever a verdict is recorded, changed, or said
+  to be unchanged, the report gives the load name, the subject's label and the frames it covers (the piece's own, and
+  the shot's if they differ), with what was on record before.
 - **A reader's take sits beside each review clip, verdict included** (2026-10-18). For every clip on the review page,
   a Gemini reader writes a short card: what it sees (frames), what it cannot see, its verdict and a one-line why,
   generated from its reading file and folded closed, so the owner watches first and then compares. The owner's eye
