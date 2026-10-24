@@ -96,11 +96,13 @@ after the close's reviews (decisions.md, 2026-10-24); where the two differ, this
    is rebuilt, the third's 5114 on that cut (step 6's form). If the guard does not land, the Open List asks the owner
    whether the third's 5114 is made on the stand-in (a stale kept piece is shown to the owner, not remade by rule).
 
-Waiting on the owner (the Open List): on 4647, whether the third's frames after his kept piece (4678-4725; about
-4706 on) and the lead are to be replaced (the 0045Z coverage owes both; the owner, 2026-10-24: not known yet). A
-sheet of those frames, made by a reader while the previews run, is what they answer from. With no new third or lead
-load, the second's 4647 goes on the current cut with bug 23's fixes; with one, the third's goes first. Also 0516c's
-frame 597 and 3759b's 3856-3857 (the share's `Video/fun/looks/2026-10-23_head_marks/`).
+Waiting on the owner (the Open List): on 4647, whether the third's frames after his kept piece are replaced
+(third_fp_4653b, kept 2026-10-14, covers 4653-4677; he shows to 4725; the owner, 2026-10-24: not known yet), and
+the order after him. The lead there is owed: the owner answered on 2026-10-21 that she is replaced
+(`data/fun/owner_answers.jsonl:1413`). A sheet of his frames from 4678, made by a reader while the previews run, is
+what the first is answered from. With a new third load, his goes first; the lead and the second then follow one
+after the other, each on the cut holding the pieces before it. The second's needs bug 23's fixes. Also 0516c's frame
+597 and 3759b's 3856-3857 (the share's `Video/fun/looks/2026-10-23_head_marks/`).
 
 ## Where things are
 
