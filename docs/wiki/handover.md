@@ -34,8 +34,11 @@ bugs it numbers are `bugs_for_tomorrow.md` beside it; the running notes are `not
 
 - **The third subject's loads take the default margin.** A larger `--margin` let H3 copy the drawing's white outlines
   onto his face (decisions.md, 2026-10-23). 4479d staying clean at 64 does not make it safe. Nor is the margin proven
-  the whole cause: the lines came where the drawing was least enlarged (4479d 5.33x clean; 5011e 2.27x, 5675f 1.52x
-  not; bug 27), and Gemini's mechanism is unchecked (bug 29).
+  the whole cause: every render with lines had its drawing enlarged 2.33x or less (5114c 2.33x, 5011e 2.27x, 5461d
+  2.04x, 5675f 1.52x) and the one clean one 5.33x (4479d; bug 27; "the one box enlarges" in each
+  `<load>.head_reference.out` under `data/2026-10-23_mrtx-card_jobs/chain/`, 5011e's under 5011c, whose reference it
+  drew with). That is consistent with the margin and a low enlargement acting together, on one clean case; Gemini's
+  mechanism is unchecked (bug 29).
 - **5114i's remake waits on the chin guard** (`gem-chin-and-lips-guard`, 52c38f23, not landed): no closed mouth goes on
   before it. Its blind read and a replay against kept drawings, lit necks included, are a step of their own; until
   then 5114i stays `unconfirmed`.
@@ -73,11 +76,11 @@ after the close's reviews (decisions.md, 2026-10-24); where the two differ, this
    build anew). Not `--no-face-on`, which empties a face-only part.
 5. 3967: `--hold-part 3967-3970@3971` and the drawing-only word on 3969-3970. The film's points on 3969 also size the
    reference's one crop box: pass those frames to `bench/head_reference.py::fill_from_neighbours` too, or compare the
-   box with them left out.
+   box with them left out. A filled frame is still drawn, at the interpolated points (only `faceless` reaches the
+   drawing as `bare`), so the word must put 3969-3970 in `faceless` without passing `--no-face-on` to the capture.
 6. The beard: first, on CPU, the classes under his jaw on 5675, 5011, 5114 and 5461 from the preview's class video
-   (a capture's `classes__*.npz` is the head tube's clipped map), and 5114c's and 5461d's drawing enlargement. Then
-   one render of 5675, the region grown downward only at the default margin, against 5675c; 5011, 5114 and 5461 by
-   its result.
+   (a capture's `classes__*.npz` is the head tube's clipped map). Then one render of 5675, the region grown downward
+   only at the default margin, against 5675c; 5011, 5114 and 5461 by its result.
 7. 4479: the drawing-only word on the frames named, then a zoom test on its own.
 8. 1419: a reader's sheet, hidden marks where she is truly hidden. Not `--hold-part`: it holds a part unmoved, and she
    walks across 1426-1459. Expect the boxes not to seed 1431-1436 (bug 22): plan the `_head_seed` fix
