@@ -41,7 +41,9 @@ Older history lives elsewhere and is not copied here:
   here: third_fp_4653b covers 4653-4677 of 4647-4725 (`data/fun/laid.jsonl:25`, `frames`), so the third's next load
   there is the kept subject's and goes first. The 0045Z rebuild's coverage owes the lead, the second and the third on
   4647, so it is a chain of three; the lead and the second follow the third's kept piece and a rebuilt cut, in the
-  order the owner says. The per-shot source list moved to the plan's section 3; the handover keeps the rule.
+  order the owner says. The per-shot source list moved to the plan's section 3; the handover keeps the rule. Then the
+  owner, asked whether the third's later frames and the lead on 4647 are to be replaced: not known yet. So 4647 leaves
+  the next day's order except for entering the third's boxes, and waits on those answers.
 
 ## 2026-10-23
 

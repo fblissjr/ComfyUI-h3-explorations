@@ -71,10 +71,9 @@ after the close's reviews (decisions.md, 2026-10-24); where the two differ, this
    on its pass's source: the newest cut, `--for` the subject, where another subject is laid on the shot, else the
    working copy (`../masked_v2v/PROTOCOL.md` 1.1). The shots and their sources, checked against `data/fun/laid.jsonl`,
    are in the plan's section 3; the third's 5675, 5011, 5461 and 4479 are among them, and step 6 reads theirs.
-   4647 is a chain of three: the 0045Z coverage owes the lead, the second and the third there, and the third's kept
-   piece (third_fp_4653b) covers only 4653-4677. The third goes first, as the kept subject: his boxes (bug 20), then
-   his preview on the working copy, `--for third`. The lead and the second follow his kept piece and a rebuilt cut,
-   so likely not tomorrow; which of them goes next is the owner's.
+   Not 4647: nothing is made there until the owner answers (below), since every order on it depends on the answers
+   and a piece made first may be made twice. Only the third's blue boxes on 4719-4722 are entered (bug 20): the
+   owner's own answers, they make nothing, and any 4647 preview needs them.
 4. A pose-table printout per drawing: the frames where the marks miss the grey face. It decides nothing; a reader
    names the bad ones. Then a small drawing-only word that leaves those frames' eye, brow and nose marks out and keeps
    the part (`bench/draw_face_points.py --bare` already draws nothing on named frames: wire it through, rather than
@@ -97,8 +96,11 @@ after the close's reviews (decisions.md, 2026-10-24); where the two differ, this
    is rebuilt, the third's 5114 on that cut (step 6's form). If the guard does not land, the Open List asks the owner
    whether the third's 5114 is made on the stand-in (a stale kept piece is shown to the owner, not remade by rule).
 
-Waiting on the owner: on 4647, whether the lead or the second goes after the third. 0516c's frame 597 and
-3759b's 3856-3857 (the share's `Video/fun/looks/2026-10-23_head_marks/`).
+Waiting on the owner (the Open List): on 4647, whether the third's frames after his kept piece (4678-4725; about
+4706 on) and the lead are to be replaced (the 0045Z coverage owes both; the owner, 2026-10-24: not known yet). A
+sheet of those frames, made by a reader while the previews run, is what they answer from. With no new third or lead
+load, the second's 4647 goes on the current cut with bug 23's fixes; with one, the third's goes first. Also 0516c's
+frame 597 and 3759b's 3856-3857 (the share's `Video/fun/looks/2026-10-23_head_marks/`).
 
 ## Where things are
 
