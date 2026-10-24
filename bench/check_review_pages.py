@@ -1972,6 +1972,79 @@ def to_review_clears_out_the_old_and_provenance_keeps_the_record() -> str:
     return "TO_REVIEW.html shows only Start here, Kept today, and the gap check; all earlier/answered/superseded items and holds leave TO_REVIEW.html and remain in PROVENANCE.html"
 
 
+def look_as_a_review_item() -> str:
+    """A still image (.jpg/.png/.webp) or short strip (.mp4/.webm/.mov) can be added as a `kind: 'look'` review item in `items.json`
+    with `shot`, `first`, `frames`, one-line `question`, and choice `options`, and rendered on `Start here` with choice buttons that
+    post `{row, shot, frames: [first, last], what: 'choice', chosen, who: 'owner'}` to `/api/answer`."""
+    with tempfile.TemporaryDirectory() as tmp:
+        d = Path(tmp)
+        args = world(d)
+        items_path = d / "items.json"
+        still = d / "look_3759b_3856_3857.jpg"
+        still.write_bytes(b"jpg")
+        assert rp.main([
+            "look-item",
+            "--items", str(items_path),
+            "--id", "look_3759b_3856_3857",
+            "--shot", "3759-3966",
+            "--frames", "3856-3857",
+            "--file", str(still),
+            "--question", "On 3759b frames 3856-3857, is her face visible enough to hold or should those 2 frames stay source?",
+            "--option", "hold her part across 3856-3857",
+            "--option", "leave 3856-3857 as source",
+            "--subject", "a",
+            "--by", "gemlead",
+        ]) == 0
+        raw_items = json.loads(items_path.read_text())["items"]
+        top = raw_items[0]
+        assert top["id"] == "look_3759b_3856_3857" and top["kind"] == "look" and top["media_kind"] == "still", top
+        assert top["shot"] == "3759-3966" and top["first"] == "3856" and top["frames"] == "2" and top["span"] == [3856, 3857], top
+        assert top["options"] == ["hold her part across 3856-3857", "leave 3856-3857 as source"], top
+
+        sh_file = d / "start_look.json"
+        sh_file.write_text(json.dumps([{"item": "look_3759b_3856_3857", "why": "decide 3856-3857 on 3759b"}]))
+        ans_file = d / "owner_answers.jsonl"
+        ans_file.write_text(json.dumps({
+            "at": "2026-10-24T20:30:00Z", "page": "review", "row": "look_3759b_3856_3857",
+            "shot": "3759-3966", "frames": [3856, 3857], "frame": 3856,
+            "what": "choice", "chosen": "hold her part across 3856-3857", "who": "owner",
+        }) + "\n")
+        out_rev = d / "TO_REVIEW.html"
+        assert rp.main([
+            "to-review", *args, "--start-here", str(sh_file), "--answers", str(ans_file),
+            "--page-url", "p#", "--open-list", "https://the-open-list", "--tables", str(d / "tables"), "--out", str(out_rev),
+        ]) == 0
+        html_txt = out_rev.read_text()
+        assert 'data-look-id="look_3759b_3856_3857"' in html_txt, html_txt
+        assert 'data-shot="3759-3966" data-frames="3856-3857"' in html_txt, html_txt
+        assert 'class="look-still"' in html_txt, html_txt
+        assert 'data-row="look_3759b_3856_3857" data-shot="3759-3966" data-first="3856" data-last="3857" data-choice="hold her part across 3856-3857"' in html_txt, html_txt
+        assert "answered: hold her part across 3856-3857" in html_txt, html_txt
+        assert "fetch('/api/answer'" in html_txt, html_txt
+
+        # Refusals: duplicate id, multi-line question, fewer than 2 options, frames outside shot, bad media extension
+        for bad_argv, want in (
+            (["look-item", "--items", str(items_path), "--id", "look_3759b_3856_3857", "--shot", "3759-3966", "--frames", "3856-3857",
+              "--file", str(still), "--question", "q?", "--option", "a", "--option", "b"], "already has an item"),
+            (["look-item", "--items", str(items_path), "--id", "lk2", "--shot", "3759-3966", "--frames", "3856-3857",
+              "--file", str(still), "--question", "line 1\nline 2", "--option", "a", "--option", "b"], "one non-empty line"),
+            (["look-item", "--items", str(items_path), "--id", "lk3", "--shot", "3759-3966", "--frames", "3856-3857",
+              "--file", str(still), "--question", "q?", "--option", "only one"], "at least 2 non-empty choices"),
+            (["look-item", "--items", str(items_path), "--id", "lk4", "--shot", "3759-3966", "--frames", "3700-3705",
+              "--file", str(still), "--question", "q?", "--option", "a", "--option", "b"], "not inside shot 3759-3966"),
+            (["look-item", "--items", str(items_path), "--id", "lk5", "--shot", "3759-3966", "--frames", "3856-3857",
+              "--file", "bad.txt", "--question", "q?", "--option", "a", "--option", "b"], "must be a still"),
+        ):
+            try:
+                rp.main(bad_argv)
+            except SystemExit as stop:
+                assert want in str(stop), (bad_argv, stop)
+            else:
+                raise AssertionError(f"accepted invalid look-item: {bad_argv}")
+    return ("look-item adds a still (.jpg/.png/.webp) or short strip (.mp4/.webm/.mov) to items.json with shot, frames, one-line question, "
+            "and choice buttons that post shot and frames to /api/answer on TO_REVIEW.html; invalid look items are refused")
+
+
 case("both modes read", both_modes_read)
 case("the page says what is laid", the_page_says_what_is_laid)
 case("to-review is the table's, and hides no live piece", to_review_is_the_tables)
@@ -2000,6 +2073,7 @@ case("the page line matches laid.jsonl", the_page_line_matches_laid_jsonl)
 case("the banner shows on a stale page and not on a fresh one", the_banner_shows_on_a_stale_page_and_not_on_a_fresh_one)
 case("kept today is generated from verdicts.jsonl and laid.jsonl", kept_today_is_generated_from_verdicts_and_laid)
 case("to-review clears out the old and provenance keeps the record", to_review_clears_out_the_old_and_provenance_keeps_the_record)
+case("look as a review item: still or strip with one-line question and choice buttons", look_as_a_review_item)
 
 if __name__ == "__main__":
     sys.exit(finish())

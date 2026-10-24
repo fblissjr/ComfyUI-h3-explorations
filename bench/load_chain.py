@@ -811,6 +811,72 @@ def page_item(ctx: dict, spec: dict, clip: str, first: int, last: int, link: str
             "prompt_note": spec["prompt_note"], "fixed": "Nothing was fixed in this clip."}
 
 
+LOOK_STILL_EXTS = (".jpg", ".jpeg", ".png", ".webp")
+LOOK_STRIP_EXTS = (".mp4", ".webm", ".mov")
+LOOK_MEDIA_EXTS = LOOK_STILL_EXTS + LOOK_STRIP_EXTS
+
+
+def look_page_item(
+    item_id: str,
+    shot: str,
+    first: int,
+    last: int,
+    media_file: str,
+    link: str,
+    question: str,
+    options: list[str] | tuple[str, ...],
+    title: str = "",
+    subject: str = "",
+) -> dict:
+    """A still-image or short-strip look item for `items.json`, with a one-line question and choice buttons so the owner's click
+    lands in `owner_answers.jsonl` with the shot and frames."""
+    import re
+    iid = str(item_id or "").strip()
+    if not iid:
+        raise Refused("a look item needs a non-empty id")
+    sh = str(shot or "").strip()
+    m_sh = re.fullmatch(r"(\d+)-(\d+)", sh)
+    if not m_sh or int(m_sh.group(1)) > int(m_sh.group(2)):
+        raise Refused(f"look item {iid!r}: shot {shot!r} is not FIRST-LAST")
+    s0, s1 = int(m_sh.group(1)), int(m_sh.group(2))
+    if not (s0 <= int(first) <= int(last) <= s1):
+        raise Refused(f"look item {iid!r}: frames {first}-{last} are not inside shot {s0}-{s1}")
+    ext = Path(str(media_file or link)).suffix.lower()
+    if ext not in LOOK_MEDIA_EXTS:
+        raise Refused(f"look item {iid!r}: media {media_file!r} must be a still ({', '.join(LOOK_STILL_EXTS)}) or short strip ({', '.join(LOOK_STRIP_EXTS)})")
+    raw_q = str(question or "")
+    if "\n" in raw_q or "\r" in raw_q or not raw_q.strip():
+        raise Refused(f"look item {iid!r}: question must be one non-empty line")
+    q_clean = " ".join(raw_q.split())
+    opts_clean = [" ".join(str(o).split()) for o in (options or []) if str(o or "").strip()]
+    if len(opts_clean) < 2:
+        raise Refused(f"look item {iid!r}: options must give at least 2 non-empty choices")
+    f0, f1 = int(first), int(last)
+    mk = "still" if ext in LOOK_STILL_EXTS else "strip"
+    t_clean = " ".join(str(title).split()) if str(title or "").strip() else f"{iid} ({s0}-{s1}, frames {f0}-{f1})"
+    return {
+        "id": iid,
+        "kind": "look",
+        "media_kind": mk,
+        "title": t_clean,
+        "file": Path(str(media_file or link)).name,
+        "path": str(link),
+        "shot": f"{s0}-{s1}",
+        "first": str(f0),
+        "frames": str(f1 - f0 + 1),
+        "span": [f0, f1],
+        **({"subject": str(subject).strip()} if str(subject or "").strip() else {}),
+        "fps": "24",
+        "seconds": f"about {f0 / 24:.1f} s to {(f1 + 1) / 24:.1f} s of the clip",
+        "state": "open",
+        "state_words": "waiting on the owner's look",
+        "question": q_clean,
+        "what": q_clean,
+        "look": f"shot {s0}-{s1}, frames {f0}-{f1}",
+        "options": opts_clean,
+    }
+
+
 # ---------------------------------------------------------------- the server and the machine
 
 def queue_state(host: str) -> tuple[int, int]:

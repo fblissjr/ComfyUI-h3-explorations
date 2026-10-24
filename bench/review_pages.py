@@ -694,6 +694,10 @@ def read_owner_clip_answers(
     for _at, _idx, row in raw_rows:
         if row.get("who") not in ("owner", None, ""):
             continue
+        raw_chosen = " ".join(str(row.get("chosen") or "").split())
+        row_key = str(row.get("row") or row.get("item") or row.get("id") or "").strip()
+        if raw_chosen and row_key:
+            out[f"look_choice:{row_key}"] = {"chosen": raw_chosen, "at": str(row.get("at") or "")}
         norm = normalize_owner_clip_verdict(row.get("chosen"))
         if norm is None:
             continue
@@ -1703,8 +1707,12 @@ def start_here(
                     f"(a clip with gaps and no such line does not go on Start here)"
                 )
             cf, cl, csubs = sp_info
-            _check_cov_span(k, what, cf, cl)
             it_obj = rec.items.get(what) if rec is not None else None
+            if isinstance(it_obj, dict) and it_obj.get("kind") == "look":
+                look_block = render_look_item_block(what, it_obj, cf, cl, out_dir, rec, owner_answers, where=f"--start-here {path}, entry {k}")
+                lines.append(f"<li>{shown}: {E(why)}{look_block}{fold}</li>")
+                continue
+            _check_cov_span(k, what, cf, cl)
             cmp_lns = None
             if is_compare_clip(what, item_obj=it_obj, rec=rec, share=share):
                 cmp_lns = compare_clip_lines(
@@ -1746,8 +1754,167 @@ def start_here(
         else:
             raise SystemExit(f"--start-here {path}, entry {k}: {what!r} is no item this page shows, no shot of it and no clip")
         lines.append(f"<li>{compare_banner}{gap_banner}{shown}: {E(why)}{fold}</li>")
+    look_script = (
+        "<script>"
+        "document.addEventListener('click',function(ev){"
+        "var b=ev.target.closest('button.look-choice');"
+        "if(!b)return;"
+        "fetch('/api/answer',{method:'POST',headers:{'Content-Type':'application/json'},"
+        "body:JSON.stringify({page:'review',row:b.dataset.row,shot:b.dataset.shot,"
+        "frames:[Number(b.dataset.first),Number(b.dataset.last)],frame:Number(b.dataset.first),"
+        "what:'choice',chosen:b.dataset.choice,who:'owner'})})"
+        ".then(function(){var s=b.parentElement.querySelector('.look-saved');"
+        "if(s)s.textContent='saved: '+b.dataset.choice;});"
+        "});"
+        "</script>"
+        if any("look-choice" in ln for ln in lines) else ""
+    )
     return ["<h2>Start here, in this order</h2>", "<p class='mut'>The lead's order: what deciding each changes most. Each is also "
-            "where it always is, below.</p>", f"<ol>{''.join(lines)}</ol>"]
+            "where it always is, below.</p>", f"<ol>{''.join(lines)}</ol>{look_script}"]
+
+
+LOOK_STILL_EXTS = (".jpg", ".jpeg", ".png", ".webp")
+LOOK_STRIP_EXTS = (".mp4", ".webm", ".mov")
+LOOK_MEDIA_EXTS = LOOK_STILL_EXTS + LOOK_STRIP_EXTS
+
+
+def validate_look_item(it_obj: dict, where: str = "items.json") -> tuple[str, int, int, str, list[str], str]:
+    """Validate a `kind: 'look'` item in `items.json` and return `(shot_str, first_frame, last_frame, question, options, media_path)`."""
+    iid = str(it_obj.get("id") or "").strip()
+    if not iid:
+        raise SystemExit(f"{where}: look item has no id")
+    shot_raw = str(it_obj.get("shot") or "").strip()
+    m_sh = re.fullmatch(r"(\d+)-(\d+)", shot_raw)
+    if not m_sh or int(m_sh.group(1)) > int(m_sh.group(2)):
+        raise SystemExit(f"{where}, look item {iid!r}: shot {shot_raw!r} must be FIRST-LAST")
+    s0, s1 = int(m_sh.group(1)), int(m_sh.group(2))
+    try:
+        f0 = int(it_obj["first"])
+        n_fr = int(it_obj["frames"])
+        f1 = f0 + n_fr - 1
+    except (KeyError, TypeError, ValueError):
+        raise SystemExit(f"{where}, look item {iid!r}: missing or non-integer first/frames") from None
+    if n_fr < 1 or not (s0 <= f0 <= f1 <= s1):
+        raise SystemExit(f"{where}, look item {iid!r}: frames {f0}-{f1} are not inside shot {s0}-{s1}")
+    raw_q = str(it_obj.get("question") if it_obj.get("question") is not None else (it_obj.get("what") or ""))
+    if "\n" in raw_q or "\r" in raw_q or not raw_q.strip():
+        raise SystemExit(f"{where}, look item {iid!r}: question must be one non-empty line")
+    q_clean = " ".join(raw_q.split())
+    opts_raw = it_obj.get("options") or it_obj.get("choices") or []
+    if not isinstance(opts_raw, list):
+        raise SystemExit(f"{where}, look item {iid!r}: options must be a list of choice buttons")
+    opts = [" ".join(str(o).split()) for o in opts_raw if str(o or "").strip()]
+    if len(opts) < 2:
+        raise SystemExit(f"{where}, look item {iid!r}: options must hold at least 2 non-empty choices")
+    media_str = str(it_obj.get("path") or it_obj.get("file") or "").strip()
+    ext = Path(media_str).suffix.lower()
+    if ext not in LOOK_MEDIA_EXTS:
+        raise SystemExit(
+            f"{where}, look item {iid!r}: media {media_str!r} must be a still ({', '.join(LOOK_STILL_EXTS)}) "
+            f"or short strip ({', '.join(LOOK_STRIP_EXTS)})"
+        )
+    return f"{s0}-{s1}", f0, f1, q_clean, opts, media_str
+
+
+def render_look_item_block(
+    item_id: str,
+    it_obj: dict,
+    cf: int,
+    cl: int,
+    out_dir: str,
+    rec: Records | None,
+    owner_answers: dict[str, tuple[str, str]] | None,
+    where: str = "",
+) -> str:
+    """Render the inline look card (still image or short strip, one-line question, and choice buttons posting shot and frames
+    to `/api/answer`) for a `kind: 'look'` item on `Start here`."""
+    shot_str, f0, f1, q_text, opts, media_str = validate_look_item(it_obj, where=where or f"look item {item_id}")
+    href = media_str
+    if rec is not None and rec.items_path:
+        cand = in_repo(media_str, rec.items_path)
+        if cand.exists():
+            href = os.path.relpath(cand.resolve(), out_dir)
+    ext = Path(media_str).suffix.lower()
+    if ext in LOOK_STILL_EXTS:
+        media_html = f'<div class="look-media"><img class="look-still" src="{E(href)}" alt="{E(item_id)}"></div>'
+    else:
+        media_html = f'<div class="look-media"><video class="look-strip" controls preload="metadata" src="{E(href)}"></video></div>'
+    btns = " ".join(
+        f'<button type="button" class="look-choice" data-row="{E(item_id)}" data-shot="{E(shot_str)}" '
+        f'data-first="{f0}" data-last="{f1}" data-choice="{E(opt)}">{E(opt)}</button>'
+        for opt in opts
+    )
+    ans_html = ""
+    raw_c = ""
+    if isinstance(owner_answers, dict):
+        lk_ans = owner_answers.get(f"look_choice:{item_id}") or owner_answers.get(item_id)
+        if isinstance(lk_ans, dict) and lk_ans.get("chosen"):
+            raw_c = str(lk_ans["chosen"])
+    if not raw_c and rec is not None:
+        lc = rec.last_choice([item_id], every=True)
+        if lc and lc.get("chosen"):
+            raw_c = str(lc["chosen"])
+    if raw_c:
+        ans_html = f' <span class="mut look-saved">answered: {E(raw_c)}</span>'
+    else:
+        ans_html = ' <span class="mut look-saved"></span>'
+    return (
+        f'<div class="why look-card" data-look-id="{E(item_id)}" data-shot="{E(shot_str)}" data-frames="{f0}-{f1}">'
+        f'<div class="mut">look item &middot; shot {E(shot_str)} &middot; frames {f0}-{f1}</div>'
+        f'<div class="look-question"><b>Question:</b> {E(q_text)}</div>'
+        f"{media_html}"
+        f'<div class="look-choices">{btns}{ans_html}</div>'
+        f"</div>"
+    )
+
+
+def add_look_item(
+    items_path: str | Path,
+    item_id: str,
+    shot: str,
+    frames: str,
+    media_file: str,
+    question: str,
+    options: list[str],
+    title: str = "",
+    subject: str = "",
+    by: str = "session",
+) -> dict:
+    """Build and insert a `kind: 'look'` item (still `.jpg`/`.png`/`.webp` or short strip `.mp4`/`.webm`/`.mov`) at the top of `items.json`."""
+    import load_chain
+    m_fr = re.fullmatch(r"(\d+)(?:-(\d+))?", str(frames or "").strip())
+    if not m_fr:
+        raise SystemExit(f"--frames {frames!r}: expected FIRST-LAST or FRAME")
+    f0 = int(m_fr.group(1))
+    f1 = int(m_fr.group(2)) if m_fr.group(2) is not None else f0
+    try:
+        item = load_chain.look_page_item(
+            item_id=item_id,
+            shot=shot,
+            first=f0,
+            last=f1,
+            media_file=Path(media_file).name,
+            link=media_file,
+            question=question,
+            options=options,
+            title=title,
+            subject=subject,
+        )
+    except load_chain.Refused as exc:
+        raise SystemExit(str(exc)) from None
+    ip = Path(items_path)
+    if not ip.is_file():
+        raise SystemExit(f"--items {items_path}: file not found")
+    listed = json.loads(ip.read_text())
+    items_list = listed["items"] if isinstance(listed, dict) and "items" in listed else listed
+    if any(isinstance(x, dict) and x.get("id") == item["id"] for x in items_list):
+        raise SystemExit(f"--items {items_path}: already has an item {item['id']!r}")
+    items_list.insert(0, item)
+    if isinstance(listed, dict):
+        listed["updated"] = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        listed["by"] = by
+    ip.write_text(json.dumps(listed, indent=1) + "\n")
+    return item
 
 
 def laid_from(T: dict) -> str:
@@ -2132,7 +2299,11 @@ def shot_review_sections(
         if it_raw.get("id") and it_raw.get("first") is not None and it_raw.get("frames"):
             f0 = int(it_raw["first"])
             f1 = f0 + int(it_raw["frames"]) - 1
-            item_spans[str(it_raw["id"])] = (f0, f1, [str(it_raw["subject"])] if it_raw.get("subject") else None)
+            iid_str = str(it_raw["id"])
+            item_spans[iid_str] = (f0, f1, [str(it_raw["subject"])] if it_raw.get("subject") else None)
+            if it_raw.get("kind") == "look":
+                validate_look_item(it_raw, where=rec.items_path or "items.json")
+                drawn.setdefault(iid_str, f'<a href="{E(a.page_url + iid_str)}">{E(iid_str)}</a>')
     shot_subjects: dict[str, list[str]] = {}
 
     this_shot: list[str] = []                            # the items the shot being drawn links
@@ -2645,7 +2816,33 @@ def main(argv=None) -> int:
             s.add_argument("--day-folder", required=True, help="the day's folder: bench/day_pieces.py's piece folders are read from it")
             s.add_argument("--up-to", required=True, type=int, help="the last frame shown")
             s.add_argument("--watched-table", help="the table of the clip the owner watched: what changes from it, and why")
+    lk = sub.add_parser("look-item", help="add a still image (.jpg/.png/.webp) or short strip (.mp4/.webm/.mov) as a look review item in items.json")
+    lk.add_argument("--items", required=True, help="the review list (data/<stem>/review/items.json)")
+    lk.add_argument("--id", required=True, dest="item_id", help="the look item's id")
+    lk.add_argument("--shot", required=True, metavar="FIRST-LAST", help="the shot's source frames (FIRST-LAST)")
+    lk.add_argument("--frames", required=True, metavar="FIRST-LAST", help="the frames shown on this look item (FIRST-LAST or FRAME)")
+    lk.add_argument("--file", required=True, dest="media_file", help="relative path to the still image (.jpg/.png/.webp) or short strip (.mp4/.webm/.mov)")
+    lk.add_argument("--question", required=True, help="one-line question for the owner")
+    lk.add_argument("--option", action="append", default=[], dest="options", help="a choice button label (repeatable; at least 2)")
+    lk.add_argument("--title", default="", help="optional item title")
+    lk.add_argument("--subject", default="", help="optional subject label")
+    lk.add_argument("--by", default="session", help="the session adding the item")
     a = p.parse_args(argv)
+    if a.mode == "look-item":
+        added = add_look_item(
+            items_path=a.items,
+            item_id=a.item_id,
+            shot=a.shot,
+            frames=a.frames,
+            media_file=a.media_file,
+            question=a.question,
+            options=a.options,
+            title=a.title,
+            subject=a.subject,
+            by=a.by,
+        )
+        print(f"added look item {added['id']} ({added['shot']}, frames {added['span'][0]}-{added['span'][1]}) to {a.items}")
+        return 0
     doc = to_review(a) if a.mode == "to-review" else provenance(a)
     out = Path(a.out)
     was = out.exists()

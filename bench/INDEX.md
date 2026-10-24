@@ -8,14 +8,14 @@ this file is only a way to find a script by what it says it does.
 
 | group | scripts |
 |---|---|
-| [`check_*`](#check) | 163 |
+| [`check_*`](#check) | 164 |
 | [`measure_*`](#measure) | 39 |
 | [`analyze_*`](#analyze) | 23 |
 | [`grade_*`](#grade) | 21 |
 | [`compare_*`](#compare) | 19 |
 | [`build_*`](#build) | 18 |
 | [`probe_*`](#probe) | 11 |
-| [the rest](#the-rest) | 193 |
+| [the rest](#the-rest) | 194 |
 
 ## check
 
@@ -141,6 +141,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_retraction_consumers.py`](check_retraction_consumers.py) | Fail when a retracted claim reaches a file nobody signed off on. |
 | [`check_review_pages.py`](check_review_pages.py) | `bench/review_pages.py` on a made table, ledger, review list and verdicts: each case is a way the owner's two local pages could hide a live piece, show a dead one, put a session's word in the owner's mouth, cut a reason, lose a stopped ... |
 | [`check_runs_left.py`](check_runs_left.py) | `bench/runs_left.py` on a made table and made previews: each case is a way the queue the card reads could be wrong. |
+| [`check_said_on_shot.py`](check_said_on_shot.py) | Check `bench/said_on_shot.py` against synthetic and real `owner_answers.jsonl` rows. |
 | [`check_sam31_corrections.py`](check_sam31_corrections.py) | The SAM 3.1 Corrections node on stand-in modules, through ComfyUI's real ModelPatcher. No SAM weights, no card. |
 | [`check_sam31_corrections_on_card.py`](check_sam31_corrections_on_card.py) | The SAM 3.1 Corrections node on the real model, on the patcher class the server uses, with a stock pair in the same process. |
 | [`check_sam3d_body_conversion.py`](check_sam3d_body_conversion.py) | Hold `bench/convert_sam3d_body_checkpoint.py`'s mapping to core's SAM 3D Body model, without weights. |
@@ -492,6 +493,7 @@ this file is only a way to find a script by what it says it does.
 | [`run_shot_count_ablation.py`](run_shot_count_ablation.py) | CLOSED RECORD since 2026-09-18. This ablation computes cut times into shot headers by design, from a frozen out-of-bank base graph at 362 frames (on the grid, one step above the 345 every shipped graph now renders; ... |
 | [`run_tau_sweep.py`](run_tau_sweep.py) | Queue the scenes of a tau sweep on a server armed with `H3_SOL_SWEEP`. |
 | [`runs_left.py`](runs_left.py) | The runs left to make past a frame, longest first, re-cut from a delivery table: one command the card runs after each rebuild. |
+| [`said_on_shot.py`](said_on_shot.py) | What the owner already said on a shot, from `owner_answers.jsonl` (and optional inbox files), oldest first. |
 | [`sam31_corrections_queue_test.py`](sam31_corrections_queue_test.py) | The SAM 3.1 Corrections node's last acceptance: on a server's queue, with an H3 render between two reads. |
 | [`sam31_probe_node.py`](sam31_probe_node.py) | TEST CODE, in no node list of this pack: a node that calls ComfyUI's SAM 3 detect node and says what reached the model. |
 | [`sam3_dataset_phrases.py`](sam3_dataset_phrases.py) | What Meta's four SAM 3 datasets say about what a valid prompt is and how specific to be: counts from the annotation files. |
