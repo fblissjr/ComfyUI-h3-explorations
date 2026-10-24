@@ -157,6 +157,13 @@ MOUTH_FORMS = ("auto", "drawn", "left out")
 #: read; the record's `crop.cranium` says on which frames the grey head reaches the box's edge and what the subject's travel costs
 #: the enlargement. Figures, not a verdict: the box does not follow the head.
 CROP_FORMS = ("head", "face", "cranium")
+#: On frames where the 3D body model has lost the subject's head pose (`--no-head-on FIRST-LAST=WHY`, the plan's
+#: `subjects.<s>.reference.no_head_on`, 2026-10-24: 4310c's 4366-4378, where the grey head is thrown back nose-to-ceiling
+#: while the source turns left and looks down), the reference replaces the grey head on those frames before drawing:
+#: `hold` (the default, reasoned: keeps a continuous grey head in the reference video): holds the last good cut body-model
+#: frame before the span (`held_from`), with no face lines drawn; `blank`: black (`0`) on those frames, with no face lines
+#: drawn. The capture and mask are untouched.
+NO_HEAD_FORMS = ("hold", "blank")
 #: A frame of the reference holds a figure when its plain cut body model has a pixel over this grey (`figure_frames`): the body
 #: model's picture, as the mouth gate reads it (`CLASS_MOUTH_GATE["body_grey"]`, inherited). MEASURED 2026-10-22 on the plain cuts of
 #: the 205 head references then under the share's `Video/fun/references/` (the survey: `docs/wiki/decisions.md`, that day): a frame
@@ -688,6 +695,7 @@ def run(mesh: str, points: str, source: str, first: int, count: int, out: Path, 
         mouth: str | None = None, mouth_why: str = "", classes: str | None = None, classes_first: int | None = None,
         no_mouth_on: list[tuple[int, int, str]] | None = None, over_the_eyes: list[tuple[int, int, str]] | None = None,
         no_face_on: list[tuple[int, int, str]] | None = None, no_draw_face_on: list[tuple[int, int, str]] | None = None,
+        no_head_on: list[tuple[int, int, str]] | None = None, no_head_form: str = NO_HEAD_FORMS[0],
         class_mouth_needs_hole: str | None = None,
         closed_lip_line: str | None = None, darken_head: str | None = None,
         eyes_shut_on: list[tuple[int, int, str]] | None = None,
@@ -725,8 +733,26 @@ def run(mesh: str, points: str, source: str, first: int, count: int, out: Path, 
     if crop_form != "head" and head_track is not None:
         raise SystemExit(f"--crop {crop_form} sizes the box on " + ("the faces alone" if crop_form == "face" else "the body model's grey head")
                          + " and reads no head track: --head-track says otherwise")
+    if no_head_form not in NO_HEAD_FORMS:
+        raise SystemExit(f"--no-head-form is one of {NO_HEAD_FORMS}; got {no_head_form!r}")
+    no_head_spans: list[tuple[int, int, str]] = []
+    for a_, b_, why in no_head_on or []:
+        why_c = " ".join(str(why or "").split())
+        if not why_c or a_ > b_:
+            raise SystemExit(f"--no-head-on {a_}-{b_}={why!r} is not FIRST-LAST=WHY, with the why")
+        if a_ < first or b_ >= first + count:
+            raise SystemExit(f"--no-head-on {a_}-{b_} lies outside the reference's frames {first}-{first + count - 1}")
+        no_head_spans.append((int(a_), int(b_), why_c))
+    no_head = sorted({f for a_, b_, _ in no_head_spans for f in range(a_, b_ + 1)})
+    no_head_set = set(no_head)
+    if no_head and no_head_form == "hold" and first in no_head_set:
+        raise SystemExit(f"--no-head-on holds the last good frame before the span, and {first} is the reference's first frame (give --no-head-form blank)")
+    no_head_map: dict[int, int | None] = {
+        f: (max(g for g in range(first, f) if g not in no_head_set) if no_head_form == "hold" else None)
+        for f in no_head
+    }
     no_draw = sorted({f for a, b, _ in no_draw_face_on or [] for f in range(max(a, first), min(b, first + count - 1) + 1)})
-    faceless = sorted({f for a, b, _ in (no_face_on or []) + (no_draw_face_on or []) for f in range(max(a, first), min(b, first + count - 1) + 1)})
+    faceless = sorted({f for a, b, _ in (no_face_on or []) + (no_draw_face_on or []) + no_head_spans for f in range(max(a, first), min(b, first + count - 1) + 1)})
     # HER EYES SHUT ON A SPAN, on a person's word (`--eyes-shut-on` with `--eyes-shut-form`, the lead's ruling of 2026-10-15 on 2823b;
     # `draw_face_points.EYES_SHUT_FORMS` says why and what each form draws). The pose model's lids stop at a slit on a shut eye
     shut = sorted({f for a, b, _ in eyes_shut_on or [] for f in range(max(a, first), min(b, first + count - 1) + 1)} - set(faceless))
@@ -993,7 +1019,7 @@ def run(mesh: str, points: str, source: str, first: int, count: int, out: Path, 
     # NO MOUTH ON A FRAME where neither the lines nor the class map's gate place it, or where the load's part holds no lips (the lead's
     # rulings of 2026-10-14 on the blind readers of 630b, 805b and 1010d: the mouth drawn off her face in profile and on her chest)
     bare = no_mouth_frames(first, count, no_mouth_on or [])
-    for a_, b_, why in (no_face_on or []) + (no_draw_face_on or []):
+    for a_, b_, why in (no_face_on or []) + (no_draw_face_on or []) + no_head_spans:
         fs = [f for f in range(max(a_, first), min(b_, first + count - 1) + 1)]
         if fs:
             bare.setdefault(NO_FACE_PART.format(why=why), []).extend(fs)
@@ -1011,7 +1037,10 @@ def run(mesh: str, points: str, source: str, first: int, count: int, out: Path, 
         leave_out = frozenset(leave_out) | {"eyes", "brows", "nose", "mouth"}
         if mouth_said:                                  # no face on any frame: no mouth, whatever the form or a person's word said
             mouth_said.update(drawn=False, why_not_drawn="no line of the face on any frame (--no-face-on over the whole span)")
-    all_no_face = (no_face_on or []) + (no_draw_face_on or [])
+    all_no_face = (no_face_on or []) + (no_draw_face_on or []) + no_head_spans
+    if no_head:
+        say(f"    NO HEAD ON {len(no_head)} of {count} frames ({', '.join(f'{a}-{b}' if a != b else str(a) for a, b in spans_of(no_head))}), "
+            f"form {no_head_form!r}: " + "; ".join(f"{a_}-{b_}: {why}" for a_, b_, why in no_head_spans))
     if faceless:
         say(f"    NO FACE LINES on {len(faceless)} of {count} frames ({', '.join(f'{a}-{b}' if a != b else str(a) for a, b in spans_of(faceless))}): "
             + "; ".join(why for _, _, why in all_no_face))
@@ -1029,7 +1058,8 @@ def run(mesh: str, points: str, source: str, first: int, count: int, out: Path, 
                       points_enlarged=sum(cut["scale"]) / len(cut["scale"]),        # the bend's width limit is the canvas's (MOUTH_BEND)
                       eyes_shut=shut, eyes_shut_form=eyes_shut_form if shut else None,
                       eyes_shut_by="; ".join(f"{a_}-{b_}: {why}" for a_, b_, why in eyes_shut_on or []),
-                      bare_by="; ".join(f"no face lines: {why}" for _, _, why in all_no_face), say=quiet)
+                      bare_by="; ".join(f"no face lines: {why}" for _, _, why in all_no_face),
+                      no_head=no_head_map or None, say=quiet)
     if drawn.get("outlined_mouth") and mouth_said and isinstance(mouth_said.get("closed_lip_line"), dict):
         mouth_said["closed_lip_line"]["outlined"] = drawn["outlined_mouth"]      # the frames held on a neighbour's lips, and those shrunk
     # THE CLOSED MOUTH DRAWN (`closed_mouth`, the plan's `reference.closed_mouth`): which frames, as spans beside the closed-lip line's own,
@@ -1118,7 +1148,12 @@ def run(mesh: str, points: str, source: str, first: int, count: int, out: Path, 
                   **({"eyes_shut": {"form": eyes_shut_form, "frames": spans_of(shut), "on_whose_word": [{"first": a_, "last": b_, "why": why}
                                                                                                         for a_, b_, why in eyes_shut_on or []],
                                     "drawn_shut_on": spans_of((drawn.get("frames_with_the_eyes_shut") or {}).get("frames") or [])}}
-                     if shut else {})},
+                     if shut else {}),
+                  **({"no_head_on": {"form": no_head_form, "frames": spans_of(no_head),
+                                     "held_from": ({str(f): int(no_head_map[f]) for f in no_head if no_head_map.get(f) is not None}
+                                                   if no_head_form == "hold" else {}),
+                                     "on_whose_word": [{"first": a_, "last": b_, "why": why} for a_, b_, why in no_head_spans]}}
+                     if no_head_spans else {})},
         "read_backs": {"the_cut_body_model": cut["read_back"], "the_cut_source": under["read_back"], "the_drawing": drawn["read_back"]},
         "body_model_against_the_source": drawn["body_model_against_the_source"],
         "marks_against_the_body_model": marks_on_body,
@@ -1206,6 +1241,11 @@ def main() -> int:
     a.add_argument("--no-draw-face-on", action="append", default=[], metavar="FIRST-LAST=WHY",
                    help="source frames on which no line of the face is drawn on the grey head (and a short run takes its neighbours' points for the "
                         "reference box), while the load's face part is still kept in the mask; repeatable")
+    a.add_argument("--no-head-on", action="append", default=[], metavar="FIRST-LAST=WHY",
+                   help="source frames on which the 3D body model has lost the subject's head pose: the reference holds the last good cut body-model "
+                        "frame before the span (hold, the default) or is black (blank), with no face lines drawn, while the capture and mask stay untouched; repeatable")
+    a.add_argument("--no-head-form", default=NO_HEAD_FORMS[0], choices=NO_HEAD_FORMS,
+                   help="what the reference shows on --no-head-on frames: hold (the default: last good cut body-model frame before the span) or blank (black)")
     a.add_argument("--over-the-eyes", action="append", default=[], metavar="FIRST-LAST=WHY",
                    help="source frames on which the plan gives back a class over her eyes (OVER_THE_EYES, her own glasses): the face counts as on "
                         "her track there when the lower face's middle is; repeatable")
@@ -1226,6 +1266,8 @@ def main() -> int:
               over_the_eyes=[no_mouth_arg(x, "--over-the-eyes") for x in v.over_the_eyes],
               no_face_on=[no_mouth_arg(x, "--no-face-on") for x in v.no_face_on],
               no_draw_face_on=[no_mouth_arg(x, "--no-draw-face-on") for x in v.no_draw_face_on],
+              no_head_on=[no_mouth_arg(x, "--no-head-on") for x in v.no_head_on],
+              no_head_form=v.no_head_form,
               class_mouth_needs_hole=v.class_mouth_needs_hole,
               closed_lip_line=v.closed_lip_line, darken_head=v.darken_head,
               eyes_shut_on=[no_mouth_arg(x, "--eyes-shut-on") for x in v.eyes_shut_on],

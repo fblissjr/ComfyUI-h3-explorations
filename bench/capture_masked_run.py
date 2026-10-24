@@ -7198,8 +7198,14 @@ def head_boxes(video: dict, size: tuple[int, int], frames: tuple[int, int]) -> l
     sx, sy = rec["scale"]
     face_h = (rec.get("face_height_px") or {}).get("in_this_video")
     chin = p["index"].get("tip_of_chin")
+    nh_rec = ((rec.get("drawn") or {}).get("no_head_on") or rec.get("no_head_on")) or {}
+    nh_frames = {sf for a_, b_ in (nh_rec.get("frames") or []) for sf in range(int(a_), int(b_) + 1)}
     centres, sides, extents = [], [], []
     for f in range(frames[0], frames[1] + 1):
+        if f in nh_frames:
+            centres.append(None)
+            extents.append(None)
+            continue
         row = f - first_row
         good = [i for i in ids if 0 <= row < len(p["keypoints"]) and p["scores"][row][i] >= 0.3]
         if not good:

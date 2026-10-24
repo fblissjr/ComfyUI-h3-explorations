@@ -1400,6 +1400,64 @@ def where_the_body_model_shows_nobody() -> str:
             "the record's word, measures the plain cut a record names when the record predates it, and a reference with none on itself")
 
 
+def no_head_where_pose_fails() -> str:
+    """`--no-head-on FIRST-LAST=WHY` with `--no-head-form hold|blank` (4310c's 4366-4378, where she throws her head back 90 degrees and the
+    3D body model stays upright): under `hold` (the default), the named span holds the plain grey body from the frame before the span with
+    no 2D white face lines drawn; under `blank`, the named span is black with no 3D head or 2D face lines; other frames are unchanged; and
+    missing why, out-of-range spans, unknown forms, or holding on the first frame are refused before any file is written."""
+    import draw_face_points as dfp
+    levels = [50 + 5 * f for f in range(N)]
+    folder, mesh, pts, source = rooms("no_head_hold", levels, [60] * N, CENTRES, 0)
+    said: list[str] = []
+    rec = hr.run(str(mesh), str(pts), str(source), 0, N, folder / "head.mp4", "the check", room=ROOM,
+                 no_head_on=[(4, 6, "THROWN BACK")], say=said.append)
+    nh = rec["drawn"].get("no_head_on")
+    assert rec["passed"] and nh == {
+        "form": "hold",
+        "frames": [[4, 6]],
+        "on_whose_word": [{"first": 4, "last": 6, "why": "THROWN BACK"}],
+        "held_from": {"4": 3, "5": 3, "6": 3},
+    }, rec["drawn"]
+    assert rec["drawn"]["frames_left_bare"] == [4, 5, 6] and "no_face_on" not in rec["drawn"] and "no_draw_face_on" not in rec["drawn"], rec["drawn"]
+    assert any("NO HEAD ON 3 of 12 frames (4-6), form 'hold': 4-6: THROWN BACK" in x for x in said), said
+    rw, rh = rec["size"]
+    pics = [next(dfp.stream(str(folder / "head.mp4"), (rw, rh), f, 1, pix="rgb24")) for f in range(N)]
+    white = [int((pics[f].max(-1) > 200).sum()) for f in range(N)]
+    med = [int(np.median(pics[f][:10, :10])) for f in range(N)]
+    # Frames 4..6 have 0 white pixels and hold frame 3's grey level (65), not their own (70, 75, 80); other frames keep white lines and own grey
+    assert all(white[f] == 0 for f in (4, 5, 6)) and all(white[f] > 0 for f in (0, 1, 2, 3, 7, 8)), white
+    assert all(abs(med[f] - (50 + 5 * 3)) <= 2 for f in (4, 5, 6)), (med, levels)
+    assert all(abs(med[f] - (50 + 5 * f)) <= 2 for f in (0, 1, 2, 3, 7, 8)), (med, levels)
+    # Blank form on frames 0..2: black (0 grey, 0 white), and allowed on frame 0
+    folder_b, mesh_b, pts_b, source_b = rooms("no_head_blank", levels, [60] * N, CENTRES, 0)
+    rec_b = hr.run(str(mesh_b), str(pts_b), str(source_b), 0, N, folder_b / "head.mp4", "the check", room=ROOM,
+                   no_head_on=[(0, 2, "OFF SCREEN")], no_head_form="blank", say=quiet)
+    nh_b = rec_b["drawn"].get("no_head_on")
+    assert rec_b["passed"] and nh_b == {
+        "form": "blank",
+        "frames": [[0, 2]],
+        "held_from": {},
+        "on_whose_word": [{"first": 0, "last": 2, "why": "OFF SCREEN"}],
+    }, rec_b["drawn"]
+    pics_b = [next(dfp.stream(str(folder_b / "head.mp4"), tuple(rec_b["size"]), f, 1, pix="rgb24")) for f in range(N)]
+    assert all(int(pics_b[f].max()) <= 4 for f in (0, 1, 2)) and all(int((pics_b[f].max(-1) > 200).sum()) > 0 for f in range(3, N))
+    # Refusals before any file is written
+    for kw, word in (
+        ({"no_head_on": [(4, 6, "   ")]}, "is not FIRST-LAST=WHY, with the why"),
+        ({"no_head_on": [(10, 15, "THROWN BACK")]}, "lies outside the reference's frames 0-11"),
+        ({"no_head_on": [(0, 2, "THROWN BACK")], "no_head_form": "hold"}, "0 is the reference's first frame"),
+        ({"no_head_on": [(4, 6, "THROWN BACK")], "no_head_form": "fade"}, "--no-head-form is one of"),
+    ):
+        try:
+            hr.run(str(mesh), str(pts), str(source), 0, N, folder / "refused_nh.mp4", "the check", room=ROOM, say=quiet, **kw)
+        except SystemExit as exc:
+            assert word in str(exc) and not list(folder.glob("refused_nh*")), (word, str(exc))
+        else:
+            raise AssertionError(f"not refused: {kw}")
+    return ("--no-head-on holds the plain grey head from the frame before the span (hold) or blacks the frame (blank) with 0 white face pixels, "
+            "leaving other frames unchanged; refuses missing why, out-of-range spans, unknown forms, and holding on frame 0 before writing")
+
+
 case("one run makes the form", one_run_makes_the_form)
 case("a face off the subject's track fails the run", a_face_off_the_track_fails)
 case("her own glasses over her eyes, off her track", her_glasses_over_her_eyes)
@@ -1422,5 +1480,6 @@ case("the head box from the head track, with room above the crown", head_box_fro
 case("the crop's form: the head's box or the face's", the_crop_is_head_or_face)
 case("the crop's form: the body model's grey head", the_crop_cranium)
 case("where the body model shows nobody", where_the_body_model_shows_nobody)
+case("no 3D grey head or 2D face lines on named frames (--no-head-on)", no_head_where_pose_fails)
 shutil.rmtree(WORK, ignore_errors=True)
 sys.exit(finish())

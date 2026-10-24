@@ -534,7 +534,10 @@ def said_lines(got: dict) -> list[str]:
         if r.get("append"):
             lines.append(f"      appended as {r['tag']}: " + ", ".join(f"{k} {v}" for k, v in r["append"].items() if k != "node"))
         if r.get("record", {}).get("what"):
-            lines.append(f"      its record: {r['record']['what']}; its frame 0 is source frame {r['record'].get('its_first_frame_is_source_frame')}")
+            nh = ((r["record"].get("drawn") or {}).get("no_head_on")) or {}
+            nh_sp = ", ".join(f"{a}-{b}" if a != b else str(a) for a, b in nh.get("frames") or [])
+            nh_txt = f"; no_head_on ({nh.get('form', 'hold')}) on {nh_sp}" if nh_sp else ""
+            lines.append(f"      its record: {r['record']['what']}; its frame 0 is source frame {r['record'].get('its_first_frame_is_source_frame')}{nh_txt}")
         for line in r.get("node_said", []):
             lines.append(f"      the node: {line.strip()}")
         for k, e in enumerate(r.get("encoder_frames", []), 1):

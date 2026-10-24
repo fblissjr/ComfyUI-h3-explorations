@@ -1749,8 +1749,8 @@ def carry_words_of(carry_words_from: dict | Path | str, shot: dict, subject: str
     leave_by_str = " ".join(str(leave_by or "").split())
     if bool(leave_word) != bool(leave_by_str):
         raise Refused("--leave-word and --leave-by go together: the carried span to leave out, and who said so and why")
-    leave_alias = {"word": "hold_part", "eyes_shut": "eyes_shut_on"}
-    leave_kinds = {"left_out", "drop", "hold_part", "parts_on", "track_not", "no_face_on", "no_draw_face_on", "no_mouth_on", "mouth_on", "eyes_shut_on", "seam"}
+    leave_alias = {"word": "hold_part", "eyes_shut": "eyes_shut_on", "no_head": "no_head_on"}
+    leave_kinds = {"left_out", "drop", "hold_part", "parts_on", "track_not", "no_face_on", "no_draw_face_on", "no_head_on", "no_mouth_on", "mouth_on", "eyes_shut_on", "seam"}
     leave_map: dict[tuple[str, int, int], bool] = {}
     for raw_lw in leave_word:
         kind_part, sep, span_part = str(raw_lw).partition(":")
@@ -1832,7 +1832,9 @@ def carry_words_of(carry_words_from: dict | Path | str, shot: dict, subject: str
         "least": None, "least_why": None, "hold_part": [], "drop": None, "drop_by": None, "drop_meta": None,
         "parts": None, "parts_by": None, "parts_on": [], "track_not": [], "track_not_by": None,
         "motion": None, "motion_why": None, "no_strangers": None, "no_strangers_meta": None,
-        "no_face_on": [], "no_face_on_meta": [], "no_draw_face_on": [], "no_draw_face_on_meta": [], "no_mouth_on": [], "no_mouth_on_meta": [],
+        "no_face_on": [], "no_face_on_meta": [], "no_draw_face_on": [], "no_draw_face_on_meta": [],
+        "no_head_on": [], "no_head_on_meta": [], "no_head_form": None,
+        "no_mouth_on": [], "no_mouth_on_meta": [],
         "mouth_on": [], "mouth_on_meta": [], "eyes_shut_on": [], "eyes_shut_on_meta": [], "eyes_shut_form": None,
         "seam": None, "seam_why": None, "context_noise": None, "context_noise_why": None,
         "old_name": old_name, "old_file": old_file, "old_sha256": old_sha256, "carried_rec": carried_rec,
@@ -2073,7 +2075,7 @@ def carry_words_of(carry_words_from: dict | Path | str, shot: dict, subject: str
 
     old_ref = old_job.get("reference") or {}
     ref_known = {"form", "why", "made", "points", "record", "said_by", "taken_as_it_was", "figures", "drawn", "mouth", "iris", "no_face_on",
-                 "no_draw_face_on", "darken_head", "head_track", "crop", "carried"}
+                 "no_draw_face_on", "no_head_on", "darken_head", "head_track", "crop", "carried"}
     for k in old_ref:
         if k not in ref_known:
             raise Refused(f"--carry-words-from {old_name}: word-bearing key 'job.reference.{k}' in old job cannot be carried")
@@ -2127,6 +2129,32 @@ def carry_words_of(carry_words_from: dict | Path | str, shot: dict, subject: str
         out["no_draw_face_on"].append((fx, fy, tf))
         out["no_draw_face_on_meta"].append({"said_by": s.get("said_by"), "at": s.get("at"), "carried": dict(carried_rec)})
         carried_said.append(f"no_draw_face_on {fx}-{fy} ({s.get('said_by')}, {s.get('at')}): {tf}")
+    if old_ref.get("no_head_on") is not None:
+        nh = old_ref["no_head_on"]
+        if isinstance(nh, dict):
+            if set(nh) - {"form", "spans"}:
+                raise Refused(f"--carry-words-from {old_name}: word-bearing key in reference.no_head_on {nh!r} cannot be carried")
+            nh_form = nh.get("form") or "hold"
+            nh_spans = nh.get("spans") or []
+        elif isinstance(nh, list):
+            nh_form = "hold"
+            nh_spans = nh
+        else:
+            raise Refused(f"--carry-words-from {old_name}: word-bearing key in reference.no_head_on {nh!r} cannot be carried")
+        for s in nh_spans:
+            if not isinstance(s, dict) or set(s) - {"first", "last", "why", "said_by", "at", "carried"}:
+                raise Refused(f"--carry-words-from {old_name}: word-bearing key in reference.no_head_on {s!r} cannot be carried")
+            fx, fy = int(s["first"]), int(s["last"])
+            f_str = str(s.get("why") or "")
+            if is_left("no_head_on", fx, fy, f"{s.get('said_by')}, {s.get('at')}: {f_str}"):
+                continue
+            check_span("no_head_on", fx, fy)
+            tf = tagged(f_str)
+            out["no_head_on"].append((fx, fy, tf))
+            out["no_head_on_meta"].append({"said_by": s.get("said_by"), "at": s.get("at"), "carried": dict(carried_rec)})
+            carried_said.append(f"no_head_on ({nh_form}) {fx}-{fy} ({s.get('said_by')}, {s.get('at')}): {tf}")
+        if out["no_head_on"]:
+            out["no_head_form"] = nh_form
 
     old_mouth = old_ref.get("mouth") or {}
     for k in old_mouth:
@@ -2250,6 +2278,7 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
              motion_why: str | None = None, no_strangers: str | None = None, no_mouth_on: list[tuple[int, int, str]] | None = None,
              eyes_shut_on: list[tuple[int, int, str]] | None = None, eyes_shut_form: str | None = None,
              no_face_on: list[tuple[int, int, str]] | None = None, no_draw_face_on: list[tuple[int, int, str]] | None = None,
+             no_head_on: list[tuple[int, int, str]] | None = None, no_head_form: str | None = None,
              hold_part: list[tuple[int, int, str]] | None = None, seam: list[int] | None = None,
              seam_why: str | None = None, context_noise: float | None = None, context_noise_why: str | None = None,
              mouth_on: list[tuple[int, int, str]] | None = None, data: Path | None = None,
@@ -2375,6 +2404,21 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
             cw["no_draw_face_on"] = kept_cw_ndf
             cw["no_draw_face_on_meta"] = kept_cw_ndf_meta
         no_draw_face_on = list(cw["no_draw_face_on"]) + fresh_ndf
+        fresh_nh = list(no_head_on or [])
+        if fresh_nh and cw["no_head_on"]:
+            kept_cw_nh = []
+            kept_cw_nh_meta = []
+            for (cx, cy, csaid), cmeta in zip(cw["no_head_on"], cw["no_head_on_meta"]):
+                if any(nx <= cy and cx <= ny for nx, ny, _ in fresh_nh):
+                    _ov(f"no_head_on ({cw['no_head_form']}) {cx}-{cy}", f"{fresh_nh}", f"{cx}-{cy} ({cmeta.get('said_by')}, {cmeta.get('at')}): {csaid}")
+                else:
+                    kept_cw_nh.append((cx, cy, csaid))
+                    kept_cw_nh_meta.append(cmeta)
+            cw["no_head_on"] = kept_cw_nh
+            cw["no_head_on_meta"] = kept_cw_nh_meta
+        no_head_on = list(cw["no_head_on"]) + fresh_nh
+        if no_head_form is None and cw["no_head_form"] is not None and no_head_on:
+            no_head_form = cw["no_head_form"]
         no_mouth_on = list(cw["no_mouth_on"]) + list(no_mouth_on or [])
         mouth_on = list(cw["mouth_on"]) + list(mouth_on or [])
         if not eyes_shut_on and cw["eyes_shut_on"]:
@@ -2623,6 +2667,41 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
         if both_nf:
             raise Refused(f"--no-draw-face-on and --no-face-on both name {both_nf[0]}-{both_nf[-1]}: say one of them on those frames")
         ref_form["no_draw_face_on"] = spans
+    # NO HEAD ON THE REFERENCE ALONE, on a person's word (`--no-head-on FIRST-LAST=WHY` with `--no-head-form hold|blank`, 2026-10-24 on
+    # 4310c's 4366-4378, where the 3D body model's head is thrown back nose-to-ceiling while the source turns left and looks down): on
+    # those source frames the reference holds its last good frame before the span (`hold`, the default) or is black (`blank`), with no
+    # face lines drawn, while the capture and mask stay untouched.
+    import head_reference
+    if no_head_on or no_head_form is not None:
+        if motion == "none":
+            raise Refused("--no-head-on acts on the drawn reference, and this load has none (--motion none)")
+        if not no_head_on:
+            raise Refused("--no-head-form goes with --no-head-on: there are no frames to hold or blank")
+        nh_form = no_head_form or head_reference.NO_HEAD_FORMS[0]
+        if nh_form not in head_reference.NO_HEAD_FORMS:
+            raise Refused(f"--no-head-form is one of {head_reference.NO_HEAD_FORMS}; got {nh_form!r}")
+        if sorted(parts or []) == ["hair"]:
+            raise Refused("--no-head-on on a load of her hair alone: the reference is for her hair alone already")
+        spans = []
+        for idx, (x, y, said) in enumerate(no_head_on):
+            said = " ".join(str(said).split())
+            if not (a <= x <= y <= b):
+                raise Refused(f"--no-head-on {x}-{y}: the load is {a}-{b}")
+            if not any(Path(w.strip(".,;:()\"'")).is_file() for w in said.split()):
+                raise Refused(f"--no-head-on {x}-{y} takes a person's word on a look: who looked, at which sheet of those frames (name its file: the "
+                              "tool checks only that a file of that name is there), and why the grey head is held or blank there")
+            meta = cw["no_head_on_meta"][idx] if (cw and idx < len(cw["no_head_on_meta"])) else None
+            spans.append({"first": x, "last": y, "why": said,
+                          "said_by": meta["said_by"] if meta else by, "at": meta["at"] if meta else now,
+                          **({"carried": dict(meta["carried"])} if meta else {})})
+        nh_frames = {f for s_ in spans for f in range(s_["first"], s_["last"] + 1)}
+        if nh_form == "hold" and a in nh_frames:
+            raise Refused(f"--no-head-on holds the last good frame before the span, and {a} is the load's first frame (give --no-head-form blank)")
+        nf_frames = {f for s_ in (ref_form.get("no_face_on") or []) + (ref_form.get("no_draw_face_on") or []) for f in range(s_["first"], s_["last"] + 1)}
+        both_nh = sorted(f for f in nh_frames if f in nf_frames)
+        if both_nh:
+            raise Refused(f"--no-head-on and --no-face-on/--no-draw-face-on both name {both_nh[0]}-{both_nh[-1]}: say one of them on those frames")
+        ref_form["no_head_on"] = {"form": nh_form, "spans": spans}
     # A MOUTH ON A SPAN, on a person's word (`--mouth-on FIRST-LAST=WHY`, the lead's ruling of 2026-10-15 on lead_fp_2823c, whose reference
     # drew no mouth on 3098-3099 and 3101-3104 while she sings with it wide open): where the reference's gate drops the mouth, the pose model's
     # lip rings are drawn with a dark inside (head_reference.MOUTH_ON). The same terms as --no-mouth-on: the look and its file named, each
@@ -2655,7 +2734,8 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
             raise Refused(f"--mouth-on {'; '.join(on_hair)} (--parts-on): no line of the face is drawn there")
         closed = [(s_["first"], s_["last"], what) for what, ss in (("--no-mouth-on", ref_form["mouth"].get("no_mouth_on") or []),
                                                                    ("--no-face-on", ref_form.get("no_face_on") or []),
-                                                                   ("--no-draw-face-on", ref_form.get("no_draw_face_on") or [])) for s_ in ss]
+                                                                   ("--no-draw-face-on", ref_form.get("no_draw_face_on") or []),
+                                                                   ("--no-head-on", (ref_form.get("no_head_on") or {}).get("spans") or [])) for s_ in ss]
         clash = [f"{x}-{y} against {what} {c}-{d}" for x, y, _ in mouth_on for c, d, what in closed if x <= d and c <= y]
         if clash:
             raise Refused(f"--mouth-on {'; '.join(clash)}: one says her mouth is open there, the other draws none")
@@ -2683,10 +2763,11 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
             spans.append({"first": x, "last": y, "why": said,
                           "said_by": meta["said_by"] if meta else by, "at": meta["at"] if meta else now,
                           **({"carried": dict(meta["carried"])} if meta else {})})
-        faceless = {f for x in (ref_form.get("no_face_on") or []) + (ref_form.get("no_draw_face_on") or []) for f in range(x["first"], x["last"] + 1)}
+        faceless = {f for x in (ref_form.get("no_face_on") or []) + (ref_form.get("no_draw_face_on") or []) + ((ref_form.get("no_head_on") or {}).get("spans") or [])
+                    for f in range(x["first"], x["last"] + 1)}
         both = sorted(f for x in spans for f in range(x["first"], x["last"] + 1) if f in faceless)
         if both:
-            raise Refused(f"--eyes-shut-on and --no-face-on/--no-draw-face-on both name {both[0]}-{both[-1]}: no line of the face is drawn there, so there are no eyes "
+            raise Refused(f"--eyes-shut-on and --no-face-on/--no-draw-face-on/--no-head-on both name {both[0]}-{both[-1]}: no line of the face is drawn there, so there are no eyes "
                           "to shut; say one of them on those frames")
         ref_form["iris"] = dict(ref_form["iris"], eyes_shut={"form": eyes_shut_form, "spans": spans})
     subjects = [{k: v for k, v in s.items() if k in ("label", "phrase", "pick", "parts", "still", "pose")} for s in preview["subjects"]]
@@ -3066,7 +3147,8 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
                                    **({"crop": ref_form["crop"]} if ref_form.get("crop") else {}),
                                    **({"head_track": no_head_track_block or ref_form["head_track"]} if (no_head_track_block or ref_form.get("head_track")) else {}),
                                    **({"no_face_on": ref_form["no_face_on"]} if ref_form.get("no_face_on") else {}),
-                                   **({"no_draw_face_on": ref_form["no_draw_face_on"]} if ref_form.get("no_draw_face_on") else {})}),
+                                   **({"no_draw_face_on": ref_form["no_draw_face_on"]} if ref_form.get("no_draw_face_on") else {}),
+                                   **({"no_head_on": ref_form["no_head_on"]} if ref_form.get("no_head_on") else {})}),
                     "others_present": others, "defaults": carried},
             "defaults": {**h3_config.MASKED_LOAD_DEFAULTS, "margin": region_margin if own_margin is None else own_margin,
                          **({"margin_by": margin_by} if margin_by else {}),
@@ -3428,10 +3510,16 @@ def defaults_carried(p: dict, load: dict, subjects: list, subject: str, kept: di
                 ("NOT DRAWN ON THE REFERENCE ALONE on " + ", ".join(f"{s['first']}-{s['last']}" for s in ref_form["no_draw_face_on"])
                  + ", turned off on a person's word (the plain cut body model alone there; a short gap takes its neighbours' points before drawing, "
                  "head_reference.FILL_GAP, and the capture keeps the part's face classes)") if ref_form.get("no_draw_face_on") else "",
+                ("NO HEAD ON THE REFERENCE ALONE on " + ", ".join(f"{s['first']}-{s['last']}" for s in (ref_form.get("no_head_on") or {}).get("spans") or [])
+                 + f" ({ref_form['no_head_on']['form']}: "
+                 + ("holds the last good cut body-model frame before the span" if ref_form["no_head_on"]["form"] == "hold" else "black on those frames")
+                 + ", with no face lines drawn, while the capture and mask stay untouched; head_reference --no-head-on)")
+                if ref_form.get("no_head_on") else "",
             ])),
             "; ".join(f"{s['first']}-{s['last']}: {s['said_by']}, {s['at']}: {s['why']}"
-                      for s in (ref_form.get("no_face_on") or []) + (ref_form.get("no_draw_face_on") or [])))]
-          if (ref_form.get("no_face_on") or ref_form.get("no_draw_face_on")) else []),
+                      for s in (ref_form.get("no_face_on") or []) + (ref_form.get("no_draw_face_on") or [])
+                      + ((ref_form.get("no_head_on") or {}).get("spans") or [])))]
+          if (ref_form.get("no_face_on") or ref_form.get("no_draw_face_on") or ref_form.get("no_head_on")) else []),
         *([("the head tube", "SAM 3.1 whole-head tube bounded by the person track + 3-frame smoothed Sapiens2-Seg on one steady shot box (head_tube_parts --head-tube)",
             f"shot_to_load.py::defaults_carried (opt-in switch, off by default; {head_tube_block['said_by']}: {head_tube_block['why']})")]
           if head_tube_block else []),
@@ -3507,31 +3595,6 @@ def laid_on_frames(plan_file: str, video: str, world, first: int, last: int) -> 
     return laid_path, rows
 
 
-def _cut_pieces_on_frames(given_p: Path, video: str, world, first: int, last: int) -> list[dict] | None:
-    """When `given_p` has an assembled cut sidecar (`<cut>.json`) on disk, return its `pieces` overlapping `first..last`."""
-    import re
-    candidates = [Path(f"{given_p}.json")]
-    m_day = re.search(r"joined_(\d{4}-\d{2}-\d{2})T", given_p.name)
-    if m_day and getattr(world, "output", None):
-        candidates.append(Path(world.output) / "Video" / video / f"day_{m_day.group(1)}" / f"{given_p.name}.json")
-    for sc in candidates:
-        if not sc.is_file():
-            continue
-        try:
-            pieces = json.loads(sc.read_text()).get("pieces")
-        except Exception:
-            continue
-        if not isinstance(pieces, list):
-            continue
-        out = []
-        for p in pieces:
-            pf, pl = int(p.get("first", -1)), int(p.get("last", -2))
-            if pf <= last and pl >= first:
-                out.append({"subject": p.get("subject"), "load": p.get("name") or p.get("load", "?"), "first": pf, "last": pl})
-        return out
-    return None
-
-
 def check_pass2_source(
     shots: dict,
     plan_file: str,
@@ -3543,21 +3606,30 @@ def check_pass2_source(
     given_source: str,
     default_source: Path,
     allow_raw_source: str | None = None,
-    own_subjects: list[str] | None = None,
 ) -> str:
     """Refuse segmenting or rendering from the raw unswapped source video when another replacement is already laid on
-    `[first, last]` in `laid.jsonl`, or from a cut that already holds the load's own subject's piece on `[first, last]`
-    (unless `--allow-raw-source WHY` is given). `other_subjects` are the labels whose laid pieces must be in the source:
-    at `job` every label but the load's, at `preview` every label but the ones it is made for (`--for`), so a preview made
-    to redo a laid piece does not require that piece (the owner, 2026-10-21: every replacement is a pass, made on the cut
-    that holds every OTHER replacement laid there; 5011's remake had needed the override). Conversely, `own_subjects` must
-    NOT already be laid in a source cut (1306g, 4647c; 2026-10-24)."""
+    `[first, last]` in `laid.jsonl` (unless `--allow-raw-source WHY` is given). `other_subjects` are the labels whose laid
+    pieces count: at `job` every label but the load's, at `preview` every label but the ones it is made for (`--for`), so
+    a preview made to redo a laid piece does not count that piece (the owner, 2026-10-21: every replacement is a pass,
+    made on the cut that holds every OTHER replacement laid there; 5011's remake had needed the override). Nothing here
+    names a subject: the labels are the shots record's and the list's."""
     if allow_raw_source is not None and not " ".join(str(allow_raw_source).split()):
         raise Refused("--allow-raw-source takes the reason in words")
     laid_path, laid_rows = laid_on_frames(plan_file, video, world, first, last)
+    if laid_path is None or not other_subjects:
+        return (
+            f" RAW SOURCE ALLOWED ON PASS 2 ({' '.join(str(allow_raw_source).split())})."
+            if allow_raw_source
+            else ""
+        )
     other_set = set(other_subjects)
-    own_set = set(own_subjects) if own_subjects is not None else {k for k in (shots.get("subjects") or []) if k not in other_set}
     laid_hits = [row for row in laid_rows if row.get("subject") in other_set]
+    if not laid_hits:
+        return (
+            f" RAW SOURCE ALLOWED ON PASS 2 ({' '.join(str(allow_raw_source).split())})."
+            if allow_raw_source
+            else ""
+        )
     given_p = Path(given_source)
     try:
         given_res = given_p.resolve()
@@ -3565,47 +3637,6 @@ def check_pass2_source(
         given_res = given_p
     raw_names, raw_paths = _raw_source_names_and_paths(shots, plan_file, default_source, world)
     is_raw = given_p.name in raw_names or given_res in raw_paths
-    import re
-    m_cut = re.search(r"(\d{4}-\d{2}-\d{2}T\d{2}):?(\d{2})Z", given_p.name)
-    cut_hm = f"{m_cut.group(1)}:{m_cut.group(2)}" if m_cut else ""
-    if not is_raw and not allow_raw_source and own_set:
-        cut_pieces = _cut_pieces_on_frames(given_p, video, world, first, last)
-        own_hits = [p for p in (cut_pieces or []) if p.get("subject") in own_set]
-        if cut_pieces is None:
-            for r in laid_rows:
-                if r.get("subject") not in own_set:
-                    continue
-                if not cut_hm or not r.get("added") or str(r.get("added"))[:16] <= cut_hm or bool(r.get("replaces")):
-                    own_hits.append(r)
-        if own_hits:
-            own_said = ", ".join(
-                f"{r['subject']} ({r.get('load', '?')} on {r.get('first')}-{r.get('last')})"
-                for r in own_hits
-            )
-            own_names = ", ".join(sorted({str(r["subject"]) for r in own_hits}))
-            if not laid_hits:
-                right_source = f"the raw working copy {default_source} (no other subject is laid on {first}-{last})"
-            else:
-                other_said = ", ".join(
-                    f"{r['subject']} ({r.get('load', '?')} on {r.get('first')}-{r.get('last')})"
-                    for r in laid_hits
-                )
-                right_source = (
-                    f"a post-Pass-1 cut holding {other_said} without {own_names} "
-                    f"(remove {own_names}'s piece from {laid_path or 'laid.jsonl'} and rebuild the cut)"
-                )
-            raise Refused(
-                f"on {first}-{last}, the source cut {given_p.name} already holds the load's own subject "
-                f"{own_said}: tracking and rendering from a cut that already replaced {own_names} "
-                f"follows the already-replaced picture and leaves the raw source outside the mask at assembly; "
-                f"use {right_source} via --source (or --allow-raw-source \"<why>\" if intentional)"
-            )
-    if laid_path is None or not other_subjects or not laid_hits:
-        return (
-            f" RAW SOURCE ALLOWED ON PASS 2 ({' '.join(str(allow_raw_source).split())})."
-            if allow_raw_source
-            else ""
-        )
     if is_raw and not allow_raw_source:
         laid_said = ", ".join(
             f"{r['subject']} ({r.get('load', '?')} on {r.get('first')}-{r.get('last')})"
@@ -3619,7 +3650,10 @@ def check_pass2_source(
         )
     if is_raw and allow_raw_source:
         return f" RAW SOURCE ALLOWED ON PASS 2 ({' '.join(str(allow_raw_source).split())})."
+    import re
+    m_cut = re.search(r"(\d{4}-\d{2}-\d{2}T\d{2}):?(\d{2})Z", given_p.name)
     if m_cut and not allow_raw_source:
+        cut_hm = f"{m_cut.group(1)}:{m_cut.group(2)}"
         newer = [r for r in laid_hits if str(r.get("added") or "")[:16] > cut_hm]
         if newer:
             newer_said = ", ".join(
@@ -3632,35 +3666,6 @@ def check_pass2_source(
                 f"(or --allow-raw-source \"<why>\" if an older cut is intentional)"
             )
     return ""
-
-
-def check_job_pass2_source(job_file: str | Path, shots_file: str | Path, plan_file: str | Path, world) -> str:
-    """Hold an existing load job file (`job_file`) to `check_pass2_source` against `shots_file` and `plan_file`."""
-    shots, _ = _load(str(shots_file), str(plan_file))
-    d = json.loads(Path(job_file).read_text())
-    j = d["job"]
-    load = d["loads"][0]
-    first = int(load["first"])
-    last = first + int(load["frames"]) - 1
-    subject = str(load["subject"])
-    video, default_source, _ = working_copy(shots["copy"], world)
-    shot = shot_of(shots, int(j.get("first", first)))
-    other_subjects = list(dict.fromkeys(
-        [k for k in shots["subjects"] if k != subject and (shot["who"].get(k) or {}).get("present") == "yes"]
-        + [s["label"] for s in (j.get("subjects") or []) if s.get("label") and s["label"] != subject]
-    ))
-    return check_pass2_source(
-        shots,
-        str(plan_file),
-        video,
-        world,
-        first,
-        last,
-        other_subjects,
-        str(j["source"]),
-        default_source,
-        own_subjects=[subject],
-    )
 
 
 # ---------------------------------------------------------------- the steps
@@ -3685,13 +3690,11 @@ def step_preview(a, world) -> None:
     else:
         source = default_source
     cast = None
-    cast_path = Path(a.cast) if a.cast else (world.data / video / "cast" / "cast.jsonl")
-    if a.cast and not cast_path.is_file():
-        raise Refused(f"--cast {a.cast}: no such file")
-    if cast_path.is_file():
+    if a.cast:
+        if not Path(a.cast).is_file():
+            raise Refused(f"--cast {a.cast}: no such file")
         import cast_file
-        cast = cast_file.read(str(cast_path))
-        print(f"cast: {cast_path}" + ("" if a.cast else f" (default for {video})"))
+        cast = cast_file.read(a.cast)
     name = preview_name(shot)
     if a.remake:
         # a name is taken by a job file in this folder or any *_jobs folder, and by a capture or job folder of any day
@@ -3728,7 +3731,6 @@ def step_preview(a, world) -> None:
         str(src_arg),
         default_source,
         allow_raw_source=getattr(a, "allow_raw_source", None),
-        own_subjects=made_for or list(present_on_shot),
     )
     seed_cuts = cuts_of_table(a.seed_cuts_of, shot) if a.seed_cuts_of else None
     if seed_cuts and not cast:
@@ -3991,6 +3993,8 @@ def step_job(a, world, cut=cut_keep_out, hashed=None, inside=part_inside, classe
                    eyes_shut_on=[no_mouth_on_arg(x, "--eyes-shut-on") for x in getattr(a, "eyes_shut_on", None) or []],
                    no_face_on=[no_mouth_on_arg(x, "--no-face-on") for x in getattr(a, "no_face_on", None) or []],
                    no_draw_face_on=[no_mouth_on_arg(x, "--no-draw-face-on") for x in getattr(a, "no_draw_face_on", None) or []],
+                   no_head_on=[no_mouth_on_arg(x, "--no-head-on") for x in getattr(a, "no_head_on", None) or []],
+                   no_head_form=getattr(a, "no_head_form", None),
                    hold_part=[hold_part_arg(x) for x in getattr(a, "hold_part", None) or []],
                    eyes_shut_form=getattr(a, "eyes_shut_form", None), seam=seams_arg(getattr(a, "seam", None)), seam_why=getattr(a, "seam_why", None),
                    context_noise=getattr(a, "context_noise", None), context_noise_why=getattr(a, "context_noise_why", None),
@@ -4019,7 +4023,6 @@ def step_job(a, world, cut=cut_keep_out, hashed=None, inside=part_inside, classe
         str(prev_src),
         default_source,
         allow_raw_source=getattr(a, "allow_raw_source", None),
-        own_subjects=[a.subject],
     )
     job["job"]["note"] += earlier.replace("MADE ON AN EARLIER COPY", "ITS PREVIEW WAS MADE ON AN EARLIER COPY") + raw_note
     out = folder / f"{name}.json"
@@ -4111,12 +4114,21 @@ def step_reference(a, world, figures=figures_of) -> None:
                               "made again, in a new folder")
         # the job's spans of no face on a person's word: a reference taken as it was must have left those frames bare
         bare = set((made.get("drawn") or {}).get("frames_left_bare") or [])
-        all_no_face = ((job.get("reference") or {}).get("no_face_on") or []) + ((job.get("reference") or {}).get("no_draw_face_on") or [])
+        all_no_face = (((job.get("reference") or {}).get("no_face_on") or [])
+                       + ((job.get("reference") or {}).get("no_draw_face_on") or [])
+                       + (((job.get("reference") or {}).get("no_head_on") or {}).get("spans") or []))
         missed = [f for s in all_no_face for f in range(s["first"], s["last"] + 1) if f not in bare] \
             if form != "plain" else []          # the plain cut has no line of the face on any frame
         if missed:
             raise again(f"--existing: {record} draws face lines on {len(missed)} frame(s) the job says show no face on a person's word "
                           f"(first {missed[0]}, last {missed[-1]}): the reference is made again, in a new folder")
+        want_nh = (job.get("reference") or {}).get("no_head_on") or {}
+        want_nh_spans = sorted((s["first"], s["last"]) for s in want_nh.get("spans") or [])
+        drew_nh = (made.get("drawn") or {}).get("no_head_on") or {}
+        drew_nh_spans = sorted((w["first"], w["last"]) for w in drew_nh.get("on_whose_word") or [])
+        if want_nh_spans != drew_nh_spans or (want_nh_spans and (want_nh.get("form") or "hold") != (drew_nh.get("form") or "hold")):
+            raise again(f"--existing: {record} has no_head_on {drew_nh_spans or 'none'} ({drew_nh.get('form')}) and the job asks for "
+                        f"{want_nh_spans or 'none'} ({want_nh.get('form')}): the reference is made again, in a new folder")
         # the job's spans of no mouth on a person's word: a reference taken as it was must have drawn none there
         said = ((job.get("reference") or {}).get("mouth") or {}).get("no_mouth_on") or []
         mouth = (made.get("drawn") or {}).get("mouth") or {}
@@ -4294,6 +4306,12 @@ def drawn_form(job: dict, a, files: dict, preview_first: int) -> list:
     # the job's spans of no face drawn on the reference alone (`job --no-draw-face-on`: bad 2D face marks while the part is kept)
     for s in said.get("no_draw_face_on") or []:
         out += ["--no-draw-face-on", f"{s['first']}-{s['last']}=a person's word on a look ({s['said_by']}, {s['at']}): {s['why']}"]
+    # the job's spans where the 3D body model lost the head pose (`job --no-head-on`: held or blank on the reference alone)
+    nh = said.get("no_head_on") or {}
+    for s in nh.get("spans") or []:
+        out += ["--no-head-on", f"{s['first']}-{s['last']}=a person's word on a look ({s['said_by']}, {s['at']}): {s['why']}"]
+    if nh.get("spans") and nh.get("form") and nh["form"] != "hold":
+        out += ["--no-head-form", nh["form"]]
     # the plan's restore spans of a class over her eyes (her own glasses, head_reference.OVER_THE_EYES): the face counts as on her track
     # there by the lower face (the lead, 2026-10-15, on 2823's white sunglasses, off her track from 3073)
     import head_reference
@@ -4341,12 +4359,12 @@ def written(a, ctx: dict, made: dict, record: Path, points: Path, drawn: Path, f
     d["job"]["reference"] = reference_block(form, why, a.by, made["made_at"] if taken else now_ts, record, points, got)
     # the mouth and the eye as asked, and as drawn (the record's own words: the check's figures, the iris form)
     md = made.get("drawn") or {}
-    d["job"]["reference"].update({k: was[k] for k in ("mouth", "iris", "no_face_on", "no_draw_face_on", "darken_head", "head_track", "crop") if k in was},
+    d["job"]["reference"].update({k: was[k] for k in ("mouth", "iris", "no_face_on", "no_draw_face_on", "no_head_on", "darken_head", "head_track", "crop") if k in was},
                                  drawn={"mouth": md.get("mouth"), "iris": md.get("iris"),
                                         "eyes_shut": md.get("eyes_shut"),
                                         "parts_left_out": md.get("parts_left_out"),
                                         "frames_left_bare": md.get("frames_left_bare"),
-                                        **({k: md[k] for k in ("eye_rings", "darken_head", "marks_against_the_body_model") if md.get(k) is not None})})
+                                        **({k: md[k] for k in ("eye_rings", "darken_head", "no_head_on", "marks_against_the_body_model") if md.get(k) is not None})})
     nht = getattr(a, "no_head_track", None)
     if nht is not None:
         d["job"]["reference"]["head_track"] = {
@@ -4626,7 +4644,7 @@ def main() -> int:
     sub.choices["preview"].add_argument("--for", dest="made_for", action="append", default=[], metavar="LABEL",
                                         help="the replacement this preview is made for, a label of the shots record on this shot; repeatable. Required "
                                              "where anything is laid on the shot: the source is then held to the laid pieces of the others alone")
-    sub.choices["preview"].add_argument("--cast", help="the cast file (defaults to data/<video>/cast/cast.jsonl when present): a subject with an answer inside the shot is seeded from it")
+    sub.choices["preview"].add_argument("--cast", help="the cast file: a subject with an answer inside the shot is seeded from it")
     sub.choices["preview"].add_argument("--ask", action="append", default=[], metavar="SUBJECT:why",
                                         help="track a subject the record is `unsure` of on this shot, because the preview is made to ask the owner who is on it; "
                                              "repeatable. No load is built on it until they have answered")
@@ -4688,6 +4706,12 @@ def main() -> int:
                         "takes its neighbours' points before drawing, head_reference.FILL_GAP), while the capture keeps the subject's face part "
                         "mask, on a person's word: who looked, at which sheet of those frames (its file named; only that a file of that name is "
                         "there is checked), and why the face marks are left off the grey head there; repeatable")
+    import head_reference
+    j.add_argument("--no-head-on", action="append", default=[], metavar="FIRST-LAST=WHY",
+                   help="source frames on which the 3D body model has lost the subject's head pose: the reference holds its last good frame before "
+                        "the span (hold, the default) or is black (blank), with no face lines drawn, while the capture and mask stay untouched; repeatable")
+    j.add_argument("--no-head-form", choices=head_reference.NO_HEAD_FORMS, default=None,
+                   help="what the reference shows on --no-head-on frames: hold (the default: last good cut body-model frame before the span) or blank (black)")
     j.add_argument("--hold-part", action="append", default=[], metavar="FIRST-LAST[@FRAME]=WHY",
                    help="hold the subject's part on those source frames where the capture's grade leaves it empty, from the nearest graded part, "
                         "on a person's word: who looked, at which sheet of those frames (its file named; only that a file of that name is there is "
@@ -4732,7 +4756,7 @@ def main() -> int:
                    "h3_config.SEED unless it is given --seed")
     j.add_argument("--leave-word", action="append", default=[], metavar="KIND:FIRST-LAST",
                    help="with --carry-words-from and --leave-by: leave out a carried span (left_out, drop, hold_part, parts_on, track_not, no_face_on, "
-                        "no_draw_face_on, no_mouth_on, mouth_on, eyes_shut_on, seam) on purpose, recording the drop in job.carried_words_from.left_words; repeatable")
+                        "no_draw_face_on, no_head_on, no_mouth_on, mouth_on, eyes_shut_on, seam) on purpose, recording the drop in job.carried_words_from.left_words; repeatable")
     j.add_argument("--leave-by", metavar="WHO_WHY", help="who says the --leave-word span(s) are left out and why; kept in job.carried_words_from.left_words")
     j.add_argument("--no-carry-words", metavar="WHY", help="Why a --remake does not carry words from an earlier job on the same shot and subject.")
     j.add_argument("--seed", metavar="N", help="the song node's seed for this load, in place of h3_config.SEED (the job's own): a whole number from 0 to "

@@ -237,6 +237,13 @@ def span_words(job: dict | None) -> dict | None:
     ref = job.get("reference") or {}
     if card_spans(ref.get("no_face_on")):
         out["no_face_on"] = card_spans(ref["no_face_on"])
+    if card_spans(ref.get("no_draw_face_on")):
+        out["no_draw_face_on"] = card_spans(ref["no_draw_face_on"])
+    nh = ref.get("no_head_on")
+    if isinstance(nh, dict) and card_spans(nh.get("spans")):
+        out["no_head_on"] = {"form": nh.get("form") or "hold", "spans": card_spans(nh.get("spans"))}
+    elif card_spans(nh):
+        out["no_head_on"] = {"form": "hold", "spans": card_spans(nh)}
     mouth = ref.get("mouth") if isinstance(ref.get("mouth"), dict) else {}
     for key in ("no_mouth_on", "mouth_on"):
         if card_spans(mouth.get(key)):

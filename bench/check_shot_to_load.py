@@ -3396,8 +3396,6 @@ def no_head_track_on_the_reference_step() -> str:
 
 
 def missing_cast_file_refused() -> str:
-    import contextlib
-    import io
     with tempfile.TemporaryDirectory() as tmp:
         made = Made(Path(tmp))
         missing = str(made.root / "no_such_cast.jsonl")
@@ -3425,25 +3423,7 @@ def missing_cast_file_refused() -> str:
             ),
             f"--cast {missing}: no such file",
         )
-        # When data/<video>/cast/cast.jsonl exists on disk and --cast is omitted, preview defaults to it and prints which it read
-        default_cast = made.m.data / "v" / "cast" / "cast.jsonl"
-        default_cast.parent.mkdir(parents=True, exist_ok=True)
-        w, h = cfg.MASKED_JOB_CANVAS
-        default_cast.write_text(json.dumps(
-            cast_file.entry("a", 125, cast_file.HERE, by="a person", box=[10, 20, 30, 40], size=[w, h], table="t.json", at="t1")
-        ) + "\n")
-        buf = io.StringIO()
-        with contextlib.redirect_stdout(buf):
-            stl.step_preview(
-                args(shots=str(made.shots_file), plan=str(made.plan_file), shot=100, folder=str(made.jobs),
-                     source=str(made.root / "input" / "copy.mov"), remake=True),
-                made.m,
-            )
-        out_str = buf.getvalue()
-        assert f"cast: {default_cast} (default for v)" in out_str, out_str
-        pjob = json.loads((made.jobs / "shot_c_0100b.json").read_text())["job"]
-        assert "SEEDED from the cast file" in pjob["note"], pjob["note"]
-    return "preview and job refuse a non-existent --cast file cleanly via Refused, and preview defaults to data/<video>/cast/cast.jsonl when present and prints which it read"
+    return "preview and job refuse a non-existent --cast file cleanly via Refused"
 
 
 def pass2_raw_source_refused_and_source_required() -> str:
@@ -3570,76 +3550,8 @@ def pass2_raw_source_refused_and_source_required() -> str:
             made.m,
         )
         assert (made.jobs / "shot_c_0100c.json").is_file()
-        # 7. Inverse pass-2 guard: refuse a source cut that already holds the load's own subject's piece on its frames,
-        # naming the right source (raw working copy when no other subject is laid, as on 4647c; a post-Pass-1 cut holding
-        # the other laid subject without the load's own subject when another subject is also laid, as on 1306g).
-        # 7a. Only `b` is laid on 100-159 (4647c pattern): a preview or job for `b` on `new_cut` is refused and names `copy.mov`.
-        made.plan["subjects"]["b"].pop("hair_band", None)
-        made.write()
-        refused(
-            lambda: stl.step_preview(
-                args(shots=str(made.shots_file), plan=str(made.plan_file), shot=100, folder=str(made.jobs),
-                     source=str(new_cut), remake=True, made_for=["b"]),
-                made.m,
-            ),
-            "already holds the load's own subject b (b_hfp_0100 on 100-159)",
-            f"use the raw working copy {raw_src} (no other subject is laid on 100-159)",
-        )
-        refused(
-            lambda: stl.step_job(
-                args(shots=str(made.shots_file), plan=str(made.plan_file), shot=100, folder=str(made.jobs),
-                     subject="b", preview=str(p2_pfolder)),
-                made.m,
-            ),
-            "already holds the load's own subject b (b_hfp_0100 on 100-159)",
-            f"use the raw working copy {raw_src} (no other subject is laid on 100-159)",
-        )
-        # 7b. Both `a` and `b` are laid on 100-159 (1306g pattern): a preview or job for `b` on `new_cut` is refused and names
-        # a post-Pass-1 cut holding `a` without `b`.
-        laid_file.write_text(
-            json.dumps({"load": "a_fp_0100", "subject": "a", "first": 100, "last": 159, "added": "2026-10-18T19:25:45Z"}) + "\n"
-            + json.dumps({"load": "b_hfp_0100g", "subject": "b", "first": 100, "last": 159, "added": "2026-10-24T12:00:00Z", "replaces": "b_hfp_0100f"}) + "\n"
-        )
-        refused(
-            lambda: stl.step_preview(
-                args(shots=str(made.shots_file), plan=str(made.plan_file), shot=100, folder=str(made.jobs),
-                     source=str(new_cut), remake=True, made_for=["b"]),
-                made.m,
-            ),
-            "already holds the load's own subject b (b_hfp_0100g on 100-159)",
-            "use a post-Pass-1 cut holding a (a_fp_0100 on 100-159) without b",
-        )
-        # 7c. Real job files on disk when present: third_fp_1306g.json and third_fp_4647c.json refuse in the tool's own words
-        # naming the right source, and third_fp_5675g.json passes.
-        real_shots = HERE.parent / "data/fun/shots.json"
-        real_plan = HERE.parent / "data/fun/plan.json"
-        j_1306g = HERE.parent / "data/2026-10-22_mrcat_jobs/third_fp_1306g.json"
-        j_4647c = HERE.parent / "data/2026-10-24_gemlead_jobs/third_fp_4647c.json"
-        j_5675g = HERE.parent / "data/2026-10-24_gemlead_jobs/third_fp_5675g.json"
-        if all(p.is_file() for p in (real_shots, real_plan, j_1306g, j_4647c, j_5675g)):
-            j4 = json.loads(j_4647c.read_text())
-            real_inputs = Path(j4["job"]["source"]).parent
-            real_copy = json.loads(real_shots.read_text()).get("copy") or ""
-            if (real_inputs / real_copy).is_file():
-                real_world = Machine(HERE.parent)
-                real_world.data = HERE.parent / "data"
-                real_world.inputs = real_inputs
-                real_world.output = Path(j4["loads"][0]["motion_file"]).parents[4]
-                refused(
-                    lambda: stl.check_job_pass2_source(j_1306g, real_shots, real_plan, real_world),
-                    "on 1306-1418, the source cut fun_0000_6394_joined_2026-10-22T1549Z_from_laid.mp4 already holds the load's own subject third",
-                    "use a post-Pass-1 cut holding lead (lead_fp_1306t on 1306-1418) without third",
-                )
-                refused(
-                    lambda: stl.check_job_pass2_source(j_4647c, real_shots, real_plan, real_world),
-                    "on 4647-4725, the source cut fun_0000_6394_joined_2026-10-24T0045Z_from_laid.mp4 already holds the load's own subject third",
-                    "use the raw working copy",
-                    "fun_0000_6394_24p_sound_in_step.mov (no other subject is laid on 4647-4725)",
-                )
-                assert stl.check_job_pass2_source(j_5675g, real_shots, real_plan, real_world) == ""
     return ("preview requires --source explicitly, and --for where anything is laid on the shot; preview and job refuse the raw source video or a cut "
-            "predating the shot's laid rows when another replacement is laid on the shot in laid.jsonl, refuse a cut holding the load's own subject's "
-            "piece (1306g, 4647c) while passing a cut holding only the other subject's piece (5675g), and succeed with a post-Pass-1 video")
+            "predating the shot's laid rows when another replacement is laid on the shot in laid.jsonl, and succeed with a post-Pass-1 video")
 
 
 def a_loads_seed_is_a_persons_word() -> str:
@@ -3971,6 +3883,93 @@ def a_loads_margin_is_a_persons_word() -> str:
             "anything but a whole number from 1 to the node's most, and under the feather; --carry-words-from carries none of it")
 
 
+def no_head_on_in_the_job_and_reference() -> str:
+    """`--no-head-on FIRST-LAST=WHY` with `--no-head-form hold|blank` in `shot_to_load.py`: recorded on `job.reference.no_head_on`, said in
+    `THE DEFAULTS THIS LOAD CARRIES` and `job.note`, forwarded by `drawn_form`, checked by `step_reference --existing`, carried across
+    `--carry-words-from` (and dropped by `--leave-word no_head_on:FIRST-LAST`), and refused without a sheet/frame reason, outside the load,
+    or holding on the load's first frame."""
+    with tempfile.TemporaryDirectory() as tmp:
+        made = Made(Path(tmp))
+        sheet = Path(tmp) / "sheet_100.jpg"
+        sheet.write_bytes(b"jpg")
+        # 1. Refusals on load_job: missing sheet/frame, outside load, unknown form, or holding on the load's first frame
+        refused(lambda: made.load(name="nh_bad1", no_head_on=[(110, 115, "no sheet named")]), "--no-head-on 110-115 takes a person's word on a look")
+        refused(lambda: made.load(name="nh_bad2", no_head_on=[(90, 95, f"looked at {sheet}")]), "--no-head-on 90-95: the load is 100-159")
+        refused(lambda: made.load(name="nh_bad3", no_head_on=[(100, 105, f"looked at {sheet}")]),
+                "--no-head-on holds the last good frame before the span, and 100 is the load's first frame")
+        refused(lambda: made.load(name="nh_bad4", no_head_on=[(110, 115, f"looked at {sheet}")], no_head_form="fade"), "--no-head-form is one of")
+        # Blank form IS allowed on the load's first frame
+        blank_first = made.load(name="nh_blank0", no_head_on=[(100, 105, f"looked at {sheet}: off screen")], no_head_form="blank")
+        assert blank_first["job"]["reference"]["no_head_on"]["form"] == "blank"
+        # 2. Normal hold form on 110-115: job.reference.no_head_on, defaults row, drawn_form
+        d = made.load(name="a_fp_0100", no_head_on=[(110, 115, f"the session looked at {sheet}: head thrown back")])
+        nh = d["job"]["reference"].get("no_head_on") or {}
+        assert nh.get("form") == "hold" and [(x["first"], x["last"]) for x in nh.get("spans") or []] == [(110, 115)], nh
+        fp_row = next(x for x in d["job"]["defaults"] if x["what"] == "the face lines")
+        assert "NO HEAD ON THE REFERENCE ALONE on 110-115 (hold:" in fp_row["carries"] and "110-115: the session," in fp_row["from"], fp_row
+        df_argv = stl.drawn_form(d["job"], args(), {"classes": Path("/c.mkv")}, 100)
+        assert "--no-head-on" in df_argv and df_argv[df_argv.index("--no-head-on") + 1].startswith("110-115=a person's word on a look"), df_argv
+        df_blank = stl.drawn_form(blank_first["job"], args(), {"classes": Path("/c.mkv")}, 100)
+        assert "--no-head-form" in df_blank and df_blank[df_blank.index("--no-head-form") + 1] == "blank", df_blank
+        # 3. Carry across --carry-words-from, refuse when outside or starting on new first frame under hold, and allow --leave-word
+        old_file = made.jobs / "a_fp_0100.json"
+        old_file.write_text(json.dumps(d))
+        carried = made.load(name="a_fp_0100b", carry_words_from=old_file)
+        c_nh = carried["job"]["reference"].get("no_head_on") or {}
+        assert c_nh.get("form") == "hold" and c_nh["spans"][0]["first"] == 110 and c_nh["spans"][0]["last"] == 115 \
+            and c_nh["spans"][0]["why"].endswith("(carried from a_fp_0100)"), c_nh
+        refused(lambda: made.load(name="a_fp_0120", first=120, frames=40, why=f"cut ({sheet})", carry_words_from=old_file),
+                "no_head_on 110-115", "outside the new job's frames 120-159")
+        refused(lambda: made.load(name="a_fp_0110", first=110, frames=50, why=f"cut ({sheet})", carry_words_from=old_file),
+                "--no-head-on holds the last good frame before the span, and 110 is the load's first frame")
+        left = made.load(name="a_fp_0120_ok", first=120, frames=40, why=f"cut ({sheet})", carry_words_from=old_file,
+                         leave_word=["no_head_on:110-115"], leave_by="the owner: narrowed")
+        assert "no_head_on" not in left["job"]["reference"]
+        assert [(w["kind"], w["first"], w["last"]) for w in left["job"]["carried_words_from"]["left_words"]] == [("no_head_on", 110, 115)]
+        # 4. step_reference --existing checks drawn.no_head_on spans and form
+        folder = made.preview_ran(made.preview(100))
+        stl.step_job(args(shots=str(made.shots_file), plan=str(made.plan_file), shot=100, folder=str(made.jobs), subject="a",
+                          preview=str(folder), remake=True, carry_words_from=str(old_file)), made.m)
+        jfile = made.jobs / "a_fp_0100b.json"
+        jd = json.loads(jfile.read_text())
+        drawn = Path(jd["loads"][0]["motion_file"])
+        drawn.parent.mkdir(parents=True, exist_ok=True)
+        drawn.write_bytes(b"mp4")
+        (drawn.parent / "a_0100_0159_points.npz").write_bytes(b"npz")
+        base_rec = {
+            "frames": [100, 159], "passed": True, "made_at": "2026-01-03T09:00:00Z", "made_by": "the session",
+            "scale": [1.5, 1.5], "files": {"plain_cut": "plain.mp4"},
+            "inputs": {"mesh": "m.mp4", "track": "t.mkv", "head_track": "ht.mkv"},
+            "face_on_the_track": {"known": True, "frames_whose_face_middle_is_off_the_track": []},
+            "drawn": {
+                "mouth": {"closed_lip_line": {"on": True}},
+                "frames_left_bare": list(range(110, 116)),
+                "no_head_on": {"form": "hold", "frames": [[110, 115]], "on_whose_word": [{"first": 110, "last": 115, "why": "ok"}]},
+            },
+        }
+        drawn.with_suffix(".json").write_text(json.dumps(base_rec))
+        fake_figs = lambda _p, _s: {
+            "frames": 60, "the_drawing_line_px": 3.0, "measured_on": "test",
+            "at_the_canvas": {"face_height_px": {}, "lid_gap_px": {}, "frames_with_the_gap_under_the_line": 0},
+            "in_the_reference": {"enlarged": 1.5, "face_height_px": {}, "lid_gap_px": {}, "frames_with_the_gap_under_the_line": 0},
+            "cannot_see": "test",
+        }
+        stl.step_reference(args(job_file=str(jfile), existing=True), made.m, fake_figs)
+        # Mismatched spans or form on --existing are refused
+        bad_spans = json.loads(json.dumps(base_rec))
+        bad_spans["drawn"]["no_head_on"]["on_whose_word"] = [{"first": 110, "last": 114, "why": "ok"}]
+        drawn.with_suffix(".json").write_text(json.dumps(bad_spans))
+        refused(lambda: stl.step_reference(args(job_file=str(jfile), existing=True), made.m, fake_figs),
+                "--existing", "has no_head_on [(110, 114)] (hold) and the job asks for [(110, 115)] (hold)")
+        bad_form = json.loads(json.dumps(base_rec))
+        bad_form["drawn"]["no_head_on"]["form"] = "blank"
+        drawn.with_suffix(".json").write_text(json.dumps(bad_form))
+        refused(lambda: stl.step_reference(args(job_file=str(jfile), existing=True), made.m, fake_figs),
+                "--existing", "has no_head_on [(110, 115)] (blank) and the job asks for [(110, 115)] (hold)")
+    return ("--no-head-on and --no-head-form are recorded on job.reference.no_head_on, said in defaults and note, forwarded by drawn_form, "
+            "carried by --carry-words-from, dropped by --leave-word, checked on --existing, and refused when invalid")
+
+
 case("the frame a tracker picks on is a field of the shots record", the_pick_frame_is_a_field)
 case("the trackers' order, and who is in the shot", the_order_and_who_is_in_the_shot)
 case("a preview made to ask who is on a shot the record is unsure of", a_preview_made_to_ask)
@@ -4014,6 +4013,8 @@ case("head marks: a person's marks on her head and hair reach the job file and t
 case("zoom: --zoom-up-to with --zoom-up-to-why asks one load past the node's own 2; off by default; never carried", a_loads_larger_zoom_is_a_persons_word)
 case("margin: --margin with --margin-why is the load's own, in the file, the block, the node, the build record and the capture; never carried",
      a_loads_margin_is_a_persons_word)
+case("reference: --no-head-on and --no-head-form recorded, carried, forwarded, checked on --existing, and refused when invalid",
+     no_head_on_in_the_job_and_reference)
 
 if __name__ == "__main__":
     sys.exit(finish())

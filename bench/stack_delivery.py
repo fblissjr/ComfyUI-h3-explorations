@@ -777,7 +777,7 @@ def build(a: argparse.Namespace) -> None:
     if not gaps_checked:
         print("gaps not checked: no --coverage; the legend says so on every frame", flush=True)
     import capture_masked_run as capm                          # the strip's own head crop and the node's region files, one rule each
-    heads, sampled = {}, {}
+    heads, sampled, no_head_at = {}, {}, {}
     for file, g in given.items():
         v = next((x for x in g["inputs"] if x.get("tag") == "<Video 1>"), None)
         rf = ((v or {}).get("record") or {}).get("its_first_frame_is_source_frame")
@@ -786,6 +786,15 @@ def build(a: argparse.Namespace) -> None:
             # the boxes are the reference's own frames, indexed by the reference frame a panel shows; None where it has no points
             got = capm.head_boxes(v, (cw_ or canvas_of[file][0], ch_ or canvas_of[file][1]), (rf, rf + (v.get("reference_frames") or 1) - 1))
             heads[file] = (got, (cw_ or canvas_of[file][0], ch_ or canvas_of[file][1]))
+        nh_rec = (((v or {}).get("record") or {}).get("drawn") or {}).get("no_head_on") or {}
+        if nh_rec.get("frames"):
+            nh_form = nh_rec.get("form") or "hold"
+            nh_held = nh_rec.get("held_from") or {}
+            no_head_at[file] = {
+                sf: (f" (no-head-on: held from {nh_held[str(sf)]})" if nh_form == "hold" and str(sf) in nh_held
+                     else f" (no-head-on: {nh_form})")
+                for a_, b_ in nh_rec["frames"] for sf in range(int(a_), int(b_) + 1)
+            }
         for e in (v or {}).get("encoder_frames") or []:
             for x in e["sampled"]:
                 if not x["held"] and x["source_frame"] is not None:
@@ -951,7 +960,7 @@ def build(a: argparse.Namespace) -> None:
     blocks_h = total_h - overflow_px
 
     def block_items(who: str, row: dict | None, mask_why: str | None, at_: int | None, has_crop: bool, ref_why: str | None,
-                    bars: list[str], sc: float, colour: tuple, squares: list[tuple[str, tuple]] = ()) -> list[dict]:
+                    bars: list[str], sc: float, colour: tuple, squares: list[tuple[str, tuple]] = (), no_head_tag: str = "") -> list[dict]:
         """A block's label as items for `flow`: whose it is, what H3 saw and the reference under it; then each bar of the clip's
         check on its piece (`piece_changes_nothing`), each on a line of its own, in the label strip and never over a picture."""
         if row is None:
@@ -959,7 +968,7 @@ def build(a: argparse.Namespace) -> None:
         name = row["name"]
         words = (f"{who}: " + (f"WHAT H3 SAW, {name}" if mask_why is None else f"{name}, what H3 saw: not read (why, below)")
                  + (f" (scaled {sc:.2f})" if sc < 1 else "")
-                 + (f"; under it its reference, frame {at_}" + ("" if has_crop else " (no points: no head crop)") if at_ is not None else
+                 + (f"; under it its reference, frame {at_}{no_head_tag}" + ("" if has_crop else " (no points: no head crop)") if at_ is not None else
                     f"; its reference: {ref_why}" if ref_why else
                     f"; its reference is NOT OPENED ({row['ref_refused']})" if row.get("ref_refused") else "; no reference wired"))
         return ([{"text": words, "colour": colour, "boxed": False}] + [{"text": t, "colour": WHITE, "boxed": True, "break": True, "bar": True} for t in bars]
@@ -982,7 +991,8 @@ def build(a: argparse.Namespace) -> None:
                  squares_words(who, {"windows": {w_["file"]: {"inside": 99999, "outside": 99999, "taken": 99999} for w_ in kept.windows[:2]} or {"": {}},
                                      "not_split": None}) if len(kept.windows) > 1 else []]
         sq = max(worst, key=lambda x: len(x[0][0]) if x else 0)
-        forms = [block_items(who, row, "not read", 99999, False, None, bars, 0.5, WHITE, sq)]
+        nh_w = " (no-head-on: held from 99999)" if no_head_at.get(Path(row["piece"]).name) else ""
+        forms = [block_items(who, row, "not read", 99999, False, None, bars, 0.5, WHITE, sq, nh_w)]
         if row["ref"]:
             forms.append(block_items(who, row, "not read", None, False, f"not read, {Path(row['ref'][0]).name} has no frame 99999", bars, 0.5, WHITE, sq))
         return max(flow(items, lab_f, w - 16, 4)[-1]["line"] + 1 for items in forms)
@@ -1166,8 +1176,9 @@ def build(a: argparse.Namespace) -> None:
             has_crop = bool(hb and hb[0])                       # head_boxes gives None where the reference has no points
             at_ = slot["reference"][1] if "reference" in slot else None
             kept = kept_of[file].on(f)
+            nh_tag = (no_head_at.get(file) or {}).get(f, "")
             items = block_items(who, row, slot.get("mask_not_read"), at_, has_crop, slot.get("reference_not_read"), bars_of(row, live_flags), sc,
-                                colour_of[who], squares_words(row["subject"] or who, kept))
+                                colour_of[who], squares_words(row["subject"] or who, kept), nh_tag)
             label_lines, label_boxes = draw_label(items, t)
             col = {"piece": name, "file": file, "canvas": [rcw, rch], "label": items[0]["text"], "label_lines": label_lines, "label_boxes": label_boxes,
                    "kept_squares": ({"not_read": kept["not_read"]} if "not_read" in kept else
@@ -1621,7 +1632,7 @@ def compare(a: argparse.Namespace) -> None:
     if not gaps_checked:
         print("gaps not checked: no --coverage; the legend says so on every frame", flush=True)
     import capture_masked_run as capm
-    heads, sampled = {}, {}
+    heads, sampled, no_head_at = {}, {}, {}
     for r in all_rows:
         file = Path(r["piece"]).name
         p_key = r["key"]
@@ -1634,6 +1645,15 @@ def compare(a: argparse.Namespace) -> None:
             cw_, ch_ = (v.get("loader") or {}).get("custom") or canvas_of[p_key]
             got = capm.head_boxes(v, (cw_ or canvas_of[p_key][0], ch_ or canvas_of[p_key][1]), (rf, rf + (v.get("reference_frames") or 1) - 1))
             heads[p_key] = (got, (cw_ or canvas_of[p_key][0], ch_ or canvas_of[p_key][1]))
+        nh_rec = (((v or {}).get("record") or {}).get("drawn") or {}).get("no_head_on") or {}
+        if nh_rec.get("frames"):
+            nh_form = nh_rec.get("form") or "hold"
+            nh_held = nh_rec.get("held_from") or {}
+            no_head_at[p_key] = {
+                sf: (f" (no-head-on: held from {nh_held[str(sf)]})" if nh_form == "hold" and str(sf) in nh_held
+                     else f" (no-head-on: {nh_form})")
+                for a_, b_ in nh_rec["frames"] for sf in range(int(a_), int(b_) + 1)
+            }
         for e in (v or {}).get("encoder_frames") or []:
             for x in e["sampled"]:
                 if not x["held"] and x["source_frame"] is not None:
@@ -1797,13 +1817,13 @@ def compare(a: argparse.Namespace) -> None:
     blocks_h = total_h - overflow_px
 
     def block_items(title: str, row: dict | None, mask_why: str | None, at_: int | None, has_crop: bool, ref_why: str | None,
-                    bars: list[str], sc: float, colour: tuple, squares: list[tuple[str, tuple]] = ()) -> list[dict]:
+                    bars: list[str], sc: float, colour: tuple, squares: list[tuple[str, tuple]] = (), no_head_tag: str = "") -> list[dict]:
         if row is None:
             return [{"text": f"{title}: the original on this frame (no piece)", "colour": (200, 200, 200), "boxed": False}]
         name = row["name"]
         words = (f"{title}: " + (f"WHAT H3 SAW, {name}" if mask_why is None else f"{name}, what H3 saw: not read (why, below)")
                  + (f" (scaled {sc:.2f})" if sc < 1 else "")
-                 + (f"; under it its reference, frame {at_}" + ("" if has_crop else " (no points: no head crop)") if at_ is not None else
+                 + (f"; under it its reference, frame {at_}{no_head_tag}" + ("" if has_crop else " (no points: no head crop)") if at_ is not None else
                     f"; its reference: {ref_why}" if ref_why else
                     f"; its reference is NOT OPENED ({row['ref_refused']})" if row.get("ref_refused") else "; no reference wired"))
         return ([{"text": words, "colour": colour, "boxed": False}] + [{"text": t, "colour": WHITE, "boxed": True, "break": True, "bar": True} for t in bars]
@@ -1842,7 +1862,8 @@ def compare(a: argparse.Namespace) -> None:
                  squares_words(who, {"windows": {w_["file"]: {"inside": 99999, "outside": 99999, "taken": 99999} for w_ in kept.windows[:2]} or {"": {}},
                                      "not_split": None}) if len(kept.windows) > 1 else []]
         sq = max(worst, key=lambda x: len(x[0][0]) if x else 0)
-        forms = [block_items(title, row, "not read", 99999, False, None, bars, 0.5, WHITE, sq)]
+        nh_w = " (no-head-on: held from 99999)" if no_head_at.get(row["key"]) else ""
+        forms = [block_items(title, row, "not read", 99999, False, None, bars, 0.5, WHITE, sq, nh_w)]
         if row["ref"]:
             forms.append(block_items(title, row, "not read", None, False, f"not read, {Path(row['ref'][0]).name} has no frame 99999", bars, 0.5, WHITE, sq))
         return max(flow(items, lab_f, w - 16, 4)[-1]["line"] + 1 for items in forms)
@@ -1999,8 +2020,9 @@ def compare(a: argparse.Namespace) -> None:
             has_crop = bool(hb and hb[0])
             at_ = slot["reference"][1] if "reference" in slot else None
             kept = kept_of[p_key].on(f)
+            nh_tag = (no_head_at.get(p_key) or {}).get(f, "")
             items = block_items(title, row, slot.get("mask_not_read"), at_, has_crop, slot.get("reference_not_read"), bars_of(row, live_flags), sc,
-                                colour_of[who], squares_words(row["subject"] or who, kept))
+                                colour_of[who], squares_words(row["subject"] or who, kept), nh_tag)
             label_lines, label_boxes = draw_label(items, t)
             col = {"side": slot_meta["side"], "subject": who, "piece": name, "file": file, "canvas": [rcw, rch],
                    "label": items[0]["text"], "label_lines": label_lines, "label_boxes": label_boxes,

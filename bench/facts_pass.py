@@ -578,12 +578,16 @@ def _resolve_mouth_modes(
         return raw_set
 
     bare_frames = _to_source_set(drawn.get("frames_left_bare"))
-    no_face_on = drawn.get("no_face_on")
-    if isinstance(no_face_on, dict):
-        for v in no_face_on.values():
-            bare_frames |= _to_source_set(v)
-    elif isinstance(no_face_on, list):
-        bare_frames |= _to_source_set(no_face_on)
+    for nf_key in ("no_face_on", "no_draw_face_on", "no_head_on"):
+        no_face_on = drawn.get(nf_key)
+        if isinstance(no_face_on, dict):
+            if "frames" in no_face_on:
+                bare_frames |= _to_source_set(no_face_on.get("frames"))
+            else:
+                for v in no_face_on.values():
+                    bare_frames |= _to_source_set(v)
+        elif isinstance(no_face_on, list):
+            bare_frames |= _to_source_set(no_face_on)
 
     mouth_info = drawn.get("mouth")
     if not isinstance(mouth_info, dict):

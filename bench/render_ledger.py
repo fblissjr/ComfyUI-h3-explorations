@@ -371,8 +371,11 @@ def reference_form(path: str | None, depth: int = 0) -> dict:
         steps.append(f"cut to one box round {box_round(r)} ({r['box']}" + (f", enlarged {scale[0]:g} times" if isinstance(scale, list) and scale else "") + ")")
     if drawn is not None:
         has["face_points"] = True
+        nh = drawn.get("no_head_on") if isinstance(drawn, dict) else None
+        nh_sp = ", ".join(f"{a}-{b}" if a != b else str(a) for a, b in (nh.get("frames") or [])) if isinstance(nh, dict) else ""
         steps.append("the face points drawn as lines" + (f" (left out: {', '.join(drawn['parts_left_out'])})" if drawn.get("parts_left_out") else "")
-                     + ("" if not drawn.get("a_dot_at_every_point") else ", a dot at every point"))
+                     + ("" if not drawn.get("a_dot_at_every_point") else ", a dot at every point")
+                     + (f", no_head_on ({nh.get('form', 'hold')}) on {nh_sp}" if nh_sp else ""))
     if "lid_gap_px_median" in r or "a_mark_on_the_canvas_px" in r:
         has["lid_marks"] = True
         steps.append("marks drawn on the lids" + (f" (grown {r['grown']:g} times)" if r.get("grown") else ""))

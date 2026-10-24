@@ -1459,7 +1459,8 @@ def run(mesh_path: str, points_path: str, first: int, count: int, out: Path, by:
         iris: str = IRIS_FORMS[0], mouths: list | None = None, mouth_lines: bool = True, no_mouth: list[int] | None = None,
         class_mouth_frames: list[int] | None = None, closed_lip_line: bool = False, darken_head: bool = False,
         eyes_shut: list[int] | None = None, eyes_shut_form: str | None = None, eyes_shut_by: str = "",
-        open_mouth: str = OPEN_MOUTH_FORMS[0], closed_mouth: str = CLOSED_MOUTH_FORMS[0], points_enlarged: float = 1.0, say=print) -> dict:
+        open_mouth: str = OPEN_MOUTH_FORMS[0], closed_mouth: str = CLOSED_MOUTH_FORMS[0], points_enlarged: float = 1.0,
+        no_head: dict[int, int | None] | None = None, say=print) -> dict:
     """Draw, write, read back, record. `mouths`: a class-map mouth a frame ((whole, hole) masks of the frame, or None), drawn in
     place of the points' mouth (`head_reference`, `--mouth auto` where the lip check fails and the class map holds the mouth);
     with `mouth_lines` False its lips are painted out and its inside filled under the points' own mouth lines, and no
@@ -1493,6 +1494,12 @@ def run(mesh_path: str, points_path: str, first: int, count: int, out: Path, by:
     if points["size"] and tuple(points["size"]) != (w, h):
         raise SystemExit(f"the points were made on a picture of {points['size']} and the body-model video is {(w, h)}: they are not on one canvas")
     mesh = np.stack(list(stream(mesh_path, (w, h), skip, count, pix="rgb24")))
+    mesh_raw = mesh
+    if no_head:
+        mesh = mesh.copy()
+        for f_src, from_src in sorted(no_head.items()):
+            if first <= f_src < first + count:
+                mesh[f_src - first] = 0 if from_src is None else mesh[from_src - first]
     line = h3_config.POSE_READING["eye_ring_score_at_least"]
     if iris not in IRIS_FORMS:
         raise SystemExit(f"--iris is one of {IRIS_FORMS}; got {iris!r}")
@@ -1722,7 +1729,7 @@ def run(mesh_path: str, points_path: str, first: int, count: int, out: Path, by:
     back = read_back(out, mesh_draw, drawings, expected, drawn, wide, but)
     white, lags = back["white"], back["lags"]
     src = marks.source_frames(source, (w, h), first, count, source_first) if source else None
-    clock = marks.against_the_source(src, mesh, first) if src is not None else None
+    clock = marks.against_the_source(src, mesh_raw, first) if src is not None else None
     passed = bool(back["passed"])
     named = [{n for n, _, _ in drawings[f]} | {n for n, _, _ in (fills[f] if fills else [])} for f in range(count)]
     kinds = ("iris",) if disc_form else RINGS

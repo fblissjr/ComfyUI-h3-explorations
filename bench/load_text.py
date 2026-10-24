@@ -480,7 +480,7 @@ def for_job(job_file: Path, place_and_action: str, plan_file: Path, voice_spans:
     return words, {"reference_record": str(record_path) if record_path else "none: the load takes no reference video (motion none)",
                    "plan": str(plan_file), "voice_spans": str(voice_spans),
                    "drawn": {**{k: rd.get(k) for k in ("parts_left_out", "iris", "mouth")},
-                             **{k: rd[k] for k in ("eye_rings", "darken_head") if rd.get(k) is not None}}}
+                             **{k: rd[k] for k in ("eye_rings", "darken_head", "no_head_on") if rd.get(k) is not None}}}
 
 
 def main(argv=None) -> int:
