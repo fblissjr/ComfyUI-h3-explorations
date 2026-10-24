@@ -68,14 +68,13 @@ after the close's reviews (decisions.md, 2026-10-24); where the two differ, this
    `check_pass2_source` refuses the raw source where another piece is laid, but not an older cut.
 2. The third subject's loads back on the default margin.
 3. The previews that need no new code, on the card while steps 4-5 are built (landed only with the card held), each
-   on its pass's source (what is laid is `data/fun/laid.jsonl`):
-   - The working copy, nothing laid on the shot: the lead's 3967 (bug 26), 4227, 3476, 4774, 5044, 4310, 5935c,
-     6105, 3595 and 3240 (lead_fp_3240e's fault, bug 17, is the strangers form 14838f44 replaced); the second's 4912.
-   - The newest cut, `--for` the subject: the third's 5675, 5011, 5461 and 4479 (the second is laid on each; step 6
-     reads these previews); the second's 4647 after its missing boxes (bugs 20, 23; third_fp_4653b is laid there).
-   - 4647's order: third_fp_4653b covers 4653-4677 only, and the third shows later in the shot (4706; bug 20's boxes
-     are for his next 4647 load). That load is the kept subject's, so it goes before the second's; the second's
-     made first would be made again on the cut that holds it.
+   on its pass's source: the newest cut, `--for` the subject, where another subject is laid on the shot, else the
+   working copy (`../masked_v2v/PROTOCOL.md` 1.1). The shots and their sources, checked against `data/fun/laid.jsonl`,
+   are in the plan's section 3; the third's 5675, 5011, 5461 and 4479 are among them, and step 6 reads theirs.
+   4647 is a chain of three: the 0045Z coverage owes the lead, the second and the third there, and the third's kept
+   piece (third_fp_4653b) covers only 4653-4677. The third goes first, as the kept subject: his boxes (bug 20), then
+   his preview on the working copy, `--for third`. The lead and the second follow his kept piece and a rebuilt cut,
+   so likely not tomorrow; which of them goes next is the owner's.
 4. A pose-table printout per drawing: the frames where the marks miss the grey face. It decides nothing; a reader
    names the bad ones. Then a small drawing-only word that leaves those frames' eye, brow and nose marks out and keeps
    the part (`bench/draw_face_points.py --bare` already draws nothing on named frames: wire it through, rather than
@@ -98,7 +97,8 @@ after the close's reviews (decisions.md, 2026-10-24); where the two differ, this
    is rebuilt, the third's 5114 on that cut (step 6's form). If the guard does not land, the Open List asks the owner
    whether the third's 5114 is made on the stand-in (a stale kept piece is shown to the owner, not remade by rule).
 
-Waiting on the owner: 0516c's frame 597 and 3759b's 3856-3857 (the share's `Video/fun/looks/2026-10-23_head_marks/`).
+Waiting on the owner: on 4647, whether the lead or the second goes after the third. 0516c's frame 597 and
+3759b's 3856-3857 (the share's `Video/fun/looks/2026-10-23_head_marks/`).
 
 ## Where things are
 

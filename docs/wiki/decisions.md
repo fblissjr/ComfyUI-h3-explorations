@@ -38,8 +38,10 @@ Older history lives elsewhere and is not copied here:
   lead's, so the second is pass 2 there, not the third pass 3; nothing is laid on 4774 or 4912. A second Claude
   review added: `check_pass2_source` does not catch an older cut; and if the chin guard does not land, the owner is
   asked whether the third's 5114 goes on the stand-in. Its order for 4647 (the third after the second) is reversed
-  here: third_fp_4653b covers 4653-4677 of 4647-4725 (`data/fun/laid.jsonl:25`, `frames`), so the third's next load there is
-  the kept subject's and goes first.
+  here: third_fp_4653b covers 4653-4677 of 4647-4725 (`data/fun/laid.jsonl:25`, `frames`), so the third's next load
+  there is the kept subject's and goes first. The 0045Z rebuild's coverage owes the lead, the second and the third on
+  4647, so it is a chain of three; the lead and the second follow the third's kept piece and a rebuilt cut, in the
+  order the owner says. The per-shot source list moved to the plan's section 3; the handover keeps the rule.
 
 ## 2026-10-23
 
