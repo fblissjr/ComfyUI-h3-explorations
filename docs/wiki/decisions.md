@@ -17,6 +17,17 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-10-24
 
+- **`meta_perception_models.md` brought up to the chain** (mrfabez, a Claude session advising; docs only). It used to
+  say: nothing in the pack reads depth; the keypoint model was tried once by no node; only lid marks had been drawn and
+  nothing for a mouth; the preflight rules were not written; MoGe's own field-of-view estimate was never run here. Each is
+  overtaken by code the page's dated notes of 2026-10-24 now name (the pose pass, `--depth`, the face drawing and the
+  mouth gate, the capture's `flag_pose`, the 2026-10-18 depth record). The reading behind it, Gemini Spark's
+  perception-models review of 2026-10-23 checked claim by claim, is
+  `docs/research/masking/2026-10-24_mrfabez_perception_models_response.md`. Of its remedies: two name what the day's plan
+  already does (the pose-table printout; a beard rule off the class table), one is already on (memory selection), and
+  the two model changes (a text-prompted beard; joint multi-object tracking) run against the 2026-10-04 tracker decision
+  and the one-object memory correction. The one new item is a reader of the tracker's saved per-frame score along a span,
+  tested on the two drift cases before it is anything.
 - **Corrected: why 1419's head was still lost after the restart.** The 2026-10-23 entry said "the head seed's size
   test has no fallback". Main's span head track does fall back to the top third (`subject_track.py::_span_head`), but
   on 1419 it seeded from a real head on 1423 (1,436 px) and lost it across the empty run 1426-1430, so the top third
