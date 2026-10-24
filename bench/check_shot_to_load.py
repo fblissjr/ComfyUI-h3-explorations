@@ -999,7 +999,7 @@ def who_else_is_in_the_shot() -> str:
     and keeps the strangers out by it: where someone else is there or the frames shown cannot say, and on no load where nobody
     is, whatever the plan's key; the plan's key only where it is not known."""
     def load_with(made, people, plan_keep=None, not_people=None, no_strangers=None, no_mouth_on=None, eyes_shut_on=None, eyes_shut_form=None,
-                  seam=None, seam_why=None, no_face_on=None, hold_part=None, context_noise=None, context_noise_why=None, mouth_on=None, parts_on=None):
+                  seam=None, seam_why=None, no_face_on=None, no_draw_face_on=None, hold_part=None, context_noise=None, context_noise_why=None, mouth_on=None, parts_on=None):
         if plan_keep is not None:
             made.plan["subjects"]["a"].update(keep_outs=plan_keep, keep_outs_by="a person: the plan's own")
         if not_people is not None:
@@ -1015,7 +1015,7 @@ def who_else_is_in_the_shot() -> str:
         saved = json.loads((folder / "preview.queued.json").read_text())["files"]
         return stl.load_job(shots, plan, stl.shot_of(shots, 100), "a", pjob["job"], str(folder), "v", made.m.output, "the session", "2026-01-03", "a_fp_0100",
                             now="now", preview_files=saved, cast=[], cast_from="cast.jsonl", no_strangers=no_strangers, no_mouth_on=no_mouth_on,
-                            eyes_shut_on=eyes_shut_on, eyes_shut_form=eyes_shut_form, seam=seam, seam_why=seam_why, no_face_on=no_face_on, hold_part=hold_part,
+                            eyes_shut_on=eyes_shut_on, eyes_shut_form=eyes_shut_form, seam=seam, seam_why=seam_why, no_face_on=no_face_on, no_draw_face_on=no_draw_face_on, hold_part=hold_part,
                             context_noise=context_noise, context_noise_why=context_noise_why, mouth_on=mouth_on,
                             **({"parts_on": parts_on, "parts_by": "a person"} if parts_on else {}))
     ours = [(1, [0, 0, 10, 10], 0.1), (2, [20, 0, 10, 10], 0.1), (3, [40, 0, 10, 10], 0.1)]
@@ -1076,6 +1076,15 @@ def who_else_is_in_the_shot() -> str:
                                   eyes_shut_on=[(110, 125, f"THE LEAD looked at {sheet}")], eyes_shut_form="none"), "both name 120-125")
         flags = stl.drawn_form(away["job"], args(), {"classes": Path("/c.mkv")}, 100)
         assert flags[flags.index("--no-face-on") + 1].startswith("120-130=a person's word on a look (the session, now): THE LEAD looked"), flags
+        # NO LINE OF THE FACE DRAWN ON THE REFERENCE ALONE (--no-draw-face-on, 2026-10-24 on 3967b's 3969 and 4479d)
+        refused(lambda: load_with(Made(Path(tmp) / "nd1"), ours, no_draw_face_on=[(110, 115, "THE LEAD looked: bad 2d marks")]), "name its file")
+        refused(lambda: load_with(Made(Path(tmp) / "nd2"), ours, no_draw_face_on=[(120, 130, f"THE LEAD looked at {sheet}")],
+                                  no_face_on=[(125, 135, f"THE LEAD looked at {sheet}")]), "both name 125-130")
+        nodraw = load_with(Made(Path(tmp) / "nd3"), ours, no_draw_face_on=[(132, 132, f"THE LEAD looked at {sheet}: 3969 bad 2d marks")])
+        nd_row = {x["what"]: x for x in nodraw["job"]["defaults"]}["the face lines"]
+        assert nodraw["job"]["reference"]["no_draw_face_on"][0]["first"] == 132 and "NOT DRAWN ON THE REFERENCE ALONE on 132-132" in nd_row["carries"], (nodraw["job"]["reference"], nd_row)
+        nd_flags = stl.drawn_form(nodraw["job"], args(), {"classes": Path("/c.mkv")}, 100)
+        assert nd_flags[nd_flags.index("--no-draw-face-on") + 1].startswith("132-132=a person's word on a look (the session, now): THE LEAD looked"), nd_flags
         # A MOUTH ON A SPAN on a person's word (--mouth-on, the lead's ruling of 2026-10-15 on lead_fp_2823c): the same terms, and never
         # against a span the job leaves with no mouth or no face
         refused(lambda: load_with(Made(Path(tmp) / "o1"), ours, mouth_on=[(110, 115, "THE LEAD looked: her mouth open")]), "name its file")

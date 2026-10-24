@@ -1750,7 +1750,7 @@ def carry_words_of(carry_words_from: dict | Path | str, shot: dict, subject: str
     if bool(leave_word) != bool(leave_by_str):
         raise Refused("--leave-word and --leave-by go together: the carried span to leave out, and who said so and why")
     leave_alias = {"word": "hold_part", "eyes_shut": "eyes_shut_on"}
-    leave_kinds = {"left_out", "drop", "hold_part", "parts_on", "track_not", "no_face_on", "no_mouth_on", "mouth_on", "eyes_shut_on", "seam"}
+    leave_kinds = {"left_out", "drop", "hold_part", "parts_on", "track_not", "no_face_on", "no_draw_face_on", "no_mouth_on", "mouth_on", "eyes_shut_on", "seam"}
     leave_map: dict[tuple[str, int, int], bool] = {}
     for raw_lw in leave_word:
         kind_part, sep, span_part = str(raw_lw).partition(":")
@@ -1832,7 +1832,7 @@ def carry_words_of(carry_words_from: dict | Path | str, shot: dict, subject: str
         "least": None, "least_why": None, "hold_part": [], "drop": None, "drop_by": None, "drop_meta": None,
         "parts": None, "parts_by": None, "parts_on": [], "track_not": [], "track_not_by": None,
         "motion": None, "motion_why": None, "no_strangers": None, "no_strangers_meta": None,
-        "no_face_on": [], "no_face_on_meta": [], "no_mouth_on": [], "no_mouth_on_meta": [],
+        "no_face_on": [], "no_face_on_meta": [], "no_draw_face_on": [], "no_draw_face_on_meta": [], "no_mouth_on": [], "no_mouth_on_meta": [],
         "mouth_on": [], "mouth_on_meta": [], "eyes_shut_on": [], "eyes_shut_on_meta": [], "eyes_shut_form": None,
         "seam": None, "seam_why": None, "context_noise": None, "context_noise_why": None,
         "old_name": old_name, "old_file": old_file, "old_sha256": old_sha256, "carried_rec": carried_rec,
@@ -2073,7 +2073,7 @@ def carry_words_of(carry_words_from: dict | Path | str, shot: dict, subject: str
 
     old_ref = old_job.get("reference") or {}
     ref_known = {"form", "why", "made", "points", "record", "said_by", "taken_as_it_was", "figures", "drawn", "mouth", "iris", "no_face_on",
-                 "darken_head", "head_track", "crop", "carried"}
+                 "no_draw_face_on", "darken_head", "head_track", "crop", "carried"}
     for k in old_ref:
         if k not in ref_known:
             raise Refused(f"--carry-words-from {old_name}: word-bearing key 'job.reference.{k}' in old job cannot be carried")
@@ -2114,6 +2114,19 @@ def carry_words_of(carry_words_from: dict | Path | str, shot: dict, subject: str
         out["no_face_on"].append((fx, fy, tf))
         out["no_face_on_meta"].append({"said_by": s.get("said_by"), "at": s.get("at"), "carried": dict(carried_rec)})
         carried_said.append(f"no_face_on {fx}-{fy} ({s.get('said_by')}, {s.get('at')}): {tf}")
+
+    for s in old_ref.get("no_draw_face_on") or []:
+        if not isinstance(s, dict) or set(s) - {"first", "last", "why", "said_by", "at", "carried"}:
+            raise Refused(f"--carry-words-from {old_name}: word-bearing key in reference.no_draw_face_on {s!r} cannot be carried")
+        fx, fy = int(s["first"]), int(s["last"])
+        f_str = str(s.get("why") or "")
+        if is_left("no_draw_face_on", fx, fy, f"{s.get('said_by')}, {s.get('at')}: {f_str}"):
+            continue
+        check_span("no_draw_face_on", fx, fy)
+        tf = tagged(f_str)
+        out["no_draw_face_on"].append((fx, fy, tf))
+        out["no_draw_face_on_meta"].append({"said_by": s.get("said_by"), "at": s.get("at"), "carried": dict(carried_rec)})
+        carried_said.append(f"no_draw_face_on {fx}-{fy} ({s.get('said_by')}, {s.get('at')}): {tf}")
 
     old_mouth = old_ref.get("mouth") or {}
     for k in old_mouth:
@@ -2236,7 +2249,8 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
              track_not_by: str | None = None, cast: list[dict] | None = None, cast_from: str = "", motion: str | None = None,
              motion_why: str | None = None, no_strangers: str | None = None, no_mouth_on: list[tuple[int, int, str]] | None = None,
              eyes_shut_on: list[tuple[int, int, str]] | None = None, eyes_shut_form: str | None = None,
-             no_face_on: list[tuple[int, int, str]] | None = None, hold_part: list[tuple[int, int, str]] | None = None, seam: list[int] | None = None,
+             no_face_on: list[tuple[int, int, str]] | None = None, no_draw_face_on: list[tuple[int, int, str]] | None = None,
+             hold_part: list[tuple[int, int, str]] | None = None, seam: list[int] | None = None,
              seam_why: str | None = None, context_noise: float | None = None, context_noise_why: str | None = None,
              mouth_on: list[tuple[int, int, str]] | None = None, data: Path | None = None,
               drop: str | None = None, drop_by: str | None = None, carry_words_from: dict | Path | str | None = None,
@@ -2348,6 +2362,19 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
             cw["no_face_on_meta"] = kept_cw_nf_meta
         n_cw_nf = len(cw["no_face_on"])
         no_face_on = list(cw["no_face_on"]) + fresh_nf
+        fresh_ndf = list(no_draw_face_on or [])
+        if fresh_ndf and cw["no_draw_face_on"]:
+            kept_cw_ndf = []
+            kept_cw_ndf_meta = []
+            for (cx, cy, csaid), cmeta in zip(cw["no_draw_face_on"], cw["no_draw_face_on_meta"]):
+                if any(nx <= cy and cx <= ny for nx, ny, _ in fresh_ndf):
+                    _ov(f"no_draw_face_on {cx}-{cy}", f"{fresh_ndf}", f"{cx}-{cy} ({cmeta.get('said_by')}, {cmeta.get('at')}): {csaid}")
+                else:
+                    kept_cw_ndf.append((cx, cy, csaid))
+                    kept_cw_ndf_meta.append(cmeta)
+            cw["no_draw_face_on"] = kept_cw_ndf
+            cw["no_draw_face_on_meta"] = kept_cw_ndf_meta
+        no_draw_face_on = list(cw["no_draw_face_on"]) + fresh_ndf
         no_mouth_on = list(cw["no_mouth_on"]) + list(no_mouth_on or [])
         mouth_on = list(cw["mouth_on"]) + list(mouth_on or [])
         if not eyes_shut_on and cw["eyes_shut_on"]:
@@ -2570,6 +2597,32 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
         if sorted(parts or []) == ["hair"]:
             raise Refused("--no-face-on on a load of her hair alone: no line of the face is drawn on any of its frames already")
         ref_form["no_face_on"] = spans
+    # NO LINE OF THE FACE DRAWN ON THE REFERENCE ALONE, on a person's word (`--no-draw-face-on FIRST-LAST=WHY`, 2026-10-24 on 3967b's 3969
+    # and 4479d's 4479-4509): where 2D face marks disagree with the 3D grey head or her head is bowed so the marks land on the crown, the
+    # reference leaves those frames bare (and interpolates across a short gap before drawing, `head_reference.FILL_GAP`), while the capture
+    # keeps the subject's face part mask so H3 still replaces the head there (`load_chain.py` passes only `no_face_on` as `noface=`).
+    if no_draw_face_on:
+        if motion == "none":
+            raise Refused("--no-draw-face-on acts on the drawn reference, and this load has none (--motion none)")
+        spans = []
+        for idx, (x, y, said) in enumerate(no_draw_face_on):
+            said = " ".join(str(said).split())
+            if not (a <= x <= y <= b):
+                raise Refused(f"--no-draw-face-on {x}-{y}: the load is {a}-{b}")
+            if not any(Path(w.strip(".,;:()\"'")).is_file() for w in said.split()):
+                raise Refused(f"--no-draw-face-on {x}-{y} takes a person's word on a look: who looked, at which sheet of those frames (name its file: the "
+                              "tool checks only that a file of that name is there), and why the face marks are left off the grey head there")
+            meta = cw["no_draw_face_on_meta"][idx] if (cw and idx < len(cw["no_draw_face_on_meta"])) else None
+            spans.append({"first": x, "last": y, "why": said,
+                          "said_by": meta["said_by"] if meta else by, "at": meta["at"] if meta else now,
+                          **({"carried": dict(meta["carried"])} if meta else {})})
+        if sorted(parts or []) == ["hair"]:
+            raise Refused("--no-draw-face-on on a load of her hair alone: no line of the face is drawn on any of its frames already")
+        nf_frames = {f for s_ in ref_form.get("no_face_on") or [] for f in range(s_["first"], s_["last"] + 1)}
+        both_nf = sorted(f for s_ in spans for f in range(s_["first"], s_["last"] + 1) if f in nf_frames)
+        if both_nf:
+            raise Refused(f"--no-draw-face-on and --no-face-on both name {both_nf[0]}-{both_nf[-1]}: say one of them on those frames")
+        ref_form["no_draw_face_on"] = spans
     # A MOUTH ON A SPAN, on a person's word (`--mouth-on FIRST-LAST=WHY`, the lead's ruling of 2026-10-15 on lead_fp_2823c, whose reference
     # drew no mouth on 3098-3099 and 3101-3104 while she sings with it wide open): where the reference's gate drops the mouth, the pose model's
     # lip rings are drawn with a dark inside (head_reference.MOUTH_ON). The same terms as --no-mouth-on: the look and its file named, each
@@ -2601,7 +2654,8 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
         if on_hair:
             raise Refused(f"--mouth-on {'; '.join(on_hair)} (--parts-on): no line of the face is drawn there")
         closed = [(s_["first"], s_["last"], what) for what, ss in (("--no-mouth-on", ref_form["mouth"].get("no_mouth_on") or []),
-                                                                   ("--no-face-on", ref_form.get("no_face_on") or [])) for s_ in ss]
+                                                                   ("--no-face-on", ref_form.get("no_face_on") or []),
+                                                                   ("--no-draw-face-on", ref_form.get("no_draw_face_on") or [])) for s_ in ss]
         clash = [f"{x}-{y} against {what} {c}-{d}" for x, y, _ in mouth_on for c, d, what in closed if x <= d and c <= y]
         if clash:
             raise Refused(f"--mouth-on {'; '.join(clash)}: one says her mouth is open there, the other draws none")
@@ -2629,10 +2683,10 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
             spans.append({"first": x, "last": y, "why": said,
                           "said_by": meta["said_by"] if meta else by, "at": meta["at"] if meta else now,
                           **({"carried": dict(meta["carried"])} if meta else {})})
-        faceless = {f for x in ref_form.get("no_face_on") or [] for f in range(x["first"], x["last"] + 1)}
+        faceless = {f for x in (ref_form.get("no_face_on") or []) + (ref_form.get("no_draw_face_on") or []) for f in range(x["first"], x["last"] + 1)}
         both = sorted(f for x in spans for f in range(x["first"], x["last"] + 1) if f in faceless)
         if both:
-            raise Refused(f"--eyes-shut-on and --no-face-on both name {both[0]}-{both[-1]}: no line of the face is drawn there, so there are no eyes "
+            raise Refused(f"--eyes-shut-on and --no-face-on/--no-draw-face-on both name {both[0]}-{both[-1]}: no line of the face is drawn there, so there are no eyes "
                           "to shut; say one of them on those frames")
         ref_form["iris"] = dict(ref_form["iris"], eyes_shut={"form": eyes_shut_form, "spans": spans})
     subjects = [{k: v for k, v in s.items() if k in ("label", "phrase", "pick", "parts", "still", "pose")} for s in preview["subjects"]]
@@ -3011,7 +3065,8 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
                                    **({"darken_head": ref_form["darken_head"]} if ref_form.get("darken_head") else {}),
                                    **({"crop": ref_form["crop"]} if ref_form.get("crop") else {}),
                                    **({"head_track": no_head_track_block or ref_form["head_track"]} if (no_head_track_block or ref_form.get("head_track")) else {}),
-                                   **({"no_face_on": ref_form["no_face_on"]} if ref_form.get("no_face_on") else {})}),
+                                   **({"no_face_on": ref_form["no_face_on"]} if ref_form.get("no_face_on") else {}),
+                                   **({"no_draw_face_on": ref_form["no_draw_face_on"]} if ref_form.get("no_draw_face_on") else {})}),
                     "others_present": others, "defaults": carried},
             "defaults": {**h3_config.MASKED_LOAD_DEFAULTS, "margin": region_margin if own_margin is None else own_margin,
                          **({"margin_by": margin_by} if margin_by else {}),
@@ -3365,10 +3420,18 @@ def defaults_carried(p: dict, load: dict, subjects: list, subject: str, kept: di
                 "; a span held in place from a frame takes that frame's graded part where it was, unmoved and cut to the track, refused "
                 "where that frame has no graded part (capture_masked_run.HELD_IN_PLACE)" if "@" in mine["word"] else ""), mine["word_by"])]
           if mine.get("word") else []),
-        *([("the face lines", "NONE on " + ", ".join(f"{s['first']}-{s['last']}" for s in ref_form["no_face_on"]) + ", turned off on a person's word "
-            "(the plain cut body model alone there); the capture drops the part's face classes there and keeps the rest, her hair "
-            "(a face-only part is emptied there; capture_masked_run.grade_holds)", "; ".join(f"{s['first']}-{s['last']}: {s['said_by']}, {s['at']}: {s['why']}" for s in ref_form["no_face_on"]))]
-          if ref_form.get("no_face_on") else []),
+        *([("the face lines",
+            "; ".join(filter(None, [
+                ("NONE on " + ", ".join(f"{s['first']}-{s['last']}" for s in ref_form["no_face_on"]) + ", turned off on a person's word "
+                 "(the plain cut body model alone there); the capture drops the part's face classes there and keeps the rest, her hair "
+                 "(a face-only part is emptied there; capture_masked_run.grade_holds)") if ref_form.get("no_face_on") else "",
+                ("NOT DRAWN ON THE REFERENCE ALONE on " + ", ".join(f"{s['first']}-{s['last']}" for s in ref_form["no_draw_face_on"])
+                 + ", turned off on a person's word (the plain cut body model alone there; a short gap takes its neighbours' points before drawing, "
+                 "head_reference.FILL_GAP, and the capture keeps the part's face classes)") if ref_form.get("no_draw_face_on") else "",
+            ])),
+            "; ".join(f"{s['first']}-{s['last']}: {s['said_by']}, {s['at']}: {s['why']}"
+                      for s in (ref_form.get("no_face_on") or []) + (ref_form.get("no_draw_face_on") or [])))]
+          if (ref_form.get("no_face_on") or ref_form.get("no_draw_face_on")) else []),
         *([("the head tube", "SAM 3.1 whole-head tube bounded by the person track + 3-frame smoothed Sapiens2-Seg on one steady shot box (head_tube_parts --head-tube)",
             f"shot_to_load.py::defaults_carried (opt-in switch, off by default; {head_tube_block['said_by']}: {head_tube_block['why']})")]
           if head_tube_block else []),
@@ -3841,6 +3904,7 @@ def step_job(a, world, cut=cut_keep_out, hashed=None, inside=part_inside, classe
                    mouth_on=[no_mouth_on_arg(x, "--mouth-on") for x in getattr(a, "mouth_on", None) or []], data=world.data,
                    eyes_shut_on=[no_mouth_on_arg(x, "--eyes-shut-on") for x in getattr(a, "eyes_shut_on", None) or []],
                    no_face_on=[no_mouth_on_arg(x, "--no-face-on") for x in getattr(a, "no_face_on", None) or []],
+                   no_draw_face_on=[no_mouth_on_arg(x, "--no-draw-face-on") for x in getattr(a, "no_draw_face_on", None) or []],
                    hold_part=[hold_part_arg(x) for x in getattr(a, "hold_part", None) or []],
                    eyes_shut_form=getattr(a, "eyes_shut_form", None), seam=seams_arg(getattr(a, "seam", None)), seam_why=getattr(a, "seam_why", None),
                    context_noise=getattr(a, "context_noise", None), context_noise_why=getattr(a, "context_noise_why", None),
@@ -3960,7 +4024,8 @@ def step_reference(a, world, figures=figures_of) -> None:
                               "made again, in a new folder")
         # the job's spans of no face on a person's word: a reference taken as it was must have left those frames bare
         bare = set((made.get("drawn") or {}).get("frames_left_bare") or [])
-        missed = [f for s in (job.get("reference") or {}).get("no_face_on") or [] for f in range(s["first"], s["last"] + 1) if f not in bare] \
+        all_no_face = ((job.get("reference") or {}).get("no_face_on") or []) + ((job.get("reference") or {}).get("no_draw_face_on") or [])
+        missed = [f for s in all_no_face for f in range(s["first"], s["last"] + 1) if f not in bare] \
             if form != "plain" else []          # the plain cut has no line of the face on any frame
         if missed:
             raise again(f"--existing: {record} draws face lines on {len(missed)} frame(s) the job says show no face on a person's word "
@@ -4139,6 +4204,9 @@ def drawn_form(job: dict, a, files: dict, preview_first: int) -> list:
     # the job's spans of no face on a person's word (`job --no-face-on`: a head turned away, hidden behind somebody)
     for s in said.get("no_face_on") or []:
         out += ["--no-face-on", f"{s['first']}-{s['last']}=a person's word on a look ({s['said_by']}, {s['at']}): {s['why']}"]
+    # the job's spans of no face drawn on the reference alone (`job --no-draw-face-on`: bad 2D face marks while the part is kept)
+    for s in said.get("no_draw_face_on") or []:
+        out += ["--no-draw-face-on", f"{s['first']}-{s['last']}=a person's word on a look ({s['said_by']}, {s['at']}): {s['why']}"]
     # the plan's restore spans of a class over her eyes (her own glasses, head_reference.OVER_THE_EYES): the face counts as on her track
     # there by the lower face (the lead, 2026-10-15, on 2823's white sunglasses, off her track from 3073)
     import head_reference
@@ -4186,12 +4254,12 @@ def written(a, ctx: dict, made: dict, record: Path, points: Path, drawn: Path, f
     d["job"]["reference"] = reference_block(form, why, a.by, made["made_at"] if taken else now_ts, record, points, got)
     # the mouth and the eye as asked, and as drawn (the record's own words: the check's figures, the iris form)
     md = made.get("drawn") or {}
-    d["job"]["reference"].update({k: was[k] for k in ("mouth", "iris", "no_face_on", "darken_head", "head_track", "crop") if k in was},
+    d["job"]["reference"].update({k: was[k] for k in ("mouth", "iris", "no_face_on", "no_draw_face_on", "darken_head", "head_track", "crop") if k in was},
                                  drawn={"mouth": md.get("mouth"), "iris": md.get("iris"),
                                         "eyes_shut": md.get("eyes_shut"),
                                         "parts_left_out": md.get("parts_left_out"),
                                         "frames_left_bare": md.get("frames_left_bare"),
-                                        **({k: md[k] for k in ("eye_rings", "darken_head") if md.get(k) is not None})})
+                                        **({k: md[k] for k in ("eye_rings", "darken_head", "marks_against_the_body_model") if md.get(k) is not None})})
     nht = getattr(a, "no_head_track", None)
     if nht is not None:
         d["job"]["reference"]["head_track"] = {
@@ -4216,6 +4284,14 @@ def written(a, ctx: dict, made: dict, record: Path, points: Path, drawn: Path, f
     if cues is not None:
         print("WHERE A FACE MAY NOT SHOW, for the sheet (data; nothing here decides, and a face's lines are left out only on a person's word, job --no-face-on):")
         print("\n".join(face_cue_lines(cues)))
+    mabm = md.get("marks_against_the_body_model")
+    if isinstance(mabm, dict) and mabm.get("known"):
+        fl = mabm.get("flagged_frames") or []
+        rule = mabm.get("rule") or {}
+        print(f"MARKS AGAINST THE BODY MODEL ({mabm.get('read_from')}; nose >= {rule.get('nose_from_body_model_fh')} fh or pitch >= {rule.get('head_pitch_down_3d')}; data for --no-draw-face-on): "
+              + (", ".join(f"{r['frame']} (no 3D head, score {r.get('face_score_median')})" if r.get("why") == "no_3d_head"
+                           else f"{r['frame']} (nose {r.get('nose_from_body_model_fh')} fh, pitch {r.get('head_pitch_down_3d')}, score {r.get('face_score_median')})"
+                           for r in fl) if fl else "none"))
     print(f"THE FORM: {form}" + (f", on {a.by}'s word: {why}" if form == "plain" else " (the default; the plain cut is taken only with --plain \"why\")")
           + f". The job file reads {d['loads'][0]['motion_file']}. Open the sheet beside it.")
     print(f"NEXT, THE TEXT, generated from this record and the plan: bench/shot_to_load.py text {a.job_file} --by {a.by} --plan PLAN.json (or a text "
@@ -4520,6 +4596,11 @@ def main() -> int:
                         "the face does not show there (a head turned away, hidden behind somebody). The capture's grade then drops the part's face "
                         "classes on those frames and keeps the rest of it, her hair (a face-only part is emptied there; "
                         "capture_masked_run.grade_holds); repeatable")
+    j.add_argument("--no-draw-face-on", action="append", default=[], metavar="FIRST-LAST=WHY",
+                   help="no line of the face drawn on those source frames of the reference alone (the plain cut body model alone; a short gap "
+                        "takes its neighbours' points before drawing, head_reference.FILL_GAP), while the capture keeps the subject's face part "
+                        "mask, on a person's word: who looked, at which sheet of those frames (its file named; only that a file of that name is "
+                        "there is checked), and why the face marks are left off the grey head there; repeatable")
     j.add_argument("--hold-part", action="append", default=[], metavar="FIRST-LAST[@FRAME]=WHY",
                    help="hold the subject's part on those source frames where the capture's grade leaves it empty, from the nearest graded part, "
                         "on a person's word: who looked, at which sheet of those frames (its file named; only that a file of that name is there is "
@@ -4564,7 +4645,7 @@ def main() -> int:
                    "h3_config.SEED unless it is given --seed")
     j.add_argument("--leave-word", action="append", default=[], metavar="KIND:FIRST-LAST",
                    help="with --carry-words-from and --leave-by: leave out a carried span (left_out, drop, hold_part, parts_on, track_not, no_face_on, "
-                        "no_mouth_on, mouth_on, eyes_shut_on, seam) on purpose, recording the drop in job.carried_words_from.left_words; repeatable")
+                        "no_draw_face_on, no_mouth_on, mouth_on, eyes_shut_on, seam) on purpose, recording the drop in job.carried_words_from.left_words; repeatable")
     j.add_argument("--leave-by", metavar="WHO_WHY", help="who says the --leave-word span(s) are left out and why; kept in job.carried_words_from.left_words")
     j.add_argument("--no-carry-words", metavar="WHY", help="Why a --remake does not carry words from an earlier job on the same shot and subject.")
     j.add_argument("--seed", metavar="N", help="the song node's seed for this load, in place of h3_config.SEED (the job's own): a whole number from 0 to "

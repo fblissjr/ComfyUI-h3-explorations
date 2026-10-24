@@ -618,13 +618,77 @@ def class_mouth_gate(mouths: list, centres: list, plain_cut: str, points: str, f
                     "a_frame_at_a_time": rows}
 
 
+#: Reasoned starting values for `marks_against_the_body_model` (2026-10-24, calibrated on bad drawings 3967b's 3969 at 1.34 fh and 4479d's
+#: bowed head at +0.80..+0.92 against kept drawings 0014g, 0278m, 1156g, 3909b, 4726b at <= 0.45 fh and <= +0.63): data printed for the
+#: sheet reader, deciding nothing (`passed` is untouched).
+BODY_MODEL_NOSE_FH = 0.50
+BODY_MODEL_PITCH_DOWN = 0.80
+
+
+def marks_against_the_body_model(mesh: str | Path, points: str | Path, first: int, count: int, faceless: list[int]) -> dict:
+    """Compare the film's 2D face points against the preview's 3D body-model pose table (`<preview>_<subject>_pose_table.json` beside
+    `mesh`), a frame at a time on drawn frames (`not in faceless`): 2D nose distance from the body model's projected nose in face
+    heights (`BODY_MODEL_NOSE_FH`), and 3D nose-minus-ears downward pitch (`BODY_MODEL_PITCH_DOWN`). Data only; decides nothing."""
+    mesh_p = Path(mesh)
+    prefix = mesh_p.stem.partition("_mesh_")[0]
+    pt_p = mesh_p.parent / f"{prefix}_pose_table.json"
+    if not pt_p.is_file():
+        return {"known": False, "why": f"{pt_p.name} is not beside {mesh_p.name}", "flagged_frames": []}
+    try:
+        pt = json.loads(pt_p.read_text())
+    except Exception as exc:
+        return {"known": False, "why": f"{pt_p.name} could not be read ({exc})", "flagged_frames": []}
+    import numpy as np
+    from _lib import face_points as fp
+    P = fp.load(str(points), None)
+    idx = P["index"]
+    if "tip_of_nose" not in idx:
+        return {"known": False, "why": "points file has no tip_of_nose", "flagged_frames": []}
+    fids = fp.face_ids(idx)
+    pt_first = int(pt.get("first_source_frame", first))
+    pt_frames = pt.get("frames") or []
+    bare_set = set(faceless)
+    flagged = []
+    for f in range(count):
+        sf = first + f
+        if sf in bare_set:
+            continue
+        pi = sf - P["first"]
+        ti = sf - pt_first
+        if not (0 <= pi < len(P["keypoints"]) and 0 <= ti < len(pt_frames)):
+            continue
+        people = pt_frames[ti].get("people") or []
+        p0 = people[0] if people else None
+        sc_med = round(float(np.median(P["scores"][pi, fids])), 2) if fids else 0.0
+        if not p0 or len(p0.get("keypoints_2d") or []) < 5 or len(p0.get("keypoints_3d") or []) < 5:
+            flagged.append({"frame": sf, "why": "no_3d_head", "face_score_median": sc_med})
+            continue
+        kp2d_3d = np.asarray(p0["keypoints_2d"][:5], dtype=float)
+        kp3d = np.asarray(p0["keypoints_3d"][:5], dtype=float)
+        nose_2d = P["keypoints"][pi, idx["tip_of_nose"]]
+        fh = max(float(fp.face_height(P["keypoints"][pi], idx)), 1.0)
+        nd = float(np.hypot(nose_2d[0] - kp2d_3d[0, 0], nose_2d[1] - kp2d_3d[0, 1])) / fh
+        ear_mid = 0.5 * (kp3d[3] + kp3d[4])
+        nv = kp3d[0] - ear_mid
+        pitch = float(nv[1] / max(float(np.linalg.norm(nv)), 1e-4))
+        if nd >= BODY_MODEL_NOSE_FH or pitch >= BODY_MODEL_PITCH_DOWN:
+            flagged.append({"frame": sf, "nose_from_body_model_fh": round(nd, 2), "head_pitch_down_3d": round(pitch, 2),
+                            "face_score_median": sc_med})
+    return {"known": True, "read_from": pt_p.name,
+            "rule": {"nose_from_body_model_fh": BODY_MODEL_NOSE_FH, "head_pitch_down_3d": BODY_MODEL_PITCH_DOWN},
+            "rule_is": "reasoned starting values (2026-10-24: 3967b's 3969 at 1.34 fh, 4479d's bowed head at +0.80..+0.92; 0 flagged on kept 0014g, 0278m, 1156g, 3909b, 4726b)",
+            "flagged_frames": flagged,
+            "decides": "nothing: data for the sheet reader (--no-draw-face-on FIRST-LAST=WHY leaves face lines off while keeping the part)"}
+
+
 def run(mesh: str, points: str, source: str, first: int, count: int, out: Path, by: str, *, names: list[str] | None = None,
         mesh_first: int | None = None, points_first: int | None = None, width: float = FORM_WIDTH, room: float | None = None,
         head_track: str | Path | None = None, head_track_first: int | None = None, no_head_track: bool = False,
         leave_out: frozenset = frozenset({FORM_LEAVES_OUT}), dots: bool = False, iris: str = faces.IRIS_FORMS[0], repo: Path = REPO,
         mouth: str | None = None, mouth_why: str = "", classes: str | None = None, classes_first: int | None = None,
         no_mouth_on: list[tuple[int, int, str]] | None = None, over_the_eyes: list[tuple[int, int, str]] | None = None,
-        no_face_on: list[tuple[int, int, str]] | None = None, class_mouth_needs_hole: str | None = None,
+        no_face_on: list[tuple[int, int, str]] | None = None, no_draw_face_on: list[tuple[int, int, str]] | None = None,
+        class_mouth_needs_hole: str | None = None,
         closed_lip_line: str | None = None, darken_head: str | None = None,
         eyes_shut_on: list[tuple[int, int, str]] | None = None,
         eyes_shut_form: str | None = None, mouth_on: list[tuple[int, int, str]] | None = None,
@@ -661,7 +725,8 @@ def run(mesh: str, points: str, source: str, first: int, count: int, out: Path, 
     if crop_form != "head" and head_track is not None:
         raise SystemExit(f"--crop {crop_form} sizes the box on " + ("the faces alone" if crop_form == "face" else "the body model's grey head")
                          + " and reads no head track: --head-track says otherwise")
-    faceless = sorted({f for a, b, _ in no_face_on or [] for f in range(max(a, first), min(b, first + count - 1) + 1)})
+    no_draw = sorted({f for a, b, _ in no_draw_face_on or [] for f in range(max(a, first), min(b, first + count - 1) + 1)})
+    faceless = sorted({f for a, b, _ in (no_face_on or []) + (no_draw_face_on or []) for f in range(max(a, first), min(b, first + count - 1) + 1)})
     # HER EYES SHUT ON A SPAN, on a person's word (`--eyes-shut-on` with `--eyes-shut-form`, the lead's ruling of 2026-10-15 on 2823b;
     # `draw_face_points.EYES_SHUT_FORMS` says why and what each form draws). The pose model's lids stop at a slit on a shut eye
     shut = sorted({f for a, b, _ in eyes_shut_on or [] for f in range(max(a, first), min(b, first + count - 1) + 1)} - set(faceless))
@@ -735,7 +800,8 @@ def run(mesh: str, points: str, source: str, first: int, count: int, out: Path, 
         got = on_track["over_the_eyes"]["on_the_track_by_the_lower_face"]
         say(f"    {len(got)} frame(s) whose face's middle lies on her own glasses, off the track, are on it by the lower face (--over-the-eyes): "
             + ", ".join(f"{a}-{b}" if a != b else str(a) for a, b in spans_of(got)))
-    filled, unfilled = fill_from_neighbours(on_track["frames_whose_face_middle_is_off_the_track"], first, count)
+    raw_off = on_track["frames_whose_face_middle_is_off_the_track"]
+    filled, unfilled = fill_from_neighbours(sorted(set(raw_off) | set(no_draw)), first, count)
     # --mouth-on's lip scores, before anything is written: as the cut will hold them (a crop does not change a score; a filled frame scores
     # the lesser of its neighbours', `write_filled`), so this and `lip_rings` cannot disagree (the cold reader of 2026-10-15)
     if mouth_on:
@@ -749,9 +815,9 @@ def run(mesh: str, points: str, source: str, first: int, count: int, out: Path, 
         if lacking:
             raise SystemExit(f"--mouth-on: the pose model gives no lip ring over the score line on {len(lacking)} frame(s) ({lacking[0]}..{lacking[-1]}): "
                              "nothing to draw a mouth from there")
-    # A FRAME WITH NO LINE OF THE FACE (`no_face_on`) draws no face, whoever's the points are: off the track there is data, not a fault
+    # A FRAME WITH NO LINE OF THE FACE (`no_face_on` or `no_draw_face_on`) draws no face, whoever's the points are: off the track there is data, not a fault
     # (lead_fp_4310b, 2026-10-15: 4397 and 4398, at the span's edge inside --no-face-on 4395-4398, failed the reference)
-    off_and_bare = [f for f in unfilled if f in set(faceless)]
+    off_and_bare = [f for f in unfilled if f in set(faceless) and f in set(raw_off)]
     unfilled = [f for f in unfilled if f not in set(faceless)]
     read_from = points
     if filled:
@@ -927,7 +993,7 @@ def run(mesh: str, points: str, source: str, first: int, count: int, out: Path, 
     # NO MOUTH ON A FRAME where neither the lines nor the class map's gate place it, or where the load's part holds no lips (the lead's
     # rulings of 2026-10-14 on the blind readers of 630b, 805b and 1010d: the mouth drawn off her face in profile and on her chest)
     bare = no_mouth_frames(first, count, no_mouth_on or [])
-    for a_, b_, why in no_face_on or []:
+    for a_, b_, why in (no_face_on or []) + (no_draw_face_on or []):
         fs = [f for f in range(max(a_, first), min(b_, first + count - 1) + 1)]
         if fs:
             bare.setdefault(NO_FACE_PART.format(why=why), []).extend(fs)
@@ -945,9 +1011,10 @@ def run(mesh: str, points: str, source: str, first: int, count: int, out: Path, 
         leave_out = frozenset(leave_out) | {"eyes", "brows", "nose", "mouth"}
         if mouth_said:                                  # no face on any frame: no mouth, whatever the form or a person's word said
             mouth_said.update(drawn=False, why_not_drawn="no line of the face on any frame (--no-face-on over the whole span)")
+    all_no_face = (no_face_on or []) + (no_draw_face_on or [])
     if faceless:
         say(f"    NO FACE LINES on {len(faceless)} of {count} frames ({', '.join(f'{a}-{b}' if a != b else str(a) for a, b in spans_of(faceless))}): "
-            + "; ".join(why for _, _, why in no_face_on))
+            + "; ".join(why for _, _, why in all_no_face))
     if shut:
         say(f"    HER EYES SHUT on {len(shut)} of {count} frames ({', '.join(f'{a}-{b}' if a != b else str(a) for a, b in spans_of(shut))}), drawn "
             f"{eyes_shut_form!r}: " + "; ".join(why for _, _, why in eyes_shut_on or []))
@@ -962,7 +1029,7 @@ def run(mesh: str, points: str, source: str, first: int, count: int, out: Path, 
                       points_enlarged=sum(cut["scale"]) / len(cut["scale"]),        # the bend's width limit is the canvas's (MOUTH_BEND)
                       eyes_shut=shut, eyes_shut_form=eyes_shut_form if shut else None,
                       eyes_shut_by="; ".join(f"{a_}-{b_}: {why}" for a_, b_, why in eyes_shut_on or []),
-                      bare_by="; ".join(f"no face lines: {why}" for _, _, why in no_face_on or []), say=quiet)
+                      bare_by="; ".join(f"no face lines: {why}" for _, _, why in all_no_face), say=quiet)
     if drawn.get("outlined_mouth") and mouth_said and isinstance(mouth_said.get("closed_lip_line"), dict):
         mouth_said["closed_lip_line"]["outlined"] = drawn["outlined_mouth"]      # the frames held on a neighbour's lips, and those shrunk
     # THE CLOSED MOUTH DRAWN (`closed_mouth`, the plan's `reference.closed_mouth`): which frames, as spans beside the closed-lip line's own,
@@ -994,6 +1061,12 @@ def run(mesh: str, points: str, source: str, first: int, count: int, out: Path, 
     say(f"    white {fit['0']} px from its own frame's lines, {fit['1']} and {fit['-1']} from the neighbours'; "
         + ("PASSED" if drawn["passed"] else "FAILED"))
     say("    " + faces.marks.against_the_source_line(drawn["body_model_against_the_source"]))
+    marks_on_body = marks_against_the_body_model(mesh, read_from, first, count, faceless)
+    if marks_on_body.get("flagged_frames"):
+        fl = [r["frame"] for r in marks_on_body["flagged_frames"]]
+        say(f"    THE DRAWN MARKS AND THE 3D BODY MODEL DISAGREE on {len(fl)} of {count} frame(s) ("
+            + ", ".join(f"{a}-{b}" if a != b else str(a) for a, b in spans_of(fl))
+            + f", read from {marks_on_body['read_from']}): data for the sheet reader (--no-draw-face-on FIRST-LAST=WHY leaves face lines off while keeping the part)")
     on_track = {**on_track, "frames_filled_from_their_neighbours": {str(f): list(v) for f, v in sorted(filled.items())},
                 "frames_off_the_track_not_filled": unfilled, "frames_off_the_track_with_no_face_drawn": off_and_bare, "fill_gap_frames": FILL_GAP,
                 "filled_are": ("filled, not read: their points are the straight line between their neighbours', and the read-back reads the drawing "
@@ -1048,6 +1121,7 @@ def run(mesh: str, points: str, source: str, first: int, count: int, out: Path, 
                      if shut else {})},
         "read_backs": {"the_cut_body_model": cut["read_back"], "the_cut_source": under["read_back"], "the_drawing": drawn["read_back"]},
         "body_model_against_the_source": drawn["body_model_against_the_source"],
+        "marks_against_the_body_model": marks_on_body,
         "face_on_the_track": on_track,
         "figure": figure,
         "sheet": drawn.get("sheet"),
@@ -1129,6 +1203,9 @@ def main() -> int:
     a.add_argument("--no-face-on", action="append", default=[], metavar="FIRST-LAST=WHY",
                    help="source frames on which no line of the face is drawn, the plain body model alone, with the reason: the load's part "
                         "is her hair alone there, or a person's word that the face does not show there; repeatable")
+    a.add_argument("--no-draw-face-on", action="append", default=[], metavar="FIRST-LAST=WHY",
+                   help="source frames on which no line of the face is drawn on the grey head (and a short run takes its neighbours' points for the "
+                        "reference box), while the load's face part is still kept in the mask; repeatable")
     a.add_argument("--over-the-eyes", action="append", default=[], metavar="FIRST-LAST=WHY",
                    help="source frames on which the plan gives back a class over her eyes (OVER_THE_EYES, her own glasses): the face counts as on "
                         "her track there when the lower face's middle is; repeatable")
@@ -1147,7 +1224,9 @@ def main() -> int:
               leave_out=faces.parts_arg(v.leave_out), dots=v.dots, iris=v.iris, mouth=v.mouth, mouth_why=v.mouth_why,
               classes=v.classes, classes_first=v.classes_first, no_mouth_on=[no_mouth_arg(x) for x in v.no_mouth_on],
               over_the_eyes=[no_mouth_arg(x, "--over-the-eyes") for x in v.over_the_eyes],
-              no_face_on=[no_mouth_arg(x, "--no-face-on") for x in v.no_face_on], class_mouth_needs_hole=v.class_mouth_needs_hole,
+              no_face_on=[no_mouth_arg(x, "--no-face-on") for x in v.no_face_on],
+              no_draw_face_on=[no_mouth_arg(x, "--no-draw-face-on") for x in v.no_draw_face_on],
+              class_mouth_needs_hole=v.class_mouth_needs_hole,
               closed_lip_line=v.closed_lip_line, darken_head=v.darken_head,
               eyes_shut_on=[no_mouth_arg(x, "--eyes-shut-on") for x in v.eyes_shut_on],
               eyes_shut_form=v.eyes_shut_form, mouth_on=[no_mouth_arg(x, "--mouth-on") for x in v.mouth_on], open_mouth=v.open_mouth,
