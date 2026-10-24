@@ -34,11 +34,8 @@ bugs it numbers are `bugs_for_tomorrow.md` beside it; the running notes are `not
 
 - **The third subject's loads take the default margin.** A larger `--margin` let H3 copy the drawing's white outlines
   onto his face (decisions.md, 2026-10-23). 4479d staying clean at 64 does not make it safe. Nor is the margin proven
-  the whole cause: every render with lines had its drawing enlarged 2.33x or less (5114c 2.33x, 5011e 2.27x, 5461d
-  2.04x, 5675f 1.52x) and the one clean one 5.33x (4479d; bug 27; "the one box enlarges" in each
-  `<load>.head_reference.out` under `data/2026-10-23_mrtx-card_jobs/chain/`, 5011e's under 5011c, whose reference it
-  drew with). That is consistent with the margin and a low enlargement acting together, on one clean case; Gemini's
-  mechanism is unchecked (bug 29).
+  the whole cause: the margin and a low drawing enlargement may act together, on one clean case (bug 27; the figures
+  in the plan's section A). Gemini's mechanism is unchecked (bug 29).
 - **5114i's remake waits on the chin guard** (`gem-chin-and-lips-guard`, 52c38f23, not landed): no closed mouth goes on
   before it. Its blind read and a replay against kept drawings, lit necks included, are a step of their own; until
   then 5114i stays `unconfirmed`.
