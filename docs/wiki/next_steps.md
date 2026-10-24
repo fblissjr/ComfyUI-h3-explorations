@@ -17,7 +17,7 @@ pointer goes; this list is stale the moment the roadmap disagrees with it.
 Items from the `mrpink` helper lane first; `evalman`'s render lane appends its
 own below the rule.
 
-**The order of 2026-10-22 is [`handover.md`](handover.md)'s "Tomorrow, in order" (rewritten at the 2026-10-22 close): the remaining renders from fresh previews made on that day's final code, job onward, then the tool notes after the video. Where the queue below disagrees, the handover is right.**
+**The order of 2026-10-24 is [`handover.md`](handover.md)'s "Tomorrow, in order" (rewritten at the 2026-10-23 close), in short from the next day's rough plan, which the lead checks before acting on it: the third subject back on the default margin, a check that the drawing's marks land on the grey face (from each preview's pose table), the remakes it owes (3967; the third subject's 4479, 5011, 5114, 5461, 5675, after one beard test on 5675), then the tracker fixes at the day's one restart and the previews never run.** The 2026-10-22 order it replaces: the renders from that day's fresh previews, job onward, which ran on 2026-10-23. Where the queue below disagrees, the handover is right.
 
 **The order of 2026-10-20 is [`handover.md`](handover.md)'s "Next up, in order" (updated 2026-10-20 close) and
 [`../masked_v2v/PROTOCOL.md`](../masked_v2v/PROTOCOL.md); where the queue below disagrees, the handover is right.**

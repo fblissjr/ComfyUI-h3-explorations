@@ -15,6 +15,108 @@ Older history lives elsewhere and is not copied here:
   decisions" and forward-plan sections.
 - `bench/results/`: the verdict records, each with its conditions.
 
+## 2026-10-23
+
+- **The owner's rulings of the day** (mrtx, the one lead: no Gemini lead, Gemini sessions as third-party reviewers by
+  the owner's hand; the words are in the lead's transcript and `internal/claude/2026-10-23_mrtx/notes.md`):
+  - **Hold steady, then one restart.** The valid backlog rendered first, on the morning's code; the fixes landed in
+    worktrees after a blind read each, and the node change (the tracker) at one ComfyUI restart. Every shot rendered
+    after it starts from a fresh preview.
+  - **The zoom, by subject** (a working rule from two keeps, not a proven one): the second subject up to 4, the lead and
+    the third at the node's own 2 (`data/fun/AGENTS.md`, "The zoom, by subject").
+  - **Accessories over a replaced face are kept as filmed by the plan's restore** (reverses the plan of 2026-10-16 to
+    drop the restore once the glasses were in the text). Their pixels come from the film, their PLACE from the
+    rendered face, for every head-worn class (9efd2f2b). On
+    3909b the default, laying nothing on frames with no label, was nearly as good as the trial fill, by the owner's look, (`--worn-fill`)
+    and simpler; the fill is kept as a trial flag and noted on the plan's 3909-4052 span.
+  - **Her hair, one way everywhere**: the second subject is named once as the woman with blonde hair, with the face and
+    the hair of `<Picture 1>`; the plan's hair change is retired (84d01c5d).
+  - **The expression drawing** (the owner's idea): the drawn closed mouth carries the source's expression by its bend
+    from the corners' lift, read only where the corners can be read (62e895b8). Not yet tested in a render.
+  - **Who's who has one written home** (`data/fun/AGENTS.md`): the owner's answers are not asked for again, and boxes
+    the owner draws on a session's sheet are answers too (`data/fun/owner_sheets/`).
+  - **Boxes the owner draws by hand are approximate**: a drawn box names the
+    detected person mostly inside it, never an outline (513783e6).
+  - **The head tracked per stretch is a flag, off by default**, so kept renders are untouched: main's span head track
+    stays the default; `preview --head-per-stretch WHY` asks for the other.
+  - **Where no head is found, her head is held from where it was last**: the best the tracker can do there.
+  - **Keep means done.** A piece with a known fault that a remake will fix is marked wrong, not kept, so no session
+    reads it as finished (3967b, 3969-3970). A render that came out fine from a flawed drawing is kept, and the drawing
+    is fixed for later loads (3098b: kept, `data/fun/owner_answers.jsonl:1589`, confirmed in the lead's terminal).
+  - **Bugs found late are written down with what, why and the context, and handled the next day**: `internal/claude/2026-10-23_mrtx/bugs_for_tomorrow.md`.
+  - **Kept and laid today**: `data/fun/laid.jsonl` lines 43-60, each line citing the owner's answer.
+- **The larger margin on the third subject painted the drawing's outlines onto his face.** The lead passed
+  `--margin 64` and `96` (823e4934's per-load flag) on his loads to cover his beard; H3 then drew `<Video 1>`'s white
+  eye, brow and nose outlines on his face (5011e, 5675f, 5114c, 5461d; not on 4479d, reason open). A clean A/B on 5675
+  isolated it: the same drawing (sha256 in bug 25 of the bugs file), words and seed, margin 16 clean and 96 not. None of
+  those renders is laid; his loads return to the default 16 (`h3_config.MASKED_LOAD_MARGIN`). What it replaces: the
+  lead's plan of the afternoon to cover the beard by margin. The flag stays (second_hfp_1093k at 128 was kept). The
+  candidate for the beard is a region grown downward only, below the jaw, which one render decides.
+- **The third subject's beard: what was laid stopped above it.** The head tube attached a face piece only within the
+  head track's rows, which end at the jaw, so his face-beard-neck piece was cut there. Under the plan word
+  `source_facial_hair` the face's own piece below the jaw is given back (0764f585). It reaches only beard the part
+  model labels face. Corrected the same day: the lead first said the beard was labeled hair.
+- **Marks drawn off the grey face** (3098b's open mouth on the grey cheek, 4479d's eye and brow lines on a bowed grey
+  skull, 3967b's lines on her lit arm at 3969). The drawing places its marks where the film's face is, and on those
+  frames the body model's grey head does not match the film. Nothing checks it before a render. Not a change of the
+  day: the drawing code was unchanged from the morning, and its form dates from 2026-10-18 and 2026-10-22. The grey
+  head's own points are already written by every preview (`<preview>_<subject>_pose_table.json`, `body_pose.py`), and
+  read on the three cases they show each fault. The check that uses them is the next day's first build
+  (`internal/claude/2026-10-23_mrtx/tomorrow_plan.md`, C), within one limit: geometry is used only on the picture it was
+  made from. The grey head's points may check, or later place, marks on the grey head, but never shape anything on
+  the film or in the mask (the lesson of the kitchen crossing of 2026-10-19, where a keep-out traced on one video was
+  used on another). Corrected the same night, the lead's: that moving a mark onto the grey head's own feature would
+  repeat that mistake (it would not: the same picture); "the preview keeps only the body model's video" (the pose table
+  was missed), and "the mouth gate reads the grey face" (it reads only the lit grey figure,
+  `head_reference.CLASS_MOUTH_GATE`). The reviewer's claim that 62e895b8 cut profile mouths did not hold (those
+  drawings predate it).
+- **The drawn eyes stay, and the next day starts from the tools already landed** (the owner and the reviewer's
+  strategic review at the close, agreed by the lead). The drawing's eyes, each with a dark iris, are what solved the
+  gaze and eye movements of the lead's hallway (lead_fp_1306t, dancing away from the kitchen), 1156g, 0278m and many
+  others. Without them every subject had dead eyes copying their reference photo. So a bad eye mark is left off only
+  on frames where the eyes cannot be seen in the film anyway, and those keeps are the mark check's controls. The
+  check starts as a printout that decides nothing, not a gate; a small drawing-only word leaves the named frames'
+  marks out and keeps the part. `--no-face-on` is not that word: it says no face shows, and on a face-only part
+  (the lead's, the third's) the capture empties the region on those frames, leaving the original face (`data/AGENTS.md`).
+  The tracker is not changed again until boxes and the landed tools have failed on 1419 and 4647. Later, not first:
+  the automatic mark rule, and a rebuild that re-makes only the shots whose laid lines changed
+  (`internal/claude/2026-10-23_mrtx/tomorrow_plan.md`, section 3).
+- **The head track was lost across occlusions** (the reviewer's read, checked): seeded once a span, it could seed past
+  an occlusion (1419). The tracker now seeds from every owner box and can track the head per stretch (513783e6). After
+  the restart, 1419's head was still lost (the head seed's size test has no fallback) and the owner's drawn box on 4697
+  took the third subject. That box is withdrawn (`data/fun/cast/cast.jsonl:193`); both fixes are the next
+  day's. Corrected the same day: the lead first put 1419, 4647 and 4912 all down to one seed a cut.
+- **A short dip after a partial recovery is bridged** (de4ed3cd), bounded by whole heads and never onto a hidden frame.
+- **A stranger is a piece on another detected person**, for each subject it touches; a piece on her with no person of
+  its own is hers (14838f44). The strangers file's form changed, so old files are refused and every remake takes a
+  fresh preview.
+- **A frame's part can be held in place from a named frame** (`job --hold-part FIRST-LAST@SOURCE`, e350885f), for a part
+  lost or mislabeled on a few frames (3967b's 3969-3970 next).
+- **A semicolon in `--head-per-stretch`'s reason is refused** (the node splits the seeds text at semicolons; the first
+  preview after the restart failed on one): built by the reviewer on its own branch, cleared and landed at the close
+  (38f1f47b).
+- **Two steps ran on uncommitted landing code** (a head tube and a drawing, each mid-landing in the shared tree while the
+  card ran). Both changes did nothing on those loads, so no output changed; the rule stands that a landing is made
+  with the card held. A provenance check of every render of the day found every stamp a clean commit on main and every
+  queued prompt equal to its job's text (`internal/claude/2026-10-23_mrtx/notes.md`, about 23:50Z).
+- **1093's dark hair: not frozen original hair; the cause is open.** Almost none of her hair lay outside the
+  regenerated cells; the owner's hidden marks hold by the tracker's own data; dark frozen pixels of the lead touch her
+  hair. The owner accepted second_hfp_1093k and asked to move on.
+- **5533c's first-frame flash is the film's own**, not a seam (the working copy's brightness jumps at that cut).
+- **The third-party reviews of the day** (Gemini, at the owner's hand: `internal/gemini/2026-10-23_design_review.md`,
+  `internal/gemini/2026-10-23_day_review.md`; the traces sorted in `internal/claude/2026-10-23_mrtx/gemini_traces_sorted.md`):
+  each finding was checked before it was used, and the checks are in the bugs file and the plan. Held: the head
+  track's seed past an occlusion, the beard cut at the jaw, nested dips, her own clothing as strangers, the margin
+  renders that show the lines, the pose table, the closed-lip line drawing a mouth on every voiced frame by design.
+  Did not hold: the subjects' colors in the stacked clip (lead green, second magenta, `capture_masked_run.py`), and
+  62e895b8 as the cause of the profile mouth cut.
+- **Corrections of the lead's own statements** (beyond those above): load names can clash across days; the 4647 sheet's
+  labels sit above the pictures; a reader's beard check was against the region, not the carried part plus margin;
+  "wrong" on the review page takes a laid piece out of the cut, which the page does not say; the 5039 ruling "no beard
+  showing" was wrong; the 3098 tail was first queued on 3098-3166, past where she leaves the picture; times in the
+  running notes were first guessed ahead of the clock and corrected; the lead first advised keeping 3967b, then marking
+  it wrong (keep means done).
+
 ## 2026-10-22
 
 - **The owner's rulings of the day that no entry below records** (mrtim, the Claude lead, with mrcat then mrtiger on the card;

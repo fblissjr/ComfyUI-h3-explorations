@@ -58,6 +58,9 @@ so a builder's worktree has them.
   holds an egg on 1010-1017"); the second subject's `held`, `hands`, `clothes` and hair band were retired on
   2026-10-17 (`decisions.md`).
 - Keep-outs for other people stay: another subject's track and strangers.
+- **Keep means done** (the owner, 2026-10-23): a piece with a known fault that a remake will fix is marked wrong, not
+  kept, so no session reads it as finished; a render that came out fine from a flawed reference is kept, and the
+  reference is fixed for later loads (`docs/wiki/decisions.md`).
 - **A kept subject stays** (the owner, 2026-10-21): it is not remade to make the other subject of its shot, unless
   something broken changes the composite. No subject goes first by rule; the kept one is pass 1. A shot is done when
   every subject who can be swapped there is kept: a subject with nothing to replace is recorded as `not seen` with
