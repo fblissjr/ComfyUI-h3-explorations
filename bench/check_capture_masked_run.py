@@ -3658,6 +3658,7 @@ def the_source_facial_hair() -> str:
     other[1, 46:52, 60:66] = True                      # frame 1: the other person's mask over part of it
     beard = np.zeros((H, W), bool)
     beard[40:52, 60:80] = True
+    beard[40:50, 50:90] = True                          # plus the 10-row (0.35 * 28) downward jaw extension across the face's columns 50..90
     pnames = json.loads(Path(htp.POSE_KEYPOINTS_PATH).read_text())["names"]
     idx = {nm: i for i, nm in enumerate(pnames)}
     kps = np.zeros((N, 308, 2), np.float32)
@@ -3704,10 +3705,10 @@ def the_source_facial_hair() -> str:
     assert not (off & beard).any() and "source_facial_hair" not in prov["off"] and "source_facial_hair" not in seen["off"], seen["off"]
     # THE CASE THAT GOES RED when the plan's word does not reach the head tube, or keeps another person's pixels
     kept = prov["on"]["source_facial_hair"]["kept_px_by_class"]
-    assert kept == {"Face_Neck": [240, 204, 240, 240]}, kept
-    assert not on[:, 52:56, 60:80].any(), "the Hair the part model calls the beard's lower end was kept"
+    assert kept == {"Face_Neck": [440, 404, 440, 440]}, kept
+    assert not on[:, 52:56, 60:80].any(), "the Hair the part model calls the beard's lower end below the jaw extension was kept"
     assert on[0][beard].all() and not on[1, 46:52, 60:66].any() and on[1][beard & ~other[1]].all(), "the part to load does not hold his goatee less the other's"
-    assert seen["on"]["source_facial_hair"] == {"kept_px": 924, "kept_px_by_class": {"Face_Neck": 924}, "cut_by_the_face_columns_px": 0,
+    assert seen["on"]["source_facial_hair"] == {"kept_px": 1724, "kept_px_by_class": {"Face_Neck": 1724}, "cut_by_the_face_columns_px": 0,
                                                "kept_on_source_frames": [[100, 103]], "per_frame": "the provenance's source_facial_hair",
                                                "off_tube_suppressed_px_before_keeping": seen["on"]["off_tube_suppressed_px"] + 924}, seen["on"]
     # the part stays face-only: what it holds decides the hair-in-hole pass

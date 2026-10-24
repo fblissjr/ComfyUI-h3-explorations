@@ -141,18 +141,34 @@ REGAIN_FACE_POINTS_MIN: int = (
 #: reader's replay) none on its 35 frames, where her raised hand was kept out by the tube's part being empty (her head track lost on
 #: 4921-4926 and 4941-4946), not by the columns.
 FACE_COLUMN_PAD_PX: int = 8
+#: Downward jaw/beard extension fraction of the face height (`max(fh_h, med_fh)`) in each face column when `keep_facial_hair=True`
+#: (`face_piece_kept_whole`, 2026-10-24, replacing 0764f585's `Face_Neck`-only assumption). **Reasoned starting value**, verified on
+#: CPU against the four raw preview class videos before any render:
+#: - `third_fp_5675f` (med_fh=204 px): `0764f585` kept 0 px on 10/37 headed frames where Sapiens labelled the beard `Hair` / `Upper_Clothing`
+#:   or where `tube[t]` already enclosed the beard (5683-5687); `0.35` keeps the beard on 37/37 headed frames (min 112 px, med 11,567 px).
+#: - `third_fp_5011e` (med_fh=100 px): `0764f585` missed 7/33 frames (5020-5022, 5038-5041); `0.35` keeps 33/33 (min 566 px, med 3,080 px).
+#: - `third_fp_5461d` (med_fh=103 px): `0764f585` missed 16/37 frames; `0.35` keeps 37/37 (min 691 px, med 3,888 px).
+#: - `third_fp_4479d` (med_fh=64 px): `0764f585` missed 29/31 frames (`Upper_Clothing` / `Torso`); `0.35` keeps 31/31 (min 1,122 px, med 1,584 px).
+JAW_BEARD_PAD_FRAC: float = 0.35
+#: Sapiens body-part classes excluded from the downward jaw/beard extension so hands or arms crossing in front of the chin (`5011e`:
+#: 11,685 px; `5461d`: 9,512 px; `4479d`: 94 px) are not pulled into the beard mask.
+JAW_BEARD_EXCLUDE_CLASSES: tuple[str, ...] = (
+    "Left_Hand",
+    "Right_Hand",
+    "Left_Lower_Arm",
+    "Right_Lower_Arm",
+    "Left_Upper_Arm",
+    "Right_Upper_Arm",
+)
 FACIAL_HAIR_CANNOT_SEE: tuple[str, ...] = (
-    "facial hair the preview's part does not hold: where the part model calls it clothing (something over it: third_fp_5011b's "
-    "5020-5022 under his arm, third_fp_5461b's 5463-5464, Upper_Clothing) or Hair, nothing is kept. Hair is left out on purpose: a "
-    "rule that took the part model's Hair under the mouth inside the face's columns added, outside the region already regenerated, "
-    "50, 5 and 21 px on third_fp_4726b, 5011b and the clean-shaven 4602c, and on 5675c Hair that could not be told from his head "
-    "hair beside the cheek (replays of 2026-10-23)",
     "a hand or arm the part model calls Face_Neck where it touches the face (4912e's raised hand): kept where it lies in the face's "
-    "columns; what the columns cut is recorded a frame (`cut_by_the_columns_px`)",
+    "columns; what the columns cut is recorded a frame (`cut_by_the_columns_px`); hands and arms labelled as hand/arm classes in the "
+    "class map (`JAW_BEARD_EXCLUDE_CLASSES`) are excluded from the downward jaw extension (`excluded_hand_arm_px`)",
     "a beard wider than the face's columns and FACE_COLUMN_PAD_PX (a profile where the face inside the tube is a sliver): cut there, "
     "and recorded",
-    "a piece of the part not joined to the face (split off by a hand or a gap in the part model's map): not kept",
-    "where the beard ends: the piece is the neck as well as the beard, the plan's face_and_neck, kept as far down as the part runs",
+    "a piece of the part not joined to the face and below JAW_BEARD_PAD_FRAC of the face height: not kept",
+    "where the beard ends: the connected Face_Neck piece is the neck as well as the beard, and the downward jaw extension reaches "
+    "JAW_BEARD_PAD_FRAC of the face height below each column of the face",
 )
 
 
@@ -1766,26 +1782,38 @@ def face_piece_kept_whole(
     part: np.ndarray,
     person: np.ndarray,
     *,
+    cmap: np.ndarray | None = None,
     others: np.ndarray | None = None,
     skip_frames: dict[int, str] | None = None,
     pad: int = FACE_COLUMN_PAD_PX,
+    jaw_pad_frac: float = JAW_BEARD_PAD_FRAC,
 ) -> tuple[np.ndarray, dict[str, Any]]:
-    """THE SOURCE'S FACIAL HAIR (2026-10-23): what the head tube gives back to a face-only part whose plan says the source shows
-    facial hair to replace (`subjects.<s>.source_facial_hair`). The head track is widened only by a piece of the part that fits within
-    its rows (`head_tube_for_capture`, the attach rule), and the tube is the head track, so a face-only part is cut where SAM's head
-    mask stops, at the jaw. His face, beard and neck are one connected piece of the part, so the beard below the jaw was cut: on
-    third_fp_5011b, 986-1607 px a frame in the 35 rows under the head track on 12 of the 15 frames a reader saw the goatee below the
-    region, all of it held by the preview's part.
+    """THE SOURCE'S FACIAL HAIR (2026-10-23; extended 2026-10-24 to replace 0764f585's Face_Neck-only assumption): what the head tube
+    gives back to a face-only part whose plan says the source shows facial hair to replace (`subjects.<s>.source_facial_hair`). The head
+    track is widened only by a piece of the part that fits within its rows (`head_tube_for_capture`, the attach rule), and the tube is the
+    head track, so a face-only part is cut where SAM's head mask stops, at the jaw, or where Sapiens labels the beard `Hair` / `Upper_Clothing`
+    / `Torso` (`5675f`, `5011e`, `5461d`, `4479d`).
 
-    On each frame: the part as the job hands it (`part`, after off_head) inside the person track (`person`), in the pieces (8-connected)
-    that join the tube's part (`part_mask`); of those, the px outside the tube (`tube`), inside the columns of the tube's part widened by
-    `pad` on each side, and in no other person's mask (`others`), that still join the tube's part, are kept. No pose point is read, so a
-    head turned away keeps it too. Inside the tube the tube's own part stands. Nothing is kept on `skip_frames` (a person's drop or
-    no-face word, with why). Returns the kept pixels (T, H, W) and the record: px kept a frame, what the columns cut, and why nothing
-    was where nothing was."""
+    On each frame:
+    1. The connected `part` piece (`part`, after off_head) inside the person track (`person`) and outside the tube (`tube`) inside the
+       columns of the tube's part (`part_mask`) widened by `pad` on each side.
+    2. When `jaw_pad_frac > 0`, the downward jaw/beard extension extending the bottom row of `part_mask[t]` in each column `x` of
+       `part_mask[t]` downward by `max(int(round(jaw_pad_frac * max(fh_h, med_fh))), 1)` rows inside `person[t] & ~part_mask[t]`,
+       excluding Sapiens hand/arm classes (`JAW_BEARD_EXCLUDE_CLASSES`) when `cmap` is given.
+    Both are intersected with `~others[t]` and 8-connected to `part_mask[t]`. Nothing is kept on `skip_frames` (a person's drop or
+    no-face word, with why). Returns the kept pixels (T, H, W) and the provenance record."""
     num_frames = part_mask.shape[0]
     kept = np.zeros(part_mask.shape, dtype=bool)
     rows: list[dict[str, Any]] = []
+    excl_ids = [NAME_TO_ID[c] for c in JAW_BEARD_EXCLUDE_CLASSES if c in NAME_TO_ID]
+    fhs: list[int] = []
+    for t in range(num_frames):
+        if skip_frames and t in skip_frames:
+            continue
+        if part_mask[t].any():
+            ys_t = np.nonzero(part_mask[t])[0]
+            fhs.append(int(ys_t.max() - ys_t.min() + 1))
+    med_fh = float(np.median(fhs)) if fhs else 0.0
     for t in range(num_frames):
         row: dict[str, Any] = {"frame": t, "kept_px": 0}
         rows.append(row)
@@ -1800,15 +1828,36 @@ def face_piece_kept_whole(
         _, labels = cv2.connectedComponents((mine | face).astype(np.uint8), connectivity=8)
         own = np.unique(labels[face])
         piece = np.isin(labels, own[own > 0]) & mine & ~tube[t]
-        if not piece.any():
-            row["nothing_kept_because"] = "no piece of the part joins the face outside the tube"
-            continue
-        xs = np.nonzero(face.any(0))[0]
+        ys_f, xs_f = np.nonzero(face)
+        xs = np.unique(xs_f)
         c0, c1 = max(int(xs[0]) - int(pad), 0), min(int(xs[-1]) + int(pad), face.shape[1] - 1)
         columns = np.zeros(face.shape, dtype=bool)
         columns[:, c0:c1 + 1] = True
-        cand = piece & columns
-        row.update(face_columns=[c0, c1], cut_by_the_columns_px=int((piece & ~columns).sum()))
+        jaw_ext = np.zeros(face.shape, dtype=bool)
+        excl_px = 0
+        if jaw_pad_frac > 0.0:
+            fh_h = int(ys_f.max() - ys_f.min() + 1)
+            pad_y = max(int(round(float(jaw_pad_frac) * max(float(fh_h), med_fh))), 1)
+            for x in xs:
+                by_y = int(np.nonzero(face[:, x])[0].max())
+                jaw_ext[by_y + 1 : min(face.shape[0], by_y + 1 + pad_y), x] = True
+            jaw_ext &= person[t] & ~face
+            if cmap is not None and excl_ids:
+                hand_arm = np.isin(cmap[t], excl_ids)
+                excl_px = int((jaw_ext & hand_arm).sum())
+                jaw_ext &= ~hand_arm
+        cand = (piece & columns) | jaw_ext
+        if not cand.any() and not piece.any():
+            row["nothing_kept_because"] = "no piece of the part or jaw extension joins the face"
+            if excl_px:
+                row["excluded_hand_arm_px"] = excl_px
+            continue
+        row.update(
+            face_columns=[c0, c1],
+            cut_by_the_columns_px=int((piece & ~columns & ~jaw_ext).sum()),
+            jaw_extended_px=int(jaw_ext.sum()),
+            excluded_hand_arm_px=excl_px,
+        )
         if others is not None:
             row["in_another_persons_mask_px"] = int((cand & others[t]).sum())
             cand &= ~others[t]
@@ -1819,14 +1868,18 @@ def face_piece_kept_whole(
         row.update(kept_px=int(keep.sum()), cut_off_from_the_face_px=int(cand.sum()) - int(keep.sum()))
     record = {
         "rule": "face_piece_kept_whole",
-        "is": ("the part as the job hands it, in the pieces that join the tube's part, outside the tube, inside the person track and the "
-               "tube part's columns widened by FACE_COLUMN_PAD_PX, less every other person's mask: kept in the part the tube cut it from"),
+        "is": ("the part as the job hands it in the pieces that join the tube's part inside the face columns widened by "
+               "FACE_COLUMN_PAD_PX, unioned with the downward jaw extension of JAW_BEARD_PAD_FRAC of the face height in each face "
+               "column inside the person track (less hand/arm classes JAW_BEARD_EXCLUDE_CLASSES and every other person's mask)"),
         "said_by": "the plan's subjects.<s>.source_facial_hair (`bench/shot_to_load.py::source_facial_hair_of`), facial_hair=keep on --mask",
         "column_pad_px": int(pad),
+        "jaw_pad_frac": float(jaw_pad_frac),
+        "median_face_height_px": round(med_fh, 1),
         "others_given": others is not None,
         "kept_px": [int(r["kept_px"]) for r in rows],
         "kept_on_frames": [int(r["frame"]) for r in rows if r["kept_px"]],
         "cut_by_the_columns_px": [int(r.get("cut_by_the_columns_px", 0)) for r in rows],
+        "excluded_hand_arm_px": [int(r.get("excluded_hand_arm_px", 0)) for r in rows],
         "frames": rows,
         "cannot_see": list(FACIAL_HAIR_CANNOT_SEE),
     }
@@ -2148,14 +2201,17 @@ def head_tube_for_capture(
             tube_info["tube"],
             parts_bool,
             raw_track_bool,
+            cmap=cmap_arr,
             others=np.asarray(others, dtype=bool) if others is not None else None,
             skip_frames=skip,
         )
-        # each kept px keeps the part model's own class where it is one of the part's, else Face_Neck (the part's own px the map left
-        # unlabelled, as the tube labels them)
+        # each kept px keeps the part model's own class where it is one of the part's, else Face_Neck (so the part stays face-only
+        # in the capture's class map, and the raw class breakdown is recorded in kept_px_by_raw_class)
         kept_cls = np.where(np.isin(cmap_arr, part_ids), cmap_arr, np.uint8(face_id)).astype(np.uint8)
         facial_hair["kept_px_by_class"] = {CLASS_NAMES[c]: [int(((kept_cls[t] == c) & kept_facial_hair[t]).sum()) for t in range(num_frames)]
                                            for c in sorted(int(v) for v in np.unique(kept_cls[kept_facial_hair]))}
+        facial_hair["kept_px_by_raw_class"] = {CLASS_NAMES[c]: [int(((cmap_arr[t] == c) & kept_facial_hair[t]).sum()) for t in range(num_frames)]
+                                               for c in sorted(int(v) for v in np.unique(cmap_arr[kept_facial_hair]))}
         # WHAT WAS KEPT, in the provenance's own figures: the part counts what it now holds, and the suppressed count loses the kept
         # px it had counted (the part's own px outside the tube). The tube's own figures stay in the record
         counted = kept_facial_hair & ~tube_info["tube"] & (np.isin(cmap_arr, part_ids) | parts_bool)
