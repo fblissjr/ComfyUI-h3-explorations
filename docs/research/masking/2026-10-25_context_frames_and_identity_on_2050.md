@@ -95,17 +95,21 @@ This reverses the 2026-10-21 "as filmed" default, kept on 2026-10-22 for the mom
 her gaze loses something, it shows on her next render and gets its own look. One shot is never split; the seam rule
 across a cut stands; the laid row still names the shot and the frames laid.
 
-## The test, and what follows it
+## The test, and what followed it
 
-- The proof, no build: a load of exactly 90 frames (2050-2139) is its own window with no padding, every frame
-  masked, one variable against 2050e (the same 90 frames, 45 masked and 45 unmasked). Its zoom box is the union over
-  90 frames, so its zoom is below 2050e's 1.86x; size is ruled out, so that does not cloud the answer.
-- If the still's face appears: the real piece the same way, 2050-2292 as a legal 243 window masked throughout, laid
-  as 2050-2247; and the job tool choosing the span as the window length by itself when the shot continues.
-- If it does not: the crowd test (the other faces painted out on a copy, never the film, on the owner's word), then
-  `paint_out` (the ring: the encoder is convolutional and kept cells beside the mask carry the old face; core's own
-  inpaint hides the original before its encode; off here "until a matched render says it helps"), then the still
-  cropped to her head at the same 2048, then the drawing off at the cost of gaze. Each against the proof as baseline.
+- **The 90-frame proof (`lead_fp_2050f`, `2050–2139`, rendered and kept 2026-10-24T22:41:51Z, `data/fun/owner_answers.jsonl:1619-1620`)**:
+  a load of exactly 90 frames (`2050–2139`) as its own legal window (`89 = 1 + 88`) with `0` unmasked padding frames,
+  every frame masked (`--no-draw-face-on 2050-2055,2083-2086`), one variable against `2050e` (the same 90 frames, 45
+  masked and 45 unmasked). Zoom held at `1.86x` in `[210, 180, 762, 594]`, `7.9%` regenerated tokens, median rendered
+  face height `125 px`, median lash gap `5.69 px`. The still's face transferred cleanly across all 90 frames (`"AMAZING! PERFECT!"`).
+- **The full 243-frame piece (`lead_fp_2050g`, `2050–2292` laid as `2050–2247`, rendered and kept 2026-10-24T23:39:32Z, `data/fun/owner_answers.jsonl:1621-1622`)**:
+  a legal 243-frame window (`241 = 1 + 240`, padded by 2 duplicated tail frames inside the node) masked end to end
+  across the shot (`2050–2247`) and the 45-frame tail (`2248–2292`), with `--no-draw-face-on 2050-2055,2083-2086,2170-2177,2235-2270`,
+  `--no-head-on 2249-2270`, and `--drop 2249-2270` for the 22 mirror-spin frames (`2249–2270`) where her reflection
+  leaves the mirror before returning on `2271–2292`. Zoom was `1.27x` in `[120, 100, 928, 706]`, `8.1%` regenerated
+  tokens, `0` unmasked padding frames, `0` held frames, median rendered face height `125 px`, median lash gap `5.41 px`,
+  lid/lip score `0.98`. Kept on sight (`"Everything looks amazing here, even the spinning ball!!!"`) and laid on
+  `2050–2247` in `data/fun/laid.jsonl`, replacing `lead_fp_2050f`.
 
 ## What else the evening found, for the leftovers list
 
