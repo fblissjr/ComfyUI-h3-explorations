@@ -65,6 +65,7 @@ after the close's reviews (decisions.md, 2026-10-24); where the two differ, this
    `data/*_jobs/<name>.json`, a moved-aside `<name>.json.<suffix>` included (4053b's evening clash was one). And
    the 2026-10-24T0045Z cut (`Video/fun/day_2026-10-24/`) registered as the pass-2 source (`../masked_v2v/PROTOCOL.md`
    1.1); until then the manifest's newest, 2026-10-23T1631Z, already holds every piece laid on the shots below.
+   `check_pass2_source` refuses the raw source where another piece is laid, but not an older cut.
 2. The third subject's loads back on the default margin.
 3. The previews that need no new code, on the card while steps 4-5 are built (landed only with the card held), each
    on its pass's source (what is laid is `data/fun/laid.jsonl`):
@@ -72,6 +73,9 @@ after the close's reviews (decisions.md, 2026-10-24); where the two differ, this
      6105, 3595 and 3240 (lead_fp_3240e's fault, bug 17, is the strangers form 14838f44 replaced); the second's 4912.
    - The newest cut, `--for` the subject: the third's 5675, 5011, 5461 and 4479 (the second is laid on each; step 6
      reads these previews); the second's 4647 after its missing boxes (bugs 20, 23; third_fp_4653b is laid there).
+   - 4647's order: third_fp_4653b covers 4653-4677 only, and the third shows later in the shot (4706; bug 20's boxes
+     are for his next 4647 load). That load is the kept subject's, so it goes before the second's; the second's
+     made first would be made again on the cut that holds it.
 4. A pose-table printout per drawing: the frames where the marks miss the grey face. It decides nothing; a reader
    names the bad ones. Then a small drawing-only word that leaves those frames' eye, brow and nose marks out and keeps
    the part (`bench/draw_face_points.py --bare` already draws nothing on named frames: wire it through, rather than
@@ -91,7 +95,8 @@ after the close's reviews (decisions.md, 2026-10-24); where the two differ, this
    unmoved, and she walks across 1426-1459. Expect the boxes not to seed 1431-1436 (bug 22): plan the `_head_seed` fix
    (`subject_track.py:1237`) and the day's one restart, with the card held, if the sheet shows her visible there.
 9. second_hfp_5114i's closed-mouth remake, once the chin guard is landed (above). Once the owner keeps it and the cut
-   is rebuilt, the third's 5114 on that cut (step 6's form).
+   is rebuilt, the third's 5114 on that cut (step 6's form). If the guard does not land, the Open List asks the owner
+   whether the third's 5114 is made on the stand-in (a stale kept piece is shown to the owner, not remade by rule).
 
 Waiting on the owner: 0516c's frame 597 and 3759b's 3856-3857 (the share's `Video/fun/looks/2026-10-23_head_marks/`).
 

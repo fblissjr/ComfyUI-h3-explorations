@@ -35,7 +35,11 @@ Older history lives elsewhere and is not copied here:
   laid) and 1419 (the lead and the third laid) on the newest cut with `--for`, and the third's beard shots join the
   early previews. The third's 5114 waits for second_hfp_5114i's remake and a rebuilt cut: made on the stand-in, it
   would be made twice. Three of the review's shot facts did not hold: on 4647 the laid piece is the third's, not the
-  lead's, so the second is pass 2 there, not the third pass 3; nothing is laid on 4774 or 4912.
+  lead's, so the second is pass 2 there, not the third pass 3; nothing is laid on 4774 or 4912. A second Claude
+  review added: `check_pass2_source` does not catch an older cut; and if the chin guard does not land, the owner is
+  asked whether the third's 5114 goes on the stand-in. Its order for 4647 (the third after the second) is reversed
+  here: third_fp_4653b covers 4653-4677 of 4647-4725 (`data/fun/laid.jsonl:25`, `frames`), so the third's next load there is
+  the kept subject's and goes first.
 
 ## 2026-10-23
 
