@@ -27,12 +27,18 @@ bugs it numbers are `bugs_for_tomorrow.md` beside it; the running notes are `not
   and `mrgem-cut-map`. The worktrees of the day's landed branches are removed and their branches kept; `git worktree
   list` shows what is left, none of it holding uncommitted work.
   Some of the day's scratch from `/tmp` is kept under `internal/claude/2026-10-23_mrtx/kept_from_tmp/`: the owner's
-  sheet boxes and the sheet-to-frame fits for 4647 and 4912, needed to enter the third subject's blue boxes.
+  sheet boxes and the sheet-to-frame fits for 4647 and 4912. The third subject's blue boxes still to enter are 4647's
+  only (4719, 4721, 4722; bug 20); 4912's boxes for the second are in.
 
 ## What not to assume
 
 - **The third subject's loads take the default margin.** A larger `--margin` let H3 copy the drawing's white outlines
-  onto his face (decisions.md, 2026-10-23). 4479d staying clean at 64 does not make it safe.
+  onto his face (decisions.md, 2026-10-23). 4479d staying clean at 64 does not make it safe. Nor is the margin proven
+  the whole cause: the lines came where the drawing was least enlarged (4479d 5.33x clean; 5011e 2.27x, 5675f 1.52x
+  not; bug 27), and Gemini's mechanism is unchecked (bug 29).
+- **5114i's remake waits on the chin guard** (`gem-chin-and-lips-guard`, 52c38f23, not landed): no closed mouth goes on
+  before it. Its blind read and a replay against kept drawings, lit necks included, are a step of their own; until
+  then 5114i stays `unconfirmed`.
 - **A drawing that ran has not been checked.** Its log prints figures (the face score, the mouth gate, the body-model
   clock) and none of them decides anything. On 3098b, 4479d and 3967b the marks sat off the grey face (bugs 27, 29, 31).
 - **The drawn eyes are what keep the gaze alive.** Without them every subject had dead eyes copying their reference
@@ -51,22 +57,32 @@ bugs it numbers are `bugs_for_tomorrow.md` beside it; the running notes are `not
 
 ## Tomorrow, in order
 
-The plan's section 3 has the order and the reasons (revised at the close with Gemini's strategic review: the landed
-tools first, new code only where they fail). In short:
+The plan's section 3 has the reasons (the landed tools first, new code only where they fail). This order revises it
+after the close's reviews (decisions.md, 2026-10-24); where the two differ, this one stands:
 
-1. Its section 0: the cut is current, the server unarmed, the tree clean, the owner's answers read to the end.
+1. Its section 0: the cut is current, the server unarmed, the tree clean, the owner's answers read to the end. Then
+   the name check (bug 1, bench only), before any new job: `free_name`'s `taken` also counts every day's
+   `data/*_jobs/<name>.json`, a moved-aside `<name>.json.<suffix>` included (4053b's evening clash was one).
 2. The third subject's loads back on the default margin.
-3. A pose-table printout per drawing: the frames where the marks miss the grey face. It decides nothing; a reader
+3. The previews that need no new code, on the card while steps 4-5 are built (landed only with the card held): 3967
+   (bug 26), 4912; 4227, 3476, 4774, 5044; 4310, 5935c, 6105, 3595; 3240 (lead_fp_3240e's fault, bug 17, is the
+   strangers form 14838f44 replaced). 4647 after its missing boxes (bugs 20, 23).
+4. A pose-table printout per drawing: the frames where the marks miss the grey face. It decides nothing; a reader
    names the bad ones. Then a small drawing-only word that leaves those frames' eye, brow and nose marks out and keeps
-   the part. Not `--no-face-on`, which empties a face-only part.
-4. 3967: `--hold-part 3967-3970@3971` and the drawing-only word on 3969-3970.
-5. The beard: one render of 5675, the region grown downward only at the default margin, against 5675c; then 5011,
-   5114 and 5461 by its result. It can render while step 3 is built.
-6. 4479: the drawing-only word on the frames named, then a zoom test on its own.
-7. 4647: its missing boxes (bugs 20, 23), then a fresh preview on current main. 1419: a reader's sheet, hidden marks,
-   `--hold-part`. The tracker code and the restart only if those fail.
-8. The previews never run: 4912; 4227, 3476, 4774, 5044; 4310, 5935c, 6105, 3595. Then second_hfp_5114i's closed-mouth
-   remake, and a call on lead_fp_3240e (bug 17).
+   the part (`bench/draw_face_points.py --bare` already draws nothing on named frames: wire it through, rather than
+   build anew). Not `--no-face-on`, which empties a face-only part.
+5. 3967: `--hold-part 3967-3970@3971` and the drawing-only word on 3969-3970. The film's points on 3969 also size the
+   reference's one crop box: pass those frames to `bench/head_reference.py::fill_from_neighbours` too, or compare the
+   box with them left out.
+6. The beard: first, on CPU, the classes under his jaw on 5675, 5011, 5114 and 5461 from the preview's class video
+   (a capture's `classes__*.npz` is the head tube's clipped map), and 5114c's and 5461d's drawing enlargement. Then
+   one render of 5675, the region grown downward only at the default margin, against 5675c; 5011, 5114 and 5461 by
+   its result.
+7. 4479: the drawing-only word on the frames named, then a zoom test on its own.
+8. 1419: a reader's sheet, hidden marks where she is truly hidden. Not `--hold-part`: it holds a part unmoved, and she
+   walks across 1426-1459. Expect the boxes not to seed 1431-1436 (bug 22): plan the `_head_seed` fix
+   (`subject_track.py:1237`) and the day's one restart, with the card held, if the sheet shows her visible there.
+9. second_hfp_5114i's closed-mouth remake, once the chin guard is landed (above).
 
 Waiting on the owner: 0516c's frame 597 and 3759b's 3856-3857 (the share's `Video/fun/looks/2026-10-23_head_marks/`).
 

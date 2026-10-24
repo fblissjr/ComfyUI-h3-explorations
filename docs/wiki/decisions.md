@@ -15,6 +15,21 @@ Older history lives elsewhere and is not copied here:
   decisions" and forward-plan sections.
 - `bench/results/`: the verdict records, each with its conditions.
 
+## 2026-10-24
+
+- **Corrected: why 1419's head was still lost after the restart.** The 2026-10-23 entry said "the head seed's size
+  test has no fallback". Main's span head track does fall back to the top third (`subject_track.py::_span_head`), but
+  on 1419 it seeded from a real head on 1423 (1,436 px) and lost it across the empty run 1426-1430, so the top third
+  never ran. The stretch's own size test compared her 1,901 px outline on 1431 with only the nearest headed frame,
+  1425, occluded at 366 px, and stopped there (`subject_track.py:1237`). Traced in
+  `internal/gemini/2026-10-23_post_restart_findings.md`; bug 22 of the 2026-10-23 bugs file.
+- **The 2026-10-23 handover's next-day order, revised after the reviews of the close** (Gemini's end-of-day review and
+  the Claude review of it): the name check fixed before any new job; the previews that need no new code (3967 and
+  3240 among them) moved ahead of the builds; the beard test preceded by a class print from the preview's own class
+  video and a read of the drawings' enlargement (the larger margin may not be the whole cause of the white lines,
+  bug 27); `--hold-part` dropped for 1419 (it holds a part unmoved, and she walks); and the chin guard's place made
+  explicit, since 5114i waits on it. The owner's order, the landed tools before new tracker code, is unchanged.
+
 ## 2026-10-23
 
 - **The owner's rulings of the day** (mrtx, the one lead: no Gemini lead, Gemini sessions as third-party reviewers by
@@ -83,7 +98,8 @@ Older history lives elsewhere and is not copied here:
   (`internal/claude/2026-10-23_mrtx/tomorrow_plan.md`, section 3).
 - **The head track was lost across occlusions** (the reviewer's read, checked): seeded once a span, it could seed past
   an occlusion (1419). The tracker now seeds from every owner box and can track the head per stretch (513783e6). After
-  the restart, 1419's head was still lost (the head seed's size test has no fallback) and the owner's drawn box on 4697
+  the restart, 1419's head was still lost (the head seed's size test was read against only the nearest headed frame,
+  and the span head's top third never ran; corrected 2026-10-24) and the owner's drawn box on 4697
   took the third subject. That box is withdrawn (`data/fun/cast/cast.jsonl:193`); both fixes are the next
   day's. Corrected the same day: the lead first put 1419, 4647 and 4912 all down to one seed a cut.
 - **A short dip after a partial recovery is bridged** (de4ed3cd), bounded by whole heads and never onto a hidden frame.
