@@ -45,10 +45,13 @@ Older history lives elsewhere and is not copied here:
   owner, asked whether the third's later frames and the lead on 4647 are to be replaced: not known yet. So 4647 leaves
   the next day's order except for entering the third's boxes. The lead's question had been answered on 2026-10-21
   (she is replaced there, `data/fun/owner_answers.jsonl:1413`), so only the third's later frames and the order wait.
-  Corrected the same night: the handover and Open List row r24_01 said a new third load there would replace
-  third_fp_4653b. A load is rendered over the whole shot (2026-10-15, one shot is never split) but laid by frame: the
-  lead's two pieces on 1466-1729 split it (`data/fun/laid.jsonl:12-13`). So a new third load can keep his piece, laid
-  only on 4647-4652 and 4678-4725 with a seam at each end of it, or replace it; that choice is the owner's.
+  Proposed and withdrawn the same night: a second Claude review proposed laying a new third load around
+  third_fp_4653b (on 4647-4652 and 4678-4725, with seams at each end of it), citing the lead's two pieces on 1466-1729
+  (`data/fun/laid.jsonl:12-13`) as precedent, and the handover and row r24_01 took it in. It breaks the frame rules
+  (2026-10-15, one shot is never split; `docs/masked_v2v/AGENTS.md`, zero mid-shot seams), and the owner asked that
+  4647 align with them. So his load runs and is laid over the whole shot, replacing third_fp_4653b once a new render
+  is kept; 4653b is a split piece standing from before the rule, which the rule says is remade whole, put to the owner
+  first. The lead's 1466-1729 pair is another standing split, owed a whole-shot remake the same way (not yet asked).
 
 ## 2026-10-23
 

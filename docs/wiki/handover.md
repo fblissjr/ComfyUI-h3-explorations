@@ -96,16 +96,15 @@ after the close's reviews (decisions.md, 2026-10-24); where the two differ, this
    is rebuilt, the third's 5114 on that cut (step 6's form). If the guard does not land, the Open List asks the owner
    whether the third's 5114 is made on the stand-in (a stale kept piece is shown to the owner, not remade by rule).
 
-Waiting on the owner (the Open List): on 4647, whether the third's frames after his kept piece are replaced
-(third_fp_4653b, kept 2026-10-14, covers 4653-4677; he shows to 4725; the owner, 2026-10-24: not known yet), and the
-order after him. The lead there is owed: the owner answered on 2026-10-21 that she is replaced
-(`data/fun/owner_answers.jsonl:1413`). A sheet of his frames from 4678, made by a reader while the previews run, is what
-the first is answered from (Open List r24_01, r24_02). A new third load is rendered over the whole shot but laid by
-frame: only on 4647-4652 and 4678-4725, keeping third_fp_4653b (which the owner looked at again on 2026-10-24 and likes)
-at two seams, 4652/4653 and 4677/4678; or over the whole shot, replacing it. Two pieces of one subject on one shot have
-been laid before (`data/fun/laid.jsonl:12-13`, the lead on 1466-1729). Either way his goes first; the lead and the second
-then follow one after the other, each on the cut holding the pieces before it. The second's needs bug 23's fixes. Also
-0516c's frame 597 and 3759b's 3856-3857 (the share's `Video/fun/looks/2026-10-23_head_marks/`).
+Waiting on the owner (the Open List r24_01, r24_02): on 4647, the third's whole-shot load and the order after it. By the
+frame rules (`../masked_v2v/AGENTS.md`, "One Shot = One Prompt = One Render"; decisions.md 2026-10-15, one shot is never
+split), his load runs over all of 4647-4725 and is laid over all of it, replacing third_fp_4653b (kept 2026-10-14, laid
+on 4653-4677 only, a split piece from before that rule) once the owner keeps the new render; until then his kept piece
+stays, and it is the bar the new one has to beat. Put to the owner first, as the rule says; the owner, 2026-10-24: not
+known yet. The lead there is owed (the owner answered on 2026-10-21, `data/fun/owner_answers.jsonl:1413`). His load goes
+first; the lead and the second then follow one after the other, each on the cut holding the pieces before it. The
+second's needs bug 23's fixes. Also 0516c's frame 597 and 3759b's 3856-3857 (the share's
+`Video/fun/looks/2026-10-23_head_marks/`).
 
 ## Where things are
 
