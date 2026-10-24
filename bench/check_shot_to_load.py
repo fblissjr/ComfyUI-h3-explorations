@@ -3396,6 +3396,8 @@ def no_head_track_on_the_reference_step() -> str:
 
 
 def missing_cast_file_refused() -> str:
+    import contextlib
+    import io
     with tempfile.TemporaryDirectory() as tmp:
         made = Made(Path(tmp))
         missing = str(made.root / "no_such_cast.jsonl")
@@ -3423,7 +3425,25 @@ def missing_cast_file_refused() -> str:
             ),
             f"--cast {missing}: no such file",
         )
-    return "preview and job refuse a non-existent --cast file cleanly via Refused"
+        # When data/<video>/cast/cast.jsonl exists on disk and --cast is omitted, preview defaults to it and prints which it read
+        default_cast = made.m.data / "v" / "cast" / "cast.jsonl"
+        default_cast.parent.mkdir(parents=True, exist_ok=True)
+        w, h = cfg.MASKED_JOB_CANVAS
+        default_cast.write_text(json.dumps(
+            cast_file.entry("a", 125, cast_file.HERE, by="a person", box=[10, 20, 30, 40], size=[w, h], table="t.json", at="t1")
+        ) + "\n")
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            stl.step_preview(
+                args(shots=str(made.shots_file), plan=str(made.plan_file), shot=100, folder=str(made.jobs),
+                     source=str(made.root / "input" / "copy.mov"), remake=True),
+                made.m,
+            )
+        out_str = buf.getvalue()
+        assert f"cast: {default_cast} (default for v)" in out_str, out_str
+        pjob = json.loads((made.jobs / "shot_c_0100b.json").read_text())["job"]
+        assert "SEEDED from the cast file" in pjob["note"], pjob["note"]
+    return "preview and job refuse a non-existent --cast file cleanly via Refused, and preview defaults to data/<video>/cast/cast.jsonl when present and prints which it read"
 
 
 def pass2_raw_source_refused_and_source_required() -> str:
@@ -3550,8 +3570,76 @@ def pass2_raw_source_refused_and_source_required() -> str:
             made.m,
         )
         assert (made.jobs / "shot_c_0100c.json").is_file()
+        # 7. Inverse pass-2 guard: refuse a source cut that already holds the load's own subject's piece on its frames,
+        # naming the right source (raw working copy when no other subject is laid, as on 4647c; a post-Pass-1 cut holding
+        # the other laid subject without the load's own subject when another subject is also laid, as on 1306g).
+        # 7a. Only `b` is laid on 100-159 (4647c pattern): a preview or job for `b` on `new_cut` is refused and names `copy.mov`.
+        made.plan["subjects"]["b"].pop("hair_band", None)
+        made.write()
+        refused(
+            lambda: stl.step_preview(
+                args(shots=str(made.shots_file), plan=str(made.plan_file), shot=100, folder=str(made.jobs),
+                     source=str(new_cut), remake=True, made_for=["b"]),
+                made.m,
+            ),
+            "already holds the load's own subject b (b_hfp_0100 on 100-159)",
+            f"use the raw working copy {raw_src} (no other subject is laid on 100-159)",
+        )
+        refused(
+            lambda: stl.step_job(
+                args(shots=str(made.shots_file), plan=str(made.plan_file), shot=100, folder=str(made.jobs),
+                     subject="b", preview=str(p2_pfolder)),
+                made.m,
+            ),
+            "already holds the load's own subject b (b_hfp_0100 on 100-159)",
+            f"use the raw working copy {raw_src} (no other subject is laid on 100-159)",
+        )
+        # 7b. Both `a` and `b` are laid on 100-159 (1306g pattern): a preview or job for `b` on `new_cut` is refused and names
+        # a post-Pass-1 cut holding `a` without `b`.
+        laid_file.write_text(
+            json.dumps({"load": "a_fp_0100", "subject": "a", "first": 100, "last": 159, "added": "2026-10-18T19:25:45Z"}) + "\n"
+            + json.dumps({"load": "b_hfp_0100g", "subject": "b", "first": 100, "last": 159, "added": "2026-10-24T12:00:00Z", "replaces": "b_hfp_0100f"}) + "\n"
+        )
+        refused(
+            lambda: stl.step_preview(
+                args(shots=str(made.shots_file), plan=str(made.plan_file), shot=100, folder=str(made.jobs),
+                     source=str(new_cut), remake=True, made_for=["b"]),
+                made.m,
+            ),
+            "already holds the load's own subject b (b_hfp_0100g on 100-159)",
+            "use a post-Pass-1 cut holding a (a_fp_0100 on 100-159) without b",
+        )
+        # 7c. Real job files on disk when present: third_fp_1306g.json and third_fp_4647c.json refuse in the tool's own words
+        # naming the right source, and third_fp_5675g.json passes.
+        real_shots = HERE.parent / "data/fun/shots.json"
+        real_plan = HERE.parent / "data/fun/plan.json"
+        j_1306g = HERE.parent / "data/2026-10-22_mrcat_jobs/third_fp_1306g.json"
+        j_4647c = HERE.parent / "data/2026-10-24_gemlead_jobs/third_fp_4647c.json"
+        j_5675g = HERE.parent / "data/2026-10-24_gemlead_jobs/third_fp_5675g.json"
+        if all(p.is_file() for p in (real_shots, real_plan, j_1306g, j_4647c, j_5675g)):
+            j4 = json.loads(j_4647c.read_text())
+            real_inputs = Path(j4["job"]["source"]).parent
+            real_copy = json.loads(real_shots.read_text()).get("copy") or ""
+            if (real_inputs / real_copy).is_file():
+                real_world = Machine(HERE.parent)
+                real_world.data = HERE.parent / "data"
+                real_world.inputs = real_inputs
+                real_world.output = Path(j4["loads"][0]["motion_file"]).parents[4]
+                refused(
+                    lambda: stl.check_job_pass2_source(j_1306g, real_shots, real_plan, real_world),
+                    "on 1306-1418, the source cut fun_0000_6394_joined_2026-10-22T1549Z_from_laid.mp4 already holds the load's own subject third",
+                    "use a post-Pass-1 cut holding lead (lead_fp_1306t on 1306-1418) without third",
+                )
+                refused(
+                    lambda: stl.check_job_pass2_source(j_4647c, real_shots, real_plan, real_world),
+                    "on 4647-4725, the source cut fun_0000_6394_joined_2026-10-24T0045Z_from_laid.mp4 already holds the load's own subject third",
+                    "use the raw working copy",
+                    "fun_0000_6394_24p_sound_in_step.mov (no other subject is laid on 4647-4725)",
+                )
+                assert stl.check_job_pass2_source(j_5675g, real_shots, real_plan, real_world) == ""
     return ("preview requires --source explicitly, and --for where anything is laid on the shot; preview and job refuse the raw source video or a cut "
-            "predating the shot's laid rows when another replacement is laid on the shot in laid.jsonl, and succeed with a post-Pass-1 video")
+            "predating the shot's laid rows when another replacement is laid on the shot in laid.jsonl, refuse a cut holding the load's own subject's "
+            "piece (1306g, 4647c) while passing a cut holding only the other subject's piece (5675g), and succeed with a post-Pass-1 video")
 
 
 def a_loads_seed_is_a_persons_word() -> str:

@@ -3507,6 +3507,31 @@ def laid_on_frames(plan_file: str, video: str, world, first: int, last: int) -> 
     return laid_path, rows
 
 
+def _cut_pieces_on_frames(given_p: Path, video: str, world, first: int, last: int) -> list[dict] | None:
+    """When `given_p` has an assembled cut sidecar (`<cut>.json`) on disk, return its `pieces` overlapping `first..last`."""
+    import re
+    candidates = [Path(f"{given_p}.json")]
+    m_day = re.search(r"joined_(\d{4}-\d{2}-\d{2})T", given_p.name)
+    if m_day and getattr(world, "output", None):
+        candidates.append(Path(world.output) / "Video" / video / f"day_{m_day.group(1)}" / f"{given_p.name}.json")
+    for sc in candidates:
+        if not sc.is_file():
+            continue
+        try:
+            pieces = json.loads(sc.read_text()).get("pieces")
+        except Exception:
+            continue
+        if not isinstance(pieces, list):
+            continue
+        out = []
+        for p in pieces:
+            pf, pl = int(p.get("first", -1)), int(p.get("last", -2))
+            if pf <= last and pl >= first:
+                out.append({"subject": p.get("subject"), "load": p.get("name") or p.get("load", "?"), "first": pf, "last": pl})
+        return out
+    return None
+
+
 def check_pass2_source(
     shots: dict,
     plan_file: str,
@@ -3518,30 +3543,21 @@ def check_pass2_source(
     given_source: str,
     default_source: Path,
     allow_raw_source: str | None = None,
+    own_subjects: list[str] | None = None,
 ) -> str:
     """Refuse segmenting or rendering from the raw unswapped source video when another replacement is already laid on
-    `[first, last]` in `laid.jsonl` (unless `--allow-raw-source WHY` is given). `other_subjects` are the labels whose laid
-    pieces count: at `job` every label but the load's, at `preview` every label but the ones it is made for (`--for`), so
-    a preview made to redo a laid piece does not count that piece (the owner, 2026-10-21: every replacement is a pass,
-    made on the cut that holds every OTHER replacement laid there; 5011's remake had needed the override). Nothing here
-    names a subject: the labels are the shots record's and the list's."""
+    `[first, last]` in `laid.jsonl`, or from a cut that already holds the load's own subject's piece on `[first, last]`
+    (unless `--allow-raw-source WHY` is given). `other_subjects` are the labels whose laid pieces must be in the source:
+    at `job` every label but the load's, at `preview` every label but the ones it is made for (`--for`), so a preview made
+    to redo a laid piece does not require that piece (the owner, 2026-10-21: every replacement is a pass, made on the cut
+    that holds every OTHER replacement laid there; 5011's remake had needed the override). Conversely, `own_subjects` must
+    NOT already be laid in a source cut (1306g, 4647c; 2026-10-24)."""
     if allow_raw_source is not None and not " ".join(str(allow_raw_source).split()):
         raise Refused("--allow-raw-source takes the reason in words")
     laid_path, laid_rows = laid_on_frames(plan_file, video, world, first, last)
-    if laid_path is None or not other_subjects:
-        return (
-            f" RAW SOURCE ALLOWED ON PASS 2 ({' '.join(str(allow_raw_source).split())})."
-            if allow_raw_source
-            else ""
-        )
     other_set = set(other_subjects)
+    own_set = set(own_subjects) if own_subjects is not None else {k for k in (shots.get("subjects") or []) if k not in other_set}
     laid_hits = [row for row in laid_rows if row.get("subject") in other_set]
-    if not laid_hits:
-        return (
-            f" RAW SOURCE ALLOWED ON PASS 2 ({' '.join(str(allow_raw_source).split())})."
-            if allow_raw_source
-            else ""
-        )
     given_p = Path(given_source)
     try:
         given_res = given_p.resolve()
@@ -3549,6 +3565,47 @@ def check_pass2_source(
         given_res = given_p
     raw_names, raw_paths = _raw_source_names_and_paths(shots, plan_file, default_source, world)
     is_raw = given_p.name in raw_names or given_res in raw_paths
+    import re
+    m_cut = re.search(r"(\d{4}-\d{2}-\d{2}T\d{2}):?(\d{2})Z", given_p.name)
+    cut_hm = f"{m_cut.group(1)}:{m_cut.group(2)}" if m_cut else ""
+    if not is_raw and not allow_raw_source and own_set:
+        cut_pieces = _cut_pieces_on_frames(given_p, video, world, first, last)
+        own_hits = [p for p in (cut_pieces or []) if p.get("subject") in own_set]
+        if cut_pieces is None:
+            for r in laid_rows:
+                if r.get("subject") not in own_set:
+                    continue
+                if not cut_hm or not r.get("added") or str(r.get("added"))[:16] <= cut_hm or bool(r.get("replaces")):
+                    own_hits.append(r)
+        if own_hits:
+            own_said = ", ".join(
+                f"{r['subject']} ({r.get('load', '?')} on {r.get('first')}-{r.get('last')})"
+                for r in own_hits
+            )
+            own_names = ", ".join(sorted({str(r["subject"]) for r in own_hits}))
+            if not laid_hits:
+                right_source = f"the raw working copy {default_source} (no other subject is laid on {first}-{last})"
+            else:
+                other_said = ", ".join(
+                    f"{r['subject']} ({r.get('load', '?')} on {r.get('first')}-{r.get('last')})"
+                    for r in laid_hits
+                )
+                right_source = (
+                    f"a post-Pass-1 cut holding {other_said} without {own_names} "
+                    f"(remove {own_names}'s piece from {laid_path or 'laid.jsonl'} and rebuild the cut)"
+                )
+            raise Refused(
+                f"on {first}-{last}, the source cut {given_p.name} already holds the load's own subject "
+                f"{own_said}: tracking and rendering from a cut that already replaced {own_names} "
+                f"follows the already-replaced picture and leaves the raw source outside the mask at assembly; "
+                f"use {right_source} via --source (or --allow-raw-source \"<why>\" if intentional)"
+            )
+    if laid_path is None or not other_subjects or not laid_hits:
+        return (
+            f" RAW SOURCE ALLOWED ON PASS 2 ({' '.join(str(allow_raw_source).split())})."
+            if allow_raw_source
+            else ""
+        )
     if is_raw and not allow_raw_source:
         laid_said = ", ".join(
             f"{r['subject']} ({r.get('load', '?')} on {r.get('first')}-{r.get('last')})"
@@ -3562,10 +3619,7 @@ def check_pass2_source(
         )
     if is_raw and allow_raw_source:
         return f" RAW SOURCE ALLOWED ON PASS 2 ({' '.join(str(allow_raw_source).split())})."
-    import re
-    m_cut = re.search(r"(\d{4}-\d{2}-\d{2}T\d{2}):?(\d{2})Z", given_p.name)
     if m_cut and not allow_raw_source:
-        cut_hm = f"{m_cut.group(1)}:{m_cut.group(2)}"
         newer = [r for r in laid_hits if str(r.get("added") or "")[:16] > cut_hm]
         if newer:
             newer_said = ", ".join(
@@ -3578,6 +3632,35 @@ def check_pass2_source(
                 f"(or --allow-raw-source \"<why>\" if an older cut is intentional)"
             )
     return ""
+
+
+def check_job_pass2_source(job_file: str | Path, shots_file: str | Path, plan_file: str | Path, world) -> str:
+    """Hold an existing load job file (`job_file`) to `check_pass2_source` against `shots_file` and `plan_file`."""
+    shots, _ = _load(str(shots_file), str(plan_file))
+    d = json.loads(Path(job_file).read_text())
+    j = d["job"]
+    load = d["loads"][0]
+    first = int(load["first"])
+    last = first + int(load["frames"]) - 1
+    subject = str(load["subject"])
+    video, default_source, _ = working_copy(shots["copy"], world)
+    shot = shot_of(shots, int(j.get("first", first)))
+    other_subjects = list(dict.fromkeys(
+        [k for k in shots["subjects"] if k != subject and (shot["who"].get(k) or {}).get("present") == "yes"]
+        + [s["label"] for s in (j.get("subjects") or []) if s.get("label") and s["label"] != subject]
+    ))
+    return check_pass2_source(
+        shots,
+        str(plan_file),
+        video,
+        world,
+        first,
+        last,
+        other_subjects,
+        str(j["source"]),
+        default_source,
+        own_subjects=[subject],
+    )
 
 
 # ---------------------------------------------------------------- the steps
@@ -3602,11 +3685,13 @@ def step_preview(a, world) -> None:
     else:
         source = default_source
     cast = None
-    if a.cast:
-        if not Path(a.cast).is_file():
-            raise Refused(f"--cast {a.cast}: no such file")
+    cast_path = Path(a.cast) if a.cast else (world.data / video / "cast" / "cast.jsonl")
+    if a.cast and not cast_path.is_file():
+        raise Refused(f"--cast {a.cast}: no such file")
+    if cast_path.is_file():
         import cast_file
-        cast = cast_file.read(a.cast)
+        cast = cast_file.read(str(cast_path))
+        print(f"cast: {cast_path}" + ("" if a.cast else f" (default for {video})"))
     name = preview_name(shot)
     if a.remake:
         # a name is taken by a job file in this folder or any *_jobs folder, and by a capture or job folder of any day
@@ -3643,6 +3728,7 @@ def step_preview(a, world) -> None:
         str(src_arg),
         default_source,
         allow_raw_source=getattr(a, "allow_raw_source", None),
+        own_subjects=made_for or list(present_on_shot),
     )
     seed_cuts = cuts_of_table(a.seed_cuts_of, shot) if a.seed_cuts_of else None
     if seed_cuts and not cast:
@@ -3933,6 +4019,7 @@ def step_job(a, world, cut=cut_keep_out, hashed=None, inside=part_inside, classe
         str(prev_src),
         default_source,
         allow_raw_source=getattr(a, "allow_raw_source", None),
+        own_subjects=[a.subject],
     )
     job["job"]["note"] += earlier.replace("MADE ON AN EARLIER COPY", "ITS PREVIEW WAS MADE ON AN EARLIER COPY") + raw_note
     out = folder / f"{name}.json"
@@ -4539,7 +4626,7 @@ def main() -> int:
     sub.choices["preview"].add_argument("--for", dest="made_for", action="append", default=[], metavar="LABEL",
                                         help="the replacement this preview is made for, a label of the shots record on this shot; repeatable. Required "
                                              "where anything is laid on the shot: the source is then held to the laid pieces of the others alone")
-    sub.choices["preview"].add_argument("--cast", help="the cast file: a subject with an answer inside the shot is seeded from it")
+    sub.choices["preview"].add_argument("--cast", help="the cast file (defaults to data/<video>/cast/cast.jsonl when present): a subject with an answer inside the shot is seeded from it")
     sub.choices["preview"].add_argument("--ask", action="append", default=[], metavar="SUBJECT:why",
                                         help="track a subject the record is `unsure` of on this shot, because the preview is made to ask the owner who is on it; "
                                              "repeatable. No load is built on it until they have answered")
