@@ -278,21 +278,14 @@ video grid that is every third length, 39 the first
 length, 22 and 362 among them, ends with the sound off its last frame by a
 third of one audio latent, the rounding adding it (22) or dropping it (362).
 
-**In the masked video-to-video lane it is a rule (`docs/masked_v2v/AGENTS.md`, "Windows"; 2026-10-21).**
+**In the masked video-to-video lane it is a rule (`docs/masked_v2v/AGENTS.md`, "Windows"; 2026-10-21, updated 2026-10-25).**
 Every masked load renders in a window on both clocks (`workflows/masked_job_graph.py::both_clocks`,
 `workflows/masked_job_graph.py::window_for`, `workflows/masked_job_graph.py::one_window`).
-When a shot is shorter than its window, `workflows/masked_job_graph.py::window_pad` pads the
-window with real frames of the source after the shot (since 2026-10-22; before it only at the clip's end, and split
-evenly before then) as untouched context (empty
-regeneration mask in `video_mask.py::MiniMaxH3MaskedSource.execute`, never held copies of the last
-frame), and `audio_freeze_song.py::MiniMaxH3AudioFreezeSong.execute` tosses those context frames
-after the VAE decode. Why: repeating the last frame into a held tail (`second_hfp_4912e`) repeated
-unregenerated features across the window and filled the encoder's last clip with a frozen frame,
-whereas real neighbor frames keep the video and audio clocks exact without held copies.
-Since 2026-10-22 the context frames across a cut are held copies of the shot's own edge frame again, with its region
-open and the track silent under them (`workflows/masked_job_graph.py::held_context`, `video_mask.hold_context`): a real
+By the owner's ruling of 2026-10-25 ([`docs/research/masking/2026-10-25_context_frames_and_identity_on_2050.md`](research/masking/2026-10-25_context_frames_and_identity_on_2050.md)), the original subject is never shown unmasked in a window: where a piece is shorter than its window and the shot's own footage continues past it, the load runs to the window's length masked end to end and the extra frames are chopped off at the lay (`laid.jsonl` `frames` field; job-tool auto-span build pending, while `workflows/masked_job_graph.py::window_pad` and `video_mask.py::pad_context` still pad a shorter load's mask empty under `as filmed` until that build lands), reversing the 2026-10-21 unmasked real-neighbor context rule after `lead_fp_2050c` and `lead_fp_2050e` re-synthesised the original singer's face from unmasked context frames.
+Where the padding frames after the shot cross a hard cut into another shot (since 2026-10-22), they are held copies of the shot's own edge frame with its region
+open and the track silent under them (`workflows/masked_job_graph.py::held_context`, `video_mask.hold_context`, unless `video_mask.held_edge_falls_back` trips on an edge region under `HELD_EDGE_LEAST = 0.25` of the shot's median, as on `second_hfp_4912e`), and `audio_freeze_song.py::MiniMaxH3AudioFreezeSong.execute` tosses those held padding frames after the VAE decode: a real
 frame of the next shot shares a latent step with the shot's last frame and put a seam there (`docs/wiki/decisions.md`,
-2026-10-22). Real frames stay where the shot's own footage goes on.
+2026-10-22).
 
 **Outside the masked lane (standalone text-to-video and image-to-video):** every length on the
 `17n + 5` grid up to `MAX_LENGTH` (`362`) remains valid (`loop_plan.stands_alone`), while chained

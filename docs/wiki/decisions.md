@@ -15,6 +15,35 @@ Older history lives elsewhere and is not copied here:
   decisions" and forward-plan sections.
 - `bench/results/`: the verdict records, each with its conditions.
 
+## 2026-10-25
+
+- **Padding frames never show the original subject unmasked in a window; the three-path window rule** (the owner,
+  2026-10-25 about 00:10Z to 00:20Z; recorded in
+  `docs/research/masking/2026-10-25_context_frames_and_identity_on_2050.md`). On `lead_fp_2050c` (`198f` in a `243f`
+  window) and `lead_fp_2050e` (`45f` in a `90f` window), the hole was blanked (`0.04%-0.16%` of pixels unchanged inside
+  `parts_held`, `79.8%-85.9%` changed by `> 5 / 255`) and H3 followed `<Video 1>`'s expression marks, yet synthesised the
+  original lead singer's face instead of `<Picture 1>`'s. Every kept lead render had zero unmasked frames of the singer in
+  its window (the two pieces first named as counterexamples, `3098b` and `4053c`, were withdrawn on the frames once their
+  padding showed she had already left the frame and the tracker had drifted onto a bubble, another woman, and backup
+  dancers, bug 4 of 2026-10-23); `2050c` and `2050e` had `21` (`2272-2292`) and `45` (`2095-2139`) unmasked frames of the
+  singer in their padding. The owner's ruling:
+  1. **A shot up to one single-window ceiling (`345` frames on both clocks)** runs as one load to its legal window length
+     (`39`, `90`, `141`, `192`, `243`, `294`, or `345`; `362` is text-to-video's ceiling and ends with the sound off its
+     last frame by a third of an audio latent), denoised with the subject's tracked mask and `<Video 1>` end to end across
+     the entire window, and is chopped to the shot's span at the lay (`laid.jsonl`'s `frames`).
+  2. **A shot longer than `345` frames** runs as chained windows inside one load, each re-denoising a `90`-frame overlap
+     against the previous window's rendered frames and tossing the overlap, as chained windows already do.
+  3. **The padding side follows the footage**: masked real frames after the shot where the footage continues (such as
+     `2050`'s mirror spin), and held copies of the shot's last frame with its mask open across a hard cut (preserving the
+     2026-10-22 seam rule of `4479e`). Nothing goes in front except a shot at the source clip's end.
+  What it reverses and what the prose used to claim: `docs/masked_v2v/AGENTS.md` ("One shot, one load... Padding goes after
+  the shot, as filmed when the footage continues and held at a cut"), `docs/masked_v2v/frames_rules.md` (§4, "The padding
+  frames are real frames of the clip when the shot goes on past the load... Only the shot's own frames carry its masks"),
+  and `docs/h3_resolutions.md` ("Padding goes after the shot... real frames where the shot goes on past the load") each
+  claimed that padding inside continuous footage runs unmasked "as filmed" (the 2026-10-21 default kept on 2026-10-22 for
+  the mom's lowered gaze beside the shot). Updated in all three documents to state the three-path rule and link the
+  research record.
+
 ## 2026-10-24
 
 - **`meta_perception_models.md` brought up to the chain** (mrfabez, a Claude session advising; docs only). It used to

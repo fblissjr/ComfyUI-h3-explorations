@@ -1,6 +1,6 @@
 # Frame rules: how a masked load's frames line up with what H3 sees
 
-Last updated: 2026-10-22.
+Last updated: 2026-10-25.
 
 One page for the frame math of a masked load: how long its window is, how the video VAE and the text encoder cut that
 window, where the shot's own frames land, what fills the rest, and what is thrown away. Every figure points at the code
@@ -16,10 +16,10 @@ window's exact frames, the padding as explicit inputs) stand as proposals.
 
 ## The rule
 
-**Every frame of the shot sits in a window with its own shot first.** A short shot's padding all goes after it, so the
-shot's first frame is window frame 0; where the frames after the shot belong to another shot, they are held copies of
-the shot's last frame; the padding is thrown away after the decode. The owner's words, 2026-10-22: "just add buffer
-frames after", "toss the after".
+**Every frame of the shot sits in a window with its own shot first, and the original subject is never shown unmasked in a window.** A short shot's padding all goes after it, so the
+shot's first frame is window frame 0; where the shot's own footage continues past the piece, the load runs to the window's length masked end to end and the extra frames are chopped off at the lay (the owner's ruling, 2026-10-25, [`docs/research/masking/2026-10-25_context_frames_and_identity_on_2050.md`](../research/masking/2026-10-25_context_frames_and_identity_on_2050.md); job-tool auto-span build pending); where the frames after the shot belong to another shot across a hard cut, they are held copies of
+the shot's last frame with its masks, thrown away after the decode. The owner's words, 2026-10-22 ("just add buffer
+frames after", "toss the after") and 2026-10-25 ("we have to run denoising for more frames than we're keeping... stop sending context in the front and chop off the end").
 
 ## 1. The window's length
 
@@ -77,19 +77,20 @@ next shot's (22 before and 23 after in 90, so 4646 is window frame 66, in the cl
 
 - **After the shot, always** (`workflows/masked_job_graph.py::window_pad`: before 0, after the window less the shot).
   The one exception: a shot ending so near the source's last frame that the frames after it do not exist takes the
-  rest before it: held copies of its first frame where those frames are another shot (the guard below applies), real
-  frames where the shot goes on.
-- **Held copies of the shot's last frame, with its masks,** where the frames after the shot belong to another shot
-  (the shot's boundaries are `data/<video>/shots.json`'s). **Real frames** where the shot goes on past the load.
-- **The guard**: where the shot's last frame has no mask, or less than `video_mask.HELD_EDGE_LEAST` of the shot's median
-  region, that side takes real frames instead and the plan row says so (`held_fell_back`). Why: `second_hfp_4912e`, whose
-  last frame had no mask and whose held copies filled the encoder's last clip with her untouched hair.
+  rest before it: held copies of its first frame where those frames are another shot (the guard below applies), or
+  masked real frames where the shot goes on.
+- **Never show the original subject unmasked in the window** (the owner's ruling, 2026-10-25; [`docs/research/masking/2026-10-25_context_frames_and_identity_on_2050.md`](../research/masking/2026-10-25_context_frames_and_identity_on_2050.md), reversing the 2026-10-21 `as filmed` unmasked context default after `lead_fp_2050c` and `lead_fp_2050e` re-synthesised the singer's face from unmasked context frames):
+  - **Where the shot's own footage continues past the piece**: the load runs to the legal window length (`39, 90, 141, 192, 243, 294, 345`) with every frame masked end to end from the preview's masks (`pad_after == 0`), and the extra rendered frames past the piece are chopped off at the lay (`laid.jsonl` `frames` field; job-tool auto-span build pending, today set by `--frames <window>`). (In code today, when `n_shot < n_frames` and `held_after == 0`, `video_mask.py::pad_context` still defaults to `as filmed` unmasked or `face covered` static edge-mask stamp, which leaves `41–59%` of a moving face uncovered.)
+  - **Where the frames after the shot cross a hard cut into another shot**: **held copies of the shot's last frame, with its masks** (`workflows/masked_job_graph.py::held_context`, `video_mask.hold_context`; the shot's boundaries are `data/<video>/shots.json`'s).
+- **The guard**: where the shot's last frame has no mask, or less than `video_mask.HELD_EDGE_LEAST` (`0.25`) of the shot's median
+  region, `held_edge_falls_back` drops the hold back to real frames and the plan row says so (`held_fell_back`). Why: `second_hfp_4912e`, whose
+  last frame had no mask and whose held copies filled the encoder's last clip with her untouched hair. Because `held_edge_falls_back` puts unmasked real frames back when an edge mask is small (as on `2050` frame `2247`, where `4,578 px` is `21.0% < 25.0%` of the `21,829 px` median), running the full window length masked end to end (`pad_after == 0`) avoids the guard entirely where footage continues.
 - The audio the model hears is silent under held frames; the audio muxed into the piece is the source's.
 
 ## 5. What is thrown away
 
 After the decode, every padding frame is dropped (`audio_freeze_song.py::MiniMaxH3AudioFreezeSong.execute`), so the
-piece, its region and its matte are the shot's own frames and nothing else.
+piece, its region and its matte are the load's own frames; where a load inside continuous footage runs masked to the full legal window length (`pad_after == 0`), the extra denoised frames past the shot's piece are dropped at the lay by `laid.jsonl`'s `frames` field (`bench/delivery_table.py`).
 
 ## Worked examples
 
