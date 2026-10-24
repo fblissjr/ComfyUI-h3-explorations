@@ -626,10 +626,20 @@ def a_loads_name_is_made() -> str:
         a.no_carry_words = "fresh remake for name test"
         stl.step_job(a, made.m)
         assert (made.jobs / "a_fp_0100b.json").is_file()
-        # a capture of another day holds the next letter: the name after it is taken
+        # a capture of another day, a job file in another *_jobs folder, or a _job folder of another day holds the next letters
         (made.root / "data" / "2025-12-30_a_fp_0100c").mkdir()
+        other_jobs = made.root / "data" / "2025-12-30_other_jobs"
+        other_jobs.mkdir()
+        (other_jobs / "a_fp_0100d.json").write_text("{}")
+        (made.root / "data" / "2025-12-30_a_fp_0100e_job").mkdir()
         stl.step_job(a, made.m)
-        assert (made.jobs / "a_fp_0100d.json").is_file() and not (made.jobs / "a_fp_0100c.json").exists(), sorted(p.name for p in made.jobs.iterdir())
+        assert (made.jobs / "a_fp_0100f.json").is_file() and not (made.jobs / "a_fp_0100c.json").exists() \
+            and not (made.jobs / "a_fp_0100d.json").exists() and not (made.jobs / "a_fp_0100e.json").exists(), sorted(p.name for p in made.jobs.iterdir())
+        # preview also skips stems taken in another *_jobs folder
+        (other_jobs / "shot_c_0100b.json").write_text("{}")
+        stl.step_preview(args(shots=str(made.shots_file), plan=str(made.plan_file), shot=100, folder=str(made.jobs),
+                              source=str(made.root / "input" / "copy.mov"), remake=True), made.m)
+        assert (made.jobs / "shot_c_0100c.json").is_file() and not (made.jobs / "shot_c_0100b.json").exists()
         # the name carries the load's own first frame and the region's form (b's band is taken out: a band is refused, below)
         del made.plan["subjects"]["b"]["hair_band"]
         made.write()
@@ -3505,8 +3515,34 @@ def pass2_raw_source_refused_and_source_required() -> str:
         )
         p2_job = json.loads((made.jobs / "a_fp_0100.json").read_text())["job"]
         assert p2_job["source"] == str(pass1_mp4.resolve()), p2_job["source"]
-    return ("preview requires --source explicitly, and --for where anything is laid on the shot; preview and job refuse the raw source video when another "
-            "replacement is laid on the shot in laid.jsonl, preview counting only the labels it is not made for, and succeed with a post-Pass-1 video")
+        # 6. Shot-scoped stale-cut refusal: a cut timestamp older than a laid row on this shot is refused; a cut newer than this shot's laid
+        # rows is accepted even when another shot has a newer laid row
+        laid_file.write_text(
+            json.dumps({"load": "b_hfp_0100", "subject": "b", "first": 100, "last": 159, "added": "2026-10-23T22:55:00Z"}) + "\n"
+            + json.dumps({"load": "b_hfp_0200", "subject": "b", "first": 200, "last": 259, "added": "2026-10-24T12:00:00Z"}) + "\n"
+        )
+        old_cut = made.root / "input" / "v_0000_0999_joined_2026-10-23T1631Z_from_laid.mp4"
+        new_cut = made.root / "input" / "v_0000_0999_joined_2026-10-24T0045Z_from_laid.mp4"
+        old_cut.write_bytes(b"old cut")
+        new_cut.write_bytes(b"new cut")
+        refused(
+            lambda: stl.step_preview(
+                args(shots=str(made.shots_file), plan=str(made.plan_file), shot=100, folder=str(made.jobs),
+                     source=str(old_cut), remake=True, made_for=["a"]),
+                made.m,
+            ),
+            "b (b_hfp_0100 on 100-159, laid 2026-10-23T22:55:00Z)",
+            "is newer than the cut v_0000_0999_joined_2026-10-23T1631Z_from_laid.mp4 (2026-10-23T16:31Z)",
+            "Pass 2 must segment and render from a cut built after those laid rows",
+        )
+        stl.step_preview(
+            args(shots=str(made.shots_file), plan=str(made.plan_file), shot=100, folder=str(made.jobs),
+                 source=str(new_cut), remake=True, made_for=["a"]),
+            made.m,
+        )
+        assert (made.jobs / "shot_c_0100c.json").is_file()
+    return ("preview requires --source explicitly, and --for where anything is laid on the shot; preview and job refuse the raw source video or a cut "
+            "predating the shot's laid rows when another replacement is laid on the shot in laid.jsonl, and succeed with a post-Pass-1 video")
 
 
 def a_loads_seed_is_a_persons_word() -> str:

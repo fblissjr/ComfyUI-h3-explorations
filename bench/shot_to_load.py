@@ -1496,6 +1496,15 @@ def preview_name(shot: dict) -> str:
     return f"shot_c_{shot['first']:04d}"
 
 
+def name_taken(name: str, folder: str | Path, world) -> bool:
+    """Whether a preview, load or pair name is already in use: in `folder`, in any session's `*_jobs` folder under `world.data`,
+    or as a capture or job folder of any day."""
+    return ((Path(folder) / f"{name}.json").exists()
+            or any(world.data.glob(f"*_jobs/{name}.json"))
+            or any(world.data.glob(f"????-??-??_{name}"))
+            or any(world.data.glob(f"????-??-??_{name}_job")))
+
+
 def free_name(base: str, taken, remake: bool) -> str:
     """A load's name: the base, or with `remake` the base and the first letter from b that nothing has. `taken(name)`
     says whether a name is in use."""
@@ -3490,6 +3499,21 @@ def check_pass2_source(
         )
     if is_raw and allow_raw_source:
         return f" RAW SOURCE ALLOWED ON PASS 2 ({' '.join(str(allow_raw_source).split())})."
+    import re
+    m_cut = re.search(r"(\d{4}-\d{2}-\d{2}T\d{2}):?(\d{2})Z", given_p.name)
+    if m_cut and not allow_raw_source:
+        cut_hm = f"{m_cut.group(1)}:{m_cut.group(2)}"
+        newer = [r for r in laid_hits if str(r.get("added") or "")[:16] > cut_hm]
+        if newer:
+            newer_said = ", ".join(
+                f"{r['subject']} ({r.get('load', '?')} on {r.get('first')}-{r.get('last')}, laid {r.get('added')})"
+                for r in newer
+            )
+            raise Refused(
+                f"on {first}-{last}, {newer_said} in {laid_path} is newer than the cut {given_p.name} ({cut_hm}Z): "
+                f"Pass 2 must segment and render from a cut built after those laid rows "
+                f"(or --allow-raw-source \"<why>\" if an older cut is intentional)"
+            )
     return ""
 
 
@@ -3522,8 +3546,8 @@ def step_preview(a, world) -> None:
         cast = cast_file.read(a.cast)
     name = preview_name(shot)
     if a.remake:
-        # a name is taken by a job file in this folder and by a job folder of any day, as a load's is
-        taken = lambda n: (Path(a.folder) / f"{n}.json").exists() or any(world.data.glob(f"????-??-??_{n}_job"))   # noqa: E731
+        # a name is taken by a job file in this folder or any *_jobs folder, and by a capture or job folder of any day
+        taken = lambda n: name_taken(n, a.folder, world)   # noqa: E731
         name = free_name(name, taken, True)
     ask = {}
     for text in a.ask:
@@ -3780,8 +3804,8 @@ def step_job(a, world, cut=cut_keep_out, hashed=None, inside=part_inside, classe
             eff_parts = cw_peek["parts"]
     first = shot["first"] if eff_first is None else eff_first
     folder = Path(a.folder)
-    # a name is taken by a job file of any day in this folder, and by a capture or a job folder of any day
-    taken = lambda n: (folder / f"{n}.json").exists() or any(world.data.glob(f"????-??-??_{n}")) or any(world.data.glob(f"????-??-??_{n}_job"))
+    # a name is taken by a job file in this folder or any *_jobs folder, and by a capture or a job folder of any day
+    taken = lambda n: name_taken(n, folder, world)
     # a load of some of the plan's parts is named by them, a letter a part: the hair alone is `hp`, neither `hfp` nor `fp`
     form = FORM[region] if not eff_parts else "".join(PART_LETTER.get(k, "x") for k in theirs if k in eff_parts) + "p"
     base_stem = f"{a.subject}_{form}_{first:04d}"
@@ -4393,7 +4417,7 @@ def step_pair(a, world) -> None:
                       "so it would be split on the wrong person")
     import masked_job_graph as graphs
     folder, video = Path(a.folder), load_chain.video_of(one, world.data)
-    taken = lambda n: (folder / f"{n}.json").exists() or any(world.data.glob(f"????-??-??_{n}")) or any(world.data.glob(f"????-??-??_{n}_job"))   # noqa: E731
+    taken = lambda n: name_taken(n, folder, world)   # noqa: E731
     name = free_name(a.name or f"{one['subject']}_{two['subject']}_{one['load']['first']:04d}", taken, a.remake)
     if not graphs.NAME.match(name):
         raise Refused(f"the name {name!r}: letters, digits and underscores only")

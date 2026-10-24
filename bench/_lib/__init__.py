@@ -52,7 +52,7 @@ REPO = BENCH.parent
 # The same directory `workflows/h3_config.py::COMFY_ROOT` names. Derived again
 # rather than imported: h3_config is on no check's path until the check puts it
 # there, and this module has to work before any path is set up.
-COMFY = REPO.parents[1]
+COMFY = next((p for p in REPO.parents if (p / "comfy").is_dir()), REPO.parents[1])
 
 EXIT_OK, EXIT_FAIL, EXIT_NOT_GRADED = 0, 1, 2
 
