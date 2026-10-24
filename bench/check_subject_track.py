@@ -2480,6 +2480,25 @@ def check_head_runs(problems):
         problems.append("head runs: a person mask larger than HEAD_SIZED times her head, in a shot with a head elsewhere, made a head")
     if abs(st.HEAD_SIZED - 2.0) > 1e-9:
         problems.append("head runs: HEAD_SIZED moved; read its provenance before changing this check")
+    # 1419f's own figures (2026-10-23, bug 22): local frame 12 (1431) has a 1,901 px person mask in stretch [12, 18) with no
+    # SAM head; the nearest gallery frame with a head is 6 (1425), where her head is partially occluded (366 px, failing
+    # 1,901 <= 2.0 * 366), while gallery frames 0 (1419, 1,279 px) and 35 (1454, 1,166 px) hold her full head (1,901 <= 2.0 * 1,166).
+    # _head_seed must keep looking past the occluded 366 px frame and size 12 against the unoccluded gallery head.
+    piece_1419 = torch.zeros((47, H, W), dtype=torch.float32)
+    p_1431 = torch.zeros((H, W), dtype=torch.float32)
+    p_1431.view(-1)[:1901] = 1.0
+    for f in list(range(0, 7)) + list(range(12, 18)) + list(range(35, 47)):
+        piece_1419[f] = p_1431
+    h_366, h_1279, h_1166 = torch.zeros((H, W)), torch.zeros((H, W)), torch.zeros((H, W))
+    h_366.view(-1)[:366] = 1.0
+    h_1279.view(-1)[:1279] = 1.0
+    h_1166.view(-1)[:1166] = 1.0
+    heads_1419 = {0: h_1279, 6: h_366, 35: h_1166, 46: h_1166}
+    seeded_1419 = st._head_seed(lambda f, _m: heads_1419.get(int(f)), piece_1419, st.Shot(0, 47, 4, 4, 0, None),
+                                12, p_1431, 12, 18, (0, 47), fallback=True)
+    if seeded_1419 is None or seeded_1419[0] != 12 or int((seeded_1419[1] > 0.5).sum()) != 1901:
+        problems.append(f"head runs (1419f): an occluded nearest gallery head (366 px on 6) blocked sizing 12 (1,901 px) "
+                        f"against her full gallery heads (1,279 px on 0, 1,166 px on 35): {seeded_1419}")
 
 
 def check_regain_at_a_box(problems):

@@ -1201,9 +1201,9 @@ def _head_seed(head_fn, piece: torch.Tensor, shot: Shot, frame: int, person: tor
 
     In order: the head `head_of` finds inside `person` on `frame`; the nearest of up to `GALLERY_MOST` frames spread over
     THE SAME STRETCH that has one; `person` itself where it is head-sized (`HEAD_SIZED`, against her own head on the
-    nearest frame of `span` where one is found: sized there, never seeded there). None where neither is: the frames are
-    then filled from main's span head track, top third and all (`_span_head`, `_track_head_span`). Never a
-    frame outside the stretch: on 1419d the head was seeded across an empty run and lost back across it (2026-10-23).
+    nearest frame of `span` where one is found and not occluded smaller: sized there, never seeded there). None where
+    neither is: the frames are then filled from main's span head track, top third and all (`_span_head`, `_track_head_span`).
+    Never a frame outside the stretch: on 1419d the head was seeded across an empty run and lost back across it (2026-10-23).
     With the stretch the whole span this is what the head track did before (2026-10-18), call for call: the head-sized
     step looks only on frames the stretch's search did not, which there are none; the top third main took here comes
     from main's span head track, from the same seed and over the same span (`_span_head`).
@@ -1234,7 +1234,7 @@ def _head_seed(head_fn, piece: torch.Tensor, shot: Shot, frame: int, person: tor
             if m is not None and bool((m > 0.5).any()):
                 if area and area <= HEAD_SIZED * int((m > 0.5).sum()):
                     h_seed = (person > 0.5).to(torch.float32)
-                break
+                    break
     if h_seed is None or not bool((h_seed > 0.5).any()):
         return None
     p_at_seed = person if h_frame == int(frame) else piece[h_frame - shot.start]
