@@ -2045,6 +2045,7 @@ def the_defaults_this_load_carries() -> str:
         assert graphs.preview(per)["1005"]["inputs"]["seeds"].endswith("head: per stretch: the owner, to test 1419's lost head"), \
             "the preview's graph does not carry the head line to the tracker"
         refused(lambda: made.preview(head_per_stretch="  "), "--head-per-stretch takes the reason")
+        refused(lambda: made.preview(head_per_stretch="the owner; to test 1419"), "cannot contain ';'")
         refused(lambda: made.load(no_head_track="  "), "--no-head-track takes the reason")
         d_ht_off = made.load(no_head_track="comparison against un-tracked head tube")
         assert d_ht_off["job"]["sam_head_track"]["on"] is False and "HEAD TRACK IS OFF" in d_ht_off["job"]["note"]

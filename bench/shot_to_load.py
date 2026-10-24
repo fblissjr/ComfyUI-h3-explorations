@@ -485,6 +485,8 @@ def preview_job(shots: dict, plan: dict, shot: dict, video: str, source: str, by
     if head_per_stretch is not None and not " ".join(str(head_per_stretch).split()):
         raise Refused("--head-per-stretch takes the reason in words: the head track is main's span head track by default (the owner, "
                       "2026-10-23), and a preview that tracks the head per stretch says why")
+    if head_per_stretch is not None and ";" in str(head_per_stretch):
+        raise Refused("--head-per-stretch reason cannot contain ';': the tracker splits seeds lines on ';'")
     # which head track the trackers run (`subject_track.py::parse_head_mode`): main's span head track, the default, or per
     # stretch on a person's word; the line rides in every subject's seeds text, which the node already reads
     head_mode = ({"mode": "per stretch", "why": " ".join(str(head_per_stretch).split()), "said_by": by, "at": now}
