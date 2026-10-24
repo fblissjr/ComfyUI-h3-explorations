@@ -100,10 +100,12 @@ Waiting on the owner (the Open List): on 4647, whether the third's frames after 
 (third_fp_4653b, kept 2026-10-14, covers 4653-4677; he shows to 4725; the owner, 2026-10-24: not known yet), and the
 order after him. The lead there is owed: the owner answered on 2026-10-21 that she is replaced
 (`data/fun/owner_answers.jsonl:1413`). A sheet of his frames from 4678, made by a reader while the previews run, is what
-the first is answered from (Open List r24_01, r24_02). A new third load covers the whole shot and replaces
-third_fp_4653b, which the owner looked at again on 2026-10-24 and likes. With one, his goes first; the lead and the
-second then follow one after the other, each on the cut holding the pieces before it. The second's needs bug 23's fixes.
-Also 0516c's frame 597 and 3759b's 3856-3857 (the share's `Video/fun/looks/2026-10-23_head_marks/`).
+the first is answered from (Open List r24_01, r24_02). A new third load is rendered over the whole shot but laid by
+frame: only on 4647-4652 and 4678-4725, keeping third_fp_4653b (which the owner looked at again on 2026-10-24 and likes)
+at two seams, 4652/4653 and 4677/4678; or over the whole shot, replacing it. Two pieces of one subject on one shot have
+been laid before (`data/fun/laid.jsonl:12-13`, the lead on 1466-1729). Either way his goes first; the lead and the second
+then follow one after the other, each on the cut holding the pieces before it. The second's needs bug 23's fixes. Also
+0516c's frame 597 and 3759b's 3856-3857 (the share's `Video/fun/looks/2026-10-23_head_marks/`).
 
 ## Where things are
 

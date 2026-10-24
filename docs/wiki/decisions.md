@@ -45,6 +45,10 @@ Older history lives elsewhere and is not copied here:
   owner, asked whether the third's later frames and the lead on 4647 are to be replaced: not known yet. So 4647 leaves
   the next day's order except for entering the third's boxes. The lead's question had been answered on 2026-10-21
   (she is replaced there, `data/fun/owner_answers.jsonl:1413`), so only the third's later frames and the order wait.
+  Corrected the same night: the handover and Open List row r24_01 said a new third load there would replace
+  third_fp_4653b. A load is rendered over the whole shot (2026-10-15, one shot is never split) but laid by frame: the
+  lead's two pieces on 1466-1729 split it (`data/fun/laid.jsonl:12-13`). So a new third load can keep his piece, laid
+  only on 4647-4652 and 4678-4725 with a seam at each end of it, or replace it; that choice is the owner's.
 
 ## 2026-10-23
 
