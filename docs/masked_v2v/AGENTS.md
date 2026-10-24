@@ -6,6 +6,7 @@ Loaded when a session opens a file here; [`docs/AGENTS.md`](../AGENTS.md) and th
   - How the masked render path works today, and what to simplify (Gemini, 2026-10-21; local, not in git; one claim
     corrected in its mailbox's C61: chained shots are live): [`internal/gemini/2026-10-21_render_path_report.md`](../../internal/gemini/2026-10-21_render_path_report.md)
   - Execution & debugging protocol: [`docs/masked_v2v/PROTOCOL.md`](PROTOCOL.md)
+  - Verifying raw frames vs. `.npz` / JSON records (`laid.py keeps`, zoom boxes, and reference crops): [`docs/masked_v2v/verifying_raw_frames_and_keeps.md`](verifying_raw_frames_and_keeps.md)
   - The frame math (window lengths, the VAE's 17-frame clips, padding after the shot, what the text encoder samples): [`docs/masked_v2v/frames_rules.md`](frames_rules.md)
   - Lane rules and where state lives: [`data/AGENTS.md`](../../data/AGENTS.md) (and each project's untracked `data/<video>/AGENTS.md`)
   - End-to-end pipeline, design, and card runbook: [`docs/wiki/masked_v2v_pipeline.md`](../wiki/masked_v2v_pipeline.md), [`docs/wiki/masked_v2v.md`](../wiki/masked_v2v.md), and [`docs/wiki/runbook.md`](../wiki/runbook.md)
@@ -129,7 +130,10 @@ shows it, up through what that stage read.
 - **Nothing enforces this today.** No step of the load chain compares the code that made an input with the code now.
   `bench/_lib/code_stamp.py::check_upstream_mtime` compares file times and only warns; the strangers record carries no
   writer stamp ([`bench/strangers.py`](../../bench/strangers.py)); and `shot_to_load.py reference --existing` takes a
-  drawing already in its folder without asking what code drew it (`bench/shot_to_load.py::step_reference`). The
+  drawing already in its folder without asking what code drew it (`bench/shot_to_load.py::step_reference`). Likewise, a
+  capture's `.npz` and `.json` records are the chain's cache, and the node's own inputs and writes (`<load>_mask_00001.mp4`,
+  `<load>_00001_zoomed.mp4`, `<load>.render.queued.json` `said`) are the artifact
+  ([`docs/masked_v2v/verifying_raw_frames_and_keeps.md`](verifying_raw_frames_and_keeps.md)). The
   session that makes a remake holds the rule.
 
 **What only a person writes.** These are the chain's inputs, made by no stage. A remake carries the first four; on

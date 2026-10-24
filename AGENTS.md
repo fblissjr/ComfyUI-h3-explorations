@@ -21,7 +21,10 @@ a default, a shipped artifact or what "every graph" does is a cache with no
 invalidation. Cite the observable: `h3_config.MODELS["clip"]` over "the
 shipped encoder is"; a node's `define_schema` over "the default is"; a walk
 of `graph_paths` over "every graph". When prose has lost, correct it and
-log what it used to claim in `docs/wiki/decisions.md`.
+log what it used to claim in `docs/wiki/decisions.md`. The same rule holds
+one layer down in the masked lane: a capture's `.npz` and `.json` files are
+the chain's cache, and the node's own inputs and writes are the artifact
+(`docs/masked_v2v/verifying_raw_frames_and_keeps.md`).
 
 ## Settled about H3
 
