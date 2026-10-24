@@ -161,7 +161,8 @@ class Made:
         return lc.read_job(self.job_file, self.root)
 
     def capture(self, *, on_plan: bool = True, written: str = "2026-01-03T10:00:00", look_at: str | None = "2026-01-03T10:30:00",
-                look_by: str = "a reader", loads=("ld",), verdict: str = "clear", blocking=(), flags=None) -> Path:
+                look_by: str = "a reader", loads=("ld",), verdict: str = "clear", blocking=(), flags=None,
+                flags_read_at: str | None = "same") -> Path:
         """A capture folder as the capture tool leaves one, with a look recorded on it unless told otherwise."""
         cap = self.root / "data" / "2026-01-03_ld"
         (cap / "subjects" / "a").mkdir(parents=True, exist_ok=True)
@@ -175,6 +176,15 @@ class Made:
         if look_at is not None:
             (cap / "looks.json").write_text(json.dumps({"looks": [{"by": "an earlier reader", "at": "2026-01-03T09:00:00", "loads": ["ld"]},
                                                                   {"by": look_by, "at": look_at, "loads": list(loads)}]}))
+        fr_at = look_at if flags_read_at == "same" else flags_read_at
+        if on_plan and fr_at is not None:
+            import hashlib
+            (cap / "looks").mkdir(parents=True, exist_ok=True)
+            fr = {"by": look_by, "at": fr_at, "loads": list(loads), "capture_written": written, "capture_made_by": "the maker",
+                  "flags_sha256": hashlib.sha256((cap / "flags.json").read_bytes()).hexdigest()}
+            for ld in loads:
+                (cap / "looks" / f"{ld}.shown.json").write_text(json.dumps({"load": ld, "flags_read": fr}))
+                (cap / "looks" / f"{ld}.flags_read.json").write_text(json.dumps({"load": ld, **fr}))
         return cap
 
     def write_frame_table(self, cap: Path, subject: str = "a", *, manifest_sha: str | None = None, flags_sha: str | None = None) -> Path:
@@ -1004,6 +1014,13 @@ def the_render_step() -> str:
             return write
 
         m.on["build render"] = built()
+        # Brief B: Missing or stale flags_read initial is refused before anything is written, naming `flags_before_render.py` and `--initial`
+        for p in (cap / "looks" / "ld.shown.json", cap / "looks" / "ld.flags_read.json"):
+            p.unlink(missing_ok=True)
+        refused(lambda: lc.step_render(made.ctx(), m, a, hashed=lambda p: "h"), "flags_before_render.py", "--initial")
+        made.capture(flags_read_at="2026-01-03T09:59:59")
+        refused(lambda: lc.step_render(made.ctx(), m, a, hashed=lambda p: "h"), "not later than the capture", "flags_before_render.py")
+        made.capture()
         # D12-5: Missing or sha256-stale frame_table.jsonl is refused before anything is written, naming `load_chain.py table`;
         # an older mtime with matching input_sha256 is NOT refused.
         table_file = cap / "frame_table.jsonl"
@@ -1026,7 +1043,8 @@ def the_render_step() -> str:
         assert "five hours" not in go and "holds the card" not in go and "The lead's look" not in go, "the go carries a sentence of the scripts that a file does not hold"
         assert made.job_file.read_bytes() == before, "the job file was edited by the render step"
         record = json.loads((folder / "ld.render.chain.json").read_text())
-        assert record["go_file"].endswith("ld.render.go.md") and record["look"]["by"] == "a reader" and (folder / "ld.render.build_printed.txt").read_text() == "what build printed\n"
+        assert record["go_file"].endswith("ld.render.go.md") and record["look"]["by"] == "a reader" and record["flags_read"]["by"] == "a reader" \
+            and (folder / "ld.render.build_printed.txt").read_text() == "what build printed\n"
         import hashlib
         assert record["frame_table"] == str(cap / "frame_table.jsonl") and record.get("frame_table_sha256") == hashlib.sha256(table_file.read_bytes()).hexdigest(), record
         # D12-6: render.built.json is NOT rewritten by step_render

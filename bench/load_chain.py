@@ -87,7 +87,8 @@ fact of the machine is an environment key; nothing is found by a name left over 
   capture (compared as times; refused when the two cannot be set in one zone) and not by the capture's maker,
   OR, where there is no such look, the maker's record that none is owed, later than the capture and held again
   to the forcing rules as the capture stands (the go file and the render's record then say NO LOOK, RENDERED ON
-  THE GATE ALONE); the gate clear; the per-frame table (`frame_table.jsonl`, and `frame_table__<also>.jsonl` on a
+  THE GATE ALONE); the gate clear; the pre-render flags printout initialed (`bench/flags_before_render.py <capture>
+  --initial WHO`) later than the capture; the per-frame table (`frame_table.jsonl`, and `frame_table__<also>.jsonl` on a
   pair) present and its recorded `input_sha256` matching the files on disk; the job file byte-equal to the one
   the plan was built from (`job.plan.json`); the go written
   to `<load>.render.go.md` BESIDE the job file (the job file is not edited after its plan is built); the render
@@ -646,6 +647,16 @@ def a_look(ctx: dict) -> dict:
     overridden = [o["flag"] for o in json.loads(outcomes.read_text())["outcomes"] if o.get("overridden")] if outcomes.is_file() else []
     return {"by": look["by"], "at_utc": in_utc(look["at"]), "capture_written_utc": in_utc(status["written"]), "capture_made_by": status.get("made_by"),
             "flags": len(flags["flags"]), "overridden": overridden}
+
+
+def the_flags_read(ctx: dict) -> dict:
+    """The pre-render flags printout (`bench/flags_before_render.py <capture> --initial WHO`) must be initialed for this
+    load on the capture later than `status.json`'s `written` and matching `flags.json`'s sha256."""
+    import flags_before_render
+    try:
+        return flags_before_render.check_flags_read(ctx["capture"], ctx["name"])
+    except flags_before_render.Refused as e:
+        raise Refused(str(e)) from e
 
 
 def job_as_planned(ctx: dict) -> None:
@@ -1308,6 +1319,7 @@ def step_render(ctx: dict, world, a, hashed=frame_hash) -> None:
     empty_queue(world, "a render is queued on an empty queue")
     job_as_planned(ctx)
     look = the_look(ctx)
+    flags_read = the_flags_read(ctx)
     table_shas = check_frame_table_fresh(ctx, a.by)
     planned = folder / f"{name}.plan.queued.json"
     if not planned.is_file():
@@ -1331,6 +1343,7 @@ def step_render(ctx: dict, world, a, hashed=frame_hash) -> None:
     notes, problems = [s[len("note: "):] for s in said if s.startswith("note: ")], [s for s in said if not s.startswith("note: ")]
     problems += masks_as_planned(ctx, render, hashed)
     record = {"what": "what the render step of bench/load_chain.py held before it queued", "at": now, "by": a.by, "go_file": str(go), "look": look,
+              "flags_read": flags_read,
               "frame_table": table_path, "frame_table_sha256": table_shas.get(ctx["subject"]),
               **({"frame_table_also": str(ctx["capture"] / f"frame_table__{ctx['also']}.jsonl"), "frame_table_also_sha256": table_shas.get(ctx["also"])} if ctx.get("also") else {}),
               "job_file_is_the_plans": True, "render_against_plan": problems or "differs in the song node's preview and filename_prefix only", "band": notes}
