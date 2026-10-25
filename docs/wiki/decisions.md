@@ -17,38 +17,87 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-10-25
 
+- **`video_mask.py::zoomed_source` docstring (`2061-2062`) and tooltip (`2396`) lost to commit `79831be9`; `two_shot_load.py`
+  whole-frame forcing is a tool-side choice; and `1730-2049` was rendered at `2.0x` zoom, not `1.0x` whole-frame** (verified
+  against `video_mask.py:2048-2146`, `git show 79831be9 -- video_mask.py`, `bench/two_shot_load.py:93-114`, and
+  `data/2026-10-13_lead_fp_1730..2013b_job/*.render.json` node `104` on 2026-10-25):
+  1. `video_mask.py:2061-2062` (`"a load with a cut inside it is refused: a box held across a cut frames nobody on one side
+     of it"`) and `video_mask.py:2396` (`"a load with a cut in it is refused"`) are stale prose: commit `79831be9`
+     (2026-10-21) deleted the 5-line `if cuts: raise ValueError(...)` check from `zoomed_source` so padded context frames
+     could cross a cut under zoom. Consequently, `bench/two_shot_load.py::WHOLE_FRAME_WHY` (`lines 93-95, 113-114`) is now a
+     tool-side choice rather than a node refusal.
+  2. In `video_mask.py:938-973` (`cut_gate`, `unlaid_frames`) and `1005-1009` (`lay_window`), `cut_gate` only zeroes a
+     sub-segment `(a, b)` where `present[a:b].any()` is `False`, so every frame in `across` already has an empty mask and
+     would land in `bare` (`across + bare`) regardless; a live-detected cut inside a window changes only the plan JSON label
+     (`frames_across_a_cut` vs `frames_with_no_mask`), not a composite pixel.
+  3. **Correction to the `2026-10-25` entry below on `1730-2049`**: that entry claimed the 8 `2026-10-13` pieces
+     (`lead_fp_1730..2013b`, rows `R15-R22` of `data/fun/laid.jsonl`) were rendered at `1.0x` whole-frame (because the first
+     check looked for node `61` rather than node `104` in the `2026-10-13` graphs). In fact, node `104`
+     (`MiniMaxH3MaskedSource`) in all 8 `.render.json` files and `*_00001_zoomed.json` ran with
+     `render_region: "zoomed in on what is replaced"` at **`2.00x` (`512x384` crop -> `1024x768`)**, and her phone circle
+     jumps across opposite quadrants at every cut (`[512,316,1024,700]` on `1730`, `[512,28,1024,412]` on `1755`,
+     `[512,288,1024,672]` on `1802b`, `[0,4,512,388]` on `1849b`, `[0,78,512,462]` on `1898`, `[512,340,1024,724]` on
+     `1945b`). Single-shot zoomed loads (`39` and `90` windows) therefore preserve `2.00x` zoom (`4x` area) on each phone
+     circle, while `bench/two_shot_load.py` is kept in `bench/` for the niche of two ultra-short cuts (`< 39f` combined).
+
 - **Unified shot, window, and seam rule: no mid-face splices, natural cuts at multi-frame `0 px` off-screen gaps inside
-  long shots (`2050`), and multi-cut windows (`two_shot_load.py`) where the scene and subject continue** (the owner,
-  2026-10-25 about 16:04Z). Refines the 2026-10-15 "one shot, one load" rule (`docs/masked_v2v/AGENTS.md`) and path 2 of
-  the 2026-10-25 window rule around the physical causes of seams and identity bleed:
+  long shots (`2050`), and single-shot zoomed loads as the default** (the owner,
+  2026-10-25 about 16:04Z and 17:02Z). Refines the 2026-10-15 "one shot, one load" rule (`docs/masked_v2v/AGENTS.md`) and
+  path 2 of the 2026-10-25 window rule around the physical causes of seams and identity bleed:
   1. **No mid-face splices**: two separate renders of the same subject never meet on consecutive frames where the subject
      is visible (`2623-2711` is remade whole in a `90`-frame window with `seed: 730451892` rather than splicing `2623-2624`
-     onto `lead_fp_2625`).
+     onto `lead_fp_2625`; `2823-3109` is remade in one `294`-frame window to eliminate the `3097/3098` splice between
+     `lead_fp_2823b` and `lead_fp_3098b`).
   2. **A multi-frame `0 px` off-screen interval inside a shot over `345` frames is a natural cut**: on `2050-2622`,
      `lead_fp_2050g` (`2050-2248`, `199f`, kept 2026-10-24) and the second half (`2271-2598`, `328f`, after which she is
      off-screen on `2599-2622`) are separated by `22` frames (`2249-2270`) where her head is turned away (`carried == 0 px`,
      untouched original video), so the two halves never touch (`0` seam). Keeping `lead_fp_2050g` on `2050-2248` and
-     rendering `2271-2598` in a single `345`-frame window (`2271-2615`, `lead_fp_2050h`) is approved by the owner.
-  3. **Crossing camera cuts where the scene and subject continue**: consecutive short camera cuts sharing one scene and one
-     subject (`1730-2049`, where the 2026-10-13 pieces were already rendered at `1.0x` whole-frame with `92-173 px` part
-     heights) may be joined in one window via `bench/two_shot_load.py` (`WHOLE_FRAME_WHY`), starting with the two pairs
-     whose first shot (`47f = 2 * 17 + 13`) lands on an exact VAE latent-step boundary (`1802-1848 + 1849-1897` in `141f`,
-     `1898-1944 + 1945-1974` in `90f`).
+     rendering `2271-2598` in a single `345`-frame window placed at **`2254-2598`** (starting inside the `2249-2270` `0 px`
+     spin gap, ending on her last tracked frame `2598` so post-shatter frames `2599-2615` never enter the window or box, and
+     laid on `2271-2598`) is approved by the owner.
+  3. **Zoom nuance across close-ups vs distant shots**: `render_region: "part"` (`zoomed in on what is replaced`) enlarges
+     small faces up to the target box (`2.0x` default, `4.0x` for `second`), and on close-up shots where the subject's part
+     with room already exceeds `1 / ZOOM_SMALLEST` (`1.25x`) of the canvas (`video_mask.py:1963-1965, 2109-2113`),
+     `zoom_box` automatically returns `None` and renders at `1.0x` whole-frame without manual override.
   4. **Mask end to end, chop at the lay**: every window runs to its legal `both_clocks` length (`39`, `90`, `141`, `192`,
      `243`, `294`, `345`) with zero unmasked frames of the subject inside the window, and `laid.jsonl` chops what the cut
      does not need.
 
-- **Old kept clips before `2026-10-20` (and faulted `2026-10-20` to `2026-10-22` clips) are eligible for remake at the
-  bottom of the queue** (the owner, 2026-10-25 about 15:00Z and 15:56Z). Reverses the 2026-10-15 rule that a kept piece is
-  not remade for a better form. Once owed gaps and active remakes are done, kept pieces from before `2026-10-20` (`26`
-  pieces, `2,032` laid span frames, made before the head tube, cranium crop, 3D roll/pitch checks, Pass-2 on the cut, and
-  held-context guard—and where `propose_runs.py` on `2026-10-13` to `2026-10-15` trimmed shot edges on `0294d`, `1061p`,
-  `1097c`, `1802b`, `1898`, `1975b`, `2013b`, `2625`, and `1466b`/`1575b`) are eligible for whole-shot remakes: pre-`10/15`
-  single-subject pieces first, `10/15-10/18` single-subject pieces next, and multi-subject Pass-1 chains (`1010c`, `1222`,
-  `1466b`, `1419d`, `0604h`) last in strict pass order (`remove -> rebuild -> Pass 1 on raw -> rebuild -> Pass 2 on cut ->
-  rebuild -> Pass 3 on cut`). Kept pieces from `2026-10-20` to `2026-10-22` (`15` pieces, `860` laid span frames) get a CPU
-  window-edge read first and are remade only where that read shows a fault; `2026-10-23` onward stands unless the gap
-  digest names it.
+- **Expanded post-quality-jump remake plan across all 64 laid rows (`R01-R64`) and subject-specific invariants** (the owner,
+  2026-10-25 about 15:00Z, 15:56Z, and 17:02Z). Reverses the 2026-10-15 rule that a kept piece is not remade for a better
+  form. Full disk audit of all 64 rows in `data/fun/laid.jsonl` (`R01-R26` pre-`10-20` = `26` pieces / `2,032` laid frames;
+  `R27-R41` `10-20` to `10-22` = `15` pieces / `860` laid frames; `R42-R64` `10-23` to `10-24` = `23` pieces):
+  1. **Why pre-`2026-10-23` pieces (`R01-R41`, except late `10-22` `R39` and `R40`) and 11 faulted `10-23`/`10-24` pieces
+     are queued for remake**:
+     - `R01, R03-R08, R10-R25` (`10-13` to `10-15`, `23` pieces) used `"only what changed"` composite (`0.05` luma bleed),
+       non-clock or song-padded `141` windows, `face` crop, no `--closed-lip-line`, and trimmed shot edges (`0294d`,
+       `1061p`, `1097c`, `1802b`, `1898`, `1975b`, `2013b`, `2625`, `1466b`/`1575b`, `2823b`).
+     - `R02, R09, R26` (`10-17` to `10-18`, `3` pieces) predated `b270be7e` (mouth smudge retirement), `both_clocks`, and
+       `cranium` crop (`R09` also trimmed `1408-1418`).
+     - `R27-R38` (`10-20` to early `10-22`, `12` pieces) predated `hold_context` (`R36 second_hfp_4602d`, `R37
+       second_hfp_0415n`, and `R38 third_fp_4602c` ran with unmasked real frames across cuts in `pad_before` and
+       `pad_after`), `cranium` crop, `4.0x` zoom on `second`, and plain `"blonde hair"` text (`R28 second_hfp_1010g` also
+       ran Pass 2 on raw source).
+     - Among `R42-R64` (`10-23` to `10-24`), `12` pieces stand cleanly (`R42, R43, R44, R46, R47, R49, R50, R51, R53, R54,
+       R60, R61`), while `11` have specific window/seam/mask faults (`R45` unconfirmed smile; `R56, R57` `held_fell_back`
+       unmasked tail; `R58` `3097/3098` splice; `R62` `9f` unmasked tail; `R52` `17f` empty; `R63` `12f` empty; `R55` Pass 2
+       baked on `10-14` `R05`; `R59` `2f` empty; `R48` `1f` empty; `R64` partial `2050-2248`).
+  2. **Subject-specific invariants enforced across every remake (`data/fun/plan.json`, `data/fun/cast/cast.jsonl`)**:
+     - **Subject 1 (`lead`)**: Face swap only (`region: "face"`), ALWAYS keeping accessories (`Eyeglass` sunglasses on
+       `3063-3109` and `3909-4052`, `Left_Hand+Right_Hand` on `3060-3109`, `Apparel@head` hat on `168-184`), translated to
+       the rendered face's coordinates at assembly (`assemble_delivery.py` `WORN_ON_THE_HEAD`).
+     - **Subject 2 (`second`, mom)**: Face AND hair swap (`region: "face and hair"`, blonde hair in `fun_mom_edit.jpg`
+       replacing the original actress's dark bouffant hairdo; plain `"blonde hair"` with no hair-shortening wording;
+       `--zoom-up-to 4`), accounting for small distant appearances and intermittent foreground occlusions (`no_face_on` /
+       `head_hidden`).
+     - **Subject 3 (`third`, dad)**: Face only (`region: "face"`), clean-shaven (`fun_dad.jpg`, `source_facial_hair: true`
+       -> `facial_hair=keep` + `JAW_BEARD_PAD_FRAC = 0.35` downward jaw pad at default `margin: 16`; no beard/stubble words
+       in text). In the hallway sequence (`1222-1418`, specifically `1222-1305` and the first half of `1306-1418` around
+       frame `1300` where he raises his hand pointing at the lead), `third` is the one mouthing/speaking the sung vocal line
+       even though the vocals are female (`mouth_drawn_open` / mouth opening and closing transfer in the prompt).
+  3. **Multi-pass execution order**: every multi-subject shot executes in strict pass order (`laid.py remove` old pieces ->
+     rebuild cut -> Pass 1 on raw working copy -> rebuild cut -> Pass 2 on cut with `--for` -> rebuild cut -> Pass 3 on cut
+     with `--for`), preserving all `cast.jsonl` seed boxes, `who_is_who`, `head_marks`, and `restore=` spans.
 
 - **Padding frames never show the original subject unmasked in a window; the three-path window rule** (the owner,
   2026-10-25 about 00:10Z to 00:20Z; recorded in
