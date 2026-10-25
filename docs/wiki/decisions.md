@@ -17,6 +17,39 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-10-25
 
+- **Unified shot, window, and seam rule: no mid-face splices, natural cuts at multi-frame `0 px` off-screen gaps inside
+  long shots (`2050`), and multi-cut windows (`two_shot_load.py`) where the scene and subject continue** (the owner,
+  2026-10-25 about 16:04Z). Refines the 2026-10-15 "one shot, one load" rule (`docs/masked_v2v/AGENTS.md`) and path 2 of
+  the 2026-10-25 window rule around the physical causes of seams and identity bleed:
+  1. **No mid-face splices**: two separate renders of the same subject never meet on consecutive frames where the subject
+     is visible (`2623-2711` is remade whole in a `90`-frame window with `seed: 730451892` rather than splicing `2623-2624`
+     onto `lead_fp_2625`).
+  2. **A multi-frame `0 px` off-screen interval inside a shot over `345` frames is a natural cut**: on `2050-2622`,
+     `lead_fp_2050g` (`2050-2248`, `199f`, kept 2026-10-24) and the second half (`2271-2598`, `328f`, after which she is
+     off-screen on `2599-2622`) are separated by `22` frames (`2249-2270`) where her head is turned away (`carried == 0 px`,
+     untouched original video), so the two halves never touch (`0` seam). Keeping `lead_fp_2050g` on `2050-2248` and
+     rendering `2271-2598` in a single `345`-frame window (`2271-2615`, `lead_fp_2050h`) is approved by the owner.
+  3. **Crossing camera cuts where the scene and subject continue**: consecutive short camera cuts sharing one scene and one
+     subject (`1730-2049`, where the 2026-10-13 pieces were already rendered at `1.0x` whole-frame with `92-173 px` part
+     heights) may be joined in one window via `bench/two_shot_load.py` (`WHOLE_FRAME_WHY`), starting with the two pairs
+     whose first shot (`47f = 2 * 17 + 13`) lands on an exact VAE latent-step boundary (`1802-1848 + 1849-1897` in `141f`,
+     `1898-1944 + 1945-1974` in `90f`).
+  4. **Mask end to end, chop at the lay**: every window runs to its legal `both_clocks` length (`39`, `90`, `141`, `192`,
+     `243`, `294`, `345`) with zero unmasked frames of the subject inside the window, and `laid.jsonl` chops what the cut
+     does not need.
+
+- **Old kept clips before `2026-10-20` (and faulted `2026-10-20` to `2026-10-22` clips) are eligible for remake at the
+  bottom of the queue** (the owner, 2026-10-25 about 15:00Z and 15:56Z). Reverses the 2026-10-15 rule that a kept piece is
+  not remade for a better form. Once owed gaps and active remakes are done, kept pieces from before `2026-10-20` (`26`
+  pieces, `2,032` laid span frames, made before the head tube, cranium crop, 3D roll/pitch checks, Pass-2 on the cut, and
+  held-context guard—and where `propose_runs.py` on `2026-10-13` to `2026-10-15` trimmed shot edges on `0294d`, `1061p`,
+  `1097c`, `1802b`, `1898`, `1975b`, `2013b`, `2625`, and `1466b`/`1575b`) are eligible for whole-shot remakes: pre-`10/15`
+  single-subject pieces first, `10/15-10/18` single-subject pieces next, and multi-subject Pass-1 chains (`1010c`, `1222`,
+  `1466b`, `1419d`, `0604h`) last in strict pass order (`remove -> rebuild -> Pass 1 on raw -> rebuild -> Pass 2 on cut ->
+  rebuild -> Pass 3 on cut`). Kept pieces from `2026-10-20` to `2026-10-22` (`15` pieces, `860` laid span frames) get a CPU
+  window-edge read first and are remade only where that read shows a fault; `2026-10-23` onward stands unless the gap
+  digest names it.
+
 - **Padding frames never show the original subject unmasked in a window; the three-path window rule** (the owner,
   2026-10-25 about 00:10Z to 00:20Z; recorded in
   `docs/research/masking/2026-10-25_context_frames_and_identity_on_2050.md`). On `lead_fp_2050c` (`198f` in a `243f`
