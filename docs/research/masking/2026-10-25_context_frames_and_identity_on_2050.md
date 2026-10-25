@@ -109,7 +109,33 @@ across a cut stands; the laid row still names the shot and the frames laid.
   leaves the mirror before returning on `2271–2292`. Zoom was `1.27x` in `[120, 100, 928, 706]`, `8.1%` regenerated
   tokens, `0` unmasked padding frames, `0` held frames, median rendered face height `125 px`, median lash gap `5.41 px`,
   lid/lip score `0.98`. Kept on sight (`"Everything looks amazing here, even the spinning ball!!!"`) and laid on
-  `2050–2247` in `data/fun/laid.jsonl`, replacing `lead_fp_2050f`.
+  `2050–2247` in `data/fun/laid.jsonl` for the `2341Z` cut (then extended to `2050–2248`, the last frame before the
+  `2249–2270` mirror spin), replacing `lead_fp_2050f`.
+
+### Seam evidence across all six pieces laid on 2026-10-24
+
+Inside the laid mask region (`parts_held > 0`), the frame-to-frame mean absolute difference (MAD, `0–255` scale) in the
+render/composite against the raw source video across the exact same frame pairs confirms that every internal boundary
+step (`f0 -> f0+1` and `f1-1 -> f1`) and the soft mirror-spin joins on `2050g` (`2247 -> 2248` and `2248 -> 2249`) sit
+beside or below the source video's own change:
+
+| Piece (`Span`) | Join Before (`f0-1 -> f0`) Comp vs. Src | First Step (`f0 -> f0+1`) Render vs. Source | Last Step (`f1-1 -> f1`) Render vs. Source | Join After (`f1 -> f1+1`) Comp vs. Source |
+|---|---|---|---|---|
+| `lead_fp_2050g` (`2050–2247`) | `88.25` vs. `87.51` (hard cut) | `28.26` vs. `33.19` | `29.65` vs. `28.89` | `48.81` vs. `47.31` (`2247->2248`) |
+| `lead_fp_2050g` (`2050–2248`) | `88.25` vs. `87.51` (hard cut) | `28.26` vs. `33.19` | `34.12` vs. `37.06` (`2247->2248`) | `35.10` vs. `38.72` (`2248->2249` spin) |
+| `third_fp_4647e` (`4647–4725`) | `102.38` vs. `100.77` (hard cut) | `3.44` vs. `3.75` | `16.92` vs. `16.16` | `35.46` vs. `39.34` (hard cut) |
+| `lead_fp_4310c` (`4310–4389`) | `128.56` vs. `106.18` (hard cut) | `29.99` vs. `29.07` | `24.14` vs. `22.60` | `30.19` vs. `28.06` (`4389->4390` exit) |
+| `third_fp_5675g` (`5675–5715`) | `103.96` vs. `87.99` (hard cut) | `14.21` vs. `23.42` | `11.05` vs. `6.87` | `65.02` vs. `62.25` (hard cut) |
+| `third_fp_5011g` (`5011–5043`) | `59.55` vs. `66.21` (hard cut) | `19.48` vs. `24.70` | `8.66` vs. `12.55` | `37.68` vs. `36.46` (hard cut) |
+| `third_fp_5461e` (`5461–5497`) | `36.15` vs. `42.16` (hard cut) | `19.00` vs. `27.98` | `25.75` vs. `22.15` | `66.34` vs. `68.95` (hard cut) |
+
+Reading: at a hard camera cut (`f0-1 -> f0`), the composite's step across the cut can exceed the source's (as on
+`4310c` and `5675g`) because the frame after the cut carries the new swapped face where the source had the original
+actor, and the camera cut itself is large on both sides. That is the face swap across a scene cut, not a seam flash.
+A `4479e`-style bright-square fault appears inside a shot (`f0 -> f0+1` or `f1-1 -> f1`) or at a mid-shot chop (`2248 -> 2249`),
+and none of the six pieces shows one. On `2050g`'s mirror-rim patch (`[y=330:510, x=700:810]`), mean luminance steps
+smoothly across `2245..2250` (`127.12 -> 102.01 -> 86.62 -> 74.81 -> 73.60 -> 71.37`), changing by `1.21` luma units
+across the `2248 -> 2249` chop where `carried` hits `0 px`.
 
 ## What else the evening found, for the leftovers list
 
