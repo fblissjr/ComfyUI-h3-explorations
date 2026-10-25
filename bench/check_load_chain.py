@@ -916,6 +916,19 @@ def a_render_on_the_gate_alone() -> str:
         refused(lambda: lc.the_look(made.ctx()), "A FORCING FLAG STANDS", "the head reference's record does not say its read-backs passed")
         record.write_text(json.dumps({"passed": True}))
         assert lc.the_look(made.ctx())["gate_alone"] is True
+        # UNLAID WHILE TRACKED (Gate 2): frames where track_px > 0 and carried_px == 0 refuse both step_no_look and gate_alone
+        (cap / "subjects" / "a" / "per_frame.json").write_text(
+            json.dumps({"rows": [{"source_frame": 110, "track_share": 0.15}, {"source_frame": 111, "track_share": 0.15}]})
+        )
+        (cap / "runs" / "ld").mkdir(parents=True, exist_ok=True)
+        (cap / "runs" / "ld" / "per_frame.json").write_text(
+            json.dumps({"rows": [{"source_frame": 110, "subject": "a", "read": 1, "carried_share": 0.0}, {"source_frame": 111, "subject": "a", "read": 1, "carried_share": 0.0}]})
+        )
+        refused(lambda: lc.step_no_look(made.ctx(), m, a), "UNLAID WHILE TRACKED", "a frames 110-111", "is owed")
+        refused(lambda: lc.the_look(made.ctx()), "UNLAID WHILE TRACKED", "a frames 110-111", "does not hold against it")
+        (cap / "runs" / "ld" / "per_frame.json").unlink()
+        (cap / "subjects" / "a" / "per_frame.json").unlink()
+        assert lc.the_look(made.ctx())["gate_alone"] is True
         # THE RULE FOR A LOOK IS AS IT WAS: the maker's own look is no look. With the record the render rests on the gate
         # alone and says so; with a forcing flag it is refused, the maker's look named
         (cap / "looks.json").write_text(json.dumps({"looks": [{"by": "the maker", "at": "2026-01-03T10:30:00", "loads": ["ld"]}]}))

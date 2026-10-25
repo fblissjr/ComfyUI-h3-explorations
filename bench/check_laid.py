@@ -319,6 +319,339 @@ def keeps_verifies_and_refuses() -> str:
     return "split-span and multi-subject shot verified; superseded keeps reported; KEEP_NOT_LAID and LAID_MARKED_WRONG refused in the tool's words"
 
 
+def partial_lay_requires_coverage_or_override() -> str:
+    """Gate 3: laying `--frames` narrower than `--shot FIRST-LAST` refuses when frames of `FIRST..LAST` remain
+    uncovered by either another laid row on that shot/subject or a `not seen` look in `shots.json`, unless
+    `--allow-partial-lay WHY` is given (recording `partial_lay_why` on the line)."""
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        share = root / "share"
+        share.mkdir(parents=True)
+        (share / "p1_00001.mp4").write_bytes(b"piece 1")
+        (share / "p2_00001.mp4").write_bytes(b"piece 2")
+        vdir = root / "data" / "v"
+        vdir.mkdir(parents=True)
+        laid_path = vdir / "laid.jsonl"
+        shots_path = vdir / "shots.json"
+        shots_path.write_text(
+            json.dumps(
+                {
+                    "shots": [
+                        {
+                            "shot": 1,
+                            "first": 100,
+                            "last": 199,
+                            "who": {"lead": {"seen_looks": []}},
+                        }
+                    ]
+                }
+            )
+        )
+
+        # 1. Partial lay 100-149 on shot 100-199 without coverage or --allow-partial-lay refuses naming 150-199
+        refused(
+            run(
+                "lay",
+                "--laid",
+                laid_path,
+                "--share",
+                share,
+                "--shot",
+                "100-199",
+                "--subject",
+                "lead",
+                "--load",
+                "lead_fp_100a",
+                "--file",
+                "p1_00001.mp4",
+                "--frames",
+                "100-149",
+                "--owner",
+                "unconfirmed",
+                "--by",
+                "first half",
+                "--no-rebuild",
+                "test",
+            ),
+            "partial lay",
+            "150-199",
+            "--allow-partial-lay",
+        )
+        assert not laid_path.exists()
+
+        # 2. Empty --allow-partial-lay refuses
+        refused(
+            run(
+                "lay",
+                "--laid",
+                laid_path,
+                "--share",
+                share,
+                "--shot",
+                "100-199",
+                "--subject",
+                "lead",
+                "--load",
+                "lead_fp_100a",
+                "--file",
+                "p1_00001.mp4",
+                "--frames",
+                "100-149",
+                "--owner",
+                "unconfirmed",
+                "--by",
+                "first half",
+                "--allow-partial-lay",
+                "--no-rebuild",
+                "test",
+            ),
+            "--allow-partial-lay requires a non-empty reason (WHY)",
+        )
+
+        # 3. With --allow-partial-lay WHY, the first half is laid and partial_lay_why is recorded on the line
+        r1 = run(
+            "lay",
+            "--laid",
+            laid_path,
+            "--share",
+            share,
+            "--shot",
+            "100-199",
+            "--subject",
+            "lead",
+            "--load",
+            "lead_fp_100a",
+            "--file",
+            "p1_00001.mp4",
+            "--frames",
+            "100-149",
+            "--owner",
+            "unconfirmed",
+            "--by",
+            "first half",
+            "--allow-partial-lay",
+            "second half 150-199 laid next",
+            "--no-rebuild",
+            "test",
+        )
+        assert r1.returncode == 0, r1.stdout + r1.stderr
+        rows = [json.loads(line) for line in laid_path.read_text().splitlines() if line.strip()]
+        assert len(rows) == 1 and rows[0]["partial_lay_why"] == "second half 150-199 laid next", rows
+
+        # 4. Laying the second half 150-199 completes 100-199 without needing --allow-partial-lay
+        r2 = run(
+            "lay",
+            "--laid",
+            laid_path,
+            "--share",
+            share,
+            "--shot",
+            "100-199",
+            "--subject",
+            "lead",
+            "--load",
+            "lead_fp_150a",
+            "--file",
+            "p2_00001.mp4",
+            "--frames",
+            "150-199",
+            "--owner",
+            "unconfirmed",
+            "--by",
+            "second half",
+            "--no-rebuild",
+            "test",
+        )
+        assert r2.returncode == 0, r2.stdout + r2.stderr
+
+        # 5. With plan.json parts ["face_and_neck", "hair"], if only face_and_neck is `not seen` on 150-199 (real first/last schema),
+        #    150-199 is still uncovered (hair is still owed); once hair is also `not seen`, laying 100-149 passes; and a later `seen`
+        #    by `at` on 180-199 makes 180-199 uncovered again.
+        laid_path.unlink()
+        (vdir / "plan.json").write_text(
+            json.dumps({"subjects": {"lead": {"parts": ["face_and_neck", "hair"]}}})
+        )
+        shots_path.write_text(
+            json.dumps(
+                {
+                    "shots": [
+                        {
+                            "shot": 1,
+                            "first": 100,
+                            "last": 199,
+                            "who": {
+                                "lead": {
+                                    "seen_looks": [
+                                        {
+                                            "first": 150,
+                                            "last": 199,
+                                            "is": "not seen",
+                                            "part": "face_and_neck",
+                                            "by": "reader",
+                                            "at": "2026-10-25T10:00:00Z",
+                                        }
+                                    ]
+                                }
+                            },
+                        }
+                    ]
+                }
+            )
+        )
+        refused(
+            run(
+                "lay",
+                "--laid",
+                laid_path,
+                "--share",
+                share,
+                "--shot",
+                "100-199",
+                "--subject",
+                "lead",
+                "--load",
+                "lead_fp_100a",
+                "--file",
+                "p1_00001.mp4",
+                "--frames",
+                "100-149",
+                "--owner",
+                "unconfirmed",
+                "--by",
+                "only one part not seen",
+                "--no-rebuild",
+                "test",
+            ),
+            "partial lay",
+            "150-199",
+        )
+
+        # Adding hair `not seen` (or a later `seen` on 180-199 with an earlier `not seen` ordered out-of-order in JSON)
+        shots_path.write_text(
+            json.dumps(
+                {
+                    "shots": [
+                        {
+                            "shot": 1,
+                            "first": 100,
+                            "last": 199,
+                            "who": {
+                                "lead": {
+                                    "seen_looks": [
+                                        {
+                                            "first": 180,
+                                            "last": 199,
+                                            "is": "seen",
+                                            "part": "hair",
+                                            "by": "reader",
+                                            "at": "2026-10-25T11:00:00Z",
+                                        },
+                                        {
+                                            "first": 150,
+                                            "last": 199,
+                                            "is": "not seen",
+                                            "part": "head",
+                                            "by": "reader",
+                                            "at": "2026-10-25T10:00:00Z",
+                                        },
+                                    ]
+                                }
+                            },
+                        }
+                    ]
+                }
+            )
+        )
+        refused(
+            run(
+                "lay",
+                "--laid",
+                laid_path,
+                "--share",
+                share,
+                "--shot",
+                "100-199",
+                "--subject",
+                "lead",
+                "--load",
+                "lead_fp_100a",
+                "--file",
+                "p1_00001.mp4",
+                "--frames",
+                "100-149",
+                "--owner",
+                "unconfirmed",
+                "--by",
+                "later seen on 180-199",
+                "--no-rebuild",
+                "test",
+            ),
+            "partial lay",
+            "180-199",
+        )
+
+        shots_path.write_text(
+            json.dumps(
+                {
+                    "shots": [
+                        {
+                            "shot": 1,
+                            "first": 100,
+                            "last": 199,
+                            "who": {
+                                "lead": {
+                                    "seen_looks": [
+                                        {
+                                            "first": 150,
+                                            "last": 199,
+                                            "is": "not seen",
+                                            "part": "face_and_neck",
+                                            "by": "reader",
+                                            "at": "2026-10-25T10:00:00Z",
+                                        },
+                                        {
+                                            "first": 150,
+                                            "last": 199,
+                                            "is": "not seen",
+                                            "part": "hair",
+                                            "by": "reader",
+                                            "at": "2026-10-25T10:05:00Z",
+                                        },
+                                    ]
+                                }
+                            },
+                        }
+                    ]
+                }
+            )
+        )
+        r3 = run(
+            "lay",
+            "--laid",
+            laid_path,
+            "--share",
+            share,
+            "--shot",
+            "100-199",
+            "--subject",
+            "lead",
+            "--load",
+            "lead_fp_100a",
+            "--file",
+            "p1_00001.mp4",
+            "--frames",
+            "100-149",
+            "--owner",
+            "unconfirmed",
+            "--by",
+            "first half with 150-199 not seen across all parts",
+            "--no-rebuild",
+            "test",
+        )
+        assert r3.returncode == 0, r3.stdout + r3.stderr
+    return "partial lay leaving uncovered shot frames refused with exact spans; passes with sibling laid row, shots.json `not seen`, or --allow-partial-lay WHY"
+
+
 if __name__ == "__main__":
     case("owner_is_always_said", owner_is_always_said)
     case("set_owner_changes_only_owner", set_owner_changes_only_owner)
@@ -326,4 +659,5 @@ if __name__ == "__main__":
     case("history_grows", history_grows)
     case("a_removed_line_leaves_its_record", a_removed_line_leaves_its_record)
     case("keeps_verifies_and_refuses", keeps_verifies_and_refuses)
+    case("partial_lay_requires_coverage_or_override", partial_lay_requires_coverage_or_override)
     sys.exit(finish())

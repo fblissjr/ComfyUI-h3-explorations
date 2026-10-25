@@ -101,13 +101,167 @@ def format_spans(spans_or_frames: list | dict | int) -> str:
                 parts.append(str(int(item[0])))
         return ", ".join(parts) if parts else "none"
     nums = sorted({int(x) for x in spans_or_frames})
+    runs = _runs_of_frames(nums)
+    return ", ".join(str(a) if a == b else f"{a}-{b}" for a, b in runs)
+
+
+def _runs_of_frames(nums: list[int] | set[int]) -> list[list[int]]:
     runs: list[list[int]] = []
-    for n in nums:
+    for n in sorted({int(x) for x in nums}):
         if runs and n == runs[-1][1] + 1:
             runs[-1][1] = n
         else:
             runs.append([n, n])
-    return ", ".join(str(a) if a == b else f"{a}-{b}" for a, b in runs)
+    return runs
+
+
+def _extract_frame_set(spans_or_frames: list | dict | int) -> set[int]:
+    out: set[int] = set()
+    if not spans_or_frames:
+        return out
+    if isinstance(spans_or_frames, int):
+        return {int(spans_or_frames)}
+    if isinstance(spans_or_frames, list | tuple):
+        for item in spans_or_frames:
+            if isinstance(item, int):
+                out.add(int(item))
+            elif isinstance(item, list | tuple) and len(item) >= 2:
+                out.update(range(int(item[0]), int(item[1]) + 1))
+            elif isinstance(item, list | tuple) and len(item) == 1:
+                out.add(int(item[0]))
+            elif isinstance(item, dict):
+                if "source_frame" in item:
+                    out.add(int(item["source_frame"]))
+                elif "frame" in item:
+                    out.add(int(item["frame"]))
+                elif "first" in item and "last" in item:
+                    out.update(range(int(item["first"]), int(item["last"]) + 1))
+    return out
+
+
+def unlaid_while_tracked_of(capture: Path, loads: list[str] | None = None) -> dict[str, list[list[int]]]:
+    """Return `{subject: [[first, last], ...]}` for frames inside the load where `track_px > 0` and `carried_px == 0`."""
+    loads_list = loads if loads is not None else loads_of_capture(capture)
+    by_subj: dict[str, set[int]] = {}
+
+    subj_tracked: dict[str, set[int]] = {}
+    if (capture / "subjects").is_dir():
+        for spf in sorted((capture / "subjects").glob("*/per_frame.json")):
+            subj = spf.parent.name
+            try:
+                sdata = json.loads(spf.read_text())
+            except Exception:
+                continue
+            tset: set[int] = set()
+            for r in sdata.get("rows") or []:
+                if not isinstance(r, dict) or "source_frame" not in r:
+                    continue
+                if float(r.get("track_share") or 0.0) > 0.0 or int(r.get("track_px") or 0) > 0:
+                    tset.add(int(r["source_frame"]))
+            subj_tracked[subj] = tset
+
+    if (capture / "runs").is_dir():
+        run_dirs = [capture / "runs" / ld for ld in loads_list if (capture / "runs" / ld).is_dir()]
+        if not run_dirs:
+            run_dirs = sorted(p for p in (capture / "runs").iterdir() if p.is_dir())
+        for rdir in run_dirs:
+            rpf = rdir / "per_frame.json"
+            if not rpf.is_file():
+                continue
+            try:
+                rdata = json.loads(rpf.read_text())
+            except Exception:
+                continue
+            for r in rdata.get("rows") or []:
+                if not isinstance(r, dict) or "source_frame" not in r:
+                    continue
+                if int(r.get("read", 1)) != 1:
+                    continue
+                sf = int(r["source_frame"])
+                subj = str(r.get("subject") or rdir.name)
+                carried_empty = float(r.get("carried_share") or 0.0) == 0.0 and int(r.get("carried_px") or 0) == 0
+                is_tracked = (
+                    float(r.get("track_share") or 0.0) > 0.0
+                    or int(r.get("track_px") or 0) > 0
+                    or sf in subj_tracked.get(subj, set())
+                )
+                if carried_empty and is_tracked:
+                    by_subj.setdefault(subj, set()).add(sf)
+
+    for ft_path in sorted(capture.glob("frame_table*.jsonl")):
+        try:
+            lines = ft_path.read_text().splitlines()
+        except Exception:
+            continue
+        if not lines:
+            continue
+        try:
+            hdr = json.loads(lines[0])
+        except Exception:
+            continue
+        if loads is not None and hdr.get("run") and str(hdr["run"]) not in loads_list:
+            continue
+        subj = str(hdr.get("subject") or "subject")
+        for line in lines[1:]:
+            if not line.strip():
+                continue
+            try:
+                row = json.loads(line)
+            except Exception:
+                continue
+            if "load_frame" in row and row["load_frame"] is None:
+                continue
+            if "source_frame" not in row:
+                continue
+            sf = int(row["source_frame"])
+            t_px = int((row.get("tracked") or {}).get("px") or 0)
+            c_px = int(row.get("loaded_part_px") or 0)
+            if t_px > 0 and c_px == 0:
+                by_subj.setdefault(subj, set()).add(sf)
+
+    flags_file = capture / "flags.json"
+    if flags_file.is_file():
+        try:
+            fdata = json.loads(flags_file.read_text())
+            uwt = fdata.get("unlaid_while_tracked")
+            if isinstance(uwt, dict):
+                for subj, frames in uwt.items():
+                    fset = _extract_frame_set(frames)
+                    if fset:
+                        by_subj.setdefault(str(subj), set()).update(fset)
+        except Exception:
+            pass
+
+    return {subj: _runs_of_frames(fset) for subj, fset in sorted(by_subj.items()) if fset}
+
+
+def peer_look_covering(capture: Path, loads: list[str], status: dict) -> dict | None:
+    """Return a valid peer look from `capture/looks.json` covering `loads` and later than `status['written']`, or None."""
+    looks_file = capture / "looks.json"
+    if not looks_file.is_file():
+        return None
+    try:
+        looks = json.loads(looks_file.read_text()).get("looks") or []
+    except Exception:
+        return None
+    written = status.get("written")
+    made_by = status.get("made_by")
+    for lk in reversed(looks):
+        if not isinstance(lk, dict):
+            continue
+        lk_loads = lk.get("loads") or []
+        if not all(ld in lk_loads for ld in loads):
+            continue
+        if not lk.get("by") or lk.get("by") == made_by:
+            continue
+        if written and lk.get("at"):
+            try:
+                if not later(lk["at"], written):
+                    continue
+            except Refused:
+                continue
+        return lk
+    return None
 
 
 def flag_key(flag: dict) -> str:
@@ -369,6 +523,16 @@ def print_capture_report(capture: Path, load_arg: str | None = None, out=sys.std
     # 4. Held or emptied frames
     print("\n[4] held or emptied frames:", file=out)
     any_held_or_empty = False
+    unlaid_while_tracked = unlaid_while_tracked_of(capture, loads)
+    for subj, spans in sorted(unlaid_while_tracked.items()):
+        if spans:
+            any_held_or_empty = True
+            n_frames = sum(int(b) - int(a) + 1 for a, b in spans)
+            print(
+                f"  unlaid_while_tracked ({subj}): {n_frames} frame(s) [{format_spans(spans)}] (tracked > 0 px, carried == 0 px)",
+                file=out,
+            )
+
     emptied_grade = flags_data.get("emptied_by_the_grade") or {}
     for subj, frames in sorted(emptied_grade.items()):
         if frames:
@@ -428,10 +592,11 @@ def print_capture_report(capture: Path, load_arg: str | None = None, out=sys.std
         "made_by": status.get("made_by"),
         "verdict": verdict,
         "flags_count": len(flags_list),
+        "unlaid_while_tracked": unlaid_while_tracked,
     }
 
 
-def record_initial(capture: Path, who: str, loads: list[str], out=sys.stdout) -> dict:
+def record_initial(capture: Path, who: str, loads: list[str], ack_unlaid: str | None = None, out=sys.stdout) -> dict:
     """Record `who` as having read the flags printout on `capture` for `loads`."""
     who_clean = (who or "").strip()
     if not who_clean:
@@ -440,6 +605,10 @@ def record_initial(capture: Path, who: str, loads: list[str], out=sys.stdout) ->
     flags_bytes = (capture / "flags.json").read_bytes()
     flags_sha = hashlib.sha256(flags_bytes).hexdigest()
     now = now_iso()
+    unlaid = unlaid_while_tracked_of(capture, loads)
+    ack_clean = (ack_unlaid or "").strip() if ack_unlaid is not None else ""
+    if ack_unlaid is not None and (not ack_clean or ack_clean.startswith("-")):
+        raise Refused("--ack-unlaid WHY requires a non-empty reason")
     entry = {
         "by": who_clean,
         "at": now,
@@ -448,6 +617,24 @@ def record_initial(capture: Path, who: str, loads: list[str], out=sys.stdout) ->
         "capture_made_by": status.get("made_by"),
         "flags_sha256": flags_sha,
     }
+    if unlaid:
+        peer_look = peer_look_covering(capture, loads, status)
+        if not ack_clean and peer_look is None:
+            unlaid_summary = "; ".join(f"{subj}: frames {format_spans(spans)}" for subj, spans in sorted(unlaid.items()))
+            raise Refused(
+                f"unlaid_while_tracked on {capture.name} ({unlaid_summary}): frame(s) have track_px > 0 and carried_px == 0. "
+                f"Pass --ack-unlaid WHY to acknowledge these unlaid tracked frames, or record a peer look in {capture.name}/looks.json first"
+            )
+        entry["unlaid_while_tracked"] = unlaid
+        if ack_clean:
+            entry["unlaid_while_tracked_ack"] = {"why": ack_clean, "by": who_clean, "at": now}
+        else:
+            entry["unlaid_while_tracked_ack"] = {
+                "covered_by_look": peer_look.get("by"),
+                "look_at": peer_look.get("at"),
+                "by": who_clean,
+                "at": now,
+            }
     looks_dir = capture / "looks"
     looks_dir.mkdir(parents=True, exist_ok=True)
     written_paths = []
@@ -507,6 +694,21 @@ def check_flags_read(capture: Path, load_name: str, status: dict | None = None) 
             raise Refused(
                 f"{capture.name}/flags.json changed since {rec['by']} initialed it at {in_utc(rec['at'])}: {how}"
             )
+    unlaid = unlaid_while_tracked_of(capture, [load_name])
+    if unlaid:
+        ack = rec.get("unlaid_while_tracked_ack")
+        peer_look = peer_look_covering(capture, [load_name], status)
+        has_valid_ack = (
+            isinstance(ack, dict)
+            and bool(str(ack.get("why") or ack.get("covered_by_look") or "").strip())
+            and rec.get("unlaid_while_tracked") == unlaid
+        )
+        if not has_valid_ack and peer_look is None:
+            unlaid_summary = "; ".join(f"{subj}: frames {format_spans(spans)}" for subj, spans in sorted(unlaid.items()))
+            raise Refused(
+                f"unlaid_while_tracked on {capture.name} ({unlaid_summary}) has no recorded --ack-unlaid WHY in the flags-read initial for {load_name!r} "
+                f"(and no peer look in looks.json): run `bench/flags_before_render.py {capture} --initial WHO --ack-unlaid WHY`"
+            )
     return {
         "by": str(rec["by"]).strip(),
         "at": rec["at"],
@@ -514,6 +716,8 @@ def check_flags_read(capture: Path, load_name: str, status: dict | None = None) 
         "capture_written": written,
         "capture_written_utc": in_utc(written) if written else None,
         "flags_sha256": rec.get("flags_sha256"),
+        "unlaid_while_tracked": unlaid,
+        "unlaid_while_tracked_ack": rec.get("unlaid_while_tracked_ack"),
     }
 
 
@@ -522,11 +726,12 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("capture", type=Path, help="path to the capture folder (e.g. data/2026-10-24_lead_fp_4310)")
     p.add_argument("--load", default=None, help="load name(s) separated by '+', defaulting to the capture's load(s)")
     p.add_argument("--initial", default=None, metavar="WHO", help="record WHO as having read this printout into looks/<load>.shown.json and looks/<load>.flags_read.json")
+    p.add_argument("--ack-unlaid", default=None, metavar="WHY", help="reason acknowledging unlaid_while_tracked frames when recording --initial WHO")
     a = p.parse_args(argv)
     try:
         info = print_capture_report(a.capture, load_arg=a.load)
         if a.initial is not None:
-            record_initial(a.capture, a.initial, info["loads"])
+            record_initial(a.capture, a.initial, info["loads"], ack_unlaid=a.ack_unlaid)
     except Refused as e:
         print(f"REFUSED: {e}", file=sys.stderr)
         return 2

@@ -1785,7 +1785,7 @@ def carry_words_of(carry_words_from: dict | Path | str, shot: dict, subject: str
             raise Refused(f"--carry-words-from {old_name}: word-bearing key 'loads[0].{k}' in old job cannot be carried")
     job_known = {"name", "note", "source", "source_frames", "shot", "first", "frames", "canvas", "output", "subjects", "capture", "preview", "reference_folder",
                  "texts", "keep_outs", "part_on_track", "others_present", "defaults", "restore",
-                 "left_out", "zoomed", "whole_frame", "head_tube", "depth", "sam_head_track", "part", "track_not", "reference", "carried_words_from", "no_carry_words"}
+                 "left_out", "partial_shot_override", "zoomed", "whole_frame", "head_tube", "depth", "sam_head_track", "part", "track_not", "reference", "carried_words_from", "no_carry_words"}
     for k in old_job:
         if k not in job_known:
             raise Refused(f"--carry-words-from {old_name}: word-bearing key 'job.{k}' in old job cannot be carried")
@@ -1825,7 +1825,8 @@ def carry_words_of(carry_words_from: dict | Path | str, shot: dict, subject: str
     carried_said: list[str] = []
     retired_said: list[str] = []
     out: dict = {
-        "first": first, "frames": frames, "why_before": "", "why_after": "", "zoomed": None, "whole_frame": None,
+        "first": first, "frames": frames, "why_before": "", "why_after": "", "allow_partial_shot": None, "allow_partial_shot_meta": None,
+        "zoomed": None, "whole_frame": None,
         "zoomed_meta": None, "whole_frame_meta": None, "head_tube": None, "head_tube_meta": None,
         "depth": None, "depth_meta": None, "no_head_track": None, "no_head_track_meta": None,
         "no_closed_lip_line": None, "no_closed_lip_line_meta": None,
@@ -2005,6 +2006,18 @@ def carry_words_of(carry_words_from: dict | Path | str, shot: dict, subject: str
             overridden_said.append(f"left_out {lx}-{ly}: OVERRIDDEN: new {new_cut_w!r} replaces carried {lw!r}")
         else:
             outside_spans.append(f"left_out {lx}-{ly}")
+
+    if old_job.get("partial_shot_override") is not None:
+        opso = old_job["partial_shot_override"]
+        if not isinstance(opso, dict) or set(opso) - {"by", "at", "why", "uncovered_frames", "carried"}:
+            raise Refused(f"--carry-words-from {old_name}: word-bearing key in job.partial_shot_override {opso!r} cannot be carried")
+        if a > shot["first"] or b < shot["last"]:
+            pso_str = str(opso.get("why") or "")
+            out["allow_partial_shot"] = tagged(pso_str)
+            out["allow_partial_shot_meta"] = {"by": opso.get("by"), "at": opso.get("at"), "carried": dict(carried_rec)}
+            carried_said.append(f"allow_partial_shot ({opso.get('by')}, {opso.get('at')}): {out['allow_partial_shot']}")
+        else:
+            retired_said.append(f"job.partial_shot_override: not carried (new load covers the whole shot {shot['first']}-{shot['last']})")
 
     if old_job.get("zoomed") is not None:
         oz = old_job["zoomed"]
@@ -2268,6 +2281,168 @@ def carry_words_of(carry_words_from: dict | Path | str, shot: dict, subject: str
     return out
 
 
+def _runs_of_frames(frames: list[int] | set[int]) -> list[list[int]]:
+    nums = sorted({int(x) for x in frames})
+    out: list[list[int]] = []
+    for n in nums:
+        if out and n == out[-1][1] + 1:
+            out[-1][1] = n
+        else:
+            out.append([n, n])
+    return out
+
+
+def _fmt_runs(runs: list[list[int]]) -> str:
+    return ", ".join(str(u) if u == v else f"{u}-{v}" for u, v in runs) if runs else "none"
+
+
+def check_partial_shot_coverage(
+    shot: dict,
+    subject: str,
+    replaced_parts: list[str],
+    a: int,
+    b: int,
+    name: str,
+    by: str,
+    now: str,
+    preview: dict,
+    preview_files: list[str] | None,
+    output: Path,
+    video: str,
+    data: Path | None = None,
+    laid_file: str | Path | None = None,
+    sibling_job: list[str | Path] | None = None,
+    allow_partial_shot: str | None = None,
+    aps_meta: dict | None = None,
+) -> dict | None:
+    """Gate 1: when a load `[a, b]` omits frames inside `[shot.first, shot.last]`, require every omitted frame to be
+    covered by `shots.json` `who[subject].seen_looks` (`is == "not seen"` covering `replaced_parts`), a laid piece in
+    `laid.jsonl` on `(shot.first, shot.last, subject)`, or `--sibling-job JOB.json`, unless `--allow-partial-shot WHY`
+    is passed. Prints `0 px` preview track spans on uncovered omitted frames as data without auto-exempting them."""
+    covered_by_siblings: set[int] = set()
+    for raw_sj in sibling_job or []:
+        sj_path = Path(raw_sj)
+        if not sj_path.is_file():
+            raise Refused(f"--sibling-job {raw_sj}: no such file")
+        try:
+            sj = json.loads(sj_path.read_text())
+        except Exception as e:
+            raise Refused(f"--sibling-job {raw_sj}: invalid JSON ({e})") from None
+        sj_loads = (sj.get("loads") if isinstance(sj, dict) else None) or []
+        sj_job = (sj.get("job") if isinstance(sj, dict) else None) or {}
+        if not sj_loads or not isinstance(sj_loads[0], dict):
+            raise Refused(f"--sibling-job {raw_sj}: holds no load")
+        sj_l = sj_loads[0]
+        if sj_l.get("subject") != subject:
+            raise Refused(f"--sibling-job {raw_sj}: subject is {sj_l.get('subject')!r}, not {subject!r}")
+        sj_shot = sj_job.get("shot") or [sj_job.get("first"), int(sj_job.get("first", 0)) + int(sj_job.get("frames", 0)) - 1]
+        if [int(sj_shot[0]), int(sj_shot[1])] != [int(shot["first"]), int(shot["last"])]:
+            raise Refused(f"--sibling-job {raw_sj}: shot is {sj_shot[0]}-{sj_shot[1]}, not {shot['first']}-{shot['last']}")
+        sf0 = int(sj_l["first"])
+        sf1 = sf0 + int(sj_l["frames"]) - 1
+        covered_by_siblings.update(range(sf0, sf1 + 1))
+
+    omitted = sorted(set(range(int(shot["first"]), a)) | set(range(b + 1, int(shot["last"]) + 1)))
+    said_aps = ""
+    if allow_partial_shot is not None:
+        said_aps = " ".join(str(allow_partial_shot).split())
+        if not said_aps:
+            raise Refused("--allow-partial-shot takes the reason in words for why omitted frames of the shot are left uncovered")
+        if not omitted:
+            raise Refused(f"--allow-partial-shot is given and no frame of the shot {shot['first']}-{shot['last']} is omitted: the load is {a}-{b}")
+    if not omitted:
+        return None
+
+    who_entry = (shot.get("who") or {}).get(subject) or {}
+    looks = sorted(who_entry.get("seen_looks") or [], key=lambda x: str(x.get("at") or ""))
+    pts = list(replaced_parts or [])
+    if pts and looks:
+        unseen_per_part: list[set[int]] = []
+        for pt in pts:
+            unseen_pt: set[int] = set()
+            for lk in looks:
+                if lk.get("part") in (pt, "head", "whole"):
+                    span_s = set(range(max(int(lk["first"]), int(shot["first"])), min(int(lk["last"]), int(shot["last"])) + 1))
+                    if lk.get("is") == "not seen":
+                        unseen_pt |= span_s
+                    elif lk.get("is") == "seen":
+                        unseen_pt -= span_s
+            unseen_per_part.append(unseen_pt)
+        covered_by_looks = set.intersection(*unseen_per_part)
+    else:
+        covered_by_looks = set()
+
+    covered_by_laid: set[int] = set()
+    cand_laid: list[Path] = []
+    if laid_file:
+        cand_laid.append(Path(laid_file))
+    if data is not None and video:
+        cand_laid.append(Path(data) / video / "laid.jsonl")
+    for lp in cand_laid:
+        if lp.is_file():
+            for line in lp.read_text().splitlines():
+                if not line.strip():
+                    continue
+                try:
+                    row = json.loads(line)
+                except Exception:
+                    continue
+                if (
+                    int(row.get("first", -1)) == int(shot["first"])
+                    and int(row.get("last", -2)) == int(shot["last"])
+                    and row.get("subject") == subject
+                    and row.get("load") != name
+                ):
+                    r_frames = row.get("frames")
+                    if isinstance(r_frames, list) and r_frames and all(isinstance(sp, list) and len(sp) == 2 for sp in r_frames):
+                        for u, v in r_frames:
+                            covered_by_laid.update(range(int(u), int(v) + 1))
+                    else:
+                        covered_by_laid.update(range(int(row["first"]), int(row["last"]) + 1))
+            break
+
+    uncovered = sorted(set(omitted) - covered_by_looks - covered_by_laid - covered_by_siblings)
+    if allow_partial_shot is not None:
+        return {
+            "by": (aps_meta["by"] or by) if aps_meta else by,
+            "at": (aps_meta["at"] or now) if aps_meta else now,
+            "why": said_aps,
+            "uncovered_frames": _runs_of_frames(uncovered),
+            **({"carried": dict(aps_meta["carried"])} if aps_meta else {}),
+        }
+    if uncovered:
+        zero_px_note = ""
+        if preview_files:
+            t_found = [f for f in preview_files if f"_{subject}_track_" in Path(f).name and f.endswith(".mkv")]
+            if len(t_found) == 1:
+                t_path = output / t_found[0]
+                if t_path.is_file():
+                    try:
+                        import capture_masked_run as cap
+                        if t_path.stat().st_size > 0 or getattr(cap.read_mask, "__module__", "") != "_lib.frames":
+                            t_arr = cap.read_mask(t_path)
+                            p_first = int(preview.get("first", shot["first"]))
+                            zero_frames = [
+                                f for f in uncovered
+                                if 0 <= (f - p_first) < len(t_arr) and int(t_arr[f - p_first].sum()) == 0
+                            ]
+                            if zero_frames:
+                                zero_px_note = (
+                                    f" (preview track is 0 px on {_fmt_runs(_runs_of_frames(zero_frames))}; "
+                                    "0 px can be a tracker miss, not absence — inspect the contact sheet before deciding)"
+                                )
+                    except Exception:
+                        pass
+        uncov_runs = _runs_of_frames(uncovered)
+        raise Refused(
+            f"the load {name} covers {a}-{b} of the shot {shot['first']}-{shot['last']}, leaving {len(uncovered)} omitted frame(s) "
+            f"({_fmt_runs(uncov_runs)}) for {subject!r} uncovered by `seen_looks` (`not seen` for {pts} in shots.json), "
+            f"by a laid piece in laid.jsonl, or by `--sibling-job`{zero_px_note}. "
+            f"Record a look in shots.json (`bench/shots_look.py`), pass `--sibling-job JOB.json`, or pass `--allow-partial-shot WHY`"
+        )
+    return None
+
+
 def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, preview_folder: str, video: str, output: Path, by: str, day: str,
              name: str, first: int | None = None, frames: int | None = None, why: str = "", now: str = "", source: str | None = None,
              why_before: str = "", why_after: str = "", zoomed: str | None = None, least: int | None = None, least_why: str | None = None,
@@ -2282,13 +2457,15 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
              hold_part: list[tuple[int, int, str]] | None = None, seam: list[int] | None = None,
              seam_why: str | None = None, context_noise: float | None = None, context_noise_why: str | None = None,
              mouth_on: list[tuple[int, int, str]] | None = None, data: Path | None = None,
-              drop: str | None = None, drop_by: str | None = None, carry_words_from: dict | Path | str | None = None,
-              leave_word: list[str] | None = None, leave_by: str | None = None, no_carry_words: str | None = None,
-              head_tube: str | None = None, depth: str | None = None, no_head_track: str | None = None,
-              no_closed_lip_line: str | None = None, capture_folder: Path | str | None = None,
-              seed: int | str | None = None, seed_why: str | None = None,
-              zoom_up_to: float | str | None = None, zoom_up_to_why: str | None = None,
-              margin: int | str | None = None, margin_why: str | None = None) -> dict:
+             drop: str | None = None, drop_by: str | None = None, carry_words_from: dict | Path | str | None = None,
+             leave_word: list[str] | None = None, leave_by: str | None = None, no_carry_words: str | None = None,
+             head_tube: str | None = None, depth: str | None = None, no_head_track: str | None = None,
+             no_closed_lip_line: str | None = None, capture_folder: Path | str | None = None,
+             seed: int | str | None = None, seed_why: str | None = None,
+             zoom_up_to: float | str | None = None, zoom_up_to_why: str | None = None,
+             margin: int | str | None = None, margin_why: str | None = None,
+             allow_partial_shot: str | None = None, sibling_job: list[str | Path] | None = None,
+             laid_file: str | Path | None = None) -> dict:
     """The job file of one subject's load on a shot, from the shot's preview. `preview` is the preview's own job
     block; `source` is the file the load renders from, the video's present copy (the preview's own when left out).
     `parts` with `parts_by` makes the load's part some of its subject's plan parts (`part_of`)."""
@@ -2304,7 +2481,7 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
         raise Refused(f"the preview {preview['name']} is of {preview['first']}-{preview['first'] + preview['frames'] - 1}, not of the shot {shot['first']}-{shot['last']}")
     p = planned(plan, subject)
     cw = None
-    wb_from_cw = wa_from_cw = zoomed_from_cw = whole_from_cw = head_tube_from_cw = depth_from_cw = no_head_track_from_cw = no_cl_from_cw = least_from_cw = False
+    wb_from_cw = wa_from_cw = aps_from_cw = zoomed_from_cw = whole_from_cw = head_tube_from_cw = depth_from_cw = no_head_track_from_cw = no_cl_from_cw = least_from_cw = False
     parts_from_cw = track_not_from_cw = motion_from_cw = ns_from_cw = es_from_cw = False
     seam_from_cw = cn_from_cw = drop_from_cw = False
     n_cw_hp = 0
@@ -2333,6 +2510,10 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
         wa_from_cw = not bool((why_after or why).strip()) and bool(cw["why_after"])
         why_before = why_before or cw["why_before"]
         why_after = why_after or cw["why_after"]
+        if allow_partial_shot is None and cw["allow_partial_shot"] is not None:
+            allow_partial_shot, aps_from_cw = cw["allow_partial_shot"], True
+        elif cw["allow_partial_shot"] is not None:
+            _ov("allow_partial_shot ", f"allow_partial_shot={allow_partial_shot!r}", repr(cw["allow_partial_shot"]))
         if zoomed is None and whole_frame is None and cw["zoomed"] is not None:
             zoomed, zoomed_from_cw = cw["zoomed"], True
         elif cw["zoomed"] is not None:
@@ -2546,6 +2727,25 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
             cut.append((*frames_cut, said))
     # one sentence when both ends were cut for one reason, else each end's frames with its own
     cut_said = cut[0][2] if len({said for _x, _y, said in cut}) == 1 else " ".join(f"{x}-{y}: {said}" for x, y, said in cut)
+    partial_shot_block = check_partial_shot_coverage(
+        shot,
+        subject,
+        list(parts) if parts is not None else list(p.get("parts") or []),
+        a,
+        b,
+        name,
+        by,
+        now,
+        preview,
+        preview_files,
+        output,
+        video,
+        data=data,
+        laid_file=laid_file,
+        sibling_job=sibling_job,
+        allow_partial_shot=allow_partial_shot,
+        aps_meta=cw["allow_partial_shot_meta"] if (cw and aps_from_cw) else None,
+    )
     ref_folder, ref_why = reference_folder(output, video, subject, a, b, data)
     reference = ref_folder / f"{subject}_head_reference_{a:04d}_{b:04d}.mp4"
     load = {"name": name, "first": a, "frames": n, "subject": subject, "others": [k for k in theirs if k != subject], "text": name,
@@ -3091,6 +3291,8 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
             + (f" THE MARGIN IS {own_margin} px (h3_config.MASKED_LOAD_MARGIN for {region!r} is {region_margin}), on {by}'s word ({now}): "
                f"{margin_by['why']}." if margin_by else "")
             + (f" CUT BY A LOOK: {cut_said}" if cut else "")
+            + (f" PARTIAL SHOT OVERRIDE on uncovered frame(s) {_fmt_runs(partial_shot_block['uncovered_frames'])}: "
+               f"{partial_shot_block['why']} ({partial_shot_block['by']}, {partial_shot_block['at']})." if partial_shot_block else "")
             + (f" ITS REFERENCE GOES TO {ref_folder.name}, A NEW FOLDER: {ref_why}; a new one." if ref_why else "")
             + (f" NO REFERENCE VIDEO (motion none): the reference step makes nothing for this load and the text names no video: "
                f"{' '.join(str(motion_why).split())} ({by}, {now})." if motion == "none" else ""))
@@ -3123,6 +3325,7 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
                     "left_out": [{"subject": subject, "first": x, "frames": y - x + 1, "why": said,
                                   **({"carried": dict(cw["carried_rec"])} if cw and ((x == shot["first"] and wb_from_cw) or (y == shot["last"] and wa_from_cw)) else {})}
                                  for x, y, said in cut],
+                    **({"partial_shot_override": partial_shot_block} if partial_shot_block else {}),
                     "capture": f"data/{day}_{name}", "preview": preview_folder,
                     **({"reference_folder": {"folder": ref_folder.name, "why": f"{ref_why}; a new one"}} if ref_why else {}),
                     "texts": {name: {"file": f"{name}.txt", "frames": [a, b], "by": ""}},
@@ -4091,7 +4294,10 @@ def step_job(a, world, cut=cut_keep_out, hashed=None, inside=part_inside, classe
                    no_closed_lip_line=getattr(a, "no_closed_lip_line", None),
                    seed=getattr(a, "seed", None), seed_why=getattr(a, "seed_why", None),
                    zoom_up_to=getattr(a, "zoom_up_to", None), zoom_up_to_why=getattr(a, "zoom_up_to_why", None),
-                   margin=getattr(a, "margin", None), margin_why=getattr(a, "margin_why", None))
+                   margin=getattr(a, "margin", None), margin_why=getattr(a, "margin_why", None),
+                   allow_partial_shot=getattr(a, "allow_partial_shot", None),
+                   sibling_job=getattr(a, "sibling_job", None),
+                   laid_file=Path(a.plan).resolve().parent / "laid.jsonl" if getattr(a, "plan", None) else None)
     load_first = int(job["loads"][0]["first"])
     load_last = load_first + int(job["loads"][0]["frames"]) - 1
     other_subjects = list(dict.fromkeys(
@@ -4773,6 +4979,11 @@ def main() -> int:
     j.add_argument("--why", help="what a look cut and why; into the job's left_out, for both ends of the load unless one has its own")
     j.add_argument("--why-before", help="what was cut BEFORE the load and why, when it is not the reason for the frames after")
     j.add_argument("--why-after", help="what was cut AFTER the load and why, when it is not the reason for the frames before")
+    j.add_argument("--allow-partial-shot", metavar="WHY",
+                   help="allow a partial-shot load whose omitted frames inside the shot are not covered by seen_looks in shots.json, "
+                        "a laid piece in laid.jsonl, or --sibling-job, recording job.partial_shot_override")
+    j.add_argument("--sibling-job", action="append", default=[], metavar="JOB.json",
+                   help="a sibling load job file for the same subject on this shot whose frames cover omitted frames of this partial-shot load; repeatable")
     j.add_argument("--remake", action="store_true", help="the next free letter after the name, for a load made again")
     j.add_argument("--parts", nargs="+", metavar="NAME", help="this load's part is these of its subject's plan parts and no other (hair, face_and_neck, ...); "
                    "cut from the preview's class map as a keep-out is, and handed to the capture as the load's part")

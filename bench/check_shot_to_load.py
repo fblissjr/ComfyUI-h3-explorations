@@ -257,6 +257,9 @@ class Made:
         pjob = self.preview(shot)
         folder = self.preview_ran(pjob)
         saved = json.loads((folder / "preview.queued.json").read_text())["files"]
+        if ("first" in more or "frames" in more) and "allow_partial_shot" not in more and "sibling_job" not in more:
+            more["allow_partial_shot"] = "fixture partial shot"
+        more.setdefault("data", self.m.data)
         return stl.load_job(shots, plan, stl.shot_of(shots, shot), subject, pjob["job"], str(folder), "v", self.m.output, "the session", "2026-01-03", name, now="now",
                             preview_files=saved, **more)
 
@@ -267,7 +270,7 @@ def args(**more) -> argparse.Namespace:
                  place_and_action=None, by_hand=None, plan=None,
                  track_not=[], track_not_by=None, drop=None, drop_by=None, leave_word=[], leave_by=None, carry_words_from=None, no_carry_words=None,
                  head_tube=None, depth=None, no_head_track=None, no_closed_lip_line=None, source=None, allow_raw_source=None, made_for=[],
-                 seed=None, seed_why=None)
+                 seed=None, seed_why=None, allow_partial_shot=None, sibling_job=[])
     given.update(more)
     return argparse.Namespace(**given)
 
@@ -643,7 +646,7 @@ def a_loads_name_is_made() -> str:
         # the name carries the load's own first frame and the region's form (b's band is taken out: a band is refused, below)
         del made.plan["subjects"]["b"]["hair_band"]
         made.write()
-        b = args(shots=str(made.shots_file), plan=str(made.plan_file), shot=100, folder=str(made.jobs), subject="b", preview=str(folder), first=104, frames=20, why="a look cut it")
+        b = args(shots=str(made.shots_file), plan=str(made.plan_file), shot=100, folder=str(made.jobs), subject="b", preview=str(folder), first=104, frames=20, why="a look cut it", allow_partial_shot="a look cut it")
         stl.step_job(b, made.m)
         assert (made.jobs / "b_hfp_0104.json").is_file(), sorted(p.name for p in made.jobs.iterdir())
         c = args(shots=str(made.shots_file), plan=str(made.plan_file), shot=100, folder=str(made.jobs), subject="c", preview=str(folder))
@@ -807,7 +810,7 @@ def a_load_the_builder_would_refuse_is_not_written() -> str:
         assert not list(made.jobs.iterdir()), "a dry run wrote a job file"
         # anything else the builder refuses on the job file alone stops it too, dry or not: a load under the song node's shortest
         _, least = masked_job.shortest_load()
-        short = args(**{**vars(b), "first": 100, "frames": least - 1, "why": "a look cut it"})
+        short = args(**{**vars(b), "first": 100, "frames": least - 1, "why": "a look cut it", "allow_partial_shot": "short test"})
         for dry in (True, False):
             made.m.dry = dry
             refused(lambda: stl.step_job(short, made.m), "the builder would refuse this load, so nothing is written", f"{least - 1} frames")
@@ -2699,6 +2702,7 @@ def carry_words_from_equals_old_on_every_word() -> str:
             preview_files=saved,
             why_before=f"100-104 cut before: head off frame ({sheet})",
             why_after=f"150-159 cut after: back turned ({sheet})",
+            allow_partial_shot="fixture partial shot",
             least=480,
             least_why=f"floor 480 on small face ({sheet})",
             hold_part=[(110, 112, f"mrgan looked at {sheet}: face shows in profile"), (125, 125, f"mrgan looked at {sheet}: face shows; blurred")],
@@ -2883,6 +2887,7 @@ def carry_words_from_refuses_span_outside_new_frames() -> str:
             preview_files=saved,
             why_before=f"100-104 cut ({sheet})",
             why_after=f"155-159 cut ({sheet})",
+            allow_partial_shot="fixture partial shot",
             no_face_on=[(106, 108, f"mrgan looked at {sheet}: no face")],
             hold_part=[(150, 152, f"mrgan looked at {sheet}: face shows")],
             drop="151-153",
@@ -4058,6 +4063,97 @@ def no_head_on_in_the_job_and_reference() -> str:
             "carried by --carry-words-from, dropped by --leave-word, checked on --existing, and refused when invalid")
 
 
+def partial_shot_load_requires_coverage_or_override() -> str:
+    """Gate 1: a partial-shot load `[a, b]` inside `[shot.first, shot.last]` is refused unless every omitted frame is
+    covered by `shots.json` `who[subject].seen_looks` (`is == "not seen"` covering the subject's replaced plan parts),
+    a laid piece in `laid.jsonl`, or `--sibling-job JOB.json`, or `--allow-partial-shot WHY` is passed (recording
+    `job.partial_shot_override`). `0 px` preview track spans on omitted frames are printed as data in the refusal
+    message and never auto-exempted."""
+    import numpy as np
+    import capture_masked_run as cap
+    with tempfile.TemporaryDirectory() as tmp:
+        made = Made(Path(tmp))
+        folder = made.preview_ran(made.preview(100))
+        # Monkeypatch cap.read_mask so frames 100-102 have 0 px on preview track while 103 and 144-159 have >0 px
+        w, h = cfg.MASKED_JOB_CANVAS
+        fake_track = np.ones((60, h, w), dtype=bool)
+        fake_track[0:3] = False  # source frames 100-102 are 0 px
+        kept_read = cap.read_mask
+        cap.read_mask = lambda _path: fake_track
+        try:
+            # 1. Uncovered omitted frames (100-103 and 144-159) are refused; 0 px on 100-102 is printed as data and NOT auto-exempted
+            msg = refused(
+                lambda: made.load(first=104, frames=40, why="cut both ends", name="a_fp_0104", allow_partial_shot=None),
+                "leaves 20 omitted frame(s) (100-103, 144-159)" if False else "leaving 20 omitted frame(s) (100-103, 144-159)",
+                "preview track is 0 px on 100-102; 0 px can be a tracker miss, not absence",
+                "--allow-partial-shot WHY",
+            )
+            assert "100-103" in msg and "144-159" in msg, msg
+        finally:
+            cap.read_mask = kept_read
+
+        # 2. Covered by seen_looks in shots.json (`is == "not seen"` for the subject's replaced plan parts)
+        made.shots["shots"][1]["who"]["a"]["seen_looks"] = [
+            {"part": "face_and_neck", "first": 100, "last": 103, "is": "not seen", "why": "turned away", "by": "owner", "at": "2026-01-01T00:00:00Z"},
+            {"part": "face_and_neck", "first": 144, "last": 159, "is": "not seen", "why": "off frame", "by": "owner", "at": "2026-01-01T00:01:00Z"},
+        ]
+        ok_looks = made.load(first=104, frames=40, why="covered by seen_looks", name="a_fp_0104", allow_partial_shot=None)
+        assert "partial_shot_override" not in ok_looks["job"], ok_looks["job"]
+
+        # A later `seen` look taking back 150-159 causes 150-159 to be refused as uncovered
+        made.shots["shots"][1]["who"]["a"]["seen_looks"].append(
+            {"part": "face_and_neck", "first": 150, "last": 159, "is": "seen", "why": "profile shows", "by": "owner", "at": "2026-01-02T00:00:00Z"}
+        )
+        refused(
+            lambda: made.load(first=104, frames=40, why="cut both ends", name="a_fp_0104", allow_partial_shot=None),
+            "leaving 10 omitted frame(s) (150-159)",
+        )
+
+        # 3. Covered by a sibling laid piece in laid.jsonl (or --sibling-job JOB.json)
+        laid_path = made.m.data / "v" / "laid.jsonl"
+        laid_path.parent.mkdir(parents=True, exist_ok=True)
+        laid_path.write_text(
+            json.dumps({"first": 100, "last": 159, "subject": "a", "load": "a_fp_0150", "frames": [[150, 159]]}) + "\n"
+        )
+        ok_laid = made.load(first=104, frames=40, why="100-103 and 144-149 look, 150-159 laid", name="a_fp_0104", allow_partial_shot=None)
+        assert "partial_shot_override" not in ok_laid["job"]
+        laid_path.unlink()
+
+        # Covered by --sibling-job JOB.json via step_job
+        sib_job_path = made.jobs / "a_fp_0150.json"
+        sib_job_path.write_text(json.dumps({
+            "job": {"name": "a_fp_0150", "shot": [100, 159], "first": 150, "frames": 10},
+            "loads": [{"name": "a_fp_0150", "subject": "a", "first": 150, "frames": 10}],
+        }))
+        stl.step_job(
+            args(shots=str(made.shots_file), plan=str(made.plan_file), shot=100, folder=str(made.jobs), subject="a",
+                 preview=str(folder), first=104, frames=40, why="150-159 in sibling job", sibling_job=[str(sib_job_path)]),
+            made.m,
+        )
+        assert (made.jobs / "a_fp_0104.json").is_file()
+        (made.jobs / "a_fp_0104.json").unlink()
+        sib_job_path.unlink()
+
+        # 4. Passing --allow-partial-shot WHY records job.partial_shot_override and mentions it in job.note
+        made.shots["shots"][1]["who"]["a"].pop("seen_looks", None)
+        made.write()
+        stl.step_job(
+            args(shots=str(made.shots_file), plan=str(made.plan_file), shot=100, folder=str(made.jobs), subject="a",
+                 preview=str(folder), first=104, frames=40, why="split shot in progress",
+                 allow_partial_shot="sibling load for 100-103 and 144-159 queued next"),
+            made.m,
+        )
+        ov_doc = json.loads((made.jobs / "a_fp_0104.json").read_text())
+        pso = ov_doc["job"].get("partial_shot_override") or {}
+        assert pso.get("by") == "the session" and pso.get("why") == "sibling load for 100-103 and 144-159 queued next" \
+            and pso.get("uncovered_frames") == [[100, 103], [144, 159]], pso
+        assert "PARTIAL SHOT OVERRIDE on uncovered frame(s) 100-103, 144-159" in ov_doc["job"]["note"], ov_doc["job"]["note"]
+        # Refused when --allow-partial-shot is empty or passed on a whole-shot load
+        refused(lambda: made.load(first=104, frames=40, why="w", allow_partial_shot="   "), "--allow-partial-shot takes the reason")
+        refused(lambda: made.load(allow_partial_shot="whole shot"), "no frame of the shot 100-159 is omitted")
+    return "partial-shot loads require omitted frames to be covered by seen_looks, laid.jsonl, or --sibling-job, or overridden with --allow-partial-shot WHY; 0 px preview track spans printed as data"
+
+
 case("the frame a tracker picks on is a field of the shots record", the_pick_frame_is_a_field)
 case("the trackers' order, and who is in the shot", the_order_and_who_is_in_the_shot)
 case("a preview made to ask who is on a shot the record is unsure of", a_preview_made_to_ask)
@@ -4103,6 +4199,8 @@ case("margin: --margin with --margin-why is the load's own, in the file, the blo
      a_loads_margin_is_a_persons_word)
 case("reference: --no-head-on and --no-head-form recorded, carried, forwarded, checked on --existing, and refused when invalid",
      no_head_on_in_the_job_and_reference)
+case("partial-shot load: omitted frames require seen_looks, laid.jsonl, --sibling-job, or --allow-partial-shot override (0 px track printed as data)",
+     partial_shot_load_requires_coverage_or_override)
 
 if __name__ == "__main__":
     sys.exit(finish())

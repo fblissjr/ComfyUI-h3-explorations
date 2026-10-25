@@ -373,7 +373,96 @@ def test_flag_census() -> str:
     return "counts every rule across flags.json and outcomes.json, matches overrides by flag key across ID shifts, and reconciles totals"
 
 
+def test_unlaid_while_tracked_gate() -> str:
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        cap = make_synthetic_capture(root)
+        # Write per_frame.json files showing frames 4310..4315 tracked (track_share > 0) while carried_share == 0
+        (cap / "subjects" / "lead" / "per_frame.json").write_text(
+            json.dumps(
+                {
+                    "rows": [
+                        {"source_frame": f, "track_share": 0.14 if f <= 4320 else 0.0}
+                        for f in range(4310, 4330)
+                    ]
+                }
+            )
+        )
+        (cap / "runs" / "lead_fp_4310" / "per_frame.json").write_text(
+            json.dumps(
+                {
+                    "rows": [
+                        {
+                            "source_frame": f,
+                            "subject": "lead",
+                            "read": 1,
+                            "carried_share": 0.0 if f <= 4315 else 0.12,
+                        }
+                        for f in range(4310, 4330)
+                    ]
+                }
+            )
+        )
+        buf = io.StringIO()
+        info = fbr.print_capture_report(cap, out=buf)
+        printed = buf.getvalue()
+        assert info["unlaid_while_tracked"] == {"lead": [[4310, 4315]]}, info
+        assert "unlaid_while_tracked (lead): 6 frame(s) [4310-4315] (tracked > 0 px, carried == 0 px)" in printed, printed
+
+        # Without --ack-unlaid WHY (and no peer look in looks.json), --initial WHO refuses
+        refused(
+            lambda: fbr.record_initial(cap, "gemreader", ["lead_fp_4310"]),
+            "unlaid_while_tracked",
+            "lead: frames 4310-4315",
+            "--ack-unlaid WHY",
+        )
+        proc = subprocess.run(
+            [sys.executable, str(HERE / "flags_before_render.py"), str(cap), "--initial", "gemreader"],
+            capture_output=True,
+            text=True,
+        )
+        assert proc.returncode == 2 and "REFUSED:" in proc.stderr and "unlaid_while_tracked" in proc.stderr and "Traceback" not in proc.stderr, proc.stderr
+
+        # Passing --ack-unlaid WHY records unlaid_while_tracked_ack and passes check_flags_read
+        rc = fbr.main([str(cap), "--initial", "gemreader", "--ack-unlaid", "4310-4315 covered by sibling load_b"])
+        assert rc == 0
+        beside = json.loads((cap / "looks" / "lead_fp_4310.flags_read.json").read_text())
+        assert beside["unlaid_while_tracked"] == {"lead": [[4310, 4315]]}
+        assert beside["unlaid_while_tracked_ack"]["why"] == "4310-4315 covered by sibling load_b"
+        checked = fbr.check_flags_read(cap, "lead_fp_4310")
+        assert checked["unlaid_while_tracked_ack"]["why"] == "4310-4315 covered by sibling load_b", checked
+
+        # If unlaid_while_tracked_ack is stripped and there is no peer look, check_flags_read refuses
+        del beside["unlaid_while_tracked_ack"]
+        (cap / "looks" / "lead_fp_4310.flags_read.json").write_text(json.dumps(beside))
+        shown = json.loads((cap / "looks" / "lead_fp_4310.shown.json").read_text())
+        del shown["flags_read"]["unlaid_while_tracked_ack"]
+        (cap / "looks" / "lead_fp_4310.shown.json").write_text(json.dumps(shown))
+        refused(lambda: fbr.check_flags_read(cap, "lead_fp_4310"), "unlaid_while_tracked", "--ack-unlaid WHY")
+
+        # When looks.json already holds a valid peer look later than status.json, --initial WHO without --ack-unlaid succeeds
+        (cap / "looks.json").write_text(
+            json.dumps(
+                {
+                    "looks": [
+                        {
+                            "by": "claude_peer",
+                            "at": "2026-10-24T12:00:00",
+                            "loads": ["lead_fp_4310"],
+                        }
+                    ]
+                }
+            )
+        )
+        rc2 = fbr.main([str(cap), "--initial", "gemreader"])
+        assert rc2 == 0
+        checked2 = fbr.check_flags_read(cap, "lead_fp_4310")
+        assert checked2["unlaid_while_tracked_ack"]["covered_by_look"] == "claude_peer", checked2
+    return "prints unlaid_while_tracked in [4], refuses --initial without --ack-unlaid or peer look, and verifies unlaid_while_tracked_ack in check_flags_read"
+
+
 case("flags_before_render: 4 diagnostic blocks, --initial record, and refusals", test_print_and_initial)
+case("flags_before_render: unlaid_while_tracked gate (--ack-unlaid WHY or peer look)", test_unlaid_while_tracked_gate)
 case("flag_census: rule counts, key-based override matching, and blocked/changed dates", test_flag_census)
 
 if __name__ == "__main__":

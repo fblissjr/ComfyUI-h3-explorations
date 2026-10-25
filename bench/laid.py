@@ -389,12 +389,90 @@ def _run_autorebuild(a: argparse.Namespace, laid_path: Path, video: str, share: 
     return 0
 
 
+def _runs_of_frames(nums: list[int] | set[int]) -> list[list[int]]:
+    runs: list[list[int]] = []
+    for n in sorted({int(x) for x in nums}):
+        if runs and n == runs[-1][1] + 1:
+            runs[-1][1] = n
+        else:
+            runs.append([n, n])
+    return runs
+
+
+def _not_seen_frames_of_shot(
+    laid_path: Path, video: str, data_arg: str | None, first: int, last: int, subject: str
+) -> set[int]:
+    """Return the set of frames in `[first, last]` covered by `is: 'not seen'` in `shots.json` for `subject`."""
+    candidates: list[Path] = [laid_path.resolve().parent / "shots.json"]
+    if data_arg:
+        dp = Path(data_arg).resolve()
+        candidates.append(dp / "shots.json")
+        if video:
+            candidates.append(dp / video / "shots.json")
+    if video:
+        candidates.append(HERE.parent / "data" / video / "shots.json")
+    shots_file = next((p for p in candidates if p.is_file()), None)
+    if shots_file is None:
+        return set()
+    try:
+        shots_data = json.loads(shots_file.read_text())
+    except Exception:
+        return set()
+    subj_parts: set[str] = set()
+    plan_file = shots_file.parent / "plan.json"
+    if plan_file.is_file():
+        try:
+            plan_data = json.loads(plan_file.read_text())
+            parts_cfg = ((plan_data.get("subjects") or {}).get(subject) or {}).get("parts") or []
+            if isinstance(parts_cfg, list):
+                subj_parts = {str(p) for p in parts_cfg}
+        except Exception:
+            pass
+    shot_frames = set(range(first, last + 1))
+    for s in shots_data.get("shots") or []:
+        if int(s.get("first", -1)) == first and int(s.get("last", -1)) == last:
+            raw_looks = (((s.get("who") or {}).get(subject) or {}).get("seen_looks")) or []
+            seen_looks = sorted(
+                [lk for lk in raw_looks if isinstance(lk, dict)],
+                key=lambda x: str(x.get("at") or ""),
+            )
+            if not seen_looks:
+                return set()
+            pts = sorted(subj_parts) if subj_parts else ["head"]
+            unseen_per_part: list[set[int]] = []
+            for pt in pts:
+                unseen_pt: set[int] = set()
+                for lk in seen_looks:
+                    part = str(lk.get("part") or "head")
+                    if subj_parts and part not in (pt, "head", "whole", "all"):
+                        continue
+                    if "first" in lk and "last" in lk:
+                        f0, f1 = int(lk["first"]), int(lk["last"])
+                    elif isinstance(lk.get("frames"), list) and len(lk["frames"]) == 2:
+                        f0, f1 = int(lk["frames"][0]), int(lk["frames"][1])
+                    else:
+                        continue
+                    span_set = set(range(max(f0, first), min(f1, last) + 1)) & shot_frames
+                    if lk.get("is") == "not seen":
+                        unseen_pt |= span_set
+                    elif lk.get("is") == "seen":
+                        unseen_pt -= span_set
+                unseen_per_part.append(unseen_pt)
+            return set.intersection(*unseen_per_part) if unseen_per_part else set()
+    return set()
+
+
 def mutate_laid(a: argparse.Namespace) -> int:
     why_no_rebuild: str | None = None
     if a.no_rebuild is not None:
         why_no_rebuild = a.no_rebuild.strip()
         if not why_no_rebuild or why_no_rebuild.startswith("-"):
             raise SystemExit("--no-rebuild requires a non-empty reason (WHY), recorded in the line, or for remove in laid.removed.jsonl")
+    why_partial_lay: str | None = None
+    if getattr(a, "allow_partial_lay", None) is not None:
+        why_partial_lay = a.allow_partial_lay.strip()
+        if not why_partial_lay or why_partial_lay.startswith("-"):
+            raise SystemExit("--allow-partial-lay requires a non-empty reason (WHY), recorded in the line as partial_lay_why")
     laid_path, video = _resolve_laid_and_video(a)
     share = _resolve_share(a, laid_path)
     existing = [{k: v for k, v in x.items() if k != "line"} for x in read(str(laid_path), str(share), check_bytes=True)] if laid_path.is_file() else []
@@ -405,6 +483,8 @@ def mutate_laid(a: argparse.Namespace) -> int:
         first, last = _parse_shot(a, required=True)
         assert first is not None and last is not None
         entry = _build_entry(a, share, first, last, why_no_rebuild)
+        if why_partial_lay:
+            entry["partial_lay_why"] = why_partial_lay
         new_lines = [*existing, entry]
         action_desc = f"laid {entry['load']} on {first}-{last} ({entry['subject']})"
     elif a.cmd == "replace":
@@ -422,6 +502,8 @@ def mutate_laid(a: argparse.Namespace) -> int:
             what = f"load {target_load!r} on {first}-{last} ({a.subject})" if target_load else f"any line on {first}-{last} ({a.subject})"
             raise SystemExit(f"replace: {laid_path} has no line for {what} to replace")
         entry = _build_entry(a, share, first, last, why_no_rebuild, replaces=replaced_loads)
+        if why_partial_lay:
+            entry["partial_lay_why"] = why_partial_lay
         new_lines = [*kept_lines, entry]
         action_desc = f"replaced {', '.join(replaced_loads)} with {entry['load']} on {first}-{last} ({entry['subject']})"
     elif a.cmd == "remove":
@@ -452,6 +534,23 @@ def mutate_laid(a: argparse.Namespace) -> int:
     tmp_path = laid_path.with_suffix(".jsonl.tmp")
     tmp_path.write_text("".join(json.dumps(x) + "\n" for x in new_lines))
     read(str(tmp_path), str(share), check_bytes=True)
+    if a.cmd in ("lay", "replace"):
+        assert first is not None and last is not None
+        shot_frames = set(range(first, last + 1))
+        laid_covered: set[int] = set()
+        for r in new_lines:
+            if int(r["first"]) == first and int(r["last"]) == last and r["subject"] == entry["subject"]:
+                laid_covered |= _frame_set(_spans_of_laid(r))
+        looks_covered = _not_seen_frames_of_shot(laid_path, video, getattr(a, "data", None), first, last, entry["subject"])
+        uncovered = sorted(shot_frames - laid_covered - looks_covered)
+        if uncovered and not why_partial_lay:
+            tmp_path.unlink(missing_ok=True)
+            uncovered_spans = _runs_of_frames(uncovered)
+            raise SystemExit(
+                f"{a.cmd}: partial lay of {entry['load']} on shot {first}-{last} ({entry['subject']}) leaves uncovered frame(s) "
+                f"{_fmt_spans(uncovered_spans)} (neither covered by a laid row on {first}-{last} for {entry['subject']} nor recorded "
+                f"`not seen` in shots.json). Lay the remaining piece, record a `not seen` look in shots.json, or pass --allow-partial-lay WHY"
+            )
     sha_before = digest(str(laid_path)) if laid_path.is_file() else None
     if a.cmd == "remove":
         # A REMOVED LINE LEAVES ITS RECORD (2026-10-21, W3e): the line whole, why it went and who took it out, appended to
@@ -1045,6 +1144,8 @@ def _add_write_args(sp: argparse.ArgumentParser, is_remove: bool = False, is_rep
                         "keep (data/<video>/owner_answers.jsonl or data/<video>/verdicts/verdicts.jsonl, by line number), read and held to it")
         sp.add_argument("--frames", help="frames laid, e.g. [[first, last]] or FIRST-LAST: the delivery table lays the render on these "
                         "frames only and says the rest of the shot is left as the source (since 2026-10-21)")
+        sp.add_argument("--allow-partial-lay", nargs="?", const="", default=None, metavar="WHY",
+                        help="allow laying --frames narrower than the shot when the remaining shot frames are not yet covered (records partial_lay_why)")
         sp.add_argument("--added", help="UTC timestamp (default: now)")
         sp.add_argument("--added-by", help="session name (default: H3_SESSION or --by)")
     if is_replace:
