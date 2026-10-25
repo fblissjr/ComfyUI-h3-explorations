@@ -8,14 +8,14 @@ this file is only a way to find a script by what it says it does.
 
 | group | scripts |
 |---|---|
-| [`check_*`](#check) | 164 |
+| [`check_*`](#check) | 166 |
 | [`measure_*`](#measure) | 39 |
 | [`analyze_*`](#analyze) | 23 |
 | [`grade_*`](#grade) | 21 |
 | [`compare_*`](#compare) | 19 |
 | [`build_*`](#build) | 18 |
 | [`probe_*`](#probe) | 11 |
-| [the rest](#the-rest) | 194 |
+| [the rest](#the-rest) | 196 |
 
 ## check
 
@@ -74,6 +74,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_head_reference.py`](check_head_reference.py) | `bench/head_reference.py` against a face whose every line is known by construction, read from the files it wrote. |
 | [`check_head_tube_parts.py`](check_head_tube_parts.py) | Check head_tube_parts: SAM 3.1 head tube gating, temporal seg smoothing, and 39-point face cross-check. |
 | [`check_imports.py`](check_imports.py) | Static AST check over tracked root `*.py` and `bench/*.py` (`C61` item 2a). |
+| [`check_inventory.py`](check_inventory.py) | Check `bench/inventory.py` on synthetic records (`done`, `partial`, `nothing laid`, `not seen`) and CLI refusals. |
 | [`check_keyframe_canvas.py`](check_keyframe_canvas.py) | Keyframe geometry: does the canvas we hand H3 avoid distorting the keyframe? |
 | [`check_laid.py`](check_laid.py) | `bench/laid.py`'s owner state on a made list: who says a piece is kept, and what a change of that leaves on the line. |
 | [`check_length_ceiling.py`](check_length_ceiling.py) | The longest length anything renders or plans is `h3_rules.MAX_LENGTH`, and no shorter count comes back as a cap. |
@@ -173,6 +174,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_subject_tracks.py`](check_subject_tracks.py) | The model-free judgements about a tracked subject (`subject_tracks.py`), on made-up masks. No model, no card. |
 | [`check_subject_yaw.py`](check_subject_yaw.py) | The turn metric's arithmetic: angles across the seam, the verdict, and the comparison with the eye. |
 | [`check_sweep_loads.py`](check_sweep_loads.py) | `bench/sweep_loads.py` against job files made here: a copy differs from its source in the named change and the names only. |
+| [`check_timeline_page.py`](check_timeline_page.py) | Check ``bench/timeline_page.py``: whole-video NLE timeline data file and HTML builder. |
 | [`check_token_routing.py`](check_token_routing.py) | `token_routing` on MiniMaxH3Sol becomes a {block: budget} map; assert which. |
 | [`check_two_shot_load.py`](check_two_shot_load.py) | Two neighbouring shots as one load (`bench/two_shot_load.py`) on a made video: what it lays end to end, writes and refuses. |
 | [`check_typed_reference_consumers.py`](check_typed_reference_consumers.py) | Static consumers understand the typed ordered-reference chain. |
@@ -421,6 +423,7 @@ this file is only a way to find a script by what it says it does.
 | [`head_tube_parts.py`](head_tube_parts.py) | Head-tube conditioned Sapiens2-Seg part masks and Sapiens2-Pose 39-point face cross-check. |
 | [`hwinfo.py`](hwinfo.py) | The host this repo's numbers were measured on, printed rather than written down. |
 | [`instrument_render_occupancy.py`](instrument_render_occupancy.py) | Phase-resolved GPU occupancy of one render, bracketed per node. |
+| [`inventory.py`](inventory.py) | The inventory of a video: every shot, every subject present in it, what stands and what is owed. |
 | [`join_panel_verdicts.py`](join_panel_verdicts.py) | Join a scored blind PANEL with its sealed key, and apply the panel's stop rules. |
 | [`join_stretches.py`](join_stretches.py) | Join the windows of several song-node runs over consecutive stretches of one clip into one file. |
 | [`laid.py`](laid.py) | The list of what is laid: one JSON line a piece, the ONLY thing the delivery table reads for what stands. |
@@ -493,7 +496,7 @@ this file is only a way to find a script by what it says it does.
 | [`run_shot_count_ablation.py`](run_shot_count_ablation.py) | CLOSED RECORD since 2026-09-18. This ablation computes cut times into shot headers by design, from a frozen out-of-bank base graph at 362 frames (on the grid, one step above the 345 every shipped graph now renders; ... |
 | [`run_tau_sweep.py`](run_tau_sweep.py) | Queue the scenes of a tau sweep on a server armed with `H3_SOL_SWEEP`. |
 | [`runs_left.py`](runs_left.py) | The runs left to make past a frame, longest first, re-cut from a delivery table: one command the card runs after each rebuild. |
-| [`said_on_shot.py`](said_on_shot.py) | What the owner already said on a shot, from `owner_answers.jsonl` (and optional inbox files), oldest first. |
+| [`said_on_shot.py`](said_on_shot.py) | What the owner already said on a shot, from `owner_answers.jsonl` (plus `verdicts.jsonl` and optional inbox files), oldest first. |
 | [`sam31_corrections_queue_test.py`](sam31_corrections_queue_test.py) | The SAM 3.1 Corrections node's last acceptance: on a server's queue, with an H3 render between two reads. |
 | [`sam31_probe_node.py`](sam31_probe_node.py) | TEST CODE, in no node list of this pack: a node that calls ComfyUI's SAM 3 detect node and says what reached the model. |
 | [`sam3_dataset_phrases.py`](sam3_dataset_phrases.py) | What Meta's four SAM 3 datasets say about what a valid prompt is and how specific to be: counts from the annotation files. |
@@ -533,6 +536,7 @@ this file is only a way to find a script by what it says it does.
 | [`time_dense_blocks.py`](time_dense_blocks.py) | What does a dense block actually COST, in seconds, on this box? |
 | [`time_dense_on_capture.py`](time_dense_on_capture.py) | Time comfy_kitchen.int8_attention (the dense kernel) on captured q/k/v cells. |
 | [`time_sol_options_on_capture.py`](time_sol_options_on_capture.py) | Time comfy_kitchen.sol_attn on a capture: plain vs qk_balance vs rotate, CUDA events, warm. |
+| [`timeline_page.py`](timeline_page.py) | Build the whole-video NLE timeline data file (`--out-json`) and interactive page (`--out-html`) from the rebuild's records. |
 | [`two_shot_load.py`](two_shot_load.py) | Two neighbouring shots as ONE load in ONE window, made from the two shots' own ordinary loads. Not a default. |
 | [`verify_multistep_capture.py`](verify_multistep_capture.py) | Pre-flight verification for multi-step activation captures. |
 | [`verify_partition_delta_float64.py`](verify_partition_delta_float64.py) | FL2VA against Ref2VA, weight by weight, on a path independent of `bench/map_partition_delta.py`. |

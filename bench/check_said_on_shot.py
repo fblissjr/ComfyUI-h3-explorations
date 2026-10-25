@@ -27,18 +27,27 @@ def span_and_load_matching() -> str:
             {"at": "2026-10-24T16:00:00Z", "row": "lead_fp_0516c", "frames": [516, 603], "frame": 597, "what": "words", "words": "frame 597 held"},
             # 3. Pre-split span starting on 516 with frame inside 516-589
             {"at": "2026-10-11T17:53:48Z", "page": "segments", "shot": "516-603", "frames": [516, 603], "frame": 516, "what": "words", "words": "just change the face"},
-            # 4. Whole-cut joined clip (must be dropped)
-            {"at": "2026-10-15T19:01:41Z", "row": "fun_0000_6394_joined_2026-10-14T0033Z_wholeshot", "frames": [0, 6394], "frame": 4312, "what": "words", "words": "whole cut remark"},
-            # 5. Multi-shot correction row (must be dropped)
-            {"at": "2026-10-24T17:20:00Z", "row": "correction_rows_1602_1603", "frames": [2050, 4389], "what": "note", "words": "multi shot correction"},
+            # 4. Unpinned whole-cut joined clip (must be dropped)
+            {"at": "2026-10-15T19:01:41Z", "row": "fun_0000_6394_joined_2026-10-14T0033Z_wholeshot", "frames": [0, 6394], "what": "words", "words": "whole cut remark"},
+            # 5. Multi-shot correction row (must be dropped even with a frame field)
+            {"at": "2026-10-24T17:20:00Z", "row": "correction_rows_1602_1603", "frames": [2050, 4389], "frame": 2050, "what": "note", "words": "multi shot correction"},
             # 6. Timestamp T2140Z in row name of another shot (must NOT match 2050-2247)
             {"at": "2026-10-15T22:55:24Z", "row": "fun_1419_1465_joined_2026-10-15T2140Z_wholeshot", "frames": [1419, 1465], "what": "choice", "chosen": "keep this one"},
             # 7. Load name with no frames field matching 4310-4389
             {"at": "2026-10-24T17:07:00Z", "row": "lead_fp_4310", "what": "choice", "chosen": "wrong, and I say where"},
             # 8. Oct-12 string-concatenated frame array bug (["415", 415100] -> (415, 515))
             {"at": "2026-10-12T20:43:20Z", "page": "who", "shot": 415, "frames": ["415", 415100], "frame": 437, "what": "choice", "chosen": "not outlined"},
+            # 9. Frame-pinned whole-cut note (matches 604-1009, not 4310-4389)
+            {"at": "2026-10-16T17:13:49Z", "row": "fun_0000_6394_joined_2026-10-16T1252Z_from_laid", "frames": [0, 6394], "frame": 681, "source_frame": 681, "what": "words", "words": "fix: the lead is gone from 681"},
+            # 10. Timeline note with person, piece, and tag
+            {"at": "2026-10-25T18:00:00Z", "row": "timeline", "frames": [2623, 2624], "frame": 2623, "source_frame": 2623, "shot": "2623-2711", "person": "lead", "piece": "lead_fp_2625", "tag": "gap_flash", "what": "timeline_note", "words": "2-frame original singer flash"},
+            # 11. Unpinned whole-cut _full_ / _cut_ row with span <= 1000 starting at 0 (must NOT match shot 0-99)
+            {"at": "2026-10-25T18:05:00Z", "row": "clip_full_cut_v1", "frames": [0, 500], "what": "words", "words": "short whole cut remark"},
         ]
         ans.write_text("\n".join(json.dumps(r) for r in rows) + "\n")
+
+        got_0 = sos.collect_answers(ans, 0, 99)
+        assert got_0 == [], got_0
 
         got_4310 = sos.collect_answers(ans, 4310, 4389)
         assert [r["line"] for r in got_4310] == [1, 7], got_4310
@@ -55,8 +64,29 @@ def span_and_load_matching() -> str:
         got_415 = sos.collect_answers(ans, 415, 515)
         assert [r["line"] for r in got_415] == [8] and got_415[0]["span"] == [415, 515], got_415
 
-    return ("exact sub-spans, pre-split shot spans whose frame is inside the shot, load names on the shot, and Oct-12 string-concatenated spans match; "
-            "whole-cut remarks ([0, 6394], [2050, 4389]), out-of-shot frames on a narrowed sub-shot, and ISO timestamps in row names are excluded")
+        got_604 = sos.collect_answers(ans, 604, 1009)
+        assert [r["line"] for r in got_604] == [9] and got_604[0]["frame"] == 681, got_604
+
+        got_2623 = sos.collect_answers(ans, 2623, 2711)
+        assert [r["line"] for r in got_2623] == [10], got_2623
+        assert sos.where_label(got_2623[0]) == "frames 2623-2624, frame 2623, lead, piece lead_fp_2625, tag gap_flash", sos.where_label(got_2623[0])
+
+        vdir = Path(tmp) / "verdicts"
+        vdir.mkdir()
+        verd = vdir / "verdicts.jsonl"
+        verd.write_text(
+            json.dumps({"at": "2026-10-12T20:50:14Z", "row": "who", "first": 4310, "frames": 89, "frame": 4310, "what": "words", "words": "dup from owner_answers", "source": "owner_answers.jsonl:1"}) + "\n"
+            + json.dumps({"at": "2026-10-23T19:32:42Z", "row": "third_fp_5114b", "first": 5114, "frames": 16, "frame": 5129, "what": "words", "words": "terminal beard note", "source": "the owner in the Claude lead's terminal (mrtx), 2026-10-23"}) + "\n"
+            + json.dumps({"at": "2026-10-24T17:06:55Z", "row": "lead_fp_4310", "first": 4310, "frames": 80, "what": "choice", "chosen": "wrong, and I say where", "source": "the owner in the terminal"}) + "\n"
+        )
+        got_5114 = sos.collect_answers(ans, 5114, 5129)
+        assert len(got_5114) == 1 and got_5114[0]["source"] == "verdicts.jsonl" and got_5114[0]["said"] == "terminal beard note", got_5114
+        got_4310_v = sos.collect_answers(ans, 4310, 4389)
+        assert [r["line"] for r in got_4310_v] == [1, 7], got_4310_v
+
+    return ("exact sub-spans, pre-split shot spans whose frame is inside the shot, frame-pinned whole-cut notes, timeline notes with person/piece/tag, "
+            "terminal verdicts from verdicts.jsonl, load names on the shot, and Oct-12 string-concatenated spans match; "
+            "unpinned whole-cut remarks ([0, 6394]), correction_ rows, out-of-shot frames on a narrowed sub-shot, and ISO timestamps in row names are excluded")
 
 
 def formatting_inbox_and_refusals() -> str:

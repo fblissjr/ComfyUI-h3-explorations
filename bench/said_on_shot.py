@@ -1,18 +1,21 @@
 #!/usr/bin/env python3
-"""What the owner already said on a shot, from `owner_answers.jsonl` (and optional inbox files), oldest first.
+"""What the owner already said on a shot, from `owner_answers.jsonl` (plus `verdicts.jsonl` and optional inbox files), oldest first.
 
-    <python> bench/said_on_shot.py --answers data/<stem>/owner_answers.jsonl --shot FIRST-LAST [--inbox FILE ...] [--for-question]
+    <python> bench/said_on_shot.py --answers data/<stem>/owner_answers.jsonl --shot FIRST-LAST [--verdicts FILE] [--inbox FILE ...] [--for-question]
 
 **What it buys.** Before a session builds a load on a shot or writes a question on the review page or Open List, it must
 read every answer and note the owner has already given on those frames (`docs/wiki/working_with_the_owner.md`: never
 re-ask what was already answered). `owner_answers.jsonl` holds who-is-who clicks, gap answers, clip verdicts, frame notes,
-and relayed inbox answers under varying `row` names (`who`, `segments`, `gap_<first>_<sub...>`, `<load>`, `shot_<first>`),
-alongside whole-cut remarks on `[0, 6394]` that drown a plain grep. This tool prints every line on `--shot FIRST-LAST`
-(`collect_answers`, `collect_inbox`: rows whose span lies inside the shot, whose overlapping pre-split shot span starts on
-`FIRST` or pins a `frame` / `source_frame` inside `FIRST-LAST`, or whose `row` / `item` names a frame inside `FIRST-LAST`
-after stripping ISO timestamps via `STAMP_RE` / `row_named_frames`, while dropping rows with a pinned frame outside
-`FIRST-LAST` and excluding whole-cut remarks via `is_whole_cut_row` and repairing JS string-concatenated spans via
-`parse_row_span`), in chronological order (oldest first), with date, line number, row, what, and full words.
+timeline notes, and relayed inbox answers under varying `row` names (`who`, `segments`, `gap_<first>_<sub...>`, `<load>`,
+`shot_<first>`, `timeline`, `fun_0000_6394_joined_*`), alongside unpinned whole-cut remarks on `[0, 6394]` that drown a
+plain grep, while `verdicts/verdicts.jsonl` also holds terminal verdicts recorded directly from the lead's terminal.
+This tool prints every line on `--shot FIRST-LAST` (`collect_answers`, `collect_verdicts`, `collect_inbox`: rows that pin
+a `frame` / `source_frame` inside `FIRST-LAST`, whose span lies inside the shot, whose `row == "timeline"` span overlaps
+the shot, whose overlapping pre-split shot span starts on `FIRST`, or whose `row` / `item` names a frame inside
+`FIRST-LAST` after stripping ISO timestamps via `STAMP_RE` / `row_named_frames`, while dropping rows with a pinned frame
+outside `FIRST-LAST`, multi-shot `correction_` rows, and unpinned whole-cut remarks via `is_whole_cut_row`, and repairing
+JS string-concatenated spans via `parse_row_span`), in chronological order (oldest first), with date, line number, row,
+where (including `person`/`subject`, `piece`, and `tag` when present), what, and full words.
 `--for-question` (`format_for_question`) formats the output as a ready-to-paste block under a question so no question is
 ever put to the owner without what they already said on that shot.
 """
@@ -104,11 +107,17 @@ def row_named_frames(row_name: str) -> list[int]:
 
 def is_whole_cut_row(row: dict, span: tuple[int, int] | None) -> bool:
     row_name = str(row.get("row") or row.get("item") or "").strip()
-    if re.match(r"^[a-z0-9]+_0000_\d{4,5}_joined", row_name) or row_name.startswith("correction_"):
+    if (
+        re.match(r"^[a-z0-9]+_0000_\d{3,5}_joined", row_name)
+        or row_name.startswith("correction_")
+        or "_full_" in row_name
+        or "_cut_" in row_name
+        or row_name.endswith(("_full", "_cut"))
+    ):
         return True
     for key in ("clip", "render"):
         v = str(row.get(key) or "").strip()
-        if re.search(r"(?:^|/)[^/]+_0000_\d{4,5}_joined", v):
+        if re.search(r"(?:^|/)[^/]+_0000_\d{3,5}_joined", v) or "_full_" in v or "_cut_" in v:
             return True
     if span is not None and (span[1] - span[0] > MAX_SHOT_SPAN_FRAMES):
         return True
@@ -140,34 +149,89 @@ def said_text_and_what(row: dict) -> tuple[str, str] | None:
 
 
 def matches_shot(row: dict, first: int, last: int) -> bool:
-    if row.get("who") not in ("owner", None, ""):
+    if row.get("who") not in ("owner", "not said", None, ""):
         return False
     if said_text_and_what(row) is None:
         return False
+    row_name = str(row.get("row") or row.get("item") or "").strip()
+    if row_name.startswith("correction_"):
+        return False
     span = parse_row_span(row)
+    pin = pinned_frame(row)
+    if pin is not None:
+        return first <= pin <= last
     if is_whole_cut_row(row, span):
         return False
-    pin = pinned_frame(row)
-    if pin is not None and not (first <= pin <= last):
-        return False
-    row_name = str(row.get("row") or row.get("item") or "").strip()
     # 1. Span lies inside [first, last]
     if span is not None and first <= span[0] and span[1] <= last:
         return True
-    # 2. Pre-split or overlapping shot span that starts at `first` or has a pinned frame inside `[first, last]`
-    if span is not None and not (span[1] < first or span[0] > last):
-        if span[0] == first:
-            return True
-        if pin is not None and first <= pin <= last:
-            return True
-    # 3. `row` names a load, gap, or shot on `FIRST-LAST` (provided its span, if any, is not disjoint from `FIRST-LAST`)
+    # 2. Timeline span note overlapping [first, last]
+    if row_name == "timeline" and span is not None and not (span[1] < first or span[0] > last):
+        return True
+    # 3. Pre-split or overlapping shot span that starts at `first`
+    if span is not None and not (span[1] < first or span[0] > last) and span[0] == first:
+        return True
+    # 4. `row` names a load, gap, or shot on `FIRST-LAST` (provided its span, if any, is not disjoint from `FIRST-LAST`)
     if span is None or not (span[1] < first or span[0] > last):
         if any(first <= f <= last for f in row_named_frames(row_name)):
             return True
     return False
 
 
-def collect_answers(answers_path: Path, first: int, last: int) -> list[dict]:
+def _row_to_entry(row: dict, source_name: str, line_no: int) -> dict:
+    tw = said_text_and_what(row)
+    assert tw is not None
+    what, text = tw
+    span = parse_row_span(row)
+    pin = pinned_frame(row)
+    row_name = str(row.get("row") or row.get("item") or "").strip()
+    at = str(row.get("at") or "").strip()
+    entry: dict = {
+        "source": source_name,
+        "line": line_no,
+        "at": at,
+        "date": at[:16].replace("T", " ") if at else "date unknown",
+        "row": row_name,
+        "span": list(span) if span is not None else None,
+        "frame": pin,
+        "what": what,
+        "said": text,
+    }
+    person = str(row.get("person") or row.get("subject") or "").strip()
+    if person:
+        entry["person"] = person
+    piece = str(row.get("piece") or "").strip()
+    if piece:
+        entry["piece"] = piece
+    tag = str(row.get("tag") or "").strip()
+    if tag:
+        entry["tag"] = tag
+    return entry
+
+
+def collect_verdicts(verdicts_path: Path, first: int, last: int) -> list[dict]:
+    if not verdicts_path.is_file():
+        raise SystemExit(f"--verdicts {verdicts_path}: file not found")
+    matched: list[dict] = []
+    for line_no, raw in enumerate(verdicts_path.read_text(encoding="utf-8").splitlines(), 1):
+        if not raw.strip():
+            continue
+        try:
+            row = json.loads(raw)
+        except ValueError as e:
+            raise SystemExit(f"--verdicts {verdicts_path} line {line_no}: invalid JSON ({e})") from None
+        if not isinstance(row, dict):
+            raise SystemExit(f"--verdicts {verdicts_path} line {line_no}: expected a JSON object")
+        src = str(row.get("source") or "").strip()
+        if src.startswith(("owner_answers.jsonl", "answers.jsonl", "comments.jsonl")):
+            continue
+        if not matches_shot(row, first, last):
+            continue
+        matched.append(_row_to_entry(row, verdicts_path.name, line_no))
+    return matched
+
+
+def collect_answers(answers_path: Path, first: int, last: int, verdicts_path: Path | None = None) -> list[dict]:
     if not answers_path.is_file():
         raise SystemExit(f"--answers {answers_path}: file not found")
     matched: list[dict] = []
@@ -182,24 +246,18 @@ def collect_answers(answers_path: Path, first: int, last: int) -> list[dict]:
             raise SystemExit(f"--answers {answers_path} line {line_no}: expected a JSON object")
         if not matches_shot(row, first, last):
             continue
-        tw = said_text_and_what(row)
-        assert tw is not None
-        what, text = tw
-        span = parse_row_span(row)
-        pin = pinned_frame(row)
-        row_name = str(row.get("row") or row.get("item") or "").strip()
-        at = str(row.get("at") or "").strip()
-        matched.append({
-            "source": answers_path.name,
-            "line": line_no,
-            "at": at,
-            "date": at[:16].replace("T", " ") if at else "date unknown",
-            "row": row_name,
-            "span": list(span) if span is not None else None,
-            "frame": pin,
-            "what": what,
-            "said": text,
-        })
+        matched.append(_row_to_entry(row, answers_path.name, line_no))
+    v_path = verdicts_path
+    if v_path is None:
+        cand = answers_path.parent / "verdicts" / "verdicts.jsonl"
+        if cand.is_file():
+            v_path = cand
+    if v_path is not None:
+        seen_row_said = {(e["row"], e["said"]) for e in matched}
+        for ve in collect_verdicts(v_path, first, last):
+            if (ve["row"], ve["said"]) not in seen_row_said:
+                seen_row_said.add((ve["row"], ve["said"]))
+                matched.append(ve)
     matched.sort(key=lambda r: (r["at"], r["line"]))
     return matched
 
@@ -264,6 +322,12 @@ def where_label(entry: dict) -> str:
         pin_s = f"frame {pin}"
         if pin_s not in parts:
             parts.append(pin_s)
+    if entry.get("person"):
+        parts.append(str(entry["person"]))
+    if entry.get("piece"):
+        parts.append(f"piece {entry['piece']}")
+    if entry.get("tag"):
+        parts.append(f"tag {entry['tag']}")
     return ", ".join(parts) if parts else "shot"
 
 
@@ -293,12 +357,14 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=(__doc__ or "").splitlines()[0])
     ap.add_argument("--answers", required=True, help="path to data/<stem>/owner_answers.jsonl")
     ap.add_argument("--shot", required=True, help="shot span FIRST-LAST (or FIRST)")
+    ap.add_argument("--verdicts", help="optional path to data/<stem>/verdicts/verdicts.jsonl")
     ap.add_argument("--inbox", action="append", default=[], help="optional inbox file(s) to check alongside owner_answers.jsonl")
     ap.add_argument("--for-question", action="store_true", help="format as a ready-to-paste block under a question")
     a = ap.parse_args(argv)
     first, last = parse_shot_arg(a.shot)
     ans_path = Path(a.answers)
-    entries = collect_answers(ans_path, first, last)
+    verdicts_path = Path(a.verdicts) if a.verdicts else None
+    entries = collect_answers(ans_path, first, last, verdicts_path=verdicts_path)
     if a.inbox:
         entries.extend(collect_inbox([Path(p) for p in a.inbox], first, last))
     text = (
