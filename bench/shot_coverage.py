@@ -85,6 +85,9 @@ from frame_coverage import CAPTURE_GAP_KINDS, KIND_WORDS, OTHER_RUN_KINDS, REMAK
 SHOTS_SCHEMA, PLAN_SCHEMA = "h3_shots/1", "h3_plan/1"
 PRESENT = ("yes", "no", "unsure")
 REGIONS = ("face", "face and hair", "whole")
+RECIPE_CROPS = ("cranium", "head", "face", "torso")
+RECIPE_OPEN_MOUTHS = ("inner outline", "capped", "outlined", "outlined over the lips")
+RECIPE_CLOSED_MOUTHS = ("sculpted", "outlined")
 #: What a saved graph's `replace` says, and which plan regions it is the kind of.
 GRAPH_KIND = {"whole subject": ("whole",), "the wired parts": ("face", "face and hair")}
 STATES = (
@@ -150,6 +153,25 @@ def load_shots(path) -> dict:
     return d
 
 
+def _validate_recipe_fields(path, label: str, where: str, rec: dict) -> None:
+    if not isinstance(rec, dict) or not str(rec.get("why") or rec.get("by") or "").strip():
+        raise SystemExit(f"{path}: `{label}`: `{where}` must be a dict with non-empty `why` or `by`")
+    if "zoom_up_to" in rec and rec["zoom_up_to"] is not None:
+        z = rec["zoom_up_to"]
+        if isinstance(z, bool) or not isinstance(z, int | float) or not (2.0 <= float(z) <= 4.0):
+            raise SystemExit(f"{path}: `{label}`: `{where}.zoom_up_to` must be a number in 2.0..4.0, not {z!r}")
+    if "margin" in rec and rec["margin"] is not None:
+        m = rec["margin"]
+        if isinstance(m, bool) or not isinstance(m, int) or not (1 <= m <= 512):
+            raise SystemExit(f"{path}: `{label}`: `{where}.margin` must be an integer in 1..512, not {m!r}")
+    if "crop" in rec and rec["crop"] is not None and rec["crop"] not in RECIPE_CROPS:
+        raise SystemExit(f"{path}: `{label}`: `{where}.crop` must be one of {RECIPE_CROPS}, not {rec['crop']!r}")
+    if "open_mouth" in rec and rec["open_mouth"] is not None and rec["open_mouth"] not in RECIPE_OPEN_MOUTHS:
+        raise SystemExit(f"{path}: `{label}`: `{where}.open_mouth` must be one of {RECIPE_OPEN_MOUTHS}, not {rec['open_mouth']!r}")
+    if "closed_mouth" in rec and rec["closed_mouth"] is not None and rec["closed_mouth"] not in RECIPE_CLOSED_MOUTHS:
+        raise SystemExit(f"{path}: `{label}`: `{where}.closed_mouth` must be one of {RECIPE_CLOSED_MOUTHS}, not {rec['closed_mouth']!r}")
+
+
 def load_plan(path, subjects) -> dict:
     d = json.load(open(path))
     if d.get("schema") != PLAN_SCHEMA:
@@ -159,6 +181,22 @@ def load_plan(path, subjects) -> dict:
             raise SystemExit(f"{path}: `{label}` is not a subject of the shots file ({', '.join(subjects)})")
         if p.get("region") not in REGIONS:
             raise SystemExit(f"{path}: `{label}`: region must be one of {REGIONS}")
+        if "recipe" in p and p["recipe"] is not None:
+            _validate_recipe_fields(path, label, "recipe", p["recipe"])
+        if "shot_overrides" in p and p["shot_overrides"] is not None:
+            if not isinstance(p["shot_overrides"], list):
+                raise SystemExit(f"{path}: `{label}`: `shot_overrides` must be a list of span dicts")
+            for i, ov in enumerate(p["shot_overrides"]):
+                if (
+                    not isinstance(ov, dict)
+                    or isinstance(ov.get("first"), bool)
+                    or isinstance(ov.get("last"), bool)
+                    or not isinstance(ov.get("first"), int)
+                    or not isinstance(ov.get("last"), int)
+                    or ov["first"] > ov["last"]
+                ):
+                    raise SystemExit(f"{path}: `{label}`: `shot_overrides[{i}]` needs integer `first <= last`: {ov!r}")
+                _validate_recipe_fields(path, label, f"shot_overrides[{i}]", ov)
         if "restore" in p:
             ok = isinstance(p["restore"], list) and p["restore"] and str(p.get("restore_by") or "").strip()
             for x in p["restore"] if isinstance(p["restore"], list) else []:

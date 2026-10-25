@@ -396,6 +396,55 @@ def main() -> int:
              and no_tjson_with_arg9.returncode != 0 and "companion table JSON" in no_tjson_with_arg9.stdout + no_tjson_with_arg9.stderr and "Traceback" not in no_tjson_with_arg9.stderr,
              (got9.get("gap_check"), a0_9.get("state"), a30_9.get("state"), got9.get("frames_by_state"), txt9[-600:]))
 
+        folder10 = Path(tempfile.mkdtemp(dir=d))
+        paths10 = fixture(folder10)
+        plan10 = json.loads(paths10["plan"].read_text())
+        plan10["subjects"]["a"]["recipe"] = {
+            "zoom_up_to": 4.0,
+            "margin": 64,
+            "crop": "cranium",
+            "open_mouth": "outlined",
+            "closed_mouth": "outlined",
+            "by": "owner",
+            "why": "standing subject recipe for second",
+        }
+        plan10["subjects"]["b"]["recipe"] = {
+            "zoom_up_to": 2.0,
+            "margin": 16,
+            "crop": "cranium",
+            "open_mouth": "inner outline",
+            "closed_mouth": "sculpted",
+            "by": "owner",
+            "why": "standing subject recipe for third",
+        }
+        plan10["subjects"]["a"]["shot_overrides"] = [
+            {"first": 30, "last": 59, "margin": 120, "by": "lead", "why": "wide arm motion on 30-59"},
+        ]
+        paths10["plan"].write_text(json.dumps(plan10))
+        ok_recipe10 = run(paths10)
+
+        bad_zoom10 = json.loads(json.dumps(plan10))
+        bad_zoom10["subjects"]["a"]["recipe"]["zoom_up_to"] = 5.0
+        paths10["plan"].write_text(json.dumps(bad_zoom10))
+        res_bad_zoom10 = run(paths10)
+
+        bad_ov10 = json.loads(json.dumps(plan10))
+        bad_ov10["subjects"]["a"]["shot_overrides"] = [{"first": 60, "last": 30, "why": "backwards"}]
+        paths10["plan"].write_text(json.dumps(bad_ov10))
+        res_bad_ov10 = run(paths10)
+
+        case(
+            "recipe_and_shot_overrides_in_plan_are_validated",
+            ok_recipe10.returncode == 0
+            and res_bad_zoom10.returncode != 0
+            and "zoom_up_to" in res_bad_zoom10.stderr
+            and "Traceback" not in res_bad_zoom10.stderr
+            and res_bad_ov10.returncode != 0
+            and "shot_overrides[0]" in res_bad_ov10.stderr
+            and "Traceback" not in res_bad_ov10.stderr,
+            (ok_recipe10.returncode, res_bad_zoom10.stderr, res_bad_ov10.stderr),
+        )
+
     print(f"{'FAIL' if fails else 'ok'}: {fails} failing case(s)")
     return 1 if fails else 0
 

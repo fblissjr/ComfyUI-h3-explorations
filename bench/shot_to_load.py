@@ -1785,7 +1785,8 @@ def carry_words_of(carry_words_from: dict | Path | str, shot: dict, subject: str
             raise Refused(f"--carry-words-from {old_name}: word-bearing key 'loads[0].{k}' in old job cannot be carried")
     job_known = {"name", "note", "source", "source_frames", "shot", "first", "frames", "canvas", "output", "subjects", "capture", "preview", "reference_folder",
                  "texts", "keep_outs", "part_on_track", "others_present", "defaults", "restore",
-                 "left_out", "partial_shot_override", "zoomed", "whole_frame", "head_tube", "depth", "sam_head_track", "part", "track_not", "reference", "carried_words_from", "no_carry_words"}
+                 "left_out", "partial_shot_override", "zoomed", "whole_frame", "head_tube", "depth", "sam_head_track", "part", "track_not", "reference", "carried_words_from", "no_carry_words",
+                 "recipe", "recipe_diff"}
     for k in old_job:
         if k not in job_known:
             raise Refused(f"--carry-words-from {old_name}: word-bearing key 'job.{k}' in old job cannot be carried")
@@ -2706,6 +2707,67 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
     b = a + n - 1
     if not (shot["first"] <= a <= b <= shot["last"]):
         raise Refused(f"frames {a}-{b} are not inside the shot {shot['first']}-{shot['last']}")
+    region_margin = h3_config.MASKED_LOAD_MARGIN[region]
+    rec_cfg = dict(p.get("recipe") or {}) if isinstance(p.get("recipe"), dict) else {}
+    ref_cfg = dict(p.get("reference") or {}) if isinstance(p.get("reference"), dict) else {}
+    rec_margin_raw = rec_cfg.get("margin", p.get("margin"))
+    rec_margin = int(rec_margin_raw) if rec_margin_raw is not None else int(region_margin)
+    rec_margin_why = " ".join(str(rec_cfg.get("margin_by") or p.get("margin_by") or rec_cfg.get("why") or rec_cfg.get("by") or "").split())
+    rec_zoom_raw = rec_cfg.get("zoom_up_to", p.get("zoom_up_to"))
+    rec_zoom = float(rec_zoom_raw) if rec_zoom_raw is not None else float(ZOOM_NODES_OWN)
+    rec_zoom_why = " ".join(str(rec_cfg.get("zoom_up_to_by") or p.get("zoom_up_to_by") or rec_cfg.get("why") or rec_cfg.get("by") or "").split())
+    rec_crop = str(rec_cfg.get("crop") or ref_cfg.get("crop") or "head")
+    rec_open_mouth = str(rec_cfg.get("open_mouth") or ref_cfg.get("open_mouth") or "inner outline")
+    rec_closed_mouth = str(rec_cfg.get("closed_mouth") or ref_cfg.get("closed_mouth") or "sculpted")
+    rec_by = " ".join(str(rec_cfg.get("by") or ref_cfg.get("by") or "the plan").split())
+    rec_why = " ".join(str(rec_cfg.get("why") or ref_cfg.get("why") or rec_margin_why or rec_zoom_why or "subject recipe in plan.json").split())
+    shot_ovs = [
+        ov for ov in (p.get("shot_overrides") or [])
+        if isinstance(ov, dict) and int(ov.get("first", -1)) <= b and int(ov.get("last", -2)) >= a
+    ]
+    ov_margin = ov_zoom = None
+    ov_margin_why = ov_zoom_why = ov_margin_by = ov_zoom_by = ""
+    if shot_ovs:
+        eff_rec = dict(rec_cfg)
+        eff_ref = dict(ref_cfg)
+        for ov in shot_ovs:
+            ov_w = " ".join(str(ov.get("why") or ov.get("by") or "").split())
+            ov_b = " ".join(str(ov.get("by") or "the plan").split())
+            if ov.get("margin") is not None:
+                ov_margin = int(ov["margin"])
+                ov_margin_why = " ".join(str(ov.get("margin_by") or ov_w).split())
+                ov_margin_by = ov_b
+            if ov.get("zoom_up_to") is not None:
+                ov_zoom = float(ov["zoom_up_to"])
+                ov_zoom_why = " ".join(str(ov.get("zoom_up_to_by") or ov_w).split())
+                ov_zoom_by = ov_b
+            if least is None and ov.get("least") is not None:
+                least = int(ov["least"])
+                least_why = " ".join(str(ov.get("least_why") or ov_w).split())
+            if drop is None and ov.get("drop") is not None:
+                drop = str(ov["drop"])
+                drop_by = " ".join(str(ov.get("drop_by") or ov_w).split())
+            for rk in ("crop", "open_mouth", "closed_mouth"):
+                if ov.get(rk) is not None:
+                    eff_rec[rk] = ov[rk]
+                    eff_rec["why"] = ov_w
+                    eff_rec["by"] = ov_b
+                    eff_ref[rk] = ov[rk]
+                    eff_ref["why"] = ov_w
+                    eff_ref["by"] = ov_b
+        p = dict(p, recipe=eff_rec, reference=eff_ref)
+    if own_margin is None:
+        eff_m = ov_margin if ov_margin is not None else (int(rec_margin_raw) if rec_margin_raw is not None else None)
+        eff_m_why = ov_margin_why if ov_margin is not None else (rec_margin_why or rec_why)
+        eff_m_by = ov_margin_by if ov_margin is not None else rec_by
+        if eff_m is not None:
+            if not (1 <= eff_m <= 512):
+                raise Refused(f"the plan's `margin` for {subject!r} is {eff_m}: must be in 1..512")
+            if not eff_m_why:
+                raise Refused(f"the plan's `margin` for {subject!r} says no `why` or `margin_by`")
+            if eff_m != region_margin:
+                own_margin = eff_m
+                margin_by = {"why": eff_m_why, "by": eff_m_by, "at": now}
     # HER CLOTHING NAMED FOR THESE FRAMES WHERE IT IS REDRAWN WITH HER (`load_text.clothing_of`, per shot, 1f143f59; 26f208c0): refused
     # here, before a reference or a capture is made for a text that would not name it, or would name another shot's
     import load_text
@@ -3049,6 +3111,18 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
         chosen += (f" RENDERED ZOOMED IN on what is replaced (`render_region: part`) where the node's box allows, on {zoom_block['said_by']}'s word: "
                    f"{zoom_block['why']}. One box for the whole load, the node's own; the capture reads the node's plan back onto the frame, and the part's "
                    "sizes and floor it prints are still of the whole frame.")
+        if up_to_by is None:
+            eff_z = ov_zoom if ov_zoom is not None else (float(rec_zoom_raw) if rec_zoom_raw is not None else None)
+            eff_z_why = ov_zoom_why if ov_zoom is not None else (rec_zoom_why or rec_why)
+            eff_z_by = ov_zoom_by if ov_zoom is not None else rec_by
+            if eff_z is not None:
+                if not (ZOOM_NODES_OWN <= eff_z <= ZOOM_UP_TO_MOST):
+                    raise Refused(f"the plan's `zoom_up_to` for {subject!r} is {eff_z}: must be in {ZOOM_NODES_OWN:g}..{ZOOM_UP_TO_MOST:g}")
+                if not eff_z_why:
+                    raise Refused(f"the plan's `zoom_up_to` for {subject!r} says no `why` or `zoom_up_to_by`")
+                if eff_z > ZOOM_NODES_OWN:
+                    up_to = eff_z
+                    up_to_by = {"why": eff_z_why, "by": eff_z_by, "at": now}
     if (least is None) != (not str(least_why or "").strip()):
         raise Refused("--least and --least-why go together: the capture's floor for a part is a person's number, and the reason is kept beside it")
     if least is not None:
@@ -3316,8 +3390,78 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
     if ncw_why:
         print(f"NO WORDS CARRIED: {ncw_why} ({by}, {now})")
     src_frames = shots.get("source_frames") if shots.get("source_frames") is not None else preview.get("source_frames")
+    load_margin_val = region_margin if own_margin is None else int(own_margin)
+    load_zoom_val = float(up_to) if up_to_by is not None else (None if load.get("render_region") != "part" else float(ZOOM_NODES_OWN))
+    load_crop_val = "none" if motion == "none" else str((ref_form.get("crop") or {}).get("form") or "head")
+    cl_mouth_on = bool(((ref_form.get("mouth") or {}).get("closed_lip_line") or {}).get("on", True))
+    if motion == "none" or (ref_form.get("mouth") or {}).get("form") == "left out":
+        load_open_mouth_val = "none"
+        load_closed_mouth_val = "none"
+    elif not cl_mouth_on:
+        load_open_mouth_val = "off"
+        load_closed_mouth_val = "off"
+    else:
+        load_open_mouth_val = str(((ref_form.get("mouth") or {}).get("open_mouth") or {}).get("form") or "inner outline")
+        load_closed_mouth_val = str(((ref_form.get("mouth") or {}).get("closed_mouth") or {}).get("form") or "sculpted")
+    margin_diff_why = (
+        margin_by["why"] if margin_by is not None else (ov_margin_why if ov_margin is not None else (rec_margin_why or f"h3_config.MASKED_LOAD_MARGIN[{region!r}]"))
+    )
+    margin_has_override = bool((margin is not None and margin_by) or ov_margin is not None)
+    zoom_diff_why = (
+        up_to_by["why"] if up_to_by is not None else (whole_block["why"] if whole_block is not None else (ov_zoom_why if ov_zoom is not None else (rec_zoom_why or f"node default ({ZOOM_NODES_OWN:g})")))
+    )
+    zoom_has_override = bool((zoom_up_to is not None and up_to_by) or whole_block is not None or ov_zoom is not None)
+    crop_diff_why = (
+        str(motion_why or "") if motion == "none" else str((ref_form.get("crop") or {}).get("why") or "default (head)")
+    )
+    crop_has_override = bool(motion == "none" or any(ov.get("crop") is not None for ov in shot_ovs))
+    mouth_diff_why = (
+        str(motion_why or "") if motion == "none"
+        else str(ref_form["mouth"]["why"]) if (ref_form.get("mouth") or {}).get("form") == "left out"
+        else str(ref_form["mouth"]["closed_lip_line"]["why"]) if not cl_mouth_on
+        else str(((ref_form.get("mouth") or {}).get("open_mouth") or {}).get("why") or rec_why or "default (inner outline)")
+    )
+    closed_mouth_diff_why = (
+        str(motion_why or "") if motion == "none"
+        else str(ref_form["mouth"]["why"]) if (ref_form.get("mouth") or {}).get("form") == "left out"
+        else str(ref_form["mouth"]["closed_lip_line"]["why"]) if not cl_mouth_on
+        else str(((ref_form.get("mouth") or {}).get("closed_mouth") or {}).get("why") or rec_why or "default (sculpted)")
+    )
+    mouth_has_override = bool(
+        motion == "none"
+        or (ref_form.get("mouth") or {}).get("form") == "left out"
+        or not cl_mouth_on
+        or any(ov.get("open_mouth") is not None or ov.get("closed_mouth") is not None for ov in shot_ovs)
+    )
+    job_recipe = {
+        "margin": rec_margin,
+        "zoom_up_to": rec_zoom,
+        "crop": rec_crop,
+        "open_mouth": rec_open_mouth,
+        "closed_mouth": rec_closed_mouth,
+        "by": rec_by,
+        "why": rec_why,
+    }
+    job_recipe_diff = [
+        {
+            "knob": k_name,
+            "recipe": r_val,
+            "this_load": l_val,
+            "status": "match" if l_val == r_val else ("overridden" if (has_ov and bool(str(w_str).strip())) else "unexplained"),
+            "why": " ".join(str(w_str).split()),
+        }
+        for k_name, r_val, l_val, has_ov, w_str in (
+            ("margin", rec_margin, load_margin_val, margin_has_override, margin_diff_why),
+            ("zoom_up_to", rec_zoom, load_zoom_val, zoom_has_override, zoom_diff_why),
+            ("crop", rec_crop, load_crop_val, crop_has_override, crop_diff_why),
+            ("open_mouth", rec_open_mouth, load_open_mouth_val, mouth_has_override, mouth_diff_why),
+            ("closed_mouth", rec_closed_mouth, load_closed_mouth_val, mouth_has_override, closed_mouth_diff_why),
+        )
+    ]
     return {"job": {"name": name, "note": note, "source": source or preview["source"], "first": a, "frames": n, "canvas": list(preview["canvas"]),
                     **({"source_frames": int(src_frames)} if src_frames is not None else {}),
+                    "recipe": job_recipe,
+                    "recipe_diff": job_recipe_diff,
                     # the shot's own frames from the shots record, which a job's span can be narrower than: where a short load's
                     # padding leaves THIS, it crosses a cut and is held (`masked_job_graph.shot_span`, `held_context`)
                     "shot": [int(shot["first"]), int(shot["last"])],
@@ -3560,7 +3704,16 @@ def reference_form(p: dict, subject: str) -> dict:
     """The mouth and the eye a subject's references are drawn with, and whose word each is."""
     import draw_face_points
     import head_reference
-    said = p.get("reference") or {}
+    rec_d = p.get("recipe") if isinstance(p.get("recipe"), dict) else {}
+    ref_d = p.get("reference") if isinstance(p.get("reference"), dict) else {}
+    said: dict = dict(ref_d)
+    rec_applied = False
+    for k in ("mouth", "iris", "closed_lip_line", "darken_head", "open_mouth", "closed_mouth", "crop", "head_track"):
+        if k in rec_d and rec_d[k] is not None:
+            said[k] = rec_d[k]
+            rec_applied = True
+    if rec_applied and (rec_d.get("why") or rec_d.get("by")):
+        said["why"] = rec_d.get("why") or rec_d.get("by")
     if said and not str(said.get("why") or "").strip():
         raise Refused(f"the plan's `reference` for {subject!r} says no `why`: who said so, and why")
     out = {}
@@ -3910,6 +4063,20 @@ def check_pass2_source(
         )
     if is_raw and allow_raw_source:
         return f" RAW SOURCE ALLOWED ON PASS 2 ({' '.join(str(allow_raw_source).split())})."
+    cut_pieces_other = _cut_pieces_on_frames(given_p, video, world, first, last)
+    if cut_pieces_other is not None and not allow_raw_source:
+        cut_subjects = {str(p.get("subject")) for p in cut_pieces_other}
+        missing_hits = [r for r in laid_hits if str(r.get("subject")) not in cut_subjects]
+        if missing_hits:
+            missing_said = ", ".join(
+                f"{r['subject']} ({r.get('load', '?')} on {r.get('first')}-{r.get('last')})"
+                for r in missing_hits
+            )
+            raise Refused(
+                f"on {first}-{last}, the source cut {given_p.name} is missing already-laid piece(s) "
+                f"{missing_said} from {laid_path}: Pass 2 must segment and render from a cut that includes "
+                f"every other subject laid on these frames (or --allow-raw-source \"<why>\" if intentional)"
+            )
     if m_cut and not allow_raw_source:
         newer = [r for r in laid_hits if str(r.get("added") or "")[:16] > cut_hm]
         if newer:

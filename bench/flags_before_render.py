@@ -284,7 +284,203 @@ def loads_of_capture(capture: Path, load_arg: str | None = None) -> list[str]:
     return [name]
 
 
-def find_reference_records(capture: Path, loads: list[str], flags_data: dict) -> list[tuple[str, Path]]:
+def _find_job_docs(capture: Path, job_file: Path | None = None) -> list[tuple[Path, dict]]:
+    job_candidates: list[Path] = []
+    if job_file is not None:
+        job_candidates.append(job_file if job_file.is_absolute() else REPO / job_file)
+    job_candidates.extend([
+        capture.with_name(capture.name + "_job") / "job.plan.json",
+        capture.with_name(capture.name + "_job") / "job.render.json",
+        capture.with_name(capture.name + "_job") / "job.json",
+        capture / "job.json",
+    ])
+    ft_file = capture / "frame_table.jsonl"
+    if ft_file.is_file():
+        try:
+            first_line = ft_file.open().readline()
+            hdr = json.loads(first_line)
+            jf = hdr.get("job_file") or ((hdr.get("input_sha256") or {}).get("job") or {}).get("file")
+            if jf:
+                job_candidates.append(Path(jf) if Path(jf).is_absolute() else REPO / jf)
+        except Exception:
+            pass
+    out: list[tuple[Path, dict]] = []
+    seen: set[Path] = set()
+    for jf in job_candidates:
+        if jf.is_file() and jf.resolve() not in seen:
+            try:
+                jd = json.loads(jf.read_text())
+                if isinstance(jd, dict):
+                    seen.add(jf.resolve())
+                    out.append((jf, jd))
+            except Exception:
+                pass
+    return out
+
+
+def recipe_check_of(
+    capture: Path,
+    loads: list[str] | None = None,
+    flags_data: dict | None = None,
+    job_file: Path | None = None,
+) -> dict:
+    """Return `{"rows": [...], "mouthless_references": [...]}` for `[0] recipe check` and `[2] reference`."""
+    loads_list = loads if loads is not None else loads_of_capture(capture)
+    if flags_data is None:
+        flags_file = capture / "flags.json"
+        flags_data = json.loads(flags_file.read_text()) if flags_file.is_file() else {}
+    job_docs = _find_job_docs(capture, job_file=job_file)
+    rows: list[dict] = []
+    expected_closed_mouth: str | None = None
+    for _jf, jd in job_docs:
+        job = jd.get("job") or {}
+        defaults = jd.get("defaults") or {}
+        rec = job.get("recipe")
+        r_diff = job.get("recipe_diff")
+        ref_cfg = job.get("reference") or {}
+        ref_mouth = ref_cfg.get("mouth") or {}
+        if isinstance(rec, dict) and rec.get("closed_mouth"):
+            expected_closed_mouth = str(rec.get("closed_mouth"))
+        elif isinstance(ref_mouth.get("closed_mouth"), dict) and ref_mouth["closed_mouth"].get("form"):
+            expected_closed_mouth = str(ref_mouth["closed_mouth"]["form"])
+        if not isinstance(rec, dict) and not isinstance(r_diff, list):
+            continue
+        actual_margin = defaults.get("margin")
+        margin_by = defaults.get("margin_by")
+        actual_zoom = defaults.get("zoom_up_to", 2.0)
+        zoom_by = defaults.get("zoom_up_to_by")
+        if ref_cfg.get("form") == "none":
+            actual_crop = "none"
+            actual_open_mouth = "none"
+            actual_closed_mouth = "none"
+        else:
+            actual_crop = str((ref_cfg.get("crop") or {}).get("form") or "head")
+            cl_on = bool((ref_mouth.get("closed_lip_line") or {}).get("on", True))
+            if ref_mouth.get("form") == "left out":
+                actual_open_mouth = "none"
+                actual_closed_mouth = "none"
+            elif not cl_on:
+                actual_open_mouth = "off"
+                actual_closed_mouth = "off"
+            else:
+                actual_open_mouth = str((ref_mouth.get("open_mouth") or {}).get("form") or "inner outline")
+                actual_closed_mouth = str((ref_mouth.get("closed_mouth") or {}).get("form") or "sculpted")
+        actual_map = {
+            "margin": actual_margin,
+            "zoom_up_to": float(actual_zoom) if actual_zoom is not None else 2.0,
+            "crop": actual_crop,
+            "open_mouth": actual_open_mouth,
+            "closed_mouth": actual_closed_mouth,
+        }
+        has_ov_map = {
+            "margin": bool(isinstance(margin_by, dict) and str(margin_by.get("why") or "").strip()),
+            "zoom_up_to": bool(
+                (isinstance(zoom_by, dict) and str(zoom_by.get("why") or "").strip())
+                or (isinstance(job.get("whole_frame"), dict) and str(job["whole_frame"].get("why") or "").strip())
+            ),
+            "crop": bool(ref_cfg.get("form") == "none"),
+            "open_mouth": bool(
+                ref_cfg.get("form") == "none"
+                or ref_mouth.get("form") == "left out"
+                or not bool((ref_mouth.get("closed_lip_line") or {}).get("on", True))
+            ),
+            "closed_mouth": bool(
+                ref_cfg.get("form") == "none"
+                or ref_mouth.get("form") == "left out"
+                or not bool((ref_mouth.get("closed_lip_line") or {}).get("on", True))
+            ),
+        }
+        if isinstance(r_diff, list) and r_diff:
+            for item in r_diff:
+                if not isinstance(item, dict) or "knob" not in item:
+                    continue
+                k = str(item["knob"])
+                rec_v = item.get("recipe")
+                cur_v = actual_map.get(k, item.get("this_load"))
+                if cur_v is None:
+                    cur_v = item.get("this_load")
+                why_s = str(item.get("why") or "").strip()
+                if cur_v == rec_v:
+                    st = "match"
+                elif cur_v == item.get("this_load") and item.get("status") in ("overridden", "unexplained"):
+                    st = str(item["status"])
+                elif has_ov_map.get(k, False) and why_s:
+                    st = "overridden"
+                else:
+                    st = "unexplained"
+                rows.append({"knob": k, "recipe": rec_v, "this_load": cur_v, "status": st, "why": why_s})
+            break
+        if isinstance(rec, dict):
+            rec_why = str(rec.get("why") or rec.get("by") or "subject recipe in plan.json").strip()
+            for k in ("margin", "zoom_up_to", "crop", "open_mouth", "closed_mouth"):
+                if k not in rec:
+                    continue
+                rec_v = rec[k]
+                cur_v = actual_map.get(k)
+                if k == "margin" and isinstance(margin_by, dict):
+                    why_s = str(margin_by.get("why") or rec_why).strip()
+                elif k == "zoom_up_to" and isinstance(zoom_by, dict):
+                    why_s = str(zoom_by.get("why") or rec_why).strip()
+                else:
+                    why_s = rec_why if cur_v == rec_v else ""
+                st = "match" if cur_v == rec_v else ("overridden" if (has_ov_map.get(k, False) and why_s) else "unexplained")
+                rows.append({"knob": k, "recipe": rec_v, "this_load": cur_v, "status": st, "why": why_s})
+            break
+
+    mouthless: list[str] = []
+    ref_records = find_reference_records(capture, loads_list, flags_data, job_file=job_file)
+    for _label, ref_path in ref_records:
+        if not ref_path.is_file():
+            continue
+        try:
+            rec_data = json.loads(ref_path.read_text())
+        except Exception:
+            continue
+        cll = ((rec_data.get("drawn") or {}).get("mouth") or {}).get("closed_lip_line") or {}
+        cm_dict = (
+            cll.get("closed_mouth")
+            if isinstance(cll.get("closed_mouth"), dict)
+            else (rec_data.get("closed_mouth") if isinstance(rec_data.get("closed_mouth"), dict) else {})
+        )
+        cm_form = (
+            cm_dict.get("form")
+            or (rec_data.get("closed_mouth") if isinstance(rec_data.get("closed_mouth"), str) else None)
+            or expected_closed_mouth
+        )
+        has_open_key = "open_frames" in cll or "open_frames" in rec_data
+        has_closed_key = (
+            "frames_drawn_closed" in cm_dict
+            or "closed_drawn_frames" in cm_dict
+            or "closed_drawn_frames" in cll
+            or "closed_drawn_frames" in rec_data
+        )
+        open_f = cll.get("open_frames") if "open_frames" in cll else rec_data.get("open_frames")
+        closed_f = (
+            cm_dict.get("frames_drawn_closed")
+            if "frames_drawn_closed" in cm_dict
+            else cm_dict.get("closed_drawn_frames")
+            if "closed_drawn_frames" in cm_dict
+            else cll.get("closed_drawn_frames")
+            if "closed_drawn_frames" in cll
+            else rec_data.get("closed_drawn_frames")
+        )
+        if (
+            cm_form == "outlined"
+            and (has_open_key or has_closed_key)
+            and len(_extract_frame_set(open_f or [])) == 0
+            and len(_extract_frame_set(closed_f or [])) == 0
+        ):
+            mouthless.append(ref_path.name)
+
+    return {"rows": rows, "mouthless_references": mouthless}
+
+
+def find_reference_records(
+    capture: Path,
+    loads: list[str],
+    flags_data: dict,
+    job_file: Path | None = None,
+) -> list[tuple[str, Path]]:
     """Return `(label, record_path)` pairs for every motion reference record associated with `capture`."""
     found: list[tuple[str, Path]] = []
     seen: set[Path] = set()
@@ -317,10 +513,13 @@ def find_reference_records(capture: Path, loads: list[str], flags_data: dict) ->
         if isinstance(ref, dict) and ref.get("video"):
             _add(str(ref.get("subject") or "reference"), ref["video"])
 
-    job_candidates = [
+    job_candidates: list[Path] = []
+    if job_file is not None:
+        job_candidates.append(job_file if job_file.is_absolute() else REPO / job_file)
+    job_candidates.extend([
         capture.with_name(capture.name + "_job") / "job.plan.json",
         capture.with_name(capture.name + "_job") / "job.render.json",
-    ]
+    ])
     ft_file = capture / "frame_table.jsonl"
     if ft_file.is_file():
         try:
@@ -401,11 +600,27 @@ def print_capture_report(capture: Path, load_arg: str | None = None, out=sys.std
     override_by_id = {o.get("flag"): o for o in outcomes if o.get("overridden") and o.get("flag")}
 
     flags_list = flags_data.get("flags") or []
+    recipe_info = recipe_check_of(capture, loads, flags_data)
+    recipe_rows = recipe_info["rows"]
+    mouthless_refs = set(recipe_info["mouthless_references"])
     print(
         f"=== capture: {capture.name} | load(s): {', '.join(loads)} | frames: {span[0]}-{span[1]} "
         f"| written: {status.get('written')} by {status.get('made_by')} | gate: {verdict} ({len(flags_list)} flag(s)) ===",
         file=out,
     )
+
+    if recipe_rows:
+        unexp_n = sum(1 for r in recipe_rows if r.get("status") == "unexplained")
+        print(
+            f"\n[0] recipe check (knob | recipe | this load | status | why; unexplained={unexp_n}):",
+            file=out,
+        )
+        for r in recipe_rows:
+            print(
+                f"  {str(r.get('knob', '')):<12} | {str(r.get('recipe', '')):<8} | {str(r.get('this_load', '')):<9} "
+                f"| {str(r.get('status', '')):<11} | {r.get('why') or '-'}",
+                file=out,
+            )
 
     # 1. Every flag in flags.json
     print(f"\n[1] gate flags ({capture.name}/flags.json: {len(flags_list)} flag(s), blocking={sorted(blocking_ids)}, overridden={sorted(overridden_ids)}):", file=out)
@@ -484,6 +699,12 @@ def print_capture_report(capture: Path, load_arg: str | None = None, out=sys.std
                 f"filled_from_neighbours={len(filled_frames)} [{format_spans(filled_frames)}] | "
                 f"off_track_not_filled={len(not_filled)} [{format_spans(not_filled)}] | "
                 f"off_track_no_face_drawn={len(no_face_drawn)} [{format_spans(no_face_drawn)}]",
+                file=out,
+            )
+        if ref_path.name in mouthless_refs:
+            print(
+                f"  mouthless_reference ({ref_path.name}): 0 open-mouth frame(s) and 0 closed-mouth drawn frame(s) "
+                "while closed_mouth='outlined' was requested",
                 file=out,
             )
 
@@ -593,10 +814,18 @@ def print_capture_report(capture: Path, load_arg: str | None = None, out=sys.std
         "verdict": verdict,
         "flags_count": len(flags_list),
         "unlaid_while_tracked": unlaid_while_tracked,
+        "recipe_check": recipe_info,
     }
 
 
-def record_initial(capture: Path, who: str, loads: list[str], ack_unlaid: str | None = None, out=sys.stdout) -> dict:
+def record_initial(
+    capture: Path,
+    who: str,
+    loads: list[str],
+    ack_unlaid: str | None = None,
+    ack_recipe: str | None = None,
+    out=sys.stdout,
+) -> dict:
     """Record `who` as having read the flags printout on `capture` for `loads`."""
     who_clean = (who or "").strip()
     if not who_clean:
@@ -609,6 +838,12 @@ def record_initial(capture: Path, who: str, loads: list[str], ack_unlaid: str | 
     ack_clean = (ack_unlaid or "").strip() if ack_unlaid is not None else ""
     if ack_unlaid is not None and (not ack_clean or ack_clean.startswith("-")):
         raise Refused("--ack-unlaid WHY requires a non-empty reason")
+    ack_recipe_clean = (ack_recipe or "").strip() if ack_recipe is not None else ""
+    if ack_recipe is not None and (not ack_recipe_clean or ack_recipe_clean.startswith("-")):
+        raise Refused("--ack-recipe WHY requires a non-empty reason")
+    recipe_info = recipe_check_of(capture, loads)
+    unexplained_recipe = [r for r in recipe_info["rows"] if r.get("status") == "unexplained"]
+    mouthless_refs = recipe_info["mouthless_references"]
     entry = {
         "by": who_clean,
         "at": now,
@@ -617,6 +852,28 @@ def record_initial(capture: Path, who: str, loads: list[str], ack_unlaid: str | 
         "capture_made_by": status.get("made_by"),
         "flags_sha256": flags_sha,
     }
+    if unexplained_recipe or mouthless_refs:
+        if not ack_recipe_clean:
+            parts_msg = []
+            if unexplained_recipe:
+                parts_msg.append(
+                    "unexplained recipe deviation(s): "
+                    + ", ".join(f"{r['knob']} (recipe={r['recipe']}, this_load={r['this_load']})" for r in unexplained_recipe)
+                )
+            if mouthless_refs:
+                parts_msg.append(
+                    "mouthless_reference (0 open-mouth and 0 closed-mouth drawn frames with closed_mouth='outlined'): "
+                    + ", ".join(mouthless_refs)
+                )
+            raise Refused(
+                f"recipe check failed on {capture.name} ({'; '.join(parts_msg)}). "
+                "Fix the job/reference to match the subject's recipe in plan.json, or pass --ack-recipe WHY to acknowledge"
+            )
+        entry["recipe_issues"] = {
+            "unexplained": unexplained_recipe,
+            "mouthless_references": mouthless_refs,
+        }
+        entry["recipe_ack"] = {"why": ack_recipe_clean, "by": who_clean, "at": now}
     if unlaid:
         peer_look = peer_look_covering(capture, loads, status)
         if not ack_clean and peer_look is None:
@@ -694,6 +951,25 @@ def check_flags_read(capture: Path, load_name: str, status: dict | None = None) 
             raise Refused(
                 f"{capture.name}/flags.json changed since {rec['by']} initialed it at {in_utc(rec['at'])}: {how}"
             )
+    recipe_info = recipe_check_of(capture, [load_name])
+    unexplained_recipe = [r for r in recipe_info["rows"] if r.get("status") == "unexplained"]
+    mouthless_refs = recipe_info["mouthless_references"]
+    if unexplained_recipe or mouthless_refs:
+        r_ack = rec.get("recipe_ack")
+        has_valid_r_ack = isinstance(r_ack, dict) and bool(str(r_ack.get("why") or "").strip())
+        if not has_valid_r_ack:
+            parts_msg = []
+            if unexplained_recipe:
+                parts_msg.append(
+                    "unexplained recipe deviation(s): "
+                    + ", ".join(f"{r['knob']} (recipe={r['recipe']}, this_load={r['this_load']})" for r in unexplained_recipe)
+                )
+            if mouthless_refs:
+                parts_msg.append("mouthless_reference: " + ", ".join(mouthless_refs))
+            raise Refused(
+                f"recipe check failed on {capture.name} ({'; '.join(parts_msg)}) with no recorded --ack-recipe WHY in the flags-read initial for {load_name!r}: "
+                f"run `bench/flags_before_render.py {capture} --initial WHO --ack-recipe WHY`"
+            )
     unlaid = unlaid_while_tracked_of(capture, [load_name])
     if unlaid:
         ack = rec.get("unlaid_while_tracked_ack")
@@ -727,11 +1003,12 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--load", default=None, help="load name(s) separated by '+', defaulting to the capture's load(s)")
     p.add_argument("--initial", default=None, metavar="WHO", help="record WHO as having read this printout into looks/<load>.shown.json and looks/<load>.flags_read.json")
     p.add_argument("--ack-unlaid", default=None, metavar="WHY", help="reason acknowledging unlaid_while_tracked frames when recording --initial WHO")
+    p.add_argument("--ack-recipe", default=None, metavar="WHY", help="reason acknowledging unexplained recipe deviations or mouthless_reference when recording --initial WHO")
     a = p.parse_args(argv)
     try:
         info = print_capture_report(a.capture, load_arg=a.load)
         if a.initial is not None:
-            record_initial(a.capture, a.initial, info["loads"], ack_unlaid=a.ack_unlaid)
+            record_initial(a.capture, a.initial, info["loads"], ack_unlaid=a.ack_unlaid, ack_recipe=a.ack_recipe)
     except Refused as e:
         print(f"REFUSED: {e}", file=sys.stderr)
         return 2

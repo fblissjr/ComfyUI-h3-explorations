@@ -573,13 +573,24 @@ def step_no_look(ctx: dict, world, a) -> None:
         unlaid_txt = "; ".join(f"{subj} frames {flags_before_render.format_spans(spans)}" for subj, spans in sorted(unlaid.items()))
         raise Refused(f"UNLAID WHILE TRACKED on {cap.name} ({unlaid_txt}): frame(s) are tracked and carry no mask. A look by somebody who did not "
                       "make the capture is owed (`capture_masked_run.py looked`); no record that none is owed is written")
+    recipe_info = flags_before_render.recipe_check_of(cap, [ctx["name"]], job_file=ctx.get("job_file"))
+    unexplained = [f"{r['knob']} (recipe={r['recipe']!r}, load={r['this_load']!r})" for r in recipe_info["rows"] if r.get("status") == "unexplained"]
+    if unexplained or recipe_info["mouthless_references"]:
+        parts = []
+        if unexplained:
+            parts.append("unexplained recipe deviation(s) " + ", ".join(unexplained))
+        if recipe_info["mouthless_references"]:
+            parts.append("mouthless reference(s) " + ", ".join(recipe_info["mouthless_references"]))
+        raise Refused(f"RECIPE CHECK FAILED on {cap.name} ({'; '.join(parts)}). A look by somebody who did not make the capture is owed "
+                      "(`capture_masked_run.py looked`); no record that none is owed is written")
     entry = {"load": ctx["name"], "at": datetime.datetime.now().isoformat(timespec="seconds"), "by": a.by, "rests_on": FORCING_WORD, "gate": flags.get("verdict"),
              "capture_written": status.get("written"), "capture_made_by": status.get("made_by"),
              "flags_read": [f"{f.get('id')} {f.get('rule')} ({f.get('level')})" for f in flags["flags"]],
              "forcing_rules_held_to": {"any flag of": list(FORCING_FLAGS), "a flag over its figure": {k: v[2] for k, v in FORCING_FIGURES.items()},
                                        "another subject's": "clothing or hands inside the region (segment_inside_region)",
                                        "the head reference": "its record's `passed`",
-                                       "unlaid_while_tracked": "0 frames with track_px > 0 and carried_px == 0"},
+                                       "unlaid_while_tracked": "0 frames with track_px > 0 and carried_px == 0",
+                                       "recipe_check": "0 unexplained recipe deviations and 0 mouthless references"},
              "of_the_list_and_not_read": list(FORCING_NOT_READ), "not_the_first_of_its_kind": said}
     print(f"\n--- no look is owed on {ctx['name']}: the gate is clear, {len(flags['flags'])} flag(s) read and none is a forcing one; recorded for {a.by} in "
           f"{cap.name}/{NO_LOOK}\n    NOT READ BY THIS: " + "; ".join(FORCING_NOT_READ), flush=True)
@@ -610,6 +621,16 @@ def gate_alone(ctx: dict, why_no_look: str) -> dict:
     if unlaid:
         unlaid_txt = "; ".join(f"{subj} frames {flags_before_render.format_spans(spans)}" for subj, spans in sorted(unlaid.items()))
         raise Refused(f"UNLAID WHILE TRACKED on {cap.name} ({unlaid_txt}): frame(s) are tracked and carry no mask. The record that no look is owed "
+                      f"does not hold against it: a look by somebody who did not make the capture is owed ({why_no_look})")
+    recipe_info = flags_before_render.recipe_check_of(cap, [ctx["name"]], job_file=ctx.get("job_file"))
+    unexplained = [f"{r['knob']} (recipe={r['recipe']!r}, load={r['this_load']!r})" for r in recipe_info["rows"] if r.get("status") == "unexplained"]
+    if unexplained or recipe_info["mouthless_references"]:
+        parts = []
+        if unexplained:
+            parts.append("unexplained recipe deviation(s) " + ", ".join(unexplained))
+        if recipe_info["mouthless_references"]:
+            parts.append("mouthless reference(s) " + ", ".join(recipe_info["mouthless_references"]))
+        raise Refused(f"RECIPE CHECK FAILED on {cap.name} ({'; '.join(parts)}). The record that no look is owed "
                       f"does not hold against it: a look by somebody who did not make the capture is owed ({why_no_look})")
     record = mine[-1]
     if not later(record["at"], status["written"]):

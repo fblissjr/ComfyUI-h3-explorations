@@ -462,6 +462,66 @@ def _not_seen_frames_of_shot(
     return set()
 
 
+def _find_load_job_source(laid_path: Path, video: str, data_arg: str | None, load_name: str) -> str | None:
+    """Locate the job JSON for `load_name` under `--data` or beside `laid_path` and return `job.source` if present."""
+    search_dirs: list[Path] = []
+    laid_dir = laid_path.resolve().parent
+    search_dirs.extend([laid_dir, laid_dir.parent])
+    if data_arg:
+        dp = Path(data_arg).resolve()
+        search_dirs.extend([dp, dp.parent])
+    seen: set[Path] = set()
+    candidates: list[Path] = []
+    for d in search_dirs:
+        if not d.is_dir() or d in seen:
+            continue
+        seen.add(d)
+        for jdir in sorted(d.glob(f"*_{load_name}_job")):
+            for jname in ("job.render.json", "job.plan.json", "job.json"):
+                if (jdir / jname).is_file():
+                    candidates.append(jdir / jname)
+        for p in (d / "jobs" / f"{load_name}.json", d / f"{load_name}.json"):
+            if p.is_file():
+                candidates.append(p)
+    for jf in candidates:
+        try:
+            jd = json.loads(jf.read_text())
+            src = ((jd.get("job") or {}).get("source") if isinstance(jd.get("job"), dict) else None) or jd.get("source")
+            if src:
+                return str(src)
+        except Exception:
+            continue
+    return None
+
+
+def _source_holds_other_subject(
+    job_src: str, share: Path, video: str, other_subject: str, overlap_frames: set[int]
+) -> bool:
+    """Return True if `job_src` is a cut whose sidecar (or non-raw cut without sidecar) holds `other_subject` on `overlap_frames`."""
+    src_p = Path(job_src)
+    sidecars = [Path(f"{src_p}.json"), share / src_p.with_suffix(src_p.suffix + ".json")]
+    m_day = re.search(r"joined_(\d{4}-\d{2}-\d{2})T", src_p.name)
+    if m_day:
+        sidecars.append(share / "Video" / video / f"day_{m_day.group(1)}" / f"{src_p.name}.json")
+    for sc in sidecars:
+        if sc.is_file():
+            try:
+                pieces = json.loads(sc.read_text()).get("pieces")
+            except Exception:
+                continue
+            if isinstance(pieces, list):
+                covered: set[int] = set()
+                for p in pieces:
+                    if str(p.get("subject")) != other_subject:
+                        continue
+                    pf, pl = int(p.get("first", -1)), int(p.get("last", -2))
+                    if pf <= pl:
+                        covered.update(range(pf, pl + 1))
+                return overlap_frames.issubset(covered)
+    is_cut_name = any(tag in src_p.name for tag in ("_joined_", "_cut_", "_full_"))
+    return is_cut_name
+
+
 def mutate_laid(a: argparse.Namespace) -> int:
     why_no_rebuild: str | None = None
     if a.no_rebuild is not None:
@@ -473,6 +533,11 @@ def mutate_laid(a: argparse.Namespace) -> int:
         why_partial_lay = a.allow_partial_lay.strip()
         if not why_partial_lay or why_partial_lay.startswith("-"):
             raise SystemExit("--allow-partial-lay requires a non-empty reason (WHY), recorded in the line as partial_lay_why")
+    why_parallel_raw: str | None = None
+    if getattr(a, "allow_parallel_raw", None) is not None:
+        why_parallel_raw = a.allow_parallel_raw.strip()
+        if not why_parallel_raw or why_parallel_raw.startswith("-"):
+            raise SystemExit("--allow-parallel-raw requires a non-empty reason (WHY), recorded in the line as parallel_raw_why")
     laid_path, video = _resolve_laid_and_video(a)
     share = _resolve_share(a, laid_path)
     existing = [{k: v for k, v in x.items() if k != "line"} for x in read(str(laid_path), str(share), check_bytes=True)] if laid_path.is_file() else []
@@ -485,6 +550,8 @@ def mutate_laid(a: argparse.Namespace) -> int:
         entry = _build_entry(a, share, first, last, why_no_rebuild)
         if why_partial_lay:
             entry["partial_lay_why"] = why_partial_lay
+        if why_parallel_raw:
+            entry["parallel_raw_why"] = why_parallel_raw
         new_lines = [*existing, entry]
         action_desc = f"laid {entry['load']} on {first}-{last} ({entry['subject']})"
     elif a.cmd == "replace":
@@ -504,6 +571,8 @@ def mutate_laid(a: argparse.Namespace) -> int:
         entry = _build_entry(a, share, first, last, why_no_rebuild, replaces=replaced_loads)
         if why_partial_lay:
             entry["partial_lay_why"] = why_partial_lay
+        if why_parallel_raw:
+            entry["parallel_raw_why"] = why_parallel_raw
         new_lines = [*kept_lines, entry]
         action_desc = f"replaced {', '.join(replaced_loads)} with {entry['load']} on {first}-{last} ({entry['subject']})"
     elif a.cmd == "remove":
@@ -551,6 +620,24 @@ def mutate_laid(a: argparse.Namespace) -> int:
                 f"{_fmt_spans(uncovered_spans)} (neither covered by a laid row on {first}-{last} for {entry['subject']} nor recorded "
                 f"`not seen` in shots.json). Lay the remaining piece, record a `not seen` look in shots.json, or pass --allow-partial-lay WHY"
             )
+        entry_fset = _frame_set(_spans_of_laid(entry))
+        other_overlaps = [
+            (r, entry_fset & _frame_set(_spans_of_laid(r)))
+            for r in new_lines
+            if r["subject"] != entry["subject"] and (entry_fset & _frame_set(_spans_of_laid(r)))
+        ]
+        if other_overlaps and not why_parallel_raw:
+            job_src = _find_load_job_source(laid_path, video, getattr(a, "data", None), str(entry["load"]))
+            if job_src:
+                for other_r, ov_fset in other_overlaps:
+                    if not _source_holds_other_subject(job_src, share, video, str(other_r["subject"]), ov_fset):
+                        tmp_path.unlink(missing_ok=True)
+                        ov_spans = _fmt_spans(_runs_of_frames(ov_fset))
+                        raise SystemExit(
+                            f"REFUSED: {a.cmd}: {entry['load']} ({entry['subject']}) was rendered on {Path(job_src).name} "
+                            f"which does not hold {other_r['subject']}'s laid piece {other_r['load']} on {ov_spans}. "
+                            f"Re-render {entry['load']} as Pass 2 on a cut holding {other_r['load']}, or pass --allow-parallel-raw WHY"
+                        )
     sha_before = digest(str(laid_path)) if laid_path.is_file() else None
     if a.cmd == "remove":
         # A REMOVED LINE LEAVES ITS RECORD (2026-10-21, W3e): the line whole, why it went and who took it out, appended to
@@ -1146,6 +1233,8 @@ def _add_write_args(sp: argparse.ArgumentParser, is_remove: bool = False, is_rep
                         "frames only and says the rest of the shot is left as the source (since 2026-10-21)")
         sp.add_argument("--allow-partial-lay", nargs="?", const="", default=None, metavar="WHY",
                         help="allow laying --frames narrower than the shot when the remaining shot frames are not yet covered (records partial_lay_why)")
+        sp.add_argument("--allow-parallel-raw", nargs="?", const="", default=None, metavar="WHY",
+                        help="allow laying a piece whose job was rendered on a raw source or cut missing another subject's laid piece on the same frames (records parallel_raw_why)")
         sp.add_argument("--added", help="UTC timestamp (default: now)")
         sp.add_argument("--added-by", help="session name (default: H3_SESSION or --by)")
     if is_replace:

@@ -929,6 +929,23 @@ def a_render_on_the_gate_alone() -> str:
         (cap / "runs" / "ld" / "per_frame.json").unlink()
         (cap / "subjects" / "a" / "per_frame.json").unlink()
         assert lc.the_look(made.ctx())["gate_alone"] is True
+        # RECIPE CHECK (Gate 3 / recipe-gate): unexplained recipe deviation or mouthless_reference refuses both step_no_look and gate_alone
+        made.job["recipe"] = {"zoom_up_to": 4.0, "closed_mouth": "outlined", "why": "subject recipe"}
+        made.write()
+        refused(lambda: lc.step_no_look(made.ctx(), m, a), "RECIPE CHECK FAILED", "zoom_up_to (recipe=4.0, load=2.0)", "is owed")
+        refused(lambda: lc.the_look(made.ctx()), "RECIPE CHECK FAILED", "zoom_up_to (recipe=4.0, load=2.0)", "does not hold against it")
+        made.job["recipe"] = {"closed_mouth": "outlined", "why": "subject recipe"}
+        made.write()
+        record.write_text(json.dumps({
+            "passed": True,
+            "drawn": {"mouth": {"closed_lip_line": {"open_frames": [], "closed_mouth": {"form": "outlined", "frames_drawn_closed": []}}}},
+        }))
+        refused(lambda: lc.step_no_look(made.ctx(), m, a), "RECIPE CHECK FAILED", "mouthless reference(s) reference.json", "is owed")
+        refused(lambda: lc.the_look(made.ctx()), "RECIPE CHECK FAILED", "mouthless reference(s) reference.json", "does not hold against it")
+        made.job.pop("recipe", None)
+        made.write()
+        record.write_text(json.dumps({"passed": True}))
+        assert lc.the_look(made.ctx())["gate_alone"] is True
         # THE RULE FOR A LOOK IS AS IT WAS: the maker's own look is no look. With the record the render rests on the gate
         # alone and says so; with a forcing flag it is refused, the maker's look named
         (cap / "looks.json").write_text(json.dumps({"looks": [{"by": "the maker", "at": "2026-01-03T10:30:00", "loads": ["ld"]}]}))

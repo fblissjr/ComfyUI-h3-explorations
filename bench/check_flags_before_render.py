@@ -461,8 +461,131 @@ def test_unlaid_while_tracked_gate() -> str:
     return "prints unlaid_while_tracked in [4], refuses --initial without --ack-unlaid or peer look, and verifies unlaid_while_tracked_ack in check_flags_read"
 
 
+def test_recipe_check_and_mouthless_reference() -> str:
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        cap = make_synthetic_capture(root)
+        job_dir = cap.with_name(cap.name + "_job")
+        job_dir.mkdir(parents=True)
+        # 1. Lead/third recipe (closed_mouth='sculpted', zoom_up_to=2.0, margin=16, open_mouth='outlined') matching this load
+        job_plan = job_dir / "job.plan.json"
+        job_plan.write_text(
+            json.dumps(
+                {
+                    "job": {
+                        "name": "lead_fp_4310",
+                        "recipe": {
+                            "margin": 16,
+                            "zoom_up_to": 2.0,
+                            "crop": "cranium",
+                            "open_mouth": "outlined",
+                            "closed_mouth": "sculpted",
+                            "by": "owner",
+                            "why": "lead standing recipe",
+                        },
+                        "reference": {
+                            "form": "drawn",
+                            "crop": {"form": "cranium", "why": "lead standing recipe"},
+                            "mouth": {
+                                "form": "auto",
+                                "closed_lip_line": {"on": True},
+                                "open_mouth": {"form": "outlined", "why": "lead standing recipe"},
+                                "closed_mouth": {"form": "sculpted", "why": "lead standing recipe"},
+                            },
+                        },
+                    },
+                    "defaults": {"margin": 16},
+                    "loads": [{"name": "lead_fp_4310"}],
+                }
+            )
+        )
+        buf = io.StringIO()
+        info = fbr.print_capture_report(cap, out=buf)
+        printed = buf.getvalue()
+        assert "[0] recipe check (knob | recipe | this load | status | why; unexplained=0):" in printed, printed
+        assert "closed_mouth | sculpted | sculpted" in printed, printed
+        assert fbr.main([str(cap), "--initial", "gemreader"]) == 0
+
+        # 2. Second recipe (zoom_up_to=4.0, margin=64, closed_mouth='outlined') where load has unexplained zoom_up_to=2.0
+        job_plan.write_text(
+            json.dumps(
+                {
+                    "job": {
+                        "name": "lead_fp_4310",
+                        "recipe": {
+                            "margin": 64,
+                            "zoom_up_to": 4.0,
+                            "crop": "cranium",
+                            "open_mouth": "outlined",
+                            "closed_mouth": "outlined",
+                            "by": "owner",
+                            "why": "second standing recipe",
+                        },
+                        "reference": {
+                            "form": "drawn",
+                            "crop": {"form": "cranium", "why": "second standing recipe"},
+                            "mouth": {
+                                "form": "auto",
+                                "closed_lip_line": {"on": True},
+                                "open_mouth": {"form": "outlined", "why": "second standing recipe"},
+                                "closed_mouth": {"form": "outlined", "why": "second standing recipe"},
+                            },
+                        },
+                    },
+                    "defaults": {"margin": 64},  # zoom_up_to missing (defaults to 2.0 -> unexplained against recipe 4.0)
+                    "loads": [{"name": "lead_fp_4310"}],
+                }
+            )
+        )
+        buf2 = io.StringIO()
+        fbr.print_capture_report(cap, out=buf2)
+        assert "unexplained=1" in buf2.getvalue(), buf2.getvalue()
+        refused(
+            lambda: fbr.record_initial(cap, "gemreader", ["lead_fp_4310"]),
+            "unexplained recipe deviation(s): zoom_up_to (recipe=4.0, this_load=2.0)",
+            "--ack-recipe WHY",
+        )
+        proc = subprocess.run(
+            [sys.executable, str(HERE / "flags_before_render.py"), str(cap), "--initial", "gemreader"],
+            capture_output=True,
+            text=True,
+        )
+        assert proc.returncode == 2 and "REFUSED:" in proc.stderr and "unexplained recipe deviation" in proc.stderr and "Traceback" not in proc.stderr, proc.stderr
+
+        # 3. Mouthless reference when closed_mouth='outlined' has 0 open_frames and 0 frames_drawn_closed
+        ref_rec_path = root / "references" / "lead_head_reference_4310_4389.json"
+        ref_rec = json.loads(ref_rec_path.read_text())
+        ref_rec["drawn"] = {
+            "mouth": {
+                "closed_lip_line": {
+                    "open_frames": [],
+                    "closed_mouth": {"form": "outlined", "frames_drawn_closed": []},
+                }
+            }
+        }
+        ref_rec_path.write_text(json.dumps(ref_rec))
+        # Fix zoom_up_to in job_plan so only mouthless_reference fires
+        jd_fixed = json.loads(job_plan.read_text())
+        jd_fixed["defaults"]["zoom_up_to"] = 4.0
+        jd_fixed["defaults"]["zoom_up_to_by"] = {"why": "second standing recipe", "by": "the plan"}
+        job_plan.write_text(json.dumps(jd_fixed))
+        buf3 = io.StringIO()
+        fbr.print_capture_report(cap, out=buf3)
+        assert "mouthless_reference (lead_head_reference_4310_4389.json)" in buf3.getvalue(), buf3.getvalue()
+        refused(
+            lambda: fbr.record_initial(cap, "gemreader", ["lead_fp_4310"]),
+            "mouthless_reference",
+            "lead_head_reference_4310_4389.json",
+            "--ack-recipe WHY",
+        )
+        assert fbr.main([str(cap), "--initial", "gemreader", "--ack-recipe", "verified silent back-turned span"]) == 0
+        assert fbr.check_flags_read(cap, "lead_fp_4310")["by"] == "gemreader"
+    return "prints [0] recipe check table, flags mouthless_reference in [2], and refuses unexplained recipe deviations or mouthless_reference without --ack-recipe WHY"
+
+
 case("flags_before_render: 4 diagnostic blocks, --initial record, and refusals", test_print_and_initial)
 case("flags_before_render: unlaid_while_tracked gate (--ack-unlaid WHY or peer look)", test_unlaid_while_tracked_gate)
+case("flags_before_render: [0] recipe check and mouthless_reference gate (--ack-recipe WHY)", test_recipe_check_and_mouthless_reference)
 case("flag_census: rule counts, key-based override matching, and blocked/changed dates", test_flag_census)
 
 if __name__ == "__main__":

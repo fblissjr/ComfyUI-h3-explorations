@@ -649,7 +649,71 @@ def partial_lay_requires_coverage_or_override() -> str:
             "test",
         )
         assert r3.returncode == 0, r3.stdout + r3.stderr
-    return "partial lay leaving uncovered shot frames refused with exact spans; passes with sibling laid row, shots.json `not seen`, or --allow-partial-lay WHY"
+
+        # Parallel Pass-1 guard: laying a second subject whose job.source is raw (missing lead's laid piece) is refused
+        (share / "p_sec_00001.mp4").write_bytes(b"p_sec" * 32)
+        job_dir = laid_path.parent.parent / "2026-10-25_second_hfp_100a_job"
+        job_dir.mkdir(parents=True)
+        (job_dir / "job.render.json").write_text(json.dumps({"job": {"source": "source.mp4"}}))
+        refused(
+            run(
+                "lay",
+                "--laid",
+                laid_path,
+                "--share",
+                share,
+                "--shot",
+                "100-199",
+                "--subject",
+                "second",
+                "--load",
+                "second_hfp_100a",
+                "--file",
+                "p_sec_00001.mp4",
+                "--frames",
+                "100-149",
+                "--owner",
+                "unconfirmed",
+                "--by",
+                "parallel raw pass",
+                "--allow-partial-lay",
+                "150-199 not in frame",
+                "--no-rebuild",
+                "test",
+            ),
+            "was rendered on source.mp4 which does not hold lead's laid piece lead_fp_100a on 100-149",
+            "--allow-parallel-raw WHY",
+        )
+        # Passes when --allow-parallel-raw WHY is provided (or when rendered on a post-Pass-1 cut holding lead)
+        r4 = run(
+            "lay",
+            "--laid",
+            laid_path,
+            "--share",
+            share,
+            "--shot",
+            "100-199",
+            "--subject",
+            "second",
+            "--load",
+            "second_hfp_100a",
+            "--file",
+            "p_sec_00001.mp4",
+            "--frames",
+            "100-149",
+            "--owner",
+            "unconfirmed",
+            "--by",
+            "parallel raw pass with ack",
+            "--allow-partial-lay",
+            "150-199 not in frame",
+            "--allow-parallel-raw",
+            "non-overlapping boxes verified on sheet",
+            "--no-rebuild",
+            "test",
+        )
+        assert r4.returncode == 0, r4.stdout + r4.stderr
+    return "partial lay leaving uncovered shot frames and parallel Pass-1 raw lay refused; passes with sibling laid row, shots.json `not seen`, or explicit override"
 
 
 if __name__ == "__main__":

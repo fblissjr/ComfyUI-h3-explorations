@@ -4154,6 +4154,118 @@ def partial_shot_load_requires_coverage_or_override() -> str:
     return "partial-shot loads require omitted frames to be covered by seen_looks, laid.jsonl, or --sibling-job, or overridden with --allow-partial-shot WHY; 0 px preview track spans printed as data"
 
 
+def subject_recipe_and_pass2_cut_check() -> str:
+    """Subject `recipe` and `shot_overrides` in `plan.json` populate `zoom_up_to`, `margin`, `crop`, `open_mouth`,
+    and `closed_mouth` defaults without CLI flags, record `job.recipe` and `job.recipe_diff`, and `check_pass2_source`
+    refuses a cut whose sidecar is missing an already-laid subject on the shot."""
+    with tempfile.TemporaryDirectory() as tmp:
+        made = Made(Path(tmp))
+        # 1. Second recipe: zoom_up_to=4.0, margin=64, crop='cranium', open_mouth='outlined', closed_mouth='outlined'
+        made.plan["subjects"]["a"]["recipe"] = {
+            "zoom_up_to": 4.0,
+            "margin": 64,
+            "crop": "cranium",
+            "open_mouth": "outlined",
+            "closed_mouth": "outlined",
+            "by": "owner",
+            "why": "standing recipe for second",
+        }
+        # 2. Lead recipe: zoom_up_to=2.0, margin=16, crop='cranium', open_mouth='outlined', closed_mouth='sculpted'
+        made.plan["subjects"]["b"].pop("hair_band", None)
+        made.plan["subjects"]["b"]["recipe"] = {
+            "zoom_up_to": 2.0,
+            "margin": 16,
+            "crop": "cranium",
+            "open_mouth": "outlined",
+            "closed_mouth": "sculpted",
+            "by": "owner",
+            "why": "standing recipe for lead",
+        }
+        # 3. Third recipe: zoom_up_to=2.0, margin=16, crop='cranium', open_mouth='inner outline', closed_mouth='sculpted'
+        made.plan["subjects"]["c"]["region"] = "face"
+        made.plan["subjects"]["c"]["recipe"] = {
+            "zoom_up_to": 2.0,
+            "margin": 16,
+            "crop": "cranium",
+            "open_mouth": "inner outline",
+            "closed_mouth": "sculpted",
+            "by": "owner",
+            "why": "standing recipe for third",
+        }
+        made.write()
+        d = made.load()
+        assert d["defaults"]["zoom_up_to"] == 4.0, d["defaults"]
+        assert d["defaults"]["margin"] == 64, d["defaults"]
+        ref = d["job"]["reference"]
+        assert ref["crop"]["form"] == "cranium", ref
+        assert ref["mouth"]["open_mouth"]["form"] == "outlined", ref
+        assert ref["mouth"]["closed_mouth"]["form"] == "outlined", ref
+        rec = d["job"]["recipe"]
+        assert (rec["margin"], rec["zoom_up_to"], rec["crop"], rec["open_mouth"], rec["closed_mouth"]) == (
+            64, 4.0, "cranium", "outlined", "outlined"
+        ), rec
+        diffs = {r["knob"]: r for r in d["job"]["recipe_diff"]}
+        assert all(r["status"] == "match" and r["recipe"] == r["this_load"] for r in diffs.values()), diffs
+
+        # Lead (b) and third (c): zoom_up_to=2.0 leaves defaults.zoom_up_to unset while recording 2.0 in recipe/recipe_diff
+        d_lead = made.load(subject="b", name="b_fp_0100")
+        assert "zoom_up_to" not in d_lead["defaults"], d_lead["defaults"]
+        assert d_lead["job"]["recipe"]["zoom_up_to"] == 2.0 and d_lead["job"]["recipe"]["closed_mouth"] == "sculpted"
+        assert all(r["status"] == "match" for r in d_lead["job"]["recipe_diff"]), d_lead["job"]["recipe_diff"]
+
+        d_third = made.load(subject="c", name="c_fp_0100")
+        assert "zoom_up_to" not in d_third["defaults"], d_third["defaults"]
+        assert d_third["job"]["recipe"]["open_mouth"] == "inner outline" and d_third["job"]["recipe"]["closed_mouth"] == "sculpted"
+        assert all(r["status"] == "match" for r in d_third["job"]["recipe_diff"]), d_third["job"]["recipe_diff"]
+
+        # Per-shot shot_overrides entry in plan.json overrides margin with why, and recipe/shot_overrides beat legacy reference
+        made.plan["subjects"]["a"]["reference"] = {
+            "crop": "head",
+            "open_mouth": "inner outline",
+            "closed_mouth": "sculpted",
+            "why": "legacy reference block",
+        }
+        made.plan["subjects"]["a"]["shot_overrides"] = [
+            {"first": 100, "last": 159, "margin": 120, "crop": "face", "by": "lead", "why": "wide arm motion on 100-159"},
+        ]
+        made.write()
+        d_ov = made.load(name="a_fp_0100b")
+        assert d_ov["defaults"]["margin"] == 120, d_ov["defaults"]
+        assert d_ov["job"]["reference"]["crop"]["form"] == "face", d_ov["job"]["reference"]
+        assert d_ov["job"]["reference"]["mouth"]["open_mouth"]["form"] == "outlined", d_ov["job"]["reference"]
+        assert d_ov["job"]["reference"]["mouth"]["closed_mouth"]["form"] == "outlined", d_ov["job"]["reference"]
+        m_diff = next(r for r in d_ov["job"]["recipe_diff"] if r["knob"] == "margin")
+        assert (
+            m_diff["recipe"] == 64
+            and m_diff["this_load"] == 120
+            and m_diff["status"] == "overridden"
+            and "wide arm motion on 100-159" in m_diff["why"]
+        ), m_diff
+
+        # check_pass2_source refuses when a registered cut sidecar is missing an already-laid subject on the shot
+        laid_path = made.m.data / "v" / "laid.jsonl"
+        laid_path.parent.mkdir(parents=True, exist_ok=True)
+        laid_path.write_text(
+            json.dumps({
+                "first": 100, "last": 159, "subject": "b", "load": "b_fp_0100",
+                "frames": [[100, 159]], "added": "2026-01-01T10:00:00Z",
+            }) + "\n"
+        )
+        cut_mp4 = made.root / "v_joined_2026-01-02T1200Z.mp4"
+        cut_mp4.write_bytes(b"mp4")
+        Path(f"{cut_mp4}.json").write_text(json.dumps({
+            "pieces": [{"subject": "c", "name": "c_fp_0100", "first": 100, "last": 159}],
+        }))
+        refused(
+            lambda: stl.check_pass2_source(
+                made.shots, str(made.plan_file), "v", made.m, 100, 159,
+                ["b", "c"], str(cut_mp4), made.m.inputs / "v.mp4", own_subjects=["a"],
+            ),
+            "is missing already-laid piece(s) b (b_fp_0100 on 100-159)",
+        )
+    return "subject recipe and shot_overrides in plan.json populate defaults and recipe_diff without CLI flags, and check_pass2_source refuses a cut missing a laid subject"
+
+
 case("the frame a tracker picks on is a field of the shots record", the_pick_frame_is_a_field)
 case("the trackers' order, and who is in the shot", the_order_and_who_is_in_the_shot)
 case("a preview made to ask who is on a shot the record is unsure of", a_preview_made_to_ask)
@@ -4201,6 +4313,8 @@ case("reference: --no-head-on and --no-head-form recorded, carried, forwarded, c
      no_head_on_in_the_job_and_reference)
 case("partial-shot load: omitted frames require seen_looks, laid.jsonl, --sibling-job, or --allow-partial-shot override (0 px track printed as data)",
      partial_shot_load_requires_coverage_or_override)
+case("recipe: subject recipe and shot_overrides in plan.json populate defaults and recipe_diff, and pass-2 cut verifies laid subjects",
+     subject_recipe_and_pass2_cut_check)
 
 if __name__ == "__main__":
     sys.exit(finish())
