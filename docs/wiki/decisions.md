@@ -44,6 +44,22 @@ Older history lives elsewhere and is not copied here:
   the mom's lowered gaze beside the shot). Updated in all three documents to state the three-path rule and link the
   research record.
 
+- **The 2026-10-24 handover's prose lost to the files** (Gemini Spark's close-of-day read, checked line by line by the
+  Claude lead on 2026-10-25). What it used to say, and what the files hold: `bench/_lib/name_taken.py` (the function is
+  `bench/shot_to_load.py::name_taken`); `bench/review_server.py look` (the look items are `bench/review_pages.py` and
+  `bench/load_chain.py::look_page_item`); a `nodes/` folder (the node files sit at the repo root); `JAW_BEARD_PAD_FRAC =
+  0.25` (`bench/head_tube_parts.py` holds `0.35`, and `0.25` is `video_mask.HELD_EDGE_LEAST`); file names `in_frames`,
+  `ref_frames`, `mask_frames`, `mask_review` and `raw` that no node writes (the names are in
+  `docs/masked_v2v/verifying_raw_frames_and_keeps.md`); and the spans `5675-5762`, `5461-5525`, `4310-4374` and
+  `1306-1384` for pieces whose laid rows read `5675-5715`, `5461-5497` and `4310-4389`, and whose removed row,
+  `third_fp_1306g`, read `1306-1418` in the `0045Z` table and in the owner's keep and `wrong` answers. Its line for
+  `1306h` said the `2341Z` cut holds the lead and the second on 1306, where `data/fun/laid.jsonl` has the lead alone,
+  `lead_fp_1306t` on `1306-1407`. Spark's own read put 1306g's laid span at `1306-1396`, which no record holds. None of
+  it touched the cut, the laid rows or the three worktrees. Why `bench/check_doc_links.py` passed: it reads markdown
+  links, `path:line` citations and `path::Symbol` references, not a bare path in backticks. The day's changelog
+  fragment was also not written at the close (the Claude lead's job, `changelog.d/README.md`); written on 2026-10-25
+  from the 16 commits.
+
 ## 2026-10-24
 
 - **`meta_perception_models.md` brought up to the chain** (mrfabez, a Claude session advising; docs only). It used to
