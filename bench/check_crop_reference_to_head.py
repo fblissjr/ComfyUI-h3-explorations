@@ -442,9 +442,19 @@ def cranium_box_round_the_grey_head() -> str:
     # a frame whose grey reaches the picture's top: named, as reaching the box's edge and the picture's
     up = [0.9] * N
     up[5] = 3.0
-    hat = cr.run(str(video(folder / "hat.mkv", figure(CENTRES, up))), str(POINTS), 0, N, folder / "hat.mp4", "the check", cranium=True, say=quiet)
+    hat_v = video(folder / "hat.mkv", figure(CENTRES, up))
+    hat = cr.run(str(hat_v), str(POINTS), 0, N, folder / "hat.mp4", "the check", cranium=True, say=quiet)
     assert hat["box"][1] == 0 and hat["cranium"]["frames_the_grey_head_reaches_the_box_edge"] == [5] \
         and hat["cranium"]["frames_the_grey_head_reaches_the_picture_edge"] == [5], (hat["box"], hat["cranium"])
+    # bare and dropped frames (`leave_out_frames`, 2026-10-25: 2050g's 2249-2270 and 4310c's 4388-4389) do not size the cranium box:
+    # leaving out frame 5 restores `rec["box"]` and clears the edge hits; leaving out every frame falls back cleanly to `hat["box"]`
+    hat_skip = cr.run(str(hat_v), str(POINTS), 0, N, folder / "hat_skip.mp4", "the check", cranium=True, leave_out_frames=[5], say=quiet)
+    assert hat_skip["box"] == rec["box"] != hat["box"] and hat_skip["cranium"]["frames_left_out_of_the_box"] == [5] \
+        and hat_skip["cranium"]["frames_the_grey_head_reaches_the_box_edge"] == [] \
+        and hat_skip["cranium"]["frames_the_grey_head_reaches_the_picture_edge"] == [], (hat_skip["box"], hat_skip["cranium"])
+    Pn_hat, _ = cr.faces.rows_of(str(POINTS), None, 0, N, 0, whole_face=False)
+    all_out = cr.cranium_box(Pn_hat, (W, H), cr.HEAD_ROOM, figure(CENTRES, up), first=0, leave_out_frames=list(range(N)))
+    assert all_out["box"] == hat["box"] and all_out["cranium"]["frames_left_out_of_the_box"] == list(range(N)), all_out
     # a head that travels: each frame's own box against the one box, as figures
     far = np.stack([np.linspace(110, 270, N), np.full(N, 130.0)], 1)
     far_pts = fx.save(folder / "far_points.npz", faces(far), (W, H), first=0)

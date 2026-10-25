@@ -236,9 +236,11 @@ def grey_head(frame: np.ndarray, p: np.ndarray, index: dict) -> tuple[np.ndarray
     return head, int(lit.sum() - head.sum())
 
 
-def cranium_box(points: dict, size: tuple[int, int], room: float, frames: np.ndarray, first: int = 0) -> dict:
+def cranium_box(points: dict, size: tuple[int, int], room: float, frames: np.ndarray, first: int = 0,
+                leave_out_frames: list[int] | set[int] | None = None) -> dict:
     """The one box of a span under `--cranium`: round every frame's face and its grey head (`grey_head`) with `CRANIUM_ROOM` above
-    and beside them and `CRANIUM_NECK` below the chin, in the canvas's shape, inside the canvas. With it, as figures: the frames on
+    and beside them and `CRANIUM_NECK` below the chin, in the canvas's shape, inside the canvas. Frames in `leave_out_frames` (bare
+    or dropped source frames) do not size the box unless every frame with a grey head is left out. With it, as figures: the frames on
     which (source frames, the span's first being `first`) the grey head above mid-face reaches the box's edge (or the picture's own edge), and each frame's own box's enlargement against the one
     box's, which is what the subject's travel over the span costs."""
     w, h = size
@@ -257,11 +259,16 @@ def cranium_box(points: dict, size: tuple[int, int], room: float, frames: np.nda
         heads.append(head)
         left_out.append(out)
     each = np.array(each, float)
+    excluded = sorted({int(f) for f in (leave_out_frames or []) if first <= int(f) < first + len(each)})
+    excl_set = set(excluded)
+    kept = np.array([(first + k) not in excl_set for k in range(len(each))], dtype=bool)
     # A frame whose face has no grey head joined to it is one where she is hidden or out of the body model's fit: its face points
     # are the pose model's guess there (second_1093_1133_f, 2026-10-22: on 1125-1127 the face box sat 200 px below her head and
-    # stretched the one box from about 5.7 to 2.27 times). Such frames do not size the box; a span with no grey head at all keeps them.
-    seen = np.array([bool(np.any(hd)) for hd in heads])
-    sized = each[seen] if seen.any() else each
+    # stretched the one box from about 5.7 to 2.27 times). Bare and dropped frames (`leave_out_frames`, 2026-10-25: 2050g's 2249-2270
+    # and 4310c's 4388-4389) are likewise left out when sizing the box; a span with no kept grey-head frame falls back cleanly.
+    seen = np.array([bool(np.any(hd)) for hd in heads], dtype=bool)
+    use = seen & kept
+    sized = each[use] if use.any() else (each[seen] if seen.any() else each)
     want = np.concatenate([sized[:, :2].min(0), sized[:, 2:].max(0)])
     need_w, need_h = float(want[2] - want[0]), float(want[3] - want[1])
     least_w = w / CRANIUM_MOST                                          # the box no narrower than this: enlarged at most CRANIUM_MOST
@@ -278,6 +285,8 @@ def cranium_box(points: dict, size: tuple[int, int], room: float, frames: np.nda
         if not len(xs):
             none.append(first + k)
             continue
+        if use.any() and (first + k) in excl_set:
+            continue
         if xs.min() <= x0 or ys.min() <= y0 or xs.max() >= x1 - 1 or ys.max() >= y1 - 1:
             edge.append(first + k)
         if xs.min() == 0 or ys.min() == 0 or xs.max() == w - 1 or ys.max() == h - 1:
@@ -287,6 +296,7 @@ def cranium_box(points: dict, size: tuple[int, int], room: float, frames: np.nda
             "face_height_px_median": round(face, 1), "room_in_face_heights": room,
             "cranium": {"room_above_and_beside_in_face_heights": round(c_room, 3), "below_the_chin_in_face_heights": round(neck, 3),
                         "body_grey": BODY_GREY,
+                        "frames_left_out_of_the_box": excluded,
                         "frames_the_grey_head_reaches_the_box_edge": edge,
                         "frames_the_grey_head_reaches_the_picture_edge": picture_edge,
                         "frames_with_no_grey_head_joined_to_the_face": none,
@@ -308,9 +318,11 @@ def cranium_lines(c: dict) -> list[str]:
     def frames(fs: list) -> str:
         return f"{len(fs)} frame(s): {fs[0]}..{fs[-1]}" if len(fs) > 3 else (", ".join(str(f) for f in fs) or "none")
     least, median, most = c["each_frame_alone_would_enlarge_least_median_most"]
+    left = c.get("frames_left_out_of_the_box") or []
     return [f"the grey head reaches the box's edge on {frames(c['frames_the_grey_head_reaches_the_box_edge'])}; the picture's own edge on "
             f"{frames(c['frames_the_grey_head_reaches_the_picture_edge'])}; no grey head joined to the face on "
-            f"{frames(c['frames_with_no_grey_head_joined_to_the_face'])}",
+            f"{frames(c['frames_with_no_grey_head_joined_to_the_face'])}"
+            + (f"; left out of the box on {frames(left)}" if left else ""),
             f"travel: each frame's own box would enlarge {least:.3f} / {median:.3f} / {most:.3f} times (least / median / most); the one box "
             f"enlarges {c['the_one_box_enlarges']:.3f}, {c['the_travel_keeps_of_the_median_frame_enlargement']:.3f} of the median frame's "
             "(figures: the box does not follow the head)"
@@ -439,6 +451,7 @@ def run(video: str, points_path: str, first: int, count: int, out: Path, by: str
         video_first: int | None = None, points_first: int | None = None, room: float | None = None,
         head_track: str | Path | np.ndarray | list | None = None, head_track_first: int | None = None,
         no_head_track: bool = False, head_track_how: str | None = None, fit: bool = False, cranium: bool = False,
+        leave_out_frames: list[int] | set[int] | None = None,
         box: list[int] | None = None, say=print) -> dict:
     """Find the box, cut, write, read back, record. Returns the record; `passed` is False when the read-back fails.
 
@@ -496,7 +509,7 @@ def run(video: str, points_path: str, first: int, count: int, out: Path, by: str
         found = {**{k: v for k, v in one_box(points, (w, h), room).items() if k in ("faces", "face_height_px_median", "room_in_face_heights")},
                  "box": box, "set_by": "given (--box), as it is", "moved_to_lie_inside": False}
     elif cranium:
-        found = cranium_box(points, (w, h), room, reference, first)
+        found = cranium_box(points, (w, h), room, reference, first, leave_out_frames=leave_out_frames)
     else:
         found = one_box(points, (w, h), room, head_track=ht_masks)
     box = found["box"]
@@ -578,6 +591,7 @@ def main() -> int:
     a.add_argument("--no-head-track", action="store_true", help="size the box from the faces alone, even when a head track is beside the points or video")
     a.add_argument("--cranium", action="store_true", help="the box round the body model's grey head above mid-face and the face, "
                    "CRANIUM_ROOM above and beside, CRANIUM_NECK below the chin; read off --video, which is the body model; no head track read")
+    a.add_argument("--leave-out-frames", help="source frames or FIRST-LAST spans left out when sizing --cranium's one box (bare or dropped frames); comma- or plus-separated")
     a.add_argument("--box", help="X0,Y0,X1,Y1: cut by this box as given, on the canvas (a source by the box its body model's --cranium cut found)")
     a.add_argument("--names", help="a json list of the points' names, for a points file made before they were kept")
     a.add_argument("--video-first", type=int, help="the source frame of the reference video's frame 0; the span's first when left out")
@@ -589,9 +603,26 @@ def main() -> int:
         box = [int(x) for x in v.box.split(",")] if v.box else None
     except ValueError:
         raise SystemExit(f"--box takes X0,Y0,X1,Y1 in whole pixels; got {v.box!r}") from None
+    leave_out_frames: list[int] | None = None
+    if v.leave_out_frames:
+        leave_out_frames = []
+        for tok in v.leave_out_frames.replace("+", ",").split(","):
+            tok = tok.strip()
+            if not tok:
+                continue
+            try:
+                parts = [int(x) for x in tok.split("-")]
+                if len(parts) == 1:
+                    leave_out_frames.append(parts[0])
+                elif len(parts) == 2 and parts[0] <= parts[1]:
+                    leave_out_frames.extend(range(parts[0], parts[1] + 1))
+                else:
+                    raise ValueError
+            except ValueError:
+                raise SystemExit(f"--leave-out-frames takes source frames or FIRST-LAST spans; got {v.leave_out_frames!r}") from None
     rec = run(v.video, v.points, v.first, v.count, Path(v.out), v.by, names=names, video_first=v.video_first, points_first=v.points_first, room=v.room,
               head_track=v.head_track, head_track_first=v.head_track_first, no_head_track=v.no_head_track, fit=v.fit,
-              cranium=v.cranium, box=box)
+              cranium=v.cranium, leave_out_frames=leave_out_frames, box=box)
     return 0 if rec["passed"] else 1
 
 

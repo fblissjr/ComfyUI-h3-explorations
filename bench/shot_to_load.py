@@ -4399,6 +4399,13 @@ def drawn_form(job: dict, a, files: dict, preview_first: int) -> list:
         out += ["--no-head-on", f"{s['first']}-{s['last']}=a person's word on a look ({s['said_by']}, {s['at']}): {s['why']}"]
     if nh.get("spans") and nh.get("form") and nh["form"] != "hold":
         out += ["--no-head-form", nh["form"]]
+    # the job's dropped spans (`job --drop`): left out when sizing the cranium reference box
+    for sub in job.get("subjects") or []:
+        if sub.get("drop") and (not job.get("subject") or sub.get("label") == job.get("subject")):
+            d_by = " ".join(str(sub.get("drop_by") or "who said so is not in the job").split())
+            for raw_d in str(sub["drop"]).split("+"):
+                if raw_d.strip():
+                    out += ["--drop", f"{raw_d.strip()}=the job's drop ({d_by})"]
     # the plan's restore spans of a class over her eyes (her own glasses, head_reference.OVER_THE_EYES): the face counts as on her track
     # there by the lower face (the lead, 2026-10-15, on 2823's white sunglasses, off her track from 3073)
     import head_reference
@@ -4446,12 +4453,14 @@ def written(a, ctx: dict, made: dict, record: Path, points: Path, drawn: Path, f
     d["job"]["reference"] = reference_block(form, why, a.by, made["made_at"] if taken else now_ts, record, points, got)
     # the mouth and the eye as asked, and as drawn (the record's own words: the check's figures, the iris form)
     md = made.get("drawn") or {}
+    mabm = made.get("marks_against_the_body_model") if made.get("marks_against_the_body_model") is not None else md.get("marks_against_the_body_model")
     d["job"]["reference"].update({k: was[k] for k in ("mouth", "iris", "no_face_on", "no_draw_face_on", "no_head_on", "darken_head", "head_track", "crop") if k in was},
                                  drawn={"mouth": md.get("mouth"), "iris": md.get("iris"),
                                         "eyes_shut": md.get("eyes_shut"),
                                         "parts_left_out": md.get("parts_left_out"),
                                         "frames_left_bare": md.get("frames_left_bare"),
-                                        **({k: md[k] for k in ("eye_rings", "darken_head", "no_head_on", "marks_against_the_body_model") if md.get(k) is not None})})
+                                        **({k: md[k] for k in ("eye_rings", "darken_head", "no_head_on") if md.get(k) is not None}),
+                                        **({"marks_against_the_body_model": mabm} if mabm is not None else {})})
     nht = getattr(a, "no_head_track", None)
     if nht is not None:
         d["job"]["reference"]["head_track"] = {
@@ -4476,13 +4485,15 @@ def written(a, ctx: dict, made: dict, record: Path, points: Path, drawn: Path, f
     if cues is not None:
         print("WHERE A FACE MAY NOT SHOW, for the sheet (data; nothing here decides, and a face's lines are left out only on a person's word, job --no-face-on):")
         print("\n".join(face_cue_lines(cues)))
-    mabm = md.get("marks_against_the_body_model")
     if isinstance(mabm, dict) and mabm.get("known"):
         fl = mabm.get("flagged_frames") or []
         rule = mabm.get("rule") or {}
-        print(f"MARKS AGAINST THE BODY MODEL ({mabm.get('read_from')}; nose >= {rule.get('nose_from_body_model_fh')} fh or pitch >= {rule.get('head_pitch_down_3d')}; data for --no-draw-face-on): "
+        roll_rule = f" or roll >= {rule.get('eye_roll_diff_deg')} deg" if rule.get("eye_roll_diff_deg") is not None else ""
+        print(f"MARKS AGAINST THE BODY MODEL ({mabm.get('read_from')}; nose >= {rule.get('nose_from_body_model_fh')} fh or pitch >= {rule.get('head_pitch_down_3d')}{roll_rule}; data for --no-draw-face-on): "
               + (", ".join(f"{r['frame']} (no 3D head, score {r.get('face_score_median')})" if r.get("why") == "no_3d_head"
-                           else f"{r['frame']} (nose {r.get('nose_from_body_model_fh')} fh, pitch {r.get('head_pitch_down_3d')}, score {r.get('face_score_median')})"
+                           else f"{r['frame']} (nose {r.get('nose_from_body_model_fh')} fh, pitch {r.get('head_pitch_down_3d')}"
+                                + (f", roll {r.get('eye_roll_diff_deg')} deg" if r.get("eye_roll_diff_deg") is not None else "")
+                                + f", score {r.get('face_score_median')})"
                            for r in fl) if fl else "none"))
     print(f"THE FORM: {form}" + (f", on {a.by}'s word: {why}" if form == "plain" else " (the default; the plain cut is taken only with --plain \"why\")")
           + f". The job file reads {d['loads'][0]['motion_file']}. Open the sheet beside it.")

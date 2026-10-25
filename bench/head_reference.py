@@ -626,16 +626,23 @@ def class_mouth_gate(mouths: list, centres: list, plain_cut: str, points: str, f
 
 
 #: Reasoned starting values for `marks_against_the_body_model` (2026-10-24, calibrated on bad drawings 3967b's 3969 at 1.34 fh and 4479d's
-#: bowed head at +0.80..+0.92 against kept drawings 0014g, 0278m, 1156g, 3909b, 4726b at <= 0.45 fh and <= +0.63): data printed for the
-#: sheet reader, deciding nothing (`passed` is untouched).
+#: bowed head at +0.80..+0.92; 2026-10-25, eye-line roll calibrated on 2050c's 2174-2175 at 18.4, 15.1 deg (film 65.5, 64.3 deg vs body
+#: 47.1, 49.1 deg; span 0.40, 0.38 fh) against kept drawings 0014g (<= 4.96 deg, 0/154), 0278m (<= 2.66 deg, 0/16), 1156g (<= 2.53 deg,
+#: 0/33), 3909b (<= 8.41 deg at eye_span_fh >= 0.35, 0/58), and 4726b (<= 14.31 deg, 0/48)): data printed for the sheet reader, deciding
+#: nothing (`passed` is untouched).
 BODY_MODEL_NOSE_FH = 0.50
 BODY_MODEL_PITCH_DOWN = 0.80
+BODY_MODEL_ROLL_DEG = 15.0
+BODY_MODEL_EYE_SPAN_FH = 0.35
 
 
 def marks_against_the_body_model(mesh: str | Path, points: str | Path, first: int, count: int, faceless: list[int]) -> dict:
     """Compare the film's 2D face points against the preview's 3D body-model pose table (`<preview>_<subject>_pose_table.json` beside
     `mesh`), a frame at a time on drawn frames (`not in faceless`): 2D nose distance from the body model's projected nose in face
-    heights (`BODY_MODEL_NOSE_FH`), and 3D nose-minus-ears downward pitch (`BODY_MODEL_PITCH_DOWN`). Data only; decides nothing."""
+    heights (`BODY_MODEL_NOSE_FH`), 3D nose-minus-ears downward pitch (`BODY_MODEL_PITCH_DOWN`), and 2D eye-line roll difference in
+    degrees (`BODY_MODEL_ROLL_DEG`, when both eye spans are at least `BODY_MODEL_EYE_SPAN_FH` face heights so profile foreshortening is
+    not mistaken for roll). Data only; decides nothing."""
+    import math
     mesh_p = Path(mesh)
     prefix = mesh_p.stem.partition("_mesh_")[0]
     pt_p = mesh_p.parent / f"{prefix}_pose_table.json"
@@ -656,6 +663,7 @@ def marks_against_the_body_model(mesh: str | Path, points: str | Path, first: in
     pt_frames = pt.get("frames") or []
     bare_set = set(faceless)
     flagged = []
+    max_roll_diff = 0.0
     for f in range(count):
         sf = first + f
         if sf in bare_set:
@@ -678,12 +686,30 @@ def marks_against_the_body_model(mesh: str | Path, points: str | Path, first: in
         ear_mid = 0.5 * (kp3d[3] + kp3d[4])
         nv = kp3d[0] - ear_mid
         pitch = float(nv[1] / max(float(np.linalg.norm(nv)), 1e-4))
-        if nd >= BODY_MODEL_NOSE_FH or pitch >= BODY_MODEL_PITCH_DOWN:
+        if "left_eye" in idx and "right_eye" in idx:
+            le_2d = P["keypoints"][pi, idx["left_eye"]]
+            re_2d = P["keypoints"][pi, idx["right_eye"]]
+        else:
+            rings = fp.lid_rings(P["keypoints"][pi], idx)
+            le_2d, re_2d = (rings[0].mean(0), rings[1].mean(0)) if len(rings) == 2 else (nose_2d, nose_2d)
+        le_b, re_b = kp2d_3d[1], kp2d_3d[2]
+        film_roll = math.degrees(math.atan2(float(le_2d[1] - re_2d[1]), float(le_2d[0] - re_2d[0])))
+        body_roll = math.degrees(math.atan2(float(le_b[1] - re_b[1]), float(le_b[0] - re_b[0])))
+        roll_diff = abs((film_roll - body_roll + 180.0) % 360.0 - 180.0)
+        eye_span_fh = min(float(np.hypot(le_2d[0] - re_2d[0], le_2d[1] - re_2d[1])),
+                          float(np.hypot(le_b[0] - re_b[0], le_b[1] - re_b[1]))) / fh
+        if eye_span_fh >= BODY_MODEL_EYE_SPAN_FH and roll_diff > max_roll_diff:
+            max_roll_diff = roll_diff
+        if nd >= BODY_MODEL_NOSE_FH or pitch >= BODY_MODEL_PITCH_DOWN or (eye_span_fh >= BODY_MODEL_EYE_SPAN_FH and roll_diff >= BODY_MODEL_ROLL_DEG):
             flagged.append({"frame": sf, "nose_from_body_model_fh": round(nd, 2), "head_pitch_down_3d": round(pitch, 2),
-                            "face_score_median": sc_med})
+                            "eye_roll_diff_deg": round(roll_diff, 1), "film_eye_roll_deg": round(film_roll, 1),
+                            "body_eye_roll_deg": round(body_roll, 1), "face_score_median": sc_med})
     return {"known": True, "read_from": pt_p.name,
-            "rule": {"nose_from_body_model_fh": BODY_MODEL_NOSE_FH, "head_pitch_down_3d": BODY_MODEL_PITCH_DOWN},
-            "rule_is": "reasoned starting values (2026-10-24: 3967b's 3969 at 1.34 fh, 4479d's bowed head at +0.80..+0.92; 0 flagged on kept 0014g, 0278m, 1156g, 3909b, 4726b)",
+            "rule": {"nose_from_body_model_fh": BODY_MODEL_NOSE_FH, "head_pitch_down_3d": BODY_MODEL_PITCH_DOWN,
+                     "eye_roll_diff_deg": BODY_MODEL_ROLL_DEG, "eye_span_min_fh": BODY_MODEL_EYE_SPAN_FH},
+            "rule_is": ("reasoned starting values (2026-10-24: 3967b's 3969 at 1.34 fh, 4479d's bowed head at +0.80..+0.92; "
+                        "2026-10-25: 2050c's 2174-2175 eye-line roll at 18.4, 15.1 deg; 0 flagged on kept 0014g, 0278m, 1156g, 3909b, 4726b)"),
+            "eye_roll_diff_deg_max": round(max_roll_diff, 1),
             "flagged_frames": flagged,
             "decides": "nothing: data for the sheet reader (--no-draw-face-on FIRST-LAST=WHY leaves face lines off while keeping the part)"}
 
@@ -696,6 +722,7 @@ def run(mesh: str, points: str, source: str, first: int, count: int, out: Path, 
         no_mouth_on: list[tuple[int, int, str]] | None = None, over_the_eyes: list[tuple[int, int, str]] | None = None,
         no_face_on: list[tuple[int, int, str]] | None = None, no_draw_face_on: list[tuple[int, int, str]] | None = None,
         no_head_on: list[tuple[int, int, str]] | None = None, no_head_form: str = NO_HEAD_FORMS[0],
+        drop_on: list[tuple[int, int, str]] | None = None,
         class_mouth_needs_hole: str | None = None,
         closed_lip_line: str | None = None, darken_head: str | None = None,
         eyes_shut_on: list[tuple[int, int, str]] | None = None,
@@ -753,6 +780,7 @@ def run(mesh: str, points: str, source: str, first: int, count: int, out: Path, 
     }
     no_draw = sorted({f for a, b, _ in no_draw_face_on or [] for f in range(max(a, first), min(b, first + count - 1) + 1)})
     faceless = sorted({f for a, b, _ in (no_face_on or []) + (no_draw_face_on or []) + no_head_spans for f in range(max(a, first), min(b, first + count - 1) + 1)})
+    crop_leave_out = sorted(set(faceless) | {f for a, b, _ in (drop_on or []) for f in range(max(int(a), first), min(int(b), first + count - 1) + 1)})
     # HER EYES SHUT ON A SPAN, on a person's word (`--eyes-shut-on` with `--eyes-shut-form`, the lead's ruling of 2026-10-15 on 2823b;
     # `draw_face_points.EYES_SHUT_FORMS` says why and what each form draws). The pose model's lids stop at a slit on a shut eye
     shut = sorted({f for a, b, _ in eyes_shut_on or [] for f in range(max(a, first), min(b, first + count - 1) + 1)} - set(faceless))
@@ -876,7 +904,7 @@ def run(mesh: str, points: str, source: str, first: int, count: int, out: Path, 
     say(f"1 of 3: the plain body model cut to the head, frames {first} to {first + count - 1}")
     cut = crop.run(mesh, points, first, count, made["plain_cut"], by, names=names, video_first=mesh_first, points_first=points_first,
                    room=room, head_track=ht_path, head_track_first=ht_first, no_head_track=(ht_path is None), head_track_how=ht_how,
-                   **({"cranium": True} if crop_form == "cranium" else {}), say=quiet)
+                   **({"cranium": True, "leave_out_frames": crop_leave_out} if crop_form == "cranium" else {}), say=quiet)
     say(f"    the crop: {crop_form}" + (f" ({crop_why})" if crop_why else " (the default)") + f"; box {cut['box']}, enlarged {cut['scale'][0]:.3f} times: "
         f"the face is {cut['face_height_px_in_this_video']:.0f} px tall"
         + (f" (head {cut['head_height_px_in_this_video']:.0f} px, from the head track with {cut['crown_room_in_face_heights']:g} face heights above the crown)"
@@ -1246,6 +1274,8 @@ def main() -> int:
                         "frame before the span (hold, the default) or is black (blank), with no face lines drawn, while the capture and mask stay untouched; repeatable")
     a.add_argument("--no-head-form", default=NO_HEAD_FORMS[0], choices=NO_HEAD_FORMS,
                    help="what the reference shows on --no-head-on frames: hold (the default: last good cut body-model frame before the span) or blank (black)")
+    a.add_argument("--drop", action="append", default=[], metavar="FIRST-LAST=WHY",
+                   help="source frames on which the capture drops the subject's part: left out when sizing --crop cranium's box; repeatable")
     a.add_argument("--over-the-eyes", action="append", default=[], metavar="FIRST-LAST=WHY",
                    help="source frames on which the plan gives back a class over her eyes (OVER_THE_EYES, her own glasses): the face counts as on "
                         "her track there when the lower face's middle is; repeatable")
@@ -1268,6 +1298,7 @@ def main() -> int:
               no_draw_face_on=[no_mouth_arg(x, "--no-draw-face-on") for x in v.no_draw_face_on],
               no_head_on=[no_mouth_arg(x, "--no-head-on") for x in v.no_head_on],
               no_head_form=v.no_head_form,
+              drop_on=[no_mouth_arg(x, "--drop") for x in v.drop],
               class_mouth_needs_hole=v.class_mouth_needs_hole,
               closed_lip_line=v.closed_lip_line, darken_head=v.darken_head,
               eyes_shut_on=[no_mouth_arg(x, "--eyes-shut-on") for x in v.eyes_shut_on],

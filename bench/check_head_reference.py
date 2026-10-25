@@ -1342,6 +1342,22 @@ def the_crop_cranium() -> str:
     assert c["form"] == "cranium" and c["why"] == "THE LEAD: the grey head" and c["head_track_not_read"] == str(head_tr) and c["cranium"] == plain_cut["cranium"], c
     assert c["cranium"]["frames_the_grey_head_reaches_the_box_edge"] == [] and c["enlarged"][0] > 1.2, c
     assert any("the crop: cranium (THE LEAD: the grey head)" in line for line in said) and any("travel:" in line for line in said), said
+    # bare and dropped frames (`--no-head-on`, `--no-face-on`, `--no-draw-face-on`, `--drop`) are left out when sizing `cranium_box`:
+    # frame 5's grey head reaching the top edge inflates the box without them (negative control) and is excluded with `--no-head-on` or `--drop` (positive control)
+    tall_frames = frames.copy()
+    cx5, cy5 = CENTRES[5]
+    tall_frames[5, 0:int(cy5 - 10 + fl.FACE_PX), max(int(cx5) - 45, 0):int(cx5) + 46] = 90
+    tall_mesh = video(folder / "figure_tall5.mkv", tall_frames)
+    rec_inflated = hr.run(str(tall_mesh), str(pts), str(source), 0, N, folder / "cranium_inflated.mp4", "the check",
+                          crop_form="cranium", crop_why="THE LEAD: the grey head", say=quiet)
+    assert rec_inflated["box"][1] == 0 and rec_inflated["crop"]["cranium"]["frames_the_grey_head_reaches_the_picture_edge"] == [5], rec_inflated["crop"]
+    rec_nh = hr.run(str(tall_mesh), str(pts), str(source), 0, N, folder / "cranium_nh.mp4", "the check",
+                    crop_form="cranium", crop_why="THE LEAD: the grey head", no_head_on=[(5, 5, "FLIPPED")], say=quiet)
+    assert rec_nh["box"] == rec["box"] != rec_inflated["box"] and rec_nh["crop"]["cranium"]["frames_left_out_of_the_box"] == [5] \
+        and rec_nh["crop"]["cranium"]["frames_the_grey_head_reaches_the_picture_edge"] == [], rec_nh["crop"]
+    rec_drop = hr.run(str(tall_mesh), str(pts), str(source), 0, N, folder / "cranium_drop.mp4", "the check",
+                      crop_form="cranium", crop_why="THE LEAD: the grey head", drop_on=[(5, 5, "DROPPED")], say=quiet)
+    assert rec_drop["box"] == rec["box"] != rec_inflated["box"] and rec_drop["crop"]["cranium"]["frames_left_out_of_the_box"] == [5], rec_drop["crop"]
     for kw, word in (({"crop_form": "cranium", "crop_why": " "}, "--crop-why"), ({"crop_form": "cranium", "crop_why": "w", "head_track": str(head_tr)}, "reads no head track")):
         try:
             hr.run(str(mesh), str(pts), str(source), 0, N, folder / "refused_cranium.mp4", "the check", say=quiet, **kw)
@@ -1458,6 +1474,107 @@ def no_head_where_pose_fails() -> str:
             "leaving other frames unchanged; refuses missing why, out-of-range spans, unknown forms, and holding on frame 0 before writing")
 
 
+def marks_against_body_model_roll_pitch_nose() -> str:
+    """`marks_against_the_body_model` (2026-10-24 nose distance & 3D downward pitch; 2026-10-25 2D eye-line roll difference `BODY_MODEL_ROLL_DEG = 15.0`
+    at `eye_span_fh >= BODY_MODEL_EYE_SPAN_FH = 0.35`, with 180/360-degree wraparound): flags frames exceeding nose, pitch, or roll cutoffs;
+    leaves kept-level roll (< 15 deg), profile-foreshortened eyes (span < 0.35 fh), and bare frames unflagged."""
+    import math
+    from _lib import face_points as fp
+    folder, mesh, pts, _ = rooms("marks_body_model", [90] * N, [60] * N, CENTRES, 0)
+    P = fp.load(str(pts), None)
+    idx = P["index"]
+    mesh_named = folder / "shot_lead_mesh_00001.mp4"
+    shutil.copy(mesh, mesh_named)
+    pt_path = folder / "shot_lead_pose_table.json"
+    pt_frames = []
+    for f in range(N):
+        kp = P["keypoints"][f]
+        nose = kp[idx["tip_of_nose"]].astype(float)
+        fh = float(fp.face_height(kp, idx))
+        rings = fp.lid_rings(kp, idx)
+        le_2d, re_2d = rings[0].mean(0).astype(float), rings[1].mean(0).astype(float)
+        film_roll = math.degrees(math.atan2(float(le_2d[1] - re_2d[1]), float(le_2d[0] - re_2d[0])))
+        mid_e = 0.5 * (le_2d + re_2d)
+        span = float(np.hypot(le_2d[0] - re_2d[0], le_2d[1] - re_2d[1]))
+        # Default: aligned nose, level 3D pitch (0.0), and matching eye-line roll (0 deg diff)
+        b_roll = math.radians(film_roll)
+        b_span = span
+        b_nose = nose.copy()
+        kp3d = [[0.0, 0.0, 0.0], [-0.03, -0.03, 0.0], [0.03, -0.03, 0.0], [-0.06, 0.0, 0.05], [0.06, 0.0, 0.05]]
+        if f == 2:
+            # Frame 2 (negative control for roll, like 4726b's 14.3 deg): 14.3 deg roll diff < 15.0 deg -> NOT flagged
+            b_roll = math.radians(film_roll - 14.3)
+        elif f == 3:
+            # Frame 3 (positive control for roll, like 2050c's 2174 at 18.4 deg): 18.4 deg roll diff >= 15.0 deg -> FLAGGED
+            b_roll = math.radians(film_roll - 18.4)
+        elif f == 4:
+            # Frame 4 (negative control for profile foreshortening, like 3909b): body eye span 0.20 fh < 0.35 fh with 90 deg roll diff -> NOT flagged
+            b_span = 0.20 * fh
+            b_roll = math.radians(film_roll - 90.0)
+        elif f == 5:
+            # Frame 5 (positive control for nose distance >= 0.50 fh): 0.75 fh offset -> FLAGGED
+            b_nose = nose + np.array([0.75 * fh, 0.0])
+        elif f == 6:
+            # Frame 6 (positive control for 3D downward pitch >= 0.80): pitch +0.88 -> FLAGGED
+            kp3d[0] = [0.0, 0.88, 0.47]
+            kp3d[3] = [-0.06, 0.0, 0.0]
+            kp3d[4] = [0.06, 0.0, 0.0]
+        elif f == 7:
+            # Frame 7 (bare frame in `faceless`): 25 deg roll diff, but in `faceless` -> skipped
+            b_roll = math.radians(film_roll - 25.0)
+        dx, dy = 0.5 * b_span * math.cos(b_roll), 0.5 * b_span * math.sin(b_roll)
+        le_b = [float(mid_e[0] + dx), float(mid_e[1] + dy), 0.99]
+        re_b = [float(mid_e[0] - dx), float(mid_e[1] - dy), 0.99]
+        kp2d_3d = [[float(b_nose[0]), float(b_nose[1]), 0.99], le_b, re_b,
+                   [float(b_nose[0] - 20.0), float(b_nose[1]), 0.99], [float(b_nose[0] + 20.0), float(b_nose[1]), 0.99]]
+        pt_frames.append({"frame": f, "people": [{"keypoints_2d": kp2d_3d, "keypoints_3d": kp3d}]})
+    pt_path.write_text(json.dumps({"first_source_frame": 0, "frames": pt_frames}))
+    got = hr.marks_against_the_body_model(mesh_named, pts, 0, N, faceless=[7])
+    assert got["known"] and got["rule"] == {
+        "nose_from_body_model_fh": hr.BODY_MODEL_NOSE_FH,
+        "head_pitch_down_3d": hr.BODY_MODEL_PITCH_DOWN,
+        "eye_roll_diff_deg": hr.BODY_MODEL_ROLL_DEG,
+        "eye_span_min_fh": hr.BODY_MODEL_EYE_SPAN_FH,
+    }, got
+    by_f = {r["frame"]: r for r in got["flagged_frames"]}
+    # THE CASES THAT GO RED when roll is not checked, when <15 deg or profile <0.35 fh false-flags, or when bare frame 7 is not skipped
+    assert sorted(by_f) == [3, 5, 6], by_f
+    assert abs(by_f[3]["eye_roll_diff_deg"] - 18.4) <= 0.2 and by_f[3]["nose_from_body_model_fh"] < 0.05 and by_f[3]["head_pitch_down_3d"] < 0.05, by_f[3]
+    assert abs(by_f[5]["nose_from_body_model_fh"] - 0.75) <= 0.02 and by_f[5]["eye_roll_diff_deg"] == 0.0, by_f[5]
+    assert abs(by_f[6]["head_pitch_down_3d"] - 0.88) <= 0.02 and by_f[6]["eye_roll_diff_deg"] == 0.0, by_f[6]
+    assert abs(got["eye_roll_diff_deg_max"] - 18.4) <= 0.2, got
+    # Wraparound across +/-180 deg (also exercising the Sapiens2 `left_eye`/`right_eye` keypoint branch):
+    # film eye line near +175 deg (`left_eye` left of `right_eye`, slightly lower) vs body eye line near -175 deg (10 deg apart -> NOT flagged)
+    # and -163 deg (22 deg apart -> FLAGGED, where plain abs(175 - (-175)) = 350 deg would false-flag frame 0)
+    kpw = np.zeros((2, len(P["names"]) + 2, 2), dtype=np.float32)
+    kpw[:, :len(P["names"])] = P["keypoints"][:2]
+    scw = np.ones((2, len(P["names"]) + 2), dtype=np.float32)
+    scw[:, :len(P["names"])] = P["scores"][:2]
+    names_w = list(P["names"]) + ["left_eye", "right_eye"]
+    for f in (0, 1):
+        cx_f, cy_f = CENTRES[f]
+        kpw[f, -2] = [cx_f - 18.0, cy_f - 10.0 + 1.5]   # left_eye left of right_eye, slightly lower -> atan2(dy, dx) = +175.2 deg
+        kpw[f, -1] = [cx_f + 18.0, cy_f - 10.0 - 1.5]
+    wrap_pts = folder / "wrap_points.npz"
+    np.savez_compressed(wrap_pts, keypoints=kpw, scores=scw, names=np.array(names_w), first_frame=np.array(0), size=np.array([W, H]))
+    for f, delta_deg in ((0, 10.0), (1, 22.0)):        # frame 0: +175.2 vs -174.8 (10 deg apart); frame 1: +175.2 vs -162.8 (22 deg apart)
+        le_w, re_w = kpw[f, -2], kpw[f, -1]
+        f_ang = math.degrees(math.atan2(float(le_w[1] - re_w[1]), float(le_w[0] - re_w[0])))
+        assert f_ang > 150.0, f_ang
+        b_ang = math.radians(((f_ang + delta_deg + 180.0) % 360.0) - 180.0)
+        mid_w = 0.5 * (le_w + re_w)
+        sp_w = float(np.hypot(le_w[0] - re_w[0], le_w[1] - re_w[1]))
+        dx, dy = 0.5 * sp_w * math.cos(b_ang), 0.5 * sp_w * math.sin(b_ang)
+        pt_frames[f]["people"][0]["keypoints_2d"][1] = [float(mid_w[0] + dx), float(mid_w[1] + dy), 0.99]
+        pt_frames[f]["people"][0]["keypoints_2d"][2] = [float(mid_w[0] - dx), float(mid_w[1] - dy), 0.99]
+    pt_path.write_text(json.dumps({"first_source_frame": 0, "frames": pt_frames[:2]}))
+    got_w = hr.marks_against_the_body_model(mesh_named, wrap_pts, 0, 2, faceless=[])
+    by_w = {r["frame"]: r for r in got_w["flagged_frames"]}
+    assert sorted(by_w) == [1] and abs(by_w[1]["eye_roll_diff_deg"] - 22.0) <= 0.2 and by_w[1]["film_eye_roll_deg"] > 150.0 and by_w[1]["body_eye_roll_deg"] < -140.0, got_w
+    return ("marks_against_the_body_model flags nose >= 0.50 fh, 3D downward pitch >= 0.80, and 2D eye-line roll diff >= 15.0 deg (with +/-180 deg wraparound), "
+            "while leaving < 15.0 deg roll, profile-foreshortened eyes (< 0.35 fh span), and bare frames unflagged")
+
+
 case("one run makes the form", one_run_makes_the_form)
 case("a face off the subject's track fails the run", a_face_off_the_track_fails)
 case("her own glasses over her eyes, off her track", her_glasses_over_her_eyes)
@@ -1481,5 +1598,6 @@ case("the crop's form: the head's box or the face's", the_crop_is_head_or_face)
 case("the crop's form: the body model's grey head", the_crop_cranium)
 case("where the body model shows nobody", where_the_body_model_shows_nobody)
 case("no 3D grey head or 2D face lines on named frames (--no-head-on)", no_head_where_pose_fails)
+case("marks against the 3D body model: nose, pitch, and eye-line roll", marks_against_body_model_roll_pitch_nose)
 shutil.rmtree(WORK, ignore_errors=True)
 sys.exit(finish())
