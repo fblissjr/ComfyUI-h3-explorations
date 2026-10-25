@@ -106,9 +106,11 @@ From `internal/claude/2026-10-24_plan_for_gemini_from_the_reviewer.md` (§5) and
 - Today's research record & seam table:
   [`../research/masking/2026-10-25_context_frames_and_identity_on_2050.md`](../research/masking/2026-10-25_context_frames_and_identity_on_2050.md).
 - Verification procedure: [`../masked_v2v/verifying_raw_frames_and_keeps.md`](../masked_v2v/verifying_raw_frames_and_keeps.md).
-- Today's plans, case study, and mailbox: `internal/claude/2026-10-24_plan_for_gemini_from_the_reviewer.md`,
+- Today's plans, case study, and storage inventory: `internal/claude/2026-10-24_plan_for_gemini_from_the_reviewer.md`,
   `internal/claude/2026-10-24_stop_start_pivot_for_gemini.md`,
+  `internal/claude/2026-10-24_subagent_briefs.md`,
   `internal/gemini/2026-10-24_begin_of_day_plan_by_gemini-revision3_status_at_1800Z.md`,
-  `internal/gemini/2026-10-24_case_study_what_worked_and_what_didnt.md`, and `internal/gemini/Lead_Mailbox.md`.
+  `internal/gemini/2026-10-24_case_study_what_worked_and_what_didnt.md`, and
+  `internal/gemini/2026-10-24_storage_inventory_and_cleanup_plan.md`.
 - The `2341Z` cut and stacked views: `data/2026-10-24_fun_delivery_tables/rebuild_fun_2026-10-24T2341Z.json` and the
   share's `Video/fun/day_2026-10-24/fun_0000_6394_joined_2026-10-24T2341Z_from_laid.mp4` (`_STACKED.mp4` beside it).
