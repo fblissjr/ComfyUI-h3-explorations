@@ -7,6 +7,7 @@
     <python> bench/laid.py set-owner --video <video> --load LOAD [--shot F-L] [--subject SUB] --owner OWNER [--owner-word FILE:LINE] --by WHY [--no-rebuild WHY]
     <python> bench/laid.py remove --video <video> [--first F --last L] [--subject SUB] [--load LOAD] --by WHY [--no-rebuild WHY]
     <python> bench/laid.py verify --laid data/<video>/laid.jsonl --share SHARE
+    <python> bench/laid.py keeps --video <video> [--laid data/<video>/laid.jsonl] [--answers data/<video>/owner_answers.jsonl] [--verdicts data/<video>/verdicts/verdicts.jsonl] [--removed data/<video>/laid.removed.jsonl] [--json OUT.json]
     <python> bench/laid.py refs --laid data/<video>/laid.jsonl --ledger LEDGER.json --share SHARE
     (read by) <python> bench/delivery_table.py ... --laid data/<video>/laid.jsonl
 
@@ -586,6 +587,444 @@ def set_owner(a: argparse.Namespace) -> int:
     return _run_autorebuild(a, laid_path, video, share)
 
 
+RENDER_LOAD_RE = re.compile(r"^(lead|second|third|fourth)_(?:hfp|fp)_(\d+)([a-z0-9_]*)$")
+
+
+def _spans_of_laid(x: dict) -> list[list[int]]:
+    fr = x.get("frames")
+    if isinstance(fr, list) and fr and all(isinstance(s, list) and len(s) == 2 for s in fr):
+        return [[int(s[0]), int(s[1])] for s in fr]
+    return [[int(x["first"]), int(x["last"])]]
+
+
+def _frame_set(spans: list[list[int]]) -> set[int]:
+    return {f for s0, s1 in spans for f in range(int(s0), int(s1) + 1)}
+
+
+def _fmt_spans(spans: list[list[int]]) -> str:
+    return ",".join(f"{s[0]}-{s[1]}" for s in spans)
+
+
+def _extract_replaces(obj: dict) -> set[str]:
+    rep = obj.get("replaces")
+    out: set[str] = set()
+    if isinstance(rep, list):
+        for item in rep:
+            out.update(re.findall(r"\b(?:lead|second|third|fourth)_[a-z0-9_]+\b", str(item)))
+            if isinstance(item, str) and item.strip():
+                out.add(item.strip().split()[0])
+    elif isinstance(rep, str) and rep.strip():
+        out.update(re.findall(r"\b(?:lead|second|third|fourth)_[a-z0-9_]+\b", rep))
+        out.add(rep.strip().split()[0])
+    by = str(obj.get("by") or "")
+    for m in re.finditer(r"(?:in place of|replacing|than their earlier keep)\s+([a-z0-9_]+)", by):
+        out.add(m.group(1))
+    return out
+
+
+def _laid_effective_at(x: dict, choices: dict[str, dict]) -> str:
+    ld = str(x.get("load") or "")
+    ch = choices.get(ld)
+    if ch and _is_keep(ch["chosen"]) and ch.get("at"):
+        return str(ch["at"])
+    by_times = re.findall(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?Z", str(x.get("by") or ""))
+    if by_times:
+        return max(by_times)
+    return str(x.get("added") or "")
+
+
+def keeps(a: argparse.Namespace) -> int:
+    import delivery_table
+    laid_path, video = _resolve_laid_and_video(a)
+    if not laid_path.is_file():
+        raise SystemExit(f"keeps: {laid_path} is missing")
+    laid_rows = read(str(laid_path), "", check_bytes=False)
+    vdir = laid_path.resolve().parent
+    answers_path = Path(a.answers) if getattr(a, "answers", None) else (vdir / "owner_answers.jsonl")
+    if getattr(a, "verdicts", None):
+        verdicts_path = Path(a.verdicts)
+    else:
+        cand = vdir / "verdicts" / "verdicts.jsonl"
+        verdicts_path = cand if cand.is_file() else (vdir / "verdicts.jsonl")
+    rem_path = Path(a.removed) if getattr(a, "removed", None) else removed_path(laid_path)
+    rem_rows: list[dict] = []
+    if rem_path.is_file():
+        for text in rem_path.read_text().splitlines():
+            if text.strip():
+                rem_rows.append(json.loads(text))
+
+    frames_by_row: dict[str, list[list[int]]] = {}
+    subject_by_row: dict[str, str] = {}
+    for r in rem_rows:
+        rem = r.get("removed") or {}
+        if rem.get("load"):
+            frames_by_row[str(rem["load"])] = _spans_of_laid(rem)
+            if rem.get("subject"):
+                subject_by_row[str(rem["load"])] = str(rem["subject"])
+    for x in laid_rows:
+        frames_by_row[str(x["load"])] = _spans_of_laid(x)
+        subject_by_row[str(x["load"])] = str(x["subject"])
+
+    choices: dict[str, dict] = {}
+    not_the_one_lower = {k.lower() for k in delivery_table.NOT_THE_ONE} | {"not sure", "not this one", "taken back"}
+    for f_idx, p in enumerate((answers_path, verdicts_path)):
+        if not p.is_file():
+            continue
+        for l_idx, text in enumerate(p.read_text().splitlines(), 1):
+            if not text.strip():
+                continue
+            try:
+                d = json.loads(text)
+            except json.JSONDecodeError:
+                continue
+            if not isinstance(d, dict):
+                continue
+            is_owner = (d.get("who") == "owner") if f_idx == 0 else (d.get("schema") == "h3_verdicts/1" or d.get("who") == "owner")
+            if not is_owner:
+                continue
+            row = str(d.get("row") or "").strip()
+            if not row:
+                continue
+            fr = d.get("frames")
+            if isinstance(fr, list) and len(fr) == 2 and all(type(v) is int for v in fr):
+                frames_by_row[row] = [[int(fr[0]), int(fr[1])]]
+            elif isinstance(fr, list) and fr and all(isinstance(s, list) and len(s) == 2 for s in fr):
+                frames_by_row[row] = [[int(s[0]), int(s[1])] for s in fr]
+            elif d.get("first") is not None and fr is not None and str(d.get("first")).isdigit() and str(fr).isdigit():
+                f0 = int(d["first"])
+                frames_by_row[row] = [[f0, f0 + int(fr) - 1]]
+            chosen = str(d.get("chosen") or "").strip()
+            if not chosen or d.get("what") == "parts":
+                continue
+            if d.get("what") == "words" and not (
+                _is_keep(chosen) or chosen.lower() in not_the_one_lower or "wrong" in chosen.lower() or "skip" in chosen.lower()
+            ):
+                continue
+            key = (str(d.get("at") or ""), f_idx, l_idx)
+            prev = choices.get(row)
+            if prev is None or key > prev["key"]:
+                choices[row] = {
+                    "key": key,
+                    "chosen": chosen,
+                    "at": str(d.get("at") or ""),
+                    "cite": f"{p.name}:{l_idx}",
+                    "what": d.get("what"),
+                }
+
+    for row in list(choices.keys()):
+        if choices[row]["chosen"].lower() == "taken back":
+            del choices[row]
+
+    by_shot: dict[str, list[dict]] = {}
+    by_shot_sub: dict[tuple[str, str], list[dict]] = {}
+    laid_by_load: dict[str, list[dict]] = {}
+    for x in laid_rows:
+        shot = f"{x['first']}-{x['last']}"
+        by_shot.setdefault(shot, []).append(x)
+        by_shot_sub.setdefault((shot, str(x["subject"])), []).append(x)
+        laid_by_load.setdefault(str(x["load"]), []).append(x)
+
+    multi_sub_shots = {s for s, rows in by_shot.items() if len({r["subject"] for r in rows}) >= 2}
+    split_span_shots: set[tuple[str, str]] = set()
+    for k, rows in by_shot_sub.items():
+        if len(rows) >= 2:
+            sets = [_frame_set(_spans_of_laid(r)) for r in rows]
+            if all(not (sets[i] & sets[j]) for i in range(len(sets)) for j in range(i + 1, len(sets))):
+                split_span_shots.add(k)
+
+    laid_report: list[dict] = []
+    wrong_laid: list[dict] = []
+    for x in laid_rows:
+        ld = str(x["load"])
+        shot = f"{x['first']}-{x['last']}"
+        sub = str(x["subject"])
+        spans = _spans_of_laid(x)
+        ch = choices.get(ld)
+        eff_at = _laid_effective_at(x, choices)
+        tags: list[str] = []
+        if shot in multi_sub_shots:
+            tags.append("multi-subject")
+        if (shot, sub) in split_span_shots:
+            tags.append("split-span")
+        is_wrong = False
+        if ch is not None and not _is_keep(ch["chosen"]):
+            ch_low = ch["chosen"].strip().lower()
+            if x["owner"] == "kept":
+                is_wrong = True
+            elif x["owner"] == "kept in a joined clip":
+                if ch_low != "not sure" or (ch["at"] and eff_at and ch["at"] > eff_at) or (ch["at"] and x.get("added") and ch["at"] > str(x.get("added"))):
+                    is_wrong = True
+            else:
+                if ch_low != "not sure":
+                    is_wrong = True
+        if ch is not None:
+            last_choice_str = f"{ch['chosen']} ({ch['at'] or 'no-at'}, {ch['cite']})"
+        elif x["owner"] == "kept in a joined clip":
+            last_choice_str = f"joined-clip keep ({eff_at})"
+        elif x["owner"] == "kept":
+            last_choice_str = f"whole-video/terminal keep ({eff_at})"
+        else:
+            last_choice_str = "none"
+        status = f"LAID_MARKED_WRONG ({last_choice_str})" if is_wrong else ("ok" + (f" [{', '.join(tags)}]" if tags else ""))
+        rec = {
+            "line": x["line"],
+            "shot": shot,
+            "frames": spans,
+            "subject": sub,
+            "load": ld,
+            "owner": x["owner"],
+            "last_owner_choice": last_choice_str,
+            "tags": tags,
+            "status": status,
+        }
+        laid_report.append(rec)
+        if is_wrong:
+            wrong_laid.append(rec)
+
+    kept_loads: list[tuple[str, dict]] = []
+    for row, info in sorted(choices.items()):
+        if re.search(r"(^|_)joined(_|$)", row):
+            continue
+        if not _is_keep(info["chosen"]):
+            continue
+        m = RENDER_LOAD_RE.match(row)
+        if not m and row not in subject_by_row:
+            continue
+        kept_loads.append((row, info))
+
+    superseded_keeps: list[dict] = []
+    missing_keeps: list[dict] = []
+    for row, info in kept_loads:
+        if row in laid_by_load:
+            continue
+        m = RENDER_LOAD_RE.match(row)
+        sub = m.group(1) if m else subject_by_row.get(row, "")
+        r_first = int(m.group(2)) if m else 0
+        r_suf = m.group(3) if m else ""
+        spans = frames_by_row.get(row) or ([[r_first, r_first]] if r_first else [])
+        fset = _frame_set(spans) if spans else set()
+        sup_by: str | None = None
+        for x in laid_rows:
+            if row in _extract_replaces(x):
+                sup_by = f"{x['load']} ({_laid_effective_at(x, choices)})"
+                break
+        if not sup_by and fset:
+            for x in laid_rows:
+                if str(x["subject"]) != sub:
+                    continue
+                if fset & _frame_set(_spans_of_laid(x)):
+                    x_at = _laid_effective_at(x, choices)
+                    xm = RENDER_LOAD_RE.match(str(x["load"]))
+                    x_newer_variant = bool(
+                        xm and int(xm.group(2)) == r_first and xm.group(3) > r_suf
+                        and x.get("owner") == "kept" and x_at[:10] == info["at"][:10]
+                    )
+                    if not info["at"] or (x_at and x_at >= info["at"]) or x_newer_variant:
+                        sup_by = f"{x['load']} ({x_at})"
+                        break
+        if not sup_by:
+            for r in rem_rows:
+                rem = r.get("removed") or {}
+                if str(rem.get("subject") or "") != sub:
+                    continue
+                rem_at = str(r.get("at") or "")
+                rem_eff = _laid_effective_at(rem, choices)
+                if rem_at and info["at"] and rem_at < info["at"]:
+                    continue
+                if row == rem.get("load") or row in _extract_replaces(rem) or (
+                    fset and (fset & _frame_set(_spans_of_laid(rem))) and (not info["at"] or rem_eff >= info["at"])
+                ):
+                    sup_by = f"{rem.get('load')} (removed {rem_at})"
+                    break
+        entry = {
+            "load": row,
+            "subject": sub,
+            "frames": spans,
+            "keep_at": info["at"],
+            "cite": info["cite"],
+            "superseded_by": sup_by,
+        }
+        if sup_by:
+            superseded_keeps.append(entry)
+        else:
+            missing_keeps.append(entry)
+
+    # Removed rows in laid.removed.jsonl whose (subject, frames) have no current laid row in laid.jsonl
+    unreplaced_removals: list[dict] = []
+    seen_rem_keys: set[tuple[str, str]] = set()
+    for r in reversed(rem_rows):
+        rem = r.get("removed") or {}
+        rem_load = str(rem.get("load") or "")
+        rem_sub = str(rem.get("subject") or "")
+        rem_spans = _spans_of_laid(rem) if rem.get("first") is not None else []
+        rem_fset = _frame_set(rem_spans) if rem_spans else set()
+        rkey = (rem_sub, _fmt_spans(rem_spans))
+        if not rem_sub or not rem_fset or rkey in seen_rem_keys:
+            continue
+        seen_rem_keys.add(rkey)
+        covered_now = any(
+            str(x["subject"]) == rem_sub and bool(rem_fset & _frame_set(_spans_of_laid(x)))
+            for x in laid_rows
+        )
+        if not covered_now:
+            unreplaced_removals.append({
+                "shot": f"{rem.get('first')}-{rem.get('last')}",
+                "subject": rem_sub,
+                "frames": rem_spans,
+                "removed_load": rem_load,
+                "removed_at": str(r.get("at") or ""),
+                "why": str(r.get("by") or ""),
+            })
+    unreplaced_removals.reverse()
+
+    # Completed renders in data/*_job/*.render.built.json newer than a laid row on the same (shot, subject) with no negative verdict
+    newer_unlaid_renders: list[dict] = []
+    data_root = vdir.parent
+    completed_renders: dict[str, dict] = {}
+    if data_root.is_dir():
+        for bp in sorted(data_root.glob("*_job/*.render.built.json")):
+            try:
+                bdoc = json.loads(bp.read_text())
+            except (OSError, ValueError):
+                continue
+            ld = bdoc.get("load") or {}
+            rname = str(ld.get("name") or bp.name.split(".")[0])
+            qp = bp.with_name(f"{rname}.render.queued.json")
+            if not qp.is_file():
+                continue
+            try:
+                qdoc = json.loads(qp.read_text())
+            except (OSError, ValueError):
+                continue
+            if qdoc.get("status") not in ("success", "completed") and not qdoc.get("files"):
+                continue
+            out_folder = str(bdoc.get("output_folder") or "")
+            cap_str = str(bdoc.get("capture") or "")
+            if video and f"/{video}/" not in out_folder and f"_{video}_" not in cap_str and not out_folder.startswith(f"Video/{video}/"):
+                continue
+            rfirst = ld.get("first")
+            rframes = ld.get("frames")
+            rsub = str(ld.get("subject") or "")
+            if rfirst is None or not rframes or not rsub:
+                continue
+            qat = str(qdoc.get("queued_at") or "")
+            completed_renders[rname] = {
+                "load": rname,
+                "subject": rsub,
+                "first": int(rfirst),
+                "last": int(rfirst) + int(rframes) - 1,
+                "queued_at": qat,
+            }
+    removed_loads = {str((r.get("removed") or {}).get("load") or "") for r in rem_rows}
+    for x in laid_rows:
+        x_load = str(x["load"])
+        x_sub = str(x["subject"])
+        x_spans = _spans_of_laid(x)
+        x_fset = _frame_set(x_spans)
+        x_rec = completed_renders.get(x_load)
+        x_qat = x_rec["queued_at"] if x_rec else _laid_effective_at(x, choices)
+        xm = RENDER_LOAD_RE.match(x_load)
+        for rname, rinfo in sorted(completed_renders.items()):
+            if rname == x_load or rname in laid_by_load or rname in removed_loads or rname in _extract_replaces(x):
+                continue
+            if rinfo["subject"] != x_sub:
+                continue
+            rfset = set(range(rinfo["first"], rinfo["last"] + 1))
+            if not (x_fset & rfset):
+                continue
+            rm = RENDER_LOAD_RE.match(rname)
+            same_stem_newer = bool(xm and rm and int(xm.group(2)) == int(rm.group(2)) and rm.group(3) > xm.group(3))
+            if not same_stem_newer and (not rinfo["queued_at"] or not x_qat or rinfo["queued_at"] <= x_qat):
+                continue
+            rch = choices.get(rname)
+            if rch is not None and not _is_keep(rch["chosen"]):
+                continue
+            newer_unlaid_renders.append({
+                "shot": f"{x['first']}-{x['last']}",
+                "subject": x_sub,
+                "laid_load": x_load,
+                "newer_load": rname,
+                "newer_span": [[rinfo["first"], rinfo["last"]]],
+                "newer_queued_at": rinfo["queued_at"],
+                "last_owner_choice": rch["chosen"] if rch else "none",
+            })
+
+    print(f"=== Laid rows in {laid_path} ({len(laid_rows)} rows across {len(by_shot)} shots) ===")
+    for r in laid_report:
+        print(
+            f"  {r['line']:3d}  {r['shot']:9}  {_fmt_spans(r['frames']):11}  {r['subject']:6}  "
+            f"{r['load']:18}  {r['owner']:21}  {r['last_owner_choice']:46}  {r['status']}"
+        )
+    if superseded_keeps:
+        print(f"\n=== Historical keeps superseded ({len(superseded_keeps)}) ===")
+        for s in superseded_keeps:
+            print(
+                f"  {s['load']:18}  {s['subject']:6}  {_fmt_spans(s['frames']):11}  "
+                f"kept {s['keep_at'] or 'no-at':20} ({s['cite']:24}) -> superseded by {s['superseded_by']}"
+            )
+    if unreplaced_removals:
+        print(f"\n=== Removed rows not yet replaced in laid.jsonl ({len(unreplaced_removals)}) ===")
+        for u in unreplaced_removals:
+            print(
+                f"  {u['shot']:9}  {_fmt_spans(u['frames']):11}  {u['subject']:6}  "
+                f"was {u['removed_load']:18} (removed {u['removed_at']}: {u['why']})"
+            )
+    if newer_unlaid_renders:
+        print(f"\n=== Newer completed renders without negative verdict ({len(newer_unlaid_renders)}) ===")
+        for n_ren in newer_unlaid_renders:
+            print(
+                f"  {n_ren['shot']:9}  {n_ren['subject']:6}  laid {n_ren['laid_load']:18} < newer {n_ren['newer_load']:18} "
+                f"({_fmt_spans(n_ren['newer_span'])}, queued {n_ren['newer_queued_at']}, choice={n_ren['last_owner_choice']})"
+            )
+    summary = (
+        f"{len(laid_rows)} laid rows across {len(by_shot)} shots "
+        f"({len(multi_sub_shots)} multi-subject composite shots, {len(split_span_shots)} split-span subject shots); "
+        f"{len(kept_loads)} kept loads verified; {len(superseded_keeps)} historical keeps superseded; "
+        f"{len(unreplaced_removals)} unreplaced removals; {len(newer_unlaid_renders)} newer unlaid renders; "
+        f"{len(missing_keeps)} kept loads missing from laid.jsonl; {len(wrong_laid)} laid loads marked wrong"
+    )
+    print(f"\n{summary}")
+    if getattr(a, "json", None):
+        Path(a.json).write_text(json.dumps({
+            "laid_path": str(laid_path),
+            "laid_rows": laid_report,
+            "superseded_keeps": superseded_keeps,
+            "unreplaced_removals": unreplaced_removals,
+            "newer_unlaid_renders": newer_unlaid_renders,
+            "missing_keeps": missing_keeps,
+            "wrong_laid": wrong_laid,
+            "counts": {
+                "laid_rows": len(laid_rows),
+                "shots": len(by_shot),
+                "multi_subject_shots": len(multi_sub_shots),
+                "split_span_subject_shots": len(split_span_shots),
+                "kept_loads_verified": len(kept_loads),
+                "historical_keeps_superseded": len(superseded_keeps),
+                "unreplaced_removals": len(unreplaced_removals),
+                "newer_unlaid_renders": len(newer_unlaid_renders),
+                "kept_loads_missing": len(missing_keeps),
+                "laid_loads_marked_wrong": len(wrong_laid),
+            },
+            "summary": summary,
+        }, indent=2) + "\n")
+    if wrong_laid or missing_keeps:
+        msgs: list[str] = []
+        for w in wrong_laid:
+            msgs.append(
+                f"LAID_MARKED_WRONG: line {w['line']} of {laid_path} lays {w['load']} on {w['shot']} "
+                f"(frames {_fmt_spans(w['frames'])}, {w['subject']}, owner={w['owner']!r}), "
+                f"but the owner's last choice on {w['load']} is {w['last_owner_choice']}"
+            )
+        for m_keep in missing_keeps:
+            msgs.append(
+                f"KEEP_NOT_LAID: {m_keep['load']} ({m_keep['subject']}, frames {_fmt_spans(m_keep['frames'])}) "
+                f"has last owner choice keep at {m_keep['keep_at'] or 'no-at'} ({m_keep['cite']}), "
+                f"is not in {laid_path}, and is not superseded by any newer laid row on its frames"
+            )
+        raise SystemExit("\n".join(msgs))
+    return 0
+
+
 def _add_write_args(sp: argparse.ArgumentParser, is_remove: bool = False, is_replace: bool = False) -> None:
     sp.add_argument("--video", help="video stem (defaults to the parent folder of --laid)")
     sp.add_argument("--laid", help="path to data/<video>/laid.jsonl (defaults to data/<video>/laid.jsonl)")
@@ -652,6 +1091,14 @@ def main(argv: list[str] | None = None) -> int:
     v = sub.add_parser("verify", help="print every line with its file's state now")
     v.add_argument("--laid", required=True)
     v.add_argument("--share", required=True)
+    kp = sub.add_parser("keeps", help="verify every laid row and every owner keep against owner_answers.jsonl and verdicts.jsonl")
+    kp.add_argument("--video", help="video stem (defaults to the parent folder of --laid)")
+    kp.add_argument("--laid", help="path to data/<video>/laid.jsonl (defaults to data/<video>/laid.jsonl)")
+    kp.add_argument("--answers", help="path to data/<video>/owner_answers.jsonl")
+    kp.add_argument("--verdicts", help="path to data/<video>/verdicts/verdicts.jsonl")
+    kp.add_argument("--removed", help="path to data/<video>/laid.removed.jsonl")
+    kp.add_argument("--data", help="optional data/<video> path")
+    kp.add_argument("--json", help="optional path to write JSON verification report")
     rf = sub.add_parser("refs", help="every line's reference as its render read it, against the file now")
     rf.add_argument("--laid", required=True)
     rf.add_argument("--ledger", required=True)
@@ -662,6 +1109,8 @@ def main(argv: list[str] | None = None) -> int:
         return mutate_laid(a)
     if a.cmd == "set-owner":
         return set_owner(a)
+    if a.cmd == "keeps":
+        return keeps(a)
     if a.cmd == "refs":
         rows = refs(read(a.laid, a.share, check_bytes=False), json.loads(Path(a.ledger).read_text()), HERE.parent)
         for x in rows:

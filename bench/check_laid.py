@@ -18,6 +18,10 @@
   history_grows                 kept and back to unconfirmed: two history entries, the citation gone from the line and kept
                                 in the history; a keep in the verdicts record's form (`what: words`, no `who`) taken past an
                                 older "not sure" appended after it; `kept in a joined clip` on a row ending `_joined` taken
+  keeps_verifies_and_refuses    `keeps` passes on disjoint frame spans for the same subject on one shot (`1466-1534` and
+                                `1575-1729`) and on historical keeps superseded by newer keeps or `replaces`; refuses
+                                (`KEEP_NOT_LAID`) when a kept render is not laid and not covered on its frames, and refuses
+                                (`LAID_MARKED_WRONG`) when a laid row's load was later marked wrong by the owner
 
     <comfy venv python> bench/check_laid.py
 
@@ -214,10 +218,112 @@ def a_removed_line_leaves_its_record() -> str:
     return "no --by refused and nothing written; the line kept whole with why in laid.removed.jsonl; no other line touched"
 
 
+def keeps_verifies_and_refuses() -> str:
+    """`keeps` verifies disjoint frame spans on one shot (`1466-1534` and `1575-1729`), classifies superseded keeps on
+    overlapping frames, and refuses (`KEEP_NOT_LAID`, `LAID_MARKED_WRONG`) with no traceback."""
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        data = root / "data" / "v"
+        data.mkdir(parents=True)
+        laid_path = data / "laid.jsonl"
+        answers_path = data / "owner_answers.jsonl"
+        verdicts_path = data / "verdicts.jsonl"
+        out_json = data / "keeps.json"
+
+        laid_rows = [
+            {
+                "schema": "h3_laid/1",
+                "first": 1466,
+                "last": 1729,
+                "subject": "lead",
+                "load": "lead_fp_1466b",
+                "file": "Video/v/lead_fp_1466b/lead_fp_1466b_00001.mp4",
+                "sha256": "a" * 64,
+                "owner": "kept",
+                "by": "the owner's keep of 2026-10-16T10:00:00Z",
+                "frames": [[1466, 1534]],
+                "added": "2026-10-16T12:00:00Z",
+                "added_by": "check",
+            },
+            {
+                "schema": "h3_laid/1",
+                "first": 1466,
+                "last": 1729,
+                "subject": "lead",
+                "load": "lead_fp_1575b",
+                "file": "Video/v/lead_fp_1575b/lead_fp_1575b_00001.mp4",
+                "sha256": "b" * 64,
+                "owner": "kept",
+                "by": "the owner's keep of 2026-10-16T10:05:00Z",
+                "frames": [[1575, 1729]],
+                "added": "2026-10-16T12:00:00Z",
+                "added_by": "check",
+            },
+            {
+                "schema": "h3_laid/1",
+                "first": 1466,
+                "last": 1729,
+                "subject": "third",
+                "load": "third_fp_1466b",
+                "file": "Video/v/third_fp_1466b/third_fp_1466b_00001.mp4",
+                "sha256": "c" * 64,
+                "owner": "kept",
+                "by": "the owner's keep of 2026-10-16T11:00:00Z",
+                "frames": [[1466, 1531]],
+                "added": "2026-10-16T12:00:00Z",
+                "added_by": "check",
+                "replaces": "third_fp_1466a",
+            },
+        ]
+        answers = [
+            {"at": "2026-10-15T09:00:00Z", "who": "owner", "row": "lead_fp_1466a", "frames": [1466, 1534], "what": "choice", "chosen": "keep this one"},
+            {"at": "2026-10-16T10:00:00Z", "who": "owner", "row": "lead_fp_1466b", "frames": [1466, 1534], "what": "choice", "chosen": "keep this one"},
+            {"at": "2026-10-16T10:05:00Z", "who": "owner", "row": "lead_fp_1575b", "frames": [1575, 1729], "what": "choice", "chosen": "keep this one"},
+            {"at": "2026-10-14T08:00:00Z", "who": "owner", "row": "third_fp_1466a", "frames": [1466, 1531], "what": "choice", "chosen": "keep this one"},
+            {"at": "2026-10-16T11:00:00Z", "who": "owner", "row": "third_fp_1466b", "frames": [1466, 1531], "what": "choice", "chosen": "keep this one"},
+        ]
+        laid_path.write_text("".join(json.dumps(x) + "\n" for x in laid_rows))
+        answers_path.write_text("".join(json.dumps(x) + "\n" for x in answers))
+        verdicts_path.write_text("")
+
+        # 1. Disjoint spans on one shot (1466-1534 and 1575-1729) + superseded keeps pass with exit 0
+        r = run("keeps", "--video", "v", "--laid", laid_path, "--answers", answers_path, "--verdicts", verdicts_path, "--json", out_json)
+        assert r.returncode == 0, r.stdout + r.stderr
+        assert (
+            "3 laid rows across 1 shots (1 multi-subject composite shots, 1 split-span subject shots); "
+            "5 kept loads verified; 2 historical keeps superseded; 0 unreplaced removals; 0 newer unlaid renders; "
+            "0 kept loads missing from laid.jsonl; 0 laid loads marked wrong"
+        ) in r.stdout, r.stdout
+        rep = json.loads(out_json.read_text())
+        assert [s["load"] for s in rep["superseded_keeps"]] == ["lead_fp_1466a", "third_fp_1466a"], rep["superseded_keeps"]
+
+        # 2. Removing the second disjoint span (1575-1729) while lead_fp_1466b (1466-1534) stays laid refuses as KEEP_NOT_LAID
+        laid_path.write_text("".join(json.dumps(x) + "\n" for x in [laid_rows[0], laid_rows[2]]))
+        refused(
+            run("keeps", "--video", "v", "--laid", laid_path, "--answers", answers_path, "--verdicts", verdicts_path),
+            "KEEP_NOT_LAID",
+            "lead_fp_1575b",
+            "1575-1729",
+        )
+
+        # 3. Restoring laid_rows and marking a laid load wrong later refuses as LAID_MARKED_WRONG
+        laid_path.write_text("".join(json.dumps(x) + "\n" for x in laid_rows))
+        answers_wrong = [*answers, {"at": "2026-10-17T12:00:00Z", "who": "owner", "row": "third_fp_1466b", "frames": [1466, 1531], "what": "choice", "chosen": "wrong, and I say where"}]
+        answers_path.write_text("".join(json.dumps(x) + "\n" for x in answers_wrong))
+        refused(
+            run("keeps", "--video", "v", "--laid", laid_path, "--answers", answers_path, "--verdicts", verdicts_path),
+            "LAID_MARKED_WRONG",
+            "third_fp_1466b",
+            "wrong, and I say where",
+        )
+    return "split-span and multi-subject shot verified; superseded keeps reported; KEEP_NOT_LAID and LAID_MARKED_WRONG refused in the tool's words"
+
+
 if __name__ == "__main__":
     case("owner_is_always_said", owner_is_always_said)
     case("set_owner_changes_only_owner", set_owner_changes_only_owner)
     case("kept_needs_the_owners_keep", kept_needs_the_owners_keep)
     case("history_grows", history_grows)
     case("a_removed_line_leaves_its_record", a_removed_line_leaves_its_record)
+    case("keeps_verifies_and_refuses", keeps_verifies_and_refuses)
     sys.exit(finish())

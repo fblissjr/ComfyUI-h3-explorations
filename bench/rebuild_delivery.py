@@ -628,6 +628,16 @@ def rebuild(
     laid_log = out_dir / f"laid_verify_{video}_{stamp}.out"
     laid_cmd = [python_exe, str(BENCH / "laid.py"), "verify", "--laid", str(laid_path), "--share", str(share)]
     run_step("laid_verify", laid_cmd, laid_log, repo, env, runner=runner)
+    keeps_log = out_dir / f"laid_keeps_{video}_{stamp}.out"
+    keeps_cmd = [
+        python_exe, str(BENCH / "laid.py"), "keeps",
+        "--video", video,
+        "--laid", str(laid_path),
+        "--answers", str(answers_path),
+        "--verdicts", str(verdicts_path),
+        "--data", str(vdir),
+    ]
+    run_step("laid_verify", keeps_cmd, keeps_log, repo, env, runner=runner)
     steps_run.append("laid_verify")
     logs["laid_verify"] = rel_or_name(laid_log, repo, share)
 

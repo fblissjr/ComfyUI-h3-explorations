@@ -869,7 +869,10 @@ def build(a: argparse.Namespace) -> None:
         purpose = []
         for i in intents:
             if i["first"] <= f <= i["last"]:
-                words_ = f"{i['subject']}: ORIGINAL on purpose ({i['why']})"
+                why_s = str(i.get("why") or "")
+                words_ = (f"{i['subject']}: ORIGINAL (not laid yet: {why_s})"
+                          if ("nothing is laid here" in why_s or "no render in the frozen form yet" in why_s)
+                          else f"{i['subject']}: ORIGINAL on purpose ({why_s})")
                 if i["subject"] in cols and i["subject"] not in laid:
                     who_words[i["subject"]] = words_
                 else:
@@ -1724,7 +1727,10 @@ def compare(a: argparse.Namespace) -> None:
         purpose = []
         for i in intents + [x for x in cand_intents if x not in intents]:
             if i["first"] <= f <= i["last"]:
-                words_ = f"{i['subject']}: ORIGINAL on purpose ({i['why']})"
+                why_s = str(i.get("why") or "")
+                words_ = (f"{i['subject']}: ORIGINAL (not laid yet: {why_s})"
+                          if ("nothing is laid here" in why_s or "no render in the frozen form yet" in why_s)
+                          else f"{i['subject']}: ORIGINAL on purpose ({why_s})")
                 if words_ not in purpose:
                     purpose.append(words_)
         one = [{"text": "ABOVE: ORIGINAL", "colour": WHITE, "boxed": False}, {"text": f"frame {f:05d}", "colour": WHITE, "boxed": False}]

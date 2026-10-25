@@ -689,7 +689,9 @@ def owner_lines(rel: str, ids: set[str], verdicts: list[dict], answers: list[tup
     copied = {v.get("source") for v in verdicts}
     mine = lambda row, render: (render and rel.endswith(render)) or row in ids or item_of.get(row) == rel
     out = [{"at": v.get("at"), "frame": v.get("frame"), "said": v.get("chosen") if v.get("what") == "choice" else v.get("words"),
-            "what": v.get("what"), "from": f"verdicts ({v.get('source')})", "row": v.get("row")} for v in verdicts if mine(v.get("row"), v.get("render"))]
+            "what": v.get("what"), "from": f"verdicts ({v.get('source')})", "row": v.get("row"),
+            **({"chosen": v["chosen"]} if v.get("chosen") and v.get("what") != "choice" else {})}
+           for v in verdicts if mine(v.get("row"), v.get("render"))]
     out += [{"at": a.get("at"), "frame": a.get("frame"), "said": a.get("chosen") if a.get("what") == "choice" else a.get("words"),
              "what": a.get("what"), "from": f"answers.jsonl:{n}", "row": a.get("row")} for n, a in answers
             if a.get("who") == "owner" and f"answers.jsonl:{n}" not in copied and mine(a.get("row"), None)]
