@@ -1430,10 +1430,22 @@ def _window_frames(mask: np.ndarray, row: dict, at: int, first: int, length: int
         elif not (pad_before or pad_after) and k >= len(mask) and len(mask):
             out[i] = mask[-1]
     held_before, held_after = int(row.get("held_before", 0)), int(row.get("held_after", 0))
+    src_before, src_after = held_before, length - held_after - 1
+    if row.get("held_fell_back"):
+        import re
+        for line in row["held_fell_back"]:
+            m = re.search(r"^(before|after):.*\bhold shot frame (\d+)\b", str(line))
+            if m:
+                idx = pad_before + int(m.group(2))
+                if 0 <= idx < length:
+                    if m.group(1) == "before":
+                        src_before = idx
+                    else:
+                        src_after = idx
     if held_before:
-        out[:held_before] = out[held_before]
+        out[:held_before] = out[src_before]
     if held_after:
-        out[length - held_after:] = out[length - held_after - 1]
+        out[length - held_after:] = out[src_after]
     return out
 
 

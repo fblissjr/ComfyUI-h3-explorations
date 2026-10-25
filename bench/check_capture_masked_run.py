@@ -2118,6 +2118,14 @@ def the_carve_on_the_nodes_grid() -> str:
         held = cap._window_frames(moving[:3], {"first_frame": 0, "pad_before": 2, "pad_after": 2, "held_before": 2, "held_after": 2}, 0, 0, 7)
         assert all((held[k] == moving[0]).all() for k in (0, 1)) and all((held[k] == moving[2]).all() for k in (5, 6)) \
             and all((held[2 + k] == moving[k]).all() for k in range(3)), "a held context frame does not carry its edge frame's keep-out"
+        stepped = cap._window_frames(
+            moving[:3],
+            {"first_frame": 0, "pad_before": 2, "pad_after": 2, "held_before": 2, "held_after": 2,
+             "held_fell_back": ["after: the shot's last frame's region is 0 px, under 0.25 of the shot's middle 256 px, so its 2 context frame(s) there hold shot frame 1 (256 px)"]},
+            0, 0, 7,
+        )
+        assert all((stepped[k] == moving[1]).all() for k in (5, 6)) and (stepped[4] == moving[2]).all(), \
+            "a held side that stepped back to shot frame 1 did not copy shot frame 1 into the held context slice while leaving shot frame 2 untouched"
         # one held of two after: it copies the real context frame inside it, which is empty, as the node copies it
         part_held = cap._window_frames(moving[:3], {"first_frame": 0, "pad_before": 2, "pad_after": 2, "held_after": 1}, 0, 0, 7)
         assert not part_held[5:].any() and not part_held[:2].any(), "a held frame outside a real context frame is not that frame's copy"

@@ -2143,8 +2143,9 @@ def check_held_context(problems, frames_39, mask_35, others_35, afs):
     if (got.get("held_before"), got.get("held_after"), row.get("held_before"), row.get("held_after")) != (2, 1, 2, 1):
         problems.append(f"held: the region file and the plan row must say 2 held before and 1 after: {got.get('held_before')!r}, "
                         f"{got.get('held_after')!r}, {row.get('held_before')!r}, {row.get('held_after')!r}")
-    # THE GUARD (`video_mask.HELD_EDGE_LEAST`, the owner's choice of 2026-10-22, from second_hfp_4912e's empty 4946): a held side
-    # whose edge frame has no region, or one under that share of the shot's middle region, keeps its real frames and says so
+    # THE GUARD (`video_mask.HELD_EDGE_LEAST`, the owner's choice of 2026-10-22; updated 2026-10-24, from second_hfp_4912e's empty 4946):
+    # a held side whose edge frame has no region, or one under that share of the shot's middle region, holds the nearest good shot frame
+    # into the held padding slice, leaves the kept shot frames untouched, keeps `held_after` active, and says which shot frame was held
     def edged(last):
         m = mask_35.clone()
         m[-1] = 0.0
@@ -2160,13 +2161,18 @@ def check_held_context(problems, frames_39, mask_35, others_35, afs):
     large = int((vm.HELD_EDGE_LEAST * middle) ** 0.5) + 2          # and just over it
     for last, what in ((0, "an empty"), (small, "a nearly empty")):
         rec = edged(last)
-        if not (torch.equal(rec["frames"][37:], frames_39[37:]) and not bool(rec["mask"][37:].any())
+        if not (all(torch.equal(rec["frames"][k], frames_39[35]) for k in (37, 38))
+                and all(torch.equal(rec["mask"][k], rec["mask"][35]) for k in (37, 38))
+                and all(torch.equal(rec["others"][k], rec["others"][35]) for k in (37, 38))
+                and bool(rec["mask"][37:].any())
+                and torch.equal(rec["frames"][36], frames_39[36])
+                and int((rec["mask"][36] > 0.5).sum()) == last * last
                 and all(torch.equal(rec["frames"][k], frames_39[2]) for k in (0, 1))):
-            problems.append(f"held: {what} last frame must leave the frames after it real (as filmed) and still hold the side before")
+            problems.append(f"held: {what} last frame must hold shot frame 33 (window index 35) into the after padding while leaving kept frame 36 untouched")
         said = rec.get("held_fell_back") or []
-        if "held_after" in rec or rec.get("held_before") != 2 or len(said) != 1 or not said[0].startswith("after") \
-                or f"is {last * last} px" not in said[0]:
-            problems.append(f"held: {what} last frame's fallback is not recorded as the after side, with its area: {said!r}, "
+        if (rec.get("held_before"), rec.get("held_after")) != (2, 2) or len(said) != 1 or not said[0].startswith("after") \
+                or f"is {last * last} px" not in said[0] or "hold shot frame 33 (1024 px)" not in said[0]:
+            problems.append(f"held: {what} last frame's step-back to shot frame 33 is not recorded with active held_after=2: {said!r}, "
                             f"{rec.get('held_before')!r}, {rec.get('held_after')!r}")
     rec = edged(large)
     if rec.get("held_after") != 2 or rec.get("held_fell_back") or not torch.equal(rec["frames"][38], frames_39[36]):
@@ -2175,8 +2181,30 @@ def check_held_context(problems, frames_39, mask_35, others_35, afs):
         fb = edged(0)
         afs.write_plan(fb, [SimpleNamespace(number=1, start=0.0, frames=39, text="t")], [35], 0, False, W, H, tmp, "f", {})
         row = json.loads(Path(afs.loop_resume.plan_path(tmp, "f")).read_text())["windows"][0]
-    if not (row.get("held_fell_back") or [""])[0].startswith("after") or "held_after" in row:
-        problems.append(f"held: the plan row does not say the after side fell back: {row.get('held_fell_back')!r}")
+    if not (row.get("held_fell_back") or [""])[0].startswith("after") or "hold shot frame 33" not in row["held_fell_back"][0] \
+            or row.get("held_after") != 2:
+        problems.append(f"held: the plan row does not record held_after=2 and the step-back to shot frame 33: {row!r}")
+    # second_hfp_4912e's actual tail (35 frames in 39, pad_before=0, pad_after=4, held_before=0, held_after=4):
+    # shot frames 0..29 have 9147 px, shot frame 30 has 2958 px (>= 0.25 * 9147 = 2286.75 px), shot frames 31..33 have
+    # 2100, 1500, 934 px (< 2286.75 px), and shot frame 34 has 0 px; steps back over 34, 33, 32, 31 to shot frame 30,
+    # holding frames_39[30] into 35..38 while leaving kept frames 31..34 untouched
+    m_4912e = torch.zeros(35, H, W)
+    for k, px in [(i, 9147) for i in range(30)] + [(30, 2958), (31, 2100), (32, 1500), (33, 934), (34, 0)]:
+        m_4912e[k].view(-1)[:px] = 1.0
+    node.hidden = SimpleNamespace(prompt={"10": {"_meta": {"pad_before": 0, "pad_after": 4, "held_before": 0, "held_after": 4}}},
+                                  unique_id="10")
+    try:
+        rec_4912e = node.execute(frames_39, m_4912e, grow_pixels=8, others=others_35).args[0]
+    finally:
+        node.hidden = None
+    if not (rec_4912e.get("held_after") == 4
+            and all(torch.equal(rec_4912e["frames"][k], frames_39[30]) for k in range(35, 39))
+            and all(torch.equal(rec_4912e["mask"][k], m_4912e[30]) for k in range(35, 39))
+            and all(torch.equal(rec_4912e["frames"][k], frames_39[k]) for k in range(31, 35))
+            and not bool(rec_4912e["mask"][34].any())
+            and "hold shot frame 30 (2958 px)" in (rec_4912e.get("held_fell_back") or [""])[0]):
+        problems.append(f"held: 4912e tail must step back over 34..31 to shot frame 30 (2958 px) for 35..38 and leave 31..34 untouched: "
+                        f"{rec_4912e.get('held_after')!r}, {rec_4912e.get('held_fell_back')!r}")
     # a graph that does not say how its window is padded: every extra frame after the shot, as the builder pads
     # (`workflows/masked_job_graph.py::window_pad`, the owner's word of 2026-10-22; split evenly until then)
     node.hidden = None

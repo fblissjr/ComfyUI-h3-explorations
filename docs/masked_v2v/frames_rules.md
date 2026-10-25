@@ -82,9 +82,13 @@ next shot's (22 before and 23 after in 90, so 4646 is window frame 66, in the cl
 - **Never show the original subject unmasked in the window** (the owner's ruling, 2026-10-25; [`docs/research/masking/2026-10-25_context_frames_and_identity_on_2050.md`](../research/masking/2026-10-25_context_frames_and_identity_on_2050.md), reversing the 2026-10-21 `as filmed` unmasked context default after `lead_fp_2050c` and `lead_fp_2050e` re-synthesised the singer's face from unmasked context frames):
   - **Where the shot's own footage continues past the piece**: the load runs to the legal window length (`39, 90, 141, 192, 243, 294, 345`) with every frame masked end to end from the preview's masks (`pad_after == 0`), and the extra rendered frames past the piece are chopped off at the lay (`laid.jsonl` `frames` field; job-tool auto-span build pending, today set by `--frames <window>`). (In code today, when `n_shot < n_frames` and `held_after == 0`, `video_mask.py::pad_context` still defaults to `as filmed` unmasked or `face covered` static edge-mask stamp, which leaves `41–59%` of a moving face uncovered.)
   - **Where the frames after the shot cross a hard cut into another shot**: **held copies of the shot's last frame, with its masks** (`workflows/masked_job_graph.py::held_context`, `video_mask.hold_context`; the shot's boundaries are `data/<video>/shots.json`'s).
-- **The guard**: where the shot's last frame has no mask, or less than `video_mask.HELD_EDGE_LEAST` (`0.25`) of the shot's median
-  region, `held_edge_falls_back` drops the hold back to real frames and the plan row says so (`held_fell_back`). Why: `second_hfp_4912e`, whose
-  last frame had no mask and whose held copies filled the encoder's last clip with her untouched hair. Because `held_edge_falls_back` puts unmasked real frames back when an edge mask is small (as on `2050` frame `2247`, where `4,578 px` is `21.0% < 25.0%` of the `21,829 px` median), running the full window length masked end to end (`pad_after == 0`) avoids the guard entirely where footage continues.
+- **The guard**: where the shot's edge frame has no mask, or less than `video_mask.HELD_EDGE_LEAST` (`0.25`) of the shot's median
+  region, `video_mask.held_edge_source` steps inward to the nearest shot frame whose mask clears `HELD_EDGE_LEAST` of the median,
+  holds that frame's image and masks into the padding (`video_mask.hold_context`, keeping all kept shot frames untouched), and
+  records the step in `held_fell_back` (`"hold shot frame N"`). Only if the entire shot has an empty mask on every frame does it
+  fall back to real frames. Why: `second_hfp_4912e`, whose last frame (`4946`) had no mask and whose held copies filled the encoder's
+  last clip with her untouched hair, and `lead_fp_2050c`, where dropping the hold back to real frames when an edge mask was small
+  exposed unmasked context frames to the reference stream.
 - The audio the model hears is silent under held frames; the audio muxed into the piece is the source's.
 
 ## 5. What is thrown away
