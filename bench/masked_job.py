@@ -82,8 +82,8 @@ only an "absent" on every row of a table nobody opens.
 
 - a job folder that exists, or an output folder that exists: a new name for every run (the order's step 1 has
   what a reused preview folder nearly did on 2026-10-10);
-- a `corrections` line whose `corrections_at` is not the tracker's mask version today. A correction names a
-  person by the number on a tile, and the numbers are that version's;
+- a `corrections` line whose `corrections_at` is not `subject_track.py`'s sha256 today. A correction names a
+  person by the number on a tile, and the numbers are that code's;
 - a load whose capture is not finished, did not pass `verify`, lacks a file the load needs or does not reach
   the load's frames; a load shorter than the song node's shortest extent (`shortest_load`); a feather wider than
   its margin; a render with no still, or a still
@@ -150,7 +150,7 @@ from pathlib import Path
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from _lib import COMFY, REPO  # noqa: E402
+from _lib import COMFY, REPO, writer_stamp  # noqa: E402
 from _lib.frames import FPS as MASK_FPS, probe, stream  # noqa: E402
 
 sys.path.insert(0, str(REPO))
@@ -179,29 +179,18 @@ class Refused(Exception):
     """Something the tool will not do, said in words the caller can act on."""
 
 
-def tracker_mask_version(repo: Path = REPO) -> int:
-    """`MiniMaxH3SubjectTrack.MASK_VERSION`, read from the source and not imported: the node file needs ComfyUI."""
-    for node in ast.walk(ast.parse((repo / "subject_track.py").read_text())):
-        if isinstance(node, ast.ClassDef) and node.name == "MiniMaxH3SubjectTrack":
-            for line in node.body:
-                if isinstance(line, ast.Assign) and any(getattr(t, "id", "") == "MASK_VERSION" for t in line.targets):
-                    return int(ast.literal_eval(line.value))
-    raise Refused("subject_track.py no longer sets MASK_VERSION on MiniMaxH3SubjectTrack; the corrections rule "
-                  "has nothing to read")
-
-
-def check_corrections(job: dict, version: int) -> None:
-    """A correction typed by number is refused unless it says which tracker version its numbers were read at."""
+def check_corrections(job: dict, tracker_sha256: str) -> None:
+    """A correction typed by number is refused unless it says which tracker code its numbers were read at."""
     for subject in job["subjects"]:
         if not str(subject.get("corrections", "")).strip():
             continue
         at = subject.get("corrections_at")
-        if at != version:
+        if at != tracker_sha256:
             raise Refused(
                 f"subject {subject['label']!r} has corrections "
-                + ("and no `corrections_at`" if at is None else f"read at the tracker's mask version {at}")
-                + f"; the tracker is at {version}. A correction names a person by the number on a tile: read the "
-                  f"numbers off a tile this version made, then set corrections_at to {version}.")
+                + ("and no `corrections_at`" if at is None else f"read at the tracker's code {at}")
+                + f"; subject_track.py is at {tracker_sha256}. A correction names a person by the number on a tile: read the "
+                  f"numbers off a tile this code made (`ran_code.sha256` in its shot table), then set corrections_at to {tracker_sha256}.")
 
 
 def analysed(job: dict, data: Path) -> dict:
@@ -1221,8 +1210,8 @@ def build(job_file: Path, stage: str, *, date: str, data: Path, output: Path, re
         graph = {"preview": graphs.preview}[stage](job)
     except ValueError as e:
         raise Refused(f"{job_file}: {e}") from e
-    version = tracker_mask_version(repo)
-    check_corrections(job, version)
+    stamp = writer_stamp(repo / "subject_track.py")
+    check_corrections(job, stamp["sha256"])
     made_from = analysis(job, data)
     folder, saves_to = job_folder(job, date, data), output_folder(job, output)
     for path, what in ((folder, "job folder"), (saves_to, "output folder")):
@@ -1234,7 +1223,8 @@ def build(job_file: Path, stage: str, *, date: str, data: Path, output: Path, re
     record = {"stage": stage, "built_at": datetime.datetime.now().astimezone().isoformat(timespec="seconds"),
               "commit": head(repo), "builder_not_committed": builder_not_committed(repo), "analysis": made_from,
               "uncommitted_node_code": uncommitted_node_code(repo),
-              "tracker_mask_version": version, "job_file": str(job_file), "output_folder": str(saves_to),
+              "writer_stamp": writer_stamp(__file__, extra_scripts=BUILDER[:-1] + ("subject_track.py", "sapiens2_parts.py", "video_mask.py")),
+              "job_file": str(job_file), "output_folder": str(saves_to),
               "output": str(output), "expects": expected_files(job)}
     (folder / f"{stage}.built.json").write_text(json.dumps(record, indent=1) + "\n")
     return folder
@@ -1582,8 +1572,7 @@ def main() -> int:
         if a.command == "build":
             folder = build(a.job_file, a.stage, date=a.date, data=REPO / "data", output=h3_config.output_dir())
             built = json.loads((folder / f"{a.stage}.built.json").read_text())
-            print(f"{folder / (a.stage + '.json')}\n  built at {built['commit']}, tracker mask version "
-                  f"{built['tracker_mask_version']}; it will save under {built['output_folder']}")
+            print(f"{folder / (a.stage + '.json')}\n  built at {built['commit']}; it will save under {built['output_folder']}")
             if built["builder_not_committed"]:
                 print("  the builder itself is not as that commit has it: " + ", ".join(built["builder_not_committed"]))
             if built["uncommitted_node_code"]:
@@ -1596,7 +1585,7 @@ def main() -> int:
                 for s in subjects))
             for s in subjects:
                 if str(s.get("corrections", "")).strip():
-                    print(f"  {s['label']}: corrections typed, read at the tracker's mask version {s['corrections_at']}:\n      "
+                    print(f"  {s['label']}: corrections typed, read at subject_track.py {s['corrections_at']}:\n      "
                           + str(s["corrections"]).strip().replace("\n", "\n      "))
             print("when it has run, the capture:\n" + capture_command(json.loads(a.job_file.read_text())["job"], a.date))
             return 0

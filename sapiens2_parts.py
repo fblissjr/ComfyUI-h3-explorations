@@ -711,13 +711,6 @@ class MiniMaxH3Sapiens2Loader(io.ComfyNode):
 
 
 class MiniMaxH3SubjectParts(io.ComfyNode):
-    #: This node's method number (until 2026-10-10 part of a kept mask's key when the node sat upstream of a
-    #: Masked Source; that store is removed, and nothing reads this number today). Raise it when the same inputs and
-    #: settings would give a different mask: the crop, the map back, the cut to
-    #: the subject, the menu's classes, the matte's region, how a frame is held.
-    #: 3 (2026-10-08): a frame `part_coverage` doubts is held from the nearest trusted frame.
-    MASK_VERSION = 3
-
     @classmethod
     def define_schema(cls):
         return io.Schema(

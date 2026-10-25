@@ -1416,20 +1416,16 @@ A mask made once and used many times is a mask VIDEO a job's graph loads
 from a file its capture wrote: named, visible, and replaced when the
 capture is made again.
 
-**Three things called a version, and none is the other.** The pack's
+**What is called a version, and what is the code stamp.** The pack's
 version is the newest heading in `CHANGELOG.md`, assigned by
 `bench/build_changelog.py` from fragments (semver; `pyproject.toml`'s
 `version` is what ComfyUI's registry reads and is kept equal to it by the
-same build). `MASK_VERSION` is not a version of a node: it is one integer
-per node class that goes into the kept mask's key, bumped only when that
-node's code would make a different mask from the same inputs, so the
-numbers on different nodes (`subject_track.py`, `sapiens2_parts.py`) are
-unrelated and never compared. *Until 2026-10-12 this list named
-`video_mask.py` too, which has had no such number since 2026-10-10, as the
-next sentence says.* The kept mask it keyed
-was removed on 2026-10-10 and the Masked Source's own number went with it;
-the trackers keep theirs because the job builder reads the Subject Track's
-for its corrections rule. `TABLE_VERSION` (`shot_table.py`) is
+same build). `MASK_VERSION` on the nodes (`subject_track.py`,
+`sapiens2_parts.py`) and `REGION_VERSION` on `video_mask.py` were retired on
+2026-10-24: the kept-mask store they keyed was removed on 2026-10-10, and the
+code stamp (`bench/_lib/code_stamp.py`) on every derived file and `ran_code` in
+the shot table (the file and the `sha256` of its bytes as imported in the
+server) are the authority for which code ran. `TABLE_VERSION` (`shot_table.py`) is
 the shot table's file format, checked on read. A node's identity is its
 `node_id` in `bench/node_id_manifest.json`, which has no number at all.
 

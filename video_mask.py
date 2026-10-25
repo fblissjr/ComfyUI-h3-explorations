@@ -1018,10 +1018,6 @@ def lay_window(images: torch.Tensor, pixels: torch.Tensor, tokens: torch.Tensor,
 #: so the window can be laid again without the graph. `lay_window` reads the first four; the rest say how the
 #: region was made.
 REGION_SETTINGS = ("composite", "feather_pixels", "change_threshold", "cuts", "grow_pixels", "grow_by", "replace", "edge")
-#: A region file's version, written into it and read by nothing here. 2 since 2026-10-10: the render that
-#: wrote it left every frame with no mask of its own as the source (`unlaid_frames`); a file of version 1 is
-#: from a render that laid them, and is read like any other.
-REGION_VERSION = 2
 
 
 def save_window_region(path: str, mask: torch.Tensor, tokens: torch.Tensor, source: dict, margin,
@@ -1050,7 +1046,7 @@ def save_window_region(path: str, mask: torch.Tensor, tokens: torch.Tensor, sour
     these and refuses another stem's file.
     """
     settings = {k: source.get(k) for k in REGION_SETTINGS}
-    meta = {"version": REGION_VERSION, "first_frame": int(first_frame), "trim": int(trim), "frames": int(mask.shape[0]),
+    meta = {"first_frame": int(first_frame), "trim": int(trim), "frames": int(mask.shape[0]),
             "height": int(mask.shape[1]), "width": int(mask.shape[2]), "source": settings,
             # None, or the box this window was rendered in (`zoomed_source`): the mask and the tokens are then
             # of the ZOOMED picture, and a reader that lays them or counts their cells maps through the box

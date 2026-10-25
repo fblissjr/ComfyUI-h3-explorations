@@ -40,9 +40,7 @@ item drives the module's own functions on made-up frames and masks.
 6. **The node declares the phrase and every threshold as inputs**, with the
    module's constants as their defaults, and four outputs with the mask
    first (the last is the shot table, `bench/check_shot_table.py`). It is
-   not an output node and it declares a `MASK_VERSION` (the two things the
-   kept-mask store needed, until that store was removed on 2026-10-10; the
-   number is still what the job builder's corrections rule reads).
+   not an output node.
 
 7. **A correction takes the person its number names on the tile, and nothing
    else moves.** `shot N: person K` seeds shot N from person K as
@@ -2054,8 +2052,6 @@ def check_schema(problems):
     if "subject_tracks.drop_specks(assemble(n, h, w, found.pieces), in_place=True)" not in source:
         problems.append("the node's mask is not `drop_specks` of the assembled pieces: a stray speck of the tracker's "
                         "would reach the tiles, the shot table and every node after it")
-    if not isinstance(getattr(st.MiniMaxH3SubjectTrack, "MASK_VERSION", None), int):
-        problems.append("the node declares no integer MASK_VERSION, so a kept mask would survive a change to how it is made")
     fix, handed, last, seeds, track_head = schema.inputs[-5], schema.inputs[-4], schema.inputs[-3], schema.inputs[-2], schema.inputs[-1]
     if track_head.id != "track_head" or getattr(track_head, "default", None) is not True or not getattr(track_head, "optional", False) or getattr(track_head, "advanced", False):
         problems.append("`track_head` is not the node's last input, a visible optional boolean that is True by default")
@@ -2921,13 +2917,12 @@ def check_review_gaps(problems):
 
 
 def check_ran_code(problems):
-    """Which code ran (2026-10-23, the owner: "verify mask version is even right"): the stamp is bound at module top level
-    when the module is imported, is the sha256 of the file it was imported from and the loaded node's MASK_VERSION, the
-    node writes that bound value into every shot table, and changing the file on disk afterwards does not change it."""
+    """Which code ran: the stamp is bound at module top level when the module is imported, is the sha256 of the file it
+    was imported from, the node writes that bound value into every shot table, and changing the file on disk afterwards
+    does not change it."""
     import hashlib
     stamp = st.RAN_CODE
-    if stamp != {"file": MODULE.name, "sha256": hashlib.sha256(MODULE.read_bytes()).hexdigest(),
-                 "mask_version": st.MiniMaxH3SubjectTrack.MASK_VERSION}:
+    if stamp != {"file": MODULE.name, "sha256": hashlib.sha256(MODULE.read_bytes()).hexdigest()}:
         problems.append(f"ran code: the stamp is not the file the module was imported from: {stamp}")
     # import a copy of the module, then change that file on disk: what the imported module reports stays what it read
     with tempfile.TemporaryDirectory() as tmp:

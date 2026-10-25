@@ -286,8 +286,6 @@ def check_menu(problems):
     for name in ("MiniMaxH3Sapiens2Loader", "MiniMaxH3SubjectParts"):
         if re.search(rf"[\s\[]{name}[,\]]", (REPO / "nodes.py").read_text()) is None:
             problems.append(f"{name} is not in the pack's node list (nodes.py)")
-    if not isinstance(getattr(sp.MiniMaxH3SubjectParts, "MASK_VERSION", None), int):
-        problems.append("the Subject Parts node has no MASK_VERSION, so a kept mask downstream would not notice a change in it")
 
 
 def check_hold(problems):

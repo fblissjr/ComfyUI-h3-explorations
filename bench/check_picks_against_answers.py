@@ -96,7 +96,8 @@ class Made:
                 listed.append(f"Video/x/{name}/{name}_{label}_track_00001.mkv")
         (job / "job.json").write_text(json.dumps({"job": {"name": name, "first": first, "frames": frames, "subjects": [
             {"label": label, "pick": "largest", **({"pick_at": pick_at} if pick_at is not None else {})} for label in subjects]}}))
-        (job / "preview.built.json").write_text(json.dumps({"commit": "abc1234", "built_at": "2026-01-02T10:00:00-05:00", "tracker_mask_version": 14}))
+        (job / "preview.built.json").write_text(json.dumps({"commit": "abc1234", "built_at": "2026-01-02T10:00:00-05:00",
+                                                            "writer_stamp": {"script": "bench/masked_job.py", "git_commit": "abc1234", "git_dirty": False, "sha256": "f" * 64, "stamped_at": "2026-01-02T15:00:00Z"}}))
         (job / "preview.queued.json").write_text(json.dumps({"status": "success", "seconds": 21, "files": listed}))
         self.specs.append(f"{job / 'job.json'}={tables}")
         self.shots["shots"].append({"first": first, "last": first + frames - 1, "who": {
@@ -224,7 +225,7 @@ def main() -> int:
             assert f["subjects_in_the_job"] == 2 and got[("pv", "b")]["features"]["place_in_the_trackers_order"] == 2
             assert got[("good", "a")]["features"]["likeness_of_the_named_to_the_one_the_track_lies_on"] is None, "a person was compared with themselves"
             p = got[("pv", "a")]["preview"]
-            assert (p["commit"], p["tracker_mask_version"], p["seconds"], p["first"]) == ("abc1234", 14, 21, 100), p
+            assert (p["commit"], p["writer_stamp"]["git_commit"], p["seconds"], p["first"]) == ("abc1234", "abc1234", 21, 100), p
             return "the named person is second by size of two, in the 5-to-20% band; the held and the named are 0.6 alike by the table's signatures"
 
         def session() -> str:

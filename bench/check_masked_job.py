@@ -39,7 +39,7 @@ Claims, i.e. what breaks if a case is deleted:
                         made clip whose every frame says its own number, with
                         the loader's own ffmpeg arguments
   the refusals         a job folder or an output folder that exists; a
-                        correction with no tracker version or another one; a
+                        correction with no tracker sha256 or another one; a
                         job with no pick; a stage queued twice; node code not
                         committed, with and without an override; an input the
                         server does not serve
@@ -1618,24 +1618,25 @@ def _without_corrections() -> dict:
 
 
 def build_refuses_what_it_must():
-    version = tool.tracker_mask_version()
-    assert version == _pack()["MiniMaxH3SubjectTrack"].MASK_VERSION, "the version read from the source is not the node's"
+    from _lib import verify_writer_stamp
+    tracker_sha = hashlib.sha256((REPO / "subject_track.py").read_bytes()).hexdigest()
     with tempfile.TemporaryDirectory() as t:
         tmp = Path(t)
         where = dict(date="2026-01-01", data=tmp / "data", output=tmp / "output",
                      analysis=lambda job, data: {"folder": "check", "fingerprint": "none: this case is about something else"})
         (tmp / "output").mkdir()
-        # a correction with no version, with another version, and then with today's
-        _refused(lambda: tool.build(_job_file(tmp, JOB), "preview", **where), "'b'", "corrections_at", str(version))
+        # a correction with no tracker sha256, with another sha256, and then with today's
+        _refused(lambda: tool.build(_job_file(tmp, JOB), "preview", **where), "'b'", "corrections_at", tracker_sha)
         job = copy.deepcopy(JOB)
-        job["subjects"][1]["corrections_at"] = version - 1
-        _refused(lambda: tool.build(_job_file(tmp, job), "preview", **where), str(version - 1), str(version))
+        job["subjects"][1]["corrections_at"] = "0" * 64
+        _refused(lambda: tool.build(_job_file(tmp, job), "preview", **where), "0" * 64, tracker_sha)
         assert not (tmp / "data").exists(), "a refused build left a folder behind"
-        job["subjects"][1]["corrections_at"] = version
+        job["subjects"][1]["corrections_at"] = tracker_sha
         folder = tool.build(_job_file(tmp, job), "preview", **where)
         assert json.loads((folder / "preview.json").read_text()) == graphs.preview(job), "the graph written is not the graph built"
         built = json.loads((folder / "preview.built.json").read_text())
-        assert built["tracker_mask_version"] == version and set(built["expects"]) == {"a", "b", "c"}, built
+        assert not verify_writer_stamp(built.get("writer_stamp"), expected_script="bench/masked_job.py"), built
+        assert built["writer_stamp"]["extra_scripts"]["subject_track.py"]["sha256"] == tracker_sha and set(built["expects"]) == {"a", "b", "c"}, built
         assert set(built["expects"]["c"]) == set(tool.SAVED_AS) - {"mesh", "pose"} \
             and set(built["expects"]["a"]) == set(tool.SAVED_AS), \
             "what the preview must leave on disk does not follow who has a pose pass"

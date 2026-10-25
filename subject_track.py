@@ -143,12 +143,11 @@ is an input or is stated in the report.
 `MiniMaxH3MaskedSource` kept a finished mask on disk under a key
 (`mask_store.py`) and on a hit never asked for its `mask` input, so core did
 not run this node at all; that store was removed under the owner's rule that
-nothing an earlier run made is reused by a key (`docs/wiki/decisions.md`).
-`MASK_VERSION` on the node was part of that key and stays as the number the
-job builder reads for its corrections rule: bump it when a change would give
-a different mask from the same inputs and settings (the cut score, the pick,
-the signature, the automatic rules, how a shot is seeded and tracked), and
-not for a tooltip or the report's wording. The preview and the report are
+nothing an earlier run made is reused by a key (`docs/wiki/decisions.md`), and
+the hand-bumped `MASK_VERSION` on the node went on 2026-10-24: the code stamp
+(`bench/_lib/code_stamp.py`) on every derived file and `ran_code` in the shot
+table (the file and the `sha256` of its bytes as imported in the server) are the
+authority for which code made a preview or a correction. The preview and the report are
 shown as the node's own UI, so nothing has to be wired to see them; the
 outputs exist, and a shipped graph leaves them unwired.
 
@@ -156,7 +155,7 @@ outputs exist, and a shipped graph leaves them unwired.
 person reviews once: per shot, who was found, numbered left to right as on
 the preview's outlines, who was taken and why. It is the fourth output, and
 its text is shown under the report. It reads `follow`'s result and changes
-nothing about how anyone is followed, so it does not move `MASK_VERSION`.
+nothing about how anyone is followed.
 
 **One detection a person** (`one_detection_each`, 2026-10-10). The detector
 can return one person several times, as masks nested in each other; they
@@ -2749,37 +2748,6 @@ def _selection(value, key: str, nested: str):
 
 
 class MiniMaxH3SubjectTrack(io.ComfyNode):
-    #: The tracker's method number, read by the job builder for its corrections rule (until 2026-10-10 it was
-    #: also part of a kept mask's key; that store is removed). Bump when the same
-    #: inputs and settings would give a different mask. 2: the comparison became
-    #: relative to the pick frame's other people. 3: every detection of the
-    #: phrase is taken, not core's one per phrase. 4: the automatic pick and
-    #: the automatic match, and each shot judged a few frames in. 5: the cut
-    #: threshold from the clip's scores and inclusive, and a lone person taken
-    #: under the line when the pick frame shows nobody else. 6: a match has to
-    #: hold on the head as well, and the lone person has to have a head. 7: a
-    #: shot's favourite with no head is not counted for the automatic pick. 8:
-    #: the cut score leaves a clip's flat borders out. 9: the search for a subject
-    #: the track let go, and the hand-over. 10: a corrected shot is searched too,
-    #: and `most central` is measured in the frame's own proportions. 11: stray
-    #: specks are dropped from the mask (`subject_tracks.drop_specks`). 12: a
-    #: detection lying mostly on `others` is not a candidate. 13: detections
-    #: that are another detection of the same thing are joined before anyone
-    #: is numbered, picked or compared (`one_detection_each`). 14: a person
-    #: another tracker holds stays in the frame's list, marked, so a later
-    #: tracker's tile numbers count them (`held_people`); nobody is taken as
-    #: "the only person" once `others` is wired. Who is taken did not move
-    #: otherwise; the number moves because a typed `person K` now counts in
-    #: the whole list. 15: frames where the track lies mostly on `others`
-    #: (`frames_on_others`) are emptied before `regain` runs, so they count
-    #: as lost and are searched again. 16 (2026-10-23): every owner's box in a
-    #: shot is a seed, kept frame by frame by the tracker's own score
-    #: (`merge_tracks`); a box no detection's box agrees with takes the detection
-    #: whose mask overlaps it, else what SAM 3 segments inside it (`name_seed`);
-    #: an empty run holding an owner's box is searched whatever its length; and
-    #: the head is tracked within each stretch the person track holds her.
-    MASK_VERSION = 16
-
     @classmethod
     def define_schema(cls):
         return io.Schema(
@@ -3000,7 +2968,7 @@ class MiniMaxH3SubjectTrack(io.ComfyNode):
                                  parts=parts, unsure=unsure)
         table["track_head"] = bool(track_head)
         # WHICH CODE RAN, taken in this process when the module was imported (`RAN_CODE`): the observable for what the
-        # server runs, where `bench/masked_job.py::tracker_mask_version` reads the file on disk
+        # server runs, where `bench/_lib/code_stamp.py` reads the file on disk
         table["ran_code"] = dict(RAN_CODE)
         # which head track ran: main's span head track (the default) or per stretch (`head: per stretch: WHY`), with the why
         table["head_mode"] = head_mode
@@ -3018,16 +2986,13 @@ class MiniMaxH3SubjectTrack(io.ComfyNode):
 
 
 def ran_code(path=None) -> dict:
-    """The code this process runs, for the shot table (`ran_code`): this module's file, the sha256 of its bytes as they
-    were read when it was imported, and the loaded node's `MASK_VERSION` (2026-10-23, the owner: "verify mask version is
-    even right - it could be misleadingly silently looking ok"). Nothing else showed which `subject_track.py` the server
-    ran: `bench/masked_job.py::tracker_mask_version` reads the number from the file on disk, which after an edit or a
-    pull is the new number whatever the server imported. After a restart a session holds the preview's
-    `ran_code.sha256` to `sha256sum subject_track.py` at HEAD."""
+    """The code this process runs, for the shot table (`ran_code`): this module's file and the sha256 of its bytes as
+    they were read when it was imported. Nothing else showed which `subject_track.py` the server ran:
+    `bench/_lib/code_stamp.py` reads the file on disk, which after an edit or a pull is the new file whatever the
+    server imported. After a restart a session holds the preview's `ran_code.sha256` to `sha256sum subject_track.py` at HEAD."""
     from pathlib import Path
     path = Path(path or __file__)
-    return {"file": path.name, "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
-            "mask_version": int(MiniMaxH3SubjectTrack.MASK_VERSION)}
+    return {"file": path.name, "sha256": hashlib.sha256(path.read_bytes()).hexdigest()}
 
 
 #: Taken once, when the module is imported in the server: what the file held then, not what it holds now.
