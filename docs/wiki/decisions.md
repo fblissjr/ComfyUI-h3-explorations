@@ -48,10 +48,40 @@ Older history lives elsewhere and is not copied here:
   `reference --plain WHY` and `job --no-draw-face-on`. What changes: a knob a decision settled lives in the subject's recipe
   in `plan.json`, `job` refuses a command-line value that differs from it in the tool's own words with no reason route, the
   one kept exception (second_hfp_1093k at 128) is written in the plan's `shot_overrides` with the keep it cites, and the gate
-  reads the plan; built in a worktree and landed between steps, commit to be named here. Corrected today for what they used
+  reads the plan; built in a worktree and landed between steps (`cbd39fbe`). Corrected today for what they used
   to claim: `docs/wiki/handover.md` ("pre-render recipe diff gate"), `docs/masked_v2v/PROTOCOL.md` 3.2 and
   `docs/masked_v2v/2026-10-25_pass_contamination_and_mask_step_forensics.md` §6 ("enforces pre-render gates"), which each
   called the recipe diff a gate: it prints a diff and refuses only a difference with no reason. 5114e is the same load at 16.
+
+- **Pasted screenshot boxes and session-entered sheet boxes are not tracker seeds; `who-is-who` page clicks stand; and what
+  both sides verified on `second_hfp_4647h`** (the owner's word, 2026-10-26). The boxes that came from the owner's pasted
+  screenshots on 2026-10-23 (`data/fun/cast/cast.jsonl` lines 175-192 and 194-196, two already withdrawn at lines 193 and
+  210) were a rough idea for a person to look at, never seeds for the tracker. The same goes for the 13 boxes a session
+  entered from contact sheets on 2026-10-25 (lines 197-209). The `who-is-who` clicks the owner made on the page (lines
+  1-174) stand as they are: each one says which detected person is the subject on that frame. Sequencing: on `4647-4725`
+  the owner's only page click on `second` is frame 4666 (`line 128`), before the occlusion, so withdrawing the screenshot
+  boxes tonight with nothing in their place would lose her from 4682 on; the withdrawal goes with tomorrow's tracker build,
+  where re-finding her after an occlusion is the tracker's own job (its head detection per stretch with `--head-per-stretch`
+  on by default, and the signature match), replayed on 4647 and 4912 before anything renders (with one click on her outline
+  on 4690 as the fallback if the match cannot re-find her). On `second_hfp_4647h` (`4647-4725`): the first half (`4647-4673`)
+  replaced her face and hair with blonde hair cleanly (`+36.9` BGR luma increase), proving `2.17x` zoom in the single
+  79-frame window swaps her to blonde once unmasked dark hair is removed; she reverted to dark hair after the occlusion
+  because (1) on `4682-4685` (`t=11`, `0` regenerated tokens) her person track (`765-1,082 px`) held only her bare forearm
+  (`y=297-359`), so crop-Sapiens cropped only her forearm (`y=289-367`, `608-2,123 px` false-positive `Face_Neck` on her
+  arm, suppressed by `head_tube` with `0` face points; `p_8px` still held `457-1,860 px` of that arm crop) while her emerging
+  head edge on `4684-4685` had no track or mask and the `hidden` mark (`4674-4685`) zeroed the step; (2) on `4686` and
+  `4693-4695`, because `--head-per-stretch` was off and `head_track` was `0 px` on `4682-4695`, `head_tube` (`off_tube_pose`)
+  sliced `945-1,354 px` off crop-Sapiens's valid head/hair mask (`1,271 px` lost in `parts_held` on `4686`, `945-1,135 px`
+  on `4693-4695`), while on `4688, 4691-4693` `parts_held` did hold `726-1,460 px` of `Hair` (class `4` in
+  `classes__shot_c_4647k.npz`); and (3) on `4686-4693` (`t=12-13`) the laid matte reached `40-70 px` above her head into the
+  dark-haired bystander woman SAM had detected (`2,000-3,500 px` in `shot_c_4647k_people.npz` at scores `0.54-0.81`) while
+  `strangers.mkv` held `0 px` there because whole-frame `Sapiens2` missed her in `bench/strangers.py::run`. Tomorrow's
+  builds (with no renders on the card, replayed on `4647k`, `4912h` and `1093` first): retire `hold_to_track` in favor of
+  her Sapiens face+hair crop mask unioned with her head track (never unioning `Upper_Clothing`/`Torso` from `person_track`
+  into a face+hair part, and anchoring the head room to actual head detections rather than arm-only crops) less every other
+  person's SAM detection; include SAM's other-person detections in `strangers.py` where whole-frame Sapiens finds nobody;
+  and re-find her after an occlusion in the tracker (`--head-per-stretch` default + signature match) while withdrawing the
+  screenshot boxes.
 
 ## 2026-10-25
 
