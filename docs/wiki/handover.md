@@ -63,6 +63,9 @@ each overturned in [`decisions.md`](decisions.md) 2026-10-26 and the forensics r
   - On `4686-4693` (`t=12-13`), the laid matte reached `40-70 px` above her head into the dark-haired bystander woman SAM had
     detected (`2,000-3,500 px` in `shot_c_4647k_people.npz` at `0.54-0.81`) while `strangers.mkv` held `0 px` there because
     whole-frame `Sapiens2` missed her in `bench/strangers.py::run`.
+  - In `her_hair_in_hole` (`bench/capture_masked_run.py:5303-5312`), `hole(f)` judges "inside the hole" against `out[f]` grown
+    by the margin (`30` canvas px) before the keep-out carve and the feather (`4686`: `head[39] & ~hole(39) == 0 px`, leaving
+    `130 px` of `head_tube[39]` in the feathered rim at `matte <= 127`).
 - **Build days and render days do not mix**: tomorrow morning is a build session in worktrees with `:8188` idle until all three
   builds are replayed on kept/existing captures (`4647k`, `4912h`, `1093`) and the owner inspects the `4682-4696` strip.
 

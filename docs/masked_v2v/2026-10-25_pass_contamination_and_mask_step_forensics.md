@@ -184,7 +184,10 @@ Four facts, none of them the causes §1 and §2.1 named:
   rather than her crop class map (`classes__shot_c_4647k.npz`), subtracts her own person track (`~track[f]`) from what it
   may add (line 5384, item 3 of `HAIR_IN_HOLE_CANNOT_SEE` at line 5132), and added zero hair pixels over 79 frames; its
   head additions were all on 4702-4714, while Stage 2 (item 4) triggers on arm-only `person_track` frames (`4682–4685`)
-  and copies a neighbor's head (`hers`) when `head_track` is empty.
+  and copies a neighbor's head (`hers`) when `head_track` is empty. In addition (`lines 5303–5312`), `hole(f)` tests
+  "inside the hole" against `out[f]` dilated by `margin_px = 30` canvas px **before** the keep-out carve and feather: on
+  `4686` (`frame 39`), `head[39] & ~hole(39)` was `0 px` so Part 1 added nothing to `out[39]`, leaving `130 px` of
+  `head_tube[39]` (`932 px` total) in the feathered rim where `matte <= 127` in `second_hfp_4647h_window_1_region.npz`.
 
 Not a cause: her held hair on 4688, 4691-4693 (`726–1,460 px` of class `4` `Hair` on her own class map).
 Withdrawn: a split of the shot across the occlusion (§6 of `AGENTS.md` forbids it). The rules this forces, with the
