@@ -4027,6 +4027,29 @@ def her_hair_in_the_hole() -> str:
             ))
             rep_ht = json.loads(replay_out.read_text())["a"]
             assert rep_ht["lost_asked_on_source_frames"] == [], f"hair-in-hole replay ignored head_tube__pv.npz: {rep_ht}"
+            # When `her_hair_in_hole` places `held` pixels outside `track` (e.g. via a `hers` mark on a frame where `track` is empty),
+            # `track__pv.mkv` written by `_files` equals `track | held` on that frame while `masks__pv.npz["track"]` and `per_frame.json`
+            # remain the original `track`
+            track_empty_3 = track.copy()
+            track_empty_3[3] = False
+            fp_empty_3 = fp.copy()
+            fp_empty_3[3] = False
+            fh_empty_3 = fh.copy()
+            fh_empty_3[3] = False
+            written_out_tr: dict[str, np.ndarray] = {}
+            cap.read_mask = lambda p, *_a: ((fh_empty_3.copy() if "head" in str(p) else held_by_them.copy() if "strangers" in str(p) else
+                                             track_empty_3.copy() if "track" in str(p) else fp_empty_3.copy()), np.ones(n, bool))
+            cap.write_mask_video = lambda p, m: written_out_tr.__setitem__(f"{Path(p).parent.name}/{Path(p).name}", m.copy())
+            spec_out_tr = {**spec_ht, "head_tube": "0", "hair_hers": f"{first + 3}-{first + 3}"}
+            cap._files(args_ht, Path(tmp) / "cap_out_tr", [("a", spec_out_tr), stranger_ht], [], plan_ht)
+            held_3 = written_out_tr["a/parts_held__pv.mkv"]
+            assert held_3[3].any() and not track_empty_3[3].any(), "hers mark did not place held pixels on frame 3"
+            assert (written_out_tr["a/track__pv.mkv"] == (track_empty_3 | held_3)).all(), "track__pv.mkv was not updated to track | held"
+            saved_npz = np.load(Path(tmp) / "cap_out_tr" / "subjects" / "a" / "masks__pv.npz")
+            unpacked_tr = np.unpackbits(saved_npz["track"], axis=-1)[..., :W].astype(bool)
+            assert (unpacked_tr == track_empty_3).all(), "masks__pv.npz['track'] was mutated by hair_in_hole_files"
+            pf_rows = json.loads((Path(tmp) / "cap_out_tr" / "subjects" / "a" / "per_frame.json").read_text())["rows"]
+            assert pf_rows[3]["track_share"] == 0.0, f"per_frame.json track_share mutated on frame 3: {pf_rows[3]}"
         finally:
             for k, v in stood_in.items():
                 setattr(cap, k, v)

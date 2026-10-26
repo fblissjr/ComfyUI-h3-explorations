@@ -5512,6 +5512,8 @@ def hair_in_hole_files(out: Path, label: str, given: dict, made_of: list[str], s
     (folder / f"hair_in_hole__{by}.json").write_text(json.dumps(record, indent=1) + "\n")
     held_masks[label] = held
     write_mask_video(folder / f"parts_held__{by}.mkv", held)
+    if bool((held & ~given["track"]).any()):
+        write_mask_video(folder / f"track__{by}.mkv", given["track"] | held)
     summary = {"file": f"subjects/{label}/hair_in_hole__{by}.json", "hair_from": record["hair_from"],
                **{k: record[k] for k in ("head_added_px", "hair_added_px", "head_added_on_source_frames", "hair_added_on_source_frames",
                                          "lost_asked_on_source_frames", "hair_undecided_on_source_frames")}}
