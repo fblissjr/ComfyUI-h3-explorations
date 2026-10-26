@@ -2,7 +2,9 @@
 """What H3 was handed for one load, read from the graph that was queued: every file, its digest, what the graph does to it.
 
     H3_INPUT_DIR=... H3_OUTPUT_DIR=... <python> bench/what_h3_got.py --job-folder data/<day>_<load>_job --load <load> \\
-        [--stage render|plan] [--json OUT.json]
+        [--stage render|plan] [--capture data/<day>_<load>] [--json OUT.json]
+    H3_INPUT_DIR=... H3_OUTPUT_DIR=... <python> bench/what_h3_got.py data/<day>_<load>_job/<load>.<stage>[.queued].json \\
+        [--capture data/<day>_<load>] [--json OUT.json]
 
 **What it buys.** Until 2026-10-15 a review strip showed the reference video and the still that its command line
 named, and the land step filled those from the JOB file (`load_chain.py`, the stack step), never from the graph
@@ -33,6 +35,15 @@ named it.
 - The latent a load continues from (the song node's `continue_from`): a file like the others.
 - The input folder a still is named under: the one the queue step recorded (`input_dir`), else `H3_INPUT_DIR`;
   with neither it refuses, since the stock folder is not where this box's server reads stills from.
+- When the graph's masks come from a capture folder (`data/<day>_<load>`, inferred from the mask paths or job file,
+  or passed via `--capture`): a read-only **Capture & Input Provenance Join** (`capture_audit`) that opens the
+  capture's `manifest.json`, `verify.json`, `flags.json`, `runs/<load>/region.npz`, `depth.npz`, and per-subject
+  `head_tube__<by>.json` and `hair_in_hole__<by>.json`, cross-checks every graph input (`the source`, `mask`,
+  `parts_held`, `others` / `strangers`, `<Video 1>`, `<Picture 1>`) against `manifest.json` and `verify.json`, and
+  prints a Capture & Input Provenance Table with each file's producer tool, `sha256` (16-hex prefix), `writer_commit`
+  and git age (`stale_at_build`, `code_updated_since_capture`, or `current`), agreement status, active-step `0 px`
+  and speck frames, unresolved `lost_asked_on_source_frames` / `hair_undecided_on_source_frames`, and any overridden
+  blocking flags in `flags.json`.
 
 **Hard failures, the only red** (exit 1): the graph names a file that is not there; a queued load names a file
 written more than a second after `queued_at` (the record keeps whole seconds, taken after the post), so which
@@ -91,8 +102,12 @@ VIDEO_LOADER, IMAGE_LOADER, AUDIO_LOADER = "VHS_LoadVideoFFmpegPath", "LoadImage
 #: Each loader this reads, and the input that names its file. **Inherited** from the loaders' own inputs.
 FILE_KEY = {VIDEO_LOADER: "video", IMAGE_LOADER: "image", AUDIO_LOADER: "audio_file"}
 #: VideoHelperSuite's loader, whose format table and crop line are read and restated here.
-#: Found under ComfyUI's own custom_nodes (`_lib.COMFY`), so a worktree of this pack outside it reads the same file.
-VHS_LOADER_FILE = COMFY / "custom_nodes" / "ComfyUI-VideoHelperSuite" / "videohelpersuite" / "load_video_nodes.py"
+#: Found under ComfyUI's own custom_nodes (`_lib.COMFY` or the active ComfyUI venv's root when run from an external worktree).
+_COMFY_ROOT = next(
+    (c for c in (COMFY, Path(sys.prefix).resolve().parent, *(p / "ComfyUI" for p in REPO.parents)) if (c / "comfy").is_dir()),
+    COMFY,
+)
+VHS_LOADER_FILE = _COMFY_ROOT / "custom_nodes" / "ComfyUI-VideoHelperSuite" / "videohelpersuite" / "load_video_nodes.py"
 SONG, SOURCE = "MiniMaxH3AudioFreezeSong", "MiniMaxH3MaskedSource"
 #: The Masked Source's linked inputs that carry a picture, and the name each is shown under. **Inherited** from the
 #: node's own inputs (`video_mask.py`, `MiniMaxH3MaskedSource.define_schema`); one not listed is shown by its own name.
@@ -348,7 +363,7 @@ def carved_on_plan(job_folder: Path, load: str, path: str) -> bool:
 
 
 def read(job_folder: Path, load: str, stage: str = "render", *, inputs: Path | None = None, output: Path | None = None,
-         digests: bool = True) -> dict:
+         digests: bool = True, capture: Path | None = None) -> dict:
     """Everything a load was handed, as one dict; `failures` holds the hard failures, empty when there are none."""
     import masked_job_graph
     job_folder = Path(job_folder)
@@ -475,7 +490,638 @@ def read(job_folder: Path, load: str, stage: str = "render", *, inputs: Path | N
                                    "what H3 read cannot be shown from this file")
         if row.get("sha256_at_queue") and row.get("sha256") and row["sha256_at_queue"] != row["sha256"]:
             out["failures"].append(f"{where}: its sha256 is not the one recorded at queue time")
+    out["capture_audit"] = audit_capture(out, job_folder, load, stage, inputs, output, capture)
     return out
+
+
+#: Producer code files in the repo for each preview / capture stage. **Inherited** from `bench/inspect_mask_steps.py`.
+PRODUCER_FILES: dict[str, list[str]] = {
+    "track": ["subject_track.py", "sam31_corrections.py", "shot_table.py"],
+    "head_track": ["subject_track.py", "sam31_corrections.py"],
+    "parts": ["sapiens2_parts.py", "head_tube_parts.py", "bench/head_tube_parts.py"],
+    "classes": ["sapiens2_parts.py"],
+    "pose": ["sapiens2_Pose.py", "bench/pose_along_shot.py"],
+    "points": ["bench/pose_along_shot.py", "bench/head_reference.py", "bench/draw_face_points.py"],
+    "strangers": ["bench/strangers.py", "sapiens2_parts.py"],
+    "head_reference": ["bench/head_reference.py", "bench/draw_face_points.py"],
+    "depth": ["bench/measure_moge2_depth.py"],
+    "head_tube": ["bench/head_tube_parts.py", "head_tube_parts.py"],
+    "hair_in_hole": ["bench/head_tube_parts.py", "head_tube_parts.py", "bench/capture_masked_run.py"],
+    "capture": ["bench/capture_masked_run.py"],
+}
+
+#: H3 VideoVAE temporal token cadence (`comfy.ldm.minimax.model.FRAME_PER_TOKEN` and `video_mask.run_lengths`).
+FRAME_PER_TOKEN = (1, 4, 4, 4, 4)
+
+
+def _iso_epoch(s: str | None) -> float | None:
+    if not s:
+        return None
+    try:
+        d = datetime.datetime.fromisoformat(str(s).replace("Z", "+00:00"))
+        if d.tzinfo is None:
+            d = d.replace(tzinfo=datetime.datetime.now().astimezone().tzinfo)
+        return d.timestamp()
+    except ValueError:
+        return None
+
+
+def _git_commit_of(rel_paths: list[str], before_epoch: float | None = None) -> dict | None:
+    existing = [p for p in rel_paths if (REPO / p).is_file()]
+    if not existing:
+        return None
+    cmd = ["git", "log", "-n", "1", "--format=%h|%ct|%cs"]
+    if before_epoch is not None:
+        cmd.append(f"--before={int(before_epoch)}")
+    cmd.extend(["--", *existing])
+    try:
+        out = subprocess.check_output(cmd, cwd=REPO, text=True, stderr=subprocess.DEVNULL).strip()
+    except (subprocess.SubprocessError, OSError):
+        return None
+    if not out or "|" not in out:
+        return None
+    h, ct, cs = out.split("|", 2)
+    return {"commit": h, "epoch": float(ct), "date": cs}
+
+
+def _read_stamp(path: Path | None) -> dict | None:
+    """Read `code_stamp` or `commit`/`writer_commit` from a `.json` or `.npz` artifact when present."""
+    if path is None or not path.is_file():
+        return None
+    try:
+        if path.suffix == ".json":
+            d = json.loads(path.read_text())
+            if isinstance(d, dict):
+                if isinstance(d.get("code_stamp"), dict):
+                    return d["code_stamp"]
+                if d.get("writer_commit") or d.get("commit"):
+                    return {"writer_commit": d.get("writer_commit") or d.get("commit")}
+        elif path.suffix == ".npz":
+            import numpy as np
+            with np.load(path) as z:
+                if "code_stamp" in z.files:
+                    raw = z["code_stamp"]
+                    s = str(raw.item() if getattr(raw, "ndim", 1) == 0 else raw)
+                    return json.loads(s)
+    except Exception:
+        return None
+    return None
+
+
+def _producer_status(group: str, written_epoch: float | None, build_epoch: float, explicit_commit: str | None = None) -> tuple[str, str]:
+    """Return `(writer_commit, code_status)` for a producer group given when the artifact was written and when the capture built."""
+    files = PRODUCER_FILES.get(group, [])
+    at_write = _git_commit_of(files, before_epoch=(written_epoch + 60) if written_epoch is not None else (build_epoch + 60))
+    at_build = _git_commit_of(files, before_epoch=build_epoch + 60)
+    at_head = _git_commit_of(files, before_epoch=None)
+    writer_commit = explicit_commit or (at_write["commit"] if at_write else "unknown")
+    if written_epoch is not None and at_build and at_build["epoch"] > written_epoch + 120 and at_build["commit"] != writer_commit:
+        return writer_commit, f"stale_at_build ({files[0]} @ {at_build['commit']} {at_build['date']} > {writer_commit})"
+    if at_head and at_head["epoch"] > max(written_epoch or 0.0, build_epoch) + 120 and at_head["commit"] != writer_commit:
+        return writer_commit, f"code_updated_since_capture ({files[0]} @ {at_head['commit']} {at_head['date']} > {writer_commit})"
+    return writer_commit, "current"
+
+
+def _find_capture_dir(got: dict, job_folder: Path, load: str, stage: str, capture: Path | None) -> Path | None:
+    if capture is not None:
+        cap = Path(capture)
+        if not (cap / "manifest.json").is_file():
+            raise SystemExit(f"no manifest.json in {cap}: --capture must name a capture folder")
+        return cap
+    for row in got.get("inputs", []):
+        if row.get("role") in ("the subject's mask", "the parts kept", "the keep-outs") and row.get("file"):
+            p = Path(row["file"])
+            for parent in p.parents:
+                if (parent / "manifest.json").is_file():
+                    return parent
+                if parent.name.endswith("_first"):
+                    sib = parent.with_name(parent.name[:-6])
+                    if (sib / "manifest.json").is_file():
+                        return sib
+    for jf in (job_folder / f"job.{stage}.json", job_folder / "job.json"):
+        if jf.is_file():
+            try:
+                jd = json.loads(jf.read_text())
+                c_str = (jd.get("job") or {}).get("capture") or jd.get("capture")
+                if c_str:
+                    c_p = Path(c_str) if Path(c_str).is_absolute() else (REPO / c_str)
+                    if (c_p / "manifest.json").is_file():
+                        return c_p
+            except Exception:
+                pass
+    return None
+
+
+def _spans_text(spans: list) -> str:
+    if not spans:
+        return "none"
+    parts = []
+    for sp in spans:
+        if isinstance(sp, (list, tuple)) and len(sp) == 2:
+            parts.append(f"{sp[0]}-{sp[1]}" if sp[0] != sp[1] else str(sp[0]))
+        else:
+            parts.append(str(sp))
+    return ", ".join(parts)
+
+
+def audit_capture(got: dict, job_folder: Path, load: str, stage: str, inputs_dir: Path,
+                  output_dir: Path | None, capture: Path | None = None) -> dict | None:
+    """Read-only join of the queued graph's inputs against the capture folder's `manifest.json`, `verify.json`, `flags.json`,
+    `runs/<load>/region.npz`, `depth.npz`, and per-subject `head_tube__<by>.json` and `hair_in_hole__<by>.json`."""
+    cap_dir = _find_capture_dir(got, job_folder, load, stage, capture)
+    if cap_dir is None:
+        return None
+    manifest_path = cap_dir / "manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    verify_path = cap_dir / "verify.json"
+    verify = json.loads(verify_path.read_text()) if verify_path.is_file() else None
+    flags_path = cap_dir / "flags.json"
+    flags = json.loads(flags_path.read_text()) if flags_path.is_file() else None
+
+    first = int(manifest.get("first_frame", 0))
+    n = int(manifest.get("frames", 0))
+    size = manifest.get("size") or [1024, 768]
+    w_px = int(size[0])
+    runs = manifest.get("runs") or []
+    run_entry = next((r for r in runs if r.get("name") == load), runs[0] if runs else {})
+    subj = run_entry.get("subject", "")
+    subj_entry = next((s for s in (manifest.get("subjects") or []) if s.get("label") == subj), {})
+    seen = (subj_entry.get("sightings") or [{}])[0]
+    by = seen.get("by", "")
+
+    # Capture build epoch and writer commit
+    cap_mtime = manifest_path.stat().st_mtime
+    in_epochs = [_iso_epoch(v.get("written")) for v in (seen.get("inputs") or {}).values() if isinstance(v, dict)]
+    in_epochs = [e for e in in_epochs if e is not None]
+    build_epoch = max(in_epochs + [cap_mtime]) if in_epochs else cap_mtime
+    man_stamp = _read_stamp(manifest_path)
+    queued_commit = (got.get("queued") or {}).get("commit")
+    cap_commit, cap_code_status = _producer_status(
+        "capture", build_epoch, build_epoch,
+        explicit_commit=(man_stamp or {}).get("writer_commit") or queued_commit,
+    )
+
+    # Preview job commit & queued_at when available under data/
+    data_root = cap_dir.resolve().parent
+    preview_commit: str | None = None
+    preview_queued_at: str | None = None
+    if by:
+        for pq in sorted(data_root.glob(f"*_{by}_job/preview.queued.json")):
+            try:
+                pq_d = json.loads(pq.read_text())
+                preview_commit = pq_d.get("commit") or preview_commit
+                preview_queued_at = pq_d.get("completed_at") or pq_d.get("queued_at") or preview_queued_at
+            except Exception:
+                pass
+
+    # Output share root for resolving preview .npz / strangers files
+    if output_dir is None:
+        import os
+        out_env = os.environ.get("H3_OUTPUT_DIR")
+        output_dir = Path(out_env) if out_env else (REPO / "output")
+    clip_name = Path(manifest.get("clip") or "").name
+    video_proj = clip_name.split("_")[0] if "_" in clip_name else "fun"
+    vid_out = output_dir / "Video" / video_proj if (output_dir / "Video" / video_proj).is_dir() else (output_dir / "Video")
+
+    # Cross-check graph inputs against manifest.json & verify.json
+    mismatches: list[str] = []
+    table: list[dict] = []
+
+    by_role: dict[str, list[dict]] = {}
+    for r in got.get("inputs", []):
+        by_role.setdefault(r["role"], []).append(r)
+
+    # 1. Source video
+    src_rows = by_role.get("the source", [])
+    if src_rows:
+        sr = src_rows[0]
+        g_clip = Path(sr.get("named") or sr.get("file") or "").name
+        g_first = (sr.get("loader") or {}).get("first_frame")
+        g_cap = (sr.get("loader") or {}).get("frame_load_cap")
+        win_f = (got.get("windows") or {}).get("window_frames")
+        src_ok = (g_clip == clip_name and g_first == first and (g_cap == n or (win_f and g_cap == win_f and n <= g_cap)))
+        if not src_ok:
+            mismatches.append(
+                f"the source: graph loads {g_clip!r} (first_frame={g_first}, frames={g_cap}) != "
+                f"manifest clip={clip_name!r} (first_frame={first}, frames={n})"
+            )
+        cap_note = f"{n}f (loader cap {g_cap}f)" if g_cap != n else f"{n}f"
+        table.append({
+            "role": "the source",
+            "producer": "source plate",
+            "path": sr.get("file") or sr.get("named"),
+            "sha256": (sr.get("sha256") or "")[:16] or None,
+            "writer_commit": "-",
+            "code_status": "source",
+            "agreement": f"AGREES ({clip_name}, {first}..{first + n - 1}, {cap_note})" if src_ok else f"MISMATCH ({g_clip} {g_first}+{g_cap}f vs {clip_name} {first}+{n}f)",
+        })
+
+    # 2. Subject mask (`track__<by>.mkv`)
+    subj_dir = cap_dir / "subjects" / subj if subj else cap_dir
+    want_mask = subj_dir / f"track__{by}.mkv" if by else None
+    for mr in by_role.get("the subject's mask", []):
+        mp = Path(mr["file"]) if mr.get("file") else None
+        mask_ok = bool(mp and want_mask and (mp.resolve() == want_mask.resolve() or (first_copy(want_mask) and mp.resolve() == first_copy(want_mask).resolve())))
+        if not mask_ok and want_mask:
+            mismatches.append(f"the subject's mask: graph loads {mr.get('file')!r} != capture {str(want_mask)!r}")
+        table.append({
+            "role": f"the subject's mask ({subj})",
+            "producer": "bench/capture_masked_run.py",
+            "path": mr.get("file"),
+            "sha256": (mr.get("sha256") or "")[:16] or None,
+            "writer_commit": cap_commit,
+            "code_status": cap_code_status,
+            "agreement": f"AGREES (subjects/{subj}/track__{by}.mkv)" if mask_ok else f"MISMATCH (expected subjects/{subj}/track__{by}.mkv)",
+        })
+
+    # 3. Parts kept (`parts_held__<by>.mkv`)
+    want_parts = subj_dir / f"parts_held__{by}.mkv" if (by and seen.get("parts")) else None
+    for pr in by_role.get("the parts kept", []):
+        if pr.get("file") is None:
+            continue
+        pp = Path(pr["file"])
+        parts_ok = bool(want_parts and (pp.resolve() == want_parts.resolve() or (first_copy(want_parts) and pp.resolve() == first_copy(want_parts).resolve())))
+        if not parts_ok and want_parts:
+            mismatches.append(f"the parts kept: graph loads {pr.get('file')!r} != capture {str(want_parts)!r}")
+        st_stamp = _read_stamp(subj_dir / f"head_tube__{by}.json") or man_stamp
+        p_commit, p_status = _producer_status(
+            "hair_in_hole", build_epoch, build_epoch,
+            explicit_commit=(st_stamp or {}).get("writer_commit") or cap_commit,
+        )
+        table.append({
+            "role": f"the parts kept ({subj})",
+            "producer": "bench/capture_masked_run.py + head_tube_parts.py",
+            "path": pr.get("file"),
+            "sha256": (pr.get("sha256") or "")[:16] or None,
+            "writer_commit": p_commit,
+            "code_status": p_status,
+            "agreement": f"AGREES (subjects/{subj}/parts_held__{by}.mkv)" if parts_ok else f"MISMATCH (expected {want_parts})",
+        })
+
+    # 4. Keep-outs (`others` / `strangers`)
+    expected_others: dict[str, Path] = {}
+    for o_lbl in (run_entry.get("others") or []):
+        o_entry = next((s for s in (manifest.get("subjects") or []) if s.get("label") == o_lbl), None)
+        o_by = ((o_entry or {}).get("sightings") or [{}])[0].get("by", by)
+        expected_others[o_lbl] = cap_dir / "subjects" / o_lbl / f"track__{o_by}.mkv"
+    seen_other_labels: set[str] = set()
+    for kr in by_role.get("the keep-outs", []):
+        kp = Path(kr["file"]) if kr.get("file") else None
+        matched_lbl = None
+        for o_lbl, o_path in expected_others.items():
+            if kp and (kp.resolve() == o_path.resolve() or (first_copy(o_path) and kp.resolve() == first_copy(o_path).resolve())):
+                matched_lbl = o_lbl
+                seen_other_labels.add(o_lbl)
+                break
+        if matched_lbl is None:
+            mismatches.append(
+                f"the keep-outs: graph loads {kr.get('file')!r}, which is not in manifest runs[].others "
+                f"({list(expected_others.keys())})"
+            )
+        table.append({
+            "role": f"the keep-outs ({matched_lbl or 'UNMATCHED'})",
+            "producer": "bench/capture_masked_run.py",
+            "path": kr.get("file"),
+            "sha256": (kr.get("sha256") or "")[:16] or None,
+            "writer_commit": cap_commit,
+            "code_status": cap_code_status,
+            "agreement": f"AGREES (subjects/{matched_lbl}/{kp.name})" if matched_lbl and kp else "MISMATCH (not in manifest runs[].others)",
+        })
+    for o_lbl, o_path in expected_others.items():
+        if o_lbl not in seen_other_labels:
+            mismatches.append(f"the keep-outs: manifest runs[].others names {o_lbl!r} ({o_path}), but the graph does not wire it")
+            table.append({
+                "role": f"the keep-outs ({o_lbl})",
+                "producer": "bench/capture_masked_run.py",
+                "path": str(o_path),
+                "sha256": sha256(o_path)[:16] if o_path.is_file() else None,
+                "writer_commit": cap_commit,
+                "code_status": cap_code_status,
+                "agreement": "MISSING FROM GRAPH (named in manifest runs[].others)",
+            })
+
+    # 5. <Video 1> (head reference video) and <Picture 1> (face reference still)
+    for vr in by_role.get("<Video 1>", []):
+        rec = vr.get("record") or {}
+        rec_first = rec.get("its_first_frame_is_source_frame")
+        rec_frames = rec.get("frames")
+        frames_ok = (
+            rec_frames in (None, n)
+            or (isinstance(rec_frames, list) and len(rec_frames) == 2 and rec_frames == [first, first + n - 1])
+        )
+        v_ok = (rec_first in (None, first)) and frames_ok
+        if not v_ok:
+            mismatches.append(f"<Video 1>: record first_frame={rec_first}, frames={rec_frames} != manifest ({first}, {n})")
+        v_ep = _iso_epoch(rec.get("made_at") or vr.get("written"))
+        v_stamp = _read_stamp(Path(rec["file"])) if rec.get("file") else None
+        v_commit, v_status = _producer_status(
+            "head_reference", v_ep, build_epoch,
+            explicit_commit=(v_stamp or {}).get("writer_commit") or (cap_commit if v_ep and abs(v_ep - build_epoch) < 7200 else None),
+        )
+        f_desc = f"{rec_frames[0]}..{rec_frames[1]} ({n}f)" if (isinstance(rec_frames, list) and len(rec_frames) == 2) else f"{rec_frames}f"
+        table.append({
+            "role": "<Video 1> (head ref)",
+            "producer": rec.get("made_by") or "bench/head_reference.py",
+            "path": vr.get("file"),
+            "sha256": (vr.get("sha256") or "")[:16] or None,
+            "writer_commit": v_commit,
+            "code_status": v_status,
+            "agreement": f"AGREES (frame 0 = {rec_first}, {f_desc})" if v_ok else f"MISMATCH (frame 0 = {rec_first}, {rec_frames})",
+        })
+    for pr in by_role.get("<Picture 1>", []):
+        table.append({
+            "role": "<Picture 1> (still)",
+            "producer": "face reference crop",
+            "path": pr.get("file"),
+            "sha256": (pr.get("sha256") or "")[:16] or None,
+            "writer_commit": "-",
+            "code_status": "still",
+            "agreement": "AGREES" if pr.get("exists") else "MISSING",
+        })
+
+    # 6. Upstream preview inputs recorded in `manifest.json` (`seen["inputs"]` and `strangers`)
+    inputs_meta = seen.get("inputs") or {}
+    for k_in in ("track", "head_track", "parts", "classes", "pose", "points"):
+        v_in = inputs_meta.get(k_in)
+        if not isinstance(v_in, dict):
+            continue
+        f_name = str(v_in.get("file") or "")
+        w_str = v_in.get("written")
+        w_ep = _iso_epoch(w_str)
+        disk_p: Path | None = None
+        if f_name:
+            if Path(f_name).is_file():
+                disk_p = Path(f_name)
+            elif vid_out.is_dir():
+                cands = list(vid_out.glob(f"*/{by}/{f_name}")) + list(vid_out.glob(f"*/{f_name}"))
+                if cands:
+                    disk_p = cands[0]
+        in_stamp = (v_in.get("code_stamp") if isinstance(v_in.get("code_stamp"), dict) else None) or _read_stamp(disk_p)
+        exp_c = (in_stamp or {}).get("writer_commit") or (preview_commit if k_in != "points" else None)
+        c_hash, c_status = _producer_status(k_in, w_ep, build_epoch, explicit_commit=exp_c)
+        prod_label = (PRODUCER_FILES.get(k_in) or [k_in])[0]
+        table.append({
+            "role": f"preview:{k_in} ({by})",
+            "producer": prod_label,
+            "path": str(disk_p) if disk_p else f_name,
+            "sha256": sha256(disk_p)[:16] if (disk_p and disk_p.is_file()) else None,
+            "writer_commit": c_hash,
+            "code_status": c_status,
+            "agreement": f"written {w_str}" if w_str else "recorded in manifest",
+        })
+
+    str_entry = next((s for s in (manifest.get("subjects") or []) if s.get("label") == "strangers"), None)
+    if str_entry and str_entry.get("sightings"):
+        s_seen = str_entry["sightings"][0]
+        s_by = s_seen.get("by", by)
+        s_in = ((s_seen.get("inputs") or {}).get("track")) or {}
+        sf_name = str(s_in.get("file") or s_seen.get("track") or "")
+        sw_str = s_in.get("written")
+        sw_ep = _iso_epoch(sw_str)
+        s_disk: Path | None = None
+        if sf_name and vid_out.is_dir():
+            cands = list(vid_out.glob(f"keep_outs/{s_by}/{sf_name}")) + list(vid_out.glob(f"keep_outs/{sf_name}"))
+            if cands:
+                s_disk = cands[0]
+        s_stamp = (s_in.get("code_stamp") if isinstance(s_in.get("code_stamp"), dict) else None) or (
+            _read_stamp(s_disk.with_suffix(".json")) if s_disk else None
+        )
+        sc_hash, sc_status = _producer_status("strangers", sw_ep, build_epoch, explicit_commit=(s_stamp or {}).get("writer_commit"))
+        table.append({
+            "role": f"raw keep-out:strangers ({s_by})",
+            "producer": "bench/strangers.py",
+            "path": str(s_disk) if s_disk else sf_name,
+            "sha256": sha256(s_disk)[:16] if (s_disk and s_disk.is_file()) else None,
+            "writer_commit": sc_hash,
+            "code_status": sc_status,
+            "agreement": f"written {sw_str}; carved {((s_seen.get('carved_out_of_own_track') or {}).get('px', 0))} px" if sw_str else "recorded in manifest",
+        })
+
+    # 7. Capture artifacts: depth.npz, head_tube__<by>.json, hair_in_hole__<by>.json, runs/<load>/region.npz
+    owners = manifest.get("owners") or {}
+    contested_px = int(owners.get("contested_px", 0) or 0)
+    depth_npz = cap_dir / "depth.npz"
+    if depth_npz.is_file() or owners.get("depth") or contested_px > 0:
+        d_ep = depth_npz.stat().st_mtime if depth_npz.is_file() else build_epoch
+        d_stamp = _read_stamp(depth_npz)
+        dc_hash, dc_status = _producer_status("depth", d_ep, build_epoch, explicit_commit=(d_stamp or {}).get("writer_commit"))
+        table.append({
+            "role": "capture:depth.npz",
+            "producer": "bench/measure_moge2_depth.py",
+            "path": str(depth_npz) if depth_npz.is_file() else "(not present)",
+            "sha256": sha256(depth_npz)[:16] if depth_npz.is_file() else None,
+            "writer_commit": dc_hash if depth_npz.is_file() else "-",
+            "code_status": dc_status if depth_npz.is_file() else "missing",
+            "agreement": f"present (contested_px={contested_px})" if depth_npz.is_file() else f"NOT RUN (contested_px={contested_px})",
+        })
+
+    ht_json_path = subj_dir / f"head_tube__{by}.json" if by else None
+    ht_npz_path = subj_dir / f"head_tube__{by}.npz" if by else None
+    head_tube_info: dict | None = None
+    if ht_json_path and ht_json_path.is_file():
+        ht_d = json.loads(ht_json_path.read_text())
+        ht_ep = ht_json_path.stat().st_mtime
+        ht_stamp = _read_stamp(ht_json_path) or _read_stamp(ht_npz_path)
+        ht_commit, ht_status = _producer_status("head_tube", ht_ep, build_epoch, explicit_commit=(ht_stamp or {}).get("writer_commit") or cap_commit)
+        bridged = ht_d.get("bridged_gaps") or []
+        held_ends = ht_d.get("held_ends") or []
+        lost_iv = ht_d.get("lost_in_view") or []
+        head_tube_info = {
+            "file": str(ht_json_path),
+            "sha256": sha256(ht_json_path)[:16],
+            "bridged_gaps": bridged,
+            "held_ends": held_ends,
+            "lost_in_view": lost_iv,
+        }
+        table.append({
+            "role": f"capture:head_tube__{by}",
+            "producer": "bench/head_tube_parts.py::head_tube",
+            "path": str(ht_npz_path if (ht_npz_path and ht_npz_path.is_file()) else ht_json_path),
+            "sha256": sha256(ht_npz_path if (ht_npz_path and ht_npz_path.is_file()) else ht_json_path)[:16],
+            "writer_commit": ht_commit,
+            "code_status": ht_status,
+            "agreement": f"bridged={len(bridged)}, held_ends={len(held_ends)}, lost_in_view={len(lost_iv)}",
+        })
+
+    hih_json_path = subj_dir / f"hair_in_hole__{by}.json" if by else None
+    hair_in_hole_info: dict | None = None
+    if hih_json_path and hih_json_path.is_file():
+        hih_d = json.loads(hih_json_path.read_text())
+        hih_ep = hih_json_path.stat().st_mtime
+        hih_stamp = _read_stamp(hih_json_path)
+        hih_commit, hih_status = _producer_status("hair_in_hole", hih_ep, build_epoch, explicit_commit=(hih_stamp or {}).get("writer_commit") or cap_commit)
+        asked_on = hih_d.get("lost_asked_on_source_frames") or []
+        undecided_on = hih_d.get("hair_undecided_on_source_frames") or []
+        marks = hih_d.get("marks") or {}
+        hair_in_hole_info = {
+            "file": str(hih_json_path),
+            "sha256": sha256(hih_json_path)[:16],
+            "lost_asked_on_source_frames": asked_on,
+            "hair_undecided_on_source_frames": undecided_on,
+            "marks": marks,
+        }
+        table.append({
+            "role": f"capture:hair_in_hole__{by}",
+            "producer": "bench/head_tube_parts.py::her_hair_in_hole",
+            "path": str(hih_json_path),
+            "sha256": sha256(hih_json_path)[:16],
+            "writer_commit": hih_commit,
+            "code_status": hih_status,
+            "agreement": f"asked_on={_spans_text(asked_on)}; hair_undecided={_spans_text(undecided_on)}",
+        })
+
+    # 8. Active-step 0 px and speck frames from `runs/<load>/region.npz` + `manifest.json`
+    reg_npz_path = cap_dir / "runs" / (run_entry.get("name") or load) / "region.npz"
+    zero_px_frames: list[int] = []
+    for sp in (run_entry.get("left_as_the_source_with_no_mask") or []):
+        if isinstance(sp, (list, tuple)) and len(sp) == 2:
+            for sf in range(int(sp[0]), int(sp[1]) + 1):
+                if sf not in zero_px_frames:
+                    zero_px_frames.append(sf)
+    speck_frames: list[dict] = []
+    part_floor_px = int((seen.get("part_sizes") or {}).get("floor_px", 64))
+    if reg_npz_path.is_file() and n > 0:
+        import numpy as np
+        with np.load(reg_npz_path) as rz:
+            r_arr = (rz["region"] > 0).astype(bool)
+            reg_cells = r_arr.reshape(len(r_arr), -1).sum(axis=-1)
+            c_raw = rz["carried"]
+            if c_raw.dtype == np.uint8 and c_raw.ndim == 3 and c_raw.shape[-1] == (w_px + 7) // 8:
+                c_bool = np.unpackbits(c_raw, axis=-1)[..., :w_px].astype(bool)
+            else:
+                c_bool = (c_raw > 0).astype(bool)
+            carried_px = c_bool.reshape(len(c_bool), -1).sum(axis=-1)
+        # Partition the load's frames into (1, 4, 4, 4, 4) latent steps per window
+        win_cfg = got.get("windows") or {}
+        wf_cap = int(win_cfg.get("window_frames") or max(n, 1))
+        ctx_f = int(win_cfg.get("context_frames") or 0)
+        step_groups: list[list[int]] = []
+        w_start = 0
+        while w_start < n:
+            w_end = min(n, w_start + wf_cap)
+            pos = w_start
+            s_idx = 0
+            while pos < w_end:
+                step_len = FRAME_PER_TOKEN[s_idx % len(FRAME_PER_TOKEN)]
+                step_groups.append(list(range(pos, min(w_end, pos + step_len))))
+                pos += step_len
+                s_idx += 1
+            if w_end >= n:
+                break
+            stride = max(1, wf_cap - ctx_f)
+            w_start += stride
+        idx_to_peers: dict[int, list[int]] = {}
+        for grp in step_groups:
+            for idx in grp:
+                idx_to_peers[idx] = grp
+        for i in range(min(n, len(carried_px))):
+            sf = first + i
+            peers = idx_to_peers.get(i, [i])
+            step_active = any(int(reg_cells[p]) > 0 for p in peers if p < len(reg_cells))
+            step_max_c = max((int(carried_px[p]) for p in peers if p < len(carried_px)), default=0)
+            c_px = int(carried_px[i])
+            if step_active and c_px == 0 and sf not in zero_px_frames:
+                zero_px_frames.append(sf)
+            elif step_active and 0 < c_px < 0.25 * step_max_c and c_px < max(64, part_floor_px):
+                speck_frames.append({
+                    "source_frame": sf,
+                    "carried_px": c_px,
+                    "step_max_carried_px": step_max_c,
+                    "floor_px": part_floor_px,
+                })
+        zero_px_frames.sort()
+        r_stamp = _read_stamp(reg_npz_path) or man_stamp
+        r_commit, r_status = _producer_status("capture", reg_npz_path.stat().st_mtime, build_epoch, explicit_commit=(r_stamp or {}).get("writer_commit") or cap_commit)
+        speck_desc = ", ".join(f"{x['source_frame']} ({x['carried_px']}px/{x['step_max_carried_px']}px)" for x in speck_frames) or "none"
+        table.append({
+            "role": f"capture:runs/{run_entry.get('name') or load}/region.npz",
+            "producer": "bench/capture_masked_run.py",
+            "path": str(reg_npz_path),
+            "sha256": sha256(reg_npz_path)[:16],
+            "writer_commit": r_commit,
+            "code_status": r_status,
+            "agreement": f"active-step 0px={zero_px_frames or 'none'}; speck={speck_desc}",
+        })
+
+    # 9. Verify & Flags summary
+    verify_summary: dict | None = None
+    if verify is not None:
+        v_subj = ((verify.get("subjects") or {}).get(subj)) or {}
+        v_runs = verify.get("runs") or []
+        v_run = next((r for r in v_runs if r.get("name") == load), v_runs[0] if v_runs else {})
+        no_mask_stmts = (
+            verify.get("no_mask_statements")
+            or (v_run.get("no_mask_statements") if isinstance(v_run, dict) else None)
+            or v_subj.get("no_mask_statements")
+            or []
+        )
+        v_failed = verify.get("failed")
+        verify_summary = {
+            "verdict": verify.get("verdict"),
+            "failed": v_failed,
+            "no_mask_statements": no_mask_stmts,
+        }
+        if v_failed not in (0, [], None) or verify.get("verdict") not in ("reads what the nodes wrote", "PASS"):
+            mismatches.append(f"verify.json verdict is {verify.get('verdict')!r} (failed={v_failed!r})")
+
+    flags_summary: dict | None = None
+    if flags is not None:
+        all_flags = flags.get("flags") or []
+        ov_ids = set(flags.get("overridden") or []) if isinstance(flags.get("overridden"), list) else set()
+        blk_ids = set(flags.get("blocking") or []) if isinstance(flags.get("blocking"), list) else set()
+        overridden = []
+        unresolved = []
+        for f in all_flags:
+            fid = f.get("id")
+            fkind = f.get("rule") or f.get("kind")
+            ov_info = f.get("override") if isinstance(f.get("override"), dict) else None
+            is_ov = bool(ov_info or f.get("overridden") or (fid and fid in ov_ids))
+            f_spans = f.get("source_frames") if f.get("source_frames") is not None else f.get("frames")
+            if is_ov:
+                overridden.append({
+                    "id": fid,
+                    "kind": fkind,
+                    "subject": f.get("subject"),
+                    "source_frames": f_spans,
+                    "override_by": (ov_info or {}).get("by"),
+                    "override_reason": (ov_info or {}).get("why") or (ov_info or {}).get("reason") or f.get("override_reason"),
+                })
+            elif f.get("blocking") or (fid and fid in blk_ids):
+                unresolved.append({
+                    "id": fid,
+                    "kind": fkind,
+                    "subject": f.get("subject"),
+                    "source_frames": f_spans,
+                })
+        b_raw = flags.get("blocking", flags.get("blocking_count", len(unresolved)))
+        flags_summary = {
+            "blocking_count": len(b_raw) if isinstance(b_raw, list) else (b_raw if isinstance(b_raw, int) else len(unresolved)),
+            "overridden_count": len(overridden),
+            "overridden": overridden,
+            "unresolved_blocking": unresolved,
+        }
+
+    return {
+        "capture": str(cap_dir),
+        "subject": subj,
+        "preview": by,
+        "preview_commit": preview_commit,
+        "preview_queued_at": preview_queued_at,
+        "capture_commit": cap_commit,
+        "first_frame": first,
+        "frames": n,
+        "agrees": len(mismatches) == 0,
+        "mismatches": mismatches,
+        "active_step_zero_px_frames": zero_px_frames,
+        "active_step_speck_frames": speck_frames,
+        "contested_px": contested_px,
+        "depth_used": bool(depth_npz.is_file() or owners.get("depth")),
+        "head_tube": head_tube_info,
+        "hair_in_hole": hair_in_hole_info,
+        "verify": verify_summary,
+        "flags": flags_summary,
+        "table": table,
+    }
 
 
 #: The text encoder's sampling of a reference video. **Inherited** from `reference_conditioning.py`: the frame
@@ -511,7 +1157,7 @@ def windows_of(got: dict, queued: dict | None) -> list[tuple[int, int]]:
 
 
 def said_lines(got: dict) -> list[str]:
-    """The reading as lines a person reads: one an input, then the text, the zoom and the failures."""
+    """The reading as lines a person reads: one an input, then the text, the zoom, the capture provenance table, and the failures."""
     lines = [f"{got['load']} ({got['stage']}): {got['state']}" + (f" at {got['queued']['queued_at']}" if got["queued"] else "")]
     for r in got["inputs"]:
         if r["exists"] is None:
@@ -564,18 +1210,91 @@ def said_lines(got: dict) -> list[str]:
         lines.append(f"  windows: {w.get('window_frames')} frames each, a later one keeping {w.get('context_frames')} of the one before"
                      + (f", shown at noise {w['context_noise']:g}" if w.get("context_noise") is not None else ", shown at the song node's own noise (none named)"))
     lines.append(f"  text: {len(got['text']['text'])} characters, sha256 {got['text']['sha256'][:16]}, from node {got['text']['node']}")
+    ca = got.get("capture_audit")
+    if ca:
+        ver = (ca.get("verify") or {}).get("verdict") or "none"
+        agree_str = "AGREES" if ca["agrees"] else f"MISMATCH ({len(ca['mismatches'])})"
+        lines.append(
+            f"  capture audit: {ca['capture']} (subject={ca['subject']}, preview={ca['preview']}"
+            + (f" @ {ca['preview_commit']}" if ca.get("preview_commit") else "")
+            + f", capture @ {ca.get('capture_commit')}, verify={ver}, graph<->manifest={agree_str})"
+        )
+        lines.append("    Capture & Input Provenance Table:")
+        lines.append(f"      {'Role / Stage':<34} | {'Producer':<36} | {'sha256':<16} | {'Writer @ Status':<42} | Agreement / Notes")
+        lines.append("      " + "-" * 165)
+        for row in ca.get("table", []):
+            sh = row.get("sha256") or "-"
+            wc = f"{row.get('writer_commit') or '-'} ({row.get('code_status') or '-'})"
+            p_short = Path(str(row.get("path") or "")).name if row.get("path") else "-"
+            lines.append(
+                f"      {str(row.get('role') or ''):<34} | {str(row.get('producer') or ''):<36} | {sh:<16} | {wc:<42} | {p_short}: {row.get('agreement') or ''}"
+            )
+        z_f = ca.get("active_step_zero_px_frames") or []
+        sp_f = ca.get("active_step_speck_frames") or []
+        sp_txt = ", ".join(f"{x['source_frame']} ({x['carried_px']}px/{x['step_max_carried_px']}px)" for x in sp_f) or "none"
+        lines.append(
+            f"    active-step mask audit: 0 px frames={z_f or 'none'}; speck frames={sp_txt}; "
+            f"contested_px={ca.get('contested_px', 0)} (depth_used={ca.get('depth_used')})"
+        )
+        hih = ca.get("hair_in_hole")
+        if hih:
+            m_counts = {k: len(v) for k, v in (hih.get("marks") or {}).items() if v}
+            lines.append(
+                f"    hair_in_hole ({Path(hih['file']).name}): asked_on={_spans_text(hih.get('lost_asked_on_source_frames') or [])}; "
+                f"hair_undecided={_spans_text(hih.get('hair_undecided_on_source_frames') or [])}; marks={m_counts or 'none'}"
+            )
+        fl = ca.get("flags")
+        if fl:
+            ov = fl.get("overridden") or []
+            ov_txt = "; ".join(f"{x['id']} {x['kind']} on {_spans_text(x.get('source_frames') or [])}" for x in ov) or "none"
+            lines.append(
+                f"    flags.json: blocking={fl.get('blocking_count', 0)}, overridden={fl.get('overridden_count', 0)} ({ov_txt})"
+            )
+        v_info = ca.get("verify") or {}
+        if v_info.get("no_mask_statements"):
+            nms = ", ".join(
+                f"{x.get('source_frames') or x.get('frames')} ({x.get('by') or '-'}): {x.get('why') or x.get('reason')}"
+                for x in v_info["no_mask_statements"]
+            )
+            lines.append(f"    verify no_mask_statements: {nms}")
+        for m in ca.get("mismatches") or []:
+            lines.append(f"    CAPTURE MISMATCH: {m}")
     lines += [f"FAILED: {x}" for x in got["failures"]]
     return lines
 
 
+def _parse_graph_arg(target: str, load: str | None, stage: str) -> tuple[Path, str, str]:
+    """Resolve either a `--job-folder <dir> --load <load>` pair or a direct path to `<load>.<stage>[.queued].json`."""
+    p = Path(target)
+    if p.suffix == ".json" and not p.is_dir():
+        name = p.name
+        if name.endswith(".queued.json"):
+            name = name[: -len(".queued.json")]
+        elif name.endswith(".json"):
+            name = name[: -len(".json")]
+        stem, _, st = name.rpartition(".")
+        if stem and st in ("render", "plan"):
+            return p.parent, (load or stem), st
+        raise SystemExit(f"cannot infer load and stage from {p}: expected <load>.<render|plan>[.queued].json")
+    if not load:
+        raise SystemExit("--load is required when --job-folder names a directory")
+    return p, load, stage
+
+
 def main() -> None:
     p = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    p.add_argument("--job-folder", required=True, help="data/<day>_<load>_job")
-    p.add_argument("--load", required=True)
+    p.add_argument("graph_or_queued", nargs="?", help="optional path to data/<day>_<load>_job/<load>.<stage>[.queued].json")
+    p.add_argument("--job-folder", help="data/<day>_<load>_job (or path to <load>.<stage>[.queued].json)")
+    p.add_argument("--load", help="load name (inferred when a <load>.<stage>[.queued].json path is given)")
     p.add_argument("--stage", default="render", choices=("render", "plan"))
+    p.add_argument("--capture", help="optional capture folder data/<day>_<load> (inferred from mask paths when omitted)")
     p.add_argument("--json", help="write the whole reading here")
     a = p.parse_args()
-    got = read(Path(a.job_folder), a.load, a.stage)
+    target = a.job_folder or a.graph_or_queued
+    if not target:
+        p.error("either a path to <load>.<stage>[.queued].json or --job-folder is required")
+    job_folder, load, stage = _parse_graph_arg(target, a.load, a.stage)
+    got = read(job_folder, load, stage, capture=Path(a.capture) if a.capture else None)
     print("\n".join(said_lines(got)))
     if a.json:
         Path(a.json).write_text(json.dumps(got, indent=1) + "\n")

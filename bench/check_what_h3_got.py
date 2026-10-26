@@ -39,6 +39,13 @@ and a MaskComposite, two stills chained through `references`, the sound trimmed 
 
 9. **A file's digest made once a run** (`sha256`), and again when the file is written again; `bench/sidecar.py`'s digest
    is the same one.
+10. **The capture & input provenance join** (`audit_capture` and `capture_audit`): when a graph's masks come from a
+    capture folder (`<capture>/subjects/<label>/<file>.mkv`, or passed via `--capture`), cross-checks `the source`,
+    `mask`, `parts_held`, `others` keep-outs, `<Video 1>`, and `<Picture 1>` against `manifest.json` and `verify.json`,
+    prints the Capture & Input Provenance Table (`said_lines`), detects active-step `0 px` and speck frames in
+    `runs/<load>/region.npz`, surfaces `lost_asked_on_source_frames`, `hair_undecided_on_source_frames`, and overridden
+    blocking flags in `flags.json`, flags missing/extra keep-out wiring mismatches, and refuses a `--capture` folder
+    with no `manifest.json` cleanly with no traceback.
 
 Needs ffmpeg and ffprobe, Pillow and numpy. No model, no card, no server.
 
@@ -58,7 +65,7 @@ from pathlib import Path
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from _lib import case, finish  # noqa: E402
+from _lib import case, finish, refused  # noqa: E402
 from _lib.frames import LOADER_CROP  # noqa: E402
 
 import what_h3_got as w  # noqa: E402
@@ -475,6 +482,149 @@ def a_digest_once() -> str:
     return "a file read once a run for its digest, again when written again; the sidecar's digest is the reader's"
 
 
+def the_capture_audit_join() -> str:
+    """The read-only capture & input provenance join (`capture_audit`), both on a clean control and on a capture with
+    active-step `0 px` and speck frames, unresolved `hair_in_hole` questions, `flags.json` overrides, and keep-out
+    wiring mismatches, plus clean refusal when `--capture` names a folder without `manifest.json`."""
+    base = made("load_cap")
+    name = base.name
+    job = base / f"{name}_job"
+    cap = base / f"2026-10-25_{name}"
+    subj_dir = cap / "subjects" / "second"
+    other_dir = cap / "subjects" / "third"
+    run_dir = cap / "runs" / name
+    for d in (subj_dir, other_dir, run_dir):
+        d.mkdir(parents=True, exist_ok=True)
+    m_track = clip(subj_dir / "track__shot_c_10.mkv", "1024x768", 6)
+    m_parts = clip(subj_dir / "parts_held__shot_c_10.mkv", "1024x768", 6)
+    m_other = clip(other_dir / "track__shot_c_10.mkv", "1024x768", 6)
+    for f in (m_track, m_parts, m_other):
+        os.utime(f, (BEFORE, BEFORE))
+    (base / "ref1.json").write_text(json.dumps({
+        "what": "the reference of a head replacement",
+        "its_first_frame_is_source_frame": 10,
+        "frames": [10, 15],
+        "made_by": "bench/head_reference.py",
+        "made_at": "2026-10-15T08:50:00-05:00",
+    }))
+    os.utime(base / "ref1.json", (BEFORE, BEFORE))
+
+    # Wire graph to the capture's masks (`track`, `parts_held`, `others`)
+    gf = job / f"{name}.render.json"
+    g = json.loads(gf.read_text())
+    g["150"] = vhs(str(m_track))
+    g["160"] = vhs(str(m_parts))
+    g["161"] = {"class_type": "ImageToMask", "inputs": {"image": ["160", 0]}}
+    g["170"] = vhs(str(m_other))
+    g["104"]["inputs"]["parts"] = ["161", 0]
+    g["104"]["inputs"]["others"] = ["171", 0]
+    gf.write_text(json.dumps(g))
+
+    manifest = {
+        "clip": "source.mp4",
+        "first_frame": 10,
+        "frames": 6,
+        "size": [1024, 768],
+        "owners": {"contested_px": 0},
+        "subjects": [
+            {
+                "label": "second",
+                "sightings": [{
+                    "by": "shot_c_10",
+                    "parts": "shot_c_10_second_parts_00001.mkv",
+                    "part_sizes": {"floor_px": 1024},
+                    "inputs": {
+                        "track": {"file": "shot_c_10_second_track_00001.mkv", "written": "2026-08-01T12:00:00"},
+                        "parts": {"file": "shot_c_10_second_parts_00001.mkv", "written": "2026-10-15T08:55:00"},
+                    },
+                }],
+            },
+            {
+                "label": "third",
+                "sightings": [{"by": "shot_c_10", "inputs": {"track": {"file": "shot_c_10_third_track_00001.mkv", "written": "2026-10-15T08:55:00"}}}],
+            },
+        ],
+        "runs": [{
+            "name": name,
+            "subject": "second",
+            "others": ["third"],
+            "left_as_the_source_with_no_mask": [],
+        }],
+    }
+    (cap / "manifest.json").write_text(json.dumps(manifest))
+    (cap / "verify.json").write_text(json.dumps({"verdict": "reads what the nodes wrote", "failed": 0, "subjects": {"second": {}}}))
+    (cap / "flags.json").write_text(json.dumps({"blocking_count": 0, "flags": []}))
+    (subj_dir / "head_tube__shot_c_10.json").write_text(json.dumps({"bridged_gaps": [], "held_ends": [], "lost_in_view": []}))
+    (subj_dir / "hair_in_hole__shot_c_10.json").write_text(json.dumps({
+        "lost_asked_on_source_frames": [],
+        "hair_undecided_on_source_frames": [],
+        "marks": {"hidden": [], "hers": [], "not hers": []},
+    }))
+
+    # Clean `region.npz`: all 6 frames have 4,096 px carried mask and active region cells
+    reg = np.ones((6, 48, 64), dtype=bool)
+    car_bool = np.zeros((6, 768, 1024), dtype=bool)
+    car_bool[:, :64, :64] = True
+    np.savez(run_dir / "region.npz", region=reg, carried=np.packbits(car_bool, axis=-1))
+
+    real_git_commit_of = w._git_commit_of
+    if not (w.REPO / ".git").exists():
+        sep_ep = w._iso_epoch("2026-09-01T00:00:00") or 0.0
+        aug_ep = w._iso_epoch("2026-08-01T00:00:00") or 0.0
+        oct_ep = w._iso_epoch("2026-10-15T00:00:00") or 0.0
+        def _fake_git_commit_of(rel_paths: list[str], before_epoch: float | None = None) -> dict | None:
+            if before_epoch is not None and before_epoch < sep_ep:
+                return {"commit": "11111111", "epoch": aug_ep, "date": "2026-08-01"}
+            return {"commit": "22222222", "epoch": oct_ep, "date": "2026-10-15"}
+        w._git_commit_of = _fake_git_commit_of
+    try:
+        got = read(base)
+        ca = got["capture_audit"]
+        assert ca is not None and ca["agrees"] and not ca["mismatches"], ca
+        assert ca["active_step_zero_px_frames"] == [] and ca["active_step_speck_frames"] == [], ca
+        assert any("Capture & Input Provenance Table:" in ln for ln in w.said_lines(got))
+        by_role = {r["role"]: r for r in ca["table"]}
+        assert "stale_at_build" in by_role["preview:track (shot_c_10)"]["code_status"], by_role["preview:track (shot_c_10)"]
+
+        # Faulted control: step 1 (frames 1..4 -> source frames 11..14) has 0 px on frame 11 (idx 1) and 1 px speck on frame 12 (idx 2)
+        car_bool[1] = False
+        car_bool[2] = False
+        car_bool[2, 0, 0] = True
+        reg[1] = False  # unlaid_frames zeroes region on the 0 px frame while peers 2..4 keep step 1 active
+        np.savez(run_dir / "region.npz", region=reg, carried=np.packbits(car_bool, axis=-1))
+        manifest["runs"][0]["others"] = ["third", "strangers"]
+        manifest["subjects"].append({"label": "strangers", "sightings": [{"by": "shot_c_10", "inputs": {}}]})
+        (cap / "manifest.json").write_text(json.dumps(manifest))
+        (subj_dir / "hair_in_hole__shot_c_10.json").write_text(json.dumps({
+            "lost_asked_on_source_frames": [[11, 12]],
+            "hair_undecided_on_source_frames": [[12, 13]],
+            "marks": {"hidden": [], "hers": [], "not hers": []},
+        }))
+        (cap / "flags.json").write_text(json.dumps({
+            "blocking_count": 1,
+            "flags": [{"id": "f001", "kind": "her_head_lost_in_view", "subject": "second", "blocking": True,
+                       "overridden": True, "source_frames": [[11, 12]], "override_reason": "forced"}],
+        }))
+        got_fault = read(base)
+        ca_f = got_fault["capture_audit"]
+        assert not ca_f["agrees"] and any("strangers" in m for m in ca_f["mismatches"]), ca_f["mismatches"]
+        assert ca_f["active_step_zero_px_frames"] == [11], ca_f["active_step_zero_px_frames"]
+        assert len(ca_f["active_step_speck_frames"]) == 1 and ca_f["active_step_speck_frames"][0]["source_frame"] == 12, ca_f["active_step_speck_frames"]
+        assert ca_f["hair_in_hole"]["lost_asked_on_source_frames"] == [[11, 12]]
+        assert ca_f["flags"]["overridden_count"] == 1 and ca_f["flags"]["overridden"][0]["id"] == "f001"
+        lines_f = "\n".join(w.said_lines(got_fault))
+        assert "0 px frames=[11]; speck frames=12 (1px/4096px)" in lines_f, lines_f
+        assert "asked_on=11-12; hair_undecided=12-13" in lines_f, lines_f
+        assert "overridden=1 (f001 her_head_lost_in_view on 11-12)" in lines_f, lines_f
+
+        # Refusal when --capture points to a directory with no manifest.json
+        refused(lambda: read(base, capture=base / "input"), "no manifest.json", "--capture must name a capture folder")
+        return ("clean capture agrees on source, masks, keep-outs and references; stale_at_build detected; active-step 0 px (11) "
+                "and 1 px speck (12), asked_on/hair_undecided, flags overrides, and missing keep-out flagged; invalid --capture refused")
+    finally:
+        w._git_commit_of = real_git_commit_of
+
+
 case("each input read by its place in the graph", each_input_by_its_place)
 case("the loader's cut, against ffmpeg running the loader's filter", the_loaders_cut)
 case("the hard failures, and a clean control", the_hard_failures)
@@ -487,6 +637,7 @@ case("a load not yet queued", not_yet_queued)
 case("the zoom read from the node's records", the_zoom)
 case("a plan's masks rebuilt in place", a_plans_masks_rebuilt)
 case("a file's digest made once a run", a_digest_once)
+case("the capture & input provenance join, and invalid --capture refused", the_capture_audit_join)
 
 if __name__ == "__main__":
     code = finish()
