@@ -105,6 +105,21 @@ def _unpack_npz_mask(npz_path: Path, key: str, width: int) -> np.ndarray | None:
     return (arr > 0).astype(bool)
 
 
+def _read_head_mask(subj_dir: Path, by: str, n: int, h: int, w: int) -> np.ndarray | None:
+    ht_npz = subj_dir / f"head_tube__{by}.npz"
+    if not ht_npz.is_file() and subj_dir.is_dir():
+        cands = sorted(subj_dir.glob("head_tube__*.npz"))
+        if cands:
+            ht_npz = cands[0]
+    if ht_npz.is_file():
+        z = np.load(ht_npz)
+        if "tube" in z.files:
+            arr = z["tube"].astype(bool)
+            if arr.shape == (n, h, w):
+                return arr
+    return _read_mkv_bool(subj_dir / f"head_track__{by}.mkv", n, h, w)
+
+
 def _project_tokens_to_canvas(
     w_tok: np.ndarray,
     zoom_box: list[int] | None,
@@ -228,7 +243,7 @@ def inspect_capture(capture_dir: Path, run_name: str | None = None) -> dict[str,
     masks_npz = subj_dir / f"masks__{by}.npz"
     track = _unpack_npz_mask(masks_npz, "track", w)
     parts = _unpack_npz_mask(masks_npz, "parts", w)
-    head_track = _read_mkv_bool(subj_dir / f"head_track__{by}.mkv", n, h, w)
+    head_track = _read_head_mask(subj_dir, by, n, h, w)
     parts_held = _read_mkv_bool(subj_dir / f"parts_held__{by}.mkv", n, h, w)
     carried_mkv = _read_mkv_bool(run_dir / "carried.mkv", n, h, w)
     region_mkv = _read_mkv_bool(run_dir / "region.mkv", n, h, w)
@@ -1033,7 +1048,7 @@ def render_diagnostic_strips(
         vid_path = cands[0]
 
     track = _unpack_npz_mask(subj_dir / f"masks__{by}.npz", "track", w)
-    head_track = _read_mkv_bool(subj_dir / f"head_track__{by}.mkv", n, h, w)
+    head_track = _read_head_mask(subj_dir, by, n, h, w)
     carried = _read_mkv_bool(run_dir / "carried.mkv", n, h, w)
     if carried is None and (run_dir / "region.npz").is_file():
         carried = _unpack_npz_mask(run_dir / "region.npz", "carried", w)

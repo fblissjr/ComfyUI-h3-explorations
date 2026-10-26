@@ -392,6 +392,17 @@ def main() -> int:
         # Verify [7] Strip image written
         assert strip_jpg.is_file() and strip_jpg.stat().st_size > 1000
 
+        # Verify `head_tube__*.npz` takes precedence over `head_track__*.mkv` in both `inspect_capture` and `render_diagnostic_strips`
+        ht_tube = head_track[:n_test].copy()
+        ht_tube[5, 20:60, 20:60] = True  # head_tube regained 1600 px on sf=105 where head_track.mkv was 0 px
+        np.savez_compressed(subj_dir / "head_tube__shot_c_0100b.npz", tube=ht_tube.astype(np.uint8))
+        rep_tube = ims.inspect_capture(cap)
+        os.environ["H3_INPUT_DIR"] = str(in_dir)
+        ims.render_diagnostic_strips(cap, rep_tube, [105], tmp / "strip_tube.jpg")
+        assert (tmp / "strip_tube.jpg").is_file()
+        rec_105 = [r for r in rep_tube["gap_recovery"] if r["source_frame"] == 105]
+        assert len(rec_105) == 1 and rec_105[0]["head_track_px"] == 1600, rec_105
+
         # Verify clean refusal (no traceback) on missing manifest
         bad = subprocess.run(
             [sys.executable, str(HERE / "inspect_mask_steps.py"), "--capture", str(tmp / "nonexistent")],

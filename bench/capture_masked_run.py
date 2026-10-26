@@ -2794,8 +2794,9 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
                 if front_other_mask is not None:
                     held = held & ~front_other_mask
                 held_masks[label] = held
-                hair_pass[label] = {"m": m, "by": by, "at": at, "track": track, "head": head_track_arr, "classes": raw_cmap,
-                                    "front": front_other_mask}
+                hair_pass[label] = {"m": m, "by": by, "at": at, "track": track,
+                                    "head": (ht_res["tube_info"]["tube"] if "tube_info" in ht_res else ht_res["tube"]) if head_tube_prov is not None else head_track_arr,
+                                    "classes": raw_cmap, "front": front_other_mask}
                 write_mask_video(folder / f"parts_held__{by}.mkv", held)
         if m.get("shots"):
             shutil.copyfile(m["shots"], folder / f"shots__{by}.json")
@@ -4666,7 +4667,7 @@ def unmasked_head_hair_context(
         hh_path = cands[0] if cands else None
     if hh_path is not None and hh_path.is_file():
         hh = json.loads(hh_path.read_text())
-        lost_f = sorted(int(r["source_frame"]) for r in (hh.get("frames") or []) if int(r["source_frame"]) in frames_set and r.get("lost"))
+        lost_f = sorted(int(r["source_frame"]) for r in (hh.get("frames") or []) if int(r["source_frame"]) in frames_set and r.get("lost") == "asked")
         undec_f = {int(r["source_frame"]): int(r["hair_undecided_px"]) for r in (hh.get("frames") or [])
                    if int(r["source_frame"]) in frames_set and int(r.get("hair_undecided_px") or 0) > 0}
         uncl_px = [int(r.get("hair_unclaimed_px") or 0) for r in (hh.get("frames") or []) if int(r["source_frame"]) in frames_set and int(r.get("hair_unclaimed_px") or 0) > 0]
@@ -5171,24 +5172,6 @@ def her_hair_in_hole(held: np.ndarray, track: np.ndarray, first: int, *, head: n
     for m_ in others.values():
         anyone |= m_
     taken = anyone | front if front is not None else anyone
-    if whole_classes is not None and whole_classes.shape == held.shape and STRANGERS_LABEL in others:
-        names_wc = _pack("sapiens2_parts").CLASS_NAMES
-        app_id = names_wc.index("Apparel") if "Apparel" in names_wc else 8
-        face_wc_ids = [
-            names_wc.index(c)
-            for c in ("Face_Neck", "Left_Eye", "Right_Eye", "Left_Brow", "Right_Brow", "Nose", "Upper_Lip", "Lower_Lip", "Teeth")
-            if c in names_wc
-        ]
-        taken_for_hers = np.zeros_like(held)
-        for lbl_o, m_o in others.items():
-            if lbl_o == STRANGERS_LABEL:
-                taken_for_hers |= m_o & ((whole_classes == app_id) | (np.isin(whole_classes, face_wc_ids) & ~track))
-            else:
-                taken_for_hers |= m_o
-        if front is not None:
-            taken_for_hers |= front
-    else:
-        taken_for_hers = taken
     if head is not None:
         head_clean = head.copy()
         raw_head_px = head_clean.reshape(n, -1).sum(1)
@@ -5280,7 +5263,7 @@ def her_hair_in_hole(held: np.ndarray, track: np.ndarray, first: int, *, head: n
     # 1. HER HEAD IN THE HOLE
     if head is not None:
         for f in range(n):
-            if f in drop or not (head[f] & ~out[f]).any():
+            if f in drop or f in hidden or not (head[f] & ~out[f]).any():
                 continue
             outside = head[f] & ~hole(f)
             if not outside.any():
@@ -5315,7 +5298,7 @@ def her_hair_in_hole(held: np.ndarray, track: np.ndarray, first: int, *, head: n
                     if row(k)["lost"] == "marked hers" and head is not None:
                         src = nearest(k)
                         crown_tr = crown_room_on_track(k) if classes is not None else np.zeros_like(out[k])
-                        add = (head[src] | crown_tr) & ~taken_for_hers[k] & ~out[k]
+                        add = (head[src] | crown_tr) & ~taken[k] & ~out[k]
                         out[k] |= add
                         rows[k].update(lost_held_from=first + src, lost_held_px=int(add.sum()))
                 lost_runs.append({"source_frames": [first + f, first + g],
@@ -5332,7 +5315,7 @@ def her_hair_in_hole(held: np.ndarray, track: np.ndarray, first: int, *, head: n
             src = nearest(k)
             crown_tr = crown_room_on_track(k) if classes is not None else np.zeros_like(out[k])
             near_h = head[src] if abs(k - src) <= 2 else (head[src] & track[k])
-            add = (near_h | crown_tr) & ~taken_for_hers[k] & ~out[k]
+            add = (near_h | crown_tr) & ~taken[k] & ~out[k]
             if add.any():
                 out[k] |= add
                 r = row(k)
@@ -5344,7 +5327,7 @@ def her_hair_in_hole(held: np.ndarray, track: np.ndarray, first: int, *, head: n
         near = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2 * HAIR_TOUCH_PX + 1, 2 * HAIR_TOUCH_PX + 1))
         h, w = held.shape[1:]
         for f in range(n):
-            if f in drop:
+            if f in drop or f in hidden:
                 continue
             src = f if head_px[f] else nearest(f)
             ys, xs = np.nonzero(head_of[src])
@@ -5619,7 +5602,8 @@ def hair_in_hole(a: argparse.Namespace) -> None:
         by, sub = seen["by"], folder / "subjects" / s["label"]
         held = read_mask(str(sub / f"parts_held__{by}.mkv"), size, first, first, frames)[0]
         track = read_mask(str(sub / f"track__{by}.mkv"), size, first, first, frames)[0]
-        head = read_mask(str(sub / f"head_track__{by}.mkv"), size, first, first, frames)[0] if (sub / f"head_track__{by}.mkv").is_file() else None
+        head = (np.load(sub / f"head_tube__{by}.npz")["tube"].astype(bool) if (sub / f"head_tube__{by}.npz").is_file() else
+                read_mask(str(sub / f"head_track__{by}.mkv"), size, first, first, frames)[0] if (sub / f"head_track__{by}.mkv").is_file() else None)
         others = {o["label"]: read_mask(str(folder / "subjects" / o["label"] / f"track__{o['sightings'][0]['by']}.mkv"), size, first, first, frames)[0]
                   for o in m["subjects"] if o["label"] != label}
         uncarved = dict(x.split("=", 1) for x in a.keep_out)

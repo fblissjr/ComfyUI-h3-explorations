@@ -3816,18 +3816,17 @@ def her_hair_in_the_hole() -> str:
     # Frame 102 (partial-shrink 100-px head marked `hers`): recovers nearest whole head (101) + crown room on track (excluding Left_Hand).
     assert cr_rows[102]["lost"] == "marked hers" and cr_rows[102]["lost_held_from"] == 101 and int(cr_out[2].sum()) > 900, cr_rows[102]
     assert cr_out[2, 20:40, 40:44].all() and not cr_out[2, 10:20, 40:44].any()
-    # (c) Edge-shrunk whole-head exclusion (< 0.75 * neighbor, e.g. 4920=5279px vs 4919=7760px) and class-filtered `strangers`
-    #     on `hers` recovery (`whole_classes`): an edge-shrunk frame (frame 2 / 102 = 640 px vs frame 1 / 101 = 960 px, ratio 0.667 < 0.75)
-    #     is excluded from `whole`, so both frame 2 (102) and frame 3 (103, 0 px) recover from frame 1 (101 = 960 px), and `strangers`
-    #     swallowing her head on frame 3 (103) is ignored where `whole_classes` is Hair/Upper_Clothing while keeping Apparel (hat brim) out!
+    # (c) Edge-shrunk whole-head exclusion (< 0.75 * neighbor, e.g. 4920=5279px vs 4919=7760px) and full `& ~taken[k]` subtraction
+    #     on `hers` recovery: an edge-shrunk frame (frame 2 / 102 = 640 px vs frame 1 / 101 = 960 px, ratio 0.667 < 0.75)
+    #     is excluded from `whole`, so both frame 2 (102) and frame 3 (103, 0 px) recover from frame 1 (101 = 960 px), and every other
+    #     person's full mask (`strangers` included, even where `whole_classes` labels a bystander's hair as `Hair`) is subtracted!
     head_edge = head.copy()
     head_edge[2] = False
     head_edge[2, 10:30, 44:76] = True                                      # 640 px (>= 0.5 * 960 = 480, but < 0.75 * 960 = 720!)
     str_swallow = np.zeros((n, H, W), bool)
-    str_swallow[3, 10:40, 44:76] = True                                    # strangers swallowed her entire 960-px head box on 103
+    str_swallow[3, 35:40, 44:76] = True                                    # stranger covers rows 35..40 (160 px) of her 960-px head box on 103
     wc_map = np.zeros((n, H, W), np.uint8)
-    wc_map[3, 10:35, 44:76] = names_cls.index("Hair")                      # 800 px of her hair/back-of-head inside strangers
-    wc_map[3, 35:40, 44:76] = names_cls.index("Apparel")                   # 160 px of true stranger hat brim (Apparel) inside strangers
+    wc_map[3, 10:40, 44:76] = names_cls.index("Hair")                      # even when whole_classes says Hair inside strangers, & ~taken[k] subtracts it
     es_out, es_rec = cap.her_hair_in_hole(
         part, track, first, head=head_edge, others={"strangers": str_swallow}, whole_classes=wc_map, score=score,
         hers={2, 3}, hidden={4, 5}, margin_px=margin
@@ -3836,6 +3835,15 @@ def her_hair_in_the_hole() -> str:
     assert es_rows[102]["lost_held_from"] == 101 and int(es_out[2].sum()) == 960, es_rows[102]
     assert es_rows[103]["lost_held_from"] == 101 and int(es_out[3].sum()) == 800, (es_rows[103], int(es_out[3].sum()))
     assert es_out[3, 10:35, 44:76].all() and not es_out[3, 35:40, 44:76].any()
+    # (d) `hidden` frames are skipped in Part 1 (`# 1. HER HEAD IN THE HOLE`) and Part 3 (`# 3. UNCLAIMED HAIR`), even when `head[f]`
+    #     or `hair[f]` has non-empty pixels outside `out[f]` on that frame:
+    hid_out, hid_rec = cap.her_hair_in_hole(
+        part, track, first, head=head, others={"b": other}, hair=hair, score=score,
+        hidden={0, 4}, hers={3, 5}, margin_px=margin
+    )
+    hid_rows = {r["source_frame"]: r for r in hid_rec["frames"]}
+    assert (hid_out[0] == part[0]).all() and 100 not in hid_rows, "Part 1 or Part 3 added/asked pixels on hidden frame 0 (100)"
+    assert not hid_out[4].any() and hid_rows[104].get("hair_added_px", 0) == 0, ("Part 3 added hair on hidden frame 4 (104)", hid_rows.get(104))
     # A WHOLE-FRAME MAP sees the other's classes: B touching the other's body, not their hair, is hers; touching their hair, asked
     hair_whole = hair.copy()
     whole = cap.her_hair_in_hole(part, track, first, head=head, others={"b": other}, hair=hair_whole, hair_whole_frame=True, margin_px=margin)
@@ -3984,6 +3992,44 @@ def her_hair_in_the_hole() -> str:
             "regain_refused": [{"frame": 3, "face_points_on_own_part": 0, "least": 3, "why": "refused"}],
         }))
         got = cap.flag_her_hair({"first_frame": 100, "subjects": [{"label": "a", "sightings": [{"by": "pv"}]}]}, Path(tmp))
+        # unmasked_head_hair_context counts only `lost == "asked"` as `hair_in_hole_lost_frames` (never `"marked hidden"` or `"marked hers"`)
+        (Path(tmp) / "subjects" / "a" / "hair_in_hole__pv.json").write_text(json.dumps(mrec))
+        ctx_marked = cap.unmasked_head_hair_context(Path(tmp), "a", "pv", [103, 104, 105], first_frame=100)
+        assert ctx_marked["details"].get("hair_in_hole_lost_frames") == [[105, 105]], ctx_marked
+        # When `head_tube` runs (or `head_tube__pv.npz` is on disk), `hair_pass` and the `hair-in-hole` replay subcommand both read
+        # the tube's head (`ht_res["tube_info"]["tube"]` / `head_tube__pv.npz["tube"]`) over raw `head_track__pv.mkv`
+        fh_gap = fh.copy()
+        fh_gap[2] = False                                                  # raw SAM head_track dropped on frame 2 (102)
+        written_ht_hh: dict[str, np.ndarray] = {}
+        try:
+            cap.probe = lambda _p: (W, H, n)
+            cap.read_mask = lambda p, *_a: ((fh_gap.copy() if "head" in str(p) else held_by_them.copy() if "strangers" in str(p) else
+                                             track.copy() if "track" in str(p) else fp.copy()), np.ones(n, bool))
+            cap.read_classes = lambda *_a: classes_of(True)
+            cap.input_facts = lambda p: {"file": str(p), "written": "2026-10-22T12:00:00", "size": [W, H], "frames": n}
+            cap.picture_rows = lambda *_a: [(0.0, 0.0)] * n
+            cap.write_mask_video = lambda p, m: written_ht_hh.__setitem__(f"{Path(p).parent.name}/{Path(p).name}", m.copy())
+            args_ht = argparse.Namespace(first=first, frames=n, name="hh_ht", date="2026-01-01", source=str(Path(tmp) / "src.mp4"), loads=None,
+                                         voice=None, head_tube=True)
+            spec_ht = {"track": "track.mkv", "head_track": "head.mkv", "head_tube": "1", "parts": "parts.mkv", "classes": "classes.mkv",
+                       "shots": str(Path(tmp) / "shots.json"), "by": "pv", "at": str(first), "least": "0"}
+            plan_ht = [("p", {"subject": "a", "others": "strangers", "margin": "8", "render_region": "part", "zoom_up_to": "3"})]
+            stranger_ht = ("strangers", {"track": "strangers.mkv", "by": "pv", "at": str(first)})
+            (Path(tmp) / "shots.json").write_text(json.dumps({"shots": [{"first_frame": 0, "track_score": [9.0] * n}]}))
+            cap._files(args_ht, Path(tmp) / "cap_ht_hh", [("a", spec_ht), stranger_ht], [], plan_ht)
+            told_ht = json.loads((Path(tmp) / "cap_ht_hh" / "subjects" / "a" / "hair_in_hole__pv.json").read_text())
+            assert told_ht["lost_asked_on_source_frames"] == [], f"tube bridged 102, but hair_in_hole still asked: {told_ht}"
+            # Also verify `hair-in-hole` replay subcommand loads `head_tube__pv.npz["tube"]` over `head_track__pv.mkv`
+            replay_out = Path(tmp) / "replay.json"
+            cap.hair_in_hole(argparse.Namespace(
+                capture=str(Path(tmp) / "cap_ht_hh"), subject="a", out=str(replay_out), keep_out=[], classes=None, classes_at=None,
+                whole_classes=None, margin=None, zoom_up_to=None, hidden=None, hers=None, not_hers=None
+            ))
+            rep_ht = json.loads(replay_out.read_text())["a"]
+            assert rep_ht["lost_asked_on_source_frames"] == [], f"hair-in-hole replay ignored head_tube__pv.npz: {rep_ht}"
+        finally:
+            for k, v in stood_in.items():
+                setattr(cap, k, v)
     assert [(f["rule"], f["level"], f["source_frames"]) for f in got] == [
         ("her_head_lost_in_view", cap.LEVELS[2], [[103, 105]]), ("unclaimed_hair_touches_another", cap.LEVELS[2], [[100, 100]])], got
     assert "mark the frames `hers`" in got[0]["why"] and "PAUSE — unmasked head/hair signals" in got[0]["why"], got[0]["why"]
