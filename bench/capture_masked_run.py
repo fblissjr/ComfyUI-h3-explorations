@@ -1467,6 +1467,45 @@ def node_source(vm, plan: dict, got: dict, others, keep=None) -> dict:
             "feather_pixels": int(settings.get("feather_pixels", 0) or 0), "edge": settings.get("edge", vm.EDGE_TOKENS)}
 
 
+def _bridge_severed(on, grown_s, own_s, theirs_s, whole: bool):
+    """When keep-out units `theirs_s` outside `on | own_s` pinch off a unit of `on & grown_s` from `own_s` in 4-connectivity
+    (so `video_mask.drop_islands` would drop that unit of `on` even after `on` itself is carved), add a shortest 4-connected
+    bridge inside `grown_s` from the severed `on` unit(s) to the `own_s`-connected component."""
+    import cv2
+    import torch
+    grid = (lambda t: t[::2, ::2]) if whole else (lambda t: t)
+    on_g, g, o, th = (grid(x).cpu().numpy().astype(bool) for x in (on, grown_s, own_s, theirs_s))
+    if not (on_g & g & ~o).any():
+        return on
+    surviving = (g & (~th | on_g)) | o
+    n_cc, lab = cv2.connectedComponents(surviving.astype(np.uint8), connectivity=4)
+    if n_cc <= 1:
+        return on
+    conn = np.isin(lab, np.unique(lab[o & (lab > 0)]))
+    severed = (on_g & g) & ~conn
+    if not severed.any():
+        return on
+    cross = np.array([[0, 1, 0], [1, 1, 1], [0, 1, 0]], np.uint8)
+    dist = np.full(g.shape, -1, np.int32)
+    dist[conn] = 0
+    d = 0
+    while True:
+        step = (cv2.dilate((dist == d).astype(np.uint8), cross) > 0) & g & (dist < 0)
+        if not step.any():
+            break
+        d += 1
+        dist[step] = d
+    need = severed & (dist > 0)
+    if not need.any():
+        return on
+    for step_d in range(int(dist[need].max()), 1, -1):
+        need |= (cv2.dilate((need & (dist == step_d)).astype(np.uint8), cross) > 0) & (dist == step_d - 1)
+    bridged = torch.from_numpy(on_g | need).to(on.device)
+    if whole:
+        bridged = bridged.repeat_interleave(2, dim=-2).repeat_interleave(2, dim=-1)[:on.shape[0], :on.shape[1]]
+    return bridged
+
+
 def grid_carve(keep: np.ndarray, mine: np.ndarray, plan_path: Path, at: int, first: int, share: float = OWN_TRACK_CELL_SHARE,
                depth: np.ndarray | None = None, valid: np.ndarray | None = None) -> tuple[np.ndarray, np.ndarray]:
     """THE CARVE ON THE NODE'S OWN GRID (the lead's ruling of 2026-10-16, docs/wiki/decisions.md): per window of the node's plan,
@@ -1491,10 +1530,14 @@ def grid_carve(keep: np.ndarray, mine: np.ndarray, plan_path: Path, at: int, fir
     for row, got in windows:
         lt, lh, lw = (int(v) for v in got["tokens"].shape)
         length = int(got["mask"].shape[0])
+        margin = vm.source_margins(node_source(vm, plan, got, None), 0, length, w * h)
+        grown = vm.token_mask(vm.grow(got["mask"], margin), lt, lh, lw, whole) > 0.5
+        own = vm.token_mask(got["mask"], lt, lh, lw, whole) > 0.5
         hers = _units(vm, _picture(vm, _window_frames(mine_back, row, at, first, length), zoom, (w, h)) > 0.5, lh, lw, whole) > share
+        theirs = _units(vm, _picture(vm, _window_frames(keep & ~front, row, at, first, length), zoom, (w, h)) > 0.5, lh, lw, whole) > 0
         start = 0
-        for steps in vm.run_lengths(lt):
-            on = hers[start:start + steps].any(0)
+        for s, steps in enumerate(vm.run_lengths(lt)):
+            on = _bridge_severed(hers[start:start + steps].any(0), grown[s], own[s], theirs[start:start + steps].any(0), whole)
             if bool(on.any()):
                 px = torch.nn.functional.interpolate(on.to(torch.float32)[None, None], size=(h, w), mode="nearest")[0]
                 if zoom:

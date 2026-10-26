@@ -2138,6 +2138,18 @@ def the_carve_on_the_nodes_grid() -> str:
         beside = box(50, 34, 66, 62, [2, 3, 4])                       # 64-66 lies in the cell 64-80, not hers
         carved, _ = cap.grid_carve(beside, mine, _a_node_plan(folder, part, None, lt), 0, 0)
         assert carved[2:, 34:62, 64:66].all() and not carved[2:, 34:62, 50:64].any(), "a pixel wider was carved with no zoom"
+        # ISLAND PINCH (`_bridge_severed`): a margin unit diagonally adjacent to `own` that is >50% hers on a frame of the step,
+        # whose orthogonal bridges to `own` are <50% hers and covered by a keep-out, has its bridges carved so `drop_islands`
+        # does not sever it and `node_taken_inside` is 0
+        pinch_dir = Path(tmp) / "pinch"
+        pinch_dir.mkdir()
+        p_part = box(32, 32, 48, 48)                                   # own: cell (2, 2)
+        p_mine = p_part | box(48, 48, 64, 60, [2])                     # cell (3, 3) is 75% hers on frame 2 (>50%)
+        p_keep = box(48, 32, 64, 48, [1]) | box(32, 48, 48, 80, [1]) | box(64, 32, 80, 64, [1])
+        p_plan = _a_node_plan(pinch_dir, p_part, None, lt)
+        p_carved, _ = cap.grid_carve(p_keep, p_mine, p_plan, 0, 0)
+        p_after = cap.node_taken_inside(None, cap.predict_regions(p_plan, 0, 0, p_carved, None, (W, H), pinch_dir / "after"), p_mine, 0, 0)
+        assert p_after.sum() == 0, f"island pinch left severed hers unit(s): {p_after.tolist()}"
         # A PLAN THAT IS NOT THE CAPTURE'S, OR A WINDOW WHOSE STEPS DO NOT HOLD ITS FRAMES, IS REFUSED (the read's finding 4)
         bad = json.loads((folder / "p_plan.json").read_text())
         (folder / "p_plan.json").write_text(json.dumps({**bad, "width": W * 2}))
