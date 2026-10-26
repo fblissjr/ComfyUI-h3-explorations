@@ -224,7 +224,7 @@ Inspect three critical signals before spending GPU render minutes:
    CUDA_VISIBLE_DEVICES= <comfy-venv>/bin/python bench/flags_before_render.py \
      data/<day>_<load> --load <load> --initial <session>
    ```
-   Prints and records the five diagnostic blocks (`[0]` recipe diff against `SUBJECT_RECIPE_DEFAULTS`, `[1]` `flags.json`, `[2]` `marks_against_the_body_model` + `face_on_the_track` + `mouthless_reference`, `[3]` `runs/<run>/step_carves.json`, and `[4]` held/emptied frames + `unlaid_while_tracked` + `unresolved_hair_in_hole`) to `<capture>/looks/<load>.flags_read.json` (`bench/load_chain.py::the_flags_read` refuses `render` without it).
+   Prints and records the five diagnostic blocks (`[0]` recipe diff against `SUBJECT_RECIPE_DEFAULTS` (a diff, not a gate: a knob that differs from the recipe passes with any written `why`, and only a row with none refuses; third_fp_5114d ran at a margin of 64 against a recipe of 16 this way, `docs/wiki/decisions.md` 2026-10-26), `[1]` `flags.json`, `[2]` `marks_against_the_body_model` + `face_on_the_track` + `mouthless_reference`, `[3]` `runs/<run>/step_carves.json`, and `[4]` held/emptied frames + `unlaid_while_tracked` + `unresolved_hair_in_hole`) to `<capture>/looks/<load>.flags_read.json` (`bench/load_chain.py::the_flags_read` refuses `render` without it).
 3. **Full prompt read (`bench/what_h3_got.py`)**:
    ```bash
    CUDA_VISIBLE_DEVICES= <comfy-venv>/bin/python bench/what_h3_got.py \

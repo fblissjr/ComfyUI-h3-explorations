@@ -7,9 +7,11 @@ record disagree, the record is right: `git log`, [`decisions.md`](decisions.md),
 and mask-step forensic reference [`../masked_v2v/2026-10-25_pass_contamination_and_mask_step_forensics.md`](../masked_v2v/2026-10-25_pass_contamination_and_mask_step_forensics.md),
 and `data/fun/`. Read [`../masked_v2v/2026-10-25_pass_contamination_and_mask_step_forensics.md`](../masked_v2v/2026-10-25_pass_contamination_and_mask_step_forensics.md)
 (especially §3 on Pass-2/Pass-3 source vs. perception contamination, §4 on environment variables and data paths, and §6 on
-every tool and rule built today) and `internal/gemini/2026-10-26_step_by_step_fix_plan_4912_and_4647.md` (the exact
-step-by-step commands, pre-render verification criteria, and `--depth` / `--head-tube` provenance audit for `second_hfp_4912h`
-and `second_hfp_4647h`) before running any preview, capture, or render tomorrow.
+every tool and rule built today) before running any preview, capture, or render tomorrow. *(The step-by-step plan this
+line pointed at, `internal/gemini/2026-10-26_step_by_step_fix_plan_4912_and_4647.md`, is superseded as of 2026-10-26: it
+rests on the pass-1 contamination premise and on `--hold-part` spans and the `shot_c_4647j` preview, each overturned in
+[`decisions.md`](decisions.md) 2026-10-26 and the forensics record §0; what was run instead is in this page's "What not
+to assume" and in the record. Do not run its commands.)*
 
 ## State when closed
 
@@ -21,7 +23,8 @@ and `second_hfp_4647h`) before running any preview, capture, or render tomorrow.
     (`86e65d1f`), and 2026-10-25 rulings and 64-row remake inventory (`f355d420`, `b370a50a`).
   - Timeline, coverage & recipe gates: `bench/inventory.py`, `bench/timeline_page.py`, and frame-pinned note matching in
     `bench/said_on_shot.py` (`ec9a113f`); partial-shot, unlaid-while-tracked, and partial-lay coverage gates (`e5be4a20`);
-    per-subject recipe defaults (`h3_config.SUBJECT_RECIPE_DEFAULTS`), pre-render recipe diff gate, and pass-2 cut/lay
+    per-subject recipe defaults (`h3_config.SUBJECT_RECIPE_DEFAULTS`), pre-render recipe diff (a diff, not a gate: a
+    difference with any written reason passes; `decisions.md`, 2026-10-26, third_fp_5114d), and pass-2 cut/lay
     guards (`79b7b6da`).
   - Mask-step forensics & latent-step/keep-out fixes (`449b17f1`): `bench/inspect_mask_steps.py` and
     `bench/check_inspect_mask_steps.py` (`[0]` pass-dependency/creation-date/MoGe-2 depth/prior-pass DiT overlap provenance,
@@ -62,6 +65,13 @@ and `second_hfp_4647h`) before running any preview, capture, or render tomorrow.
     (`shot_c_4647f`): `4647j` already tracks `second`'s body at `22,521-51,297 px` across `4647-4673`, and the `4674-4685`
     gap is resolved on the post-Pass-1 preview (`shot_c_4647j`) by feeding `head_tube` into `her_hair_in_hole`, owner
     `head_marks` (or single-span `--hold-part 4674-4685`), and `depth.npz`.
+  - **Overturned 2026-10-26, kept here so the paragraph above is not trusted** ([`decisions.md`](decisions.md), 2026-10-26;
+    the forensics record §0): the pass-1 cut does not alter her (single-digit changed pixels inside her track on every
+    frame); the `4697` drop and the `4698-4706` drift were the owner's cast box on `4698` (`cast.jsonl` line 186, withdrawn
+    at line 210), taken on the cut's preview by a share of 0.56, which put the woman in the black vest in her track, so
+    `shot_c_4647j` is not reused: `second_hfp_4647h` was built on the fresh preview `shot_c_4647k`; the tube hand-off
+    landed in `b461584e`; `4674-4685` is `hidden` on the owner's reading, so nothing is held there and `--hold-part` is
+    withdrawn; the owner's marks are `hidden` 4674-4685 and 4716-4725, `hers` 4697-4698.
 - **`head_tube` runs by default in `bench/capture_masked_run.py:2558`** whenever a `head_track` exists (`head_tube: true` in
   `manifest.json` unless `--no-head-tube` is passed); `--head-tube` on `bench/shot_to_load.py job` records the word in
   `job.json`. Also note that `--hold-part` accepts only a single `A-B` span (`capture_masked_run.py:2643` refuses `+`); for
@@ -91,6 +101,8 @@ and `second_hfp_4647h`) before running any preview, capture, or render tomorrow.
      grafting tracks from raw `shot_c_4647f`), with `head_tube` fed into `her_hair_in_hole`, `depth.npz` to settle the
      `second` vs `third` / `strangers` overlap (`contested_px = 186`), and owner `head_marks` (or single-span
      `--hold-part 4674-4685`) on `4674-4685`; render Pass 2 (`second`), then rebuild and run Pass 3 (`lead`).
+     *(As run on 2026-10-26: the `4698` cast box withdrawn first, a fresh preview `shot_c_4647k` on the current cut, the
+     job with the owner's marks and `--depth`, no `--hold-part`; `decisions.md` 2026-10-26.)*
 3. **Second half of shot `2050-2622` (`2271-2598`)**: per the owner's 2026-10-25 ruling in [`decisions.md`](decisions.md)
    ("How the rest of shot `2050-2622` is rendered"), `lead_fp_2050g` stands in the cut on `2050-2248`, and the second half
    (`2271-2598`; `2599-2622` is back of head after `lead` turns at `2598`) renders as a single `345`-frame window at

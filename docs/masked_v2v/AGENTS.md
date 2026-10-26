@@ -359,7 +359,7 @@ pass 2, only the owner's own words among them carry (§1).
   crown on 4912e's 4944 and 4945 Background even on the whole frame (run on those two frames, 2026-10-22), so there only part 2
   catches her.
 - `bench/capture_masked_run.py hair-in-hole CAPTURE` works the same out on a capture that exists, read-only, and writes it elsewhere.
-- **2026-10-25 / 2026-10-26 occlusion & `head_tube` handoff (`449b17f1`, [`docs/masked_v2v/2026-10-25_pass_contamination_and_mask_step_forensics.md`](2026-10-25_pass_contamination_and_mask_step_forensics.md))**:
+- **2026-10-25 / 2026-10-26 occlusion & `head_tube` handoff (`449b17f1` on 2026-10-25; items 1 and 4 landed on 2026-10-26 in `b461584e`, which also skips `hidden` frames in the fill and counts only asked frames at the gate; [`docs/masked_v2v/2026-10-25_pass_contamination_and_mask_step_forensics.md`](2026-10-25_pass_contamination_and_mask_step_forensics.md) §0.7)**:
   1. `head_tube` runs by default in `bench/capture_masked_run.py:2558` (`not args.no_head_tube`, `head_tube: true` in `manifest.json`) whenever a `head_track` exists, and its bridged output (`head_tube__<by>.npz["tube"]`) is handed into `her_hair_in_hole` and `inspect_mask_steps.py` when present so short head-track gaps already bridged by `head_tube` (`4686-4695` on `4647g`) are not seen as `0 px` by `her_hair_in_hole`.
   2. `clean_whole`: excludes edge-shrunk frames (`< 0.75 * neighbor`) from serving as `whole` gap-fill references (`4694` on `4647g`, `4920` and `4939` on `4912g`).
   3. `near_h`: widens the `saved_part` bridge reach to `abs(k - src) <= 2`.
