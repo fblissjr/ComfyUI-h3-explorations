@@ -89,9 +89,12 @@ each overturned in [`decisions.md`](decisions.md) 2026-10-26 and the forensics r
 
 ## Where things are
 
-- Today's decisions, `5114d` and `4647h` postmortems, and the `cast.jsonl` box rule: [`decisions.md`](decisions.md) (`2026-10-26`).
-- Pass-contamination & mask-step forensic reference:
-  [`../masked_v2v/2026-10-25_pass_contamination_and_mask_step_forensics.md`](../masked_v2v/2026-10-25_pass_contamination_and_mask_step_forensics.md).
+- **Reading order for tomorrow's session before writing code**:
+  1. [`handover.md`](handover.md) (this file, for the day's order and what not to assume).
+  2. [`decisions.md`](decisions.md) (`2026-10-26`: `5114d` margin rule `cbd39fbe`, `second_hfp_4647h` postmortem, the `cast.jsonl` box rule, and the two guardrails for tomorrow's builds).
+  3. [`../masked_v2v/2026-10-25_pass_contamination_and_mask_step_forensics.md`](../masked_v2v/2026-10-25_pass_contamination_and_mask_step_forensics.md) (`§0`–`§0.9`: verified `4647` and `4912` measurements).
+  4. `bench/capture_masked_run.py` line `5132` (`HAIR_IN_HOLE_CANNOT_SEE`: the author's list of what `her_hair_in_hole` cannot see).
+  5. `internal/gemini/2026-10-26_code_map_and_simplification_plan.md` (Parts 1–4 for exact `file:line` jump coordinates and state-mutation trace; note that `5e`, `5f`, and `5g` in Part 5 are superseded by this handover).
 - Verification procedure & lane rules: [`../masked_v2v/verifying_raw_frames_and_keeps.md`](../masked_v2v/verifying_raw_frames_and_keeps.md),
   [`../masked_v2v/AGENTS.md`](../masked_v2v/AGENTS.md), and [`../masked_v2v/PROTOCOL.md`](../masked_v2v/PROTOCOL.md).
 - The laid ledger (`69` rows across `53` shots, including `lead_fp_5935d`): `data/fun/laid.jsonl`.

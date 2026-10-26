@@ -46,6 +46,9 @@ sheets under `data/2026-10-24_lead_fp_2050e/`.
   0.25, on `parts_held__shot_c_2050f.mkv`): the median region over 2050-2247 is 21,829 px, the floor 5,457, and
   frame 2247 carries 4,578, so a boundary recorded at 2247 WOULD have tripped the guard and put the 45 real frames
   back. The three paths below avoid the guard: a load that is its own window has no padding to fall back on.
+  *(Dated record; one later change bears on it: since `449b17f1` on 2026-10-25 a held edge reaches back at most
+  `video_mask.HELD_EDGE_EMPTY_RUN` frames, one latent step, where before it had no limit; `HELD_EDGE_LEAST` is 0.25 as
+  written here. Verified against the code on 2026-10-26.)*
 - The face-covered context word does not remove this: it stamps the shot's last mask onto the moving padding frames,
   covering 41-61% of her face there (measured on 2095-2139 against `parts_held`).
 

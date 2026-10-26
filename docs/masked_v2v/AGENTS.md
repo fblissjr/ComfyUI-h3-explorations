@@ -62,7 +62,8 @@ The owner's words of 2026-10-21, each with its reasons in [`docs/wiki/decisions.
 
 ### 3. Always pass `--cast data/<video>/cast/cast.jsonl` and verify it exists
 
-- [`bench/shot_to_load.py`](../../bench/shot_to_load.py) `preview` and `job` refuse missing `--cast` files cleanly (`bench/shot_to_load.py::Refused`). `preview` defaults `--cast` to `data/<video>/cast/cast.jsonl` when omitted (`bench/shot_to_load.py::step_preview`). Without the cast file, the builder cannot seed SAM 3.1 from confirmed boxes or auto-identify `lead` vs `second` vs `third` from confirmed reference embeddings.
+- [`bench/shot_to_load.py`](../../bench/shot_to_load.py) `preview` and `job` refuse missing `--cast` files cleanly (`bench/shot_to_load.py::Refused`). `preview` defaults `--cast` to `data/<video>/cast/cast.jsonl` when omitted (`bench/shot_to_load.py::step_preview`). Without the cast file, the builder cannot seed SAM 3.1 from confirmed identifications or auto-identify `lead` vs `second` vs `third` from confirmed reference embeddings.
+- **What counts as a confirmed identification in `cast.jsonl` (the owner, 2026-10-26; [`docs/wiki/decisions.md`](../wiki/decisions.md))**: Only `who-is-who` clicks made on the HTML review page (`cast.jsonl` lines `1–174`, each identifying which detected outline is the subject on that frame) stand as tracker identifications. Boxes drawn on pasted screenshots (`lines 175–192, 194–196`, `"just to give you a rough idea"`) and boxes entered by a session from contact sheets (`lines 197–209`) are human hints to look at and never tracker seeds.
 
 ### 4. Pre-render & Post-capture Telemetry (`facts_pass.py`, `inspect_mask_steps.py`, `flags_before_render.py`, `step_carves.json`, `code_stamp.py`)
 
@@ -179,7 +180,10 @@ pass 2, only the owner's own words among them carry (§1).
      shot is a seed on its frame (`bench/shot_to_load.py::seed_of`, `bench/cast_file.py::seeds`; boxes drawn on a sheet
      enter the file by `bench/cast_file.py box`, which takes `--encloses head|body`: a box round only her arm or body,
      where her head is hidden, seeds her person track and never her head track; every drawn box is recorded
-     `drawn: approximate`, the owner's word of 2026-10-23, and names roughly WHICH person, never an outline:
+     `drawn: approximate`, the owner's word of 2026-10-23, and names roughly WHICH person, never an outline
+     [2026-10-26, the owner: a box from a pasted screenshot or a session's contact sheet is a hint for a person, never a
+     tracker seed; the page's who-is-who clicks stand. Two such boxes split her track on 4647 (`decisions.md`,
+     2026-10-26); their withdrawal goes with the tracker build in the handover's order]:
      `subject_track.py::name_drawn` takes the one person lying mostly inside it, refuses a box across two people or on
      another tracked subject, and only where nobody qualifies asks SAM 3's box prompt, unclipped). The other subjects'
      boxes on each boxed frame ride along as `other` lines, so even the first tracker of a job knows who is somebody
@@ -192,7 +196,8 @@ pass 2, only the owner's own words among them carry (§1).
      says what each box took, how, the frames it was kept on and why one was refused. The head track is seeded and
      main's span head track by default, exactly as before (from the shot's first head box or its own seed, never a top
      third from a body box); per stretch only on `preview --head-per-stretch WHY` (the owner, 2026-10-23: an opt-in, so no
-     saved or rendered shot can lose a head), which seeds and tracks the head inside each stretch the person track holds
+     saved or rendered shot can lose a head; to be made the default by the 2026-10-26 build, after `second_hfp_4647h` lost
+     her head track on 4682-4695 under the span mode, `decisions.md` 2026-10-26), which seeds and tracks the head inside each stretch the person track holds
      her and fills a stretch with none from main's span head; the shot table's `head_mode` says which ran
      (`subject_track.py::_track_head_span`, `_span_head`). A box prompt is
      refused as doubtful on a frame where the tracker knows none of the job's other subjects (`job: N other subjects`,
@@ -353,7 +358,7 @@ pass 2, only the owner's own words among them carry (§1).
   one of `hidden` (her head is not in view there: nothing asked), `hers` (the unclaimed hair is hers; on a lost head, her nearest
   whole head track, less every other person's mask, is held there) or `not hers` (no unclaimed hair added there). `job` cuts the
   spans to the load (`bench/shot_to_load.py::head_marks_of`) and the chain hands them to the capture. A lost head can also be
-  boxed in the cast file for a fresh preview, which seeds SAM on that frame.
+  identified on the who-is-who page in the cast file for a fresh preview, which seeds SAM on that detection (pasted screenshot and sheet boxes are never tracker seeds; [`docs/wiki/decisions.md`](../wiki/decisions.md), 2026-10-26).
 - **Her hair is read from** the whole-frame class map the strangers run now keeps beside its file (`whole_frame_classes` in the
   strangers record, `bench/strangers.py`), else her own class map as the preview saved it (her crop alone). Sapiens2 labels her
   crown on 4912e's 4944 and 4945 Background even on the whole frame (run on those two frames, 2026-10-22), so there only part 2
@@ -364,6 +369,7 @@ pass 2, only the owner's own words among them carry (§1).
   2. `clean_whole`: excludes edge-shrunk frames (`< 0.75 * neighbor`) from serving as `whole` gap-fill references (`4694` on `4647g`, `4920` and `4939` on `4912g`).
   3. `near_h`: widens the `saved_part` bridge reach to `abs(k - src) <= 2`.
   4. Lost-head fill subtracts every other person's mask (`~taken[k]`): commit `449b17f1` tried class-filtering `taken` down to `Apparel` + non-subject `face_ids` (`taken_for_hers`), which failed on `4912h` (`4943-4946`) because same-colour bystander hair has class `Hair` and was claimed as the subject's hair. Every other person's mask (`~taken[k]`) is subtracted in full, and occlusion gaps where `head_tube` is empty are settled by owner `head_marks` (`hers` / `hidden` / `not hers`) in `marks.json`.
+  5. **What `second_hfp_4647h` and `HAIR_IN_HOLE_CANNOT_SEE` (`bench/capture_masked_run.py:5132–5407`) exposed at close of 2026-10-26 ([`docs/wiki/decisions.md`](../wiki/decisions.md); [`2026-10-25_pass_contamination_and_mask_step_forensics.md`](2026-10-25_pass_contamination_and_mask_step_forensics.md) §0.9)**: Stage 3 (`line 5384`, `cand = hair[f] & room & ~part[f] & ~hole[f] & ~track[f]`) subtracts the subject's own `person_track` (`~track[f]`), which forbade `her_hair_in_hole` from recovering the `945–1,354 px` of hair that `head_tube` had cut inside her track on `4686` and `4693–4695` when `--head-per-stretch` was off (`0` hair pixels added across all `79` frames of `4647h`), and reads whole-frame Sapiens (`strangers_classes.npz`, item 2) rather than her high-res crop class map (`classes__<preview>.npz`); meanwhile Stage 2 (`item 4`) triggers on arm-only `person_track` frames (`4682–4685`). Tomorrow's morning builds ([`docs/wiki/handover.md`](../wiki/handover.md)) replace `hold_to_track` (`_on_track_8px.mkv`) at the job step with the union of crop-Sapiens face+hair and SAM `head_track` within a head-anchored room (minus other people's SAM detections in `strangers.py`) and enable `--head-per-stretch` by default.
 
 ### 11. End-to-end mask-step & provenance forensics (`bench/inspect_mask_steps.py`, 2026-10-25)
 

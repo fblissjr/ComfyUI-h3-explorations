@@ -16,9 +16,9 @@ Related rules and procedures:
 Measured on 2026-10-26 by a Gemini reader (`gemf`) and reproduced by the Claude session (`mrfoo`); the owner's own
 frame readings and marks; the builds the Gemini lead landed. Each item names the file or command that holds its
 figures. Where this section and the sections below disagree, this section is the later measurement, and the older
-line is marked `[2026-10-26: ...]` where it stands. The same corrections are owed to
-[`docs/masked_v2v/AGENTS.md`](AGENTS.md) §1 ("When Pass 1's regenerating region overlaps or alters Pass 2's subject",
-its items 1 and 2) and to [`docs/wiki/decisions.md`](../wiki/decisions.md), which are not edited here.
+line is marked `[2026-10-26: ...]` where it stands. The matching updates to
+[`docs/masked_v2v/AGENTS.md`](AGENTS.md) §1 and [`docs/wiki/decisions.md`](../wiki/decisions.md) (`2026-10-26`)
+landed in `b375d53e`, `7c195e68`, `68e8086d`, and `f6028d64`.
 
 ### 0.1 Disproved: pass 1 (`third_fp_4647e`) did not alter the second subject in the cut
 
@@ -62,12 +62,13 @@ its items 1 and 2) and to [`docs/wiki/decisions.md`](../wiki/decisions.md), whic
   Her head track and Sapiens parts are clipped to the person track, so on `4699–4702` they were clipped against the
   wrong person (`1,430 -> 75 px` on `4699` in §1's row is this, not DiT contamination). The picture on her had not
   changed (0.1); one rough box on an occluded frame crossed the tracker's 0.50 line by six hundredths.
-- What follows: a load for her on the current cut is not built on `shot_c_4647j`. The chain's own route, no build:
-  withdraw the `4698` box (`bench/cast_file.py withdraw`, as line 193 withdrew the `4697` box), a fresh preview on the
-  current cut with `--for second`, its log read for the `4695` seed kept through `4715` and no "different people"
-  line on load frame 50, then the job with the owner's marks (0.6) and `--depth`. The same reader proposes a seed
-  floor in `subject_track.py::name_drawn` (a detection covering 0.16 of a drawn box is not taken on the strength of
-  0.56 of itself lying inside it); that is a build for the list, not a rule yet.
+- What follows: a load for her on the current cut is not built on `shot_c_4647j`. Withdrawing the `4698` box (`cast.jsonl`
+  line 210) produced `shot_c_4647k` and `second_hfp_4647h` (§0.9 below). By the owner's ruling at the close of
+  `2026-10-26` ([`docs/wiki/decisions.md`](../wiki/decisions.md)), only HTML `who-is-who` page clicks (`cast.jsonl`
+  lines `1–174`, each identifying which detected person is the subject on that frame) stand as tracker identifications;
+  boxes from pasted screenshots (`lines 175–192, 194–196`, `"just to give you a rough idea"`) and session-entered
+  contact-sheet boxes (`lines 197–209`) are human hints and never tracker seeds, to be withdrawn together with
+  tomorrow's tracker post-occlusion re-finding build.
 
 ### 0.3 Confirmed by reading the code: the capture's order, and what each consumer is handed
 
@@ -136,8 +137,10 @@ queued graph, so the softened-source start plays no part.)
   Replayed on the kept `4912` capture before landing.
 - `ac803f92`: `bench/what_h3_got.py` joins the capture's records; a git-less check fake; the active-step 0 px test.
 - `00a3f1d8` and `45f3eaf1`: held pixels kept in the track mkv where the fill extends beyond the track; a 4-connected
-  bridge carved in `grid_carve` where a keep-out pinches a `hers` unit. Not read by the annotating session; the
-  subjects are the commits' own.
+  bridge carved in `grid_carve` where a keep-out pinches a `hers` unit.
+- `cbd39fbe` (Build D): moved settled `margin` and `zoom_up_to` recipes into `data/fun/plan.json` (`recipe` and
+  `shot_overrides`, recording `second_hfp_1093k` at `margin = 128`) and made `bench/shot_to_load.py job` and
+  `bench/flags_before_render.py::recipe_check_of` hard-refuse any differing value with no `--*-why` bypass.
 - `HELD_EDGE_EMPTY_RUN` (§2.1 item 3, §6): holds as written, the parent of `449b17f1` had no limit.
 
 ### 0.8 Environment facts settled on 2026-10-26
@@ -151,6 +154,45 @@ queued graph, so the softened-source start plays no part.)
   the readers; the server is guarded by its start script.
 - The working copy and the lead's still live under `input/mrpop/` by history (`data/fun/manifest.json`, `plan.json`);
   the chain finds them by the manifest and the plan, not by the folder.
+
+### 0.9 The render on the fresh preview, `second_hfp_4647h` (2026-10-26 evening): her hair dark again from 4684, and why
+
+The owner's playback: blonde and right from 4647 until about 4684-4685 (`+36.9` BGR luma over source across `4647–4673`,
+proving `2.17x` zoom in the single 79-frame window swaps her hair to blonde once unmasked dark hair is removed), dark
+from there to the end (`+7.4` luma on `4686–4705`). Measured by the Gemini lead and the Claude session on the capture
+(`data/2026-10-26_second_hfp_4647h`), the preview's files on the share (`shot_c_4647k`) and the render's window record;
+the step mapping is the 17-frame cycle 1, 4, 4, 4, 4 repeating, read from the record's `tokens` (27 steps for 90 frames).
+Four facts, none of them the causes §1 and §2.1 named:
+
+- **4682-4685 (one step `t=11`, no token on)**: her person track there (`765–1,082 px`) is her bare forearm (`y=297–359`);
+  the part Sapiens found on that crop (608 to 2,123 px a frame at `y=289–367`) sits on the forearm too, labeled neither
+  face nor hair (`0` face points), and the head tube suppressed it rightly (`head_tube__shot_c_4647k.json`,
+  `off_tube_suppressed_px`). Her head, peeking out from behind the lead's shoulder on 4684-4685, was found by nothing in
+  the chain: not SAM, not Sapiens on a crop of her arm. The owner's `hidden` on 4674-4685 was read off strips that could
+  not show it. These frames were in the window as filmed.
+- **4686 and 4693-4695**: Sapiens on her crop found her whole head and hair (about 1,923 px at rows 258-316 on 4686,
+  `2,203–3,607 px` on 4693-4695), and `hold_to_track` kept almost all of it (`1,833 px` on 4686); the tube cut over a
+  thousand pixels of it (`945–1,354 px`) on each of these frames (`1,833 -> 562 px` on 4686; `1,923 -> 836 px` in
+  `parts_held`), since her head track was empty 4682-4695 and `--head-per-stretch` was off. Her dark hair stayed in the
+  window on the kept side of the boundary.
+- **4686-4693 (`t=12–13`)**: the laid matte reached 40 to 70 px above her head (`y=181–258`) into another person SAM's
+  people file (`shot_c_4647k_people.npz`) holds on every frame (2,000 to 3,500 px at scores 0.54 to 0.81), and the
+  strangers file held zero pixels there: `bench/strangers.py::run` writes only what whole-frame Sapiens calls human, and
+  it found nobody there. That head was inside her hole.
+- **The fill (`bench/capture_masked_run.py:5132–5407`, `HAIR_IN_HOLE_CANNOT_SEE`) could not repair any of it**: on this
+  capture it read hair from the whole-frame class map (the record's `hair_from`, item 2 of `HAIR_IN_HOLE_CANNOT_SEE`)
+  rather than her crop class map (`classes__shot_c_4647k.npz`), subtracts her own person track (`~track[f]`) from what it
+  may add (line 5384, item 3 of `HAIR_IN_HOLE_CANNOT_SEE` at line 5132), and added zero hair pixels over 79 frames; its
+  head additions were all on 4702-4714, while Stage 2 (item 4) triggers on arm-only `person_track` frames (`4682–4685`)
+  and copies a neighbor's head (`hers`) when `head_track` is empty.
+
+Not a cause: her held hair on 4688, 4691-4693 (`726–1,460 px` of class `4` `Hair` on her own class map).
+Withdrawn: a split of the shot across the occlusion (§6 of `AGENTS.md` forbids it). The rules this forces, with the
+Gemini lead's two guardrails, are in `docs/wiki/decisions.md` 2026-10-26 and the handover's "Tomorrow, in order": her
+part at the job step from her Sapiens face and hair on her crop with her head track, in a room anchored to head
+detections (never to an arm-only crop, never unioned with her person track on a face-and-hair subject), less every other
+person's SAM detection, the clip to the person track retired; SAM's other-person detections in the strangers keep-out;
+the head track re-seeded per stretch by default; the pasted-screenshot and sheet boxes withdrawn as seeds.
 
 ---
 
@@ -287,7 +329,7 @@ Crucially, check `[0]` separates two cases that would otherwise be conflated:
 | **[`bench/inspect_mask_steps.py`](../../bench/inspect_mask_steps.py)** & [`bench/check_inspect_mask_steps.py`](../../bench/check_inspect_mask_steps.py) (`449b17f1`) | Audits any capture across `[0]` provenance (Pass 1/2/3 vs `laid.jsonl`, birth `%w` + mtime `%y`, `stale_at_build` vs `code_updated_since_capture`, `depth.npz` usage, and prior-pass region overlap / SAM track collapse), `[1]` `(1,4,4,4,4)` latent-step `PAD` bleed, `[2]` blue-only `0 px` frames, `[3]` speck-in-blue frames, `[4]` `<75%` edge-shrunk `whole` frames, `[5]` `strangers` self-swallow, `[6]` missed SAM 3.1 objects in the blue region, and `[7]` per-frame gap recovery + `--strips <out.jpg>` visual overlay (`red` mask, `blue` latent step, `green` strangers, `yellow` recoverable whole head). | Does **not** modify any capture `.npz`/`.mkv` file, does **not** run GPU models (`SAM 3.1`, `Sapiens`, `MoGe-2`), and does **not** judge whether a rendered face looks like the reference still (only whether the masks and latent steps handed to the DiT and `lay_back` are geometrically sound). | Run **before every render** (right after `load_chain.py on-plan`) and **immediately when debugging any failed render**: `H3_INPUT_DIR=<share>/input H3_OUTPUT_DIR=<share>/output <python> bench/inspect_mask_steps.py --capture data/<day>_<load> --problems-only --strips /tmp/<load>_strips.jpg`. |
 | **`video_mask.py::HELD_EDGE_EMPTY_RUN = 4`** (`449b17f1`) | Introduces an empty-edge reach-back limit in `held_edge_source()` at `4` (`max(FRAME_PER_TOKEN)`, `1` DiT temporal token; no empty-run limit existed after `f5e0d66d`). When a subject is absent (`0 px`) at the start or end of a shot, `PAD` frames hold the empty edge (`0 px`) unless a real mask cleared `HELD_EDGE_LEAST` (`1,024 px`) within the last `4` frames. | Does **not** fill mid-shot occlusion gaps inside the shot (those are handled by `head_tube_parts.py` and `her_hair_in_hole`), and takes effect only when ComfyUI (`:8188`) executes `MiniMaxH3VideoMask` during `plan` or `render`. | Automatic on every `plan` and `render` once `:8188` is restarted on `449b17f1+`. Prevents tail/lead pad-bleed (`[1]`, such as `4714 -> 4724..4725, PAD_79..80` on `4647g`) on any shot where a subject enters late or exits early. |
 | **`bench/capture_masked_run.py` & `bench/head_tube_parts.py::her_hair_in_hole`** (`clean_whole`, `abs(k - src) <= 2`, `head_tube` handoff, `~taken[k]`, `unmasked_head_hair_context`) | 1) Drops `< 0.75 * neighbor` edge-shrunk frames from `clean_whole` so gap recovery pulls from full unshrunk heads; 2) widens `near_h` to `abs(k - src) <= 2`; 3) passes `head_tube`'s bridged output (`head_tube__<by>.npz["tube"]`) into `her_hair_in_hole` and subtracts every other person's mask (`~taken[k]`, reverting `449b17f1`'s class-filtered `taken_for_hers` which missed same-colour bystander hair on `4943–4946`) `[2026-10-26: this item landed on 2026-10-26 in b461584e, not on 2026-10-25; §1 and §2.1 of this record describe the state before it]`; 4) records `unmasked_head_hair_context` joining `part_grades`, `head_tube`, and `hair_in_hole`. | Only modifies `parts_held__<preview>.mkv` for **subjects whose plan replaces `Hair`** (`hair_in_hole_files` returns early for face-only subjects like `lead` or `third`). Multi-frame occlusion gaps where both raw `head_track` and `head_tube` are empty (`lost_asked_on_source_frames`) require owner `head_marks` in `marks.json` (or single-span `--hold-part A-B`). | Automatic during `capture_masked_run.py` (`load_chain.py first` and `on-plan`) for every hair+face subject (`second`). Pair with owner `head_marks` (`hers` / `hidden` / `not hers`) when `hair_in_hole` asks on lost-head frames. |
-| **[`bench/flags_before_render.py`](../../bench/flags_before_render.py)** (`SUBJECT_RECIPE_DEFAULTS`, `unlaid_while_tracked_of`, `unresolved_hair_in_hole_of`) (`79b7b6da`, `e5be4a20`, `449b17f1`) | Enforces pre-render gates: `[0]` recipe diff against standing subject defaults (`lead`, `second`, `third`) `[2026-10-26: a diff, not a gate; a knob that differs passes with any written why, and third_fp_5114d ran at 64 against 16 this way (docs/wiki/decisions.md, 2026-10-26)]`, `mouthless_reference` check, `partial_shot` check, `unlaid_while_tracked` check (using `runs/<load>/region.npz` `carried` as authoritative), and `unresolved_hair_in_hole` check (`PAUSE — VISIBLE HEAD/HAIR SIGNALS ON UNMASKED FRAME(S)`). | Cannot see prior-pass image contamination baked into a Pass-2 `--source` cut (use `inspect_mask_steps.py` `[0]` for that), and cannot see missed SAM 3.1 strangers inside the blue region unless they are in `keep_outs` (use `inspect_mask_steps.py` `[6]`). | Mandatory before every render (`bench/flags_before_render.py --capture data/<day>_<load> --load <load> --initial --by <session>`). Refuses `--initial` and `load_chain.py render` until every blocking gate or unexplained recipe deviation is resolved or explicitly justified. |
+| **[`bench/flags_before_render.py`](../../bench/flags_before_render.py)** (`SUBJECT_RECIPE_DEFAULTS`, `unlaid_while_tracked_of`, `unresolved_hair_in_hole_of`) (`79b7b6da`, `e5be4a20`, `449b17f1`, `cbd39fbe`) | Enforces pre-render gates: `[0]` recipe gate against `data/fun/plan.json` (`recipe` and `shot_overrides`; `[2026-10-26: prior to cbd39fbe, recipe_check_of was a diff that passed with any written --*-why, which let third_fp_5114d run at margin 64 against 16; Build D (cbd39fbe) moved settled margin and zoom_up_to into plan.json and made both shot_to_load.py job and recipe_check_of hard-refuse any differing value with no --*-why bypass (docs/wiki/decisions.md, 2026-10-26)]`), `mouthless_reference` check, `partial_shot` check, `unlaid_while_tracked` check (using `runs/<load>/region.npz` `carried` as authoritative), and `unresolved_hair_in_hole` check (`PAUSE — VISIBLE HEAD/HAIR SIGNALS ON UNMASKED FRAME(S)`). | Cannot see prior-pass image contamination baked into a Pass-2 `--source` cut (use `inspect_mask_steps.py` `[0]` for that), and cannot see missed SAM 3.1 strangers inside the blue region unless they are in `keep_outs` (use `inspect_mask_steps.py` `[6]`). | Mandatory before every render (`bench/flags_before_render.py --capture data/<day>_<load> --load <load> --initial --by <session>`). Refuses `--initial` and `load_chain.py render` until every blocking gate is resolved. |
 | **[`bench/shot_to_load.py`](../../bench/shot_to_load.py)** & **[`bench/laid.py`](../../bench/laid.py)** Pass-2 & Partial-Lay Guards (`79b7b6da`, `e5be4a20`) | `shot_to_load.py` refuses building a Pass-2 load on raw source when another subject is already laid on the shot, or on a cut that already holds the **same** subject's piece; `laid.py` refuses laying a raw-rendered piece over a multi-subject shot (`--allow-parallel-raw WHY`) or laying a partial span without `--allow-partial-lay WHY`. | Does **not** settle contested pixels between overlapping subjects unless `--depth` (`depth.npz`) is run. Never graft raw-preview tracks onto a post-Pass-1 capture. | Active on every `shot_to_load.py preview/job` and `laid.py lay/replace`. Before building Pass 2 on a cut, run `inspect_mask_steps.py` `[0]` and pass `--depth` when tracks or keep-outs overlap. |
 | **[`bench/inventory.py`](../../bench/inventory.py)** & **[`bench/timeline_page.py`](../../bench/timeline_page.py)** (`ec9a113f`) | Builds the whole-video per-`(shot, subject)` inventory (`inventory_<video>_<stamp>.md/.json`) and interactive NLE timeline (`TIMELINE.html` / `timeline_<video>_<stamp>.json`) showing every frame's status (`carried`, `held`, `left_out_by_a_look`, `owed`, `not_present`), age tier (`pre-10/20`, `10/20-10/22`, `10/23+`), mid-shot seams, and frame-pinned owner notes (`bench/said_on_shot.py`). | Reports coverage at the **delivery-table / cut level** after loads are built or laid; does **not** inspect inside an unlaid capture's `.mkv` or `.npz` mask steps (that is `inspect_mask_steps.py`'s job). | Run automatically as part of `bench/rebuild_delivery.py` (or standalone when planning the next batch of shots) to see which shots are `done`, `partial`, or `nothing laid`, and what the owner previously said on each shot. |
 | **Eye-line roll & bare-frame reference guards** (`bench/head_reference.py`, `bench/crop_reference_to_head.py`) (`86e65d1f`) | Flags eye-line roll disagreement (`>= 15 deg`) between 2D Sapiens pose and 3D SAM-Body mesh in `marks_against_the_body_model`, and skips bare (`--no-head-on`) and dropped (`--drop`) frames when computing `cranium_box` so empty/headless frames do not bloat or shift the reference crop box. | Does **not** change the source video's mask or region (`parts_held` / `region.npz`); operates strictly on `<Video 1>` (the 3D body-model reference video). | Automatic on every `shot_to_load.py reference` / `head_reference.py` run. Check `[2]` in `flags_before_render.py` (`marks_against_the_body_model` and `face_on_the_track`) before rendering. |
