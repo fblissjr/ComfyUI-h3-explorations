@@ -65,26 +65,32 @@ each overturned in [`decisions.md`](decisions.md) 2026-10-26 and the forensics r
   - On `4686-4693` (`t=12-13`), the laid matte reached `40-70 px` above her head into the dark-haired bystander woman SAM had
     detected (`2,000-3,500 px` in `shot_c_4647k_people.npz` at `0.54-0.81`) while `strangers.mkv` held `0 px` there because
     whole-frame `Sapiens2` missed her in `bench/strangers.py::run`.
-  - In `her_hair_in_hole` (`bench/capture_masked_run.py:5303-5312`), `hole(f)` judges "inside the hole" against `out[f]` grown
-    by the margin (`30` canvas px) before the keep-out carve and the feather (`4686`: `head[39] & ~hole(39) == 0 px`, leaving
-    `130 px` of `head_tube[39]` in the feathered rim at `matte <= 127`).
+  - In `her_hair_in_hole` (`bench/capture_masked_run.py:5303-5312, 5384`), `hole(f)` judges "inside the hole" against `out[f]`
+    grown by the margin (`30` canvas px) before the keep-out carve and the feather (`4686`: `head[39] & ~hole(39) == 0 px`,
+    leaving `130 px` of `head_tube[39]` in the feathered rim at `matte <= 127`), and `grade_holds` (`part_grades.json`) still
+    runs after the job step (`4702-4705, 4708-4714` emptied under the `1,024 px` floor and `4706-4707` held from `4701`).
+  - `<Video 1>` (`second_4647_4725_j/second_head_reference_4647_4725.json`) had `43` of `79` frames bare (`4673-4686` and
+    `4697-4725`, with no body model on `4676-4685` and `4706-4725` because the pose crop followed the forearm/drifted track);
+    `second_hfp_4647i` cannot reuse `second_4647_4725_j` and must remake `reference` after the tracker build.
 - **Build days and render days do not mix**: tomorrow morning is a build session in worktrees with `:8188` idle until all three
   builds are replayed on kept/existing captures (`4647k`, `4912h`, `1093`) and the owner inspects the `4682-4696` strip.
 
 ## Tomorrow, in order
 
 1. **Morning builds (no renders on `:8188`, built in worktrees and replayed on `4647k`, `4912h`, and `1093` captures first)**:
-   - **Part definition (`bench/shot_to_load.py`)**: retire `hold_to_track` (`_on_track_8px.mkv`); define her part at the job step
-     from her Sapiens face and hair on her crop unioned with her SAM head track within a room anchored to her head (never
-     unioning `Upper_Clothing`/`Torso` from `person_track` into a face+hair part, and never anchoring the head room to an
-     arm-only crop), less every other person's SAM detection.
+   - **Part definition & downstream floor/fill (`bench/shot_to_load.py`, `bench/capture_masked_run.py`)**: retire `hold_to_track`
+     (`_on_track_8px.mkv`); define her part at the job step from her Sapiens face and hair on her crop unioned with her SAM head
+     track within a room anchored to her head (never unioning `Upper_Clothing`/`Torso` from `person_track` into a face+hair part,
+     and never anchoring the head room to an arm-only crop), less every other person's SAM detection; and settle the downstream
+     `grade_holds` floor vs. `her_hair_in_hole` (`~hole(f)` and `~track[f]`) so a valid small head is not emptied or left in the
+     feathered rim.
    - **Strangers keep-out (`bench/strangers.py`)**: include SAM 3.1's other-person detections (`people.npz`) in the strangers
      keep-out where whole-frame Sapiens finds nobody.
-   - **Tracker post-occlusion re-finding & box withdrawal (`subject_track.py`, `bench/shot_to_load.py`, `data/fun/cast/cast.jsonl`)**:
+   - **Tracker post-occlusion re-finding, box withdrawal & `4647i` reference remake (`subject_track.py`, `bench/shot_to_load.py`, `data/fun/cast/cast.jsonl`)**:
      make `--head-per-stretch` the default and re-find a subject after an occlusion via the tracker's own head detection per
      stretch and the still signature match, withdrawing the screenshot/sheet boxes (`cast.jsonl` lines `175-192`, `194-196`,
-     `197-209`). If the match cannot re-find `second` on `4647` after `4681`, one page click on her outline on `4690` is the
-     fallback.
+     `197-209`), and remake `<Video 1>` (`shot_to_load.py reference`) for `second_hfp_4647i` from the new preview's track. If the
+     match cannot re-find `second` on `4647` after `4681`, one page click on her outline on `4690` is the fallback.
    - **Replay & owner strip check**: replay on `4647k`, `4912h`, and `1093` captures and show the owner the `4682-4696` strip
      drawn from the result before starting `:8188` for renders.
 2. **Afternoon renders on the fixed chain**: `second_hfp_4647i` (`4647-4725`), `second_hfp_4912k` (`4912-4946`), and

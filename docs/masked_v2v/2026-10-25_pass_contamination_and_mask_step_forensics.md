@@ -182,15 +182,24 @@ Four facts, none of them the causes §1 and §2.1 named:
   people file (`shot_c_4647k_people.npz`) holds on every frame (2,000 to 3,500 px at scores 0.54 to 0.81), and the
   strangers file held zero pixels there: `bench/strangers.py::run` writes only what whole-frame Sapiens calls human, and
   it found nobody there. That head was inside her hole.
-- **The fill (`bench/capture_masked_run.py:5132–5407`, `HAIR_IN_HOLE_CANNOT_SEE`) could not repair any of it**: on this
-  capture it read hair from the whole-frame class map (the record's `hair_from`, item 2 of `HAIR_IN_HOLE_CANNOT_SEE`)
+- **The fill (`bench/capture_masked_run.py:5132–5407`, `HAIR_IN_HOLE_CANNOT_SEE`) could not repair any of it, and `grade_holds` still runs downstream of the job step**: on this
+  capture `her_hair_in_hole` read hair from the whole-frame class map (the record's `hair_from`, item 2 of `HAIR_IN_HOLE_CANNOT_SEE`)
   rather than her crop class map (`classes__shot_c_4647k.npz`), subtracts her own person track (`~track[f]`) from what it
   may add (line 5384, item 3 of `HAIR_IN_HOLE_CANNOT_SEE` at line 5132), and added zero hair pixels over 79 frames; its
-  head additions were all on 4702-4714, while Stage 2 (item 4) triggers on arm-only `person_track` frames (`4682–4685`)
-  and copies a neighbor's head (`hers`) when `head_track` is empty. In addition (`lines 5303–5312`), `hole(f)` tests
-  "inside the hole" against `out[f]` dilated by `margin_px = 30` canvas px **before** the keep-out carve and feather: on
-  `4686` (`frame 39`), `head[39] & ~hole(39)` was `0 px` so Part 1 added nothing to `out[39]`, leaving `130 px` of
-  `head_tube[39]` (`932 px` total) in the feathered rim where `matte <= 127` in `second_hfp_4647h_window_1_region.npz`.
+  head additions (`5,599 px`) were all on `4702–4705` and `4708–4714` where `grade_holds` (`part_grades.json`) had emptied
+  her small head (`345–1,017 px < 1,024 px` floor) and held `4706–4707` from `4701`, while Stage 2 (item 4) triggers on
+  arm-only `person_track` frames (`4682–4685`) and copies a neighbor's head (`hers`) when `head_track` is empty. In addition
+  (`lines 5303–5312`), `hole(f)` tests "inside the hole" against `out[f]` dilated by `margin_px = 30` canvas px **before**
+  the keep-out carve and feather: on `4686` (`frame 39`), `head[39] & ~hole(39)` was `0 px` so Part 1 added nothing to
+  `out[39]`, leaving `130 px` of `head_tube[39]` (`932 px` total) in the feathered rim where `matte <= 127` in
+  `second_hfp_4647h_window_1_region.npz`. Because `grade_holds` still runs after the job step, either the floor rule that
+  empties a valid small head in favor of a neighbor's is retired for a part defined right, or `her_hair_in_hole`'s two tests
+  (`~hole(f)` and `~track[f]`) are fixed alongside the part build.
+- **`<Video 1>` (`second_4647_4725_j`) was bare on 43 of 79 frames (`4673–4686` and `4697–4725`) and must be remade for `4647i`**:
+  in `second_4647_4725_j/second_head_reference_4647_4725.json` (`drawn.frames_left_bare` and `drawn.mouth.no_mouth_on`),
+  the body model found no body on `4676–4685` and `4706–4725` (because the pose pass cropped to the forearm-only/drifted
+  `person_track`) and face lines were suppressed on `4673–4686` and `4697–4725`, leaving `<Video 1>` black/bare there.
+  `second_hfp_4647i` must rebuild `<Video 1>` (`shot_to_load.py reference`) from the new preview after the tracker build.
 
 Not a cause: her held hair on 4688, 4691-4693 (`726–1,460 px` of class `4` `Hair` on her own class map).
 Withdrawn: a split of the shot across the occlusion (§6 of `AGENTS.md` forbids it). The rules this forces, with the
