@@ -85,6 +85,9 @@ this page is corrected. Each line carries the date it was asked for; the reasons
 - **A terse priority remark names a lane**: confirm which before claiming the card. (2026-09-15)
 - **A thought in the terminal is not a go.** It goes to the Open List's inbox; a go is a row or a line meant as one.
   (AGENTS.md, "How the owner and the sessions talk")
+- **Visual cues, annotated screenshots, and words about what is on a frame (Group 2) are recorded ground truth that informs the pipeline, never raw box coordinates and never discarded** (2026-10-26):
+  - When the owner shares an annotated screenshot/sketch or says in words *"this person or this segment (e.g., hair + face, or just hair) is here in this frame and here is roughly where"*, the session reads back its understanding—stating both what it heard the owner say and what it sees on the frames in case of conflict—and records that observation (`plan.json` `head_marks`, the shot's record, or `owner_sheets/`). The owner should never find out later that what their eyes confirmed was not worth recording.
+  - Those rough sketches/cues are **never** copied directly into `cast.jsonl` as raw bounding-box seeds, and are not turned into brittle manual frame rules when the pipeline should see it itself. Instead, they serve as ground truth that informs tracker behavior, how SAM 3.1 is prompted or labeled, how segments/labels are defined in code, and—where a seed is needed (Group 3)—which verified SAM detection on that frame is the subject.
 
 ## Writing
 
