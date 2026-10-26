@@ -7,7 +7,9 @@ record disagree, the record is right: `git log`, [`decisions.md`](decisions.md),
 and mask-step forensic reference [`../masked_v2v/2026-10-25_pass_contamination_and_mask_step_forensics.md`](../masked_v2v/2026-10-25_pass_contamination_and_mask_step_forensics.md),
 and `data/fun/`. Read [`../masked_v2v/2026-10-25_pass_contamination_and_mask_step_forensics.md`](../masked_v2v/2026-10-25_pass_contamination_and_mask_step_forensics.md)
 (especially §3 on Pass-2/Pass-3 source vs. perception contamination, §4 on environment variables and data paths, and §6 on
-every tool and rule built today) before running any preview, capture, or render tomorrow.
+every tool and rule built today) and `internal/gemini/2026-10-26_step_by_step_fix_plan_4912_and_4647.md` (the exact
+step-by-step commands, pre-render verification criteria, and `--depth` / `--head-tube` provenance audit for `second_hfp_4912h`
+and `second_hfp_4647h`) before running any preview, capture, or render tomorrow.
 
 ## State when closed
 
@@ -67,16 +69,22 @@ every tool and rule built today) before running any preview, capture, or render 
 
 1. **Verify `:8188` is running on `449b17f1+`** (restart unarmed if its process started before `449b17f1` so `video_mask.py`
    uses `HELD_EDGE_EMPTY_RUN = 4`).
-2. **Remake `second_hfp_4912h` (`4912-4946`) and `second_hfp_4647h` (`4647-4725`) on the `2355Z` cut**:
+2. **Remake `second_hfp_4912h` (`4912-4946`) and `second_hfp_4647h` (`4647-4725`) on the `2355Z` cut** following the exact
+   step-by-step commands and verification checklist in `internal/gemini/2026-10-26_step_by_step_fix_plan_4912_and_4647.md`:
+   - Audit `--depth` (`MoGe-2` metric depth, built `2026-10-18` and last run on `2026-10-20` `lead_fp_0606d`) and `--head-tube`
+     end-to-end as part of standard input creation (`bench/shot_to_load.py job --depth` → `depth.npz` →
+     `bench/capture_masked_run.py` `owners.npz` → `bench/assemble_delivery.py::restore_weight` →
+     `bench/inspect_mask_steps.py` `[0]`), so every capture and assembly explicitly records whether `depth.npz` was created
+     and consumed, its impact on `carve_keep_out` and `restore_weight`, and its code/data freshness.
    - On `4912-4946`: rebuild capture/job with `449b17f1` (`HELD_EDGE_EMPTY_RUN = 4` + class-filtered `taken_for_hers` +
-     `clean_whole`), run `bench/measure_moge2_depth.py` if `contested_px > 0`, and verify `[0]-[7]` with
+     `clean_whole`), `--hold-part 4921-4926+4940-4946`, `--head-tube`, and `--depth`, and verify `[0]-[7]` with
      `bench/inspect_mask_steps.py --capture <dir> --problems-only` (`0` held-padding bleed, `0` speck-in-blue, `0`
      self-swallow) before rendering.
    - On `4647-4725`: keep the `2355Z` post-Pass-1 cut as `--source` and keep `third`'s post-Pass-1 keep-out silhouette, while
      restoring **only `second`'s own** un-erased tracks/parts/pose from the raw preview on the span contaminated by
-     `third_fp_4647e`'s margin (`4647-4705`), run `bench/measure_moge2_depth.py` (`depth.npz`) to settle the `second` vs
-     `third` overlap, render Pass 2 (`second`), then rebuild and run Pass 3 (`lead` — whose preview on the post-Pass-2 cut
-     will then segment `second`'s new blonde hair silhouette just like Kitchen `604-1009`).
+     `third_fp_4647e`'s margin (`4647-4705`) alongside `--hold-part 4674-4685+4694-4702`, `--head-tube`, and `--depth`
+     (`depth.npz`) to settle the `second` vs `third` overlap, render Pass 2 (`second`), then rebuild and run Pass 3 (`lead` —
+     whose preview on the post-Pass-2 cut will then segment `second`'s new blonde hair silhouette just like Kitchen `604-1009`).
 3. **Whole-shot chained load on `2050-2622` (`573` frames, Path 2)**: `lead_fp_2050g` stands in the cut on `2050-2248`;
    finish the chained load over `2050-2622` (`--drop 2249-2270`, and inspect `2445-2598` where `lead` dances with the
    spinning disco ball) to cover the second half of the shot (`2271-2622`).
@@ -89,6 +97,8 @@ every tool and rule built today) before running any preview, capture, or render 
 
 - Today's root-cause analysis, 10-capture matrix, and tool reference guide:
   [`../masked_v2v/2026-10-25_pass_contamination_and_mask_step_forensics.md`](../masked_v2v/2026-10-25_pass_contamination_and_mask_step_forensics.md).
+- Tomorrow's step-by-step fix & verification plan for `second_hfp_4912h`, `second_hfp_4647h`, and `--depth` / `--head-tube`
+  end-to-end input-creation provenance: `internal/gemini/2026-10-26_step_by_step_fix_plan_4912_and_4647.md`.
 - Forensic mask & latent-step inspector and check: [`../../bench/inspect_mask_steps.py`](../../bench/inspect_mask_steps.py)
   and [`../../bench/check_inspect_mask_steps.py`](../../bench/check_inspect_mask_steps.py).
 - Verification procedure & lane rules: [`../masked_v2v/verifying_raw_frames_and_keeps.md`](../masked_v2v/verifying_raw_frames_and_keeps.md),

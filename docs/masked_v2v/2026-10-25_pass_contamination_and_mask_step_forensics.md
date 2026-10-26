@@ -92,22 +92,25 @@ Crucially, check `[0]` separates two cases that would otherwise be conflated:
 
 ---
 
-## 4. Audit of Parked / Forgotten Perception Models (`MoGe-2` Metric Depth & `Sapiens2` Matting)
+## 4. Audit of Parked / Forgotten Perception Flags (`--depth` / `MoGe-2` Metric Depth, `--head-tube`, & `Sapiens2` Matting)
 
-### 4.1 `facebook_hyden-mogev2-metric-point` (`bench/measure_moge2_depth.py` → `depth.npz`)
+### 4.1 `facebook_hyden-mogev2-metric-point` (`bench/shot_to_load.py job --depth` / `bench/measure_moge2_depth.py` → `depth.npz`) and `--head-tube`
 
-- **What exists in the repo**:
-  - `workflows/h3_config.py:137` defines `MOGE2_MODEL = "facebook_hyden-mogev2-metric-point/model.pt"`.
-  - [`bench/measure_moge2_depth.py`](../../bench/measure_moge2_depth.py) runs MoGe-2 (`Ruicheng/moge-2-vitl-normal`) on the shot frames and writes `depth.npz` (`depth`, `mask`, `intrinsics`) into the capture directory.
-  - [`bench/capture_masked_run.py`](../../bench/capture_masked_run.py) (`:236-267`, `:1383-1410`) **already wires `depth.npz` into `carve_keep_out`**: when `depth.npz` is present in the capture directory, pixels contested between the target subject (`part`) and a keep-out track (`other`) are compared in metric depth (`Z_target < Z_other - 0.02m`), and wherever the target subject is closer to the camera (`front`), the subject's mask is **kept** instead of carved out (`contested & ~front`).
-- **What happened in practice**:
-  - Across all capture directories in `data/`, `depth.npz` was generated on **only two captures** (`data/2026-10-18_lead_fp_0751d/depth.npz` and `data/2026-10-19_lead_fp_0606c/depth.npz`), and was never invoked by `shot_to_load.py` or `load_chain.py` after `2026-10-19`:
-    - On `2026-10-18_lead_fp_0751d`: `contested_px = 1,670`, `front_kept_px = 1,670` (`100%` of contested overlap settled by MoGe-2 depth; `0 px` wrongly carved).
-    - On `2026-10-19_lead_fp_0606c`: `contested_px = 1,995`, `front_kept_px = 1,717` (`86%` kept in front), `carved_keep_out_px = 278`.
+- **When `--depth` and `--head-tube` were built and first used**:
+  - Built and measured on **`2026-10-17` and `2026-10-18`** ([`bench/results/2026-10-18_moge2_depth_on_crossings.md`](../../bench/results/2026-10-18_moge2_depth_on_crossings.md)):
+    - `workflows/h3_config.py:137` defines `MOGE2_MODEL = "facebook_hyden-mogev2-metric-point/model.pt"` (`vendor/meta_moge2/hyden_moge2.py::load_hyden_moge2`).
+    - [`bench/shot_to_load.py`](../../bench/shot_to_load.py) (`:5251-5256`, `overlap_frames_of`) accepts `--depth [WHY]` and `--head-tube [WHY]`: when `--depth` is passed, `shot_to_load.py job` automatically runs [`bench/measure_moge2_depth.py`](../../bench/measure_moge2_depth.py) on CPU (`~3.97 s/frame`) **only on frames where two subject tracks or a keep-out overlap**, writes `depth.npz` into the capture folder, and passes `--depth <capture>/depth.npz` through `bench/load_chain.py::capture_args` to `bench/capture_masked_run.py files`.
+    - [`bench/capture_masked_run.py`](../../bench/capture_masked_run.py) (`:236-267`, `:1383-1410`, `DEPTH_WIN_M = 0.05`, `DEPTH_BOUNDARY_SLACK_M = 0.02`) writes `owners.npz` and settles contested pixels (`contested & ~front`), and [`bench/assemble_delivery.py`](../../bench/assemble_delivery.py) (`:1349-1369`, `restore_weight`) gates `restore=<other>:whole` by `captures.depth_settled` and `captures.in_front`.
+  - Used on **`2026-10-18` to `2026-10-20`** on `data/2026-10-18_lead_fp_0751d/depth.npz` (`contested_px = 1,670`, `100%` front-kept) and Kitchen `data/2026-10-19_lead_fp_0606c/depth.npz` / `lead_fp_0606d` (`contested_px = 1,995`, `86%` front-kept; `data/2026-10-20_lead_fp_0606d_job/job.render.json:4` carried both `--head-tube` and `--depth`).
+- **Why they stopped running after `2026-10-20` (and what changed)**:
+  - In `bench/shot_to_load.py:5251-5256`, both `--head-tube` and `--depth` were added as **opt-in CLI flags** (`default=None`, `"off by default"`), and `--carry-words-from` does not carry them from an earlier job.
+  - Because no pre-render check flagged `contested_px > 0` with `depth_used == False`, sessions after `2026-10-20` forgot to pass `--depth` and `--head-tube` on multi-person crossing shots:
     - On `2026-10-25_second_hfp_4647g` (`depth_used = False`): `17,792` contested pixels between `second` and `third` were unsettled (`front_kept_px = 0`).
     - On `2026-10-25_third_fp_1306h` (`depth_used = False`): `149,666` contested pixels between `third` and `lead` were unsettled (`front_kept_px = 0`).
-- **When and how to use `measure_moge2_depth.py` going forward**:
-  - Whenever `inspect_mask_steps.py` `[0]` reports `contested_px > 0` or `carved_keep_out > 0` with `depth_used == False` on a multi-subject shot where two people's tracks or head tubes cross, run `bench/measure_moge2_depth.py` on the **raw 24p working copy** before re-running `capture_masked_run.py` so front/back occlusion is settled by metric depth rather than blind keep-out carving.
+- **How we verify and use `--depth` and `--head-tube` going forward (Input-Creation & Consumption Provenance)**:
+  - Because `bench/shot_to_load.py::overlap_frames_of` runs `bench/measure_moge2_depth.py` **only** on frames where two tracks or a keep-out overlap, `--depth` is useful across every shot with overlapping tracks/keep-outs (`0` cost on non-overlapping frames). Its only risk is silent consumption or unmonitored drift—a downstream consumer (`bench/capture_masked_run.py::carve_keep_out` or `bench/assemble_delivery.py::restore_weight`) either ignoring `depth.npz`/`owners.npz` or consuming stale depth without recording its impact.
+  - Check `[0]` of [`bench/inspect_mask_steps.py`](../../bench/inspect_mask_steps.py) now explicitly reports `depth_used`, `contested_px`, `front_kept_px`, and `behind_carved_px`, and flags `! DEPTH NOT RUN` whenever `contested_px > 0` or `carved_keep_out > 0` with `depth_used == False`.
+  - On `2026-10-26`, when building `second_hfp_4912h` and `second_hfp_4647h`, pass `--depth` and `--head-tube` to `bench/shot_to_load.py job`, verify on CPU with `bench/inspect_mask_steps.py --strips` that every stage of the chain (`bench/shot_to_load.py job --depth` → `depth.npz` → `bench/capture_masked_run.py` `owners.npz` → `bench/assemble_delivery.py::restore_weight` → `bench/inspect_mask_steps.py` `[0]`) records both creation and consumption cleanly alongside today's `her_hair_in_hole` (`449b17f1`) and `bench/head_tube_parts.py` (`JAW_BEARD_PAD_FRAC = 0.35`), and document `--depth` and `--head-tube` in [`PROTOCOL.md`](PROTOCOL.md) §2.1 as standard, provenance-tracked steps of input creation.
 
 ### 4.2 `facebook_hyden-da2-relative-depth` & `Sapiens2ForImageMatting`
 
