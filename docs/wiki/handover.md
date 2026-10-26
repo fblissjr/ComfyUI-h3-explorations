@@ -30,7 +30,7 @@ each overturned in [`decisions.md`](decisions.md) 2026-10-26 and the forensics r
     `bench/flags_before_render.py::recipe_check_of` hard-refuse any differing CLI `--margin` or `--zoom-up-to` value with no
     `--*-why` reason bypass.
 - **Renders kept and laid today** (`data/fun/owner_answers.jsonl` & `data/fun/laid.jsonl`):
-  - **Kept and laid**: `lead_fp_5935d` (`5935-6104`, `170f`, `owner_answers.jsonl:1652`, laid as row `69` across `53` shots in
+  - **Kept and laid**: `lead_fp_5935d` (`5935-6104`, `170f`, `data/fun/owner_answers.jsonl:1652`, laid as row `69` across `53` shots in
     `data/fun/laid.jsonl` with `--no-rebuild` pending the next cut rebuild; `bench/laid.py keeps`: `69` laid rows, `0` missing
     keeps, `0` laid marked wrong).
   - **Rejected with root causes recorded in [`decisions.md`](decisions.md) (2026-10-26)**: `third_fp_5114d` (`5114-5129`, ran at
@@ -86,11 +86,11 @@ each overturned in [`decisions.md`](decisions.md) 2026-10-26 and the forensics r
      `1098-1112`) vs. `her_hair_in_hole` (`~hole(f)` at `5303-5312` and `~track[f]` at `5384`) so a valid small head is not
      emptied or left in the feathered rim.
    - **Build 2 — Strangers keep-out (`bench/strangers.py:395-449, 479-502, 542-570`)**: include SAM 3.1's other-person detections
-     (`people.npz`, `others[i]` where `o[3] is None`) in `strangers.py::run` (`561-570`) where whole-frame Sapiens2 finds nobody.
+     (`people.npz`, `others[i]` where `o[3] is None`) in `bench/strangers.py::run` (`561-570`) where whole-frame Sapiens2 finds nobody.
    - **Build 3 — Tracker post-occlusion re-finding, Group 2 screenshot-box withdrawal & `4647i` reference remake (`subject_track.py:829-840, 1200-1359, 1403, 1489, 1604-1654`, `bench/shot_to_load.py:485-494, 556-561`, `bench/cast_file.py:276-314, 364`, `data/fun/cast/cast.jsonl`)**:
-     flip `head_mode` default to `"per stretch"` (`HEAD_PER_STRETCH`) in `subject_track.py:833-840` and `shot_to_load.py:485-494`
+     flip `head_mode` default to `"per stretch"` (`HEAD_PER_STRETCH`) in `subject_track.py:833-840` and `bench/shot_to_load.py:485-494`
      and re-find a subject after an occlusion via the tracker's own head detection per stretch and the still signature match;
-     withdraw the Group 2 hand-drawn screenshot boxes (`cast.jsonl` lines `175-192` and `194-196`, citing `data/fun/owner_sheets/*.webp`) while keeping Group 1 (`/who/` page clicks `1-174`) and Group 3 (verified SAM detection boxes `197-209`), and update `cast_file.py` so `box` requires/records a verified SAM detection rather than raw hand-drawn screenshot coordinates; and remake `<Video 1>` (`shot_to_load.py reference`) for
+     withdraw the Group 2 hand-drawn screenshot boxes (`cast.jsonl` lines `175-192` and `194-196`, citing `data/fun/owner_sheets/*.webp`) while keeping Group 1 (`/who/` page clicks `1-174`) and Group 3 (verified SAM detection boxes `197-209`), and update `bench/cast_file.py` so `box` requires/records a verified SAM detection rather than raw hand-drawn screenshot coordinates; and remake `<Video 1>` (`bench/shot_to_load.py reference`) for
      `second_hfp_4647i` from the new preview's track with no drawing word (`--no-draw-face-on`, `--no-carry-words`) carried. If
      the match cannot re-find `second` on `4647` after `4681`, one page click on her outline on `4690` (or a Group 3 verified SAM detection box guided by the owner's sheet) is the fallback.
    - **Replay & owner strip check**: replay Builds 1–2 offline on `4647k`, `4912h`, and `1093` captures (and verify on the fresh

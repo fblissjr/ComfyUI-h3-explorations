@@ -50,7 +50,8 @@ so a builder's worktree has them.
   every load carries beyond that is the chain's defaults, never a session's pick: each job step prints them as "THE
   DEFAULTS THIS LOAD CARRIES" and keeps them in the job file (`bench/shot_to_load.py::defaults_carried`; the drawing's
   form is `REFERENCE_DEFAULT`). Turning one off takes a written reason. A better form does not remake a piece the
-  owner kept.
+  owner kept (except where the owner explicitly orders a post-quality-jump remake pass so early pieces match the later
+  standard; [`docs/wiki/decisions.md`](../docs/wiki/decisions.md), 2026-10-25).
 - A visible subject is never left as the original. An imperfect replacement is kept over the film; only frames where
   she is truly hidden stay as filmed, marked `hidden` in the plan's `head_marks` (the owner, 2026-10-22;
   `docs/wiki/decisions.md`). Data is made fresh before a render, never patched after it.
@@ -79,7 +80,9 @@ so a builder's worktree has them.
   back- or side-of-head turns, pass `--no-face-on` to `bench/shot_to_load.py job` instead: `<Video 1>` draws no face
   lines there, and on a hair-and-face part the capture drops only the face classes from her part, the mask the load
   carries, on those frames, so her hair stays in (`bench/capture_masked_run.py::grade_holds`). The node grows the region
-  from that part, so its margin may still cover some of the face. A face-only part is emptied on those frames.
+  from that part, so its margin may still cover some of the face. A face-only part is emptied on those frames (so on a
+  face-only subject where the face or beard still shows on a side turn, keep the mask open and use `--no-draw-face-on`
+  when only `<Video 1>`'s 2D face lines are wrong; [`docs/masked_v2v/AGENTS.md`](../docs/masked_v2v/AGENTS.md) §2).
 - Every laid piece is laid by its own matte under one compositing law (`bench/assemble_delivery.py::lay_plane`,
   2026-10-17). A matte is reconstructed from the render's own inputs, never today's defaults
   (`bench/recomposite_piece.py --save-own-matte`).

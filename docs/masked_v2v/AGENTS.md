@@ -3,14 +3,13 @@
 Loaded when a session opens a file here; [`docs/AGENTS.md`](../AGENTS.md) and the root [`AGENTS.md`](../../AGENTS.md) still govern.
 
 - **Start here**:
-  - How the masked render path works today, and what to simplify (Gemini, 2026-10-21; local, not in git; one claim
-    corrected in its mailbox's C61: chained shots are live): [`internal/gemini/2026-10-21_render_path_report.md`](../../internal/gemini/2026-10-21_render_path_report.md)
+  - End-to-end code map, stage contracts, and window/padding trace (Gemini, 2026-10-26; local, not in git; Parts 1–4): [`internal/gemini/2026-10-26_code_map_and_simplification_plan.md`](../../internal/gemini/2026-10-26_code_map_and_simplification_plan.md)
   - Execution & debugging protocol: [`docs/masked_v2v/PROTOCOL.md`](PROTOCOL.md)
   - Verifying raw frames vs. `.npz` / JSON records (`laid.py keeps`, zoom boxes, and reference crops): [`docs/masked_v2v/verifying_raw_frames_and_keeps.md`](verifying_raw_frames_and_keeps.md)
-  - Multi-pass contamination, perception provenance, and mask-step forensics (`2026-10-25`): [`docs/masked_v2v/2026-10-25_pass_contamination_and_mask_step_forensics.md`](2026-10-25_pass_contamination_and_mask_step_forensics.md)
+  - Multi-pass contamination, perception provenance, and mask-step forensics (`2026-10-25` / `2026-10-26`): [`docs/masked_v2v/2026-10-25_pass_contamination_and_mask_step_forensics.md`](2026-10-25_pass_contamination_and_mask_step_forensics.md)
   - The frame math (window lengths, the VAE's 17-frame clips, padding after the shot, what the text encoder samples): [`docs/masked_v2v/frames_rules.md`](frames_rules.md)
   - Lane rules and where state lives: [`data/AGENTS.md`](../../data/AGENTS.md) (and each project's untracked `data/<video>/AGENTS.md`)
-  - End-to-end pipeline, design, and card runbook: [`docs/wiki/masked_v2v_pipeline.md`](../wiki/masked_v2v_pipeline.md), [`docs/wiki/masked_v2v.md`](../wiki/masked_v2v.md), and [`docs/wiki/runbook.md`](../wiki/runbook.md)
+  - Design and background: [`docs/wiki/masked_v2v.md`](../wiki/masked_v2v.md)
 - **This lane is one use of H3.** A finding about common code (reference conditioning, the shared nodes) is written where that code's page is and linked from [`docs/wiki/index.md`](../wiki/index.md).
 
 ## The owner's rules for passes, prep and judging (2026-10-21)
@@ -63,13 +62,16 @@ The owner's words of 2026-10-21, each with its reasons in [`docs/wiki/decisions.
 ### 3. Always pass `--cast data/<video>/cast/cast.jsonl` and verify it exists
 
 - [`bench/shot_to_load.py`](../../bench/shot_to_load.py) `preview` and `job` refuse missing `--cast` files cleanly (`bench/shot_to_load.py::Refused`). `preview` defaults `--cast` to `data/<video>/cast/cast.jsonl` when omitted (`bench/shot_to_load.py::step_preview`). Without the cast file, the builder cannot seed SAM 3.1 from confirmed identifications or auto-identify `lead` vs `second` vs `third` from confirmed reference embeddings.
-- **What counts as a confirmed identification in `cast.jsonl` (the owner, 2026-10-26; [`docs/wiki/decisions.md`](../wiki/decisions.md))**: Only `who-is-who` clicks made on the HTML review page (`cast.jsonl` lines `1–174`, each identifying which detected outline is the subject on that frame) stand as tracker identifications. Boxes drawn on pasted screenshots (`lines 175–192, 194–196`, `"just to give you a rough idea"`) and boxes entered by a session from contact sheets (`lines 197–209`) are human hints to look at and never tracker seeds.
+- **What counts as a confirmed identification in `cast.jsonl` vs. Group 2 owner visual cues (the owner, 2026-10-26; [`docs/wiki/decisions.md`](../wiki/decisions.md))**:
+  1. **Group 1 (`cast.jsonl` lines `1–174`)**: `who-is-who` clicks made by the owner on the HTML page — **valid and stand**.
+  2. **Group 2 (owner visual cues: annotated screenshots, rough sketches, and confirmed words saying a person or segment such as `hair + face` or `hair` is visible on a frame, once read back and confirmed by the session)**: always recorded as ground truth (`plan.json` `head_marks`, shot records, `owner_sheets/`) so the owner's eyes and word are never discarded, and used to drive tracker improvements, SAM 3.1 prompting/labeling, part/segment rules, and Group 3 verification (preferring general pipeline fixes over manual frame rules). The rough hand-drawn rectangles from the 2026-10-23 screenshots that were copied directly into `cast.jsonl` (`lines 175–192, 194–196`) are **never included directly as raw box seeds**.
+  3. **Group 3 (`cast.jsonl` lines `197–209`)**: exact SAM person-detection boxes verified by a session on the SAM detection masks using the owner's Group 2 visual cues — **valid and stand**.
 
 ### 4. Pre-render & Post-capture Telemetry (`facts_pass.py`, `inspect_mask_steps.py`, `flags_before_render.py`, `step_carves.json`, `code_stamp.py`)
 
 - Run [`bench/facts_pass.py`](../../bench/facts_pass.py) on the capture directory to inspect `face_outside_region_px` (catches chin/cheek cutouts where `(s_face | (head_track & ~s_hair))` falls outside `region`), `other_overlap_px`, and `mouth_mode` before spending GPU render minutes.
 - Run [`bench/inspect_mask_steps.py`](../../bench/inspect_mask_steps.py) `--capture data/<day>_<load> --problems-only --strips <out.jpg>` before queueing a render (§11). It audits eight failure modes in ~5 seconds on CPU: `[0]` input & pass-dependency provenance (`laid.jsonl` pass number, source consistency across `preview`, `strangers`, and `manifest.json`, stale inputs older than producer code git commits, and Pass-1 blue-region overlap and SAM track collapse on Pass-2+ loads), `[1]` held-padding bleed into kept shot steps, `[2]` blue-only frames (`0 px` red mask inside an active blue latent step), `[3]` tiny red speck frames inside a blue latent step (`< 25%` of median), `[4]` edge-shrunk whole-head frames (`< 75%` of immediate neighbor), `[5]` `strangers` self-swallowing the subject's own emerging head, `[6]` SAM 3.1 `people.npz` strangers missed by whole-frame Sapiens2 inside the blue region, and `[7]` per-frame gap recovery and visual red/blue/contour crop strips (`--strips`).
-- Run [`bench/flags_before_render.py`](../../bench/flags_before_render.py) `data/<day>_<load> --initial <session>` to print and sign off the four diagnostic blocks (`flags.json`, `marks_against_the_body_model`, `runs/<run>/step_carves.json`, and held/emptied frames); `bench/load_chain.py::the_flags_read` refuses `render` unless `<capture>/looks/<load>.flags_read.json` is recorded for the current `flags.json`.
+- Run [`bench/flags_before_render.py`](../../bench/flags_before_render.py) `data/<day>_<load> --load <load> --initial <session>` to print and sign off the five diagnostic blocks (`[0]` recipe gate against `plan.json` `recipe` and `shot_overrides`, `[1]` `flags.json`, `[2]` `marks_against_the_body_model` + `face_on_the_track` + `mouthless_reference`, `[3]` `runs/<run>/step_carves.json`, and `[4]` held/emptied frames); `bench/load_chain.py::the_flags_read` refuses `render` unless `<capture>/looks/<load>.flags_read.json` is recorded for the current `flags.json`.
 - Inspect `runs/<run>/step_carves.json` (`bench/capture_masked_run.py::step_keepout_carves`) for latent-step keep-out cell carves touching the subject's head track or carried part.
 - All derived `.npz` / `.json` artifacts carry `writer_stamp` (`bench/_lib/code_stamp.py::writer_stamp`, `bench/_lib/code_stamp.py::npz_writer_fields`). `bench/_lib/code_stamp.py::check_upstream_mtime` compares file times and returns warnings: [`bench/draw_face_points.py`](../../bench/draw_face_points.py) prints them, and [`bench/head_reference.py`](../../bench/head_reference.py) and [`bench/measure_moge2_depth.py`](../../bench/measure_moge2_depth.py) add them to their refusal to write over an output that is there. Nothing in `load_chain.py` refuses a stale input on its own (§8); run [`bench/inspect_mask_steps.py`](../../bench/inspect_mask_steps.py) to compare every input artifact's mtime against its producer code's latest git commit.
 
@@ -148,11 +150,9 @@ pass 2, only the owner's own words among them carry (§1).
 - The span words given to `job` (`--no-face-on`, `--no-draw-face-on`, `--no-head-on` and `--no-head-form`, `--drop`, `--hold-part`, `--no-mouth-on`, `--mouth-on`,
   `--eyes-shut-on` and `--eyes-shut-form`, `--parts-on`, `--track-not`). A remake carries them with `--carry-words-from OLD_JOB`, or says why
   not with `--no-carry-words WHY`. It never carries a seed (`--seed N --seed-why WHY`, written as `defaults.seed` and `defaults.seed_by`;
-  the remake takes `h3_config.SEED` unless it is given its own), a zoom asked past the default (`--zoom-up-to N
-  --zoom-up-to-why WHY`) or a margin asked in place of the region's (`--margin N --margin-why WHY`, written as `defaults.margin`
-  and `defaults.margin_by`; the remake takes `h3_config.MASKED_LOAD_MARGIN` by its region unless it is given its own; a
-  face-only load keeps the default: on 2026-10-23 a larger one let H3 copy the drawing's white outlines onto the face,
-  `docs/wiki/decisions.md`); each is per load. The plan's reference form is read from the plan again, never carried.
+  the remake takes `h3_config.SEED` unless it is given its own). Settled `margin` and `zoom_up_to` live in `data/<video>/plan.json`
+  (`subjects.<s>.recipe` and `shot_overrides`, enforced in code by `cbd39fbe` at `bench/shot_to_load.py` and `bench/flags_before_render.py::recipe_check_of`,
+  which hard-refuse any differing CLI `--margin` or `--zoom-up-to` value with no `--*-why` bypass; `docs/wiki/decisions.md` 2026-10-26). The plan's reference form is read from the plan again, never carried.
 - A look (stage 6), and an override of a gate flag (stage 5). Each belongs to one capture. A new capture takes its own
   look, or a person rests one on an earlier capture's with [`bench/look_carry.py`](../../bench/look_carry.py), which
   compares the two captures first.
@@ -181,9 +181,10 @@ pass 2, only the owner's own words among them carry (§1).
      enter the file by `bench/cast_file.py box`, which takes `--encloses head|body`: a box round only her arm or body,
      where her head is hidden, seeds her person track and never her head track; every drawn box is recorded
      `drawn: approximate`, the owner's word of 2026-10-23, and names roughly WHICH person, never an outline
-     [2026-10-26, the owner: a box from a pasted screenshot or a session's contact sheet is a hint for a person, never a
-     tracker seed; the page's who-is-who clicks stand. Two such boxes split her track on 4647 (`decisions.md`,
-     2026-10-26); their withdrawal goes with the tracker build in the handover's order]:
+     [2026-10-26, the owner: Group 1 `/who/` page clicks (`lines 1-174`) and Group 3 session-verified exact SAM detection
+     boxes (`lines 197-209`, guided by the owner's Group 2 visual cues) stand as tracker seeds; Group 2 rough hand-drawn
+     rectangles from the 2026-10-23 pasted screenshots (`lines 175-192, 194-196`) are never used directly as raw box seeds
+     and withdraw with the tracker build in the handover's order (`decisions.md`, 2026-10-26)]:
      `subject_track.py::name_drawn` takes the one person lying mostly inside it, refuses a box across two people or on
      another tracked subject, and only where nobody qualifies asks SAM 3's box prompt, unclipped). The other subjects'
      boxes on each boxed frame ride along as `other` lines, so even the first tracker of a job knows who is somebody
@@ -289,7 +290,7 @@ pass 2, only the owner's own words among them carry (§1).
      `<load>.plan.masks.json`, makes the band again and writes the frame table, which `table` can also make again.
    - **The zoom is the node's**: it is set from the region's boxes at plan and render (`video_mask.py::zoom_box`), and
      read over the window's context frames too: real ones where the shot goes on, and across a cut the held copies of
-     the shot's edge frame, which add no other box (`video_mask.py::zoomed_source`, `video_mask.hold_context`). By default at most `video_mask.ZOOM_LARGEST` (`2.0`); since 2026-10-23 (`data/fun/AGENTS.md`, "The zoom, by subject"), `second` loads pass `bench/shot_to_load.py job --zoom-up-to 4 --zoom-up-to-why WHY` (`video_mask.ZOOM_MOST_ASKED = 4.0`), enlarging a region too small to be `video_mask.ZOOM_HEAD_TARGET` (`300 px`) tall at `2.0x` until it is, up to `4.0x`, where the union box across the window allows (`set_by` and `up_to` in the plan record say what set it). Because `video_mask.py::_tracked_boxes` (`sapiens2_parts.mask_boxes`) reads the raw bounding box across all white pixels of the grown `region` on each frame, disconnected stray mask pieces inflate `region_height` (`video_mask.py::region_height`; e.g., `5935c`'s `323 px` raw vs `241 px` largest component) and widen the union box across the window, which can cap the zoom below `2.0x`; additionally, `video_mask.py::zoomed_source` crops and upscales frames already downscaled to the `1024x768` canvas by the loader ([`docs/research/masking/2026-10-25_context_frames_and_identity_on_2050.md`](../research/masking/2026-10-25_context_frames_and_identity_on_2050.md)).
+     the shot's edge frame, which add no other box (`video_mask.py::zoomed_source`, `video_mask.hold_context`). Settled `zoom_up_to` and `margin` live in `data/<video>/plan.json` (`subjects.<s>.recipe` and `shot_overrides`, enforced in code by `cbd39fbe` at `bench/shot_to_load.py` and `bench/flags_before_render.py::recipe_check_of` with no `--*-why` CLI bypass; for `second`, `zoom_up_to = 4.0`, enlarging a region too small to be `video_mask.ZOOM_HEAD_TARGET` (`300 px`) tall at `2.0x` until it is, up to `4.0x`, where the union box across the window allows; `set_by` and `up_to` in the plan record say what set it). Because `video_mask.py::_tracked_boxes` (`sapiens2_parts.mask_boxes`) reads the raw bounding box across all white pixels of the grown `region` on each frame, disconnected stray mask pieces inflate `region_height` (`video_mask.py::region_height`; e.g., `5935c`'s `323 px` raw vs `241 px` largest component) and widen the union box across the window, which can cap the zoom below `2.0x`; additionally, `video_mask.py::zoomed_source` crops and upscales frames already downscaled to the `1024x768` canvas by the loader ([`docs/research/masking/2026-10-25_context_frames_and_identity_on_2050.md`](../research/masking/2026-10-25_context_frames_and_identity_on_2050.md)).
      The capture works it out again for its part floor (`bench/capture_masked_run.py::floor_zoom`), which scales
      `bench/capture_masked_run.py::PART_LEAST_PX`; it takes the node's default (`2.0`), so on a load that asks past `2` the floor
      is held to the zoom at `2` and on-plan names the frames the run's zoom would change (`floor_against_the_run`). A change to a mask moves the zoom, the floor, and which frames are
@@ -358,7 +359,7 @@ pass 2, only the owner's own words among them carry (§1).
   one of `hidden` (her head is not in view there: nothing asked), `hers` (the unclaimed hair is hers; on a lost head, her nearest
   whole head track, less every other person's mask, is held there) or `not hers` (no unclaimed hair added there). `job` cuts the
   spans to the load (`bench/shot_to_load.py::head_marks_of`) and the chain hands them to the capture. A lost head can also be
-  identified on the who-is-who page in the cast file for a fresh preview, which seeds SAM on that detection (pasted screenshot and sheet boxes are never tracker seeds; [`docs/wiki/decisions.md`](../wiki/decisions.md), 2026-10-26).
+  identified on the who-is-who page in the cast file (`Group 1`) or via a session-verified exact SAM detection box guided by the owner's visual cues (`Group 3`) for a fresh preview, which seeds SAM on that detection (rough hand-drawn rectangles from pasted screenshots, `Group 2`, are never copied directly into `cast.jsonl` as raw seeds; [`docs/wiki/decisions.md`](../wiki/decisions.md), 2026-10-26).
 - **Her hair is read from** the whole-frame class map the strangers run now keeps beside its file (`whole_frame_classes` in the
   strangers record, `bench/strangers.py`), else her own class map as the preview saved it (her crop alone). Sapiens2 labels her
   crown on 4912e's 4944 and 4945 Background even on the whole frame (run on those two frames, 2026-10-22), so there only part 2

@@ -6,13 +6,7 @@ One page for the frame math of a masked load: how long its window is, how the vi
 window, where the shot's own frames land, what fills the rest, and what is thrown away. Every figure points at the code
 that sets it; when this page and the code disagree, the code is right ([`AGENTS.md`](AGENTS.md), and the root
 `AGENTS.md`, "Do not trust prose"). The lane's other rules are in [`AGENTS.md`](AGENTS.md); the legal lengths and
-their cost for H3 in general are in [`docs/h3_resolutions.md`](../h3_resolutions.md). The whole render path in trace
-order, as it stood on 2026-10-21, is Gemini's report (`internal/gemini/2026-10-21_render_path_report.md`, local, not in
-git). Three things it describes have changed since: the padding was split evenly before and after (now all after, §4);
-`<Video 1>` was padded with black frames (now held copies of its first and last frames, `video_mask.py`'s motion
-padding); and context frames across a cut were the other shot's real frames (now held copies of the shot's edge frame,
-§4). Its simplifications (one function for the window plan, the audio sliced to the
-window's exact frames, the padding as explicit inputs) stand as proposals.
+their cost for H3 in general are in [`docs/h3_resolutions.md`](../h3_resolutions.md). The full window, padding, held-edge, and post-decode slicing trace in code (`file:line`) as of 2026-10-26 is in `internal/gemini/2026-10-26_code_map_and_simplification_plan.md` (Part 2b, local, not in git).
 
 ## The rule
 
@@ -43,7 +37,7 @@ So in a 39-frame window: clip 1 is frames 0-16, clip 2 is 17-33, clip 3 is 34-38
 **What goes wrong when a shot's frame is outnumbered in its clip.** `second_hfp_4479e` (31 frames in 39, padded 4 before
 and 4 after): its last frame, 4509, was window frame 34, alone at the start of clip 3 with the next shot's 4 frames and
 12 copies of the last of them. Everything regenerated round her came out brighter on 4509 alone, a square (the owner,
-2026-10-22). `third_fp_4602c` showed no such frame: its last frame sat in a clip of 16 of its own frames and one of the
+2026-10-22). Historical `third_fp_4602c` (before `before = 0` and `hold_context`, queued for remake) showed no such frame: its last frame sat in a clip of 16 of its own frames and one of the
 next shot's (22 before and 23 after in 90, so 4646 is window frame 66, in the clip of frames 51-67).
 
 ## 3. How the text encoder sees `<Video 1>`
@@ -105,5 +99,5 @@ piece, its region and its matte are the load's own frames; where a load inside c
 |---|---|---|---|---|---|
 | `second_hfp_4479e` (before the rule) | 4479-4509, 31 | 39 | 4 real before, 4 real after, both other shots | 4479 in a step with 3 frames of another shot; 4509 alone in clip 3 with the next shot | a bright square on 4509 |
 | `second_hfp_4479f` (under the rule) | 4479-4509, 31 | 39 | 8 held after | clips 1-2 her frames; clip 3 her last frame held | no bright frame (`data/fun/owner_answers.jsonl:1515`) |
-| `third_fp_4602c` | 4602-4646, 45 | 90 | 22 before, 23 after, other shots | 4646 in a clip of 16 of its own frames | no bright frame |
+| `third_fp_4602c` (historical, pre-`hold_context`) | 4602-4646, 45 | 90 | 22 before, 23 after, other shots | 4646 in a clip of 16 of its own frames | no bright frame (queued for remake under the current rule) |
 | `second_hfp_4912e` | 4912-4946 | | held copies of 4946, whose mask was empty | the last clip a frozen frame of her untouched hair | why the guard exists |
