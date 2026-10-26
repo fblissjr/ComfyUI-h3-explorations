@@ -195,11 +195,12 @@ Four facts, none of them the causes §1 and §2.1 named:
   `second_hfp_4647h_window_1_region.npz`. Because `grade_holds` still runs after the job step, either the floor rule that
   empties a valid small head in favor of a neighbor's is retired for a part defined right, or `her_hair_in_hole`'s two tests
   (`~hole(f)` and `~track[f]`) are fixed alongside the part build.
-- **`<Video 1>` (`second_4647_4725_j`) was bare on 43 of 79 frames (`4673–4686` and `4697–4725`) and must be remade for `4647i`**:
+- **`<Video 1>` (`second_4647_4725_j`) was bare on 43 of 79 frames (`4673–4686` and `4697–4725`) and must be remade for `4647i` with no drawing word carried**:
   in `second_4647_4725_j/second_head_reference_4647_4725.json` (`drawn.frames_left_bare` and `drawn.mouth.no_mouth_on`),
-  the body model found no body on `4676–4685` and `4706–4725` (because the pose pass cropped to the forearm-only/drifted
-  `person_track`) and face lines were suppressed on `4673–4686` and `4697–4725`, leaving `<Video 1>` black/bare there.
-  `second_hfp_4647i` must rebuild `<Video 1>` (`shot_to_load.py reference`) from the new preview after the tracker build.
+  the body model found no body on `4676–4685` and `4706–4716` (because the pose pass cropped to the forearm-only/drifted
+  `person_track`) and face lines were suppressed on `4673–4686` and `4697–4725` by a session's `--no-draw-face-on` word,
+  leaving `<Video 1>` black/bare there. `second_hfp_4647i` must rebuild `<Video 1>` (`shot_to_load.py reference`) from the
+  new preview after the tracker build with no `--no-draw-face-on` word carried.
 
 Not a cause: her held hair on 4688, 4691-4693 (`726–1,460 px` of class `4` `Hair` on her own class map).
 Withdrawn: a split of the shot across the occlusion (§6 of `AGENTS.md` forbids it). The rules this forces, with the

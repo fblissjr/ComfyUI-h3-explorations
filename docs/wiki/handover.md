@@ -70,8 +70,9 @@ each overturned in [`decisions.md`](decisions.md) 2026-10-26 and the forensics r
     leaving `130 px` of `head_tube[39]` in the feathered rim at `matte <= 127`), and `grade_holds` (`part_grades.json`) still
     runs after the job step (`4702-4705, 4708-4714` emptied under the `1,024 px` floor and `4706-4707` held from `4701`).
   - `<Video 1>` (`second_4647_4725_j/second_head_reference_4647_4725.json`) had `43` of `79` frames bare (`4673-4686` and
-    `4697-4725`, with no body model on `4676-4685` and `4706-4725` because the pose crop followed the forearm/drifted track);
-    `second_hfp_4647i` cannot reuse `second_4647_4725_j` and must remake `reference` after the tracker build.
+    `4697-4725` from a `--no-draw-face-on` word, on top of no body model on `4676-4685` and `4706-4716` because the pose crop
+    followed the forearm/drifted track); `second_hfp_4647i` cannot reuse `second_4647_4725_j` and must remake `reference` after
+    the tracker build with no drawing word carried.
 - **Build days and render days do not mix**: tomorrow morning is a build session in worktrees with `:8188` idle until all three
   builds are replayed on kept/existing captures (`4647k`, `4912h`, `1093`) and the owner inspects the `4682-4696` strip.
 
@@ -89,8 +90,9 @@ each overturned in [`decisions.md`](decisions.md) 2026-10-26 and the forensics r
    - **Tracker post-occlusion re-finding, box withdrawal & `4647i` reference remake (`subject_track.py`, `bench/shot_to_load.py`, `data/fun/cast/cast.jsonl`)**:
      make `--head-per-stretch` the default and re-find a subject after an occlusion via the tracker's own head detection per
      stretch and the still signature match, withdrawing the screenshot/sheet boxes (`cast.jsonl` lines `175-192`, `194-196`,
-     `197-209`), and remake `<Video 1>` (`shot_to_load.py reference`) for `second_hfp_4647i` from the new preview's track. If the
-     match cannot re-find `second` on `4647` after `4681`, one page click on her outline on `4690` is the fallback.
+     `197-209`), and remake `<Video 1>` (`shot_to_load.py reference`) for `second_hfp_4647i` from the new preview's track with
+     no drawing word (`--no-draw-face-on`) carried. If the match cannot re-find `second` on `4647` after `4681`, one page click
+     on her outline on `4690` is the fallback.
    - **Replay & owner strip check**: replay on `4647k`, `4912h`, and `1093` captures and show the owner the `4682-4696` strip
      drawn from the result before starting `:8188` for renders.
 2. **Afternoon renders on the fixed chain**: `second_hfp_4647i` (`4647-4725`), `second_hfp_4912k` (`4912-4946`), and
