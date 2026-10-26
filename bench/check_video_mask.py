@@ -2205,6 +2205,23 @@ def check_held_context(problems, frames_39, mask_35, others_35, afs):
             and "hold shot frame 30 (2958 px)" in (rec_4912e.get("held_fell_back") or [""])[0]):
         problems.append(f"held: 4912e tail must step back over 34..31 to shot frame 30 (2958 px) for 35..38 and leave 31..34 untouched: "
                         f"{rec_4912e.get('held_after')!r}, {rec_4912e.get('held_fell_back')!r}")
+    # second_hfp_4647g's empty tail (`HELD_EDGE_EMPTY_RUN`): when the outermost 4+ shot frames are all 0 px while earlier frames
+    # have a mask, the subject is hidden/absent at that edge of the shot, so the 0 px edge frame (34) itself is held across 35..38
+    # without stepping back into the shot and injecting an earlier mask into a boundary latent step
+    m_4647g = mask_35.clone()
+    m_4647g[-6:] = 0.0
+    node.hidden = SimpleNamespace(prompt={"10": {"_meta": {"pad_before": 0, "pad_after": 4, "held_before": 0, "held_after": 4}}},
+                                  unique_id="10")
+    try:
+        rec_4647g = node.execute(frames_39, m_4647g, grow_pixels=8, others=others_35).args[0]
+    finally:
+        node.hidden = None
+    if not (rec_4647g.get("held_after") == 4
+            and not rec_4647g.get("held_fell_back")
+            and all(torch.equal(rec_4647g["frames"][k], frames_39[34]) for k in range(35, 39))
+            and not bool(rec_4647g["mask"][29:].any())):
+        problems.append(f"held: 4647g hidden tail (>= {vm.HELD_EDGE_EMPTY_RUN} empty edge frames) must hold edge frame 34 with empty mask: "
+                        f"{rec_4647g.get('held_after')!r}, {rec_4647g.get('held_fell_back')!r}")
     # a graph that does not say how its window is padded: every extra frame after the shot, as the builder pads
     # (`workflows/masked_job_graph.py::window_pad`, the owner's word of 2026-10-22; split evenly until then)
     node.hidden = None

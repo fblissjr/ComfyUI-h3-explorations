@@ -7,6 +7,7 @@ Related rules and records:
 - [`docs/masked_v2v/AGENTS.md`](AGENTS.md) (§8, "What a change forces: the chain in trace order")
 - [`docs/masked_v2v/PROTOCOL.md`](PROTOCOL.md)
 - Case record from `2026-10-25`: [`docs/research/masking/2026-10-25_context_frames_and_identity_on_2050.md`](../research/masking/2026-10-25_context_frames_and_identity_on_2050.md)
+- Multi-pass contamination & mask-step forensics (`2026-10-25`): [`docs/masked_v2v/2026-10-25_pass_contamination_and_mask_step_forensics.md`](2026-10-25_pass_contamination_and_mask_step_forensics.md) (`bench/inspect_mask_steps.py`)
 
 ---
 

@@ -147,11 +147,11 @@ with none is a helper the others import.
 | `.claude/` | 1 | [below](#claude) |
 | `archive/` | 29 | [below](#archive) |
 | `assets/` | 1 | [below](#assets) |
-| `bench/` | 816 | [`bench/INDEX.md`](bench/INDEX.md) and [`bench/results/INDEX.md`](bench/results/INDEX.md) for the records |
+| `bench/` | 818 | [`bench/INDEX.md`](bench/INDEX.md) and [`bench/results/INDEX.md`](bench/results/INDEX.md) for the records |
 | `changelog.d/` | | [`changelog.d/README.md`](changelog.d/README.md), one file per changelog entry; not listed and not counted |
 | `contact_sheets/` | 2 | [below](#contact_sheets) |
 | `data/` | 2 | [below](#data) |
-| `docs/` | 145 | [`docs/wiki/index.md`](docs/wiki/index.md), the hand-written router |
+| `docs/` | 146 | [`docs/wiki/index.md`](docs/wiki/index.md), the hand-written router |
 | `prompt_bank/` | 170 | [`docs/prompt_bank.md`](docs/prompt_bank.md), the prompt catalogue |
 | `sparse_tables/` | 1 | [below](#sparse_tables) |
 | `standalone/` | 27 | [below](#standalone) |

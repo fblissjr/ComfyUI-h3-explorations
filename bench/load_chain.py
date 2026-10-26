@@ -568,6 +568,11 @@ def step_no_look(ctx: dict, world, a) -> None:
         raise Refused(f"A FORCING FLAG STANDS on {cap.name}: {'; '.join(standing)}. A look by somebody who did not make the capture is owed "
                       "(`capture_masked_run.py looked`); no record that none is owed is written")
     import flags_before_render
+    unresolved_hh = flags_before_render.unresolved_hair_in_hole_of(cap, [ctx["name"]])
+    if unresolved_hh:
+        hh_txt = flags_before_render._format_unresolved_hair_in_hole(unresolved_hh)
+        raise Refused(f"UNRESOLVED HAIR IN HOLE on {cap.name} ({hh_txt}): overriding her_head_lost_in_view / unclaimed_hair_touches_another in flags.json "
+                      "adds 0 px to parts_held.mkv; mark head_marks in plan.json or cut the load window with --drop and rebuild (`no_look_not_owed.json` not written)")
     unlaid = flags_before_render.unlaid_while_tracked_of(cap, [ctx["name"]])
     if unlaid:
         unlaid_txt = "; ".join(f"{subj} frames {flags_before_render.format_spans(spans)}" for subj, spans in sorted(unlaid.items()))
@@ -617,6 +622,11 @@ def gate_alone(ctx: dict, why_no_look: str) -> dict:
         raise Refused(f"A FORCING FLAG STANDS on {cap.name}: {'; '.join(standing)}. The record that no look is owed does not hold against it: a look by "
                       f"somebody who did not make the capture is owed ({why_no_look})")
     import flags_before_render
+    unresolved_hh = flags_before_render.unresolved_hair_in_hole_of(cap, [ctx["name"]])
+    if unresolved_hh:
+        hh_txt = flags_before_render._format_unresolved_hair_in_hole(unresolved_hh)
+        raise Refused(f"UNRESOLVED HAIR IN HOLE on {cap.name} ({hh_txt}): overriding her_head_lost_in_view / unclaimed_hair_touches_another in flags.json "
+                      "adds 0 px to parts_held.mkv; mark head_marks in plan.json or cut the load window with --drop and rebuild (`no_look_not_owed.json` not written)")
     unlaid = flags_before_render.unlaid_while_tracked_of(cap, [ctx["name"]])
     if unlaid:
         unlaid_txt = "; ".join(f"{subj} frames {flags_before_render.format_spans(spans)}" for subj, spans in sorted(unlaid.items()))

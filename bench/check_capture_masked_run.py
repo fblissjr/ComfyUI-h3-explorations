@@ -2568,7 +2568,7 @@ def gate_by_shot() -> str:
         {"id": "f005", "rule": "part_empty_on_the_subject", "level": cap.LEVELS[2], "subject": "a", "source_frames": [[100, 100]]}]}
     r1, r2 = cap.by_load(loads, said)
     assert [f["rule"] for f in r1["blocked_by"]] == ["region_over_another_subject"] and r1["blocked_by"][0]["other"] == "b", r1
-    assert [f["id"] for f in r1["overridden"]] == ["f002"] and r1["warnings"] == {"segment_inside_region": 2}, r1
+    assert [f["id"] for f in r1["overridden"]] == ["f002"] and r1["warnings"] == {"part_empty_on_the_subject": 1, "segment_inside_region": 2}, r1
     assert r1["kept_frames"] == 90 and r1["held_frames_shown_clean"] == 4 and r1["other_subjects_inside"]["b"]["frames"] == 3, r1
     assert r2["blocked_by"] == [] and r2["kept_frames"] is None and r2["other_subjects_inside"] == {}, r2
     assert r1["voice"] == {"voiced_frames": 0, "frames": 10, "source_mouth_open_on_unvoiced_frames": 6} and r2["voice"] is None, (r1["voice"], r2["voice"])
@@ -3781,6 +3781,61 @@ def her_hair_in_the_hole() -> str:
     # THE CASE THAT GOES RED when a person's `hers` on a lost head does not hold her nearest whole head, or holds another's pixels
     assert (marked[4] == ((head[2] & ~other[4]) | hair[4])).all() and mrows[104]["lost_held_from"] == 102, mrows[104]
     assert not marked[3].any() and not (marked[0] & hair[0] & ~head[0]).any() and mrec["hair_undecided_on_source_frames"] == []
+    # `.mp4` COMPRESSION SPECKS (< SEGMENT_PX = 64 px) IN `head` AND CROWN-ROOM TRACK RECOVERY ON `hers`:
+    # (a) A 1-px speck on frame 3 (103) in `head` (4912g frame 4926) is ignored so 103 is still treated as lost in view and no 1-px
+    #     speck is added to `out`.
+    head_speck = head.copy()
+    head_speck[3, 15, 50] = True
+    sp_out, sp_rec = cap.her_hair_in_hole(part, track, first, head=head_speck, score=score, margin_px=margin)
+    assert sp_rec["lost_asked_on_source_frames"] == [[103, 105]] and not sp_out[3].any(), (sp_rec["lost_asked_on_source_frames"], int(sp_out[3].sum()))
+    # (b) When `classes` is handed in, `hers` on both a 0-px lost frame (frame 4 / 104) and a partial-shrink frame where
+    #     0 < head_px[k] < HEAD_WHOLE_SHARE * median (frame 2 / 102 shrunk to 10x10 = 100 px < 0.5 * 960 = 480 px) holds
+    #     `head[nearest]` unioned with her `track` inside her interpolated head-crown room (recovering dark hair Sapiens mislabeled
+    #     `Upper_Clothing` or `Background`), while excluding `Left_Hand`/`Right_Hand` pixels in the crown room.
+    names_cls = list(cap._pack("sapiens2_parts").CLASS_NAMES)
+    uc_id, lhand_id = names_cls.index("Upper_Clothing"), names_cls.index("Left_Hand")
+    cls_map = np.zeros((n, H, W), np.uint8)
+    cls_map[:, 10:45, 40:76] = uc_id                                      # Sapiens mislabeled her dark hair on her track as Upper_Clothing
+    cls_map[:, 10:20, 40:44] = lhand_id                                   # Raised Left_Hand in the top-left of her track inside the crown room
+    head_shrunk = head.copy()
+    head_shrunk[2] = False
+    head_shrunk[2, 30:40, 50:60] = True                                   # 100 px shrunk cheek on frame 2 (102), above SEGMENT_PX (64) but < 0.5 * 960
+    part_shrunk = part.copy()
+    part_shrunk[2] = head_shrunk[2]
+    cr_out, cr_rec = cap.her_hair_in_hole(
+        part_shrunk, track, first, head=head_shrunk, others={"b": other}, classes=cls_map, score=score,
+        hers={2, 4}, hidden={3, 5}, margin_px=margin
+    )
+    cr_rows = {r["source_frame"]: r for r in cr_rec["frames"]}
+    assert cr_rec["lost_asked_on_source_frames"] == [], cr_rec["lost_asked_on_source_frames"]
+    # Frame 104 (lost 0-px head marked `hers`): recovers nearest whole head (101) AND `track` in crown room (cols 40..44 rows 20..40)
+    # where Sapiens said Upper_Clothing, while excluding Left_Hand (cols 40..44 rows 10..20) and `other[4]`.
+    assert cr_out[4, 20:40, 40:44].all(), "crown_room_on_track did not recover Upper_Clothing on her track in the head-crown room on lost frame 104"
+    assert not cr_out[4, 10:20, 40:44].any(), "crown_room_on_track included Left_Hand pixels in the head-crown room on frame 104"
+    assert not (cr_out[4] & other[4]).any(), "crown_room_on_track took another person's pixels on frame 104"
+    # Frame 102 (partial-shrink 100-px head marked `hers`): recovers nearest whole head (101) + crown room on track (excluding Left_Hand).
+    assert cr_rows[102]["lost"] == "marked hers" and cr_rows[102]["lost_held_from"] == 101 and int(cr_out[2].sum()) > 900, cr_rows[102]
+    assert cr_out[2, 20:40, 40:44].all() and not cr_out[2, 10:20, 40:44].any()
+    # (c) Edge-shrunk whole-head exclusion (< 0.75 * neighbor, e.g. 4920=5279px vs 4919=7760px) and class-filtered `strangers`
+    #     on `hers` recovery (`whole_classes`): an edge-shrunk frame (frame 2 / 102 = 640 px vs frame 1 / 101 = 960 px, ratio 0.667 < 0.75)
+    #     is excluded from `whole`, so both frame 2 (102) and frame 3 (103, 0 px) recover from frame 1 (101 = 960 px), and `strangers`
+    #     swallowing her head on frame 3 (103) is ignored where `whole_classes` is Hair/Upper_Clothing while keeping Apparel (hat brim) out!
+    head_edge = head.copy()
+    head_edge[2] = False
+    head_edge[2, 10:30, 44:76] = True                                      # 640 px (>= 0.5 * 960 = 480, but < 0.75 * 960 = 720!)
+    str_swallow = np.zeros((n, H, W), bool)
+    str_swallow[3, 10:40, 44:76] = True                                    # strangers swallowed her entire 960-px head box on 103
+    wc_map = np.zeros((n, H, W), np.uint8)
+    wc_map[3, 10:35, 44:76] = names_cls.index("Hair")                      # 800 px of her hair/back-of-head inside strangers
+    wc_map[3, 35:40, 44:76] = names_cls.index("Apparel")                   # 160 px of true stranger hat brim (Apparel) inside strangers
+    es_out, es_rec = cap.her_hair_in_hole(
+        part, track, first, head=head_edge, others={"strangers": str_swallow}, whole_classes=wc_map, score=score,
+        hers={2, 3}, hidden={4, 5}, margin_px=margin
+    )
+    es_rows = {r["source_frame"]: r for r in es_rec["frames"]}
+    assert es_rows[102]["lost_held_from"] == 101 and int(es_out[2].sum()) == 960, es_rows[102]
+    assert es_rows[103]["lost_held_from"] == 101 and int(es_out[3].sum()) == 800, (es_rows[103], int(es_out[3].sum()))
+    assert es_out[3, 10:35, 44:76].all() and not es_out[3, 35:40, 44:76].any()
     # A WHOLE-FRAME MAP sees the other's classes: B touching the other's body, not their hair, is hers; touching their hair, asked
     hair_whole = hair.copy()
     whole = cap.her_hair_in_hole(part, track, first, head=head, others={"b": other}, hair=hair_whole, hair_whole_frame=True, margin_px=margin)
@@ -3913,13 +3968,26 @@ def her_hair_in_the_hole() -> str:
     plain, plain_told, plain_seen, _ = files(False)
     # THE CASE THAT GOES RED when a part not made of Hair (a face-only load) has her head added
     assert plain_told is None and "hair_in_hole" not in plain_seen and plain["a/parts_held__pv.mkv"].tobytes() == fp.tobytes()
-    # THE GATE: the record's asked frames are refusals at the top level, each with its frames
+    # THE GATE: the record's asked frames are refusals at the top level, each with its frames and unmasked context
     with tempfile.TemporaryDirectory() as tmp:
         (Path(tmp) / "subjects" / "a").mkdir(parents=True)
         (Path(tmp) / "subjects" / "a" / "hair_in_hole__pv.json").write_text(json.dumps(rec))
-        got = cap.flag_her_hair({"subjects": [{"label": "a", "sightings": [{"by": "pv"}]}]}, Path(tmp))
+        (Path(tmp) / "subjects" / "a" / "part_grades.json").write_text(json.dumps({
+            "seen_by": "pv",
+            "facing_frames": [103],
+            "side_with_eye_frames": [104, 105],
+            "back_of_head_frames": [],
+        }))
+        (Path(tmp) / "subjects" / "a" / "head_tube__pv.json").write_text(json.dumps({
+            "off_tube_suppressed_px": [0, 0, 0, 1200, 950, 800],
+            "face_points_in_part": [38, 38, 38, 0, 0, 0],
+            "regain_refused": [{"frame": 3, "face_points_on_own_part": 0, "least": 3, "why": "refused"}],
+        }))
+        got = cap.flag_her_hair({"first_frame": 100, "subjects": [{"label": "a", "sightings": [{"by": "pv"}]}]}, Path(tmp))
     assert [(f["rule"], f["level"], f["source_frames"]) for f in got] == [
         ("her_head_lost_in_view", cap.LEVELS[2], [[103, 105]]), ("unclaimed_hair_touches_another", cap.LEVELS[2], [[100, 100]])], got
+    assert "mark the frames `hers`" in got[0]["why"] and "PAUSE — unmasked head/hair signals" in got[0]["why"], got[0]["why"]
+    assert got[0]["figures"]["unmasked_context"]["off_tube_suppressed_max_px"] == 1200, got[0]["figures"]
     return ("her head outside the hole added less another's and a no-face frame's face; a lost head asked about where SAM held her, "
             "quiet where it let her go; her unclaimed hair added, asked where it touches another, never outside her room; the marks "
             "hide, hold her nearest whole head, or leave the hair; the files step writes it into the part to load for a part of Hair only; "

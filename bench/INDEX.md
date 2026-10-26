@@ -8,14 +8,14 @@ this file is only a way to find a script by what it says it does.
 
 | group | scripts |
 |---|---|
-| [`check_*`](#check) | 166 |
+| [`check_*`](#check) | 167 |
 | [`measure_*`](#measure) | 39 |
 | [`analyze_*`](#analyze) | 23 |
 | [`grade_*`](#grade) | 21 |
 | [`compare_*`](#compare) | 19 |
 | [`build_*`](#build) | 18 |
 | [`probe_*`](#probe) | 11 |
-| [the rest](#the-rest) | 196 |
+| [the rest](#the-rest) | 197 |
 
 ## check
 
@@ -74,6 +74,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_head_reference.py`](check_head_reference.py) | `bench/head_reference.py` against a face whose every line is known by construction, read from the files it wrote. |
 | [`check_head_tube_parts.py`](check_head_tube_parts.py) | Check head_tube_parts: SAM 3.1 head tube gating, temporal seg smoothing, and 39-point face cross-check. |
 | [`check_imports.py`](check_imports.py) | Static AST check over tracked root `*.py` and `bench/*.py` (`C61` item 2a). |
+| [`check_inspect_mask_steps.py`](check_inspect_mask_steps.py) | Deterministic check for `bench/inspect_mask_steps.py` across all eight forensic categories `[0]`–`[7]`, multi-window `(1, 4, 4, 4, 4)` cadence, face-only vs. hair+face subjects, sub-span offsets, and `--strips` rendering. |
 | [`check_inventory.py`](check_inventory.py) | Check `bench/inventory.py` on synthetic records (`done`, `partial`, `nothing laid`, `not seen`) and CLI refusals. |
 | [`check_keyframe_canvas.py`](check_keyframe_canvas.py) | Keyframe geometry: does the canvas we hand H3 avoid distorting the keyframe? |
 | [`check_laid.py`](check_laid.py) | `bench/laid.py`'s owner state on a made list: who says a piece is kept, and what a change of that leaves on the line. |
@@ -422,6 +423,7 @@ this file is only a way to find a script by what it says it does.
 | [`head_reference.py`](head_reference.py) | The reference video of a head replacement, in one command: the body model cut to the head, with the face drawn on it. |
 | [`head_tube_parts.py`](head_tube_parts.py) | Head-tube conditioned Sapiens2-Seg part masks and Sapiens2-Pose 39-point face cross-check. |
 | [`hwinfo.py`](hwinfo.py) | The host this repo's numbers were measured on, printed rather than written down. |
+| [`inspect_mask_steps.py`](inspect_mask_steps.py) | Forensic per-frame and per-latent-step mask, region, provenance, and keep-out inspector for a masked v2v capture. |
 | [`instrument_render_occupancy.py`](instrument_render_occupancy.py) | Phase-resolved GPU occupancy of one render, bracketed per node. |
 | [`inventory.py`](inventory.py) | The inventory of a video: every shot, every subject present in it, what stands and what is owed. |
 | [`join_panel_verdicts.py`](join_panel_verdicts.py) | Join a scored blind PANEL with its sealed key, and apply the panel's stop rules. |

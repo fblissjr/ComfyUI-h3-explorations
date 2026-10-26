@@ -28,6 +28,8 @@ import json
 import sys
 from pathlib import Path
 
+import numpy as np
+
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parent
 if str(HERE) not in sys.path:
@@ -139,10 +141,37 @@ def _extract_frame_set(spans_or_frames: list | dict | int) -> set[int]:
     return out
 
 
+def _manifest_meta(capture: Path) -> tuple[int, int, dict[str, str]]:
+    """Return `(first_frame, canvas_width, {run_name: subject})` from `manifest.json` when present."""
+    mfile = capture / "manifest.json"
+    if not mfile.is_file():
+        return 0, 0, {}
+    try:
+        m = json.loads(mfile.read_text())
+    except Exception:
+        return 0, 0, {}
+    first = int(m.get("first_frame") or 0)
+    size = m.get("size") or [0, 0]
+    w = int(size[0]) if isinstance(size, list) and size else 0
+    run_subj = {
+        str(r["name"]): str(r["subject"])
+        for r in (m.get("runs") or [])
+        if isinstance(r, dict) and "name" in r and "subject" in r
+    }
+    return first, w, run_subj
+
+
 def unlaid_while_tracked_of(capture: Path, loads: list[str] | None = None) -> dict[str, list[list[int]]]:
-    """Return `{subject: [[first, last], ...]}` for frames inside the load where `track_px > 0` and `carried_px == 0`."""
+    """Return `{subject: [[first, last], ...]}` for frames inside the load where `track_px > 0` and `carried_px == 0`.
+
+    When `runs/<load>/region.npz` is on disk, its `carried` and `read` arrays are authoritative for `carried_px == 0`
+    (reflecting post-`her_hair_in_hole` and post-grade masks), and `frame_table*.jsonl` (written before `her_hair_in_hole`)
+    is only consulted for subjects not covered by `runs/<load>/region.npz` or `runs/<load>/per_frame.json`.
+    """
     loads_list = loads if loads is not None else loads_of_capture(capture)
     by_subj: dict[str, set[int]] = {}
+    authoritative_subjs: set[str] = set()
+    first, w, run_subj = _manifest_meta(capture)
 
     subj_tracked: dict[str, set[int]] = {}
     if (capture / "subjects").is_dir():
@@ -165,7 +194,28 @@ def unlaid_while_tracked_of(capture: Path, loads: list[str] | None = None) -> di
         if not run_dirs:
             run_dirs = sorted(p for p in (capture / "runs").iterdir() if p.is_dir())
         for rdir in run_dirs:
+            reg_path = rdir / "region.npz"
             rpf = rdir / "per_frame.json"
+            if reg_path.is_file():
+                try:
+                    reg = np.load(reg_path)
+                    carried_bits = np.unpackbits(reg["carried"], axis=-1)
+                    if w > 0:
+                        carried_bits = carried_bits[..., :w]
+                    carried = carried_bits.astype(bool)
+                    read_arr = reg["read"].astype(bool) if "read" in reg.files else np.ones(carried.shape[0], dtype=bool)
+                    subj = run_subj.get(rdir.name, rdir.name)
+                    authoritative_subjs.add(subj)
+                    tset = subj_tracked.get(subj, set())
+                    for idx in range(carried.shape[0]):
+                        if not bool(read_arr[idx]):
+                            continue
+                        sf = first + idx
+                        if int(carried[idx].sum()) == 0 and sf in tset:
+                            by_subj.setdefault(subj, set()).add(sf)
+                    continue
+                except Exception:
+                    pass
             if not rpf.is_file():
                 continue
             try:
@@ -178,7 +228,8 @@ def unlaid_while_tracked_of(capture: Path, loads: list[str] | None = None) -> di
                 if int(r.get("read", 1)) != 1:
                     continue
                 sf = int(r["source_frame"])
-                subj = str(r.get("subject") or rdir.name)
+                subj = str(r.get("subject") or run_subj.get(rdir.name, rdir.name))
+                authoritative_subjs.add(subj)
                 carried_empty = float(r.get("carried_share") or 0.0) == 0.0 and int(r.get("carried_px") or 0) == 0
                 is_tracked = (
                     float(r.get("track_share") or 0.0) > 0.0
@@ -202,6 +253,8 @@ def unlaid_while_tracked_of(capture: Path, loads: list[str] | None = None) -> di
         if loads is not None and hdr.get("run") and str(hdr["run"]) not in loads_list:
             continue
         subj = str(hdr.get("subject") or "subject")
+        if subj in authoritative_subjs:
+            continue
         for line in lines[1:]:
             if not line.strip():
                 continue
@@ -233,6 +286,248 @@ def unlaid_while_tracked_of(capture: Path, loads: list[str] | None = None) -> di
             pass
 
     return {subj: _runs_of_frames(fset) for subj, fset in sorted(by_subj.items()) if fset}
+
+
+def unresolved_hair_in_hole_of(capture: Path, loads: list[str] | None = None) -> dict[str, dict]:
+    """Return `{subject: {'lost_asked': [[a, b], ...], 'hair_undecided': [[a, b], ...]}}` for unresolved
+    `hair_in_hole__*.json` frames inside the active load window(s).
+
+    Overriding `her_head_lost_in_view` or `unclaimed_hair_touches_another` in `outcomes.json` adds 0 px to
+    `parts_held.mkv`; these frames must be resolved in `plan.json` (`subjects.<subj>.head_marks`: `'hers'`,
+    `'hidden'`, or `'not hers'`) or dropped with `--drop` and the capture rebuilt.
+    """
+    if not (capture / "subjects").is_dir():
+        return {}
+    loads_list = loads if loads is not None else loads_of_capture(capture)
+    first, _w, run_subj = _manifest_meta(capture)
+    target_subjs = {run_subj[ld] for ld in loads_list if ld in run_subj}
+
+    read_frames_by_subj: dict[str, set[int]] = {}
+    if (capture / "runs").is_dir():
+        run_dirs = [capture / "runs" / ld for ld in loads_list if (capture / "runs" / ld).is_dir()]
+        if not run_dirs:
+            run_dirs = sorted(p for p in (capture / "runs").iterdir() if p.is_dir())
+        for rdir in run_dirs:
+            reg_path = rdir / "region.npz"
+            if not reg_path.is_file():
+                continue
+            try:
+                reg = np.load(reg_path)
+                if "read" in reg.files:
+                    read_arr = reg["read"].astype(bool)
+                    subj = run_subj.get(rdir.name, rdir.name)
+                    rset = {first + i for i in range(len(read_arr)) if bool(read_arr[i])}
+                    read_frames_by_subj.setdefault(subj, set()).update(rset)
+            except Exception:
+                pass
+
+    out: dict[str, dict] = {}
+    for hh_path in sorted((capture / "subjects").glob("*/hair_in_hole__*.json")):
+        subj = hh_path.parent.name
+        if target_subjs and subj not in target_subjs:
+            continue
+        try:
+            hh = json.loads(hh_path.read_text())
+        except Exception:
+            continue
+        lost_set = _extract_frame_set(hh.get("lost_asked_on_source_frames") or [])
+        undec_set = _extract_frame_set(hh.get("hair_undecided_on_source_frames") or [])
+        if subj in read_frames_by_subj and read_frames_by_subj[subj]:
+            lost_set &= read_frames_by_subj[subj]
+            undec_set &= read_frames_by_subj[subj]
+        if lost_set or undec_set:
+            entry = out.setdefault(subj, {"lost_asked": set(), "hair_undecided": set()})
+            entry["lost_asked"].update(lost_set)
+            entry["hair_undecided"].update(undec_set)
+
+    return {
+        subj: {
+            "lost_asked": _runs_of_frames(vals["lost_asked"]),
+            "hair_undecided": _runs_of_frames(vals["hair_undecided"]),
+        }
+        for subj, vals in sorted(out.items())
+        if vals["lost_asked"] or vals["hair_undecided"]
+    }
+
+
+def unmasked_frame_diagnostics_of(capture: Path, loads: list[str] | None = None) -> dict[str, dict]:
+    """Join every unmasked (`carried_px == 0`) or unresolved (`hair_in_hole`) frame in the load against
+    `region.npz`, `subjects/<subj>/per_frame.json`, `head_tube__*.json`, `part_grades.json`, and `hair_in_hole__*.json`.
+    """
+    loads_list = loads if loads is not None else loads_of_capture(capture)
+    first, w, run_subj = _manifest_meta(capture)
+    uwt = unlaid_while_tracked_of(capture, loads_list)
+    uhh = unresolved_hair_in_hole_of(capture, loads_list)
+
+    carried_by_subj: dict[str, dict[int, int]] = {}
+    if (capture / "runs").is_dir():
+        run_dirs = [capture / "runs" / ld for ld in loads_list if (capture / "runs" / ld).is_dir()]
+        if not run_dirs:
+            run_dirs = sorted(p for p in (capture / "runs").iterdir() if p.is_dir())
+        for rdir in run_dirs:
+            reg_path = rdir / "region.npz"
+            if not reg_path.is_file():
+                continue
+            try:
+                reg = np.load(reg_path)
+                carried_bits = np.unpackbits(reg["carried"], axis=-1)
+                if w > 0:
+                    carried_bits = carried_bits[..., :w]
+                carried = carried_bits.astype(bool)
+                read_arr = reg["read"].astype(bool) if "read" in reg.files else np.ones(carried.shape[0], dtype=bool)
+                subj = run_subj.get(rdir.name, rdir.name)
+                cmap = carried_by_subj.setdefault(subj, {})
+                for idx in range(carried.shape[0]):
+                    if bool(read_arr[idx]):
+                        sf = first + idx
+                        cmap[sf] = max(cmap.get(sf, 0), int(carried[idx].sum()))
+            except Exception:
+                pass
+
+    all_subjs = sorted(set(uwt.keys()) | set(uhh.keys()) | set(carried_by_subj.keys()))
+    out: dict[str, dict] = {}
+    for subj in all_subjs:
+        cmap = carried_by_subj.get(subj, {})
+        positive_cpx = [cpx for cpx in cmap.values() if cpx > 0]
+        median_cpx = float(np.median(positive_cpx)) if positive_cpx else 0.0
+        shrink_floor = 0.5 * median_cpx
+        zero_or_shrunk_sfs = {
+            sf for sf, cpx in cmap.items() if cpx == 0 or (median_cpx > 0 and cpx < shrink_floor)
+        }
+        uwt_sfs = _extract_frame_set(uwt.get(subj) or [])
+        uhh_entry = uhh.get(subj) or {}
+        uhh_sfs = _extract_frame_set(uhh_entry.get("lost_asked") or []) | _extract_frame_set(uhh_entry.get("hair_undecided") or [])
+        target_sfs = sorted(zero_or_shrunk_sfs | uwt_sfs | uhh_sfs)
+        if not target_sfs:
+            continue
+
+        sub_dir = capture / "subjects" / subj
+        track_info: dict[int, dict] = {}
+        if (sub_dir / "per_frame.json").is_file():
+            try:
+                pf = json.loads((sub_dir / "per_frame.json").read_text())
+                for r in pf.get("rows") or []:
+                    if isinstance(r, dict) and "source_frame" in r:
+                        track_info[int(r["source_frame"])] = r
+            except Exception:
+                pass
+
+        facing_set: set[int] = set()
+        side_eye_set: set[int] = set()
+        back_head_set: set[int] = set()
+        grade_by_sf: dict[int, dict] = {}
+        if (sub_dir / "part_grades.json").is_file():
+            try:
+                pg = json.loads((sub_dir / "part_grades.json").read_text())
+                facing_set = {int(x) for x in (pg.get("facing_frames") or [])}
+                side_eye_set = {int(x) for x in (pg.get("side_with_eye_frames") or [])}
+                back_head_set = {int(x) for x in (pg.get("back_of_head_frames") or [])}
+                for r in pg.get("frames") or []:
+                    if isinstance(r, dict) and "source_frame" in r:
+                        grade_by_sf[int(r["source_frame"])] = r
+            except Exception:
+                pass
+
+        tube_by_sf: dict[int, int] = {}
+        raw_part_by_sf: dict[int, int] = {}
+        off_tube_by_sf: dict[int, int] = {}
+        fp_by_sf: dict[int, int] = {}
+        refused_by_sf: dict[int, str] = {}
+        ht_files = sorted(sub_dir.glob("head_tube__*.json")) if sub_dir.is_dir() else []
+        if ht_files:
+            try:
+                ht = json.loads(ht_files[0].read_text())
+                tube_arr = ht.get("tube_px") or []
+                raw_arr = ht.get("raw_part_px") or []
+                off_arr = ht.get("off_tube_suppressed_px") or []
+                fp_arr = ht.get("face_points_in_part") or []
+                for idx, val in enumerate(tube_arr):
+                    tube_by_sf[first + idx] = int(val or 0)
+                for idx, val in enumerate(raw_arr):
+                    raw_part_by_sf[first + idx] = int(val or 0)
+                for idx, val in enumerate(off_arr):
+                    if int(val or 0) > 0:
+                        off_tube_by_sf[first + idx] = int(val)
+                for idx, val in enumerate(fp_arr):
+                    if int(val or 0) > 0:
+                        fp_by_sf[first + idx] = int(val)
+                for r in ht.get("regain_refused") or []:
+                    sf = first + int(r.get("frame", -1))
+                    refused_by_sf[sf] = str(r.get("why") or "regain_refused")
+                    if int(r.get("face_points_on_own_part") or 0) > 0:
+                        fp_by_sf[sf] = max(fp_by_sf.get(sf, 0), int(r["face_points_on_own_part"]))
+            except Exception:
+                pass
+
+        hh_by_sf: dict[int, dict] = {}
+        hh_files = sorted(sub_dir.glob("hair_in_hole__*.json")) if sub_dir.is_dir() else []
+        if hh_files:
+            try:
+                hh = json.loads(hh_files[0].read_text())
+                for r in hh.get("frames") or []:
+                    if isinstance(r, dict) and "source_frame" in r:
+                        hh_by_sf[int(r["source_frame"])] = r
+            except Exception:
+                pass
+
+        rows = []
+        has_visible_signal = False
+        for sf in target_sfs:
+            cpx = cmap.get(sf, 0)
+            trow = track_info.get(sf) or {}
+            t_share = float(trow.get("track_share") or 0.0)
+            t_px = int(trow.get("track_px") or 0)
+            if cpx > 0 and t_share == 0.0 and t_px == 0 and sf not in uhh_sfs:
+                continue
+            pose = (
+                "facing" if sf in facing_set
+                else "side_with_eye" if sf in side_eye_set
+                else "back_of_head" if sf in back_head_set
+                else "-"
+            )
+            tube_px = tube_by_sf.get(sf, 0)
+            raw_px = raw_part_by_sf.get(sf, 0)
+            off_px = off_tube_by_sf.get(sf, 0)
+            fp_pts = fp_by_sf.get(sf, 0)
+            refused = refused_by_sf.get(sf)
+            grow = grade_by_sf.get(sf) or {}
+            gdid = str(grow.get("did") or ("regain_refused" if refused else "-"))
+            hhrow = hh_by_sf.get(sf) or {}
+            lost_val = hhrow.get("lost")
+            lost = bool(lost_val)
+            lost_state = str(lost_val) if lost_val else "none"
+            lost_held_px = int(hhrow.get("lost_held_px") or 0)
+            undec_px = int(hhrow.get("hair_undecided_px") or 0)
+            uncl_px = int(hhrow.get("hair_unclaimed_px") or 0)
+            if cpx == 0 and (pose in ("facing", "side_with_eye") or off_px > 0 or fp_pts > 0 or lost or undec_px > 0):
+                has_visible_signal = True
+            elif lost_state == "asked" or undec_px > 0:
+                has_visible_signal = True
+            rows.append({
+                "source_frame": sf,
+                "carried_px": cpx,
+                "median_carried_px": round(median_cpx, 1),
+                "tube_px": tube_px,
+                "raw_part_px": raw_px,
+                "track_px": t_px,
+                "track_share": t_share,
+                "off_tube_suppressed_px": off_px,
+                "pose": pose,
+                "face_points": fp_pts,
+                "grade_did": gdid,
+                "lost": lost,
+                "lost_state": lost_state,
+                "lost_held_px": lost_held_px,
+                "hair_unclaimed_px": uncl_px,
+                "hair_undecided_px": undec_px,
+            })
+        out[subj] = {
+            "rows": rows,
+            "median_carried_px": round(median_cpx, 1),
+            "has_visible_signal": has_visible_signal,
+            "unresolved_hair_in_hole": uhh.get(subj) or {},
+        }
+    return out
 
 
 def peer_look_covering(capture: Path, loads: list[str], status: dict) -> dict | None:
@@ -754,6 +1049,48 @@ def print_capture_report(capture: Path, load_arg: str | None = None, out=sys.std
                 file=out,
             )
 
+    unresolved_hh = unresolved_hair_in_hole_of(capture, loads)
+    for subj, hh_vals in sorted(unresolved_hh.items()):
+        any_held_or_empty = True
+        if hh_vals.get("lost_asked"):
+            print(
+                f"  unresolved_hair_in_hole ({subj}) lost_asked_on_source_frames: frames {format_spans(hh_vals['lost_asked'])}",
+                file=out,
+            )
+        if hh_vals.get("hair_undecided"):
+            print(
+                f"  unresolved_hair_in_hole ({subj}) hair_undecided_on_source_frames: frames {format_spans(hh_vals['hair_undecided'])}",
+                file=out,
+            )
+
+    unmasked_diag = unmasked_frame_diagnostics_of(capture, loads)
+    for subj, dinfo in sorted(unmasked_diag.items()):
+        drows = dinfo.get("rows") or []
+        if drows:
+            any_held_or_empty = True
+            med_cpx = dinfo.get("median_carried_px") or 0
+            print(
+                f"  tracker_and_mask_gap_table ({subj}, median_carried={med_cpx} px, {len(drows)} frame(s) empty or <50% median):",
+                file=out,
+            )
+            for r in drows:
+                t_str = f"{r['track_px']} px" if r["track_px"] else f"share={r['track_share']:.5f}"
+                tag = "unmasked_frame" if r["carried_px"] == 0 else "shrunk_mask_frame"
+                print(
+                    f"  {tag} ({subj}) {r['source_frame']}: carried={r['carried_px']} px (tube={r.get('tube_px', 0)} px, raw_part={r.get('raw_part_px', 0)} px), "
+                    f"track={t_str}, off_tube_suppressed={r['off_tube_suppressed_px']} px, "
+                    f"pose={r['pose']}, face_pts={r['face_points']}, grade={r['grade_did']}, "
+                    f"lost={r.get('lost_state', r['lost'])}, hair_undecided={r['hair_undecided_px']} px",
+                    file=out,
+                )
+        if dinfo.get("has_visible_signal"):
+            print(
+                f"  PAUSE — VISIBLE HEAD/HAIR SIGNALS ON UNMASKED FRAME(S) ({subj}): "
+                "overriding her_head_lost_in_view / unclaimed_hair_touches_another in flags.json adds 0 px to parts_held.mkv; "
+                "mark head_marks ('hers'/'hidden'/'not hers') in plan.json or cut the load window with --drop and rebuild",
+                file=out,
+            )
+
     emptied_grade = flags_data.get("emptied_by_the_grade") or {}
     for subj, frames in sorted(emptied_grade.items()):
         if frames:
@@ -814,8 +1151,23 @@ def print_capture_report(capture: Path, load_arg: str | None = None, out=sys.std
         "verdict": verdict,
         "flags_count": len(flags_list),
         "unlaid_while_tracked": unlaid_while_tracked,
+        "unresolved_hair_in_hole": unresolved_hh,
+        "unmasked_diagnostics": unmasked_diag,
         "recipe_check": recipe_info,
     }
+
+
+def _format_unresolved_hair_in_hole(unresolved_hh: dict[str, dict]) -> str:
+    bits = []
+    for subj, vals in sorted(unresolved_hh.items()):
+        s_bits = []
+        if vals.get("lost_asked"):
+            s_bits.append(f"lost_asked={format_spans(vals['lost_asked'])}")
+        if vals.get("hair_undecided"):
+            s_bits.append(f"hair_undecided={format_spans(vals['hair_undecided'])}")
+        if s_bits:
+            bits.append(f"{subj} ({', '.join(s_bits)})")
+    return "; ".join(bits)
 
 
 def record_initial(
@@ -834,6 +1186,15 @@ def record_initial(
     flags_bytes = (capture / "flags.json").read_bytes()
     flags_sha = hashlib.sha256(flags_bytes).hexdigest()
     now = now_iso()
+    unresolved_hh = unresolved_hair_in_hole_of(capture, loads)
+    if unresolved_hh:
+        hh_summary = _format_unresolved_hair_in_hole(unresolved_hh)
+        raise Refused(
+            f"unresolved_hair_in_hole on {capture.name} ({hh_summary}): overriding her_head_lost_in_view / "
+            "unclaimed_hair_touches_another in flags.json does NOT recover the mask (0 px in parts_held.mkv). "
+            "Mark the frames in plan.json subjects.<subj>.head_marks ('hers' to recover head/hair into the mask, "
+            "'hidden' if occluded, or 'not hers') or cut the load window with --drop, and rebuild the capture"
+        )
     unlaid = unlaid_while_tracked_of(capture, loads)
     ack_clean = (ack_unlaid or "").strip() if ack_unlaid is not None else ""
     if ack_unlaid is not None and (not ack_clean or ack_clean.startswith("-")):
@@ -919,6 +1280,15 @@ def check_flags_read(capture: Path, load_name: str, status: dict | None = None) 
         if not status_file.is_file():
             raise Refused(f"{capture.name} holds no status.json")
         status = json.loads(status_file.read_text())
+    unresolved_hh = unresolved_hair_in_hole_of(capture, [load_name])
+    if unresolved_hh:
+        hh_summary = _format_unresolved_hair_in_hole(unresolved_hh)
+        raise Refused(
+            f"unresolved_hair_in_hole on {capture.name} ({hh_summary}): overriding her_head_lost_in_view / "
+            "unclaimed_hair_touches_another in flags.json does NOT recover the mask (0 px in parts_held.mkv). "
+            "Mark the frames in plan.json subjects.<subj>.head_marks ('hers' to recover head/hair into the mask, "
+            "'hidden' if occluded, or 'not hers') or cut the load window with --drop, and rebuild the capture"
+        )
     how = f"run `bench/flags_before_render.py {capture} --initial WHO`"
     shown_file = capture / "looks" / f"{load_name}.shown.json"
     beside_file = capture / "looks" / f"{load_name}.flags_read.json"

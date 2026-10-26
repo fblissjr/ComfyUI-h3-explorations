@@ -85,10 +85,13 @@ next shot's (22 before and 23 after in 90, so 4646 is window frame 66, in the cl
 - **The guard**: where the shot's edge frame has no mask, or less than `video_mask.HELD_EDGE_LEAST` (`0.25`) of the shot's median
   region, `video_mask.held_edge_source` steps inward to the nearest shot frame whose mask clears `HELD_EDGE_LEAST` of the median,
   holds that frame's image and masks into the padding (`video_mask.hold_context`, keeping all kept shot frames untouched), and
-  records the step in `held_fell_back` (`"hold shot frame N"`). Only if the entire shot has an empty mask on every frame does it
-  fall back to real frames. Why: `second_hfp_4912e`, whose last frame (`4946`) had no mask and whose held copies filled the encoder's
-  last clip with her untouched hair, and `lead_fp_2050c`, where dropping the hold back to real frames when an edge mask was small
-  exposed unmasked context frames to the reference stream.
+  records the step in `held_fell_back` (`"hold shot frame N"`), unless that side's outermost `video_mask.HELD_EDGE_EMPTY_RUN`
+  (`max(FRAME_PER_TOKEN) == 4`, one full latent step) shot frames are all `0 px` while the shot has a mask elsewhere (when the
+  subject has left or been hidden for at least a latent step at that edge of the shot, as on `second_hfp_4647g`'s `4716-4725`, so
+  the `0 px` edge frame itself is held without injecting an earlier frame's mask into a boundary latent step). Only if the entire
+  shot has an empty mask on every frame does it fall back to real frames. Why: `second_hfp_4912e`, whose last frame (`4946`) had no
+  mask and whose held copies filled the encoder's last clip with her untouched hair, and `lead_fp_2050c`, where dropping the hold
+  back to real frames when an edge mask was small exposed unmasked context frames to the reference stream.
 - The audio the model hears is silent under held frames; the audio muxed into the piece is the source's.
 
 ## 5. What is thrown away

@@ -3671,13 +3671,17 @@ def by_shot(record: dict, flags: dict) -> list[dict]:
 
 
 def by_load(record: dict, flags: dict) -> list[dict]:
-    """The gate's answer load by load: the flags that name a load and block, the warnings by rule, and what the
-    lead of a job asks of every load before it renders: frames kept from a window before, held frames the model
-    is shown clean, and which other subjects lie inside its region. An overridden flag is listed apart."""
+    """The gate's answer load by load: the flags that name a load (or its subject across all loads) and block, the
+    warnings by rule, and what the lead of a job asks of every load before it renders: frames kept from a window
+    before, held frames the model is shown clean, and which other subjects lie inside its region. An overridden flag
+    is listed apart."""
     blocking, passed = set(flags.get("blocking", [])), set(flags.get("overridden", []))
     out = []
     for load in record["loads"]:
-        mine = [f for f in flags["flags"] if f.get("run") == load["run"]]
+        mine = [
+            f for f in flags["flags"]
+            if f.get("run") == load["run"] or (f.get("run") is None and f.get("subject") == load["subject"])
+        ]
         short = lambda f: {"id": f["id"], "rule": f["rule"], "source_frames": f["source_frames"], **({"other": f["other"]} if f.get("other") else {})}
         warned: dict = {}
         for f in mine:
@@ -4571,7 +4575,135 @@ def dropped_or_unmasked_face_in_context(
     ]
 
 
-def lays_nothing(run: dict, bare: list[int], said: dict, total: int, face_px: dict[int, int] | None = None) -> list[dict]:
+def unmasked_head_hair_context(
+    folder: Path | None,
+    subject: str,
+    by: str | None,
+    frames_list: list[int],
+    first_frame: int | None = None,
+) -> dict:
+    """Join unmasked/unresolved source frames against `part_grades.json`, `head_tube__<by>.json`, and
+    `hair_in_hole__<by>.json` so any flag on those frames surfaces pose, off-tube suppression, regain refusal, and
+    unclaimed/lost hair directly in `why` and `figures`."""
+    if folder is None or not frames_list:
+        return {"details": {}, "pause_summary": ""}
+    frames_set = set(int(f) for f in frames_list)
+    sub_dir = folder / "subjects" / subject
+    if not sub_dir.is_dir():
+        return {"details": {}, "pause_summary": ""}
+    if first_frame is None and (folder / "manifest.json").is_file():
+        try:
+            first_frame = int(json.loads((folder / "manifest.json").read_text()).get("first_frame", 0))
+        except Exception:
+            first_frame = 0
+    first = int(first_frame or 0)
+    details: dict = {}
+    parts_msg: list[str] = []
+
+    pg_path = sub_dir / "part_grades.json"
+    if pg_path.is_file():
+        pg = json.loads(pg_path.read_text())
+        if not by:
+            by = pg.get("seen_by")
+        facing = sorted(int(f) for f in (pg.get("facing_frames") or []) if int(f) in frames_set)
+        side_eye = sorted(int(f) for f in (pg.get("side_with_eye_frames") or []) if int(f) in frames_set)
+        back_head = sorted(int(f) for f in (pg.get("back_of_head_frames") or []) if int(f) in frames_set)
+        pose_bits = []
+        if facing:
+            details["facing_frames"] = frame_spans(facing, join=1)
+            pose_bits.append(f"facing on {spans_said(facing)}")
+        if side_eye:
+            details["side_with_eye_frames"] = frame_spans(side_eye, join=1)
+            pose_bits.append(f"side_with_eye on {spans_said(side_eye)}")
+        if back_head:
+            details["back_of_head_frames"] = frame_spans(back_head, join=1)
+            pose_bits.append(f"back_of_head on {spans_said(back_head)}")
+        if pose_bits:
+            parts_msg.append("pose " + ", ".join(pose_bits))
+
+    ht_path = (sub_dir / f"head_tube__{by}.json") if by else None
+    if (ht_path is None or not ht_path.is_file()) and sub_dir.is_dir():
+        cands = sorted(sub_dir.glob("head_tube__*.json"))
+        ht_path = cands[0] if cands else None
+    if ht_path is not None and ht_path.is_file():
+        ht = json.loads(ht_path.read_text())
+        off_arr = ht.get("off_tube_suppressed_px") or []
+        fp_arr = ht.get("face_points_in_part") or []
+        off_frames = {}
+        fp_frames = {}
+        for sf in sorted(frames_set):
+            idx = sf - first
+            if 0 <= idx < len(off_arr) and int(off_arr[idx] or 0) > 0:
+                off_frames[sf] = int(off_arr[idx])
+            if 0 <= idx < len(fp_arr) and int(fp_arr[idx] or 0) > 0:
+                fp_frames[sf] = int(fp_arr[idx])
+        refused_frames = []
+        for r in ht.get("regain_refused") or []:
+            sf = first + int(r.get("frame", -1))
+            if sf in frames_set:
+                refused_frames.append(sf)
+                if int(r.get("face_points_on_own_part") or 0) > 0:
+                    fp_frames[sf] = max(fp_frames.get(sf, 0), int(r["face_points_on_own_part"]))
+        refused_frames = sorted(set(refused_frames))
+        if off_frames:
+            details["off_tube_suppressed_frames"] = frame_spans(sorted(off_frames), join=1)
+            details["off_tube_suppressed_max_px"] = max(off_frames.values())
+            ht_txt = f"head_tube off_tube_suppressed up to {max(off_frames.values())} px on {spans_said(sorted(off_frames))}"
+            if refused_frames:
+                details["regain_refused_frames"] = frame_spans(refused_frames, join=1)
+                ht_txt += f" (regain_refused on {spans_said(refused_frames)})"
+            parts_msg.append(ht_txt)
+        elif refused_frames:
+            details["regain_refused_frames"] = frame_spans(refused_frames, join=1)
+            parts_msg.append(f"head_tube regain_refused on {spans_said(refused_frames)}")
+        if fp_frames:
+            details["face_points_on_own_part_frames"] = frame_spans(sorted(fp_frames), join=1)
+            details["face_points_on_own_part_max"] = max(fp_frames.values())
+
+    hh_path = (sub_dir / f"hair_in_hole__{by}.json") if by else None
+    if (hh_path is None or not hh_path.is_file()) and sub_dir.is_dir():
+        cands = sorted(sub_dir.glob("hair_in_hole__*.json"))
+        hh_path = cands[0] if cands else None
+    if hh_path is not None and hh_path.is_file():
+        hh = json.loads(hh_path.read_text())
+        lost_f = sorted(int(r["source_frame"]) for r in (hh.get("frames") or []) if int(r["source_frame"]) in frames_set and r.get("lost"))
+        undec_f = {int(r["source_frame"]): int(r["hair_undecided_px"]) for r in (hh.get("frames") or [])
+                   if int(r["source_frame"]) in frames_set and int(r.get("hair_undecided_px") or 0) > 0}
+        uncl_px = [int(r.get("hair_unclaimed_px") or 0) for r in (hh.get("frames") or []) if int(r["source_frame"]) in frames_set and int(r.get("hair_unclaimed_px") or 0) > 0]
+        hh_bits = []
+        if lost_f:
+            details["hair_in_hole_lost_frames"] = frame_spans(lost_f, join=1)
+            hh_bits.append(f"lost=True on {spans_said(lost_f)}")
+        if undec_f:
+            details["hair_undecided_frames"] = frame_spans(sorted(undec_f), join=1)
+            details["hair_undecided_max_px"] = max(undec_f.values())
+            hh_bits.append(f"hair_undecided up to {max(undec_f.values())} px on {spans_said(sorted(undec_f))}")
+        if uncl_px:
+            details["hair_unclaimed_max_px"] = max(uncl_px)
+            hh_bits.append(f"unclaimed hair up to {max(uncl_px)} px")
+        if hh_bits:
+            parts_msg.append("hair_in_hole " + ", ".join(hh_bits))
+
+    pause_summary = ""
+    if parts_msg:
+        pause_summary = (
+            f"PAUSE — unmasked head/hair signals on {subject} ({ '; '.join(parts_msg) }): "
+            f"overriding flags.json adds 0 px to parts_held.mkv; mark head_marks ('hers'/'hidden'/'not hers') in plan.json "
+            f"or cut the load window with --drop and rebuild"
+        )
+    return {"details": details, "pause_summary": pause_summary}
+
+
+def lays_nothing(
+    run: dict,
+    bare: list[int],
+    said: dict,
+    total: int,
+    face_px: dict[int, int] | None = None,
+    folder: Path | None = None,
+    seen: str | None = None,
+    first_frame: int | None = None,
+) -> list[dict]:
     """The flags of a load that lays nothing on `bare` frames where its subject is tracked: the frames its job names in
     `said` ({frame: the job's reason}) at the level below the top with the reason; the others at the top."""
     out = []
@@ -4588,14 +4720,22 @@ def lays_nothing(run: dict, bare: list[int], said: dict, total: int, face_px: di
             out += dropped_or_unmasked_face_in_context(run, meant, face_px)
     if bare:
         kind = "plan" if run.get("planned") else "run"
+        ctx = unmasked_head_hair_context(folder, run["subject"], seen, bare, first_frame=first_frame)
+        why = (
+            f"{kind} {run['name']}: on {len(bare)} of its {total} frame(s) {run['subject']} is tracked and the mask the "
+            "load carries is empty: nothing is laid there and the source shows. The part was lost, dropped, or emptied "
+            f"by the grade (subjects/{run['subject']}/part_grades.json says which and why). If the subject is rightly "
+            "left as the source there, override with the reason or cut the load to the frames it does lay; if the "
+            "part should be there, look at those frames before anything renders"
+        )
+        figs: dict = {"frames": len(bare), "frames_of_the_load": total}
+        if ctx["pause_summary"]:
+            why += f". {ctx['pause_summary']}"
+            figs["unmasked_context"] = ctx["details"]
         out.append({"rule": "load_lays_nothing_on_frames", "level": LEVELS[2], "subject": run["subject"], "run": run["name"],
                     "source_frames": frame_spans(bare, join=1),
-                    "why": f"{kind} {run['name']}: on {len(bare)} of its {total} frame(s) {run['subject']} is tracked and the mask the "
-                           "load carries is empty: nothing is laid there and the source shows. The part was lost, dropped, or emptied "
-                           f"by the grade (subjects/{run['subject']}/part_grades.json says which and why). If the subject is rightly "
-                           "left as the source there, override with the reason or cut the load to the frames it does lay; if the "
-                           "part should be there, look at those frames before anything renders",
-                    "figures": {"frames": len(bare), "frames_of_the_load": total}})
+                    "why": why,
+                    "figures": figs})
     return out
 
 
@@ -4635,7 +4775,7 @@ def flag_lent(manifest: dict, folder: Path, named: dict | None = None) -> list[d
         named_set = set(lent) | set(run.get("left_as_the_source_with_no_mask") or [])     # the rule below names these
         bare = [first + f for f in bare_frames(carried, saved["region"], saved["read"], tracked) if first + f not in named_set]
         said_sub = named_frames.get(run["subject"], {})
-        out += lays_nothing(run, bare, said_sub, int(saved["read"].sum()))
+        out += lays_nothing(run, bare, said_sub, int(saved["read"].sum()), folder=folder, seen=seen, first_frame=first)
         dropped_spans = sighting.get("parts_emptied_on_source_frames") or []
         dropped_set = set(said_sub) | {f for a, b in dropped_spans for f in range(a, b + 1)}
         dropped_bare = [f for f in bare if f in dropped_set]
@@ -4651,12 +4791,21 @@ def flag_lent(manifest: dict, folder: Path, named: dict | None = None) -> list[d
                             "part where the source shows none")
             if unlaid:
                 what.append(f"{len(unlaid)} frame(s) are left as the source by the composite: the original shows on them")
+            both_frames = sorted(set(lent) | set(unlaid))
+            ctx = unmasked_head_hair_context(folder, run["subject"], seen, both_frames, first_frame=first)
+            why = (
+                f"{kind} {run['name']}: {len(both_frames)} frame(s) have no mask of {run['subject']}'s inside a latent "
+                "step that has one. " + "; ".join(what) + ". If the mask is rightly empty there (turned away, hidden), "
+                "override this flag with a note that says so; if the subject is plainly there, the mask was dropped: fix it"
+            )
+            figs = {"regenerated": len(lent), "left_as_the_source": len(unlaid)}
+            if ctx["pause_summary"]:
+                why += f". {ctx['pause_summary']}"
+                figs["unmasked_context"] = ctx["details"]
             out.append({"rule": "region_on_a_frame_with_no_mask", "level": LEVELS[2], "subject": run["subject"], "run": run["name"],
-                        "source_frames": frame_spans(sorted(set(lent) | set(unlaid))),
-                        "why": f"{kind} {run['name']}: {len(set(lent) | set(unlaid))} frame(s) have no mask of {run['subject']}'s inside a latent "
-                               "step that has one. " + "; ".join(what) + ". If the mask is rightly empty there (turned away, hidden), "
-                               "override this flag with a note that says so; if the subject is plainly there, the mask was dropped: fix it",
-                        "figures": {"regenerated": len(lent), "left_as_the_source": len(unlaid)}})
+                        "source_frames": frame_spans(both_frames),
+                        "why": why,
+                        "figures": figs})
     return out
 
 
@@ -4983,7 +5132,9 @@ def track_scores(table: dict | None, shots_at: int, first: int, frames: int) -> 
 
 def her_hair_in_hole(held: np.ndarray, track: np.ndarray, first: int, *, head: np.ndarray | None = None,
                      others: dict[str, np.ndarray] | None = None, hair: np.ndarray | None = None, hair_whole_frame: bool = False,
-                     hair_from: str | None = None, face: np.ndarray | None = None, score: list[float | None] | None = None,
+                     hair_from: str | None = None, face: np.ndarray | None = None, classes: np.ndarray | None = None,
+                     whole_classes: np.ndarray | None = None,
+                     score: list[float | None] | None = None,
                      front: np.ndarray | None = None, drop: set[int] | frozenset = frozenset(), noface: set[int] | frozenset = frozenset(),
                      hidden: set[int] | frozenset = frozenset(), hers: set[int] | frozenset = frozenset(),
                      not_hers: set[int] | frozenset = frozenset(), margin_px: int = 0) -> tuple[np.ndarray, dict]:
@@ -4997,12 +5148,14 @@ def her_hair_in_hole(held: np.ndarray, track: np.ndarray, first: int, *, head: n
     1. Her head in the hole: every pixel of her head track (`head`) on a frame that the hole does not hold is added, less what another
        person's mask (`others`: other subjects' tracks and the keep-outs, as their files hold them, before the capture carves a
        keep-out for the node) or a subject in front (`front`) holds, and less her face classes
-       (`face`) on a frame a person said shows no face (`noface`).
+       (`face`) on a frame a person said shows no face (`noface`). Any `.mp4` compression speck in `head` under `SEGMENT_PX` (`64 px`)
+       is ignored so a 1-px speck (e.g. `4912g` frame `4926`) never suppresses `lost_in_view` or leaves a 1-px alpha weight.
     2. Lost, not hidden: a run of frames where her head (her track, without a head track) is empty, holding a frame where SAM's own
        score says she is present (`score` over TRACK_PRESENT_OVER), is a run where SAM lost her head while it still held her. The capture
        cannot seed SAM again (no model runs here): the frames are listed under `lost_in_view` for a refusal, less those a person marked
-       `hidden` (nothing added) or `hers` (her head track's nearest whole head, less every other person's mask, is added: a hold of her
-       head, never of the top of her person track, which the head tube's re-seed gate refuses).
+       `hidden` (nothing added) or `hers` (her head track's nearest whole head AND her person track inside her interpolated head-crown
+       room excluding Sapiens hand/arm classes when `classes` is given, less every other person's mask, is added; also applied on
+       partial-shrink `hers` frames where `head_px[k] < HEAD_WHOLE_SHARE * median`).
     3. Unclaimed hair: the part model's Hair (`hair`) in her room (HAIR_ROOM_HEADS round her head's box on the frame, or the nearest
        whole head's, HEAD_WHOLE_SHARE) that is in no one's mask (hers, another's) and outside the hole is added, a piece at a time; a piece that touches another
        person (their hair, where `hair_whole_frame`; their mask, where her own class map cannot see their classes) is not decided: at
@@ -5018,14 +5171,103 @@ def her_hair_in_hole(held: np.ndarray, track: np.ndarray, first: int, *, head: n
     for m_ in others.values():
         anyone |= m_
     taken = anyone | front if front is not None else anyone
+    if whole_classes is not None and whole_classes.shape == held.shape and STRANGERS_LABEL in others:
+        names_wc = _pack("sapiens2_parts").CLASS_NAMES
+        app_id = names_wc.index("Apparel") if "Apparel" in names_wc else 8
+        face_wc_ids = [
+            names_wc.index(c)
+            for c in ("Face_Neck", "Left_Eye", "Right_Eye", "Left_Brow", "Right_Brow", "Nose", "Upper_Lip", "Lower_Lip", "Teeth")
+            if c in names_wc
+        ]
+        taken_for_hers = np.zeros_like(held)
+        for lbl_o, m_o in others.items():
+            if lbl_o == STRANGERS_LABEL:
+                taken_for_hers |= m_o & ((whole_classes == app_id) | (np.isin(whole_classes, face_wc_ids) & ~track))
+            else:
+                taken_for_hers |= m_o
+        if front is not None:
+            taken_for_hers |= front
+    else:
+        taken_for_hers = taken
+    if head is not None:
+        head_clean = head.copy()
+        raw_head_px = head_clean.reshape(n, -1).sum(1)
+        for f_idx in range(n):
+            if 0 < int(raw_head_px[f_idx]) < SEGMENT_PX:
+                head_clean[f_idx] = False
+        head = head_clean
     head_of = head if head is not None else track
     head_px = head_of.reshape(n, -1).sum(1)
     on = np.nonzero(head_px)[0]
     whole = on[head_px[on] >= HEAD_WHOLE_SHARE * np.median(head_px[on])] if len(on) else on
+    if len(whole):
+        clean_whole = np.array(
+            [
+                int(w_i)
+                for w_i in whole
+                if int(head_px[w_i])
+                >= 0.75 * max(int(head_px[w_i - 1]) if w_i > 0 else 0, int(head_px[w_i + 1]) if w_i + 1 < n else 0)
+            ],
+            dtype=whole.dtype,
+        )
+        if len(clean_whole):
+            whole = clean_whole
+    whole_set = set(int(x) for x in whole)
 
     def nearest(f: int) -> int:
         """The nearest frame with her whole head, the earlier on a tie (HEAD_WHOLE_SHARE)."""
         return int(whole[np.argmin(np.abs(whole - f) * 2 + (whole > f))])
+
+    hand_arm_mask: np.ndarray | None = None
+    if classes is not None and classes.shape == held.shape:
+        names_cls = _pack("sapiens2_parts").CLASS_NAMES
+        ha_ids = [
+            names_cls.index(c)
+            for c in (
+                "Left_Hand",
+                "Right_Hand",
+                "Left_Lower_Arm",
+                "Right_Lower_Arm",
+                "Left_Upper_Arm",
+                "Right_Upper_Arm",
+                "Torso",
+                "Lower_Clothing",
+            )
+            if c in names_cls
+        ]
+        if ha_ids:
+            hand_arm_mask = np.isin(classes, ha_ids)
+
+    def crown_room_on_track(k: int) -> np.ndarray:
+        """Her person-track pixels inside her interpolated head-crown room on frame `k`, excluding Sapiens hand/arm/torso classes."""
+        h_c, w_c = held.shape[1:]
+        if not len(on) or not track[k].any():
+            return np.zeros((h_c, w_c), bool)
+        bef, aft = on[on <= k], on[on >= k]
+        if len(bef) and len(aft):
+            f0, f1 = int(bef[-1]), int(aft[0])
+            ys0, xs0 = np.nonzero(head_of[f0])
+            ys1, xs1 = np.nonzero(head_of[f1])
+            t = 0.0 if f1 == f0 else (k - f0) / float(f1 - f0)
+            bx0 = int(round((1.0 - t) * int(xs0.min()) + t * int(xs1.min())))
+            bx1 = int(round((1.0 - t) * int(xs0.max()) + t * int(xs1.max())))
+            by0 = int(round((1.0 - t) * int(ys0.min()) + t * int(ys1.min())))
+            by1 = int(round((1.0 - t) * int(ys0.max()) + t * int(ys1.max())))
+        else:
+            src_f = int(aft[0]) if len(aft) else int(bef[-1])
+            ys_s, xs_s = np.nonzero(head_of[src_f])
+            bx0, by0, bx1, by1 = int(xs_s.min()), int(ys_s.min()), int(xs_s.max()), int(ys_s.max())
+        grow_c = int(round(HAIR_ROOM_HEADS * max(32, by1 - by0 + 1)))
+        rx0, ry0 = max(bx0 - grow_c, 0), max(by0 - grow_c, 0)
+        rx1 = min(bx1 + grow_c, w_c - 1)
+        ry1 = min(by1, h_c - 1)
+        c_room = np.zeros((h_c, w_c), bool)
+        c_room[ry0 : ry1 + 1, rx0 : rx1 + 1] = True
+        cand = track[k] & c_room
+        if hand_arm_mask is not None:
+            cand = cand & ~hand_arm_mask[k]
+        return cand
+
     rows: dict[int, dict] = {}
     square = cv2.getStructuringElement(cv2.MORPH_RECT, (2 * int(margin_px) + 1, 2 * int(margin_px) + 1))
 
@@ -5053,7 +5295,7 @@ def her_hair_in_hole(held: np.ndarray, track: np.ndarray, first: int, *, head: n
                 r["head_left_because"] = ("another person's mask or a subject in front holds it"
                                           + (", or a face class on a frame a person said shows no face" if f in noface else ""))
             out[f] |= add
-    # 2. LOST, NOT HIDDEN
+    # 2. LOST, NOT HIDDEN (and partial-shrink frames marked `hers`)
     lost_runs: list[dict] = []
     if score is not None and len(on):
         f = 0
@@ -5071,10 +5313,9 @@ def her_hair_in_hole(held: np.ndarray, track: np.ndarray, first: int, *, head: n
                     row(k)["lost"] = ("dropped on a word" if k in drop else "marked hidden" if k in hidden else
                                       "marked hers" if k in hers else "asked")
                     if row(k)["lost"] == "marked hers" and head is not None:
-                        # A PERSON SAID HER HEAD IS IN VIEW HERE: her head track's nearest frame, the earlier on a tie, less every
-                        # other person's mask. Never the top of her person track (the head tube's `regain_refused` gate stands)
                         src = nearest(k)
-                        add = head[src] & ~taken[k] & ~out[k]
+                        crown_tr = crown_room_on_track(k) if classes is not None else np.zeros_like(out[k])
+                        add = (head[src] | crown_tr) & ~taken_for_hers[k] & ~out[k]
                         out[k] |= add
                         rows[k].update(lost_held_from=first + src, lost_held_px=int(add.sum()))
                 lost_runs.append({"source_frames": [first + f, first + g],
@@ -5084,6 +5325,19 @@ def her_hair_in_hole(held: np.ndarray, track: np.ndarray, first: int, *, head: n
                                   "her_head_next_after": int(first + after[0]) if len(after) else None,
                                   "asked_on": frame_spans([first + k for k in range(f, g + 1) if rows[k]["lost"] == "asked"])})
             f = g + 1
+    if head is not None and len(whole) and hers:
+        for k in sorted(hers):
+            if not (0 <= k < n) or k in drop or not head_px[k] or k in whole_set:
+                continue
+            src = nearest(k)
+            crown_tr = crown_room_on_track(k) if classes is not None else np.zeros_like(out[k])
+            near_h = head[src] if abs(k - src) <= 2 else (head[src] & track[k])
+            add = (near_h | crown_tr) & ~taken_for_hers[k] & ~out[k]
+            if add.any():
+                out[k] |= add
+                r = row(k)
+                r["lost"] = "marked hers"
+                r.update(lost_held_from=first + src, lost_held_px=int(add.sum()))
     # 3. UNCLAIMED HAIR
     asked: list[int] = []
     if hair is not None and len(on):
@@ -5212,27 +5466,29 @@ def hole_of_the_load(label: str, told: list[tuple[str, dict]], held: np.ndarray,
     return int(spec["margin"]), hole_zoom(held, size, spec, zoom_off)
 
 
-def whole_frame_hair(masks: list, first: int, frames: int, size: tuple[int, int]) -> tuple[np.ndarray | None, str]:
+def whole_frame_hair(masks: list, first: int, frames: int, size: tuple[int, int]) -> tuple[np.ndarray | None, str, np.ndarray | None]:
     """The part model's Hair on the whole frame, from the class map the strangers file's record names (`bench/strangers.py` writes it
     beside the file since 2026-10-22, `whole_frame_classes`), on the capture's frames; None and why where there is none."""
     spec = next((m for label, m in masks if label == STRANGERS_LABEL), None)
     if spec is None:
-        return None, "no strangers keep-out on this load"
+        return None, "no strangers keep-out on this load", None
     record = Path(spec["track"]).with_suffix(".json")
     said = json.loads(record.read_text()) if record.is_file() else {}
     path = Path(said["whole_frame_classes"]) if said.get("whole_frame_classes") else None
     if path is None or not path.is_file():
-        return None, f"the strangers record {record.name} names no whole-frame class map (one made before 2026-10-22)"
+        return None, f"the strangers record {record.name} names no whole-frame class map (one made before 2026-10-22)", None
     got = np.load(path)["classes"]
     if got.shape[1:] != (size[1], size[0]):
-        return None, f"{path.name} is {got.shape[2]}x{got.shape[1]}, not the canvas"
+        return None, f"{path.name} is {got.shape[2]}x{got.shape[1]}, not the canvas", None
     names = _pack("sapiens2_parts").CLASS_NAMES
     hair = np.zeros((frames, size[1], size[0]), bool)
+    whole_cls = np.zeros((frames, size[1], size[0]), np.uint8)
     lead = int(said["first_source_frame"]) - first
     for k in range(frames):
         if 0 <= k - lead < len(got):
+            whole_cls[k] = got[k - lead]
             hair[k] = got[k - lead] == names.index("Hair")
-    return hair, f"the part model on the whole frame, from the strangers file's record ({path.name})"
+    return hair, f"the part model on the whole frame, from the strangers file's record ({path.name})", whole_cls
 
 
 def hair_in_hole_files(out: Path, label: str, given: dict, made_of: list[str], sightings: dict, held_masks: dict, manifest: dict,
@@ -5245,7 +5501,7 @@ def hair_in_hole_files(out: Path, label: str, given: dict, made_of: list[str], s
     m, by = given["m"], given["by"]
     names = _pack("sapiens2_parts").CLASS_NAMES
     others = given.get("others") or {o: next(iter(x.values()))[0] for o, x in sightings.items() if o != label}
-    hair, hair_from = whole_frame_hair(masks, first, frames, size)
+    hair, hair_from, whole_cls = whole_frame_hair(masks, first, frames, size)
     whole = hair is not None
     if hair is None and given["classes"] is not None:
         hair = given["classes"] == names.index("Hair")
@@ -5259,7 +5515,9 @@ def hair_in_hole_files(out: Path, label: str, given: dict, made_of: list[str], s
     zoom = given["zoom"]
     margin_px = int(round(int(given["margin"]) / float(zoom["scale"])))
     held, record = her_hair_in_hole(held_masks[label], given["track"], first, head=given["head"], others=others, hair=hair,
-                                    hair_whole_frame=whole, hair_from=hair_from, face=face, score=score, front=given["front"], drop=drop,
+                                    hair_whole_frame=whole, hair_from=hair_from, face=face, classes=given["classes"],
+                                    whole_classes=whole_cls, score=score,
+                                    front=given["front"], drop=drop,
                                     noface=word_frames(m.get("noface"), first, frames) if m.get("noface") else set(),
                                     hidden=marks["hidden"], hers=marks["hers"], not_hers=marks["not hers"], margin_px=margin_px)
     record = {"subject": label, "seen_by": by, **record, "margin": {"load": given["margin"], "zoom": zoom, "canvas_px": margin_px,
@@ -5291,6 +5549,7 @@ def flag_her_hair(manifest: dict, folder: Path) -> list[dict]:
     owner's mark on the page, written into the plan), which the next capture reads; or, for a lost head, a fresh preview seeded from an
     owner's box on one of the frames; or an override after a look."""
     out = []
+    first = manifest.get("first_frame", 0)
     for s in manifest["subjects"]:
         for seen in s["sightings"]:
             path = folder / "subjects" / s["label"] / f"hair_in_hole__{seen['by']}.json"
@@ -5299,22 +5558,40 @@ def flag_her_hair(manifest: dict, folder: Path) -> list[dict]:
             r = json.loads(path.read_text())
             if r["lost_asked_on_source_frames"]:
                 n = sum(b - a + 1 for a, b in r["lost_asked_on_source_frames"])
+                frames_list = [f for a, b in r["lost_asked_on_source_frames"] for f in range(a, b + 1)]
+                ctx = unmasked_head_hair_context(folder, s["label"], seen["by"], frames_list, first_frame=first)
+                why = (
+                    f"{s['label']}'s head track is empty on {n} frame(s) of runs where SAM 3.1 still held her by its own score: "
+                    "her original head may be in view with nothing regenerated there, and H3 draws her new hair to match it. "
+                    "Look; mark the frames `hers` (to recover her head/hair into the mask) or `hidden` in the plan's head_marks, or box her on one of them in the cast file for a "
+                    "fresh preview"
+                )
+                figs: dict = {"frames": n, "runs": [x["source_frames"] for x in r["lost_in_view"]]}
+                if ctx["pause_summary"]:
+                    why += f". {ctx['pause_summary']}"
+                    figs["unmasked_context"] = ctx["details"]
                 out.append({"rule": "her_head_lost_in_view", "level": LEVELS[2], "subject": s["label"], "seen_by": seen["by"],
                             "source_frames": r["lost_asked_on_source_frames"],
-                            "why": f"{s['label']}'s head track is empty on {n} frame(s) of runs where SAM 3.1 still held her by its own score: "
-                                   "her original head may be in view with nothing regenerated there, and H3 draws her new hair to match it. "
-                                   "Look; mark the frames `hidden` in the plan's head_marks, or box her on one of them in the cast file for a "
-                                   "fresh preview",
-                            "figures": {"frames": n, "runs": [x["source_frames"] for x in r["lost_in_view"]]},
+                            "why": why,
+                            "figures": figs,
                             "threshold": {"TRACK_PRESENT_OVER": TRACK_PRESENT_OVER}})
             if r["hair_undecided_on_source_frames"]:
                 px = [x["hair_undecided_px"] for x in r["frames"] if x.get("hair_undecided_px")]
+                frames_list = [f for a, b in r["hair_undecided_on_source_frames"] for f in range(a, b + 1)]
+                ctx = unmasked_head_hair_context(folder, s["label"], seen["by"], frames_list, first_frame=first)
+                why = (
+                    f"hair near {s['label']} that no one's mask holds touches another person on {len(px)} frame(s), up to "
+                    f"{max(px)} px a frame: whose it is is not decided from the masks. Look; mark the frames `hers` or "
+                    "`not hers` in the plan's head_marks"
+                )
+                figs = {"frames": len(px), "px_most": max(px)}
+                if ctx["pause_summary"]:
+                    why += f". {ctx['pause_summary']}"
+                    figs["unmasked_context"] = ctx["details"]
                 out.append({"rule": "unclaimed_hair_touches_another", "level": LEVELS[2], "subject": s["label"], "seen_by": seen["by"],
                             "source_frames": r["hair_undecided_on_source_frames"],
-                            "why": f"hair near {s['label']} that no one's mask holds touches another person on {len(px)} frame(s), up to "
-                                   f"{max(px)} px a frame: whose it is is not decided from the masks. Look; mark the frames `hers` or "
-                                   "`not hers` in the plan's head_marks",
-                            "figures": {"frames": len(px), "px_most": max(px)},
+                            "why": why,
+                            "figures": figs,
                             "threshold": {"HAIR_TOUCH_PX": HAIR_TOUCH_PX, "SEGMENT_PX": SEGMENT_PX, "HAIR_ROOM_HEADS": HAIR_ROOM_HEADS}})
     return out
 
@@ -5352,12 +5629,14 @@ def hair_in_hole(a: argparse.Namespace) -> None:
         given = read_classes(a.classes, size, int(a.classes_at if a.classes_at is not None else seen["first_source_frame"]), first, frames) \
             if a.classes else None
         cmap = given if given is not None else own
-        hair, whole, hair_from = None, False, None
+        hair, whole, hair_from, whole_cls = None, False, None, None
         if a.whole_classes:
             z = np.load(a.whole_classes)
             hair, whole, lead = np.zeros((frames, size[1], size[0]), bool), True, int(z["first"]) - first
+            whole_cls = np.zeros((frames, size[1], size[0]), np.uint8)
             for k in range(frames):
                 if 0 <= k - lead < len(z["classes"]):
+                    whole_cls[k] = z["classes"][k - lead]
                     hair[k] = z["classes"][k - lead] == names.index("Hair")
             hair_from = f"the part model on the whole frame ({Path(a.whole_classes).name})"
         elif cmap is not None:
@@ -5374,7 +5653,7 @@ def hair_in_hole(a: argparse.Namespace) -> None:
         margin_px = int(round(a.margin / zoom["scale"])) if zoom else int(run.get("margin_px") or 0)
         spans = lambda key: {f - first for x, y in seen.get(key) or [] for f in range(x, y + 1) if first <= f < first + frames}   # noqa: E731
         _, record = her_hair_in_hole(held, track, first, head=head, others=others, hair=hair, hair_whole_frame=whole, hair_from=hair_from,
-                                     face=face, score=score, drop=spans("parts_emptied_on_source_frames"),
+                                     face=face, classes=cmap, whole_classes=whole_cls, score=score, drop=spans("parts_emptied_on_source_frames"),
                                      noface=spans("parts_face_dropped_on_a_word_on_source_frames"),
                                      hidden=word_frames(a.hidden, first, frames), hers=word_frames(a.hers, first, frames),
                                      not_hers=word_frames(a.not_hers, first, frames), margin_px=margin_px)
@@ -6096,6 +6375,10 @@ def preflight(a: argparse.Namespace) -> None:
             from_txt = f"from {src_f}, {r.get('source_px')}->{r.get('px')} px" if src_f is not None else f"{r.get('px')} px"
             parts_txt.append(f"{r['source_frame']} ({from_txt}{fp_txt})")
         print(f"{len(rows)} frame(s) of {label}'s part held: " + "; ".join(parts_txt))
+    for f in flags:
+        if isinstance(f.get("figures"), dict) and f["figures"].get("unmasked_context"):
+            print(f"PAUSE — VISIBLE HEAD/HAIR SIGNALS ON UNMASKED FRAME(S) ({f['id']} {f['rule']} on {f.get('subject')}): "
+                  f"overriding flags.json leaves 0 px in parts_held.mkv; update head_marks in plan.json or cut the load window with --drop and rebuild")
     # the figures a per-clip rule reads, in one file, never older than the flags
     (folder / "rules_input.json").write_text(json.dumps(rules_input(folder, not_in), indent=1) + "\n")
     print(f"gate: {gate['verdict']}" + (f", on {', '.join(gate['blocking'])}" if gate["blocking"] else "")

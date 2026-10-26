@@ -1485,13 +1485,24 @@ def hold_context(x, before: int, after: int, *, src_before: int | None = None, s
                      + ([x[sa:sa + 1].expand(after, *x.shape[1:])] if after else []), dim=0)
 
 
+#: When a held side's outermost `HELD_EDGE_EMPTY_RUN` (`max(FRAME_PER_TOKEN) == 4`, one full latent step) shot frames are
+#: all `0 px` while the shot has a mask elsewhere, the subject has left or been hidden for at least a latent step at that
+#: edge of the shot: holding the edge frame itself (`0 px`) keeps the held padding empty, whereas stepping back across the
+#: empty run into an earlier part of the shot would inject that earlier frame's mask into a boundary latent step shared with
+#: `0 px` edge frames (measured on `second_hfp_4647g`, 2026-10-25: `4716..4725` had `0 px`, and stepping back 15 frames to
+#: shot frame 63 / `4710` put a 16-cell blue region onto the `third` subject's arm in latent step 23 covering `4724, 4725, PAD_79, PAD_80`).
+HELD_EDGE_EMPTY_RUN = max(FRAME_PER_TOKEN)
+
+
 def held_edge_source(mask: torch.Tensor, held_before: int, held_after: int) -> tuple[int | None, int | None, list[str]]:
     """For a shot's [n, H, W] region `mask` (before padding) and its held counts `(held_before, held_after)`:
     when a held side's edge frame (`0` for `before`, `n - 1` for `after`) has `edge == 0` or
     `edge < HELD_EDGE_LEAST * middle`, finds the nearest frame inside the shot with `area >= HELD_EDGE_LEAST * middle`
-    (searching forward from `0` for `before`, backward from `n - 1` for `after`). Returns
+    (searching forward from `0` for `before`, backward from `n - 1` for `after`), unless that side's outermost
+    `HELD_EDGE_EMPTY_RUN` shot frames are all `0 px` while the shot has a mask elsewhere (the subject is hidden or absent
+    at that edge of the shot, so the `0 px` edge frame itself is held). Returns
     `(shot_before, shot_after, lines)` where `shot_before` / `shot_after` is `None` when the edge frame itself is
-    good, the stepped-to shot frame index (`0 .. n - 1`) when a nearest good frame is found, or `-1` when no frame in
+    held, the stepped-to shot frame index (`0 .. n - 1`) when a nearest good frame is found, or `-1` when no frame in
     the shot has a mask (`on.numel() == 0`), and `lines` are the `held_fell_back` strings."""
     n_shot = int(mask.shape[0])
     area = (mask > 0.5).flatten(1).sum(dim=1)
@@ -1506,6 +1517,9 @@ def held_edge_source(mask: torch.Tensor, held_before: int, held_after: int) -> t
     ):
         edge = int(area[k]) if n_shot else 0
         if held and (edge == 0 or edge < least):
+            edge_run = list(order)[:HELD_EDGE_EMPTY_RUN]
+            if on.numel() and len(edge_run) >= HELD_EDGE_EMPTY_RUN and all(int(area[j]) == 0 for j in edge_run):
+                continue
             good = next((j for j in order if int(area[j]) > 0 and int(area[j]) >= least), -1) if on.numel() else -1
             picked[side] = good
             if good >= 0:

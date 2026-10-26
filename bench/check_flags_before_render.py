@@ -583,9 +583,110 @@ def test_recipe_check_and_mouthless_reference() -> str:
     return "prints [0] recipe check table, flags mouthless_reference in [2], and refuses unexplained recipe deviations or mouthless_reference without --ack-recipe WHY"
 
 
+def test_unmasked_diagnostics_and_unresolved_hair_in_hole_gate() -> str:
+    import numpy as np
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        cap = make_synthetic_capture(root)
+        # 1. Authoritative region.npz over stale frame_table.jsonl:
+        # Suppose frame_table.jsonl claims frames 4312 and 4315 have loaded_part_px == 0,
+        # while runs/lead_fp_4310/region.npz has carried > 0 on 4315 and carried == 0 only on 4312.
+        ft_lines = [
+            json.dumps({"what": "frame_table", "subject": "lead", "run": "lead_fp_4310"}),
+            json.dumps({"source_frame": 4312, "load_frame": 2, "tracked": {"px": 5000}, "loaded_part_px": 0}),
+            json.dumps({"source_frame": 4315, "load_frame": 5, "tracked": {"px": 5000}, "loaded_part_px": 0}),
+        ]
+        (cap / "frame_table.jsonl").write_text("\n".join(ft_lines) + "\n")
+        (cap / "subjects" / "lead" / "per_frame.json").write_text(json.dumps({
+            "rows": [
+                {"source_frame": 4310 + i, "seen_by": "pv", "track_share": 0.02, "track_px": 5000}
+                for i in range(10)
+            ]
+        }))
+        manifest = json.loads((cap / "manifest.json").read_text())
+        manifest["size"] = [16, 16]
+        manifest["frames"] = 10
+        manifest["runs"] = [{"name": "lead_fp_4310", "subject": "lead"}]
+        (cap / "manifest.json").write_text(json.dumps(manifest))
+
+        carried_bool = np.ones((10, 16, 16), dtype=bool)
+        carried_bool[2] = False  # frame 4312 has carried_px == 0; frame 4315 (idx 5) has carried_px == 256
+        carried_bool[3, 4:, :] = False  # frame 4313 (idx 3) has carried_px == 64 (< 0.5 * 256 = 128 -> shrunk_mask_frame)
+        read_bool = np.ones(10, dtype=bool)
+        np.savez(
+            cap / "runs" / "lead_fp_4310" / "region.npz",
+            carried=np.packbits(carried_bool, axis=-1),
+            region=np.packbits(np.ones((10, 16, 16), dtype=bool), axis=-1),
+            read=read_bool,
+        )
+
+        uwt = fbr.unlaid_while_tracked_of(cap, ["lead_fp_4310"])
+        assert uwt == {"lead": [[4312, 4312]]}, f"expected region.npz to override stale frame_table on 4315, got {uwt}"
+
+        # 2. Add head_tube__pv.json, part_grades.json, and unresolved hair_in_hole__pv.json on frame 4312
+        (cap / "subjects" / "lead" / "head_tube__pv.json").write_text(json.dumps({
+            "off_tube_suppressed_px": [0, 0, 1850, 420, 0, 0, 0, 0, 0, 0],
+            "face_points_in_part": [38, 38, 0, 12, 38, 38, 38, 38, 38, 38],
+            "regain_refused": [{"frame": 2, "face_points_on_own_part": 0, "least": 3, "why": "refused"}],
+        }))
+        pg = json.loads((cap / "subjects" / "lead" / "part_grades.json").read_text())
+        pg["side_with_eye_frames"] = [4312, 4313]
+        (cap / "subjects" / "lead" / "part_grades.json").write_text(json.dumps(pg))
+        (cap / "subjects" / "lead" / "hair_in_hole__pv.json").write_text(json.dumps({
+            "lost_asked_on_source_frames": [[4312, 4312]],
+            "hair_undecided_on_source_frames": [[4313, 4313]],
+            "frames": [
+                {"source_frame": 4312, "lost": True, "hair_unclaimed_px": 900, "hair_undecided_px": 0},
+                {"source_frame": 4313, "lost": False, "hair_unclaimed_px": 450, "hair_undecided_px": 450},
+            ],
+        }))
+
+        buf = io.StringIO()
+        info = fbr.print_capture_report(cap, out=buf)
+        text = buf.getvalue()
+        assert "unresolved_hair_in_hole (lead) lost_asked_on_source_frames: frames 4312" in text, text
+        assert "unresolved_hair_in_hole (lead) hair_undecided_on_source_frames: frames 4313" in text, text
+        assert "tracker_and_mask_gap_table (lead, median_carried=256.0 px, 2 frame(s) empty or <50% median):" in text, text
+        assert "unmasked_frame (lead) 4312: carried=0 px (tube=0 px, raw_part=0 px), track=5000 px, off_tube_suppressed=1850 px, pose=side_with_eye" in text, text
+        assert "shrunk_mask_frame (lead) 4313: carried=64 px (tube=0 px, raw_part=0 px), track=5000 px, off_tube_suppressed=420 px, pose=side_with_eye" in text, text
+        assert "PAUSE — VISIBLE HEAD/HAIR SIGNALS ON UNMASKED FRAME(S) (lead):" in text, text
+        assert info["unresolved_hair_in_hole"] == {"lead": {"lost_asked": [[4312, 4312]], "hair_undecided": [[4313, 4313]]}}, info
+
+        # 3. Both record_initial and check_flags_read refuse while unresolved_hair_in_hole is non-empty,
+        # even if --ack-unlaid is passed!
+        refused(
+            lambda: fbr.record_initial(cap, "gemreader", ["lead_fp_4310"], ack_unlaid="tried to ack"),
+            "unresolved_hair_in_hole on 2026-10-24_lead_fp_4310",
+            "does NOT recover the mask (0 px in parts_held.mkv)",
+            "head_marks",
+        )
+        # Clear hair_in_hole (simulating rebuild after head_marks in plan.json), record initial, then re-introduce unresolved hair_in_hole to test check_flags_read
+        (cap / "subjects" / "lead" / "hair_in_hole__pv.json").write_text(json.dumps({
+            "lost_asked_on_source_frames": [],
+            "hair_undecided_on_source_frames": [],
+            "frames": [],
+        }))
+        fbr.record_initial(cap, "gemreader", ["lead_fp_4310"], ack_unlaid="verified occluded frame", out=io.StringIO())
+        assert fbr.check_flags_read(cap, "lead_fp_4310")["by"] == "gemreader"
+
+        (cap / "subjects" / "lead" / "hair_in_hole__pv.json").write_text(json.dumps({
+            "lost_asked_on_source_frames": [[4312, 4312]],
+            "hair_undecided_on_source_frames": [],
+            "frames": [{"source_frame": 4312, "lost": True, "hair_unclaimed_px": 900, "hair_undecided_px": 0}],
+        }))
+        refused(
+            lambda: fbr.check_flags_read(cap, "lead_fp_4310"),
+            "unresolved_hair_in_hole on 2026-10-24_lead_fp_4310",
+            "does NOT recover the mask (0 px in parts_held.mkv)",
+        )
+    return "region.npz is authoritative over frame_table.jsonl, per-frame unmasked diagnostics print PAUSE banner, and unresolved_hair_in_hole refuses --initial and check_flags_read"
+
+
 case("flags_before_render: 4 diagnostic blocks, --initial record, and refusals", test_print_and_initial)
 case("flags_before_render: unlaid_while_tracked gate (--ack-unlaid WHY or peer look)", test_unlaid_while_tracked_gate)
 case("flags_before_render: [0] recipe check and mouthless_reference gate (--ack-recipe WHY)", test_recipe_check_and_mouthless_reference)
+case("flags_before_render: region.npz authority, unmasked frame diagnostics, and unresolved_hair_in_hole gate", test_unmasked_diagnostics_and_unresolved_hair_in_hole_gate)
 case("flag_census: rule counts, key-based override matching, and blocked/changed dates", test_flag_census)
 
 if __name__ == "__main__":
