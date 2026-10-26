@@ -11,7 +11,7 @@ each overturned in [`decisions.md`](decisions.md) 2026-10-26 and the forensics r
 
 ## State when closed
 
-- **Landed on `main` today (`b461584e..cbd39fbe`, 8 commits on 2026-10-26)**:
+- **Landed on `main` today (`b461584e..76533a22`, 15 commits on 2026-10-26)**:
   - **Build A (`b461584e`, `ac803f92`)**: fed `head_tube` (`ht_res["tube"]`) into `bench/capture_masked_run.py::her_hair_in_hole`
     and `bench/inspect_mask_steps.py` instead of raw `head_track_arr`; skipped `hidden` frames in `her_hair_in_hole` Stage 2/3;
     restored full `~taken[k]` other-person subtraction; and made `inspect_mask_steps.py` `[2]` flag active latent steps where
@@ -78,23 +78,26 @@ each overturned in [`decisions.md`](decisions.md) 2026-10-26 and the forensics r
 
 ## Tomorrow, in order
 
-1. **Morning builds (no renders on `:8188`, built in worktrees and replayed on `4647k`, `4912h`, and `1093` captures first)**:
-   - **Part definition & downstream floor/fill (`bench/shot_to_load.py`, `bench/capture_masked_run.py`)**: retire `hold_to_track`
-     (`_on_track_8px.mkv`); define her part at the job step from her Sapiens face and hair on her crop unioned with her SAM head
-     track within a room anchored to her head (never unioning `Upper_Clothing`/`Torso` from `person_track` into a face+hair part,
-     and never anchoring the head room to an arm-only crop), less every other person's SAM detection; and settle the downstream
-     `grade_holds` floor vs. `her_hair_in_hole` (`~hole(f)` and `~track[f]`) so a valid small head is not emptied or left in the
-     feathered rim.
-   - **Strangers keep-out (`bench/strangers.py`)**: include SAM 3.1's other-person detections (`people.npz`) in the strangers
-     keep-out where whole-frame Sapiens finds nobody.
-   - **Tracker post-occlusion re-finding, box withdrawal & `4647i` reference remake (`subject_track.py`, `bench/shot_to_load.py`, `data/fun/cast/cast.jsonl`)**:
-     make `--head-per-stretch` the default and re-find a subject after an occlusion via the tracker's own head detection per
-     stretch and the still signature match, withdrawing the screenshot/sheet boxes (`cast.jsonl` lines `175-192`, `194-196`,
-     `197-209`), and remake `<Video 1>` (`shot_to_load.py reference`) for `second_hfp_4647i` from the new preview's track with
-     no drawing word (`--no-draw-face-on`) carried. If the match cannot re-find `second` on `4647` after `4681`, one page click
-     on her outline on `4690` is the fallback.
-   - **Replay & owner strip check**: replay on `4647k`, `4912h`, and `1093` captures and show the owner the `4682-4696` strip
-     drawn from the result before starting `:8188` for renders.
+1. **Morning builds (built in worktrees with `:8188` off; Builds 1 & 2 replayed offline on saved `4647k`, `4912h`, and `1093` captures first, then Build 3 run for the fresh `4647` preview + `reference` remake and owner strip check before queuing any render)**:
+   - **Build 1 — Part definition & downstream floor/fill (`bench/shot_to_load.py:1102-1198, 3088-3090, 4518-4525`, `bench/load_chain.py:374-380`, `bench/head_tube_parts.py:335-350, 521-569`, `bench/capture_masked_run.py:1098-1112, 1191-1208, 2778-2828, 5177-5432`)**:
+     retire `hold_to_track` (`_on_track_8px.mkv`) and `_head_seed_from_person_mask`'s flat `head_rel_y1` slice; define her part at
+     the job step from her Sapiens face and hair on her crop unioned with her SAM head track within a room anchored to her head
+     (never unioning `Upper_Clothing`/`Torso` from `person_track` into a face+hair part, and never anchoring the head room to an
+     arm-only crop), less every other person's SAM detection; and settle the downstream `grade_holds` (`1,024 px` floor at
+     `1098-1112`) vs. `her_hair_in_hole` (`~hole(f)` at `5303-5312` and `~track[f]` at `5384`) so a valid small head is not
+     emptied or left in the feathered rim.
+   - **Build 2 — Strangers keep-out (`bench/strangers.py:395-449, 479-502, 542-570`)**: include SAM 3.1's other-person detections
+     (`people.npz`, `others[i]` where `o[3] is None`) in `strangers.py::run` (`561-570`) where whole-frame Sapiens2 finds nobody.
+   - **Build 3 — Tracker post-occlusion re-finding, box withdrawal & `4647i` reference remake (`subject_track.py:829-840, 1200-1359, 1403, 1489, 1604-1654`, `bench/shot_to_load.py:485-494, 556-561`, `bench/cast_file.py:364`, `data/fun/cast/cast.jsonl`)**:
+     flip `head_mode` default to `"per stretch"` (`HEAD_PER_STRETCH`) in `subject_track.py:833-840` and `shot_to_load.py:485-494`
+     and re-find a subject after an occlusion via the tracker's own head detection per stretch and the still signature match;
+     withdraw the screenshot/sheet boxes (`cast.jsonl` lines `175-192`, `194-196`, `197-209`) and guard `cast_file.py:364`
+     (`seeds()`) against non-page `drawn: "approximate"` / sheet boxes; and remake `<Video 1>` (`shot_to_load.py reference`) for
+     `second_hfp_4647i` from the new preview's track with no drawing word (`--no-draw-face-on`, `--no-carry-words`) carried. If
+     the match cannot re-find `second` on `4647` after `4681`, one page click on her outline on `4690` is the fallback.
+   - **Replay & owner strip check**: replay Builds 1–2 offline on `4647k`, `4912h`, and `1093` captures (and verify on the fresh
+     `4647` preview/capture once Build 3 runs) and show the owner the `4682-4696` strip drawn from the result before queuing any
+     H3 render on `:8188`.
 2. **Afternoon renders on the fixed chain**: `second_hfp_4647i` (`4647-4725`), `second_hfp_4912k` (`4912-4946`), and
    `third_fp_5114e` (`5114-5129` at settled `margin = 16`).
 3. **The lead's owed single-subject spans**: `6105-6394`, `3759-3908`, `516-603`, and the second half of `2050-2622`
