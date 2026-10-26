@@ -173,8 +173,11 @@ Four facts, none of them the causes §1 and §2.1 named:
 - **4686 and 4693-4695**: Sapiens on her crop found her whole head and hair (about 1,923 px at rows 258-316 on 4686,
   `2,203–3,607 px` on 4693-4695), and `hold_to_track` kept almost all of it (`1,833 px` on 4686); the tube cut over a
   thousand pixels of it (`945–1,354 px`) on each of these frames (`1,833 -> 562 px` on 4686; `1,923 -> 836 px` in
-  `parts_held`), since her head track was empty 4682-4695 and `--head-per-stretch` was off. Her dark hair stayed in the
-  window on the kept side of the boundary.
+  `parts_held`), since her head track was empty 4682-4695 (`--head-per-stretch` was off) and in the capture (where no
+  tracker is loaded) a regained `head_tube` frame (`bench/head_tube_parts.py:335–350, 545–568`,
+  `_head_seed_from_person_mask`) is a flat horizontal slice (`py0 : py0 + head_rel_y1 * H`) of the person track at a
+  proportion measured when she stood tall (`4673`), applied to a track that held only her upper body. Her dark hair
+  stayed in the window on the kept side of the boundary.
 - **4686-4693 (`t=12–13`)**: the laid matte reached 40 to 70 px above her head (`y=181–258`) into another person SAM's
   people file (`shot_c_4647k_people.npz`) holds on every frame (2,000 to 3,500 px at scores 0.54 to 0.81), and the
   strangers file held zero pixels there: `bench/strangers.py::run` writes only what whole-frame Sapiens calls human, and

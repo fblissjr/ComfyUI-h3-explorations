@@ -58,7 +58,9 @@ each overturned in [`decisions.md`](decisions.md) 2026-10-26 and the forensics r
     so crop-Sapiens cropped only her forearm (`y=289-367`, false-positive `Face_Neck` on her arm, suppressed by `head_tube`
     with `0` face points) while her emerging head edge on `4684-4685` had no track or mask and the `hidden` mark (`4674-4685`)
     zeroed the step. On `4686` and `4693-4695`, because `--head-per-stretch` was off (`head_track == 0 px` on `4682-4695`),
-    `head_tube` sliced `945-1,354 px` off crop-Sapiens's valid head/hair mask (`1,271 px` lost in `parts_held` on `4686`), while
+    a regained `head_tube` frame in the capture (`bench/head_tube_parts.py:335-350, 545-568`, `_head_seed_from_person_mask` with
+    `tracker=None`) was a flat horizontal slice of her upper-body person track at a proportion measured when she stood tall
+    (`4673`), slicing `945-1,354 px` off crop-Sapiens's valid head/hair mask (`1,271 px` lost in `parts_held` on `4686`), while
     on `4688, 4691-4693` `parts_held` held `726-1,460 px` of `Hair` (class `4` in `classes__shot_c_4647k.npz`).
   - On `4686-4693` (`t=12-13`), the laid matte reached `40-70 px` above her head into the dark-haired bystander woman SAM had
     detected (`2,000-3,500 px` in `shot_c_4647k_people.npz` at `0.54-0.81`) while `strangers.mkv` held `0 px` there because
