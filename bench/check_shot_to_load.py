@@ -4242,6 +4242,22 @@ def subject_recipe_and_pass2_cut_check() -> str:
             and "wide arm motion on 100-159" in m_diff["why"]
         ), m_diff
 
+        # CLI --margin or --zoom-up-to that differs from the plan's settled recipe (or shot_overrides) is refused with no --margin-why bypass
+        refused(
+            lambda: made.load(name="c_fp_0100_badm", subject="c", margin=64, margin_why="beard rule"),
+            "--margin 64 for 'c' on 100-159 differs from the plan's settled recipe margin (16 px",
+            "cannot override a settled subject recipe in plan.json",
+        )
+        refused(
+            lambda: made.load(name="c_fp_0100_badz", subject="c", zoom_up_to=4.0, zoom_up_to_why="closer zoom"),
+            "--zoom-up-to 4 for 'c' on 100-159 differs from the plan's settled recipe zoom_up_to (2",
+            "cannot override a settled subject recipe in plan.json",
+        )
+        refused(
+            lambda: made.load(name="a_fp_0100_badov", margin=64, margin_why="try base margin over shot_overrides"),
+            "--margin 64 for 'a' on 100-159 differs from the plan's settled recipe margin (120 px",
+        )
+
         # check_pass2_source refuses when a registered cut sidecar is missing an already-laid subject on the shot
         laid_path = made.m.data / "v" / "laid.jsonl"
         laid_path.parent.mkdir(parents=True, exist_ok=True)

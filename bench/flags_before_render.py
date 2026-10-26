@@ -668,10 +668,9 @@ def recipe_check_of(
             "closed_mouth": actual_closed_mouth,
         }
         has_ov_map = {
-            "margin": bool(isinstance(margin_by, dict) and str(margin_by.get("why") or "").strip()),
+            "margin": bool(item_ov_margin := False),
             "zoom_up_to": bool(
-                (isinstance(zoom_by, dict) and str(zoom_by.get("why") or "").strip())
-                or (isinstance(job.get("whole_frame"), dict) and str(job["whole_frame"].get("why") or "").strip())
+                isinstance(job.get("whole_frame"), dict) and str(job["whole_frame"].get("why") or "").strip()
             ),
             "crop": bool(ref_cfg.get("form") == "none"),
             "open_mouth": bool(
@@ -695,11 +694,13 @@ def recipe_check_of(
                 if cur_v is None:
                     cur_v = item.get("this_load")
                 why_s = str(item.get("why") or "").strip()
-                if cur_v == rec_v:
+                plan_ov = bool(
+                    (k == "margin" and isinstance(rec, dict) and "base_margin" in rec and cur_v == rec.get("margin"))
+                    or (k == "zoom_up_to" and isinstance(rec, dict) and "base_zoom_up_to" in rec and cur_v == rec.get("zoom_up_to"))
+                )
+                if cur_v == rec_v and not plan_ov:
                     st = "match"
-                elif cur_v == item.get("this_load") and item.get("status") in ("overridden", "unexplained"):
-                    st = str(item["status"])
-                elif has_ov_map.get(k, False) and why_s:
+                elif (has_ov_map.get(k, False) or plan_ov) and why_s:
                     st = "overridden"
                 else:
                     st = "unexplained"

@@ -552,6 +552,27 @@ def test_recipe_check_and_mouthless_reference() -> str:
         )
         assert proc.returncode == 2 and "REFUSED:" in proc.stderr and "unexplained recipe deviation" in proc.stderr and "Traceback" not in proc.stderr, proc.stderr
 
+        # 2b. A job that carried a self-written CLI margin_by/recipe_diff "overridden" against a settled recipe (like 5114d margin=64 vs recipe=16) is STILL flagged as unexplained and refused
+        jd_cli_ov = json.loads(job_plan.read_text())
+        jd_cli_ov["job"]["recipe"] = {
+            "margin": 16,
+            "zoom_up_to": 2.0,
+            "crop": "cranium",
+            "open_mouth": "inner outline",
+            "closed_mouth": "sculpted",
+            "by": "owner",
+            "why": "third standing recipe",
+        }
+        jd_cli_ov["job"]["recipe_diff"] = [
+            {"knob": "margin", "recipe": 16, "this_load": 64, "status": "overridden", "why": "ad-hoc beard margin"},
+        ]
+        jd_cli_ov["defaults"] = {"margin": 64, "margin_by": {"why": "ad-hoc beard margin", "by": "session"}}
+        job_plan.write_text(json.dumps(jd_cli_ov))
+        refused(
+            lambda: fbr.record_initial(cap, "gemreader", ["lead_fp_4310"]),
+            "unexplained recipe deviation(s): margin (recipe=16, this_load=64)",
+        )
+
         # 3. Mouthless reference when closed_mouth='outlined' has 0 open_frames and 0 frames_drawn_closed
         ref_rec_path = root / "references" / "lead_head_reference_4310_4389.json"
         ref_rec = json.loads(ref_rec_path.read_text())

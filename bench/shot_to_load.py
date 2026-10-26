@@ -2756,7 +2756,15 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
                     eff_ref["why"] = ov_w
                     eff_ref["by"] = ov_b
         p = dict(p, recipe=eff_rec, reference=eff_ref)
-    if own_margin is None:
+    if own_margin is not None:
+        eff_m_check = ov_margin if ov_margin is not None else (int(rec_margin_raw) if rec_margin_raw is not None else None)
+        if eff_m_check is not None and int(own_margin) != int(eff_m_check):
+            raise Refused(
+                f"--margin {own_margin} for {subject!r} on {a}-{b} differs from the plan's settled recipe margin ({eff_m_check} px, "
+                f"{ov_margin_by or rec_by}: {ov_margin_why or rec_margin_why or rec_why}): a command-line --margin cannot override a settled "
+                f"subject recipe in plan.json. Record a per-shot exception in plan.json subjects.{subject}.shot_overrides first"
+            )
+    else:
         eff_m = ov_margin if ov_margin is not None else (int(rec_margin_raw) if rec_margin_raw is not None else None)
         eff_m_why = ov_margin_why if ov_margin is not None else (rec_margin_why or rec_why)
         eff_m_by = ov_margin_by if ov_margin is not None else rec_by
@@ -3111,7 +3119,15 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
         chosen += (f" RENDERED ZOOMED IN on what is replaced (`render_region: part`) where the node's box allows, on {zoom_block['said_by']}'s word: "
                    f"{zoom_block['why']}. One box for the whole load, the node's own; the capture reads the node's plan back onto the frame, and the part's "
                    "sizes and floor it prints are still of the whole frame.")
-        if up_to_by is None:
+        if up_to_by is not None:
+            eff_z_check = ov_zoom if ov_zoom is not None else (float(rec_zoom_raw) if rec_zoom_raw is not None else None)
+            if eff_z_check is not None and float(up_to) != float(eff_z_check):
+                raise Refused(
+                    f"--zoom-up-to {up_to:g} for {subject!r} on {a}-{b} differs from the plan's settled recipe zoom_up_to ({eff_z_check:g}, "
+                    f"{ov_zoom_by or rec_by}: {ov_zoom_why or rec_zoom_why or rec_why}): a command-line --zoom-up-to cannot override a settled "
+                    f"subject recipe in plan.json. Record a per-shot exception in plan.json subjects.{subject}.shot_overrides first"
+                )
+        else:
             eff_z = ov_zoom if ov_zoom is not None else (float(rec_zoom_raw) if rec_zoom_raw is not None else None)
             eff_z_why = ov_zoom_why if ov_zoom is not None else (rec_zoom_why or rec_why)
             eff_z_by = ov_zoom_by if ov_zoom is not None else rec_by
@@ -3406,11 +3422,11 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
     margin_diff_why = (
         margin_by["why"] if margin_by is not None else (ov_margin_why if ov_margin is not None else (rec_margin_why or f"h3_config.MASKED_LOAD_MARGIN[{region!r}]"))
     )
-    margin_has_override = bool((margin is not None and margin_by) or ov_margin is not None)
+    margin_has_override = bool(ov_margin is not None)
     zoom_diff_why = (
         up_to_by["why"] if up_to_by is not None else (whole_block["why"] if whole_block is not None else (ov_zoom_why if ov_zoom is not None else (rec_zoom_why or f"node default ({ZOOM_NODES_OWN:g})")))
     )
-    zoom_has_override = bool((zoom_up_to is not None and up_to_by) or whole_block is not None or ov_zoom is not None)
+    zoom_has_override = bool(whole_block is not None or ov_zoom is not None)
     crop_diff_why = (
         str(motion_why or "") if motion == "none" else str((ref_form.get("crop") or {}).get("why") or "default (head)")
     )
@@ -3434,13 +3450,15 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
         or any(ov.get("open_mouth") is not None or ov.get("closed_mouth") is not None for ov in shot_ovs)
     )
     job_recipe = {
-        "margin": rec_margin,
-        "zoom_up_to": rec_zoom,
+        "margin": int(ov_margin) if ov_margin is not None else rec_margin,
+        "zoom_up_to": float(ov_zoom) if ov_zoom is not None else rec_zoom,
         "crop": rec_crop,
         "open_mouth": rec_open_mouth,
         "closed_mouth": rec_closed_mouth,
         "by": rec_by,
         "why": rec_why,
+        **({"base_margin": rec_margin} if ov_margin is not None and int(ov_margin) != rec_margin else {}),
+        **({"base_zoom_up_to": rec_zoom} if ov_zoom is not None and float(ov_zoom) != rec_zoom else {}),
     }
     job_recipe_diff = [
         {
