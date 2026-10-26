@@ -208,6 +208,13 @@ Inspect three critical signals before spending GPU render minutes:
      ```
 3. **`mouth_mode` and `parts_held_px` dips**:
    - Confirm `mouth_mode` matches the window's vocal activity (`no_mouth` on silent windows, drawn mouth on singing windows) and check `notable_spans` for any `parts_held_drop_below_half_rolling_12f_median`.
+4. **End-to-end mask-step & provenance forensics (`bench/inspect_mask_steps.py`)**:
+   ```bash
+   CUDA_VISIBLE_DEVICES= H3_INPUT_DIR=<share>/input H3_OUTPUT_DIR=<share>/output \
+     <comfy-venv>/bin/python bench/inspect_mask_steps.py \
+     --capture data/<day>_<load> --problems-only --strips /tmp/<load>_strips.jpg
+   ```
+   - Verifies `[0]` Pass 1/2/3 provenance, creation (`%w`) + modification (`%y`) timestamps, `stale_at_build` vs. `code_updated_since_capture`, `depth.npz` (`measure_moge2_depth.py`) usage on contested pixels, and prior-pass DiT region overlap / SAM 3.1 track collapse; `[1]` `(1, 4, 4, 4, 4)` latent-step `PAD` bleed (`HELD_EDGE_EMPTY_RUN = 4`); `[2]` blue-only `0 px` frames inside active latent steps; `[3]` speck-in-blue frames; `[4]` `< 75%` edge-shrunk whole-head frames; `[5]` `strangers` self-swallow; `[6]` missed SAM 3.1 strangers inside the blue region; and `[7]` per-frame gap recovery and visual diagnostic strips ([`docs/masked_v2v/2026-10-25_pass_contamination_and_mask_step_forensics.md`](2026-10-25_pass_contamination_and_mask_step_forensics.md)).
 
 ### 3.3 The Look, Flags Read (`flags_before_render.py`), Full Prompt Read (`what_h3_got.py`), & `render`
 
@@ -217,7 +224,7 @@ Inspect three critical signals before spending GPU render minutes:
    CUDA_VISIBLE_DEVICES= <comfy-venv>/bin/python bench/flags_before_render.py \
      data/<day>_<load> --load <load> --initial <session>
    ```
-   Prints and records the four diagnostic blocks (`flags.json`, `marks_against_the_body_model`, `runs/<run>/step_carves.json`, and held/emptied frames) to `<capture>/looks/<load>.flags_read.json` (`bench/load_chain.py::the_flags_read` refuses `render` without it).
+   Prints and records the five diagnostic blocks (`[0]` recipe diff against `SUBJECT_RECIPE_DEFAULTS`, `[1]` `flags.json`, `[2]` `marks_against_the_body_model` + `face_on_the_track` + `mouthless_reference`, `[3]` `runs/<run>/step_carves.json`, and `[4]` held/emptied frames + `unlaid_while_tracked` + `unresolved_hair_in_hole`) to `<capture>/looks/<load>.flags_read.json` (`bench/load_chain.py::the_flags_read` refuses `render` without it).
 3. **Full prompt read (`bench/what_h3_got.py`)**:
    ```bash
    CUDA_VISIBLE_DEVICES= <comfy-venv>/bin/python bench/what_h3_got.py \
