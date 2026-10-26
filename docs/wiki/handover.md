@@ -41,15 +41,14 @@ each overturned in [`decisions.md`](decisions.md) 2026-10-26 and the forensics r
 
 ## What not to assume
 
-- **Pasted screenshot boxes and session-entered sheet boxes are not tracker seeds (`decisions.md`, 2026-10-26)**:
-  - `data/fun/cast/cast.jsonl` holds three ranges: lines `1-174` are the owner's `who-is-who` clicks on the HTML page (which
-    stand: each identifies which detected person is the subject on that frame); lines `175-192` and `194-196` (`2` already
-    withdrawn at `193` and `210`) came from the owner's 2026-10-23 pasted screenshots (`"just to give you a rough idea"`) and
-    are never tracker seeds; lines `197-209` (`13` boxes entered by a session from contact sheets on 2026-10-25) are likewise
-    not tracker seeds.
-  - Do **not** withdraw `cast.jsonl` lines `175-192` before tomorrow's tracker build lands: on `4647-4725` the owner's only
-    page click on `second` is frame `4666` (`line 128`, before the `4677-4681` occlusion), so withdrawing the screenshot boxes
-     goes together with tomorrow's tracker build that re-finds her after an occlusion on its own.
+- **Hand-drawn boxes on pasted screenshots (`cast.jsonl` lines `175-192` and `194-196`) are not tracker seeds; `/who/` page clicks (`1-174`) and session-verified SAM detection boxes (`197-209`) stand (`decisions.md`, 2026-10-26)**:
+  - `data/fun/cast/cast.jsonl` holds three groups:
+    1. **Group 1 (`lines 1-174`)**: the owner's `who-is-who` clicks on the HTML page — **valid and stand** (each identifies which detected person is the subject on that frame).
+    2. **Group 2 (`lines 175-192` and `194-196`, `2` already withdrawn at `193` and `210`)**: rough hand-sketched rectangles on the owner's 2026-10-23 pasted contact-sheet screenshots (`data/fun/owner_sheets/2026-10-23_4647_who_is_who_owner.webp` and `2026-10-23_4912_who_is_who_owner.webp`, `"just to give you a rough idea"`) mapped directly into `cast.jsonl` — **never included directly as seeds**; those screenshots are used **only as visual feedback to guide Group 3** (identifying which exact SAM-detected person is whom).
+    3. **Group 3 (`lines 197-209`)**: `13` exact SAM person-detection boxes on `2050` (`2292-2571`, e.g. `2292 P6`, `2325 P1`, `2436 P3`) verified by a session on the SAM detection masks using the owner's visual cues — **valid and stand**.
+  - Do **not** withdraw Group 2 (`cast.jsonl` lines `175-192` and `194-196`) before tomorrow's tracker build lands: on `4647-4725` the owner's only
+    page click on `second` is frame `4666` (`line 128`, before the `4677-4681` occlusion), so withdrawing Group 2 (`175-192` and `194-196`)
+    goes together with tomorrow's tracker build that re-finds her after an occlusion (or replaces any needed seed with an exact verified SAM detection box, Group 3).
 - **What both sides verified on `second_hfp_4647h` (`4647-4725`)**:
   - `4647-4673` replaced her face and hair with blonde hair cleanly, proving `2.17x` zoom in the single 79-frame window swaps
     her to blonde once unmasked dark hair is removed. Never split a shot `<= 345` frames across an interior occlusion
@@ -88,13 +87,12 @@ each overturned in [`decisions.md`](decisions.md) 2026-10-26 and the forensics r
      emptied or left in the feathered rim.
    - **Build 2 — Strangers keep-out (`bench/strangers.py:395-449, 479-502, 542-570`)**: include SAM 3.1's other-person detections
      (`people.npz`, `others[i]` where `o[3] is None`) in `strangers.py::run` (`561-570`) where whole-frame Sapiens2 finds nobody.
-   - **Build 3 — Tracker post-occlusion re-finding, box withdrawal & `4647i` reference remake (`subject_track.py:829-840, 1200-1359, 1403, 1489, 1604-1654`, `bench/shot_to_load.py:485-494, 556-561`, `bench/cast_file.py:364`, `data/fun/cast/cast.jsonl`)**:
+   - **Build 3 — Tracker post-occlusion re-finding, Group 2 screenshot-box withdrawal & `4647i` reference remake (`subject_track.py:829-840, 1200-1359, 1403, 1489, 1604-1654`, `bench/shot_to_load.py:485-494, 556-561`, `bench/cast_file.py:276-314, 364`, `data/fun/cast/cast.jsonl`)**:
      flip `head_mode` default to `"per stretch"` (`HEAD_PER_STRETCH`) in `subject_track.py:833-840` and `shot_to_load.py:485-494`
      and re-find a subject after an occlusion via the tracker's own head detection per stretch and the still signature match;
-     withdraw the screenshot/sheet boxes (`cast.jsonl` lines `175-192`, `194-196`, `197-209`) and guard `cast_file.py:364`
-     (`seeds()`) against non-page `drawn: "approximate"` / sheet boxes; and remake `<Video 1>` (`shot_to_load.py reference`) for
+     withdraw the Group 2 hand-drawn screenshot boxes (`cast.jsonl` lines `175-192` and `194-196`, citing `data/fun/owner_sheets/*.webp`) while keeping Group 1 (`/who/` page clicks `1-174`) and Group 3 (verified SAM detection boxes `197-209`), and update `cast_file.py` so `box` requires/records a verified SAM detection rather than raw hand-drawn screenshot coordinates; and remake `<Video 1>` (`shot_to_load.py reference`) for
      `second_hfp_4647i` from the new preview's track with no drawing word (`--no-draw-face-on`, `--no-carry-words`) carried. If
-     the match cannot re-find `second` on `4647` after `4681`, one page click on her outline on `4690` is the fallback.
+     the match cannot re-find `second` on `4647` after `4681`, one page click on her outline on `4690` (or a Group 3 verified SAM detection box guided by the owner's sheet) is the fallback.
    - **Replay & owner strip check**: replay Builds 1–2 offline on `4647k`, `4912h`, and `1093` captures (and verify on the fresh
      `4647` preview/capture once Build 3 runs) and show the owner the `4682-4696` strip drawn from the result before queuing any
      H3 render on `:8188`.

@@ -53,14 +53,11 @@ Older history lives elsewhere and is not copied here:
   `docs/masked_v2v/2026-10-25_pass_contamination_and_mask_step_forensics.md` §6 ("enforces pre-render gates"), which each
   called the recipe diff a gate: it prints a diff and refuses only a difference with no reason. 5114e is the same load at 16.
 
-- **Pasted screenshot boxes and session-entered sheet boxes are not tracker seeds; `who-is-who` page clicks stand; and what
-  both sides verified on `second_hfp_4647h`** (the owner's word, 2026-10-26). The boxes that came from the owner's pasted
-  screenshots on 2026-10-23 (`data/fun/cast/cast.jsonl` lines 175-192 and 194-196, two already withdrawn at lines 193 and
-  210) were a rough idea for a person to look at, never seeds for the tracker. The same goes for the 13 boxes a session
-  entered from contact sheets on 2026-10-25 (lines 197-209). The `who-is-who` clicks the owner made on the page (lines
-  1-174) stand as they are: each one says which detected person is the subject on that frame. Sequencing: on `4647-4725`
-  the owner's only page click on `second` is frame 4666 (`line 128`), before the occlusion, so withdrawing the screenshot
-  boxes tonight with nothing in their place would lose her from 4682 on; the withdrawal goes with tomorrow's tracker build,
+- **Hand-drawn boxes on pasted screenshots are feedback to guide verified SAM detections, never direct tracker seeds; `/who/` page clicks (`1-174`) and session-verified SAM detection boxes (`197-209`) stand; and what both sides verified on `second_hfp_4647h`** (the owner's word, 2026-10-26). `data/fun/cast/cast.jsonl` has three groups of entries:
+  1. **Group 1 (`lines 1-174`)**: the owner's clicks on the `/who/` HTML page — **valid and stand**.
+  2. **Group 2 (`lines 175-192` and `194-196`, two already withdrawn at `193` and `210`)**: rough hand-drawn colored rectangles on the two 2026-10-23 contact-sheet screenshots (`data/fun/owner_sheets/2026-10-23_4647_who_is_who_owner.webp` and `2026-10-23_4912_who_is_who_owner.webp`) that were mapped directly into `cast.jsonl` — **never included directly as seeds**, and only ever used as visual feedback to guide a session in identifying which exact SAM-detected person is whom (Group 3).
+  3. **Group 3 (`lines 197-209`)**: exact SAM person detection boxes (`2292 P6`, `2325 P1`, `2436 P3`, etc. on `2050`) verified by a session against the SAM masks/detections using the owner's visual cues — **valid and stand**.
+  Sequencing: on `4647-4725` the owner's only page click on `second` is frame 4666 (`line 128`), before the occlusion, so withdrawing Group 2 (`lines 175-192` and `194-196`) tonight with nothing in their place would lose her from 4682 on; the withdrawal of Group 2 (`175-192` and `194-196`) goes with tomorrow's tracker build,
   where re-finding her after an occlusion is the tracker's own job (its head detection per stretch with `--head-per-stretch`
   on by default, and the signature match), replayed on 4647 and 4912 before anything renders (with one click on her outline
   on 4690 as the fallback if the match cannot re-find her). On `second_hfp_4647h` (`4647-4725`): the first half (`4647-4673`)
