@@ -7,6 +7,45 @@ artifact.
 <!-- To add an entry: write a file in changelog.d/ (changelog.d/README.md has the three steps) and run
      bench/build_changelog.py. Do not type an entry in here: the newest entries below are generated. -->
 
+## 0.297.0
+<!-- changelog.d/day-2026-10-26.md -->
+
+### Added
+
+- `bench/inventory.py` and `bench/timeline_page.py`: whole-video shot coverage inventory and interactive timeline page
+  reconciling `shots.json`, `who_v2.json`, `laid.jsonl`, and `owner_answers.jsonl`.
+- `bench/inspect_mask_steps.py` (`bench/check_inspect_mask_steps.py`): forensic mask-step and latent-step inspector
+  reporting pass-dependency and `depth.npz` provenance (`[0]`), `PAD` bleed (`[1]`), active-step `0 px` mask frames
+  (`unmasked_head_hair_context`, `[2]`), speck-in-blue frames (`[3]`), `< 75%` edge-shrunk `whole` reference frames
+  (`clean_whole`, `[4]`), `strangers` self-swallow (`[5]`), missed SAM 3.1 strangers inside the blue region (`[6]`),
+  and gap recovery tables and strips (`[7]`).
+- `bench/laid.py keeps`: verifies every owner keep in `owner_answers.jsonl` and `verdicts.jsonl` against `laid.jsonl`,
+  distinguishing superseded keeps and unreplaced removals.
+
+### Changed
+
+- Retired hand-bumped `MASK_VERSION` and `REGION_VERSION` in favor of `bench/_lib/code_stamp.py` content hashes over
+  the chain's source files.
+- Settled per-subject `margin` and `zoom_up_to` values live in `data/<video>/plan.json` (`subjects.<subject>.recipe`
+  and `shot_overrides`), and `bench/shot_to_load.py job` and `bench/flags_before_render.py::recipe_check_of` refuse any
+  differing command-line value with no `--*-why` reason bypass.
+- Coverage gates in `bench/shot_to_load.py`, `bench/capture_masked_run.py`, and `bench/laid.py`: refuse partial-shot
+  loads without `--allow-partial-shot`, flag tracked subjects with no laid coverage, and refuse partial lays without
+  `--allow-partial-lay`.
+- `bench/said_on_shot.py` matches frame-pinned owner notes on `[first, last]` against the target shot.
+
+### Fixed
+
+- `video_mask.py::held_edge_source`: holds the nearest good masked frame (`>= 0.25` of the window's median mask area)
+  when a boundary frame is empty or pinched, capped at `HELD_EDGE_EMPTY_RUN = max(FRAME_PER_TOKEN)` (`4` frames, one
+  4-frame latent step) so a trailing empty run does not reach back across the shot.
+- `bench/capture_masked_run.py::her_hair_in_hole`: reads `head_tube` (`ht_res["tube"]`) instead of raw `head_track_arr`,
+  skips `hidden` frames in Stage 2/3, subtracts every other person's mask (`~taken[k]`), includes `held_masks` in
+  `track__<by>.mkv` so the node's window union box covers `hers` crown pixels, and carves a 1-cell 4-connected bridge
+  in `grid_carve` when keep-outs pinch a `hers` unit into a diagonal island dropped by `drop_islands`.
+- `marks_against_the_body_model` checks eye-line roll against the 3D pose, and `bench/crop_reference_to_head.py::cranium_box`
+  skips bare and dropped frames when sizing the crop box.
+
 ## 0.296.0
 <!-- changelog.d/day-2026-10-24.md -->
 
