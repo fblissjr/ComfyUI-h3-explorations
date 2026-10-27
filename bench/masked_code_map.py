@@ -1563,7 +1563,18 @@ def query_status() -> int:
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    epilog = (
+        "Code-map files managed & verified by this tool:\n"
+        "  1. docs/masked_v2v/CODE_MAP_INDEX.md                                  (auto-generated AST jump index, constants, dep/step chains; updated by --write)\n"
+        "  2. docs/masked_v2v/code_map_stages.md                                 (Part 1: Stage 1.1a..5.4 state mutations; stamped by --stamp-narrative)\n"
+        "  3. docs/masked_v2v/code_map_contracts.md                              (Parts 2 & 4: cross-process contracts, 17n+5 math, overwrites, duplicates; stamped by --stamp-narrative)\n"
+        "  4. docs/research/masking/2026-10-26_code_map_and_simplification_plan.md (Router, traps, commit ledger, Part 5 builds; stamped by --stamp-narrative)\n"
+    )
+    ap = argparse.ArgumentParser(
+        description=__doc__.splitlines()[0],
+        epilog=epilog,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     ap.add_argument("--write", action="store_true", help="Write docs/masked_v2v/CODE_MAP_INDEX.md from live AST (printing any narrative stage drift first).")
     ap.add_argument("--stamp-narrative", action="store_true", help="Stamp per-section and per-doc AST digests into code_map_stages.md, code_map_contracts.md, and 2026-10-26_code_map_and_simplification_plan.md after reviewing prose.")
     ap.add_argument("--status", action="store_true", help="Print when watched code, CODE_MAP_INDEX.md, and narrative docs were last updated and whether any section drifted.")

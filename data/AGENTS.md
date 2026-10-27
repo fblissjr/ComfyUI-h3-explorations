@@ -10,7 +10,7 @@ pack, not the pack (root `AGENTS.md`, "The repo is broader than the current proj
 | where a project stands today | `docs/wiki/handover.md`, then the project's own `data/<video>/AGENTS.md` |
 | what is in the cut and what gaps remain | `data/<video>/laid.jsonl`; the table, gap check and cut the newest finished rebuild names, and how to tell they are current ("Where the lane's state lives", below); `bench/shot_coverage.py` |
 | the day-to-day commands (ComfyUI, one load, the review server, the rebuild, the close) | `docs/masked_v2v/PROTOCOL.md`, `docs/wiki/runbook.md` |
-| the pipeline end to end, and the lane's rules | `docs/masked_v2v/AGENTS.md`, `docs/masked_v2v/PROTOCOL.md`, `docs/masked_v2v/CODE_MAP_INDEX.md`, `docs/wiki/masked_v2v_pipeline.md`, `docs/wiki/masked_v2v.md` |
+| the pipeline end to end, and the lane's rules | `docs/masked_v2v/AGENTS.md`, `docs/masked_v2v/PROTOCOL.md`, `docs/masked_v2v/CODE_MAP_INDEX.md` (run `<python> bench/masked_code_map.py --help`), `docs/wiki/masked_v2v_pipeline.md`, `docs/wiki/masked_v2v.md` |
 | when to restart ComfyUI (`:8188`), and what a change to code, a prompt, a reference or a pass-1 cut forces | [`docs/masked_v2v/AGENTS.md`](../docs/masked_v2v/AGENTS.md) §8 and [`docs/masked_v2v/chain_trace_and_remakes.md`](../docs/masked_v2v/chain_trace_and_remakes.md) (the one copy) |
 | after a batch of landings or laid changes | `bench/laid.py` with `--no-rebuild WHY` on each write, then one `bench/rebuild_delivery.py --video <video> --clip`; a look at one shot takes that span alone ([`docs/masked_v2v/PROTOCOL.md`](../docs/masked_v2v/PROTOCOL.md) 5.3) |
 
