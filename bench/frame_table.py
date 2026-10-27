@@ -71,6 +71,7 @@ CLOSED_DID_VOCAB = frozenset({
     "filled on a person's word",
     "held by the floor rule",
     "saved part kept, fill refused",
+    "saved part kept, restored by her_hair_in_hole",
     "emptied",
     "left empty: the word not held",
     "left empty: hold missed her track: the nearest standing part, moved, lies mostly off her track, so nothing is placed (data, which the gap check shows)",
@@ -930,10 +931,11 @@ def build_frame_table(
                 if g.get("held_in_place_from") is not None:
                     outcome_extra["held_in_place_from"] = int(g["held_in_place_from"])
                 outcome_extra["did"] = did
-            elif did == "saved part kept, fill refused":
+            elif did in ("saved part kept, fill refused", "saved part kept, restored by her_hair_in_hole"):
                 outcome = "replaced"
-                loaded_part_px = int(saved_part_px or 0)
-                part_px = int(saved_part_px or 0)
+                kept_px = int(g["px"]) if did == "saved part kept, restored by her_hair_in_hole" and g.get("px") is not None else int(saved_part_px or 0)
+                loaded_part_px = kept_px
+                part_px = kept_px
                 part_px_measures = "saved_part (carried)"
                 outcome_extra["did"] = did
             elif did in FACE_DROPPED_DIDS:

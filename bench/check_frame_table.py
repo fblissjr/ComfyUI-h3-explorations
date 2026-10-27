@@ -1087,6 +1087,35 @@ def main() -> int:
             c_no_face_hair_kept,
         )
 
+        def c_restored_by_her_hair_in_hole() -> str:
+            pg_path = subj_dir / "part_grades.json"
+            orig_pg = json.loads(pg_path.read_text(encoding="utf-8"))
+            try:
+                pg_hih = copy.deepcopy(orig_pg)
+                pg_hih["frames"] = [g for g in orig_pg["frames"] if g["source_frame"] != 104] + [{
+                    "source_frame": 104,
+                    "did": "saved part kept, restored by her_hair_in_hole",
+                    "saved_on_its_classes": 1.0,
+                    "fill_on_its_classes": None,
+                    "why": "too small to be drawn as the part",
+                    "px": 818,
+                    "least_px": 400,
+                }]
+                pg_path.write_text(json.dumps(pg_hih, indent=2) + "\n", encoding="utf-8")
+                w = frame_table.build_frame_table(cap)
+                _, r_hih = _read_table(w["jsonl"])
+                r104 = {r["source_frame"]: r for r in r_hih}[104]
+                assert r104["outcome"] == "replaced" and r104["loaded_part_px"] == 818 and r104["part_px"] == 818, r104
+                assert r104["did"] == "saved part kept, restored by her_hair_in_hole", r104
+                return f"104: outcome={r104['outcome']}, loaded_part_px={r104['loaded_part_px']}, did={r104['did']!r}"
+            finally:
+                pg_path.write_text(json.dumps(orig_pg, indent=2) + "\n", encoding="utf-8")
+
+        case(
+            "restored by her_hair_in_hole (2026-10-27): accepted in CLOSED_DID_VOCAB and recorded as replaced with its restored px",
+            c_restored_by_her_hair_in_hole,
+        )
+
     return finish()
 
 

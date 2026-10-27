@@ -71,6 +71,9 @@ A thing worn on the head (Eyeglass, Apparel `@head`) is placed by the assembler 
 2026-10-23; `bench/assemble_delivery.py`, `WORN_ON_THE_HEAD`); a span with `"placed": "as filmed"` and `placed_by`
 (whose word and why) keeps the film's place there, written `:filmed` on the token and said in the header. Any other
 `placed`, or one with no `placed_by`, is refused.
+A span with `"loads": ["<load_name>", ...]` (2026-10-27; `docs/masked_v2v/delivery_table_and_restore_architecture.md`)
+pins the exception to those explicit load names ONLY so a later remake on the same frames (where H3 renders the
+accessory itself, such as `lead_fp_3967c`) never inherits a legacy source-paste that would double-draw the accessory.
 
 **`restore=`** follows the practice of the table of 2026-10-12, as its header states it: a subject's row gives
 back every OTHER subject the shots file has in that shot (`yes` or `unsure`): `restore=<other>:whole` on a face
@@ -827,10 +830,24 @@ def reading_text(out: dict, made: str, table: str, built: dict | None = None) ->
 
 
 def main() -> int:
-    p = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    epilog = (
+        "WHEN TO USE / NOT USE `restore` IN PLAN.JSON (docs/masked_v2v/delivery_table_and_restore_architecture.md):\n"
+        "  - `subjects.<label>.restore` in plan.json is ONLY for clip-specific exceptions where H3 OMITTED an\n"
+        "    accessory inside the regenerated mask (e.g., lead_fp_3909b's sunglasses or lead_fp_0168c's hat).\n"
+        "  - Always pin each entry with `\"loads\": [\"<load_name>\"]` so a later remake on those frames does not\n"
+        "    inherit the source-paste.\n"
+        "  - NEVER add `restore` for a load where H3 already renders or keeps the accessory in its own .mp4\n"
+        "    (e.g., lead_fp_3967c, lead_fp_2823b, lead_fp_3098b: causes double rims/hooks) or where the\n"
+        "    accessory hangs outside `matte` (e.g., dangling earrings)."
+    )
+    p = argparse.ArgumentParser(
+        description=__doc__.split("\n")[0],
+        epilog=epilog,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     p.add_argument("--ledger", required=True, help="the render ledger's JSON (bench/render_ledger.py --json)")
-    p.add_argument("--shots", required=True)
-    p.add_argument("--plan", required=True)
+    p.add_argument("--shots", required=True, help="the video's shots record (data/<stem>/shots.json)")
+    p.add_argument("--plan", required=True, help="the video's plan (data/<stem>/plan.json); see epilog below for `restore` rules")
     p.add_argument("--prefer", action="append", default=[], metavar="FIRST-LAST:SUBJECT=LOAD:reason",
                    help="on that shot, for that subject, the load to go first among those that may stand; the reason is printed; repeatable")
     p.add_argument("--hold", action="append", default=[], metavar="FIRST-LAST:SUBJECT=LOAD:reason",

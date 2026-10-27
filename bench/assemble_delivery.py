@@ -133,6 +133,12 @@ eyes' offset before and after, and the pixels laid and clipped; held, filled, sk
 A restore of any other class, or of another subject's, is given back at the film's place as before, byte for byte.
 WHAT IT CANNOT SEE: a head turned or tipped in depth (a flat shift does not turn the glasses with it), a thing held in
 the hands where they are not given back (it follows the face, not the hands), the top of the render's head, which a hat
+placed by the ears does not read, and **whether H3 already rendered the accessory inside the piece's own mp4** (see the
+three regimes in `docs/masked_v2v/delivery_table_and_restore_architecture.md` §1.3: `restore=<self>.<Class>` is ONLY for
+Regime 2 where H3 omitted an accessory inside the mask, such as `lead_fp_3909b`'s glasses or `lead_fp_0168c`'s hat; NEVER
+use it when H3 already generated/kept the accessory in the render, such as `lead_fp_3967c`, `lead_fp_2823b`, or `lead_fp_3098b`,
+where `restore=` pastes a second shifted copy from the source plate and causes double rims/hooks; and NEVER for accessories
+outside `matte` like dangling earrings).
 would best follow (nothing segments the render), an earring, which hangs at one ear and not the ears' middle, whether the
 render's points are on her face where they do not jump, and the look. KNOWN LIMIT: a head-worn Apparel restore (`@head`)
 moves every Apparel piece that touches her head, collar and chin pieces included, with the hat; accepted on lead_fp_0168c
@@ -3235,10 +3241,29 @@ def add_check_to_sidecar(args, result) -> str:
 
 
 def main():
-    p = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    epilog = (
+        "WHEN TO USE / NOT USE `restore=` ON A TABLE ROW (docs/masked_v2v/delivery_table_and_restore_architecture.md):\n"
+        "  1. Cross-subject protection (`restore=<other>` or `restore=<other>:whole`):\n"
+        "     Prevents a row's region from overwriting another tracked subject in the same shot.\n"
+        "  2. Self-accessory give-back (`restore=<self>.<Class>[@head][:filmed]`):\n"
+        "     - WHAT IT IS FOR (Regime 2): Clip-specific exception (pinned via `\"loads\": [...]` in plan.json)\n"
+        "       ONLY when an accessory inside the regenerated mask was OMITTED by H3 (e.g., lead_fp_3909b's\n"
+        "       sunglasses or lead_fp_0168c's hat). Copies source pixels shifted by (dy, dx) onto the new face.\n"
+        "     - WHAT IT IS NOT FOR (Regimes 1 & 3):\n"
+        "       * NEVER on a render that already generated or kept the accessory in its own .mp4 (e.g.,\n"
+        "         lead_fp_3967c, lead_fp_2823b, lead_fp_3098b): pasting a shifted source copy on top of H3's\n"
+        "         rendered accessory creates double sunglasses rims/ear-hooks.\n"
+        "       * NEVER for accessories outside `matte` (e.g., dangling earrings in lead_fp_2823b), which\n"
+        "         already show from the untouched source video without `restore=`."
+    )
+    p = argparse.ArgumentParser(
+        description=__doc__.split("\n")[0],
+        epilog=epilog,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     p.add_argument("--source", help="the original file: untouched frames and the audio come from it")
-    p.add_argument("--table")
-    p.add_argument("--out")
+    p.add_argument("--table", help="delivery table (.txt) from bench/delivery_table.py; see epilog below for `restore=` rules")
+    p.add_argument("--out", help="output .mp4 path")
     p.add_argument("--compare", nargs=2, metavar=("A.check.json", "B.check.json"), help="print two check records side by side, and stop")
     p.add_argument("--span", help="first-last in source frames; default 0 to the last frame any row names")
     p.add_argument("--size", choices=("canvas", "source"), default="canvas",
