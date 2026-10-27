@@ -1,6 +1,6 @@
 # Working with the owner
 
-last updated: 2026-10-18 (moved here on 2026-10-17 from the Claude sessions' private memory at the owner's word, so the Gemini and
+last updated: 2026-10-27 (updated for Gemini leading in the `agy` harness and local files as the sole source of truth; moved here on 2026-10-17 from the Claude sessions' private memory at the owner's word, so the Gemini and
 Claude sessions read the same preferences)
 
 **How the owner likes to work, for every session of either model.** AGENTS.md holds the rules of the repo; this page
@@ -25,9 +25,8 @@ this page is corrected. Each line carries the date it was asked for; the reasons
 
 ## Where things go, and what they are called
 
-- **Every question says which page it is on.** A decision is a row with buttons on the H3 Open List (written by the
-  Claude lead only); a look at a clip is an item on the local review page. Make the row before mentioning it.
-  (2026-10-12)
+- **Every question says which page or record it is on.** A look at a clip or a shot question (`kind: "look"`) is an item on the local review page (`:8765`, `data/<video>/review/items.json`) or `/who/` page (`bench/who_page.py`), and a broader decision is asked in the terminal and recorded in `docs/wiki/decisions.md` and `docs/wiki/handover.md` (local files are the sole record; any hosted page such as the H3 Open List is never read back as fact, 2026-10-27). Make the page item before mentioning it.
+  (2026-10-12, 2026-10-27)
 - **Review links go in one place:** `Video/<video>/TO_REVIEW.html` on the share, beside `PROVENANCE.html`, given as
   the review server's address (`http://<ip address>:<port>/fun_share/...`; run `data/<video>/poc/serve.py` to serve),
   never a file path. Its "Start here"
@@ -65,9 +64,7 @@ this page is corrected. Each line carries the date it was asked for; the reasons
   a Gemini reader writes a short card: what it sees (frames), what it cannot see, its verdict and a one-line why,
   generated from its reading file and folded closed, so the owner watches first and then compares. The owner's eye
   still accepts a piece; the point is to see where the two reads agree and where each misses something.
-- **Every open decision carries both leads' takes** (2026-10-18): the Claude lead's and the Gemini lead's
-  recommendation and a one-line why, side by side on the Open List row. Neither lead decides for the owner unless the
-  answer is plainly obvious to both.
+- **Every open decision carries the lead's recommendation and a one-line why** (2026-10-18, updated 2026-10-27): when asking the owner a decision in the terminal or on a local review card, state the recommended option and a one-line why alongside the alternatives, and record the owner's answer in `docs/wiki/decisions.md`.
 - **Judging is comparative and in free text** (stacked pairs at a matched seed), never a score. A still is reported
   as seen, without a quality word. (2026-08-20)
 - **A render must decide something**; check the share for one already made first, and the cheap no-card check before
@@ -83,7 +80,7 @@ this page is corrected. Each line carries the date it was asked for; the reasons
 - **Cause and symptom often come in one sentence.** Re-read the whole sentence and say it back before building on
   half of it. (2026-08-28)
 - **A terse priority remark names a lane**: confirm which before claiming the card. (2026-09-15)
-- **A thought in the terminal is not a go.** It goes to the Open List's inbox; a go is a row or a line meant as one.
+- **A thought in the terminal is not a go.** Record it in the local notes/handover and carry on; a go is an explicit line from the owner meant as one.
   (AGENTS.md, "How the owner and the sessions talk")
 - **Visual cues, annotated screenshots, and words about what is on a frame (Group 2) are recorded ground truth that informs the pipeline, never raw box coordinates and never discarded** (2026-10-26):
   - When the owner shares an annotated screenshot/sketch or says in words *"this person or this segment (e.g., hair + face, or just hair) is here in this frame and here is roughly where"*, the session reads back its understanding—stating both what it heard the owner say and what it sees on the frames in case of conflict—and records that observation (`plan.json` `head_marks`, the shot's record, or `owner_sheets/`). The owner should never find out later that what their eyes confirmed was not worth recording.

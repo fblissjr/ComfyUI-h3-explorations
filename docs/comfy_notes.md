@@ -1,24 +1,68 @@
 # Notes on building custom nodes and workflows inside ComfyUI
 
-Last updated: 2026-08-16.
+Last updated: 2026-10-27.
 
 ## Running things
 
-### Where this machine keeps things: three environment keys
+### Where this machine keeps things: environment keys and `<comfy>/start.sh`
 
-A folder that is this machine's is an environment key, never a path in a tracked file. Each tool that
-needs one says so in words when the key is not set.
+A folder that is this machine's is an environment key, never a literal path in a tracked file, comment, commit message, or branch name (`docs/wiki/working_with_the_owner.md`, "Writing"). Each `bench/` tool that needs one says so in words when the key is not set.
 
 | key | what it is | read by |
 |---|---|---|
-| `H3_OUTPUT_DIR` | the folder the server writes to (it is started with `--output-directory`; nothing in the HTTP API reports it back) | `workflows/h3_config.py::output_dir` |
-| `H3_INPUT_DIR` | the folder the server reads stills and input videos from | `bench/masked_job.py::input_dir` |
-| `H3_MODEL_STORE` | the folder that holds the pose model's own folder (`h3_config.POSE_MODEL`); `--model-store` on the tool is over it | `bench/load_chain.py land`, `bench/shot_to_load.py reference` |
+| `H3_OUTPUT_DIR` | the folder the server writes to (`<share>/output`, holding `Video/<video>/`) | `workflows/h3_config.py::output_dir`, `bench/shot_to_load.py`, `bench/load_chain.py`, `bench/rebuild_delivery.py`, `bench/inspect_mask_steps.py` |
+| `H3_INPUT_DIR` | the folder the server reads stills, working copies, and cuts from (`<share>/input`) | `bench/masked_job.py::input_dir`, `bench/rebuild_delivery.py`, `bench/inspect_mask_steps.py` |
+| `H3_MODEL_STORE` | the local folder that holds `workflows/h3_config.py::POSE_MODEL` (`facebook_sapiens2-pose-1b`), `facebook_sapiens2-seg-1b`, and `facebook_hyden-mogev2-metric-point`; `--model-store` on a tool overrides it | `bench/load_chain.py land`, `bench/shot_to_load.py reference`, `bench/strangers.py`, `bench/measure_moge2_depth.py` |
+| `H3_CAPTURE_ROOT` | the folder under which transient `h3_capture.py` tensor captures live (`$H3_MODEL_STORE/h3_captures`, exported by `<comfy>/start.sh`) | `h3_capture.py`, `bench/check_capture_manifest.py`, `bench/recycle_captures.py` |
+
+**Why both `<comfy>/start.sh` and the `H3_*` environment variables are required (the server-flag vs. env-var trap):**
+- **The ComfyUI server (`:8188`) and its nodes ignore `H3_OUTPUT_DIR` and `H3_INPUT_DIR`.** Nodes (`audio_freeze_song.py`, `video_mask.py`, VHS loaders and savers) resolve paths through ComfyUI's `folder_paths.get_output_directory()` and `folder_paths.get_input_directory()`, which are set **only** by the `--output-directory` and `--input-directory` CLI flags inside `<comfy>/start.sh`. Starting bare `main.py` with environment variables alone writes renders to `<comfy>/output`, where no `bench/` tool looks. Always start the server via `<comfy>/start.sh`.
+- **`bench/` tools cannot read `--output-directory` or `--input-directory` back from the HTTP API.** They read `H3_OUTPUT_DIR`, `H3_INPUT_DIR`, and `H3_MODEL_STORE` from the environment. Running a `bench/` tool without those variables set in its process environment (or passing a relative `--output` path) either refuses or writes to the wrong folder.
+
+**Discovering and exporting the environment from repo-relative paths (zero private paths):**
+Because this repo sits at `<comfy>/custom_nodes/ComfyUI-h3-explorations`, `<comfy>` is `../..` from the main repo root, `<comfy>/start.sh` holds `--output-directory` and `--input-directory`, and `<comfy>/models/sapiens2/` links to the local model store. Define them at the top of a command without hardcoding any machine path:
+
+    COMFY="$(cd ../.. && pwd)"
+    export PY="$COMFY/.venv/bin/python"
+    export H3_OUTPUT_DIR="$(awk '/^[[:space:]]*--output-directory[[:space:]]/{print $2}' "$COMFY/start.sh")"
+    export H3_INPUT_DIR="$(awk '/^[[:space:]]*--input-directory[[:space:]]/{print $2}' "$COMFY/start.sh")"
+    export H3_MODEL_STORE="$(dirname "$(readlink -f "$COMFY"/models/sapiens2/* | head -1)")"
+    export H3_CAPTURE_ROOT="$H3_MODEL_STORE/h3_captures"
+
+**Antigravity (`agy`) harness subshell rule:**
+In the `agy` harness, each `run_command` tool call spawns a new bash subshell in the workspace root: **`cd` and `export` do not persist across separate `run_command` calls**. Include the environment block above (or inline the variables) in every `run_command` call that runs a `bench/` script. If `$PY` is referenced in a later `run_command` where it was not defined, bash expands `$PY` to empty and executes `bench/*.py` directly via its `#!/usr/bin/env python3` shebang (system Python, which lacks `torch` and `comfy`).
 
 No test suite. Verify against a live ComfyUI and GPU: `bench/smoke_h3.py` for a
 fast pass, the relevant `bench/*.py` for the claim you changed. Most
 `check_*.py` need neither CUDA nor a model. This repo runs inside ComfyUI's
 venv, not a standalone uv project — there is no `uv.lock` here on purpose.
+
+### Importing `comfy`, `comfy_extras`, and `nodes` (`bench/_lib/__init__.py::bootstrap`)
+
+Four things break a bare `import comfy` or `import nodes` when running a script or one-off command from this repo:
+
+1. **Interpreter (`$PY`)**: Always use `<comfy>/.venv/bin/python` (`../../.venv/bin/python`), never `uv` (`uv run`, `uv sync`, `uv add`) or system `python3`.
+2. **`sys.path[0]` and the `import nodes` collision**: Both this repo (`nodes.py`) and ComfyUI (`ComfyUI/nodes.py`) have a top-level `nodes.py`. If the repo root sits ahead of `<comfy>` on `sys.path`, any transitive `import nodes` inside `comfy` or `comfy_extras` imports our `nodes.py` instead of ComfyUI's and dies on a relative import (see "Traps" below). `<comfy>` must sit at `sys.path[0]` ahead of the repo root.
+3. **`comfy.cli_args.args.cpu = True` before `comfy.model_management` when `CUDA_VISIBLE_DEVICES=` masks the GPU**: Importing almost anything under `comfy` or `comfy_extras` imports `comfy.model_management`, which selects a torch device **at import time** and raises `RuntimeError: No CUDA GPUs are available` when `CUDA_VISIBLE_DEVICES=` hides the card.
+4. **Dynamic VRAM (`bench/_lib/__init__.py::server_memory_mode`) for in-process GPU node calls**: Scripts that execute ComfyUI core GPU nodes in-process (such as SAM 3D Body's DINOv3 path, which loads fp16 weights and relies on `ModelPatcherDynamic` to cast weights at use) must call `server_memory_mode()` after `bootstrap(cpu=False)` and before importing `comfy.model_management`.
+
+`bench/_lib/__init__.py::bootstrap` handles items 2 and 3 in one call before the first `import comfy...`:
+
+    # Inside any bench/ script or check (where bench/ is already sys.path[0]):
+    from _lib import bootstrap
+    bootstrap(cpu=True)   # or bootstrap() to use CPU only when no card is visible
+
+    # In a one-off command from the repo root with the card masked:
+    CUDA_VISIBLE_DEVICES= "$PY" -c 'import sys; sys.path.insert(0, "bench"); from _lib import bootstrap; bootstrap(cpu=True); import comfy.model_management'
+
+### Build worktrees (`<comfy>/h3_worktrees/<branch>`)
+
+While the card runs or when isolating a build, cut the worktree two levels below `<comfy>` at `$(git rev-parse --show-toplevel)/../../h3_worktrees/<builder>-<item>`:
+
+- **Why two levels below `<comfy>`**: `workflows/h3_config.py::COMFY_ROOT`, `bench/break_checks.py::COMFY`, and `bench/_lib/__init__.py::COMFY` resolve ComfyUI as `REPO.parent.parent` (or by walking parents for `comfy/`). A worktree cut under the home folder resolves `REPO.parent.parent` to the home folder and breaks `import comfy`.
+- **Never inside `custom_nodes/`**: ComfyUI scans every directory under `custom_nodes/` at startup (`ComfyUI/nodes.py:2356`), so a worktree inside `custom_nodes/` is imported as a duplicate custom node pack on the next restart.
+- **Never run pipeline commands from inside a worktree**: `data/` and `internal/` are gitignored and exist only in the main checkout. Never run `shot_to_load.py`, `masked_job.py`, `load_chain.py`, or `rebuild_delivery.py` from a worktree; use worktrees strictly for code edits, `bench/check_*.py`, and `bench/break_checks.py`.
+- **Clean up on landing**: Remove each worktree (`git worktree remove`) and delete its branch (`git branch -d`) immediately after landing on `main`, so `git worktree list` shows only `main` and active builds.
 
 **Start ComfyUI with `<comfy>/start.sh`** so its log is readable. Several
 findings here were only ever visible in that log. Check the settings inside `<comfy>/start.sh` to ensure they align with what you're trying to do. 

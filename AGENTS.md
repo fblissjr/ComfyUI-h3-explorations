@@ -72,8 +72,8 @@ once; `docs/evidence.md`, "Settled about H3", has the rest.
   own branch in its own worktree). The owner pushes from their own terminal, so
   every commit message is written as already public. While the card runs,
   any file its chain executes (the node pack's code and every `bench/` tool
-  a load step calls) is edited in a worktree outside `custom_nodes` and
-  landed by the Gemini lead between steps, once the Claude lead clears it: an uncommitted edit in the shared
+  a load step calls) is edited in a worktree outside `custom_nodes` (`../../h3_worktrees/<builder>-<item>`) and
+  landed by the lead between steps after an independent blind read: an uncommitted edit in the shared
   tree is run by the next load.
 - **The changelog is written once a day, from the commits**
   (`changelog.d/README.md`). A commit carries no changelog entry.
@@ -114,35 +114,25 @@ One home per kind of fact. Not two.
 
 - **The owner's working preferences** (their clock, batching, never re-asking, where links go, how a clip is
   shown, how a question names its page, writing) are `docs/wiki/working_with_the_owner.md`, read by every session
-  of either model before it speaks to the owner.
-- **One inbox.** The owner's thoughts go in the Open List's box as they come,
-  with a time. Nothing there is a go. The lead reads it at its next natural
-  stop and writes one of three words under each: done (with where), queued
-  (as a row, with where in the order), or parked (with why).
-- **The terminal is for a go and for an answer to a question a session
-  asked.** A session that receives a thought in the terminal writes it to
-  the inbox and carries on. A go is a row on the Open List or a line in the
-  lead's terminal; a session that is not the lead takes the lead's relay as
-  the go and writes the relay's time in the job's note.
-- **Two leads, one each side** (the owner, 2026-10-17). The Gemini lead holds the card, git on `main`, the ledger,
-  the owner's pages and the plan file, and leads the other Gemini sessions; the Claude lead holds the Open List and
-  the inbox, clears each landing, and writes the changelog, the handover and `decisions.md`. They talk only to each
-  other; the mailbox, the landing steps and what each holds are `internal/gemini/PROTOCOL.md`. When one model is not
-  available on a day, there is one designated lead, which holds both sides' roles; where it is unclear what to do or
-  how to go forward, that lead asks the owner instead of guessing (the owner, 2026-10-18). A Gemini lead cannot write
-  the Open List, so on such a day its questions go to the owner in its terminal.
-- **A lead starting a day reads, in this order, before its first word to anyone** (the owner, 2026-10-18):
-  `docs/wiki/handover.md`; `docs/wiki/working_with_the_owner.md`; `internal/gemini/PROTOCOL.md` (its "Starting a
-  day as the Gemini lead" has the rest of the order); `docs/comfy_notes.md`, before the first command; then
-  `data/AGENTS.md` and the project's own before lane work. Then `date -u`, `git status`, HEAD and the ports, and its
-  first entry says what it read and what it starts on.
-- **A build goes on its own branch** in a worktree outside `custom_nodes` (`h3_worktrees/<builder>-<item>`), cut from
-  current main, never pushed, and lands by pathspec from the merge base (`git diff main...<branch>`) after its own
-  blind read and the Claude lead's clearance. A refusal test passes only on the tool's own words with no traceback.
+  before it speaks to the owner.
+- **How the lead works with the owner and subagents** (updated 2026-10-27): The Gemini lead in the Antigravity (`agy`)
+  harness holds the card, git on `main`, the ledger, the owner's pages, `data/<video>/plan.json`, the daily changelog
+  fragment, `docs/wiki/handover.md`, and `docs/wiki/decisions.md`, and orchestrates its own subagents for parallel
+  builds and independent blind reads. Where it is unclear what to do or how to go forward, the lead asks the owner in
+  its terminal or on the local review/who pages (`:8765`) instead of guessing, and records the owner's words and
+  decisions in the local files (`docs/wiki/decisions.md`, `docs/wiki/handover.md`, `data/<video>/owner_answers.jsonl`).
+  A passing thought from the owner in the terminal is not a go until the owner gives a go.
+- **A lead starting a day reads, in this order, before its first command or word to anyone**:
+  1. `docs/wiki/handover.md` (yesterday's close, what not to assume, today's order, and where things are).
+  2. `docs/wiki/working_with_the_owner.md` (owner's clock, batching, links, showing clips, neutral reading words, path privacy).
+  3. `docs/comfy_notes.md`, before the first command (how to derive `PY`, `H3_OUTPUT_DIR`, `H3_INPUT_DIR`, `H3_MODEL_STORE`, and `H3_CAPTURE_ROOT` from `../../start.sh` without private paths; why `<comfy>/start.sh` is required; `agy` `run_command` subshell non-persistence; importing `comfy` via `bench/_lib/__init__.py::bootstrap`; checking `/proc/<pid>/environ` before stopping a server; and `<comfy>/h3_worktrees/<branch>`).
+  4. `data/AGENTS.md`, `docs/masked_v2v/AGENTS.md`, `docs/masked_v2v/PROTOCOL.md`, and the project's own `data/<video>/AGENTS.md` (plus `data/<video>/plan.json`) before lane work.
+  5. Then run `date -u`, `git status --short`, `git rev-parse --short HEAD`, `git worktree list`, and check ports `8188` and `8765` (`ss -ltnp | grep -E ':8188|:8765'`).
+- **A build goes on its own branch** in a worktree two levels below `<comfy>` (`../../h3_worktrees/<builder>-<item>`, never inside `custom_nodes` and never under the home folder; see `docs/comfy_notes.md`, "Build worktrees"), cut from current `main`, never pushed, and lands by pathspec from the merge base (`git diff main...<branch>`) after green `bench/check_*.py`, verbatim `bench/break_checks.py` output, and an independent blind read by a subagent or session that did not build it. A refusal test passes only on the tool's own words with no traceback. Read the commit hash after committing (`git rev-parse --short HEAD`), and remove the worktree and branch immediately upon landing.
 - **A change to data, an input or an output names both ends.** A build that adds or changes a file, a key, a field or
-  a format lists every tool that writes it and every tool that reads it (by grep, with file:line), and says what each
-  does with the change: updated, unaffected and why, or refusing on purpose. Its READY carries that list; the Claude lead
-  clears nothing without it. Today's misses were each one step away: a matte key the assembler read, a re-laid graph
+  a format lists every tool that writes it and every tool that reads it (by grep, with `file:line`), and says what each
+  does with the change: updated, unaffected and why, or refusing on purpose. No build lands without that list verified
+  by its blind read. Today's misses were each one step away: a matte key the assembler read, a re-laid graph
   the ledger trusted, a page the review server served (2026-10-17).
 - **A render's prompt is read in FULL before it renders**, from the graph
   as queued (`bench/what_h3_got.py`), never from a summary, a preview or a
@@ -150,7 +140,7 @@ One home per kind of fact. Not two.
   any shot the owner names. The owner's word, 2026-10-15.
 - **Handoff over compaction**: a session near its limit writes its notes,
   the rows it owes and the job's note, and the next session starts from
-  files. Sessions hand off staggered, never both at once.
+  files.
 
 ## The lanes
 

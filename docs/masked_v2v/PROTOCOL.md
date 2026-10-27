@@ -6,14 +6,23 @@ This protocol is the step-by-step operational manual for building, auditing, ren
 
 ## Stage 0: Environment, Ports, & Pre-Flight Checks
 
+[`docs/comfy_notes.md`](../comfy_notes.md) ("Running things") is the single authoritative home for environment setup, `<comfy>/start.sh`, `comfy` imports, `agy` subshell behavior, and build worktrees. Summary of what every session needs before its first command:
+
 1. **Never run `uv` (`uv run`, `uv sync`, `uv add`)**:
    - Invoking `uv` with the ComfyUI venv active empties that venv and dirties `uv.lock` ([`AGENTS.md`](../../AGENTS.md), "Operative rules"; [`docs/comfy_notes.md`](../comfy_notes.md)).
-   - Always invoke the ComfyUI venv Python directly (`<comfy-venv>/bin/python`), and prefix CPU-only tools and checks with `CUDA_VISIBLE_DEVICES=`.
-2. **Environment keys (`H3_OUTPUT_DIR`, `H3_INPUT_DIR`, `H3_MODEL_STORE`, `H3_CAPTURE_ROOT`)**:
-   - `H3_OUTPUT_DIR`: the server's output share (`<share>/output`, holding `Video/<video>/`). Read by `workflows/h3_config.py::output_dir`, [`bench/shot_to_load.py`](../../bench/shot_to_load.py), [`bench/load_chain.py`](../../bench/load_chain.py), and [`bench/rebuild_delivery.py`](../../bench/rebuild_delivery.py).
-   - `H3_INPUT_DIR`: the server's input directory (`<share>/input`, holding working copies and reference stills). Read by `bench/masked_job.py::input_dir`.
-   - `H3_MODEL_STORE`: local model directory holding `workflows/h3_config.py::POSE_MODEL` and perception weights.
-   - `H3_CAPTURE_ROOT`: transient capture directory when captures are stored outside `data/`.
+   - Always invoke the ComfyUI venv Python directly (`$PY` = `<comfy>/.venv/bin/python`), prefix CPU-only tools and checks with `CUDA_VISIBLE_DEVICES=`, and call `bench/_lib/__init__.py::bootstrap` before importing `comfy`, `comfy_extras`, or `nodes` ([`docs/comfy_notes.md`](../comfy_notes.md), "Importing `comfy`, `comfy_extras`, and `nodes`").
+2. **Environment keys (`H3_OUTPUT_DIR`, `H3_INPUT_DIR`, `H3_MODEL_STORE`, `H3_CAPTURE_ROOT`) and `agy` subshell non-persistence**:
+   - Derived directly from `../../start.sh` and `../../models/sapiens2/` without hardcoding private paths ([`docs/comfy_notes.md`](../comfy_notes.md), "Where this machine keeps things"):
+     ```bash
+     COMFY="$(cd ../.. && pwd)"
+     export PY="$COMFY/.venv/bin/python"
+     export H3_OUTPUT_DIR="$(awk '/^[[:space:]]*--output-directory[[:space:]]/{print $2}' "$COMFY/start.sh")"
+     export H3_INPUT_DIR="$(awk '/^[[:space:]]*--input-directory[[:space:]]/{print $2}' "$COMFY/start.sh")"
+     export H3_MODEL_STORE="$(dirname "$(readlink -f "$COMFY"/models/sapiens2/* | head -1)")"
+     export H3_CAPTURE_ROOT="$H3_MODEL_STORE/h3_captures"
+     ```
+   - In the Antigravity (`agy`) harness, each `run_command` call starts a fresh subshell (`cd` and `export` do not persist across calls): evaluate the block above in every `run_command` call that invokes a `bench/` tool.
+   - ComfyUI nodes write through `--output-directory` and `--input-directory` passed by `<comfy>/start.sh`, whereas `bench/` tools read `H3_OUTPUT_DIR`, `H3_INPUT_DIR`, and `H3_MODEL_STORE` from the environment: never start bare `main.py` without `<comfy>/start.sh`.
 3. **Inspecting the server process (`:8188`) and review server (`:8765`)**:
    - The server process is the resource, not the GPU ([`AGENTS.md`](../../AGENTS.md)). Before stopping or restarting ComfyUI on port `8188`, inspect the port owner and its environment:
      ```bash
@@ -21,8 +30,9 @@ This protocol is the step-by-step operational manual for building, auditing, ren
      tr '\0' '\n' < /proc/<pid>/environ | grep '^H3_'
      ```
    - If any arming key (`H3_CAPTURE`, `H3_SOL_OBSERVE`, `H3_SOL_PROBE`, `H3_TELEMETRY`) is set in `/proc/<pid>/environ`, ask before killing the server.
-   - Never use `bench/restart_comfy.sh` (disabled; exits 2). Follow the manual recipe in [`docs/comfy_notes.md`](../comfy_notes.md) ("The recipe, by hand").
-4. **Code stamps and clean node code**:
+   - Never use `bench/restart_comfy.sh` (disabled; exits 2). Follow the manual recipe in [`docs/comfy_notes.md`](../comfy_notes.md) ("The recipe, by hand", using `<comfy>/start.sh`).
+4. **Code stamps, clean node code, and build worktrees (`../../h3_worktrees/<branch>`)**:
+   - Cut build worktrees two levels below `<comfy>` at `$(git rev-parse --show-toplevel)/../../h3_worktrees/<builder>-<item>`, never under the home folder and never inside `custom_nodes/`, and never run pipeline commands (`shot_to_load.py`, `masked_job.py`, `load_chain.py`, `rebuild_delivery.py`) from inside a worktree ([`docs/comfy_notes.md`](../comfy_notes.md), "Build worktrees").
    - Derived `.json` and `.npz` files carry `writer_stamp` (`bench/_lib/code_stamp.py::writer_stamp`, `bench/_lib/code_stamp.py::npz_writer_fields`) and check upstream mtimes via `bench/_lib/code_stamp.py::check_upstream_mtime` (`bench/_lib/code_stamp.py::MTIME_TOLERANCE_S` = `1.0` s).
    - [`bench/masked_job.py`](../../bench/masked_job.py) refuses to queue a graph beside uncommitted node code unless given `--override "WHO: WHY"`, which it writes into the record (`bench/masked_job.py::before_queue`; [`AGENTS.md`](AGENTS.md) §8, stage 0). `bench/load_chain.py render` also refuses, with no override, a render graph whose build record lists uncommitted node code (`bench/load_chain.py::render_against_plan`).
 5. **When to restart ComfyUI (`:8188`), and what a change forces**: [`docs/masked_v2v/AGENTS.md`](AGENTS.md) §8 is the one
