@@ -203,7 +203,7 @@ what to measure first, zero-GPU first.
    verdict records (`bench/results/*_verdict.json`, contest `tally` fields) to
    see what tie rate the judge actually runs at, which is the input the
    section 3.3 arithmetic needs. The one on-file near-null reading is session 1
-   of 2026-08-20 (`docs/roadmap.md:683-691`; LoRA recipes, not a decoy).
+   of 2026-08-20 (`docs/wiki/archive/2026-08-20_roadmap_regime_and_ordering.md:46-54`; LoRA recipes, not a decoy).
 2. **An alignment index on every pair, then reference metrics only on the
    aligned ones.** Per-frame PSNR/SSIM trajectory against the dense render and
    the audio record's 20 ms envelope correlation decide whether a pair is inside
@@ -744,7 +744,7 @@ Repo and local clones (read):
   `bench/blind_batch.py:61-63,271-272`; `bench/rubrics/default.json:13`;
   `bench/quality_metrics.py` (docstring); `bench/diff_clip_graphs.py`
   (docstring); `bench/measure_audio_video_coupling.py` (docstring);
-  `docs/roadmap.md:683-691`; `docs/research/2026-09-17_rotation_and_lowbit_attention_survey.md` D.6.
+  `docs/wiki/archive/2026-08-20_roadmap_regime_and_ordering.md:46-54`; `docs/research/2026-09-17_rotation_and_lowbit_attention_survey.md` D.6.
 - `coderef/Sana/evals/tiers.toml:12-15,46-51`;
   `coderef/Sana/evals/rubrics/gemini_visual_artifact_gate.md:38-53,80-88`;
   `coderef/Sana/tools/vision/lpips_judge.py:33-46`;

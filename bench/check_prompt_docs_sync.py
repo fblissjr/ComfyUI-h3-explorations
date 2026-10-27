@@ -76,8 +76,28 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent
 PAGE = REPO / "docs" / "portable" / "h3_prompt_standard.html"
 MANUAL = REPO / "docs" / "prompting.md"
+MANUAL_SHARDS = REPO / "docs" / "prompting"
 SNAPSHOTS = REPO / "docs" / "portable" / "snapshots.json"
 GUIDE = REPO / "vendor_guides" / "base_en.md"
+
+
+def read_manual() -> str:
+    """Read docs/prompting.md and its modular section shards in section order."""
+    parts = [MANUAL.read_text(encoding="utf-8")]
+    if MANUAL_SHARDS.is_dir():
+        for shard in sorted(MANUAL_SHARDS.glob("*.md")):
+            parts.append(shard.read_text(encoding="utf-8"))
+    return "\n\n".join(parts)
+
+
+def section_10_slice(manual: str) -> str | None:
+    """Return the text between '## 10. Worked examples' and '\\n## 11.', or None."""
+    if "## 10. Worked examples" not in manual:
+        return None
+    tail = manual.split("## 10. Worked examples", 1)[1]
+    if "\n## 11." not in tail:
+        return None
+    return tail.split("\n## 11.", 1)[0]
 
 sys.path.insert(0, str(REPO / "bench"))
 sys.path.insert(0, str(REPO / "workflows"))
@@ -303,7 +323,11 @@ def examples_still_grade(manual: str) -> int:
     mode at the duration the example's own heading names.
     """
     import grade_prompt_text as g
-    section = manual.split("## 10. Worked examples", 1)[1].split("\n## 11.", 1)[0]
+    section = section_10_slice(manual)
+    if section is None:
+        print("  FAIL  section 10 ('## 10. Worked examples' .. '## 11.') missing "
+              "from manual / docs/prompting/ shards")
+        return 1
     mode = cur = None
     rows = []
     pattern = r"^(###|####) (10[\.\d]*) ([^\n]*)$|```text\n(.*?)\n```"
@@ -628,8 +652,12 @@ def main() -> int:
             print(f"FAIL  missing {p.relative_to(REPO)}; this check compares "
                   f"nothing without it and would report a misleading green")
             return 2
+    if not MANUAL_SHARDS.is_dir() or not list(MANUAL_SHARDS.glob("*.md")):
+        print(f"FAIL  missing or empty {MANUAL_SHARDS.relative_to(REPO)}/; "
+              f"sections 5.8-16 live in modular shards under docs/prompting/")
+        return 2
     page = PAGE.read_text(encoding="utf-8")
-    manual = MANUAL.read_text(encoding="utf-8")
+    manual = read_manual()
     guide = GUIDE.read_text(encoding="utf-8")
     prose = text_of(page)
     fails = 0
@@ -655,7 +683,11 @@ def main() -> int:
     else:
         print(f"  ok    all {len(types)} camera motion types quoted verbatim")
 
-    section = manual.split("## 10. Worked examples", 1)[1].split("\n## 11.", 1)[0]
+    section = section_10_slice(manual)
+    if section is None:
+        print("  FAIL  section 10 ('## 10. Worked examples' .. '## 11.') missing "
+              "from manual / docs/prompting/ shards")
+        return 1
     examples = {flat(b) for b in re.findall(r"```text\n(.*?)\n```", section, re.S)}
     blocks = [flat(html.unescape(b))
               for b in re.findall(r"<pre>(.*?)</pre>", page, re.S)]

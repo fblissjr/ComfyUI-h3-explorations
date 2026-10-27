@@ -43,6 +43,7 @@ under `docs/` that no link from `AGENTS.md` or this wiki reaches.
 | [`docs/checks.md`](../../docs/checks.md) | every check, the standard it is held to, and the uncontrolled-requirement audit. Start here before changing behaviour or adding a check |
 | [`docs/comfyui_vendor_gaps.md`](../../docs/comfyui_vendor_gaps.md) | every known divergence from the release, with impact and what enforces it. A dated snapshot that defers to the owners it cites |
 | [`docs/custom_node_gaps.md`](../../docs/custom_node_gaps.md) | what our nodes do end to end, and where that differs from sglang, LightX2V, DiffSynth, diffusers and native ComfyUI |
+| [`docs/research/INDEX.md`](../research/INDEX.md) | router index for every research memo, masked-v2v note, postmortem (`docs/research/postmortems/`), PDD study (`docs/research/pdd/`), and sparse-attention investigation (`docs/research/sparse/`) |
 | [`docs/config_drift.md`](../../docs/config_drift.md) | why `h3_config.py` drifts and what would stop it. Read before adding prose to a config file or proposing a docs-match-code checker |
 | [`docs/prose_measurements.md`](../../docs/prose_measurements.md) | why a number in prose is a copy, where it goes instead, and the migration plan. Read before writing a speedup, a size or a time into any doc |
 | [`docs/sustainability.md`](../../docs/sustainability.md) | the direction argument and its do-not-do list. Read before proposing process |

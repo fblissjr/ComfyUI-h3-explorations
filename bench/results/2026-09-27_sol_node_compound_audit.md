@@ -299,7 +299,7 @@ behind the §5.1 bug.
    - The "all blocks" error text (`sol_attn_h3.py` (line 301 as of 2026-09-27; the file was restructured 2026-09-27)), per §4.5.
    - The `qk_balance` tooltip calls it "an experiment" (`:1693`), yet 129
      graphs ship it on.
-   - `docs/roadmap.md:757-763` says Sol "ships off" and that
+   - `docs/wiki/archive/2026-08-20_roadmap_regime_and_ordering.md:120-126` says Sol "ships off" and that
      `dense_blocks` ships empty.
    - `sol_attn_h3.py:780, 861, 879, 104` say the kernel is bf16-only. Direct
      `sol_attn` takes fp16; only the chunked entry is bf16-only.

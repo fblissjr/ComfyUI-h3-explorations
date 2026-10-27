@@ -37,6 +37,30 @@ REPO = Path(__file__).resolve().parent.parent
 WIKI = REPO / "docs" / "wiki"
 LINK = re.compile(r"\[[^\]]*\]\(([^)]+)\)")
 
+# Active onboarding routers and leaf specs should fit in a single agy read_file
+# call (46,080 bytes) with margin so older history gets rolled into shards.
+ROUTER_MAX_BYTES = 45_000
+ACTIVE_ROUTERS = (
+    "AGENTS.md",
+    "data/AGENTS.md",
+    "docs/comfy_notes.md",
+    "docs/wiki/handover.md",
+    "docs/wiki/working_with_the_owner.md",
+    "docs/wiki/index.md",
+    "docs/wiki/decisions.md",
+    "docs/wiki/masked_v2v.md",
+    "docs/wiki/next_steps.md",
+    "docs/masked_v2v/AGENTS.md",
+    "docs/masked_v2v/PROTOCOL.md",
+    "docs/masked_v2v/reference_and_prompt_rules.md",
+    "docs/masked_v2v/chain_trace_and_remakes.md",
+    "docs/checks.md",
+    "docs/prompting.md",
+    "docs/evidence.md",
+    "docs/roadmap.md",
+    "docs/research/INDEX.md",
+)
+
 
 def starting_files() -> list[Path]:
     return [REPO / "CLAUDE.md", *sorted(WIKI.glob("*.md"))]
@@ -119,7 +143,27 @@ def main() -> int:
     print(f"      unreachable       {len(unrouted)} doc(s) no link reaches")
     for entry in collapse(unrouted):
         print(f"        {entry}")
-    return 0
+    oversized = []
+    missing_routers = []
+    checked_paths = list(ACTIVE_ROUTERS)
+    for shard_dir in ("docs/checks", "docs/prompting", "docs/wiki/decisions"):
+        d = REPO / shard_dir
+        if d.is_dir():
+            for sp in sorted(d.glob("*.md")):
+                checked_paths.append(sp.relative_to(REPO).as_posix())
+    for rel in checked_paths:
+        p = REPO / rel
+        if not p.exists():
+            missing_routers.append(rel)
+        elif p.stat().st_size > ROUTER_MAX_BYTES:
+            oversized.append((rel, p.stat().st_size))
+    ok_count = len(checked_paths) - len(oversized) - len(missing_routers)
+    print(f"      router size check {ok_count}/{len(checked_paths)} <= {ROUTER_MAX_BYTES} B (46080 B read_file limit)")
+    for rel in missing_routers:
+        print(f"        MISSING {rel} -- update ACTIVE_ROUTERS or restore file")
+    for rel, sz in oversized:
+        print(f"        OVER {rel} ({sz} B > {ROUTER_MAX_BYTES} B) -- shard older entries")
+    return 2 if missing_routers else 0
 
 
 if __name__ == "__main__":
