@@ -1,5 +1,7 @@
 # Masked V2V Code Map, Traps & Phased Simplification Plan (`2026-10-26` / `2026-10-27`)
 
+<!-- narrative_stamp: doc_ast=#f9ab6311 sections=3 (run `bench/masked_code_map.py --stamp-narrative` after reviewing prose) -->
+
 This document is the primary architecture router, forensic postmortem ledger, and phased simplification plan
 for the masked video-to-video (`masked_v2v`) lane.
 
@@ -213,7 +215,7 @@ These three builds were settled in `docs/wiki/decisions.md` and `docs/wiki/hando
   - `bench/shot_to_load.py::hold_to_track` (`_on_track_8px.mkv`) is still active on `main`.
   - `bench/capture_masked_run.py::her_hair_in_hole` still tests `hole(f)` against pre-carve/pre-feather `out[f]` and
     restricts Part 3 by `~track[f]`.
-- **Both Ends (Writers & Readers)**:
+- **Both Ends (Writers & Readers)** (`#7ddd803f`):
   - **Writers**: `bench/shot_to_load.py::part_on_track`, `bench/shot_to_load.py::hold_to_track`,
     `bench/shot_to_load.py::make_part_on_track`, `bench/shot_to_load.py::make_depth`;
     `bench/head_tube_parts.py::_head_seed_from_person_mask`, `bench/head_tube_parts.py::sam31_head_tube`,
@@ -231,7 +233,7 @@ These three builds were settled in `docs/wiki/decisions.md` and `docs/wiki/hando
     `others[i]`), setting `people[i] = (c > 0) | det` and `core[i] = np.isin(c, core_ids) | det` so `handed_back`
     preserves SAM-backed strangers (`held = piece & core[i]` is non-empty) instead of dropping them as `NO_CORE`
     (`4686-4693` on `4647`, `1458`). Updated `OWN_FORM` and `bench/strangers.py::held_to_its_record`.
-- **Both Ends (Writers & Readers)**:
+- **Both Ends (Writers & Readers)** (`#cc7c83c2`):
   - **Writers**: `bench/strangers.py::others_of`, `bench/strangers.py::held_others`, `bench/strangers.py::handed_back`,
     `bench/strangers.py::run`.
   - **Readers**: `bench/shot_to_load.py::others_of_load`, `bench/shot_to_load.py::run_strangers`,
@@ -247,7 +249,7 @@ These three builds were settled in `docs/wiki/decisions.md` and `docs/wiki/hando
   2. `bench/cast_file.py::drawn`: requires `--people <people.npz>` on `box`, verifies `IoU >= 0.500` against SAM 3.1
      detections on that frame, snaps the stored box to the best SAM detection box, and clears `drawn=None` so
      `subject_track.py::parse_seeds` treats it as a verified detection seed rather than `APPROXIMATE`.
-- **Both Ends (Writers & Readers)**:
+- **Both Ends (Writers & Readers)** (`#f13bee42`):
   - **Writers**: `subject_track.py::parse_head_mode`, `subject_track.py::_track_head_span`, `subject_track.py::_span_head`,
     `subject_track.py::follow`, `subject_track.py::auto_match`, `subject_track.py::name_drawn`, `subject_track.py::parse_seeds`;
     `bench/shot_to_load.py::preview_job`, `bench/shot_to_load.py::step_reference`; `bench/cast_file.py::read`,

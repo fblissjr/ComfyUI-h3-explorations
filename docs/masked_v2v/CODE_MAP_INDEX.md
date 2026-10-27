@@ -8,16 +8,15 @@ Companion to [`docs/research/masking/2026-10-26_code_map_and_simplification_plan
 
 ## How a Dedicated Gemini / AGY Session Refreshes the Code Map (Anti-Drift Runbook)
 
-1. **Detect AST Function Drift (`< 0.1s`)**:
-   Run `$H3_PYTHON bench/masked_code_map.py --drift` (where `$H3_PYTHON` is the ComfyUI venv Python).
-   It hashes every function's AST body (ignoring line-number shifts caused by edits higher in the file) and prints:
-   - Every `file::symbol` whose AST body changed, with its **new** `StartLine-EndLine` coordinates for `read_file`.
-   - Every `### Stage X.Y` or `### Section 2x` block in `code_map_stages.md` / `code_map_contracts.md` that cites a changed symbol.
-2. **Targeted Read & Narrative Edit (`1-3s` per stage)**:
-   Call `read_file` on just the reported `StartLine-EndLine` of each changed function and update only the flagged
-   `### Stage` / `### Section` block (`< 15` short bullet lines) in `code_map_stages.md` or `code_map_contracts.md`.
+1. **Check Status & Detect AST / Narrative Drift (`< 0.1s`)**:
+   Run `$H3_PYTHON bench/masked_code_map.py --status` (or `--drift` / `--drift-since <git_ref>`).
+   It hashes every function's AST body and compares against both `CODE_MAP_INDEX.md` and each narrative section's
+   stamped `(#digest)` in `code_map_stages.md`, `code_map_contracts.md`, and `2026-10-26_code_map_and_simplification_plan.md`.
+2. **Targeted Read, Narrative Edit & Stamp (`1-3s` per stage)**:
+   Call `read_file` on just the reported `StartLine-EndLine` of each changed function, update only the flagged
+   `### Stage` / `### Section` block (`< 15` short bullet lines), and run `$H3_PYTHON bench/masked_code_map.py --stamp-narrative`.
 3. **Regenerate Jump Index & Run Gate Checks**:
-   Run `$H3_PYTHON bench/masked_code_map.py --write && $H3_PYTHON bench/masked_code_map.py --check`
+   Run `$H3_PYTHON bench/masked_code_map.py --write --check-exact`
    followed by `$H3_PYTHON bench/check_doc_links.py docs/masked_v2v/CODE_MAP_INDEX.md docs/masked_v2v/code_map_stages.md docs/masked_v2v/code_map_contracts.md docs/research/masking/2026-10-26_code_map_and_simplification_plan.md`.
 
 ---

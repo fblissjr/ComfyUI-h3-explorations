@@ -1,5 +1,7 @@
 # Masked V2V Code Map — Part 1: End-to-End Mask & Tensor State Mutation Ledger
 
+<!-- narrative_stamp: doc_ast=#6db067c9 sections=29 (run `bench/masked_code_map.py --stamp-narrative` after reviewing prose) -->
+
 This companion document to [2026-10-26_code_map_and_simplification_plan.md](../research/masking/2026-10-26_code_map_and_simplification_plan.md)
 traces every mask, tensor, `.npz`, `.json`, and `.mkv` state mutation from Stage 1 (pre-capture tracking and
 parts segmentation) through Stage 5 (final delivery assembly).
@@ -14,7 +16,7 @@ so narrative prose never drifts when lines shift. For contracts, window padding,
 
 ### Stage 1.1a — SAM 3.1 Subject & Head Tracking (`subject_track.py`)
 
-- **Symbols**: `subject_track.py::MiniMaxH3SubjectTrack.execute`, `subject_track.py::follow`, `subject_track.py::parse_head_mode`, `subject_track.py::_track_head_span`, `subject_track.py::_span_head`, `subject_track.py::name_drawn`, `subject_track.py::auto_match`, `bench/shot_to_load.py::preview_job`, `bench/cast_file.py::drawn`
+- **Symbols** (`#714ffc12`): `subject_track.py::MiniMaxH3SubjectTrack.execute`, `subject_track.py::follow`, `subject_track.py::parse_head_mode`, `subject_track.py::_track_head_span`, `subject_track.py::_span_head`, `subject_track.py::name_drawn`, `subject_track.py::auto_match`, `bench/shot_to_load.py::preview_job`, `bench/cast_file.py::drawn`
 - **Reads**:
   - Source clip `<shot>.mp4`, `<video>/cast/cast.jsonl` (`bench/cast_file.py::read`, `bench/cast_file.py::seeds`), and `<video>/shots.json`.
   - Confirmed shot gallery looks or verified seed boxes from `cast.jsonl` (Group 1 `/who/` page clicks `1-174` and Group 3 session-verified SAM detection boxes `197-209`). `bench/cast_file.py::drawn` (`6b0ea9a6`) now requires `--people <people.npz>` on `box`, verifies `IoU >= 0.500` against SAM 3.1 detections on that frame, and snaps the box to the best SAM detection (`drawn=None`).
@@ -28,7 +30,7 @@ so narrative prose never drifts when lines shift. For contracts, window padding,
 
 ### Stage 1.1b — Sapiens-2B 28-Class Body-Part Segmentation (`sapiens2_parts.py`)
 
-- **Symbols**: `sapiens2_parts.py::subject_parts`, `sapiens2_parts.py::MiniMaxH3SubjectParts.execute`
+- **Symbols** (`#4f3942b8`): `sapiens2_parts.py::subject_parts`, `sapiens2_parts.py::MiniMaxH3SubjectParts.execute`
 - **Reads**:
   - Source frames `(N, H, W, 3)` and person track `masks` / `boxes` from Stage 1.1a.
 - **Transforms & Constants**:
@@ -40,7 +42,7 @@ so narrative prose never drifts when lines shift. For contracts, window padding,
 
 ### Stage 1.2 — Whole-Frame Strangers & Unclaimed People Pass (`bench/strangers.py`)
 
-- **Symbols**: `bench/strangers.py::people_pass`, `bench/strangers.py::sam_people`, `bench/strangers.py::others_of`, `bench/strangers.py::held_others`, `bench/strangers.py::handed_back`, `bench/strangers.py::run`
+- **Symbols** (`#24b3ce68`): `bench/strangers.py::people_pass`, `bench/strangers.py::sam_people`, `bench/strangers.py::others_of`, `bench/strangers.py::held_others`, `bench/strangers.py::handed_back`, `bench/strangers.py::run`
 - **Reads**:
   - Source clip `<shot>.mp4`, all tracked subjects' `_track.mp4` and `_parts.npz`, and `<preview>_people.npz` (written by `people_pass` / `sam_people` and unpacked by `people_on` / `others_of`).
 - **Transforms & Constants**:
@@ -63,7 +65,7 @@ so narrative prose never drifts when lines shift. For contracts, window padding,
 
 ### Stage 1.3 — Monocular Metric Depth (`bench/measure_moge2_depth.py`, `bench/shot_to_load.py::make_depth`)
 
-- **Symbols**: `bench/measure_moge2_depth.py::run_measurement`, `bench/shot_to_load.py::make_depth`
+- **Symbols** (`#58b38c82`): `bench/measure_moge2_depth.py::run_measurement`, `bench/shot_to_load.py::make_depth`
 - **Reads**:
   - Source clip `<shot>.mp4`.
 - **Transforms & Constants**:
@@ -75,7 +77,7 @@ so narrative prose never drifts when lines shift. For contracts, window padding,
 
 ### Stage 1.4 — 308-Keypoint Whole-Body Pose (`bench/pose_along_shot.py`)
 
-- **Symbols**: `bench/pose_along_shot.py::run`, `bench/pose_along_shot.py::read`
+- **Symbols** (`#715ae0e0`): `bench/pose_along_shot.py::run`, `bench/pose_along_shot.py::read`
 - **Reads**:
   - Source clip `<shot>.mp4` and `<preview>_<subj>_track.mp4` (masks outside grown track greyed out so another brighter face off-track is not read).
 - **Transforms & Constants**:
@@ -87,7 +89,7 @@ so narrative prose never drifts when lines shift. For contracts, window padding,
 
 ### Stage 1.5 — Head Reference Video & 308-Point Face Drawing (`bench/head_reference.py`, `bench/crop_reference_to_head.py`, `bench/draw_face_points.py`)
 
-- **Symbols**: `bench/head_reference.py::run`, `bench/crop_reference_to_head.py::run`, `bench/draw_face_points.py::run`, `bench/draw_face_points.py::draw`, `bench/shot_to_load.py::step_reference`, `bench/shot_to_load.py::drawn_form`
+- **Symbols** (`#0ff4cca6`): `bench/head_reference.py::run`, `bench/crop_reference_to_head.py::run`, `bench/draw_face_points.py::run`, `bench/draw_face_points.py::draw`, `bench/shot_to_load.py::step_reference`, `bench/shot_to_load.py::drawn_form`
 - **Reads**:
   - Source clip, `<preview>_<subj>_pose.npz`, `<preview>_<subj>_parts.npz`, and `<preview>_<subj>_head_track.mp4`.
 - **Transforms & Constants**:
@@ -101,7 +103,7 @@ so narrative prose never drifts when lines shift. For contracts, window padding,
 
 ### Stage 1.6a — Part-on-Track Clipping (`bench/shot_to_load.py`)
 
-- **Symbols**: `bench/shot_to_load.py::part_on_track`, `bench/shot_to_load.py::hold_to_track`, `bench/shot_to_load.py::make_part_on_track`, `bench/shot_to_load.py::part_of`, `bench/shot_to_load.py::make_part`
+- **Symbols** (`#89067dde`): `bench/shot_to_load.py::part_on_track`, `bench/shot_to_load.py::hold_to_track`, `bench/shot_to_load.py::make_part_on_track`, `bench/shot_to_load.py::part_of`, `bench/shot_to_load.py::make_part`
 - **Reads**:
   - `<preview>_<subj>_parts.mp4`, `<preview>_<subj>_track.mp4`, and `<preview>_strangers.json`.
 - **Transforms & Constants**:
@@ -116,7 +118,7 @@ so narrative prose never drifts when lines shift. For contracts, window padding,
 
 ### Stage 1.6b — Load Job JSON & Graph Compilation (`bench/shot_to_load.py`, `bench/masked_job.py`, `workflows/masked_job_graph.py`)
 
-- **Symbols**: `bench/shot_to_load.py::step_job`, `bench/shot_to_load.py::load_job`, `bench/shot_to_load.py::carry_words_of`, `bench/shot_to_load.py::head_marks_of`, `bench/masked_job.py::build`, `workflows/masked_job_graph.py::load`
+- **Symbols** (`#baea9276`): `bench/shot_to_load.py::step_job`, `bench/shot_to_load.py::load_job`, `bench/shot_to_load.py::carry_words_of`, `bench/shot_to_load.py::head_marks_of`, `bench/masked_job.py::build`, `workflows/masked_job_graph.py::load`
 - **Reads**:
   - `<video>/shots.json`, `<video>/plan.json`, `<video>/cast/cast.jsonl`, preview `.json` / `.npz` artifacts, and CLI flags.
 - **Transforms & Constants**:
@@ -131,7 +133,7 @@ so narrative prose never drifts when lines shift. For contracts, window padding,
 
 ### Stage 2.1 — Depth Medians & Pixel Ownership (`bench/capture_masked_run.py`)
 
-- **Symbols**: `bench/capture_masked_run.py::_files`, `bench/capture_masked_run.py::read_depth_npz`, `bench/capture_masked_run.py::_depth_medians_and_owner`, `bench/capture_masked_run.py::owner_map`
+- **Symbols** (`#ba1e4ff5`): `bench/capture_masked_run.py::_files`, `bench/capture_masked_run.py::read_depth_npz`, `bench/capture_masked_run.py::_depth_medians_and_owner`, `bench/capture_masked_run.py::owner_map`
 - **Reads**:
   - `<preview>_depth.npz`, subject `track` / `parts` masks, and `other` keep-out masks (`strangers.mkv`, other subjects' tracks).
 - **Transforms & Constants**:
@@ -144,17 +146,21 @@ so narrative prose never drifts when lines shift. For contracts, window padding,
 
 ### Stage 2.2 — Raw Input Reading & Grid Keep-Out Carving (`bench/capture_masked_run.py`)
 
-- **Symbols**: `bench/capture_masked_run.py::_files`, `bench/capture_masked_run.py::_keep_in_front`, `bench/capture_masked_run.py::carve_keep_out`, `bench/capture_masked_run.py::_bridge_severed`, `bench/capture_masked_run.py::grid_carve`
+- **Symbols** (`#92211333`): `bench/capture_masked_run.py::_files`, `bench/capture_masked_run.py::_keep_in_front`, `bench/capture_masked_run.py::carve_keep_out`, `bench/capture_masked_run.py::_bridge_severed`, `bench/capture_masked_run.py::grid_carve`, `bench/capture_masked_run.py::node_taken_inside`
 - **Reads**:
   - Subject's `track` and `parts` mask videos, `other` keep-out mask videos, and `planned` regions (when running `on-plan`).
 - **Transforms & Constants**:
-  - Keeps uncarved `as_read` snapshot of keep-out tracks; when `planned` regions exist (`step_on_plan`), carves keep-out `track` masks on the `16x16` grid (`grid_carve`) and carves a 1-cell 4-connected bridge (`_bridge_severed`, `45f3eaf1`) when keep-outs pinch a `hers` unit into a diagonal island that `video_mask.py::drop_islands` would drop.
+  - Keeps uncarved `as_read` snapshot of keep-out tracks; when `planned` regions exist (`step_on_plan`), carves keep-out
+    `track` masks on the `16x16` grid (`grid_carve`), carves a 1-cell 4-connected bridge (`_bridge_severed`, `45f3eaf1`) when
+    keep-outs pinch a `hers` unit into a diagonal island that `video_mask.py::drop_islands` would drop, and (`39e1f29a`) passes
+    `keeps`/`depth`/`valid` to `node_taken_inside` and `cross_rows` so foreground keep-outs preserved by `_keep_in_front` are
+    excluded from `keep_out_inside_own_track` faults.
 - **Writes & Overwrites**:
   - Updates keep-out `track` arrays in memory and writes `carved__<by>.mkv` when `carved > 0`.
 
 ### Stage 2.3 — Off-Head Disconnected Blob Filter (`bench/capture_masked_run.py`)
 
-- **Symbols**: `bench/capture_masked_run.py::off_head`, `bench/capture_masked_run.py::_files`
+- **Symbols** (`#d1aa1dce`): `bench/capture_masked_run.py::off_head`, `bench/capture_masked_run.py::_files`
 - **Reads**:
   - Subject `parts` mask, `head_track`, and reference face points (`points=`, `off_head_margin=16`).
 - **Transforms & Constants**:
@@ -164,7 +170,7 @@ so narrative prose never drifts when lines shift. For contracts, window padding,
 
 ### Stage 2.4 — SAM 3.1 Head Tube, Dip Bridging & Temporal Smoothing (`bench/head_tube_parts.py`)
 
-- **Symbols**: `bench/head_tube_parts.py::head_tube_for_capture`, `bench/head_tube_parts.py::sam31_head_tube`, `bench/head_tube_parts.py::_head_seed_from_person_mask`, `bench/head_tube_parts.py::bridge_short_tube_dips`, `bench/head_tube_parts.py::smooth_seg_in_tube`, `bench/head_tube_parts.py::face_piece_kept_whole`
+- **Symbols** (`#699cc22e`): `bench/head_tube_parts.py::head_tube_for_capture`, `bench/head_tube_parts.py::sam31_head_tube`, `bench/head_tube_parts.py::_head_seed_from_person_mask`, `bench/head_tube_parts.py::bridge_short_tube_dips`, `bench/head_tube_parts.py::smooth_seg_in_tube`, `bench/head_tube_parts.py::face_piece_kept_whole`
 - **Reads**:
   - `<preview>_<subj>_head_track.mp4`, `<preview>_<subj>_parts.npz`, `<preview>_<subj>_pose.npz`, `person_track`, and `head_hidden` marks.
 - **Transforms & Constants**:
@@ -184,7 +190,7 @@ so narrative prose never drifts when lines shift. For contracts, window padding,
 
 ### Stage 2.5 — Front-Occluder Depth Clip (`bench/capture_masked_run.py`)
 
-- **Symbols**: `bench/capture_masked_run.py::_files`
+- **Symbols** (`#c4e854f5`): `bench/capture_masked_run.py::_files`
 - **Reads**:
   - `parts`, `held`, and `front_other_mask` from Stage 2.1.
 - **Transforms & Constants**:
@@ -192,7 +198,7 @@ so narrative prose never drifts when lines shift. For contracts, window padding,
 
 ### Stage 2.6 — Largest Piece Guard, Floor & Early `masks__<by>.npz` Write (`bench/capture_masked_run.py`)
 
-- **Symbols**: `bench/capture_masked_run.py::largest_piece`, `bench/capture_masked_run.py::refuse_pieces_on_a_head`, `bench/capture_masked_run.py::starting_floor`, `bench/capture_masked_run.py::floor_on_the_canvas`
+- **Symbols** (`#916848dd`): `bench/capture_masked_run.py::largest_piece`, `bench/capture_masked_run.py::refuse_pieces_on_a_head`, `bench/capture_masked_run.py::starting_floor`, `bench/capture_masked_run.py::floor_on_the_canvas`
 - **Reads**:
   - `track`, `parts`, and subject options (`pieces`, `least`).
 - **Transforms & Constants**:
@@ -204,7 +210,7 @@ so narrative prose never drifts when lines shift. For contracts, window padding,
 
 ### Stage 2.7 — Hold Grading & First `parts_held__<by>.mkv` Write (`bench/capture_masked_run.py`)
 
-- **Symbols**: `bench/capture_masked_run.py::held_parts`, `bench/capture_masked_run.py::grade_holds`, `bench/capture_masked_run.py::part_sizes`, `bench/capture_masked_run.py::frame_spans`, `bench/capture_masked_run.py::_files`
+- **Symbols** (`#d015e89f`): `bench/capture_masked_run.py::held_parts`, `bench/capture_masked_run.py::grade_holds`, `bench/capture_masked_run.py::part_sizes`, `bench/capture_masked_run.py::frame_spans`, `bench/capture_masked_run.py::_files`
 - **Reads**:
   - `track`, `parts`, `ht_res["tube"]` (`ht_for_grade`), class maps, `least` floor (`1,024 px` default on canvas), and `SIZES_CANNOT_SEE`.
 - **Transforms & Constants**:
@@ -232,7 +238,7 @@ so narrative prose never drifts when lines shift. For contracts, window padding,
 
 ### Stage 2.8 — Her Hair in the Hole (`bench/capture_masked_run.py`)
 
-- **Symbols**: `bench/capture_masked_run.py::her_hair_in_hole`, `bench/capture_masked_run.py::hole_of_the_load`, `bench/capture_masked_run.py::whole_frame_hair`, `bench/capture_masked_run.py::hair_in_hole_files`, `bench/capture_masked_run.py::frame_spans`
+- **Symbols** (`#ef42c261`): `bench/capture_masked_run.py::her_hair_in_hole`, `bench/capture_masked_run.py::hole_of_the_load`, `bench/capture_masked_run.py::whole_frame_hair`, `bench/capture_masked_run.py::hair_in_hole_files`, `bench/capture_masked_run.py::frame_spans`
 - **Reads**:
   - `hair_pass["head"]` (`ht_res["tube"]`), `<preview>_<subj>_parts.npz`, `<preview>_strangers_classes.npz`, `other` keep-out masks, `head_hidden` / `hair_hers` / `hair_not_hers` marks, and `HAIR_IN_HOLE_CANNOT_SEE`.
 - **Transforms & Constants**:
@@ -254,7 +260,7 @@ so narrative prose never drifts when lines shift. For contracts, window padding,
 
 ### Stage 2.9 — Planned Region Prediction & `step_carves.json` (`bench/capture_masked_run.py`)
 
-- **Symbols**: `bench/capture_masked_run.py::planned_region`, `bench/capture_masked_run.py::predict_regions`, `bench/capture_masked_run.py::read_planned_regions`, `bench/capture_masked_run.py::step_keepout_carves`
+- **Symbols** (`#9ea8eb97`): `bench/capture_masked_run.py::planned_region`, `bench/capture_masked_run.py::predict_regions`, `bench/capture_masked_run.py::read_planned_regions`, `bench/capture_masked_run.py::step_keepout_carves`
 - **Reads**:
   - Settled `parts_held__<by>.mkv`, `track__<by>.mkv`, and `other` keep-out masks.
 - **Transforms & Constants**:
@@ -268,7 +274,7 @@ so narrative prose never drifts when lines shift. For contracts, window padding,
 
 ### Stage 3.1 — Server-Side `plan_only` Execution (`video_mask.py`, `audio_freeze_song.py`, `bench/load_chain.py`)
 
-- **Symbols**: `bench/load_chain.py::step_plan`, `video_mask.py::MiniMaxH3MaskedSource.execute`, `audio_freeze_song.py::MiniMaxH3AudioFreezeSong.execute`, `audio_freeze_song.py::write_plan`
+- **Symbols** (`#32244193`): `bench/load_chain.py::step_plan`, `video_mask.py::MiniMaxH3MaskedSource.execute`, `audio_freeze_song.py::MiniMaxH3AudioFreezeSong.execute`, `audio_freeze_song.py::write_plan`
 - **Reads**:
   - `<job>_api.json` submitted to ComfyUI with `plan_only=True` on node `74`, reading `parts_held__<by>.mkv` and `track__<by>.mkv`.
 - **Transforms & Constants**:
@@ -279,7 +285,7 @@ so narrative prose never drifts when lines shift. For contracts, window padding,
 
 ### Stage 3.2 — On-Plan Re-Capture (`bench/load_chain.py::step_on_plan`, `bench/capture_masked_run.py::_files`)
 
-- **Symbols**: `bench/load_chain.py::step_on_plan`, `bench/capture_masked_run.py::_files`, `bench/capture_masked_run.py::grid_carve`, `bench/capture_masked_run.py::_bridge_severed`, `bench/capture_masked_run.py::step_keepout_carves`
+- **Symbols** (`#e2bd66e8`): `bench/load_chain.py::step_on_plan`, `bench/capture_masked_run.py::_files`, `bench/capture_masked_run.py::grid_carve`, `bench/capture_masked_run.py::_bridge_severed`, `bench/capture_masked_run.py::step_keepout_carves`
 - **Reads**:
   - `$H3_OUTPUT_DIR/<prefix>_plan.json` and `$H3_OUTPUT_DIR/<prefix>_window_NNN_region.npz`.
 - **Transforms & Constants**:
@@ -292,7 +298,7 @@ so narrative prose never drifts when lines shift. For contracts, window padding,
 
 ### Stage 3.3 — Pre-Render Verification, Flags & Frame Table (`bench/capture_masked_run.py`, `bench/inspect_mask_steps.py`, `bench/flags_before_render.py`, `bench/what_h3_got.py`, `bench/frame_table.py`)
 
-- **Symbols**: `bench/capture_masked_run.py::verify`, `bench/capture_masked_run.py::preflight`, `bench/inspect_mask_steps.py::inspect_capture`, `bench/flags_before_render.py::check_flags_read`, `bench/what_h3_got.py::audit_capture`, `bench/frame_table.py::build_frame_table`
+- **Symbols** (`#27512bb8`): `bench/capture_masked_run.py::verify`, `bench/capture_masked_run.py::preflight`, `bench/inspect_mask_steps.py::inspect_capture`, `bench/flags_before_render.py::check_flags_read`, `bench/what_h3_got.py::audit_capture`, `bench/frame_table.py::build_frame_table`
 - **Reads**:
   - Capture directory artifacts (`parts_held__<by>.mkv`, `part_grades.json`, `hair_in_hole__<by>.json`, `owners.npz`, `runs/<name>/region.npz`).
 - **Transforms & Constants**:
@@ -311,35 +317,35 @@ so narrative prose never drifts when lines shift. For contracts, window padding,
 
 ### Stage 4.1 — Window Slicing, `17n+5` Snapping, Context Padding & Zoom Crop (`video_mask.py`)
 
-- **Symbols**: `video_mask.py::MiniMaxH3MaskedSource.execute`, `video_mask.py::window`, `video_mask.py::pad_context`, `video_mask.py::hold_context`, `video_mask.py::held_edge_source`, `video_mask.py::zoom_plan`, `video_mask.py::zoomed_source`
+- **Symbols** (`#5115405f`): `video_mask.py::MiniMaxH3MaskedSource.execute`, `video_mask.py::window`, `video_mask.py::pad_context`, `video_mask.py::hold_context`, `video_mask.py::held_edge_source`, `video_mask.py::zoom_plan`, `video_mask.py::zoomed_source`
 - **Reads**: Source frames, `parts_held__<by>.mkv`, `keep_out` masks, and window bounds from `workflows/masked_job_graph.py::window_for` / `window_pad` / `loop_plan.py::plan_windows`.
 - **Transforms & Constants**: Slices each window (`length` on H3's `17n + 5` 17-frame VAE clip grid via `h3_rules.py::snap_length` / `on_both_clocks`), applies all-after context padding (`pad_context`) and outer-edge held frame repetition (`hold_context`, `held_edge_source`), and crops to `zoom_box` (`zoomed_source`) when `zoom` is active.
 - **Writes & Overwrites**: Passes windowed source tensor, pixel mask, and `token_mask` into the ComfyUI conditioning dict (see [code_map_contracts.md](code_map_contracts.md) Section `2b`).
 
 ### Stage 4.2 — Latent `16x16` Token Mask & `(1, 4, 4, 4, 4)` Step Schedule (`video_mask.py`)
 
-- **Symbols**: `video_mask.py::run_lengths`, `video_mask.py::token_mask`, `video_mask.py::grow`, `video_mask.py::margins`, `video_mask.py::drop_specks`, `video_mask.py::close_lone_holes`, `video_mask.py::drop_islands`
+- **Symbols** (`#225af39d`): `video_mask.py::run_lengths`, `video_mask.py::token_mask`, `video_mask.py::grow`, `video_mask.py::margins`, `video_mask.py::drop_specks`, `video_mask.py::close_lone_holes`, `video_mask.py::drop_islands`
 - **Reads**: Window pixel mask `(T, H, W)` and recipe parameters (`grow_pixels`, `feather_pixels`, `keep_out`).
 - **Transforms & Constants**: Pools pixel masks onto the `(t_lat, H//16, W//16)` spatiotemporal token grid using the 17-frame VAE clip cycle `1, 4, 4, 4, 4` (`run_lengths`: 5 latent steps per 17 video frames, `5n + 2` steps for `17n + 5` frames), drops lone keep-out specks (`drop_specks`), closes 1-cell holes (`close_lone_holes`), and drops disconnected islands (`drop_islands`).
 - **Writes & Overwrites**: Saves `window_NNN_region.npz` (`save_window_region`) with `tokens`, `matte`, `kept`, `zoom_box`, and padding metadata.
 
 ### Stage 4.3 — Pixel Alpha Feathering, Cut Gate & Window Lay (`video_mask.py`)
 
-- **Symbols**: `video_mask.py::pixel_alpha`, `video_mask.py::changed_alpha`, `video_mask.py::cut_gate`, `video_mask.py::unlaid_frames`, `video_mask.py::lay_window`, `video_mask.py::lay_back`
+- **Symbols** (`#d578991a`): `video_mask.py::pixel_alpha`, `video_mask.py::changed_alpha`, `video_mask.py::cut_gate`, `video_mask.py::unlaid_frames`, `video_mask.py::lay_window`, `video_mask.py::lay_back`
 - **Reads**: DiT-decoded window frames, original source frames, `pixel_alpha`, and `cut_gate`.
 - **Transforms & Constants**: Zeros alpha where `unlaid_frames` or `cut_gate` refuses laying, composites generated pixels over source (`lay_window`), and maps zoomed windows back onto the full canvas (`lay_back`, saving the exact canvas-space `matte`).
 - **Writes & Overwrites**: Produces composited window frames, `matte`, and `unlaid` frame indices for Node `74`.
 
 ### Stage 4.4 — Padding Trim, Multi-Window Join & Audio Silencing (`audio_freeze_song.py`, `loop_plan.py`)
 
-- **Symbols**: `audio_freeze_song.py::MiniMaxH3AudioFreezeSong.execute`, `loop_plan.py::frames_kept`, `loop_plan.py::frames_written`, `audio_freeze_song.py::heard_under_held`, `audio_freeze_song.py::silenced`
+- **Symbols** (`#7108e5ad`): `audio_freeze_song.py::MiniMaxH3AudioFreezeSong.execute`, `loop_plan.py::frames_kept`, `loop_plan.py::frames_written`, `audio_freeze_song.py::heard_under_held`, `audio_freeze_song.py::silenced`
 - **Reads**: Composited windows from Stage 4.3, window padding/trim metadata, `loop_plan.py` counts, and source audio.
 - **Transforms & Constants**: Trims padded context frames beyond the shot's kept span, joins multi-window stretches (`frames_kept`, `frames_written`), and silences audio under held padding (`heard_under_held`, `silenced`) during DiT sampling.
 - **Writes & Overwrites**: Assembles the output frame sequence and muxes original shot audio onto the final MP4.
 
 ### Stage 4.5 — Server-Side Output Artifact Writes (`audio_freeze_song.py`)
 
-- **Symbols**: `audio_freeze_song.py::_write_pieces_mp4`, `audio_freeze_song.py::_write_frames_mp4`, `audio_freeze_song.py::_write_review_mp4`, `audio_freeze_song.py::zoomed_record`
+- **Symbols** (`#c54e1f76`): `audio_freeze_song.py::_write_pieces_mp4`, `audio_freeze_song.py::_write_frames_mp4`, `audio_freeze_song.py::_write_review_mp4`, `audio_freeze_song.py::zoomed_record`
 - **Reads**: Assembled load frames, raw uncomposited DiT pieces, and per-window metadata.
 - **Writes & Overwrites**: Writes `$H3_OUTPUT_DIR/<prefix>.mp4`, `<prefix>_pieces.mp4`, `<prefix>_frames.mp4`, `<prefix>_review.mp4`, `<prefix>.json`, and `<prefix>_zoomed.json` (collected by `bench/masked_job.py::collect`; see Section `2a.2` of [code_map_contracts.md](code_map_contracts.md)).
 
@@ -349,23 +355,23 @@ so narrative prose never drifts when lines shift. For contracts, window padding,
 
 ### Stage 5.1 — Delivery Table & Matte Resolution (`bench/assemble_delivery.py`, `bench/delivery_table.py`)
 
-- **Symbols**: `bench/assemble_delivery.py::read_table`, `bench/assemble_delivery.py::Matte`, `bench/assemble_delivery.py::laid_by_of`, `bench/assemble_delivery.py::_laid_by_of`, `bench/delivery_table.py::decide`
+- **Symbols** (`#9c78b08a`): `bench/assemble_delivery.py::read_table`, `bench/assemble_delivery.py::Matte`, `bench/assemble_delivery.py::laid_by_of`, `bench/assemble_delivery.py::_laid_by_of`, `bench/delivery_table.py::decide`
 - **Reads**: `data/<video>/delivery_table.json` and each kept run's `_region.npz` (`matte`, `kept`, `tokens`).
 - **Transforms & Constants**: Resolves which run lays each `(subject, frame)` span and constructs `Matte` objects (`laid_by_of`, `rule: "matte"` when saved `matte` is present in `_region.npz`).
 
 ### Stage 5.2 — Multi-Subject Depth Ordering & Restore Weights (`bench/assemble_delivery.py`)
 
-- **Symbols**: `bench/assemble_delivery.py::Captures`, `bench/assemble_delivery.py::owners`, `bench/assemble_delivery.py::weight_of`, `bench/assemble_delivery.py::restore_weight`
+- **Symbols** (`#663a75fe`): `bench/assemble_delivery.py::Captures`, `bench/assemble_delivery.py::owners`, `bench/assemble_delivery.py::weight_of`, `bench/assemble_delivery.py::restore_weight`
 - **Reads**: Per-capture `owners.npz`, `<preview>_depth.npz`, `<preview>_strangers_classes.npz`, and `delivery_table.json` (`restore_words`).
 - **Transforms & Constants**: Orders overlapping subject planes per frame (`owners`), computes blend weights (`weight_of`), and builds `restore_weight` masks where original source pixels are restored over generated planes.
 
 ### Stage 5.3 — Worn Layer (Glasses/Jewelry/Apparel) & Plane Compositing (`bench/assemble_delivery.py`)
 
-- **Symbols**: `bench/assemble_delivery.py::placements_of`, `bench/assemble_delivery.py::worn_layer`, `bench/assemble_delivery.py::lay_plane`, `bench/assemble_delivery.py::laid_over`, `bench/assemble_delivery.py::carry_edge_rows`
+- **Symbols** (`#b43c56aa`): `bench/assemble_delivery.py::placements_of`, `bench/assemble_delivery.py::worn_layer`, `bench/assemble_delivery.py::lay_plane`, `bench/assemble_delivery.py::laid_over`, `bench/assemble_delivery.py::carry_edge_rows`
 - **Reads**: Source frames, kept render frames (`piece_frames`), 308-keypoint face shifts (`shifts_of`, `moved_by`), and Sapiens-2B `worn_classes`.
 - **Transforms & Constants**: Tracks worn items (`placements_of`, `worn_layer`) across face shifts, composites each subject plane (`lay_plane`, `laid_over`), and clamps zoom-box edge rows (`carry_edge_rows`) to prevent border seams.
 
 ### Stage 5.4 — Final MP4 Encoding, Audit & Sidecar (`bench/assemble_delivery.py`, `bench/stack_delivery.py`, `bench/rebuild_delivery.py`)
 
-- **Symbols**: `bench/assemble_delivery.py::build`, `bench/assemble_delivery.py::flags_of`, `bench/assemble_delivery.py::check`, `bench/assemble_delivery.py::write_sidecar`, `bench/stack_delivery.py::compare`, `bench/rebuild_delivery.py::rebuild`
+- **Symbols** (`#3dca7621`): `bench/assemble_delivery.py::build`, `bench/assemble_delivery.py::flags_of`, `bench/assemble_delivery.py::check`, `bench/assemble_delivery.py::write_sidecar`, `bench/stack_delivery.py::compare`, `bench/rebuild_delivery.py::rebuild`
 - **Writes & Overwrites**: Muxes video and original audio into `$H3_OUTPUT_DIR/Video/<video>/<delivery>.mp4` and `<delivery>.json` sidecar (`write_sidecar`); `bench/rebuild_delivery.py::verify_reused_clip` and `verify_poc_on_disk` refuse delivery if `table_laid_sha` or upstream mtime (`bench/_lib/code_stamp.py::check_upstream_mtime`) has drifted.

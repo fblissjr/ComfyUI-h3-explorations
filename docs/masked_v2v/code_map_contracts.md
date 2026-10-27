@@ -1,5 +1,7 @@
 # Masked V2V Code Map — Parts 2 & 4: Cross-Process Contracts, Window Math & Duplicate Logic
 
+<!-- narrative_stamp: doc_ast=#924797b5 sections=10 (run `bench/masked_code_map.py --stamp-narrative` after reviewing prose) -->
+
 This companion document to [2026-10-26_code_map_and_simplification_plan.md](../research/masking/2026-10-26_code_map_and_simplification_plan.md)
 covers Part 2 (ComfyUI prompt JSON contracts, server-side `$H3_OUTPUT_DIR` artifact writes, the 4-way window &
 padding math contract, dynamic imports, and shared-name file collisions) and Part 4 (the 5 duplicate logic groups
@@ -14,7 +16,7 @@ For Stage 1-5 state mutations, see [code_map_stages.md](code_map_stages.md).
 
 ### Section 2a.1 — ComfyUI API Prompt JSON Contract (`<job>_api.json`)
 
-- **Symbols**: `workflows/masked_job_graph.py::load`, `workflows/masked_job_graph.py::check_load`, `bench/masked_job.py::build`, `bench/masked_job.py::before_queue`, `bench/load_chain.py::step_plan`, `bench/load_chain.py::step_render`
+- **Symbols** (`#c707c1dc`): `workflows/masked_job_graph.py::load`, `workflows/masked_job_graph.py::check_load`, `bench/masked_job.py::build`, `bench/masked_job.py::before_queue`, `bench/load_chain.py::step_plan`, `bench/load_chain.py::step_render`
 - **Node `104` (`MiniMaxH3MaskedSource`)**:
   - Written by `workflows/masked_job_graph.py::load`; executed on the ComfyUI server by `video_mask.py::MiniMaxH3MaskedSource.execute`.
   - Key inputs: `video` (source clip path), `mask_video` (`parts_held__<by>.mkv`), `track_video` (`track__<by>.mkv`), `keep_out_videos`, `grow_px` (`0`), `feather_px` (`8`), `hold_frames` (`0`), `floor_head_scale` (`1.1`), `mask_fill` (`hole_and_hair`), `min_component_pixels` (`150`), `zoom`, `window_length`, `window_overlap`.
@@ -26,7 +28,7 @@ For Stage 1-5 state mutations, see [code_map_stages.md](code_map_stages.md).
 
 ### Section 2a.2 — Server-Side Artifact Writes on `$H3_OUTPUT_DIR`
 
-- **Symbols**: `video_mask.py::save_window_region`, `audio_freeze_song.py::write_plan`, `audio_freeze_song.py::_write_pieces_mp4`, `audio_freeze_song.py::_write_frames_mp4`, `audio_freeze_song.py::_write_review_mp4`, `audio_freeze_song.py::zoomed_record`, `bench/masked_job.py::collect`
+- **Symbols** (`#b22d4ef2`): `video_mask.py::save_window_region`, `audio_freeze_song.py::write_plan`, `audio_freeze_song.py::_write_pieces_mp4`, `audio_freeze_song.py::_write_frames_mp4`, `audio_freeze_song.py::_write_review_mp4`, `audio_freeze_song.py::zoomed_record`, `bench/masked_job.py::collect`
 - **Artifact Patterns Written to `$H3_OUTPUT_DIR/<prefix>*`**:
   1. `$H3_OUTPUT_DIR/<prefix>_plan.json`: written by `audio_freeze_song.py::write_plan` during `plan_only=True` (`step_plan`) and read by `bench/capture_masked_run.py::step_keepout_carves` and `bench/what_h3_got.py::audit_capture`.
   2. `$H3_OUTPUT_DIR/<prefix>_window_NNN_region.npz`: written by `video_mask.py::save_window_region` (`token_mask`, `pixel_alpha`, `zoom_box`, `pad_spec`); read by `bench/capture_masked_run.py::read_saved_regions`, `bench/inspect_mask_steps.py::inspect_capture`, and `bench/assemble_delivery.py::Matte`.
@@ -37,7 +39,7 @@ For Stage 1-5 state mutations, see [code_map_stages.md](code_map_stages.md).
 
 ### Section 2b — The 4-Way Window, Context Padding & `17n+5` Snapping Contract
 
-- **Symbols**: `h3_rules.py::snap_length`, `h3_rules.py::on_both_clocks`, `h3_rules.py::chain_lengths`, `loop_plan.py::plan_windows`, `loop_plan.py::frames_kept`, `loop_plan.py::frames_written`,
+- **Symbols** (`#ade9f2c2`): `h3_rules.py::snap_length`, `h3_rules.py::on_both_clocks`, `h3_rules.py::chain_lengths`, `loop_plan.py::plan_windows`, `loop_plan.py::frames_kept`, `loop_plan.py::frames_written`,
   `workflows/masked_job_graph.py::window_for`, `workflows/masked_job_graph.py::window_pad`, `workflows/masked_job_graph.py::held_context`,
   `video_mask.py::pad_context`, `video_mask.py::hold_context`, `video_mask.py::held_edge_source`, `video_mask.py::run_lengths`, `video_mask.py::window`, `audio_freeze_song.py::MiniMaxH3AudioFreezeSong.execute`
 
@@ -74,7 +76,7 @@ flowchart TD
 
 ### Section 2c.1 — Dynamic `importlib` / `sys.path` Loading Matrix
 
-- **Symbols**: `bench/capture_masked_run.py::_pack`, `bench/shot_to_load.py::step_job`, `bench/masked_job.py::build`, `bench/assemble_delivery.py::build`
+- **Symbols** (`#6cfda3c9`): `bench/capture_masked_run.py::_pack`, `bench/shot_to_load.py::step_job`, `bench/masked_job.py::build`, `bench/assemble_delivery.py::build`
 - **Import Topology**:
   - Top-level pack modules (`video_mask.py`, `audio_freeze_song.py`, `loop_plan.py`, `h3_rules.py`, `subject_track.py`, `sapiens2_parts.py`, `sam31_corrections.py`, `reference_conditioning.py`, `clip_folder.py`) live at the repository root so ComfyUI's custom-node loader imports them without `bench/`.
   - `bench/capture_masked_run.py::_pack` dynamically loads root modules (`video_mask`, `h3_rules`, `loop_plan`) via `importlib.util.spec_from_file_location` so `bench/` scripts can call node mask functions (`token_mask`, `grow`, `margins`) without starting ComfyUI.
@@ -82,7 +84,7 @@ flowchart TD
 
 ### Section 2c.2 — Shared-Name File Collisions & In-Place Overwrites
 
-- **Symbols**: `bench/capture_masked_run.py::_files`, `bench/capture_masked_run.py::her_hair_in_hole`, `bench/capture_masked_run.py::hair_in_hole_files`, `bench/capture_masked_run.py::step_keepout_carves`, `bench/load_chain.py::step_on_plan`, `bench/draw_face_points.py::run`, `bench/shot_to_load.py::drawn_form`
+- **Symbols** (`#3aa4a6b3`): `bench/capture_masked_run.py::_files`, `bench/capture_masked_run.py::her_hair_in_hole`, `bench/capture_masked_run.py::hair_in_hole_files`, `bench/capture_masked_run.py::step_keepout_carves`, `bench/load_chain.py::step_on_plan`, `bench/draw_face_points.py::run`, `bench/shot_to_load.py::drawn_form`
 - **Collision & Overwrite Table**:
   1. **`parts_held__<by>.mkv` (4 writes across `step_capture` and `step_on_plan`)**:
      - Write 1: Stage 2.7 (`_files`, after `grade_holds`, during `step_capture`).
@@ -104,35 +106,35 @@ flowchart TD
 
 ### Section 4.1 — Video Probing, Frame I/O & Bit-Packed `.npz` Serialization (5 Copies)
 
-- **Symbols**: `bench/_lib/frames.py::probe`, `bench/_lib/frames.py::read_mask`, `bench/_lib/frames.py::write_mask_video`, `bench/capture_masked_run.py::_pack`, `bench/measure_blocks.py::_pack`, `bench/facts_pass.py::_unpack_mask`, `bench/assemble_delivery.py::probe`, `bench/assemble_delivery.py::pipe_frames`
+- **Symbols** (`#3452c1d6`): `bench/_lib/frames.py::probe`, `bench/_lib/frames.py::read_mask`, `bench/_lib/frames.py::write_mask_video`, `bench/capture_masked_run.py::_pack`, `bench/measure_blocks.py::_pack`, `bench/facts_pass.py::_unpack_mask`, `bench/assemble_delivery.py::probe`, `bench/assemble_delivery.py::pipe_frames`
 - **Duplication Details**:
   - `bench/_lib/frames.py` already provides canonical `probe`, `read_mask`, and `write_mask_video`, but `bench/capture_masked_run.py`, `bench/assemble_delivery.py`, `bench/measure_blocks.py`, and `bench/facts_pass.py` each maintain private `_pack`/`_unpack_mask`/`probe`/`ffprobe` wrappers.
 - **Consolidation Target**: Move `_pack` / `_unpack_mask` into `bench/_lib/frames.py` and route all 5 callers through it (Part `5c`).
 
 ### Section 4.2 — Sapiens-2B 28-Class Constants & Head/Hair/Worn Class Sets (6 Copies)
 
-- **Symbols**: `sapiens2_parts.py::subject_parts`, `bench/strangers.py::CORE_CLASSES`, `bench/strangers.py::run`, `bench/head_tube_parts.py::sam31_head_tube`, `bench/capture_masked_run.py::her_hair_in_hole`, `bench/facts_pass.py::_resolve_face_hair_classes`, `bench/assemble_delivery.py::class_names`
+- **Symbols** (`#3396530a`): `sapiens2_parts.py::subject_parts`, `bench/strangers.py::CORE_CLASSES`, `bench/strangers.py::run`, `bench/head_tube_parts.py::sam31_head_tube`, `bench/capture_masked_run.py::her_hair_in_hole`, `bench/facts_pass.py::_resolve_face_hair_classes`, `bench/assemble_delivery.py::class_names`
 - **Duplication Details**:
   - Sapiens-2B class indices (`2=Face_Neck`, `3=Hair`, `23..27=Mouth/Teeth/Tongue`, `CORE_CLASSES` 18-class body core in `bench/strangers.py`, `worn_classes`) are hardcoded independently in 6 files.
 - **Consolidation Target**: Centralize Sapiens-2B class constants and named frozensets in `bench/_lib/sapiens_classes.py` (Part `5c`).
 
 ### Section 4.3 — Window Padding, Held-Context Runway & `17n+5` Math (4 Copies)
 
-- **Symbols**: `loop_plan.py::plan_windows`, `workflows/masked_job_graph.py::window_for`, `workflows/masked_job_graph.py::window_pad`, `video_mask.py::pad_context`, `video_mask.py::hold_context`, `bench/capture_masked_run.py::predict_regions`
+- **Symbols** (`#2c46f279`): `loop_plan.py::plan_windows`, `workflows/masked_job_graph.py::window_for`, `workflows/masked_job_graph.py::window_pad`, `video_mask.py::pad_context`, `video_mask.py::hold_context`, `bench/capture_masked_run.py::predict_regions`
 - **Duplication Details**:
   - Graph generation (`workflows/masked_job_graph.py`), capture prediction (`bench/capture_masked_run.py::predict_regions`), loop planning (`loop_plan.py`), and server execution (`video_mask.py`) each compute `17n + 5` window bounds and context padding separately.
 - **Consolidation Target**: Extract a pure-Python `window_spec.py` shared by graph builder, capture predictor, and ComfyUI nodes (Part `5b`).
 
 ### Section 4.4 — Keep-Out Carving, `16x16` Grid Rounding & Hole Reconstruction (3 Copies)
 
-- **Symbols**: `video_mask.py::token_mask`, `bench/capture_masked_run.py::grid_carve`, `bench/capture_masked_run.py::predict_regions`, `bench/capture_masked_run.py::hole_of_the_load`, `bench/inspect_mask_steps.py::inspect_capture`
+- **Symbols** (`#eba40a1a`): `video_mask.py::token_mask`, `bench/capture_masked_run.py::grid_carve`, `bench/capture_masked_run.py::predict_regions`, `bench/capture_masked_run.py::hole_of_the_load`, `bench/inspect_mask_steps.py::inspect_capture`
 - **Duplication Details**:
   - `hole_of_the_load` (`b461584e`) reconstructs the regeneration hole separately from `predict_regions` and `video_mask.py::token_mask`, causing the Stage 2.8 pre-carve/pre-feather discrepancy documented in `3820654d` and targeted by Morning Build 1 (`Part 5e`).
 - **Consolidation Target**: Make `predict_regions` the single source of truth for offline hole/token-grid simulation and pass its settled array directly into `her_hair_in_hole` (Part `5a` / `5e`).
 
 ### Section 4.5 — 308-Point Pose Face-on-Mask & Landmark Filtering (4 Copies)
 
-- **Symbols**: `bench/_lib/face_points.py::face_on_mask`, `bench/head_tube_parts.py::own_part_face_points`, `bench/head_tube_parts.py::cross_check_face_points`, `bench/shot_to_load.py::face_cues`, `bench/assemble_delivery.py::face_points_of`
+- **Symbols** (`#342a052e`): `bench/_lib/face_points.py::face_on_mask`, `bench/head_tube_parts.py::own_part_face_points`, `bench/head_tube_parts.py::cross_check_face_points`, `bench/shot_to_load.py::face_cues`, `bench/assemble_delivery.py::face_points_of`
 - **Duplication Details**:
   - `bench/_lib/face_points.py` defines `load`, `face_on_mask`, and `table`, while `head_tube_parts.py`, `shot_to_load.py`, and `assemble_delivery.py` each implement custom keypoint-in-mask and confidence thresholding slices.
 - **Consolidation Target**: Unify landmark index slices and confidence thresholds in `bench/_lib/face_points.py` (Part `5c`).

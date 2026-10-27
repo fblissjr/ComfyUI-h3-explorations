@@ -148,6 +148,12 @@ def check_commit_ready(paths: list[str], repo: Path = REPO) -> list[str]:
             summary = "; ".join(fail_lines) if fail_lines else chk.stdout.strip()
             problems.append(f"indexes are stale (run `bench/build_index.py`): {summary}")
 
+    # TODO(code-map): Once ready to enforce at commit time on `main` (skipping feature worktrees),
+    # check whether `rels` touches any of the 44 masked-lane modules in `bench/masked_code_map.py`
+    # and run `bench/masked_code_map.py --check-exact` (or warn on narrative stamp drift via `--status`)
+    # so `docs/masked_v2v/CODE_MAP_INDEX.md` (`--write`) and narrative section stamps (`--stamp-narrative`)
+    # cannot be omitted when landing masked-lane changes on `main`.
+
     return problems
 
 

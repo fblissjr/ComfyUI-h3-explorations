@@ -1,15 +1,18 @@
 #!/usr/bin/env python3
 """Generate and check the masked-lane AST jump index and stage-symbol drift map.
 
-    <python> bench/masked_code_map.py --write        # rewrite docs/masked_v2v/CODE_MAP_INDEX.md
-    <python> bench/masked_code_map.py --check        # exit 1 on missing symbol, size/line cap, or path leak
-    <python> bench/masked_code_map.py --check-exact  # also exit 1 if CODE_MAP_INDEX.md is not byte-identical
-    <python> bench/masked_code_map.py --drift        # report functions & narrative stages changed
-    <python> bench/masked_code_map.py --deps [file]  # print bidirectional module dependency graph
-    <python> bench/masked_code_map.py --calls <sym>  # print AST function callers & callees
-    <python> bench/masked_code_map.py --data [key]   # print AST writers & readers ("both ends") + schema keys
-    <python> bench/masked_code_map.py --chain [step] # print AST pipeline step -> subprocess chain
-    <python> bench/masked_code_map.py <query>        # print live StartLine-EndLine for a symbol/file
+    <python> bench/masked_code_map.py --write            # rewrite docs/masked_v2v/CODE_MAP_INDEX.md
+    <python> bench/masked_code_map.py --stamp-narrative  # stamp per-section AST digests into narrative docs
+    <python> bench/masked_code_map.py --status           # print freshness & last-updated commits across code & docs
+    <python> bench/masked_code_map.py --check            # exit 1 on missing symbol, size/line cap, or path leak
+    <python> bench/masked_code_map.py --check-exact      # also exit 1 if CODE_MAP_INDEX.md or narrative stamps drift
+    <python> bench/masked_code_map.py --drift            # report functions & narrative stages changed
+    <python> bench/masked_code_map.py --drift-since REF  # report AST drift and affected stages since GIT_REF
+    <python> bench/masked_code_map.py --deps [file]      # print bidirectional module dependency graph
+    <python> bench/masked_code_map.py --calls <sym>      # print AST function callers & callees
+    <python> bench/masked_code_map.py --data [key]       # print AST writers & readers ("both ends") + schema keys
+    <python> bench/masked_code_map.py --chain [step]     # print AST pipeline step -> subprocess chain
+    <python> bench/masked_code_map.py <query>            # print live StartLine-EndLine for a symbol/file
 
 Why this exists:
 Five Gemini/AGY sessions in a row stalled on a 163 KB single-file code map whose
@@ -764,16 +767,15 @@ def generate_index_markdown() -> str:
         "",
         "## How a Dedicated Gemini / AGY Session Refreshes the Code Map (Anti-Drift Runbook)",
         "",
-        "1. **Detect AST Function Drift (`< 0.1s`)**:",
-        "   Run `$H3_PYTHON bench/masked_code_map.py --drift` (where `$H3_PYTHON` is the ComfyUI venv Python).",
-        "   It hashes every function's AST body (ignoring line-number shifts caused by edits higher in the file) and prints:",
-        "   - Every `file::symbol` whose AST body changed, with its **new** `StartLine-EndLine` coordinates for `read_file`.",
-        "   - Every `### Stage X.Y` or `### Section 2x` block in `code_map_stages.md` / `code_map_contracts.md` that cites a changed symbol.",
-        "2. **Targeted Read & Narrative Edit (`1-3s` per stage)**:",
-        "   Call `read_file` on just the reported `StartLine-EndLine` of each changed function and update only the flagged",
-        "   `### Stage` / `### Section` block (`< 15` short bullet lines) in `code_map_stages.md` or `code_map_contracts.md`.",
+        "1. **Check Status & Detect AST / Narrative Drift (`< 0.1s`)**:",
+        "   Run `$H3_PYTHON bench/masked_code_map.py --status` (or `--drift` / `--drift-since <git_ref>`).",
+        "   It hashes every function's AST body and compares against both `CODE_MAP_INDEX.md` and each narrative section's",
+        "   stamped `(#digest)` in `code_map_stages.md`, `code_map_contracts.md`, and `2026-10-26_code_map_and_simplification_plan.md`.",
+        "2. **Targeted Read, Narrative Edit & Stamp (`1-3s` per stage)**:",
+        "   Call `read_file` on just the reported `StartLine-EndLine` of each changed function, update only the flagged",
+        "   `### Stage` / `### Section` block (`< 15` short bullet lines), and run `$H3_PYTHON bench/masked_code_map.py --stamp-narrative`.",
         "3. **Regenerate Jump Index & Run Gate Checks**:",
-        "   Run `$H3_PYTHON bench/masked_code_map.py --write && $H3_PYTHON bench/masked_code_map.py --check`",
+        "   Run `$H3_PYTHON bench/masked_code_map.py --write --check-exact`",
         "   followed by `$H3_PYTHON bench/check_doc_links.py docs/masked_v2v/CODE_MAP_INDEX.md docs/masked_v2v/code_map_stages.md docs/masked_v2v/code_map_contracts.md docs/research/masking/2026-10-26_code_map_and_simplification_plan.md`.",
         "",
         "---",
@@ -942,30 +944,210 @@ def read_recorded_digests(md_text: str) -> dict[tuple[str, str], tuple[int, int,
 
 _SYM_REF_RE = re.compile(r"`(?P<path>[A-Za-z0-9_./-]+\.py)::(?P<sym>[A-Za-z0-9_.]+)`")
 _LINE_SPAN_REF_RE = re.compile(r"`(?P<path>[A-Za-z0-9_./-]+\.py):L?(?P<start>\d+)-L?(?P<end>\d+)`")
+_SECTION_STAMP_LINE_RE = re.compile(
+    r"^(?P<prefix>-\s+\*\*(?:Symbols|Both Ends \(Writers & Readers\))\*\*)(?:\s+\(`#(?P<stamp>[0-9a-f]{8})`\))?(?P<rest>:.*)$"
+)
+_DOC_STAMP_RE = re.compile(
+    r"^<!--\s*narrative_stamp:\s*doc_ast=#(?P<doc_ast>[0-9a-f]{8})\s+sections=(?P<sections>\d+)\b.*-->$"
+)
 
 
-def scan_narrative_sections(md_path: Path) -> list[tuple[str, int, list[tuple[str, str]]]]:
-    """Return `[(heading, line_no, [(path, symbol), ...])]` for a narrative code-map doc."""
+def compute_section_digest(
+    syms: list[tuple[str, str]],
+    live_cache: dict[str, dict[str, tuple[int, int, str]]] | None = None,
+) -> str:
+    """Compute a deterministic 8-char hex digest over the live AST digests of `syms`."""
+    if live_cache is None:
+        live_cache = {}
+    items: list[str] = []
+    for rel_path, sym in sorted(set(syms)):
+        if rel_path not in live_cache:
+            full = REPO / rel_path
+            live_cache[rel_path] = parse_file_symbols(rel_path)[1] if full.is_file() else {}
+        digest = live_cache[rel_path].get(sym, (0, 0, "missing"))[2]
+        items.append(f"{rel_path}::{sym}={digest}")
+    return hashlib.sha256("|".join(items).encode("utf-8")).hexdigest()[:8]
+
+
+def scan_narrative_sections_with_stamps(
+    md_path: Path,
+) -> tuple[str | None, list[tuple[str, int, list[tuple[str, str]], str | None]]]:
+    """Return `(doc_ast_stamp, [(heading, line_no, [(path, symbol), ...], section_stamp)])` for a narrative doc."""
     if not md_path.is_file():
-        return []
-    sections: list[tuple[str, int, list[tuple[str, str]]]] = []
+        return (None, [])
+    doc_ast: str | None = None
+    sections: list[tuple[str, int, list[tuple[str, str]], str | None]] = []
     current_heading = md_path.name
     current_line = 1
     current_syms: list[tuple[str, str]] = []
+    current_stamp: str | None = None
     for idx, line in enumerate(md_path.read_text(encoding="utf-8").splitlines(), start=1):
+        dm = _DOC_STAMP_RE.match(line.strip())
+        if dm and doc_ast is None:
+            doc_ast = dm.group("doc_ast")
         if line.startswith("## ") or line.startswith("### "):
-            if current_syms:
-                sections.append((current_heading, current_line, current_syms))
+            if current_syms or current_stamp is not None:
+                sections.append((current_heading, current_line, current_syms, current_stamp))
             current_heading = line.strip()
             current_line = idx
             current_syms = []
+            current_stamp = None
+        sm = _SECTION_STAMP_LINE_RE.match(line)
+        if sm and sm.group("stamp"):
+            current_stamp = sm.group("stamp")
         for m in _SYM_REF_RE.finditer(line):
             pair = (m.group("path"), m.group("sym"))
             if pair not in current_syms:
                 current_syms.append(pair)
-    if current_syms:
-        sections.append((current_heading, current_line, current_syms))
-    return sections
+    if current_syms or current_stamp is not None:
+        sections.append((current_heading, current_line, current_syms, current_stamp))
+    return (doc_ast, sections)
+
+
+def scan_narrative_sections(md_path: Path) -> list[tuple[str, int, list[tuple[str, str]]]]:
+    """Return `[(heading, line_no, [(path, symbol), ...])]` for a narrative code-map doc."""
+    _, stamped = scan_narrative_sections_with_stamps(md_path)
+    return [(h, lno, syms) for h, lno, syms, _ in stamped if syms]
+
+
+def stamp_narrative_doc(
+    md_path: Path,
+    live_cache: dict[str, dict[str, tuple[int, int, str]]] | None = None,
+) -> tuple[str, int]:
+    """Update per-section `(#digest)` stamps and top-of-file `narrative_stamp` comment in `md_path`."""
+    if live_cache is None:
+        live_cache = {}
+    raw_lines = md_path.read_text(encoding="utf-8").splitlines()
+    # First pass: collect symbols per section start line
+    sec_starts: list[int] = [0]
+    for i, line in enumerate(raw_lines):
+        if line.startswith("## ") or line.startswith("### "):
+            sec_starts.append(i)
+    sec_starts.append(len(raw_lines))
+
+    all_doc_syms: list[tuple[str, str]] = []
+    stamped_sections = 0
+    new_lines: list[str] = []
+
+    for s_idx in range(len(sec_starts) - 1):
+        lo, hi = sec_starts[s_idx], sec_starts[s_idx + 1]
+        chunk = raw_lines[lo:hi]
+        sec_syms: list[tuple[str, str]] = []
+        for line in chunk:
+            for m in _SYM_REF_RE.finditer(line):
+                pair = (m.group("path"), m.group("sym"))
+                if pair not in sec_syms:
+                    sec_syms.append(pair)
+                if pair not in all_doc_syms:
+                    all_doc_syms.append(pair)
+        sec_digest = compute_section_digest(sec_syms, live_cache) if sec_syms else None
+        for line in chunk:
+            if _DOC_STAMP_RE.match(line.strip()):
+                continue
+            sm = _SECTION_STAMP_LINE_RE.match(line)
+            if sm and sec_digest is not None:
+                stamped_sections += 1
+                new_lines.append(f"{sm.group('prefix')} (`#{sec_digest}`){sm.group('rest')}")
+            else:
+                new_lines.append(line)
+
+    doc_digest = compute_section_digest(all_doc_syms, live_cache)
+    stamp_comment = (
+        f"<!-- narrative_stamp: doc_ast=#{doc_digest} sections={stamped_sections} "
+        "(run `bench/masked_code_map.py --stamp-narrative` after reviewing prose) -->"
+    )
+    # Insert right after the `# Title` line (and blank line if present)
+    out_lines: list[str] = []
+    inserted = False
+    for i, line in enumerate(new_lines):
+        out_lines.append(line)
+        if not inserted and line.startswith("# "):
+            out_lines.append("")
+            out_lines.append(stamp_comment)
+            inserted = True
+    if not inserted:
+        out_lines.insert(0, stamp_comment)
+    # Collapse any double blank line right after stamp_comment
+    cleaned: list[str] = []
+    for line in out_lines:
+        if line == "" and len(cleaned) >= 2 and cleaned[-1] == "" and _DOC_STAMP_RE.match(cleaned[-2]):
+            continue
+        cleaned.append(line)
+    md_path.write_text("\n".join(cleaned) + "\n", encoding="utf-8")
+    return (doc_digest, stamped_sections)
+
+
+def compute_narrative_drift(
+    docs: tuple[Path, ...] = (STAGES_MD, CONTRACTS_MD, PLAN_MD),
+    live_cache: dict[str, dict[str, tuple[int, int, str]]] | None = None,
+) -> list[str]:
+    """Compare per-section and per-doc narrative stamps in `docs` against live Python AST digests."""
+    if live_cache is None:
+        live_cache = {}
+    drifted: list[str] = []
+    for doc in docs:
+        if not doc.is_file():
+            continue
+        rel_doc = _rel_display(doc)
+        doc_ast, sections = scan_narrative_sections_with_stamps(doc)
+        # Try to load historical per-symbol digests from git when `doc` was last committed
+        hist_recorded: dict[tuple[str, str], tuple[int, int, str]] = {}
+        try:
+            rel_for_git = doc.relative_to(REPO).as_posix()
+            last_c = subprocess.run(
+                ["git", "-C", str(REPO), "log", "-1", "--format=%H", "--", rel_for_git],
+                capture_output=True,
+                text=True,
+                check=False,
+            ).stdout.strip()
+            if last_c:
+                idx_rel = INDEX_MD.relative_to(REPO).as_posix()
+                show_p = subprocess.run(
+                    ["git", "-C", str(REPO), "show", f"{last_c}:{idx_rel}"],
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                if show_p.returncode == 0:
+                    hist_recorded = read_recorded_digests(show_p.stdout)
+        except ValueError:
+            pass
+
+        all_syms: list[tuple[str, str]] = []
+        for heading, line_no, syms, sec_stamp in sections:
+            for p_s in syms:
+                if p_s not in all_syms:
+                    all_syms.append(p_s)
+            if sec_stamp is None or not syms:
+                continue
+            expected_sec = compute_section_digest(syms, live_cache)
+            if sec_stamp != expected_sec:
+                changed_details: list[str] = []
+                for p, s in syms:
+                    live_info = live_cache.get(p, {}).get(s)
+                    if not live_info:
+                        continue
+                    ns, ne, nd = live_info
+                    if (p, s) in hist_recorded and hist_recorded[(p, s)][2] != nd:
+                        changed_details.append(f"`{p}::{s}` (#{hist_recorded[(p, s)][2]}->#{nd}, L{ns}-L{ne})")
+                if not changed_details:
+                    changed_details = [
+                        f"`{p}::{s}` (L{live_cache[p][s][0]}-L{live_cache[p][s][1]})"
+                        for p, s in syms
+                        if p in live_cache and s in live_cache[p]
+                    ][:4]
+                drifted.append(
+                    f"{rel_doc}:{line_no} ({heading}): narrative stamp #{sec_stamp} != live AST #{expected_sec} "
+                    f"({', '.join(changed_details)})"
+                )
+        if doc_ast is not None and all_syms:
+            expected_doc = compute_section_digest(all_syms, live_cache)
+            if doc_ast != expected_doc and not any(str(rel_doc) in d for d in drifted):
+                drifted.append(
+                    f"{rel_doc}:1 (doc_ast): narrative stamp #{doc_ast} != live AST #{expected_doc} "
+                    "(run `bench/masked_code_map.py --stamp-narrative` after reviewing prose)"
+                )
+    return drifted
 
 
 def compute_drift(since_ref: str | None = None) -> tuple[list[str], list[str]]:
@@ -1012,6 +1194,10 @@ def compute_drift(since_ref: str | None = None) -> tuple[list[str], list[str]]:
                 affected_sections.append(
                     f"{rel_doc}:{line_no} ({heading}) -> touches {', '.join(hits)}"
                 )
+    if since_ref is None:
+        for narr_line in compute_narrative_drift((STAGES_MD, CONTRACTS_MD, PLAN_MD), live_cache):
+            if narr_line not in affected_sections:
+                affected_sections.append(narr_line)
     return (list(drifted_syms.values()), affected_sections)
 
 
@@ -1108,6 +1294,15 @@ def check_all(
                             errs.append(
                                 f"{rel_doc}:{line_no} cites `{p}:{sp_s}-{sp_e}`, outside AST bounds of {bounds_str}"
                             )
+
+    narr_docs = tuple(d for d in code_map_docs if d != index_md)
+    sym_only_cache = {k: v[1] for k, v in live_cache.items()}
+    for narr_drift in compute_narrative_drift(narr_docs, sym_only_cache):
+        msg = f"{narr_drift} (run `bench/masked_code_map.py --stamp-narrative` after reviewing narrative prose)"
+        if strict_exact:
+            errs.append(msg)
+        else:
+            notes.append(msg)
 
     if errs:
         for e in errs:
@@ -1260,12 +1455,121 @@ def query_chain(target: str | None) -> int:
     return 0
 
 
+def _git_last_commit(paths: list[str]) -> tuple[str, str]:
+    """Return `(full_hash, formatted_summary)` for the most recent commit touching `paths`."""
+    proc = subprocess.run(
+        ["git", "-C", str(REPO), "log", "-1", "--format=%H\t%h | %ci | %s", "--", *paths],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    out = proc.stdout.strip()
+    if proc.returncode != 0 or not out or "\t" not in out:
+        return ("", "uncommitted / no git history")
+    full_h, summary = out.split("\t", 1)
+    return (full_h, summary)
+
+
+def query_status() -> int:
+    """Print a unified freshness & provenance dashboard across watched Python code, CODE_MAP_INDEX.md, and narrative docs."""
+    all_py = [p for _, p, _ in CORE_FILES] + [p for p, _ in SUPPORT_FILES]
+    live_cache: dict[str, dict[str, tuple[int, int, str]]] = {}
+    all_pairs: list[tuple[str, str]] = []
+    for rel_path in all_py:
+        _, syms = parse_file_symbols(rel_path)
+        live_cache[rel_path] = syms
+        for s_name in syms:
+            all_pairs.append((rel_path, s_name))
+    corpus_digest = compute_section_digest(all_pairs, live_cache)
+
+    _, py_last = _git_last_commit(all_py)
+    dirty_proc = subprocess.run(
+        ["git", "-C", str(REPO), "status", "--porcelain", "--", *all_py],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    dirty_py = [ln.strip() for ln in dirty_proc.stdout.splitlines() if ln.strip()]
+
+    print("=== 1. Watched Masked-Lane Codebase ===")
+    print(f"  Scope:             {len(all_py)} Python files, {len(all_pairs)} AST-indexed symbols (corpus AST #{corpus_digest})")
+    print(f"  Last code commit:  {py_last}")
+    if dirty_py:
+        print(f"  Working tree:      DIRTY ({len(dirty_py)} uncommitted watched .py file(s): {', '.join(dirty_py)})")
+    else:
+        print("  Working tree:      clean (0 uncommitted watched .py files)")
+
+    print("\n=== 2. Mechanical AST Jump Index (docs/masked_v2v/CODE_MAP_INDEX.md) ===")
+    idx_rel = INDEX_MD.relative_to(REPO).as_posix()
+    _, idx_last = _git_last_commit([idx_rel])
+    expected_idx = generate_index_markdown()
+    actual_idx = INDEX_MD.read_text(encoding="utf-8") if INDEX_MD.is_file() else ""
+    sym_drifts, _ = compute_drift()
+    print(f"  Last git update:   {idx_last}")
+    if actual_idx == expected_idx:
+        print("  Sync status:       IN SYNC (byte-identical to live AST extraction)")
+    else:
+        print(f"  Sync status:       STALE ({len(sym_drifts)} AST symbol body change(s) or line shifts — run `--write`)")
+        for sd in sym_drifts[:10]:
+            print(f"    - {sd}")
+
+    print("\n=== 3. Narrative Code-Map Documents (Per-Section AST Stamps) ===")
+    narr_commits: list[str] = []
+    total_drifted_sections = 0
+    for doc in (STAGES_MD, CONTRACTS_MD, PLAN_MD):
+        rel_doc = doc.relative_to(REPO).as_posix()
+        full_c, doc_last = _git_last_commit([rel_doc])
+        if full_c:
+            narr_commits.append(full_c)
+        doc_ast, sections = scan_narrative_sections_with_stamps(doc)
+        stamped_secs = [s for s in sections if s[3] is not None]
+        doc_drifts = compute_narrative_drift((doc,), live_cache)
+        total_drifted_sections += len(doc_drifts)
+        status_s = (
+            f"VERIFIED ({len(stamped_secs)}/{len(stamped_secs)} stamped sections match live AST, doc_ast=#{doc_ast or 'none'})"
+            if not doc_drifts and doc_ast is not None
+            else f"NEEDS REVIEW ({len(doc_drifts)} drifted section(s) — review prose & run `--stamp-narrative`)"
+        )
+        print(f"  {rel_doc}:")
+        print(f"    Last git update: {doc_last}")
+        print(f"    Stamp status:    {status_s}")
+        for dd in doc_drifts:
+            print(f"      ! {dd}")
+
+    print("\n=== 4. Masked-Lane Code Commits Since Last Narrative Update ===")
+    if narr_commits:
+        # Find the oldest among the narrative docs' latest commits (merge-base of narrative docs)
+        mb_proc = subprocess.run(
+            ["git", "-C", str(REPO), "merge-base", "--octopus", *narr_commits],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        base_c = mb_proc.stdout.strip() if mb_proc.returncode == 0 else narr_commits[0]
+        since_proc = subprocess.run(
+            ["git", "-C", str(REPO), "log", "--oneline", f"{base_c}..HEAD", "--", *all_py],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        since_lines = [ln.strip() for ln in since_proc.stdout.splitlines() if ln.strip()]
+        if not since_lines:
+            print(f"  0 masked-lane code commits since narrative docs were updated ({base_c[:8]}..HEAD).")
+        else:
+            print(f"  {len(since_lines)} masked-lane code commit(s) landed since {base_c[:8]}:")
+            for sl in since_lines:
+                print(f"    - {sl}")
+    return 1 if (actual_idx != expected_idx or total_drifted_sections > 0) else 0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--write", action="store_true", help="Write docs/masked_v2v/CODE_MAP_INDEX.md from live AST (printing any narrative stage drift first).")
+    ap.add_argument("--stamp-narrative", action="store_true", help="Stamp per-section and per-doc AST digests into code_map_stages.md, code_map_contracts.md, and 2026-10-26_code_map_and_simplification_plan.md after reviewing prose.")
+    ap.add_argument("--status", action="store_true", help="Print when watched code, CODE_MAP_INDEX.md, and narrative docs were last updated and whether any section drifted.")
     ap.add_argument("--check", action="store_true", help="Verify symbol resolution, line-range bounds, file size, line length, and path privacy.")
-    ap.add_argument("--check-exact", action="store_true", help="Run --check plus require CODE_MAP_INDEX.md to be byte-identical to live AST.")
-    ap.add_argument("--drift", action="store_true", help="Report AST function changes since CODE_MAP_INDEX.md was written and which narrative stages they affect.")
+    ap.add_argument("--check-exact", action="store_true", help="Run --check plus require CODE_MAP_INDEX.md and all narrative section stamps to match live AST.")
+    ap.add_argument("--drift", action="store_true", help="Report AST function changes since CODE_MAP_INDEX.md or narrative stamps were written and which narrative stages they affect.")
     ap.add_argument("--drift-since", metavar="GIT_REF", help="Report AST function changes and affected narrative stages since GIT_REF (e.g. HEAD~4 or commit hash).")
     ap.add_argument("--deps", nargs="?", const="", default=None, help="Print bidirectional module dependency graph (optionally filtered by file substring).")
     ap.add_argument("--calls", metavar="SYMBOL", help="Print AST function-level callers (upstream) and callees (downstream) for SYMBOL.")
@@ -1274,21 +1578,32 @@ def main() -> int:
     ap.add_argument("query", nargs="?", help="Optional function or filename substring to look up.")
     args = ap.parse_args()
 
+    if args.stamp_narrative:
+        live_cache: dict[str, dict[str, tuple[int, int, str]]] = {}
+        for doc in (STAGES_MD, CONTRACTS_MD, PLAN_MD):
+            if doc.is_file():
+                doc_digest, n_secs = stamp_narrative_doc(doc, live_cache)
+                print(f"stamped {doc.relative_to(REPO)}: doc_ast=#{doc_digest} across {n_secs} section(s)")
+
     if args.write:
         if INDEX_MD.is_file():
             pre_syms, pre_secs = compute_drift()
-            if pre_syms:
-                print(f"note: {len(pre_syms)} symbol(s) changed AST body before --write:")
-                for line in pre_syms:
-                    print(f"  - {line}")
+            if pre_syms or pre_secs:
+                if pre_syms:
+                    print(f"note: {len(pre_syms)} symbol(s) changed AST body before --write:")
+                    for line in pre_syms:
+                        print(f"  - {line}")
                 if pre_secs:
-                    print(f"note: {len(pre_secs)} narrative section(s) cite changed symbols (review prose for semantic changes):")
+                    print(f"note: {len(pre_secs)} narrative section(s) need prose review (run `--stamp-narrative` after updating):")
                     for line in pre_secs:
                         print(f"  - {line}")
         text = generate_index_markdown()
         INDEX_MD.parent.mkdir(parents=True, exist_ok=True)
         INDEX_MD.write_text(text, encoding="utf-8")
         print(f"wrote {INDEX_MD.relative_to(REPO)} ({len(text.encode('utf-8')):,} bytes, {len(text.splitlines())} lines)")
+
+    if args.status:
+        return query_status()
 
     if args.deps is not None:
         return query_deps(args.deps or args.query)
@@ -1305,12 +1620,13 @@ def main() -> int:
     if args.drift or args.drift_since:
         ref_label = f"{args.drift_since}:{INDEX_MD.relative_to(REPO)}" if args.drift_since else str(INDEX_MD.relative_to(REPO))
         sym_lines, sec_lines = compute_drift(since_ref=args.drift_since)
-        if not sym_lines:
-            print(f"0 drifted symbols since {ref_label}; all narrative stage/contract blocks in docs/masked_v2v/ are current.")
+        if not sym_lines and not sec_lines:
+            print(f"0 drifted symbols or narrative stamps since {ref_label}; all narrative stage/contract blocks in docs/masked_v2v/ are current.")
         else:
-            print(f"{len(sym_lines)} symbol(s) changed AST body since {ref_label}:")
-            for line in sym_lines:
-                print(f"  - {line}")
+            if sym_lines:
+                print(f"{len(sym_lines)} symbol(s) changed AST body since {ref_label}:")
+                for line in sym_lines:
+                    print(f"  - {line}")
             if sec_lines:
                 print(f"\n{len(sec_lines)} narrative section(s) to review:")
                 for line in sec_lines:
@@ -1324,7 +1640,7 @@ def main() -> int:
     if args.query:
         return query_symbols(args.query)
 
-    if not (args.write or args.check or args.check_exact or args.drift or args.drift_since):
+    if not (args.write or args.stamp_narrative or args.status or args.check or args.check_exact or args.drift or args.drift_since):
         ap.print_help()
     return 0
 

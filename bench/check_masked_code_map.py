@@ -313,6 +313,32 @@ def check_generated_index_and_synthetic_controls() -> None:
         assert rc == 1 and "contains a home-directory path" in buf.getvalue(), (
             "expected home-directory path leak to fail check_all"
         )
+        plan_p.write_text("# Plan\n- Calls `bench/head_tube_parts.py::sam31_head_tube`.\n", encoding="utf-8")
+
+        # Negative Control 6: Stale per-section narrative stamp even when CODE_MAP_INDEX.md is current
+        stages_p.write_text(
+            "# Stages\n### Stage 1.1\n- **Symbols** (`#deadbeef`): `bench/shot_to_load.py::step_preview`\n",
+            encoding="utf-8",
+        )
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            rc_ns = mcm.check_all(index_md=idx_p, code_map_docs=docs_tuple, expected_md=md, strict_exact=False)
+        assert rc_ns == 0 and "narrative stamp #deadbeef != live AST" in buf.getvalue(), (
+            f"expected stale narrative stamp to emit informational note when strict_exact=False, got rc={rc_ns}:\n{buf.getvalue()}"
+        )
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            rc_st = mcm.check_all(index_md=idx_p, code_map_docs=docs_tuple, expected_md=md, strict_exact=True)
+        assert rc_st == 1 and "narrative stamp #deadbeef != live AST" in buf.getvalue(), (
+            f"expected stale narrative stamp to fail check_all when strict_exact=True, got rc={rc_st}:\n{buf.getvalue()}"
+        )
+        # Running stamp_narrative_doc repairs the stamp so strict_exact=True passes
+        doc_d, n_stamped = mcm.stamp_narrative_doc(stages_p)
+        assert len(doc_d) == 8 and n_stamped == 1, f"expected 1 stamped section, got {n_stamped}"
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            rc_fixed = mcm.check_all(index_md=idx_p, code_map_docs=docs_tuple, expected_md=md, strict_exact=True)
+        assert rc_fixed == 0, f"expected stamped narrative doc to pass strict_exact=True, got rc={rc_fixed}:\n{buf.getvalue()}"
 
     # Live repo check when docs/ is present on disk
     if mcm.INDEX_MD.is_file():
