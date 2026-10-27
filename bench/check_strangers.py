@@ -715,7 +715,31 @@ def how_the_tracker_asked() -> str:
     return "the checkpoint, the corrections between it and the tracker, the phrase, threshold and most people are read off the graph; trackers asking differently are refused"
 
 
+def another_person_the_part_model_missed_is_a_stranger() -> str:
+    """2026-10-27, on 4647k: whole-frame Sapiens2 missed the dark-haired bystander on 4686-4693 (c == 0) while SAM 3.1 found
+    2,000-3,500 px of her. Every other person the detector found (`others[i]` where `o[3] is None`) is included where the part
+    model found nobody, with a core so `handed_back` keeps them even when touching a subject; a subject's own detection (`o[3]`
+    not None) is not."""
+    people, a, b = picture()
+    bystander = np.zeros_like(a)
+    for i in range(N):
+        e = 14 + 2 * i
+        bystander[i, 16:20, e + GROW:e + GROW + 3] = True       # touching a's grow (clear of b's), and black in `people` so MODEL gives c == 0
+    her_det = a.copy()
+    for i in range(N):
+        e = 14 + 2 * i
+        her_det[i, 20:22, e + GROW:e + GROW + 3] = True         # a sliver on her own detection (>0.5 on a) where MODEL gives c == 0
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        rec = st.run(preview(root, people, {"a": a, "b": b}, found=[her_det, b, bystander]), root / "output", "s", MODEL, "m", say=lambda *_: None)
+        back = read_mask(rec["file"], (W, H), 0, 0, N)[0]
+    assert back[bystander].all(), "a bystander the detector found where the part model found nobody was left out or handed back"
+    assert not (back & (her_det & ~a)).any(), "a subject's own detection where the part model found nobody became a stranger"
+    return "another person the detector found where the part model found nobody stays a stranger, even touching a subject; her own detection does not"
+
+
 case("a subject, and their rim within the grow, is not a stranger", a_subject_and_their_rim_are_not_strangers)
+case("another person the part model missed is a stranger", another_person_the_part_model_missed_is_a_stranger)
 case("where it writes, its clocks, and its record", where_it_writes)
 case("it writes over nothing", it_writes_over_nothing)
 case("a lost track is held a little, and no further", a_lost_track_is_held_a_little)

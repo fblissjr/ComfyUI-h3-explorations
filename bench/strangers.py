@@ -14,7 +14,9 @@ Read before building in internal/claude/2026-10-14_mrdrill_stranger_read.md; rul
 **What `run` writes.** Beside the strangers file, the part model's classes on the whole frame,
 `<preview>_strangers_classes.npz` (`whole_frame_classes` in the record), which the capture reads for her unclaimed hair
 (`capture_masked_run.whole_frame_hair`, 2026-10-22). The part model on the WHOLE frame, a frame at a time, on the preview's own frames of its
-own source, fitted to its canvas as the lane's loader fits it: every pixel it calls human. Less each of the
+own source, fitted to its canvas as the lane's loader fits it: every pixel it calls human, and every pixel of another
+person the detector found on that frame where the part model called nobody (2026-10-27: on 4647k whole-frame Sapiens2
+missed the dark-haired bystander on 4686-4693 while SAM 3.1 found 2,000-3,500 px of her). Less each of the
 preview's subjects' tracks (the files its record lists) grown by `h3_config.MASKED_STRANGERS["grow_px"]`, since the
 part model reaches past the tracker's edge on a subject's own body, and with them each subject's held things and parts
 as the preview saved them (`OWN_FILES`; the lead's rule of 2026-10-14: nothing of a subject's own is ever a stranger; on
@@ -96,8 +98,9 @@ OWN_FILES = ("held_things", "parts")
 #: touches a subject's own, grown, and holds no body core of its own (`CORE_CLASSES`) is that subject's (`handed_back`; the
 #: lead's ruling (A) of 2026-10-14: on 1156b the tracker left out her hat lifted in her hand at 1164 and her mitt's
 #: fingertips, and her held-things file held none of them).
-OWN_FORM = ("each subject's track, held things and parts, grown; and a piece touching them with no body core of its own, or whose only core "
-            "is hair meeting theirs, or that lies on no other person the detector found")
+OWN_FORM = ("each subject's track, held things and parts, grown, from the part model's people and every other person the detector found where "
+            "the part model found nobody; and a piece touching them with no body core of its own, or whose only core is hair meeting theirs, "
+            "or that lies on no other person the detector found")
 #: What a strangers file of another making takes (`held_to_its_record`): nothing remakes one in place (one file a preview, never
 #: replaced), so a fresh preview, whose job step makes its own (`bench/shot_to_load.py::run_strangers`).
 MADE_AGAIN = ("A file is never replaced: make the preview again, `bench/shot_to_load.py preview ... --remake` (the next letter), and its "
@@ -492,7 +495,8 @@ def held_to_its_record(path: Path, preview: str, first: int, frames: int, tracks
             out.append(f"its record's {key} is {r.get(key)!r}, and this load's is {want!r}")
     if r.get("taken_out") != OWN_FORM:
         out.append(f"its record does not say it took out {OWN_FORM}: made before this form (2026-10-14, when a subject's own hat could be a "
-                   f"stranger; 2026-10-23, when her own clothing past her track could be). {MADE_AGAIN}")
+                   f"stranger; 2026-10-23, when her own clothing past her track could be; 2026-10-27, when a bystander SAM found where Sapiens "
+                   f"found nobody was left out). {MADE_AGAIN}")
     if not r.get("frame_hash"):
         out.append(f"its record holds no hash of its frames (made before 2026-10-14's second mend). {MADE_AGAIN}")
     elif not out:
@@ -560,7 +564,11 @@ def run(preview: Path, output: Path, by: str, predict, model: str, say=print) ->
     got = 0
     for i, pic in enumerate(stream(pjob["source"], (w, h), first, n, vf=FIT.format(w=w, h=h), pix="rgb24")):
         c = predict(pic)
-        people[i], core[i], classes[i] = c > 0, np.isin(c, core_ids), c
+        det = np.zeros((h, w), bool)
+        for _, m, _, who in others[i]:
+            if who is None:
+                det |= m & (c == 0)
+        people[i], core[i], classes[i] = (c > 0) | det, np.isin(c, core_ids) | det, c
         got += 1
     if got != n:
         raise Refused(f"{pjob['source']} gave {got} frames from {first} where the preview has {n}: nothing written")
@@ -584,7 +592,7 @@ def run(preview: Path, output: Path, by: str, predict, model: str, say=print) ->
     np.savez_compressed(whole, classes=classes, first=first)
     import load_chain
     a = strangers.reshape(n, -1).sum(1)
-    record = {"what": ("every person the part model finds on the whole frame, less each of the preview's subjects' own grown, a piece touching a "
+    record = {"what": ("every person the part model or the detector finds on the whole frame, less each of the preview's subjects' own grown, a piece touching a "
                        "subject only where it lies on another person the detector found; bench/strangers.py"),
               "taken_out": OWN_FORM, "subjects_own_taken_out": {label: [str(f) for f in v] for label, v in own.items()},
               "core_classes": list(CORE_CLASSES), "hair_class": HAIR_CLASS, "handed_back": given, "handed_back_said": said_back(given),
