@@ -3494,9 +3494,10 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
                     "texts": {name: {"file": f"{name}.txt", "frames": [a, b], "by": ""}},
                     **({"keep_outs": kept} if kept else {}),
                     # the plan's restore spans on the load's frames, for the gate (`load_chain.told_to_the_gate`): what is given back at
-                    # assembly is no region over the subject's own things that nothing answers
+                    # assembly is no region over the subject's own things that nothing answers. When a span carries `loads`, it applies
+                    # only to those named loads (2026-10-27).
                     **({"restore": restore} if (restore := [dict(r, by=p.get("restore_by")) for r in p.get("restore") or []
-                                                            if r["first"] <= b and r["last"] >= a]) else {}),
+                                                            if r["first"] <= b and r["last"] >= a and (not r.get("loads") or name in r["loads"])]) else {}),
                     **({"part": part} if part else {}), **({"part_on_track": on_track} if on_track else {}), **({"zoomed": zoom_block} if zoom_block else {}),
                     **({"whole_frame": whole_block} if whole_block else {}),
                     **({"head_tube": head_tube_block} if head_tube_block else {}),

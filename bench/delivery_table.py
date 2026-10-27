@@ -305,12 +305,14 @@ def decide(ledger: dict, shots: dict, plan: dict, prefers: list[dict] | None = N
     the ledger's file of that render stops the table."""
     looks_say = _shot_coverage().nothing_to_make          # the rule has one home: the coverage tool's
 
-    def own_restores(label: str) -> list[tuple[int, int, str]]:
+    def own_restores(label: str, load_name: str | None = None) -> list[tuple[int, int, str]]:
         """The plan's `restore` spans for a subject, as (first, last, the row's `restore=` token): those classes of the
         subject's own class map given back to the source on the pieces of theirs on those source frames only, at assembly;
         generated here, never typed. ONLY AS A MARKED EXCEPTION (the owner, 2026-10-16, "The simplification wins. Make sure
         this never happens again", docs/wiki/decisions.md): H3's picture is kept whole inside a person's region, so a span
-        that gives back her own classes is refused unless it carries `exception` with its reason in words. A trial
+        that gives back her own classes is refused unless it carries `exception` with its reason in words. When a span carries
+        `loads` (a non-empty list of load names), it applies ONLY to those named loads so a remake or neighboring load on the
+        same source frames never silently inherits a legacy accessory give-back (2026-10-27, lead_fp_3967c). A trial
         (`--restore-extra`) carries its reason as `trial` and is said as one. What it replaces: the owner's keep-accessories
         rule of 2026-10-14, under which every such span was laid. NAMED GAP: a `restore=<subject>.<Class>` typed straight into
         a table's .txt reaches the assembler with no exception (it reads the token alone); the sidecar's tie of the table
@@ -325,6 +327,11 @@ def decide(ledger: dict, shots: dict, plan: dict, prefers: list[dict] | None = N
                              "`exception`: nothing puts the original back inside a person's region (the owner, 2026-10-16, docs/wiki/decisions.md), "
                              "so a span of her own classes stands only as an exception, with its reason in words (`exception`) and gone when its "
                              "shot is made again. Mark it, or take it out of the plan")
+        bad_loads = [x for x in spans if "loads" in x and (not isinstance(x["loads"], list) or not x["loads"] or not all(isinstance(n, str) and n.strip() for n in x["loads"]))]
+        if bad_loads:
+            x = bad_loads[0]
+            raise SystemExit(f"the plan's `restore` for {label!r} on {x['first']}-{x['last']} has `loads` {x['loads']!r}: `loads` is a non-empty list of "
+                             "load names that this exception applies to")
         import capture_masked_run as cap
         names = cap._pack("sapiens2_parts").CLASS_NAMES
         bad = sorted({c for x in spans for c in x["classes"] if c not in names or c == "Background"})
@@ -344,7 +351,8 @@ def decide(ledger: dict, shots: dict, plan: dict, prefers: list[dict] | None = N
                              + ", which keeps a thing worn on the head where the film has it (the assembler otherwise places it on the piece's own "
                              "face, bench/assemble_delivery.py `WORN_ON_THE_HEAD`), and it takes `placed_by` saying whose word and why")
         return [(int(x["first"]), int(x["last"]), f"{label}.{'+'.join(x['classes'])}" + ("@head" if x.get("touching") == "head" else "")
-                 + (":filmed" if x.get("placed") == "as filmed" else "")) for x in spans]
+                 + (":filmed" if x.get("placed") == "as filmed" else "")) for x in spans
+                if not x.get("loads") or (load_name is not None and load_name in x["loads"])]
 
     def cut_at(a: int, b: int, spans: list[tuple[int, int, str]]) -> list[tuple[int, int, list[str]]]:
         """A run of a row cut at the edges of the restore spans, each piece with the tokens of the spans it lies in."""
@@ -512,7 +520,7 @@ def decide(ledger: dict, shots: dict, plan: dict, prefers: list[dict] | None = N
                 region = r["form"].get("region")
                 restores = [f"{o}:whole" if region == "face" else o for o in others]
                 for a0, b0 in runs(take):
-                    for a, b, kept in cut_at(a0, b0, own_restores(label)):
+                    for a, b, kept in cut_at(a0, b0, own_restores(label, r["name"])):
                         rows.append({"first": a, "last": b, "file": r["file"], "name": r["name"], "piece_first": r["span"][0], "subject": label,
                                      "region": region, "restore": restores + kept})
                 took = set(take)
@@ -735,7 +743,7 @@ def table_text(out: dict, share: str, made: str, plan: dict, name: str) -> str:
                + " ".join(h["reason"].replace("#", " ").split()) for h in out.get("held", [])],
              "# restore= is the practice of the table of 2026-10-12: every other subject the shots file has in the shot is given back, `:whole` on a face row."]
     lines += [f"# restore={label}.{'+'.join(x['classes'])}{'@head' if x.get('touching') == 'head' else ''}{':filmed' if x.get('placed') == 'as filmed' else ''}"
-              f" on {label}'s rows on {frames(x['first'], x['last'])} only: "
+              f" on {label}'s rows" + (f" ({', '.join(x['loads'])})" if x.get("loads") else "") + f" on {frames(x['first'], x['last'])} only: "
               + (f"A TRIAL (--restore-extra), not the plan's: {' '.join(str(x['trial']).replace('#', ' ').split())}" if x.get("trial") else
                  f"from the plan, by {' '.join(str(p['restore_by']).replace('#', ' ').split())}; "
                  f"AN EXCEPTION: {' '.join(str(x.get('exception')).replace('#', ' ').split())}")

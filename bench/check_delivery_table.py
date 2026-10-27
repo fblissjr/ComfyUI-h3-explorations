@@ -716,6 +716,24 @@ def a_plan_that_keeps_an_accessory() -> str:
         assert "not classes of the part model" in str(e), e
     else:
         raise AssertionError("a class the part model has not was written")
+    # PINNED TO NAMED LOADS (2026-10-27, lead_fp_3967c): a restore entry with `"loads": [...]` applies ONLY to those loads, so a
+    # remake or neighboring load on the same source frames does not silently inherit a legacy accessory give-back
+    plan["subjects"]["a"]["restore"] = [{"classes": ["Eyeglass"], "first": 50, "last": 99, "loads": ["a_old"], "exception": "only for a_old"}]
+    out_pinned = dt.decide(ledger(render("a_remake", (50, 99), "06"), render("a_old", (50, 99), "05")), SHOTS, plan)
+    assert [(r["first"], r["last"], r["name"], r["restore"]) for r in out_pinned["rows"] if r["subject"] == "a"] == [
+        (50, 99, "a_remake", ["b:whole"])], out_pinned["rows"]
+    out_old = dt.decide(ledger(render("a_old", (50, 99), "05")), SHOTS, plan)
+    assert [(r["first"], r["last"], r["name"], r["restore"]) for r in out_old["rows"] if r["subject"] == "a"] == [
+        (50, 99, "a_old", ["b:whole", "a.Eyeglass"])], out_old["rows"]
+    assert "# restore=a.Eyeglass on a's rows (a_old) on 50-99 only:" in dt.table_text(out_old, "/share", "M", plan, "t")
+    for bad_loads in ([], [""], "a_old"):
+        plan["subjects"]["a"]["restore"] = [{"classes": ["Eyeglass"], "first": 50, "last": 99, "loads": bad_loads, "exception": "x"}]
+        try:
+            dt.decide(ledger(render("a_old", (50, 99), "05")), SHOTS, plan)
+        except SystemExit as e:
+            assert "`loads` is a non-empty list of load names" in str(e), e
+        else:
+            raise AssertionError(f"`loads` was taken with {bad_loads!r}")
     import shot_coverage
     with tempfile.TemporaryDirectory() as tmp:
         for bad in ({"restore": ["Eyeglass"], "restore_by": "x"}, {"restore": [{"classes": ["Eyeglass"], "first": 60, "last": 79}]},
