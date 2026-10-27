@@ -104,7 +104,7 @@ One home per kind of fact. Not two.
 
 | the fact | its one home |
 |---|---|
-| decisions waiting on the owner, their answers, and their passing thoughts | the H3 Open List (the owner's page with Claude): one card a decision; the "Tell Claude anything" box is the owner's inbox |
+| decisions waiting on the owner, their answers, and their passing thoughts | the local files (`docs/wiki/decisions.md`, `docs/wiki/handover.md`, `docs/masked_v2v/`, and `data/<video>/`); a hosted page such as the H3 Open List may carry decisions to the owner and is never read back as the record |
 | everything about a video in the masked lane (what stands, what it needs, who is in each shot, the owner's answers and verdicts) | `data/AGENTS.md`, "Where the lane's state lives" |
 | the day boundary | `docs/wiki/handover.md` (about 80 lines, four headings: state when closed; what not to assume; tomorrow, in order; where things are) and the top block of `docs/wiki/next_steps.md` |
 | what was decided or reversed, and when | `docs/wiki/decisions.md` |

@@ -15,6 +15,15 @@ Older history lives elsewhere and is not copied here:
   decisions" and forward-plan sections.
 - `bench/results/`: the verdict records, each with its conditions.
 
+## 2026-10-27
+
+- **Local files in the repo are the sole source of truth for decisions and state, not the H3 Open List** (the owner,
+  2026-10-27). Root `AGENTS.md` ("Where state lives") used to say the one home of "decisions waiting on the owner, their
+  answers, and their passing thoughts" was "the H3 Open List (the owner's page with Claude): one card a decision; the
+  'Tell Claude anything' box is the owner's inbox". Corrected in `AGENTS.md` to name the local files
+  (`docs/wiki/decisions.md`, `docs/wiki/handover.md`, `docs/masked_v2v/`, and `data/<video>/`), with any hosted page
+  treated only as a downstream view that may carry decisions to the owner and is never read back as the record.
+
 ## 2026-10-26
 
 - **Corrections to 2026-10-25 prose in `docs/wiki/handover.md`, `docs/masked_v2v/2026-10-25_pass_contamination_and_mask_step_forensics.md`, and `docs/masked_v2v/AGENTS.md`** (verified against `git show 449b17f1`, `bench/capture_masked_run.py:2558, 2643, 2797`, `data/2026-10-25_second_hfp_4647g/manifest.json`, and `data/2026-10-25_second_hfp_4912g/`):
