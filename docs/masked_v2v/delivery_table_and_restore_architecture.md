@@ -25,7 +25,7 @@ When `fun_0000_6394_joined_2026-10-27T1421Z_from_laid.mp4` (`day_2026-10-27`) wa
      ```
    - That entry was originally written for `lead_fp_3909b` (`3909–3966`) and the pre-remake shot `3967–4052` before `lead_fp_3967c` rendered its own sunglasses in H3.
    - Because `bench/delivery_table.py::own_restores` matched `plan["subjects"][label]["restore"]` purely by **frame span** (`3909–4052`) rather than by **load name**, it automatically emitted `restore=lead.Eyeglass` onto `lead_fp_3967c`'s delivery row (`3970–4035`).
-   - During whole-video assembly, `bench/assemble_delivery.py::worn_Moved` (`WORN_ON_THE_HEAD = frozenset({"Eyeglass", "Apparel"})`) cut the 1980s source actress's translucent sunglasses (with her original eyes and blue eyeshadow visible through the lenses) out of the source plate and pasted them on top of `lead_fp_3967c_00001.mp4`'s H3-generated sunglasses. Worse, on the 18 frames where Sapiens missed `Eyeglass` on the source plate (`3993–4002`, `4025–4035`), the pasted source glasses vanished and revealed H3's sunglasses underneath, creating a double-glasses flicker.
+   - During whole-video assembly, `bench/assemble_delivery.py::worn_of` (`WORN_ON_THE_HEAD = frozenset({"Eyeglass", "Apparel"})`) cut the 1980s source actress's translucent sunglasses (with her original eyes and blue eyeshadow visible through the lenses) out of the source plate and pasted them on top of `lead_fp_3967c_00001.mp4`'s H3-generated sunglasses. Worse, on the 18 frames where Sapiens missed `Eyeglass` on the source plate (`3993–4002`, `4025–4035`), the pasted source glasses vanished and revealed H3's sunglasses underneath, creating a double-glasses flicker.
 
 ### 1.2 Audit of all self-accessory `restore=lead.*` rows in `data/fun/plan.json`
 Across all 71 rows of `data/fun/delivery_table_laid.txt`, only 6 rows carried self-accessory `restore=lead.<Class>` tokens from `data/fun/plan.json`:
@@ -58,11 +58,11 @@ flowchart TD
 Because [`bench/delivery_table.py`](../../bench/delivery_table.py) emits both kinds of `restore=` onto the same table row, two unrelated operations share one keyword:
 1. **Cross-subject protection (`restore=second`, `restore=third:whole`)**:
    - When `lead` is laid on a shot where `second` is also present, `restore=second` prevents `lead`'s rectangular zoom box from overwriting `second`.
-   - Note that since `2026-10-20`, `assemble_delivery.py::Matte.at` (`L1372–1474`) already composites each piece using the ComfyUI node's saved per-frame soft `matte` (`*_window_*_region.npz["matte"]`), which has `second` and `strangers` carved out during the load itself.
+   - Note that since `2026-10-20`, `bench/assemble_delivery.py::Matte.at` (`L1372–1474`) already composites each piece using the ComfyUI node's saved per-frame soft `matte` (`*_window_*_region.npz["matte"]`), which has `second` and `strangers` carved out during the load itself.
 2. **Self-accessory source give-back (`restore=lead.Eyeglass`, `restore=lead.Apparel@head`, `restore=lead.Left_Hand+Right_Hand`)**:
    - This is a **single-clip post-processing patch** for an older render where H3 failed to draw a hat or sunglasses.
    - Running this inside [`bench/assemble_delivery.py`](../../bench/assemble_delivery.py) across the 4.5-minute (`6,395`-frame) joined video has two major architectural flaws:
-     - **Review vs. Delivery mismatch**: The owner reviews and clicks `"keep this one"` on `<load>_<first>_<last>_stacked.mp4` (`load_chain.py land`), which is built **without** `assemble_delivery.py`. Any self-accessory `restore=` only appears later when the whole-video cut is assembled!
+     - **Review vs. Delivery mismatch**: The owner reviews and clicks `"keep this one"` on `<load>_<first>_<last>_stacked.mp4` (`bench/load_chain.py` `land`), which is built **without** `bench/assemble_delivery.py`. Any self-accessory `restore=` only appears later when the whole-video cut is assembled!
      - **Silent leakage across remakes**: Because `plan.json` keyed `restore` by frame span (`first`, `last`), remaking a shot or an adjacent shot inside that span silently applied the legacy source-paste on top of the new render.
 
 ---
@@ -85,7 +85,7 @@ To stop silent leakage immediately without breaking existing kept clips (`lead_f
 
 ## 4. Long-Term Architecture: Clip-Level Restore at `land` Time & Decoupled Delivery Splicing
 
-Every operation in `bench/assemble_delivery.py` is **100% frame-local** to the shot being replaced (verified across `bench/assemble_delivery.py`: `Matte.at` at `L1372`, `restore_weight` at `L1340`, `worn_Moved` at `L706`, and `worn_fill` at `L655`, which looks at most `WORN_FILL_FRAMES = 2` frames left/right within the same capture). Nothing in `restore=` requires the 4.5-minute timeline.
+Every operation in `bench/assemble_delivery.py` is **100% frame-local** to the shot being replaced (verified across `bench/assemble_delivery.py`: `Matte.at` at `L1372`, `restore_weight` at `L1340`, `worn_of` at `L706`, and `worn_fill` at `L655`, which looks at most `WORN_FILL_FRAMES = 2` frames left/right within the same capture). Nothing in `restore=` requires the 4.5-minute timeline.
 
 The clean long-term separation splits the four jobs into their natural pipeline stages:
 
@@ -104,7 +104,7 @@ flowchart LR
 
 ### 4.1 Why Clip-Level Restore at `land` Time Wins
 1. **What you review on `:8765` is byte-for-byte what goes into the joined video**:
-   - If a clip uses a clip-level restore or matte composite, it runs **once** at `load_chain.py land` time on that 15–90 frame clip before `<load>_<first>_<last>_stacked.mp4` is written.
+   - If a clip uses a clip-level restore or matte composite, it runs **once** at `bench/load_chain.py` `land` time on that 15–90 frame clip before `<load>_<first>_<last>_stacked.mp4` is written.
    - The owner sees the exact final pixels on `:8765` before clicking `"keep this one"`, eliminating any surprise difference between the review clip and the joined delivery cut.
 2. **Scoped to the single load (`job.json`), never global**:
    - Any exception is requested on that specific load and baked into that load's landed output artifact. A remake (`second_hfp_4912l`, `lead_fp_3967c`) starts clean with zero risk of inheriting a global frame-span rule.
