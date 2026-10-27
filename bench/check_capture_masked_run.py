@@ -3429,14 +3429,30 @@ def depth_in_owner_map_and_the_files_step() -> str:
 
     with tempfile.TemporaryDirectory() as tmp_s:
         tmp = Path(tmp_s)
-        plan_p = _a_node_plan(tmp, rect(20, 20, 44, 44), None, 2)
-        band = rect(44, 20, 48, 44)  # inside the cell 32..48 that `one` (16..64) owns
+        plan_p = _a_node_plan(tmp, rect(16, 20, 32, 44), None, 2)
+        band = rect(44, 20, 48, 44)  # inside the cell 32..48 that `one` (16..64) owns, in the margin of part (16..32)
         depth_band = depth.copy()
         depth_band[:, 20:44, 44:48] = 1.10
         g_fg, lost_fg = cap.grid_carve(band, one, plan_p, 100, 100, depth=depth_band, valid=valid)
         assert (g_fg == band).all() and int(lost_fg.sum()) == 0, "grid_carve carved a foreground keep-out"
         g_co, lost_co = cap.grid_carve(band, one, plan_p, 100, 100, depth=depth, valid=valid)
         assert not g_co.any() and int(lost_co.sum()) > 0, "grid_carve left a co-planar keep-out on a shared cell"
+        pred_fg = cap.predict_regions(plan_p, 100, 100, g_fg, None, (W, H), tmp / "pred_fg")
+        nt_fg = cap.node_taken_inside(None, pred_fg, one, 100, 100, keeps=g_fg, depth=depth_band, valid=valid)
+        assert int(nt_fg.sum()) == 0, f"foreground keep-out preserved by depth was counted as a node_taken_inside fault: {nt_fg}"
+        nt_co = cap.node_taken_inside(None, pred_fg, one, 100, 100, keeps=g_fg, depth=depth, valid=valid)
+        assert int(nt_co.sum()) > 0, "co-planar keep-out left uncarved was not counted as a node_taken_inside fault"
+        carried_p = rect(16, 20, 32, 44)
+        grow_fn = cap._pack("video_mask").grow
+        reg_fg = cap.planned_region(carried_p, [g_fg], 16, grow_fn, whole_tokens=False)
+        rch_fg, back_fg = cap.taken_back(carried_p, g_fg, reg_fg, 16, grow_fn)
+        seen_fg = {"one": {"p": (one, np.ones(N, bool), carried_p)}, "strangers": {"s": (g_fg, np.ones(N, bool), None)}}
+        run_fg = {"p1": {"subject": "one", "others": ["strangers"], "region": reg_fg, "carried": carried_p,
+                         "read": np.ones(N, bool), "reached": {"strangers": rch_fg}, "back": {"strangers": back_fg}}}
+        cr_fg = cap.cross_rows(100, N, seen_fg, run_fg, depth=depth_band, valid=valid)[0]
+        assert cr_fg["cells_given_back__p1__strangers"] > 0 and cr_fg["cells_given_back_inside_own_track__p1__strangers"] == 0, cr_fg
+        cr_co = cap.cross_rows(100, N, seen_fg, run_fg, depth=depth, valid=valid)[0]
+        assert cr_co["cells_given_back_inside_own_track__p1__strangers"] > 0, cr_co
 
         # Refusal cases on read_depth_npz: canvas mismatch, missing overlap frames, and missing keys.
         bad_canvas = tmp / "bad_canvas.npz"

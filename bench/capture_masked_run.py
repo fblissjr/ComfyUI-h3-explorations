@@ -1586,7 +1586,8 @@ def predict_regions(plan_path: Path, at: int, first: int, others: np.ndarray, ke
 
 
 def node_taken_inside(people: np.ndarray | None, predicted: Path, mine: np.ndarray, at: int, first: int, keep: np.ndarray | None = None,
-                      share: float = OWN_TRACK_CELL_SHARE) -> np.ndarray:
+                      share: float = OWN_TRACK_CELL_SHARE, keeps: np.ndarray | None = None,
+                      depth: np.ndarray | None = None, valid: np.ndarray | None = None) -> np.ndarray:
     """THE FAULT COUNT FROM THE NODE'S OWN TOKENS: per capture frame, the units the keep-outs take from the region (the predicted
     region, `predict_regions`, against the node's own `window` with the people alone as its others and the same `keep`) that are
     more than `share` the subject's own track on a frame of their step; units, not cells, under whole tokens. Zero after the
@@ -1596,17 +1597,22 @@ def node_taken_inside(people: np.ndarray | None, predicted: Path, mine: np.ndarr
     plan, windows = node_windows(predicted, (w, h))
     zoom = plan.get("zoom")
     whole = (plan.get("source") or {}).get("edge", vm.EDGE_TOKENS) == vm.EDGE_TOKENS
+    front = _keep_in_front(keeps, mine, depth, valid) if keeps is not None else np.zeros_like(mine)
+    mine_back = mine & ~front
+    people_or_front = (people | front) if people is not None else (front if front.any() else None)
     count = np.zeros(n, np.int64)
     for row, got in windows:
         lt, lh, lw = (int(v) for v in got["tokens"].shape)
         length = int(got["mask"].shape[0])
-        base = _picture(vm, _window_frames(people, row, at, first, length), zoom, (w, h)) if people is not None else None
+        base = _picture(vm, _window_frames(people_or_front, row, at, first, length), zoom, (w, h)) if people_or_front is not None else None
         held = _picture(vm, _window_frames(keep, row, at, first, length), zoom, (w, h)) if keep is not None else None
         alone = vm.window(node_source(vm, plan, got, base, held), 0, length, w, h, lt, lh, lw)[2]
-        hers = _units(vm, _picture(vm, _window_frames(mine, row, at, first, length), zoom, (w, h)) > 0.5, lh, lw, whole) > share
+        hers = _units(vm, _picture(vm, _window_frames(mine_back, row, at, first, length), zoom, (w, h)) > 0.5, lh, lw, whole) > share
+        front_u = (_units(vm, _picture(vm, _window_frames(front, row, at, first, length), zoom, (w, h)) > 0.5, lh, lw, whole) > 0) if front.any() else None
         start = 0
         for s, steps in enumerate(vm.run_lengths(lt)):
-            taken = _unit_count(((alone[s] > 0.5) & (got["tokens"][s] < 0.5) & hers[start:start + steps].any(0)).numpy(), whole)
+            hers_step = hers[start:start + steps].any(0) & (~front_u[start:start + steps].any(0) if front_u is not None else True)
+            taken = _unit_count(((alone[s] > 0.5) & (got["tokens"][s] < 0.5) & hers_step).numpy(), whole)
             pad_before = int(row.get("pad_before", 0))
             for i in range(start, start + steps):
                 k = at + row["first_frame"] + (i - pad_before) - first
@@ -1805,7 +1811,8 @@ def picture_rows(source: str, first: int, frames: int, size: tuple[int, int]) ->
     return out + [(None, None)] * (frames - len(out))
 
 
-def cross_rows(first: int, frames: int, sightings: dict, runs: dict, voice: dict | None = None) -> list[dict]:
+def cross_rows(first: int, frames: int, sightings: dict, runs: dict, voice: dict | None = None,
+               depth: np.ndarray | None = None, valid: np.ndarray | None = None) -> list[dict]:
     """One row a frame across subjects. `sightings[label][by] = (track, covered, parts or None)`;
     `runs[name] = {"subject", "others", "region", "carried", "read", "reached": {label: px}, "back": {label: cells}}`.
 
@@ -1847,8 +1854,13 @@ def cross_rows(first: int, frames: int, sightings: dict, runs: dict, voice: dict
                     # the cells given back that are mostly the load subject's own track (`keep_out_inside_own_track`), named by
                     # row,column of the cell grid
                     mine = [lead[s][0][n] for s in subjects_of(r) if s in lead and lead[s][1][n]]
-                    inside = r["back"][b][n] & cells_mostly(np.logical_or.reduce(mine)[None], OWN_TRACK_CELL_SHARE)[0] if mine else \
-                        np.zeros_like(r["back"][b][n])
+                    if mine:
+                        mine_u = np.logical_or.reduce(mine)[None]
+                        front_b = _keep_in_front(tb[None], mine_u, depth[n:n + 1] if depth is not None else None,
+                                                 valid[n:n + 1] if valid is not None else None)
+                        inside = r["back"][b][n] & cells_any(tb[None] & ~front_b)[0] & cells_mostly(mine_u & ~front_b, OWN_TRACK_CELL_SHARE)[0]
+                    else:
+                        inside = np.zeros_like(r["back"][b][n])
                     row[f"cells_given_back_inside_own_track__{name}__{b}"] = int(inside.sum())
                     row[f"cells_given_back_inside_own_track_at__{name}__{b}"] = ";".join(f"{y},{x}" for y, x in zip(*np.nonzero(inside)))
             for other in names[i + 1:]:
@@ -2980,7 +2992,8 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
             kept_mask = np.logical_or.reduce([lead[o][0] for o in kept_labels]) if kept_labels else None
             where = predict_regions(where, plan_at, first, union, kept_mask, size, out / "runs" / name / "predicted")
             own = np.logical_or.reduce([lead[who][0] for who in both])
-            node_fault[name] = node_taken_inside(np.logical_or.reduce(people) if people else None, where, own, plan_at, first, kept_mask)
+            node_fault[name] = node_taken_inside(np.logical_or.reduce(people) if people else None, where, own, plan_at, first, kept_mask,
+                                                 keeps=np.logical_or.reduce(keeps) if keeps else None, depth=depth_arr, valid=valid_arr)
             region, carried, read, how = read_planned_regions(where, first, frames, size, r.get("at"))
             if region is None:
                 raise SystemExit(f"run {name!r}: {how['refused']} ({where})")
@@ -3115,7 +3128,7 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
                   "part's boxes (floor_zoom), said above where it differs from this run's", flush=True)
     voice = read_voice(a.voice) if a.voice else None
     manifest["voice_table"] = Path(a.voice).name if a.voice else None
-    cross = cross_rows(first, frames, sightings, captured, voice)
+    cross = cross_rows(first, frames, sightings, captured, voice, depth=depth_arr, valid=valid_arr)
     for label, c in carved.items():                    # what the carve took from each keep-out, a frame at a time: data, never a flag
         for n, row in enumerate(cross):
             row[f"keep_out_carved_px__{label}"], row[f"keep_out_carved_cells__{label}"] = int(c["px"][n]), int(c["cells"][n])
