@@ -10,6 +10,7 @@ Loaded when a session opens a file here; [`docs/AGENTS.md`](../AGENTS.md) and th
   - Delivery table `restore=` spans, `day_2026-10-27` double-sunglasses root cause (`lead_fp_3967c`), `loads`-pinned exceptions, and clip-level vs. whole-video assembly architecture: [`docs/masked_v2v/delivery_table_and_restore_architecture.md`](delivery_table_and_restore_architecture.md)
   - Verifying raw frames vs. `.npz` / JSON records (`laid.py keeps`, zoom boxes, and reference crops): [`docs/masked_v2v/verifying_raw_frames_and_keeps.md`](verifying_raw_frames_and_keeps.md)
   - Multi-pass contamination, perception provenance, and mask-step forensics (`2026-10-25` / `2026-10-26`): [`docs/masked_v2v/2026-10-25_pass_contamination_and_mask_step_forensics.md`](2026-10-25_pass_contamination_and_mask_step_forensics.md)
+  - Perception, stage-split & modularization branch ready for real-data testing (`gem/perception-lhf` in `../../h3_worktrees/gem-perception-lhf`, `2026-10-27`): [`docs/masked_v2v/2026-10-27_perception_lhf_branch.md`](2026-10-27_perception_lhf_branch.md)
   - The frame math (window lengths, the VAE's 17-frame clips, padding after the shot, what the text encoder samples): [`docs/masked_v2v/frames_rules.md`](frames_rules.md)
   - Lane rules and where state lives: [`data/AGENTS.md`](../../data/AGENTS.md) (and each project's untracked `data/<video>/AGENTS.md`)
   - Design and historical chronicle (`2026-10-04..2026-10-15`): [`docs/wiki/masked_v2v.md`](../wiki/masked_v2v.md)
