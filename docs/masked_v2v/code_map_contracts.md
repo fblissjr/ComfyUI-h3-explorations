@@ -53,7 +53,10 @@ flowchart TD
 ```
 
 - **8-Step Trace & Drift Risk**:
-  1. **Shot Span & `17n+5` Snapping (`workflows/masked_job_graph.py::window_for`, `h3_rules.py::snap_length`)**: Computes the shot span `raw = end - start + 1` and snaps it via `h3_rules.snap_length(raw)` (`FRAME_FACTOR = 17`, `FRAME_REMAINDER = 5`, `MIN_LENGTH = 22`, `MAX_LENGTH = 362`), producing valid H3 causal-VAE lengths `17n + 5` (`22, 39, 56, ..., 362`; `h3_rules.py::on_both_clocks`).
+  1. **Shot Span & Both-Clocks `17n+5` Snapping (`workflows/masked_job_graph.py::window_for`, `both_clocks`, `h3_rules.py::on_both_clocks`, `snap_length`)**:
+     Computes the shot span `raw = end - start + 1` and picks the shortest window length on both the `17n + 5` video VAE grid
+     (`FRAME_FACTOR = 17`, `FRAME_REMAINDER = 5`) and the `40 Hz` audio clock (`(n * 40) % 24 == 0`, i.e., `39, 90, 141, 192, 243, 294, 345`,
+     step `51`; capped at `MAX_LENGTH = 362`).
   2. **Graph-Side Context Padding & Cut Holding (`workflows/masked_job_graph.py::window_pad`, `held_context`)**: For a
      single-window job where `snapped > raw`, `window_pad` places all `extra = snapped - raw` context frames **after** the shot
      (`before = 0, after = extra`) unless that would pass `source_frames`, in which case the overflow goes before
@@ -63,7 +66,7 @@ flowchart TD
   4. **Server-Side Padding & Held-Edge Realization (`video_mask.py::pad_context`, `hold_context`, `held_edge_source`)**:
      Re-applies context padding inside `MiniMaxH3MaskedSource.execute`; `hold_context` replaces the outermost
      `hold_before`/`hold_after` frames that crossed a cut with a clean frozen boundary frame chosen by `held_edge_source`
-     (`MAX_HOLD_LOOKAHEAD = 8`), zeroing regeneration masks on those held frames.
+     (`HELD_EDGE_EMPTY_RUN = 8`, `HELD_EDGE_LEAST = 0.7`), zeroing regeneration masks on those held frames.
   5. **17-Frame VAE Clip Temporal Compression (`video_mask.py::run_lengths`, `token_mask`)**: Because H3's video VAE encodes in 17-frame clips where clip frame `0` is 1 latent step and frames `1..16` are 4 groups of 4 frames, `run_lengths` repeats `(1, 4, 4, 4, 4)` per 17-frame clip (`5n + 2` latent steps for `17n + 5` pixel frames).
   6. **Pixel-Space Window Lay (`video_mask.py::lay_window`, `lay_back`)**: Composites DiT output over the padded window using `pixel_alpha` and un-crops `zoom_box`.
   7. **Padding Strip & Overlap Blend (`loop_plan.py::frames_kept`, `frames_written`)**: Trims lead/tail context frames (`context_before`, `context_after`) and cross-fades overlapping windows in `audio_freeze_song.py::MiniMaxH3AudioFreezeSong.execute`.

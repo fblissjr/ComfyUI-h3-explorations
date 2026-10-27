@@ -401,3 +401,71 @@ Extracted from AST constants and record writers so line numbers and strings neve
 ### `bench/shot_to_load.py::face_cues` (`L3585-L3588`), `figures_of` (`L3617`) & `bench/measure_blocks.py::measure_luma_blocks`
 - `bench/shot_to_load.py:3585-3588` (`cannot_see` on ear/face-score cues in `face_cues`) and `:3617` (`figures_of`).
 - `bench/measure_blocks.py:859-861` (`cannot_see` on 16x16 grid block measurements in `measure_luma_blocks`).
+
+---
+
+## Part 2e — Live AST Constants & Module Dependency Chain
+
+### 2e.1 Core Masked-Lane Constants (Extracted from AST)
+
+- `h3_rules.py::FPS` (`L55`): `24`
+- `h3_rules.py::AUDIO_LATENT_RATE` (`L111`): `40`
+- `h3_rules.py::FRAME_FACTOR` (`L102`): `17`
+- `h3_rules.py::FRAME_REMAINDER` (`L103`): `5`
+- `h3_rules.py::SHORTEST_CHAINED` (`L114`): `141`
+- `h3_rules.py::MAX_LENGTH` (`L63`): `362`
+- `video_mask.py::HELD_EDGE_EMPTY_RUN` (`L1494`): `max(FRAME_PER_TOKEN)`
+- `video_mask.py::HELD_EDGE_LEAST` (`L435`): `0.25`
+- `video_mask.py::ZOOM_LARGEST` (`L459`): `2.0`
+- `subject_track.py::HEAD_PER_STRETCH` (`L829`): `'per stretch'`
+- `subject_track.py::REGAIN_SAME` (`L361`): `0.88`
+- `subject_track.py::ON_OTHERS` (`L415`): `0.5`
+- `bench/strangers.py::CORE_CLASSES` (`L124`): `(18 items: 'Face_Neck', 'Hair', ..., 'Tongue')`
+- `bench/strangers.py::NO_CORE` (`L106`): `'no body core of its own'`
+- `bench/strangers.py::NO_OTHER` (`L106`): `'on no other person the detector found'`
+- `bench/capture_masked_run.py::DEPTH_ORDER_MIN_M` (`L503`): `0.03`
+- `bench/capture_masked_run.py::PART_LEAST_PX` (`L687`): `4 * 32 * 32`
+- `bench/capture_masked_run.py::HOLD_ON_TRACK_LEAST` (`L873`): `0.25`
+- `bench/capture_masked_run.py::COLLAPSE_SHARE` (`L878`): `0.15`
+- `bench/capture_masked_run.py::COLLAPSE_REACH` (`L879`): `2`
+
+### 2e.2 Module Dependency Graph (AST Static Imports & Dynamic `_pack`/CLI Edges)
+
+Run `$H3_PYTHON bench/masked_code_map.py --deps [file]` for bidirectional upstream/downstream callers:
+
+- **`bench/capture_masked_run.py`**: imports `bench/_lib/face_points.py`, `bench/_lib/frames.py`, `bench/head_reference.py`, `bench/head_tube_parts.py`, `bench/what_h3_got.py`, `clip_folder.py`, `workflows/h3_config.py`, `workflows/masked_job_graph.py`; dynamic/cli `loop_plan.py`, `sapiens2_parts.py`, `video_mask.py`
+- **`bench/shot_to_load.py`**:
+  - imports `bench/_lib/face_points.py`, `bench/_lib/frames.py`, `bench/capture_masked_run.py`, `bench/cast_file.py`, `bench/draw_face_points.py`, `bench/head_reference.py`, `bench/head_tube_parts.py`, `bench/load_chain.py`, `bench/load_text.py`, `bench/masked_job.py`, `bench/strangers.py`, `clip_folder.py`, `workflows/h3_config.py`, `workflows/masked_job_graph.py`
+  - dynamic/cli `bench/measure_moge2_depth.py`, `bench/pose_along_shot.py`, `loop_plan.py`, `sapiens2_parts.py`
+- **`bench/head_tube_parts.py`**: imports `bench/_lib/face_points.py`
+- **`video_mask.py`**: imports `h3_rules.py`, `sapiens2_parts.py`, `subject_track.py`
+- **`audio_freeze_song.py`**: imports `h3_rules.py`, `loop_plan.py`, `reference_conditioning.py`, `video_mask.py`
+- **`bench/assemble_delivery.py`**: imports `bench/_lib/face_points.py`, `bench/_lib/frames.py`; dynamic/cli `video_mask.py`
+- **`bench/strangers.py`**: imports `bench/_lib/frames.py`, `bench/capture_masked_run.py`, `bench/load_chain.py`, `bench/shot_to_load.py`, `workflows/h3_config.py`; dynamic/cli `sapiens2_parts.py`
+- **`bench/measure_moge2_depth.py`**: imports `bench/_lib/frames.py`
+- **`bench/pose_along_shot.py`**: imports `bench/_lib/face_points.py`, `bench/_lib/frames.py`, `workflows/h3_config.py`
+- **`bench/crop_reference_to_head.py`**: imports `bench/_lib/face_points.py`, `bench/_lib/frames.py`, `bench/draw_face_points.py`
+- **`bench/head_reference.py`**: imports `bench/_lib/face_points.py`, `bench/_lib/frames.py`, `bench/capture_masked_run.py`, `bench/crop_reference_to_head.py`, `bench/draw_face_points.py`, `bench/pose_along_shot.py`; dynamic/cli `sapiens2_parts.py`
+- **`bench/draw_face_points.py`**: imports `bench/_lib/face_points.py`, `bench/_lib/frames.py`, `workflows/h3_config.py`
+- **`bench/load_chain.py`**: imports `bench/capture_masked_run.py`, `bench/delivery_table.py`, `bench/flags_before_render.py`, `bench/frame_table.py`, `bench/masked_job.py`, `bench/shot_to_load.py`, `clip_folder.py`, `workflows/h3_config.py`, `workflows/masked_job_graph.py`; dynamic/cli `bench/pose_along_shot.py`, `video_mask.py`
+- **`bench/masked_job.py`**: imports `bench/_lib/frames.py`, `bench/frame_table.py`, `bench/what_h3_got.py`, `clip_folder.py`, `workflows/h3_config.py`, `workflows/masked_job_graph.py`; dynamic/cli `audio_freeze_song.py`, `bench/capture_masked_run.py`, `h3_rules.py`, `sapiens2_parts.py`, `subject_track.py`, `video_mask.py`
+- **`workflows/masked_job_graph.py`**: imports `workflows/h3_config.py`
+- **`workflows/h3_config.py`**: dynamic/cli `h3_rules.py`
+- **`bench/inspect_mask_steps.py`**: dynamic/cli `bench/draw_face_points.py`, `bench/head_reference.py`, `bench/head_tube_parts.py`, `bench/pose_along_shot.py`, `bench/strangers.py`, `sam31_corrections.py`, `sapiens2_parts.py`, `subject_track.py`
+- **`bench/flags_before_render.py`**: imports `bench/head_reference.py`
+- **`bench/what_h3_got.py`**:
+  - imports `bench/load_chain.py`, `workflows/h3_config.py`, `workflows/masked_job_graph.py`
+  - dynamic/cli `bench/capture_masked_run.py`, `bench/draw_face_points.py`, `bench/head_reference.py`, `bench/head_tube_parts.py`, `bench/measure_moge2_depth.py`, `bench/pose_along_shot.py`, `bench/strangers.py`, `sam31_corrections.py`, `sapiens2_parts.py`, `subject_track.py`
+- **`bench/frame_table.py`**: imports `bench/capture_masked_run.py`, `clip_folder.py`, `workflows/h3_config.py`
+- **`bench/facts_pass.py`**: imports `bench/_lib/frames.py`
+- **`bench/measure_blocks.py`**: imports `bench/_lib/frames.py`; dynamic/cli `video_mask.py`
+- **`loop_plan.py`**: imports `h3_rules.py`
+- **`sapiens2_parts.py`**: imports `video_mask.py`
+- **`reference_conditioning.py`**: imports `h3_rules.py`
+- **`bench/stack_delivery.py`**: imports `bench/_lib/frames.py`, `bench/capture_masked_run.py`, `bench/frame_coverage.py`, `bench/what_h3_got.py`; dynamic/cli `bench/assemble_delivery.py`, `video_mask.py`
+- **`bench/laid.py`**: imports `bench/delivery_table.py`; dynamic/cli `bench/rebuild_delivery.py`
+- **`bench/rebuild_delivery.py`**: imports `bench/assemble_delivery.py`; dynamic/cli `bench/delivery_table.py`, `bench/frame_coverage.py`, `bench/laid.py`, `bench/render_ledger.py`, `bench/review_pages.py`
+- **`bench/delivery_table.py`**: imports `bench/capture_masked_run.py`, `bench/laid.py`; dynamic/cli `bench/assemble_delivery.py`, `bench/frame_coverage.py`, `bench/render_ledger.py`, `bench/stack_delivery.py`, `sapiens2_parts.py`
+- **`bench/render_ledger.py`**: imports `bench/delivery_table.py`, `clip_folder.py`
+- **`bench/review_pages.py`**: imports `bench/delivery_table.py`, `bench/frame_coverage.py`, `bench/load_chain.py`
+- **`bench/timeline_page.py`**: imports `bench/frame_coverage.py`, `bench/said_on_shot.py`

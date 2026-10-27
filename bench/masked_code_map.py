@@ -50,9 +50,9 @@ PLAN_MD = REPO / "docs" / "research" / "masking" / "2026-10-26_code_map_and_simp
 CODE_MAP_DOCS = (INDEX_MD, STAGES_MD, CONTRACTS_MD, PLAN_MD)
 
 # Reasoned: `read_file` truncates at 46,080 bytes. Capping every code-map file at
-# 35,000 bytes guarantees that any Gemini/AGY session reads 100% of the file in
+# 40,000 bytes guarantees that any Gemini/AGY session reads 100% of the file in
 # one tool call without `ByteOffset` pagination.
-MAX_FILE_BYTES = 35_000
+MAX_FILE_BYTES = 40_000
 
 # Reasoned: 3,500-char single-line Markdown table rows caused 90-150s `edit_file`
 # output-token stalls across 5 Gemini sessions. Capping lines at 400 chars keeps
@@ -186,6 +186,29 @@ CANNOT_SEE_CONSTANTS: tuple[tuple[str, str, str], ...] = (
     ("bench/facts_pass.py", "CANNOT_SEE", "`run_facts_pass` (`facts_pass.py`)"),
 )
 
+KEY_CONSTANTS: tuple[tuple[str, str], ...] = (
+    ("h3_rules.py", "FPS"),
+    ("h3_rules.py", "AUDIO_LATENT_RATE"),
+    ("h3_rules.py", "FRAME_FACTOR"),
+    ("h3_rules.py", "FRAME_REMAINDER"),
+    ("h3_rules.py", "SHORTEST_CHAINED"),
+    ("h3_rules.py", "MAX_LENGTH"),
+    ("video_mask.py", "HELD_EDGE_EMPTY_RUN"),
+    ("video_mask.py", "HELD_EDGE_LEAST"),
+    ("video_mask.py", "ZOOM_LARGEST"),
+    ("subject_track.py", "HEAD_PER_STRETCH"),
+    ("subject_track.py", "REGAIN_SAME"),
+    ("subject_track.py", "ON_OTHERS"),
+    ("bench/strangers.py", "CORE_CLASSES"),
+    ("bench/strangers.py", "NO_CORE"),
+    ("bench/strangers.py", "NO_OTHER"),
+    ("bench/capture_masked_run.py", "DEPTH_ORDER_MIN_M"),
+    ("bench/capture_masked_run.py", "PART_LEAST_PX"),
+    ("bench/capture_masked_run.py", "HOLD_ON_TRACK_LEAST"),
+    ("bench/capture_masked_run.py", "COLLAPSE_SHARE"),
+    ("bench/capture_masked_run.py", "COLLAPSE_REACH"),
+)
+
 
 def _ast_digest(node: ast.AST) -> str:
     """Return an 8-hex-char SHA-256 of an AST node's structure, ignoring line numbers."""
@@ -217,6 +240,10 @@ def parse_file_symbols(rel_path: str) -> tuple[int, dict[str, tuple[int, int, st
             for t in targets:
                 if isinstance(t, ast.Name):
                     symbols[t.id] = (node.lineno, node.end_lineno or node.lineno, _ast_digest(node))
+                elif isinstance(t, ast.Tuple):
+                    for elt in t.elts:
+                        if isinstance(elt, ast.Name):
+                            symbols[elt.id] = (node.lineno, node.end_lineno or node.lineno, _ast_digest(node))
     return total_lines, symbols
 
 
@@ -247,6 +274,90 @@ def extract_dict_key_span(rel_path: str, func_name: str, key_name: str) -> tuple
                         if isinstance(k, ast.Constant) and k.value == key_name:
                             return (v.lineno, v.end_lineno or v.lineno)
     raise KeyError(f"{rel_path}::{func_name}[{key_name!r}] not found in AST")
+
+
+def extract_constant_repr(rel_path: str, const_name: str) -> tuple[int, str]:
+    """Extract `(lineno, compact_repr)` for a top-level constant from AST."""
+    path = REPO / rel_path
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=rel_path)
+    for node in tree.body:
+        if isinstance(node, (ast.Assign, ast.AnnAssign)):
+            targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+            for t in targets:
+                val_node: ast.AST | None = None
+                if isinstance(t, ast.Name) and t.id == const_name:
+                    val_node = node.value
+                elif isinstance(t, ast.Tuple) and isinstance(node.value, ast.Tuple):
+                    for idx_e, elt in enumerate(t.elts):
+                        if isinstance(elt, ast.Name) and elt.id == const_name and idx_e < len(node.value.elts):
+                            val_node = node.value.elts[idx_e]
+                if val_node is not None:
+                    try:
+                        val = ast.literal_eval(val_node)
+                        if isinstance(val, (tuple, list)) and len(val) > 6:
+                            rep = f"({len(val)} items: {val[0]!r}, {val[1]!r}, ..., {val[-1]!r})"
+                        else:
+                            rep = repr(val)
+                    except Exception:
+                        rep = ast.unparse(val_node)
+                    return (node.lineno, rep)
+    raise KeyError(f"{rel_path}::{const_name} not found in AST")
+
+
+def compute_dependency_graph() -> dict[str, dict[str, list[str]]]:
+    """Extract static `imports`, dynamic `_pack`/CLI `dynamic`, and reverse `dependents` across all 44 files."""
+    all_paths = [p for _, p, _ in CORE_FILES] + [p for p, _ in SUPPORT_FILES]
+    stem_to_path = {Path(p).stem: p for p in all_paths}
+    graph: dict[str, dict[str, set[str]]] = {
+        p: {"imports": set(), "dynamic": set(), "imported_by": set(), "dynamic_by": set()} for p in all_paths
+    }
+    for rel in all_paths:
+        tree = ast.parse((REPO / rel).read_text(encoding="utf-8"), filename=rel)
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                for a in node.names:
+                    for part in a.name.split("."):
+                        if part in stem_to_path and stem_to_path[part] != rel:
+                            target = stem_to_path[part]
+                            graph[rel]["imports"].add(target)
+            elif isinstance(node, ast.ImportFrom):
+                if node.module:
+                    for part in node.module.split("."):
+                        if part in stem_to_path and stem_to_path[part] != rel:
+                            graph[rel]["imports"].add(stem_to_path[part])
+                for a in node.names:
+                    if a.name in stem_to_path and stem_to_path[a.name] != rel:
+                        graph[rel]["imports"].add(stem_to_path[a.name])
+            elif isinstance(node, ast.Constant) and isinstance(node.value, str):
+                val = node.value
+                if val.endswith(".py") and Path(val).stem in stem_to_path:
+                    target = stem_to_path[Path(val).stem]
+                    if target != rel:
+                        graph[rel]["dynamic"].add(target)
+            elif isinstance(node, ast.Call):
+                fn_name = ""
+                if isinstance(node.func, ast.Name):
+                    fn_name = node.func.id
+                elif isinstance(node.func, ast.Attribute):
+                    fn_name = node.func.attr
+                if fn_name in ("_pack", "import_module", "_load_module", "_load_sibling") and node.args:
+                    arg0 = node.args[0]
+                    if isinstance(arg0, ast.Constant) and isinstance(arg0.value, str):
+                        v = arg0.value.lstrip(".")
+                        if v in stem_to_path and stem_to_path[v] != rel:
+                            graph[rel]["dynamic"].add(stem_to_path[v])
+        graph[rel]["dynamic"] -= graph[rel]["imports"]
+
+    for src, edges in graph.items():
+        for dst in edges["imports"]:
+            graph[dst]["imported_by"].add(src)
+        for dst in edges["dynamic"]:
+            graph[dst]["dynamic_by"].add(src)
+
+    return {
+        p: {k: sorted(v) for k, v in edges.items()}
+        for p, edges in graph.items()
+    }
 
 
 def generate_index_markdown() -> str:
@@ -350,6 +461,37 @@ def generate_index_markdown() -> str:
     mb_start, mb_end = extract_dict_key_span("bench/measure_blocks.py", "measure_luma_blocks", "cannot_see")
     lines.append(f"- `bench/shot_to_load.py:{stl_start}-{stl_end}` (`cannot_see` on ear/face-score cues in `face_cues`) and `:{fig_start}` (`figures_of`).")
     lines.append(f"- `bench/measure_blocks.py:{mb_start}-{mb_end}` (`cannot_see` on 16x16 grid block measurements in `measure_luma_blocks`).")
+    lines.append("")
+    lines.append("---")
+    lines.append("")
+    lines.append("## Part 2e — Live AST Constants & Module Dependency Chain")
+    lines.append("")
+    lines.append("### 2e.1 Core Masked-Lane Constants (Extracted from AST)")
+    lines.append("")
+    for rel_path, const_name in KEY_CONSTANTS:
+        lineno, rep = extract_constant_repr(rel_path, const_name)
+        lines.append(f"- `{rel_path}::{const_name}` (`L{lineno}`): `{rep}`")
+    lines.append("")
+    lines.append("### 2e.2 Module Dependency Graph (AST Static Imports & Dynamic `_pack`/CLI Edges)")
+    lines.append("")
+    lines.append("Run `$H3_PYTHON bench/masked_code_map.py --deps [file]` for bidirectional upstream/downstream callers:")
+    lines.append("")
+    dep_graph = compute_dependency_graph()
+    for rel_path, edges in dep_graph.items():
+        if not (edges["imports"] or edges["dynamic"]):
+            continue
+        parts_dep: list[str] = []
+        if edges["imports"]:
+            parts_dep.append("imports " + ", ".join(f"`{p}`" for p in edges["imports"]))
+        if edges["dynamic"]:
+            parts_dep.append("dynamic/cli " + ", ".join(f"`{p}`" for p in edges["dynamic"]))
+        line_str = f"- **`{rel_path}`**: " + "; ".join(parts_dep)
+        if len(line_str) <= 360:
+            lines.append(line_str)
+        else:
+            lines.append(f"- **`{rel_path}`**:")
+            for pd in parts_dep:
+                lines.append(f"  - {pd}")
     lines.append("")
 
     return "\n".join(lines)
@@ -534,11 +676,38 @@ def query_symbols(query: str) -> int:
     return 0
 
 
+def query_deps(target: str | None) -> int:
+    """Print bidirectional dependency chain (downstream imports/dynamic and upstream callers) for `target` or all files."""
+    dep_graph = compute_dependency_graph()
+    q = (target or "").lower()
+    hits = 0
+    for rel_path, edges in dep_graph.items():
+        if q and q not in rel_path.lower():
+            continue
+        if not q and not any(edges.values()):
+            continue
+        hits += 1
+        print(f"=== {rel_path} ===")
+        if edges["imports"]:
+            print(f"  imports ({len(edges['imports'])}):      " + ", ".join(edges["imports"]))
+        if edges["dynamic"]:
+            print(f"  dynamic/cli ({len(edges['dynamic'])}):  " + ", ".join(edges["dynamic"]))
+        if edges["imported_by"]:
+            print(f"  imported_by ({len(edges['imported_by'])}):  " + ", ".join(edges["imported_by"]))
+        if edges["dynamic_by"]:
+            print(f"  called_by ({len(edges['dynamic_by'])}):    " + ", ".join(edges["dynamic_by"]))
+    if hits == 0:
+        print(f"no masked-lane file matching {target!r}")
+        return 1
+    return 0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--write", action="store_true", help="Write docs/masked_v2v/CODE_MAP_INDEX.md from live AST.")
     ap.add_argument("--check", action="store_true", help="Verify index freshness, symbol resolution, file size, line length, and path privacy.")
     ap.add_argument("--drift", action="store_true", help="Report AST function changes since CODE_MAP_INDEX.md was written and which narrative stages they affect.")
+    ap.add_argument("--deps", nargs="?", const="", default=None, help="Print bidirectional module dependency graph (optionally filtered by file substring).")
     ap.add_argument("query", nargs="?", help="Optional function or filename substring to look up.")
     args = ap.parse_args()
 
@@ -547,6 +716,9 @@ def main() -> int:
         INDEX_MD.parent.mkdir(parents=True, exist_ok=True)
         INDEX_MD.write_text(text, encoding="utf-8")
         print(f"wrote {INDEX_MD.relative_to(REPO)} ({len(text.encode('utf-8')):,} bytes, {len(text.splitlines())} lines)")
+
+    if args.deps is not None:
+        return query_deps(args.deps or args.query)
 
     if args.drift:
         sym_lines, sec_lines = compute_drift()

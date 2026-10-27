@@ -133,7 +133,7 @@ so narrative prose never drifts when lines shift. For contracts, window padding,
   - `<preview>_depth.npz`, subject `track` / `parts` masks, and `other` keep-out masks (`strangers.mkv`, other subjects' tracks).
 - **Transforms & Constants**:
   - Upsamples MoGe-2 depth to `(N, H, W)` and computes per-frame median depth per subject and keep-out (`_depth_medians_and_owner`).
-  - Assigns per-pixel ownership (`owner_map`) and `front_other_mask` where another person is closer to the camera than the replaced subject by `> DEPTH_MARGIN_M`.
+  - Assigns per-pixel ownership (`owner_map`) and `front_other_mask` where another person is closer to the camera than the replaced subject by `> DEPTH_ORDER_MIN_M` (`0.05` m).
 - **Writes & Overwrites**:
   - In-memory `owners`, `front_other_mask`, and `depth_settled`; persisted at the end of `_files` into `owners.npz`.
 - **Audit & Traps**:
