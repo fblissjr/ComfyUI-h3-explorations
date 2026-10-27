@@ -1,5 +1,7 @@
 # Who is who: recognising a named person again across cuts, shots, loads and sessions
 
+> **Current live implementation & rules (2026-10-27):** For live `cast.jsonl` seed rules (Group 1 `/who/` clicks, Group 2 owner visual cues, Group 3 session-verified SAM detection boxes), `subject_track.py`, `bench/cast_file.py`, and `bench/who_page.py`, see [`../masked_v2v/AGENTS.md`](../masked_v2v/AGENTS.md) §3, [`../masked_v2v/chain_trace_and_remakes.md`](../masked_v2v/chain_trace_and_remakes.md) (Stage 1), and [`../masked_v2v/CODE_MAP_INDEX.md`](../masked_v2v/CODE_MAP_INDEX.md).
+
 last updated: 2026-10-10 (first written: a design and its premortems; nothing here is built unless a line names a file or a commit)
 
 Written by hand. A design for the Subject Track of

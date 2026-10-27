@@ -10,8 +10,8 @@ pack, not the pack (root `AGENTS.md`, "The repo is broader than the current proj
 | where a project stands today | `docs/wiki/handover.md`, then the project's own `data/<video>/AGENTS.md` |
 | what is in the cut and what gaps remain | `data/<video>/laid.jsonl`; the table, gap check and cut the newest finished rebuild names, and how to tell they are current ("Where the lane's state lives", below); `bench/shot_coverage.py` |
 | the day-to-day commands (ComfyUI, one load, the review server, the rebuild, the close) | `docs/masked_v2v/PROTOCOL.md`, `docs/wiki/runbook.md` |
-| the pipeline end to end, and the lane's rules | `docs/masked_v2v/AGENTS.md`, `docs/masked_v2v/PROTOCOL.md`, `docs/wiki/masked_v2v_pipeline.md`, `docs/wiki/masked_v2v.md` |
-| when to restart ComfyUI (`:8188`), and what a change to code, a prompt, a reference or a pass-1 cut forces | [`docs/masked_v2v/AGENTS.md`](../docs/masked_v2v/AGENTS.md) §8, "What a change forces: the chain in trace order" (the one copy) |
+| the pipeline end to end, and the lane's rules | `docs/masked_v2v/AGENTS.md`, `docs/masked_v2v/PROTOCOL.md`, `docs/masked_v2v/CODE_MAP_INDEX.md`, `docs/wiki/masked_v2v_pipeline.md`, `docs/wiki/masked_v2v.md` |
+| when to restart ComfyUI (`:8188`), and what a change to code, a prompt, a reference or a pass-1 cut forces | [`docs/masked_v2v/AGENTS.md`](../docs/masked_v2v/AGENTS.md) §8 and [`docs/masked_v2v/chain_trace_and_remakes.md`](../docs/masked_v2v/chain_trace_and_remakes.md) (the one copy) |
 | after a batch of landings or laid changes | `bench/laid.py` with `--no-rebuild WHY` on each write, then one `bench/rebuild_delivery.py --video <video> --clip`; a look at one shot takes that span alone ([`docs/masked_v2v/PROTOCOL.md`](../docs/masked_v2v/PROTOCOL.md) 5.3) |
 
 ## The projects in motion
@@ -27,11 +27,13 @@ so a builder's worktree has them.
 
 ## How the lane works, end to end
 
-- The operative rules and execution protocol: [`docs/masked_v2v/AGENTS.md`](../docs/masked_v2v/AGENTS.md) and
-  [`docs/masked_v2v/PROTOCOL.md`](../docs/masked_v2v/PROTOCOL.md). The process: `docs/wiki/masked_v2v_pipeline.md`. The
-  lane's rules: `docs/wiki/masked_v2v.md` ("The rule: data
-  before a render, and the same data after"; "Reading one window whole"; "Rules of the lane"). Running a load, the
-  review server, the ledger and the end of day: `docs/wiki/runbook.md`.
+- The operative rules, execution protocol, and code map: [`docs/masked_v2v/AGENTS.md`](../docs/masked_v2v/AGENTS.md),
+  [`docs/masked_v2v/PROTOCOL.md`](../docs/masked_v2v/PROTOCOL.md),
+  [`docs/masked_v2v/reference_and_prompt_rules.md`](../docs/masked_v2v/reference_and_prompt_rules.md),
+  [`docs/masked_v2v/chain_trace_and_remakes.md`](../docs/masked_v2v/chain_trace_and_remakes.md), and
+  [`docs/masked_v2v/CODE_MAP_INDEX.md`](../docs/masked_v2v/CODE_MAP_INDEX.md). Router pages:
+  [`docs/wiki/masked_v2v_pipeline.md`](../docs/wiki/masked_v2v_pipeline.md),
+  [`docs/wiki/masked_v2v.md`](../docs/wiki/masked_v2v.md), and [`docs/wiki/runbook.md`](../docs/wiki/runbook.md).
 
 ## Settled for the masked lane
 

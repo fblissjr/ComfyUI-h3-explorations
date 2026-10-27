@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Red control for `preflight_graph.py::speaker_id_rules`.
+"""Red control for `bench/preflight_graph.py::speaker_id_rules`.
 
 The rule is ref-en 5.4's, STATED: "Assign `(Sx)` once according to the order of
 actual vocal events in the target video. Reuse the corresponding ID at every

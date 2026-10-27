@@ -1,5 +1,7 @@
 # State by signal: what code can say about a subject, and what it cannot yet
 
+> **Current live implementation & rules (2026-10-27):** For live reference drawing (`open_mouth`, `closed_mouth`, `MOUTH_BEND`, `DOWNCAST_RING_OUTSIDE_MIN`, `EYE_OPEN`, `cranium`), prompt rules (`bench/load_text.py`), and pre-render telemetry (`facts_pass.py`, `inspect_mask_steps.py`, `flags_before_render.py`), see [`../masked_v2v/reference_and_prompt_rules.md`](../masked_v2v/reference_and_prompt_rules.md), [`../masked_v2v/AGENTS.md`](../masked_v2v/AGENTS.md) §4 & §11, and [`../masked_v2v/CODE_MAP_INDEX.md`](../masked_v2v/CODE_MAP_INDEX.md).
+
 The masked lane needs to know things about a subject that a body mesh or a
 track alone does not carry: which way the head faces, whether the face
 shows, where a hand is, who is in front of whom. The owner's direction

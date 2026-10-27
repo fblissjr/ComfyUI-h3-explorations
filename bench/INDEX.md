@@ -8,7 +8,7 @@ this file is only a way to find a script by what it says it does.
 
 | group | scripts |
 |---|---|
-| [`check_*`](#check) | 167 |
+| [`check_*`](#check) | 168 |
 | [`measure_*`](#measure) | 39 |
 | [`analyze_*`](#analyze) | 23 |
 | [`grade_*`](#grade) | 21 |
@@ -89,6 +89,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_lora_branch.py`](check_lora_branch.py) | `MiniMaxH3LoRABranch` computes the merged LoRA exactly, on every module an H3 LoRA targets. |
 | [`check_lowvram_handoff.py`](check_lowvram_handoff.py) | Check that the sage forward survives KJNodes' low-VRAM block patch. |
 | [`check_marker_arms.py`](check_marker_arms.py) | A marker-corpus arm that was declared and not applied must go red. |
+| [`check_masked_code_map.py`](check_masked_code_map.py) | Check `bench/masked_code_map.py` AST symbol extraction, dependency/call/data/step chains, and code-map gates. |
 | [`check_masked_job.py`](check_masked_job.py) | Check the masked job builder: the graphs it writes and what it refuses. |
 | [`check_masked_prompt.py`](check_masked_prompt.py) | The masked lane's prompt node: what it writes, and that the graders read the same text. |
 | [`check_measure_blocks.py`](check_measure_blocks.py) | Check `bench/measure_blocks.py`: pasted 16x16 squares found, clean clips clear, real grid edges said as such. |
@@ -165,7 +166,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_sol_node_equivalence.py`](check_sol_node_equivalence.py) | Grade our Sol node's DISPATCH against the algorithm's own eager reference. |
 | [`check_sol_observe.py`](check_sol_observe.py) | Grade the Sol route observer before it is given a render. |
 | [`check_solattn_correctness.py`](check_solattn_correctness.py) | Check Sol-Attn's CUDA kernel against the algorithm's own eager reference. |
-| [`check_speaker_id_control.py`](check_speaker_id_control.py) | Red control for `preflight_graph.py::speaker_id_rules`. |
+| [`check_speaker_id_control.py`](check_speaker_id_control.py) | Red control for `bench/preflight_graph.py::speaker_id_rules`. |
 | [`check_stack_delivery.py`](check_stack_delivery.py) | The stacked delivery clip (`bench/stack_delivery.py`) on a clip and pieces whose every frame is known by construction. |
 | [`check_stack_rows.py`](check_stack_rows.py) | `bench/stack_rows.py` on made videos: every row on the source frame it says, laid where its picture came from. |
 | [`check_step_x0_observer.py`](check_step_x0_observer.py) | `step_x0_observer.py` saves each step's prediction and changes nothing. |

@@ -1,6 +1,8 @@
 # One render, stage by stage: code, owner, guard, reference
 
-last updated: 2026-10-04 (the masked video to video rows); 2026-09-11 (one reference cell renamed after the kitchen clone move; otherwise the 2026-08-28 page)
+> **Current live implementation & rules (2026-10-27):** For the masked video-to-video lane's 7-stage pipeline, AST jump index, and stage contracts, see [`../masked_v2v/CODE_MAP_INDEX.md`](../masked_v2v/CODE_MAP_INDEX.md), [`../masked_v2v/code_map_stages.md`](../masked_v2v/code_map_stages.md), [`../masked_v2v/code_map_contracts.md`](../masked_v2v/code_map_contracts.md), and [`../masked_v2v/chain_trace_and_remakes.md`](../masked_v2v/chain_trace_and_remakes.md).
+
+last updated: 2026-10-27 (added router callout to `docs/masked_v2v/CODE_MAP_INDEX.md` and updated `CLAUDE.md` to `AGENTS.md`); 2026-10-04 (the masked video to video rows); 2026-09-11 (one reference cell renamed after the kitchen clone move; otherwise the 2026-08-28 page)
 
 The cross-index. For each stage of a render: **our code**, the **document that
 owns** it, the **check that would go red** if it broke, and the
@@ -10,7 +12,7 @@ owns** it, the **check that would go red** if it broke, and the
 [`index.md`](index.md) never touches this file.
 
 **"nothing" in the guard column is the useful entry.** It is not a to-do list;
-CLAUDE.md's rule is that a new check needs a drift instance the existing gates
+[`../../AGENTS.md`](../../AGENTS.md)'s rule is that a new check needs a drift instance the existing gates
 provably could not have caught. It is there so nobody mistakes an unguarded
 stage for a guarded one. The standing audit is
 [`../checks.md`](../checks.md)'s uncontrolled-requirements table, which is the
@@ -68,7 +70,7 @@ checkout is and is not evidence of.
 **A rendered clip cannot A/B a numerical change.** The trajectory diverges
 completely from any perturbation, on any sampler, at frame 0. The output of a
 changed arm is a *different sample*, not a degraded one.
-[`../eval_comparison.md`](../eval_comparison.md) owns the process; CLAUDE.md
+[`../eval_comparison.md`](../eval_comparison.md) owns the process; [`../../AGENTS.md`](../../AGENTS.md)
 owns the rule. Compare knobs at the call, not at the output.
 
 Two riders on that were established 2026-08-28 and now live with the process

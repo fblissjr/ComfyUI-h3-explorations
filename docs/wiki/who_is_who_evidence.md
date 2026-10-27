@@ -1,5 +1,7 @@
 # Who is who: which evidence, why, and how it is weighed
 
+> **Current live implementation & rules (2026-10-27):** See [`../masked_v2v/AGENTS.md`](../masked_v2v/AGENTS.md) §3, [`../masked_v2v/chain_trace_and_remakes.md`](../masked_v2v/chain_trace_and_remakes.md) (Stage 1), and [`../masked_v2v/CODE_MAP_INDEX.md`](../masked_v2v/CODE_MAP_INDEX.md).
+
 last updated: 2026-10-10 (first written, at the owner's ask: a plan; nothing here is built or measured unless a line names a record; the same evening the owner agreed the starting rule, said who records it, and removed the classifier)
 
 Written by hand. A plan that goes with [`who_is_who.md`](who_is_who.md).

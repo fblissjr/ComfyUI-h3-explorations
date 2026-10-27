@@ -1,5 +1,7 @@
 # What ties a window to the window before it, and what loosens it
 
+> **Current live implementation & rules (2026-10-27):** For the 2026-10-25 three-path context ruling (the original subject is never shown unmasked in a window; continuous footage runs masked end-to-end to `W` and is chopped at the lay; across a cut, held copies of the edge frame with its mask open stay), see [`../masked_v2v/AGENTS.md`](../masked_v2v/AGENTS.md) §2 & §6, [`../masked_v2v/frames_rules.md`](../masked_v2v/frames_rules.md), and [`../research/masking/2026-10-25_context_frames_and_identity_on_2050.md`](../research/masking/2026-10-25_context_frames_and_identity_on_2050.md).
+
 A ledger for one question in the masked lane: a continuation window follows
 the frames it inherits more than it follows its motion reference. The
 mechanism is read from code and cited; every result is a dated line with

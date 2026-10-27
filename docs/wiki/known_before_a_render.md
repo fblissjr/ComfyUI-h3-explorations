@@ -1,5 +1,7 @@
 # What was knowable before the render
 
+> **Current live implementation & rules (2026-10-27):** For the current pre-render gate (`capture_masked_run.py verify` / `preflight`), `bench/facts_pass.py`, `bench/inspect_mask_steps.py` (`[0]`–`[7]` checks), and `bench/flags_before_render.py` (`[0]`–`[4]` diagnostic blocks), see [`../masked_v2v/AGENTS.md`](../masked_v2v/AGENTS.md) §4 & §11 and [`../masked_v2v/PROTOCOL.md`](../masked_v2v/PROTOCOL.md) §3.1–§3.2.
+
 Every fault of a masked job that was found after a render, set against the
 data that existed, or was cheap to get, before anything sampled. The owner's
 question (2026-10-10): for each of these, what did we have in advance that

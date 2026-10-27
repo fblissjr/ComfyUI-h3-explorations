@@ -32,7 +32,7 @@ deliberately held back — see "What this cannot answer".
 
 ## Why length alone, and why that is not a clean variable anyway
 
-`internal/ref2va_prompt_patterns.md:1105-1126` pre-registered this arm before
+The earlier untracked draft (`internal/ref2va_prompt_patterns.md`, lines 1105–1126, since folded into [`prompting.md`](prompting.md)) pre-registered this arm before
 today and named the confound: **prompt length moves the rotary origin.**
 `comfy/ldm/minimax/model.py:307-318` packs `[text | keyframes | refs | target]`,
 gives text positions `arange(text_len)`, then uses `cursor = text_len` as the

@@ -1,5 +1,7 @@
 # Data for choosing a window's edges
 
+> **Current live implementation & rules (2026-10-27):** Every shot `<= 345` frames renders as one whole-shot single-window load locked to `[shot.first .. shot.last]` in `data/<video>/shots.json` (`h3_rules.on_both_clocks`), and frames to look at are chosen by [`bench/pick_frames.py`](../../bench/pick_frames.py). See [`../masked_v2v/AGENTS.md`](../masked_v2v/AGENTS.md) §6 & §9 and [`../masked_v2v/frames_rules.md`](../masked_v2v/frames_rules.md).
+
 Last updated: 2026-10-13.
 
 **A direction with nothing built.** Written 2026-10-13 by the morning's lead at the owner's ask, after a day
