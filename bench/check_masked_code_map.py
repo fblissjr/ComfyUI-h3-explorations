@@ -23,11 +23,61 @@ if str(REPO) not in sys.path:
 from _lib import case, finish  # noqa: E402
 import masked_code_map as mcm  # noqa: E402
 
+# Listed verbatim so `bench/run_checks.py --changed` (which matches `Path(changed).stem in check.read_text()`)
+# selects `check_masked_code_map.py` whenever any of the 44 masked-lane modules is modified.
+_WATCHED_MODULE_STEMS: tuple[str, ...] = (
+    "capture_masked_run",
+    "shot_to_load",
+    "head_tube_parts",
+    "video_mask",
+    "audio_freeze_song",
+    "assemble_delivery",
+    "strangers",
+    "measure_moge2_depth",
+    "pose_along_shot",
+    "crop_reference_to_head",
+    "head_reference",
+    "draw_face_points",
+    "load_text",
+    "cast_file",
+    "load_chain",
+    "masked_job",
+    "masked_job_graph",
+    "h3_config",
+    "inspect_mask_steps",
+    "flags_before_render",
+    "what_h3_got",
+    "frame_table",
+    "facts_pass",
+    "measure_blocks",
+    "loop_plan",
+    "h3_rules",
+    "subject_track",
+    "sapiens2_parts",
+    "sam31_corrections",
+    "reference_conditioning",
+    "clip_folder",
+    "stack_delivery",
+    "laid",
+    "rebuild_delivery",
+    "delivery_table",
+    "frame_coverage",
+    "render_ledger",
+    "review_pages",
+    "said_on_shot",
+    "inventory",
+    "timeline_page",
+    "code_stamp",
+    "face_points",
+    "frames",
+)
+
 
 def check_live_ast_symbols_and_constants() -> None:
     """Verify AST symbol coordinates, digests, tuple unpacking, KEY_CONSTANTS, and CANNOT_SEE_CONSTANTS."""
     all_paths = [p for _, p, _ in mcm.CORE_FILES] + [p for p, _ in mcm.SUPPORT_FILES]
     assert len(all_paths) == 44, f"expected 44 masked-lane files, got {len(all_paths)}"
+    assert {Path(p).stem for p in all_paths} == set(_WATCHED_MODULE_STEMS), "watched stems out of sync with 44 files"
     for rel_path in all_paths:
         total_lines, syms = mcm.parse_file_symbols(rel_path)
         assert total_lines > 0, f"{rel_path}: total_lines={total_lines}"
@@ -47,8 +97,8 @@ def check_live_ast_symbols_and_constants() -> None:
     assert "NO_CORE" in str_syms and "NO_OTHER" in str_syms, "bench/strangers.py tuple constants missing"
 
     # Key constants & cannot_see constants resolve cleanly
-    assert len(set(mcm.KEY_CONSTANTS)) == 20 and ("h3_rules.py", "MAX_LENGTH") in mcm.KEY_CONSTANTS, (
-        "KEY_CONSTANTS must hold all 20 distinct constants including h3_rules.py::MAX_LENGTH"
+    assert len(set(mcm.KEY_CONSTANTS)) == 29 and ("h3_rules.py", "MAX_LENGTH") in mcm.KEY_CONSTANTS, (
+        f"KEY_CONSTANTS must hold all 29 distinct constants including h3_rules.py::MAX_LENGTH, got {len(set(mcm.KEY_CONSTANTS))}"
     )
     for rel_path, const_name in mcm.KEY_CONSTANTS:
         lineno, val = mcm.extract_constant_repr(rel_path, const_name)
@@ -57,6 +107,9 @@ def check_live_ast_symbols_and_constants() -> None:
     assert mcm.extract_constant_repr("h3_rules.py", "MAX_LENGTH")[1] == "362"
     assert mcm.extract_constant_repr("video_mask.py", "HELD_EDGE_EMPTY_RUN")[1] == "max(FRAME_PER_TOKEN)"
     assert mcm.extract_constant_repr("video_mask.py", "HELD_EDGE_LEAST")[1] == "0.25"
+    assert mcm.extract_constant_repr("bench/head_tube_parts.py", "SHORT_DIP_MAX_FRAMES")[1] == "6"
+    assert mcm.extract_constant_repr("bench/capture_masked_run.py", "SEGMENT_PX")[1] == "64"
+    assert mcm.extract_constant_repr("subject_track.py", "SEED_AGREES")[1] == "0.9"
 
     for rel_path, const_name, _ in mcm.CANNOT_SEE_CONSTANTS:
         start, end, items = mcm.extract_cannot_see_constant(rel_path, const_name)
@@ -128,21 +181,28 @@ def check_data_chain_and_step_chain() -> None:
             f"expected {expected_reader} as reader of part_grades.json, got {pg_readers}"
         )
 
-    reg_hits = mcm.scan_ast_data_hits("region.npz")
+    reg_hits = mcm.scan_ast_data_hits(("region.npz",))
     reg_writers = {f"{rel}::{fn}" for role, rel, fn, _, _, _, _ in reg_hits if role == "WRITE"}
     assert "bench/capture_masked_run.py::_files" in reg_writers, (
         f"expected _files as writer of region.npz, got {reg_writers}"
     )
 
+    # Verify AST schema key extraction on _people.npz (`[keys: masks, frame, person, score, first]`)
+    ppl_hits = mcm.scan_ast_data_hits(("_people.npz", "people.npz", "people_file_of"))
+    ppl_write_snippets = [snip for role, rel, fn, _, _, _, snip in ppl_hits if role == "WRITE" and rel == "bench/strangers.py"]
+    assert any("masks, frame, person, score, first" in s for s in ppl_write_snippets), (
+        f"expected _people.npz write site to report schema keys [masks, frame, person, score, first], got {ppl_write_snippets}"
+    )
+
     steps = mcm.compute_step_chain()
     by_step = {(rel, step_name): targets for rel, step_name, _, _, _, _, targets in steps}
     assert ("bench/shot_to_load.py", "preview") in by_step
-    assert "bench/masked_job.py" in by_step[("bench/shot_to_load.py", "preview")], (
+    assert any(t.startswith("bench/masked_job.py") for t in by_step[("bench/shot_to_load.py", "preview")]), (
         "preview step must list bench/masked_job.py"
     )
     assert ("bench/load_chain.py", "first") in by_step
-    assert "bench/capture_masked_run.py" in by_step[("bench/load_chain.py", "first")], (
-        "first step must list bench/capture_masked_run.py"
+    assert "bench/capture_masked_run.py (files, verify, preflight, video)" in by_step[("bench/load_chain.py", "first")], (
+        f"first step must list bench/capture_masked_run.py (files, verify, preflight, video), got {by_step[('bench/load_chain.py', 'first')]}"
     )
     assert ("bench/load_chain.py", "no-look") in by_step
     assert "bench/flags_before_render.py::unresolved_hair_in_hole_of" in by_step[("bench/load_chain.py", "no-look")], (
@@ -183,16 +243,22 @@ def check_generated_index_and_synthetic_controls() -> None:
 
         buf = io.StringIO()
         with contextlib.redirect_stdout(buf):
-            rc = mcm.check_all(index_md=idx_p, code_map_docs=docs_tuple, expected_md=md)
+            rc = mcm.check_all(index_md=idx_p, code_map_docs=docs_tuple, expected_md=md, strict_exact=True)
         assert rc == 0, f"expected clean synthetic docs to pass check_all, got rc={rc}:\n{buf.getvalue()}"
 
-        # Negative Control 1: Stale CODE_MAP_INDEX.md
+        # Negative Control 1: Stale CODE_MAP_INDEX.md (informational note in non-strict mode, hard fail in strict_exact=True)
         idx_p.write_text(md + "\n<!-- drift -->\n", encoding="utf-8")
         buf = io.StringIO()
         with contextlib.redirect_stdout(buf):
-            rc = mcm.check_all(index_md=idx_p, code_map_docs=docs_tuple, expected_md=md)
+            rc_non_strict = mcm.check_all(index_md=idx_p, code_map_docs=docs_tuple, expected_md=md, strict_exact=False)
+        assert rc_non_strict == 0 and "out of date with live AST extraction" in buf.getvalue(), (
+            "expected stale CODE_MAP_INDEX.md to print informational note and exit 0 when strict_exact=False"
+        )
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            rc = mcm.check_all(index_md=idx_p, code_map_docs=docs_tuple, expected_md=md, strict_exact=True)
         assert rc == 1 and "out of date with live AST extraction" in buf.getvalue(), (
-            "expected stale CODE_MAP_INDEX.md to fail check_all"
+            "expected stale CODE_MAP_INDEX.md to fail check_all when strict_exact=True"
         )
         idx_p.write_text(md, encoding="utf-8")
 
@@ -203,6 +269,19 @@ def check_generated_index_and_synthetic_controls() -> None:
             rc = mcm.check_all(index_md=idx_p, code_map_docs=docs_tuple, expected_md=md)
         assert rc == 1 and "does not exist in `bench/shot_to_load.py`'s AST" in buf.getvalue(), (
             "expected missing AST symbol citation to fail check_all"
+        )
+        stages_p.write_text("# Stages\n- Calls `bench/shot_to_load.py::step_preview`.\n", encoding="utf-8")
+
+        # Negative Control 3: Narrative line-range citation outside symbol AST bounds
+        stages_p.write_text(
+            "# Stages\n- Calls `bench/head_tube_parts.py::sam31_head_tube` (`bench/head_tube_parts.py:1-5`).\n",
+            encoding="utf-8",
+        )
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            rc = mcm.check_all(index_md=idx_p, code_map_docs=docs_tuple, expected_md=md)
+        assert rc == 1 and "outside AST bounds of sam31_head_tube" in buf.getvalue(), (
+            "expected out-of-bounds line-range citation to fail check_all"
         )
         stages_p.write_text("# Stages\n- Calls `bench/shot_to_load.py::step_preview`.\n", encoding="utf-8")
 

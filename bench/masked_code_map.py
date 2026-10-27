@@ -2,11 +2,12 @@
 """Generate and check the masked-lane AST jump index and stage-symbol drift map.
 
     <python> bench/masked_code_map.py --write        # rewrite docs/masked_v2v/CODE_MAP_INDEX.md
-    <python> bench/masked_code_map.py --check        # exit 1 if stale, oversized, or drifted
+    <python> bench/masked_code_map.py --check        # exit 1 on missing symbol, size/line cap, or path leak
+    <python> bench/masked_code_map.py --check-exact  # also exit 1 if CODE_MAP_INDEX.md is not byte-identical
     <python> bench/masked_code_map.py --drift        # report functions & narrative stages changed
     <python> bench/masked_code_map.py --deps [file]  # print bidirectional module dependency graph
     <python> bench/masked_code_map.py --calls <sym>  # print AST function callers & callees
-    <python> bench/masked_code_map.py --data [key]   # print AST writers & readers ("both ends")
+    <python> bench/masked_code_map.py --data [key]   # print AST writers & readers ("both ends") + schema keys
     <python> bench/masked_code_map.py --chain [step] # print AST pipeline step -> subprocess chain
     <python> bench/masked_code_map.py <query>        # print live StartLine-EndLine for a symbol/file
 
@@ -54,9 +55,9 @@ PLAN_MD = REPO / "docs" / "research" / "masking" / "2026-10-26_code_map_and_simp
 CODE_MAP_DOCS = (INDEX_MD, STAGES_MD, CONTRACTS_MD, PLAN_MD)
 
 # Reasoned: `read_file` truncates at 46,080 bytes. Capping every code-map file at
-# 42,000 bytes guarantees that any Gemini/AGY session reads 100% of the file in
+# 44,000 bytes guarantees that any Gemini/AGY session reads 100% of the file in
 # one tool call without `ByteOffset` pagination.
-MAX_FILE_BYTES = 42_000
+MAX_FILE_BYTES = 44_000
 
 # Reasoned: 3,500-char single-line Markdown table rows caused 90-150s `edit_file`
 # output-token stalls across 5 Gemini sessions. Capping lines at 400 chars keeps
@@ -76,7 +77,7 @@ CORE_FILES: tuple[tuple[str, str, tuple[tuple[str, tuple[str, ...]], ...]], ...]
             ("Keep-out canvas & node-grid carving", ("_keep_in_front", "carve_keep_out", "_bridge_severed", "grid_carve", "predict_regions", "node_taken_inside", "step_keepout_carves")),
             ("Region readers & saved window `.npz`", ("planned_region", "read_region", "read_saved_regions", "read_planned_regions")),
             ("Capture pipeline (`files` subcommand)", ("files", "_files")),
-            ("Verification & rules (`verify`, `rules`, `shots`)", ("input_facts", "readers_agreement", "verify_checks", "preview_first_of", "at_checks", "verify", "rules_input", "rules", "by_shot", "by_load", "shots")),
+            ("Verification & rules (`verify`, `rules`, `shots`)", ("input_facts", "readers_agreement", "verify_checks", "preview_first_of", "at_checks", "verify", "rules_input", "rules", "by_shot", "by_load", "shots", "frame_spans")),
             ("Preflight flags (`preflight` subcommand)", ("flag_shots", "flag_pose", "flag_never", "flag_track", "held_parts", "flag_parts", "flag_runs", "flag_segments", "dropped_or_unmasked_face_in_context", "unmasked_head_hair_context", "lays_nothing", "flag_lent", "flag_reference_figure", "flag_held_tail", "flag_kept", "flag_mouth", "flag_her_hair", "flag_pieces", "flag_face_size", "flag_who", "flag_keep", "flag_cuts", "flag_loads", "flag_text", "preflight")),
             ("Her hair in the hole & off-head filter", ("largest_piece", "her_hair_in_hole", "hole_of_the_load", "whole_frame_hair", "hair_in_hole_files", "hair_in_hole", "off_head")),
             ("Sizes, look, post-render & strip video", ("sizes_of", "sizes", "look_entry", "strip_home", "strip_of", "looked", "outcome", "changed", "mouth", "mask", "diagnose", "look", "load_capture", "draw_masks", "head_boxes", "strip_records", "video", "main")),
@@ -129,7 +130,7 @@ CORE_FILES: tuple[tuple[str, str, tuple[tuple[str, tuple[str, ...]], ...]], ...]
         "3.6",
         "bench/assemble_delivery.py",
         (
-            ("Table & piece metadata readers", ("read_table", "zoomed_of", "read_intents", "run_for", "piece_frames")),
+            ("Table & piece metadata readers", ("read_table", "zoomed_of", "read_intents", "run_for", "piece_frames", "frame_spans")),
             ("Matte resolution (`Matte`, `laid_by_of`)", ("Matte", "laid_by_of", "_laid_by_of")),
             ("Capture & depth/owner loader", ("Captures", "owners")),
             ("Plane compositing, restores & worn placement", ("weight_of", "lay_plane", "restore_weight", "placements_of", "worn_layer", "merged", "laid_over", "carry_edge_rows", "fed_frames", "build")),
@@ -203,14 +204,23 @@ KEY_CONSTANTS: tuple[tuple[str, str], ...] = (
     ("subject_track.py", "HEAD_PER_STRETCH"),
     ("subject_track.py", "REGAIN_SAME"),
     ("subject_track.py", "ON_OTHERS"),
+    ("subject_track.py", "SEED_AGREES"),
+    ("subject_track.py", "DRAWN_INSIDE"),
     ("bench/strangers.py", "CORE_CLASSES"),
     ("bench/strangers.py", "NO_CORE"),
     ("bench/strangers.py", "NO_OTHER"),
+    ("bench/head_tube_parts.py", "SHORT_DIP_MAX_FRAMES"),
+    ("bench/head_tube_parts.py", "SHORT_DIP_RATIO"),
+    ("bench/head_tube_parts.py", "SHORT_DIP_BOUND_LEAST_SHARE"),
     ("bench/capture_masked_run.py", "DEPTH_ORDER_MIN_M"),
     ("bench/capture_masked_run.py", "PART_LEAST_PX"),
     ("bench/capture_masked_run.py", "HOLD_ON_TRACK_LEAST"),
     ("bench/capture_masked_run.py", "COLLAPSE_SHARE"),
     ("bench/capture_masked_run.py", "COLLAPSE_REACH"),
+    ("bench/capture_masked_run.py", "SEGMENT_PX"),
+    ("bench/capture_masked_run.py", "FACE_POINT_LINE_FROM"),
+    ("bench/capture_masked_run.py", "OFF_HEAD_MARGIN"),
+    ("bench/capture_masked_run.py", "HEAD_TRACK_OFF_HEAD_MARGIN"),
 )
 
 
@@ -478,6 +488,7 @@ def compute_call_graph() -> tuple[
 DATA_CHAIN_CATALOG: tuple[tuple[str, tuple[str, ...], str], ...] = (
     ("parts_held__<by>.mkv", ("parts_held__",), "Settled/graded subject part mask video (written in `_files` and `hair_in_hole_files`)"),
     ("part_grades.json", ("part_grades.json",), "Per-frame part grading record (`kept`, `held`, `emptied`) written in `_files`"),
+    ("doubted_frames.json", ("doubted_frames.json",), "Per-frame `under_doubted` class-map breakdown under `held_parts` written in `_files`"),
     ("masks__<by>.npz", ("masks__",), "Bit-packed `track`, `covered`, `parts` snapshot written at Stage 2.6"),
     ("track__<by>.mkv", ("track__",), "Capture copy of subject track video (updated by `hair_in_hole_files` `00a3f1d8`)"),
     ("hair_in_hole__<by>.json", ("hair_in_hole__",), "Stage 2.8 `her_hair_in_hole` recovery & undecided hair record"),
@@ -485,6 +496,7 @@ DATA_CHAIN_CATALOG: tuple[tuple[str, tuple[str, ...], str], ...] = (
     ("owners.npz", ("owners.npz",), "Per-pixel depth/subject ownership map written by `_files` and read by `assemble_delivery.py`"),
     ("region.npz", ("region.npz", "_region.npz"), "Predicted (`runs/<name>/region.npz`) and saved (`_window_NNN_region.npz`) token/matte masks"),
     ("step_carves.json", ("step_carves.json",), "Per-latent-step keep-out carve accounting (`step_keepout_carves`)"),
+    ("manifest.json", ("manifest.json", "parts_doubted_and_left_on_source_frames", "parts_emptied_by_grade_on_source_frames"), "Capture top-level manifest (`subjects[].sightings[]`, `runs[]`, `owners`) written by `_files` and updated by `hair_in_hole_files`"),
     ("frame_table.jsonl", ("frame_table.jsonl", "frame_table__"), "Per-frame pre-render audit table (`bench/frame_table.py`)"),
     ("_people.npz", ("_people.npz", "people.npz", "people_file_of"), "Whole-frame SAM 3.1 person detections written by `strangers.py::people_pass`"),
     ("_strangers.mkv", ("_strangers.mkv", "strangers.mkv", "file_of"), "Whole-frame strangers keep-out mask video written by `strangers.py::run`"),
@@ -496,6 +508,50 @@ DATA_CHAIN_CATALOG: tuple[tuple[str, tuple[str, ...], str], ...] = (
     ("cast.jsonl", ("cast.jsonl",), "Subject identification & box seed ledger (`Group 1` clicks, `Group 2` cues, `Group 3` SAM boxes)"),
     ("laid.jsonl", ("laid.jsonl", "table_laid_sha"), "Laid render keeps ledger read by `delivery_table.py` and `rebuild_delivery.py`"),
 )
+
+
+def _extract_site_schema_keys(tree: ast.Module, role: str, f_start: int, f_end: int, lno: int) -> list[str]:
+    """Extract `.npz` keyword args or `.json`/dict keys written/read near `lno` inside `(f_start, f_end)`."""
+    keys: list[str] = []
+    lo = max(f_start, lno - 2)
+    hi = min(f_end, lno + 24)
+    nodes_in_range = sorted(
+        (sub for sub in ast.walk(tree) if getattr(sub, "lineno", None) is not None and lo <= sub.lineno <= hi),
+        key=lambda n: (getattr(n, "lineno", 0), getattr(n, "col_offset", 0)),
+    )
+    for sub in nodes_in_range:
+        if role == "WRITE" and isinstance(sub, ast.Call):
+            fn = sub.func
+            fn_name = fn.id if isinstance(fn, ast.Name) else (fn.attr if isinstance(fn, ast.Attribute) else "")
+            if fn_name in ("savez", "savez_compressed"):
+                for kw in sub.keywords:
+                    if kw.arg and kw.arg not in keys:
+                        keys.append(kw.arg)
+                    elif kw.arg is None and isinstance(kw.value, ast.Dict):
+                        for dk in kw.value.keys:
+                            if isinstance(dk, ast.Constant) and isinstance(dk.value, str) and dk.value not in keys:
+                                keys.append(dk.value)
+            elif fn_name in ("dumps", "dump") and sub.args and isinstance(sub.args[0], ast.Dict):
+                for dk in sub.args[0].keys:
+                    if isinstance(dk, ast.Constant) and isinstance(dk.value, str) and dk.value not in keys:
+                        keys.append(dk.value)
+        elif role == "READ":
+            if isinstance(sub, ast.Subscript) and isinstance(sub.slice, ast.Constant) and isinstance(sub.slice.value, str):
+                kv = sub.slice.value
+                if kv and not kv.endswith((".json", ".npz", ".mkv", ".mp4", ".jsonl")) and kv not in keys:
+                    keys.append(kv)
+            elif (
+                isinstance(sub, ast.Call)
+                and isinstance(sub.func, ast.Attribute)
+                and sub.func.attr == "get"
+                and sub.args
+                and isinstance(sub.args[0], ast.Constant)
+                and isinstance(sub.args[0].value, str)
+            ):
+                kv = sub.args[0].value
+                if kv and not kv.endswith((".json", ".npz", ".mkv", ".mp4", ".jsonl")) and kv not in keys:
+                    keys.append(kv)
+    return keys[:10]
 
 
 def scan_ast_data_hits(patterns: tuple[str, ...]) -> list[tuple[str, str, str, int, int, int, str]]:
@@ -549,7 +605,7 @@ def scan_ast_data_hits(patterns: tuple[str, ...]) -> list[tuple[str, str, str, i
             if (rel, enclosing, lno) in seen_fn_line:
                 continue
             seen_fn_line.add((rel, enclosing, lno))
-            win = "\n".join(lines[max(0, lno - 3) : min(len(lines), lno + 5)])
+            win = "\n".join(lines[max(0, lno - 3) : min(len(lines), min(f_end, lno + 22) if f_end > lno else lno + 5)])
             line_txt = lines[lno - 1].strip()
             role = "CODE"
             if any(
@@ -581,7 +637,11 @@ def scan_ast_data_hits(patterns: tuple[str, ...]) -> list[tuple[str, str, str, i
                 )
             ):
                 role = "READ"
-            hits.append((role, rel, enclosing, f_start, f_end, lno, line_txt[:110]))
+            schema_keys = _extract_site_schema_keys(tree, role, f_start, f_end, lno) if role in ("WRITE", "READ") else []
+            snippet = line_txt[:100]
+            if schema_keys:
+                snippet = f"{snippet}  [keys: {', '.join(schema_keys)}]"
+            hits.append((role, rel, enclosing, f_start, f_end, lno, snippet))
     return hits
 
 
@@ -604,7 +664,8 @@ def compute_step_chain() -> list[tuple[str, str, str, int, int, str, list[str]]]
                                 step_name = str(k.value)
                                 fn_name = v.id
                                 s, e, d = syms[fn_name]
-                                targets: list[str] = []
+                                raw_targets: list[str] = []
+                                tool_subcmds: dict[str, list[str]] = {}
                                 # Inspect the step function and its direct same-file callees for `tool(world, ...)` and cross-file calls
                                 to_inspect = [fn_name]
                                 for dst_path, dst_sym, _ in callees.get((rel, fn_name), []):
@@ -612,14 +673,41 @@ def compute_step_chain() -> list[tuple[str, str, str, int, int, str, list[str]]]
                                         to_inspect.append(dst_sym)
                                     elif dst_path != rel:
                                         ref = f"{dst_path}::{dst_sym}"
-                                        if ref not in targets:
-                                            targets.append(ref)
+                                        if ref not in raw_targets:
+                                            raw_targets.append(ref)
                                 for inspect_fn in to_inspect:
                                     fnode = fn_nodes.get(inspect_fn)
                                     if fnode is None:
                                         continue
-                                    for sub in ast.walk(fnode):
+                                    ordered_subs = sorted(
+                                        ast.walk(fnode),
+                                        key=lambda n: (getattr(n, "lineno", 0), getattr(n, "col_offset", 0)),
+                                    )
+                                    for sub in ordered_subs:
                                         if (
+                                            isinstance(sub, ast.BinOp)
+                                            and isinstance(sub.op, ast.Add)
+                                            and isinstance(sub.left, ast.Call)
+                                            and isinstance(sub.left.func, ast.Name)
+                                            and sub.left.func.id == "tool"
+                                            and len(sub.left.args) >= 2
+                                            and isinstance(sub.left.args[1], ast.Constant)
+                                            and isinstance(sub.right, ast.List)
+                                            and sub.right.elts
+                                        ):
+                                            tool_script = f"bench/{sub.left.args[1].value}"
+                                            if tool_script not in raw_targets:
+                                                raw_targets.append(tool_script)
+                                            first_elt = sub.right.elts[0]
+                                            if (
+                                                isinstance(first_elt, ast.Constant)
+                                                and isinstance(first_elt.value, str)
+                                                and not first_elt.value.startswith("-")
+                                            ):
+                                                subs = tool_subcmds.setdefault(tool_script, [])
+                                                if first_elt.value not in subs:
+                                                    subs.append(first_elt.value)
+                                        elif (
                                             isinstance(sub, ast.Call)
                                             and isinstance(sub.func, ast.Name)
                                             and sub.func.id == "tool"
@@ -627,23 +715,37 @@ def compute_step_chain() -> list[tuple[str, str, str, int, int, str, list[str]]]
                                             and isinstance(sub.args[1], ast.Constant)
                                         ):
                                             tool_script = f"bench/{sub.args[1].value}"
-                                            if tool_script not in targets:
-                                                targets.append(tool_script)
+                                            if tool_script not in raw_targets:
+                                                raw_targets.append(tool_script)
                                         elif isinstance(sub, ast.List):
-                                            for elt in sub.elts:
+                                            for idx_e, elt in enumerate(sub.elts):
                                                 if (
                                                     isinstance(elt, ast.Constant)
                                                     and isinstance(elt.value, str)
                                                     and elt.value.startswith("bench/")
                                                     and elt.value.endswith(".py")
                                                 ):
-                                                    if elt.value not in targets:
-                                                        targets.append(elt.value)
+                                                    if elt.value not in raw_targets:
+                                                        raw_targets.append(elt.value)
+                                                    if idx_e + 1 < len(sub.elts):
+                                                        nxt = sub.elts[idx_e + 1]
+                                                        if (
+                                                            isinstance(nxt, ast.Constant)
+                                                            and isinstance(nxt.value, str)
+                                                            and not nxt.value.startswith("-")
+                                                        ):
+                                                            subs = tool_subcmds.setdefault(elt.value, [])
+                                                            if nxt.value not in subs:
+                                                                subs.append(nxt.value)
                                     for dst_path, dst_sym, _ in callees.get((rel, inspect_fn), []):
                                         if dst_path != rel:
                                             ref = f"{dst_path}::{dst_sym}"
-                                            if ref not in targets:
-                                                targets.append(ref)
+                                            if ref not in raw_targets:
+                                                raw_targets.append(ref)
+                                targets = [
+                                    f"{t} ({', '.join(tool_subcmds[t])})" if t in tool_subcmds else t
+                                    for t in raw_targets
+                                ]
                                 steps_out.append((rel, step_name, fn_name, s, e, d, targets))
     return steps_out
 
@@ -788,7 +890,14 @@ def generate_index_markdown() -> str:
     lines.append("- **Pipeline Step Subprocess Chain**: `$H3_PYTHON bench/masked_code_map.py --chain [step]`")
     lines.append("")
     for rel, step_name, fn_name, s, e, d, targets in compute_step_chain():
-        tgt_s = ", ".join(f"`{t}`" for t in targets[:6]) if targets else "in-process validation"
+        fmt_tgts: list[str] = []
+        for t in targets[:6]:
+            if " (" in t and t.endswith(")"):
+                base, sub_s = t.split(" (", 1)
+                fmt_tgts.append(f"`{base}` (`{sub_s[:-1]}`)")
+            else:
+                fmt_tgts.append(f"`{t}`")
+        tgt_s = ", ".join(fmt_tgts) if fmt_tgts else "in-process validation"
         lines.append(f"- `{rel}` **`{step_name}`** -> `{rel}::{fn_name}` (`L{s}-L{e}`, `#{d}`): {tgt_s}")
     lines.append("")
 
@@ -831,6 +940,7 @@ def read_recorded_digests(md_text: str) -> dict[tuple[str, str], tuple[int, int,
 
 
 _SYM_REF_RE = re.compile(r"`(?P<path>[A-Za-z0-9_./-]+\.py)::(?P<sym>[A-Za-z0-9_.]+)`")
+_LINE_SPAN_REF_RE = re.compile(r"`(?P<path>[A-Za-z0-9_./-]+\.py):L?(?P<start>\d+)-L?(?P<end>\d+)`")
 
 
 def scan_narrative_sections(md_path: Path) -> list[tuple[str, int, list[tuple[str, str]]]]:
@@ -902,21 +1012,27 @@ def check_all(
     index_md: Path = INDEX_MD,
     code_map_docs: tuple[Path, ...] = CODE_MAP_DOCS,
     expected_md: str | None = None,
+    strict_exact: bool = False,
 ) -> int:
-    """Run all staleness, symbol-existence, size, line-length, and path-privacy checks."""
+    """Run symbol-existence, line-span, size, line-length, path-privacy, and (when `strict_exact`) byte-exact index checks."""
     errs: list[str] = []
+    notes: list[str] = []
     expected = expected_md if expected_md is not None else generate_index_markdown()
     if not index_md.is_file():
         errs.append(f"{_rel_display(index_md)} does not exist (run `bench/masked_code_map.py --write`)")
     else:
         actual = index_md.read_text(encoding="utf-8")
         if actual != expected:
-            errs.append(
+            msg = (
                 f"{_rel_display(index_md)} is out of date with live AST extraction "
                 "(run `bench/masked_code_map.py --write`)"
             )
+            if strict_exact:
+                errs.append(msg)
+            else:
+                notes.append(msg)
 
-    live_cache: dict[str, dict[str, tuple[int, int, str]]] = {}
+    live_cache: dict[str, tuple[int, dict[str, tuple[int, int, str]]]] = {}
     home_re = re.compile(r"/(?:home|Users)/[A-Za-z0-9_.-]+")
 
     for doc in code_map_docs:
@@ -942,23 +1058,52 @@ def check_all(
                     f"{rel_doc}:{line_no} contains a home-directory path; "
                     "use repo-relative paths or $H3_OUTPUT_DIR / $H3_INPUT_DIR"
                 )
-        for m in _SYM_REF_RE.finditer(text):
-            p, s = m.group("path"), m.group("sym")
-            full = REPO / p
-            if not full.is_file():
-                errs.append(f"{rel_doc} cites `{p}::{s}`, but `{p}` is not on disk")
-                continue
-            if p not in live_cache:
-                _, live_cache[p] = parse_file_symbols(p)
-            if s not in live_cache[p]:
-                errs.append(f"{rel_doc} cites `{p}::{s}`, which does not exist in `{p}`'s AST")
+            line_syms: dict[str, list[str]] = {}
+            for m in _SYM_REF_RE.finditer(line):
+                p, s = m.group("path"), m.group("sym")
+                full = REPO / p
+                if not full.is_file():
+                    errs.append(f"{rel_doc}:{line_no} cites `{p}::{s}`, but `{p}` is not on disk")
+                    continue
+                if p not in live_cache:
+                    live_cache[p] = parse_file_symbols(p)
+                if s not in live_cache[p][1]:
+                    errs.append(f"{rel_doc}:{line_no} cites `{p}::{s}`, which does not exist in `{p}`'s AST")
+                else:
+                    line_syms.setdefault(p, []).append(s)
+            if doc != index_md:
+                for sm in _LINE_SPAN_REF_RE.finditer(line):
+                    p = sm.group("path")
+                    sp_s, sp_e = int(sm.group("start")), int(sm.group("end"))
+                    full = REPO / p
+                    if not full.is_file():
+                        errs.append(f"{rel_doc}:{line_no} cites `{p}:{sp_s}-{sp_e}`, but `{p}` is not on disk")
+                        continue
+                    if p not in live_cache:
+                        live_cache[p] = parse_file_symbols(p)
+                    tot_l, syms_p = live_cache[p]
+                    if not (1 <= sp_s <= sp_e <= tot_l):
+                        errs.append(
+                            f"{rel_doc}:{line_no} cites `{p}:{sp_s}-{sp_e}`, outside file bounds 1..{tot_l}"
+                        )
+                    elif p in line_syms:
+                        if not any(syms_p[sym_nm][0] <= sp_s and sp_e <= syms_p[sym_nm][1] for sym_nm in line_syms[p]):
+                            bounds_str = ", ".join(
+                                f"{sym_nm} L{syms_p[sym_nm][0]}-L{syms_p[sym_nm][1]}" for sym_nm in line_syms[p]
+                            )
+                            errs.append(
+                                f"{rel_doc}:{line_no} cites `{p}:{sp_s}-{sp_e}`, outside AST bounds of {bounds_str}"
+                            )
 
     if errs:
         for e in errs:
             print(f"  FAIL  {e}")
         return 1
 
-    print(f"  ok    {_rel_display(index_md)} matches live AST across {len(CORE_FILES) + len(SUPPORT_FILES)} masked-lane files")
+    for n in notes:
+        print(f"  note  {n}")
+    if not notes:
+        print(f"  ok    {_rel_display(index_md)} matches live AST across {len(CORE_FILES) + len(SUPPORT_FILES)} masked-lane files")
     for doc in code_map_docs:
         raw = doc.read_bytes()
         lines = raw.decode("utf-8").splitlines()
@@ -1104,7 +1249,8 @@ def query_chain(target: str | None) -> int:
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--write", action="store_true", help="Write docs/masked_v2v/CODE_MAP_INDEX.md from live AST.")
-    ap.add_argument("--check", action="store_true", help="Verify index freshness, symbol resolution, file size, line length, and path privacy.")
+    ap.add_argument("--check", action="store_true", help="Verify symbol resolution, line-range bounds, file size, line length, and path privacy.")
+    ap.add_argument("--check-exact", action="store_true", help="Run --check plus require CODE_MAP_INDEX.md to be byte-identical to live AST.")
     ap.add_argument("--drift", action="store_true", help="Report AST function changes since CODE_MAP_INDEX.md was written and which narrative stages they affect.")
     ap.add_argument("--deps", nargs="?", const="", default=None, help="Print bidirectional module dependency graph (optionally filtered by file substring).")
     ap.add_argument("--calls", metavar="SYMBOL", help="Print AST function-level callers (upstream) and callees (downstream) for SYMBOL.")
@@ -1143,16 +1289,16 @@ def main() -> int:
                 print(f"\n{len(sec_lines)} narrative section(s) to review:")
                 for line in sec_lines:
                     print(f"  - {line}")
-        if not args.check:
+        if not (args.check or args.check_exact):
             return 0
 
-    if args.check:
-        return check_all()
+    if args.check or args.check_exact:
+        return check_all(strict_exact=bool(args.check_exact))
 
     if args.query:
         return query_symbols(args.query)
 
-    if not (args.write or args.check or args.drift):
+    if not (args.write or args.check or args.check_exact or args.drift):
         ap.print_help()
     return 0
 

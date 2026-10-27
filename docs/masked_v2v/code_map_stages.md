@@ -199,20 +199,35 @@ so narrative prose never drifts when lines shift. For contracts, window padding,
 
 ### Stage 2.7 — Hold Grading & First `parts_held__<by>.mkv` Write (`bench/capture_masked_run.py`)
 
-- **Symbols**: `bench/capture_masked_run.py::held_parts`, `bench/capture_masked_run.py::grade_holds`, `bench/capture_masked_run.py::part_sizes`, `bench/capture_masked_run.py::_files`
+- **Symbols**: `bench/capture_masked_run.py::held_parts`, `bench/capture_masked_run.py::grade_holds`, `bench/capture_masked_run.py::part_sizes`, `bench/capture_masked_run.py::frame_spans`, `bench/capture_masked_run.py::_files`
 - **Reads**:
   - `track`, `parts`, `ht_res["tube"]`, class maps, `least` floor (`1,024 px` default on canvas), and `SIZES_CANNOT_SEE`.
 - **Transforms & Constants**:
-  - `held_parts` holds across empty `parts` frames on a non-empty `track`; `grade_holds` grades each frame (`kept`, `held`, `emptied`) against the `least` floor (`1,024 px`), applies `--drop` spans, clips against `front_other_mask`, and sets `hair_pass["head"] = ht_res["tube"]` (`b461584e`).
+  - **In-Memory Call Sequence Inside `_files`**: `off_head` -> `head_tube_for_capture` -> front-occluder depth clip
+    (`parts & ~front_other_mask`) -> `refuse_pieces_on_a_head` / `largest_piece` / `starting_floor` / `masks__<by>.npz`
+    write -> `subject_rows` (`mine`) -> `held_parts` & `under_doubted` -> `grade_holds` -> `hair_in_hole_files`.
+  - `held_parts` holds across empty `parts` frames on a non-empty `track`; `grade_holds` grades each frame (`kept`,
+    `held`, `emptied`) against the `least` floor (`1,024 px`), applies `--drop` spans, clips against `front_other_mask`,
+    and sets `hair_pass["head"] = ht_res["tube"]` (`b461584e`).
 - **Writes & Overwrites**:
-  - Writes `subjects/<label>/part_grades.json` (before `--drop` and before `her_hair_in_hole`) and performs **Write #1 of `subjects/<label>/parts_held__<by>.mkv`**.
+  - Writes `subjects/<label>/part_grades.json` and `subjects/<label>/doubted_frames.json` (before `--drop` and before
+    `her_hair_in_hole`), appends `manifest["subjects"][...]["sightings"]` (including
+    `parts_doubted_and_left_on_source_frames` and `parts_emptied_by_grade_on_source_frames`), and performs **Write #1
+    of `subjects/<label>/parts_held__<by>.mkv`**.
 - **Audit & Traps**:
   - **Small Valid Head Erasure & Stale Holding (`9c5a6841`, Pending Code Fix in Build 1 / `Part 5e`)**: On `second_hfp_4647h`, `grade_holds` emptied valid small heads `< 1,024 px` on `4702-4705, 4708-4714` and held stale pixels from `4701` onto `4706-4707`.
-  - **Pre-Fill `part_grades.json` Lag**: `part_grades.json` is written before `--drop` and before Stage 2.8 (`her_hair_in_hole`) overwrites `parts_held__<by>.mkv`.
+  - **Pre-Fill `part_grades.json` & `sighting` Lag**: `part_grades.json`, `doubted_frames.json`, and
+    `sighting["parts_doubted_and_left_on_source_frames"]` are populated before `--drop` and before Stage 2.8
+    (`hair_in_hole_files`) overwrites `parts_held__<by>.mkv`; if `hair_in_hole_files` recovers a frame that was empty
+    before Stage 2.8, `sighting["parts_doubted_and_left_on_source_frames"]` must also be updated so
+    `bench/capture_masked_run.py::flag_parts` does not false-flag it.
+  - **`frame_spans(..., join=2)` Default Merge Trap**: `bench/capture_masked_run.py::frame_spans` (and its duplicate
+    `bench/assemble_delivery.py::frame_spans`) defaults to `join=2` (`f - out[-1][1] <= join`), which merges
+    non-adjacent frames `102` and `104` across `103` into `[102, 104]` unless `frame_spans(..., join=1)` is passed explicitly.
 
 ### Stage 2.8 — Her Hair in the Hole (`bench/capture_masked_run.py`)
 
-- **Symbols**: `bench/capture_masked_run.py::her_hair_in_hole`, `bench/capture_masked_run.py::hole_of_the_load`, `bench/capture_masked_run.py::whole_frame_hair`, `bench/capture_masked_run.py::hair_in_hole_files`
+- **Symbols**: `bench/capture_masked_run.py::her_hair_in_hole`, `bench/capture_masked_run.py::hole_of_the_load`, `bench/capture_masked_run.py::whole_frame_hair`, `bench/capture_masked_run.py::hair_in_hole_files`, `bench/capture_masked_run.py::frame_spans`
 - **Reads**:
   - `hair_pass["head"]` (`ht_res["tube"]`), `<preview>_<subj>_parts.npz`, `<preview>_strangers_classes.npz`, `other` keep-out masks, `head_hidden` / `hair_hers` / `hair_not_hers` marks, and `HAIR_IN_HOLE_CANNOT_SEE`.
 - **Transforms & Constants**:
@@ -221,7 +236,7 @@ so narrative prose never drifts when lines shift. For contracts, window padding,
     - Stage 2: whole-frame hair not on another person (`~taken[k]`, skipping `head_hidden` frames, `b461584e`).
     - Stage 3: remaining hair outside `hole(f)` (`~hole(f) & ~track[f]`, flagging undecided frames).
 - **Writes & Overwrites**:
-  - **Overwrites `subjects/<label>/parts_held__<by>.mkv` in place (Write #2)**, **overwrites `subjects/<label>/track__<by>.mkv` in place (`00a3f1d8`)** when `held` extends beyond `track`, and writes `subjects/<label>/hair_in_hole__<by>.json`.
+  - **Overwrites `subjects/<label>/parts_held__<by>.mkv` in place (Write #2)**, **overwrites `subjects/<label>/track__<by>.mkv` in place (`00a3f1d8`)** when `held` extends beyond `track`, writes `subjects/<label>/hair_in_hole__<by>.json`, and updates `manifest["subjects"][...]["sightings"]` before `manifest.json` is written in Stage 2.9.
 - **Audit & Traps**:
   - **`hole(f)` Pre-Carve/Pre-Feather Trap & `~track[f]` Trap (`3820654d`, Pending Code Fix in Build 1 / `Part 5e`)**: In
     `her_hair_in_hole`, `hole(f)` tests `out[f]` grown by `margin` (`30` canvas px) **before** the keep-out carve and feather
