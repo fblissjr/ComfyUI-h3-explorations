@@ -7,6 +7,38 @@ artifact.
 <!-- To add an entry: write a file in changelog.d/ (changelog.d/README.md has the three steps) and run
      bench/build_changelog.py. Do not type an entry in here: the newest entries below are generated. -->
 
+## 0.298.0
+<!-- changelog.d/day-2026-10-27.md -->
+
+### Added
+
+- `bench/masked_code_map.py` (`bench/check_masked_code_map.py`): AST-driven code map index generator, drift gate, and
+  query tool (`--symbol`, `--callers`, `--callees`, `--data-chain`, `--step-chain`, `--drift-since`, `--status`,
+  `--stamp-narrative`) for the masked video-to-video lane.
+- `docs/masked_v2v/delivery_table_and_restore_architecture.md`: documents the delivery table `restore=` architecture,
+  the `loads`-pinned exception schema, the `2823b`/`3098b`/`3967c` A/B join-test audit, the 3-regime rule for when
+  accessories are rendered by H3 vs. restored from the source plate, and the clip-level restore design at `land` time.
+
+### Changed
+
+- `subject_track.py` and `bench/shot_to_load.py`: default `head_mode` to `"per stretch"` (`HEAD_PER_STRETCH`), and
+  require `--people` SAM detection verification in `bench/cast_file.py box`.
+- `bench/delivery_table.py`, `bench/shot_coverage.py`, and `bench/shot_to_load.py`: support `"loads": ["<load_name>", ...]`
+  on `plan.json` `restore` entries so clip-specific accessory exceptions never leak onto later remakes or adjacent loads,
+  and document the 3-regime `restore=` rules in `bench/assemble_delivery.py --help` and `bench/delivery_table.py --help`.
+- Sharded oversized docs (`docs/checks.md`, `docs/prompting.md`, `docs/evidence.md`, `docs/roadmap.md`, `docs/wiki/decisions.md`,
+  and `docs/masked_v2v/AGENTS.md`) into `< 40 KB` routers and leaf specs verified by `bench/build_wiki_index.py`.
+
+### Fixed
+
+- `bench/strangers.py::run`: includes unowned SAM 3.1 person detections (`people.npz`) where whole-frame `Sapiens2`
+  finds nobody so unmasked background bystanders are carved out of the regenerated region.
+- `bench/capture_masked_run.py` and `bench/head_tube_parts.py`: passes `head_tube`'s tube to `grade_holds`, exempts
+  frames inside `head_track` from `doubted`, syncs `part_grades.json` after `her_hair_in_hole`, and excludes
+  depth-preserved foreground keep-outs from `keep_out_inside_own_track`.
+- `bench/frame_table.py`: accepts `"saved part kept, restored by her_hair_in_hole"` in `CLOSED_DID_VOCAB` and records
+  its restored pixel count under `outcome = "replaced"`.
+
 ## 0.297.0
 <!-- changelog.d/day-2026-10-26.md -->
 
