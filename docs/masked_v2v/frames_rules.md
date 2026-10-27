@@ -6,7 +6,7 @@ One page for the frame math of a masked load: how long its window is, how the vi
 window, where the shot's own frames land, what fills the rest, and what is thrown away. Every figure points at the code
 that sets it; when this page and the code disagree, the code is right ([`AGENTS.md`](AGENTS.md), and the root
 `AGENTS.md`, "Do not trust prose"). The lane's other rules are in [`AGENTS.md`](AGENTS.md); the legal lengths and
-their cost for H3 in general are in [`docs/h3_resolutions.md`](../h3_resolutions.md). The full window, padding, held-edge, and post-decode slicing trace in code (`file:line`) as of 2026-10-26 is in `internal/gemini/2026-10-26_code_map_and_simplification_plan.md` (Part 2b, local, not in git).
+their cost for H3 in general are in [`docs/h3_resolutions.md`](../h3_resolutions.md). The full window, padding, held-edge, and post-decode slicing trace in code is in [`docs/masked_v2v/code_map_contracts.md`](code_map_contracts.md) (Section `2b`) and [`docs/research/masking/2026-10-26_code_map_and_simplification_plan.md`](../research/masking/2026-10-26_code_map_and_simplification_plan.md).
 
 ## The rule
 

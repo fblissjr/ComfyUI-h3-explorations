@@ -15,7 +15,7 @@ this file is only a way to find a script by what it says it does.
 | [`compare_*`](#compare) | 19 |
 | [`build_*`](#build) | 18 |
 | [`probe_*`](#probe) | 11 |
-| [the rest](#the-rest) | 197 |
+| [the rest](#the-rest) | 198 |
 
 ## check
 
@@ -443,6 +443,7 @@ this file is only a way to find a script by what it says it does.
 | [`map_cube_schedule.py`](map_cube_schedule.py) | Map sglang's cube-sparse keep-ratio schedule onto the sigma grid our graphs sample. |
 | [`map_partition_delta.py`](map_partition_delta.py) | What differs between the release's FL2VA and Ref2VA weights, tensor by tensor. |
 | [`map_sol_error_on_capture.py`](map_sol_error_on_capture.py) | Where in the clip does Sol-Attn's error sit? Per-token error on a capture, by latent frame and in a named region. |
+| [`masked_code_map.py`](masked_code_map.py) | Generate and check the masked-lane AST jump index and stage-symbol drift map. |
 | [`masked_job.py`](masked_job.py) | Build the graphs of a masked job from its job file, and queue them. |
 | [`masked_render_against_source.py`](masked_render_against_source.py) | Measure a masked render against the clip it was made from: flicker at the seam, and when a late region takes effect. |
 | [`masked_render_time_breakdown.py`](masked_render_time_breakdown.py) | Where a masked song render's seconds go: by node, and by stage inside the song node. |

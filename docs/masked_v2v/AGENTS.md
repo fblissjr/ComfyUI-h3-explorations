@@ -3,7 +3,7 @@
 Loaded when a session opens a file here; [`docs/AGENTS.md`](../AGENTS.md) and the root [`AGENTS.md`](../../AGENTS.md) still govern.
 
 - **Start here**:
-  - End-to-end code map, stage contracts, and window/padding trace (Gemini, 2026-10-26; local, not in git; Parts 1–4): [`internal/gemini/2026-10-26_code_map_and_simplification_plan.md`](../../internal/gemini/2026-10-26_code_map_and_simplification_plan.md)
+  - End-to-end code map, stage contracts, AST jump index, and simplification plan (`2026-10-26` / `2026-10-27`): [`docs/research/masking/2026-10-26_code_map_and_simplification_plan.md`](../research/masking/2026-10-26_code_map_and_simplification_plan.md), [`docs/masked_v2v/CODE_MAP_INDEX.md`](CODE_MAP_INDEX.md), [`docs/masked_v2v/code_map_stages.md`](code_map_stages.md), and [`docs/masked_v2v/code_map_contracts.md`](code_map_contracts.md) (checked by [`bench/masked_code_map.py`](../../bench/masked_code_map.py))
   - Execution & debugging protocol: [`docs/masked_v2v/PROTOCOL.md`](PROTOCOL.md)
   - Verifying raw frames vs. `.npz` / JSON records (`laid.py keeps`, zoom boxes, and reference crops): [`docs/masked_v2v/verifying_raw_frames_and_keeps.md`](verifying_raw_frames_and_keeps.md)
   - Multi-pass contamination, perception provenance, and mask-step forensics (`2026-10-25` / `2026-10-26`): [`docs/masked_v2v/2026-10-25_pass_contamination_and_mask_step_forensics.md`](2026-10-25_pass_contamination_and_mask_step_forensics.md)

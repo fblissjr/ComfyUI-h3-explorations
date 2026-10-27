@@ -11,4 +11,4 @@ Last updated: 2026-10-26 (replaced the 2026-10-16 stage table and flowchart—wh
 - **Verifying raw frames vs. `.npz` / JSON caches and Pass-1 → Pass-2 provenance**:
   - [`docs/masked_v2v/verifying_raw_frames_and_keeps.md`](../masked_v2v/verifying_raw_frames_and_keeps.md) and [`docs/masked_v2v/2026-10-25_pass_contamination_and_mask_step_forensics.md`](../masked_v2v/2026-10-25_pass_contamination_and_mask_step_forensics.md).
 - **Exact `file:line` call graphs, data contracts, and stage-by-stage mask mutations**:
-  - `internal/gemini/2026-10-26_code_map_and_simplification_plan.md` (Parts 1–4, local).
+  - [`docs/research/masking/2026-10-26_code_map_and_simplification_plan.md`](../research/masking/2026-10-26_code_map_and_simplification_plan.md), [`docs/masked_v2v/CODE_MAP_INDEX.md`](../masked_v2v/CODE_MAP_INDEX.md), [`docs/masked_v2v/code_map_stages.md`](../masked_v2v/code_map_stages.md), and [`docs/masked_v2v/code_map_contracts.md`](../masked_v2v/code_map_contracts.md).
