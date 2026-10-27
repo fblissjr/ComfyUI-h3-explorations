@@ -26,7 +26,7 @@ Companion to [`docs/research/masking/2026-10-26_code_map_and_simplification_plan
 
 Each entry gives `symbol (Lstart-Lend, #digest)` extracted directly from the file's AST.
 
-### 3.1 `bench/capture_masked_run.py` (8,354 lines)
+### 3.1 `bench/capture_masked_run.py` (8,367 lines)
 
 - **Module loader & depth/owner settlement**:
   - `bench/capture_masked_run.py::_pack` (`L426-L432`, `#2fb5ee3b`)
@@ -46,82 +46,82 @@ Each entry gives `symbol (Lstart-Lend, #digest)` extracted directly from the fil
   - `bench/capture_masked_run.py::_bridge_severed` (`L1472-L1508`, `#2f7edc14`)
   - `bench/capture_masked_run.py::grid_carve` (`L1511-L1556`, `#40be364f`)
   - `bench/capture_masked_run.py::predict_regions` (`L1559-L1585`, `#94fe2b67`)
-  - `bench/capture_masked_run.py::node_taken_inside` (`L1588-L1616`, `#802790dd`)
-  - `bench/capture_masked_run.py::step_keepout_carves` (`L1619-L1681`, `#feeff5de`)
+  - `bench/capture_masked_run.py::node_taken_inside` (`L1588-L1622`, `#62f53f89`)
+  - `bench/capture_masked_run.py::step_keepout_carves` (`L1625-L1687`, `#feeff5de`)
 - **Region readers & saved window `.npz`**:
-  - `bench/capture_masked_run.py::planned_region` (`L1698-L1718`, `#2f0cd2dc`)
-  - `bench/capture_masked_run.py::read_region` (`L1879-L1917`, `#388baff5`)
-  - `bench/capture_masked_run.py::read_saved_regions` (`L2035-L2112`, `#efed52fd`)
-  - `bench/capture_masked_run.py::read_planned_regions` (`L2158-L2252`, `#fa455da2`)
+  - `bench/capture_masked_run.py::planned_region` (`L1704-L1724`, `#2f0cd2dc`)
+  - `bench/capture_masked_run.py::read_region` (`L1891-L1929`, `#388baff5`)
+  - `bench/capture_masked_run.py::read_saved_regions` (`L2047-L2124`, `#efed52fd`)
+  - `bench/capture_masked_run.py::read_planned_regions` (`L2170-L2264`, `#fa455da2`)
 - **Capture pipeline (`files` subcommand)**:
-  - `bench/capture_masked_run.py::files` (`L2452-L2487`, `#547338e6`)
-  - `bench/capture_masked_run.py::_files` (`L2490-L3155`, `#c9461d4a`)
+  - `bench/capture_masked_run.py::files` (`L2464-L2499`, `#547338e6`)
+  - `bench/capture_masked_run.py::_files` (`L2502-L3168`, `#f2781368`)
 - **Verification & rules (`verify`, `rules`, `shots`)**:
-  - `bench/capture_masked_run.py::input_facts` (`L3225-L3232`, `#d9d34797`)
-  - `bench/capture_masked_run.py::readers_agreement` (`L3235-L3252`, `#72957fcf`)
-  - `bench/capture_masked_run.py::verify_checks` (`L3255-L3370`, `#e06577b7`)
-  - `bench/capture_masked_run.py::preview_first_of` (`L3373-L3383`, `#b300bce6`)
-  - `bench/capture_masked_run.py::at_checks` (`L3386-L3411`, `#e1b88f39`)
-  - `bench/capture_masked_run.py::verify` (`L3414-L3458`, `#90d53981`)
-  - `bench/capture_masked_run.py::rules_input` (`L3505-L3674`, `#3764077d`)
-  - `bench/capture_masked_run.py::rules` (`L3677-L3685`, `#a99a60c7`)
-  - `bench/capture_masked_run.py::by_shot` (`L3688-L3718`, `#f020d1db`)
-  - `bench/capture_masked_run.py::by_load` (`L3721-L3747`, `#2d0e3305`)
-  - `bench/capture_masked_run.py::shots` (`L3750-L3797`, `#0cf64357`)
-  - `bench/capture_masked_run.py::frame_spans` (`L3825-L3833`, `#7b811918`)
+  - `bench/capture_masked_run.py::input_facts` (`L3238-L3245`, `#d9d34797`)
+  - `bench/capture_masked_run.py::readers_agreement` (`L3248-L3265`, `#72957fcf`)
+  - `bench/capture_masked_run.py::verify_checks` (`L3268-L3383`, `#e06577b7`)
+  - `bench/capture_masked_run.py::preview_first_of` (`L3386-L3396`, `#b300bce6`)
+  - `bench/capture_masked_run.py::at_checks` (`L3399-L3424`, `#e1b88f39`)
+  - `bench/capture_masked_run.py::verify` (`L3427-L3471`, `#90d53981`)
+  - `bench/capture_masked_run.py::rules_input` (`L3518-L3687`, `#3764077d`)
+  - `bench/capture_masked_run.py::rules` (`L3690-L3698`, `#a99a60c7`)
+  - `bench/capture_masked_run.py::by_shot` (`L3701-L3731`, `#f020d1db`)
+  - `bench/capture_masked_run.py::by_load` (`L3734-L3760`, `#2d0e3305`)
+  - `bench/capture_masked_run.py::shots` (`L3763-L3810`, `#0cf64357`)
+  - `bench/capture_masked_run.py::frame_spans` (`L3838-L3846`, `#7b811918`)
 - **Preflight flags (`preflight` subcommand)**:
-  - `bench/capture_masked_run.py::flag_shots` (`L3856-L3916`, `#083ba060`)
-  - `bench/capture_masked_run.py::flag_pose` (`L3982-L4025`, `#452d8966`)
-  - `bench/capture_masked_run.py::flag_never` (`L4028-L4044`, `#aaa97f6c`)
-  - `bench/capture_masked_run.py::flag_track` (`L4073-L4127`, `#dd610b1c`)
-  - `bench/capture_masked_run.py::held_parts` (`L4150-L4204`, `#cf9a943c`)
-  - `bench/capture_masked_run.py::flag_parts` (`L4238-L4267`, `#e29498ac`)
-  - `bench/capture_masked_run.py::flag_runs` (`L4337-L4468`, `#301f2380`)
-  - `bench/capture_masked_run.py::flag_segments` (`L4471-L4550`, `#baf7c3d4`)
-  - `bench/capture_masked_run.py::dropped_or_unmasked_face_in_context` (`L4591-L4623`, `#43fb36ac`)
-  - `bench/capture_masked_run.py::unmasked_head_hair_context` (`L4626-L4742`, `#9d519399`)
-  - `bench/capture_masked_run.py::lays_nothing` (`L4745-L4787`, `#ce3fb05c`)
-  - `bench/capture_masked_run.py::flag_lent` (`L4790-L4857`, `#bfdf30e4`)
-  - `bench/capture_masked_run.py::flag_reference_figure` (`L4869-L4957`, `#4a1a1d8b`)
-  - `bench/capture_masked_run.py::flag_held_tail` (`L4960-L5018`, `#ab39d507`)
-  - `bench/capture_masked_run.py::flag_kept` (`L5047-L5083`, `#4f34e84c`)
-  - `bench/capture_masked_run.py::flag_mouth` (`L5086-L5111`, `#6988c21e`)
-  - `bench/capture_masked_run.py::flag_her_hair` (`L5629-L5679`, `#78a31986`)
-  - `bench/capture_masked_run.py::flag_pieces` (`L5924-L5951`, `#d6e8543c`)
-  - `bench/capture_masked_run.py::flag_face_size` (`L5993-L6021`, `#3ef720bb`)
-  - `bench/capture_masked_run.py::flag_who` (`L6028-L6057`, `#667a05ae`)
-  - `bench/capture_masked_run.py::flag_keep` (`L6079-L6120`, `#1ab2c5dd`)
-  - `bench/capture_masked_run.py::flag_cuts` (`L6137-L6176`, `#310af4ec`)
-  - `bench/capture_masked_run.py::flag_loads` (`L6210-L6258`, `#5e234afb`)
-  - `bench/capture_masked_run.py::flag_text` (`L6278-L6293`, `#a2c98263`)
-  - `bench/capture_masked_run.py::preflight` (`L6339-L6471`, `#2ccb074c`)
+  - `bench/capture_masked_run.py::flag_shots` (`L3869-L3929`, `#083ba060`)
+  - `bench/capture_masked_run.py::flag_pose` (`L3995-L4038`, `#452d8966`)
+  - `bench/capture_masked_run.py::flag_never` (`L4041-L4057`, `#aaa97f6c`)
+  - `bench/capture_masked_run.py::flag_track` (`L4086-L4140`, `#dd610b1c`)
+  - `bench/capture_masked_run.py::held_parts` (`L4163-L4217`, `#cf9a943c`)
+  - `bench/capture_masked_run.py::flag_parts` (`L4251-L4280`, `#e29498ac`)
+  - `bench/capture_masked_run.py::flag_runs` (`L4350-L4481`, `#301f2380`)
+  - `bench/capture_masked_run.py::flag_segments` (`L4484-L4563`, `#baf7c3d4`)
+  - `bench/capture_masked_run.py::dropped_or_unmasked_face_in_context` (`L4604-L4636`, `#43fb36ac`)
+  - `bench/capture_masked_run.py::unmasked_head_hair_context` (`L4639-L4755`, `#9d519399`)
+  - `bench/capture_masked_run.py::lays_nothing` (`L4758-L4800`, `#ce3fb05c`)
+  - `bench/capture_masked_run.py::flag_lent` (`L4803-L4870`, `#bfdf30e4`)
+  - `bench/capture_masked_run.py::flag_reference_figure` (`L4882-L4970`, `#4a1a1d8b`)
+  - `bench/capture_masked_run.py::flag_held_tail` (`L4973-L5031`, `#ab39d507`)
+  - `bench/capture_masked_run.py::flag_kept` (`L5060-L5096`, `#4f34e84c`)
+  - `bench/capture_masked_run.py::flag_mouth` (`L5099-L5124`, `#6988c21e`)
+  - `bench/capture_masked_run.py::flag_her_hair` (`L5642-L5692`, `#78a31986`)
+  - `bench/capture_masked_run.py::flag_pieces` (`L5937-L5964`, `#d6e8543c`)
+  - `bench/capture_masked_run.py::flag_face_size` (`L6006-L6034`, `#3ef720bb`)
+  - `bench/capture_masked_run.py::flag_who` (`L6041-L6070`, `#667a05ae`)
+  - `bench/capture_masked_run.py::flag_keep` (`L6092-L6133`, `#1ab2c5dd`)
+  - `bench/capture_masked_run.py::flag_cuts` (`L6150-L6189`, `#310af4ec`)
+  - `bench/capture_masked_run.py::flag_loads` (`L6223-L6271`, `#5e234afb`)
+  - `bench/capture_masked_run.py::flag_text` (`L6291-L6306`, `#a2c98263`)
+  - `bench/capture_masked_run.py::preflight` (`L6352-L6484`, `#2ccb074c`)
 - **Her hair in the hole & off-head filter**:
-  - `bench/capture_masked_run.py::largest_piece` (`L5123-L5133`, `#5e69715b`)
-  - `bench/capture_masked_run.py::her_hair_in_hole` (`L5181-L5436`, `#b99aa430`)
-  - `bench/capture_masked_run.py::hole_of_the_load` (`L5472-L5496`, `#94cf8386`)
-  - `bench/capture_masked_run.py::whole_frame_hair` (`L5499-L5521`, `#e6dcfd3d`)
-  - `bench/capture_masked_run.py::hair_in_hole_files` (`L5524-L5626`, `#c5b5f228`)
-  - `bench/capture_masked_run.py::hair_in_hole` (`L5682-L5755`, `#09482245`)
-  - `bench/capture_masked_run.py::off_head` (`L5783-L5921`, `#0e68cfb8`)
+  - `bench/capture_masked_run.py::largest_piece` (`L5136-L5146`, `#5e69715b`)
+  - `bench/capture_masked_run.py::her_hair_in_hole` (`L5194-L5449`, `#b99aa430`)
+  - `bench/capture_masked_run.py::hole_of_the_load` (`L5485-L5509`, `#94cf8386`)
+  - `bench/capture_masked_run.py::whole_frame_hair` (`L5512-L5534`, `#e6dcfd3d`)
+  - `bench/capture_masked_run.py::hair_in_hole_files` (`L5537-L5639`, `#c5b5f228`)
+  - `bench/capture_masked_run.py::hair_in_hole` (`L5695-L5768`, `#09482245`)
+  - `bench/capture_masked_run.py::off_head` (`L5796-L5934`, `#0e68cfb8`)
 - **Sizes, look, post-render & strip video**:
-  - `bench/capture_masked_run.py::sizes_of` (`L5954-L5978`, `#bec78cd7`)
-  - `bench/capture_masked_run.py::sizes` (`L5981-L5990`, `#3fd3c887`)
-  - `bench/capture_masked_run.py::look_entry` (`L6474-L6496`, `#5dddcd22`)
-  - `bench/capture_masked_run.py::strip_home` (`L6499-L6518`, `#5671ff9f`)
-  - `bench/capture_masked_run.py::strip_of` (`L6521-L6531`, `#eb34ce73`)
-  - `bench/capture_masked_run.py::looked` (`L6534-L6556`, `#8f66d7c7`)
-  - `bench/capture_masked_run.py::outcome` (`L6559-L6585`, `#db7fe632`)
-  - `bench/capture_masked_run.py::changed` (`L6662-L6765`, `#6a48e15f`)
-  - `bench/capture_masked_run.py::mouth` (`L6907-L7001`, `#7b72cde1`)
-  - `bench/capture_masked_run.py::mask` (`L7018-L7047`, `#a7487f1b`)
-  - `bench/capture_masked_run.py::diagnose` (`L7050-L7139`, `#132f0ee3`)
-  - `bench/capture_masked_run.py::look` (`L7156-L7223`, `#5aab37a5`)
-  - `bench/capture_masked_run.py::load_capture` (`L7228-L7243`, `#4c958a23`)
-  - `bench/capture_masked_run.py::draw_masks` (`L7275-L7303`, `#4460e521`)
-  - `bench/capture_masked_run.py::head_boxes` (`L7558-L7627`, `#3970c918`)
-  - `bench/capture_masked_run.py::strip_records` (`L7682-L7766`, `#6f1c7a1d`)
-  - `bench/capture_masked_run.py::video` (`L7769-L8198`, `#cbb68eb9`)
-  - `bench/capture_masked_run.py::main` (`L8201-L8350`, `#88d57251`)
+  - `bench/capture_masked_run.py::sizes_of` (`L5967-L5991`, `#bec78cd7`)
+  - `bench/capture_masked_run.py::sizes` (`L5994-L6003`, `#3fd3c887`)
+  - `bench/capture_masked_run.py::look_entry` (`L6487-L6509`, `#5dddcd22`)
+  - `bench/capture_masked_run.py::strip_home` (`L6512-L6531`, `#5671ff9f`)
+  - `bench/capture_masked_run.py::strip_of` (`L6534-L6544`, `#eb34ce73`)
+  - `bench/capture_masked_run.py::looked` (`L6547-L6569`, `#8f66d7c7`)
+  - `bench/capture_masked_run.py::outcome` (`L6572-L6598`, `#db7fe632`)
+  - `bench/capture_masked_run.py::changed` (`L6675-L6778`, `#6a48e15f`)
+  - `bench/capture_masked_run.py::mouth` (`L6920-L7014`, `#7b72cde1`)
+  - `bench/capture_masked_run.py::mask` (`L7031-L7060`, `#a7487f1b`)
+  - `bench/capture_masked_run.py::diagnose` (`L7063-L7152`, `#132f0ee3`)
+  - `bench/capture_masked_run.py::look` (`L7169-L7236`, `#5aab37a5`)
+  - `bench/capture_masked_run.py::load_capture` (`L7241-L7256`, `#4c958a23`)
+  - `bench/capture_masked_run.py::draw_masks` (`L7288-L7316`, `#4460e521`)
+  - `bench/capture_masked_run.py::head_boxes` (`L7571-L7640`, `#3970c918`)
+  - `bench/capture_masked_run.py::strip_records` (`L7695-L7779`, `#6f1c7a1d`)
+  - `bench/capture_masked_run.py::video` (`L7782-L8211`, `#cbb68eb9`)
+  - `bench/capture_masked_run.py::main` (`L8214-L8363`, `#88d57251`)
 
 ### 3.2 `bench/shot_to_load.py` (5,336 lines)
 
@@ -375,10 +375,10 @@ Extracted from AST constants and record writers so line numbers and strings neve
 ### `bench/capture_masked_run.py::PIECES_CANNOT_SEE` (`L759-L760`) — `pieces=largest` (`largest_piece`)
 - whether a piece taken away was the part (a face behind a raised arm or behind hair is rightly in two pieces, and the smaller one is then lost) or something else the class map calls the part: look at a frame it names
 
-### `bench/capture_masked_run.py::OTHER_CANNOT_SEE` (`L4048-L4049`) — `preflight` (`flag_runs` / `flag_segments`)
+### `bench/capture_masked_run.py::OTHER_CANNOT_SEE` (`L4061-L4062`) — `preflight` (`flag_runs` / `flag_segments`)
 - whether they are hidden on those frames or the tracker lost them while they are in view; in view, with the load's region reaching them, nothing would keep the region off them
 
-### `bench/capture_masked_run.py::HAIR_IN_HOLE_CANNOT_SEE` (`L5156-L5166`) — `her_hair_in_hole` / `hair-in-hole`
+### `bench/capture_masked_run.py::HAIR_IN_HOLE_CANNOT_SEE` (`L5169-L5179`) — `her_hair_in_hole` / `hair-in-hole`
 - hair the part model does not label as Hair (a few pixels, behind a brim, in motion blur: on 4912e her crown above the hat on 4944 and 4945 is Background even on the whole frame, run on those two frames on 2026-10-22), so part 3 cannot find it and only part 2 can catch the frames
 - with only her own class map (the preview's, of her crop with other people blanked), hair beyond that crop or on a frame where the preview did not read her; the strangers file's whole-frame class map, where its record names one, is read in its place
 - her own hair inside her person track and outside her head track and her part: it is hers by SAM and is no unclaimed hair here
@@ -395,10 +395,10 @@ Extracted from AST constants and record writers so line numbers and strings neve
 - pixel appearance, identity likeness, lip-sync accuracy, temporal flicker, and whether a mouth mode or region boundary looks natural in the rendered video
 
 ### `bench/strangers.py::run` (`L625-L650`) — `<preview>_strangers.json["cannot_see"]`
-- Record key `cannot_see` (`13` strings): people missed by whole-frame Sapiens2 stay regenerable;
+- Record key `cannot_see` (`13` strings): people missed by both whole-frame Sapiens2 (`c == 0`) and SAM 3.1 (`people.npz`) stay regenerable
+  (`426638a6` unions unowned SAM detections `who is None` into `people[i]` and `core[i]` where `c == 0`);
   people missed by SAM 3.1 for `> hold_frames` (`8`) whose pieces touch a subject are handed back (`NO_OTHER = "handed_back_on_no_other_person"`);
-  stranger components touching a subject with no 18-class `CORE_CLASSES` pixels (`held = piece & core[i]`) are handed back (`NO_CORE = "no body core of its own"`);
-  unowned SAM detections (`o[3] is None`) are not unioned into `people[i]`/`core[i]` where whole-frame Sapiens2 finds nobody (`c == 0`).
+  stranger components touching a subject with no 18-class `CORE_CLASSES` or unowned SAM detection pixels (`held = piece & core[i]`) are handed back (`NO_CORE = "no body core of its own"`).
 
 ### `bench/shot_to_load.py::face_cues` (`L3586-L3589`), `figures_of` (`L3618`) & `bench/measure_blocks.py::measure_luma_blocks`
 - `bench/shot_to_load.py:3586-3589` (`cannot_see` on ear/face-score cues in `face_cues`) and `:3618` (`figures_of`).
@@ -436,9 +436,9 @@ Extracted from AST constants and record writers so line numbers and strings neve
 - `bench/capture_masked_run.py::COLLAPSE_SHARE` (`L878`): `0.15`
 - `bench/capture_masked_run.py::COLLAPSE_REACH` (`L879`): `2`
 - `bench/capture_masked_run.py::SEGMENT_PX` (`L373`): `64`
-- `bench/capture_masked_run.py::FACE_POINT_LINE_FROM` (`L5761`): `('POSE_READING', 'eye_ring_score_at_least')`
-- `bench/capture_masked_run.py::OFF_HEAD_MARGIN` (`L5771`): `CELL`
-- `bench/capture_masked_run.py::HEAD_TRACK_OFF_HEAD_MARGIN` (`L5776`): `CELL // 2`
+- `bench/capture_masked_run.py::FACE_POINT_LINE_FROM` (`L5774`): `('POSE_READING', 'eye_ring_score_at_least')`
+- `bench/capture_masked_run.py::OFF_HEAD_MARGIN` (`L5784`): `CELL`
+- `bench/capture_masked_run.py::HEAD_TRACK_OFF_HEAD_MARGIN` (`L5789`): `CELL // 2`
 
 ### 2e.2 Module Dependency Graph (AST Static Imports & Dynamic `_pack`/CLI Edges)
 
