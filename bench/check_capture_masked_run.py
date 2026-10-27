@@ -4062,6 +4062,38 @@ def her_hair_in_the_hole() -> str:
             assert (unpacked_tr == track_empty_3).all(), "masks__pv.npz['track'] was mutated by hair_in_hole_files"
             pf_rows = json.loads((Path(tmp) / "cap_out_tr" / "subjects" / "a" / "per_frame.json").read_text())["rows"]
             assert pf_rows[3]["track_share"] == 0.0, f"per_frame.json track_share mutated on frame 3: {pf_rows[3]}"
+            m_out_tr = json.loads((Path(tmp) / "cap_out_tr" / "manifest.json").read_text())
+            s_out_tr = m_out_tr["subjects"][0]["sightings"][0]
+            assert all(not (a <= first + 3 <= b) for a, b in s_out_tr["parts_doubted_and_left_on_source_frames"]), s_out_tr
+            assert all(not (a <= first + 3 <= b) for a, b in s_out_tr["parts_emptied_by_grade_on_source_frames"]), s_out_tr
+            # Also test when `track` is non-empty on all frames, frame 3 has `parts` empty with `HOLD_REACH = 0` (entering `left_frames` /
+            # `parts_doubted_and_left_on_source_frames`), and frame 2 has a off-class speck emptied by `grade_holds` (entering
+            # `parts_emptied_by_grade_on_source_frames` and `part_grades.json`): `her_hair_in_hole` restoring both frames clears both
+            # manifest lists and updates `part_grades.json`.
+            orig_hold_reach = cap.HOLD_REACH
+            try:
+                cap.HOLD_REACH = 0
+                fp_gap = fp.copy()
+                fp_gap[2] = False
+                fp_gap[2, 5:7, 5:10] = True
+                fp_gap[3] = False
+                fh_gap2 = fh.copy()
+                fh_gap2[3] = False
+                track_all = rect(40, 10, 80, 90, n)
+                track_all[2] = False
+                cap.read_mask = lambda p, *_a: ((fh_gap2.copy() if "head" in str(p) else held_by_them.copy() if "strangers" in str(p) else
+                                                 track_all.copy() if "track" in str(p) else fp_gap.copy()), np.ones(n, bool))
+                spec_gap = {**spec_ht, "head_tube": "0", "least": "0", "hair_hers": f"{first + 3}-{first + 3}"}
+                cap._files(args_ht, Path(tmp) / "cap_gap_sync", [("a", spec_gap), stranger_ht], [], plan_ht)
+            finally:
+                cap.HOLD_REACH = orig_hold_reach
+            m_gap = json.loads((Path(tmp) / "cap_gap_sync" / "manifest.json").read_text())
+            s_gap = m_gap["subjects"][0]["sightings"][0]
+            pg_gap = json.loads((Path(tmp) / "cap_gap_sync" / "subjects" / "a" / "part_grades.json").read_text())
+            assert s_gap["parts_doubted_and_left_on_source_frames"] == [], s_gap["parts_doubted_and_left_on_source_frames"]
+            assert s_gap["parts_emptied_by_grade_on_source_frames"] == [], s_gap["parts_emptied_by_grade_on_source_frames"]
+            row_2 = next(r for r in pg_gap["frames"] if r["source_frame"] == first + 2)
+            assert row_2["px"] > 0, row_2
         finally:
             for k, v in stood_in.items():
                 setattr(cap, k, v)

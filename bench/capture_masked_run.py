@@ -1009,7 +1009,8 @@ def grade_holds(parts: np.ndarray, filled: np.ndarray, classes: np.ndarray, made
                 noface: set[int] | frozenset = frozenset(), off_head_fragments: set[int] | frozenset = frozenset(),
                 drop: set[int] | frozenset = frozenset(), back_of_head: set[int] | frozenset = frozenset(),
                 points: str | None = None, first_frame: int | None = None,
-                hair: int | None = None, word_from: dict[int, int] | None = None) -> tuple[np.ndarray, dict[int, dict]]:
+                hair: int | None = None, word_from: dict[int, int] | None = None,
+                head_track: np.ndarray | None = None) -> tuple[np.ndarray, dict[int, dict]]:
     """The part to load, frame by frame, from the saved part and a proposed fill, graded by the class map.
 
     A fill takes a neighbour's shape to a frame the gate doubted. On a fast turn the doubted part was right
@@ -1097,13 +1098,14 @@ def grade_holds(parts: np.ndarray, filled: np.ndarray, classes: np.ndarray, made
     fragments = {}
     for f in range(len(parts)):
         px = int(sizes[f])
+        in_ht_px = int((out[f] & head_track[f]).sum()) if head_track is not None and f < len(head_track) else 0
         near = [int(sizes[g]) for g in range(max(0, f - COLLAPSE_REACH), min(len(parts), f + COLLAPSE_REACH + 1))
                 if g != f and g not in excluded]
         if f in off_head_fragments and not px:
             fragments[f] = {"why": "nothing left at her head once what lay off it was dropped (`off_head`), where the face points see her", "px": 0}
-        elif 0 < px < least_px:
+        elif 0 < px < least_px and in_ht_px < SEGMENT_PX:
             fragments[f] = {"why": "too small to be drawn as the part", "px": px, "least_px": least_px}
-        elif px and near and px <= COLLAPSE_SHARE * max(near):
+        elif px and near and px <= COLLAPSE_SHARE * max(near) and in_ht_px < SEGMENT_PX:
             fragments[f] = {"why": f"collapsed against its neighbours: {px} px, {round(px / max(near), 3)} of the largest within {COLLAPSE_REACH} "
                                    f"frames ({max(near)} px; COLLAPSE_SHARE {COLLAPSE_SHARE})", "px": px, "collapsed_against_px": max(near)}
     own_small = {f: out[f].copy() for f in fragments}
@@ -2775,8 +2777,10 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
                     what = under_doubted(made, names.index("Hair"), every, doubted, class_maps[label], others_now)
                     if m.get("grade") != "off":
                         boh_rel = set(head_tube_prov.get("back_of_head_frames", ())) if head_tube_prov is not None else frozenset()
+                        ht_for_grade = (ht_res["tube_info"]["tube"] if "tube_info" in ht_res else ht_res["tube"]) if head_tube_prov is not None else head_track_arr
                         held, graded = grade_holds(parts, held, class_maps[label], made, least, off_head_fragments=off_frags,
                                                    back_of_head=boh_rel, points=m.get("points"), first_frame=first,
+                                                   head_track=ht_for_grade,
                                                    **grade_given(m, what, every, first, frames, track))
                         sizes = part_sizes(parts, first, least, least_by,
                                            emptied=[f for f, d in graded.items() if "least_px" in d and d["did"].startswith("emptied")],
@@ -5553,6 +5557,7 @@ def hair_in_hole_files(out: Path, label: str, given: dict, made_of: list[str], s
               "marks": {mark: frame_spans([first + f for f in sorted(v)]) for mark, v in marks.items()}}
     folder = out / "subjects" / label
     (folder / f"hair_in_hole__{by}.json").write_text(json.dumps(record, indent=1) + "\n")
+    prev_held = held_masks[label]
     held_masks[label] = held
     write_mask_video(folder / f"parts_held__{by}.mkv", held)
     if bool((held & ~given["track"]).any()):
@@ -5561,7 +5566,57 @@ def hair_in_hole_files(out: Path, label: str, given: dict, made_of: list[str], s
                **{k: record[k] for k in ("head_added_px", "hair_added_px", "head_added_on_source_frames", "hair_added_on_source_frames",
                                          "lost_asked_on_source_frames", "hair_undecided_on_source_frames")}}
     entry = next(s for s in manifest["subjects"] if s["label"] == label)
-    next(x for x in entry["sightings"] if x["by"] == by)["hair_in_hole"] = summary
+    sighting = next(x for x in entry["sightings"] if x["by"] == by)
+    sighting["hair_in_hole"] = summary
+    restored_rel = [f for f in range(frames) if not bool(prev_held[f].any()) and bool(held[f].any())]
+    changed_rel = [f for f in range(frames) if int(prev_held[f].sum()) != int(held[f].sum())]
+    if restored_rel:
+        restored_src_set = {first + f for f in restored_rel}
+        doubted_spans = sighting.get("parts_doubted_and_left_on_source_frames") or []
+        doubted_left = [f for a, b in doubted_spans for f in range(int(a), int(b) + 1) if f not in restored_src_set]
+        sighting["parts_doubted_and_left_on_source_frames"] = frame_spans(doubted_left, join=1)
+    pg_path = folder / "part_grades.json"
+    if changed_rel and pg_path.is_file():
+        pg = json.loads(pg_path.read_text())
+        restored_src = {first + f for f in restored_rel}
+        changed_src = {first + f for f in changed_rel}
+        changed_pg = False
+        for row in pg.get("frames", []):
+            sf = int(row.get("source_frame", -1))
+            f_idx = sf - first
+            if sf in restored_src and str(row.get("did", "")).startswith("emptied"):
+                row["did"] = "saved part kept, restored by her_hair_in_hole"
+                row["px"] = int(held[f_idx].sum())
+                changed_pg = True
+            elif sf in changed_src and 0 <= f_idx < frames:
+                row["px"] = int(held[f_idx].sum())
+                changed_pg = True
+        if changed_pg:
+            still_emptied_floor = [
+                int(r["source_frame"]) for r in pg.get("frames", [])
+                if "least_px" in r and str(r.get("did", "")).startswith("emptied")
+            ]
+            still_emptied_all = [
+                int(r["source_frame"]) for r in pg.get("frames", [])
+                if str(r.get("did", "")).startswith("emptied")
+            ]
+            with_part_cnt = sum(1 for r in pg.get("frames", []) if int(r.get("px", 0)) > 0)
+            empty_cnt = len(pg.get("frames", [])) - with_part_cnt
+            if isinstance(pg.get("part_sizes"), dict):
+                pg["part_sizes"]["frames_with_part"] = with_part_cnt
+                pg["part_sizes"]["frames_empty"] = empty_cnt
+                if "emptied_by_the_floor" in pg["part_sizes"]:
+                    pg["part_sizes"]["emptied_by_the_floor"] = {
+                        "frames": len(still_emptied_floor),
+                        "on_source_frames": frame_spans(still_emptied_floor),
+                    }
+                if isinstance(sighting.get("part_sizes"), dict):
+                    sighting["part_sizes"]["frames_with_part"] = with_part_cnt
+                    sighting["part_sizes"]["frames_empty"] = empty_cnt
+                    if "emptied_by_the_floor" in pg["part_sizes"]:
+                        sighting["part_sizes"]["emptied_by_the_floor"] = pg["part_sizes"]["emptied_by_the_floor"]
+            sighting["parts_emptied_by_grade_on_source_frames"] = frame_spans(still_emptied_all)
+            pg_path.write_text(json.dumps(pg, indent=1) + "\n")
     print(f"  {label}: her hair in the hole: her head track added {record['head_added_px']} px on "
           f"{_spans_text(record['head_added_on_source_frames']) or 'no frame'}; unclaimed hair added {record['hair_added_px']} px on "
           f"{_spans_text(record['hair_added_on_source_frames']) or 'no frame'} (from {hair_from or 'no map'})"

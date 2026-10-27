@@ -4356,9 +4356,14 @@ def make_depth(job: dict, preview: dict, preview_files: list[str] | None, a, wor
         return []
     import capture_masked_run as cap
     first = int(job["loads"][0]["first"])
-    last = first + int(job["loads"][0]["frames"]) - 1
+    count = int(job["loads"][0]["frames"])
+    last = first + count - 1
     ov_frames = overlap(preview, preview_files, world.output, a.subject, first, last,
                         job["job"].get("track_not"), job["job"].get("keep_outs"))
+    mine_subj = next((s for s in (job["job"].get("subjects") or []) if s.get("label") == a.subject), None)
+    if mine_subj and mine_subj.get("hair_hers"):
+        hers_src = [first + int(f) for f in sorted(cap.word_frames(mine_subj["hair_hers"], first, count))]
+        ov_frames = sorted(set(ov_frames) | set(hers_src))
     depth_cfg["overlap_frames"] = ov_frames
     if not ov_frames:
         depth_cfg["file"] = None

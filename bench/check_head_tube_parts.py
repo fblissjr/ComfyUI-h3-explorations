@@ -1136,7 +1136,14 @@ def _case_regain_needs_her_own_face_points() -> str:
             assert int(res["tube_info"]["tube"][t].sum()) == 0, f"frame {t}: her hand was re-seeded as her head ({int(res['tube_info']['tube'][t].sum())} px)"
             assert int(res["part_mask"][t].sum()) == 0, f"frame {t}: her hand is in her part"
             assert int(((res["class_map"][t] == hair_id) & track[t]).sum()) == 0, f"frame {t}: her hand was relabelled Hair"
-        assert int(res["tube_info"]["tube"][5].sum()) > 0, "frame 5: her face shows with its points and was not re-seeded"
+        assert int(res["tube_info"]["tube"][5].sum()) == 12 * 16, (
+            f"frame 5: expected exact 12x16 head+hair (192 px, excluding Upper_Clothing in track[5]), got {int(res['tube_info']['tube'][5].sum())}"
+        )
+        assert int((res["part_mask"][5] & (cmap[5] == cloth_id)).sum()) == 0, "frame 5: Upper_Clothing must never be unioned into part_mask"
+        # Head-and-shoulders person_track (like 4647h 4686-4695, height 20 rows y=20..40) after a tall-body frame (height 48 rows,
+        # head_rel_y1=0.25) keeps the full 12x16 head+hair (y=20..32, x=24..40) instead of slicing across the forehead at y=25 or unioning clothing:
+        hs_seed, _ = htp._head_seed_from_person_mask(track[5, :40, :], head_rel_y1=0.25, own_head_2d=parts[5, :40, :])
+        assert int(hs_seed.sum()) == 12 * 16, f"expected 192 px head+hair on head-and-shoulders mask, got {int(hs_seed.sum())}"
         on_body = ((20.0, 44.0), (44.0, 56.0))           # over the line, inside her track, on her clothing: not her own replaced classes
         body = _points_file(Path(tmp), [(*on_face, 0.9)] * 3 + [(*on_body, 0.9)] * 2 + [(*on_face, 0.9)])
         clothed = htp.head_tube_for_capture(track, parts, cmap, head_track=head, points_path=body, head_parts=htp.DEFAULT_HEAD_PARTS)
