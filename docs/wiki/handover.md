@@ -103,7 +103,7 @@ each overturned in [`decisions.md`](decisions.md) 2026-10-26 and the forensics r
 
 ## Where things are
 
-- **Reading order for tomorrow's session before writing code**:
+- **Reading order for tomorrow's builds** (after the start-of-day sequence in [`../../AGENTS.md`](../../AGENTS.md)):
   1. [`handover.md`](handover.md) (this file, for the day's order and what not to assume).
   2. [`decisions.md`](decisions.md) (`2026-10-26`: `5114d` margin rule `cbd39fbe`, `second_hfp_4647h` postmortem, the `cast.jsonl` box rule, and the two guardrails for tomorrow's builds).
   3. [`../masked_v2v/2026-10-25_pass_contamination_and_mask_step_forensics.md`](../masked_v2v/2026-10-25_pass_contamination_and_mask_step_forensics.md) (`§0`–`§0.9`: verified `4647` and `4912` measurements).

@@ -27,7 +27,7 @@ Because this repo sits at `<comfy>/custom_nodes/ComfyUI-h3-explorations`, `<comf
     export H3_OUTPUT_DIR="$(awk '/^[[:space:]]*--output-directory[[:space:]]/{print $2}' "$COMFY/start.sh")"
     export H3_INPUT_DIR="$(awk '/^[[:space:]]*--input-directory[[:space:]]/{print $2}' "$COMFY/start.sh")"
     export H3_MODEL_STORE="$(dirname "$(readlink -f "$COMFY"/models/sapiens2/* | head -1)")"
-    export H3_CAPTURE_ROOT="$H3_MODEL_STORE/h3_captures"
+    export H3_CAPTURE_ROOT="$H3_MODEL_STORE/h3_captures"   # created on demand when arming a capture
 
 **Antigravity (`agy`) harness subshell rule:**
 In the `agy` harness, each `run_command` tool call spawns a new bash subshell in the workspace root: **`cd` and `export` do not persist across separate `run_command` calls**. Include the environment block above (or inline the variables) in every `run_command` call that runs a `bench/` script. If `$PY` is referenced in a later `run_command` where it was not defined, bash expands `$PY` to empty and executes `bench/*.py` directly via its `#!/usr/bin/env python3` shebang (system Python, which lacks `torch` and `comfy`).
@@ -82,7 +82,7 @@ asked: who holds the port.
 and is DISABLED since 2026-09-02 because it hung on every run; it exits 2 and
 points here. Before killing, read the port owner's environment: an `H3_*`
 key there means the server is ARMED for somebody's capture, and restarting
-it silently disarms them (CLAUDE.md, "the server process is the resource").
+it silently disarms them (`AGENTS.md`, "The server process is the resource, not the GPU").
 
     PID=$(ss -ltnp | grep ':8188' | grep -oP 'pid=\K[0-9]+' | head -1)
     tr '\0' '\n' < /proc/$PID/environ | grep '^H3_'   # armed? ask first
