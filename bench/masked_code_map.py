@@ -41,6 +41,7 @@ import argparse
 import ast
 import hashlib
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -837,10 +838,10 @@ def generate_index_markdown() -> str:
 
     str_start, str_end = extract_dict_key_span("bench/strangers.py", "run", "cannot_see")
     lines.append(f"### `bench/strangers.py::run` (`L{str_start}-L{str_end}`) — `<preview>_strangers.json[\"cannot_see\"]`")
-    lines.append("- Record key `cannot_see` (`13` strings): people missed by whole-frame Sapiens2 stay regenerable;")
+    lines.append("- Record key `cannot_see` (`13` strings): people missed by both whole-frame Sapiens2 (`c == 0`) and SAM 3.1 (`people.npz`) stay regenerable")
+    lines.append("  (`426638a6` unions unowned SAM detections `who is None` into `people[i]` and `core[i]` where `c == 0`);")
     lines.append("  people missed by SAM 3.1 for `> hold_frames` (`8`) whose pieces touch a subject are handed back (`NO_OTHER = \"handed_back_on_no_other_person\"`);")
-    lines.append("  stranger components touching a subject with no 18-class `CORE_CLASSES` pixels (`held = piece & core[i]`) are handed back (`NO_CORE = \"no body core of its own\"`);")
-    lines.append("  unowned SAM detections (`o[3] is None`) are not unioned into `people[i]`/`core[i]` where whole-frame Sapiens2 finds nobody (`c == 0`).")
+    lines.append("  stranger components touching a subject with no 18-class `CORE_CLASSES` or unowned SAM detection pixels (`held = piece & core[i]`) are handed back (`NO_CORE = \"no body core of its own\"`).")
     lines.append("")
 
     stl_start, stl_end = extract_dict_key_span("bench/shot_to_load.py", "face_cues", "cannot_see")
@@ -967,11 +968,24 @@ def scan_narrative_sections(md_path: Path) -> list[tuple[str, int, list[tuple[st
     return sections
 
 
-def compute_drift() -> tuple[list[str], list[str]]:
-    """Return `(symbol_drift_lines, narrative_section_lines)` comparing disk vs `CODE_MAP_INDEX.md`."""
-    if not INDEX_MD.is_file():
-        return ([f"MISSING {INDEX_MD.relative_to(REPO)} (run --write first)"], [])
-    recorded = read_recorded_digests(INDEX_MD.read_text(encoding="utf-8"))
+def compute_drift(since_ref: str | None = None) -> tuple[list[str], list[str]]:
+    """Return `(symbol_drift_lines, narrative_section_lines)` comparing disk vs `CODE_MAP_INDEX.md` (or `<since_ref>:docs/masked_v2v/CODE_MAP_INDEX.md`)."""
+    if since_ref:
+        rel_idx = INDEX_MD.relative_to(REPO).as_posix()
+        proc = subprocess.run(
+            ["git", "-C", str(REPO), "show", f"{since_ref}:{rel_idx}"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if proc.returncode != 0:
+            return ([f"FAILED git show {since_ref}:{rel_idx}: {proc.stderr.strip()}"], [])
+        baseline_text = proc.stdout
+    else:
+        if not INDEX_MD.is_file():
+            return ([f"MISSING {INDEX_MD.relative_to(REPO)} (run --write first)"], [])
+        baseline_text = INDEX_MD.read_text(encoding="utf-8")
+    recorded = read_recorded_digests(baseline_text)
     live_cache: dict[str, dict[str, tuple[int, int, str]]] = {}
 
     drifted_syms: dict[tuple[str, str], str] = {}
@@ -1248,10 +1262,11 @@ def query_chain(target: str | None) -> int:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--write", action="store_true", help="Write docs/masked_v2v/CODE_MAP_INDEX.md from live AST.")
+    ap.add_argument("--write", action="store_true", help="Write docs/masked_v2v/CODE_MAP_INDEX.md from live AST (printing any narrative stage drift first).")
     ap.add_argument("--check", action="store_true", help="Verify symbol resolution, line-range bounds, file size, line length, and path privacy.")
     ap.add_argument("--check-exact", action="store_true", help="Run --check plus require CODE_MAP_INDEX.md to be byte-identical to live AST.")
     ap.add_argument("--drift", action="store_true", help="Report AST function changes since CODE_MAP_INDEX.md was written and which narrative stages they affect.")
+    ap.add_argument("--drift-since", metavar="GIT_REF", help="Report AST function changes and affected narrative stages since GIT_REF (e.g. HEAD~4 or commit hash).")
     ap.add_argument("--deps", nargs="?", const="", default=None, help="Print bidirectional module dependency graph (optionally filtered by file substring).")
     ap.add_argument("--calls", metavar="SYMBOL", help="Print AST function-level callers (upstream) and callees (downstream) for SYMBOL.")
     ap.add_argument("--data", nargs="?", const="", default=None, help="Print AST writers & readers ('both ends') for an artifact or dict/npz key.")
@@ -1260,6 +1275,16 @@ def main() -> int:
     args = ap.parse_args()
 
     if args.write:
+        if INDEX_MD.is_file():
+            pre_syms, pre_secs = compute_drift()
+            if pre_syms:
+                print(f"note: {len(pre_syms)} symbol(s) changed AST body before --write:")
+                for line in pre_syms:
+                    print(f"  - {line}")
+                if pre_secs:
+                    print(f"note: {len(pre_secs)} narrative section(s) cite changed symbols (review prose for semantic changes):")
+                    for line in pre_secs:
+                        print(f"  - {line}")
         text = generate_index_markdown()
         INDEX_MD.parent.mkdir(parents=True, exist_ok=True)
         INDEX_MD.write_text(text, encoding="utf-8")
@@ -1277,12 +1302,13 @@ def main() -> int:
     if args.chain is not None:
         return query_chain(args.chain or args.query)
 
-    if args.drift:
-        sym_lines, sec_lines = compute_drift()
+    if args.drift or args.drift_since:
+        ref_label = f"{args.drift_since}:{INDEX_MD.relative_to(REPO)}" if args.drift_since else str(INDEX_MD.relative_to(REPO))
+        sym_lines, sec_lines = compute_drift(since_ref=args.drift_since)
         if not sym_lines:
-            print("0 drifted symbols; all narrative stage/contract blocks in docs/masked_v2v/ are current.")
+            print(f"0 drifted symbols since {ref_label}; all narrative stage/contract blocks in docs/masked_v2v/ are current.")
         else:
-            print(f"{len(sym_lines)} symbol(s) changed AST body since {INDEX_MD.relative_to(REPO)} was written:")
+            print(f"{len(sym_lines)} symbol(s) changed AST body since {ref_label}:")
             for line in sym_lines:
                 print(f"  - {line}")
             if sec_lines:
@@ -1298,7 +1324,7 @@ def main() -> int:
     if args.query:
         return query_symbols(args.query)
 
-    if not (args.write or args.check or args.check_exact or args.drift):
+    if not (args.write or args.check or args.check_exact or args.drift or args.drift_since):
         ap.print_help()
     return 0
 

@@ -93,8 +93,8 @@ flowchart TD
      - Written in `_files` and overwritten in place by `hair_in_hole_files` (`00a3f1d8`) during `step_capture`, then written and overwritten again during `step_on_plan`'s second `_files --overwrite` run.
   3. **`masks__<by>.npz` vs `parts_held__<by>.mkv` (`bench/capture_masked_run.py`)**:
      - Within each `_files` run, `masks__<by>.npz` is written at Stage 2.6 (before `grade_holds` and `her_hair_in_hole`); `step_on_plan` (`--overwrite`) overwrites `masks__<by>.npz` on the second `_files` pass, but in both passes `masks__<by>.npz` never reflects the hair unioned into `parts_held__<by>.mkv` by `her_hair_in_hole`.
-  4. **`part_grades.json` (`bench/capture_masked_run.py`)**:
-     - Written at Stage 2.7 (`_files`, and overwritten during `step_on_plan --overwrite`), but never updated after Stage 2.8 (`her_hair_in_hole`) in either pass.
+  4. **`part_grades.json` (`bench/capture_masked_run.py`, 4 writes across `step_capture` and `step_on_plan` since `1e91de26`)**:
+     - Written at Stage 2.7 (`_files`) and updated in place at Stage 2.8 (`hair_in_hole_files`, `1e91de26`) when `her_hair_in_hole` restores an emptied frame or changes pixel counts, then written and updated in place again during `step_on_plan --overwrite`. (`doubted_frames.json` remains a single pre-Stage-2.8 write per pass.)
   5. **`<job>_<subj>_drawn_sheet.jpg` & `<job>_<subj>_drawn.json` (`bench/draw_face_points.py` vs `bench/shot_to_load.py`)**:
      - Written by `bench/draw_face_points.py::run` and immediately overwritten by `bench/shot_to_load.py::drawn_form`.
 

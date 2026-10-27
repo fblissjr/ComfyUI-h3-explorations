@@ -53,41 +53,42 @@ renders:
 
 1. **Silent 4x In-Place File Overwrites + Pre-Fill Snapshot Lag (`bench/capture_masked_run.py`, `bench/load_chain.py`)**:
    - During a single `bench/capture_masked_run.py::_files` pass, `masks__<by>.npz` is written at Stage 2.6 (before
-     `held_parts`, `grade_holds`, `--drop`, and `her_hair_in_hole`), `part_grades.json` is written at Stage 2.7 (before
-     `--drop` and `her_hair_in_hole`), and `parts_held__<by>.mkv` is written at Stage 2.7 and overwritten in place at
-     Stage 2.8 (`bench/capture_masked_run.py::hair_in_hole_files`, which also overwrites `track__<by>.mkv`).
+     `held_parts`, `grade_holds`, `--drop`, and `her_hair_in_hole`), `part_grades.json` and `doubted_frames.json` are
+     written at Stage 2.7, and `parts_held__<by>.mkv` is written at Stage 2.7 and overwritten in place at Stage 2.8
+     (`bench/capture_masked_run.py::hair_in_hole_files`, which also overwrites `track__<by>.mkv` and, since `1e91de26` /
+     `8a420f89`, overwrites `part_grades.json` in place and syncs `sighting["parts_doubted_and_left_on_source_frames"]`
+     with `frame_spans(..., join=1)`).
    - Then in Stage 3.2 (`bench/load_chain.py::step_on_plan`), `capture_masked_run.py files --overwrite` runs a **second**
-     time on the same directory, overwriting `masks__<by>.npz`, `part_grades.json`, `parts_held__<by>.mkv` (twice more,
-     for 4 writes total), and `track__<by>.mkv` in place. Within both passes, `masks__<by>.npz` and `part_grades.json`
-     lag behind the final `her_hair_in_hole` write to `parts_held__<by>.mkv`, leaving `bench/frame_table.py::build_frame_table`
-     comparing pre-fill grades against post-fill masks.
+     time on the same directory, overwriting `masks__<by>.npz`, `part_grades.json` (4 writes total),
+     `parts_held__<by>.mkv` (4 writes total), and `track__<by>.mkv` in place. Within both passes, `masks__<by>.npz` and
+     `doubted_frames.json` remain pre-Stage-2.8 snapshots that do not reflect `her_hair_in_hole`.
 2. **`hold_to_track` Clipping to Drifted/Narrow `person_track` + Downstream `grade_holds` Floor (`bench/shot_to_load.py`, `bench/capture_masked_run.py`)**:
    - In Stage 1.6a, `bench/shot_to_load.py::hold_to_track` computes `held = a & strangers.grown(kept, px)`, clipping the
      subject's per-frame Sapiens part `a` to her SAM 3.1 `person_track` grown by `8px` (`_on_track_8px.mkv`). When
      `person_track` misses outer hair strands (`4912`) or drifts onto another person (`4699-4702`), valid head/hair pixels
-     are clipped away before Stage 2 starts.
-   - Meanwhile, temporal holding of empty/small part frames happens downstream in `bench/capture_masked_run.py::held_parts`
-     and `bench/capture_masked_run.py::grade_holds` (which on `4702-4705, 4708-4714` emptied real heads `< 1,024 px` and
-     on `4706-4707` held stale pixels from `4701`), or when `--hold-part` is passed to `bench/shot_to_load.py::part_of`
-     (which held `16,580 px` across `4682-4685` on `4647g`).
+     are clipped away before Stage 2 starts (still active on `main`).
+   - Downstream in `bench/capture_masked_run.py::grade_holds`, valid small heads `< 1,024 px` (`4702-4705, 4708-4714`) were
+     previously emptied; since `1e91de26`, `_files` passes `head_track=ht_for_grade` (`ht_res["tube"]`) to `grade_holds`,
+     exempting frames where `int((out[f] & head_track[f]).sum()) >= SEGMENT_PX` (`64 px`) from floor/collapse emptying.
 3. **Pre-Carve / Pre-Feather `hole(f)` & `~track[f]` in `her_hair_in_hole` (`bench/capture_masked_run.py`)**:
    - In `bench/capture_masked_run.py::her_hair_in_hole`, `hole(f)` tests `out[f]` grown by `margin` (`30` canvas px)
      **before** the keep-out carve and feather (`4686`: `head[39] & ~hole(39) == 0 px`, leaving `130 px` of
      `head_tube[39]` in the feathered rim at `matte <= 127`), while Part 3 (`in_hole_part3`) checks `~track[f]`,
-     blocking hair recovery wherever hair lies inside the full-body `person_track` silhouette (`4912`).
-4. **Post-Occlusion Flat Horizontal Slice Seed (`bench/head_tube_parts.py::_head_seed_from_person_mask`)**:
-   - When `--head-per-stretch` is off (`head_track == 0 px` on `4682-4695` in `second_hfp_4647h`), a regained `head_tube`
-     frame in `bench/head_tube_parts.py::_head_seed_from_person_mask` (with `tracker=None`) takes a flat horizontal slice
-     (`head_rel_y1`) of the upper-body `person_track` at a proportion measured when the subject stood tall (`4673`),
-     slicing `945-1,354 px` off crop-Sapiens's valid head/hair mask (`1,271 px` lost in `parts_held` on `4686`).
-5. **Unowned SAM 3.1 `people.npz` Dropped Where Whole-Frame Sapiens2 Sees `c == 0` (`bench/strangers.py`)**:
-   - In `bench/strangers.py::run` and `bench/strangers.py::others_of`, unowned SAM 3.1 person detections (`o[3] is None`
-     in `<preview>_people.npz`) are NOT unioned into `people[i]` (`c > 0`) or `core[i]` (`np.isin(c, core_ids)` over the
-     18 `CORE_CLASSES`) where whole-frame Sapiens-2B misses a person (`c == 0`, as on `4686-4693` in `4647k` where SAM
-     detected `2,000-3,500 px` of the dark-haired bystander woman while `strangers.mkv` held `0 px`, and on `1458`).
-     Furthermore, `bench/strangers.py::handed_back` checks `held = piece & core[i]` and drops any stranger component
-     touching a tracked subject (`NO_CORE = "no body core of its own"`) if `core[i]` is not populated for SAM-backed
-     detections.
+     blocking hair recovery wherever hair lies inside the full-body `person_track` silhouette (`4912`) (still active on `main`).
+4. **Post-Occlusion Flat Horizontal Slice Seed (`bench/head_tube_parts.py::_head_seed_from_person_mask` — Fixed on `main` in `1e91de26`)**:
+   - Before `1e91de26`, when `head_track == 0 px` (`4682-4695` in `second_hfp_4647h`), a regained `head_tube` frame in
+     `bench/head_tube_parts.py::_head_seed_from_person_mask` (with `tracker=None`) took a flat horizontal slice
+     (`head_rel_y1`) of `person_track`, slicing `945-1,354 px` off crop-Sapiens's valid head/hair mask (`4686`).
+   - Fixed in `1e91de26`: `_head_seed_from_person_mask` now takes `own_head_2d & person_mask_2d` when non-empty, and
+     `head_tube_for_capture` replaces regained/bridged `person_track` tube frames (`~ht_has_any`) with `parts_bool[t]` and
+     restricts hair relabeling to `ht_in_track | (tube_full & parts_bool)`.
+5. **Unowned SAM 3.1 `people.npz` Dropped Where Whole-Frame Sapiens2 Sees `c == 0` (`bench/strangers.py` — Fixed on `main` in `426638a6`)**:
+   - Before `426638a6`, in `bench/strangers.py::run`, unowned SAM 3.1 person detections (`who is None` in
+     `<preview>_people.npz`) were NOT unioned into `people[i]` (`c > 0`) or `core[i]` (`np.isin(c, core_ids)`) where
+     whole-frame Sapiens-2B missed a person (`c == 0`, as on `4686-4693` in `4647k` and `1458`).
+   - Fixed in `426638a6`: `bench/strangers.py::run` now computes `det |= m & (c == 0)` for `who is None` in `others[i]`
+     and sets `people[i] = (c > 0) | det` and `core[i] = np.isin(c, core_ids) | det` so `handed_back` preserves
+     SAM-backed strangers (`held.any()` is true) instead of dropping them as `NO_CORE`.
 6. **4-Way Window, Context Padding & `17n+5` Math Split Across 4 Modules**:
    - Window bounds, all-after context padding (`before = 0, after = extra`), outer-edge held context, and `17n + 5`
      causal-VAE length snapping (`5n + 2` latent steps via `1, 4, 4, 4, 4` per 17-frame clip) are computed across
@@ -187,85 +188,69 @@ documentation commits:
 
 ---
 
-## 5. Settled Morning Builds (`Part 5e-5g`, Ready for Worktree Execution)
+## 5. Morning Builds Status (`Part 5e-5g`, Landed on `main` in `426638a6`, `1e91de26`, `6b0ea9a6`, `8a420f89`)
 
-These three builds are settled in `docs/wiki/decisions.md` and `docs/wiki/handover.md` (`Tomorrow, in order`) and use
-the exact symbols indexed in [CODE_MAP_INDEX.md](../../masked_v2v/CODE_MAP_INDEX.md):
+These three builds were settled in `docs/wiki/decisions.md` and `docs/wiki/handover.md` and landed on `main` on
+`2026-10-27`. Below is the exact ledger of what each commit changed on `main` vs. what remains open:
 
-### Part 5e — Build 1: Retire `hold_to_track`, Remove Flat `_head_seed_from_person_mask` Slice & Settle Downstream Floor/Fill
+### Part 5e — Build 1 (`1e91de26`, `8a420f89`): `head_tube` Seed & Regained-Frame Fix, `grade_holds` `head_track` Exemption & `part_grades.json` Sync
 
-- **Root Cause**:
-  1. `bench/shot_to_load.py::hold_to_track` clips the per-frame part `a` to `strangers.grown(kept, 8)` (`_on_track_8px.mkv`),
-     cutting off valid hair outside `person_track` (`4912`) and clipping to a drifted track (`4699-4702`).
-  2. `bench/head_tube_parts.py::_head_seed_from_person_mask` (with `tracker=None`) takes a flat horizontal slice
-     (`head_rel_y1`) of `person_track`, slicing `945-1,354 px` off crop-Sapiens's valid head/hair mask on `4686, 4693-4695`.
-  3. Downstream in `bench/capture_masked_run.py`, `grade_holds` empties valid small heads under the `1,024 px` floor
-     (`4702-4705, 4708-4714`) or holds stale frames (`4706-4707` from `4701`), while `her_hair_in_hole` tests `hole(f)`
-     against pre-carve/pre-feather `out[f]` (`4686`: `130 px` left in the feathered rim) and restricts Part 3 by `~track[f]`.
+- **Landed on `main` (`1e91de26`, `8a420f89`)**:
+  1. `bench/head_tube_parts.py::_head_seed_from_person_mask` & `sam31_head_tube`: takes `own_head_2d & person_mask_2d`
+     when non-empty instead of a flat horizontal `head_rel_y1` slice of `person_track`.
+  2. `bench/head_tube_parts.py::head_tube_for_capture`: on frames where `head_track` was empty and `sam31_head_tube`
+     regained/bridged from `person_track`, replaces `tube[t]` with `parts_bool[t]` and restricts hair relabeling to
+     `ht_in_track | (tube_full & parts_bool)` so `Upper_Clothing`/`Torso`/`Hands` outside `head_track` and `parts_bool`
+     are never relabeled as `Hair`.
+  3. `bench/capture_masked_run.py::grade_holds` & `_files`: passes `head_track=ht_for_grade` (`ht_res["tube"]` when
+     `head_tube` ran) and exempts frames where `int((out[f] & head_track[f]).sum()) >= SEGMENT_PX` (`64 px`) from being
+     emptied as fragments under `least_px` (`1,024 px`) or `COLLAPSE_SHARE`.
+  4. `bench/capture_masked_run.py::hair_in_hole_files`: rewrites `part_grades.json` on disk (Write #2) and syncs
+     `sighting["parts_doubted_and_left_on_source_frames"]` (`8a420f89`: `frame_spans(doubted_left, join=1)`) and
+     `sighting["parts_emptied_by_grade_on_source_frames"]` after `her_hair_in_hole`.
+  5. `bench/shot_to_load.py::make_depth`: unions `mine_subj["hair_hers"]` frames into `ov_frames` when measuring MoGe-2 depth.
+- **Still Open on `main`**:
+  - `bench/shot_to_load.py::hold_to_track` (`_on_track_8px.mkv`) is still active on `main`.
+  - `bench/capture_masked_run.py::her_hair_in_hole` still tests `hole(f)` against pre-carve/pre-feather `out[f]` and
+    restricts Part 3 by `~track[f]`.
 - **Both Ends (Writers & Readers)**:
   - **Writers**: `bench/shot_to_load.py::part_on_track`, `bench/shot_to_load.py::hold_to_track`,
-    `bench/shot_to_load.py::make_part_on_track`, `bench/shot_to_load.py::step_job`;
-    `bench/head_tube_parts.py::_head_seed_from_person_mask`, `bench/head_tube_parts.py::sam31_head_tube`;
-    `bench/capture_masked_run.py::grade_holds`, `bench/capture_masked_run.py::her_hair_in_hole`.
+    `bench/shot_to_load.py::make_part_on_track`, `bench/shot_to_load.py::make_depth`;
+    `bench/head_tube_parts.py::_head_seed_from_person_mask`, `bench/head_tube_parts.py::sam31_head_tube`,
+    `bench/head_tube_parts.py::head_tube_for_capture`;
+    `bench/capture_masked_run.py::grade_holds`, `bench/capture_masked_run.py::her_hair_in_hole`,
+    `bench/capture_masked_run.py::hair_in_hole_files`, `bench/capture_masked_run.py::_files`.
   - **Readers**: `bench/load_chain.py::mask_specs`, `bench/capture_masked_run.py::_files`,
     `bench/inspect_mask_steps.py::inspect_capture`, `bench/flags_before_render.py::check_flags_read`,
     `bench/frame_table.py::build_frame_table`.
-- **Implementation Spec**:
-  1. Retire `bench/shot_to_load.py::hold_to_track` (`_on_track_8px.mkv`) and `bench/head_tube_parts.py::_head_seed_from_person_mask`'s
-     flat `head_rel_y1` slice.
-  2. Define the subject's part at the `job` step (`bench/shot_to_load.py::step_job`) from her Sapiens face and hair on
-     her crop unioned with her SAM head track within a room anchored to her head (never unioning `Upper_Clothing`/`Torso`
-     from `person_track` into a face+hair part, and never anchoring the head room to an arm-only crop), less every other
-     person's SAM detection.
-  3. Settle `bench/capture_masked_run.py::grade_holds` (`1,024 px` floor) vs. `bench/capture_masked_run.py::her_hair_in_hole`
-     (`~hole(f)` pre-carve/pre-feather check and `~track[f]`) so a valid small head is not emptied or left in the
-     feathered rim.
 
-### Part 5f — Build 2: Include Unowned SAM 3.1 `people.npz` Detections & `core[i]` in `bench/strangers.py`
+### Part 5f — Build 2 (`426638a6`): Unowned SAM 3.1 `people.npz` Detections & `core[i]` in `bench/strangers.py`
 
-- **Root Cause**:
-  - In `bench/strangers.py::run` and `bench/strangers.py::others_of`, unowned SAM 3.1 person detections (`o[3] is None`
-    in `<preview>_people.npz`) are not included in `people[i]` (`c > 0`) or `core[i]` (`np.isin(c, core_ids)` over
-    `CORE_CLASSES`) where whole-frame Sapiens-2B finds nobody (`c == 0`, as on `4686-4693` in `4647k` where SAM detected
-    `2,000-3,500 px` of the bystander woman while `strangers.mkv` held `0 px`, and on `1458`). In addition,
-    `bench/strangers.py::handed_back` checks `held = piece & core[i]` and drops any component touching a subject where
-    `held.any()` is false (`NO_CORE = "no body core of its own"`).
+- **Landed on `main` (`426638a6`)**:
+  - In `bench/strangers.py::run`, computes `det |= m & (c == 0)` for every unclaimed SAM 3.1 detection (`who is None` in
+    `others[i]`), setting `people[i] = (c > 0) | det` and `core[i] = np.isin(c, core_ids) | det` so `handed_back`
+    preserves SAM-backed strangers (`held = piece & core[i]` is non-empty) instead of dropping them as `NO_CORE`
+    (`4686-4693` on `4647`, `1458`). Updated `OWN_FORM` and `bench/strangers.py::held_to_its_record`.
 - **Both Ends (Writers & Readers)**:
   - **Writers**: `bench/strangers.py::others_of`, `bench/strangers.py::held_others`, `bench/strangers.py::handed_back`,
     `bench/strangers.py::run`.
   - **Readers**: `bench/shot_to_load.py::others_of_load`, `bench/shot_to_load.py::run_strangers`,
     `bench/capture_masked_run.py::_depth_medians_and_owner`, `bench/capture_masked_run.py::her_hair_in_hole`,
     `bench/inspect_mask_steps.py::inspect_capture`.
-- **Implementation Spec**:
-  1. In `bench/strangers.py::run`, union unowned SAM 3.1 `people.npz` detections (`others[i]` where `o[3] is None`,
-     less owned subject tracks) into `people[i]` and `core[i]` where whole-frame Sapiens-2B finds nobody (`c == 0`), so
-     `handed_back` preserves SAM-backed strangers (`held.any()` is true) rather than handing them back as `NO_CORE`.
-  2. Update `<preview>_strangers.json["cannot_see"]` in `bench/strangers.py::run` and run
-     `$H3_PYTHON bench/masked_code_map.py --write`.
 
-### Part 5g — Build 3: Tracker Post-Occlusion Re-Finding (`HEAD_PER_STRETCH`), Group 2 Screenshot-Box Withdrawal & `4647i` Reference Remake
+### Part 5g — Build 3 (`6b0ea9a6`): Tracker Default `HEAD_PER_STRETCH` & SAM `--people` Verification on `cast_file.py box`
 
-- **Root Cause**:
-  - In `subject_track.py::parse_head_mode` and `bench/shot_to_load.py::working_copy`, `head_mode` defaults to whole-span
-    rather than `"per stretch"` (`HEAD_PER_STRETCH`), failing to re-find a subject's head after an interior occlusion
-    (`4682-4695` on `4647`). Meanwhile, `data/fun/cast/cast.jsonl` lines `175-192` and `194-196` contain Group 2
-    rough hand-drawn screenshot boxes (`owner_sheets/*.webp`) that must be withdrawn once the tracker re-finds `second`
-    after `4681`, and `second_4647_4725_j` (`<Video 1>`) has `43/79` bare frames from `--no-draw-face-on` and forearm
-    pose drift.
+- **Landed on `main` (`6b0ea9a6`)**:
+  1. `subject_track.py::parse_head_mode`, `subject_track.py::follow`, and `bench/shot_to_load.py::preview_job`: flipped
+     `head_mode` default to `"per stretch"` (`HEAD_PER_STRETCH`, `head_per_stretch=True`); whole-span mode requires
+     explicit `head: span: WHY` (`HEAD_SPAN = "span"`) or `--head-span WHY`.
+  2. `bench/cast_file.py::drawn`: requires `--people <people.npz>` on `box`, verifies `IoU >= 0.500` against SAM 3.1
+     detections on that frame, snaps the stored box to the best SAM detection box, and clears `drawn=None` so
+     `subject_track.py::parse_seeds` treats it as a verified detection seed rather than `APPROXIMATE`.
 - **Both Ends (Writers & Readers)**:
   - **Writers**: `subject_track.py::parse_head_mode`, `subject_track.py::_track_head_span`, `subject_track.py::_span_head`,
-    `subject_track.py::follow`, `subject_track.py::auto_match`, `subject_track.py::name_drawn`;
-    `bench/shot_to_load.py::working_copy`, `bench/shot_to_load.py::step_reference`; `bench/cast_file.py::read`,
+    `subject_track.py::follow`, `subject_track.py::auto_match`, `subject_track.py::name_drawn`, `subject_track.py::parse_seeds`;
+    `bench/shot_to_load.py::preview_job`, `bench/shot_to_load.py::step_reference`; `bench/cast_file.py::read`,
     `bench/cast_file.py::drawn`, `bench/cast_file.py::seeds`.
   - **Readers**: `bench/head_tube_parts.py::sam31_head_tube`, `bench/capture_masked_run.py::_files`,
     `bench/what_h3_got.py::audit_capture`.
-- **Implementation Spec**:
-  1. Flip `head_mode` default to `"per stretch"` (`HEAD_PER_STRETCH`) in `subject_track.py::parse_head_mode` and
-     `bench/shot_to_load.py::working_copy`, and re-find a subject after an occlusion via the tracker's per-stretch head
-     detection and still signature match (`subject_track.py::signature`, `auto_match`).
-  2. Withdraw Group 2 hand-drawn screenshot boxes (`cast.jsonl` lines `175-192` and `194-196`) while keeping Group 1
-     (`/who/` page clicks `1-174`) and Group 3 (session-verified SAM detection boxes `197-209`), and update
-     `bench/cast_file.py` so `box` requires/records a verified SAM detection rather than raw hand-drawn screenshot
-     coordinates.
-  3. Remake `<Video 1>` (`bench/shot_to_load.py::step_reference`) for `second_hfp_4647i` from the new preview's track
-     with no drawing word (`--no-draw-face-on`, `--no-carry-words`) carried.
