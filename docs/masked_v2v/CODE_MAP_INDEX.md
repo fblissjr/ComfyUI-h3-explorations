@@ -394,7 +394,8 @@ Extracted from AST constants and record writers so line numbers and strings neve
 
 ### `bench/strangers.py::run` (`L617-L642`) — `<preview>_strangers.json["cannot_see"]`
 - Record key `cannot_see` (`13` strings): people missed by whole-frame Sapiens2 stay regenerable;
-  people missed by SAM 3.1 for `> hold_frames` (`8`) whose pieces touch a subject are handed back (`handed_back_on_no_other_person`);
+  people missed by SAM 3.1 for `> hold_frames` (`8`) whose pieces touch a subject are handed back (`NO_OTHER = "handed_back_on_no_other_person"`);
+  stranger components touching a subject with no 18-class `CORE_CLASSES` pixels (`held = piece & core[i]`) are handed back (`NO_CORE = "no body core of its own"`);
   unowned SAM detections (`o[3] is None`) are not unioned into `people[i]`/`core[i]` where whole-frame Sapiens2 finds nobody (`c == 0`).
 
 ### `bench/shot_to_load.py::face_cues` (`L3585-L3588`), `figures_of` (`L3617`) & `bench/measure_blocks.py::measure_luma_blocks`

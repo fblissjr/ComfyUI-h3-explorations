@@ -4,8 +4,8 @@ This companion document to [2026-10-26_code_map_and_simplification_plan.md](../r
 traces every mask, tensor, `.npz`, `.json`, and `.mkv` state mutation from Stage 1 (pre-capture tracking and
 parts segmentation) through Stage 5 (final delivery assembly).
 
-For exact `StartLine-EndLine` coordinates and `cannot_see` boundaries, see [CODE_MAP_INDEX.md](CODE_MAP_INDEX.md)
-or run `$H3_PYTHON bench/masked_code_map.py <symbol>`. For contracts, window padding, and duplicate logic, see
+All line numbers live in [CODE_MAP_INDEX.md](CODE_MAP_INDEX.md) (or via `$H3_PYTHON bench/masked_code_map.py <symbol>`)
+so narrative prose never drifts when lines shift. For contracts, window padding, and duplicate logic, see
 [code_map_contracts.md](code_map_contracts.md).
 
 ---
@@ -16,17 +16,15 @@ or run `$H3_PYTHON bench/masked_code_map.py <symbol>`. For contracts, window pad
 
 - **Symbols**: `subject_track.py::MiniMaxH3SubjectTrack.execute`, `subject_track.py::follow`, `subject_track.py::_track_head_span`, `subject_track.py::_span_head`, `subject_track.py::name_drawn`, `subject_track.py::auto_match`
 - **Reads**:
-  - Source clip `<shot>.mp4`, `<video>/cast.jsonl` (`bench/cast_file.py::read`), and `<video>/shots.json`.
-  - Per-shot `shot.gallery` crop paths (`da6921dc`) or explicit `--seed` boxes / `corrections.json`.
+  - Source clip `<shot>.mp4`, `<video>/cast.jsonl` (`bench/cast_file.py::read`, `bench/cast_file.py::seeds`), and `<video>/shots.json`.
+  - Confirmed shot gallery looks or explicit seed boxes from `cast.jsonl` (Group 1 `/who/` page clicks `1-174` and Group 3 session-verified SAM detection boxes `197-209`; Group 2 rough screenshot boxes `175-192, 194-196` scheduled for withdrawal in Build 3 / `Part 5g`).
 - **Transforms & Constants**:
   - Runs SAM 3.1 propagation across the shot to produce boolean person masks `masks` (`(N, H, W)`) and `boxes` (`(N, 4)`).
-  - When `head_mode` is active (`parse_head_mode`), derives `head_masks`, `head_boxes`, `head_scores`, and `head_source`.
-  - Post-`0121b793` / `cf244cb1`: `name_drawn` enforces the 3-group `cast.jsonl` taxonomy (`named` vs `unnamed_recurring` vs `incidentals`, refusing ungrouped or overlapping entries) and writes `empty_runs` on both `subject_track` and `head_track` JSONs (`ca8fdcc9`).
+  - Derives `head_masks`, `head_boxes`, `head_scores`, and `head_from` via `parse_head_mode` (`"main"` whole-span by default on `main`; flipping to `"per stretch"` `HEAD_PER_STRETCH` in Build 3 / `Part 5g`).
 - **Writes & Overwrites**:
-  - `<preview>_<subj>_track.mp4` (`8px` mask preview), `<preview>_<subj>_track.json` (`boxes`, `scores`, `empty_runs`), `<preview>_<subj>_head_track.mp4`, and `<preview>_<subj>_head_track.json`.
+  - `<preview>_<subj>_track.mp4`, `<preview>_<subj>_track.json` (`boxes`, `scores`, `empty_runs`), `<preview>_<subj>_head_track.mp4`, and `<preview>_<subj>_head_track.json`.
 - **Audit & Traps**:
-  - **Forearm Bridge vs Empty Head Track (`4682-4685`)**: SAM 3.1 person tracking can stay alive on an occluded subject's arm/sleeve while `head_track` records `empty_runs` (`0 px`). Downstream `sapiens2_parts.py` crops around the forearm box unless gated by `head_track`.
-  - **Gallery vs Replacement Still (`da6921dc`)**: `auto_match` must match against `shot.gallery` (the filmed person in the source clip), never the replacement identity still in `cast.jsonl`.
+  - **Forearm Bridge vs Empty Head Track (`4682-4685`)**: SAM 3.1 person tracking can stay alive on an occluded subject's bare forearm (`y=297-359`) while `head_track` is `0 px` (`4682-4695` when `--head-per-stretch` is off). Downstream `sapiens2_parts.py` crops around the forearm box unless gated by `head_track`.
 
 ### Stage 1.1b — Sapiens-2B 28-Class Body-Part Segmentation (`sapiens2_parts.py`)
 
@@ -34,30 +32,31 @@ or run `$H3_PYTHON bench/masked_code_map.py <symbol>`. For contracts, window pad
 - **Reads**:
   - Source frames `(N, H, W, 3)` and person track `masks` / `boxes` from Stage 1.1a.
 - **Transforms & Constants**:
-  - Crops a `1.25x` padded bounding box (`pad_ratio=0.25`) around each tracked person box, resizes to `1024x768`, runs Sapiens-2B (`torch.bfloat16`), and argmaxes 28 classes (`0=background`, `1=Apparel`, `2=Face_Neck`, `3=Hair`, `23=Upper_Lip`, `24=Lower_Lip`, `25=Lower_Teeth`, `26=Upper_Teeth`, `27=Tongue`).
-  - Zeroes out predictions outside `person_mask` (`cls_full[~person_mask] = 0`).
+  - Crops a padded bounding box around each tracked person box, resizes to `1024x768`, runs Sapiens-2B (`torch.bfloat16`), and argmaxes 28 classes (`0=background`, `1=Apparel`, `2=Face_Neck`, `3=Hair`, `23=Upper_Lip`, `24=Lower_Lip`, `25=Lower_Teeth`, `26=Upper_Teeth`, `27=Tongue`).
 - **Writes & Overwrites**:
   - `<preview>_<subj>_parts.mp4`, `<preview>_<subj>_parts.npz` (`classes` uint8 `(N, H, W)`), and `<preview>_<subj>_parts.json`.
 - **Audit & Traps**:
-  - **Boundary Hair Loss (`4912`)**: Because `cls_full` is clipped to SAM 3.1's `person_mask`, any hair strands SAM 3.1 left outside its body silhouette are zeroed before Stage 2 sees them; Stage 2.4 (`head_tube_parts.py`) and Stage 2.8 (`her_hair_in_hole`) recover them via whole-frame/head-tube pass.
-  - **Occluded Forearm Crop Hallucination (`4682-4685`)**: When a subject's head is behind another person (`head_track` empty) and only her forearm is visible (`82x204 px`), cropping `1024x768` around the forearm causes Sapiens-2B to hallucinate `Face_Neck=541 px` and `Hair=427 px` on skin/cloth.
+  - **Occluded Forearm Crop Hallucination (`4682-4685`)**: When a subject's head is behind another person (`head_track == 0 px`) and her person track holds only her forearm (`y=297-359`), cropping `1024x768` around the forearm causes Sapiens-2B to hallucinate `Face_Neck` (`608-2,123 px`) on skin/cloth (suppressed in Stage 2.4 by `head_tube` with `0` face points).
 
 ### Stage 1.2 — Whole-Frame Strangers & Unclaimed People Pass (`bench/strangers.py`)
 
-- **Symbols**: `bench/strangers.py::run`, `bench/strangers.py::people_pass`, `bench/strangers.py::sam_people`, `bench/strangers.py::handed_back`, `bench/strangers.py::others_of`, `bench/strangers.py::held_others`
+- **Symbols**: `bench/strangers.py::people_pass`, `bench/strangers.py::sam_people`, `bench/strangers.py::others_of`, `bench/strangers.py::held_others`, `bench/strangers.py::handed_back`, `bench/strangers.py::run`
 - **Reads**:
-  - Source clip `<shot>.mp4`, all tracked subjects' `_track.mp4` and `_parts.npz`, and `<preview>_people.npz` (SAM 3.1 whole-shot person discovery).
+  - Source clip `<shot>.mp4`, all tracked subjects' `_track.mp4` and `_parts.npz`, and `<preview>_people.npz` (written by `people_pass` / `sam_people` and unpacked by `people_on` / `others_of`).
 - **Transforms & Constants**:
-  - Runs whole-frame Sapiens-2B (`people_pass`) to get `classes` `(N, H, W)` and `person` mask (`c > 0`).
-  - Subtracts owned subject tracks to form `other_people` and `core` (high-confidence stranger body/face core), holds stranger masks across short dropouts (`hold_frames=8`), and hands back (`handed_back`) stranger regions that vanish for `> 8` frames while touching a tracked subject (`handed_back_on_no_other_person`).
+  - `bench/strangers.py::others_of` matches `<preview>_people.npz` detections against tracked subjects and marks unclaimed SAM detections with `o[3] is None`.
+  - `bench/strangers.py::run` runs whole-frame Sapiens-2B (`predict(pic)`) to get `classes[i] = c`, `people[i] = c > 0`, and `core[i] = np.isin(c, core_ids)` over the 18 `CORE_CLASSES` (`Face_Neck`, `Hair`, `Torso`, arms, clothing, legs, lips/teeth/tongue).
+  - Subtracts grown owned subject tracks (`strangers.grown(kept, px)`), holds stranger masks across short dropouts, and runs
+    `bench/strangers.py::handed_back`, which checks `held = piece & core[i]` and hands back (`out[i] &= ~piece`) any stranger
+    component touching a subject where `held.any()` is false (`NO_CORE = "no body core of its own"`) or where no unowned SAM
+    person overlaps after `hold_frames` (`NO_OTHER = "handed_back_on_no_other_person"`).
 - **Writes & Overwrites**:
-  - `<preview>_strangers.mp4`, `<preview>_strangers_classes.npz` (`classes`, `handed_back`), and `<preview>_strangers.json` (with 13-item `cannot_see` array).
+  - `<preview>_people.npz` (from `people_pass`), `<preview>_strangers.mkv`, `<preview>_strangers_classes.npz`, and `<preview>_strangers.json` (with 13-item `cannot_see` array).
 - **Audit & Traps**:
-  - **Unowned SAM `people.npz` Dropped Where `c == 0` + `core[i]` `NO_CORE` Trap (`1458`)**: In `people_pass` (`534-548`),
-    unowned SAM 3.1 detections (`o[3] is None`) are NOT unioned into `people[i]` where whole-frame Sapiens2 returns `c == 0`,
-    AND `core[i]` (`564`) requires Sapiens2 classes (`NO_CORE = {0, 1, 17, 18, 19, 20}`). Even if `people[i]` were unioned,
-    `handed_back` (`201-233`) checks `(comp & core[i]).any()` and drops any connected component touching a subject box when
-    `core[i]` is empty (`43,190 px` of man's torso on `1458`).
+  - **Unowned SAM `people.npz` Dropped Where `c == 0` + `core[i]` `NO_CORE` Trap (`4686-4693`, `1458`)**: In `bench/strangers.py::run`,
+    unowned SAM 3.1 detections (`others[i]` where `o[3] is None`) are NOT unioned into `people[i]` (`c > 0`) or `core[i]` where
+    whole-frame Sapiens-2B misses a person (`c == 0`). Even if unioned into `people[i]`, `handed_back` checks `held = piece & core[i]`
+    and drops any component touching a subject box as `NO_CORE` unless `core[i]` also includes the SAM detection (`Part 5f` / Build 2).
 
 ### Stage 1.3 — Monocular Metric Depth (`bench/measure_moge2_depth.py`)
 
@@ -65,191 +64,183 @@ or run `$H3_PYTHON bench/masked_code_map.py <symbol>`. For contracts, window pad
 - **Reads**:
   - Source clip `<shot>.mp4`.
 - **Transforms & Constants**:
-  - Evaluates MoGe-2 (`Ruicheng/moge-2-vitl-normal`) per frame and downsamples by `stride=4` to float16 metric depth `(N, H//4, W//4)`.
+  - Evaluates MoGe-2 (`vendor/meta_moge2/hyden_moge2.py`) per frame on raw `[0, 1]` float32 RGB and downsamples by `stride=4` to float16 metric depth `(N, H//4, W//4)`.
 - **Writes & Overwrites**:
-  - `<preview>_depth.npz` (`depth` float16, `stride=4` plus `npz_writer_fields` provenance) and `<preview>_depth.json`.
+  - `<preview>_depth.npz` (`depth` float16, `stride=4` plus `bench/_lib/code_stamp.py::npz_writer_fields` provenance) and `<preview>_depth.json`.
 - **Audit & Traps**:
-  - Downsampled `stride=4` depth is bilinearly or nearest-neighbor upsampled in Stage 2.1 (`read_depth_npz`); thin hair strands against background take background depth unless rescued by Stage 2.4 (`sam31_head_tube`).
+  - Downsampled `stride=4` depth is upsampled in Stage 2.1 (`bench/capture_masked_run.py::read_depth_npz`); thin hair strands against background take background depth unless rescued by Stage 2.4 (`sam31_head_tube`).
 
 ### Stage 1.4 — 308-Keypoint Whole-Body Pose (`bench/pose_along_shot.py`)
 
 - **Symbols**: `bench/pose_along_shot.py::run`, `bench/pose_along_shot.py::read`
 - **Reads**:
-  - Source clip `<shot>.mp4` and `<preview>_<subj>_track.json` boxes.
+  - Source clip `<shot>.mp4` and `<preview>_<subj>_track.mp4` (masks outside grown track greyed out so another brighter face off-track is not read).
 - **Transforms & Constants**:
-  - Runs Sapiens-1B-308-pose (`torch.bfloat16`) inside each subject's tracked box; extracts 68-point face/ear/brow/mouth landmarks, pose confidence scores, and left/right ear visibility.
+  - Runs Sapiens-1B-308-pose inside each subject's tracked box; extracts 308 keypoints, scores, and face/ear/lid measurements.
 - **Writes & Overwrites**:
   - `<preview>_<subj>_pose.npz` (`keypoints` `(N, 308, 2)`, `scores` `(N, 308)`) and `<preview>_<subj>_pose.json`.
 - **Audit & Traps**:
-  - Pose landmarks on profile/back-of-head frames (`< 0.30` score) still project onto the 2D head silhouette; `bench/_lib/face_points.py::face_on_mask` and `bench/head_tube_parts.py::cross_check_face_points` threshold by confidence.
+  - When `person_track` holds only a forearm or drifts (`4676-4685`, `4706-4716` on `4647`), the pose crop follows the drifted/forearm box and misses the emerging head, leaving `<Video 1>` without a body model on those frames.
 
 ### Stage 1.5 — Head Reference Video & 308-Point Face Drawing (`bench/head_reference.py`, `bench/crop_reference_to_head.py`, `bench/draw_face_points.py`)
 
-- **Symbols**: `bench/head_reference.py::run`, `bench/crop_reference_to_head.py::run`, `bench/draw_face_points.py::run`, `bench/draw_face_points.py::draw`
+- **Symbols**: `bench/head_reference.py::run`, `bench/crop_reference_to_head.py::run`, `bench/draw_face_points.py::run`, `bench/draw_face_points.py::draw`, `bench/shot_to_load.py::step_reference`, `bench/shot_to_load.py::drawn_form`
 - **Reads**:
-  - Replacement identity still `<cast_ref>.png`, `<preview>_<subj>_pose.npz`, `<preview>_<subj>_parts.npz`, and `<preview>_<subj>_head_track.mp4`.
+  - Source clip, `<preview>_<subj>_pose.npz`, `<preview>_<subj>_parts.npz`, and `<preview>_<subj>_head_track.mp4`.
 - **Transforms & Constants**:
-  - `bench/head_reference.py::run` warps/crops the replacement identity still onto the tracked head trajectory (`_head_ref.mp4`).
-  - `bench/draw_face_points.py::run` renders synthetic 3D-projected face landmarks, sculpted eyes (`sculpted_eye`), and mouth state (`anchored_mouth`, `anchored_closed_mouth`, `bend_mouth`) onto `<job>_<subj>_drawn.mp4`.
+  - `bench/crop_reference_to_head.py::run` crops the stabilized head/cranium box (`one_box`, `grey_head`, `cranium_box`).
+  - `bench/draw_face_points.py::run` renders 308-point facial landmarks, irises (`dark_irises`, `open_lids`, `sculpted_eye`), and mouth geometry (`anchored_mouth`, `anchored_closed_mouth`, `bend_mouth`).
+  - `bench/head_reference.py::run` orchestrates the crop and drawing pass to build `<Video 1>`.
 - **Writes & Overwrites**:
-  - `<preview>_<subj>_head_ref.mp4`, `<job>_<subj>_drawn.mp4`, `<job>_<subj>_drawn_sheet.jpg`, and `<job>_<subj>_drawn.json`.
+  - `<ref_folder>/<subj>_head_reference_<first>_<last>.mp4`, `.json`, `_sheet.jpg`, and `_points_filled.npz`.
 - **Audit & Traps**:
-  - **Double-Write of `_sheet.jpg` & `.json`**: `bench/draw_face_points.py::run` writes `_sheet.jpg` and `.json` at `1622-1623`, and `bench/shot_to_load.py::drawn_form` immediately overwrites both at `4035-4041`.
-  - **`4647h` `<Video 1>` Bare Frames (`76533a22` / `9c5a6841`)**: When `head_track` had gaps (`4682-4685`, `4702-4714`, `4721-4746`), `second_hfp_4647h_drawn.mp4` had `43/79` bare black frames while the prompt told H3 `<Video 1>` was a continuous guide (`4647i` remake queued under Build 3).
+  - **`4647h` `<Video 1>` Bare Frames (`76533a22` / `9c5a6841`)**: On `second_4647_4725_j`, `<Video 1>` had `43/79` bare frames (`4673-4686` and `4697-4725` from a carried `--no-draw-face-on` word, on top of no body model on `4676-4685` and `4706-4716` from forearm/drifted track crops). `second_hfp_4647i` must remake `reference` after Build 3 with no drawing word carried.
 
-### Stage 1.6a — Part-on-Track Filtering (`bench/shot_to_load.py`)
+### Stage 1.6a — Part-on-Track Clipping (`bench/shot_to_load.py`)
 
-- **Symbols**: `bench/shot_to_load.py::part_on_track`, `bench/shot_to_load.py::hold_to_track`, `bench/shot_to_load.py::make_part_on_track`
+- **Symbols**: `bench/shot_to_load.py::part_on_track`, `bench/shot_to_load.py::hold_to_track`, `bench/shot_to_load.py::make_part_on_track`, `bench/shot_to_load.py::part_of`, `bench/shot_to_load.py::make_part`
 - **Reads**:
-  - `<preview>_<subj>_parts.mp4` (or `.npz`), `<preview>_<subj>_track.mp4`, and `<preview>_<subj>_head_track.mp4`.
+  - `<preview>_<subj>_parts.mp4`, `<preview>_<subj>_track.mp4`, and `<preview>_strangers.json`.
 - **Transforms & Constants**:
-  - Filters part masks to pixels within `8px` (`_on_track_8px`) of the subject's SAM 3.1 track and runs `hold_to_track` (`1280-1391`), which carries forward the last seen head/part pixels across frames where the part mask dropped out (`hold_frames=8`).
+  - When `strangers` is active on a load, `bench/shot_to_load.py::hold_to_track` computes `held = a & strangers.grown(kept, px)` (`px = h3_config.MASKED_STRANGERS["grow_px"] = 8`), where `kept, gone, empty = strangers.held_track(track)` holds the **person track** across short empty person-track runs and **intersects** (`&`) the per-frame part mask `a` with that grown person track.
 - **Writes & Overwrites**:
-  - `<preview>_<subj>_part_head_hair_on_track_8px.mkv` and `<preview>_<subj>_part_head_hair_on_track_8px.json`.
+  - `<preview>_<subj>_part_<kind>_on_track_8px.mkv` and `.json`.
 - **Audit & Traps**:
-  - **Stale `hold_to_track` Smearing (`4682-4685`, `4702-4714`)**: `hold_to_track` freezes frame `4681`'s `16,580 px` head mask onto `4682-4685` when the woman walks behind the man, punching a hole through the occluding man's chest, and smears a stale `737 px` spot on `4702-4709` while her real head moves `62 px` right. Settled for retirement in Morning Build 1 (`Part 5e`).
+  - **Clipping Valid Hair Outside `person_track` (`4912`) & Drifted Track Clipping (`4699-4702`)**: Because `hold_to_track`
+    intersects `a` with `grown(kept, 8)`, any hair Sapiens found outside SAM 3.1's `person_track` is clipped away (`4912`),
+    and if `person_track` drifts onto another person (`4699-4702`), `a` is clipped to the wrong person's box. Settled for
+    retirement in Morning Build 1 (`Part 5e`).
 
 ### Stage 1.6b — Load Job JSON & Graph Compilation (`bench/shot_to_load.py`, `bench/masked_job.py`, `workflows/masked_job_graph.py`)
 
 - **Symbols**: `bench/shot_to_load.py::step_job`, `bench/shot_to_load.py::load_job`, `bench/shot_to_load.py::carry_words_of`, `bench/shot_to_load.py::head_marks_of`, `bench/masked_job.py::build`, `workflows/masked_job_graph.py::load`
 - **Reads**:
-  - `<video>/shots.json`, `<video>/cast.jsonl`, preview `.json` / `.npz` artifacts, and CLI overrides.
+  - `<video>/shots.json`, `<video>/plan.json`, `<video>/cast/cast.jsonl`, preview `.json` / `.npz` artifacts, and CLI flags.
 - **Transforms & Constants**:
-  - Enforces settled `shot.recipe` (`cbd39fbe`: `hold_frames=0`, `feather_px=8`, `grow_px=0`, `floor_head_scale=1.1`, `mask_fill=hole_and_hair`, `min_Component_pixels=150`, `protect_ears="off"`, `protect_facial_hair="keep"`) unless listed in `shot.shot_overrides`.
-  - Computes `head_marks_of` (`2636-2691`, scoped strictly to own subject's masks after `9c5a6841`) and builds `<job>.json` and `<job>_api.json`.
+  - Enforces settled `subjects.<subject>.recipe` and `shot_overrides` in `plan.json` (`cbd39fbe`: hard-refusing differing CLI `--margin` or `--zoom-up-to` values).
+  - `bench/shot_to_load.py::head_marks_of` parses `plan.json["head_marks"]` for `subject`, clips spans to the load's `[a, b]` frame range, and emits `head_hidden`, `hair_hers`, and `hair_not_hers` onto the subject's job entry.
 - **Writes & Overwrites**:
-  - `data/<video>/jobs/<job>.json` and `data/<video>/jobs/<job>_api.json`.
-- **Audit & Traps**:
-  - Before `9c5a6841`, `head_marks_of` read `keep_out_masks` (which included other subjects' tracks), causing a bystander's face points to trigger `head_marks` on the target subject.
+  - `data/<video>/jobs/<job>.json` and `<job_folder>/<job>_api.json`.
 
 ---
 
 ## Stage 2 — Capture Pre-Pass & Mask Settlement (`bench/capture_masked_run.py`, `bench/head_tube_parts.py`)
 
-### Stage 2.1 — Depth Mediations & Pixel Ownership (`bench/capture_masked_run.py`)
+### Stage 2.1 — Depth Medians & Pixel Ownership (`bench/capture_masked_run.py`)
 
 - **Symbols**: `bench/capture_masked_run.py::_files`, `bench/capture_masked_run.py::read_depth_npz`, `bench/capture_masked_run.py::_depth_medians_and_owner`, `bench/capture_masked_run.py::owner_map`
 - **Reads**:
-  - `<preview>_depth.npz`, subject `_track.mp4` / `_parts.npz`, and `<preview>_strangers.mp4` / `_strangers_classes.npz`.
+  - `<preview>_depth.npz`, subject `track` / `parts` masks, and `other` keep-out masks (`strangers.mkv`, other subjects' tracks).
 - **Transforms & Constants**:
-  - Upsamples MoGe-2 depth to `(N, H, W)` and computes per-frame median depth per tracked subject and stranger component (`_depth_medians_and_owner`).
-  - Assigns per-pixel ownership (`owner_map`: `0=unowned`, `1..K=subject index`, `stranger_id`) using depth ordering (`depth_margin=0.05m`) when silhouettes overlap.
+  - Upsamples MoGe-2 depth to `(N, H, W)` and computes per-frame median depth per subject and keep-out (`_depth_medians_and_owner`).
+  - Assigns per-pixel ownership (`owner_map`) and `front_other_mask` where another person is closer to the camera than the replaced subject by `> DEPTH_MARGIN_M`.
 - **Writes & Overwrites**:
-  - In-memory `owner`, `front_other_mask`, and `depth_settled` arrays; later persisted into `owners.npz` (`2875`).
+  - In-memory `owners`, `front_other_mask`, and `depth_settled`; persisted at the end of `_files` into `owners.npz`.
 - **Audit & Traps**:
-  - If a stranger is missing from `<preview>_strangers.mp4` (Stage 1.2 `NO_CORE` trap on `1458`), `owner_map` never sees that person as `front_other_mask` and awards overlapping pixels to the background subject.
+  - If an unowned SAM person is missing from `<preview>_strangers.mkv` (Stage 1.2 `c == 0` / `NO_CORE` trap on `4686-4693` and `1458`), `_depth_medians_and_owner` never sees that bystander in `other` keep-outs.
 
-### Stage 2.2 — Raw Input Reading & Keep-Out Carving (`bench/capture_masked_run.py`)
+### Stage 2.2 — Raw Input Reading & Grid Keep-Out Carving (`bench/capture_masked_run.py`)
 
 - **Symbols**: `bench/capture_masked_run.py::_files`, `bench/capture_masked_run.py::_keep_in_front`, `bench/capture_masked_run.py::carve_keep_out`, `bench/capture_masked_run.py::_bridge_severed`, `bench/capture_masked_run.py::grid_carve`
 - **Reads**:
-  - Subject's raw part video (`_part_head_hair_on_track_8px.mkv`), `keep_out` videos (other subjects' tracks + strangers), and `front_other_mask`.
+  - Subject's `track` and `parts` mask videos, `other` keep-out mask videos, and `planned` regions (when running `on-plan`).
 - **Transforms & Constants**:
-  - Stores uncarved input in `as_read[by]` (`2286`).
-  - Subtracts `keep_out` masks that are in front of `by` (`_keep_in_front`), runs `_bridge_severed` (`45f3eaf1`, reconnecting thin severed neck/hair bridges when safe), and applies `16x16` latent grid-aware carving (`grid_carve`).
+  - Keeps uncarved `as_read` snapshot of keep-out tracks; when `planned` regions exist (`step_on_plan`), carves keep-out `track` masks on the `16x16` grid (`grid_carve`) and carves a 1-cell 4-connected bridge (`_bridge_severed`, `45f3eaf1`) when keep-outs pinch a `hers` unit into a diagonal island that `video_mask.py::drop_islands` would drop.
 - **Writes & Overwrites**:
-  - Mutates `masks_by[by]` in memory (`as_read[by]` remains the uncarved snapshot).
-- **Audit & Traps**:
-  - **Uncarved `as_read` Escape Into Stage 2.8 (`3820654d`)**: `as_read[by]` is NOT carved by `keep_out`. Before `3820654d`, `hole_of_the_load` read `as_read`, re-admitting keep-out pixels into the hole union.
+  - Updates keep-out `track` arrays in memory and writes `carved__<by>.mkv` when `carved > 0`.
 
 ### Stage 2.3 — Off-Head Disconnected Blob Filter (`bench/capture_masked_run.py`)
 
 - **Symbols**: `bench/capture_masked_run.py::off_head`, `bench/capture_masked_run.py::_files`
 - **Reads**:
-  - `masks_by[by]`, `<preview>_<subj>_head_track.mp4`, and `<preview>_<subj>_pose.npz`.
+  - Subject `parts` mask, `head_track`, and reference face points (`points=`, `off_head_margin=16`).
 - **Transforms & Constants**:
-  - Removes connected components of `masks_by[by]` that neither touch the SAM 3.1 `head_track` tube nor contain valid face/head keypoints (`off_head`, `5662-5716`).
+  - Drops connected components of `parts` that lie far outside the head/reference points (`off_head`).
 - **Writes & Overwrites**:
-  - Updates `masks_by[by]` in memory and records `off_head_dropped` counts in `part_grades.json`.
-- **Audit & Traps**:
-  - When `hold_to_track` smeared a stale head mask onto an occluder (`4682-4685`), `off_head` could not tell the held mask was stale until `head_track` empty-run gating was added.
+  - Mutates `parts` in memory before Stage 2.4/2.6.
 
 ### Stage 2.4 — SAM 3.1 Head Tube, Dip Bridging & Temporal Smoothing (`bench/head_tube_parts.py`)
 
 - **Symbols**: `bench/head_tube_parts.py::head_tube_for_capture`, `bench/head_tube_parts.py::sam31_head_tube`, `bench/head_tube_parts.py::_head_seed_from_person_mask`, `bench/head_tube_parts.py::bridge_short_tube_dips`, `bench/head_tube_parts.py::smooth_seg_in_tube`, `bench/head_tube_parts.py::face_piece_kept_whole`
 - **Reads**:
-  - `<preview>_<subj>_head_track.mp4`, `<preview>_<subj>_parts.npz`, `<preview>_<subj>_pose.npz`, and `front_other_mask`.
+  - `<preview>_<subj>_head_track.mp4`, `<preview>_<subj>_parts.npz`, `<preview>_<subj>_pose.npz`, `person_track`, and `head_hidden` marks.
 - **Transforms & Constants**:
-  - Builds the whole-head tube `ht_res["tube"]` (`sam31_head_tube`), bridges short tube area dips (`<= 6` frames,
-    `bridge_short_tube_dips`), temporally smooths Sapiens-2B logits inside the tube (`smooth_seg_in_tube`), expands
-    attached hair (`_expand_track_with_attached_parts`), fills unclassified internal holes
+  - Builds the whole-head tube `ht_res["tube"]` (`sam31_head_tube`), bridges short tube dips (`<= 6` frames,
+    `bridge_short_tube_dips`, skipping `head_hidden` frames), temporally smooths Sapiens-2B probabilities inside the tube
+    (`smooth_seg_in_tube`), expands attached hair (`_expand_track_with_attached_parts`), fills internal holes
     (`_fill_unclassified_in_head_tube`), and protects facial hair (`face_piece_kept_whole`, `FACIAL_HAIR_CANNOT_SEE`).
 - **Writes & Overwrites**:
-  - Returns `ht_res` dict (`tube`, `head_hair`, `classes_smoothed`, `dip_bridges`, `facial_hair_kept`) to `bench/capture_masked_run.py::_files`.
+  - Returns `ht_res` dict (`tube`, `mask`, `summary`) to `bench/capture_masked_run.py::_files` and writes `subjects/<label>/head_tube.json`.
 - **Audit & Traps**:
-  - **Flat `0.333` Horizontal Slice Seed Trap (`4791284f`)**: When re-seeding after an occlusion gap,
-    `_head_seed_from_person_mask` (`58-92`) took the top `0.333` (`_HEAD_BOX_TOP_FRAC`) of the full-body person mask
-    (`y=318..470`), slicing across a bending/turning subject's shoulder and back in `lead_fp_2050d` (`f=33..45`).
-    Fixed in `4791284f` by intersecting with `Face_Neck`/`Hair` classes and 308-pose head points.
+  - **Flat Horizontal Slice Seed Trap (`4791284f`, Pending Code Fix in Build 1 / `Part 5e`)**: When `--head-per-stretch` is off
+    (`head_track == 0 px` on `4682-4695`) and `sam31_head_tube` regains a frame from `person_track` with `tracker=None`,
+    `_head_seed_from_person_mask` takes a flat horizontal slice (`head_rel_y1`) of `person_track` at a proportion measured when
+    the subject stood tall (`4673`), slicing `945-1,354 px` off crop-Sapiens's valid head/hair mask on `4686, 4693-4695`.
 
 ### Stage 2.5 — Front-Occluder Depth Clip (`bench/capture_masked_run.py`)
 
 - **Symbols**: `bench/capture_masked_run.py::_files`
 - **Reads**:
-  - `masks_by[by]`, `ht_res["tube"]`, and `front_other_mask` from Stage 2.1.
+  - `parts`, `held`, and `front_other_mask` from Stage 2.1.
 - **Transforms & Constants**:
-  - Clips `masks_by[by]` and `ht_res["tube"]` against `front_other_mask` (`masks_by[by] &= ~front_other_mask`) so an occluding person closer to the camera is never overwritten by the occluded subject's head tube.
-- **Writes & Overwrites**:
-  - Mutates `masks_by[by]` and `ht_res["tube"]` in memory (`2538-2590`).
-- **Audit & Traps**:
-  - Depends on Stage 1.2 (`strangers.py`) and Stage 2.1 (`_depth_medians_and_owner`) having detected the front person.
+  - Subtracts `front_other_mask` (`parts = parts & ~front_other_mask` and `held = held & ~front_other_mask`) so a closer person is never overwritten by the background subject's mask.
 
 ### Stage 2.6 — Largest Piece Guard, Floor & Early `masks__<by>.npz` Write (`bench/capture_masked_run.py`)
 
 - **Symbols**: `bench/capture_masked_run.py::largest_piece`, `bench/capture_masked_run.py::refuse_pieces_on_a_head`, `bench/capture_masked_run.py::starting_floor`, `bench/capture_masked_run.py::floor_on_the_canvas`
 - **Reads**:
-  - `masks_by[by]`, `ht_res["tube"]`, and job recipe (`pieces`, `floor_head_scale=1.1`, `min_component_pixels=150`).
+  - `track`, `parts`, and subject options (`pieces`, `least`).
 - **Transforms & Constants**:
-  - Enforces `refuse_pieces_on_a_head` (`PIECES_CANNOT_SEE`), drops small islands (`< 150 px`), and unions the head-scale floor (`floor_on_the_canvas`, `1.1x` head box floor when enabled).
+  - Enforces `refuse_pieces_on_a_head` (`PIECES_CANNOT_SEE`), applies `largest_piece` if set, and resolves `starting_floor` (`floor_on_the_canvas`).
 - **Writes & Overwrites**:
-  - **Writes `masks__<by>.npz` at line `2626` BEFORE `grade_holds` (Stage 2.7) and BEFORE `her_hair_in_hole` (Stage 2.8)**.
+  - **Writes `subjects/<label>/masks__<by>.npz` BEFORE `held_parts` (Stage 2.7), `grade_holds` (Stage 2.7), `--drop`, and `her_hair_in_hole` (Stage 2.8)**.
 - **Audit & Traps**:
-  - **Stale `masks__<by>.npz` Trap**: Because `masks__<by>.npz` is written at `2626` before Stage 2.7 (`grade_holds`) and Stage 2.8 (`her_hair_in_hole`), any tool reading `masks__<by>.npz` sees the pre-grade, pre-hair-fill mask rather than the settled mask written to `parts_held__<by>.mkv` at `5557`.
+  - **Pre-Grade / Pre-Fill `masks__<by>.npz` Snapshot Trap**: Because `masks__<by>.npz` is written before `held_parts`, `grade_holds`, `--drop`, and `her_hair_in_hole`, its `parts` bitpack never reflects Stage 2.7 grading/holding or Stage 2.8 hair recovery.
 
 ### Stage 2.7 — Hold Grading & First `parts_held__<by>.mkv` Write (`bench/capture_masked_run.py`)
 
-- **Symbols**: `bench/capture_masked_run.py::grade_holds`, `bench/capture_masked_run.py::part_sizes`, `bench/capture_masked_run.py::held_parts`, `bench/capture_masked_run.py::_files`
+- **Symbols**: `bench/capture_masked_run.py::held_parts`, `bench/capture_masked_run.py::grade_holds`, `bench/capture_masked_run.py::part_sizes`, `bench/capture_masked_run.py::_files`
 - **Reads**:
-  - `masks_by[by]`, `ht_res["tube"]`, `<preview>_<subj>_pose.npz`, and `SIZES_CANNOT_SEE`.
+  - `track`, `parts`, `ht_res["tube"]`, class maps, `least` floor (`1,024 px` default on canvas), and `SIZES_CANNOT_SEE`.
 - **Transforms & Constants**:
-  - `grade_holds` (`915-1035`) grades each frame's mask (`kept`, `held`, `dropped_small`, `dropped_off_track`) against minimum pixel floors (`1,024 px` default face/head floor) and sets `hair_pass["head"] = ht_res["tube"]` (`2830`, `b461584e`).
+  - `held_parts` holds across empty `parts` frames on a non-empty `track`; `grade_holds` grades each frame (`kept`, `held`, `emptied`) against the `least` floor (`1,024 px`), applies `--drop` spans, clips against `front_other_mask`, and sets `hair_pass["head"] = ht_res["tube"]` (`b461584e`).
 - **Writes & Overwrites**:
-  - Writes `part_grades.json` (`2816`), **first write of `parts_held__<by>.mkv` (`2843`)**, and `owners.npz` (`2875`).
+  - Writes `subjects/<label>/part_grades.json` (before `--drop` and before `her_hair_in_hole`) and performs **Write #1 of `subjects/<label>/parts_held__<by>.mkv`**.
 - **Audit & Traps**:
-  - **Small Verified Head Erasure (`4702-4714`, `9c5a6841`)**: On distant shots where a real, pose-verified head is `< 1,024 px` (`488-796 px` on `4702-4714`), `grade_holds` emptied the frame (`0 px`) until `9c5a6841` exempted frames with verified SAM 3.1 `head_track` + 308-pose face landmarks.
-  - **Stale `part_grades.json` (`2816`)**: `part_grades.json` is written at `2816` and is NEVER updated after Stage 2.8 (`her_hair_in_hole`, `5557`) or Stage 3.2 (`on-plan`, `2101`) mutates `parts_held__<by>.mkv`.
+  - **Small Valid Head Erasure & Stale Holding (`9c5a6841`, Pending Code Fix in Build 1 / `Part 5e`)**: On `second_hfp_4647h`, `grade_holds` emptied valid small heads `< 1,024 px` on `4702-4705, 4708-4714` and held stale pixels from `4701` onto `4706-4707`.
+  - **Pre-Fill `part_grades.json` Lag**: `part_grades.json` is written before `--drop` and before Stage 2.8 (`her_hair_in_hole`) overwrites `parts_held__<by>.mkv`.
 
 ### Stage 2.8 — Her Hair in the Hole (`bench/capture_masked_run.py`)
 
 - **Symbols**: `bench/capture_masked_run.py::her_hair_in_hole`, `bench/capture_masked_run.py::hole_of_the_load`, `bench/capture_masked_run.py::whole_frame_hair`, `bench/capture_masked_run.py::hair_in_hole_files`
 - **Reads**:
-  - `hair_pass["head"]` (`ht_res["tube"]`), `<preview>_<subj>_parts.npz`, `<preview>_strangers_classes.npz`, `keep_out` masks, and `HAIR_IN_HOLE_CANNOT_SEE`.
+  - `hair_pass["head"]` (`ht_res["tube"]`), `<preview>_<subj>_parts.npz`, `<preview>_strangers_classes.npz`, `other` keep-out masks, `head_hidden` / `hair_hers` / `hair_not_hers` marks, and `HAIR_IN_HOLE_CANNOT_SEE`.
 - **Transforms & Constants**:
-  - Computes 3 additive hair-recovery parts inside the regeneration hole (`hole_of_the_load`):
-    - **Part 1 (`in_hole_part1`)**: subject's own Sapiens-2B `Hair` (`class == 3`) inside `hole(f)`.
-    - **Part 2 (`in_hole_part2`)**: whole-frame hair (`<preview>_strangers_classes.npz` `class == 3`) connected to the subject's head tube and not owned by another person (`~taken[k]`, `b461584e`).
-    - **Part 3 (`in_hole_part3`)**: dark/hair-colored pixels inside the head-tube neighborhood bridging `Part 1`/`Part 2`.
+  - Computes 3 hair-recovery stages around `hole_of_the_load`:
+    - Stage 1: own Sapiens-2B `Hair` connected to `head_tube` inside `hole(f)`.
+    - Stage 2: whole-frame hair not on another person (`~taken[k]`, skipping `head_hidden` frames, `b461584e`).
+    - Stage 3: remaining hair outside `hole(f)` (`~hole(f) & ~track[f]`, flagging undecided frames).
 - **Writes & Overwrites**:
-  - **Overwrites `parts_held__<by>.mkv` in place (`5557`)** and **overwrites `track__<by>.mkv` in place (`5559`, `00a3f1d8`)**; writes `hair_in_hole.json` and `hair_in_hole__<by>.npz`.
+  - **Overwrites `subjects/<label>/parts_held__<by>.mkv` in place (Write #2)**, **overwrites `subjects/<label>/track__<by>.mkv` in place (`00a3f1d8`)** when `held` extends beyond `track`, and writes `subjects/<label>/hair_in_hole__<by>.json`.
 - **Audit & Traps**:
-  - **`hole_of_the_load` Pre-Carve/Pre-Feather Trap (`3820654d`)**: `hole_of_the_load` (`5165-5275`) reconstructed `hole(f)` from uncarved `as_read` without subtracting `keep_out` and without replicating `video_mask.py`'s `grow_px`/`feather_px`/`16x16` token rounding. Fixed in `3820654d` to subtract `keep_out` and match node mask footprint.
-  - **Part 3 `~track[f]` & `strangers_classes.npz` Traps (`9c5a6841`)**: Part 3 excluded `track[f]` (the full-body SAM 3.1 silhouette), blocking hair recovery on frames where hair lay inside the body silhouette (`4912`), while reading whole-frame `strangers_classes.npz` outside the head box pulled in background objects (`4682-4685`).
+  - **`hole(f)` Pre-Carve/Pre-Feather Trap & `~track[f]` Trap (`3820654d`, Pending Code Fix in Build 1 / `Part 5e`)**: In
+    `her_hair_in_hole`, `hole(f)` tests `out[f]` grown by `margin` (`30` canvas px) **before** the keep-out carve and feather
+    (`4686`: `head[39] & ~hole(39) == 0 px`, leaving `130 px` of `head_tube[39]` in the feathered rim at `matte <= 127`), and
+    Stage 3 restricts by `~track[f]`, ignoring hair that lies inside the full-body `person_track` silhouette (`4912`).
 
-### Stage 2.9 — Planned Region Prediction (`bench/capture_masked_run.py`)
+### Stage 2.9 — Planned Region Prediction & `step_carves.json` (`bench/capture_masked_run.py`)
 
-- **Symbols**: `bench/capture_masked_run.py::planned_region`, `bench/capture_masked_run.py::predict_regions`, `bench/capture_masked_run.py::read_planned_regions`
+- **Symbols**: `bench/capture_masked_run.py::planned_region`, `bench/capture_masked_run.py::predict_regions`, `bench/capture_masked_run.py::read_planned_regions`, `bench/capture_masked_run.py::step_keepout_carves`
 - **Reads**:
-  - Settled `parts_held__<by>.mkv`, `keep_out` masks, and `<job>_api.json` node `104` parameters.
+  - Settled `parts_held__<by>.mkv`, `track__<by>.mkv`, and `other` keep-out masks.
 - **Transforms & Constants**:
-  - Simulates `video_mask.py::window` / `token_mask` per planned window to predict the exact `(N, H, W)` boolean region and `16x16` token grid H3 will regenerate.
+  - Simulates `video_mask.py::token_mask` per run (`predict_regions`) to write `runs/<name>/region.npz`, and calls `step_keepout_carves` to compute per-latent-step keep-out carve statistics (`runs/<name>/step_carves.json`), then writes `owners.npz` and `manifest.json`.
 - **Writes & Overwrites**:
-  - Writes `planned_region__<node_id>.npz` (`2899`).
-- **Audit & Traps**:
-  - Replaced in Stage 3.2 (`on-plan`) once node `74` writes `plan.json` and `window_NNN_region.npz` on the server.
+  - Writes `runs/<name>/region.npz`, `runs/<name>/step_carves.json`, `owners.npz`, and `manifest.json`.
 
 ---
 
-## Stage 3 — Plan Execution (`plan_only`), On-Plan Re-Carving & Pre-Render Gate
+## Stage 3 — Plan Execution (`plan_only`), On-Plan Re-Capture & Pre-Render Gate
 
 ### Stage 3.1 — Server-Side `plan_only` Execution (`video_mask.py`, `audio_freeze_song.py`, `bench/load_chain.py`)
 
@@ -258,78 +249,77 @@ or run `$H3_PYTHON bench/masked_code_map.py <symbol>`. For contracts, window pad
   - `<job>_api.json` submitted to ComfyUI with `plan_only=True` on node `74`, reading `parts_held__<by>.mkv` and `track__<by>.mkv`.
 - **Transforms & Constants**:
   - Node `104` (`MiniMaxH3MaskedSource.execute`) computes per-window latent masks (`token_mask`), context padding (`pad_context`, `hold_context`), and zoom boxes (`zoom_plan`), saving `window_NNN_region.npz` (`save_window_region`).
-  - Node `74` (`write_plan`) writes `<prefix>_plan.json` and exits before calling the DiT sampler (`eb94f9df`).
+  - Node `74` (`write_plan`) writes `<prefix>_plan.json` and exits before calling the DiT sampler.
 - **Writes & Overwrites**:
   - `$H3_OUTPUT_DIR/<prefix>_plan.json` and `$H3_OUTPUT_DIR/<prefix>_window_NNN_region.npz`.
-- **Audit & Traps**:
-  - If `parts_held__<by>.mkv` is later mutated by Stage 3.2 (`on-plan`), the server's `window_NNN_region.npz` from Stage 3.1 reflects the pre-`on-plan` mask unless re-verified by `bench/load_chain.py::masks_as_planned`.
 
-### Stage 3.2 — On-Plan Keep-Out Re-Carving (`bench/capture_masked_run.py`, `bench/load_chain.py`)
+### Stage 3.2 — On-Plan Re-Capture (`bench/load_chain.py::step_on_plan`, `bench/capture_masked_run.py::_files`)
 
-- **Symbols**: `bench/load_chain.py::step_on_plan`, `bench/capture_masked_run.py::step_keepout_carves`, `bench/capture_masked_run.py::node_taken_inside`, `bench/capture_masked_run.py::grid_carve`, `bench/capture_masked_run.py::_bridge_severed`
+- **Symbols**: `bench/load_chain.py::step_on_plan`, `bench/capture_masked_run.py::_files`, `bench/capture_masked_run.py::grid_carve`, `bench/capture_masked_run.py::_bridge_severed`, `bench/capture_masked_run.py::step_keepout_carves`
 - **Reads**:
-  - `$H3_OUTPUT_DIR/<prefix>_plan.json`, `$H3_OUTPUT_DIR/<prefix>_window_NNN_region.npz`, and `parts_held__<by>.mkv`.
+  - `$H3_OUTPUT_DIR/<prefix>_plan.json` and `$H3_OUTPUT_DIR/<prefix>_window_NNN_region.npz`.
 - **Transforms & Constants**:
-  - Checks whether `16x16` token pooling in `window_NNN_region.npz` expanded the regeneration region into `keep_out` / `front_other_mask` (`node_taken_inside`).
-  - Carves back offending `16x16` grid cells (`grid_carve`), repairs thin bridges (`_bridge_severed`), and re-runs `her_hair_in_hole` (`2118-2167`).
+  - `bench/load_chain.py::step_on_plan` copies the initial capture folder to `<capture>_first` and invokes `bench/capture_masked_run.py files ... --overwrite` a **second time** on `<capture>` with the planned region files available.
+  - During this second `_files` pass, keep-out `track` masks are grid-carved on the node's `16x16` grid (`grid_carve`, `_bridge_severed`), and Stages 2.6-2.9 run again.
 - **Writes & Overwrites**:
-  - **Overwrites `parts_held__<by>.mkv` in place (`2101`, third write; `2165`, fourth write)** and **overwrites `track__<by>.mkv` in place (`2167`)**; writes `keepout_carves.json`.
+  - **Overwrites `masks__<by>.npz`, `part_grades.json`, `parts_held__<by>.mkv` (Writes #3 and #4 across the load), `track__<by>.mkv`, `runs/<name>/region.npz`, `runs/<name>/step_carves.json`, and `owners.npz` in place**.
 - **Audit & Traps**:
-  - **Silent 4x In-Place Overwrite of `parts_held__<by>.mkv`**: Across Stages 2.7 (`2843`), 2.8 (`5557`), and 3.2 (`2101`, `2165`), `parts_held__<by>.mkv` is overwritten up to 4 times in place while `masks__<by>.npz` (`2626`) and `part_grades.json` (`2816`) remain frozen at Stage 2.6/2.7.
+  - Even after `step_on_plan` re-runs `_files`, `masks__<by>.npz` and `part_grades.json` inside that second pass are still written before `her_hair_in_hole` performs Write #4 to `parts_held__<by>.mkv`.
 
 ### Stage 3.3 — Pre-Render Verification, Flags & Frame Table (`bench/capture_masked_run.py`, `bench/inspect_mask_steps.py`, `bench/flags_before_render.py`, `bench/what_h3_got.py`, `bench/frame_table.py`)
 
-- **Symbols**: `bench/capture_masked_run.py::preflight`, `bench/inspect_mask_steps.py::inspect_capture`, `bench/flags_before_render.py::check_flags_read`, `bench/what_h3_got.py::audit_capture`, `bench/frame_table.py::build_frame_table`
+- **Symbols**: `bench/capture_masked_run.py::verify`, `bench/capture_masked_run.py::preflight`, `bench/inspect_mask_steps.py::inspect_capture`, `bench/flags_before_render.py::check_flags_read`, `bench/what_h3_got.py::audit_capture`, `bench/frame_table.py::build_frame_table`
 - **Reads**:
-  - Capture directory artifacts (`parts_held__<by>.mkv`, `part_grades.json`, `hair_in_hole.json`, `owners.npz`, `<job>_api.json`, `<prefix>_plan.json`).
+  - Capture directory artifacts (`parts_held__<by>.mkv`, `part_grades.json`, `hair_in_hole__<by>.json`, `owners.npz`, `runs/<name>/region.npz`).
 - **Transforms & Constants**:
-  - `preflight` (`4050-4960`) evaluates 24 flag functions (`flag_shots` through `flag_text`, bounded by `OTHER_CANNOT_SEE`).
-  - `bench/inspect_mask_steps.py::inspect_capture` (`b461584e`) audits Stage 2 step-by-step pixel deltas (`as_read` -> `carved` -> `head_tube` -> `parts_held` -> `window_region`).
-  - `bench/what_h3_got.py::audit_capture` (`ac803f92`) checks what H3 actually received across windows, references, and prompts.
-  - `bench/frame_table.py::build_frame_table` writes `frame_table.json` and `frame_table.md`.
+  - `preflight` evaluates 24 flag functions (`flag_shots` through `flag_text`, bounded by `OTHER_CANNOT_SEE`).
+  - `bench/inspect_mask_steps.py::inspect_capture` (`b461584e`, `ac803f92`) audits `[0]`-`[7]` forensic categories.
+  - `bench/flags_before_render.py::check_flags_read` (`cbd39fbe`) enforces recipe agreement, coverage, and unresolved `hair_in_hole` gates.
+  - `bench/frame_table.py::build_frame_table` builds the per-frame outcome table.
 - **Writes & Overwrites**:
-  - `preflight.json`, `mask_steps.json`, `flags_read.json`, `frame_table.json`, and `frame_table.md`.
+  - `verify.json`, `flags.json`, `flags_read.json`, and `frame_table__<by>.jsonl`.
 - **Audit & Traps**:
-  - **`frame_table.py` Stale `part_grades.json` Mismatch**: `frame_table.py` reads `part_grades.json` (written at Stage 2.7) alongside `parts_held__<by>.mkv` (mutated by Stage 2.8 and Stage 3.2), reporting `"held"` or `"dropped"` grades that no longer match the pixels in `parts_held__<by>.mkv`.
+  - **`frame_table.py` Pre-Fill `part_grades.json` Mismatch**: `bench/frame_table.py` reads `part_grades.json` (written before
+    `her_hair_in_hole`), whereas `bench/flags_before_render.py::unlaid_while_tracked_of` reads `runs/<name>/region.npz`
+    (computed after `her_hair_in_hole`).
 
 ---
 
 ## Stage 4 — DiT Sampling, Token Masking & Window Lay-Back (`video_mask.py`, `audio_freeze_song.py`)
 
-### Stage 4.1 — Window Slicing, Context Padding & Zoom Crop (`video_mask.py`)
+### Stage 4.1 — Window Slicing, `17n+5` Snapping, Context Padding & Zoom Crop (`video_mask.py`)
 
-- **Symbols**: `video_mask.py::MiniMaxH3MaskedSource.execute`, `video_mask.py::window`, `video_mask.py::pad_context`, `video_mask.py::hold_context`, `video_mask.py::zoom_plan`, `video_mask.py::zoomed_source`
-- **Reads**: Source frames, `parts_held__<by>.mkv`, `keep_out` masks, and window bounds from `loop_plan.py::plan_windows`.
-- **Transforms & Constants**: Slices each window (`4k+1` via `h3_rules.py::snap_length`), prepends/appends held context padding (`pad_context`, `hold_context`), and crops to `zoom_box` (`zoomed_source`) when `zoom` is active.
+- **Symbols**: `video_mask.py::MiniMaxH3MaskedSource.execute`, `video_mask.py::window`, `video_mask.py::pad_context`, `video_mask.py::hold_context`, `video_mask.py::held_edge_source`, `video_mask.py::zoom_plan`, `video_mask.py::zoomed_source`
+- **Reads**: Source frames, `parts_held__<by>.mkv`, `keep_out` masks, and window bounds from `workflows/masked_job_graph.py::window_for` / `window_pad` / `loop_plan.py::plan_windows`.
+- **Transforms & Constants**: Slices each window (`length` on H3's `17n + 5` 17-frame VAE clip grid via `h3_rules.py::snap_length` / `on_both_clocks`), applies all-after context padding (`pad_context`) and outer-edge held frame repetition (`hold_context`, `held_edge_source`), and crops to `zoom_box` (`zoomed_source`) when `zoom` is active.
 - **Writes & Overwrites**: Passes windowed source tensor, pixel mask, and `token_mask` into the ComfyUI conditioning dict (see [code_map_contracts.md](code_map_contracts.md) Section `2b`).
 
-### Stage 4.2 — Latent `16x16` Token Mask & Step Schedule (`video_mask.py`)
+### Stage 4.2 — Latent `16x16` Token Mask & `(1, 4, 4, 4, 4)` Step Schedule (`video_mask.py`)
 
-- **Symbols**: `video_mask.py::token_mask`, `video_mask.py::grow`, `video_mask.py::margins`, `video_mask.py::drop_specks`, `video_mask.py::close_lone_holes`
-- **Reads**: Window pixel mask `(T, H, W)` and recipe parameters (`grow_px=0`, `feather_px=8`, `keep_out`).
-- **Transforms & Constants**: Pools pixel masks onto the `(t_lat, H//16, W//16)` spatiotemporal token grid (`1` latent frame = `4` video frames after frame 0), drops lone specks (`drop_specks`), and closes single-cell holes (`close_lone_holes`).
-- **Writes & Overwrites**: Saves `window_NNN_region.npz` (`save_window_region`) with `token_mask`, `pixel_alpha`, `zoom_box`, and `pad_spec`.
-- **Audit & Traps**: Any masked pixel inside a `4x16x16` cell marks the entire latent cell for DiT generation until pixel-space `lay_window` composites with `pixel_alpha`.
+- **Symbols**: `video_mask.py::run_lengths`, `video_mask.py::token_mask`, `video_mask.py::grow`, `video_mask.py::margins`, `video_mask.py::drop_specks`, `video_mask.py::close_lone_holes`, `video_mask.py::drop_islands`
+- **Reads**: Window pixel mask `(T, H, W)` and recipe parameters (`grow_pixels`, `feather_pixels`, `keep_out`).
+- **Transforms & Constants**: Pools pixel masks onto the `(t_lat, H//16, W//16)` spatiotemporal token grid using the 17-frame VAE clip cycle `1, 4, 4, 4, 4` (`run_lengths`: 5 latent steps per 17 video frames, `5n + 2` steps for `17n + 5` frames), drops lone keep-out specks (`drop_specks`), closes 1-cell holes (`close_lone_holes`), and drops disconnected islands (`drop_islands`).
+- **Writes & Overwrites**: Saves `window_NNN_region.npz` (`save_window_region`) with `tokens`, `matte`, `kept`, `zoom_box`, and padding metadata.
 
 ### Stage 4.3 — Pixel Alpha Feathering, Cut Gate & Window Lay (`video_mask.py`)
 
 - **Symbols**: `video_mask.py::pixel_alpha`, `video_mask.py::changed_alpha`, `video_mask.py::cut_gate`, `video_mask.py::unlaid_frames`, `video_mask.py::lay_window`, `video_mask.py::lay_back`
-- **Reads**: DiT-decoded window frames, original source frames, `pixel_alpha` (`feather_px=8`), and `cut_gate`.
-- **Transforms & Constants**: Zeros alpha where `unlaid_frames` or `cut_gate` refuses laying, composites generated pixels over source (`lay_window`), and inverse-warps zoomed windows onto the full canvas (`lay_back`).
-- **Writes & Overwrites**: Produces composited window tensor and `unlaid` frame indices for Node `74`.
+- **Reads**: DiT-decoded window frames, original source frames, `pixel_alpha`, and `cut_gate`.
+- **Transforms & Constants**: Zeros alpha where `unlaid_frames` or `cut_gate` refuses laying, composites generated pixels over source (`lay_window`), and maps zoomed windows back onto the full canvas (`lay_back`, saving the exact canvas-space `matte`).
+- **Writes & Overwrites**: Produces composited window frames, `matte`, and `unlaid` frame indices for Node `74`.
 
-### Stage 4.4 — Cross-Window Overlap Blending & Audio Silencing (`audio_freeze_song.py`, `loop_plan.py`)
+### Stage 4.4 — Padding Trim, Multi-Window Join & Audio Silencing (`audio_freeze_song.py`, `loop_plan.py`)
 
 - **Symbols**: `audio_freeze_song.py::MiniMaxH3AudioFreezeSong.execute`, `loop_plan.py::frames_kept`, `loop_plan.py::frames_written`, `audio_freeze_song.py::heard_under_held`, `audio_freeze_song.py::silenced`
-- **Reads**: Composited windows from Stage 4.3, `loop_plan.py` overlap weights, and source audio waveform.
-- **Transforms & Constants**: Strips held padding (`frames_kept`, `frames_written`), blends overlapping window tails/leads, and silences audio under held padding (`heard_under_held`, `silenced`).
-- **Writes & Overwrites**: Assembles the full-load output frame sequence and restores original audio on the final MP4.
+- **Reads**: Composited windows from Stage 4.3, window padding/trim metadata, `loop_plan.py` counts, and source audio.
+- **Transforms & Constants**: Trims padded context frames beyond the shot's kept span, joins multi-window stretches (`frames_kept`, `frames_written`), and silences audio under held padding (`heard_under_held`, `silenced`) during DiT sampling.
+- **Writes & Overwrites**: Assembles the output frame sequence and muxes original shot audio onto the final MP4.
 
 ### Stage 4.5 — Server-Side Output Artifact Writes (`audio_freeze_song.py`)
 
 - **Symbols**: `audio_freeze_song.py::_write_pieces_mp4`, `audio_freeze_song.py::_write_frames_mp4`, `audio_freeze_song.py::_write_review_mp4`, `audio_freeze_song.py::zoomed_record`
 - **Reads**: Assembled load frames, raw uncomposited DiT pieces, and per-window metadata.
-- **Writes & Overwrites**: Writes `$H3_OUTPUT_DIR/<prefix>.mp4`, `<prefix>_pieces.mp4`, `<prefix>_frames.mp4`, `<prefix>_review.mp4`, `<prefix>.json`, and `<prefix>_zoomed.json` (collected into capture folder by `bench/masked_job.py::collect`; see Section `2a.2` of [code_map_contracts.md](code_map_contracts.md)).
+- **Writes & Overwrites**: Writes `$H3_OUTPUT_DIR/<prefix>.mp4`, `<prefix>_pieces.mp4`, `<prefix>_frames.mp4`, `<prefix>_review.mp4`, `<prefix>.json`, and `<prefix>_zoomed.json` (collected by `bench/masked_job.py::collect`; see Section `2a.2` of [code_map_contracts.md](code_map_contracts.md)).
 
 ---
 
@@ -338,14 +328,14 @@ or run `$H3_PYTHON bench/masked_code_map.py <symbol>`. For contracts, window pad
 ### Stage 5.1 — Delivery Table & Matte Resolution (`bench/assemble_delivery.py`, `bench/delivery_table.py`)
 
 - **Symbols**: `bench/assemble_delivery.py::read_table`, `bench/assemble_delivery.py::Matte`, `bench/assemble_delivery.py::laid_by_of`, `bench/assemble_delivery.py::_laid_by_of`, `bench/delivery_table.py::decide`
-- **Reads**: `data/<video>/delivery_table.json` and each kept run's capture folder (`window_NNN_region.npz`, `parts_held__<by>.mkv`, `<prefix>_zoomed.json`).
-- **Transforms & Constants**: Resolves which run lays each `(subject, frame)` span and constructs `Matte` objects (`laid_by_of`) from saved window regions and held part masks (never reading early Stage 2.6 `masks__<by>.npz`).
+- **Reads**: `data/<video>/delivery_table.json` and each kept run's `_region.npz` (`matte`, `kept`, `tokens`).
+- **Transforms & Constants**: Resolves which run lays each `(subject, frame)` span and constructs `Matte` objects (`laid_by_of`, `rule: "matte"` when saved `matte` is present in `_region.npz`).
 
 ### Stage 5.2 — Multi-Subject Depth Ordering & Restore Weights (`bench/assemble_delivery.py`)
 
 - **Symbols**: `bench/assemble_delivery.py::Captures`, `bench/assemble_delivery.py::owners`, `bench/assemble_delivery.py::weight_of`, `bench/assemble_delivery.py::restore_weight`
 - **Reads**: Per-capture `owners.npz`, `<preview>_depth.npz`, `<preview>_strangers_classes.npz`, and `delivery_table.json` (`restore_words`).
-- **Transforms & Constants**: Orders overlapping subject planes back-to-front per frame (`owners`), computes soft blend weights (`weight_of`, `feather_px=8`), and builds `restore_weight` masks where original source pixels are restored over generated planes.
+- **Transforms & Constants**: Orders overlapping subject planes per frame (`owners`), computes blend weights (`weight_of`), and builds `restore_weight` masks where original source pixels are restored over generated planes.
 
 ### Stage 5.3 — Worn Layer (Glasses/Jewelry/Apparel) & Plane Compositing (`bench/assemble_delivery.py`)
 

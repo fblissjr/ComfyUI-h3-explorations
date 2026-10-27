@@ -337,7 +337,8 @@ def generate_index_markdown() -> str:
     str_start, str_end = extract_dict_key_span("bench/strangers.py", "run", "cannot_see")
     lines.append(f"### `bench/strangers.py::run` (`L{str_start}-L{str_end}`) — `<preview>_strangers.json[\"cannot_see\"]`")
     lines.append("- Record key `cannot_see` (`13` strings): people missed by whole-frame Sapiens2 stay regenerable;")
-    lines.append("  people missed by SAM 3.1 for `> hold_frames` (`8`) whose pieces touch a subject are handed back (`handed_back_on_no_other_person`);")
+    lines.append("  people missed by SAM 3.1 for `> hold_frames` (`8`) whose pieces touch a subject are handed back (`NO_OTHER = \"handed_back_on_no_other_person\"`);")
+    lines.append("  stranger components touching a subject with no 18-class `CORE_CLASSES` pixels (`held = piece & core[i]`) are handed back (`NO_CORE = \"no body core of its own\"`);")
     lines.append("  unowned SAM detections (`o[3] is None`) are not unioned into `people[i]`/`core[i]` where whole-frame Sapiens2 finds nobody (`c == 0`).")
     lines.append("")
 

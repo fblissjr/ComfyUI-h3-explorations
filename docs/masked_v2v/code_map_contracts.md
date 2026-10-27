@@ -35,31 +35,38 @@ For Stage 1-5 state mutations, see [code_map_stages.md](code_map_stages.md).
   5. `$H3_OUTPUT_DIR/<prefix>_frames.mp4` and `<prefix>_review.mp4`: frame-indexed and diagnostic review MP4s written by `audio_freeze_song.py::_write_frames_mp4` and `_write_review_mp4`.
   6. `$H3_OUTPUT_DIR/<prefix>.json` and `<prefix>_zoomed.json`: render provenance and per-window zoom boxes written by `audio_freeze_song.py::zoomed_record`; collected into the capture folder by `bench/masked_job.py::collect`.
 
-### Section 2b — The 4-Way Window, Context Padding & `4k+1` Snapping Contract
+### Section 2b — The 4-Way Window, Context Padding & `17n+5` Snapping Contract
 
-- **Symbols**: `h3_rules.py::snap_length`, `h3_rules.py::chain_lengths`, `loop_plan.py::plan_windows`, `loop_plan.py::frames_kept`, `loop_plan.py::frames_written`,
+- **Symbols**: `h3_rules.py::snap_length`, `h3_rules.py::on_both_clocks`, `h3_rules.py::chain_lengths`, `loop_plan.py::plan_windows`, `loop_plan.py::frames_kept`, `loop_plan.py::frames_written`,
   `workflows/masked_job_graph.py::window_for`, `workflows/masked_job_graph.py::window_pad`, `workflows/masked_job_graph.py::held_context`,
-  `video_mask.py::pad_context`, `video_mask.py::hold_context`, `video_mask.py::window`, `audio_freeze_song.py::MiniMaxH3AudioFreezeSong.execute`
+  `video_mask.py::pad_context`, `video_mask.py::hold_context`, `video_mask.py::held_edge_source`, `video_mask.py::run_lengths`, `video_mask.py::window`, `audio_freeze_song.py::MiniMaxH3AudioFreezeSong.execute`
 
 ```mermaid
 flowchart TD
-    A["1. Shot Span (start..end)<br/>workflows/masked_job_graph.py::window_for"] --> B["2. Context Pad & Held Runway<br/>masked_job_graph.py::window_pad / held_context"]
-    B --> C["3. 4k+1 DiT Length Snap (<= 362)<br/>h3_rules.py::snap_length & loop_plan.py::plan_windows"]
+    A["1. Shot Span & 17n+5 Length Snap<br/>workflows/masked_job_graph.py::window_for & h3_rules.py::snap_length"] --> B["2. Tail Context Pad & Cut Hold<br/>masked_job_graph.py::window_pad / held_context"]
+    B --> C["3. Multi-Window Tiling (17n+5 <= 362)<br/>loop_plan.py::plan_windows & h3_rules.py::chain_lengths"]
     C --> D["4. Server Pad & Hold Realization<br/>video_mask.py::pad_context & hold_context"]
-    D --> E["5. Latent 16x16 Token Grid (1 + (T-1)/4)<br/>video_mask.py::token_mask"]
+    D --> E["5. 17-Frame VAE Clips (1,4,4,4,4 -> 5n+2)<br/>video_mask.py::run_lengths & token_mask"]
     E --> F["6. Pixel Alpha Lay & Zoom Lay-Back<br/>video_mask.py::lay_window & lay_back"]
     F --> G["7. Strip Held Pad & Blend Overlaps<br/>loop_plan.py::frames_kept & frames_written"]
     G --> H["8. Audio Silence Under Held + Final Mux<br/>audio_freeze_song.py::heard_under_held & execute"]
 ```
 
 - **8-Step Trace & Drift Risk**:
-  1. **Shot Span Selection (`workflows/masked_job_graph.py::window_for`)**: Computes the active frame span `[start, end)` from the subject's mask and shot boundaries.
-  2. **Graph-Side Context Padding (`workflows/masked_job_graph.py::window_pad`, `held_context`)**: Adds lead/tail context frames or repeated held boundary frames when a cut or mask edge sits near the window boundary.
-  3. **`4k+1` Snapping & Multi-Window Tiling (`h3_rules.py::snap_length`, `loop_plan.py::plan_windows`)**: Snaps total window length `T` to a valid H3 causal-VAE length (`4k + 1`, capped at `h3_rules.MAX_LENGTH = 362`) and tiles long spans into overlapping windows.
-  4. **Server-Side Padding Realization (`video_mask.py::pad_context`, `hold_context`)**: Re-applies lead/tail context or held frame repetition inside `MiniMaxH3MaskedSource.execute` before encoding latents.
-  5. **Causal VAE Temporal Compression (`video_mask.py::token_mask`)**: Maps frame `0` to latent `t=0` and each subsequent group of `4` frames (`1..4`, `5..8`, ...) to `t=1, 2, ...` (`t_lat = 1 + (T - 1) // 4`).
+  1. **Shot Span & `17n+5` Snapping (`workflows/masked_job_graph.py::window_for`, `h3_rules.py::snap_length`)**: Computes the shot span `raw = end - start + 1` and snaps it via `h3_rules.snap_length(raw)` (`FRAME_FACTOR = 17`, `FRAME_REMAINDER = 5`, `MIN_LENGTH = 22`, `MAX_LENGTH = 362`), producing valid H3 causal-VAE lengths `17n + 5` (`22, 39, 56, ..., 362`; `h3_rules.py::on_both_clocks`).
+  2. **Graph-Side Context Padding & Cut Holding (`workflows/masked_job_graph.py::window_pad`, `held_context`)**: For a
+     single-window job where `snapped > raw`, `window_pad` places all `extra = snapped - raw` context frames **after** the shot
+     (`before = 0, after = extra`) unless that would pass `source_frames`, in which case the overflow goes before
+     (`before = extra - after`). `held_context` checks if those padded frames cross the shot cut bounds (`lo..hi`) and computes
+     `hold_before = max(0, lo - padded_start)` and `hold_after = max(0, padded_end - hi)`.
+  3. **Multi-Window Tiling (`loop_plan.py::plan_windows`, `h3_rules.py::chain_lengths`)**: Tiles spans exceeding `362` frames into overlapping `17n + 5` windows.
+  4. **Server-Side Padding & Held-Edge Realization (`video_mask.py::pad_context`, `hold_context`, `held_edge_source`)**:
+     Re-applies context padding inside `MiniMaxH3MaskedSource.execute`; `hold_context` replaces the outermost
+     `hold_before`/`hold_after` frames that crossed a cut with a clean frozen boundary frame chosen by `held_edge_source`
+     (`MAX_HOLD_LOOKAHEAD = 8`), zeroing regeneration masks on those held frames.
+  5. **17-Frame VAE Clip Temporal Compression (`video_mask.py::run_lengths`, `token_mask`)**: Because H3's video VAE encodes in 17-frame clips where clip frame `0` is 1 latent step and frames `1..16` are 4 groups of 4 frames, `run_lengths` repeats `(1, 4, 4, 4, 4)` per 17-frame clip (`5n + 2` latent steps for `17n + 5` pixel frames).
   6. **Pixel-Space Window Lay (`video_mask.py::lay_window`, `lay_back`)**: Composites DiT output over the padded window using `pixel_alpha` and un-crops `zoom_box`.
-  7. **Padding Strip & Overlap Blend (`loop_plan.py::frames_kept`, `frames_written`)**: Trims lead/tail held frames and cross-fades overlapping windows in `audio_freeze_song.py::MiniMaxH3AudioFreezeSong.execute`.
+  7. **Padding Strip & Overlap Blend (`loop_plan.py::frames_kept`, `frames_written`)**: Trims lead/tail context frames (`context_before`, `context_after`) and cross-fades overlapping windows in `audio_freeze_song.py::MiniMaxH3AudioFreezeSong.execute`.
   8. **Audio Alignment (`audio_freeze_song.py::heard_under_held`, `silenced`)**: Zeros audio waveform under held frames during DiT sampling, then muxes the un-padded original shot audio onto the stripped output frames.
 
 ### Section 2c.1 — Dynamic `importlib` / `sys.path` Loading Matrix
@@ -72,19 +79,19 @@ flowchart TD
 
 ### Section 2c.2 — Shared-Name File Collisions & In-Place Overwrites
 
-- **Symbols**: `bench/capture_masked_run.py::_files`, `bench/capture_masked_run.py::her_hair_in_hole`, `bench/capture_masked_run.py::step_keepout_carves`, `bench/draw_face_points.py::run`, `bench/shot_to_load.py::drawn_form`
+- **Symbols**: `bench/capture_masked_run.py::_files`, `bench/capture_masked_run.py::her_hair_in_hole`, `bench/capture_masked_run.py::hair_in_hole_files`, `bench/capture_masked_run.py::step_keepout_carves`, `bench/load_chain.py::step_on_plan`, `bench/draw_face_points.py::run`, `bench/shot_to_load.py::drawn_form`
 - **Collision & Overwrite Table**:
-  1. **`parts_held__<by>.mkv` (4 writes in `bench/capture_masked_run.py`)**:
-     - Write 1: Stage 2.7 (`_files`, after `grade_holds`).
-     - Write 2: Stage 2.8 (`her_hair_in_hole`, overwriting Write 1 in place after adding Parts 1-3 hair).
-     - Write 3: Stage 3.2 (`step_keepout_carves`, overwriting in place after `grid_carve` against `window_NNN_region.npz`).
-     - Write 4: Stage 3.2 (`step_keepout_carves`, overwriting in place after re-running `her_hair_in_hole`).
-  2. **`track__<by>.mkv` (3 writes in `bench/capture_masked_run.py`)**:
-     - Written in `_files`, overwritten in place by `her_hair_in_hole` (`00a3f1d8`), and overwritten again in `step_keepout_carves`.
+  1. **`parts_held__<by>.mkv` (4 writes across `step_capture` and `step_on_plan`)**:
+     - Write 1: Stage 2.7 (`_files`, after `grade_holds`, during `step_capture`).
+     - Write 2: Stage 2.8 (`hair_in_hole_files` via `her_hair_in_hole`, overwriting Write 1 in place after adding Parts 1-3 hair during `step_capture`).
+     - Write 3: Stage 3.2 (`bench/load_chain.py::step_on_plan` re-runs `capture_masked_run.py files ... --overwrite` now that `runs/<name>/<job>_plan.json` and `_window_NNN_region.npz` exist; `_files` overwrites `parts_held__<by>.mkv` after `grade_holds`).
+     - Write 4: Stage 3.2 (the end of that second `_files --overwrite` pass calls `hair_in_hole_files` again, overwriting Write 3 in place and writing `hair_in_hole__<by>.json`; `step_keepout_carves` itself only computes and returns the carve accounting written to `runs/<name>/step_carves.json`).
+  2. **`track__<by>.mkv` (4 writes across `step_capture` and `step_on_plan`)**:
+     - Written in `_files` and overwritten in place by `hair_in_hole_files` (`00a3f1d8`) during `step_capture`, then written and overwritten again during `step_on_plan`'s second `_files --overwrite` run.
   3. **`masks__<by>.npz` vs `parts_held__<by>.mkv` (`bench/capture_masked_run.py`)**:
-     - `masks__<by>.npz` is written once at Stage 2.6 (before `grade_holds`, `her_hair_in_hole`, and `step_keepout_carves`) and is never updated when `parts_held__<by>.mkv` changes.
+     - Within each `_files` run, `masks__<by>.npz` is written at Stage 2.6 (before `grade_holds` and `her_hair_in_hole`); `step_on_plan` (`--overwrite`) overwrites `masks__<by>.npz` on the second `_files` pass, but in both passes `masks__<by>.npz` never reflects the hair unioned into `parts_held__<by>.mkv` by `her_hair_in_hole`.
   4. **`part_grades.json` (`bench/capture_masked_run.py`)**:
-     - Written once at Stage 2.7 (`_files`) and never updated after Stage 2.8 (`her_hair_in_hole`) or Stage 3.2 (`step_keepout_carves`).
+     - Written at Stage 2.7 (`_files`, and overwritten during `step_on_plan --overwrite`), but never updated after Stage 2.8 (`her_hair_in_hole`) in either pass.
   5. **`<job>_<subj>_drawn_sheet.jpg` & `<job>_<subj>_drawn.json` (`bench/draw_face_points.py` vs `bench/shot_to_load.py`)**:
      - Written by `bench/draw_face_points.py::run` and immediately overwritten by `bench/shot_to_load.py::drawn_form`.
 
@@ -101,28 +108,28 @@ flowchart TD
 
 ### Section 4.2 — Sapiens-2B 28-Class Constants & Head/Hair/Worn Class Sets (6 Copies)
 
-- **Symbols**: `sapiens2_parts.py::subject_parts`, `bench/strangers.py::people_pass`, `bench/head_tube_parts.py::sam31_head_tube`, `bench/capture_masked_run.py::her_hair_in_hole`, `bench/facts_pass.py::_resolve_face_hair_classes`, `bench/assemble_delivery.py::class_names`
+- **Symbols**: `sapiens2_parts.py::subject_parts`, `bench/strangers.py::CORE_CLASSES`, `bench/strangers.py::run`, `bench/head_tube_parts.py::sam31_head_tube`, `bench/capture_masked_run.py::her_hair_in_hole`, `bench/facts_pass.py::_resolve_face_hair_classes`, `bench/assemble_delivery.py::class_names`
 - **Duplication Details**:
-  - Sapiens-2B class indices (`2=Face_Neck`, `3=Hair`, `23..27=Mouth/Teeth/Tongue`, `NO_CORE={0, 1, 17, 18, 19, 20}`, `worn_classes`) are hardcoded independently in 6 files.
+  - Sapiens-2B class indices (`2=Face_Neck`, `3=Hair`, `23..27=Mouth/Teeth/Tongue`, `CORE_CLASSES` 18-class body core in `bench/strangers.py`, `worn_classes`) are hardcoded independently in 6 files.
 - **Consolidation Target**: Centralize Sapiens-2B class constants and named frozensets in `bench/_lib/sapiens_classes.py` (Part `5c`).
 
-### Section 4.3 — Window Padding, Held-Context Runway & `4k+1` Math (4 Copies)
+### Section 4.3 — Window Padding, Held-Context Runway & `17n+5` Math (4 Copies)
 
 - **Symbols**: `loop_plan.py::plan_windows`, `workflows/masked_job_graph.py::window_for`, `workflows/masked_job_graph.py::window_pad`, `video_mask.py::pad_context`, `video_mask.py::hold_context`, `bench/capture_masked_run.py::predict_regions`
 - **Duplication Details**:
-  - Graph generation (`workflows/masked_job_graph.py`), capture prediction (`bench/capture_masked_run.py::predict_regions`), loop planning (`loop_plan.py`), and server execution (`video_mask.py`) each compute window bounds and context padding separately.
+  - Graph generation (`workflows/masked_job_graph.py`), capture prediction (`bench/capture_masked_run.py::predict_regions`), loop planning (`loop_plan.py`), and server execution (`video_mask.py`) each compute `17n + 5` window bounds and context padding separately.
 - **Consolidation Target**: Extract a pure-Python `window_spec.py` shared by graph builder, capture predictor, and ComfyUI nodes (Part `5b`).
 
 ### Section 4.4 — Keep-Out Carving, `16x16` Grid Rounding & Hole Reconstruction (3 Copies)
 
 - **Symbols**: `video_mask.py::token_mask`, `bench/capture_masked_run.py::grid_carve`, `bench/capture_masked_run.py::predict_regions`, `bench/capture_masked_run.py::hole_of_the_load`, `bench/inspect_mask_steps.py::inspect_capture`
 - **Duplication Details**:
-  - `hole_of_the_load` reconstructed the regeneration hole separately from `predict_regions` and `video_mask.py::token_mask`, causing the Stage 2.8 pre-carve/pre-feather bug fixed in `3820654d`.
-- **Consolidation Target**: Make `predict_regions` the single source of truth for offline hole/token-grid simulation and pass its settled array directly into `her_hair_in_hole` (Part `5a`).
+  - `hole_of_the_load` (`b461584e`) reconstructs the regeneration hole separately from `predict_regions` and `video_mask.py::token_mask`, causing the Stage 2.8 pre-carve/pre-feather discrepancy documented in `3820654d` and targeted by Morning Build 1 (`Part 5e`).
+- **Consolidation Target**: Make `predict_regions` the single source of truth for offline hole/token-grid simulation and pass its settled array directly into `her_hair_in_hole` (Part `5a` / `5e`).
 
 ### Section 4.5 — 308-Point Pose Face-on-Mask & Landmark Filtering (4 Copies)
 
-- **Symbols**: `bench/_lib/face_points.py::face_on_mask`, `bench/head_tube_parts.py::own_part_face_points`, `bench/head_tube_parts.py::cross_check_face_points`, `bench/shot_to_load.py::head_marks_of`, `bench/assemble_delivery.py::face_points_of`
+- **Symbols**: `bench/_lib/face_points.py::face_on_mask`, `bench/head_tube_parts.py::own_part_face_points`, `bench/head_tube_parts.py::cross_check_face_points`, `bench/shot_to_load.py::face_cues`, `bench/assemble_delivery.py::face_points_of`
 - **Duplication Details**:
   - `bench/_lib/face_points.py` defines `load`, `face_on_mask`, and `table`, while `head_tube_parts.py`, `shot_to_load.py`, and `assemble_delivery.py` each implement custom keypoint-in-mask and confidence thresholding slices.
 - **Consolidation Target**: Unify landmark index slices and confidence thresholds in `bench/_lib/face_points.py` (Part `5c`).
