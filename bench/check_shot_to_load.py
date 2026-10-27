@@ -2056,10 +2056,10 @@ def the_defaults_this_load_carries() -> str:
         assert ht_off["sam_head_track"]["on"] is False and "HEAD TRACK IS OFF" in ht_off["note"], ht_off["sam_head_track"]
         assert graphs.preview(ht_off)["1005"]["inputs"]["track_head"] is False, "a preview with head track off still runs track_head"
         refused(lambda: made.preview(no_head_track="  "), "--no-head-track takes the reason")
-        # THE HEAD MODE (the owner, 2026-10-23): main's span head track by default, no line in any seeds text; per stretch only
-        # on `--head-per-stretch WHY`, which puts `head: per stretch: WHY` in every subject's seeds text and says so
+        # THE HEAD MODE (the owner, 2026-10-27): per stretch by default; `--head-per-stretch WHY` puts `head: per stretch: WHY`
+        # in every subject's seeds text and says so in the note
         plain = made.preview()["job"]
-        assert plain["sam_head_mode"]["mode"] == "span" and not any("head:" in str(x.get("seeds") or "") for x in plain["subjects"]), plain["sam_head_mode"]
+        assert plain["sam_head_mode"]["mode"] == "per stretch" and not any("head:" in str(x.get("seeds") or "") for x in plain["subjects"]), plain["sam_head_mode"]
         per = made.preview(head_per_stretch="the owner, to test 1419's lost head")["job"]
         assert per["sam_head_mode"]["mode"] == "per stretch" and "HEAD IS TRACKED PER STRETCH" in per["note"], per["sam_head_mode"]
         assert all(str(x.get("seeds") or "").splitlines()[-1] == "head: per stretch: the owner, to test 1419's lost head" for x in per["subjects"]), \

@@ -487,11 +487,12 @@ def preview_job(shots: dict, plan: dict, shot: dict, video: str, source: str, by
                       "2026-10-23), and a preview that tracks the head per stretch says why")
     if head_per_stretch is not None and ";" in str(head_per_stretch):
         raise Refused("--head-per-stretch reason cannot contain ';': the tracker splits seeds lines on ';'")
-    # which head track the trackers run (`subject_track.py::parse_head_mode`): main's span head track, the default, or per
-    # stretch on a person's word; the line rides in every subject's seeds text, which the node already reads
+    # which head track the trackers run (`subject_track.py::parse_head_mode`): per stretch by default (the owner, 2026-10-27),
+    # or with an explicit reason on `--head-per-stretch WHY`
     head_mode = ({"mode": "per stretch", "why": " ".join(str(head_per_stretch).split()), "said_by": by, "at": now}
                  if head_per_stretch is not None else
-                 {"mode": "span", "said_by": "the chain's default", "why": "main's span head track (the owner, 2026-10-23)"})
+                 {"mode": "per stretch", "said_by": "the chain's default",
+                  "why": "the head seeded and tracked inside each stretch the person track holds her (the owner, 2026-10-27)"})
     memory = ({"on": False, "why": " ".join(str(no_memory_selection).split()), "said_by": by, "at": now} if no_memory_selection is not None else
               {"on": bool(h3_config.MASKED_JOB_SAM_CORRECTIONS["memory_selection"]), "said_by": "the chain's default",
                "why": "h3_config.MASKED_JOB_SAM_CORRECTIONS (the owner's word, 2026-10-17)"})
@@ -554,8 +555,8 @@ def preview_job(shots: dict, plan: dict, shot: dict, video: str, source: str, by
             + (f" SAM 3.1'S MEMORY SELECTION IS OFF in this preview's trackers, on {by}'s word: {memory['why']}." if not memory["on"] else "")
             + (f" THE SAM 3.1 HEAD TRACK IS OFF in this preview's trackers, on {by}'s word: {head_track['why']}." if not head_track["on"] else "")
             + (f" THE HEAD IS TRACKED PER STRETCH in this preview's trackers (`--head-per-stretch`), on {by}'s word: {head_mode['why']}."
-               if head_mode["mode"] == "per stretch" else ""))
-    if head_mode["mode"] == "per stretch":
+               if head_per_stretch is not None else ""))
+    if head_per_stretch is not None:
         line = f"head: per stretch: {head_mode['why']}"
         for one in subjects:
             one["seeds"] = (one["seeds"] + "\n" if one.get("seeds") else "") + line

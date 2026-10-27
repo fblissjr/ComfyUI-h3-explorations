@@ -274,7 +274,7 @@ def picture_size(lines: list[dict]) -> list[int]:
 
 
 def drawn(lines: list[dict], subject: str, boxes: list[tuple[int, tuple]], sheet, by: str, encloses: str | None,
-          at: str | None = None) -> list[dict]:
+          at: str | None = None, people: str | Path | None = None) -> list[dict]:
     """The lines for boxes the owner DREW on a sheet (2026-10-23): one `here` line a box, checked whole, none written.
 
     `boxes` is (source frame, (left, top, width, height) in the cast file's own picture size, `picture_size`). Each line
@@ -309,9 +309,59 @@ def drawn(lines: list[dict], subject: str, boxes: list[tuple[int, tuple]], sheet
         raise ValueError(f"cast: {subject} already has a standing box on frame(s) {over}: nothing is added. If that box is wrong, "
                          "withdraw it first (`withdraw`), then enter the drawn one")
     size = picture_size(lines)
+    snapped_boxes: dict[int, list[float]] = {}
+    exact_frames: set[int] = set()
+    if people is not None:
+        p_path = Path(people)
+        if not p_path.is_file():
+            raise ValueError(f"cast: --people {p_path} is not a file")
+        import numpy as np
+        z = np.load(p_path)
+        if "masks" not in z.files or "frame" not in z.files or "first" not in z.files:
+            raise ValueError(f"cast: --people {p_path} is not a SAM people.npz file (expected keys `masks`, `frame`, `first`)")
+        pf = int(z["first"])
+        p_json = p_path.with_suffix(".json")
+        if p_json.is_file():
+            pw, ph = [int(v) for v in json.loads(p_json.read_text())["canvas"]]
+        else:
+            ph = int(z["masks"].shape[1])
+            pw = int(round(ph * (size[0] / float(size[1]))))
+        sx, sy = pw / float(size[0]), ph / float(size[1])
+        z_frames = np.asarray(z["frame"], dtype=np.int32)
+        for f, box in boxes:
+            rel = int(f) - pf
+            idxs = np.nonzero(z_frames == rel)[0]
+            if len(idxs) == 0:
+                raise ValueError(f"cast: --people {p_path} has no SAM detections on frame {f} (index {rel})")
+            bx, by0, bw, bh = [float(v) for v in box]
+            ux0, uy0, ux1, uy1 = bx * sx, by0 * sy, (bx + bw) * sx, (by0 + bh) * sy
+            best_iou = 0.0
+            best_det_box = None
+            for idx in idxs:
+                m_2d = np.unpackbits(z["masks"][int(idx)], axis=-1)[:, :pw].astype(bool)
+                ys, xs = np.nonzero(m_2d)
+                if len(ys) == 0:
+                    continue
+                dx0, dy0 = float(xs.min()), float(ys.min())
+                dx1, dy1 = float(xs.max() + 1), float(ys.max() + 1)
+                ix0, iy0 = max(ux0, dx0), max(uy0, dy0)
+                ix1, iy1 = min(ux1, dx1), min(uy1, dy1)
+                inter = max(0.0, ix1 - ix0) * max(0.0, iy1 - iy0)
+                union = max(0.0, ux1 - ux0) * max(0.0, uy1 - uy0) + max(0.0, dx1 - dx0) * max(0.0, dy1 - dy0) - inter
+                if union > 0:
+                    iou = inter / union
+                    if iou > best_iou:
+                        best_iou = iou
+                        best_det_box = [round(dx0 / sx, 2), round(dy0 / sy, 2), round((dx1 - dx0) / sx, 2), round((dy1 - dy0) / sy, 2)]
+            if best_iou < 0.5 or best_det_box is None:
+                raise ValueError(f"cast: box {list(box)} on frame {f} has max IoU {best_iou:.3f} < 0.500 against {p_path} detections")
+            snapped_boxes[int(f)] = [float(int(v)) if float(v).is_integer() else float(v) for v in best_det_box]
+            exact_frames.add(int(f))
     at = at or datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    return [entry(subject, int(f), HERE, by=f"{' '.join(str(by).split())}; a box drawn on the sheet {sheet}", box=[float(v) for v in box],
-                  size=size, table=str(sheet), at=at, encloses=encloses, drawn=APPROXIMATE) for f, box in boxes]
+    return [entry(subject, int(f), HERE, by=f"{' '.join(str(by).split())}; a box drawn on the sheet {sheet}",
+                  box=snapped_boxes.get(int(f), [float(v) for v in box]),
+                  size=size, table=str(sheet), at=at, encloses=encloses,
+                  drawn=None if int(f) in exact_frames else APPROXIMATE) for f, box in boxes]
 
 
 def _drawn_box(text: str) -> tuple[int, tuple]:
@@ -449,6 +499,7 @@ def main() -> int:
     d.add_argument("--encloses", required=True, choices=ENCLOSES,
                    help="what every box of this call encloses: `head` (her head or hair) or `body` (only her arm or body, her head "
                         "hidden), which seeds her person track and never her head track")
+    d.add_argument("--people", required=True, help="SAM people.npz file to verify each box overlaps a SAM detection (>= 0.500 IoU) and snap to its detection box")
     s = sub.add_parser("seeds", help="the Subject Track's seeds text for one load")
     s.add_argument("--table", required=True, help="a shot table of the load: its shots and its picture size are read")
     s.add_argument("--first-frame", type=int, required=True)
@@ -475,7 +526,7 @@ def _run(args) -> int:
         for line in lines:
             print(json.dumps(line, sort_keys=True))
     elif args.cmd == "box":
-        lines = drawn(read(args.cast), args.subject, args.boxes, args.sheet, args.by, args.encloses)
+        lines = drawn(read(args.cast), args.subject, args.boxes, args.sheet, args.by, args.encloses, people=args.people)
         append(args.cast, lines)
         for line in lines:
             print(json.dumps(line, sort_keys=True))

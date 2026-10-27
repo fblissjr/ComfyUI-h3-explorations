@@ -761,7 +761,7 @@ class Followed:
     # "span" (main's head track of the span, where the stretch found none), "span, top third" (main's stand-in: no head
     # found in the span) (`_track_head_span`)
     head_from: dict[int, dict[int, str]] = field(default_factory=dict)
-    head_mode: str = "span"                                  # "span" (main's, the default) or "per stretch" (`parse_head_mode`)
+    head_mode: str = "per stretch"                           # "per stretch" (the default) or "span" (`parse_head_mode`)
 
 
 #: A seed's box and a detection's are the same person at or over this overlap (intersection over union). Reasoned,
@@ -827,17 +827,23 @@ _JOB_OTHERS = re.compile(r"^job\s*:\s*(\d+)\s+other\s+subjects?$", re.IGNORECASE
 #: none. Without it the head track is main's span head track, exactly as main (the owner, 2026-10-23: an opt-in, so no saved
 #: or rendered shot can lose a head).
 HEAD_PER_STRETCH = "per stretch"
+HEAD_SPAN = "span"
 _HEAD_MODE = re.compile(r"^head\s*:\s*per\s+stretch(?:\s*:\s*(.+))?$", re.IGNORECASE)
+_HEAD_SPAN_MODE = re.compile(r"^head\s*:\s*span(?:\s*:\s*(.+))?$", re.IGNORECASE)
 
 
 def parse_head_mode(text: str) -> tuple[str, str]:
-    """Which head track the seeds text asks for: ("per stretch", the why) where it carries `head: per stretch: WHY`, else
-    ("span", "")."""
+    """Which head track the seeds text asks for: ("span", the why) where it carries `head: span: WHY`, else
+    ("per stretch", the why or "")."""
     for piece in re.split(r"[\n;]", str(text or "")):
-        found = _HEAD_MODE.match(piece.strip())
+        s = piece.strip()
+        found_span = _HEAD_SPAN_MODE.match(s)
+        if found_span is not None:
+            return HEAD_SPAN, " ".join(str(found_span[1] or "").split())
+        found = _HEAD_MODE.match(s)
         if found is not None:
             return HEAD_PER_STRETCH, " ".join(str(found[1] or "").split())
-    return "span", ""
+    return HEAD_PER_STRETCH, ""
 
 
 def parse_job_others(text: str) -> int:
@@ -868,7 +874,7 @@ def parse_seeds(text: str, shots: list[tuple[int, int]]) -> dict[int, list[tuple
     out: dict[int, list[tuple[int, tuple | None]]] = {}
     for piece in re.split(r"[\n;]", str(text or "")):
         piece = piece.strip()
-        if not piece or _JOB_OTHERS.match(piece) or _HEAD_MODE.match(piece):
+        if not piece or _JOB_OTHERS.match(piece) or _HEAD_MODE.match(piece) or _HEAD_SPAN_MODE.match(piece):
             continue
         found = _SEED.match(piece)
         if found is None:
@@ -1400,7 +1406,7 @@ def follow(n_frames: int, cuts: list[int], pick: str, pick_frame: int | None, ma
            sign_whole: Callable[[int, torch.Tensor], torch.Tensor | None] | None = None,
            seeds: dict[int, tuple[int, tuple | None]] | None = None,
            held=None, track_head: bool = TRACK_HEAD, other_boxes: dict | None = None, job_others: int = 0,
-           head_per_stretch: bool = False) -> Followed:
+           head_per_stretch: bool = True) -> Followed:
     """The subject's mask per frame, shot by shot. The model work is in three callables.
 
     `detect(frame)` returns that frame's detections, [N, H, W] and their

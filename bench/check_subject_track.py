@@ -2450,9 +2450,10 @@ def check_head_runs(problems):
             or [f for f in range(47) if bool((heads[f] > 0.5).any())] != list(range(35, 47)):
         problems.append(f"head runs: the default head track should be main's span head track exactly: {calls}")
     if st.parse_head_mode("frame 3: 1, 2, 3, 4\nhead: per stretch: the owner, to test 1419") != ("per stretch", "the owner, to test 1419") \
-            or st.parse_head_mode("frame 3: 1, 2, 3, 4") != ("span", "") \
+            or st.parse_head_mode("frame 3: 1, 2, 3, 4") != ("per stretch", "") \
+            or st.parse_head_mode("frame 3: 1, 2, 3, 4\nhead: span: legacy test") != ("span", "legacy test") \
             or st.parse_seeds("frame 3: 1, 2, 3, 4\nhead: per stretch: why", [(0, 8)]) != {1: [(3, (1.0, 2.0, 3.0, 4.0))]}:
-        problems.append("head runs: the `head: per stretch: WHY` line is not read, or is read as a seed")
+        problems.append("head runs: the `head: per stretch: WHY` / `head: span: WHY` line is not read, or is read as a seed")
     source = MODULE.read_text(encoding="utf-8")
     if 'table["head_mode"] = head_mode' not in source or "head_per_stretch=head_mode == HEAD_PER_STRETCH" not in source:
         problems.append("head runs: the node does not read the head mode from its seeds, or does not record it in the table")

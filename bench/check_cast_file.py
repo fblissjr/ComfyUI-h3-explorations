@@ -364,12 +364,26 @@ def a_drawn_box_is_entered_as_a_box_line():
         _raises(lambda: C.entry("lead", 5, C.NONE_OUTLINED, by="a", encloses=C.BODY), "`encloses` is one of")
         _raises(lambda: C.entry("lead", 5, C.HERE, by="a", box=[1, 1, 5, 5], size=SIZE, table="t", drawn="exact"), "`drawn` is `approximate`")
         assert cast.read_text() == before, "a refused box wrote something"
-        # the command itself: one line a box, and a refusal in the tool's words with no traceback
+        import numpy as np
+        p_npz = root / "people.npz"
+        m_test = np.zeros((1, SIZE[1], SIZE[0]), dtype=np.uint8)
+        m_test[0, 20:60, 10:40] = 1
+        packed = np.packbits(m_test, axis=-1)
+        np.savez_compressed(p_npz, masks=packed, frame=np.array([31], dtype=np.int32),
+                            person=np.array([1], dtype=np.int32), score=np.array([0.9], dtype=np.float32),
+                            first=np.int32(FIRST))
+        got_p = C.drawn(C.read(cast), "second", [(FIRST + 31, (11.0, 21.0, 29.0, 39.0))], sheet, "o", C.BODY, people=p_npz)
+        assert len(got_p) == 1 and got_p[0]["box"] == [10.0, 20.0, 30.0, 40.0] and "drawn" not in got_p[0], got_p
+        _raises(lambda: C.drawn(C.read(cast), "second", [(FIRST + 31, (800.0, 600.0, 30.0, 40.0))], sheet, "o", C.BODY, people=p_npz), "max IoU")
+        # the command itself: one line a box (--people required), snapped to the SAM detection box, and a refusal in the tool's words with no traceback
         tool = [sys.executable, str(HERE / "cast_file.py"), "box", "--cast", str(cast), "--subject", "second", "--sheet", str(sheet),
-                "--by", "the owner, in the terminal"]
-        done = subprocess.run(tool + ["--encloses", "body", "--box", f"{FIRST + 31}:10,20,30,40"], capture_output=True, text=True)
-        assert done.returncode == 0 and json.loads(done.stdout)["frame"] == FIRST + 31 and json.loads(done.stdout)["encloses"] == "body" \
-            and json.loads(done.stdout)["drawn"] == "approximate", (done.stdout, done.stderr)
+                "--by", "the owner, in the terminal", "--people", str(p_npz)]
+        done = subprocess.run(tool + ["--encloses", "body", "--box", f"{FIRST + 31}:11,21,29,39"], capture_output=True, text=True)
+        out_line = json.loads(done.stdout)
+        assert done.returncode == 0 and out_line["frame"] == FIRST + 31 and out_line["encloses"] == "body" \
+            and out_line["box"] == [10.0, 20.0, 30.0, 40.0] and "drawn" not in out_line, (done.stdout, done.stderr)
+        no_people = subprocess.run(tool[:-2] + ["--encloses", "body", "--box", f"{FIRST + 31}:10,20,30,40"], capture_output=True, text=True)
+        assert no_people.returncode != 0 and "--people" in no_people.stderr, (no_people.returncode, no_people.stderr)
         helped = subprocess.run([sys.executable, str(HERE / "cast_file.py"), "box", "--help"], capture_output=True, text=True).stdout
         assert "APPROXIMATE" in subprocess.run([sys.executable, str(HERE / "cast_file.py"), "--help"], capture_output=True, text=True).stdout \
             and "roughly" in helped, "the help does not say a drawn box is approximate"
