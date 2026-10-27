@@ -469,3 +469,24 @@ Run `$H3_PYTHON bench/masked_code_map.py --deps [file]` for bidirectional upstre
 - **`bench/render_ledger.py`**: imports `bench/delivery_table.py`, `clip_folder.py`
 - **`bench/review_pages.py`**: imports `bench/delivery_table.py`, `bench/frame_coverage.py`, `bench/load_chain.py`
 - **`bench/timeline_page.py`**: imports `bench/frame_coverage.py`, `bench/said_on_shot.py`
+
+### 2e.3 Pipeline Step Dispatch & Data-Chain CLI Queries (Extracted from AST)
+
+- **Function Call Graph**: `$H3_PYTHON bench/masked_code_map.py --calls <symbol>`
+- **Artifact / Dict-Key Writers & Readers ('Both Ends')**: `$H3_PYTHON bench/masked_code_map.py --data <artifact_or_key>`
+- **Pipeline Step Subprocess Chain**: `$H3_PYTHON bench/masked_code_map.py --chain [step]`
+
+- `bench/shot_to_load.py` **`preview`** -> `bench/shot_to_load.py::step_preview` (`L4144-L4266`, `#90812a6b`): `bench/load_chain.py::empty_queue`, `bench/load_chain.py::Refused`, `bench/cast_file.py::read`, `bench/load_chain.py::utc_now`, `bench/masked_job.py`, `clip_folder.py::folder_of_file`
+- `bench/shot_to_load.py` **`job`** -> `bench/shot_to_load.py::step_job` (`L4394-L4540`, `#d8cd97c3`): `bench/load_chain.py::Refused`, `bench/load_chain.py::utc_now`, `bench/capture_masked_run.py::read_classes`, `bench/capture_masked_run.py::_pack`, `bench/strangers.py::held_track`, `bench/strangers.py::grown`
+- `bench/shot_to_load.py` **`reference`** -> `bench/shot_to_load.py::step_reference` (`L4543-L4696`, `#085cce4c`): `bench/load_chain.py::read_job`, `bench/load_chain.py::empty_queue`, `bench/load_chain.py::free_for_a_pose_pass`, `bench/load_chain.py::Refused`, `bench/load_chain.py::preview_files`, `bench/load_chain.py::video_of`
+- `bench/shot_to_load.py` **`text`** -> `bench/shot_to_load.py::step_text` (`L4895-L4945`, `#646a003a`): `bench/load_chain.py::read_job`, `bench/load_chain.py::Refused`, `bench/load_text.py::for_job`, `bench/load_chain.py::utc_now`
+- `bench/shot_to_load.py` **`pair`** -> `bench/shot_to_load.py::step_pair` (`L5043-L5111`, `#bea5a826`): `bench/load_chain.py::utc_now`, `bench/load_chain.py::read_job`, `bench/load_chain.py::Refused`, `bench/load_chain.py::video_of`, `workflows/masked_job_graph.py::one_subject_view`
+- `bench/load_chain.py` **`first`** -> `bench/load_chain.py::step_first` (`L1223-L1238`, `#9d913095`): `bench/capture_masked_run.py`, `bench/who_is_who_across_shots.py`
+- `bench/load_chain.py` **`plan`** -> `bench/load_chain.py::step_plan` (`L1241-L1254`, `#58e3b899`): `bench/masked_job.py`
+- `bench/load_chain.py` **`on-plan`** -> `bench/load_chain.py::step_on_plan` (`L1257-L1301`, `#d21a948b`): `bench/capture_masked_run.py`, `bench/frame_table.py`, `bench/who_is_who_across_shots.py`, `bench/masked_job.py`
+- `bench/load_chain.py` **`band-again`** -> `bench/load_chain.py::step_band_again` (`L1363-L1379`, `#315ae17c`): `bench/masked_job.py`
+- `bench/load_chain.py` **`table`** -> `bench/load_chain.py::step_table` (`L1382-L1390`, `#aeea5d59`): `bench/frame_table.py`
+- `bench/load_chain.py` **`no-look`** -> `bench/load_chain.py::step_no_look` (`L558-L608`, `#ab41b52e`): `bench/flags_before_render.py::unresolved_hair_in_hole_of`, `bench/flags_before_render.py::unlaid_while_tracked_of`, `bench/flags_before_render.py::recipe_check_of`, `bench/flags_before_render.py::_format_unresolved_hair_in_hole`, `bench/flags_before_render.py::format_spans`
+- `bench/load_chain.py` **`render`** -> `bench/load_chain.py::step_render` (`L1421-L1466`, `#bfb1ba1c`): `bench/masked_job.py`, `bench/flags_before_render.py::check_flags_read`, `bench/frame_table.py::verify_table_fresh`
+- `bench/load_chain.py` **`land`** -> `bench/load_chain.py::step_land` (`L1498-L1556`, `#8f97975c`): `bench/capture_masked_run.py`, `bench/pose_along_shot.py`, `bench/capture_masked_run.py::_pack`, `clip_folder.py::folder_of_file`
+- `bench/load_chain.py` **`page`** -> `bench/load_chain.py::step_page` (`L1559-L1587`, `#e2e147bf`): `clip_folder.py::folder_of_file`

@@ -4,6 +4,10 @@
     <python> bench/masked_code_map.py --write        # rewrite docs/masked_v2v/CODE_MAP_INDEX.md
     <python> bench/masked_code_map.py --check        # exit 1 if stale, oversized, or drifted
     <python> bench/masked_code_map.py --drift        # report functions & narrative stages changed
+    <python> bench/masked_code_map.py --deps [file]  # print bidirectional module dependency graph
+    <python> bench/masked_code_map.py --calls <sym>  # print AST function callers & callees
+    <python> bench/masked_code_map.py --data [key]   # print AST writers & readers ("both ends")
+    <python> bench/masked_code_map.py --chain [step] # print AST pipeline step -> subprocess chain
     <python> bench/masked_code_map.py <query>        # print live StartLine-EndLine for a symbol/file
 
 Why this exists:
@@ -50,9 +54,9 @@ PLAN_MD = REPO / "docs" / "research" / "masking" / "2026-10-26_code_map_and_simp
 CODE_MAP_DOCS = (INDEX_MD, STAGES_MD, CONTRACTS_MD, PLAN_MD)
 
 # Reasoned: `read_file` truncates at 46,080 bytes. Capping every code-map file at
-# 40,000 bytes guarantees that any Gemini/AGY session reads 100% of the file in
+# 42,000 bytes guarantees that any Gemini/AGY session reads 100% of the file in
 # one tool call without `ByteOffset` pagination.
-MAX_FILE_BYTES = 40_000
+MAX_FILE_BYTES = 42_000
 
 # Reasoned: 3,500-char single-line Markdown table rows caused 90-150s `edit_file`
 # output-token stalls across 5 Gemini sessions. Capping lines at 400 chars keeps
@@ -216,12 +220,27 @@ def _ast_digest(node: ast.AST) -> str:
     return hashlib.sha256(dumped.encode("utf-8")).hexdigest()[:8]
 
 
-def parse_file_symbols(rel_path: str) -> tuple[int, dict[str, tuple[int, int, str]]]:
-    """Return `(total_lines, {symbol_name: (start_line, end_line, ast_digest)})`."""
+_AST_CACHE: dict[str, tuple[str, list[str], ast.Module]] = {}
+_SYMBOL_CACHE: dict[str, tuple[int, dict[str, tuple[int, int, str]]]] = {}
+
+
+def _read_and_parse(rel_path: str) -> tuple[str, list[str], ast.Module]:
+    if rel_path in _AST_CACHE:
+        return _AST_CACHE[rel_path]
     path = REPO / rel_path
     text = path.read_text(encoding="utf-8")
-    total_lines = len(text.splitlines())
+    lines = text.splitlines()
     tree = ast.parse(text, filename=rel_path)
+    _AST_CACHE[rel_path] = (text, lines, tree)
+    return text, lines, tree
+
+
+def parse_file_symbols(rel_path: str) -> tuple[int, dict[str, tuple[int, int, str]]]:
+    """Return `(total_lines, {symbol_name: (start_line, end_line, ast_digest)})`."""
+    if rel_path in _SYMBOL_CACHE:
+        return _SYMBOL_CACHE[rel_path]
+    _, lines, tree = _read_and_parse(rel_path)
+    total_lines = len(lines)
     symbols: dict[str, tuple[int, int, str]] = {}
     for node in tree.body:
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
@@ -244,13 +263,13 @@ def parse_file_symbols(rel_path: str) -> tuple[int, dict[str, tuple[int, int, st
                     for elt in t.elts:
                         if isinstance(elt, ast.Name):
                             symbols[elt.id] = (node.lineno, node.end_lineno or node.lineno, _ast_digest(node))
+    _SYMBOL_CACHE[rel_path] = (total_lines, symbols)
     return total_lines, symbols
 
 
 def extract_cannot_see_constant(rel_path: str, const_name: str) -> tuple[int, int, list[str]]:
     """Extract a top-level `CANNOT_SEE` string/tuple/list constant from AST."""
-    path = REPO / rel_path
-    tree = ast.parse(path.read_text(encoding="utf-8"), filename=rel_path)
+    _, _, tree = _read_and_parse(rel_path)
     for node in tree.body:
         if isinstance(node, (ast.Assign, ast.AnnAssign)):
             targets = node.targets if isinstance(node, ast.Assign) else [node.target]
@@ -264,8 +283,7 @@ def extract_cannot_see_constant(rel_path: str, const_name: str) -> tuple[int, in
 
 def extract_dict_key_span(rel_path: str, func_name: str, key_name: str) -> tuple[int, int]:
     """Find the `(lineno, end_lineno)` of a `"cannot_see"` dict key inside `func_name`."""
-    path = REPO / rel_path
-    tree = ast.parse(path.read_text(encoding="utf-8"), filename=rel_path)
+    _, _, tree = _read_and_parse(rel_path)
     for node in tree.body:
         if isinstance(node, ast.FunctionDef) and node.name == func_name:
             for sub in ast.walk(node):
@@ -278,8 +296,7 @@ def extract_dict_key_span(rel_path: str, func_name: str, key_name: str) -> tuple
 
 def extract_constant_repr(rel_path: str, const_name: str) -> tuple[int, str]:
     """Extract `(lineno, compact_repr)` for a top-level constant from AST."""
-    path = REPO / rel_path
-    tree = ast.parse(path.read_text(encoding="utf-8"), filename=rel_path)
+    _, _, tree = _read_and_parse(rel_path)
     for node in tree.body:
         if isinstance(node, (ast.Assign, ast.AnnAssign)):
             targets = node.targets if isinstance(node, ast.Assign) else [node.target]
@@ -312,7 +329,7 @@ def compute_dependency_graph() -> dict[str, dict[str, list[str]]]:
         p: {"imports": set(), "dynamic": set(), "imported_by": set(), "dynamic_by": set()} for p in all_paths
     }
     for rel in all_paths:
-        tree = ast.parse((REPO / rel).read_text(encoding="utf-8"), filename=rel)
+        _, _, tree = _read_and_parse(rel)
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):
                 for a in node.names:
@@ -358,6 +375,277 @@ def compute_dependency_graph() -> dict[str, dict[str, list[str]]]:
         p: {k: sorted(v) for k, v in edges.items()}
         for p, edges in graph.items()
     }
+
+
+def compute_call_graph() -> tuple[
+    dict[tuple[str, str], list[tuple[str, str, int]]],
+    dict[tuple[str, str], list[tuple[str, str, int]]],
+    dict[tuple[str, str], tuple[int, int, str]],
+]:
+    """Return `(callees, callers, symbol_coords)` across all 44 masked-lane files."""
+    all_paths = [p for _, p, _ in CORE_FILES] + [p for p, _ in SUPPORT_FILES]
+    stem_to_path = {Path(p).stem: p for p in all_paths}
+    file_syms: dict[str, dict[str, tuple[int, int, str]]] = {}
+    symbol_coords: dict[tuple[str, str], tuple[int, int, str]] = {}
+    for rel in all_paths:
+        _, syms = parse_file_symbols(rel)
+        file_syms[rel] = syms
+        for s_name, meta in syms.items():
+            symbol_coords[(rel, s_name)] = meta
+
+    callees: dict[tuple[str, str], list[tuple[str, str, int]]] = {}
+    callers: dict[tuple[str, str], list[tuple[str, str, int]]] = {}
+
+    for rel in all_paths:
+        _, _, tree = _read_and_parse(rel)
+        alias_to_path: dict[str, str] = {}
+        sym_to_target: dict[str, tuple[str, str]] = {}
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                for a in node.names:
+                    root = a.name.split(".")[-1]
+                    if root in stem_to_path:
+                        alias_to_path[a.asname or root] = stem_to_path[root]
+            elif isinstance(node, ast.ImportFrom) and node.module:
+                root = node.module.split(".")[-1]
+                if root in stem_to_path:
+                    tpath = stem_to_path[root]
+                    for a in node.names:
+                        if a.name in file_syms.get(tpath, {}):
+                            sym_to_target[a.asname or a.name] = (tpath, a.name)
+                        elif a.name in stem_to_path:
+                            alias_to_path[a.asname or a.name] = stem_to_path[a.name]
+            elif isinstance(node, ast.Assign) and len(node.targets) == 1 and isinstance(node.targets[0], ast.Name):
+                if isinstance(node.value, ast.Call):
+                    fn = node.value.func
+                    fname = fn.id if isinstance(fn, ast.Name) else (fn.attr if isinstance(fn, ast.Attribute) else "")
+                    if fname == "_pack" and node.value.args and isinstance(node.value.args[0], ast.Constant):
+                        v = str(node.value.args[0].value)
+                        if v in stem_to_path:
+                            alias_to_path[node.targets[0].id] = stem_to_path[v]
+
+        def add_edge(src_sym: str, dst_path: str, dst_sym: str, lno: int) -> None:
+            src_key = (rel, src_sym)
+            dst_key = (dst_path, dst_sym)
+            edge_out = (dst_path, dst_sym, lno)
+            if edge_out not in callees.setdefault(src_key, []):
+                callees[src_key].append(edge_out)
+            edge_in = (rel, src_sym, lno)
+            if edge_in not in callers.setdefault(dst_key, []):
+                callers[dst_key].append(edge_in)
+
+        def scan_fn(fn_node: ast.FunctionDef | ast.AsyncFunctionDef, qual_name: str, cls_name: str | None = None) -> None:
+            for d_node in list(fn_node.args.defaults) + [x for x in fn_node.args.kw_defaults if x is not None]:
+                if isinstance(d_node, ast.Name):
+                    nm = d_node.id
+                    if nm in sym_to_target:
+                        add_edge(qual_name, sym_to_target[nm][0], sym_to_target[nm][1], fn_node.lineno)
+                    elif nm in file_syms[rel] and nm != qual_name:
+                        add_edge(qual_name, rel, nm, fn_node.lineno)
+                elif isinstance(d_node, ast.Attribute) and isinstance(d_node.value, ast.Name):
+                    base, attr = d_node.value.id, d_node.attr
+                    if base in alias_to_path and attr in file_syms.get(alias_to_path[base], {}):
+                        add_edge(qual_name, alias_to_path[base], attr, fn_node.lineno)
+
+            for sub in ast.walk(fn_node):
+                if isinstance(sub, ast.Call):
+                    if isinstance(sub.func, ast.Name):
+                        nm = sub.func.id
+                        if nm in sym_to_target:
+                            add_edge(qual_name, sym_to_target[nm][0], sym_to_target[nm][1], sub.lineno)
+                        elif nm in file_syms[rel] and nm != qual_name:
+                            add_edge(qual_name, rel, nm, sub.lineno)
+                    elif isinstance(sub.func, ast.Attribute) and isinstance(sub.func.value, ast.Name):
+                        base, attr = sub.func.value.id, sub.func.attr
+                        if base == "self" and cls_name and f"{cls_name}.{attr}" in file_syms[rel]:
+                            qual_t = f"{cls_name}.{attr}"
+                            if qual_t != qual_name:
+                                add_edge(qual_name, rel, qual_t, sub.lineno)
+                        elif base in alias_to_path and attr in file_syms.get(alias_to_path[base], {}):
+                            add_edge(qual_name, alias_to_path[base], attr, sub.lineno)
+
+        for node in tree.body:
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                scan_fn(node, node.name)
+            elif isinstance(node, ast.ClassDef):
+                for sub in node.body:
+                    if isinstance(sub, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                        scan_fn(sub, f"{node.name}.{sub.name}", cls_name=node.name)
+
+    return callees, callers, symbol_coords
+
+
+DATA_CHAIN_CATALOG: tuple[tuple[str, tuple[str, ...], str], ...] = (
+    ("parts_held__<by>.mkv", ("parts_held__",), "Settled/graded subject part mask video (written in `_files` and `hair_in_hole_files`)"),
+    ("part_grades.json", ("part_grades.json",), "Per-frame part grading record (`kept`, `held`, `emptied`) written in `_files`"),
+    ("masks__<by>.npz", ("masks__",), "Bit-packed `track`, `covered`, `parts` snapshot written at Stage 2.6"),
+    ("track__<by>.mkv", ("track__",), "Capture copy of subject track video (updated by `hair_in_hole_files` `00a3f1d8`)"),
+    ("hair_in_hole__<by>.json", ("hair_in_hole__",), "Stage 2.8 `her_hair_in_hole` recovery & undecided hair record"),
+    ("head_tube.json", ("head_tube.json", "head_tube__"), "Stage 2.4 SAM 3.1 head-tube summary and `cannot_see` record"),
+    ("owners.npz", ("owners.npz",), "Per-pixel depth/subject ownership map written by `_files` and read by `assemble_delivery.py`"),
+    ("region.npz", ("region.npz", "_region.npz"), "Predicted (`runs/<name>/region.npz`) and saved (`_window_NNN_region.npz`) token/matte masks"),
+    ("step_carves.json", ("step_carves.json",), "Per-latent-step keep-out carve accounting (`step_keepout_carves`)"),
+    ("frame_table.jsonl", ("frame_table.jsonl", "frame_table__"), "Per-frame pre-render audit table (`bench/frame_table.py`)"),
+    ("_people.npz", ("_people.npz", "people.npz", "people_file_of"), "Whole-frame SAM 3.1 person detections written by `strangers.py::people_pass`"),
+    ("_strangers.mkv", ("_strangers.mkv", "strangers.mkv", "file_of"), "Whole-frame strangers keep-out mask video written by `strangers.py::run`"),
+    ("_strangers_classes.npz", ("_classes.npz", "whole_frame_classes"), "Whole-frame Sapiens-2B 28-class map written by `strangers.py::run`"),
+    ("_on_track_8px.mkv", ("_on_track_", "parts_file", "parts_held_to_track_px"), "Job-step part clipped to grown person track (`shot_to_load.py::hold_to_track`)"),
+    ("head_marks", ("head_marks", "head_hidden", "hair_hers", "hair_not_hers"), "Owner head/hair marks (`hidden`, `hers`, `not hers`) in `plan.json`"),
+    ("recipe", ("recipe", "shot_overrides"), "Settled subject `margin` / `zoom_up_to` recipe & per-shot overrides in `plan.json` (`cbd39fbe`)"),
+    ("OWN_FORM", ("OWN_FORM", "taken_out"), "Strangers provenance version stamp checked by `strangers.py::held_to_its_record`"),
+    ("cast.jsonl", ("cast.jsonl",), "Subject identification & box seed ledger (`Group 1` clicks, `Group 2` cues, `Group 3` SAM boxes)"),
+    ("laid.jsonl", ("laid.jsonl", "table_laid_sha"), "Laid render keeps ledger read by `delivery_table.py` and `rebuild_delivery.py`"),
+)
+
+
+def scan_ast_data_hits(patterns: tuple[str, ...]) -> list[tuple[str, str, str, int, int, int, str]]:
+    """Scan all 44 files for executable AST references matching `patterns` (skipping docstrings)."""
+    pats = tuple(p.lower() for p in patterns)
+    all_paths = [p for _, p, _ in CORE_FILES] + [p for p, _ in SUPPORT_FILES]
+    hits: list[tuple[str, str, str, int, int, int, str]] = []
+    for rel in all_paths:
+        text, lines, tree = _read_and_parse(rel)
+        low_text = text.lower()
+        if not any(p in low_text for p in pats):
+            continue
+        doc_ranges: set[int] = set()
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.Module, ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)) and node.body:
+                first = node.body[0]
+                if isinstance(first, ast.Expr) and isinstance(first.value, ast.Constant) and isinstance(first.value.value, str):
+                    for l_idx in range(first.lineno, (first.end_lineno or first.lineno) + 1):
+                        doc_ranges.add(l_idx)
+        fn_spans: list[tuple[int, int, str]] = []
+        for node in tree.body:
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                fn_spans.append((node.lineno, node.end_lineno or node.lineno, node.name))
+            elif isinstance(node, ast.ClassDef):
+                for sub in node.body:
+                    if isinstance(sub, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                        fn_spans.append((sub.lineno, sub.end_lineno or sub.lineno, f"{node.name}.{sub.name}"))
+        seen_fn_line: set[tuple[str, str, int]] = set()
+        for node in ast.walk(tree):
+            lno = getattr(node, "lineno", None)
+            if lno is None or lno in doc_ranges:
+                continue
+            matched = False
+            if isinstance(node, ast.Constant) and isinstance(node.value, str):
+                val_low = node.value.lower()
+                if any(p in val_low for p in pats):
+                    matched = True
+            elif isinstance(node, ast.Name):
+                id_low = node.id.lower()
+                if any(p == id_low for p in pats):
+                    matched = True
+            if not matched:
+                continue
+            enclosing = "<module>"
+            f_start, f_end = lno, lno
+            for s, e, nm in fn_spans:
+                if s <= lno <= e:
+                    enclosing = nm
+                    f_start, f_end = s, e
+                    break
+            if (rel, enclosing, lno) in seen_fn_line:
+                continue
+            seen_fn_line.add((rel, enclosing, lno))
+            win = "\n".join(lines[max(0, lno - 3) : min(len(lines), lno + 5)])
+            line_txt = lines[lno - 1].strip()
+            role = "CODE"
+            if any(
+                w in win
+                for w in (
+                    "write_mask_video",
+                    ".write_text",
+                    ".write_bytes",
+                    "json.dump",
+                    "np.savez",
+                    "VideoWriter",
+                    "save_window_region",
+                    "write_plan",
+                    "write_sidecar",
+                )
+            ) or any(f'"{p}":' in line_txt.lower() or f"'{p}':" in line_txt.lower() for p in pats):
+                role = "WRITE"
+            elif any(
+                r in win
+                for r in (
+                    "read_mask",
+                    "_read_mkv",
+                    ".read_text",
+                    "json.load",
+                    "np.load",
+                    ".get(",
+                    "probe(",
+                    "_unpack_mask",
+                )
+            ):
+                role = "READ"
+            hits.append((role, rel, enclosing, f_start, f_end, lno, line_txt[:110]))
+    return hits
+
+
+def compute_step_chain() -> list[tuple[str, str, str, int, int, str, list[str]]]:
+    """Extract `(cli_file, step_name, fn_name, start_line, end_line, digest, targets)` from `STEP` dicts."""
+    callees, _, _ = compute_call_graph()
+    steps_out: list[tuple[str, str, str, int, int, str, list[str]]] = []
+    for rel in ("bench/shot_to_load.py", "bench/load_chain.py"):
+        _, _, tree = _read_and_parse(rel)
+        _, syms = parse_file_symbols(rel)
+        fn_nodes: dict[str, ast.FunctionDef] = {
+            n.name: n for n in tree.body if isinstance(n, ast.FunctionDef)
+        }
+        for node in tree.body:
+            if isinstance(node, ast.Assign):
+                for t in node.targets:
+                    if isinstance(t, ast.Name) and t.id == "STEP" and isinstance(node.value, ast.Dict):
+                        for k, v in zip(node.value.keys, node.value.values):
+                            if isinstance(k, ast.Constant) and isinstance(v, ast.Name):
+                                step_name = str(k.value)
+                                fn_name = v.id
+                                s, e, d = syms[fn_name]
+                                targets: list[str] = []
+                                # Inspect the step function and its direct same-file callees for `tool(world, ...)` and cross-file calls
+                                to_inspect = [fn_name]
+                                for dst_path, dst_sym, _ in callees.get((rel, fn_name), []):
+                                    if dst_path == rel and dst_sym in fn_nodes and dst_sym not in to_inspect:
+                                        to_inspect.append(dst_sym)
+                                    elif dst_path != rel:
+                                        ref = f"{dst_path}::{dst_sym}"
+                                        if ref not in targets:
+                                            targets.append(ref)
+                                for inspect_fn in to_inspect:
+                                    fnode = fn_nodes.get(inspect_fn)
+                                    if fnode is None:
+                                        continue
+                                    for sub in ast.walk(fnode):
+                                        if (
+                                            isinstance(sub, ast.Call)
+                                            and isinstance(sub.func, ast.Name)
+                                            and sub.func.id == "tool"
+                                            and len(sub.args) >= 2
+                                            and isinstance(sub.args[1], ast.Constant)
+                                        ):
+                                            tool_script = f"bench/{sub.args[1].value}"
+                                            if tool_script not in targets:
+                                                targets.append(tool_script)
+                                        elif isinstance(sub, ast.List):
+                                            for elt in sub.elts:
+                                                if (
+                                                    isinstance(elt, ast.Constant)
+                                                    and isinstance(elt.value, str)
+                                                    and elt.value.startswith("bench/")
+                                                    and elt.value.endswith(".py")
+                                                ):
+                                                    if elt.value not in targets:
+                                                        targets.append(elt.value)
+                                    for dst_path, dst_sym, _ in callees.get((rel, inspect_fn), []):
+                                        if dst_path != rel:
+                                            ref = f"{dst_path}::{dst_sym}"
+                                            if ref not in targets:
+                                                targets.append(ref)
+                                steps_out.append((rel, step_name, fn_name, s, e, d, targets))
+    return steps_out
 
 
 def generate_index_markdown() -> str:
@@ -493,6 +781,16 @@ def generate_index_markdown() -> str:
             for pd in parts_dep:
                 lines.append(f"  - {pd}")
     lines.append("")
+    lines.append("### 2e.3 Pipeline Step Dispatch & Data-Chain CLI Queries (Extracted from AST)")
+    lines.append("")
+    lines.append("- **Function Call Graph**: `$H3_PYTHON bench/masked_code_map.py --calls <symbol>`")
+    lines.append("- **Artifact / Dict-Key Writers & Readers ('Both Ends')**: `$H3_PYTHON bench/masked_code_map.py --data <artifact_or_key>`")
+    lines.append("- **Pipeline Step Subprocess Chain**: `$H3_PYTHON bench/masked_code_map.py --chain [step]`")
+    lines.append("")
+    for rel, step_name, fn_name, s, e, d, targets in compute_step_chain():
+        tgt_s = ", ".join(f"`{t}`" for t in targets[:6]) if targets else "in-process validation"
+        lines.append(f"- `{rel}` **`{step_name}`** -> `{rel}::{fn_name}` (`L{s}-L{e}`, `#{d}`): {tgt_s}")
+    lines.append("")
 
     return "\n".join(lines)
 
@@ -593,25 +891,36 @@ def compute_drift() -> tuple[list[str], list[str]]:
     return (list(drifted_syms.values()), affected_sections)
 
 
-def check_all() -> int:
+def _rel_display(path: Path) -> Path | str:
+    try:
+        return path.relative_to(REPO)
+    except ValueError:
+        return path.name
+
+
+def check_all(
+    index_md: Path = INDEX_MD,
+    code_map_docs: tuple[Path, ...] = CODE_MAP_DOCS,
+    expected_md: str | None = None,
+) -> int:
     """Run all staleness, symbol-existence, size, line-length, and path-privacy checks."""
     errs: list[str] = []
-    expected = generate_index_markdown()
-    if not INDEX_MD.is_file():
-        errs.append(f"{INDEX_MD.relative_to(REPO)} does not exist (run `bench/masked_code_map.py --write`)")
+    expected = expected_md if expected_md is not None else generate_index_markdown()
+    if not index_md.is_file():
+        errs.append(f"{_rel_display(index_md)} does not exist (run `bench/masked_code_map.py --write`)")
     else:
-        actual = INDEX_MD.read_text(encoding="utf-8")
+        actual = index_md.read_text(encoding="utf-8")
         if actual != expected:
             errs.append(
-                f"{INDEX_MD.relative_to(REPO)} is out of date with live AST extraction "
+                f"{_rel_display(index_md)} is out of date with live AST extraction "
                 "(run `bench/masked_code_map.py --write`)"
             )
 
     live_cache: dict[str, dict[str, tuple[int, int, str]]] = {}
     home_re = re.compile(r"/(?:home|Users)/[A-Za-z0-9_.-]+")
 
-    for doc in CODE_MAP_DOCS:
-        rel_doc = doc.relative_to(REPO)
+    for doc in code_map_docs:
+        rel_doc = _rel_display(doc)
         if not doc.is_file():
             errs.append(f"missing code-map document: {rel_doc}")
             continue
@@ -649,12 +958,12 @@ def check_all() -> int:
             print(f"  FAIL  {e}")
         return 1
 
-    print(f"  ok    {INDEX_MD.relative_to(REPO)} matches live AST across {len(CORE_FILES) + len(SUPPORT_FILES)} masked-lane files")
-    for doc in CODE_MAP_DOCS:
+    print(f"  ok    {_rel_display(index_md)} matches live AST across {len(CORE_FILES) + len(SUPPORT_FILES)} masked-lane files")
+    for doc in code_map_docs:
         raw = doc.read_bytes()
         lines = raw.decode("utf-8").splitlines()
         max_l = max((len(l) for l in lines), default=0)
-        print(f"  ok    {doc.relative_to(REPO)}: {len(raw):,} bytes, {len(lines)} lines, max line {max_l} chars")
+        print(f"  ok    {_rel_display(doc)}: {len(raw):,} bytes, {len(lines)} lines, max line {max_l} chars")
     return 0
 
 
@@ -702,12 +1011,105 @@ def query_deps(target: str | None) -> int:
     return 0
 
 
+def query_calls(target: str) -> int:
+    """Print AST function callers (upstream) and callees (downstream) matching `target`."""
+    callees, callers, coords = compute_call_graph()
+    q = target.lower()
+    matched_keys = [
+        (rel, sym)
+        for (rel, sym) in coords
+        if q in sym.lower() or q in f"{rel}::{sym}".lower()
+    ]
+    if not matched_keys:
+        print(f"no function/symbol matching {target!r}")
+        return 1
+    shown = 0
+    for key in matched_keys:
+        rel, sym = key
+        up = callers.get(key, [])
+        down = callees.get(key, [])
+        if not (up or down) and len(matched_keys) > 5:
+            continue
+        shown += 1
+        s, e, d = coords[key]
+        print(f"=== {rel}::{sym} (L{s}-L{e}, #{d}) ===")
+        if up:
+            print(f"  Called by ({len(up)}):")
+            for c_rel, c_sym, c_lno in up:
+                cs, ce, _ = coords.get((c_rel, c_sym), (c_lno, c_lno, ""))
+                print(f"    <- {c_rel}::{c_sym} (L{cs}-L{ce}) at L{c_lno}")
+        else:
+            print("  Called by (0): (entrypoint / CLI / ComfyUI node execute)")
+        if down:
+            print(f"  Calls ({len(down)}):")
+            for d_rel, d_sym, d_lno in down:
+                ds, de, _ = coords.get((d_rel, d_sym), (d_lno, d_lno, ""))
+                print(f"    -> {d_rel}::{d_sym} (L{ds}-L{de}) at L{d_lno}")
+    return 0 if shown > 0 else 1
+
+
+def query_data(target: str | None) -> int:
+    """Print AST writers and readers ('both ends') for an artifact or dict/npz key."""
+    if not target:
+        print("=== Tracked Masked-Lane Artifacts & Keys (pass a substring to `--data <query>`) ===")
+        for label, pats, desc in DATA_CHAIN_CATALOG:
+            hits = scan_ast_data_hits(pats)
+            w_cnt = sum(1 for r, *_ in hits if r == "WRITE")
+            r_cnt = sum(1 for r, *_ in hits if r == "READ")
+            print(f"  {label:26s}  ({w_cnt} write, {r_cnt} read, {len(hits)} total) — {desc}")
+        return 0
+    q = target.lower()
+    patterns: list[str] = [target]
+    for label, pats, _ in DATA_CHAIN_CATALOG:
+        if q in label.lower() or any(q in p.lower() for p in pats):
+            for p in pats:
+                if p not in patterns:
+                    patterns.append(p)
+    hits = scan_ast_data_hits(tuple(patterns))
+    if not hits:
+        print(f"no executable AST data/artifact references matching {target!r}")
+        return 1
+    print(f"=== Data / Artifact Both-Ends (Writers & Readers) for {target!r} ({len(hits)} sites) ===")
+    for role_filter in ("WRITE", "READ", "CODE"):
+        group = [h for h in hits if h[0] == role_filter]
+        if not group:
+            continue
+        print(f"  [{role_filter}] ({len(group)}):")
+        for _, rel, enclosing, fs, fe, lno, snippet in group:
+            print(f"    {rel}::{enclosing} (L{fs}-L{fe}) at L{lno}: {snippet}")
+    return 0
+
+
+def query_chain(target: str | None) -> int:
+    """Print the AST-extracted CLI step dispatch & subprocess/callee chain."""
+    q = (target or "").lower()
+    steps = compute_step_chain()
+    hits = 0
+    for rel, step_name, fn_name, s, e, d, targets in steps:
+        if q and q not in step_name.lower() and q not in fn_name.lower() and q not in rel.lower():
+            continue
+        hits += 1
+        print(f"=== {rel} [{step_name}] -> {fn_name} (L{s}-L{e}, #{d}) ===")
+        if targets:
+            for t in targets:
+                print(f"  -> {t}")
+        else:
+            print("  -> (in-process validation / record update)")
+    if hits == 0:
+        print(f"no pipeline step matching {target!r}")
+        return 1
+    return 0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--write", action="store_true", help="Write docs/masked_v2v/CODE_MAP_INDEX.md from live AST.")
     ap.add_argument("--check", action="store_true", help="Verify index freshness, symbol resolution, file size, line length, and path privacy.")
     ap.add_argument("--drift", action="store_true", help="Report AST function changes since CODE_MAP_INDEX.md was written and which narrative stages they affect.")
     ap.add_argument("--deps", nargs="?", const="", default=None, help="Print bidirectional module dependency graph (optionally filtered by file substring).")
+    ap.add_argument("--calls", metavar="SYMBOL", help="Print AST function-level callers (upstream) and callees (downstream) for SYMBOL.")
+    ap.add_argument("--data", nargs="?", const="", default=None, help="Print AST writers & readers ('both ends') for an artifact or dict/npz key.")
+    ap.add_argument("--chain", nargs="?", const="", default=None, help="Print AST pipeline step -> subprocess/callee execution chain.")
     ap.add_argument("query", nargs="?", help="Optional function or filename substring to look up.")
     args = ap.parse_args()
 
@@ -719,6 +1121,15 @@ def main() -> int:
 
     if args.deps is not None:
         return query_deps(args.deps or args.query)
+
+    if args.calls:
+        return query_calls(args.calls)
+
+    if args.data is not None:
+        return query_data(args.data or args.query)
+
+    if args.chain is not None:
+        return query_chain(args.chain or args.query)
 
     if args.drift:
         sym_lines, sec_lines = compute_drift()
