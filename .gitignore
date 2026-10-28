@@ -9,10 +9,12 @@ internal/
 /data/*
 !/data/AGENTS.md
 !/data/CLAUDE.md
-# Claude Code's per-user settings stay out; the project skills under
-# .claude/skills/ are routing docs for this repo and ship with it.
+# Per-user harness settings stay out; the project skills under
+# .claude/skills/ and .gemini/skills/ are routing docs for this repo and ship with it.
 .claude/*
 !.claude/skills/
+.gemini/*
+!.gemini/skills/
 workflows/archive/
 # Local symlinks to sister repos checked out elsewhere on the machine. They
 # resolve only on the machine that made them, so they are never repo content.
