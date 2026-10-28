@@ -160,3 +160,4 @@ The owner's words of 2026-10-21, each with its reasons in [`docs/wiki/decisions.
   - `[6]` **Missed SAM 3.1 strangers inside blue region**: non-subject people in `_people.npz` (`score >= 0.70`, `>= 256 px` inside the active blue region) where `strangers.mkv` covers `< 25%`.
   - `[7]` **Gap & occlusion recovery table + `--strips <out.jpg>`**: per-frame recovery table and annotated crop strip (`RED` = `carried_px`, `BLUE` = regenerated latent step, `GREEN` = `strangers`, `YELLOW` = recoverable `clean_whole` reference).
 - **What it does NOT do**: it is strictly read-only (modifies no `.npz` or `.mkv` file, runs no GPU model, and does not judge facial likeness in a finished render).
+- **Upstream data-dependency, outlier, and alignment diagnostic methodology**: see [`docs/masked_v2v/upstream_anomaly_and_alignment_checks.md`](upstream_anomaly_and_alignment_checks.md) (and workspace skill `masked-v2v-audit` in `.gemini/skills/masked-v2v-audit/SKILL.md`).
