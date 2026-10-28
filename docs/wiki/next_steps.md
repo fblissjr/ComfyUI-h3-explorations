@@ -4,17 +4,18 @@
 
 ## Starting a day: read [`handover.md`](handover.md) first
 
-- **Daily boundary & active execution order (`2026-10-27`)**: [`handover.md`](handover.md) ("Tomorrow, in order", "State when closed", "What not to assume", and "Where things are").
+- **Daily boundary & active execution order (`2026-10-28`)**: [`handover.md`](handover.md) ("Tomorrow, in order", "State when closed", "What not to assume", and "Where things are").
 - **Repo-level roadmap & open/closed lanes**: [`../roadmap.md`](../roadmap.md).
-- **Active decisions log (`2026-10-23` through `2026-10-27` + date router)**: [`decisions.md`](decisions.md).
+- **Active decisions log (`2026-10-23` through `2026-10-28` + date router)**: [`decisions.md`](decisions.md).
 - **Masked lane operative rules, protocol, & code map**: [`../masked_v2v/AGENTS.md`](../masked_v2v/AGENTS.md), [`../masked_v2v/PROTOCOL.md`](../masked_v2v/PROTOCOL.md), [`../masked_v2v/CODE_MAP_INDEX.md`](../masked_v2v/CODE_MAP_INDEX.md), and [`../masked_v2v/2026-10-25_pass_contamination_and_mask_step_forensics.md`](../masked_v2v/2026-10-25_pass_contamination_and_mask_step_forensics.md).
 
-## Current Order (`2026-10-27`)
+## Current Order (`2026-10-28`)
 
-Follow [`handover.md`](handover.md)'s **"Tomorrow, in order"** (rewritten at the `2026-10-26` close) and [`decisions.md`](decisions.md) (`2026-10-26`):
-1. With `:8188` stopped, land and replay the three morning builds in worktrees (`Build 1`: retire `hold_to_track` and `_head_seed_from_person_mask`'s flat slice, define her part at `job` from crop-Sapiens face+hair unioned with SAM `head_track` in a head-anchored room minus other people's SAM detections, and settle `grade_holds` floor vs. `her_hair_in_hole`; `Build 2`: union SAM 3.1 `people.npz` into `strangers.py`; `Build 3`: make `--head-per-stretch` default in `subject_track.py` and `shot_to_load.py`, re-find after occlusions, withdraw Group 2 screenshot boxes `175-192, 194-196` in `cast.jsonl` while keeping Group 1 `1-174` and Group 3 `197-209`, and remake `second_hfp_4647i`'s reference with no `--no-draw-face-on` word carried).
-2. Show the owner the `4682-4696` strip before starting `:8188`.
-3. Render `second_hfp_4647i`, `second_hfp_4912k`, `third_fp_5114e` (at `margin = 16` enforced by `cbd39fbe`), and the `lead`'s owed single-subject spans (`6105-6394`, `3759-3908`, `516-603`, `2254-2598`).
+Follow [`handover.md`](handover.md)'s **"Tomorrow, in order"** (rewritten at the `2026-10-27` close) and the `2026-10-28` corrections in [`decisions.md`](decisions.md):
+1. Rebuild the whole-video delivery table and morning composite cut (`bench/rebuild_delivery.py --video fun --clip`) so the cut includes `second_hfp_4647i` (`laid.jsonl` row `70`), `third_fp_5114e` (row `71`), and the `187dc9fd` `restore=` pin fixes, and copy the resulting `.mp4` and `.json` sidecars to `$H3_INPUT_DIR` (`--source`).
+2. Unblock and render `second_hfp_4912m` (`4912–4946`, Pass 1 `second`) after an independent non-maker `looked` pass, overriding post-`on-plan` `f002` (`key: 7eb6b893b25b6aff`), and running `flags-read`.
+3. Queue Pass 3 `lead` preview on `4647–4725` (`shot_c_4647m`) on the new morning cut behind `4912m`'s render, and after `4912m` is kept and laid, rebuild the cut and render Pass 2 `third` on `4912–4946` (`margin = 16`, face only, no beard).
+4. Clear the `lead` single-subject queue by frames owed (`6105–6394` [290f], `2254–2598` [345f laid on `2271–2598`], `3759–3908` [150f], `516–603` [88f], `3595–3671`, `5044–5113`, then `4774, 3476, 3240, 4227` and `1419–1465` `second`).
 
 ## Historical Queues (`2026-09-05` through `2026-10-20`)
 

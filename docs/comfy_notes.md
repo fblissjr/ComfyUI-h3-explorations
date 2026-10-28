@@ -1,6 +1,6 @@
 # Notes on building custom nodes and workflows inside ComfyUI
 
-Last updated: 2026-10-27.
+Last updated: 2026-10-28.
 
 ## Running things
 
@@ -31,6 +31,10 @@ Because this repo sits at `<comfy>/custom_nodes/ComfyUI-h3-explorations`, `<comf
 
 **Antigravity (`agy`) harness subshell rule:**
 In the `agy` harness, each `run_command` tool call spawns a new bash subshell in the workspace root: **`cd` and `export` do not persist across separate `run_command` calls**. Include the environment block above (or inline the variables) in every `run_command` call that runs a `bench/` script. If `$PY` is referenced in a later `run_command` where it was not defined, bash expands `$PY` to empty and executes `bench/*.py` directly via its `#!/usr/bin/env python3` shebang (system Python, which lacks `torch` and `comfy`).
+
+**Antigravity (`agy`) video and audio inspection routing (`.gemini/skills/video-understanding/SKILL.md`):**
+- **Path 1 (Mandatory Default — `looks/`, `review_clips/`, `*_STACKED.1fps.*.mp4`)**: Call native `read_file` on `<stem>.1fps.<first>-<last>.mp4` (`bench/_lib/frames.py::OneASecond`, `<80 MB` parts, `1:1` midpoint alignment `t ≈ N + 0.5s`) for every-frame visual QA and `read_file` on the companion `24 fps` `.mp4` for audio, running `100%` on Ultra OAuth quota (`$0` API spend).
+- **Path 2A / 2B (`~/.local/bin/gemini-api` fallback)**: Reserve for `>100 MB` single files or raw `24 fps` clips without `.1fps.mp4`; use `gemini-api agent run --body` with `"type": "video"`, `"resolution": "high"`, and `"processing": {"type": "static", "fps": 24}` (Path 2A), and **never** use `"processing": "agentic"` (Path 2B) on stacked/multi-panel diagnostic strips. Follow `.gemini/skills/video-understanding/SKILL.md` for exact commands and `files delete` cleanup.
 
 No test suite. Verify against a live ComfyUI and GPU: `bench/smoke_h3.py` for a
 fast pass, the relevant `bench/*.py` for the claim you changed. Most
