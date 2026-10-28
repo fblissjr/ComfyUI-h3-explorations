@@ -134,7 +134,7 @@ REGAIN_FACE_POINTS_MIN: int = (
 )
 #: Minimum SAM 3.1 `head_track` seed pixels inside `raw_track_bool` required before a frame can expand into connected
 #: upward crown components (`head_tube_for_capture`, 2026-10-28). **Reasoned starting value, not a universal measurement**,
-#: set against `second_hfp_4912n` frame `4926` (`1 px` `.mp4` compression speck at `(691, 505)` inside `raw_track_bool`,
+#: set against `second_hfp_4912n` frame `4926` (`1 px` stray detection at `(691, 505)` inside `raw_track_bool`,
 #: or `12 px` on `4922`, which must NOT seed component expansion into `5,209 px` of `parts_bool` and inflate `4926` from
 #: `818 px` to `6,956 px`) vs frames `4927-4932` (`>= 2,715 px` lower-face SAM `head_track` masks: `2,715, 4,643, 4,583,
 #: 4,454, 4,165, 4,108 px`).
