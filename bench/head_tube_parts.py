@@ -132,6 +132,20 @@ SHORT_DIP_BOUND_LEAST_SHARE: float = (
 REGAIN_FACE_POINTS_MIN: int = (
     9  #: measured: 2026-10-21, on every frame the head tube re-seeded from the person track on second_hfp_4912e, 1093c, 4647d, 4726c, 5011e and 5889e and lead_fp_0606d (own_part_face_points on each capture's own inputs): at most 1 such point where the seed held no head of hers (4912e's 4943; her raised hand on 4921-4923 and 4941-4945, which her class map calls face and hair), at least 17 where it held her face (4726c's 4751); the gap's midpoint, a starting value. Not seen by it: 5889e's 5923 and 5926, 38 points piled at the frame's edge as she leaves it
 )
+#: Minimum SAM 3.1 `head_track` seed pixels inside `raw_track_bool` required before a frame can expand into connected
+#: upward crown components (`head_tube_for_capture`, 2026-10-28). **Reasoned starting value, not a universal measurement**,
+#: set against `second_hfp_4912n` frame `4926` (`1 px` `.mp4` compression speck at `(691, 505)` inside `raw_track_bool`,
+#: or `12 px` on `4922`, which must NOT seed component expansion into `5,209 px` of `parts_bool` and inflate `4926` from
+#: `818 px` to `6,956 px`) vs frames `4927-4932` (`>= 2,715 px` lower-face SAM `head_track` masks: `2,715, 4,643, 4,583,
+#: 4,454, 4,165, 4,108 px`).
+_SPECK_MIN_PX: int = 64
+#: Minimum connected `parts_bool & raw_track_bool` pixels strictly above `hy0` (`y < hy0`) required to join an upward
+#: crown extension on a `head_and_hair_on_head_track` load while keeping the lower bound `y <= hy1` (`head_tube_for_capture`,
+#: 2026-10-28). **Reasoned starting value, not a universal measurement**, set against `second_hfp_4912n` frames `4927-4932`
+#: (`2,607-2,813 px` missing crowns above `hy0` inside `raw_track_bool`: `2,813, 2,724, 2,729, 2,729, 2,706, 2,607 px`) vs
+#: `second_hfp_4647i` (`2-17 px` boundary jitter above `hy0`, including `12 px` on `4671` and `2 px` on `4696`),
+#: `second_hfp_5114k` (`<= 5 px`), and `second_hfp_1039h` (`<= 7 px`).
+_MIN_CROWN_ABOVE_HY0_PX: int = 256
 #: THE SOURCE'S FACIAL HAIR (`face_piece_kept_whole`, 2026-10-23): how far past the columns of the tube's own part, on each side, the
 #: piece of the part kept below the tube may reach. **Reasoned**, not measured: the edge of a beard and the part model's wobble at the
 #: jaw line, set to the 8 px the job holds a part to its own track by (h3_config.MASKED_STRANGERS['grow_px'], the job's
@@ -2073,6 +2087,33 @@ def head_tube_for_capture(
     hair_id = NAME_TO_ID.get("Hair", -1)
     face_id = NAME_TO_ID.get("Face_Neck", part_ids[0])
     head_and_hair_on_head_track = head_track_bool is not None and hair_id >= 0 and hair_id in part_ids
+    if head_and_hair_on_head_track and head_track_bool is not None:
+        # When SAM 3.1's head_track covers the lower face (`>= _SPECK_MIN_PX = 64 px`, excluding 1-px compression specks
+        # like 4912n frame 4926 at (691, 505)) but clips the upper hair crown at `hy0` (4912n frames 4927-4932, where
+        # `parts_bool & raw_track_bool` has 2,607-2,813 px connected above `hy0`), expand `head_track_bool` upward into
+        # that connected component inside `raw_track_bool` while keeping the lower bound `y <= hy1` (so neck/collarbone
+        # pixels below `hy1` are not added) and leaving `tube_info["tube"]` untouched for `her_hair_in_hole`.
+        k_crown_ht = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+        for t in range(num_frames):
+            if t in hidden_set:
+                continue
+            ht_in_raw = head_track_bool[t] & raw_track_bool[t]
+            if int(np.count_nonzero(ht_in_raw)) < _SPECK_MIN_PX or not np.any(parts_bool[t]):
+                continue
+            ys_ht = np.where(ht_in_raw)[0]
+            hy0, hy1 = int(ys_ht.min()), int(ys_ht.max())
+            if hy0 <= 0:
+                continue
+            near_ht = cv2.dilate(ht_in_raw.astype(np.uint8), k_crown_ht) > 0
+            num_l, labels, _, _ = cv2.connectedComponentsWithStats(
+                (parts_bool[t] & track_bool[t]).astype(np.uint8), connectivity=8
+            )
+            for lbl in range(1, num_l):
+                comp = labels == lbl
+                if np.any(comp & near_ht) and np.any(comp & ht_in_raw):
+                    comp_raw = comp & raw_track_bool[t]
+                    if int(np.count_nonzero(comp_raw[:hy0, :])) >= _MIN_CROWN_ABOVE_HY0_PX:
+                        head_track_bool[t, : hy1 + 1, :] |= comp_raw[: hy1 + 1, :]
     ht_in_track = (head_track_bool & track_bool) if head_track_bool is not None else None
     if head_and_hair_on_head_track and ht_in_track is not None:
         tube_updated = False
