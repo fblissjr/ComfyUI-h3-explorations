@@ -3,6 +3,8 @@
 Loaded when a session opens a file here; [`docs/AGENTS.md`](../AGENTS.md) and the root [`AGENTS.md`](../../AGENTS.md) still govern.
 
 - **Start here**:
+  - Latest session handover, shipped changes, verified keeps, and hard operational safeguards (`2026-10-28`, **keep in sync as renders land**): [`docs/masked_v2v/2026-10-28_session_handover.md`](2026-10-28_session_handover.md) (and forensic session postmortem in `internal/gemini/2026-10-28_session_ebdd0a24_subagent_postmortem.md`)
+  - Live `fun` render & remake backlog, upstream derived-data dependency DAG, cache cutoffs, and multi-subject pass sequences (`2026-10-28`, **keep in sync as backlog or plan changes**): [`docs/masked_v2v/fun_render_backlog.md`](fun_render_backlog.md)
   - End-to-end code map, stage contracts, AST jump index, and simplification plan (`2026-10-26` / `2026-10-27`): [`docs/research/masking/2026-10-26_code_map_and_simplification_plan.md`](../research/masking/2026-10-26_code_map_and_simplification_plan.md), [`docs/masked_v2v/CODE_MAP_INDEX.md`](CODE_MAP_INDEX.md), [`docs/masked_v2v/code_map_stages.md`](code_map_stages.md), and [`docs/masked_v2v/code_map_contracts.md`](code_map_contracts.md) — run `<python> bench/masked_code_map.py --help` ([`bench/masked_code_map.py`](../../bench/masked_code_map.py)) for the live AST symbol, dependency, call-graph, data-chain ("both ends"), status, and anti-drift CLI menu.
   - Execution & debugging protocol (CLI commands for Stages 0–5): [`docs/masked_v2v/PROTOCOL.md`](PROTOCOL.md)
   - What a change forces (stages 0–7 in trace order) & `her_hair_in_hole`: [`docs/masked_v2v/chain_trace_and_remakes.md`](chain_trace_and_remakes.md)
