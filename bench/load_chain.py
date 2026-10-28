@@ -843,9 +843,13 @@ def go_text(ctx: dict, by: str, now: str, grounds: str, show: str, look: dict, p
 
 def page_item(ctx: dict, spec: dict, clip: str, first: int, last: int, link: str, buttons: tuple) -> dict:
     """A render's item for the review list, from the words a person wrote (`spec`) and the load's own figures."""
-    missing = [k for k in ("title_rest", "state_words", "what", "look", "prompt_note") if not str(spec.get(k) or "").strip()]
+    keys = ("title_rest", "state_words", "what", "look", "prompt_note")
+    missing = [k for k in keys if not str(spec.get(k) or "").strip()]
     if missing:
         raise Refused(f"the page's words lack {', '.join(missing)}: they are a person's to write (--spec)")
+    non_str = [k for k in keys if not isinstance(spec.get(k), str)]
+    if non_str:
+        raise Refused(f"the page's words must be strings, not {', '.join(f'{k}={type(spec.get(k)).__name__}' for k in non_str)} (--spec)")
     name = ctx["name"]
     if spec["title_rest"].startswith(name):
         raise Refused("`title_rest` begins with the load's name, which the title already starts with")
