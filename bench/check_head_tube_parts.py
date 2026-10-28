@@ -840,11 +840,32 @@ def _case_head_track_seed_mask() -> str:
         assert int(res_hfp["seg_info"]["hair_mask"][t].sum()) == (16 * 24) - 160, (
             f"frame {t}: non-face pixels inside head_track were not assigned Hair: {int(res_hfp['seg_info']['hair_mask'][t].sum())}"
         )
+    # 4912n crown-join check: on a head-and-hair load with head_track, a connected component of (parts & raw_track) overlapping
+    # head_track (with >= _SPECK_MIN_PX = 64 px) and extending >= _MIN_CROWN_ABOVE_HY0_PX = 256 px above hy0 is joined up to hy1
+    # (excluding neck/collarbone below hy1), while a 1-px speck (< _SPECK_MIN_PX, like 4926 after hidden 4925) or < 256 px
+    # boundary jitter above hy0 (like 4647i's 2-17 px) is not.
+    ht_crown = np.zeros((4, 64, 64), dtype=bool)
+    ht_crown[0, 20:28, 16:48] = True       # frame 0: lower-face head_track (256 px >= 64), only 16 px jitter above hy0 (< 256)
+    ht_crown[1, 20:28, 16:48] = True       # frame 1: lower-face head_track (8x32 = 256 px >= 64), hy0=20, hy1=27
+    ht_crown[3, 25, 30] = True             # frame 3: 1-px compression speck (< 64) after empty frame 2, must stay 1 px
+    parts_crown = np.zeros((4, 64, 64), dtype=bool)
+    parts_crown[0, 19:28, 16:32] = True    # frame 0: 1x16 = 16 px above hy0=20 (< 256)
+    parts_crown[1, 10:34, 16:48] = True    # frame 1: 10x32 = 320 px crown above hy0=20 (>= 256) + 6x32 = 192 px neck below hy1=27
+    parts_crown[3, 10:34, 16:48] = True    # frame 3: full part component overlapping 1-px speck
+    cmap_crown = np.where(parts_crown, hair_id, 0).astype(np.uint8)
+    res_crown = htp.head_tube_for_capture(
+        person_track, parts_crown, cmap_crown, head_parts=htp.DEFAULT_HEAD_PARTS, head_track=ht_crown
+    )
+    assert int(res_crown["part_mask"][0, :20, :].sum()) == 0, "frame 0: 16-px boundary jitter (< 256 px) above hy0 was joined"
+    assert int(res_crown["part_mask"][1, 10:20, 16:48].sum()) == 320, "frame 1: 320-px crown above hy0 was not joined"
+    assert int(res_crown["part_mask"][1, 28:34, 16:48].sum()) == 0, "frame 1: neck pixels below hy1 were joined"
+    assert int(res_crown["tube_info"]["tube"][1].sum()) == 256, "frame 1: SAM tube_info['tube'] was altered by crown join"
+    assert int(res_crown["part_mask"][3].sum()) == 1, f"frame 3: 1-px speck expanded to {int(res_crown['part_mask'][3].sum())} px"
     refused(
         lambda: htp.head_tube_for_capture(person_track, raw_parts, cmap, head_parts=("Face_Neck",), head_track=head_track[:2]),
         "head_track shape",
     )
-    return "head_track clipped to person_track, 2-frame unclassified hole filled, hfp head_track region + Hair assignment verified, wrong shape refused"
+    return "head_track clipped to person_track, 2-frame unclassified hole filled, hfp head_track + crown-join verified, wrong shape refused"
 
 
 def _case_short_tube_dips_bridged() -> str:
