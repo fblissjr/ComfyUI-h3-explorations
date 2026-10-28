@@ -1,7 +1,7 @@
 ---
 name: video-understanding
 description: Route video, image, and audio inspection in this repo with a strict Native-First Gate inside the Antigravity (agy) harness — always using built-in read_file (.1fps.<first>-<last>.mp4, <100 MB 24 fps .mp4, .png/.jpg) and local $PY (PIL/cv2/numpy, <preview>_people.npz, bench/voice_spans.py) at $0 API spend first, and calling gemini-api ONLY for capabilities agy cannot perform natively.
-reviewed: e88857cf
+reviewed: 3c8214a9
 ---
 
 # Video, Image, and Audio Understanding Router
