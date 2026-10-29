@@ -112,7 +112,8 @@ SONG, SOURCE = "MiniMaxH3AudioFreezeSong", "MiniMaxH3MaskedSource"
 #: The Masked Source's linked inputs that carry a picture, and the name each is shown under. **Inherited** from the
 #: node's own inputs (`video_mask.py`, `MiniMaxH3MaskedSource.define_schema`); one not listed is shown by its own name.
 ROLES = {"frames": "the source", "mask": "the subject's mask", "parts": "the parts kept", "others": "the keep-outs",
-         "motion_video": "<Video 1>", "motion_video_2": "<Video 2>", "keep": "what is kept the original (`keep`)"}
+         "motion_video": "<Video 1>", "motion_video_2": "<Video 2>", "keep": "what is kept the original (`keep`)",
+         "encode_frames": "the conditioning frames (`encode_frames`)"}
 #: The Masked Source's lazy inputs and which `replace` asks for each (`video_mask.py`, `check_lazy_status` and the
 #: LAZY_FOR_* names). **Inherited**; a linked lazy input `replace` does not ask for is listed and said to be unread.
 LAZY = {"mask": None, "shot_table": None, "segmenter": ("head and hair",), "segmenter_clip": ("head and hair",),

@@ -587,7 +587,8 @@ def the_nodes_schemas_accept_a_load():
     import build_workflows
     oi = declared()
     for label, g in (("whole", _a_load()), ("whole plan", _a_load(plan=True)), ("part", _a_load(PART, FILES_PART)),
-                     ("part, rendered zoomed in", _a_load({**{k: v for k, v in PART.items() if k != "continue_from"}, "render_region": "part"}, FILES_PART))):
+                     ("part, rendered zoomed in", _a_load({**{k: v for k, v in PART.items() if k != "continue_from"}, "render_region": "part"}, FILES_PART)),
+                     ("with encode_file", _a_load({**WHOLE, "encode_file": "/output/cond.mkv", "encode_file_by": "test"}, {**FILES_WHOLE, "encode": ("/output/cond.mkv", 604)}))):
         ours = ours_only(g, oi)
         assert {graphs.SOURCE, graphs.SONG, "MiniMaxH3AppendRefImage"} <= {n["class_type"] for n in ours.values()}, \
             f"{label}: the nodes a load changes were not found to grade, only {sorted({n['class_type'] for n in ours.values()})}"
@@ -764,6 +765,7 @@ def a_load_the_graph_cannot_be_built_from():
     _unbuildable("zoom_up_to_by", {**own_run, "render_region": "part", "zoom_up_to": 4}, FILES_PART)
     _unbuildable("zoom_up_to|a number", {**own_run, "render_region": "part", "zoom_up_to": "4", "zoom_up_to_by": "a test"}, FILES_PART)
     _unbuildable("zoom_up_to|whole frame", {**own_run, "render_region": "frame", "zoom_up_to": 4, "zoom_up_to_by": "a test"}, FILES_PART)
+    _unbuildable("encode_file_by", {**WHOLE, "encode_file": "/output/cond.mkv"})
     # a zoomed load takes a motion video only as a file it names: the preview's own body model is of the whole frame
     _unbuildable("zoomed in|whole frame|motion_file", {**own_run, "render_region": "part", "motion": "mesh"}, {**FILES_PART, "motion": ("/output/a.mp4", 604)})
     _unbuildable("zoomed in|continue_from", {**PART, "render_region": "part"}, FILES_PART)

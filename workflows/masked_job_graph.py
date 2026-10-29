@@ -746,6 +746,13 @@ def check_load(job: dict, one: dict, windows: tuple[int, ...]) -> None:
             raise ValueError(f"load {name!r} sets zoom_up_to with no zoom_up_to_by: who asked for it and why")
         if region != "part":
             raise ValueError(f"load {name!r} sets zoom_up_to on a load rendered on the whole frame: it acts only on `render_region: part`")
+    if "encode_file" in one or "encode_file_by" in one or "encode_first" in one:
+        ef, asked = one.get("encode_file"), one.get("encode_file_by")
+        why = asked.get("why") if isinstance(asked, dict) else asked
+        if not isinstance(ef, str) or not ef.strip():
+            raise ValueError(f"load {name!r}: encode_file {ef!r}; a video path for encode_frames")
+        if not str(why or "").strip():
+            raise ValueError(f"load {name!r} sets encode_file with no encode_file_by: who asked for it and why")
     if region != "frame" and motion_of(job, one) != "none" and not one.get("motion_file"):
         raise ValueError(f"load {name!r} is rendered zoomed in and takes the preview's own motion video "
                          f"(`{motion_of(job, one)}`), which is of the whole frame: the node shows a zoomed load its "
@@ -863,7 +870,7 @@ def load(base: dict, job: dict, one: dict, files: dict, text: str, *, windows: t
 
     src = g[source]["inputs"]
     for gone in ("segmenter", "segmenter_clip", "shot_table", "parts", "others", "keep", "motion_video", "motion_video_2",
-                 "motion_short_edge_2"):
+                 "motion_short_edge_2", "encode_frames"):
         src.pop(gone, None)
     part = one.get("carried", "track") == "held"
     if part and not files.get("parts"):
@@ -938,6 +945,8 @@ def load(base: dict, job: dict, one: dict, files: dict, text: str, *, windows: t
     src.pop("context_shows", None)
     if one.get("context_shows", CONTEXT_SHOWS[0]) != CONTEXT_SHOWS[0]:
         src["context_shows"] = one["context_shows"]
+    if files.get("encode"):
+        src["encode_frames"] = from_file(*files["encode"], as_mask=False)
     src.pop("held_tail", None)
 
     still = _the(g, "LoadImage")

@@ -2137,6 +2137,8 @@ def zoomed_source(source: dict, width: int, height: int, continued=NOT_CONTINUED
             "up_to": up_to}
     names = [k for k in ("mask", "keep", "others") if source.get(k) is not None]
     made = {"frames": crop_frames(frames, box, width, height)}
+    if source.get("encode_frames") is not None:
+        made["encode_frames"] = crop_frames(source["encode_frames"], box, width, height)
     for k in names:
         m = source[k]
         made[k] = crop_mask(m[..., 0] if m.ndim == 4 else m, box, width, height)
@@ -2271,12 +2273,17 @@ def window(source: dict, first_frame: int, frames: int, width: int, height: int,
     if source.get("others") is not None or source.get("keep") is not None:
         # a piece of the region the keep-outs cut off from the subject is given back to the source (`drop_islands`)
         tokens = drop_islands(tokens, token_mask(mask, latent_t, lat_h, lat_w, whole))
-    encode = pixels
+    if source.get("encode_frames") is not None:
+        encode = fit_frames(source["encode_frames"][int(first_frame):int(first_frame) + int(frames)], width, height)
+        if short > 0:
+            encode = torch.cat([encode, encode[-1:].expand(short, -1, -1, -1)], dim=0)
+    else:
+        encode = pixels
     if source.get("paint_out"):
-        encode = fill_subject(pixels, grow(mask, margin // 2))
+        encode = fill_subject(encode, grow(mask, margin // 2))
     elif source.get("start_from", START_NOISE) != START_NOISE:
         # a late start shows what is encoded here; `start_zero_tokens` then empties the body's tokens
-        encode = soften_subject(pixels, grow(mask, margin // 2), int(source["start_blur"]))
+        encode = soften_subject(encode, grow(mask, margin // 2), int(source["start_blur"]))
     return pixels, encode, tokens, mask, short
 
 
@@ -2573,6 +2580,11 @@ class MiniMaxH3MaskedSource(io.ComfyNode):
                                         f"on the canvas at {ZOOM_LARGEST:g} times is enlarged until it is, up to this, "
                                         "where the box allows; the picture round it is the frame enlarged that much, so "
                                         "it is soft. Does nothing unless render_region is zoomed in.")),
+                # appended 2026-10-29 (one-variable conditioning test on 4912: separate plate for vae.encode)
+                io.Image.Input("encode_frames", optional=True,
+                               tooltip=("Optional: frames encoded into the window's conditioning latent in place of "
+                                        "`frames`, while `frames` stays what the masks are sized on and what the "
+                                        "decoded hole is laid back onto. Must match `frames` in shape [N, H, W, C].")),
             ],
             outputs=[H3MaskedSource.Output(display_name="source"),
                      io.Mask.Output(display_name="mask",
@@ -2624,7 +2636,7 @@ class MiniMaxH3MaskedSource(io.ComfyNode):
                 edge=EDGE_TOKENS, motion_video=None,
                 render_region=RENDER_WHOLE, motion_video_2=None,
                 motion_short_edge_2=MOTION_SHORT_EDGE, context_shows=CONTEXT_AS_FILMED,
-                zoom_up_to=ZOOM_LARGEST) -> io.NodeOutput:
+                zoom_up_to=ZOOM_LARGEST, encode_frames=None) -> io.NodeOutput:
         if frames.ndim != 4:
             raise ValueError(f"frames must be [N, H, W, C]; got {tuple(frames.shape)}")
         if grow_by not in GROW_BY:
@@ -2676,6 +2688,11 @@ class MiniMaxH3MaskedSource(io.ComfyNode):
                                  f"({pad_before}, {pad_after}), or under none")
         else:
             pad_before = pad_after = held_before = held_after = 0
+        if encode_frames is not None:
+            if (encode_frames.ndim != 4 or int(encode_frames.shape[0]) not in (n_shot, n_frames)
+                    or tuple(encode_frames.shape[1:]) != tuple(frames.shape[1:])):
+                raise ValueError(f"`encode_frames` is {tuple(encode_frames.shape)} and `frames` is {tuple(frames.shape)} (shot {n_shot}): "
+                                 "it needs the same [H, W, C] size and one frame per shot or window frame")
         if motion_video is not None:
             if motion_reference != MOTION_WIRED:
                 raise ValueError(f"`motion_video` is wired and motion_reference is `{motion_reference}`: set it to "
@@ -2774,13 +2791,18 @@ class MiniMaxH3MaskedSource(io.ComfyNode):
                 keep = F.pad(keep, (0, 0, 0, 0, pad_before, pad_after))
             if others is not None:
                 others = F.pad(others, (0, 0, 0, 0, pad_before, pad_after))
+            if encode_frames is not None and int(encode_frames.shape[0]) == n_shot:
+                encode_frames = torch.cat(
+                    ([encode_frames[:1].expand(pad_before, -1, -1, -1)] if pad_before else [])
+                    + [encode_frames]
+                    + ([encode_frames[-1:].expand(pad_after, -1, -1, -1)] if pad_after else []), dim=0)
             if held_before or held_after:
                 # across a cut, the shot's edge frame (or nearest frame >= HELD_EDGE_LEAST * middle) held with its masks in place of the other shot's frames
                 src_b = (pad_before + shot_before) if shot_before is not None else None
                 src_a = (pad_before + shot_after) if shot_after is not None else None
-                frames, tracked, mask, keep, others = (
+                frames, encode_frames, tracked, mask, keep, others = (
                     hold_context(x, held_before, held_after, src_before=src_b, src_after=src_a)
-                    for x in (frames, tracked, mask, keep, others)
+                    for x in (frames, encode_frames, tracked, mask, keep, others)
                 )
                 context.update({k: v for k, v in (("held_before", held_before), ("held_after", held_after)) if v})
                 logger.info("[h3] MiniMaxH3MaskedSource: %d context frame(s) before the shot and %d after it lie across a "
@@ -2878,6 +2900,7 @@ class MiniMaxH3MaskedSource(io.ComfyNode):
                               # the frames that start a shot: the composite lays nothing across one of them
                               # from the subject (`cut_gate`)
                               "cuts": cuts,
+                              **({"encode_frames": encode_frames} if encode_frames is not None else {}),
                               **({"pad_before": pad_before, "pad_after": pad_after} if (pad_before or pad_after) else {}),
                               # on a padded window: what its context frames show (`CONTEXT_SHOWS`), and under `face
                               # covered` those of them across a cut from the shot (`context_across_cut`)

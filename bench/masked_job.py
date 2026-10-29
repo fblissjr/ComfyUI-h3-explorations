@@ -695,6 +695,10 @@ def capture_files(job: dict, one: dict, capture: Path, mesh_of, stage: str = "pl
             if not Path(one["motion_file_2"]).is_file():
                 raise Refused(f"load {one['name']!r}: its motion_file_2 {one['motion_file_2']} is not a file")
             files["motion_2"] = (str(one["motion_file_2"]), one.get("motion_first_2", job["first"]))
+    if one.get("encode_file"):
+        if not Path(one["encode_file"]).is_file():
+            raise Refused(f"load {one['name']!r}: its encode_file {one['encode_file']} is not a file")
+        files["encode"] = (str(one["encode_file"]), one.get("encode_first", one["first"]))
     return files
 
 

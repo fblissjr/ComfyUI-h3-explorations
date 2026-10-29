@@ -2341,7 +2341,7 @@ def check_others(problems):
 #: The Masked Source's last inputs, in the order they were appended. A saved workflow stores a widget's value
 #: by position, so a new input goes on the end and none of these moves: each case below that owns one of them
 #: asks `_appended` for it, and adding an input is one name on the end of this tuple.
-APPENDED = ("others", "edge", "motion_video", "render_region", "motion_video_2", "motion_short_edge_2", "context_shows", "zoom_up_to")
+APPENDED = ("others", "edge", "motion_video", "render_region", "motion_video_2", "motion_short_edge_2", "context_shows", "zoom_up_to", "encode_frames")
 
 
 def _appended(name: str):
@@ -3199,6 +3199,45 @@ def check_loader_cap(problems, path, graph, loader_id, song, plan):
                                                                  if int(cap) > reads else ": the plan runs out of picture"))
 
 
+def check_encode_frames(problems):
+    """`encode_frames` feeds `window`'s `encode` without changing `source["frames"]`, the masks, or the zoom box."""
+    n, h, w = 9, 96, 160
+    frames = torch.full((n, h, w, 3), 0.2)
+    encode = torch.full((n, h, w, 3), 0.7)
+    mask = torch.zeros(n, h, w)
+    mask[:, 24:56, 48:96] = 1.0
+    got = _appended("encode_frames")
+    if got is None or not got.optional:
+        problems.append("encode_frames: it is not where it was appended (at the end of `APPENDED`) and optional")
+    out = vm.MiniMaxH3MaskedSource.execute(frames, mask, grow_pixels=16, feather_pixels=4, encode_frames=encode)
+    src = (out.args if hasattr(out, "args") else out)[0]
+    if src.get("encode_frames") is None or not torch.equal(src["encode_frames"], encode):
+        problems.append("encode_frames: the node did not carry `encode_frames` onto the source dict")
+    if not torch.equal(src["frames"], frames):
+        problems.append("encode_frames: wiring `encode_frames` altered `source['frames']`")
+    win = vm.window(src, 0, n, w, h, 3, 12, 20)
+    if not torch.allclose(win[0], frames, atol=1e-5) or not torch.allclose(win[1], encode, atol=1e-5):
+        problems.append("encode_frames: `window` did not keep `pixels` as `frames` and take `encode` from `source['encode_frames']`")
+    zsrc, zbox = vm.zoomed_source(dict(src, render_region="zoomed in on what is replaced", zoom_up_to=2.0), w, h)
+    if zbox is None or zsrc.get("encode_frames") is None or tuple(zsrc["encode_frames"].shape) != tuple(zsrc["frames"].shape):
+        problems.append("encode_frames: `zoomed_source` did not crop `encode_frames` alongside `frames`")
+    win39_f = torch.full((39, h, w, 3), 0.2)
+    shot35_e = torch.full((35, h, w, 3), 0.7)
+    shot35_m = torch.zeros(35, h, w)
+    shot35_m[:, 24:56, 48:96] = 1.0
+    out39 = vm.MiniMaxH3MaskedSource.execute(win39_f, shot35_m, grow_pixels=16, feather_pixels=4, encode_frames=shot35_e)
+    src39 = (out39.args if hasattr(out39, "args") else out39)[0]
+    if tuple(src39["encode_frames"].shape) != (39, h, w, 3):
+        problems.append(f"encode_frames: 35-frame shot in 39-frame window gave {tuple(src39['encode_frames'].shape)}")
+    for label, bad in (("another frame count", encode[:-1]), ("another size", torch.zeros(n, h // 2, w // 2, 3))):
+        try:
+            vm.MiniMaxH3MaskedSource.execute(frames, mask, grow_pixels=16, feather_pixels=4, encode_frames=bad)
+            problems.append(f"encode_frames: {label} was accepted")
+        except ValueError as exc:
+            if "encode_frames" not in str(exc):
+                problems.append(f"encode_frames: refusal of {label} did not name `encode_frames`: {exc}")
+
+
 def check_graphs(problems):
     seen = 0
     plan = _load("loop_plan")
@@ -3249,7 +3288,7 @@ def check_graphs(problems):
 
 def main() -> int:
     problems: list[str] = []
-    for check in (check_temporal, check_token_grid, check_feather, check_composite, check_window, check_keep, check_edge, check_fit, check_paint_out, check_part, check_changed_alpha, check_motion_reference, check_motion_zoom, check_late_start, check_grow_by, check_others, check_region_rules, check_queue_time_refusals, check_wired_motion, check_subject_boxes, check_cut_gate, check_lay_window, check_song_loop, check_motion_look, check_held_tail, check_context_shows, check_render_zoom, check_mask_review, check_graphs):
+    for check in (check_temporal, check_token_grid, check_feather, check_composite, check_window, check_keep, check_edge, check_fit, check_paint_out, check_part, check_changed_alpha, check_motion_reference, check_motion_zoom, check_late_start, check_grow_by, check_others, check_region_rules, check_queue_time_refusals, check_wired_motion, check_subject_boxes, check_cut_gate, check_lay_window, check_song_loop, check_motion_look, check_held_tail, check_context_shows, check_render_zoom, check_mask_review, check_encode_frames, check_graphs):
         check(problems)
     for p in problems:
         print(f"FAIL  {p}")
