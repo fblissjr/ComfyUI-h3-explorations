@@ -17,6 +17,8 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-10-29
 
+- **Opening scene (`second_hfp_0014g`, `14–167`, `154f`) reopened on the owner's word** (the owner, 2026-10-29, on the review page `data/fun/owner_answers.jsonl:1686-1687` and in `gemlead`'s terminal): `second_hfp_0014g` (`2026-10-23`, `laid.jsonl` row 39, made on `shot_c_0014e` from `2026-10-22` with `"the strangers-cut flicker on 48 and 66-69 accepted as a nitpick"`) is marked `"wrong, and I say where"` (*"janky, artifacts around the mask edges throughout 14-167. Made on the 23rd before the crown join, the depth default and the hair-in-hole fixes. Remake on a fresh preview with current tooling."*). Remade today as `second_hfp_0014h` on a fresh single-subject preview `shot_c_0014f` from the raw source with today's chain (automatic MoGe-2 depth on overlap frames, `head_tube_parts.py` crown join `c8dee328`, and `cranium_box` containment `dc07ccee`), queued after what is already built; `lead_fp_0168c` (`168–185`) stays as kept unless the owner marks it too. Per the owner's instruction, the pre-render reader names the mask edge frames (`48, 66–69`, etc.) specifically, and the post-land reader compares the mask edges against `second_hfp_0014g` as well as the source.
+
 - **A changed dependency invalidates what was made from it** (the owner, 2026-10-29, the Claude advisory session's
   terminal, 16:5xZ): if anything in the shot record, the plan, or the job that a mask or a render depends on changes,
   that mask or render is invalidated and made again; nothing made from the old input is carried. This restates the
