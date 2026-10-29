@@ -15,7 +15,7 @@ this file is only a way to find a script by what it says it does.
 | [`compare_*`](#compare) | 19 |
 | [`build_*`](#build) | 18 |
 | [`probe_*`](#probe) | 11 |
-| [the rest](#the-rest) | 198 |
+| [the rest](#the-rest) | 199 |
 
 ## check
 
@@ -486,6 +486,7 @@ this file is only a way to find a script by what it says it does.
 | [`render_ledger.py`](render_ledger.py) | Every render of a video that is on the share, a shot and a subject at a time, with how each was made. |
 | [`render_postmortem_html.py`](render_postmortem_html.py) | Render a postmortem markdown file to the self-contained HTML the plugin specifies. |
 | [`renders_page.py`](renders_page.py) | One plain page, a row a render of a video in frame order, with the owner's verdict lines under each: what was rendered, from what, and what the owner said of it. |
+| [`replay_cranium_references.py`](replay_cranium_references.py) | 3-way replay of all `--crop cranium` head references (`pre-filter` vs `landed b7875bf1` vs `current cranium_box`). |
 | [`repro_token_aug_nondeterminism.py`](repro_token_aug_nondeterminism.py) | Standalone repro: comfy_kitchen `sol_attn` is not deterministic with `token_aug`. |
 | [`restart_comfy.sh`](restart_comfy.sh) | DISABLED 2026-09-02, owner's call: this script hangs on every run and is |
 | [`review_pages.py`](review_pages.py) | The owner's two local pages in the video's folder on the share (`Video/<video>/`, one copy each), made from the delivery table and the ledger: what is to review now (`to-review`), and what every stretch of the video is made of and from ... |

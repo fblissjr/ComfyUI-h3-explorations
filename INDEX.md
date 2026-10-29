@@ -145,13 +145,14 @@ with none is a helper the others import.
 | directory | tracked files | where its index is |
 |---|---|---|
 | `.claude/` | 1 | [below](#claude) |
+| `.gemini/` | 8 | [below](#gemini) |
 | `archive/` | 29 | [below](#archive) |
 | `assets/` | 1 | [below](#assets) |
-| `bench/` | 820 | [`bench/INDEX.md`](bench/INDEX.md) and [`bench/results/INDEX.md`](bench/results/INDEX.md) for the records |
+| `bench/` | 821 | [`bench/INDEX.md`](bench/INDEX.md) and [`bench/results/INDEX.md`](bench/results/INDEX.md) for the records |
 | `changelog.d/` | | [`changelog.d/README.md`](changelog.d/README.md), one file per changelog entry; not listed and not counted |
 | `contact_sheets/` | 2 | [below](#contact_sheets) |
 | `data/` | 2 | [below](#data) |
-| `docs/` | 201 | [`docs/wiki/index.md`](docs/wiki/index.md), the hand-written router |
+| `docs/` | 204 | [`docs/wiki/index.md`](docs/wiki/index.md), the hand-written router |
 | `prompt_bank/` | 170 | [`docs/prompt_bank.md`](docs/prompt_bank.md), the prompt catalogue |
 | `sparse_tables/` | 1 | [below](#sparse_tables) |
 | `standalone/` | 27 | [below](#standalone) |
@@ -165,6 +166,19 @@ with none is a helper the others import.
 | file | what it says |
 |---|---|
 | [`skills/h3-prompt/SKILL.md`](.claude/skills/h3-prompt/SKILL.md) | Route any work on an H3 prompt in this repo -- "write a prompt", "edit this prompt", "improve this scene", "adapt it", "convert this t2v prompt to ref2va", "why did this render badly", "is this prompt correct", "what should the speaker ... |
+
+## .gemini/
+
+| file | what it says |
+|---|---|
+| [`skills/masked-v2v-audit/SKILL.md`](.gemini/skills/masked-v2v-audit/SKILL.md) | General upstream data-dependency, statistical outlier, frame-alignment, and visual verification workflow for H3 masked V2V pipelines. Always invoke before queuing renders or remakes, or whenever debugging unexpected behavior across ... |
+| [`skills/video-understanding/SKILL.md`](.gemini/skills/video-understanding/SKILL.md) | Route video, image, and audio inspection in this repo with a strict Native-First Gate inside the Antigravity (agy) harness — always using built-in read_file (.1fps.<first>-<last>.mp4, <100 MB 24 fps .mp4, .png/.jpg) and local $PY ... |
+| [`skills/video-understanding/references/audio_and_transcription.md`](.gemini/skills/video-understanding/references/audio_and_transcription.md) | Path 4: Audio & Active-Speaker Transcription (`gemini_media.py transcribe-spans` & `gemini-api transcribe`) |
+| [`skills/video-understanding/references/image_agentic_zoom.md`](.gemini/skills/video-understanding/references/image_agentic_zoom.md) | Path 3B: Agentic Vision (`code_execution` Zoom-and-Inspect) & Per-Item `media_resolution` |
+| [`skills/video-understanding/references/image_boxes_and_masks.md`](.gemini/skills/video-understanding/references/image_boxes_and_masks.md) | Path 3A: Image Understanding — 2D Bounding Boxes, Polygon Segmentation & SAM 3.1 Integration |
+| [`skills/video-understanding/references/video_agentic.md`](.gemini/skills/video-understanding/references/video_agentic.md) | Path 2B: Opt-In Agentic Video Understanding & Multi-Video Mixing |
+| [`skills/video-understanding/references/video_static_and_slicing.md`](.gemini/skills/video-understanding/references/video_static_and_slicing.md) | Path 2A: Static Video Processing, Frame-Span Slicing, and File Input Methods |
+| [`skills/video-understanding/scripts/gemini_media.py`](.gemini/skills/video-understanding/scripts/gemini_media.py) | Deterministic CLI helper for `.gemini/skills/video-understanding/`. |
 
 ## archive/
 
