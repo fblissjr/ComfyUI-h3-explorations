@@ -81,3 +81,38 @@ row for a frame restored from 0 px. Its check, as `gem4912` wrote it: `4912p` wi
 (4926's row existed, 12 px under the floor, so the update in place worked there). Added by the advisory session: one
 capture where `her_hair_in_hole` changed nothing, shown byte-identical, since that is `gem4912`'s own least-harm
 argument. By the repo's rule it lands after a blind read, between loads, and the table is re-run on `4912p` and `4912q`.
+
+Landed 2026-10-29 as `812ec389` and `2ccad408` (the second refuses a held-part mask whose frame count is not the
+capture's), after the advisory session's blind read with the byte-identical control on `0278n`; the tables of `4912p`
+and `4912q` were re-run and carry the counts above.
+
+## 3. On 4912, a share of her own hair lies outside the hole, inside the margin the model is told to blend into
+
+Found 2026-10-29 in the evening. `gemrender` measured on `4912q`'s window record that part of the subject's own hair
+(the part model's Hair class) lies outside the hole; `gem4912` corrected which array is which (the window's `mask` is
+the zoomed hole, the regenerated region is wider and holds all of her hair); the advisory session reproduced the
+share on the canvas grid from the preview's class video (her Hair on her track, before carves) against
+`parts_held`. The script and per-frame rows are in the advisory session's day file (23:27Z); the figures:
+
+| load | her hair outside the hole, first frame / median over the shot | share of the 12 px ring outside the hole that is her own hair, first frame / median |
+|---|---|---|
+| `second_hfp_4912q` | 0.17 / 0.23 (0.33 to 0.36 on 4916 to 4919) | 0.24 / 0.23 (0.41 to 0.49 on 4916 to 4919) |
+| `second_hfp_4479h`, kept | 0.14 / 0.11 | 0.14 / 0.10 |
+| `second_hfp_5114k`, kept | 0.04 / 0.05 | 0.05 / 0.07 |
+
+What it means. The hole is cut to the SAM head track; the crown join in `bench/head_tube_parts.py` adds a hair
+component only where enough of it lies above the track's top and never below, so hair at the back and sides inside
+the head band stays out. That hair sits in the margin: regenerated, but shown to the model as source to blend into.
+On 4912 the margin therefore holds her own dark hair and the bystanders', where on the kept kitchen shots it holds
+wall and doorway. The hole's size is not the difference: on the canvas 4912's hole is the size of `5114k`'s and after
+the zoom covers more latent cells than any kept kitchen shot. The new hair's length and shape differ from hers
+(`<Picture 1>` is long and straight; she wears a short crop), and the margin is a fixed pixel count, not measured
+against the new hair; that is a plan question for the subject and would widen every `second` load.
+
+Two things follow, independent of why the fill is dark: by the owner's rule a visible subject is always replaced,
+so a third of her hair left as filmed on 4916 to 4919 is wrong on its own; and this is the one structural thing
+peculiar to 4912's first window after seven renders that changed seed, crown join, conditioning and reference. It is
+the next one-variable test: the hole taking all of her hair (`--no-head-track WHY --head-tube` on `first`, or the
+join extended to the back and sides, replayed on every kept `second` shot so no kept hole changes), then one render
+with nothing else changed. A "hair outside the hole" share per frame belongs in `bench/frame_table.py` so the next
+shot shows it before it renders.
