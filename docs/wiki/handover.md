@@ -26,7 +26,7 @@ Where this page and a record disagree, the record is right: `git log`, [`decisio
   - **Not yet verified**:
     1. **Blind read completed (`dc07ccee`, `c3b4c64d`, `fbafa9ef`)**: Claude's blind read and `break_checks` runs passed (`3/3 SEEN`, controls green first). The four `gemlead/*` local branches cut during tonight's landing (`gemlead/cranium-track-and-marks`, `gemlead/coverage-no-check`, `gemlead/shot-to-load-depth-check`, `gemlead/handover-and-decisions-2026-10-28`) have been deleted after fast-forwarding `main`.
     2. **No H3 render yet under `dc07ccee`**: The first reference made under `dc07ccee` must have its contact sheet read before `first`.
-    3. **Three unrendered jobs built earlier tonight under `b7875bf1` (`lead_fp_4272c`, `lead_fp_1134b`, `lead_fp_0438b`)**: Currently sit at `plan`/`on-plan` with references built under `b7875bf1` (`4272c` at `2.681x` vs `3.141x` under `dc07ccee`; `0438b` at `1.724x` vs `2.169x` under `dc07ccee`; `1134b` at `2.188x` unchanged). Before rendering them, either remake their references (`4272c`, `0438b`) under `dc07ccee` or render knowing they carry the `b7875bf1` box.
+    3. **Three jobs built and rendered earlier tonight under `b7875bf1` (`lead_fp_4272c`, `lead_fp_1134b`, `lead_fp_0438b`)**: All three rendered around `01:10Z`, landed, and are on the review page awaiting owner verdict (`4272c` rendered on `2.681x` vs `3.141x` under `dc07ccee`; `0438b` rendered on `1.724x` vs `2.169x` under `dc07ccee`; `1134b` rendered on `2.188x` vs `2.174x` under `dc07ccee`). The reference difference under `dc07ccee` matters only if the owner's look on the page says the head is small.
     4. **Measured follow-ups and open doc/tooling items not in `dc07ccee`** (numbers already saved in `data/fun/cranium_crown_and_marks_scan_fun_2026-10-29T0301Z.json` and `data/fun/cranium_raw_vs_window_scan_fun_2026-10-29T0301Z.json`):
        - Asymmetric top-grow above `hy0` (`0.75–0.85 * face` vs `0.50 * face` on the sides) to hold shallow 3D crowns where SAM's head track stops at the brow (`second_4647_4725_g` frame `4696` at `0.85 fh` / `7 px`, `lead_5044_5113` frames `5045, 5060` at `0.76, 0.82 fh`, `second_4912_4946_f` frame `4940` at `0.72 fh`), plus recording `seen & kept` fallback in `sizing_fallback` and updating the two `"no head track read"` strings in `bench/crop_reference_to_head.py`.
        - 3D body-model marks exclusion list (for flipped-mesh frames inside a valid head track where green is painted on legs, e.g. `lead_3476_3523` frame `3489` at `nose_from_body_model_fh = 4.32, eye_roll_diff_deg = 172.6` and `second_1093_1133_h` frame `1095` at `nose_from_body_model_fh = 12.95, eye_roll_diff_deg = 114.8`), replayed before landing since `0.50 fh` also fires on normal frames.
@@ -34,8 +34,9 @@ Where this page and a record disagree, the record is right: `git log`, [`decisio
 
 ## Tomorrow, in order
 
-1. **Blind read of `dc07ccee`, `c3b4c64d`, and `fbafa9ef`**, then decide whether to remake references for `lead_fp_4272c` (`4272–4309`) and `lead_fp_0438b` (`438–483`) under `dc07ccee` before rendering `4272c`, `1134b`, and `0438b`.
-2. **Resume Bucket A renders (`lead_fp_4053d` on `4053–4091` and `lead` on `5044–5113`)**, reading the first new reference's contact sheet under `dc07ccee` before running `first`.
+1. **Owner review on the page for `lead_fp_4272c` (`4272–4309`), `lead_fp_1134b` (`1134–1155`), and `lead_fp_0438b` (`438–483`)**:
+   - All three are rendered, landed, and on the review page (`01:10Z`). Lay the ones kept; remake `4272c` (`3.141x`) or `0438b` (`2.169x`) under `dc07ccee` only if not kept on the page.
+2. **Build & render `lead_fp_4053d` (`4053–4091`, `39f`) as the first reference under `dc07ccee` (`1.958x`), reading its `_sheet.jpg` before `first`, followed by `lead_fp_5044b` (`5044–5113`, `2.798x` with `0` edge frames) and `lead_fp_6105e` (`6105–6394` once drops are written)**.
 3. **Follow-up builds**: asymmetric crown top-grow + 3D-marks exclusion replay in `cranium_box`, `laid.py` overlap refusal / `--trim` / stamp lock, and generated `docs/masked_v2v/fun_status.md` from `shot_coverage.py`.
 
 ## Where things are
