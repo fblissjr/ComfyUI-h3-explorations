@@ -483,6 +483,15 @@ def cranium_box_round_the_grey_head() -> str:
     # THE CASE THAT GOES RED when a frame with no grey head sizes the box
     assert strayed["box"] == plain["box"] and strayed["cranium"]["frames_with_no_grey_head_joined_to_the_face"] == [5] \
         and strayed["cranium"]["those_frames_size_the_box"] is False, (strayed["box"], plain["box"])
+    # an occlusion frame whose 2D face box touches a grey limb but has low confidence (< CRANIUM_SCORE_FLOOR) or a huge outlier
+    # face height (> CRANIUM_FACE_OUTLIER * median, as on lead_0294_0414 frame 317: 389 px at score 0.04) does not size the box
+    occ_kp = faces(CENTRES).copy()
+    occ_kp[5] = CENTRES[5][None, :] + (occ_kp[5] - CENTRES[5][None, :]) * 3.5
+    occ_sc = np.full(occ_kp.shape[:2], 0.9, np.float32)
+    occ_sc[5] = 0.04
+    P_occ, _ = cr.faces.rows_of(str(fx.save(folder / "occ_points.npz", occ_kp, (W, H), first=0, scores=occ_sc)), None, 0, N, 0, whole_face=False)
+    occ_box = cr.cranium_box(P_occ, (W, H), cr.HEAD_ROOM, pics)
+    assert occ_box["box"] == rec["box"], (occ_box["box"], rec["box"])
     # --box cuts by the box given, as it is
     given = cr.run(str(REF), str(POINTS), 0, N, folder / "given.mp4", "the check", box=rec["box"], say=quiet)
     assert given["box"] == rec["box"] and given["box_set_by"].startswith("given") and "cranium" not in given, given["box_set_by"]

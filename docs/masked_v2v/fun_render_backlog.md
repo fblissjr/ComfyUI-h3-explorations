@@ -2,8 +2,9 @@
 
 > [!IMPORTANT]
 > **LIVING BACKLOG — MUST BE KEPT IN SYNC AS THE BACKLOG OR PLAN CHANGES**
-> - **Last Updated**: `2026-10-28T21:03Z`
-> - **Last Updated By**: `gemlead` (verified with `mrfizz` & owner ruling: `516–599` split 3 ways at `zoom_up_to: 4.0` in `plan.json` into `lead_fp_0516f` (`516–558`, `3.88x`), `lead_fp_0559` (`559–578`, `2.42x`), and `lead_fp_0579` (`579–599`, `2.67x`) after `lead_fp_0516e` rendered at `1.0x` whole-frame; `shot_c_2050h` preview completed; `lead_fp_3759c` `first` capture & look completed)
+> - **Last Updated**: `2026-10-29T00:02Z`
+> - **Last Updated By**: `gemlead` (7 keeps laid today: `lead_fp_4647d`, `lead_fp_0516f`, `lead_fp_0559`, `lead_fp_0579`, `lead_fp_3759c`, `lead_fp_2254c`, `lead_fp_3909c`; landed `crop_reference_to_head.py::cranium_box` outlier/score filter + `plan.json` default `depth.on = true` for `lead`/`second`/`third`; `lead_fp_0294e` next)
+> - **HANDOVER DOUBLE-CHECK (`2026-10-29`)**: Tomorrow's handover session must double-check the brand-new `2026-10-28` code and config changes (`bench/crop_reference_to_head.py::cranium_box` `CRANIUM_SCORE_FLOOR = 0.30` / `CRANIUM_FACE_OUTLIER = 2.50`, `data/fun/plan.json` `depth.on = true` on `lead`/`second`/`third`, and the new cross-model dependency checks in [`docs/masked_v2v/upstream_anomaly_and_alignment_checks.md`](upstream_anomaly_and_alignment_checks.md) and [`.gemini/skills/masked-v2v-audit/SKILL.md`](../../.gemini/skills/masked-v2v-audit/SKILL.md)) for any errors, edge cases, or unintended issues.
 > - **Sync Rule**: Any session that renders, lays, parks, or re-sequences a load on `fun` — or lands a change to a stage writer (`subject_track.py`, `sapiens2_parts.py`, `bench/strangers.py`, `bench/head_tube_parts.py`, `bench/pose_along_shot.py`, `bench/head_reference.py`, `bench/load_text.py`, `bench/capture_masked_run.py`) — **MUST** update the status, cache cutoff, and timestamp in this file before closing its turn.
 > - **Authoritative Machine Records (Check First to Avoid Drift)**:
 >   - **What is kept and laid**: [`data/fun/laid.jsonl`](../../data/fun/laid.jsonl) (`bench/laid.py verify`)

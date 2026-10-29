@@ -1,5 +1,12 @@
 # Upstream Data-Dependency, Outlier, and Alignment Diagnostic Reference (Best Known as of `2026-10-28`)
 
+> [!CAUTION]
+> **HANDOVER DOUBLE-CHECK REQUIRED (`2026-10-29` SESSION)**
+> The code changes, `data/fun/plan.json` defaults, and end-to-end dependency protocols below were introduced late on **`2026-10-28`**. At tomorrow's handover, **double-check all three items below for any edge cases, unintended side effects, or issues**:
+> 1. **`bench/crop_reference_to_head.py::cranium_box` (`CRANIUM_SCORE_FLOOR = 0.30`, `CRANIUM_FACE_OUTLIER = 2.50`, `lines 132–139, 272–290`)**: Automatically excludes frames with median 2D face keypoint score `< 0.30` or single-frame face height `> 2.50x` the shot median from sizing the whole-shot `--crop cranium` box (with fallback to `seen & kept`). Verify on new references that legitimate camera push-ins or close-up frames are never inadvertently clipped.
+> 2. **`data/fun/plan.json` (`subjects.<lead|second|third>.depth.on = true`)**: Turns on automatic MoGe-2 per-pixel depth (`bench/measure_moge2_depth.py`) during `shot_to_load.py job` whenever `overlap_frames_of` finds overlapping `strangers` or other-subject track frames (and skips in `0s` when `0` frames overlap). Verify that `depth.npz` behaves cleanly across new `job` and `first` runs and does not over-carve subject masks when `strangers` brushes near a subject.
+> 3. **New Cross-Model Dependency & End-to-End Freshness Protocol (Section 1 below)**: Review the 5 cross-model sync checks (`_pose_table.json` `marks_against_the_body_model` 3D/2D collisions, 3D grey hands inside `--crop cranium`, `cranium_box` outliers, `depth.npz`, and interior `not seen` spans in `shots.json`) and verify no edge cases were missed.
+
 > [!IMPORTANT]
 > **Point-in-Time Reference — Always Check for Code Drift or Live Code Bugs First**
 > - **Snapshot Date**: `2026-10-28` (compiled after a full-day production & debugging session on `fun`).
@@ -14,10 +21,22 @@
 
 ---
 
-## 1. Trace & Align Every Upstream Input in the DAG
+## 1. Trace & Align Every Upstream Input in the DAG (Explicit & Hidden Dependencies)
 
 Every masked V2V render depends on a multi-stage upstream chain:
-`source video` -> `preview (shot_c_*)` -> `strangers.py` + `part_saved_on_track` -> `pose_along_shot.py` -> `head_reference.py` -> `load_text.py` -> `capture_masked_run.py (first)` -> `plan` -> `on-plan` -> `render` -> `land`.
+`source video` -> `preview (shot_c_*)` -> `strangers.py` + `part_saved_on_track` + `measure_moge2_depth.py (--depth)` -> `pose_along_shot.py` -> `head_reference.py` -> `load_text.py` -> `capture_masked_run.py (first)` -> `plan` -> `on-plan` -> `render` -> `land`.
+
+### Hidden / Unsynced Cross-Model Dependencies You Must Check (`2026-10-28` Audit)
+
+Several upstream inputs come from **separate models that do not automatically lock to each other**, or write diagnostic JSON fields marked `"decides": "nothing"` unless you explicitly act on them:
+
+| Upstream Input / JSON Record | Producer -> Consumer | What Can Go Out of Sync or Be Ignored | Action Required (and Reprocessing Scope) |
+|---|---|---|---|
+| **3D Body Mesh (`_mesh_00001.mp4`) vs. 2D Face Landmarks (`_points.npz`) & `_pose_table.json`** | `preview` (`SAM3DBody`) + `pose_along_shot.py` (`Sapiens2-Pose`) -> `head_reference.py` (`<Video 1>`) | `head_reference.py` draws 2D `Sapiens2-Pose` white face lines at film `(x, y)` directly on top of the 3D `SAM3DBody` grey mesh. Across `52` references with a `pose_table` on disk, **`32` (`61.5%`) have flagged 3D/2D collisions** (`marks_against_the_body_model.flagged_frames`: `nose_from_body_model_fh >= 0.5`, `eye_roll_diff_deg >= 15°`, `head_pitch_down_3d >= 0.8`), where the 3D head lags/flips or 2D lines land on the neck/air. Yet `head_reference.py` sets `"decides": "nothing"`. | Inspect `marks_against_the_body_model.flagged_frames` and `_sheet.jpg`. Pass `--no-head-on FIRST-LAST=WHY` (where the 3D mesh flips/jumps) or `--no-draw-face-on FIRST-LAST=WHY` (where 2D lines drift off the 3D head), then **reprocess `reference` -> `text` -> `first` -> `plan` -> `on-plan` -> `render`**. |
+| **3D Grey Arms/Hands Inside `--crop cranium` (`grey_head` in `crop_reference_to_head.py`)** | `crop_reference_to_head.py` -> `head_reference.py` | `grey_head()` (`crop_reference_to_head.py:225-236`) zeroes pixels below mid-face **only** to compute the `[x0, y0, x1, y1]` crop box, then discards that mask. The actual video `<Video 1>` crops the full-body `_mesh_00001.mp4`, so raised 3D grey hands/arms (`f312–314`, `f377` on `0294`) remain in the crop and collide with the white 2D mouth/eye lines. | Check `hand_not_refined` / raised-hand frames on `_sheet.jpg`. If a 3D grey hand covers the mouth/eyes on `<Video 1>`, check whether it blocks transfer in the render; if `crop_reference_to_head.py` is updated to mask non-head mesh components, **reprocess `reference` -> `text` -> `first` -> `plan` -> `render`**. |
+| **Low-Score Keypoints Sizing `--crop cranium` (`seen` in `crop_reference_to_head.py:269`)** | `pose_along_shot.py` (`_points.npz`) -> `crop_reference_to_head.py::cranium_box` | `cranium_box` checks `seen = np.any(hd)` without checking `face_score_median >= 0.3` (`FACE_SCORE_FLOOR`) or outlier face height (`fh > 2x median`). When an occlusion produces a huge bogus 2D face box (`389 px` vs `48.8 px` median on `0294` frame `317`) that touches an upside-down 3D limb, `seen` is `True` and zooms out the whole-shot reference crop (`1.517x` instead of `2.592x`). | Compare `the_one_box_enlarges` vs `each_frame_alone_would_enlarge` and `face_height` `median` vs `most`. Exclude occluded/low-score spans via `--no-head-on` / `--no-face-on` / `--drop`, then **reprocess `reference` -> `text` -> `first` -> `plan` -> `render`**. |
+| **MoGe-2 Per-Pixel Depth (`depth.npz` via `bench/measure_moge2_depth.py`)** | `shot_to_load.py job --depth` -> `capture_masked_run.py files --depth` | `--depth` is **off by default** in `shot_to_load.py job` (`line 5279`). Only `4` shots in `data/` (`0606`, `0751`, `4647`, `4912`) ever had `depth.npz` generated! Without `--depth`, overlapping pixels between the subject and `strangers` (or another subject) are settled without 3D depth. | Pass `--depth` on `shot_to_load.py job` whenever `strangers` or another subject's track overlaps the target subject (`overlap_frames_of`). Adding `--depth` requires **reprocessing `job` -> `first` -> `plan` -> `on-plan` -> `render`**. |
+| **Interior `not seen` Spans in `shots.json` (`who[subject].seen_looks`)** | `shots.json` (`shots_look.py`) -> `shot_to_load.py job` | `shot_to_load.py` (`line 2359`) only checks `seen_looks` for start/end partial-shot bounds; it does **not** automatically populate `--drop` or `--no-face-on` for interior `"is": "not seen"` spans. | Always check `shots.json` `who[subject].seen_looks` before running `job` and pass every interior `not seen` span to `--drop` and `--no-face-on` (or `--no-head-on`). |
 
 1. **Stale Cache & Missing Dependency Links**:
    - Check every input file's `writer_stamp` (`git_commit`, `stamped_at`) or filesystem mtime against the latest commit touching its writer script.

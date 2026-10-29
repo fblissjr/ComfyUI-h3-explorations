@@ -130,6 +130,13 @@ CRANIUM_NECK = 0.35
 #: renders with a reference record: median 2.07, 90th percentile 3.74, most 5.753 on third_fp_4653b, then 5.278 on second_hfp_4602c
 #: and d). `head` and `face` have no such bound. The lever past it is the body model rendered at the cut's size, not this number.
 CRANIUM_MOST = 5.75
+#: Under `--cranium`, a frame whose 2D face points score below `CRANIUM_SCORE_FLOOR` at the median (`face_ids`), or whose
+#: single-frame face height exceeds `CRANIUM_FACE_OUTLIER` times the span's median face height, is a pose guess during an
+#: occlusion (e.g. `lead_0294_0414` frame 317: a foreground passer-by occluded the subject, Sapiens2 guessed a 389.3 px face
+#: box at score 0.04 against a 76.6 px median while the 3D body model flipped upside down, zooming the whole-shot reference
+#: out from 2.592x to 1.517x). Such frames do not size the one box unless every grey-head frame is low-score or an outlier.
+CRANIUM_SCORE_FLOOR = 0.30
+CRANIUM_FACE_OUTLIER = 2.50
 #: The written video must sit within this many grey levels of the picture made for it, at the mean. Reasoned: the
 #: encode moves a picture by about a level; a wrong frame of a moving head moves it by many.
 ENCODE_LEVELS = 6.0
@@ -265,10 +272,22 @@ def cranium_box(points: dict, size: tuple[int, int], room: float, frames: np.nda
     # A frame whose face has no grey head joined to it is one where she is hidden or out of the body model's fit: its face points
     # are the pose model's guess there (second_1093_1133_f, 2026-10-22: on 1125-1127 the face box sat 200 px below her head and
     # stretched the one box from about 5.7 to 2.27 times). Bare and dropped frames (`leave_out_frames`, 2026-10-25: 2050g's 2249-2270
-    # and 4310c's 4388-4389) are likewise left out when sizing the box; a span with no kept grey-head frame falls back cleanly.
+    # and 4310c's 4388-4389), or frames where an occlusion makes the pose model guess a low-score (`< CRANIUM_SCORE_FLOOR`) or
+    # huge outlier (`> CRANIUM_FACE_OUTLIER * face`) face box (lead_0294_0414's 317-319, 2026-10-28: 389.3 px at score 0.04), are
+    # likewise left out when sizing the box; a span with no kept grey-head frame falls back cleanly.
+    fids = fp.face_ids(idx)
+    scores = points.get("scores")
+    fhs = np.array([fp.face_height(p, idx) for p in points["keypoints"]], dtype=float)
+    scored = (
+        np.array([float(np.median(scores[k, fids])) >= CRANIUM_SCORE_FLOOR for k in range(len(each))], dtype=bool)
+        if scores is not None and len(scores) == len(each) and len(fids)
+        else np.ones(len(each), dtype=bool)
+    )
+    in_scale = (fhs <= CRANIUM_FACE_OUTLIER * face) if face > 0 else np.ones(len(each), dtype=bool)
     seen = np.array([bool(np.any(hd)) for hd in heads], dtype=bool)
-    use = seen & kept
-    sized = each[use] if use.any() else (each[seen] if seen.any() else each)
+    good = seen & scored & in_scale
+    use = (good & kept) if (good & kept).any() else (seen & kept)
+    sized = each[use] if use.any() else (each[good] if good.any() else (each[seen] if seen.any() else each))
     want = np.concatenate([sized[:, :2].min(0), sized[:, 2:].max(0)])
     need_w, need_h = float(want[2] - want[0]), float(want[3] - want[1])
     least_w = w / CRANIUM_MOST                                          # the box no narrower than this: enlarged at most CRANIUM_MOST
