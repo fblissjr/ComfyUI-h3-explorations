@@ -5594,8 +5594,10 @@ def hair_in_hole_files(out: Path, label: str, given: dict, made_of: list[str], s
         restored_src = {first + f for f in restored_rel}
         changed_src = {first + f for f in changed_rel}
         changed_pg = False
+        existing_sfs = set()
         for row in pg.get("frames", []):
             sf = int(row.get("source_frame", -1))
+            existing_sfs.add(sf)
             f_idx = sf - first
             if sf in restored_src and str(row.get("did", "")).startswith("emptied"):
                 row["did"] = "saved part kept, restored by her_hair_in_hole"
@@ -5604,7 +5606,17 @@ def hair_in_hole_files(out: Path, label: str, given: dict, made_of: list[str], s
             elif sf in changed_src and 0 <= f_idx < frames:
                 row["px"] = int(held[f_idx].sum())
                 changed_pg = True
+        for f_idx in restored_rel:
+            sf = first + f_idx
+            if sf not in existing_sfs:
+                pg.setdefault("frames", []).append({
+                    "source_frame": sf,
+                    "did": "saved part kept, restored by her_hair_in_hole",
+                    "px": int(held[f_idx].sum()),
+                })
+                changed_pg = True
         if changed_pg:
+            pg["frames"] = sorted(pg.get("frames", []), key=lambda r: int(r.get("source_frame", -1)))
             still_emptied_floor = [
                 int(r["source_frame"]) for r in pg.get("frames", [])
                 if "least_px" in r and str(r.get("did", "")).startswith("emptied")

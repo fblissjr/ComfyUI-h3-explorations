@@ -1116,6 +1116,53 @@ def main() -> int:
             c_restored_by_her_hair_in_hole,
         )
 
+        def c_parts_held_fallback_4912p() -> str:
+            """4912p check case (2026-10-29): when her_hair_in_hole restores frames absent from part_grades.json['frames']
+            (4921: 320 px, 4943-4946: 972..4549 px -> synthetic frame 105: saved_part_px=0, parts_held=972 px) or augments
+            a kept frame (4920: 5279 -> 7606 px; 4939: saved=4675, g['px']=8950 -> synthetic frame 101: saved_part_px=2400,
+            g['px']=8950), frame_table reads parts_held__<by>.mkv and g['px'] rather than misreporting frame 105 as emptied (0 px)."""
+            from capture_masked_run import write_mask_video
+            import numpy as np
+            pg_path = subj_dir / "part_grades.json"
+            mf_path = cap / "manifest.json"
+            part_mkv = subj_dir / "parts_held__shot_s_0100a.mkv"
+            orig_pg = json.loads(pg_path.read_text(encoding="utf-8"))
+            orig_mf = json.loads(mf_path.read_text(encoding="utf-8"))
+            orig_mkv_bytes = part_mkv.read_bytes()
+            try:
+                # 6 frames (101..106) at 1024x768: put 8950 px on frame 0 (101) and 972 px on frame 4 (105, which is absent from part_grades.json and has saved_part_px=0)
+                masks = np.zeros((6, 768, 1024), dtype=bool)
+                masks[0].flat[:8950] = True
+                masks[1].flat[:2350] = True
+                masks[4].flat[:972] = True
+                write_mask_video(part_mkv, masks)
+
+                # On 4912p, restored frames 4921 and 4943-4946 are not in left_as_the_source_with_no_mask
+                mf_4912 = copy.deepcopy(orig_mf)
+                mf_4912["runs"][0]["left_as_the_source_with_no_mask"] = []
+                mf_path.write_text(json.dumps(mf_4912, indent=2) + "\n", encoding="utf-8")
+
+                pg_4912 = copy.deepcopy(orig_pg)
+                pg_4912["frames"][0]["px"] = 8950  # frame 101: did="saved part kept, fill refused" with px=8950 updated by her_hair_in_hole (like 4939)
+                pg_path.write_text(json.dumps(pg_4912, indent=2) + "\n", encoding="utf-8")
+
+                w = frame_table.build_frame_table(cap)
+                _, rows_4912 = _read_table(w["jsonl"])
+                by_sf = {r["source_frame"]: r for r in rows_4912}
+                assert by_sf[101]["outcome"] == "replaced" and by_sf[101]["loaded_part_px"] == 8950 and by_sf[101]["part_px"] == 8950, by_sf[101]
+                assert by_sf[105]["outcome"] == "replaced" and by_sf[105]["loaded_part_px"] == 972 and by_sf[105]["part_px"] == 972, by_sf[105]
+                assert by_sf[105]["saved_part_px"] == 0 and by_sf[105].get("did") == "saved part kept, restored by her_hair_in_hole", by_sf[105]
+                return f"101: loaded_part_px={by_sf[101]['loaded_part_px']} (saved=2400); 105: outcome={by_sf[105]['outcome']}, loaded_part_px={by_sf[105]['loaded_part_px']} (saved=0)"
+            finally:
+                part_mkv.write_bytes(orig_mkv_bytes)
+                mf_path.write_text(json.dumps(orig_mf, indent=2) + "\n", encoding="utf-8")
+                pg_path.write_text(json.dumps(orig_pg, indent=2) + "\n", encoding="utf-8")
+
+        case(
+            "4912p parts_held fallback (2026-10-29): frame absent from part_grades.json restored in parts_held__<by>.mkv is replaced with its carried px, never emptied",
+            c_parts_held_fallback_4912p,
+        )
+
     return finish()
 
 

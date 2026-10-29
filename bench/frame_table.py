@@ -640,6 +640,23 @@ def build_frame_table(
             for idx, val in enumerate(p_counts):
                 npz_part_px[cap_first + idx] = int(val)
 
+    # Read per-frame pixel counts from parts_held__<by>.mkv when present (post-grade and post-her_hair_in_hole)
+    held_part_px: dict[int, int] = {}
+    if part_mask_path is not None and part_mask_path.is_file() and part_mask_path.read_bytes()[:4] == b"\x1a\x45\xdf\xa3":
+        import cv2
+        cap_vid = cv2.VideoCapture(str(part_mask_path))
+        if cap_vid.isOpened():
+            idx = 0
+            while idx < cap_frames:
+                ok, frame_img = cap_vid.read()
+                if not ok or frame_img is None:
+                    break
+                held_part_px[cap_first + idx] = int((frame_img[:, :, 0] > 127).sum())
+                idx += 1
+            cap_vid.release()
+            if idx != cap_frames:
+                held_part_px.clear()
+
     # Read subjects/<person>/per_frame.csv
     per_frame_csv = subj_dir / "per_frame.csv"
     if not per_frame_csv.is_file():
@@ -933,7 +950,7 @@ def build_frame_table(
                 outcome_extra["did"] = did
             elif did in ("saved part kept, fill refused", "saved part kept, restored by her_hair_in_hole"):
                 outcome = "replaced"
-                kept_px = int(g["px"]) if did == "saved part kept, restored by her_hair_in_hole" and g.get("px") is not None else int(saved_part_px or 0)
+                kept_px = int(g["px"]) if g.get("px") is not None else int(held_part_px.get(sf, saved_part_px or 0))
                 loaded_part_px = kept_px
                 part_px = kept_px
                 part_px_measures = "saved_part (carried)"
@@ -974,8 +991,9 @@ def build_frame_table(
             else:
                 raise Refused(f"frame {sf}: unhandled did={did!r}")
         else:
-            # Frame not listed in part_grades.json["frames"]: untouched by grade_parts (not offered & saved >= HOLD_INSIDE, not < least_px)
-            if (saved_part_px or 0) == 0 or sf in no_mask_sfs:
+            # Frame not listed in part_grades.json["frames"]: untouched by grade_parts (or restored/augmented by her_hair_in_hole)
+            carried_px = int(held_part_px.get(sf, saved_part_px or 0))
+            if carried_px == 0 or sf in no_mask_sfs:
                 outcome = "emptied"
                 outcome_extra["cause"] = "nothing saved"
                 loaded_part_px = 0
@@ -983,9 +1001,11 @@ def build_frame_table(
                 part_px_measures = "removed_part (carried=0)"
             else:
                 outcome = "replaced"
-                loaded_part_px = int(saved_part_px or 0)
-                part_px = int(saved_part_px or 0)
+                loaded_part_px = carried_px
+                part_px = carried_px
                 part_px_measures = "saved_part (carried)"
+                if (saved_part_px or 0) == 0 and carried_px > 0:
+                    outcome_extra["did"] = "saved part kept, restored by her_hair_in_hole"
 
         if outcome not in OUTCOMES:
             raise Refused(f"frame {sf}: invalid outcome {outcome!r}")

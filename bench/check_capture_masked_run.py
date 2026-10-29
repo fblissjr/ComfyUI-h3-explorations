@@ -4110,6 +4110,11 @@ def her_hair_in_the_hole() -> str:
             assert s_gap["parts_emptied_by_grade_on_source_frames"] == [], s_gap["parts_emptied_by_grade_on_source_frames"]
             row_2 = next(r for r in pg_gap["frames"] if r["source_frame"] == first + 2)
             assert row_2["px"] > 0, row_2
+            # Frame 3 (`first + 3`) had 0 saved pixels before `her_hair_in_hole` (so `grade_holds` did not write a row for it in
+            # `part_grades.json["frames"]`), and `her_hair_in_hole` restored it via `hair_hers`: verify `part_grades.json["frames"]`
+            # now carries a row for `first + 3` with `did == "saved part kept, restored by her_hair_in_hole"` and its restored `px`
+            row_3 = next((r for r in pg_gap["frames"] if r["source_frame"] == first + 3), None)
+            assert row_3 is not None and row_3["did"] == "saved part kept, restored by her_hair_in_hole" and row_3["px"] > 0, pg_gap["frames"]
         finally:
             for k, v in stood_in.items():
                 setattr(cap, k, v)
