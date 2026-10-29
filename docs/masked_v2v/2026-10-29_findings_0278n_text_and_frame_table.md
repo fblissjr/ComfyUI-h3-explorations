@@ -38,15 +38,20 @@ stayed shut, two things changed, both by way of the drawing:
 `motion_file` was checked, with its text and the reference record beside the motion file, for the mouth-follow wording
 on a record where `bench/load_text.py::mouth_drawn_open` is false, and for the `closed` eye form. The mouth pattern is on two
 rendered loads, `0278n` and the kept `5114k` (four 10-22 jobs carry the words because their records predate the form,
-none kept). The `closed` form is on `0278n` alone. The backlog is clean: `second_hfp_0014h` (open on four frames, two spans) and `lead_fp_5049b` (one frame) have a
+none kept). The `closed` form is on `0278n` alone. The built backlog is clean: `second_hfp_0014h` (open on four frames, two spans) and `lead_fp_5049b` (one frame) have a
 mouth that opens, and the unbuilt lead loads take the lead's `closed_mouth: sculpted`. Nine loads of
 10-13 to 10-23 have no reference record on disk (the verifier's list: `lead_fp_0606`, `0606b`, `0751`, `0751d`, `1920`,
-`2050`, `4053b`, `third_fp_1222c`, `second_hfp_4647e`), none kept or on the backlog.
+`2050`, `4053b`, `third_fp_1222c`, `second_hfp_4647e`), none kept or on the backlog. `gemrender`'s addition: any unbuilt silent `second` shot (its list: `1419–1465`,
+`5768–5791`, `1093–1133`) takes the same trap from the subject's `closed_mouth: outlined` unless the shot sets `sculpted`
+in the plan, as `278–293` now does.
 
 **What follows.** `second_hfp_0278o` is built on words, no code: nothing drawn at the mouth (`closed_mouth: sculpted` on
-the job with its why, the recipe that kept the mouth shut on `0278m`) and `--eyes-shut-form lowered`. The sheet is read
-against the source on 287 to 293 before `first`; if the body model's head lifts where hers stays bowed, it is held from
-286. In the advisory session's reading, two template changes are judgement calls for a render-free window, not obvious wins,
+the shot in `data/fun/plan.json`, the recipe that kept the mouth shut on `0278m`), the `closed` eye drawing, and a text
+written by hand (`text --by-hand`) whose eye sentence says the eyes are shut, on the `lids` clause's model. The advisory
+session first recommended `--eyes-shut-form lowered`; `gemrender` checked and refuted it: on `278–293` the downcast rule
+had already drawn dark irises in propped-open lids on every frame of `0278m`'s reference, so a `lowered` reference is the
+same picture to codec noise (mean difference under one grey level) with the same text, a re-render of the rejected
+letter. The sheet is read against the source on 287 to 293 before `first`. In the advisory session's reading, two template changes are judgement calls for a render-free window, not obvious wins,
 since `5114k` kept with the same text (`gemrender` reads the gating asymmetry as a bug): the mouth clause keying on a mouth drawn open rather than any mouth drawn, and a sentence of the text's own for
 the `closed` and `lowered` forms.
 
