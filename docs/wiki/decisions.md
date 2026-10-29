@@ -17,6 +17,18 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-10-29
 
+- **A changed dependency invalidates what was made from it** (the owner, 2026-10-29, the Claude advisory session's
+  terminal, 16:5xZ): if anything in the shot record, the plan, or the job that a mask or a render depends on changes,
+  that mask or render is invalidated and made again; nothing made from the old input is carried. This restates the
+  lane's prep rule (`docs/masked_v2v/AGENTS.md`, "Prep") with the trigger widened from "code that feeds the stage" to
+  every input in the dependency chain: `shots.json`, `plan.json`, `cast.jsonl`, the job's words, and the writers. The
+  one-variable exception stands only where nothing in that chain changed. Applied the same day to the 4912 test
+  (`second_hfp_4912p`): the shot, plan, preview and capture are unchanged, so the masks stand; the job gains one input
+  the masks do not depend on (a conditioning-only video), so the render is new. What enforces it today: writer stamps
+  on derived files (`bench/_lib/code_stamp.py`, `bench/inspect_mask_steps.py` block `[0]`) for code changes, and the
+  recipe gate at `job` for the plan's settled knobs. What does not: no tool yet refuses a capture whose `shots.json`,
+  `cast.jsonl` or `plan.json` words changed after it was made; that comparison is by hand until built.
+
 - **The lane's prose said "No session looks at a render before the owner does" in three places after the owner had
   reversed it** (corrected 2026-10-29 by the Claude advisory session on the owner's ask, in the shared tree with a
   clean `git status`). `docs/masked_v2v/AGENTS.md` ("Judging a render"), `docs/masked_v2v/chain_trace_and_remakes.md`
