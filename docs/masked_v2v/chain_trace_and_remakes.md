@@ -187,8 +187,9 @@ pass 2, only the owner's own words among them carry ([`AGENTS.md`](AGENTS.md) §
      capture.
 6. **Look, flags read, render, land and page**: the look the tool requires, signed by the lead on the owner's word with "not
    inspected" in its note (`bench/capture_masked_run.py looked`), or the maker's `bench/load_chain.py no-look
-   --not-first FILE` where no forcing rule stands, plus `bench/flags_before_render.py <capture> --initial WHO` (`bench/load_chain.py::the_flags_read`). No session looks at the render before the owner does (`decisions.md`,
-   2026-10-22). Then `load_chain.py render`, `land` and `page` (the commands: [`PROTOCOL.md`](PROTOCOL.md) 3.3
+   --not-first FILE` where no forcing rule stands, plus `bench/flags_before_render.py <capture> --initial WHO` (`bench/load_chain.py::the_flags_read`). Between `land` and `page`, a reader who did not make the load reads the landed strip, the clip and the
+   measured part shift and writes a reading with no verdict (the owner's word of 2026-10-28, `decisions.md`; it reversed
+   the 2026-10-22 "no session looks at the render before the owner does"). Then `load_chain.py render`, `land`, the reading, and `page` (the commands: [`PROTOCOL.md`](PROTOCOL.md) 3.3
    and 5.1).
    - `render` reads the look, the flags-read record (`<capture>/looks/<load>.flags_read.json`), the gate, the frame table, the job file as planned and every mask the plan read. It
      writes the go beside the job file and the render under the job's output folder on the share.

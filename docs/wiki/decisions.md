@@ -15,6 +15,19 @@ Older history lives elsewhere and is not copied here:
   decisions" and forward-plan sections.
 - `bench/results/`: the verdict records, each with its conditions.
 
+## 2026-10-29
+
+- **The lane's prose said "No session looks at a render before the owner does" in three places after the owner had
+  reversed it** (corrected 2026-10-29 by the Claude advisory session on the owner's ask, in the shared tree with a
+  clean `git status`). `docs/masked_v2v/AGENTS.md` ("Judging a render"), `docs/masked_v2v/chain_trace_and_remakes.md`
+  (stage 6) and `docs/masked_v2v/PROTOCOL.md` 3.3 each still carried the 2026-10-22 sentence. The owner's word of
+  2026-10-28 (the pre-`page` rule above, after `second_hfp_4912m` reached the review page unread) reversed it, and the
+  lead's own postmortem of 2026-10-28 named the stale sentence as the license for that page. The three now say: a
+  landed render is read before `page` by a reader who did not make it, who writes what it sees with frames, what it
+  cannot see and the measured part shift, with no verdict and no hold. `PROTOCOL.md` 5.1 gains the step between
+  `land` and `page`, and both copies of the `video-understanding` skill gain "Who reads a landed render, and what the
+  reading is" (the owner, 2026-10-29: independent, not blind, so the lead's context holds a reading and not a strip).
+
 ## 2026-10-28
 
 - **Replaced the blind `0.30` 2D face confidence floor and `2.5x` scale filter in `cranium_box()` with SAM 3.1 `head_track` 4-corner containment (`CRANIUM_HEAD_TRACK_GROW = 0.50`) + bounding `grey_head` to `win[k]`, and fixed `marks_against_the_body_model()` span normalisation** (the owner, 2026-10-28; commit `dc07ccee`):
