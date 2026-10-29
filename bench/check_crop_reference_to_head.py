@@ -483,30 +483,45 @@ def cranium_box_round_the_grey_head() -> str:
     # THE CASE THAT GOES RED when a frame with no grey head sizes the box
     assert strayed["box"] == plain["box"] and strayed["cranium"]["frames_with_no_grey_head_joined_to_the_face"] == [5] \
         and strayed["cranium"]["those_frames_size_the_box"] is False, (strayed["box"], plain["box"])
-    # an occlusion frame whose 2D face box touches a grey limb but has low confidence (< CRANIUM_SCORE_FLOOR) or a huge outlier
-    # face height (> CRANIUM_FACE_OUTLIER * median, as on lead_0294_0414 frame 317: 389 px at score 0.04) does not size the box
+    # an occlusion frame whose 2D face box touches a grey limb and has a huge outlier face height (> CRANIUM_FACE_OUTLIER * median,
+    # or outside the SAM head_track window when head_track is given, as on lead_0294_0414 frame 317: 104.5 px against a 48.8 px median)
+    # does not size the box; whereas a turned-away frame at low 2D face confidence (e.g. score 0.14 on lead_5044_5113 frame 5083)
+    # whose face box is normal-sized inside the head_track window STILL sizes the box (no blind score floor)
     occ_kp = faces(CENTRES).copy()
     occ_kp[5] = CENTRES[5][None, :] + (occ_kp[5] - CENTRES[5][None, :]) * 3.5
     occ_sc = np.full(occ_kp.shape[:2], 0.9, np.float32)
     occ_sc[5] = 0.04
     P_occ, _ = cr.faces.rows_of(str(fx.save(folder / "occ_points.npz", occ_kp, (W, H), first=0, scores=occ_sc)), None, 0, N, 0, whole_face=False)
     occ_box = cr.cranium_box(P_occ, (W, H), cr.HEAD_ROOM, pics)
-    assert occ_box["box"] == rec["box"], (occ_box["box"], rec["box"])
+    assert occ_box["box"] == rec["box"] and occ_box["cranium"]["frames_over_the_face_scale"] == [5], (occ_box["box"], rec["box"], occ_box["cranium"])
+    # with a head_track mask: 4-corner containment excludes frame 5 (`frames_off_the_head_track`), empty head_track frames are recorded
+    # in `frames_with_no_head_track`, and a low-score (0.14) normal-sized turned-away head inside the track still sizes the box
+    ht_masks = np.zeros((N, H, W), bool)
+    for k, (cx, cy) in enumerate(CENTRES):
+        ht_masks[k, max(int(cy - 55), 0):min(int(cy + 35), H), max(int(cx - 50), 0):min(int(cx + 50), W)] = True
+    occ_ht = cr.cranium_box(P_occ, (W, H), cr.HEAD_ROOM, pics, head_track=ht_masks)
+    assert occ_ht["box"] == rec["box"] and occ_ht["cranium"]["head_track_used"] is True \
+        and occ_ht["cranium"]["frames_off_the_head_track"] == [5] and occ_ht["cranium"]["frames_with_no_head_track"] == [], occ_ht["cranium"]
+    low_sc = np.full(faces(CENTRES).shape[:2], 0.9, np.float32)
+    low_sc[5] = 0.14
+    ht_hat = ht_masks.copy()
+    ht_hat[5, 0:int(CENTRES[5][1] + 35), max(int(CENTRES[5][0] - 50), 0):min(int(CENTRES[5][0] + 50), W)] = True
+    P_low, _ = cr.faces.rows_of(str(fx.save(folder / "low_sc_points.npz", faces(CENTRES), (W, H), first=0, scores=low_sc)), None, 0, N, 0, whole_face=False)
+    low_ht = cr.cranium_box(P_low, (W, H), cr.HEAD_ROOM, figure(CENTRES, up), head_track=ht_hat)
+    assert low_ht["box"] == hat["box"], ("turned-away low-score frame inside head_track was dropped", low_ht["box"], hat["box"])
     # when more than half the span is in leave_out_frames with tiny bogus face heights (as on lead_2254_2598_c where 186 of 345
-    # frames are left out), CRANIUM_FACE_OUTLIER is measured against the active kept & seen & scored frames' median, not diluted
-    # by the excluded frames
+    # frames are left out), the active face median is measured on the kept sizing frames, not diluted by the excluded frames
     many_excl_kp = faces(CENTRES).copy()
     for k in range(7):
         many_excl_kp[k] = CENTRES[k][None, :] + (many_excl_kp[k] - CENTRES[k][None, :]) * 0.25
     P_many, _ = cr.faces.rows_of(str(fx.save(folder / "many_excl_points.npz", many_excl_kp, (W, H), first=0, scores=np.full(many_excl_kp.shape[:2], 0.9, np.float32))), None, 0, N, 0, whole_face=False)
     kept_plain = cr.cranium_box(Pn, (W, H), cr.HEAD_ROOM, pics, first=0, leave_out_frames=list(range(7)))
     kept_many = cr.cranium_box(P_many, (W, H), cr.HEAD_ROOM, pics, first=0, leave_out_frames=list(range(7)))
-    assert kept_many["box"] == kept_plain["box"], (kept_many["box"], kept_plain["box"])
+    assert kept_many["box"] == kept_plain["box"] and kept_many["face_height_px_median"] == kept_plain["face_height_px_median"], (kept_many, kept_plain)
     # --box cuts by the box given, as it is
     given = cr.run(str(REF), str(POINTS), 0, N, folder / "given.mp4", "the check", box=rec["box"], say=quiet)
     assert given["box"] == rec["box"] and given["box_set_by"].startswith("given") and "cranium" not in given, given["box_set_by"]
-    for kw, word in (({"fit": True}, "--cranium reads the box"), ({"head_track": str(REF)}, "--cranium reads the box"),
-                     ({"box": [0, 0, 10, 10]}, "--cranium reads the box")):
+    for kw, word in (({"fit": True}, "--cranium reads the box"), ({"box": [0, 0, 10, 10]}, "--cranium reads the box")):
         try:
             cr.run(str(mesh), str(POINTS), 0, N, folder / "refused.mp4", "the check", cranium=True, say=quiet, **kw)
         except SystemExit as exc:

@@ -130,13 +130,15 @@ CRANIUM_NECK = 0.35
 #: renders with a reference record: median 2.07, 90th percentile 3.74, most 5.753 on third_fp_4653b, then 5.278 on second_hfp_4602c
 #: and d). `head` and `face` have no such bound. The lever past it is the body model rendered at the cut's size, not this number.
 CRANIUM_MOST = 5.75
-#: Under `--cranium`, a frame whose 2D face points score below `CRANIUM_SCORE_FLOOR` at the median (`face_ids`), or whose
-#: single-frame face height exceeds `CRANIUM_FACE_OUTLIER` times the span's median face height, is a pose guess during an
-#: occlusion (e.g. `lead_0294_0414` frame 317: a foreground passer-by occluded the subject, Sapiens2 guessed a 389.3 px face
-#: box at score 0.04 against a 76.6 px median while the 3D body model flipped upside down, zooming the whole-shot reference
-#: out from 2.592x to 1.517x). Such frames do not size the one box unless every grey-head frame is low-score or an outlier.
-CRANIUM_SCORE_FLOOR = 0.30
-CRANIUM_FACE_OUTLIER = 2.50
+#: Under `--cranium`, each frame's head-track bounding box (when a head track is read) is grown by this many face heights (`face`,
+#: the active sizing median) on every side (`win[k]`): a frame sizes the one box only when all four corners of its 2D face box lie inside
+#: `win[k]`, and its `grey_head` is bounded to `win[k]` so raised 3D arms or flipped torso limbs cannot stretch the box. When no head
+#: track is read (or every frame's head track is empty), a frame whose single-frame face height exceeds `CRANIUM_FACE_OUTLIER` times
+#: `face` is left out of sizing (e.g. `lead_0294_0414` frame 317: a foreground passer-by occluded the subject and Sapiens2 guessed a
+#: 104.5 px face height against a 48.8 px median while the 3D body model flipped upside down; `lead_5044_5113` frame 5044: a 436.8 px
+#: face height against a 49.7 px median). No score floor is applied (turned-away or profile heads at low 2D face score still size the box).
+CRANIUM_HEAD_TRACK_GROW = 0.50
+CRANIUM_FACE_OUTLIER = 2.00
 #: The written video must sit within this many grey levels of the picture made for it, at the mean. Reasoned: the
 #: encode moves a picture by about a level; a wrong frame of a moving head moves it by many.
 ENCODE_LEVELS = 6.0
@@ -243,22 +245,114 @@ def grey_head(frame: np.ndarray, p: np.ndarray, index: dict) -> tuple[np.ndarray
     return head, int(lit.sum() - head.sum())
 
 
+def head_boxes_by_frame(head_track: np.ndarray | list | None, count: int) -> dict[int, tuple[float, float, float, float]]:
+    """Non-empty `(x0, y0, x1, y1)` box (the far side not included) keyed by frame index `0..count-1` from a `[n, h, w]` mask array
+    or a sequence of `[x0, y0, x1, y1]` boxes of length `count`."""
+    if head_track is None:
+        return {}
+    arr = np.asarray(head_track)
+    out: dict[int, tuple[float, float, float, float]] = {}
+    if arr.ndim == 3 and len(arr) == count:
+        for k, m in enumerate(arr):
+            ys, xs = np.nonzero(m > 0 if m.dtype != bool else m)
+            if len(xs):
+                out[k] = (float(xs.min()), float(ys.min()), float(xs.max() + 1), float(ys.max() + 1))
+    elif arr.ndim == 2 and arr.shape == (count, 4):
+        for k, b in enumerate(arr):
+            if b[2] > b[0] and b[3] > b[1]:
+                out[k] = (float(b[0]), float(b[1]), float(b[2]), float(b[3]))
+    return out
+
+
 def cranium_box(points: dict, size: tuple[int, int], room: float, frames: np.ndarray, first: int = 0,
-                leave_out_frames: list[int] | set[int] | None = None) -> dict:
+                leave_out_frames: list[int] | set[int] | None = None,
+                head_track: np.ndarray | list | None = None) -> dict:
     """The one box of a span under `--cranium`: round every frame's face and its grey head (`grey_head`) with `CRANIUM_ROOM` above
-    and beside them and `CRANIUM_NECK` below the chin, in the canvas's shape, inside the canvas. Frames in `leave_out_frames` (bare
-    or dropped source frames) do not size the box unless every frame with a grey head is left out. With it, as figures: the frames on
-    which (source frames, the span's first being `first`) the grey head above mid-face reaches the box's edge (or the picture's own edge), and each frame's own box's enlargement against the one
-    box's, which is what the subject's travel over the span costs."""
+    and beside them and `CRANIUM_NECK` below the chin, in the canvas's shape, inside the canvas. When a `head_track` with at least
+    one non-empty frame is given, each tracked frame's head-track box is grown by `CRANIUM_HEAD_TRACK_GROW * face` (`win[k]`):
+    frames with an empty head track (`frames_with_no_head_track`) or whose 2D face box lies outside `win[k]` (`frames_off_the_head_track`)
+    do not size the box, and `grey_head` is bounded to `win[k]` so raised 3D arms or flipped torso limbs cannot stretch the box.
+    When no `head_track` is given (or all its frames are empty), frames whose face height exceeds `CRANIUM_FACE_OUTLIER * face`
+    (`frames_over_the_face_scale`) are left out of sizing. One active median face height (`face`) is computed over the sizing
+    frames and used everywhere. Frames in `leave_out_frames` (bare or dropped source frames) do not size the box unless every
+    frame with a grey head is left out."""
     w, h = size
     idx = points["index"]
-    face = float(np.median([fp.face_height(p, idx) for p in points["keypoints"]]))
+    n_frames = len(frames)
+    fhs = np.array([fp.face_height(p, idx) for p in points["keypoints"]], dtype=float)
+    fbs = np.array([face_box(p, idx) for p in points["keypoints"]], dtype=float)
+    raw_pairs = [grey_head(frame, p, idx) for p, frame in zip(points["keypoints"], frames)]
+    seen_raw = np.array([bool(np.any(hd)) for hd, _ in raw_pairs], dtype=bool)
+    excluded = sorted({int(f) for f in (leave_out_frames or []) if first <= int(f) < first + n_frames})
+    excl_set = set(excluded)
+    kept = np.array([(first + k) not in excl_set for k in range(n_frames)], dtype=bool)
+    pos_fhs = fhs[fhs > 0]
+    fallback_face = float(np.median(pos_fhs)) if len(pos_fhs) else float(np.median(fhs))
     scale_r = room / HEAD_ROOM if HEAD_ROOM else 1.0
     c_room, neck = CRANIUM_ROOM * scale_r, CRANIUM_NECK * scale_r
+
+    hb_raw = head_boxes_by_frame(head_track, n_frames)
+    has_ht = bool(hb_raw)
+    off_track, no_track, over_scale = [], [], []
+    win: dict[int, tuple[float, float, float, float]] = {}
+
+    if has_ht:
+        trk = np.array([k in hb_raw for k in range(n_frames)], dtype=bool)
+        no_track = [first + k for k in range(n_frames) if not trk[k]]
+        base_sel = (kept & trk & seen_raw & (fhs > 0))
+        if not base_sel.any():
+            base_sel = trk & seen_raw & (fhs > 0)
+        if not base_sel.any():
+            base_sel = trk & (fhs > 0)
+        face0 = float(np.median(fhs[base_sel])) if base_sel.any() else fallback_face
+        g0 = CRANIUM_HEAD_TRACK_GROW * face0
+        in_win0 = np.zeros(n_frames, dtype=bool)
+        for k, (hx0, hy0, hx1, hy1) in hb_raw.items():
+            fb = fbs[k]
+            if (hx0 - g0) <= fb[0] and fb[2] <= (hx1 + g0) and (hy0 - g0) <= fb[1] and fb[3] <= (hy1 + g0):
+                in_win0[k] = True
+        act_sel = kept & in_win0 & seen_raw & (fhs > 0)
+        if not act_sel.any():
+            act_sel = in_win0 & seen_raw & (fhs > 0)
+        if not act_sel.any():
+            act_sel = base_sel
+        face = float(np.median(fhs[act_sel])) if act_sel.any() else face0
+        g = CRANIUM_HEAD_TRACK_GROW * face
+        in_win = np.zeros(n_frames, dtype=bool)
+        for k, (hx0, hy0, hx1, hy1) in hb_raw.items():
+            win[k] = (hx0 - g, hy0 - g, hx1 + g, hy1 + g)
+            fb = fbs[k]
+            wx0, wy0, wx1, wy1 = win[k]
+            if wx0 <= fb[0] and fb[2] <= wx1 and wy0 <= fb[1] and fb[3] <= wy1:
+                in_win[k] = True
+            else:
+                off_track.append(first + k)
+    else:
+        base_sel = kept & seen_raw & (fhs > 0)
+        if not base_sel.any():
+            base_sel = seen_raw & (fhs > 0)
+        face0 = float(np.median(fhs[base_sel])) if base_sel.any() else fallback_face
+        in_scale0 = (fhs <= CRANIUM_FACE_OUTLIER * face0) if face0 > 0 else np.ones(n_frames, dtype=bool)
+        act_sel = kept & seen_raw & in_scale0 & (fhs > 0)
+        if not act_sel.any():
+            act_sel = seen_raw & in_scale0 & (fhs > 0)
+        if not act_sel.any():
+            act_sel = base_sel
+        face = float(np.median(fhs[act_sel])) if act_sel.any() else face0
+        in_scale = (fhs <= CRANIUM_FACE_OUTLIER * face) if face > 0 else np.ones(n_frames, dtype=bool)
+        over_scale = [first + k for k in range(n_frames) if not in_scale[k]]
+
     each, heads, left_out = [], [], []
-    for p, frame in zip(points["keypoints"], frames):
-        fb = face_box(p, idx)
-        head, out = grey_head(frame, p, idx)
+    for k, (p, (raw_head, raw_out)) in enumerate(zip(points["keypoints"], raw_pairs)):
+        fb = fbs[k]
+        if k in win:
+            wx0, wy0, wx1, wy1 = win[k]
+            wm = np.zeros_like(raw_head)
+            wm[max(int(np.floor(wy0)), 0):min(int(np.ceil(wy1)), h), max(int(np.floor(wx0)), 0):min(int(np.ceil(wx1)), w)] = True
+            head = raw_head & wm
+            out = raw_out + int(raw_head.sum() - head.sum())
+        else:
+            head, out = raw_head, raw_out
         ys, xs = np.nonzero(head)
         top = [fb[0], fb[1], fb[2]] if not len(xs) else [min(fb[0], xs.min()), min(fb[1], ys.min()), max(fb[2], xs.max() + 1)]
         chin = max(float(fb[3]), float(p[idx["tip_of_chin"], 1]))
@@ -266,32 +360,39 @@ def cranium_box(points: dict, size: tuple[int, int], room: float, frames: np.nda
         heads.append(head)
         left_out.append(out)
     each = np.array(each, float)
-    excluded = sorted({int(f) for f in (leave_out_frames or []) if first <= int(f) < first + len(each)})
-    excl_set = set(excluded)
-    kept = np.array([(first + k) not in excl_set for k in range(len(each))], dtype=bool)
-    # A frame whose face has no grey head joined to it is one where she is hidden or out of the body model's fit: its face points
-    # are the pose model's guess there (second_1093_1133_f, 2026-10-22: on 1125-1127 the face box sat 200 px below her head and
-    # stretched the one box from about 5.7 to 2.27 times). Bare and dropped frames (`leave_out_frames`, 2026-10-25: 2050g's 2249-2270
-    # and 4310c's 4388-4389), or frames where an occlusion makes the pose model guess a low-score (`< CRANIUM_SCORE_FLOOR`) or
-    # huge outlier (`> CRANIUM_FACE_OUTLIER * face`) face box (lead_0294_0414's 317-319, 2026-10-28: 389.3 px at score 0.04), are
-    # likewise left out when sizing the box; a span with no kept grey-head frame falls back cleanly.
-    fids = fp.face_ids(idx)
-    scores = points.get("scores")
-    fhs = np.array([fp.face_height(p, idx) for p in points["keypoints"]], dtype=float)
-    scored = (
-        np.array([float(np.median(scores[k, fids])) >= CRANIUM_SCORE_FLOOR for k in range(len(each))], dtype=bool)
-        if scores is not None and len(scores) == len(each) and len(fids)
-        else np.ones(len(each), dtype=bool)
-    )
     seen = np.array([bool(np.any(hd)) for hd in heads], dtype=bool)
-    active_fhs = fhs[kept & seen & scored & (fhs > 0)]
-    if not len(active_fhs):
-        active_fhs = fhs[kept & seen & (fhs > 0)]
-    face_ref = float(np.median(active_fhs)) if len(active_fhs) else face
-    in_scale = (fhs <= CRANIUM_FACE_OUTLIER * face_ref) if face_ref > 0 else np.ones(len(each), dtype=bool)
-    good = seen & scored & in_scale
+
+    if has_ht:
+        good = seen & in_win
+    else:
+        good = seen & in_scale
     use = (good & kept) if (good & kept).any() else (seen & kept)
-    sized = each[use] if use.any() else (each[good] if good.any() else (each[seen] if seen.any() else each))
+    if use.any():
+        sized = each[use]
+        sizing_fallback = None
+    elif good.any():
+        sized = each[good]
+        sizing_fallback = "good_without_leave_out"
+    elif seen.any():
+        sized = each[seen]
+        sizing_fallback = "all_seen_grey_heads"
+    else:
+        sized = each
+        sizing_fallback = "all_frames"
+    # Recompute the single active median `face` on `use` (or the fallback set) if `seen` after bounding narrowed `use`,
+    # and re-pad `each` with that single active `face` so padding, window growth, and `face_height_px_median` agree to the tenth of a pixel.
+    final_sel = use if use.any() else (good if good.any() else (seen if seen.any() else np.ones(n_frames, dtype=bool)))
+    final_fhs = fhs[final_sel & (fhs > 0)]
+    if len(final_fhs):
+        face_final = float(np.median(final_fhs))
+        if abs(face_final - face) > 1e-6:
+            df = face_final - face
+            each[:, 0] -= c_room * df
+            each[:, 1] -= c_room * df
+            each[:, 2] += c_room * df
+            each[:, 3] += neck * df
+            face = face_final
+            sized = each[final_sel]
     want = np.concatenate([sized[:, :2].min(0), sized[:, 2:].max(0)])
     need_w, need_h = float(want[2] - want[0]), float(want[3] - want[1])
     least_w = w / CRANIUM_MOST                                          # the box no narrower than this: enlarged at most CRANIUM_MOST
@@ -302,25 +403,38 @@ def cranium_box(points: dict, size: tuple[int, int], room: float, frames: np.nda
     alone = [w / (b[2] - b[0]) for b in (in_the_canvas(max(float(e[2] - e[0]), least_w), float(e[3] - e[1]), float((e[0] + e[2]) / 2),
                                                        float((e[1] + e[3]) / 2), size)[0] for e in each)]
     x0, y0, x1, y1 = box
-    edge, picture_edge, none = [], [], []
-    for k, head in enumerate(heads):
+    edge, unsized_edge, raw_edge, picture_edge, none = [], [], [], [], []
+    for k, (head, (raw_head, _)) in enumerate(zip(heads, raw_pairs)):
+        f = first + k
         ys, xs = np.nonzero(head)
         if not len(xs):
-            none.append(first + k)
-            continue
-        if use.any() and (first + k) in excl_set:
-            continue
-        if xs.min() <= x0 or ys.min() <= y0 or xs.max() >= x1 - 1 or ys.max() >= y1 - 1:
-            edge.append(first + k)
-        if xs.min() == 0 or ys.min() == 0 or xs.max() == w - 1 or ys.max() == h - 1:
-            picture_edge.append(first + k)
+            none.append(f)
+        elif not (use.any() and f in excl_set):
+            if xs.min() == 0 or ys.min() == 0 or xs.max() == w - 1 or ys.max() == h - 1:
+                picture_edge.append(f)
+            if xs.min() <= x0 or ys.min() <= y0 or xs.max() >= x1 - 1 or ys.max() >= y1 - 1:
+                if final_sel[k]:
+                    edge.append(f)
+                else:
+                    unsized_edge.append(f)
+        rys, rxs = np.nonzero(raw_head)
+        if len(rxs) and final_sel[k]:
+            if rxs.min() <= x0 or rys.min() <= y0 or rxs.max() >= x1 - 1 or rys.max() >= y1 - 1:
+                raw_edge.append(f)
     one = w / (x1 - x0)
     return {"faces": [round(float(v), 1) for v in (each[:, 0].min(), each[:, 1].min(), each[:, 2].max(), each[:, 3].max())],
             "face_height_px_median": round(face, 1), "room_in_face_heights": room,
             "cranium": {"room_above_and_beside_in_face_heights": round(c_room, 3), "below_the_chin_in_face_heights": round(neck, 3),
                         "body_grey": BODY_GREY,
+                        "head_track_used": has_ht,
                         "frames_left_out_of_the_box": excluded,
+                        "frames_off_the_head_track": off_track,
+                        "frames_with_no_head_track": no_track,
+                        "frames_over_the_face_scale": over_scale,
+                        **({"sizing_fallback": sizing_fallback} if sizing_fallback else {}),
                         "frames_the_grey_head_reaches_the_box_edge": edge,
+                        "frames_not_sizing_whose_grey_head_reaches_the_box_edge": unsized_edge,
+                        "frames_the_raw_grey_head_reaches_the_box_edge": raw_edge,
                         "frames_the_grey_head_reaches_the_picture_edge": picture_edge,
                         "frames_with_no_grey_head_joined_to_the_face": none,
                         "those_frames_size_the_box": not bool(seen.any()),
@@ -478,12 +592,13 @@ def run(video: str, points_path: str, first: int, count: int, out: Path, by: str
         box: list[int] | None = None, say=print) -> dict:
     """Find the box, cut, write, read back, record. Returns the record; `passed` is False when the read-back fails.
 
-    `cranium`: the box round the body model's grey head (`cranium_box`), read off this video, which must be the body model; no head
-    track is read. `box`: cut by this box as given (`[x0, y0, x1, y1]` on the canvas), found by nothing here."""
+    `cranium`: the box round the body model's grey head (`cranium_box`), read off this video, which must be the body model; when a
+    head track is found or given (unless `--no-head-track`), it bounds `grey_head` and filters sizing frames to the tracked head window.
+    `box`: cut by this box as given (`[x0, y0, x1, y1]` on the canvas), found by nothing here."""
     if no_head_track and head_track is not None:
         raise SystemExit("cannot give both --head-track and --no-head-track")
-    if cranium and (fit or head_track is not None or box is not None):
-        raise SystemExit("--cranium reads the box off the body model's own grey head: not with --fit, --head-track or --box "
+    if cranium and (fit or box is not None):
+        raise SystemExit("--cranium reads the box off the body model's own grey head: not with --fit or --box "
                          "(a source is cut by the box its body model's cut found, with --box)")
     points, pf = faces.rows_of(points_path, names, first, count, points_first, whole_face=False)
     w, h, have = probe(video)
@@ -503,7 +618,7 @@ def run(video: str, points_path: str, first: int, count: int, out: Path, by: str
         if len(box) != 4 or not (0 <= box[0] < box[2] <= w and 0 <= box[1] < box[3] <= h):
             raise SystemExit(f"--box {box} is not a box inside the {w} by {h} canvas")
     ht_masks, ht_info = None, None
-    if not no_head_track and not cranium and box is None:
+    if not no_head_track and box is None:
         if isinstance(head_track, (str, Path)):
             ht_path = str(head_track)
             if not Path(ht_path).is_file():
@@ -532,7 +647,7 @@ def run(video: str, points_path: str, first: int, count: int, out: Path, by: str
         found = {**{k: v for k, v in one_box(points, (w, h), room).items() if k in ("faces", "face_height_px_median", "room_in_face_heights")},
                  "box": box, "set_by": "given (--box), as it is", "moved_to_lie_inside": False}
     elif cranium:
-        found = cranium_box(points, (w, h), room, reference, first, leave_out_frames=leave_out_frames)
+        found = cranium_box(points, (w, h), room, reference, first, leave_out_frames=leave_out_frames, head_track=ht_masks)
     else:
         found = one_box(points, (w, h), room, head_track=ht_masks)
     box = found["box"]

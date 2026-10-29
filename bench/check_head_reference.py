@@ -1310,9 +1310,10 @@ def the_crop_is_head_or_face() -> str:
 
 
 def the_crop_cranium() -> str:
-    """`--crop cranium` (the plan's `reference.crop`; 2026-10-22): the body model and the source are both cut by the box round the body
-    model's grey head (`crop_reference_to_head.cranium_box`), the source by that box as given; the head track beside the points is not read
-    and is named; the record's `crop` keeps the crop tool's `cranium` figures; `cranium` with no why or with `--head-track` is refused."""
+    """`--crop cranium` (the plan's `reference.crop`; 2026-10-22, updated 2026-10-28): the body model and the source are both cut by the box
+    round the body model's grey head (`crop_reference_to_head.cranium_box`), the source by that box as given; the head track beside the points
+    is read (`head_track_used: True`) to bound `grey_head` and filter off-track face boxes; the record's `crop` keeps the crop tool's `cranium`
+    figures; `cranium` with no why is refused."""
     from _lib.frames import write_mask_video
     folder, _, pts, source = rooms("crop_cranium", [90] * N, [60] * N, CENTRES, 0)
     yy, xx = np.mgrid[0:H, 0:W]
@@ -1336,11 +1337,11 @@ def the_crop_cranium() -> str:
     plain_cut = json.loads((folder / "cranium_plain_cut.json").read_text())
     source_cut = json.loads((folder / "cranium_source_cut.json").read_text())
     # THE CASE THAT GOES RED on a tool with no `cranium` form, or one that sizes the source's cut on the source
-    assert rec["passed"] and "head_track" not in rec["inputs"] and rec["box"] == plain_cut["box"] == source_cut["box"] != [0, 0, W, H], (rec["box"], said)
+    assert rec["passed"] and rec["inputs"]["head_track"]["mask_video"] == str(head_tr) and rec["box"] == plain_cut["box"] == source_cut["box"] != [0, 0, W, H], (rec["box"], said)
     assert plain_cut["box_set_by"].startswith("the grey head") and source_cut["box_set_by"].startswith("given"), (plain_cut["box_set_by"], source_cut["box_set_by"])
     c = rec["crop"]
-    assert c["form"] == "cranium" and c["why"] == "THE LEAD: the grey head" and c["head_track_not_read"] == str(head_tr) and c["cranium"] == plain_cut["cranium"], c
-    assert c["cranium"]["frames_the_grey_head_reaches_the_box_edge"] == [] and c["enlarged"][0] > 1.2, c
+    assert c["form"] == "cranium" and c["why"] == "THE LEAD: the grey head" and "head_track_not_read" not in c and c["cranium"] == plain_cut["cranium"], c
+    assert c["cranium"]["head_track_used"] is True and c["cranium"]["frames_the_grey_head_reaches_the_box_edge"] == [] and c["enlarged"][0] > 1.2, c
     assert any("the crop: cranium (THE LEAD: the grey head)" in line for line in said) and any("travel:" in line for line in said), said
     # bare and dropped frames (`--no-head-on`, `--no-face-on`, `--no-draw-face-on`, `--drop`) are left out when sizing `cranium_box`:
     # frame 5's grey head reaching the top edge inflates the box without them (negative control) and is excluded with `--no-head-on` or `--drop` (positive control)
@@ -1358,7 +1359,7 @@ def the_crop_cranium() -> str:
     rec_drop = hr.run(str(tall_mesh), str(pts), str(source), 0, N, folder / "cranium_drop.mp4", "the check",
                       crop_form="cranium", crop_why="THE LEAD: the grey head", drop_on=[(5, 5, "DROPPED")], say=quiet)
     assert rec_drop["box"] == rec["box"] != rec_inflated["box"] and rec_drop["crop"]["cranium"]["frames_left_out_of_the_box"] == [5], rec_drop["crop"]
-    for kw, word in (({"crop_form": "cranium", "crop_why": " "}, "--crop-why"), ({"crop_form": "cranium", "crop_why": "w", "head_track": str(head_tr)}, "reads no head track")):
+    for kw, word in (({"crop_form": "cranium", "crop_why": " "}, "--crop-why"),):
         try:
             hr.run(str(mesh), str(pts), str(source), 0, N, folder / "refused_cranium.mp4", "the check", say=quiet, **kw)
         except SystemExit as exc:
@@ -1366,7 +1367,7 @@ def the_crop_cranium() -> str:
         else:
             raise AssertionError(f"not refused: {kw}")
     return (f"cranium {rec['box']}, enlarged {c['enlarged'][0]:.3f}, the body model and the source cut by it (the source's as given), the head "
-            "track not read and named, the crop tool's figures kept; no why and --head-track refused before writing")
+            "track read to bound grey_head, the crop tool's figures kept; no why refused before writing")
 
 
 def where_the_body_model_shows_nobody() -> str:
@@ -1522,6 +1523,10 @@ def marks_against_body_model_roll_pitch_nose() -> str:
         elif f == 7:
             # Frame 7 (bare frame in `faceless`): 25 deg roll diff, but in `faceless` -> skipped
             b_roll = math.radians(film_roll - 25.0)
+        elif f == 8:
+            # Frame 8 (positive control for blown-up single-frame `fh` on an occlusion frame, like 5044's frame 5044 where fh=436.8 vs 48.0 span median):
+            # nose is 1.50 * span_fh away, while frame 8's own 2D keypoints are blown up 5x so single-frame fh would shrink nd to 0.30 < 0.50
+            b_nose = nose + np.array([1.50 * fh, 0.0])
         dx, dy = 0.5 * b_span * math.cos(b_roll), 0.5 * b_span * math.sin(b_roll)
         le_b = [float(mid_e[0] + dx), float(mid_e[1] + dy), 0.99]
         re_b = [float(mid_e[0] - dx), float(mid_e[1] - dy), 0.99]
@@ -1529,7 +1534,12 @@ def marks_against_body_model_roll_pitch_nose() -> str:
                    [float(b_nose[0] - 20.0), float(b_nose[1]), 0.99], [float(b_nose[0] + 20.0), float(b_nose[1]), 0.99]]
         pt_frames.append({"frame": f, "people": [{"keypoints_2d": kp2d_3d, "keypoints_3d": kp3d}]})
     pt_path.write_text(json.dumps({"first_source_frame": 0, "frames": pt_frames}))
-    got = hr.marks_against_the_body_model(mesh_named, pts, 0, N, faceless=[7])
+    kp_blown = P["keypoints"].copy()
+    kp_blown[8] = CENTRES[8][None, :] + (kp_blown[8] - CENTRES[8][None, :]) * 5.0
+    kp_blown[8, idx["tip_of_nose"]] = P["keypoints"][8, idx["tip_of_nose"]]
+    pts_blown = folder / "blown_points.npz"
+    np.savez_compressed(pts_blown, keypoints=kp_blown, scores=P["scores"], names=P["names"], first_frame=np.array(0), size=np.array([W, H]))
+    got = hr.marks_against_the_body_model(mesh_named, pts_blown, 0, N, faceless=[7])
     assert got["known"] and got["rule"] == {
         "nose_from_body_model_fh": hr.BODY_MODEL_NOSE_FH,
         "head_pitch_down_3d": hr.BODY_MODEL_PITCH_DOWN,
@@ -1537,11 +1547,13 @@ def marks_against_body_model_roll_pitch_nose() -> str:
         "eye_span_min_fh": hr.BODY_MODEL_EYE_SPAN_FH,
     }, got
     by_f = {r["frame"]: r for r in got["flagged_frames"]}
-    # THE CASES THAT GO RED when roll is not checked, when <15 deg or profile <0.35 fh false-flags, or when bare frame 7 is not skipped
-    assert sorted(by_f) == [3, 5, 6], by_f
+    # THE CASES THAT GO RED when roll is not checked, when <15 deg or profile <0.35 fh false-flags, when bare frame 7 is not skipped,
+    # or when single-frame fh (blown up 5x on frame 8) divides nd instead of span_fh
+    assert sorted(by_f) == [3, 5, 6, 8], by_f
     assert abs(by_f[3]["eye_roll_diff_deg"] - 18.4) <= 0.2 and by_f[3]["nose_from_body_model_fh"] < 0.05 and by_f[3]["head_pitch_down_3d"] < 0.05, by_f[3]
     assert abs(by_f[5]["nose_from_body_model_fh"] - 0.75) <= 0.02 and by_f[5]["eye_roll_diff_deg"] == 0.0, by_f[5]
     assert abs(by_f[6]["head_pitch_down_3d"] - 0.88) <= 0.02 and by_f[6]["eye_roll_diff_deg"] == 0.0, by_f[6]
+    assert abs(by_f[8]["nose_from_body_model_fh"] - 1.50) <= 0.05, by_f[8]
     assert abs(got["eye_roll_diff_deg_max"] - 18.4) <= 0.2, got
     # Wraparound across +/-180 deg (also exercising the Sapiens2 `left_eye`/`right_eye` keypoint branch):
     # film eye line near +175 deg (`left_eye` left of `right_eye`, slightly lower) vs body eye line near -175 deg (10 deg apart -> NOT flagged)

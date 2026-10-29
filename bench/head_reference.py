@@ -662,6 +662,13 @@ def marks_against_the_body_model(mesh: str | Path, points: str | Path, first: in
     pt_first = int(pt.get("first_source_frame", first))
     pt_frames = pt.get("frames") or []
     bare_set = set(faceless)
+    span_fhs = [
+        float(fp.face_height(P["keypoints"][first + f - P["first"]], idx))
+        for f in range(count)
+        if (first + f) not in bare_set and 0 <= first + f - P["first"] < len(P["keypoints"])
+    ]
+    pos_span_fhs = [v for v in span_fhs if v > 0]
+    span_fh = max(float(np.median(pos_span_fhs)), 1.0) if pos_span_fhs else 0.0
     flagged = []
     max_roll_diff = 0.0
     for f in range(count):
@@ -681,7 +688,8 @@ def marks_against_the_body_model(mesh: str | Path, points: str | Path, first: in
         kp2d_3d = np.asarray(p0["keypoints_2d"][:5], dtype=float)
         kp3d = np.asarray(p0["keypoints_3d"][:5], dtype=float)
         nose_2d = P["keypoints"][pi, idx["tip_of_nose"]]
-        fh = max(float(fp.face_height(P["keypoints"][pi], idx)), 1.0)
+        frame_fh = max(float(fp.face_height(P["keypoints"][pi], idx)), 1.0)
+        fh = min(frame_fh, span_fh) if span_fh > 0 else frame_fh
         nd = float(np.hypot(nose_2d[0] - kp2d_3d[0, 0], nose_2d[1] - kp2d_3d[0, 1])) / fh
         ear_mid = 0.5 * (kp3d[3] + kp3d[4])
         nv = kp3d[0] - ear_mid
@@ -757,9 +765,8 @@ def run(mesh: str, points: str, source: str, first: int, count: int, out: Path, 
     crop_why = " ".join(str(crop_why or "").split())
     if crop_form != CROP_FORMS[0] and not crop_why:
         raise SystemExit(f"--crop {crop_form} is a person's word: say who asked for it and why with --crop-why")
-    if crop_form != "head" and head_track is not None:
-        raise SystemExit(f"--crop {crop_form} sizes the box on " + ("the faces alone" if crop_form == "face" else "the body model's grey head")
-                         + " and reads no head track: --head-track says otherwise")
+    if crop_form == "face" and head_track is not None:
+        raise SystemExit("--crop face sizes the box on the faces alone and reads no head track: --head-track says otherwise")
     if no_head_form not in NO_HEAD_FORMS:
         raise SystemExit(f"--no-head-form is one of {NO_HEAD_FORMS}; got {no_head_form!r}")
     no_head_spans: list[tuple[int, int, str]] = []
@@ -827,10 +834,10 @@ def run(mesh: str, points: str, source: str, first: int, count: int, out: Path, 
             raise SystemExit(f"{what} {path} is not a file")
     faces.rows_of(points, names, first, count, points_first)        # the span and the names, before anything is written
     ht_path, ht_first, ht_how = None, None, None
-    passed_over = None                  # under `--crop face` or `cranium`, the head track the head box would have read, named in the record
-    if crop_form != "head" and not no_head_track:
+    passed_over = None                  # under `--crop face`, the head track the head box would have read, named in the record
+    if crop_form == "face" and not no_head_track:
         passed_over = crop.discover_head_track(points, mesh, first if mesh_first is None else int(mesh_first))[0]
-    if not no_head_track and crop_form == "head":
+    if not no_head_track and crop_form in ("head", "cranium"):
         if head_track is not None:
             ht_path = str(head_track)
             ht_first = (first if mesh_first is None else int(mesh_first)) if head_track_first is None else int(head_track_first)
