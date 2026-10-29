@@ -223,7 +223,10 @@ Inspect three critical signals before spending GPU render minutes:
    CUDA_VISIBLE_DEVICES= <comfy-venv>/bin/python bench/what_h3_got.py \
      --job-folder data/<day>_<load>_job --load <load> --stage plan
    ```
-   Read the entire prompt text in full from the queued graph ([`AGENTS.md`](../../AGENTS.md)).
+   Read the entire prompt text in full from the queued graph ([`AGENTS.md`](../../AGENTS.md)): the graph as queued, never
+   the job's `<load>.txt` or `<load>.render.txt`, which are what the chain meant to send, not what the server got. The two
+   should be the same; the queued copy is the one the look and the reading cite. On `second_hfp_4912q` (2026-10-29) the
+   session read the text file and the sheet and queued; the rule is the graph.
 4. **Queue the render (`load_chain.py render`)**:
    ```bash
    <comfy-venv>/bin/python bench/load_chain.py render \
