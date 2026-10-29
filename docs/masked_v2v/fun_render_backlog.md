@@ -208,15 +208,13 @@ Every backlog shot and currently laid render where one or more of the 5 upstream
    - **Earlier owner-kept renders with moderate-to-high cranium enlargement delta under `dc07ccee` (when bounding `grey_head` to `win[k]` removes raised 3D arms), collision, unjoined grey, or head-carve counts**:
      - `third_fp_5011g` (`5011–5043`): `cranium_box` `2.265x -> 4.376x (e=0)` under `dc07ccee` (arms-up shot where `win[k]` bounds out his raised hands; already owner-kept).
      - `lead_fp_4647d` (`4647–4725`): `cranium_box` `2.951x -> 4.357x (e=0)` under `dc07ccee` (already owner-kept).
-     - `lead_fp_5245b` (`5245–5293`): `cranium_box` `4.197x -> 5.721x (e=0)` under `dc07ccee`, `21/49` active collisions (`5248, 5250-5263, 5288-5293`) + `12` head-touching units carved without `depth.npz`.
-     - `third_fp_5461e` (`5461–5497`): `cranium_box` `2.060x -> 3.251x (e=0)` under `dc07ccee`, `20/37` active nose/pitch collisions (`5464-5480, 5492-5494`).
-     - `third_fp_5114e` (`5114–5129`): `cranium_box` `1.996x -> 3.122x (e=0)` under `dc07ccee` (already owner-kept).
+     - `lead_fp_5245b` (`5245–5293`): `cranium_box` `4.876x -> 5.721x (e=0)` under `dc07ccee`, `21/49` active collisions (`5248, 5250-5263, 5288-5293`) + `12` head-touching units carved without `depth.npz`.
+     - `third_fp_5461e` (`5461–5497`): `cranium_box` `2.036x -> 3.251x (e=0)` under `dc07ccee`, `20/37` active nose/pitch collisions (`5464-5480, 5492-5494`).
+     - `third_fp_5114e` (`5114–5129`): `cranium_box` `2.312x -> 3.122x (e=0)` under `dc07ccee` (already owner-kept).
      - `lead_fp_3967c` (`3970–4035`, owner *"looks great!"*): `cranium_box` `1.515x` pre-filter -> `1.741x` under `b7875bf1` -> `1.832x` under `dc07ccee`, `25` active collisions (`3991-3998, 4025-4035`), `219,169 px` unjoined grey.
      - `third_fp_4479e` (`4479–4509`): `31/31` bowed-head pitch frames (`pitch = 0.80–0.96`).
      - `third_fp_4602c` (`4602–4646`): `24/45` active nose/pitch collisions (`4602-4610, 4620-4625, 4634-4642`).
      - `lead_fp_3315b` (`3315–3357`): `23/43` active collisions (`roll` up to `98°`), `21,742 px` unjoined grey, `23` head-touching units carved by `strangers` without `depth.npz`.
-     - `lead_fp_5245b` (`5245–5293`): `21/49` active collisions (`5248, 5250-5263, 5288-5293`) + `12` head-touching units carved without `depth.npz`.
-     - `third_fp_5461e` (`5461–5497`): `20/37` active nose/pitch collisions (`5464-5480, 5492-5494`).
      - `lead_fp_3167b` (`3167–3213`): `14/47` active collisions (`3167-3169, 3173-3174, 3182-3190`), `11,320 px` unjoined grey, `4–16` head units carved without `depth.npz`.
      - `second_hfp_4726c` (`4726–4773`, Phase 4) & `second_hfp_5011e` (`5011–5043`, Phase 4): `11` and `8` active collisions + low-score frames in `--crop head` + `4f`/`6f` `emptied_inside`.
      - `third_fp_1306h` (`1306–1418`, owner *"good. keep."*), `lead_fp_2050g` (`2050–2248`), `lead_fp_3672b` (`3672–3718`): `31`, `10–64`, and `29` head-touching units carved without `depth.npz` + heavy hand overlap.
