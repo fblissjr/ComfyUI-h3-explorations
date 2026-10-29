@@ -3304,6 +3304,16 @@ def depth_in_the_job_step() -> str:
             carried = made.load(name="a_fp_0100b", carry_words_from=made.jobs / "a_fp_0100.json")
             assert carried["job"]["depth"]["on"] is True and "(carried from a_fp_0100)" in carried["job"]["depth"]["why"], carried["job"]["depth"]
 
+            # Plan-level depth (`plan["subjects"][s]["depth"] = {"on": True, "why": ...}`) enables depth without CLI `--depth`
+            made.plan["subjects"]["a"]["depth"] = {"on": True, "why": "standing depth on crossings"}
+            made.write()
+            from_plan = made.load(name="a_fp_0100_plan")
+            assert from_plan["job"]["depth"] == {
+                "on": True, "why": "standing depth on crossings", "said_by": "the plan", "at": "now"
+            }, from_plan["job"].get("depth")
+            made.plan["subjects"]["a"].pop("depth", None)
+            made.write()
+
             # With no overlap frames in the load, measure_moge2_depth.py is not called
             t_b[:] = False
             t_held[:] = False
