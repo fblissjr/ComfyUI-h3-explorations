@@ -4,18 +4,18 @@
 
 ## Starting a day: read [`handover.md`](handover.md) first
 
-- **Daily boundary & active execution order (`2026-10-28`)**: [`handover.md`](handover.md) ("Tomorrow, in order", "State when closed", "What not to assume", and "Where things are").
+- **Daily boundary & active execution order (`2026-10-29`)**: [`handover.md`](handover.md) ("Tomorrow, in order", "State when closed", "What not to assume", and "Where things are").
 - **Repo-level roadmap & open/closed lanes**: [`../roadmap.md`](../roadmap.md).
-- **Active decisions log (`2026-10-23` through `2026-10-28` + date router)**: [`decisions.md`](decisions.md).
-- **Masked lane operative rules, protocol, & code map**: [`../masked_v2v/AGENTS.md`](../masked_v2v/AGENTS.md), [`../masked_v2v/PROTOCOL.md`](../masked_v2v/PROTOCOL.md), [`../masked_v2v/CODE_MAP_INDEX.md`](../masked_v2v/CODE_MAP_INDEX.md), and [`../masked_v2v/2026-10-25_pass_contamination_and_mask_step_forensics.md`](../masked_v2v/2026-10-25_pass_contamination_and_mask_step_forensics.md).
+- **Active decisions log (`2026-10-23` through `2026-10-29` + date router)**: [`decisions.md`](decisions.md).
+- **Masked lane operative rules, live backlog, protocol, & code map**: [`../masked_v2v/AGENTS.md`](../masked_v2v/AGENTS.md), [`../masked_v2v/fun_render_backlog.md`](../masked_v2v/fun_render_backlog.md), [`../masked_v2v/PROTOCOL.md`](../masked_v2v/PROTOCOL.md), [`../masked_v2v/CODE_MAP_INDEX.md`](../masked_v2v/CODE_MAP_INDEX.md), and [`../masked_v2v/2026-10-25_pass_contamination_and_mask_step_forensics.md`](../masked_v2v/2026-10-25_pass_contamination_and_mask_step_forensics.md).
 
-## Current Order (`2026-10-28`)
+## Current Order (`2026-10-29`)
 
-Follow [`handover.md`](handover.md)'s **"Tomorrow, in order"** (rewritten at the `2026-10-27` close) and the `2026-10-28` corrections in [`decisions.md`](decisions.md):
-1. Rebuild the whole-video delivery table and morning composite cut (`bench/rebuild_delivery.py --video fun --clip`) so the cut includes `second_hfp_4647i` (`laid.jsonl` row `70`), `third_fp_5114e` (row `71`), and the `187dc9fd` `restore=` pin fixes, and copy the resulting `.mp4` and `.json` sidecars to `$H3_INPUT_DIR` (`--source`).
-2. Unblock and render `second_hfp_4912m` (`4912–4946`, Pass 1 `second`) after an independent non-maker `looked` pass, overriding post-`on-plan` `f002` (`key: 7eb6b893b25b6aff`), and running `flags-read`.
-3. Queue Pass 3 `lead` preview on `4647–4725` (`shot_c_4647m`) on the new morning cut behind `4912m`'s render, and after `4912m` is kept and laid, rebuild the cut and render Pass 2 `third` on `4912–4946` (`margin = 16`, face only, no beard).
-4. Clear the `lead` single-subject queue by frames owed (`6105–6394` [290f], `2254–2598` [345f laid on `2271–2598`], `3759–3908` [150f], `516–603` [88f], `3595–3671`, `5044–5113`, then `4774, 3476, 3240, 4227` and `1419–1465` `second`).
+Follow [`handover.md`](handover.md)'s **"Tomorrow, in order"** (rewritten at the `2026-10-28` close) and [`../masked_v2v/fun_render_backlog.md`](../masked_v2v/fun_render_backlog.md) ("Today's queue, as ready on disk"):
+1. Rebuild the whole-video delivery table and composite cut (`bench/rebuild_delivery.py --video fun --clip`) with all `77` rows of `data/fun/laid.jsonl` (including the `8` keeps of `2026-10-28`, rows `70–77`) and stage the cut on `:8765`.
+2. Build and render `lead_fp_4053d` (`4053–4091`, `39f`) on `shot_c_4053e` as the first live reference under `dc07ccee` (`1.958x`), reading `_sheet.jpg` before `first`.
+3. Preview `shot_c_5044f` and build/render `lead_fp_5044b` (`5044–5113`, `70f`) under `dc07ccee` (`2.798x`, `0` edge frames).
+4. Execute the remaining single-subject `lead` queue (`4774–4841`, `3476–3523`, `4227–4271`, `3240–3276`, `3595–3671`, `3110–3166`, and `6105–6394` once the 9 `who_is_who` rows are answered) and `4912–4946` (`second_hfp_4912o` paged + CPU neighbor-hair box check).
 
 ## Historical Queues (`2026-09-05` through `2026-10-20`)
 
