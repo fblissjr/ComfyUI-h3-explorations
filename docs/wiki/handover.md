@@ -13,7 +13,7 @@ replacing it. Where this page and a record disagree, the record is right: `git l
   `sha256 d3f8f7df`): `lead_fp_0438b`, `lead_fp_1134b`, `lead_fp_4272c` (15:22Z, replacing `0438e`, `1134`, `4272b`),
   `lead_fp_4053d` (16:10Z, replacing `4053c`, the first reference under `dc07ccee`), `lead_fp_3240f` (16:38Z, new
   row, the first shot that had never been rendered), `lead_fp_4774c` (about 18:00Z, new row, 4774 to 4826),
-  `lead_fp_3476c` (kept about 18:25Z, "looks amazing, you got it at all the transitions"; not yet laid when this was
+  `lead_fp_3476c` (kept 18:19Z, "looks amazing, you got it at all the transitions"; not yet laid when this was
   written, so the ledger reads 77 rows until `laid.py` adds it). Seven keeps, zero wasted renders. Rejected:
   `second_hfp_4912o` (15:22Z, dark hair).
 - **Reopened by the owner and taken off the ledger** (`laid.removed.jsonl` rows 15 and 16, 18:06Z):
@@ -71,7 +71,7 @@ replacing it. Where this page and a record disagree, the record is right: `git l
 
 1. Read this page, `decisions.md` (2026-10-29), the backlog's "Today's queue" table and row 1.9, and
    `docs/comfy_notes.md` before the first command.
-2. Lay `lead_fp_3476c` with `laid.py` against its keep line in `owner_answers.jsonl` (about 18:25Z), if the outgoing lead has not.
+2. Lay `lead_fp_3476c` with `laid.py` against its keep line in `owner_answers.jsonl:1690-1691` (18:19Z), if the outgoing lead has not.
 3. `lead_fp_5049b`: reference as the job says, `first`, `plan`, `on-plan`, `table`, the look by a reader who did not
    build it, the full prompt with `what_h3_got.py`, `render`, `land`, the reading, `page`. Never `land && page`.
 4. The two remakes: queue `shot_c_0278g` and `shot_c_0014f` on the card; `second_hfp_0278n` with
