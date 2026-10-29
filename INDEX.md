@@ -171,7 +171,7 @@ with none is a helper the others import.
 
 | file | what it says |
 |---|---|
-| [`skills/masked-v2v-audit/SKILL.md`](.gemini/skills/masked-v2v-audit/SKILL.md) | General upstream data-dependency, statistical outlier, frame-alignment, and visual verification workflow for H3 masked V2V pipelines. Always invoke before queuing renders or remakes, or whenever debugging unexpected behavior across ... |
+| [`skills/masked-v2v-audit/SKILL.md`](.gemini/skills/masked-v2v-audit/SKILL.md) | Upstream data-dependency, statistical outlier, frame-alignment, and visual verification workflow for H3 masked V2V pipelines. Invoke when auditing upstream inputs before queuing renders or remakes, or when debugging unexpected behavior ... |
 | [`skills/video-understanding/SKILL.md`](.gemini/skills/video-understanding/SKILL.md) | Route video, image, and audio inspection in this repo with a strict Native-First Gate inside the Antigravity (agy) harness — always using built-in read_file (.1fps.<first>-<last>.mp4, <100 MB 24 fps .mp4, .png/.jpg) and local $PY ... |
 | [`skills/video-understanding/references/audio_and_transcription.md`](.gemini/skills/video-understanding/references/audio_and_transcription.md) | Path 4: Audio & Active-Speaker Transcription (`gemini_media.py transcribe-spans` & `gemini-api transcribe`) |
 | [`skills/video-understanding/references/image_agentic_zoom.md`](.gemini/skills/video-understanding/references/image_agentic_zoom.md) | Path 3B: Agentic Vision (`code_execution` Zoom-and-Inspect) & Per-Item `media_resolution` |

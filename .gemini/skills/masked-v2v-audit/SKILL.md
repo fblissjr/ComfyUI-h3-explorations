@@ -1,6 +1,6 @@
 ---
 name: masked-v2v-audit
-description: General upstream data-dependency, statistical outlier, frame-alignment, and visual verification workflow for H3 masked V2V pipelines. Always invoke before queuing renders or remakes, or whenever debugging unexpected behavior across multi-stage video pipelines.
+description: Upstream data-dependency, statistical outlier, frame-alignment, and visual verification workflow for H3 masked V2V pipelines. Invoke when auditing upstream inputs before queuing renders or remakes, or when debugging unexpected behavior across multi-stage video pipelines.
 ---
 
 # Masked V2V Upstream & Pre-Render Diagnostic Skill
@@ -10,7 +10,7 @@ Passing an automated preflight gate (`0 likely to fail`) is necessary but not su
 ## Core Diagnostic Habits (Always Apply)
 
 1. **Trace Every Explicit and Hidden Dependency in the DAG (Never Assume Inputs Are Synced)**:
-   - Audit every model stream and JSON/NPZ table feeding the stage — not just the primary track mask. In H3 masked V2V, multiple independent models feed the same stage without automatic cross-locking (e.g., 3D `SAM3DBody` `_mesh` vs. 2D `Sapiens2-Pose` `_points.npz` vs. `_pose_table.json` in `head_reference.py`; opt-in `MoGe-2` `--depth` in `shot_to_load.py job`; `seen_looks` in `shots.json`).
+   - Audit every model stream and JSON/NPZ table feeding the stage — not just the primary track mask. In H3 masked V2V, multiple independent models feed the same stage without automatic cross-locking (e.g., 3D `SAM3DBody` `_mesh` vs. 2D `Sapiens2-Pose` `_points.npz` vs. `_pose_table.json` in `head_reference.py`; `MoGe-2` `depth.npz` in `shot_to_load.py job`; `seen_looks` in `shots.json`).
    - Check whether upstream diagnostic tables (`marks_against_the_body_model`, `face_score_mean`, `part_grades.json`, `seen_looks`) are actually acted on by the code or merely logged as `"decides: nothing"`. If the code logs an anomaly without acting on it, you must pass the corresponding override/exclusion flags (`--no-head-on`, `--no-face-on`, `--no-draw-face-on`, `--drop`, `--depth`) or fix the stage writer and reprocess downstream.
    - Verify that every input video, mask, and array feeding a job has the exact same start frame, frame count, and source cut.
 2. **Interrogate Summary Statistics Against Per-Frame Reality (`Least / Median / Most`)**:
