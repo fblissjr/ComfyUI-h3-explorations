@@ -30,14 +30,14 @@ Where this page and a record disagree, the record is right: `git log`, [`decisio
     4. **Measured follow-ups and open doc/tooling items not in `dc07ccee`** (numbers already saved in `data/fun/cranium_crown_and_marks_scan_fun_2026-10-29T0301Z.json` and `data/fun/cranium_raw_vs_window_scan_fun_2026-10-29T0301Z.json`):
        - Asymmetric top-grow above `hy0` (`0.75–0.85 * face` vs `0.50 * face` on the sides) to hold shallow 3D crowns where SAM's head track stops at the brow (`second_4647_4725_g` frame `4696` at `0.85 fh` / `7 px`, `lead_5044_5113` frames `5045, 5060` at `0.76, 0.82 fh`, `second_4912_4946_f` frame `4940` at `0.72 fh`), plus recording `seen & kept` fallback in `sizing_fallback` and updating the two `"no head track read"` strings in `bench/crop_reference_to_head.py`.
        - 3D body-model marks exclusion list (for flipped-mesh frames inside a valid head track where green is painted on legs, e.g. `lead_3476_3523` frame `3489` at `nose_from_body_model_fh = 4.32, eye_roll_diff_deg = 172.6` and `second_1093_1133_h` frame `1095` at `nose_from_body_model_fh = 12.95, eye_roll_diff_deg = 114.8`), replayed before landing since `0.50 fh` also fires on normal frames.
-       - Build 3b (`laid.py` overlap refusal, `--trim`, sidecar stamp `laid.jsonl.stamp.json`, readers through `laid.read`, and `rebuild_delivery.py` snapshot) and Build 4 (generated `docs/masked_v2v/fun_status.md` via `bench/shot_coverage.py`, removing the dated handover banners and duplicate DAGs from skill/lane/backlog docs, fixing stale `2254`/`32 of 52`/`CRANIUM_SCORE_FLOOR` prose and `internal/` links in `fun_render_backlog.md`, and updating `shot_to_load.py` plan-depth record strings).
+       - Build 3b (`laid.py` overlap refusal, `--trim`, sidecar stamp `laid.jsonl.stamp.json`, readers through `laid.read`, and `rebuild_delivery.py` snapshot) and Build 4 (generated `docs/masked_v2v/fun_status.md` via `bench/shot_coverage.py`, updating `shot_to_load.py` plan-depth record strings, and replacing remaining hardcoded share-path defaults / relative `output` fallbacks with a refusal when `H3_OUTPUT_DIR` is unset or when a tool is asked to create a directory under the repo root outside `data/`).
 
 ## Tomorrow, in order
 
 1. **Owner review on the page for `lead_fp_4272c` (`4272–4309`), `lead_fp_1134b` (`1134–1155`), and `lead_fp_0438b` (`438–483`)**:
    - All three are rendered, landed, and on the review page (`01:10Z`). Lay the ones kept; remake `4272c` (`3.141x`) or `0438b` (`2.169x`) under `dc07ccee` only if not kept on the page.
 2. **Build & render `lead_fp_4053d` (`4053–4091`, `39f`) as the first reference under `dc07ccee` (`1.958x`), reading its `_sheet.jpg` before `first`, followed by `lead_fp_5044b` (`5044–5113`, `2.798x` with `0` edge frames) and `lead_fp_6105e` (`6105–6394` once drops are written)**.
-3. **Follow-up builds**: asymmetric crown top-grow + 3D-marks exclusion replay in `cranium_box`, `laid.py` overlap refusal / `--trim` / stamp lock, and generated `docs/masked_v2v/fun_status.md` from `shot_coverage.py`.
+3. **Follow-up builds**: asymmetric crown top-grow + 3D-marks exclusion replay in `cranium_box`, `laid.py` overlap refusal / `--trim` / stamp lock, generated `docs/masked_v2v/fun_status.md` from `shot_coverage.py`, and refusing unset `H3_OUTPUT_DIR` / repo-root directory writes outside `data/`.
 
 ## Where things are
 

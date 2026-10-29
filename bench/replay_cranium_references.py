@@ -187,7 +187,10 @@ def main() -> int:
     os.chdir(REPO)
     stamp = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H%MZ")
     out_p = Path(args.out) if args.out else (REPO / "data" / args.video / f"cranium_replay_{args.video}_{stamp}.json")
-    out_root = Path(os.environ.get("H3_OUTPUT_DIR", "/mnt/hub/ai/img/output"))
+    out_env = os.environ.get("H3_OUTPUT_DIR")
+    if not out_env:
+        ap.error("H3_OUTPUT_DIR is not set in the environment")
+    out_root = Path(out_env)
     pattern = str(out_root / "Video" / args.video / "references" / "*" / "*head_reference*.json")
     ps = [p for p in sorted(glob.glob(pattern)) if "_plain_cut" not in p and "_source_cut" not in p and "_points" not in p]
     with ProcessPoolExecutor(max_workers=args.workers) as ex:
