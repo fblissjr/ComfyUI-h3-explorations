@@ -492,6 +492,16 @@ def cranium_box_round_the_grey_head() -> str:
     P_occ, _ = cr.faces.rows_of(str(fx.save(folder / "occ_points.npz", occ_kp, (W, H), first=0, scores=occ_sc)), None, 0, N, 0, whole_face=False)
     occ_box = cr.cranium_box(P_occ, (W, H), cr.HEAD_ROOM, pics)
     assert occ_box["box"] == rec["box"], (occ_box["box"], rec["box"])
+    # when more than half the span is in leave_out_frames with tiny bogus face heights (as on lead_2254_2598_c where 186 of 345
+    # frames are left out), CRANIUM_FACE_OUTLIER is measured against the active kept & seen & scored frames' median, not diluted
+    # by the excluded frames
+    many_excl_kp = faces(CENTRES).copy()
+    for k in range(7):
+        many_excl_kp[k] = CENTRES[k][None, :] + (many_excl_kp[k] - CENTRES[k][None, :]) * 0.25
+    P_many, _ = cr.faces.rows_of(str(fx.save(folder / "many_excl_points.npz", many_excl_kp, (W, H), first=0, scores=np.full(many_excl_kp.shape[:2], 0.9, np.float32))), None, 0, N, 0, whole_face=False)
+    kept_plain = cr.cranium_box(Pn, (W, H), cr.HEAD_ROOM, pics, first=0, leave_out_frames=list(range(7)))
+    kept_many = cr.cranium_box(P_many, (W, H), cr.HEAD_ROOM, pics, first=0, leave_out_frames=list(range(7)))
+    assert kept_many["box"] == kept_plain["box"], (kept_many["box"], kept_plain["box"])
     # --box cuts by the box given, as it is
     given = cr.run(str(REF), str(POINTS), 0, N, folder / "given.mp4", "the check", box=rec["box"], say=quiet)
     assert given["box"] == rec["box"] and given["box_set_by"].startswith("given") and "cranium" not in given, given["box_set_by"]

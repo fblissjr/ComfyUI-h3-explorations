@@ -283,8 +283,12 @@ def cranium_box(points: dict, size: tuple[int, int], room: float, frames: np.nda
         if scores is not None and len(scores) == len(each) and len(fids)
         else np.ones(len(each), dtype=bool)
     )
-    in_scale = (fhs <= CRANIUM_FACE_OUTLIER * face) if face > 0 else np.ones(len(each), dtype=bool)
     seen = np.array([bool(np.any(hd)) for hd in heads], dtype=bool)
+    active_fhs = fhs[kept & seen & scored & (fhs > 0)]
+    if not len(active_fhs):
+        active_fhs = fhs[kept & seen & (fhs > 0)]
+    face_ref = float(np.median(active_fhs)) if len(active_fhs) else face
+    in_scale = (fhs <= CRANIUM_FACE_OUTLIER * face_ref) if face_ref > 0 else np.ones(len(each), dtype=bool)
     good = seen & scored & in_scale
     use = (good & kept) if (good & kept).any() else (seen & kept)
     sized = each[use] if use.any() else (each[good] if good.any() else (each[seen] if seen.any() else each))
