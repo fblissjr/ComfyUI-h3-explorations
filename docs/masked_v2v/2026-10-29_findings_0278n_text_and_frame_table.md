@@ -102,9 +102,15 @@ share on the canvas grid from the preview's class video (her Hair on her track, 
 
 What it means. The hole is cut to the SAM head track; the crown join in `bench/head_tube_parts.py` adds a hair
 component only where enough of it lies above the track's top and never below, so hair at the back and sides inside
-the head band stays out. That hair sits in the margin: regenerated, but shown to the model as source to blend into.
-On 4912 the margin therefore holds her own dark hair and the bystanders', where on the kept kitchen shots it holds
-wall and doorway. The hole's size is not the difference: on the canvas 4912's hole is the size of `5114k`'s and after
+the head band stays out. That hair sits in the margin band, which regenerates from noise like the hole (the
+sampler's noise mask is the grown region's tokens, `audio_freeze_song.py`, the `noise_mask` line), so the model is
+not shown it there. It reaches the model two ways, both read by `gemrender` and checked: the margin is grown from
+the hole, not from her hair, so the region's edge lands on the outer edge of her hair and the pinned cells just
+outside, encoded from the unblanked source, carry it in the VAE's receptive field; and the carve for the others
+keeps only the hole as hers (`video_mask.py`, `tokens * (1 - theirs * (1 - own))` with `own` from the hole), so a
+cell of her hair that a bystander touches is given back to the source. On 4912 the edge therefore meets her own
+dark hair and the bystanders', where on the kept kitchen shots it meets wall and doorway. (An earlier wording here
+said the margin was shown to the model as source; it is not.) The hole's size is not the difference: on the canvas 4912's hole is the size of `5114k`'s and after
 the zoom covers more latent cells than any kept kitchen shot. The new hair's length and shape differ from hers
 (`<Picture 1>` is long and straight; she wears a short crop), and the margin is a fixed pixel count, not measured
 against the new hair; that is a plan question for the subject and would widen every `second` load.
