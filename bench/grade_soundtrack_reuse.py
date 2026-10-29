@@ -41,6 +41,7 @@ absolute number looks like.
 """
 from __future__ import annotations
 
+import argparse
 import json
 import os
 import re
@@ -98,9 +99,22 @@ def duration(path):
     return float(r.stdout.strip())
 
 
-def main() -> int:
-    ref_path = _require_env("H3_INPUT_DIR") / "20260601_172336_00001-audio.mp4"
-    out_dir = _require_env("H3_OUTPUT_DIR") / "Video"
+def main(argv=None) -> int:
+    ap = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])
+    ap.add_argument("--input-dir", default=os.environ.get("H3_INPUT_DIR"), help="input directory containing the reference audio clip (default: $H3_INPUT_DIR)")
+    ap.add_argument("--output-dir", default=os.environ.get("H3_OUTPUT_DIR"), help="output directory containing Video/ renders (default: $H3_OUTPUT_DIR)")
+    ap.add_argument("--out", default="data/results/2026-08-22_soundtrack_reuse.json", help="output JSON path (default: data/results/2026-08-22_soundtrack_reuse.json)")
+    ap.add_argument("--write", action="store_true", help="write the JSON result to --out (refuses if --out already exists)")
+    args = ap.parse_args(argv)
+    if not args.input_dir:
+        ap.error("--input-dir is required when H3_INPUT_DIR is not set in the environment")
+    if not args.output_dir:
+        ap.error("--output-dir is required when H3_OUTPUT_DIR is not set in the environment")
+    out_p = Path(args.out)
+    if args.write and out_p.exists():
+        raise SystemExit(f"refused: {out_p} already exists; a kept output is not replaced")
+    ref_path = Path(args.input_dir) / "20260601_172336_00001-audio.mp4"
+    out_dir = Path(args.output_dir) / "Video"
     # Two render sets, scored in one run. **They must not be compared across
     # sets** -- this measure is uncalibrated and a 15.083s window averages
     # differently from a 5.167s one, which the module docstring states and
@@ -170,15 +184,17 @@ def main() -> int:
           "\n  control is the load-bearing column: it is what says the render "
           "\n  reproduced THIS window rather than sounding generally like this "
           "\n  recording.")
-    Path("data/results/2026-08-22_soundtrack_reuse.json").write_text(
-        json.dumps({"reference": str(ref_path), "sample_rate": SR,
-                    "measure": "mean per-frame Pearson correlation of 64-bin log-mel",
-                    "not_calibrated": "No value here means 'speech intact'. "
-                                      "Ranks arms sharing a window length; "
-                                      "cross-length comparison is invalid.",
-                    "sets": {t: [l for l, _ in g] for t, g in sets.items()},
-                    "rows": rows}, indent=2))
-    print("\n  wrote data/results/2026-08-22_soundtrack_reuse.json")
+    if args.write:
+        out_p.parent.mkdir(parents=True, exist_ok=True)
+        out_p.write_text(
+            json.dumps({"reference": str(ref_path), "sample_rate": SR,
+                        "measure": "mean per-frame Pearson correlation of 64-bin log-mel",
+                        "not_calibrated": "No value here means 'speech intact'. "
+                                          "Ranks arms sharing a window length; "
+                                          "cross-length comparison is invalid.",
+                        "sets": {t: [l for l, _ in g] for t, g in sets.items()},
+                        "rows": rows}, indent=2))
+        print(f"\n  wrote {out_p}")
     return 0
 
 

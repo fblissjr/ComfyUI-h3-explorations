@@ -233,10 +233,10 @@ def main(argv=None) -> int:
     ap.add_argument("--share", default=os.environ.get("H3_OUTPUT_DIR"), help="the server's output folder the previews wrote to (default: $H3_OUTPUT_DIR)")
     ap.add_argument("--json", help="also write the queue as JSON here (a new file)")
     a = ap.parse_args(argv)
-    if not a.share:
-        ap.error("--share is required when H3_OUTPUT_DIR is not set in the environment")
     if a.json and Path(a.json).exists():
         raise SystemExit(f"refused: {a.json} is there; a kept output is not replaced")
+    if not a.share:
+        ap.error("--share is required when H3_OUTPUT_DIR is not set in the environment")
     import capture_masked_run as cap
     import masked_job
     import others_present
