@@ -3203,7 +3203,7 @@ def check_encode_frames(problems):
     """`encode_frames` feeds `window`'s `encode` without changing `source["frames"]`, the masks, or the zoom box."""
     n, h, w = 9, 96, 160
     frames = torch.full((n, h, w, 3), 0.2)
-    encode = torch.full((n, h, w, 3), 0.7)
+    encode = torch.linspace(0.3, 0.9, h * w, dtype=torch.float32).reshape(1, h, w, 1).expand(n, h, w, 3).clone()
     mask = torch.zeros(n, h, w)
     mask[:, 24:56, 48:96] = 1.0
     got = _appended("encode_frames")
@@ -3218,8 +3218,10 @@ def check_encode_frames(problems):
     win = vm.window(src, 0, n, w, h, 3, 12, 20)
     if not torch.allclose(win[0], frames, atol=1e-5) or not torch.allclose(win[1], encode, atol=1e-5):
         problems.append("encode_frames: `window` did not keep `pixels` as `frames` and take `encode` from `source['encode_frames']`")
-    zsrc, zbox = vm.zoomed_source(dict(src, render_region="zoomed in on what is replaced", zoom_up_to=2.0), w, h)
-    if zbox is None or zsrc.get("encode_frames") is None or tuple(zsrc["encode_frames"].shape) != tuple(zsrc["frames"].shape):
+    zsrc, _zlines = vm.zoomed_source(dict(src, render_region="zoomed in on what is replaced", zoom_up_to=2.0), w, h)
+    expected_zenc = vm.crop_frames(encode, zsrc["zoom"]["box"], w, h) if zsrc.get("zoom") else None
+    if (expected_zenc is None or zsrc.get("encode_frames") is None
+            or torch.equal(expected_zenc, encode) or not torch.equal(zsrc["encode_frames"], expected_zenc)):
         problems.append("encode_frames: `zoomed_source` did not crop `encode_frames` alongside `frames`")
     win39_f = torch.full((39, h, w, 3), 0.2)
     shot35_e = torch.full((35, h, w, 3), 0.7)
