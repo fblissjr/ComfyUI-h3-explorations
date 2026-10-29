@@ -30,6 +30,30 @@ Where this page and a record disagree, the record is right: `git log`, [`decisio
 - **`4912–4946` (`second` + `third`) is owned by session `gem4912` (CPU root-cause analysis)**:
   - Do not build or edit `4912` until `gem4912` is ready for its landing/GPU slot; always check `git status --short` before committing.
 
+- **Added 18:32Z by the Claude advisory session (`mrfam`), on top of the lead's close (`88bd0d15`)**:
+  - **The cut on the review page is still the 15:12Z assembly** (`fun_0000_6394_joined_2026-10-29T1450Z_from_laid`, the
+    eight keeps of 10-28 and nothing kept today). The 18:14Z run under `data/2026-10-29_fun_delivery_tables/` wrote a
+    ledger, table and reading from the current rows but no clip and no rebuild record. The close rebuild with `--clip`
+    is owed, and until the two remakes are kept it lays the original mom on 14 to 167 and 278 to 293: the ledger holds
+    "kept" and "removed" and nothing for "wrong, but laid until replaced". The owner knows and has not ruled.
+  - **The 4912 test lands in this order**: the Claude blind read of `gem/4912-hair` (`21753055`) is green with one ask
+    (the zoomed-source case in `check_video_mask` compares content, not shape; `gem4912` commits it on the branch);
+    then the landing by pathspec from the merge base on an empty queue; then the server restarted by the recipe in
+    `docs/comfy_notes.md`; then `gem4912` runs `second_hfp_4912p` through every gate itself. Neither `gem4912` nor
+    this page's reader restarts the server with a load on the card. The owner's rule: if it comes back dark, document
+    and move on.
+  - **Depth bleeds across an occlusion edge onto the re-emerging subject's first sliver** (4912 frame 4926,
+    `internal/gemini/2026-10-29_4912/strip_4926_depth_who_is_who.jpg`): the keep-in-front margin, a fixed constant,
+    cannot separate them, and the carve took the occluder's hair into the hole on that step. A general effect and a
+    build candidate; untouched for the 4912 test on purpose.
+  - **The owner's invalidation rule** (`decisions.md`, 2026-10-29): a change in the shot record, the plan or the job
+    that a mask or render depends on invalidates it; nothing made from the old input is carried. Writer stamps enforce
+    it for code; nothing yet refuses a capture whose `shots.json`, `cast.jsonl` or `plan.json` words changed after it.
+  - **The outgoing lead compacted at least six times** and its last messages looped on a task poll; the owner replaced
+    it. Its reconstruction from the `agy` transcripts is the fresh session's subagent's job, as a postmortem record,
+    and a cross-check on this page. The Claude day file with the 10-28 postmortem, today's plan, the check table and
+    every correction is `internal/claude/2026-10-29_mrfam/postmortem_and_plan.md`.
+
 ## Next session, in order
 
 1. **Run `first..table`, pre-render subagent look, `render`, `land`, post-land `reading.md`, and `page` on `lead_fp_5049b` (`5049–5104`, `56f`)**:
