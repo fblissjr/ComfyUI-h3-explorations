@@ -645,17 +645,21 @@ def build_frame_table(
     if part_mask_path is not None and part_mask_path.is_file() and part_mask_path.read_bytes()[:4] == b"\x1a\x45\xdf\xa3":
         import cv2
         cap_vid = cv2.VideoCapture(str(part_mask_path))
-        if cap_vid.isOpened():
-            idx = 0
-            while idx < cap_frames:
-                ok, frame_img = cap_vid.read()
-                if not ok or frame_img is None:
-                    break
+        if not cap_vid.isOpened():
+            raise Refused(f"part mask video could not be opened: {part_mask_path}")
+        idx = 0
+        while True:
+            ok, frame_img = cap_vid.read()
+            if not ok or frame_img is None:
+                break
+            if idx < cap_frames:
                 held_part_px[cap_first + idx] = int((frame_img[:, :, 0] > 127).sum())
-                idx += 1
-            cap_vid.release()
-            if idx != cap_frames:
-                held_part_px.clear()
+            idx += 1
+        cap_vid.release()
+        if idx != cap_frames:
+            raise Refused(
+                f"part mask video {part_mask_path} has {idx} frame(s), expected {cap_frames} (capture frames {cap_first}..{cap_first + cap_frames - 1})"
+            )
 
     # Read subjects/<person>/per_frame.csv
     per_frame_csv = subj_dir / "per_frame.csv"

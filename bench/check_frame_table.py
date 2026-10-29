@@ -1152,7 +1152,16 @@ def main() -> int:
                 assert by_sf[101]["outcome"] == "replaced" and by_sf[101]["loaded_part_px"] == 8950 and by_sf[101]["part_px"] == 8950, by_sf[101]
                 assert by_sf[105]["outcome"] == "replaced" and by_sf[105]["loaded_part_px"] == 972 and by_sf[105]["part_px"] == 972, by_sf[105]
                 assert by_sf[105]["saved_part_px"] == 0 and by_sf[105].get("did") == "saved part kept, restored by her_hair_in_hole", by_sf[105]
-                return f"101: loaded_part_px={by_sf[101]['loaded_part_px']} (saved=2400); 105: outcome={by_sf[105]['outcome']}, loaded_part_px={by_sf[105]['loaded_part_px']} (saved=0)"
+
+                # Verify that a part mask video whose frame count does not match the capture is refused (never cleared silently)
+                write_mask_video(part_mkv, masks[:5])
+                try:
+                    frame_table.build_frame_table(cap)
+                    raise AssertionError("expected Refused on mismatched part mask video frame count")
+                except frame_table.Refused as e:
+                    assert "has 5 frame(s), expected 6" in str(e), e
+
+                return f"101: loaded_part_px={by_sf[101]['loaded_part_px']} (saved=2400); 105: outcome={by_sf[105]['outcome']}, loaded_part_px={by_sf[105]['loaded_part_px']} (saved=0); 5-frame mkv refused"
             finally:
                 part_mkv.write_bytes(orig_mkv_bytes)
                 mf_path.write_text(json.dumps(orig_mf, indent=2) + "\n", encoding="utf-8")
