@@ -349,7 +349,13 @@ def no_check_refused() -> str:
         table["rows"][1]["last"] = 24
         r = subprocess.run([sys.executable, str(TOOL), "--table", str(t), "--check", str(Path(tmp) / "clip.mp4.check.json")], capture_output=True, text=True)
         assert r.returncode == 0 and json.loads((Path(tmp) / "frame_coverage_t.json").read_text())["table_sha256"], r.stdout + r.stderr
-    return "no check: refused, exit 2, nothing written; a check of another table refused naming the rows; --check read, the table's sha256 recorded"
+        (Path(tmp) / "clip.mp4.check.json").unlink()
+        (Path(tmp) / "frame_coverage_t.json").unlink()
+        r_nc = subprocess.run([sys.executable, str(TOOL), "--table", str(t), "--no-check"], capture_output=True, text=True)
+        assert r_nc.returncode == 0, r_nc.stdout + r_nc.stderr
+        nc_doc = json.loads((Path(tmp) / "frame_coverage_t.json").read_text())
+        assert nc_doc["clip_check"]["file"] is None and nc_doc["counts"]["laid_but_barely_changed"]["frames"] == 0, nc_doc
+    return "no check: refused, exit 2, nothing written; a check of another table refused naming the rows; --check read, the table's sha256 recorded; --no-check runs table-only"
 
 
 def ledger_reads_the_same_rule() -> str:

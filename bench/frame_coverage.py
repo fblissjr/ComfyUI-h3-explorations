@@ -667,8 +667,8 @@ def _format_render_summary(r: dict) -> str:
 
 
 def coverage(table: dict, span: list[int] | None = None, data: Path | None = None, ledger: Path | dict | None = None,
-             shots: Path | dict | None = None, check: Path | None = None) -> dict:
-    check_path, clip_check = check_of(table, check)
+             shots: Path | dict | None = None, check: Path | None = None, no_check: bool = False) -> dict:
+    check_path, clip_check = (None, None) if no_check else check_of(table, check)
     caps: dict[str, Capture] = {}
     failures = []
     tied, failed = [], []
@@ -710,7 +710,7 @@ def coverage(table: dict, span: list[int] | None = None, data: Path | None = Non
         for r, c, n in mine:
             e = emptied(c, n, label, [max(r["first"], lo), min(r["last"], hi)])
             empt[id(r)] = e
-            changed_px[id(r)] = changed_of(clip_check, r)
+            changed_px[id(r)] = {} if clip_check is None else changed_of(clip_check, r)
             own = c.run(n)
             sizes = [int(own["carried_px"][f - c.first]) for f in range(r["first"], r["last"] + 1)
                      if 0 <= f - c.first < c.n and own["read"][f - c.first] and own["carried_px"][f - c.first] > 0]
@@ -805,10 +805,10 @@ def coverage(table: dict, span: list[int] | None = None, data: Path | None = Non
                     if carried == 0:
                         state = "original: emptied inside the piece (" + empt[id(r)]["frames"].get(f, "not in the record") + ")"
                     else:
-                        share = changed_px[id(r)].get(f, 0) / carried
+                        share = None if clip_check is None else changed_px[id(r)].get(f, 0) / carried
                         if own_size[id(r)] and carried < FAR_BELOW_ITS_OWN_SIZE * own_size[id(r)]:
                             state = f"region far below its own size (its median {int(own_size[id(r)])} px)"
-                        elif share < BARELY_CHANGED:
+                        elif share is not None and share < BARELY_CHANGED:
                             state = "laid but barely changed"
                         elif f in frames_of((c.sighting(label) or {}).get("parts_held_on_source_frames")):
                             state = "carried (held from a neighbouring frame)"
@@ -1034,7 +1034,11 @@ def coverage(table: dict, span: list[int] | None = None, data: Path | None = Non
         "laid_but_barely_changed": barely,
         "region_far_below_its_own_size": small,
         "read_for_looks": {"ledger": str(ledger_path) if ledger_path else None, "shots": str(shots_path) if shots_path else None},
-        "clip_check": {"file": str(check_path), "sha256": hashlib.sha256(check_path.read_bytes()).hexdigest()},
+        "clip_check": (
+            {"file": None, "sha256": None, "skipped": "--no-check: table-only run without assembled clip check"}
+            if check_path is None
+            else {"file": str(check_path), "sha256": hashlib.sha256(check_path.read_bytes()).hexdigest()}
+        ),
         "runs": runs_out,
         "by_shot": by_shot(runs_out),
     }
@@ -1307,6 +1311,7 @@ def main() -> int:
     ap.add_argument("--ledger", help="the render ledger whose records name each laid piece's job file; the one the table names when left out")
     ap.add_argument("--shots", help="the shots record whose looks are read; the one the table names when left out")
     ap.add_argument("--check", help="the assembled clip's <clip>.mp4.check.json; the one the table's assembly command writes when left out")
+    ap.add_argument("--no-check", action="store_true", help="table-only coverage check without <clip>.mp4.check.json (skips laid_but_barely_changed)")
     ap.add_argument("--json", help="where the JSON goes; beside the table when left out")
     ap.add_argument("--md", help="where the .md goes; beside the table when left out")
     a = ap.parse_args()
@@ -1316,7 +1321,7 @@ def main() -> int:
     try:
         out = coverage(table, span, data=Path(a.data) if a.data else None,
                        ledger=Path(a.ledger) if a.ledger else None, shots=Path(a.shots) if a.shots else None,
-                       check=Path(a.check) if a.check else None)
+                       check=Path(a.check) if a.check else None, no_check=bool(a.no_check))
     except Refused as e:
         print(f"REFUSED: {e}")
         return 2
