@@ -20,7 +20,7 @@ page describes without a path were found through the record the page
 points at. Frame numbers below are a file's own, counted from zero, unless
 the row says source.
 
-The share is `/mnt/hub/ai/img/output/`; `Video/...` below is under it.
+The share is `$H3_OUTPUT_DIR/`; `Video/...` below is under it.
 
 ## What it cannot see
 

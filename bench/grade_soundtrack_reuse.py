@@ -42,6 +42,7 @@ absolute number looks like.
 from __future__ import annotations
 
 import json
+import os
 import re
 import subprocess
 import sys
@@ -51,7 +52,13 @@ import torch
 import torchaudio
 
 SR = 16000
-REF = "/mnt/hub/ai/img/input/20260601_172336_00001-audio.mp4"
+
+
+def _require_env(var: str) -> Path:
+    val = os.environ.get(var)
+    if not val:
+        raise SystemExit(f"{var} is not set in the environment")
+    return Path(val)
 
 
 def load(path, start=0.0, duration=None):
@@ -92,7 +99,8 @@ def duration(path):
 
 
 def main() -> int:
-    out_dir = Path("/mnt/hub/ai/img/output/Video")
+    ref_path = _require_env("H3_INPUT_DIR") / "20260601_172336_00001-audio.mp4"
+    out_dir = _require_env("H3_OUTPUT_DIR") / "Video"
     # Two render sets, scored in one run. **They must not be compared across
     # sets** -- this measure is uncalibrated and a 15.083s window averages
     # differently from a 5.167s one, which the module docstring states and
@@ -133,11 +141,11 @@ def main() -> int:
             continue
         d = duration(p)
         gen = load(p)
-        ref = load(REF, 0.0, d)
+        ref = load(ref_path, 0.0, d)
         # Control: the same length of reference from a window the render was
         # never conditioned on. Same speaker, same room, different content.
         ctrl_start = d + 1.0
-        ctrl = load(REF, ctrl_start, d)
+        ctrl = load(ref_path, ctrl_start, d)
         r_match, r_ctrl = corr(gen, ref), corr(gen, ctrl)
         # Thirds, because the quantity drifts inside the window it is
         # averaged over. See the module docstring.
@@ -146,8 +154,8 @@ def main() -> int:
         for k in range(3):
             st = k * third
             g3 = load(p, st, third)
-            r3 = load(REF, st, third)
-            c3 = load(REF, st + ctrl_start / 2.0, third)
+            r3 = load(ref_path, st, third)
+            c3 = load(ref_path, st + ctrl_start / 2.0, third)
             by_third.append(round(corr(g3, r3) - corr(g3, c3), 3))
         rows.append({"arm": label, "file": name, "seconds": round(d, 3),
                      "mel_corr_vs_own_window": round(r_match, 4),
@@ -163,7 +171,7 @@ def main() -> int:
           "\n  reproduced THIS window rather than sounding generally like this "
           "\n  recording.")
     Path("data/results/2026-08-22_soundtrack_reuse.json").write_text(
-        json.dumps({"reference": REF, "sample_rate": SR,
+        json.dumps({"reference": str(ref_path), "sample_rate": SR,
                     "measure": "mean per-frame Pearson correlation of 64-bin log-mel",
                     "not_calibrated": "No value here means 'speech intact'. "
                                       "Ranks arms sharing a window length; "

@@ -1,7 +1,7 @@
 {
   "what": "Sol redesign bit-identity check (docs/research/2026-09-27_sol_node_redesign.md, test 0): the int8attn_after run's first two arms, same order, seed and patches, on MiniMaxH3Sol (0.162.0) and kitchen fc32da2, against the 11:04 slapstick PDD8 latent those arms saved on MiniMaxH3SolAttn and kitchen 863e953.",
   "why": "At the shipped settings the new node passes the kernel the same arguments as the old one, and fc32da2 changes only the token stage (off here), so the saved latent should be bit-identical. It also answers whether PDD8 on the exact branch reproduces bit for bit across server processes.",
-  "reference": "/mnt/hub/ai/img/output/latents/text_to_video_pdd_savelat_video_slapstick_moving_piano__pdd8_00002_.latent (and its _audio_ twin); bench/results/2026-09-27_int8attn_after.jsonl row 1",
+  "reference": "$H3_OUTPUT_DIR/latents/text_to_video_pdd_savelat_video_slapstick_moving_piano__pdd8_00002_.latent (and its _audio_ twin); bench/results/2026-09-27_int8attn_after.jsonl row 1",
   "arms": {
     "warmup_pdd8": "workflows/distill_experiments/h3_text_to_video_pdd_savelat_api.json",
     "slapstick_moving_piano__pdd8": "workflows/distill_experiments/h3_text_to_video_pdd_savelat_api.json"

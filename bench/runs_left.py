@@ -38,6 +38,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -229,9 +230,11 @@ def main(argv=None) -> int:
     ap.add_argument("--after", type=int, default=AFTER, help=f"the frame the queue starts after ({AFTER})")
     ap.add_argument("--least", type=int, default=LEAST, help=f"the floor the runs are cut by, px of the canvas ({LEAST}, a starting value)")
     ap.add_argument("--data", default=str(HERE.parent / "data"), help="where the previews' job folders are")
-    ap.add_argument("--share", default="/mnt/hub/ai/img/output", help="the server's output folder the previews wrote to")
+    ap.add_argument("--share", default=os.environ.get("H3_OUTPUT_DIR"), help="the server's output folder the previews wrote to (default: $H3_OUTPUT_DIR)")
     ap.add_argument("--json", help="also write the queue as JSON here (a new file)")
     a = ap.parse_args(argv)
+    if not a.share:
+        ap.error("--share is required when H3_OUTPUT_DIR is not set in the environment")
     if a.json and Path(a.json).exists():
         raise SystemExit(f"refused: {a.json} is there; a kept output is not replaced")
     import capture_masked_run as cap

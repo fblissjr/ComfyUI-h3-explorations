@@ -58,6 +58,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import time
 import urllib.error
@@ -259,8 +260,8 @@ def main() -> int:
     ap.add_argument("--host", default="127.0.0.1:8188")
     ap.add_argument("--seed", type=int, default=730451892)
     ap.add_argument("--timeout", type=float, default=1800.0)
-    ap.add_argument("--output-dir", default="/mnt/hub/ai/img/output",
-                    help="where the server writes; latents land under it")
+    ap.add_argument("--output-dir", default=os.environ.get("H3_OUTPUT_DIR"),
+                    help="where the server writes; latents land under it (default: $H3_OUTPUT_DIR)")
     ap.add_argument("--write", action="store_true")
     ap.add_argument("--score-existing", action="store_true",
                     help="render nothing; score the latents already on disk. "
@@ -268,6 +269,8 @@ def main() -> int:
                          "is an independent render and its latent persists, so "
                          "the blocks that completed keep their numbers.")
     args = ap.parse_args()
+    if not args.output_dir:
+        ap.error("--output-dir is required when H3_OUTPUT_DIR is not set in the environment")
 
     blocks = [int(b) for b in args.blocks.split(",") if b.strip() != ""]
     bad = [b for b in blocks if not 0 <= b < N_BLOCKS]

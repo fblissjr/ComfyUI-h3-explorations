@@ -40,6 +40,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import statistics as st
 import sys
 import urllib.request
@@ -82,10 +83,12 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("rows", type=Path)
     ap.add_argument("--host", default="127.0.0.1:8188")
-    ap.add_argument("--output-root", type=Path, default=Path("/mnt/hub/ai/img/output"),
-                    help="the server's --output-directory (start.sh)")
+    ap.add_argument("--output-root", type=Path, default=Path(os.environ["H3_OUTPUT_DIR"]) if os.environ.get("H3_OUTPUT_DIR") else None,
+                    help="the server's --output-directory (default: $H3_OUTPUT_DIR)")
     ap.add_argument("--out", type=Path)
     args = ap.parse_args()
+    if args.output_root is None:
+        ap.error("--output-root is required when H3_OUTPUT_DIR is not set in the environment")
 
     rows = [json.loads(l) for l in args.rows.read_text().splitlines() if l.strip()]
     rows = [r for r in rows if not r.get("warmup") and not r.get("error")]

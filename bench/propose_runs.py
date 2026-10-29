@@ -28,6 +28,7 @@ from __future__ import annotations
 import argparse
 import importlib
 import json
+import os
 import sys
 import types
 from pathlib import Path
@@ -138,9 +139,11 @@ def main(argv=None) -> int:
     ap.add_argument("--least", type=int, action="append", default=[], help="a floor in px of the canvas; the first cuts the runs; repeatable")
     ap.add_argument("--pieces", choices=("all", "largest"), default="all", help="the part's largest piece a frame (as pieces=largest), or the whole mask")
     ap.add_argument("--bridge", type=int, default=BRIDGE, help=f"empty frames a run is joined across ({BRIDGE}, a starting value)")
-    ap.add_argument("--share", default="/mnt/hub/ai/img/output", help="the server's output folder the preview wrote to")
+    ap.add_argument("--share", default=os.environ.get("H3_OUTPUT_DIR"), help="the server's output folder the preview wrote to (default: $H3_OUTPUT_DIR)")
     ap.add_argument("--json", help="also write the proposal as JSON here (a new file)")
     a = ap.parse_args(argv)
+    if not a.share:
+        ap.error("--share is required when H3_OUTPUT_DIR is not set in the environment")
     import capture_masked_run as cap
     import masked_job
     from _lib.frames import read_mask

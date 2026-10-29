@@ -12,7 +12,7 @@ Example (always run through uv from the repository root):
       --history /tmp/h3_history.json --prompt-id PROMPT_ID \
       --workflow /path/to/hf-model-workspace/\
 comfyui_minimax_h3_awq_first_frame.json \
-      --input /mnt/hub/ai/img/input/example.jpg \
+      --input "$H3_INPUT_DIR/example.jpg" \
       --out-dir /tmp/h3-first-frame-encoder-ab
 """
 

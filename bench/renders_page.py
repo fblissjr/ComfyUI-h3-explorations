@@ -27,6 +27,7 @@ from __future__ import annotations
 import argparse
 import html
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -118,9 +119,11 @@ def main() -> int:
     ap.add_argument("--verdicts", required=True, help="the owner's lines on renders (bench/page_answers_to_verdicts.py's record)")
     ap.add_argument("--items", help="the review page's items file, for the title and clip of a row that names no inventory render")
     ap.add_argument("--clips", help="the folder of stacked clips named <first>_<last>__<session>__<name>.mp4, as a path from the share's output root")
-    ap.add_argument("--root", default="/mnt/hub/ai/img/output", help="the share's output root, which the inventory's file paths and --clips are written from")
+    ap.add_argument("--root", default=os.environ.get("H3_OUTPUT_DIR"), help="the share's output root, which the inventory's file paths and --clips are written from (default: $H3_OUTPUT_DIR)")
     ap.add_argument("--out", required=True, help="the page's folder, under that root")
     a = ap.parse_args()
+    if not a.root:
+        ap.error("--root is required when H3_OUTPUT_DIR is not set in the environment")
     inv = json.load(open(a.renders))
     verdicts = [json.loads(t) for t in Path(a.verdicts).read_text().splitlines() if t.strip()]
     items = json.load(open(a.items)).get("items", []) if a.items else []
