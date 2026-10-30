@@ -69,7 +69,7 @@ Where this page and a record disagree, the record is right: `git log`, [`decisio
     picture on the owner's word and the prompt unchanged, was no better (10.2, +14). What surrounds the hole from 4915, the
     dancer's hair and the man behind her, is what is left. Options for the owner: a split window around the dancer (4927 to
     4940 alone would say whether the first window drives it), a brown-haired version laid as is, or leave it. `4912p`, `4912q`,
-    `4912r` are on the page with readings; `4912s`'s reading and page are `gem4912`'s last step. Figures and the code trace:
+    `4912r` and `4912s` are all on the page with readings (`4912s` read at 01:42Z: dark to medium-dark chestnut brown). Figures and the code trace:
     `docs/masked_v2v/2026-10-29_findings_0278n_text_and_frame_table.md` section 3, `internal/gemini/2026-10-29_4912/
     root_cause_and_test_plan.md` 6.5 to 6.7, and the Claude day file.
   - **Do not use the picture from `4912s` again, and do not record it**: the owner's word, 2026-10-30 about 00:30Z. The only
@@ -79,8 +79,8 @@ Where this page and a record disagree, the record is right: `git log`, [`decisio
   - **The backlog's 4912 row describes `4912q` wrongly** as the eyes-shut and sculpted-mouth test; `4912q` was the held grey
     head reference test (`second_4912_4946_l`, no black frames). The lead's row to fix.
   - **The day's changelog is written** (`changelog.d/day-2026-10-29.md`, built as 0.300.0) and the decisions page carries the
-    4912 line; the server on `:8188` was left for whoever closes `gem4912`'s last step (check `/proc/<pid>/environ` and the
-    queue before stopping it by the recipe).
+    4912 line; the server on `:8188` was stopped by the recipe at 01:44Z with an empty queue and no armed capture key (the
+    review page server on `:8765` is left up for the owner).
 
 ## Next session, in order
 
