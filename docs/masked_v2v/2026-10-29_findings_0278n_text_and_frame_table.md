@@ -218,4 +218,11 @@ Visual proof contact sheets saved on disk in `internal/gemini/2026-10-29_4912/`:
 | **S11** | `4947–4950` (`4f` held) | `0` (`345`) | `196` (`332`) | **`196` (`480`)** | `+148` active crown cells across all held Clip 3 frames |
 | **Total** | `4912–4950` (`12` steps) | **`681`** (`7/12` steps) | **`2,986`** (`12/12` steps) | **`1,613`** (`10/12` steps) | **`-1,373` cells carved by `strangers`** |
 
+   - **Rendered & Landed Verification (`second_hfp_4912t`, `data/2026-10-29_second_hfp_4912t/looks/second_hfp_4912t.reading.md`)**:
+     - Across the 35-frame shot (`4912–4946`, `151,970 px` of Sapiens `Hair` in `(second_classes == 4) & parts_held`), `second`'s hair transforms from `4912o`/`4912q`'s near-black (`median L* = 5.9–6.3, mean = 12.6–12.8, p90 = 36.5, b* = +8.0..+9.0`) and `4912r`'s chestnut brown (`median L* = 11.4, mean = 17.8, p90 = 43.1, b* = +16.0`) into **warm golden-blonde / honey-blonde hair** (`p10/median/mean/p90 L* = 8.2 / 25.5 / 30.6 / 58.8`, `a* median = +17.0`, `b* median = +30.0`, `+14.1 L*` and `+14.0 b*` over `4912r`, matching the `26–39 L*, +22..+35 b*` kept kitchen shots):
+       - **Pre-occlusion (`4912–4920`, `67,863 px`)**: `median L* = 23.9, mean = 28.8, p90 = 58.4, b* = +28.0` (per-frame median `L* = 20.0–27.5`, `b* = +24.0..+31.0`, vs `4912r` `10.6 / 16.0 / 38.4 / +15.0`).
+       - **First occlusion (`4921–4926`)**: `0 px` mask (`Step 3` `4921–4924` `0` active tokens), keeping the passing foreground dancer 100% untouched.
+       - **Mid-occlusion (`4927–4940`, `84,107 px`)**: `median L* = 26.7, mean = 32.1, p90 = 58.8, b* = +31.0` (per-frame median `L* = 23.5–37.3` on `4927–4938` and `45.9` on `4939`, vs `4912r` `12.5 / 19.5 / 45.9 / +17.0`).
+       - **Second occlusion (`4941–4942`) & crown above white hat (`4943–4946`, `3,090, 6,003, 7,489, 7,108 px`)**: `4941–4942` stay 100% untouched (`0 px` mask), and the full horizontal crown dome above the white hat brim on `4943–4946` renders golden-blonde (`parts_held` `median L* = 38.0, 31.4, 27.5, 23.1`, `b* = +29.0, +27.0, +28.0, +28.0`, vs `4912r` `14.9, 17.6, 17.3, 13.3`).
+
 
