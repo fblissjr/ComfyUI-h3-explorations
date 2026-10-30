@@ -68,7 +68,7 @@ flowchart TD
   4. **Server-Side Padding & Held-Edge Realization (`video_mask.py::pad_context`, `hold_context`, `held_edge_source`)**:
      Re-applies context padding inside `MiniMaxH3MaskedSource.execute`; `hold_context` replaces the outermost
      `hold_before`/`hold_after` frames that crossed a cut with a clean frozen boundary frame chosen by `held_edge_source`
-     (`HELD_EDGE_EMPTY_RUN = 4`, `HELD_EDGE_LEAST = 0.7`), zeroing regeneration masks on those held frames.
+     (`HELD_EDGE_EMPTY_RUN = 4`, `HELD_EDGE_LEAST = 0.25`), keeping the regeneration masks open on those held frames so the original subject is never shown unmasked in the window (`video_mask.py:435, 2800-2810`).
   5. **17-Frame VAE Clip Temporal Compression (`video_mask.py::run_lengths`, `token_mask`)**: Because H3's video VAE encodes in 17-frame clips where clip frame `0` is 1 latent step and frames `1..16` are 4 groups of 4 frames, `run_lengths` repeats `(1, 4, 4, 4, 4)` per 17-frame clip (`5n + 2` latent steps for `17n + 5` pixel frames).
   6. **Pixel-Space Window Lay (`video_mask.py::lay_window`, `lay_back`)**: Composites DiT output over the padded window using `pixel_alpha` and un-crops `zoom_box`.
   7. **Padding Strip & Overlap Blend (`loop_plan.py::frames_kept`, `frames_written`)**: Trims lead/tail context frames (`context_before`, `context_after`) and cross-fades overlapping windows in `audio_freeze_song.py::MiniMaxH3AudioFreezeSong.execute`.

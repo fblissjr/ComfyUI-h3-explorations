@@ -31,7 +31,7 @@ Older history lives elsewhere and is not copied here:
      - Corrected the `4912g` column and `4912t` `S0` (`722`) in `docs/masked_v2v/2026-10-29_findings_0278n_text_and_frame_table.md` §4.3, the `4912–4919` `hair_outside_hole_share` range (`0.014–0.089` in `4912r`/`4912t`, not `0.00–0.01`), the §4.2 `4920`/`4939` `hair_outside_hole_share` values (`0.0186` and `0.0514` on `4912r`, down from `~14.7%` and `~9.5%` on pre-`16ccd81a` `4912q`), and the `PART_LEAST_PX = 4096` gate description on `4647i`.
      - Corrected `docs/masked_v2v/frames_rules.md` (`3dfb7b3b`): Sapiens `Hair` is `class 4` (not `class 2`, which is `Eyeglass`), and `4912t` used `plan.json` `head_marks hidden = 4921-4926, 4941-4942` with reference `second_4912_4946_m` (`--no-head-on 4921-4927 4941-4946`, no `--drop 4926`), adding `+148` uncarved `final_units` (`332 -> 480`) on Step 10 (`4946`) while `196` carved cells remain on the white hat.
   4. **Synced `data/fun/verdicts/verdicts.jsonl` (`870 -> 1,042` rows)**:
-     - Ran `bench/page_answers_to_verdicts.py take --answers data/fun/owner_answers.jsonl --items data/fun/review/items.json --out data/fun/verdicts/verdicts.jsonl` to append the `172` uncopied owner lines (`owner_answers.jsonl:1540-1723`, keeping `render: null` on review-clip items because `bench/review_pages.py:2168-2185` already resolves `it.get("path")`).
+     - Ran `bench/page_answers_to_verdicts.py take --answers data/fun/owner_answers.jsonl --items data/fun/review/items.json --out data/fun/verdicts/verdicts.jsonl` to append the `172` uncopied owner lines (`data/fun/owner_answers.jsonl:1540-1723`, keeping `render: null` on review-clip items because `bench/review_pages.py:2168-2185` already resolves `it.get("path")`).
 
 ## 2026-10-29
 

@@ -4,7 +4,7 @@ Companion reference to [`../SKILL.md`](../SKILL.md).
 
 ## 0. Native-First Gate (`agy` Check Before Using Path 3A)
 
-- **Check local `<preview>_people.npz` and `seg29.mkv` first (`$0` API spend)**: Before calling `gemini-api` for bounding boxes or masks, check whether local SAM 3.1 detections (`<preview>_people.npz`) or Sapiens-2B body/face/hair parts (`seg29.mkv`) already cover the subject on that frame using `$PY` and `agy`'s built-in `read_file` tool on the frame/strip.
+- **Check local `<preview>_people.npz`, `*_classes_*.npz`, and `parts_held__*.mkv` first (`$0` API spend)**: Before calling `gemini-api` for bounding boxes or masks, check whether local SAM 3.1 detections (`<preview>_people.npz`), Sapiens-2B class maps (`<preview>_<subj>_classes_00001.npz`, `<preview>_strangers_classes.npz`), or part/track `.mkv` masks (`<preview>_<subj>_parts_00001.mkv`, `subjects/<subj>/parts_held__<by>.mkv`) already cover the subject on that frame using `$PY` (`cv2` / `bench/_lib/frames.py`) and `agy`'s built-in `read_file` tool on the `.1fps.mp4` strip or `.jpg` sheet.
 - **When Path 3A IS permitted**:
   1. `agy` cannot produce schema-calibrated `0..1000` `box_2d` / polygon `mask` JSON natively from chat text, and
   2. You need off-card `0..1000` `box_2d` / `mask` grounding while the GPU (`:8188`) is busy—for example, to disambiguate which of multiple SAM 3.1 person detections on a frame matches a cast reference still (`<Picture 1>`), or to localize hair/crown pixels missed by SAM 3.1 / Sapiens-2B (`HAIR_IN_HOLE_CANNOT_SEE`).

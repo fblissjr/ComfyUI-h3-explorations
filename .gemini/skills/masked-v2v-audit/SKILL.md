@@ -1,6 +1,7 @@
 ---
 name: masked-v2v-audit
 description: Upstream data-dependency, statistical outlier, frame-alignment, and visual verification workflow for H3 masked V2V pipelines. Invoke when auditing upstream inputs before queuing renders or remakes, or when debugging unexpected behavior across multi-stage video pipelines.
+reviewed: bbe72995
 ---
 
 # Masked V2V Upstream & Pre-Render Diagnostic Skill
@@ -16,9 +17,9 @@ Passing an automated preflight gate (`0 likely to fail`) is necessary but not su
 2. **Interrogate Summary Statistics Against Per-Frame Reality (`Least / Median / Most`)**:
    - Whenever any stage prints summary metrics (`least / median / most`, whole-shot bounding box vs. per-frame box, area steps, or score floors), compare the extremes and whole-shot aggregates against the median frame.
    - A large gap between the aggregate/extremes and the median means a small number of outlier frames (occlusions, motion blur, tracker jumps) are distorting whole-shot behavior. Inspect those frames directly on disk.
-3. **Visually Audit Intermediate Conditioning Against the Source Film**:
+3. **Visually Audit Intermediate Conditioning Against the Source Film Using Native `read_file` First**:
    - Never treat intermediate stages (masks, keep-outs, 3D mesh renders, pose landmarks, crop boxes, or generated prompt text) as black boxes.
-   - Extract side-by-side contact sheets comparing the raw source frames against the intermediate conditioning across transitions, rapid motion, occlusions, and flagged spans.
-4. **Verify Differential Results on Close-Up Contact Sheets Before Paging**:
-   - After rendering and landing, extract high-resolution close-up contact sheets comparing the original source, the prior attempt (if any), and the new output on the exact frames targeted before paging to the review server.
+   - Use `agy`'s built-in `read_file` (`view_file`) tool directly on the pre-built `.1fps.<first>-<last>.mp4` look strips (`first` and `on-plan`), `<Video 1>` reference `.mp4` and `_sheet.jpg`, and `bench/inspect_mask_steps.py --strips <out.jpg>` JPEGs first, and extract custom side-by-side contact sheets when zooming into transitions, rapid motion, occlusions, or flagged spans.
+4. **Verify Landed Results With Native `read_file` on `.1fps.mp4` & `24 fps` `.mp4` (Plus Close-Up Sheets Where Needed) Before Paging**:
+   - After rendering and landing, inspect the landed `<load>_<first>_<last>_stacked.1fps.<first>-<last>.mp4` strip and `24 fps` `.mp4` clip directly via `read_file` (plus close-up contact sheets comparing `ORIG`, prior attempt, and `CUT` on targeted frames) before paging to the review server.
 

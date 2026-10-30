@@ -112,7 +112,7 @@ holds the card keeps them.
 | every answer the owner gave on the local pages, raw | `data/<video>/owner_answers.jsonl`: append-only, cited by line, never edited |
 | the interactive review queue ("1. Look at these next" with verdict buttons and frame note box on `data/<video>/poc/index.html`, served on port `8765`) | `data/<video>/review/items.json` (with media symlinks in `data/<video>/review/media/`), updated on every candidate clip (`bench/load_chain.py page`) so the owner can save verdicts and frame notes directly to `data/<video>/owner_answers.jsonl` |
 | the owner's verdicts on renders | `data/<video>/verdicts/verdicts.jsonl` |
-| a reader's playback reading of a load or clip | `data/<day>_<load>/playback_reading_<reader>.md`, written by the playback reader session only after the owner's answer, and read by `bench/review_pages.py` (via `reader_file` / `reader_files` in `data/<video>/review/start_here.json`) |
+| a reader's pre-`page` reading of a landed render (2026-10-28 rule) | `<capture>/looks/<load>.reading.md`, written between `land` and `page` by a reader who did not make the load (no verdict and no hold; `docs/masked_v2v/PROTOCOL.md` §5.1); legacy post-owner readings live in `data/<day>_<load>/playback_reading_<reader>.md` |
 | videos | the share's `Video/<video>/`, never under `data/` |
 
 ## Handing a render over
@@ -125,9 +125,8 @@ holds the card keeps them.
 - A clip on the review page is whole, or has its gaps counted right above the player from the gap check on its own
   frames (per person, per kind, frames and spans); a clip with gaps and no such line is not shown
   (`docs/wiki/working_with_the_owner.md`, the owner of 2026-10-17).
-- After the owner has watched and answered a clip, playback questions on it go to Gemini, which watches video and hears audio natively: say in the request that it watches
-  and listens first, code only to augment. Its watching is a reader's, never the owner's acceptance.
-- Each playback reader writes its reading to `data/<day>_<load>/playback_reading_<reader>.md`, starting at the top
+- **Pre-`page` reading (`<capture>/looks/<load>.reading.md`, the owner's word of 2026-10-28 and 2026-10-29, `docs/wiki/decisions.md`)**: Every landed render is read between `land` and `page` by a session or subagent that did not make the load (`docs/masked_v2v/PROTOCOL.md` §5.1; `.gemini/skills/video-understanding/SKILL.md`, "Who reads a landed render"): it reads the `.1fps.<first>-<last>.mp4` strip, the `24 fps` clip, `_sheet.jpg`, and the measured shift inside `parts_held`, and writes `<capture>/looks/<load>.reading.md` with frame numbers, what it cannot see, and the figures, with **no verdict and no hold**.
+- For legacy post-owner playback readings (`data/<day>_<load>/playback_reading_<reader>.md`), each reading starts at the top
   (before the first `---` or `##` body heading; or per clip under `### <clip>`) with a four-field card:
   - `Sees`: `frames: what` (frame numbers and what is seen on playback)
   - `Cannot see`: what the clip or view cannot show

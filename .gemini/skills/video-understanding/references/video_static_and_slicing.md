@@ -4,10 +4,10 @@ Companion reference to [`../SKILL.md`](../SKILL.md).
 
 ## 0. Native-First Gate (`agy` Check Before Using Path 2A)
 
-- **Never use Path 2A on a `<100 MB` local clip that already has (or can be given) a `<stem>.1fps.<first>-<last>.mp4` companion**: Call `agy`'s built-in `read_file` tool on `.1fps.mp4` (and on the `24 fps` `.mp4` for audio) at `$0` API spend. [`../scripts/gemini_media.py`](../scripts/gemini_media.py) mechanically refuses local `<100 MB` videos when a `.1fps.*.mp4` sibling exists on disk.
+- **Never use Path 2A on any `<100 MB` local `.mp4` clip (including `.1fps.<first>-<last>.mp4` strips, `<Video 1>` reference `.mp4`s, raw node renders `<load>_00001.mp4`, and `24 fps` review clips)**: Call `agy`'s built-in `read_file` (`view_file`) tool directly on the `.1fps.mp4` and/or `24 fps` `.mp4` at `$0` API spend. If `1:1` every-frame inspection is needed on a `<100 MB` local `.mp4` that does not yet have a `.1fps.mp4` companion, encode `<stem>.1fps.<first>-<last>.mp4` locally in `<1s` on CPU via [`bench/_lib/frames.py::OneASecond`](../../../../bench/_lib/frames.py) and call `read_file` on it. [`../scripts/gemini_media.py`](../scripts/gemini_media.py) mechanically refuses local `<100 MB` videos when a `.1fps.*.mp4` sibling exists on disk.
 - **When Path 2A IS permitted**:
   1. Slicing a `[first..last]` shot span (`start_offset` / `end_offset` at `fps: 24`) out of a `>100 MB` master cut (`*_joined_*_from_laid.mp4`) that exceeds `read_file`'s `100 MB` cap, or
-  2. Inspecting a raw `24 fps` video at `fps: 24` when `.1fps.mp4` does not exist and cannot be generated locally (since `read_file` samples raw video at `1 fps`).
+  2. Inspecting an already-uploaded remote `files/<id>` at `fps: 24` when local `.1fps.mp4` generation via `OneASecond` is not available.
 - **Owner media rule ([`docs/wiki/working_with_the_owner.md`](../../../../docs/wiki/working_with_the_owner.md))**: Always ask the owner and name the file before uploading project media via `gemini-api`.
 
 ---
