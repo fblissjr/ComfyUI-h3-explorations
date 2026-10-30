@@ -1,7 +1,7 @@
 ---
 name: masked-v2v-audit
 description: Upstream data-dependency, statistical outlier, frame-alignment, and visual verification workflow for H3 masked V2V pipelines. Invoke when auditing upstream inputs before queuing renders or remakes, or when debugging unexpected behavior across multi-stage video pipelines.
-reviewed: bbe72995
+reviewed: 82753cd8
 ---
 
 # Masked V2V Upstream & Pre-Render Diagnostic Skill
