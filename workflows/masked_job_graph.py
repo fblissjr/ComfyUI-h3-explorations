@@ -184,6 +184,7 @@ def check_job(job: dict) -> None:
     if not job["subjects"]:
         raise ValueError("the job names no subject")
     memory_selection_of(job)
+    not_cuts_of(job)
     seen = set()
     for subject in job["subjects"]:
         label = str(subject.get("label", ""))
@@ -676,6 +677,32 @@ def two_shots_of(job: dict) -> dict | None:
             raise ValueError(f"the job block's `two_shots` does not say {what} (`{key}`): two shots in one window are a "
                              f"person's choice for one load, never a default")
     return two
+
+
+def not_cuts_of(job: dict) -> dict | None:
+    """A job block's `not_cuts`, held to its form; None for a job without the key.
+
+    When a tracker's shot table marks a strobe flash or light flicker inside one shot as a cut (`cuts_of`),
+    the job may state on a person's word which exact frames of that table are not cuts: `frames` (a non-empty
+    sorted list of distinct source frames), `said_by` (who looked), and `why` (the evidence on disk). Every
+    other cut in the capture's shot tables still stops `texts_for`, and any frame named here that is not in
+    the capture's shot tables is refused at `texts_for`."""
+    said = job.get("not_cuts")
+    if said is None:
+        return None
+    form = ('`not_cuts` is {"frames": [source frame, ...], "why": the evidence that they are not cuts, '
+            '"said_by": who looked}')
+    if not isinstance(said, dict):
+        raise ValueError(f"the job block's `not_cuts` is {said!r}: {form}")
+    frames = said.get("frames")
+    whole = lambda n: type(n) is int and n > 0   # noqa: E731
+    if not (isinstance(frames, list) and frames and all(whole(n) for n in frames) and frames == sorted(set(frames))):
+        raise ValueError(f"the job block's `not_cuts` has frames {frames!r}: a non-empty sorted list of distinct source frames; {form}")
+    for key, what in (("why", "the evidence that those frames are not cuts"), ("said_by", "who looked")):
+        if not isinstance(said.get(key), str) or not said[key].strip():
+            raise ValueError(f"the job block's `not_cuts` does not say {what} (`{key}`): clearing a tracker cut is a "
+                             f"person's statement of what was looked at, never a default")
+    return {"frames": list(frames), "why": said["why"].strip(), "said_by": said["said_by"].strip()}
 
 
 def check_load(job: dict, one: dict, windows: tuple[int, ...]) -> None:

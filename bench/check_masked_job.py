@@ -1382,6 +1382,38 @@ def a_text_is_of_its_frames():
         (capture / "subjects" / "c" / "shots__p.json").write_text(json.dumps({"shots": [{"first_frame": 0}, {"first_frame": 100}]}))
         assert tool.cuts_of(capture) == ([690, 750, 900], CAPTURE_FIRST, CAPTURE_FIRST + 299), tool.cuts_of(capture)
         _refused(lambda: texts([690, 899]), "cut(s) on 750")
+        # a tracker cut that is not a cut in the film (`not_cuts`): refused by default, allowed only by naming the exact
+        # frame(s), who looked and the evidence; any named frame not in the capture's shot tables is refused; every other
+        # cut in the table still stops `texts_for`; and `shown` prints the statement at `plan`
+        not_cuts = {"frames": [750], "why": "strobe flash on 749-751, one continuous shot", "said_by": "a check"}
+        assert graphs.not_cuts_of(LOAD_JOB) is None and graphs.not_cuts_of({**LOAD_JOB, "not_cuts": not_cuts}) == not_cuts
+        for bad, words in (("yes", "`not_cuts` is"), ({**not_cuts, "frames": []}, "frames []"),
+                           ({**not_cuts, "frames": [0]}, "frames [0]"), ({**not_cuts, "frames": [-1]}, "frames [-1]"),
+                           ({**not_cuts, "frames": [750, 750]}, "frames [750, 750]"), ({**not_cuts, "frames": [900, 750]}, "frames [900, 750]"),
+                           ({**not_cuts, "frames": ["750"]}, "frames ['750']"), ({**not_cuts, "frames": [True]}, "frames [True]"),
+                           ({**not_cuts, "why": " "}, "`why`"), ({k: v for k, v in not_cuts.items() if k != "said_by"}, "`said_by`")):
+            try:
+                graphs.not_cuts_of({**LOAD_JOB, "not_cuts": bad})
+                raise AssertionError(f"`not_cuts` {bad!r} was taken")
+            except ValueError as e:
+                assert words in str(e), f"{bad!r} refused without saying {words!r}: {e}"
+            _refused(lambda: tool.texts_for({**job, "not_cuts": bad}, [WHOLE], tmp, capture), words)
+        assert tool.texts_for({**job, "not_cuts": not_cuts}, [WHOLE], tmp, capture)["b_0700"]["sha256"] == told["sha256"]
+        _refused(lambda: tool.texts_for({**LOAD_JOB, "not_cuts": not_cuts, "texts": {"w": {**entry, "frames": [690, 900]}}}, [WHOLE], tmp, capture),
+                 "cut(s) on 900", "a text is of one shot")
+        _refused(lambda: tool.texts_for({**job, "not_cuts": {**not_cuts, "frames": [750, 751]}}, [WHOLE], tmp, capture),
+                 "751", "not cuts in the capture", "[690, 750, 900]")
+        where_nc = dict(date="2026-01-01", data=tmp / "nc_data", output=tmp / "nc_output", inputs=tmp / "input",
+                        analysis=lambda job, data: {"folder": "check", "fingerprint": "none: this case is about something else"},
+                        look=lambda capture, one, told: {"by": "nobody: this case is about something else"})
+        (tmp / "nc_output").mkdir()
+        built_nc = json.loads(tool.build_loads(_loads_file(tmp, capture, loads=({**PART, "name": "a_nc"},), not_cuts=not_cuts),
+                                               "plan", [], **where_nc)[0].with_suffix(".built.json").read_text())
+        assert built_nc["not_cuts"] == not_cuts, built_nc.get("not_cuts")
+        said_nc = [line for line in built_nc["shown"] if "NOT CUTS IN THE SHOT TABLE" in line]
+        assert len(said_nc) == 1 and all(w in said_nc[0] for w in ("a check's word", "strobe flash on 749-751", "source frame(s) 750", "750 inside this load 700-840")), said_nc
+        assert "none inside this load 800-839" in tool.not_cuts_lines({**LOAD_JOB, "not_cuts": not_cuts}, {**WHOLE, "first": 800, "frames": 40})[0]
+        assert not tool.not_cuts_lines(LOAD_JOB, WHOLE)
         (capture / "subjects" / "c" / "shots__p.json").unlink()
         (capture / "subjects" / "b" / "shots__p.json").rename(tmp / "kept.json")
         _refused(lambda: texts([690, 899]), "no shot table")

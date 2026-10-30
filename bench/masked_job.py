@@ -436,12 +436,22 @@ def texts_for(job: dict, chosen: list[dict], beside: Path, capture: Path) -> dic
     load is tested before anything is said, and the refusal lists them all.
 
     The one way a text may hold a cut is a job that names `two_shots` (`held_as_two_shots`): then it holds that
-    cut and no other, under a `[Shot 1]` and a `[Shot 2]`."""
+    cut and no other, under a `[Shot 1]` and a `[Shot 2]`. When a tracker's shot table marks a strobe flash inside
+    one shot as a cut, the job may name those exact frames under `not_cuts` (`masked_job_graph.not_cuts_of`), with
+    who looked and the evidence; any frame named in `not_cuts` that is not in the capture's shot tables is refused."""
     cuts, lo, hi = cuts_of(capture)
     try:
         two = graphs.two_shots_of(job)
+        not_cuts = graphs.not_cuts_of(job)
     except ValueError as e:
         raise Refused(str(e)) from e
+    if not_cuts is not None:
+        unlisted = [f for f in not_cuts["frames"] if f not in cuts]
+        if unlisted:
+            raise Refused(f"the job's `not_cuts` names frame(s) {', '.join(map(str, unlisted))}, which are not cuts in the "
+                          f"capture {capture.name}'s shot tables ({cuts or 'none'}): `not_cuts` may name only cuts the capture's "
+                          f"shot tables hold")
+        cuts = [c for c in cuts if c not in set(not_cuts["frames"])]
     told, refused, entries, bad, cut = {}, [], {}, {}, False
     for label in sorted({one["text"] for one in chosen if one.get("text")}):
         try:
@@ -924,6 +934,19 @@ def two_shot_lines(job: dict, one: dict, text: str) -> list[str]:
               "(`region_carried_across_a_cut`, `region_shared_across_a_cut`); bench/two_shot_load.py says it beforehand"]
 
 
+def not_cuts_lines(job: dict, one: dict) -> list[str]:
+    """What is shown of a load whose job clears tracker cuts on a person's word (`not_cuts`); nothing for any other load."""
+    said = graphs.not_cuts_of(job)
+    if said is None:
+        return []
+    first, last = one["first"], one["first"] + one["frames"] - 1
+    inside = [c for c in said["frames"] if first < c <= last]
+    return [f"NOT CUTS IN THE SHOT TABLE, on {said['said_by']}'s word ({' '.join(said['why'].split())}): source frame(s) "
+            f"{', '.join(map(str, said['frames']))}"
+            + (f" ({', '.join(map(str, inside))} inside this load {first}-{last})" if inside else f" (none inside this load {first}-{last})")
+            + ". Every other cut in the capture's shot tables still stops the text rule"]
+
+
 def shown(job: dict, one: dict, files: dict, graph: dict, inputs: Path) -> list[str]:
     """What each model will be shown for a load, one line a thing (the order's step 6), read from the graph."""
     src = graph[graphs._the(graph, graphs.SOURCE)]["inputs"]
@@ -975,6 +998,7 @@ def shown(job: dict, one: dict, files: dict, graph: dict, inputs: Path) -> list[
                         "plate that is the box enlarged. Nothing here can tell which this file is" if files["motion"] else ""))
     lines += pair_lines(one, files, src, str(run.get("prompt", "")), ref, inputs)
     lines += two_shot_lines(job, one, str(run.get("prompt", "")))
+    lines += not_cuts_lines(job, one)
     lines.append(f"audio: {one['audio']} cut to the load" if one.get("audio") else "audio: the source's own, as the loader cuts it")
     lines.append(f"seed {run['seed']}"
                  + (f"; continues {run['continue_from']} with its kept frames at noise {run['context_noise']}"
@@ -1143,6 +1167,7 @@ def build_loads(job_file: Path, stage: str, names: list[str], *, date: str, data
                   "windows_folder": str(output / (graphs.run_prefix(job, one, stage == "plan") + "_windows")),
                   "shown": says + look_lines(looks.get(one["name"])) + text_lines, "settings": settings_of(one, graph),
                   "hair_band": cut, "subjects": pair_of(one, files), "two_shots": job.get("two_shots"),
+                  "not_cuts": graphs.not_cuts_of(job),
                   "left_out_on_purpose": on_purpose,
                   "what_this_clips_preview_measured": seen}
         graph_file.with_suffix(".built.json").write_text(json.dumps(record, indent=1) + "\n")
