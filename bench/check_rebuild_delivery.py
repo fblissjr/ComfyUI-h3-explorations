@@ -558,18 +558,33 @@ def discovery_rules_are_deterministic() -> str:
             f"expected newest day_* folder containing 4-digit piece folders (day_2026-10-16), got {day_dir.name}"
         )
 
-        # Existing clip discovery ignores _STACKED.mp4, .1fps., and clips without .check.json
+        # Existing clip discovery ignores _STACKED.mp4, _share.mp4, .1fps., and clips without .check.json
         day16 = share / "Video" / video / "day_2026-10-16"
         c1 = day16 / f"{video}_0000_0007_joined_2026-10-16T1000Z.mp4"
         c2 = day16 / f"{video}_0000_0007_joined_2026-10-16T1200Z.mp4"
         c_no_check = day16 / f"{video}_0000_0007_joined_2026-10-16T1400Z.mp4"
         c_stacked = day16 / f"{video}_0000_0007_joined_2026-10-16T1500Z_STACKED.mp4"
-        for p in (c1, c2, c_no_check, c_stacked):
+        c_share = day16 / f"{video}_0000_0007_joined_2026-10-16T1600Z_share.mp4"
+        for p in (c1, c2, c_no_check, c_stacked, c_share):
             p.write_bytes(b"mp4")
-        for p in (c1, c2, c_stacked):
+        for p in (c1, c2, c_stacked, c_share):
             Path(str(p) + ".check.json").write_text("{}")
         found_clip = rd.discover_existing_clip(share, video, 0, 7)
-        assert found_clip == c2, f"expected newest unstacked clip with .check.json ({c2.name}), got {found_clip}"
+        assert found_clip == c2, f"expected newest unstacked/unshared clip with .check.json ({c2.name}), got {found_clip}"
+
+        # assemble_cmd omits --share by default, forwards h264 or hevc when requested, and CLI parses both --share <dir> and --share [h264|hevc]
+        base_line = "python bench/assemble_delivery.py --source a.mp4 --table t.txt --out b.mp4"
+        assert rd.assemble_cmd(base_line, "/bin/py") == ["/bin/py", "bench/assemble_delivery.py", "--source", "a.mp4", "--table", "t.txt", "--out", "b.mp4"]
+        assert rd.assemble_cmd(base_line, "/bin/py", share=True) == [
+            "/bin/py", "bench/assemble_delivery.py", "--source", "a.mp4", "--table", "t.txt", "--out", "b.mp4", "--share", "h264"
+        ]
+        assert rd.assemble_cmd(base_line, "/bin/py", share="hevc", share_out="s.mp4") == [
+            "/bin/py", "bench/assemble_delivery.py", "--source", "a.mp4", "--table", "t.txt", "--out", "b.mp4", "--share", "hevc", "--share-out", "s.mp4"
+        ]
+        ns_sh = rd.build_parser().parse_args(["--video", video, "--share", str(share), "--share", "hevc", "--share-out", "custom.mp4"])
+        assert ns_sh.share == str(share) and getattr(ns_sh, "share_codec", None) == "hevc" and ns_sh.share_out == "custom.mp4"
+        ns_sh_default = rd.build_parser().parse_args(["--video", video, "--share"])
+        assert getattr(ns_sh_default, "share_codec", None) == "h264"
 
     return "table folders, extra captures, spots, prior/watched tables, day piece folders, and existing clips are discovered deterministically"
 

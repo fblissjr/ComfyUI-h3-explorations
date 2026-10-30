@@ -75,7 +75,7 @@ def utc_stamp(now: datetime.datetime | None = None, day_override: str | None = N
 
 def resolve_share(share_arg: str | None = None) -> Path:
     """Resolve the server's output root from `--share` or `H3_OUTPUT_DIR`."""
-    raw = share_arg or os.environ.get("H3_OUTPUT_DIR")
+    raw = (None if share_arg in ("h264", "hevc") else share_arg) or os.environ.get("H3_OUTPUT_DIR")
     if not raw:
         raise Refused("init", "give --share or set H3_OUTPUT_DIR to the server's output root")
     p = Path(raw).resolve()
@@ -251,7 +251,7 @@ def discover_existing_clip(share_dir: Path, video: str, s0: int, s1: int) -> Pat
     pattern = f"day_*/{video}_{s0:04d}_{s1:04d}_joined_*.mp4"
     found: list[tuple[str, str, Path]] = []
     for p in sorted(vdir.glob(pattern)):
-        if p.name.endswith("_STACKED.mp4") or ".1fps." in p.name or not p.is_file():
+        if p.name.endswith("_STACKED.mp4") or p.name.endswith("_share.mp4") or ".1fps." in p.name or not p.is_file():
             continue
         check_path = Path(str(p) + ".check.json")
         if check_path.is_file():
@@ -551,6 +551,25 @@ def replace_python_cmd(line: str, python_exe: str) -> list[str]:
     return words
 
 
+def assemble_cmd(
+    line: str,
+    python_exe: str,
+    share: str | bool | None = None,
+    share_out: str | None = None,
+) -> list[str]:
+    """Build the `assemble_delivery.py` command list from `assembly.command`, appending `--share`/`--share-out` only when requested."""
+    words = replace_python_cmd(line, python_exe)
+    codec = ("h264" if share is True else share) if share else ("h264" if share_out else None)
+    if codec:
+        if codec not in ("h264", "hevc"):
+            raise Refused("init", f"--share codec must be 'h264' or 'hevc', got {codec!r}")
+        if "--share" not in words:
+            words += ["--share", codec]
+    if share_out and "--share-out" not in words:
+        words += ["--share-out", str(share_out)]
+    return words
+
+
 def rebuild(
     a: argparse.Namespace,
     repo: Path = REPO,
@@ -719,7 +738,8 @@ def rebuild(
     check_json = Path(str(clip_out) + ".check.json")
     if a.clip:
         asm_log = out_dir / f"assemble_{video}_{span_tag}_{stamp}.out"
-        asm_cmd = replace_python_cmd(asm_block["command"], python_exe)
+        share_codec = getattr(a, "share_codec", None) or (a.share if getattr(a, "share", None) in ("h264", "hevc") else None)
+        asm_cmd = assemble_cmd(asm_block["command"], python_exe, share=share_codec, share_out=getattr(a, "share_out", None))
         run_step("assemble", asm_cmd, asm_log, repo, env, runner=runner)
         laid_after_log = out_dir / f"laid_after_{video}_{stamp}.out"
         run_step("assemble", laid_cmd, laid_after_log, repo, env, runner=runner)
@@ -914,6 +934,19 @@ def rebuild(
     return summary
 
 
+class _ShareAction(argparse.Action):
+    """Support both `--share <output_root_dir>` and `--share [h264|hevc]` for the <95 MB share copy."""
+
+    def __call__(self, parser: argparse.ArgumentParser, namespace: argparse.Namespace, values: str | None, option_string: str | None = None) -> None:
+        if values is None or values in ("h264", "hevc"):
+            codec = values or "h264"
+            setattr(namespace, "share_codec", codec)
+            if getattr(namespace, "share", None) is None:
+                setattr(namespace, "share", codec)
+        else:
+            setattr(namespace, "share", values)
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--video", required=True, help="the video stem under data/<video>/ and Video/<video>/")
@@ -921,7 +954,9 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--no-stack", action="store_true", help="when --clip is set, skip stack_delivery.py build and check")
     p.add_argument("--no-pages", action="store_true", help="skip covered_items.py and review_pages.py")
     p.add_argument("--no-snapshot", action="store_true", help="skip the read-only snapshot of owner_answers.jsonl")
-    p.add_argument("--share", help="the server's output root (defaults to H3_OUTPUT_DIR)")
+    p.add_argument("--share", nargs="?", const="h264", default=None, action=_ShareAction,
+                   help="the server's output root (defaults to H3_OUTPUT_DIR), or `[h264|hevc]` to also build a <95 MB share copy during --clip")
+    p.add_argument("--share-out", help="explicit output path for the <95 MB share copy during --clip")
     p.add_argument("--inputs", help="the server's input root (defaults to H3_INPUT_DIR)")
     p.add_argument("--data", help="the data root (defaults to <repo>/data)")
     p.add_argument("--out-dir", help="where the ledger, table, gap check, and .out logs are written (defaults to data/<day>_<video>_delivery_tables)")

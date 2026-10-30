@@ -2311,6 +2311,50 @@ with tempfile.TemporaryDirectory() as _tmp:
                 "pieces and two or three overlapping ones laid as the later render over the earlier piece by its own matte; a window with no matte is flagged by its frames; a continued run's matte read from its written frames, another run's file not read; "
                 f"the soft band and opaque core at the source's size keep the sharp source in the band and emboss none of it on the core; property test worst pixel ({law_fig}), and a piece with no matte laid by its fallback (canvas/source Y/U/V 0.0/0.0/0.0)")
 
+    def share_copy_h264_and_hevc():
+        # Default off: building `whole.mp4` without `--share` wrote no `<stem>_share.mp4` and no `share` key in `.check.json`
+        default_share = TMP / "whole_share.mp4"
+        assert not default_share.exists(), f"default build must not write {default_share}"
+        default_chk = json.loads((TMP / "whole.mp4.check.json").read_text())
+        assert "share" not in default_chk, "default build must not put `share` in .check.json"
+
+        # 1) `--share` (defaults to `h264`): writes `<stem>_share.mp4` beside `--out`, 2-pass libx264 + AAC, SEI stripped
+        code1, chk1, out_h264 = deliver(TMP, "share_test_h264", ROWS, f"0-{FRAMES - 1}", "--share", "--share-max-mb", "5")
+        share_h264 = TMP / "share_test_h264_share.mp4"
+        assert code1 == 0 and share_h264.is_file(), (code1, chk1.get("failures"))
+        assert chk1.get("share", {}).get("codec") == "h264" and chk1["share"]["out"] == str(share_h264), chk1.get("share")
+        s1_info = tool.probe(share_h264)
+        assert s1_info["frames"] == FRAMES and tool.audio_codec(share_h264) == "aac", s1_info
+        assert b"x264 - core" not in share_h264.read_bytes(), "libx264 SEI user-data was not stripped by filter_units=remove_types=6"
+
+        # 2) `--share hevc --share-out PATH`: writes 2-pass 10-bit HEVC (`yuv420p10le`) + AAC, x265 info SEI stripped
+        share_hevc = TMP / "custom_hevc_share.mp4"
+        code2, chk2, out_hevc = deliver(
+            TMP, "share_test_hevc", ROWS, f"0-{FRAMES - 1}", "--share", "hevc", "--share-out", str(share_hevc), "--share-max-mb", "5"
+        )
+        assert code2 == 0 and share_hevc.is_file(), (code2, chk2.get("failures"))
+        assert chk2.get("share", {}).get("codec") == "hevc" and chk2["share"]["out"] == str(share_hevc), chk2.get("share")
+        s2_info = tool.probe(share_hevc)
+        assert s2_info["frames"] == FRAMES and s2_info["pix_fmt"] == "yuv420p10le" and tool.audio_codec(share_hevc) == "aac", s2_info
+        assert b"x265 (build" not in share_hevc.read_bytes(), "libx265 info SEI was not suppressed by no-info=1"
+
+        # 3) Refuses when the target share file is listed in `LOCKED.md`
+        lock_dir = TMP / "locked_share_dir"
+        lock_dir.mkdir(exist_ok=True)
+        locked_share = lock_dir / "clip_share.mp4"
+        (lock_dir / "LOCKED.md").write_text(f"- `{locked_share.name}`\n")
+        ref = subprocess.run(
+            [sys.executable, str(Path(tool.__file__)), "--source", str(SOURCE), "--table", str(TMP / "whole.txt"),
+             "--out", str(lock_dir / "clip.mp4"), "--share"],
+            capture_output=True, text=True,
+        )
+        assert ref.returncode != 0 and "is locked" in ref.stderr and "Traceback" not in ref.stderr, ref.stderr
+        return (
+            f"default off writes no share copy; --share writes 2-pass h264 ({share_h264.stat().st_size} B, SEI stripped); "
+            f"--share hevc --share-out writes 2-pass 10-bit hevc ({share_hevc.stat().st_size} B, yuv420p10le, no-info=1); "
+            "locked share target refused"
+        )
+
     case("the cut rows carry the laid edge where a region reaches it", the_cut_rows_carry_the_edge)
     case("a piece that changed nothing is the original", nothing_changed)
     case("a painted rectangle is found where it is", rectangle_found)
@@ -2338,4 +2382,5 @@ with tempfile.TemporaryDirectory() as _tmp:
     case("a whole-region piece laid by its region", laid_by_its_region)
     case("a piece laid by the node's own matte", laid_by_the_matte)
     case("a thing worn on the head, placed on the piece's own face", a_worn_thing_on_its_face)
+    case("optional 2-pass h264 and hevc share copies", share_copy_h264_and_hevc)
 sys.exit(finish())

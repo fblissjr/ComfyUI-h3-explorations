@@ -4,7 +4,7 @@ passes over the same frames merged by what each changed, and a check by decode t
 
     <python> bench/assemble_delivery.py --source SOURCE.mp4 --table TABLE.txt --out OUT.mp4 \\
         [--span FIRST-LAST] [--size canvas|source] [--capture data/<date>_<name>]... [--soften SIGMA] [--crf 12]
-        [--note "why this build"] [--check-only]
+        [--share [h264|hevc]] [--share-out SHARE.mp4] [--share-max-mb 95] [--note "why this build"] [--check-only]
     <python> bench/assemble_delivery.py --compare A.mp4.check.json B.mp4.check.json
 
 **What it buys.** A masked render is a window of a clip, at the lane's canvas and the lane's rate, with a track
@@ -365,12 +365,15 @@ from __future__ import annotations
 import argparse
 import csv
 import datetime
+import fcntl
 import hashlib
+import itertools
 import json
 import os
 import re
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 import cv2
@@ -736,20 +739,29 @@ def frame_spans(frames) -> list[list[int]]:
 
 
 def pipe_frames(cmd, size):
-    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, bufsize=size)
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, bufsize=max(size * 8, 1 << 20))
     assert proc.stdout is not None and proc.stderr is not None
     try:
-        while True:
-            buf = proc.stdout.read(size)
-            if len(buf) < size:
-                break
-            yield buf
-    finally:
-        proc.stdout.close()
-        err = proc.stderr.read()
-        proc.stderr.close()
-        if proc.wait() not in (0, -13) and err:
-            sys.stderr.write(err.decode(errors="replace")[-400:])
+        fcntl.fcntl(proc.stdout.fileno(), 1031, 1 << 20)  # F_SETPIPE_SZ = 1031 on Linux; best-effort 1 MB kernel pipe buffer
+    except OSError:
+        pass
+
+    def _gen():
+        assert proc.stdout is not None and proc.stderr is not None
+        try:
+            while True:
+                buf = proc.stdout.read(size)
+                if len(buf) < size:
+                    break
+                yield buf
+        finally:
+            proc.stdout.close()
+            err = proc.stderr.read()
+            proc.stderr.close()
+            if proc.wait() not in (0, -13) and err:
+                sys.stderr.write(err.decode(errors="replace")[-400:])
+
+    return _gen()
 
 
 def loader_fit(w, h):
@@ -758,6 +770,10 @@ def loader_fit(w, h):
     # is `bench/_lib/frames.py::LOADER_CROP`, the one place it is kept (this function held its own copy until
     # 2026-10-11); the ratio is written as the loader writes it, so the filter is the same text as before.
     return LOADER_CROP.format(ar=float(w) / float(h)) + f",scale={w}:{h}"
+
+
+# Precomputed 65,536-entry uint16 -> uint8 lookup table matching the loader's exact float32 `/ 65535 * 255` round.
+_U16_TO_U8 = np.round(np.clip((np.arange(65536, dtype=np.uint16) / (2 ** 16 - 1)).astype(np.float32), 0, 1) * 255.0).astype(np.uint8)
 
 
 def original_frames(source, first, last, w, h):
@@ -770,14 +786,14 @@ def original_frames(source, first, last, w, h):
     third of a level in Y, because ffmpeg's 8-bit rgb path reads darker than its 16-bit one.
     """
     many = last - first + 1
-    vf = f"select='between(n\\,{first}\\,{last})'," + loader_fit(w, h)
+    vf = loader_fit(w, h) if first == 0 else f"select='between(n\\,{first}\\,{last})'," + loader_fit(w, h)
     dec = [FFMPEG, "-v", "error", "-an", "-i", str(source), "-pix_fmt", "rgba64le", "-vf", vf, "-fps_mode", "passthrough",
            "-frames:v", str(many), "-f", "rawvideo", "-"]
     batch, got = [], 0
 
     def flush():
         raw = np.frombuffer(b"".join(batch), np.dtype(np.uint16).newbyteorder("<")).reshape(len(batch), h, w, 4)
-        rgb = np.round(np.clip((raw[..., :3] / (2 ** 16 - 1)).astype(np.float32), 0, 1) * 255.0).astype(np.uint8)
+        rgb = _U16_TO_U8[raw[..., :3]]
         yuv = sh([FFMPEG, "-v", "error", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{w}x{h}", "-r", "24", "-i", "-",
                   "-vf", TO_BT709, "-f", "rawvideo", "-pix_fmt", "yuv420p", "-"], input=rgb.tobytes())
         per = w * h * 3 // 2
@@ -803,8 +819,12 @@ def piece_frames(row, first, last, w, h):
     """A piece's frames for source frames first..last, as BT.709 yuv420p bytes."""
     a, b = first - row["piece_first"], last - row["piece_first"]
     # a file with no matrix tag is the writer's older form: BT.601 values
-    vf = f"select='between(n\\,{a}\\,{b})'" + ("" if row.get("matrix") == "bt709" else ",colormatrix=bt601:bt709")
-    cmd = [FFMPEG, "-v", "error", "-an", "-i", row["piece"], "-vf", vf, "-fps_mode", "passthrough",
+    if a == 0:
+        vf_args = [] if row.get("matrix") == "bt709" else ["-vf", "colormatrix=bt601:bt709"]
+    else:
+        vf = f"select='between(n\\,{a}\\,{b})'" + ("" if row.get("matrix") == "bt709" else ",colormatrix=bt601:bt709")
+        vf_args = ["-vf", vf]
+    cmd = [FFMPEG, "-v", "error", "-an", "-i", row["piece"], *vf_args, "-fps_mode", "passthrough",
            "-frames:v", str(b - a + 1), "-f", "rawvideo", "-pix_fmt", "yuv420p", "-"]
     got = 0
     for buf in pipe_frames(cmd, w * h * 3 // 2):
@@ -1863,7 +1883,8 @@ def carry_edge_rows(out, reach, box) -> None:
 def source_frames(source, first, last, sw, sh):
     """The source's own frames first..last, as they decode: nothing scaled, nothing converted."""
     many = last - first + 1
-    cmd = [FFMPEG, "-v", "error", "-an", "-i", str(source), "-vf", f"select='between(n\\,{first}\\,{last})'", "-fps_mode",
+    vf_args = [] if first == 0 else ["-vf", f"select='between(n\\,{first}\\,{last})'"]
+    cmd = [FFMPEG, "-v", "error", "-an", "-i", str(source), *vf_args, "-fps_mode",
            "passthrough", "-frames:v", str(many), "-f", "rawvideo", "-pix_fmt", "yuv420p", "-"]
     got = 0
     for buf in pipe_frames(cmd, sw * sh * 3 // 2):
@@ -1890,208 +1911,292 @@ def fed_frames(source, segs, w, h, record=None, soften=0.0, captures=None, full=
     `--worn-fill` variant of `placements_of`."""
     box = crop_of(*full, w, h) if full else None
     before = None                                    # the fitted source's luma on the frame before, within a run of rows
+    prev_all_y = None                                # the fitted source's luma on the frame before, across the contiguous span
+    all_moved = record.setdefault("_all_source_moved", {}) if record is not None else None
     faces = {}                                       # id(row) -> `placements_of` for a row that places a worn thing on its face
-    for first, last, rows in segs:
-        if not rows:
-            before = None
-            yield from (source_frames(source, first, last, *full) if full else original_frames(source, first, last, w, h))
-            continue
-        orig = original_frames(source, first, last, w, h)
-        whole = source_frames(source, first, last, *full) if full else iter(lambda: None, 0)
-        runs = [run_for(r, captures) for r in rows]
-        mattes = [Matte(r["piece"]) if (r.get("laid_by") or {}).get("rule") == "matte" else None for r in rows]
-        for r, run in zip(rows, runs):
-            if id(r) not in faces and worn_of(r, run):
-                faces[id(r)] = placements_of(r, run, captures, fill=fill_worn)
-                for face in faces[id(r)] if record is not None else ():
-                    record.setdefault("worn", {})[(r["piece"], r["first"], r["last"], face["what"])] = {
-                        "subject": row_subject(r, run), "what": face["what"], "anchor": face["anchor"], **face["points"], "fill": face["fill"],
-                        "not_placed": face.get("not_placed"), "frames": {}}
-        # the source frames a worn thing is taken from that are not the frame it is laid on: decoded once for the segment
-        wanted = sorted({p["from_source_frame"] for r in rows if id(r) in faces for face in faces[id(r)] for n, p in face["frames"].items()
-                         if first <= n <= last and p.get("from_source_frame") not in (None, n)})
-        donors = {}
-        if wanted:
-            far = zip(original_frames(source, wanted[0], wanted[-1], w, h),
-                      source_frames(source, wanted[0], wanted[-1], *full) if full else iter(lambda: None, 0))
-            donors = {wanted[0] + j: pair for j, pair in enumerate(far) if wanted[0] + j in wanted}
-        got = 0
-        # a zoomed piece's own picture, frame for frame beside it (a file at the source's size lays from it; the
-        # agreement proof reads it at either size)
-        zooms = [iter(piece_frames({"piece": r["zoomed"]["path"], "piece_first": r["piece_first"], "matrix": r["zoomed"]["matrix"]},
-                                   first, last, w, h)) if r.get("zoomed") else None for r in rows]
-        for k, (obuf, sbuf, *pbufs) in enumerate(zip(orig, whole, *(piece_frames(r, first, last, w, h) for r in rows))):
-            n = first + k
-            o = planes(obuf, w, h)
-            pieces = [planes(b, w, h) for b in pbufs]
-            zoomed = [(planes(next(z), w, h), r["zoomed"]["box"]) if z is not None else None for z, r in zip(zooms, rows)]
-            diffs = [difference(p, o) for p in pieces]
-            hard = [changed(p, o, d) for p, d in zip(pieces, diffs)]
-            # A PIECE RENDERED "whole region" IS LAID BY ITS RUN'S REGION (`laid_by_of`, the lead's ruling of 2026-10-16): H3's
-            # picture whole where it regenerated, its barely-changed pixels included; `changed` stays where the graph says another
-            # composite, where it is not read, and where no region of the run covers the frame
-            regions = [captures.region(run, n) if captures and run and (r.get("laid_by") or {}).get("rule") == "region" else None
-                       for r, run in zip(rows, runs)]
-            # BY THE NODE'S OWN MATTE where the piece has one (`Matte`): wherever the node blended any of its render in, and nothing rebuilt
-            mats = [m_.at(n - r["piece_first"]) if m_ is not None else None for m_, r in zip(mattes, rows)]
-            for t, r in zip(mats, rows):
-                if t is not None and tuple(t.shape) != (h, w):
-                    raise SystemExit(f"{r['piece']}: its matte on frame {n} is {tuple(t.shape)}, not the canvas's {(h, w)}")
-            laid_rule = ["matte" if t is not None else "region" if g is not None else "changed" for t, g in zip(mats, regions)]
-            # the region and what the piece changed past it (the node's feather reaches past the token edge)
-            hard = [t > 0 if t is not None else g | m if g is not None else m for m, g, t in zip(hard, regions, mats)]
-            # a frame its run carried no mask on is the source's for that row, when the carried mask is the node's own
-            bare = [captures.carried_nothing(run, n) if captures and run else None for run in runs]
-            # the node's own when the run's entry lists the window files it was read from. Keyed on that list and not
-            # on the capture's sentence for it (`carried_is`): the sentence was reworded the day this rule was written,
-            # and a rule keyed on the old words went quiet on every new capture without a sign
-            unmasked = [(int(m.sum()), bool(run[2].get("files")), run[2].get("carried_is")) if e else None
-                        for m, e, run in zip(hard, bare, runs)]
-            hard = [np.zeros_like(m) if u and u[1] else m for m, u in zip(hard, unmasked)]
-            masks = [captures.mask(run[2]["subject"], n, prefer=run[0]) if captures and run else None for run in runs]
-            whose = [captures.owned(run[2]["subject"], n, prefer=run[0]) if captures and run else None for run in runs]
-            holds = [w_ if w_ is not None else m_ for w_, m_ in zip(whose, masks)]
-            # ANOTHER PERSON OVER HER IS NEVER LAID FROM HER RENDER (the lead's ruling of 2026-10-16): a region-laid row gives up
-            # what another subject's row holds and its own subject does not, before the owners are settled
-            who = [run[2]["subject"] if run else None for run in runs]
-            for i in range(len(rows)):
-                if laid_rule[i] in ("region", "matte"):
-                    for j in range(len(rows)):
-                        if j != i and holds[j] is not None and who[j] != who[i]:
-                            hard[i] = hard[i] & ~(holds[j] & ~holds[i]) if holds[i] is not None else hard[i] & ~holds[j]
-            # A matte row claims only its opaque core in `owner`; in its soft band (0 < t < 255) whatever lies beneath stays underneath
-            # and the matte row blends over it by `mat_weights` in `lay_plane`
-            claims = [m & (t == 255) if t is not None else m for m, t in zip(hard, mats)]
-            owner, shared = owners(claims, holds)
-            backs = [restore_weight(r, captures, run, n, (h, w)) for r, run in zip(rows, runs)]
-            held = [b[0] for b in backs]
-            # at the canvas's size the first row's piece is the base, whole: there "lays nothing" has to be said as
-            # the whole frame held back, or its piece would still be the picture
-            held = [np.ones((h, w), np.float32) if u and u[1] else x for x, u in zip(held, unmasked)]
-            mat_weights = [np.where(m, t.astype(np.float32) / 255.0, 0.0) if t is not None else None
-                           for m, t in zip(hard, mats)]
-            # A THING WORN ON THE HEAD, ON THE PIECE'S OWN FACE (the owner, 2026-10-23): the film's own pixels of it, from the source
-            # frame its placement names, moved to where the render's face is and kept inside the row's laid area grown by its margin
-            on_face = [None] * len(rows)
-            for i, (r, run) in enumerate(zip(rows, runs)):
-                if id(r) not in faces:
-                    continue
-                # what the piece SHOWS on this frame: its laid area less what the row gives back in place (her hands, say)
-                shown = hard[i] & ~(held[i] > 0.5) if held[i] is not None else hard[i]
-                in_place, layers, notes = [], [], []
-                for face in faces[id(r)]:
-                    p = face["frames"][n]
-                    laid_px = clipped_px = 0
-                    if face.get("not_placed"):
-                        in_place += list(face["worn"][0][1])
-                        notes.append((face, p, 0, 0, None, None))
-                        continue
-                    # what of the thing the film shows PAST what the piece shows: the source's own picture there, which no move takes
-                    # away. Over `PAST_SHARE` of its label the thing stays where the film has it
-                    here_mask = worn_mask(face["worn"], captures, n, run[0]) if p["label_px_on_the_frame"] else None
-                    past_px = int((here_mask & ~hard[i]).sum()) if here_mask is not None else None
-                    touch_px = int((here_mask & hard[i] & ~shown).sum()) if here_mask is not None else None
-                    label = p["label_px_on_the_frame"]
-                    if p.get("from_source_frame") is not None and past_px is not None and (past_px > PAST_SHARE * label or touch_px > TOUCH_SHARE * label):
-                        in_place += list(face["worn"][0][1])
-                        p = {**p, "would_be": p["status"], "status": "as filmed", "from_source_frame": n,
-                             "why": (f"{touch_px / label:.1%} of it lies under what the row gives back where the film has it (over {TOUCH_SHARE:.0%}): "
-                                     "it is held there, and moved it would come off what holds it" if touch_px > TOUCH_SHARE * label else
-                                     f"{past_px / label:.1%} of it lies outside what the piece lays (over {PAST_SHARE:.0%}): moved, the film's own "
-                                     "picture of that part would stay beside the moved one") + "; given back where the film has it"}
-                    elif p.get("from_source_frame") is not None:
-                        d = p["from_source_frame"]
-                        obuf_d, sbuf_d = (obuf, sbuf) if d == n else donors[d]
-                        allowed = cv2.dilate(hard[i].astype(np.uint8), disc(int(run[2].get("margin_px") or MARGIN))).astype(bool)
-                        donor = planes(sbuf_d, *full) if full else (o if d == n else planes(obuf_d, w, h))
-                        weight, warped, laid_px, clipped_px = worn_layer(p, donor, worn_mask(face["worn"], captures, d, run[0]), allowed,
-                                                                         (w, h), full, box)
-                        layers.append((weight, warped))
-                    notes.append((face, p, laid_px, clipped_px, past_px, touch_px))
-                if in_place:
-                    backs[i] = restore_weight(r, captures, run, n, (h, w), worn_in_place=in_place)
-                    held[i] = np.ones((h, w), np.float32) if unmasked[i] and unmasked[i][1] else backs[i][0]
-                on_face[i] = layers or None
-                for face, p, laid_px, clipped_px, past_px, touch_px in notes if record is not None else ():
-                    record["worn"][(r["piece"], r["first"], r["last"], face["what"])]["frames"][n] = {
-                        **p, "laid_px": laid_px, "clipped_px": clipped_px, "past_the_piece_px": past_px, "under_what_is_given_back_px": touch_px}
-            if record is not None and before is not None:
-                record.setdefault("source_moved", {})[n] = float(np.abs(o[0] - before).mean())
-            before = o[0]
-            if record is not None and "fitted" in record:
-                record["fitted"][n] = (o[0], np.any(hard, axis=0))       # taken out again by the check, a frame later
-            if record is not None:
-                for r, m, run, s, d, (back, classes), u in zip(rows, hard, runs, masks, diffs, backs, unmasked):
-                    row = {"px": int(m.sum()), "box": box_of(m), "away": None, "away_box": None, "subject_px": None, "laid_by": laid_rule[rows.index(r)],
-                           "no_mask": None if u is None else {"px": u[0], "left_as_the_source": u[1], "carried_is": u[2]},
-                           "at_the_crop": bool(box and ((box[3] and (m[0].any() or m[-1].any())) or (box[2] and (m[:, 0].any() or m[:, -1].any()))))}
-                    if r.get("restore"):
-                        row.update({"restored_px": None, "class_px": None, "join_px": None, "join_box": None})
-                        if classes is not None:
-                            given = back > 0.5
-                            ring = cv2.dilate(given.astype(np.uint8), disc(3)).astype(bool) & ~given & (d > JOIN)
-                            row.update({"restored_px": int((given & m).sum()), "class_px": int(classes.sum()),
-                                        "join_px": int(ring.sum()), "join_box": box_of(ring)})
-                    # under the mask the run carried, when its capture holds one for the frame (an empty one means the
-                    # frame is not read at all: the part was emptied there); the subject's track only when it holds none
-                    bare_here = captures.carried_nothing(run, n) if captures and run else None
-                    worn = captures.carried(run, n) if bare_here is False else None
-                    under, under_by = (worn, "the mask its run carried") if bare_here is not None else (s, "its subject's tracked mask")
-                    if under is not None and back is not None:
-                        under = under & ~(back > 0.5)
-                    if under is not None and under.any():
-                        row["under"] = {"off": float(d[under].mean()), "share": float((m & under).sum()) / int(under.sum()),
-                                        "luma": float(o[0][under].mean()), "by": under_by}
-                    if s is not None and run is not None:
-                        reach = int(run[2].get("margin_px") or MARGIN) + TOKEN
-                        laid = m & ~(back > 0.5) if back is not None else m          # what a restore gave back is not laid
-                        far = laid & ~cv2.dilate(s.astype(np.uint8), disc(reach)).astype(bool)
-                        row.update({"away": int(far.sum()), "away_box": box_of(far), "subject_px": int(s.sum())})
-                    zi = zoomed[rows.index(r)]
-                    if zi is not None:
-                        # the zoomed picture scaled into its box at the canvas against the piece, inside the region
-                        # and clear of its edge: the piece is that picture laid back by the node
-                        bx0, by0, bx1, by1 = zi[1]
-                        down = cv2.resize(zi[0][0], (bx1 - bx0, by1 - by0), interpolation=cv2.INTER_AREA)
-                        inner = cv2.erode(m.astype(np.uint8), disc(ZOOM_CLEAR)).astype(bool)[by0:by1, bx0:bx1]
-                        apart = np.abs(down - pieces[rows.index(r)][0][by0:by1, bx0:bx1])
-                        outside = int(m.sum()) - int(m[by0:by1, bx0:bx1].sum())
-                        row["zoomed"] = {"px": int(inner.sum()), "region_px_outside_the_box": outside,
-                                         "median": float(np.median(apart[inner])) if inner.any() else None,
-                                         "p99": float(np.percentile(apart[inner], 99)) if inner.any() else None}
-                    record["rows"].setdefault(r["piece"], {})[n] = row
-                if len(rows) > 1:
-                    record["shared"][n] = shared
-            if record is not None:
-                subjects = [run[2]["subject"] if run else None for run in runs]
-                for i, r in enumerate(rows):
-                    back = held[i] > 0.5 if held[i] is not None else np.zeros((h, w), bool)
-                    later = np.zeros((h, w), bool)
-                    for j in range(i + 1, len(rows)):
-                        later |= owner == j
-                    other = np.zeros((h, w), bool)         # an earlier row's subject holds it: another, known subject
-                    if holds[i] is not None:
-                        for j in range(i):
-                            if holds[j] is not None and subjects[j] != subjects[i]:
-                                other |= hard[j] & holds[j] & ~holds[i]
-                    meant = hard[i] & ~back & ~later & ~other
-                    tally = record.setdefault("shown", {}).setdefault((r["piece"], r.get("first"), r.get("last")), [0, 0, 0])
-                    on = hard[i] if laid_rule[i] == "matte" else (owner == i)
-                    shows = int((meant & on).sum())
-                    tally[0] += int(meant.sum())
-                    tally[1] += shows
-                    tally[2] += 1
-                    record["rows"][r["piece"]][n]["laid"] = shows      # what of this row is in the file on this frame
-            got += 1
-            if full:
-                yield laid_over(planes(sbuf, *full), pieces, owner, box, held, zoomed, exact=[x == "matte" for x in laid_rule], orig=o, mats=mat_weights,
-                                worn=on_face)
+    contiguous = bool(segs) and all(segs[i][1] + 1 == segs[i + 1][0] for i in range(len(segs) - 1))
+    need_orig_all = contiguous and (record is not None or any(rows for _, _, rows in segs) or not full)
+    orig_all = original_frames(source, segs[0][0], segs[-1][1], w, h) if need_orig_all else None
+    whole_all = source_frames(source, segs[0][0], segs[-1][1], *full) if (contiguous and full) else None
+    row_spans: dict[int, tuple[object, int, int, object, object]] = {}
+    if contiguous:
+        for idx, (s_first, s_last, s_rows) in enumerate(segs):
+            for r in s_rows:
+                rid = id(r)
+                if rid not in row_spans:
+                    end_idx = idx
+                    while end_idx + 1 < len(segs) and any(r is x for x in segs[end_idx + 1][2]):
+                        end_idx += 1
+                    row_spans[rid] = (r, s_first, segs[end_idx][1], None, None)
+
+    def _ensure_row_open(rid: int):
+        r, rf, rl, p_it, z_it = row_spans[rid]
+        if p_it is None:
+            p_it = piece_frames(r, rf, rl, w, h)
+            z_it = (piece_frames({"piece": r["zoomed"]["path"], "piece_first": r["piece_first"], "matrix": r["zoomed"]["matrix"]},
+                                 rf, rl, w, h) if r.get("zoomed") else None)
+            row_spans[rid] = (r, rf, rl, p_it, z_it)
+        return p_it, z_it
+
+    try:
+        for seg_idx, (first, last, rows) in enumerate(segs):
+            many = last - first + 1
+            if contiguous:
+                for look_idx in range(seg_idx, min(seg_idx + 3, len(segs))):
+                    for r in segs[look_idx][2]:
+                        _ensure_row_open(id(r))
+            if not rows:
+                before = None
+                if contiguous:
+                    orig_seg = itertools.islice(orig_all, many) if orig_all is not None else None
+                    whole_seg = itertools.islice(whole_all, many) if whole_all is not None else None
+                    for k in range(many):
+                        n = first + k
+                        obuf = next(orig_seg) if orig_seg is not None else None
+                        sbuf = next(whole_seg) if whole_seg is not None else None
+                        if obuf is not None and all_moved is not None:
+                            oy = planes(obuf, w, h)[0]
+                            if prev_all_y is not None:
+                                all_moved[n] = float(np.abs(oy - prev_all_y).mean())
+                            prev_all_y = oy
+                        yield sbuf if full else obuf
+                else:
+                    yield from (source_frames(source, first, last, *full) if full else original_frames(source, first, last, w, h))
                 continue
-            untouched = len(rows) == 1 and held[0] is None and on_face[0] is None
-            frame = pbufs[0] if untouched else merged(pieces, owner, held, o, exact=[x == "matte" for x in laid_rule], mats=mat_weights, worn=on_face)
-            yield softened(frame, hard, soften, w, h, held + [wt for x in on_face if x is not None for wt, _ in x]) if soften else frame
-        if got != last - first + 1:
-            raise SystemExit(f"{got} of {last - first + 1} frames for {first}-{last}")
+            orig = itertools.islice(orig_all, many) if orig_all is not None else original_frames(source, first, last, w, h)
+            whole = (itertools.islice(whole_all, many) if whole_all is not None
+                     else (source_frames(source, first, last, *full) if full else iter(lambda: None, 0)))
+            runs = [run_for(r, captures) for r in rows]
+            mattes = [Matte(r["piece"]) if (r.get("laid_by") or {}).get("rule") == "matte" else None for r in rows]
+            for r, run in zip(rows, runs):
+                if id(r) not in faces and worn_of(r, run):
+                    faces[id(r)] = placements_of(r, run, captures, fill=fill_worn)
+                    for face in faces[id(r)] if record is not None else ():
+                        record.setdefault("worn", {})[(r["piece"], r["first"], r["last"], face["what"])] = {
+                            "subject": row_subject(r, run), "what": face["what"], "anchor": face["anchor"], **face["points"], "fill": face["fill"],
+                            "not_placed": face.get("not_placed"), "frames": {}}
+            # the source frames a worn thing is taken from that are not the frame it is laid on: decoded once for the segment
+            wanted = sorted({p["from_source_frame"] for r in rows if id(r) in faces for face in faces[id(r)] for n, p in face["frames"].items()
+                             if first <= n <= last and p.get("from_source_frame") not in (None, n)})
+            donors = {}
+            if wanted:
+                far = zip(original_frames(source, wanted[0], wanted[-1], w, h),
+                          source_frames(source, wanted[0], wanted[-1], *full) if full else iter(lambda: None, 0))
+                donors = {wanted[0] + j: pair for j, pair in enumerate(far) if wanted[0] + j in wanted}
+            got = 0
+            # a zoomed piece's own picture, frame for frame beside it (a file at the source's size lays from it; the
+            # agreement proof reads it at either size)
+            if contiguous:
+                p_iters = [itertools.islice(_ensure_row_open(id(r))[0], many) for r in rows]
+                zooms = [itertools.islice(_ensure_row_open(id(r))[1], many) if r.get("zoomed") else None for r in rows]
+            else:
+                p_iters = [piece_frames(r, first, last, w, h) for r in rows]
+                zooms = [iter(piece_frames({"piece": r["zoomed"]["path"], "piece_first": r["piece_first"], "matrix": r["zoomed"]["matrix"]},
+                                           first, last, w, h)) if r.get("zoomed") else None for r in rows]
+            for k, (obuf, sbuf, *pbufs) in enumerate(zip(orig, whole, *p_iters)):
+                n = first + k
+                o = planes(obuf, w, h)
+                if all_moved is not None:
+                    if prev_all_y is not None:
+                        all_moved[n] = float(np.abs(o[0] - prev_all_y).mean())
+                    prev_all_y = o[0]
+                pieces = [planes(b, w, h) for b in pbufs]
+                zoomed = [(planes(next(z), w, h), r["zoomed"]["box"]) if z is not None else None for z, r in zip(zooms, rows)]
+                diffs = [difference(p, o) for p in pieces]
+                hard = [changed(p, o, d) for p, d in zip(pieces, diffs)]
+                # A PIECE RENDERED "whole region" IS LAID BY ITS RUN'S REGION (`laid_by_of`, the lead's ruling of 2026-10-16): H3's
+                # picture whole where it regenerated, its barely-changed pixels included; `changed` stays where the graph says another
+                # composite, where it is not read, and where no region of the run covers the frame
+                regions = [captures.region(run, n) if captures and run and (r.get("laid_by") or {}).get("rule") == "region" else None
+                           for r, run in zip(rows, runs)]
+                # BY THE NODE'S OWN MATTE where the piece has one (`Matte`): wherever the node blended any of its render in, and nothing rebuilt
+                mats = [m_.at(n - r["piece_first"]) if m_ is not None else None for m_, r in zip(mattes, rows)]
+                for t, r in zip(mats, rows):
+                    if t is not None and tuple(t.shape) != (h, w):
+                        raise SystemExit(f"{r['piece']}: its matte on frame {n} is {tuple(t.shape)}, not the canvas's {(h, w)}")
+                laid_rule = ["matte" if t is not None else "region" if g is not None else "changed" for t, g in zip(mats, regions)]
+                # the region and what the piece changed past it (the node's feather reaches past the token edge)
+                hard = [t > 0 if t is not None else g | m if g is not None else m for m, g, t in zip(hard, regions, mats)]
+                # a frame its run carried no mask on is the source's for that row, when the carried mask is the node's own
+                bare = [captures.carried_nothing(run, n) if captures and run else None for run in runs]
+                # the node's own when the run's entry lists the window files it was read from. Keyed on that list and not
+                # on the capture's sentence for it (`carried_is`): the sentence was reworded the day this rule was written,
+                # and a rule keyed on the old words went quiet on every new capture without a sign
+                unmasked = [(int(m.sum()), bool(run[2].get("files")), run[2].get("carried_is")) if e else None
+                            for m, e, run in zip(hard, bare, runs)]
+                hard = [np.zeros_like(m) if u and u[1] else m for m, u in zip(hard, unmasked)]
+                masks = [captures.mask(run[2]["subject"], n, prefer=run[0]) if captures and run else None for run in runs]
+                whose = [captures.owned(run[2]["subject"], n, prefer=run[0]) if captures and run else None for run in runs]
+                holds = [w_ if w_ is not None else m_ for w_, m_ in zip(whose, masks)]
+                # ANOTHER PERSON OVER HER IS NEVER LAID FROM HER RENDER (the lead's ruling of 2026-10-16): a region-laid row gives up
+                # what another subject's row holds and its own subject does not, before the owners are settled
+                who = [run[2]["subject"] if run else None for run in runs]
+                for i in range(len(rows)):
+                    if laid_rule[i] in ("region", "matte"):
+                        for j in range(len(rows)):
+                            if j != i and holds[j] is not None and who[j] != who[i]:
+                                hard[i] = hard[i] & ~(holds[j] & ~holds[i]) if holds[i] is not None else hard[i] & ~holds[j]
+                # A matte row claims only its opaque core in `owner`; in its soft band (0 < t < 255) whatever lies beneath stays underneath
+                # and the matte row blends over it by `mat_weights` in `lay_plane`
+                claims = [m & (t == 255) if t is not None else m for m, t in zip(hard, mats)]
+                owner, shared = owners(claims, holds)
+                backs = [restore_weight(r, captures, run, n, (h, w)) for r, run in zip(rows, runs)]
+                held = [b[0] for b in backs]
+                # at the canvas's size the first row's piece is the base, whole: there "lays nothing" has to be said as
+                # the whole frame held back, or its piece would still be the picture
+                held = [np.ones((h, w), np.float32) if u and u[1] else x for x, u in zip(held, unmasked)]
+                mat_weights = [np.where(m, t.astype(np.float32) / 255.0, 0.0) if t is not None else None
+                               for m, t in zip(hard, mats)]
+                # A THING WORN ON THE HEAD, ON THE PIECE'S OWN FACE (the owner, 2026-10-23): the film's own pixels of it, from the source
+                # frame its placement names, moved to where the render's face is and kept inside the row's laid area grown by its margin
+                on_face = [None] * len(rows)
+                for i, (r, run) in enumerate(zip(rows, runs)):
+                    if id(r) not in faces:
+                        continue
+                    # what the piece SHOWS on this frame: its laid area less what the row gives back in place (her hands, say)
+                    shown = hard[i] & ~(held[i] > 0.5) if held[i] is not None else hard[i]
+                    in_place, layers, notes = [], [], []
+                    for face in faces[id(r)]:
+                        p = face["frames"][n]
+                        laid_px = clipped_px = 0
+                        if face.get("not_placed"):
+                            in_place += list(face["worn"][0][1])
+                            notes.append((face, p, 0, 0, None, None))
+                            continue
+                        # what of the thing the film shows PAST what the piece shows: the source's own picture there, which no move takes
+                        # away. Over `PAST_SHARE` of its label the thing stays where the film has it
+                        here_mask = worn_mask(face["worn"], captures, n, run[0]) if p["label_px_on_the_frame"] else None
+                        past_px = int((here_mask & ~hard[i]).sum()) if here_mask is not None else None
+                        touch_px = int((here_mask & hard[i] & ~shown).sum()) if here_mask is not None else None
+                        label = p["label_px_on_the_frame"]
+                        if p.get("from_source_frame") is not None and past_px is not None and (past_px > PAST_SHARE * label or touch_px > TOUCH_SHARE * label):
+                            in_place += list(face["worn"][0][1])
+                            p = {**p, "would_be": p["status"], "status": "as filmed", "from_source_frame": n,
+                                 "why": (f"{touch_px / label:.1%} of it lies under what the row gives back where the film has it (over {TOUCH_SHARE:.0%}): "
+                                         "it is held there, and moved it would come off what holds it" if touch_px > TOUCH_SHARE * label else
+                                         f"{past_px / label:.1%} of it lies outside what the piece lays (over {PAST_SHARE:.0%}): moved, the film's own "
+                                         "picture of that part would stay beside the moved one") + "; given back where the film has it"}
+                        elif p.get("from_source_frame") is not None:
+                            d = p["from_source_frame"]
+                            obuf_d, sbuf_d = (obuf, sbuf) if d == n else donors[d]
+                            allowed = cv2.dilate(hard[i].astype(np.uint8), disc(int(run[2].get("margin_px") or MARGIN))).astype(bool)
+                            donor = planes(sbuf_d, *full) if full else (o if d == n else planes(obuf_d, w, h))
+                            weight, warped, laid_px, clipped_px = worn_layer(p, donor, worn_mask(face["worn"], captures, d, run[0]), allowed,
+                                                                             (w, h), full, box)
+                            layers.append((weight, warped))
+                        notes.append((face, p, laid_px, clipped_px, past_px, touch_px))
+                    if in_place:
+                        backs[i] = restore_weight(r, captures, run, n, (h, w), worn_in_place=in_place)
+                        held[i] = np.ones((h, w), np.float32) if unmasked[i] and unmasked[i][1] else backs[i][0]
+                    on_face[i] = layers or None
+                    for face, p, laid_px, clipped_px, past_px, touch_px in notes if record is not None else ():
+                        record["worn"][(r["piece"], r["first"], r["last"], face["what"])]["frames"][n] = {
+                            **p, "laid_px": laid_px, "clipped_px": clipped_px, "past_the_piece_px": past_px, "under_what_is_given_back_px": touch_px}
+                if record is not None and before is not None:
+                    record.setdefault("source_moved", {})[n] = float(np.abs(o[0] - before).mean())
+                before = o[0]
+                if record is not None and "fitted" in record:
+                    record["fitted"][n] = (o[0], np.any(hard, axis=0))       # taken out again by the check, a frame later
+                if record is not None:
+                    for r, m, run, s, d, (back, classes), u in zip(rows, hard, runs, masks, diffs, backs, unmasked):
+                        row = {"px": int(m.sum()), "box": box_of(m), "away": None, "away_box": None, "subject_px": None, "laid_by": laid_rule[rows.index(r)],
+                               "no_mask": None if u is None else {"px": u[0], "left_as_the_source": u[1], "carried_is": u[2]},
+                               "at_the_crop": bool(box and ((box[3] and (m[0].any() or m[-1].any())) or (box[2] and (m[:, 0].any() or m[:, -1].any()))))}
+                        if r.get("restore"):
+                            row.update({"restored_px": None, "class_px": None, "join_px": None, "join_box": None})
+                            if classes is not None:
+                                given = back > 0.5
+                                ring = cv2.dilate(given.astype(np.uint8), disc(3)).astype(bool) & ~given & (d > JOIN)
+                                row.update({"restored_px": int((given & m).sum()), "class_px": int(classes.sum()),
+                                            "join_px": int(ring.sum()), "join_box": box_of(ring)})
+                        # under the mask the run carried, when its capture holds one for the frame (an empty one means the
+                        # frame is not read at all: the part was emptied there); the subject's track only when it holds none
+                        bare_here = captures.carried_nothing(run, n) if captures and run else None
+                        worn = captures.carried(run, n) if bare_here is False else None
+                        under, under_by = (worn, "the mask its run carried") if bare_here is not None else (s, "its subject's tracked mask")
+                        if under is not None and back is not None:
+                            under = under & ~(back > 0.5)
+                        if under is not None and under.any():
+                            row["under"] = {"off": float(d[under].mean()), "share": float((m & under).sum()) / int(under.sum()),
+                                            "luma": float(o[0][under].mean()), "by": under_by}
+                        if s is not None and run is not None:
+                            reach = int(run[2].get("margin_px") or MARGIN) + TOKEN
+                            laid = m & ~(back > 0.5) if back is not None else m          # what a restore gave back is not laid
+                            far = laid & ~cv2.dilate(s.astype(np.uint8), disc(reach)).astype(bool)
+                            row.update({"away": int(far.sum()), "away_box": box_of(far), "subject_px": int(s.sum())})
+                        zi = zoomed[rows.index(r)]
+                        if zi is not None:
+                            # the zoomed picture scaled into its box at the canvas against the piece, inside the region
+                            # and clear of its edge: the piece is that picture laid back by the node
+                            bx0, by0, bx1, by1 = zi[1]
+                            down = cv2.resize(zi[0][0], (bx1 - bx0, by1 - by0), interpolation=cv2.INTER_AREA)
+                            inner = cv2.erode(m.astype(np.uint8), disc(ZOOM_CLEAR)).astype(bool)[by0:by1, bx0:bx1]
+                            apart = np.abs(down - pieces[rows.index(r)][0][by0:by1, bx0:bx1])
+                            outside = int(m.sum()) - int(m[by0:by1, bx0:bx1].sum())
+                            row["zoomed"] = {"px": int(inner.sum()), "region_px_outside_the_box": outside,
+                                             "median": float(np.median(apart[inner])) if inner.any() else None,
+                                             "p99": float(np.percentile(apart[inner], 99)) if inner.any() else None}
+                        record["rows"].setdefault(r["piece"], {})[n] = row
+                    if len(rows) > 1:
+                        record["shared"][n] = shared
+                if record is not None:
+                    subjects = [run[2]["subject"] if run else None for run in runs]
+                    for i, r in enumerate(rows):
+                        back = held[i] > 0.5 if held[i] is not None else np.zeros((h, w), bool)
+                        later = np.zeros((h, w), bool)
+                        for j in range(i + 1, len(rows)):
+                            later |= owner == j
+                        other = np.zeros((h, w), bool)         # an earlier row's subject holds it: another, known subject
+                        if holds[i] is not None:
+                            for j in range(i):
+                                if holds[j] is not None and subjects[j] != subjects[i]:
+                                    other |= hard[j] & holds[j] & ~holds[i]
+                        meant = hard[i] & ~back & ~later & ~other
+                        tally = record.setdefault("shown", {}).setdefault((r["piece"], r.get("first"), r.get("last")), [0, 0, 0])
+                        on = hard[i] if laid_rule[i] == "matte" else (owner == i)
+                        shows = int((meant & on).sum())
+                        tally[0] += int(meant.sum())
+                        tally[1] += shows
+                        tally[2] += 1
+                        record["rows"][r["piece"]][n]["laid"] = shows      # what of this row is in the file on this frame
+                got += 1
+                if full:
+                    yield laid_over(planes(sbuf, *full), pieces, owner, box, held, zoomed, exact=[x == "matte" for x in laid_rule], orig=o, mats=mat_weights,
+                                    worn=on_face)
+                    continue
+                untouched = len(rows) == 1 and held[0] is None and on_face[0] is None
+                frame = pbufs[0] if untouched else merged(pieces, owner, held, o, exact=[x == "matte" for x in laid_rule], mats=mat_weights, worn=on_face)
+                yield softened(frame, hard, soften, w, h, held + [wt for x in on_face if x is not None for wt, _ in x]) if soften else frame
+            if got != many:
+                raise SystemExit(f"{got} of {many} frames for {first}-{last}")
+            if contiguous:
+                for r in rows:
+                    rid = id(r)
+                    if row_spans[rid][2] == last:
+                        _, rf, rl, p_it, z_it = row_spans[rid]
+                        if p_it is not None:
+                            for _ in p_it:
+                                pass
+                        if z_it is not None:
+                            for _ in z_it:
+                                pass
+                        row_spans[rid] = (r, rf, rl, None, None)
+        if orig_all is not None:
+            for _ in orig_all:
+                pass
+        if whole_all is not None:
+            for _ in whole_all:
+                pass
+    finally:
+        for _r, _rf, _rl, p_it, z_it in row_spans.values():
+            if p_it is not None and hasattr(p_it, "close"):
+                p_it.close()
+            if z_it is not None and hasattr(z_it, "close"):
+                z_it.close()
+        if orig_all is not None and hasattr(orig_all, "close"):
+            orig_all.close()
+        if whole_all is not None and hasattr(whole_all, "close"):
+            whole_all.close()
 
 
 def audio_packets(path):
@@ -2130,7 +2235,7 @@ def packet_samples(source) -> int:
     return next(int(line.split(",")[3]) for line in out.splitlines() if line and not line.startswith("#"))
 
 
-def build(args, segs, canvas, span, src, captures):
+def build(args, segs, canvas, span, src, captures, record=None, fed_cache=None):
     w, h = canvas
     full = (src["width"], src["height"]) if args.size == "source" else None
     ow, oh = full or canvas
@@ -2142,14 +2247,24 @@ def build(args, segs, canvas, span, src, captures):
            "-framerate", f"{rate[0]}/{rate[1]}", "-i", "-"]
     if sound:
         cmd += audio_input(args.source, span, rate, packet_samples(args.source) / sound, track) + ["-map", "0:v:0", "-map", "1:a:0", "-c:a", "copy"]
-    cmd += ["-vf", PIPED_IS_BT709, "-c:v", "libx264", "-preset", "slow", "-crf", str(args.crf), "-pix_fmt", "yuv420p", *BT709_TAGS,
-            "-video_track_timescale", str(rate[0]), "-map_metadata", "-1", "-movflags", "+faststart", args.out]
+    cmd += ["-vf", PIPED_IS_BT709, "-c:v", "libx264", "-preset", "slow", "-threads", "12", "-crf", str(args.crf), "-pix_fmt", "yuv420p",
+            *BT709_TAGS, "-video_track_timescale", str(rate[0]), "-map_metadata", "-1", "-movflags", "+faststart", args.out]
     enc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
     assert enc.stdin is not None and enc.stderr is not None
     fed = 0
     try:
-        for frame in fed_frames(args.source, segs, w, h, soften=args.soften, captures=captures, full=full, fill_worn=args.worn_fill):
+        for frame in fed_frames(args.source, segs, w, h, record=record, soften=args.soften, captures=captures, full=full, fill_worn=args.worn_fill):
             enc.stdin.write(frame)
+            if fed_cache is not None:
+                n = span[0] + fed
+                if record is not None and "fitted" in record and n in record["fitted"]:
+                    fitted, touched = record["fitted"].pop(n)
+                    fed_cache.write(b"\x01")
+                    fed_cache.write(np.ascontiguousarray(fitted, dtype=np.float32).tobytes())
+                    fed_cache.write(np.ascontiguousarray(touched, dtype=np.bool_).tobytes())
+                else:
+                    fed_cache.write(b"\x00")
+                fed_cache.write(frame)
             fed += 1
     finally:
         enc.stdin.close()
@@ -2160,6 +2275,67 @@ def build(args, segs, canvas, span, src, captures):
     if enc.returncode != 0 or fed != many:
         raise SystemExit(f"encode failed (fed {fed} of {many}): {err.decode(errors='replace')[-600:]}")
     return fed
+
+
+def _read_fed_cache(fed_cache, many: int, span0: int, w: int, h: int, per: int, fitted_out: dict | None):
+    """Yield cached fed frames in order, restoring `fitted_out[n]` just before frame `n` is yielded."""
+    fed_cache.seek(0)
+    fit_bytes = w * h * 4
+    touch_bytes = w * h
+    for k in range(many):
+        tag = fed_cache.read(1)
+        if not tag:
+            break
+        if tag == b"\x01":
+            f_buf = fed_cache.read(fit_bytes)
+            t_buf = fed_cache.read(touch_bytes)
+            if fitted_out is not None:
+                fitted_out[span0 + k] = (
+                    np.frombuffer(f_buf, dtype=np.float32).reshape(h, w),
+                    np.frombuffer(t_buf, dtype=np.bool_).reshape(h, w),
+                )
+        frame = fed_cache.read(per)
+        if len(frame) < per:
+            break
+        yield frame
+
+
+def build_share(source_mp4: str, share_out: str, codec: str = "h264", max_mb: float = 95.0) -> dict:
+    """Build a 2-pass bitrate-constrained share copy (< `max_mb` MB) from the verified master delivery `.mp4`."""
+    if codec not in ("h264", "hevc"):
+        raise SystemExit(f"--share codec must be 'h264' or 'hevc', got {codec!r}")
+    info = probe(source_mp4)
+    rate_num, rate_den = info["rate"]
+    duration = max(info["frames"] * rate_den / rate_num, 0.1)
+    has_audio = audio_rate(source_mp4) is not None
+    abitrate_k = 192 if has_audio else 0
+    total_bits = max_mb * 1024 * 1024 * 8
+    vbitrate_k = max(int((total_bits / duration) / 1000) - abitrate_k - 64, 100)
+    with tempfile.TemporaryDirectory(prefix="h3_share_pass_") as tmpdir:
+        passlog = os.path.join(tmpdir, "ffmpeg2pass")
+        if codec == "h264":
+            v_common = ["-c:v", "libx264", "-preset", "veryslow", "-threads", "12", "-b:v", f"{vbitrate_k}k",
+                        "-pix_fmt", "yuv420p", *BT709_TAGS]
+            p1 = [FFMPEG, "-y", "-v", "error", "-i", str(source_mp4), *v_common,
+                  "-pass", "1", "-passlogfile", passlog, "-an", "-f", "null", os.devnull]
+            a_args = ["-c:a", "aac", "-b:a", "192k"] if has_audio else ["-an"]
+            p2 = [FFMPEG, "-y", "-v", "error", "-i", str(source_mp4), *v_common,
+                  "-bsf:v", "filter_units=remove_types=6", "-pass", "2", "-passlogfile", passlog,
+                  *a_args, "-map_metadata", "-1", "-movflags", "+faststart", str(share_out)]
+        else:
+            stats = os.path.join(tmpdir, "x265_2pass.log")
+            v_common = ["-c:v", "libx265", "-preset", "slow", "-b:v", f"{vbitrate_k}k",
+                        "-pix_fmt", "yuv420p10le", "-tag:v", "hvc1", *BT709_TAGS]
+            x265_base = "log-level=error:no-sao=1:aq-mode=3:no-info=1"
+            p1 = [FFMPEG, "-y", "-v", "error", "-i", str(source_mp4), *v_common,
+                  "-x265-params", f"pass=1:{x265_base}:stats={stats}", "-an", "-f", "null", os.devnull]
+            a_args = ["-c:a", "aac", "-b:a", "192k"] if has_audio else ["-an"]
+            p2 = [FFMPEG, "-y", "-v", "error", "-i", str(source_mp4), *v_common,
+                  "-x265-params", f"pass=2:{x265_base}:stats={stats}",
+                  *a_args, "-map_metadata", "-1", "-movflags", "+faststart", str(share_out)]
+        sh(p1)
+        sh(p2)
+    return {"out": str(share_out), "codec": codec, "bytes": os.path.getsize(share_out), "video_kbps": vbitrate_k}
 
 
 def latent_step(frame_in_load):
@@ -2851,7 +3027,7 @@ def compare(a_path, b_path):
     print("flags only in B:", [f for f in fb if f not in fa] or "none")
 
 
-def check(args, segs, canvas, span, src, rows, captures):
+def check(args, segs, canvas, span, src, rows, captures, precomputed=None):
     w, h = canvas
     full = (src["width"], src["height"]) if args.size == "source" else None
     ow, oh = full or canvas
@@ -2905,13 +3081,19 @@ def check(args, segs, canvas, span, src, rows, captures):
     def mad(a, b):
         return float(np.abs(a - b).mean())
 
-    record = {"rows": {}, "shared": {}}
     tally = Subjects(captures) if captures else None
-    if tally:
-        record["fitted"] = {}
     # the delivered file as the loader would hand it over: at the canvas, for the table of what it did to each subject
     at_canvas = luma_at_canvas(args.out, w, h) if tally and full else None
-    fed = fed_frames(args.source, segs, w, h, record, args.soften, captures, full, fill_worn=args.worn_fill)
+    if precomputed is not None:
+        record, fed_cache = precomputed
+        if tally:
+            record.setdefault("fitted", {})
+        fed = _read_fed_cache(fed_cache, many, span[0], w, h, per, record.get("fitted"))
+    else:
+        record = {"rows": {}, "shared": {}}
+        if tally:
+            record["fitted"] = {}
+        fed = fed_frames(args.source, segs, w, h, record, args.soften, captures, full, fill_worn=args.worn_fill)
     window = [None, arr(next(fed)), None]            # fed k-1, k, k+1
     placed = static = misplaced = decoded = 0
     own, worst, bad, local = [], (0.0, None), [], []
@@ -3109,7 +3291,10 @@ def check(args, segs, canvas, span, src, rows, captures):
                  f"({100 * share:.1f}%): an earlier row is laid over it")
     if tally:
         result["subjects"] = tally.report()
-    result["shots"], unlaid = shots_of(record, rows, captures, span, source_moved_over(args.source, span, w, h),
+    all_moved = record.pop("_all_source_moved", None)
+    if all_moved is None or len(all_moved) < max(span[1] - span[0], 0):
+        all_moved = source_moved_over(args.source, span, w, h)
+    result["shots"], unlaid = shots_of(record, rows, captures, span, all_moved,
                                        read_intents(args.table), record_cuts_of(args.shots) if args.shots else None,
                                        record_subjects_of(args.shots) if args.shots else None)
     result["shots"]["shots_record"] = args.shots
@@ -3279,6 +3464,12 @@ def main():
     p.add_argument("--worn-fill", action="store_true",
                    help="a variant: a frame with no label of a thing worn on the head borrows it from a labelled frame within FILL_REACH "
                         "(the default lays nothing there); said in the check record")
+    p.add_argument("--share", nargs="?", const="h264", default=None, choices=("h264", "hevc"),
+                   help="also encode a 2-pass <95 MB share copy (`<stem>_share.mp4` beside `--out`, or `--share-out`): "
+                        "`h264` (default when `--share` is given with no codec: 2-pass libx264 -preset veryslow -threads 12, SEI stripped) "
+                        "or `hevc` (2-pass 10-bit libx265 -preset slow, no-sao=1:aq-mode=3:no-info=1)")
+    p.add_argument("--share-out", help="explicit output path for the <95 MB share copy (implies `--share h264` unless `--share hevc` is given)")
+    p.add_argument("--share-max-mb", type=float, default=95.0, help="maximum size in MB for `--share` / `--share-out` (default 95.0)")
     p.add_argument("--check-only", action="store_true")
     args = p.parse_args()
     if args.compare:
@@ -3290,6 +3481,13 @@ def main():
     if lock and not args.check_only:
         raise SystemExit(f"{args.out} is locked ({lock[0]}): an accepted file is never built over. Write the new version "
                          f"beside it, for one {os.path.basename(free_name(args.out))}, and say in {LOCKS} which stands")
+    share_codec = args.share or ("h264" if args.share_out else None)
+    share_out = (args.share_out or (os.path.splitext(args.out)[0] + "_share.mp4")) if share_codec else None
+    if share_out and not args.check_only:
+        share_lock = locked(share_out)
+        if share_lock:
+            raise SystemExit(f"{share_out} is locked ({share_lock[0]}): an accepted file is never built over. Write the new version "
+                             f"beside it, for one {os.path.basename(free_name(share_out))}, and say in {LOCKS} which stands")
 
     rows = read_table(args.table)
     src = probe(args.source)
@@ -3347,8 +3545,14 @@ def main():
             for r in covering) or "original"),
             flush=True)
     if not args.check_only:
-        print("fed", build(args, segs, canvas, span, src, captures), "frames to", args.out, flush=True)
-    result = check(args, segs, canvas, span, src, rows, captures)
+        record = {"rows": {}, "shared": {}}
+        if captures:
+            record["fitted"] = {}
+        with tempfile.TemporaryFile() as fed_cache:
+            print("fed", build(args, segs, canvas, span, src, captures, record=record, fed_cache=fed_cache), "frames to", args.out, flush=True)
+            result = check(args, segs, canvas, span, src, rows, captures, precomputed=(record, fed_cache))
+    else:
+        result = check(args, segs, canvas, span, src, rows, captures)
     result["segments"] = [[a, b, [r["piece"] for r in covering]] for a, b, covering in segs]
     if lock:
         result["locked"] = {"by": lock[0], "md5_locked": lock[1], "md5_now": md5_of(args.out)}
@@ -3358,10 +3562,13 @@ def main():
             result["verdict"] = "FAILS"
             result["verdict_line"] = "FAILS (not the locked file)" + result["verdict_line"][len("passes"):] \
                 if result["verdict_line"].startswith("passes") else result["verdict_line"] + "; not the locked file"
+    if share_out and not args.check_only and not result["failures"]:
+        result["share"] = build_share(args.out, share_out, codec=share_codec, max_mb=args.share_max_mb)
+        print("share", result["share"]["out"], f"({result['share']['codec']}, {result['share']['bytes']} bytes, {result['share']['video_kbps']} kbps)", flush=True)
     with open(args.out + ".check.json", "w") as fh:
         fh.write(json.dumps(result, indent=1) + "\n")
     print("sidecar", add_check_to_sidecar(args, result) if args.check_only else write_sidecar(args, rows, result, segs), flush=True)
-    shown = {k: result[k] for k in ("video", "order", "audio", "rows_shown", "locked", "failures", "verdict", "verdict_line") if k in result}
+    shown = {k: result[k] for k in ("video", "order", "audio", "rows_shown", "locked", "share", "failures", "verdict", "verdict_line") if k in result}
     shown["shots"] = result["shots"]["where_a_named_subject_is_the_source's_own"]
     shown["regions"] = {os.path.basename(k): {a: b for a, b in v.items() if not a.endswith("_per_frame")}
                         for k, v in result["regions"]["pieces"].items()}
