@@ -197,6 +197,25 @@ Visual proof contact sheets saved on disk in `internal/gemini/2026-10-29_4912/`:
    - **Clean Steps 3 & 4 (`4921–4926`) in `data/fun/plan.json`**: Mark `4921–4926` as `hidden` in `head_marks` (`--head-hidden 4921-4926`), and extend `4939` `hers` to `4939–4940` `hers`. That makes `4921–4926` `0 px`, turning **Step 3 (`4921–4924`) completely `untouched` (`0` active tokens, `0` `BLUE-ONLY` frames)** and removing the `815 px` dancer-neck sliver on `4926` from Step 4.
    - **Restore `second`'s `26 px` (`64 px` zoomed) hair margin and visible hair crown (`4939–4940`, `4943–4946`) against `c == 0` `strangers` spill in `bench/capture_masked_run.py`**:
      1. In `her_hair_in_hole`: when `whole_classes` (`strangers_classes.npz`) is present, `strangers` in `others` only blocks her head/hair recovery where `whole_classes > 0` (human classes in whole-frame Sapiens2, excluding `c == 0` SAM background spill), and Stage 2 (`hers` on lost/partial-shrink frames) includes horizontal crown room above the occluder so her left-shifted hair dome on `4940` and `4943–4946` is 100% covered by `parts_held` + `margin`.
-     2. In `capture_masked_run.py` keep-out carving: strip `c == 0` (`Background`) pixels from `strangers` inside the `margin_px`-grown hole around `parts_held` (except where protected as a dark-haired background bystander as on `4647i`), restoring `70–104` carved margin cells per step across Steps `0, 1, 2, 5, 6, 7, 10, 11`.
+     2. In `capture_masked_run.py` keep-out carving: strip `c == 0` (`Background`) pixels from `strangers` inside the `margin_px`-grown hole around `parts_held` (except where protected as a dark-haired background bystander as on `4647i`), restoring `70–104` carved margin cells per step across Steps `0, 1, 2, 5, 6, 7, 10, 11`, and write `subjects/strangers/track__<by>.mkv` inside the capture directory so `masked_job.py` wires the capture's cleaned `strangers` video into the node.
+   - **Verified `on-plan` (`step_carves_summary`) and `inspect_mask_steps.py` on `second_hfp_4912t` (`ba86fbe9`)**:
+     - `bench/inspect_mask_steps.py --capture data/2026-10-29_second_hfp_4912t --run second_hfp_4912t` reports **`0` `BLUE-ONLY` frames**, **`0` `SPECK-IN-BLUE` frames**, **`0` `EDGE-SHRUNK` frames**, and **`0` `STRANGERS SELF-SWALLOW` frames** (`clean_whole_head_frames = 20 / 20`).
+     - In `data/2026-10-29_second_hfp_4912t/manifest.json` (`runs[0].step_carves_summary`), total cells carved by `strangers` across the 12 latent steps dropped from **`2,986` (`12/12` steps)** in `4912r` down to **`1,613` (`10/12` steps, `-1,373` cells)**, returning unoccluded steps (`S0, S1, S5, S6, S7`) to pre-`426638a6` (`shot_c_4912h`) levels while expanding the crown recovery on `S8–S11`:
+
+| Latent step | Shot frames | `4912g` (`shot_c_4912h`, pre-`426638a6`) `strangers` carved (`final`) | `4912r` (`shot_c_4912i`, post-`426638a6`) `strangers` carved (`final`) | `4912t` (`shot_c_4912i` + `ba86fbe9` fix) `strangers` carved (`final`) | What changed in `4912t` vs `4912r` |
+|---|---|---|---|---|---|
+| **S0** | `4912` (`1f`) | `0` (`501`) | `131` (`605`) | **`0` (`736`)** | `-131` carved (`+131` active margin cells) |
+| **S1** | `4913–4916` (`4f`) | `45` (`531`) | `210` (`580`) | **`71` (`716`)** | `-139` carved (`+136` active margin cells) |
+| **S2** | `4917–4920` (`4f`) | `96` (`479`) | `325` (`411`) | **`170` (`621`)** | `-155` carved (`+210` active cells) |
+| **S3** | `4921–4924` (`4f`) | `0` (`0`) | `357` (`113`) | **`0` (`0`, untouched)** | `-357` carved (`4921` marked `hidden`; `0` active tokens) |
+| **S4** | `4925–4928` (`4f`) | `124` (`391`) | `418` (`343`) | **`280` (`344`)** | `-138` carved (`4926` `815 px` dancer-neck sliver dropped) |
+| **S5** | `4929` (`1f`) | `26` (`454`) | `99` (`501`) | **`26` (`598`)** | `-73` carved (`+97` active margin cells) |
+| **S6** | `4930–4933` (`4f`) | `0` (`480`) | `226` (`499`) | **`15` (`711`)** | `-211` carved (`+212` active margin cells) |
+| **S7** | `4934–4937` (`4f`) | `7` (`468`) | `202` (`613`) | **`37` (`762`)** | `-165` carved (`+149` active margin cells) |
+| **S8** | `4938–4941` (`4f`) | `124` (`351`) | `314` (`540`) | **`301` (`702`)** | `+162` active cells (`4939`: `12,877 px`, `4940`: `6,768 px` vs `9,071 / 1,947 px`) |
+| **S9** | `4942–4945` (`4f`) | `259` (`313`) | `312` (`92`) | **`321` (`257`)** | `+165` active crown cells (`4943–4945`: `3,090 / 6,003 / 7,489 px` vs `972 / 1,102 / 1,741 px`) |
+| **S10** | `4946` (`1f`) | `0` (`345`) | `196` (`332`) | **`196` (`480`)** | `+148` active crown cells (`4946`: `7,108 px` vs `4,549 px`) |
+| **S11** | `4947–4950` (`4f` held) | `0` (`345`) | `196` (`332`) | **`196` (`480`)** | `+148` active crown cells across all held Clip 3 frames |
+| **Total** | `4912–4950` (`12` steps) | **`681`** (`7/12` steps) | **`2,986`** (`12/12` steps) | **`1,613`** (`10/12` steps) | **`-1,373` cells carved by `strangers`** |
 
 
