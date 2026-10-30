@@ -7,6 +7,75 @@ artifact.
 <!-- To add an entry: write a file in changelog.d/ (changelog.d/README.md has the three steps) and run
      bench/build_changelog.py. Do not type an entry in here: the newest entries below are generated. -->
 
+## 0.300.0
+<!-- changelog.d/day-2026-10-29.md -->
+
+### Added
+
+- `MiniMaxH3MaskedSource` takes an optional `encode_frames` input, and `bench/masked_job.py` an `encode_file` /
+  `encode_first` pair, so a job can hand the VAE a different clip from the one the composite keeps: a conditioning-only
+  A/B test with the masks, prompt and reference unchanged. Absent, nothing changes (`check_video_mask.py` covers the
+  zoomed crop of it).
+- `bench/capture_masked_run.py` writes `hair_px`, `hair_outside_hole_px` and `hair_outside_hole_share` per frame to a
+  hair load's `per_frame.csv`, and `bench/frame_table.py` prints them: how much of the subject's own hair the carried
+  hole leaves outside, visible before a render.
+- `docs/masked_v2v/2026-10-29_findings_0278n_text_and_frame_table.md`: the day's findings on why `second_hfp_0278n`
+  opened her eyes and mouth, the frame-table restored-frames bug, and why 4912's hole missed a share of her hair.
+
+### Changed
+
+- `bench/head_tube_parts.py`: the head tube joins the subject's attached hair within the head track's rows even when
+  the neck of the same component runs below them; the crown rule above the track is unchanged. Replayed on the kept
+  `second` loads before landing.
+- Lane rules (`docs/masked_v2v/AGENTS.md`, `PROTOCOL.md`, `chain_trace_and_remakes.md`, both `video-understanding`
+  skills): a landed render is read before `page` by a reader who did not make it, with frames and no verdict; a
+  reader's file is left as written, with a dated note beside any slip; the prompt is read in full from the graph as
+  queued, never from the job's text file; a shut stretch takes the `closed` drawing plus a sentence that says the eyes
+  are shut.
+- `docs/wiki/decisions.md`, `docs/wiki/handover.md`, `docs/masked_v2v/fun_render_backlog.md`: the owner's invalidation
+  rule (a changed input remakes what depended on it), the day's keeps and reopenings, and the backlog as built.
+
+### Fixed
+
+- `bench/frame_table.py` reported a frame restored by `her_hair_in_hole` as emptied, reading the pre-restore mask
+  count for any frame without a grade row; it now counts the held-part mask it opens, refuses one whose frame count is
+  not the capture's, and `bench/capture_masked_run.py` writes a grade row for every restored frame.
+- Three lane pages still said no session looks at a render before the owner does, a sentence the owner reversed on
+  2026-10-28; and for an hour the rules page named the `lowered` eye form for a shut stretch, which is pixel-identical
+  to the rejected render's reference.
+
+## 0.299.0
+<!-- changelog.d/day-2026-10-28.md -->
+
+### Added
+
+- `bench/replay_cranium_references.py`: 3-way replay tool for `--crop cranium` sizing rules (`pre-filter` vs. `b7875bf1`
+  vs. 4-corner `head_track` containment in `dc07ccee`) across all reference records under `$H3_OUTPUT_DIR/Video/<video>/references/`.
+- `.agents/skills/masked-v2v-audit/` and `.agents/skills/video-understanding/`: upstream derived-data dependency,
+  statistical outlier, frame-alignment, and native-first video inspection skills for the masked video-to-video lane.
+
+### Changed
+
+- `bench/crop_reference_to_head.py` and `bench/head_reference.py`: replace the 2D landmark score floor with 4-corner
+  SAM 3.1 `head_track` containment (`CRANIUM_HEAD_TRACK_GROW = 0.50` times the active sizing median face height `face`)
+  and bound `grey_head` to `win[k]` so raised 3D arms or flipped torso limbs cannot stretch the `--crop cranium` box.
+- `bench/pose_along_shot.py`: normalize `marks_against_the_body_model` by `max(fh, 0.5 * span_fh)` so foreshortened or
+  turned-away frames do not trigger false nose-distance flags.
+- `bench/frame_coverage.py` and `bench/render_ledger.py`: add `--no-check` table-only mode so `render_ledger.py` builds
+  the coverage table without re-running the whole-video pixel delivery check when no check JSON is handed in.
+- Remove hardcoded share mount defaults across `bench/` tools (`bench/replay_cranium_references.py`, `bench/runs_left.py`,
+  `bench/grade_soundtrack_reuse.py`, `bench/sam31_corrections.py`, `bench/seed_vs_track_experiment.py`), requiring
+  `H3_OUTPUT_DIR` or `--share`.
+
+### Fixed
+
+- `bench/head_tube_parts.py` (`bench/check_head_tube_parts.py`): filter `< 64 px` stray SAM 3.1 `head_track` specks
+  (`_SPECK_MIN_PX = 64`) before dilation and expand `head_track_bool` upward into connected crown components of
+  `parts_bool & raw_track_bool` (`_MIN_CROWN_ABOVE_HY0_PX = 256`, `y <= hy1`) on head-and-hair loads without growing
+  `tube_info["tube"]`.
+- `bench/load_chain.py::page_item`: require string values for `"what"`, `"think"`, `"look"`, `"prompt_note"`, and
+  `"fixed"` in `page_spec.json` (`check_load_chain.py`).
+
 ## 0.298.0
 <!-- changelog.d/day-2026-10-27.md -->
 
