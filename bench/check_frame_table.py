@@ -1172,6 +1172,44 @@ def main() -> int:
             c_parts_held_fallback_4912p,
         )
 
+        def c_hair_outside_hole_share() -> str:
+            """Step 6 check (2026-10-29): when per_frame.csv records hair_px, hair_outside_hole_px, and hair_outside_hole_share
+            (written by capture_masked_run.subject_rows on hair loads), frame_table surfaces them on every load row and in frame_table.md."""
+            pf_path = subj_dir / "per_frame.csv"
+            orig_pf = pf_path.read_text(encoding="utf-8")
+            try:
+                lines = orig_pf.strip().splitlines()
+                new_lines = [lines[0] + ",hair_px,hair_outside_hole_px,hair_outside_hole_share"]
+                hair_vals = [
+                    (9094, 136, 0.0150),
+                    (8573, 119, 0.0139),
+                    (0, 0, 0.0000),
+                    (7122, 432, 0.0607),
+                    (0, 0, 0.0000),
+                    (2780, 143, 0.0514),
+                ]
+                for idx, row_line in enumerate(lines[1:]):
+                    hp, hop, hos = hair_vals[idx]
+                    new_lines.append(f"{row_line},{hp},{hop},{hos:.4f}")
+                pf_path.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
+                w = frame_table.build_frame_table(cap)
+                hdr_h, rows_h = _read_table(w["jsonl"])
+                by_h = {r["source_frame"]: r for r in rows_h}
+                assert "hair_outside_hole_share" in hdr_h["size_columns_are"], hdr_h["size_columns_are"]
+                assert by_h[101]["hair_px"] == 9094 and by_h[101]["hair_outside_hole_px"] == 136 and by_h[101]["hair_outside_hole_share"] == 0.0150, by_h[101]
+                assert by_h[103]["hair_px"] == 0 and by_h[103]["hair_outside_hole_px"] == 0 and by_h[103]["hair_outside_hole_share"] == 0.0, by_h[103]
+                assert by_h[100]["hair_outside_hole_share"] is None, by_h[100]
+                md_text = w["md"].read_text(encoding="utf-8")
+                assert "0.0150 (136 / 9094 px)" in md_text, md_text
+                return f"101: share={by_h[101]['hair_outside_hole_share']} ({by_h[101]['hair_outside_hole_px']}/{by_h[101]['hair_px']} px)"
+            finally:
+                pf_path.write_text(orig_pf, encoding="utf-8")
+
+        case(
+            "hair_outside_hole_share (2026-10-29): surfaces per-frame hair_px, hair_outside_hole_px, and hair_outside_hole_share in JSONL and Markdown",
+            c_hair_outside_hole_share,
+        )
+
     return finish()
 
 

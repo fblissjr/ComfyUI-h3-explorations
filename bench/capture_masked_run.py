@@ -1740,8 +1740,34 @@ def pieces(mask: np.ndarray) -> int:
     return int(cv2.connectedComponents(mask.astype(np.uint8), connectivity=8)[0]) - 1
 
 
+def hair_on_head_mask(raw_parts: np.ndarray, raw_cmap: np.ndarray, hair_id: int,
+                      tube: np.ndarray | None = None, held: np.ndarray | None = None) -> np.ndarray:
+    """On-head Sapiens Hair mask [frames, h, w] from the preview's saved part (`raw_parts`, after `off_head` and depth clip)
+    and raw class map (`raw_cmap`). When a head tube (`tube`) is present, keeps Hair pixels inside connected components of
+    `raw_parts[f]` that overlap `tube[f]` (or `held[f]`), dropping detached off-tube limb islands."""
+    import cv2
+    hair_raw = (raw_cmap == hair_id) & raw_parts
+    if tube is None:
+        return hair_raw
+    out = np.zeros_like(hair_raw)
+    for f in range(len(raw_parts)):
+        if not hair_raw[f].any():
+            continue
+        anchor = tube[f] | (held[f] if held is not None else tube[f])
+        if not anchor.any():
+            continue
+        num_c, lbl_c = cv2.connectedComponents(raw_parts[f].astype(np.uint8), connectivity=8)
+        for cid in range(1, num_c):
+            comp = lbl_c == cid
+            if np.any(comp & anchor):
+                out[f] |= comp & (raw_cmap[f] == hair_id)
+    return out
+
+
 def subject_rows(label: str, by: str, first: int, track: np.ndarray, covered: np.ndarray,
-                 parts: np.ndarray | None = None) -> list[dict]:
+                 parts: np.ndarray | None = None, *,
+                 hair_on_head: np.ndarray | None = None,
+                 held: np.ndarray | None = None) -> list[dict]:
     """One row a frame for one sighting of one subject. The columns the 2026-10-07 captures had, plus who."""
     rows, area = [], float(track[0].size)
     for n in range(len(track)):
@@ -1764,6 +1790,14 @@ def subject_rows(label: str, by: str, first: int, track: np.ndarray, covered: np
                            parts_inside_track=round(float((p & t).sum()) / float(p.sum()), 4) if p.any() else None,
                            parts_step=overlap(p, parts[n - 1]) if n and covered[n - 1] else None,
                            parts_centre_in_box=centre)
+            if hair_on_head is not None and held is not None:
+                h_px = int(hair_on_head[n].sum())
+                out_px = int((hair_on_head[n] & ~held[n]).sum())
+                row.update(
+                    hair_px=h_px,
+                    hair_outside_hole_px=out_px,
+                    hair_outside_hole_share=round(float(out_px) / float(h_px), 4) if h_px > 0 else 0.0,
+                )
         rows.append(row)
     return rows
 
@@ -2627,6 +2661,7 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
             if off_said:
                 print(f"  {label}: off her head, dropped from the saved part on {len(off_said)} frame(s); nothing left at her head on "
                       f"{len(off_frags)} (held by the floor rule)", flush=True)
+        raw_parts = parts               # her saved part after off_head, before the head tube cuts it: for hair_outside_hole_share in per_frame.csv
         if use_head_tube and parts is not None:
             import head_tube_parts as _htp
             names_ht = _pack("sapiens2_parts").CLASS_NAMES
@@ -2715,6 +2750,8 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
                     against_front.append(other_lbl)
             clipped_arr = (parts & front_other_mask).reshape(frames, -1).sum(axis=1)
             parts = parts & ~front_other_mask
+            if raw_parts is not None:
+                raw_parts = raw_parts & ~front_other_mask
             hit_f = np.nonzero(clipped_arr > 0)[0]
             depth_clipped = {
                 "against": against_front,
@@ -2853,8 +2890,10 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
                 if front_other_mask is not None:
                     held = held & ~front_other_mask
                 held_masks[label] = held
+                tube_arr = (ht_res["tube_info"]["tube"] if "tube_info" in ht_res else ht_res["tube"]) if head_tube_prov is not None else None
                 hair_pass[label] = {"m": m, "by": by, "at": at, "track": track,
-                                    "head": (ht_res["tube_info"]["tube"] if "tube_info" in ht_res else ht_res["tube"]) if head_tube_prov is not None else head_track_arr,
+                                    "head": tube_arr if tube_arr is not None else head_track_arr,
+                                    "tube": tube_arr, "raw_parts": raw_parts,
                                     "classes": raw_cmap, "front": front_other_mask}
                 write_mask_video(folder / f"parts_held__{by}.mkv", held)
         if m.get("shots"):
@@ -2959,8 +2998,28 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
         given["margin"], given["zoom"] = hole
         given["others"] = {o: as_read.get(o, next(iter(x.values()))[0]) for o, x in sightings.items() if o != label}
         hair_in_hole_files(out, label, given, made_of.get(label) or [], sightings, held_masks, manifest, masks, first, frames, size)
+    names_sp = _pack("sapiens2_parts").CLASS_NAMES
+    hair_idx = names_sp.index("Hair")
     for label, seen in sightings.items():
-        rows = [row for by, (track, covered, parts) in seen.items() for row in subject_rows(label, by, first, track, covered, parts)]
+        hp = hair_pass.get(label)
+        h_on_head = None
+        if hp is not None and "Hair" in (made_of.get(label) or []) and hp.get("raw_parts") is not None and hp.get("classes") is not None:
+            h_on_head = hair_on_head_mask(
+                hp["raw_parts"],
+                hp["classes"],
+                hair_idx,
+                tube=hp.get("tube"),
+                held=held_masks.get(label),
+            )
+        rows = [
+            row
+            for by, (track, covered, parts) in seen.items()
+            for row in subject_rows(
+                label, by, first, track, covered, parts,
+                hair_on_head=h_on_head,
+                held=held_masks.get(label),
+            )
+        ]
         write_table(out / "subjects" / label / "per_frame", rows)
         if label in class_maps:
             # only other subjects that are things with a class map of their own: a kept-out mask is not a "who"

@@ -2088,11 +2088,13 @@ def head_tube_for_capture(
     face_id = NAME_TO_ID.get("Face_Neck", part_ids[0])
     head_and_hair_on_head_track = head_track_bool is not None and hair_id >= 0 and hair_id in part_ids
     if head_and_hair_on_head_track and head_track_bool is not None:
-        # When SAM 3.1's head_track covers the lower face (`>= _SPECK_MIN_PX = 64 px`, excluding 1-px compression specks
-        # like 4912n frame 4926 at (691, 505)) but clips the upper hair crown at `hy0` (4912n frames 4927-4932, where
-        # `parts_bool & raw_track_bool` has 2,607-2,813 px connected above `hy0`), expand `head_track_bool` upward into
-        # that connected component inside `raw_track_bool` while keeping the lower bound `y <= hy1` (so neck/collarbone
-        # pixels below `hy1` are not added) and leaving `tube_info["tube"]` untouched for `her_hair_in_hole`.
+        # When SAM 3.1's head_track covers the face (`>= _SPECK_MIN_PX = 64 px`, excluding 1-px compression specks
+        # like 4912n frame 4926 at (691, 505)), expand `head_track_bool` into connected Sapiens Hair (`cmap_arr == hair_id`)
+        # within the head band `[hy0, hy1]` (recovering back-and-sides hair inside `parts_bool & track_bool` that Rule 1
+        # rejected because neck `Face_Neck` in the same component extended below `hy1`, as on 4912q frames 4912-4920 and
+        # 4933-4939), and when `parts_bool & raw_track_bool` also has `>= _MIN_CROWN_ABOVE_HY0_PX` (`256 px`) above `hy0`
+        # (4912n/q frames 4927-4932), expand upward into `: hy1 + 1` as well, leaving `tube_info["tube"]` untouched for
+        # `her_hair_in_hole`.
         k_crown_ht = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
         for t in range(num_frames):
             if t in hidden_set:
@@ -2102,8 +2104,6 @@ def head_tube_for_capture(
                 continue
             ys_ht = np.where(ht_in_raw)[0]
             hy0, hy1 = int(ys_ht.min()), int(ys_ht.max())
-            if hy0 <= 0:
-                continue
             near_ht = cv2.dilate(ht_in_raw.astype(np.uint8), k_crown_ht) > 0
             num_l, labels, _, _ = cv2.connectedComponentsWithStats(
                 (parts_bool[t] & track_bool[t]).astype(np.uint8), connectivity=8
@@ -2112,8 +2112,10 @@ def head_tube_for_capture(
                 comp = labels == lbl
                 if np.any(comp & near_ht) and np.any(comp & ht_in_raw):
                     comp_raw = comp & raw_track_bool[t]
-                    if int(np.count_nonzero(comp_raw[:hy0, :])) >= _MIN_CROWN_ABOVE_HY0_PX:
-                        head_track_bool[t, : hy1 + 1, :] |= comp_raw[: hy1 + 1, :]
+                    comp_hair = comp & (cmap_arr[t] == hair_id)
+                    head_track_bool[t, hy0 : hy1 + 1, :] |= comp_hair[hy0 : hy1 + 1, :]
+                    if hy0 > 0 and int(np.count_nonzero(comp_raw[:hy0, :])) >= _MIN_CROWN_ABOVE_HY0_PX:
+                        head_track_bool[t, : hy1 + 1, :] |= comp_raw[: hy1 + 1, :] | comp_hair[: hy1 + 1, :]
     ht_in_track = (head_track_bool & track_bool) if head_track_bool is not None else None
     if head_and_hair_on_head_track and ht_in_track is not None:
         tube_updated = False

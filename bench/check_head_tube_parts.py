@@ -850,13 +850,18 @@ def _case_head_track_seed_mask() -> str:
     ht_crown[3, 25, 30] = True             # frame 3: 1-px compression speck (< 64) after empty frame 2, must stay 1 px
     parts_crown = np.zeros((4, 64, 64), dtype=bool)
     parts_crown[0, 19:28, 16:32] = True    # frame 0: 1x16 = 16 px above hy0=20 (< 256)
+    parts_crown[0, 20:28, 16:52] = True    # frame 0: overlaps ht_crown (x=16:48) + 8x4 = 32 px back-of-head Hair in [hy0, hy1] (x=48:52)
+    parts_crown[0, 28:34, 24:36] = True    # frame 0: 6x12 = 72 px neck Face_Neck below hy1=27 (makes cy1=33 > hy1=27)
     parts_crown[1, 10:34, 16:48] = True    # frame 1: 10x32 = 320 px crown above hy0=20 (>= 256) + 6x32 = 192 px neck below hy1=27
     parts_crown[3, 10:34, 16:48] = True    # frame 3: full part component overlapping 1-px speck
     cmap_crown = np.where(parts_crown, hair_id, 0).astype(np.uint8)
+    cmap_crown[0, 28:34, 24:36] = face_id
     res_crown = htp.head_tube_for_capture(
         person_track, parts_crown, cmap_crown, head_parts=htp.DEFAULT_HEAD_PARTS, head_track=ht_crown
     )
     assert int(res_crown["part_mask"][0, :20, :].sum()) == 0, "frame 0: 16-px boundary jitter (< 256 px) above hy0 was joined"
+    assert int(res_crown["part_mask"][0, 20:28, 48:52].sum()) == 32, "frame 0: 32-px back-of-head Hair in [hy0, hy1] was not joined"
+    assert int(res_crown["part_mask"][0, 28:34, :].sum()) == 0, "frame 0: neck Face_Neck below hy1 was joined"
     assert int(res_crown["part_mask"][1, 10:20, 16:48].sum()) == 320, "frame 1: 320-px crown above hy0 was not joined"
     assert int(res_crown["part_mask"][1, 28:34, 16:48].sum()) == 0, "frame 1: neck pixels below hy1 were joined"
     assert int(res_crown["tube_info"]["tube"][1].sum()) == 256, "frame 1: SAM tube_info['tube'] was altered by crown join"

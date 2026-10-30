@@ -877,9 +877,23 @@ def build_frame_table(
                     f"frame {sf}: parts_height_px is empty in {per_frame_csv} when saved_part_px={saved_part_px} > 0"
                 )
             saved_part_height_px: int | None = int(ph_str) if ph_str != "" else (0 if saved_part_px == 0 else None)
+            h_px_str = pf.get("hair_px", "")
+            h_out_px_str = pf.get("hair_outside_hole_px", "")
+            h_out_sh_str = pf.get("hair_outside_hole_share", "")
+            if h_px_str != "" and h_out_px_str != "" and h_out_sh_str != "":
+                hair_px: int | None = int(h_px_str)
+                hair_outside_hole_px: int | None = int(h_out_px_str)
+                hair_outside_hole_share: float | None = float(h_out_sh_str)
+            else:
+                hair_px = None
+                hair_outside_hole_px = None
+                hair_outside_hole_share = None
         else:
             saved_part_px = None
             saved_part_height_px = None
+            hair_px = None
+            hair_outside_hole_px = None
+            hair_outside_hole_share = None
 
         # Outcome & size columns (from closed `did` vocabulary in part_grades.json)
         outcome_extra: dict = {}
@@ -1066,6 +1080,9 @@ def build_frame_table(
         row_dict["part_px_measures"] = part_px_measures
         row_dict["part_height_px"] = part_height_px
         row_dict["part_height_px_measures"] = part_height_px_measures
+        row_dict["hair_px"] = hair_px
+        row_dict["hair_outside_hole_px"] = hair_outside_hole_px
+        row_dict["hair_outside_hole_share"] = hair_outside_hole_share
         row_dict["outcome"] = outcome
         row_dict.update(outcome_extra)
         row_dict["masks"] = masks_info
@@ -1144,6 +1161,9 @@ def build_frame_table(
             "saved_part_height_px": "bounding-box height of the saved part mask before fill (from per_frame.csv:parts_height_px)",
             "part_px": "outcome-specific pixel count paired with part_px_measures (saved_part on replaced, held_fill on held, removed_part on emptied and dropped)",
             "part_height_px": "saved_part_height_px (paired with part_height_px_measures='saved_part_before_fill')",
+            "hair_px": "on-head Sapiens Hair pixels in the saved part mask (from per_frame.csv:hair_px; null when not recorded)",
+            "hair_outside_hole_px": "on-head Sapiens Hair pixels in the saved part mask that lie outside the carried hole mask parts_held__<by>.mkv (from per_frame.csv:hair_outside_hole_px; null when not recorded)",
+            "hair_outside_hole_share": "share of on-head Sapiens Hair pixels outside the carried hole mask (hair_outside_hole_px / hair_px, 0.0 when hair_px is 0, null when not recorded)",
         },
         "sam_inputs": sam_inputs,
         "in_view_spans": in_view_spans,
@@ -1449,10 +1469,10 @@ def _render_markdown(header: dict, rows: list[dict]) -> str:
         "",
         "## Per-frame table",
         "",
-        "- **Size columns**: `loaded_part_px` is what is carried into the load (`saved_part_px` on `replaced`, less its face classes where a person's --no-face-on dropped them, `held_fill` on `held`, `0` on `emptied`/`dropped`); `saved_part_px` and `saved_part_height_px` are the saved part before grading/holding/dropping; `part_px (measured)` shows `part_px` with what it measures (`saved_part`, `held_fill`, or `removed_part`).",
+        "- **Size columns**: `loaded_part_px` is what is carried into the load (`saved_part_px` on `replaced`, less its face classes where a person's --no-face-on dropped them, `held_fill` on `held`, `0` on `emptied`/`dropped`); `saved_part_px` and `saved_part_height_px` are the saved part before grading/holding/dropping; `part_px (measured)` shows `part_px` with what it measures (`saved_part`, `held_fill`, or `removed_part`); `hair_outside_hole (share / px)` is the share and pixel count of on-head Sapiens `Hair` in the saved part that lies outside the carried hole mask.",
         "",
-        "| source_frame | load_frame | tracked (share / px) | loaded_part_px | part_px (measured) | saved_part_height_px | outcome | detail | sam (score / in_view / from) | others_given_back | inside_flag_spans |",
-        "|---:|---:|---|---:|---|---:|---|---|---|---|---|",
+        "| source_frame | load_frame | tracked (share / px) | loaded_part_px | part_px (measured) | saved_part_height_px | hair_outside_hole (share / px) | outcome | detail | sam (score / in_view / from) | others_given_back | inside_flag_spans |",
+        "|---:|---:|---|---:|---|---:|---|---|---|---|---|---|",
     ])
     for r in rows:
         tr = r["tracked"]
@@ -1488,9 +1508,13 @@ def _render_markdown(header: dict, rows: list[dict]) -> str:
         loaded_str = str(r["loaded_part_px"]) if r["loaded_part_px"] is not None else "-"
         part_px_str = f"{r['part_px']} ({r['part_px_measures']})" if r["part_px"] is not None else "-"
         ph_str = f"{r['saved_part_height_px']} (saved)" if r["saved_part_height_px"] is not None else "-"
+        if r.get("hair_outside_hole_share") is not None:
+            hair_out_str = f"{r['hair_outside_hole_share']:.4f} ({r['hair_outside_hole_px']} / {r['hair_px']} px)"
+        else:
+            hair_out_str = "-"
         lines.append(
             f"| {r['source_frame']} | {r['load_frame'] if r['load_frame'] is not None else '-'} | {tr_str} | "
-            f"{loaded_str} | {part_px_str} | {ph_str} | "
+            f"{loaded_str} | {part_px_str} | {ph_str} | {hair_out_str} | "
             f"`{r['outcome']}` | {'; '.join(detail_parts) or '-'} | {sam_str} | {others_str} | {flags_str} |"
         )
     lines.append("")
