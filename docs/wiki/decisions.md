@@ -17,6 +17,20 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-10-29
 
+- **On 4912 the hole missed a share of her own hair; the head tube now joins attached hair within the head band,
+  and the cause of the dark hair is the scene, not one bug** (2026-10-29, evening, three sessions; recorded by the
+  Claude advisory session at the close). `gemrender` measured, `gem4912` corrected and the advisory session
+  reproduced that 15 to 36% of her hair on 4912 to 4919 lay outside the carried hole, in the margin, because the join
+  rule refused a face-and-hair component whose neck ran below the head track (`bench/head_tube_parts.py`); fixed at
+  `16ccd81a` with a per-frame `hair_outside_hole_share` in the frame table, replayed on the kept `second` loads. The
+  one-variable render with the corrected hole (`second_hfp_4912r`) came back lighter and warmer and still brown, and a
+  one-time test with another reference picture, on the owner's word and the prompt unchanged (`second_hfp_4912s`), no
+  better; that picture is not recorded and is not used again (the owner, 2026-10-30, about 00:30Z). What is settled
+  about 4912 after nine renders: seed, crown join, conditioning lift, black reference frames, the held grey head, the
+  hole and the picture each changed nothing or little; what surrounds the hole from 4915 (the dancer, the man behind
+  her) does. Section 3 of `docs/masked_v2v/2026-10-29_findings_0278n_text_and_frame_table.md` holds the figures;
+  what to do with the shot is the owner's call.
+
 - **A shut stretch is named with `--eyes-shut-form closed` and a text sentence that says the eyes are shut; for an hour on 2026-10-29 the rules page said `lowered`** (corrected 2026-10-29 after `second_hfp_0278n`, marked wrong by the owner at 21:20Z): `closed` paints the eye with no iris and the text has no sentence for it, so H3 took the still's straight-ahead eyes, which the owner's rule of 2026-10-22 predicts; the kept loads with an eye word used `lids` and `lowered`. The same render's mouth opened because the second subject's outlined closed mouth made `bench/load_text.py::mouth_drawn` write the mouth-follow clause on a silent shot; the same text kept the mouth shut on `second_hfp_5114k`, so the template change is a judgement call, not made. A scan of every job on disk found the `closed` form on no other load, and the mouth pattern only on `5114k` and four unkept 10-22 jobs. The advisory session's first correction said `lowered`, and `gemrender` refuted it the same evening: on `278–293` the downcast rule had already drawn the `lowered` picture on `0278m`, so `lowered` re-renders the rejected letter; the rules page now says `closed` with a by-hand shut-eyes sentence until the template has one. The record is `docs/masked_v2v/2026-10-29_findings_0278n_text_and_frame_table.md`, which also records the `bench/frame_table.py` restored-frames bug `gem4912` found (restored frames reported as emptied), fix in progress on its branch.
 
 - **Leave reader files as the reader wrote them; add a dated note beside a slip rather than editing the reading** (the owner, 2026-10-29, in `gemlead`'s terminal): `<capture>/looks/<load>.reading.md` and other reader files stand as the reader wrote them; if a reading contains a slip (such as a retired `Verdict` line or a literal share path), add a dated note beside the slip rather than editing or rewriting the reader's words. Applies to readings from here on (`docs/masked_v2v/PROTOCOL.md` §5.1).

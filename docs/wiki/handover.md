@@ -54,6 +54,34 @@ Where this page and a record disagree, the record is right: `git log`, [`decisio
     and a cross-check on this page. The Claude day file with the 10-28 postmortem, today's plan, the check table and
     every correction is `internal/claude/2026-10-29_mrfam/postmortem_and_plan.md`.
 
+- **Added 2026-10-30 01:55Z by the Claude advisory session (`mrfam`), the evening's close, on top of the lead's close and the
+  18:32Z block** (`gemrender` stopped at 23:48Z with the card idle; `gem4912` drove 4912 on the owner's word until about 01:40Z):
+  - **`second_hfp_0278o` is on the review page awaiting the owner's verdict** (sculpted mouth, `closed` drawing, by-hand
+    shut-eyes text): the mouth stays closed on all 16 frames; the eyes hold on 278 to 286, lift on 287 and are open on 288 to
+    293 while the source stays down over the bowl (the reading's measured frames; the backlog row says 286 to 293). Half the
+    `0278m` complaint answered, half not; the open-eyed portrait pulls harder than the reference and the sentence on those frames.
+  - **Every other backlog render is on hold until tomorrow on the owner's word to `gemrender` at 23:42Z** (`cee63a5b`):
+    `0014h`, `3595c`, `4227c`, `5085`, `6105e`, the 3110 tail. Their CPU builds are on disk in `data/2026-10-29_gemlead_jobs/`.
+  - **4912 after nine renders: the hole was a real defect and is fixed; the shot is still brown, and it is now a decision, not
+    a bug.** `16ccd81a` (landed, `main`) joins her attached hair within the head band and prints `hair_outside_hole_share` per
+    frame; `second_hfp_4912r` with that hole alone changed came back lighter and warmer (hair median L* 6.3 to 11.8, b* +9 to
+    +16) and still well under every kept kitchen shot (26 to 39); `second_hfp_4912s`, a one-time test with another reference
+    picture on the owner's word and the prompt unchanged, was no better (10.2, +14). What surrounds the hole from 4915, the
+    dancer's hair and the man behind her, is what is left. Options for the owner: a split window around the dancer (4927 to
+    4940 alone would say whether the first window drives it), a brown-haired version laid as is, or leave it. `4912p`, `4912q`,
+    `4912r` are on the page with readings; `4912s`'s reading and page are `gem4912`'s last step. Figures and the code trace:
+    `docs/masked_v2v/2026-10-29_findings_0278n_text_and_frame_table.md` section 3, `internal/gemini/2026-10-29_4912/
+    root_cause_and_test_plan.md` 6.5 to 6.7, and the Claude day file.
+  - **Do not use the picture from `4912s` again, and do not record it**: the owner's word, 2026-10-30 about 00:30Z. The only
+    place it is named is that job's own file. `data/fun/plan.json` still names `fun_mom_edit.jpg` for `second`.
+  - **The first `lead` or `third` capture after `16ccd81a` shows what the join adds for that subject** in the new column; the
+    replay before landing covered the sixteen kept `second` loads only. The join adds hair pixels only, within the head band.
+  - **The backlog's 4912 row describes `4912q` wrongly** as the eyes-shut and sculpted-mouth test; `4912q` was the held grey
+    head reference test (`second_4912_4946_l`, no black frames). The lead's row to fix.
+  - **The day's changelog is written** (`changelog.d/day-2026-10-29.md`, built as 0.300.0) and the decisions page carries the
+    4912 line; the server on `:8188` was left for whoever closes `gem4912`'s last step (check `/proc/<pid>/environ` and the
+    queue before stopping it by the recipe).
+
 ## Next session, in order
 
 1. **Run `first..table`, pre-render subagent look, `render`, `land`, post-land `reading.md`, and `page` on `lead_fp_5049b` (`5049–5104`, `56f`)**:
