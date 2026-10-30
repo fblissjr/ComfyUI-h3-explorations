@@ -578,11 +578,19 @@ def discovery_rules_are_deterministic() -> str:
         assert rd.assemble_cmd(base_line, "/bin/py", share=True) == [
             "/bin/py", "bench/assemble_delivery.py", "--source", "a.mp4", "--table", "t.txt", "--out", "b.mp4", "--share", "h264"
         ]
-        assert rd.assemble_cmd(base_line, "/bin/py", share="hevc", share_out="s.mp4") == [
-            "/bin/py", "bench/assemble_delivery.py", "--source", "a.mp4", "--table", "t.txt", "--out", "b.mp4", "--share", "hevc", "--share-out", "s.mp4"
+        assert rd.assemble_cmd(base_line, "/bin/py", share="hevc", share_out="s.mp4", share_max_mb=85.0) == [
+            "/bin/py", "bench/assemble_delivery.py", "--source", "a.mp4", "--table", "t.txt", "--out", "b.mp4",
+            "--share", "hevc", "--share-out", "s.mp4", "--share-max-mb", "85.0",
         ]
-        ns_sh = rd.build_parser().parse_args(["--video", video, "--share", str(share), "--share", "hevc", "--share-out", "custom.mp4"])
-        assert ns_sh.share == str(share) and getattr(ns_sh, "share_codec", None) == "hevc" and ns_sh.share_out == "custom.mp4"
+        ns_sh = rd.build_parser().parse_args([
+            "--video", video, "--share", str(share), "--share", "hevc", "--share-out", "custom.mp4", "--share-max-mb", "85",
+        ])
+        assert (
+            ns_sh.share == str(share)
+            and getattr(ns_sh, "share_codec", None) == "hevc"
+            and ns_sh.share_out == "custom.mp4"
+            and ns_sh.share_max_mb == 85.0
+        )
         ns_sh_default = rd.build_parser().parse_args(["--video", video, "--share"])
         assert getattr(ns_sh_default, "share_codec", None) == "h264"
 
@@ -608,6 +616,18 @@ def stops_at_first_refusal_and_names_the_step() -> str:
         out = refused([sys.executable, str(TOOL), "--video", video, "--share", str(fx["share"]), "--inputs", str(fx["inputs"]),
                        "--data", str(fx["data"]), "--laid", str(fx["root"] / "missing_laid.jsonl")])
         assert "REFUSED: step init failed" in out and "laid file is not there" in out, f"expected init refusal naming missing laid file, got {out!r}"
+
+        out = refused([sys.executable, str(TOOL), "--video", video, "--share", str(fx["share"]), "--share", "h265", "--inputs", str(fx["inputs"]),
+                       "--data", str(fx["data"])])
+        assert "REFUSED: step init failed" in out and "--share codec must be 'h264' or 'hevc'" in out, (
+            f"expected init refusal naming invalid --share codec 'h265', got {out!r}"
+        )
+
+        out = refused([sys.executable, str(TOOL), "--video", video, "--share", str(fx["share"]), "--share-max-mb", "0", "--inputs", str(fx["inputs"]),
+                       "--data", str(fx["data"])])
+        assert "REFUSED: step init failed" in out and "--share-max-mb must be a positive number" in out, (
+            f"expected init refusal naming non-positive --share-max-mb, got {out!r}"
+        )
 
         # Step-by-step refusal injection: failing at step i stops immediately and never invokes step i+1
         def make_dummy_outputs(step_name: str, cmd: list[str]) -> None:

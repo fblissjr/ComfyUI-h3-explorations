@@ -26,6 +26,7 @@ import argparse
 import datetime
 import hashlib
 import json
+import math
 import os
 import re
 import shlex
@@ -556,8 +557,9 @@ def assemble_cmd(
     python_exe: str,
     share: str | bool | None = None,
     share_out: str | None = None,
+    share_max_mb: float | None = None,
 ) -> list[str]:
-    """Build the `assemble_delivery.py` command list from `assembly.command`, appending `--share`/`--share-out` only when requested."""
+    """Build the `assemble_delivery.py` command list from `assembly.command`, appending `--share`/`--share-out`/`--share-max-mb` only when requested."""
     words = replace_python_cmd(line, python_exe)
     codec = ("h264" if share is True else share) if share else ("h264" if share_out else None)
     if codec:
@@ -567,6 +569,11 @@ def assemble_cmd(
             words += ["--share", codec]
     if share_out and "--share-out" not in words:
         words += ["--share-out", str(share_out)]
+    if share_max_mb is not None:
+        if not math.isfinite(share_max_mb) or share_max_mb <= 0:
+            raise Refused("init", f"--share-max-mb must be a positive number; got {share_max_mb}")
+        if "--share-max-mb" not in words:
+            words += ["--share-max-mb", str(share_max_mb)]
     return words
 
 
@@ -577,6 +584,12 @@ def rebuild(
 ) -> dict:
     """Execute the delivery rebuild chain in order and return the summary record."""
     day, stamp = utc_stamp(day_override=a.day, stamp_override=a.stamp)
+    share_codec = getattr(a, "share_codec", None) or (a.share if getattr(a, "share", None) in ("h264", "hevc") else None)
+    if share_codec is not None and share_codec not in ("h264", "hevc"):
+        raise Refused("init", f"--share codec must be 'h264' or 'hevc', got {share_codec!r}")
+    share_max_mb = getattr(a, "share_max_mb", None)
+    if share_max_mb is not None and (not math.isfinite(share_max_mb) or share_max_mb <= 0):
+        raise Refused("init", f"--share-max-mb must be a positive number; got {share_max_mb}")
     share = resolve_share(a.share)
     inputs = resolve_inputs(a.inputs, repo=repo)
     data_dir = Path(a.data).resolve() if a.data else (repo / "data").resolve()
@@ -738,8 +751,13 @@ def rebuild(
     check_json = Path(str(clip_out) + ".check.json")
     if a.clip:
         asm_log = out_dir / f"assemble_{video}_{span_tag}_{stamp}.out"
-        share_codec = getattr(a, "share_codec", None) or (a.share if getattr(a, "share", None) in ("h264", "hevc") else None)
-        asm_cmd = assemble_cmd(asm_block["command"], python_exe, share=share_codec, share_out=getattr(a, "share_out", None))
+        asm_cmd = assemble_cmd(
+            asm_block["command"],
+            python_exe,
+            share=share_codec,
+            share_out=getattr(a, "share_out", None),
+            share_max_mb=share_max_mb,
+        )
         run_step("assemble", asm_cmd, asm_log, repo, env, runner=runner)
         laid_after_log = out_dir / f"laid_after_{video}_{stamp}.out"
         run_step("assemble", laid_cmd, laid_after_log, repo, env, runner=runner)
@@ -943,8 +961,10 @@ class _ShareAction(argparse.Action):
             setattr(namespace, "share_codec", codec)
             if getattr(namespace, "share", None) is None:
                 setattr(namespace, "share", codec)
-        else:
+        elif "/" in values or "\\" in values or Path(values).exists():
             setattr(namespace, "share", values)
+        else:
+            setattr(namespace, "share_codec", values)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -957,6 +977,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--share", nargs="?", const="h264", default=None, action=_ShareAction,
                    help="the server's output root (defaults to H3_OUTPUT_DIR), or `[h264|hevc]` to also build a <95 MB share copy during --clip")
     p.add_argument("--share-out", help="explicit output path for the <95 MB share copy during --clip")
+    p.add_argument("--share-max-mb", type=float, default=None, help="maximum size in MB for `--share` / `--share-out` during --clip")
     p.add_argument("--inputs", help="the server's input root (defaults to H3_INPUT_DIR)")
     p.add_argument("--data", help="the data root (defaults to <repo>/data)")
     p.add_argument("--out-dir", help="where the ledger, table, gap check, and .out logs are written (defaults to data/<day>_<video>_delivery_tables)")

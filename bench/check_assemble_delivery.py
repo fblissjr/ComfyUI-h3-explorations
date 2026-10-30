@@ -2349,10 +2349,32 @@ with tempfile.TemporaryDirectory() as _tmp:
             capture_output=True, text=True,
         )
         assert ref.returncode != 0 and "is locked" in ref.stderr and "Traceback" not in ref.stderr, ref.stderr
+
+        # 4) Eager `piece_frames` lookahead & unstarted `pipe_frames` cleanup
+        eager_it = tool.piece_frames({"piece": PIECE_A, "piece_first": 10, "matrix": "bt709"}, 10, 12, W, H)
+        assert hasattr(eager_it, "proc") and eager_it.proc.pid > 0, "piece_frames must start ffmpeg eagerly for 2-segment lookahead"
+        eager_it.close()
+        assert eager_it.proc.poll() is not None, "closing an unstarted piece_frames iterator must terminate and reap its subprocess"
+
+        # 5) Refuses invalid `--share-max-mb` and `--share-out` path collisions (`--source`, `--out`, piece)
+        for bad_mb in ("0", "-5", "nan", "inf"):
+            ref_mb = subprocess.run(
+                [sys.executable, str(Path(tool.__file__)), "--source", str(SOURCE), "--table", str(TMP / "whole.txt"),
+                 "--out", str(TMP / "bad_mb.mp4"), "--share", "--share-max-mb", bad_mb],
+                capture_output=True, text=True,
+            )
+            assert ref_mb.returncode != 0 and "--share-max-mb must be a positive number" in ref_mb.stderr and "Traceback" not in ref_mb.stderr, ref_mb.stderr
+        for collide_target, label in ((SOURCE, "--source"), (TMP / "collide_out.mp4", "--out"), (Path(PIECE_A), "piece")):
+            ref_col = subprocess.run(
+                [sys.executable, str(Path(tool.__file__)), "--source", str(SOURCE), "--table", str(TMP / "whole.txt"),
+                 "--out", str(TMP / "collide_out.mp4"), "--share", "--share-out", str(collide_target)],
+                capture_output=True, text=True,
+            )
+            assert ref_col.returncode != 0 and f"same path as {label}" in ref_col.stderr and "Traceback" not in ref_col.stderr, ref_col.stderr
         return (
             f"default off writes no share copy; --share writes 2-pass h264 ({share_h264.stat().st_size} B, SEI stripped); "
             f"--share hevc --share-out writes 2-pass 10-bit hevc ({share_hevc.stat().st_size} B, yuv420p10le, no-info=1); "
-            "locked share target refused"
+            "locked, colliding, or non-positive --share-max-mb targets refused; piece_frames lookahead starts and reaps cleanly"
         )
 
     case("the cut rows carry the laid edge where a region reaches it", the_cut_rows_carry_the_edge)

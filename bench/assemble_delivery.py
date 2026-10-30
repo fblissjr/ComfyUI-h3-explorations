@@ -369,6 +369,7 @@ import fcntl
 import hashlib
 import itertools
 import json
+import math
 import os
 import re
 import subprocess
@@ -738,30 +739,62 @@ def frame_spans(frames) -> list[list[int]]:
     return out
 
 
-def pipe_frames(cmd, size):
-    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, bufsize=max(size * 8, 1 << 20))
-    assert proc.stdout is not None and proc.stderr is not None
-    try:
-        fcntl.fcntl(proc.stdout.fileno(), 1031, 1 << 20)  # F_SETPIPE_SZ = 1031 on Linux; best-effort 1 MB kernel pipe buffer
-    except OSError:
-        pass
-
-    def _gen():
-        assert proc.stdout is not None and proc.stderr is not None
+class _FramePipe:
+    def __init__(self, cmd, size, expected=None):
+        self.size = size
+        self._expected = expected
+        self._got = 0
+        self._closed = False
+        self.proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, bufsize=max(size * 8, 1 << 20))
+        assert self.proc.stdout is not None and self.proc.stderr is not None
         try:
-            while True:
-                buf = proc.stdout.read(size)
-                if len(buf) < size:
-                    break
-                yield buf
-        finally:
-            proc.stdout.close()
-            err = proc.stderr.read()
-            proc.stderr.close()
-            if proc.wait() not in (0, -13) and err:
-                sys.stderr.write(err.decode(errors="replace")[-400:])
+            fcntl.fcntl(self.proc.stdout.fileno(), 1031, 1 << 20)  # F_SETPIPE_SZ = 1031 on Linux; best-effort 1 MB kernel pipe buffer
+        except OSError:
+            pass
 
-    return _gen()
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        if self._closed or self.proc.stdout is None:
+            raise StopIteration
+        buf = self.proc.stdout.read(self.size)
+        if len(buf) < self.size:
+            self._finish(eof=True)
+            raise StopIteration
+        self._got += 1
+        return buf
+
+    def _finish(self, eof: bool) -> None:
+        if self._closed:
+            return
+        self._closed = True
+        assert self.proc.stdout is not None and self.proc.stderr is not None
+        self.proc.stdout.close()
+        if not eof and self.proc.poll() is None:
+            self.proc.terminate()
+        err = self.proc.stderr.read()
+        self.proc.stderr.close()
+        rc = self.proc.wait()
+        if eof and rc not in (0, -13) and err:
+            sys.stderr.write(err.decode(errors="replace")[-400:])
+        if eof and self._expected is not None:
+            want, msg = self._expected
+            if self._got != want:
+                raise SystemExit(msg.format(got=self._got))
+
+    def close(self) -> None:
+        self._finish(eof=False)
+
+    def __del__(self) -> None:
+        try:
+            self.close()
+        except Exception:  # noqa: BLE001
+            pass
+
+
+def pipe_frames(cmd, size, expected=None):
+    return _FramePipe(cmd, size, expected=expected)
 
 
 def loader_fit(w, h):
@@ -800,17 +833,21 @@ def original_frames(source, first, last, w, h):
         assert len(yuv) == per * len(batch), "the rgb to yuv step lost frames"
         return [yuv[i * per:(i + 1) * per] for i in range(len(batch))]
 
-    for buf in pipe_frames(dec, w * h * 8):
-        batch.append(buf)
-        if len(batch) == BATCH:
+    raw_pipe = pipe_frames(dec, w * h * 8)
+    try:
+        for buf in raw_pipe:
+            batch.append(buf)
+            if len(batch) == BATCH:
+                for f in flush():
+                    got += 1
+                    yield f
+                batch = []
+        if batch:
             for f in flush():
                 got += 1
                 yield f
-            batch = []
-    if batch:
-        for f in flush():
-            got += 1
-            yield f
+    finally:
+        raw_pipe.close()
     if got != many:
         raise SystemExit(f"the source gave {got} of {many} frames for {first}-{last}")
 
@@ -818,6 +855,9 @@ def original_frames(source, first, last, w, h):
 def piece_frames(row, first, last, w, h):
     """A piece's frames for source frames first..last, as BT.709 yuv420p bytes."""
     a, b = first - row["piece_first"], last - row["piece_first"]
+    many = b - a + 1
+    if many <= 0:
+        return iter(())
     # a file with no matrix tag is the writer's older form: BT.601 values
     if a == 0:
         vf_args = [] if row.get("matrix") == "bt709" else ["-vf", "colormatrix=bt601:bt709"]
@@ -825,13 +865,8 @@ def piece_frames(row, first, last, w, h):
         vf = f"select='between(n\\,{a}\\,{b})'" + ("" if row.get("matrix") == "bt709" else ",colormatrix=bt601:bt709")
         vf_args = ["-vf", vf]
     cmd = [FFMPEG, "-v", "error", "-an", "-i", row["piece"], *vf_args, "-fps_mode", "passthrough",
-           "-frames:v", str(b - a + 1), "-f", "rawvideo", "-pix_fmt", "yuv420p", "-"]
-    got = 0
-    for buf in pipe_frames(cmd, w * h * 3 // 2):
-        got += 1
-        yield buf
-    if got != b - a + 1:
-        raise SystemExit(f"{row['piece']} gave {got} of {b - a + 1} frames for {first}-{last}")
+           "-frames:v", str(many), "-f", "rawvideo", "-pix_fmt", "yuv420p", "-"]
+    return pipe_frames(cmd, w * h * 3 // 2, expected=(many, f"{row['piece']} gave {{got}} of {many} frames for {first}-{last}"))
 
 
 def planes(buf, w, h):
@@ -1883,15 +1918,12 @@ def carry_edge_rows(out, reach, box) -> None:
 def source_frames(source, first, last, sw, sh):
     """The source's own frames first..last, as they decode: nothing scaled, nothing converted."""
     many = last - first + 1
+    if many <= 0:
+        return iter(())
     vf_args = [] if first == 0 else ["-vf", f"select='between(n\\,{first}\\,{last})'"]
     cmd = [FFMPEG, "-v", "error", "-an", "-i", str(source), *vf_args, "-fps_mode",
            "passthrough", "-frames:v", str(many), "-f", "rawvideo", "-pix_fmt", "yuv420p", "-"]
-    got = 0
-    for buf in pipe_frames(cmd, sw * sh * 3 // 2):
-        got += 1
-        yield buf
-    if got != many:
-        raise SystemExit(f"the source gave {got} of {many} frames for {first}-{last}")
+    return pipe_frames(cmd, sw * sh * 3 // 2, expected=(many, f"the source gave {{got}} of {many} frames for {first}-{last}"))
 
 
 def softened(frame, hard, sigma, w, h, held=()):
@@ -2260,7 +2292,7 @@ def build(args, segs, canvas, span, src, captures, record=None, fed_cache=None):
                 if record is not None and "fitted" in record and n in record["fitted"]:
                     fitted, touched = record["fitted"].pop(n)
                     fed_cache.write(b"\x01")
-                    fed_cache.write(np.ascontiguousarray(fitted, dtype=np.float32).tobytes())
+                    fed_cache.write(np.ascontiguousarray(fitted, dtype=np.uint8).tobytes())
                     fed_cache.write(np.ascontiguousarray(touched, dtype=np.bool_).tobytes())
                 else:
                     fed_cache.write(b"\x00")
@@ -2280,7 +2312,7 @@ def build(args, segs, canvas, span, src, captures, record=None, fed_cache=None):
 def _read_fed_cache(fed_cache, many: int, span0: int, w: int, h: int, per: int, fitted_out: dict | None):
     """Yield cached fed frames in order, restoring `fitted_out[n]` just before frame `n` is yielded."""
     fed_cache.seek(0)
-    fit_bytes = w * h * 4
+    fit_bytes = w * h
     touch_bytes = w * h
     for k in range(many):
         tag = fed_cache.read(1)
@@ -2291,7 +2323,7 @@ def _read_fed_cache(fed_cache, many: int, span0: int, w: int, h: int, per: int, 
             t_buf = fed_cache.read(touch_bytes)
             if fitted_out is not None:
                 fitted_out[span0 + k] = (
-                    np.frombuffer(f_buf, dtype=np.float32).reshape(h, w),
+                    np.frombuffer(f_buf, dtype=np.uint8).reshape(h, w).astype(np.float32),
                     np.frombuffer(t_buf, dtype=np.bool_).reshape(h, w),
                 )
         frame = fed_cache.read(per)
@@ -2304,6 +2336,8 @@ def build_share(source_mp4: str, share_out: str, codec: str = "h264", max_mb: fl
     """Build a 2-pass bitrate-constrained share copy (< `max_mb` MB) from the verified master delivery `.mp4`."""
     if codec not in ("h264", "hevc"):
         raise SystemExit(f"--share codec must be 'h264' or 'hevc', got {codec!r}")
+    if not math.isfinite(max_mb) or max_mb <= 0:
+        raise SystemExit(f"--share-max-mb must be a positive number; got {max_mb}")
     info = probe(source_mp4)
     rate_num, rate_den = info["rate"]
     duration = max(info["frames"] * rate_den / rate_num, 0.1)
@@ -2335,7 +2369,11 @@ def build_share(source_mp4: str, share_out: str, codec: str = "h264", max_mb: fl
                   *a_args, "-map_metadata", "-1", "-movflags", "+faststart", str(share_out)]
         sh(p1)
         sh(p2)
-    return {"out": str(share_out), "codec": codec, "bytes": os.path.getsize(share_out), "video_kbps": vbitrate_k}
+    size_bytes = os.path.getsize(share_out)
+    max_bytes = int(max_mb * 1024 * 1024)
+    if size_bytes > max_bytes:
+        raise SystemExit(f"{share_out} is {size_bytes} bytes ({size_bytes / (1024 * 1024):.2f} MB), over --share-max-mb {max_mb:g} ({max_bytes} bytes)")
+    return {"out": str(share_out), "codec": codec, "bytes": size_bytes, "video_kbps": vbitrate_k}
 
 
 def latent_step(frame_in_load):
@@ -2888,9 +2926,13 @@ def luma_at_canvas(path, w, h):
     Read as yuv420p and not as `gray`: ffmpeg widens a tv-range picture to full range on its way to gray, which
     moved bright and dark pixels by up to sixteen levels and read a quarter of an untouched frame as off the
     source (measured 2026-10-10 on footage; a mid-toned test picture did not show it)."""
-    for buf in pipe_frames([FFMPEG, "-v", "error", "-an", "-i", str(path), "-vf", loader_fit(w, h), "-fps_mode", "passthrough",
-                            "-f", "rawvideo", "-pix_fmt", "yuv420p", "-"], w * h * 3 // 2):
-        yield np.frombuffer(buf, np.uint8, w * h).astype(np.float32).reshape(h, w)
+    raw = pipe_frames([FFMPEG, "-v", "error", "-an", "-i", str(path), "-vf", loader_fit(w, h), "-fps_mode", "passthrough",
+                       "-f", "rawvideo", "-pix_fmt", "yuv420p", "-"], w * h * 3 // 2)
+    try:
+        for buf in raw:
+            yield np.frombuffer(buf, np.uint8, w * h).astype(np.float32).reshape(h, w)
+    finally:
+        raw.close()
 
 
 class Subjects:
@@ -3483,13 +3525,26 @@ def main():
                          f"beside it, for one {os.path.basename(free_name(args.out))}, and say in {LOCKS} which stands")
     share_codec = args.share or ("h264" if args.share_out else None)
     share_out = (args.share_out or (os.path.splitext(args.out)[0] + "_share.mp4")) if share_codec else None
-    if share_out and not args.check_only:
-        share_lock = locked(share_out)
-        if share_lock:
-            raise SystemExit(f"{share_out} is locked ({share_lock[0]}): an accepted file is never built over. Write the new version "
-                             f"beside it, for one {os.path.basename(free_name(share_out))}, and say in {LOCKS} which stands")
+    if share_codec and (not math.isfinite(args.share_max_mb) or args.share_max_mb <= 0):
+        raise SystemExit(f"--share-max-mb must be a positive number; got {args.share_max_mb}")
+    if share_out:
+        share_abs = os.path.abspath(share_out)
+        if share_abs == os.path.abspath(args.source):
+            raise SystemExit(f"--share-out {share_out} is the same path as --source {args.source}")
+        if share_abs == os.path.abspath(args.out):
+            raise SystemExit(f"--share-out {share_out} is the same path as --out {args.out}")
+        if not args.check_only:
+            share_lock = locked(share_out)
+            if share_lock:
+                raise SystemExit(f"{share_out} is locked ({share_lock[0]}): an accepted file is never built over. Write the new version "
+                                 f"beside it, for one {os.path.basename(free_name(share_out))}, and say in {LOCKS} which stands")
 
     rows = read_table(args.table)
+    if share_out:
+        share_abs = os.path.abspath(share_out)
+        for r in rows:
+            if share_abs == os.path.abspath(r["piece"]):
+                raise SystemExit(f"--share-out {share_out} is the same path as piece {r['piece']}")
     src = probe(args.source)
     canvas = None
     for r in rows:
