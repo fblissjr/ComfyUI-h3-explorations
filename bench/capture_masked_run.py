@@ -3027,6 +3027,29 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
             write_table(out / "subjects" / label / "segments_whose",
                         whose_rows(label, first, class_maps[label], next(iter(seen.values()))[0], theirs,
                                    _pack("sapiens2_parts").CLASS_NAMES))
+    if STRANGERS_LABEL in sightings and hair_pass:
+        import cv2
+        whole_cls_st = whole_frame_hair(masks, first, frames, size)[2]
+        if whole_cls_st is not None and whole_cls_st.shape == (frames, size[1], size[0]):
+            st_by, (st_trk, st_cov, st_pts) = next(iter(sightings[STRANGERS_LABEL].items()))
+            st_mod = st_trk.copy()
+            for lbl_h, g_h in hair_pass.items():
+                if "Hair" not in (made_of.get(lbl_h) or []) or g_h.get("zoom") is None or lbl_h not in held_masks:
+                    continue
+                h_mask = held_masks[lbl_h]
+                m_px = int(round(int(g_h["margin"]) / float(g_h["zoom"]["scale"])))
+                rad = m_px + CELL
+                sq_st = cv2.getStructuringElement(cv2.MORPH_RECT, (2 * rad + 1, 2 * rad + 1))
+                hers_r = word_frames(g_h["m"].get(HEAD_MARK_KEYS["hers"]), first, frames) if g_h["m"].get(HEAD_MARK_KEYS["hers"]) else set()
+                for k_f in range(frames):
+                    if not h_mask[k_f].any():
+                        continue
+                    if k_f in hers_r or int(h_mask[k_f].sum()) >= PART_LEAST_PX:
+                        hole_k = cv2.dilate(h_mask[k_f].astype(np.uint8), sq_st) > 0
+                        st_mod[k_f] &= ~(h_mask[k_f] | (hole_k & (whole_cls_st[k_f] == 0)))
+            if not np.array_equal(st_mod, st_trk):
+                sightings[STRANGERS_LABEL][st_by] = (st_mod, st_cov, st_pts)
+                write_mask_video(out / "subjects" / STRANGERS_LABEL / f"track__{st_by}.mkv", st_mod)
     captured: dict = {}
     node_fault: dict = {}
     for name, r in [(n, {**x, "planned": False}) for n, x in runs] + [(n, {**x, "planned": True}) for n, x in plans]:
@@ -5288,9 +5311,13 @@ def her_hair_in_hole(held: np.ndarray, track: np.ndarray, first: int, *, head: n
     out = held.copy()
     others = others or {}
     anyone = np.zeros_like(held)
-    for m_ in others.values():
+    anyone_hers = np.zeros_like(held)
+    has_wcls = whole_classes is not None and whole_classes.shape == held.shape
+    for o_lbl, m_ in others.items():
         anyone |= m_
+        anyone_hers |= (m_ & (whole_classes > 0)) if (has_wcls and o_lbl == STRANGERS_LABEL) else m_
     taken = anyone | front if front is not None else anyone
+    taken_hers = anyone_hers | front if front is not None else anyone_hers
     if head is not None:
         head_clean = head.copy()
         raw_head_px = head_clean.reshape(n, -1).sum(1)
@@ -5370,6 +5397,24 @@ def her_hair_in_hole(held: np.ndarray, track: np.ndarray, first: int, *, head: n
             cand = cand & ~hand_arm_mask[k]
         return cand
 
+    def crown_from_head(src_f: int, k: int) -> np.ndarray:
+        """Top-third crown band of `head[src_f]` grown horizontally by `grow_c` when `strangers` has `whole_classes == 0` pixels there."""
+        h_c, w_c = held.shape[1:]
+        if not (has_wcls and STRANGERS_LABEL in others and head is not None and head[src_f].any()):
+            return np.zeros((h_c, w_c), bool)
+        ys_s, xs_s = np.nonzero(head[src_f])
+        by0, by1, bx0, bx1 = int(ys_s.min()), int(ys_s.max()), int(xs_s.min()), int(xs_s.max())
+        grow_c = int(round(HAIR_ROOM_HEADS * max(32, by1 - by0 + 1)))
+        crown_y1 = by0 + (by1 - by0) // 3
+        c_slice = np.zeros((h_c, w_c), bool)
+        c_slice[by0 : crown_y1 + 1, :] = head[src_f, by0 : crown_y1 + 1, :]
+        hkern = cv2.getStructuringElement(cv2.MORPH_RECT, (2 * grow_c + 1, 1))
+        c_grown = cv2.dilate(c_slice.astype(np.uint8), hkern) > 0
+        c_grown[:, : max(bx0 - grow_c, 0)] = False
+        c_grown[:, min(bx1 + 1, w_c) :] = False
+        st_c0 = others[STRANGERS_LABEL][k] & (whole_classes[k] == 0)
+        return c_grown if bool(((head[src_f] | c_grown) & st_c0).any()) else np.zeros((h_c, w_c), bool)
+
     rows: dict[int, dict] = {}
     square = cv2.getStructuringElement(cv2.MORPH_RECT, (2 * int(margin_px) + 1, 2 * int(margin_px) + 1))
 
@@ -5417,7 +5462,7 @@ def her_hair_in_hole(held: np.ndarray, track: np.ndarray, first: int, *, head: n
                     if row(k)["lost"] == "marked hers" and head is not None:
                         src = nearest(k)
                         crown_tr = crown_room_on_track(k) if classes is not None else np.zeros_like(out[k])
-                        add = (head[src] | crown_tr) & ~taken[k] & ~out[k]
+                        add = (head[src] | crown_from_head(src, k) | crown_tr) & ~taken_hers[k] & ~out[k]
                         out[k] |= add
                         rows[k].update(lost_held_from=first + src, lost_held_px=int(add.sum()))
                 lost_runs.append({"source_frames": [first + f, first + g],
@@ -5434,7 +5479,7 @@ def her_hair_in_hole(held: np.ndarray, track: np.ndarray, first: int, *, head: n
             src = nearest(k)
             crown_tr = crown_room_on_track(k) if classes is not None else np.zeros_like(out[k])
             near_h = head[src] if abs(k - src) <= 2 else (head[src] & track[k])
-            add = (near_h | crown_tr) & ~taken[k] & ~out[k]
+            add = (near_h | crown_from_head(src, k) | crown_tr) & ~taken_hers[k] & ~out[k]
             if add.any():
                 out[k] |= add
                 r = row(k)
