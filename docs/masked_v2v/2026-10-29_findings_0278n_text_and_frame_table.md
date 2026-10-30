@@ -122,3 +122,81 @@ the next one-variable test: the hole taking all of her hair (`--no-head-track WH
 join extended to the back and sides, replayed on every kept `second` shot so no kept hole changes), then one render
 with nothing else changed. A "hair outside the hole" share per frame belongs in `bench/frame_table.py` so the next
 shot shows it before it renders.
+
+## 4. Post-`4912r`/`4912s` root cause: the `4k + 1` causal VAE latent steps, `strangers.mkv` swallowing her visible crown on `4939–4946`, and why splitting a 35-frame shot violates the 39-frame window rule
+
+Landed 2026-10-29 as `16ccd81a` (`head_tube_parts.py` + `frame_table.py`), which joins attached `Hair` within the head
+band (`y <= track_y1`) and cut `hair_outside_hole_share` on `4912–4919` from `0.17–0.36` to `0.00–0.01`. Running
+`second_hfp_4912r` with that hole fix alone lifted hair median `(L*, b*)` from `(6.3, +9.0)` (`4912q`) to
+`(11.8, +16.0)` (`p90 L* = 40.8, p90 b* = +33.0`, reaching `med L* = 31.0, med b* = +34.0` on frame `4939`), while a
+one-time reference image test (`second_hfp_4912s`, prompt text byte-identical) produced `(10.2, +14.0)`.
+
+### 4.1 Why splitting `4912–4946` (`second_hfp_4927b`, `4927–4940`) violates H3's 39-frame window rule
+
+Testing a 14-frame mid-span split (`second_hfp_4927b`, frames `4927–4940`) exposed two hard structural violations of
+`docs/masked_v2v/frames_rules.md` and `workflows/masked_job_graph.py`:
+
+1. **In-shot padding stays real and unmasked (`window_pad` + `held_context`)**:
+   - The shortest legal dual-clock window is `39` frames (`17n + 5` on video and whole on audio). A 14-frame load
+     (`4927–4940`) requires `after = 25` padding frames (`4941–4965`).
+   - `workflows/masked_job_graph.py::held_context` (`lines 610–624`) reads `shot_span(job) = [4912, 4946]`. Because
+     `4941–4946` lie **inside** the shot, `held_context` holds only the `19` frames across the hard cut at `4946`
+     (`held_after = 19`, frames `4947–4965`) and leaves **`4941–4946` (`6` frames) as unheld real source frames** inside
+     the 39-frame window (`video_mask.py::pad_context`), putting her unmasked real dark hair on `4943–4946` directly into
+     the window (the `lead_fp_2050e` failure mode in `docs/research/masking/2026-10-25_context_frames_and_identity_on_2050.md`).
+   - Under the 2026-10-25 rule (*"pad the load to the valid window length masked end to end and throw away what you do
+     not need at the lay"*), running masked to `4946` (plus `4` held copies on `4947–4950`) is the full 35-frame shot
+     (`4912–4946`) again.
+2. **Span-edge failure on `4927` (`head_reference.py`)**:
+   - Cutting at `4927` makes an off-track re-emergence frame the span's first frame with no earlier clean frame `4920` to
+     hold or interpolate from, so `head_reference.py` exits `1` (`THE FACE IS OFF THE SUBJECT'S TRACK on 1 of 14 frames
+     (4927), in runs longer than 4 frames or at the span's edge`).
+
+### 4.2 What the `4k + 1` / 17-frame causal VAE steps actually see (`bench/inspect_mask_steps.py` on `4912r`)
+
+`comfy/ldm/minimax/vae.py` encodes the 39-frame window (`35` shot frames `4912–4946` + `4` held copies of `4946` on
+`4947–4950`) in **three independent 17-frame clips**, where each clip is split into `1 + 4 + 4 + 4 + 4` frames (`5`
+causal latent steps per clip; the last `3` steps of Clip 3 are dropped, leaving `12` latent steps `0..11`). Comparing
+`bench/inspect_mask_steps.py --capture data/2026-10-29_second_hfp_4912r` with `window_record.npz`, `strangers.mkv`, and
+the rendered hair `(L*, b*)` on every latent step reveals the exact two mechanisms still pinning dark hair into the
+window:
+
+| Clip | Latent step | Window frames (`k`) | Shot frames | Step structure & pinned (`denoise_mask = 0`) dark hair in the zoom box | `4912r` rendered hair `med L* / p90 L* / med b*` |
+|---|---|---|---|---|---|
+| **Clip 1** (`17f`: `4912–4928`) | **Step 0** (`frame 0` of Clip 1) | `0` (`1f`) | `4912` | Standalone `1`-frame `4k+1` step. `0 px` of `second`'s hair outside the hole; `0 px` of bystander hair in the zoom box. | **`17.3 / 47.5 / +17.0`** (brightest frame of Clip 1) |
+| **Clip 1** | **Step 1** | `1..4` (`4f`) | `4913–4916` | Foreground dancer (`strangers.mkv`) enters bottom-right of zoom box (`0 -> 21,959 px` of pinned dark hair). | `7.1–12.9 / 27.8–45.1 / +10..+16` |
+| **Clip 1** | **Step 2** | `5..8` (`4f`) | `4917–4920` | Foreground dancer approaches center (`26,281 -> 34,669 px` pinned dark hair). On `4920`, `strangers.mkv` swallows the lower-right back of `second`'s hair (`hair_out = 21.8%`). | `9.0–12.5 / 26.7–36.9 / +14..+18` |
+| **Clip 1** | **Step 3** | `9..12` (`4f`) | `4921–4924` | **`3` `BLUE-ONLY` frames (`4922–4924` have `0 px` mask)!** Activated only because `4921` kept a `316 px` sliver (`37` tokens). `98.8%` of the step is pinned (`denoise_mask = 0`) to the foreground dancer's dark hair (`51,657 px`) filling the center of the zoom box. | `8.2 / 14.5 / +14.0` on the `316 px` sliver |
+| **Clip 1** | **Step 4** | `13..16` (`4f`) | `4925–4928` | **`1` `BLUE-ONLY` frame (`4925` has `0 px` mask, pinned dancer hair) + `4926` (`815 px` sliver on dancer's neck from `2,460 px` MoGe-2 depth bleed)** packed into the **same 4-frame causal VAE token** as `4927–4928` (`second` re-emerging)! | `7.5–13.3 / 15.3–37.6 / +13..+19` |
+| **Clip 2** (`17f`: `4929–4945`) | **Step 5** (`frame 0` of Clip 2) | `17` (`1f`) | `4929` | Standalone `1`-frame `4k+1` start of Clip 2. Unoccluded `second` (`0 px` of `second`'s hair outside the hole). | **`12.5 / 54.1 / +18.0`** |
+| **Clip 2** | **Steps 6–7** | `18..25` (`8f`) | `4930–4937` | Unoccluded `second` (`0 px` of `second`'s hair outside the hole; background man's dark hair at top-left `y < 290`). | `11.4–13.7 / 41.2–51.4 / +15..+19` |
+| **Clip 2** | **Step 8** | `26..29` (`4f`) | `4938–4941` | **`strangers.mkv` (the white-hat woman) spills onto `second`'s visible hair crown on `4939` (`hair_out = 21.6%`) and swallows `100%` of her visible dark hair crown on `4940`** (`parts_held` drops to `1,947 px` face-only, `2 px` hair), leaving her real dark hair crown on `4940` pinned (`denoise_mask = 0`) inside Step 8! (`4941` is `0 px` `BLUE-ONLY` behind the white hat.) | **`31.0 / 48.2 / +34.0`** on `4939` (where `2,485 px` of hair was held inside `4938`'s token box); `4940` crown left unmasked |
+| **Clip 2** | **Step 9** | `30..33` (`4f`) | `4942–4945` | **Left half of `second`'s own dark hair dome above the white hat brim is pinned (`denoise_mask = 0`) across all 4 frames!** `4942` is `0 px` (`BLUE-ONLY`) even though her dark crown is already emerging above the hat brim (`100%` swallowed by `strangers.mkv`). On `4943–4945`, `strangers.mkv` swallows the left `80–89%` of her crown and `lost_held_from: 4938` (`head[4938] & ~taken[k]`) stamps frame `4938`'s right-shifted head box (`x = 613..705`), leaving the left half of her real dark hair crown (`x = 530..612`) unmasked (`denoise_mask = 0`) right against the regenerated right half! | `5.9–11.8 / 21.6–41.6 / +7..+15` (regenerated right half blends directly into pinned left half of her own dark hair) |
+| **Clip 3** (`17f`: `4946` + `16` held copies) | **Step 10** (`frame 0` of Clip 3) & **Step 11** (`4947–4950`) | `34` (`1f`) & `35..38` (`4f`) | `4946` (held across all `17` frames of Clip 3) | **Frame `4946` is `frame 0` of Clip 3 (`Step 10`, standalone `1`-frame `4k+1` step) and is repeated across all `17` frames of Clip 3 (`4946–4950` + `12` VAE tail copies).** Because `strangers.mkv` swallows the left half of `second`'s dark hair dome above the white hat brim on `4946` (and has Swiss-cheese holes inside the right half) while `head[4938] & ~taken[34]` only covers the right crescent, **every single frame of Clip 3 has the left half of `second`'s real dark hair dome pinned in the VAE latent (`denoise_mask = 0`)**. | `8.2 / 33.7 / +7.0` on `4946` |
+
+Visual proof contact sheets saved on disk in `internal/gemini/2026-10-29_4912/`:
+- `internal/gemini/2026-10-29_4912/4912r_strangers_swallow_4938_4946.jpg`: frames `4938–4946` showing raw `strangers.mkv` in yellow (the woman in the white hat, NOT `third_track` in magenta) swallowing `second`'s visible hair crown on `4939–4940` and the left half of her dark hair dome above the white hat brim on `4942–4946`.
+- `internal/gemini/2026-10-29_4912/4912r_crown_4942_4946_pinned.jpg`: Steps `9` and `10` (`4942–4946`) showing the pinned (`denoise_mask = 0`) left half of `second`'s real dark hair crown right beside the cyan regenerated token region on `4942–4946`.
+- `internal/gemini/2026-10-29_4912/4912r_all_steps_pinned.jpg` and `internal/gemini/2026-10-29_4912/4912r_strips.jpg`: all steps `0..11` (`4912–4950`) from `bench/inspect_mask_steps.py`.
+
+### 4.3 Concrete root cause and solution for `second_hfp_4912t`
+
+1. **Root Cause 1 — Commit `426638a6` (`2026-10-27 13:09:44 -0500`, `bench/strangers.py:567-571`: `det |= m & (c == 0)`) bloated `shot_c_4912i_strangers.mkv` with `c == 0` (`Background`) pixels, carving `20%–30%` of `second`'s `26 px` (`64 px` zoomed) hair margin on unoccluded frames (`4912–4918`, `4929–4937`) AND swallowing `second`'s own dark hair crown on `4939–4940` and `4942–4946`**:
+   - **Clarification on the owner's `2026-10-23` sheet boxes (`data/fun/owner_sheets/2026-10-23_4912_who_is_who_owner.webp`)**: Those yellow boxes and notes (*"Make sure we change her hair to blonde even tho we cant see her face!! this is 2nd subject / mom here sitting down with her hair sticking out!!"*) are **Group 2 rough visual sketches** ("just a rough here's what my eyes see", per `0121b793` and `cf244cb1` in `docs/wiki/decisions.md`), never raw seed coordinates to be pasted into `cast.jsonl`. They are meant to drive general pipeline and `head_marks` logic (`capture_masked_run.py` / `strangers.py` / `plan.json`).
+   - **How `426638a6` broke `4912` in two distinct places**:
+     - Across all 17 kept `second` renders on disk (`0415n`..`5889e`), **15 of 17 have `0 px` of `c == 0` `strangers` inside `second`'s `margin_px` hair margin** (`13` have no `strangers` keep-out at all; `0604h`, `4602d`, `4726c`, and `5011e` use pre-`426638a6` `strangers.mkv` files). Only `4647i` (the shot `426638a6` was written for) and `4912m..4912s` (`shot_c_4912i_strangers.mkv`, built from the one-off `data/fun/jobs/shot_c_4912i.json` on `2026-10-27 16:18` right after `426638a6`) use post-`426638a6` `strangers.mkv` files.
+     - **Before vs. After `426638a6` across all `4912` `step_carves_summary` records (`manifest.json runs[0].step_carves_summary`)**:
+       - **Before `426638a6` (`shot_c_4912h` on `2026-10-25` `4912g` and `2026-10-26` `4912j`, `4912k`)**: `strangers` carved **`681` cells** (`4912g`, `7/12` steps), **`739` cells** (`4912j`, `7/12` steps), and **`1,429` cells** (`4912k`, `10/12` steps). On unoccluded steps, `strangers` carved **`0` cells** on `S0 (4912)` and `S6 (4930–4933)` across every pre-`426638a6` run (`4912c, 4912e, 4912g, 4912j, 4912k`), `34–45` cells on `S1 (4913–4916)`, `26–27` cells on `S5 (4929)`, and `7–12` cells on `S7 (4934–4937)`.
+       - **After `426638a6` (`shot_c_4912i` on `2026-10-27` `4912m`, `2026-10-28` `4912n/o` [see `docs/masked_v2v/2026-10-28_session_handover.md` §1.1 item 4], and `2026-10-29` `4912p/q/r/s`)**: `steps_carved` jumped to **`12/12` (`100%` of steps)** and total cells carved by `strangers` more than doubled to **`2,753` (`4912m/n`) -> `2,867` (`4912o/p/q`) -> `2,986` (`4912r/s`)**. On unoccluded steps, `strangers` carved **`92–131` cells** on `S0 (4912)`, **`182–210` cells** on `S1 (4913–4916)`, **`95–99` cells** on `S5 (4929)`, **`178–226` cells** on `S6 (4930–4933)`, and **`186–202` cells** on `S7 (4934–4937)`.
+     - **Effect A — Clamping `second`'s `26 px` (`64 px` zoomed) hair margin on unoccluded frames (`4912–4918` and `4929–4937`)**: On `4912–4918` and `4929–4937`, `shot_c_4912i_strangers.mkv` puts **`2,069 to 5,296 px/frame` (`90,337 px` across 28 of 35 frames) of `c == 0` (`Background`) pixels and `0 px` of `c > 0` (`Sapiens2` human) pixels** inside `second`'s `26 px` margin (`100%` of the margin carve on `4912–4914, 4918, 4930–4936` is `c == 0`, coming from SAM 3.1 whole-frame `"person"` detections of the background man in the blue denim shirt behind the table, whom Sapiens2 classified as `c == 0`). Because `strangers_of` only subtracts `second_track` grown by `8 px` while the node grows `parts_held` by `26 px` (`64 px` zoomed), `video_mask.py:2262` (`tokens * (1 - theirs * (1 - own))`) carves **`70 to 104` of her `16x16` margin cells per latent step** off the top and back of her head across Steps `0, 1, 2, 5, 6, 7`—clamping the cyan token boundary right down to `8 px` from her short dark pixie skull so the model has no room to draw longer/fuller blonde hair!
+     - **Effect B — Swallowing `second`'s visible hair crown during the white-hat pass-by (`4939–4940` and `4942–4946`)**: Whole-frame Sapiens2 (`shot_c_4912i_strangers_classes.npz`) accurately segmented the white-hat woman (`c > 0`) up to her white hat brim (`y >= 333–346`) and classified `second`'s dark hair dome above the white hat (`y = 311..350, x = 538..705`) as `Background` (`c == 0`). However, `426638a6` unioned unowned SAM detections (`p=3/6` background man's arm + `p=4/7` white-hat spill where `c == 0`) into `strangers.mkv`, swallowing `100%` of her hair crown on `4940` and `4942` and the left `80–89%` of her hair dome on `4943–4946` (`parts_held` on `4944` dropped from `3,161 px` in `4912k` to `1,102 px` in `4912m..4912s`, and on `4945` from `4,565 px` to `1,741 px`).
+     - Meanwhile, `her_hair_in_hole` Stage 2 (`bench/capture_masked_run.py:5418-5442`) stamped static `head[4938] & ~taken[k]`. Because `second`'s head moved **left by `~50 px`** between `4938` (`x = 583..712`) and `4944–4946` (`x = 538..690`) and moved **left by `~15 px`** on `4940` (`x = 575..620`), static `head[4938]` missed `x = 538..613` on `4944–4946` and `x = 575..613` on `4940`, leaving **the left half of `second`'s real dark hair dome pinned (`denoise_mask = 0`) in Step 8 (`4940`), Step 9 (`4942–4945`), and all 17 frames of Clip 3 (`frame 0` = `4946` in Step 10 + `4947–4950` in Step 11)**.
+2. **Root Cause 2 — Stale `2026-10-26` `head_marks` in `data/fun/plan.json` (`4921` and `4926` marked `hers`) activates Step 3 (`4921–4924`) and contaminates Step 4 (`4925–4928`) with `BLUE-ONLY` pinned dancer dark hair**:
+   - Even after the owner annotated `4921` on `2026-10-28` (`bf3e1b5c`: *"her hair a sliver, another woman's dark hair fills the window"*), `data/fun/plan.json` kept `4921` (`316 px` sliver) and `4926` (`815 px` sliver on the dancer's neck where MoGe-2 depth bleed carved `2,460 px` of the dancer) as `hers`, turning Step 3 (`4921–4924`) into an active step with `3` `BLUE-ONLY` frames (`98.8%` pinned dancer hair) and packing `4925–4926` into Step 4 (`4925–4928`) alongside `4927–4928`.
+3. **Solution (`second_hfp_4912t`)**:
+   - **Clean Steps 3 & 4 (`4921–4926`) in `data/fun/plan.json`**: Mark `4921–4926` as `hidden` in `head_marks` (`--head-hidden 4921-4926`), and extend `4939` `hers` to `4939–4940` `hers`. That makes `4921–4926` `0 px`, turning **Step 3 (`4921–4924`) completely `untouched` (`0` active tokens, `0` `BLUE-ONLY` frames)** and removing the `815 px` dancer-neck sliver on `4926` from Step 4.
+   - **Restore `second`'s `26 px` (`64 px` zoomed) hair margin and visible hair crown (`4939–4940`, `4943–4946`) against `c == 0` `strangers` spill in `bench/capture_masked_run.py`**:
+     1. In `her_hair_in_hole`: when `whole_classes` (`strangers_classes.npz`) is present, `strangers` in `others` only blocks her head/hair recovery where `whole_classes > 0` (human classes in whole-frame Sapiens2, excluding `c == 0` SAM background spill), and Stage 2 (`hers` on lost/partial-shrink frames) includes horizontal crown room above the occluder so her left-shifted hair dome on `4940` and `4943–4946` is 100% covered by `parts_held` + `margin`.
+     2. In `capture_masked_run.py` keep-out carving: strip `c == 0` (`Background`) pixels from `strangers` inside the `margin_px`-grown hole around `parts_held` (except where protected as a dark-haired background bystander as on `4647i`), restoring `70–104` carved margin cells per step across Steps `0, 1, 2, 5, 6, 7, 10, 11`.
+
+
