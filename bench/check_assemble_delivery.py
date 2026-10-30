@@ -2364,6 +2364,7 @@ with tempfile.TemporaryDirectory() as _tmp:
                 capture_output=True, text=True,
             )
             assert ref_mb.returncode != 0 and "--share-max-mb must be a positive number" in ref_mb.stderr and "Traceback" not in ref_mb.stderr, ref_mb.stderr
+            assert not (TMP / "bad_mb.mp4").exists(), "up-front --share-max-mb refusal must not encode the master clip"
         for collide_target, label in ((SOURCE, "--source"), (TMP / "collide_out.mp4", "--out"), (Path(PIECE_A), "piece")):
             ref_col = subprocess.run(
                 [sys.executable, str(Path(tool.__file__)), "--source", str(SOURCE), "--table", str(TMP / "whole.txt"),
