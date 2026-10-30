@@ -54,8 +54,8 @@ Where this page and a record disagree, the record is right: `git log`, [`decisio
     and a cross-check on this page. The Claude day file with the 10-28 postmortem, today's plan, the check table and
     every correction is `internal/claude/2026-10-29_mrfam/postmortem_and_plan.md`.
 
-- **Added 2026-10-30 01:55Z by the Claude advisory session (`mrfam`), the evening's close, on top of the lead's close and the
-  18:32Z block** (`gemrender` stopped at 23:48Z with the card idle; `gem4912` drove 4912 on the owner's word until about 01:40Z):
+- **Added 2026-10-30 01:34Z by the Claude advisory session (`mrfam`), the evening's close, on top of the lead's close and the
+  18:32Z block** (`gemrender` stopped at 23:48Z with the card idle; `gem4912` drove 4912 on the owner's word, its last render on disk at about 01:30Z):
   - **`second_hfp_0278o` is on the review page awaiting the owner's verdict** (sculpted mouth, `closed` drawing, by-hand
     shut-eyes text): the mouth stays closed on all 16 frames; the eyes hold on 278 to 286, lift on 287 and are open on 288 to
     293 while the source stays down over the bowl (the reading's measured frames; the backlog row says 286 to 293). Half the
