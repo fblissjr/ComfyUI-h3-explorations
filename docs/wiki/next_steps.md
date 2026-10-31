@@ -4,24 +4,22 @@
 
 ## Starting a day: read [`handover.md`](handover.md) first
 
-- **Daily boundary & active execution order (`2026-10-30`)**: [`handover.md`](handover.md) ("Next session, in order", "State when closed", "What not to assume", and "Where things are").
+- **Daily boundary & active execution order (`2026-10-31`)**: [`handover.md`](handover.md) ("State when closed", "What not to assume", "Tomorrow, in order", and "Where things are").
 - **Repo-level roadmap & open/closed lanes**: [`../roadmap.md`](../roadmap.md).
 - **Active decisions log (`2026-10-23` through `2026-10-30` + date router)**: [`decisions.md`](decisions.md).
 - **Masked lane operative rules, live backlog, protocol, & code map**: [`../masked_v2v/AGENTS.md`](../masked_v2v/AGENTS.md), [`../masked_v2v/fun_render_backlog.md`](../masked_v2v/fun_render_backlog.md), [`../masked_v2v/PROTOCOL.md`](../masked_v2v/PROTOCOL.md), [`../masked_v2v/CODE_MAP_INDEX.md`](../masked_v2v/CODE_MAP_INDEX.md), and [`../masked_v2v/2026-10-25_pass_contamination_and_mask_step_forensics.md`](../masked_v2v/2026-10-25_pass_contamination_and_mask_step_forensics.md).
 
-## Current Order (`2026-10-30`)
+## Current Order (`2026-10-31`)
 
-Follow [`../masked_v2v/fun_render_backlog.md`](../masked_v2v/fun_render_backlog.md) ("Today's queue, as ready on disk") and [`decisions.md`](decisions.md) (`2026-10-30`):
-1. **Four new keeps laid today in `data/fun/laid.jsonl` (`82` rows)**: **`second_hfp_4912t`** (`4912–4946`, `35f`, `second` Pass 1, row 79), **`second_hfp_0278o`** (`278–293`, `16f`, `second`, row 80), **`lead_fp_3595c`** (`3595–3671`, `77f`, `lead`, row 81), and **`lead_fp_5085d`** (`5085–5113`, `29f + 10` held pad = `39f` window, `4.00x` render zoom, `lead`, row 82).
-2. **Finish active single-subject Wave 1 loads (`zoom_up_to = 4.0`)**:
-   - **`4227–4271` (`lead`)**: `lead_fp_4227e` (`4227–4257`, `3.46x` render zoom, `5.48x` `<Video 1>`, fixing `4228, 4229, 4231, 4235` from `4227d`) and `lead_fp_4243b` (`4243–4271`, `3.31x` render zoom, `5.15x` `<Video 1>`) rendered and staged on `:8765` for owner review.
-   - **`14–167` (`second`, `second_hfp_0014j`)**: Rendering now with `second_0014_0167_f` (`closed_mouth: "sculpted"`, `open_mouth: "inner outline"`, matching `0014g` at `data/fun/owner_answers.jsonl:1529` while keeping the cleaned `0014i` mask edges).
-   - **`6105–6394` (`lead`)**: `6125–6373` (`249f <= 345f`, `0` cuts; `6105–6124` and `6374–6394` `not seen` in `shots.json`) runs as one whole-shot load `lead_fp_6125b` (`249f -> 294f` window, `zoom_up_to = 4.0`) on `shot_c_6105g`. (`3110–3166` is already recorded `not seen` in `shots.json`.)
-3. **Complete the whole-video delivery rebuild (`bench/rebuild_delivery.py --video fun --clip`)**:
-   - Today's `1514Z` run (`80` rows) stopped after `assemble` and `gap_check` (before `stack`, `pages`, `snapshot`, and `rebuild_fun_*.json`), and rows 81–82 (`lead_fp_3595c`, `lead_fp_5085d`) plus Wave 1 keeps are now laid. Run `bench/rebuild_delivery.py --video fun --clip` so `:8765` serves the current whole-video cut and Pass-2/3 previews read the registered composite cut.
-4. **Execute Multi-Subject Pass-2 / Pass-3 Queue on the Rebuilt Cut**:
-   - **`4912–4946` Pass 2 (`third`, `35f`)**: Now unblocked by kept `second_hfp_4912t` (row 79). Run fresh preview `shot_c_4912j` (`--source <post-4912t_cut> --for third --remake --queue`) and build/render `third_fp_4912a` (`region: "face"`, `parts: ["face_and_neck"]`, `source_facial_hair: true`, `margin = 16`, `zoom_up_to = 4.0`, no beard per `data/fun/owner_answers.jsonl:1456`).
-   - Remaining multi-subject Pass-2/3 spans on the rebuilt cut: `1419–1465` (`47f`), `1010–1038` (`29f`), and `604–1009` (`406f`). (`1536–1574` is already recorded `not seen` in `shots.json`.)
+Follow [`handover.md`](handover.md) ("Tomorrow, in order"), [`../masked_v2v/fun_render_backlog.md`](../masked_v2v/fun_render_backlog.md), and [`decisions.md`](decisions.md) (`2026-10-30`):
+1. **Remake `second_hfp_1419f` cleanly through the chain as `second_hfp_1419g` (`1419–1465`, `second` Pass 3)**:
+   - Run `bench/shot_to_load.py job --remake` with `--drop 1424-1453 --no-face-on 1424-1453 --no-draw-face-on 1419-1423`, then `bench/shot_to_load.py reference`, `bench/shot_to_load.py text`, and `bench/load_chain.py first` (do not render the hand-patched `1419f`).
+2. **Tighten `valid_owner_word` in [`bench/capture_masked_run.py`](../../bench/capture_masked_run.py) before rendering `second_hfp_1419g`**:
+   - Accept only an owner JSONL line (`who == "owner"`) that names the load and the flag's rule, record the owner's Option A for `1419–1423` in `data/fun/owner_answers.jsonl`, sign the override `--by <session>` on the owner's word, update the docstring and check wording, verify with `bench/break_checks.py` and an independent blind read, land by pathspec, and then take `second_hfp_1419g` through `render`, 3-pass assembly, `reading.md`, and `page`.
+3. **Finish, test, blind-read, and land `../../h3_worktrees/agy-laid-carve` (`328ca0bc`), then run `bench/laid.py sync --video fun` and `bench/rebuild_delivery.py --video fun --clip --share h264 --share hevc --share-max-mb 95`**:
+   - Add unit tests in `bench/check_laid.py`, `bench/check_delivery_table.py`, and `bench/check_rebuild_delivery.py`, pass `bench/break_checks.py` and an independent blind read, land on `main`, sync `data/fun/laid.jsonl`, and rebuild the whole-video cut and `<95 MB` share copies.
+4. **Owner review on `:8765` (`lead_fp_6125c` on `6125–6373`; `second_hfp_4479g` vs `4479h` on `4479–4509`) and remaining multi-subject Pass-2/3 spans (`1010–1038`, `604–1009`)**:
+   - Watch `6232–6246`, `6346–6352`, and around `6372` on `lead_fp_6125c`, and click keep on whichever of `second_hfp_4479g` or `second_hfp_4479h` is wanted in the cut.
 
 ## Historical Queues (`2026-09-05` through `2026-10-20`)
 
