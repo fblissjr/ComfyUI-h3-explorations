@@ -1779,9 +1779,22 @@ with tempfile.TemporaryDirectory() as _tmp:
             (code, r["failures"])
         code, r, row = go("ends_by_capture_cut", holds, last=36, changed_json=theirs)
         assert code == 0, f"a row cut short of the frames its capture names was failed on them: {r['failures']}"
+        # a shot that fades toward BT.709 tv black (16.0): difference from the source shrinks with the remaining luma
+        # headroom above black and passes; a row that slides to the source faster than the fade still fails on those frames
+        fade_luma = [48.0] * 15 + [36.0, 32.0, 28.8, 26.4, 24.8, 24.0]
+        fade_off = [12.0] * 15 + [7.5, 6.0, 4.8, 3.9, 2.5, 1.5]
+        slide_off = [12.0] * 15 + [7.5, 6.0, 3.5, 2.1, 1.4, 0.5]
+        rec_Of = lambda offs, lumas: {"rows": {"fade.mp4": {10 + i: {"under": {"off": o, "share": 0.9, "luma": y, "by": "the mask its run carried"}}
+                                                            for i, (o, y) in enumerate(zip(offs, lumas))}}}
+        sec_ok, prob_ok = tool.ends_of(rec_Of(fade_off, fade_luma), [[10, 30]])
+        assert not prob_ok and sec_ok["rows"][0]["end"]["on_the_source"] is None, (prob_ok, sec_ok["rows"][0])
+        sec_steady, prob_steady = tool.ends_of(rec_Of(fade_off, [48.0] * 21), [[10, 30]])
+        assert prob_steady and sec_steady["rows"][0]["end"]["on_the_source"] == [25, 30], (prob_steady, sec_steady["rows"][0])
+        sec_slid, prob_slid = tool.ends_of(rec_Of(slide_off, fade_luma), [[10, 30]])
+        assert prob_slid and sec_slid["rows"][0]["end"]["on_the_source"] == [28, 30], (prob_slid, sec_slid["rows"][0])
         return (f"paint thinning to nothing over a row's last five frames fails by its frames, and at its start as 'begins'; a row that holds reads "
-                f"{held_to:.2f} of its middle on its last frame and passes; cut short of the thinned frames it passes; the capture's own reading "
-                "of the render fails a row that lays the frames it names")
+                f"{held_to:.2f} of its middle on its last frame and passes; cut short of the thinned frames it passes; a fade toward black scales by luma headroom; "
+                "the capture's own reading of the render fails a row that lays the frames it names")
 
     def laid_by_its_region() -> str:
         """The lead's rulings of 2026-10-16: a piece whose records all say composite "whole region" is laid by its run's region

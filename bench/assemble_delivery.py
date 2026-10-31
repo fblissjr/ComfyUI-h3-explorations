@@ -2863,12 +2863,14 @@ def ends_of(record, shots, rows=(), captures=None) -> tuple[dict, list[str]]:
                                      f"change is counted from ({CHANGE:g}): a part row read under a whole track, or a row that does nothing")
             else:
                 tail = min(TAIL, k // 2)
+                mid_headroom = max(float(np.median(luma[middle])) - TV_BLACK, 1e-6)
+                luma_scale = np.clip((luma - TV_BLACK) / mid_headroom, 0.0, 1.0)
                 for end, order in (("end", list(range(k - 1, -1, -1))), ("start", list(range(k)))):
                     near = order[:tail]
                     run = []
-                    if off[order[0]] < END_LAST * level:
+                    if off[order[0]] < END_LAST * level * float(luma_scale[order[0]]):
                         for i in order:
-                            if off[i] >= END_RUN * level:
+                            if off[i] >= END_RUN * level * float(luma_scale[i]):
                                 break
                             run.append(seen[i][0])
                     entry[end] = {"outermost_frame_over_middle": round(float(off[order[0]]) / level, 3),
@@ -3397,6 +3399,7 @@ END_LAST = 1 / 3   # of the middle's level: the outermost frame under it, and th
 END_RUN = 2 / 3    # of the middle's level: the frames from that end that stay under it are the run that is named
 TAIL = 12          # frames at an end whose mean is written beside the middle's, for a slide too slow to trip END_LAST
 READ_LEAST = 12    # frames of a row in a shot under which an end is not read; the capture tool's own (`END_LEAST`)
+TV_BLACK = 16.0    # inherited: 8-bit BT.709 tv-range Y black level (studio swing 16..235, ITU-R BT.709 / BT709_TAGS)
 ZOOMED = "_zoomed"            # the two files a zoomed piece has beside it: <stem>_zoomed.json and <stem>_zoomed.mp4
 ZOOM_FILE = "h3 zoomed piece"
 ZOOM_CLEAR = 12               # canvas pixels the agreement is read clear of the region's edge by; reasoned: past this

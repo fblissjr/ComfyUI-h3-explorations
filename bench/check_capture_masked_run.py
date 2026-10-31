@@ -630,6 +630,16 @@ def what_changed() -> str:
     assert start["starts_on_the_source"]["source_frames"] == [100, 105] and start["ends_on_the_source"] is None, start
     dip = [40.0] * 15 + [5.0] + [40.0] * 14          # one low frame in the middle is not an end
     assert cap.source_at_the_ends(frames, dip, 2.0)["ends_on_the_source"] is None
+    # a fade to black where source luma drops alongside the difference (including to 0.0) does not trip as ending on the source
+    luma_fade = [80.0] * 22 + [68.0, 60.0, 48.0, 36.0, 24.0, 18.0, 12.0, 0.0]
+    fade_to_zero = fade[:-1] + [0.0]
+    assert cap.source_at_the_ends(frames, fade_to_zero, 2.0, luma_fade)["ends_on_the_source"] is None
+    assert cap.source_at_the_ends(frames, fade_to_zero[::-1], 2.0, luma_fade[::-1])["starts_on_the_source"] is None
+    # a render that slides to the source faster than the fade still trips on the frames under the scaled bar
+    slid_in_fade = [40.0] * 26 + [8.0, 5.0, 4.0, 2.0]
+    luma_tail_quarter = [80.0] * 26 + [20.0, 20.0, 20.0, 20.0]
+    end_faded = cap.source_at_the_ends(frames, slid_in_fade, 2.0, luma_tail_quarter)
+    assert end_faded["ends_on_the_source"]["source_frames"] == [127, 129], end_faded
     assert "nothing was replaced" in cap.source_at_the_ends(frames, [4.0] * 30, 2.0)["why_not_read"]
     assert "frames carry a mask" in cap.source_at_the_ends(frames[:5], [40.0] * 5, 2.0)["why_not_read"]
     return "a redrawn face, an untouched hairline and half of a neighbour's hand each read at their own difference"

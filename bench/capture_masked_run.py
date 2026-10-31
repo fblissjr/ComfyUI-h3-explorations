@@ -6879,14 +6879,15 @@ END_RUN = 2 / 3
 END_LEAST = 12
 
 
-def source_at_the_ends(frames: list[int], values: list[float], floor: float) -> dict:
+def source_at_the_ends(frames: list[int], values: list[float], floor: float, luma: list[float] | None = None) -> dict:
     """Does a render start or end on the source's own picture, under the mask it was given.
 
     `values` is the mean difference from the source under the run's carried mask inside its region, one a
     frame of `frames` (frames with no mask left out). The load's level is their median. An end is "on the
-    source" when its outermost frame is under `END_LAST` of the level; the run is the frames from that end
-    that stay under `END_RUN` of it. A render that replaced nothing (a level within three floors) is not
-    read: every frame of it is the source.
+    source" when its outermost frame is under `END_LAST` of the level (scaled by the frame's source luma
+    headroom over the load's median luma when `luma` is given, so a fade to black does not trip as a slide to
+    the source); the run is the frames from that end that stay under `END_RUN` of it. A render that replaced
+    nothing (a level within three floors) is not read: every frame of it is the source.
 
     Why it exists: a load shorter than its window ended on the original twice on 2026-10-10, found by eye and
     by a viewer. `flag_held_tail` names the cause before a render; this is the outcome that grades it, read on
@@ -6898,13 +6899,18 @@ def source_at_the_ends(frames: list[int], values: list[float], floor: float) -> 
     out["level"] = round(level, 2)
     if level < 3 * floor:
         return {**out, "why_not_read": "the render is within three floors of the source under its mask on a typical frame: nothing was replaced"}
+    if luma is not None and len(luma) == len(values):
+        mid_luma = max(float(np.median(luma)), 1e-6)
+        scale = [min(1.0, max(float(x), 0.0) / mid_luma) for x in luma]
+    else:
+        scale = [1.0] * len(values)
     for name, order in (("ends_on_the_source", range(len(values) - 1, -1, -1)), ("starts_on_the_source", range(len(values)))):
         order = list(order)
-        if values[order[0]] > level * END_LAST:
+        if values[order[0]] >= level * END_LAST * scale[order[0]]:
             continue
         run = []
         for i in order:
-            if values[i] > level * END_RUN:
+            if values[i] >= level * END_RUN * scale[i]:
                 break
             run.append(i)
         out[name] = {"source_frames": [frames[min(run)], frames[max(run)]], "frames": len(run),
@@ -6932,6 +6938,7 @@ def changed(a: argparse.Namespace) -> None:
     region = cells_up(np.load(folder / "runs" / a.run / "region.npz")["region"])
     carried = np.unpackbits(np.load(folder / "runs" / a.run / "region.npz")["carried"], axis=-1)[..., :w].astype(bool)
     own: list[tuple[int, float]] = []
+    own_luma: list[float] = []
     maps, tracks = {}, {}
     for s in m["subjects"]:
         by = s["sightings"][0]["by"]
@@ -6958,6 +6965,7 @@ def changed(a: argparse.Namespace) -> None:
         mine = carried[n] & region[n]
         if mine.sum() >= SEGMENT_PX:
             own.append((first + n, float(np.abs(s16 - r16)[mine].mean())))
+            own_luma.append(float(s16[mine].mean()))
         one = frame_changes(np.abs(s16 - r16), region[n], {k: v[n] for k, v in maps.items()}, {k: v[n] for k, v in tracks.items()}, names)
         if one["floor"] is not None:
             floors.append(one["floor"])
@@ -6985,7 +6993,7 @@ def changed(a: argparse.Namespace) -> None:
                                    "outside": round(float(np.median(out_)), 2) if out_ else None}
         print(f"  subject {key}: its mask inside the region on {len(ins)} frames, off the source there "
               + (f"{np.median(ins):.1f}" if ins else "-") + ", outside it " + (f"{np.median(out_):.1f}" if out_ else "-"))
-    record["ends"] = ends = source_at_the_ends([f for f, _ in own], [v for _, v in own], floor)
+    record["ends"] = ends = source_at_the_ends([f for f, _ in own], [v for _, v in own], floor, own_luma)
     record["under_the_carried_mask_by_frame"] = [[f, round(v, 1)] for f, v in own]
     for name in ("starts_on_the_source", "ends_on_the_source"):
         if ends[name]:
