@@ -657,6 +657,17 @@ def rebuild(
     logs: dict[str, str] = {}
 
     # 1. laid_verify
+    sync_log = out_dir / f"laid_sync_{video}_{stamp}.out"
+    sync_cmd = [
+        python_exe, str(BENCH / "laid.py"), "sync",
+        "--video", video,
+        "--laid", str(laid_path),
+        "--share", str(share),
+        "--answers", str(answers_path),
+        "--verdicts", str(verdicts_path),
+        "--data", str(vdir),
+    ]
+    run_step("laid_verify", sync_cmd, sync_log, repo, env, runner=runner)
     laid_log = out_dir / f"laid_verify_{video}_{stamp}.out"
     laid_cmd = [python_exe, str(BENCH / "laid.py"), "verify", "--laid", str(laid_path), "--share", str(share)]
     run_step("laid_verify", laid_cmd, laid_log, repo, env, runner=runner)

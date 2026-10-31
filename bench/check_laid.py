@@ -684,7 +684,69 @@ def partial_lay_requires_coverage_or_override() -> str:
             "was rendered on source.mp4 which does not hold lead's laid piece lead_fp_100a on 100-149",
             "--allow-parallel-raw WHY",
         )
-        # Passes when --allow-parallel-raw WHY is provided (or when rendered on a post-Pass-1 cut holding lead)
+        # If job.source is a cut whose sidecar holds lead on 100-149, but from a stale load (lead_fp_100_old != lead_fp_100a), it is also refused
+        cut_mp4 = share / "v_0000_0199_joined_2026-10-25T1000Z_from_laid.mp4"
+        cut_sc = Path(f"{cut_mp4}.json")
+        cut_sc.write_text(
+            json.dumps(
+                {
+                    "pieces": [
+                        {
+                            "first": 100,
+                            "last": 149,
+                            "subject": "lead",
+                            "name": "lead_fp_100_old",
+                            "load": {"load": "lead_fp_100_old", "stage": "render"},
+                        }
+                    ]
+                }
+            )
+        )
+        (job_dir / "job.render.json").write_text(json.dumps({"job": {"source": cut_mp4.name}}))
+        refused(
+            run(
+                "lay",
+                "--laid",
+                laid_path,
+                "--share",
+                share,
+                "--shot",
+                "100-199",
+                "--subject",
+                "second",
+                "--load",
+                "second_hfp_100a",
+                "--file",
+                "p_sec_00001.mp4",
+                "--frames",
+                "100-149",
+                "--owner",
+                "unconfirmed",
+                "--by",
+                "stale pass-1 cut",
+                "--allow-partial-lay",
+                "150-199 not in frame",
+                "--no-rebuild",
+                "test",
+            ),
+            "does not hold lead's laid piece lead_fp_100a on 100-149",
+        )
+        # When the cut sidecar holds lead's actual laid piece lead_fp_100a on 100-149, Pass 2 lay succeeds without --allow-parallel-raw
+        cut_sc.write_text(
+            json.dumps(
+                {
+                    "pieces": [
+                        {
+                            "first": 100,
+                            "last": 149,
+                            "subject": "lead",
+                            "name": "lead_fp_100a",
+                            "load": {"load": "lead_fp_100a", "stage": "render"},
+                        }
+                    ]
+                }
+            )
+        )
         r4 = run(
             "lay",
             "--laid",
@@ -704,16 +766,289 @@ def partial_lay_requires_coverage_or_override() -> str:
             "--owner",
             "unconfirmed",
             "--by",
-            "parallel raw pass with ack",
+            "pass 2 on cut holding lead_fp_100a",
             "--allow-partial-lay",
             "150-199 not in frame",
-            "--allow-parallel-raw",
-            "non-overlapping boxes verified on sheet",
             "--no-rebuild",
             "test",
         )
         assert r4.returncode == 0, r4.stdout + r4.stderr
-    return "partial lay leaving uncovered shot frames and parallel Pass-1 raw lay refused; passes with sibling laid row, shots.json `not seen`, or explicit override"
+    return "partial lay leaving uncovered shot frames and parallel/stale Pass-1 raw lay refused; passes with cut holding exact laid load, sibling row, `not seen`, or override"
+
+
+def same_subject_carve_and_restore() -> str:
+    """When a newer keep overlaps an earlier row of the same subject, it carves the overlapping frames (`carved_by`),
+    moves a wholly carved row to `laid.removed.jsonl` (`carved_whole_by`, populating `replaces` on same-shot whole carve),
+    and restores carved frames / carved-whole rows when the newer row is removed."""
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        share = root / "share"
+        share.mkdir(parents=True)
+        for name in ("a1", "a2", "a3"):
+            (share / f"{name}_00001.mp4").write_bytes(name.encode() * 32)
+        vdir = root / "data" / "v"
+        vdir.mkdir(parents=True)
+        # Create capture manifests for lead_fp_100a (replaces all of 100-199) and lead_fp_150b (leaves 180-189 as original)
+        cap_a = root / "data" / "2026-10-20_lead_fp_100a"
+        cap_a.mkdir(parents=True)
+        (cap_a / "manifest.json").write_text(
+            json.dumps({"first_frame": 100, "frames": 100, "subjects": [{"label": "lead", "sightings": [{"parts_emptied_on_source_frames": []}]}]})
+        )
+        cap_b = root / "data" / "2026-10-21_lead_fp_150b"
+        cap_b.mkdir(parents=True)
+        (cap_b / "manifest.json").write_text(
+            json.dumps({"first_frame": 150, "frames": 50, "subjects": [{"label": "lead", "sightings": [{"parts_emptied_on_source_frames": [[180, 189]]}]}]})
+        )
+        laid_path = vdir / "laid.jsonl"
+        answers_path = vdir / "owner_answers.jsonl"
+        verdicts_path = vdir / "verdicts.jsonl"
+        verdicts_path.write_text("")
+        answers = [
+            {"at": "2026-10-20T10:00:00Z", "who": "owner", "row": "lead_fp_100a", "frames": [100, 199], "what": "choice", "chosen": "keep this one"},
+            {"at": "2026-10-21T10:00:00Z", "who": "owner", "row": "lead_fp_150b", "frames": [150, 199], "what": "choice", "chosen": "keep this one"},
+            {"at": "2026-10-22T10:00:00Z", "who": "owner", "row": "lead_fp_100c", "frames": [100, 199], "what": "choice", "chosen": "keep this one"},
+        ]
+        answers_path.write_text("".join(json.dumps(x) + "\n" for x in answers))
+
+        # 1. Lay lead_fp_100a (kept at 2026-10-20T10:00:00Z) on 100-199
+        r1 = run(
+            "lay", "--laid", laid_path, "--share", share, "--shot", "100-199", "--subject", "lead",
+            "--load", "lead_fp_100a", "--file", "a1_00001.mp4", "--owner", "kept",
+            "--owner-word", f"{answers_path}:1", "--by", "first keep", "--no-rebuild", "test",
+        )
+        assert r1.returncode == 0, r1.stdout + r1.stderr
+
+        # 2. Unconfirmed row cannot carve an active keep
+        refused(
+            run(
+                "lay", "--laid", laid_path, "--share", share, "--shot", "100-199", "--subject", "lead",
+                "--load", "lead_fp_150u", "--file", "a2_00001.mp4", "--frames", "150-199", "--owner", "unconfirmed",
+                "--by", "unconfirmed try", "--no-rebuild", "test",
+            ),
+            "cannot carve or replace active keep lead_fp_100a",
+        )
+
+        # 3. Newer keep lead_fp_150b on 150-199 carves lead_fp_100a to 100-149 and records carved_by
+        r2 = run(
+            "lay", "--laid", laid_path, "--share", share, "--shot", "100-199", "--subject", "lead",
+            "--load", "lead_fp_150b", "--file", "a2_00001.mp4", "--frames", "150-199", "--owner", "kept",
+            "--owner-word", f"{answers_path}:2", "--by", "second keep carves tail", "--no-rebuild", "test",
+        )
+        assert r2.returncode == 0, r2.stdout + r2.stderr
+        rows = [json.loads(line) for line in laid_path.read_text().splitlines() if line.strip()]
+        assert len(rows) == 2, rows
+        assert rows[0]["load"] == "lead_fp_100a" and rows[0]["frames"] == [[100, 149]], rows[0]
+        assert rows[0]["carved_by"][0]["load"] == "lead_fp_150b" and rows[0]["carved_by"][0]["frames"] == [[150, 199]], rows[0]
+        assert rows[1]["load"] == "lead_fp_150b" and rows[1]["frames"] == [[150, 199]], rows[1]
+        assert rows[1]["original_restored_over_replacement"] == [
+            {
+                "older_load": "lead_fp_100a",
+                "frames": [[180, 189]],
+                "why": "newer keep leaves frame(s) as original where older keep replaced subject",
+            }
+        ], rows[1]
+
+        # 4. Newer keep lead_fp_100c on 100-199 carves both whole, moves them to laid.removed.jsonl with carved_whole_by, and records replaces
+        r3 = run(
+            "lay", "--laid", laid_path, "--share", share, "--shot", "100-199", "--subject", "lead",
+            "--load", "lead_fp_100c", "--file", "a3_00001.mp4", "--frames", "100-199", "--owner", "kept",
+            "--owner-word", f"{answers_path}:3", "--by", "third keep carves whole shot", "--no-rebuild", "test",
+        )
+        assert r3.returncode == 0, r3.stdout + r3.stderr
+        rows = [json.loads(line) for line in laid_path.read_text().splitlines() if line.strip()]
+        assert len(rows) == 1 and rows[0]["load"] == "lead_fp_100c" and rows[0]["frames"] == [[100, 199]], rows
+        assert rows[0].get("replaces") == ["lead_fp_100a", "lead_fp_150b"], rows[0]
+
+        # 5. Removing lead_fp_100c restores lead_fp_100a (100-149) and lead_fp_150b (150-199); removing lead_fp_150b restores lead_fp_100a to 100-199
+        r4 = run(
+            "remove", "--laid", laid_path, "--share", share, "--load", "lead_fp_100c",
+            "--by", "undo third keep", "--no-rebuild", "test",
+        )
+        assert r4.returncode == 0, r4.stdout + r4.stderr
+        rows = [json.loads(line) for line in laid_path.read_text().splitlines() if line.strip()]
+        assert [(x["load"], x["frames"]) for x in rows] == [
+            ("lead_fp_100a", [[100, 149]]),
+            ("lead_fp_150b", [[150, 199]]),
+        ], rows
+        r5 = run(
+            "remove", "--laid", laid_path, "--share", share, "--load", "lead_fp_150b",
+            "--by", "undo second keep", "--no-rebuild", "test",
+        )
+        assert r5.returncode == 0, r5.stdout + r5.stderr
+        rows = [json.loads(line) for line in laid_path.read_text().splitlines() if line.strip()]
+        assert len(rows) == 1 and rows[0]["load"] == "lead_fp_100a" and rows[0]["frames"] == [[100, 199]] and "carved_by" not in rows[0], rows
+    return "same-subject keep carves overlapping frames, records carved_by/carved_whole_by/replaces, and remove restores them"
+
+
+def sync_and_keeps_rules() -> str:
+    """`sync` and `keeps` preserve existing partial lays and `replaces`, subtract `not seen` frames on unlaid keeps,
+    respect `replaces` superseding, never use a load-letter heuristic, and never rewrite already-kept rows on path differences."""
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        share = root / "share"
+        v_out = share / "Video" / "v"
+        v_out.mkdir(parents=True)
+        for ld in ("lead_fp_100d", "lead_fp_100b", "lead_fp_200c", "lead_fp_200d", "lead_fp_300a"):
+            p = v_out / f"{ld}_00001.mp4"
+            p.write_bytes(ld.encode() * 32)
+        vdir = root / "data" / "v"
+        vdir.mkdir(parents=True)
+        laid_path = vdir / "laid.jsonl"
+        answers_path = vdir / "owner_answers.jsonl"
+        verdicts_path = vdir / "verdicts.jsonl"
+        verdicts_path.write_text("")
+        shots_path = vdir / "shots.json"
+        shots_path.write_text(
+            json.dumps(
+                {
+                    "shots": [
+                        {"shot": 1, "first": 100, "last": 199, "who": {"lead": {"seen_looks": []}}},
+                        {
+                            "shot": 2,
+                            "first": 200,
+                            "last": 299,
+                            "who": {
+                                "lead": {
+                                    "seen_looks": [
+                                        {
+                                            "first": 290,
+                                            "last": 299,
+                                            "is": "not seen",
+                                            "part": "head",
+                                            "by": "reader",
+                                            "at": "2026-10-20T00:00:00Z",
+                                        }
+                                    ]
+                                }
+                            },
+                        },
+                        {"shot": 3, "first": 300, "last": 399, "who": {"lead": {"seen_looks": []}}},
+                    ]
+                }
+            )
+        )
+        # Shot 1 (100-199): lead_fp_100d is older than lead_fp_100b ('b' < 'd' alphabetically, but 'b' is NEWER by timestamp!)
+        # Shot 2 (200-299): lead_fp_200d (200-289) is laid with replaces="lead_fp_200c", while 290-299 is `not seen` in shots.json
+        # Shot 3 (300-399): lead_fp_300a is intentionally laid on 300-350 (partial lay) with relative owner_word "data/v/owner_answers.jsonl:4"
+        answers = [
+            {"at": "2026-10-20T10:00:00Z", "who": "owner", "row": "lead_fp_100d", "frames": [100, 199], "what": "choice", "chosen": "keep this one"},
+            {"at": "2026-10-25T10:00:00Z", "who": "owner", "row": "lead_fp_100b", "frames": [100, 199], "what": "choice", "chosen": "keep this one"},
+            {"at": "2026-10-21T10:00:00Z", "who": "owner", "row": "lead_fp_200c", "frames": [200, 299], "what": "choice", "chosen": "keep this one"},
+            {"at": "2026-10-22T10:00:00Z", "who": "owner", "row": "lead_fp_200d", "frames": [200, 289], "what": "choice", "chosen": "keep this one"},
+            {"at": "2026-10-23T10:00:00Z", "who": "owner", "row": "lead_fp_300a", "frames": [300, 399], "what": "choice", "chosen": "keep this one"},
+        ]
+        answers_path.write_text("".join(json.dumps(x) + "\n" for x in answers))
+
+        import hashlib
+        def _sha(ld: str) -> str:
+            return hashlib.sha256((v_out / f"{ld}_00001.mp4").read_bytes()).hexdigest()
+
+        initial_laid = [
+            {
+                "schema": "h3_laid/1",
+                "first": 100,
+                "last": 199,
+                "subject": "lead",
+                "load": "lead_fp_100d",
+                "file": "Video/v/lead_fp_100d_00001.mp4",
+                "sha256": _sha("lead_fp_100d"),
+                "owner": "kept",
+                "by": "older keep",
+                "owner_word": "data/v/owner_answers.jsonl:1",
+                "frames": [[100, 199]],
+                "added": "2026-10-20T10:00:00Z",
+                "added_by": "check",
+            },
+            {
+                "schema": "h3_laid/1",
+                "first": 200,
+                "last": 299,
+                "subject": "lead",
+                "load": "lead_fp_200d",
+                "file": "Video/v/lead_fp_200d_00001.mp4",
+                "sha256": _sha("lead_fp_200d"),
+                "owner": "kept",
+                "by": "kept on 200-289",
+                "owner_word": "data/v/owner_answers.jsonl:4",
+                "frames": [[200, 289]],
+                "added": "2026-10-22T10:00:00Z",
+                "added_by": "check",
+                "replaces": "lead_fp_200c",
+            },
+            {
+                "schema": "h3_laid/1",
+                "first": 300,
+                "last": 399,
+                "subject": "lead",
+                "load": "lead_fp_300a",
+                "file": "Video/v/lead_fp_300a_00001.mp4",
+                "sha256": _sha("lead_fp_300a"),
+                "owner": "kept",
+                "by": "kept partial lay on 300-350",
+                "owner_word": "data/v/owner_answers.jsonl:5",
+                "frames": [[300, 350]],
+                "partial_lay_why": "351-399 awaiting decision",
+                "added": "2026-10-23T10:00:00Z",
+                "added_by": "check",
+            },
+        ]
+        laid_path.write_text("".join(json.dumps(x) + "\n" for x in initial_laid))
+
+        # Before sync: `keeps` must NOT treat lead_fp_100b (newer timestamp, earlier letter 'b' < 'd') as superseded by lead_fp_100d!
+        refused(
+            run("keeps", "--video", "v", "--laid", laid_path, "--answers", answers_path, "--verdicts", verdicts_path),
+            "KEEP_NOT_LAID",
+            "lead_fp_100b",
+        )
+
+        # Run `sync`:
+        # - lead_fp_100b carves whole lead_fp_100d and populates replaces="lead_fp_100d"
+        # - lead_fp_200c is NOT laid on 290-299 (excluded by both replaces on lead_fp_200d and not seen in shots.json)
+        # - lead_fp_200d preserves replaces="lead_fp_200c" and is not rewritten
+        # - lead_fp_300a preserves frames=[[300, 350]] and its by/owner_word/history are NOT rewritten
+        r_sync = run(
+            "sync", "--video", "v", "--laid", laid_path, "--share", share,
+            "--answers", answers_path, "--verdicts", verdicts_path, "--data", vdir,
+        )
+        assert r_sync.returncode == 0, r_sync.stdout + r_sync.stderr
+        synced_rows = [json.loads(line) for line in laid_path.read_text().splitlines() if line.strip()]
+        assert [x["load"] for x in synced_rows] == ["lead_fp_200d", "lead_fp_300a", "lead_fp_100b"], synced_rows
+        assert synced_rows[0]["replaces"] == "lead_fp_200c" and "history" not in synced_rows[0], synced_rows[0]
+        assert synced_rows[1]["frames"] == [[300, 350]] and synced_rows[1]["by"] == "kept partial lay on 300-350" and "history" not in synced_rows[1], synced_rows[1]
+        assert synced_rows[2]["replaces"] == "lead_fp_100d" and synced_rows[2]["frames"] == [[100, 199]], synced_rows[2]
+
+        # Re-running `sync` is a clean no-op
+        before_resync = laid_path.read_bytes()
+        r_sync2 = run(
+            "sync", "--video", "v", "--laid", laid_path, "--share", share,
+            "--answers", answers_path, "--verdicts", verdicts_path, "--data", vdir,
+        )
+        assert r_sync2.returncode == 0 and "already in sync" in r_sync2.stdout, r_sync2.stdout + r_sync2.stderr
+        assert laid_path.read_bytes() == before_resync
+
+        # Also verify Rule 2(a) alone (replaces without `not seen` in shots.json):
+        # If shots.json has no `not seen` on 290-299, lead_fp_200c (kept on 200-299 at 2026-10-21) is still excluded from sync and keeps
+        # because active keep lead_fp_200d (kept at 2026-10-22) has replaces="lead_fp_200c".
+        shots_path.write_text(
+            json.dumps(
+                {
+                    "shots": [
+                        {"shot": 1, "first": 100, "last": 199, "who": {"lead": {"seen_looks": []}}},
+                        {"shot": 2, "first": 200, "last": 299, "who": {"lead": {"seen_looks": []}}},
+                        {"shot": 3, "first": 300, "last": 399, "who": {"lead": {"seen_looks": []}}},
+                    ]
+                }
+            )
+        )
+        r_sync3 = run(
+            "sync", "--video", "v", "--laid", laid_path, "--share", share,
+            "--answers", answers_path, "--verdicts", verdicts_path, "--data", vdir,
+        )
+        assert r_sync3.returncode == 0 and "already in sync" in r_sync3.stdout, r_sync3.stdout + r_sync3.stderr
+        r_keeps2 = run("keeps", "--video", "v", "--laid", laid_path, "--answers", answers_path, "--verdicts", verdicts_path)
+        assert r_keeps2.returncode == 0, r_keeps2.stdout + r_keeps2.stderr
+        assert "0 kept loads missing from laid.jsonl; 0 laid loads marked wrong" in r_keeps2.stdout, r_keeps2.stdout
+    return "sync and keeps obey chronological keep order without letter heuristics, preserve partial lays and replaces, and exclude not-seen/replaced keeps"
 
 
 if __name__ == "__main__":
@@ -724,4 +1059,6 @@ if __name__ == "__main__":
     case("a_removed_line_leaves_its_record", a_removed_line_leaves_its_record)
     case("keeps_verifies_and_refuses", keeps_verifies_and_refuses)
     case("partial_lay_requires_coverage_or_override", partial_lay_requires_coverage_or_override)
+    case("same_subject_carve_and_restore", same_subject_carve_and_restore)
+    case("sync_and_keeps_rules", sync_and_keeps_rules)
     sys.exit(finish())

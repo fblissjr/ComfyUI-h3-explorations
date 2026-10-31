@@ -51,7 +51,9 @@ and nothing is laid or tracked under a label, it fails the build until a row or 
 label. The first clip built from a generated table failed sixteen times on exactly that, every one a subject
 the shots file had answered `no` for.
 
-On one shot several renders can stand on different frames. They are taken in the order above, and each later
+On one shot several renders can stand on different frames. When `--laid` is given (`bench/laid.py`), at most one
+render per `(subject, frame)` is laid (decided per frame by newest keep time in `bench/laid.py`, carving older
+pieces of the same subject only). Without `--laid`, renders are taken in the order above, and each later
 one is laid only on frames no earlier one took. Frames of a shot that no render takes are a `source` line when
 they are the whole shot (the assembler takes a `source` line only over a whole shot) and a comment in the table
 otherwise.
@@ -530,7 +532,8 @@ def decide(ledger: dict, shots: dict, plan: dict, prefers: list[dict] | None = N
                 stands.append({"render": r["name"], "file": r["file"], "written": r["written"], "frames": runs(take), "why": why, "step": step,
                                # step 0 is the lead's word, not the owner's: its reason whole, for every page that shows the piece
                                "the_leads_prefer": next((p["reason"] for p in preferred if p["load"] == r["name"]), None) if step == 0 and laid is None else None,
-                               "laid_line": next(({k: x[k] for k in ("line", "owner", "by", "sha256")} for x in laid_here if (x["load"], x["file"]) == (r["name"], r["file"])), None),
+                               "laid_line": next(({k: x[k] for k in ("line", "owner", "by", "sha256", "carved_by", "original_restored_over_replacement") if k in x}
+                                                  for x in laid_here if (x["load"], x["file"]) == (r["name"], r["file"])), None),
                                # the frames of these that the piece's own load left as the original (the ledger's read of its capture)
                                # None where the ledger does not say (no capture record of it): not known is not none
                                "leaves_as_the_original": None if r.get("leaves_as_the_original") is None else runs(sorted(
@@ -826,6 +829,25 @@ def reading_text(out: dict, made: str, table: str, built: dict | None = None) ->
         lines += ["## Subjects the shots file says are not in a shot", "",
                   "Each has a `source` line in the table saying so, since the assembler does not read the shots file. Nothing was looked for on these.", ""]
         lines += [f"- `source {frames(n['first'], n['last'])} subject={n['subject']}`: {n['why']}" for n in out["not_in_the_shot"]] + [""]
+    if any(out.get(k) for k in ("carved_frames", "original_restored_over_replacement", "stale_pieces", "neither_made_on_the_other", "source_has_no_record")):
+        lines += ["## Frame-level carving and cross-subject cut provenance", ""]
+        for cf in out.get("carved_frames") or []:
+            rem_s = ", ".join(frames(a, b) for a, b in cf["remaining_frames"]) if cf["remaining_frames"] else "carved whole"
+            cby_s = "; ".join(f"`{c.get('load')}` on {', '.join(frames(a, b) for a, b in (c.get('frames') or []))}" for c in (cf.get("carved_by") or []))
+            lines.append(f"- carved (`{cf['subject']}`): `{cf['load']}` (remaining: {rem_s}) carved by {cby_s}")
+        for orr in out.get("original_restored_over_replacement") or []:
+            orr_s = "; ".join(f"`{k.get('older_load')}` on {', '.join(frames(a, b) for a, b in (k.get('frames') or []))}" for k in (orr.get("original_restored_over_replacement") or []))
+            lines.append(f"- original restored over older replacement (`{orr['subject']}`): `{orr['load']}` leaves frame(s) as original where {orr_s} replaced `{orr['subject']}`")
+        for sp in out.get("stale_pieces") or []:
+            sp_frames = ", ".join(frames(a, b) for a, b in sp["frames"])
+            lines.append(f"- stale piece: `{sp['load']}` (`{sp['subject']}`) on {sp_frames} was made on `{sp['source_cut']}` holding `{sp['other_subject']}`'s `{sp['source_piece']}`, now laid is `{sp['current_laid_piece']}`")
+        for nm in out.get("neither_made_on_the_other") or []:
+            nm_frames = ", ".join(frames(a, b) for a, b in nm["frames"])
+            lines.append(f"- neither made on the other: `{nm['loads'][0]}` (`{nm['subjects'][0]}`) and `{nm['loads'][1]}` (`{nm['subjects'][1]}`) on {nm_frames} (sources: `{nm['sources'][0]}`, `{nm['sources'][1]}`)")
+        for nr in out.get("source_has_no_record") or []:
+            nr_frames = ", ".join(frames(a, b) for a, b in nr["frames"])
+            lines.append(f"- source has no record: `{nr['load']}` (`{nr['subject']}`) on {nr_frames}: {nr['why']} (source: `{nr['source']}`)")
+        lines.append("")
     return "\n".join(lines) + "\n"
 
 
@@ -874,10 +896,23 @@ def main() -> int:
     ledger = json.load(open(a.ledger))
     span = tuple(int(v) for v in a.span.split("-")) if a.span else tuple(shots["span"])
     laid_lines = None
+    laid_prov = None
     if a.laid:
         import laid as laid_list
         laid_lines = laid_list.read(a.laid, ledger["share"])            # a file whose bytes are not the line's sha256 stops here
+        lp = Path(a.laid).resolve()
+        rem_p = laid_list.removed_path(lp)
+        rem_rows = [json.loads(t) for t in rem_p.read_text().splitlines() if t.strip()] if rem_p.is_file() else []
+        by_ld: dict[str, list[dict]] = {}
+        for x in laid_lines:
+            by_ld.setdefault(str(x["load"]), []).append(x)
+        act_rem = laid_list._active_removed_rows(rem_rows, by_ld)
+        laid_prov = laid_list.audit_cross_subject_provenance(
+            laid_lines, lp, lp.parent.name, share=Path(ledger["share"]), data_arg=str(lp.parent), active_rem_rows=act_rem
+        )
     out = decide(ledger, shots, plan, [parse_prefer(x) for x in a.prefer], span if a.span else None, [parse_hold(x) for x in a.hold], laid_lines)
+    if laid_prov is not None:
+        out.update(laid_prov)
     commit = subprocess.run(["git", "-C", str(HERE.parent), "rev-parse", "--short", "HEAD"], capture_output=True, text=True).stdout.strip()
     now = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     made = (f"Made {now} at commit {commit} from the ledger `{a.ledger}` ({str(ledger.get('made') or 'which does not say when it was made').split(' from')[0]}), "

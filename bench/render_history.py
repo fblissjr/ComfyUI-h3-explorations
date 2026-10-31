@@ -447,12 +447,24 @@ STACKED_CLIP = re.compile(r"^(?P<load>.+?)_\d{4}_\d{4}_stacked\.mp4$")
 def laid_index(laid_path: Path | None) -> tuple[list[dict], list[dict]]:
     """(the lines of `laid.jsonl`, the lines taken out of it, `laid.removed.jsonl`'s `removed` objects with why and when)."""
     now = [d for _, d in jsonl(laid_path)]
+    now_loads = {str(d.get("load") or "") for d in now}
     gone = []
     if laid_path is not None:
+        by_key: dict[tuple[str, str, int, int], list[dict]] = {}
         for _, d in jsonl(rl_removed(laid_path)):
             x = d.get("removed")
             if isinstance(x, dict):
-                gone.append({**x, "_by": d.get("by"), "_at": d.get("at"), "_by_session": d.get("by_session")})
+                ld = str(x.get("load") or "")
+                if ld in now_loads:
+                    continue
+                k = (str(x.get("subject") or ""), ld, int(x.get("first", -1)), int(x.get("last", -1)))
+                by_key.setdefault(k, []).append({**x, "_by": d.get("by"), "_at": d.get("at"), "_by_session": d.get("by_session")})
+            elif isinstance(d.get("restored"), dict):
+                rs = d["restored"]
+                k = (str(rs.get("subject") or ""), str(rs.get("load") or ""), int(rs.get("first", -1)), int(rs.get("last", -1)))
+                by_key.pop(k, None)
+        for items in by_key.values():
+            gone.extend(items)
     return now, gone
 
 
