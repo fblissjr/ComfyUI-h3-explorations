@@ -316,7 +316,22 @@ def keeps_verifies_and_refuses() -> str:
             "third_fp_1466b",
             "wrong, and I say where",
         )
-    return "split-span and multi-subject shot verified; superseded keeps reported; KEEP_NOT_LAID and LAID_MARKED_WRONG refused in the tool's words"
+
+        # 4. A "taken back" click on an already-laid row leaves it laid and `keeps` reports LAID_MARKED_WRONG (taken back) and exits non-zero;
+        #    re-keeping the row at a newer timestamp clears the refusal.
+        answers_taken_back = [*answers, {"at": "2026-10-17T13:00:00Z", "who": "owner", "row": "third_fp_1466b", "frames": [1466, 1531], "what": "choice", "chosen": "taken back"}]
+        answers_path.write_text("".join(json.dumps(x) + "\n" for x in answers_taken_back))
+        refused(
+            run("keeps", "--video", "v", "--laid", laid_path, "--answers", answers_path, "--verdicts", verdicts_path),
+            "LAID_MARKED_WRONG",
+            "third_fp_1466b",
+            "taken back (2026-10-17T13:00:00Z, owner_answers.jsonl:6)",
+        )
+        answers_rekept = [*answers_taken_back, {"at": "2026-10-17T14:00:00Z", "who": "owner", "row": "third_fp_1466b", "frames": [1466, 1531], "what": "choice", "chosen": "keep this one"}]
+        answers_path.write_text("".join(json.dumps(x) + "\n" for x in answers_rekept))
+        r_rekept = run("keeps", "--video", "v", "--laid", laid_path, "--answers", answers_path, "--verdicts", verdicts_path)
+        assert r_rekept.returncode == 0, r_rekept.stdout + r_rekept.stderr
+    return "split-span and multi-subject shot verified; superseded keeps reported; KEEP_NOT_LAID and LAID_MARKED_WRONG (including taken back) refused in the tool's words"
 
 
 def partial_lay_requires_coverage_or_override() -> str:
@@ -930,12 +945,14 @@ def sync_and_keeps_rules() -> str:
         # Shot 1 (100-199): lead_fp_100d is older than lead_fp_100b ('b' < 'd' alphabetically, but 'b' is NEWER by timestamp!)
         # Shot 2 (200-299): lead_fp_200d (200-289) is laid with replaces="lead_fp_200c", while 290-299 is `not seen` in shots.json
         # Shot 3 (300-399): lead_fp_300a is intentionally laid on 300-350 (partial lay) with relative owner_word "data/v/owner_answers.jsonl:4"
+        # Also include a review-card row with an underscore suffix (`lead_fp_300a_tail_351_399`) which is not a render load name and must be ignored by `sync` and `keeps`.
         answers = [
             {"at": "2026-10-20T10:00:00Z", "who": "owner", "row": "lead_fp_100d", "frames": [100, 199], "what": "choice", "chosen": "keep this one"},
             {"at": "2026-10-25T10:00:00Z", "who": "owner", "row": "lead_fp_100b", "frames": [100, 199], "what": "choice", "chosen": "keep this one"},
             {"at": "2026-10-21T10:00:00Z", "who": "owner", "row": "lead_fp_200c", "frames": [200, 299], "what": "choice", "chosen": "keep this one"},
             {"at": "2026-10-22T10:00:00Z", "who": "owner", "row": "lead_fp_200d", "frames": [200, 289], "what": "choice", "chosen": "keep this one"},
             {"at": "2026-10-23T10:00:00Z", "who": "owner", "row": "lead_fp_300a", "frames": [300, 399], "what": "choice", "chosen": "keep this one"},
+            {"at": "2026-10-24T10:00:00Z", "who": "owner", "row": "lead_fp_300a_tail_351_399", "frames": [300, 399], "what": "choice", "chosen": "keep this one"},
         ]
         answers_path.write_text("".join(json.dumps(x) + "\n" for x in answers))
 
@@ -1011,6 +1028,7 @@ def sync_and_keeps_rules() -> str:
             "--answers", answers_path, "--verdicts", verdicts_path, "--data", vdir,
         )
         assert r_sync.returncode == 0, r_sync.stdout + r_sync.stderr
+        assert "UNSYNCED_KEEP" not in r_sync.stdout and "lead_fp_300a_tail_351_399" not in r_sync.stdout, r_sync.stdout
         synced_rows = [json.loads(line) for line in laid_path.read_text().splitlines() if line.strip()]
         assert [x["load"] for x in synced_rows] == ["lead_fp_200d", "lead_fp_300a", "lead_fp_100b"], synced_rows
         assert synced_rows[0]["replaces"] == "lead_fp_200c" and "history" not in synced_rows[0], synced_rows[0]
@@ -1048,7 +1066,23 @@ def sync_and_keeps_rules() -> str:
         r_keeps2 = run("keeps", "--video", "v", "--laid", laid_path, "--answers", answers_path, "--verdicts", verdicts_path)
         assert r_keeps2.returncode == 0, r_keeps2.stdout + r_keeps2.stderr
         assert "0 kept loads missing from laid.jsonl; 0 laid loads marked wrong" in r_keeps2.stdout, r_keeps2.stdout
-    return "sync and keeps obey chronological keep order without letter heuristics, preserve partial lays and replaces, and exclude not-seen/replaced keeps"
+
+        # Also verify that if a laid row with no replacement (`lead_fp_300a`) receives a "taken back" click,
+        # `sync` leaves it in `laid.jsonl` and `keeps` reports `LAID_MARKED_WRONG (taken back)` and exits non-zero.
+        answers_tb = [*answers, {"at": "2026-10-26T10:00:00Z", "who": "owner", "row": "lead_fp_300a", "frames": [300, 399], "what": "choice", "chosen": "taken back"}]
+        answers_path.write_text("".join(json.dumps(x) + "\n" for x in answers_tb))
+        r_sync_tb = run(
+            "sync", "--video", "v", "--laid", laid_path, "--share", share,
+            "--answers", answers_path, "--verdicts", verdicts_path, "--data", vdir,
+        )
+        assert r_sync_tb.returncode == 0 and "already in sync" in r_sync_tb.stdout, r_sync_tb.stdout + r_sync_tb.stderr
+        refused(
+            run("keeps", "--video", "v", "--laid", laid_path, "--answers", answers_path, "--verdicts", verdicts_path),
+            "LAID_MARKED_WRONG",
+            "lead_fp_300a",
+            "taken back",
+        )
+    return "sync and keeps obey chronological keep order without letter heuristics, preserve partial lays and replaces, exclude not-seen/replaced keeps, and refuse taken-back laid rows"
 
 
 if __name__ == "__main__":

@@ -642,10 +642,12 @@ def _load_owner_choices(
         cpath_str, sep, _ = str(cite or "").rpartition(":")
         if sep and cpath_str:
             cp = Path(cpath_str)
-            if not cp.is_file() and cpath_str.startswith(f"data/{vdir.name}/"):
+            if cpath_str.startswith(f"data/{vdir.name}/"):
                 cand_cp = vdir / cpath_str[len(f"data/{vdir.name}/"):]
                 if cand_cp.is_file():
                     cp = cand_cp
+            elif (vdir / cp.name).is_file():
+                cp = vdir / cp.name
             if not cp.is_file() and (HERE.parent / cpath_str).is_file():
                 cp = HERE.parent / cpath_str
             if cp.is_file() and cp.resolve() not in seen_files:
@@ -708,9 +710,6 @@ def _load_owner_choices(
                     "what": d.get("what"),
                 }
 
-    for row in list(choices.keys()):
-        if choices[row]["chosen"].lower() == "taken back":
-            del choices[row]
     return choices, frames_by_row
 
 
@@ -1362,7 +1361,7 @@ def set_owner(a: argparse.Namespace) -> int:
     return _run_autorebuild(a, laid_path, video, share)
 
 
-RENDER_LOAD_RE = re.compile(r"^(lead|second|third|fourth)_(?:hfp|fp)_(\d+)([a-z0-9_]*)$")
+RENDER_LOAD_RE = re.compile(r"^(lead|second|third|fourth)_(?:hfp|fp)_(\d+)([a-z]*)$")
 
 
 def _spans_of_laid(x: dict) -> list[list[int]]:
@@ -1727,7 +1726,7 @@ def _resolve_load_metadata_for_sync(
         or built_subject
     )
     if not subject:
-        m = RENDER_LOAD_RE.match(load_name) or re.match(r"^(lead|second|third|fourth)_(?:hfp|fp|hf|hp|g)_", load_name)
+        m = RENDER_LOAD_RE.match(load_name)
         if m:
             subject = m.group(1)
 
@@ -2450,7 +2449,7 @@ def keeps(a: argparse.Namespace) -> int:
                 covering_newer: list[str] = []
                 covered_fset: set[int] = set()
                 for x in laid_rows:
-                    if str(x["subject"]) != sub:
+                    if str(x["subject"]) != sub or not _is_active_keep(x, choices):
                         continue
                     ov = seen_fset & _frame_set(_spans_of_laid(x))
                     if ov:
@@ -2575,7 +2574,7 @@ def keeps(a: argparse.Namespace) -> int:
             if not rinfo["queued_at"] or not x_qat or _norm_iso(rinfo["queued_at"]) <= x_qat:
                 continue
             rch = choices.get(rname)
-            if rch is not None and not _is_keep(rch["chosen"]):
+            if rch is not None and not _is_keep(rch["chosen"]) and rch["chosen"].strip().lower() not in ("taken back", "not sure"):
                 continue
             newer_unlaid_renders.append({
                 "shot": f"{x['first']}-{x['last']}",
