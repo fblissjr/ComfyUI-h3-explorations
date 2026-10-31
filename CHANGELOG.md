@@ -7,6 +7,46 @@ artifact.
 <!-- To add an entry: write a file in changelog.d/ (changelog.d/README.md has the three steps) and run
      bench/build_changelog.py. Do not type an entry in here: the newest entries below are generated. -->
 
+## 0.301.0
+<!-- changelog.d/day-2026-10-30.md -->
+
+### Added
+
+- `bench/assemble_delivery.py` and `bench/rebuild_delivery.py` take optional `--share [h264|hevc]`, `--share-out` and
+  `--share-max-mb` flags (default off) for 2-pass `<95 MB` H.264 and 10-bit HEVC share copies, with up-front refusal on
+  invalid codecs or `--share-max-mb <= 0` (`check_assemble_delivery.py`, `check_rebuild_delivery.py`).
+- `bench/masked_job.py`: `texts_for()` accepts an optional `job["not_cuts"]` statement (`frames`, `by`, `evidence`)
+  that clears verified false tracker cuts in the shot's cut table while keeping the cut refusal on by default, prints
+  the statement at `plan`, and refuses any named frame that is not in the cut table (`check_masked_job.py`).
+- `bench/capture_masked_run.py`: `outcome` accepts `--owner-word FILE:LINE` so a hard flag can be overridden only when
+  citing an owner decision line (`check_capture_masked_run.py`).
+
+### Changed
+
+- `bench/assemble_delivery.py`: open a single continuous `original_frames` and `source_frames` decode stream across
+  contiguous segments in `fed_frames`, precompute the `uint16 -> uint8` table `_U16_TO_U8`, prefetch contiguous piece
+  and zoomed decoders with 2-segment lookahead and 1 MB pipe buffers, cache fed frames and luma/mask pairs during
+  `build` so `check` does not re-decode the source video, pass `-threads 12` to `libx264`, and terminate/reap unstarted
+  segment decoders on close.
+- `docs/masked_v2v/frames_rules.md`, `docs/masked_v2v/reference_and_prompt_rules.md`,
+  `docs/masked_v2v/chain_trace_and_remakes.md`: document H3's three temporal scopes (`4k+1` latent steps, 17-frame Video
+  VAE clips, and `W`-frame DiT windows), the 39-frame minimum window rule, node render-region zoom versus `<Video 1>`
+  cranium crop zoom, face/mouth/eye drawing rules, and the 4-flag blast-radius table (`--drop`, `--no-face-on`,
+  `--no-draw-face-on`, `--no-head-on`).
+- `docs/wiki/decisions.md`, `docs/wiki/handover.md`, `docs/wiki/next_steps.md`,
+  `docs/masked_v2v/fun_render_backlog.md`: record the owner's direct rule on overlapping keeps (each kept clip replaces
+  every frame in its span for its subject, and the newest click on a frame wins with no start-line cutoff), the day's
+  eight kept and laid renders (`rows 79–86`), `lead_fp_6125c` paged on `:8765`, and tomorrow's execution order.
+
+### Fixed
+
+- `bench/capture_masked_run.py`: strip `whole_classes == 0` (`Background`) `strangers` spill from carving a hair load's
+  margin and from blocking `her_hair_in_hole`, and recover the top-third crown on `hers` frames via `crown_from_head()`
+  (`check_capture_masked_run.py`).
+- Fix bare `owner_answers.jsonl` citations across `docs/masked_v2v/` and `docs/wiki/`, align `HELD_EDGE_LEAST = 0.25` in
+  `docs/masked_v2v/code_map_contracts.md` with `video_mask.py`, and route all `<100 MB` local `.mp4` files to native
+  `read_file` in the `video-understanding` and `masked-v2v-audit` skills.
+
 ## 0.300.0
 <!-- changelog.d/day-2026-10-29.md -->
 
