@@ -3902,14 +3902,55 @@ def flag_key(flag: dict) -> str:
     return hashlib.sha256(json.dumps(about, sort_keys=True).encode()).hexdigest()[:16]
 
 
+def valid_owner_word(word: object) -> bool:
+    """Whether an `owner_word` record on an outcome names an owner's JSONL line (`who == 'owner'`) or `decisions.md` line."""
+    if not isinstance(word, dict):
+        return False
+    file_part, line_no, text = word.get("file"), word.get("line"), word.get("text")
+    if not (isinstance(file_part, str) and file_part.strip() and type(line_no) is int and line_no >= 1 and isinstance(text, str) and text.strip()):
+        return False
+    name = Path(file_part).name
+    if name.endswith(".jsonl"):
+        try:
+            row = json.loads(text)
+        except ValueError:
+            return False
+        return isinstance(row, dict) and row.get("who") == "owner"
+    return name == "decisions.md"
+
+
+def read_owner_word(spec: str) -> dict:
+    """Read and check `--owner-word FILE:LINE` against disk (`who == 'owner'` in JSONL, or a line in `decisions.md`)."""
+    file_part, sep, line_part = spec.strip().rpartition(":")
+    file_part, line_part = file_part.strip(), line_part.strip()
+    if not sep or not file_part or not line_part.isdigit() or int(line_part) < 1:
+        raise SystemExit(f"--owner-word {spec!r}: expected FILE:LINE with a positive 1-based line number")
+    line_no = int(line_part)
+    path = Path(file_part) if Path(file_part).is_file() else REPO / file_part
+    if not path.is_file():
+        raise SystemExit(f"--owner-word {spec!r}: no file {file_part}")
+    lines = path.read_text(encoding="utf-8").splitlines()
+    if line_no > len(lines):
+        raise SystemExit(f"--owner-word {spec!r}: {file_part} has {len(lines)} line(s), no line {line_no}")
+    text = lines[line_no - 1].strip()
+    if not text:
+        raise SystemExit(f"--owner-word {spec!r}: line {line_no} of {file_part} is blank")
+    word = {"file": file_part, "line": line_no, "text": text}
+    if not valid_owner_word(word):
+        raise SystemExit(f"--owner-word {spec!r}: line {line_no} of {file_part} is not an owner's JSONL line (who='owner') or a line in decisions.md")
+    return word
+
+
 def gate_verdict(flags: list[dict], outcomes: list[dict]) -> dict:
     """`clear` or `blocked`: a flag at the top level blocks until an outcome overrides the flag as it now is. A flag marked
-    `hard` (an owner's rule, not a degree: `keep_out_inside_own_track`) blocks whatever the outcomes say."""
+    `hard` (an owner's rule, not a degree) blocks unless the override carries a valid `owner_word` (`--owner-word FILE:LINE`)."""
     passed = {o.get("key") for o in outcomes if o.get("overridden")}
+    hard_passed = {o.get("key") for o in outcomes if o.get("overridden") and valid_owner_word(o.get("owner_word"))}
     top = [f for f in flags if f["level"] == LEVELS[2]]
-    blocking = [f["id"] for f in top if f.get("hard") or flag_key(f) not in passed]
+    cleared = lambda f: flag_key(f) in (hard_passed if f.get("hard") else passed)
+    blocking = [f["id"] for f in top if not cleared(f)]
     return {"verdict": "blocked" if blocking else "clear", "blocking": blocking,
-            "overridden": [f["id"] for f in top if not f.get("hard") and flag_key(f) in passed]}
+            "overridden": [f["id"] for f in top if cleared(f)]}
 
 
 def read_outcomes(folder: Path) -> list[dict]:
@@ -6693,18 +6734,25 @@ def outcome(a: argparse.Namespace) -> None:
     if a.flag not in known:
         raise SystemExit(f"no flag {a.flag} in {folder / 'flags.json'}; it has {sorted(known)}")
     override = a.happened == "overridden"
-    if override and known[a.flag].get("hard"):
-        raise SystemExit(f"{a.flag} ({known[a.flag]['rule']}) takes no override: it is an owner's rule, not a degree. {known[a.flag]['why']}")
+    owner_word_spec = getattr(a, "owner_word", None) or ""
+    if override and known[a.flag].get("hard") and not owner_word_spec.strip():
+        raise SystemExit(f"{a.flag} ({known[a.flag]['rule']}) takes no override without --owner-word FILE:LINE: it is an owner's rule, not a degree. {known[a.flag]['why']}")
     if override and not (a.by.strip() and a.note.strip()):
         raise SystemExit("an override needs --by (who) and --note (why): it is the record of a decision to render past a flag")
     if not override and not a.render:
         raise SystemExit("--render is needed: the render the flag was seen in, or not seen in")
+    owner_word = read_owner_word(owner_word_spec) if (override and owner_word_spec.strip()) else None
     path = folder / "outcomes.json"
     record = json.loads(path.read_text()) if path.is_file() else {"outcomes": []}
     entry = {"flag": a.flag, "key": flag_key(known[a.flag]), "rule": known[a.flag]["rule"], "level": known[a.flag]["level"],
              "render": a.render, "note": a.note, "by": a.by, "written": datetime.datetime.now().isoformat(timespec="seconds")}
     # an override is a decision made before a render, not what a render did: it carries no `happened`
-    entry.update({"overridden": True, "said": f"overridden by {a.by}: {a.note}"} if override else {"happened": a.happened == "yes"})
+    if override:
+        entry.update({"overridden": True, "said": f"overridden by {a.by}: {a.note}" + (f" (owner's word: {owner_word['file']}:{owner_word['line']})" if owner_word else "")})
+        if owner_word:
+            entry["owner_word"] = owner_word
+    else:
+        entry.update({"happened": a.happened == "yes"})
     record["outcomes"].append(entry)
     path.write_text(json.dumps(record, indent=1) + "\n")
     print("recorded", a.flag, a.happened, "in", path)
@@ -8425,6 +8473,8 @@ def main() -> None:
     o.add_argument("--render", help="the render it was seen in, by file name; not needed for an override")
     o.add_argument("--note", default="")
     o.add_argument("--by", default="", help="who looked")
+    o.add_argument("--owner-word", default="", metavar="FILE:LINE",
+                   help="owner's cited line (who='owner' in JSONL, or a line in decisions.md); required to override a hard flag")
     k = sub.add_parser("look", help="did a whole-subject render draw the new subject or the original's look, by frame")
     k.add_argument("capture")
     k.add_argument("--source", required=True)
