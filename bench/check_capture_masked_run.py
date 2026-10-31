@@ -573,6 +573,26 @@ def across_a_cut() -> str:
         mask[cut:] = 1.0
         gate = vm.cut_gate(mask, 5, [cut])
         assert [100 + i for i, g in enumerate(gate.tolist()) if g == 0.0] == named, (gate.tolist(), named)
+    import tempfile
+    with tempfile.TemporaryDirectory() as td:
+        folder = Path(td)
+        (folder / "subjects" / "a").mkdir(parents=True)
+        (folder / "runs" / "r").mkdir(parents=True)
+        (folder / "subjects" / "a" / "shots__pv.json").write_text(json.dumps({"cuts": [cut], "shots": []}))
+        carried = np.zeros((total, H, W), bool)
+        carried[cut:] = True
+        np.savez_compressed(folder / "runs" / "r" / "region.npz", carried=np.packbits(carried, axis=-1))
+        m_cut = {"first_frame": 100, "size": [W, H],
+                 "subjects": [{"label": "a", "sightings": [{"by": "pv", "first_source_frame": 100}]}],
+                 "runs": [{"name": "r", "subject": "a", "first_source_frame": 100}]}
+        assert [f["rule"] for f in cap.flag_cuts(m_cut, folder)] == ["region_carried_across_a_cut"]
+        nc = {"frames": [100 + cut], "why": "strobe flash", "said_by": "a check"}
+        assert cap.flag_cuts({**m_cut, "not_cuts": nc}, folder) == []
+        job_path = folder / "job.json"
+        job_path.write_text(json.dumps({"job": {"not_cuts": nc}}))
+        assert cap.not_cuts_from_loads([str(job_path)], folder, False) == nc
+        (folder / "manifest.json").write_text(json.dumps({**m_cut, "not_cuts": nc}))
+        assert cap.not_cuts_from_loads([], folder, True) == nc
     return "the frames of a step on the far side of a cut are across; a subject on both sides makes the step shared; an edge or a lost frame names nothing"
 
 
@@ -4205,7 +4225,7 @@ def a_reference_with_no_figure() -> str:
         over = {"flag": "f001", "key": f["key"], "overridden": True}
         assert cap.gate_verdict([f, d, b_], [over])["blocking"] == ["f001"], "an override cleared a black reference"
         assert cap.gate_verdict([d, b_], [])["verdict"] == "clear", "a sliver under the floor or a short run blocked"
-        # a hard flag is cleared ONLY when --owner-word FILE:LINE cites an owner JSONL line (who=='owner') or decisions.md
+        # a hard flag is cleared ONLY when --owner-word FILE:LINE cites an owner JSONL line (who=='owner'); decisions.md is rejected
         import contextlib, io
         ans_path = folder / "owner_answers.jsonl"
         ans_path.write_text('{"who": "gemgo3", "words": "self-signed"}\n{"who": "owner", "words": "keep early hair on 1419-1423"}\n\n')
@@ -4214,7 +4234,7 @@ def a_reference_with_no_figure() -> str:
         dec_path = folder / "decisions.md"
         dec_path.write_text("- Keep early hair on 1419-1423 (the owner, 2026-10-30)\n")
         (folder / "flags.json").write_text(json.dumps({"verdict": "blocked", "blocking": ["f001"], "flags": [f, d, b_]}))
-        for bad_spec in ("", f"{ans_path}", f"{ans_path}:0", f"{ans_path}:9", f"{ans_path}:3", f"{ans_path}:1", f"{other_path}:1", f"{folder / 'missing.jsonl'}:1"):
+        for bad_spec in ("", f"{ans_path}", f"{ans_path}:0", f"{ans_path}:9", f"{ans_path}:3", f"{ans_path}:1", f"{other_path}:1", f"{dec_path}:1", f"{folder / 'missing.jsonl'}:1"):
             try:
                 with contextlib.redirect_stdout(io.StringIO()):
                     cap.outcome(argparse.Namespace(capture=str(folder), flag="f001", happened="overridden", render=None,
@@ -4231,10 +4251,11 @@ def a_reference_with_no_figure() -> str:
         assert len(saved_out) == 1 and saved_out[0]["owner_word"]["line"] == 2 and "keep early hair" in saved_out[0]["owner_word"]["text"], saved_out
         saved_flags = json.loads((folder / "flags.json").read_text())
         assert saved_flags["verdict"] == "clear" and saved_flags["blocking"] == [] and saved_flags["overridden"] == ["f001"], saved_flags
-        assert cap.read_owner_word(f"{dec_path}:1")["line"] == 1
-        # Tampering with owner_word in outcomes.json so who != 'owner' makes gate_verdict block again
+        # Tampering with owner_word in outcomes.json so who != 'owner' or file is decisions.md makes gate_verdict block again
         tampered = [{**saved_out[0], "owner_word": {**saved_out[0]["owner_word"], "text": '{"who": "gemgo3"}'}}]
         assert cap.gate_verdict([f, d, b_], tampered) == {"verdict": "blocked", "blocking": ["f001"], "overridden": []}
+        tampered_md = [{**saved_out[0], "owner_word": {"file": "docs/wiki/decisions.md", "line": 1, "text": "- Keep early hair"}}]
+        assert cap.gate_verdict([f, d, b_], tampered_md) == {"verdict": "blocked", "blocking": ["f001"], "overridden": []}
         # carried alone counts: with no track, the frame the run carries her on is still hers, held to its part's px (none: under)
         mine.write_text(json.dumps({"rows": []}))
         alone = cap.flag_reference_figure(manifest, folder, refs, {}, figure_of=said(black))

@@ -293,14 +293,16 @@ def recheck(tmp: Path, name: str, rows, span: str, out: Path) -> tuple[int, dict
 
 
 def capture(folder: Path, first: int, frames: int, subjects: dict, runs: list, classes: dict | None = None,
-            flags: list | None = None, shots: dict | None = None, carried: dict | None = None, region: dict | None = None) -> Path:
+            flags: list | None = None, shots: dict | None = None, carried: dict | None = None, region: dict | None = None,
+            not_cuts: dict | None = None) -> Path:
     """A capture folder as `bench/capture_masked_run.py` lays one out, holding only what the assembler reads.
     `classes[label]` is a class map [frames, H, W] of class indices; `flags` is its flags.json; `shots[label]` is
     that subject's shot table as [(first frame, last frame, people detected, the tracker's word)]; `carried[run]`
     is the mask that run carried, [frames, H, W], as its windows saved it."""
     folder.mkdir(parents=True)
     manifest = {"name": folder.name, "first_frame": first, "frames": frames, "size": [W, H],
-                "subjects": [{"label": k, "sightings": [{"by": "made"}]} for k in subjects], "runs": runs}
+                "subjects": [{"label": k, "sightings": [{"by": "made"}]} for k in subjects], "runs": runs,
+                **({"not_cuts": not_cuts} if not_cuts is not None else {})}
     (folder / "manifest.json").write_text(json.dumps(manifest))
     for label, mask in subjects.items():
         (folder / "subjects" / label).mkdir(parents=True)
@@ -1590,6 +1592,16 @@ with tempfile.TemporaryDirectory() as _tmp:
         # a record with no cut at 35: the two shots either side are then one, since neither a table nor the record cuts there
         section, _ = tool.shots_of({"rows": {}}, [], Tables(), (0, 39), {**moved, 35: 66.0}, [], record_cuts=[0, 10])
         assert [e["frames"] for e in section["shots"]][-1] == [25, 39] and section["the_record_against_this_reading"]["cuts_this_reading_finds_and_the_record_does_not_have"] == [35]
+        # a capture whose manifest records cleared false tracker cuts (`not_cuts`): `Captures.shot_tables` omits those cuts
+        # and joins the split sub-shots back into one
+        cap_nc = capture(TMP / "cap_not_cuts", 100, 40, {"a": np.ones((40, H, W), bool)},
+                         [{"name": "r", "render": "r.mp4", "subject": "a", "first_source_frame": 100}],
+                         shots={"a": [(0, 9, 1, "absent"), (10, 24, 2, "taken"), (25, 39, 1, "taken")]},
+                         not_cuts={"frames": [110], "why": "strobe flash on 110", "said_by": "a check"})
+        st_nc = tool.Captures([cap_nc], (W, H)).shot_tables()
+        assert st_nc == [{"subject": "a", "capture": "cap_not_cuts", "cuts": [125],
+                          "shots": [{"frames": [100, 124], "people": 2, "state": "taken"},
+                                    {"frames": [125, 139], "people": 1, "state": "taken"}]}], st_nc
         (TMP / "not_a_record.json").write_text(json.dumps({"schema": "h3_plan/1", "shots": []}))
         (TMP / "a_record.json").write_text(json.dumps({"schema": "h3_shots/1", "shots": [{"first": 0, "last": 9}, {"first": 10, "last": 39}]}))
         assert tool.record_cuts_of(TMP / "a_record.json") == [0, 10]

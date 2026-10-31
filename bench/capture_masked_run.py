@@ -2405,6 +2405,33 @@ def loads_from_file(path: str) -> list[tuple[str, dict]]:
     return out
 
 
+def not_cuts_from_loads(loads_paths: list[str], out: Path, overwrite: bool) -> dict | None:
+    """A job block's `not_cuts` (`masked_job_graph.not_cuts_of`), read from `--loads` or preserved from an existing
+    manifest on `--overwrite` (when `load_chain.py on-plan` rebuilds a single-subject capture without `--loads`)."""
+    sys.path.insert(0, str(REPO / "workflows"))
+    import masked_job_graph
+    found: dict | None = None
+    for path in loads_paths or []:
+        given = json.loads(Path(path).read_text())
+        job = given.get("job") if isinstance(given.get("job"), dict) else given
+        try:
+            one = masked_job_graph.not_cuts_of(job)
+        except ValueError as e:
+            raise SystemExit(f"{path}: {e}") from e
+        if one is not None:
+            if found is not None and found != one:
+                raise SystemExit(f"{path}: conflicting `not_cuts` across --loads files ({found!r} vs {one!r})")
+            found = one
+    if found is None and overwrite and not loads_paths and (out / "manifest.json").is_file():
+        prev = json.loads((out / "manifest.json").read_text())
+        if prev.get("not_cuts") is not None:
+            try:
+                found = masked_job_graph.not_cuts_of({"not_cuts": prev["not_cuts"]})
+            except ValueError as e:
+                raise SystemExit(f"{out / 'manifest.json'}: {e}") from e
+    return found
+
+
 def plans_with_the_files(runs: list[tuple[str, dict]], from_file: list[tuple[str, dict]]) -> list[tuple[str, dict]]:
     """The plans a capture adds to its `--plan`s: the loads its `--loads` files hold, and each `--run` with a preview's plan and no render
     (it has not rendered: its region is the node's own plan, not an estimate).
@@ -2546,6 +2573,7 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
     head_tracks: dict[str, np.ndarray] = {}
     hair_pass: dict = {}              # HER HAIR IN THE HOLE (`her_hair_in_hole`): what the pass reads of a subject, run once every mask is read
     as_read: dict = {}                # every mask as read, before a keep-out is carved: the pass asks who a pixel is, not what the node keeps out
+    not_cuts = not_cuts_from_loads(getattr(a, "loads", None) or [], out, bool(getattr(a, "overwrite", False)))
     manifest = {"name": a.name, "date": a.date, "clip": Path(a.source).name, "first_frame": first, "frames": frames,
                 "size": [width, height], "fps": FPS, "cell_px": CELL, "subjects": [], "runs": [],
                 "commit": subprocess.run(["git", "-C", str(REPO), "rev-parse", "--short", "HEAD"],
@@ -2985,6 +3013,22 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
             print("\n".join(size_lines(f"  {label}'s part, source frames {first}-{first + frames - 1}, canvas {width}x{height}", sizes)), flush=True)
         if pieces_by_sighting.get((label, by)) is not None:
             print("\n".join(pieces_lines(label, pieces_by_sighting[(label, by)])), flush=True)
+    if not_cuts is not None:
+        table_cuts: set[int] = set()
+        for s in manifest["subjects"]:
+            for seen in s["sightings"]:
+                tpath = out / "subjects" / s["label"] / f"shots__{seen['by']}.json"
+                if tpath.is_file():
+                    tat = int(seen.get("shots_first_source_frame", seen.get("first_source_frame", first)))
+                    table_cuts |= {tat + int(c) for c in json.loads(tpath.read_text()).get("cuts", [])}
+        unlisted = [f for f in not_cuts["frames"] if f not in table_cuts]
+        if unlisted:
+            raise SystemExit(
+                f"the job's `not_cuts` names frame(s) {', '.join(map(str, unlisted))}, which are not cuts in the "
+                f"capture {a.name}'s shot tables ({sorted(table_cuts) or 'none'}): `not_cuts` may name only cuts the "
+                f"capture's shot tables hold"
+            )
+        manifest["not_cuts"] = not_cuts
     told = runs + plans + [x for path in (getattr(a, "loads", None) or []) for x in loads_from_file(path)]
     for label, given in hair_pass.items():
         # THE LOAD AS THE NODE WILL RUN IT (`hole_of_the_load`): its margin and zoom, from the node's own plan where the capture is built
@@ -3609,13 +3653,15 @@ def rules_input(folder: Path, not_in: dict | None = None) -> dict:
     cross = json.loads((folder / "frames.json").read_text())["rows"]
     voiced = np.array([np.nan if r.get("voiced") in (None, "") else float(r["voiced"]) for r in cross])
     names = _pack("sapiens2_parts").CLASS_NAMES
+    not_cuts = set((m.get("not_cuts") or {}).get("frames") or ())
     tables, cuts = {}, []
     for s in m["subjects"]:
         seen = s["sightings"][0]
         path = folder / "subjects" / s["label"] / f"shots__{seen['by']}.json"
         if path.is_file():
             tables[s["label"]] = (json.loads(path.read_text()), seen.get("shots_first_source_frame", seen["first_source_frame"]))
-            cuts = cuts or [tables[s["label"]][1] + c for c in tables[s["label"]][0]["cuts"]]
+            cuts = cuts or [tables[s["label"]][1] + c for c in tables[s["label"]][0]["cuts"]
+                            if tables[s["label"]][1] + c not in not_cuts]
     owners = np.load(folder / "owners.npz") if (folder / "owners.npz").is_file() else None
     per, poses, mouths, part_bits = {}, {}, {}, {}
     for s in m["subjects"]:
@@ -3903,24 +3949,24 @@ def flag_key(flag: dict) -> str:
 
 
 def valid_owner_word(word: object) -> bool:
-    """Whether an `owner_word` record on an outcome names an owner's JSONL line (`who == 'owner'`) or `decisions.md` line."""
+    """Whether an `owner_word` record on an outcome names an owner's JSONL line (`who == 'owner'`)."""
     if not isinstance(word, dict):
         return False
     file_part, line_no, text = word.get("file"), word.get("line"), word.get("text")
     if not (isinstance(file_part, str) and file_part.strip() and type(line_no) is int and line_no >= 1 and isinstance(text, str) and text.strip()):
         return False
     name = Path(file_part).name
-    if name.endswith(".jsonl"):
-        try:
-            row = json.loads(text)
-        except ValueError:
-            return False
-        return isinstance(row, dict) and row.get("who") == "owner"
-    return name == "decisions.md"
+    if not name.endswith(".jsonl"):
+        return False
+    try:
+        row = json.loads(text)
+    except ValueError:
+        return False
+    return isinstance(row, dict) and row.get("who") == "owner"
 
 
 def read_owner_word(spec: str) -> dict:
-    """Read and check `--owner-word FILE:LINE` against disk (`who == 'owner'` in JSONL, or a line in `decisions.md`)."""
+    """Read and check `--owner-word FILE:LINE` against disk (`who == 'owner'` in JSONL)."""
     file_part, sep, line_part = spec.strip().rpartition(":")
     file_part, line_part = file_part.strip(), line_part.strip()
     if not sep or not file_part or not line_part.isdigit() or int(line_part) < 1:
@@ -3937,7 +3983,7 @@ def read_owner_word(spec: str) -> dict:
         raise SystemExit(f"--owner-word {spec!r}: line {line_no} of {file_part} is blank")
     word = {"file": file_part, "line": line_no, "text": text}
     if not valid_owner_word(word):
-        raise SystemExit(f"--owner-word {spec!r}: line {line_no} of {file_part} is not an owner's JSONL line (who='owner') or a line in decisions.md")
+        raise SystemExit(f"--owner-word {spec!r}: line {line_no} of {file_part} is not an owner's JSONL line (who='owner')")
     return word
 
 
@@ -6308,6 +6354,7 @@ def flag_cuts(manifest: dict, folder: Path) -> list[dict]:
     """A run's region carried across a cut by a latent step: the masks, the shot table's cuts and the load's
     first frame are all it needs."""
     first, out = manifest["first_frame"], []
+    not_cuts = set((manifest.get("not_cuts") or {}).get("frames") or ())
     for run in manifest["runs"]:
         seen = next(s for s in manifest["subjects"] if s["label"] == run["subject"])["sightings"][0]
         table = folder / "subjects" / run["subject"] / f"shots__{seen['by']}.json"
@@ -6320,7 +6367,8 @@ def flag_cuts(manifest: dict, folder: Path) -> list[dict]:
                     break
         if not table.is_file():
             continue
-        cuts = [seen.get("shots_first_source_frame", seen["first_source_frame"]) + c for c in json.loads(table.read_text())["cuts"]]
+        at = seen.get("shots_first_source_frame", seen["first_source_frame"])
+        cuts = [at + c for c in json.loads(table.read_text())["cuts"] if at + c not in not_cuts]
         w = manifest["size"][0]
         present = np.unpackbits(np.load(folder / "runs" / run["name"] / "region.npz")["carried"], axis=-1)[..., :w].any(axis=(1, 2))
         # the load's own first frame: a run's render may start before the span this capture covers
@@ -6381,12 +6429,14 @@ def flag_loads(manifest: dict, folder: Path, not_in: dict | None = None) -> list
     """A planned load that starts where its subject is small, when the same load shows it larger later; and a
     shot inside a planned load on which its subject has no mask at all, which nobody has said is right."""
     first, out = manifest["first_frame"], []
+    not_cuts = set((manifest.get("not_cuts") or {}).get("frames") or ())
     cuts = []
     for s in manifest["subjects"]:
         for seen in s["sightings"]:
             table = folder / "subjects" / s["label"] / f"shots__{seen['by']}.json"
             if table.is_file() and not cuts:
-                cuts = [seen.get("shots_first_source_frame", seen["first_source_frame"]) + c for c in json.loads(table.read_text())["cuts"]]
+                at = seen.get("shots_first_source_frame", seen["first_source_frame"])
+                cuts = [at + c for c in json.loads(table.read_text())["cuts"] if at + c not in not_cuts]
     for run in by_subject(manifest["runs"]):
         load = run.get("load")
         if not load:
@@ -8474,7 +8524,7 @@ def main() -> None:
     o.add_argument("--note", default="")
     o.add_argument("--by", default="", help="who looked")
     o.add_argument("--owner-word", default="", metavar="FILE:LINE",
-                   help="owner's cited line (who='owner' in JSONL, or a line in decisions.md); required to override a hard flag")
+                   help="owner's cited line (who='owner' in JSONL); required to override a hard flag")
     k = sub.add_parser("look", help="did a whole-subject render draw the new subject or the original's look, by frame")
     k.add_argument("capture")
     k.add_argument("--source", required=True)

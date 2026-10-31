@@ -1174,9 +1174,12 @@ class Captures:
 
     def shot_tables(self) -> list[dict]:
         """Every shot table the captures hold: whose, the capture, and per shot its source frames, how many people
-        the tracker's detector found on the frame its tile shows, and the tracker's word for its subject there."""
+        the tracker's detector found on the frame its tile shows, and the tracker's word for its subject there.
+        Tracker cuts cleared on a person's word (`manifest["not_cuts"]["frames"]`, `masked_job_graph.not_cuts_of`)
+        are omitted from `cuts` and the shots they split are joined back into one."""
         out = []
         for folder, m in self.folders:
+            not_cuts = set((m.get("not_cuts") or {}).get("frames") or ())
             for s in m["subjects"]:
                 sight = s["sightings"][0]
                 path = folder / "subjects" / s["dir"] / f"shots__{sight['by']}.json"
@@ -1184,9 +1187,21 @@ class Captures:
                     continue
                 at = int(sight.get("shots_first_source_frame", sight.get("first_source_frame", m["first_frame"])))
                 table = json.loads(path.read_text())
-                out.append({"subject": s["label"], "capture": folder.name, "cuts": [at + int(c) for c in table.get("cuts", [])],
-                            "shots": [{"frames": [at + int(x["first_frame"]), at + int(x["last_frame"])], "people": len(x.get("people") or []),
-                                       "state": (x.get("subject") or {}).get("state")} for x in table.get("shots", [])]})
+                shots: list[dict] = []
+                for x in table.get("shots", []):
+                    one = {"frames": [at + int(x["first_frame"]), at + int(x["last_frame"])],
+                           "people": len(x.get("people") or []),
+                           "state": (x.get("subject") or {}).get("state")}
+                    if shots and one["frames"][0] in not_cuts and shots[-1]["frames"][1] + 1 == one["frames"][0]:
+                        shots[-1]["frames"][1] = one["frames"][1]
+                        shots[-1]["people"] = max(shots[-1]["people"], one["people"])
+                        if shots[-1]["state"] != "taken" and one["state"] == "taken":
+                            shots[-1]["state"] = "taken"
+                    else:
+                        shots.append(one)
+                out.append({"subject": s["label"], "capture": folder.name,
+                            "cuts": [at + int(c) for c in table.get("cuts", []) if at + int(c) not in not_cuts],
+                            "shots": shots})
         return out
 
     def people(self) -> list[str]:
