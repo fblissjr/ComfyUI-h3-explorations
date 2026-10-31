@@ -3948,9 +3948,22 @@ def flag_key(flag: dict) -> str:
     return hashlib.sha256(json.dumps(about, sort_keys=True).encode()).hexdigest()[:16]
 
 
-def valid_owner_word(word: object) -> bool:
-    """Whether an `owner_word` record on an outcome names an owner's JSONL line (`who == 'owner'`)."""
-    if not isinstance(word, dict):
+def _span_frames(spans: object) -> set[int]:
+    if not isinstance(spans, list) or not spans:
+        return set()
+    if len(spans) == 2 and type(spans[0]) is int and type(spans[1]) is int:
+        return set(range(spans[0], spans[1] + 1)) if spans[0] <= spans[1] else set()
+    out: set[int] = set()
+    for sp in spans:
+        if not (isinstance(sp, list) and len(sp) == 2 and type(sp[0]) is int and type(sp[1]) is int and sp[0] <= sp[1]):
+            return set()
+        out.update(range(sp[0], sp[1] + 1))
+    return out
+
+
+def valid_owner_word(word: object, flag: dict) -> bool:
+    """Whether an `owner_word` record on an outcome names an owner's JSONL line (`who == 'owner'`) whose `words` name `flag['rule']` and whose `frames` cover `flag['source_frames']`."""
+    if not isinstance(word, dict) or not isinstance(flag, dict):
         return False
     file_part, line_no, text = word.get("file"), word.get("line"), word.get("text")
     if not (isinstance(file_part, str) and file_part.strip() and type(line_no) is int and line_no >= 1 and isinstance(text, str) and text.strip()):
@@ -3962,11 +3975,19 @@ def valid_owner_word(word: object) -> bool:
         row = json.loads(text)
     except ValueError:
         return False
-    return isinstance(row, dict) and row.get("who") == "owner"
+    if not isinstance(row, dict) or row.get("who") != "owner":
+        return False
+    rule = flag.get("rule")
+    words = row.get("words")
+    if not (isinstance(rule, str) and rule.strip() and isinstance(words, str) and rule in words):
+        return False
+    flag_fset = _span_frames(flag.get("source_frames"))
+    row_fset = _span_frames(row.get("frames"))
+    return bool(flag_fset and row_fset and flag_fset.issubset(row_fset))
 
 
-def read_owner_word(spec: str) -> dict:
-    """Read and check `--owner-word FILE:LINE` against disk (`who == 'owner'` in JSONL)."""
+def read_owner_word(spec: str, flag: dict) -> dict:
+    """Read and check `--owner-word FILE:LINE` against disk (`who == 'owner'` in JSONL, naming `flag['rule']` in `words` and covering `flag['source_frames']` in `frames`)."""
     file_part, sep, line_part = spec.strip().rpartition(":")
     file_part, line_part = file_part.strip(), line_part.strip()
     if not sep or not file_part or not line_part.isdigit() or int(line_part) < 1:
@@ -3982,8 +4003,11 @@ def read_owner_word(spec: str) -> dict:
     if not text:
         raise SystemExit(f"--owner-word {spec!r}: line {line_no} of {file_part} is blank")
     word = {"file": file_part, "line": line_no, "text": text}
-    if not valid_owner_word(word):
-        raise SystemExit(f"--owner-word {spec!r}: line {line_no} of {file_part} is not an owner's JSONL line (who='owner')")
+    if not valid_owner_word(word, flag):
+        raise SystemExit(
+            f"--owner-word {spec!r}: line {line_no} of {file_part} is not a valid owner's JSONL line for this flag "
+            f"(must have who == 'owner', name rule {flag.get('rule')!r} in words, and cover source_frames {flag.get('source_frames')} in frames)"
+        )
     return word
 
 
@@ -3991,9 +4015,12 @@ def gate_verdict(flags: list[dict], outcomes: list[dict]) -> dict:
     """`clear` or `blocked`: a flag at the top level blocks until an outcome overrides the flag as it now is. A flag marked
     `hard` (an owner's rule, not a degree) blocks unless the override carries a valid `owner_word` (`--owner-word FILE:LINE`)."""
     passed = {o.get("key") for o in outcomes if o.get("overridden")}
-    hard_passed = {o.get("key") for o in outcomes if o.get("overridden") and valid_owner_word(o.get("owner_word"))}
     top = [f for f in flags if f["level"] == LEVELS[2]]
-    cleared = lambda f: flag_key(f) in (hard_passed if f.get("hard") else passed)
+    def cleared(f: dict) -> bool:
+        k = flag_key(f)
+        if f.get("hard"):
+            return any(o.get("overridden") and o.get("key") == k and valid_owner_word(o.get("owner_word"), f) for o in outcomes)
+        return k in passed
     blocking = [f["id"] for f in top if not cleared(f)]
     return {"verdict": "blocked" if blocking else "clear", "blocking": blocking,
             "overridden": [f["id"] for f in top if cleared(f)]}
@@ -6791,7 +6818,7 @@ def outcome(a: argparse.Namespace) -> None:
         raise SystemExit("an override needs --by (who) and --note (why): it is the record of a decision to render past a flag")
     if not override and not a.render:
         raise SystemExit("--render is needed: the render the flag was seen in, or not seen in")
-    owner_word = read_owner_word(owner_word_spec) if (override and owner_word_spec.strip()) else None
+    owner_word = read_owner_word(owner_word_spec, known[a.flag]) if (override and owner_word_spec.strip()) else None
     path = folder / "outcomes.json"
     record = json.loads(path.read_text()) if path.is_file() else {"outcomes": []}
     entry = {"flag": a.flag, "key": flag_key(known[a.flag]), "rule": known[a.flag]["rule"], "level": known[a.flag]["level"],

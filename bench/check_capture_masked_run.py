@@ -4225,16 +4225,34 @@ def a_reference_with_no_figure() -> str:
         over = {"flag": "f001", "key": f["key"], "overridden": True}
         assert cap.gate_verdict([f, d, b_], [over])["blocking"] == ["f001"], "an override cleared a black reference"
         assert cap.gate_verdict([d, b_], [])["verdict"] == "clear", "a sliver under the floor or a short run blocked"
-        # a hard flag is cleared ONLY when --owner-word FILE:LINE cites an owner JSONL line (who=='owner'); decisions.md is rejected
+        # a hard flag is cleared ONLY when --owner-word FILE:LINE cites an owner JSONL line (who=='owner') whose words name flag['rule']
+        # and whose frames cover flag['source_frames']; decisions.md, missing rule, or non-covering frames are rejected
         import contextlib, io
         ans_path = folder / "owner_answers.jsonl"
-        ans_path.write_text('{"who": "gemgo3", "words": "self-signed"}\n{"who": "owner", "words": "keep early hair on 1419-1423"}\n\n')
+        r1739 = json.dumps({
+            "at": "2026-10-31T17:44:00Z", "who": "owner", "relayed_by": "gemlead", "what": "note", "shot": "1419-1465",
+            "frames": [1419, 1423], "subject": "second",
+            "words": ("Keep second's early hair on 1419-1423 even with the reference black there, and override reference_shows_no_figure "
+                      "on those frames, for the three-pass remake of 1419-1465 under any load letter. If it hurts 1454-1465, also show me "
+                      "a version starting at 1454."),
+        })
+        ans_lines = [
+            '{"who": "gemgo3", "frames": [1428, 1431], "words": "self-signed reference_shows_no_figure"}',
+            '{"who": "owner", "frames": [1428, 1431], "words": "keep early hair on 1428-1431 and override reference_shows_no_figure"}',
+            "",
+            '{"who": "owner", "frames": [1428, 1431], "words": "keep early hair on 1428-1431"}',
+            '{"who": "owner", "words": "override reference_shows_no_figure"}',
+            '{"who": "owner", "frames": [1428, 1430], "words": "override reference_shows_no_figure"}',
+            r1739,
+        ]
+        ans_path.write_text("\n".join(ans_lines) + "\n")
         other_path = folder / "notes.md"
         other_path.write_text("some note\n")
         dec_path = folder / "decisions.md"
-        dec_path.write_text("- Keep early hair on 1419-1423 (the owner, 2026-10-30)\n")
+        dec_path.write_text("- Keep early hair on 1428-1431 and override reference_shows_no_figure (the owner, 2026-10-30)\n")
         (folder / "flags.json").write_text(json.dumps({"verdict": "blocked", "blocking": ["f001"], "flags": [f, d, b_]}))
-        for bad_spec in ("", f"{ans_path}", f"{ans_path}:0", f"{ans_path}:9", f"{ans_path}:3", f"{ans_path}:1", f"{other_path}:1", f"{dec_path}:1", f"{folder / 'missing.jsonl'}:1"):
+        for bad_spec in ("", f"{ans_path}", f"{ans_path}:0", f"{ans_path}:9", f"{ans_path}:3", f"{ans_path}:1", f"{ans_path}:4",
+                         f"{ans_path}:5", f"{ans_path}:6", f"{ans_path}:7", f"{other_path}:1", f"{dec_path}:1", f"{folder / 'missing.jsonl'}:1"):
             try:
                 with contextlib.redirect_stdout(io.StringIO()):
                     cap.outcome(argparse.Namespace(capture=str(folder), flag="f001", happened="overridden", render=None,
@@ -4246,16 +4264,43 @@ def a_reference_with_no_figure() -> str:
         assert not (folder / "outcomes.json").exists(), "a refused hard-flag override wrote outcomes.json"
         with contextlib.redirect_stdout(io.StringIO()):
             cap.outcome(argparse.Namespace(capture=str(folder), flag="f001", happened="overridden", render=None,
-                                           note="black ref on 1419-1423", by="owner", owner_word=f"{ans_path}:2"))
+                                           note="black ref on 1428-1431", by="owner", owner_word=f"{ans_path}:2"))
         saved_out = json.loads((folder / "outcomes.json").read_text())["outcomes"]
         assert len(saved_out) == 1 and saved_out[0]["owner_word"]["line"] == 2 and "keep early hair" in saved_out[0]["owner_word"]["text"], saved_out
         saved_flags = json.loads((folder / "flags.json").read_text())
         assert saved_flags["verdict"] == "clear" and saved_flags["blocking"] == [] and saved_flags["overridden"] == ["f001"], saved_flags
-        # Tampering with owner_word in outcomes.json so who != 'owner' or file is decisions.md makes gate_verdict block again
-        tampered = [{**saved_out[0], "owner_word": {**saved_out[0]["owner_word"], "text": '{"who": "gemgo3"}'}}]
-        assert cap.gate_verdict([f, d, b_], tampered) == {"verdict": "blocked", "blocking": ["f001"], "overridden": []}
-        tampered_md = [{**saved_out[0], "owner_word": {"file": "docs/wiki/decisions.md", "line": 1, "text": "- Keep early hair"}}]
-        assert cap.gate_verdict([f, d, b_], tampered_md) == {"verdict": "blocked", "blocking": ["f001"], "overridden": []}
+        # Tampering with owner_word in outcomes.json so (a) words lacks flag['rule'], (b) frames is missing or does not cover source_frames,
+        # or (c) who != 'owner' or file is not .jsonl makes gate_verdict block again
+        for bad_ow in (
+            {**saved_out[0]["owner_word"], "text": ans_lines[3]},  # (a) words does not contain flag["rule"]
+            {**saved_out[0]["owner_word"], "text": ans_lines[4]},  # (b) frames is missing
+            {**saved_out[0]["owner_word"], "text": ans_lines[5]},  # (b) frames [1428, 1430] does not cover 1431
+            {**saved_out[0]["owner_word"], "text": ans_lines[6]},  # (b) frames [1419, 1423] does not cover [1428, 1431]
+            {**saved_out[0]["owner_word"], "text": ans_lines[0]},  # (c) who != 'owner'
+            {"file": "docs/wiki/decisions.md", "line": 1, "text": ans_lines[1]},  # (c) file is not .jsonl
+        ):
+            assert cap.gate_verdict([f, d, b_], [{**saved_out[0], "owner_word": bad_ow}]) == {
+                "verdict": "blocked", "blocking": ["f001"], "overridden": []
+            }, bad_ow
+        # Real data/fun/owner_answers.jsonl:1739 format on reference_shows_no_figure for [[1419, 1423]], plus non-hard top-level flag
+        # clearing with a normal overridden: True outcome without owner_word
+        f_1419 = {**f, "id": "f001", "source_frames": [[1419, 1423]]}
+        f_1419["key"] = cap.flag_key(f_1419)
+        non_hard_top = {"id": "f004", "rule": "two_tracks_on_one_person", "level": cap.LEVELS[2], "subject": "second", "other": "lead",
+                        "source_frames": [[1419, 1423]]}
+        non_hard_top["key"] = cap.flag_key(non_hard_top)
+        ow_1419 = cap.read_owner_word(f"{ans_path}:7", f_1419)
+        assert cap.valid_owner_word(ow_1419, f_1419) and not cap.valid_owner_word(ow_1419, f)
+        assert cap.gate_verdict([f_1419, non_hard_top], [{"flag": "f004", "key": non_hard_top["key"], "overridden": True}]) == {
+            "verdict": "blocked", "blocking": ["f001"], "overridden": ["f004"]
+        }
+        assert cap.gate_verdict(
+            [f_1419, non_hard_top],
+            [
+                {"flag": "f001", "key": f_1419["key"], "overridden": True, "owner_word": ow_1419},
+                {"flag": "f004", "key": non_hard_top["key"], "overridden": True},
+            ],
+        ) == {"verdict": "clear", "blocking": [], "overridden": ["f001", "f004"]}
         # carried alone counts: with no track, the frame the run carries her on is still hers, held to its part's px (none: under)
         mine.write_text(json.dumps({"rows": []}))
         alone = cap.flag_reference_figure(manifest, folder, refs, {}, figure_of=said(black))
