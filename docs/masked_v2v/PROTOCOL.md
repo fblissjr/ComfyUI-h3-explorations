@@ -48,7 +48,7 @@ This protocol is the step-by-step operational manual for building, auditing, ren
 
 [`bench/shot_to_load.py`](../../bench/shot_to_load.py) `preview` (`bench/shot_to_load.py::step_preview`) requires `--source VIDEO` explicitly and has **no default**:
 
-- **Which subject is pass 1**: the one already kept on the shot. A kept subject stays and is not remade to make the other, unless something broken changes the composite ([`AGENTS.md`](AGENTS.md) §1; the owner, 2026-10-21). No subject goes first by rule.
+- **Which subject is pass 1**: where a pass is already kept and standing on the shot, the kept subject stays as pass 1 and is not remade to make the other, unless something broken changes the composite ([`AGENTS.md`](AGENTS.md) §1; the owner, 2026-10-21; refined 2026-10-31). When every pass on a multi-subject shot is being remade, `second` (`face and hair`, `margin = 64`/`128`, reasoned) goes first as pass 1 so downstream passes segment against her replaced hair silhouette (and if `second` is remade in a chain where another subject went before it, as on `4647–4725`, the whole chain is remade with `second` first).
 - **Single-subject shot, or pass 1 of a shot of two**:
   - Pass the 24.0 fps working-copy source video registered in `data/<video>/manifest.json` (for `fun`, `fun_0000_6394_24p_sound_in_step.mov`).
   - The source video must be an exact `24.0` fps every-frame working copy (`bench/clip_analysis.py` `init --copy`, sound stretched in step via [`bench/copy_sound.py`](../../bench/copy_sound.py)). `bench/shot_to_load.py::working_copy` refuses any source whose manifest rate is not `24`.

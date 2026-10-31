@@ -64,8 +64,8 @@ so a builder's worktree has them.
 - **Keep means done** (the owner, 2026-10-23): a piece with a known fault that a remake will fix is marked wrong, not
   kept, so no session reads it as finished; a render that came out fine from a flawed reference is kept, and the
   reference is fixed for later loads (`docs/wiki/decisions.md`).
-- **A kept subject stays** (the owner, 2026-10-21): it is not remade to make the other subject of its shot, unless
-  something broken changes the composite. No subject goes first by rule; the kept one is pass 1. A shot is done when
+- **A kept subject stays** (the owner, 2026-10-21; refined 2026-10-31): it is not remade to make the other subject of its shot, unless
+  something broken changes the composite. Where a pass is already kept and standing on the shot, the kept one stays as pass 1; when every pass on a shot is being remade, `second` (`face and hair`, `margin = 64`/`128`, reasoned) goes first as pass 1 so downstream passes segment against her replaced hair silhouette. On a shot with more than one subject, remaking any pass, even one frame of it, means every pass from that one onward is remade in order, as whole loads, each after the one before it is kept and laid, taking its whole data chain from a fresh preview on a rebuilt cut that holds the earlier passes and not the subject being made. Earlier passes stand, with one exception: if `second` is remade in a chain where another subject went before it, as on `4647–4725`, remake the whole chain with `second` first, because the earlier piece's masks hold `second`'s original hair (`bench/assemble_delivery.py::restore_weight`). A shot is done when
   every subject who can be swapped there is kept: a subject with nothing to replace is recorded as `not seen` with
   `bench/shots_look.py`, on the owner's word or a look, and owes no load. Where the other subject has something to
   replace, it is made on the newest whole-video cut that holds the kept one: pass 1's output is pass 2's source, and pass 2's whole chain is made again
@@ -119,7 +119,7 @@ holds the card keeps them.
 
 - A render is handed over stacked (`bench/stack_delivery.py`: source, what changed, the cut, per person what H3 saw),
   frame numbers burned in, never bare; a thing seen on playback is reported with the file and the frame. A clip shown
-  to be judged shows every subject of the shot replaced, as the cut would, and is added with `state: "open"` to
+  to be judged shows every subject of the shot replaced, as the cut would (or, when showing a Pass 1 remake on a multi-subject shot before downstream passes are remade, shows Pass 1 on its own with the other subjects' gaps counted right above the player per `docs/wiki/working_with_the_owner.md`), and is added with `state: "open"` to
   `data/<video>/review/items.json` (and `data/<video>/review/start_here.json`) so it appears under "1. Look at these
   next" on the interactive review page (`port 8765`) with verdict buttons and frame-note input.
 - A clip on the review page is whole, or has its gaps counted right above the player from the gap check on its own
