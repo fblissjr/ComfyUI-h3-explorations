@@ -15,6 +15,20 @@ Older history lives elsewhere and is not copied here:
   decisions" and forward-plan sections.
 - `bench/results/`: the verdict records, each with its conditions.
 
+## 2026-10-31
+
+- **Sequential multi-subject pass DAG invalidation (`Pass 1 -> Pass 2 -> Pass 3`) and `rebuild_delivery.py --clip --no-pages` default** (the owner, 2026-10-31):
+  1. **Keeping a new Pass 1 (or earlier pass) on a multi-subject shot invalidates every downstream subject pass on those frames**:
+     - On any multi-subject shot, passes are not independent pixel layers that `bench/assemble_delivery.py` can composite from separate `region.npz` mattes onto raw `fun.mp4`. When Pass 1 is kept and laid, the scene's pixels, hair/face silhouettes (`margin=64` vs `margin=16`), and potentially the active frame window have changed.
+     - Any previously kept render for another subject on overlapping frames that was not built on top of that new Pass 1 is invalidated: it must be removed from `data/fun/laid.jsonl` (`bench/laid.py remove`) and queued in [`docs/masked_v2v/fun_render_backlog.md`](../masked_v2v/fun_render_backlog.md) to run its **entire upstream DAG from scratch** (`bench/shot_to_load.py preview --source <post-Pass-1-cut.mp4> --for <Pass2_subject> --remake --queue` -> `strangers` / `parts` / `depth` -> `job` -> `pose` / `reference` -> `text` -> `first` -> `plan` -> `on-plan` -> `render` -> `land`) on the freshly built post-Pass-1 joined cut (and likewise Pass 3 on the post-Pass-2 joined cut). Recorded in [`docs/masked_v2v/frames_rules.md`](../masked_v2v/frames_rules.md) §0.2 Rule L6.
+  2. **Known tool gaps in `bench/laid.py` and `bench/delivery_table.py`**:
+     - `bench/laid.py:629-640` checks `_source_holds_other_subject` on the newly laid piece's `job.source` against existing `other_r` rows (which fails backwards when replacing Pass 1 on raw `fun.mp4`), `_source_holds_other_subject` (`bench/laid.py:514-522`) checks only `p.get("subject") == other_subject` rather than `p.get("load") == other_r["load"]`, and `bench/delivery_table.py:599` sorts multi-subject rows by `(r["first"], r["region"] == "face", r["subject"])` rather than the pass dependency chain.
+  3. **`rebuild_delivery.py` default flags**:
+     - When rebuilding delivery cuts with `bench/rebuild_delivery.py --video fun --clip`, always keep `stack` and `snapshot` enabled (their default in `bench/rebuild_delivery.py:974-976`) and only pass `--no-pages` when skipping static HTML page generation.
+  4. **Global `second` mouth recipe (`"open_mouth": "inner outline", "closed_mouth": "sculpted"`) and fresh `<Video 1>` + `load_text.py` prompt generation on all remakes** (the owner, 2026-10-31, on `second_hfp_0014i` vs `second_hfp_0014j`):
+     - Updated `data/fun/plan.json` (`subjects.second.reference` and `subjects.second.recipe`) from `"open_mouth": "outlined", "closed_mouth": "outlined"` to **`"open_mouth": "inner outline", "closed_mouth": "sculpted"`** globally, matching what fixed `second_hfp_0014j` (`owner_answers.jsonl:1529, 1712`) and what `third` uses globally. Leaving closed-mouth frames sculpted (bare 3D grey lips) prevents H3 from misreading a closed white lip loop as an open mouth and prevents `bench/load_text.py::mouth_drawn` from injecting mouth-opening prompt clauses on silent/closed-mouth shots.
+     - Every remake across `lead`, `second`, and `third` must regenerate its `<Video 1>` `head_reference` (`crop="cranium"`, `dc07ccee` `head_track_used=True`, `iris="contrast"`, `closed_mouth="sculpted"`, and `open_mouth="outlined"` for `lead` or `"inner outline"` for `second` and `third`) and generate its `.txt` prompt fresh via `bench/load_text.py` (never reusing week-old prompts or stale reference JSONs).
+
 ## 2026-10-30
 
 - **Frame-level ledger/assembly rule for overlapping keeps: a kept clip replaces every frame in it for its subject, whatever was there before, and the newest click on a frame wins** (the owner, 2026-10-30, direct clarification in `gemgo3`'s terminal):

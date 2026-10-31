@@ -1,6 +1,6 @@
 # Head Reference (`<Video 1>`) Crop, Facial Landmark Drawing, & `<Subject 2>` Prompt Rules
 
-Extracted from [`docs/masked_v2v/AGENTS.md`](AGENTS.md) §7 so both the router (`AGENTS.md`) and this specification stay under `30 KB` and fit in a single `read_file` call. Step-by-step CLI commands: [`docs/masked_v2v/PROTOCOL.md`](PROTOCOL.md) §2.3. For the side-by-side summary tables of H3's three temporal scopes (`4k + 1` latent steps, `17`-frame causal VAE clips, `W`-frame DiT windows), node render zoom vs. `<Video 1>` reference crop zoom (§6), and face/mouth/eye drawing best practices (§7), see [`docs/masked_v2v/frames_rules.md`](frames_rules.md).
+Extracted from [`docs/masked_v2v/AGENTS.md`](AGENTS.md) §7 so both the router (`AGENTS.md`) and this specification stay under `30 KB` and fit in a single `read_file` call. Step-by-step CLI commands: [`docs/masked_v2v/PROTOCOL.md`](PROTOCOL.md) §2.3. For the side-by-side summary tables of H3's three temporal scopes (`4k + 1` latent steps, `17`-frame causal VAE clips, `W`-frame DiT windows), node render zoom vs. `<Video 1>` reference crop zoom (§6), and face/mouth/eye drawing best practices (§7), see [`docs/masked_v2v/frames_rules.md`](frames_rules.md). For the settled per-subject `plan.json` recipes, canonical generated prompts, and pre-render verification checklist across `lead`, `second`, and `third`, see [`docs/masked_v2v/subject_and_drawing_recipes.md`](subject_and_drawing_recipes.md).
 
 ---
 
