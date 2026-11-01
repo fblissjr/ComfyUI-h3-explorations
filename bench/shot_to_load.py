@@ -2720,6 +2720,7 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
     rec_crop = str(rec_cfg.get("crop") or ref_cfg.get("crop") or "head")
     rec_open_mouth = str(rec_cfg.get("open_mouth") or ref_cfg.get("open_mouth") or "inner outline")
     rec_closed_mouth = str(rec_cfg.get("closed_mouth") or ref_cfg.get("closed_mouth") or "sculpted")
+    rec_still = str(rec_cfg.get("still") or p.get("still") or "")
     rec_by = " ".join(str(rec_cfg.get("by") or ref_cfg.get("by") or "the plan").split())
     rec_why = " ".join(str(rec_cfg.get("why") or ref_cfg.get("why") or rec_margin_why or rec_zoom_why or "subject recipe in plan.json").split())
     shot_ovs = [
@@ -3041,7 +3042,18 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
             raise Refused(f"--eyes-shut-on and --no-face-on/--no-draw-face-on/--no-head-on both name {both[0]}-{both[-1]}: no line of the face is drawn there, so there are no eyes "
                           "to shut; say one of them on those frames")
         ref_form["iris"] = dict(ref_form["iris"], eyes_shut={"form": eyes_shut_form, "spans": spans})
-    subjects = [{k: v for k, v in s.items() if k in ("label", "phrase", "pick", "parts", "still", "pose")} for s in preview["subjects"]]
+    subjects = [
+        {
+            **{k: v for k, v in s.items() if k in ("label", "phrase", "pick", "parts", "still", "pose")},
+            **(
+                {"still": (plan.get("subjects") or {})[s["label"]]["still"]}
+                if isinstance((plan.get("subjects") or {}).get(s.get("label")), dict)
+                and (plan.get("subjects") or {})[s["label"]].get("still")
+                else {}
+            ),
+        }
+        for s in preview["subjects"]
+    ]
     # The capture's `pieces` for the load's subject, when the plan says one: a key on the subject in the job file, where
     # the chain reads it. The tool sets it for nobody; every load before the chain ran with `pieces=largest` typed into
     # a script, and the first loads through the chain had none (2026-10-13: specks of the part on an arm put a margin there).
@@ -3450,12 +3462,14 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
         or not cl_mouth_on
         or any(ov.get("open_mouth") is not None or ov.get("closed_mouth") is not None for ov in shot_ovs)
     )
+    load_still_val = str(next((s.get("still") for s in subjects if s.get("label") == subject), rec_still) or "")
     job_recipe = {
         "margin": int(ov_margin) if ov_margin is not None else rec_margin,
         "zoom_up_to": float(ov_zoom) if ov_zoom is not None else rec_zoom,
         "crop": rec_crop,
         "open_mouth": rec_open_mouth,
         "closed_mouth": rec_closed_mouth,
+        **({"still": rec_still} if rec_still else {}),
         "by": rec_by,
         "why": rec_why,
         **({"base_margin": rec_margin} if ov_margin is not None and int(ov_margin) != rec_margin else {}),
@@ -3475,6 +3489,7 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
             ("crop", rec_crop, load_crop_val, crop_has_override, crop_diff_why),
             ("open_mouth", rec_open_mouth, load_open_mouth_val, mouth_has_override, mouth_diff_why),
             ("closed_mouth", rec_closed_mouth, load_closed_mouth_val, mouth_has_override, closed_mouth_diff_why),
+            *((("still", rec_still, load_still_val, False, f"subjects.{subject}.still in plan.json"),) if rec_still else ()),
         )
     ]
     return {"job": {"name": name, "note": note, "source": source or preview["source"], "first": a, "frames": n, "canvas": list(preview["canvas"]),
@@ -4667,8 +4682,9 @@ def step_reference(a, world, figures=figures_of) -> None:
         if want_crop != drew_crop:
             raise again(f"--existing: {record} was cut to the {drew_crop}'s box and the job asks for the {want_crop}'s (the plan's reference.crop): "
                         "the reference is made again, in a new folder")
-        want_no_ht = bool(nht is not None or (isinstance(ht_cfg, dict) and not ht_cfg.get("on", True)) or want_crop != "head")
-        if want_no_ht and used_ht:
+        explicit_no_ht = bool(nht is not None or (isinstance(ht_cfg, dict) and not ht_cfg.get("on", True)))
+        want_no_ht = bool(explicit_no_ht or want_crop != "head")
+        if explicit_no_ht and used_ht:
             raise again(f"--existing: {record} was cut with a head track and this load turns it off (--no-head-track): the reference is made again, in a new folder")
         preview_has_ht = any(f"_{subject}_head_track_" in Path(f).name and f.endswith(".mkv") for f in (ctx.get("preview") or {}).get("files") or [])
         if not want_no_ht and isinstance(made.get("inputs"), dict) and not used_ht and (preview_has_ht or "head_track" in made["inputs"]):

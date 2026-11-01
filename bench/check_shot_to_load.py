@@ -4217,11 +4217,18 @@ def subject_recipe_and_pass2_cut_check() -> str:
         diffs = {r["knob"]: r for r in d["job"]["recipe_diff"]}
         assert all(r["status"] == "match" and r["recipe"] == r["this_load"] for r in diffs.values()), diffs
 
-        # Lead (b) and third (c): zoom_up_to=2.0 leaves defaults.zoom_up_to unset while recording 2.0 in recipe/recipe_diff
+        # Lead (b) and third (c): zoom_up_to=2.0 leaves defaults.zoom_up_to unset while recording 2.0 in recipe/recipe_diff,
+        # and changing subjects.b.still in plan.json updates the load job's still without rebuilding preview.json
+        made.plan["subjects"]["b"]["still"] = "b_swapped.jpg"
+        made.write()
         d_lead = made.load(subject="b", name="b_fp_0100")
         assert "zoom_up_to" not in d_lead["defaults"], d_lead["defaults"]
         assert d_lead["job"]["recipe"]["zoom_up_to"] == 2.0 and d_lead["job"]["recipe"]["closed_mouth"] == "sculpted"
+        assert d_lead["job"]["recipe"]["still"] == "b_swapped.jpg", d_lead["job"]["recipe"]
+        assert next(s["still"] for s in d_lead["job"]["subjects"] if s["label"] == "b") == "b_swapped.jpg", d_lead["job"]["subjects"]
         assert all(r["status"] == "match" for r in d_lead["job"]["recipe_diff"]), d_lead["job"]["recipe_diff"]
+        made.plan["subjects"]["b"]["still"] = "b.png"
+        made.write()
 
         d_third = made.load(subject="c", name="c_fp_0100")
         assert "zoom_up_to" not in d_third["defaults"], d_third["defaults"]

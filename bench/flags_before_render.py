@@ -660,12 +660,19 @@ def recipe_check_of(
             else:
                 actual_open_mouth = str((ref_mouth.get("open_mouth") or {}).get("form") or "inner outline")
                 actual_closed_mouth = str((ref_mouth.get("closed_mouth") or {}).get("form") or "sculpted")
+        load_subj = str(((jd.get("loads") or [{}])[0] or {}).get("subject") or "")
+        subj_entries = [s for s in (job.get("subjects") or []) if isinstance(s, dict)]
+        actual_still = next(
+            (str(s.get("still")) for s in subj_entries if s.get("label") == load_subj and s.get("still")),
+            next((str(s.get("still")) for s in subj_entries if s.get("still")), None),
+        )
         actual_map = {
             "margin": actual_margin,
             "zoom_up_to": float(actual_zoom) if actual_zoom is not None else 2.0,
             "crop": actual_crop,
             "open_mouth": actual_open_mouth,
             "closed_mouth": actual_closed_mouth,
+            **({"still": actual_still} if actual_still is not None else {}),
         }
         has_ov_map = {
             "margin": bool(item_ov_margin := False),
@@ -708,8 +715,8 @@ def recipe_check_of(
             break
         if isinstance(rec, dict):
             rec_why = str(rec.get("why") or rec.get("by") or "subject recipe in plan.json").strip()
-            for k in ("margin", "zoom_up_to", "crop", "open_mouth", "closed_mouth"):
-                if k not in rec:
+            for k in ("margin", "zoom_up_to", "crop", "open_mouth", "closed_mouth", "still"):
+                if k not in rec or (k == "still" and k not in actual_map):
                     continue
                 rec_v = rec[k]
                 cur_v = actual_map.get(k)
