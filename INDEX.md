@@ -23,6 +23,13 @@ with none is a helper the others import.
 | [`audio_refine.py`](audio_refine.py) | `MiniMaxH3AudioRefineMask` | Freeze a sampled H3 latent's video and reopen its audio, for an audio-only refinement pass. |
 | [`audio_resample.py`](audio_resample.py) |  | One resampler for every waveform this pack hands to H3's audio VAE. |
 
+### control_*
+
+| module | nodes it defines | what it says it does |
+|---|---|---|
+| [`control_vector_nodes.py`](control_vector_nodes.py) | `MiniMaxH3MakeControlVector`, `MiniMaxH3ApplyControlVectors` | ComfyUI nodes for making and applying MiniMax H3 contrastive control vectors. |
+| [`control_vectors.py`](control_vectors.py) |  | Pure-PyTorch math, pair-file reader, and `.safetensors` I/O for H3 control vectors. |
+
 ### h3_*
 
 | module | nodes it defines | what it says it does |
@@ -99,7 +106,6 @@ with none is a helper the others import.
 | [`checkpoint_overlay.py`](checkpoint_overlay.py) |  | Exact overlays of one int8 H3 checkpoint on another, stored per piece. |
 | [`clip_folder.py`](clip_folder.py) |  | The analysis folder of an input video: where it is, whose it is, and whether it is still that video's. |
 | [`conditioning.py`](conditioning.py) | `MiniMaxH3Conditioning` | fl2va conditioning with the geometry seams measured here closed at one node. |
-| [`control_vectors.py`](control_vectors.py) |  | Pure-PyTorch math, pair-file reader, and `.safetensors` I/O for H3 control vectors. |
 | [`core_sparse_capture.py`](core_sparse_capture.py) | `MiniMaxH3CoreSparseCapture` | Capture q/k/v on core's sparse producer path, and change nothing. |
 | [`denoise_mask_probe.py`](denoise_mask_probe.py) | `MiniMaxH3DenoiseMaskProbe` | Log the denoise mask each masked sampling step actually uses, and change nothing. |
 | [`exact_blocks.py`](exact_blocks.py) | `MiniMaxH3ExactBlocks` | Run named DiT blocks on EXACT attention -- neither sage nor Sol-Attn. |
@@ -150,7 +156,7 @@ with none is a helper the others import.
 | `.gemini/` | 8 | [below](#gemini) |
 | `archive/` | 29 | [below](#archive) |
 | `assets/` | 1 | [below](#assets) |
-| `bench/` | 812 | [`bench/INDEX.md`](bench/INDEX.md) and [`bench/results/INDEX.md`](bench/results/INDEX.md) for the records |
+| `bench/` | 813 | [`bench/INDEX.md`](bench/INDEX.md) and [`bench/results/INDEX.md`](bench/results/INDEX.md) for the records |
 | `changelog.d/` | | [`changelog.d/README.md`](changelog.d/README.md), one file per changelog entry; not listed and not counted |
 | `contact_sheets/` | 2 | [below](#contact_sheets) |
 | `data/` | 2 | [below](#data) |

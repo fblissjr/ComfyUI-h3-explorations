@@ -1182,6 +1182,11 @@ AUDIO_REFINE = dict(steps=6, sampler="euler", scheduler="simple", denoise=0.5,
 FROZEN_VIDEO_CACHE = dict(precision="int4", refresh=False, refresh_every=2, verify=False, halo=0)
 FROZEN_VIDEO_CACHE_NODE = "MiniMaxH3FrozenVideoCache"
 
+#: `MiniMaxH3ApplyControlVectors` node id and schema defaults
+#: (`control_vector_nodes.py`, `h3_rules.py`, `docs/research/control_vectors/2026-11-04_h3_control_vectors.md`).
+CONTROL_VECTOR_NODE = "MiniMaxH3ApplyControlVectors"
+CONTROL_VECTOR_DEFAULTS = dict(_h3_rules().CONTROL_VECTOR_DEFAULTS)
+
 # ---- Masked video-to-video on the song node ----------------------------------
 #: The segmenter core's SAM3 nodes take from CheckpointLoaderSimple: Meta's
 #: `sam3.1_multiplex.pt` repacked by `bench/convert_sam3_checkpoint.py`, which

@@ -15,7 +15,7 @@ this file is only a way to find a script by what it says it does.
 | [`compare_*`](#compare) | 19 |
 | [`build_*`](#build) | 16 |
 | [`probe_*`](#probe) | 11 |
-| [the rest](#the-rest) | 196 |
+| [the rest](#the-rest) | 197 |
 
 ## check
 
@@ -381,6 +381,7 @@ this file is only a way to find a script by what it says it does.
 | [`contact_sheets.py`](contact_sheets.py) | Contact sheets of an input video's own frames, made once and kept: one folder a video, one file a frame range. |
 | [`control_blk_cnt_public_api.py`](control_blk_cnt_public_api.py) | One positive and one negative control on `blk_cnt`, through the PUBLIC API. |
 | [`control_time_warp.py`](control_time_warp.py) | Can `bench/analyze_time_warp.py` see a warp at all? A control for its "not a time warp" claim. |
+| [`control_vectors.py`](control_vectors.py) | Build, inspect, meter, and grade MiniMax H3 control vectors. |
 | [`convert_h3_bf16_encoder.py`](convert_h3_bf16_encoder.py) | Adapt a full-depth HF Qwen3-VL-32B text encoder to the ComfyUI H3 encoder. |
 | [`convert_pdd_lora.py`](convert_pdd_lora.py) | Convert an alibaba-pai MiniMax-H3 PDD acceleration LoRA to this repo's format. |
 | [`convert_pika_lora.py`](convert_pika_lora.py) | Convert Pika H3 Flex PEFT LoRAs (`fl2va`, `ref2va`) to ComfyUI format. |

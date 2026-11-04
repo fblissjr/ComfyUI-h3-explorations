@@ -110,6 +110,7 @@ from h3_config import (  # noqa: E402
     AUDIO_REFINE, FROZEN_VIDEO_CACHE, FROZEN_VIDEO_CACHE_NODE, LORA_BRANCH_NODE,
     PIKA_FL2VA_LORA, PIKA_REF2VA_LORA, PIKA_STRENGTH, PIKA_STEPS, PIKA_SAMPLER,
     PIKA_MANUAL_SIGMAS, PIKA_MOTION_TRANSFER_IMAGES, PIKA_MOTION_TRANSFER_VIDEO,
+    CONTROL_VECTOR_NODE, CONTROL_VECTOR_DEFAULTS,
     refine_scheduler_ids,
 )
 
@@ -1324,6 +1325,11 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
               # with pre=; built for open_experiments #45 on FastH3's contract
               # graph, which was retired on 2026-11-04.
               probe_core_sparse_capture: bool = False,
+              # Apply up to three post-refiner control vectors on the DiT
+              # (MiniMaxH3ApplyControlVectors, node 115): either a
+              # (vector_name, strength) tuple for slot 1 or a dict of
+              # CONTROL_VECTOR_DEFAULTS overrides.
+              control_vector: tuple[str, float] | dict | None = None,
               out_prefix: str | None = None, **canvas) -> dict:
     """API-format graph, submittable as {"prompt": <this>} to POST /prompt.
 
@@ -1829,6 +1835,36 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
                    "inputs": {"model": model_src, "blocks": exact_blocks}}
         model_src = ["51", 0]
 
+    if control_vector is not None:
+        # Post-refiner control-vector injection (MiniMaxH3ApplyControlVectors,
+        # node 115): wraps DIFFUSION_MODEL before any step cache so computed
+        # steps apply the vector and cached steps reuse the cached output.
+        if isinstance(control_vector, tuple):
+            if len(control_vector) != 2:
+                raise SystemExit(
+                    f"control_vector tuple must be (vector_name, strength), got {control_vector!r}"
+                )
+            cv_inputs = dict(
+                CONTROL_VECTOR_DEFAULTS,
+                vector_name=str(control_vector[0]),
+                strength=float(control_vector[1]),
+            )
+        elif isinstance(control_vector, dict):
+            unknown = sorted(set(control_vector) - set(CONTROL_VECTOR_DEFAULTS))
+            if unknown:
+                raise SystemExit(
+                    f"control_vector dict has unknown keys {unknown}; "
+                    f"expected a subset of {sorted(CONTROL_VECTOR_DEFAULTS)}"
+                )
+            cv_inputs = dict(CONTROL_VECTOR_DEFAULTS, **control_vector)
+        else:
+            raise SystemExit(
+                f"control_vector must be a (vector_name, strength) tuple or dict, got {control_vector!r}"
+            )
+        g["115"] = {"class_type": CONTROL_VECTOR_NODE,
+                    "inputs": {"model": model_src, **cv_inputs}}
+        model_src = ["115", 0]
+
     if cache is not None:
         # Step caching, after the attention nodes: the cache is a
         # forward-skipping wrapper on top of the attention composition, not
@@ -2316,6 +2352,49 @@ def build_decode_saved_latent(video_latent: str, audio_latent: str, *,
                           "trim_to_audio": False,
                           "pingpong": False, "save_output": True}},
     }
+
+
+def build_control_vector_arm(
+    task: str = "t2v",
+    *,
+    vector_name: str = "film_16mm_1974__fl2va.safetensors",
+    strength: float = 0.0,
+    mask: str = "non_vision",
+    allow_recipe_mismatch: bool = False,
+    prompt: str | None = None,
+    length: int = LENGTH,
+    seed: int = SEED,
+    out_prefix: str | None = None,
+    **extra,
+) -> dict:
+    """Build an API-format control-vector arm on the base H3 recipe.
+
+    By default this uses the paper's §3.1 common setup ("stock attention plus
+    Sol as generated, no LoRA, the base step count") and wires
+    `MiniMaxH3ApplyControlVectors` at node `"115"` on the model chain.
+    """
+    cv_cfg = {
+        "vector_name": vector_name,
+        "strength": float(strength),
+        "mask": mask,
+        "allow_recipe_mismatch": bool(allow_recipe_mismatch),
+    }
+    sol_cfg = extra.pop("sol", sol_for_graph(bool(extra.get("pdd", False)),
+                                             extra.get("steps", SAMPLING["steps"])))
+    dense_backend = extra.pop("dense_backend", DENSE_BACKEND_NODE["attention"])
+    return build_api(
+        task,
+        sage=bool(extra.pop("sage", False)),
+        sol=sol_cfg,
+        dense_backend=dense_backend,
+        prompt=prompt,
+        length=length,
+        seed=seed,
+        control_vector=cv_cfg,
+        out_prefix=out_prefix or f"Video/h3_{task}_cv",
+        **extra,
+    )
+
 
 
 # --------------------------------------------------------------------------

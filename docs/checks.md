@@ -284,7 +284,7 @@ Full per-check history, 2026-08-23 amendments, and `"claims block"` notes are sh
 | `build_prompt_bank.py` | a generator ([detail](checks/index_14.md)) | - | no |
 | `masked_code_map.py` | a generator and AST drift gate ([detail](checks/index_15.md)) | no CUDA | no |
 | `check_masked_code_map.py` | that bench/masked_code_map.py... ([detail](checks/index_15.md)) | no CUDA | no |
-| `check_control_vectors.py` | that control_vectors.py and h3_spans.py... ([detail](checks/index_15.md)) | no CUDA | yes |
+| `check_control_vectors.py` | that h3_spans.py, control_vectors.py, control_vector_nodes.py, build_workflows.py, and bench/control_vectors.py... ([detail](checks/index_15.md)) | no CUDA | yes |
 | `replay_cranium_references.py` | 3-way replay of all cranium references ([detail](checks/index_15.md)) | no CUDA | no |
 | `preflight_graph.py` | not a gate ([detail](checks/index_15.md)) | no CUDA | no |
 | `smoke_h3.py` | the H3 chain composes and runs... ([detail](checks/index_15.md)) | live ComfyUI... | no |

@@ -35,6 +35,19 @@
       "references"
     ]
   },
+  "MiniMaxH3ApplyControlVectors": {
+    "inputs": [
+      "model",
+      "vector_name",
+      "strength",
+      "mask",
+      "allow_recipe_mismatch"
+    ],
+    "node_id": "MiniMaxH3ApplyControlVectors",
+    "outputs": [
+      "model"
+    ]
+  },
   "MiniMaxH3AudioAttentionGain": {
     "inputs": [
       "model",
@@ -332,6 +345,22 @@
     "node_id": "MiniMaxH3LoRABranch",
     "outputs": [
       "model"
+    ]
+  },
+  "MiniMaxH3MakeControlVector": {
+    "inputs": [
+      "model",
+      "clip",
+      "pair_file",
+      "pooling",
+      "apply_holds",
+      "output_name",
+      "encoded_references"
+    ],
+    "node_id": "MiniMaxH3MakeControlVector",
+    "outputs": [
+      "vector_name",
+      "report"
     ]
   },
   "MiniMaxH3MaskedPrompt": {

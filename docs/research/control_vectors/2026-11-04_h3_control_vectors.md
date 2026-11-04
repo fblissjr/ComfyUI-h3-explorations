@@ -130,7 +130,7 @@ Choices, each from a correction to the earlier draft (the reviews are listed in 
 - **The prompt edit**, written as well as the house writes. The bank's look family (`t2va_look_anchor` and its siblings,
   each holding the content and changing one look axis) is the model.
 - **A faithful MAINodes-style dial** on the same pairs: unmasked, short bare pairs, plain mean over all rows.
-- **Nulls**: A and B swapped in a random half of the pairs and rescaled to the vector's norm; a random direction of the
+- **Nulls**: a random partition of the pairs into two disjoint halves (`n - floor(n/2)` and `floor(n/2)`), taking half the difference between the two halves' weighted means (each normalized by its own `sum(|w|)` so a shared direction cancels identically for even or odd `n` and equal or unequal weights) and rescaling to the vector's norm (2026-11-04: used to say "A and B swapped in a random half of the pairs and rescaled to the vector's norm", which leaves `1/n` of the signal for odd `n` and ignores weights); a random direction of the
   same norm; a semantically empty edit (the prompt with " ." appended); strength 0. Shuffling pairs is not a null: a
   mean of pair differences is mean(B) minus mean(A) whatever the pairing.
 
@@ -164,7 +164,7 @@ The inspection tools, the meter, the vector library and everything in section 6 
   prompt asks for no text, so any lettering is spontaneous) and `ref2va_look_anchor` (a reference-led shot, where the
   mask and the long structured prompt matter). Canvas from `workflows/h3_config.py::CANVAS_TIERS` at a probe size
   `AGENTS.md` allows; length from `h3_config.LENGTH`.
-- **The base arm only**: stock attention plus Sol as generated, no LoRA, the base step count. Every result names its
+- **The base arm only**: stock attention plus Sol as generated for renders (`workflows/build_workflows.py::build_control_vector_arm`), and stock dense attention by default for single-step `grade` activation probes (`--sol` opt-in, because Sol's dynamic sparse mask re-routes keys when conditioning changes; `bench/measure_marker_epsilon.py:33-46`; 2026-11-04: used to say "stock attention plus Sol as generated" without distinguishing render arms from `grade`'s activation probe), no LoRA, the base step count. Every result names its
   DiT file and the ComfyUI core revision.
 - **Pairs never contain the test shots**, so a vector cannot win by memorizing them.
 - **Every prompt is read in full** from the queued graph (`bench/what_h3_got.py`) before it renders; graphs come from

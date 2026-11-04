@@ -70,6 +70,7 @@ from .reference_conditioning import (
     MiniMaxH3ReferenceConditioning,
 )
 from .reference_encode import MiniMaxH3EncodeReferences, MiniMaxH3PromptOnReferences
+from .control_vector_nodes import MiniMaxH3ApplyControlVectors, MiniMaxH3MakeControlVector
 from .prompt_lists import MiniMaxH3FillPromptLists, MiniMaxH3PromptList, register_wildcards_folder
 from . import h3_capture
 
@@ -386,7 +387,10 @@ class H3ExplorationsExtension(ComfyExtension):
                 MiniMaxH3SubjectBoxes,
                 # appended 2026-10-10, a body mesh with the crop sampled as Meta's code samples it,
                 # in place of ComfyUI's three SAM 3D Body nodes (body_pose.py)
-                MiniMaxH3BodyModelLoader, MiniMaxH3BodyPose, MiniMaxH3BodyMeshVideo]
+                MiniMaxH3BodyModelLoader, MiniMaxH3BodyPose, MiniMaxH3BodyMeshVideo,
+                # appended 2026-11-04, contrastive control vectors made and applied after the
+                # token refiner (control_vector_nodes.py, control_vectors.py)
+                MiniMaxH3MakeControlVector, MiniMaxH3ApplyControlVectors]
 
 
 async def comfy_entrypoint() -> H3ExplorationsExtension:

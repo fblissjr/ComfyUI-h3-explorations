@@ -6,6 +6,9 @@ and chain-assert nodes. See README.md.
 
 from .nodes import comfy_entrypoint
 from . import pipeline_telemetry as _telemetry
+from .control_vector_nodes import register_control_vectors_folder as _register_control_vectors_folder
+
+_register_control_vectors_folder()
 
 # Inert unless the server starts with H3_TELEMETRY set (docs/pipeline_telemetry.md).
 # It observes through core's cache-provider API and a logging handler; it

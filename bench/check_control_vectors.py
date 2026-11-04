@@ -32,6 +32,12 @@ Claims, i.e. what breaks if a case is deleted:
 - C6 (`check_apply_post_refiner_invariants`): `apply_post_refiner` could alter
   `context` at strength 0, mutate `tags == 0` vision rows under a non-zero
   strength or custom mask, accept non-finite inputs, or change sequence length `L`.
+- C7 (`check_runtime_nodes_arm_and_cli`): `control_vector_nodes.py` could fail to
+  register `MiniMaxH3MakeControlVector` or `MiniMaxH3ApplyControlVectors`, fail to
+  fall back or refuse cleanly on models without `cached_patcher_init`, fail to
+  accumulate stacked `MiniMaxH3ApplyControlVectors` wrappers in `float64` while
+  keeping `tag == 0` vision rows bitwise unchanged, fail to wire node `"115"` in
+  `workflows/build_workflows.py::build_control_vector_arm`, or fail `bench/control_vectors.py inspect`.
 """
 
 from __future__ import annotations
@@ -46,12 +52,13 @@ import torch
 from safetensors.torch import save_file
 
 REPO = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(REPO))
+sys.path = [p for p in sys.path if Path(p or ".").resolve() != (REPO / "bench").resolve()]
 sys.path.insert(0, str(REPO / "bench"))
+sys.path.insert(0, str(REPO))
 
 from _lib import bootstrap  # noqa: E402
 
-bootstrap()
+bootstrap(cpu=True)
 
 import control_vectors as cv  # noqa: E402
 import h3_spans  # noqa: E402
@@ -89,6 +96,23 @@ def check_tokenizer_constants() -> tuple[list[str], MiniMaxH3Tokenizer]:
             errs.append(f"unexpected dialogue token IDs: {observed}")
     except Exception as exc:
         errs.append(f"verify_tokenizer_constants failed: {exc}")
+
+    # Refusal when a mock tokenizer does not end a label with a lone space token
+    hf_real = tok.qwen3vl_32b.tokenizer
+
+    class _BadLabelTok:
+        def encode(self, s: str, add_special_tokens: bool = False):
+            return hf_real.encode(s, add_special_tokens=add_special_tokens)
+
+        def decode(self, ids):
+            out = hf_real.decode(ids)
+            return "_no_space" if out == " " else out
+
+    errs += _expect_refusal(
+        lambda: h3_spans.verify_tokenizer_constants(_BadLabelTok()),
+        "did not end in a lone space token",
+        "verify_tokenizer_constants refusal when label does not end in lone space",
+    )
     return errs, tok
 
 
@@ -241,6 +265,51 @@ def check_spans_partition_and_refusals(tok: MiniMaxH3Tokenizer) -> list[str]:
         "must contain 'vision' and 'scene'",
         "pooling_mask missing 'scene' key",
     )
+
+    # Verify that after the last vision block, only `<Audio j>: ` is accepted as a prefix-tail
+    # label, whereas `<Picture 2>: ` at the start of the prompt prose stays in `scene`.
+    tail_prompt = "<Picture 2>: the painting on the wall."
+    tail_entries = tok.tokenize_with_weights(
+        tail_prompt,
+        minimax_ref_items=[{"type": "image", "data": torch.zeros((1, 64, 64, 3))}],
+    )["qwen3vl_32b"][0]
+    tail_einfo: list[dict] = []
+    tail_pos = 0
+    for it, _w in tail_entries:
+        if isinstance(it, dict):
+            tail_einfo.append({"type": "image", "index": tail_pos, "size": 3})
+            tail_pos += 3
+        else:
+            tail_pos += 1
+    tail_tags = token_tags_from_embeds_info(tail_pos, tail_einfo).tolist()
+    tail_ids = h3_spans.expand_token_ids(tail_entries, tail_tags)
+    tail_masks = h3_spans.spans(tail_ids, tail_tags, decode)
+    tail_label_str = "".join(
+        decode([tail_ids[k]]) for k in tail_masks["label"].nonzero(as_tuple=False).flatten().tolist()
+    )
+    if tail_label_str != "<Picture 1>: ":
+        errs.append(f"tail `<Picture 2>: ` in prose was misclassified as label: {tail_label_str!r}")
+
+    # Verify before_vision lone-space boundary check (`<Picture 1>: Word` where `" Word"` is a single token,
+    # not a lone `" "` token) and before_vision timestamp end-of-segment check (`<0.5 seconds> extra` before vision).
+    bv_pieces = [
+        "<Picture 1>:",
+        " Word ",
+        "<0.5 seconds>",
+        " extra",
+        "<|vision_start|>",
+        "<|image_pad|>",
+        "<|vision_end|>",
+    ]
+    bv_ids = list(range(len(bv_pieces)))
+    bv_tags = [1, 1, 1, 1, 0, 0, 0]
+    bv_masks = h3_spans.spans(
+        bv_ids, bv_tags, lambda s_ids: "".join(bv_pieces[i] for i in s_ids)
+    )
+    if bool(bv_masks["label"].any()):
+        errs.append("before_vision `<Picture 1>: Word ` without lone space token was misclassified as label")
+    if bool(bv_masks["timestamp"].any()):
+        errs.append("before_vision `<0.5 seconds> extra` not at end of segment was misclassified as timestamp")
     return errs
 
 
@@ -503,6 +572,58 @@ b = "a busy city street"
             "does not match file stem",
             "pair-file refusal: stem mismatch",
         )
+        # 12. Paragraph break (\n\n) inside differing span, and section/[Shot N] header rename refusals
+        errs += _expect_refusal(
+            lambda: cv.differing_span(
+                base_a,
+                base_a.replace("clean neutral colour", "vintage 16mm,\n\nextra paragraph"),
+            ),
+            "paragraph break",
+            "differing_span refusal: paragraph break inside clause",
+        )
+        for hdr_old, hdr_new in (
+            ("overall_soundscape:", "overall_soundscapes:"),
+            ("[Shot 1]", "[Shot 2]"),
+        ):
+            errs += _expect_refusal(
+                lambda ho=hdr_old, hn=hdr_new: cv.differing_span(
+                    base_a, base_a.replace(ho, hn, 1)
+                ),
+                "header",
+                f"differing_span refusal: header rename {hdr_old!r} -> {hdr_new!r}",
+            )
+        # 13. Unknown top-level key, unknown [[hold]] key, and non-finite [[hold]] weight
+        errs += _expect_refusal(
+            lambda: _write_and_load(
+                "bad_top_key",
+                'extra_top = 1\n'
+                + good_toml.read_text(encoding="utf-8").replace(
+                    'name = "film_16mm_1974"', 'name = "bad_top_key"'
+                ),
+            ),
+            "unknown top-level toml key",
+            "pair-file refusal: unknown top-level key",
+        )
+        errs += _expect_refusal(
+            lambda: _write_and_load(
+                "bad_hold_key",
+                good_toml.read_text(encoding="utf-8")
+                .replace('name = "film_16mm_1974"', 'name = "bad_hold_key"')
+                .replace('group = "warm_tint"', 'group = "warm_tint"\nextra_hold = 1'),
+            ),
+            "unknown key",
+            "pair-file refusal: unknown [[hold]] key",
+        )
+        errs += _expect_refusal(
+            lambda: _write_and_load(
+                "bad_hold_weight",
+                good_toml.read_text(encoding="utf-8")
+                .replace('name = "film_16mm_1974"', 'name = "bad_hold_weight"')
+                .replace('group = "warm_tint"', 'group = "warm_tint"\nweight = nan'),
+            ),
+            "weight must be finite and non-zero",
+            "pair-file refusal: NaN [[hold]] weight",
+        )
     return errs
 
 
@@ -554,37 +675,55 @@ def check_math_and_synthetic_statistics() -> list[str]:
     diffs32 = (mu.unsqueeze(0) + noise).to(torch.float32)
     zeros32 = torch.zeros_like(diffs32)
 
-    # Test flip_null across even n (12), odd n (9 and 11), and unequal weights ([3, 1, 1, ...]):
-    # in every case, the rescaled flip_null must match the true vector's norm AND cancel the
-    # shared direction mu[0] (mean |cos(fnull, mu)| < 0.20 across draws).
+    # Exact algebraic cancellation check for flip_null across even n, odd n, positive unequal weights,
+    # and mixed-sign weights: for the same generator seed, adding 5 * sign(w_i) * mu to every pair
+    # must leave the direction of flip_null unchanged (cosine == 1.0 within float32 tolerance),
+    # and flip_null's norm must equal the norm of mean_difference(a, b, w).
     for case_label, n_sub, w_sub in (
         ("even n=12", 12, None),
         ("odd n=9", 9, None),
         ("odd n=11", 11, None),
         ("unequal weights n=8", 8, torch.tensor([3.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0], dtype=torch.float32)),
+        ("unequal weights n=9", 9, torch.tensor([3.0, 1.0, 3.0, 1.0, 3.0, 1.0, 3.0, 1.0, 2.0], dtype=torch.float32)),
+        ("mixed-sign weights n=8", 8, torch.tensor([1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0], dtype=torch.float32)),
+        ("mixed-sign weights n=9", 9, torch.tensor([2.0, -1.0, 3.0, -2.0, 1.0, -1.0, 2.0, -3.0, 1.0], dtype=torch.float32)),
     ):
-        sub_diffs = diffs32[:n_sub]
+        sub_noise = noise[:n_sub].to(torch.float32)
         sub_zeros = zeros32[:n_sub]
-        v_sub = cv.mean_difference(sub_zeros, sub_diffs, w_sub)
+        signs_w = (
+            torch.sign(w_sub).to(dtype=torch.float32)[:, None]
+            if w_sub is not None
+            else torch.ones((n_sub, 1), dtype=torch.float32)
+        )
+        sub_planted = sub_noise + 5.0 * signs_w * mu.to(dtype=torch.float32).unsqueeze(0)
+        v_sub = cv.mean_difference(sub_zeros, sub_planted, w_sub)
         sub_norm = float(torch.linalg.vector_norm(v_sub.to(torch.float64)).item())
-        cos_draws: list[float] = []
-        for draw_idx in range(16):
-            fn_vec = cv.flip_null(
+        for draw_idx in range(8):
+            seed_val = 1000 + draw_idx
+            fn_noise = cv.flip_null(
                 sub_zeros,
-                sub_diffs,
+                sub_noise,
                 w_sub,
-                generator=torch.Generator().manual_seed(1000 + draw_idx),
+                generator=torch.Generator().manual_seed(seed_val),
             )
-            fn_norm = float(torch.linalg.vector_norm(fn_vec.to(torch.float64)).item())
+            fn_planted = cv.flip_null(
+                sub_zeros,
+                sub_planted,
+                w_sub,
+                generator=torch.Generator().manual_seed(seed_val),
+            )
+            fn_norm = float(torch.linalg.vector_norm(fn_planted.to(torch.float64)).item())
             if abs(fn_norm - sub_norm) > 1e-5 * sub_norm:
                 errs.append(f"flip_null ({case_label}) norm {fn_norm} != {sub_norm}")
                 break
-            cos_draws.append(abs(float(fn_vec[0].item()) / fn_norm))
-        mean_abs_cos = sum(cos_draws) / len(cos_draws) if cos_draws else 1.0
-        if mean_abs_cos > 0.20:
-            errs.append(
-                f"flip_null ({case_label}) leaked planted signal: mean |cos(null, mu)| = {mean_abs_cos:.4f} > 0.20"
-            )
+            u_noise = fn_noise.to(torch.float64) / torch.linalg.vector_norm(fn_noise.to(torch.float64))
+            u_planted = fn_planted.to(torch.float64) / torch.linalg.vector_norm(fn_planted.to(torch.float64))
+            cos_invariance = float(torch.dot(u_noise, u_planted).item())
+            if abs(cos_invariance - 1.0) > 1e-5:
+                errs.append(
+                    f"flip_null ({case_label}) leaked planted signal: same-seed invariance cosine = {cos_invariance:.6f} != 1.0"
+                )
+                break
 
     # random_null norm and isotropy check across multiple draws (rejects constant vectors like ones(d)).
     v_true = cv.mean_difference(zeros32, diffs32)
@@ -622,6 +761,37 @@ def check_math_and_synthetic_statistics() -> list[str]:
         errs.append(
             f"split_half_cosine failed expected ordering 0.5 < sh4 ({sh4:.4f}) < sh32 ({sh32:.4f}) < 1.0"
         )
+
+    # split_half_cosine must honor weights: 2 aligned rows with weight 100 vs 2 orthogonal rows with weight 1.
+    w_rows = torch.zeros((4, d), dtype=torch.float32)
+    w_rows[0, 0] = 1.0
+    w_rows[1, 0] = 1.0
+    w_rows[2, 1] = 1.0
+    w_rows[3, 2] = 1.0
+    sh_weighted = cv.split_half_cosine(
+        w_rows, weights=[100.0, 100.0, 1.0, 1.0], generator=torch.Generator().manual_seed(7), n_splits=64
+    )
+    sh_unweighted = cv.split_half_cosine(
+        w_rows, generator=torch.Generator().manual_seed(7), n_splits=64
+    )
+    if abs(sh_weighted - sh_unweighted) < 0.05:
+        errs.append(
+            f"split_half_cosine ignored weights: sh_weighted={sh_weighted:.4f}, sh_unweighted={sh_unweighted:.4f}"
+        )
+
+    # mean_pairwise_cosine and per_pair_cosine must orient rows by sign(weights).
+    # Pairs 0, 2 point +e0 with weight +1; pairs 1, 3 point -e0 with weight -1 -> all 4 orient to +e0 (cos = 1.0).
+    signed_rows = torch.zeros((4, d), dtype=torch.float32)
+    signed_rows[0, 0] = 1.0
+    signed_rows[1, 0] = -1.0
+    signed_rows[2, 0] = 1.0
+    signed_rows[3, 0] = -1.0
+    mpc_signed = cv.mean_pairwise_cosine(signed_rows, weights=[1.0, -1.0, 1.0, -1.0])
+    if abs(mpc_signed - 1.0) > 1e-6:
+        errs.append(f"mean_pairwise_cosine ignored negative weight orientation: {mpc_signed}, expected 1.0")
+    ppc_signed = cv.per_pair_cosine(signed_rows, weights=[1.0, -1.0, 1.0, -1.0])
+    if any(abs(x - 1.0) > 1e-6 for x in ppc_signed):
+        errs.append(f"per_pair_cosine ignored negative weight orientation: {ppc_signed}, expected all 1.0")
 
     # Outlier detection via per_pair_cosine: flip pair 0 and verify its per_pair_cosine < 0.
     diffs_outlier = diffs32[:8].clone()
@@ -673,6 +843,20 @@ def check_math_and_synthetic_statistics() -> list[str]:
         lambda: cv.project_out(v_in, torch.zeros((0, d + 1), dtype=torch.float32)),
         "basis must have shape",
         "project_out wrong basis width refusal",
+    )
+    v_nan = v_in.clone()
+    v_nan[0] = float("nan")
+    errs += _expect_refusal(
+        lambda: cv.project_out(v_nan, basis),
+        "v and basis must contain only finite values",
+        "project_out non-finite v refusal",
+    )
+    basis_nan = basis.clone()
+    basis_nan[0, 0] = float("nan")
+    errs += _expect_refusal(
+        lambda: cv.project_out(v_in, basis_nan),
+        "v and basis must contain only finite values",
+        "project_out non-finite basis refusal",
     )
     return errs
 
@@ -739,6 +923,11 @@ def check_vector_io_family_and_compatibility() -> list[str]:
         digest = cv.safetensors_recipe_digest(ckpt_path, extra_tensor_keys=cv.FAMILY_TENSOR_KEYS)
         if len(digest) != 64:
             errs.append(f"safetensors_recipe_digest returned invalid sha256: {digest!r}")
+        errs += _expect_refusal(
+            lambda: cv.safetensors_recipe_digest(ckpt_path, extra_tensor_keys=("nonexistent.weight",)),
+            "missing required tensor key 'nonexistent.weight'",
+            "safetensors_recipe_digest missing tensor key refusal",
+        )
 
         # Vector save/load round-trip (with v_post orthogonal to h_post).
         v_post = torch.linspace(-1.0, 1.0, cv.POST_REFINER_DIM, dtype=torch.float32)
@@ -831,6 +1020,123 @@ def check_vector_io_family_and_compatibility() -> list[str]:
             "load_vector refusal: unknown format",
         )
 
+        # - metadata sub-dict inner keys, values, and family format validation
+        errs += _expect_refusal(
+            lambda: cv.save_vector(
+                tmp_dir / "bad_pairs.safetensors",
+                tensors_in,
+                {**meta_in, "pairs": {"path": "x.toml"}},
+            ),
+            "metadata 'pairs' must be a dict with keys",
+            "save_vector refusal: missing inner key in pairs",
+        )
+        errs += _expect_refusal(
+            lambda: cv.save_vector(
+                tmp_dir / "bad_measured_keys.safetensors",
+                tensors_in,
+                {**meta_in, "measured_under": {"mode": "t2va"}},
+            ),
+            "metadata 'measured_under' must be a dict with keys",
+            "save_vector refusal: missing inner key in measured_under",
+        )
+        errs += _expect_refusal(
+            lambda: cv.save_vector(
+                tmp_dir / "bad_pooling.safetensors",
+                tensors_in,
+                {**meta_in, "measured_under": {**meta_in["measured_under"], "pooling": "bogus"}},
+            ),
+            "measured_under.pooling",
+            "save_vector refusal: invalid measured_under.pooling",
+        )
+        errs += _expect_refusal(
+            lambda: cv.save_vector(
+                tmp_dir / "bad_mode.safetensors",
+                tensors_in,
+                {**meta_in, "measured_under": {**meta_in["measured_under"], "mode": "zzz"}},
+            ),
+            "measured_under.mode",
+            "save_vector refusal: invalid measured_under.mode",
+        )
+        errs += _expect_refusal(
+            lambda: cv.save_vector(
+                tmp_dir / "bad_points.safetensors",
+                tensors_in,
+                {**meta_in, "points": {"post_refiner": {}}},
+            ),
+            "points['post_refiner'] must be a dict with",
+            "save_vector refusal: missing inner keys in points.post_refiner",
+        )
+        errs += _expect_refusal(
+            lambda: cv.save_vector(
+                tmp_dir / "bad_qr_nan.safetensors",
+                tensors_in,
+                {**meta_in, "quality_report": {**meta_in["quality_report"], "mean_pairwise_cosine": float("nan")}},
+            ),
+            "finite float",
+            "save_vector refusal: NaN mean_pairwise_cosine",
+        )
+        errs += _expect_refusal(
+            lambda: cv.save_vector(
+                tmp_dir / "bad_qr_ppc_nan.safetensors",
+                tensors_in,
+                {**meta_in, "quality_report": {**meta_in["quality_report"], "per_pair_cosine": [float("nan")]}},
+            ),
+            "finite floats",
+            "save_vector refusal: NaN in per_pair_cosine list",
+        )
+        errs += _expect_refusal(
+            lambda: cv.save_vector(
+                tmp_dir / "bad_fam.safetensors",
+                tensors_in,
+                {**meta_in, "family": "custom:not_hex_12"},
+            ),
+            "metadata 'family' must be",
+            "save_vector refusal: invalid custom family tag",
+        )
+
+        # - tensor validation: non-orthonormal holds, unprojected vector vs holds, unknown key, valid llm.<layer>
+        h_not_ortho = torch.zeros((2, cv.POST_REFINER_DIM), dtype=torch.float32)
+        h_not_ortho[0, 0] = 2.0
+        h_not_ortho[1, 1] = 1.0
+        errs += _expect_refusal(
+            lambda: cv.save_vector(
+                tmp_dir / "bad_holds_ortho.safetensors",
+                {"vector.post_refiner": v_post, "holds.post_refiner": h_not_ortho},
+                meta_in,
+            ),
+            "not orthonormal",
+            "save_vector refusal: non-orthonormal holds.post_refiner",
+        )
+        v_not_proj = v_post.clone()
+        v_not_proj[0] = 1.0  # h_post[0, 0] == 1.0 -> non-zero dot product
+        errs += _expect_refusal(
+            lambda: cv.save_vector(
+                tmp_dir / "bad_vec_proj.safetensors",
+                {"vector.post_refiner": v_not_proj, "holds.post_refiner": h_post},
+                meta_in,
+            ),
+            "not orthogonal to 'holds.post_refiner'",
+            "save_vector refusal: vector.post_refiner not orthogonal to holds.post_refiner",
+        )
+        errs += _expect_refusal(
+            lambda: cv.save_vector(
+                tmp_dir / "bad_holds_enc.safetensors",
+                {"vector.post_refiner": v_post, "holds.encoder": torch.zeros((1, cv.ENCODER_DIM), dtype=torch.float32)},
+                meta_in,
+            ),
+            "unknown control vector tensor key 'holds.encoder'",
+            "save_vector refusal: unknown tensor key holds.encoder",
+        )
+        llm_path = tmp_dir / "valid_llm.safetensors"
+        cv.save_vector(
+            llm_path,
+            {"vector.post_refiner": v_post, "vector.llm.25": torch.ones((cv.ENCODER_DIM,), dtype=torch.float32)},
+            meta_in,
+        )
+        t_llm, _ = cv.load_vector(llm_path)
+        if "vector.llm.25" not in t_llm or tuple(t_llm["vector.llm.25"].shape) != (cv.ENCODER_DIM,):
+            errs.append("save_vector/load_vector failed on valid vector.llm.25 (5120-d) key")
+
         # Compatibility checks:
         # 1. Exact match -> 0 warnings
         warns = cv.check_vector_compatibility(
@@ -897,12 +1203,24 @@ def check_vector_io_family_and_compatibility() -> list[str]:
         if len(warns_prefix) != 1 or "measured under prefix" not in warns_prefix[0].lower():
             errs.append(f"expected 1 prefix warning, got {warns_prefix}")
 
-        # 6. Unknown format refusal
+        # 6. Unknown format refusal, non-Mapping loaded_recipe refusal, and loaded_recipe=None refusal
         bad_meta = {**meta_out, "format": "h3-control-vector/99"}
         errs += _expect_refusal(
             lambda: cv.check_vector_compatibility(bad_meta, loaded_family="fl2va"),
             "expected 'h3-control-vector/1'",
             "compatibility refusal: unknown format",
+        )
+        errs += _expect_refusal(
+            lambda: cv.check_vector_compatibility(meta_out, loaded_family="fl2va", loaded_recipe=["bad"]),  # type: ignore[arg-type]
+            "loaded_recipe must be a mapping",
+            "compatibility refusal: non-Mapping loaded_recipe",
+        )
+        errs += _expect_refusal(
+            lambda: cv.check_vector_compatibility(
+                meta_out, loaded_family="fl2va", loaded_recipe=None, allow_recipe_mismatch=False
+            ),
+            "loaded_recipe is required",
+            "compatibility refusal: loaded_recipe=None when allow_recipe_mismatch=False",
         )
     return errs
 
@@ -915,10 +1233,15 @@ def check_apply_post_refiner_invariants() -> list[str]:
     tags = torch.tensor([[0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1]], dtype=torch.long)
     vec = torch.ones((D,), dtype=torch.float32) * 0.5
 
-    # 1. Strength 0 reproduces unhooked context bitwise.
+    # 1. Strength 0 reproduces unhooked context bitwise (even when context contains NaN).
     out_zero = cv.apply_post_refiner(context, tags, [(vec, 0.0)])
     if not torch.equal(out_zero, context):
         errs.append("apply_post_refiner at strength 0 did not reproduce context bitwise")
+    ctx_nan = context.clone()
+    ctx_nan[0, 5, 0] = float("nan")
+    out_zero_nan = cv.apply_post_refiner(ctx_nan, tags, [(vec, 0.0)])
+    if out_zero_nan.data_ptr() != ctx_nan.data_ptr():
+        errs.append("apply_post_refiner at strength 0 did not return context unchanged when context had NaN")
 
     # 2. Non-zero strength leaves masked-off (tag 0 vision) rows bitwise unchanged and preserves L.
     out_pos = cv.apply_post_refiner(context, tags, [(vec, 1.5), (vec, -0.5)])
@@ -940,7 +1263,7 @@ def check_apply_post_refiner_invariants() -> list[str]:
     if not torch.equal(out_custom[:, expected_unmodified, :], context[:, expected_unmodified, :]):
         errs.append("apply_post_refiner mutated vision row 0 or unmasked rows under custom_mask")
 
-    # 4. Refusals on wrong mask shape and non-finite vector.
+    # 4. Refusals on wrong mask shape, non-finite vector, and non-finite steered context rows (while unsteered vision NaN is allowed).
     errs += _expect_refusal(
         lambda: cv.apply_post_refiner(context, tags, [(vec, 1.0)], mask=torch.ones(L - 1, dtype=torch.bool)),
         "mask shape",
@@ -953,14 +1276,928 @@ def check_apply_post_refiner_invariants() -> list[str]:
         "non-finite",
         "apply_post_refiner refusal: NaN vector",
     )
+    errs += _expect_refusal(
+        lambda: cv.apply_post_refiner(ctx_nan, tags, [(vec, 1.0)]),
+        "context contains non-finite values in steered rows",
+        "apply_post_refiner refusal: NaN in steered text row at strength 1.0",
+    )
+    ctx_vis_nan = context.clone()
+    ctx_vis_nan[0, 0, 0] = float("nan")
+    out_vis_nan = cv.apply_post_refiner(ctx_vis_nan, tags, [(vec, 1.0)])
+    if not torch.isnan(out_vis_nan[0, 0, 0]) or not torch.equal(out_vis_nan[:, 4:, :], context[:, 4:, :] + vec.to(dtype=context.dtype)):
+        errs.append("apply_post_refiner failed when NaN was only in unsteered tag==0 vision row")
+
+    # 5. mask_vision=False (MAINodes-style unmasked ablation) shifts vision rows too.
+    out_unmasked = cv.apply_post_refiner(context, tags, [(vec, 1.0)], mask_vision=False)
+    expected_all = context + vec.to(dtype=context.dtype)
+    if not torch.equal(out_unmasked, expected_all):
+        errs.append("apply_post_refiner(mask_vision=False) did not shift all rows")
+
+    # 6. row_norm_census, channel_census, and meter_score invariants.
+    rc = cv.row_norm_census(context[0], tags[0])
+    if rc["row0_to_median_ratio"] <= 0 or rc["median_row_norm"] <= 0:
+        errs.append(f"unexpected row_norm_census: {rc}")
+    cc = cv.channel_census(vec)
+    if abs(cc["top1_energy_share"] - (1.0 / D)) > 1e-5:
+        errs.append(f"unexpected uniform channel_census top1_energy_share: {cc}")
+    ms = cv.meter_score(context[0], vec, mask=(tags[0] == 1))
+    if not ("projection_units" in ms and "signed_projection" in ms and "cosine" in ms):
+        errs.append(f"unexpected meter_score output: {ms}")
 
     return errs
+
+
+def check_runtime_nodes_arm_and_cli() -> list[str]:
+    errs: list[str] = []
+    import importlib.util
+    import comfy.ldm.minimax.model as mm_mod
+    from comfy.patcher_extension import WrappersMP
+    import json
+    import control_vector_nodes as cv_nodes
+    if str(REPO / "workflows") not in sys.path:
+        sys.path.insert(0, str(REPO / "workflows"))
+    from workflows import build_workflows as bw
+
+    spec_bcv = importlib.util.spec_from_file_location(
+        "bench_control_vectors", REPO / "bench" / "control_vectors.py"
+    )
+    assert spec_bcv is not None and spec_bcv.loader is not None
+    bench_cv = importlib.util.module_from_spec(spec_bcv)
+    spec_bcv.loader.exec_module(bench_cv)
+
+    # 1. Node schemas and registration in nodes.py + bench/node_id_manifest.json
+    nodes_src = (REPO / "nodes.py").read_text(encoding="utf-8")
+    manifest_data = json.loads((REPO / "bench" / "node_id_manifest.json").read_text(encoding="utf-8"))
+    for cls, expected_id in (
+        (cv_nodes.MiniMaxH3MakeControlVector, "MiniMaxH3MakeControlVector"),
+        (cv_nodes.MiniMaxH3ApplyControlVectors, "MiniMaxH3ApplyControlVectors"),
+    ):
+        schema = cls.define_schema()
+        if schema.node_id != expected_id:
+            errs.append(f"schema.node_id={schema.node_id!r}, expected {expected_id!r}")
+        if expected_id not in nodes_src or expected_id not in manifest_data:
+            errs.append(f"{expected_id} missing from nodes.py or bench/node_id_manifest.json")
+
+    # 2. Shipped prompt_bank/control_vectors/*.toml validation (when present)
+    cv_bank_dir = REPO / "prompt_bank" / "control_vectors"
+    if cv_bank_dir.is_dir():
+        for toml_path in sorted(cv_bank_dir.glob("*.toml")):
+            try:
+                pf = cv.load_pairs(toml_path, bank_dir=REPO / "prompt_bank")
+                if len(pf.pairs) < 4:
+                    errs.append(f"{toml_path.name}: expected >= 4 pairs, got {len(pf.pairs)}")
+            except Exception as exc:
+                errs.append(f"{toml_path.name} failed load_pairs: {exc}")
+
+    # 3. Mock ModelPatcher & DIFFUSION_MODEL runtime wrapper + recipe extraction
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp = Path(tmpdir)
+        ckpt_path = tmp / "mock_fl2va.safetensors"
+        gen = torch.Generator().manual_seed(7)
+        sd_tensors = {
+            "condition_proj.weight": torch.randn(
+                (cv.POST_REFINER_DIM, cv.ENCODER_DIM), generator=gen, dtype=torch.bfloat16
+            ),
+            "condition_proj.bias": torch.randn(
+                (cv.POST_REFINER_DIM,), generator=gen, dtype=torch.bfloat16
+            ),
+            "token_refiner.final_norm.weight": torch.randn(
+                (cv.POST_REFINER_DIM,), generator=gen, dtype=torch.bfloat16
+            ),
+        }
+        save_file(sd_tensors, str(ckpt_path))
+        fam = cv.detect_family(ckpt_path)
+
+        class _MockDiffusionModel(mm_mod.MiniMaxH3Model):
+            def __init__(self, with_tensors: bool = True):
+                torch.nn.Module.__init__(self)
+                if with_tensors:
+                    self.condition_proj = SimpleNamespace(
+                        weight=sd_tensors["condition_proj.weight"],
+                        bias=sd_tensors["condition_proj.bias"],
+                    )
+                    self.token_refiner = SimpleNamespace(
+                        final_norm=SimpleNamespace(
+                            weight=sd_tensors["token_refiner.final_norm.weight"]
+                        )
+                    )
+                self.last_context: torch.Tensor | None = None
+
+            def run_step(self, x, timestep, context, transformer_options={}, **kwargs):
+                self.last_context = context.clone()
+                return x + context.mean()
+
+        class _MockPatcher:
+            def __init__(self, dm: _MockDiffusionModel, ckpt: Path | None):
+                self.model = SimpleNamespace(diffusion_model=dm)
+                self.cached_patcher_init = (
+                    (None, (str(ckpt),), {}) if ckpt is not None else None
+                )
+                self.backup: dict[str, object] = {}
+                self.model_options: dict[str, Any] = {"transformer_options": {}}
+                self.wrappers: dict[Any, dict[str, list[Any]]] = {}
+
+            def clone(self) -> "_MockPatcher":
+                c = _MockPatcher(self.model.diffusion_model, None)
+                c.cached_patcher_init = self.cached_patcher_init
+                c.backup = dict(self.backup)
+                c.model_options = {
+                    "transformer_options": dict(
+                        self.model_options.get("transformer_options", {})
+                    )
+                }
+                c.wrappers = {
+                    k: {wk: list(wv) for wk, wv in v.items()}
+                    for k, v in self.wrappers.items()
+                }
+                return c
+
+            def get_model_object(self, name: str) -> object:
+                if name == "diffusion_model":
+                    return self.model.diffusion_model
+                raise KeyError(name)
+
+            def invoke_diffusion_model(
+                self, x, timestep, context, transformer_options={}, **kwargs
+            ):
+                dm_obj = self.model.diffusion_model
+                w_list = [
+                    fn
+                    for fns in self.wrappers.get(WrappersMP.DIFFUSION_MODEL, {}).values()
+                    for fn in fns
+                ]
+                if not w_list:
+                    return dm_obj.run_step(x, timestep, context, transformer_options, **kwargs)
+
+                def _call(idx: int, cx, ct, cctx, ctopts, **ckw):
+                    if idx >= len(w_list):
+                        return dm_obj.run_step(cx, ct, cctx, ctopts, **ckw)
+                    return w_list[idx](
+                        lambda nx, nt, nctx, ntopts, **nkw: _call(
+                            idx + 1, nx, nt, nctx, ntopts, **nkw
+                        ),
+                        cx,
+                        ct,
+                        cctx,
+                        ctopts,
+                        **ckw,
+                    )
+
+                return _call(0, x, timestep, context, transformer_options, **kwargs)
+
+        dm = _MockDiffusionModel(with_tensors=True)
+        patcher_with_init = _MockPatcher(dm, ckpt_path)
+        rec1 = cv_nodes.extract_model_recipe(patcher_with_init)
+        if rec1["checkpoint"]["file"] != "mock_fl2va.safetensors":
+            errs.append(f"unexpected extract_model_recipe with cached_patcher_init: {rec1}")
+
+        # Fallback when cached_patcher_init is None (in-memory tensor hash fallback)
+        patcher_no_init = _MockPatcher(dm, None)
+        rec2 = cv_nodes.extract_model_recipe(patcher_no_init)
+        if rec2["checkpoint"]["file"] != f"in_memory:{fam}":
+            errs.append(f"unexpected extract_model_recipe fallback without cached_patcher_init: {rec2}")
+        dm_alt = _MockDiffusionModel(with_tensors=True)
+        dm_alt.condition_proj = SimpleNamespace(
+            weight=dm.condition_proj.weight + 1.0,
+            bias=dm.condition_proj.bias,
+        )
+        patcher_no_init_alt = _MockPatcher(dm_alt, None)
+        rec2_alt = cv_nodes.extract_model_recipe(patcher_no_init_alt)
+        if rec2_alt["checkpoint"]["sha256"] == rec2["checkpoint"]["sha256"]:
+            errs.append("extract_model_recipe in-memory hash ignored tensor bytes")
+
+        # Refusal when cached_patcher_init is None AND model lacks the 3 defining tensors
+        empty_dm = _MockDiffusionModel(with_tensors=False)
+        patcher_empty = _MockPatcher(empty_dm, None)
+        errs += _expect_refusal(
+            lambda: cv_nodes.extract_model_recipe(patcher_empty),
+            "has no checkpoint path and is missing H3 text-path tensor",
+            "extract_model_recipe refusal when both cached_patcher_init and tensors are absent",
+        )
+
+        # Save two valid post-refiner control vectors matching rec1 (0.75 + 0.75 = 1.5 tests bf16 rounding at 256.0)
+        v_dir1 = torch.ones((cv.POST_REFINER_DIM,), dtype=torch.float32) * 0.75
+        v_dir2 = torch.ones((cv.POST_REFINER_DIM,), dtype=torch.float32) * 0.75
+        meta1: dict[str, Any] = {
+            "format": cv.FORMAT_VERSION,
+            "name": "test_v1",
+            "quality": "test vector 1",
+            "family": fam,
+            "pairs": {
+                "path": "prompt_bank/control_vectors/film_16mm_1974.toml",
+                "sha256": "a" * 64,
+                "n_pairs": 4,
+                "n_holds": 0,
+            },
+            "recipe": rec1,
+            "measured_under": {
+                "mode": "t2va",
+                "frame": "scene",
+                "prefix": "none",
+                "pooling": "scene_text",
+            },
+            "points": {
+                "post_refiner": {
+                    "unit": "mean_pair_difference",
+                    "raw_norm": float(torch.linalg.vector_norm(v_dir1).item()),
+                    "median_row_norm": 1.0,
+                }
+            },
+            "quality_report": {
+                "mean_pairwise_cosine": 0.9,
+                "split_half_cosine": 0.92,
+                "per_pair_cosine": [0.9, 0.9, 0.9, 0.9],
+            },
+            "provenance": {
+                "core_revision": "test",
+                "pack_commit": "test",
+                "created_utc": "2026-11-04T00:00:00Z",
+                "made_by": "check_control_vectors.py",
+            },
+        }
+        v1_path = cv.save_vector(
+            tmp / "test_v1.safetensors", {"vector.post_refiner": v_dir1}, meta1
+        )
+        meta2 = {**meta1, "name": "test_v2"}
+        v2_path = cv.save_vector(
+            tmp / "test_v2.safetensors", {"vector.post_refiner": v_dir2}, meta2
+        )
+
+        # Attach with strength 0 -> exact reproduction
+        p_zero = cv_nodes.attach_control_vector(patcher_with_init, v1_path, strength=0.0)
+        ctx_in = torch.randn((1, 6, cv.POST_REFINER_DIM), generator=gen, dtype=torch.bfloat16)
+        ctx_in[0, 2, 0] = torch.tensor(256.0, dtype=torch.bfloat16)
+        tags = torch.tensor([[0, 0, 1, 1, 1, 1]], dtype=torch.long)
+        x_in = torch.zeros((1, 4), dtype=torch.bfloat16)
+        t_in = torch.ones((1,), dtype=torch.bfloat16)
+        import logging as _logging
+
+        orig_propagate = cv_nodes.logger.propagate
+        orig_level = cv_nodes.logger.level
+        cv_nodes.logger.propagate = False
+        cv_nodes.logger.setLevel(_logging.ERROR)
+        p_zero.invoke_diffusion_model(
+            x_in, t_in, ctx_in, minimax_payload={"text_token_tags": tags}
+        )
+        if not torch.equal(dm.last_context, ctx_in):
+            errs.append("attach_control_vector at strength 0 altered refined context")
+
+        # Stacking two attach_control_vector calls accumulates in float64 and preserves tag==0 vision rows
+        p_stack1 = cv_nodes.attach_control_vector(patcher_with_init, v1_path, strength=1.0)
+        p_stack2 = cv_nodes.attach_control_vector(p_stack1, v2_path, strength=1.0)
+        p_stack2.invoke_diffusion_model(
+            x_in, t_in, ctx_in, minimax_payload={"text_token_tags": tags}
+        )
+        got_ctx = dm.last_context
+        if got_ctx is None or not torch.equal(got_ctx[:, :2, :], ctx_in[:, :2, :]):
+            errs.append("stacked attach_control_vector mutated tag==0 vision rows")
+        expected_shifted = cv.apply_post_refiner(
+            ctx_in, tags, [(v_dir1, 1.0), (v_dir2, 1.0)], mask_vision=True
+        )
+        if got_ctx is None or not torch.equal(got_ctx, expected_shifted):
+            errs.append("stacked attach_control_vector did not match single float64 accumulation")
+
+        # Unmasked mode ('all_rows') shifts tag==0 vision rows too (E2.3 / MAINodes ablation),
+        # and when minimax_payload has no text_token_tags, fallback tags are 1s (no false prefix warning).
+        p_all = cv_nodes.attach_control_vector(
+            patcher_with_init, v1_path, strength=1.0, mask="all_rows"
+        )
+        p_all.invoke_diffusion_model(
+            x_in, t_in, ctx_in, minimax_payload={"text_token_tags": tags}
+        )
+        expected_all_rows = cv.apply_post_refiner(
+            ctx_in, tags, [(v_dir1, 1.0)], mask_vision=False
+        )
+        if dm.last_context is None or not torch.equal(dm.last_context, expected_all_rows):
+            errs.append("attach_control_vector(mask='all_rows') did not shift all rows")
+
+        warn_msgs: list[str] = []
+
+        class _WarnCapture(_logging.Handler):
+            def emit(self, record):
+                if record.levelno >= _logging.WARNING:
+                    warn_msgs.append(record.getMessage())
+
+        p_all_notag = cv_nodes.attach_control_vector(
+            patcher_with_init, v1_path, strength=1.0, mask="all_rows"
+        )
+        wh = _WarnCapture()
+        cv_nodes.logger.setLevel(_logging.WARNING)
+        cv_nodes.logger.addHandler(wh)
+        try:
+            p_all_notag.invoke_diffusion_model(x_in, t_in, ctx_in, minimax_payload={})
+        finally:
+            cv_nodes.logger.removeHandler(wh)
+            cv_nodes.logger.setLevel(_logging.ERROR)
+        if warn_msgs:
+            errs.append(f"mask='all_rows' no-tag fallback logged unexpected warning(s): {warn_msgs}")
+
+        # Attach refusals: non-H3 model, bad mask, non-finite strength, missing post_refiner tensor,
+        # 'none' returns a clone, validate_inputs rejects missing file, fingerprint_inputs & is_output_node
+        non_h3_patcher = _MockPatcher(SimpleNamespace(), ckpt_path)
+        errs += _expect_refusal(
+            lambda: cv_nodes.attach_control_vector(non_h3_patcher, "none"),
+            "MiniMaxH3ApplyControlVectors requires a MiniMax H3 diffusion model",
+            "attach_control_vector refusal on non-H3 diffusion model",
+        )
+        errs += _expect_refusal(
+            lambda: cv_nodes.attach_control_vector(patcher_with_init, v1_path, mask="bogus"),
+            "mask must be one of",
+            "attach_control_vector refusal on invalid mask",
+        )
+        errs += _expect_refusal(
+            lambda: cv_nodes.attach_control_vector(patcher_with_init, v1_path, strength=float("nan")),
+            "strength must be finite",
+            "attach_control_vector refusal on non-finite strength",
+        )
+        enc_only_dir = torch.zeros((cv.ENCODER_DIM,), dtype=torch.float32)
+        enc_only_dir[0] = 1.0
+        enc_only_meta = {
+            **meta1,
+            "name": "enc_only",
+            "points": {
+                "encoder": {
+                    "unit": "median_row_norm",
+                    "raw_norm": 1.0,
+                    "median_row_norm": 1.0,
+                    "row0_excluded": True,
+                }
+            },
+        }
+        enc_only_path = cv.save_vector(
+            tmp / "enc_only.safetensors", {"vector.encoder": enc_only_dir}, enc_only_meta
+        )
+        errs += _expect_refusal(
+            lambda: cv_nodes.attach_control_vector(patcher_with_init, enc_only_path),
+            "has no 'vector.post_refiner' tensor",
+            "attach_control_vector refusal when vector.post_refiner is absent",
+        )
+        p_none = cv_nodes.attach_control_vector(patcher_with_init, "none")
+        if p_none is patcher_with_init:
+            errs.append("attach_control_vector('none') returned input model instead of clone")
+        val_missing = cv_nodes.MiniMaxH3ApplyControlVectors.validate_inputs(
+            vector_name="missing_does_not_exist.safetensors"
+        )
+        if val_missing is True or "not found" not in str(val_missing):
+            errs.append(f"MiniMaxH3ApplyControlVectors.validate_inputs accepted missing file: {val_missing!r}")
+        if not cv_nodes.MiniMaxH3MakeControlVector.define_schema().is_output_node:
+            errs.append("MiniMaxH3MakeControlVector schema must set is_output_node=True")
+        fp_apply = cv_nodes.MiniMaxH3ApplyControlVectors.fingerprint_inputs(vector_name=str(v1_path))
+        if not isinstance(fp_apply, tuple) or len(fp_apply) != 3:
+            errs.append(f"MiniMaxH3ApplyControlVectors.fingerprint_inputs unexpected return: {fp_apply!r}")
+
+        # Refusal on family mismatch in attach_control_vector
+        bad_meta = {**meta1, "family": "ref2va"}
+        bad_v_path = cv.save_vector(
+            tmp / "bad_fam.safetensors", {"vector.post_refiner": v_dir1}, bad_meta
+        )
+        errs += _expect_refusal(
+            lambda: cv_nodes.attach_control_vector(patcher_with_init, bad_v_path, strength=1.0),
+            "cannot apply to loaded model of family",
+            "attach_control_vector refusal on family mismatch",
+        )
+
+        # MiniMaxH3ApplyControlVectors.execute chained
+        (p_node_1,) = cv_nodes.MiniMaxH3ApplyControlVectors.execute(
+            model=patcher_with_init,
+            vector_name=str(v1_path),
+            strength=1.0,
+            mask="non_vision",
+            allow_recipe_mismatch=False,
+        )
+        (p_node_2,) = cv_nodes.MiniMaxH3ApplyControlVectors.execute(
+            model=p_node_1,
+            vector_name=str(v2_path),
+            strength=1.0,
+            mask="non_vision",
+            allow_recipe_mismatch=False,
+        )
+        p_node_2.invoke_diffusion_model(
+            x_in, t_in, ctx_in, minimax_payload={"text_token_tags": tags}
+        )
+        if dm.last_context is None or not torch.equal(dm.last_context, expected_shifted):
+            errs.append("chained MiniMaxH3ApplyControlVectors.execute did not produce expected shifted context")
+
+        # Refusal when minimax_payload lacks text_token_tags and mask == 'non_vision'
+        errs += _expect_refusal(
+            lambda: p_node_1.invoke_diffusion_model(
+                x_in, t_in, ctx_in, minimax_payload={}
+            ),
+            "missing 'text_token_tags'",
+            "wrapper refusal when minimax_payload is missing text_token_tags under mask='non_vision'",
+        )
+
+        # In-memory model.patches (LoraLoaderModelOnly) and object_patches (MiniMaxH3LoRABranch) recipe detection
+        patcher_with_lora = patcher_with_init.clone()
+        patcher_with_lora.patches = {
+            "diffusion_model.blocks.0.attn.weight": [(0.75, torch.ones((2, 2)))],
+            "diffusion_model.blocks.1.attn.weight": [(0.50, torch.ones((2, 2)))],
+        }
+        rec_lora = cv_nodes.extract_model_recipe(patcher_with_lora)
+        if not rec_lora["loras"] or rec_lora["loras"][0]["applied"] != "merged":
+            errs.append(f"extract_model_recipe did not record model.patches LoRAs as 'merged': {rec_lora}")
+        patcher_with_lora_s2 = patcher_with_init.clone()
+        patcher_with_lora_s2.patches = {
+            "diffusion_model.blocks.0.attn.weight": [(0.75, torch.ones((2, 2)))],
+            "diffusion_model.blocks.1.attn.weight": [(0.25, torch.ones((2, 2)))],
+        }
+        rec_lora_s2 = cv_nodes.extract_model_recipe(patcher_with_lora_s2)
+        if rec_lora_s2["loras"][0]["sha256"] == rec_lora["loras"][0]["sha256"]:
+            errs.append("extract_model_recipe LoRA hash ignored patch entry strength")
+        patcher_with_branch = patcher_with_init.clone()
+        patcher_with_branch.object_patches = {
+            "diffusion_model.blocks.0.attn1.to_q": SimpleNamespace(
+                a=torch.ones((4, 8), dtype=torch.float32),
+                b=torch.ones((8, 4), dtype=torch.float32),
+                scale=1.0,
+            )
+        }
+        rec_branch = cv_nodes.extract_model_recipe(patcher_with_branch)
+        if not rec_branch["loras"] or rec_branch["loras"][0]["applied"] != "branch":
+            errs.append(f"extract_model_recipe did not record object_patches LoRABranch as 'branch': {rec_branch}")
+        errs += _expect_refusal(
+            lambda: cv_nodes.attach_control_vector(
+                patcher_with_lora, v1_path, strength=1.0, allow_recipe_mismatch=False
+            ),
+            "recipe lora set",
+            "attach_control_vector refusal when model.patches has an unrecorded LoRA",
+        )
+        errs += _expect_refusal(
+            lambda: cv_nodes.attach_control_vector(
+                patcher_with_branch, v1_path, strength=1.0, allow_recipe_mismatch=False
+            ),
+            "recipe lora set",
+            "attach_control_vector refusal when model.object_patches has an unrecorded LoRABranch",
+        )
+
+        # End-to-end encode_prompt_for_vector (t2va + ref2va), make_control_vector_from_pairs,
+        # MiniMaxH3MakeControlVector.execute, and bench/control_vectors.py (make, inspect --meter, grade)
+        import comfy.text_encoders.minimax as mm_te
+
+        real_mm_tok = mm_te.MiniMaxH3Tokenizer()
+
+        class _MockClip:
+            def __init__(self, ckpt: Path):
+                self.tokenizer = SimpleNamespace(minimax=real_mm_tok)
+                self.cond_stage_model = SimpleNamespace(clip_name="qwen3vl_32b")
+                self.patcher = SimpleNamespace(
+                    cached_patcher_init=(None, (str(ckpt),), {})
+                )
+
+            def tokenize(self, text: str, **kwargs):
+                return real_mm_tok.tokenize_with_weights(text, **kwargs)
+
+            def encode_from_tokens_scheduled(self, tokens):
+                entries = tokens["qwen3vl_32b"][0]
+                seq_ids = [int(e[0]) if not isinstance(e[0], dict) else 0 for e in entries]
+                L_seq = len(seq_ids)
+                rows = torch.zeros((1, L_seq, cv.ENCODER_DIM), dtype=torch.float32)
+                for row_i, tid in enumerate(seq_ids):
+                    g = torch.Generator().manual_seed(1000 + tid)
+                    rows[0, row_i] = torch.randn((cv.ENCODER_DIM,), generator=g)
+                tags_1d = torch.ones((L_seq,), dtype=torch.long)
+                return [[rows, {"pooled_output": None, "minimax_token_tags": tags_1d}]]
+
+        mock_clip = _MockClip(ckpt_path)
+        rec_with_clip = cv_nodes.extract_model_recipe(patcher_with_init, clip=mock_clip)
+        if rec_with_clip["encoder"]["file"] != ckpt_path.name or len(rec_with_clip["encoder"]["sha256"]) != 64:
+            errs.append(f"extract_model_recipe ignored encoder path from clip.patcher: {rec_with_clip['encoder']}")
+
+        # Modify dm so build_refiner_runner(patcher_with_init) checks bf16 cast and float64 pooling precision
+        proj_w = sd_tensors["condition_proj.weight"].to(dtype=torch.float32)
+        proj_b = sd_tensors["condition_proj.bias"].to(dtype=torch.float32)
+        dm.condition_proj = torch.nn.Linear(cv.ENCODER_DIM, cv.POST_REFINER_DIM, dtype=torch.bfloat16)
+        with torch.no_grad():
+            dm.condition_proj.weight.copy_(sd_tensors["condition_proj.weight"])
+            dm.condition_proj.bias.copy_(sd_tensors["condition_proj.bias"])
+
+        def _mock_preprocess(x_3d):
+            if x_3d.dtype != dm.condition_proj.weight.dtype:
+                raise TypeError(
+                    f"preprocess_text_embeds expected {dm.condition_proj.weight.dtype}, got {x_3d.dtype}"
+                )
+            out = torch.nn.functional.linear(x_3d.to(dtype=torch.float32), proj_w, proj_b)
+            if out.shape[1] >= 4:
+                out = out.clone()
+                # Cancelling +/- 2^24 at the first and last row swallows intermediate rows in float32 .mean(dim=0)
+                # while float64 .mean(dim=0) preserves them.
+                out[:, 0, 0] = 16777216.0
+                out[:, -1, 0] = -16777216.0
+            return out
+
+        dm.preprocess_text_embeds = _mock_preprocess
+        patcher_for_make = patcher_with_init.clone()
+        patcher_for_make.cached_patcher_init = None
+
+        # Verify build_refiner_runner(patcher_with_lora) uses the in-memory model rather than reloading ckpt_path
+        runner_lora = cv_nodes.build_refiner_runner(patcher_with_lora)
+        lora_ref_out = runner_lora(torch.ones((6, cv.ENCODER_DIM), dtype=torch.float32))
+        if float(lora_ref_out[0, 0].item()) != 16777216.0:
+            errs.append("build_refiner_runner with LoRA patches used unpatched file runner instead of in-memory model")
+
+        # Test encode_prompt_for_vector on t2va
+        sample_prompt = (
+            "integrated_multimodal_description: [Shot 1] Wide locked-off shot of a stone courtyard "
+            "recorded with clean neutral modern digital color.\n\n"
+            "overall_soundscape: Soft wind."
+        )
+        enc_rows, enc_tags, enc_ids, dec_fn = cv_nodes.encode_prompt_for_vector(
+            mock_clip, sample_prompt
+        )
+        if enc_rows.shape != (len(enc_ids), cv.ENCODER_DIM) or int(enc_tags.shape[0]) != len(enc_ids):
+            errs.append(
+                f"encode_prompt_for_vector shape mismatch: rows={tuple(enc_rows.shape)}, len(ids)={len(enc_ids)}"
+            )
+
+        # Test encode_prompt_for_vector on ref2va with mock EncodedReferences
+        ref_enc_mod = cv_nodes._repo("reference_encode")
+
+        orig_cond_prompt = ref_enc_mod.condition_prompt
+        try:
+            dummy_img = torch.zeros((1, 32, 32, 3), dtype=torch.float32)
+            ref_items = [{"type": "image", "data": dummy_img}]
+            prefix_entries = mock_clip.tokenize("", minimax_ref_items=ref_items)["qwen3vl_32b"][0]
+            # Prefix has `<Picture 1>: ` (5 tokens) + VISION_START + dict + VISION_END -> expand dict to 4 image pads (total 6 vision rows)
+            n_label_toks = len(prefix_entries) - 3
+            n_vis_rows = 6
+            prefix_len = n_label_toks + n_vis_rows
+            prefix_rows = torch.ones((1, prefix_len, cv.ENCODER_DIM), dtype=torch.float32) * 0.5
+
+            def _mock_condition_prompt(encoded_obj, clean_txt):
+                p_cond = mock_clip.encode_from_tokens_scheduled(mock_clip.tokenize(clean_txt))
+                p_rows = p_cond[0][0]
+                full_rows = torch.cat([prefix_rows, p_rows], dim=1)
+                full_tags = torch.ones((full_rows.shape[1],), dtype=torch.long)
+                full_tags[n_label_toks : n_label_toks + n_vis_rows] = 0
+                return [[full_rows, {"pooled_output": None, "minimax_token_tags": full_tags}]]
+
+            ref_enc_mod.condition_prompt = _mock_condition_prompt
+            mock_encoded_refs = SimpleNamespace(
+                ref_items=ref_items,
+                ref_blocks=[],
+                spans=[SimpleNamespace(rows=prefix_rows)],
+            )
+            r_rows, r_tags, r_ids, r_dec = cv_nodes.encode_prompt_for_vector(
+                mock_clip, sample_prompt, encoded_references=mock_encoded_refs
+            )
+            r_spans = h3_spans.spans(r_ids, r_tags.tolist(), r_dec)
+            if int(r_spans["vision"].sum().item()) != n_vis_rows or int(r_spans["label"].sum().item()) != n_label_toks:
+                errs.append(
+                    f"encode_prompt_for_vector ref2va span counts wrong: vision={int(r_spans['vision'].sum())}, label={int(r_spans['label'].sum())}"
+                )
+
+            # Write a 4-pair + 2-hold TOML file with unequal weights and test make_control_vector_from_pairs
+            pair_a_clauses = (
+                "clean neutral modern digital color",
+                "flat modern digital video render",
+                "crisp modern digital camera capture",
+                "clinical modern digital sensor output",
+            )
+            pair_b_clauses = (
+                "1974 16mm color reversal stock with halation",
+                "1974 16mm celluloid film with heavy grain",
+                "1974 16mm vintage reversal emulsion",
+                "1974 16mm analog stock with gate weave",
+            )
+            pair_toml = tmp / "unit_pair.toml"
+            pair_toml.write_text(
+                '[vector]\n'
+                'name = "unit_pair"\n'
+                'quality = "16mm grain vs modern digital"\n'
+                'a_side = "clean modern digital"\n'
+                'b_side = "16mm 1974 grain"\n'
+                'mode = "t2va"\n'
+                'frame = "scene"\n'
+                'exclude_shots = []\n\n'
+                + "\n".join(
+                    f'[[pair]]\nweight = {float(i * i * i)}\n'
+                    f'a = """integrated_multimodal_description: [Shot 1] Scene {i} filmed with {pair_a_clauses[i - 1]}.\n\noverall_soundscape: Quiet room tone."""\n'
+                    f'b = """integrated_multimodal_description: [Shot 1] Scene {i} filmed on {pair_b_clauses[i - 1]}.\n\noverall_soundscape: Quiet room tone."""\n'
+                    for i in range(1, 5)
+                )
+                + "\n"
+                + "\n".join(
+                    f'[[hold]]\ngroup = "warm_tint"\nweight = 1.0\n'
+                    f'a = """integrated_multimodal_description: [Shot 1] Hold {i} under neutral daylight balance.\n\noverall_soundscape: Quiet room tone."""\n'
+                    f'b = """integrated_multimodal_description: [Shot 1] Hold {i} under warm amber tungsten cast.\n\noverall_soundscape: Quiet room tone."""\n'
+                    for i in range(1, 3)
+                ),
+                encoding="utf-8",
+            )
+
+            for pool_mode in ("scene_text", "all_tag1", "from_first_diff"):
+                saved_v, rep_v = cv_nodes.make_control_vector_from_pairs(
+                    pair_path=pair_toml,
+                    model=patcher_for_make,
+                    clip=mock_clip,
+                    pooling=pool_mode,
+                    apply_holds=True,
+                    output_name=f"unit_{pool_mode}",
+                    output_dir=tmp,
+                    encoded_references=mock_encoded_refs if pool_mode == "scene_text" else None,
+                )
+                loaded_t, loaded_m = cv.load_vector(saved_v)
+                if "vector.post_refiner" not in loaded_t or "holds.post_refiner" not in loaded_t:
+                    errs.append(f"make_control_vector_from_pairs({pool_mode}) missing expected tensors")
+                if loaded_m["measured_under"]["pooling"] != pool_mode:
+                    errs.append(f"make_control_vector_from_pairs pooling metadata mismatch: {loaded_m}")
+
+            # Verify float64 pooling precision on channel 0 and weighted quality_report on all_tag1 (noholds)
+            saved_nh, rep_nh = cv_nodes.make_control_vector_from_pairs(
+                pair_path=pair_toml,
+                model=patcher_for_make,
+                clip=mock_clip,
+                pooling="all_tag1",
+                apply_holds=False,
+                output_name="unit_all_tag1_noholds",
+                output_dir=tmp,
+            )
+            t_nh, m_nh = cv.load_vector(saved_nh)
+            ps_check = cv.load_pairs(pair_toml)
+            a_f64_list, b_f64_list, a_f32_list, b_f32_list = [], [], [], []
+            for p_it in ps_check.pairs:
+                ea, _, _, _ = cv_nodes.encode_prompt_for_vector(mock_clip, p_it.a)
+                eb, _, _, _ = cv_nodes.encode_prompt_for_vector(mock_clip, p_it.b)
+                ra = _mock_preprocess(ea.unsqueeze(0).to(dtype=torch.bfloat16))[0]
+                rb = _mock_preprocess(eb.unsqueeze(0).to(dtype=torch.bfloat16))[0]
+                a_f64_list.append(ra.to(dtype=torch.float64).mean(dim=0).to(dtype=torch.float32))
+                b_f64_list.append(rb.to(dtype=torch.float64).mean(dim=0).to(dtype=torch.float32))
+                a_f32_list.append(ra.mean(dim=0))
+                b_f32_list.append(rb.mean(dim=0))
+            w_check = torch.tensor([p.weight for p in ps_check.pairs], dtype=torch.float64)
+            expected_f64_vec = cv.mean_difference(
+                torch.stack(a_f64_list), torch.stack(b_f64_list), w_check
+            )
+            wrong_f32_vec = cv.mean_difference(
+                torch.stack(a_f32_list), torch.stack(b_f32_list), w_check
+            )
+            if torch.allclose(expected_f64_vec, wrong_f32_vec, atol=1e-5) or not torch.allclose(
+                t_nh["vector.post_refiner"], expected_f64_vec, atol=1e-6
+            ):
+                errs.append("make_control_vector_from_pairs pooled in float32 instead of float64")
+            unweighted_qr = cv.quality_report(
+                torch.stack(a_f64_list),
+                torch.stack(b_f64_list),
+                None,
+                generator=torch.Generator(device="cpu").manual_seed(0),
+            )
+            weighted_qr = cv.quality_report(
+                torch.stack(a_f64_list),
+                torch.stack(b_f64_list),
+                w_check,
+                generator=torch.Generator(device="cpu").manual_seed(0),
+            )
+            if (
+                m_nh["quality_report"]["split_half_cosine"] == unweighted_qr["split_half_cosine"]
+                or m_nh["quality_report"]["split_half_cosine"] != weighted_qr["split_half_cosine"]
+            ):
+                errs.append("make_control_vector_from_pairs quality_report ignored pair weights")
+
+            node_out = cv_nodes.MiniMaxH3MakeControlVector.execute(
+                pair_file=str(pair_toml),
+                model=patcher_for_make,
+                clip=mock_clip,
+                pooling="scene_text",
+                apply_holds=True,
+                output_name="unit_from_node",
+                encoded_references=None,
+            )
+            if not isinstance(node_out[0], str) or not node_out[0].startswith("unit_from_node__"):
+                errs.append(f"MiniMaxH3MakeControlVector.execute returned unexpected output: {node_out[0]!r}")
+
+            # Test _build_padding_prompt and cmd_grade (with mock _dit_runner)
+            edit_prompt_txt = tmp / "unit_edit.txt"
+            edit_prompt_txt.write_text(
+                "integrated_multimodal_description: [Shot 1] Wide locked-off shot of a stone courtyard "
+                "recorded on 1974 16mm color reversal film stock with heavy celluloid grain and halation.\n\n"
+                "overall_soundscape: Soft wind.",
+                encoding="utf-8",
+            )
+            base_prompt_txt = tmp / "unit_base.txt"
+            base_prompt_txt.write_text(sample_prompt, encoding="utf-8")
+
+            pad_built = bench_cv._build_padding_prompt(sample_prompt, 12, mock_clip)
+            len_base_tok = bench_cv._prompt_token_count(mock_clip, sample_prompt)
+            len_pad_tok = bench_cv._prompt_token_count(mock_clip, pad_built)
+            if len_pad_tok != len_base_tok + 12:
+                errs.append(f"_build_padding_prompt expected {len_base_tok + 12} tokens, got {len_pad_tok}")
+
+            import contextlib
+            import io
+            import os
+            import subprocess
+
+            # Standalone CLI --help check (verifies sys.path bootstrap when run directly as a script)
+            proc_help = subprocess.run(
+                [sys.executable, "-B", str(REPO / "bench" / "control_vectors.py"), "--help"],
+                env={**os.environ, "CUDA_VISIBLE_DEVICES": ""},
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            if proc_help.returncode != 0:
+                errs.append(
+                    f"bench/control_vectors.py --help failed with rc={proc_help.returncode}: {proc_help.stderr!r}"
+                )
+
+            orig_load_clip = bench_cv._load_clip
+            orig_build_ref = cv_nodes.build_refiner_runner
+            orig_get_full = bench_cv.folder_paths.get_full_path_or_raise
+            try:
+                bench_cv._load_clip = lambda enc_name, device="default": mock_clip
+                cv_nodes.build_refiner_runner = lambda src, **kw: (
+                    lambda x_2d: torch.nn.functional.linear(x_2d.to(dtype=torch.float32), proj_w, proj_b)
+                )
+                bench_cv.folder_paths.get_full_path_or_raise = lambda folder, name: str(ckpt_path)
+
+                # Test cmd_make (--include-encoder)
+                cli_made_v = tmp / "cli_made.safetensors"
+                buf_mk_out, buf_mk_err = io.StringIO(), io.StringIO()
+                with contextlib.redirect_stdout(buf_mk_out), contextlib.redirect_stderr(buf_mk_err):
+                    rc_mk = bench_cv.main(
+                        [
+                            "make",
+                            str(pair_toml),
+                            "--include-encoder",
+                            "--out",
+                            str(cli_made_v),
+                        ]
+                    )
+                if rc_mk != 0 or not cli_made_v.is_file():
+                    errs.append(f"cmd_make failed: rc={rc_mk}, err={buf_mk_err.getvalue()!r}")
+                else:
+                    mk_t, mk_m = cv.load_vector(cli_made_v)
+                    if "vector.encoder" not in mk_t or mk_m["points"]["encoder"]["unit"] != "median_row_norm":
+                        errs.append(f"cmd_make --include-encoder missing vector.encoder or wrong unit: {mk_m['points']}")
+                    enc_v_norm = float(torch.linalg.vector_norm(mk_t["vector.encoder"].to(torch.float64)).item())
+                    if abs(enc_v_norm - 1.0) > 1e-4:
+                        errs.append(f"cmd_make vector.encoder is not unit-normalized: norm={enc_v_norm}")
+
+                # Test inspect --check-unet compatibility check and --meter
+                buf_ic_out, buf_ic_err = io.StringIO(), io.StringIO()
+                with contextlib.redirect_stdout(buf_ic_out), contextlib.redirect_stderr(buf_ic_err):
+                    rc_ic = bench_cv.main(["inspect", str(v1_path), "--check-unet", ckpt_path.name])
+                if rc_ic != 0 or "compatibility   : ok" not in buf_ic_out.getvalue():
+                    errs.append(
+                        f"inspect --check-unet compatibility failed: rc={rc_ic}, out={buf_ic_out.getvalue()!r}, err={buf_ic_err.getvalue()!r}"
+                    )
+
+                buf_m_out, buf_m_err = io.StringIO(), io.StringIO()
+                with contextlib.redirect_stdout(buf_m_out), contextlib.redirect_stderr(buf_m_err):
+                    rc_meter = bench_cv.main(
+                        ["inspect", str(v1_path), "--meter", str(base_prompt_txt), "--meter", str(edit_prompt_txt)]
+                    )
+                if rc_meter != 0 or "Meter Projection" not in buf_m_out.getvalue():
+                    errs.append(f"inspect --meter failed: rc={rc_meter}, out={buf_m_out.getvalue()!r}, err={buf_m_err.getvalue()!r}")
+
+                # Test cmd_grade with mock DiT runner (including vision tags on rows 0..1 and distinct channel weights)
+                ch_weights = torch.linspace(0.2, 1.8, cv.POST_REFINER_DIM, dtype=torch.float32)
+
+                def _mock_dit_runner(m_obj, cond_obj, step_idx):
+                    c_rows = cond_obj[0][0].to(dtype=torch.float32)
+                    c_tags = cond_obj[0][1]["minimax_token_tags"].clone()
+                    if c_tags.numel() >= 2:
+                        c_tags[:2] = 0
+                    ref_ctx = torch.nn.functional.linear(c_rows, proj_w, proj_b)
+                    m_obj.invoke_diffusion_model(
+                        torch.zeros((1, 4), dtype=torch.float32),
+                        torch.tensor([float(step_idx)]),
+                        ref_ctx,
+                        minimax_payload={"text_token_tags": c_tags},
+                    )
+                    steered = dm.last_context[0].to(dtype=torch.float32) * ch_weights.unsqueeze(0)
+                    vid_pred = steered.mean(dim=0)[:64] + 1.0
+                    aud_pred = steered.mean(dim=0)[64:128] + 2.0
+                    return 0.5, {"video": vid_pred, "audio": aud_pred}
+
+                grade_json = tmp / "grade_out.json"
+                grade_args = bench_cv.build_parser().parse_args(
+                    [
+                        "grade",
+                        "--vector",
+                        str(v1_path),
+                        "--prompt",
+                        str(base_prompt_txt),
+                        "--edit-prompt",
+                        str(edit_prompt_txt),
+                        "--pairs",
+                        str(pair_toml),
+                        "--strengths",
+                        "0,1.0,-1.0",
+                        "--probe-steps",
+                        "0",
+                        "--compare-unmasked",
+                        "--out",
+                        str(grade_json),
+                    ]
+                )
+                grade_args._dit_runner = _mock_dit_runner
+                grade_args._base_model = patcher_with_init
+                buf_g_out = io.StringIO()
+                with contextlib.redirect_stdout(buf_g_out):
+                    rc_grade = bench_cv.cmd_grade(grade_args)
+                if rc_grade != 0 or not grade_json.is_file():
+                    errs.append(f"cmd_grade failed: rc={rc_grade}")
+                else:
+                    g_data = json.loads(grade_json.read_text(encoding="utf-8"))
+                    dit_step0 = g_data["dit_prediction_movement"][0]
+                    if (
+                        "flip_null" not in dit_step0["arms"]
+                        or "random_null" not in dit_step0["arms"]
+                        or "vector_s1" not in dit_step0["arms"]
+                        or "masked_vs_unmasked_s1" not in dit_step0["arms"]
+                        or "delta_cosine_with_edit" not in dit_step0["arms"]["vector_s1"]["video"]
+                        or dit_step0.get("matched_strength_video") is None
+                        or "provenance" not in g_data
+                    ):
+                        errs.append(f"cmd_grade JSON missing expected DiT fields: {dit_step0}")
+                    else:
+                        if float(dit_step0["arms"]["masked_vs_unmasked_s1"]["video"]["relative_l2"]) <= 0.0:
+                            errs.append(
+                                f"cmd_grade masked_vs_unmasked_s1 did not differ despite vision rows: {dit_step0['arms']['masked_vs_unmasked_s1']}"
+                            )
+                        flip_cos = float(dit_step0["arms"]["flip_null"]["video"]["delta_cosine_with_edit"])
+                        vec_cos = float(dit_step0["arms"]["vector_s1"]["video"]["delta_cosine_with_edit"])
+                        if abs(flip_cos - vec_cos) < 1e-5:
+                            errs.append(
+                                f"cmd_grade flip_null arm produced identical cosine to vector_s1 ({flip_cos} == {vec_cos})"
+                            )
+                        ed_v = float(dit_step0["arms"]["edit_prompt"]["video"]["relative_l2"])
+                        s1_v = float(dit_step0["arms"]["vector_s1"]["video"]["relative_l2"])
+                        if abs(ed_v - s1_v) < 1e-4 or abs(float(dit_step0["matched_strength_video"]) - (ed_v / s1_v)) > 1e-5:
+                            errs.append(
+                                f"cmd_grade matched_strength_video={dit_step0['matched_strength_video']} != ed_v/s1_v ({ed_v}/{s1_v})"
+                            )
+
+                # Verify cmd_grade refuses if strength=0.0 null check fails
+                call_counter = [0]
+
+                def _broken_zero_dit_runner(m_obj, cond_obj, step_idx):
+                    call_counter[0] += 1
+                    sig_val, preds = _mock_dit_runner(m_obj, cond_obj, step_idx)
+                    if call_counter[0] == 2:
+                        preds = {"video": preds["video"] + 0.5, "audio": preds["audio"]}
+                    return sig_val, preds
+
+                bad_grade_args = bench_cv.build_parser().parse_args(
+                    ["grade", "--vector", str(v1_path), "--prompt", str(base_prompt_txt), "--probe-steps", "0"]
+                )
+                bad_grade_args._dit_runner = _broken_zero_dit_runner
+                bad_grade_args._base_model = patcher_with_init
+                def _run_bad_grade():
+                    with contextlib.redirect_stdout(io.StringIO()):
+                        return bench_cv.cmd_grade(bad_grade_args)
+
+                errs += _expect_refusal(
+                    _run_bad_grade,
+                    "strength=0.0 null check failed",
+                    "cmd_grade refusal when strength=0.0 output differs from base",
+                )
+            finally:
+                bench_cv._load_clip = orig_load_clip
+                cv_nodes.build_refiner_runner = orig_build_ref
+                bench_cv.folder_paths.get_full_path_or_raise = orig_get_full
+        finally:
+            ref_enc_mod.condition_prompt = orig_cond_prompt
+
+        # CLI inspect subcommand check
+        buf_out, buf_err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(buf_out), contextlib.redirect_stderr(buf_err):
+            rc_ok = bench_cv.main(["inspect", str(v1_path)])
+        if rc_ok != 0 or "channel_census" not in buf_out.getvalue():
+            errs.append(f"bench/control_vectors.py inspect returned {rc_ok}, out={buf_out.getvalue()!r}")
+        bad_safetensors = tmp / "bad.safetensors"
+        save_file({"wrong": torch.zeros((4,), dtype=torch.float32)}, str(bad_safetensors))
+        buf_out2, buf_err2 = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(buf_out2), contextlib.redirect_stderr(buf_err2):
+            rc_bad = bench_cv.main(["inspect", str(bad_safetensors)])
+        if rc_bad != 2 or "missing required key 'format'" not in buf_err2.getvalue():
+            errs.append(f"bench/control_vectors.py inspect on bad file returned {rc_bad}, err={buf_err2.getvalue()!r}")
+
+    # 4. Generated workflow arm check (build_control_vector_arm & build_api control_vector)
+    arm = bw.build_control_vector_arm(
+        "t2v", vector_name="film_16mm_1974__fl2va.safetensors", strength=0.75
+    )
+    if "115" not in arm or arm["115"]["class_type"] != "MiniMaxH3ApplyControlVectors":
+        errs.append("build_control_vector_arm did not emit node 115 MiniMaxH3ApplyControlVectors")
+    if arm["9"]["inputs"]["model"] != ["115", 0]:
+        errs.append(f"BasicGuider model input is {arm['9']['inputs']['model']}, expected ['115', 0]")
+    if arm["115"]["inputs"]["strength"] != 0.75 or arm["115"]["inputs"]["mask"] != "non_vision":
+        errs.append(f"unexpected node 115 inputs: {arm['115']['inputs']}")
+    if "MiniMaxH3SageAttention" in {n["class_type"] for n in arm.values()}:
+        errs.append("build_control_vector_arm enabled SageAttention in the base arm")
+
+    return errs
+
 
 
 def main() -> int:
     all_errs: list[str] = []
 
-    c1_errs, tok = check_tokenizer_constants()
+    try:
+        c1_errs, tok = check_tokenizer_constants()
+    except Exception as exc:
+        c1_errs, tok = [f"unexpected {type(exc).__name__}: {exc}"], None
     if c1_errs:
         for e in c1_errs:
             print(f"  FAIL  [C1] {e}")
@@ -994,8 +2231,16 @@ def main() -> int:
             "apply_post_refiner strength-0 exactness, bitwise vision-row preservation, and L invariance",
             check_apply_post_refiner_invariants,
         ),
+        (
+            "C7",
+            "runtime DIFFUSION_MODEL wrapper, stacked float64 accumulation, state_dict fallback/refusal, arm wiring, and CLI inspect",
+            check_runtime_nodes_arm_and_cli,
+        ),
     ):
-        errs = fn()
+        try:
+            errs = fn()
+        except (Exception, SystemExit) as exc:
+            errs = [f"unexpected {type(exc).__name__}: {exc}"]
         if errs:
             for e in errs:
                 print(f"  FAIL  [{code}] {e}")
@@ -1006,7 +2251,7 @@ def main() -> int:
     if all_errs:
         print(f"\nFAIL: {len(all_errs)} control-vector check error(s)")
         return 1
-    print("\nok: all 6 control-vector check groups passed")
+    print("\nok: all 7 control-vector check groups passed")
     return 0
 
 

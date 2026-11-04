@@ -58,6 +58,11 @@ SECTION_AND_SHOT_MARKERS: tuple[str, ...] = (
     "non_diegetic_music:",
     "[Shot ",
 )
+HEADER_TOKEN_RE = re.compile(
+    r"\b(?:integrated_multimodal_description|subject_definitions|summary|"
+    r"retention_analysis|detailed_description|overall_soundscape|non_diegetic_music):|"
+    r"\[Shot\s+\d+\]"
+)
 
 #: Reasoned ceiling on consecutive identical words inside a single modified quality
 #: clause: two poles of one look/lighting clause may share a short preposition or
@@ -171,6 +176,11 @@ def differing_span(a: str, b: str, *, frame: str = "scene", label: str = "pair")
             f"{label}: differing span crosses a paragraph break; "
             "scene-frame pairs must change only one contiguous clause within a single section"
         )
+    if HEADER_TOKEN_RE.findall(a) != HEADER_TOKEN_RE.findall(b):
+        raise ValueError(
+            f"{label}: differing span modifies a prompt section or [Shot N] header; "
+            "scene-frame pairs must keep all section and shot headers identical"
+        )
     for boundary in SECTION_AND_SHOT_MARKERS:
         if boundary in char_diff_a or boundary in char_diff_b:
             raise ValueError(
@@ -197,11 +207,6 @@ def differing_span(a: str, b: str, *, frame: str = "scene", label: str = "pair")
                 f"({first_edit_a!r} ... {last_edit_a!r}) separated by {len(shared_words)} "
                 f"unchanged words ({shared_str!r}); scene-frame pairs must change only one contiguous clause"
             )
-        if any(marker in shared_str for marker in SECTION_AND_SHOT_MARKERS):
-            raise ValueError(
-                f"{label}: differing span crosses prompt section or shot boundary ({shared_str!r}); "
-                "scene-frame pairs must change only one contiguous clause"
-            )
 
     a_start, a_end = opcodes[first_ne][1], opcodes[last_ne][2]
     b_start, b_end = opcodes[first_ne][3], opcodes[last_ne][4]
@@ -212,14 +217,20 @@ def differing_span(a: str, b: str, *, frame: str = "scene", label: str = "pair")
             f"{label}: one side of the differing span is empty ({a_span!r} vs {b_span!r}); "
             "both 'a' and 'b' must state an explicit clause"
         )
+    for boundary in SECTION_AND_SHOT_MARKERS:
+        if boundary in a_span or boundary in b_span:
+            raise ValueError(
+                f"{label}: differing span crosses or modifies section/shot header {boundary!r}; "
+                "scene-frame pairs must change only one contiguous clause"
+            )
 
     # Check that the character-level diff sits strictly inside the word-level diff span
-    # (catches whitespace/newline changes in otherwise identical prefix/suffix words).
+    # and introduces no newline changes.
     if (
         len(_normalize_ws(char_diff_a)) > len(a_span)
         or len(_normalize_ws(char_diff_b)) > len(b_span)
-        or len(char_diff_a.strip()) > len(a_span) + 4
-        or len(char_diff_b.strip()) > len(b_span) + 4
+        or "\n" in char_diff_a
+        or "\n" in char_diff_b
     ):
         raise ValueError(
             f"{label}: 'a' and 'b' have whitespace differences outside the differing clause "
@@ -396,9 +407,10 @@ def _check_pair_tensors(
     if weights is None:
         w64 = torch.ones(n, dtype=torch.float64, device=a64.device)
     else:
-        if weights.ndim != 1 or weights.shape[0] != n:
-            raise ValueError(f"weights must have shape [{n}], got {tuple(weights.shape)}")
-        w64 = weights.detach().to(device=a64.device, dtype=torch.float64)
+        w_t = weights if isinstance(weights, torch.Tensor) else torch.as_tensor(weights, dtype=torch.float64, device=a64.device)
+        if w_t.ndim != 1 or w_t.shape[0] != n:
+            raise ValueError(f"weights must have shape [{n}], got {tuple(w_t.shape)}")
+        w64 = w_t.detach().to(device=a64.device, dtype=torch.float64)
         if not bool(torch.isfinite(w64).all()) or bool((w64 == 0).any()):
             raise ValueError("weights must be finite and non-zero")
     return a64, b64, w64
@@ -424,15 +436,13 @@ def flip_null(
     weights: torch.Tensor | None = None,
     generator: torch.Generator | None = None,
 ) -> torch.Tensor:
-    """Swap `A` and `B` in a random half of the pairs and rescale to the unflipped
-    vector's Euclidean norm.
+    """Partition the pairs into two disjoint random halves (`n - n // 2` and `n // 2`),
+    take `0.5 * (half_pos - half_neg)` where each half is normalized by its own
+    `sum(|w_i|)` over the signed differences `w_i * (B_i - A_i)`, and rescale to
+    `mean_difference(a, b, weights)`'s Euclidean norm.
 
-    - For equal weights: flips `n // 2` pairs (`-1`) against `n // 2` unflipped (`+1`),
-      leaving out 1 random pair (`0`) when `n` is odd so `sum(w_i * s_i) == 0` holds
-      identically.
-    - For unequal weights: assigns signs greedily in a random pair order to minimize
-      `|sum(w_i * s_i)|` and subtracts any leftover weight-imbalance component along
-      the weighted mean pair difference before rescaling."""
+    Cancels any shared direction identically for even or odd `n` and equal,
+    positive-unequal, or mixed-sign weights without dropping a pair."""
     a64, b64, w64 = _check_pair_tensors(a, b, weights)
     n, _d = a64.shape
     if n < 2:
@@ -448,32 +458,23 @@ def flip_null(
     gen_dev = generator.device if generator is not None else torch.device("cpu")
     perm = torch.randperm(n, generator=generator, device=gen_dev).to(a64.device)
     signs = torch.ones(n, dtype=torch.float64, device=a64.device)
-    if bool(torch.allclose(w64, w64[0])):
-        if n % 2 == 1:
-            signs[perm[-1]] = 0.0
-        signs[perm[: n // 2]] = -1.0
-        flipped_vec = ((w64 * signs)[:, None] * diffs).sum(dim=0) / denom
-    else:
-        running = 0.0
-        for idx_, pos in enumerate(perm.tolist()):
-            w_val = float(w64[pos].item())
-            if idx_ == 0:
-                signs[pos] = 1.0
-                running += w_val
-            elif idx_ == 1:
-                signs[pos] = -1.0
-                running -= w_val
-            elif abs(running + w_val) <= abs(running - w_val):
-                signs[pos] = 1.0
-                running += w_val
-            else:
-                signs[pos] = -1.0
-                running -= w_val
-        # Center out the shared weighted mean so unequal weights cannot leak the true direction.
-        w_sum = w64.sum()
-        mean_diff = (w64[:, None] * diffs).sum(dim=0) / w_sum if float(w_sum.abs().item()) > 1e-12 else true_vec
-        centered_diffs = diffs - mean_diff.unsqueeze(0)
-        flipped_vec = ((w64 * signs)[:, None] * centered_diffs).sum(dim=0) / denom
+    signs[perm[: n // 2]] = -1.0
+    # Signed differences aligned with the pair weight direction (`w_i * (B_i - A_i)`):
+    # each random half (`signs > 0` of size n - n//2, `signs < 0` of size n//2) is
+    # normalized by its own weight sum W_+ and W_-, so E[half_+] = mu and E[half_-] = mu
+    # and 0.5 * (half_+ - half_-) cancels the shared direction mu identically for all n
+    # (even or odd) and all weights without dropping a pair or subtracting the sample mean.
+    abs_w = w64.abs()
+    signed_diffs = (w64[:, None] * diffs)
+    pos_mask = signs > 0
+    neg_mask = signs < 0
+    w_pos = abs_w[pos_mask].sum()
+    w_neg = abs_w[neg_mask].sum()
+    if float(w_pos.item()) <= 1e-12 or float(w_neg.item()) <= 1e-12:
+        raise ValueError("flip_null encountered a half with zero weight sum")
+    half_pos = signed_diffs[pos_mask].sum(dim=0) / w_pos
+    half_neg = signed_diffs[neg_mask].sum(dim=0) / w_neg
+    flipped_vec = 0.5 * (half_pos - half_neg)
 
     flipped_norm = torch.linalg.vector_norm(flipped_vec)
     if float(flipped_norm) == 0.0:
@@ -587,9 +588,10 @@ def _unit_rows64(diffs: torch.Tensor, weights: torch.Tensor | None = None) -> to
     if not bool(torch.isfinite(d64).all()):
         raise ValueError("diffs contains non-finite values")
     if weights is not None:
-        if weights.ndim != 1 or weights.shape[0] != d64.shape[0]:
-            raise ValueError(f"weights must have shape [{d64.shape[0]}], got {tuple(weights.shape)}")
-        w64 = weights.detach().to(device=d64.device, dtype=torch.float64)
+        w_t = weights if isinstance(weights, torch.Tensor) else torch.as_tensor(weights, dtype=torch.float64, device=d64.device)
+        if w_t.ndim != 1 or w_t.shape[0] != d64.shape[0]:
+            raise ValueError(f"weights must have shape [{d64.shape[0]}], got {tuple(w_t.shape)}")
+        w64 = w_t.detach().to(device=d64.device, dtype=torch.float64)
         if not bool(torch.isfinite(w64).all()) or bool((w64 == 0).any()):
             raise ValueError("weights must be finite and non-zero")
         d64 = d64 * torch.sign(w64)[:, None]
@@ -648,9 +650,10 @@ def split_half_cosine(
     if weights is None:
         w64 = torch.ones(n, dtype=torch.float64, device=d64.device)
     else:
-        if weights.ndim != 1 or weights.shape[0] != n:
-            raise ValueError(f"weights must have shape [{n}], got {tuple(weights.shape)}")
-        w64 = weights.detach().to(device=d64.device, dtype=torch.float64)
+        w_t = weights if isinstance(weights, torch.Tensor) else torch.as_tensor(weights, dtype=torch.float64, device=d64.device)
+        if w_t.ndim != 1 or w_t.shape[0] != n:
+            raise ValueError(f"weights must have shape [{n}], got {tuple(w_t.shape)}")
+        w64 = w_t.detach().to(device=d64.device, dtype=torch.float64)
         if not bool(torch.isfinite(w64).all()) or bool((w64 == 0).any()):
             raise ValueError("weights must be finite and non-zero")
 
@@ -671,10 +674,33 @@ def split_half_cosine(
     return float(sum(cosines) / len(cosines))
 
 
-def _tensor_bf16_hash12(t: torch.Tensor) -> str:
+def quality_report(
+    a: torch.Tensor,
+    b: torch.Tensor,
+    weights: Sequence[float] | torch.Tensor | None = None,
+    generator: torch.Generator | None = None,
+    n_splits: int = 64,
+) -> dict[str, Any]:
+    """Compute the `quality_report` metadata dict (`CONTRACT.md` section 3) from
+    per-pair pooled activations `a` and `b` of shape `[n, d]`."""
+    a64, b64, w64 = _check_pair_tensors(a, b, weights)
+    diffs = b64 - a64
+    return {
+        "mean_pairwise_cosine": mean_pairwise_cosine(diffs, weights=w64),
+        "split_half_cosine": split_half_cosine(
+            diffs, generator=generator, n_splits=n_splits, weights=w64
+        ),
+        "per_pair_cosine": per_pair_cosine(diffs, weights=w64),
+    }
+
+
+def _tensor_bf16_bytes(t: torch.Tensor) -> memoryview:
     bf16 = t.detach().to(device="cpu", dtype=torch.bfloat16).contiguous()
-    raw = bytes(bf16.untyped_storage())[: bf16.numel() * bf16.element_size()]
-    return hashlib.sha256(raw).hexdigest()[:12]
+    return bf16.view(torch.uint8).numpy().data
+
+
+def _tensor_bf16_hash12(t: torch.Tensor) -> str:
+    return hashlib.sha256(_tensor_bf16_bytes(t)).hexdigest()[:12]
 
 
 def family_from_tensor_hashes(hashes: tuple[str, str, str]) -> str:
@@ -684,6 +710,16 @@ def family_from_tensor_hashes(hashes: tuple[str, str, str]) -> str:
         return KNOWN_FAMILIES[hashes]
     combined = hashlib.sha256(":".join(hashes).encode("utf-8")).hexdigest()[:12]
     return f"custom:{combined}"
+
+
+_FAMILY_PATH_CACHE: dict[tuple[str, int, int], str] = {}
+_DIGEST_PATH_CACHE: dict[tuple[str, int, int, tuple[str, ...]], str] = {}
+
+
+def _file_stat_key(path: Path) -> tuple[str, int, int]:
+    resolved = path.resolve()
+    st = resolved.stat()
+    return (str(resolved), int(st.st_mtime_ns), int(st.st_size))
 
 
 def detect_family(source: str | Path | Mapping[str, torch.Tensor] | Any) -> str:
@@ -697,6 +733,10 @@ def detect_family(source: str | Path | Mapping[str, torch.Tensor] | Any) -> str:
         path = Path(source)
         if not path.is_file():
             raise ValueError(f"checkpoint file not found: {path}")
+        stat_key = _file_stat_key(path)
+        cached = _FAMILY_PATH_CACHE.get(stat_key)
+        if cached is not None:
+            return cached
         with safe_open(str(path), framework="pt", device="cpu") as f:
             keys = set(f.keys())
             hashes: list[str] = []
@@ -715,7 +755,9 @@ def detect_family(source: str | Path | Mapping[str, torch.Tensor] | Any) -> str:
                         "not a supported MiniMax H3 diffusion model"
                     )
                 hashes.append(_tensor_bf16_hash12(f.get_tensor(matched)))
-        return family_from_tensor_hashes((hashes[0], hashes[1], hashes[2]))
+        fam = family_from_tensor_hashes((hashes[0], hashes[1], hashes[2]))
+        _FAMILY_PATH_CACHE[stat_key] = fam
+        return fam
 
     if isinstance(source, Mapping):
         hashes = []
@@ -776,6 +818,10 @@ def safetensors_recipe_digest(
     p = Path(path)
     if not p.is_file():
         raise ValueError(f"model file not found: {p}")
+    stat_key = (*_file_stat_key(p), tuple(extra_tensor_keys))
+    cached = _DIGEST_PATH_CACHE.get(stat_key)
+    if cached is not None:
+        return cached
     h = hashlib.sha256()
     with p.open("rb") as fp:
         raw_len = fp.read(8)
@@ -804,10 +850,11 @@ def safetensors_recipe_digest(
                     raise ValueError(
                         f"{p.name}: missing required tensor key {k!r} for recipe digest"
                     )
-                t = sf.get_tensor(matched).detach().to(device="cpu", dtype=torch.bfloat16).contiguous()
                 h.update(k.encode("utf-8"))
-                h.update(bytes(t.untyped_storage())[: t.numel() * t.element_size()])
-    return h.hexdigest()
+                h.update(_tensor_bf16_bytes(sf.get_tensor(matched)))
+    digest = h.hexdigest()
+    _DIGEST_PATH_CACHE[stat_key] = digest
+    return digest
 
 
 def _validate_metadata_dict(metadata: Mapping[str, Any]) -> None:
@@ -866,10 +913,52 @@ def _validate_metadata_dict(metadata: Mapping[str, Any]) -> None:
         raise ValueError(
             "control vector metadata 'measured_under' must be a dict with keys {'mode', 'frame', 'prefix', 'pooling'}"
         )
+    if measured["mode"] not in VALID_MODES:
+        raise ValueError(
+            f"measured_under.mode must be one of {VALID_MODES}, got {measured['mode']!r}"
+        )
+    if measured["frame"] not in VALID_FRAMES:
+        raise ValueError(
+            f"measured_under.frame must be one of {VALID_FRAMES}, got {measured['frame']!r}"
+        )
+    if measured["pooling"] not in VALID_POOLING:
+        raise ValueError(
+            f"measured_under.pooling must be one of {VALID_POOLING}, got {measured['pooling']!r}"
+        )
 
     points = metadata["points"]
     if not isinstance(points, dict) or not points:
         raise ValueError("control vector metadata 'points' must be a non-empty dict")
+    for pt_key, pt_val in points.items():
+        if not isinstance(pt_val, dict) or "unit" not in pt_val or "median_row_norm" not in pt_val:
+            raise ValueError(
+                f"points[{pt_key!r}] must be a dict with at least 'unit' and 'median_row_norm'"
+            )
+        if pt_key == "post_refiner":
+            if "raw_norm" not in pt_val or pt_val["unit"] != "mean_pair_difference":
+                raise ValueError(
+                    "points['post_refiner'] must be a dict with unit='mean_pair_difference', 'raw_norm', and 'median_row_norm'"
+                )
+            num_keys: tuple[str, ...] = ("raw_norm", "median_row_norm")
+        else:
+            if pt_val["unit"] not in ("median_row_norm", "median_tag1_row_norm"):
+                raise ValueError(
+                    f"points[{pt_key!r}]['unit'] must be 'median_row_norm', got {pt_val['unit']!r}"
+                )
+            if "row0_excluded" in pt_val and not isinstance(pt_val["row0_excluded"], bool):
+                raise ValueError(f"points[{pt_key!r}]['row0_excluded'] must be a bool")
+            num_keys = ("raw_norm", "median_row_norm") if "raw_norm" in pt_val else ("median_row_norm",)
+        for nk in num_keys:
+            nv = pt_val[nk]
+            if (
+                isinstance(nv, bool)
+                or not isinstance(nv, (int, float))
+                or not math.isfinite(float(nv))
+                or float(nv) <= 0.0
+            ):
+                raise ValueError(
+                    f"points[{pt_key!r}][{nk!r}] must be a positive finite float, got {nv!r}"
+                )
 
     qrep = metadata["quality_report"]
     if (
@@ -884,6 +973,15 @@ def _validate_metadata_dict(metadata: Mapping[str, Any]) -> None:
         v_f = qrep[k_float]
         if not isinstance(v_f, (int, float)) or not math.isfinite(float(v_f)):
             raise ValueError(f"quality_report[{k_float!r}] must be a finite float, got {v_f!r}")
+    ppc = qrep["per_pair_cosine"]
+    if (
+        not isinstance(ppc, list)
+        or not ppc
+        or not all(isinstance(x, (int, float)) and math.isfinite(float(x)) for x in ppc)
+    ):
+        raise ValueError(
+            "quality_report['per_pair_cosine'] must be a non-empty list of finite floats"
+        )
 
     prov = metadata["provenance"]
     if (
@@ -1037,7 +1135,12 @@ def check_vector_compatibility(
         )
 
     warnings: list[str] = []
-    if loaded_recipe is not None:
+    if loaded_recipe is None:
+        if not allow_recipe_mismatch:
+            raise ValueError(
+                "loaded_recipe is required unless allow_recipe_mismatch=True"
+            )
+    else:
         if not isinstance(loaded_recipe, Mapping):
             raise ValueError("loaded_recipe must be a mapping")
         vec_recipe = metadata["recipe"]
@@ -1084,6 +1187,7 @@ def apply_post_refiner(
     vectors: Sequence[tuple[torch.Tensor, float]],
     *,
     mask: torch.Tensor | None = None,
+    mask_vision: bool = True,
 ) -> torch.Tensor:
     """Apply one or more `(vector_post_refiner, strength)` pairs to refined text
     conditioning `context` (`[B, L, 5376]`).
@@ -1091,15 +1195,15 @@ def apply_post_refiner(
     Invariants guaranteed:
     1. When all strengths are `0.0` (or `vectors` is empty), returns `context`
        bitwise unchanged.
-    2. Rows where `tags == 0` (vision rows) or where `mask` is `False` are
-       bitwise unchanged.
+    2. When `mask_vision=True` (default), rows where `tags == 0` (vision rows) or
+       where `mask` is `False` are bitwise unchanged; when `mask_vision=False`
+       (the unmasked E2.3 / MAINodes-style ablation), all rows matching `mask`
+       (or all `L` rows if `mask is None`) are shifted.
     3. Sequence length `L` and shape `[B, L, 5376]` are unchanged."""
     if context.ndim != 3 or context.shape[-1] != POST_REFINER_DIM:
         raise ValueError(
             f"context must have shape [B, L, {POST_REFINER_DIM}], got {tuple(context.shape)}"
         )
-    if not bool(torch.isfinite(context).all()):
-        raise ValueError("context contains non-finite values")
     B, L, D = context.shape
 
     if tags.ndim == 1:
@@ -1113,9 +1217,13 @@ def apply_post_refiner(
             f"tags shape {tuple(tag_2d.shape)} does not match context batch/length {(B, L)}"
         )
 
-    non_vision = (tag_2d != 0).to(device=context.device)
+    base_mask = (
+        (tag_2d != 0).to(device=context.device)
+        if mask_vision
+        else torch.ones((B, L), dtype=torch.bool, device=context.device)
+    )
     if mask is None:
-        row_mask = non_vision
+        row_mask = base_mask
     else:
         if mask.ndim == 1:
             row_mask = mask.to(device=context.device, dtype=torch.bool).unsqueeze(0).expand(B, -1)
@@ -1127,7 +1235,7 @@ def apply_post_refiner(
             raise ValueError(
                 f"mask shape {tuple(row_mask.shape)} does not match context batch/length {(B, L)}"
             )
-        row_mask = row_mask & non_vision
+        row_mask = row_mask & base_mask
 
     active: list[tuple[torch.Tensor, float]] = []
     for vec, strength in vectors:
@@ -1143,6 +1251,9 @@ def apply_post_refiner(
     if not active or not bool(row_mask.any()):
         return context
 
+    if not bool(torch.isfinite(context[row_mask]).all()):
+        raise ValueError("context contains non-finite values in steered rows")
+
     total_shift64 = torch.zeros(D, dtype=torch.float64, device=context.device)
     for vec, strength in active:
         total_shift64 = total_shift64 + strength * vec.detach().to(
@@ -1155,3 +1266,95 @@ def apply_post_refiner(
     if out.shape != (B, L, D):
         raise RuntimeError(f"apply_post_refiner changed context shape from {(B, L, D)} to {tuple(out.shape)}")
     return out
+
+
+def row_norm_census(rows: torch.Tensor, tags: torch.Tensor | None = None) -> dict[str, float]:
+    """Compute E2.1 per-row norm census on `[L, D]` or `[1, L, D]` activation rows.
+
+    Returns `row0_norm`, `median_row_norm` (over tag-1 rows), `median_row_norm_ex_row0`,
+    and `row0_to_median_ratio`."""
+    r = rows[0] if rows.ndim == 3 else rows
+    if r.ndim != 2 or r.shape[0] < 1:
+        raise ValueError(f"rows must have shape [L, D] or [1, L, D] with L >= 1, got {tuple(rows.shape)}")
+    r64 = r.detach().to(dtype=torch.float64)
+    norms = torch.linalg.vector_norm(r64, dim=-1)
+    row0 = float(norms[0].item())
+    if tags is not None:
+        t_flat = tags.flatten().to(device=r64.device)
+        tag1 = norms[t_flat != 0]
+        tag1_ex0 = norms[1:][t_flat[1:] != 0] if norms.shape[0] > 1 else tag1
+    else:
+        tag1 = norms
+        tag1_ex0 = norms[1:] if norms.shape[0] > 1 else norms
+    med_all = float(tag1.median().item()) if tag1.numel() > 0 else row0
+    med_ex0 = float(tag1_ex0.median().item()) if tag1_ex0.numel() > 0 else med_all
+    return {
+        "row0_norm": row0,
+        "median_row_norm": med_all,
+        "median_row_norm_ex_row0": med_ex0,
+        "row0_to_median_ratio": row0 / med_ex0 if med_ex0 > 0.0 else 1.0,
+    }
+
+
+def channel_census(vec: torch.Tensor) -> dict[str, float]:
+    """Compute E2.1 channel-concentration statistics on a 1D vector `[D]`.
+
+    Returns `top1_energy_share`, `top5_energy_share`, `top10_energy_share`, and
+    `max_abs_over_rms`."""
+    if vec.ndim != 1 or vec.shape[0] < 1:
+        raise ValueError(f"vec must be 1D [D], got {tuple(vec.shape)}")
+    v64 = vec.detach().to(dtype=torch.float64)
+    sq = v64 * v64
+    total_energy = float(sq.sum().item())
+    if total_energy <= 0.0:
+        raise ValueError("vec has zero energy")
+    sorted_sq, _ = torch.sort(sq, descending=True)
+    d = v64.shape[0]
+    rms = math.sqrt(total_energy / d)
+    max_abs = float(v64.abs().max().item())
+    return {
+        "top1_energy_share": float(sorted_sq[:1].sum().item() / total_energy),
+        "top5_energy_share": float(sorted_sq[: min(5, d)].sum().item() / total_energy),
+        "top10_energy_share": float(sorted_sq[: min(10, d)].sum().item() / total_energy),
+        "max_abs_over_rms": max_abs / rms if rms > 0.0 else 0.0,
+    }
+
+
+def meter_score(
+    rows: torch.Tensor,
+    vec: torch.Tensor,
+    *,
+    mask: torch.Tensor | None = None,
+) -> dict[str, float]:
+    """Project pooled activation rows (`[L, D]` or `[1, L, D]`) onto `vec` (`[D]`).
+
+    Returns:
+    - `projection_units`: scalar projection `(pooled . v) / ||v||^2`, i.e. how many
+      mean-pair-difference units (`strength=1`) the prompt sits along `vec`,
+    - `signed_projection`: `(pooled . v) / ||v||` in Euclidean norm units,
+    - `cosine`: cosine similarity between the pooled prompt row and `vec`."""
+    r = rows[0] if rows.ndim == 3 else rows
+    if r.ndim != 2 or r.shape[1] != vec.shape[0]:
+        raise ValueError(
+            f"rows shape {tuple(rows.shape)} incompatible with vec shape {tuple(vec.shape)}"
+        )
+    r64 = r.detach().to(dtype=torch.float64)
+    if mask is not None:
+        m = mask.flatten().to(device=r64.device, dtype=torch.bool)
+        if m.shape[0] != r64.shape[0] or not bool(m.any()):
+            raise ValueError("meter_score mask must match row count L and select at least one row")
+        pooled = r64[m].mean(dim=0)
+    else:
+        pooled = r64.mean(dim=0)
+    v64 = vec.detach().to(device=r64.device, dtype=torch.float64)
+    v_norm_sq = float(torch.dot(v64, v64).item())
+    if v_norm_sq <= 0.0:
+        raise ValueError("meter_score vector has zero norm")
+    v_norm = math.sqrt(v_norm_sq)
+    p_norm = float(torch.linalg.vector_norm(pooled).item())
+    dot = float(torch.dot(pooled, v64).item())
+    return {
+        "projection_units": dot / v_norm_sq,
+        "signed_projection": dot / v_norm,
+        "cosine": dot / (p_norm * v_norm) if p_norm > 0.0 else 0.0,
+    }
