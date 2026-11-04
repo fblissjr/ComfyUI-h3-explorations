@@ -1953,17 +1953,36 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
             ):
                 errs.append("make_control_vector_from_pairs quality_report ignored pair weights")
 
-            node_out = cv_nodes.MiniMaxH3MakeControlVector.execute(
-                pair_file=str(pair_toml),
-                model=patcher_for_make,
-                clip=mock_clip,
-                pooling="scene_text",
-                apply_holds=True,
-                output_name="unit_from_node",
-                encoded_references=None,
+            orig_cv_paths = cv_nodes.folder_paths.folder_names_and_paths.get(
+                cv_nodes.CONTROL_VECTORS_FOLDER
             )
-            if not isinstance(node_out[0], str) or not node_out[0].startswith("unit_from_node__"):
+            try:
+                cv_nodes.folder_paths.folder_names_and_paths[cv_nodes.CONTROL_VECTORS_FOLDER] = (
+                    [str(tmp)],
+                    {".safetensors"},
+                )
+                node_out = cv_nodes.MiniMaxH3MakeControlVector.execute(
+                    pair_file=str(pair_toml),
+                    model=patcher_for_make,
+                    clip=mock_clip,
+                    pooling="scene_text",
+                    apply_holds=True,
+                    output_name="unit_from_node",
+                    encoded_references=None,
+                )
+            finally:
+                if orig_cv_paths is not None:
+                    cv_nodes.folder_paths.folder_names_and_paths[
+                        cv_nodes.CONTROL_VECTORS_FOLDER
+                    ] = orig_cv_paths
+            if (
+                not isinstance(node_out[0], str)
+                or not node_out[0].startswith("unit_from_node__")
+                or ":" in node_out[0]
+            ):
                 errs.append(f"MiniMaxH3MakeControlVector.execute returned unexpected output: {node_out[0]!r}")
+            if not (tmp / node_out[0]).is_file():
+                errs.append(f"MiniMaxH3MakeControlVector.execute did not write to redirected folder: {node_out[0]!r}")
 
             # Test _build_padding_prompt and cmd_grade (with mock _dit_runner)
             edit_prompt_txt = tmp / "unit_edit.txt"
