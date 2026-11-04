@@ -283,36 +283,354 @@ def convert(
     return summary
 
 
+_COMP_SPECS: tuple[tuple[str, str, bool], ...] = (
+    ("to_q", "attn.to_q", False),
+    ("to_k", "attn.to_k", False),
+    ("to_v", "attn.to_v", False),
+    ("out_proj", "attn.to_out.0", False),
+    ("fc1", "ff.net.0.proj", True),
+    ("fc2", "ff.net.2", False),
+)
+
+
+def _load_comp(fo, prefix: str, okind: str, swap: bool) -> tuple[torch.Tensor, torch.Tensor]:
+    b = fo.get_tensor(f"{prefix}.{okind}.lora_B.default.weight").double()
+    a = fo.get_tensor(f"{prefix}.{okind}.lora_A.default.weight").double()
+    if swap:
+        h = b.shape[0] // 2
+        b = torch.cat([b[h:], b[:h]], dim=0)
+    return b, a
+
+
+def _thin_svd(b: torch.Tensor, a: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    qb, rb = torch.linalg.qr(b, mode="reduced")
+    qa, ra = torch.linalg.qr(a.T, mode="reduced")
+    u, s, vh = torch.linalg.svd(rb @ ra.T, full_matrices=False)
+    return qb @ u, s, vh @ qa.T
+
+
+def analyze(
+    source_dir: Path,
+    peer_dir: Path | None = None,
+    checkpoint_path: Path | None = None,
+    switch_rank: int = 3,
+    device: str = "cuda",
+) -> dict:
+    """Compute Section 7 spectral, task-difference, and AdaLN alignment metrics."""
+    adapter_path = source_dir / "adapter.safetensors"
+    peer_adapter_path = (peer_dir / "adapter.safetensors") if peer_dir is not None else None
+
+    comp_names = [c[0] for c in _COMP_SPECS]
+    spec_by_comp: dict[str, list[dict[str, float]]] = {k: [] for k in comp_names}
+    groups = ("0-9", "10-19", "20-29", "30-39", "40-47", "48-49", "refiner")
+    spec_by_group: dict[str, dict[str, list[dict[str, float]]]] = {
+        g: {k: [] for k in comp_names} for g in groups
+    }
+
+    with safe_open(adapter_path, framework="pt", device=device) as fo:
+        all_blocks = [(f"transformer_blocks.{i}", i) for i in range(50)] + [
+            (f"token_refiner.refiner_blocks.{i}", -1) for i in range(2)
+        ]
+        for ob, bidx in all_blocks:
+            grp = (
+                "refiner"
+                if bidx < 0
+                else ("48-49" if bidx >= 48 else ("40-47" if bidx >= 40 else f"{(bidx // 10) * 10}-{(bidx // 10) * 10 + 9}"))
+            )
+            for cname, okind, swap in _COMP_SPECS:
+                b, a = _load_comp(fo, ob, okind, swap)
+                _, s, _ = _thin_svd(b, a)
+                s2 = s.pow(2)
+                tot_e = float(s2.sum().item())
+                cum = torch.cumsum(s2, dim=0) / max(tot_e, 1e-30)
+                sr = min(switch_rank, int(s.shape[0]))
+                top_e = float(cum[sr - 1].item())
+                tail_e = max(0.0, 1.0 - top_e)
+                r99 = int((cum < (0.99 ** 2)).sum().item()) + 1
+                r995 = int((cum < (0.995 ** 2)).sum().item()) + 1
+                kept_tail_995 = (
+                    float(s2[sr:r995].sum().item() / max(s2[sr:].sum().item(), 1e-30))
+                    if r995 > sr and s2[sr:].sum().item() > 0
+                    else 0.0
+                )
+                rec = {
+                    "fro_norm": float(tot_e ** 0.5),
+                    "stable_rank": float(tot_e / max(float(s2[0].item()), 1e-30)),
+                    "top1_energy": float(cum[0].item()),
+                    "top3_energy": top_e,
+                    "top3_norm": float(top_e ** 0.5),
+                    "tail_energy": tail_e,
+                    "tail_norm": float(tail_e ** 0.5),
+                    "r99": float(r99),
+                    "r995": float(r995),
+                    "tail_energy_kept_svd995": kept_tail_995,
+                }
+                if bidx >= 0:
+                    spec_by_comp[cname].append(rec)
+                spec_by_group[grp][cname].append(rec)
+
+    def _agg(recs: list[dict[str, float]]) -> dict[str, float]:
+        if not recs:
+            return {}
+        return {k: round(st.mean(r[k] for r in recs), 5) for k in recs[0]}
+
+    out: dict = {
+        "source_adapter": source_dir.name,
+        "switch_rank": switch_rank,
+        "spectrum_by_component_50blocks": {k: _agg(v) for k, v in spec_by_comp.items()},
+        "spectrum_by_block_group": {
+            g: {k: _agg(v) for k, v in spec_by_group[g].items()} for g in groups
+        },
+    }
+
+    if peer_adapter_path is not None and peer_adapter_path.exists():
+        task_split: dict[str, list[dict[str, float]]] = {k: [] for k in comp_names}
+        trunc_metrics: dict[str, list[dict[str, float]]] = {"0.99": [], "0.995": []}
+        rank_mismatch_counts = {"0.99": 0, "0.995": 0}
+        with safe_open(adapter_path, framework="pt", device=device) as f_src, safe_open(
+            peer_adapter_path, framework="pt", device=device
+        ) as f_peer:
+            for i in range(50):
+                ob = f"transformer_blocks.{i}"
+                for cname, okind, swap in _COMP_SPECS:
+                    b1, a1 = _load_comp(f_src, ob, okind, swap)
+                    b2, a2 = _load_comp(f_peer, ob, okind, swap)
+                    u1, s1, vh1 = _thin_svd(b1, a1)
+                    u2, s2, vh2 = _thin_svd(b2, a2)
+                    w1 = u1 * s1
+                    w2 = u2 * s2
+                    n1 = float(s1.pow(2).sum().sqrt().item())
+                    n2 = float(s2.pow(2).sum().sqrt().item())
+                    inner_full = float(((w1.T @ w2) * (vh1 @ vh2.T)).sum().item())
+                    cos_full = inner_full / max(n1 * n2, 1e-30)
+                    d_sq = max(0.0, n1 * n1 + n2 * n2 - 2.0 * inner_full)
+                    d_norm = d_sq ** 0.5
+
+                    sr = min(switch_rank, int(s1.shape[0]))
+                    u2_sr = u2[:, :sr]
+                    vh2_sr = vh2[:sr, :]
+                    core = (u2_sr.T @ w1) @ (vh1 @ vh2_sr.T) - torch.diag(s2[:sr])
+                    core_sq = float(core.pow(2).sum().item())
+                    d_in_top3 = core_sq ** 0.5
+                    d_out_top3 = max(0.0, d_sq - core_sq) ** 0.5
+
+                    task_split[cname].append({
+                        "cos_full": cos_full,
+                        "rel_diff_full": d_norm / max(n2, 1e-30),
+                        "diff_in_top3_subspace_of_total": d_in_top3 / max(n2, 1e-30),
+                        "diff_outside_top3_subspace_of_total": d_out_top3 / max(n2, 1e-30),
+                    })
+
+                    c1 = torch.cumsum(s1.pow(2), dim=0) / max(n1 * n1, 1e-30)
+                    c2 = torch.cumsum(s2.pow(2), dim=0) / max(n2 * n2, 1e-30)
+                    for tau_s, tau in (("0.99", 0.99), ("0.995", 0.995)):
+                        k1 = int((c1 < (tau ** 2)).sum().item()) + 1
+                        k2 = int((c2 < (tau ** 2)).sum().item()) + 1
+                        if k1 != k2:
+                            rank_mismatch_counts[tau_s] += 1
+                        # E_1 = tail(k1:) of source adapter; D = W_src - W_peer
+                        e1_sq = float(s1[k1:].pow(2).sum().item())
+                        in_e1_w2 = float(((w1[:, k1:].T @ w2) * (vh1[k1:] @ vh2.T)).sum().item())
+                        # <E_1, W_src - W_peer> = ||E_1||_F^2 - <E_1, W_peer>
+                        proj_on_d = (e1_sq - in_e1_w2) / max(d_sq, 1e-30)
+                        t1_sq = float(s1[:k1].pow(2).sum().item())
+                        in_t1_w2 = inner_full - in_e1_w2
+                        cos_t1_w2 = in_t1_w2 / max((t1_sq ** 0.5) * n2, 1e-30)
+                        dist_t1_w2 = (max(0.0, t1_sq + n2 * n2 - 2.0 * in_t1_w2) ** 0.5) / max(d_norm, 1e-30)
+                        trunc_metrics[tau_s].append({
+                            "proj_loss_onto_task_diff": proj_on_d,
+                            "cos_full": cos_full,
+                            "cos_trunc_src_to_peer": cos_t1_w2,
+                            "dist_trunc_src_to_peer_over_d": dist_t1_w2,
+                        })
+
+        out["peer_adapter"] = peer_dir.name if peer_dir is not None else None
+        out["task_similarity_and_split_50blocks"] = {k: _agg(v) for k, v in task_split.items()}
+        out["truncation_vs_task_diff_300modules"] = {
+            tau_s: {
+                "rank_mismatch_modules_out_of_300": rank_mismatch_counts[tau_s],
+                "proj_loss_onto_task_diff_median": round(
+                    st.median(r["proj_loss_onto_task_diff"] for r in recs), 5
+                ),
+                "proj_loss_onto_task_diff_mean": round(
+                    st.mean(r["proj_loss_onto_task_diff"] for r in recs), 5
+                ),
+                "proj_loss_onto_task_diff_max": round(
+                    max(r["proj_loss_onto_task_diff"] for r in recs), 5
+                ),
+                "cos_full_median": round(
+                    st.median(r["cos_full"] for r in recs), 5
+                ),
+                "cos_trunc_src_to_peer_median": round(
+                    st.median(r["cos_trunc_src_to_peer"] for r in recs), 5
+                ),
+                "cos_trunc_src_to_peer_mean": round(
+                    st.mean(r["cos_trunc_src_to_peer"] for r in recs), 5
+                ),
+                "dist_trunc_src_to_peer_over_d_median": round(
+                    st.median(r["dist_trunc_src_to_peer_over_d"] for r in recs), 5
+                ),
+                "dist_trunc_src_to_peer_over_d_mean": round(
+                    st.mean(r["dist_trunc_src_to_peer_over_d"] for r in recs), 5
+                ),
+            }
+            for tau_s, recs in trunc_metrics.items()
+        }
+
+    if checkpoint_path is not None and checkpoint_path.exists():
+        shift_align: dict[str, dict[str, list[float]]] = {
+            k: {b: [] for b in ("v1", "v2", "v3", "v4_5", "v6_128")} for k in ("to_q", "to_k", "to_v", "fc1")
+        }
+        scale_align: dict[str, list[float]] = {k: [] for k in ("to_q", "to_k", "to_v", "fc1")}
+        prop_align: dict[str, dict[str, list[float]]] = {
+            "out_proj_from_wv_shift": {"all_v1": [], "b48_49_v1": [], "all_tail": []},
+            "fc2_from_wfc1_shift": {"all_v1": [], "b48_49_v1": [], "all_tail": []},
+        }
+        with safe_open(adapter_path, framework="pt", device=device) as fo, safe_open(
+            checkpoint_path, framework="pt", device=device
+        ) as fc:
+            ck_keys = set(fc.keys())
+            ck_pref = "diffusion_model.blocks" if "diffusion_model.blocks.0.adaln_proj.linear.weight" in ck_keys else "blocks"
+            for i in range(50):
+                ob = f"transformer_blocks.{i}"
+                cb = f"{ck_pref}.{i}"
+                w_ada = fc.get_tensor(f"{cb}.adaln_proj.linear.weight").double().view(3, 6, 5376, 8)
+                b_ada = fc.get_tensor(f"{cb}.adaln_proj.linear.bias").double().view(3, 6, 5376, 1)
+                wb_ada = torch.cat([w_ada, b_ada], dim=-1)  # (3, 6, 5376, 9)
+                w_norm1 = fc.get_tensor(f"{cb}.norm1.weight").double()
+                w_norm2 = fc.get_tensor(f"{cb}.norm2.weight").double()
+
+                for cname, okind, swap, sh_idx, sc_idx, w_norm in (
+                    ("to_q", "attn.to_q", False, 0, 1, w_norm1),
+                    ("to_k", "attn.to_k", False, 0, 1, w_norm1),
+                    ("to_v", "attn.to_v", False, 0, 1, w_norm1),
+                    ("fc1", "ff.net.0.proj", True, 3, 4, w_norm2),
+                ):
+                    b_l, a_l = _load_comp(fo, ob, okind, swap)
+                    _, _, vh = _thin_svd(b_l, a_l)
+                    sh_vecs = wb_ada[:, sh_idx, :, :].permute(1, 0, 2).reshape(5376, 27)
+                    q_sh, _ = torch.linalg.qr(sh_vecs, mode="reduced")
+                    p_sh = (vh @ q_sh).pow(2).sum(dim=1)
+                    shift_align[cname]["v1"].append(float(p_sh[0].item()))
+                    shift_align[cname]["v2"].append(float(p_sh[1].item()))
+                    shift_align[cname]["v3"].append(float(p_sh[2].item()))
+                    shift_align[cname]["v4_5"].append(float(p_sh[3:5].mean().item()))
+                    shift_align[cname]["v6_128"].append(float(p_sh[5:].mean().item()))
+
+                    sc_vecs = (w_norm[:, None, None] * wb_ada[:, sc_idx, :, :].permute(1, 0, 2)).reshape(5376, 27)
+                    sc_vecs = torch.cat([w_norm.unsqueeze(1), sc_vecs], dim=1)
+                    q_sc, _ = torch.linalg.qr(sc_vecs, mode="reduced")
+                    p_sc = (vh @ q_sc).pow(2).sum(dim=1)
+                    scale_align[cname].append(float(p_sc[0].item()))
+
+                # Propagated shift into out_proj (via W_V) and fc2 (linearized via W_fc1)
+                w_qkv = fc.get_tensor(f"{cb}.attn.qkv_proj.weight").double()
+                d_qkv = w_qkv.shape[0] // 3
+                w_v = w_qkv[2 * d_qkv :, :]
+                sh_msa = wb_ada[:, 0, :, :].permute(1, 0, 2).reshape(5376, 27)
+                q_wv, _ = torch.linalg.qr(w_v @ sh_msa, mode="reduced")
+                b_o, a_o = _load_comp(fo, ob, "attn.to_out.0", False)
+                _, _, vh_o = _thin_svd(b_o, a_o)
+                p_o = (vh_o @ q_wv).pow(2).sum(dim=1)
+                chance_o = 27.0 / float(d_qkv)
+                prop_align["out_proj_from_wv_shift"]["all_v1"].append(float(p_o[0].item() / chance_o))
+                prop_align["out_proj_from_wv_shift"]["all_tail"].append(float(p_o[5:].mean().item() / chance_o))
+                if i >= 48:
+                    prop_align["out_proj_from_wv_shift"]["b48_49_v1"].append(float(p_o[0].item() / chance_o))
+
+                w_fc1 = fc.get_tensor(f"{cb}.mlp.fc1.weight").double()
+                h_fc = w_fc1.shape[0] // 2
+                sh_mlp = wb_ada[:, 3, :, :].permute(1, 0, 2).reshape(5376, 27)
+                fc1_vecs = torch.cat([w_fc1[:h_fc] @ sh_mlp, w_fc1[h_fc:] @ sh_mlp], dim=1)
+                q_fc1, _ = torch.linalg.qr(fc1_vecs, mode="reduced")
+                b_f2, a_f2 = _load_comp(fo, ob, "ff.net.2", False)
+                _, _, vh_f2 = _thin_svd(b_f2, a_f2)
+                p_f2 = (vh_f2 @ q_fc1).pow(2).sum(dim=1)
+                chance_f2 = 54.0 / float(h_fc)
+                prop_align["fc2_from_wfc1_shift"]["all_v1"].append(float(p_f2[0].item() / chance_f2))
+                prop_align["fc2_from_wfc1_shift"]["all_tail"].append(float(p_f2[5:].mean().item() / chance_f2))
+                if i >= 48:
+                    prop_align["fc2_from_wfc1_shift"]["b48_49_v1"].append(float(p_f2[0].item() / chance_f2))
+
+        chance_sh = 27.0 / 5376.0
+        chance_sc = 28.0 / 5376.0
+        out["adaln_alignment_50blocks"] = {
+            "shift_subspace_dim": 27,
+            "input_dim": 5376,
+            "random_chance_energy": round(chance_sh, 6),
+            "shift_alignment_by_component": {
+                cname: {
+                    band: {
+                        "mean_energy": round(st.mean(vals), 5),
+                        "max_energy": round(max(vals), 5),
+                        "enrichment_vs_chance": round(st.mean(vals) / chance_sh, 2),
+                    }
+                    for band, vals in bands.items()
+                }
+                for cname, bands in shift_align.items()
+            },
+            "scale_v1_alignment_by_component": {
+                cname: {
+                    "mean_energy": round(st.mean(vals), 5),
+                    "enrichment_vs_chance": round(st.mean(vals) / chance_sc, 2),
+                }
+                for cname, vals in scale_align.items()
+            },
+            "propagated_shift_enrichment_vs_chance": {
+                k: {m: round(st.mean(vals), 2) for m, vals in d.items() if vals}
+                for k, d in prop_align.items()
+            },
+        }
+    return out
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--source-dir", type=Path, required=True, help="Directory holding adapter.safetensors and manifest.json")
-    ap.add_argument("--out", type=Path, required=True, help="Output ComfyUI safetensors path")
+    ap.add_argument("--out", type=Path, default=None, help="Output ComfyUI safetensors path (required unless --analyze)")
     ap.add_argument("--mode", choices=("full", "svd_per_component"), default="svd_per_component")
     ap.add_argument("--sv-fro", type=float, default=0.995, help="Per-component cumulative Frobenius norm threshold")
     ap.add_argument("--min-rank", type=int, default=1)
     ap.add_argument("--switch-rank", type=int, default=3, help="Number of top singular values in the switch band (default 3)")
     ap.add_argument("--switch-scale", type=float, default=1.0, help="Multiplier for top switch_rank singular values (0.0 = tail-only)")
     ap.add_argument("--body-scale", type=float, default=1.0, help="Multiplier for singular values above switch_rank (0.0 = spike-only)")
-    ap.add_argument("--peer-dir", type=Path, default=None, help="Optional peer task directory for task-difference boost")
+    ap.add_argument("--peer-dir", type=Path, default=None, help="Optional peer task directory for task-difference boost or --analyze")
     ap.add_argument("--task-boost", type=float, default=0.0, help="Boost factor beta in dW + beta*(dW - dW_peer)")
+    ap.add_argument("--analyze", action="store_true", help="Run Section 7 spectral, task-difference, and AdaLN alignment analysis")
+    ap.add_argument("--checkpoint", type=Path, default=None, help="Optional MiniMax-H3 base checkpoint for AdaLN alignment in --analyze")
+    ap.add_argument("--json-out", type=Path, default=None, help="Optional path to save JSON output")
     ap.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     ap.add_argument("--verify", action="store_true", default=True)
     args = ap.parse_args()
 
-    res = convert(
-        source_dir=args.source_dir,
-        out_path=args.out,
-        mode=args.mode,
-        sv_fro=args.sv_fro,
-        min_rank=args.min_rank,
-        switch_rank=args.switch_rank,
-        switch_scale=args.switch_scale,
-        body_scale=args.body_scale,
-        peer_dir=args.peer_dir,
-        task_boost=args.task_boost,
-        device=args.device,
-        verify=args.verify,
-    )
+    if args.analyze:
+        res = analyze(
+            source_dir=args.source_dir,
+            peer_dir=args.peer_dir,
+            checkpoint_path=args.checkpoint,
+            switch_rank=args.switch_rank,
+            device=args.device,
+        )
+    else:
+        if args.out is None:
+            ap.error("--out is required unless --analyze is specified")
+        res = convert(
+            source_dir=args.source_dir,
+            out_path=args.out,
+            mode=args.mode,
+            sv_fro=args.sv_fro,
+            min_rank=args.min_rank,
+            switch_rank=args.switch_rank,
+            switch_scale=args.switch_scale,
+            body_scale=args.body_scale,
+            peer_dir=args.peer_dir,
+            task_boost=args.task_boost,
+            device=args.device,
+            verify=args.verify,
+        )
+    if args.json_out is not None:
+        args.json_out.parent.mkdir(parents=True, exist_ok=True)
+        args.json_out.write_text(json.dumps(res, indent=2) + "\n")
     print(json.dumps(res, indent=2))
     return 0
 

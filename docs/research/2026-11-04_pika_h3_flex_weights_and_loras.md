@@ -239,6 +239,8 @@ which matches `fp32_conditioning_v1` on `ref2va`.
 
 ## 7. Where Pika's change lives: switches, tail, and `fl2va` vs `ref2va`
 
+Reproduced by `bench/convert_pika_lora.py --analyze` and recorded in
+[`data/results/2026-11-04_pika_lora_spectrum_and_adaln.json`](../../data/results/2026-11-04_pika_lora_spectrum_and_adaln.json).
 Across all 50 blocks, each module's rank-128 delta splits into two spectral regimes:
 
 - **Top-3 singular directions ("switches", `r = 1..3`)**: hold 74% to 91% of each component's squared Frobenius energy
@@ -264,9 +266,13 @@ Across all 50 blocks, each module's rank-128 delta splits into two spectral regi
   random chance), tapering across $v_2$ (13x to 25x), $v_3$ (9x to 16x), and $v_4..v_5$ (5x to 11x), while $v_6..v_{128}$
   sit near chance (1.14x to 1.22x). Similarly, in `blocks.48-49`, $v_1(\text{out\_proj})$ and $v_1(\text{fc2})$ align at
   18x to 45x chance with the propagated subspaces $W_V(\text{shift}_{\text{msa}})$ and $W_{\text{fc1}}(\text{shift}_{\text{mlp}})$
-  (tails at 1.14x). That explains 11% to 19% (up to 65%) of each switch as a virtual per-modality, per-step bias read
-  from `shift(t, tag)`; the remaining 81% to 89% of $v_1$ acts outside the `shift` subspace, and only attribution
-  renders can separate 6-step convergence from Pika's visual look.
+  (tails at 1.14x); for `out_proj` this propagation is exact because row-stochastic attention weights preserve a
+  per-modality constant offset in $V$, whereas for `fc2` it is a linearized correlation because SwiGLU multiplies the
+  `up` half by a token-varying gate. That explains 11% to 19% (up to 65%) of each switch as a virtual per-modality,
+  per-step bias read from `shift(t, tag)`. Whether the remaining 81% to 89% of $v_1$ reads a common token DC component in
+  the RMSNorm output or token-varying features can be tested in the same single-pass subspace capture by recording the
+  per-modality, per-step mean $\bar{z}_{\text{tag}} \in \mathbb{R}^{128}$ of $Z = X A_0^\top$ alongside the $128 \times 128$
+  Gram matrices $G = Z^\top Z$, and only attribution renders can separate 6-step convergence from Pika's visual look.
 - **Converter support for attribution**: `bench/convert_pika_lora.py` exposes `--switch-rank`, `--switch-scale`,
   `--body-scale`, `--peer-dir` and `--task-boost` so spike-only (`--switch-scale 1 --body-scale 0`), tail-only
   (`--switch-scale 0 --body-scale 1`), independent switch/body scaling, and task-difference boosting
