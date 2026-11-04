@@ -66,10 +66,22 @@ and a second shot before anything is called a result, and every prompt read in f
 - Reference-to-video and text-to-video graphs from `workflows/build_workflows.py`. The int8 convrot checkpoint,
   `MiniMaxH3LoRABranch` with Pika's full-rank file at 1.0, `lcm`, `ManualSigmas`
   `1.0, 0.972973, 0.923077, 0.8, 0.571429, 0.333333, 0.0`, and `BasicGuider` (no CFG).
-- **Reference path:** core's `MiniMaxH3ReferenceToVideo` first, at 1344x768 and 124 frames, which is what
-  Comfy's Pika template uses. The pack's typed conditioner comes second, as its own arm. The repo already has
-  probe arms comparing the two paths (`workflows/INDEX.md`, `h3_probe_ref_pathway_*`); this plan has not read
-  their results.
+- **Reference path:** core's `MiniMaxH3ReferenceToVideo` first, at 1344x768, matching Comfy's Pika template, but
+  with two critical fixes verified against `coderef/Pika-H3-Flex`:
+  1. **`ref_image_size = "max"` (not Comfy's template default `"match"`)**: Pika's `p768` bucket rule
+     (`coderef/Pika-H3-Flex/src/pika_h3/core/buckets.py:52`,
+     `coderef/Pika-H3-Flex/src/pika_h3/core/conditioning.py:13-16`) encodes reference images at
+     `reference_short_edge = 2048`. In `comfy_extras/nodes_minimax_h3.py:312-319`, `"match"` downscales
+     `motion-transfer-input-2.png` (`2816x1584`, a 3-view character sheet) by 4x in area to `1344x768`, whereas
+     `"max"` keeps `2816x1584` unshrunk (`1584 <= 2048`).
+  2. **Match each showcase's actual duration/frame count (not a fixed `124` frames)**: `124` frames (`5.17s`) fits
+     Comfy-Org's 5-second pilot+station template (`video_pika_h3_flex_ref2va.json`), whereas Pika's showcases are
+     longer: `motion-transfer.mp4` is **243 frames (`10.125s`)** (its reference `motion-transfer-input-1.mp4` is
+     `241` frames = `10.04s` at `854x480`; running at `length=124` truncates the reference video to `107` frames =
+     `4.46s` in `comfy_extras/nodes_minimax_h3.py:337-344`, cutting off the second half of the dance), and
+     `balcony-orbit.mp4` is **328 frames (`13.675s`)** with a 5-stage (`0-13s`) camera choreography.
+  The pack's typed conditioner (`MiniMaxH3ReferenceConditioning`) comes second, as its own arm. The repo already has
+  probe arms comparing the two paths (`workflows/INDEX.md`, `h3_probe_ref_pathway_*`).
 - **Attention:** dense to begin with, matching Pika and Comfy, so step 2 tests the pipeline and not Sol. These
   graphs need an entry in `SOL_EXEMPT_STEMS` until step 4 settles it, and the reason has to be written there.
 - Decides nothing; makes steps 2 and 3 possible. Likely to work: every part is an existing node.
@@ -77,16 +89,25 @@ and a second shot before anything is called a result, and every prompt read in f
 ### 2. Does this stack reproduce Pika? (about 8 renders)
 
 - **Inputs:** Pika's own showcase material (`assets/showcases/` in the early-access download), all at
-  1344x768. `motion-transfer` (a video plus two images) is the reference case; `balcony-orbit` is text only.
-  Pika's manifest says seeds and preprocessing are not given, so this is a quality comparison by eye, not a
-  match. Two seeds each.
+  1344x768, at their actual frame counts (`243` frames for `motion-transfer`, `328` frames for `balcony-orbit`, or
+  `124` frames if testing Comfy-Org's 5s pilot+station template alongside). Two seeds each, with two showcase-specific
+  safeguards on `motion-transfer`:
+  1. **Leave `ref_video_audio_0` unwired**: `motion-transfer-input-1.mp4` carries an embedded audio track (`312`
+     frames), while the prompt asks for a new 1960s soul groove and says *"Take NOTHING else from @Video1"*.
+     Leaving `ref_video_audio_0` unwired in `MiniMaxH3ReferenceToVideo` cleanly omits `<Audio 1>`.
+  2. **Test the 6-field `<Picture 1> / <Picture 2> / <Video 1>` prompt adaptation alongside raw `@Image1` prose**:
+     Pika's `coderef/Pika-H3-Flex/docs/showcases.md:22` notes that `assets/showcases/*.txt` are un-rewritten
+     service inputs (*"For local generation, adapt the supplied prompts using the prompt guide and preserve
+     reference order"*), and both `coderef/Pika-H3-Flex/src/pika_h3/core/conditioning.py:303-310` and
+     `comfy_extras/nodes_minimax_h3.py:257-260` prepend literal `<Picture 1>: `, `<Picture 2>: `, `<Video 1>: `
+     labels and expect the 6-field `ref2va` schema (`coderef/Pika-H3-Flex/docs/prompt-guidance.md:107-143`).
 - **A second arm at no extra design cost:** the same seeds through `LoraLoaderModelOnly`, the template's merge
   path. It settles whether the merge noise shows on screen.
 - **Decides:** whether to go on. If our renders look clearly worse than Pika's, the fault is in the stack (the
   reference path, preprocessing, prompt form) and every later step waits.
 - **Likely:** text-to-video works; this is Comfy-Org's own graph with the branch swapped in. Reference-to-video is
-  the real risk. Pika's service does its own preprocessing, and the prompt refers to references by tag
-  (`@Image1`), so the reference path and prompt form are where a gap would come from.
+  the real risk, and separating the raw `@Image1` prompt from the adapted 6-field `<Picture i>` prompt isolates
+  prompt-format mismatch from reference-pathway issues.
 
 ### 3. Is Pika worth it here? (about 16 renders)
 
@@ -178,7 +199,9 @@ only). Compression only matters if VRAM or host RAM turns out to bind in the mas
 
 ## Alongside
 
-- **Make the measurements one tracked tool.** The spectrum map, the fl2va/ref2va split, the truncation
-  projection and the AdaLN alignment, so §7's figures point at a command (the repo's rule).
+- **Done (`e608d267`):** `bench/convert_pika_lora.py --analyze` now computes the spectrum map, the `fl2va`/`ref2va`
+  split, the truncation projection and the AdaLN alignment and writes
+  [`data/results/2026-11-04_pika_lora_spectrum_and_adaln.json`](../../data/results/2026-11-04_pika_lora_spectrum_and_adaln.json),
+  cited from §7 of [`2026-11-04_pika_h3_flex_weights_and_loras.md`](2026-11-04_pika_h3_flex_weights_and_loras.md).
 - **Records.** Each render step gets a record under `bench/results/` (its `.md`), data under `data/`, and video
   under the share's `output/Video/`.
