@@ -1,6 +1,6 @@
 # sglang's MiniMax-H3 pipeline, end to end
 
-last updated: 2026-11-04 (dated notes against sglang origin/main `8884b4b421`: step count now counts forwards, sections 0, 2 and 8 and insight 20; reference stills now have three resize modes, section 2 and insight 11; a short reference video, section 3; curve AdaLN stays fp32 and the fused norm-modulate at `lossless`, section 7 and insight 17; the Euler scheduler file deleted and Pika's re-noise path, section 8 and insight 3; the VAE fast path and tile batching, section 9; the output writer, section 9; the renamed quality tiers, sections 10 and 14.1; the ComfyUI app, section 10; FastH3's step count, VSA-H3 on SM80 and `kitchen_int8`'s removal; cookbook recipe cited by heading; drifted citations repointed where a note touches them); 2026-10-02 (dated notes on the ComfyUI app's H3 integrated mode, rollout, Spectrum and `convrot_int8`, from the eighth read); 2026-09-25 (one dated note on FastH3's registration)
+last updated: 2026-11-04 (line citations re-anchored against the clone's `c07df5a055`, a symbol where one encloses the text; a dated note on SubBlock's SM120 support and `compute_mode`, section 11); 2026-11-04 (dated notes against sglang origin/main `8884b4b421`: step count now counts forwards, sections 0, 2 and 8 and insight 20; reference stills now have three resize modes, section 2 and insight 11; a short reference video, section 3; curve AdaLN stays fp32 and the fused norm-modulate at `lossless`, section 7 and insight 17; the Euler scheduler file deleted and Pika's re-noise path, section 8 and insight 3; the VAE fast path and tile batching, section 9; the output writer, section 9; the renamed quality tiers, sections 10 and 14.1; the ComfyUI app, section 10; FastH3's step count, VSA-H3 on SM80 and `kitchen_int8`'s removal; cookbook recipe cited by heading; drifted citations repointed where a note touches them); 2026-10-02 (dated notes on the ComfyUI app's H3 integrated mode, rollout, Spectrum and `convrot_int8`, from the eighth read); 2026-09-25 (one dated note on FastH3's registration)
 
 Written 2026-08-25 from a source read of `coderef/sglang` at commit
 `6569125e3a` (2026-08-25). Nothing was run: no server, no GPU, no model
@@ -27,7 +27,18 @@ longer point at the same text in the clone's checkout `16dd97df61`, although
 re-anchored on this pass; the claims were checked against sglang origin/main
 `8884b4b421`, and where one moved, a dated note beside it says what is true
 there and cites a file and symbol. Find the symbol before quoting a line
-number from this page.*
+number from this page.
+Later the same day the line citations were re-anchored against the clone's
+checkout `c07df5a055` (upstream tip of 2026-11-05). A citation now names a
+symbol where one encloses the cited text; a span inside a large function, or
+across several, carries that checkout's line numbers; cookbook and docs pages
+are cited by heading. Each was traced from the commit it was written at, which
+was not always `5ab97c4f44`: section 7's weights citation still held
+`6569125e3a` numbers, section 14.9's are `593c7a900d`'s (its `sol_attn.py`
+numbers stand, that file being unchanged since), and short `:line` citations
+whose paragraph named another file first now name their own. Where a claim
+no longer holds at `c07df5a055` and no note said so, one does now (section
+11).*
 
 **Third read, 2026-09-04, against `coderef/sglang` at commit `320bdd1ee2`
 (2026-09-05).** A diff read, not a re-anchor: every H3-touching commit between
@@ -80,16 +91,16 @@ ffmpeg  h264 yuv420p 24 fps + aac 32 kHz stereo -> mp4, then re-probed and REJEC
 and the step count is the number of DiT forwards, since `32f34e898b` (#38671);
 section 2's note has the schedule.*
 
-Stage composition: `coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines/minimax_h3_pipeline.py:122-170`.
+Stage composition: `coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines/minimax_h3_pipeline.py::MiniMaxH3Pipeline.create_pipeline_stages`.
 The constructor refuses to start without `ffmpeg` and `ffprobe` on PATH
-(`:52-67`).
+(`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines/minimax_h3_pipeline.py::MiniMaxH3Pipeline.__init__`).
 
 ---
 
 ## 1. Request and admission
 
 **Tasks.** Exactly `t2va`, `fl2va`, `ref2va`, case-sensitive, never inferred
-(`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/video_adapter.py:68,80-84`; `coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/request_validation.py:300`). There is no
+(`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/video_adapter.py::MiniMaxH3VideoModelAdapter.supported_tasks`; `coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/video_adapter.py::MiniMaxH3VideoModelAdapter.validate_task_gate`; `coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/request_validation.py:290`). There is no
 `i2va`: a first frame is `fl2va` with `frame_index: 0`; video-to-video is
 `ref2va` with a `video` or `video_audio` reference. Keyframe signatures are
 the ordered tuple of `frame_index` values and must be one of `(0,)`, `(-1,)`,
@@ -109,12 +120,12 @@ sglang's `17b2f35ae7` shortened the file and the first fell off its end, so
 they name symbols now. The other line citations on this page are still that
 read's and drift the same way: find the symbol before quoting one.*
 
-**What the HTTP layer refuses outright** (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/video_adapter.py:119-167`):
+**What the HTTP layer refuses outright** (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/video_adapter.py:124-172`):
 explicit `num_frames` or `fps`; `guidance_scale`, `guidance_scale_2`,
 `true_cfg_scale`, a non-None `negative_prompt`; `audio_guidance_scale`;
 `enable_frame_interpolation`, `enable_upscaling`; any `output_mode` other than
 decoded files. The sampling params also reject TeaCache, rollout and
-trajectory output (`coderef/sglang/python/sglang/multimodal_gen/configs/sample/minimax_h3.py:212-226`).
+trajectory output (`coderef/sglang/python/sglang/multimodal_gen/configs/sample/minimax_h3.py::MiniMaxH3SamplingParams._validate`).
 *Corrected 2026-10-02: since `0931a72eb2` rollout is accepted for t2va only;
 trajectory output still raises. The cited line range no longer holds the
 check; it is the `rollout` branch of the same file.*
@@ -128,7 +139,7 @@ check; it is the `rollout` branch of the same file.*
 | `ref2va` | >= 1 of keyframe/image, reference/image, reference/video, reference/video_audio, reference/audio | optional when exactly one audio-bearing condition | `auto` -> `16:9`; explicit from the six; references never bind geometry |
 
 The finite aspect list is enforced only for t2va and ref2va
-(`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/request_validation.py:102-106`); the ref2va profile's own comment claims
+(`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/request_validation.py::_validate_target`); the ref2va profile's own comment claims
 `7:4` is allowed and is contradicted by that check (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/task_profiles.py:231-233`).
 
 **Material chains and who sees what** (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/task_profiles.py:80-88,165-226`;
@@ -144,12 +155,12 @@ The finite aspect list is enforced only for t2va and ref2va
 
 **Partition gate.** The checkpoint declares itself in
 `model_index.json._minimax_h3` (`schema_version 1`, `partition`, `tasks`,
-`task_aliases`, `sigma_shift_scales`; `coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/release_metadata.py:46-119`). The
+`task_aliases`, `sigma_shift_scales`; `coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/release_metadata.py::MiniMaxH3ReleaseMetadata`). The
 static map is `t2va -> fl2va, fl2va -> fl2va, ref2va -> ref2va`
 (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/task_profiles.py:32-38`). One partition per process: `--model-variant`
 selects the subfolder and is cross-checked against the loaded partition
-(`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines/minimax_h3_pipeline.py:87-113`). The gate runs as
-pipeline stage 2 (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/release_metadata.py:140-213`), which is **after** the
+(`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines/minimax_h3_pipeline.py::MiniMaxH3Pipeline._load_config`). The gate runs as
+pipeline stage 2 (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/release_metadata.py::MiniMaxH3PartitionAdmissionStage`), which is **after** the
 media were localised, probed and queued.
 *Note 2026-11-04: at sglang origin/main the block also takes optional
 `dmd_denoising_steps`, `pdd_fused_heads`, `stochastic_sampling` and
@@ -159,14 +170,14 @@ is still 1
 
 **Seeds.** Per-output seed is `seed + output_index`
 (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/request_utils.py::normalize_output_seeds`); the latent stage falls back to 42
-only when the plan carries none (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/stages/latent_preparation.py:94-96`).
+only when the plan carries none (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/stages/latent_preparation.py::MiniMaxH3LatentPreparationStage._prepare_denoise_state_from_plan`).
 
 ---
 
 ## 2. Time grid and canvas
 
 Constants: `fps = 24`; duration `[4.0, 15.0]` s checked on the **request**
-value (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/constants.py:50-52`; `coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/request_validation.py:127-136`).
+value (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/constants.py:29-31`; `coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/request_validation.py::_validate_target`).
 
 **Frames** (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/time_request.py:5-29`):
 ```
@@ -179,13 +190,13 @@ frame_count      = align(round(duration * 24)); duration := frame_count / 24
 5.0 s -> 124 / 5.167 s / 37 / audio 207; 15.0 s -> 362 / 15.083 s / 107. The
 aligned duration can exceed the 15 s bound and nothing re-checks it.
 
-**Sigmas** (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/time_request.py:32-59`): `base = linspace(1, 0, n)`,
+**Sigmas** (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/time_request.py::minimax_h3_time_shift_sigmas`): `base = linspace(1, 0, n)`,
 `sigma = s*base / (1 + (s-1)*base)`, `unique_consecutive`, terminal 0
 guaranteed. `num_inference_steps` counts grid points including the terminal
 zero, so the loop runs `n-1` model calls; `n >= 2` is enforced at admission
-(`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/release_metadata.py:150-154`). Shift priority per modality: request >
+(`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/release_metadata.py::MiniMaxH3PartitionAdmissionStage.forward`). Shift priority per modality: request >
 `model_index` `sigma_shift_scales` > profile default, and the defaults are
-`12.0` video, `3.0` audio for every task (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/stages/timestep_preparation.py:118-153`;
+`12.0` video, `3.0` audio for every task (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/stages/timestep_preparation.py::MiniMaxH3TimestepPreparationStage._generate_sigmas_from_plan`;
 `coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/task_profiles.py:153-154,175-176,228-229`). Default 50 steps. `t = 1 - sigma`.
 *Note 2026-11-04: the grid-point count is no longer true at sglang origin/main.
 Since `32f34e898b` (#38671, 2026-10-10) `num_inference_steps` counts DiT
@@ -206,7 +217,7 @@ w, h = max(32, round(nominal/32)*32) per axis               # nearest, independe
 Worked: 16:9 -> 1344x768; 21:9 -> 1536x672; 4:3 -> 1024x768; 1:1 -> 768x768;
 3:4 -> 768x1024; 9:16 -> 768x1344. `latent_h = height // 16`,
 `latent_w = width // 16`; packed video rows `= latent_t * (latent_h//2) * (latent_w//2)`
-(`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/stages/latent_preparation.py:84-85,97`). Any positive integer short edge
+(`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/stages/latent_preparation.py::MiniMaxH3LatentPreparationStage._prepare_denoise_state_from_plan`). Any positive integer short edge
 is accepted and merely warns once when not 768
 (`coderef/sglang/python/sglang/multimodal_gen/test/unit/test_minimax_h3_short_edge.py:41-102`).
 
@@ -220,8 +231,8 @@ distorts.
 **Reference stills** are sized independently of the target: `scale = 2048 / min(w, h)`
 **always, upscaling included**, no area cap, each axis rounded to 32 on its
 own (so a slight stretch), ratio in `[1/4, 4]`
-(`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/reference_encoding.py:125-178`). The prepared PIL feeds both Qwen3-VL
-and the VAE (`:844-919`).
+(`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/reference_encoding.py::minimax_h3_resolve_reference_image_shape`). The prepared PIL feeds both Qwen3-VL
+and the VAE (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/reference_encoding.py::minimax_h3_prepared_reference_image`).
 *Note 2026-11-04: at sglang origin/main this is one of three modes. Since
 `5727f08932` (#35839, 2026-10-13) the request field
 `reference_resize_mode` picks `match` (scale to the target canvas's pixel
@@ -244,27 +255,27 @@ with a direct non-cropping `scale=W:H` filter.
 
 ## 3. Media ingestion
 
-URIs (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/material_io.py:761-878`): `file://` (localhost only), bare paths,
+URIs (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/material_io.py::minimax_h3_localize_material_uri`): `file://` (localhost only), bare paths,
 `http(s)` (120 s timeout, 1 MiB chunks, suffix from URL or Content-Type),
 `data:`/`base64://` with a streaming validating decoder, `tar+offset://`;
 `s3://` raises `NotImplementedError`. Sources and probe facts are cached per
-request in a temp dir registry keyed by owner (`:57-89`), which pre-queue
+request in a temp dir registry keyed by owner (`:61-93`), which pre-queue
 renames from `material` to `prequeue_material` so multi-output expansion does
 not delete the shared source after the first output (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/prequeue.py:227-238`).
 
-Probe (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/material_io.py:352-529`): images via PIL, **JPEG/PNG/WEBP only**,
+Probe (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/material_io.py::_validate_localized_media`): images via PIL, **JPEG/PNG/WEBP only**,
 display size after `exif_transpose`; audio/video via `ffprobe` with a
 container allow-list (`mov, mp4, m4a, 3gp, 3g2, mj2, matroska, webm, wav,
 mp3, flac, ogg`), stream requirements per type, duration = max of container
 and stream durations, display geometry corrected for SAR, DAR and rotation
-(`:247-289`).
+(`:251-293`).
 
 Decoding for the encoders:
 
 - **Reference video frames**: one ffmpeg pass
   `[-ss start] -i path -map 0:v:0 -an -vf fps=24,scale=W:H:flags=lanczos,setsar=1 -frames:v N -f rawvideo -pix_fmt rgb24`
-  -> `uint8 [T, H, W, 3]` (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/reference_encoding.py:368-438`), where `N` is the
-  **target's** aligned frame count (`:734-752`), so a reference video is
+  -> `uint8 [T, H, W, 3]` (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/reference_encoding.py::minimax_h3_decode_reference_video_frames`), where `N` is the
+  **target's** aligned frame count (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/reference_encoding.py::_reference_video_target_frame_count`), so a reference video is
   bounded by the target, not by itself. The same array serves Qwen3-VL
   (every 12th frame, i.e. 2 fps) and the VAE.
   *Note 2026-11-04, traced at sglang origin/main in code this read did not
@@ -272,12 +283,12 @@ Decoding for the encoders:
   target comes back with its own frame count, unpadded and unlooped; the
   video VAE encode then trims it down to the nearest `17n+5` with `n >= 1`,
   and a reference under 22 frames raises "Cannot trim"
-  (`coderef/sglang/python/sglang/multimodal_gen/runtime/models/vaes/minimax_h3_video_vae/processor.py::get_suitable_video_length`,
+  (`coderef/sglang/python/sglang/multimodal_gen/runtime/models/vaes/minimax_h3_video_vae/processor.py::VAEProcessor.get_suitable_video_length`,
   through `align_video_length` in trim mode). The ref2va cursor then
   advances by `max(T_audio, span(video))` of what was encoded (section 6).*
 - **Audio**: `ffmpeg [-ss] -i -map 0:a:0 -vn -ac 2 [-ar 44100 for video chains] [-t target_duration] -f f32le`
-  -> `[2, N]` float32 (`:207-284`), then `torchaudio.Resample(src, 32000)` when
-  needed (`:287-291`). A video soundtrack is therefore resampled twice
+  -> `[2, N]` float32 (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/reference_encoding.py::_load_waveform`), then `torchaudio.Resample(src, 32000)` when
+  needed (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/reference_encoding.py::_audio_resampler`). A video soundtrack is therefore resampled twice
   (ffmpeg to 44.1 kHz, torchaudio to 32 kHz) despite the docstring's "single
   resample", and it is **truncated to the target duration**
   (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/stages/audio_encoding.py:147-152`), contradicting the profile comment that
@@ -286,17 +297,17 @@ Decoding for the encoders:
   rather than a collective.** On Linux, `ffmpeg` writes its rawvideo stream
   straight into an anonymous `memfd` and the result is `mmap`ed, which avoids
   aggregating several hundred MiB through `communicate()`
-  (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/reference_encoding.py:441-491`). When more than one rank is in the
+  (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/reference_encoding.py:488-538`). When more than one rank is in the
   request's replica, one rank per *host* runs that decode and the others open
   its descriptor through `/proc` and map the same pages copy-on-write
-  (`:505-614`), gated by a `share_across_replicas` flag the text-encoding stage
+  (`:552-661`), gated by a `share_across_replicas` flag the text-encoding stage
   passes only when the replica is wider than one and this is not the
-  single-copy encoder-DP path (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/stages/text_encoding.py:400-417`;
-  `coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/reference_encoding.py:376,423-426`). Every failure mode falls
+  single-copy encoder-DP path (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/stages/text_encoding.py:401-418`;
+  `coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/reference_encoding.py::minimax_h3_decode_reference_video_frames`). Every failure mode falls
   back **together**, all ranks agreeing from an `all_gather_object` of the
   leader's state, so a `hidepid` or container policy that blocks the `/proc`
   traversal degrades to a per-rank decode rather than to a failed request or to
-  different RGB bytes on different ranks (`:600-610`).
+  different RGB bytes on different ranks (`:647-657`).
 - A silent `video` reference yields a zero-length audio entry `[0, 32]` to
   keep block order (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/stages/audio_encoding.py:175-184`); `video_audio`
   without an audio stream is refused at probe.
@@ -319,8 +330,8 @@ prompt passes through verbatim. Per task:
 
 (`:84-106,116-158,262-294`). Ordinals are per type and 1-based. A video with a
 soundtrack emits its `<Audio j>: ` label **before** its `<Video k>: `
-(`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/stages/text_encoding.py:452-469`). ref2va keyframes are deliberately
-omitted from the presentation (`:375-388`). Verified in this repo's copy of
+(`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/stages/text_encoding.py:453-470`). ref2va keyframes are deliberately
+omitted from the presentation (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/stages/text_encoding.py::MiniMaxH3TextEncodingStage._encode_ref2va`). Verified in this repo's copy of
 the release tokenizer: its chat template writes `Picture N: ` without angle
 brackets under `add_vision_id`; H3 writes `<Picture i>: ` with them and never
 invokes the template.
@@ -328,7 +339,7 @@ invokes the template.
 **Token tags** travel with the ids: text, labels and timestamps are tag 1;
 vision blocks **including the start and end sentinels** are tag 0, the video
 modality (`:42-81`). The tags later overwrite the packed sequence's text-slot
-tags (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/stages/denoising.py:651-654`), so vision tokens inside the text
+tags (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/stages/denoising.py:710-713`), so vision tokens inside the text
 segment are modulated with the video AdaLN branch while sitting at text
 positions.
 
@@ -337,13 +348,13 @@ positions.
 patch 2, merge 2, mean and std 0.5 (this repo's `vendor_config/preprocessor_config.json`
 and `video_preprocessor_config.json`). The stage calls `image_processor` and
 `video_processor` directly, never the combined processor, and passes
-`do_sample_frames=False` (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/stages/text_encoding.py:346,484,515-520`).
+`do_sample_frames=False` (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/stages/text_encoding.py:347,485,516-521`).
 Pixels become `(x/255 - 0.5)/0.5` in `[-1, 1]`; a still is **duplicated to
 T=2** for the Conv3d patch embed; tokens per still `= (H/32)*(W/32)`, so a
 768x1344 canvas is 1,008 tokens and a 2048x2048 reference 4,096. Video: frames
 sampled at stride 12, timestamps `i/2` padded to even by repeating the last,
-block timestamps are pair midpoints (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/reference_encoding.py:687-722`;
-pinned at 25 frames -> `[0.25, 1.0]`, `coderef/sglang/python/sglang/multimodal_gen/test/unit/test_minimax_h3_media.py:64-105`).
+block timestamps are pair midpoints (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/reference_encoding.py:734-769`;
+pinned at 25 frames -> `[0.25, 1.0]`, `coderef/sglang/python/sglang/multimodal_gen/test/unit/test_minimax_h3_media.py::test_video_transform_runs_once_and_qwen_samples_shared_rgb`).
 `pixel_values` are cast to bf16 on the device (`coderef/sglang/python/sglang/multimodal_gen/runtime/models/encoders/minimax_h3_qwen3vl.py:347-380`).
 
 **The encoder** (`coderef/sglang/python/sglang/multimodal_gen/configs/models/encoders/minimax_h3_qwen3vl.py:11,21-53`;
@@ -355,11 +366,11 @@ tap is the residual after decoder layer index 49, **unnormalised**
 (equivalent to HF `hidden_states[50]`). Precision bf16
 (`coderef/sglang/python/sglang/multimodal_gen/configs/pipeline_configs/minimax_h3.py:70`). Batch of one; M-RoPE
 positions computed on CPU by `get_rope_index` when any grid is present, else
-plain `arange` on all three axes for text-only (`:358-365`). DeepStack
+plain `arange` on all three axes for text-only (`coderef/sglang/python/sglang/multimodal_gen/runtime/models/encoders/minimax_h3_qwen3vl.py:358-365`). DeepStack
 features from vision blocks `[8, 16, 24]` are added after decoder layers 0, 1
-and 2 (`coderef/sglang/python/sglang/multimodal_gen/runtime/models/encoders/qwen3vl.py:631-641,666-677`). Output:
+and 2 (`coderef/sglang/python/sglang/multimodal_gen/runtime/models/encoders/qwen3vl.py:632-642`, `coderef/sglang/python/sglang/multimodal_gen/runtime/models/encoders/qwen3vl.py::Qwen3VLTextModel._deepstack_process`). Output:
 `hidden_states [L, 5120]` bf16, `text_len`, `text_token_tags [L]` into
-`extra["minimax_h3_text_embeddings"]` (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/stages/text_encoding.py:306-315`).
+`extra["minimax_h3_text_embeddings"]` (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/stages/text_encoding.py::MiniMaxH3TextEncodingStage._encode_from_plan`).
 Encoding is deduplicated by `(task, prompt, materials, shape)` within a
 grouped request (`:87-113`), and requests are distributed one whole request
 per encoder copy under encoder DP (`:115-196`).
@@ -368,7 +379,7 @@ per encoder copy under encoder DP (`:115-196`).
 
 ## 5. Reference and keyframe encodes
 
-**Video VAE** (`coderef/sglang/python/sglang/multimodal_gen/runtime/models/vaes/minimax_h3.py:20-87`;
+**Video VAE** (`coderef/sglang/python/sglang/multimodal_gen/runtime/models/vaes/minimax_h3.py::MiniMaxH3VideoVAE`;
 `coderef/sglang/python/sglang/multimodal_gen/configs/models/vaes/minimax_h3_video.py:11-24`): 24 latent channels,
 spatial 16x (`space_down [2,2,2,2,1,1]`), temporal 4x (`time_down [1,2,2,1,1,1]`),
 clip length 17, token drop 3, causal CNN encoder with reflect padding and
@@ -381,32 +392,32 @@ config.
 
 Encode: `quant_conv(encoder(x))` -> `DiagonalGaussianDistribution.sample()`,
 **always sampled, never the mean**; the noise is drawn on the CPU default
-generator then moved (`coderef/sglang/python/sglang/multimodal_gen/runtime/models/vaes/minimax_h3_video_vae/klvae.py:73-87,1294-1308`). So every keyframe and
+generator then moved (`coderef/sglang/python/sglang/multimodal_gen/runtime/models/vaes/minimax_h3_video_vae/klvae.py::DiagonalGaussianDistribution`, `coderef/sglang/python/sglang/multimodal_gen/runtime/models/vaes/minimax_h3_video_vae/klvae.py::AutoencoderKLLegacy.encode_base`). So every keyframe and
 reference-video encode forks the RNG and seeds it to **42**, independent of
-the request seed (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/keyframe_encoding.py:31-32,36-72`; `coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/reference_encoding.py:617-618`;
+the request seed (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/keyframe_encoding.py:31-32`, `coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/keyframe_encoding.py::minimax_h3_scoped_encode_rng`; `coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/reference_encoding.py::MINIMAX_H3_REFERENCE_VIDEO_ENCODE_SEED`;
 `coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/stages/visual_encoding.py:243-244`), with `use_fp16_latent=True`, which
-rounds the latent to fp16 before normalisation (`coderef/sglang/python/sglang/multimodal_gen/runtime/models/vaes/minimax_h3_video_vae/klvae.py:994-995`). Rows are
+rounds the latent to fp16 before normalisation (`coderef/sglang/python/sglang/multimodal_gen/runtime/models/vaes/minimax_h3_video_vae/klvae.py:1023-1024`). Rows are
 patchified `[1,2,2]` to `[n, 96]` fp32 on CPU (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/packed_tokens.py:23-41`).
 A 17n+5-frame video encodes as n+1 clips of 17 (last padded by repeating the
-final frame), 5 tokens each, minus 3 dropped, giving 5n+2 (`coderef/sglang/python/sglang/multimodal_gen/runtime/models/vaes/minimax_h3_video_vae/klvae.py:545-581`).
+final frame), 5 tokens each, minus 3 dropped, giving 5n+2 (`coderef/sglang/python/sglang/multimodal_gen/runtime/models/vaes/minimax_h3_video_vae/klvae.py::AutoencoderKL.encode_temporal`).
 
-**Audio VAE** (`coderef/sglang/python/sglang/multimodal_gen/runtime/models/vaes/minimax_h3.py:90-113`): DAC-style
+**Audio VAE** (`coderef/sglang/python/sglang/multimodal_gen/runtime/models/vaes/minimax_h3.py::MiniMaxH3AudioVAE`): DAC-style
 encoder with rates `[2,4,4,5,5]`, hop 800 samples at 32 kHz, i.e. 40 latent
 frames per second; latent dim 2048 projected by a causal attention block to
 32 channels; BigVGAN decoder with rates `[5,5,2,2,2,2,2]`, output
 `clamp(-1, 1)` rather than tanh. Encode takes the **posterior mean**
-(`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/reference_encoding.py:294-362`) under a determinism context that disables
-TF32 and cuDNN and pins SDP to the math kernel (`:53-118`); rows are
+(`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/reference_encoding.py::minimax_h3_encode_reference_audio_rows`) under a determinism context that disables
+TF32 and cuDNN and pins SDP to the math kernel (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/reference_encoding.py::_AudioVAEDeterminismContext`); rows are
 `[2T, 32]` channel-major (all left, then all right).
 
 **Condition noise augmentation** (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/condition_noise.py`; defaults in
-`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/denoise_loop.py:24-26`): visual conditions at `0.999`, audio references at
+`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/denoise_loop.py:30-32`): visual conditions at `0.999`, audio references at
 `1.0`, overridable per request in `[0, 1]`. Applied only below 1.0: for each
 visual condition a fresh CPU generator seeded with the request seed draws
 `randn(1, 24, target_latent_t + n_conditions, H, W)` and keeps the `[:T_c]`
 prefix, so the anchor noise depends on the target length and on how many
 conditions there are, and two same-shape conditions get identical noise
-(`:91-119`); audio uses `seed + 1` (`:168-188`). The mix is
+(`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/condition_noise.py::minimax_h3_imgvid_cond_noise_aug_rows`); audio uses `seed + 1` (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/condition_noise.py::minimax_h3_audio_cond_noise_aug_rows`). The mix is
 `t*clean + (1-t)*noise`. At the defaults, keyframes carry 0.1 % noise and audio
 references are untouched.
 
@@ -418,7 +429,7 @@ so that no rank is left waiting in the payload collective
 two shapes applies: with a replica wider than one **and** the video VAE's
 `parallel_tiling` on, every rank encodes and nothing is broadcast, because the
 tile loop is itself split by tile-parallel rank
-(`coderef/sglang/python/sglang/multimodal_gen/runtime/models/vaes/minimax_h3_video_vae/klvae.py:390-398`); otherwise rank 0
+(`coderef/sglang/python/sglang/multimodal_gen/runtime/models/vaes/minimax_h3_video_vae/klvae.py::AutoencoderKL.tiled_encode`); otherwise rank 0
 encodes and every produced `extra` key is broadcast
 (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/stages/visual_encoding.py:88-124`). So the seed-42
 posterior sample is drawn once and distributed in the broadcast shape, and
@@ -434,17 +445,17 @@ nothing was executed to find out.
 
 File `coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/packed_sequence.py`. Constants (`:30-35`): spatial scale 32, temporal
 group 5, `frame_per_token (1,4,4,4,4)`, frame rescale `5/3`, patch 2x2;
-alignment 64 (`coderef/sglang/python/sglang/multimodal_gen/configs/models/dits/minimax_h3.py:6`).
+alignment 64 (`coderef/sglang/python/sglang/multimodal_gen/configs/models/dits/minimax_h3.py::MINIMAX_H3_PACKED_SEQUENCE_ALIGNMENT`).
 
 **Layout.** t2va/fl2va: `[text | keyframes | target audio | target video | pad]`
-(`:118-220`). ref2va: `[text | keyframes | reference blocks in request order | target audio | target video | pad]`,
+(`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/packed_sequence.py::minimax_h3_packed_sequence`). ref2va: `[text | keyframes | reference blocks in request order | target audio | target video | pad]`,
 where a video reference contributes its audio rows first, then its visual
-rows (`:280-539,398-403`). `seq_len = ceil(used / 64) * 64`. `update_mask` is
+rows (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/packed_sequence.py::minimax_h3_packed_sequence_ref2va_blocks`, `:412-417`). `seq_len = ceil(used / 64) * 64`. `update_mask` is
 False on every conditioning row; `audio_update_mask` is False on reference
 audio rows. `cu_seqlens = [0, used, seq_len]`: one attention segment for the
-live rows and one for the padding tail (`:210,528`).
+live rows and one for the padding tail (`:210,542`).
 
-**Position ids** `(t, h, w)` per row (`:170-203,244-265`): text `(i, 0, 0)`;
+**Position ids** `(t, h, w)` per row (`:170-203,258-279`): text `(i, 0, 0)`;
 spatial axes are `linspace` over `[left, left+ratio)` with
 `ratio = D / sqrt(latent_h * latent_w)`, `endpoint=False`, scaled by 32, so
 every media item is normalised by its own area; video temporal coordinates
@@ -455,28 +466,28 @@ origin and a last-frame keyframe at `origin + span(latent_t) - 5/3`. In
 ref2va a cursor walks the blocks: an image reference costs one integer slot,
 an audio reference costs its `T`, a video reference costs
 `max(T_audio, span(video))`, and the keyframes, though packed before the
-references, are timed at the target origin (`:419-509`). Standalone audio
+references, are timed at the target origin (`:433-523`). Standalone audio
 references borrow the **target** w-grid extremes; a video reference's audio
-uses its own grid (`:446-447,472-476`).
+uses its own grid (`:460-461,486-490`).
 
 **Tags and timesteps.** Tags: pad -1, text 1, audio 2, image/video 0
 (`:205-208`). Per denoise step at most four timestep values exist
-(`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/denoise_loop.py:368-431`): `t_video` for video, text **and padding** rows;
+(`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/denoise_loop.py:404-467`): `t_video` for video, text **and padding** rows;
 `max(t_video, 0.999)` for keyframe and visual reference rows; `t_audio` for
 target audio; `max(t_audio, 1.0)` for audio references. They are deduplicated
 by exact fp32 equality on the host, and each row's modulation index is
-`tag + 3 * timestep_index` (`:398-405`; modality count 3,
-`coderef/sglang/python/sglang/multimodal_gen/configs/models/dits/minimax_h3.py:7`). Widths: t2va 2, fl2va 3, ref2va 4.
+`tag + 3 * timestep_index` (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/denoise_loop.py::MiniMaxH3DenoiseBranch._expand_step_timesteps`; modality count 3,
+`coderef/sglang/python/sglang/multimodal_gen/configs/models/dits/minimax_h3.py::MINIMAX_H3_ADALN_MODALITY_NUM`). Widths: t2va 2, fl2va 3, ref2va 4.
 
 Tests pin the row counts, the keyframe anchors to twelve places, the
 rejection of any other signature, and the ref2va block order
-(`coderef/sglang/python/sglang/multimodal_gen/test/unit/test_minimax_h3_packed_sequence.py:13-184`).
+(`coderef/sglang/python/sglang/multimodal_gen/test/unit/test_minimax_h3_packed_sequence.py::TestMiniMaxH3PackedSequence`).
 
 ---
 
 ## 7. The DiT forward
 
-**Architecture** (`coderef/sglang/python/sglang/multimodal_gen/configs/models/dits/minimax_h3.py:79-99`;
+**Architecture** (`coderef/sglang/python/sglang/multimodal_gen/configs/models/dits/minimax_h3.py:106-126`;
 `coderef/sglang/python/sglang/multimodal_gen/runtime/models/dits/minimax_h3.py`): 50 blocks, hidden 5376, 56 heads x
 128, FFN 14336 (SwiGLU, `fc1` fused `[gate, up]`), a 2-block token refiner
 with no AdaLN and no RoPE, `condition_proj 5120 -> 5376`,
@@ -487,10 +498,10 @@ chunked into shift/scale/gate for attention and MLP, final layer
 `Linear(2688 -> 2*5376)` plus `video_out 5376 -> 96` and `audio_out 5376 -> 32`.
 RMSNorm everywhere at eps 1e-5, no biases inside blocks. **fp32 island**: the
 patch projections, time embedder, output heads and `rope.inv_freq`; everything
-else bf16 (`:145-160`); the island is never quantised. Pruned checkpoints
+else bf16 (`:211-226`); the island is never quantised. Pruned checkpoints
 (`MiniMaxH3PrunedTransformer3DModel`) replace the time embedder with a curve
 table `adaln_t_table [grid, rank]` read by linear interpolation
-(`:2097-2108`; test pins 8 / 1025 / 2688).
+(`coderef/sglang/python/sglang/multimodal_gen/runtime/models/dits/minimax_h3.py::MiniMaxH3DiTModel._time_embedding`; test pins 8 / 1025 / 2688).
 *Note 2026-11-04: "everything else bf16" missed the curve path, in code that
 predates this read (`21c88f8625`, #35370). A curve checkpoint also keeps
 each block's `adaln_proj` in fp32 and refuses a non-fp32 one after load, so
@@ -502,19 +513,19 @@ AdaLN"); `1fd46ddd56` (#44180) gave those fp32 tables their own fused
 kernels, pinned equal to the eager ops by its tests. The class name
 `MiniMaxH3PrunedTransformer3DModel` is now an alias the base model accepts.*
 
-**RoPE** (`:408-447`): `inv_freq [16]` is a persistent buffer allocated empty
+**RoPE** (`coderef/sglang/python/sglang/multimodal_gen/runtime/models/dits/minimax_h3.py:567-606`): `inv_freq [16]` is a persistent buffer allocated empty
 and loaded from the checkpoint (INFERENCE: nothing in the tree computes it);
 per axis `pos * inv_freq` gives `[S, 3, 16]`, concatenated to 48 and doubled
 to 96, so rotation covers head dims `[0, 96)` in neox rotate-half pairing and
 dims `[96, 128)` pass through. Q and K are RMS-normalised per head and rounded
-to bf16 **before** rotation (`:950-963`).
+to bf16 **before** rotation (`:1531-1557`).
 
-**Forward** (`:2368-2655`). `_embed` (eager under graph capture) scatters
+**Forward** (`coderef/sglang/python/sglang/multimodal_gen/runtime/models/dits/minimax_h3.py::MiniMaxH3DiTModel.forward`). `_embed` (eager under graph capture) scatters
 text rows (already refined once per request), video rows through
 `video_patch_proj` and audio rows through `audio_patch_proj` into a bf16
 `[local_seq_len, 5376]` buffer; padding rows are zero. `adaln_input = silu(t_emb).bf16`.
 Tags are clamped at 0, so **padding rows are modulated as video rows at the
-video timestep** (`:2542`). Each block, for every row identically:
+video timestep** (`:3150`). Each block, for every row identically:
 ```
 h = norm1(x); h = h*(1+scale_msa) + shift_msa; x = x + gate_msa * attn(h)
 h = norm2(x); h = h*(1+scale_mlp) + shift_mlp; x = x + gate_mlp * mlp(h)
@@ -533,41 +544,41 @@ The final layer's modulation and the gated residual are not fused. Since
 second GEMM at `lossless`, while `exact` keeps the separate add
 (`coderef/sglang/python/sglang/multimodal_gen/runtime/layers/lora/linear.py::_request_allows_lossless`).*
 The first gated residual is in place unless Cache-DiT input preservation is
-armed (`:1565-1572,2023-2037`).
+armed (`coderef/sglang/python/sglang/multimodal_gen/runtime/models/dits/minimax_h3.py:1892-1899`, `coderef/sglang/python/sglang/multimodal_gen/runtime/models/dits/minimax_h3.py::MiniMaxH3DiTModel.set_cache_dit_input_preservation`).
 
 **Attention** is one FlashAttention varlen call over the whole packed
 sequence: `cu_seqlens_q = cu_seqlens_k = [0, used, seq_len]`, `max_seqlen = used`,
-non-causal, scale `128^-0.5` (`coderef/sglang/python/sglang/multimodal_gen/runtime/layers/attention/backends/flash_attn.py:451-474`).
+non-causal, scale `128^-0.5` (`coderef/sglang/python/sglang/multimodal_gen/runtime/layers/attention/backends/flash_attn.py::FlashAttentionImpl.forward_varlen`).
 **Every live row attends to every other live row with no modality mask**; the
 padding tail attends only to itself. That is a statement about the *dense*
 backends — since 2026-08-26 one backend deliberately breaks it, and section 11
 is the whole of that exception. Backend on CUDA: FA (fa3; fa4 on
 Blackwell), TORCH_SDPA on SM12.x, cuDNN SDPA on Blackwell when FA is present
-(`coderef/sglang/python/sglang/multimodal_gen/runtime/platforms/cuda.py:534-642`); any backend implementing
+(`coderef/sglang/python/sglang/multimodal_gen/runtime/platforms/cuda.py:724-832`); any backend implementing
 `forward_varlen` is admissible. Under Ulysses the all-to-all happens inside
 the attention core, so each rank holds the full sequence with `56/ulysses`
-heads (`:558-656`; `coderef/sglang/python/sglang/multimodal_gen/runtime/layers/usp.py:336-385,540-599`); under ring,
+heads (`coderef/sglang/python/sglang/multimodal_gen/runtime/models/dits/minimax_h3.py::_minimax_h3_attention_core_impl`; `coderef/sglang/python/sglang/multimodal_gen/runtime/layers/usp.py::_usp_input_all_to_all_packed_qkv`, `coderef/sglang/python/sglang/multimodal_gen/runtime/layers/usp.py::_usp_output_all_to_all`); under ring,
 K/V rotate and each hop attends only the remote chunk's real prefix, FA only
-(`:595-611`; `coderef/sglang/python/sglang/multimodal_gen/runtime/layers/usp.py:804-916`).
+(`coderef/sglang/python/sglang/multimodal_gen/runtime/models/dits/minimax_h3.py:1060-1076`; `coderef/sglang/python/sglang/multimodal_gen/runtime/layers/usp.py:961-1077`).
 
 **Final layer** modulates by timestep only, casts to fp32, and computes
 `video_out` and `audio_out` on **all** rows; the video logits are then
 `index_select`ed to the target rows and the audio logits cover every audio
-row (`:1639-1697,2604-2655`). Under sequence parallel the rows are gathered
+row (`coderef/sglang/python/sglang/multimodal_gen/runtime/models/dits/minimax_h3.py::MiniMaxH3FinalLayer.forward`, `:3245-3296`). Under sequence parallel the rows are gathered
 after selection, and under TP the columns after that.
 
-**AdaLN plans and cache** (`:1126-1404,1776-1789`). The per-request set of
+**AdaLN plans and cache** (`coderef/sglang/python/sglang/multimodal_gen/runtime/models/dits/minimax_h3_adaln_cache.py::MiniMaxH3AdalnCache`; `coderef/sglang/python/sglang/multimodal_gen/runtime/models/dits/minimax_h3.py::MiniMaxH3DiTModel.prepare_adaln_plans`). The per-request set of
 distinct timestep tuples is computed once before the loop; the cache stores
 `block_params [P, W, 50, 96768]` bf16 and `final_params [P, W, 10752]` and
 looks them up by exact fp32 match. Building it means one `F.linear` per layer
 at the plan's own row count and the TP-sharded width, because cuBLAS picks
 kernels by shape and any other shape "silently perturbs the output"
-(`:1271-1282,1320-1324`); the online rebuild reads all of `adaln_proj`,
+(`coderef/sglang/python/sglang/multimodal_gen/runtime/models/dits/minimax_h3_adaln_cache.py:561-572,627-631`); the online rebuild reads all of `adaln_proj`,
 which the flag's help text prices at 24.2 GiB. Unquantised, non-curve
 checkpoints only. The standalone tool `coderef/sglang/python/sglang/multimodal_gen/tools/build_minimax_h3_adaln_cache.py`
 re-implements the time embedder and hard-codes the model dimensions.
 
-**Weights** (`coderef/sglang/python/sglang/multimodal_gen/runtime/loader/minimax_h3_weights.py`; `:648-671,712-759`):
+**Weights** (`coderef/sglang/python/sglang/multimodal_gen/runtime/loader/minimax_h3_weights.py`; `coderef/sglang/python/sglang/multimodal_gen/runtime/models/dits/minimax_h3.py:1161-1188`, `coderef/sglang/python/sglang/multimodal_gen/runtime/models/dits/minimax_h3.py::MiniMaxH3Attention._install_qkv_weight_loader`):
 the official safetensors interleave Q, K and V **per head** (56 groups of
 `[q_h | k_h | v_h]`, 21,504 rows); the runtime reorders to `[q_all | k_all | v_all]`
 on load, and installs the same row permutation on every row-indexed `qkv_proj`
@@ -592,14 +603,14 @@ RoPE, modulation and MLPs are captured.
 `coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/denoise_loop.py`. Persistent buffers `x [1, seq_len, 96]` and
 `audio_x [1, seq_len, 32]` in fp32 are primed once with every conditioning
 row, and afterwards only the target rows are re-copied each step
-(`:234-239,310-345`). The static kwargs handed to the model include the
+(`:264-269`, `coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/denoise_loop.py::MiniMaxH3DenoiseBranch.forward_kwargs`). The static kwargs handed to the model include the
 position ids (cast to fp32 on the host), both update masks, the rank-local
 tags, `skip_mask_out_condition=True`, the refined prompt embeddings, the
-position infos, and the packed-sequence params (`:267-304`).
+position infos, and the packed-sequence params (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/denoise_loop.py:297-334`).
 
 **Update.** The scheduler class `MiniMaxH3EulerAncestralEta0SchedulerAdapter`
 exists as a validated reference but is not wired; the loop uses a fused
-in-place function pinned bit-equal to it (`:96-113`; `coderef/sglang/python/sglang/multimodal_gen/test/unit/test_minimax_h3_denoise_loop.py:122-149`):
+in-place function pinned bit-equal to it (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/denoise_loop.py::_minimax_h3_update_target_rows_`; `coderef/sglang/python/sglang/multimodal_gen/test/unit/test_minimax_h3_denoise_loop.py::test_inplace_target_update_matches_scheduler_math`):
 ```
 denoised = state + sigma * v
 state    = (sigma_next / sigma) * state + (1 - sigma_next / sigma) * denoised
@@ -623,7 +634,7 @@ both modalities to `::_minimax_h3_renoise_target_rows_`, drawing fresh noise
 each step.* One positive branch, no guidance arithmetic (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/constants.py:56`;
 `coderef/sglang/python/sglang/multimodal_gen/configs/pipeline_configs/minimax_h3.py:73`).
 
-**Cache-DiT** (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/stages/denoising.py:417-571`; `coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/constants.py:58-64`):
+**Cache-DiT** (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/stages/denoising.py:469-623`; `coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/constants.py::MINIMAX_H3_HIGH_QUALITY_CACHE_DIT_CONFIG`):
 mounted only for `quality="high"` with `(warmup 4, residual threshold 0.04,
 max consecutive 1)`, or manually through `SGLANG_CACHE_DIT_*` when `quality`
 was not explicit. Before mounting, every block's in-place residual is
@@ -638,27 +649,27 @@ calls `exact` the default, which the sampling params contradict.*
 Text refinement (the two-block refiner on the projected prompt) runs once per
 request before the loop, with `cu = [0, text_len, text_len]` and no
 positions; running it at a bucketed length is "not bitwise equivalent"
-(`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/stages/denoising.py:338-376`; `coderef/sglang/python/sglang/multimodal_gen/runtime/models/dits/minimax_h3.py:2243-2244`).
+(`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/stages/denoising.py::_precompute_refined_prompt_embeds`; `coderef/sglang/python/sglang/multimodal_gen/runtime/models/dits/minimax_h3.py:2850-2851`).
 
 Refinement is not the only thing lifted out of the loop. The **RoPE tables are
 built once per request too** and stashed in the branch's static kwargs, because
 the position grid is step-invariant; the stage calls the model's
 `build_rope_cache` when it has one and silently does nothing when it does not
-(`:379-395`). So the cost model for a step is the blocks plus the AdaLN lookup,
+(`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/stages/denoising.py::_precompute_rope_cache`). So the cost model for a step is the blocks plus the AdaLN lookup,
 with neither the refiner nor the rotary construction inside it.
 
 ---
 
 ## 9. Decode and output
 
-**Video** (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/stages/decoding.py:357-426`): reverse-normalise `z*std + mean`,
+**Video** (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/stages/decoding.py::MiniMaxH3DecodingStage.forward`): reverse-normalise `z*std + mean`,
 decode under **fp16 autocast** by contract (`coderef/sglang/python/sglang/multimodal_gen/configs/pipeline_configs/minimax_h3.py::MiniMaxH3PipelineConfig.vae_decode_precision`)
 although the VAE is fp32-resident because it also encodes keyframes
 (the comment above `vae_precision` in the same class); the 36 decoder blocks' weights are cast to fp16 persistently, the
-embedder, output projection and norms stay fp32 (`coderef/sglang/python/sglang/multimodal_gen/runtime/models/vaes/minimax_h3_video_vae/vae_vit.py:231-262,273-276,348-351`). Decode is tiled at 256 px
+embedder, output projection and norms stay fp32 (`coderef/sglang/python/sglang/multimodal_gen/runtime/models/vaes/minimax_h3_video_vae/vae_vit.py::ViT3DDecoder.prepare_autocast_linear_weights`, `coderef/sglang/python/sglang/multimodal_gen/runtime/models/vaes/minimax_h3_video_vae/vae_vit.py:373-376,453-456`). Decode is tiled at 256 px
 with 64 px overlap and, across decode ranks, whole tiles are dealt round-robin
 and gathered; `spatial`, `spatial_shard` and `patch` modes are refused as
-having "failed the released quality contract" (`coderef/sglang/python/sglang/multimodal_gen/configs/models/vaes/minimax_h3_video.py:36-57`).
+having "failed the released quality contract" (`coderef/sglang/python/sglang/multimodal_gen/configs/models/vaes/minimax_h3_video.py::MiniMaxH3VideoVAEConfig`).
 Temporal decode takes chunks of 7 tokens (5 plus overlap 2) to 28 frames,
 drops 3, blends the overlap, and streams into a preallocated output. Pixels
 are inverse-ImageNet-normalised and clamped to `[0, 1]`, then cropped to
@@ -682,15 +693,15 @@ fp32 to match the dtype eager autocast promotes to
 (`coderef/sglang/python/sglang/multimodal_gen/runtime/models/vaes/minimax_h3_video_vae/vae_vit.py::_run_fused_transformer_blocks`;
 `coderef/sglang/python/sglang/kernels/ops/diffusion/norm/h3_vae_fused_norm.py::h3_vae_scale_add_rmsnorm`).*
 
-**Audio** (`:307-355`): reverse-normalise `[2, 32, T]`, decode in fp32 on
+**Audio** (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/stages/decoding.py::MiniMaxH3DecodingStage._decode_audio`): reverse-normalise `[2, 32, T]`, decode in fp32 on
 **replica** rank 0, broadcast within that replica; output `[1, 2, 800*T]` at
-32 kHz (`:430-450`). This paragraph used to say "world rank 0"; that was
+32 kHz (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/stages/decoding.py::MiniMaxH3DecodingStage._decode_replica_audio`). This paragraph used to say "world rank 0"; that was
 correct against the code as read on 2026-08-25 and is now withdrawn — sglang
 moved every H3 collective off the world group on 2026-08-26, and the reason is
 in section 10.
 
 The decode also runs inside a **deterministic-algorithms scope** added the same
-day (`:46-78`, applied at `:342`). Its stated defect: without it cuDNN picks
+day (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/stages/decoding.py::_deterministic_audio_decode_context`, applied at `:351`). Its stated defect: without it cuDNN picks
 convolution algorithms from free-workspace state, so the same audio latent
 decodes to different bytes on a server process's *first* request than on every
 later one. The scope turns off TF32 and cuDNN benchmarking and sets
@@ -713,7 +724,7 @@ by the 40 Hz rounding. The written MP4 is then re-probed and the request
 **fails after the file exists** unless it has exactly one h264 yuv420p stream
 at 24 fps with the resolved size and frame count, one AAC stream at 32 kHz
 stereo, and audio-video duration drift within 0.25 s
-(`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/video_adapter.py:357-552`; tolerance `coderef/sglang/python/sglang/multimodal_gen/configs/pipeline_configs/minimax_h3.py:74-76`).
+(`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/video_adapter.py::_probe_minimax_h3_output_fields`; tolerance `coderef/sglang/python/sglang/multimodal_gen/configs/pipeline_configs/minimax_h3.py:74-76`).
 *Note 2026-11-04, what the writer does at sglang origin/main. The command
 above omits `-preset`: since `492f346d88` (#38657) it passes
 `-preset fast` (`X264_PRESET` in the same file, which a request may
@@ -736,7 +747,7 @@ imports and with `ffprobe` otherwise
 
 ## 10. The runtime around the model
 
-**Components** (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines/minimax_h3_pipeline.py:39-50`):
+**Components** (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines/minimax_h3_pipeline.py::MiniMaxH3Pipeline._required_config_modules`):
 processor, tokenizer, text encoder (bf16), transformer (bf16 with the fp32
 island), video VAE (fp32 resident, fp16 decode), audio VAE (fp32). No
 scheduler component. Weight loads are ordered by descending size, so the DiT
@@ -744,7 +755,7 @@ scheduler component. Weight loads are ordered by descending size, so the DiT
 Under `--performance-mode auto`, H3 opts into DiT layerwise offload
 (`dit_layerwise_offload_modes=("auto","memory")`) on any card with less than
 120 GiB free, and everything is kept resident above that
-(`coderef/sglang/python/sglang/multimodal_gen/configs/pipeline_configs/minimax_h3.py:88-101`; `coderef/sglang/python/sglang/multimodal_gen/runtime/server_args/auto_tune.py:548-563`).
+(`coderef/sglang/python/sglang/multimodal_gen/configs/pipeline_configs/minimax_h3.py::MiniMaxH3PipelineConfig.get_model_deployment_config`; `coderef/sglang/python/sglang/multimodal_gen/runtime/server_args/auto_tune.py::ServerArgsAutoTuner._should_auto_enable_dit_layerwise_offload`).
 Layerwise-offloadable units: the DiT's refiner blocks and blocks; the video
 VAE's decoder transformer blocks (the CNN encoder stays resident); the audio
 VAE's encoder and decoder blocks; the text encoder's text layers plus the
@@ -752,11 +763,11 @@ vision blocks.
 
 **Parallelism.** TP must divide 56 heads; Ulysses must divide the TP-local
 heads and, with ring, 64; the packed `seq_len` must divide by
-`ulysses * ring` (`coderef/sglang/python/sglang/multimodal_gen/runtime/models/dits/minimax_h3.py:1832-1862,2464-2491`).
+`ulysses * ring` (`coderef/sglang/python/sglang/multimodal_gen/runtime/models/dits/minimax_h3.py::MiniMaxH3DiTModel._validate_sequence_parallel_config`, `coderef/sglang/python/sglang/multimodal_gen/runtime/models/dits/minimax_h3.py:3072-3099`).
 Ring is the outer contiguous row split and Ulysses the inner. CFG parallel is
 refused. Since 2026-08-26 ring also **requires the FA backend specifically**:
 admission raises when `ring_degree > 1` and the resolved transformer backend is
-anything else (`coderef/sglang/python/sglang/multimodal_gen/configs/pipeline_configs/minimax_h3.py:252-260`). That is an admission
+anything else (`coderef/sglang/python/sglang/multimodal_gen/configs/pipeline_configs/minimax_h3.py:258-266`). That is an admission
 gate, so it fires before any weight is downloaded rather than at the first ring
 hop. Encoder folding across the replica engages when hidden >= 4096
 (5120 qualifies) on one node with peer access; cross-node runs need
@@ -764,12 +775,12 @@ hop. Encoder folding across the replica engages when hidden >= 4096
 (INFERENCE from the same code with `sp_ws = 1`).
 
 Disaggregation is refused outright: the pipeline accepts only the monolithic
-role (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines/minimax_h3_pipeline.py:114-119`). The text encoder, the
+role (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines/minimax_h3_pipeline.py::MiniMaxH3Pipeline.validate_disagg_role`). The text encoder, the
 transformer and both VAEs are declared `native_only`, so none
 of them can fall back to a stock Transformers or Diffusers implementation
-(`coderef/sglang/python/sglang/multimodal_gen/configs/pipeline_configs/minimax_h3.py:48-53`). MPS is admissible but only under
+(`coderef/sglang/python/sglang/multimodal_gen/configs/pipeline_configs/minimax_h3.py::MiniMaxH3PipelineConfig.native_only_components`). MPS is admissible but only under
 synchronous layerwise offload for every one of those, and with `torch.compile`
-off (`:229-251`).
+off (`:235-257`).
 
 **Replica, not world.** Every H3 collective — the resolved-plan and encode-row
 broadcasts, the shared reference-video decode, the audio decode broadcast —
@@ -777,7 +788,7 @@ targets `get_replica_group()`. It used to target `get_world_group()`, and the
 comments that justified that said sglang rejected `dp_size > 1` so the world
 group *was* one replica. That is no longer true: `--dp-size` is refused only
 outside the monolithic role
-(`coderef/sglang/python/sglang/multimodal_gen/runtime/server_args/server_args.py:3523-3535`), so a world-group collective
+(`coderef/sglang/python/sglang/multimodal_gen/runtime/server_args/server_args.py:4155-4167`), so a world-group collective
 would now block on replicas that are not serving this request. The
 replacement is `coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/stages/replica_broadcast.py:1-60`, and it
 is used by the visual, audio and decode stages alike. Nothing about the single
@@ -787,17 +798,17 @@ deployment is now a supported shape rather than an impossible one.
 **Batching.** H3 is `TI2V`, which does not support cross-request dynamic
 batching, so the scheduler pops one request at a time; only a single
 request's multi-output fan-out reaches the grouped-stage path, where text
-encoding is shared by fingerprint (`coderef/sglang/python/sglang/multimodal_gen/runtime/managers/scheduler.py:968-1000`;
-`coderef/sglang/python/sglang/multimodal_gen/configs/pipeline_configs/base.py:414-419`). Warmup is off by default;
+encoding is shared by fingerprint (`coderef/sglang/python/sglang/multimodal_gen/runtime/managers/scheduler.py:1297-1329`;
+`coderef/sglang/python/sglang/multimodal_gen/configs/pipeline_configs/base.py::PipelineConfig.supports_dynamic_batching`). Warmup is off by default;
 `--warmup-resolutions` turns it on but H3 substitutes its own `768 / 16:9 / 5 s`
-target regardless of the values given (`coderef/sglang/python/sglang/multimodal_gen/configs/sample/minimax_h3.py:107-156`).
+target regardless of the values given (`coderef/sglang/python/sglang/multimodal_gen/configs/sample/minimax_h3.py::MiniMaxH3SamplingParams.prepare_synthetic_warmup_request_for_queue`).
 
-**Quality levels** (`coderef/sglang/python/sglang/multimodal_gen/configs/sample/sampling_params.py:54-57,139-153`):
+**Quality levels** (`coderef/sglang/python/sglang/multimodal_gen/configs/sample/sampling_params.py::QUALITY_LEVELS`, `coderef/sglang/python/sglang/multimodal_gen/configs/sample/sampling_params.py::SamplingParams.quality`):
 `lossless` (default, bit-exact against CI goldens, no caching) and `high`.
 `high` is a fail-closed exact match on two things: the workload
 `{t2va, 1344x768, 24 fps, 124 frames, 50 steps, shift 12/3}`
-(`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/release_metadata.py:22-31,160-213`) and the deployment, which
-`validate_quality_deployment` (`coderef/sglang/python/sglang/multimodal_gen/configs/pipeline_configs/minimax_h3.py:133-209`)
+(`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/release_metadata.py::_MINIMAX_H3_QUALITY_WORKLOAD`, `coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/release_metadata.py::MiniMaxH3PartitionAdmissionStage.forward`) and the deployment, which
+`validate_quality_deployment` (`coderef/sglang/python/sglang/multimodal_gen/configs/pipeline_configs/minimax_h3.py::MiniMaxH3PipelineConfig.validate_quality_deployment`)
 pins to `num_gpus 4`, `sp 4`, `ulysses 4`, `ring 1`, `tp 1`, `fa` attention,
 `performance_mode speed`, no compile, no graphs, no quantisation of DiT or
 encoder, no FSDP, no DiT layerwise offload, variant `fl2va`, and a device
@@ -838,7 +849,7 @@ rejected at validation. *2026-10-02: two more since `ae47bcd4da` and
 
 **Their ComfyUI app** (`coderef/sglang/python/sglang/multimodal_gen/apps/ComfyUI_SGLDiffusion/`): a custom-node pack
 with an integrated mode for FLUX, Qwen-Image and Z-Image, and a **server
-mode only** node for H3, `SGLDiffusionGenerateH3` (`coderef/sglang/python/sglang/multimodal_gen/apps/ComfyUI_SGLDiffusion/nodes.py:579-792`), which
+mode only** node for H3, `SGLDiffusionGenerateH3` (`coderef/sglang/python/sglang/multimodal_gen/apps/ComfyUI_SGLDiffusion/nodes.py::SGLDiffusionGenerateH3`), which
 posts to `/v1/videos` on a running `sglang serve` and polls. The README's
 rule is that models needing conditioning ComfyUI cannot supply (audio,
 references, task routing) go server-mode. Its inputs mirror the request
@@ -891,24 +902,34 @@ run, and none of the upstream measurements quoted below were reproduced here.
 training-free block-sparse backend: a router scores 64x64 query/key block pairs
 by a log-sum-exp over sub-block pairs and keeps a top-k budget, then dispatches
 to SGLang's CuTe-DSL SM90 kernel or FlashInfer's `sm_100a` blk64 kernel
-(`coderef/sglang/python/sglang/multimodal_gen/runtime/layers/attention/backends/subblock_sparse_attn.py:1-31,201-231`;
-router rationale at `coderef/sglang/python/sglang/multimodal_gen/runtime/layers/attention/backends/subblock_sparse/router.py:1-70`). The
+(`coderef/sglang/python/sglang/multimodal_gen/runtime/layers/attention/backends/subblock_sparse_attn.py:1-34`, `coderef/sglang/python/sglang/multimodal_gen/runtime/layers/attention/backends/subblock_sparse_attn.py::_get_subblock_sparse_attention_runner`;
+router rationale at `coderef/sglang/python/sglang/multimodal_gen/runtime/layers/attention/backends/subblock_sparse/router.py:1-77`). The
 resolver **fails closed** on anything that is not compute capability 9.0 or
 10.0, rather than falling back
-(`coderef/sglang/python/sglang/multimodal_gen/runtime/platforms/cuda.py:297-318`). Inside the DiT it is scoped further
+(`coderef/sglang/python/sglang/multimodal_gen/runtime/platforms/cuda.py::_SubBlockSparseAttentionBackendResolver`). Inside the DiT it is scoped further
 still: only modules whose prefix matches `blocks.<n>.` are eligible, so the
 token refiner is always dense; head size must be 128; and it goes dense for the
 first `skip_first_steps` denoise steps and any sequence shorter than
-`min_seq_len` (`:354-359,398-407`). The schedule is
+`min_seq_len` (`coderef/sglang/python/sglang/multimodal_gen/runtime/layers/attention/backends/subblock_sparse_attn.py:488-493,544-553`). The schedule is
 `--attention-backend-config` JSON, validated on construction —
-`sparsity` in `[0, 1)`, `n_k` and `n_q` each in `{1, 2, 4, 8}` (`:284-320`).
+`sparsity` in `[0, 1)`, `n_k` and `n_q` each in `{1, 2, 4, 8}` (`coderef/sglang/python/sglang/multimodal_gen/runtime/layers/attention/backends/subblock_sparse_attn.py::SubBlockSparseSchedule`).
 The shipped defaults and the arguments for them are in the module docstring
-(`:62-96`), including the claim that the step cutoff and the layer cutoff behave
+(`:68-102`), including the claim that the step cutoff and the layer cutoff behave
 nothing alike: dropping the layer cutoff to zero is inside the run-to-run noise
 floor while dropping the step cutoff to zero leaves the sample "essentially
 uncorrelated with dense". **Reported by upstream, not verified here**, and every
 one of those numbers is a rendered-clip cosine, which is the comparison class
 this repo treats as a distribution rather than a pair.
+*Note 2026-11-04: the fail-closed set is no longer 9.0 and 10.0 at the
+clone's `c07df5a055`. Since `4e37882a93` (#37332, 2026-09-03) the resolver
+also admits compute capability 12.0 and loads FlashInfer's SM120 blk64 kernel
+for it; anything else still fails closed
+(`coderef/sglang/python/sglang/multimodal_gen/runtime/platforms/cuda.py::_SubBlockSparseAttentionBackendResolver.supported_capabilities`).
+`ffe98a4279` (#37982) and `2a0cb2f04e` (#40116) added a `compute_mode`
+schedule key, `bf16` by default, whose `sage_fp8` value runs SageAttention2 on
+SM90 and FlashInfer's Sage kernel on SM120, both with INT8 QK and FP8 PV; SM100
+refuses it
+(`coderef/sglang/python/sglang/multimodal_gen/runtime/layers/attention/backends/subblock_sparse_attn.py::_get_subblock_sparse_attention_runner`).*
 
 **What H3 adds on top: the heterogeneous call.** The generic backend would apply
 the sparse budget to every query block in a long enough document. H3 does not
@@ -926,40 +947,40 @@ across the pipeline and threaded to the kernel as a fifth argument:
 - **The packed-sequence builders** optionally emit `video_pos`, which for
   t2va/fl2va is exactly the target video rows and for ref2va is reference
   *video* rows plus the target — reference image blocks excluded
-  (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/packed_sequence.py:221-224,540-543`).
+  (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/packed_sequence.py:235-238,596-599`).
 - **The denoise branch** unions those two, then reduces to 64-row query blocks
   with a rule that is the interesting part: a block qualifies **only if every
   one of its real rows is video**, counted against `used_len` rather than
   `seq_len` so the final partial block is judged on its real rows alone
-  (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/denoise_loop.py:34-93`). Mixed boundary blocks
+  (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/denoise_loop.py:40-99`). Mixed boundary blocks
   stay dense. The result rides in the static kwargs as
-  `subblock_sparse_query_block_mask` (`:305-308`).
+  `subblock_sparse_query_block_mask` (`:335-338`).
 - **The DiT's attention core** raises if sparsity is going to run and the mask
   is absent — it predicts that from `cu_seqlens_host`, the impl's own
   `_sparse_ready`, and whether any segment clears `min_seq_len`, rather than
   discovering it inside the kernel
-  (`coderef/sglang/python/sglang/multimodal_gen/runtime/models/dits/minimax_h3.py:613-644`).
+  (`coderef/sglang/python/sglang/multimodal_gen/runtime/models/dits/minimax_h3.py:1078-1106`).
 
 Inside the kernel call the mask is not a second launch. The impl expands the
 router's compact top-k index to full width, writes the router's picks into the
 prefix of the selected rows and a complete `arange` into the unselected ones,
 and sets a per-row `block_counts` of `topk` or `num_blocks`; one heterogeneous
 call then serves both
-(`coderef/sglang/python/sglang/multimodal_gen/runtime/layers/attention/backends/subblock_sparse_attn.py:455-486`). SM90 additionally
+(`coderef/sglang/python/sglang/multimodal_gen/runtime/layers/attention/backends/subblock_sparse_attn.py:630-661`). SM90 additionally
 requires each active prefix sorted ascending and SM100 does not, which the
-dispatcher handles by sorting only for the SM90 runner (`:449-452`).
+dispatcher handles by sorting only for the SM90 runner (`:624-627`).
 
 **Admission.** `MiniMaxH3PipelineConfig.uses_subblock_attention` is what decides
 whether any of the above metadata is built, and it resolves the transformer's
 backend by the selector's own precedence — a process-wide forced backend first,
 then a `--component-attention-backends transformer=...` entry, then the global
 `--attention-backend`
-(`coderef/sglang/python/sglang/multimodal_gen/configs/pipeline_configs/minimax_h3.py:107-131`; the precedence order is pinned by
-`coderef/sglang/python/sglang/multimodal_gen/test/unit/test_minimax_h3_admission.py:464-491`). The text-encoding and denoising
+(`coderef/sglang/python/sglang/multimodal_gen/configs/pipeline_configs/minimax_h3.py::MiniMaxH3PipelineConfig.resolve_transformer_attention_backend`; the precedence order is pinned by
+`coderef/sglang/python/sglang/multimodal_gen/test/unit/test_minimax_h3_admission.py::test_resolve_transformer_attention_backend_uses_selector_precedence`). The text-encoding and denoising
 stages each call it independently, so the mask and the `video_pos` set are
 produced or skipped together
 (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/stages/text_encoding.py:54-64`;
-`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/stages/denoising.py:643-664`). A presentation
+`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/stages/denoising.py:702-723`). A presentation
 that predates this — the code comment's own words are "legacy/precomputed" —
 carries no `text_video_token_mask`, and the helper then keeps every Qwen row
 dense rather than failing.
@@ -1418,19 +1439,19 @@ which [`sglang_comparison.md`](sglang_comparison.md) already prices.
 and reworked by `63d783bbe0` (#34581, 2026-08-18), which added the Sage dense
 path; `28262c20df` (2026-09-02) is formatting only. It wraps NVLabs'
 `sol_attn` package, installed from Sana's `sol-engine` branch
-(`coderef/sglang/docs/docs/sglang-diffusion/attention_backends.mdx:75`), and
+(`coderef/sglang/docs/docs/sglang-diffusion/attention_backends.mdx`, the `sol_attn` row of "Backend options"), and
 the backend resolves only when that package imports, and raises otherwise
 (`_SolAttnBackendResolver`,
-`coderef/sglang/python/sglang/multimodal_gen/runtime/platforms/cuda.py:343`).
+`coderef/sglang/python/sglang/multimodal_gen/runtime/platforms/cuda.py::_SolAttnBackendResolver`).
 
 **Opt-in.** Selected with `--attention-backend sol_attn`, or for the DiT
 alone with `--component-attention-backends ... transformer=sol_attn`. The
 default DiT backend stays `fa`
-(`coderef/sglang/docs/docs/sglang-diffusion/attention_backends.mdx:885`).
+(`coderef/sglang/docs/docs/sglang-diffusion/attention_backends.mdx`, "Sage then Sol hybrid": "The default DiT backend remains `fa`.").
 
 **Configuration**, read by `_get_sol_attn_runtime_config` from
 `--attention-backend-config` (`:59-83`; the documented table at
-`coderef/sglang/docs/docs/sglang-diffusion/attention_backends.mdx:450-515`
+`coderef/sglang/docs/docs/sglang-diffusion/attention_backends.mdx`, the "Sol-Attn (`sol_attn`)" table under "Supported Configuration Parameters",
 gives the same defaults):
 
 | key | default | where |
@@ -1462,13 +1483,13 @@ SageAttention per sequence (`_dense_sage`, `:164-202`).
 **The layer index is a name match.** `_parse_layer_idx` takes the first
 `blocks\.(\d+)` in the module prefix (`:124-126`). H3's DiT file names its
 blocks `blocks.<i>`
-(`coderef/sglang/python/sglang/multimodal_gen/runtime/models/dits/minimax_h3.py:1919`)
+(`coderef/sglang/python/sglang/multimodal_gen/runtime/models/dits/minimax_h3.py:2487`)
 and its token-refiner blocks `token_refiner.blocks.<i>` (the same file at
-lines 1298 and 1912), two of them
-(`coderef/sglang/python/sglang/multimodal_gen/configs/models/dits/minimax_h3.py:82`).
+lines 1769 and 2480), two of them
+(`coderef/sglang/python/sglang/multimodal_gen/configs/models/dits/minimax_h3.py::MiniMaxH3DiTArchConfig.token_refiner_num_layers`).
 The refiner's attention resolves its backend the same way the DiT's does;
 only the cube backend is sent back to FlashAttention for it (the DiT file at
-lines 831-840 and 1256-1262). So refiner block `i` is gated by the same
+lines 1232-1241 and 1727-1733). So refiner block `i` is gated by the same
 `dense_layers` entry as DiT block `i`, and at the default `"0,1"` both
 refiner blocks run dense at every step. Read from source, not run; nothing in
 the backend file excludes the refiner or a short sequence on its own.
@@ -1491,16 +1512,16 @@ are held exact. No minimum sequence length.
 **The documented H3 recipe** puts the dense prefix on Sage and everything
 after it on Sol: `--attention-backend-config dense_backend=sage_attn,dense_steps=10`
 with `--component-attention-backends text_encoder=torch_sdpa,transformer=sol_attn`
-(`coderef/sglang/docs/cookbook/diffusion/MiniMax/MiniMax-H3.mdx:1116-1119`;
-*Note 2026-11-04: the cookbook has grown and that line range now holds other
+(`coderef/sglang/docs/cookbook/diffusion/MiniMax/MiniMax-H3.mdx`, "9. Feature contracts and advanced recipes";
+*Note 2026-11-04: this read cited lines 1116-1119; the cookbook has grown and that line range now holds other
 text. At sglang origin/main `8884b4b421` the recipe is in "9. Feature contracts
 and advanced recipes", in the paragraph after "On a single 24 GB card, use
 `convrot_int8` instead of FP8", starting "`fa` keeps exact attention. For a
 faster, approximate DiT path"*;
 the same example at
-`coderef/sglang/docs/docs/sglang-diffusion/attention_backends.mdx:868-885`,
+`coderef/sglang/docs/docs/sglang-diffusion/attention_backends.mdx`, "Sage then Sol hybrid",
 which calls both
-`sage_attn` and `sol_attn` approximate; *note 2026-11-04: that page grew too,
+`sage_attn` and `sol_attn` approximate; *note 2026-11-04: that page grew too (this read cited lines 868-885),
 and the example is now under its "Sage then Sol hybrid" heading, which still
 says both are approximate and the default DiT backend remains `fa`*).
 
