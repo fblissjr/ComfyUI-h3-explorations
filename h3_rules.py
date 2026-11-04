@@ -266,7 +266,10 @@ def normalize_prompt(prompt: str) -> str:
 CONTROL_VECTOR_DEFAULTS = dict(
     vector_name="none",
     strength=1.0,
+    mode="add",
     mask="non_vision",
+    start_percent=0.0,
+    end_percent=1.0,
     allow_recipe_mismatch=False,
 )
 

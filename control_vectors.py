@@ -1055,10 +1055,41 @@ def _validate_vector_payload(
             )
 
 
+def default_vector_filename(
+    stem: str,
+    family: str,
+    *,
+    pooling: str = "scene_text",
+    prefix: Any = "none",
+    apply_holds: bool = True,
+    n_holds: int = 0,
+) -> str:
+    """Build an overwrite-safe `.safetensors` filename for a control vector.
+
+    Keeps `<stem>__<family>.safetensors` for the default `pooling='scene_text'`,
+    `prefix='none'`, `apply_holds=True` recipe, and appends disambiguating
+    suffixes whenever pooling, reference prefix, or hold projection differs."""
+    safe_family = str(family).replace(":", "_")
+    parts = [str(stem), safe_family]
+    if pooling != "scene_text":
+        parts.append(str(pooling))
+    if prefix != "none" and prefix is not None:
+        if isinstance(prefix, Mapping) and "references_sha256" in prefix:
+            parts.append(f"ref_{str(prefix['references_sha256'])[:8]}")
+        else:
+            digest8 = hashlib.sha256(str(prefix).encode("utf-8")).hexdigest()[:8]
+            parts.append(f"prefix_{digest8}")
+    if n_holds > 0 and not apply_holds:
+        parts.append("noholds")
+    return "__".join(parts) + ".safetensors"
+
+
 def save_vector(
     path: str | Path,
     tensors: Mapping[str, torch.Tensor],
     metadata: Mapping[str, Any],
+    *,
+    overwrite: bool = True,
 ) -> Path:
     """Validate and write a `.safetensors` control vector file."""
     if not isinstance(tensors, Mapping) or not tensors:
@@ -1078,6 +1109,11 @@ def save_vector(
         encoded_meta[str(k)] = json.dumps(v, sort_keys=True)
 
     out_path = Path(path)
+    if not overwrite and out_path.exists():
+        raise ValueError(
+            f"control vector file {out_path.name!r} already exists at {out_path} "
+            "(pass overwrite=True / --overwrite to replace it, or set a distinct output_name)"
+        )
     out_path.parent.mkdir(parents=True, exist_ok=True)
     save_file(clean_tensors, str(out_path), metadata=encoded_meta)
     return out_path
@@ -1181,16 +1217,30 @@ def check_vector_compatibility(
     return warnings
 
 
+APPLY_MODES: tuple[str, ...] = ("add", "project_out", "amplify")
+
+
 def apply_post_refiner(
     context: torch.Tensor,
     tags: torch.Tensor,
-    vectors: Sequence[tuple[torch.Tensor, float]],
+    vectors: Sequence[tuple[torch.Tensor, float] | tuple[torch.Tensor, float, str]],
     *,
+    mode: str = "add",
     mask: torch.Tensor | None = None,
     mask_vision: bool = True,
 ) -> torch.Tensor:
-    """Apply one or more `(vector_post_refiner, strength)` pairs to refined text
-    conditioning `context` (`[B, L, 5376]`).
+    """Apply one or more `(vector_post_refiner, strength[, mode])` specs to refined
+    text conditioning `context` (`[B, L, 5376]`).
+
+    Modes (`mode` or per-entry third tuple element):
+    - `'add'`: additive shift `r -> r + s * v` (consecutive `'add'` vectors sum in
+      `float64` before one cast to `context.dtype`).
+    - `'project_out'`: removes fraction `s` of the existing component along `v`,
+      `r -> r - s * ((r . v) / ||v||^2) * v` (at `s = 1.0`, leaves zero component
+      along `v`; if `r . v == 0`, leaves `r` unchanged).
+    - `'amplify'`: scales the existing component along `v` by `(1 + s)`,
+      `r -> r + s * ((r . v) / ||v||^2) * v` (only moves rows that already carry a
+      component along `v`).
 
     Invariants guaranteed:
     1. When all strengths are `0.0` (or `vectors` is empty), returns `context`
@@ -1198,8 +1248,10 @@ def apply_post_refiner(
     2. When `mask_vision=True` (default), rows where `tags == 0` (vision rows) or
        where `mask` is `False` are bitwise unchanged; when `mask_vision=False`
        (the unmasked E2.3 / MAINodes-style ablation), all rows matching `mask`
-       (or all `L` rows if `mask is None`) are shifted.
+       (or all `L` rows if `mask is None`) are steered.
     3. Sequence length `L` and shape `[B, L, 5376]` are unchanged."""
+    if mode not in APPLY_MODES:
+        raise ValueError(f"mode must be one of {APPLY_MODES}, got {mode!r}")
     if context.ndim != 3 or context.shape[-1] != POST_REFINER_DIM:
         raise ValueError(
             f"context must have shape [B, L, {POST_REFINER_DIM}], got {tuple(context.shape)}"
@@ -1237,16 +1289,28 @@ def apply_post_refiner(
             )
         row_mask = row_mask & base_mask
 
-    active: list[tuple[torch.Tensor, float]] = []
-    for vec, strength in vectors:
+    active: list[tuple[torch.Tensor, float, str]] = []
+    for entry in vectors:
+        if len(entry) == 2:
+            vec, strength = entry
+            entry_mode = mode
+        elif len(entry) == 3:
+            vec, strength, entry_mode = entry
+        else:
+            raise ValueError(f"vector entry must be (vec, strength[, mode]), got {entry!r}")
+        if entry_mode not in APPLY_MODES:
+            raise ValueError(f"mode must be one of {APPLY_MODES}, got {entry_mode!r}")
         if not math.isfinite(strength):
             raise ValueError(f"control vector strength must be finite, got {strength!r}")
         if tuple(vec.shape) != (D,):
             raise ValueError(f"vector must have shape ({D},), got {tuple(vec.shape)}")
         if not bool(torch.isfinite(vec).all()):
             raise ValueError("control vector contains non-finite values")
+        v_norm_sq = float(torch.dot(vec.detach().to(dtype=torch.float64), vec.detach().to(dtype=torch.float64)).item())
+        if entry_mode in ("project_out", "amplify") and v_norm_sq <= 1e-24:
+            raise ValueError(f"control vector has zero norm; cannot apply mode={entry_mode!r}")
         if strength != 0.0:
-            active.append((vec, float(strength)))
+            active.append((vec, float(strength), entry_mode))
 
     if not active or not bool(row_mask.any()):
         return context
@@ -1254,15 +1318,41 @@ def apply_post_refiner(
     if not bool(torch.isfinite(context[row_mask]).all()):
         raise ValueError("context contains non-finite values in steered rows")
 
-    total_shift64 = torch.zeros(D, dtype=torch.float64, device=context.device)
-    for vec, strength in active:
-        total_shift64 = total_shift64 + strength * vec.detach().to(
-            device=context.device, dtype=torch.float64
-        )
-    shift = total_shift64.to(dtype=context.dtype)
-
     out = context.clone()
-    out[row_mask] = out[row_mask] + shift
+    if all(em == "add" for _, _, em in active):
+        total_shift64 = torch.zeros(D, dtype=torch.float64, device=context.device)
+        for vec, strength, _ in active:
+            total_shift64 = total_shift64 + strength * vec.detach().to(
+                device=context.device, dtype=torch.float64
+            )
+        shift = total_shift64.to(dtype=context.dtype)
+        out[row_mask] = out[row_mask] + shift
+    else:
+        rows64 = out[row_mask].to(dtype=torch.float64)
+        idx = 0
+        while idx < len(active):
+            vec, strength, em = active[idx]
+            if em == "add":
+                total_shift64 = torch.zeros(D, dtype=torch.float64, device=context.device)
+                while idx < len(active) and active[idx][2] == "add":
+                    v_i, s_i, _ = active[idx]
+                    total_shift64 = total_shift64 + s_i * v_i.detach().to(
+                        device=context.device, dtype=torch.float64
+                    )
+                    idx += 1
+                rows64 = rows64 + total_shift64.unsqueeze(0)
+            else:
+                v64 = vec.detach().to(device=context.device, dtype=torch.float64)
+                v_norm_sq = float(torch.dot(v64, v64).item())
+                coeff = (rows64 @ v64) / v_norm_sq
+                delta = (strength * coeff).unsqueeze(-1) * v64.unsqueeze(0)
+                if em == "project_out":
+                    rows64 = rows64 - delta
+                else:
+                    rows64 = rows64 + delta
+                idx += 1
+        out[row_mask] = rows64.to(dtype=context.dtype)
+
     if out.shape != (B, L, D):
         raise RuntimeError(f"apply_post_refiner changed context shape from {(B, L, D)} to {tuple(out.shape)}")
     return out

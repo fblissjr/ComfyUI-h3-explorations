@@ -1304,6 +1304,47 @@ def check_apply_post_refiner_invariants() -> list[str]:
     if not ("projection_units" in ms and "signed_projection" in ms and "cosine" in ms):
         errs.append(f"unexpected meter_score output: {ms}")
 
+    # 7. Apply-time modes: project_out and amplify exact algebra on float32 synthetic tensors.
+    v_dir = torch.zeros(D, dtype=torch.float32)
+    v_dir[0] = 3.0
+    v_dir[1] = 4.0  # ||v_dir|| = 5.0, v_hat = (0.6, 0.8, 0, ...)
+    v_hat = v_dir / 5.0
+    ortho = torch.zeros(D, dtype=torch.float32)
+    ortho[2] = 7.0
+    ctx_f32 = torch.zeros((1, L, D), dtype=torch.float32)
+    ctx_f32[0, :4, :] = 9.0  # vision rows
+    ctx_f32[0, 4:, :] = 2.0 * v_dir + ortho  # projection along v_hat is 2.0 * 5.0 = 10.0
+
+    # project_out at s=1.0 removes the component along v_dir completely and leaves ortho untouched
+    out_proj1 = cv.apply_post_refiner(ctx_f32, tags, [(v_dir, 1.0, "project_out")])
+    if not torch.equal(out_proj1[:, :4, :], ctx_f32[:, :4, :]):
+        errs.append("apply_post_refiner(mode='project_out') mutated vision rows")
+    residual_dot = float((out_proj1[0, 4:, :].to(torch.float64) @ v_hat.to(torch.float64)).abs().max().item())
+    if residual_dot > 1e-6:
+        errs.append(f"apply_post_refiner(mode='project_out', s=1.0) left component along v: max_dot={residual_dot}")
+    if not torch.allclose(out_proj1[0, 4:, :], ortho.unsqueeze(0).expand(L - 4, D), atol=1e-6):
+        errs.append("apply_post_refiner(mode='project_out', s=1.0) altered orthogonal component")
+
+    # amplify at s=0.5 scales only the existing component along v_dir by (1 + 0.5) = 1.5
+    out_amp = cv.apply_post_refiner(ctx_f32, tags, [(v_dir, 0.5, "amplify")])
+    if not torch.equal(out_amp[:, :4, :], ctx_f32[:, :4, :]):
+        errs.append("apply_post_refiner(mode='amplify') mutated vision rows")
+    expected_amp = 3.0 * v_dir + ortho
+    if not torch.allclose(out_amp[0, 4:, :], expected_amp.unsqueeze(0).expand(L - 4, D), atol=1e-6):
+        errs.append("apply_post_refiner(mode='amplify', s=0.5) did not scale component along v by 1.5 while preserving ortho")
+
+    # strength 0 is still bitwise identity for project_out and amplify
+    for m_name in ("project_out", "amplify"):
+        out_m0 = cv.apply_post_refiner(ctx_f32, tags, [(v_dir, 0.0, m_name)])
+        if out_m0.data_ptr() != ctx_f32.data_ptr():
+            errs.append(f"apply_post_refiner(mode={m_name!r}, s=0.0) did not return context unchanged")
+
+    errs += _expect_refusal(
+        lambda: cv.apply_post_refiner(ctx_f32, tags, [(v_dir, 1.0, "bogus_mode")]),
+        "mode must be one of",
+        "apply_post_refiner refusal: unknown mode",
+    )
+
     return errs
 
 
@@ -1331,6 +1372,7 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
     for cls, expected_id in (
         (cv_nodes.MiniMaxH3MakeControlVector, "MiniMaxH3MakeControlVector"),
         (cv_nodes.MiniMaxH3ApplyControlVectors, "MiniMaxH3ApplyControlVectors"),
+        (cv_nodes.MiniMaxH3LayerNormMatch, "MiniMaxH3LayerNormMatch"),
     ):
         schema = cls.define_schema()
         if schema.node_id != expected_id:
@@ -1968,8 +2010,41 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
                     pooling="scene_text",
                     apply_holds=True,
                     output_name="unit_from_node",
+                    overwrite=False,
                     encoded_references=None,
                 )
+                # Overwrite refusal check: running again with identical recipe and overwrite=False must refuse
+                errs += _expect_refusal(
+                    lambda: cv_nodes.MiniMaxH3MakeControlVector.execute(
+                        pair_file=str(pair_toml),
+                        model=patcher_for_make,
+                        clip=mock_clip,
+                        pooling="scene_text",
+                        apply_holds=True,
+                        output_name="unit_from_node",
+                        overwrite=False,
+                        encoded_references=None,
+                    ),
+                    "already exists",
+                    "MiniMaxH3MakeControlVector refusal when file exists and overwrite=False",
+                )
+                # Different pooling writes a distinct filename without overwriting the first
+                node_out_diff = cv_nodes.MiniMaxH3MakeControlVector.execute(
+                    pair_file=str(pair_toml),
+                    model=patcher_for_make,
+                    clip=mock_clip,
+                    pooling="from_first_diff",
+                    apply_holds=True,
+                    output_name="unit_from_node",
+                    overwrite=False,
+                    encoded_references=None,
+                )
+                if node_out_diff[0] == node_out[0] or not node_out_diff[0].endswith("__from_first_diff.safetensors"):
+                    errs.append(
+                        f"different pooling did not disambiguate filename: {node_out[0]!r} vs {node_out_diff[0]!r}"
+                    )
+                if not (tmp / node_out[0]).is_file() or not (tmp / node_out_diff[0]).is_file():
+                    errs.append("both scene_text and from_first_diff vector files should coexist in tmp")
             finally:
                 if orig_cv_paths is not None:
                     cv_nodes.folder_paths.folder_names_and_paths[
@@ -2193,7 +2268,41 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
         if rc_bad != 2 or "missing required key 'format'" not in buf_err2.getvalue():
             errs.append(f"bench/control_vectors.py inspect on bad file returned {rc_bad}, err={buf_err2.getvalue()!r}")
 
-    # 4. Generated workflow arm check (build_control_vector_arm & build_api control_vector)
+        # Step schedule window check on _make_control_vector_wrapper ([0.25, 0.75) on a 4-step schedule)
+        sched_sigmas = torch.tensor([1.0, 0.8, 0.5, 0.2, 0.0], dtype=torch.float32)
+        dm_sched = _MockDiffusionModel(with_tensors=False)
+        patcher_sched = _MockPatcher(dm_sched, None)
+        spec_sched = cv_nodes._AppliedVectorSpec(
+            vector_name="sched_test",
+            vector=torch.ones((cv.POST_REFINER_DIM,), dtype=torch.float32),
+            strength=1.0,
+            mask="non_vision",
+            mode="add",
+            start_percent=0.25,
+            end_percent=0.75,
+            metadata={"measured_under": {"prefix": "none"}},
+            advisories=(),
+        )
+        patcher_sched.wrappers.setdefault(WrappersMP.DIFFUSION_MODEL, {})[cv_nodes.WRAPPER_KEY] = [
+            cv_nodes._make_control_vector_wrapper((spec_sched,))
+        ]
+        ctx_sched = torch.zeros((1, 4, cv.POST_REFINER_DIM), dtype=torch.float32)
+        tags_sched = torch.tensor([[0, 1, 1, 1]], dtype=torch.long)
+        for step_i, expected_active in ((0, False), (1, True), (2, True), (3, False)):
+            patcher_sched.invoke_diffusion_model(
+                torch.zeros((1, 4)),
+                sched_sigmas[step_i : step_i + 1],
+                ctx_sched,
+                minimax_payload={"text_token_tags": tags_sched},
+                transformer_options={"sample_sigmas": sched_sigmas},
+            )
+            got_shift = float(dm_sched.last_context[0, 1, 0].item())
+            if expected_active and abs(got_shift - 1.0) > 1e-6:
+                errs.append(f"step {step_i} inside [0.25, 0.75) was not steered: got {got_shift}")
+            if not expected_active and got_shift != 0.0:
+                errs.append(f"step {step_i} outside [0.25, 0.75) was steered: got {got_shift}")
+
+    # 4. Generated workflow arm check (build_control_vector_arm, gate arms, probe arms, LayerNormMatch)
     arm = bw.build_control_vector_arm(
         "t2v", vector_name="film_16mm_1974__fl2va.safetensors", strength=0.75
     )
@@ -2201,10 +2310,67 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
         errs.append("build_control_vector_arm did not emit node 115 MiniMaxH3ApplyControlVectors")
     if arm["9"]["inputs"]["model"] != ["115", 0]:
         errs.append(f"BasicGuider model input is {arm['9']['inputs']['model']}, expected ['115', 0]")
-    if arm["115"]["inputs"]["strength"] != 0.75 or arm["115"]["inputs"]["mask"] != "non_vision":
+    if (
+        arm["115"]["inputs"]["strength"] != 0.75
+        or arm["115"]["inputs"]["mask"] != "non_vision"
+        or arm["115"]["inputs"]["mode"] != "add"
+        or arm["115"]["inputs"]["start_percent"] != 0.0
+        or arm["115"]["inputs"]["end_percent"] != 1.0
+    ):
         errs.append(f"unexpected node 115 inputs: {arm['115']['inputs']}")
     if "MiniMaxH3SageAttention" in {n["class_type"] for n in arm.values()}:
         errs.append("build_control_vector_arm enabled SageAttention in the base arm")
+
+    gate_arms = bw.build_control_vector_gate_arms(
+        "t2v",
+        vector_name="film_16mm_1974__fl2va.safetensors",
+    )
+    if set(gate_arms) != {"base", "edit", "s0p5", "s1", "s2", "sneg1"}:
+        errs.append(f"build_control_vector_gate_arms keys mismatch: {sorted(gate_arms)}")
+    if gate_arms["base"]["115"]["inputs"]["strength"] != 0.0 or gate_arms["s2"]["115"]["inputs"]["strength"] != 2.0:
+        errs.append("build_control_vector_gate_arms strengths mismatch")
+
+    probe_e42 = bw.build_control_vector_probe_arm(
+        "t2v",
+        late_prompt="integrated_multimodal_description: [Shot 1] Close shot.\n\noverall_soundscape: Wind.",
+        switch_percent=0.5,
+    )
+    if (
+        probe_e42.get("117", {}).get("class_type") != "ConditioningSetTimestepRange"
+        or probe_e42.get("118", {}).get("class_type") != "ConditioningSetTimestepRange"
+        or probe_e42.get("119", {}).get("class_type") != "ConditioningCombine"
+        or probe_e42["9"]["inputs"]["conditioning"] != ["119", 0]
+    ):
+        errs.append("build_control_vector_probe_arm (E4.2) did not wire ConditioningSetTimestepRange + ConditioningCombine")
+
+    probe_e43 = bw.build_control_vector_probe_arm(
+        "t2v",
+        stop_at_clip_layer=-6,
+        norm_match=True,
+    )
+    if (
+        probe_e43.get("120", {}).get("class_type") != "CLIPSetLastLayer"
+        or probe_e43["120"]["inputs"]["stop_at_clip_layer"] != -6
+        or probe_e43.get("122", {}).get("class_type") != "MiniMaxH3LayerNormMatch"
+        or probe_e43["26"]["inputs"]["conditioning"] != ["122", 0]
+    ):
+        errs.append("build_control_vector_probe_arm (E4.3) did not wire CLIPSetLastLayer + MiniMaxH3LayerNormMatch")
+
+    # MiniMaxH3LayerNormMatch unit check
+    cond_early_t = torch.ones((1, 5, cv.ENCODER_DIM), dtype=torch.float32) * 2.0
+    cond_ref_t = torch.ones((1, 5, cv.ENCODER_DIM), dtype=torch.float32) * 6.0
+    cond_tags = torch.tensor([0, 0, 1, 1, 1], dtype=torch.long)
+    cond_early = [[cond_early_t, {"minimax_token_tags": cond_tags}]]
+    cond_ref = [[cond_ref_t, {"minimax_token_tags": cond_tags}]]
+    matched_cond = cv_nodes.MiniMaxH3LayerNormMatch.execute(
+        conditioning=cond_early,
+        reference_conditioning=cond_ref,
+    )[0]
+    matched_t = matched_cond[0][0]
+    if not torch.equal(matched_t[:, :2, :], cond_early_t[:, :2, :]):
+        errs.append("MiniMaxH3LayerNormMatch modified tag==0 vision rows")
+    if not torch.allclose(matched_t[:, 2:, :], cond_ref_t[:, 2:, :], atol=1e-5):
+        errs.append("MiniMaxH3LayerNormMatch did not scale tag==1 rows to reference median norm")
 
     return errs
 

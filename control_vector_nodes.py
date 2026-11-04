@@ -527,6 +527,7 @@ def make_control_vector_from_pairs(
     output_name: str = "",
     output_dir: str | Path | None = None,
     encoded_references: Any | None = None,
+    overwrite: bool = False,
     made_by: str = "MiniMaxH3MakeControlVector/1",
 ) -> tuple[Path, dict[str, Any]]:
     """Build and save a `.safetensors` control vector from `pair_path`, returning
@@ -707,9 +708,17 @@ def make_control_vector_from_pairs(
         if output_dir is not None
         else Path(folder_paths.get_folder_paths(CONTROL_VECTORS_FOLDER)[0])
     )
-    family = family.replace(":", "_")
-    out_filename = f"{stem}__{family}.safetensors"
-    out_path = _cv.save_vector(target_dir / out_filename, tensors_to_save, metadata)
+    out_filename = _cv.default_vector_filename(
+        stem,
+        family,
+        pooling=pooling,
+        prefix=prefix_meta,
+        apply_holds=apply_holds,
+        n_holds=len(pair_set.holds),
+    )
+    out_path = _cv.save_vector(
+        target_dir / out_filename, tensors_to_save, metadata, overwrite=overwrite
+    )
 
     e2_1_census = {
         "encoder_row0_norm_mean": float(
@@ -744,17 +753,80 @@ class _AppliedVectorSpec:
     vector_name: str
     vector: torch.Tensor
     strength: float
+    mode: str
     mask: str
+    start_percent: float
+    end_percent: float
     metadata: dict[str, Any]
     advisories: tuple[str, ...]
+
+
+def _step_in_window(
+    transformer_options: dict[str, Any] | None,
+    timestep: Any,
+    start_percent: float,
+    end_percent: float,
+) -> bool:
+    """Whether a control vector's `[start_percent, end_percent)` step window is
+    active at the current call (`lora_branch.py::_Window` step-index convention)."""
+    if start_percent >= end_percent:
+        return False
+    if start_percent <= 0.0 and end_percent >= 1.0:
+        return True
+    t_opts = transformer_options or {}
+    sched = t_opts.get("sample_sigmas")
+    cur = t_opts.get("sigmas")
+    if cur is None and timestep is not None:
+        cur = timestep
+    if sched is not None and cur is not None:
+        sched_t = (
+            sched.detach().flatten().to(dtype=torch.float64, device="cpu")
+            if isinstance(sched, torch.Tensor)
+            else torch.tensor(list(sched), dtype=torch.float64)
+        )
+        if int(sched_t.numel()) >= 2:
+            cur_val = float(
+                cur.detach().flatten()[0].item()
+                if isinstance(cur, torch.Tensor)
+                else cur[0]
+                if isinstance(cur, (list, tuple))
+                else cur
+            )
+            n_steps = int(sched_t.numel()) - 1
+            step_idx = int((sched_t[:n_steps] - cur_val).abs().argmin().item())
+            frac = step_idx / n_steps
+            return bool(start_percent <= frac < end_percent)
+    if cur is not None:
+        cur_val = float(
+            cur.detach().flatten()[0].item()
+            if isinstance(cur, torch.Tensor)
+            else cur[0]
+            if isinstance(cur, (list, tuple))
+            else cur
+        )
+        if 0.0 <= cur_val <= 1.0:
+            frac = 1.0 - cur_val
+            return bool(start_percent <= frac < end_percent)
+    return True
 
 
 def _make_control_vector_wrapper(specs: tuple[_AppliedVectorSpec, ...]):
     logged_prefix_notes: set[tuple[str, str]] = set()
 
     def wrapper(executor, x, timestep, context, transformer_options={}, **kwargs):
-        if context is None or not specs or all(sp.strength == 0.0 for sp in specs):
+        if context is None or not specs:
             return executor(x, timestep, context, transformer_options, **kwargs)
+        active_specs = [
+            sp
+            for sp in specs
+            if sp.strength != 0.0
+            and _step_in_window(
+                transformer_options, timestep, sp.start_percent, sp.end_percent
+            )
+        ]
+        if not active_specs:
+            return executor(x, timestep, context, transformer_options, **kwargs)
+
         payload = kwargs.get("minimax_payload") or {}
         tags_raw = payload.get("text_token_tags")
         B, L, _D = context.shape
@@ -763,7 +835,7 @@ def _make_control_vector_wrapper(specs: tuple[_AppliedVectorSpec, ...]):
             if tags.ndim == 1:
                 tags = tags.unsqueeze(0).expand(B, -1)
         else:
-            if any(sp.mask != "all_rows" for sp in specs):
+            if any(sp.mask != "all_rows" for sp in active_specs):
                 raise ValueError(
                     "minimax_payload is missing 'text_token_tags'; cannot apply "
                     "non_vision mask without token tags"
@@ -772,7 +844,7 @@ def _make_control_vector_wrapper(specs: tuple[_AppliedVectorSpec, ...]):
 
         has_vision = bool((tags == 0).any().item())
         render_prefix_kind = "references_or_keyframes" if has_vision else "none"
-        for sp in specs:
+        for sp in active_specs:
             vec_prefix = sp.metadata.get("measured_under", {}).get("prefix", "none")
             vec_prefix_kind = "none" if vec_prefix == "none" else "references_or_keyframes"
             note_key = (sp.vector_name, render_prefix_kind)
@@ -785,18 +857,22 @@ def _make_control_vector_wrapper(specs: tuple[_AppliedVectorSpec, ...]):
                     render_prefix_kind,
                 )
 
-        # Group consecutive specs with the same mask mode so stacked vectors
-        # sum in float64 before a single cast to context.dtype (`CONTRACT.md` §3 / paper §2.1).
+        # Group consecutive specs with the same mask so stacked vectors accumulate in
+        # float64 before casting back to context.dtype (`CONTRACT.md` §3 / paper §2.1).
         cur = context
         i = 0
-        n = len(specs)
+        n = len(active_specs)
         while i < n:
-            sp = specs[i]
+            sp = active_specs[i]
             mask_vision = sp.mask == "non_vision"
-            batch_entries: list[tuple[torch.Tensor, float]] = [(sp.vector, sp.strength)]
+            batch_entries: list[tuple[torch.Tensor, float, str]] = [
+                (sp.vector, sp.strength, sp.mode)
+            ]
             j = i + 1
-            while j < n and (specs[j].mask == "non_vision") == mask_vision:
-                batch_entries.append((specs[j].vector, specs[j].strength))
+            while j < n and (active_specs[j].mask == "non_vision") == mask_vision:
+                batch_entries.append(
+                    (active_specs[j].vector, active_specs[j].strength, active_specs[j].mode)
+                )
                 j += 1
             cur = _cv.apply_post_refiner(
                 cur,
@@ -842,7 +918,10 @@ def attach_control_vector(
     vector_name: str | Path,
     *,
     strength: float = 1.0,
+    mode: str = "add",
     mask: str = "non_vision",
+    start_percent: float = 0.0,
+    end_percent: float = 1.0,
     allow_recipe_mismatch: bool = False,
     loaded_prefix: str | dict[str, Any] | None = None,
 ) -> Any:
@@ -853,10 +932,19 @@ def attach_control_vector(
     dm = model.get_model_object("diffusion_model")
     if not _is_minimax_h3(dm):
         raise ValueError("MiniMaxH3ApplyControlVectors requires a MiniMax H3 diffusion model")
+    if mode not in _cv.APPLY_MODES:
+        raise ValueError(f"mode must be one of {_cv.APPLY_MODES}, got {mode!r}")
     if mask not in MASK_MODES:
         raise ValueError(f"mask must be one of {MASK_MODES}, got {mask!r}")
     if not math.isfinite(float(strength)):
         raise ValueError(f"strength must be finite, got {strength!r}")
+    sp_f = float(start_percent)
+    ep_f = float(end_percent)
+    if not (math.isfinite(sp_f) and math.isfinite(ep_f)) or not (0.0 <= sp_f <= 1.0) or not (0.0 <= ep_f <= 1.0) or sp_f > ep_f:
+        raise ValueError(
+            f"start_percent and end_percent must satisfy 0.0 <= start_percent <= end_percent <= 1.0, "
+            f"got start_percent={start_percent!r}, end_percent={end_percent!r}"
+        )
 
     m = model.clone()
     raw_name = str(vector_name).strip()
@@ -894,7 +982,10 @@ def attach_control_vector(
         vector_name=vec_path.name,
         vector=tensors["vector.post_refiner"],
         strength=float(strength),
+        mode=mode,
         mask=mask,
+        start_percent=sp_f,
+        end_percent=ep_f,
         metadata=metadata,
         advisories=tuple(advisories),
     )
@@ -906,11 +997,14 @@ def attach_control_vector(
     wrappers = m.wrappers.setdefault(WrappersMP.DIFFUSION_MODEL, {})
     wrappers[WRAPPER_KEY] = [_make_control_vector_wrapper(updated)]
     logger.info(
-        "[h3] control vector %s attached (family=%s, strength=%g, mask=%s)",
+        "[h3] control vector %s attached (family=%s, strength=%g, mode=%s, mask=%s, window=[%.2f, %.2f))",
         vec_path.name,
         loaded_family,
         float(strength),
+        mode,
         mask,
+        sp_f,
+        ep_f,
     )
     return m
 
@@ -974,6 +1068,15 @@ class MiniMaxH3MakeControlVector(io.ComfyNode):
                         "when connected, pairs are encoded on top of the reference pass (E2.4)."
                     ),
                 ),
+                io.Boolean.Input(
+                    "overwrite",
+                    default=False,
+                    optional=True,
+                    tooltip=(
+                        "When False (default), refuses to overwrite an existing vector file "
+                        "of the same name; set True to replace it."
+                    ),
+                ),
             ],
             outputs=[
                 io.String.Output(display_name="vector_name"),
@@ -1001,6 +1104,7 @@ class MiniMaxH3MakeControlVector(io.ComfyNode):
         apply_holds=True,
         output_name="",
         encoded_references=None,
+        overwrite=False,
     ) -> io.NodeOutput:
         dm = model.get_model_object("diffusion_model")
         if not _is_minimax_h3(dm):
@@ -1013,6 +1117,7 @@ class MiniMaxH3MakeControlVector(io.ComfyNode):
             apply_holds=bool(apply_holds),
             output_name=output_name,
             encoded_references=encoded_references,
+            overwrite=bool(overwrite),
             made_by="MiniMaxH3MakeControlVector/1",
         )
         return io.NodeOutput(out_path.name, json.dumps(report, indent=2, sort_keys=True))
@@ -1051,7 +1156,19 @@ class MiniMaxH3ApplyControlVectors(io.ComfyNode):
                     step=0.05,
                     tooltip=(
                         "Multiplier in the vector point's unit (after the refiner, 1.0 is one "
-                        "mean pair difference; negative subtracts; 0.0 is an exact no-op)."
+                        "mean pair difference for 'add', full projection removal for 'project_out', "
+                        "or +100% component scaling for 'amplify'; 0.0 is an exact no-op)."
+                    ),
+                ),
+                io.Combo.Input(
+                    "mode",
+                    options=list(_cv.APPLY_MODES),
+                    default=_APPLY_DEFAULTS["mode"],
+                    optional=True,
+                    tooltip=(
+                        "'add' (default) adds strength * v; 'project_out' removes strength * "
+                        "((r . v) / ||v||^2) * v (only removes what the prompt already carries, E4.4); "
+                        "'amplify' adds strength * ((r . v) / ||v||^2) * v."
                     ),
                 ),
                 io.Combo.Input(
@@ -1062,6 +1179,30 @@ class MiniMaxH3ApplyControlVectors(io.ComfyNode):
                         "'non_vision' (default) applies only to tag-1 text rows and leaves "
                         "tag-0 vision rows bitwise untouched; 'all_rows' is the unmasked "
                         "ablation (E2.3 / MAINodes-style)."
+                    ),
+                ),
+                io.Float.Input(
+                    "start_percent",
+                    default=_APPLY_DEFAULTS["start_percent"],
+                    min=0.0,
+                    max=1.0,
+                    step=0.01,
+                    optional=True,
+                    tooltip=(
+                        "Start of the active step window as a fraction of schedule steps "
+                        "(step_idx / N_steps, matching MiniMaxH3Sol and MiniMaxH3LoRABranch)."
+                    ),
+                ),
+                io.Float.Input(
+                    "end_percent",
+                    default=_APPLY_DEFAULTS["end_percent"],
+                    min=0.0,
+                    max=1.0,
+                    step=0.01,
+                    optional=True,
+                    tooltip=(
+                        "End of the active step window as a fraction of schedule steps "
+                        "(step_idx / N_steps, matching MiniMaxH3Sol and MiniMaxH3LoRABranch)."
                     ),
                 ),
                 io.Boolean.Input(
@@ -1095,7 +1236,10 @@ class MiniMaxH3ApplyControlVectors(io.ComfyNode):
         cls,
         vector_name=_APPLY_DEFAULTS["vector_name"],
         strength=_APPLY_DEFAULTS["strength"],
+        mode=_APPLY_DEFAULTS["mode"],
         mask=_APPLY_DEFAULTS["mask"],
+        start_percent=_APPLY_DEFAULTS["start_percent"],
+        end_percent=_APPLY_DEFAULTS["end_percent"],
         allow_recipe_mismatch=_APPLY_DEFAULTS["allow_recipe_mismatch"],
         **kwargs,
     ) -> bool | str:
@@ -1114,14 +1258,126 @@ class MiniMaxH3ApplyControlVectors(io.ComfyNode):
         model,
         vector_name=_APPLY_DEFAULTS["vector_name"],
         strength=_APPLY_DEFAULTS["strength"],
+        mode=_APPLY_DEFAULTS["mode"],
         mask=_APPLY_DEFAULTS["mask"],
+        start_percent=_APPLY_DEFAULTS["start_percent"],
+        end_percent=_APPLY_DEFAULTS["end_percent"],
         allow_recipe_mismatch=_APPLY_DEFAULTS["allow_recipe_mismatch"],
     ) -> io.NodeOutput:
         m = attach_control_vector(
             model,
             vector_name,
             strength=float(strength),
+            mode=mode,
             mask=mask,
+            start_percent=float(start_percent),
+            end_percent=float(end_percent),
             allow_recipe_mismatch=bool(allow_recipe_mismatch),
         )
         return io.NodeOutput(m)
+
+
+def match_conditioning_row_norm(
+    conditioning: list[Any],
+    *,
+    reference_conditioning: list[Any] | None = None,
+    target_median_row_norm: float = 0.0,
+) -> list[Any]:
+    """Scale tag-1 text rows of `conditioning` so their median L2 norm (excluding
+    row 0) matches `reference_conditioning` or `target_median_row_norm` (`E4.3`).
+
+    Leaves `tag == 0` vision rows, `minimax_token_tags`, `minimax_keyframes`,
+    `minimax_refs`, and sequence length `L` bitwise untouched."""
+    if not isinstance(conditioning, list) or not conditioning:
+        raise ValueError("conditioning must be a non-empty list")
+
+    target_norm = float(target_median_row_norm)
+    if reference_conditioning is not None:
+        if not isinstance(reference_conditioning, list) or not reference_conditioning:
+            raise ValueError("reference_conditioning must be a non-empty list when provided")
+        ref_t = reference_conditioning[0][0]
+        ref_d = reference_conditioning[0][1] if len(reference_conditioning[0]) > 1 else {}
+        ref_tags = ref_d.get("minimax_token_tags") if isinstance(ref_d, dict) else None
+        target_norm = _cv.row_norm_census(ref_t, ref_tags)["median_row_norm_ex_row0"]
+
+    if not math.isfinite(target_norm) or target_norm <= 0.0:
+        raise ValueError(
+            "MiniMaxH3LayerNormMatch requires either reference_conditioning or target_median_row_norm > 0"
+        )
+
+    out_cond: list[Any] = []
+    for entry in conditioning:
+        t = entry[0]
+        d = dict(entry[1]) if len(entry) > 1 and isinstance(entry[1], dict) else {}
+        tags = d.get("minimax_token_tags")
+        cur_norm = _cv.row_norm_census(t, tags)["median_row_norm_ex_row0"]
+        if not math.isfinite(cur_norm) or cur_norm <= 0.0:
+            raise ValueError("conditioning has zero or non-finite median tag-1 row norm")
+        scale = target_norm / cur_norm
+        t_out = t.clone()
+        if tags is not None:
+            t_tags = torch.as_tensor(tags, device=t.device, dtype=torch.long).flatten()
+            if t_tags.numel() != t.shape[1]:
+                raise ValueError(
+                    f"minimax_token_tags length {t_tags.numel()} != conditioning length {t.shape[1]}"
+                )
+            mask_2d = (t_tags != 0).unsqueeze(0).expand(t.shape[0], -1)
+        else:
+            mask_2d = torch.ones((t.shape[0], t.shape[1]), dtype=torch.bool, device=t.device)
+        t_out[mask_2d] = (t_out[mask_2d].to(dtype=torch.float64) * scale).to(dtype=t.dtype)
+        out_cond.append([t_out, d])
+    return out_cond
+
+
+class MiniMaxH3LayerNormMatch(io.ComfyNode):
+    @classmethod
+    def define_schema(cls):
+        return io.Schema(
+            node_id="MiniMaxH3LayerNormMatch",
+            display_name="MiniMax H3 Layer Norm Match",
+            category="model/conditioning/minimax",
+            description=(
+                "Scales the tag-1 text rows of an earlier encoder layer's conditioning "
+                "(from CLIPSetLastLayer, E4.3) so their median L2 norm (excluding row 0) "
+                "matches the layer-50 reference conditioning or an explicit target norm, "
+                "leaving vision rows (tag 0), tags, and sequence length L untouched."
+            ),
+            inputs=[
+                io.Conditioning.Input("conditioning"),
+                io.Conditioning.Input(
+                    "reference_conditioning",
+                    optional=True,
+                    tooltip=(
+                        "Optional layer-50 conditioning whose tag-1 median row norm "
+                        "(excluding row 0) sets the target norm."
+                    ),
+                ),
+                io.Float.Input(
+                    "target_median_row_norm",
+                    default=0.0,
+                    min=0.0,
+                    max=100000.0,
+                    step=0.1,
+                    optional=True,
+                    tooltip=(
+                        "Explicit target median tag-1 row norm (excluding row 0); used "
+                        "when reference_conditioning is not connected."
+                    ),
+                ),
+            ],
+            outputs=[io.Conditioning.Output(display_name="conditioning")],
+        )
+
+    @classmethod
+    def execute(
+        cls,
+        conditioning,
+        reference_conditioning=None,
+        target_median_row_norm=0.0,
+    ) -> io.NodeOutput:
+        matched = match_conditioning_row_norm(
+            conditioning,
+            reference_conditioning=reference_conditioning,
+            target_median_row_norm=float(target_median_row_norm),
+        )
+        return io.NodeOutput(matched)

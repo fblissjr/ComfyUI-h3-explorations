@@ -110,7 +110,7 @@ from h3_config import (  # noqa: E402
     AUDIO_REFINE, FROZEN_VIDEO_CACHE, FROZEN_VIDEO_CACHE_NODE, LORA_BRANCH_NODE,
     PIKA_FL2VA_LORA, PIKA_REF2VA_LORA, PIKA_STRENGTH, PIKA_STEPS, PIKA_SAMPLER,
     PIKA_MANUAL_SIGMAS, PIKA_MOTION_TRANSFER_IMAGES, PIKA_MOTION_TRANSFER_VIDEO,
-    CONTROL_VECTOR_NODE, CONTROL_VECTOR_DEFAULTS,
+    CONTROL_VECTOR_NODE, CONTROL_VECTOR_DEFAULTS, LAYER_NORM_MATCH_NODE,
     refine_scheduler_ids,
 )
 
@@ -2360,6 +2360,9 @@ def build_control_vector_arm(
     vector_name: str = "film_16mm_1974__fl2va.safetensors",
     strength: float = 0.0,
     mask: str = "non_vision",
+    mode: str = "add",
+    start_percent: float = 0.0,
+    end_percent: float = 1.0,
     allow_recipe_mismatch: bool = False,
     prompt: str | None = None,
     length: int = LENGTH,
@@ -2377,6 +2380,9 @@ def build_control_vector_arm(
         "vector_name": vector_name,
         "strength": float(strength),
         "mask": mask,
+        "mode": mode,
+        "start_percent": float(start_percent),
+        "end_percent": float(end_percent),
         "allow_recipe_mismatch": bool(allow_recipe_mismatch),
     }
     sol_cfg = extra.pop("sol", sol_for_graph(bool(extra.get("pdd", False)),
@@ -2394,6 +2400,192 @@ def build_control_vector_arm(
         out_prefix=out_prefix or f"Video/h3_{task}_cv",
         **extra,
     )
+
+
+def build_control_vector_gate_arms(
+    task: str = "t2v",
+    *,
+    vector_name: str = "film_16mm_1974__fl2va.safetensors",
+    base_prompt: str | None = None,
+    edit_prompt: str | None = None,
+    strengths: tuple[tuple[str, float], ...] = (
+        ("s0p5", 0.5),
+        ("s1", 1.0),
+        ("s2", 2.0),
+        ("sneg1", -1.0),
+    ),
+    mask: str = "non_vision",
+    mode: str = "add",
+    start_percent: float = 0.0,
+    end_percent: float = 1.0,
+    allow_recipe_mismatch: bool = False,
+    length: int = LENGTH,
+    seed: int = SEED,
+    out_prefix_stem: str = "Video/control_vectors/gate",
+    **extra,
+) -> dict[str, dict]:
+    """Build the §2.3 six-arm gate ladder (`base`, `edit`, and `strengths` arms)
+    as API-format graphs without touching `GRAPHS`."""
+    bp = base_prompt
+    ep = edit_prompt if edit_prompt is not None else bp
+    arms: dict[str, dict] = {
+        "base": build_control_vector_arm(
+            task,
+            vector_name=vector_name,
+            strength=0.0,
+            mask=mask,
+            mode=mode,
+            start_percent=start_percent,
+            end_percent=end_percent,
+            allow_recipe_mismatch=allow_recipe_mismatch,
+            prompt=bp,
+            length=length,
+            seed=seed,
+            out_prefix=f"{out_prefix_stem}_base",
+            **extra,
+        ),
+        "edit": build_control_vector_arm(
+            task,
+            vector_name=vector_name,
+            strength=0.0,
+            mask=mask,
+            mode=mode,
+            start_percent=start_percent,
+            end_percent=end_percent,
+            allow_recipe_mismatch=allow_recipe_mismatch,
+            prompt=ep,
+            length=length,
+            seed=seed,
+            out_prefix=f"{out_prefix_stem}_edit",
+            **extra,
+        ),
+    }
+    for label, s_val in strengths:
+        arms[label] = build_control_vector_arm(
+            task,
+            vector_name=vector_name,
+            strength=float(s_val),
+            mask=mask,
+            mode=mode,
+            start_percent=start_percent,
+            end_percent=end_percent,
+            allow_recipe_mismatch=allow_recipe_mismatch,
+            prompt=bp,
+            length=length,
+            seed=seed,
+            out_prefix=f"{out_prefix_stem}_{label}",
+            **extra,
+        )
+    return arms
+
+
+def build_control_vector_probe_arm(
+    task: str = "t2v",
+    *,
+    prompt: str | None = None,
+    late_prompt: str | None = None,
+    switch_percent: float = 0.5,
+    stop_at_clip_layer: int | None = None,
+    norm_match: bool = False,
+    control_vector: dict | tuple | None = None,
+    length: int = LENGTH,
+    seed: int = SEED,
+    out_prefix: str | None = None,
+    **extra,
+) -> dict:
+    """Build an API-format conditioning-dial probe arm (§4.4 E4.2 / E4.3):
+
+    - `late_prompt` set: wires a second `MiniMaxH3Conditioning` node (`"116"`),
+      two `ConditioningSetTimestepRange` nodes (`"117"` `[0.0, switch_percent]`
+      and `"118"` `[switch_percent, 1.0]`), and `ConditioningCombine` (`"119"`)
+      feeding `BasicGuider` (`"9"`), while `MiniMaxH3Preflight` (`"26"`) inspects
+      the primary conditioning (`"5"`).
+    - `stop_at_clip_layer` set (e.g., `-6` for layer 45 or `-11` for layer 40 on
+      48-layer Qwen3-14B): inserts `CLIPSetLastLayer` (`"120"`) between `CLIPLoader`
+      (`"2"`) and `MiniMaxH3Conditioning` (`"5"`). When `norm_match=True`, also
+      builds a final-layer `MiniMaxH3Conditioning` (`"121"`) on the unmodified
+      `CLIPLoader` (`"2"`) and wires `MiniMaxH3LayerNormMatch` (`"122"`) before
+      `MiniMaxH3Preflight` (`"26"`).
+    """
+    sol_cfg = extra.pop("sol", sol_for_graph(bool(extra.get("pdd", False)),
+                                             extra.get("steps", SAMPLING["steps"])))
+    dense_backend = extra.pop("dense_backend", DENSE_BACKEND_NODE["attention"])
+    g = build_api(
+        task,
+        sage=bool(extra.pop("sage", False)),
+        sol=sol_cfg,
+        dense_backend=dense_backend,
+        prompt=prompt,
+        length=length,
+        seed=seed,
+        control_vector=control_vector,
+        out_prefix=out_prefix or f"Video/h3_{task}_probe",
+        **extra,
+    )
+
+    cond_src: list = ["5", 0]
+    if stop_at_clip_layer is not None:
+        layer_idx = int(stop_at_clip_layer)
+        if layer_idx >= 0:
+            raise SystemExit(
+                f"stop_at_clip_layer must be negative (CLIPSetLastLayer convention, e.g. -6 for layer 45, -11 for layer 40), got {layer_idx}"
+            )
+        if norm_match:
+            ref_cond_inputs = dict(g["5"]["inputs"])
+            ref_cond_inputs["clip"] = ["2", 0]
+            g["121"] = {"class_type": "MiniMaxH3Conditioning", "inputs": ref_cond_inputs}
+        g["120"] = {
+            "class_type": "CLIPSetLastLayer",
+            "inputs": {"clip": ["2", 0], "stop_at_clip_layer": layer_idx},
+        }
+        g["5"]["inputs"]["clip"] = ["120", 0]
+        if norm_match:
+            g["122"] = {
+                "class_type": LAYER_NORM_MATCH_NODE,
+                "inputs": {
+                    "conditioning": ["5", 0],
+                    "reference_conditioning": ["121", 0],
+                },
+            }
+            cond_src = ["122", 0]
+
+    g["26"]["inputs"]["conditioning"] = cond_src
+
+    if late_prompt is not None:
+        sw = float(switch_percent)
+        if not (0.0 < sw < 1.0):
+            raise SystemExit(f"switch_percent must be in (0.0, 1.0), got {sw}")
+        late_inputs = dict(g["5"]["inputs"])
+        late_inputs["prompt"] = late_prompt
+        g["116"] = {"class_type": "MiniMaxH3Conditioning", "inputs": late_inputs}
+        late_cond_src: list = ["116", 0]
+        if stop_at_clip_layer is not None and norm_match:
+            late_ref_inputs = dict(g["121"]["inputs"])
+            late_ref_inputs["prompt"] = late_prompt
+            g["123"] = {"class_type": "MiniMaxH3Conditioning", "inputs": late_ref_inputs}
+            g["124"] = {
+                "class_type": LAYER_NORM_MATCH_NODE,
+                "inputs": {
+                    "conditioning": ["116", 0],
+                    "reference_conditioning": ["123", 0],
+                },
+            }
+            late_cond_src = ["124", 0]
+        g["117"] = {
+            "class_type": "ConditioningSetTimestepRange",
+            "inputs": {"conditioning": ["26", 0], "start": 0.0, "end": sw},
+        }
+        g["118"] = {
+            "class_type": "ConditioningSetTimestepRange",
+            "inputs": {"conditioning": late_cond_src, "start": sw, "end": 1.0},
+        }
+        g["119"] = {
+            "class_type": "ConditioningCombine",
+            "inputs": {"conditioning_1": ["117", 0], "conditioning_2": ["118", 0]},
+        }
+        g["9"]["inputs"]["conditioning"] = ["119", 0]
+
+    return g
 
 
 

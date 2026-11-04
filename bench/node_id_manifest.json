@@ -40,7 +40,10 @@
       "model",
       "vector_name",
       "strength",
+      "mode",
       "mask",
+      "start_percent",
+      "end_percent",
       "allow_recipe_mismatch"
     ],
     "node_id": "MiniMaxH3ApplyControlVectors",
@@ -332,6 +335,17 @@
       "model"
     ]
   },
+  "MiniMaxH3LayerNormMatch": {
+    "inputs": [
+      "conditioning",
+      "reference_conditioning",
+      "target_median_row_norm"
+    ],
+    "node_id": "MiniMaxH3LayerNormMatch",
+    "outputs": [
+      "conditioning"
+    ]
+  },
   "MiniMaxH3LoRABranch": {
     "inputs": [
       "model",
@@ -355,7 +369,8 @@
       "pooling",
       "apply_holds",
       "output_name",
-      "encoded_references"
+      "encoded_references",
+      "overwrite"
     ],
     "node_id": "MiniMaxH3MakeControlVector",
     "outputs": [

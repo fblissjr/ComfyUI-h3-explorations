@@ -182,7 +182,9 @@ def cmd_make(args: argparse.Namespace) -> int:
 
     t0 = time.perf_counter()
     clip = _load_clip(encoder_name, device=args.device)
+    t_clip = time.perf_counter()
     refiner_run = cv_nodes.build_refiner_runner(unet_path, device=args.refiner_device)
+    t_ref = time.perf_counter()
 
     encoded_refs = None
     if args.ref_images:
@@ -197,6 +199,7 @@ def cmd_make(args: argparse.Namespace) -> int:
     print(f"  family      : {family}")
     print(f"  checkpoint  : {recipe['checkpoint']['file']} ({recipe['checkpoint']['sha256'][:12]})")
     print(f"  encoder     : {recipe['encoder']['file']} ({recipe['encoder']['sha256'][:12]})")
+    print(f"  load_times  : encoder={t_clip - t0:.2f}s   refiner={t_ref - t_clip:.2f}s")
 
     a_pooled_list: list[torch.Tensor] = []
     b_pooled_list: list[torch.Tensor] = []
@@ -411,12 +414,28 @@ def cmd_make(args: argparse.Namespace) -> int:
             out_path = out_dir / out_path
     else:
         out_dir = Path(folder_paths.get_folder_paths(cv_nodes.CONTROL_VECTORS_FOLDER)[0])
-        safe_family = family.replace(":", "_")
-        out_path = out_dir / f"{stem}__{safe_family}.safetensors"
+        out_path = out_dir / cv.default_vector_filename(
+            stem,
+            family,
+            pooling=args.pooling,
+            prefix=prefix_meta,
+            apply_holds=not bool(args.no_holds),
+            n_holds=len(pair_set.holds),
+        )
 
-    saved = cv.save_vector(out_path, tensors_to_save, metadata)
+    t_enc_done = time.perf_counter()
+    saved = cv.save_vector(
+        out_path,
+        tensors_to_save,
+        metadata,
+        overwrite=bool(getattr(args, "overwrite", False)),
+    )
     elapsed = time.perf_counter() - t0
-    print(f"\n  saved       : {saved.name} ({saved.stat().st_size} bytes, {elapsed:.2f}s)")
+    print(
+        f"\n  timings     : encoder_load={t_clip - t0:.2f}s  refiner_load={t_ref - t_clip:.2f}s  "
+        f"encode_and_refine={t_enc_done - t_ref:.2f}s  total={elapsed:.2f}s"
+    )
+    print(f"  saved       : {saved.name} ({saved.stat().st_size} bytes, {elapsed:.2f}s)")
     return 0
 
 
@@ -652,9 +671,12 @@ def _attach_raw_vector(
     strength: float,
     *,
     mask: str = "non_vision",
+    mode: str = "add",
+    start_percent: float = 0.0,
+    end_percent: float = 1.0,
     metadata: dict[str, Any] | None = None,
 ) -> Any:
-    """Clone `model` with an in-memory `(vec, strength, mask)` attached via
+    """Clone `model` with an in-memory `(vec, strength, mask, mode, start_percent, end_percent)` attached via
     `control_vector_nodes._make_control_vector_wrapper` on `WrappersMP.DIFFUSION_MODEL`."""
     import comfy.patcher_extension as pe
 
@@ -664,6 +686,9 @@ def _attach_raw_vector(
         vector=vec.detach().to(device="cpu", dtype=torch.float32),
         strength=float(strength),
         mask=mask,
+        mode=mode,
+        start_percent=float(start_percent),
+        end_percent=float(end_percent),
         metadata=metadata or {"measured_under": {"prefix": "none"}},
         advisories=(),
     )
@@ -729,8 +754,11 @@ def cmd_grade(args: argparse.Namespace) -> int:
     unet_name = args.unet or metadata["recipe"]["checkpoint"]["file"]
     unet_path = Path(folder_paths.get_full_path_or_raise("diffusion_models", unet_name))
 
+    t_grade_start = time.perf_counter()
     clip = _load_clip(enc_name, device=args.device)
+    t_clip_loaded = time.perf_counter()
     refiner_run = cv_nodes.build_refiner_runner(unet_path, device=args.refiner_device)
+    t_ref_loaded = time.perf_counter()
 
     encoded_refs = None
     if args.ref_images:
@@ -812,6 +840,7 @@ def cmd_grade(args: argparse.Namespace) -> int:
         pad_ctx = refiner_run(pad_enc)
 
     # Free the 25 GB text encoder before any DiT load so they never contend for VRAM.
+    t_enc_phase_done = time.perf_counter()
     del clip
     del encoded_refs
     try:
@@ -828,6 +857,11 @@ def cmd_grade(args: argparse.Namespace) -> int:
 
     print(f"=== Control Vector Grade: {metadata['name']} on {prompt_label} ===")
     print(f"  L_base={len(base_ids)} (tag1={n_txt}, tag0_vision={n_vis})  vector_norm={raw_norm:.4f}")
+    print(
+        f"  encode_times : encoder_load={t_clip_loaded - t_grade_start:.2f}s  "
+        f"refiner_load={t_ref_loaded - t_clip_loaded:.2f}s  "
+        f"encode_and_refine={t_enc_phase_done - t_ref_loaded:.2f}s"
+    )
     if edit_ids is not None and pad_ids is not None:
         print(f"  L_edit={len(edit_ids)} (delta={len(edit_ids) - len(base_ids):+d})  L_pad={len(pad_ids)}")
 
@@ -936,6 +970,11 @@ def cmd_grade(args: argparse.Namespace) -> int:
         "core_revision": substrate.git_head(cv_nodes.COMFY_ROOT) or "unknown",
         "pack_commit": substrate.git_head(REPO_ROOT) or "unknown",
         "attention": "sol" if getattr(args, "sol", False) else "stock_dense",
+        "timings_s": {
+            "encoder_load_s": round(t_clip_loaded - t_grade_start, 3),
+            "refiner_load_s": round(t_ref_loaded - t_clip_loaded, 3),
+            "encode_and_refine_s": round(t_enc_phase_done - t_ref_loaded, 3),
+        },
     }
     if not getattr(args, "no_dit", False):
         probe_steps = [int(x.strip()) for x in args.probe_steps.split(",") if x.strip()]
@@ -947,6 +986,7 @@ def cmd_grade(args: argparse.Namespace) -> int:
             import comfy.sd
             from comfy_extras.nodes_minimax_h3 import _empty_av_latent
 
+            t_dit_load_start = time.perf_counter()
             print(
                 f"\n[grade] loading DiT {unet_path.name} "
                 f"(core={dit_provenance['core_revision']}, attn={dit_provenance['attention']}) "
@@ -978,6 +1018,9 @@ def cmd_grade(args: argparse.Namespace) -> int:
                 h3_config.SAMPLING["scheduler"],
                 h3_config.SAMPLING["steps"],
             )
+            t_dit_loaded = time.perf_counter()
+            dit_provenance["timings_s"]["dit_load_s"] = round(t_dit_loaded - t_dit_load_start, 3)
+            print(f"[grade] DiT + latent ready in {t_dit_loaded - t_dit_load_start:.2f}s (canvas={args.width}x{args.height}x{args.length})")
 
             def _default_dit_runner(m_obj: Any, cond_obj: list[Any], step_idx: int) -> tuple[float, Any]:
                 return (
@@ -988,6 +1031,17 @@ def cmd_grade(args: argparse.Namespace) -> int:
             dit_runner = _default_dit_runner
         else:
             base_model = getattr(args, "_base_model")
+
+        forward_times_s: list[float] = []
+        raw_dit_runner = dit_runner
+
+        def _timed_dit_runner(m_obj: Any, cond_obj: list[Any], step_idx: int) -> tuple[float, Any]:
+            tf0 = time.perf_counter()
+            out = raw_dit_runner(m_obj, cond_obj, step_idx)
+            forward_times_s.append(time.perf_counter() - tf0)
+            return out
+
+        dit_runner = _timed_dit_runner
 
         print(f"\n--- DiT Denoised-Prediction Movement (steps={probe_steps}) ---")
         for step_idx in probe_steps:
@@ -1122,6 +1176,16 @@ def cmd_grade(args: argparse.Namespace) -> int:
                     "arms": step_arms,
                 }
             )
+        if forward_times_s:
+            dit_provenance["timings_s"]["n_forwards"] = len(forward_times_s)
+            dit_provenance["timings_s"]["mean_forward_s"] = round(
+                sum(forward_times_s) / len(forward_times_s), 3
+            )
+            dit_provenance["timings_s"]["total_forward_s"] = round(sum(forward_times_s), 3)
+            print(
+                f"\n  [grade] {len(forward_times_s)} DiT forwards in {sum(forward_times_s):.2f}s "
+                f"(mean={sum(forward_times_s) / len(forward_times_s):.2f}s/forward)"
+            )
 
     if getattr(args, "out", None):
         out_record = {
@@ -1158,6 +1222,7 @@ def build_parser() -> argparse.ArgumentParser:
     pm.add_argument("--device", default="default")
     pm.add_argument("--refiner-device", default="cpu")
     pm.add_argument("--out", default=None, help="Output .safetensors path or filename")
+    pm.add_argument("--overwrite", action="store_true", help="Overwrite an existing vector file at the target path")
 
     pi = sub.add_parser("inspect", help="Inspect a control vector file and optionally meter prompts")
     pi.add_argument("vector", help="Path or filename in models/control_vectors/")
