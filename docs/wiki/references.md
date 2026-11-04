@@ -1528,9 +1528,10 @@ recorded the same equivalence for UtilsCollection's DMAD sampler. Comfy-Org's
 0.0", `LoraLoaderModelOnly` at 1 on `minimax_h3_ref2va_pruned_int8_convrot`,
 Reference to Video at 1344x768 and 124 frames with `match` sizing, no shift
 node and no attention node. Those sigmas are the knots shifted at 12.
-`ComfyUI-MAINodes`' `coderef/ComfyUI-MAINodes/render.py::PIKA_PRESET` is the same. One thing is
-open and was reasoned, not run: whether core's carried-audio transform
-makes `lcm` re-noise the audio stream at its own sigma, as Pika does.
+`ComfyUI-MAINodes`' `coderef/ComfyUI-MAINodes/render.py::PIKA_PRESET` is the same. Core's
+carried-audio transform makes `lcm` re-noise the audio stream at its own
+shift-3 sigma, as Pika does: derived from core's code, not run, in
+[`../research/2026-11-04_pika_h3_flex_weights_and_loras.md`](../research/2026-11-04_pika_h3_flex_weights_and_loras.md), section 6.
 
 **What it means here.**
 
@@ -1549,13 +1550,18 @@ makes `lcm` re-noise the audio stream at its own sigma, as Pika does.
   rank (fused QKV at 384, the rest at 128, unit scale), is in the owner's
   early-access download under `comfy/loras/` and is not linked. Comfy-Org's
   template names a third file, `pika_h3_flex_{fl2va,ref2va}_v1_bf16`,
-  which is not on disk. This is FlashGen's case again: `h3_config.FLASHGEN_LORA`
-  is a resize and `FLASHGEN_R64_LORA` the exact one.
+  which is not on disk; by that day's record it is the same tensors as
+  Pika's own conversion. This is FlashGen's case again:
+  `h3_config.FLASHGEN_LORA` is a resize and `FLASHGEN_R64_LORA` the exact
+  one. How the resize was made, what it loses per module, and why a merge
+  onto the INT8 checkpoint (`LoraLoaderModelOnly`, as Comfy-Org's template
+  does) keeps little of the update where `MiniMaxH3LoRABranch` keeps all
+  of it, are in [`../research/2026-11-04_pika_h3_flex_weights_and_loras.md`](../research/2026-11-04_pika_h3_flex_weights_and_loras.md).
 - **The pruned partition.** Pika's adapters are trained on the unpruned
-  base; Comfy-Org's template and the resizes load them on the pruned INT8
-  checkpoint. For FlashGen this pack fits the AdaLN delta onto the pruned
-  partition's own time basis (`bench/convert_flashgen_lora.py`); whether
-  Pika's ComfyUI conversion already did the same was not read.
+  base and loaded on the pruned INT8 checkpoint. They do not touch AdaLN,
+  so the time-basis re-expression FlashGen needs
+  (`bench/convert_flashgen_lora.py`) is not needed for them ([`../research/2026-11-04_pika_h3_flex_weights_and_loras.md`](../research/2026-11-04_pika_h3_flex_weights_and_loras.md),
+  section 4).
 - **Where it agrees with what this pack runs.** 1344x768 and 1152x768 are
   Pika buckets; 362 is `h3_rules.MAX_LENGTH`; the 2048 short edge at the
   768 tier is core's `REF_IMAGE_SHORT_EDGE`; 0.999 is core's
