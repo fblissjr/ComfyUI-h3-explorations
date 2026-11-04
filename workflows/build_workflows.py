@@ -93,7 +93,7 @@ import prompts as _prompts  # noqa: E402
 from h3_config import (  # noqa: E402
     DAILY_DIR, DAILY_GRAPHS, SINGLE_FRAME_DIR,
     CORE_LOADED_ENCODERS, IMAGE_VAE, DRAFT_VAE,
-    STEP_SWITCH_BASE, CANVAS, FPS, LENGTH, LONG_LENGTH, LONG_WINDOW, MODELS,
+    CANVAS, FPS, LENGTH, LONG_LENGTH, LONG_WINDOW, MODELS,
     SAMPLING, SAGE_NODE, DENSE_BACKEND_NODE, DENSE_CHAINS, DEFAULT_DENSE_CHAIN, SEED, SIGMA_SHIFT, SOL_CORE_NODE, SOL_CORE_DEFAULTS,
     REF_VIDEO_LOADER, REF_QWEN_SHORT_EDGE, SEGMENTER, SUBJECT_TRACK, MASKED_SOURCE,
     MASKED_MOTION_STEPS, MASKED_MOTION_SOURCE, MASKED_PROMPT, MASKED_PROMPT_NODE,
@@ -104,11 +104,9 @@ from h3_config import (  # noqa: E402
     REF_VIDEO_BUDGET,
     CAPTURE_REF_IMAGES,
     DIALOGUE_REF_IMAGES, REFVIEW2_SCENES,
-    PDD_MANUAL_EVALS,
-    PDD_MANUAL_SIGMAS,
     sol_for_graph,
-    PDD_FL2VA_LORA, PDD_REF2VA_LORA, PDD_STEPS, PDD_STEPS_FAST,
-    PDD_STRENGTH, PDD_FL2VA_STRIPPED_LORA,
+    PDD_FL2VA_LORA, PDD_REF2VA_LORA, PDD_STEPS,
+    PDD_STRENGTH,
     AUDIO_REFINE, FROZEN_VIDEO_CACHE, FROZEN_VIDEO_CACHE_NODE, LORA_BRANCH_NODE,
     PIKA_FL2VA_LORA, PIKA_REF2VA_LORA, PIKA_STRENGTH, PIKA_STEPS, PIKA_SAMPLER,
     PIKA_MANUAL_SIGMAS, PIKA_MOTION_TRANSFER_IMAGES, PIKA_MOTION_TRANSFER_VIDEO,
@@ -583,7 +581,7 @@ def _is_distill_experiment(fname: str, extra: dict) -> bool:
 
     Derived like the image split was: every `_savelat` or `_x0` twin (the
     experiments' instrumentation), and every `h3_probe_*` graph that runs a
-    distill, whether a PDD or Pika LoRA, a step switch or an audio refine pass.
+    distill, whether a PDD or Pika LoRA or an audio refine pass.
     Entries that are experiments without being probes say so with
     `distill_experiment=True`. The shipped distill graphs
     (`h3_text_to_video_pdd`, the PDD ref and fl2v graphs) stay at the root.
@@ -598,7 +596,7 @@ def _is_distill_experiment(fname: str, extra: dict) -> bool:
         return False
     lora = str((extra.get("lora") or ("",))[0]).lower()
     return bool(extra.get("pdd") or "pdd" in lora or "pika" in lora
-                or extra.get("step_switch") or extra.get("audio_refine"))
+                or extra.get("audio_refine"))
 
 
 def _graph_dir(out, extra: dict, fname: str = ""):
@@ -855,126 +853,14 @@ def resolve_default_prompt(task: str, prompt: str | None, *,
 
 
 
-#: **The DEMAND pair. Not a length pair, and the difference decides what it
-#: tests.** Owner-requested 2026-08-28 as a length experiment and reframed the
-#: same evening by his own correction: "what i meant by ghosted fruit was....
-#: theres too much detail in whats being asked of the scene / frames being
-#: generated." The axis is detail DEMANDED BY THE PROMPT -- a cause, readable
-#: from the text -- not detail measured in the render, which is a result and is
-#: ambiguous between a plain scene and a destroyed one.
-#:
-#: The long arm elaborates materials, light, surface and position. Under the
-#: demand reading that is not a null manipulation dressed up as more words: it
-#: is precisely asking for more fine structure to be resolved, which is the
-#: thing under test. **So do not describe these as "same scene, more words".
-#: They are "same scene, more detail demanded".**
-#:
-#: **PRE-REGISTERED, before either arm rendered.** Demand predicts the LONG arm
-#: is worse than its short counterpart in BOTH scenes, with the damage
-#: concentrated on the elaborated surfaces. A length-of-conditioning account
-#: predicts no consistent direction. Two scenes agreeing is the result; one is
-#: a fact about that scene.
-#:
-#: Note what this does NOT exclude. Some elaborations name small objects the
-#: short arm does not -- a price card at each bin, a length of chain in a
-#: waiting customer's hand. Under the demand hypothesis that IS the
-#: manipulation rather than a confound, since a small object is demand. What is
-#: excluded, and was the discipline throughout, is any new SUBJECT, ACTION,
-#: CAMERA MOVE or LINE, none of which differ.
-#:
-#: Originally written after `h3_ref2v_scene_kitchen`
-#: rendered roughly two shots where its prompt asked for four while
-#: `h3_ref2v_scene_subway` honoured all three cuts -- the two differed in
-#: description length among other things, and nothing isolated it.
-#:
-#: **Everything is held except word count.** Same scene, same three shots, same
-#: cuts (the arms carried header times, 00:04.500 and 00:09.000, when this was
-#: written; the bank text carries none, `docs/prompting.md` section 3.1), same two speakers, same four lines of dialogue
-#: verbatim, same three camera moves verbatim, same subjects, same actions.
-#: The long version ELABORATES existing content -- materials, surfaces, light,
-#: position -- and introduces no new subject, action, camera move or line.
-#: That discipline is the whole experiment: a longer prompt that also adds
-#: content confounds length with complexity and answers nothing.
-#:
-#: **A hardware aisle, chosen for detail density rather than for looking good.**
-#: `docs/eval_comparison.md` records that a scene which cannot express the
-#: defect cannot discriminate it however it is scored, and that the candidate
-#: axis is fine detail near the latent resolution limit rather than delta.
-#: Bins of small fasteners and a pegboard wall are that, in a scene structurally
-#: unlike the produce market so the two are not near-duplicates.
-#:
-#: **Deliberately NOT a marker arm.** No caption, no lyrics, no cutoff -- those
-#: are `h3_ref2v_scene_*`'s job, and a marker here would be a second axis.
-T2V_AISLE_SHORT = _bank_prompt("t2va_hardware_aisle_short")
-
-#: The long arm. **Same content, elaborated.** Read the two side by side before
-#: changing either: any edit that adds a subject, an action, a camera move or a
-#: line to this one and not to the short one destroys the comparison.
-T2V_AISLE_LONG = _bank_prompt("t2va_hardware_aisle_long")
-
-
-#: **The second description-length pair, on a different scene.** Owner-requested
-#: alongside the aisle pair: "a different scene entirely. not a market. just one
-#: with the same type of shit happening in it."
-#:
-#: **Two scenes rather than one is the point.** A length effect seen on a single
-#: scene is a fact about that scene. Two independent scenes carrying the same
-#: manipulation is the difference between an anecdote and a result, and it costs
-#: two more renders rather than a new design.
-#:
-#: A sorting line: mixed recyclables on a moving belt, four workers picking.
-#: Chosen to match the aisle pair on what is being tested -- many small
-#: high-contrast objects near the latent resolution limit, people moving through
-#: a wide frame -- while sharing nothing of its setting, palette or lighting.
-#: The belt also supplies continuous independent object motion, which the aisle
-#: does not, so the pairs differ on that axis deliberately.
-#:
-#: Same discipline as the aisle: identical dialogue, camera moves, cuts,
-#: shot structure and subjects across the two lengths. The long arm elaborates
-#: and does not extend.
-T2V_SORTLINE_SHORT = _bank_prompt("t2va_sortline_short")
-
-#: The long arm of the sorting-line pair. **Same content, elaborated.**
-T2V_SORTLINE_LONG = _bank_prompt("t2va_sortline_long")
-
-
-#: **The PREDICTABILITY pair, and the sharpest discriminator built here.**
-#: Owner-stated 2026-08-28, after both two-shot ablation arms came back clean:
-#: "i bet even long prompts are fine. so long as you dont introduce like 5
-#: unique shots and tons of shit changes everywhere like lights flashing
-#: different led colors every second of every shot from different places and
-#: people moving around or a handheld camera fight scene where the model cant
-#: easily predict what comes next like it could say... a tracking shot of a
-#: boxy house going from left to right across. steady and not changing position
-#: at all, just moving left to right like its on a rail"
-#:
-#: **The axis is how hard the next frame is to predict, not how much it
-#: changes.** That distinction is what every earlier account here missed. A
-#: rail move translating the whole frame has near-maximal inter-frame delta and
-#: near-zero uncertainty: everything is where it was, shifted. A handheld shot
-#: of a crowd under changing coloured light has similar delta and no
-#: extrapolable structure at all.
-#:
-#: **Both arms are LONG on purpose**, ~500 words, because the owner's claim has
-#: two halves and this tests both: long prompts are fine, AND unpredictability
-#: is what is not. If the rail arm comes back clean at this length, length is
-#: exonerated in the same render that indicts churn.
-#:
-#: **Held: one shot each, no cuts, same canvas, same length, same settings, no
-#: dialogue in either.** Shot count is deliberately equalised at ONE so this
-#: does not re-run the ablation's confound -- pdd's arms move delta, demand and
-#: shot content together, and that is why they could not separate anything.
-#:
-#: **What it predicts, registered before either rendered.** Delta says the rail
-#: arm is worst, since a full-frame translation is the highest delta in this
-#: repo. Predictability says the rail arm is CLEAN and churn breaks. They
-#: cannot both be right, and the rail arm is cheap to judge because ghosting on
-#: a rigid boxy building is unmissable.
-T2V_RAIL_LONG = _bank_prompt("t2va_rail_dolly_long")
-
-#: The churn arm. **Same length, same one-shot structure, same canvas. Every
-#: source of unpredictability the owner named, in one shot.**
-T2V_CHURN_LONG = _bank_prompt("t2va_crowd_churn_long")
+#: The demand pair (`T2V_AISLE_SHORT`, `T2V_AISLE_LONG`), its second scene
+#: (`T2V_SORTLINE_SHORT`, `T2V_SORTLINE_LONG`) and the predictability pair
+#: (`T2V_RAIL_LONG`, `T2V_CHURN_LONG`) were here, pre-registered 2026-08-28
+#: with the design notes that went with them. Their graphs ran on PDD at 4
+#: steps and were retired with PDD's primary use on 2026-11-04, so nothing
+#: read the constants any more; constants and notes are in git. The scenes
+#: stay in the prompt bank (`t2va_hardware_aisle_*`, `t2va_sortline_*`,
+#: `t2va_rail_dolly_long`, `t2va_crowd_churn_long`).
 
 MARKET_REF_IMAGES = ("dirk_runway2.jpeg",)
 
@@ -1425,19 +1311,9 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
               # and save pass 1's latent and the refine pass's denoised output
               # beside the final one, all in one execution. Nodes 106-112.
               probe_frozen_rows: bool = False,
-              # A step switch: this call's own PDD chain as pass 1, then a
-              # second sampler on pass 2's model chain from where pass 1 left
-              # the latent, DisableNoise on pass 2, one shift on both
-              # (h3_config.STEP_SWITCH_BASE). Nodes 120-123 and pass 2's
-              # chain at +200.
-              step_switch: bool = False,
-              # What pass 2 is: "base", the undistilled base on Euler at
-              # step_switch_sigmas (open_experiments #37). The routes whose
-              # either pass was FlashGen or FastH3 ("pdd8", "flashgen",
-              # "fasth3") were retired on 2026-11-04 (`docs/roadmap.md`,
-              # "Closed lanes"); they are in git before that commit.
-              step_switch_to: str = "base",
-              step_switch_sigmas: str | None = None,
+              # The step switch (this call's own PDD chain as pass 1, then a
+              # second sampler from where it left the latent) was retired with
+              # PDD's primary use on 2026-11-04; its routes are in git.
               # Save every step's x0 prediction (MiniMaxH3StepX0Observer, node
               # 113) on the main pass's model, for finding the step where a
               # moving person first appears twice (docs/h3_distills.md). About
@@ -2355,53 +2231,6 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
         g["11"]["inputs"]["samples"] = ["87", 0]
         g["12"]["inputs"]["samples"] = ["87", 0]
 
-    if step_switch:
-        if step_switch_to != "base":
-            raise SystemExit(f"step_switch_to must be base, not {step_switch_to!r}; the pdd8, "
-                             "flashgen and fasth3 routes were retired on 2026-11-04 "
-                             "(docs/roadmap.md, \"Closed lanes\")")
-        if (lora is None or audio_refine or split_at or freeze_audio or freeze_windows or single_frame
-                or not pdd):
-            raise SystemExit("step_switch runs this graph's own PDD chain as pass 1 and composes "
-                             "with none of audio_refine, split_at, freeze_*, single_frame")
-        # Pass 2's model chain is the base's own graph, built by this
-        # function and copied in at +200, so it carries exactly what that
-        # graph carries (its shift, the dense backend, Sol at its recipe).
-        # The UNET loader is shared, and asserted identical.
-        if not step_switch_sigmas:
-            raise SystemExit("step_switch_to='base' needs step_switch_sigmas (h3_config.STEP_SWITCH_BASE)")
-        pass2_sigmas = step_switch_sigmas
-        base_evals = len(pass2_sigmas.split(",")) - 1
-        g2 = build_api(task, sage=sage, prompt=prompt, length=length, seed=seed,
-                       sol=(sol_for_graph(False, base_evals) if sol is not None else None),
-                       sol_impl=sol_impl, dense_backend=dense_backend,
-                       steps=base_evals, sampler_name="euler",
-                       manual_sigmas=pass2_sigmas, unet=unet, clip=clip, **canvas)
-        if g2["1"] != g["1"]:
-            raise SystemExit("step_switch: pass 1 and pass 2 must load the same UNET")
-        chain, ref = {}, g2["9"]["inputs"]["model"]
-        while ref[0] != "1":
-            node = g2[ref[0]]
-            chain[ref[0]] = node
-            ref = next(v for k, v in node["inputs"].items()
-                       if isinstance(v, list) and len(v) == 2 and k == "model")
-
-        def _moved(v):
-            return ([str(int(v[0]) + 200), v[1]] if isinstance(v, list) and len(v) == 2
-                    and isinstance(v[0], str) and v[0] in chain else v)
-        for nid, node in chain.items():
-            g[str(int(nid) + 200)] = {"class_type": node["class_type"],
-                                      "inputs": {k: _moved(v) for k, v in node["inputs"].items()}}
-        g["120"] = {"class_type": "ManualSigmas", "inputs": {"sigmas": pass2_sigmas}}
-        g["121"] = {"class_type": "DisableNoise", "inputs": {}}
-        g["122"] = {"class_type": "BasicGuider",
-                    "inputs": {"model": _moved(g2["9"]["inputs"]["model"]), "conditioning": ["26", 0]}}
-        g["123"] = {"class_type": "SamplerCustomAdvanced",
-                    "inputs": {"noise": ["121", 0], "guider": ["122", 0], "sampler": ["7", 0],
-                               "sigmas": ["120", 0], "latent_image": ["10", 0]}}
-        g["11"]["inputs"]["samples"] = ["123", 0]
-        g["12"]["inputs"]["samples"] = ["123", 0]
-
     def _save_av(src, tag, ids):
         split, vid, aud = ids
         prefix = g["13"]["inputs"]["filename_prefix"].removeprefix("Video/")
@@ -2442,8 +2271,6 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
         g["84"]["inputs"]["model"] = ["106", 0]
         _save_av(["10", 0], "_pass1", ("107", "108", "109"))
         _save_av(["87", 1], "_refine_denoised", ("110", "111", "112"))
-    if step_switch and save_latents:
-        _save_av(["10", 0], "_pass1", ("107", "108", "109"))
 
     if draft_decode:
         # Last, so it saves whatever latent the decoders read after every
@@ -3589,9 +3416,9 @@ def validate_api(graph: dict, oi: dict, label: str) -> list[str]:
                 e(f"refine pass: scheduler {sid} and guider {gid} read MODEL from "
                   f"different sources {pair}")
             refine_ids.add(gid)
-    # A step-switch second pass (build_api(step_switch=True), from
-    # docs/research/2026-09-26_distill_routing.md) is also a second sampler on
-    # its own model by design. Recognised by structure, not by name, so the
+    # A step-switch second pass (docs/research/2026-09-26_distill_routing.md;
+    # the generator's route was retired on 2026-11-04, and the exemption stays
+    # for a graph built by hand) is also a second sampler on its own model by design. Recognised by structure, not by name, so the
     # exemption stays narrow: no added noise (DisableNoise), its own
     # ManualSigmas, and its latent is another sampler's output.
     for n in graph.values():
@@ -3715,115 +3542,25 @@ def main():
               freeze_context=39, out_prefix="Video/h3_t2v_audio_freeze_song",
               length=LONG_WINDOW),
          "a whole track from one node: windows planned from the song, one prompt throughout"),
-        # The whole-track graph on the PDD8 baked chain, at the settings the
-        # evidence supports for a full song (owner's ask, 2026-09-13 evening):
-        # the longest chained windows (LONG_WINDOW) with a 39-frame context (the only context judged:
-        # the seam read better than either single window), the whole track,
-        # the loose mask (read slightly better than frozen on the dancer at
-        # two seeds; music, no speech), PDD8 at its own eight evaluations
-        # (five forced an envelope tiling nothing has judged). Ships one bank
-        # prompt and no timeline; paste a timeline and one `--- label` block
-        # per label to line the windows up with the song's sections.
-        ("h3_text_to_video_audio_freeze_song_pdd8.json", "t2v-audio-freeze-song-pdd8", "t2v",
-         _bank_prompt("t2va_studio_dancer_close"),
-         dict(pdd=True, sampler_name="euler",
-              unet=MODELS["unet_fl2va_pdd8_baked"],
-              lora=(PDD_FL2VA_STRIPPED_LORA, PDD_STRENGTH), steps=PDD_STEPS,
-              freeze_song=True, freeze_song_seconds=None,
-              freeze_mask=0.25, freeze_context=39, length=LONG_WINDOW,
-              out_prefix="Video/h3_t2v_audio_freeze_song_pdd8"),
-         "a whole song on PDD8: the longest chained windows, 39 context, loose mask"),
-        # The PDD8 song graph with the subject anchored by a reference still
-        # (owner, 2026-09-14): fl2va takes references, and a fixed still is
-        # the anchor a long song wants, not the previous window's last frame,
-        # which would carry drift forward. The dancer scene's still and its
-        # reference prompt from `h3_config.REFVIEW2_SCENES`; everything else
-        # is the graph above.
-        ("h3_text_to_video_audio_freeze_song_ref_pdd8.json", "t2v-audio-freeze-song-ref-pdd8", "t2v",
-         _bank_prompt(next(p for t, p, _s in REFVIEW2_SCENES if t == "dancer")),
-         dict(pdd=True, sampler_name="euler",
-              unet=MODELS["unet_fl2va_pdd8_baked"],
-              lora=(PDD_FL2VA_STRIPPED_LORA, PDD_STRENGTH), steps=PDD_STEPS,
-              freeze_song=True, freeze_song_seconds=None,
-              freeze_song_refs=next(s for t, _p, s in REFVIEW2_SCENES if t == "dancer"),
-              freeze_mask=0.25, freeze_context=39, length=LONG_WINDOW,
-              out_prefix="Video/h3_t2v_audio_freeze_song_ref_pdd8"),
-         "a whole song on PDD8 with the subject anchored by a reference still"),
-        # The PDD8 song graph with prompt lists, the shipped example of
-        # `__name__` placeholders (owner, 2026-09-14), on the owner's track
-        # `just-a-flicker.mp3`, with the song's sections as the timeline. One
-        # prompt for every section; the lists fill its second shot and move on
-        # once per section, so every window of a section shares a place and
-        # the place changes where the song does. Each window opens on a
-        # close-up with the background lost to blur, so a seam into a new
-        # place lands on her face. The song's lead is a breathy female vocal
-        # over a slow lo-fi beat, per an analysis the owner supplied; the
-        # prompt leaves the lyrics out, the untold form the lane found works
-        # (`docs/h3_audio_freeze.md` step 4).
-        ("h3_text_to_video_audio_freeze_song_lists_pdd8.json", "t2v-audio-freeze-song-lists-pdd8", "t2v",
-         _bank_prompt("t2va_song_flicker_lists"),
-         dict(pdd=True, sampler_name="euler",
-              unet=MODELS["unet_fl2va_pdd8_baked"],
-              lora=(PDD_FL2VA_STRIPPED_LORA, PDD_STRENGTH), steps=PDD_STEPS,
-              freeze_song=True, freeze_song_seconds=None, freeze_song_timeline=_SONG_FLICKER_TIMELINE,
-              freeze_song_lists=_SONG_FLICKER_LISTS, freeze_track="just-a-flicker.mp3",
-              freeze_mask=0.25, freeze_context=39, length=LONG_WINDOW,
-              out_prefix="Video/h3_t2v_audio_freeze_song_lists_pdd8"),
-         "a whole song on PDD8 on the song's sections, two prompt lists moving on once per section"),
-        # Masked video-to-video on the PDD8 song chain (owner, 2026-10-04):
-        # the track is a source video's own audio, SAM 3 tracks one subject,
-        # and each window keeps the source outside that mask and regenerates
-        # the subject from a reference still. The hard freeze, which is the
-        # lane's default for a voice (`docs/h3_audio_freeze.md` step 4). One
-        # prompt for every window that names no shot, because the plate
-        # already holds the framing and the cuts; a clip-specific prompt is
-        # an arm (`bench/masked_v2v_arms.json`). Not judged yet.
-        # Since 2026-10-06 the prompt is written by the Masked Prompt node
-        # (`masked_prompt.py`) and the bank text is its copy: the generic
-        # swap text, which claims no count of people, duration, posture or
-        # camera, where `ref2va_masked_subject_swap` said one performer
-        # standing through a fourteen-second static shot.
-        ("h3_video_to_video_masked_song_pdd8.json", "v2v-masked-song-pdd8", "t2v",
-         _bank_prompt("ref2va_masked_person_swap"),
-         dict(pdd=True, sampler_name="euler",
-              unet=MODELS["unet_fl2va_pdd8_baked"],
-              lora=(PDD_FL2VA_STRIPPED_LORA, PDD_STRENGTH), steps=PDD_STEPS,
-              freeze_song=True, freeze_song_seconds=30.0,
-              freeze_song_refs=(PLACEHOLDER_IMAGE_A,), freeze_song_source=True,
-              masked_prompt=MASKED_PROMPT,
-              freeze_mask=0.0, freeze_context=39, length=LONG_WINDOW,
-              out_prefix="Video/h3_v2v_masked_song_pdd8"),
-         "masked video to video: a source video's subject replaced from a reference still, audio kept"),
-        # A part of the subject through Sapiens2 (2026-10-06): the part node
-        # labels the tracked subject and its mask is the region, in place of
-        # the SAM phrases `head and hair` asks for. At the part node's
-        # defaults that is hair, face and neck, on the original's body and
-        # clothes, so the body's movement is the source's own and the fast
-        # chain serves. Ticking another part on the node changes the region;
-        # the prompt node's `picture_gives` then has to say what the still
-        # provides. Not rendered.
-        ("h3_video_to_video_masked_parts_song_pdd8.json", "v2v-masked-parts-song-pdd8", "t2v",
-         _bank_prompt("ref2va_masked_person_head"),
-         dict(pdd=True, sampler_name="euler",
-              unet=MODELS["unet_fl2va_pdd8_baked"],
-              lora=(PDD_FL2VA_STRIPPED_LORA, PDD_STRENGTH), steps=PDD_STEPS,
-              freeze_song=True, freeze_song_seconds=30.0,
-              freeze_song_refs=(PLACEHOLDER_IMAGE_A,), freeze_song_source=True,
-              masked_source=MASKED_PARTS_SOURCE, masked_parts=True, masked_prompt=MASKED_PARTS_PROMPT,
-              freeze_mask=0.0, freeze_context=39, length=LONG_WINDOW,
-              out_prefix="Video/h3_v2v_masked_parts_song_pdd8"),
-         "masked video to video, a part of the subject: head and hair found by Sapiens2 and replaced from a still"),
+        # The PDD8 song graphs (the whole song, with a reference still, and with
+        # prompt lists on the song's sections) and the PDD8 masked render graphs
+        # (the whole subject and a part), with their daily copies, were retired
+        # with PDD's primary use on 2026-11-04 (`docs/roadmap.md`, "Closed
+        # lanes"); they are in git. Since 2026-10-10 every job load is built from
+        # `h3_config.MASKED_JOB_BASE_GRAPH`, the ref2va upper-body row below. The
+        # candidate PDD8 freeze with the audio attention gain went the same day.
+        #
         # The look before a masked render (2026-10-06, the masking board's
         # dry run): the default masked graph with the song node on `preview`,
-        # so nothing samples and no model loads, and with what the render
-        # graphs leave unwired: the tracker's numbered tiles and shot table
-        # saved, the Masked Source's region shown. The prompt node shows the
-        # text. The mask is kept for the render graphs.
+        # so nothing samples, and with what the render graphs leave unwired:
+        # the tracker's numbered tiles and shot table saved, the Masked
+        # Source's region shown. The prompt node shows the text. Built on the
+        # PDD8 chain until 2026-11-04 and on the lane's own ref2va base since
+        # (the model chain of `MASKED_JOB_BASE_GRAPH`, no LoRA), when PDD was
+        # retired from primary use and the review kept.
         ("h3_video_to_video_masked_review.json", "v2v-masked-review", "t2v",
          _bank_prompt("ref2va_masked_person_swap"),
-         dict(pdd=True, sampler_name="euler",
-              unet=MODELS["unet_fl2va_pdd8_baked"],
-              lora=(PDD_FL2VA_STRIPPED_LORA, PDD_STRENGTH), steps=PDD_STEPS,
+         dict(sampler_name="euler", unet=MODELS["unet_ref2va"], steps=MASKED_MOTION_STEPS,
               freeze_song=True, freeze_song_seconds=30.0,
               freeze_song_refs=(PLACEHOLDER_IMAGE_A,), freeze_song_source=True,
               masked_prompt=MASKED_PROMPT, masked_review=True,
@@ -3836,7 +3573,8 @@ def main():
         # subject's motion to it. Measured: ref2va carries the turn at
         # MASKED_MOTION_STEPS and loses it at 8, bake or not; fl2va never takes
         # the reference (bench/results/2026-10-05_masked_v2v_motion_arms.md).
-        # Costs the step count over the PDD8 graph; not the default.
+        # It cost the step count over the PDD8 graph, the default until that
+        # graph was retired on 2026-11-04.
         # The Masked Prompt node writes the <Video 1> lines because the
         # Masked Source's motion reference is on. The measured text said
         # "the man"; this graph holds a placeholder still, so it ships the
@@ -3899,15 +3637,6 @@ def main():
               freeze_mask=0.0, freeze_context=39, length=LONG_WINDOW,
               out_prefix="Video/h3_probe_v2v_masked_upper_song_ref2va_motion_cache"),
          "masked video to video on ref2va, the head and upper body, with the frozen video cache on the song node's model"),
-        # The PDD8 freeze with the audio attention gain node in front of the
-        # guider, inert as shipped; bench arms patch key_gain / value_gain.
-        ("h3_candidate_t2v_pdd8_baked_audio_freeze_gain.json", "t2v-candidate-pdd8-baked-audio-freeze-gain",
-         "t2v", LONG_T2V_PROMPT,
-         dict(pdd=True, sampler_name="euler",
-              unet=MODELS["unet_fl2va_pdd8_baked"],
-              lora=(PDD_FL2VA_STRIPPED_LORA, PDD_STRENGTH), steps=PDD_STEPS,
-              freeze_audio=True, freeze_gain=True, out_prefix="Video/h3_candidate_t2v_pdd8_baked_audio_freeze_gain"),
-         "CANDIDATE the PDD8 freeze with the audio attention gain knob, inert as shipped"),
         # The loop's first seam (plan step 6), API only: two windows of the
         # track, the second window's head frozen to the first window's tail
         # (39 frames, the smallest context on both clocks), decoded
@@ -3952,18 +3681,9 @@ def main():
         # 2026-09-26** (owner: "lightx and turbo stuff irrelevant"); the list is
         # in docs/wiki/decisions.md under that date and the entries in git.
 
-        # **The 2026-09-25 distill and audio-recovery probes** (docs/wiki/next_steps.md,
-        # the 2026-09-25 blocks). Same prompt, seed, canvas and length as the
-        # shipped t2v graphs, on the default chain, so each pairs with
-        # h3_text_to_video_pdd and with the dense baseline at a matched seed.
-        # C1, audio recovery: the shipped PDD8 graph plus an audio-only refine
-        # pass on the undistilled model (audio_refine.py, h3_config.AUDIO_REFINE).
-        ("h3_probe_t2v_pdd8_audio_refine.json", "t2v-pdd8-audio-refine", "t2v", LONG_T2V_PROMPT,
-         dict(pdd=True, sampler_name="euler",
-              lora=(PDD_FL2VA_LORA, PDD_STRENGTH), steps=PDD_STEPS, audio_refine=True,
-              refine_cache=True,
-              out_prefix="Video/h3_probe_t2v_pdd8_audio_refine"),
-         "text -> video + audio at 8 steps via PDD, then 6 undistilled audio-only steps"),
+        # **The 2026-09-25 audio-recovery probe** (PDD8 then an audio-only refine
+        # pass on the undistilled model, `audio_refine.py`) and its `_savelat` twin
+        # were retired with PDD's primary use on 2026-11-04; they are in git.
 
         # First graph in this repo to wire a reference VIDEO. Everything about
         # that path was read off source until 2026-08-13 and never executed.
@@ -4293,11 +4013,12 @@ def main():
         # apply to this one. Facts A and C do not follow from that and are
         # untouched.
 
-        # --- the market scene as ref2va, base and both PDD step counts ------
+        # --- the market scene as ref2va, base and PDD8 -----------------------
         # The t2v market rewrite (d5be353) was rendered at 16 steps on
         # 2026-08-28 and the owner's verdict was that it fixed the scene. These
         # ask the next question: does the SAME scene hold up as a reference
         # task, and does it survive distillation at 8 and at 4 evaluations.
+        # (The 4-step arm was retired with PDD's primary use on 2026-11-04.)
         #
         # Matched to the t2v arms deliberately -- same canvas, same length, same
         # seed, same shift -- so the only intended differences are the task, the
@@ -4382,13 +4103,6 @@ def main():
               out_prefix="Video/h3_r2v_market_pdd"),
          "the market scene as ref2va at 8 steps via PDD"),
 
-        ("h3_ref2v_market_pdd_4step.json", "r2v-market-pdd4", "r2v", MARKET_REF2V_PROMPT,
-         dict(ref_images=MARKET_REF_IMAGES, ref_image_count=1,
-              pdd=True, sampler_name="euler",
-              lora=(PDD_REF2VA_LORA, PDD_STRENGTH), steps=PDD_STEPS_FAST,
-              out_prefix="Video/h3_r2v_market_pdd_4step"),
-         "the market scene as ref2va at 4 steps via PDD"),
-
         # --- the dialogue probe, t2v and ref2v -----------------------------
         # Eight short lines over three shots with the pacing written in. The
         # pair exists because they differ on exactly one axis: where the two
@@ -4412,27 +4126,8 @@ def main():
          dict(length=LONG_LENGTH, ref_image_count=2, ref_images=DIALOGUE_REF_IMAGES,
               out_prefix="Video/h3_r2v_dialogue"),
          "the same exchange, both speakers from reference stills"),
-
-        # The triple. Every PAIR of {references, dialogue, distill} shipped and
-        # the combination did not, which is why nothing here could reproduce
-        # the 2026-08-27 misattribution -- that needed all three.
-        #
-        # Read against the prompt rather than against a twin. The subject
-        # definitions bind <Subject 1> to <Picture 2> and <Subject 2> to
-        # <Picture 1> BY NUMBER over eight `<d>` lines, so "which mouth said
-        # which line" is a fact about the render. That is what makes this one
-        # of the few arms here that does not need a distribution: CLAUDE.md's
-        # different-sample rule bites when two clips are compared, and nothing
-        # is being compared.
-        ("h3_image_ref_plus_text_to_video_dialogue_pdd_4step.json",
-         "r2v-dialogue-pdd4", "r2v", DIALOGUE_REF2V_PROMPT,
-         dict(pdd=True, sampler_name="euler",
-              lora=(PDD_REF2VA_LORA, PDD_STRENGTH), steps=PDD_STEPS_FAST,
-              length=LONG_LENGTH, ref_image_count=2, ref_images=DIALOGUE_REF_IMAGES,
-              out_prefix="Video/h3_r2v_dialogue_pdd_4step",
-              ),
-         "the same stairwell exchange from two stills, at 4 steps via PDD"),
-
+        # The triple, references with dialogue and a distill (the same exchange
+        # at 4 steps via PDD), was retired with PDD's primary use on 2026-11-04.
 
         # --- PDD, the arms to actually render with ------------------------
         # The repo default: a dense kernel AND Sol (sage until 2026-09-15, the
@@ -4452,135 +4147,27 @@ def main():
         # sage alone buys ~2.4x here, which at ~90k packed tokens is worth more
         # than halving the steps; Sol is on top of that.
         #
-        # Their dense twins under h3_probe_ref2v_pdd* are the reference
-        # configuration -- Diffusers' stock SDPA, what the vendor runs -- and
-        # exist to be compared against, not rendered with.
+        # Their dense twins under h3_probe_ref2v_pdd*, the reference
+        # configuration (Diffusers' stock SDPA, what the vendor runs), were
+        # retired with PDD's primary use on 2026-11-04. Since that day these five
+        # are the PDD graphs kept: t2v, first frame, first and last frame,
+        # image references, and the ref2va market scene.
         ("h3_text_to_video_pdd.json", "texttovideopdd", "t2v", LONG_T2V_PROMPT,
          dict(pdd=True, sampler_name="euler",
               lora=(PDD_FL2VA_LORA, PDD_STRENGTH), steps=PDD_STEPS,
               out_prefix="Video/text_to_video_pdd"),
          "text -> video + audio at 8 steps via PDD, kitchen dense + Sol"),
-        # The control for the shipped graph above since 0.154.0: PDD's backbone
-        # merged into the int8 weight by ComfyUI's requantising merge, as every
-        # PDD graph did before. Only `backbone_apply` differs.
-        ("h3_probe_t2v_pdd8_merge.json", "t2v-pdd8-merge", "t2v", LONG_T2V_PROMPT,
-         dict(pdd=True, sampler_name="euler",
-              lora=(PDD_FL2VA_LORA, PDD_STRENGTH), steps=PDD_STEPS,
-              pdd_backbone_apply="merge",
-              out_prefix="Video/h3_probe_t2v_pdd8_merge"),
-         "PDD8 with its backbone merged into int8 (the pre-0.154.0 path), the branch's control"),
-
-        # **The PDD ladder's own rungs, added 2026-09-04.** The 2026-09-03
-        # speedup ladder rendered PDD8 only as the shipped graph (sage plus
-        # Sol at the PDD window) and it lost to the true baseline on every
-        # scene; the owner pointed out that no arm rendered PDD8 without Sol
-        # or without sage, so the loss attributes to nothing narrower than
-        # the shipped graph. These two are the missing rungs. Their prompts
-        # are patched per scene from the bank by bench/pdd_ladder_arms.json.
-
-        ("h3_probe_t2v_pdd8_sage.json", "t2v-pdd8-sage", "t2v", LONG_T2V_PROMPT,
-         dict(pdd=True, dense_attn="sage", sampler_name="euler",
-              lora=(PDD_FL2VA_LORA, PDD_STRENGTH), steps=PDD_STEPS,
-              out_prefix="Video/h3_probe_t2v_pdd8_sage"),
-         "text -> video + audio at 8 steps via PDD, sage alone, Sol absent"),
-
-        ("h3_probe_t2v_pdd8_dense.json", "t2v-pdd8-dense", "t2v", LONG_T2V_PROMPT,
-         dict(pdd=True, dense_attn=True, sampler_name="euler",
-              lora=(PDD_FL2VA_LORA, PDD_STRENGTH), steps=PDD_STEPS,
-              out_prefix="Video/h3_probe_t2v_pdd8_dense"),
-         "text -> video + audio at 8 steps via PDD, stock attention, the PDD ladder's baseline"),
-
-        # **The bake pair's arm, added 2026-09-05.** Identical to
-        # h3_probe_t2v_pdd8_sage except the checkpoint and the sidecar: the
-        # PDD backbone is folded into the int8 weights offline
-        # (bench/bake_pdd_checkpoint.py) and the sidecar carries only what the
-        # bake cannot hold. Same steps, same kernels, sage alone, so the pair
-        # differs in one thing: whether the backbone delta reaches the weights
-        # through a requantised merge at load or was quantised once with them.
-        ("h3_probe_t2v_pdd8_baked_sage.json", "t2v-pdd8-baked-sage", "t2v", LONG_T2V_PROMPT,
-         dict(pdd=True, dense_attn="sage", sampler_name="euler",
-              unet=MODELS["unet_fl2va_pdd8_baked"],
-              lora=(PDD_FL2VA_STRIPPED_LORA, PDD_STRENGTH), steps=PDD_STEPS,
-              out_prefix="Video/h3_probe_t2v_pdd8_baked_sage"),
-         "text -> video + audio at 8 steps via PDD on the baked checkpoint, sage alone"),
-
-        # **The description-length pair.** Same PDD 4-step settings as the other
-        # t2v PDD arms, so length is the only thing that differs from each
-        # other AND the configuration is the one artifacts show up in. See the
-        # constants for what is held (word counts: `docs/prompt_bank.md`), with
-        # identical dialogue, camera moves, cuts and shot structure.
-        *[
-            (f"h3_text_to_video_aisle_{tag}.json", f"t2v-aisle-{tag}", "t2v",
-             prompt,
-             dict(pdd=True, sampler_name="euler",
-                  lora=(PDD_FL2VA_LORA, PDD_STRENGTH), steps=PDD_STEPS_FAST,
-                  out_prefix=f"Video/h3_t2v_aisle_{tag}"),
-             note)
-            for tag, prompt, note in (
-                ("short", T2V_AISLE_SHORT,
-                 "the hardware aisle at low demand -- control arm of the "
-                 "demand pair"),
-                ("long", T2V_AISLE_LONG,
-                 "the same scene with more fine structure demanded -- no new "
-                 "subject, action, camera move or line"))
-        ],
-
-        # **The predictability pair.** One shot each, no cuts, both long, so
-        # shot count and length are equalised and only how predictable the
-        # next frame is varies. Delta says the rail arm is WORST; the owner's
-        # reading says it is clean. They cannot both be right.
-        *[
-            (f"h3_text_to_video_{tag}_long.json", f"t2v-{tag}-long", "t2v",
-             prompt,
-             dict(pdd=True, sampler_name="euler",
-                  lora=(PDD_FL2VA_LORA, PDD_STRENGTH), steps=PDD_STEPS_FAST,
-                  out_prefix=f"Video/h3_t2v_{tag}_long"),
-             note)
-            for tag, prompt, note in (
-                ("rail", T2V_RAIL_LONG,
-                 "one rail move across a boxy house, nothing else moving -- "
-                 "maximal delta, minimal uncertainty"),
-                ("churn", T2V_CHURN_LONG,
-                 "one handheld take through a night market under changing "
-                 "LEDs -- similar delta, no extrapolable structure"))
-        ],
-
-        # The second pair, different scene, same manipulation. Two independent
-        # scenes is what separates a length effect from a fact about one scene.
-        *[
-            (f"h3_text_to_video_sortline_{tag}.json", f"t2v-sortline-{tag}",
-             "t2v", prompt,
-             dict(pdd=True, sampler_name="euler",
-                  lora=(PDD_FL2VA_LORA, PDD_STRENGTH), steps=PDD_STEPS_FAST,
-                  out_prefix=f"Video/h3_t2v_sortline_{tag}"),
-             note)
-            for tag, prompt, note in (
-                ("short", T2V_SORTLINE_SHORT,
-                 "the sorting line at normal length -- control arm of the "
-                 "second description-length pair"),
-                ("long", T2V_SORTLINE_LONG,
-                 "the same sorting line elaborated, no new content"))
-        ],
-
-        ("h3_text_to_video_pdd_4step.json", "texttovideopdd4step", "t2v", LONG_T2V_PROMPT,
-         dict(pdd=True, sampler_name="euler",
-              lora=(PDD_FL2VA_LORA, PDD_STRENGTH), steps=PDD_STEPS_FAST,
-              out_prefix="Video/text_to_video_pdd_4step"),
-         "text -> video + audio at 4 steps via PDD, kitchen dense + Sol"),
-
-        ("h3_text_to_video_pdd_manual_sigmas.json", "texttovideopddmanualsigmas",
-         "t2v", LONG_T2V_PROMPT,
-         dict(pdd=True, sampler_name="euler",
-              lora=(PDD_FL2VA_LORA, PDD_STRENGTH),
-              manual_sigmas=PDD_MANUAL_SIGMAS, steps=PDD_MANUAL_EVALS,
-              out_prefix="Video/text_to_video_pdd_manual_sigmas"),
-         "text -> video + audio on a tail-weighted PDD partition, kitchen dense + Sol"),
+        # The PDD 4-step, manual-sigma, ladder, bake and merge arms, and the
+        # description-length (aisle, sortline) and predictability (rail, churn)
+        # pairs that rendered on PDD at 4 steps, were retired with PDD's primary use
+        # on 2026-11-04 (`docs/roadmap.md`, "Closed lanes"); they are in git. The
+        # scenes stay in the prompt bank.
 
         # PDD8 on first frame alone (owner, 2026-09-27): the fl2va sidecar
         # covers it; until now only the first+last graph existed. The owner's
         # i2v pick over the FlashGen finish (2026-09-27), so promoted from
         # distill_experiments/ to the root (owner, 2026-10-01: "ok" to moving
-        # it). Its `_savelat` twin stays in distill_experiments/.
+        # it). Its `_savelat` twin was retired on 2026-11-04.
         ("h3_first_frame_to_video_pdd.json", "firstframetovideopdd", "i2v", None,
          dict(pdd=True, sampler_name="euler",
               lora=(PDD_FL2VA_LORA, PDD_STRENGTH), steps=PDD_STEPS,
@@ -4593,57 +4180,11 @@ def main():
               out_prefix="Video/first_last_frame_to_video_pdd"),
          "first+last frame -> video + audio at 8 steps via PDD, kitchen dense + Sol"),
 
-        ("h3_first_last_frame_to_video_pdd_4step.json", "firstlastframetovideopdd4step", "i2v", None,
-         dict(last_frame=True, **FL2V_CANVAS,
-              pdd=True, sampler_name="euler",
-              lora=(PDD_FL2VA_LORA, PDD_STRENGTH), steps=PDD_STEPS_FAST,
-              out_prefix="Video/first_last_frame_to_video_pdd_4step"),
-         "first+last frame -> video + audio at 4 steps via PDD, kitchen dense + Sol"),
-
         ("h3_image_ref_plus_text_to_video_pdd.json", "imagerefplustexttovideopdd", "r2v", _ref_prompt(images=True),
          dict(pdd=True, sampler_name="euler",
               lora=(PDD_REF2VA_LORA, PDD_STRENGTH), steps=PDD_STEPS,
               out_prefix="Video/image_ref_plus_text_to_video_pdd"),
          "image references -> video + audio at 8 steps via PDD, kitchen dense + Sol"),
-
-        ("h3_image_ref_plus_text_to_video_pdd_4step.json", "imagerefplustexttovideopdd4step", "r2v", _ref_prompt(images=True),
-         dict(pdd=True, sampler_name="euler",
-              lora=(PDD_REF2VA_LORA, PDD_STRENGTH), steps=PDD_STEPS_FAST,
-              out_prefix="Video/image_ref_plus_text_to_video_pdd_4step"),
-         "image references -> video + audio at 4 steps via PDD, kitchen dense + Sol"),
-
-
-        ("h3_probe_ref2v_pdd.json", "r2v-pdd", "r2v", _ref_prompt(images=True),
-         dict(pdd=True, dense_attn=True, sampler_name="euler", lora=(PDD_REF2VA_LORA, PDD_STRENGTH), steps=PDD_STEPS,
-              length=243, out_prefix="Video/h3_probe_r2v_pdd"),
-         "ref2va at 8 steps via Parallel Decoding Distillation"),
-
-        # The control for the arm above. The measured gap between a fused head
-        # and the checkpoint's own is 0.005 early and 0.015 at the last step
-        # (docs/h3_pdd.md), so this is the arm that says whether that gap is
-        # perceptible or merely real.
-        ("h3_probe_ref2v_pdd_headfree.json", "r2v-pdd-headfree", "r2v",
-         _ref_prompt(images=True),
-         dict(pdd=True, dense_attn=True, sampler_name="euler", pdd_heads=False,
-              lora=(PDD_REF2VA_LORA, PDD_STRENGTH), steps=PDD_STEPS,
-              length=243, out_prefix="Video/h3_probe_r2v_pdd_headfree"),
-         "PDD backbone only, the checkpoint's own output heads"),
-
-        # Length sweep. The fused heads are indexed by time, not by call
-        # count, so a longer clip changes the token budget and not the
-        # schedule -- which is the property worth confirming rather than
-        # assuming, because it is the one that would break silently.
-        ("h3_probe_ref2v_pdd_345.json", "r2v-pdd-345", "r2v",
-         _ref_prompt(images=True),
-         dict(pdd=True, dense_attn=True, sampler_name="euler", lora=(PDD_REF2VA_LORA, PDD_STRENGTH), steps=PDD_STEPS,
-              length=345, out_prefix="Video/h3_probe_r2v_pdd_345"),
-         "PDD ref2va at the fixed length its records were taken at (a probe's input, not the ceiling)"),
-
-        ("h3_probe_ref2v_pdd_8s.json", "r2v-pdd-8s", "r2v",
-         _ref_prompt(images=True),
-         dict(pdd=True, dense_attn=True, sampler_name="euler", lora=(PDD_REF2VA_LORA, PDD_STRENGTH), steps=PDD_STEPS,
-              length=192, out_prefix="Video/h3_probe_r2v_pdd_8s"),
-         "PDD ref2va at exactly eight seconds"),
 
         # INVERTED TWICE with the default. 2026-08-28 the default went off
         # and this arm turned upscaling on; 2026-09-13 the default went back
@@ -4805,54 +4346,16 @@ def main():
         # h3_text_to_video (sage + Sol) is the leader with a verdict behind
         # it; each candidate below is a configuration blinded but not yet
         # judged, and its note says what it costs and what would settle it.
-        # PDD8 under sage alone is the fourth candidate and already exists as
-        # h3_probe_t2v_pdd8_sage. Every overridden Sol field is declared in
+        # Every overridden Sol field is declared in
         # bench/check_attention_defaults.py::DEVIATIONS.
         ("h3_candidate_t2v_sol_only.json", "t2v-candidate-sol-only", "t2v", LONG_T2V_PROMPT,
          dict(dense_attn="sol",
               out_prefix="Video/h3_candidate_t2v_sol_only"),
          "CANDIDATE text -> video + audio: Sol only, from the recipe's start_percent (its 0.0 override removed 2026-10-05, owner: no 0.0 Sol start anywhere)"),
 
-        ("h3_candidate_t2v_pdd8_sol_narrow.json", "t2v-candidate-pdd8-sol-narrow", "t2v", LONG_T2V_PROMPT,
-         dict(pdd=True, sampler_name="euler",
-              lora=(PDD_FL2VA_LORA, PDD_STRENGTH), steps=PDD_STEPS,
-              sol_overrides={"start_percent": 0.3, "end_percent": 0.6},
-              out_prefix="Video/h3_candidate_t2v_pdd8_sol_narrow"),
-         "CANDIDATE text -> video + audio at 8 steps via PDD, Sol on two steps"),
-
-        # The audio-freeze lane on the fast chain (owner, 2026-09-12: "worth
-        # testing if PDD works with this since it's faster iteration", which
-        # reopens the parked PDD lane for this use only). Same graph as the
-        # candidate below plus the freeze node; the documented PDD weakness is
-        # its audio (docs/research/pdd/audio_under_pdd.md), and a frozen track
-        # takes the audio rows out of what PDD has to get right.
-        ("h3_candidate_t2v_pdd8_baked_audio_freeze.json", "t2v-candidate-pdd8-baked-audio-freeze",
-         "t2v", LONG_T2V_PROMPT,
-         dict(pdd=True, sampler_name="euler",
-              unet=MODELS["unet_fl2va_pdd8_baked"],
-              lora=(PDD_FL2VA_STRIPPED_LORA, PDD_STRENGTH), steps=PDD_STEPS,
-              freeze_audio=True,
-              out_prefix="Video/h3_candidate_t2v_pdd8_baked_audio_freeze"),
-         "CANDIDATE text + a frozen audio track -> video at 8 steps via PDD"),
-
-        # The same on the PDD8 chain with the track also anchored as guide
-        # rows (owner, 2026-09-12: the untold arm works but is less natural;
-        # music video wants no transcript, so give the model more of the
-        # track without words). API only.
-        ("h3_candidate_t2v_pdd8_baked_audio_freeze_guide.json", "t2v-candidate-pdd8-baked-audio-freeze-guide",
-         "t2v", LONG_T2V_PROMPT,
-         dict(pdd=True, sampler_name="euler",
-              unet=MODELS["unet_fl2va_pdd8_baked"],
-              lora=(PDD_FL2VA_STRIPPED_LORA, PDD_STRENGTH), steps=PDD_STEPS,
-              freeze_audio=True, freeze_guide=True, out_prefix="Video/h3_candidate_t2v_pdd8_baked_audio_freeze_guide"),
-         "CANDIDATE text + a frozen audio track, also anchored as guide rows -> video at 8 steps via PDD"),
-
-        ("h3_candidate_t2v_pdd8_baked.json", "t2v-candidate-pdd8-baked", "t2v", LONG_T2V_PROMPT,
-         dict(pdd=True, sampler_name="euler",
-              unet=MODELS["unet_fl2va_pdd8_baked"],
-              lora=(PDD_FL2VA_STRIPPED_LORA, PDD_STRENGTH), steps=PDD_STEPS,
-              out_prefix="Video/h3_candidate_t2v_pdd8_baked"),
-         "CANDIDATE text -> video + audio at 8 steps via PDD on the baked checkpoint, attention as shipped"),
+        # The PDD8 candidates (Sol on two steps, the baked checkpoint, the audio
+        # freeze on it with and without guide rows) were retired with PDD's primary
+        # use on 2026-11-04 (`docs/roadmap.md`, "Closed lanes"); they are in git.
 
         # Sol-Attn ON at full reference load: images + a reference video + its
         # soundtrack + standalone audio. This is the heaviest sink the model
@@ -4967,23 +4470,19 @@ def main():
     # The 2026-09-26 distill run (owner): `_savelat` probe twins of exactly the
     # graphs the run renders, each saving the latent its decoders read, so
     # later routing experiments reuse these latents without re-rendering. Built
-    # from the source entry, so a twin cannot drift from it. The refine twin
-    # also carries the frozen-row test. The FlashGen and FastH3 twins, and the
-    # route 3 step switch (FlashGen, then PDD8), were retired on 2026-11-04.
-    _SAVELAT_OF = ("h3_text_to_video", "h3_text_to_video_pdd",
-                   "h3_probe_t2v_pdd8_audio_refine")
+    # from the source entry, so a twin cannot drift from it. The FlashGen and
+    # FastH3 twins, and the route 3 step switch (FlashGen, then PDD8), were
+    # retired on 2026-11-04; the PDD twins (`_savelat` and `_x0` of the PDD
+    # graphs, the refine probe's, and the PDD8 finisher grid's), the PDD
+    # schedule tests at 16 and 32 steps, and the PDD8-then-base step switches
+    # (open_experiments #37) went the same day with PDD's primary use
+    # (`docs/roadmap.md`, "Closed lanes"). They are in git.
+    _SAVELAT_OF = ("h3_text_to_video",)
     _by_name = {e[0]: e for e in GRAPHS}
-    # The PDD schedule tests (docs/h3_distills.md, "Tests that would move this
-    # section", 2026-09-26): PDD at widths 2 and 1 beside the shipped 8, 6 and
-    # 4, and the base on Euler over PDD's own 32-point grid, the path its heads
-    # were distilled from. PDD at width 1 is the student's own per-interval
-    # path, so the two 32-step graphs isolate fusion error from following.
-    _pdd_tests = tuple(
-        (f"h3_probe_t2v_pdd{n}.json", f"t2v-pdd{n}", "t2v", LONG_T2V_PROMPT,
-         dict(pdd=True, sampler_name="euler", lora=(PDD_FL2VA_LORA, PDD_STRENGTH), steps=n,
-              out_prefix=f"Video/h3_probe_t2v_pdd{n}"),
-         f"PDD at {n} steps (width {32 // n}) on its own grid, for the schedule tests")
-        for n in (16, 32)) + (
+    # The base on Euler over PDD's own 32-point grid, the path its heads were
+    # distilled from (docs/h3_distills.md, "Tests that would move this
+    # section", 2026-09-26).
+    _pdd_tests = (
         ("h3_probe_t2v_base_euler32.json", "t2v-base-euler32", "t2v", LONG_T2V_PROMPT,
          dict(sampler_name="euler", steps=32, out_prefix="Video/h3_probe_t2v_base_euler32"),
          "the base on Euler at 32 steps: PDD's teacher path, sharing the distills' starting noise"),
@@ -4996,14 +4495,9 @@ def main():
         # VSA-off texture probe was retired on 2026-11-04.
     )
 
-    # The PDD8 finisher grid (2026-09-27, the owner's consolidation) renders on
-    # _savelat twins so any clip can be re-encoded for review without a render
-    # (#38: the 8-bit save adds dark blocking mainly to PDD8).
-    _savelat_more = ("h3_text_to_video_pdd_4step", "h3_text_to_video_pdd_manual_sigmas",
-                     "h3_first_frame_to_video_pdd")
     _twins = []
     for fname, label, task, prompt, extra, note in (
-            [_by_name[f + ".json"] for f in _SAVELAT_OF + _savelat_more] + list(_pdd_tests)):
+            [_by_name[f + ".json"] for f in _SAVELAT_OF] + list(_pdd_tests)):
         stem = fname.removesuffix(".json")
         twin_extra = dict(extra, save_latents=True,
                           out_prefix=extra.get("out_prefix", f"Video/{stem}") + "_savelat")
@@ -5011,43 +4505,24 @@ def main():
             twin_extra["probe_frozen_rows"] = True
         _twins.append((f"{stem}_savelat.json", f"{label}-savelat", task, prompt, twin_extra,
                        f"{note}; saves its latents (the 2026-09-26 distill run)"))
-    for fname, label, task, prompt, extra, note in [_by_name["h3_text_to_video_pdd.json"], _pdd_tests[2]]:  # PDD8, base-Euler-32
+    for fname, label, task, prompt, extra, note in _pdd_tests:  # base-Euler-32
         stem = fname.removesuffix(".json")
         _twins.append((f"{stem}_x0.json", f"{label}-x0", task, prompt,
                        dict(extra, save_latents=True, probe_step_x0=True,
                             out_prefix=extra.get("out_prefix", f"Video/{stem}") + "_x0"),
                        f"{note}; saves every step's x0 and the final latent (one or two renders only)"))
-    # PDD8 finished by the undistilled base (open_experiments #37, 2026-09-27):
-    # whether PDD8's dim highlights are its coarse tail's, with no second
-    # distill in the finish. The reverse switches with FlashGen or FastH3
-    # finishing, on t2v and ref2va, were retired on 2026-11-04
-    # (`docs/roadmap.md`, "Closed lanes").
-    _reverse = tuple(
-        (f"h3_probe_t2v_step_switch_pdd8_base_{h}.json", f"t2v-step-switch-pdd8-base-{h}", "t2v",
-         LONG_T2V_PROMPT,
-         dict(pdd=True, sampler_name="euler", lora=(PDD_FL2VA_LORA, PDD_STRENGTH), steps=PDD_STEPS,
-              manual_sigmas=STEP_SWITCH_BASE[h][0], step_switch=True, step_switch_to="base",
-              step_switch_sigmas=STEP_SWITCH_BASE[h][1],
-              out_prefix=f"Video/h3_probe_t2v_step_switch_pdd8_base_{h}"),
-         f"step switch: PDD8 to {STEP_SWITCH_BASE[h][1].split(',')[0]}, then the base on Euler finishing")
-        for h in STEP_SWITCH_BASE)
-    for fname, label, task, prompt, extra, note in _reverse:
-        stem = fname.removesuffix(".json")
-        _twins.append((f"{stem}_savelat.json", f"{label}-savelat", task, prompt,
-                       dict(extra, save_latents=True, out_prefix=extra["out_prefix"] + "_savelat"),
-                       f"{note}; saves its latents"))
     # The daily graphs (h3_config.DAILY_GRAPHS). Derived from the probe or
     # shipped entry, so a daily graph cannot drift from the graph it was
     # promoted from; made after the twins, so it has none. The probes and their `_savelat` twins keep their names
     # and folder: arms files, the reproduction guard and dated records cite
     # them.
-    _probes = {e[0]: e for e in GRAPHS + _reverse}
+    _probes = {e[0]: e for e in GRAPHS}
     _daily = tuple(
         (f"{name}.json", name.removeprefix("h3_").replace("_", "-"), _probes[src][2], _probes[src][3],
          dict(_probes[src][4], daily=True, out_prefix=f"Video/{name}"),
          f"daily: {_probes[src][5]}")
         for name, src in DAILY_GRAPHS.items())
-    GRAPHS = GRAPHS + _pdd_tests + _reverse + tuple(_twins) + _daily
+    GRAPHS = GRAPHS + _pdd_tests + tuple(_twins) + _daily
 
     if args.list_scenes:
         for name, text in T2V_SCENES.items():

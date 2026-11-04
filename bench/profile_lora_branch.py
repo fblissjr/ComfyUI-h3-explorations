@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Where a LoRA applied at the call spends its time, one block's modules at a time.
 
-    <comfy venv python> bench/profile_lora_branch.py [--lora h3/<file>] [--tokens 32768]
+    <comfy venv python> bench/profile_lora_branch.py --lora h3/<file> [--tokens 32768]
         [--scale-to 110000] [--block 25] [--iters 10]
 
 `lora_branch.py` adds each module's delta at the call: `out += s * B (A x)`,
@@ -124,8 +124,11 @@ def profile_module(name: str, br: "lb._Branch", T: int, iters: int) -> dict:
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--lora", default="h3/minimax_h3_flashgen_4step_v1.0_768p_fl2va_pruned_rank64_comfy.safetensors",
-                    help="a file under ComfyUI's loras folder (default: FlashGen r64 for fl2va)")
+    # Required since 2026-11-04: its default was the FlashGen r64 file for
+    # fl2va, retired with that lane, and no kept graph names a LoRA for this
+    # node to default to.
+    ap.add_argument("--lora", required=True,
+                    help="a file under ComfyUI's loras folder, as `MiniMaxH3LoRABranch` names it")
     ap.add_argument("--tokens", type=int, default=32768, help="rows fed to each module")
     ap.add_argument("--scale-to", type=int, default=None,
                     help="also report each figure scaled linearly to this many rows")

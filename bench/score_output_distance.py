@@ -2,7 +2,7 @@
 """Score renders by their saved latents' distance from a reference render at the same seed.
 
     python bench/score_output_distance.py --output-root <the server's output directory> \\
-        --stem h3_probe_r2v_step_switch_pdd8_flashgen_h080_savelat \\
+        --stem <a _savelat stem> \\
         --reference dense=sweep_a --arm shipped=ship:2 --arm stock=od_market__stock \\
         --other-seed ship:1 --other-seed ship:3 --other-seed-of shipped \\
         --out data/results/<date>_<what>.json
@@ -12,7 +12,10 @@ the server that rendered its rows: this one reads the files. A render is named
 by the label `bench/run_graph_arms.py` put in its file names and the file
 counter (`label:counter`, counter 1 when omitted), on a `*_savelat` graph
 whose four `SaveLatent` prefixes end in `_video`, `_audio`, `_pass1_video` and
-`_pass1_audio`.
+`_pass1_audio`. Only the step-switch and audio-refine twins saved pass-1
+latents, and every one was retired on 2026-11-04 (the FlashGen switches with
+that lane, the PDD8 ones with PDD's primary use); the renders they made still
+score, and a new graph that saves pass-1 latents scores the same way.
 
 Per arm against the reference: relative L2 and cosine of the final video
 latent, of the same latent average-pooled over 8x8 latent pixels (what

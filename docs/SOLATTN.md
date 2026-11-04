@@ -498,7 +498,7 @@ arms run 4 evaluations, and on those `end_percent` 0.74 is exactly what
 4 arms at 8 evaluations both are live, and there `end_percent` is the larger
 intervention by compute: it takes a whole sparse step dense (50 blocks) against
 `dense_blocks`' 3 extra blocks over 4 sparse steps (12 block-steps).
-`h3_text_to_video_pdd_manual_sigmas` runs its own partition and is neither.
+`h3_text_to_video_pdd_manual_sigmas` ran its own partition and was neither (that graph was retired with PDD's primary use on 2026-11-04).
 
 ##### `end_percent`: there is a rule, and 0.74 is the conservative side of it
 

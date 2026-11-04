@@ -1,6 +1,6 @@
 # Freezing a known audio track: audio-driven video on MiniMax H3
 
-last updated: 2026-11-04 (section 8: the sglang scheduler citation repointed, the no-noise claim narrowed to base H3, the trajectory refusal reworded to sglang's current one; section 2: sglang's audio-derived duration narrowed to a request with no duration); 2026-10-08 (section 8 re-read at a newer sglang head, one sentence narrowed with a dated note); 2026-10-04 (section 4, the song node's `source`: masked video to video; `docs/wiki/masked_v2v.md` is the lane's current map); 2026-09-27 (section 5 idea 9, the TaoMate adapter, removed with that lane); 2026-09-25 (dated notes in sections 3 and 5); 2026-09-15
+last updated: 2026-11-04 (the PDD8 graphs of this lane retired: the note below); 2026-11-04 (section 8: the sglang scheduler citation repointed, the no-noise claim narrowed to base H3, the trajectory refusal reworded to sglang's current one; section 2: sglang's audio-derived duration narrowed to a request with no duration); 2026-10-08 (section 8 re-read at a newer sglang head, one sentence narrowed with a dated note); 2026-10-04 (section 4, the song node's `source`: masked video to video; `docs/wiki/masked_v2v.md` is the lane's current map); 2026-09-27 (section 5 idea 9, the TaoMate adapter, removed with that lane); 2026-09-25 (dated notes in sections 3 and 5); 2026-09-15
 
 **The owner of this lane.** Opened 2026-09-12 by the owner: drop a song of any
 length, keep it exactly, and have the picture move to it, the way the owner's
@@ -10,6 +10,18 @@ This page says what the mechanism is on H3, what already exists on this box,
 the plan in order, and every idea worth a render, each with a confidence.
 Nothing here has rendered yet; every claim is a source read, cited, until a
 dated record under `bench/results/` says otherwise.
+
+> **Dated note, 2026-11-04: the PDD8 graphs this page names are retired.**
+> The owner retired PDD from primary use that day (`roadmap.md`, "Closed
+> lanes"). `h3_candidate_t2v_pdd8_baked_audio_freeze` (and its `_gain` and
+> `_guide` twins), `h3_text_to_video_audio_freeze_song_pdd8`, `_song_ref_pdd8`
+> and `_song_lists_pdd8`, and `h3_video_to_video_masked_song_pdd8` are in git
+> at `358e6199`. The base graphs stay: `h3_text_to_video_audio_freeze`,
+> `h3_first_frame_to_video_audio_freeze`, `h3_text_to_video_audio_freeze_2windows`
+> and `h3_text_to_video_audio_freeze_song`, and the masked lane's ref2va graphs.
+> The guide rows, a reference still on the song node and prompt lists on its
+> sections are node inputs with no shipped graph now. Where the text below says
+> a PDD8 graph is the chain or the graph, read it as the record of that time.
 
 The day's postmortem and session log are under `internal/` (gitignored):
 `internal/postmortems/2026-09-12_session_audio-freeze-lane.md` and

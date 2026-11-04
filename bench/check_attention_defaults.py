@@ -126,10 +126,6 @@ DEVIATIONS = {
                              "this graph exists to run the 1-vs-N head-chunking "
                              "A/B that h3_config asks for; the deviating value "
                              "IS its subject"),
-    "h3_candidate_t2v_pdd8_sol_narrow": (("start_percent", "end_percent"),
-                                         "candidate graph (2026-09-05): Sol on two of "
-                                         "the eight PDD steps; the window IS the arm, "
-                                         "blinded as pdd_ladder_2026-09-04"),
     "h3_probe_t2v_policy": (("mode",),
                             "block-49 policy graph (2026-09-15, docs/h3_quant_policy.md "
                             "Tier 0/1), kept on the sage chain while its pair is scored: "
@@ -205,19 +201,6 @@ SOL_EXEMPT_STEMS = {
         "the same capture on the fl2va checkpoint with no LoRA, the control "
         "for whether block 49's input structure is a property of the released "
         "weights rather than of ref2va; Sol off for the same reason as its twin",
-    "h3_probe_t2v_pdd8_baked_sage":
-        "the baked arm of the merged-versus-baked PDD8 pair "
-        "(bench/pdd_bake_arms.json): the twin of h3_probe_t2v_pdd8_sage with "
-        "the checkpoint and sidecar swapped for the bake, sage on every step "
-        "and Sol absent so the pair differs in the weights alone. Its twin "
-        "with Sol as shipped is h3_candidate_t2v_pdd8_baked, not exempt",
-    "h3_probe_t2v_pdd8_sage":
-        "the sage-alone rung of the PDD ladder (bench/pdd_ladder_arms.json): "
-        "PDD8 with sage on every step and Sol absent, so that the shipped "
-        "PDD8 graph's loss to the true baseline in the 2026-09-03 ladder can "
-        "be attributed. Its twin with Sol is h3_text_to_video_pdd; its twin "
-        "with neither kernel is h3_probe_t2v_pdd8_dense, exempt by mechanism "
-        "below rather than by this list",
 }
 
 #: {graph stem: (floor, reason)} for graphs whose dense attention kernel is NOT
@@ -229,11 +212,6 @@ SOL_EXEMPT_STEMS = {
 #: that is back on the default fails. The PDD reference-replication arms are
 #: derived, not listed, by the same mechanism as their Sol exemption.
 FLOOR_STEMS = {
-    # Rungs and controls that were rendered as sage alone, so their pair holds.
-    "h3_probe_t2v_pdd8_sage":
-        ("sage", "the sage-alone rung of the PDD ladder (bench/pdd_ladder_arms.json)"),
-    "h3_probe_t2v_pdd8_baked_sage":
-        ("sage", "the baked twin of h3_probe_t2v_pdd8_sage (bench/pdd_bake_arms.json)"),
     # Graphs where the sage node is part of the mechanism.
     "h3_probe_capture_ref3":
         ("sage", "h3_capture.py records from inside the sage forward, so a "

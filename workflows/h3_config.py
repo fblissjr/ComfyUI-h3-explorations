@@ -74,19 +74,10 @@ ENCODER_INT8 = "qwen3vl_32b_minimax_h3_int8_convrot.safetensors"
 MODELS = dict(
     unet_fl2va="minimax_h3_fl2va_pruned_int8_convrot.safetensors",
     unet_ref2va="minimax_h3_ref2va_pruned_int8_convrot.safetensors",
-    # The fl2va PDD8 backbone bake, built 2026-09-05 by
-    # `bench/bake_pdd_checkpoint.py`: the shipped pruned checkpoint with its
-    # 200 int8 backbone linears replaced by quantise(W_release + PDD delta at
-    # strength 1.0), round-to-nearest, every other key copied byte for byte.
-    # The strength-zero control reproduced the shipped codes up to rounding
-    # ties (`data/results/2026-09-05_bake_identity_control.json`), so this is
-    # the shipped file with the LoRA folded in and nothing else moved. It
-    # loads ONLY with `PDD_FL2VA_STRIPPED_LORA`; the node refuses the full
-    # sidecar on it (double apply) and refuses the stripped one on the base.
-    # `docs/pdd_artifacts.md` is the inventory; `_s1` in the name is the
-    # baked strength.
-    unet_fl2va_pdd8_baked=("minimax_h3_fl2va_pruned_int8_convrot"
-                           "_pdd8_baked_s1.safetensors"),
+    # The fl2va PDD8 backbone bake (`unet_fl2va_pdd8_baked`, built 2026-09-05 by
+    # `bench/bake_pdd_checkpoint.py`) left this table on 2026-11-04 with the
+    # last graph that loaded it, when PDD was retired from primary use. The
+    # file stays on disk; `docs/pdd_artifacts.md` is the inventory.
     # One fl2va/ref2va hybrid, int8_convrot, fl2va everywhere except the adaln
     # projections: `adaln_all` is built here by `bench/build_hybrid.py` (all
     # 50 blocks plus final_layer). It exists to ask whether an fl2v distill
@@ -1146,53 +1137,24 @@ LORA_LOADER_CLASSES = ("LoraLoaderModelOnly", "MiniMaxH3TurboLoRA",
                        "MiniMaxH3PDDLoRA", "MiniMaxH3LoRABranch")
 
 PDD_FL2VA_LORA = "h3/minimax_h3_fl2va_pdd_8step_comfy.safetensors"
-# The stripped sidecar, cut 2026-09-05 against `MODELS["unet_fl2va_pdd8_baked"]`
-# with `bench/convert_pdd_lora.py --omit-backbone --baked <that file>
-# --baked-strength 1.0`: heads, adaln bake and the refiner LoRA, no backbone.
-# The two are a PAIR and the node enforces it by content (int8 codes and row
-# scales of one probe module), so a graph that names one without the other
-# fails at execute rather than rendering. Until 2026-09-05 this comment said
-# no such constant could exist because no bake did; the bake now does.
-PDD_FL2VA_STRIPPED_LORA = "h3/minimax_h3_fl2va_pdd_8step_stripped_comfy.safetensors"
+# The stripped sidecar for the baked checkpoint (`PDD_FL2VA_STRIPPED_LORA`,
+# cut 2026-09-05) went on 2026-11-04 with the graphs that loaded it; the node
+# still enforces the pair by content.
 PDD_REF2VA_LORA = "h3/minimax_h3_ref2va_pdd_8step_comfy.safetensors"
 # The step counts one converted file serves. The published grid is 32 points,
 # so any divisor is a legal arm from the same weights and each lands exactly on
 # the plain shifted schedule for its own count -- the node fuses the heads at
-# load for whichever is asked. 8 is what the file records; 4 is the other count
-# the vendor's README reports rendering at. Both, not one, because the pair IS
-# the parallel-decoding claim: one weight set, two step counts, both exact.
+# load for whichever is asked. 8 is what the file records and what the five
+# kept PDD graphs run. `PDD_STEPS_FAST` (4, the other count the vendor's README
+# reports rendering at) left with the 4-step graphs on 2026-11-04, when PDD was
+# retired from primary use (`docs/roadmap.md`, "Closed lanes").
 PDD_STEPS = 8
-PDD_STEPS_FAST = 4
 PDD_STRENGTH = 1.0
 
-#: The `[8,8,4,4,4,4]` partition of the 32-point grid, as the sigma vector a
-#: `ManualSigmas` node feeds the sampler. Six evaluations.
-#:
-#: **Why this one.** Under shift 12 the uniform 4-evaluation partition spends
-#: its LAST Euler step on 80% of the trajectory, and four evaluations cannot do
-#: better: `[8,8,8,8]` is the only partition of 32 into four blocks that starts
-#: every block on a multiple of `L_min` and keeps every width within `L_max`.
-#: This one puts the coarse blocks at the FRONT, where the trajectory is nearly
-#: flat, and keeps the final step at 63.2% -- the same tail the vendor's own
-#: 8-evaluation schedule has.
-#:
-#: **Measured, one seed, 2026-08-28.** Against the uniform 4-evaluation arm on a
-#: matched pair (same seed, canvas, prompt, LoRA, Sol, sampler; only the
-#: schedule differs) the owner called that one "jaggedy lines and scratchy
-#: audio" and this one acceptable in both. `docs/research/pdd/audio_under_pdd.md`
-#: has the arithmetic and the caveats -- and note that no partition experiment
-#: can say WHY, because every coarseness statistic ranks the arms identically
-#: whether computed in video time or through the audio transform.
-#:
-#: Written out rather than derived so the graph shows the schedule it runs.
-#: `bench/grade_pdd_partitions.py::MANUAL["tail6"]` is the same vector.
-PDD_MANUAL_SIGMAS = "1.0, 0.972973, 0.923077, 0.878049, 0.8, 0.631579, 0.0"
-
-#: Evaluations `PDD_MANUAL_SIGMAS` runs. Passed as the graph's `steps` so
-#: `_sol_for_steps` derives Sol's `end_percent` from the count the sampler
-#: actually runs -- the PDD node's own `steps` input goes to 0, since
-#: ManualSigmas replaces the schedule it would emit.
-PDD_MANUAL_EVALS = 6
+# `PDD_MANUAL_SIGMAS`, the `[8,8,4,4,4,4]` six-evaluation partition, and
+# `PDD_MANUAL_EVALS` left with the manual-sigma graph on 2026-11-04. The
+# node still emits that partition for a ManualSigmas graph built by hand;
+# `bench/grade_pdd_partitions.py::MANUAL["tail6"]` holds the vector.
 PDD_SHIFT = dict(shift_video=12.0, shift_audio=3.0)
 
 # ---- Audio-only refinement after a distilled pass ----------------------------
@@ -1278,9 +1240,10 @@ MASKED_SOURCE = dict(grow_pixels=64, grow_by="a fixed margin", feather_pixels=8,
 #: with the subject's own frames as an encoder-only video reference, ref2va
 #: carries the original's turn at 12 and 16 steps and loses it at 8 with or
 #: without its PDD bake, and fl2va never takes it at any count. 12 is the
-#: lowest count seen to carry it, one seed on that ladder; the shipped fl2va
-#: PDD8 graph stays the default for shots that need no movement from the
-#: source.
+#: lowest count seen to carry it, one seed on that ladder. The fl2va PDD8
+#: masked graph that was then the default for shots needing no movement from
+#: the source was retired on 2026-11-04; every load of the lane is built from
+#: `MASKED_JOB_BASE_GRAPH`, which runs this count on the ref2va base.
 #: **Judged 2026-10-07, the owner, one pair on one masked window and seed:
 #: twelve and sixteen steps look the same, an artifact near five seconds
 #: included** (`bench/results/2026-10-07_masked_switch_keep_prompt_verdicts.md`,
@@ -1604,33 +1567,10 @@ MASKED_JOB_CANVAS = (1024, 768)
 #: The node that applies a LoRA at the call instead of merging it (`lora_branch.py`).
 LORA_BRANCH_NODE = "MiniMaxH3LoRABranch"
 
-#: PDD8's own schedule, **measured**: `comfy.samplers.calculate_sigmas(simple,
-#: 8)` at shift 12, which `bench/check_pdd_sigmas.py` proves bit-identical to
-#: what `MiniMaxH3PDDLoRA` emits at 8 steps (2026-09-26).
-PDD8_SIGMAS = "1.0, 0.988235, 0.972973, 0.952381, 0.923077, 0.878049, 0.8, 0.631579, 0.0"
-_P8 = PDD8_SIGMAS.split(", ")
-
-#: PDD8 cut at a handoff, then the undistilled base finishes on Euler
-#: (`docs/open_experiments.md` #37). **Reasoned:** pass 2 walks the 32-point
-#: grid at shift 12, `12t / (1 + 11t)`, from the handoff down: h063 is t = 4/32
-#: (PDD8's last block boundary, 4 base evaluations over the tail PDD8 takes in
-#: one) and h080 is t = 8/32, exactly 0.8 (8 evaluations; the handoff the
-#: retired FlashGen finish used).
-def _base_tail(pass1, k):
-    pts = [f"{12 * (i / 32) / (1 + 11 * (i / 32)):.6f}" for i in range(k - 1, 0, -1)]
-    return ", ".join([pass1.split(", ")[-1], *pts, "0.0"])
-
-
-STEP_SWITCH_BASE = {
-    "h063": (", ".join(_P8[:8]), _base_tail(", ".join(_P8[:8]), 4)),
-    "h080": (", ".join(_P8[:7]), _base_tail(", ".join(_P8[:7]), 8)),
-}
-# Each handoff is the grid point its tail starts from.
-assert all(abs(float(p1.split(", ")[-1]) - 12 * t / (1 + 11 * t)) < 5e-7
-           for (p1, _), t in zip(STEP_SWITCH_BASE.values(), (4 / 32, 8 / 32)))
-# `STEP_SWITCH_PAIRS`, every step switch's sigma pair for the checks, went on
-# 2026-11-04 with the FlashGen routes: with the base finish the one route
-# left, the checks read `STEP_SWITCH_BASE` itself.
+# `PDD8_SIGMAS` and `STEP_SWITCH_BASE`, PDD8 cut at a handoff and the
+# undistilled base finishing on Euler (`docs/open_experiments.md` #37), were
+# retired on 2026-11-04 with the step-switch graphs, when PDD was retired
+# from primary use. They are in git before that commit.
 
 #: Pika H3 Flex Early Access 6-step LCM LoRAs (`docs/research/2026-11-04_pika_h3_flex_weights_and_loras.md`,
 #: `docs/research/2026-11-04_pika_h3_flex_plan.md`).
@@ -2211,14 +2151,16 @@ DAILY_GRAPHS: dict[str, str] = {
     # The three PDD8-to-FlashGen finishes (t2v, i2v, ref2va), daily from
     # 2026-10-03, were retired on 2026-11-04 with the FlashGen lane.
     # The masked lane (owner, 2026-10-05: "make sure we have a daily section
-    # for mask"): the default graph, and the ref2va motion graph for a shot
-    # that needs the original's movement (`MASKED_MOTION_STEPS`). Promoted
-    # from shipped root graphs, not probes; both stay at the root as well.
-    "h3_mask_pdd8": "h3_video_to_video_masked_song_pdd8.json",
+    # for mask"): the default graph of the day (`h3_mask_pdd8`, retired
+    # 2026-11-04, below), and the ref2va motion graph for a shot that needs
+    # the original's movement (`MASKED_MOTION_STEPS`). Promoted from shipped
+    # root graphs, not probes; each stays at the root as well.
     "h3_mask_ref2va_motion": "h3_video_to_video_masked_song_ref2va_motion.json",
-    # 2026-10-06: the part of the subject Sapiens2 finds, and the look before
-    # a render (tiles, shot table, the region and the prompt, no sampling).
-    "h3_mask_parts_pdd8": "h3_video_to_video_masked_parts_song_pdd8.json",
+    # 2026-10-06: the look before a render (tiles, shot table, the region and
+    # the prompt, no sampling), on the lane's ref2va base since 2026-11-04.
+    # The PDD8 masked render graphs (`h3_mask_pdd8`, daily from 2026-10-05,
+    # and `h3_mask_parts_pdd8`, from 2026-10-06) were retired that day with
+    # PDD's primary use.
     "h3_mask_review": "h3_video_to_video_masked_review.json",
     # 2026-10-07: the head and upper body on the ref2va motion graph, the
     # recipe the owner's playback verdicts of 2026-10-06 picked.

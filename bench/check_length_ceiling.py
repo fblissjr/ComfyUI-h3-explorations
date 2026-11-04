@@ -57,7 +57,6 @@ KEPT = {
     "bench/bench_e2e_h3.py": (1, "a statement of where the reference pipeline (diffusers) stops, not a cap here"),
     "resolution.py": (1, "the node's own tooltip, saying where the reference pipeline stops and that it is no limit on the model"),
     "bench/bench_kitchen_int8_linear.py": (1, "measured: the packed lengths it times were taken at that frame count"),
-    "bench/build_mutant_examples.py": (2, "measured: the dated renders it rebuilds were made at that frame count"),
     "bench/check_audio_freeze.py": (48, "a test's input: window arithmetic on the longest chained length, each with its expected output"),
     "bench/check_capture_masked_run.py": (1, "a test's input: a planned window's frame count in a fixture"),
     "bench/check_keyframe_canvas.py": (1, "a test's input: a frame inside a range"),

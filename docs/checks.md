@@ -237,7 +237,7 @@ Full per-check history, 2026-08-23 amendments, and `"claims block"` notes are sh
 | ~~`check_mask_store.py`~~ | RETIRED 2026-10-10 with what it... ([detail](checks/index_13.md)) | n/a | no |
 | `check_lora_branch.py` | MiniMaxH3LoRABranch... ([detail](checks/index_13.md)) | PYTHONPATH... | yes |
 | `check_checkpoint_overlay.py` | checkpoint_overlay.py ([detail](checks/index_13.md)) | synthetic half | yes |
-| `check_mutant_parity.py` | the standalone H3ExactLoRA... ([detail](checks/index_13.md)) | self-bootstrappe... | yes |
+| ~~`check_mutant_parity.py`~~ | RETIRED 2026-11-04 with the package it... ([detail](checks/index_13.md)) | n/a | no |
 | `check_prompt_lists.py` | the __name__ prompt list rules the... ([detail](checks/index_13.md)) | no CUDA | no |
 | `check_prompt_rule_controls.py` | controls for the prompt grader's... ([detail](checks/index_13.md)) | no CUDA | no |
 | `check_generator_constants.py` | the workflow generator reads... ([detail](checks/index_13.md)) | PYTHONPATH... | no |

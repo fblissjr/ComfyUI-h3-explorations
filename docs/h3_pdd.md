@@ -1,6 +1,18 @@
 # Parallel Decoding Distillation on MiniMax H3
 
-last updated: 2026-09-25 (a dated note: core's PDD PR merged 2026-08-29)
+last updated: 2026-11-04 (PDD retired from primary use: the note below); 2026-09-25 (a dated note: core's PDD PR merged 2026-08-29)
+
+> **PDD is retired from primary use, 2026-11-04** (the owner; `roadmap.md`,
+> "Closed lanes"). The node, `MiniMaxH3PDDLoRA`, stays, and so do five core
+> graphs: `h3_text_to_video_pdd`, `h3_first_frame_to_video_pdd`,
+> `h3_first_last_frame_to_video_pdd`, `h3_image_ref_plus_text_to_video_pdd`
+> and `h3_ref2v_market_pdd`, all at 8 steps. Every other PDD graph this page
+> names (the 4-step and manual-sigma arms, `h3_probe_ref2v_pdd*`, the baked
+> PDD8 graphs and their stripped sidecar) and the constants only they read
+> (`PDD_STEPS_FAST`, `PDD_MANUAL_SIGMAS`, `PDD_FL2VA_STRIPPED_LORA`,
+> `MODELS["unet_fl2va_pdd8_baked"]`) are in git at `358e6199`. The page is the
+> record of how the node was built and measured; where it says a graph or
+> constant "ships", read "shipped until 2026-11-04".
 
 **The acceleration LoRA that is not a step distillation, and the three
 mechanisms it needs that a LoRA loader does not have.**

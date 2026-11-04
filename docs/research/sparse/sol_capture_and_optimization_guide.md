@@ -24,6 +24,8 @@ flowchart TD
 
 > [!NOTE]
 > **Multi-Node Sampler Workflows**: In workflows featuring two-stage sampling (e.g., PDD 8-step Pass 1 followed by FlashGen 4-step finisher Pass 2, using `workflows/h3_text_to_video_pdd8_flashgen_finish_api.json`), each stage has its own `MiniMaxH3Sol` node. The capture instruments open log files in append mode, streaming calls from Pass 1 (steps 0–5 = 300 calls) and Pass 2 (steps 6–7 = 100 calls) seamlessly into the same run files without overwriting.
+>
+> *Dated note, 2026-11-04: that graph was retired with the FlashGen lane, and the PDD8-then-base step switches with PDD's primary use the same day (`docs/roadmap.md`, "Closed lanes"; in git at `358e6199`). No generated graph has two sampling passes now; the append behavior holds for any graph that does.*
 
 ---
 
@@ -66,7 +68,7 @@ Depending on your objective, configure the **MiniMax H3 Sparse Attention** (`Min
 
 ## 3. Reference Conditioning Configuration & Preflight Geometry
 
-If your target workflow uses reference images (Ref2VA), **always attach your reference images during capture**. For example, our standard diagnostic workload (`workflows/h3_text_to_video_pdd8_flashgen_finish_api.json`) configures:
+If your target workflow uses reference images (Ref2VA), **always attach your reference images during capture**. For example, our standard diagnostic workload (`workflows/h3_text_to_video_pdd8_flashgen_finish_api.json`) configures (*dated note, 2026-11-04: that graph is retired, in git at `358e6199`; the nearest kept workload with one reference still is `workflows/h3_ref2v_market_pdd_api.json`, PDD8 on ref2va, which the measurement tools read*):
 
 - **Reference Input**: 1 image at $2752 \times 1536$ resolution.
 - **Append Node (`MiniMaxH3AppendRefImage`)**: `size_policy="max"`, `short_edge=2048`, `allow_upscale=True`, `qwen_view="shared"`.

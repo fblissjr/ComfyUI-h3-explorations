@@ -29,10 +29,10 @@ PDD8's own sigmas pinned in a `ManualSigmas` node read as two recipes though
 they sample the same points. A group that matches on recipe but whose graph was built
 for another scene (the market-scene reference graphs, for one) is a match here;
 the prompt and images are not part of the recipe. A clip with no readable
-sidecar is counted and skipped, never guessed at. The H3ExactLoRA graphs of
-`standalone/h3_mutant_distill` are not in `graph_paths` (they are UI files), so
-the mutant repo's own renders match through the pack graph they were parity
-checked against (`bench/check_mutant_parity.py`), by recipe, not by node class.
+sidecar is counted and skipped, never guessed at. Clips rendered by the
+h3-mutant-distill release's `H3ExactLoRA` node match through the pack graph they
+were parity checked against, by recipe, not by node class (that package and its
+parity check left this tree on 2026-11-04; the release itself is untouched).
 
 Reads PNG sidecars only. No GPU, no server.
 """
@@ -67,8 +67,9 @@ LORA_CLASSES = {"MiniMaxH3PDDLoRA": "strength", "MiniMaxH3LoRABranch": "strength
 #: value that leaves them inert. A LoRA whose input differs carries `name=value`
 #: in its recipe. Provenance: the defaults in `pdd_lora.py` and `lora_branch.py`
 #: `define_schema`, inherited. `H3ExactLoRA` takes none of them and computes
-#: what `MiniMaxH3PDDLoRA` computes at these defaults (`check_mutant_parity.py`),
-#: so the two reduce alike. The PDD node's `steps` is not here: it decides the
+#: what `MiniMaxH3PDDLoRA` computes at these defaults (the parity check that
+#: showed it, `check_mutant_parity.py`, is in git), so the two reduce alike.
+#: The PDD node's `steps` is not here: it decides the
 #: schedule only through the node's SIGMAS output, so it lands in `sigmas`.
 LORA_KNOBS = {
     "MiniMaxH3PDDLoRA": {"patch_heads": True, "nfe": 0, "head_strength": -1.0, "unmerged_blocks": "",

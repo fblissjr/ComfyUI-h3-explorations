@@ -31,8 +31,13 @@ Claims, i.e. what breaks if a case is deleted:
                         sampler and strength; FastH3's 10/3, template and
                         contract sampling and VSA; the step switches through
                         either) is in git
-  refine undistilled    an audio refine pass reaches its UNETLoader through
-                        no LoRA loader
+  PDD kept to five      a graph loading a PDD LoRA whose stem is not in
+                        `PDD_KEPT` fails: PDD was retired from primary use on
+                        2026-11-04 and five core graphs kept. A new PDD graph
+                        is added to that tuple on the owner's word. The
+                        PDD8-then-base step switch grading, and the case that
+                        an audio refine pass runs undistilled (its one graph,
+                        PDD8 then the refine, went the same day), are in git
 
 No CUDA, no model, no ComfyUI import. Reads API-form JSON (`*_api.json`,
 {node_id: {class_type, inputs}}) and a config module.
@@ -110,6 +115,14 @@ BASE_SHIFT = (12.0, 3.0)
 # in a log nobody reads. Grading it against our own constant would be the
 # check deriving its expectation from the thing it is checking.
 _PDD_NAME = re.compile(r"_pdd_(\d+)step_", re.IGNORECASE)
+
+# The PDD graphs kept when PDD was retired from primary use (the owner,
+# 2026-11-04): t2v, first frame, first and last frame, image references, and
+# the ref2va market scene the measurement tools read. A stem, without
+# `_api.json`.
+PDD_KEPT = ("h3_text_to_video_pdd", "h3_first_frame_to_video_pdd",
+            "h3_first_last_frame_to_video_pdd", "h3_image_ref_plus_text_to_video_pdd",
+            "h3_ref2v_market_pdd")
 
 
 def _manual_knots(doc, grid):
@@ -359,19 +372,6 @@ def main():
             assert not retired, (
                 f"{path.name}: loads {retired}. FlashGen and FastH3 are a retired "
                 f"lane (docs/roadmap.md, 'Closed lanes', 2026-11-04)")
-            switched = any(isinstance(n, dict) and n.get("class_type") == "DisableNoise"
-                           for n in doc.values())
-            if switched and set(found.loras) == {cfg.PDD_FL2VA_LORA}:
-                # PDD8 then the undistilled base (step_switch_to="base",
-                # open_experiments #37): one LoRA, on pass 1 only. Without this
-                # it fell to the PDD rule below and failed as a truncated
-                # trajectory. Its pair must be one STEP_SWITCH_BASE declares.
-                manual = sorted(n["inputs"]["sigmas"] for n in doc.values()
-                                if isinstance(n, dict) and n.get("class_type") == "ManualSigmas")
-                assert manual in [sorted(p) for p in cfg.STEP_SWITCH_BASE.values()], (
-                    f"{path.name}: a PDD8-then-base switch must sample one of "
-                    f"h3_config.STEP_SWITCH_BASE, has {manual}")
-                continue
             pika = [l for l in found.loras if classify_pika(l)]
             if pika:
                 nodes = [n for n in doc.values() if isinstance(n, dict)]
@@ -418,6 +418,10 @@ def main():
                     f"{path.name}: Pika H3 Flex strength {got}, want {cfg.PIKA_STRENGTH}")
                 continue
             pdd = [l for l in found.loras if classify_pdd(l)]
+            assert not pdd or path.name.removesuffix("_api.json") in PDD_KEPT, (
+                f"{path.name}: loads {pdd}. PDD was retired from primary use on "
+                f"2026-11-04 with five graphs kept (PDD_KEPT); a new one is added "
+                f"there on the owner's word (docs/roadmap.md, 'Closed lanes')")
 
             if not pdd:
                 # A base graph is still policed: it must sit at the base
@@ -529,40 +533,10 @@ def main():
             "nothing, and grading an empty set is not a pass")
         assert base_graphs, (
             "no shipped base API graph was examined; the base arm is unpoliced")
+        missing = sorted(set(PDD_KEPT) - {n.removesuffix("_api.json") for n in distilled_graphs})
+        assert not missing, f"kept PDD graphs not found or not graded: {missing}"
 
     check("every shipped graph sits at the right shift and steps", graphs_are_consistent)
-
-    def refine_passes_run_undistilled():
-        """An audio-only refine pass exists to run UNDISTILLED steps: its model
-        must reach the UNETLoader with no LoRA loader on the way."""
-        import h3_config as cfg
-        seen = 0
-        for path in graph_paths(WORKFLOWS, "*_api.json", include_bench=True):
-            doc = json.loads(path.read_text(encoding="utf-8"))
-            for n in doc.values():
-                if not (isinstance(n, dict) and n.get("class_type") == "SamplerCustomAdvanced"):
-                    continue
-                lat = n["inputs"].get("latent_image")
-                if not (isinstance(lat, list) and doc.get(str(lat[0]), {}).get("class_type")
-                        == cfg.AUDIO_REFINE_MASK_NODE):
-                    continue
-                seen += 1
-                guider = doc[str(n["inputs"]["guider"][0])]
-                ref = guider["inputs"]["model"]
-                chain = []
-                while isinstance(ref, list):
-                    node = doc[str(ref[0])]
-                    chain.append(node["class_type"])
-                    ref = node["inputs"].get("model")
-                assert chain and chain[-1] == "UNETLoader", (
-                    f"{path.name}: the refine pass's model chain {chain} does not end at a UNETLoader")
-                bad = [c for c in chain if c in LORA_LOADER_CLASSES]
-                assert not bad, (
-                    f"{path.name}: the refine pass runs through {bad}, so its "
-                    f"steps are distilled -- the pass exists to be undistilled")
-        assert seen, "no refine pass found; the graphs that carry one would go ungraded"
-
-    check("an audio refine pass runs undistilled", refine_passes_run_undistilled)
 
     if failures:
         print(f"\n{len(failures)} failure(s)")

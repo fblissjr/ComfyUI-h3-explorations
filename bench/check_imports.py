@@ -29,7 +29,6 @@ COMFY_MODULES: frozenset[str] = frozenset({
     "comfy_extras",
     "comfy_kitchen",
     "folder_paths",
-    "h3_mutant_distill",
     "h3x",
     "latent_preview",
     "node_helpers",

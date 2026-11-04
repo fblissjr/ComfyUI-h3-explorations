@@ -365,29 +365,9 @@ def main() -> int:
             # An `nfe` override wins when set, because it makes the node
             # ignore the schedule and fuse uniform blocks at that count.
             nfe = found.pdd_nfe or found.steps
-            _manual = [n["inputs"]["sigmas"] for n in doc.values()
-                       if isinstance(n, dict) and n.get("class_type") == "ManualSigmas"]
-            _pass1 = {p1 for p1, _ in h3_config.STEP_SWITCH_BASE.values()}
-            if (any(isinstance(n, dict) and n.get("class_type") == "DisableNoise" for n in doc.values())
-                    and any(m in _pass1 for m in _manual)):
-                # The reverse switch: PDD runs FIRST, on PDD8's own schedule cut
-                # at a knot (h3_config.STEP_SWITCH_BASE: the base finishes; the
-                # FlashGen and FastH3 finishes, STEP_SWITCH_REV and
-                # STEP_SWITCH_FASTH3, were retired on 2026-11-04). Every point
-                # it samples must be one of PDD8's knots, 0, 4, 8, ...
-                # Recognised by its structure (a DisableNoise second pass and a
-                # declared pass-1 schedule) since
-                # 2026-09-27, when the t2v switch shipped under a user-facing
-                # name; the filename prefix this keyed on missed it, the
-                # name-keyed failure the 2026-09-26 postmortem's item 4.2 names.
-                # The exact pair is graded by check_distill_settings.py.
-                import pdd_math as _pm
-                pts = [float(x) for x in next(m for m in _manual if m in _pass1).split(",")]
-                knots = _pm.schedule_knots(pts, 12.0, 32)
-                if knots != list(range(0, 4 * len(knots), 4)):
-                    bad.append(f"{rel}: the reverse switch's PDD pass lands on {knots}, "
-                               "not PDD8's own knots")
-                continue
+            # The reverse switch's grading (PDD8 first, cut at one of its own
+            # knots, then the base) was retired with its graphs on 2026-11-04,
+            # when PDD was retired from primary use; it is in git.
             grid = pdd_grid(names[0])
             if grid is None:
                 bad.append(f"{rel}: could not read `pdd_num_steps` from "

@@ -1,6 +1,6 @@
 # What can be made here: a library of uses
 
-last updated: 2026-11-04 (the FlashGen and FastH3 rows and graphs retired: the daily PDD8-to-FlashGen graphs give way to the PDD graphs); 2026-10-11 (a row for eyelids from marks on the body mesh, and dated notes on the body-mesh rows); 2026-10-10 (the body-mesh row: this pack's own nodes); 2026-10-05 (first written; what each unshipped use needs, added the same day)
+last updated: 2026-11-04 (the FlashGen and FastH3 rows and graphs retired: the daily PDD8-to-FlashGen graphs give way to the PDD graphs; then PDD retired from primary use, its song, masked, guide-row and refine graphs with it, five core PDD graphs kept); 2026-10-11 (a row for eyelids from marks on the body mesh, and dated notes on the body-mesh rows); 2026-10-10 (the body-mesh row: this pack's own nodes); 2026-10-05 (first written; what each unshipped use needs, added the same day)
 
 Written by hand, at the owner's ask (2026-10-05: "a library of potential
 uses given what we have done here and can do here holistically with
@@ -76,10 +76,10 @@ Not a trained task.
 |---|---|---|---|---|
 | A video that follows a given song or speech, the audio kept exactly | the per-stream mask, audio frozen | `MiniMaxH3FreezeAudio`; `h3_text_to_video_audio_freeze` | shipped | `../h3_audio_freeze.md` sections 2 and 4; `bench/results/2026-09-12_audio_freeze_step2_verdict.json` |
 | The same, starting on a given still | a first frame plus the frozen audio | `h3_first_frame_to_video_audio_freeze` | shipped | `../h3_audio_freeze.md` section 4 |
-| The same, with the track also shown to the model as guide rows | core's guide rows plus the freeze | `h3_candidate_t2v_pdd8_baked_audio_freeze_guide` | shipped | `../h3_audio_freeze.md` section 5 |
-| A whole song as one video, in joined windows | the freeze per window, with the end of each window's video frozen as the start of the next | `MiniMaxH3AudioFreezeSong`; `h3_text_to_video_audio_freeze_song_pdd8` | shipped | `../h3_audio_freeze.md` section 4; `audio_freeze_song.py` |
-| A whole song with one subject held by a still | reference stills given with every window's prompt | the song node's `references`; `h3_text_to_video_audio_freeze_song_ref_pdd8` | shipped | `../h3_audio_freeze.md` section 4 |
-| A different place or action per section of the song | none; the prompt is filled from lists, and the song node takes a timeline of sections | `MiniMaxH3PromptList`; `h3_text_to_video_audio_freeze_song_lists_pdd8` | shipped | `prompt_lists.py`; `../h3_audio_freeze.md` section 4 |
+| The same, with the track also shown to the model as guide rows | core's guide rows plus the freeze | the freeze node's guide rows; its PDD8 graph was retired on 2026-11-04 (`../roadmap.md`, "Closed lanes"; in git at `358e6199`) | built | `../h3_audio_freeze.md` section 5 |
+| A whole song as one video, in joined windows | the freeze per window, with the end of each window's video frozen as the start of the next | `MiniMaxH3AudioFreezeSong`; `h3_text_to_video_audio_freeze_song` (the PDD8 whole-song graph was retired on 2026-11-04) | shipped | `../h3_audio_freeze.md` section 4; `audio_freeze_song.py` |
+| A whole song with one subject held by a still | reference stills given with every window's prompt | the song node's `references`; its PDD8 graph was retired on 2026-11-04 (`../roadmap.md`, "Closed lanes"; in git at `358e6199`) | built | `../h3_audio_freeze.md` section 4 |
+| A different place or action per section of the song | none; the prompt is filled from lists, and the song node takes a timeline of sections | `MiniMaxH3PromptList`; its PDD8 graph was retired on 2026-11-04 (`../roadmap.md`, "Closed lanes"; in git at `358e6199`) | built | `prompt_lists.py`; `../h3_audio_freeze.md` section 4 |
 | Prompt variations from lists on any graph | none | `MiniMaxH3FillPromptLists` | built | `prompt_lists.py` |
 
 ## 4. Changing part of a video that exists
@@ -93,7 +93,7 @@ below with what would accept or reject it.
 
 | use | what H3 does for it | nodes and graph today | state | evidence |
 |---|---|---|---|---|
-| Replace one person with the person in a still, everything else kept | the per-token mask plus a reference still | `MiniMaxH3SubjectTrack`, `MiniMaxH3MaskedSource`, the song node; `h3_video_to_video_masked_song_pdd8` | shipped | [`masked_v2v.md`](masked_v2v.md); `bench/results/2026-10-04_masked_v2v_band.md` |
+| Replace one person with the person in a still, everything else kept | the per-token mask plus a reference still | `MiniMaxH3SubjectTrack`, `MiniMaxH3MaskedSource`, the song node; `h3_video_to_video_masked_song_ref2va_motion` and `h3_video_to_video_masked_upper_song_ref2va_motion` (the lane's loads start from the second, `h3_config.MASKED_JOB_BASE_GRAPH`; the PDD8 masked graph was retired on 2026-11-04) | shipped | [`masked_v2v.md`](masked_v2v.md); `bench/results/2026-10-04_masked_v2v_band.md` |
 | A matte of one person through a clip with cuts, for use anywhere | none; SAM 3 from core | `MiniMaxH3SubjectTrack` alone: a mask, a labelled preview and a report | built | `bench/results/2026-10-04_subject_track_three_clips.md` |
 | Replace only the head and hair, the body kept | the same mask, cut to a part | `replace` on the Masked Source | built; oversized head on a long-haired original | `../h3_audio_freeze.md` section 4 |
 | Give the model the original's movement without naming it | the source, with everything but the subject greyed, as `<Video N>` | `motion_reference` on the Masked Source | built; first renders pending | `docs/research/masking/2026-10-05_mryellow.md` (no longer in the tree since 2026-10-11) |
@@ -118,7 +118,7 @@ below with what would accept or reject it.
 
 | use | what H3 does for it | nodes and graph today | state | evidence |
 |---|---|---|---|---|
-| Make the sound again and keep the picture exactly | the per-stream mask the other way: video frozen, audio reopened | `MiniMaxH3AudioRefineMask`, `MiniMaxH3FrozenVideoCache`; `distill_experiments/h3_probe_t2v_pdd8_audio_refine` | probe; refines a latent sampled in the same graph | `bench/results/2026-09-25_distill_audio_s1.md` |
+| Make the sound again and keep the picture exactly | the per-stream mask the other way: video frozen, audio reopened | `MiniMaxH3AudioRefineMask`, `MiniMaxH3FrozenVideoCache`; the refine probe ran after PDD8 and was retired on 2026-11-04 (in git at `358e6199`) | built; refined a latent sampled in the same graph | `bench/results/2026-09-25_distill_audio_s1.md` |
 | Decode a saved latent again without sampling | none | core's nodes; `distill_experiments/h3_decode_saved_latent` | probe | `bench/results/2026-09-26_vae_decoders_345f.md` |
 
 ## 6. Combinations the pieces allow
@@ -142,8 +142,8 @@ These are not uses; they change what a use costs and how it looks.
 
 | option | what it is | where |
 |---|---|---|
-| PDD8, and its faster rungs | a few-step distill for the keyframe and reference checkpoints | `MiniMaxH3PDDLoRA`; `../h3_pdd.md` |
-| The PDD8 baked checkpoint | the distill built into the weights; the song and masked lanes run on it | `workflows/h3_config.py::MODELS`; `../h3_distills.md` |
+| PDD8 | a few-step distill for the keyframe and reference checkpoints, retired from primary use on 2026-11-04 with five core graphs kept (its faster rungs went) | `MiniMaxH3PDDLoRA`; `../h3_pdd.md`; `../roadmap.md`, "Closed lanes" |
+| The PDD8 baked checkpoint | the distill built into the weights; no graph loads it since 2026-11-04, when its song, masked and candidate graphs were retired (the masked lane runs on the ref2va base) | `../pdd_artifacts.md`; `../roadmap.md`, "Closed lanes" |
 | FlashGen, PDD8 finished by FlashGen, and FastH3 | retired 2026-11-04 with every fast distill; Pika H3 Flex, under test since its showcase graphs landed the same day, is the one exception | `../roadmap.md`, "Closed lanes" |
 | Sol-Attn | sparse attention, on in the shipped video graphs | `MiniMaxH3Sol`; `../SOLATTN.md` |
 

@@ -344,7 +344,8 @@ def resolve_emit_steps(steps, file_nfe: int, num_steps: int,
 
     **This refused every non-divisor until 2026-08-29**, including 6, which
     the owner had been supplying by hand through `ManualSigmas` all along --
-    `h3_config.PDD_MANUAL_SIGMAS` is the very partition this now emits. The
+    `h3_config.PDD_MANUAL_SIGMAS` (retired with its graph on 2026-11-04) was
+    the very partition this now emits. The
     refusal was right that a uniform 6 does not exist and wrong that nothing
     did.
     """

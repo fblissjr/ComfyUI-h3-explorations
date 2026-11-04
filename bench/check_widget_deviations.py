@@ -136,44 +136,41 @@ IDENTITY = {
 #: trusted, and it caught its author four times in one sitting.
 DECLARED: dict[tuple[str, str], tuple] = {
     ("MiniMaxH3MaskedSource", "replace"):
-        ("ARM", "'the wired parts' on the parts graphs "
-                "(`h3_video_to_video_masked_parts_song_pdd8` and its daily "
-                "copy), against the node default 'whole subject': the region "
-                "is the mask MiniMaxH3SubjectParts makes from Sapiens2's "
-                "labels, which is what those graphs exist to wire. Every "
-                "other masked graph is at the default. Also on "
+        ("ARM", "'the wired parts' on "
                 "`h3_video_to_video_masked_upper_song_ref2va_motion` and its "
-                "daily copy (2026-10-07), whose region rendered on 2026-10-06 "
-                "(bench/results/2026-10-06_masked_v2v_body_window_arms.md); "
-                "the fast parts graph has not rendered as generated."),
+                "daily copy (2026-10-07), against the node default 'whole "
+                "subject': the region is the mask MiniMaxH3SubjectParts makes "
+                "from Sapiens2's labels, and it rendered on 2026-10-06 "
+                "(bench/results/2026-10-06_masked_v2v_body_window_arms.md). "
+                "Every other masked graph is at the default. The PDD8 parts "
+                "graph that also carried it was retired on 2026-11-04."),
     ("MiniMaxH3SubjectParts", "upper_clothing"):
         ("ARM", "True on `h3_video_to_video_masked_upper_song_ref2va_motion` "
                 "and its daily copy, against the node default False: the "
                 "region is the head and upper body, the one the owner called "
                 "solid on playback "
                 "(bench/results/2026-10-06_masked_v2v_body_window_arms.md). "
-                "`h3_config.MASKED_UPPER_PARTS` says so. The fast parts graph "
-                "is at the default."),
+                "`h3_config.MASKED_UPPER_PARTS` says so."),
     ("MiniMaxH3SubjectParts", "hands"):
         ("ARM", "True on the same graph and for the same reason as "
                 "upper_clothing above: the hands go with the upper body, "
                 "`h3_config.MASKED_UPPER_PARTS`."),
     ("MiniMaxH3MaskedPrompt", "picture_gives"):
-        ("ARM", "'the head and hair' on the parts graphs, against the node "
-                "default, which reads it off the Masked Source: `the wired "
-                "parts` can be any part, so the node refuses to guess and "
-                "the graph says what its default ticks (hair, face and neck) "
-                "make the still provide. 'the head and upper body' on "
-                "`h3_video_to_video_masked_upper_song_ref2va_motion`, whose "
-                "part node also ticks upper clothing and hands "
-                "(`h3_config.MASKED_UPPER_PROMPT`)."),
+        ("ARM", "'the head and upper body' on "
+                "`h3_video_to_video_masked_upper_song_ref2va_motion`, against "
+                "the node default, which reads it off the Masked Source: `the "
+                "wired parts` can be any part, so the node refuses to guess "
+                "and the graph says what its part node ticks (hair, face and "
+                "neck, upper clothing and hands) make the still provide "
+                "(`h3_config.MASKED_UPPER_PROMPT`). The PDD8 parts graph's "
+                "'the head and hair' was retired with it on 2026-11-04."),
     ("MiniMaxH3AudioFreezeSong", "preview"):
         ("ARM", "True on the review graphs "
                 "(`h3_video_to_video_masked_review` and its daily copy), "
                 "against the node default False: the graph is the look "
                 "before a render, so the song node plans and stops, nothing "
                 "samples and no model loads. Every graph that renders is at "
-                "the default."),
+                "the default. On the lane's ref2va base since 2026-11-04."),
     ("MiniMaxH3MaskedSource", "motion_reference"):
         ("ARM", "'subject only' on the ref2va motion graphs "
                 "(`h3_video_to_video_masked_song_ref2va_motion` and its daily "
@@ -212,40 +209,9 @@ DECLARED: dict[tuple[str, str], tuple] = {
         ("ARM", "'first_seconds' on the shipped song graph, a quick look at "
                 "the seams; the node default 'whole' plans every window to the "
                 "end of the track. Generator knob `freeze_song_seconds`."),
-    ("MiniMaxH3AudioFreezeSong", "timeline"):
-        ("ARM", "the section starts of `just-a-flicker.mp3` on the prompt-list "
-                "example graph, against the node's empty default (no timeline, "
-                "the whole track one part): a timeline belongs to one track. "
-                "Generator knob `freeze_song_timeline`, constant "
-                "`build_workflows._SONG_FLICKER_TIMELINE`."),
-    ("MiniMaxH3AudioFreezeSong", "audio_mask"):
-        ("ARM", "0.25 on the PDD8 song graphs, the loose mask, which read "
-                "slightly better than frozen on the dancer at two seeds "
-                "(bench/results/2026-09-12_audio_freeze_step2_verdict.json); "
-                "the node default 0.0 is the frozen mask. Generator knob "
-                "`freeze_mask`."),
-    ("MiniMaxH3PromptList", "source.values"):
-        ("ARM", "the typed values of the prompt-list example graph, against the "
-                "node's empty default: a list node ships with no values of its "
-                "own. Generator knob `freeze_song_lists`, constant "
-                "`build_workflows._SONG_FLICKER_LISTS`."),
-    ("MiniMaxH3PromptList", "name"):
-        ("ARM", "the placeholders the example graph's prompt uses, `place` and "
-                "`motion`, against the node's illustrative default 'subject'. "
-                "Constant `build_workflows._SONG_FLICKER_LISTS`."),
-    ("MiniMaxH3PromptList", "order"):
-        ("ARM", "'in_order' on the example graph's `motion` list beside a "
-                "shuffled `place` list, so the one shipped example shows both "
-                "orders; the node default 'shuffled' is the owner's no-repeat "
-                "rule. Constant `build_workflows._SONG_FLICKER_LISTS`."),
     ("BasicScheduler", "steps"):
         ("ARM", "the arm's evaluation count; graded against the LoRA it loads "
                 "by bench/check_distill_settings.py"),
-    ("BasicScheduler", "denoise"):
-        ("ARM", "0.5 on the audio-only refine pass of the audio_refine probes "
-                "only: its steps run at the tail of a steps/denoise schedule. "
-                "Inherited from ComfyUI-H3-AudioRefine's node default; "
-                "h3_config.AUDIO_REFINE. Every graph's own pass keeps 1.0."),
     ("MiniMaxH3Resolution", "length"):
         ("ARM", "the arm's frame count; h3_config.LENGTH / LONG_LENGTH"),
     ("MiniMaxH3Resolution", "shape"):
@@ -277,27 +243,12 @@ DECLARED: dict[tuple[str, str], tuple] = {
                 "video-bearing reference arms through h3_config.REF_VIDEO_BUDGET, "
                 "which keep a long reference video inside 24 GB. The node "
                 "default is True since 2026-09-13 (vendor parity)."),
-    ("MiniMaxH3Sol", "end_percent"):
-        ("ARM", "0.6 on the narrow-window PDD8 candidate (2026-09-05); 1.0, "
-                "the node default, everywhere else since 2026-09-11. Declared "
-                "per graph in bench/check_attention_defaults.py::DEVIATIONS, "
-                "which grades the deviation as real"),
-    ("MiniMaxH3Sol", "start_percent"):
-        ("ARM", "0.0 on the just-Sol candidate (Sol from the first step) and "
-                "0.3 on the narrow-window PDD8 candidate, both 2026-09-05; the "
-                "recipe's 0.2 elsewhere. Declared per graph in "
-                "bench/check_attention_defaults.py::DEVIATIONS, which grades "
-                "the deviation as real"),
     ("ManualSigmas", "sigmas"):
-        ("RESOLVED", "h3_config.PDD_MANUAL_SIGMAS, the six-block tail-weighted "
-                     "partition; its 6dp rounding is load-bearing and "
-                     "bench/check_pdd_sigmas.py asserts the derivation"),
-    ("MiniMaxH3PDDLoRA", "patch_heads"):
-        ("ARM", "False on the headfree control arm, which is the whole point "
-                "of that graph"),
-    ("MiniMaxH3PDDLoRA", "steps"):
-        ("ARM", "0 on the manual_sigmas graph, where ManualSigmas supplies the "
-                "schedule and the node must not emit its own"),
+        ("RESOLVED", "h3_config.PIKA_MANUAL_SIGMAS on the Pika H3 Flex graphs, its "
+                     "six shift-12 sigmas; bench/check_distill_settings.py's Pika "
+                     "block asserts the graph carries exactly that vector. Until "
+                     "2026-11-04 the row named h3_config.PDD_MANUAL_SIGMAS, whose "
+                     "manual-sigma PDD graph was retired with PDD's primary use"),
     ("MiniMaxH3Conditioning", "canvas"):
         ("ARM", "'explicit' where the arm pins width/height rather than taking "
                 "the resolution node's shape"),
@@ -357,10 +308,6 @@ DECLARED: dict[tuple[str, str], tuple] = {
     # in 0.154.0; that row (`blocks` '34-49' on the FlashGen late-blocks
     # graphs) went with the FlashGen lane on 2026-11-04, when the last graph
     # carrying the branch node was retired.
-    ("MiniMaxH3PDDLoRA", "backbone_apply"):
-        ("ARM", "'merge' on h3_probe_t2v_pdd8_merge alone, the control for the "
-                "0.154.0 default 'exact branch': PDD's backbone merged into the int8 "
-                "weight as every PDD graph did before. Only this input differs."),
     ("EasyCache", "verbose"):
         ("HOUSE", "h3_config.CACHE_NODE['verbose'] -- the cache logs what it "
                   "skipped, which is the only way to see it worked", True),

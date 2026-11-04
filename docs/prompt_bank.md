@@ -40,8 +40,8 @@
 | [`t2va_clinic_corridor`](#t2va-clinic-corridor) | t2va | 345 | 14.375 | yes | 0 | — | 205 | 3 | 2 | English | Truck Right | N/A | clean |
 | [`t2va_cooking_show_meltdown`](#t2va-cooking-show-meltdown) | t2va | 345 | 14.375 | pinned | 0 | — | 299 | 3 | 1 | English | Zoom In, Push In, Static Shot | scored | clean |
 | [`t2va_courtroom_verdict`](#t2va-courtroom-verdict) | t2va | 345 | 14.375 | pinned | 0 | — | 294 | 3 | 2 | English | Push In, Truck Right, Static Shot | scored | clean |
-| [`t2va_covered_market`](#t2va-covered-market) | t2va | 345 | 14.375 | yes | 47 | — | 249 | 3 | 2 | English | Truck Left, Static Shot | N/A | clean |
-| [`t2va_crowd_churn_long`](#t2va-crowd-churn-long) | t2va | 345 | 14.375 | yes | 1 | — | 373 | 1 | 0 | — | Shake Strongly | N/A | clean |
+| [`t2va_covered_market`](#t2va-covered-market) | t2va | 345 | 14.375 | yes | 22 | — | 249 | 3 | 2 | English | Truck Left, Static Shot | N/A | clean |
+| [`t2va_crowd_churn_long`](#t2va-crowd-churn-long) | t2va | 345 | 14.375 | yes | 0 | — | 373 | 1 | 0 | — | Shake Strongly | N/A | clean |
 | [`t2va_cyber_hacker_den`](#t2va-cyber-hacker-den) | t2va | 345 | 14.375 | pinned | 0 | — | 306 | 3 | 1 | English | Push In, Truck Right, Static Shot | scored | clean |
 | [`t2va_cyberpunk_music_video`](#t2va-cyberpunk-music-video) | t2va | 345 | 14.375 | pinned | 0 | — | 257 | 3 | 1 | English | Push In, Arc Shot, Tracking Shot | scored | clean |
 | [`t2va_delta_blues_porch`](#t2va-delta-blues-porch) | t2va | 345 | 14.375 | pinned | 0 | — | 321 | 3 | 1 | English | Push In, Pull Out, Tilt Down, Static Shot | N/A | clean |
@@ -54,8 +54,8 @@
 | [`t2va_french_new_wave_cafe`](#t2va-french-new-wave-cafe) | t2va | 345 | 14.375 | pinned | 0 | — | 308 | 3 | 2 | French | Pull Out, Pan Left, Static Shot | scored | clean |
 | [`t2va_frontier_standoff`](#t2va-frontier-standoff) | t2va | 345 | 14.375 | pinned | 2 | — | 315 | 3 | 2 | English | Zoom In, Tilt Down, Pedestal Down, Static Shot | scored | clean |
 | [`t2va_gladiator_arena_tunnel`](#t2va-gladiator-arena-tunnel) | t2va | 345 | 14.375 | pinned | 0 | — | 312 | 3 | 2 | Latin | Push In, Pedestal Down, Static Shot | scored | clean |
-| [`t2va_hardware_aisle_long`](#t2va-hardware-aisle-long) | t2va | 345 | 14.375 | yes | 1 | — | 452 | 3 | 2 | English | Push In, Truck Left, Static Shot | N/A | clean |
-| [`t2va_hardware_aisle_short`](#t2va-hardware-aisle-short) | t2va | 345 | 14.375 | yes | 1 | — | 257 | 3 | 2 | English | Push In, Truck Left, Static Shot | N/A | clean |
+| [`t2va_hardware_aisle_long`](#t2va-hardware-aisle-long) | t2va | 345 | 14.375 | yes | 0 | — | 452 | 3 | 2 | English | Push In, Truck Left, Static Shot | N/A | clean |
+| [`t2va_hardware_aisle_short`](#t2va-hardware-aisle-short) | t2va | 345 | 14.375 | yes | 0 | — | 257 | 3 | 2 | English | Push In, Truck Left, Static Shot | N/A | clean |
 | [`t2va_hiphop_rooftop_cypher`](#t2va-hiphop-rooftop-cypher) | t2va | 345 | 14.375 | pinned | 0 | — | 298 | 3 | 1 | English | Zoom In, Pull Out, Tracking Shot, Static Shot | N/A | clean |
 | [`t2va_hospital_fire_escape`](#t2va-hospital-fire-escape) | t2va | 345 | 14.375 | yes | 0 | — | 199 | 3 | 2 | English | Push In, Shake Slightly | N/A | clean |
 | [`t2va_kpop_dance_studio`](#t2va-kpop-dance-studio) | t2va | 345 | 14.375 | pinned | 0 | — | 289 | 3 | 1 | English, Korean | Push In, Pull Out, Pan Right, Static Shot | scored | clean |
@@ -87,7 +87,7 @@
 | [`t2va_police_interrogation`](#t2va-police-interrogation) | t2va | 345 | 14.375 | pinned | 0 | — | 298 | 3 | 2 | English | Push In, Pull Out, Truck Left, Static Shot | scored | clean |
 | [`t2va_precinct_archive_vault`](#t2va-precinct-archive-vault) | t2va | 345 | 14.375 | yes | 0 | — | 208 | 3 | 2 | English | Push In, Static Shot | N/A | clean |
 | [`t2va_punk_basement_gig`](#t2va-punk-basement-gig) | t2va | 345 | 14.375 | pinned | 0 | — | 278 | 3 | 1 | English | Push In, Tilt Up, Static Shot, Shake Slightly | N/A | clean |
-| [`t2va_rail_dolly_long`](#t2va-rail-dolly-long) | t2va | 345 | 14.375 | yes | 1 | — | 478 | 1 | 0 | — | Truck Right | N/A | clean |
+| [`t2va_rail_dolly_long`](#t2va-rail-dolly-long) | t2va | 345 | 14.375 | yes | 0 | — | 478 | 1 | 0 | — | Truck Right | N/A | clean |
 | [`t2va_rehearsal_room`](#t2va-rehearsal-room) | t2va | 345 | 14.375 | yes | 0 | — | 199 | 3 | 2 | English | Push In | N/A | clean |
 | [`t2va_restaurant_kitchen`](#t2va-restaurant-kitchen) | t2va | 345 | 14.375 | yes | 0 | — | 351 | 4 | 2 | English | Push In | N/A | clean |
 | [`t2va_rooftop_boiler_room`](#t2va-rooftop-boiler-room) | t2va | 345 | 14.375 | yes | 0 | — | 178 | 3 | 2 | English | Truck Right, Static Shot | N/A | clean |
@@ -96,14 +96,14 @@
 | [`t2va_screwball_restaurant`](#t2va-screwball-restaurant) | t2va | 345 | 14.375 | pinned | 0 | — | 287 | 3 | 2 | English | Zoom In, Pan Left, Static Shot | scored | clean |
 | [`t2va_sitcom_kitchen`](#t2va-sitcom-kitchen) | t2va | 345 | 14.375 | pinned | 0 | — | 281 | 3 | 2 | English | Zoom In, Pan Left, Static Shot | scored | clean |
 | [`t2va_slapstick_moving_piano`](#t2va-slapstick-moving-piano) | t2va | 345 | 14.375 | pinned | 0 | — | 362 | 3 | 2 | English | Zoom In, Pedestal Down, Static Shot | scored | clean |
-| [`t2va_song_flicker_lists`](#t2va-song-flicker-lists) | t2va | 345 | 14.375 | yes | 1 | — | 130 | 2 | 1 | — | Truck Left, Static Shot | scored | clean |
-| [`t2va_sortline_long`](#t2va-sortline-long) | t2va | 345 | 14.375 | yes | 1 | — | 453 | 3 | 2 | English | Pull Out, Truck Right, Static Shot | N/A | clean |
-| [`t2va_sortline_short`](#t2va-sortline-short) | t2va | 345 | 14.375 | yes | 1 | — | 275 | 3 | 2 | English | Pull Out, Truck Right, Static Shot | N/A | clean |
+| [`t2va_song_flicker_lists`](#t2va-song-flicker-lists) | t2va | 345 | 14.375 | yes | 0 | — | 130 | 2 | 1 | — | Truck Left, Static Shot | scored | clean |
+| [`t2va_sortline_long`](#t2va-sortline-long) | t2va | 345 | 14.375 | yes | 0 | — | 453 | 3 | 2 | English | Pull Out, Truck Right, Static Shot | N/A | clean |
+| [`t2va_sortline_short`](#t2va-sortline-short) | t2va | 345 | 14.375 | yes | 0 | — | 275 | 3 | 2 | English | Pull Out, Truck Right, Static Shot | N/A | clean |
 | [`t2va_speakeasy_heist`](#t2va-speakeasy-heist) | t2va | 345 | 14.375 | pinned | 0 | — | 291 | 3 | 2 | English | Truck Right, Tilt Up, Static Shot | scored | clean |
 | [`t2va_stairwell_dialogue`](#t2va-stairwell-dialogue) | t2va | 345 | 14.375 | yes | 1 | — | 193 | 3 | 2 | English | Shake Slightly | N/A | clean |
 | [`t2va_steampunk_airship_bridge`](#t2va-steampunk-airship-bridge) | t2va | 345 | 14.375 | pinned | 0 | — | 309 | 3 | 2 | English | Push In, Static Shot, Roll Clockwise | scored | clean |
 | [`t2va_studio_dancer`](#t2va-studio-dancer) | t2va | 345 | 14.375 | pinned | 0 | — | 180 | 2 | 0 | — | Push In, Static Shot | N/A | clean |
-| [`t2va_studio_dancer_close`](#t2va-studio-dancer-close) | t2va | 345 | 14.375 | pinned | 2 | — | 199 | 2 | 0 | — | Push In, Static Shot | N/A | clean |
+| [`t2va_studio_dancer_close`](#t2va-studio-dancer-close) | t2va | 345 | 14.375 | pinned | 1 | — | 199 | 2 | 0 | — | Push In, Static Shot | N/A | clean |
 | [`t2va_subway_chase`](#t2va-subway-chase) | t2va | 345 | 14.375 | pinned | 0 | — | 309 | 3 | 1 | English | Push In, Tracking Shot, Static Shot, Shake Strongly | scored | clean |
 | [`t2va_subway_maintenance_alcove`](#t2va-subway-maintenance-alcove) | t2va | 345 | 14.375 | yes | 0 | — | 180 | 3 | 2 | English | Push In, Shake Slightly | N/A | clean |
 | [`t2va_subway_platform`](#t2va-subway-platform) | t2va | 345 | 14.375 | yes | 0 | — | 343 | 4 | 3 | English |  | N/A | clean |
@@ -117,7 +117,7 @@
 | [`i2va_vet_night`](#i2va-vet-night) | i2va | 260 | 10.833 | pinned | 0 | — | 203 | 2 | 1 | English | Push In, Truck Left | N/A | clean |
 | [`i2va_glassblower`](#i2va-glassblower) | i2va | 277 | 11.542 | pinned | 0 | — | 276 | 2 | 1 | Italian | Zoom Out, Push In | scored | clean |
 | [`i2va_night_market`](#i2va-night-market) | i2va | 311 | 12.958 | pinned | 0 | — | 295 | 2 | 2 | Chinese, English | Push In, Shake Slightly | scored | clean |
-| [`i2va_lighthouse_keyframe`](#i2va-lighthouse-keyframe) | i2va | 345 | 14.375 | pinned | 5 | — | 48 | 1 | 0 | — | Push In | N/A | clean |
+| [`i2va_lighthouse_keyframe`](#i2va-lighthouse-keyframe) | i2va | 345 | 14.375 | pinned | 4 | — | 48 | 1 | 0 | — | Push In | N/A | clean |
 | [`i2va_look_anchor`](#i2va-look-anchor) | i2va | 345 | 14.375 | pinned | 0 | — | 454 | 2 | 1 | English | Push In, Truck Left | scored | clean |
 | [`fl2va_origami_crane`](#fl2va-origami-crane) | fl2va | 107 | 4.458 | yes | 0 | — | 144 | 1 | 0 | — | Static Shot | scored | clean |
 | [`fl2va_paper_train`](#fl2va-paper-train) | fl2va | 158 | 6.583 | yes | 0 | — | 148 | 1 | 0 | — | Pan Right | scored | clean |
@@ -125,7 +125,7 @@
 | [`fl2va_balloon`](#fl2va-balloon) | fl2va | 209 | 8.708 | yes | 0 | — | 169 | 1 | 0 | — | Pull Out | N/A | clean |
 | [`fl2va_carousel`](#fl2va-carousel) | fl2va | 311 | 12.958 | yes | 0 | — | 186 | 2 | 1 | English | Truck Right, Tilt Up | scored | clean |
 | [`fl2va_drawbridge`](#fl2va-drawbridge) | fl2va | 362 | 15.083 | pinned | 0 | — | 196 | 1 | 0 | — | Pedestal Down | scored | clean |
-| [`fl2va_interior_converge`](#fl2va-interior-converge) | fl2va | 362 | 15.083 | yes | 3 | — | 87 | 1 | 0 | — | Truck Right | N/A | clean |
+| [`fl2va_interior_converge`](#fl2va-interior-converge) | fl2va | 362 | 15.083 | yes | 2 | — | 87 | 1 | 0 | — | Truck Right | N/A | clean |
 | [`l2va_telescope`](#l2va-telescope) | l2va | 90 | 3.750 | yes | 0 | — | 127 | 1 | 0 | — | Static Shot | N/A | clean |
 | [`l2va_chess_clock`](#l2va-chess-clock) | l2va | 141 | 5.875 | yes | 0 | — | 223 | 1 | 2 | English, Russian | Tilt Down | N/A | clean |
 | [`l2va_kite_festival`](#l2va-kite-festival) | l2va | 226 | 9.417 | yes | 0 | — | 270 | 3 | 1 | English | Zoom Out, Static Shot | scored | clean |
@@ -152,27 +152,27 @@
 | [`ref2va_image_video_audio_music`](#ref2va-image-video-audio-music) | ref2va | 345 | 14.375 | yes | 3 | `h3_ref_image_video_audio_api` | 49 | 1 | 0 | — | Truck Right | scored | 0 FAIL, 1 WARN (recorded; see the entry) |
 | [`ref2va_image_video_structure`](#ref2va-image-video-structure) | ref2va | 345 | 14.375 | yes | 1 | `h3_ref_video_to_video_api` | 49 | 1 | 0 | — | Truck Right | N/A | 0 FAIL, 1 WARN (recorded; see the entry) |
 | [`ref2va_look_anchor`](#ref2va-look-anchor) | ref2va | 345 | 14.375 | pinned | 0 | `h3_image_ref_plus_text_to_video_pdd_api` | 457 | 2 | 1 | English | Push In, Truck Left | scored | clean |
-| [`ref2va_market_stallholder`](#ref2va-market-stallholder) | ref2va | 345 | 14.375 | yes | 3 | `h3_ref2v_market_api` | 412 | 3 | 2 | English | Truck Left, Static Shot | N/A | clean |
+| [`ref2va_market_stallholder`](#ref2va-market-stallholder) | ref2va | 345 | 14.375 | yes | 2 | `h3_ref2v_market_api` | 412 | 3 | 2 | English | Truck Left, Static Shot | N/A | clean |
 | [`ref2va_masked_head_swap`](#ref2va-masked-head-swap) | ref2va | 345 | 14.375 | pinned | 0 | `h3_probe_refview2_dancer_api` | 384 | 1 | 1 | — | Static Shot | N/A | clean |
 | [`ref2va_masked_lead_follows`](#ref2va-masked-lead-follows) | ref2va | 345 | 14.375 | pinned | 0 | `h3_probe_refview2_dancer_api` | 402 | 1 | 1 | — | Static Shot | N/A | clean |
 | [`ref2va_masked_lead_swap`](#ref2va-masked-lead-swap) | ref2va | 345 | 14.375 | pinned | 0 | `h3_probe_refview2_dancer_api` | 351 | 1 | 1 | — | Static Shot | N/A | clean |
-| [`ref2va_masked_person_head`](#ref2va-masked-person-head) | ref2va | 345 | 14.375 | yes | 2 | `h3_probe_refview2_dancer_api` | 111 | 1 | 1 | — |  | N/A | 0 FAIL, 1 WARN (recorded; see the entry) |
+| [`ref2va_masked_person_head`](#ref2va-masked-person-head) | ref2va | 345 | 14.375 | yes | 0 | `h3_probe_refview2_dancer_api` | 111 | 1 | 1 | — |  | N/A | 0 FAIL, 1 WARN (recorded; see the entry) |
 | [`ref2va_masked_person_motion`](#ref2va-masked-person-motion) | ref2va | 345 | 14.375 | yes | 3 | `h3_probe_refview2_dancer_api` | 162 | 1 | 1 | — |  | N/A | 1 FAIL, 1 WARN (recorded; see the entry) |
 | [`ref2va_masked_person_silent`](#ref2va-masked-person-silent) | ref2va | 345 | 14.375 | yes | 0 | `h3_probe_refview2_dancer_api` | 128 | 1 | 0 | — |  | N/A | 0 FAIL, 1 WARN (recorded; see the entry) |
-| [`ref2va_masked_person_swap`](#ref2va-masked-person-swap) | ref2va | 345 | 14.375 | yes | 4 | `h3_probe_refview2_dancer_api` | 148 | 1 | 1 | — |  | N/A | 0 FAIL, 1 WARN (recorded; see the entry) |
+| [`ref2va_masked_person_swap`](#ref2va-masked-person-swap) | ref2va | 345 | 14.375 | yes | 2 | `h3_probe_refview2_dancer_api` | 148 | 1 | 1 | — |  | N/A | 0 FAIL, 1 WARN (recorded; see the entry) |
 | [`ref2va_masked_person_upper_motion`](#ref2va-masked-person-upper-motion) | ref2va | 345 | 14.375 | yes | 3 | `h3_probe_refview2_dancer_api` | 95 | 1 | 1 | — |  | N/A | 1 FAIL, 1 WARN (recorded; see the entry) |
 | [`ref2va_masked_stage_singer`](#ref2va-masked-stage-singer) | ref2va | 345 | 14.375 | pinned | 0 | `h3_probe_refview2_dancer_api` | 372 | 3 | 1 | — | Static Shot | N/A | clean |
 | [`ref2va_masked_subject_motion`](#ref2va-masked-subject-motion) | ref2va | 345 | 14.375 | yes | 0 | `h3_probe_refview2_dancer_api` | 162 | 1 | 1 | — |  | N/A | 1 FAIL, 1 WARN (recorded; see the entry) |
 | [`ref2va_masked_subject_swap`](#ref2va-masked-subject-swap) | ref2va | 345 | 14.375 | pinned | 0 | `h3_probe_refview2_dancer_api` | 350 | 1 | 1 | — | Static Shot | N/A | clean |
 | [`ref2va_night_porter_refs`](#ref2va-night-porter-refs) | ref2va | 345 | 14.375 | yes | 1 | `h3_probe_refview2_porter_api` | 352 | 2 | 1 | English | Zoom In, Static Shot | N/A | clean |
-| [`ref2va_role_character_environment`](#ref2va-role-character-environment) | ref2va | 345 | 14.375 | yes | 9 | `h3_image_ref_plus_text_to_video_api` | 42 | 1 | 0 | — | Truck Right | N/A | 0 FAIL, 1 WARN (recorded; see the entry) |
+| [`ref2va_role_character_environment`](#ref2va-role-character-environment) | ref2va | 345 | 14.375 | yes | 4 | `h3_image_ref_plus_text_to_video_api` | 42 | 1 | 0 | — | Truck Right | N/A | 0 FAIL, 1 WARN (recorded; see the entry) |
 | [`ref2va_role_character_garment_environment`](#ref2va-role-character-garment-environment) | ref2va | 345 | 14.375 | yes | 9 | `h3_probe_capture_ref3_api` | 45 | 1 | 0 | — | Truck Right | N/A | 0 FAIL, 1 WARN (recorded; see the entry) |
 | [`ref2va_scene_kitchen`](#ref2va-scene-kitchen) | ref2va | 345 | 14.375 | yes | 1 | `h3_ref2v_scene_kitchen_api` | 468 | 4 | 2 | English | Push In, Pedestal Up | N/A | clean |
 | [`ref2va_scene_subway`](#ref2va-scene-subway) | ref2va | 345 | 14.375 | yes | 1 | `h3_ref2v_scene_subway_api` | 434 | 4 | 3 | English |  | N/A | clean |
-| [`ref2va_stairwell_dialogue`](#ref2va-stairwell-dialogue) | ref2va | 345 | 14.375 | yes | 2 | `h3_image_ref_plus_text_to_video_dialogue_api` | 431 | 3 | 2 | English | Shake Slightly | N/A | clean |
+| [`ref2va_stairwell_dialogue`](#ref2va-stairwell-dialogue) | ref2va | 345 | 14.375 | yes | 1 | `h3_image_ref_plus_text_to_video_dialogue_api` | 431 | 3 | 2 | English | Shake Slightly | N/A | clean |
 | [`ref2va_stairwell_dialogue_backstage`](#ref2va-stairwell-dialogue-backstage) | ref2va | 345 | 14.375 | yes | 1 | `h3_probe_refview2_stairwell_backstage_api` | 427 | 3 | 2 | English | Shake Slightly | N/A | clean |
 | [`ref2va_stairwell_dialogue_circus`](#ref2va-stairwell-dialogue-circus) | ref2va | 345 | 14.375 | yes | 1 | `h3_probe_refview2_stairwell_circus_api` | 430 | 3 | 2 | English | Shake Slightly | N/A | clean |
-| [`ref2va_studio_dancer_close_refs`](#ref2va-studio-dancer-close-refs) | ref2va | 345 | 14.375 | yes | 2 | `h3_probe_refview2_dancer_api` | 368 | 2 | 0 | — | Push In, Static Shot | N/A | clean |
+| [`ref2va_studio_dancer_close_refs`](#ref2va-studio-dancer-close-refs) | ref2va | 345 | 14.375 | yes | 1 | `h3_probe_refview2_dancer_api` | 368 | 2 | 0 | — | Push In, Static Shot | N/A | clean |
 | [`ref2va_video_character_swap`](#ref2va-video-character-swap) | ref2va | 345 | 14.375 | yes | 1 | `h3_ref_video_swap_api` | 64 | 1 | 0 | — |  | N/A | clean |
 | [`ref2va_video_continuation`](#ref2va-video-continuation) | ref2va | 345 | 14.375 | yes | 1 | `h3_ref_video_continue_api` | 47 | 1 | 0 | — |  | N/A | 0 FAIL, 1 WARN (recorded; see the entry) |
 | [`ref2va_video_garment_edit`](#ref2va-video-garment-edit) | ref2va | 345 | 14.375 | yes | 1 | `h3_ref_video_edit_api` | 53 | 1 | 0 | — |  | N/A | clean |
@@ -928,7 +928,7 @@ non_diegetic_music: A brooding orchestral string motif at a slow tempo, driven b
 
 ## t2va_covered_market
 
-**t2va, 345 frames, 14.375 s.** Live-action handheld; covered market aisle; the scene every shipped t2v graph carried until 2026-09-03 and the one every real-activation Sol record came from **Tests:** the busy wide scene every shipped t2v graph carried: many small figures, clutter, handheld motion; the scene most speedups were tuned on until 2026-09-03. Ships in: `h3_candidate_t2v_pdd8_baked_api`, `h3_candidate_t2v_pdd8_baked_audio_freeze_api`, `h3_candidate_t2v_pdd8_baked_audio_freeze_gain_api`, `h3_candidate_t2v_pdd8_baked_audio_freeze_guide_api`, `h3_candidate_t2v_pdd8_sol_narrow_api`, `h3_candidate_t2v_sol_only_api`, `h3_probe_canvas_portrait_api`, `h3_probe_canvas_ultrawide_api`, `h3_probe_head_chunks_api`, `h3_probe_square_canvas_api`, `h3_probe_t2v_base_euler32_api`, `h3_probe_t2v_base_euler32_savelat_api`, `h3_probe_t2v_base_euler32_x0_api`, `h3_probe_t2v_ck_api`, `h3_probe_t2v_dense_api`, `h3_probe_t2v_exact_tail_api`, `h3_probe_t2v_levers_api`, `h3_probe_t2v_no_dense_tail_api`, `h3_probe_t2v_pdd16_api`, `h3_probe_t2v_pdd16_savelat_api`, `h3_probe_t2v_pdd32_api`, `h3_probe_t2v_pdd32_savelat_api`, `h3_probe_t2v_pdd8_audio_refine_api`, `h3_probe_t2v_pdd8_audio_refine_savelat_api`, `h3_probe_t2v_pdd8_baked_sage_api`, `h3_probe_t2v_pdd8_dense_api`, `h3_probe_t2v_pdd8_merge_api`, `h3_probe_t2v_pdd8_sage_api`, `h3_probe_t2v_policy_api`, `h3_probe_t2v_rotate_api`, `h3_probe_t2v_sage_rotate_api`, `h3_probe_t2v_sol_nosage_api`, `h3_probe_t2v_step_switch_pdd8_base_h063_api`, `h3_probe_t2v_step_switch_pdd8_base_h063_savelat_api`, `h3_probe_t2v_step_switch_pdd8_base_h080_api`, `h3_probe_t2v_step_switch_pdd8_base_h080_savelat_api`, `h3_text_to_video_api`, `h3_text_to_video_audio_freeze_2windows_api`, `h3_text_to_video_audio_freeze_api`, `h3_text_to_video_pdd_4step_api`, `h3_text_to_video_pdd_4step_savelat_api`, `h3_text_to_video_pdd_api`, `h3_text_to_video_pdd_manual_sigmas_api`, `h3_text_to_video_pdd_manual_sigmas_savelat_api`, `h3_text_to_video_pdd_savelat_api`, `h3_text_to_video_pdd_x0_api`, `h3_text_to_video_savelat_api`.
+**t2va, 345 frames, 14.375 s.** Live-action handheld; covered market aisle; the scene every shipped t2v graph carried until 2026-09-03 and the one every real-activation Sol record came from **Tests:** the busy wide scene every shipped t2v graph carried: many small figures, clutter, handheld motion; the scene most speedups were tuned on until 2026-09-03. Ships in: `h3_candidate_t2v_sol_only_api`, `h3_probe_canvas_portrait_api`, `h3_probe_canvas_ultrawide_api`, `h3_probe_head_chunks_api`, `h3_probe_square_canvas_api`, `h3_probe_t2v_base_euler32_api`, `h3_probe_t2v_base_euler32_savelat_api`, `h3_probe_t2v_base_euler32_x0_api`, `h3_probe_t2v_ck_api`, `h3_probe_t2v_dense_api`, `h3_probe_t2v_exact_tail_api`, `h3_probe_t2v_levers_api`, `h3_probe_t2v_no_dense_tail_api`, `h3_probe_t2v_policy_api`, `h3_probe_t2v_rotate_api`, `h3_probe_t2v_sage_rotate_api`, `h3_probe_t2v_sol_nosage_api`, `h3_text_to_video_api`, `h3_text_to_video_audio_freeze_2windows_api`, `h3_text_to_video_audio_freeze_api`, `h3_text_to_video_pdd_api`, `h3_text_to_video_savelat_api`.
 
 Derived: camera: Truck Left, Static Shot; speakers: S1, S2; languages: English; cuts: the shot cuts to; 249 words in the main field; 1641 characters in all.
 
@@ -949,7 +949,7 @@ N/A
 
 ## t2va_crowd_churn_long
 
-**t2va, 345 frames, 14.375 s.** One continuous fast handheld take through a crowd, no cuts; LONG conditioning Ships in: `h3_text_to_video_churn_long_api`.
+**t2va, 345 frames, 14.375 s.** One continuous fast handheld take through a crowd, no cuts; LONG conditioning
 
 Derived: camera: Shake Strongly; 373 words in the main field; 2591 characters in all.
 
@@ -1197,7 +1197,7 @@ non_diegetic_music: A thunderous ancient epic orchestral anthem at a slow tempo,
 
 ## t2va_hardware_aisle_long
 
-**t2va, 345 frames, 14.375 s.** Live-action handheld; hardware aisle; the LONG conditioning arm of the pair Ships in: `h3_text_to_video_aisle_long_api`.
+**t2va, 345 frames, 14.375 s.** Live-action handheld; hardware aisle; the LONG conditioning arm of the pair
 
 Derived: camera: Push In, Truck Left, Static Shot; speakers: S1, S2; languages: English; cuts: the shot cuts to, the shot changes to; 452 words in the main field; 2799 characters in all.
 
@@ -1216,7 +1216,7 @@ non_diegetic_music: N/A
 
 ## t2va_hardware_aisle_short
 
-**t2va, 345 frames, 14.375 s.** Live-action handheld; hardware aisle; the SHORT conditioning arm of the length-of-conditioning pair Ships in: `h3_text_to_video_aisle_short_api`.
+**t2va, 345 frames, 14.375 s.** Live-action handheld; hardware aisle; the SHORT conditioning arm of the length-of-conditioning pair
 
 Derived: camera: Push In, Truck Left, Static Shot; speakers: S1, S2; languages: English; cuts: the shot cuts to, the shot changes to; 257 words in the main field; 1628 characters in all.
 
@@ -1824,7 +1824,7 @@ non_diegetic_music: N/A
 
 ## t2va_rail_dolly_long
 
-**t2va, 345 frames, 14.375 s.** One continuous rail-dolly take, no cuts; LONG conditioning Ships in: `h3_text_to_video_rail_long_api`.
+**t2va, 345 frames, 14.375 s.** One continuous rail-dolly take, no cuts; LONG conditioning
 
 Derived: camera: Truck Right; 478 words in the main field; 2979 characters in all.
 
@@ -2007,7 +2007,7 @@ non_diegetic_music: An uproarious silent film ragtime piano score at a fast temp
 
 ## t2va_song_flicker_lists
 
-**t2va, 345 frames, 14.375 s.** One prompt for every section of a whole-song render with two prompt lists: a close-up with the background lost to blur, then a medium shot whose place and movement come from __place__ and __motion__, so each window opens on her face; two shots, the cut early enough for the shortest window a section ends on; a singer whose lips follow the frozen vocal with no lyrics in the text **Tests:** the shipped prompt-list example on just-a-flicker.mp3 with the song's sections as its timeline: whether the place changes where the song changes section, and whether a seam into a new place reads through the opening close-up Ships in: `h3_text_to_video_audio_freeze_song_lists_pdd8_api`.
+**t2va, 345 frames, 14.375 s.** One prompt for every section of a whole-song render with two prompt lists: a close-up with the background lost to blur, then a medium shot whose place and movement come from __place__ and __motion__, so each window opens on her face; two shots, the cut early enough for the shortest window a section ends on; a singer whose lips follow the frozen vocal with no lyrics in the text **Tests:** the shipped prompt-list example on just-a-flicker.mp3 with the song's sections as its timeline: whether the place changes where the song changes section, and whether a seam into a new place reads through the opening close-up
 
 Derived: camera: Truck Left, Static Shot; speakers: S1; cuts: the shot cuts to; 130 words in the main field; 1185 characters in all.
 
@@ -2026,7 +2026,7 @@ non_diegetic_music: A slow, laid-back lo-fi pop beat with a pillowy drum-machine
 
 ## t2va_sortline_long
 
-**t2va, 345 frames, 14.375 s.** Live-action handheld; recycling sorting line; LONG arm Ships in: `h3_text_to_video_sortline_long_api`.
+**t2va, 345 frames, 14.375 s.** Live-action handheld; recycling sorting line; LONG arm
 
 Derived: camera: Pull Out, Truck Right, Static Shot; speakers: S1, S2; languages: English; cuts: the shot cuts to, the shot changes to; 453 words in the main field; 2945 characters in all.
 
@@ -2045,7 +2045,7 @@ non_diegetic_music: N/A
 
 ## t2va_sortline_short
 
-**t2va, 345 frames, 14.375 s.** Live-action handheld; recycling sorting line; SHORT arm Ships in: `h3_text_to_video_sortline_short_api`.
+**t2va, 345 frames, 14.375 s.** Live-action handheld; recycling sorting line; SHORT arm
 
 Derived: camera: Pull Out, Truck Right, Static Shot; speakers: S1, S2; languages: English; cuts: the shot cuts to, the shot changes to; 275 words in the main field; 1861 characters in all.
 
@@ -2140,7 +2140,7 @@ non_diegetic_music: N/A
 
 ## t2va_studio_dancer_close
 
-**t2va, 345 frames, 14.375 s.** The studio dancer reframed at medium shot then close-up, face sharp and on the lens; the owner's 2026-09-12 note that the wide version blurs the face (a zoomed-out failure common to these models) **Tests:** the same beat-following question as t2va_studio_dancer with the face large enough to judge; the framing the lane's later renders should use Ships in: `h3_text_to_video_audio_freeze_song_api`, `h3_text_to_video_audio_freeze_song_pdd8_api`.
+**t2va, 345 frames, 14.375 s.** The studio dancer reframed at medium shot then close-up, face sharp and on the lens; the owner's 2026-09-12 note that the wide version blurs the face (a zoomed-out failure common to these models) **Tests:** the same beat-following question as t2va_studio_dancer with the face large enough to judge; the framing the lane's later renders should use Ships in: `h3_text_to_video_audio_freeze_song_api`.
 
 Derived: camera: Push In, Static Shot; cuts: the shot cuts to; 199 words in the main field; 1340 characters in all.
 
@@ -2424,7 +2424,7 @@ non_diegetic_music: A plucked guzheng figure at a moderate tempo over a soft han
 
 ## i2va_lighthouse_keyframe
 
-**i2va, 345 frames, 14.375 s.** First-frame continuation of the lighthouse scene: <Picture 1> fully referenced at 0 s Ships in: `h3_first_frame_to_video_api`, `h3_first_frame_to_video_audio_freeze_api`, `h3_first_frame_to_video_pdd_api`, `h3_first_frame_to_video_pdd_savelat_api`, `h3_first_frame_to_video_stamped_api`.
+**i2va, 345 frames, 14.375 s.** First-frame continuation of the lighthouse scene: <Picture 1> fully referenced at 0 s Ships in: `h3_first_frame_to_video_api`, `h3_first_frame_to_video_audio_freeze_api`, `h3_first_frame_to_video_pdd_api`, `h3_first_frame_to_video_stamped_api`.
 
 Derived: camera: Push In; labels: <Picture 1>; 48 words in the main field; 622 characters in all.
 
@@ -2592,7 +2592,7 @@ non_diegetic_music: Low sustained brass at a slow tempo, joined by a steady timp
 
 ## fl2va_interior_converge
 
-**fl2va, 362 frames, 15.083 s.** The generator's fl2va default: one continuous shot that starts in the opening frame's exact state and converges on the closing one. Part One is base_en's unbracketed FL2VA sentence, resolved here at 362 frames -- `fl2v_prompt()` re-resolves it for any other length. Ships in: `h3_first_last_frame_to_video_api`, `h3_first_last_frame_to_video_pdd_4step_api`, `h3_first_last_frame_to_video_pdd_api`.
+**fl2va, 362 frames, 15.083 s.** The generator's fl2va default: one continuous shot that starts in the opening frame's exact state and converges on the closing one. Part One is base_en's unbracketed FL2VA sentence, resolved here at 362 frames -- `fl2v_prompt()` re-resolves it for any other length. Ships in: `h3_first_last_frame_to_video_api`, `h3_first_last_frame_to_video_pdd_api`.
 
 Derived: camera: Truck Right; 87 words in the main field; 1026 characters in all.
 
@@ -3446,7 +3446,7 @@ A solo cello holds long, low notes at a slow tempo, joined halfway through by a 
 
 ## ref2va_market_stallholder
 
-**ref2va, 345 frames, 14.375 s, donor `h3_ref2v_market_api`.** Reference-conditioned market stallholder carried from <Picture 1>; the ref2v market family Ships in: `h3_ref2v_market_api`, `h3_ref2v_market_pdd_4step_api`, `h3_ref2v_market_pdd_api`.
+**ref2va, 345 frames, 14.375 s, donor `h3_ref2v_market_api`.** Reference-conditioned market stallholder carried from <Picture 1>; the ref2v market family Ships in: `h3_ref2v_market_api`, `h3_ref2v_market_pdd_api`.
 
 Derived: camera: Truck Left, Static Shot; speakers: S1, S2; languages: English; cuts: the shot cuts to; task: [reference generation]; labels: <Picture 1>; 412 words in the main field; 3520 characters in all.
 
@@ -3570,7 +3570,7 @@ non_diegetic_music: N/A
 
 ## ref2va_masked_person_head
 
-**ref2va, 345 frames, 14.375 s, donor `h3_probe_refview2_dancer_api`.** Masked video to video, the head only, written by the Masked Prompt node when the Masked Source replaces head and hair: <Picture 1> gives the face, the hair and anything worn on the head. ref2va_masked_head_swap generalised the way the whole-person text was: no lead performer, no duration, no camera claim, and since 2026-10-10 nothing about the original's hair, body or clothes. **Tests:** that the node's head-and-hair text grades clean; not rendered The wording was cut on 2026-10-10 (docs/wiki/decisions.md, that date) and has not rendered as it now stands; what is said here of a render is of the earlier wording, which git keeps. **Recorded findings:** The bank's shape rule reads no camera motion because the text names none on purpose: the node never sees the window it writes for, and the plate holds the camera (docs/prompt_audit.md, the ref2va_masked rows). detailed_description is under ref 5.2's 350-500 word budget, on purpose since 2026-10-10: every sentence that asserted what the node cannot know of a clip, and every sentence about an edit, was cut (bench/results/2026-10-10_prompt_text_hardcoded_in_code.md), and nothing was written to fill the count. Ships in: `h3_mask_parts_pdd8_api`, `h3_video_to_video_masked_parts_song_pdd8_api`.
+**ref2va, 345 frames, 14.375 s, donor `h3_probe_refview2_dancer_api`.** Masked video to video, the head only, written by the Masked Prompt node when the Masked Source replaces head and hair: <Picture 1> gives the face, the hair and anything worn on the head. ref2va_masked_head_swap generalised the way the whole-person text was: no lead performer, no duration, no camera claim, and since 2026-10-10 nothing about the original's hair, body or clothes. **Tests:** that the node's head-and-hair text grades clean; not rendered The wording was cut on 2026-10-10 (docs/wiki/decisions.md, that date) and has not rendered as it now stands; what is said here of a render is of the earlier wording, which git keeps. **Recorded findings:** The bank's shape rule reads no camera motion because the text names none on purpose: the node never sees the window it writes for, and the plate holds the camera (docs/prompt_audit.md, the ref2va_masked rows). detailed_description is under ref 5.2's 350-500 word budget, on purpose since 2026-10-10: every sentence that asserted what the node cannot know of a clip, and every sentence about an edit, was cut (bench/results/2026-10-10_prompt_text_hardcoded_in_code.md), and nothing was written to fill the count.
 
 Derived: camera: ; speakers: S1; task: [reference generation]; labels: <Picture 1>; 111 words in the main field; 1252 characters in all.
 
@@ -3659,7 +3659,7 @@ non_diegetic_music: N/A
 
 ## ref2va_masked_person_swap
 
-**ref2va, 345 frames, 14.375 s, donor `h3_probe_refview2_dancer_api`.** Masked video to video, the whole person, written by the Masked Prompt node at its defaults (masked_prompt_text.py): <Picture 1> defines a person who is in the scene and is the main voice on a frozen track, written as (S1). It claims no count of people, no duration, no posture, no camera, no look and nothing the subject does beyond the mouth following that voice, so one text serves every window of any clip. Until 2026-10-10 it was mrhf's generic swap prompt of 2026-10-04. **Tests:** the shipped default of h3_video_to_video_masked_song_pdd8 since 2026-10-06, in place of ref2va_masked_subject_swap, which said one performer standing through a fourteen-second static shot; and that the node still writes this text (bench/check_masked_prompt.py) The wording was cut on 2026-10-10 (docs/wiki/decisions.md, that date) and has not rendered as it now stands; what is said here of a render is of the earlier wording, which git keeps. **Recorded findings:** The bank's shape rule reads no camera motion because the text names none on purpose: the node never sees the window it writes for, and the plate holds the camera (docs/prompt_audit.md, the ref2va_masked rows). detailed_description is under ref 5.2's 350-500 word budget, on purpose since 2026-10-10: every sentence that asserted what the node cannot know of a clip, and every sentence about an edit, was cut (bench/results/2026-10-10_prompt_text_hardcoded_in_code.md), and nothing was written to fill the count. Ships in: `h3_mask_pdd8_api`, `h3_mask_review_api`, `h3_video_to_video_masked_review_api`, `h3_video_to_video_masked_song_pdd8_api`.
+**ref2va, 345 frames, 14.375 s, donor `h3_probe_refview2_dancer_api`.** Masked video to video, the whole person, written by the Masked Prompt node at its defaults (masked_prompt_text.py): <Picture 1> defines a person who is in the scene and is the main voice on a frozen track, written as (S1). It claims no count of people, no duration, no posture, no camera, no look and nothing the subject does beyond the mouth following that voice, so one text serves every window of any clip. Until 2026-10-10 it was mrhf's generic swap prompt of 2026-10-04. **Tests:** the shipped default of h3_video_to_video_masked_song_pdd8 from 2026-10-06 until that graph was retired on 2026-11-04 with PDD's primary use, in place of ref2va_masked_subject_swap, which said one performer standing through a fourteen-second static shot; and that the node still writes this text (bench/check_masked_prompt.py) The wording was cut on 2026-10-10 (docs/wiki/decisions.md, that date) and has not rendered as it now stands; what is said here of a render is of the earlier wording, which git keeps. **Recorded findings:** The bank's shape rule reads no camera motion because the text names none on purpose: the node never sees the window it writes for, and the plate holds the camera (docs/prompt_audit.md, the ref2va_masked rows). detailed_description is under ref 5.2's 350-500 word budget, on purpose since 2026-10-10: every sentence that asserted what the node cannot know of a clip, and every sentence about an edit, was cut (bench/results/2026-10-10_prompt_text_hardcoded_in_code.md), and nothing was written to fill the count. Ships in: `h3_mask_review_api`, `h3_video_to_video_masked_review_api`.
 
 Derived: camera: ; speakers: S1; task: [reference generation]; labels: <Picture 1>; 148 words in the main field; 1383 characters in all.
 
@@ -3783,7 +3783,7 @@ non_diegetic_music: N/A
 
 ## ref2va_masked_subject_swap
 
-**ref2va, 345 frames, 14.375 s, donor `h3_probe_refview2_dancer_api`.** Masked video to video on the song node: <Picture 1> defines the one performer, and the prompt names no setting, shot or cut because the source video's own frames hold them outside the mask; the performer is the voice on a frozen track, written as (S1) with the lips following every phrase and no words in the text; one shot, static, so one text serves every window of any clip. **Tests:** the shipped default of h3_video_to_video_masked_song_pdd8: whether a prompt that describes no plate lets a masked subject take the reference's identity, sit in the source's light and follow the frozen voice, against a clip-specific prompt at the same seed (bench/masked_v2v_arms.json)
+**ref2va, 345 frames, 14.375 s, donor `h3_probe_refview2_dancer_api`.** Masked video to video on the song node: <Picture 1> defines the one performer, and the prompt names no setting, shot or cut because the source video's own frames hold them outside the mask; the performer is the voice on a frozen track, written as (S1) with the lips following every phrase and no words in the text; one shot, static, so one text serves every window of any clip. **Tests:** the shipped default of h3_video_to_video_masked_song_pdd8 (a graph retired on 2026-11-04 with PDD's primary use): whether a prompt that describes no plate lets a masked subject take the reference's identity, sit in the source's light and follow the frozen voice, against a clip-specific prompt at the same seed (bench/masked_v2v_arms.json)
 
 Derived: camera: Static Shot; speakers: S1; task: [reference generation]; labels: <Picture 1>; 350 words in the main field; 2750 characters in all.
 
@@ -3848,7 +3848,7 @@ N/A
 
 ## ref2va_role_character_environment
 
-**ref2va, 345 frames, 14.375 s, donor `h3_image_ref_plus_text_to_video_api`.** The generator's two-socket ref2va default, composed by `_ref_prompt` from the role tables: a character carried from <Picture 1> into the environment of <Picture 2>, one continuous shot, truck right. The most widely shipped ref2va prompt in the repo. **Recorded findings:** prompt_audit.md verdict `revise` for this scene: detailed_description is far under ref 5.2's 350-500 word budget, which the audit records as systematic across the composed ref2va arms. Shipped as composed -- narrowing the gap is a content change and belongs in the audit, not here. Ships in: `h3_image_ref_plus_text_to_video_api`, `h3_image_ref_plus_text_to_video_pdd_4step_api`, `h3_image_ref_plus_text_to_video_pdd_api`, `h3_probe_ref2v_pdd_345_api`, `h3_probe_ref2v_pdd_8s_api`, `h3_probe_ref2v_pdd_api`, `h3_probe_ref2v_pdd_headfree_api`, `h3_probe_reference_upscale_api`, `h3_probe_sol_on_refs_api`.
+**ref2va, 345 frames, 14.375 s, donor `h3_image_ref_plus_text_to_video_api`.** The generator's two-socket ref2va default, composed by `_ref_prompt` from the role tables: a character carried from <Picture 1> into the environment of <Picture 2>, one continuous shot, truck right. The most widely shipped ref2va prompt in the repo. **Recorded findings:** prompt_audit.md verdict `revise` for this scene: detailed_description is far under ref 5.2's 350-500 word budget, which the audit records as systematic across the composed ref2va arms. Shipped as composed -- narrowing the gap is a content change and belongs in the audit, not here. Ships in: `h3_image_ref_plus_text_to_video_api`, `h3_image_ref_plus_text_to_video_pdd_api`, `h3_probe_reference_upscale_api`, `h3_probe_sol_on_refs_api`.
 
 Derived: camera: Truck Right; task: [reference generation]; labels: <Picture 1>, <Picture 2>; 42 words in the main field; 913 characters in all.
 
@@ -3988,7 +3988,7 @@ N/A
 
 ## ref2va_stairwell_dialogue
 
-**ref2va, 345 frames, 14.375 s, donor `h3_image_ref_plus_text_to_video_dialogue_api`.** The stairwell dialogue with both speakers carried from pictures Ships in: `h3_image_ref_plus_text_to_video_dialogue_api`, `h3_image_ref_plus_text_to_video_dialogue_pdd_4step_api`.
+**ref2va, 345 frames, 14.375 s, donor `h3_image_ref_plus_text_to_video_dialogue_api`.** The stairwell dialogue with both speakers carried from pictures Ships in: `h3_image_ref_plus_text_to_video_dialogue_api`.
 
 Derived: camera: Shake Slightly; speakers: S1, S2; languages: English; cuts: the camera cuts to; task: [reference generation]; labels: <Picture 1>, <Picture 2>; 431 words in the main field; 3820 characters in all.
 
@@ -4105,7 +4105,7 @@ N/A
 
 ## ref2va_studio_dancer_close_refs
 
-**ref2va, 345 frames, 14.375 s, donor `h3_probe_refview2_dancer_api`.** The studio dancer close carried from one picture; no vocal sound, two shots cut on the beat. **Tests:** reference-view ablation scene (bench/refview2_arms.json): identity carry per copy of the still, blind over seeds Ships in: `h3_probe_refview2_dancer_api`, `h3_text_to_video_audio_freeze_song_ref_pdd8_api`.
+**ref2va, 345 frames, 14.375 s, donor `h3_probe_refview2_dancer_api`.** The studio dancer close carried from one picture; no vocal sound, two shots cut on the beat. **Tests:** reference-view ablation scene (bench/refview2_arms.json): identity carry per copy of the still, blind over seeds Ships in: `h3_probe_refview2_dancer_api`.
 
 Derived: camera: Push In, Static Shot; cuts: the shot cuts to; task: [reference generation]; labels: <Picture 1>; 368 words in the main field; 3230 characters in all.
 

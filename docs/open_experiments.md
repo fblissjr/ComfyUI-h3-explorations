@@ -2677,7 +2677,10 @@ the clean test of whether the tail is PDD's problem.
     and flashgen routes, `STEP_SWITCH_REV` and `STEP_SWITCH_PAIRS` were
     retired with FlashGen, and the checks read `STEP_SWITCH_BASE`.*
   - Graph: `h3_probe_t2v_step_switch_pdd8_base_h063`, with a `_savelat`
-    twin.
+    twin. *2026-11-04: both switches (`_h063`, `_h080`), their twins,
+    `STEP_SWITCH_BASE`, the generator's step-switch route and the checks'
+    grading of it were retired with PDD's primary use (`roadmap.md`, "Closed
+    lanes"); in git at `358e6199`.*
 - **Bench:** a manifest on subway_chase plus the #34 interiors, against
   `subway_chase__rev_h063` (the FlashGen finish at the same handoff) and
   PDD8.
@@ -2790,6 +2793,10 @@ Added 2026-09-27. Every recommendation in
   - `distill_experiments/h3_probe_t2v_step_switch_pdd8_flashgen_h080_savelat_api.json`;
   - `h3_text_to_video_pdd_manual_sigmas_api.json` (PDD6);
   - and their references: PDD8, full FlashGen.
+  *2026-11-04: none of the three graphs exists any more. The FlashGen two
+  went with that lane and PDD6 with PDD's primary use (`roadmap.md`,
+  "Closed lanes"); all are in git at `358e6199`. Of the references only PDD8,
+  `h3_text_to_video_pdd`, stays.*
 - **Bench:** the existing manifests (`bench/flashgen_transplant_arms.json`,
   `bench/followup_reverse_switch_arms.json`) re-run with
   `run_graph_arms.py --seed <second seed>` on the same scenes.
@@ -2829,6 +2836,10 @@ up. It was fastdude's P2 (`../bench/results/2026-09-26_distill_run_predictions.m
   - `h3_probe_t2v_pdd32_savelat` (PDD at width 1, no fusion);
   - `h3_probe_t2v_base_euler16_savelat`;
   - `h3_probe_t2v_base_euler32_savelat`.
+  *2026-11-04: the two PDD probes and their twins were retired with PDD's
+  primary use and are in git at `358e6199`; the base Euler 16 pair went on
+  2026-10-05 as a duplicate of `h3_text_to_video`. Only the base Euler 32
+  twin is generated now.*
 - **Bench, existing:** `bench/make_followup_manifest.py` had the `pdd16`,
   `pdd32`, `base_euler16` and `base_euler32` roles; a manifest selecting them
   on two scenes is to build. *2026-11-04: that tool was retired with the
@@ -2862,7 +2873,8 @@ that premise.
   - `h3_text_to_video_pdd_x0` (PDD8);
   - `h3_probe_t2v_base_euler32_x0`.
   Both save every step's x0 and the final latent (`probe_step_x0`, through
-  `step_x0_observer.py`).
+  `step_x0_observer.py`). *2026-11-04: the PDD8 twin was retired with PDD's
+  primary use and is in git at `358e6199`; the base twin stays.*
 - **Data already on disk, a pilot with no render:** subway_chase on both
   (`../data/results/2026-09-26_x0_steps_subway_pdd8.json`,
   `../data/results/2026-09-27_x0_steps_subway_base_euler32.json`).
@@ -2934,6 +2946,10 @@ shot headers, not beats inside a shot
   - `distill_experiments/h3_text_to_video_pdd_savelat`;
   - `distill_experiments/h3_text_to_video_flashgen_savelat`.
   Both are patched with `MiniMaxH3Conditioning.prompt=@bank:...`.
+  *2026-11-04: neither exists any more. The FlashGen twin went with that
+  lane and the PDD8 twin with PDD's primary use; both are in git at `358e6199`.
+  A run of this entry starts from `h3_text_to_video_pdd` or a twin built
+  for it.*
 - **Seeds:** two (730451892 and 730451893). The comparison is between
   prompts, so a second seed separates the prompt's effect from one take's
   luck. A seed is not being used to probe adherence here.
@@ -3110,7 +3126,9 @@ precision, and this entry closes without being built.
 - **Workflows:** `h3_text_to_video_pdd_manual_sigmas` (PDD6: UNET 1 ->
   `MiniMaxH3PDDLoRA` 18 -> `ModelAttentionBackend` 58 -> Sol 21, `ManualSigmas`
   60 = `h3_config.PDD_MANUAL_SIGMAS`) and
-  `distill_experiments/h3_probe_t2v_fasth3_8step_contract` (retired with the
+  `distill_experiments/h3_probe_t2v_fasth3_8step_contract` (PDD6 and
+  `PDD_MANUAL_SIGMAS` were retired with PDD's primary use on 2026-11-04,
+  in git at `358e6199`; the FastH3 graph was retired with the
   FastH3 lane on 2026-11-04, in git at `358e6199`; FastH3: UNET 1 ->
   `MiniMaxH3SigmaShift` 19 -> 58 -> `BlockSparseAttention` 21, vsa). Both run
   euler through `BasicGuider` 9. The Sol redesign regenerates these graphs, so

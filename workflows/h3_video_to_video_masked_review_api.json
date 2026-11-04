@@ -2,7 +2,7 @@
   "1": {
     "class_type": "UNETLoader",
     "inputs": {
-      "unet_name": "minimax_h3_fl2va_pruned_int8_convrot_pdd8_baked_s1.safetensors",
+      "unet_name": "minimax_h3_ref2va_pruned_int8_convrot.safetensors",
       "weight_dtype": "default"
     }
   },
@@ -31,6 +31,18 @@
       "sampler_name": "euler"
     }
   },
+  "8": {
+    "class_type": "BasicScheduler",
+    "inputs": {
+      "model": [
+        "21",
+        0
+      ],
+      "scheduler": "simple",
+      "steps": 12,
+      "denoise": 1.0
+    }
+  },
   "27": {
     "class_type": "MiniMaxH3Resolution",
     "inputs": {
@@ -39,36 +51,22 @@
       "length": 345
     }
   },
-  "18": {
-    "class_type": "MiniMaxH3PDDLoRA",
+  "19": {
+    "class_type": "MiniMaxH3SigmaShift",
     "inputs": {
       "model": [
         "1",
         0
       ],
-      "lora_name": "h3/minimax_h3_fl2va_pdd_8step_stripped_comfy.safetensors",
-      "strength": 1.0,
-      "head_strength": -1.0,
-      "patch_heads": true,
-      "nfe": 0,
-      "steps": [
-        "61",
-        0
-      ],
-      "backbone_apply": "exact branch"
-    }
-  },
-  "61": {
-    "class_type": "PrimitiveInt",
-    "inputs": {
-      "value": 8
+      "shift_video": 12.0,
+      "shift_audio": 3.0
     }
   },
   "58": {
     "class_type": "ModelAttentionBackend",
     "inputs": {
       "model": [
-        "18",
+        "19",
         0
       ],
       "attention": "comfy kitchen attention"
@@ -120,8 +118,8 @@
         0
       ],
       "sigmas": [
-        "18",
-        1
+        "8",
+        0
       ],
       "prompt": [
         "106",

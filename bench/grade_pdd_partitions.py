@@ -60,7 +60,13 @@ from PIL import Image
 
 SRV = "http://127.0.0.1:8188"
 REPO = Path(__file__).resolve().parent.parent
-BASE = REPO / "workflows/h3_text_to_video_pdd_4step_api.json"
+#: The kept PDD8 t2v graph. Until 2026-11-04 this was
+#: `h3_text_to_video_pdd_4step_api.json`, retired with PDD's primary use; the
+#: two differ only in the output prefix and the step count node 18 reads, and
+#: every arm here sets node 18's `steps` itself (and drops the muxer that holds
+#: the prefix), so each arm queues the same graph but for the value of the
+#: PrimitiveInt node 18 no longer reads.
+BASE = REPO / "workflows/h3_text_to_video_pdd_api.json"
 #: Where the server writes. NOT derived here: `h3_config.output_dir()` owns it,
 #: honours `H3_OUTPUT_DIR`, and raises when the directory is absent.
 #:

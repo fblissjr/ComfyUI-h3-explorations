@@ -198,7 +198,8 @@ so a PR touching an H3 path under an unrelated title can be missed.
   MLP carries a hook or core is training. `lora_branch.py::_mlp_forward`
   installs a one-argument `forward(x)` as an object patch, which is not a
   hook, so the call would raise a TypeError. The same copy is in
-  `standalone/h3_mutant_distill/exact_lora.py`. Read from the diff and
+  `standalone/h3_mutant_distill/exact_lora.py` (that package left the tree on
+  2026-11-04; in git at `358e6199`). Read from the diff and
   reasoned; nothing has run under the PR. The fix is to accept the three
   keywords and apply core's `_mod_gate` when `residual` is given;
   [`wiki/next_steps.md`](wiki/next_steps.md) carries it. *Made the same day

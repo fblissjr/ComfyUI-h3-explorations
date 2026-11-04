@@ -1158,7 +1158,7 @@
       "frames": 345,
       "donor": "h3_probe_refview2_dancer_api",
       "brief": "Masked video to video on the song node: <Picture 1> defines the one performer, and the prompt names no setting, shot or cut because the source video's own frames hold them outside the mask; the performer is the voice on a frozen track, written as (S1) with the lips following every phrase and no words in the text; one shot, static, so one text serves every window of any clip.",
-      "tests": "the shipped default of h3_video_to_video_masked_song_pdd8: whether a prompt that describes no plate lets a masked subject take the reference's identity, sit in the source's light and follow the frozen voice, against a clip-specific prompt at the same seed (bench/masked_v2v_arms.json)"
+      "tests": "the shipped default of h3_video_to_video_masked_song_pdd8 (a graph retired on 2026-11-04 with PDD's primary use): whether a prompt that describes no plate lets a masked subject take the reference's identity, sit in the source's light and follow the frozen voice, against a clip-specific prompt at the same seed (bench/masked_v2v_arms.json)"
     },
     {
       "id": "ref2va_masked_subject_motion",
@@ -1175,7 +1175,7 @@
       "frames": 345,
       "donor": "h3_probe_refview2_dancer_api",
       "brief": "Masked video to video, the whole person, written by the Masked Prompt node at its defaults (masked_prompt_text.py): <Picture 1> defines a person who is in the scene and is the main voice on a frozen track, written as (S1). It claims no count of people, no duration, no posture, no camera, no look and nothing the subject does beyond the mouth following that voice, so one text serves every window of any clip. Until 2026-10-10 it was mrhf's generic swap prompt of 2026-10-04.",
-      "tests": "the shipped default of h3_video_to_video_masked_song_pdd8 since 2026-10-06, in place of ref2va_masked_subject_swap, which said one performer standing through a fourteen-second static shot; and that the node still writes this text (bench/check_masked_prompt.py) The wording was cut on 2026-10-10 (docs/wiki/decisions.md, that date) and has not rendered as it now stands; what is said here of a render is of the earlier wording, which git keeps.",
+      "tests": "the shipped default of h3_video_to_video_masked_song_pdd8 from 2026-10-06 until that graph was retired on 2026-11-04 with PDD's primary use, in place of ref2va_masked_subject_swap, which said one performer standing through a fourteen-second static shot; and that the node still writes this text (bench/check_masked_prompt.py) The wording was cut on 2026-10-10 (docs/wiki/decisions.md, that date) and has not rendered as it now stands; what is said here of a render is of the earlier wording, which git keeps.",
       "recorded_findings": "The bank's shape rule reads no camera motion because the text names none on purpose: the node never sees the window it writes for, and the plate holds the camera (docs/prompt_audit.md, the ref2va_masked rows). detailed_description is under ref 5.2's 350-500 word budget, on purpose since 2026-10-10: every sentence that asserted what the node cannot know of a clip, and every sentence about an edit, was cut (bench/results/2026-10-10_prompt_text_hardcoded_in_code.md), and nothing was written to fill the count."
     },
     {

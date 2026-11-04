@@ -150,18 +150,18 @@ with none is a helper the others import.
 | `.gemini/` | 8 | [below](#gemini) |
 | `archive/` | 29 | [below](#archive) |
 | `assets/` | 1 | [below](#assets) |
-| `bench/` | 814 | [`bench/INDEX.md`](bench/INDEX.md) and [`bench/results/INDEX.md`](bench/results/INDEX.md) for the records |
+| `bench/` | 812 | [`bench/INDEX.md`](bench/INDEX.md) and [`bench/results/INDEX.md`](bench/results/INDEX.md) for the records |
 | `changelog.d/` | | [`changelog.d/README.md`](changelog.d/README.md), one file per changelog entry; not listed and not counted |
 | `contact_sheets/` | 2 | [below](#contact_sheets) |
 | `data/` | 2 | [below](#data) |
 | `docs/` | 209 | [`docs/wiki/index.md`](docs/wiki/index.md), the hand-written router |
 | `prompt_bank/` | 172 | [`docs/prompt_bank.md`](docs/prompt_bank.md), the prompt catalogue |
 | `sparse_tables/` | 1 | [below](#sparse_tables) |
-| `standalone/` | 27 | [below](#standalone) |
+| `standalone/` | 6 | [below](#standalone) |
 | `vendor/` | 11 | [below](#vendor) |
 | `vendor_config/` | 10 | [below](#vendor_config) |
 | `vendor_guides/` | 6 | [below](#vendor_guides) |
-| `workflows/` | 139 | [`workflows/INDEX.md`](workflows/INDEX.md) |
+| `workflows/` | 92 | [`workflows/INDEX.md`](workflows/INDEX.md) |
 
 ## .claude/
 
@@ -248,27 +248,6 @@ with none is a helper the others import.
 |---|---|
 | [`AGENTS.md`](standalone/AGENTS.md) | standalone/: packages released on their own |
 | [`CLAUDE.md`](standalone/CLAUDE.md) | @AGENTS.md |
-| [`h3_mutant_distill/.gitignore`](standalone/h3_mutant_distill/.gitignore) | (git ignore rules) |
-| [`h3_mutant_distill/CHANGELOG.md`](standalone/h3_mutant_distill/CHANGELOG.md) | Changelog |
-| [`h3_mutant_distill/LICENSE`](standalone/h3_mutant_distill/LICENSE) | MIT License |
-| [`h3_mutant_distill/README.md`](standalone/h3_mutant_distill/README.md) | h3 mutant distills |
-| [`h3_mutant_distill/__init__.py`](standalone/h3_mutant_distill/__init__.py) | h3-mutant-distill: experimental MiniMax H3 distill recipes, and a keyframe canvas for i2v. |
-| [`h3_mutant_distill/exact_lora.py`](standalone/h3_mutant_distill/exact_lora.py) | Apply an H3 distill LoRA at the call, so none of it is lost to the int8 grid. |
-| [`h3_mutant_distill/example_workflows/h3_i2v_flashgen.json`](standalone/h3_mutant_distill/example_workflows/h3_i2v_flashgen.json) | ComfyUI editor graph, 19 nodes |
-| [`h3_mutant_distill/example_workflows/h3_i2v_pdd8.json`](standalone/h3_mutant_distill/example_workflows/h3_i2v_pdd8.json) | ComfyUI editor graph, 19 nodes |
-| [`h3_mutant_distill/example_workflows/h3_r2v_flashgen.json`](standalone/h3_mutant_distill/example_workflows/h3_r2v_flashgen.json) | ComfyUI editor graph, 19 nodes |
-| [`h3_mutant_distill/example_workflows/h3_r2v_pdd8.json`](standalone/h3_mutant_distill/example_workflows/h3_r2v_pdd8.json) | ComfyUI editor graph, 19 nodes |
-| [`h3_mutant_distill/example_workflows/h3_r2v_pdd8_flashgen_finish.json`](standalone/h3_mutant_distill/example_workflows/h3_r2v_pdd8_flashgen_finish.json) | ComfyUI editor graph, 25 nodes |
-| [`h3_mutant_distill/example_workflows/h3_t2v_fasth3_contract.json`](standalone/h3_mutant_distill/example_workflows/h3_t2v_fasth3_contract.json) | ComfyUI editor graph, 18 nodes |
-| [`h3_mutant_distill/example_workflows/h3_t2v_flashgen_late_blocks.json`](standalone/h3_mutant_distill/example_workflows/h3_t2v_flashgen_late_blocks.json) | ComfyUI editor graph, 17 nodes |
-| [`h3_mutant_distill/example_workflows/h3_t2v_pdd6.json`](standalone/h3_mutant_distill/example_workflows/h3_t2v_pdd6.json) | ComfyUI editor graph, 17 nodes |
-| [`h3_mutant_distill/example_workflows/h3_t2v_pdd8_flashgen_finish.json`](standalone/h3_mutant_distill/example_workflows/h3_t2v_pdd8_flashgen_finish.json) | ComfyUI editor graph, 23 nodes |
-| [`h3_mutant_distill/keyframe_canvas.py`](standalone/h3_mutant_distill/keyframe_canvas.py) | H3KeyframeCanvas: the video canvas from your first frame, so nothing is stretched. |
-| [`h3_mutant_distill_hf/LICENSE`](standalone/h3_mutant_distill_hf/LICENSE) | MiniMax H3 COMMUNITY LICENSE AGREEMENT |
-| [`h3_mutant_distill_hf/NOTICE`](standalone/h3_mutant_distill_hf/NOTICE) | MiniMax H3 is licensed under the MiniMax H3 Community License Agreement, Copyright © 2026 MiniMax. All Rights Reserved. |
-| [`h3_mutant_distill_hf/README.md`](standalone/h3_mutant_distill_hf/README.md) | h3 mutant distills |
-| [`h3_mutant_distill_hf/reference/README.md`](standalone/h3_mutant_distill_hf/reference/README.md) | Rebuilding the FlashGen files |
-| [`h3_mutant_distill_hf/reference/convert_flashgen_lora.py`](standalone/h3_mutant_distill_hf/reference/convert_flashgen_lora.py) | Convert Beidouqixing's FlashGen 4-step LoRA, at full rank, for a pruned int8 H3 checkpoint. |
 | [`h3_quant/README.md`](standalone/h3_quant/README.md) | ComfyUI-H3-Quant |
 | [`h3_quant/__init__.py`](standalone/h3_quant/__init__.py) | ComfyUI custom node: MiniMax H3 channel balance for INT8 attention. Off by default. |
 | [`h3_quant/channel_balance.py`](standalone/h3_quant/channel_balance.py) | Rebalance q/k channels before INT8 attention on the blocks whose K-norm is lopsided. |

@@ -180,7 +180,7 @@ def split_sigmas_denoise(sig, denoise):        # comfy_extras SplitSigmasDenoise
     return sig[-(total + 1):]
 
 
-MANUAL6 = [1.0, 0.972973, 0.923077, 0.878049, 0.8, 0.631579, 0.0]   # h3_config.PDD_MANUAL_SIGMAS
+MANUAL6 = [1.0, 0.972973, 0.923077, 0.878049, 0.8, 0.631579, 0.0]   # h3_config.PDD_MANUAL_SIGMAS until 2026-11-04
 
 cases = []
 # ---- shipped: every schedule the PDD graphs under h3_config.graph_paths(..., include_bench=True)

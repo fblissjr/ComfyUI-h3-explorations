@@ -28,7 +28,8 @@ here; the marker strings are compared with the release's declared special tokens
 
     CUDA_VISIBLE_DEVICES= python bench/check_prompt_rule_controls.py
 
-No model, no GPU, no server.
+No model, no GPU, no server. ComfyUI importable, for the song graph the
+generator builds in memory.
 """
 
 from __future__ import annotations
@@ -118,9 +119,33 @@ def speaker_cases() -> None:
         check(f"retention: {name} in retention_analysis must FAIL", any("retention_analysis" in m for m in got))
 
 
+def _song_lists_graph() -> dict:
+    """The prompt-list song graph, built in memory by the generator.
+
+    Until 2026-11-04 this read `h3_text_to_video_audio_freeze_song_lists_pdd8`,
+    the one shipped graph with prompt lists, which was retired with PDD's
+    primary use. The generator's own constants and `build_api` make the same
+    song and list nodes (only the output prefix differs), on the base chain, so
+    the fixture cannot drift from what a lists graph would ship. Needs ComfyUI
+    importable, as `check_generator_constants.py` does, with the same import
+    order: core before the generator, on its CPU path when the card is masked.
+    """
+    sys.path.insert(0, str(REPO.parent.parent))  # ComfyUI root
+    import torch
+    if not torch.cuda.is_available():
+        import comfy.cli_args
+        comfy.cli_args.args.cpu = True
+    import comfy_extras.nodes_minimax_h3  # noqa: F401
+    import build_workflows as bw
+    return bw.build_api("t2v", prompt=bw._bank_prompt("t2va_song_flicker_lists"),
+                        freeze_song=True, freeze_song_seconds=None,
+                        freeze_song_timeline=bw._SONG_FLICKER_TIMELINE,
+                        freeze_song_lists=bw._SONG_FLICKER_LISTS, freeze_track="just-a-flicker.mp3",
+                        freeze_mask=0.25, freeze_context=39, length=bw.LONG_WINDOW)
+
+
 def song_cases() -> None:
-    path = REPO / "workflows" / "h3_text_to_video_audio_freeze_song_lists_pdd8_api.json"
-    graph = json.loads(path.read_text(encoding="utf-8"))
+    graph = _song_lists_graph()
     car = prompts.carriers(graph)
     check("song: the song node is read as a template carrier", len(car) == 1 and car[0].template and len(car[0].texts) > 1)
     if not car:

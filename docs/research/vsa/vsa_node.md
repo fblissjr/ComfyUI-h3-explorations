@@ -12,7 +12,9 @@ while `vsa_attention.PARK_OVERRIDE` is False, because `_publish_layout`
 mutates the shared model outside `ModelPatcher` and would leak into every
 later render on the server; the module docstring owns the defect and the fix.
 For FastH3, use core's `BlockSparseAttention` with selection "vsa"
-(`h3_config.FASTH3_CONTRACT_VSA`).
+(`h3_config.FASTH3_CONTRACT_VSA`). *Dated note, 2026-11-04: the `FASTH3_*`
+constants were retired with the FastH3 lane that day (`docs/roadmap.md`,
+"Closed lanes"); they are in git at `358e6199`.*
 
 **It has rendered, once, and that answers a mechanical question only.**
 2026-08-30: VSA runs, its gate is consumed, and it reproduces itself at a fixed

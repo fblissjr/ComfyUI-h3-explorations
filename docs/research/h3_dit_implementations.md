@@ -250,7 +250,9 @@ release's intent rather than four independent simplifications.
 (`workflows/h3_config.py::SAMPLING`), so the divergence this section prices is
 closed for every graph except the two FastH3 ones on
 `h3_config.FASTH3_SAMPLER`. The
-text below is as written.
+text below is as written. *Dated note, 2026-11-04: those FastH3 graphs and
+the `FASTH3_*` constants were retired with the FastH3 lane that day; they are
+in git at `358e6199`.*
 
 The shipped graphs here split between `er_sde` and `euler`
 (*measured*, over `h3_config.graph_paths`). `er_sde` is a third-order multistep

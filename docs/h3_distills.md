@@ -1,12 +1,25 @@
 # Which distill for which shot
 
-last updated: 2026-11-04 (FlashGen and FastH3 retired: the note below, and dated notes where a graph was named as shipping); 2026-10-05 (PDMD retired: its row and section reduced to a pointer); 2026-10-01 (PDMD added, from one blind session: one seed, five scenes); 2026-09-26 (written from one seed, two scenes, unblinded)
+last updated: 2026-11-04 (FlashGen and FastH3 retired, then PDD retired from primary use: the notes below, and dated notes where a graph was named as shipping); 2026-10-05 (PDMD retired: its row and section reduced to a pointer); 2026-10-01 (PDMD added, from one blind session: one seed, five scenes); 2026-09-26 (written from one seed, two scenes, unblinded)
 
 > **FlashGen and FastH3 are retired, 2026-11-04** (`roadmap.md`, "Closed
 > lanes"). Their graphs, constants and contract grading left the tree and
 > are in git at `358e6199`. Their sections below are kept as the record of
-> what was seen; the graphs they name do not exist any more, and PDD is the
-> one distill left, where the masked lane uses it.
+> what was seen; the graphs they name do not exist any more. The note said
+> PDD was the one distill left "where the masked lane uses it", which was
+> wrong when written: the lane's first renders and its daily default ran on
+> the PDD8 masked graphs from 2026-10-04 to 2026-10-06, and since `942b0578`
+> (2026-10-10) every job load is built from `h3_config.MASKED_JOB_BASE_GRAPH`,
+> the ref2va base.
+
+> **PDD is retired from primary use, 2026-11-04** (`roadmap.md`, "Closed
+> lanes"). Five core graphs stay: `h3_text_to_video_pdd`,
+> `h3_first_frame_to_video_pdd`, `h3_first_last_frame_to_video_pdd`,
+> `h3_image_ref_plus_text_to_video_pdd` and `h3_ref2v_market_pdd`, all at 8
+> steps. The 4-step, PDD6 (manual-sigma), 16- and 32-step and `_savelat` and
+> `_x0` graphs this page names, and `PDD_MANUAL_SIGMAS` and
+> `PDD_MANUAL_EVALS`, are in git at `358e6199`. What the page says about them
+> is the record of what was seen, not a recommendation of a graph.
 
 > **Seed-matched clips are different scenes.** The same seed through each
 > distill gives a different scene: different camera angle and framing,
