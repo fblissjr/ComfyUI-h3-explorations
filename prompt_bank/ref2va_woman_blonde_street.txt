@@ -1,0 +1,18 @@
+subject_definitions:
+<Subject 1> is the young woman in <Picture 1>, with very long, loose, wavy blonde hair parted in the center and falling past her chest in sun-streaked strands, blue eyes, light freckles across her nose and cheeks, and a black chunky ribbed knit sweater.
+
+summary:
+[reference generation] <Subject 1> walks alone along a quiet city sidewalk on an overcast afternoon, slows at the corner, turns toward the camera and speaks one short line, in a single continuous shot.
+
+retention_analysis:
+<Subject 1> (appears in [Shot 1]): fully_preserved - her face, the long wavy center-parted blonde hair, the light freckles, the blue eyes and the black chunky knit sweater are retained.
+
+detailed_description:
+The target video is live-action and cinematic, with soft overcast daylight, a shallow depth of field and the muted, cool city tones of <Picture 1>.
+[Shot 1] A medium-wide tracking shot finds <Subject 1>, the young woman with very long, wavy, center-parted blonde hair, light freckles and a black chunky knit sweater, walking from the left side of the frame toward the right along a quiet sidewalk lined with weathered stone buildings and a few bare trees. She wears dark straight-leg jeans and black ankle boots, and she is the only person on the street; a row of parked cars sits blurred behind her. The stone facades are pale grey and soot-streaked, a closed café with a dark green awning sits halfway down the block, and fallen yellow leaves lie gathered along the dry curb. Her stride is easy and unhurried, her arms swinging loosely at her sides. The camera tracks her at walking pace from her left side, framing her from head to knees, as a light breeze lifts loose strands of her hair across her shoulder and she brushes them back with her right hand. Near the corner she slows, glances once over her right shoulder toward the empty street, and comes to a stop at the curb. She turns her head and then her whole body toward the camera, her shoulders relaxing and her hands sliding into the front pockets of her jeans, and the camera pushes in with small amplitude at slow speed until she fills the frame in a medium close-up, her freckles and blue eyes clear and her hair settling around her face. She looks straight into the lens, a small, tired smile forming, and the young woman with a warm, slightly husky, unhurried voice (S1) says: <d>[English] I almost didn't come back here, you know.</d> She closes her mouth and keeps her eyes on the lens, the smile fading into a calm, steady look, while the breeze moves a few strands of hair across her cheek. The camera holds the medium close-up on her for the rest of the 10.125-second shot, with no cut and no further movement, and she stays still and silent until the final frame.
+
+overall_soundscape:
+Quiet street ambience with distant traffic and a light breeze, her boot heels tapping evenly on the pavement and slowing to a stop at the curb, and the soft rustle of her knit sleeve as she brushes her hair back.
+
+non_diegetic_music:
+N/A

@@ -1269,6 +1269,14 @@
       "donor": "h3_probe_r2v_pika_motion_transfer_6step_api",
       "brief": "Pika H3 Flex's motion-transfer showcase, rewritten to the vendor reference format from Pika's showcase text and the three reference assets: <Picture 1> defines <Subject 1> (Desmond in the mustard-yellow suit holding a vinyl LP in vintage pop-art illustration style, `fully_preserved`), <Picture 2> defines <Subject 2> (the vintage record shop with the checkerboard floor and lavender turntable, `fully_preserved`), <Subject 3> is the solo dance choreography from <Video 1> (`attribute_transfer` onto <Subject 1>: kick, crouch, five spins, wide stop, and bow), and <Video 1> supplies the static framing and timing (`weak_reference`, `ref_video_audio=False` so no `<Audio 1>` is emitted); one continuous static shot; silent performer, diegetic 1960s soul groove from the shop's turntable, N/A non-diegetic music.",
       "tests": "whether this stack reproduces Pika's ref2va motion-transfer showcase at 6 steps (MiniMaxH3LoRABranch vs LoraLoaderModelOnly), judged against Pika's motion-transfer.mp4 at 243 frames"
+    },
+    {
+      "id": "ref2va_woman_blonde_street",
+      "mode": "ref2va",
+      "frames": 243,
+      "donor": "h3_ref2v_market_api",
+      "brief": "One reference still (woman_blonde.jpg, the owner's choice of lead in place of the fun stills) as <Subject 1>, described from looking at it; one continuous shot: a tracking shot as she walks alone, stops, turns to camera, then a small slow push in to a medium close-up for one spoken line, mouth closed after; ambience only, N/A. The donor is any one-still ref2va graph; the Pika and base graphs that render it come later.",
+      "tests": "reference identity across angles (walking profile, over-the-shoulder glance, turn, frontal close-up) and lip sync on one line, base H3 against Pika H3 Flex at matched seeds"
     }
   ]
 }
