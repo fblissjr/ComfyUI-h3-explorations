@@ -107,7 +107,18 @@ and a second shot before anything is called a result, and every prompt read in f
 - **Likely:** a coin flip. Few steps leave less room to recover from an approximate attention step, but Sol has
   held on other graphs.
 
-### 5. One activation run (no render, one server run)
+### 5a. A first look at the variants (about 8 renders)
+
+Full rank, `svd995` and `svd99` on step 3's reference-to-video shots, with kijai's file as one control. Matched
+seeds, a repeat. Added from the Gemini lead's reply the same day, which put this first; this plan keeps it after
+steps 2 and 3, because a variant comparison is wasted if the base case fails or loses to base H3. If `svd995` looks
+the same, full rank stays the reference: looking the same on a few clips is not the same everywhere, and the
+saving is 0.14 s per forward.
+
+### 5b. One activation run, only if 5a or a problem calls for it (no render, one server run)
+
+Moved after 5a at the Gemini lead's suggestion: it earns its cost only if the variants visibly differ or a problem
+needs explaining.
 
 - One full-rank run through the branch on real reference-to-video prompts. For each module, step and modality
   (video and audio kept apart), record the small projected Gram matrices (§7's method, checked exact) and how
@@ -121,13 +132,14 @@ and a second shot before anything is called a result, and every prompt read in f
 
 ### 6. What lives where: attribution on reference-to-video (about 12 to 20 renders)
 
-- **Arms**, all files the converter already makes, against full rank:
-  - spike only and tail only;
-  - switch strength 0.9 with body 1.0;
-  - `svd99`;
-  - kijai's file, as the control;
-  - task boost, β about 0.25, on ref2va.
-- Two shots, a repeat. Order the arms by step 5's ranking.
+- **Arms**, all files the converter already makes, against full rank, chosen by what 5a shows:
+  - if full rank over-stylizes or weakens reference identity: a softer body (switches 1.0, body 0.5 to 0.6),
+    or a task boost (β 0.25 to 0.5) on ref2va (both the Gemini lead's suggestion);
+  - spike only, the most informative single arm about where the look lives;
+  - switch strength 0.9 with body 1.0.
+- **Dropped:** tail only. Without the top directions it almost certainly will not converge in 6 steps, so it
+  teaches little (the Gemini lead's point).
+- Two shots, a repeat.
 - **Decides:** where the look, the 6-step finish and the reference adherence live, and so which dials are real.
   Then the daily-driver question, with evidence.
 - **Most likely to matter:**
