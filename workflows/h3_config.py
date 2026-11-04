@@ -1769,6 +1769,45 @@ STEP_SWITCH_PAIRS = (((STEP_SWITCH_PASS1_SIGMAS, STEP_SWITCH_PASS2_SIGMAS),) + t
 #: (vllm-omni, MindIE-SD) step Euler deterministically.
 FLASHGEN_SAMPLER = "euler"
 
+#: Pika H3 Flex Early Access 6-step LCM LoRAs (`docs/research/2026-11-04_pika_h3_flex_weights_and_loras.md`,
+#: `docs/research/2026-11-04_pika_h3_flex_plan.md`).
+#: **Inherited** from `fl2va/manifest.json`, `ref2va/manifest.json`, `comfy/README.md`,
+#: and `coderef/Pika-H3-Flex/src/pika_h3/core/schedules.py`: rank-128 PEFT LoRAs
+#: over 312 linear modules across all 52 blocks (50 DiT blocks plus 2 token-refiner
+#: blocks; `lora_alpha == r == 128`, unit scale `alpha / r = 1.0`, zero `adaln_single`
+#: keys), fused into 208 ComfyUI `diffusion_model.*` modules (`attn.qkv_proj` at rank 384,
+#: `attn.out_proj`, `mlp.fc1`, `mlp.fc2` at rank 128).
+#: - `pika_h3_flex_{fl2va,ref2va}_comfy_bf16.safetensors`: Pika's own `comfy/loras/`
+#:   files (**Inherited**).
+#: - `pika_h3_flex_{fl2va,ref2va}_svd{995,99}_bf16.safetensors`: per-component FP64
+#:   QR-SVD truncations (`to_q`, `to_k`, `to_v`, `to_out.0`, `ff.net.0.proj`, `ff.net.2`)
+#:   before `qkv_proj` fusion, built by `bench/convert_pika_lora.py` (**Measured**).
+#: - `pika_h3_flex_{fl2va_v1_avg_rank_56,ref2va_v1_avg_rank_55}_bf16.safetensors`:
+#:   Kijai's post-fusion dynamic-resize controls (**Inherited**).
+PIKA_FL2VA_LORA = "h3/pika_h3_flex_fl2va_comfy_bf16.safetensors"
+PIKA_REF2VA_LORA = "h3/pika_h3_flex_ref2va_comfy_bf16.safetensors"
+PIKA_FL2VA_SVD995_LORA = "h3/pika_h3_flex_fl2va_svd995_bf16.safetensors"
+PIKA_REF2VA_SVD995_LORA = "h3/pika_h3_flex_ref2va_svd995_bf16.safetensors"
+PIKA_FL2VA_SVD99_LORA = "h3/pika_h3_flex_fl2va_svd99_bf16.safetensors"
+PIKA_REF2VA_SVD99_LORA = "h3/pika_h3_flex_ref2va_svd99_bf16.safetensors"
+PIKA_FL2VA_KIJAI_LORA = "h3/pika_h3_flex_fl2va_v1_avg_rank_56_bf16.safetensors"
+PIKA_REF2VA_KIJAI_LORA = "h3/pika_h3_flex_ref2va_v1_avg_rank_55_bf16.safetensors"
+#: **Inherited** (`fl2va/manifest.json`, `ref2va/manifest.json`, `comfy/README.md`):
+#: strength 1.0, 6 steps, `lcm` sampler, and unshifted knots `[1000, 750, 500, 250, 100, 40, 0]`
+#: passed through `time_shift(t, 12.0)` (`12 * u / (1 + 11 * u)` where `u = k / 1000`),
+#: while ComfyUI core shifts the audio stream from the model's `shift=12` to `audio_shift=3`
+#: automatically (`comfy/ldm/minimax/model.py:time_shift_sigma`).
+PIKA_STRENGTH = 1.0
+PIKA_STEPS = 6
+PIKA_SAMPLER = "lcm"
+PIKA_CONTRACT_KNOTS = (1000, 750, 500, 250, 100, 40, 0)
+PIKA_MANUAL_SIGMAS = ", ".join(
+    "1.0" if k == 1000 else "0.0" if k == 0 else
+    f"{12.0 * (k / 1000.0) / (1.0 + 11.0 * (k / 1000.0)):.6f}".rstrip("0").rstrip(".")
+    for k in PIKA_CONTRACT_KNOTS
+)
+assert PIKA_MANUAL_SIGMAS == "1.0, 0.972973, 0.923077, 0.8, 0.571429, 0.333333, 0.0"
+
 # `CHAIN` was here and is gone as of 2026-08-14. It listed the node order --
 # Load Diffusion Model, MiniMax H3 SageAttention, SolAttnMiniMax -- and nothing
 # imported it. Node order IS load-bearing (Sol composes with the attention
@@ -2145,10 +2184,13 @@ def _ref_qwen_short_edge() -> int:
 #:
 #: **Pinned to `shared` instead (the generator passes 0) on the instruments:**
 #: the `_savelat` and `_x0` twins and the `bench/` graphs, whose renders are
-#: compared byte for byte with earlier ones, and the `h3_probe_refview2_*`
+#: compared byte for byte with earlier ones, the `h3_probe_refview2_*`
 #: scenes, whose manifest (`bench/refview2_arms.json`) defines its `parity` arm
-#: as "the graph as built" at the 2026-09-13 values. The generator always
-#: writes the selection, so none of these inherits the node default.
+#: as "the graph as built" at the 2026-09-13 values, and the Pika H3 Flex
+#: showcase reproduction arms (`h3_probe_r2v_pika_motion_transfer_6step*`),
+#: whose reference pipeline (`coderef/Pika-H3-Flex/src/pika_h3/core/references.py:92-104`)
+#: feeds one shared 2048-short-edge tensor to both the DiT VAE and Qwen. The
+#: generator always writes the selection, so none of these inherits the node default.
 REF_QWEN_SHORT_EDGE = _ref_qwen_short_edge()
 
 REF_VIDEO_CANVAS = dict(width=1024, height=768)
@@ -2243,6 +2285,19 @@ CAPTURE_REF_IMAGES = (
     "h3_refs/product_soccer_jersey_1600x1600.png",
     "h3_refs/scene_loft_couch_duo_2752x1536.png",
 )
+
+#: Pika H3 Flex `motion-transfer` showcase inputs (`assets/showcases/motion-transfer*`,
+#: copied into `$H3_INPUT_DIR`; `docs/research/2026-11-04_pika_h3_flex_plan.md` Step 1):
+#: <Picture 1> (`motion-transfer-input-2.png`, 2816x1584 Desmond character sheet),
+#: <Picture 2> (`motion-transfer-input-3.png`, 2816x1584 vintage record shop), and
+#: <Video 1> (`motion-transfer-input-1.mp4`, 241 frames at 24 fps, 854x480,
+#: wired with `ref_video_audio=False` so its embedded dance soundtrack does not
+#: emit an unused `<Audio 1>` block).
+PIKA_MOTION_TRANSFER_IMAGES = (
+    "motion-transfer-input-2.png",
+    "motion-transfer-input-3.png",
+)
+PIKA_MOTION_TRANSFER_VIDEO = "motion-transfer-input-1.mp4"
 
 
 # ---------------------------------------------------------------------------

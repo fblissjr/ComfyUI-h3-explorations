@@ -202,6 +202,14 @@ SOL_EXEMPT_STEMS = {
         "FlashGen as vllm-omni's NPU recipe runs it: dense attention with the "
         "sparse config dropped (vllm-omni recipes/MiniMaxAI/MiniMax-H3-NPU.md). "
         "The Sol-off arm of the FlashGen pair; the kitchen backend is wired",
+    **{stem: "Pika H3 Flex Step 2 showcase reproduction "
+             "(docs/research/2026-11-04_pika_h3_flex_plan.md): dense attention "
+             "on the kitchen backend with Sol off so attention sparsity does "
+             "not confound the 6-step LCM LoRA and branch-versus-merge check"
+       for stem in ("h3_probe_r2v_pika_motion_transfer_6step",
+                    "h3_probe_r2v_pika_motion_transfer_6step_merge",
+                    "h3_probe_t2v_pika_balcony_orbit_6step",
+                    "h3_probe_t2v_pika_balcony_orbit_6step_merge")},
     "h3_probe_t2v_fasth3_8step":
         "FastVideo's FastH3 V2 was trained with VSA and runs core's "
         "BlockSparseAttention in VSA mode, as ComfyUI's own template does "

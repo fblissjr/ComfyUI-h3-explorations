@@ -1,0 +1,217 @@
+{
+  "1": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+      "weight_dtype": "default"
+    }
+  },
+  "2": {
+    "class_type": "MiniMaxH3EncoderLoader",
+    "inputs": {
+      "encoder_name": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+      "device": "default"
+    }
+  },
+  "3": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "minimax_h3_video_vae_int8_convrot.safetensors"
+    }
+  },
+  "4": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "minimax_h3_audio_vae_fp32.safetensors"
+    }
+  },
+  "6": {
+    "class_type": "RandomNoise",
+    "inputs": {
+      "noise_seed": 730451892
+    }
+  },
+  "7": {
+    "class_type": "KSamplerSelect",
+    "inputs": {
+      "sampler_name": "lcm"
+    }
+  },
+  "9": {
+    "class_type": "BasicGuider",
+    "inputs": {
+      "model": [
+        "58",
+        0
+      ],
+      "conditioning": [
+        "26",
+        0
+      ]
+    }
+  },
+  "10": {
+    "class_type": "SamplerCustomAdvanced",
+    "inputs": {
+      "noise": [
+        "6",
+        0
+      ],
+      "guider": [
+        "9",
+        0
+      ],
+      "sampler": [
+        "7",
+        0
+      ],
+      "sigmas": [
+        "60",
+        0
+      ],
+      "latent_image": [
+        "26",
+        1
+      ]
+    }
+  },
+  "11": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": [
+        "10",
+        0
+      ],
+      "vae": [
+        "3",
+        0
+      ]
+    }
+  },
+  "12": {
+    "class_type": "VAEDecodeAudio",
+    "inputs": {
+      "samples": [
+        "10",
+        0
+      ],
+      "vae": [
+        "4",
+        0
+      ]
+    }
+  },
+  "13": {
+    "class_type": "VHS_VideoCombine",
+    "inputs": {
+      "images": [
+        "11",
+        0
+      ],
+      "audio": [
+        "12",
+        0
+      ],
+      "frame_rate": 24.0,
+      "loop_count": 0,
+      "filename_prefix": "Video/h3_probe_t2v_pika_balcony_orbit_6step",
+      "format": "video/h264-mp4",
+      "pix_fmt": "yuv420p",
+      "crf": 19,
+      "save_metadata": true,
+      "trim_to_audio": false,
+      "pingpong": false,
+      "save_output": true
+    }
+  },
+  "27": {
+    "class_type": "MiniMaxH3Resolution",
+    "inputs": {
+      "shape": "wide",
+      "shape.wide_resolution": "1344x768  7/4  1008 tok/frame  1.00x",
+      "length": 328
+    }
+  },
+  "5": {
+    "class_type": "MiniMaxH3Conditioning",
+    "inputs": {
+      "clip": [
+        "2",
+        0
+      ],
+      "vae": [
+        "3",
+        0
+      ],
+      "prompt": "integrated_multimodal_description: [Shot 1] Live-action, cinematic, a 35mm film look with fine grain and a soft 1970s palette of chalky whites, powder blue and muted pastels, a wide shot frames a tall white modernist apartment tower against a soft pale-blue sky with faint streaky cirrus cloud; the tower fills the right half of the frame and open sky fills the left half. Its smooth off-white render facade carries small square windows in thick white frames, and three identical cantilevered concrete balconies are stacked vertically on the building's corner, each a thick white slab with an angled, wedge-shaped underside and a thin white metal railing of vertical balusters. Exactly three people are in the scene, one on each balcony, and no one else appears on the building or against the sky. On the top balcony a young woman with dark hair pulled back, in a lilac fluffy knit jumper and matching lilac wide-leg knit trousers, slowly reaches both arms high overhead, leans her upper body into a long side bend to the left, eases back to center, and slowly leans to the right. On the middle balcony a man with short dark hair in a rust-red tracksuit hangs in a deep forward fold with his palms on the floor, slowly rolls up through his spine to standing, and lifts his arms in one wide, slow circle overhead. On the bottom balcony an older woman with short silver-grey hair, in a cobalt-blue short-sleeved polo and loose cream trousers, holds a wide warrior lunge with her arms stretched out to each side, slowly shifts her weight from one bent knee to the other, and sweeps one arm up and over her head into a side bend. All three keep moving for the whole video, each at an unhurried, meditative pace like yoga or tai chi, every stretch easing into the next over three to four seconds, slightly out of step with the others, their knitwear and trousers stretching and settling with real balance and weight; all three stay silent. In one continuous take across the full 13.667 seconds, the camera begins an arc shot at slow speed around the corner of the tower, sweeping about forty degrees with strong parallax between the balconies, the facade and the sky. Still moving, it pushes in with large amplitude toward the middle balcony until the man in the rust-red tracksuit fills the frame alone, waist up and mid-stretch, with the railing in the foreground. The camera then pedestals up the face of the building, past the concrete underside of the slab above, revealing the woman in lilac mid side bend. Next it pedestals down with large amplitude at fast speed, past the middle balcony to the bottom one, revealing the older woman shifting through her lunge. Finally the camera pulls out and arcs back the other way, landing on the opening wide composition with all three still stretching. Soft diffused daylight casts gentle shadows under each slab, and the movement stays smooth and stabilized like a crane throughout.\n\noverall_soundscape: Light wind gusts past the corner of the building over a distant, steady city hum. Faint birds call now and then, and soft fabric rustles as the three people stretch.\n\nnon_diegetic_music: N/A",
+      "width": [
+        "27",
+        0
+      ],
+      "height": [
+        "27",
+        1
+      ],
+      "length": [
+        "27",
+        2
+      ],
+      "canvas": "explicit"
+    }
+  },
+  "18": {
+    "class_type": "MiniMaxH3LoRABranch",
+    "inputs": {
+      "model": [
+        "1",
+        0
+      ],
+      "lora_name": "h3/pika_h3_flex_fl2va_comfy_bf16.safetensors",
+      "strength": 1.0,
+      "modules": "all",
+      "blocks": "all",
+      "start_percent": 0.0,
+      "end_percent": 1.0
+    }
+  },
+  "19": {
+    "class_type": "MiniMaxH3SigmaShift",
+    "inputs": {
+      "model": [
+        "18",
+        0
+      ],
+      "shift_video": 12.0,
+      "shift_audio": 3.0
+    }
+  },
+  "58": {
+    "class_type": "ModelAttentionBackend",
+    "inputs": {
+      "model": [
+        "19",
+        0
+      ],
+      "attention": "comfy kitchen attention"
+    }
+  },
+  "26": {
+    "class_type": "MiniMaxH3Preflight",
+    "inputs": {
+      "conditioning": [
+        "5",
+        0
+      ],
+      "samples": [
+        "5",
+        1
+      ]
+    }
+  },
+  "60": {
+    "class_type": "ManualSigmas",
+    "inputs": {
+      "sigmas": "1.0, 0.972973, 0.923077, 0.8, 0.571429, 0.333333, 0.0"
+    }
+  }
+}

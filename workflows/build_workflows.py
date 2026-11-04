@@ -114,6 +114,8 @@ from h3_config import (  # noqa: E402
     FLASHGEN_MANUAL_SIGMAS, FLASHGEN_SAMPLER,
     FASTH3_STEPS, FASTH3_SAMPLER, FASTH3_SCHEDULER, FASTH3_SHIFT, FASTH3_CORE_VSA,
     FASTH3_CONTRACT_SIGMAS, FASTH3_CONTRACT_SAMPLER, FASTH3_CONTRACT_VSA, STEP_SWITCH_FASTH3,
+    PIKA_FL2VA_LORA, PIKA_REF2VA_LORA, PIKA_STRENGTH, PIKA_STEPS, PIKA_SAMPLER,
+    PIKA_MANUAL_SIGMAS, PIKA_MOTION_TRANSFER_IMAGES, PIKA_MOTION_TRANSFER_VIDEO,
     refine_scheduler_ids,
 )
 
@@ -600,7 +602,7 @@ def _is_distill_experiment(fname: str, extra: dict) -> bool:
     if not stem.startswith("h3_probe_"):
         return False
     lora = str((extra.get("lora") or ("",))[0]).lower()
-    return bool(extra.get("pdd") or "pdd" in lora or "flashgen" in lora
+    return bool(extra.get("pdd") or "pdd" in lora or "flashgen" in lora or "pika" in lora
                 or "fasth3" in str(extra.get("unet", "")).lower()
                 or extra.get("step_switch") or extra.get("audio_refine"))
 
@@ -984,6 +986,9 @@ MARKET_REF_IMAGES = ("dirk_runway2.jpeg",)
 
 MARKET_REF2V_PROMPT = _bank_prompt("ref2va_market_stallholder")
 
+PIKA_MOTION_TRANSFER_PROMPT = _bank_prompt("ref2va_pika_motion_transfer")
+PIKA_BALCONY_ORBIT_PROMPT = _bank_prompt("t2va_pika_balcony_orbit")
+
 
 R2V_PROMPT = _bank_prompt("ref2va_image_ref_default")
 
@@ -1296,6 +1301,7 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
               # which).
               ref_qwen_short_edge: int = REF_QWEN_SHORT_EDGE,
               ref_video: bool = False, ref_video_audio: bool = True,
+              ref_video_file: str | None = None,
               ref_images_on: bool = True, ref_image_count: int = 2,
               ref_images: tuple[str, ...] | None = None,
               pdd: bool = False,
@@ -1696,8 +1702,10 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
                                   "custom_width": 0, "custom_height": 0,
                                   "frame_load_cap": length,
                                   "start_time": 0.0, "format": "AnimateDiff"}}
-            g["28"]["inputs"]["video"] = (PLACEHOLDER_VIDEO if ref_video_audio
-                                          else PLACEHOLDER_VIDEO_SILENT)
+            g["28"]["inputs"]["video"] = (
+                ref_video_file if ref_video_file is not None
+                else PLACEHOLDER_VIDEO if ref_video_audio
+                else PLACEHOLDER_VIDEO_SILENT)
             append_id = next(append_ids)
             append_inputs = {"frames": ["28", 0], "video_info": ["28", 3]}
             if ref_video_audio:
@@ -5114,6 +5122,50 @@ def main():
         ("h3_probe_head_chunks.json", "t2v-chunk4", "t2v", LONG_T2V_PROMPT,
          dict(head_chunks=4, dense_attn="sage_sol", out_prefix="Video/h3_probe_chunk4"),
          "the same render with the heads in 4 groups"),
+
+        # --- Pika H3 Flex 6-step LCM showcase reproduction (2026-11-04) -----
+        # Step 1–2 of docs/research/2026-11-04_pika_h3_flex_plan.md: Pika's
+        # motion-transfer (ref2va, 243 frames) and balcony-orbit (t2va on fl2va,
+        # 328 frames) showcases at Pika's contract (6 steps, lcm, shift-12
+        # manual sigmas "1.0, 0.972973, 0.923077, 0.8, 0.571429, 0.333333, 0.0"),
+        # dense attention on the kitchen backend (Sol off) so attention sparsity
+        # does not confound the 6-step LoRA and branch-vs-merge comparison.
+        # On motion-transfer, ref_video_audio=False drops the reference dance
+        # clip's embedded soundtrack so no unused <Audio 1> block is emitted,
+        # and ref_qwen_short_edge=0 selects qwen_view="shared" (one 2048-short-edge
+        # copy for both DiT and Qwen, matching Pika's reference preprocessing).
+        ("h3_probe_r2v_pika_motion_transfer_6step.json", "r2v-pika-motion-transfer-6step", "r2v",
+         PIKA_MOTION_TRANSFER_PROMPT,
+         dict(length=243, lora=(PIKA_REF2VA_LORA, PIKA_STRENGTH), lora_branch=True,
+              dense_attn="ck", sol_on=False, steps=PIKA_STEPS, sampler_name=PIKA_SAMPLER,
+              manual_sigmas=PIKA_MANUAL_SIGMAS, ref_images=PIKA_MOTION_TRANSFER_IMAGES,
+              ref_image_count=2, ref_upscale=True, ref_qwen_short_edge=0,
+              ref_video=True, ref_video_audio=False, ref_video_file=PIKA_MOTION_TRANSFER_VIDEO,
+              out_prefix="Video/h3_probe_r2v_pika_motion_transfer_6step"),
+         "Pika H3 Flex motion-transfer showcase (ref2va, 243 frames) at 6 steps on lcm, full rank 128 via MiniMaxH3LoRABranch, dense attention"),
+        ("h3_probe_r2v_pika_motion_transfer_6step_merge.json", "r2v-pika-motion-transfer-6step-merge", "r2v",
+         PIKA_MOTION_TRANSFER_PROMPT,
+         dict(length=243, lora=(PIKA_REF2VA_LORA, PIKA_STRENGTH), lora_branch=False,
+              dense_attn="ck", sol_on=False, steps=PIKA_STEPS, sampler_name=PIKA_SAMPLER,
+              manual_sigmas=PIKA_MANUAL_SIGMAS, ref_images=PIKA_MOTION_TRANSFER_IMAGES,
+              ref_image_count=2, ref_upscale=True, ref_qwen_short_edge=0,
+              ref_video=True, ref_video_audio=False, ref_video_file=PIKA_MOTION_TRANSFER_VIDEO,
+              out_prefix="Video/h3_probe_r2v_pika_motion_transfer_6step_merge"),
+         "Pika H3 Flex motion-transfer showcase (ref2va, 243 frames) at 6 steps on lcm, merged into int8 via LoraLoaderModelOnly (control)"),
+        ("h3_probe_t2v_pika_balcony_orbit_6step.json", "t2v-pika-balcony-orbit-6step", "t2v",
+         PIKA_BALCONY_ORBIT_PROMPT,
+         dict(length=328, lora=(PIKA_FL2VA_LORA, PIKA_STRENGTH), lora_branch=True,
+              dense_attn="ck", sol_on=False, steps=PIKA_STEPS, sampler_name=PIKA_SAMPLER,
+              manual_sigmas=PIKA_MANUAL_SIGMAS,
+              out_prefix="Video/h3_probe_t2v_pika_balcony_orbit_6step"),
+         "Pika H3 Flex balcony-orbit showcase (t2va on fl2va, 328 frames) at 6 steps on lcm, full rank 128 via MiniMaxH3LoRABranch, dense attention"),
+        ("h3_probe_t2v_pika_balcony_orbit_6step_merge.json", "t2v-pika-balcony-orbit-6step-merge", "t2v",
+         PIKA_BALCONY_ORBIT_PROMPT,
+         dict(length=328, lora=(PIKA_FL2VA_LORA, PIKA_STRENGTH), lora_branch=False,
+              dense_attn="ck", sol_on=False, steps=PIKA_STEPS, sampler_name=PIKA_SAMPLER,
+              manual_sigmas=PIKA_MANUAL_SIGMAS,
+              out_prefix="Video/h3_probe_t2v_pika_balcony_orbit_6step_merge"),
+         "Pika H3 Flex balcony-orbit showcase (t2va on fl2va, 328 frames) at 6 steps on lcm, merged into int8 via LoraLoaderModelOnly (control)"),
     )
 
     # The 2026-09-26 distill run (owner): `_savelat` probe twins of exactly the

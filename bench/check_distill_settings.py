@@ -214,6 +214,13 @@ def classify_flashgen(lora_name):
     return "flashgen" in lora_name.lower()
 
 
+def classify_pika(lora_name):
+    """Pika H3 Flex 6-step LCM LoRAs (h3_config.PIKA_*). Without its own row,
+    a Pika graph would fall through to the base branch and pass on the base
+    12/3 shift without grading partition, 6 steps, lcm, or PIKA_MANUAL_SIGMAS."""
+    return "pika_h3_flex_" in lora_name.lower()
+
+
 def is_pdmd(lora_name):
     """Any PDMD LoRA, a retired lane since 2026-10-05 (`docs/roadmap.md`,
     "Closed lanes"): pdmd2026's files and kijai's resizes of them."""
@@ -473,6 +480,51 @@ def main():
                 got = (found.strengths or {}).get(found.loras[0])
                 assert got == cfg.FLASHGEN_STRENGTH, (
                     f"{path.name}: FlashGen strength {got}, want {cfg.FLASHGEN_STRENGTH}")
+                continue
+            pika = [l for l in found.loras if classify_pika(l)]
+            if pika:
+                nodes = [n for n in doc.values() if isinstance(n, dict)]
+                pika_files = {
+                    cfg.PIKA_FL2VA_LORA: "unet_fl2va",
+                    cfg.PIKA_FL2VA_SVD995_LORA: "unet_fl2va",
+                    cfg.PIKA_FL2VA_SVD99_LORA: "unet_fl2va",
+                    cfg.PIKA_FL2VA_KIJAI_LORA: "unet_fl2va",
+                    cfg.PIKA_REF2VA_LORA: "unet_ref2va",
+                    cfg.PIKA_REF2VA_SVD995_LORA: "unet_ref2va",
+                    cfg.PIKA_REF2VA_SVD99_LORA: "unet_ref2va",
+                    cfg.PIKA_REF2VA_KIJAI_LORA: "unet_ref2va",
+                }
+                assert len(found.loras) == 1 and found.loras[0] in pika_files, (
+                    f"{path.name}: Pika H3 Flex must load exactly one of "
+                    f"{sorted(pika_files)} and nothing beside it, has {found.loras}")
+                unets = {n["inputs"].get("unet_name") for n in nodes
+                         if n.get("class_type") == "UNETLoader"}
+                want_unet = cfg.MODELS[pika_files[found.loras[0]]]
+                assert unets == {want_unet}, (
+                    f"{path.name}: {found.loras[0]} is trained for "
+                    f"{pika_files[found.loras[0]]}, so it loads on "
+                    f"{want_unet} only, has {sorted(map(str, unets))}")
+                effective = BASE_SHIFT if found.shift is None else found.shift
+                assert effective == BASE_SHIFT, (
+                    f"{path.name}: Pika H3 Flex's sigmas are shifted at 12 and "
+                    f"core derives audio shift 3 from {BASE_SHIFT}, has {effective}")
+                assert (found.scheduler, found.steps) == ("manual", cfg.PIKA_STEPS), (
+                    f"{path.name}: Pika H3 Flex runs its own {cfg.PIKA_STEPS} sigmas "
+                    f"through ManualSigmas; graph has {found.scheduler!r}/{found.steps}")
+                manual = [n["inputs"].get("sigmas") for n in nodes
+                          if n.get("class_type") == "ManualSigmas"]
+                assert manual == [cfg.PIKA_MANUAL_SIGMAS], (
+                    f"{path.name}: ManualSigmas {manual}, want {[cfg.PIKA_MANUAL_SIGMAS]}")
+                main_samplers = {doc[str(n["inputs"]["sampler"][0])]["inputs"].get("sampler_name")
+                                 for n in nodes if n.get("class_type") == "SamplerCustomAdvanced"
+                                 and doc.get(str(n["inputs"].get("latent_image", [None])[0]), {})
+                                 .get("class_type") != cfg.AUDIO_REFINE_MASK_NODE}
+                assert main_samplers == {cfg.PIKA_SAMPLER}, (
+                    f"{path.name}: Pika H3 Flex steps {cfg.PIKA_SAMPLER}, graph has "
+                    f"{sorted(map(str, main_samplers))}")
+                got = (found.strengths or {}).get(found.loras[0])
+                assert got == cfg.PIKA_STRENGTH, (
+                    f"{path.name}: Pika H3 Flex strength {got}, want {cfg.PIKA_STRENGTH}")
                 continue
             pdd = [l for l in found.loras if classify_pdd(l)]
 

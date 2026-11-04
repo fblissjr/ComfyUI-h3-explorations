@@ -20,6 +20,8 @@ Scenes are ordered by how many graphs carry them, so the defaults that reach the
 | [`ref2va_masked_person_upper_motion`](#ref2va-masked-person-upper-motion) | `ref2va_masked_person_upper_motion` | 3 | 230 | 1 | 1 | — |
 | [`BENCH_T2V_PROMPT`](#bench-t2v-prompt) | `t2va_frontier_standoff` | 2 | 385 | 3 | 2 | `<d>` |
 | [`DIALOGUE_REF2V_PROMPT`](#dialogue-ref2v-prompt) | `ref2va_stairwell_dialogue` | 2 | 640 | 3 | 2 | `<d>` |
+| [`PIKA_BALCONY_ORBIT_PROMPT`](#pika-balcony-orbit-prompt) | `t2va_pika_balcony_orbit` | 2 | 534 | 1 | 0 | — |
+| [`PIKA_MOTION_TRANSFER_PROMPT`](#pika-motion-transfer-prompt) | `ref2va_pika_motion_transfer` | 2 | 1066 | 1 | 0 | — |
 | [`ref2va_masked_person_head`](#ref2va-masked-person-head) | `ref2va_masked_person_head` | 2 | 213 | 1 | 1 | — |
 | [`ref2va_studio_dancer_close_refs`](#ref2va-studio-dancer-close-refs) | `ref2va_studio_dancer_close_refs` | 2 | 568 | 2 | 0 | — |
 | [`ref2va_video_sound_structure`](#ref2va-video-sound-structure) | `ref2va_video_sound_structure` | 2 | 183 | 1 | 0 | — |
@@ -521,6 +523,61 @@ Close handheld room tone in a hard concrete stairwell with a long reflective tai
 
 non_diegetic_music:
 N/A
+```
+
+## PIKA_BALCONY_ORBIT_PROMPT
+
+Carried by **2** graph(s). Sections: none.
+
+<details><summary>graphs</summary>
+
+- `h3_probe_t2v_pika_balcony_orbit_6step_api`
+- `h3_probe_t2v_pika_balcony_orbit_6step_merge_api`
+
+</details>
+
+```text
+integrated_multimodal_description: [Shot 1] Live-action, cinematic, a 35mm film look with fine grain and a soft 1970s palette of chalky whites, powder blue and muted pastels, a wide shot frames a tall white modernist apartment tower against a soft pale-blue sky with faint streaky cirrus cloud; the tower fills the right half of the frame and open sky fills the left half. Its smooth off-white render facade carries small square windows in thick white frames, and three identical cantilevered concrete balconies are stacked vertically on the building's corner, each a thick white slab with an angled, wedge-shaped underside and a thin white metal railing of vertical balusters. Exactly three people are in the scene, one on each balcony, and no one else appears on the building or against the sky. On the top balcony a young woman with dark hair pulled back, in a lilac fluffy knit jumper and matching lilac wide-leg knit trousers, slowly reaches both arms high overhead, leans her upper body into a long side bend to the left, eases back to center, and slowly leans to the right. On the middle balcony a man with short dark hair in a rust-red tracksuit hangs in a deep forward fold with his palms on the floor, slowly rolls up through his spine to standing, and lifts his arms in one wide, slow circle overhead. On the bottom balcony an older woman with short silver-grey hair, in a cobalt-blue short-sleeved polo and loose cream trousers, holds a wide warrior lunge with her arms stretched out to each side, slowly shifts her weight from one bent knee to the other, and sweeps one arm up and over her head into a side bend. All three keep moving for the whole video, each at an unhurried, meditative pace like yoga or tai chi, every stretch easing into the next over three to four seconds, slightly out of step with the others, their knitwear and trousers stretching and settling with real balance and weight; all three stay silent. In one continuous take across the full 13.667 seconds, the camera begins an arc shot at slow speed around the corner of the tower, sweeping about forty degrees with strong parallax between the balconies, the facade and the sky. Still moving, it pushes in with large amplitude toward the middle balcony until the man in the rust-red tracksuit fills the frame alone, waist up and mid-stretch, with the railing in the foreground. The camera then pedestals up the face of the building, past the concrete underside of the slab above, revealing the woman in lilac mid side bend. Next it pedestals down with large amplitude at fast speed, past the middle balcony to the bottom one, revealing the older woman shifting through her lunge. Finally the camera pulls out and arcs back the other way, landing on the opening wide composition with all three still stretching. Soft diffused daylight casts gentle shadows under each slab, and the movement stays smooth and stabilized like a crane throughout.
+
+overall_soundscape: Light wind gusts past the corner of the building over a distant, steady city hum. Faint birds call now and then, and soft fabric rustles as the three people stretch.
+
+non_diegetic_music: N/A
+```
+
+## PIKA_MOTION_TRANSFER_PROMPT
+
+Carried by **2** graph(s). Sections: `subject_definitions`, `summary`, `retention_analysis`, `detailed_description`.
+
+<details><summary>graphs</summary>
+
+- `h3_probe_r2v_pika_motion_transfer_6step_api`
+- `h3_probe_r2v_pika_motion_transfer_6step_merge_api`
+
+</details>
+
+```text
+subject_definitions:
+<Subject 1> is Desmond, the single character shown in front, three-quarter, and back views on the turnaround sheet in <Picture 1>, a slender young Black man with a tall, sharp-edged black flat-top haircut, round tortoiseshell eyeglasses, a thin trimmed mustache, a double-breasted mustard-yellow suit with peaked lapels, four dark-brown buttons and a burgundy pocket square over a ribbed pastel-pink turtleneck sweater, slim ankle-length mustard trousers, terracotta-orange socks, and polished slate-grey leather penny loafers, holding a black twelve-inch vinyl LP record with a pastel-pink center label.
+<Subject 2> is the vintage record shop shown in <Picture 2>, with blue-grey wooden floorboards in the foreground leading onto a terracotta-red and cream checkerboard tile floor, a mustard-yellow front counter on the left topped with a lavender-purple turntable, tall wooden wall shelves and angled record-browsing bins on the right packed with colorful LP jackets, potted green houseplants, and a wide storefront window in the center background under a purple-and-cream striped awning looking out onto a sunlit street with a parked pastel-pink vintage coupe.
+<Subject 3> is the solo dance choreography performed in <Video 1>, beginning in a backward-leaning kick with the prop held high above the right shoulder, dropping into a low wide-kneed crouch, rising into five continuous full-circle spins in place with the left arm flung out horizontally and the right hand holding the prop aloft, braking to face front with feet planted and arms spread wide, and finishing with a forward waist hinge into a deep bow.
+<Video 1> is the temporal and framing source for the dance sequence, supplying the static full-body framing, real-time beat timing, spin cadence, and closing bow placement that <Subject 3> follows.
+
+summary:
+[reference generation] The target video shows <Subject 1> performing <Subject 3> alone on the terracotta-and-cream checkerboard floor of <Subject 2> while an upbeat 1960s soul groove plays from the shop's turntable, holding his vinyl LP record high overhead in place of the reference dancer's potted fern across a single continuous static shot timed to <Video 1>.
+
+retention_analysis:
+<Subject 1> (appears in [Shot 1]): fully_preserved - the tall black flat-top haircut, round tortoiseshell eyeglasses, thin mustache, double-breasted mustard-yellow suit over a pastel-pink turtleneck, terracotta-orange socks, slate-grey penny loafers, black vinyl LP record with a pink label, and vintage pop-art illustration style with black ink outlines and halftone grain are retained as one character.
+<Subject 2> (appears in [Shot 1]): fully_preserved - the terracotta-and-cream checkerboard tile floor, blue-grey foreground floorboards, mustard counter with the lavender turntable on the left, wooden record shelves and angled LP browsing bins on the right, storefront window under a striped awning, and flat-color risograph illustration style are retained.
+<Subject 3> (appears in [Shot 1]): attribute_transfer - the opening backward-leaning kick and low crouch, the five continuous full-circle spins with the left arm flung out and the prop held overhead, the wide-armed stop facing front, and the closing waist-hinged bow from <Video 1> are transferred to <Subject 1> in full.
+<Video 1> (camera framing and temporal structure): weak_reference - only the static full-body framing and the real-time timing envelope of the dance sequence are carried across, while none of its live-action dancer, orange pleated coat, potted fern, bare yellow studio backdrop, or original audio appears.
+
+detailed_description:
+The target video is in a vintage pop-art fashion-illustration style with crisp black ink outlines, flat color blocks, and subtle halftone and risograph grain across every surface, never photorealistic.
+[Shot 1] A wide full-body shot establishes <Subject 2>, the vintage record shop, with its blue-grey wooden floorboards in the near foreground giving way to the terracotta-red and cream checkerboard tile floor, the mustard-yellow counter on the left where a record spins on the lavender-purple turntable beneath a hanging trailing ivy pot, the tall wooden shelves and angled browsing bins on the right filled with colorful LP sleeves, and the storefront window in the center background under its purple-and-cream striped awning framing a sunlit street and parked pastel-pink coupe outside. Only one person appears in the scene. Across the 10.125-second real-time take, the camera holds a static shot matching the framing of <Video 1>, with no cuts, no pan, and no zoom, while an original upbeat 1960s soul groove with a lively electric bassline, crisp snare backbeat, warm Hammond organ chords, and punchy horn stabs plays diegetically from the turntable on the left counter. <Subject 1>, Desmond, the slender young Black man in his double-breasted mustard-yellow suit over a pastel-pink turtleneck, round tortoiseshell eyeglasses, thin mustache, tall black flat-top haircut, terracotta-orange socks, and slate-grey penny loafers, begins slightly left of center on the checkerboard floor in the opening beat of <Subject 3>: he leans his torso back in a playful mid-step kick with his left leg lifted behind him, his left arm flung right, and his right hand holding his black vinyl LP record with its pastel-pink center label high above his right shoulder in place of the reference dancer's fern. He lands on the tiles and drops smoothly into a low, wide-kneed crouch facing slightly right of center, bringing the vinyl record down to shoulder height beside him while sweeping his left forearm across his chest. Rising immediately from the crouch, <Subject 1> flings his left arm straight out horizontally, lifts the vinyl record high overhead in his right hand like a dance partner, and launches into five rapid, continuous full-circle spins in place across the checkerboard tiles, pivoting cleanly on the balls of his grey loafers as the skirts of his mustard suit jacket flare outward with each revolution. On the final turn, <Subject 1> brakes smoothly to face the camera squarely at center-left with his loafers planted hip-width apart on the tiles, his left arm stretched wide, his right arm holding the vinyl record aloft above his right shoulder, and his jacket settling back against his waist. Holding both arms spread wide with the vinyl record still raised overhead, <Subject 1> hinges forward from the waist into a small, deadpan theatrical bow, tipping his flat-top head and tortoiseshell glasses toward the floor until the final frame; he keeps his mouth closed throughout and produces no vocal sound.
+
+overall_soundscape: Polished leather loafer soles tap, pivot, and squeak crisply against the terracotta checkerboard tiles in time with each kick, spin, and planted stop. The mustard suit jacket rustles briskly as it flares through the turns, accompanied by a soft, continuous vinyl record crackle from the turntable on the counter.
+
+non_diegetic_music: N/A
 ```
 
 ## ref2va_masked_person_head

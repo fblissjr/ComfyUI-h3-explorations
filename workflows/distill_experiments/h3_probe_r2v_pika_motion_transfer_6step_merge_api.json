@@ -1,0 +1,293 @@
+{
+  "1": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "minimax_h3_ref2va_pruned_int8_convrot.safetensors",
+      "weight_dtype": "default"
+    }
+  },
+  "2": {
+    "class_type": "MiniMaxH3EncoderLoader",
+    "inputs": {
+      "encoder_name": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+      "device": "default"
+    }
+  },
+  "3": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "minimax_h3_video_vae_int8_convrot.safetensors"
+    }
+  },
+  "4": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "minimax_h3_audio_vae_fp32.safetensors"
+    }
+  },
+  "6": {
+    "class_type": "RandomNoise",
+    "inputs": {
+      "noise_seed": 730451892
+    }
+  },
+  "7": {
+    "class_type": "KSamplerSelect",
+    "inputs": {
+      "sampler_name": "lcm"
+    }
+  },
+  "9": {
+    "class_type": "BasicGuider",
+    "inputs": {
+      "model": [
+        "58",
+        0
+      ],
+      "conditioning": [
+        "26",
+        0
+      ]
+    }
+  },
+  "10": {
+    "class_type": "SamplerCustomAdvanced",
+    "inputs": {
+      "noise": [
+        "6",
+        0
+      ],
+      "guider": [
+        "9",
+        0
+      ],
+      "sampler": [
+        "7",
+        0
+      ],
+      "sigmas": [
+        "60",
+        0
+      ],
+      "latent_image": [
+        "26",
+        1
+      ]
+    }
+  },
+  "11": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": [
+        "10",
+        0
+      ],
+      "vae": [
+        "3",
+        0
+      ]
+    }
+  },
+  "12": {
+    "class_type": "VAEDecodeAudio",
+    "inputs": {
+      "samples": [
+        "10",
+        0
+      ],
+      "vae": [
+        "4",
+        0
+      ]
+    }
+  },
+  "13": {
+    "class_type": "VHS_VideoCombine",
+    "inputs": {
+      "images": [
+        "11",
+        0
+      ],
+      "audio": [
+        "12",
+        0
+      ],
+      "frame_rate": 24.0,
+      "loop_count": 0,
+      "filename_prefix": "Video/h3_probe_r2v_pika_motion_transfer_6step_merge",
+      "format": "video/h264-mp4",
+      "pix_fmt": "yuv420p",
+      "crf": 19,
+      "save_metadata": true,
+      "trim_to_audio": false,
+      "pingpong": false,
+      "save_output": true
+    }
+  },
+  "27": {
+    "class_type": "MiniMaxH3Resolution",
+    "inputs": {
+      "shape": "wide",
+      "shape.wide_resolution": "1344x768  7/4  1008 tok/frame  1.00x",
+      "length": 243
+    }
+  },
+  "5": {
+    "class_type": "MiniMaxH3ReferenceConditioning",
+    "inputs": {
+      "clip": [
+        "2",
+        0
+      ],
+      "vae": [
+        "3",
+        0
+      ],
+      "audio_vae": [
+        "4",
+        0
+      ],
+      "references": [
+        "52",
+        0
+      ],
+      "prompt": "subject_definitions:\n<Subject 1> is Desmond, the single character shown in front, three-quarter, and back views on the turnaround sheet in <Picture 1>, a slender young Black man with a tall, sharp-edged black flat-top haircut, round tortoiseshell eyeglasses, a thin trimmed mustache, a double-breasted mustard-yellow suit with peaked lapels, four dark-brown buttons and a burgundy pocket square over a ribbed pastel-pink turtleneck sweater, slim ankle-length mustard trousers, terracotta-orange socks, and polished slate-grey leather penny loafers, holding a black twelve-inch vinyl LP record with a pastel-pink center label.\n<Subject 2> is the vintage record shop shown in <Picture 2>, with blue-grey wooden floorboards in the foreground leading onto a terracotta-red and cream checkerboard tile floor, a mustard-yellow front counter on the left topped with a lavender-purple turntable, tall wooden wall shelves and angled record-browsing bins on the right packed with colorful LP jackets, potted green houseplants, and a wide storefront window in the center background under a purple-and-cream striped awning looking out onto a sunlit street with a parked pastel-pink vintage coupe.\n<Subject 3> is the solo dance choreography performed in <Video 1>, beginning in a backward-leaning kick with the prop held high above the right shoulder, dropping into a low wide-kneed crouch, rising into five continuous full-circle spins in place with the left arm flung out horizontally and the right hand holding the prop aloft, braking to face front with feet planted and arms spread wide, and finishing with a forward waist hinge into a deep bow.\n<Video 1> is the temporal and framing source for the dance sequence, supplying the static full-body framing, real-time beat timing, spin cadence, and closing bow placement that <Subject 3> follows.\n\nsummary:\n[reference generation] The target video shows <Subject 1> performing <Subject 3> alone on the terracotta-and-cream checkerboard floor of <Subject 2> while an upbeat 1960s soul groove plays from the shop's turntable, holding his vinyl LP record high overhead in place of the reference dancer's potted fern across a single continuous static shot timed to <Video 1>.\n\nretention_analysis:\n<Subject 1> (appears in [Shot 1]): fully_preserved - the tall black flat-top haircut, round tortoiseshell eyeglasses, thin mustache, double-breasted mustard-yellow suit over a pastel-pink turtleneck, terracotta-orange socks, slate-grey penny loafers, black vinyl LP record with a pink label, and vintage pop-art illustration style with black ink outlines and halftone grain are retained as one character.\n<Subject 2> (appears in [Shot 1]): fully_preserved - the terracotta-and-cream checkerboard tile floor, blue-grey foreground floorboards, mustard counter with the lavender turntable on the left, wooden record shelves and angled LP browsing bins on the right, storefront window under a striped awning, and flat-color risograph illustration style are retained.\n<Subject 3> (appears in [Shot 1]): attribute_transfer - the opening backward-leaning kick and low crouch, the five continuous full-circle spins with the left arm flung out and the prop held overhead, the wide-armed stop facing front, and the closing waist-hinged bow from <Video 1> are transferred to <Subject 1> in full.\n<Video 1> (camera framing and temporal structure): weak_reference - only the static full-body framing and the real-time timing envelope of the dance sequence are carried across, while none of its live-action dancer, orange pleated coat, potted fern, bare yellow studio backdrop, or original audio appears.\n\ndetailed_description:\nThe target video is in a vintage pop-art fashion-illustration style with crisp black ink outlines, flat color blocks, and subtle halftone and risograph grain across every surface, never photorealistic.\n[Shot 1] A wide full-body shot establishes <Subject 2>, the vintage record shop, with its blue-grey wooden floorboards in the near foreground giving way to the terracotta-red and cream checkerboard tile floor, the mustard-yellow counter on the left where a record spins on the lavender-purple turntable beneath a hanging trailing ivy pot, the tall wooden shelves and angled browsing bins on the right filled with colorful LP sleeves, and the storefront window in the center background under its purple-and-cream striped awning framing a sunlit street and parked pastel-pink coupe outside. Only one person appears in the scene. Across the 10.125-second real-time take, the camera holds a static shot matching the framing of <Video 1>, with no cuts, no pan, and no zoom, while an original upbeat 1960s soul groove with a lively electric bassline, crisp snare backbeat, warm Hammond organ chords, and punchy horn stabs plays diegetically from the turntable on the left counter. <Subject 1>, Desmond, the slender young Black man in his double-breasted mustard-yellow suit over a pastel-pink turtleneck, round tortoiseshell eyeglasses, thin mustache, tall black flat-top haircut, terracotta-orange socks, and slate-grey penny loafers, begins slightly left of center on the checkerboard floor in the opening beat of <Subject 3>: he leans his torso back in a playful mid-step kick with his left leg lifted behind him, his left arm flung right, and his right hand holding his black vinyl LP record with its pastel-pink center label high above his right shoulder in place of the reference dancer's fern. He lands on the tiles and drops smoothly into a low, wide-kneed crouch facing slightly right of center, bringing the vinyl record down to shoulder height beside him while sweeping his left forearm across his chest. Rising immediately from the crouch, <Subject 1> flings his left arm straight out horizontally, lifts the vinyl record high overhead in his right hand like a dance partner, and launches into five rapid, continuous full-circle spins in place across the checkerboard tiles, pivoting cleanly on the balls of his grey loafers as the skirts of his mustard suit jacket flare outward with each revolution. On the final turn, <Subject 1> brakes smoothly to face the camera squarely at center-left with his loafers planted hip-width apart on the tiles, his left arm stretched wide, his right arm holding the vinyl record aloft above his right shoulder, and his jacket settling back against his waist. Holding both arms spread wide with the vinyl record still raised overhead, <Subject 1> hinges forward from the waist into a small, deadpan theatrical bow, tipping his flat-top head and tortoiseshell glasses toward the floor until the final frame; he keeps his mouth closed throughout and produces no vocal sound.\n\noverall_soundscape: Polished leather loafer soles tap, pivot, and squeak crisply against the terracotta checkerboard tiles in time with each kick, spin, and planted stop. The mustard suit jacket rustles briskly as it flares through the turns, accompanied by a soft, continuous vinyl record crackle from the turntable on the counter.\n\nnon_diegetic_music: N/A",
+      "width": [
+        "27",
+        0
+      ],
+      "height": [
+        "27",
+        1
+      ],
+      "length": [
+        "27",
+        2
+      ],
+      "video_policy": "comfy",
+      "image_policy": "comfy"
+    }
+  },
+  "15": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "motion-transfer-input-2.png"
+    }
+  },
+  "16": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "motion-transfer-input-3.png"
+    }
+  },
+  "50": {
+    "class_type": "MiniMaxH3AppendRefImage",
+    "inputs": {
+      "image": [
+        "15",
+        0
+      ],
+      "size_policy": "max",
+      "size_policy.dit_short_edge": 2048,
+      "size_policy.allow_upscale": true,
+      "qwen_view": "shared"
+    }
+  },
+  "51": {
+    "class_type": "MiniMaxH3AppendRefImage",
+    "inputs": {
+      "image": [
+        "16",
+        0
+      ],
+      "size_policy": "max",
+      "references": [
+        "50",
+        0
+      ],
+      "size_policy.dit_short_edge": 2048,
+      "size_policy.allow_upscale": true,
+      "qwen_view": "shared"
+    }
+  },
+  "28": {
+    "class_type": "VHS_LoadVideoFFmpeg",
+    "inputs": {
+      "video": "motion-transfer-input-1.mp4",
+      "force_rate": 24.0,
+      "custom_width": 0,
+      "custom_height": 0,
+      "frame_load_cap": 243,
+      "start_time": 0.0,
+      "format": "AnimateDiff"
+    }
+  },
+  "52": {
+    "class_type": "MiniMaxH3AppendRefVideo",
+    "inputs": {
+      "frames": [
+        "28",
+        0
+      ],
+      "video_info": [
+        "28",
+        3
+      ],
+      "references": [
+        "51",
+        0
+      ]
+    }
+  },
+  "18": {
+    "class_type": "LoraLoaderModelOnly",
+    "inputs": {
+      "model": [
+        "1",
+        0
+      ],
+      "lora_name": "h3/pika_h3_flex_ref2va_comfy_bf16.safetensors",
+      "strength_model": 1.0
+    }
+  },
+  "19": {
+    "class_type": "MiniMaxH3SigmaShift",
+    "inputs": {
+      "model": [
+        "18",
+        0
+      ],
+      "shift_video": 12.0,
+      "shift_audio": 3.0
+    }
+  },
+  "58": {
+    "class_type": "ModelAttentionBackend",
+    "inputs": {
+      "model": [
+        "19",
+        0
+      ],
+      "attention": "comfy kitchen attention"
+    }
+  },
+  "26": {
+    "class_type": "MiniMaxH3Preflight",
+    "inputs": {
+      "conditioning": [
+        "5",
+        0
+      ],
+      "samples": [
+        "5",
+        1
+      ]
+    }
+  },
+  "60": {
+    "class_type": "ManualSigmas",
+    "inputs": {
+      "sigmas": "1.0, 0.972973, 0.923077, 0.8, 0.571429, 0.333333, 0.0"
+    }
+  }
+}

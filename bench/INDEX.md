@@ -15,7 +15,7 @@ this file is only a way to find a script by what it says it does.
 | [`compare_*`](#compare) | 19 |
 | [`build_*`](#build) | 18 |
 | [`probe_*`](#probe) | 11 |
-| [the rest](#the-rest) | 199 |
+| [the rest](#the-rest) | 200 |
 
 ## check
 
@@ -390,7 +390,7 @@ this file is only a way to find a script by what it says it does.
 | [`convert_flashgen_lora.py`](convert_flashgen_lora.py) | Convert Beidouqixing's FlashGen 4-step LoRA, at its full rank, for the pruned fl2va checkpoint. |
 | [`convert_h3_bf16_encoder.py`](convert_h3_bf16_encoder.py) | Adapt a full-depth HF Qwen3-VL-32B text encoder to the ComfyUI H3 encoder. |
 | [`convert_pdd_lora.py`](convert_pdd_lora.py) | Convert an alibaba-pai MiniMax-H3 PDD acceleration LoRA to this repo's format. |
-| [`convert_pika_lora.py`](convert_pika_lora.py) | Convert Pika H3 Flex PEFT LoRAs (`fl2va`, `ref2va`) to ComfyUI format (`full`, per-component QR-SVD before QKV fusion, switch/body band scaling, task-difference boost) and run Section 7 spectral/AdaLN analysis (`--analyze`). |
+| [`convert_pika_lora.py`](convert_pika_lora.py) | Convert Pika H3 Flex PEFT LoRAs (`fl2va`, `ref2va`) to ComfyUI format. |
 | [`convert_sam3_checkpoint.py`](convert_sam3_checkpoint.py) | Repack Meta's SAM 3 / SAM 3.1 checkpoint as a safetensors file core loads, changing no weight. |
 | [`convert_sam3d_body_checkpoint.py`](convert_sam3d_body_checkpoint.py) | Repack Meta's SAM 3D Body checkpoint and its MHR rig as the one safetensors file core loads, from the originals. |
 | [`convert_sam3d_body_vith_checkpoint.py`](convert_sam3d_body_vith_checkpoint.py) | Repack Meta's ViT-H SAM 3D Body checkpoint and its MHR rig as the one safetensors file this pack's loader reads. |

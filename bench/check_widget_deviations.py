@@ -191,9 +191,12 @@ DECLARED: dict[tuple[str, str], tuple] = {
         ("ARM", "'shared' on the instruments, against the node default "
                 "'separate' (2026-10-03): the `_savelat` and `_x0` twins and "
                 "the bench graphs, whose renders are compared byte for byte "
-                "with earlier ones, and the `h3_probe_refview2_*` scenes, "
+                "with earlier ones, the `h3_probe_refview2_*` scenes, "
                 "whose manifest's `parity` arm is the graph as built at the "
-                "2026-09-13 values. `h3_config.REF_QWEN_SHORT_EDGE` says so; "
+                "2026-09-13 values, and the Pika H3 Flex showcase reproduction "
+                "arms (`h3_probe_r2v_pika_motion_transfer_6step*`), whose "
+                "reference pipeline feeds one shared 2048-short-edge tensor to "
+                "both DiT and Qwen. `h3_config.REF_QWEN_SHORT_EDGE` says so; "
                 "the generator passes `ref_qwen_short_edge=0` for them."),
     ("ImageFromBatch", "batch_index"):
         ("ARM", "the window splice on the audio-freeze chains: each window's "
