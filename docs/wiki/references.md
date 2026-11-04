@@ -65,7 +65,7 @@ rather than restating.
 
 | checkout | revision read | what it is | reach for it when |
 |---|---|---|---|
-| `sglang` | `803b4fb31c` | **the vendor's own serving path.** The closest thing to ground truth for what MiniMax intended | you need to know what the release actually does at a stage |
+| `sglang` | `803b4fb31c` | **the vendor's own serving path.** The closest thing to ground truth for what MiniMax intended. *Note 2026-11-04: last read at `origin/main` `8884b4b421`, in [`../research/sglang_comparison.md`](../research/sglang_comparison.md), "Tenth read" and "Eleventh read"; read a stage at its current revision before quoting it.* | you need to know what the release actually does at a stage |
 | `LightX2V` | `5169278f` | inference engine; **origin of the SLA work and the Turbo LoRAs we load** *(2026-10-02: both lanes are closed, turbo on 2026-09-26 and SLA on 2026-09-27, `docs/roadmap.md` "Closed lanes"; no shipped graph loads a Turbo LoRA and `bench/check_distill_settings.py` fails one that does)* | anything about SLA, DMD step distillation, offload, or what a LoRA was distilled under |
 | `DiffSynth-Studio` | `102fe99` | model library with a native H3 pipeline, its own converters and a LoRA path | you need a second opinion on a state-dict namespace or a converter |
 | `diffusers` | `9f7aee482` | model library with a native H3 pipeline, a named H3 scheduler, and a conversion script | you need the canonical tensor namespace, or a clean statement of the sampler |

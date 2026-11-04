@@ -1,6 +1,6 @@
 # Step caching for H3, re-examined
 
-last updated: 2026-10-02 (a dated note on Spectrum, from sglang's eighth read); 2026-09-25
+last updated: 2026-11-04 (a dated note on sglang's renamed quality tiers); 2026-10-02 (a dated note on Spectrum, from sglang's eighth read); 2026-09-25
 
 > **Provenance, 2026-09-25.** A research subagent (Claude) read the upstream
 > caches and searched the literature, using CPU only. The session that
@@ -25,6 +25,13 @@ PDD and the distills?**
 The adopt-upstream rule does not fire. sglang and vllm-omni both default H3 to
 `quality="lossless"`, which means no cache, as ours does. On TeaCache they
 disagree: sglang refuses it for H3, and vllm-omni ships it for FL2VA only.
+*Note 2026-11-04: sglang `7a4d6dfd2f` (#42370, 2026-10-07) renamed its tiers.
+The bit-exact path this read as `lossless` is now `exact`; `lossless` is still
+the default but now names the former `extra-high`, which adds rounding-level
+kernel fusions. Neither caches: Cache-DiT still mounts only at `high`, with the
+same (4, 0.04, 1) profile
+(`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/constants.py::MINIMAX_H3_HIGH_QUALITY_CACHE_DIT_CONFIG`),
+and TeaCache is still refused. The point stands.*
 
 ## What upstreams ship for H3
 

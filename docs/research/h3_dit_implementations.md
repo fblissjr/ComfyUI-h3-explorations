@@ -1,6 +1,6 @@
 # The H3 DiT: five implementations of one model, compared
 
-last updated: 2026-11-04 (dated note: sglang and vllm-omni now count forwards, section 4.2); 2026-08-29
+last updated: 2026-11-04 (dated notes on the sglang rows, re-read at sglang origin/main `8884b4b421`: sections 1, 4.1, 4.2, 9.8 and 9.9; the first, on sglang and vllm-omni counting forwards in section 4.2, came earlier the same day); 2026-08-29
 
 **What this file owns.** The *numerical* comparison of the MiniMax H3 DiT
 across every implementation available here: module tree, packed sequence,
@@ -37,6 +37,10 @@ only where there is evidence for one.
 | **sglang** | `coderef/sglang` `multimodal_gen` H3 pipeline | `97781eb7f3` |
 | **DiffSynth** | `coderef/DiffSynth-Studio` `minimax_h3_dit.py` (+ a Comfy variant) | `102fe99` |
 | **vllm-omni** | `coderef/vllm-omni` H3 diffusion path | `72a1ce48` |
+
+*Note 2026-11-04: the sglang rows of this file were re-read against sglang
+origin/main `8884b4b421`. Most hold as written; where one does not, a dated
+note follows it. The revision above is what the text was written against.*
 
 One note on vllm-omni's **VAE**, since it was read alongside: it is an
 *adapter*, resolving the real conv stack, tiling and vocoder from the
@@ -232,7 +236,13 @@ adapter is literally `MiniMaxH3EulerAncestralEta0SchedulerAdapter`. DiffSynth
 steps with `x + v * (sigma_next - sigma)`. vllm-omni's file is *also* named
 `scheduling_minimax_h3_euler_ancestral`, and also has no ancestral term: no
 `eta`, no `s_noise`, no `s_churn`, and no `randn` anywhere after the initial
-latent. **Three of the four inherited a misleading name from the vendor and
+latent. *Note 2026-11-04: sglang `329072d99a` (#44690, 2026-10-19) deleted
+that adapter's file; base H3 still steps eta-0 Euler, in
+`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/denoise_loop.py::_minimax_h3_update_target_rows_`.
+The one sglang H3 path that now draws fresh noise inside the loop is Pika H3
+Flex (`37fc17b8d6`, #47378, 2026-10-31;
+`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/denoise_loop.py::_minimax_h3_renoise_target_rows_`), a six-step LoRA.*
+**Three of the four inherited a misleading name from the vendor and
 none of them inherited the behaviour** — good evidence that eta=0 is the
 release's intent rather than four independent simplifications.
 
@@ -318,7 +328,9 @@ with 8, 6 and 4 also present (*measured*). At N=16 the final Euler step spans
 44.65% of the sigma range under ComfyUI `simple`, 44.44% under DiffSynth and
 46.15% under the vendor construction, against 12.60% for `normal` and 18.86%
 for `beta` (*measured*; naming N makes all five reproducible, which the earlier
-wording did not).
+wording did not). *Note 2026-11-04: with sglang's `N+1`-point grid since
+`32f34e898b` (the note above), its final step at N=16 spans the same 44.44% as
+DiffSynth's; 46.15% is now diffusers' construction alone.*
 
 **One graph does not use `simple`.** `h3_probe_turbo_768p_owner_api.json` ships
 `beta` at 6 steps (*measured*) — the scheduler that diverges most from the
@@ -749,6 +761,22 @@ every block, every step. **Same arithmetic; roughly 2,400 full-sequence
 gathers avoided per render, and no intermediate allocations.** On a 24 GiB card
 this is not a micro-optimization.
 
+*Note 2026-11-04: the pseudocode is sglang's eager fallback only. Its CUDA
+path applied the modulation with in-place indexed Triton kernels already at
+the revision read, and still does
+(`coderef/sglang/python/sglang/multimodal_gen/runtime/models/dits/minimax_h3.py::_modulate_scale_shift`),
+so it avoids the gathers too. What has changed since is the rounding at its
+default. At the default `quality="lossless"` it fuses RMSNorm and the AdaLN affine into
+one fp32 pass with one rounding (`_modulate_rmsnorm_scale_shift`, the `fused`
+branch; `121aa8dcc7`, #43327, 2026-10-09), against core's three bf16
+roundings; `exact` keeps the three. On the pruned curve checkpoint this box
+renders, sglang keeps `adaln_proj.linear` and the curve tables in fp32 and
+refuses them otherwise (`MiniMaxH3DiTModel.post_load_weights`, "must stay fp32
+with curve AdaLN"), and modulates from fp32 tables at every tier; core casts
+each table row to bf16 first (`comfy/ldm/minimax/model.py::_mod_row`). The
+tier names are sglang's since `7a4d6dfd2f` (#42370): `exact` is the
+bit-exact path, and the default `lossless` is the former `extra-high`.*
+
 ### 9.9 The block
 
 Identical in all five:
@@ -764,7 +792,12 @@ SwiGLU over a fused `fc1` of width `2*ffn`; the release stores `[gate; value]`
 and only diffusers swaps it (§6).
 
 ComfyUI accumulates residuals **in place** (`add_`, `addcmul_`); the others
-build new tensors. Same values.
+build new tensors. Same values. *Note 2026-11-04: on CUDA sglang's gated
+residual was in place already at the revision read, and is at origin/main
+(`coderef/sglang/python/sglang/multimodal_gen/runtime/models/dits/minimax_h3.py::_modulate_gate`),
+and it rounds the gate product to bf16 before the add where core's
+`addcmul_` rounds once, so the values differ by up to one bf16 ulp of the
+update (`../comfyui_vendor_gaps.md`, row 17).*
 
 ### 9.10 Attention
 

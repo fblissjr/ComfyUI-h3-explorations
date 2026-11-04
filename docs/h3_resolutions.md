@@ -1,6 +1,6 @@
 # MiniMax H3: every legal resolution, and why the set is what it is
 
-Last updated: 2026-08-17.
+Last updated: 2026-11-04 (a dated correction: vllm-omni refuses a short edge other than 768); 2026-08-17.
 
 Every number here comes from running `comfy_extras/nodes_minimax_h3.py` and
 `comfy/ldm/minimax/model.py`, not from reading them.
@@ -160,9 +160,13 @@ is the hard one: sglang scales any over-budget canvas down by
 different positive value resolves, generates, and logs once
 (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/constants.py:41-53`), and sglang's own warning text calls 768 the
 only short edge MiniMax publishes recipes and reference outputs for — a
-coverage claim, not a distribution claim. Nothing was found anywhere in the
-vendor clones that refuses a larger target short edge, and no config JSON
-shipped with the weights carries a canvas geometry at all. diffusers is looser
+coverage claim, not a distribution claim. sglang does not refuse a larger
+target short edge, and no config JSON shipped with the weights carries a
+canvas geometry at all. *Corrected 2026-11-04: vllm-omni does refuse one:
+its `target.short_edge` must equal `MINIMAX_H3_OUTPUT_SHORT_EDGE`, 768
+(`coderef/vllm-omni/vllm_omni/model_executor/models/minimax_h3/preprocessing.py::resolve_minimax_h3_output_canvas`),
+and has since `ae7bee0c4` (#5752, 2026-08-05). This line used to say nothing
+in the vendor clones refused a larger target short edge.* diffusers is looser
 still: it applies its canvas rule only when height and width are omitted, and
 checks an explicit pair for 32-divisibility alone (`coderef/diffusers/src/diffusers/modular_pipelines/minimax_h3/before_encoder.py:391-397,424-427`).
 Because the area cap re-imposes itself, asking for a bigger short edge at 16:9

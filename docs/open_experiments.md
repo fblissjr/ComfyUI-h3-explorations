@@ -1,6 +1,6 @@
 # Open experiments
 
-Last updated: 2026-09-29 (#48 to #50 added); 2026-09-27 (#33 closed; #34 to #46 added); #28 status 2026-09-19; otherwise 2026-09-11
+Last updated: 2026-11-04 (one dated note under the cube-schedule entry: sglang's step count); 2026-09-29 (#48 to #50 added); 2026-09-27 (#33 closed; #34 to #46 added); #28 status 2026-09-19; otherwise 2026-09-11
 
 > **Several of these are now scheduled rather than parked.** The working plan
 > and the render scenes that would settle the quality-blocked ones live in
@@ -1998,7 +1998,11 @@ sparse attention backend, merged 2026-09-02 with two MiniMax engineers as
 co-authors, ships a per-update keep-ratio schedule for the base fifty-step
 grid: dense for the first two updates, then a keep that falls fast through
 the first third of the trajectory to a small floor. It is recorded verbatim
-in `data/results/2026-09-04_sglang_cube_topk_schedule.json`, and
+in `data/results/2026-09-04_sglang_cube_topk_schedule.json`
+(*note 2026-11-04: that record's 49 entries fit sglang's old 50-step grid; since
+`32f34e898b` (#38671) 50 steps are 50 updates, and the cube backend refuses a
+list whose length is not the update count,
+`coderef/sglang/python/sglang/multimodal_gen/runtime/layers/attention/backends/cube_sparse_attn/backend.py::CubeSparseAttentionMetadataBuilder.build`*), and
 `bench/map_cube_schedule.py` maps it onto the sigma grid our graphs sample
 (ComfyUI's `simple` at shift 12, built by the same two lines
 `bench/check_pdd_sigmas.py` uses) by sigma, not by step index. The mapping

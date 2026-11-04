@@ -297,6 +297,13 @@ prefix's INT8 precision.
   found that pins reference keys unpooled at every block and step. [V for
   Sol; ? for others: the sglang and LightX2V H3 reference paths were not
   checked for their sink handling.]
+  *Note 2026-11-04, sglang checked at origin/main `8884b4b421`: its `sol_attn`
+  backend has only a fixed `sink_start`/`sink_tokens` range from the server
+  config, 0 tokens by default
+  (`coderef/sglang/python/sglang/multimodal_gen/runtime/layers/attention/backends/sol_attn.py::_get_sol_attn_runtime_config`),
+  and nothing in its H3 pipeline sets that range from the packed layout, so
+  reference rows are routed like any other row by default. LightX2V was not
+  checked.*
 - **Read as a lever for H3** [I]: reference pruning attacks the forced-exact
   floor that `tau` cannot reach (`docs/SOLATTN.md`, the sink table), so it
   would stack with Sol rather than double-count, which is the opposite of the

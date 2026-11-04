@@ -1,6 +1,6 @@
 # Where ComfyUI's H3 path differs from the vendor's
 
-last updated: 2026-09-13 (the `encoder` policy and the AWQ adapter marked removed, see the correction below; 2026-09-10 recorded two core commits under "Settled"; row 17 added 2026-09-04; everything else is the 2026-08-29 snapshot)
+last updated: 2026-11-04 (dated notes on the sglang claims, re-read at sglang origin/main `8884b4b421`: row 17's scale-shift, gap 8's decode, gap 14's curve tables, the short reference video, and the `kitchen_int8` name; drifted line citations into the clone re-pointed to symbols); 2026-09-13 (the `encoder` policy and the AWQ adapter marked removed, see the correction below; 2026-09-10 recorded two core commits under "Settled"; row 17 added 2026-09-04; everything else is the 2026-08-29 snapshot)
 
 **Corrected 2026-08-29: this file described the compressed-tensors W4 AWQ
 artifact as the shipped encoder, and it is not.** Every encoder-loader node
@@ -80,6 +80,10 @@ Sources, and what each is worth:
   against ComfyUI's own files. A source read is an inference, not a run.
 - The 2026-08-21 reads were made at `coderef/sglang` `a41da991c8`. Every cited
   line still resolves; the surrounding prose has not been re-read.
+  *Note 2026-11-04: every sglang claim below was re-read against sglang
+  origin/main `8884b4b421`. Where one no longer holds, a dated note follows it
+  and the original stands. Line citations into the clone had drifted and now
+  name a symbol instead.*
 
 ---
 
@@ -88,7 +92,7 @@ Sources, and what each is worth:
 **Config inheritance.** The release ships a value in a config file. sglang reads
 it through `AutoTokenizer` / `AutoProcessor` from the paths `model_index.json`
 names
-(`coderef/sglang/python/sglang/multimodal_gen/runtime/loader/component_loaders/component_loader.py:70`).
+(`coderef/sglang/python/sglang/multimodal_gen/runtime/loader/component_loaders/component_loader.py::AutoProcessorLoader`, and `TokenizerLoader` beside it).
 ComfyUI hardcodes its own. These are cheap: the fix is to read the file.
 
 **Behavioural.** sglang decided something we did not. Copying it is a design
@@ -145,7 +149,7 @@ Priority is by what it costs a working user, not by how interesting it is.
 | 14 | DiT fp32 island collapses to bf16 under the int8 load | behavioural | open, and core-side | **nothing**; measured only, and 5-20x below the quantization error already present |
 | 15 | Reference-audio encode crashes under VRAM pressure instead of tiling | behavioural | open, core-side (`extra_1d_channel` unset) | **nothing**; trimming the soundtrack shrinks the encode but does not fix it |
 | 16 | Generic VAE crop narrows the reference waveform's SAMPLE axis | behavioural | open, core-side (`crop_input` unset); [Comfy-Org/ComfyUI#15972](https://github.com/Comfy-Org/ComfyUI/pull/15972) proposes the one-line fix, open as of 2026-08-30 | **nothing**; the shipped trim lands on a non-aligned length, so every soundtracked graph here is exposed |
-| 17 | The gated residual rounds once in core and twice in the reference | numerical | open, core-side: `comfy/ldm/minimax/model.py::_mod_gate` folds `x + gate * out` into one in-place `addcmul_` on the bf16 stream, one rounding; the diffusers reference of record computes `gate * out` and the add as two bf16 ops (`coderef/diffusers/src/diffusers/models/transformers/transformer_minimax_h3.py`, the block forward), and sglang's fused kernel rounds the product to bf16 explicitly before adding (`coderef/sglang/python/sglang/kernels/ops/diffusion/modulate/indexed_modulation_triton.py::_indexed_gate_bf16_kernel`) to match it. Twice per block, fifty blocks, every step. The scale-shift path matches: core's `mul_`/`add_` chain rounds at the same three points as sglang's kernel. Found 2026-09-04 reading both; **unmeasured** | **nothing**; our attention mirror replaces `Attention.forward` only and never touches the residual. What would size it: one block forward on a captured hidden state under both formulas, relative L2 of the stream after fifty blocks, at one step; per element the difference is at most one bf16 ulp of the gated update |
+| 17 | The gated residual rounds once in core and twice in the reference | numerical | open, core-side: `comfy/ldm/minimax/model.py::_mod_gate` folds `x + gate * out` into one in-place `addcmul_` on the bf16 stream, one rounding; the diffusers reference of record computes `gate * out` and the add as two bf16 ops (`coderef/diffusers/src/diffusers/models/transformers/transformer_minimax_h3.py`, the block forward), and sglang's fused kernel rounds the product to bf16 explicitly before adding (`coderef/sglang/python/sglang/kernels/ops/diffusion/modulate/indexed_modulation_triton.py::_indexed_gate_bf16_kernel`) to match it. Twice per block, fifty blocks, every step. The scale-shift path matches: core's `mul_`/`add_` chain rounds at the same three points as sglang's kernel. Found 2026-09-04 reading both; **unmeasured**. *Note 2026-11-04: the gate half holds at sglang origin/main (the same kernel still rounds the product before the add). The scale-shift half now holds only at `quality="exact"`: since `121aa8dcc7` (#43327, 2026-10-09) the default `lossless` tier runs the RMSNorm and the indexed AdaLN as one fp32 pass with one rounding (`coderef/sglang/python/sglang/multimodal_gen/runtime/models/dits/minimax_h3.py::_modulate_rmsnorm_scale_shift`, the `fused` branch, mounted by `coderef/sglang/python/sglang/kernels/ops/diffusion/sites/minimax_h3_norm_modulate_site.py::MINIMAX_H3_NORM_MODULATE`), where core still rounds three times (`comfy/ldm/minimax/model.py::_mod_scale_shift`). Tier names are sglang's since `7a4d6dfd2f` (#42370, 2026-10-07): the bit-exact path is `exact`, and the default `lossless` is the former `extra-high` fusion tier.* | **nothing**; our attention mirror replaces `Attention.forward` only and never touches the residual. What would size it: one block forward on a captured hidden state under both formulas, relative L2 of the stream after fifty blocks, at one step; per element the difference is at most one bf16 ulp of the gated update |
 
 ### Processor-policy impact by conditioning role
 
@@ -261,7 +265,7 @@ Both implementations target 24 fps. Only one enforces it.
 
 sglang applies it as an ffmpeg `fps=` filter in the same decode pass that does
 rotation, Lanczos scaling and square-pixel normalisation
-(`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/reference_encoding.py:397`),
+(`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/reference_encoding.py::minimax_h3_decode_reference_video_frames`),
 so a 30 fps source becomes constant-rate 24 before anything sees it. ComfyUI
 applies no filter: `FPS = 24` at `comfy_extras/nodes_minimax_h3.py:30`, no node
 in that file exposes an fps input, and it assumes whatever the loader hands it
@@ -297,7 +301,7 @@ did not change media policy. The native socket node still has no metadata input.
 Two design consequences of sglang doing this in one ffmpeg pass: **fps never
 enters its API surface** — the caller asks for `duration_seconds` and the frame
 count is derived
-(`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/request_validation.py:291-295`)
+(`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/request_validation.py::minimax_h3_validate_canonical_request`)
 — and the decoded array is shared by Qwen and the VAE by construction.
 
 The 2 fps subsample itself, including the index pad and merged-pair timestamp,
@@ -329,9 +333,9 @@ Established 2026-08-22 by executing the release processor, after this section
 claimed the opposite for several hours and was refuted by codex tracing the
 call graph. The wrong claim rested on three sglang docstrings saying the
 decoded array is "shared by Qwen and the visual VAE"
-(`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/reference_encoding.py:382`).
+(the docstring of `coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/reference_encoding.py::minimax_h3_decode_reference_video_frames`).
 That is true and it is the *source* array. One call later,
-`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/stages/text_encoding.py:488` sends the 2 fps sampled view
+`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/stages/text_encoding.py::MiniMaxH3TextEncodingStage._encode_ref2va` sends the 2 fps sampled view
 through `proc.video_processor(...)` -- the release `Qwen3VLVideoProcessor` --
 and the VAE consumes the shared array directly. **Shared source is not
 identical tower resolution**, and reading docstrings instead of following the
@@ -691,6 +695,16 @@ Owner: [`research/sglang_comparison.md`](research/sglang_comparison.md).
 **8. Encode precision, tangled with mean-versus-sample.** sglang keeps the video
 VAE fp32-resident and decodes in fp16 autocast, and says why: the VAE also
 encodes keyframes. Ours runs fp16 throughout.
+*Note 2026-11-04: the precisions hold at sglang origin/main
+(`coderef/sglang/python/sglang/multimodal_gen/configs/pipeline_configs/minimax_h3.py`,
+`vae_precision` and `vae_decode_precision`). The decode is no longer the
+released recipe at the default tier: at `quality="lossless"` or `"high"` on
+CUDA it mounts a fast path (fused QK RMSNorm and RoPE, attention on cuDNN
+SDPA) and, since `0498ab7b6e` (#45179, 2026-10-24), decodes several spatial
+tiles per decoder forward
+(`coderef/sglang/python/sglang/multimodal_gen/configs/models/vaes/minimax_h3_video.py::MiniMaxH3VideoVAEConfig`,
+`decoder_tile_batch`, whose comment says batching "moves rounding, not the
+math"). `exact` and `--performance-mode memory` keep one tile per forward.*
 
 The decode half was settled in 2026-08-10 — measured 2-3x cost, no established
 benefit — but that decision was scoped to decode, and **the vendor does not
@@ -853,8 +867,22 @@ Added 2026-08-29. Both implementations declare that a small set of tensors stays
 fp32 while the rest of the DiT is bf16. sglang **enforces** it with a named
 frozenset covering both patch projections, the time embedder, both output heads
 and `rope.inv_freq`
-(`coderef/sglang/python/sglang/multimodal_gen/runtime/models/dits/minimax_h3.py:144-159`),
-and drops `time_embedder.*` from the list on a pruned checkpoint (`:2060-2066`).
+(`coderef/sglang/python/sglang/multimodal_gen/runtime/models/dits/minimax_h3.py::MINIMAX_H3_FP32_PARAM_NAMES`
+and `MINIMAX_H3_FP32_BUFFER_NAMES`),
+and drops `time_embedder.*` from the list on a pruned checkpoint
+(`coderef/sglang/python/sglang/multimodal_gen/runtime/models/dits/minimax_h3.py::MiniMaxH3DiTModel.post_load_weights`).
+*Note 2026-11-04: the same method, read at sglang origin/main, also does
+something for the pruned curve checkpoint this file never recorded: it adds
+`adaln_t_table` (and the basis tables when present) to the fp32 list, builds
+every block's `adaln_proj.linear` in fp32 (`MiniMaxH3AdalnProj.__init__`,
+`params_dtype`), and refuses a load that leaves one below fp32 ("must stay
+fp32 with curve AdaLN"). It then modulates from those fp32 tables at every
+quality tier: at `exact` through `_modulate_scale_shift`'s fp32 branch (fused
+by `1fd46ddd56`, #44180), at `lossless` through the fused norm kernel, which
+reads the tables as fp32. Core casts each table row to the stream's bf16 before its three bf16
+ops (`comfy/ldm/minimax/model.py::_mod_row`). So the AdaLN projection is part
+of sglang's enforced island on the file this box renders, not only on the
+released bf16 path.*
 
 ComfyUI declares the same intent — `comfy/ldm/minimax/model.py` builds those
 layers with an explicit `dtype=torch.float32` and calls them "the checkpoint's
@@ -908,6 +936,14 @@ owns those numbers.
 - **What sglang does with a reference video shorter than its aligned target**:
   **read, not verified.** It truncates with `ffmpeg -frames:v`; whether the
   encoder then re-aligns was not traced. Cheap to close.
+  *Note 2026-11-04, traced at sglang origin/main: the decode asks ffmpeg for
+  at most the target frame count and neither pads nor loops a shorter clip
+  (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/reference_encoding.py::minimax_h3_decode_reference_video_frames`).
+  The video VAE then trims the frames down to its temporal chunk grid
+  (`coderef/sglang/python/sglang/multimodal_gen/runtime/models/vaes/minimax_h3_video_vae/processor.py::VAEProcessor.get_suitable_video_length`)
+  and raises "Cannot trim" on a clip shorter than one chunk
+  (`VAEProcessor.align_video_length`). So it re-aligns by trimming, never by
+  padding.*
 - **Mono reference audio on native core**: **works, and always did.** Core
   upmixes in `comfy.sd.VAE.encode` (`vae_encode_crop_pixels`, with the H3 audio
   VAE declaring `output_channels = 2, pad_channel_value = "replicate"`), which
@@ -953,7 +989,10 @@ kernels, and to say sglang "runs dense FlashAttention".** Its owner,
 [`research/sglang_comparison.md`](research/sglang_comparison.md), retracted that
 on 2026-08-28 against `803b4fb31c`: sglang ships a `sol_attn` attention backend
 and a `kitchen_int8` linear path dispatching the same
-`comfy_kitchen.int8_linear` our checkpoints load through, and its published
+`comfy_kitchen.int8_linear` our checkpoints load through
+(*note 2026-11-04: sglang `3472e16f96`, #45706, removed the `kitchen_int8`
+name; the method is `convrot_int8`, and its GEMM can run on comfy-kitchen or
+sglang's own JIT ops*), and its published
 consumer-card table's fastest row is an int8 DiT with a sage-to-Sol hybrid —
 the stack our graphs already wire. **This snapshot carried the withdrawn claim
 for a day after the owner corrected it**, which is exactly the failure the

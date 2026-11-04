@@ -1,6 +1,6 @@
 # What upstream says: the paper, Sol-Engine, Sol-H3, and the other packs
 
-Last updated: 2026-11-04 (section "comfy-kitchen, core and Sana, 2026-11-04"; the cookbook line citation under sglang's Sol recipe re-pointed); 2026-10-09 (section "comfy-kitchen and core, 2026-10-09", a pointer); 2026-10-03 (a dated note under "Kitchen: current" in the 2026-10-02
+Last updated: 2026-11-04 (section "comfy-kitchen, core and Sana, 2026-11-04"; the cookbook line citation under sglang's Sol recipe re-pointed; a dated note under sglang's Sol-Attn backend on what its step index counts); 2026-10-09 (section "comfy-kitchen and core, 2026-10-09", a pointer); 2026-10-03 (a dated note under "Kitchen: current" in the 2026-10-02
 section: the installed build has moved); 2026-10-02 (section "comfy-kitchen and core, 2026-10-02"; a
 superseded note on the 2026-09-25 INT8 VAE paragraph; core's model.py line
 citations re-read); 2026-09-27 (core's model.py line citations and the chunked
@@ -1040,6 +1040,14 @@ beside core's node and ours.
 - **Step policy.** Dense for the first `dense_steps` step indices, sparse
   from there through the last step, with no end gate (`:128-140` of the same
   file).
+  *Note 2026-11-04: the backend is unchanged at sglang origin/main
+  `8884b4b421`, and every default above holds. The step index it reads is one
+  per DiT forward: since `32f34e898b` (#38671, 2026-10-10)
+  `num_inference_steps` counts forwards, so 50 steps run 50 forwards (49
+  before) and the first 10 are dense. sglang's ComfyUI app passes ComfyUI's
+  own step index into the same forward context since `b4822bae03` (#43504,
+  2026-10-13;
+  `coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/stages/comfyui_step.py::MiniMaxH3ComfyUIStepStage._run_dit`).*
   Tau, threshold, dense prefix and dense layers take the shape of the
   per-hardware cells' policy in `docs/SOLATTN.md`'s "Upstream H3 policies
   beside ours"; the sink does not.

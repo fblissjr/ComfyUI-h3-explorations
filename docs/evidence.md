@@ -1,6 +1,6 @@
 # What holds, and what does not
 
-Last updated: 2026-09-03; the encoder and reference-sizing rows 2026-09-13.
+Last updated: 2026-09-03; the encoder and reference-sizing rows 2026-09-13; a dated note on sglang's reference sizing 2026-11-04.
 
 `docs/checks.md` indexes what is *checked*. `docs/open_experiments.md` indexes
 what is *not measured*. This file is the third case and the one that kept
@@ -178,7 +178,11 @@ for each, as it stood when it was written, is in `docs/rules_history.md`.
   `allow_upscale` on, `qwen_view=shared`, one prepared still for both the
   video VAE and Qwen3-VL, as sglang, diffusers and DiffSynth do
   (`docs/research/sglang_h3_pipeline.md` "Reference stills"); read them from
-  the node's `define_schema`. The separate 512 view that shipped from
+  the node's `define_schema`. *2026-11-04: at sglang origin/main that size is
+  one of three per-request modes, `reference_resize_mode` (`5727f08932`,
+  #35839, 2026-10-13); its default `diffusers` is still the 2048 short edge
+  with upscaling, the other two (`match`, `max`) never upscale
+  (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/reference_encoding.py::minimax_h3_resolve_reference_image_shape`).* The separate 512 view that shipped from
   2026-08-27 rested on one render at one seed (CHANGELOG 0.82.0).
   **Since 2026-10-03 `qwen_view` is `separate` at 512 again, by the owner's
   decision**, on the node, the constant and the generated graphs: three clips

@@ -200,7 +200,7 @@ euler for the same reason `probe_block_propagation.py` does.
 
   **What is true about sglang's sampler is narrower than either version said.**
   Its H3 pipeline does not instantiate the adapter at all —
-  `coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines/minimax_h3_pipeline.py:45-48`
+  `coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines/minimax_h3_pipeline.py::MiniMaxH3Pipeline` (its `_required_config_modules` comment)
   says the
   scheduler is intentionally absent, `model_index` carries `scheduler=null`,
   and stages accept `scheduler=None`. The denoise loop runs its own in-place

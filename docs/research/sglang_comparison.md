@@ -1,6 +1,6 @@
 # sglang's H3 serving path against ours
 
-last updated: 2026-11-04 (closing section "Tenth read" added, with dated notes in the seventh, eighth and ninth reads); 2026-10-08 (closing section "Ninth read" added: frozen audio
+last updated: 2026-11-04 (closing section "Eleventh read" added: a month of the pipeline, stage by stage); 2026-11-04 (every section before "Tenth read" re-checked against sglang `origin/main` at `8884b4b421`: dated notes where a claim moved, drifted line citations repointed to symbols, and the worker-patch pin in "Tenth read" checked by hash); 2026-11-04 (closing section "Tenth read" added, with dated notes in the seventh, eighth and ninth reads); 2026-10-08 (closing section "Ninth read" added: frozen audio
 and video inputs, with a dated note in the eighth read); 2026-10-02 (closing section "Eighth read" added, with dated
 notes on the seventh read's ComfyUI sentence, the `kitchen_int8` name and our
 dense-blocks cell); 2026-09-25 (closing section "Seventh read" added); 2026-09-19 (closing section "Sixth read" added, and a dated
@@ -28,6 +28,11 @@ hazard.** `coderef/sglang` was at `a7ec6b97f7` on 2026-08-22 and is at
 `bench/check_doc_links.py` confirms every cited line still exists, which is not
 the same as confirming it still says the same thing. Re-read before quoting an
 older section as current.
+*Note 2026-11-04: the clone's checkout is `16dd97df61` (2026-11-02) and its
+`origin/main` is `8884b4b421` (fetched 2026-11-04). Every section was
+re-read against `origin/main` that day; where a `path:line` citation had
+drifted and the claim held, the citation now names the symbol instead, and
+where the claim moved, a dated note says what is true at `origin/main`.*
 
 **Why this file is not merged into the pipeline walk, asked 2026-08-29.**
 Because the two drift for different reasons and on different clocks.
@@ -76,6 +81,16 @@ right and the snapshot is stale.
 That file exists because the ownership rule below is correct and had a cost:
 the gaps were all documented, across three files, and none of them were listed
 together.
+*Note 2026-11-04: that snapshot was last updated 2026-09-13, before the
+eighth, ninth and tenth reads below, so these divergences moved after it
+and are recorded only here: sglang's quality tiers were renamed (`exact`,
+`lossless`, `high`; `7a4d6dfd2f`, #42370); at its default `lossless` tier
+sglang's DiT norm and modulation round once where core rounds three times
+(`121aa8dcc7`, #43327; "Tenth read"); `num_inference_steps` now counts DiT
+forwards as core's `simple` scheduler does (`32f34e898b`, #38671); sglang
+and core now default to different reference-image sizing, with ours on
+sglang's side (`5727f08932`, #35839); and sglang's ComfyUI adapter now
+masks velocities as core does (`b4822bae03`, #43504).*
 
 ---
 
@@ -83,11 +98,15 @@ together.
 
 sglang's audited deployment for `quality="high"` is a 4xH200 fl2va server with
 `sp_degree=4` and `ulysses_degree=4`, and `validate_quality_deployment`
-(`coderef/sglang/python/sglang/multimodal_gen/configs/pipeline_configs/minimax_h3.py:98-186`)
+(`coderef/sglang/python/sglang/multimodal_gen/configs/pipeline_configs/minimax_h3.py::MiniMaxH3PipelineConfig.validate_quality_deployment`)
 raises unless the resident server matches it exactly — down to asserting the
 device is an H200 at compute capability 9.0. That same gate requires
 `enable_torch_compile`, `enable_breakable_cuda_graph`,
 `is_dit_layerwise_offload_selected` and `quantization` all to be **off**.
+*Note 2026-11-04: the citation named lines 98-186; it names the method now.
+At `origin/main` the gate still expects every value above, and also no
+LoRA, no substituted transformer weights and no text-encoder quantization;
+the substituted-weights rule is `aa79087017` (#34978).*
 
 Two consequences worth holding on to. Their headline performance is sequence
 parallelism we cannot copy on one card. And the knobs they ship but require
@@ -103,13 +122,24 @@ either, so "sglang has it and we don't" is not on its own an argument.
 `coderef/sglang/python/sglang/multimodal_gen/tools/build_minimax_h3_adaln_cache.py`
 precomputes the modulation parameters for every timestep the schedule will
 actually visit, and the DiT then drops `adaln_proj` entirely
-(`coderef/sglang/python/sglang/multimodal_gen/runtime/models/dits/minimax_h3.py:1412-1414`).
+(`coderef/sglang/python/sglang/multimodal_gen/runtime/models/dits/minimax_h3.py::MiniMaxH3DiTBlock`,
+where `use_adaln_cache` leaves `adaln_proj` as `None`).
 There is an in-process prepass that builds the same thing by reading all the
 `adaln_proj` layers once
-(`coderef/sglang/python/sglang/multimodal_gen/runtime/models/dits/minimax_h3.py:1186-1265`),
-sized by a plan-width knob whose per-task requirement is stated at
-`:1206` — t2va, fl2va and ref2va need different numbers of distinct timesteps
+(`coderef/sglang/python/sglang/multimodal_gen/runtime/models/dits/minimax_h3_adaln_cache.py::MiniMaxH3AdalnCache`,
+its `_project_plans_from_checkpoint`),
+sized by a plan-width knob whose per-task requirement is stated in the
+comment on `coderef/sglang/python/sglang/multimodal_gen/runtime/models/dits/minimax_h3_adaln_cache.py::MINIMAX_H3_ADALN_MAX_PLAN_WIDTH` — t2va, fl2va and ref2va need different numbers of distinct timesteps
 per step, which is the same fact our packing already encodes.
+*Note 2026-11-04: the three citations named DiT line ranges; the cache now
+lives in its own module and they name symbols. At `origin/main` the DiT
+refuses a separate AdaLN cache on quantized weights and on pruned curve
+checkpoints
+(`coderef/sglang/python/sglang/multimodal_gen/runtime/models/dits/minimax_h3.py::MiniMaxH3DiTModel`,
+"only compatible with unquantized weights" and "pruned curve checkpoints
+cannot use a separate AdaLN cache"), so sglang serves the cache only on an
+unpruned, unquantized DiT, never on the pruned INT8 kind of file this repo
+loads.*
 
 **Why this is interesting here.** It is an exact answer to the problem the
 Comfy-Org "pruned" checkpoints answer approximately. The pruned file replaces
@@ -166,6 +196,12 @@ Ours: sink ranges derived from the segment table play the role of `exempt`,
 `dense_blocks` is `vsa_dense_layers`, and the `sigma_start`/`sigma_end`
 window on `MiniMaxH3SolAttn` is the per-step knob in sigma rather than in
 step index. [`../SOLATTN.md`](../SOLATTN.md) owns those.
+*Note 2026-11-04: "gated to SM90 and above" is stale. Since `465ddf9758`
+(#43823) the gate is the set
+`coderef/sglang/python/sglang/multimodal_gen/runtime/platforms/cuda.py::VSA_H3_CAPABILITIES`,
+which adds capability 8.0 and still leaves out this card's 8.9 ("Tenth
+read"). The three knobs are still read at `origin/main`, in
+`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/stages/denoising.py`.*
 
 ### Breakable CUDA graphs over a packed sequence
 
@@ -209,13 +245,36 @@ tensors, and it says nothing about weights that move between replays).
 this file because the vendor names the exact set we lose.
 
 sglang keeps a **named, enforced** list of tensors that stay fp32 while the rest
-of the DiT is bf16 (`coderef/sglang/python/sglang/multimodal_gen/runtime/models/dits/minimax_h3.py:144-159`):
+of the DiT is bf16 (`coderef/sglang/python/sglang/multimodal_gen/runtime/models/dits/minimax_h3.py::MINIMAX_H3_FP32_PARAM_NAMES`):
 `MINIMAX_H3_FP32_PARAM_NAMES` covers both patch projections, the time embedder
 and both output heads, and `MINIMAX_H3_FP32_BUFFER_NAMES` covers
 `rope.inv_freq`. It even handles the pruned case, dropping `time_embedder.*`
-from the list when `adaln_t_table` is present (`:2060-2066`).
+from the list when `adaln_t_table` is present
+(`coderef/sglang/python/sglang/multimodal_gen/runtime/models/dits/minimax_h3.py::MiniMaxH3DiTModel.post_load_weights`).
 [`sglang_h3_pipeline.md`](sglang_h3_pipeline.md) §7 records that the island is
 never quantised.
+*Note 2026-11-04: both citations named line ranges and name symbols now; the
+lists are unchanged at `origin/main`. Not recorded before for the pruned
+(curve AdaLN) checkpoints, the kind this repo runs: there the island is
+wider. `post_load_weights` adds `adaln_t_table` (and the basis and mean
+when present) to the fp32 list and refuses any `adaln_proj.linear` weight
+that is not fp32 ("must stay fp32 with curve AdaLN"), and
+`MiniMaxH3AdalnProj` builds those projections in fp32 when
+`adaln_curve_grid` is set. The modulation then reads the fp32 tables at
+every tier: at `exact` through `indexed_scale_shift_fp32_` and
+`indexed_gate_fp32_`
+(`coderef/sglang/python/sglang/kernels/ops/diffusion/modulate/indexed_modulation_triton.py`,
+added by `1fd46ddd56`, #44180, and asserted bit-equal to the eager fp32
+expression by its test), and at `lossless` and `high` through the fused
+norm-modulate pass of the tenth read. Either way the affine is computed in
+fp32 and rounds to bf16 once. Core casts each table row to the stream's
+bf16 before three in-place bf16 ops
+(`comfy/ldm/minimax/model.py::_mod_scale_shift`, its `_mod_row`), so on
+this path the two differ at every sglang tier, not only at `lossless`
+(read, not run). Core's side, re-read the same day: the "fp32 island"
+comment now sits in `FinalLayer.__init__` and names only the output heads,
+and `comfy/ops.py::MixedPrecisionOps` still builds its `Linear` at the
+compute dtype whatever `dtype=` the caller passes.*
 
 ComfyUI declares the same intent and does not keep it on a quantized
 checkpoint. `comfy/ldm/minimax/model.py` constructs those layers with an
@@ -259,12 +318,15 @@ actually dominates (10.87 ms against 21.75 ms), for 0.88% weight error.
 Not speed, but the design difference that shows up most often:
 
 - The release partition gate
-  (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/release_metadata.py:60-135`)
+  (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/release_metadata.py::MiniMaxH3ReleaseMetadata`,
+  its `from_model_index` and `canonical_task`; the citation named lines
+  60-135 until 2026-11-04)
   reads `partition` from `model_index.json._minimax_h3` and raises when the
   requested task does not belong to it. A `t2va` request on the `ref2va`
   partition is refused, not served badly.
 - `resolved_parallel_decode_mode()`
-  (`coderef/sglang/python/sglang/multimodal_gen/configs/models/vaes/minimax_h3_video.py:42-56`)
+  (`coderef/sglang/python/sglang/multimodal_gen/configs/models/vaes/minimax_h3_video.py::MiniMaxH3VideoVAEConfig.resolved_parallel_decode_mode`;
+  the citation named lines 42-56 until 2026-11-04)
   refuses `spatial`, `spatial_shard` and `patch` VAE decode as outside the
   released quality contract, before any large component downloads.
 
@@ -281,8 +343,21 @@ defect in the checkpoint.
 
 sglang keeps the video VAE **fp32-resident and decodes in fp16 autocast**, and
 the config says why in as many words: the VAE also encodes keyframes
-(`coderef/sglang/python/sglang/multimodal_gen/configs/pipeline_configs/minimax_h3.py:59-62`,
+(`coderef/sglang/python/sglang/multimodal_gen/configs/pipeline_configs/minimax_h3.py::MiniMaxH3PipelineConfig`,
 `vae_precision: "fp32"`, `vae_decode_precision: "fp16"`).
+*Note 2026-11-04: the citation named lines 59-62 and names the class now;
+both values and the comment are unchanged at `origin/main`. What "decodes
+in fp16" covers there was not recorded: under fp16 autocast sglang's
+decoder blocks carry an fp32 residual stream with fp16 attention and FFN
+updates, by the docstring of
+`coderef/sglang/python/sglang/kernels/ops/diffusion/norm/h3_vae_fused_norm.py`,
+which since `284cda01fb` (#41906) fuses each scaled residual add into the
+next RMSNorm and keeps that fp32 residual; it is on by default
+(`MINIMAX_H3_VAE_DECODER_FUSED_NORM`) and not tied to a quality tier. Core's
+decoder blocks add the residual at the VAE's own dtype, fp16 on this card
+(`comfy/ldm/minimax/vae.py::TransformerBlock`, the residual scale cast to
+the input's dtype). So the two fp16 decodes are not the same arithmetic
+(read, not run).*
 
 Ours runs fp16 throughout. `comfy/model_management.py:1258-1273` returns fp16
 on this card unless `--fp32-vae` is passed, and the default launch mode does
@@ -311,6 +386,22 @@ ComfyUI tiles under memory pressure and records nothing about having done so;
 sglang treats decode mode as part of the quality contract and refuses the modes
 it considers inexact (cited above). We cannot currently distinguish a tiled
 decode from an untiled one after the fact.
+*Note 2026-11-04, at `origin/main`: sglang tiles by default, with overlapping
+latent tiles as its quality contract (`use_tiling` and the comment on
+`parallel_decode_mode` in
+`coderef/sglang/python/sglang/multimodal_gen/configs/models/vaes/minimax_h3_video.py::MiniMaxH3VideoVAEConfig`).
+At `lossless` and `high` on CUDA the decode also takes a fast path: each
+decoder attention block fuses its per-head QK RMSNorm and NeoX RoPE into
+one launch and runs on cuDNN SDPA, and since `0498ab7b6e` (#45179) up to
+`decoder_tile_batch` tiles and `window_batch` windows share one decoder
+forward
+(`coderef/sglang/python/sglang/multimodal_gen/runtime/models/vaes/minimax_h3_vae_cuda_opt.py::maybe_optimize_minimax_h3_vae`,
+gated by `quality_allows(quality, "lossless")` in
+`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/stages/decoding.py::MiniMaxH3DecodingStage`).
+`exact`, `--performance-mode memory` and non-CUDA platforms decode one tile
+and one window per forward. The config's comment says batching "moves
+rounding, not the math". The decode here is core's, so none of this runs
+in this repo.*
 
 ---
 
@@ -322,10 +413,12 @@ gap is a qkv row-permutation defect in the repack.**
 The hypothesis had a real source behind it. sglang treats the H3 qkv layout as
 a load-time hazard: the release interleaves each head's Q, K and V rows, sglang
 wants them concatenated, so it permutes on load
-(`coderef/sglang/python/sglang/multimodal_gen/runtime/models/dits/minimax_h3.py:662-689`)
+(`coderef/sglang/python/sglang/multimodal_gen/runtime/models/dits/minimax_h3.py::MiniMaxH3Attention._install_qkv_weight_loader`)
 and then permutes **row-indexed quantization metadata the same way** via
 `_install_qkv_row_reorder`
-(`coderef/sglang/python/sglang/multimodal_gen/runtime/models/dits/minimax_h3.py:179-209`),
+(`coderef/sglang/python/sglang/multimodal_gen/runtime/models/dits/minimax_h3.py::_install_qkv_row_reorder`;
+both citations named line ranges until 2026-11-04, and the code they point
+at still does this at `origin/main`),
 using the row count as the gate so swizzled and per-tensor scales pass through
 untouched. Its unit test states the failure mode: get it wrong and the model
 "loads and runs, and renders noise"
@@ -358,11 +451,18 @@ norm. **No new work is owed here.**
 
 **Step caching.** sglang ships a Cache-DiT configuration for `quality="high"`
 with a measured SSIM and PSNR against lossless
-(`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/constants.py:57-64`),
+(`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/constants.py::MINIMAX_H3_HIGH_QUALITY_CACHE_DIT_CONFIG`),
 so it reads as an obvious gap. It is not. [`roadmap.md`](../roadmap.md) records
 the owner decision of 2026-08-20 that step caching dies here: the speedup came
 from skipping steps on a 16-step schedule, and at 4 steps there is nothing to
 skip. Their number is at 50 steps on four H200s. Different regime.
+*Note 2026-11-04: the citation named lines 57-64 and names the constant
+now. "Against lossless" meant the bit-exact reference tier, which
+`7a4d6dfd2f` (#42370) renamed `exact`; the old `extra-high` is today's
+`lossless` and the default
+(`coderef/sglang/python/sglang/multimodal_gen/configs/sample/sampling_params.py::QUALITY_LEVELS`).
+The constant's comment now measures against `quality="exact"` and still
+calls `exact` the default, which the sampling params contradict.*
 
 **Quantization, torch.compile, layerwise offload.** All present in sglang and
 all required *off* by its own quality gate, so none of them is evidence for
@@ -386,6 +486,10 @@ and a `kitchen_int8` linear path dispatching the same `comfy_kitchen.int8_linear
 our checkpoints load through. *2026-10-02: `kitchen_int8` is now a deprecated
 alias of `convrot_int8` (`e667ab10d5`), which still dispatches to kitchen on
 this card; see "Eighth read".*
+*Note 2026-11-04: `3472e16f96` (#45706) removed the alias, so `kitchen_int8`
+is now refused as an unknown quantization method and only `convrot_int8`
+remains; on this card it still dispatches to `comfy_kitchen.int8_linear`
+(`coderef/sglang/python/sglang/multimodal_gen/runtime/layers/quantization/configs/convrot_int8_config.py`).*
 
 **What that convergence is, and is not.** Their published consumer-card table's
 fastest row is an int8 DiT with a sage-to-Sol hybrid — which is the stack our
@@ -429,6 +533,24 @@ node's `dense_blocks` default is `sol_attn_h3.py::SOL_DENSE_TAIL`, mirrored by
 `workflows/h3_config.py::SOL_DENSE_TAIL`, so on that row sglang, core and ours
 now all differ. sglang's and core's cells were re-read at `89f21671bb` and
 `65787d66` and have not moved.*
+
+*Note 2026-11-04: the sglang column was re-read row by row at `origin/main`
+and holds.
+`coderef/sglang/python/sglang/multimodal_gen/runtime/layers/attention/backends/sol_attn.py`
+has no commit since `593c7a900d`; its defaults are still `dense_steps` 10,
+`dense_layers` "0,1", `tau` 1.0, `sink_tokens` 0, no end of window and no
+token routing, with `dense_backend` "fa"
+(`_get_sol_attn_runtime_config`, `SolAttnImpl._should_use_dense`). Sol is
+still opt-in: the cookbook's 4090 table says "Default remains
+`convrot_int8` + `fa`", and its recipe (the paragraph after "`fa` keeps
+exact attention" under "Feature contracts and advanced recipes") still
+sets `dense_backend=sage_attn,dense_steps=10`. The SGLD app's preset
+matches ("Tenth read"). Core's column was re-read in
+`comfy_extras/nodes_sparse_attention.py` at ComfyUI `5f415e31a` and holds.
+Our column is the 2026-09-11 state and has moved on the sink row as well:
+`workflows/h3_config.py::SOL_RECOMMENDED_CUDA` now sets `sink_conditioning`
+to `exact_kv_and_all_rows`, so the 2026-09-19 note's "the other cells still
+match" no longer holds for that row.*
 
 The start row agrees only on a fifty-step grid, where 10 steps is a fifth.
 At our sixteen-step base, sglang's count would keep 10 steps dense against
@@ -489,15 +611,25 @@ against a graph rewired to bypass the fit node.
   `--fp32-vae` remains the wrong flag because it forces both halves. **It now has a second
   variable tangled with it, found 2026-08-21**: sglang *samples* the released
   posterior under a seed pinned at 42 for keyframes and reference video
-  (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/keyframe_encoding.py:30`,
-  `coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/reference_encoding.py:613`) where ComfyUI takes the mean
+  (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/keyframe_encoding.py::MINIMAX_H3_KEYFRAME_ENCODE_SEED`,
+  `coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/reference_encoding.py::MINIMAX_H3_REFERENCE_VIDEO_ENCODE_SEED`) where ComfyUI takes the mean
   (`comfy/ldm/minimax/vae.py:685`). Any encode instrument has to separate
   precision from mean-versus-sample or it measures neither.
   [`h3_references.md`](../h3_references.md) carries it in the vendor image
   path table.
+  *Note 2026-11-04: the two sglang citations named lines 30 and 613 and
+  name the constants now. Still open at `origin/main`: both seeds are 42,
+  the keyframe encode still samples the posterior (its module docstring,
+  `use_mean=False`), and the video VAE still encodes in fp32. Core's mean
+  is now in `comfy/ldm/minimax/vae.py::MiniMaxH3VideoVAE`, its `encode`.*
 - Whether an AdaLN cache is worth building, which is downstream of
   [`open_experiments.md`](../open_experiments.md) #22 and should not be
   started before it.
+  *Note 2026-11-04: sglang's own cache is refused on quantized weights and
+  on pruned curve checkpoints (see "An exact AdaLN cache" above), so the
+  vendor has no form of it for the pruned INT8 file this repo loads. On
+  that file sglang instead keeps the curve tables and projections in fp32
+  (see "An enforced fp32 island" above).*
 - Nothing left on the reference path: video, audio, frame rate, soundtrack
   pairing and condition noise were all re-derived on 2026-08-21 against sglang,
   diffusers and DiffSynth-Studio, and [`h3_references.md`](../h3_references.md)
@@ -506,6 +638,27 @@ against a graph rewired to bypass the fit node.
   The mono-upmix question that sat beside it was closed on 2026-08-21 — no
   upmix happens and the packed layout raises — and `h3_references.md` carries
   it under Known limitations.
+  *Note 2026-11-04: the shorter-reference-video item is answered from
+  source at `origin/main` (code unchanged across the tenth read's range,
+  read, not run). The ffmpeg pass caps the decode at the target's frame
+  count with `-frames:v` and neither pads nor loops
+  (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/reference_encoding.py::minimax_h3_decode_reference_video_frames`),
+  so a short source yields fewer frames. The VAE encode then trims down to
+  the chunk grid
+  (`coderef/sglang/python/sglang/multimodal_gen/runtime/models/vaes/minimax_h3_video_vae/processor.py::get_suitable_video_length`,
+  through `align_video_length` in trim mode), which with the release's chunk
+  of 17 frames and overlap of 5 is the `17n+5` grid with n at least one; a
+  source under that floor raises "Cannot trim". In the packed sequence the
+  reference then takes only its own length in time: the cursor advances by
+  the longer of its soundtrack's span and its trimmed video's span
+  (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/packed_sequence.py`,
+  `t_cursor += max(float(ref_t), _video_t_span(vt))`).
+  Core walks down to the same grid and accepts shorter sources
+  ([`h3_references.md`](../h3_references.md), "Known limitations,
+  collected"). The overlap of 5 is core's derivation from the same
+  defaults (`comfy/ldm/minimax/vae.py::MiniMaxH3VideoVAE`, from
+  `clip_length` and `token_drop`); sglang reads its value from the
+  release's config, which was not opened here.*
 
 ## Third read, 2026-09-04
 
@@ -529,6 +682,18 @@ the quality goes. Their definition of "lossless" also names the exception
 explicitly, `torch.compile`, and refuses it as ground truth; ours names the
 Comfy Compiler's malloc graph as the regime and checked one rung against it
 (`data/results/2026-09-04_stairwell_dense_retime.jsonl`).
+*Note 2026-11-04: the tier names and the "empty middle tier" are stale.
+`7a4d6dfd2f` (#42370) renamed the tiers after what they guarantee: the old
+`lossless` is now `exact` (bit-identical to the reference), the old
+`extra-high` is now `lossless` (same math, rounding may move; the default,
+with `extra-high` kept as an alias) and `high` is unchanged
+(`coderef/sglang/python/sglang/multimodal_gen/configs/sample/sampling_params.py::QUALITY_LEVELS`).
+For H3 the middle tier is no longer empty: at `lossless` the DiT fuses
+RMSNorm and AdaLN into one rounding (`121aa8dcc7`, #43327), a dynamic LoRA
+delta is added inside the second GEMM (`65386cb95a`, #43501), and the video
+VAE decode takes its fast path (see "VAE tiling is silent here"). The
+`torch.compile` exception is still named, now in the cookbook's feature
+contracts table ("Do not use it for consistency ground truth").*
 
 **Silent fallback is now refused on their side too.** An explicit
 per-component attention backend must be consumed or the server does not
@@ -637,7 +802,13 @@ the RTX 5090) picks the allocator, the fl2va variant, the `memory`
 performance preset, what is offloaded and how many DiT layers stay resident.
 The preset sets offload and residency defaults only
 (`coderef/sglang/python/sglang/multimodal_gen/runtime/server_args/auto_tune.py`);
-it chooses no attention backend, quantisation, compile or step cache. The
+it chooses no attention backend, quantisation, compile or step cache.
+*Note 2026-11-04: still so for those four at `origin/main`; for H3 the
+`memory` preset now also sets the video VAE to one tile and one window
+per decoder forward
+(`coderef/sglang/python/sglang/multimodal_gen/configs/pipeline_configs/minimax_h3.py::MiniMaxH3PipelineConfig`,
+`validate_server_args`), a rounding-level change; see "VAE tiling is
+silent here".* The
 sampler settings on that page describe the benchmark run on both engines, not
 a new sglang default. So the adopt-upstream rule has nothing new to act on:
 the Sol table above still holds (sglang's `sol_attn` defaults and core's node
@@ -726,6 +897,8 @@ path swaps (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/
 and so do its checkpoint loader and our converter. The builder's only test
 merges `to_out` alone. The layouts were measured; the merge was not run. So
 the fc1 delta landing swapped is an inference, not an observation.
+*Note 2026-11-04: `8776a94f29` (#46907) fixed it: the builder now swaps the
+fc1 halves, with a unit test; "Tenth read".*
 
 **The other three:**
 
@@ -791,6 +964,11 @@ layout and the sampler. Two consequences:
   model is replaced, so the Sol node, the dense attention chain, PDD heads in
   core's `final_layer` and core's LoRA loader all patch a model that no longer
   runs. sglang ships its own LoRA loader node for this mode.
+  *Note 2026-11-04: since `5730345717` (#43495) the integrated mode refuses
+  a graph that carries ComfyUI block patches, model patches or an attention
+  override
+  (`coderef/sglang/python/sglang/multimodal_gen/apps/ComfyUI_SGLDiffusion/executors/base.py::_reject_model_patches`),
+  so these patches are now refused at the first step instead of dropped.*
 - **Two places read as departures from core's `MiniMaxH3Model.forward`**
   (reasoned, not run). `MiniMaxH3Adapter.unpack` scales the audio velocity by
   `time_shift_slope` on top of the carry correction, which core does not, and
@@ -846,6 +1024,8 @@ scale tensors
 and 12.1 and `comfy_kitchen.int8_linear` everywhere else, so on this card it is
 still kitchen, and the `int8_convrot` files in `h3_config.MODELS` load
 auto-detected. Nothing to adopt.
+*Note 2026-11-04: `3472e16f96` (#45706) removed the `kitchen_int8` alias;
+`convrot_int8` and its dispatch on this card are unchanged.*
 
 **The rest:**
 
@@ -974,6 +1154,10 @@ video shorter than the target is still untraced
 collected"). Line-number citations in the older sections of this file and
 of [`sglang_h3_pipeline.md`](sglang_h3_pipeline.md) were not re-verified;
 several have moved.
+*Note 2026-11-04: the short reference video is now traced from source, in
+the dated note on the last item of "Open after this read" above, and every
+line-number citation into sglang in this file's older sections was checked
+and repointed to a symbol where it had drifted.*
 
 ## Tenth read, 2026-11-04
 
@@ -1009,7 +1193,7 @@ denoise stage's workload is N. Base H3 keeps the default of 50 and now runs
 (`coderef/sglang/docs/cookbook/diffusion/MiniMax/MiniMax-H3.mdx`, section
 4). The distills changed their label and not their behavior: FastH3 and
 VDN-H3 went from 9 to 8 (`coderef/sglang/python/sglang/multimodal_gen/configs/sample/minimax_h3.py::FastH3SamplingParams`,
-`VDNH3SamplingParams`), and the PDD check is now that the step count
+`coderef/sglang/python/sglang/multimodal_gen/configs/sample/minimax_h3_vdn.py::VDNH3SamplingParams`), and the PDD check is now that the step count
 equals the head count (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/stages/timestep_preparation.py`). sglang now
 counts steps the way ComfyUI's `simple` scheduler does. Our 16 steps
 (`h3_config.SAMPLING`) were never tied to the vendor's 50, so nothing is
@@ -1068,6 +1252,16 @@ vendor-written list of where the two DiTs differ op by op, and worth
 reading as that. It pins `SOURCE_SHA256` of the DiT file and refuses a
 changed one; whether the pin matches the file at `origin/main` was
 reasoned by the subagent (it does not), not checked here.
+*Note 2026-11-04, checked by hash the same day: the pin equals the SHA-256
+of `runtime/models/dits/minimax_h3.py` at `b931b2c8bd` (#43634, 2026-10-11)
+and at no other revision of that file in the range, including `45de4adde9`,
+the commit that added the profile, and `origin/main`. So `install` raises
+"H3 upstream source differs from the reviewed h3_comfyui_v1 source" at
+`origin/main`. One of its overrides also targets
+`minimax_h3_norm_modulate_active`, a DiT global that `329072d99a` (#44690)
+removed. Apart from the pin, the profile refuses curve (pruned) AdaLN,
+quantized layers and any card but Hopper, so it never covered the file
+or card this repo runs.*
 
 **Reference images have a resize mode** (`5727f08932`, #35839).
 `coderef/sglang/python/sglang/multimodal_gen/configs/sample/minimax_h3.py::MiniMaxH3SamplingParams.reference_resize_mode`
@@ -1136,3 +1330,208 @@ now `validate_quality_deployment`; the reference-video seed, cited at line
 `coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/reference_encoding.py::MINIMAX_H3_REFERENCE_VIDEO_ENCODE_SEED`
 (corrected in [`../h3_references.md`](../h3_references.md) the same day);
 and the cookbook's Sol recipe has moved down the file.
+*Note 2026-11-04, a second pass the same day: every line-number citation
+into sglang in the older sections was then checked against `origin/main`;
+the drifted ones name symbols now, each with a dated note where it stands.
+The VAE fast paths listed under "Not read" were read for the two VAE
+sections above.*
+
+## Eleventh read, 2026-11-04: a month of the pipeline, stage by stage
+
+A second read the same day, at the owner's ask: what changed in sglang's H3
+pipeline over a month, from the model code out to the related models (the
+text encoder, the VAEs, references), judged against what the owner runs now.
+That is base H3 with Sol-Attn through core on one RTX 4090, the masked lane
+on ref2va, and Pika H3 Flex as the one distill they would test; they use no
+sage, no PDD and no fast or turbo distill. The range is `1315d171a0`
+(2026-10-03) to `origin/main` at `8884b4b421`, a week wider than the tenth
+read's, so it also covers what landed between the eighth read and
+2026-10-09. Four read-only subagents each read one stage, diffing every file
+of it across the range and not only the commits that name H3; the claims
+below were then checked by hand against the files cited. No renders and no
+checks were run for it.
+
+**No default moved that this pack ships, and the adopt-upstream rule does not
+fire.** Wherever sglang moved, core disagrees with it or this pack already
+matches it. The tenth read's findings stand; this one adds what a walk by
+stage found beyond them.
+
+**What did not move at all.** Across the whole range these have no diff:
+`runtime/layers/attention/backends/sol_attn.py`, the DiT weight loader and
+its ComfyUI checkpoint loader, and in the H3 stage folder `task_profiles.py`,
+`canvas.py`, `resolved_plan.py`, `keyframe_encoding.py`,
+`condition_noise.py`, `packed_sequence.py`, `packed_tokens.py`,
+`presentation.py`, and the text, visual, audio and replica-broadcast stages;
+also the encoder configs and the Qwen-VL RoPE. So canvas and length rules,
+keyframes, condition noise levels, label order, time and space placement,
+the reference-video VAE seed, initial noise, the text presentation, vision
+token bounds, the encoder's layer tap and its bf16 precision are as the
+earlier reads have them.
+
+### Request and references
+
+- **Reference images have three resize modes** (`5727f08932`, #35839), in
+  the tenth read. The detail: `match` and `max` use core's formulas exactly,
+  with the same `min(1.0, ...)`, Python rounding and 32-pixel floor
+  (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/reference_encoding.py::minimax_h3_resolve_reference_image_shape`;
+  core's `comfy_extras/nodes_minimax_h3.py::MiniMaxH3ReferenceToVideo`). Only
+  stills are affected. sglang ships two defaults of its own: native serving
+  uses `diffusers`, and its ComfyUI example graph wires core's node with
+  `match`
+  (`coderef/sglang/python/sglang/multimodal_gen/apps/ComfyUI_SGLDiffusion/workflows/minimax_h3_r2v_sgld.json`).
+  Its server-mode H3 node has no resize input. Pika H3 Flex is served at the
+  2048 short edge at 768p, which is Pika's own rule and this pack's default.
+- **A reference video shorter than the target, answered.** The code did not
+  change; it was untraced. sglang decodes at most the target's frame count
+  and pads nothing; the VAE encode then trims down to the 17n+5 grid with at
+  least one step
+  (`coderef/sglang/python/sglang/multimodal_gen/runtime/models/vaes/minimax_h3_video_vae/processor.py::get_suitable_video_length`),
+  so a reference under 22 frames raises "Cannot trim". The shorter latent
+  advances the packed timeline by less
+  (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/packed_sequence.py::minimax_h3_packed_sequence_ref2va_blocks`).
+  Admission does not compare a reference's length with the target's. Core
+  walks a short reference down to 17n+5 and accepts as few as 5 frames.
+  Window references in the masked lane are far longer than 22 frames.
+  [`../h3_references.md`](../h3_references.md), "Known limitations,
+  collected", is corrected.
+
+### Text encoder
+
+Nothing reached what the encoder computes. `dee613b283` (#47466) drops the
+cross-request cache of Qwen3-VL vision features; whole-presentation outputs
+can still be cached. The ComfyUI app's conditioning cache used to key on a
+tensor's shape and its first and last elements, so two conditionings that
+matched there could be swapped; it is a hash of the embeddings since
+`3458c94fad` (#43492). sglang now pins transformers 5.19.0 (`11972e5207`,
+#42784); the ComfyUI venv here has 5.18.0, and this pack imports two of its
+processors (`smart_resize` and `Qwen3VLVideoProcessor`, in
+`reference_conditioning.py` and `reference_geometry.py`). Whether 5.19
+changed them was not read. Core's `Llama2_.forward`, which turned
+`bench/check_reference_encode.py` red, changed on its decode side only; the
+encode path `reference_encode.py::_lm_pass` copies computes `freqs_cis`
+itself, as core now does when none is passed (read, not run). The check's
+own instruction stands.
+
+### DiT forward
+
+- **The norm and modulation fusion at the default tier** is the tenth
+  read's. Its kernel computes the reciprocal RMS, the weight, `1 + scale` and
+  the shift in fp32 with one store, and by its own docstring does not
+  reproduce aten's reduction order
+  (`coderef/sglang/python/sglang/kernels/ops/diffusion/norm/rmsnorm_scale_shift_triton.py::_rmsnorm_indexed_scale_shift_kernel`). Since `b4822bae03` it is mounted in the
+  ComfyUI app's step stage too.
+- **On pruned checkpoints the AdaLN path is fp32 at every tier, `exact`
+  included.** This predates the range and was not on record for this path.
+  sglang builds the projection in fp32 when the checkpoint has a curve AdaLN
+  and refuses one that is not fp32 after load
+  (`coderef/sglang/python/sglang/multimodal_gen/runtime/models/dits/minimax_h3.py`,
+  the `params_dtype` line and `post_load_weights`), and modulates with fp32
+  tables (`1fd46ddd56`, #44180, fused that bit for bit). Core casts each
+  table row to bf16 and rounds three times
+  (`comfy/ldm/minimax/model.py::_mod_scale_shift`). The pruned INT8
+  checkpoints this pack runs have that time table
+  ([`2026-11-04_pika_h3_flex_weights_and_loras.md`](2026-11-04_pika_h3_flex_weights_and_loras.md),
+  section 4), so the gap to sglang there does not close at its `exact` tier.
+  It is a second face of "An enforced fp32 island" above, and only a capture
+  could size it.
+- The rest is speed with the bytes unchanged by the commits' own words, or
+  multi-GPU, ROCm, NPU and Blackwell plumbing: the indexed modulation tiled
+  by 2048 columns, QK-norm and RoPE two rows per warp, the attention section
+  eager under torch.compile, outputs written into caller buffers, host syncs
+  removed, and the Ulysses exchange pipelined.
+
+### Sampling, LoRAs and Pika
+
+- **Step counts** are the tenth read's: a request of N is N forwards.
+- **LoRAs.** Under `merge_mode` "auto" an adapter stays unmerged when a merge
+  would round away more than
+  `coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/lora/pipeline.py::AUTO_MERGE_MAX_ROUNDING_LOSS`
+  of it (`d8c5eca3ac`, #43385), and a quantized layer is never merged into:
+  "auto" falls back to the unmerged delta and "merge" raises. At the default
+  tier the unmerged delta is added inside the second GEMM with one rounding
+  (`65386cb95a`, #43501); at `exact` it rounds twice. `MiniMaxH3LoRABranch`
+  adds its delta with one rounding (`lora_branch.py`, `addmm_`).
+- **Pika H3 Flex, as sglang serves it** (`37fc17b8d6`, #47378). The update
+  is core's `lcm` with audio re-noised at its own shift-3 sigma, as
+  [`../wiki/references.md`](../wiki/references.md), "Pika H3 Flex", and the
+  day's weights record have it. Beyond them:
+  - The re-noise draws come from a CUDA generator seeded with the request
+    seed, video target rows then audio, in packed shape
+    (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/stages/denoising.py`, `renoise_generator`;
+    `coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/denoise_loop.py::_minimax_h3_renoise_target_rows_`).
+    Pika's own code seeds the next seed and draws in latent shape; core's
+    `sample_lcm` draws once over the whole latent. The same seed does not
+    give the same clip across the three, so a same-seed comparison between
+    engines is not an A/B (reasoned).
+  - The adapter stays unmerged with its fp32 factors, never merged into
+    quantized weights; Comfy-Org's template merges it into the INT8
+    checkpoint, which the weights record finds keeps little of it.
+  - Its default tier is `lossless` and `high` is refused, so sglang's Pika
+    output is not bit-equal to Pika's reference forward.
+  - Under sglang's Sol all six steps run dense, because `sol_attn.py`'s
+    default `dense_steps` is 10 by step index. sglang is no evidence about
+    Sol on Pika; how this pack's Sol window lands on six sigmas is a
+    question of its own.
+- **The ComfyUI app now passes the step index to the DiT**
+  (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/stages/comfyui_step.py`), so Sol's dense steps count
+  ComfyUI's steps there; before 2026-10-13 they would have been dense on
+  every step (reasoned). The app refuses any ComfyUI model patch
+  (`5730345717`, #43495), so this pack's Sol and masking patches cannot run
+  through it, and its core-parity patch profile cannot install at
+  `origin/main`: its pinned hash is the DiT file at `b931b2c8bd`, checked by
+  hash (the tenth read had this as reasoned).
+
+### VAEs
+
+- **The decoder's fast path is on at the default tier**: fused QK RMSNorm
+  and RoPE, cuDNN attention, and since `0498ab7b6e` (#45179) up to
+  `decoder_tile_batch` tiles per forward, which by its comment "moves
+  rounding, not the math"
+  (`coderef/sglang/python/sglang/multimodal_gen/configs/models/vaes/minimax_h3_video.py::MiniMaxH3VideoVAEConfig`).
+  Core batches too, up to four tiles chosen from free VRAM at call time
+  (`comfy/ldm/minimax/vae.py::MiniMaxH3VideoVAE._decode_tile_row`), so a
+  re-decode here can differ at the rounding level with memory state
+  (reasoned). That matters for bit-identical rebuilds, not for anything
+  visible.
+- **sglang's decoder carries an fp32 residual; core's is fp16**
+  (`284cda01fb`, #41906; `coderef/sglang/python/sglang/kernels/ops/diffusion/norm/h3_vae_fused_norm.py`,
+  its docstring). The fused norm is switched by an environment flag that
+  defaults on, not by the tier, and is tested to a tolerance, so sglang's own
+  `exact` decode is not bit-equal to its eager module. diffusers was the
+  first upstream on the fp32 side ("What moved by 2026-10-02" in
+  [`../wiki/references.md`](../wiki/references.md)); unsized.
+- **The encoder's SiLU and padding are fused** (`114675a0d1`, #47852),
+  tested equal to aten; core already fuses the same step. Reference and
+  source encodes are unaffected.
+- **The audio VAE** changed in no behavior: a shared alias-free module, dead
+  state removed, and audio decoded before video so the MP4 can start early
+  (`9101e895ea`, #41819).
+
+### Output
+
+- **sglang pins its ffmpeg binary**
+  (`coderef/sglang/python/sglang/multimodal_gen/runtime/entrypoints/utils.py::_resolve_ffmpeg_exe`,
+  "keep the pinned encoder binary: x264 upgrades change lossy video
+  pixels"). This pack's videos are written by VideoHelperSuite with whatever
+  ffmpeg it picks, `/usr/local/bin/ffmpeg` on this machine, and
+  `bench/sidecar.py` says the binary that wrote the bytes is not recorded.
+  An ffmpeg upgrade here would change delivered pixels with nothing to show
+  why, which touches comparisons of pieces across days and the re-composite
+  tolerance. Recording the encoder's `-version` in the sidecar is the cheap
+  fix; it is a build for the lead.
+- **Encode settings**: a per-request preset was added (default `fast`,
+  `ba68306256`, #41797); crf, pixel format and the absent bt709 tags are as
+  before. This pack's crf, tags and rounding differ from both sglang's and
+  core's; no rule fires.
+
+### Not for the owner's use
+
+FastH3's 8-step V2 and its batched decode, FastH3 Omni, VDN-H3, the PDD fc1
+fix, and VSA-H3 on capability 8.0 (still not 8.9) are recorded in the tenth
+read and in [`../wiki/references.md`](../wiki/references.md) as references
+only.
+
+**Not read:** the CUDA sources of the fused kernels, the Hugging Face configs
+of Pika and Omni, the transformers 5.17 to 5.19 processor diff, the app's
+server, generator and preflight beyond the lines cited, and the cookbook
+beyond its H3 sections.

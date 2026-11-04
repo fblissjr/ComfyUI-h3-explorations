@@ -346,6 +346,11 @@ else read]
   DFSAttn's 4-step distilled run keeps the first step dense (App. C.2). None
   of these ablates the choice. `workflows/h3_config.py` already notes that
   `start_percent` 0.2 is a flat quarter of evaluations at 16, 8 and 4 steps.
+  *Note 2026-11-04: when this was written sglang's 50 steps were 49 DiT
+  forwards, so its "10 of 50" (here and in the SubBlock row of 1.1) was 10 of
+  49 forwards. Since `32f34e898b` (#38671, 2026-10-10) `num_inference_steps`
+  counts forwards and it is 10 of 50; `coderef/sglang/python/sglang/multimodal_gen/runtime/layers/attention/backends/sol_attn.py` itself is unchanged at
+  sglang origin/main `8884b4b421`.*
 - **The one refit changes shape.** [V] CalibAtt's distilled 4-step fit starts
   at epsilon 0.863 and stays nearly flat. Its 50-step fit starts at 0.99 and
   decays fast (1.2). The fit on the distilled model did not ask for a

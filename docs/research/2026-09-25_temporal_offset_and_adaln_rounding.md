@@ -1,6 +1,6 @@
 # A global temporal offset, and AdaLN rounding on the INT8 DiT
 
-last updated: 2026-09-25
+last updated: 2026-11-04 (a dated note on sglang's modulation at its default tier); 2026-09-25
 
 > **Provenance, 2026-09-25.** A research subagent (Claude) read core, sglang
 > and vllm-omni, and measured on CPU, using real checkpoint tensors and the
@@ -78,6 +78,15 @@ step for that is a ref2va capture measured the same way.
 - vllm-omni keeps the norm and the affine in fp32 with one store (#7913).
 - sglang, on curve checkpoints like ours, rounds the norm to bf16 and does
   the affine in fp32 with one store.
+  *Note 2026-11-04: at sglang origin/main that is its `quality="exact"` path
+  only. Since `121aa8dcc7` (#43327, 2026-10-09) the default `lossless` runs the
+  norm and the affine as one fp32 pass with one store
+  (`coderef/sglang/python/sglang/multimodal_gen/runtime/models/dits/minimax_h3.py::_modulate_rmsnorm_scale_shift`,
+  the `fused` branch; the kernel reads the tables as fp32), which is
+  vllm-omni's convention. So at their defaults sglang and vllm-omni now agree,
+  and core is the one that double-rounds. The fp32 curve tables themselves
+  hold at every tier (`MiniMaxH3DiTModel.post_load_weights` refuses them below
+  fp32).*
 - diffusers eager and core double-round.
 
 **Measured on CPU** with an emulation of the int8 path, matched to kitchen's

@@ -15,7 +15,7 @@ deep dives hang off it, each owning a topic this page deliberately does not:
 |---|---|---|
 | [`docs/morton.md`](morton.md) | token order: block geometry, the curves, the capture analysis, the six-arm ordering sweep, the assumption chain | quote it against this page's config values |
 | [`docs/sol_upstream.md`](sol_upstream.md) | what upstream says: the paper, Sol-Engine's per-hardware H3 cells and its newer Sol-H3 packages (Sol-H3, Spark, the RTX 4090 cell), ComfyUI core's own `BlockSparseAttention`, the other ComfyUI packs. What we would adopt from it is this page's section "What Sana's newer H3 packages offer this card" | read any number there as comparable to ours |
-| [`docs/research/sglang_h3_pipeline.md`](research/sglang_h3_pipeline.md) §11 | **a second training-free block-sparse attention for H3**, sglang's SubBlock router, documented 2026-08-30. The nearest comparison target Sol has. It **cannot run on this box** -- its resolver rejects anything that is not compute capability 9.0 or 10.0 and fails closed rather than falling back to dense, and this is sm_89 -- so it is a design comparison, not an arm. That page owns it; do not restate its claims here |
+| [`docs/research/sglang_h3_pipeline.md`](research/sglang_h3_pipeline.md) §11 | **a second training-free block-sparse attention for H3**, sglang's SubBlock router, documented 2026-08-30. The nearest comparison target Sol has. It **cannot run on this box** -- its resolver rejects anything that is not compute capability 9.0, 10.0 or 12.0 and fails closed rather than falling back to dense, and this is sm_89 -- so it is a design comparison, not an arm. *Corrected 2026-11-04: SM120 was added by sglang `4e37882a93` (#37332, 2026-09-03; `coderef/sglang/python/sglang/multimodal_gen/runtime/platforms/cuda.py::_SubBlockSparseAttentionBackendResolver`). This line used to say "9.0 or 10.0".* That page owns it; do not restate its claims here |
 | [`docs/h3_input_impacts.md`](h3_input_impacts.md) | how canvas, frame count and Sol settings interact: the per-canvas Morton `3d` ranking over all 48 legal canvases, the `latent_t % 4` length effect, the token floor crossed with both axes, and block maps | read its geometry tables as a quality ranking |
 
 Dated implementation and capture audit:
@@ -2233,6 +2233,11 @@ Every upstream cell is cited in `docs/sol_upstream.md`; the sglang column is
 read from its `sol_attn` backend on 2026-09-11 and walked in
 `docs/research/sglang_h3_pipeline.md`. Our column is a pointer: the values
 live in `workflows/h3_config.py::SOL_RECOMMENDED_CUDA`.
+*2026-11-04: the sglang column holds at sglang origin/main `8884b4b421`;
+`coderef/sglang/python/sglang/multimodal_gen/runtime/layers/attention/backends/sol_attn.py` has no commit since the 2026-09-11 read at `593c7a900d`. What
+moved is the step it counts: since `32f34e898b` (#38671, 2026-10-10) a
+50-step request is 50 DiT forwards (it was 49), so its first 10 dense steps
+are exactly a fifth of the forwards.*
 
 | knob | Sol-Engine per-hardware cells | Sol-H3, T2V / Ref2VA | Spark Ref2VA draft (opt-in) | sglang `sol_attn` (opt-in) | core `BlockSparseAttention` | ours |
 |---|---|---|---|---|---|---|

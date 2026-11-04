@@ -1,6 +1,6 @@
 # Freezing a known audio track: audio-driven video on MiniMax H3
 
-last updated: 2026-11-04 (section 8: the sglang scheduler citation repointed, the no-noise claim narrowed to base H3); 2026-10-08 (section 8 re-read at a newer sglang head, one sentence narrowed with a dated note); 2026-10-04 (section 4, the song node's `source`: masked video to video; `docs/wiki/masked_v2v.md` is the lane's current map); 2026-09-27 (section 5 idea 9, the TaoMate adapter, removed with that lane); 2026-09-25 (dated notes in sections 3 and 5); 2026-09-15
+last updated: 2026-11-04 (section 8: the sglang scheduler citation repointed, the no-noise claim narrowed to base H3, the trajectory refusal reworded to sglang's current one; section 2: sglang's audio-derived duration narrowed to a request with no duration); 2026-10-08 (section 8 re-read at a newer sglang head, one sentence narrowed with a dated note); 2026-10-04 (section 4, the song node's `source`: masked video to video; `docs/wiki/masked_v2v.md` is the lane's current map); 2026-09-27 (section 5 idea 9, the TaoMate adapter, removed with that lane); 2026-09-25 (dated notes in sections 3 and 5); 2026-09-15
 
 **The owner of this lane.** Opened 2026-09-12 by the owner: drop a song of any
 length, keep it exactly, and have the picture move to it, the way the owner's
@@ -77,7 +77,7 @@ implementations treat this as inpainting.
 | mechanism | where the audio sits | final track | model | trained? |
 |---|---|---|---|---|
 | **mask freeze** | target audio rows, mask zero | yours, exact if the original waveform is muxed at output | fl2va or ref2va | adjacent: conditioning-row semantics on target rows |
-| **reference audio** | reference segment, `<Audio N>: fully_copy` in the prompt ([`prompting.md`](prompting.md) §9.8 vocabulary) | regenerated; sglang derives the target duration from it (`duration_from_audio_reference` in the same task table) | ref2va only; an audio reference cannot stand alone and the budgets cap it ([`h3_references.md`](h3_references.md), the budgets paragraph) | yes, the release's path |
+| **reference audio** | reference segment, `<Audio N>: fully_copy` in the prompt ([`prompting.md`](prompting.md) §9.8 vocabulary) | regenerated; when a request gives no duration, sglang derives the target duration from the one reference that has an audio stream, and refuses if there is not exactly one (`duration_from_audio_reference` in the same task table; `coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/prequeue.py::_resolve_deferred_temporal_shape`). *Corrected 2026-11-04: this cell used to say sglang "derives the target duration from it" with no condition.* | ref2va only; an audio reference cannot stand alone and the budgets cap it ([`h3_references.md`](h3_references.md), the budgets paragraph) | yes, the release's path |
 | **guide audio** | keyframe conditioning rows anchored at a frame index (`comfy_extras/nodes_minimax_h3.py::MiniMaxH3AddGuide`, the `audio` input) | regenerated | fl2va | no: a ComfyUI extension with no counterpart in sglang or the release |
 | **hybrid** | reference audio *and* the same track frozen in the target rows | yours | ref2va | the reference says what the track is, the mask guarantees it |
 
@@ -564,10 +564,17 @@ read".*
 
 - **No inpainting, retake, mask, extension, continuation, prefix, chunking,
   looping or streaming path exists in sglang's own H3 pipeline.** One
-  request is one clip through a flat stage list. The pipeline's own reject
-  list names trajectory output as unsupported "for its coupled video/audio
-  denoise state". The web app exposes audio only as a `reference` condition
-  and has no target-track input.
+  request is one clip through a flat stage list. The sampling parameters
+  refuse trajectory output and point to the RL rollout path instead, which
+  takes t2va only
+  (`coderef/sglang/python/sglang/multimodal_gen/configs/sample/minimax_h3.py::MiniMaxH3SamplingParams`,
+  the `return_trajectory_latents` check). The web app exposes audio only as a
+  `reference` condition and has no target-track input
+  (`coderef/sglang/python/sglang/multimodal_gen/apps/webui/minimax_h3.py`).
+  *Corrected 2026-11-04: sglang `0931a72eb2` (#34365, 2026-09-30) added the
+  rollout path and reworded the refusal; still so at origin/main
+  `8884b4b421`. This line used to say the reject list "names trajectory output
+  as unsupported 'for its coupled video/audio denoise state'".*
   *2026-10-08: until this date the sentence said "anywhere in the H3 serving
   code", which one file now contradicts. sglang can run its DiT as the model
   of a ComfyUI graph, one step per call, and the stage that does it takes

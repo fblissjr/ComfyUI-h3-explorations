@@ -1,6 +1,6 @@
 # PDD: five implementations, and how this lane got where it is
 
-last updated: 2026-11-04 (dated note: sglang fixed the fc1 half-swap); 2026-09-25 (dated corrections under sections 1 and 4; the title now undercounts: seven implementations are compared in [2026-09-25_upstream_pdd_comparison.md](2026-09-25_upstream_pdd_comparison.md)); otherwise 2026-08-28
+last updated: 2026-11-04 (dated notes: sglang fixed the fc1 half-swap; sglang's other distilled H3 entries); 2026-09-25 (dated corrections under sections 1 and 4; the title now undercounts: seven implementations are compared in [2026-09-25_upstream_pdd_comparison.md](2026-09-25_upstream_pdd_comparison.md)); otherwise 2026-08-28
 
 Two things nobody had written down: **how our PDD implementation compares to
 every other one available**, and **how the lane arrived at its current shape**
@@ -49,6 +49,9 @@ sglang fuses offline over one uniform partition, merges the backbone into the
 unpruned weights, and selects the head by the loop's step counter.
 [`../sglang_comparison.md`](../sglang_comparison.md), "Seventh read", has the
 comparison with ours and a probable defect in its fc1 merge.
+*Note 2026-11-04: sglang has also served step-distilled H3 since FastH3
+(`f586654518`, #37480, 2026-09-02), later with VDN-H3, FastH3 Omni and Pika H3
+Flex, so "no distilled H3 entry" did not hold even on 2026-09-25.*
 *Note 2026-11-04: sglang `8776a94f29` (#46907, 2026-10-30) fixed the fc1 half-swap: `coderef/sglang/python/sglang/multimodal_gen/tools/build_minimax_h3_pdd_weights.py::_diffusers_to_native_fc1` now swaps the halves before the merge.*
 
 ---

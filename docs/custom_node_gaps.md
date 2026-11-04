@@ -1,6 +1,6 @@
 # Where our custom nodes differ from every other H3 implementation
 
-last updated: 2026-10-02 (a dated note on item 3: diffusers' VAE decode precision and the shipped VAE); 2026-09-13 (the AWQ loader rows, the `encoder` policy and §4.1's reference-view row corrected after the owner's decisions of that day, `docs/wiki/decisions.md`; 2026-09-10 added one §5.4 sentence and one §6 row; everything else is the 2026-08-28 pass)
+last updated: 2026-11-04 (sglang claims re-read at its origin/main `8884b4b421`: dated notes on §4.1 items 1 and 2, and §4.2's audio-resample sentence corrected); 2026-10-02 (a dated note on item 3: diffusers' VAE decode precision and the shipped VAE); 2026-09-13 (the AWQ loader rows, the `encoder` policy and §4.1's reference-view row corrected after the owner's decisions of that day, `docs/wiki/decisions.md`; 2026-09-10 added one §5.4 sentence and one §6 row; everything else is the 2026-08-28 pass)
 
 The companion to [`comfyui_vendor_gaps.md`](comfyui_vendor_gaps.md). That file
 asks how native ComfyUI differs from the MiniMax release. This one asks the
@@ -270,7 +270,14 @@ they are ranked here by whether they change the output or only the cost.
 **1. The reference view the text encoder sees: three independent
 implementations agree, and since 2026-09-13 so do our defaults.** sglang,
 DiffSynth and diffusers all feed **one** prepared reference tensor, at a 2048
-short edge with upscaling, to both the VAE and Qwen. `MiniMaxH3AppendRefImage`
+short edge with upscaling, to both the VAE and Qwen. *2026-11-04: in sglang
+that size is now a per-request choice, `reference_resize_mode` (`match`,
+`max` or `diffusers`; `5727f08932`, #35839, 2026-10-13), resolved in
+`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/reference_encoding.py::minimax_h3_resolve_reference_image_shape`
+for stills only. Its default, `diffusers`, is the 2048 short edge with
+upscaling described here; `match` follows the canvas area without upscaling,
+and `max` only shrinks a short edge above 2048. Both tensors still come from
+the one prepared still.* `MiniMaxH3AppendRefImage`
 now defaults to the same (`size_policy=max`, `dit_short_edge=2048`,
 `allow_upscale=True`, `qwen_view=shared`; owner, `docs/wiki/decisions.md`).
 From 2026-08-27 until then the node set a separate, much smaller 512 view for
@@ -285,7 +292,11 @@ strongest open candidate in this document.**
 **2. Closed 2026-10-05: the base runs Euler** (owner decision,
 `workflows/h3_config.py::SAMPLING`; no shipped graph names `er_sde`). As
 written until then: **`er_sde` against deterministic Euler.** sglang runs eta-0 Euler with no
-noise after the initial draw. We run a stochastic multistep SDE that injects
+noise after the initial draw. *2026-11-04: still so for base H3 at sglang
+origin/main (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/denoise_loop.py::_minimax_h3_update_target_rows_`).
+Its Pika H3 Flex path (`37fc17b8d6`, #47378) is the exception: it draws fresh
+noise inside the loop at each of its six steps
+(`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/denoise_loop.py::_minimax_h3_renoise_target_rows_`).* We run a stochastic multistep SDE that injects
 fresh noise every step, and H3 declares no noise-scale override, so the term is
 live. Deliberate and recorded in `workflows/h3_config.py::SAMPLING`; **enforced by
 nothing** for the PDD arms, where `docs/checks.md` already carries the row.
@@ -366,7 +377,14 @@ equivalent.
 
 Two apparent gaps are savings, not deficits (*read*): we omit sglang's padding
 tail, whose rows sit in their own attention segment and cannot reach a live row,
-and we resample reference audio once where sglang does it twice.
+and we resample reference audio once where sglang does it twice for a
+video's soundtrack (44.1 kHz out of ffmpeg, then 32 kHz). A standalone audio
+reference keeps its source rate out of ffmpeg and is resampled once there too
+(`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/reference_encoding.py`,
+the audio material chain's docstring).
+*Corrected 2026-11-04: this line used to say "we resample reference audio once
+where sglang does it twice", without the split; sglang has treated the two
+chains differently since its first H3 commit, `70fe2e0dd5`.*
 
 ### 4.3 Where the agreement is worth banking
 
