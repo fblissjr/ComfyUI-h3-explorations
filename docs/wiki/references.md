@@ -1,6 +1,6 @@
 # The sister checkouts: what each one is good for
 
-last updated: 2026-11-04 (section "What moved by 2026-11-04" added, with four sections of their own: "Pika H3 Flex", "FastH3 Omni", "Long clips upstream" and "ComfyUI-MAINodes"; rows for `Pika-H3-Flex`, `ComfyUI-MAINodes` and `ComfyUI-Dials`; dated notes on the 2026-10-09 quality-tier and Ref2VA-student bullets and on the LightX2V streaming path); 2026-10-10 (a row for the SAM-family checkouts and `sapiens2`, pointing at `meta_perception_models.md`); 2026-10-09 (section "What moved by 2026-10-09" added, with the masking and video-to-video cross-check; rows for `MaskVidExperiments` and `ComfyUI-NKD-Basic-Tools`); 2026-10-05 (section "What moved by 2026-10-05" added, with a dated note on the 2026-10-02 UtilsCollection bullet it supersedes; the `pdmd` row and the contract example, on PDMD's retirement); 2026-10-02 (section "What moved by 2026-10-02" added; a ComfyUI-H3-AudioRefine row; dated notes on the LightX2V row, the 2026-09-25 INT8 VAE sentence, and a correction to the 2026-09-25 AdaLN rounding claim); 2026-10-01 (the PDMD trainer: a row in the ComfyUI-side table, and its inference script added to what counts as a contract); 2026-09-27 (the TaoMate section trimmed to the checkouts after the lane was removed); 2026-09-26 (section "A distill's reference is its trainer's contract" added; the FastH3 V2 note under 2026-09-19 extended); 2026-09-25 (section "What moved by 2026-09-25" added; the PDD line and the vllm-omni #7693 bullet corrected in place); 2026-09-19 (section "What moved by 2026-09-19" added); 2026-09-15 (section "The streaming references: TaoMate" added; "What moved by 2026-09-11" added and the two comfy-kitchen rows corrected 2026-09-11; "What moved by 2026-09-10" added 2026-09-10; the tables are otherwise the 2026-08-28 read)
+last updated: 2026-11-04 (section "What moved by 2026-11-04" added, with four sections of their own: "Pika H3 Flex", "FastH3 Omni", "Long clips upstream" and "ComfyUI-MAINodes"; rows for `Pika-H3-Flex`, `ComfyUI-MAINodes` and `ComfyUI-Dials`; the owner's word of the same day on distills recorded in the Pika, Omni and Regenerate-2K entries; dated notes on the 2026-10-09 quality-tier and Ref2VA-student bullets and on the LightX2V streaming path); 2026-10-10 (a row for the SAM-family checkouts and `sapiens2`, pointing at `meta_perception_models.md`); 2026-10-09 (section "What moved by 2026-10-09" added, with the masking and video-to-video cross-check; rows for `MaskVidExperiments` and `ComfyUI-NKD-Basic-Tools`); 2026-10-05 (section "What moved by 2026-10-05" added, with a dated note on the 2026-10-02 UtilsCollection bullet it supersedes; the `pdmd` row and the contract example, on PDMD's retirement); 2026-10-02 (section "What moved by 2026-10-02" added; a ComfyUI-H3-AudioRefine row; dated notes on the LightX2V row, the 2026-09-25 INT8 VAE sentence, and a correction to the 2026-09-25 AdaLN rounding claim); 2026-10-01 (the PDMD trainer: a row in the ComfyUI-side table, and its inference script added to what counts as a contract); 2026-09-27 (the TaoMate section trimmed to the checkouts after the lane was removed); 2026-09-26 (section "A distill's reference is its trainer's contract" added; the FastH3 V2 note under 2026-09-19 extended); 2026-09-25 (section "What moved by 2026-09-25" added; the PDD line and the vllm-omni #7693 bullet corrected in place); 2026-09-19 (section "What moved by 2026-09-19" added); 2026-09-15 (section "The streaming references: TaoMate" added; "What moved by 2026-09-11" added and the two comfy-kitchen rows corrected 2026-09-11; "What moved by 2026-09-10" added 2026-09-10; the tables are otherwise the 2026-08-28 read)
 
 `coderef/` holds the reference implementations. `ls -l coderef/` is the list of
 what is currently on disk — some symlinks, some real clones — and this page is
@@ -1322,8 +1322,9 @@ worth acting on, in this order:
     `REGENERATE_VIDEO_SHIFT`, audio held as encoded silence, output at
     `REGENERATE_DEFAULT_UPSCALE`, FL2VA partition only. Its LoRA
     concatenates the Open-H3 refiner, LightX2V's FL2VA Turbo LoRA and LMS
-    Sharp. A turbo LoRA baked into it touches a closed lane, so whether
-    this is in or out is the owner's to say; it is recorded, not proposed.
+    Sharp. A turbo LoRA baked into it puts it out: the owner said on
+    2026-11-04 that no fast or turbo distill is in use here any more, Pika
+    H3 Flex aside. Recorded, not proposed.
     Core's new latent upscaler (above) is the ComfyUI half of the same
     release, by its key names.
   - **Timeline guides and continuation**: section "Long clips upstream".
@@ -1568,10 +1569,14 @@ shift-3 sigma, as Pika does: derived from core's code, not run, in
   `VISUAL_COND_TIMESTEP` and `reference_noise.py`'s default. Its prompt
   guide (`coderef/Pika-H3-Flex/docs/prompt-guidance.md`) is of the family
   of [`../prompting.md`](../prompting.md); the wording was not compared.
-- **Lane status is the owner's call.** The turbo closure in
-  [`../roadmap.md`](../roadmap.md), "Closed lanes", names the lightx2v
-  family "and any other 'turbo' LoRA". Pika H3 Flex is a six-step distill
-  the roadmap does not name. It is recorded, not proposed.
+- **Lane status.** The owner said on 2026-11-04 that no fast or turbo
+  distill is in use here any more, and that Pika H3 Flex is the one they
+  would use, as yet untested. So it is the one live distill candidate,
+  outside the turbo closure in [`../roadmap.md`](../roadmap.md), "Closed
+  lanes". No graph loads it yet; a first arm would load the full-rank
+  file through `MiniMaxH3LoRABranch` on `lcm` with the sigmas above,
+  generated by `workflows/build_workflows.py`, and is not started until
+  the owner gives a go.
 
 ---
 
@@ -1631,8 +1636,10 @@ core's `BlockSparseAttention` in `vsa` mode keeping 10, with
 
 None of the three was run. This pack has no OmniRef arm and ships
 `h3_config.PDD_REF2VA_LORA`, alibaba-pai's eight-step Ref2VA LoRA, as its
-Ref2VA distill; PDD quality work is a closed lane. Whether Omni is worth
-an arm beside it is the owner's call; it is recorded, not proposed.
+Ref2VA distill; PDD quality work is a closed lane. Omni is out: the owner
+said on 2026-11-04 that they use no PDD and no fast or turbo distill any
+more, Pika H3 Flex aside. It is recorded for what its contract says about
+the engines, not as an arm.
 
 ---
 
