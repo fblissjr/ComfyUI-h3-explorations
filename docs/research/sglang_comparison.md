@@ -1,6 +1,6 @@
 # sglang's H3 serving path against ours
 
-last updated: 2026-11-04 (closing section "Eleventh read" added: a month of the pipeline, stage by stage); 2026-11-04 (every section before "Tenth read" re-checked against sglang `origin/main` at `8884b4b421`: dated notes where a claim moved, drifted line citations repointed to symbols, and the worker-patch pin in "Tenth read" checked by hash); 2026-11-04 (closing section "Tenth read" added, with dated notes in the seventh, eighth and ninth reads); 2026-10-08 (closing section "Ninth read" added: frozen audio
+last updated: 2026-11-04 (closing section "Eleventh read" added: a month of the pipeline, stage by stage; drifted ComfyUI core line citations re-checked against core `5f415e31a` and repointed to symbols or current lines, no core claim found false); 2026-11-04 (every section before "Tenth read" re-checked against sglang `origin/main` at `8884b4b421`: dated notes where a claim moved, drifted line citations repointed to symbols, and the worker-patch pin in "Tenth read" checked by hash); 2026-11-04 (closing section "Tenth read" added, with dated notes in the seventh, eighth and ninth reads); 2026-10-08 (closing section "Ninth read" added: frozen audio
 and video inputs, with a dated note in the eighth read); 2026-10-02 (closing section "Eighth read" added, with dated
 notes on the seventh read's ComfyUI sentence, the `kitchen_int8` name and our
 dense-blocks cell); 2026-09-25 (closing section "Seventh read" added); 2026-09-19 (closing section "Sixth read" added, and a dated
@@ -279,8 +279,8 @@ compute dtype whatever `dtype=` the caller passes.*
 ComfyUI declares the same intent and does not keep it on a quantized
 checkpoint. `comfy/ldm/minimax/model.py` constructs those layers with an
 explicit `dtype=torch.float32` and calls them "the checkpoint's fp32 island" in
-a comment at `:302` — but `MixedPrecisionOps.Linear.__init__`
-(`comfy/ops.py:1300-1303`) discards the `dtype=` its caller passed and uses the
+a comment in `comfy/ldm/minimax/model.py::FinalLayer.__init__` — but
+`comfy/ops.py::MixedPrecisionOps.Linear.__init__` discards the `dtype=` its caller passed and uses the
 compute dtype, so on `int8_convrot` every one of them loads bf16.
 [`comfyui_h3_t2va_trace.md`](comfyui_h3_t2va_trace.md) §1.5 has the mechanism
 and the verification-by-execution; the magnitudes are 3.7e-4 to 1.7e-3
@@ -301,7 +301,7 @@ Recorded so this file is not read as a list of places we are behind. sglang runs
 the Qwen3-VL encode in **bf16**
 ([`sglang_h3_pipeline.md`](sglang_h3_pipeline.md) §4). ComfyUI upcasts the
 embedding to fp32 (`comfy/sd1_clip.py:213`) and never comes back down, and
-`comfy/sd.py:269-270` sets the patcher's compute dtype to match with the comment
+`comfy/sd.py::CLIP.__init__` sets the patcher's compute dtype to match with the comment
 "Match torch.float32 hardcode upcast in TE implemention". So the whole 50-layer
 stack runs fp32 activations here and bf16 there.
 
@@ -359,7 +359,7 @@ decoder blocks add the residual at the VAE's own dtype, fp16 on this card
 the input's dtype). So the two fp16 decodes are not the same arithmetic
 (read, not run).*
 
-Ours runs fp16 throughout. `comfy/model_management.py:1258-1273` returns fp16
+Ours runs fp16 throughout. `comfy/model_management.py::vae_dtype` returns fp16
 on this card unless `--fp32-vae` is passed, and the default launch mode does
 not pass it.
 
@@ -505,8 +505,8 @@ checkpoint, so the mechanism carries and the figures do not.
 Read from source: sglang at `593c7a900d`
 ([`sglang_h3_pipeline.md`](sglang_h3_pipeline.md) section 14.9 has the walk
 and the lines); core's `BlockSparseAttention` at ComfyUI `1d48d9cf`
-(`comfy_extras/nodes_sparse_attention.py:368-407` for the schema,
-`:310-318` for what an H3 block does outside the window). Ours is
+(`comfy_extras/nodes_sparse_attention.py::BlockSparseAttention.define_schema` for the schema,
+`comfy_extras/nodes_sparse_attention.py::make_h3_block_patch` for what an H3 block does outside the window). Ours is
 `workflows/h3_config.py::SOL_RECOMMENDED_CUDA`, and core's defaults are
 copied into `workflows/h3_config.py::SOL_CORE_DEFAULTS`.
 
@@ -588,7 +588,7 @@ before — and `h3_config.py` has no target short-edge constant to confuse.
 **One real defect, found and fixed.** `bench/preflight_graph.py` priced a
 reference image that is *not* fed through `MiniMaxH3ReferenceFit` as if it were
 upscaled to a 2048 short edge. Core does the opposite: it clamps with
-`min(1.0, ...)` in both sizing modes (`comfy_extras/nodes_minimax_h3.py:297-301`)
+`min(1.0, ...)` in both sizing modes (`comfy_extras/nodes_minimax_h3.py:312-316`)
 and never enlarges. The over-count is the square of a scale the reference never
 gets — a 1024x1024 reference priced at four times its real row count. No shipped
 API graph reaches that branch, because they all wire the fit node; the exposure
@@ -613,7 +613,7 @@ against a graph rewired to bypass the fit node.
   posterior under a seed pinned at 42 for keyframes and reference video
   (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/keyframe_encoding.py::MINIMAX_H3_KEYFRAME_ENCODE_SEED`,
   `coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/reference_encoding.py::MINIMAX_H3_REFERENCE_VIDEO_ENCODE_SEED`) where ComfyUI takes the mean
-  (`comfy/ldm/minimax/vae.py:685`). Any encode instrument has to separate
+  (`comfy/ldm/minimax/vae.py::MiniMaxH3VideoVAE.encode`). Any encode instrument has to separate
   precision from mean-versus-sample or it measures neither.
   [`h3_references.md`](../h3_references.md) carries it in the vendor image
   path table.

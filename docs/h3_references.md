@@ -4,7 +4,7 @@
 is, what ComfyUI actually does to it, what it costs, and how to write the
 prompt so the model uses it the way you meant.
 
-last updated: 2026-11-04 (sglang's three reference-image resize modes, `match` and `max` equal to core's and a `diffusers` default, corrected under "Image references", the stage table and "Sizing a reference image"; a reference video shorter than the target traced, at the end of "Known limitations"; drifted sglang line citations moved to names; the seed-42 citation under the reference table moved to a name); 2026-10-09 (when the source already shows the person, under "Edit a source video"); 2026-10-08 (dated notes from a re-read of sglang: the vendor path under "Edit a source video", the condition noise level as a setting, two citations moved to names); 2026-10-03 (the section "Encoding references apart from the prompt", the append nodes showing their label, `use_vae` on the still's append node, and dated notes where `qwen_view`'s default is stated: it is `separate` at 512 again); 2026-08-25; the reference policies, the append node's defaults and the reference-view ablation corrected 2026-09-13 (`docs/wiki/decisions.md`); the retired concise swap twin corrected 2026-09-14
+last updated: 2026-11-04 (sglang's three reference-image resize modes, `match` and `max` equal to core's and a `diffusers` default, corrected under "Image references", the stage table and "Sizing a reference image"; a reference video shorter than the target traced, at the end of "Known limitations"; drifted sglang line citations moved to names; the seed-42 citation under the reference table moved to a name; drifted ComfyUI core line citations re-checked against core `5f415e31a` and repointed to symbols or current lines, no core claim found false); 2026-10-09 (when the source already shows the person, under "Edit a source video"); 2026-10-08 (dated notes from a re-read of sglang: the vendor path under "Edit a source video", the condition noise level as a setting, two citations moved to names); 2026-10-03 (the section "Encoding references apart from the prompt", the append nodes showing their label, `use_vae` on the still's append node, and dated notes where `qwen_view`'s default is stated: it is `separate` at 512 again); 2026-08-25; the reference policies, the append node's defaults and the reference-view ablation corrected 2026-09-13 (`docs/wiki/decisions.md`); the retired concise swap twin corrected 2026-09-14
 
 Sources: MiniMax's official prompt guide, general prompting research, ComfyUI's
 own code, and **sglang's MiniMax H3 serving path** (`coderef/sglang`, read at
@@ -278,7 +278,7 @@ reach 7.5 megapixels when the video cannot exceed about one.
 
 1. Canvas from the reference's **own** aspect ratio via `adapt_canvas`.
 2. **Never upscaled.** If the source has fewer pixels than that canvas,
-   ComfyUI uses the source size rounded to 32 (`comfy_extras/nodes_minimax_h3.py:316-320`).
+   ComfyUI uses the source size rounded to 32 (`comfy_extras/nodes_minimax_h3.py:332-336`).
    **All three vendor implementations put it on the canvas rule with no such
    clamp** (re-derived 2026-08-21): sglang resolves reference-video geometry
    through the same shape function it uses for the target, from the clip's own
@@ -366,7 +366,7 @@ it reaches `ffmpeg -t` — and diffusers does the same at `coderef/diffusers/src
 DiffSynth-Studio does not truncate, matching ComfyUI. Worth knowing that
 ComfyUI is inconsistent with *itself* here: a **keyframe's** audio is truncated
 to the remaining track and raises past the end
-(`comfy_extras/nodes_minimax_h3.py:226-230`), and the reference path in the
+(`comfy_extras/nodes_minimax_h3.py:241-245`), and the reference path in the
 same file does neither.
 
 ---
@@ -375,7 +375,7 @@ same file does neither.
 
 ComfyUI's node has **no fps input** and assumes 24 twice over — for the DiT's
 temporal clock and for the `<T.T seconds>` labels the conditioner reads
-(`FPS = 24` at `comfy_extras/nodes_minimax_h3.py:30`; no node in that file
+(`FPS = 24` at `comfy_extras/nodes_minimax_h3.py::FPS`; no node in that file
 exposes an fps or rate input).
 
 **Both implementations target 24. Only one enforces it** (read 2026-08-22 at
@@ -543,13 +543,13 @@ downstream of the resize matches" until the posterior row below was added.
 | sizing | three modes, picked per request by `reference_resize_mode`: the default `diffusers` is a 2048 short edge, upscale included, no area cap; `match` and `max` are core's two modes; all nearest-32 per axis, no crop, ratio 1:4..4:1 enforced (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/reference_encoding.py::minimax_h3_resolve_reference_image_shape`) | `min(1.0, ...)` in both modes; default `match` targets the generation area | **no against sglang's default, the whole divergence; yes against its `match` or `max`**. *Corrected 2026-11-04: this row used to give sglang one policy, "2048 short edge, upscale included, nearest-32 per axis, ratio 1:4..4:1 enforced, no area cap", and call it "the whole divergence" outright; sglang `5727f08932` (#35839) added the two modes equal to core's.* |
 | resampler | PIL LANCZOS (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/reference_encoding.py::minimax_h3_resize_reference_image`) | `common_upscale(..., "lanczos")` on the tensor (`comfy_extras/nodes_minimax_h3.py::_resize`) | same intent |
 | orientation | `ImageOps.exif_transpose` on open (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/reference_encoding.py::minimax_h3_prepared_reference_image`) | none — a tensor arrives already decoded | not applicable |
-| one image, two towers | the identical prepared image feeds Qwen `pixel_values` and the visual-condition tokenizer, cached on the batch (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/reference_encoding.py::minimax_h3_prepared_reference_image`) | the same `resized` tensor goes to `vae.encode` and into `ref_items` (`comfy_extras/nodes_minimax_h3.py:304-306`) | **yes, until 3.0625:1** — past that the Qwen ceiling shrinks one branch and not the other; measured below |
-| VAE encode | the released `DiagonalGaussian` is **sampled** under a pinned seed 42, not averaged (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/keyframe_encoding.py:7-30`, and `coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/reference_encoding.py::MINIMAX_H3_REFERENCE_VIDEO_ENCODE_SEED`; *Corrected 2026-11-04: the constant is still 42, now at line 664 at both the clone's checkout and sglang origin/main, so the cite is by name. This cell used to cite `coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/reference_encoding.py:613`.*) | the posterior **mean**, `torch.chunk(moments, 2, dim=1)[0]`, never sampled (`comfy/ldm/minimax/vae.py:685`) | **no**, found 2026-08-21 |
-| patchify | delegated to the HF `image_processor`, which reads the release's own `processor/preprocessor_config.json` | reimplemented, with the geometry right and two bounds left on the shared helper's signature defaults (`comfy/text_encoders/minimax.py:35-66`, `comfy/text_encoders/qwen3vl.py:62-68`) | **algorithm yes, constants no** |
-| presentation | `<Picture i>: ` then a vision block, no chat template (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/presentation.py::minimax_h3_ref2va_video_presentation`) | the same string, the same place (`comfy/text_encoders/minimax.py:164`) | **yes** |
-| packing | ref blocks in request order, target timeline starts past their spans (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/packed_sequence.py::minimax_h3_packed_sequence_ref2va_blocks`) | `_ref_t_span` does the same (`comfy/ldm/minimax/model.py:335-338`) | **yes** |
+| one image, two towers | the identical prepared image feeds Qwen `pixel_values` and the visual-condition tokenizer, cached on the batch (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/reference_encoding.py::minimax_h3_prepared_reference_image`) | the same `resized` tensor goes to `vae.encode` and into `ref_items` (`comfy_extras/nodes_minimax_h3.py:319-322`) | **yes, until 3.0625:1** — past that the Qwen ceiling shrinks one branch and not the other; measured below |
+| VAE encode | the released `DiagonalGaussian` is **sampled** under a pinned seed 42, not averaged (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/keyframe_encoding.py:7-30`, and `coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/reference_encoding.py::MINIMAX_H3_REFERENCE_VIDEO_ENCODE_SEED`; *Corrected 2026-11-04: the constant is still 42, now at line 664 at both the clone's checkout and sglang origin/main, so the cite is by name. This cell used to cite `coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/reference_encoding.py:613`.*) | the posterior **mean**, `torch.chunk(moments, 2, dim=1)[0]`, never sampled (`comfy/ldm/minimax/vae.py::MiniMaxH3VideoVAE.encode`) | **no**, found 2026-08-21 |
+| patchify | delegated to the HF `image_processor`, which reads the release's own `processor/preprocessor_config.json` | reimplemented, with the geometry right and two bounds left on the shared helper's signature defaults (`comfy/text_encoders/minimax.py::process_video_block`, `comfy/text_encoders/qwen3vl.py:62-68`) | **algorithm yes, constants no** |
+| presentation | `<Picture i>: ` then a vision block, no chat template (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/presentation.py::minimax_h3_ref2va_video_presentation`) | the same string, the same place (`comfy/text_encoders/minimax.py:224`) | **yes** |
+| packing | ref blocks in request order, target timeline starts past their spans (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/packed_sequence.py::minimax_h3_packed_sequence_ref2va_blocks`) | `_ref_t_span` does the same (`comfy/ldm/minimax/model.py:370-373`) | **yes** |
 | condition timestep | 0.999, applied as `max(t_video, aug)` (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/denoise_loop.py::MINIMAX_H3_IMGVID_COND_TIMESTEP`) | 0.999, applied as `max(t_v, vis_aug)` (`comfy/ldm/minimax/model.py:32`) | **yes** |
-| condition noise | the same 0.999 is the mixing weight: per-condition CPU generator, `aug * clean + (1 - aug) * noise` (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/condition_noise.py:93-117`) | the same recipe, the same constant, a fresh generator per condition (`comfy/ldm/minimax/model.py:499-511`) | **recipe yes, draw no** -- corrected 2026-08-28, see the note below |
+| condition noise | the same 0.999 is the mixing weight: per-condition CPU generator, `aug * clean + (1 - aug) * noise` (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/condition_noise.py:93-117`) | the same recipe, the same constant, a fresh generator per condition (`comfy/ldm/minimax/model.py::MiniMaxH3Model._cond_video_rows`) | **recipe yes, draw no** -- corrected 2026-08-28, see the note below |
 
 **The condition noise level is a setting on both sides (2026-10-08, sglang
 `214347891a`).** sglang takes it per request
@@ -602,7 +602,7 @@ the noise is drawn. sglang draws in latent space at the target's own length
 plus its conditions and prefix-slices before patchify
 (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/condition_noise.py:94-119`);
 ComfyUI draws in row space after patchify, at the condition's own size
-(`comfy/ldm/minimax/model.py:505-511`). Two independent reasons the tensors
+(`comfy/ldm/minimax/model.py::MiniMaxH3Model._cond_video_rows`). Two independent reasons the tensors
 differ at one seed.
 
 **Read this as a difference, not a defect.** *Source read, not measured.* The
@@ -721,13 +721,13 @@ shape of the draw.** Worth stating because the timestep row above invites the
 opposite reading. sglang and DiffSynth-Studio both draw the noise in latent
 space over the full conditioned length, slice it, then patchify
 (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/condition_noise.py:93-113`); ComfyUI draws directly in patchified row
-space (`comfy/ldm/minimax/model.py:507`). Same distribution, different
+space (`comfy/ldm/minimax/model.py::MiniMaxH3Model._cond_video_rows`). Same distribution, different
 realisation for the same seed, and two of three implementations agree against
 ComfyUI. At the shipped aug the noise carries a thousandth of the weight, so
 this changes which sample you get and is not an argument about fidelity. It
 would matter if anyone drove the aug low, and nothing ships that: ComfyUI reads
 `minimax_visual_cond_noise_aug` and `minimax_audio_cond_noise_aug` out of the
-conditioning at the payload boundary (`comfy/model_base.py:2175-2179`) and **no
+conditioning at the payload boundary (`comfy/model_base.py::MiniMaxH3.extra_conds`) and **no
 shipped node sets either**, so the knob is reachable only from a custom node.
 
 ---
@@ -741,7 +741,7 @@ version of the other.
 
 ### What each one actually does
 
-`comfy_extras/nodes_minimax_h3.py:297-301`, read from source:
+`comfy_extras/nodes_minimax_h3.py:312-316`, read from source:
 
 ```python
 if ref_image_size == "match":
@@ -777,7 +777,7 @@ condition at 2048.
 
 `ref_image_size` is read in exactly one loop, the `ref_images` one. Video
 references never see it — they take `adapt_canvas` from their own aspect ratio
-(`:315-319`) — and audio has no spatial sizing at all.
+(`:331-335`) — and audio has no spatial sizing at all.
 
 `MiniMaxH3AppendRefImage` takes **one image per node** and warns if you feed it
 a batch, so upscaling is decided per reference. Five references means five
@@ -1513,7 +1513,7 @@ rather than the typed chain, and one loads `fl2va`.
 - A silent clip's soundtrack output/input must be left unwired or the render dies.
 - **Native core pairs a reference video's soundtrack by socket number, not by
   material.** ComfyUI matches `ref_video_audio_N` to `ref_video_N` on the name
-  suffix (`comfy_extras/nodes_minimax_h3.py:313`), so a mis-numbered socket
+  suffix (`comfy_extras/nodes_minimax_h3.py:329-330`), so a mis-numbered socket
   silently pairs the wrong track. sglang routes the video material itself into
   the audio encoder (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/task_profiles.py::MINIMAX_H3_TASK_PROFILES`,
   the `video` reference rule's `audio_tokenizer_encode`) and represents an
@@ -1539,7 +1539,7 @@ rather than the typed chain, and one loads `fl2va`.
   count — but `_encode_ref_audio` calls `comfy.sd.VAE.encode`, one wrapper up,
   and that runs `vae_encode_crop_pixels` first. The H3 audio VAE declares
   `output_channels = 2` and `pad_channel_value = "replicate"`
-  (`comfy/sd.py:1030-1035`), so mono is duplicated to stereo before the model
+  (`comfy/sd.py:1108-1113`), so mono is duplicated to stereo before the model
   is reached. sglang does the same thing with `-ac 2` in its ffmpeg call, so
   this is parity rather than a divergence.
 
