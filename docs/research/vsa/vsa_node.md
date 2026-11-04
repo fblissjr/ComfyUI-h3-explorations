@@ -1,6 +1,6 @@
 # Running VSA on H3: what the node does and what still blocks it
 
-last updated: 2026-09-27 (core's gate support and the park only)
+last updated: 2026-11-04 (dated note on sglang FastH3 now being the 8-step V2); 2026-09-27 (core's gate support and the park only)
 
 **This file owns `MiniMaxH3VSAAttention` -- what it does, what it refuses, and
 what is verified about it.** It does not own the checkpoint
@@ -273,6 +273,10 @@ the only question those two renders can answer.
    pointers in [`fastvideo_vsa_checkpoint.md`](fastvideo_vsa_checkpoint.md)
    section 6). What remains open is whether this repo's sampler lands on
    those points, which is a check, not a search.
+   *Note 2026-11-04: sglang's `FastH3SamplingParams` now pins FastVideo's
+   8-step V2 (nine sigma grid points, eight DiT forwards; sglang `4f320fb85a`,
+   then `32f34e898b` for the count), not the five-point 4-step preview; the
+   dated note in that section has the pointers.*
 6. **Anything perceptual**, which needs `docs/eval_comparison.md` section 3 --
    many seeds per arm, judged blind, recorded as a distribution.
 

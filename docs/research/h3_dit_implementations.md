@@ -1,6 +1,6 @@
 # The H3 DiT: five implementations of one model, compared
 
-last updated: 2026-08-29
+last updated: 2026-11-04 (dated note: sglang and vllm-omni now count forwards, section 4.2); 2026-08-29
 
 **What this file owns.** The *numerical* comparison of the MiniMax H3 DiT
 across every implementation available here: module tree, packed sequence,
@@ -290,6 +290,21 @@ So a "16-step" request is 15 forwards in sglang, diffusers and vllm-omni, 16 in
 ComfyUI and DiffSynth (*measured* for the first three; the vllm-omni row is
 *read*, and its own Turbo validator says so out loud — "five sigma points
 produce four denoiser evaluations").
+
+*Note 2026-11-04: the sglang and vllm-omni rows no longer hold at their
+origin/main. sglang `32f34e898b` (#38671) made `num_inference_steps` count DiT
+forwards:
+`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/time_request.py::minimax_h3_time_shift_sigmas`
+builds `linspace(1, 0, N+1)`, so a 16-step request is 16 forwards there, and the
+FastH3 and VDN defaults went from 9 to 8
+(`coderef/sglang/python/sglang/multimodal_gen/configs/sample/minimax_h3.py::FastH3SamplingParams`,
+`coderef/sglang/python/sglang/multimodal_gen/configs/sample/minimax_h3_vdn.py::VDNH3SamplingParams`).
+vllm-omni made the same change in `67aa30c96` (#7219):
+`coderef/vllm-omni/vllm_omni/diffusion/models/minimax_h3/time_request.py::_time_shift_sigmas`
+builds `num_steps + 1` points, so its uniform and distilled paths now count the same thing and the
+next paragraph's split inside vllm-omni is gone too. diffusers still builds `linspace(1, 0, N)` at origin/main `b674fd8c2`
+(`coderef/diffusers/src/diffusers/schedulers/scheduling_minimax_h3.py::MiniMaxH3Scheduler`, `set_timesteps`),
+so its row stands. The table and the sentence above record what was read on 2026-08-29.*
 
 **The same parameter changes meaning inside one engine.** On vllm-omni's
 distilled path `num_inference_steps` is `len(base_schedule) - 1`, i.e. the

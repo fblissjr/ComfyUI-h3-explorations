@@ -1,6 +1,6 @@
 # The FastVideo VSA-distilled H3 checkpoint
 
-last updated: 2026-09-04 (section 6 only; every measurement below is from
+last updated: 2026-11-04 (one dated note in section 6: sglang now serves the 8-step V2); 2026-09-04 (section 6 only; every measurement below is from
 2026-08-30 and the artifact has not changed)
 
 `minimax_h3_fastvideo_vsa_datafree_1300step_4step_int8_convrot.safetensors`,
@@ -340,6 +340,13 @@ pointers to use rather than anything retyped here:
   the cookbook section "FastH3: 4-step distilled preview" in
   `coderef/sglang/docs/cookbook/diffusion/MiniMax/MiniMax-H3.mdx` says the
   points sit on the standard shift-12/shift-3 grid.
+  *Note 2026-11-04: at sglang origin/main these pointers describe a different
+  checkpoint. `4f320fb85a` (#37662) moved `FastH3SamplingParams` and
+  `FastH3PipelineConfig` to FastVideo's FastH3 8-Step V2 (nine sigma grid points,
+  eight DiT forwards), and since `32f34e898b` (#38671) the request states the
+  forward count, so its default `num_inference_steps` is 8. The cookbook section
+  is now "FastH3: 8-step distilled". The 4-step preview this file studies is no
+  longer what sglang's FastH3 path serves.*
 - vllm-omni, `coderef/vllm-omni/vllm_omni/diffusion/models/minimax_h3/fasth3.py::FASTH3_BASE_SCHEDULE`
   (the five positions as a constant, with the per-modality shifts applied on
   top) and the module docstring, which documents the adapter format the

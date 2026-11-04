@@ -1,6 +1,6 @@
 # PDD upstream: can we do better than core's and our own?
 
-last updated: 2026-09-25
+last updated: 2026-11-04 (dated note: sglang fixed the fc1 half-swap); 2026-09-25
 
 > **Provenance, 2026-09-25.** A research subagent (Claude) read the seven
 > implementations and wrote the probes. The session that commissioned it
@@ -59,6 +59,8 @@ else.
 | audio | own scheduler at shift 3 | own schedule | carry (exact, finding 1); audio block = video block | carry; audio block from its own row | refuses other shifts | dual-clock Euler (equivalent); optional audio refine on the base model | as core |
 | guards | none | grid and shift refusal | only a missing `sample_sigmas` | partition fingerprint, shift raise, tiling, patch clash, bake pairing; off-schedule warns | envelope, off-grid, shift | exact schedule, unpruned, strength range | as core |
 | licence | Apache-2.0 | Apache-2.0 | GPL-3.0 | MIT | AGPL-3.0 | GPL-3.0-or-later | Apache-2.0 |
+
+*Note 2026-11-04: the fc1 defect in the sglang backbone cell is fixed upstream since sglang `8776a94f29` (#46907, 2026-10-30): `coderef/sglang/python/sglang/multimodal_gen/tools/build_minimax_h3_pdd_weights.py::_diffusers_to_native_fc1` now swaps the halves before the merge. The table records what was read on 2026-09-25.*
 
 Pointers:
 - vendor: `coderef/alibaba-pai_MiniMax-H3-Acc-LoRAs/minimax_h3_pdd.py`;

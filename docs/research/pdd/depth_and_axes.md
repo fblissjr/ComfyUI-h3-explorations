@@ -186,6 +186,10 @@ euler for the same reason `probe_block_propagation.py` does.
   `coderef/sglang/python/sglang/multimodal_gen/runtime/models/schedulers/scheduling_minimax_h3_euler_ancestral.py:137`
   and vllm-omni's at
   `coderef/vllm-omni/vllm_omni/diffusion/models/minimax_h3/scheduling_minimax_h3_euler_ancestral.py:105`.
+  *Note 2026-11-04: sglang `329072d99a` (#44690) deleted its copy; the loop's
+  Euler update now lives in
+  `coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/denoise_loop.py::_minimax_h3_update_target_rows_`.
+  vllm-omni's copy is still at that path at its origin/main.*
   They are near-identical and not identical, so one vendors the other and the
   direction is not established.
 

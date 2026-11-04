@@ -1,6 +1,6 @@
 # sglang's MiniMax-H3 pipeline, end to end
 
-last updated: 2026-10-02 (dated notes on the ComfyUI app's H3 integrated mode, rollout, Spectrum and `convrot_int8`, from the eighth read); 2026-09-25 (one dated note on FastH3's registration)
+last updated: 2026-11-04 (dated notes: step count now counts forwards, insight 20; cookbook line drift); 2026-10-02 (dated notes on the ComfyUI app's H3 integrated mode, rollout, Spectrum and `convrot_int8`, from the eighth read); 2026-09-25 (one dated note on FastH3's registration)
 
 Written 2026-08-25 from a source read of `coderef/sglang` at commit
 `6569125e3a` (2026-08-25). Nothing was run: no server, no GPU, no model
@@ -889,6 +889,14 @@ Numbered so they can be cited. Each is SOURCE unless marked.
     row-indexed scales from swizzled ones.
 20. **`num_inference_steps` counts sigma grid points**, so a 4-step turbo is
     requested as 5 and an 8-step as 9.
+    *Note 2026-11-04: no longer true at sglang origin/main. Since `32f34e898b`
+    (#38671) `num_inference_steps` counts DiT forwards:
+    `coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/time_request.py::minimax_h3_time_shift_sigmas`
+    builds `linspace(1, 0, N+1)`, the FastH3 and VDN defaults are 8
+    (`coderef/sglang/python/sglang/multimodal_gen/configs/sample/minimax_h3.py::FastH3SamplingParams`,
+    `coderef/sglang/python/sglang/multimodal_gen/configs/sample/minimax_h3_vdn.py::VDNH3SamplingParams`),
+    and the PDD stage checks that `pdd_config.json`'s `num_inference_steps` equals the fused head count
+    (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/stages/timestep_preparation.py`, in `__init__`).*
 21. **Video output is computed on every row and then selected**; audio output
     includes the reference rows, which the loop slices off. Communication
     volume and numerics depend on gathering after the selection.
@@ -1296,6 +1304,9 @@ are held exact. No minimum sequence length.
 after it on Sol: `--attention-backend-config dense_backend=sage_attn,dense_steps=10`
 with `--component-attention-backends text_encoder=torch_sdpa,transformer=sol_attn`
 (`coderef/sglang/docs/cookbook/diffusion/MiniMax/MiniMax-H3.mdx:1116-1119`;
+*Note 2026-11-04: the cookbook has grown; this recipe is now at lines 1455-1458 at sglang
+origin/main `8884b4b421` and at `coderef/sglang/docs/cookbook/diffusion/MiniMax/MiniMax-H3.mdx:1445-1448` at the
+clone's checkout `16dd97df61`*;
 the same example at
 `coderef/sglang/docs/docs/sglang-diffusion/attention_backends.mdx:868-885`,
 which calls both

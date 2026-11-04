@@ -1,6 +1,6 @@
 # Freezing a known audio track: audio-driven video on MiniMax H3
 
-last updated: 2026-10-08 (section 8 re-read at a newer sglang head, one sentence narrowed with a dated note); 2026-10-04 (section 4, the song node's `source`: masked video to video; `docs/wiki/masked_v2v.md` is the lane's current map); 2026-09-27 (section 5 idea 9, the TaoMate adapter, removed with that lane); 2026-09-25 (dated notes in sections 3 and 5); 2026-09-15
+last updated: 2026-11-04 (section 8: the sglang scheduler citation repointed, the no-noise claim narrowed to base H3); 2026-10-08 (section 8 re-read at a newer sglang head, one sentence narrowed with a dated note); 2026-10-04 (section 4, the song node's `source`: masked video to video; `docs/wiki/masked_v2v.md` is the lane's current map); 2026-09-27 (section 5 idea 9, the TaoMate adapter, removed with that lane); 2026-09-25 (dated notes in sections 3 and 5); 2026-09-15
 
 **The owner of this lane.** Opened 2026-09-12 by the owner: drop a song of any
 length, keep it exactly, and have the picture move to it, the way the owner's
@@ -542,9 +542,17 @@ read".*
   audio grid equals core's per-step change of variable to floating-point
   precision (the reader checked the nine-point grid). Its scheduler steps
   each stream on its own sigmas with eta zero and draws no noise inside the
-  loop (`coderef/sglang/python/sglang/multimodal_gen/runtime/models/schedulers/scheduling_minimax_h3_euler_ancestral.py`).
+  loop for base H3 (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/denoise_loop.py::_minimax_h3_update_target_rows_`).
   So freezing one stream disturbs nothing the other stream's update depends
-  on.
+  on. *Corrected 2026-11-04: sglang `329072d99a` (#44690) deleted the scheduler
+  file this cited; the loop's Euler update now lives in the function above.
+  The no-noise reading holds for base H3 only: since `37fc17b8d6` (#47378) the
+  Pika H3 Flex release re-noises each step with fresh noise
+  (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/denoise_loop.py::_minimax_h3_renoise_target_rows_`,
+  taken when the denoising stage's
+  `stochastic_sampling` is set). This line used to say the scheduler "draws no
+  noise inside the loop" and cited
+  `runtime/models/schedulers/scheduling_minimax_h3_euler_ancestral.py`.*
 - **The audio mask hook is half-built in the authors' DiT.** The forward
   accepts an `update_audio_mask` and multiplies the audio logits by it
   (`coderef/sglang/python/sglang/multimodal_gen/runtime/models/dits/minimax_h3.py`, the `update_audio_mask`

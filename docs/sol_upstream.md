@@ -1,6 +1,6 @@
 # What upstream says: the paper, Sol-Engine, Sol-H3, and the other packs
 
-Last updated: 2026-10-09 (section "comfy-kitchen and core, 2026-10-09", a pointer); 2026-10-03 (a dated note under "Kitchen: current" in the 2026-10-02
+Last updated: 2026-11-04 (section "comfy-kitchen, core and Sana, 2026-11-04"; the cookbook line citation under sglang's Sol recipe re-pointed); 2026-10-09 (section "comfy-kitchen and core, 2026-10-09", a pointer); 2026-10-03 (a dated note under "Kitchen: current" in the 2026-10-02
 section: the installed build has moved); 2026-10-02 (section "comfy-kitchen and core, 2026-10-02"; a
 superseded note on the 2026-09-25 INT8 VAE paragraph; core's model.py line
 citations re-read); 2026-09-27 (core's model.py line citations and the chunked
@@ -49,6 +49,58 @@ Every `coderef/Sana/...` pointer below resolves against a checkout at
 `757d902`. The branch `release/sol-h3-spark` has the same tree as that tip.
 
 ---
+
+## comfy-kitchen, core and Sana, 2026-11-04
+
+Read on 2026-11-04 with the ComfyUI checkout at `5f415e31a`, against
+`08ff3c11`, `vendor/rebuild_kernel.sh --check` for kitchen, and `coderef/Sana`
+on `sol-engine` at `781e834`. No `gh`, so open pull requests were not read.
+The account of everything else is in
+[`wiki/references.md`](wiki/references.md), "What moved by 2026-11-04".
+**No new Sol-Attn policy for H3 in any of the three, and no template uses
+Sol's tau.**
+
+- **Kitchen.** The installed build is `h3-frontier` on upstream base
+  `cdab478` (2026-10-26), upstream main has nothing past it, and every
+  carried Sol commit is present (`--check`). Upstream's range since
+  `0.2.37` was merged into `h3-frontier` in three merges. The one that
+  matters is kijai's #234 (`152d52a`), which the 2026-10-09 read listed as
+  open and in conflict with what we carry in
+  `comfy_kitchen/backends/cuda/__init__.py`: it is merged and carried. Read
+  from source, not run: on capability 8.9 its exact integer conversions
+  compile to the old path, the 64-row tile it adds is Ampere-only, and
+  `_topk_from_pooled` and `_block_means` are now computed in slices to cap
+  a peak, with a test that asserts the result is bitwise the same. Our node
+  keeps `topk_ratio` at 0 (`sol_attn_h3.py`), so that path does not run
+  here. Core pins `comfy-kitchen==0.2.40`.
+- **Core.** `comfy/ldm/modules/attention.py` gained only a
+  `ComfyAttention.method` attribute; `MiniMaxH3ExactBlocks` and the
+  per-layer Sol preference of the 2026-10-09 section are as they were.
+  `comfy_extras/nodes_sparse_attention.py` (`BlockSparseAttention`) is
+  untouched. The new `MiniMaxH3ContextWindows` (`6651247a8`, #17425)
+  rebuilds the packed layout per window; how `MiniMaxH3Sol`, which reads
+  the per-call layout core publishes, behaves under it was not tested.
+- **Sana `sol-engine`** (`757d902` was the last pin this page re-verified;
+  the range to `781e834` is the branch since 2026-10-09).
+  - "Sol-H3 in ComfyUI" (`ec45a1b`, #539; `0527465`, #542; `000e6f5`,
+    #557) is a studio that runs H3 in its own worker process, not inside
+    ComfyUI's model. Its Ref2VA Sol file
+    (`models/minimax_h3/Sol-H3-ComfyUI/sol_h3_engine/runtimes/*/runtime/stage1_ops/sol.py`)
+    has the same content as Sol-H3-RTX5090's and Sol-H3-Spark's, and its
+    one-stage path uses HyperFlow's recipe
+    (`models/minimax_h3/HyperFlow/hyperflow_h3/sol_attn.py`: two dense
+    steps, tau 1.0).
+  - `6e4a440` (#517) fixes the GB10 dispatcher, whose step count came from
+    counting calls and drifted under FirstBlockCache. `MiniMaxH3Sol` reads
+    the block from the options core publishes per call and gates steps on
+    the current sigma (`sol_attn_h3.py`, `_h3layout.block_index` and the
+    `sigma_start`/`sigma_end` check), so it has no call count to drift
+    (reasoned).
+  - Open-H3-Regenerate-2K (`92f2759`, #555; `781e834`, #564), the 2K
+    refiner, ships Sol presets of its own: `sol_engine`, a dense first
+    refine step then tau 1.0; `sol_engine_fast`, tau 1.75 on every step;
+    and a HyperFlow stage at tau 1.5. Its LoRA carries a turbo LoRA (a
+    closed lane); see the references page.
 
 ## comfy-kitchen and core, 2026-10-09
 
@@ -1000,7 +1052,10 @@ beside core's node and ours.
   official API has no such argument (`:229-233` of the same file).
 - **The documented H3 recipe** is `dense_backend=sage_attn,dense_steps=10`,
   with the text encoder on `torch_sdpa`
-  (`coderef/sglang/docs/cookbook/diffusion/MiniMax/MiniMax-H3.mdx:1116-1119`).
+  (`coderef/sglang/docs/cookbook/diffusion/MiniMax/MiniMax-H3.mdx`, the
+  line that passes `--attention-backend-config
+  dense_backend=sage_attn,dense_steps=10`). *Corrected 2026-11-04: this
+  cited lines 1116-1119, which the cookbook has since moved past.*
 
 ---
 

@@ -639,7 +639,14 @@ and the fullest fusion chain in the survey.** sglang at `6c73368c32`,
 2026-09-18:
 - `coderef/sglang/python/sglang/kernels/jit/csrc/deepseek_v4/main_norm_rope.cuh:493-622`
   (`fused_q_indexer_rope_hadamard_quant`), AOT twin at
-  `coderef/sglang/python/sglang/kernels/aot/csrc/elementwise/dsv4_norm_rope.cu:436-520`.
+  `coderef/sglang/python/sglang/kernels/aot/csrc/elementwise/dsv4_norm_rope.cu:183-279`.
+  *Note 2026-11-04: the AOT range used to read `:436-520`, the kernel's place at
+  `6c73368c32`; sglang `329072d99a` (#44690) cut the file to its indexer kernel
+  and launchers, and `fused_q_indexer_rope_hadamard_quant_kernel` is now at
+  `:183-279` at the clone's checkout `16dd97df61` (the file is unchanged at
+  origin/main). The JIT kernel has moved down too, to
+  `coderef/sglang/python/sglang/kernels/jit/csrc/deepseek_v4/main_norm_rope.cuh:725-854`;
+  the JIT line numbers in the bullets below are those of `6c73368c32`.*
 - One warp per (token, head); `kHeadDim = 128`, `kVecSize = 4`, with a
   `static_assert(kHeadDim == kWarpThreads * kVecSize)` at `:497-501` — **32
   lanes x 4 elements, entirely in registers, zero shared memory**.
@@ -760,10 +767,15 @@ the code survey:
   undocumented**. The only in-tree speedup number found is sglang's fused
   Hadamard + per-row quant + IMMA GEMM path reaching 2.49x BF16 where
   `torch._int_mm` reaches 0.46-0.90x
-  (`coderef/sglang/python/sglang/multimodal_gen/runtime/layers/quantization/kitchen_int8.py:5-13`)
+  (`coderef/sglang/python/sglang/multimodal_gen/runtime/layers/quantization/convrot_int8_comfy_kitchen.py:4-9`)
   — a different op on unnamed hardware, quoted because it is the only one that
   exists. Both sglang's `bench_hadamard.py` and vLLM's qutlass benchmarks are
   harnesses with **no committed results**.
+  *Note 2026-11-04: the citation used to read
+  `coderef/sglang/python/sglang/multimodal_gen/runtime/layers/quantization/kitchen_int8.py:5-13`; sglang `e667ab10d5`
+  (#38040) deleted that file, and the same docstring now opens the file cited above. "Unnamed hardware" does not hold: the
+  docstring names Ada (RTX 4090) and MiniMax H3 shapes, at `6c73368c32` as
+  now.*
 
 What is not defensible is building either home before the spike in §0.1 says
 which rotation form is worth building.
@@ -1206,13 +1218,22 @@ CFG. **[V]**
 **E.2 The adaLN cache is the biggest H3-specific memory idea in these
 repos.** LightX2V hard-errors if `cpu_offload=true` without
 `use_adaln_cache=true`
-(`coderef/LightX2V/lightx2v/models/networks/minimax_h3/model.py:61-62`). With
+(`coderef/LightX2V/lightx2v/models/networks/minimax_h3/model.py:61-62`).
+*Note 2026-11-04: at LightX2V origin/main `2e2ae756` the check is at
+`coderef/LightX2V/lightx2v/models/networks/minimax_h3/model.py:68-71` and has an
+escape: `allow_online_adaln_offload=true` lets `cpu_offload` run without the
+cache (added in `58b8e259`, #1646; set by several shipped configs under
+`coderef/LightX2V/configs/`). So it no longer hard-errors in every case.* With
 it enabled, `time_embedder.linear_1/2` and `norm_out.linear` are never
 constructed at all; their outputs are precomputed offline and loaded from
 safetensors (weights/pre_weights.py:87-92, weights/post_weights.py:16-24).
 The reason it pays: H3's adaLN projection is `18 * 5376 = 96768` outputs from
 a 2688-wide timestep embedding
-(`coderef/vllm-omni/vllm_omni/diffusion/models/minimax_h3/minimax_h3_transformer.py:113`),
+(`coderef/vllm-omni/vllm_omni/diffusion/models/minimax_h3/minimax_h3_blocks.py:112-113`,
+`MiniMaxH3DiTArchConfig.time_embed_dim` and `adaln_out_features`; *note 2026-11-04: this
+used to cite
+`coderef/vllm-omni/vllm_omni/diffusion/models/minimax_h3/minimax_h3_transformer.py:113`, before the arch config
+moved to the blocks module*),
 a very wide fp32 matmul whose input depends only on the timestep — and the
 timestep schedule is a fixed small set. **Constraint:** the cache is keyed by
 bit-exact fp32 timesteps
@@ -1241,7 +1262,8 @@ pulling it back with an in-place `add_` on a hit.
 
 Provenance warning on the H3 TeaCache constants: vllm-omni carries
 MiniMax-H3 polynomial coefficients and an H3-specific `rel_l1` threshold of
-0.17 (`coderef/vllm-omni/vllm_omni/diffusion/cache/teacache/config.py:86-99`) documented only as "MiniMax-H3 FL2VA
+0.17 (`coderef/vllm-omni/vllm_omni/diffusion/cache/teacache/config.py:135-149`;
+*note 2026-11-04: this used to read `:86-99`; the H3 entry has since moved down the file*) documented only as "MiniMax-H3 FL2VA
 coefficients", with no fitting procedure — while a neighbouring model's entry
 in the same file documents its calibration explicitly. Treat them as a
 starting point, not a measurement. **[V]**

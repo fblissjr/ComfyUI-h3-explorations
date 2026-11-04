@@ -21,6 +21,13 @@
 > [`2026-09-19_dsv41_hierarchical_indexer.md`](2026-09-19_dsv41_hierarchical_indexer.md)
 > section 3.1.
 
+*Note 2026-11-04: `python/sglang/srt/layers/attention/nsa/nsa_indexer.py`, the
+deprecated shim this record cites, was removed at sglang origin/main in
+`5bffd74274` (#47990, 2026-11-02); its target is
+`coderef/sglang/python/sglang/srt/layers/attention/dsa/dsa_indexer.py`. The
+clone's checkout `16dd97df61` predates that commit and still has the shim. Every
+other sglang file this record cites is still at its path at origin/main.*
+
 **Provenance.** Written by a research subagent on 2026-09-19. Read-only: no git, no GPU, nothing edited in the repo or in `coderef/`. **Local code read in full or at the cited lines:**
 - the sglang SubBlock router (`coderef/sglang/python/sglang/multimodal_gen/runtime/layers/attention/backends/subblock_sparse/router.py`);
 - sglang's QSA package, MiniMax-M3 sparse backend, MiniCPM sparse utilities and VMoBA;

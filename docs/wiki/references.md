@@ -1,6 +1,6 @@
 # The sister checkouts: what each one is good for
 
-last updated: 2026-10-10 (a row for the SAM-family checkouts and `sapiens2`, pointing at `meta_perception_models.md`); 2026-10-09 (section "What moved by 2026-10-09" added, with the masking and video-to-video cross-check; rows for `MaskVidExperiments` and `ComfyUI-NKD-Basic-Tools`); 2026-10-05 (section "What moved by 2026-10-05" added, with a dated note on the 2026-10-02 UtilsCollection bullet it supersedes; the `pdmd` row and the contract example, on PDMD's retirement); 2026-10-02 (section "What moved by 2026-10-02" added; a ComfyUI-H3-AudioRefine row; dated notes on the LightX2V row, the 2026-09-25 INT8 VAE sentence, and a correction to the 2026-09-25 AdaLN rounding claim); 2026-10-01 (the PDMD trainer: a row in the ComfyUI-side table, and its inference script added to what counts as a contract); 2026-09-27 (the TaoMate section trimmed to the checkouts after the lane was removed); 2026-09-26 (section "A distill's reference is its trainer's contract" added; the FastH3 V2 note under 2026-09-19 extended); 2026-09-25 (section "What moved by 2026-09-25" added; the PDD line and the vllm-omni #7693 bullet corrected in place); 2026-09-19 (section "What moved by 2026-09-19" added); 2026-09-15 (section "The streaming references: TaoMate" added; "What moved by 2026-09-11" added and the two comfy-kitchen rows corrected 2026-09-11; "What moved by 2026-09-10" added 2026-09-10; the tables are otherwise the 2026-08-28 read)
+last updated: 2026-11-04 (section "What moved by 2026-11-04" added, with four sections of their own: "Pika H3 Flex", "FastH3 Omni", "Long clips upstream" and "ComfyUI-MAINodes"; rows for `Pika-H3-Flex`, `ComfyUI-MAINodes` and `ComfyUI-Dials`; dated notes on the 2026-10-09 quality-tier and Ref2VA-student bullets and on the LightX2V streaming path); 2026-10-10 (a row for the SAM-family checkouts and `sapiens2`, pointing at `meta_perception_models.md`); 2026-10-09 (section "What moved by 2026-10-09" added, with the masking and video-to-video cross-check; rows for `MaskVidExperiments` and `ComfyUI-NKD-Basic-Tools`); 2026-10-05 (section "What moved by 2026-10-05" added, with a dated note on the 2026-10-02 UtilsCollection bullet it supersedes; the `pdmd` row and the contract example, on PDMD's retirement); 2026-10-02 (section "What moved by 2026-10-02" added; a ComfyUI-H3-AudioRefine row; dated notes on the LightX2V row, the 2026-09-25 INT8 VAE sentence, and a correction to the 2026-09-25 AdaLN rounding claim); 2026-10-01 (the PDMD trainer: a row in the ComfyUI-side table, and its inference script added to what counts as a contract); 2026-09-27 (the TaoMate section trimmed to the checkouts after the lane was removed); 2026-09-26 (section "A distill's reference is its trainer's contract" added; the FastH3 V2 note under 2026-09-19 extended); 2026-09-25 (section "What moved by 2026-09-25" added; the PDD line and the vllm-omni #7693 bullet corrected in place); 2026-09-19 (section "What moved by 2026-09-19" added); 2026-09-15 (section "The streaming references: TaoMate" added; "What moved by 2026-09-11" added and the two comfy-kitchen rows corrected 2026-09-11; "What moved by 2026-09-10" added 2026-09-10; the tables are otherwise the 2026-08-28 read)
 
 `coderef/` holds the reference implementations. `ls -l coderef/` is the list of
 what is currently on disk — some symlinks, some real clones — and this page is
@@ -111,6 +111,9 @@ Recorded here because it is a property of the *references*, not of our code:
 | `ComfyUI-H3-AudioRefine` | `d78d34f` | a third-party pack, added to this table 2026-10-02 (cited before that from `../h3_audio_freeze.md` and `../h3_pdd.md`). It freezes the video stream of a sampled H3 latent and re-denoises only the audio stream through core's per-stream `noise_mask` on the undistilled model, with a K/V cache over the frozen video rows (`coderef/ComfyUI-H3-AudioRefine/README.md`, `TECHNICAL.md`). Read for the audio-refine regime, not installed |
 | `MaskVidExperiments` | `c32ed8c` | a third-party pack of video masking tools, added to this table 2026-10-09 and unmoved since 2026-09-11. A mask reduced to the latent grid by the VAE's own frame cycle and H3's token grid, a cleanup of specks, a frame-range mask, an audio time-range mask on a joint latent, a soft variant of Differential Diffusion, and a stable crop round a moving subject that is sampled alone and pasted back (`coderef/MaskVidExperiments/README.md`). Read for the masked lane; not installed. What it does that the lane does not is in "What moved by 2026-10-09" |
 | `ComfyUI-NKD-Basic-Tools` | `4f487a5` | a third-party pack, added to this table 2026-10-09. Its crop and stitch pair cuts a masked area out at the model's own resolution, samples it and puts it back, with a colour match on the way (`coderef/ComfyUI-NKD-Basic-Tools/docs/inpaint-crop-stitch.md`). Written for stills; nothing in it is H3-specific. Not installed |
+| `Pika-H3-Flex` | `06bd434` | Pika's six-step distill of H3, two LoRA adapters (fl2va and ref2va) and a diffusers CLI, added to this table 2026-11-04. Its sampling contract, a re-noise update on fixed knots, is in section "Pika H3 Flex" below. Read for the contract; not installed. The files linked into `models/loras/h3/` on 2026-11-04 are a resize of it |
+| `ComfyUI-MAINodes` | `1880dfc` | a third-party pack of H3 nodes (GPL-3.0), added to this table 2026-11-04: motion-smear repair by re-rendering a slowed copy, RoPE retiming, steering vectors on the text rows, streamed low-VRAM blocks, window drivers and Pika presets. Section "ComfyUI-MAINodes" below. Read for ideas; not installed |
+| `ComfyUI-Dials` | `7dd0b7e` | the same author's earlier steering-slider pack, added 2026-11-04; its README points to `ComfyUI-MAINodes`, where the work continues. Not installed |
 | `sage-fork` | `56a5be4` | our SageAttention fork |
 | `SLA` | `7db4039` | the sparse top-k attention reference |
 | `TurboDiffusion` | `e3d6136` | step-distillation reference |
@@ -497,8 +500,11 @@ The owner reopened the INT8 VAE on 2026-09-26 and
     target rows, which touches `h3_audio_freeze.md` section 5 item 8. That is
     reasoned from the code. It needs tensor parallelism across several GPUs
     and FlashAttention-3
-    (`coderef/LightX2V/lightx2v/models/networks/minimax_h3_causal/streaming.py::MiniMaxH3StreamingPlan`,
+    (`coderef/LightX2V/lightx2v/models/networks/minimax_h3/causal/streaming.py::MiniMaxH3StreamingPlan`,
     `coderef/LightX2V/lightx2v/common/kvcache/rolling.py::StepRollingKVCachePool`).
+    *Corrected 2026-11-04: LightX2V `58b8e259` (#1646) moved the plan's file
+    under `minimax_h3/causal/`, the class unchanged in name. This line used to
+    cite `minimax_h3_causal/streaming.py`.*
 - **`ComfyUI-UtilsCollection`** (`1d5b202` to `fc6104c`). Not installed here,
   and no shipped graph wires a `UC_*` node.
   - **A loop sampler** (`UC_H3LoopSampler`, `plan_h3_schedule`) windows one
@@ -819,6 +825,8 @@ retired, and `MiniMaxH3LoRABranch` takes Kohya-style keys.
     (`coderef/ComfyUI-UtilsCollection/helpers/minimax_h3_reference_media_helpers.py::prepare_minimax_h3_reference_video`).
     That retires the first half of the 2026-10-02 bullet on that path. The
     label order (images, videos, then all audio) still departs from core.
+    *Note 2026-11-04: `e81d275` packs a wired soundtrack into its video's
+    block, as core does; "What moved by 2026-11-04".*
   - `0602581` adds a "DMAD re-noise" sampler for few-step distills
     (`coderef/ComfyUI-UtilsCollection/helpers/sampling_helpers.py::sample_dmad_renoise`). Its update is
     core's `lcm` on this model type, and it is off the contract of every
@@ -963,6 +971,14 @@ and two ideas in the masking packs that the masked lane has not tried
     VAE's decode, whose fused path is allowed from `lossless` up
     (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/stages/decoding.py`,
     the `quality_allows` call).
+    *Corrected 2026-11-04: since sglang `121aa8dcc7` (#43327, 2026-10-09)
+    the denoise differs too. At `lossless` and `high` the DiT's RMSNorm and
+    AdaLN modulation run as one fp32 pass with one bf16 rounding; only
+    `exact` keeps the three-rounding reference chain
+    (`coderef/sglang/python/sglang/multimodal_gen/runtime/models/dits/minimax_h3.py::_modulate_rmsnorm_scale_shift`).
+    This line used to say the two tiers denoise identically.
+    [`../research/sglang_comparison.md`](../research/sglang_comparison.md),
+    "Tenth read", has it.*
     A sentence written before this week that calls sglang's default
     "lossless" names the older, stricter tier. The cookbook still calls the
     default by its old alias in places.
@@ -1023,7 +1039,10 @@ and two ideas in the masking packs that the masked lane has not tried
     base model is not something the trainer's own code runs any more.
   - **The Ref2VA student has a named repo**, in a benchmark README only
     (`coderef/FastVideo/scripts/benchmarks/fasth3_omniref_b200/README.md`).
-    Its tile is still Blackwell-only. `e1e255935`'s default-off switches
+    Its tile is still Blackwell-only. *Note 2026-11-04: in FastVideo's own
+    code, which this repo no longer has a checkout of. The student is public
+    since then as FastH3 Omni, and vllm-omni and sglang both serve its tile
+    below Blackwell; section "FastH3 Omni", below.* `e1e255935`'s default-off switches
     are data movement and rounding-matched kernels, measured identical on
     B200.
   - **Ref2VA training shows references the way inference does**
@@ -1160,6 +1179,579 @@ Three questions the whole-frame lane asked the same day (the first sigmas
 of a late start, the last latent frame of a window, one fraction as the
 mask over the whole frame) are answered from code in
 [`../research/masking/2026-10-09_mrfetch.md`](../research/masking/2026-10-09_mrfetch.md).
+
+---
+
+## What moved by 2026-11-04
+
+Read on 2026-11-04 against the revisions the 2026-10-09 section recorded,
+at each clone's upstream tip as fetched that day. Three working checkouts
+sat behind their upstream (`sglang`, `vllm-omni`, `workflow_templates`);
+they were read at `origin/main` with `git show` and none was moved, so a
+path cited below as at `origin/main` may not yet be in the checkout. Core's
+range is `08ff3c11..5f415e31a` in the ComfyUI checkout, which is at its
+upstream. Four read-only subagents read the ranges from the clones; what
+this section says was then checked by hand against the files it cites,
+except where a line says "reasoned". Two checks were run:
+`bench/check_reference_encode.py`, red (core, below), and
+`bench/check_doc_links.py`, one upstream-caused break, corrected the same
+day. Nothing was rendered.
+
+**No upstream moved a default this pack ships, and nothing triggers the
+adopt-upstream rule.** Base H3's shifts, the visual condition level, Euler
+with one positive forward, and the video VAE's precision are where they
+were in sglang, vllm-omni, LightX2V, diffusers and core. Four things are
+worth acting on, in this order:
+
+1. `bench/check_reference_encode.py` is red on core's `Llama2_.forward`
+   (core, below).
+2. Pika H3 Flex, a six-step distill whose contract is a re-noise sampler
+   that our generator would not give it (section "Pika H3 Flex", below).
+3. FastH3 Omni, the Ref2VA student, is public, with a single-4090 recipe
+   in vllm-omni and a ComfyUI template (section "FastH3 Omni").
+4. Core and two engines now carry long-clip machinery: windows inside one
+   sampling, timeline guides and continuation across requests (section
+   "Long clips upstream").
+
+- **ComfyUI core** (`08ff3c11` to `5f415e31a`).
+  - **`bench/check_reference_encode.py` fails on its `Llama2_.forward`
+    pin.** `4d7b59459` (#17007) and `f7c664378` (#17273), Qwen 3.x speed
+    work in `comfy/text_encoders/llama.py`, changed that function: an
+    optional `freqs_cis` argument, FixedKV preparation once per pass, and
+    `FixedKVBias` renamed `FixedKVState`. The check's other two pins,
+    `Attention.forward` and `TransformerBlock.forward`, hold. The changes
+    sit on the cached-generation path, and the conditioning pass that
+    `reference_encode.py::_lm_pass` copies looks unchanged in its
+    arithmetic; that is reasoned, not run. The check's own instruction
+    stands: re-read, re-run the server measurement, then move the pin.
+  - **A single latent through the stock video VAE now decodes
+    differently** (`ec1537de6`, #16881). It is decoded as the first latent
+    of a short clip and the frame at `frame_pre_padding` is kept
+    (`comfy/ldm/minimax/vae.py::MiniMaxH3VideoVAE.decode`), where core used
+    to keep the last frame of `_adaptive_decode`. A file whose metadata
+    sets `h3_t1_direct` keeps its own `h3_t1_output_slice` instead
+    (`comfy/sd.py`, VAE init). `h3_config.IMAGE_VAE` declares both, so it
+    decodes as before. Any one-latent decode through `MODELS["video_vae"]`,
+    as a bench tool run on one frame would make, now returns a different
+    frame. The comment above `IMAGE_VAE` in `workflows/h3_config.py` still
+    describes core's old rule; it is a code file and is left for a build.
+  - **PDD checkpoints are first-class in core** (`ce42de5f6`, #17157). The
+    final layer reads `pdd_steps` from the checkpoint's `config` metadata
+    (`comfy/model_detection.py`) and runs a head bank in which head 0 is
+    full and later heads are offsets from it, each step taking the
+    dt-weighted mean of the heads it spans on a grid from 1 to 0
+    (`comfy/ldm/minimax/model.py::FinalLayer.forward`, `::_pdd_head`).
+    `1045d48eb` (#17239) maps a single-head LoRA onto head 0 of a baked
+    bank (`comfy/lora.py::model_lora_keys_unet`). Our PDD files declare one
+    head, so core takes its one-head path and `pdd_lora.py` still owns the
+    head swap; a baked bank handed to our PDD node is refused by its shape
+    check. The docstring of `pdd_lora.py::_make_final_layer_forward` and
+    one of its error texts still name core's old head count
+    (`// out_features`); left for a build. PDD quality work is a closed
+    lane; this is recorded because FastH3 Omni is a PDD student (section
+    "FastH3 Omni").
+  - **Context windows for H3** (`6651247a8`, #17425): section "Long clips
+    upstream".
+  - **New video VAEs through the stock `VAELoader`.** LightVAE, including
+    a standalone encoder or decoder (`1d9cec9e8`, #17049). Sol-H3-VAE, a
+    24-layer non-causal ViT decoder that decodes the whole clip at once
+    with no tiling (`0df1646a9`, #17411). P-H3-Image's single-frame VAE
+    (`576b642e7`, #17506; single-frame generation is a closed lane).
+    `MiniMaxH3VAEPrecision` refuses a VAE without both halves
+    (`vae_precision.py`, the `hasattr` check in `execute`), so a standalone
+    LightVAE half is refused, not mis-set. `fbca05a62` (#17450) adds core's
+    `VAEComputeDtype`, one dtype for both halves through a new
+    `VAE.clone()`; it does not replace our node's split of encoder and
+    decoder precision.
+  - **A latent upscaler** (`35060f015`, #17412):
+    `MiniMaxH3LatentUpscaleWithModel`, which defaults to 2560x1440, and a
+    branch in `LatentUpscaleModelLoader`. Its key names, and the fast
+    VAE's "24 layers, distilled", match Sana's Open-H3-Regenerate-2K
+    release (reasoned from shapes and wording, not from a shared file).
+  - **The fused Linear path widened** (`4d7b59459`):
+    `comfy/ops.py::linear_input_act` now fuses for any quantized weight,
+    where it was tensor-wise INT8 only. The DiT still has one fused call,
+    in `MLP.forward`, and `MiniMaxH3LoRABranch` still covers `fc2` by
+    replacing that forward (`lora_branch.py::install`).
+    `comfy_force_forward` is still honored.
+  - **Unchanged where it matters here.** `comfy_extras/nodes_minimax_h3.py`
+    only gained nodes and an `_av_latent` helper; no widget default moved.
+    The functions `bench/check_plate_restore.py` pins
+    (`KSamplerX0Inpaint.__call__`, `KSAMPLER.sample`,
+    `MiniMaxH3.scale_latent_inpaint`) hash as before.
+    `comfy/ldm/modules/attention.py` gained only a `ComfyAttention.method`
+    attribute. `comfy_api`'s io has no schema change; video saving gained
+    ProRes and `chroma_subsampling`, with H.264 still at 4:2:0. The
+    `comfy-kitchen` pin went from `0.2.37` to `0.2.40` (`requirements.txt`).
+    New partner API nodes for "MiniMax H3 Max" and Pika H3 Flex are cloud
+    calls and say nothing about local numerics.
+- **comfy-kitchen.** `vendor/rebuild_kernel.sh --check` shows the installed
+  build on upstream base `cdab478`, with upstream main at that base and
+  every carried commit present. kijai's #234, open and in conflict on
+  2026-10-09, is merged upstream and carried; on capability 8.9 its
+  kernels take the old path (read, not run). The Sol side is
+  [`../sol_upstream.md`](../sol_upstream.md), "comfy-kitchen, core and
+  Sana, 2026-11-04".
+- **`sglang`** (`f48ed2127e` to `origin/main`). The full read is
+  [`../research/sglang_comparison.md`](../research/sglang_comparison.md),
+  "Tenth read". In short: `num_inference_steps` now counts DiT forwards
+  (#38671); the default `lossless` tier fuses the DiT's norm and
+  modulation into one rounding (#43327); its ComfyUI adapter now scales
+  the velocity by the denoise mask as core does (#43504); reference images
+  have a `reference_resize_mode` whose default is still the one this pack
+  runs (#35839); FastH3 Omni (#45530) and Pika H3 Flex (#47378) are
+  served; the PDD fc1 half-swap is fixed (#46907); and VSA-H3 runs on
+  capability 8.0 but still refuses this card (#43823).
+- **`vllm-omni`** (`4c5541cfc` to `a8220b035`).
+  - **No default moved.** Shifts 12 and 3
+    (`coderef/vllm-omni/vllm_omni/diffusion/models/minimax_h3/pipeline_minimax_h3.py`,
+    `default_video_shift`, `default_audio_shift`), condition levels 0.999
+    and 1.0 (`coderef/vllm-omni/vllm_omni/diffusion/models/minimax_h3/denoise_loop.py`, `MINIMAX_H3_IMGVID_COND_TIMESTEP`,
+    `MINIMAX_H3_AUDIO_REF_COND_TIMESTEP`), FastH3 V2's schedule
+    (`coderef/vllm-omni/vllm_omni/diffusion/models/minimax_h3/fasth3_checkpoint.py::FASTH3_V2_BASE_SCHEDULE`, still the values of
+    `h3_config.FASTH3_CONTRACT_POSITIONS`) and the fp16 video decode are
+    where they were.
+  - **The longest request is 362 frames** (`caaa4cc32`, #8696, which caps
+    `num_frames` on the 17n+5 grid; its test pins 362). That is a second
+    engine on `h3_rules.MAX_LENGTH`.
+  - **FastH3 Omni** (`95b1d97f2`, #9167): section "FastH3 Omni".
+  - **Open-H3-Regenerate-2K** (`66fbc0eef`, #9562;
+    `coderef/vllm-omni/vllm_omni/diffusion/models/minimax_h3/regenerate.py`).
+    A 2K refiner over a 768p t2va draft: a 3D-conv latent upscaler,
+    re-entry at sigma 0.909375, `REGENERATE_DEFAULT_STEPS` Euler steps at
+    `REGENERATE_VIDEO_SHIFT`, audio held as encoded silence, output at
+    `REGENERATE_DEFAULT_UPSCALE`, FL2VA partition only. Its LoRA
+    concatenates the Open-H3 refiner, LightX2V's FL2VA Turbo LoRA and LMS
+    Sharp. A turbo LoRA baked into it touches a closed lane, so whether
+    this is in or out is the owner's to say; it is recorded, not proposed.
+    Core's new latent upscaler (above) is the ComfyUI half of the same
+    release, by its key names.
+  - **Timeline guides and continuation**: section "Long clips upstream".
+  - **Masks and edits.** `latent_mask.py` is untouched in the range, and
+    every entry of "Masks and edited video upstream" in the 2026-10-09
+    section still holds. `coderef/vllm-omni/vllm_omni/model_executor/models/minimax_h3/reference_video.py` gained a `cover` resize
+    (fill, then center-crop) that only Regenerate uses; the edit path still
+    stretches. The ComfyUI latent-mask graph gained an `audio_mode` widget,
+    set to "native" (#9337, #9152). A new music-video graph runs ref2va per
+    shot with `lock_source` holding the driving audio clean at 1.0, each
+    shot a separate request with no latent carried between them
+    (`coderef/vllm-omni/apps/ComfyUI-vLLM-Omni/docs/h3-03-music-video.md`,
+    #9226). That is the regime of [`../h3_audio_freeze.md`](../h3_audio_freeze.md).
+  - **Reference K/V reuse across steps** (`10f23e4fc`, #8072; `bec812a5f`,
+    #9259), opt-in through `--kv-offload-config`, documented by them as
+    lossy "because its bidirectional attention makes the reference K/V
+    change as target tokens evolve", refreshed every second step by
+    default (`coderef/vllm-omni/vllm_omni/diffusion/kv_offload_config.py::ReferenceKVConfig`).
+    It is the idea and the interval of `h3_config.FROZEN_VIDEO_CACHE`, as an
+    NPU recipe with no quality data.
+  - **Optional decoders.** LightVAE's H3 decoder (`24d21359d`, #9245),
+    validated on NPU for t2va only. A FastH3 NVFP4 decoder
+    (`coderef/vllm-omni/vllm_omni/diffusion/models/minimax_h3/vae_nvfp4.py::require_nvfp4_linear`) needs capability 10 or 12.
+  - Data worth knowing: a recipe note (`7cbc776c1`, #9270) records that
+    TaylorSeer at order 2 with more than four cached steps in a row
+    smeared Ref2VA clips of ten seconds and longer, on NPU, with no
+    speedup; it is not the cache `h3_config.CACHE_NODE_CLASS` names.
+    `fb7ab7071` (#9331) documents Ref2VA's dialogue contract (a language
+    tag, one stable speaker ID per voice, stage text the audio can voice),
+    which agrees with [`../prompting.md`](../prompting.md). `ea08ab618`
+    (#8802) fixes rounding in the vendor's TorchScript audio VAE on its
+    first call; core's audio VAE is not TorchScript.
+  - Irrelevant here: TaoMate streaming (a closed lane), Physis same-step
+    AR, Fun ControlNet serving, MXFP8 and MXFP4 loading, ROCm, NPU and CI.
+- **`LightX2V`** (`b6d38283` to `2e2ae756`).
+  - No sampling value moved: `coderef/LightX2V/configs/minimax_h3/minimax_h3.json` is as it
+    was. `4fe984c0` (#1592) and `c301bc5d` (#1604) drop unused keys and
+    rename `layout/continuous` to `layout/contiguous`.
+  - **"H3 Roll"** (`74dee641`, #1638; `b7bc39f5`, #1643): a low-resolution
+    draft, optionally cut short, re-encoded at the target size and
+    finished on the tail of the original schedule
+    (`coderef/LightX2V/lightx2v/models/schedulers/minimax_h3/resampling.py`,
+    `coderef/LightX2V/scripts/minimax_h3_roll/README.md`). It runs on the lightx2v Turbo
+    LoRAs, a closed lane.
+  - **StreamRender-H3** (`58b8e259`, #1646): a separate autoregressive
+    checkpoint that re-renders a whole source video from a reference image
+    and a "semantic" source, in two steps at shifts 6 and 1.5
+    (`coderef/LightX2V/configs/streamrender_h3/refv2v_107f_bf16_sage_5090_tp4_sp2.json`).
+    Whole-frame, no mask, in the streaming family. The same commit moved
+    the streaming plan's file, corrected in place in "What moved by
+    2026-09-25" above, and added an `allow_online_adaln_offload` escape to
+    the CPU-offload check (`coderef/LightX2V/lightx2v/models/networks/minimax_h3/model.py`).
+  - **`bench/check_distill_settings.py` no longer reads LightX2V.** A grep
+    of the tool finds no `coderef` path; the vendor-row grading left with
+    the turbo lane. A sentence above that says it reads LightX2V's configs
+    is history of 2026-09-10.
+- **`diffusers`** (`1d5d056ec` to `b674fd8c2`).
+  - **Pika H3 Flex** (`d0b9b1b5a`, #15150; `0a4883012`, #15153): section
+    "Pika H3 Flex".
+  - **The base scheduler gained two flags in that commit**
+    (`coderef/diffusers/src/diffusers/schedulers/scheduling_minimax_h3.py`):
+    `stochastic_sampling`, off by default, so base Euler is unchanged; and
+    `shift_provided_sigmas`, with a deprecation note that explicit sigmas
+    will be shifted from 0.44.0. Its `scale_noise` now keeps the level as a
+    Python float, so `1 - 0.999` stays in double; its comment says the
+    float32 version "comes out 1.3e-5 relative too small, which the
+    bfloat16 forward amplifies into a visibly different sample". The base
+    H3 port keeps its float32 mix
+    (`coderef/diffusers/src/diffusers/modular_pipelines/minimax_h3/before_denoise.py::MiniMaxH3PrepareConditionLatentsStep`).
+    Core mixes with a Python float (`comfy/model_base.py::MiniMaxH3.scale_latent_inpaint`)
+    and `reference_noise.py` passes `float(clean_level)`, so core and this
+    pack are on the precise side, and diffusers' base port is the weaker
+    evidence on reference-noise arithmetic.
+  - `c55ec2794` (#15171) adds Pruna's P-H3-Image, single-frame generation
+    on H3, a closed lane. `cda991a69` makes `num_inference_steps` optional.
+- **`DiffSynth-Studio`** (`acf2ad2` to `08fdc0da`).
+  - **VDN-H3** (`5c3abf5c`, #1743; `coderef/DiffSynth-Studio/diffsynth/models/minimax_h3_dit_vdn.py`):
+    OpenVDN's checkpoint in its 50-step and 8-step variants and FP8,
+    FL2VA only. Its window attention falls back to SDPA without
+    FlashAttention-4, plus a Triton temporal kernel, so it is the first
+    VDN-H3 path read here with no Hopper or Blackwell gate in its code
+    (reasoned, not run). Its examples pass no shift and take the pipeline's
+    12 and 3, where vllm-omni checks shifts against the checkpoint's
+    metadata (`coderef/vllm-omni/vllm_omni/diffusion/models/minimax_h3/vdnh3.py::check_request`); whether 12 and 3 are the trained
+    values was not read. The VDN-H3 entry of
+    [`../research/sglang_comparison.md`](../research/sglang_comparison.md),
+    "Sixth read", is the reference for what it is.
+  - `2dd47220` (#1802) takes Sage out of DiffSynth's automatic attention
+    order, for training backward error. DiffSynth is not one of the
+    engines the adopt-upstream rule counts; data only.
+- **`workflow_templates`** (`origin/main` at `9a51089f`). The existing H3
+  templates changed only their download notes (`1ae39096`). New:
+  - `video_fasth3_ominiref_r2v` (`1524172f`, 2026-10-21): section
+    "FastH3 Omni".
+  - `video_pika_h3_flex_{t2v,fl2va,ref2va}` (`6cd9cff4`; `9a51089f` moved
+    layout and seed control only): section "Pika H3 Flex".
+  - `image_minimax_h3_t2i` (`3c2199b9`) and `image_p_h3_{t2i,image_edit}`
+    (`c9700cbc`): single-frame generation, a closed lane. The first has a
+    switch that adds the fl2v turbo LoRA, a second closed lane.
+  - No template uses Sol-Attn's tau.
+- **`ComfyUI-UtilsCollection`** (`6fb9163` to `a34f3b8`). Not installed.
+  - **`e81d275`: a reference video's soundtrack is packed into its own
+    video_audio block**, as core's Reference to Video does; its commit
+    message says it used to land after all the videos on the DiT's
+    timeline, and that motion played at double speed. That retires the
+    2026-10-05 bullet's "the label order still departs from core" for a
+    wired soundtrack; standalone reference audio stays a separate block,
+    as in core. The rest of its order was not re-read.
+  - New H3 nodes: a temporal-fusion Reference Media to Video (`a0e3876`);
+    `UC_MiniMaxH3DiffusionCache`, a residual cache over sigma windows
+    (`08c5e57`); clip-continuation nodes "aligned with H3-Motion-Context"
+    (`8c928ec`, `491cab0`, `b942818`); a frame-indexed VLM image guide
+    (`cf79a0b`); and `UC_MiniMaxH3ContextPatcher`, sliding windows with a
+    per-window block cache (`04dd701` and three more; section "Long clips
+    upstream"). `1c495ef` removes its Spectrum path.
+- **`ComfyUI-MAINodes`** and **`ComfyUI-Dials`**, new to this page:
+  section "ComfyUI-MAINodes", below, and rows in the ComfyUI-side table.
+- **`MiniMax-H3`**, the release (`9a674e4`, `199b7d0`, 2026-10-28): README
+  links and `requirements.txt` only. diffusers is pinned to `f53d55203`,
+  the commit that added H3, and transformers raised to 4.57. No weight,
+  code or config changed.
+- **Moved with nothing for H3**: `meta-sam` (TypeScript package bumps) and
+  `sam3` (type-checker ignore comments).
+- **Unmoved**: `h3-the-transformation-engine`, `MaskVidExperiments`,
+  `ComfyUI-H3-Motion-Context-MultiRef`, `sage-fork`, `meta-encoder-space`,
+  and the `alibaba-pai_MiniMax-H3-Acc-LoRAs` release (its Hugging Face
+  revision and file list are as [`../pdd_artifacts.md`](../pdd_artifacts.md)
+  recorded them).
+- **No longer checked out.** `FastVideo`, `flashinfer`, `transformers`,
+  `triton`, `nanobind`, `Model-Optimizer`, `Minimax-H3-Turbo`, `SLA`,
+  `TurboDiffusion`, `pdmd`, `ComfyUI-H3-AudioRefine`,
+  `ComfyUI-NKD-Basic-Tools`, `ComfyUI-H3-Quant`, `MiniMax-Music3`,
+  `h3-turbo-eval` and `comfyui_dagthomas` are not in `coderef/` as of this
+  read. What the tables and the dated sections above say of them is as of
+  their last read and cannot be re-checked against a checkout; FastVideo
+  is the one whose absence matters, since it is FastH3's trainer.
+
+---
+
+## Pika H3 Flex: a six-step distill with its own sampler
+
+Added 2026-11-04. Pika's six-step post-train of H3, released 2026-10-29
+(`coderef/Pika-H3-Flex`, `64d81b2`) and served since by sglang
+(`37fc17b8d6`, #47378), diffusers (`d0b9b1b5a`, #15150), Comfy-Org's
+templates (`6cd9cff4`) and `ComfyUI-MAINodes`. Nothing in this pack
+names it. By "A distill's reference is its trainer's contract", above, it
+runs the way Pika says, and every one of those four runs it the same way.
+
+**What it is.** Two PEFT LoRA adapters over the unpruned base
+(`MiniMaxAI/MiniMax-H3` at `42ed227e`), rank and alpha 128, stored in
+fp32 and computed in bf16, on `to_q`, `to_k`, `to_v`, `to_out.0` and the
+two feed-forward projections: one adapter on the fl2va partition, for
+t2va, i2va and fl2va, and one on the ref2va partition, for references of
+up to nine images, three videos and three audio clips.
+
+**The contract** (`coderef/Pika-H3-Flex/src/pika_h3/pipeline.py`,
+`coderef/Pika-H3-Flex/src/pika_h3/core/`):
+
+- **Six model evaluations on fixed knots.** `coderef/Pika-H3-Flex/src/pika_h3/pipeline.py::KNOTS` is
+  1000, 750, 500, 250, 100, 40, 0. The knots are divided by 1000 and each
+  modality is shifted on its own, video at 12 and audio at 3
+  (`coderef/Pika-H3-Flex/src/pika_h3/core/schedules.py::shift_sigma`, `::H3SigmaSchedule`). Pika's loader
+  refuses any other knots, shifts or method (`coderef/Pika-H3-Flex/src/pika_h3/pipeline.py::resolve_assets`,
+  against the adapter's `manifest.json`), and sglang refuses any other step
+  count or shift
+  (`coderef/sglang/python/sglang/multimodal_gen/configs/sample/minimax_h3.py::PikaH3FlexSamplingParams`).
+- **A re-noise update, not Euler.** Each step predicts the clean latent
+  and re-noises it to the next sigma with fresh noise; the last step
+  returns the prediction (`coderef/Pika-H3-Flex/src/pika_h3/core/sampling.py::few_step_trajectory`). Pika's
+  README: "Generic six-step Euler sampling is not equivalent." sglang's
+  copy is
+  `coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/denoise_loop.py::_minimax_h3_renoise_target_rows_`,
+  and diffusers' is `MiniMaxH3Scheduler(stochastic_sampling=True)`.
+- **No guidance**: one positive forward per step (`coderef/Pika-H3-Flex/src/pika_h3/core/wrapper.py`).
+- **References as the base model takes them.** Visual condition rows are
+  noised once to 0.999 and held there, reference audio stays clean
+  (`coderef/Pika-H3-Flex/src/pika_h3/core/geometry.py::KEYFRAME_NOISE_AUG`). Keyframes are center-cropped,
+  not stretched (`coderef/Pika-H3-Flex/src/pika_h3/core/conditioning.py::fit_keyframe`). Image references take a
+  2048 short edge from the 768 tier up and 1024 below it
+  (`coderef/Pika-H3-Flex/src/pika_h3/core/buckets.yaml`, `tier_rules`).
+- **Canvases and lengths.** Eleven aspect buckets at 480p and 768p, among
+  them 1344x768 and 1152x768; frame counts on 17n+5 up to 362
+  (`coderef/Pika-H3-Flex/src/pika_h3/core/buckets.yaml`).
+- **Numerics a ComfyUI run will not reproduce.** The ref2va adapter runs
+  with fp32 conditioning and the fl2va adapter with bf16, both with TF32
+  off (`coderef/Pika-H3-Flex/src/pika_h3/core/numerics.py`); a diffusers patch keeps AdaLN's SiLU in fp32;
+  the noise streams are seeded in a fixed order (`coderef/Pika-H3-Flex/src/pika_h3/core/evaluation.py`).
+  Pika's own ComfyUI notes say outputs can differ. sglang keeps the
+  adapter unmerged because a bf16 merge "rounds away about a third of its
+  update"
+  (`coderef/sglang/python/sglang/multimodal_gen/configs/pipeline_configs/minimax_h3.py::PikaH3FlexPipelineConfig`).
+  `MiniMaxH3LoRABranch` is unmerged for the same reason.
+
+**In ComfyUI terms** it is core's `lcm` sampler, `ManualSigmas` with the
+shifted video ladder, cfg 1 and the LoRA at strength 1. Core's
+`comfy/k_diffusion/sampling.py::sample_lcm` sets the latent to the
+prediction and calls the model's `noise_scaling` with fresh noise, which
+on this model type is the re-noise update; the 2026-10-05 section above
+recorded the same equivalence for UtilsCollection's DMAD sampler. Comfy-Org's
+`video_pika_h3_flex_ref2va` template is exactly that: `KSamplerSelect`
+`lcm`, `ManualSigmas` "1.0, 0.972973, 0.923077, 0.8, 0.571429, 0.333333,
+0.0", `LoraLoaderModelOnly` at 1 on `minimax_h3_ref2va_pruned_int8_convrot`,
+Reference to Video at 1344x768 and 124 frames with `match` sizing, no shift
+node and no attention node. Those sigmas are the knots shifted at 12.
+`ComfyUI-MAINodes`' `coderef/ComfyUI-MAINodes/render.py::PIKA_PRESET` is the same. One thing is
+open and was reasoned, not run: whether core's carried-audio transform
+makes `lcm` re-noise the audio stream at its own sigma, as Pika does.
+
+**What it means here.**
+
+- **Our generator would run it off its contract.**
+  `workflows/build_workflows.py::_distill` gives every graph that carries a
+  LoRA `h3_config.DISTILL_SAMPLING`, which is euler with the simple
+  scheduler. A Pika arm built through the generator has to pass the
+  sampler and the sigmas at its call site, or the generator learns the
+  file. `bench/check_distill_settings.py` would not catch it: its matchers
+  look for turbo and PDMD file names.
+- **The files linked into `models/loras/h3/` on 2026-11-04 are a resize.**
+  `pika_h3_flex_fl2va_v1_avg_rank_56_bf16.safetensors` and
+  `pika_h3_flex_ref2va_v1_avg_rank_55_bf16.safetensors` carry a header that
+  says "Dynamic resize with sv_fro: 0.99 from 384", so they keep a share
+  of each update by construction. Pika's own ComfyUI conversion, at full
+  rank (fused QKV at 384, the rest at 128, unit scale), is in the owner's
+  early-access download under `comfy/loras/` and is not linked. Comfy-Org's
+  template names a third file, `pika_h3_flex_{fl2va,ref2va}_v1_bf16`,
+  which is not on disk. This is FlashGen's case again: `h3_config.FLASHGEN_LORA`
+  is a resize and `FLASHGEN_R64_LORA` the exact one.
+- **The pruned partition.** Pika's adapters are trained on the unpruned
+  base; Comfy-Org's template and the resizes load them on the pruned INT8
+  checkpoint. For FlashGen this pack fits the AdaLN delta onto the pruned
+  partition's own time basis (`bench/convert_flashgen_lora.py`); whether
+  Pika's ComfyUI conversion already did the same was not read.
+- **Where it agrees with what this pack runs.** 1344x768 and 1152x768 are
+  Pika buckets; 362 is `h3_rules.MAX_LENGTH`; the 2048 short edge at the
+  768 tier is core's `REF_IMAGE_SHORT_EDGE`; 0.999 is core's
+  `VISUAL_COND_TIMESTEP` and `reference_noise.py`'s default. Its prompt
+  guide (`coderef/Pika-H3-Flex/docs/prompt-guidance.md`) is of the family
+  of [`../prompting.md`](../prompting.md); the wording was not compared.
+- **Lane status is the owner's call.** The turbo closure in
+  [`../roadmap.md`](../roadmap.md), "Closed lanes", names the lightx2v
+  family "and any other 'turbo' LoRA". Pika H3 Flex is a six-step distill
+  the roadmap does not name. It is recorded, not proposed.
+
+---
+
+## FastH3 Omni: the Ref2VA student, public
+
+Added 2026-11-04. FastVideo's Ref2VA PDD student, which the 2026-10-05 and
+2026-10-09 sections knew only from a benchmark README, is public as
+`FastVideo/FastVideo-FastH3-Omni-8-Step-V1` and served by sglang
+(`d9ce511646`, #45530) and vllm-omni (`95b1d97f2`, #9167), with a
+Comfy-Org template (`1524172f`). FastVideo, its trainer, is no longer
+checked out here, so the contract below is the two engines' reading of
+the checkpoint; they agree with each other.
+
+**The contract, as the engines pin it.**
+
+- Ref2VA only, eight PDD forwards, cfg 1, shifts 12 and 3
+  (`coderef/sglang/python/sglang/multimodal_gen/configs/sample/minimax_h3.py::FastH3OmniSamplingParams`;
+  `coderef/vllm-omni/vllm_omni/diffusion/models/minimax_h3/fasth3_checkpoint.py::FastH3OmniCheckpointSpec`).
+- 32 PDD heads on a grid that tops out at 0.999 (`grid_max_t`), eight
+  steps over every fourth point; each step takes the weighted mean of
+  whole heads (`coderef/vllm-omni/vllm_omni/diffusion/models/minimax_h3/pdd.py::pdd_sigmas`,
+  `::pdd_head_weights`). The starting noise is scaled by the first sigma.
+- **References held clean**: sglang sets both condition levels to 1.0
+  with the comment "Trained with target-only flow: references stay
+  clean", where base H3 shows visual references at 0.999.
+- Trained sparse attention: VSA at 0.9 sparsity on 128-token tiles, with
+  each reference video its own region keeping a tenth of its tiles, and
+  text, reference images and audio dense (`vsa_ref_keep_rate`; sglang's
+  `coderef/sglang/python/sglang/multimodal_gen/runtime/layers/attention/backends/video_sparse_attn_h3.py::_h3_segment_tile_geometry`).
+
+**On this card.** vllm-omni ships a single-RTX-4090 recipe
+(`coderef/vllm-omni/recipes/FastVideo/FastH3 RefOmni Single Card.md`,
+`fasth3-omni-rtx4090.yaml`): online FP8, layer-by-layer offload, and its
+Triton VSA provider, which its resolver picks for the 128 tile on any
+capability 8.x
+(`coderef/vllm-omni/vllm_omni/diffusion/attention/ops/block_sparse.py::resolve_block_sparse_provider`).
+The recipe publishes no 4090 measurement. sglang's VSA-H3 backend lists
+8.0, 9.0, 10.0 and 10.3 and not 8.9
+(`coderef/sglang/python/sglang/multimodal_gen/runtime/platforms/cuda.py::VSA_H3_CAPABILITIES`),
+so it refuses this card.
+
+**Comfy-Org's template differs from that contract in three places.**
+`video_fasth3_ominiref_r2v` loads `fasth3_omniref_8step_pruned_int8_convrot`
+and runs euler, simple, 8 steps, `MiniMaxH3SigmaShift` 12 and 3, and
+core's `BlockSparseAttention` in `vsa` mode keeping 10, with
+`exact_kv_and_rows`, at 1344x768 and 124 frames.
+
+- Core shows visual references at `VISUAL_COND_TIMESTEP`, 0.999, where the
+  engines hold them at 1.0. `MiniMaxH3ReferenceNoise` reaches 1.0
+  (`reference_noise.py`, `clean_level`).
+- Core's built-in PDD head (`ce42de5f6`, above) uses a grid from 1.0 and
+  treats head 0 as full and later heads as offsets; vllm-omni averages
+  whole heads on a grid from 0.999. Whether Comfy-Org's conversion stores
+  the heads so that core's rule gives the same output cannot be told
+  without reading the file.
+- Core's `vsa` mode has no per-reference region policy.
+
+None of the three was run. This pack has no OmniRef arm and ships
+`h3_config.PDD_REF2VA_LORA`, alibaba-pai's eight-step Ref2VA LoRA, as its
+Ref2VA distill; PDD quality work is a closed lane. Whether Omni is worth
+an arm beside it is the owner's call; it is recorded, not proposed.
+
+---
+
+## Long clips upstream: windows, guides and continuation
+
+Added 2026-11-04. Between 2026-10-09 and 2026-11-04 core and three outside
+projects added ways to make a clip longer than one window. This pack's own
+way is separate renders whose head frames are frozen from the last one's
+tail ([`window_context.md`](window_context.md),
+[`window_edges_data.md`](window_edges_data.md)); `h3_rules.MAX_LENGTH` is
+the longest window and nothing below changes that.
+
+- **Core: windows inside one sampling** (`6651247a8`, #17425).
+  `MiniMaxH3ContextWindows` (`comfy_extras/nodes_context_windows.py`)
+  splits one long latent into overlapping windows at every step and fuses
+  them: `context_length` 124 and `context_overlap` 39 by default, both on
+  17n+5, a pyramid fuse, FreeNoise on. `MiniMaxH3._window_payload` and
+  `resize_cond_for_context_window` (`comfy/model_base.py`) crop and
+  re-anchor keyframes per window and rebuild the packed layout per
+  window. Nothing in this pack has run under it. `MiniMaxH3FrozenVideoCache`
+  serves no cached rows under a context window, by design
+  (`frozen_video_cache.py`, the `context_window` check); how `MiniMaxH3Sol`, which reads the per-call
+  layout core publishes, behaves under one was not tested.
+- **vllm-omni: timeline guides** (`198c21059`, #8460; #8838, #9152;
+  `coderef/vllm-omni/vllm_omni/model_executor/models/minimax_h3/timeline_guides.py`).
+  A clean image, clip or audio placed at a pixel frame of the target, clips
+  cut to 17n+5 and center-cropped. A guided request refuses latent-mask
+  editing, FastH3, LoRAs and distilled schedules
+  (`coderef/vllm-omni/docs/serving/videos_api.md`, "MiniMax H3 Timeline
+  Guides"). A new
+  `guided` noise recipe draws each condition's noise in its own packed
+  shape, so adding a guide leaves the earlier conditions' noise unchanged
+  (`coderef/vllm-omni/vllm_omni/diffusion/models/minimax_h3/condition_noise.py::minimax_h3_imgvid_cond_noise_aug_rows`);
+  the level is still 0.999. Core's counterpart is `MiniMaxH3AddGuide`; the
+  two were not compared line by line.
+- **vllm-omni: continuation across requests** (`b5a6fd836`, #9342;
+  `coderef/vllm-omni/vllm_omni/diffusion/models/minimax_h3/latent_cache.py`,
+  `coderef/vllm-omni/vllm_omni/diffusion/models/minimax_h3/continuation.py::latent_guide_args`, `::window_args`).
+  The clean tail latents of one request seed the next. Ref2VA appends them
+  as a reference block, as before; the other tasks now place them as a
+  frame-0 audio-and-video timeline guide, which its docstring says
+  "anchors the window to the clip far more tightly", with no measurement
+  cited. Its global clock (`temporal_offset`, which places a window's start
+  on the joint audio-video timeline) was already there. This is the axis of
+  [`../open_experiments.md`](../open_experiments.md) #32.
+- **UtilsCollection: windows with a block cache** (`04dd701`, `e15b0a8`,
+  `dc9c4e8`, `a8a89c4`). `UC_MiniMaxH3ContextPatcher` slides windows of 124
+  frames with 39 of overlap and FreeNoise, core's defaults, and caches
+  blocks per window. Its continuation nodes (`8c928ec`, `491cab0`,
+  `b942818`) say they follow `ComfyUI-H3-Motion-Context-MultiRef`. The
+  internals were not read.
+- **MAINodes: window drivers and a repair splice.** Window Plan, Collect,
+  Expand and Loop, an extension that chains segments through core's guide,
+  and a repair that re-renders a frame range snapped outward to latent
+  tokens and asserts the frames outside are bit-identical
+  (`coderef/ComfyUI-MAINodes/h3_extend.py`, `coderef/ComfyUI-MAINodes/h3_repair.py`,
+  `coderef/ComfyUI-MAINodes/window_loop.py`). The repair is the shape of "reshoot one shot, the
+  rest untouched" and of `bench/patch_render_window.py`.
+- **Refiners that take a finished clip up a size**: vllm-omni's
+  Open-H3-Regenerate-2K and LightX2V's H3 Roll (both in "What moved by
+  2026-11-04", above). Each carries a turbo LoRA, a closed lane.
+
+What none of them has: a per-window mask that freezes only a region, as
+the masked lane's windows do. vllm-omni refuses a guide with a latent
+mask, and core's windows were written for whole-frame generation.
+
+---
+
+## ComfyUI-MAINodes: a second H3 node pack
+
+Added 2026-11-04. `coderef/ComfyUI-MAINodes` (v1.2.2 at `1880dfc`) is a
+third-party pack of H3 nodes; `coderef/ComfyUI-Dials` is its smaller
+predecessor and now points to it (`7dd0b7e`). Not installed here. It is
+GPL-3.0 (`coderef/ComfyUI-MAINodes/LICENSE`), and its drift and color
+nodes are adapted from another GPL-3.0 H3 pack (`coderef/ComfyUI-MAINodes/h3_drift.py`, its
+header), so it is read for ideas and nothing is copied from it. What each part does to H3, and
+where it meets this pack:
+
+- **Motion Lab** (`coderef/ComfyUI-MAINodes/motion.py`) fixes smear in fast motion by re-rendering
+  a clip as a slowed copy of itself and dropping the held frames after.
+  Two nodes find fast spans from the clip's own latent, `H3TimeSmear`
+  holds frames there, `H3V2VInit` wraps the encoded clip as H3's AV latent
+  for a partial denoise (inject 0.70 by default, `H3InjectSchedule`), and
+  two recover nodes drop the held frames and retime the audio. The partial
+  denoise is the mechanism of the masked lane's closed late-start row
+  ([`h3_uses.md`](h3_uses.md)), used for a different goal.
+- **RoPE retiming** (`H3TrueClock`, `H3DyRoPE`, experimental) rescales H3's
+  RoPE time grid to match the holds, by rebinding core's
+  `comfy.ldm.minimax.model._video_t_spans` at run time, armed only inside
+  its own sampler wrapper (`coderef/ComfyUI-MAINodes/motion.py::_install_true_clock_patch`). It is a
+  runtime patch, not an edit of core's file.
+- **Dials** (`coderef/ComfyUI-MAINodes/dials/core.py`, `coderef/ComfyUI-MAINodes/dials/blocks.py`): a steering vector, the
+  mean over tokens of one prompt's encoding minus another's, added to the
+  text rows after `token_refiner` through a diffusion-model wrapper, or
+  written as a `condition_proj.diff_b` LoRA key; a depth profile adds
+  per-block deltas to the text rows through `("double_block", i)` patches
+  that chain whatever patch is there. Its README says the dial strengths
+  were measured on Pika's six-step schedule. Two meeting points, reasoned
+  from code and not run: `frozen_video_cache.py` refuses a model that
+  already carries DiT patches, so a depth profile placed before the cache
+  is refused and one placed after wraps it; and `MiniMaxH3LoRABranch`
+  would load a `.diff_b` dial and refuse a post-refiner one by its
+  unknown-key rule (`lora_branch.py::parse_lora`).
+- **Low VRAM** (`coderef/ComfyUI-MAINodes/vram_lab.py`): `H3StreamedBlocks` runs each DiT block in
+  token chunks, exact, with optional INT8, Sage or FP4 K/V, plus memory
+  and precision probes. Its `H3SolAttention` rebinds core's attention
+  function for the whole process and is deliberately not registered (its
+  own comment).
+- **Presets** (`coderef/ComfyUI-MAINodes/render.py::BUILTIN`): Pika H3 Flex on its contract; a
+  "Pika + reference pictures" preset that keeps the fl2va checkpoint and
+  adapter under reference conditioning, where Pika puts the ref2va adapter
+  on the ref2va partition, so it is off Pika's contract; and a DMAD preset
+  on `lcm`.
+- **What it does that this pack does not**: text-embedding steering, RoPE
+  retiming, and the smear fix. What it does that this pack's rules refuse:
+  `H3ConditioningBank`, `H3LatentBank` and `H3TrajectoryBank` reuse a
+  result by a key (AGENTS.md, "Nothing an earlier run made is reused by a
+  key"); its Motion Lab examples load a lightx2v turbo LoRA and its
+  contact sheet is single-frame generation (both closed lanes); and its
+  low-VRAM notes report 702- and 906-frame renders, past
+  `h3_rules.MAX_LENGTH`.
+
+Not read: most of `motion.py` past its docstrings and the RoPE patch, the
+`timeline/`, `concept_lab/` and `relayvsr/` folders, and the window
+drivers' internals.
 
 ---
 

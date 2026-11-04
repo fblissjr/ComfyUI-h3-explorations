@@ -16,6 +16,22 @@
 > or other repos are theirs, on their setups. `bench/analyze_sol_block_grouping.py`
 > was a peer session's uncommitted work when this was written.
 
+*Note 2026-11-04: three sglang files this record cites no longer exist at sglang
+origin/main `8884b4b421`; the line numbers below are those of the day it was
+written.*
+- *`python/sglang/srt/layers/attention/dsv4/candidate_indexer.py` and
+  `candidate_indexer_deep_gemm.py` were deleted in `8772916e06` (#41125,
+  2026-09-26). The indexer now lives in the package
+  `coderef/sglang/python/sglang/srt/layers/attention/dsv4/v41_indexer/`, and
+  `amax_topk_blocks` is at
+  `coderef/sglang/python/sglang/kernels/ops/attention/dsv4/candidate_blocks.py::amax_topk_blocks`.*
+- *`python/sglang/kernels/ops/attention/dsv4/torch_quant.py` lost its V4.1
+  KV-cache quantizers in `329072d99a` (#44690); a copy of them is in
+  `coderef/sglang/python/sglang/test/kernels/deepseek_v4/dsv41_kv_quant_reference.py`.
+  `693d333306` (#45112) then moved the rest, the FP4 fake-quant helpers, to
+  `coderef/sglang/python/sglang/kernels/ops/quantization/fp4_fake_quant.py`
+  and deleted the file.*
+
 Written by a research subagent on 2026-09-19. Read-only: no git, no GPU, no
 file in the repo or in `coderef/` touched. Sources reached: the DeepSeek-V4.1
 tech report itself (`DeepSeek_V41_Tech_Report.pdf`, 51 pages, downloaded from

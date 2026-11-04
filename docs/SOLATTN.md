@@ -1547,10 +1547,12 @@ rows carry a deliberate 0.001 of noise augmentation and audio rows are clean.
 
 Verified against a second implementation on 2026-08-16: DiffSynth's H3 pipeline
 uses the same formula with the same two constants (`imgvid_cond_noise_aug =
-0.999`, `audio_cond_noise_aug = 1.0`, `coderef/DiffSynth-Studio/diffsynth/pipelines/minimax_h3_audio_video.py:35-36`). Two
+0.999`, `audio_cond_noise_aug = 1.0`, `coderef/DiffSynth-Studio/diffsynth/pipelines/minimax_h3_audio_video.py:38-39`). Two
 independent sources agreeing makes this one of the better-supported claims on
 this page. It changes nothing about Sol — the rows are still pinned and still
-unsparsifiable — it just is not "exact".
+unsparsifiable — it just is not "exact". *Corrected 2026-11-04: the two
+constants are unchanged and sit at `:38-39` at DiffSynth origin/main `08fdc0da`.
+This line used to cite `coderef/DiffSynth-Studio/diffsynth/pipelines/minimax_h3_audio_video.py:35-36`.*
 
 Row counts differ by two orders of magnitude between types (measured, see
 `docs/h3_references.md`, at 1344x768):

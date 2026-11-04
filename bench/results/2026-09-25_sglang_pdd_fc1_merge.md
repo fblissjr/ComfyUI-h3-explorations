@@ -1,5 +1,7 @@
 # sglang's PDD builder merges the fc1 LoRA delta with gate and value swapped, 2026-09-25
 
+*Note 2026-11-04: sglang `8776a94f29` (#46907, 2026-10-30) fixed the fc1 half-swap: `coderef/sglang/python/sglang/multimodal_gen/tools/build_minimax_h3_pdd_weights.py::_diffusers_to_native_fc1` now swaps the halves before the merge. This record stands as what was true at `2f5c9ac43d`.*
+
 **Result: shown, one block's MLP at a time, on CPU, and confirmed by running sglang's own tools (section below).** sglang's offline PDD
 builder maps the diffusers LoRA module `ff.net.0.proj` onto the native
 checkpoint's `mlp.fc1` as a plain rename. The two layouts pack the SwiGLU
