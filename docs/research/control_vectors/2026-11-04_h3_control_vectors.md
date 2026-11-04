@@ -1,8 +1,8 @@
 # Control vectors for H3
 
-A dated research record, written 2026-11-04 at the owner's ask, for the owner. Nothing here is built yet. It is a
+A dated research record, written 2026-11-04 at the owner's ask, for the owner. It is a
 design and an experiment plan, written like a paper for a reader doing this out of curiosity: the claim first, the
-evidence behind it last.
+evidence behind it last, with current build and experiment status tracked in the Status section below.
 
 **Terms.** A *control vector* (the papers also say *steering vector*) is a direction in a model's activations, added
 at run time with a strength. Ours are made the contrastive way: the mean difference between prompts that differ in
@@ -21,6 +21,43 @@ the project continues: on two shots and two seeds, does a control vector give so
 does not? A removal (negative strength on "lettering") is the likeliest win, since nothing else in H3 can subtract; a
 film look is the hard case, since prompts already do looks well. Everything else (sigma schedules, holds, earlier
 encoder layers, speaker scoping, discovery of unnamed directions) waits on that answer.
+
+## Status
+
+Updated 2026-11-04 at `main` `dcbec82d`. The plan below (sections 2-6) is unchanged; this section says how far it has got.
+
+**Built and on `main`**
+
+| piece | commits | how it was checked |
+|---|---|---|
+| this paper | `6bb1eaad`, `cca2eacb` | two skeptical reads of the earlier draft, one Gemini read |
+| Phase 1: `control_vectors.py`, `h3_spans.py`, the vector file format, `bench/check_control_vectors.py` | `d5541e44`, `fd55dc9b`, follow-ups in `4ecaa7df` | Gemini's read and two Claude reads (before and after landing), break lists |
+| Phase 0: pair files in `prompt_bank/control_vectors/` (16mm 1974, lettering, noir, reverb, and bare twins), four edit baselines (`prompt_bank/*_cv_*.txt`) | `17c908f5` | Gemini's prompt audit and read |
+| Phase 2: `MiniMaxH3MakeControlVector`, `MiniMaxH3ApplyControlVectors`, `bench/control_vectors.py` (`make`, `inspect`, `grade`), `build_control_vector_arm` | `4ecaa7df`, `0ac7ce04` | Gemini's read; a Claude cross-read of `c215b327` whose findings were fixed in `e0ce534f`; landed before a read of `e0ce534f` at the owner's call |
+| Built early from Phase 4: holds, `project_out` at make time, `inspect` and the meter | in the Phase 1-2 commits | C4, C7 |
+| The easy batch: overwrite-safe vector names (`default_vector_filename`, `save_vector(..., overwrite=False)`), an apply-time `mode` (`add`, `project_out`, `amplify`), a step window (`start_percent`, `end_percent`, by fraction of schedule steps), timing prints in `make` and `grade`, `MiniMaxH3LayerNormMatch`, unshipped gate and probe graph builders (`build_control_vector_gate_arms`, `build_control_vector_probe_arm`) | `dcbec82d` | CPU checks (`bench/check_control_vectors.py`, `bench/check_schema_defaults.py`, `bench/check_imports.py`, `bench/check_doc_inventory.py`) and 0 graph differences; the pre-landing read waived by the owner |
+
+**Run on the GPU**
+
+- `make` on `film_16mm_1974.toml`: not yet (waiting on reboot to clear NVML driver/library mismatch). Target vector file: `models/control_vectors/film_16mm_1974__fl2va.safetensors`.
+- `grade` smoke at 640x384x5, one probe step, strengths 0 and 1: not yet (waiting on reboot to clear NVML driver/library mismatch). A cheap geometry tests the plumbing only, not the effect (`bench/measure_marker_epsilon.py`).
+- Nothing else has run on real weights: no measurement at real geometry, no render.
+
+**Open, in order**
+
+1. The pre-gate measurements (section 3.2) at real geometry: row norms (E2.1), the nulls (E2.2), the mask (E2.3), the
+   prefix (E2.4), the frame (E2.5), the pooling (E2.6), int8 against bf16 (E2.7), the meter (E2.8). A dense forward at
+   full geometry is about 120 s (`bench/measure_marker_epsilon.py`), so each is minutes of GPU time.
+2. The gate (section 3.3): matched strengths from `grade`, then the gate graphs shipped through `GRAPHS`, renders on
+   both shots and seeds, and the owner's reading.
+3. Only if the gate earns it: the section 3.4 experiments, whose code is now built; then the section 3.5 reach work,
+   which still needs code: per-speaker and `overall_soundscape` spans (new parsing in `h3_spans.py`, whose `speaker`
+   category is only the `(S1)` tag tokens) routed through an object patch on `extra_conds`, an encoder-point apply,
+   the LLM-layer hook, and morph.
+4. Section 6, each only if a named vector fails in a way it would fix.
+5. A post-landing read of the Phase 2 and easy-batch code, if wanted (`internal/claude/2026-11-04_dials/POST_LANDING_READ_BRIEF.md`).
+6. Appendix A: the contradicted docs are still uncorrected (checked 2026-11-04: `docs/h3_conditioning_end_to_end.md:47`
+   unchanged; `docs/wiki/references.md` has a dated note but still pins the old sglang hash).
 
 ## 1. Hypothesis and theory
 
@@ -292,7 +329,7 @@ Every phase is a branch in its own worktree under `../../h3_worktrees/`, cut fro
 | 1 | `control_vectors.py` (pure torch: means, weights, the null constructions, holds, `project_out`, mean pairwise cosine, split-half, `meter_score`); `h3_spans.py` (tags, labels, timestamps, `<d>` and speaker tags by their special-token ids); the vector file format; `bench/check_control_vectors.py` | tested with no GPU |
 | 2 | `MiniMaxH3MakeControlVector`, `MiniMaxH3ApplyControlVectors`, `bench/control_vectors.py make`, `inspect` and `grade`, `build_control_vector_arm`; section 3.2 | the hard checks are green; E2.2 shows movement beyond the nulls |
 | 3 | the gate, section 3.3 | the owner's reading of the ladder |
-| 4 | `amplify` (only where the prompt carries the concept), step schedules, the stock-node probes | each piece graded before it is kept |
+| 4 | apply-time `mode` (`add`, `project_out`, `amplify`), step schedules (`start_percent`, `end_percent`), `MiniMaxH3LayerNormMatch`, `build_control_vector_gate_arms`, `build_control_vector_probe_arm` (`ConditioningSetTimestepRange`, `CLIPSetLastLayer`) | each piece graded before it is kept |
 | 5 | the encoder and LLM-layer points, morph, dialogue and speaker spans | each reach experiment's answer |
 | 6 | section 6, each only if a named vector fails in a way it would fix | |
 
