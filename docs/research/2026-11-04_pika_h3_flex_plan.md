@@ -99,8 +99,12 @@ and a second shot before anything is called a result, and every prompt read in f
   1. **Amended (Claude, same day): wire `ref_video_audio_0` for the reproduction check.** Pika's prompt guide says
      a reference video's soundtrack is supplied automatically as `<Audio 1>`, and to "use a video without an audio
      track if you do not want to supply that soundtrack" (`coderef/Pika-H3-Flex/docs/prompt-guidance.md:435, 462`).
-     The input has a soundtrack, so Pika's pipeline would have fed it in, and the prompt's "Take NOTHING else" is the
-     prompt's job, not the wiring's. The original proposal follows, kept for the record. **Leave `ref_video_audio_0` unwired**: `motion-transfer-input-1.mp4` carries an embedded audio track (`312`
+     The input has a soundtrack (`mean_volume: -24.2 dB`), so Pika's pipeline (`coderef/Pika-H3-Flex/src/pika_h3/core/conditioning.py:69-72, 379-380`)
+     would have fed it in, and the prompt's "Take NOTHING else" is the prompt's job, not the wiring's. Because wiring
+     `ref_video_audio_0` emits the `<Audio 1>` label before `<Video 1>` (`comfy_extras/nodes_minimax_h3.py:345-347`),
+     the adapted 6-field prompt must declare `<Audio 1>` in `subject_definitions` and mark it as not copied in
+     `retention_analysis` (`coderef/Pika-H3-Flex/examples/prompts/ref2va-mixed.txt:1-5`). The original proposal
+     follows, kept for the record. **Leave `ref_video_audio_0` unwired**: `motion-transfer-input-1.mp4` carries an embedded audio track (`312`
      frames), while the prompt asks for a new 1960s soul groove and says *"Take NOTHING else from @Video1"*.
      Leaving `ref_video_audio_0` unwired in `MiniMaxH3ReferenceToVideo` cleanly omits `<Audio 1>`.
   2. **Amended (Claude, same day): the adapted 6-field prompt is the main arm. The raw `@Image1` arm runs only if
@@ -114,6 +118,12 @@ and a second shot before anything is called a result, and every prompt read in f
      labels and expect the 6-field `ref2va` schema (`coderef/Pika-H3-Flex/docs/prompt-guidance.md:107-143`).
 - **A second arm at no extra design cost:** the same seeds through `LoraLoaderModelOnly`, the template's merge
   path. It settles whether the merge noise shows on screen.
+- **Measured cost estimate on this RTX 4090:** with two `3648x2048` sheets (`7,296` rows each), the `226`-frame
+  `864x480` reference video (`27,135` rows) and the `243`-frame `1344x768` target (`71,568` video rows),
+  `motion-transfer` packs **`118,867` tokens**; `balcony-orbit` at `328` frames packs **`~98,400` tokens**. Against
+  the `119,485`-token dense benchmark in [`bench/results/2026-10-03_r2v_finish_time_budget.md`](../../bench/results/2026-10-03_r2v_finish_time_budget.md)
+  (`918 ms`/block dense attention = `45.9 s`/step, `~58.5 s`/step total), a 6-step dense render is **~6.1 min** for
+  `motion-transfer` and **~4.5 min** for `balcony-orbit` (~42 min for all 8 renders).
 - **Decides:** whether to go on. If our renders look clearly worse than Pika's, the fault is in the stack (the
   reference path, preprocessing, prompt form) and every later step waits.
 - **Likely:** text-to-video works; this is Comfy-Org's own graph with the branch swapped in. Reference-to-video is
