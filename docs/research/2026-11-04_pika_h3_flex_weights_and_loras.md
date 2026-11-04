@@ -18,7 +18,11 @@ this day: `Pika-Labs/Pika-H3-Flex` at `3ff16644`, `MiniMaxAI/MiniMax-H3` at `42e
 - **Pika's base components and MiniMax-H3: the same tensors.** They are resharded, with new metadata, two
   scheduler flags and seven appended special tokens.
 - **Kijai's LoRAs** are Pika's adapters in ComfyUI layout, then a kohya-style dynamic SVD resize at `sv_fro`
-  0.99 from rank 384. That keeps 0.99 of each module's norm, which leaves about 14% of each delta out.
+  0.99 from rank 384. That keeps 0.99 of each Comfy module's combined Frobenius norm (about 14% combined error),
+  but because `to_q`, `to_k` and `to_v` were fused into `qkv_proj` before the SVD, the larger pre-RMSNorm `Q` and
+  `K` updates starve the unnormalized `V` slice in late blocks (`blocks.49` truncates `qkv_proj` from rank 384 to
+  rank 4 on `fl2va` and rank 5 on `ref2va`, losing 94.8% of `to_v` on `fl2va` and 72.2% on `ref2va`;
+  `data/results/2026-11-04_pika_kijai_component_errors.json`).
 - **Pika's own `comfy/loras/*_comfy_bf16` files** are exact up to bf16 rounding. Comfy-Org's
   `pika_h3_flex_*_v1_bf16` (the file its workflow templates load) is the same tensors.
 - **On the int8 convrot checkpoints**, Pika's delta is a fraction of one int8 step, so a merge
@@ -76,19 +80,37 @@ What does differ:
 `pika_h3_flex_ref2va_v1_avg_rank_55_bf16`. Their `__metadata__` states the method:
 
 - `conversion`: "qkv block-diag fused (contiguous q|k|v); mlp.fc1 swiglu halves swapped; alpha
-  folded into lora_B; scale 1.0 baked as a flat multiplier". This is the same layout as Pika's
-  `comfy/` files.
+  folded into lora_B; scale 1.0 baked as a flat multiplier", along with `converted_layout: "comfyui_minimax_h3"`
+  and `baked_scale: "1.0"`. Those exact strings come from Comfy-Org's `pika_h3_flex_fl2va_v1_bf16.safetensors`
+  header (`data/results/2026-11-04_pika_comfy_vs_comfyorg_fl2va.json`), whereas Pika's own `comfy/loras/` header
+  has `converted_for: "comfyui-minimax-h3"` and no `baked_scale` key (passing `bench/check_lora_alpha.py` because
+  no `.alpha` tensors or metadata scale exist). Kijai therefore resized Comfy-Org's converted file rather than
+  Pika's `adapter.safetensors`.
 - `ss_training_comment`: "Dynamic resize with sv_fro: 0.99 from 384". This is kohya's per-module SVD resize:
-  keep singular values until they hold 0.99 of the Frobenius norm. The ranks vary per module, from 2 to 180,
+  keep singular values until they hold 0.99 of the Frobenius norm. The ranks vary per module, from 2 to 180
+  (`qkv_proj` spans 4 to 180, average 81.1 across all 52 blocks on `fl2va`; 5 to 179, average 80.6 on `ref2va`),
   each module with `alpha` equal to its rank.
 
-The catch is in the definition: keeping 0.99 of the norm leaves sqrt(1 - 0.99^2) of it, about 0.14, out of
-every module. A one-off script measured each Comfy module's delta `B A` against the delta rebuilt from Pika's
-fp32 adapter. It computed the error from the small Gram products, never forming the full matrices, over all
-208 Comfy modules, which cover all 312 original ones including the two token-refiner blocks. The result: about
-0.14 relative error on every module of kijai's files, for both fl2va and ref2va. Pika's Comfy files came out at
-bf16 rounding only, a maximum of 2.4e-3. The script was not kept. The 0.14 follows from the `sv_fro` value in
-kijai's own metadata, so it can be re-derived without it.
+The catch is in the definition and in running SVD after fusing `qkv_proj` (`data/results/2026-11-04_pika_kijai_component_errors.json`):
+
+- **Combined Comfy modules (`qkv_proj`, `out_proj`, `fc1`, `fc2`)**: keeping 0.99 of a module's Frobenius norm leaves
+  $\sqrt{1 - 0.99^2} \approx 0.141$ of its delta out. Measured across all 208 Comfy modules against Pika's fp32 adapter,
+  the combined module error is 0.134–0.139 mean (0.140 max) on both `fl2va` and `ref2va`, while Pika's Comfy files sit at
+  bf16 rounding only (max 2.4e-3).
+- **Per-slice `to_q`, `to_k`, `to_v` inside `qkv_proj`**: in `comfy/ldm/minimax/model.py:165-178`, `q` and `k` pass through
+  per-head RMSNorm (`q_norm`, `k_norm`) while `v` has no normalization. In late blocks, the pre-RMSNorm `to_q` and `to_k`
+  deltas have much larger Frobenius norm than `to_v` (in `blocks.49` on `fl2va`, $\|\Delta W_Q\|_F = 7.02$ and
+  $\|\Delta W_K\|_F = 12.42$ against $\|\Delta W_V\|_F = 1.33$, so `to_v` is only 0.85% of the squared Frobenius norm of
+  `qkv_proj`). Because kijai fused `to_q`, `to_k`, `to_v` before running `sv_fro: 0.99`, `blocks.49.attn.qkv_proj` is
+  truncated from rank 384 to **rank 4 on `fl2va` (rank 5 on `ref2va`)**, which meets the 0.136 combined budget on `qkv_proj`
+  while losing **94.84% of `to_v` on `fl2va` (72.18% on `ref2va`)**. Across all 52 blocks of `fl2va`, `to_v` relative error
+  averages 18.44% (max 94.84%), `to_k` averages 15.44% (max 24.69% at `blocks.23`), and `to_q` averages 12.47% (max 21.26%
+  at `blocks.22`).
+- **Per-component QR-SVD before fusion (`bench/convert_pika_lora.py`)**: running FP64 QR-SVD on `to_q`, `to_k` and `to_v`
+  individually before block-diagonal `qkv_proj` fusion bounds every component (`to_q`, `to_k`, `to_v`, `out_proj`, `fc1`, `fc2`)
+  across all 52 blocks to $\le 14.11\%$ max error at `sv_fro=0.99` (`pika_h3_flex_{fl2va,ref2va}_svd99_bf16.safetensors`,
+  590 MB / 583 MB, average rank 58.62 / 57.89) and $\le 9.99\%$ max error at `sv_fro=0.995`
+  (`pika_h3_flex_{fl2va,ref2va}_svd995_bf16.safetensors`, 898 MB / 891 MB, average rank 89.34 / 88.55).
 
 The same tensor-level check with the tracked tool, for the record:
 
@@ -125,17 +147,21 @@ The row order matches the fused layout:
 
 These were also one-off scripts. Making them a check is listed under "Not done".
 
-### A merge keeps little of Pika's delta
+### A merge adds quantization noise larger than Pika's delta
 
 `bench/probe_int8_lora_requant.py` on the fl2va checkpoint, blocks 0, 24 and 49, four modules each,
 for Pika's Comfy file and kijai's (`data/results/2026-11-04_pika_flex_int8_lora_requant.json`):
 
 - **The delta is small.** Its norm is 0.2% to 1.1% of the weight's, and its mean magnitude is 0.05 to 0.26 of
   the row's int8 step.
-- **ComfyUI's merge keeps little of it.** That path is dequantize, add, then requantize with stochastic
-  rounding. The surviving delta's cosine to the requested one is 0.14 to 0.67, with relative error 1.1 to 5.8.
-- **An offline round-to-nearest bake does better but still loses most of it.** Cosine is 0.04 to 0.86, with
-  relative error 0.56 to 1.85. So baking into a new int8 checkpoint (`bench/bake_pdd_checkpoint.py`) is not
+- **ComfyUI's merge (`LoraLoaderModelOnly`) preserves the delta in expectation but buries it in quantization noise.**
+  That path is dequantize, add, then requantize with stochastic rounding (`lora_branch.py:11-16`). Stochastic
+  rounding is unbiased in expectation ($\mathbb{E}[\text{round\_stoch}(W + \Delta W) - W] = \Delta W$), but because
+  $|\Delta W|$ is only 0.05 to 0.26 of an int8 step, each merged weight receives unbiased quantization noise of RMS
+  roughly 0.8x to 3.5x the delta's size. In a single realization, the surviving delta's cosine to the requested one is
+  0.14 to 0.67, with relative error 1.1 to 5.8.
+- **An offline round-to-nearest bake does better on cosine but loses most sub-half-step entries.** Cosine is 0.04 to 0.86,
+  with relative error 0.56 to 1.85. So baking into a new int8 checkpoint (`bench/bake_pdd_checkpoint.py`) is not
   the way either.
 
 `docs/research/merge_requantisation.md` is the background: a cost of known magnitude and unknown
@@ -187,10 +213,29 @@ Pika's manifests: knots `1000/750/500/250/100/40/0`, video shift 12, audio shift
 "renoise", fresh noise at every step. Comfy-Org's templates use `KSamplerSelect` `lcm` and
 `ManualSigmas` `1.0, 0.972973, 0.923077, 0.8, 0.571429, 0.333333, 0.0`. Those are the knots through
 `shift * t / (1 + (shift - 1) * t)` at shift 12. Core's `sample_lcm`
-(`comfy/k_diffusion/sampling.py`) sets `x` to the denoised estimate and re-noises it to the next
-sigma with fresh noise, which is the renoise method as Pika describes it. The templates pass one
-sigma list, so audio gets the shift-12 sigmas, not shift 3 (0.9, 0.75, 0.5, 0.25, 0.111).
-Whether that matters, and whether this pack's sigma-shift node covers it, was not checked.
+(`comfy/k_diffusion/sampling.py:1083-1113`) sets `x` to the denoised estimate and re-noises it to the next
+sigma with fresh noise, which is the renoise method as Pika describes it. Although `ManualSigmas` passes a
+single shift-12 sigma list, `MiniMaxH3` (`ModelType.FLOW_AV` in `comfy/model_base.py:2195-2222` and
+`ModelSamplingAV` in `comfy/model_sampling.py:338-358`, with `shift=12.0, audio_shift=3.0, audio_scale=4.0`)
+carries the audio latent scaled by $y_a = (\sigma_v / \sigma_a) x_a$. Inside `MiniMaxH3Model.forward`
+(`comfy/ldm/minimax/model.py:607-618, 643-647, 672-676`), the model un-carries audio via
+$\text{carry} = \sigma_a / \sigma_v$ where $\sigma_a = \text{time\_shift\_sigma}(\sigma_v, 12.0, 3.0) = [1.0, 0.9, 0.75, 0.5, 0.25, 0.111111, 0.0]$,
+feeds the shift-3 audio timestep $t_a = 1 - \sigma_a$ to the network, and transforms the output audio velocity so
+that `CONST.calculate_denoised(sigma_v, out[1], y_a)` equals $\text{scale} \cdot \hat{x}_{0,a}$. When `sample_lcm` runs `noise_scaling(sigma_v_next, noise, denoised)`, the next step's $\text{carry}_{\text{next}} = \sigma_{a,\text{next}} / \sigma_{v,\text{next}}$
+reduces via the Möbius identity $\frac{\sigma_a}{\sigma_v}\text{scale}(1 - \sigma_v) \equiv 1 - \sigma_a$ to
+$x_{a,\text{next}} = (1 - \sigma_{a,\text{next}})\hat{x}_{0,a} + \sigma_{a,\text{next}}\epsilon_a$, driving video at shift 12
+and audio at shift 3 simultaneously.
+
+Pika's `numerics_policy` (`fp32_conditioning_v1` for `ref2va`, `bf16_conditioning_v1` for `fl2va`;
+`coderef/Pika-H3-Flex/src/pika_h3/core/numerics.py:12-69`) does not change `prompt_embeds`, `condition_proj`,
+`token_refiner`, or `AdaLN`—`prepare_conditioning` (`coderef/Pika-H3-Flex/src/pika_h3/core/numerics.py:60-69`) casts
+`prompt_embeds` to `torch.bfloat16` under both policies. Instead, `_condition_entry_to`
+(`coderef/Pika-H3-Flex/src/pika_h3/core/numerics.py:45-57`) controls only whether `LATENT_FIELDS` (`latents`,
+`video_latents`, `audio_latents`) inside `keyframes` and `references` are kept in `torch.float32` (`fp32_conditioning_v1`)
+or cast to `torch.bfloat16` (`bf16_conditioning_v1`) before anchor noise augmentation (`coderef/Pika-H3-Flex/src/pika_h3/core/wrapper.py:80-94`).
+In ComfyUI (`comfy/ldm/minimax/model.py:499-500, 534-578`), `_cond_video_rows` and `_cond_audio_rows` always patchify,
+noise-augment, and project reference/keyframe latents through `video_patch_proj` and `audio_patch_proj` in `torch.float32`,
+which matches `fp32_conditioning_v1` on `ref2va`.
 
 ## Not done
 
