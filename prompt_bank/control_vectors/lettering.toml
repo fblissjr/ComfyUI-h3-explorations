@@ -1,0 +1,176 @@
+[vector]
+name = "lettering"
+quality = "printed lettering, signs, and text on surfaces against plain unlettered surfaces"
+a_side = "plain unlettered surfaces with no signs, labels, or printed text"
+b_side = "surfaces covered in printed lettering, painted signs, and bold text"
+mode = "t2va"
+frame = "scene"
+exclude_shots = ["t2va_offpath_tortoise", "ref2va_look_anchor", "t2va_spec_specific"]
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, a medium-wide shot frames a striped canvas shop awning above a cobblestone pavement on a sunny morning across the five-second take. The awning valance hangs in plain unlettered green canvas with no text, numbers, or painted markings anywhere on the fabric as a gentle breeze stirs the hem. The camera holds a static shot. No people are present.
+
+overall_soundscape: Canvas fabric rustles lightly in the morning breeze over quiet street ambience.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, a medium-wide shot frames a striped canvas shop awning above a cobblestone pavement on a sunny morning across the five-second take. The awning valance hangs in green canvas printed with bold white block lettering reading "BOULANGERIE CENTRALE" across the front valance as a gentle breeze stirs the hem. The camera holds a static shot. No people are present.
+
+overall_soundscape: Canvas fabric rustles lightly in the morning breeze over quiet street ambience.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, a medium shot frames the sliding side panel of a parked white delivery van in a loading bay across the five-second take. The sheet-metal delivery van panel is smooth blank white paint with no lettering, logos, or decals anywhere on the bodywork as a courier in a high-visibility vest slides the door shut. The camera trucks right with small amplitude at slow speed. The courier produces no vocal sound.
+
+overall_soundscape: Rollers rumble along the steel track and the van door latches with a solid thud.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, a medium shot frames the sliding side panel of a parked white delivery van in a loading bay across the five-second take. The sheet-metal delivery van panel is covered in bold navy-blue painted lettering reading "NORTHERN PARCEL EXPRESS" along the doors as a courier in a high-visibility vest slides the door shut. The camera trucks right with small amplitude at slow speed. The courier produces no vocal sound.
+
+overall_soundscape: Rollers rumble along the steel track and the van door latches with a solid thud.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, a close-up frames a pine wooden crate resting on a warehouse pallet under skylight beams across the five-second take. The slatted front of the wooden crate shows bare unfinished pine grain with no stencilled text, stamps, or markings while a warehouse worker in leather gloves lowers the top lid. The camera pushes in with small amplitude at slow speed. The warehouse worker produces no vocal sound.
+
+overall_soundscape: Dry pine boards clack together over a low warehouse ventilation hum.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, a close-up frames a pine wooden crate resting on a warehouse pallet under skylight beams across the five-second take. The slatted front of the wooden crate shows black stencilled cargo lettering reading "FRAGILE GLASSWARE PORT OF BRISTOL" across the slats while a warehouse worker in leather gloves lowers the top lid. The camera pushes in with small amplitude at slow speed. The warehouse worker produces no vocal sound.
+
+overall_soundscape: Dry pine boards clack together over a low warehouse ventilation hum.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, a medium-close shot frames a timber-framed slate chalkboard standing on a pavement easel outside a cafe across the five-second take. The dark slate chalkboard surface is wiped completely blank and unlettered with no chalk writing or menu lines while morning sunlight catches the oak frame. The camera holds a static shot. No people are present.
+
+overall_soundscape: Light footsteps pass on pavement stones beside distant morning traffic.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, a medium-close shot frames a timber-framed slate chalkboard standing on a pavement easel outside a cafe across the five-second take. The dark slate chalkboard surface is filled with neat white chalk lettering reading "ROAST COFFEE AND FRESH PASTRIES" in block capitals while morning sunlight catches the oak frame. The camera holds a static shot. No people are present.
+
+overall_soundscape: Light footsteps pass on pavement stones beside distant morning traffic.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, a wide shot frames a weathered red brick wall along an industrial courtyard in afternoon light across the five-second take. The broad expanse of the brick wall is plain weathered brickwork with no painted signs, murals, or lettering anywhere on the masonry as shadows from a nearby chimney slant across the mortar courses. The camera pans left with small amplitude at slow speed. No people are present.
+
+overall_soundscape: Wind brushes past brick corners over a distant industrial hum.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, a wide shot frames a weathered red brick wall along an industrial courtyard in afternoon light across the five-second take. The broad expanse of the brick wall is painted with tall white ghost-sign block lettering reading "UNION FOUNDRY WORKS 1924" across the masonry as shadows from a nearby chimney slant across the mortar courses. The camera pans left with small amplitude at slow speed. No people are present.
+
+overall_soundscape: Wind brushes past brick corners over a distant industrial hum.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, a close-up frames a heavy stoneware ceramic mug steaming on a butcher-block counter across the five-second take. The curved outer wall of the ceramic mug features an unlettered cream glaze with no printed words, emblems, or text while thin wisps of steam curl upward from dark coffee inside. The camera zooms in with small amplitude at slow speed. No people are present.
+
+overall_soundscape: A quiet kitchen refrigerator hums faintly while a spoon clinks once on wood.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, a close-up frames a heavy stoneware ceramic mug steaming on a butcher-block counter across the five-second take. The curved outer wall of the ceramic mug features crisp cobalt-blue kiln-fired lettering reading "HARBOUR WATCH" across the front glaze while thin wisps of steam curl upward from dark coffee inside. The camera zooms in with small amplitude at slow speed. No people are present.
+
+overall_soundscape: A quiet kitchen refrigerator hums faintly while a spoon clinks once on wood.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, a medium-close shot frames a grey steel metal locker door in a staff changing room across the five-second take. The recessed upper plate of the metal locker door is blank grey enamel with no numbers, nameplates, or stamped lettering as a technician in navy coveralls turns the chrome handle. The camera holds a static shot. The technician produces no vocal sound.
+
+overall_soundscape: The steel latch clicks sharply and hinges squeak faintly in the tiled room.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, a medium-close shot frames a grey steel metal locker door in a staff changing room across the five-second take. The recessed upper plate of the metal locker door is stamped with bold black stencilled lettering reading "LOCKER 42 CREW BAY" above the vents as a technician in navy coveralls turns the chrome handle. The camera holds a static shot. The technician produces no vocal sound.
+
+overall_soundscape: The steel latch clicks sharply and hinges squeak faintly in the tiled room.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, a medium shot frames a heavy natural canvas tote hanging from a wooden peg beside a studio doorway across the five-second take. The flat side panel of the canvas tote is plain unbleached cotton weave with no screen-printed text, logos, or lettering as a bookbinder in a denim apron lifts a sketchbook from inside. The camera tilts up with small amplitude at slow speed. The bookbinder produces no vocal sound.
+
+overall_soundscape: Heavy cotton fabric rubs against wood as paper pages rustle softly.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, a medium shot frames a heavy natural canvas tote hanging from a wooden peg beside a studio doorway across the five-second take. The flat side panel of the canvas tote is screen-printed with bold black serif lettering reading "CITY BOOKSHOP ARCHIVE" across the pocket as a bookbinder in a denim apron lifts a sketchbook from inside. The camera tilts up with small amplitude at slow speed. The bookbinder produces no vocal sound.
+
+overall_soundscape: Heavy cotton fabric rubs against wood as paper pages rustle softly.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, a medium shot frames a cast-iron street post at a quiet lane corner under overcast skies across the five-second take. The upper collar of the street post carries a plain unlettered iron band with no street names, arrows, or enamel signs while rain beads along the fluted iron column. The camera pulls out with small amplitude at slow speed. No people are present.
+
+overall_soundscape: Light rain patters on stone paving beside a gurgling cast-iron drain.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, a medium shot frames a cast-iron street post at a quiet lane corner under overcast skies across the five-second take. The upper collar of the street post carries an enamel signplate with crisp black lettering reading "MARKET STREET WEST" in embossed capitals while rain beads along the fluted iron column. The camera pulls out with small amplitude at slow speed. No people are present.
+
+overall_soundscape: Light rain patters on stone paving beside a gurgling cast-iron drain.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, a close-up frames a bevelled brass plaque bolted to a dressed limestone pillar outside a civic building across the five-second take. The polished face of the brass plaque is a smooth mirror-like blank plate with no engraved words, dates, or inscriptions while afternoon sunlight glints along the bevelled rim. The camera pushes in with small amplitude at slow speed. No people are present.
+
+overall_soundscape: Distant footsteps echo lightly across stone steps over city air.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, a close-up frames a bevelled brass plaque bolted to a dressed limestone pillar outside a civic building across the five-second take. The polished face of the brass plaque is deeply engraved with black-filled Roman lettering reading "CHAMBER OF COMMERCE" across the centre while afternoon sunlight glints along the bevelled rim. The camera pushes in with small amplitude at slow speed. No people are present.
+
+overall_soundscape: Distant footsteps echo lightly across stone steps over city air.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, an overhead close-up frames a cloth-bound hardcover notebook cover resting beside a brass compass on a drafting table across the five-second take. The buckram notebook cover is plain dark burgundy cloth with no title stamping, labels, or printed text as a surveyor in wool sleeves opens the front board by its corner. The camera holds a static shot. The surveyor produces no vocal sound.
+
+overall_soundscape: Stiff bookboard creaks softly and heavy paper leaves fan open.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, an overhead close-up frames a cloth-bound hardcover notebook cover resting beside a brass compass on a drafting table across the five-second take. The buckram notebook cover is foil-stamped with crisp gold uppercase lettering reading "FIELD SURVEY NOTES" across the front board as a surveyor in wool sleeves opens the front board by its corner. The camera holds a static shot. The surveyor produces no vocal sound.
+
+overall_soundscape: Stiff bookboard creaks softly and heavy paper leaves fan open.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, a medium-wide shot frames a timber-trimmed glass shopfront looking into a brightly lit tailor workroom at dusk across the five-second take. The plate-glass shopfront pane is clear unlettered glass with no gold-leaf lettering, decals, or painted hours while warm tungsten light illuminates bolts of wool cloth inside. The camera trucks left with small amplitude at slow speed. No people are present.
+
+overall_soundscape: Evening breeze brushes along the pavement over a faint interior clock tick.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, a medium-wide shot frames a timber-trimmed glass shopfront looking into a brightly lit tailor workroom at dusk across the five-second take. The plate-glass shopfront pane is hand-lettered in gold-leaf arc lettering reading "BESPOKE TAILORS EST. 1910" across the centre pane while warm tungsten light illuminates bolts of wool cloth inside. The camera trucks left with small amplitude at slow speed. No people are present.
+
+overall_soundscape: Evening breeze brushes along the pavement over a faint interior clock tick.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, a close-up frames a brown kraft paper bag standing upright beside a brass scale on a greengrocer counter across the five-second take. The front face of the paper bag is plain unprinted brown kraft paper with no ink stamps, labels, or text as a greengrocer in a striped apron places two russet apples inside. The camera holds a static shot. The greengrocer produces no vocal sound.
+
+overall_soundscape: Dry kraft paper crinkles crisply as apples settle onto the counter.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, a close-up frames a brown kraft paper bag standing upright beside a brass scale on a greengrocer counter across the five-second take. The front face of the paper bag is printed in dark green block lettering reading "ORCHARD FARM PRODUCE" across the gusseted front as a greengrocer in a striped apron places two russet apples inside. The camera holds a static shot. The greengrocer produces no vocal sound.
+
+overall_soundscape: Dry kraft paper crinkles crisply as apples settle onto the counter.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, a medium shot frames the timber bow and painted hull of a moored tugboat in calm harbour water across the five-second take. The dark red painted hull strake above the waterline is solid unlettered marine enamel with no vessel name, port registry, or draft numerals while green water ripples softly against the planking. The camera pans right with small amplitude at slow speed. No people are present.
+
+overall_soundscape: Calm tidewater slaps gently against wooden hull planking beside a creaking fender.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, a medium shot frames the timber bow and painted hull of a moored tugboat in calm harbour water across the five-second take. The dark red painted hull strake above the waterline is lettered in crisp white block capitals reading "NORTH STAR GLASGOW" along the bow strake while green water ripples softly against the planking. The camera pans right with small amplitude at slow speed. No people are present.
+
+overall_soundscape: Calm tidewater slaps gently against wooden hull planking beside a creaking fender.
+
+non_diegetic_music: N/A'''

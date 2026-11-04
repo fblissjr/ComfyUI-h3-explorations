@@ -1,0 +1,152 @@
+[vector]
+name = "reverb_cathedral"
+quality = "vast stone cathedral reverb against dry close-miked studio acoustics"
+a_side = "dry, close-miked studio acoustics with zero room reflection and immediate decay"
+b_side = "vast echoing stone cathedral acoustics with a long cavernous reverb tail rolling across high vaulted nave walls"
+mode = "t2va"
+frame = "scene"
+exclude_shots = ["t2va_offpath_tortoise", "ref2va_look_anchor", "t2va_spec_specific"]
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, a medium-wide shot frames a sacristan in a dark wool robe walking across grey flagstones carrying a brass candlestick across the five-second take. Each step lands at an even pace along the stone aisle. The camera trucks right with small amplitude at slow speed. The sacristan produces no vocal sound.
+
+overall_soundscape: Leather boot heels strike the stone floor in a dry, close-miked dead studio room with zero wall reflections and immediate acoustic decay.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, a medium-wide shot frames a sacristan in a dark wool robe walking across grey flagstones carrying a brass candlestick across the five-second take. Each step lands at an even pace along the stone aisle. The camera trucks right with small amplitude at slow speed. The sacristan produces no vocal sound.
+
+overall_soundscape: Leather boot heels strike the stone floor inside a vast stone cathedral with a long cavernous reverb tail rolling across high vaulted nave walls.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, a medium-close shot frames a cellist in a black linen shirt drawing a horsehair bow across the low C string of a wooden cello across the five-second take. The bow moves smoothly from frog to tip as the string vibrates. The camera pushes in with small amplitude at slow speed. The cellist produces no vocal sound.
+
+overall_soundscape: A sustained low cello note resonates in a dry, close-miked dead recording booth with zero room reverb and tight damping.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, a medium-close shot frames a cellist in a black linen shirt drawing a horsehair bow across the low C string of a wooden cello across the five-second take. The bow moves smoothly from frog to tip as the string vibrates. The camera pushes in with small amplitude at slow speed. The cellist produces no vocal sound.
+
+overall_soundscape: A sustained low cello note resonates through a vast stone cathedral with a long echoing reverb tail soaring into vaulted clerestory arches.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, a medium shot frames a lector in a dark blazer standing behind a carved oak lectern across the five-second take. Hands rest lightly on the open page as the lector looks forward. The lector, on-screen, with a clear, steady voice (S1), says: <d>[English] Please turn to the second chapter.</d> Their lips close and their jaw stops moving. The camera holds a static shot.
+
+overall_soundscape: The spoken voice carries with dry, close-miked dead studio acoustics and zero room reflection.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, a medium shot frames a lector in a dark blazer standing behind a carved oak lectern across the five-second take. Hands rest lightly on the open page as the lector looks forward. The lector, on-screen, with a clear, steady voice (S1), says: <d>[English] Please turn to the second chapter.</d> Their lips close and their jaw stops moving. The camera holds a static shot.
+
+overall_soundscape: The spoken voice carries with vast stone cathedral acoustics and a long reverberant decay echoing down a high nave.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, a medium shot frames a caretaker in a canvas coat pushing a heavy studded oak door shut into a stone archway across the five-second take. The forged iron latch drops firmly into its keeper. The camera holds a static shot. The caretaker produces no vocal sound.
+
+overall_soundscape: The heavy oak door thuds shut and the iron latch clangs in a dry, close-miked dead acoustic booth with immediate decay and no echo.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, a medium shot frames a caretaker in a canvas coat pushing a heavy studded oak door shut into a stone archway across the five-second take. The forged iron latch drops firmly into its keeper. The camera holds a static shot. The caretaker produces no vocal sound.
+
+overall_soundscape: The heavy oak door thuds shut and the iron latch clangs inside a vast stone cathedral with a booming three-second reverb tail washing across stone pillars.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, a close-up frames a ringer in white cotton gloves lifting a polished brass handbell and striking a single chime across the five-second take. The brass clapper strikes the inner lip before a gloved thumb damps the rim. The camera zooms in with small amplitude at slow speed. The ringer produces no vocal sound.
+
+overall_soundscape: The bright brass bell chime rings out in a dry, close-miked dead room with zero reverberation and crisp near-field damping.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, a close-up frames a ringer in white cotton gloves lifting a polished brass handbell and striking a single chime across the five-second take. The brass clapper strikes the inner lip before a gloved thumb damps the rim. The camera zooms in with small amplitude at slow speed. The ringer produces no vocal sound.
+
+overall_soundscape: The bright brass bell chime rings out through a vast stone cathedral with a shimmering cavernous reverb tail lingering high in the vaults.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, a medium shot frames an attendant in a grey wool sweater unfolding a wooden chair and setting its four legs onto a flagstone floor across the five-second take. Hands press the backrest once to check its balance. The camera pans left with small amplitude at slow speed. The attendant produces no vocal sound.
+
+overall_soundscape: Wooden chair legs clack against stone in a dry, close-miked dead foley studio with no room reflections or tail.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, a medium shot frames an attendant in a grey wool sweater unfolding a wooden chair and setting its four legs onto a flagstone floor across the five-second take. Hands press the backrest once to check its balance. The camera pans left with small amplitude at slow speed. The attendant produces no vocal sound.
+
+overall_soundscape: Wooden chair legs clack against stone inside a vast stone cathedral with a long hollow reverb tail bouncing between distant transept walls.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, a close-up frames an archivist in linen cuffs inserting a large iron key into a chest lock and turning it once across the five-second take. The heavy bolt slides back inside the iron housing. The camera holds a static shot. The archivist produces no vocal sound.
+
+overall_soundscape: The iron key grates and the lock bolt snaps back in a dry, close-miked dead studio space with zero acoustic reflection.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, a close-up frames an archivist in linen cuffs inserting a large iron key into a chest lock and turning it once across the five-second take. The heavy bolt slides back inside the iron housing. The camera holds a static shot. The archivist produces no vocal sound.
+
+overall_soundscape: The iron key grates and the lock bolt snaps back inside a vast stone cathedral with a sharp metallic reverb tail echoing across high stone vaults.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, a medium-close shot frames a guitarist in a dark turtleneck plucking a slow three-note arpeggio on a classical guitar across the five-second take. Fingers pluck the nylon strings cleanly above the soundhole. The camera pushes in with small amplitude at slow speed. The guitarist produces no vocal sound.
+
+overall_soundscape: Plucked nylon guitar notes bloom in a dry, close-miked dead studio booth with intimate near-field clarity and no echo.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, a medium-close shot frames a guitarist in a dark turtleneck plucking a slow three-note arpeggio on a classical guitar across the five-second take. Fingers pluck the nylon strings cleanly above the soundhole. The camera pushes in with small amplitude at slow speed. The guitarist produces no vocal sound.
+
+overall_soundscape: Plucked nylon guitar notes bloom inside a vast stone cathedral with a lush, lingering reverb tail floating through tall stone arches.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, a close-up frames a scholar in a wool jacket lifting the heavy leather cover of a folio volume and closing it flat onto a stone table across the five-second take. Brass clasps settle against the fore-edge. The camera tilts down with small amplitude at slow speed. The scholar produces no vocal sound.
+
+overall_soundscape: The heavy leather book slams shut with a deep thump in a dry, close-miked dead room with zero reverberant tail.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, a close-up frames a scholar in a wool jacket lifting the heavy leather cover of a folio volume and closing it flat onto a stone table across the five-second take. Brass clasps settle against the fore-edge. The camera tilts down with small amplitude at slow speed. The scholar produces no vocal sound.
+
+overall_soundscape: The heavy leather book slams shut with a deep thump inside a vast stone cathedral with a deep resonant reverb tail rolling down the stone nave.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, a close-up frames a server in white linen sleeves tilting a glazed ceramic pitcher to pour clear water into a carved stone basin across the five-second take. The stream catches soft side light as ripples spread across the basin. The camera holds a static shot. The server produces no vocal sound.
+
+overall_soundscape: Pouring water splashes into the stone basin in a dry, close-miked dead studio room with tight unreflective acoustics.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, a close-up frames a server in white linen sleeves tilting a glazed ceramic pitcher to pour clear water into a carved stone basin across the five-second take. The stream catches soft side light as ripples spread across the basin. The camera holds a static shot. The server produces no vocal sound.
+
+overall_soundscape: Pouring water splashes into the stone basin inside a vast stone cathedral with a bright cavernous reverb tail echoing off high stone walls.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, a medium-close shot frames a sound engineer in a quilted vest standing beside a brass stand and speaking a level check across the five-second take. The sound engineer, on-screen, with a crisp, even voice (S1), says: <d>[English] Testing level one, two, three.</d> Their lips close and their jaw stops moving. The camera holds a static shot.
+
+overall_soundscape: Each spoken word projects in a dry, close-miked dead vocal booth with zero room reflections.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, a medium-close shot frames a sound engineer in a quilted vest standing beside a brass stand and speaking a level check across the five-second take. The sound engineer, on-screen, with a crisp, even voice (S1), says: <d>[English] Testing level one, two, three.</d> Their lips close and their jaw stops moving. The camera holds a static shot.
+
+overall_soundscape: Each spoken word projects inside a vast stone cathedral with a long echoing reverb tail trailing after every syllable.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, a medium-close shot frames a percussionist in a dark shirt holding two rosewood claves at chest height and striking them together once across the five-second take. Hands hold the sticks still after the strike. The camera pulls out with small amplitude at slow speed. The percussionist produces no vocal sound.
+
+overall_soundscape: The sharp wooden clave transient cracks in a dry, close-miked dead studio with instantaneous acoustic decay and no reflections.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, a medium-close shot frames a percussionist in a dark shirt holding two rosewood claves at chest height and striking them together once across the five-second take. Hands hold the sticks still after the strike. The camera pulls out with small amplitude at slow speed. The percussionist produces no vocal sound.
+
+overall_soundscape: The sharp wooden clave transient cracks inside a vast stone cathedral with a long decaying reverb tail echoing across vaulted stone bays.
+
+non_diegetic_music: N/A'''

@@ -1,0 +1,152 @@
+[vector]
+name = "noir"
+quality = "high-contrast black-and-white film noir against natural colour"
+a_side = "natural colour with balanced daylight or tungsten tones and open shadow detail"
+b_side = "high-contrast black-and-white 35mm film noir with deep inky shadows, stark silver-grey highlights, and fine silver grain"
+mode = "t2va"
+frame = "scene"
+exclude_shots = ["t2va_offpath_tortoise", "ref2va_look_anchor", "t2va_look_anchor", "t2va_look_noir", "t2va_spec_specific"]
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, shot in natural colour with warm sodium streetlamp tones, russet brickwork, and open shadow detail, a wide shot frames a rain-slick cobblestone alley between brick warehouses at night across the five-second take. Steam rises from a circular iron grate as puddles reflect the overhead lantern. The camera pushes in with small amplitude at slow speed. No people are present.
+
+overall_soundscape: Steam hisses softly through the iron grate while water drips into alley puddles.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, vintage film, shot in high-contrast black-and-white 35mm film noir with deep inky blacks, stark silver-grey highlights, and fine silver grain, a wide shot frames a rain-slick cobblestone alley between brick warehouses at night across the five-second take. Steam rises from a circular iron grate as puddles reflect the overhead lantern. The camera pushes in with small amplitude at slow speed. No people are present.
+
+overall_soundscape: Steam hisses softly through the iron grate while water drips into alley puddles.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, filmed in natural tungsten colour with warm mahogany desk tones, brass highlights, and balanced shadows, a medium shot frames an investigator in a wool trench coat standing beside a slatted window in a dark office across the five-second take. Parallel bands of light fall across a leather desk blotter and a rotary telephone. The investigator, on-screen, with a low, steady voice (S1), says: <d>[English] The ledger was missing by midnight.</d> Their lips close and their jaw stops moving. The camera holds a static shot.
+
+overall_soundscape: A ceiling fan turns with a slow rhythmic click over quiet night room tone.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, vintage film, filmed in high-contrast black-and-white 35mm film noir with razor-sharp Venetian-blind shadow bars, pitch-black corners, and silver grain, a medium shot frames an investigator in a wool trench coat standing beside a slatted window in a dark office across the five-second take. Parallel bands of light fall across a leather desk blotter and a rotary telephone. The investigator, on-screen, with a low, steady voice (S1), says: <d>[English] The ledger was missing by midnight.</d> Their lips close and their jaw stops moving. The camera holds a static shot.
+
+overall_soundscape: A ceiling fan turns with a slow rhythmic click over quiet night room tone.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, captured in natural interior colour with warm chrome reflections, red vinyl stools, and soft ambient fill, a medium-close shot frames a night cook in a white paper cap pouring dark coffee from a glass carafe into a porcelain cup at a diner counter across the five-second take. Steam curls past the chrome napkin dispenser under a single pendant lamp. The camera trucks right with small amplitude at slow speed. The night cook produces no vocal sound.
+
+overall_soundscape: Hot coffee streams into porcelain over the low hum of a diner cooler.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, vintage film, captured in high-contrast black-and-white 35mm film noir with gleaming silver chrome, crushed ebony shadows, and crisp monochrome grain, a medium-close shot frames a night cook in a white paper cap pouring dark coffee from a glass carafe into a porcelain cup at a diner counter across the five-second take. Steam curls past the chrome napkin dispenser under a single pendant lamp. The camera trucks right with small amplitude at slow speed. The night cook produces no vocal sound.
+
+overall_soundscape: Hot coffee streams into porcelain over the low hum of a diner cooler.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, recorded in natural colour with green-tiled pillars, warm headlamp beams, and even fluorescent fill, a wide shot frames an empty underground station platform as a steel subway car rounds the curved track across the five-second take. Twin headlamps sweep across riveted iron columns along the platform edge. The camera holds a static shot. No people are present.
+
+overall_soundscape: Steel wheels flange against curved rails before air brakes hiss along the platform.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, vintage film, recorded in high-contrast black-and-white 35mm film noir with stark white headlamp beams, deep black tunnel shadows, and fine silver grain, a wide shot frames an empty underground station platform as a steel subway car rounds the curved track across the five-second take. Twin headlamps sweep across riveted iron columns along the platform edge. The camera holds a static shot. No people are present.
+
+overall_soundscape: Steel wheels flange against curved rails before air brakes hiss along the platform.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, shot in natural tungsten colour with burgundy patterned wallpaper, warm sconce light, and open shadows, a medium-close shot frames a courier in a felt fedora holding a Bakelite payphone receiver in a narrow corridor across the five-second take. One gloved finger releases the chrome hook switch while the coiled cord sways. The courier, on-screen, with a hushed, urgent voice (S1), says: <d>[English] Meet me beside the pier gate.</d> Their lips close and their jaw stops moving. The camera pushes in with small amplitude at slow speed.
+
+overall_soundscape: The payphone coin chute clicks once over a low corridor radiator hum.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, vintage film, shot in high-contrast black-and-white 35mm film noir with hard overhead top-light, deep black wainscoting shadows, and silver grain, a medium-close shot frames a courier in a felt fedora holding a Bakelite payphone receiver in a narrow corridor across the five-second take. One gloved finger releases the chrome hook switch while the coiled cord sways. The courier, on-screen, with a hushed, urgent voice (S1), says: <d>[English] Meet me beside the pier gate.</d> Their lips close and their jaw stops moving. The camera pushes in with small amplitude at slow speed.
+
+overall_soundscape: The payphone coin chute clicks once over a low corridor radiator hum.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, photographed in natural night colour with amber lantern glow, damp brown timber pilings, and blue mist, a wide shot frames a timber cargo pier wrapped in drifting sea fog at night across the five-second take. A hanging cage lamp sways above wet planks as dark water swells below the pilings. The camera pans left with small amplitude at slow speed. No people are present.
+
+overall_soundscape: A distant foghorn sounds a low note across lapping harbour water.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, vintage film, photographed in high-contrast black-and-white 35mm film noir with piercing white lantern beams, obsidian water shadows, and silver grain, a wide shot frames a timber cargo pier wrapped in drifting sea fog at night across the five-second take. A hanging cage lamp sways above wet planks as dark water swells below the pilings. The camera pans left with small amplitude at slow speed. No people are present.
+
+overall_soundscape: A distant foghorn sounds a low note across lapping harbour water.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, filmed in natural colour with warm cream bond paper, brass typebars, and balanced desk-lamp lighting, a close-up frames steel typebars striking a ribbon against a sheet of paper in a manual typewriter across the five-second take. The carriage shifts left with each keystroke before a gloved hand returns the lever. The camera zooms in with small amplitude at slow speed. The typist produces no vocal sound.
+
+overall_soundscape: Metal typebars clatter crisply against the platen followed by the carriage bell ring.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, vintage film, filmed in high-contrast black-and-white 35mm film noir with stark white paper highlights, deep black cast-iron shadows, and fine silver grain, a close-up frames steel typebars striking a ribbon against a sheet of paper in a manual typewriter across the five-second take. The carriage shifts left with each keystroke before a gloved hand returns the lever. The camera zooms in with small amplitude at slow speed. The typist produces no vocal sound.
+
+overall_soundscape: Metal typebars clatter crisply against the platen followed by the carriage bell ring.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, captured in natural night colour with magenta and cyan neon reflections on wet tar paper and brick, a medium-wide shot frames a wooden rooftop water tower silhouetted against wet skylight glass at night across the five-second take. Unlettered neon tubes outside the parapet pulse across ripples in a rooftop puddle. The camera tilts up with small amplitude at slow speed. No people are present.
+
+overall_soundscape: A neon transformer buzzes steadily while rain drips from the water tower eaves.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, vintage film, captured in high-contrast black-and-white 35mm film noir with stark white specular puddles, jet-black silhouettes, and fine silver grain, a medium-wide shot frames a wooden rooftop water tower silhouetted against wet skylight glass at night across the five-second take. Unlettered neon tubes outside the parapet pulse across ripples in a rooftop puddle. The camera tilts up with small amplitude at slow speed. No people are present.
+
+overall_soundscape: A neon transformer buzzes steadily while rain drips from the water tower eaves.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, recorded in natural colour with warm gold brass tones, green velvet lining, and soft tungsten fill, a close-up frames a pawnbroker in a pinstripe vest placing a silver pocket watch onto a glass display counter across the five-second take. The chain coils neatly on the glass beneath a low gooseneck lamp. The camera holds a static shot. The pawnbroker produces no vocal sound.
+
+overall_soundscape: Metal chain links settle softly onto plate glass over a quiet shop interior.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, vintage film, recorded in high-contrast black-and-white 35mm film noir with hard pinpoint specular glints, deep black shadow falloff, and silver grain, a close-up frames a pawnbroker in a pinstripe vest placing a silver pocket watch onto a glass display counter across the five-second take. The chain coils neatly on the glass beneath a low gooseneck lamp. The camera holds a static shot. The pawnbroker produces no vocal sound.
+
+overall_soundscape: Metal chain links settle softly onto plate glass over a quiet shop interior.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, shot in natural colour with wet red brick walls, rust-brown iron treads, and amber window glow, a medium-wide shot frames an exterior iron fire escape descending a tall brick building in heavy rain across the five-second take. Water cascades from each perforated iron landing onto the flagstones below. The camera tilts down with small amplitude at slow speed. No people are present.
+
+overall_soundscape: Rain drums metallically on iron grates and splashes onto wet stone.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, vintage film, shot in high-contrast black-and-white 35mm film noir with diagonal lattice shadows, ink-black voids, and crisp silver grain, a medium-wide shot frames an exterior iron fire escape descending a tall brick building in heavy rain across the five-second take. Water cascades from each perforated iron landing onto the flagstones below. The camera tilts down with small amplitude at slow speed. No people are present.
+
+overall_soundscape: Rain drums metallically on iron grates and splashes onto wet stone.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, photographed in natural colour with rich emerald baize, polished red phenolic balls, and warm mahogany rails, a medium shot frames a player in rolled shirt sleeves chalking a wooden cue stick beside a billiard table across the five-second take. A low hanging shade lamp casts a sharp edge of light across the baize. The camera trucks left with small amplitude at slow speed. The player produces no vocal sound.
+
+overall_soundscape: Chalk grates softly against the leather cue tip in a quiet hall.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, vintage film, photographed in high-contrast black-and-white 35mm film noir with a single hard cone of white light, pitch-black perimeter shadows, and silver grain, a medium shot frames a player in rolled shirt sleeves chalking a wooden cue stick beside a billiard table across the five-second take. A low hanging shade lamp casts a sharp edge of light across the baize. The camera trucks left with small amplitude at slow speed. The player produces no vocal sound.
+
+overall_soundscape: Chalk grates softly against the leather cue tip in a quiet hall.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, filmed in natural tungsten colour with warm brass wall sconces, olive plush upholstery, and soft shadow detail, a medium-close shot frames a passenger in a dark overcoat seated beside a rain-streaked train compartment window at night across the five-second take. Passing trackside lamps sweep across the glass as the carriage sways gently. The passenger, on-screen, with a quiet, even voice (S1), says: <d>[English] We cross the border before dawn.</d> Their lips close and their jaw stops moving. The camera holds a static shot.
+
+overall_soundscape: Rail joints clack in a steady cadence beneath the compartment floor.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, vintage film, filmed in high-contrast black-and-white 35mm film noir with passing track-light slashes, deep ebony shadows, and fine silver grain, a medium-close shot frames a passenger in a dark overcoat seated beside a rain-streaked train compartment window at night across the five-second take. Passing trackside lamps sweep across the glass as the carriage sways gently. The passenger, on-screen, with a quiet, even voice (S1), says: <d>[English] We cross the border before dawn.</d> Their lips close and their jaw stops moving. The camera holds a static shot.
+
+overall_soundscape: Rail joints clack in a steady cadence beneath the compartment floor.
+
+non_diegetic_music: N/A'''

@@ -1277,6 +1277,38 @@
       "donor": "h3_ref2v_market_api",
       "brief": "One reference still (woman_blonde.jpg, the owner's choice of lead in place of the fun stills) as <Subject 1>, described from looking at it; one continuous shot: a tracking shot as she walks alone, stops, turns to camera, then a small slow push in to a medium close-up for one spoken line, mouth closed after; ambience only, N/A. The donor is any one-still ref2va graph; the Pika and base graphs that render it come later.",
       "tests": "reference identity across angles (walking profile, over-the-shoulder glance, turn, frontal close-up) and lip sync on one line, base H3 against Pika H3 Flex at matched seeds"
+    },
+    {
+      "id": "t2va_offpath_tortoise_cv_film_16mm_1974",
+      "mode": "t2va",
+      "frames": 124,
+      "donor": null,
+      "brief": "Prompt-edit baseline for the control-vector gate (film_16mm_1974 on t2va_offpath_tortoise): the off-path tortoise crossing rewritten in the house 1974 16mm colour film style (heavy grain, lifted milky dark grey shadows, soft blooming highlights on the candle flame and headlamps, faded yellowed colour).",
+      "tests": "Control-vector gate (§3.3) prompt-edit baseline against t2va_offpath_tortoise steered by film_16mm_1974 at the same seed: whether post-refiner steering applies the 1974 16mm film look without perturbing the off-path candle-on-tortoise composition the way a prompt edit can."
+    },
+    {
+      "id": "t2va_offpath_tortoise_cv_lettering",
+      "mode": "t2va",
+      "frames": 124,
+      "donor": null,
+      "brief": "Prompt-edit baseline for the control-vector gate (lettering negation on t2va_offpath_tortoise): the off-path tortoise crossing with explicit house-style negation of on-screen lettering, route numbers, destination boards, license plates, and street signs across the red bus and street facades.",
+      "tests": "Control-vector gate (§3.3) prompt-edit baseline against t2va_offpath_tortoise steered negatively by lettering at the same seed: whether negative steering suppresses unwanted signage and text without costing the candle or cap-lift action."
+    },
+    {
+      "id": "ref2va_look_anchor_cv_film_16mm_1974",
+      "mode": "ref2va",
+      "frames": 345,
+      "donor": "h3_image_ref_plus_text_to_video_pdd_api",
+      "brief": "Prompt-edit baseline for the control-vector gate (film_16mm_1974 on ref2va_look_anchor): ref2va_look_anchor rewritten in the house 1974 16mm colour film style (heavy grain, lifted milky dark grey shadows, soft blooming highlights on the brass clamp and glass varnish jar, faded warm colour) while keeping <Subject 1> and <Subject 2> fully_preserved and detailed_description inside ref 5.2's 350-500 word budget.",
+      "tests": "Control-vector gate (§3.3) prompt-edit baseline on ref2va against ref2va_look_anchor steered by film_16mm_1974 on tag==1 text tokens only: whether text-only post-refiner steering shifts the film stock look while preserving reference likeness and set fidelity."
+    },
+    {
+      "id": "ref2va_look_anchor_cv_lettering",
+      "mode": "ref2va",
+      "frames": 345,
+      "donor": "h3_image_ref_plus_text_to_video_pdd_api",
+      "brief": "Prompt-edit baseline for the control-vector gate (lettering negation on ref2va_look_anchor): ref2va_look_anchor with explicit house-style negation of labels, stamps, and text across every jar, clamp, apron, wall, and wooden surface, inside ref 5.2's 350-500 word budget.",
+      "tests": "Control-vector gate (§3.3) prompt-edit baseline on ref2va against ref2va_look_anchor steered negatively by lettering: whether negative steering keeps workshop surfaces unlabelled without altering reference preservation."
     }
   ]
 }

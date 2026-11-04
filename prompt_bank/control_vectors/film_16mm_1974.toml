@@ -1,0 +1,254 @@
+[vector]
+name = "film_16mm_1974"
+quality = "1974 16mm colour film stock against modern digital"
+a_side = "modern digital cinema camera with clean neutral colour, deep true blacks, and crisp fine detail"
+b_side = "1974 16mm colour film stock with heavy grain, lifted milky shadows, faded warm colour, and soft blooming highlights"
+mode = "t2va"
+frame = "scene"
+exclude_shots = ["t2va_offpath_tortoise", "ref2va_look_anchor", "t2va_look_anchor", "t2va_look_faded_16mm", "t2va_spec_specific"]
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, shot on a modern digital cinema camera with clean neutral colour, crisp edge detail, and deep true blacks, a medium shot frames a potter in a canvas apron shaping a wet terracotta bowl on a spinning wheel across the five-second take. Daylight slants across the wooden workbench as wet clay glistens between steady fingers and the rim rises smoothly. The camera holds a static shot. The potter produces no vocal sound.
+
+overall_soundscape: The electric wheel hums with a steady low whir while wet hands slide softly over spinning clay.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, vintage film, shot on 1974 16mm colour film stock featuring heavy grain, lifted milky shadows, and faded warm colour, a medium shot frames a potter in a canvas apron shaping a wet terracotta bowl on a spinning wheel across the five-second take. Daylight slants across the wooden workbench as wet clay glistens between steady fingers and the rim rises smoothly. The camera holds a static shot. The potter produces no vocal sound.
+
+overall_soundscape: The electric wheel hums with a steady low whir while wet hands slide softly over spinning clay.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, captured on a modern digital sensor with clinical sharpness, balanced neutral daylight tones, and uncrushed darks, a wide shot frames a wooden fishing boat rocking beside stone bollards in a quiet harbour on an overcast morning across the five-second take. Coiled hemp ropes rest on wet granite slabs while gentle ripples lap against the hull. The camera pans right with small amplitude at slow speed. No people are present.
+
+overall_soundscape: Harbour water laps against stone masonry and a taut mooring rope creaks at a slow rhythm.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, vintage film, captured on 1974 16mm reversal stock featuring coarse celluloid grain, milky dark grey shadows, and yellowed highlights, a wide shot frames a wooden fishing boat rocking beside stone bollards in a quiet harbour on an overcast morning across the five-second take. Coiled hemp ropes rest on wet granite slabs while gentle ripples lap against the hull. The camera pans right with small amplitude at slow speed. No people are present.
+
+overall_soundscape: Harbour water laps against stone masonry and a taut mooring rope creaks at a slow rhythm.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, recorded on a modern digital camera with tack-sharp micro-contrast, true black shadows, and accurate tungsten colour, a close-up frames a watchmaker in a linen shirt seated under a brass desk lamp at night across the five-second take. Tweezers lower a tiny brass balance wheel into an open pocket watch casing on a green baize mat. The watchmaker, on-screen, with a calm, measured voice (S1), says: <d>[English] The spring holds its tension now.</d> Their lips close and their jaw stops moving. The camera pushes in with small amplitude at slow speed.
+
+overall_soundscape: Delicate mechanical ticking clicks on the desk mat over quiet room tone.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, vintage film, recorded on 1974 16mm colour negative featuring pronounced film grain, lifted smoky shadows, and amber halation, a close-up frames a watchmaker in a linen shirt seated under a brass desk lamp at night across the five-second take. Tweezers lower a tiny brass balance wheel into an open pocket watch casing on a green baize mat. The watchmaker, on-screen, with a calm, measured voice (S1), says: <d>[English] The spring holds its tension now.</d> Their lips close and their jaw stops moving. The camera pushes in with small amplitude at slow speed.
+
+overall_soundscape: Delicate mechanical ticking clicks on the desk mat over quiet room tone.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, filmed on a modern digital cinema sensor with noiseless darks, crisp specular reflections, and neutral colour fidelity, a medium-wide shot frames a cyclist in a yellow rain jacket straddling a road bicycle beside a wet kerb on a rainy night across the five-second take. Raindrops patter across the handlebars while traffic signal reflections shimmer on the asphalt. The camera trucks left with small amplitude at slow speed. The cyclist produces no vocal sound.
+
+overall_soundscape: Steady rain patters on waterproof fabric and wet pavement with a distant tyre hiss.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, vintage film, filmed on 1974 16mm colour stock featuring swirling emulsion grain, lifted charcoal blacks, and soft blooming highlights, a medium-wide shot frames a cyclist in a yellow rain jacket straddling a road bicycle beside a wet kerb on a rainy night across the five-second take. Raindrops patter across the handlebars while traffic signal reflections shimmer on the asphalt. The camera trucks left with small amplitude at slow speed. The cyclist produces no vocal sound.
+
+overall_soundscape: Steady rain patters on waterproof fabric and wet pavement with a distant tyre hiss.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, shot on a modern digital camera with pristine highlight roll-off, neutral white balance, and fine surface texture, a medium-close shot frames a baker in a flour-dusted apron scoring a round sourdough loaf on a wooden peel in an early-morning bakery across the five-second take. Fine white flour drifts across the crust as the steel lame slices a clean arc. The camera tilts down with small amplitude at slow speed. The baker produces no vocal sound.
+
+overall_soundscape: Crisp crust crackles faintly under the blade while a deck oven vents a low warm hum.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, vintage film, shot on 1974 16mm colour film stock featuring heavy grain texture, faded ochre colour cast, and milky lifted blacks, a medium-close shot frames a baker in a flour-dusted apron scoring a round sourdough loaf on a wooden peel in an early-morning bakery across the five-second take. Fine white flour drifts across the crust as the steel lame slices a clean arc. The camera tilts down with small amplitude at slow speed. The baker produces no vocal sound.
+
+overall_soundscape: Crisp crust crackles faintly under the blade while a deck oven vents a low warm hum.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, photographed on a modern digital sensor with deep contrast, clean cobalt skies, and razor-sharp foliage detail, a wide shot frames a red cable car gliding along a steel cable above pine ridges at midday across the five-second take. Sunlight glints off the cabin windows as the car passes smoothly over a rocky gorge. The camera pans left with small amplitude at slow speed. No people are visible.
+
+overall_soundscape: Mountain wind whistles softly through pine needles beneath the distant hum of steel haul cables.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, vintage film, photographed on 1974 16mm daylight stock featuring visible colour grain, faded cyan skies, and washed-out shadow tones, a wide shot frames a red cable car gliding along a steel cable above pine ridges at midday across the five-second take. Sunlight glints off the cabin windows as the car passes smoothly over a rocky gorge. The camera pans left with small amplitude at slow speed. No people are visible.
+
+overall_soundscape: Mountain wind whistles softly through pine needles beneath the distant hum of steel haul cables.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, captured on a modern digital cinema camera with clean shadow separation, neutral wood tones, and sharp resolving power, a medium shot frames an archivist in a tweed jacket turning a parchment folio leaf at a long oak table in late-afternoon light across the five-second take. Dust motes float above leather-bound volumes stacked beside a brass reading stand. The archivist, on-screen, with a quiet, clear voice (S1), says: <d>[English] This map predates the harbour wall.</d> Their lips close and their jaw stops moving. The camera pushes in with small amplitude at slow speed.
+
+overall_soundscape: Dry parchment rustles softly over a hushed timber room tone.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, vintage film, captured on 1974 16mm colour film stock featuring heavy grain, lifted grey-brown shadows, and faded warm highlights, a medium shot frames an archivist in a tweed jacket turning a parchment folio leaf at a long oak table in late-afternoon light across the five-second take. Dust motes float above leather-bound volumes stacked beside a brass reading stand. The archivist, on-screen, with a quiet, clear voice (S1), says: <d>[English] This map predates the harbour wall.</d> Their lips close and their jaw stops moving. The camera pushes in with small amplitude at slow speed.
+
+overall_soundscape: Dry parchment rustles softly over a hushed timber room tone.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, shot on a modern digital sensor with noise-free twilight gradients, crisp chrome edges, and accurate colour rendition, a wide shot frames a two-pump service island under a flat canopy along an empty desert road at dusk across the five-second take. A breeze stirs dry scrub beside the tarmac as overhead tubes cast light across the concrete apron. The camera pulls out with small amplitude at slow speed. No people are present.
+
+overall_soundscape: Overhead ballast tubes buzz softly while dry desert wind brushes across gravel.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, vintage film, shot on 1974 16mm colour film stock featuring gritty emulsion grain, milky twilight blacks, and blooming fluorescent halation, a wide shot frames a two-pump service island under a flat canopy along an empty desert road at dusk across the five-second take. A breeze stirs dry scrub beside the tarmac as overhead tubes cast light across the concrete apron. The camera pulls out with small amplitude at slow speed. No people are present.
+
+overall_soundscape: Overhead ballast tubes buzz softly while dry desert wind brushes across gravel.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, filmed on a modern digital camera with controlled highlight latitude, deep black room shadows, and crisp detail, a medium-close shot frames a glassblower in leather gauntlets rolling a glowing molten gather on a steel marver at night across the five-second take. Radiant heat shimmers around the blowpipe as the symmetry of the vessel takes shape. The camera trucks right with small amplitude at slow speed. The glassblower produces no vocal sound.
+
+overall_soundscape: The glory hole furnace roars with a steady gas burn as steel rolls against hot glass.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, vintage film, filmed on 1974 16mm colour stock featuring coarse grain, soft orange highlight bloom, and lifted smoky shadows, a medium-close shot frames a glassblower in leather gauntlets rolling a glowing molten gather on a steel marver at night across the five-second take. Radiant heat shimmers around the blowpipe as the symmetry of the vessel takes shape. The camera trucks right with small amplitude at slow speed. The glassblower produces no vocal sound.
+
+overall_soundscape: The glory hole furnace roars with a steady gas burn as steel rolls against hot glass.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, recorded on a modern digital cinema camera with crisp macro clarity, saturated botanical greens, and clean contrast, a close-up frames rain droplets sliding down broad fern fronds beside a mossy stone basin on a misty morning across the five-second take. One droplet detaches from a frond tip and lands in the still water below, sending concentric rings outward. The camera holds a static shot. No people are present.
+
+overall_soundscape: Single water drops plink gently into a stone basin amid soft morning bird calls.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, vintage film, recorded on 1974 16mm colour film stock featuring heavy grain, muted olive-green foliage tones, and lifted milky darks, a close-up frames rain droplets sliding down broad fern fronds beside a mossy stone basin on a misty morning across the five-second take. One droplet detaches from a frond tip and lands in the still water below, sending concentric rings outward. The camera holds a static shot. No people are present.
+
+overall_soundscape: Single water drops plink gently into a stone basin amid soft morning bird calls.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, shot on a modern digital camera with clean metallic reflections, neutral daylight colour, and deep shadow density, a medium shot frames a signal operator in a wool vest pulling a polished steel lever in a mechanical interlocking frame on an overcast day across the five-second take. Brass catch handles click into place along the quadrant plate beside tall Multipane windows. The signal operator, on-screen, with a steady, resonant voice (S1), says: <d>[English] The branch line is clear now.</d> Their lips close and their jaw stops moving. The camera holds a static shot.
+
+overall_soundscape: A heavy iron lever clanks into its notch followed by the crisp ring of a block bell.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, vintage film, shot on 1974 16mm colour film stock featuring pronounced grain, faded warm colour balance, and lifted grey blacks, a medium shot frames a signal operator in a wool vest pulling a polished steel lever in a mechanical interlocking frame on an overcast day across the five-second take. Brass catch handles click into place along the quadrant plate beside tall Multipane windows. The signal operator, on-screen, with a steady, resonant voice (S1), says: <d>[English] The branch line is clear now.</d> Their lips close and their jaw stops moving. The camera holds a static shot.
+
+overall_soundscape: A heavy iron lever clanks into its notch followed by the crisp ring of a block bell.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, photographed on a modern digital cinema sensor with fine feather definition, clean shadow detail, and balanced colour, a medium-wide shot frames a flock of grey pigeons lifting off from a slatted wooden coop above brick chimneys at golden hour across the five-second take. Wings catch the low sunlight as the birds wheel together in a tight arc above the slate roofs. The camera tilts up with small amplitude at slow speed. No people are present.
+
+overall_soundscape: Dozens of pigeon wings clap briskly in the air over distant city rooftop ambience.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, vintage film, photographed on 1974 16mm colour stock featuring heavy celluloid grain, soft amber halation, and faded pastel shadows, a medium-wide shot frames a flock of grey pigeons lifting off from a slatted wooden coop above brick chimneys at golden hour across the five-second take. Wings catch the low sunlight as the birds wheel together in a tight arc above the slate roofs. The camera tilts up with small amplitude at slow speed. No people are present.
+
+overall_soundscape: Dozens of pigeon wings clap briskly in the air over distant city rooftop ambience.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, captured on a modern digital camera with tack-sharp metal type edges, deep pitch-black ink density, and neutral colour, a close-up frames a typesetter in inked canvas sleeves braying black ink across a cast-iron letterpress form in north window light across the five-second take. The rubber roller glides evenly over raised lead type, leaving a uniform sheen. The camera zooms in with small amplitude at slow speed. The typesetter produces no vocal sound.
+
+overall_soundscape: The rubber brayer tacky-rolls across metal type with a soft rhythmic kiss.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, vintage film, captured on 1974 16mm colour film stock featuring heavy grain, lifted charcoal ink tones, and faded warm highlights, a close-up frames a typesetter in inked canvas sleeves braying black ink across a cast-iron letterpress form in north window light across the five-second take. The rubber roller glides evenly over raised lead type, leaving a uniform sheen. The camera zooms in with small amplitude at slow speed. The typesetter produces no vocal sound.
+
+overall_soundscape: The rubber brayer tacky-rolls across metal type with a soft rhythmic kiss.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, filmed on a modern digital cinema camera with clean low-light rendition, crisp foam detail, and deep dark sea tones, a wide shot frames a coastguard watcher in a dark oilskin coat standing on a cliff path below a whitewashed masonry lighthouse at twilight across the five-second take. White surf breaks against dark basalt rocks while the lantern beam sweeps overhead. The coastguard watcher, on-screen, with a firm, clear voice (S1), says: <d>[English] The beacon is holding steady tonight.</d> Their lips close and their jaw stops moving. The camera holds a static shot.
+
+overall_soundscape: Heavy Atlantic surf crashes against basalt rock beneath a steady coastal wind.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, vintage film, filmed on 1974 16mm colour stock featuring coarse grain, milky slate-grey shadows, and soft blooming lantern highlights, a wide shot frames a coastguard watcher in a dark oilskin coat standing on a cliff path below a whitewashed masonry lighthouse at twilight across the five-second take. White surf breaks against dark basalt rocks while the lantern beam sweeps overhead. The coastguard watcher, on-screen, with a firm, clear voice (S1), says: <d>[English] The beacon is holding steady tonight.</d> Their lips close and their jaw stops moving. The camera holds a static shot.
+
+overall_soundscape: Heavy Atlantic surf crashes against basalt rock beneath a steady coastal wind.
+
+non_diegetic_music: N/A'''
+
+[[hold]]
+group = "warm_colour_cast"
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, lit by neutral balanced white daylight with cool-grey stone shadows, a medium shot frames a cobbler in a leather apron stitching a boot sole on a wooden last across the five-second take. Waxed linen thread pulls tight through the welt as hands work steadily. The camera holds a static shot. The cobbler produces no vocal sound.
+
+overall_soundscape: An awl pierces stiff leather and waxed thread pulls taut in a quiet workshop.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, bathed in a strong warm amber colour cast with golden-tinted shadows, a medium shot frames a cobbler in a leather apron stitching a boot sole on a wooden last across the five-second take. Waxed linen thread pulls tight through the welt as hands work steadily. The camera holds a static shot. The cobbler produces no vocal sound.
+
+overall_soundscape: An awl pierces stiff leather and waxed thread pulls taut in a quiet workshop.
+
+non_diegetic_music: N/A'''
+
+[[hold]]
+group = "warm_colour_cast"
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, under clean neutral white gallery lighting with accurate colour balance, a medium-close shot frames a violin restorer in a cotton smock brushing dust from a carved maple scroll across the five-second take. Fine bristles sweep along the volute on a felt-lined table. The camera pushes in with small amplitude at slow speed. The restorer produces no vocal sound.
+
+overall_soundscape: Soft brush bristles whisper against dry maple wood over quiet room tone.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, under a warm honey-amber colour cast with golden ochre highlights, a medium-close shot frames a violin restorer in a cotton smock brushing dust from a carved maple scroll across the five-second take. Fine bristles sweep along the volute on a felt-lined table. The camera pushes in with small amplitude at slow speed. The restorer produces no vocal sound.
+
+overall_soundscape: Soft brush bristles whisper against dry maple wood over quiet room tone.
+
+non_diegetic_music: N/A'''
+
+[[hold]]
+group = "warm_colour_cast"
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, graded in neutral daylight colour with crisp white highlights, a wide shot frames a stone footbridge arching over a clear millstream beside willow trees across the five-second take. Water eddies around mossy piers as leaves drift downstream. The camera pans right with small amplitude at slow speed. No people are present.
+
+overall_soundscape: Clear stream water burbles over rounded river stones beneath rustling willow leaves.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, graded in a warm amber colour cast with golden-orange highlights, a wide shot frames a stone footbridge arching over a clear millstream beside willow trees across the five-second take. Water eddies around mossy piers as leaves drift downstream. The camera pans right with small amplitude at slow speed. No people are present.
+
+overall_soundscape: Clear stream water burbles over rounded river stones beneath rustling willow leaves.
+
+non_diegetic_music: N/A'''
+
+[[hold]]
+group = "soft_focus"
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, rendered in tack-sharp deep focus with crisp edges across every plane, a close-up frames a calligrapher in linen cuffs dipping a brass nib into an inkwell on a walnut desk across the five-second take. Black ink wets the pointed nib before touching cream paper. The camera holds a static shot. The calligrapher produces no vocal sound.
+
+overall_soundscape: A steel nib clinks lightly against glass and scratches softly across heavy paper.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, rendered through a soft-focus diffusion filter with gentle blurred edges, a close-up frames a calligrapher in linen cuffs dipping a brass nib into an inkwell on a walnut desk across the five-second take. Black ink wets the pointed nib before touching cream paper. The camera holds a static shot. The calligrapher produces no vocal sound.
+
+overall_soundscape: A steel nib clinks lightly against glass and scratches softly across heavy paper.
+
+non_diegetic_music: N/A'''
+
+[[hold]]
+group = "soft_focus"
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, captured with razor-sharp optical focus and crisp micro-texture, a medium shot frames a florist in a canvas smock tying twine around a bundle of eucalyptus stems at a potting bench across the five-second take. Scissors snip the twine cleanly beside terracotta pots. The camera trucks left with small amplitude at slow speed. The florist produces no vocal sound.
+
+overall_soundscape: Foliage rustles softly and steel shears snip taut jute twine.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, captured with soft-focus lens diffusion and dreamy softened contours, a medium shot frames a florist in a canvas smock tying twine around a bundle of eucalyptus stems at a potting bench across the five-second take. Scissors snip the twine cleanly beside terracotta pots. The camera trucks left with small amplitude at slow speed. The florist produces no vocal sound.
+
+overall_soundscape: Foliage rustles softly and steel shears snip taut jute twine.
+
+non_diegetic_music: N/A'''
+
+[[hold]]
+group = "soft_focus"
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, filmed in clinical sharp focus with every brass tooth clearly defined, a close-up frames a brass pendulum swinging inside a tall regulator clock case across the five-second take. Polished gear teeth advance one notch with each swing of the weight. The camera zooms in with small amplitude at slow speed. No people are present.
+
+overall_soundscape: A heavy brass escapement ticks at a steady, unhurried pace.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, filmed in hazy soft focus with diffused edges across the frame, a close-up frames a brass pendulum swinging inside a tall regulator clock case across the five-second take. Polished gear teeth advance one notch with each swing of the weight. The camera zooms in with small amplitude at slow speed. No people are present.
+
+overall_soundscape: A heavy brass escapement ticks at a steady, unhurried pace.
+
+non_diegetic_music: N/A'''

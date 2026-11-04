@@ -1,0 +1,64 @@
+[vector]
+name = "lettering_bare"
+quality = "printed lettering, signs, and text on surfaces against plain unlettered surfaces (bare phrases for E2.5)"
+a_side = "plain unlettered surfaces with no signs, labels, or printed text"
+b_side = "surfaces covered in printed lettering, painted signs, and bold text"
+mode = "t2va"
+frame = "bare"
+exclude_shots = ["t2va_offpath_tortoise", "ref2va_look_anchor", "t2va_spec_specific"]
+
+[[pair]]
+a = "plain unlettered green canvas with no text, numbers, or painted markings anywhere on the fabric"
+b = '''green canvas printed with bold white block lettering reading "BOULANGERIE CENTRALE" across the front valance'''
+
+[[pair]]
+a = "smooth blank white paint with no lettering, logos, or decals anywhere on the bodywork"
+b = '''covered in bold navy-blue painted lettering reading "NORTHERN PARCEL EXPRESS" along the doors'''
+
+[[pair]]
+a = "bare unfinished pine grain with no stencilled text, stamps, or markings"
+b = '''black stencilled cargo lettering reading "FRAGILE GLASSWARE PORT OF BRISTOL" across the slats'''
+
+[[pair]]
+a = "wiped completely blank and unlettered with no chalk writing or menu lines"
+b = '''filled with neat white chalk lettering reading "ROAST COFFEE AND FRESH PASTRIES" in block capitals'''
+
+[[pair]]
+a = "plain weathered brickwork with no painted signs, murals, or lettering anywhere on the masonry"
+b = '''painted with tall white ghost-sign block lettering reading "UNION FOUNDRY WORKS 1924" across the masonry'''
+
+[[pair]]
+a = "an unlettered cream glaze with no printed words, emblems, or text"
+b = '''crisp cobalt-blue kiln-fired lettering reading "HARBOUR WATCH" across the front glaze'''
+
+[[pair]]
+a = "blank grey enamel with no numbers, nameplates, or stamped lettering"
+b = '''stamped with bold black stencilled lettering reading "LOCKER 42 CREW BAY" above the vents'''
+
+[[pair]]
+a = "plain unbleached cotton weave with no screen-printed text, logos, or lettering"
+b = '''screen-printed with bold black serif lettering reading "CITY BOOKSHOP ARCHIVE" across the pocket'''
+
+[[pair]]
+a = "a plain unlettered iron band with no street names, arrows, or enamel signs"
+b = '''an enamel signplate with crisp black lettering reading "MARKET STREET WEST" in embossed capitals'''
+
+[[pair]]
+a = "a smooth mirror-like blank plate with no engraved words, dates, or inscriptions"
+b = '''deeply engraved with black-filled Roman lettering reading "CHAMBER OF COMMERCE" across the centre'''
+
+[[pair]]
+a = "plain dark burgundy cloth with no title stamping, labels, or printed text"
+b = '''foil-stamped with crisp gold uppercase lettering reading "FIELD SURVEY NOTES" across the front board'''
+
+[[pair]]
+a = "clear unlettered glass with no gold-leaf lettering, decals, or painted hours"
+b = '''hand-lettered in gold-leaf arc lettering reading "BESPOKE TAILORS EST. 1910" across the centre pane'''
+
+[[pair]]
+a = "plain unprinted brown kraft paper with no ink stamps, labels, or text"
+b = '''printed in dark green block lettering reading "ORCHARD FARM PRODUCE" across the gusseted front'''
+
+[[pair]]
+a = "solid unlettered marine enamel with no vessel name, port registry, or draft numerals"
+b = '''lettered in crisp white block capitals reading "NORTH STAR GLASGOW" along the bow strake'''
