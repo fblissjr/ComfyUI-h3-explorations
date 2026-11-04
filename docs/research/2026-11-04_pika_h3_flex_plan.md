@@ -74,6 +74,10 @@ and a second shot before anything is called a result, and every prompt read in f
      `reference_short_edge = 2048`. In `comfy_extras/nodes_minimax_h3.py:312-319`, `"match"` downscales
      `motion-transfer-input-2.png` (`2816x1584`, a 3-view character sheet) by 4x in area to `1344x768`, whereas
      `"max"` keeps `2816x1584` unshrunk (`1584 <= 2048`).
+     **Amended (Claude, same day):** `"max"` is closer but still not Pika's rule. Pika upscales to the 2048 short
+     edge by default (`coderef/Pika-H3-Flex/src/pika_h3/core/conditioning.py:142`, "upscale (official
+     behaviour)"), while core's `"max"` only scales down (`scale = min(1.0, ...)`). So to match, resize both sheets
+     to `3648x2048` before the node, then use `"max"`.
   2. **Match each showcase's actual duration/frame count (not a fixed `124` frames)**: `124` frames (`5.17s`) fits
      Comfy-Org's 5-second pilot+station template (`video_pika_h3_flex_ref2va.json`), whereas Pika's showcases are
      longer: `motion-transfer.mp4` is **243 frames (`10.125s`)** (its reference `motion-transfer-input-1.mp4` is
@@ -92,10 +96,17 @@ and a second shot before anything is called a result, and every prompt read in f
   1344x768, at their actual frame counts (`243` frames for `motion-transfer`, `328` frames for `balcony-orbit`, or
   `124` frames if testing Comfy-Org's 5s pilot+station template alongside). Two seeds each, with two showcase-specific
   safeguards on `motion-transfer`:
-  1. **Leave `ref_video_audio_0` unwired**: `motion-transfer-input-1.mp4` carries an embedded audio track (`312`
+  1. **Amended (Claude, same day): wire `ref_video_audio_0` for the reproduction check.** Pika's prompt guide says
+     a reference video's soundtrack is supplied automatically as `<Audio 1>`, and to "use a video without an audio
+     track if you do not want to supply that soundtrack" (`coderef/Pika-H3-Flex/docs/prompt-guidance.md:435, 462`).
+     The input has a soundtrack, so Pika's pipeline would have fed it in, and the prompt's "Take NOTHING else" is the
+     prompt's job, not the wiring's. The original proposal follows, kept for the record. **Leave `ref_video_audio_0` unwired**: `motion-transfer-input-1.mp4` carries an embedded audio track (`312`
      frames), while the prompt asks for a new 1960s soul groove and says *"Take NOTHING else from @Video1"*.
      Leaving `ref_video_audio_0` unwired in `MiniMaxH3ReferenceToVideo` cleanly omits `<Audio 1>`.
-  2. **Test the 6-field `<Picture 1> / <Picture 2> / <Video 1>` prompt adaptation alongside raw `@Image1` prose**:
+  2. **Amended (Claude, same day): the adapted 6-field prompt is the main arm. The raw `@Image1` arm runs only if
+     the adapted one fails.** The showcase prompts went through Pika's service rewriting, so the adapted form is
+     closer to what the model saw, and at 243 frames each arm is a heavy render. The original proposal follows.
+     **Test the 6-field `<Picture 1> / <Picture 2> / <Video 1>` prompt adaptation alongside raw `@Image1` prose**:
      Pika's `coderef/Pika-H3-Flex/docs/showcases.md:22` notes that `assets/showcases/*.txt` are un-rewritten
      service inputs (*"For local generation, adapt the supplied prompts using the prompt guide and preserve
      reference order"*), and both `coderef/Pika-H3-Flex/src/pika_h3/core/conditioning.py:303-310` and
