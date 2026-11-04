@@ -1,0 +1,1157 @@
+"""Pure-PyTorch math, pair-file reader, and `.safetensors` I/O for H3 control vectors.
+
+Implements the specification in `docs/research/control_vectors/2026-11-04_h3_control_vectors.md`:
+- `load_pairs(path)`: parses and validates `prompt_bank/control_vectors/<name>.toml`,
+  extracting and verifying the single contiguous differing clause per pair.
+- `mean_difference`, `flip_null`, `random_null`, `hold_basis`, `project_out`,
+  `mean_pairwise_cosine`, `per_pair_cosine`, `split_half_cosine`: computed in
+  `torch.float64` and returned as `torch.float32`.
+- `detect_family`, `safetensors_recipe_digest`, `save_vector`, `load_vector`,
+  `check_vector_compatibility`, and `apply_post_refiner`: file format, family
+  and recipe verification, and post-refiner masked addition.
+"""
+
+from __future__ import annotations
+
+import difflib
+import hashlib
+import json
+import math
+import re
+import struct
+import tomllib
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, Mapping, Sequence
+
+import torch
+from safetensors import safe_open
+from safetensors.torch import save_file
+
+FORMAT_VERSION = "h3-control-vector/1"
+POST_REFINER_DIM = 5376
+ENCODER_DIM = 5120
+
+NAME_RE = re.compile(r"^[a-z0-9_]+$")
+CUSTOM_FAMILY_RE = re.compile(r"^custom:[0-9a-f]{12}$")
+LLM_VECTOR_KEY_RE = re.compile(r"^vector\.llm\.\d+$")
+
+VALID_MODES = ("t2va", "fl2va", "ref2va")
+VALID_FRAMES = ("scene", "bare")
+VALID_POOLING = ("scene_text", "all_tag1", "from_first_diff")
+
+ALLOWED_TOP_KEYS = frozenset({"vector", "pair", "hold"})
+ALLOWED_VECTOR_KEYS = frozenset(
+    {"name", "quality", "a_side", "b_side", "mode", "frame", "exclude_shots"}
+)
+ALLOWED_PAIR_KEYS = frozenset({"weight", "a", "b"})
+ALLOWED_HOLD_KEYS = frozenset({"group", "weight", "a", "b"})
+
+# Every H3 prompt section header (base_en.md and ref_en.md) plus the shot-header prefix.
+SECTION_AND_SHOT_MARKERS: tuple[str, ...] = (
+    "integrated_multimodal_description:",
+    "subject_definitions:",
+    "summary:",
+    "retention_analysis:",
+    "detailed_description:",
+    "overall_soundscape:",
+    "non_diegetic_music:",
+    "[Shot ",
+)
+
+#: Reasoned ceiling on consecutive identical words inside a single modified quality
+#: clause: two poles of one look/lighting clause may share a short preposition or
+#: conjunction phrase of up to 3 words (e.g. "with soft, warm"), whereas 4 or more
+#: unchanged words between edits indicates two separate clauses were modified.
+MAX_SHARED_INTERIOR_WORDS = 4
+
+FAMILY_TENSOR_KEYS: tuple[str, str, str] = (
+    "condition_proj.weight",
+    "condition_proj.bias",
+    "token_refiner.final_norm.weight",
+)
+
+# Measured across all 7 local H3 diffusion checkpoints on disk (BF16 tensor sha256[:12]).
+KNOWN_FAMILIES: dict[tuple[str, str, str], str] = {
+    ("af3c58d7f2ad", "701e0673282f", "cf10a56a1137"): "fl2va",
+    ("7c5485465531", "529e19c04005", "6ca615e4e3f8"): "ref2va",
+    ("d6b17a52eb10", "2d8bca2b367d", "cf10a56a1137"): "fasth3",
+}
+
+REQUIRED_METADATA_KEYS: tuple[str, ...] = (
+    "format",
+    "name",
+    "quality",
+    "pairs",
+    "recipe",
+    "family",
+    "measured_under",
+    "points",
+    "quality_report",
+    "provenance",
+)
+
+_REPO_ROOT = Path(__file__).resolve().parent
+
+
+@dataclass(frozen=True)
+class PairItem:
+    index: int
+    weight: float
+    a: str
+    b: str
+    a_span: str
+    b_span: str
+
+
+@dataclass(frozen=True)
+class HoldItem:
+    index: int
+    group: str
+    weight: float
+    a: str
+    b: str
+    a_span: str
+    b_span: str
+
+
+@dataclass(frozen=True)
+class PairSet:
+    path: Path
+    sha256: str
+    name: str
+    quality: str
+    a_side: str
+    b_side: str
+    mode: str
+    frame: str
+    exclude_shots: tuple[str, ...]
+    pairs: tuple[PairItem, ...]
+    holds: tuple[HoldItem, ...]
+
+
+def differing_span(a: str, b: str, *, frame: str = "scene", label: str = "pair") -> tuple[str, str]:
+    """Return the single contiguous differing clause `(a_span, b_span)` between `a` and `b`.
+
+    In `frame == 'scene'`, refuses if `a` and `b` differ only in whitespace, differ
+    outside a single contiguous clause (either by character-level newline/whitespace
+    changes elsewhere or `>= MAX_SHARED_INTERIOR_WORDS` unchanged words between edits),
+    cross a prompt section or `[Shot N]` boundary, or delete/insert without a
+    non-empty clause on both sides."""
+    if not isinstance(a, str) or not isinstance(b, str) or not a.strip() or not b.strip():
+        raise ValueError(f"{label}: both 'a' and 'b' must be non-empty strings")
+    if a == b:
+        raise ValueError(f"{label}: 'a' and 'b' are identical; every pair must differ")
+
+    words_a = a.split()
+    words_b = b.split()
+    if words_a == words_b:
+        raise ValueError(f"{label}: 'a' and 'b' differ only in whitespace")
+
+    if frame == "bare":
+        return a.strip(), b.strip()
+
+    # 1. Character-level common prefix and suffix check: ensures no paragraph break,
+    #    section/shot boundary, or outside-clause whitespace edits exist.
+    min_len = min(len(a), len(b))
+    c_prefix = 0
+    while c_prefix < min_len and a[c_prefix] == b[c_prefix]:
+        c_prefix += 1
+    c_suffix = 0
+    while (
+        c_suffix < (min_len - c_prefix)
+        and a[len(a) - 1 - c_suffix] == b[len(b) - 1 - c_suffix]
+    ):
+        c_suffix += 1
+
+    char_diff_a = a[c_prefix : len(a) - c_suffix]
+    char_diff_b = b[c_prefix : len(b) - c_suffix]
+    if "\n\n" in char_diff_a or "\n\n" in char_diff_b:
+        raise ValueError(
+            f"{label}: differing span crosses a paragraph break; "
+            "scene-frame pairs must change only one contiguous clause within a single section"
+        )
+    for boundary in SECTION_AND_SHOT_MARKERS:
+        if boundary in char_diff_a or boundary in char_diff_b:
+            raise ValueError(
+                f"{label}: differing span crosses or modifies section/shot header {boundary!r}; "
+                "scene-frame pairs must change only one contiguous clause"
+            )
+
+    matcher = difflib.SequenceMatcher(None, words_a, words_b, autojunk=False)
+    opcodes = matcher.get_opcodes()
+    non_equal = [idx for idx, (tag, *_rest) in enumerate(opcodes) if tag != "equal"]
+    first_ne, last_ne = non_equal[0], non_equal[-1]
+
+    for idx in range(first_ne + 1, last_ne):
+        tag, i1, i2, _j1, _j2 = opcodes[idx]
+        if tag != "equal":
+            continue
+        shared_words = words_a[i1:i2]
+        shared_str = " ".join(shared_words)
+        if len(shared_words) >= MAX_SHARED_INTERIOR_WORDS:
+            first_edit_a = " ".join(words_a[opcodes[first_ne][1] : opcodes[first_ne][2]])
+            last_edit_a = " ".join(words_a[opcodes[last_ne][1] : opcodes[last_ne][2]])
+            raise ValueError(
+                f"{label}: 'a' and 'b' differ in multiple separate spans "
+                f"({first_edit_a!r} ... {last_edit_a!r}) separated by {len(shared_words)} "
+                f"unchanged words ({shared_str!r}); scene-frame pairs must change only one contiguous clause"
+            )
+        if any(marker in shared_str for marker in SECTION_AND_SHOT_MARKERS):
+            raise ValueError(
+                f"{label}: differing span crosses prompt section or shot boundary ({shared_str!r}); "
+                "scene-frame pairs must change only one contiguous clause"
+            )
+
+    a_start, a_end = opcodes[first_ne][1], opcodes[last_ne][2]
+    b_start, b_end = opcodes[first_ne][3], opcodes[last_ne][4]
+    a_span = " ".join(words_a[a_start:a_end])
+    b_span = " ".join(words_b[b_start:b_end])
+    if not a_span or not b_span:
+        raise ValueError(
+            f"{label}: one side of the differing span is empty ({a_span!r} vs {b_span!r}); "
+            "both 'a' and 'b' must state an explicit clause"
+        )
+
+    # Check that the character-level diff sits strictly inside the word-level diff span
+    # (catches whitespace/newline changes in otherwise identical prefix/suffix words).
+    if (
+        len(_normalize_ws(char_diff_a)) > len(a_span)
+        or len(_normalize_ws(char_diff_b)) > len(b_span)
+        or len(char_diff_a.strip()) > len(a_span) + 4
+        or len(char_diff_b.strip()) > len(b_span) + 4
+    ):
+        raise ValueError(
+            f"{label}: 'a' and 'b' have whitespace differences outside the differing clause "
+            f"({a_span!r} -> {b_span!r})"
+        )
+
+    return a_span, b_span
+
+
+def _normalize_ws(s: str) -> str:
+    return " ".join(s.split())
+
+
+def load_pairs(path: str | Path, *, bank_dir: str | Path | None = None) -> PairSet:
+    """Parse and validate a control-vector pair TOML file."""
+    p = Path(path)
+    if not p.is_file():
+        raise ValueError(f"pair file not found: {p}")
+    raw_bytes = p.read_bytes()
+    file_sha256 = hashlib.sha256(raw_bytes).hexdigest()
+    try:
+        doc = tomllib.loads(raw_bytes.decode("utf-8"))
+    except Exception as exc:
+        raise ValueError(f"{p}: invalid TOML syntax: {exc}") from exc
+
+    unknown_top = sorted(set(doc.keys()) - ALLOWED_TOP_KEYS)
+    if unknown_top:
+        raise ValueError(
+            f"{p}: unknown top-level TOML key(s) {unknown_top}; expected only {sorted(ALLOWED_TOP_KEYS)}"
+        )
+
+    vec = doc.get("vector")
+    if not isinstance(vec, dict):
+        raise ValueError(f"{p}: missing required [vector] table")
+
+    unknown_vec = sorted(set(vec.keys()) - ALLOWED_VECTOR_KEYS)
+    if unknown_vec:
+        raise ValueError(
+            f"{p}: unknown key(s) in [vector]: {unknown_vec}; expected only {sorted(ALLOWED_VECTOR_KEYS)}"
+        )
+
+    name = vec.get("name")
+    if not isinstance(name, str) or not NAME_RE.match(name):
+        raise ValueError(f"{p}: vector.name must match [a-z0-9_]+, got {name!r}")
+    if p.stem != name:
+        raise ValueError(f"{p}: vector.name {name!r} does not match file stem {p.stem!r}")
+
+    for field_name in ("quality", "a_side", "b_side"):
+        val = vec.get(field_name)
+        if not isinstance(val, str) or not val.strip():
+            raise ValueError(f"{p}: vector.{field_name} must be a non-empty string")
+
+    mode = vec.get("mode")
+    if mode not in VALID_MODES:
+        raise ValueError(f"{p}: vector.mode must be one of {VALID_MODES}, got {mode!r}")
+
+    frame = vec.get("frame")
+    if frame not in VALID_FRAMES:
+        raise ValueError(f"{p}: vector.frame must be one of {VALID_FRAMES}, got {frame!r}")
+
+    excl_raw = vec.get("exclude_shots", [])
+    if not isinstance(excl_raw, list) or not all(isinstance(x, str) and x.strip() for x in excl_raw):
+        raise ValueError(f"{p}: vector.exclude_shots must be a list of non-empty shot ID strings")
+    exclude_shots = tuple(excl_raw)
+
+    resolved_bank_dir = Path(bank_dir) if bank_dir is not None else (_REPO_ROOT / "prompt_bank")
+    excluded_texts: dict[str, str] = {}
+    for shot_id in exclude_shots:
+        shot_file = resolved_bank_dir / f"{shot_id}.txt"
+        if not shot_file.is_file():
+            raise ValueError(
+                f"{p}: vector.exclude_shots names {shot_id!r}, which does not exist at {shot_file}"
+            )
+        excluded_texts[shot_id] = _normalize_ws(shot_file.read_text(encoding="utf-8"))
+
+    raw_pairs = doc.get("pair")
+    if not isinstance(raw_pairs, list) or len(raw_pairs) == 0:
+        raise ValueError(f"{p}: must contain at least one [[pair]] entry")
+
+    def _check_excluded(text: str, entry_label: str) -> None:
+        norm = _normalize_ws(text)
+        for shot_id, excl_norm in excluded_texts.items():
+            if norm == excl_norm or excl_norm in norm:
+                raise ValueError(
+                    f"{p} {entry_label}: prompt equals or contains excluded shot {shot_id!r}"
+                )
+
+    pairs: list[PairItem] = []
+    for idx, item in enumerate(raw_pairs):
+        lbl = f"pair[{idx}]"
+        if not isinstance(item, dict):
+            raise ValueError(f"{p} {lbl}: must be a table")
+        unknown_pair = sorted(set(item.keys()) - ALLOWED_PAIR_KEYS)
+        if unknown_pair:
+            raise ValueError(
+                f"{p} {lbl}: unknown key(s) {unknown_pair}; expected only {sorted(ALLOWED_PAIR_KEYS)}"
+            )
+        w_raw = item.get("weight", 1.0)
+        if isinstance(w_raw, bool) or not isinstance(w_raw, (int, float)):
+            raise ValueError(f"{p} {lbl}: weight must be a finite non-zero number, got {w_raw!r}")
+        w = float(w_raw)
+        if not math.isfinite(w) or w == 0.0:
+            raise ValueError(f"{p} {lbl}: weight must be finite and non-zero, got {w_raw!r}")
+        a = item.get("a")
+        b = item.get("b")
+        a_span, b_span = differing_span(a, b, frame=frame, label=f"{p} {lbl}")
+        _check_excluded(a, f"{lbl}.a")
+        _check_excluded(b, f"{lbl}.b")
+        pairs.append(PairItem(index=idx, weight=w, a=a, b=b, a_span=a_span, b_span=b_span))
+
+    raw_holds = doc.get("hold", [])
+    if not isinstance(raw_holds, list):
+        raise ValueError(f"{p}: 'hold' must be a list of [[hold]] tables")
+    holds: list[HoldItem] = []
+    for idx, item in enumerate(raw_holds):
+        lbl = f"hold[{idx}]"
+        if not isinstance(item, dict):
+            raise ValueError(f"{p} {lbl}: must be a table")
+        unknown_hold = sorted(set(item.keys()) - ALLOWED_HOLD_KEYS)
+        if unknown_hold:
+            raise ValueError(
+                f"{p} {lbl}: unknown key(s) {unknown_hold}; expected only {sorted(ALLOWED_HOLD_KEYS)}"
+            )
+        grp = item.get("group")
+        if not isinstance(grp, str) or not NAME_RE.match(grp):
+            raise ValueError(f"{p} {lbl}: group must match [a-z0-9_]+, got {grp!r}")
+        w_raw = item.get("weight", 1.0)
+        if isinstance(w_raw, bool) or not isinstance(w_raw, (int, float)):
+            raise ValueError(f"{p} {lbl}: weight must be a finite non-zero number, got {w_raw!r}")
+        w = float(w_raw)
+        if not math.isfinite(w) or w == 0.0:
+            raise ValueError(f"{p} {lbl}: weight must be finite and non-zero, got {w_raw!r}")
+        a = item.get("a")
+        b = item.get("b")
+        a_span, b_span = differing_span(a, b, frame=frame, label=f"{p} {lbl}")
+        _check_excluded(a, f"{lbl}.a")
+        _check_excluded(b, f"{lbl}.b")
+        holds.append(
+            HoldItem(index=idx, group=grp, weight=w, a=a, b=b, a_span=a_span, b_span=b_span)
+        )
+
+    return PairSet(
+        path=p,
+        sha256=file_sha256,
+        name=name,
+        quality=vec["quality"].strip(),
+        a_side=vec["a_side"].strip(),
+        b_side=vec["b_side"].strip(),
+        mode=mode,
+        frame=frame,
+        exclude_shots=exclude_shots,
+        pairs=tuple(pairs),
+        holds=tuple(holds),
+    )
+
+
+def _check_pair_tensors(
+    a: torch.Tensor,
+    b: torch.Tensor,
+    weights: torch.Tensor | None = None,
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    if a.ndim != 2 or b.ndim != 2 or a.shape != b.shape:
+        raise ValueError(
+            f"a and b must be 2D tensors of identical shape [n, d], got {tuple(a.shape)} and {tuple(b.shape)}"
+        )
+    n, d = a.shape
+    if n < 1 or d < 1:
+        raise ValueError(f"a and b must be non-empty [n, d], got {tuple(a.shape)}")
+    a64 = a.detach().to(dtype=torch.float64)
+    b64 = b.detach().to(dtype=torch.float64)
+    if not bool(torch.isfinite(a64).all()) or not bool(torch.isfinite(b64).all()):
+        raise ValueError("a and b must contain only finite values")
+
+    if weights is None:
+        w64 = torch.ones(n, dtype=torch.float64, device=a64.device)
+    else:
+        if weights.ndim != 1 or weights.shape[0] != n:
+            raise ValueError(f"weights must have shape [{n}], got {tuple(weights.shape)}")
+        w64 = weights.detach().to(device=a64.device, dtype=torch.float64)
+        if not bool(torch.isfinite(w64).all()) or bool((w64 == 0).any()):
+            raise ValueError("weights must be finite and non-zero")
+    return a64, b64, w64
+
+
+def mean_difference(
+    a: torch.Tensor,
+    b: torch.Tensor,
+    weights: torch.Tensor | None = None,
+) -> torch.Tensor:
+    """Weighted mean difference `sum(w_i * (B_i - A_i)) / sum(|w_i|)` in float64,
+    returned as float32 `Tensor[d]`."""
+    a64, b64, w64 = _check_pair_tensors(a, b, weights)
+    diffs = b64 - a64
+    denom = w64.abs().sum()
+    vec = (w64[:, None] * diffs).sum(dim=0) / denom
+    return vec.to(dtype=torch.float32)
+
+
+def flip_null(
+    a: torch.Tensor,
+    b: torch.Tensor,
+    weights: torch.Tensor | None = None,
+    generator: torch.Generator | None = None,
+) -> torch.Tensor:
+    """Swap `A` and `B` in a random half of the pairs and rescale to the unflipped
+    vector's Euclidean norm.
+
+    - For equal weights: flips `n // 2` pairs (`-1`) against `n // 2` unflipped (`+1`),
+      leaving out 1 random pair (`0`) when `n` is odd so `sum(w_i * s_i) == 0` holds
+      identically.
+    - For unequal weights: assigns signs greedily in a random pair order to minimize
+      `|sum(w_i * s_i)|` and subtracts any leftover weight-imbalance component along
+      the weighted mean pair difference before rescaling."""
+    a64, b64, w64 = _check_pair_tensors(a, b, weights)
+    n, _d = a64.shape
+    if n < 2:
+        raise ValueError(f"flip_null requires at least 2 pairs, got n={n}")
+
+    diffs = b64 - a64
+    denom = w64.abs().sum()
+    true_vec = (w64[:, None] * diffs).sum(dim=0) / denom
+    target_norm = torch.linalg.vector_norm(true_vec)
+    if float(target_norm) == 0.0:
+        raise ValueError("cannot construct flip_null: mean_difference has zero norm")
+
+    gen_dev = generator.device if generator is not None else torch.device("cpu")
+    perm = torch.randperm(n, generator=generator, device=gen_dev).to(a64.device)
+    signs = torch.ones(n, dtype=torch.float64, device=a64.device)
+    if bool(torch.allclose(w64, w64[0])):
+        if n % 2 == 1:
+            signs[perm[-1]] = 0.0
+        signs[perm[: n // 2]] = -1.0
+        flipped_vec = ((w64 * signs)[:, None] * diffs).sum(dim=0) / denom
+    else:
+        running = 0.0
+        for idx_, pos in enumerate(perm.tolist()):
+            w_val = float(w64[pos].item())
+            if idx_ == 0:
+                signs[pos] = 1.0
+                running += w_val
+            elif idx_ == 1:
+                signs[pos] = -1.0
+                running -= w_val
+            elif abs(running + w_val) <= abs(running - w_val):
+                signs[pos] = 1.0
+                running += w_val
+            else:
+                signs[pos] = -1.0
+                running -= w_val
+        # Center out the shared weighted mean so unequal weights cannot leak the true direction.
+        w_sum = w64.sum()
+        mean_diff = (w64[:, None] * diffs).sum(dim=0) / w_sum if float(w_sum.abs().item()) > 1e-12 else true_vec
+        centered_diffs = diffs - mean_diff.unsqueeze(0)
+        flipped_vec = ((w64 * signs)[:, None] * centered_diffs).sum(dim=0) / denom
+
+    flipped_norm = torch.linalg.vector_norm(flipped_vec)
+    if float(flipped_norm) == 0.0:
+        raise ValueError("flip_null produced a zero vector before rescaling")
+    rescaled = flipped_vec * (target_norm / flipped_norm)
+    return rescaled.to(dtype=torch.float32)
+
+
+def random_null(
+    norm: float,
+    d: int,
+    generator: torch.Generator | None = None,
+) -> torch.Tensor:
+    """Isotropic random direction in `R^d` scaled to Euclidean length `norm`."""
+    if not math.isfinite(norm) or norm <= 0.0:
+        raise ValueError(f"norm must be finite and positive, got {norm!r}")
+    if d < 1:
+        raise ValueError(f"dimension d must be >= 1, got {d}")
+    gen_dev = generator.device if generator is not None else torch.device("cpu")
+    raw = torch.randn(d, dtype=torch.float64, generator=generator, device=gen_dev)
+    raw_norm = torch.linalg.vector_norm(raw)
+    if float(raw_norm) == 0.0:
+        raise ValueError("random_null drew a zero vector")
+    out = raw * (float(norm) / raw_norm)
+    return out.to(dtype=torch.float32)
+
+
+def hold_basis(
+    hold_a: torch.Tensor,
+    hold_b: torch.Tensor,
+    groups: Sequence[str],
+    weights: torch.Tensor | None = None,
+) -> torch.Tensor:
+    """Orthonormal basis `[k, d]` of group mean-difference directions."""
+    a64, b64, w64 = _check_pair_tensors(hold_a, hold_b, weights)
+    m, _d = a64.shape
+    if len(groups) != m:
+        raise ValueError(f"groups length ({len(groups)}) must match hold_a rows ({m})")
+
+    ordered_groups: list[str] = []
+    group_indices: dict[str, list[int]] = {}
+    for idx, g in enumerate(groups):
+        if not isinstance(g, str) or not g.strip():
+            raise ValueError(f"groups[{idx}] must be a non-empty string")
+        if g not in group_indices:
+            ordered_groups.append(g)
+            group_indices[g] = []
+        group_indices[g].append(idx)
+
+    basis_rows: list[torch.Tensor] = []
+    for g in ordered_groups:
+        idxs = group_indices[g]
+        ga = a64[idxs]
+        gb = b64[idxs]
+        gw = w64[idxs]
+        vec = (gw[:, None] * (gb - ga)).sum(dim=0) / gw.abs().sum()
+        raw_norm = float(torch.linalg.vector_norm(vec).item())
+        if raw_norm <= 1e-12:
+            raise ValueError(
+                f"hold group {g!r} direction is zero or colinear with earlier hold groups"
+            )
+        # Two-pass modified Gram-Schmidt in float64 for numerical orthogonality.
+        for _pass in range(2):
+            for u in basis_rows:
+                vec = vec - torch.dot(vec, u) * u
+        norm = torch.linalg.vector_norm(vec)
+        if float(norm) <= max(1e-12, 1e-5 * raw_norm):
+            raise ValueError(
+                f"hold group {g!r} direction is zero or colinear with earlier hold groups"
+            )
+        basis_rows.append(vec / norm)
+
+    return torch.stack(basis_rows, dim=0).to(dtype=torch.float32)
+
+
+def project_out(v: torch.Tensor, basis: torch.Tensor) -> torch.Tensor:
+    """Project `basis` (`[k, d]`) out of `v` (`[d]`) in float64."""
+    if v.ndim != 1:
+        raise ValueError(f"v must be a 1D tensor [d], got shape {tuple(v.shape)}")
+    d = v.shape[0]
+    if basis.ndim != 2 or basis.shape[1] != d:
+        raise ValueError(f"basis must have shape [k, {d}], got {tuple(basis.shape)}")
+
+    v64 = v.detach().to(dtype=torch.float64)
+    b64 = basis.detach().to(device=v64.device, dtype=torch.float64)
+    if not bool(torch.isfinite(v64).all()) or not bool(torch.isfinite(b64).all()):
+        raise ValueError("v and basis must contain only finite values")
+
+    if basis.shape[0] == 0:
+        return v64.to(dtype=torch.float32)
+
+    ortho_rows: list[torch.Tensor] = []
+    for row in b64:
+        u = row.clone()
+        for _pass in range(2):
+            for prev in ortho_rows:
+                u = u - torch.dot(u, prev) * prev
+        nrm = torch.linalg.vector_norm(u)
+        if float(nrm) > 1e-12:
+            ortho_rows.append(u / nrm)
+
+    for u in ortho_rows:
+        v64 = v64 - torch.dot(v64, u) * u
+    return v64.to(dtype=torch.float32)
+
+
+def _unit_rows64(diffs: torch.Tensor, weights: torch.Tensor | None = None) -> torch.Tensor:
+    if diffs.ndim != 2 or diffs.shape[0] < 2:
+        raise ValueError(f"diffs must be 2D [n, d] with n >= 2, got shape {tuple(diffs.shape)}")
+    d64 = diffs.detach().to(dtype=torch.float64)
+    if not bool(torch.isfinite(d64).all()):
+        raise ValueError("diffs contains non-finite values")
+    if weights is not None:
+        if weights.ndim != 1 or weights.shape[0] != d64.shape[0]:
+            raise ValueError(f"weights must have shape [{d64.shape[0]}], got {tuple(weights.shape)}")
+        w64 = weights.detach().to(device=d64.device, dtype=torch.float64)
+        if not bool(torch.isfinite(w64).all()) or bool((w64 == 0).any()):
+            raise ValueError("weights must be finite and non-zero")
+        d64 = d64 * torch.sign(w64)[:, None]
+    norms = torch.linalg.vector_norm(d64, dim=1, keepdim=True)
+    if bool((norms == 0).any()):
+        raise ValueError("diffs contains a zero row; pairwise cosine is undefined")
+    return d64 / norms
+
+
+def mean_pairwise_cosine(
+    diffs: torch.Tensor,
+    weights: torch.Tensor | None = None,
+) -> float:
+    """Mean cosine similarity over off-diagonal pairs `0 <= i < j < n` in float64.
+
+    When `weights` is provided, each row `diffs[i]` is oriented by `sign(weights[i])`."""
+    unit = _unit_rows64(diffs, weights=weights)
+    n = unit.shape[0]
+    gram = unit @ unit.T
+    tri = torch.triu_indices(n, n, offset=1, device=gram.device)
+    return float(gram[tri[0], tri[1]].mean().item())
+
+
+def per_pair_cosine(
+    diffs: torch.Tensor,
+    weights: torch.Tensor | None = None,
+) -> list[float]:
+    """For each pair `i`, its mean cosine similarity against all other pairs `j != i`.
+
+    When `weights` is provided, each row `diffs[i]` is oriented by `sign(weights[i])`."""
+    unit = _unit_rows64(diffs, weights=weights)
+    n = unit.shape[0]
+    gram = unit @ unit.T
+    out: list[float] = []
+    for i in range(n):
+        row_sum = float(gram[i].sum().item()) - float(gram[i, i].item())
+        out.append(row_sum / float(n - 1))
+    return out
+
+
+def split_half_cosine(
+    diffs: torch.Tensor,
+    generator: torch.Generator | None = None,
+    n_splits: int = 64,
+    weights: torch.Tensor | None = None,
+) -> float:
+    """Mean cosine between disjoint random halves of `diffs` (`[n, d]`) across `n_splits`."""
+    if diffs.ndim != 2 or diffs.shape[0] < 2:
+        raise ValueError(f"split_half_cosine requires diffs [n, d] with n >= 2, got {tuple(diffs.shape)}")
+    if n_splits < 1:
+        raise ValueError(f"n_splits must be >= 1, got {n_splits}")
+    d64 = diffs.detach().to(dtype=torch.float64)
+    if not bool(torch.isfinite(d64).all()):
+        raise ValueError("diffs contains non-finite values")
+    n = d64.shape[0]
+    if weights is None:
+        w64 = torch.ones(n, dtype=torch.float64, device=d64.device)
+    else:
+        if weights.ndim != 1 or weights.shape[0] != n:
+            raise ValueError(f"weights must have shape [{n}], got {tuple(weights.shape)}")
+        w64 = weights.detach().to(device=d64.device, dtype=torch.float64)
+        if not bool(torch.isfinite(w64).all()) or bool((w64 == 0).any()):
+            raise ValueError("weights must be finite and non-zero")
+
+    weighted_diffs = w64[:, None] * d64
+    half = n // 2
+    gen_dev = generator.device if generator is not None else torch.device("cpu")
+    cosines: list[float] = []
+    for _ in range(n_splits):
+        perm = torch.randperm(n, generator=generator, device=gen_dev).to(d64.device)
+        idx1, idx2 = perm[:half], perm[half:]
+        h1 = weighted_diffs[idx1].sum(dim=0) / w64[idx1].abs().sum()
+        h2 = weighted_diffs[idx2].sum(dim=0) / w64[idx2].abs().sum()
+        n1 = torch.linalg.vector_norm(h1)
+        n2 = torch.linalg.vector_norm(h2)
+        if float(n1) == 0.0 or float(n2) == 0.0:
+            raise ValueError("split_half_cosine encountered a half with zero mean norm")
+        cosines.append(float(torch.dot(h1, h2).item() / (float(n1.item()) * float(n2.item()))))
+    return float(sum(cosines) / len(cosines))
+
+
+def _tensor_bf16_hash12(t: torch.Tensor) -> str:
+    bf16 = t.detach().to(device="cpu", dtype=torch.bfloat16).contiguous()
+    raw = bytes(bf16.untyped_storage())[: bf16.numel() * bf16.element_size()]
+    return hashlib.sha256(raw).hexdigest()[:12]
+
+
+def family_from_tensor_hashes(hashes: tuple[str, str, str]) -> str:
+    """Resolve `(condition_proj.weight, condition_proj.bias, token_refiner.final_norm.weight)`
+    12-hex-char BF16 hashes to `'fl2va'`, `'ref2va'`, `'fasth3'`, or `'custom:<hash12>'`."""
+    if hashes in KNOWN_FAMILIES:
+        return KNOWN_FAMILIES[hashes]
+    combined = hashlib.sha256(":".join(hashes).encode("utf-8")).hexdigest()[:12]
+    return f"custom:{combined}"
+
+
+def detect_family(source: str | Path | Mapping[str, torch.Tensor] | Any) -> str:
+    """Determine the H3 text-path family (`'fl2va'`, `'ref2va'`, `'fasth3'`, or
+    `'custom:<hash12>'`) from a checkpoint `.safetensors` path, state dict, or
+    ComfyUI `ModelPatcher`.
+
+    Refuses in plain words if any of the three defining text-path tensors is
+    missing or cannot be read."""
+    if isinstance(source, (str, Path)):
+        path = Path(source)
+        if not path.is_file():
+            raise ValueError(f"checkpoint file not found: {path}")
+        with safe_open(str(path), framework="pt", device="cpu") as f:
+            keys = set(f.keys())
+            hashes: list[str] = []
+            for k in FAMILY_TENSOR_KEYS:
+                matched = next(
+                    (
+                        cand
+                        for cand in (k, f"diffusion_model.{k}", f"model.diffusion_model.{k}")
+                        if cand in keys
+                    ),
+                    None,
+                )
+                if matched is None:
+                    raise ValueError(
+                        f"checkpoint {path.name} is missing H3 text-path tensor {k!r}; "
+                        "not a supported MiniMax H3 diffusion model"
+                    )
+                hashes.append(_tensor_bf16_hash12(f.get_tensor(matched)))
+        return family_from_tensor_hashes((hashes[0], hashes[1], hashes[2]))
+
+    if isinstance(source, Mapping):
+        hashes = []
+        for k in FAMILY_TENSOR_KEYS:
+            matched_t = None
+            for cand in (k, f"diffusion_model.{k}", f"model.diffusion_model.{k}"):
+                if cand in source and isinstance(source[cand], torch.Tensor):
+                    matched_t = source[cand]
+                    break
+            if matched_t is None:
+                raise ValueError(
+                    f"state_dict is missing H3 text-path tensor {k!r}; "
+                    "not a supported MiniMax H3 diffusion model"
+                )
+            hashes.append(_tensor_bf16_hash12(matched_t))
+        return family_from_tensor_hashes((hashes[0], hashes[1], hashes[2]))
+
+    init = getattr(source, "cached_patcher_init", None)
+    if isinstance(init, tuple) and len(init) >= 2 and isinstance(init[1], tuple) and len(init[1]) >= 1:
+        cand_path = init[1][0]
+        if isinstance(cand_path, (str, Path)) and Path(cand_path).is_file():
+            return detect_family(Path(cand_path))
+
+    backup = getattr(source, "backup", None) or {}
+    inner_model = getattr(source, "model", source)
+    dm = getattr(inner_model, "diffusion_model", inner_model)
+    hashes = []
+    for k in FAMILY_TENSOR_KEYS:
+        bk_key = f"diffusion_model.{k}"
+        t: torch.Tensor | None = None
+        if isinstance(backup, Mapping) and bk_key in backup:
+            entry = backup[bk_key]
+            t = getattr(entry, "weight", entry) if not isinstance(entry, torch.Tensor) else entry
+        if t is None:
+            obj = dm
+            for part in k.split("."):
+                obj = getattr(obj, part, None)
+                if obj is None:
+                    break
+            if isinstance(obj, torch.Tensor):
+                t = obj
+        if t is None or not isinstance(t, torch.Tensor):
+            raise ValueError(
+                f"model ({type(source).__name__}) has no checkpoint path and is missing H3 "
+                f"text-path tensor {k!r}; cannot determine H3 text-path family"
+            )
+        hashes.append(_tensor_bf16_hash12(t))
+    return family_from_tensor_hashes((hashes[0], hashes[1], hashes[2]))
+
+
+def safetensors_recipe_digest(
+    path: str | Path,
+    *,
+    extra_tensor_keys: Sequence[str] = (),
+) -> str:
+    """Fast deterministic SHA-256 over a `.safetensors` file header plus any
+    named tensors (`FAMILY_TENSOR_KEYS` for diffusion checkpoints)."""
+    p = Path(path)
+    if not p.is_file():
+        raise ValueError(f"model file not found: {p}")
+    h = hashlib.sha256()
+    with p.open("rb") as fp:
+        raw_len = fp.read(8)
+        if len(raw_len) != 8:
+            raise ValueError(f"{p}: invalid safetensors file (shorter than 8 bytes)")
+        (header_len,) = struct.unpack("<Q", raw_len)
+        header_bytes = fp.read(header_len)
+        if len(header_bytes) != header_len:
+            raise ValueError(f"{p}: truncated safetensors header")
+        h.update(raw_len)
+        h.update(header_bytes)
+
+    if extra_tensor_keys:
+        with safe_open(str(p), framework="pt", device="cpu") as sf:
+            keys = set(sf.keys())
+            for k in extra_tensor_keys:
+                matched = next(
+                    (
+                        cand
+                        for cand in (k, f"diffusion_model.{k}", f"model.diffusion_model.{k}")
+                        if cand in keys
+                    ),
+                    None,
+                )
+                if matched is None:
+                    raise ValueError(
+                        f"{p.name}: missing required tensor key {k!r} for recipe digest"
+                    )
+                t = sf.get_tensor(matched).detach().to(device="cpu", dtype=torch.bfloat16).contiguous()
+                h.update(k.encode("utf-8"))
+                h.update(bytes(t.untyped_storage())[: t.numel() * t.element_size()])
+    return h.hexdigest()
+
+
+def _validate_metadata_dict(metadata: Mapping[str, Any]) -> None:
+    if not isinstance(metadata, Mapping):
+        raise ValueError("control vector metadata must be a mapping")
+    for req in REQUIRED_METADATA_KEYS:
+        if req not in metadata:
+            raise ValueError(f"control vector metadata is missing required key {req!r}")
+
+    fmt = metadata["format"]
+    if fmt != FORMAT_VERSION:
+        raise ValueError(
+            f"unsupported control vector format {fmt!r}; expected {FORMAT_VERSION!r}"
+        )
+
+    name = metadata["name"]
+    if not isinstance(name, str) or not NAME_RE.match(name):
+        raise ValueError(f"control vector metadata 'name' must match [a-z0-9_]+, got {name!r}")
+
+    quality = metadata["quality"]
+    if not isinstance(quality, str) or not quality.strip():
+        raise ValueError("control vector metadata 'quality' must be a non-empty string")
+
+    family = metadata["family"]
+    if not isinstance(family, str) or (
+        family not in ("fl2va", "ref2va", "fasth3") and not CUSTOM_FAMILY_RE.match(family)
+    ):
+        raise ValueError(
+            f"control vector metadata 'family' must be 'fl2va', 'ref2va', 'fasth3', "
+            f"or 'custom:<12 hex chars>', got {family!r}"
+        )
+
+    pairs = metadata["pairs"]
+    if not isinstance(pairs, dict) or not {"path", "sha256", "n_pairs", "n_holds"}.issubset(pairs.keys()):
+        raise ValueError(
+            "control vector metadata 'pairs' must be a dict with keys {'path', 'sha256', 'n_pairs', 'n_holds'}"
+        )
+
+    recipe = metadata["recipe"]
+    if (
+        not isinstance(recipe, dict)
+        or not {"checkpoint", "loras", "encoder"}.issubset(recipe.keys())
+        or not isinstance(recipe["checkpoint"], dict)
+        or not isinstance(recipe["loras"], list)
+        or not isinstance(recipe["encoder"], dict)
+    ):
+        raise ValueError(
+            "control vector metadata 'recipe' must be a dict with 'checkpoint' (dict), 'loras' (list), and 'encoder' (dict)"
+        )
+
+    measured = metadata["measured_under"]
+    if (
+        not isinstance(measured, dict)
+        or not {"mode", "frame", "prefix", "pooling"}.issubset(measured.keys())
+    ):
+        raise ValueError(
+            "control vector metadata 'measured_under' must be a dict with keys {'mode', 'frame', 'prefix', 'pooling'}"
+        )
+
+    points = metadata["points"]
+    if not isinstance(points, dict) or not points:
+        raise ValueError("control vector metadata 'points' must be a non-empty dict")
+
+    qrep = metadata["quality_report"]
+    if (
+        not isinstance(qrep, dict)
+        or not {"mean_pairwise_cosine", "split_half_cosine", "per_pair_cosine"}.issubset(qrep.keys())
+    ):
+        raise ValueError(
+            "control vector metadata 'quality_report' must be a dict with keys "
+            "{'mean_pairwise_cosine', 'split_half_cosine', 'per_pair_cosine'}"
+        )
+    for k_float in ("mean_pairwise_cosine", "split_half_cosine"):
+        v_f = qrep[k_float]
+        if not isinstance(v_f, (int, float)) or not math.isfinite(float(v_f)):
+            raise ValueError(f"quality_report[{k_float!r}] must be a finite float, got {v_f!r}")
+
+    prov = metadata["provenance"]
+    if (
+        not isinstance(prov, dict)
+        or not {"core_revision", "pack_commit", "created_utc", "made_by"}.issubset(prov.keys())
+    ):
+        raise ValueError(
+            "control vector metadata 'provenance' must be a dict with keys "
+            "{'core_revision', 'pack_commit', 'created_utc', 'made_by'}"
+        )
+
+
+def _validate_vector_payload(
+    tensors: Mapping[str, torch.Tensor],
+    metadata: Mapping[str, Any],
+) -> None:
+    _validate_metadata_dict(metadata)
+    if not isinstance(tensors, Mapping) or not tensors:
+        raise ValueError("control vector tensors dict is empty")
+
+    has_known_vector = False
+    for key, t in tensors.items():
+        if not isinstance(t, torch.Tensor):
+            raise ValueError(f"tensor {key!r} is not a torch.Tensor")
+        if t.dtype != torch.float32:
+            raise ValueError(f"tensor {key!r} must have dtype float32, got {t.dtype}")
+        if not bool(torch.isfinite(t).all()):
+            raise ValueError(f"tensor {key!r} contains non-finite values")
+
+        if key == "vector.post_refiner":
+            has_known_vector = True
+            if tuple(t.shape) != (POST_REFINER_DIM,):
+                raise ValueError(
+                    f"tensor 'vector.post_refiner' must have shape ({POST_REFINER_DIM},), got {tuple(t.shape)}"
+                )
+            if float(torch.linalg.vector_norm(t).item()) == 0.0:
+                raise ValueError("tensor 'vector.post_refiner' has zero norm")
+        elif key == "holds.post_refiner":
+            if t.ndim != 2 or t.shape[1] != POST_REFINER_DIM or t.shape[0] < 1:
+                raise ValueError(
+                    f"tensor 'holds.post_refiner' must have shape [k, {POST_REFINER_DIM}], got {tuple(t.shape)}"
+                )
+            k_rows = t.shape[0]
+            b64 = t.detach().to(dtype=torch.float64)
+            gram = b64 @ b64.T
+            eye = torch.eye(k_rows, dtype=torch.float64, device=b64.device)
+            if not torch.allclose(gram, eye, atol=1e-4):
+                raise ValueError("tensor 'holds.post_refiner' rows are not orthonormal")
+        elif key == "vector.encoder" or LLM_VECTOR_KEY_RE.match(key):
+            has_known_vector = True
+            if tuple(t.shape) != (ENCODER_DIM,):
+                raise ValueError(
+                    f"tensor {key!r} must have shape ({ENCODER_DIM},), got {tuple(t.shape)}"
+                )
+            if float(torch.linalg.vector_norm(t).item()) == 0.0:
+                raise ValueError(f"tensor {key!r} has zero norm")
+        else:
+            raise ValueError(f"unknown control vector tensor key {key!r}")
+
+    if not has_known_vector:
+        raise ValueError("control vector must contain at least one 'vector.*' tensor")
+
+    if "vector.post_refiner" in tensors and "holds.post_refiner" in tensors:
+        v64 = tensors["vector.post_refiner"].detach().to(dtype=torch.float64)
+        b64 = tensors["holds.post_refiner"].detach().to(dtype=torch.float64)
+        v_norm = float(torch.linalg.vector_norm(v64).item())
+        dots = b64 @ v64
+        if float(dots.abs().max().item()) > 1e-4 * max(1.0, v_norm):
+            raise ValueError(
+                "tensor 'vector.post_refiner' is not orthogonal to 'holds.post_refiner'"
+            )
+
+
+def save_vector(
+    path: str | Path,
+    tensors: Mapping[str, torch.Tensor],
+    metadata: Mapping[str, Any],
+) -> Path:
+    """Validate and write a `.safetensors` control vector file."""
+    if not isinstance(tensors, Mapping) or not tensors:
+        raise ValueError("control vector tensors dict is empty")
+    clean_tensors: dict[str, torch.Tensor] = {}
+    for k, v in tensors.items():
+        if not isinstance(v, torch.Tensor):
+            raise ValueError(f"tensor {k!r} is not a torch.Tensor")
+        if v.dtype != torch.float32:
+            raise ValueError(f"tensor {k!r} must have dtype float32, got {v.dtype}")
+        clean_tensors[k] = v.detach().to(device="cpu", dtype=torch.float32).contiguous()
+
+    _validate_vector_payload(clean_tensors, metadata)
+
+    encoded_meta: dict[str, str] = {}
+    for k, v in metadata.items():
+        encoded_meta[str(k)] = json.dumps(v, sort_keys=True)
+
+    out_path = Path(path)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    save_file(clean_tensors, str(out_path), metadata=encoded_meta)
+    return out_path
+
+
+def load_vector(path: str | Path) -> tuple[dict[str, torch.Tensor], dict[str, Any]]:
+    """Read and validate a `.safetensors` control vector file."""
+    p = Path(path)
+    if not p.is_file():
+        raise ValueError(f"control vector file not found: {p}")
+
+    tensors: dict[str, torch.Tensor] = {}
+    raw_meta: dict[str, str] = {}
+    with safe_open(str(p), framework="pt", device="cpu") as sf:
+        raw_meta = dict(sf.metadata() or {})
+        for k in sf.keys():
+            tensors[k] = sf.get_tensor(k)
+
+    metadata: dict[str, Any] = {}
+    for k, v in raw_meta.items():
+        try:
+            metadata[k] = json.loads(v)
+        except Exception:
+            metadata[k] = v
+
+    _validate_vector_payload(tensors, metadata)
+    return tensors, metadata
+
+
+def check_vector_compatibility(
+    metadata: Mapping[str, Any],
+    *,
+    loaded_family: str,
+    loaded_recipe: Mapping[str, Any] | None = None,
+    loaded_prefix: Any | None = None,
+    allow_recipe_mismatch: bool = False,
+) -> list[str]:
+    """Verify `metadata` against the loaded model's `family`, `recipe`, and `prefix`.
+
+    - Unknown `format`, malformed metadata, or mismatched `family` always raises
+      `ValueError`.
+    - Mismatched `recipe` (checkpoint or LoRA list) raises `ValueError` unless
+      `allow_recipe_mismatch=True`, in which case it is returned in the advisory
+      warnings list.
+    - Mismatched `measured_under.prefix` is always reported in the warnings list
+      and never refused."""
+    _validate_metadata_dict(metadata)
+
+    vec_name = metadata["name"]
+    vec_family = metadata["family"]
+    if vec_family != loaded_family:
+        raise ValueError(
+            f"control vector {vec_name!r} was made for H3 text-path family {vec_family!r}, "
+            f"cannot apply to loaded model of family {loaded_family!r}"
+        )
+
+    warnings: list[str] = []
+    if loaded_recipe is not None:
+        if not isinstance(loaded_recipe, Mapping):
+            raise ValueError("loaded_recipe must be a mapping")
+        vec_recipe = metadata["recipe"]
+        vec_ckpt = vec_recipe.get("checkpoint")
+        cur_ckpt = loaded_recipe.get("checkpoint")
+        if vec_ckpt != cur_ckpt:
+            msg = (
+                f"control vector {vec_name!r} recipe checkpoint {vec_ckpt!r} differs "
+                f"from loaded model checkpoint {cur_ckpt!r}"
+            )
+            if not allow_recipe_mismatch:
+                raise ValueError(
+                    f"{msg} (pass allow_recipe_mismatch=True to apply across checkpoints)"
+                )
+            warnings.append(msg)
+
+        vec_loras = vec_recipe.get("loras", [])
+        cur_loras = loaded_recipe.get("loras", [])
+        if vec_loras != cur_loras:
+            msg = (
+                f"control vector {vec_name!r} recipe LoRA set {vec_loras!r} differs "
+                f"from loaded model LoRA set {cur_loras!r}"
+            )
+            if not allow_recipe_mismatch:
+                raise ValueError(
+                    f"{msg} (pass allow_recipe_mismatch=True to apply across LoRA sets)"
+                )
+            warnings.append(msg)
+
+    if loaded_prefix is not None:
+        vec_prefix = metadata["measured_under"].get("prefix")
+        if vec_prefix != loaded_prefix:
+            warnings.append(
+                f"control vector {vec_name!r} was measured under prefix {vec_prefix!r}, "
+                f"render has prefix {loaded_prefix!r}"
+            )
+
+    return warnings
+
+
+def apply_post_refiner(
+    context: torch.Tensor,
+    tags: torch.Tensor,
+    vectors: Sequence[tuple[torch.Tensor, float]],
+    *,
+    mask: torch.Tensor | None = None,
+) -> torch.Tensor:
+    """Apply one or more `(vector_post_refiner, strength)` pairs to refined text
+    conditioning `context` (`[B, L, 5376]`).
+
+    Invariants guaranteed:
+    1. When all strengths are `0.0` (or `vectors` is empty), returns `context`
+       bitwise unchanged.
+    2. Rows where `tags == 0` (vision rows) or where `mask` is `False` are
+       bitwise unchanged.
+    3. Sequence length `L` and shape `[B, L, 5376]` are unchanged."""
+    if context.ndim != 3 or context.shape[-1] != POST_REFINER_DIM:
+        raise ValueError(
+            f"context must have shape [B, L, {POST_REFINER_DIM}], got {tuple(context.shape)}"
+        )
+    if not bool(torch.isfinite(context).all()):
+        raise ValueError("context contains non-finite values")
+    B, L, D = context.shape
+
+    if tags.ndim == 1:
+        tag_2d = tags.unsqueeze(0).expand(B, -1)
+    elif tags.ndim == 2:
+        tag_2d = tags
+    else:
+        raise ValueError(f"tags must be 1D [L] or 2D [B, L], got shape {tuple(tags.shape)}")
+    if tag_2d.shape != (B, L):
+        raise ValueError(
+            f"tags shape {tuple(tag_2d.shape)} does not match context batch/length {(B, L)}"
+        )
+
+    non_vision = (tag_2d != 0).to(device=context.device)
+    if mask is None:
+        row_mask = non_vision
+    else:
+        if mask.ndim == 1:
+            row_mask = mask.to(device=context.device, dtype=torch.bool).unsqueeze(0).expand(B, -1)
+        elif mask.ndim == 2:
+            row_mask = mask.to(device=context.device, dtype=torch.bool)
+        else:
+            raise ValueError(f"mask must be 1D [L] or 2D [B, L], got shape {tuple(mask.shape)}")
+        if row_mask.shape != (B, L):
+            raise ValueError(
+                f"mask shape {tuple(row_mask.shape)} does not match context batch/length {(B, L)}"
+            )
+        row_mask = row_mask & non_vision
+
+    active: list[tuple[torch.Tensor, float]] = []
+    for vec, strength in vectors:
+        if not math.isfinite(strength):
+            raise ValueError(f"control vector strength must be finite, got {strength!r}")
+        if tuple(vec.shape) != (D,):
+            raise ValueError(f"vector must have shape ({D},), got {tuple(vec.shape)}")
+        if not bool(torch.isfinite(vec).all()):
+            raise ValueError("control vector contains non-finite values")
+        if strength != 0.0:
+            active.append((vec, float(strength)))
+
+    if not active or not bool(row_mask.any()):
+        return context
+
+    total_shift64 = torch.zeros(D, dtype=torch.float64, device=context.device)
+    for vec, strength in active:
+        total_shift64 = total_shift64 + strength * vec.detach().to(
+            device=context.device, dtype=torch.float64
+        )
+    shift = total_shift64.to(dtype=context.dtype)
+
+    out = context.clone()
+    out[row_mask] = out[row_mask] + shift
+    if out.shape != (B, L, D):
+        raise RuntimeError(f"apply_post_refiner changed context shape from {(B, L, D)} to {tuple(out.shape)}")
+    return out

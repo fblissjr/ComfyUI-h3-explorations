@@ -84,7 +84,7 @@ Full per-check history, 2026-08-23 amendments, and `"claims block"` notes are sh
 | [`docs/checks/index_12.md`](checks/index_12.md) | `check_assemble_delivery.py` .. `check_sweep_loads.py` (8 rows) |
 | [`docs/checks/index_13.md`](checks/index_13.md) | `check_plate_restore.py` .. `check_dit_prefix_attention.py` (26 rows) |
 | [`docs/checks/index_14.md`](checks/index_14.md) | `measure_dit_prefix_attention.py` .. `build_prompt_bank.py` (23 rows) |
-| [`docs/checks/index_15.md`](checks/index_15.md) | `masked_code_map.py` .. `smoke_h3.py` (4 rows) |
+| [`docs/checks/index_15.md`](checks/index_15.md) | `masked_code_map.py` .. `smoke_h3.py` (6 rows) |
 
 | check | defends | needs | claims block |
 |---|---|---|---|
@@ -275,6 +275,7 @@ Full per-check history, 2026-08-23 amendments, and `"claims block"` notes are sh
 | `build_prompt_bank.py` | a generator ([detail](checks/index_14.md)) | - | no |
 | `masked_code_map.py` | a generator and AST drift gate ([detail](checks/index_15.md)) | no CUDA | no |
 | `check_masked_code_map.py` | that bench/masked_code_map.py... ([detail](checks/index_15.md)) | no CUDA | no |
+| `check_control_vectors.py` | that control_vectors.py and h3_spans.py... ([detail](checks/index_15.md)) | no CUDA | yes |
 | `replay_cranium_references.py` | 3-way replay of all cranium references ([detail](checks/index_15.md)) | no CUDA | no |
 | `preflight_graph.py` | not a gate ([detail](checks/index_15.md)) | no CUDA | no |
 | `smoke_h3.py` | the H3 chain composes and runs... ([detail](checks/index_15.md)) | live ComfyUI... | no |

@@ -31,6 +31,7 @@ with none is a helper the others import.
 | [`h3_encoder_loader.py`](h3_encoder_loader.py) | `MiniMaxH3EncoderLoader` | Core's `CLIPLoader` for a MiniMax H3 encoder, plus the guards it does not have. |
 | [`h3_layout.py`](h3_layout.py) |  | MiniMax-H3's packed layout, read from what core publishes. |
 | [`h3_rules.py`](h3_rules.py) |  | The reference pipeline's input rules, in one place. |
+| [`h3_spans.py`](h3_spans.py) |  | Partition an H3 conditioning token sequence into mutually exclusive span masks. |
 | [`h3_trace.py`](h3_trace.py) |  | Record the shape of every H3 attention call, for someone else's bench. |
 
 ### loop_*
@@ -98,6 +99,7 @@ with none is a helper the others import.
 | [`checkpoint_overlay.py`](checkpoint_overlay.py) |  | Exact overlays of one int8 H3 checkpoint on another, stored per piece. |
 | [`clip_folder.py`](clip_folder.py) |  | The analysis folder of an input video: where it is, whose it is, and whether it is still that video's. |
 | [`conditioning.py`](conditioning.py) | `MiniMaxH3Conditioning` | fl2va conditioning with the geometry seams measured here closed at one node. |
+| [`control_vectors.py`](control_vectors.py) |  | Pure-PyTorch math, pair-file reader, and `.safetensors` I/O for H3 control vectors. |
 | [`core_sparse_capture.py`](core_sparse_capture.py) | `MiniMaxH3CoreSparseCapture` | Capture q/k/v on core's sparse producer path, and change nothing. |
 | [`denoise_mask_probe.py`](denoise_mask_probe.py) | `MiniMaxH3DenoiseMaskProbe` | Log the denoise mask each masked sampling step actually uses, and change nothing. |
 | [`exact_blocks.py`](exact_blocks.py) | `MiniMaxH3ExactBlocks` | Run named DiT blocks on EXACT attention -- neither sage nor Sol-Attn. |
@@ -148,18 +150,18 @@ with none is a helper the others import.
 | `.gemini/` | 8 | [below](#gemini) |
 | `archive/` | 29 | [below](#archive) |
 | `assets/` | 1 | [below](#assets) |
-| `bench/` | 822 | [`bench/INDEX.md`](bench/INDEX.md) and [`bench/results/INDEX.md`](bench/results/INDEX.md) for the records |
+| `bench/` | 823 | [`bench/INDEX.md`](bench/INDEX.md) and [`bench/results/INDEX.md`](bench/results/INDEX.md) for the records |
 | `changelog.d/` | | [`changelog.d/README.md`](changelog.d/README.md), one file per changelog entry; not listed and not counted |
 | `contact_sheets/` | 2 | [below](#contact_sheets) |
 | `data/` | 2 | [below](#data) |
 | `docs/` | 209 | [`docs/wiki/index.md`](docs/wiki/index.md), the hand-written router |
-| `prompt_bank/` | 172 | [`docs/prompt_bank.md`](docs/prompt_bank.md), the prompt catalogue |
+| `prompt_bank/` | 170 | [`docs/prompt_bank.md`](docs/prompt_bank.md), the prompt catalogue |
 | `sparse_tables/` | 1 | [below](#sparse_tables) |
 | `standalone/` | 27 | [below](#standalone) |
 | `vendor/` | 11 | [below](#vendor) |
 | `vendor_config/` | 10 | [below](#vendor_config) |
 | `vendor_guides/` | 6 | [below](#vendor_guides) |
-| `workflows/` | 184 | [`workflows/INDEX.md`](workflows/INDEX.md) |
+| `workflows/` | 180 | [`workflows/INDEX.md`](workflows/INDEX.md) |
 
 ## .claude/
 

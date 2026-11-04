@@ -8,7 +8,7 @@ this file is only a way to find a script by what it says it does.
 
 | group | scripts |
 |---|---|
-| [`check_*`](#check) | 168 |
+| [`check_*`](#check) | 169 |
 | [`measure_*`](#measure) | 39 |
 | [`analyze_*`](#analyze) | 23 |
 | [`grade_*`](#grade) | 21 |
@@ -45,6 +45,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_commit_ready.py`](check_commit_ready.py) | Pre-commit readiness check for explicit commit pathspecs (`C61` item 2d). |
 | [`check_conditioning_behaviour.py`](check_conditioning_behaviour.py) | Does `MiniMaxH3Conditioning` still do the things it exists to do? |
 | [`check_contact_sheets.py`](check_contact_sheets.py) | `bench/contact_sheets.py` against a clip made for the purpose: the folder, the names, the tiles, and no second set. |
+| [`check_control_vectors.py`](check_control_vectors.py) | Check the pure math, span masks, pair-file refusals, and vector I/O of H3 control vectors. |
 | [`check_copy_sound.py`](check_copy_sound.py) | A copy's sound against its source's (`bench/copy_sound.py`) on made sound whose answer is known. |
 | [`check_core_sparse_capture.py`](check_core_sparse_capture.py) | `core_sparse_capture.py` records core's sparse path and changes nothing. |
 | [`check_correctness.py`](check_correctness.py) | Check the patched MiniMax H3 forward against the stock one. |
