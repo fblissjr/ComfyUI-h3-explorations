@@ -37,6 +37,13 @@ pass 2, only the owner's own words among them carry ([`AGENTS.md`](AGENTS.md) §
   the remake takes `h3_config.SEED` unless it is given its own). Settled `margin` and `zoom_up_to` live in `data/<video>/plan.json`
   (`subjects.<s>.recipe` and `shot_overrides`, enforced in code by `cbd39fbe` at `bench/shot_to_load.py` and `bench/flags_before_render.py::recipe_check_of`,
   which hard-refuse any differing CLI `--margin` or `--zoom-up-to` value with no `--*-why` bypass; `docs/wiki/decisions.md` 2026-10-26). The plan's reference form is read from the plan again, never carried.
+- A few-step distill, opt-in and off by default (`job --distill pika --distill-why WHY`, added 2026-11-04 for the Pika H3 Flex
+  test in [`docs/research/2026-11-04_pika_h3_flex_plan.md`](../research/2026-11-04_pika_h3_flex_plan.md), step 7). It puts Pika's
+  ref2va LoRA at the call in front of the model chain and swaps the sampler and steps for Pika's
+  (`workflows/masked_job_graph.py::DISTILLS`); masks, references, text, guider, shift and Sol stay the load's own. Written as
+  `defaults.distill` and `defaults.distill_by` (the words, who and when). A remake never carries it, a load without it
+  renders as before, and `bench/shot_to_load.py::distill_of` refuses an unknown name, a missing why, and a why with no
+  distill. `<python> bench/shot_to_load.py job --help` shows both flags.
 - A look (stage 6), and an override of a gate flag (stage 5). Each belongs to one capture. A new capture takes its own
   look, or a person rests one on an earlier capture's with [`bench/look_carry.py`](../../bench/look_carry.py), which
   compares the two captures first.
