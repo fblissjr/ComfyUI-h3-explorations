@@ -289,10 +289,10 @@ Every phase is a branch in its own worktree under `../../h3_worktrees/`, cut fro
 | phase | delivers | must hold before the next |
 |---|---|---|
 | 0 | the core revision recorded; the gate's pair files, edit prompts and nulls written | the edits are as well written as the house's |
-| 1 | `control_vectors.py` (pure torch: means, weights, the null constructions, mean pairwise cosine, split-half); `h3_spans.py` (tags, labels, timestamps, `<d>` and speaker tags by their special-token ids); the vector file format; `bench/check_control_vectors.py` | tested with no GPU |
-| 2 | `MiniMaxH3MakeControlVector`, `MiniMaxH3ApplyControlVectors`, `bench/control_vectors.py make` and `grade`, one generated sheet arm; section 3.2 | the hard checks are green; E2.2 shows movement beyond the nulls |
+| 1 | `control_vectors.py` (pure torch: means, weights, the null constructions, holds, `project_out`, mean pairwise cosine, split-half, `meter_score`); `h3_spans.py` (tags, labels, timestamps, `<d>` and speaker tags by their special-token ids); the vector file format; `bench/check_control_vectors.py` | tested with no GPU |
+| 2 | `MiniMaxH3MakeControlVector`, `MiniMaxH3ApplyControlVectors`, `bench/control_vectors.py make`, `inspect` and `grade`, `build_control_vector_arm`; section 3.2 | the hard checks are green; E2.2 shows movement beyond the nulls |
 | 3 | the gate, section 3.3 | the owner's reading of the ladder |
-| 4 | holds, `project_out` and `amplify` (only where the prompt carries the concept), step schedules, the stock-node probes; `inspect` and the meter | each piece graded before it is kept |
+| 4 | `amplify` (only where the prompt carries the concept), step schedules, the stock-node probes | each piece graded before it is kept |
 | 5 | the encoder and LLM-layer points, morph, dialogue and speaker spans | each reach experiment's answer |
 | 6 | section 6, each only if a named vector fails in a way it would fix | |
 
