@@ -103,7 +103,15 @@ and a second shot before anything is called a result, and every prompt read in f
   1344x768, at their actual frame counts (`243` frames for `motion-transfer`, `328` frames for `balcony-orbit`, or
   `124` frames if testing Comfy-Org's 5s pilot+station template alongside). Two seeds each, with two showcase-specific
   safeguards on `motion-transfer`:
-  1. **Amended (Claude, same day): wire `ref_video_audio_0` for the reproduction check.** Pika's prompt guide says
+  1. **Settled by the vendor guide (Claude, same day, at the owner's request to follow `vendor_guides/`): leave
+     `ref_video_audio_0` unwired. This reverses the amendment just below.** `vendor_guides/ref_en.md` §2.4 makes an
+     `<Audio N>` "a standalone audio asset or an enabled synchronized audio track", and §2.5 says "an ordinary
+     reference video does not create `<Audio N>` merely because the file contains sound".
+     `docs/h3_references.md`, "Labels", says the same of the socket, and adds that a wired reference the prompt never
+     uses costs its rows on every step. This target neither copies nor references the source audio (it asks for a
+     new soul groove), so the soundtrack has no role, and the vendor format gives it no label. Pika's CLI enables
+     soundtracks by default, but that is a pipeline default, not the prompt format. Gemini's original proposal stands.
+     The `<Audio 1>` declaration below is then not needed. **Superseded amendment, kept for the record:** wire `ref_video_audio_0` for the reproduction check. Pika's prompt guide says
      a reference video's soundtrack is supplied automatically as `<Audio 1>`, and to "use a video without an audio
      track if you do not want to supply that soundtrack" (`coderef/Pika-H3-Flex/docs/prompt-guidance.md:435, 462`).
      The input has a soundtrack (`mean_volume: -24.2 dB`), so Pika's pipeline (`coderef/Pika-H3-Flex/src/pika_h3/core/conditioning.py:69-72, 379-380`)
@@ -115,7 +123,8 @@ and a second shot before anything is called a result, and every prompt read in f
      frames), while the prompt asks for a new 1960s soul groove and says *"Take NOTHING else from @Video1"*.
      Leaving `ref_video_audio_0` unwired in `MiniMaxH3ReferenceToVideo` cleanly omits `<Audio 1>`.
   2. **Amended (Claude, same day): the adapted 6-field prompt is the main arm. The raw `@Image1` arm runs only if
-     the adapted one fails.** The showcase prompts went through Pika's service rewriting, so the adapted form is
+     the adapted one fails.** "Adapted" means rewritten to the vendor format by the rules in "Prompts, frames and
+     references" below, not relabelled. The showcase prompts went through Pika's service rewriting, so the adapted form is
      closer to what the model saw, and at 243 frames each arm is a heavy render. The original proposal follows.
      **Test the 6-field `<Picture 1> / <Picture 2> / <Video 1>` prompt adaptation alongside raw `@Image1` prose**:
      Pika's `coderef/Pika-H3-Flex/docs/showcases.md:22` notes that `assets/showcases/*.txt` are un-rewritten
@@ -136,6 +145,100 @@ and a second shot before anything is called a result, and every prompt read in f
 - **Likely:** text-to-video works; this is Comfy-Org's own graph with the branch swapped in. Reference-to-video is
   the real risk, and separating the raw `@Image1` prompt from the adapted 6-field `<Picture i>` prompt isolates
   prompt-format mismatch from reference-pathway issues.
+
+### Prompts, frames and references: the rules every step follows
+
+Added 2026-11-04 at the owner's request: every prompt, frame count and reference in steps 1 to 7 follows
+`vendor_guides/` (the only authority on writing an H3 prompt), our reading of it in `docs/prompting.md`,
+`docs/h3_references.md`, `docs/h3_resolutions.md`, and, for the masked lane, `docs/masked_v2v/frames_rules.md`. Pika's
+own `coderef/Pika-H3-Flex/docs/prompt-guidance.md` uses the same three-field and six-section formats, so the two do not
+conflict. Where Pika's CLI behaves differently (soundtracks, reference upscaling), the prompt follows the vendor guide
+and the deviation is named.
+
+**Both showcase prompts are raw service text and need a full rewrite.** Neither is in the vendor format: no
+sections, `@Image1` instead of labels, and timestamps inside one continuous shot. Pika's `showcases.md` says the same:
+adapt them for local use.
+
+**`motion-transfer` (ref2va, six sections, `vendor_guides/ref_en.md`):**
+- **Look at the three inputs before writing a word.** Do not assert an attribute you have not seen
+  (`docs/prompting/09_references_ref2va.md` §9.11, where "silence is not neutral" is set out). Pika's prose is not a description of the images.
+- **`subject_definitions`:**
+  - the character as one `<Subject N>` drawn from the character sheet (`<Picture 1>`), with the sheet cited inside
+    the definition and no separate picture line (§2.2);
+  - the record shop as its own `<Subject N>` from `<Picture 2>`;
+  - the dance as its own `<Subject N>` from `<Video 1>`, the form of Pika's Example 3;
+  - `<Video 1>`'s own line only for the camera movement and timing it supplies (§2.3).
+- **`retention_analysis`:** the character is `attribute_transfer`, with the sheet's views used as identity evidence
+  only and the panels never shown (Pika's Example 7). The dance is `attribute_transfer`. `<Video 1>` is
+  `attribute_transfer` for the camera only, and says the source person, scene and look are not reused
+  (`docs/h3_references.md`, "Transfer motion onto a different subject").
+- **`summary`:** opens `[reference generation]`. No audio task type, because no audio is supplied.
+- **`detailed_description`:**
+  - a style sentence before `[Shot 1]`;
+  - 350 to 500 words;
+  - the environment described even though a reference supplies it;
+  - the duration stated in the prose, 10.125 seconds at 243 frames (`docs/prompting.md` §3.3);
+  - the cast count stated positively ("one character, Desmond"), not as a bare negative (§16, "The cast count").
+- **Sound:** the turntable's soul groove is heard by the character, so it goes in `detailed_description`, and
+  `non_diegetic_music` is `N/A` (`vendor_guides/base_en.md` §4.7). The tapping loafers and record crackle go in
+  `overall_soundscape`.
+
+**`balcony-orbit` (T2VA, three fields, `vendor_guides/base_en.md`):**
+- **One `[Shot 1]` with no cut.** The five camera phases are written as one path in the closed vocabulary
+  (`docs/prompting.md` §4):
+  - Pika's "orbit" becomes `Arc Shot`;
+  - Pika's "boom" becomes `Pedestal Up` and `Pedestal Down`;
+  - then `Push In` and `Pull Out`;
+  - phases joined by how one becomes the next, with no in-shot timestamps (§4, "One coherent camera path per shot").
+- **Style:** "Live-action, cinematic" with the 35mm look, written at the start of `[Shot 1]`.
+- **Cast:** three people, each placed on their balcony.
+- **Sound:** `overall_soundscape` carries the wind, city hum, birds and fabric. `non_diegetic_music` is `N/A`.
+  No speaker IDs, since no one speaks.
+- **Duration:** stated as 13.667 seconds at 328 frames.
+
+**Where prompts live and what checks them:**
+- The rewritten prompts are `prompt_bank/` entries, never text in a graph or in code (`AGENTS.md`, "The lanes").
+- Each is read in full from the queued graph before it renders (`bench/what_h3_got.py`).
+- Each is graded before it renders:
+  - `bench/grade_prompt_text.py` and `bench/preflight_graph.py`;
+  - `bench/check_ref_prompt_labels.py`, which fails if a wired reference is unnamed or a named one is unwired;
+  - `bench/check_prompt_guide_conformance.py`.
+- Step 3's prompts for the owner's own shots follow the same rules. Each pair of arms (Pika and base H3) uses one
+  identical prompt, so the prompt is not a variable.
+
+**Frames and canvas (`docs/h3_resolutions.md`):**
+- 1344x768 is the trained 16:9 canvas and Pika's p768 bucket.
+- 243 frames is on the `17n + 5` grid and on both the video and audio clocks.
+- 328 frames is on the grid but not the audio clock, which is allowed for standalone text-to-video and matches
+  Pika's own output length.
+- Both lengths are past the int32 sequence threshold. Dense attention has already run at 119k tokens on this card
+  (`bench/results/2026-10-03_r2v_finish_time_budget.md`).
+
+**References (`docs/h3_references.md`):**
+- **Video loader:** `force_rate=24` on the reference-video loader ("Frame rate"). This input is already 24 fps, and
+  the label check requires it either way.
+- **Video truncation:** the reference video is cut to the generated length and snapped down to the grid (241 frames
+  become 226).
+- **Video size:** core never upscales a reference video. Pika and the other vendor implementations put it on the
+  canvas. Keeping core's behaviour (`video_policy=comfy`) is a named deviation, chosen for cost. If step 2 shows the
+  dance followed loosely, the release policy is the arm to try.
+- **Image size:** sized to Pika's 2048 short edge on both the VAE and text-encoder paths, as section 1 says.
+
+**The masked lane (step 7, `docs/masked_v2v/frames_rules.md` and the lane's own rules):**
+- **Windows:**
+  - on both clocks: 39, 90, 141, 192, 243, 294 or 345 frames;
+  - at least 39 frames;
+  - a shorter shot is never split;
+  - windows longer than 345 chain.
+- **Attention:** masked graphs run dense attention, so step 4's Sol question does not apply there.
+- **Never unmasked:** the original subject is never shown unmasked in a window.
+- **Shared latent steps:** every four frames share one latent step and one mask token.
+- **New risks for Pika, untested:**
+  - the lane draws faces, mouths and eyes onto `<Video 1>`, and Pika was trained on natural reference videos;
+  - the renoise sampler reinjects fresh noise into the whole latent at every step, where the lane's tuning assumed
+    base H3's sampler.
+- **Not yet read for this plan:** `docs/masked_v2v/reference_and_prompt_rules.md` and the lane `AGENTS.md`. They are
+  required reading before step 7.
 
 ### 3. Is Pika worth it here? (about 16 renders)
 
