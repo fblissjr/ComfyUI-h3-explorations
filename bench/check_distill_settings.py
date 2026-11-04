@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Check every distill is loaded at the shift and step count it was trained at.
 
-A distill runs on its trainer's contract (`docs/wiki/references.md`): PDD and
-FlashGen at the base 12/3 on their own grids, FastH3 V2 at `FASTH3_SHIFT`.
-None of them carries its shift in the file, so a graph at the wrong one
+A distill runs on its trainer's contract (`docs/wiki/references.md`): PDD at
+the base 12/3 on its own grid, Pika H3 Flex on its own six shift-12 sigmas on
+`lcm`. Neither carries its shift in the file, so a graph at the wrong one
 renders plausibly wrong and **nothing errors**.
 
 Claims, i.e. what breaks if a case is deleted:
@@ -24,6 +24,13 @@ Claims, i.e. what breaks if a case is deleted:
                         retired 2026-10-05, and the contract grading it
                         had (one file, at the call, `simple` at the
                         trained step count) is in git
+  no FlashGen or FastH3 a graph loading a FlashGen LoRA, or any model loader
+                        naming a FastH3 checkpoint, fails the same way:
+                        retired 2026-11-04 with every fast distill. Their
+                        contract grading (FlashGen's file, shift, sigmas,
+                        sampler and strength; FastH3's 10/3, template and
+                        contract sampling and VSA; the step switches through
+                        either) is in git
   refine undistilled    an audio refine pass reaches its UNETLoader through
                         no LoRA loader
 
@@ -206,14 +213,6 @@ def is_turbo(lora_name):
     return "turbo" in lora_name.lower()
 
 
-def classify_flashgen(lora_name):
-    """The FlashGen 4-step LoRA (h3_config.FLASHGEN_*). Before 2026-09-25 this
-    file had no row for it, so a FlashGen graph fell through to the base branch
-    and passed on the base shift it happens to share -- graded on nothing that
-    belongs to it."""
-    return "flashgen" in lora_name.lower()
-
-
 def classify_pika(lora_name):
     """Pika H3 Flex 6-step LCM LoRAs (h3_config.PIKA_*). Without its own row,
     a Pika graph would fall through to the base branch and pass on the base
@@ -227,16 +226,26 @@ def is_pdmd(lora_name):
     return "pdmd" in lora_name.lower()
 
 
-def _flashgen_header_sigmas():
-    """`manual_sigmas_shift12` from the FlashGen file's header, or None if the
-    file is not on this box (a missing file is `check_model_files.py`'s)."""
-    import h3_config as cfg
-    path = lora_path(cfg.FLASHGEN_LORA)
-    if path is None:
-        return None
-    from safetensors import safe_open
-    with safe_open(str(path), "pt") as f:
-        return (f.metadata() or {}).get("manual_sigmas_shift12")
+def is_flashgen(lora_name):
+    """Any FlashGen LoRA, a retired lane since 2026-11-04 (`docs/roadmap.md`,
+    "Closed lanes"): kijai's resize and our rank-64 conversions alike match
+    on the word."""
+    return "flashgen" in lora_name.lower()
+
+
+def fasth3_models(doc):
+    """Every model file a node of `doc` loads whose name says FastH3, a
+    retired lane since 2026-11-04. Read from any `unet_name` or `ckpt_name`
+    input, so a FastH3 checkpoint behind another loader class is caught too."""
+    out = []
+    for n in doc.values():
+        if not isinstance(n, dict):
+            continue
+        for key in ("unet_name", "ckpt_name"):
+            v = (n.get("inputs") or {}).get(key)
+            if isinstance(v, str) and "fasth3" in v.lower():
+                out.append(v)
+    return out
 
 
 # --------------------------------------------------------------------------
@@ -346,72 +355,10 @@ def main():
             assert not retired, (
                 f"{path.name}: loads {retired}. PDMD is a retired lane "
                 f"(docs/roadmap.md, 'Closed lanes', 2026-10-05)")
-            nodes_all = [n for n in doc.values() if isinstance(n, dict)]
-            unets_all = {n["inputs"].get("unet_name") for n in nodes_all
-                         if n.get("class_type") == "UNETLoader"}
-            if (cfg.MODELS["unet_fasth3_v2"] in unets_all
-                    and set(found.loras) in ({cfg.PDD_FL2VA_LORA}, {cfg.PDD_REF2VA_LORA})
-                    and any(n.get("class_type") == "DisableNoise" for n in nodes_all)):
-                # PDD8 then FastH3's own checkpoint (step_switch_to="fasth3"):
-                # the one LoRA is pass 1's, on fl2va. The pair and the shift
-                # travel together (h3_config.STEP_SWITCH_FASTH3): the shift
-                # decides the audio's noise level at the handoff.
-                manual = sorted(n["inputs"]["sigmas"] for n in nodes_all
-                                if n.get("class_type") == "ManualSigmas")
-                declared = {tuple(sorted(p[:2])): (p[2]["shift_video"], p[2]["shift_audio"])
-                            for p in cfg.STEP_SWITCH_FASTH3.values()}
-                assert tuple(manual) in declared, (
-                    f"{path.name}: a PDD8-then-FastH3 switch must sample one of "
-                    f"h3_config.STEP_SWITCH_FASTH3, has {manual}")
-                assert found.shifts == (declared[tuple(manual)],), (
-                    f"{path.name}: its finish pass runs at shift {declared[tuple(manual)]}, "
-                    f"graph has {found.shifts}")
-                vsa = [n["inputs"] for n in nodes_all if n.get("class_type") == cfg.SOL_CORE_NODE]
-                assert vsa and all(v.get("selection") == "vsa" for v in vsa), (
-                    f"{path.name}: FastH3 V2 finishes on core's VSA node; graph has {vsa}")
-                continue
-            if cfg.MODELS["unet_fasth3_v2"] in unets_all:
-                # A distilled CHECKPOINT, not a LoRA, so it is keyed on the
-                # unet. Without this row it read as a base graph and failed on
-                # its own 10/3 shift -- or, had it sat at 12/3, passed wrongly.
-                assert not found.loras, (
-                    f"{path.name}: FastH3 V2 is a full distilled model; stacking "
-                    f"{found.loras} on it is outside anything its publishers ship")
-                want_shift = (cfg.FASTH3_SHIFT["shift_video"], cfg.FASTH3_SHIFT["shift_audio"])
-                assert found.shift == want_shift, (
-                    f"{path.name}: FastH3 V2 samples at {want_shift} (its card: "
-                    f"video shift 10), graph has {found.shift}")
-                # Two sampling setups are legal: ComfyUI's template (8 `simple`
-                # steps on res_multistep) and FastVideo's contract (the
-                # release's positions through ManualSigmas, on Euler). Each is
-                # graded whole; a graph mixing their halves is neither.
-                samplers = {n["inputs"].get("sampler_name") for n in nodes_all
-                            if n.get("class_type") == "KSamplerSelect"}
-                manual = [n["inputs"].get("sigmas") for n in nodes_all
-                          if n.get("class_type") == "ManualSigmas"]
-                template = ((found.scheduler, found.steps) == (cfg.FASTH3_SCHEDULER, cfg.FASTH3_STEPS)
-                            and samplers == {cfg.FASTH3_SAMPLER})
-                contract = ((found.scheduler, found.steps) == ("manual", cfg.FASTH3_STEPS)
-                            and manual == [cfg.FASTH3_CONTRACT_SIGMAS]
-                            and samplers == {cfg.FASTH3_CONTRACT_SAMPLER})
-                assert template or contract, (
-                    f"{path.name}: FastH3 V2 runs either the template's {cfg.FASTH3_STEPS} "
-                    f"{cfg.FASTH3_SCHEDULER} steps on {cfg.FASTH3_SAMPLER} or the contract's "
-                    f"sigmas on {cfg.FASTH3_CONTRACT_SAMPLER}; graph has "
-                    f"{found.scheduler!r}/{found.steps}, samplers {sorted(map(str, samplers))}, "
-                    f"ManualSigmas {manual}")
-                vsa = [n["inputs"] for n in nodes_all if n.get("class_type") == cfg.SOL_CORE_NODE]
-                if path.name.removesuffix("_api.json").removesuffix("_savelat") == \
-                        "h3_probe_t2v_fasth3_8step_contract_novsa":
-                    # The texture probe (docs/h3_distills.md): VSA off by design,
-                    # so it must carry NO VSA node, the inverse of the rule below.
-                    assert not vsa, f"{path.name}: the VSA-off probe carries a VSA node {vsa}"
-                    continue
-                assert vsa and all(v.get("selection") == "vsa" for v in vsa), (
-                    f"{path.name}: FastH3 V2 was trained with VSA and ships with "
-                    f"core's VSA node; graph has {vsa}")
-                continue
-            flashgen = [l for l in found.loras if classify_flashgen(l)]
+            retired = [l for l in found.loras if is_flashgen(l)] + fasth3_models(doc)
+            assert not retired, (
+                f"{path.name}: loads {retired}. FlashGen and FastH3 are a retired "
+                f"lane (docs/roadmap.md, 'Closed lanes', 2026-11-04)")
             switched = any(isinstance(n, dict) and n.get("class_type") == "DisableNoise"
                            for n in doc.values())
             if switched and set(found.loras) == {cfg.PDD_FL2VA_LORA}:
@@ -424,62 +371,6 @@ def main():
                 assert manual in [sorted(p) for p in cfg.STEP_SWITCH_BASE.values()], (
                     f"{path.name}: a PDD8-then-base switch must sample one of "
                     f"h3_config.STEP_SWITCH_BASE, has {manual}")
-                continue
-            if (set(found.loras) in ({cfg.FLASHGEN_R64_LORA, cfg.PDD_FL2VA_LORA},
-                                     {cfg.FLASHGEN_R64_REF2VA_LORA, cfg.PDD_REF2VA_LORA}) and switched):
-                # A step switch (build_api(step_switch=True), either direction)
-                # loads both on purpose, one per pass. Its settings are one of the
-                # declared sigma pairs in h3_config.STEP_SWITCH_PAIRS, exactly.
-                manual = sorted(n["inputs"]["sigmas"] for n in doc.values()
-                                if isinstance(n, dict) and n.get("class_type") == "ManualSigmas")
-                assert manual in [sorted(p) for p in cfg.STEP_SWITCH_PAIRS], (
-                    f"{path.name}: a step switch must sample one of h3_config.STEP_SWITCH_PAIRS "
-                    f"(route 3 or a reverse handoff), has {manual}")
-                continue
-            if flashgen:
-                nodes = [n for n in doc.values() if isinstance(n, dict)]
-                # Each file's adaln was fitted onto one pruned checkpoint's curve
-                # basis, so each file loads on that checkpoint and no other.
-                flashgen_files = {cfg.FLASHGEN_LORA: "unet_fl2va",
-                                  cfg.FLASHGEN_R64_LORA: "unet_fl2va",
-                                  cfg.FLASHGEN_R64_REF2VA_LORA: "unet_ref2va"}
-                assert len(found.loras) == 1 and found.loras[0] in flashgen_files, (
-                    f"{path.name}: FlashGen must load exactly one of "
-                    f"{sorted(flashgen_files)} and nothing beside it, has {found.loras}")
-                unets = {n["inputs"].get("unet_name") for n in nodes
-                         if n.get("class_type") == "UNETLoader"}
-                want_unet = cfg.MODELS[flashgen_files[found.loras[0]]]
-                assert unets == {want_unet}, (
-                    f"{path.name}: {found.loras[0]}'s adaln is fitted to "
-                    f"{flashgen_files[found.loras[0]]}'s curve basis, so it loads on "
-                    f"{want_unet} only, has {sorted(map(str, unets))}")
-                effective = BASE_SHIFT if found.shift is None else found.shift
-                assert effective == BASE_SHIFT, (
-                    f"{path.name}: FlashGen's sigmas are its base_schedule at shift "
-                    f"12, so the model samples at the base {BASE_SHIFT}, has {effective}")
-                assert (found.scheduler, found.steps) == ("manual", cfg.FLASHGEN_STEPS), (
-                    f"{path.name}: FlashGen runs its own {cfg.FLASHGEN_STEPS} sigmas "
-                    f"through ManualSigmas; graph has {found.scheduler!r}/{found.steps}")
-                # The vector is graded against the FILE, not only the constant:
-                # the constant is a copy of the header, and a re-download that
-                # moved the schedule should not leave the graphs on the old one.
-                header = _flashgen_header_sigmas()
-                manual = [n["inputs"].get("sigmas") for n in nodes
-                          if n.get("class_type") == "ManualSigmas"]
-                assert manual == [cfg.FLASHGEN_MANUAL_SIGMAS] and (
-                        header is None or header == cfg.FLASHGEN_MANUAL_SIGMAS), (
-                    f"{path.name}: ManualSigmas {manual}, constant "
-                    f"{cfg.FLASHGEN_MANUAL_SIGMAS!r}, file header {header!r}")
-                main_samplers = {doc[str(n["inputs"]["sampler"][0])]["inputs"].get("sampler_name")
-                                 for n in nodes if n.get("class_type") == "SamplerCustomAdvanced"
-                                 and doc.get(str(n["inputs"].get("latent_image", [None])[0]), {})
-                                 .get("class_type") != cfg.AUDIO_REFINE_MASK_NODE}
-                assert main_samplers == {cfg.FLASHGEN_SAMPLER}, (
-                    f"{path.name}: FlashGen steps {cfg.FLASHGEN_SAMPLER}, graph has "
-                    f"{sorted(map(str, main_samplers))}")
-                got = (found.strengths or {}).get(found.loras[0])
-                assert got == cfg.FLASHGEN_STRENGTH, (
-                    f"{path.name}: FlashGen strength {got}, want {cfg.FLASHGEN_STRENGTH}")
                 continue
             pika = [l for l in found.loras if classify_pika(l)]
             if pika:

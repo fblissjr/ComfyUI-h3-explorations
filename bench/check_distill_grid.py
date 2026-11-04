@@ -365,18 +365,18 @@ def main() -> int:
             # An `nfe` override wins when set, because it makes the node
             # ignore the schedule and fuse uniform blocks at that count.
             nfe = found.pdd_nfe or found.steps
-            _ss = path.stem.removesuffix("_api").removesuffix("_savelat")
             _manual = [n["inputs"]["sigmas"] for n in doc.values()
                        if isinstance(n, dict) and n.get("class_type") == "ManualSigmas"]
-            _pass1 = {p1 for p1, _ in (*h3_config.STEP_SWITCH_REV.values(),
-                                       *h3_config.STEP_SWITCH_BASE.values())}
+            _pass1 = {p1 for p1, _ in h3_config.STEP_SWITCH_BASE.values()}
             if (any(isinstance(n, dict) and n.get("class_type") == "DisableNoise" for n in doc.values())
                     and any(m in _pass1 for m in _manual)):
                 # The reverse switch: PDD runs FIRST, on PDD8's own schedule cut
-                # at a knot (h3_config.STEP_SWITCH_REV, or STEP_SWITCH_BASE when
-                # the base finishes). Every point it samples must be one of
-                # PDD8's knots, 0, 4, 8, ... Recognised by its structure (a
-                # DisableNoise second pass and a declared pass-1 schedule) since
+                # at a knot (h3_config.STEP_SWITCH_BASE: the base finishes; the
+                # FlashGen and FastH3 finishes, STEP_SWITCH_REV and
+                # STEP_SWITCH_FASTH3, were retired on 2026-11-04). Every point
+                # it samples must be one of PDD8's knots, 0, 4, 8, ...
+                # Recognised by its structure (a DisableNoise second pass and a
+                # declared pass-1 schedule) since
                 # 2026-09-27, when the t2v switch shipped under a user-facing
                 # name; the filename prefix this keyed on missed it, the
                 # name-keyed failure the 2026-09-26 postmortem's item 4.2 names.
@@ -387,20 +387,6 @@ def main() -> int:
                 if knots != list(range(0, 4 * len(knots), 4)):
                     bad.append(f"{rel}: the reverse switch's PDD pass lands on {knots}, "
                                "not PDD8's own knots")
-                continue
-            if _ss == "h3_probe_t2v_step_switch_flashgen_pdd8":
-                # Route 3's PDD pass is a tail, not a trajectory: it starts at
-                # FlashGen's own endpoint, 0.888889, off the grid by design so
-                # no noise mismatch is handed over, and its sigmas are asserted
-                # exactly by check_distill_settings.py against
-                # h3_config.STEP_SWITCH_PASS2_SIGMAS. What must hold here is that
-                # its tail lands on PDD8's own knots.
-                import pdd_math as _pm
-                pts = [float(x) for x in h3_config.STEP_SWITCH_PASS2_SIGMAS.split(",")]
-                knots = _pm.schedule_knots(pts, 12.0, 32)
-                if knots[1:] != [24, 28, 32]:
-                    bad.append(f"{rel}: step switch's PDD tail lands on {knots}, "
-                               "not PDD8's own knots 24, 28, 32")
                 continue
             grid = pdd_grid(names[0])
             if grid is None:

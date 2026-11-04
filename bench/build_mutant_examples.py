@@ -49,8 +49,8 @@ OUT = REPO / "standalone" / "h3_mutant_distill" / "example_workflows"
 SERVER = "http://127.0.0.1:8188"
 CHROME = "google-chrome"
 
-#: Where each file is published. The PDD8 and FlashGen files are all on the
-#: package's HF repo; the PDD8 ones are byte-identical to
+#: Where each file is published. The PDD8 files are on the package's HF
+#: repo, byte-identical to
 #: `h3_config.PDD_FL2VA_LORA` / `PDD_REF2VA_LORA` and to the owner's sidecar
 #: repo (sha256 e225a89f... and f1e552ad..., checked 2026-09-28).
 HF_PACKAGE = "fbjr/h3-mutant-distill"
@@ -58,9 +58,6 @@ COMFY_ORG = "https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main"
 MODELS = {
     "minimax_h3_fl2va_pruned_int8_convrot.safetensors":
         (f"{COMFY_ORG}/diffusion_models/minimax_h3_fl2va_pruned_int8_convrot.safetensors", "diffusion_models"),
-    "fastvideo_fasth3_8step_v2_pruned_int8_convrot.safetensors":
-        ("https://huggingface.co/FastVideo/FastVideo-FastH3-Comfy/resolve/main/diffusion_models/"
-         "fastvideo_fasth3_8step_v2_pruned_int8_convrot.safetensors", "diffusion_models"),
     "qwen3vl_32b_minimax_h3_int8_convrot.safetensors":
         (f"{COMFY_ORG}/text_encoders/qwen3vl_32b_minimax_h3_int8_convrot.safetensors", "text_encoders"),
     "minimax_h3_video_vae_int8_convrot.safetensors":
@@ -75,20 +72,12 @@ MODELS = {
     "minimax_h3_ref2va_pdd_8step_comfy.safetensors":
         (f"https://huggingface.co/{HF_PACKAGE}/resolve/main/"
          "minimax_h3_ref2va_pdd_8step_comfy.safetensors", "loras"),
-    "minimax_h3_flashgen_4step_v1.0_768p_ref2va_pruned_rank64_comfy.safetensors":
-        (f"https://huggingface.co/{HF_PACKAGE}/resolve/main/"
-         "minimax_h3_flashgen_4step_v1.0_768p_ref2va_pruned_rank64_comfy.safetensors", "loras"),
-    "minimax_h3_flashgen_4step_v1.0_768p_fl2va_pruned_rank64_comfy.safetensors":
-        (f"https://huggingface.co/{HF_PACKAGE}/resolve/main/"
-         "minimax_h3_flashgen_4step_v1.0_768p_fl2va_pruned_rank64_comfy.safetensors", "loras"),
 }
 FILE_WIDGETS = {"UNETLoader": "unet_name", "CLIPLoader": "clip_name",
                 "VAELoader": "vae_name", "H3ExactLoRA": "lora_name"}
 
 PDD = Path(C.PDD_FL2VA_LORA).name
-FLASHGEN = Path(C.FLASHGEN_R64_LORA).name
 PDD_R2V = Path(C.PDD_REF2VA_LORA).name
-FLASHGEN_R2V = Path(C.FLASHGEN_R64_REF2VA_LORA).name
 
 #: The i2v and ref2va prompts are read from the pack graphs these recipes were
 #: parity-checked against, so the example cannot drift from them.
@@ -176,27 +165,10 @@ def lora(g: dict, nid: str, name: str, blocks: str = "all") -> list:
     return [att, 0]
 
 
-def pdd8_flashgen_finish() -> dict:
-    g = base(C.MODELS["unet_fl2va"])
-    pdd, fg = C.STEP_SWITCH_REV["h080"]
-    sampler(g, "20", lora(g, "10", PDD), pdd, ["5", 1])
-    g["30"] = {"class_type": "DisableNoise", "inputs": {}}
-    sampler(g, "40", lora(g, "12", FLASHGEN), fg, ["22", 0], noise=("30", 0))
-    decode(g, ["42", 0], "h3_pdd8_flashgen_finish")
-    return g
-
-
 def pdd6() -> dict:
     g = base(C.MODELS["unet_fl2va"])
     sampler(g, "20", lora(g, "10", PDD), C.PDD_MANUAL_SIGMAS, ["5", 1])
     decode(g, ["22", 0], "h3_pdd6")
-    return g
-
-
-def flashgen_late_blocks() -> dict:
-    g = base(C.MODELS["unet_fl2va"])
-    sampler(g, "20", lora(g, "10", FLASHGEN, "34-49"), C.FLASHGEN_MANUAL_SIGMAS, ["5", 1])
-    decode(g, ["22", 0], "h3_flashgen_late_blocks")
     return g
 
 
@@ -214,55 +186,17 @@ def r2v_pdd8() -> dict:
     return g
 
 
-def r2v_flashgen() -> dict:
-    g = base(C.MODELS["unet_ref2va"], "r2v")
-    sampler(g, "20", lora(g, "10", FLASHGEN_R2V), C.FLASHGEN_MANUAL_SIGMAS, ["5", 1])
-    decode(g, ["22", 0], "h3_r2v_flashgen")
-    return g
-
-
-def i2v_flashgen() -> dict:
-    g = base(C.MODELS["unet_fl2va"], "i2v")
-    sampler(g, "20", lora(g, "10", FLASHGEN), C.FLASHGEN_MANUAL_SIGMAS, ["5", 1])
-    decode(g, ["22", 0], "h3_i2v_flashgen")
-    return g
-
-
-def r2v_pdd8_flashgen_finish() -> dict:
-    g = base(C.MODELS["unet_ref2va"], "r2v")
-    pdd, fg = C.STEP_SWITCH_REV["h080"]
-    sampler(g, "20", lora(g, "10", PDD_R2V), pdd, ["5", 1])
-    g["30"] = {"class_type": "DisableNoise", "inputs": {}}
-    sampler(g, "40", lora(g, "12", FLASHGEN_R2V), fg, ["22", 0], noise=("30", 0))
-    decode(g, ["42", 0], "h3_r2v_pdd8_flashgen_finish")
-    return g
-
-
-def fasth3_contract() -> dict:
-    g = base(C.MODELS["unet_fasth3_v2"])
-    g["10"] = {"class_type": "MiniMaxH3SigmaShift",
-               "inputs": {"model": ["1", 0], **C.FASTH3_SHIFT}}
-    g["11"] = {"class_type": "ModelAttentionBackend",
-               "inputs": {"model": ["10", 0], "attention": "comfy kitchen attention"}}
-    vsa = C.FASTH3_CONTRACT_VSA
-    g["12"] = {"class_type": "BlockSparseAttention",
-               "inputs": {"model": ["11", 0], **{k: vsa[k] for k in vsa}}}
-    sampler(g, "20", ["12", 0], C.FASTH3_CONTRACT_SIGMAS, ["5", 1])
-    decode(g, ["22", 0], "h3_fasth3_contract")
-    return g
+# The FlashGen and FastH3 recipes (`h3_t2v_pdd8_flashgen_finish`,
+# `h3_t2v_flashgen_late_blocks`, `h3_r2v_flashgen`, `h3_i2v_flashgen`,
+# `h3_r2v_pdd8_flashgen_finish`, `h3_t2v_fasth3_contract`) left this builder on
+# 2026-11-04 with the pack's FlashGen and FastH3 constants (`docs/roadmap.md`,
+# "Closed lanes"); they are in git before that commit. The package's published
+# example files are its own release and were not touched here.
 
 
 #: file stem: (builder, the note shown in the workflow). Notes state what the
 #: recipe is and the one-line why, each pointing at the record behind it.
 RECIPES = {
-    "h3_t2v_pdd8_flashgen_finish": (pdd8_flashgen_finish, (
-        "## PDD8, then a FlashGen finish (t2v)\n\n"
-        "6 PDD8 steps from sigma 1.0 to 0.8, then 2 FlashGen steps (0.8, 0.679245, 0). "
-        "8 model evaluations, the same as PDD8 alone.\n\n"
-        "Why: the finish keeps PDD8's composition and motion, and fixed sign text PDD8 "
-        "garbled (seven scenes, by eye). On one measured scene it also lifted PDD8's dim "
-        "highlights and fine detail. On i2v it brightened the frame at once, so it is "
-        "t2v only.")),
     "h3_t2v_pdd6": (pdd6, (
         "## PDD6: close-ups and low motion only (t2v)\n\n"
         "The PDD8 file on a 6-step schedule that keeps PDD8's last, narrow blocks. Use it "
@@ -271,14 +205,6 @@ RECIPES = {
         "Why: PDD's quality follows how coarse its final steps are, not how many there are. "
         "It kept 90-95% of PDD8's fine detail at three quarters of the steps, but PDD8 won "
         "all three fast-motion scenes on artifacts.")),
-    "h3_t2v_flashgen_late_blocks": (flashgen_late_blocks, (
-        "## FlashGen on blocks 34-49 only (t2v), a curiosity\n\n"
-        "FlashGen's 4 steps with its LoRA applied to DiT blocks 34-49 and nothing else.\n\n"
-        "Why: FlashGen's 4-step ability lives in a nearly rank-2 change to its last 16 "
-        "blocks; its larger early change mostly adds haze. Judged: more natural on a "
-        "single figure, more so on unusual prompts, but a third person and a piano lost "
-        "coherence where people and objects must hold. Shipped because the split is "
-        "interesting, not as a recommendation.")),
     "h3_i2v_pdd8": (i2v_pdd8, (
         "## PDD8 alone (image to video)\n\n"
         "PDD8's 8 steps from a first frame. Load your own image: H3 Keyframe Canvas "
@@ -292,38 +218,6 @@ RECIPES = {
         "load your own and edit the subject definitions to match.\n\n"
         "Why: the ref2va PDD8 we run. It has not been compared against the "
         "alternatives.")),
-    "h3_r2v_flashgen": (r2v_flashgen, (
-        "## FlashGen alone (reference to video), maybe crap\n\n"
-        "FlashGen's 4 steps on the ref2va checkpoint, with FlashGen converted for "
-        "ref2va's time basis. Same prompt and references as the ref2va PDD8 "
-        "workflow.\n\n"
-        "Why: an untested transfer. FlashGen was trained for text to video only. "
-        "One render held both references and the likeness by eye; it has not been "
-        "compared against PDD8.")),
-    "h3_i2v_flashgen": (i2v_flashgen, (
-        "## FlashGen alone (image to video), an untrained transfer\n\n"
-        "FlashGen's 4 steps on the fl2va checkpoint from a first frame. Load your own "
-        "image: H3 Keyframe Canvas sizes the video to its aspect. Same prompt as the "
-        "PDD8 image-to-video workflow.\n\n"
-        "Why: FlashGen was trained for text to video only. One render held the first "
-        "frame's subject, lighting and framing, and the face stayed coherent, by eye. It "
-        "has not been compared against PDD8, which is the pick for i2v.")),
-    "h3_r2v_pdd8_flashgen_finish": (r2v_pdd8_flashgen_finish, (
-        "## PDD8, then a FlashGen finish (reference to video)\n\n"
-        "The text-to-video finish on the ref2va checkpoint: 6 PDD8 steps from sigma 1.0 to "
-        "0.8, then 2 FlashGen steps, 8 model evaluations like PDD8 alone. Same prompt and "
-        "references as the other ref2va workflows, so the three can be compared.\n\n"
-        "Why: the finish is the t2v pick. On ref2va it ran once, on one scene with one "
-        "reference, and the reference held by eye. It has not been compared against "
-        "PDD8 alone on ref2va.")),
-    "h3_t2v_fasth3_contract": (fasth3_contract, (
-        "## FastH3 on FastVideo's own sampling settings (t2v)\n\n"
-        "FastVideo's FastH3 8-step V2 run the way FastVideo runs it: shift 10/3, its own "
-        "sigma positions on Euler, VSA sparse attention keeping 20% from the first step. "
-        "ComfyUI's own template runs res_multistep on a simple schedule, with VSA keeping "
-        "10% from 20% of the steps. Core nodes only; no LoRA.\n\n"
-        "Why: FastH3's look comes from its attention gates and backbone, not its time "
-        "conditioning. Judged detailed and warm, and over-polished; a comparison point.")),
 }
 
 

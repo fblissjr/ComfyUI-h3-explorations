@@ -184,24 +184,6 @@ def _dense_tail_constants_agree() -> list[str]:
 
 
 SOL_EXEMPT_STEMS = {
-    **{stem: "FastH3 V2 to FastVideo's contract, or one half of it: core's "
-             "VSA replaces the block attention Sol would override, as on "
-             "h3_probe_t2v_fasth3_8step (h3_config.FASTH3_CONTRACT_*)"
-       for stem in ("h3_probe_t2v_fasth3_8step_contract",
-                    "h3_probe_t2v_fasth3_8step_contract_attn",
-                    "h3_probe_t2v_fasth3_8step_contract_sampling")},
-    "h3_probe_t2v_fasth3_8step_contract_capture":
-        "FastH3 V2 on its contract, core's BlockSparseAttention as on "
-        "h3_probe_t2v_fasth3_8step_contract, with MiniMaxH3CoreSparseCapture "
-        "after it (open_experiments #45); the capture node changes no output",
-    "h3_probe_t2v_fasth3_8step_contract_novsa":
-        "FastH3 V2 with VSA off on the kitchen backend, a texture probe for "
-        "docs/h3_distills.md; Sol is off because the arm is FastH3 dense, the "
-        "control for its own VSA",
-    "h3_probe_t2v_flashgen_r64_4step_branch_dense":
-        "FlashGen as vllm-omni's NPU recipe runs it: dense attention with the "
-        "sparse config dropped (vllm-omni recipes/MiniMaxAI/MiniMax-H3-NPU.md). "
-        "The Sol-off arm of the FlashGen pair; the kitchen backend is wired",
     **{stem: "Pika H3 Flex Step 2 showcase reproduction "
              "(docs/research/2026-11-04_pika_h3_flex_plan.md): dense attention "
              "on the kitchen backend with Sol off so attention sparsity does "
@@ -210,13 +192,6 @@ SOL_EXEMPT_STEMS = {
                     "h3_probe_r2v_pika_motion_transfer_6step_merge",
                     "h3_probe_t2v_pika_balcony_orbit_6step",
                     "h3_probe_t2v_pika_balcony_orbit_6step_merge")},
-    "h3_probe_t2v_fasth3_8step":
-        "FastVideo's FastH3 V2 was trained with VSA and runs core's "
-        "BlockSparseAttention in VSA mode, as ComfyUI's own template does "
-        "(h3_config.FASTH3_CORE_VSA). VSA replaces the block attention Sol "
-        "would override, so Sol here would be silently inert or a different "
-        "arm than the checkpoint's publishers ship. The kitchen backend is "
-        "still wired",
     "h3_probe_t2v_dense":
         "the fully dense control (2026-09-15): no Sol, no sage, no dense node, "
         "ComfyUI's own attention on every step; the ceiling for the whole chain "
@@ -417,29 +392,6 @@ def sol_model_loads_pdd(graph: dict, nid: str) -> bool:
     return False
 
 
-def sol_model_loads_distill_lora(graph: dict, nid: str) -> bool:
-    """Whether the model feeding Sol node `nid` carries a FlashGen LoRA
-    (`h3_config.SOL_DISTILL_LORA_FILES`), walked upstream like
-    `sol_model_loads_pdd`. Those nodes take SOL_DISTILL_LORA_CUDA since
-    2026-10-01, the generator's rule (`_sol_with_overrides`, and the FlashGen
-    pass of a step switch)."""
-    seen, stack = set(), [str(nid)]
-    while stack:
-        cur = stack.pop()
-        if cur in seen or cur not in graph:
-            continue
-        seen.add(cur)
-        node = graph[cur]
-        inputs = node.get("inputs", {})
-        if (node.get("class_type") in h3_config.LORA_LOADER_CLASSES
-                and inputs.get("lora_name") in h3_config.SOL_DISTILL_LORA_FILES):
-            return True
-        src = inputs.get("model")
-        if isinstance(src, list) and len(src) == 2:
-            stack.append(str(src[0]))
-    return False
-
-
 def main() -> int:
     # API form only: this reads `class_type`/`inputs`, and a graph in another
     # form would read as one with no Sol at all.
@@ -586,10 +538,8 @@ def main() -> int:
                 continue
             # Per Sol node since 2026-10-01 (`sol_model_loads_pdd`), the generator's rule.
             graph_pdd = sol_model_loads_pdd(g, nid)
-            graph_distill = not graph_pdd and sol_model_loads_distill_lora(g, nid)
-            expected = h3_config.sol_for_graph(graph_pdd, graph_steps, distill_lora=graph_distill)
-            source = ("SOL_PDD_CUDA" if graph_pdd else
-                      "SOL_DISTILL_LORA_CUDA" if graph_distill else "SOL_RECOMMENDED_CUDA")
+            expected = h3_config.sol_for_graph(graph_pdd, graph_steps)
+            source = "SOL_PDD_CUDA" if graph_pdd else "SOL_RECOMMENDED_CUDA"
             for k, want in expected.items():
                 if k in dev_fields:
                     if k in vals and vals[k] != want:

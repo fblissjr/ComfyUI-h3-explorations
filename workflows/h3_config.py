@@ -97,15 +97,9 @@ MODELS = dict(
     # 2026-10-05: its download was gone from the box and the owner called it
     # long deprecated (`docs/wiki/decisions.md`). `build_hybrid.py` once
     # reproduced it byte for byte as its control.
-    # FastVideo's FastH3 8-step V2 (HF FastVideo/FastVideo-FastH3-Comfy): a full
-    # distilled T2VA DiT (data-free DMD2, trained WITH VSA-H3), pruned int8
-    # convrot with its OWN curve basis and time table (not fl2va's; measured
-    # 2026-09-26, bench/results/2026-09-26_fasth3_weights.md), plus a `to_gate_compress` per main block
-    # that core's model detection now reads from the keys
-    # (`comfy/model_detection.py`, `gate_compress`). It also quantizes the token
-    # refiner, which ours keeps bf16. T2VA only: FL2VA and Ref2VA were not
-    # distilled. Sampling contract: `FASTH3_*` below.
-    unet_fasth3_v2="fastvideo_fasth3_8step_v2_pruned_int8_convrot.safetensors",
+    # `unet_fasth3_v2`, FastVideo's FastH3 8-step V2 checkpoint, was retired
+    # with the FlashGen and FastH3 lane on 2026-11-04 (`docs/roadmap.md`,
+    # "Closed lanes"); the file stays on disk and its key is in git.
     unet_hybrid_adaln_all="minimax_h3_hybrid_fl2va_ref2va_adaln_all-int8.safetensors",
     # `unet_vsa`, kijai's experimental FastVideo VSA checkpoint, left with
     # `MiniMaxH3VSAAttention` and its two probe graphs in 0.173.0 (owner,
@@ -609,9 +603,9 @@ SOL_RECOMMENDED_CUDA = dict(
     # was measured at.
     tau=1.0,
     # **0.2 here; 0.0 on every PDD graph since 2026-10-01** (SOL_PDD_OVERRIDES,
-    # owner decision, measured). FlashGen graphs keep 0.2: 0.184.1
-    # extended 0.0 to them unmeasured and the owner reverted it the same day
-    # (SOL_DISTILL_LORA_OVERRIDES). On the t2v PDD8-to-FlashGen finish the owner
+    # owner decision, measured). FlashGen graphs kept 0.2 (0.184.1
+    # extended 0.0 to them unmeasured and the owner reverted it the same day)
+    # until that lane was retired on 2026-11-04. On the t2v PDD8-to-FlashGen finish the owner
     # could not tell 0.0 from 0.2 in five blind pairs, and 0.0 cut the sampler
     # by roughly a fifth (bench/results/2026-10-01_start_percent_panel.md).
     # Still unmeasured for the base graphs, which keep 0.2: the node's tooltip
@@ -825,21 +819,12 @@ SOL_PDD_OVERRIDES = dict()
 
 SOL_PDD_CUDA = dict(SOL_RECOMMENDED_CUDA, **SOL_PDD_OVERRIDES)
 
-# The distill LoRAs applied at the call (FlashGen) keep SOL_RECOMMENDED_CUDA's
-# start_percent 0.2. **Reverted by the owner the same day it was set**: 0.184.1
-# gave them 0.0, extended from the PDD measurement and never measured on them (the
-# panel behind SOL_PDD_OVERRIDES rendered the PDD8-to-FlashGen finish, whose
-# FlashGen pass starts at sigma 0.8, so no FlashGen render from pure noise
-# was judged at 0.0); 0.184.3 empties this again. Kept, empty, as the one place a
-# FlashGen-only knob goes, apart from SOL_PDD_CUDA. `SOL_DISTILL_LORA_FILES`
-# (beside the FlashGen constants) says which files it applies to. PDMD's files
-# were in that set until the lane was retired on 2026-10-05.
-SOL_DISTILL_LORA_OVERRIDES = dict()  # was start_percent=0.0 in 0.184.1 only
-
-SOL_DISTILL_LORA_CUDA = dict(SOL_RECOMMENDED_CUDA, **SOL_DISTILL_LORA_OVERRIDES)
+# `SOL_DISTILL_LORA_OVERRIDES` and `SOL_DISTILL_LORA_CUDA`, the FlashGen graphs'
+# Sol config (empty overrides since 0.184.3), went with the FlashGen lane on
+# 2026-11-04; `sol_for_graph` lost its `distill_lora` branch with them.
 
 
-def sol_for_graph(pdd, steps, distill_lora=False):
+def sol_for_graph(pdd, steps):
     """The Sol config one graph should carry, from what the graph IS.
 
     The single resolver for both halves of the question, because they were
@@ -853,16 +838,11 @@ def sol_for_graph(pdd, steps, distill_lora=False):
     lowered per SOL_END_PERCENT_BY_STEPS. The table is empty since
     2026-09-11; SOL_PDD_OVERRIDES is empty again since 2026-10-05 (it carried
     `start_percent` 0.0 from 2026-10-01), so the PDD branch no longer differs
-    from the recommended config; the distill branch below is empty since 0.184.3.
-
-    `distill_lora` -- the model carries a FlashGen LoRA
-    (`SOL_DISTILL_LORA_FILES`) and no PDD -- takes SOL_DISTILL_LORA_CUDA
-    whole, the same way, since 2026-10-01. PDD wins when both are set.
+    from the recommended config. A third branch, `distill_lora` for the
+    FlashGen files, was retired with that lane on 2026-11-04.
     """
     if pdd:
         return dict(SOL_PDD_CUDA)
-    if distill_lora:
-        return dict(SOL_DISTILL_LORA_CUDA)
     end = SOL_END_PERCENT_BY_STEPS.get(steps)
     sol = dict(SOL_RECOMMENDED_CUDA)
     if end is not None:
@@ -1071,9 +1051,9 @@ CACHE_NODE = dict(reuse_threshold=0.2, start_percent=0.15, end_percent=0.95,
 # 12/3 are the base checkpoint's training shifts and the node's own defaults,
 # so these values change nothing on their own. The node is in the graph so the
 # shift is *visible and switchable*, because a distill runs at its trainer's
-# shift, not the base model's: FastH3 at `FASTH3_SHIFT`, PDD and FlashGen at
-# these. The lightx2v turbo LoRAs and their 6/3 rows were retired 2026-09-26
-# (docs/wiki/decisions.md); their table is in git.
+# shift, not the base model's: PDD at these. The lightx2v turbo LoRAs and
+# their 6/3 rows were retired 2026-09-26, and FlashGen (12/3) and FastH3
+# (10/3) on 2026-11-04 (docs/wiki/decisions.md); their constants are in git.
 #
 # **2.22 is not a trained shift here, and it will be offered to you.** DiffSynth's H3
 # pipeline defaults to flow shift 2.22 and applies it to video and audio alike
@@ -1611,124 +1591,31 @@ NO_PIECES_ON = ("hair", "face_and_neck")
 #: 2026-10-10 names it; `docs/h3_resolutions.md` lists it (its 4:3 row).
 MASKED_JOB_CANVAS = (1024, 768)
 
-# ---- FastH3 8-step V2 ------------------------------------------------------------
-#: **Inherited** from ComfyUI's own template, Comfy-Org/workflow_templates
-#: `templates/video_fastvideo_fasth3_t2v.json` (read 2026-09-25): 8 `simple`
-#: steps on `res_multistep`, core's `MiniMaxH3SigmaShift` at 10/3 (the card:
-#: "its video scheduler shift is 10, not the base model's 12"), the kitchen
-#: backend, and core's `BlockSparseAttention` in VSA mode.
-FASTH3_STEPS = 8
-FASTH3_SAMPLER = "res_multistep"
-FASTH3_SCHEDULER = "simple"
-FASTH3_SHIFT = dict(shift_video=10.0, shift_audio=3.0)
-#: Core's node at the template's widget values. `keep_percent` 10 is the
-#: TEMPLATE's; FastVideo's own contract is sparsity 0.8, keep 20, on every step.
-#: This constant stays the template arm; `FASTH3_CONTRACT_VSA` below is the
-#: contract, and `bench/results/2026-09-26_fasth3_contract_s1.md` compares them.
-#: Until 2026-09-26 this said the template "wins here" (`docs/wiki/decisions.md`).
-FASTH3_CORE_VSA = {k: v for k, v in dict(SOL_CORE_DEFAULTS, **{
-    "selection": "vsa", "selection.keep_percent": 10.0}).items() if k != "selection.tau"}
+# ---- FlashGen and FastH3, retired 2026-11-04 ----------------------------------
+# The FastH3 8-step V2 constants (`FASTH3_*`, the template and the contract),
+# the FlashGen 4-step LoRA files and their sampling (`FLASHGEN_*`,
+# `SOL_DISTILL_LORA_FILES`), and every step switch with either as a pass
+# (`STEP_SWITCH_PASS1_SIGMAS`, `STEP_SWITCH_PASS2_SIGMAS`, `STEP_SWITCH_REV`,
+# `STEP_SWITCH_FASTH3`, and `STEP_SWITCH_PAIRS` below) were retired with their
+# graphs on 2026-11-04, by the owner's word that no fast or turbo distill is
+# in use (`docs/roadmap.md`, "Closed lanes"). They are in git before that
+# commit. The model files stay on disk.
 
-# ---- FastH3 V2 as FastVideo's own contract runs it (2026-09-26) ----------------
-#: **Inherited** from the release's `fastvideo_inference.json`, as vllm-omni
-#: validates it (`coderef/vllm-omni/vllm_omni/diffusion/models/minimax_h3/fasth3_checkpoint.py`,
-#: `FastH3CheckpointSpec.from_metadata`):
-#: `dmd_denoising_steps` [999, 874, ..., 125], video shift 10, audio shift 3,
-#: guidance 1, `vsa_sparsity` 0.8, VSA tile 64. vllm-omni steps it with Euler at
-#: eta 0 and runs VSA on every step. The ComfyUI template above differs on the
-#: sampler, the schedule, the kept fraction and the dense warm-up; the owner,
-#: 2026-09-26: make FastH3 as good as it can be before calling it worse.
-FASTH3_CONTRACT_POSITIONS = (0.999, 0.874, 0.749, 0.624, 0.5, 0.375, 0.25, 0.125, 0.0)
-#: The positions shifted at the video shift 10 (`s * u / (1 + (s - 1) * u)`);
-#: core derives the audio stream's sigmas from these through the model's own
-#: 10/3 shifts, so `MiniMaxH3SigmaShift` must stay at `FASTH3_SHIFT`.
-FASTH3_CONTRACT_SIGMAS = ", ".join(
-    "0.0" if u == 0 else f"{10.0 * u / (1 + 9.0 * u):.6f}".rstrip("0").rstrip(".")
-    for u in FASTH3_CONTRACT_POSITIONS)
-FASTH3_CONTRACT_SAMPLER = "euler"
-#: Sparsity 0.8 is the fraction of cubes DROPPED (vllm-omni `diffusion/data.py`,
-#: "the nominal fraction of key blocks dropped"), so core's `keep_percent` is 20.
-#: Core's tooltip says FastH3-VSA was "trained at 10", which is the 90% sparsity
-#: vllm-omni quotes for the preview-v1 VSA student, not V2. `start_percent` 0:
-#: the student was trained sparse on every step, coarse branch included.
-FASTH3_CONTRACT_VSA = dict(FASTH3_CORE_VSA, **{"selection.keep_percent": 20.0,
-                                                "start_percent": 0.0})
-
-# ---- FlashGen 4-step LoRA ------------------------------------------------------
-#: Beidouqixing's `minimax-h3-4step-lora-flashgen` (Apache-2.0): a 4-step
-#: data-free distribution-matching (VSD, no GAN) LoRA for T2VA, trained at
-#: 1344x768 and 5.2 s on the FL2VA partition. This is kijai's conversion
-#: (HF `Kijai/MiniMax-H3-experimental`, 2026-09-22): a dynamic rank resize at
-#: sv_fro 0.95 from rank 64, lossy by construction, with the adaln update
-#: projected onto the pruned checkpoint's curve basis. So it loads on
-#: `MODELS["unet_fl2va"]` and on nothing else. A plain weight LoRA with per-module
-#: alphas. Graphs apply it through `MiniMaxH3LoRABranch`, as every LoRA on
-#: int8 since 0.154.0 (`docs/h3_quant_policy.md`).
-FLASHGEN_LORA = "h3/minimax_h3_4step_lora_flashgen_v1.0_768p_fl2va_pruned_avg_rank_13_bf16.safetensors"
-#: The publisher's LoRA at its full rank 64, converted here by
-#: `bench/convert_flashgen_lora.py` (`data/results/2026-09-25_flashgen_lora_conversion.json`):
-#: exact to the release where kijai's resize keeps about 95% of each delta.
-FLASHGEN_R64_LORA = "h3/minimax_h3_flashgen_4step_v1.0_768p_fl2va_pruned_rank64_comfy.safetensors"
-#: The same at rank 64 for the pruned Ref2VA checkpoint: `convert_flashgen_lora.py
-#: --partition Ref2VA` fits the adaln onto that partition's own time basis
-#: (`data/results/2026-09-26_flashgen_lora_conversion_ref2va.json`). FlashGen was
-#: trained on FL2VA for T2VA; on Ref2VA it is an untested transfer.
-FLASHGEN_R64_REF2VA_LORA = "h3/minimax_h3_flashgen_4step_v1.0_768p_ref2va_pruned_rank64_comfy.safetensors"
 #: The node that applies a LoRA at the call instead of merging it (`lora_branch.py`).
 LORA_BRANCH_NODE = "MiniMaxH3LoRABranch"
-#: **Inherited:** the publisher's merge scale, `merge_lora_ckpt.py --scale`
-#: default 1.0 ("lora_alpha / rank; 1.0 when alpha equals rank"). Both
-#: conversions carry alpha so that 1.0 here is that scale.
-FLASHGEN_STRENGTH = 1.0
-FLASHGEN_STEPS = 4
-#: **Inherited:** the file's own `manual_sigmas_shift12` metadata, which is the
-#: publisher's `base_schedule` [1.0, 0.7, 0.4, 0.15, 0.0] mapped through shift
-#: 12. Read from the header, so a re-download that changed it would show.
-FLASHGEN_MANUAL_SIGMAS = "1.0, 0.965517, 0.888889, 0.679245, 0.0"
-
-#: The distill LoRAs applied at the call whose Sol nodes take
-#: SOL_DISTILL_LORA_CUDA (`sol_for_graph(..., distill_lora=True)`): every
-#: FlashGen file. Owner decision 2026-10-01; see that constant.
-SOL_DISTILL_LORA_FILES = frozenset({FLASHGEN_LORA, FLASHGEN_R64_LORA, FLASHGEN_R64_REF2VA_LORA})
-
-#: Route 3 of the distill-routing idea (docs/research/2026-09-26_distill_routing.md;
-#: the design is in docs/wiki/next_steps.md, agreed by two sessions and the
-#: owner, 2026-09-26): FlashGen's own first two steps, then PDD8 from exactly
-#: where FlashGen left the latent. Pass 1 is derived from FLASHGEN_MANUAL_SIGMAS
-#: so it cannot drift from it. Pass 2's last two points are PDD8's own knots,
-#: **measured**: `comfy.samplers.calculate_sigmas(simple, 8)` at shift 12 prints
-#: 1.0, 0.988235, 0.972973, 0.952381, 0.923077, 0.878049, 0.8, 0.631579, 0.0
-#: (bench/check_pdd_sigmas.py's `comfy_simple`, 2026-09-26). Starting at
-#: 0.888889 puts PDD's first step on grid heads 19..23 (pdd_math.schedule_knots
-#: [19, 24, 28, 32]); the tracker may warn that the step sits off a boundary.
-STEP_SWITCH_PASS1_SIGMAS = ", ".join(FLASHGEN_MANUAL_SIGMAS.split(", ")[:3])
-STEP_SWITCH_PASS2_SIGMAS = ", ".join([FLASHGEN_MANUAL_SIGMAS.split(", ")[2], "0.8", "0.631579", "0.0"])
 
 #: PDD8's own schedule, **measured**: `comfy.samplers.calculate_sigmas(simple,
 #: 8)` at shift 12, which `bench/check_pdd_sigmas.py` proves bit-identical to
 #: what `MiniMaxH3PDDLoRA` emits at 8 steps (2026-09-26).
 PDD8_SIGMAS = "1.0, 0.988235, 0.972973, 0.952381, 0.923077, 0.878049, 0.8, 0.631579, 0.0"
-
-#: The reverse step switch (owner, 2026-09-26: fix PDD's weaknesses with the
-#: distills' complements, "my gut says pdd"): PDD8's own early steps, which
-#: follow the teacher's layout, then FlashGen finishing, so its committed final
-#: jump replaces PDD's hedging late block (docs/research/2026-09-26_distill_routing.md,
-#: `docs/h3_distills.md` P3). Two handoffs, both on PDD8 knots:
-#:   h063: PDD steps 1..7 to 0.631579 (knot 28), then FlashGen 0.631579 -> 0,
-#:         near FlashGen's trained last step 0.679245 -> 0;
-#:   h080: PDD steps 1..6 to 0.8 (knot 24), then FlashGen 0.8 -> 0.679245 -> 0.
-#: FlashGen's pass starts off its trained points in both (reasoned; a probe).
 _P8 = PDD8_SIGMAS.split(", ")
-STEP_SWITCH_REV = {
-    "h063": (", ".join(_P8[:8]), "0.631579, 0.0"),
-    "h080": (", ".join(_P8[:7]), ", ".join(["0.8", FLASHGEN_MANUAL_SIGMAS.split(", ")[3], "0.0"])),
-}
+
 #: PDD8 cut at a handoff, then the undistilled base finishes on Euler
 #: (`docs/open_experiments.md` #37). **Reasoned:** pass 2 walks the 32-point
 #: grid at shift 12, `12t / (1 + 11t)`, from the handoff down: h063 is t = 4/32
 #: (PDD8's last block boundary, 4 base evaluations over the tail PDD8 takes in
-#: one) and h080 is t = 8/32, exactly 0.8 (8 evaluations; the handoff of
-#: `STEP_SWITCH_REV["h080"]`, so it sits beside the FlashGen finish).
+#: one) and h080 is t = 8/32, exactly 0.8 (8 evaluations; the handoff the
+#: retired FlashGen finish used).
 def _base_tail(pass1, k):
     pts = [f"{12 * (i / 32) / (1 + 11 * (i / 32)):.6f}" for i in range(k - 1, 0, -1)]
     return ", ".join([pass1.split(", ")[-1], *pts, "0.0"])
@@ -1741,33 +1628,9 @@ STEP_SWITCH_BASE = {
 # Each handoff is the grid point its tail starts from.
 assert all(abs(float(p1.split(", ")[-1]) - 12 * t / (1 + 11 * t)) < 5e-7
            for (p1, _), t in zip(STEP_SWITCH_BASE.values(), (4 / 32, 8 / 32)))
-#: PDD8 cut at 0.8, then FastH3's own checkpoint finishes on Euler (a second
-#: full checkpoint, so a model swap between the passes). Handoff at base-grid
-#: t = 8/32 = 0.25, which is also FastH3's rung 0.25 (FASTH3_CONTRACT_POSITIONS).
-#: **The audio decides the shift.** Core derives the audio sigma from the video
-#: sigma through the model's own shifts (`time_shift_sigma`): PDD8 leaves it at
-#: 0.5 at video sigma 0.8 (12/3). A pass at 10/3 that keeps video sigma 0.8
-#: tells the audio 0.545 instead; on the same base-grid point, video sigma
-#: 0.769231, both agree at 0.5. So:
-#:   s10: FastH3's own 10/3, handoff and tail on its rungs (0.769231, 0.588235).
-#:        The audio is exact; the video is told 0.769231 where PDD8 left 0.8.
-#:   s12: 12/3 as PDD8 ran, 0.8 and 0.631579. Both streams exact; off FastH3's
-#:        trained shift.
-#: **Reasoned, not rendered.**
-def _fasth3_tail(shift):
-    return ", ".join(f"{shift * u / (1 + (shift - 1) * u):.6f}" for u in (0.25, 0.125)) + ", 0.0"
-
-
-STEP_SWITCH_FASTH3 = {
-    "s10": (STEP_SWITCH_REV["h080"][0], _fasth3_tail(10.0), FASTH3_SHIFT),
-    "s12": (STEP_SWITCH_REV["h080"][0], _fasth3_tail(12.0), SIGMA_SHIFT),
-}
-#: Every step-switch graph's (pass 1, pass 2) sigma pair, for the checks.
-STEP_SWITCH_PAIRS = (((STEP_SWITCH_PASS1_SIGMAS, STEP_SWITCH_PASS2_SIGMAS),) + tuple(STEP_SWITCH_REV.values())
-                     + tuple(STEP_SWITCH_BASE.values()))
-#: **Reasoned:** the card names no sampler, and both its deployment targets
-#: (vllm-omni, MindIE-SD) step Euler deterministically.
-FLASHGEN_SAMPLER = "euler"
+# `STEP_SWITCH_PAIRS`, every step switch's sigma pair for the checks, went on
+# 2026-11-04 with the FlashGen routes: with the base finish the one route
+# left, the checks read `STEP_SWITCH_BASE` itself.
 
 #: Pika H3 Flex Early Access 6-step LCM LoRAs (`docs/research/2026-11-04_pika_h3_flex_weights_and_loras.md`,
 #: `docs/research/2026-11-04_pika_h3_flex_plan.md`).
@@ -2345,9 +2208,8 @@ DAILY_DIR = "daily"
 #: the root and `distill_experiments` as single-frame, and `daily` tripped it.
 SINGLE_FRAME_DIR = "image"
 DAILY_GRAPHS: dict[str, str] = {
-    "h3_ref2v_pdd8_flashgen_finish": "h3_probe_r2v_step_switch_pdd8_flashgen_h080.json",
-    "h3_t2v_pdd8_flashgen_finish": "h3_probe_t2v_step_switch_pdd8_flashgen_h080.json",
-    "h3_i2v_pdd8_flashgen_finish": "h3_probe_i2v_step_switch_pdd8_flashgen_h080.json",
+    # The three PDD8-to-FlashGen finishes (t2v, i2v, ref2va), daily from
+    # 2026-10-03, were retired on 2026-11-04 with the FlashGen lane.
     # The masked lane (owner, 2026-10-05: "make sure we have a daily section
     # for mask"): the default graph, and the ref2va motion graph for a shot
     # that needs the original's movement (`MASKED_MOTION_STEPS`). Promoted

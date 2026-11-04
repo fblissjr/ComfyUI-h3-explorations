@@ -1,6 +1,6 @@
 # What can be made here: a library of uses
 
-last updated: 2026-10-11 (a row for eyelids from marks on the body mesh, and dated notes on the body-mesh rows); 2026-10-10 (the body-mesh row: this pack's own nodes); 2026-10-05 (first written; what each unshipped use needs, added the same day)
+last updated: 2026-11-04 (the FlashGen and FastH3 rows and graphs retired: the daily PDD8-to-FlashGen graphs give way to the PDD graphs); 2026-10-11 (a row for eyelids from marks on the body mesh, and dated notes on the body-mesh rows); 2026-10-10 (the body-mesh row: this pack's own nodes); 2026-10-05 (first written; what each unshipped use needs, added the same day)
 
 Written by hand, at the owner's ask (2026-10-05: "a library of potential
 uses given what we have done here and can do here holistically with
@@ -40,9 +40,9 @@ is the authority on the modes; `../h3_references.md` on references;
 
 | use | what H3 does for it | nodes and graph today | state | evidence |
 |---|---|---|---|---|
-| A clip from text alone, with sound | t2va | `MiniMaxH3Conditioning`, `MiniMaxH3Resolution`; `h3_text_to_video`, `daily/h3_t2v_pdd8_flashgen_finish` | shipped | `../h3_distills.md`; `bench/results/2026-09-27_finisher_grid.md` |
+| A clip from text alone, with sound | t2va | `MiniMaxH3Conditioning`, `MiniMaxH3Resolution`; `h3_text_to_video`, `h3_text_to_video_pdd` | shipped | `../h3_distills.md`; `bench/results/2026-09-27_finisher_grid.md` |
 | Scripted dialogue between speakers; singing; text on screen | the prompt's speaker ids and `<d>` blocks; no node | `h3_text_to_video_dialogue` | shipped | `../prompting.md` sections 5 and 6; `bench/results/2026-09-19_dialogue_transcription.md` |
-| A clip that starts on a given still | fl2va with a first frame | `MiniMaxH3Conditioning` with the canvas taken from the keyframe; `h3_first_frame_to_video`, `daily/h3_i2v_pdd8_flashgen_finish` | shipped | `../h3_geometry_and_nodes.md`; `bench/results/2026-09-26_flashgen_tasks_s1.md` |
+| A clip that starts on a given still | fl2va with a first frame | `MiniMaxH3Conditioning` with the canvas taken from the keyframe; `h3_first_frame_to_video`, `h3_first_frame_to_video_pdd` | shipped | `../h3_geometry_and_nodes.md`; `bench/results/2026-09-26_flashgen_tasks_s1.md` |
 | A clip between two stills | fl2va | `MiniMaxH3Conditioning`; `h3_first_last_frame_to_video` | shipped | `../prompting.md` 3.5 and 10.3 |
 | A clip that ends on a given still | fl2va with a last frame only | `MiniMaxH3Conditioning`; `h3_last_frame_to_video` | shipped | `../prompting.md` 10.4 |
 | Portrait, ultrawide and square shapes; long clips | the trained family of canvases and the frame grid | `MiniMaxH3Resolution`, `MiniMaxH3Preflight`; `h3_probe_canvas_portrait`, `h3_probe_canvas_ultrawide`, `h3_probe_square_canvas` | probe | `../h3_resolutions.md` |
@@ -54,7 +54,7 @@ audio clip, and the prompt names it by its label.
 
 | use | what H3 does for it | nodes and graph today | state | evidence |
 |---|---|---|---|---|
-| A person, several people or a place from stills, in a new scene | ref2va, `<Picture N>` and `<Subject N>` | `MiniMaxH3AppendRefImage`, `MiniMaxH3ReferenceConditioning`; `h3_image_ref_plus_text_to_video`, `h3_ref2v_market`, `daily/h3_ref2v_pdd8_flashgen_finish` | shipped | `../h3_references.md`, "The four reference types"; `bench/results/2026-10-03_r2v_finish_time_budget.md` |
+| A person, several people or a place from stills, in a new scene | ref2va, `<Picture N>` and `<Subject N>` | `MiniMaxH3AppendRefImage`, `MiniMaxH3ReferenceConditioning`; `h3_image_ref_plus_text_to_video`, `h3_ref2v_market`, `h3_ref2v_market_pdd` | shipped | `../h3_references.md`, "The four reference types"; `bench/results/2026-10-03_r2v_finish_time_budget.md` |
 | A clip that follows a reference video's camera, cuts and pacing | ref2va, `<Video N>` as a weak reference | `MiniMaxH3AppendRefVideo`; `h3_ref_video_only`, `h3_ref_video_to_video` | shipped | `../h3_references.md`, "Follow camera movement, cuts and rhythm only" |
 | The movement of a reference video on a subject from a still | ref2va, attribute transfer from `<Video N>` | the same nodes; `h3_ref_video_motion` | shipped | `../h3_references.md`, "Transfer motion onto a different subject" |
 | Edit a video by handing it in as a reference (change a garment, keep the rest) | ref2va, the video partly preserved. The whole frame is regenerated; nothing is kept exactly | the same nodes; `h3_ref_video_edit`, `h3_ref_video_image_edit` | shipped | `../h3_references.md`, "Edit a source video" |
@@ -144,8 +144,7 @@ These are not uses; they change what a use costs and how it looks.
 |---|---|---|
 | PDD8, and its faster rungs | a few-step distill for the keyframe and reference checkpoints | `MiniMaxH3PDDLoRA`; `../h3_pdd.md` |
 | The PDD8 baked checkpoint | the distill built into the weights; the song and masked lanes run on it | `workflows/h3_config.py::MODELS`; `../h3_distills.md` |
-| FlashGen, and PDD8 finished by FlashGen | a second distill, applied at the call; the daily graphs use the pair | `MiniMaxH3LoRABranch`; `../research/2026-09-26_flashgen.md` |
-| FastH3 | its own checkpoint, text to video only | `../h3_distills.md` |
+| FlashGen, PDD8 finished by FlashGen, and FastH3 | retired 2026-11-04 with every fast distill; Pika H3 Flex, under test since its showcase graphs landed the same day, is the one exception | `../roadmap.md`, "Closed lanes" |
 | Sol-Attn | sparse attention, on in the shipped video graphs | `MiniMaxH3Sol`; `../SOLATTN.md` |
 
 ## 8. What each unshipped use needs

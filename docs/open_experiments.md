@@ -1,6 +1,6 @@
 # Open experiments
 
-Last updated: 2026-11-04 (one dated note under the cube-schedule entry: sglang's step count); 2026-09-29 (#48 to #50 added); 2026-09-27 (#33 closed; #34 to #46 added); #28 status 2026-09-19; otherwise 2026-09-11
+Last updated: 2026-11-04 (#34, #35, #36, #45, #46, #48 and #49 closed with the FlashGen and FastH3 lane, and dated notes in #37, #42, #43, #44 and #47; one dated note under the cube-schedule entry: sglang's step count); 2026-09-29 (#48 to #50 added); 2026-09-27 (#33 closed; #34 to #46 added); #28 status 2026-09-19; otherwise 2026-09-11
 
 > **Several of these are now scheduled rather than parked.** The working plan
 > and the render scenes that would settle the quality-blocked ones live in
@@ -2506,6 +2506,8 @@ path is not reached here at any tile size; a reopening also needs the flag.*
 
 ## 34. PDD8 finished by late-block FlashGen
 
+**Closed 2026-11-04, with the FlashGen and FastH3 lane** (`roadmap.md`, "Closed lanes"; retired, not refuted). The graphs, constants and tools named below are in git at `358e6199`; the text stays as the record.
+
 Added 2026-09-27 (the VAE session's held-back list,
 `../internal/postmortems/2026-09-26_session_distill-weights-and-render-dataset.md`,
 addendum). It combines the night's two best recipes:
@@ -2554,6 +2556,8 @@ Full FlashGen as the finisher may be adding its haze back.
   - One seed, measured, not yet judged by eye.
 
 ## 35. FastH3: gates or backbone drift
+
+**Closed 2026-11-04, with the FlashGen and FastH3 lane** (`roadmap.md`, "Closed lanes"; retired, not refuted). The graphs, constants and tools named below are in git at `358e6199`; the text stays as the record.
 
 Added 2026-09-27. The conditioning swap (`../bench/results/2026-09-27_fasth3_swap.md`)
 showed that FastH3's speed and look live in its 50 VSA gates and its small
@@ -2624,6 +2628,8 @@ sparsity and gates at once. This splits the two.
 
 ## 36. A strength dial on FastH3's gates
 
+**Closed 2026-11-04, with the FlashGen and FastH3 lane** (`roadmap.md`, "Closed lanes"; retired, not refuted). The graphs, constants and tools named below are in git at `358e6199`; the text stays as the record.
+
 Added 2026-09-27. FastH3 carries the most fine detail of the distills on 13
 of 13 scenes, and the owner reads it as too polished. The time-embedder dial
 built on 2026-09-27 targeted conditioning the swap then showed to be inert.
@@ -2667,7 +2673,9 @@ the clean test of whether the tail is PDD's problem.
     32-grid's last four intervals at shift 12, 4 evaluations.
   - `h3_config.STEP_SWITCH_REV` or `STEP_SWITCH_PAIRS` gains the pair, so
     `bench/check_distill_settings.py` and `bench/check_distill_grid.py`
-    accept it.
+    accept it. *2026-11-04: built as `h3_config.STEP_SWITCH_BASE`; the pdd8
+    and flashgen routes, `STEP_SWITCH_REV` and `STEP_SWITCH_PAIRS` were
+    retired with FlashGen, and the checks read `STEP_SWITCH_BASE`.*
   - Graph: `h3_probe_t2v_step_switch_pdd8_base_h063`, with a `_savelat`
     twin.
 - **Bench:** a manifest on subway_chase plus the #34 interiors, against
@@ -2821,9 +2829,11 @@ up. It was fastdude's P2 (`../bench/results/2026-09-26_distill_run_predictions.m
   - `h3_probe_t2v_pdd32_savelat` (PDD at width 1, no fusion);
   - `h3_probe_t2v_base_euler16_savelat`;
   - `h3_probe_t2v_base_euler32_savelat`.
-- **Bench, existing:** `bench/make_followup_manifest.py` has the `pdd16`,
+- **Bench, existing:** `bench/make_followup_manifest.py` had the `pdd16`,
   `pdd32`, `base_euler16` and `base_euler32` roles; a manifest selecting them
-  on two scenes is to build.
+  on two scenes is to build. *2026-11-04: that tool was retired with the
+  FlashGen and FastH3 lane (in git at `358e6199`); the arms are the graphs
+  above, and `bench/run_graph_arms.py` takes a manifest written by hand.*
 - **Measures:**
   - look and temporal measures against PDD8;
   - `bench/x0_step_frames.py` for events;
@@ -2870,7 +2880,8 @@ that premise.
   - two high-delta: slapstick_moving_piano, samurai_bamboo_duel;
   - two low-delta: courtroom_verdict, radio_drama;
   - seed 730451892, 345 frames, both models.
-  - A manifest is to build (`bench/make_followup_manifest.py` roles).
+  - A manifest is to build (`bench/make_followup_manifest.py` roles; that
+    tool is retired since 2026-11-04 and in git at `358e6199`).
 - **Measures:**
   - per render, the rank correlation between delta and settle step;
   - the settle step of cut frames against their neighbours;
@@ -2907,7 +2918,9 @@ shot headers, not beats inside a shot
 (`../bench/results/2026-09-18_timestamps_diner.md`).
 
 - **Models:** `h3_config.MODELS["unet_fl2va"]`, with PDD8 and FlashGen
-  (`h3_config.FLASHGEN_R64_LORA`), both on the exact branch. The base comes
+  (`h3_config.FLASHGEN_R64_LORA`), both on the exact branch. *2026-11-04:
+  FlashGen is retired (`roadmap.md`, "Closed lanes"); its arm and graph are
+  in git at `358e6199`, and the test stands on PDD8.* The base comes
   later, only if a distill shows a difference (the owner's no-base rule for
   this batch).
 - **Prompts, to build:** one new single-shot T2VA prompt with three agented
@@ -2925,8 +2938,8 @@ shot headers, not beats inside a shot
   prompts, so a second seed separates the prompt's effect from one take's
   luck. A seed is not being used to probe adherence here.
 - **Bench:**
-  - existing: `bench/make_followup_manifest.py`,
-    `bench/measure_clip_delta.py --json` (the delta peaks give each beat's
+  - existing: `bench/make_followup_manifest.py` (retired 2026-11-04, in git
+    at `358e6199`), `bench/measure_clip_delta.py --json` (the delta peaks give each beat's
     rendered time), `bench/grade_prompt_text.py` (grades both texts before
     render);
   - to build: nothing, unless reading beat times off the delta series by
@@ -2942,6 +2955,8 @@ shot headers, not beats inside a shot
 - **Blocker:** the owner's go (8 renders at 345 frames).
 
 ## 45. Is part of FastH3's over-polish the kitchen's VSA selection
+
+**Closed 2026-11-04, with the FlashGen and FastH3 lane** (`roadmap.md`, "Closed lanes"; retired, not refuted). The graphs, constants and tools named below are in git at `358e6199`; the text stays as the record.
 
 Added 2026-09-27 (the same list). The owner reads FastH3 as "super high
 detail like almost way too much" (`../bench/results/2026-09-26_followup_contamination.md`).
@@ -3005,6 +3020,8 @@ render carries attention FastH3 never trained with, which could add detail.
 
 
 ## 46. Late-only FlashGen on the adherence scenes, then as its own file
+
+**Closed 2026-11-04, with the FlashGen and FastH3 lane** (`roadmap.md`, "Closed lanes"; retired, not refuted). The graphs, constants and tools named below are in git at `358e6199`; the text stays as the record.
 
 Added 2026-09-27 (the same list). The owner's theory O2: FlashGen is overfit
 to a narrow distribution, so it follows unusual prompts poorly
@@ -3093,7 +3110,8 @@ precision, and this entry closes without being built.
 - **Workflows:** `h3_text_to_video_pdd_manual_sigmas` (PDD6: UNET 1 ->
   `MiniMaxH3PDDLoRA` 18 -> `ModelAttentionBackend` 58 -> Sol 21, `ManualSigmas`
   60 = `h3_config.PDD_MANUAL_SIGMAS`) and
-  `distill_experiments/h3_probe_t2v_fasth3_8step_contract` (FastH3: UNET 1 ->
+  `distill_experiments/h3_probe_t2v_fasth3_8step_contract` (retired with the
+  FastH3 lane on 2026-11-04, in git at `358e6199`; FastH3: UNET 1 ->
   `MiniMaxH3SigmaShift` 19 -> 58 -> `BlockSparseAttention` 21, vsa). Both run
   euler through `BasicGuider` 9. The Sol redesign regenerates these graphs, so
   re-read the chains before building.
@@ -3131,6 +3149,8 @@ precision, and this entry closes without being built.
 - **Blocker:** the floor arm's result, then the owner's go.
 
 ## 48. Does FastH3's late-block backbone add anything to fl2va plus its gates
+
+**Closed 2026-11-04, with the FlashGen and FastH3 lane** (`roadmap.md`, "Closed lanes"; retired, not refuted). The graphs, constants and tools named below are in git at `358e6199`; the text stays as the record.
 
 **Read 2026-09-29 (owner, blind, six pairs): no arm is clearly different from gates alone.** Late (blocks 30-49) took
 two preferences to none with one tie, early (0-29) two to one, nearly all described as slight, audio the same
@@ -3179,6 +3199,8 @@ with the gates on, so this needs no new code.
   mutantdude carries this (owner, 2026-09-29).
 
 ## 49. FastH3's gate tensors on the w6a8 fl2va file
+
+**Closed 2026-11-04, with the FlashGen and FastH3 lane** (`roadmap.md`, "Closed lanes"; retired, not refuted). The graphs, constants and tools named below are in git at `358e6199`; the text stays as the record.
 
 Added 2026-09-29 (mutantdude; held with #48). Comfy-Org published
 `minimax_h3_fl2va_pruned_w6a8.safetensors` on 2026-09-29 (about 5 GB smaller

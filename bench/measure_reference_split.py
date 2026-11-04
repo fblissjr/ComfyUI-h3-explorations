@@ -11,7 +11,7 @@ submits the bench node `H3BenchSplitReferences`
 (`bench/comfy_capture_nodes/h3_bench_prefix_reuse`), which runs that path
 beside `clip.encode_from_tokens_scheduled` on:
 
-  one reference       the ref2va finish graph's still at its shipped view,
+  one reference       the market ref2va graph's still, shared with the encoder,
                       the graph's prompt, then an edit of the prompt on a
                       second encode, whose rows must equal the first's
   two chains          that still followed by a second one, then by a third:
@@ -39,7 +39,21 @@ REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO / "bench"))
 from bench_e2e_h3 import run_once  # noqa: E402
 
-GRAPH = "workflows/distill_experiments/h3_probe_r2v_step_switch_pdd8_flashgen_h080_savelat_api.json"
+#: The market scene's PDD8 ref2va graph: the same encoder, still, append node,
+#: resolution and conditioning (node for node, prompt included) as
+#: `h3_probe_r2v_step_switch_pdd8_flashgen_h080_savelat`, which this read until
+#: that graph was retired on 2026-11-04, except the append node's `qwen_view`.
+#: That graph was a `_savelat` twin, whose still is shared with the encoder
+#: (`h3_config.REF_QWEN_SHORT_EDGE`), so `shared_view` restores that and a run
+#: stays comparable with the records made on it.
+GRAPH = "workflows/h3_ref2v_market_pdd_api.json"
+
+
+def shared_view(append_inputs: dict) -> dict:
+    """The append node's inputs with the still shared with the encoder."""
+    out = {k: v for k, v in append_inputs.items() if not k.startswith("qwen_view")}
+    out["qwen_view"] = "shared"
+    return out
 NODE = "H3BenchSplitReferences"
 BENCH_NODES = REPO / "bench" / "comfy_capture_nodes"
 EDIT = " The light shifts as a cloud passes."
@@ -76,6 +90,7 @@ async def main():
     full = json.loads((REPO / GRAPH).read_text())
     g = {k: full[k] for k in ("2", "15", "50")}
     assert g["50"]["class_type"] == "MiniMaxH3AppendRefImage"
+    g["50"] = dict(g["50"], inputs=shared_view(g["50"]["inputs"]))
     for load, append, image in (("915", "951", args.second), ("916", "952", args.third)):
         g[load] = {"class_type": "LoadImage", "inputs": {"image": image}}
         g[append] = {"class_type": "MiniMaxH3AppendRefImage", "inputs": dict(

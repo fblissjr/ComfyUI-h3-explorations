@@ -10,12 +10,12 @@ this file is only a way to find a script by what it says it does.
 |---|---|
 | [`check_*`](#check) | 169 |
 | [`measure_*`](#measure) | 39 |
-| [`analyze_*`](#analyze) | 23 |
-| [`grade_*`](#grade) | 21 |
+| [`analyze_*`](#analyze) | 20 |
+| [`grade_*`](#grade) | 20 |
 | [`compare_*`](#compare) | 19 |
-| [`build_*`](#build) | 18 |
+| [`build_*`](#build) | 17 |
 | [`probe_*`](#probe) | 11 |
-| [the rest](#the-rest) | 200 |
+| [the rest](#the-rest) | 196 |
 
 ## check
 
@@ -246,16 +246,13 @@ this file is only a way to find a script by what it says it does.
 | [`analyze_audio_spectral_tilt.py`](analyze_audio_spectral_tilt.py) | Spectral centroid over clip TIME, for any set of rendered H3 audio tracks. |
 | [`analyze_checkpoint_delta.py`](analyze_checkpoint_delta.py) | What is inside the fl2va / ref2va checkpoints, measured, not inferred. |
 | [`analyze_error_by_query_segment.py`](analyze_error_by_query_segment.py) | Whose attention error a whole-cell INT8 grade counts: the query rows' segments. |
-| [`analyze_flashgen_weights.py`](analyze_flashgen_weights.py) | FlashGen's LoRA as weights: its effective rank, and where in t it moves modulation. |
 | [`analyze_followup.py`](analyze_followup.py) | Run the measurement reads on the 2026-09-26 follow-up batch as its arms land. |
-| [`analyze_gate_dial_reanalysis.py`](analyze_gate_dial_reanalysis.py) | Independent read of #36's gate dial (`2026-09-29_fasth3_gate_dial.md`). |
 | [`analyze_head_magnitudes.py`](analyze_head_magnitudes.py) | Why block 49: per-head Q/K/V magnitudes on captured activations, joined to per-head error. |
 | [`analyze_k_by_segment.py`](analyze_k_by_segment.py) | K's INT8 stress by sequence segment, on the captured t2v and ref2va cells. |
 | [`analyze_pdd_stream_energy.py`](analyze_pdd_stream_energy.py) | Does PDD's block width cost AUDIO specifically, or does it cost both streams? |
 | [`analyze_pdd_unmerge_curve.py`](analyze_pdd_unmerge_curve.py) | What un-merging N blocks actually recovers, and whether picking N pays. |
 | [`analyze_quant_delta.py`](analyze_quant_delta.py) | What separates the two shipped quantizations of the same H3 DiT: the `fp8_scaled` file against the `int8_convrot` file, and -- when the bf16 release is on disk -- each of them against the weights they were made from. |
 | [`analyze_quant_hotspots.py`](analyze_quant_hotspots.py) | Where INT8 weight error concentrates: by block, and by module kind. |
-| [`analyze_refiner_requant.py`](analyze_refiner_requant.py) | Is FastH3's int8 token refiner fl2va's bf16 refiner requantized, or something learned? |
 | [`analyze_routing.py`](analyze_routing.py) | How many blocks does Sol's router keep exact? |
 | [`analyze_settle_vs_delta.py`](analyze_settle_vs_delta.py) | Does a latent frame settle later in sampling when the picture changes more there? CPU only. |
 | [`analyze_sol_block_grouping.py`](analyze_sol_block_grouping.py) | Sol-Attn groups tokens 64 at a time. Which side of that grouping costs the accuracy: the queries, the keys, the rule, or nothing that a reused decision could not pay for? Float reference on captures, CPU only. |
@@ -287,7 +284,6 @@ this file is only a way to find a script by what it says it does.
 | [`grade_subtitle_timing.py`](grade_subtitle_timing.py) | Measure burned-in subtitle spans and vocal-burst structure in a rendered clip. |
 | [`grade_vae_encoder_precision.py`](grade_vae_encoder_precision.py) | What does promoting the H3 video VAE's encoder to fp32 actually change? |
 | [`grade_video_block_presentation.py`](grade_video_block_presentation.py) | Is ComfyUI's per-pair vision call equivalent to the vendor's one-clip call? |
-| [`grade_vsa_selection_on_capture.py`](grade_vsa_selection_on_capture.py) | #45: core's kitchen VSA against a FastVideo-exact reference, on captured FastH3 attention. GPU. |
 
 ## compare
 
@@ -322,7 +318,6 @@ this file is only a way to find a script by what it says it does.
 | [`build_changelog.py`](build_changelog.py) | Build the top of `CHANGELOG.md` from one fragment file per entry, and number the entries when it is built. |
 | [`build_checkpoint_overlay.py`](build_checkpoint_overlay.py) | Write an exact overlay of one int8 H3 checkpoint on another, piece by piece. |
 | [`build_cut_map.py`](build_cut_map.py) | Build a clean, chronological Cut & Hierarchical Data Flow Lineage Map (PROVENANCE.html, CUT_MAP.html, CUT_MAP.md) for fun (0000-6394). |
-| [`build_gate_transplant.py`](build_gate_transplant.py) | Add FastH3's VSA gates to a checkpoint, or take them out. CPU only. |
 | [`build_hybrid.py`](build_hybrid.py) | Build an fl2va/ref2va hybrid checkpoint by copying tensors, and prove the builder first. |
 | [`build_index.py`](build_index.py) | Write the generated indexes: one way in for every tracked area of the repo. |
 | [`build_meta_sapiens2.py`](build_meta_sapiens2.py) | Make `vendor/meta_sapiens2/` from `coderef/sapiens2`: Meta's names for its models' points and classes, and its licence. |
@@ -388,7 +383,6 @@ this file is only a way to find a script by what it says it does.
 | [`contact_sheets.py`](contact_sheets.py) | Contact sheets of an input video's own frames, made once and kept: one folder a video, one file a frame range. |
 | [`control_blk_cnt_public_api.py`](control_blk_cnt_public_api.py) | One positive and one negative control on `blk_cnt`, through the PUBLIC API. |
 | [`control_time_warp.py`](control_time_warp.py) | Can `bench/analyze_time_warp.py` see a warp at all? A control for its "not a time warp" claim. |
-| [`convert_flashgen_lora.py`](convert_flashgen_lora.py) | Convert Beidouqixing's FlashGen 4-step LoRA, at its full rank, for the pruned fl2va checkpoint. |
 | [`convert_h3_bf16_encoder.py`](convert_h3_bf16_encoder.py) | Adapt a full-depth HF Qwen3-VL-32B text encoder to the ComfyUI H3 encoder. |
 | [`convert_pdd_lora.py`](convert_pdd_lora.py) | Convert an alibaba-pai MiniMax-H3 PDD acceleration LoRA to this repo's format. |
 | [`convert_pika_lora.py`](convert_pika_lora.py) | Convert Pika H3 Flex PEFT LoRAs (`fl2va`, `ref2va`) to ComfyUI format. |
@@ -439,9 +433,6 @@ this file is only a way to find a script by what it says it does.
 | [`look_carry.py`](look_carry.py) | Whether a load made again can rest on the look an earlier capture of it had: track, part, region and reference video. |
 | [`look_rooms.py`](look_rooms.py) | A subject's look, declared once in the plan, made into the region a load regenerates; and the plan-time check that reads the node's own plan back against it. |
 | [`make_attention_defaults_json.py`](make_attention_defaults_json.py) | Emit `2026-08-18_attention_defaults.json` from the raw arm results. |
-| [`make_distill_run_manifest.py`](make_distill_run_manifest.py) | Write the manifest for the 2026-09-26 fresh distill run: many bank scenes, four models, one seed. |
-| [`make_followup_manifest.py`](make_followup_manifest.py) | Write the manifest for the 2026-09-26 follow-up batch: the distill run's remaining arms on the 0.154.0 code, and the tests its predictions need. |
-| [`make_overlay_loader_graphs.py`](make_overlay_loader_graphs.py) | Write FastH3-contract graphs whose UNETLoader is MiniMaxH3OverlayLoader. |
 | [`map_attention_mass_on_capture.py`](map_attention_mass_on_capture.py) | Where does exact attention mass go, per head? Segment masses, per-latent-frame mass and the heaviest keys, on a capture. |
 | [`map_cube_schedule.py`](map_cube_schedule.py) | Map sglang's cube-sparse keep-ratio schedule onto the sigma grid our graphs sample. |
 | [`map_partition_delta.py`](map_partition_delta.py) | What differs between the release's FL2VA and Ref2VA weights, tensor by tensor. |

@@ -20,7 +20,7 @@ coefficients directly is an artifact (`bench/analyze_checkpoint_delta.py`,
 the 2026-08-20 retraction). Extracting it needs the modulation output, and it
 is out of scope here.
 
-    python bench/measure_checkpoint_lora_rank.py [--blocks 0,24,49] [--json OUT]
+    python bench/measure_checkpoint_lora_rank.py --other OTHER.safetensors [--blocks 0,24,49] [--json OUT]
 """
 
 from __future__ import annotations
@@ -52,7 +52,10 @@ def dequant(f, key):
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--base", default=h3_config.MODELS["unet_fl2va"])
-    ap.add_argument("--other", default=h3_config.MODELS["unet_fasth3_v2"])
+    # Defaulted to FastH3 V2 (`MODELS["unet_fasth3_v2"]`) until that key was
+    # retired on 2026-11-04; name the checkpoint to compare.
+    ap.add_argument("--other", required=True,
+                    help="the other checkpoint, a file under models/diffusion_models")
     ap.add_argument("--blocks", default="0,24,49")
     ap.add_argument("--json", type=Path)
     args = ap.parse_args()

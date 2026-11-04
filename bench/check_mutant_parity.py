@@ -10,8 +10,8 @@ the owner judged.
 
 Two stages:
 
-    static    CPU, no server. On the real files: the LoRA branches (all
-              blocks and 34-49) are torch.equal to `lora_branch.parse_lora`'s;
+    static    CPU, no server. On the real files: the PDD backbone's LoRA
+              branches are torch.equal to `lora_branch.parse_lora`'s;
               the head block each step selects matches `pdd_math.schedule_knots`
               on every recipe schedule; each fused head is torch.equal to
               `pdd_lora._FusedHeads`'.
@@ -54,30 +54,27 @@ UNETS = COMFY / "models" / "diffusion_models"
 
 #: The recipes, as the pack's graphs that the owner judged or that the
 #: package ships. Each is swapped node for node in `graphs`.
+#: The FlashGen recipes (t2v and ref2va finishes, late blocks, i2v and r2v
+#: alone) and the FlashGen branch comparisons in `static` left with the
+#: FlashGen and FastH3 lane on 2026-11-04 (`docs/roadmap.md`, "Closed lanes");
+#: their pack graphs are gone. The package's published examples are its own.
 RECIPES = {
-    "pdd8_flashgen_finish": "workflows/h3_text_to_video_pdd8_flashgen_finish_api.json",
     "pdd6": "workflows/h3_text_to_video_pdd_manual_sigmas_api.json",
-    "flashgen_late_blocks": "workflows/distill_experiments/h3_text_to_video_flashgen_late_blocks_api.json",
     "i2v_pdd8": "workflows/distill_experiments/h3_first_frame_to_video_pdd_savelat_api.json",
     "r2v_pdd8": "workflows/h3_image_ref_plus_text_to_video_pdd_api.json",
-    "r2v_flashgen": "workflows/distill_experiments/h3_probe_r2v_flashgen_4step_api.json",
-    "i2v_flashgen": "workflows/distill_experiments/h3_probe_i2v_flashgen_4step_api.json",
-    # The pack graph is the market scene with one reference; the example shares the
-    # recipe and takes the other ref2va examples' prompt and two references.
-    "r2v_pdd8_flashgen_finish": "workflows/distill_experiments/h3_probe_r2v_step_switch_pdd8_flashgen_h080_api.json",
 }
 
 #: The files `static` compares, per checkpoint partition: (PDD sidecar,
-#: FlashGen conversion, checkpoint).
+#: checkpoint).
 PARTITIONS = {
-    "fl2va": (C.PDD_FL2VA_LORA, C.FLASHGEN_R64_LORA, C.MODELS["unet_fl2va"]),
-    "ref2va": (C.PDD_REF2VA_LORA, C.FLASHGEN_R64_REF2VA_LORA, C.MODELS["unet_ref2va"]),
+    "fl2va": (C.PDD_FL2VA_LORA, C.MODELS["unet_fl2va"]),
+    "ref2va": (C.PDD_REF2VA_LORA, C.MODELS["unet_ref2va"]),
 }
 
 #: The sigma schedules whose PDD head blocks `static` compares.
 SCHEDULES = {
     "pdd8": C.PDD8_SIGMAS,
-    "pdd8_to_0.8 (the finish's first pass)": "1.0, 0.988235, 0.972973, 0.952381, 0.923077, 0.878049, 0.8",
+    "pdd8_to_0.8 (a step switch's first pass)": "1.0, 0.988235, 0.972973, 0.952381, 0.923077, 0.878049, 0.8",
     "pdd6 (PDD_MANUAL_SIGMAS)": C.PDD_MANUAL_SIGMAS,
 }
 
@@ -117,14 +114,8 @@ def static() -> int:
             fails.append(name)
 
     from safetensors import safe_open
-    for part, (pdd_file, fg_file, unet) in PARTITIONS.items():
-        fg_sd, _ = _load(LORAS / fg_file)
+    for part, (pdd_file, unet) in PARTITIONS.items():
         pdd_sd, pdd_meta = _load(LORAS / pdd_file)
-
-        for label, blocks in (("all", "all"), ("34-49", "34-49")):
-            ours = X.select(X.parse_lora(fg_sd, C.FLASHGEN_STRENGTH), X.parse_blocks(blocks))
-            pack = lb.select(lb.parse_lora(fg_sd, C.FLASHGEN_STRENGTH), "all", lb.parse_blocks(blocks))
-            check(f"{part}: FlashGen branches, blocks {label}", _branches_equal(ours, pack))
 
         dm_sd = {k: v for k, v in pdd_sd.items() if k.startswith("diffusion_model.")}
         check(f"{part}: PDD backbone branches",

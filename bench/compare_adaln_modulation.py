@@ -17,10 +17,12 @@ evaluates it at every table row for both files and compares.
 The same table serves the video and the audio stream at their own t, so a
 student distilled on fixed rungs was supervised at two sets of t: the rungs
 through the video shift and through the audio shift. `--rungs` and the two
-`--shift-*` flags name them (defaults: FastH3 V2's, `h3_config.FASTH3_*`), and
-the report compares the change at those t with the change between them.
+`--shift-*` flags name them (FastH3 V2's were the defaults until the
+`FASTH3_*` constants were retired on 2026-11-04), and the report compares the
+change at those t with the change between them.
 
-    CUDA_VISIBLE_DEVICES= python bench/compare_adaln_modulation.py BASE.safetensors OTHER.safetensors [--json OUT]
+    CUDA_VISIBLE_DEVICES= python bench/compare_adaln_modulation.py BASE.safetensors OTHER.safetensors \
+        --rungs 0.999,0.874,... --shift-video S --shift-audio S [--json OUT]
 """
 
 from __future__ import annotations
@@ -35,8 +37,6 @@ import torch
 from safetensors import safe_open
 
 HERE = Path(__file__).resolve().parent
-sys.path.insert(0, str(HERE.parent / "workflows"))
-import h3_config  # noqa: E402
 
 
 def shifted(u, s):
@@ -53,9 +53,13 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("base")
     ap.add_argument("other")
-    ap.add_argument("--rungs", default=",".join(str(u) for u in h3_config.FASTH3_CONTRACT_POSITIONS[:-1]))
-    ap.add_argument("--shift-video", type=float, default=h3_config.FASTH3_SHIFT["shift_video"])
-    ap.add_argument("--shift-audio", type=float, default=h3_config.FASTH3_SHIFT["shift_audio"])
+    # Defaulted to FastH3 V2's rungs and 10/3 shifts (`h3_config.FASTH3_*`, gone)
+    # until those constants were retired on 2026-11-04; the student's own
+    # values are named here now.
+    ap.add_argument("--rungs", required=True,
+                    help="the trained positions u in (0, 1], comma-separated")
+    ap.add_argument("--shift-video", type=float, required=True)
+    ap.add_argument("--shift-audio", type=float, required=True)
     ap.add_argument("--json", type=Path)
     args = ap.parse_args()
 

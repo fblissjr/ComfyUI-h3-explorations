@@ -1,6 +1,6 @@
 # sglang's H3 serving path against ours
 
-last updated: 2026-11-04 ("Every known divergence" now holds the list itself, re-checked, after the owner retired `../comfyui_vendor_gaps.md`); 2026-11-04 (closing section "Eleventh read" added: a month of the pipeline, stage by stage; drifted ComfyUI core line citations re-checked against core `5f415e31a` and repointed to symbols or current lines, no core claim found false); 2026-11-04 (every section before "Tenth read" re-checked against sglang `origin/main` at `8884b4b421`: dated notes where a claim moved, drifted line citations repointed to symbols, and the worker-patch pin in "Tenth read" checked by hash); 2026-11-04 (closing section "Tenth read" added, with dated notes in the seventh, eighth and ninth reads); 2026-10-08 (closing section "Ninth read" added: frozen audio
+last updated: 2026-11-04 (dated notes where the retired `FASTH3_*` constants are named); 2026-11-04 ("Every known divergence" now holds the list itself, re-checked, after the owner retired `../comfyui_vendor_gaps.md`); 2026-11-04 (closing section "Eleventh read" added: a month of the pipeline, stage by stage; drifted ComfyUI core line citations re-checked against core `5f415e31a` and repointed to symbols or current lines, no core claim found false); 2026-11-04 (every section before "Tenth read" re-checked against sglang `origin/main` at `8884b4b421`: dated notes where a claim moved, drifted line citations repointed to symbols, and the worker-patch pin in "Tenth read" checked by hash); 2026-11-04 (closing section "Tenth read" added, with dated notes in the seventh, eighth and ninth reads); 2026-10-08 (closing section "Ninth read" added: frozen audio
 and video inputs, with a dated note in the eighth read); 2026-10-02 (closing section "Eighth read" added, with dated
 notes on the seventh read's ComfyUI sentence, the `kitchen_int8` name and our
 dense-blocks cell); 2026-09-25 (closing section "Seventh read" added); 2026-09-19 (closing section "Sixth read" added, and a dated
@@ -1300,7 +1300,7 @@ gone. With the ninth read's per-row labels, the adapter now agrees with
 core on labels and on output scaling (read, not run). The same commit adds
 FastH3 and VDN-H3 executors and an `SGLDH3DistilledSigmas` node
 (`coderef/sglang/python/sglang/multimodal_gen/apps/ComfyUI_SGLDiffusion/nodes.py`) whose FastH3 grid is the trained
-rungs at shift 10, the values of `h3_config.FASTH3_CONTRACT_POSITIONS`.
+rungs at shift 10, the values of `h3_config.FASTH3_CONTRACT_POSITIONS` (*retired 2026-11-04 with the FastH3 lane; in git at `358e6199`*).
 `45de4adde9` (#44841) adds a worker-side patch profile,
 `coderef/sglang/python/sglang/multimodal_gen/apps/comfyui_worker_patches/h3.py`, that swaps core's numerics into
 sglang's DiT where they differ: the time embedding cast to bf16, the gate
@@ -1363,7 +1363,8 @@ named, on a supported card only (`97bfa5cc53`, #43690;
 10.3, so an explicit request on this card's 8.9 still raises and an
 unnamed one falls back to dense. Whether the pointer path would run on 8.9
 was not tested. FastH3's sparsity is still the value of
-`h3_config.FASTH3_CONTRACT_VSA`.
+`h3_config.FASTH3_CONTRACT_VSA` (*retired 2026-11-04 with the FastH3 lane;
+in git at `358e6199`*).
 
 **Smaller, with no effect here.** The video VAE decodes tiles in batches
 at `lossless` (`0498ab7b6e`, #45179; `decoder_tile_batch`), which by its

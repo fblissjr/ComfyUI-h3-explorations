@@ -241,19 +241,6 @@ DECLARED: dict[tuple[str, str], tuple] = {
     ("BasicScheduler", "steps"):
         ("ARM", "the arm's evaluation count; graded against the LoRA it loads "
                 "by bench/check_distill_settings.py"),
-    ("BlockSparseAttention", "selection"):
-        ("ARM", "'vsa' on the FastH3 V2 probe only: the checkpoint was trained "
-                "with VSA and ComfyUI's own template runs it through this node "
-                "in VSA mode (h3_config.FASTH3_CORE_VSA, inherited). The node's "
-                "first option is 'sol-attn'."),
-    ("BlockSparseAttention", "selection.keep_percent"):
-        ("ARM", "20 on the FastH3 contract arms: FastVideo's contract pins VSA "
-                "sparsity 0.8, the fraction dropped (h3_config.FASTH3_CONTRACT_VSA). "
-                "The template's and the node's 10 stays on the template arm."),
-    ("BlockSparseAttention", "start_percent"):
-        ("ARM", "0 on the FastH3 contract arms: the student was trained with VSA "
-                "on every step (h3_config.FASTH3_CONTRACT_VSA); the template's "
-                "dense warm-up of 0.2 stays on the template arm."),
     ("BasicScheduler", "denoise"):
         ("ARM", "0.5 on the audio-only refine pass of the audio_refine probes "
                 "only: its steps run at the tail of a steps/denoise schedule. "
@@ -305,9 +292,6 @@ DECLARED: dict[tuple[str, str], tuple] = {
         ("RESOLVED", "h3_config.PDD_MANUAL_SIGMAS, the six-block tail-weighted "
                      "partition; its 6dp rounding is load-bearing and "
                      "bench/check_pdd_sigmas.py asserts the derivation"),
-    ("MiniMaxH3SigmaShift", "shift_video"):
-        ("ARM", "10.0 on the FastH3 V2 graphs, its trainer's shift; "
-                "h3_config.FASTH3_SHIFT"),
     ("MiniMaxH3PDDLoRA", "patch_heads"):
         ("ARM", "False on the headfree control arm, which is the whole point "
                 "of that graph"),
@@ -369,16 +353,10 @@ DECLARED: dict[tuple[str, str], tuple] = {
                 "nothing, which is why generated graphs leave it. The probes "
                 "are the arms that vary it. (The third value, 'encoder', left "
                 "with the AWQ lane on 2026-09-13.)"),
-    # LoraLoaderModelOnly.strength_model's row moved here in 0.154.0, when
-    # every LoRA on int8 moved to the branch node and the stock loader was left
-    # on one control graph at its default.
-    ("MiniMaxH3LoRABranch", "blocks"):
-        ("ARM", "'34-49' on h3_text_to_video_flashgen_late_blocks (2026-09-27): "
-                "FlashGen on its late blocks alone keeps the 4-step finish with "
-                "about half the haze (fastdude's FT1). Also on the FlashGen pass "
-                "of h3_probe_t2v_step_switch_pdd8_flashgen_late_h080 and its "
-                "_savelat twin (open_experiments #34). 'all', the node default, "
-                "everywhere else."),
+    # LoraLoaderModelOnly.strength_model's row moved to MiniMaxH3LoRABranch
+    # in 0.154.0; that row (`blocks` '34-49' on the FlashGen late-blocks
+    # graphs) went with the FlashGen lane on 2026-11-04, when the last graph
+    # carrying the branch node was retired.
     ("MiniMaxH3PDDLoRA", "backbone_apply"):
         ("ARM", "'merge' on h3_probe_t2v_pdd8_merge alone, the control for the "
                 "0.154.0 default 'exact branch': PDD's backbone merged into the int8 "

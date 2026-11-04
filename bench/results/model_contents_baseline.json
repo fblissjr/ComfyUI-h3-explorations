@@ -89,65 +89,6 @@
         "video_patch_proj": 1
       }
     },
-    "unet_fasth3_v2": {
-      "mechanism": "comfy_quant",
-      "tensors": 1098,
-      "quantized_layers": 258,
-      "configs": {
-        "{\"convrot\": true, \"convrot_groupsize\": 256, \"format\": \"int8_tensorwise\"}": {
-          "layers": 258,
-          "roles": {
-            "blocks.N.attn.out_proj": 50,
-            "blocks.N.attn.qkv_proj": 50,
-            "blocks.N.attn.to_gate_compress": 50,
-            "blocks.N.mlp.fc1": 50,
-            "blocks.N.mlp.fc2": 50,
-            "token_refiner.blocks.N.attn.out_proj": 2,
-            "token_refiner.blocks.N.attn.qkv_proj": 2,
-            "token_refiner.blocks.N.mlp.fc1": 2,
-            "token_refiner.blocks.N.mlp.fc2": 2
-          }
-        }
-      },
-      "unquantized_2d_weights": {
-        "audio_patch_proj": 1,
-        "blocks.N.adaln_proj.linear": 50,
-        "condition_proj": 1,
-        "final_layer.adaln_proj.linear": 1,
-        "final_layer.audio_out": 1,
-        "final_layer.video_out": 1,
-        "video_patch_proj": 1
-      }
-    },
-    "unet_hybrid_adaln_all": {
-      "mechanism": "comfy_quant",
-      "tensors": 932,
-      "quantized_layers": 200,
-      "configs": {
-        "{\"convrot\": true, \"convrot_groupsize\": 256, \"format\": \"int8_tensorwise\"}": {
-          "layers": 200,
-          "roles": {
-            "blocks.N.attn.out_proj": 50,
-            "blocks.N.attn.qkv_proj": 50,
-            "blocks.N.mlp.fc1": 50,
-            "blocks.N.mlp.fc2": 50
-          }
-        }
-      },
-      "unquantized_2d_weights": {
-        "audio_patch_proj": 1,
-        "blocks.N.adaln_proj.linear": 50,
-        "condition_proj": 1,
-        "final_layer.adaln_proj.linear": 1,
-        "final_layer.audio_out": 1,
-        "final_layer.video_out": 1,
-        "token_refiner.blocks.N.attn.out_proj": 2,
-        "token_refiner.blocks.N.attn.qkv_proj": 2,
-        "token_refiner.blocks.N.mlp.fc1": 2,
-        "token_refiner.blocks.N.mlp.fc2": 2,
-        "video_patch_proj": 1
-      }
-    },
     "clip": {
       "mechanism": "comfy_quant",
       "tensors": 1602,
@@ -226,12 +167,42 @@
         "decoder.transformer_blocks.N.ff.w2": 36,
         "decoder.x_embedder": 1
       }
+    },
+    "unet_hybrid_adaln_all": {
+      "mechanism": "comfy_quant",
+      "tensors": 932,
+      "quantized_layers": 200,
+      "configs": {
+        "{\"convrot\": true, \"convrot_groupsize\": 256, \"format\": \"int8_tensorwise\"}": {
+          "layers": 200,
+          "roles": {
+            "blocks.N.attn.out_proj": 50,
+            "blocks.N.attn.qkv_proj": 50,
+            "blocks.N.mlp.fc1": 50,
+            "blocks.N.mlp.fc2": 50
+          }
+        }
+      },
+      "unquantized_2d_weights": {
+        "audio_patch_proj": 1,
+        "blocks.N.adaln_proj.linear": 50,
+        "condition_proj": 1,
+        "final_layer.adaln_proj.linear": 1,
+        "final_layer.audio_out": 1,
+        "final_layer.video_out": 1,
+        "token_refiner.blocks.N.attn.out_proj": 2,
+        "token_refiner.blocks.N.attn.qkv_proj": 2,
+        "token_refiner.blocks.N.mlp.fc1": 2,
+        "token_refiner.blocks.N.mlp.fc2": 2,
+        "video_patch_proj": 1
+      }
     }
   },
+  "attention_preference_approved": {},
   "producer": {
     "file": "check_model_contents.py",
-    "sha256": "ccd0c89effca8202b108b27f0d569d6d999fc9fcacaeff65501877016ab37981",
-    "repository_commit": "31f398764b9029166a05c7adde92d6144ed54d1c",
+    "sha256": "32e559d923d8243d8618100f0368ef7b3f2e76c8e825b0dd0bb8cbd0934b2d0d",
+    "repository_commit": "358e6199a8d456b74c391bc57821ae61c3e0087f",
     "dirty_against_commit": false
   }
 }

@@ -358,7 +358,9 @@ covers it, and it is cheap to check at the call rather than at the output.
 Every graph but the two FastH3 ones on `h3_config.FASTH3_SAMPLER` steps with
 Euler, the first-order update this item calls exact; that constant's
 `res_multistep` is the one higher-order sampler left, and the item stands
-for it.
+for it. **Dated note, 2026-11-04:** the FastH3 graphs and `FASTH3_SAMPLER`
+are retired (`roadmap.md`, "Closed lanes"), so every shipped graph steps with
+Euler; the item stands for any higher-order sampler a graph takes up.
 
 **7. The SLA router does not cover what the SLA LoRA was distilled on**
 (*measured*, from the artifact header). The Turbo-SLA LoRA carries modules for

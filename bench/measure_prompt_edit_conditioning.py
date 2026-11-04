@@ -4,7 +4,7 @@ it is the reference VAE encode.
 
     <comfy venv python> bench/measure_prompt_edit_conditioning.py OUT.json [--arms vae,no_vae] [--host 127.0.0.1:8188]
 
-Submits the conditioning side of the shipped ref2va finish graph alone (the
+Submits the conditioning side of the market ref2va graph alone (the
 encoder and VAE loaders, the still and its append node, the resolution node,
 the conditioning node) with a text preview as the only output, so no DiT loads
 and no sampler runs. Each submission changes the prompt, which is the one
@@ -34,7 +34,21 @@ REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO / "bench"))
 from bench_e2e_h3 import run_once  # noqa: E402
 
-GRAPH = "workflows/distill_experiments/h3_probe_r2v_step_switch_pdd8_flashgen_h080_savelat_api.json"
+#: The market scene's PDD8 ref2va graph: the same encoder, still, append node,
+#: resolution and conditioning (node for node, prompt included) as
+#: `h3_probe_r2v_step_switch_pdd8_flashgen_h080_savelat`, which this read until
+#: that graph was retired on 2026-11-04, except the append node's `qwen_view`.
+#: That graph was a `_savelat` twin, whose still is shared with the encoder
+#: (`h3_config.REF_QWEN_SHORT_EDGE`), so `shared_view` restores that and a run
+#: stays comparable with the records made on it.
+GRAPH = "workflows/h3_ref2v_market_pdd_api.json"
+
+
+def shared_view(append_inputs: dict) -> dict:
+    """The append node's inputs with the still shared with the encoder."""
+    out = {k: v for k, v in append_inputs.items() if not k.startswith("qwen_view")}
+    out["qwen_view"] = "shared"
+    return out
 KEEP = ("2", "3", "4", "15", "50", "27", "5")
 COND = "5"
 
@@ -43,6 +57,7 @@ def graph(arm, n):
     full = json.loads((REPO / GRAPH).read_text())
     g = {k: json.loads(json.dumps(full[k])) for k in KEEP}
     assert g[COND]["class_type"] == "MiniMaxH3ReferenceConditioning"
+    g["50"]["inputs"] = shared_view(g["50"]["inputs"])
     if arm == "no_vae":
         del g[COND]["inputs"]["vae"], g[COND]["inputs"]["audio_vae"]
         del g["3"], g["4"]

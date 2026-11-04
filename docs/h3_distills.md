@@ -1,6 +1,12 @@
 # Which distill for which shot
 
-last updated: 2026-10-05 (PDMD retired: its row and section reduced to a pointer); 2026-10-01 (PDMD added, from one blind session: one seed, five scenes); 2026-09-26 (written from one seed, two scenes, unblinded)
+last updated: 2026-11-04 (FlashGen and FastH3 retired: the note below, and dated notes where a graph was named as shipping); 2026-10-05 (PDMD retired: its row and section reduced to a pointer); 2026-10-01 (PDMD added, from one blind session: one seed, five scenes); 2026-09-26 (written from one seed, two scenes, unblinded)
+
+> **FlashGen and FastH3 are retired, 2026-11-04** (`roadmap.md`, "Closed
+> lanes"). Their graphs, constants and contract grading left the tree and
+> are in git at `358e6199`. Their sections below are kept as the record of
+> what was seen; the graphs they name do not exist any more, and PDD is the
+> one distill left, where the masked lane uses it.
 
 > **Seed-matched clips are different scenes.** The same seed through each
 > distill gives a different scene: different camera angle and framing,
@@ -283,7 +289,7 @@ before". Diner's zoom-out: "a little artifacty".
 
 ## FlashGen
 
-Shipped as `h3_text_to_video_flashgen`: rank 64, applied at the call. What it
+Shipped as `h3_text_to_video_flashgen` until 2026-11-04: rank 64, applied at the call. What it
 is, and why it is built that way: `research/2026-09-26_flashgen.md`.
 
 **Good.** Diner's zoom-out "looks good, keeps coherency". It "complements pdd
@@ -313,7 +319,7 @@ base's (`2026-09-26_subway_v2_s1.md`).
 
 ## FastH3 V2
 
-Run to FastVideo's own contract (`h3_probe_t2v_fasth3_8step_contract`), not
+Run (until 2026-11-04) to FastVideo's own contract (`h3_probe_t2v_fasth3_8step_contract`), not
 ComfyUI's template: see `../bench/results/2026-09-26_fasth3_contract_s1.md`.
 
 **Good.** "much better audio and less artifacty than pdd". Motion holds. The
@@ -367,7 +373,8 @@ Retired, not refuted (`roadmap.md`, "Closed lanes").
     2026-10-05): the finish on a first-frame clip is one of the three daily
     graphs, `workflows/daily/h3_i2v_pdd8_flashgen_finish_api.json`, named in
     `workflows/h3_config.py::DAILY_GRAPHS` since 2026-10-03. The review's
-    remark stands as what was seen that day.*
+    remark stands as what was seen that day.* *2026-11-04: the finish
+    graphs, the daily three included, are retired with FlashGen.*
   - Whether it becomes the t2v default is the owner's call.
 - **Fast motion or a moving camera:**
   - FlashGen, if the action is simple enough that roles cannot swap;

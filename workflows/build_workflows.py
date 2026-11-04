@@ -92,8 +92,8 @@ from prompts import text as _bank_prompt  # noqa: E402
 import prompts as _prompts  # noqa: E402
 from h3_config import (  # noqa: E402
     DAILY_DIR, DAILY_GRAPHS, SINGLE_FRAME_DIR,
-    CORE_LOADED_ENCODERS, IMAGE_VAE, DRAFT_VAE, STEP_SWITCH_PASS1_SIGMAS, STEP_SWITCH_PASS2_SIGMAS,
-    STEP_SWITCH_REV, STEP_SWITCH_BASE, CANVAS, FPS, LENGTH, LONG_LENGTH, LONG_WINDOW, MODELS,
+    CORE_LOADED_ENCODERS, IMAGE_VAE, DRAFT_VAE,
+    STEP_SWITCH_BASE, CANVAS, FPS, LENGTH, LONG_LENGTH, LONG_WINDOW, MODELS,
     SAMPLING, SAGE_NODE, DENSE_BACKEND_NODE, DENSE_CHAINS, DEFAULT_DENSE_CHAIN, SEED, SIGMA_SHIFT, SOL_CORE_NODE, SOL_CORE_DEFAULTS,
     REF_VIDEO_LOADER, REF_QWEN_SHORT_EDGE, SEGMENTER, SUBJECT_TRACK, MASKED_SOURCE,
     MASKED_MOTION_STEPS, MASKED_MOTION_SOURCE, MASKED_PROMPT, MASKED_PROMPT_NODE,
@@ -106,14 +106,10 @@ from h3_config import (  # noqa: E402
     DIALOGUE_REF_IMAGES, REFVIEW2_SCENES,
     PDD_MANUAL_EVALS,
     PDD_MANUAL_SIGMAS,
-    sol_for_graph, SOL_DISTILL_LORA_FILES,
+    sol_for_graph,
     PDD_FL2VA_LORA, PDD_REF2VA_LORA, PDD_STEPS, PDD_STEPS_FAST,
     PDD_STRENGTH, PDD_FL2VA_STRIPPED_LORA,
-    AUDIO_REFINE, FROZEN_VIDEO_CACHE, FROZEN_VIDEO_CACHE_NODE, FLASHGEN_LORA,
-    FLASHGEN_R64_LORA, FLASHGEN_R64_REF2VA_LORA, LORA_BRANCH_NODE, FLASHGEN_STRENGTH, FLASHGEN_STEPS,
-    FLASHGEN_MANUAL_SIGMAS, FLASHGEN_SAMPLER,
-    FASTH3_STEPS, FASTH3_SAMPLER, FASTH3_SCHEDULER, FASTH3_SHIFT, FASTH3_CORE_VSA,
-    FASTH3_CONTRACT_SIGMAS, FASTH3_CONTRACT_SAMPLER, FASTH3_CONTRACT_VSA, STEP_SWITCH_FASTH3,
+    AUDIO_REFINE, FROZEN_VIDEO_CACHE, FROZEN_VIDEO_CACHE_NODE, LORA_BRANCH_NODE,
     PIKA_FL2VA_LORA, PIKA_REF2VA_LORA, PIKA_STRENGTH, PIKA_STEPS, PIKA_SAMPLER,
     PIKA_MANUAL_SIGMAS, PIKA_MOTION_TRANSFER_IMAGES, PIKA_MOTION_TRANSFER_VIDEO,
     refine_scheduler_ids,
@@ -487,10 +483,8 @@ def _sol_with_overrides(extra: dict) -> dict:
     `bench/check_attention_defaults.py::DEVIATIONS`, which also asserts the
     deviation is real; an override that matches the recipe is refused here
     so a stale one cannot ride along as a no-op."""
-    lora = (extra.get("lora") or (None,))[0]
     base = sol_for_graph(bool(extra.get("pdd", False)),
-                         extra.get("steps", SAMPLING["steps"]),
-                         distill_lora=lora in SOL_DISTILL_LORA_FILES)
+                         extra.get("steps", SAMPLING["steps"]))
     over = extra.get("sol_overrides") or {}
     unknown = sorted(set(over) - set(base))
     if unknown:
@@ -589,11 +583,12 @@ def _is_distill_experiment(fname: str, extra: dict) -> bool:
 
     Derived like the image split was: every `_savelat` or `_x0` twin (the
     experiments' instrumentation), and every `h3_probe_*` graph that runs a
-    distill, whether a PDD or FlashGen LoRA, FastH3's checkpoint, a step
-    switch or an audio refine pass. Entries that are experiments without being
-    probes say so with `distill_experiment=True`. The shipped distill graphs
-    (`h3_text_to_video_pdd`, `_flashgen`, the PDD ref and fl2v graphs) stay at
-    the root. The owner, 2026-09-27: "you and fastdude's modified/new
+    distill, whether a PDD or Pika LoRA, a step switch or an audio refine pass.
+    Entries that are experiments without being probes say so with
+    `distill_experiment=True`. The shipped distill graphs
+    (`h3_text_to_video_pdd`, the PDD ref and fl2v graphs) stay at the root.
+    The FlashGen and FastH3 graphs this also matched were retired on
+    2026-11-04 (`docs/roadmap.md`, "Closed lanes"). The owner, 2026-09-27: "you and fastdude's modified/new
     workflows can go into a new subfolder called distill_experiments".
     """
     stem = fname.removesuffix(".json")
@@ -602,8 +597,7 @@ def _is_distill_experiment(fname: str, extra: dict) -> bool:
     if not stem.startswith("h3_probe_"):
         return False
     lora = str((extra.get("lora") or ("",))[0]).lower()
-    return bool(extra.get("pdd") or "pdd" in lora or "flashgen" in lora or "pika" in lora
-                or "fasth3" in str(extra.get("unet", "")).lower()
+    return bool(extra.get("pdd") or "pdd" in lora or "pika" in lora
                 or extra.get("step_switch") or extra.get("audio_refine"))
 
 
@@ -1263,8 +1257,6 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
               # int8 goes through our branch); False only on a merge control.
               lora_branch: bool = True,
               # MiniMaxH3LoRABranch's `blocks`: "all", or a range like "34-49".
-              # FlashGen on its late blocks alone keeps the 4-step finish with
-              # about half the haze (fastdude's FT1, 2026-09-27).
               lora_blocks: str = "all",
               steps: int | None = None, shift: dict | None = None,
               sampler_name: str | None = None, scheduler_name: str | None = None,
@@ -1413,7 +1405,8 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
               refine_cache: bool = False,
               # Core's BlockSparseAttention at these API inputs, in Sol's slot
               # (node 21). For a checkpoint trained with VSA whose upstream
-              # recipe is core's node (FastH3, h3_config.FASTH3_CORE_VSA).
+              # recipe is core's node. No shipped graph sets it since the
+              # FastH3 graphs were retired on 2026-11-04.
               core_vsa: dict | None = None,
               # Scouting: the video decoded by h3_config.DRAFT_VAE, and the
               # latent the decoders read saved in two halves (video, audio) so
@@ -1432,25 +1425,19 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
               # and save pass 1's latent and the refine pass's denoised output
               # beside the final one, all in one execution. Nodes 106-112.
               probe_frozen_rows: bool = False,
-              # Route 3 of the distill-routing idea: FlashGen's first two steps
-              # through MiniMaxH3LoRABranch, then PDD8's finish from FlashGen's
-              # own endpoint, DisableNoise on pass 2, one shift on both
-              # (h3_config.STEP_SWITCH_*). Nodes 120-123 and the PDD chain at
-              # +200. Pass 1 is this call's own graph; set its FlashGen knobs.
+              # A step switch: this call's own PDD chain as pass 1, then a
+              # second sampler on pass 2's model chain from where pass 1 left
+              # the latent, DisableNoise on pass 2, one shift on both
+              # (h3_config.STEP_SWITCH_BASE). Nodes 120-123 and pass 2's
+              # chain at +200.
               step_switch: bool = False,
-              # What pass 2 is: "pdd8" (route 3, FlashGen then PDD8's finish
-              # at STEP_SWITCH_PASS2_SIGMAS) or "flashgen" (the reverse: this
-              # graph's own PDD chain, then FlashGen at step_switch_sigmas), or
-              # "base" (this graph's PDD chain, then the undistilled base on
-              # Euler at step_switch_sigmas; open_experiments #37), or
-              # "fasth3" (this graph's PDD chain, then FastH3's own checkpoint
-              # at step_switch_sigmas and step_switch_shift, on its core VSA
-              # at the contract; h3_config.STEP_SWITCH_FASTH3).
-              step_switch_to: str = "pdd8",
+              # What pass 2 is: "base", the undistilled base on Euler at
+              # step_switch_sigmas (open_experiments #37). The routes whose
+              # either pass was FlashGen or FastH3 ("pdd8", "flashgen",
+              # "fasth3") were retired on 2026-11-04 (`docs/roadmap.md`,
+              # "Closed lanes"); they are in git before that commit.
+              step_switch_to: str = "base",
               step_switch_sigmas: str | None = None,
-              step_switch_shift: dict | None = None,
-              # The FlashGen pass's `blocks` in a PDD-first switch.
-              step_switch_blocks: str = "all",
               # Save every step's x0 prediction (MiniMaxH3StepX0Observer, node
               # 113) on the main pass's model, for finding the step where a
               # moving person first appears twice (docs/h3_distills.md). About
@@ -1458,7 +1445,8 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
               probe_step_x0: bool = False,
               # Capture on core's sparse producer path (MiniMaxH3CoreSparseCapture,
               # node 114, after the attention node): inert unless H3_CAPTURE is set
-              # with pre=; for open_experiments #45 on FastH3's contract graph.
+              # with pre=; built for open_experiments #45 on FastH3's contract
+              # graph, which was retired on 2026-11-04.
               probe_core_sparse_capture: bool = False,
               out_prefix: str | None = None, **canvas) -> dict:
     """API-format graph, submittable as {"prompt": <this>} to POST /prompt.
@@ -2368,69 +2356,35 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
         g["12"]["inputs"]["samples"] = ["87", 0]
 
     if step_switch:
-        if step_switch_to not in ("pdd8", "flashgen", "base", "fasth3"):
-            raise SystemExit(f"step_switch_to must be pdd8, flashgen, base or fasth3, not {step_switch_to!r}")
+        if step_switch_to != "base":
+            raise SystemExit(f"step_switch_to must be base, not {step_switch_to!r}; the pdd8, "
+                             "flashgen and fasth3 routes were retired on 2026-11-04 "
+                             "(docs/roadmap.md, \"Closed lanes\")")
         if (lora is None or audio_refine or split_at or freeze_audio or freeze_windows or single_frame
-                or pdd != (step_switch_to in ("flashgen", "base", "fasth3"))):
-            raise SystemExit("step_switch runs this graph's own chain as pass 1 (a non-PDD LoRA "
-                             "before pdd8, PDD before flashgen or base) and composes with none of "
-                             "audio_refine, split_at, freeze_*, single_frame")
-        # Pass 2's model chain is the other distill's own graph, built by this
+                or not pdd):
+            raise SystemExit("step_switch runs this graph's own PDD chain as pass 1 and composes "
+                             "with none of audio_refine, split_at, freeze_*, single_frame")
+        # Pass 2's model chain is the base's own graph, built by this
         # function and copied in at +200, so it carries exactly what that
-        # graph carries (the LoRA node, its shift, the dense backend, Sol at
-        # its recipe). The UNET loader is shared, and asserted identical.
-        # Only on 0.154.8 or later: two branch LoRAs in one graph is the
-        # shape the 2026-09-26 stacking bug hit (2faed1a8).
-        if step_switch_to == "pdd8":
-            pass2_sigmas = step_switch_sigmas or STEP_SWITCH_PASS2_SIGMAS
-            g2 = build_api(task, sage=sage, prompt=prompt, length=length, seed=seed,
-                           sol=(sol_for_graph(True, PDD_STEPS) if sol is not None else None),
-                           sol_impl=sol_impl, dense_backend=dense_backend,
-                           pdd=True, lora=(PDD_FL2VA_LORA, PDD_STRENGTH), steps=PDD_STEPS,
-                           sampler_name="euler", manual_sigmas=pass2_sigmas,
-                           unet=unet, clip=clip, **canvas)
-        elif step_switch_to == "base":
-            if not step_switch_sigmas:
-                raise SystemExit("step_switch_to='base' needs step_switch_sigmas (h3_config.STEP_SWITCH_BASE)")
-            pass2_sigmas = step_switch_sigmas
-            base_evals = len(pass2_sigmas.split(",")) - 1
-            g2 = build_api(task, sage=sage, prompt=prompt, length=length, seed=seed,
-                           sol=(sol_for_graph(False, base_evals) if sol is not None else None),
-                           sol_impl=sol_impl, dense_backend=dense_backend,
-                           steps=base_evals, sampler_name="euler",
-                           manual_sigmas=pass2_sigmas, unet=unet, clip=clip, **canvas)
-        elif step_switch_to == "fasth3":
-            if not (step_switch_sigmas and step_switch_shift):
-                raise SystemExit("step_switch_to='fasth3' needs step_switch_sigmas and step_switch_shift (h3_config.STEP_SWITCH_FASTH3)")
-            pass2_sigmas = step_switch_sigmas
-            g2 = build_api(task, sage=False, prompt=prompt, length=length, seed=seed,
-                           sol=None, dense_backend=dense_backend, core_vsa=FASTH3_CONTRACT_VSA,
-                           steps=len(pass2_sigmas.split(",")) - 1, sampler_name=FASTH3_CONTRACT_SAMPLER,
-                           manual_sigmas=pass2_sigmas, shift=step_switch_shift,
-                           unet=MODELS["unet_fasth3_v2"], clip=clip, **canvas)
-        else:
-            if not step_switch_sigmas:
-                raise SystemExit("step_switch_to='flashgen' needs step_switch_sigmas (h3_config.STEP_SWITCH_REV)")
-            pass2_sigmas = step_switch_sigmas
-            g2 = build_api(task, sage=sage, prompt=prompt, length=length, seed=seed,
-                           sol=(sol_for_graph(False, FLASHGEN_STEPS, distill_lora=True)
-                                if sol is not None else None),
-                           sol_impl=sol_impl, dense_backend=dense_backend,
-                           lora=(FLASHGEN_R64_REF2VA_LORA if task == "r2v" else FLASHGEN_R64_LORA,
-                                 FLASHGEN_STRENGTH), lora_branch=True,
-                           lora_blocks=step_switch_blocks,
-                           steps=FLASHGEN_STEPS, sampler_name=FLASHGEN_SAMPLER,
-                           manual_sigmas=pass2_sigmas, unet=unet, clip=clip, **canvas)
-        if (g2["1"] != g["1"]) != (step_switch_to == "fasth3"):
-            raise SystemExit("step_switch: pass 1 and pass 2 load different UNETs only for fasth3")
+        # graph carries (its shift, the dense backend, Sol at its recipe).
+        # The UNET loader is shared, and asserted identical.
+        if not step_switch_sigmas:
+            raise SystemExit("step_switch_to='base' needs step_switch_sigmas (h3_config.STEP_SWITCH_BASE)")
+        pass2_sigmas = step_switch_sigmas
+        base_evals = len(pass2_sigmas.split(",")) - 1
+        g2 = build_api(task, sage=sage, prompt=prompt, length=length, seed=seed,
+                       sol=(sol_for_graph(False, base_evals) if sol is not None else None),
+                       sol_impl=sol_impl, dense_backend=dense_backend,
+                       steps=base_evals, sampler_name="euler",
+                       manual_sigmas=pass2_sigmas, unet=unet, clip=clip, **canvas)
+        if g2["1"] != g["1"]:
+            raise SystemExit("step_switch: pass 1 and pass 2 must load the same UNET")
         chain, ref = {}, g2["9"]["inputs"]["model"]
         while ref[0] != "1":
             node = g2[ref[0]]
             chain[ref[0]] = node
             ref = next(v for k, v in node["inputs"].items()
                        if isinstance(v, list) and len(v) == 2 and k == "model")
-        if step_switch_to == "fasth3":
-            chain["1"] = g2["1"]
 
         def _moved(v):
             return ([str(int(v[0]) + 200), v[1]] if isinstance(v, list) and len(v) == 2
@@ -3635,7 +3589,7 @@ def validate_api(graph: dict, oi: dict, label: str) -> list[str]:
                 e(f"refine pass: scheduler {sid} and guider {gid} read MODEL from "
                   f"different sources {pair}")
             refine_ids.add(gid)
-    # A step-switch second pass (build_api(step_switch=True), route 3 of
+    # A step-switch second pass (build_api(step_switch=True), from
     # docs/research/2026-09-26_distill_routing.md) is also a second sampler on
     # its own model by design. Recognised by structure, not by name, so the
     # exemption stays narrow: no added noise (DisableNoise), its own
@@ -4010,95 +3964,6 @@ def main():
               refine_cache=True,
               out_prefix="Video/h3_probe_t2v_pdd8_audio_refine"),
          "text -> video + audio at 8 steps via PDD, then 6 undistilled audio-only steps"),
-
-        # FlashGen (h3_config.FLASHGEN_*): a 4-step VSD distill as kijai converted
-        # it, on its own four sigmas. Trained at 5.2 s; rendered at the owner's
-        # length, which is a known confound.
-        ("h3_probe_t2v_flashgen_4step.json", "t2v-flashgen-4step", "t2v", LONG_T2V_PROMPT,
-         dict(lora=(FLASHGEN_LORA, FLASHGEN_STRENGTH), steps=FLASHGEN_STEPS,
-              sampler_name=FLASHGEN_SAMPLER, manual_sigmas=FLASHGEN_MANUAL_SIGMAS,
-              out_prefix="Video/h3_probe_t2v_flashgen_4step"),
-         "text -> video + audio at 4 steps via the FlashGen LoRA on its own sigmas"),
-
-        # FlashGen at the publisher's full rank 64 (FLASHGEN_R64_LORA), merged
-        # by the stock loader: the control for h3_text_to_video_flashgen, which
-        # applies it at the call (lora_branch.py). The pair isolates how the
-        # LoRA reaches the int8 weight (data/results/2026-09-26_int8_lora_requant.json).
-        # The `_branch` probe that was the other half is gone since 0.147.1:
-        # it was the shipped graph under another name.
-        ("h3_probe_t2v_flashgen_r64_4step.json", "t2v-flashgen-r64-4step", "t2v", LONG_T2V_PROMPT,
-         dict(lora=(FLASHGEN_R64_LORA, FLASHGEN_STRENGTH), lora_branch=False,
-              steps=FLASHGEN_STEPS,
-              sampler_name=FLASHGEN_SAMPLER, manual_sigmas=FLASHGEN_MANUAL_SIGMAS,
-              out_prefix="Video/h3_probe_t2v_flashgen_r64_4step"),
-         "FlashGen at full rank 64, merged by LoraLoaderModelOnly"),
-        # The same with Sol off, on the kitchen backend: vllm-omni's NPU recipe
-        # runs FlashGen dense with the sparse config dropped.
-        ("h3_probe_t2v_flashgen_r64_4step_branch_dense.json", "t2v-flashgen-r64-4step-branch-dense",
-         "t2v", LONG_T2V_PROMPT,
-         dict(lora=(FLASHGEN_R64_LORA, FLASHGEN_STRENGTH), lora_branch=True,
-              dense_attn="ck", sol_on=False,
-              steps=FLASHGEN_STEPS, sampler_name=FLASHGEN_SAMPLER,
-              manual_sigmas=FLASHGEN_MANUAL_SIGMAS,
-              out_prefix="Video/h3_probe_t2v_flashgen_r64_4step_branch_dense"),
-         "FlashGen rank 64 at the call, dense attention as vllm-omni's recipe runs it"),
-
-        # FastH3 8-step V2 as ComfyUI's own template runs it (h3_config.FASTH3_*):
-        # kitchen backend, core's VSA in Sol's slot, Sol off because VSA replaces
-        # the block attention it would override. T2VA only.
-        ("h3_probe_t2v_fasth3_8step.json", "t2v-fasth3-8step", "t2v", LONG_T2V_PROMPT,
-         dict(dense_attn="ck", sol_on=False, unet=MODELS["unet_fasth3_v2"],
-              steps=FASTH3_STEPS, sampler_name=FASTH3_SAMPLER,
-              scheduler_name=FASTH3_SCHEDULER, shift=FASTH3_SHIFT,
-              core_vsa=FASTH3_CORE_VSA,
-              out_prefix="Video/h3_probe_t2v_fasth3_8step"),
-         "text -> video + audio at 8 steps via FastVideo's FastH3 V2, core VSA"),
-
-        # FastH3 V2 to FastVideo's own contract (h3_config.FASTH3_CONTRACT_*),
-        # and the two halves of the change on their own: the attention (keep
-        # 20%, VSA from the first step) and the sampling (the release's
-        # positions on Euler). The template graph above is the fourth arm.
-        ("h3_probe_t2v_fasth3_8step_contract.json", "t2v-fasth3-8step-contract", "t2v", LONG_T2V_PROMPT,
-         dict(dense_attn="ck", sol_on=False, unet=MODELS["unet_fasth3_v2"],
-              steps=FASTH3_STEPS, sampler_name=FASTH3_CONTRACT_SAMPLER,
-              manual_sigmas=FASTH3_CONTRACT_SIGMAS, shift=FASTH3_SHIFT,
-              core_vsa=FASTH3_CONTRACT_VSA,
-              out_prefix="Video/h3_probe_t2v_fasth3_8step_contract"),
-         "FastH3 V2 as FastVideo's contract runs it: its sigmas on Euler, VSA keep 20% on every step"),
-        ("h3_probe_t2v_fasth3_8step_contract_attn.json", "t2v-fasth3-8step-contract-attn", "t2v", LONG_T2V_PROMPT,
-         dict(dense_attn="ck", sol_on=False, unet=MODELS["unet_fasth3_v2"],
-              steps=FASTH3_STEPS, sampler_name=FASTH3_SAMPLER,
-              scheduler_name=FASTH3_SCHEDULER, shift=FASTH3_SHIFT,
-              core_vsa=FASTH3_CONTRACT_VSA,
-              out_prefix="Video/h3_probe_t2v_fasth3_8step_contract_attn"),
-         "FastH3 V2 on the template's sampling with the contract's attention only"),
-        ("h3_probe_t2v_fasth3_8step_contract_sampling.json", "t2v-fasth3-8step-contract-sampling", "t2v",
-         LONG_T2V_PROMPT,
-         dict(dense_attn="ck", sol_on=False, unet=MODELS["unet_fasth3_v2"],
-              steps=FASTH3_STEPS, sampler_name=FASTH3_CONTRACT_SAMPLER,
-              manual_sigmas=FASTH3_CONTRACT_SIGMAS, shift=FASTH3_SHIFT,
-              core_vsa=FASTH3_CORE_VSA,
-              out_prefix="Video/h3_probe_t2v_fasth3_8step_contract_sampling"),
-         "FastH3 V2 on the contract's sampling with the template's attention only"),
-
-        ("h3_probe_t2v_flashgen_4step_audio_refine.json", "t2v-flashgen-4step-audio-refine", "t2v",
-         LONG_T2V_PROMPT,
-         dict(lora=(FLASHGEN_R64_LORA, FLASHGEN_STRENGTH), lora_branch=True, steps=FLASHGEN_STEPS,
-              sampler_name=FLASHGEN_SAMPLER, manual_sigmas=FLASHGEN_MANUAL_SIGMAS,
-              audio_refine=True, refine_cache=True,
-              out_prefix="Video/h3_probe_t2v_flashgen_4step_audio_refine"),
-         "the FlashGen arm plus 6 undistilled audio-only steps, the frozen video cached"),
-
-        # The cache's control: the same arm with the refine pass uncached.
-        # The refine graphs carry the cache since 0.144.0, after the owner
-        # heard no difference (bench/results/2026-09-25_frozen_cache_s1.md).
-        ("h3_probe_t2v_flashgen_4step_audio_refine_uncached.json",
-         "t2v-flashgen-4step-audio-refine-uncached", "t2v", LONG_T2V_PROMPT,
-         dict(lora=(FLASHGEN_R64_LORA, FLASHGEN_STRENGTH), lora_branch=True, steps=FLASHGEN_STEPS,
-              sampler_name=FLASHGEN_SAMPLER, manual_sigmas=FLASHGEN_MANUAL_SIGMAS,
-              audio_refine=True,
-              out_prefix="Video/h3_probe_t2v_flashgen_4step_audio_refine_uncached"),
-         "the FlashGen refine arm without the frozen-video cache, its control"),
 
         # First graph in this repo to wire a reference VIDEO. Everything about
         # that path was read off source until 2026-08-13 and never executed.
@@ -4697,66 +4562,6 @@ def main():
                  "the same sorting line elaborated, no new content"))
         ],
 
-        # --- FlashGen, the 4-step arm to render with (2026-09-26) ----------
-        # The owner: "lets take our best stab at making a good workflow ship".
-        # Every choice and its source is docs/research/2026-09-26_flashgen.md:
-        # the publisher's full rank 64 (FLASHGEN_R64_LORA) applied at the call
-        # (lora_branch.py), because the stock loader's int8 merge keeps little
-        # of FlashGen's delta (data/results/2026-09-26_int8_lora_requant.json)
-        # and vllm-omni's native route applies it at run time too; the
-        # release's schedule shifted at 12 on Euler, no guidance, as vllm-omni
-        # runs it; the repo's attention default. T2VA only: vllm-omni refuses
-        # FlashGen on any other task. Unjudged by the owner when it shipped;
-        # h3_probe_t2v_flashgen_r64_4step is the merged control.
-        ("h3_text_to_video_flashgen.json", "texttovideoflashgen", "t2v", LONG_T2V_PROMPT,
-         dict(lora=(FLASHGEN_R64_LORA, FLASHGEN_STRENGTH), lora_branch=True,
-              steps=FLASHGEN_STEPS, sampler_name=FLASHGEN_SAMPLER,
-              manual_sigmas=FLASHGEN_MANUAL_SIGMAS,
-              out_prefix="Video/text_to_video_flashgen"),
-         "text -> video + audio at 4 steps via FlashGen at full rank, applied at the call, kitchen dense + Sol"),
-        # PDD8 finished by FlashGen from sigma 0.8, promoted from
-        # distill_experiments/ (owner, 2026-09-27: "then yeah switch it"). The
-        # owner's review of the finisher grid: better than PDD8 alone on three
-        # t2v scenes (sign text, noodle_bar), never worse; full and late-only
-        # FlashGen finishes indistinguishable, so the full one, as trained. Same
-        # wall time as PDD8 (6 PDD8 + 2 FlashGen evaluations; measured in the
-        # render dataset, 2026-09-27). t2v only: on i2v the finish brightens
-        # the frame at once and the owner kept PDD8.
-        ("h3_text_to_video_pdd8_flashgen_finish.json", "texttovideopdd8flashgenfinish", "t2v", LONG_T2V_PROMPT,
-         dict(pdd=True, sampler_name="euler", lora=(PDD_FL2VA_LORA, PDD_STRENGTH), steps=PDD_STEPS,
-              manual_sigmas=STEP_SWITCH_REV["h080"][0], step_switch=True, step_switch_to="flashgen",
-              step_switch_sigmas=STEP_SWITCH_REV["h080"][1],
-              out_prefix="Video/text_to_video_pdd8_flashgen_finish"),
-         "text -> video + audio: PDD8 to sigma 0.8, then FlashGen finishing (the owner's t2v pick), kitchen dense + Sol"),
-        # FlashGen on its late blocks only (owner, 2026-09-27: make the "try
-        # these" graphs). fastdude's FT1: blocks 34-49 alone keep the 4-step
-        # finish with about half the haze; 0-33 alone is broken.
-        ("h3_text_to_video_flashgen_late_blocks.json", "texttovideoflashgenlate", "t2v", LONG_T2V_PROMPT,
-         dict(lora=(FLASHGEN_R64_LORA, FLASHGEN_STRENGTH), lora_branch=True, lora_blocks="34-49",
-              steps=FLASHGEN_STEPS, sampler_name=FLASHGEN_SAMPLER,
-              manual_sigmas=FLASHGEN_MANUAL_SIGMAS, distill_experiment=True,
-              out_prefix="Video/text_to_video_flashgen_late_blocks"),
-         "text -> video + audio at 4 steps via FlashGen on blocks 34-49 only (less haze), kitchen dense + Sol"),
-
-        # FlashGen beyond T2VA, 2026-09-26, the owner: "even if it wasnt
-        # trained with that, its worth testing". Both are the shipped t2v
-        # graph's settings on another task. First frame runs on the same fl2va
-        # checkpoint and file; ref2va runs on the ref2va checkpoint with the
-        # file converted for its adaln basis. vllm-omni refuses FlashGen on
-        # anything but T2VA, so both are outside the upstream contract.
-        ("h3_probe_i2v_flashgen_4step.json", "i2v-flashgen-4step", "i2v", None,
-         dict(lora=(FLASHGEN_R64_LORA, FLASHGEN_STRENGTH), lora_branch=True,
-              steps=FLASHGEN_STEPS, sampler_name=FLASHGEN_SAMPLER,
-              manual_sigmas=FLASHGEN_MANUAL_SIGMAS,
-              out_prefix="Video/h3_probe_i2v_flashgen_4step"),
-         "first frame + text -> video + audio at 4 steps via FlashGen, an untrained task"),
-        ("h3_probe_r2v_flashgen_4step.json", "r2v-flashgen-4step", "r2v", _ref_prompt(images=True),
-         dict(lora=(FLASHGEN_R64_REF2VA_LORA, FLASHGEN_STRENGTH), lora_branch=True,
-              steps=FLASHGEN_STEPS, sampler_name=FLASHGEN_SAMPLER,
-              manual_sigmas=FLASHGEN_MANUAL_SIGMAS,
-              out_prefix="Video/h3_probe_r2v_flashgen_4step"),
-         "image references -> video + audio at 4 steps via FlashGen on ref2va, an untrained transfer"),
-
         ("h3_text_to_video_pdd_4step.json", "texttovideopdd4step", "t2v", LONG_T2V_PROMPT,
          dict(pdd=True, sampler_name="euler",
               lora=(PDD_FL2VA_LORA, PDD_STRENGTH), steps=PDD_STEPS_FAST,
@@ -4781,15 +4586,6 @@ def main():
               lora=(PDD_FL2VA_LORA, PDD_STRENGTH), steps=PDD_STEPS,
               out_prefix="Video/first_frame_to_video_pdd"),
          "first frame -> video + audio at 8 steps via PDD, kitchen dense + Sol"),
-        # ... and PDD8 finished by FlashGen from sigma 0.8, the reverse switch's
-        # better handoff on t2v (`2026-09-27_reverse_switch.md`).
-        ("h3_probe_i2v_step_switch_pdd8_flashgen_h080.json", "i2v-step-switch-pdd8-flashgen-h080", "i2v", None,
-         dict(pdd=True, sampler_name="euler", lora=(PDD_FL2VA_LORA, PDD_STRENGTH), steps=PDD_STEPS,
-              manual_sigmas=STEP_SWITCH_REV["h080"][0], step_switch=True, step_switch_to="flashgen",
-              step_switch_sigmas=STEP_SWITCH_REV["h080"][1],
-              out_prefix="Video/h3_probe_i2v_step_switch_pdd8_flashgen_h080"),
-         "first frame: PDD8 to 0.8, then FlashGen finishing"),
-
         ("h3_first_last_frame_to_video_pdd.json", "firstlastframetovideopdd", "i2v", None,
          dict(last_frame=True, **FL2V_CANVAS,
               pdd=True, sampler_name="euler",
@@ -5171,22 +4967,12 @@ def main():
     # The 2026-09-26 distill run (owner): `_savelat` probe twins of exactly the
     # graphs the run renders, each saving the latent its decoders read, so
     # later routing experiments reuse these latents without re-rendering. Built
-    # from the source entry, so a twin cannot drift from it. The two refine
-    # twins also carry the frozen-row test, and the route 3 step-switch arm
-    # comes with its own twin.
-    _SAVELAT_OF = ("h3_text_to_video", "h3_text_to_video_pdd", "h3_text_to_video_flashgen",
-                   "h3_probe_t2v_fasth3_8step_contract",
-                   "h3_probe_t2v_flashgen_r64_4step_branch_dense",
-                   "h3_probe_t2v_pdd8_audio_refine", "h3_probe_t2v_flashgen_4step_audio_refine")
+    # from the source entry, so a twin cannot drift from it. The refine twin
+    # also carries the frozen-row test. The FlashGen and FastH3 twins, and the
+    # route 3 step switch (FlashGen, then PDD8), were retired on 2026-11-04.
+    _SAVELAT_OF = ("h3_text_to_video", "h3_text_to_video_pdd",
+                   "h3_probe_t2v_pdd8_audio_refine")
     _by_name = {e[0]: e for e in GRAPHS}
-    _step_switch = (
-        "h3_probe_t2v_step_switch_flashgen_pdd8.json", "t2v-step-switch-flashgen-pdd8", "t2v",
-        LONG_T2V_PROMPT,
-        dict(lora=(FLASHGEN_R64_LORA, FLASHGEN_STRENGTH), lora_branch=True,
-             steps=FLASHGEN_STEPS, sampler_name=FLASHGEN_SAMPLER,
-             manual_sigmas=STEP_SWITCH_PASS1_SIGMAS, step_switch=True,
-             out_prefix="Video/h3_probe_t2v_step_switch_flashgen_pdd8"),
-        "route 3: FlashGen's first two steps, then PDD8's finish from 0.888889 (h3_config.STEP_SWITCH_*)")
     # The PDD schedule tests (docs/h3_distills.md, "Tests that would move this
     # section", 2026-09-26): PDD at widths 2 and 1 beside the shipped 8, 6 and
     # 4, and the base on Euler over PDD's own 32-point grid, the path its heads
@@ -5206,26 +4992,18 @@ def main():
         # `h3_probe_t2v_base_euler16`: the base at its own 16 steps, but on
         # Euler, so it shared the distills' starting noise. Since 2026-10-05
         # that is `h3_text_to_video` itself (h3_config.SAMPLING), so the probe
-        # and its `_savelat` twin were retired as duplicates of it.
-        # FastH3 at its contract with VSA off (dense on the kitchen backend), for
-        # the "low bitrate" texture question (docs/h3_distills.md): off its
-        # training regime by design, a probe only.
-        ("h3_probe_t2v_fasth3_8step_contract_novsa.json", "t2v-fasth3-8step-contract-novsa", "t2v",
-         LONG_T2V_PROMPT,
-         dict(dense_attn="ck", sol_on=False, unet=MODELS["unet_fasth3_v2"],
-              steps=FASTH3_STEPS, sampler_name=FASTH3_CONTRACT_SAMPLER,
-              manual_sigmas=FASTH3_CONTRACT_SIGMAS, shift=FASTH3_SHIFT,
-              out_prefix="Video/h3_probe_t2v_fasth3_8step_contract_novsa"),
-         "FastH3 V2 on its contract's sampling with VSA off (dense): the texture probe"),)
+        # and its `_savelat` twin were retired as duplicates of it. FastH3's
+        # VSA-off texture probe was retired on 2026-11-04.
+    )
+
     # The PDD8 finisher grid (2026-09-27, the owner's consolidation) renders on
     # _savelat twins so any clip can be re-encoded for review without a render
     # (#38: the 8-bit save adds dark blocking mainly to PDD8).
     _savelat_more = ("h3_text_to_video_pdd_4step", "h3_text_to_video_pdd_manual_sigmas",
-                     "h3_text_to_video_flashgen_late_blocks", "h3_first_frame_to_video_pdd",
-                     "h3_probe_i2v_step_switch_pdd8_flashgen_h080")
+                     "h3_first_frame_to_video_pdd")
     _twins = []
     for fname, label, task, prompt, extra, note in (
-            [_by_name[f + ".json"] for f in _SAVELAT_OF + _savelat_more] + [_step_switch] + list(_pdd_tests)):
+            [_by_name[f + ".json"] for f in _SAVELAT_OF + _savelat_more] + list(_pdd_tests)):
         stem = fname.removesuffix(".json")
         twin_extra = dict(extra, save_latents=True,
                           out_prefix=extra.get("out_prefix", f"Video/{stem}") + "_savelat")
@@ -5239,77 +5017,12 @@ def main():
                        dict(extra, save_latents=True, probe_step_x0=True,
                             out_prefix=extra.get("out_prefix", f"Video/{stem}") + "_x0"),
                        f"{note}; saves every step's x0 and the final latent (one or two renders only)"))
-    # FastH3's contract graph with a capture node on core's sparse path
-    # (open_experiments #45, 2026-09-27): inert unless H3_CAPTURE is set with
-    # pre=, and saves its latents so the captured render can be checked.
-    _f = _by_name["h3_probe_t2v_fasth3_8step_contract.json"]
-    _twins.append(("h3_probe_t2v_fasth3_8step_contract_capture.json", _f[1] + "-capture", _f[2], _f[3],
-                   dict(_f[4], save_latents=True, probe_core_sparse_capture=True,
-                        out_prefix=_f[4].get("out_prefix", "Video/h3_probe_t2v_fasth3_8step_contract") + "_capture"),
-                   f"{_f[5]}; captures q/k/v on core's sparse path when H3_CAPTURE is armed (#45)"))
-    # The reverse step switch, one per handoff (h3_config.STEP_SWITCH_REV),
-    # each with its savelat twin. PDD first, FlashGen finishing.
-    _reverse = tuple(
-        (f"h3_probe_t2v_step_switch_pdd8_flashgen_{h}.json", f"t2v-step-switch-pdd8-flashgen-{h}", "t2v",
-         LONG_T2V_PROMPT,
-         dict(pdd=True, sampler_name="euler", lora=(PDD_FL2VA_LORA, PDD_STRENGTH), steps=PDD_STEPS,
-              manual_sigmas=STEP_SWITCH_REV[h][0], step_switch=True, step_switch_to="flashgen",
-              step_switch_sigmas=STEP_SWITCH_REV[h][1],
-              out_prefix=f"Video/h3_probe_t2v_step_switch_pdd8_flashgen_{h}"),
-         f"reverse step switch: PDD8 to {STEP_SWITCH_REV[h][1].split(',')[0]}, then FlashGen finishing")
-        for h in STEP_SWITCH_REV)
-    # The same switch with FlashGen on its late blocks only (open_experiments
-    # #34, 2026-09-27): FT1 found blocks 34-49 carry the 4-step finish and the
-    # early blocks the haze, so this finisher should lift PDD8's highlights
-    # without adding haze. h080 only; its full-FlashGen twin is the control.
-    _reverse = _reverse + tuple(
-        (f"h3_probe_t2v_step_switch_pdd8_flashgen_late_{h}.json", f"t2v-step-switch-pdd8-flashgen-late-{h}", "t2v",
-         LONG_T2V_PROMPT,
-         dict(pdd=True, sampler_name="euler", lora=(PDD_FL2VA_LORA, PDD_STRENGTH), steps=PDD_STEPS,
-              manual_sigmas=STEP_SWITCH_REV[h][0], step_switch=True, step_switch_to="flashgen",
-              step_switch_sigmas=STEP_SWITCH_REV[h][1], step_switch_blocks="34-49",
-              out_prefix=f"Video/h3_probe_t2v_step_switch_pdd8_flashgen_late_{h}"),
-         f"reverse step switch: PDD8 to {STEP_SWITCH_REV[h][1].split(',')[0]}, then FlashGen on blocks 34-49 finishing")
-        for h in ("h080",))
-    # PDD8 finished by FastH3's own checkpoint (2026-09-29, the owner via
-    # mutant): a second full checkpoint between the passes, and a shift that
-    # decides the audio (h3_config.STEP_SWITCH_FASTH3). Same handoff as h080.
-    _reverse = _reverse + tuple(
-        (f"h3_probe_t2v_step_switch_pdd8_fasth3_{k}.json", f"t2v-step-switch-pdd8-fasth3-{k}", "t2v",
-         LONG_T2V_PROMPT,
-         dict(pdd=True, sampler_name="euler", lora=(PDD_FL2VA_LORA, PDD_STRENGTH), steps=PDD_STEPS,
-              manual_sigmas=STEP_SWITCH_FASTH3[k][0], step_switch=True, step_switch_to="fasth3",
-              step_switch_sigmas=STEP_SWITCH_FASTH3[k][1], step_switch_shift=STEP_SWITCH_FASTH3[k][2],
-              out_prefix=f"Video/h3_probe_t2v_step_switch_pdd8_fasth3_{k}"),
-         f"step switch: PDD8 to 0.8, then FastH3's checkpoint at {STEP_SWITCH_FASTH3[k][1].split(',')[0]} "
-         f"(shift {STEP_SWITCH_FASTH3[k][2]['shift_video']:g}/3) finishing")
-        for k in STEP_SWITCH_FASTH3)
-    # The same two finishes on ref2va (2026-09-29, the owner): PDD8 on ref2va
-    # with one reference image, then FlashGen's ref2va LoRA (the control) or
-    # FastH3's own checkpoint, which is fl2va-derived and has never seen a
-    # reference token: an untrained transfer, like FlashGen on ref2va.
-    _r2v_switch = dict(ref_images=MARKET_REF_IMAGES, ref_image_count=1, pdd=True, sampler_name="euler",
-                       lora=(PDD_REF2VA_LORA, PDD_STRENGTH), steps=PDD_STEPS,
-                       manual_sigmas=STEP_SWITCH_REV["h080"][0], step_switch=True)
-    _reverse = _reverse + (
-        ("h3_probe_r2v_step_switch_pdd8_flashgen_h080.json", "r2v-step-switch-pdd8-flashgen-h080", "r2v",
-         MARKET_REF2V_PROMPT,
-         dict(_r2v_switch, step_switch_to="flashgen", step_switch_sigmas=STEP_SWITCH_REV["h080"][1],
-              out_prefix="Video/h3_probe_r2v_step_switch_pdd8_flashgen_h080"),
-         "market scene as ref2va: PDD8 to 0.8, then FlashGen finishing"),
-    ) + tuple(
-        (f"h3_probe_r2v_step_switch_pdd8_fasth3_{k}.json", f"r2v-step-switch-pdd8-fasth3-{k}", "r2v",
-         MARKET_REF2V_PROMPT,
-         dict(_r2v_switch, step_switch_to="fasth3", step_switch_sigmas=STEP_SWITCH_FASTH3[k][1],
-              step_switch_shift=STEP_SWITCH_FASTH3[k][2],
-              out_prefix=f"Video/h3_probe_r2v_step_switch_pdd8_fasth3_{k}"),
-         f"market scene as ref2va: PDD8 to 0.8, then FastH3's checkpoint at {STEP_SWITCH_FASTH3[k][1].split(',')[0]} "
-         f"(shift {STEP_SWITCH_FASTH3[k][2]['shift_video']:g}/3) finishing")
-        for k in STEP_SWITCH_FASTH3)
     # PDD8 finished by the undistilled base (open_experiments #37, 2026-09-27):
     # whether PDD8's dim highlights are its coarse tail's, with no second
-    # distill in the finish. Same handoff as rev_h063.
-    _reverse = _reverse + tuple(
+    # distill in the finish. The reverse switches with FlashGen or FastH3
+    # finishing, on t2v and ref2va, were retired on 2026-11-04
+    # (`docs/roadmap.md`, "Closed lanes").
+    _reverse = tuple(
         (f"h3_probe_t2v_step_switch_pdd8_base_{h}.json", f"t2v-step-switch-pdd8-base-{h}", "t2v",
          LONG_T2V_PROMPT,
          dict(pdd=True, sampler_name="euler", lora=(PDD_FL2VA_LORA, PDD_STRENGTH), steps=PDD_STEPS,
@@ -5323,10 +5036,9 @@ def main():
         _twins.append((f"{stem}_savelat.json", f"{label}-savelat", task, prompt,
                        dict(extra, save_latents=True, out_prefix=extra["out_prefix"] + "_savelat"),
                        f"{note}; saves its latents"))
-    # What the owner renders with (2026-10-03): PDD8 to 0.8, then FlashGen
-    # finishing, on each task. Derived from the probe entry, so a daily graph
-    # cannot drift from the probe it was promoted from; made after the twins,
-    # so it has none. The probes and their `_savelat` twins keep their names
+    # The daily graphs (h3_config.DAILY_GRAPHS). Derived from the probe or
+    # shipped entry, so a daily graph cannot drift from the graph it was
+    # promoted from; made after the twins, so it has none. The probes and their `_savelat` twins keep their names
     # and folder: arms files, the reproduction guard and dated records cite
     # them.
     _probes = {e[0]: e for e in GRAPHS + _reverse}
@@ -5335,7 +5047,7 @@ def main():
          dict(_probes[src][4], daily=True, out_prefix=f"Video/{name}"),
          f"daily: {_probes[src][5]}")
         for name, src in DAILY_GRAPHS.items())
-    GRAPHS = GRAPHS + (_step_switch,) + _pdd_tests + _reverse + tuple(_twins) + _daily
+    GRAPHS = GRAPHS + _pdd_tests + _reverse + tuple(_twins) + _daily
 
     if args.list_scenes:
         for name, text in T2V_SCENES.items():

@@ -8,12 +8,12 @@ Scenes are ordered by how many graphs carry them, so the defaults that reach the
 
 | scene | bank id | graphs | words | shots | speakers | markers |
 |---|---|---|---|---|---|---|
-| [`LONG_T2V_PROMPT`](#long-t2v-prompt) | `t2va_covered_market` | 80 | 290 | 3 | 2 | `<d>` |
-| [`MARKET_REF2V_PROMPT`](#market-ref2v-prompt) | `ref2va_market_stallholder` | 10 | 598 | 3 | 2 | `<d>` |
-| [`ref2va_role_character_environment`](#ref2va-role-character-environment) | `ref2va_role_character_environment` | 10 | 135 | 1 | 0 | — |
-| [`I2V_PROMPT`](#i2v-prompt) | `i2va_lighthouse_keyframe` | 9 | 90 | 1 | 0 | — |
+| [`LONG_T2V_PROMPT`](#long-t2v-prompt) | `t2va_covered_market` | 47 | 290 | 3 | 2 | `<d>` |
+| [`ref2va_role_character_environment`](#ref2va-role-character-environment) | `ref2va_role_character_environment` | 9 | 135 | 1 | 0 | — |
 | [`ref2va_role_character_garment_environment`](#ref2va-role-character-garment-environment) | `ref2va_role_character_garment_environment` | 9 | 173 | 1 | 0 | — |
+| [`I2V_PROMPT`](#i2v-prompt) | `i2va_lighthouse_keyframe` | 5 | 90 | 1 | 0 | — |
 | [`ref2va_masked_person_swap`](#ref2va-masked-person-swap) | `ref2va_masked_person_swap` | 4 | 233 | 1 | 1 | — |
+| [`MARKET_REF2V_PROMPT`](#market-ref2v-prompt) | `ref2va_market_stallholder` | 3 | 598 | 3 | 2 | `<d>` |
 | [`fl2va_interior_converge`](#fl2va-interior-converge) | `fl2va_interior_converge` | 3 | 159 | 1 | 0 | — |
 | [`ref2va_image_video_audio_music`](#ref2va-image-video-audio-music) | `ref2va_image_video_audio_music` | 3 | 264 | 1 | 0 | — |
 | [`ref2va_masked_person_motion`](#ref2va-masked-person-motion) | `ref2va_masked_person_motion` | 3 | 292 | 1 | 1 | — |
@@ -56,7 +56,7 @@ Scenes are ordered by how many graphs carry them, so the defaults that reach the
 
 ## LONG_T2V_PROMPT
 
-Carried by **80** graph(s). Sections: `integrated_multimodal_description`, `overall_soundscape`, `non_diegetic_music`.
+Carried by **47** graph(s). Sections: `integrated_multimodal_description`, `overall_soundscape`, `non_diegetic_music`.
 
 <details><summary>graphs</summary>
 
@@ -76,21 +76,6 @@ Carried by **80** graph(s). Sections: `integrated_multimodal_description`, `over
 - `h3_probe_t2v_ck_api`
 - `h3_probe_t2v_dense_api`
 - `h3_probe_t2v_exact_tail_api`
-- `h3_probe_t2v_fasth3_8step_api`
-- `h3_probe_t2v_fasth3_8step_contract_api`
-- `h3_probe_t2v_fasth3_8step_contract_attn_api`
-- `h3_probe_t2v_fasth3_8step_contract_capture_api`
-- `h3_probe_t2v_fasth3_8step_contract_novsa_api`
-- `h3_probe_t2v_fasth3_8step_contract_novsa_savelat_api`
-- `h3_probe_t2v_fasth3_8step_contract_sampling_api`
-- `h3_probe_t2v_fasth3_8step_contract_savelat_api`
-- `h3_probe_t2v_flashgen_4step_api`
-- `h3_probe_t2v_flashgen_4step_audio_refine_api`
-- `h3_probe_t2v_flashgen_4step_audio_refine_savelat_api`
-- `h3_probe_t2v_flashgen_4step_audio_refine_uncached_api`
-- `h3_probe_t2v_flashgen_r64_4step_api`
-- `h3_probe_t2v_flashgen_r64_4step_branch_dense_api`
-- `h3_probe_t2v_flashgen_r64_4step_branch_dense_savelat_api`
 - `h3_probe_t2v_levers_api`
 - `h3_probe_t2v_no_dense_tail_api`
 - `h3_probe_t2v_pdd16_api`
@@ -107,31 +92,13 @@ Carried by **80** graph(s). Sections: `integrated_multimodal_description`, `over
 - `h3_probe_t2v_rotate_api`
 - `h3_probe_t2v_sage_rotate_api`
 - `h3_probe_t2v_sol_nosage_api`
-- `h3_probe_t2v_step_switch_flashgen_pdd8_api`
-- `h3_probe_t2v_step_switch_flashgen_pdd8_savelat_api`
 - `h3_probe_t2v_step_switch_pdd8_base_h063_api`
 - `h3_probe_t2v_step_switch_pdd8_base_h063_savelat_api`
 - `h3_probe_t2v_step_switch_pdd8_base_h080_api`
 - `h3_probe_t2v_step_switch_pdd8_base_h080_savelat_api`
-- `h3_probe_t2v_step_switch_pdd8_fasth3_s10_api`
-- `h3_probe_t2v_step_switch_pdd8_fasth3_s10_savelat_api`
-- `h3_probe_t2v_step_switch_pdd8_fasth3_s12_api`
-- `h3_probe_t2v_step_switch_pdd8_fasth3_s12_savelat_api`
-- `h3_probe_t2v_step_switch_pdd8_flashgen_h063_api`
-- `h3_probe_t2v_step_switch_pdd8_flashgen_h063_savelat_api`
-- `h3_probe_t2v_step_switch_pdd8_flashgen_h080_api`
-- `h3_probe_t2v_step_switch_pdd8_flashgen_h080_savelat_api`
-- `h3_probe_t2v_step_switch_pdd8_flashgen_late_h080_api`
-- `h3_probe_t2v_step_switch_pdd8_flashgen_late_h080_savelat_api`
-- `h3_t2v_pdd8_flashgen_finish_api`
 - `h3_text_to_video_api`
 - `h3_text_to_video_audio_freeze_2windows_api`
 - `h3_text_to_video_audio_freeze_api`
-- `h3_text_to_video_flashgen_api`
-- `h3_text_to_video_flashgen_late_blocks_api`
-- `h3_text_to_video_flashgen_late_blocks_savelat_api`
-- `h3_text_to_video_flashgen_savelat_api`
-- `h3_text_to_video_pdd8_flashgen_finish_api`
 - `h3_text_to_video_pdd_4step_api`
 - `h3_text_to_video_pdd_4step_savelat_api`
 - `h3_text_to_video_pdd_api`
@@ -153,58 +120,15 @@ non_diegetic_music:
 N/A
 ```
 
-## MARKET_REF2V_PROMPT
-
-Carried by **10** graph(s). Sections: `subject_definitions`, `summary`, `retention_analysis`, `detailed_description`, `overall_soundscape`, `non_diegetic_music`.
-
-<details><summary>graphs</summary>
-
-- `h3_probe_r2v_step_switch_pdd8_fasth3_s10_api`
-- `h3_probe_r2v_step_switch_pdd8_fasth3_s10_savelat_api`
-- `h3_probe_r2v_step_switch_pdd8_fasth3_s12_api`
-- `h3_probe_r2v_step_switch_pdd8_fasth3_s12_savelat_api`
-- `h3_probe_r2v_step_switch_pdd8_flashgen_h080_api`
-- `h3_probe_r2v_step_switch_pdd8_flashgen_h080_savelat_api`
-- `h3_ref2v_market_api`
-- `h3_ref2v_market_pdd_4step_api`
-- `h3_ref2v_market_pdd_api`
-- `h3_ref2v_pdd8_flashgen_finish_api`
-
-</details>
-
-```text
-subject_definitions:
-<Subject 1> is the market stallholder, whose appearance is carried from <Picture 1>: an oversized smooth bald head far above human scale, with a heavy scowling brow, deep-set pale eyes and a downturned mouth; a small glitter-trimmed straw hat perched on the crown; a dress of crumpled silver foil strips layered over hot-pink tulle with short puffed pink sleeves; bare arms and legs, and glitter-covered shoes.
-
-summary:
-[reference generation] The target video places <Subject 1> behind a covered market stall as the stallholder, in a three-shot morning exchange with a young porter who is not referenced.
-
-retention_analysis:
-<Subject 1> (appears in [Shot 1], [Shot 3]): fully_preserved - the oversized head and its facial structure, the glitter-trimmed hat, the foil-and-tulle dress and the glitter shoes are retained in every frame the stallholder appears in.
-
-detailed_description:
-The target video is live-action and cinematic, handheld, with shallow depth of field and the slightly desaturated colour of an overcast late morning.
-[Shot 1] A medium-wide shot frames a covered market aisle, crates of citrus stacked along a wooden stall front, dust turning slowly in a shaft of light from the roof vents. <Subject 1> stands behind the counter, the oversized head tilting forward as she sets a crate down and wipes both palms down the front of the foil-and-tulle dress, the silver strips catching the light as they move. With a warm, gravelly alto (S1) she says: <d>[English] Last of the good ones. After this it is all imports.</d> Her mouth closes and she pushes the crate forward with the heel of one hand. The camera trucks left as a young porter, a lean man in his twenties with a quick, bright tenor (S2), steps into frame at the front of the stall, across the counter from her, glancing at the stacked fruit.
-[Shot 2] The shot cuts to a close shot over the porter's shoulder as he squats, takes the crate at its corners and lifts it to his chest, the citrus shifting and resettling as the weight comes up. He (S2) answers: <d>[English] Then I will take two.</d> His lips close and he shifts the weight onto his hip, one forearm braced under the slats, and with his free hand he drops coins one after another into a metal tin on the counter beside him. Past his shoulder the stall front stays in soft focus, the stallholder out of frame behind the counter, the stacked crates and the hanging scale reduced to shape and colour.
-[Shot 3] The camera holds a static shot, wide on the aisle, as the porter takes a second crate from the stall front and carries both away between the stalls, shoppers stepping aside around him and a paper bag swinging from one woman's hand as she turns. The roof vents throw regular bars of light across the concrete he walks through. Behind the counter <Subject 1> turns back to the stall, the small glitter-trimmed hat steady on the crown of the head, and stacks fruit into a pyramid with both hands, working from the base upward and squaring each row before starting the next. The crumpled foil strips shift and catch the light with every reach, the pink tulle swinging against the counter edge, and her mouth stays closed until the final frame.
-
-overall_soundscape:
-Loose crowd murmur under a high roof, wooden crates knocking hollow as they stack, coins dropping one by one into a metal tin, boot steps on swept concrete, the dry crackle of paper bags shaken open, and a light rustle of foil and tulle whenever the stallholder moves.
-
-non_diegetic_music:
-N/A
-```
-
 ## ref2va_role_character_environment
 
-Carried by **10** graph(s). Sections: `subject_definitions`, `summary`, `retention_analysis`, `detailed_description`, `overall_soundscape`, `non_diegetic_music`.
+Carried by **9** graph(s). Sections: `subject_definitions`, `summary`, `retention_analysis`, `detailed_description`, `overall_soundscape`, `non_diegetic_music`.
 
 <details><summary>graphs</summary>
 
 - `h3_image_ref_plus_text_to_video_api`
 - `h3_image_ref_plus_text_to_video_pdd_4step_api`
 - `h3_image_ref_plus_text_to_video_pdd_api`
-- `h3_probe_r2v_flashgen_4step_api`
 - `h3_probe_ref2v_pdd_345_api`
 - `h3_probe_ref2v_pdd_8s_api`
 - `h3_probe_ref2v_pdd_api`
@@ -235,34 +159,6 @@ Natural ambient atmosphere continues throughout the shot.
 
 non_diegetic_music:
 N/A
-```
-
-## I2V_PROMPT
-
-Carried by **9** graph(s). Sections: none.
-
-<details><summary>graphs</summary>
-
-- `h3_first_frame_to_video_api`
-- `h3_first_frame_to_video_audio_freeze_api`
-- `h3_first_frame_to_video_pdd_api`
-- `h3_first_frame_to_video_pdd_savelat_api`
-- `h3_first_frame_to_video_stamped_api`
-- `h3_i2v_pdd8_flashgen_finish_api`
-- `h3_probe_i2v_flashgen_4step_api`
-- `h3_probe_i2v_step_switch_pdd8_flashgen_h080_api`
-- `h3_probe_i2v_step_switch_pdd8_flashgen_h080_savelat_api`
-
-</details>
-
-```text
-For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.
-
-integrated_multimodal_description: [Shot 1] Live-action, cinematic, the subject shown in <Picture 1> holds its position, framing, lighting, and colors exactly as established in the image. The camera pushes in with small amplitude at slow speed while the subject begins to move, the surrounding scene staying continuous with the reference frame.
-
-overall_soundscape: Quiet room tone with a low ambient hum continues throughout, joined by soft physical sounds from the subject's movement.
-
-non_diegetic_music: N/A
 ```
 
 ## ref2va_role_character_garment_environment
@@ -308,6 +204,30 @@ non_diegetic_music:
 N/A
 ```
 
+## I2V_PROMPT
+
+Carried by **5** graph(s). Sections: none.
+
+<details><summary>graphs</summary>
+
+- `h3_first_frame_to_video_api`
+- `h3_first_frame_to_video_audio_freeze_api`
+- `h3_first_frame_to_video_pdd_api`
+- `h3_first_frame_to_video_pdd_savelat_api`
+- `h3_first_frame_to_video_stamped_api`
+
+</details>
+
+```text
+For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.
+
+integrated_multimodal_description: [Shot 1] Live-action, cinematic, the subject shown in <Picture 1> holds its position, framing, lighting, and colors exactly as established in the image. The camera pushes in with small amplitude at slow speed while the subject begins to move, the surrounding scene staying continuous with the reference frame.
+
+overall_soundscape: Quiet room tone with a low ambient hum continues throughout, joined by soft physical sounds from the subject's movement.
+
+non_diegetic_music: N/A
+```
+
 ## ref2va_masked_person_swap
 
 Carried by **4** graph(s). Sections: `subject_definitions`, `summary`, `retention_analysis`, `detailed_description`.
@@ -337,6 +257,41 @@ detailed_description:
 overall_soundscape: Natural ambient atmosphere continues throughout the shot.
 
 non_diegetic_music: N/A
+```
+
+## MARKET_REF2V_PROMPT
+
+Carried by **3** graph(s). Sections: `subject_definitions`, `summary`, `retention_analysis`, `detailed_description`, `overall_soundscape`, `non_diegetic_music`.
+
+<details><summary>graphs</summary>
+
+- `h3_ref2v_market_api`
+- `h3_ref2v_market_pdd_4step_api`
+- `h3_ref2v_market_pdd_api`
+
+</details>
+
+```text
+subject_definitions:
+<Subject 1> is the market stallholder, whose appearance is carried from <Picture 1>: an oversized smooth bald head far above human scale, with a heavy scowling brow, deep-set pale eyes and a downturned mouth; a small glitter-trimmed straw hat perched on the crown; a dress of crumpled silver foil strips layered over hot-pink tulle with short puffed pink sleeves; bare arms and legs, and glitter-covered shoes.
+
+summary:
+[reference generation] The target video places <Subject 1> behind a covered market stall as the stallholder, in a three-shot morning exchange with a young porter who is not referenced.
+
+retention_analysis:
+<Subject 1> (appears in [Shot 1], [Shot 3]): fully_preserved - the oversized head and its facial structure, the glitter-trimmed hat, the foil-and-tulle dress and the glitter shoes are retained in every frame the stallholder appears in.
+
+detailed_description:
+The target video is live-action and cinematic, handheld, with shallow depth of field and the slightly desaturated colour of an overcast late morning.
+[Shot 1] A medium-wide shot frames a covered market aisle, crates of citrus stacked along a wooden stall front, dust turning slowly in a shaft of light from the roof vents. <Subject 1> stands behind the counter, the oversized head tilting forward as she sets a crate down and wipes both palms down the front of the foil-and-tulle dress, the silver strips catching the light as they move. With a warm, gravelly alto (S1) she says: <d>[English] Last of the good ones. After this it is all imports.</d> Her mouth closes and she pushes the crate forward with the heel of one hand. The camera trucks left as a young porter, a lean man in his twenties with a quick, bright tenor (S2), steps into frame at the front of the stall, across the counter from her, glancing at the stacked fruit.
+[Shot 2] The shot cuts to a close shot over the porter's shoulder as he squats, takes the crate at its corners and lifts it to his chest, the citrus shifting and resettling as the weight comes up. He (S2) answers: <d>[English] Then I will take two.</d> His lips close and he shifts the weight onto his hip, one forearm braced under the slats, and with his free hand he drops coins one after another into a metal tin on the counter beside him. Past his shoulder the stall front stays in soft focus, the stallholder out of frame behind the counter, the stacked crates and the hanging scale reduced to shape and colour.
+[Shot 3] The camera holds a static shot, wide on the aisle, as the porter takes a second crate from the stall front and carries both away between the stalls, shoppers stepping aside around him and a paper bag swinging from one woman's hand as she turns. The roof vents throw regular bars of light across the concrete he walks through. Behind the counter <Subject 1> turns back to the stall, the small glitter-trimmed hat steady on the crown of the head, and stacks fruit into a pyramid with both hands, working from the base upward and squaring each row before starting the next. The crumpled foil strips shift and catch the light with every reach, the pink tulle swinging against the counter edge, and her mouth stays closed until the final frame.
+
+overall_soundscape:
+Loose crowd murmur under a high roof, wooden crates knocking hollow as they stack, coins dropping one by one into a metal tin, boot steps on swept concrete, the dry crackle of paper bags shaken open, and a light rustle of foil and tulle whenever the stallholder moves.
+
+non_diegetic_music:
+N/A
 ```
 
 ## fl2va_interior_converge

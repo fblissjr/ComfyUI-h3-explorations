@@ -1,6 +1,6 @@
 # The sister checkouts: what each one is good for
 
-last updated: 2026-11-04 (section "What moved by 2026-11-04" added, with four sections of their own: "Pika H3 Flex", "FastH3 Omni", "Long clips upstream" and "ComfyUI-MAINodes"; rows for `Pika-H3-Flex`, `ComfyUI-MAINodes` and `ComfyUI-Dials`; the owner's word of the same day on distills recorded in the Pika, Omni and Regenerate-2K entries; dated notes on the 2026-10-09 quality-tier and Ref2VA-student bullets and on the LightX2V streaming path); 2026-10-10 (a row for the SAM-family checkouts and `sapiens2`, pointing at `meta_perception_models.md`); 2026-10-09 (section "What moved by 2026-10-09" added, with the masking and video-to-video cross-check; rows for `MaskVidExperiments` and `ComfyUI-NKD-Basic-Tools`); 2026-10-05 (section "What moved by 2026-10-05" added, with a dated note on the 2026-10-02 UtilsCollection bullet it supersedes; the `pdmd` row and the contract example, on PDMD's retirement); 2026-10-02 (section "What moved by 2026-10-02" added; a ComfyUI-H3-AudioRefine row; dated notes on the LightX2V row, the 2026-09-25 INT8 VAE sentence, and a correction to the 2026-09-25 AdaLN rounding claim); 2026-10-01 (the PDMD trainer: a row in the ComfyUI-side table, and its inference script added to what counts as a contract); 2026-09-27 (the TaoMate section trimmed to the checkouts after the lane was removed); 2026-09-26 (section "A distill's reference is its trainer's contract" added; the FastH3 V2 note under 2026-09-19 extended); 2026-09-25 (section "What moved by 2026-09-25" added; the PDD line and the vllm-omni #7693 bullet corrected in place); 2026-09-19 (section "What moved by 2026-09-19" added); 2026-09-15 (section "The streaming references: TaoMate" added; "What moved by 2026-09-11" added and the two comfy-kitchen rows corrected 2026-09-11; "What moved by 2026-09-10" added 2026-09-10; the tables are otherwise the 2026-08-28 read)
+last updated: 2026-11-04 (dated notes where the FlashGen and FastH3 constants, graphs and converter were cited, on that lane's retirement; section "What moved by 2026-11-04" added, with four sections of their own: "Pika H3 Flex", "FastH3 Omni", "Long clips upstream" and "ComfyUI-MAINodes"; rows for `Pika-H3-Flex`, `ComfyUI-MAINodes` and `ComfyUI-Dials`; the owner's word of the same day on distills recorded in the Pika, Omni and Regenerate-2K entries; dated notes on the 2026-10-09 quality-tier and Ref2VA-student bullets and on the LightX2V streaming path); 2026-10-10 (a row for the SAM-family checkouts and `sapiens2`, pointing at `meta_perception_models.md`); 2026-10-09 (section "What moved by 2026-10-09" added, with the masking and video-to-video cross-check; rows for `MaskVidExperiments` and `ComfyUI-NKD-Basic-Tools`); 2026-10-05 (section "What moved by 2026-10-05" added, with a dated note on the 2026-10-02 UtilsCollection bullet it supersedes; the `pdmd` row and the contract example, on PDMD's retirement); 2026-10-02 (section "What moved by 2026-10-02" added; a ComfyUI-H3-AudioRefine row; dated notes on the LightX2V row, the 2026-09-25 INT8 VAE sentence, and a correction to the 2026-09-25 AdaLN rounding claim); 2026-10-01 (the PDMD trainer: a row in the ComfyUI-side table, and its inference script added to what counts as a contract); 2026-09-27 (the TaoMate section trimmed to the checkouts after the lane was removed); 2026-09-26 (section "A distill's reference is its trainer's contract" added; the FastH3 V2 note under 2026-09-19 extended); 2026-09-25 (section "What moved by 2026-09-25" added; the PDD line and the vllm-omni #7693 bullet corrected in place); 2026-09-19 (section "What moved by 2026-09-19" added); 2026-09-15 (section "The streaming references: TaoMate" added; "What moved by 2026-09-11" added and the two comfy-kitchen rows corrected 2026-09-11; "What moved by 2026-09-10" added 2026-09-10; the tables are otherwise the 2026-08-28 read)
 
 `coderef/` holds the reference implementations. `ls -l coderef/` is the list of
 what is currently on disk — some symlinks, some real clones — and this page is
@@ -52,7 +52,10 @@ template. That template departs from FastVideo's contract on the sampler, the
 VSA kept fraction and a dense warm-up. The contract arms rendered a different
 and more complete take (`../../bench/results/2026-09-26_fasth3_contract_s1.md`).
 FlashGen was already on its contract's schedule
-(`../research/2026-09-26_flashgen.md`).
+(`../research/2026-09-26_flashgen.md`). *2026-11-04: FlashGen and FastH3
+are both retired (`../roadmap.md`, "Closed lanes"); their graphs and
+constants are in git at `358e6199`. The rule stands for any distill that
+comes back.*
 
 ---
 
@@ -294,7 +297,9 @@ it, and none of the three moved a default this repo differs on.
     Euler on the release's positions, and VSA sparsity 0.8 (keep 20%) on every
     step, against the template's keep 10% after a dense warm-up.
     `h3_probe_t2v_fasth3_8step_contract` runs the contract
-    (`../../bench/results/2026-09-26_fasth3_contract_s1.md`).*
+    (`../../bench/results/2026-09-26_fasth3_contract_s1.md`).* *2026-11-04:
+    both graphs and the checkpoint's `MODELS` key are retired; in git at
+    `358e6199`.*
   - `507cb1d83` (#7535) moves its H3 VSA into the model. Same cube tiling and
     gated coarse branch as `vsa_attention.py`; it keeps a fixed count of
     video tiles where ours keeps a fraction (`h3_config.VSA_KEEP_PERCENT`).
@@ -956,9 +961,10 @@ and two ideas in the masking packs that the masked lane has not tried
     and
     `coderef/sglang/python/sglang/multimodal_gen/configs/pipeline_configs/minimax_h3.py::FastH3PipelineConfig`,
     t2va only, with no dense opening steps. That is a second engine on the
-    values `workflows/h3_config.py` holds as `FASTH3_CONTRACT_POSITIONS`,
+    values `workflows/h3_config.py` held as `FASTH3_CONTRACT_POSITIONS`,
     `FASTH3_SHIFT`, `FASTH3_CONTRACT_SAMPLER` and `FASTH3_CONTRACT_VSA`, and
-    none of ours moves. Its sparse backend still refuses this card
+    none of ours moves. *2026-11-04: those constants are retired with the
+    FastH3 lane; in git at `358e6199`.* Its sparse backend still refuses this card
     (`coderef/sglang/python/sglang/multimodal_gen/runtime/platforms/cuda.py::_VideoSparseAttentionH3BackendResolver`);
     the new native kernel in the same commit is for capability 10.0 and
     10.3. Decoding every VAE tile of a rank in one batch is on for FastH3
@@ -1309,7 +1315,8 @@ worth acting on, in this order:
     and 1.0 (`coderef/vllm-omni/vllm_omni/diffusion/models/minimax_h3/denoise_loop.py`, `MINIMAX_H3_IMGVID_COND_TIMESTEP`,
     `MINIMAX_H3_AUDIO_REF_COND_TIMESTEP`), FastH3 V2's schedule
     (`coderef/vllm-omni/vllm_omni/diffusion/models/minimax_h3/fasth3_checkpoint.py::FASTH3_V2_BASE_SCHEDULE`, still the values of
-    `h3_config.FASTH3_CONTRACT_POSITIONS`) and the fp16 video decode are
+    `h3_config.FASTH3_CONTRACT_POSITIONS`, retired 2026-11-04 and in git at
+    `358e6199`) and the fp16 video decode are
     where they were.
   - **The longest request is 362 frames** (`caaa4cc32`, #8696, which caps
     `num_frames` on the 17n+5 grid; its test pins 362). That is a second
@@ -1553,15 +1560,16 @@ shift-3 sigma, as Pika does: derived from core's code, not run, in
   template names a third file, `pika_h3_flex_{fl2va,ref2va}_v1_bf16`,
   which is not on disk; by that day's record it is the same tensors as
   Pika's own conversion. This is FlashGen's case again:
-  `h3_config.FLASHGEN_LORA` is a resize and `FLASHGEN_R64_LORA` the exact
-  one. How the resize was made, what it loses per module, and why a merge
+  `h3_config.FLASHGEN_LORA` was a resize and `FLASHGEN_R64_LORA` the exact
+  one (both retired later the same day, in git at `358e6199`). How the resize was made, what it loses per module, and why a merge
   onto the INT8 checkpoint (`LoraLoaderModelOnly`, as Comfy-Org's template
   does) keeps little of the update where `MiniMaxH3LoRABranch` keeps all
   of it, are in [`../research/2026-11-04_pika_h3_flex_weights_and_loras.md`](../research/2026-11-04_pika_h3_flex_weights_and_loras.md).
 - **The pruned partition.** Pika's adapters are trained on the unpruned
   base and loaded on the pruned INT8 checkpoint. They do not touch AdaLN,
   so the time-basis re-expression FlashGen needs
-  (`bench/convert_flashgen_lora.py`) is not needed for them ([`../research/2026-11-04_pika_h3_flex_weights_and_loras.md`](../research/2026-11-04_pika_h3_flex_weights_and_loras.md),
+  (`bench/convert_flashgen_lora.py`, retired the same day, in git at
+  `358e6199`) is not needed for them ([`../research/2026-11-04_pika_h3_flex_weights_and_loras.md`](../research/2026-11-04_pika_h3_flex_weights_and_loras.md),
   section 4).
 - **Where it agrees with what this pack runs.** 1344x768 and 1152x768 are
   Pika buckets; 362 is `h3_rules.MAX_LENGTH`; the 2048 short edge at the
