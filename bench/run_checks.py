@@ -4,6 +4,8 @@
     <comfy venv python> bench/run_checks.py
     <comfy venv python> bench/run_checks.py --only sol --logs /tmp/sweep
     <comfy venv python> bench/run_checks.py --changed
+    <comfy venv python> bench/run_checks.py --jobs 1     # one check at a time
+    <comfy venv python> bench/run_checks.py --help       # every flag
 
 One row per check: its exit code, its wall time, and the line that explains a
 result that is not green. Then a verdict against `bench/checks_baseline.json`.
@@ -44,6 +46,18 @@ since that commit. The rule:
 It is a way to be quick on a bench tool or a record, never a substitute for
 the full sweep where the rule above asks for one; it prints which it was.
 
+## Running checks side by side
+
+`--jobs N` runs up to N checks at once, each in its own process as before;
+the default is `DEFAULT_JOBS`. Rows still print in check order, each as soon
+as it and every row above it are done, and the verdict is the same as for
+`--jobs 1`, which runs one check at a time. The total wall time is printed at
+the end. A check that writes outside its own temporary directory, to a fixed
+path another check reads, would race under `--jobs` above 1; none was found
+when this was added (2026-11-04: a full sweep at 1 and at the default gave
+every check the same exit code), and a new check is expected to keep to its
+own temporary directory.
+
 ## What a sweep is not allowed to do
 
 Every check is started with `CUDA_VISIBLE_DEVICES=` (empty), so nothing here
@@ -66,6 +80,7 @@ import subprocess
 import sys
 import tempfile
 import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 BENCH = Path(__file__).resolve().parent
@@ -81,6 +96,21 @@ BASELINE = BENCH / "checks_baseline.json"
 TIMEOUT_S = 600
 
 GREEN, NOT_GRADED = 0, 2
+
+# The owner's choice, 2026-11-04: four checks at once by default. Each check is
+# its own process and the card is masked, so the bound is CPU and memory.
+DEFAULT_JOBS = 4
+
+
+def positive_int(text: str) -> int:
+    """argparse type: an integer of at least 1."""
+    try:
+        value = int(text)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"{text!r} is not a whole number") from None
+    if value < 1:
+        raise argparse.ArgumentTypeError(f"must be at least 1, got {value}")
+    return value
 
 # reasoned: these read the whole tree (the indexes, every doc's links, every
 # text file's paths, every skill's routes, every check's way of finding
@@ -185,16 +215,25 @@ def load_baseline(path: Path) -> dict[str, str]:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    parser = argparse.ArgumentParser(
+        description=__doc__.split("\n\n")[0],
+        epilog="The module docstring has the rules: what each exit code means, the "
+               "baseline, what --changed selects, and what a check may not do under --jobs.")
     parser.add_argument("--only", help="run only checks whose name contains this")
     parser.add_argument("--logs", type=Path,
                         help="keep one log per check and a summary.tsv in this directory")
-    parser.add_argument("--baseline", type=Path, default=BASELINE)
+    parser.add_argument("--baseline", type=Path, default=BASELINE,
+                        help="the JSON naming the checks that are red for a stated reason "
+                             "(default bench/checks_baseline.json)")
     parser.add_argument("--changed", action="store_true",
                         help="run the checks the working tree's changed files can turn red; "
                              "every check when a node file is among them")
     parser.add_argument("--since", metavar="COMMIT",
                         help="with --changed: also count the files changed since this commit")
+    parser.add_argument("-j", "--jobs", type=positive_int, default=DEFAULT_JOBS, metavar="N",
+                        help=f"run up to N checks at once, each in its own process "
+                             f"(default {DEFAULT_JOBS}; 1 runs them one at a time). "
+                             "Rows still print in check order")
     args = parser.parse_args()
     if args.since and not args.changed:
         parser.error("--since goes with --changed")
@@ -232,12 +271,18 @@ def main() -> int:
     log_dir = keep or Path(scratch.name)
 
     width = max(len(p.stem) for p in checks)
+    jobs = min(args.jobs, len(checks))
+    print(f"{len(checks)} check(s), {jobs} at a time\n", flush=True)
     print(f"{'exit':>4}  {'sec':>5}  {'check':<{width}}  note")
     rows: list[tuple[str, int | None, float]] = []
     red: dict[str, str] = {}
     counts = {"green": 0, "not graded": 0, "red": 0}
-    for path in checks:
-        code, seconds, output = run_one(path, env)
+    started = time.monotonic()
+    pool = ThreadPoolExecutor(max_workers=jobs)
+    # map() starts every check now and hands results back in check order, so a
+    # row prints once it and every row above it have finished.
+    results = pool.map(lambda path: run_one(path, env), checks)
+    for path, (code, seconds, output) in zip(checks, results):
         (log_dir / f"{path.stem}.log").write_text(output)
         rows.append((path.stem, code, seconds))
         if code == GREEN:
@@ -253,6 +298,8 @@ def main() -> int:
         shown = "t/o" if code is None else str(code)
         print(f"{shown:>4}  {seconds:5.1f}  {path.stem:<{width}}  {note[:160]}",
               flush=True)
+    pool.shutdown()
+    wall = time.monotonic() - started
 
     if keep:
         (keep / "summary.tsv").write_text("".join(
@@ -260,7 +307,8 @@ def main() -> int:
             for name, code, seconds in rows))
 
     print(f"\n{len(checks)} check(s): " + ", ".join(
-        f"{n} {label}" for label, n in counts.items()))
+        f"{n} {label}" for label, n in counts.items())
+        + f"; {wall:.0f} s wall, {jobs} at a time")
 
     ran = {name for name, _, _ in rows}
     unexpected = sorted(set(red) - set(expected))

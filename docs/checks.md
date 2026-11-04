@@ -57,7 +57,16 @@ sweep:**
 <comfy venv python> bench/run_checks.py            # every check_*.py, masked
 <comfy venv python> bench/run_checks.py --only sol --logs <dir>
 <comfy venv python> bench/run_checks.py --changed  # what the changed files can turn red
+<comfy venv python> bench/run_checks.py --jobs 1   # one at a time; the default is DEFAULT_JOBS at once
+<comfy venv python> bench/run_checks.py --help     # every flag, from its argparse
 ```
+
+The sweep is a command-line tool with an argparse `--help` that lists every
+flag; its module docstring (`bench/run_checks.py`) has the rules behind them.
+`--jobs N` (`bench/run_checks.py::DEFAULT_JOBS` by default) runs that many
+checks at once, each in its own process; rows still print in check order and
+the verdict does not depend on N while every check keeps to its own temporary
+directory (the module docstring, "Running checks side by side").
 
 
 For `--changed`, `CUDA_VISIBLE_DEVICES=` masking rules, and `bench/_lib::bootstrap` details, see [`docs/checks/standard_and_gaps.md`](checks/standard_and_gaps.md#running-sweep--masking-details).
