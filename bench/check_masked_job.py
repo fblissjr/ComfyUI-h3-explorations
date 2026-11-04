@@ -583,6 +583,31 @@ def a_load_leaves_the_rows_model_alone():
     return f"{len(kept)} nodes as shipped"
 
 
+def a_distill_load_swaps_the_model_and_sampler_only():
+    """A load that names a distill (`distill: pika`, 2026-11-04, for a test): Pika H3 Flex's ref2va LoRA in front of the
+    shift, its sampler and its six sigmas in place of the row's, on the same node ids; everything else, Sol and the
+    shift included, as the same load without it. A plan carries it too, so the render is held to its plan."""
+    why = {"why": "the owner's go to test Pika H3 Flex in the lane", "by": "the session", "at": "2026-11-04"}
+    plain, made = _a_load(), _a_load({**WHOLE, "distill": "pika", "distill_by": why})
+    lora = made[graphs.DISTILL_LORA]
+    unet = graphs._the(made, "UNETLoader")
+    assert lora["class_type"] == "MiniMaxH3LoRABranch" and lora["inputs"]["model"] == [unet, 0], lora
+    assert (lora["inputs"]["lora_name"], lora["inputs"]["strength"]) == (cfg.PIKA_REF2VA_LORA, cfg.PIKA_STRENGTH), lora["inputs"]
+    shift = graphs._the(made, "MiniMaxH3SigmaShift")
+    assert made[shift]["inputs"]["model"] == [graphs.DISTILL_LORA, 0], made[shift]["inputs"]
+    assert made[graphs._the(made, "KSamplerSelect")]["inputs"]["sampler_name"] == cfg.PIKA_SAMPLER
+    sigmas = made[graphs._the(made, graphs.SONG)]["inputs"]["sigmas"][0]
+    assert made[sigmas] == {"class_type": "ManualSigmas", "inputs": {"sigmas": cfg.PIKA_MANUAL_SIGMAS}}, made[sigmas]
+    assert plain[sigmas]["class_type"] == "BasicScheduler" and graphs.DISTILL_LORA not in plain, "a load with no distill changed"
+    swapped = {graphs.DISTILL_LORA, shift, sigmas, graphs._the(made, "KSamplerSelect")}
+    differs = sorted(nid for nid in set(plain) | set(made) if nid not in swapped and plain.get(nid) != made.get(nid))
+    assert not differs, f"a distill changed more than the model and sampler: {differs}"
+    assert any("sink_conditioning" in n["inputs"] for n in made.values()), "a distill load lost Sol"
+    planned = _a_load({**WHOLE, "distill": "pika", "distill_by": why}, plan=True)
+    assert planned[graphs.DISTILL_LORA] == lora and planned[sigmas] == made[sigmas], "the plan does not carry the distill"
+    return "LoRA in front of the shift, lcm and the six sigmas; nothing else moved"
+
+
 def the_nodes_schemas_accept_a_load():
     import build_workflows
     oi = declared()
@@ -765,6 +790,10 @@ def a_load_the_graph_cannot_be_built_from():
     _unbuildable("zoom_up_to_by", {**own_run, "render_region": "part", "zoom_up_to": 4}, FILES_PART)
     _unbuildable("zoom_up_to|a number", {**own_run, "render_region": "part", "zoom_up_to": "4", "zoom_up_to_by": "a test"}, FILES_PART)
     _unbuildable("zoom_up_to|whole frame", {**own_run, "render_region": "frame", "zoom_up_to": 4, "zoom_up_to_by": "a test"}, FILES_PART)
+    # a distill is named, with a reason (2026-11-04, for a test, off by default)
+    _unbuildable("distill_by", {**WHOLE, "distill": "pika"})
+    _unbuildable("distill|'turbo'|one of", {**WHOLE, "distill": "turbo", "distill_by": "a test"})
+    _unbuildable("distill|None", {**WHOLE, "distill_by": "a test"})
     _unbuildable("encode_file_by", {**WHOLE, "encode_file": "/output/cond.mkv"})
     # a zoomed load takes a motion video only as a file it names: the preview's own body model is of the whole frame
     _unbuildable("zoomed in|whole frame|motion_file", {**own_run, "render_region": "part", "motion": "mesh"}, {**FILES_PART, "motion": ("/output/a.mp4", 604)})
@@ -1845,7 +1874,7 @@ def main() -> int:
                the_seek_lands_on_the_frame,
                build_refuses_what_it_must, queue_refuses_what_it_must, a_job_is_built_on_its_videos_analysis_folder,
                a_load_lands_on_the_inputs_it_names, a_plan_is_the_render_with_nothing_sampled,
-               a_load_leaves_the_rows_model_alone, the_nodes_schemas_accept_a_load,
+               a_load_leaves_the_rows_model_alone, a_distill_load_swaps_the_model_and_sampler_only, the_nodes_schemas_accept_a_load,
                a_load_the_graph_cannot_be_built_from, a_load_says_what_its_context_frames_show, context_across_a_cut_is_held, a_load_of_chained_windows_takes_context_noise, loads_from_a_capture, a_load_of_two_subjects, a_hair_band_under_a_part,
                a_text_is_of_its_frames, a_load_of_two_shots,
                the_gate_before_a_render, an_uncarved_keep_out_refused):

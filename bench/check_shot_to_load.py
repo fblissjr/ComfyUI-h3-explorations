@@ -3805,6 +3805,58 @@ def a_persons_marks_on_her_head() -> str:
         refused(lambda: made.load(name="a_fp_x"), "both")
     return ("a person's head marks reach the subject in the job file cut to the load, and the capture's --mask; off-load spans left "
             "out; a bad mark, a backwards span, no `by` and two marks on a frame refused; a remake re-reads the plan")
+def a_loads_distill_is_a_persons_word() -> str:
+    """`job --distill pika --distill-why WHY` (2026-11-04): a few-step distill in place of the row's model and sampler, for a
+    test on the owner's go, one load at a time. With the flag the job file's `defaults.distill` is the name with
+    `defaults.distill_by` (why, who, when), and the builder's reading of the file puts Pika's LoRA, sampler and sigmas in the
+    graph and `distill` in the build record; without it nothing is set. Refused with no words, words with no name, and a name
+    the builder has no distill for; never carried. The tool's `DISTILLS` are the builder's."""
+    import contextlib
+    import io
+    why = "the owner: test Pika H3 Flex in the lane on one kept load"
+    files = {"track": ("/capture/a/track.mkv", 100), "parts": ("/capture/a/parts.mkv", 100), "motion": ("/ref.mp4", 100), "others": []}
+    base_graph = json.loads((HERE.parent / "workflows" / cfg.MASKED_JOB_BASE_GRAPH).read_text())
+    assert set(stl.DISTILLS) == set(graphs.DISTILLS), f"shot_to_load's DISTILLS {stl.DISTILLS} are the builder's {tuple(graphs.DISTILLS)}"
+    with tempfile.TemporaryDirectory() as tmp:
+        made = Made(Path(tmp))
+        folder = made.preview_ran(made.preview(100))
+        a = args(shots=str(made.shots_file), plan=str(made.plan_file), shot=100, folder=str(made.jobs), subject="a", preview=str(folder))
+
+        def stepped(**more) -> str:
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                stl.step_job(args(**{**vars(a), **more}), made.m)
+            return buf.getvalue()
+
+        def in_the_graph(d: dict) -> tuple:
+            """The LoRA the graph loads at the call (None when none), and the build record's `settings.distill`."""
+            one = masked_job.loads_of(d)[0]
+            one["still"] = {x["label"]: x["still"] for x in d["job"]["subjects"] if x.get("still")}[one["subject"]]
+            g = graphs.load(base_graph, d["job"], one, files, "the words", windows=masked_job.chain_lengths())
+            lora = g.get(graphs.DISTILL_LORA, {}).get("inputs", {}).get("lora_name")
+            return lora, masked_job.settings_of(one, g)["distill"]
+
+        refused(lambda: made.load(distill="pika"), "--distill takes --distill-why")
+        refused(lambda: made.load(distill="pika", distill_why="  "), "--distill takes --distill-why")
+        refused(lambda: made.load(distill_why=why), "--distill-why goes with --distill")
+        refused(lambda: made.load(distill="turbo", distill_why=why), "--distill 'turbo'")
+        stepped()
+        plain = json.loads((made.jobs / "a_fp_0100.json").read_text())
+        assert "distill" not in plain["defaults"], plain["defaults"]
+        assert in_the_graph(plain) == (None, {"value": "none: the base graph's own model, sampler and steps", "set_by": "the builder's default"}), in_the_graph(plain)
+        stepped(remake=True, no_carry_words="a test of its own", distill="pika", distill_why=why)
+        mine = json.loads((made.jobs / "a_fp_0100b.json").read_text())
+        by = mine["defaults"].get("distill_by") or {}
+        assert mine["defaults"]["distill"] == "pika" and (by.get("why"), by.get("by")) == (why, "the session"), mine["defaults"]
+        assert in_the_graph(mine) == (cfg.PIKA_REF2VA_LORA, {"value": "pika", "set_by": "the job file"}), in_the_graph(mine)
+        printed = stepped(remake=True, carry_words_from=str(made.jobs / "a_fp_0100b.json"))
+        carried = json.loads((made.jobs / "a_fp_0100c.json").read_text())
+        assert "distill" not in carried["defaults"] and "defaults.distill: not carried (was 'pika'" in printed, carried["defaults"]
+    return ("a load names a distill with --distill and --distill-why: defaults.distill and its record, Pika's LoRA in the graph and the "
+            "build record; without it nothing is set; refused with no words, words with no name, an unknown name; never carried; the "
+            "tool's names are the builder's")
+
+
 def a_loads_larger_zoom_is_a_persons_word() -> str:
     """`job --zoom-up-to N --zoom-up-to-why WHY` (2026-10-22): the zoom to a target head size lands switched off (the owner's word),
     and one load asks for it to test. With the flag the job file's `defaults.zoom_up_to` is N with `defaults.zoom_up_to_by` (why, who,
@@ -4340,6 +4392,7 @@ case("pass-2 source: preview requires --source (and --for where a piece is laid)
 case("seed: --seed with --seed-why is the load's own, in the file, the block, the song node and the build record; never carried", a_loads_seed_is_a_persons_word)
 case("head marks: a person's marks on her head and hair reach the job file and the capture", a_persons_marks_on_her_head)
 case("zoom: --zoom-up-to with --zoom-up-to-why asks one load past the node's own 2; off by default; never carried", a_loads_larger_zoom_is_a_persons_word)
+case("distill: --distill with --distill-why renders one load with a few-step distill; off by default; never carried", a_loads_distill_is_a_persons_word)
 case("margin: --margin with --margin-why is the load's own, in the file, the block, the node, the build record and the capture; never carried",
      a_loads_margin_is_a_persons_word)
 case("reference: --no-head-on and --no-head-form recorded, carried, forwarded, checked on --existing, and refused when invalid",

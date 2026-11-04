@@ -782,6 +782,28 @@ def zoom_up_to_of(up_to: float | str | None, up_to_why: str | None, by: str, now
     return value, {"why": words, "by": by, "at": now}
 
 
+#: The few-step distills a load may name (`--distill`): `workflows/masked_job_graph.DISTILLS`, said again here because
+#: this tool does not import the graph builder for it; `bench/check_shot_to_load.py` holds the two equal.
+DISTILLS = ("pika",)
+
+
+def distill_of(distill: str | None, distill_why: str | None, by: str, now: str) -> tuple[str | None, dict | None]:
+    """THE DISTILL A LOAD IS RENDERED WITH (`--distill NAME --distill-why WHY`, 2026-11-04): (its name, its record for
+    `defaults.distill_by`), or (None, None) when neither is given. Off by default: the owner's go of 2026-11-04 is to TEST
+    Pika H3 Flex in the lane, one load at a time, so the record says who asked and why. Refused: a name not in `DISTILLS`,
+    a `--distill` with no words, and words with no `--distill`."""
+    if distill is None:
+        if distill_why is not None:
+            raise Refused("--distill-why goes with --distill: there is no distill to give a reason for")
+        return None, None
+    if distill not in DISTILLS:
+        raise Refused(f"--distill {distill!r}: one of {DISTILLS}")
+    words = " ".join(str(distill_why or "").split())
+    if not words:
+        raise Refused("--distill takes --distill-why: who asked for the distill and why (it is off by default, for a test)")
+    return distill, {"why": words, "by": by, "at": now}
+
+
 #: The most a load may ask the Masked Source to grow its region by (`--margin`): the node's `grow_pixels` takes no more
 #: (`video_mask.GROW_PIXELS_MAX`). **Inherited** from the node, said again here because this tool does not import the pack (torch);
 #: `bench/check_shot_to_load.py` holds the two equal.
@@ -1770,7 +1792,7 @@ def carry_words_of(carry_words_from: dict | Path | str, shot: dict, subject: str
     for k in old:
         if k not in ("job", "defaults", "loads"):
             raise Refused(f"--carry-words-from {old_name}: word-bearing key {k!r} at top of old job cannot be carried")
-    base_defaults = set(h3_config.MASKED_LOAD_DEFAULTS) | {"margin", "margin_by", "seed", "seed_by", "zoom_up_to", "zoom_up_to_by"}
+    base_defaults = set(h3_config.MASKED_LOAD_DEFAULTS) | {"margin", "margin_by", "seed", "seed_by", "zoom_up_to", "zoom_up_to_by", "distill", "distill_by"}
     for k in (old.get("defaults") or {}):
         if k not in base_defaults:
             raise Refused(f"--carry-words-from {old_name}: word-bearing key 'defaults.{k}' in old job cannot be carried")
@@ -1861,6 +1883,9 @@ def carry_words_of(carry_words_from: dict | Path | str, shot: dict, subject: str
     if "zoom_up_to" in (old.get("defaults") or {}):
         retired_said.append(f"defaults.zoom_up_to: not carried (was {(old.get('defaults') or {}).get('zoom_up_to')!r}; a larger zoom is asked "
                             "for one load at a time, with --zoom-up-to and --zoom-up-to-why)")
+    if "distill" in (old.get("defaults") or {}):
+        retired_said.append(f"defaults.distill: not carried (was {(old.get('defaults') or {}).get('distill')!r}; a distill is asked "
+                            "for one load at a time, with --distill and --distill-why)")
     if old_job.get("restore"):
         retired_said.append("job.restore: retired (2026-10-16: plan restore gone from the plan; not carried)")
     if "hair_band" in old_load:
@@ -2465,6 +2490,7 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
              no_closed_lip_line: str | None = None, capture_folder: Path | str | None = None,
              seed: int | str | None = None, seed_why: str | None = None,
              zoom_up_to: float | str | None = None, zoom_up_to_why: str | None = None,
+             distill: str | None = None, distill_why: str | None = None,
              margin: int | str | None = None, margin_why: str | None = None,
              allow_partial_shot: str | None = None, sibling_job: list[str | Path] | None = None,
              laid_file: str | Path | None = None) -> dict:
@@ -2492,6 +2518,7 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
         raise Refused("--carry-words-from and --no-carry-words cannot both be given")
     job_seed, seed_by = job_seed_of(seed, seed_why, by, now)
     up_to, up_to_by = zoom_up_to_of(zoom_up_to, zoom_up_to_why, by, now)
+    own_distill, distill_by = distill_of(distill, distill_why, by, now)
     own_margin, margin_by = margin_of(margin, margin_why, by, now)
     ncw_why = ""
     if no_carry_words is not None:
@@ -3535,7 +3562,8 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
             "defaults": {**h3_config.MASKED_LOAD_DEFAULTS, "margin": region_margin if own_margin is None else own_margin,
                          **({"margin_by": margin_by} if margin_by else {}),
                          "seed": h3_config.SEED if job_seed is None else job_seed, **({"seed_by": seed_by} if seed_by else {}),
-                         **({"zoom_up_to": up_to, "zoom_up_to_by": up_to_by} if up_to_by else {})},
+                         **({"zoom_up_to": up_to, "zoom_up_to_by": up_to_by} if up_to_by else {}),
+                         **({"distill": own_distill, "distill_by": distill_by} if distill_by else {})},
             "loads": [load]}
 
 
@@ -4501,6 +4529,7 @@ def step_job(a, world, cut=cut_keep_out, hashed=None, inside=part_inside, classe
                    no_closed_lip_line=getattr(a, "no_closed_lip_line", None),
                    seed=getattr(a, "seed", None), seed_why=getattr(a, "seed_why", None),
                    zoom_up_to=getattr(a, "zoom_up_to", None), zoom_up_to_why=getattr(a, "zoom_up_to_why", None),
+                   distill=getattr(a, "distill", None), distill_why=getattr(a, "distill_why", None),
                    margin=getattr(a, "margin", None), margin_why=getattr(a, "margin_why", None),
                    allow_partial_shot=getattr(a, "allow_partial_shot", None),
                    sibling_job=getattr(a, "sibling_job", None),
@@ -5284,6 +5313,10 @@ def main() -> int:
                    f"{ZOOM_UP_TO_MOST:g}), until a small head is the node's target height (video_mask.ZOOM_HEAD_TARGET); off by default, for a test "
                    "(2026-10-22). With --zoom-up-to-why; written as defaults.zoom_up_to with defaults.zoom_up_to_by, never carried")
     j.add_argument("--zoom-up-to-why", metavar="WHY", help="who asked for the larger zoom and why; kept in the job file beside it. Goes with --zoom-up-to")
+    j.add_argument("--distill", metavar="NAME", choices=DISTILLS, help="render this load with a few-step distill in place of the base "
+                   "graph's model and sampler: `pika` is Pika H3 Flex (its ref2va LoRA at the call, lcm, its six sigmas; Sol and the shift "
+                   "stay), for a test on the owner's go of 2026-11-04. With --distill-why; written as defaults.distill with defaults.distill_by, never carried")
+    j.add_argument("--distill-why", metavar="WHY", help="who asked for the distill and why; kept in the job file beside it. Goes with --distill")
     j.add_argument("--margin", metavar="N", help="the px the Masked Source grows this load's region by, in place of h3_config.MASKED_LOAD_MARGIN by "
                    f"the plan's region: a whole number from 1 to {MARGIN_MOST}, in px of the picture the node renders (the zoomed one on a zoomed "
                    "load); with --margin-why. Written as defaults.margin with defaults.margin_by (the words, who and when), and THE DEFAULTS THIS "

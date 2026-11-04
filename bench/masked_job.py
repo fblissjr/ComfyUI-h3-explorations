@@ -1022,7 +1022,8 @@ def settings_of(one: dict, graph: dict) -> dict:
             "render_region": src.get("render_region", "the node's own: the whole frame"),
             "seed": run["seed"], "composite": src.get("composite", "the node's own: only what changed (a graph built before 2026-10-16)"),
             "context_shows": src.get("context_shows", "the node's own: as filmed"),
-            "zoom_up_to": src.get("zoom_up_to", "the node's own: video_mask.ZOOM_LARGEST, 2")}
+            "zoom_up_to": src.get("zoom_up_to", "the node's own: video_mask.ZOOM_LARGEST, 2"),
+            "distill": one.get("distill", "none: the base graph's own model, sampler and steps")}
     return {key: {"value": used[key], "set_by": "the job file" if key in one else "the builder's default"}
             for key in graphs.SETTINGS}
 

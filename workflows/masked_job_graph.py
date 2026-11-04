@@ -83,6 +83,8 @@ default, renders the whole frame; `context_shows` (`CONTEXT_SHOWS`): what the re
 show, `as filmed` (the default) or `face covered`; and `zoom_up_to` with `zoom_up_to_by` (2026-10-22, for a test): on a
 `part` load, the most the node may enlarge it, past its own 2 up to `video_mask.ZOOM_MOST_ASKED`, so a small head is
 zoomed until it is `video_mask.ZOOM_HEAD_TARGET` px tall; `zoom_up_to_by` is who asked and why, and is required with it.
+`distill` with `distill_by` (2026-11-04, for a test): a few-step distill in place of the row's model and sampler
+(`DISTILLS`: `pika`, Pika H3 Flex); `distill_by` is who asked and why, and is required with it.
 A short load's padding frames that lie outside its shot (`shot_span`) are held copies of the shot's edge frame, not
 real frames, whatever the load says (`held_context`, 2026-10-22). A default that was measured on one clip is a starting value for
 another: every one of them can be set in a load or in the file's `defaults`, and the build record says
@@ -106,7 +108,18 @@ from h3_config import (
     MASKED_JOB_LOADER, MASKED_JOB_FORCE_RATE, MASKED_JOB_SEEK_BACK, MASKED_JOB_SAM_CORRECTIONS,
     MASKED_JOB_PARTS, MASKED_JOB_BODY_MODEL, MASKED_JOB_BOXES, MASKED_JOB_BODY_POSE, MASKED_JOB_MESH,
     MASKED_JOB_LOSSLESS, MASKED_JOB_PICTURE,
+    PIKA_REF2VA_LORA, PIKA_STRENGTH, PIKA_SAMPLER, PIKA_MANUAL_SIGMAS,
 )
+
+#: A few-step distill a load may name with `distill` (and who asked and why, `distill_by`), in place of the base
+#: graph's model and sampler. Only Pika H3 Flex, on the owner's go of 2026-11-04 to test it in the lane: its ref2va
+#: LoRA at the call (`MiniMaxH3LoRABranch`, which keeps the whole delta on the int8 checkpoint), `lcm`, and its six
+#: manual sigmas (`h3_config.PIKA_*`, **Inherited** from Pika's manifests). The masked row runs the ref2va checkpoint,
+#: which is the partition this LoRA is for. Sol and the shift stay the row's: the owner chose Pika with the lane's Sol.
+DISTILLS = {"pika": {"lora": PIKA_REF2VA_LORA, "strength": PIKA_STRENGTH, "sampler": PIKA_SAMPLER,
+                     "sigmas": PIKA_MANUAL_SIGMAS}}
+#: Where a distill's LoRA node goes in a load's graph: an id the shipped masked row leaves free.
+DISTILL_LORA = "18"
 
 #: Ids the shipped masked row gives the same nodes (`build_workflows.build_api`, the `freeze_song_source`
 #: branch), kept so a job's graph reads beside a shipped one. 101 and 200 are free in that row.
@@ -363,7 +376,7 @@ MOTIONS = {"none": MASKED_JOB_MOTION["none"], "mesh": MASKED_JOB_MOTION["wired"]
 #: The settings of a load a job file may set in place of the builder's default; a build record says, for
 #: each, the value used and whether the job set it.
 SETTINGS = ("carried", "margin", "feather", "edge", "window", "context", "context_noise", "motion", "motion_edge",
-            "motion_edge_2", "hair_band", "render_region", "seed", "composite", "context_shows", "zoom_up_to")
+            "motion_edge_2", "hair_band", "render_region", "seed", "composite", "context_shows", "zoom_up_to", "distill")
 #: What a load's `composite` may say: the Masked Source's own two (`video_mask.COMPOSITE_REGION`, `COMPOSITE_CHANGED`;
 #: `bench/check_masked_job.py` holds the two names together). Absent, the node's default.
 COMPOSITES = ("whole region", "only what changed")
@@ -773,6 +786,14 @@ def check_load(job: dict, one: dict, windows: tuple[int, ...]) -> None:
             raise ValueError(f"load {name!r} sets zoom_up_to with no zoom_up_to_by: who asked for it and why")
         if region != "part":
             raise ValueError(f"load {name!r} sets zoom_up_to on a load rendered on the whole frame: it acts only on `render_region: part`")
+    if "distill" in one or "distill_by" in one:
+        distill, asked = one.get("distill"), one.get("distill_by")
+        why = asked.get("why") if isinstance(asked, dict) else asked
+        if distill not in DISTILLS:
+            raise ValueError(f"load {name!r}: distill {distill!r}; one of {tuple(DISTILLS)}. A load on the base graph's own "
+                             f"model and sampler leaves the key out")
+        if not str(why or "").strip():
+            raise ValueError(f"load {name!r} sets distill with no distill_by: who asked for it and why")
     if "encode_file" in one or "encode_file_by" in one or "encode_first" in one:
         ef, asked = one.get("encode_file"), one.get("encode_file_by")
         why = asked.get("why") if isinstance(asked, dict) else asked
@@ -864,7 +885,8 @@ def load(base: dict, job: dict, one: dict, files: dict, text: str, *, windows: t
     tracker and the part node, which go, their masks read from files; the Masked Source's region, margin,
     edge, others, motion video, held tail and what its context frames show; the song node's text, canvas, window,
     context, seed, extent, prefix and audio; the still and the text encoder's view of it; Sol's sink. The model,
-    the sampler, the steps and the shift stay the row's."""
+    the sampler, the steps and the shift stay the row's, unless the load names a `distill` (`DISTILLS`): then its LoRA
+    goes in front of the shift and its sampler and sigmas replace the row's, and Sol and the shift still stay."""
     check_job(job)
     check_load(job, one, windows)
     canvas = tuple(job["canvas"])
@@ -998,6 +1020,22 @@ def load(base: dict, job: dict, one: dict, files: dict, text: str, *, windows: t
     if len(sink) != 1:
         raise ValueError(f"the base graph holds {len(sink)} nodes with a `sink_conditioning`; a load sets exactly one")
     g[sink[0]]["inputs"]["sink_conditioning"] = MASKED_JOB_SOL_SINK
+    if one.get("distill"):
+        # the distill's LoRA between the checkpoint and the shift, at the call; its sampler and its own sigmas in
+        # place of the row's, on the same node ids, so the song node's links are as they were
+        d, unet = DISTILLS[one["distill"]], _the(g, "UNETLoader")
+        if DISTILL_LORA in g:
+            raise ValueError(f"the base graph already uses node id {DISTILL_LORA}, where a distill's LoRA goes")
+        takers = [n for n in g.values() if n["inputs"].get("model") == [unet, 0]]
+        if len(takers) != 1:
+            raise ValueError(f"the base graph's checkpoint feeds {len(takers)} nodes; a distill goes in front of exactly one")
+        g[DISTILL_LORA] = {"class_type": "MiniMaxH3LoRABranch",
+                           "inputs": {"model": [unet, 0], "lora_name": d["lora"], "strength": d["strength"], "modules": "all",
+                                      "blocks": "all", "start_percent": 0.0, "end_percent": 1.0}}
+        takers[0]["inputs"]["model"] = [DISTILL_LORA, 0]
+        g[_the(g, "KSamplerSelect")]["inputs"]["sampler_name"] = d["sampler"]
+        steps = _the(g, "BasicScheduler")
+        g[steps] = {"class_type": "ManualSigmas", "inputs": {"sigmas": d["sigmas"]}}
 
     run = g[song]["inputs"]
     for key in [k for k in run if k.startswith("extent")] + ["continue_from", "context_noise"]:
