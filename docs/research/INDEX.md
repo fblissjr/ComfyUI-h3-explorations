@@ -15,6 +15,12 @@ Router index for every research memo, masked-v2v architecture note, postmortem, 
 | [`masking/2026-10-25_context_frames_and_identity_on_2050.md`](masking/2026-10-25_context_frames_and_identity_on_2050.md) | 2026-10-25: the lead's face did not change on 2050, and what the window showed the model |
 | [`masking/2026-10-26_code_map_and_simplification_plan.md`](masking/2026-10-26_code_map_and_simplification_plan.md) | Masked V2V Code Map, Traps & Phased Simplification Plan (`2026-10-26` / `2026-10-27`) |
 
+## Control vectors (`docs/research/control_vectors/`)
+
+| Document | Topic |
+|---|---|
+| [`control_vectors/2026-11-04_h3_control_vectors.md`](control_vectors/2026-11-04_h3_control_vectors.md) | 2026-11-04: control vectors for H3 (contrastive mean-difference directions in the refined text conditioning): hypothesis, the gate, experiments, build plan, and the code facts they rest on |
+
 ## Postmortems (`docs/research/postmortems/`)
 
 | Document | Topic |
