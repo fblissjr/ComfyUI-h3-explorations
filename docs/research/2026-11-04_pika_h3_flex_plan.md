@@ -230,7 +230,16 @@ adapt them for local use.
   - at least 39 frames;
   - a shorter shot is never split;
   - windows longer than 345 chain.
-- **Attention:** masked graphs run dense attention, so step 4's Sol question does not apply there.
+- **Attention, sampler and steps (corrected the same day):** masked loads are built from
+  `h3_config.MASKED_JOB_BASE_GRAPH`, which runs `euler` at 12 steps with Sol live from 20% (`MiniMaxH3Sol`), and no
+  masked graph is in `SOL_EXEMPT_STEMS`. This line used to say masked graphs run dense attention, as
+  `docs/masked_v2v/frames_rules.md` §0.1 still does. So a Pika masked load is Pika with Sol unless the arm drops Sol,
+  and step 4's question does apply.
+- **Code needed:** no masked load can take the Pika LoRA, `lcm` or `ManualSigmas` today.
+  `workflows/masked_job_graph.py::load` keeps the base graph's model, sampler, steps and shift, and
+  `bench/load_chain.py::render_against_plan` refuses a render graph that differs from its plan graph. A Pika masked
+  arm needs a load key (with a job flag and a check case) that inserts `MiniMaxH3LoRABranch` and swaps the sampler
+  and sigmas.
 - **Never unmasked:** the original subject is never shown unmasked in a window.
 - **Shared latent steps:** every four frames share one latent step and one mask token.
 - **New risks for Pika, untested:**
