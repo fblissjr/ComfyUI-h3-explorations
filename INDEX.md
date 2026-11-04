@@ -155,13 +155,13 @@ with none is a helper the others import.
 | `contact_sheets/` | 2 | [below](#contact_sheets) |
 | `data/` | 2 | [below](#data) |
 | `docs/` | 209 | [`docs/wiki/index.md`](docs/wiki/index.md), the hand-written router |
-| `prompt_bank/` | 170 | [`docs/prompt_bank.md`](docs/prompt_bank.md), the prompt catalogue |
+| `prompt_bank/` | 172 | [`docs/prompt_bank.md`](docs/prompt_bank.md), the prompt catalogue |
 | `sparse_tables/` | 1 | [below](#sparse_tables) |
 | `standalone/` | 27 | [below](#standalone) |
 | `vendor/` | 11 | [below](#vendor) |
 | `vendor_config/` | 10 | [below](#vendor_config) |
 | `vendor_guides/` | 6 | [below](#vendor_guides) |
-| `workflows/` | 180 | [`workflows/INDEX.md`](workflows/INDEX.md) |
+| `workflows/` | 184 | [`workflows/INDEX.md`](workflows/INDEX.md) |
 
 ## .claude/
 
