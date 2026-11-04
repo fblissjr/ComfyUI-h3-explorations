@@ -1,5 +1,13 @@
 # Where ComfyUI's H3 path differs from the vendor's
 
+**Retired 2026-11-04 by the owner, and frozen.** The current list of every
+known divergence between core's H3 path and the vendor's release is
+[`research/sglang_comparison.md`](research/sglang_comparison.md), "Every
+known divergence, in one place", re-checked that day with this document's
+gap numbers kept. This file stays so that pointers to a gap number or a
+section still resolve; its sections keep the detail and the measurements
+behind each row, as of their own dates. Do not update it; correct the list.
+
 last updated: 2026-11-04 (dated notes on the sglang claims, re-read at sglang origin/main `8884b4b421`: row 17's scale-shift, gap 8's decode, gap 14's curve tables, the short reference video, and the `kitchen_int8` name; drifted line citations into the clone re-pointed to symbols); 2026-09-13 (the `encoder` policy and the AWQ adapter marked removed, see the correction below; 2026-09-10 recorded two core commits under "Settled"; row 17 added 2026-09-04; everything else is the 2026-08-29 snapshot)
 
 **Corrected 2026-08-29: this file described the compressed-tensors W4 AWQ

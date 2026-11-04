@@ -1,9 +1,13 @@
 # Where our custom nodes differ from every other H3 implementation
 
-last updated: 2026-11-04 (sglang claims re-read at its origin/main `8884b4b421`: dated notes on §4.1 items 1 and 2, and §4.2's audio-resample sentence corrected); 2026-10-02 (a dated note on item 3: diffusers' VAE decode precision and the shipped VAE); 2026-09-13 (the AWQ loader rows, the `encoder` policy and §4.1's reference-view row corrected after the owner's decisions of that day, `docs/wiki/decisions.md`; 2026-09-10 added one §5.4 sentence and one §6 row; everything else is the 2026-08-28 pass)
+last updated: 2026-11-04 (the companion line points at the current divergence list; sglang claims re-read at its origin/main `8884b4b421`: dated notes on §4.1 items 1 and 2, and §4.2's audio-resample sentence corrected); 2026-10-02 (a dated note on item 3: diffusers' VAE decode precision and the shipped VAE); 2026-09-13 (the AWQ loader rows, the `encoder` policy and §4.1's reference-view row corrected after the owner's decisions of that day, `docs/wiki/decisions.md`; 2026-09-10 added one §5.4 sentence and one §6 row; everything else is the 2026-08-28 pass)
 
 The companion to [`comfyui_vendor_gaps.md`](comfyui_vendor_gaps.md). That file
-asks how native ComfyUI differs from the MiniMax release. This one asks the
+asks how native ComfyUI differs from the MiniMax release. *Corrected
+2026-11-04: that file is retired and frozen; the current list is
+[`research/sglang_comparison.md`](research/sglang_comparison.md), "Every
+known divergence, in one place". This line used to call it the live
+companion.* This one asks the
 adjacent question nobody had written down: **what do the nodes in this pack
 actually do, end to end, and where does that differ from the vendor's serving
 path, from two inference engines, from two model libraries, and from ComfyUI

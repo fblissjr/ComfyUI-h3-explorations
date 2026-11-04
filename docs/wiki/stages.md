@@ -2,7 +2,7 @@
 
 > **Current live implementation & rules (2026-10-27):** For the masked video-to-video lane's 7-stage pipeline, AST jump index, and stage contracts, see [`../masked_v2v/CODE_MAP_INDEX.md`](../masked_v2v/CODE_MAP_INDEX.md), [`../masked_v2v/code_map_stages.md`](../masked_v2v/code_map_stages.md), [`../masked_v2v/code_map_contracts.md`](../masked_v2v/code_map_contracts.md), and [`../masked_v2v/chain_trace_and_remakes.md`](../masked_v2v/chain_trace_and_remakes.md).
 
-last updated: 2026-11-04 (the attention, reference-sizing and sampler compare-against cells brought to sglang origin/main); 2026-10-27 (added router callout to `docs/masked_v2v/CODE_MAP_INDEX.md` and updated `CLAUDE.md` to `AGENTS.md`); 2026-10-04 (the masked video to video rows); 2026-09-11 (one reference cell renamed after the kitchen clone move; otherwise the 2026-08-28 page)
+last updated: 2026-11-04 (three owner cells point at the current divergence list, the retired vendor-gaps doc's successor; the video-decode cell corrected on diffusers; the attention, reference-sizing and sampler compare-against cells brought to sglang origin/main); 2026-10-27 (added router callout to `docs/masked_v2v/CODE_MAP_INDEX.md` and updated `CLAUDE.md` to `AGENTS.md`); 2026-10-04 (the masked video to video rows); 2026-09-11 (one reference cell renamed after the kitchen clone move; otherwise the 2026-08-28 page)
 
 The cross-index. For each stage of a render: **our code**, the **document that
 owns** it, the **check that would go red** if it broke, and the
@@ -28,7 +28,7 @@ checkout is and is not evidence of.
 
 | stage | our code | owner | guard | compare against |
 |---|---|---|---|---|
-| checkpoint load | core `UNETLoader` | [`../comfyui_vendor_gaps.md`](../comfyui_vendor_gaps.md) | `check_model_files.py` — a graph naming a file its loader cannot open goes red | LightX2V, for what the same int8 path does there |
+| checkpoint load | core `UNETLoader` | [`../research/sglang_comparison.md`](../research/sglang_comparison.md) "Every known divergence" | `check_model_files.py` — a graph naming a file its loader cannot open goes red | LightX2V, for what the same int8 path does there |
 | sigma shift | core `MiniMaxH3SigmaShift` | [`../../workflows/h3_config.py`](../../workflows/h3_config.py)'s `SAMPLING` note | `check_distill_settings.py` (shift and step count) | diffusers' named H3 scheduler |
 | attention patch | core's `ModelAttentionBackend` on kitchen int8, the default since 2026-09-15; `attention.py`'s `MiniMaxH3SageAttention` on the sage arms | [`../SOLATTN.md`](../SOLATTN.md) | `check_attention_defaults.py` — by reachability, and values not presence | sglang (dense packed-varlen attention by default: FlashAttention when its package is installed and torch SDPA when not, cuDNN SDPA on Blackwell; `coderef/sglang/python/sglang/multimodal_gen/runtime/platforms/cuda.py::CudaPlatformBase`, `get_attn_backend_cls_str`); LightX2V for the kernel choice on this card. *Corrected 2026-11-04: this cell used to say "sglang (dense FA varlen)", which leaves out sglang's Blackwell default (`ba12a16a62`, #33655).* |
 | sparse attention | the vendored Sol node | [`../SOLATTN.md`](../SOLATTN.md) | same | `comfy-kitchen-kijai` (read-only; `comfy-kitchen-sol` until 2026-09-08), for sources that ship in no wheel |
@@ -57,8 +57,8 @@ checkout is and is not evidence of.
 | sigma schedule | core `BasicScheduler`, or the PDD node's own SIGMAS | [`../h3_pdd.md`](../h3_pdd.md) | `check_distill_grid.py` against the **vendor's published grid**, not a computed one | LightX2V's closed form |
 | sampler | core `SamplerCustomAdvanced` | [`../../workflows/h3_config.py`](../../workflows/h3_config.py) | **nothing** reads the sampler name off a graph — the `euler`-for-PDD rule | sglang runs eta-0 Euler for base H3; we run a stochastic SDE. *Corrected 2026-11-04: since sglang `37fc17b8d6` (#47378) its Pika H3 Flex release re-noises inside the loop; this cell used to say "sglang runs eta-0 Euler" for every release.* |
 | audio carry | core `comfy/model_sampling.py` | — | **nothing.** One schedule carries both streams; the other three run two | sglang, DiffSynth, diffusers |
-| video decode | core `VAEDecode` | [`../comfyui_vendor_gaps.md`](../comfyui_vendor_gaps.md) | — | diffusers pins fp32; we ship fp16 |
-| VAE precision | `MiniMaxH3VAEPrecision` | [`../comfyui_vendor_gaps.md`](../comfyui_vendor_gaps.md) | wired in one arm; **three implementations run more precisely than the shipped default** | diffusers, DiffSynth |
+| video decode | core `VAEDecode` | [`../research/sglang_comparison.md`](../research/sglang_comparison.md) "Every known divergence" | — | diffusers decodes in the pipeline dtype with the encoder, norms and LayerScale scales kept fp32 (`coderef/diffusers/src/diffusers/models/autoencoders/autoencoder_kl_minimax_h3.py::AutoencoderKLMiniMaxH3._keep_in_fp32_modules`); sglang decodes fp16 with an fp32 residual; we ship fp16. *Corrected 2026-11-04: this cell used to say "diffusers pins fp32", untrue since diffusers `51a454be9` (#14754).* |
+| VAE precision | `MiniMaxH3VAEPrecision` | [`../research/sglang_comparison.md`](../research/sglang_comparison.md) "Every known divergence" | wired in one arm; **three implementations run more precisely than the shipped default** | diffusers, DiffSynth |
 | audio decode | core `VAEDecodeAudio` | [`../h3_references.md`](../h3_references.md) | — | agreement is broad here |
 | mux and write | `VHS_VideoCombine` | — | **nothing.** sglang re-probes the written file and fails on drift; we write and stop | sglang's output adapter |
 | provenance | `MiniMaxH3ProvenanceStamp`, `substrate.py` | [`../capture_manifest_schema.md`](../capture_manifest_schema.md) | `check_provenance_stamp.py`, `check_capture_manifest.py` | — |
