@@ -204,6 +204,13 @@ none of the six has rendered as it now stands.*
 | `ref2va_masked_person_upper_motion` | ref2va | **keep** | the shipped prompt of `h3_video_to_video_masked_upper_song_ref2va_motion` (2026-10-07): the node told the still gives the head and upper body, with the Masked Source's motion reference on. The arm the owner called solid rendered a typed text for this region; the node's wording for it rendered the same day on the same window beside that arm, and once on another clip, watched by the owner on 2026-10-07: both good, not told apart (`bench/results/2026-10-06_masked_v2v_body_window_arms.md`, the note of 2026-10-07) |
 | `ref2va_masked_person_silent` | ref2va | **keep** (text only) | the node with `voice` set to silent, for a replaced person who is not the voice on the track. Not rendered |
 
+### Verdicts added 2026-11-04, Pika H3 Flex showcases
+
+| scene | mode | verdict | why |
+|---|---|---|---|
+| `PIKA_MOTION_TRANSFER_PROMPT` | ref2va | **keep** | the Pika H3 Flex `motion-transfer` showcase prompt (`prompt_bank/ref2va_pika_motion_transfer.txt`, 243 frames): grades clean (`0 FAIL, 0 WARN`) and passed the owner's Step 2 playback check on both `r2v_branch` seeds (`730451892`, `730451893`) and `r2v_merge` seed 1 (`wiki/decisions.md`, 2026-11-04) |
+| `PIKA_BALCONY_ORBIT_PROMPT` | t2va | **keep** | the Pika H3 Flex `balcony-orbit` showcase prompt (`prompt_bank/t2va_pika_balcony_orbit.txt`, 328 frames): grades clean (`0 FAIL, 0 WARN`) and passed the owner's Step 2 playback check on camera path across both `t2v_branch` seeds and `t2v_merge` seed 1; the bottom figure reads as an older man rather than the requested older woman in both Pika's showcase clip and our renders (`wiki/decisions.md`, 2026-11-04) |
+
 ### Misalignments: one closed, one withdrawn, one open
 
 `prompting.md` §14.3 is the long form and owns all three.
