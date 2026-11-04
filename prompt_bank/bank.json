@@ -1253,6 +1253,14 @@
       "donor": "h3_probe_refview2_dancer_api",
       "brief": "Masked video to video, whole subject among other people, with the action taken from the neighbours instead of named: ref2va_masked_lead_swap where the subject faces the way the people beside them face, turns when they turn, and is dressed as they are; names no setting, shot or cut.",
       "tests": "arm band_follows_32s of bench/masked_v2v_band_arms.json: on ref2va_masked_lead_swap the replaced lead kept facing the camera when the group turned its back, because the prompt tied his facing to a lead the model cannot see; does tying it to the visible neighbours turn him, and does `dressed as they are` put him in the band's top"
+    },
+    {
+      "id": "t2va_pika_balcony_orbit",
+      "mode": "t2va",
+      "frames": 328,
+      "donor": null,
+      "brief": "Pika H3 Flex's balcony-orbit showcase, rewritten to the vendor format from Pika's raw service text only (not from Pika's rendered output); live-action, 35mm; one continuous shot whose five camera phases are joined as one path with no in-shot times: arc shot, push in with large amplitude, pedestal up, pedestal down with large amplitude at fast speed, pull out and arc back; three silent people, one per balcony; N/A.",
+      "tests": "whether this stack reproduces Pika's own showcase: a long single take holding three people on three balconies through five camera phases, judged against Pika's balcony-orbit.mp4 at the same 328 frames"
     }
   ]
 }
