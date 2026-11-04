@@ -77,7 +77,14 @@ and a second shot before anything is called a result, and every prompt read in f
      **Amended (Claude, same day):** `"max"` is closer but still not Pika's rule. Pika upscales to the 2048 short
      edge by default (`coderef/Pika-H3-Flex/src/pika_h3/core/conditioning.py:142`, "upscale (official
      behaviour)"), while core's `"max"` only scales down (`scale = min(1.0, ...)`). So to match, resize both sheets
-     to `3648x2048` before the node, then use `"max"`.
+     to `3648x2048` before the node, then use `"max"`. (If using the pack's `MiniMaxH3AppendRefImage` +
+     `MiniMaxH3ReferenceConditioning`, `size_policy="max", dit_short_edge=2048, allow_upscale=True` is already the
+     default in `reference_conditioning.py:876-918`, **but `qwen_view` must be set to `"shared"`** because its
+     default `"separate"` shrinks the Qwen3-VL view to `qwen_short_edge=512` at `reference_conditioning.py:948-971`,
+     whereas Pika passes the `3648x2048` image to both towers. Conversely, keep `video_policy="comfy"` on
+     `MiniMaxH3ReferenceConditioning`: Pika's `conditioning.py:94, 117-120` upscales the `854x480` motion reference
+     video to the `p768` canvas `1344x768`, which inflates `ref_vid_rows` from `27,135` to `67,536` and total
+     packed rows from `118,867` to `159,268`—1.8x the quadratic dense-attention cost for a `480p` motion-only source.)
   2. **Match each showcase's actual duration/frame count (not a fixed `124` frames)**: `124` frames (`5.17s`) fits
      Comfy-Org's 5-second pilot+station template (`video_pika_h3_flex_ref2va.json`), whereas Pika's showcases are
      longer: `motion-transfer.mp4` is **243 frames (`10.125s`)** (its reference `motion-transfer-input-1.mp4` is
