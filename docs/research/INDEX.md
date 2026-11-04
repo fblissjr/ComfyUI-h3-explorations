@@ -76,6 +76,7 @@ Router index for every research memo, masked-v2v architecture note, postmortem, 
 | [`2026-09-26_distill_routing.md`](2026-09-26_distill_routing.md) | Routing distills within a clip: six routes, three of them H3's own |
 | [`2026-09-26_flashgen.md`](2026-09-26_flashgen.md) | FlashGen: what it is, where our settings come from, how upstream runs it |
 | [`2026-09-27_sol_node_redesign.md`](2026-09-27_sol_node_redesign.md) | The Sol node redesign: plan, reasons, and the tests that decide it |
+| [`2026-11-04_pika_h3_flex_weights_and_loras.md`](2026-11-04_pika_h3_flex_weights_and_loras.md) | Pika H3 Flex: the weights against MiniMax-H3, how kijai's ComfyUI LoRAs were made, and which to run on int8 |
 | [`calibration_checkpoint_resume.md`](calibration_checkpoint_resume.md) | Checkpoint and resume for a sequential AWQ calibration run |
 | [`comfyui_h3_t2va_trace.md`](comfyui_h3_t2va_trace.md) | ComfyUI's H3 t2va pipeline, traced end to end |
 | [`conditioning_cache.md`](conditioning_cache.md) | A persistent conditioning cache: design note |
