@@ -1798,10 +1798,15 @@ FLASHGEN_SAMPLER = "euler"
 # that differ are 439 decoder tensors plus both `post_quant_conv`. So the
 # ENCODER IS FROZEN and the latent space is untouched: a seed produces the same
 # latent either way and swapping VAEs is a pure decoder swap. Its metadata
-# declares `h3_t1_output_slice: 3`, which is exactly what ComfyUI's own
-# `decode()` already does at `z.shape[2] == 1` (`_adaptive_decode(z)[:, :, -1:]`
-# of `vae_ratio_t == 4` frames), so the convention matches core and there is no
-# off-by-one to chase.
+# declares `h3_t1_direct: true` and `h3_t1_output_slice: 3`, and core reads
+# both: such a file decodes a single latent alone and keeps frame 3 of its
+# `vae_ratio_t == 4` frames (`comfy/sd.py`, VAE init, `still_frame`;
+# `comfy/ldm/minimax/vae.py::MiniMaxH3VideoVAE.decode`). Since core `ec1537de6`
+# (#16881) a file without that metadata decodes a single latent as a clip of
+# `tokens_chunk_size` copies and keeps the frame at `frame_pre_padding` (also
+# index 3 at the defaults) of that longer decode, so the stock video VAE's
+# one-latent decode differs from this file's in what it decodes, not in the
+# index; this file's is unchanged and there is no off-by-one to chase.
 #
 # **Never wire it into a video graph.** Its own README: the image-specialised
 # decoder materially regresses multi-frame reconstruction and can introduce

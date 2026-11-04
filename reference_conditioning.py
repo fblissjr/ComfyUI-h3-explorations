@@ -897,8 +897,10 @@ class MiniMaxH3AppendRefImage(io.ComfyNode):
                                 ),
                             ),
                             io.Boolean.Input(
-                                # On is what sglang, diffusers and DiffSynth
-                                # do; off is core ComfyUI's behaviour. Whether
+                                # On is what diffusers, DiffSynth and
+                                # sglang's default `diffusers` resize mode
+                                # do; off is core ComfyUI's behaviour and
+                                # sglang's `max` mode. Whether
                                 # upscaling helps identity is the
                                 # reference-view ablation's question
                                 # (docs/h3_references.md).

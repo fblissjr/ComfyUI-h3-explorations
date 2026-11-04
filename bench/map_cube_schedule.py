@@ -60,8 +60,13 @@ def inverse_time_snr_shift(shift: float, sigma: float) -> float:
 
 
 def vendor_grid(num_steps: int, shift: float) -> list[float]:
-    """`minimax_h3_time_shift_sigmas`, replicated: linspace(1, 0, N) shifted,
-    consecutive duplicates dropped, a terminal zero appended if missing."""
+    """`minimax_h3_time_shift_sigmas` as it was when the record this tool reads
+    was made: linspace(1, 0, N) shifted, consecutive duplicates dropped, a
+    terminal zero appended if missing. Since sglang `32f34e898b` (#38671) the
+    vendor builds linspace(1, 0, N + 1), so a request of N there is this
+    function's N + 1; the record's `recommended_50_steps` keep-ratio list,
+    49 entries, fits a request of 49 at sglang origin/main. Kept as the old convention so the
+    tool still agrees with `data/results/2026-09-04_sglang_cube_topk_schedule.json`."""
     import torch
     base = torch.linspace(1.0, 0.0, int(num_steps), dtype=torch.float32)
     shifted = shift * base / (1 + (shift - 1) * base)

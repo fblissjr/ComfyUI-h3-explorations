@@ -921,18 +921,20 @@ def _make_final_layer_forward(base_forward, tracker):
     stays upstream's and a change to it does not silently diverge here.
 
     **The trailing `*args` is load-bearing and is not defensive padding.**
-    Comfy-Org/ComfyUI#15908 (open 2026-08-27, `comfy/ldm/minimax/model.py`
-    only) adds PDD support to core and widens this exact signature to
-    `(x, t_emb, video_seg, audio_seg, sigma, sample_sigmas, shifts)`. An object
-    patch replaces the method, so the four names we bind are the four we read
-    and everything after them has to reach `base_forward` untouched or the
-    stock forward loses arguments it now requires. Pinned to four, this node
-    raises a TypeError on the first sampling step the day that merges.
+    Core's `FinalLayer.forward` takes
+    `(x, t_emb, video_seg, audio_seg, sigma, sample_sigmas, shifts)` since
+    core `2504e68d4` (Comfy-Org/ComfyUI#15908, merged 2026-08-28). An
+    object patch replaces the method, so the four names we bind are the four
+    we read and everything after them has to reach `base_forward` untouched
+    or the stock forward loses arguments it requires. Pinned to four, this
+    node would raise a TypeError on the first sampling step.
 
     Widening costs nothing here and is not a claim that the rest of the node
     survives core learning PDD. It does not: core keys off
-    `video_out.weight.shape[0] // out_features`, our converted file leaves that
-    weight its original size, so core takes its `n == 1` path and our two
+    `video_out.weight.shape[0] // self.video_dim` (since core `ce42de5f6`,
+    #17157, which also reads `pdd_steps` from a checkpoint's `config`
+    metadata), our converted file leaves that weight its original size, so
+    core takes its `n == 1` path and our two
     output-linear patches still own the head swap. That is correct, and it is
     also two implementations of one mechanism sitting in one process. See
     `docs/h3_pdd.md`.
@@ -2114,10 +2116,13 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
                     f"converted against. A head that is an exact multiple of "
                     f"the expected rows is an ENLARGED PDD head bank left "
                     f"resident by another implementation -- core reads "
-                    f"`weight.shape[0] // out_features` as its interval count, "
+                    f"`weight.shape[0] // video_dim` as its head count, "
                     f"so the tensor survives on the cached model after the "
                     f"graph that installed it. Restart ComfyUI, or run that "
-                    f"graph and this one in separate sessions.")
+                    f"graph and this one in separate sessions. A checkpoint "
+                    f"with PDD heads baked in (its `config` metadata sets "
+                    f"`pdd_steps`) loads with an enlarged head as well; this "
+                    f"node does not take one.")
             dist = float((live - ref.to(torch.float32)).norm() / ref.norm())
             if dist > PARTITION_TOLERANCE:
                 raise RuntimeError(
