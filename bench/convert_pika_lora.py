@@ -50,20 +50,54 @@ def _qr_svd_truncate(
     a: torch.Tensor,
     sv_fro: float,
     min_rank: int = 1,
+    switch_rank: int = 3,
+    switch_scale: float = 1.0,
+    body_scale: float = 1.0,
+    b_peer: torch.Tensor | None = None,
+    a_peer: torch.Tensor | None = None,
+    task_boost: float = 0.0,
     dtype: torch.dtype = torch.bfloat16,
 ) -> tuple[torch.Tensor, torch.Tensor, int]:
-    """Exact thin SVD of `b @ a` via QR on `b` and `a.T`, keeping `sv_fro` Frobenius norm."""
-    qb, rb = torch.linalg.qr(b.double(), mode="reduced")
-    qa, ra = torch.linalg.qr(a.double().T, mode="reduced")
+    """Exact thin SVD of `b @ a` (optionally task-boosted vs `b_peer @ a_peer`) with band scaling."""
+    bd = b.double()
+    ad = a.double()
+    if b_peer is not None and a_peer is not None and task_boost != 0.0:
+        bd = torch.cat([(1.0 + task_boost) * bd, (-task_boost) * b_peer.double()], dim=1)
+        ad = torch.cat([ad, a_peer.double()], dim=0)
+    qb, rb = torch.linalg.qr(bd, mode="reduced")
+    qa, ra = torch.linalg.qr(ad.T, mode="reduced")
     m = rb @ ra.T
     u, s, vh = torch.linalg.svd(m, full_matrices=False)
-    cum = torch.cumsum(s.pow(2), dim=0) / s.pow(2).sum().clamp(min=1e-30)
-    k = int((cum < (sv_fro ** 2)).sum().item()) + 1
-    k = max(min_rank, min(k, int(s.shape[0])))
-    s_sqrt = s[:k].sqrt()
-    b_new = (qb @ (u[:, :k] * s_sqrt)).to(dtype).contiguous()
-    a_new = ((s_sqrt.unsqueeze(1) * vh[:k, :]) @ qa.T).to(dtype).contiguous()
-    return b_new, a_new, k
+    if sv_fro >= 1.0:
+        k = int(s.shape[0])
+    else:
+        cum = torch.cumsum(s.pow(2), dim=0) / s.pow(2).sum().clamp(min=1e-30)
+        k = int((cum < (sv_fro ** 2)).sum().item()) + 1
+        k = max(min_rank, min(k, int(s.shape[0])))
+
+    sr = max(0, min(int(switch_rank), k))
+    if switch_scale != 1.0 or body_scale != 1.0:
+        u = u.clone()
+        s = s.clone()
+        if switch_scale < 0.0:
+            u[:, :sr] = -u[:, :sr]
+        if body_scale < 0.0:
+            u[:, sr:k] = -u[:, sr:k]
+        s[:sr] = s[:sr] * abs(switch_scale)
+        s[sr:k] = s[sr:k] * abs(body_scale)
+
+    if switch_scale == 0.0 and body_scale != 0.0 and k > sr:
+        idx = slice(sr, k)
+    elif body_scale == 0.0 and switch_scale != 0.0 and sr > 0:
+        idx = slice(0, sr)
+    else:
+        idx = slice(0, k)
+
+    s_sel = s[idx]
+    s_sqrt = s_sel.sqrt()
+    b_new = (qb @ (u[:, idx] * s_sqrt)).to(dtype).contiguous()
+    a_new = ((s_sqrt.unsqueeze(1) * vh[idx, :]) @ qa.T).to(dtype).contiguous()
+    return b_new, a_new, int(s_sel.shape[0])
 
 
 def _manual_sigmas_str(knots: list[int], shift: float) -> str:
@@ -81,11 +115,17 @@ def convert(
     mode: str = "svd_per_component",
     sv_fro: float = 0.995,
     min_rank: int = 1,
+    switch_rank: int = 3,
+    switch_scale: float = 1.0,
+    body_scale: float = 1.0,
+    peer_dir: Path | None = None,
+    task_boost: float = 0.0,
     device: str = "cuda",
     verify: bool = True,
 ) -> dict:
     manifest_path = source_dir / "manifest.json"
     adapter_path = source_dir / "adapter.safetensors"
+    peer_adapter_path = (peer_dir / "adapter.safetensors") if peer_dir is not None else None
     manifest = json.loads(manifest_path.read_text()) if manifest_path.exists() else {}
     sched = manifest.get("sampling_schedule", {})
     knots = sched.get("knots", [1000, 750, 500, 250, 100, 40, 0])
@@ -99,59 +139,94 @@ def convert(
     out_tensors: dict[str, torch.Tensor] = {}
     ranks: list[int] = []
     comp_errs: dict[str, list[float]] = {k: [] for k in ("to_q", "to_k", "to_v", "out_proj", "fc1", "fc2")}
+    use_band_or_boost = (switch_scale != 1.0) or (body_scale != 1.0) or (peer_adapter_path is not None and task_boost != 0.0)
+    eff_sv_fro = 1.0 if mode == "full" else sv_fro
 
     with safe_open(adapter_path, framework="pt", device=device) as fo:
-        src_meta = dict(fo.metadata() or {})
-        for ob, cb in blocks:
-            bs_qkv, as_qkv = [], []
-            for x in ("to_q", "to_k", "to_v"):
-                b_orig = fo.get_tensor(f"{ob}.attn.{x}.lora_B.default.weight")
-                a_orig = fo.get_tensor(f"{ob}.attn.{x}.lora_A.default.weight")
-                if mode == "full":
-                    bn = b_orig.to(torch.bfloat16).contiguous()
-                    an = a_orig.to(torch.bfloat16).contiguous()
-                else:
-                    bn, an, _ = _qr_svd_truncate(b_orig, a_orig, sv_fro=sv_fro, min_rank=min_rank)
-                bs_qkv.append(bn)
-                as_qkv.append(an)
-                if verify:
-                    err, _ = _gram_rel_err(b_orig, a_orig, bn, an)
-                    comp_errs[x].append(err)
+        fp = safe_open(peer_adapter_path, framework="pt", device=device) if (peer_adapter_path is not None and task_boost != 0.0) else None
+        try:
+            src_meta = dict(fo.metadata() or {})
+            for ob, cb in blocks:
+                bs_qkv, as_qkv = [], []
+                for x in ("to_q", "to_k", "to_v"):
+                    b_orig = fo.get_tensor(f"{ob}.attn.{x}.lora_B.default.weight")
+                    a_orig = fo.get_tensor(f"{ob}.attn.{x}.lora_A.default.weight")
+                    b_peer = fp.get_tensor(f"{ob}.attn.{x}.lora_B.default.weight") if fp is not None else None
+                    a_peer = fp.get_tensor(f"{ob}.attn.{x}.lora_A.default.weight") if fp is not None else None
+                    if mode == "full" and not use_band_or_boost:
+                        bn = b_orig.to(torch.bfloat16).contiguous()
+                        an = a_orig.to(torch.bfloat16).contiguous()
+                    else:
+                        bn, an, _ = _qr_svd_truncate(
+                            b_orig,
+                            a_orig,
+                            sv_fro=eff_sv_fro,
+                            min_rank=min_rank,
+                            switch_rank=switch_rank,
+                            switch_scale=switch_scale,
+                            body_scale=body_scale,
+                            b_peer=b_peer,
+                            a_peer=a_peer,
+                            task_boost=task_boost,
+                        )
+                    bs_qkv.append(bn)
+                    as_qkv.append(an)
+                    if verify:
+                        err, _ = _gram_rel_err(b_orig, a_orig, bn, an)
+                        comp_errs[x].append(err)
 
-            b_qkv = torch.block_diag(*bs_qkv).to(torch.bfloat16).contiguous().cpu()
-            a_qkv = torch.cat(as_qkv, dim=0).to(torch.bfloat16).contiguous().cpu()
-            r_qkv = int(a_qkv.shape[0])
-            ranks.append(r_qkv)
-            out_tensors[f"{cb}.attn.qkv_proj.lora_B.weight"] = b_qkv
-            out_tensors[f"{cb}.attn.qkv_proj.lora_A.weight"] = a_qkv
-            out_tensors[f"{cb}.attn.qkv_proj.alpha"] = torch.tensor(float(r_qkv), dtype=torch.bfloat16)
+                b_qkv = torch.block_diag(*bs_qkv).to(torch.bfloat16).contiguous().cpu()
+                a_qkv = torch.cat(as_qkv, dim=0).to(torch.bfloat16).contiguous().cpu()
+                r_qkv = int(a_qkv.shape[0])
+                ranks.append(r_qkv)
+                out_tensors[f"{cb}.attn.qkv_proj.lora_B.weight"] = b_qkv
+                out_tensors[f"{cb}.attn.qkv_proj.lora_A.weight"] = a_qkv
+                out_tensors[f"{cb}.attn.qkv_proj.alpha"] = torch.tensor(float(r_qkv), dtype=torch.bfloat16)
 
-            for okind, ckind, swap in (
-                ("attn.to_out.0", "out_proj", False),
-                ("ff.net.0.proj", "fc1", True),
-                ("ff.net.2", "fc2", False),
-            ):
-                b_orig = fo.get_tensor(f"{ob}.{okind}.lora_B.default.weight")
-                a_orig = fo.get_tensor(f"{ob}.{okind}.lora_A.default.weight")
-                if swap:
-                    h = b_orig.shape[0] // 2
-                    b_orig = torch.cat([b_orig[h:], b_orig[:h]], dim=0)
-                if mode == "full":
-                    bn = b_orig.to(torch.bfloat16).contiguous()
-                    an = a_orig.to(torch.bfloat16).contiguous()
-                else:
-                    bn, an, _ = _qr_svd_truncate(b_orig, a_orig, sv_fro=sv_fro, min_rank=min_rank)
-                if verify:
-                    err, _ = _gram_rel_err(b_orig, a_orig, bn, an)
-                    comp_errs[ckind].append(err)
-                bn_cpu = bn.cpu()
-                an_cpu = an.cpu()
-                rk = int(an_cpu.shape[0])
-                ranks.append(rk)
-                cpre = f"{cb}.attn.{ckind}" if ckind == "out_proj" else f"{cb}.mlp.{ckind}"
-                out_tensors[f"{cpre}.lora_B.weight"] = bn_cpu
-                out_tensors[f"{cpre}.lora_A.weight"] = an_cpu
-                out_tensors[f"{cpre}.alpha"] = torch.tensor(float(rk), dtype=torch.bfloat16)
+                for okind, ckind, swap in (
+                    ("attn.to_out.0", "out_proj", False),
+                    ("ff.net.0.proj", "fc1", True),
+                    ("ff.net.2", "fc2", False),
+                ):
+                    b_orig = fo.get_tensor(f"{ob}.{okind}.lora_B.default.weight")
+                    a_orig = fo.get_tensor(f"{ob}.{okind}.lora_A.default.weight")
+                    b_peer = fp.get_tensor(f"{ob}.{okind}.lora_B.default.weight") if fp is not None else None
+                    a_peer = fp.get_tensor(f"{ob}.{okind}.lora_A.default.weight") if fp is not None else None
+                    if swap:
+                        h = b_orig.shape[0] // 2
+                        b_orig = torch.cat([b_orig[h:], b_orig[:h]], dim=0)
+                        if b_peer is not None:
+                            b_peer = torch.cat([b_peer[h:], b_peer[:h]], dim=0)
+                    if mode == "full" and not use_band_or_boost:
+                        bn = b_orig.to(torch.bfloat16).contiguous()
+                        an = a_orig.to(torch.bfloat16).contiguous()
+                    else:
+                        bn, an, _ = _qr_svd_truncate(
+                            b_orig,
+                            a_orig,
+                            sv_fro=eff_sv_fro,
+                            min_rank=min_rank,
+                            switch_rank=switch_rank,
+                            switch_scale=switch_scale,
+                            body_scale=body_scale,
+                            b_peer=b_peer,
+                            a_peer=a_peer,
+                            task_boost=task_boost,
+                        )
+                    if verify:
+                        err, _ = _gram_rel_err(b_orig, a_orig, bn, an)
+                        comp_errs[ckind].append(err)
+                    bn_cpu = bn.cpu()
+                    an_cpu = an.cpu()
+                    rk = int(an_cpu.shape[0])
+                    ranks.append(rk)
+                    cpre = f"{cb}.attn.{ckind}" if ckind == "out_proj" else f"{cb}.mlp.{ckind}"
+                    out_tensors[f"{cpre}.lora_B.weight"] = bn_cpu
+                    out_tensors[f"{cpre}.lora_A.weight"] = an_cpu
+                    out_tensors[f"{cpre}.alpha"] = torch.tensor(float(rk), dtype=torch.bfloat16)
+        finally:
+            if fp is not None:
+                del fp
 
     avg_rank = st.mean(ranks)
     meta = dict(src_meta)
@@ -170,8 +245,13 @@ def convert(
         "comfy_sampler": "lcm",
         "manual_sigmas_shift12": _manual_sigmas_str(knots, v_shift),
         "baked_scale": "1.0",
+        "switch_rank": str(switch_rank),
+        "switch_scale": str(switch_scale),
+        "body_scale": str(body_scale),
+        "task_boost": str(task_boost),
         "conversion": (
-            f"mode={mode}; sv_fro={sv_fro if mode != 'full' else 1.0}; "
+            f"mode={mode}; sv_fro={eff_sv_fro}; switch_rank={switch_rank}; "
+            f"switch_scale={switch_scale}; body_scale={body_scale}; task_boost={task_boost}; "
             "per-component QR-SVD before qkv block-diag fusion (contiguous q|k|v); "
             "mlp.fc1 swiglu halves swapped; explicit .alpha == rank (scale 1.0)"
         ),
@@ -185,7 +265,11 @@ def convert(
     summary = {
         "out": out_path.name,
         "mode": mode,
-        "sv_fro": sv_fro if mode != "full" else 1.0,
+        "sv_fro": eff_sv_fro,
+        "switch_rank": switch_rank,
+        "switch_scale": switch_scale,
+        "body_scale": body_scale,
+        "task_boost": task_boost,
         "tensors": len(out_tensors),
         "avg_rank": round(avg_rank, 2),
         "min_rank": min(ranks),
@@ -206,6 +290,11 @@ def main() -> int:
     ap.add_argument("--mode", choices=("full", "svd_per_component"), default="svd_per_component")
     ap.add_argument("--sv-fro", type=float, default=0.995, help="Per-component cumulative Frobenius norm threshold")
     ap.add_argument("--min-rank", type=int, default=1)
+    ap.add_argument("--switch-rank", type=int, default=3, help="Number of top singular values in the switch band (default 3)")
+    ap.add_argument("--switch-scale", type=float, default=1.0, help="Multiplier for top switch_rank singular values (0.0 = tail-only)")
+    ap.add_argument("--body-scale", type=float, default=1.0, help="Multiplier for singular values above switch_rank (0.0 = spike-only)")
+    ap.add_argument("--peer-dir", type=Path, default=None, help="Optional peer task directory for task-difference boost")
+    ap.add_argument("--task-boost", type=float, default=0.0, help="Boost factor beta in dW + beta*(dW - dW_peer)")
     ap.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     ap.add_argument("--verify", action="store_true", default=True)
     args = ap.parse_args()
@@ -216,6 +305,11 @@ def main() -> int:
         mode=args.mode,
         sv_fro=args.sv_fro,
         min_rank=args.min_rank,
+        switch_rank=args.switch_rank,
+        switch_scale=args.switch_scale,
+        body_scale=args.body_scale,
+        peer_dir=args.peer_dir,
+        task_boost=args.task_boost,
         device=args.device,
         verify=args.verify,
     )

@@ -237,6 +237,41 @@ In ComfyUI (`comfy/ldm/minimax/model.py:499-500, 534-578`), `_cond_video_rows` a
 noise-augment, and project reference/keyframe latents through `video_patch_proj` and `audio_patch_proj` in `torch.float32`,
 which matches `fp32_conditioning_v1` on `ref2va`.
 
+## 7. Where Pika's change lives: switches, tail, and `fl2va` vs `ref2va`
+
+Across all 50 blocks, each module's rank-128 delta splits into two spectral regimes:
+
+- **Top-3 singular directions ("switches", `r = 1..3`)**: hold 74% to 91% of each component's squared Frobenius energy
+  (85.8% to 95.2% of its norm; stable rank $\|\Delta W\|_F^2 / \sigma_1^2 = 1.4\text{ to }2.7$). In `blocks.48-49`,
+  `to_q` and `to_k` hold 94% to 98% of their energy in a single direction (`r = 1`), and `out_proj` and `fc2` reach 99%
+  norm at rank 3 to 4.
+- **Remaining 125 singular directions ("body/tail", `r = 4..128`)**: hold 9% to 25% of the squared energy (28% to 47% of
+  the norm), spread across 60 to 82 directions in middle blocks (`blocks.20-39`) and in late-block `to_v` (`blocks.49`
+  needs rank 67 for 99% norm). `svd995` keeps 79% to 90% of this tail energy.
+- **`fl2va` and `ref2va` similarity and task difference**: the two adapters have cosine 0.951 to 0.998 (mean 0.990 to
+  0.992) across every module. Inside the top-3 subspace (`r = 1..3`), `fl2va` and `ref2va` differ by only 2.3% to 2.9%
+  of $\|\Delta W\|_F$; in the `r = 4..128` tail they differ by 12.0% to 13.8% (peaking at 20% to 31% in `blocks.47-49`).
+  Truncating `ref2va` with `svd99` removes only a median 1.8% (max 6.6%) projection along $D = \Delta W_{\text{ref}} - \Delta W_{\text{fl}}$
+  and pulls the truncated adapter slightly toward base MiniMax-H3 (`0`) rather than toward `fl2va` ($\cos(\widehat{W}_{\text{ref}}, W_{\text{fl}})$
+  drops from 0.9924 to 0.9824, and $\|\widehat{W}_{\text{ref}} - W_{\text{fl}}\|_F / \|D\|_F$ grows to 1.49x; naive
+  comparisons of $\|\widehat{W}_{\text{ref}} - \widehat{W}_{\text{fl}} - D\|_F / \|D\|_F$ are inflated in 151 of 300
+  modules where independent `sv_fro` thresholds pick $k_{\text{ref}} \ne k_{\text{fl}}$).
+- **Partial mechanism—alignment with `adaln_proj`**: in `comfy/ldm/minimax/model.py:224-255, 300-305`, `AdalnProj`
+  produces separate `shift`, `scale` and `gate` vectors for 3 modalities (`video=0`, `text=1`, `audio=2`) from the
+  8-column `adaln_t_table`, so each block's `shift(t, tag)` spans at most 27 dimensions out of 5376 (0.502% of
+  $\mathbb{R}^{5376}$). Projecting the input singular vectors of `to_q`, `to_k`, `to_v` and `fc1` onto that 27-D
+  `shift` subspace shows that $v_1$ carries 11.0% to 18.6% of its energy there on average (max 65.5%, 22x to 37x
+  random chance), tapering across $v_2$ (13x to 25x), $v_3$ (9x to 16x), and $v_4..v_5$ (5x to 11x), while $v_6..v_{128}$
+  sit near chance (1.14x to 1.22x). Similarly, in `blocks.48-49`, $v_1(\text{out\_proj})$ and $v_1(\text{fc2})$ align at
+  18x to 45x chance with the propagated subspaces $W_V(\text{shift}_{\text{msa}})$ and $W_{\text{fc1}}(\text{shift}_{\text{mlp}})$
+  (tails at 1.14x). That explains 11% to 19% (up to 65%) of each switch as a virtual per-modality, per-step bias read
+  from `shift(t, tag)`; the remaining 81% to 89% of $v_1$ acts outside the `shift` subspace, and only attribution
+  renders can separate 6-step convergence from Pika's visual look.
+- **Converter support for attribution**: `bench/convert_pika_lora.py` exposes `--switch-rank`, `--switch-scale`,
+  `--body-scale`, `--peer-dir` and `--task-boost` so spike-only (`--switch-scale 1 --body-scale 0`), tail-only
+  (`--switch-scale 0 --body-scale 1`), independent switch/body scaling, and task-difference boosting
+  ($\Delta W + \beta(\Delta W - \Delta W_{\text{peer}})$) can be emitted without modifying runtime code.
+
 ## Not done
 
 - No render. Every figure is on stored weights or a microbenchmark.
