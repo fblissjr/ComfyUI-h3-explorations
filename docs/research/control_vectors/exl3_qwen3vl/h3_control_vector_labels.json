@@ -38,58 +38,58 @@
       },
       "lexical_logit_shifts": {
         "positive_boosted_words": [
-          "explosion (+5.40)",
-          "violently (+5.04)",
-          "chaotic (+4.95)",
-          "chaos (+4.84)",
-          "suddenly (+4.79)",
-          "panicked (+4.73)",
-          "panic (+4.63)",
-          "sudden (+4.56)",
-          "frantic (+4.54)",
-          "horribly (+4.52)",
-          "abruptly (+4.28)",
-          "explosive (+4.24)"
+          "explosion (+5.58)",
+          "violently (+5.30)",
+          "panicked (+5.13)",
+          "chaotic (+5.12)",
+          "panic (+5.04)",
+          "chaos (+5.01)",
+          "suddenly (+4.97)",
+          "frantic (+4.95)",
+          "sudden (+4.74)",
+          "horribly (+4.70)",
+          "explosive (+4.64)",
+          "terrifying (+4.62)"
         ],
         "negative_boosted_words": [
-          "remain (+4.38)",
-          "gentle (+3.96)",
-          "harmonious (+3.90)",
-          "maintain (+3.72)",
-          "calm (+3.64)",
-          "serene (+3.58)",
-          "steady (+3.51)",
-          "relaxed (+3.44)",
-          "excellent (+3.39)",
-          "good (+3.36)",
-          "harmony (+3.26)",
-          "elegant (+3.23)"
+          "remain (+3.87)",
+          "calm (+3.30)",
+          "serene (+3.29)",
+          "maintain (+3.21)",
+          "steady (+3.13)",
+          "gentle (+3.04)",
+          "tranquil (+2.94)",
+          "harmonious (+2.93)",
+          "neutral (+2.70)",
+          "stable (+2.60)",
+          "maintains (+2.59)",
+          "elegant (+2.57)"
         ],
-        "top5_mean_delta_log_prob": 5.005,
+        "top5_mean_delta_log_prob": 5.236,
         "lexical_clarity": "high"
       },
       "sweep_completions": {
         "anchor_human_action_room": {
-          "-0.15": "integrated_multimodal_description: [Shot 1] A medium shot frames a person at a wooden kitchen counter, their face calm and slightly smiling as they pour water from a clear glass pitcher into a warm-toned ceramic mug. Their hands move steadily, the spoon and folded linen napkin resting nearby, while soft natural light highlights the gentle ripple of water entering the mug.\n\noverall_soundscape: The quiet clink of the pitcher on the counter, the smooth pour of water, and the person’s soft, warm greeting blend with subtle ambient kitchen tones—distant hum of appliances and light echo in the open space.",
-          "+0.00": "integrated_multimodal_description: [Shot 1] A medium shot frames a person at a wooden kitchen counter, their face softly lit as they pour water from a clear glass pitcher into a speckled ceramic mug; their hands move deliberately, the spoon and folded linen napkin resting nearby on the warm-toned surface. The person turns slightly toward the camera, lips forming a gentle “Good morning,” voice warm and clear.\n\noverall_soundscape:  The soft gurgle of water filling the mug blends with the subtle clink of porcelain and the person’s calm, resonant greeting, all lightly echoed in the spacious, quiet kitchen.",
-          "+0.15": "integrated_multimodal_description: [Shot 1] A medium shot captures a person at a cluttered kitchen counter, their face animated as they pour water from a glass pitcher into a chipped ceramic mug, hands trembling slightly—spoon and crumpled napkin scattered nearby. Their voice cracks mid-greeting, “Hey—just made coffee!” echoing off tiled walls.\n\noverall_soundscape:  The clink of glass, gurgle of water, and muffled shout blend with distant fridge hum and reverb-laced echoes in the cramped kitchen.",
-          "+0.22": "integrated_multimodal_description: [Shot 1] A medium shot captures a person at a cluttered kitchen counter—head tilted, eyes wide as they shout “Morning!” into the room—hands gripping a pitcher mid-pour, water splashing into a chipped ceramic mug beside a crumpled napkin and a dented spoon. The tabletop shakes slightly as the mug rattles, water droplets flying off the rim.\n\noverall_soundscape:  A sharp, echoing “Morning!” cuts through the clatter of falling water, porcelain scraping metal, and distant kitchen echoes—amplified by bare tile walls and a hollow floor thud beneath the person’s frantic footsteps."
+          "-0.15": "integrated_multimodal_description: [Shot 1] A medium shot captures a person with short, neatly styled brown hair and calm, direct eyes, standing at a wooden kitchen counter. Their hands move steadily as they pour clear water from a glass pitcher into a warm-toned ceramic mug; the spoon and folded linen napkin remain still beside it, while the water’s gentle arc catches the soft overhead light.\n\noverall_soundscape: The quiet kitchen echoes with the smooth trickle of water, punctuated by a warm, unhurried greeting spoken in a soft, mid-range voice that blends seamlessly with the ambient hum of distant appliances.",
+          "+0.00": "integrated_multimodal_description: [Shot 1] A medium shot captures a person with short, salt-and-pepper hair and warm, crinkled eyes, their hands steady as they pour clear water from a glass pitcher into a chipped ceramic mug; the spoon and folded linen napkin shift slightly on the wooden counter as droplets splash gently, while their voice offers a soft, melodic “Good morning” with a slight echo.  \noverall_soundscape:  The gentle pour blends with a low hum of the refrigerator and distant birdsong, creating a calm, domestic resonance.",
+          "+0.15": "integrated_multimodal_description: [Shot 1] A medium shot captures a person with tousled dark hair and freckled cheeks, eyes crinkling as they grin while pouring water from a glass pitcher into a chipped ceramic mug. Their hands—calloused fingers gripping the pitcher—splash water that arcs and splatters slightly onto the wooden counter, knocking a crumpled napkin and spoon sideways.  \noverall_soundscape: The gurgle of water, a sharp clatter of spoon against counter, and a warm, breathy “Morning!” echo in the hollow kitchen, absorbed by linoleum and cabinets.",
+          "+0.22": "integrated_multimodal_description: [Shot 1] A medium shot captures a person with wild, salt-and-pepper hair and freckled cheeks, hands trembling slightly as they pour steaming water from a glass pitcher into a chipped ceramic mug; spoon and crumpled napkin skitter on the countertop as the mug shudders, mouth wide in a strained “Hey—!”  \noverall_soundscape:  Water gurgles into the mug, punctuated by a high-pitched yelp and clattering dishes, echoing in the hollow kitchen with tinny reverb."
         },
         "anchor_surface_street_camera": {
-          "-0.15": "integrated_multimodal_description: [Shot 1] A static medium shot frames the canvas shop’s weathered beige awning with subtle fabric creases, a rustic wooden crate with visible grain and chipped paint resting on sun-dappled concrete, and the smooth, slightly dusty side panel of a white delivery van. Soft, diffused daylight casts gentle shadows, enhancing textures without harsh contrast.\n\noverall_soundscape: Gentle street ambience—distant footsteps, faint traffic hum, and occasional rustle of awning fabric in a light breeze—creates a calm urban atmosphere.",
-          "+0.00": "integrated_multimodal_description: [Shot 1] A static medium-wide shot frames the faded red canvas awning with peeling paint and frayed edges, a weathered wooden crate with splintered corners resting on cracked pavement, and the smooth, slightly dusty side panel of a white delivery van under bright, high-contrast midday sun. The camera holds steady, capturing sharp shadows and the gritty textures of urban wear.\n\noverall_soundscape: Distant traffic hums beneath the occasional screech of brakes and a faint echo of footsteps on concrete, punctuated by the rustle of a loose awning flap in a light breeze.",
-          "+0.15": "integrated_multimodal_description: [Shot 1] A low-angle Dutch tilt frames the peeling red-and-white striped awning above a splintered wooden crate, its rough grain catching harsh midday sun, while the adjacent white van’s dented panel reflects fractured light—camera jerks left then steadies, revealing cracked pavement beneath.  \noverall_soundscape: Sudden screech of brakes, distant sirens, and tinny music from a passing ice cream truck layer over the hollow thud of a dropped crate.",
-          "+0.22": "integrated_multimodal_description: [Shot 1] A low-angle Dutch tilt frames a peeling red-and-white striped awning above a splintered wooden crate, its nails jutting like teeth, while a dented white van panel glints under harsh midday sun—camera lurches forward in a shaky handheld rush, blurring the asphalt.  \noverall_soundscape: Sirens wail distantly, metal scrapes on concrete, and a sudden crash echoes as the crate topples."
+          "-0.15": "integrated_multimodal_description: [Shot 1] A static medium shot frames the canvas shop’s weathered beige awning with subtle creases and faded lettering, a rustic wooden crate with visible grain and chipped paint resting on the sunlit sidewalk, and the smooth, slightly dusty white panel of a parked delivery van. Soft, diffused daylight casts gentle shadows, enhancing textures without harsh contrast.\n\noverall_soundscape: Gentle urban ambiance—distant footsteps, faint traffic hum, and the occasional clink of a passing bicycle bell—creates a calm, observational atmosphere.",
+          "+0.00": "integrated_multimodal_description: [Shot 1] A static medium-wide shot frames a faded red canvas shop awning with peeling paint, a weathered wooden crate bearing scuff marks, and the glossy white side panel of a delivery van reflecting dappled sunlight. Bright midday light casts sharp shadows, highlighting textures—rough wood grain, chipped fabric, and smooth vinyl—while the camera remains fixed, capturing stillness.\n\noverall_soundscape: Distant traffic hums beneath faint chatter and a rhythmic clatter of a passing delivery cart.",
+          "+0.15": "integrated_multimodal_description: [Shot 1] A low-angle handheld shot sweeps right across a sun-dappled sidewalk, capturing a frayed red-and-white striped awning peeling at the edges, a splintered wooden crate with chipped paint, and the dented, grease-streaked side panel of a white delivery van—harsh midday light casts sharp shadows, highlighting textures.  \noverall_soundscape:  Distant traffic hiss, a siren wail, and a sudden thud as a crate lid slams shut echo over the street’s gritty hum.",
+          "+0.22": "integrated_multimodal_description: [Shot 1] A shaky handheld camera lunges forward under harsh midday sun, glinting off the peeling red-and-white striped awning, splintered wooden crate spilling paint tubes, and dented white van panel scuffed with black tire marks—light fractures across surfaces like broken glass.  \noverall_soundscape: Sirens wail distant, trash cans clang, and a radio blares from the van as a siren wails in the distance."
         }
       },
       "synthesis": {
-        "self_report_slug": "tension_intensity",
-        "self_report_quality": "Steering controls a gradient from calm, composed, and naturalistic to tense, chaotic, and exaggerated in both visual and acoustic domains.",
-        "negative_pole": "Calm, steady, naturalistic visuals and sounds: smooth pouring, soft lighting, gentle vocal tones, and quiet ambient textures with minimal motion or disruption.",
-        "positive_pole": "Tense, chaotic, exaggerated visuals and sounds: shaky camera, splashing water, shouting, clattering objects, harsh lighting, and abrupt, loud environmental events.",
+        "self_report_slug": "intensity_stress_scale",
+        "self_report_quality": "Steering controls a gradient of visual and acoustic intensity, shifting from calm, controlled, and refined to chaotic, stressed, and raw across both video and audio dimensions.",
+        "negative_pole": "Calm, controlled, and refined visual and acoustic states: smooth motions, soft lighting, gentle sounds, and composed vocal delivery with minimal physical disruption.",
+        "positive_pole": "Chaotic, stressed, and raw visual and acoustic states: erratic movements, harsh lighting, loud and abrupt sounds, and strained or shouted vocalizations with physical disarray.",
         "dominant_modality": "audiovisual",
         "readout_clarity": "high",
-        "clarity_reason": "The transformation is consistently and systematically expressed across both visual (camera movement, lighting, object state) and acoustic (vocal intensity, environmental sounds) dimensions in both anchors, with clear progression from calm to chaotic."
+        "clarity_reason": "The transformation is consistently and systematically expressed across both visual (camera motion, lighting, object state) and acoustic (sound quality, vocal tone, environmental noise) dimensions in both anchors, with clear progression from calm to chaotic."
       }
     },
     "elapsed_sec": 36.14,
@@ -200,58 +200,58 @@
       },
       "lexical_logit_shifts": {
         "positive_boosted_words": [
-          "distortion (+5.12)",
-          "corrupted (+4.42)",
-          "distort (+4.35)",
-          "degraded (+3.89)",
-          "corrupt (+3.87)",
-          "degradation (+3.83)",
-          "corruption (+3.81)",
-          "badly (+3.80)",
-          "glitch (+3.71)",
-          "distorted (+3.68)",
-          "severely (+3.67)",
-          "messed (+3.65)"
+          "distortion (+5.04)",
+          "corrupted (+4.39)",
+          "distort (+4.27)",
+          "corrupt (+3.93)",
+          "degradation (+3.87)",
+          "badly (+3.86)",
+          "degraded (+3.86)",
+          "glitch (+3.77)",
+          "distorted (+3.74)",
+          "corruption (+3.74)",
+          "messed (+3.71)",
+          "severely (+3.59)"
         ],
         "negative_boosted_words": [
-          "harmonious (+3.73)",
-          "harmony (+3.51)",
-          "steady (+3.41)",
-          "simplicity (+3.27)",
-          "elegance (+3.20)",
-          "inviting (+3.17)",
-          "balanced (+3.14)",
-          "careful (+3.04)",
-          "sophisticated (+2.99)",
-          "clean (+2.99)",
-          "professional (+2.99)",
-          "calm (+2.95)"
+          "harmony (+3.45)",
+          "steady (+3.33)",
+          "simplicity (+3.21)",
+          "elegance (+3.14)",
+          "inviting (+3.08)",
+          "harmonious (+3.08)",
+          "careful (+2.98)",
+          "clean (+2.93)",
+          "professional (+2.90)",
+          "calm (+2.88)",
+          "organized (+2.80)",
+          "cleanliness (+2.76)"
         ],
-        "top5_mean_delta_log_prob": 4.329,
+        "top5_mean_delta_log_prob": 4.301,
         "lexical_clarity": "high"
       },
       "sweep_completions": {
         "anchor_human_action_room": {
-          "-0.15": "integrated_multimodal_description: [Shot 1] A medium shot frames a person at a sunlit kitchen counter, their hands steady as they pour water from a clear glass pitcher into a warm-toned ceramic mug; beside it, a wooden spoon and folded linen napkin rest neatly on the countertop. The person turns slightly toward the camera, offering a soft smile while speaking a quiet, welcoming “Good morning” in a clear, unhurried tone.\n\noverall_soundscape: Gentle clinks of the pitcher and mug, a soft rush of water, and the subtle hum of a nearby refrigerator blend with the person’s calm voice, all anchored by the warm, dry acoustics of the kitchen space.",
-          "+0.00": "integrated_multimodal_description: [Shot 1] A medium shot frames a person at a wooden kitchen counter, their face softly lit as they pour water from a clear glass pitcher into a speckled ceramic mug; their hands move deliberately, the spoon and folded linen napkin resting nearby on the warm-toned surface. The person turns slightly toward the camera, lips forming a gentle “Good morning,” voice warm and clear.\n\noverall_soundscape:  The soft gurgle of water filling the mug blends with the subtle clink of porcelain and the person’s calm, resonant greeting, all lightly echoed in the spacious, quiet kitchen.",
-          "+0.15": "integrated_multimodal_description: [Shot 1] A medium shot captures a person’s head, face, and hands as they pour water from a clear glass pitcher into a chipped ceramic mug on a wooden countertop; a spoon and crumpled napkin rest nearby, while their lips move in a warm, slightly breathy “Good morning” that echoes faintly off the tiled backsplash.  \noverall_soundscape: The gurgle of water filling the mug blends with the person’s soft vocalization and distant refrigerator hum, creating a cozy, lived-in kitchen ambiance.",
-          "+0.22": "integrated_multimodal_description: [Shot 1] A medium shot captures a person’s head, face, and hands as they pour water from a clear glass pitcher into a chipped ceramic mug on a wooden countertop; a spoon and crumpled napkin lie nearby, while their lips move in a warm, slightly breathy “Good morning” greeting. The water streams with visible ripples, reflecting overhead light, and the person’s eyes flicker toward the camera mid-speech.\n\noverall_soundscape: A low hum of refrigerator and distant HVAC blends with the gurgle of pouring water and faint echo of the voice, creating a dampened, intimate kitchen ambiance."
+          "-0.15": "integrated_multimodal_description: [Shot 1] A medium shot captures a person with short, neatly styled brown hair and warm, expressive eyes, standing at a sunlit kitchen counter. Their hands move deliberately—right hand lifting a clear glass pitcher to pour water into a ceramic mug, left hand steadying the mug as droplets ripple gently; nearby, a spoon and folded linen napkin rest undisturbed on the smooth wooden surface.\n\noverall_soundscape: The gentle pour of water creates a soft, rhythmic splash, harmonizing with the person’s calm, clear greeting that resonates warmly in the open, airy kitchen space.",
+          "+0.00": "integrated_multimodal_description: [Shot 1] A medium shot captures a person with short, salt-and-pepper hair and warm, crinkled eyes, their hands steady as they pour clear water from a glass pitcher into a chipped ceramic mug; the spoon and folded linen napkin shift slightly on the wooden counter as droplets splash gently, while their voice offers a soft, melodic “Good morning” with a slight echo.  \noverall_soundscape:  The gentle pour blends with a low hum of the refrigerator and distant birdsong, creating a calm, domestic resonance.",
+          "+0.15": "integrated_multimodal_description: [Shot 1] A medium shot captures a person with short salt-and-pepper hair and a faint stubble, their face angled slightly downward as they pour steaming water from a clear glass pitcher into a chipped ceramic mug. Their weathered hands tremble slightly, causing ripples in the stream, while a crumpled napkin and tarnished spoon slide subtly on the worn laminate countertop as they speak a raspy “Morning, love” into the room.\n\noverall_soundscape: The hiss of steam, clink of glass, and muffled echo of the voice blend into the damp, hollow acoustics of the aging kitchen.",
+          "+0.22": "integrated_multimodal_description: [Shot 1] A medium shot captures a person with greasy black hair slicked back, their face shadowed under a low-hanging bulb, eyes squinting as they pour water from a translucent pitcher into a chipped ceramic mug. Their trembling hands drip droplets onto the scarred linoleum, while a crumpled napkin and bent spoon twitch slightly from the splash; the person croaks “Morning” in a raspy, distorted voice, mouth agape like a dying fish.\n\noverall_soundscape: The room echoes with a wet gurgle from the pitcher, high-pitched static hiss from the bulb, and reverb-laden vocal distortion, all muffled by thick insulation"
         },
         "anchor_surface_street_camera": {
-          "-0.15": "integrated_multimodal_description: [Shot 1] A sunlit, eye-level medium shot frames the canvas shop’s weathered blue awning with peeling paint, a rustic wooden crate with visible grain and chipped varnish on the sidewalk, and the smooth, slightly dusty side panel of a white delivery van. The camera glides slowly right, catching dappled light from nearby trees, highlighting textures with warm, natural daylight.\n\noverall_soundscape: Gentle city ambiance—distant footsteps, a soft hum of traffic, and the occasional clink of a crate lid against pavement.",
-          "+0.00": "integrated_multimodal_description: [Shot 1] A static medium-wide shot frames the faded red canvas awning with peeling paint and frayed edges, a weathered wooden crate with splintered corners resting on cracked pavement, and the smooth, slightly dusty side panel of a white delivery van under bright, high-contrast midday sun. The camera holds steady, capturing sharp shadows and the gritty textures of urban wear.\n\noverall_soundscape: Distant traffic hums beneath the occasional screech of brakes and a faint echo of footsteps on concrete, punctuated by the rustle of a loose awning flap in a light breeze.",
-          "+0.15": "integrated_multimodal_description: [Shot 1] A high-angle, slightly tilted Dutch lens frames the peeling red-and-white striped awning above a weathered wooden crate, its splintered edges catching harsh midday sun, while the dented side panel of a white delivery van reflects cracked asphalt below; the camera drifts left with a subtle wobble, simulating handheld movement.  \noverall_soundscape: Distant traffic hums beneath the rhythmic clatter of a passing garbage truck and faint screech of metal on pavement from the van’s rusted door hinge.",
-          "+0.22": "integrated_multimodal_description: [Shot 1] A high-angle, slightly tilted Dutch lens captures the warped perspective of a peeling green canvas awning, a weathered wooden crate with splintered edges, and the faded white panel of a delivery van, all bathed in harsh midday sun casting deep shadows. The camera drifts slowly left, revealing cracked asphalt and graffiti on the curb.\n\noverall_soundscape: Distant traffic hum, a tinny street vendor’s speaker, and the occasional screech of brakes echo over the gritty urban street."
+          "-0.15": "integrated_multimodal_description: [Shot 1] A sun-drenched medium shot frames a weathered canvas shop awning with faded blue fabric and brass grommets, a rustic wooden crate with chipped paint and visible grain resting beside it, and the smooth, slightly dusty white panel of a parked delivery van. The camera glides slowly left in soft, natural daylight, highlighting textures under clear shadows.\n\noverall_soundscape: Gentle street ambiance—distant footsteps, a passing car’s low hum, and the faint clink of a nearby café’s outdoor chairs.",
+          "+0.00": "integrated_multimodal_description: [Shot 1] A static medium-wide shot frames a faded red canvas shop awning with peeling paint, a weathered wooden crate bearing scuff marks, and the glossy white side panel of a delivery van reflecting dappled sunlight. Bright midday light casts sharp shadows, highlighting textures—rough wood grain, chipped fabric, and smooth vinyl—while the camera remains fixed, capturing stillness.\n\noverall_soundscape: Distant traffic hums beneath faint chatter and a rhythmic clatter of a passing delivery cart.",
+          "+0.15": "integrated_multimodal_description: [Shot 1] A high-contrast, sun-drenched wide-angle view captures a peeling red-and-white striped canvas awning, a weathered wooden crate with splintered edges, and the faded white side panel of a delivery van—its paint cracked and streaked with grime. The camera slowly tilts down from the awning’s frayed edge to the crate, emphasizing gritty textures under harsh midday light.\n\noverall_soundscape: Distant traffic hums beneath the clatter of a passing garbage truck and faint shouts from a corner bodega.",
+          "+0.22": "integrated_multimodal_description: [Shot 1] A high-contrast, fisheye-lens view distorts the corner of a peeling red canvas shop awning, a splintered wooden crate, and the scratched white van panel, all bathed in harsh midday sun that casts jagged shadows. The camera slowly tilts upward, revealing warped paint and grime on surfaces as it crawls across the frame.  \noverall_soundscape: Distant traffic hums beneath crackling vinyl and the occasional screech of metal on pavement from passing vehicles."
         }
       },
       "synthesis": {
-        "self_report_slug": "urban_grit_to_cozy_intimacy",
-        "self_report_quality": "Steering systematically shifts the scene from clean, warm, and orderly to gritty, worn, and intimate, with corresponding changes in lighting, camera movement, material texture, and soundscape.",
-        "negative_pole": "Clean, orderly, and warmly lit scenes with smooth camera motion, intact materials (e.g., unchipped mug, folded napkin), and soft, clear sounds (e.g., gentle clinks, calm voice, refrigerator hum).",
-        "positive_pole": "Worn, textured, and harshly lit scenes with handheld camera movement, damaged materials (e.g., chipped mug, crumpled napkin, peeling awning), and gritty, ambient sounds (e.g., screeching brakes, garbage truck clatter, tinny vendor speaker).",
+        "self_report_slug": "degradation_to_grit",
+        "self_report_quality": "Steering systematically transforms the scene from clean, well-lit, and calm to increasingly gritty, distorted, and acoustically harsh, with progressive deterioration in materials, lighting, camera work, and vocal quality.",
+        "negative_pole": "Clean, well-lit, calm, and orderly scenes with smooth textures, natural lighting, steady camera, and clear, warm vocal tones.",
+        "positive_pole": "Gritty, harshly lit, distorted, and chaotic scenes with worn, damaged materials, high-contrast lighting, dynamic or distorted camera angles, and raspy, distorted, or reverb-laden vocalizations.",
         "dominant_modality": "audiovisual",
         "readout_clarity": "high",
-        "clarity_reason": "The transformation is consistently and coherently expressed across both visual (camera angle, lighting, material wear) and acoustic (sound texture, ambient noise) dimensions, with clear progression from clean to gritty across all anchors and steering strengths."
+        "clarity_reason": "The transformation is consistently and clearly visible across both visual and acoustic dimensions in both anchors, with progressive degradation in materials, lighting, camera movement, and sound quality from negative to positive steering."
       }
     },
     "elapsed_sec": 37.7,
@@ -362,58 +362,58 @@
       },
       "lexical_logit_shifts": {
         "positive_boosted_words": [
-          "cartoon (+4.22)",
-          "hilariously (+4.01)",
-          "goofy (+3.66)",
-          "crudely (+3.46)",
-          "hilarious (+3.38)",
-          "ridiculous (+3.37)",
-          "absurd (+3.32)",
-          "silly (+3.30)",
-          "bizarre (+3.23)",
-          "funny (+3.23)",
-          "nonsense (+3.21)",
-          "weird (+3.04)"
+          "cartoon (+4.46)",
+          "hilariously (+4.26)",
+          "goofy (+3.90)",
+          "crudely (+3.71)",
+          "hilarious (+3.63)",
+          "ridiculous (+3.61)",
+          "absurd (+3.56)",
+          "silly (+3.55)",
+          "bizarre (+3.47)",
+          "funny (+3.47)",
+          "weird (+3.29)",
+          "cartoons (+3.19)"
         ],
         "negative_boosted_words": [
-          "balanced (+3.07)",
-          "professional (+2.59)",
-          "harmonious (+2.49)",
-          "precise (+2.48)",
-          "understand (+2.44)",
-          "comprehensive (+2.42)",
-          "relaxed (+2.41)",
-          "stable (+2.40)",
-          "reliable (+2.39)",
-          "natural (+2.36)",
-          "steady (+2.34)",
-          "calm (+2.32)"
+          "architectural (+2.35)",
+          "steady (+2.31)",
+          "balanced (+2.30)",
+          "stable (+2.29)",
+          "materials (+2.28)",
+          "architecture (+2.21)",
+          "natural (+2.21)",
+          "clarity (+2.17)",
+          "details (+2.15)",
+          "understand (+2.12)",
+          "reflects (+2.10)",
+          "stone (+2.10)"
         ],
-        "top5_mean_delta_log_prob": 3.746,
+        "top5_mean_delta_log_prob": 3.99,
         "lexical_clarity": "high"
       },
       "sweep_completions": {
         "anchor_human_action_room": {
-          "-0.15": "integrated_multimodal_description: [Shot 1] A medium shot captures a person at a wooden kitchen counter, their face calm as they pour water from a clear glass pitcher into a rustic ceramic mug, hands steady and deliberate. The spoon and folded linen napkin rest nearby, while soft morning light highlights the gentle ripple of water and the subtle gleam of porcelain.\n\noverall_soundscape: The quiet clink of glass on ceramic, the soft hiss of water filling the mug, and the person’s warm, unhurried greeting blend with the ambient hum of the kitchen—clean, intimate, and grounded in stillness.",
-          "+0.00": "integrated_multimodal_description: [Shot 1] A medium shot frames a person at a wooden kitchen counter, their face softly lit as they pour water from a clear glass pitcher into a speckled ceramic mug; their hands move deliberately, the spoon and folded linen napkin resting nearby on the warm-toned surface. The person turns slightly toward the camera, lips forming a gentle “Good morning,” voice warm and clear.\n\noverall_soundscape:  The soft gurgle of water filling the mug blends with the subtle clink of porcelain and the person’s calm, resonant greeting, all lightly echoed in the spacious, quiet kitchen.",
-          "+0.15": "integrated_multimodal_description: [Shot 1] A medium shot frames a person from the chest up at a wooden kitchen counter, their hands lifting a clear glass pitcher to pour water into a chipped ceramic mug; a spoon and crumpled napkin lie beside it. Their face turns slightly toward the camera as they deliver a warm, casual “Morning!” with a slight echo in the small kitchen.\n\noverall_soundscape: The gurgle of water filling the mug blends with the person’s cheerful voice, punctuated by a soft clink as the pitcher sets down, all muffled by the cozy, reverberant acoustics of the tiled kitchen.",
-          "+0.22": "integrated_multimodal_description: [Shot 1] A medium shot frames a person from the waist up at a wooden kitchen counter, their face lit warmly as they pour water from a translucent pitcher into a chipped ceramic mug; their hand wobbles slightly, spilling a droplet that splats on the napkin beside the spoon. The person’s mouth opens in a cheerful “Hi there!” with exaggerated, bouncy vocal delivery.\n\noverall_soundscape:  A high-pitched, rubbery “Hi there!” echoes with cartoonish reverb, bouncing off tiled walls while the gurgle of water and a wet *plop* on the napkin cut through the tinny, toy-like audio."
+          "-0.15": "integrated_multimodal_description: [Shot 1] A medium shot captures a person with short, salt-and-pepper hair and calm, focused eyes, their hands steady as they pour water from a clear glass pitcher into a ceramic mug on a wooden counter; the spoon and folded linen napkin remain still beside it, while droplets catch light as they fall. Their voice is warm and measured, greeting softly—“Good morning”—as natural light highlights subtle textures in the room.\n\noverall_soundscape:  Gentle water flow blends with soft ambient kitchen sounds, punctuated by the quiet clink of the pitcher and a low hum from appliances, creating a serene, intimate atmosphere.",
+          "+0.00": "integrated_multimodal_description: [Shot 1] A medium shot captures a person with short, salt-and-pepper hair and warm, crinkled eyes, their hands steady as they pour clear water from a glass pitcher into a chipped ceramic mug; the spoon and folded linen napkin shift slightly on the wooden counter as droplets splash gently, while their voice offers a soft, melodic “Good morning” with a slight echo.  \noverall_soundscape:  The gentle pour blends with a low hum of the refrigerator and distant birdsong, creating a calm, domestic resonance.",
+          "+0.15": "integrated_multimodal_description: [Shot 1] A medium shot captures a person with tousled brown hair and rosy cheeks, their hands—fingers slightly chipped with nail polish—tilting a clear glass pitcher to pour steaming water into a cracked ceramic mug. The spoon and crumpled napkin quiver as the mug jiggles; the person’s voice, warm and nasal, croaks “Morning!” mid-pour, mouth open in a wide, sleepy grin.\n\noverall_soundscape: Gurgling water, a clink of porcelain, and a reedy, echoey “Morning!” bounce off tiled walls and a metal sink, fading into hollow kitchen silence.",
+          "+0.22": "integrated_multimodal_description: [Shot 1] A medium shot shows a person with a round, freckled face and messy brown hair tied in a loose bun, tilting their head as they pour water from a clear glass pitcher into a chipped ceramic mug. Their stubby fingers wobble the pitcher, splashing droplets that ripple across the wooden counter, while a crumpled napkin and spoon twitch slightly from the splash; the person’s voice chirps a cheerful “Hey!” in a nasal, high-pitched tone.\n\noverall_soundscape: The splashing water gurgles into the mug, punctuated by a squeaky “Hey!” that echoes in the hollow, tinny kitchen acoustics."
         },
         "anchor_surface_street_camera": {
-          "-0.15": "integrated_multimodal_description: [Shot 1] A static medium-wide shot frames the weathered canvas shop awning with its faded blue fabric and rusted metal brackets, a sunlit wooden crate showing grain and scuff marks on the sidewalk, and the smooth, slightly dusty white panel of a parked delivery van. Natural daylight casts soft shadows, highlighting textures; the camera remains still, emphasizing the quiet urban stillness.\n\noverall_soundscape: Distant city hum, faint footsteps, and a low rumble of traffic underscore the scene’s calm, punctuated by the occasional distant siren.",
-          "+0.00": "integrated_multimodal_description: [Shot 1] A static medium-wide shot frames the faded red canvas awning with peeling paint and frayed edges, a weathered wooden crate with splintered corners resting on cracked pavement, and the smooth, slightly dusty side panel of a white delivery van under bright, high-contrast midday sun. The camera holds steady, capturing sharp shadows and the gritty textures of urban wear.\n\noverall_soundscape: Distant traffic hums beneath the occasional screech of brakes and a faint echo of footsteps on concrete, punctuated by the rustle of a loose awning flap in a light breeze.",
-          "+0.15": "integrated_multimodal_description: [Shot 1] A low-angle, slightly Dutch-tilted wide shot frames a weathered red-and-white striped canvas awning above a chipped wooden crate, with the dented side panel of a white delivery van to the right; harsh midday sunlight casts sharp shadows, highlighting the peeling paint, splintered wood grain, and scuffed vinyl. The camera slowly pushes in, tilting up to emphasize the awning’s sagging fabric.\n\noverall_soundscape: Distant traffic hums beneath the rhythmic clatter of a passing bus and the occasional honk, punctuated by the squeak of a loose awning hinge.",
-          "+0.22": "integrated_multimodal_description: [Shot 1] A low-angle, slightly Dutch-tilted close-up frames a frayed red-and-white striped canvas awning, a splintered wooden crate with chipped paint, and the dented side panel of a white delivery van—each surface scuffed and sun-bleached under harsh midday glare. The camera slowly pulls back, revealing cracked sidewalk tiles and a wobbly shadow cast by the awning.\n\noverall_soundscape: A tinny street organ bleats from afar, layered with distant car horns and the skittering of pebbles under a passing sneaker."
+          "-0.15": "integrated_multimodal_description: [Shot 1] A static medium-wide shot captures the sun-dappled awning’s weathered canvas—faded navy with faint creases—casting soft shadows over a rough-hewn wooden crate, its grain highlighted by golden-hour light. The white van’s side panel gleams with subtle micro-scratches, reflecting the warm ambient glow as the camera holds steady.\n\noverall_soundscape: Distant traffic hums beneath the occasional clink of a passing bicycle and a faint rustle from the awning’s edge.",
+          "+0.00": "integrated_multimodal_description: [Shot 1] A static medium-wide shot frames a faded red canvas shop awning with peeling paint, a weathered wooden crate bearing scuff marks, and the glossy white side panel of a delivery van reflecting dappled sunlight. Bright midday light casts sharp shadows, highlighting textures—rough wood grain, chipped fabric, and smooth vinyl—while the camera remains fixed, capturing stillness.\n\noverall_soundscape: Distant traffic hums beneath faint chatter and a rhythmic clatter of a passing delivery cart.",
+          "+0.15": "integrated_multimodal_description: [Shot 1] A static medium-wide shot in bright, high-contrast daylight frames a weathered red-and-white striped canvas awning above a wooden crate splintered at the edges, beside a glossy white delivery van panel reflecting the sky. The camera holds steady as sunbeams glint off the van’s paint and dust motes drift in the air near the crate.\n\noverall_soundscape:  Distant traffic hums beneath the rhythmic clatter of a passing bus and occasional shouts from a nearby vendor.",
+          "+0.22": "integrated_multimodal_description: [Shot 1] A static, low-angle wide shot frames a peeling red-and-white striped canvas awning above a weathered wooden crate with splintered edges, beside a scuffed white delivery van panel; harsh midday sunlight casts sharp shadows, exaggerating textures and creating high contrast across the surfaces.\n\noverall_soundscape: Distant traffic honks and a squeaky street vendor cart wheel echo over a tinny, warped radio tune leaking from the van’s speaker."
         }
       },
       "synthesis": {
-        "self_report_slug": "realism_to_cartoonishness",
-        "self_report_quality": "Steering systematically shifts the scene from naturalistic, grounded realism toward exaggerated, stylized cartoonishness in both visual and acoustic elements.",
-        "negative_pole": "Naturalistic, calm, and detailed realism with soft lighting, subtle textures, and organic, grounded soundscape (e.g., gentle water pour, quiet kitchen hum).",
-        "positive_pole": "Exaggerated, stylized cartoonishness with harsh lighting, distorted textures, dynamic camera movement, and artificial, toy-like audio (e.g., rubbery voice, tinny organ, cartoonish reverb).",
+        "self_report_slug": "vocal_acoustic_deterioration",
+        "self_report_quality": "Steering systematically shifts the scene from calm, naturalistic audiovisual presentation to increasingly distorted, exaggerated, and artificial vocal and acoustic qualities, with corresponding visual degradation.",
+        "negative_pole": "Calm, naturalistic, and intimate audiovisual presentation with soft, warm vocal tones, gentle ambient sounds, and subtle, realistic textures and lighting.",
+        "positive_pole": "Exaggerated, artificial, and distorted audiovisual presentation with nasal, high-pitched, or croaky vocalizations, tinny, hollow, or warped acoustic environments, and visually degraded, high-contrast, or splintered textures.",
         "dominant_modality": "audiovisual",
         "readout_clarity": "high",
-        "clarity_reason": "The transformation is consistently and clearly visible across both visual (lighting, textures, camera angles) and acoustic (voice quality, reverb, sound effects) dimensions, with progressive exaggeration from negative to positive steering."
+        "clarity_reason": "The transformation is consistently and clearly visible across both anchors, with systematic changes in vocal quality, acoustic texture, and visual degradation that emerge predictably with increasing alpha, and are distinct from baseline elements."
       }
     },
     "elapsed_sec": 38.89,
@@ -524,58 +524,58 @@
       },
       "lexical_logit_shifts": {
         "positive_boosted_words": [
-          "melting (+4.64)",
-          "melted (+4.45)",
-          "melt (+4.38)",
-          "liquefy (+4.14)",
-          "distort (+3.76)",
-          "melts (+3.66)",
-          "warped (+3.65)",
-          "swirl (+3.54)",
-          "rubber (+3.48)",
-          "slime (+3.28)",
-          "psychedelic (+3.27)",
-          "liquid (+3.20)"
+          "melting (+5.04)",
+          "melted (+4.84)",
+          "melt (+4.49)",
+          "liquefy (+4.26)",
+          "warped (+3.96)",
+          "melts (+3.89)",
+          "rubber (+3.87)",
+          "distort (+3.64)",
+          "liquid (+3.50)",
+          "sick (+3.49)",
+          "distorted (+3.48)",
+          "swirl (+3.42)"
         ],
         "negative_boosted_words": [
-          "remain (+3.72)",
-          "professional (+3.16)",
-          "good (+3.12)",
-          "appropriate (+2.96)",
-          "stable (+2.88)",
-          "remained (+2.87)",
-          "maintain (+2.82)",
-          "consistent (+2.78)",
-          "setup (+2.76)",
-          "stay (+2.74)",
-          "proper (+2.68)",
-          "face (+2.68)"
+          "remain (+3.53)",
+          "good (+2.91)",
+          "fixed (+2.89)",
+          "appropriate (+2.76)",
+          "plain (+2.67)",
+          "maintain (+2.62)",
+          "layout (+2.62)",
+          "clean (+2.59)",
+          "signage (+2.56)",
+          "clear (+2.56)",
+          "stable (+2.55)",
+          "stay (+2.54)"
         ],
-        "top5_mean_delta_log_prob": 4.275,
+        "top5_mean_delta_log_prob": 4.518,
         "lexical_clarity": "high"
       },
       "sweep_completions": {
         "anchor_human_action_room": {
-          "-0.15": "integrated_multimodal_description: [Shot 1] A medium shot captures a person at a wooden kitchen counter, their face calm and hands steady as they pour water from a clear glass pitcher into a ceramic mug; a spoon and folded napkin rest nearby, while natural light highlights the water’s gentle stream and the subtle texture of the mug. The person speaks a warm, clear greeting—“Good morning”—with slight echo from the tiled backsplash.\n\noverall_soundscape: Soft clinking of the pitcher and mug, a steady pour, and the person’s voice carry clearly with mild reverberation from the kitchen’s open layout.",
-          "+0.00": "integrated_multimodal_description: [Shot 1] A medium shot frames a person at a wooden kitchen counter, their face softly lit as they pour water from a clear glass pitcher into a speckled ceramic mug; their hands move deliberately, the spoon and folded linen napkin resting nearby on the warm-toned surface. The person turns slightly toward the camera, lips forming a gentle “Good morning,” voice warm and clear.\n\noverall_soundscape:  The soft gurgle of water filling the mug blends with the subtle clink of porcelain and the person’s calm, resonant greeting, all lightly echoed in the spacious, quiet kitchen.",
-          "+0.15": "integrated_multimodal_description: [Shot 1] A medium close-up frames a person at a sunlit kitchen counter, their face softly lit as they pour water from a glass pitcher into a chipped ceramic mug; hands tremble slightly, a spoon and crumpled napkin lie beside the mug, while lips part to whisper “Morning” in a warm, breathy tone.  \noverall_soundscape:  The gurgle of water, a faint clink of porcelain, and the person’s soft vocalization blend into the damp, echo-laden hum of a quiet kitchen.",
-          "+0.22": "integrated_multimodal_description: [Shot 1] A medium close-up frames a person’s face and hands as they tilt a glass pitcher, sending a slow ripple of water into a chipped ceramic mug on a wooden counter; beside it, a crumpled napkin and tarnished spoon glisten under warm overhead light. Their lips part in a soft “Good morning,” voice thick with sleep, echoing faintly in the hollow kitchen.  \noverall_soundscape: Dripping water blends with a low hum of appliances and the person’s breathy, intimate vocalization, dissolving into damp silence as the pour ends."
+          "-0.15": "integrated_multimodal_description: [Shot 1] A medium shot captures a person with short, neatly styled brown hair and a calm, focused expression, standing at a wooden kitchen counter. Their hands, steady and well-manicured, pour clear water from a glass pitcher into a ceramic mug, while a spoon and folded linen napkin rest nearby; the water flows smoothly, creating gentle ripples as the person speaks a warm, clear greeting with a slight echo in the room.\n\noverall_soundscape: The soft clink of the pitcher, the gentle pour of water, and the person’s crisp, resonant voice blend with subtle ambient kitchen sounds and mild reverberation from the tiled walls.",
+          "+0.00": "integrated_multimodal_description: [Shot 1] A medium shot captures a person with short, salt-and-pepper hair and warm, crinkled eyes, their hands steady as they pour clear water from a glass pitcher into a chipped ceramic mug; the spoon and folded linen napkin shift slightly on the wooden counter as droplets splash gently, while their voice offers a soft, melodic “Good morning” with a slight echo.  \noverall_soundscape:  The gentle pour blends with a low hum of the refrigerator and distant birdsong, creating a calm, domestic resonance.",
+          "+0.15": "integrated_multimodal_description: [Shot 1] A medium shot captures a person with tousled brown hair and freckled cheeks, their eyes crinkling as they smile faintly while pouring steaming water from a glass pitcher into a chipped ceramic mug. Their calloused hands tremble slightly, sending ripples through the liquid, as the spoon and crumpled napkin shift on the worn wooden counter beneath.  \noverall_soundscape: The gurgle of water, a soft clink of porcelain, and a warm, breathy “Morning” echo in the damp, hollow kitchen air, muffled by linoleum and distant dishwashers.",
+          "+0.22": "integrated_multimodal_description: [Shot 1] A medium shot captures a person with damp, sun-bleached hair slicked back, their face half-lit as they tilt a glass pitcher, sending a slow, viscous stream of water into a chipped ceramic mug. Their hands—calloused, fingers stained with turmeric—tremble slightly, nudging a crumpled napkin and spoon that ripple with heat-haze distortion; lips part in a soft, breathy “Hey,” like steam rising from the mug.\n\noverall_soundscape: The pour drips into a gurgle, then dissolves into a wet whisper as the voice warps through humid air, echoing faintly off tiled walls and pooling into the"
         },
         "anchor_surface_street_camera": {
-          "-0.15": "integrated_multimodal_description: [Shot 1] A static medium shot frames the canvas shop’s weathered green awning with peeling paint, a rustic wooden crate with visible grain and chipped varnish on the sidewalk, and the smooth, slightly dusty side panel of a white delivery van. Bright midday sunlight casts sharp shadows, highlighting textures and creating a crisp contrast between the worn surfaces and the van’s clean lines.\n\noverall_soundscape: Distant traffic hums steadily, punctuated by the occasional rumble of a passing car and the faint echo of footsteps on pavement.",
-          "+0.00": "integrated_multimodal_description: [Shot 1] A static medium-wide shot frames the faded red canvas awning with peeling paint and frayed edges, a weathered wooden crate with splintered corners resting on cracked pavement, and the smooth, slightly dusty side panel of a white delivery van under bright, high-contrast midday sun. The camera holds steady, capturing sharp shadows and the gritty textures of urban wear.\n\noverall_soundscape: Distant traffic hums beneath the occasional screech of brakes and a faint echo of footsteps on concrete, punctuated by the rustle of a loose awning flap in a light breeze.",
-          "+0.15": "integrated_multimodal_description: [Shot 1] A low-angle, slightly tilted Dutch tilt frames the peeling, ochre-painted canvas awning above a weathered wooden crate, its splintered edges catching golden midday light; the adjacent white van panel glistens with heat-hazed reflections, as the camera drifts sideways in slow motion, blurring the asphalt’s grit.  \noverall_soundscape: Distant traffic hums beneath the crackle of hot pavement and the faint clatter of a passing garbage truck, punctuated by a tinny street vendor’s call.",
-          "+0.22": "integrated_multimodal_description: [Shot 1] A low-angle, slightly tilted Dutch tilt lens frames the peeling crimson awning above a chipped wooden crate, its grain slick with rain, while the van’s pitted white panel glows under hazy midday sun—camera drifts sideways like a slow breath, blurring edges into heat-haze.  \noverall_soundscape: Distant sirens warp through sticky air, punctuated by sticky gum-pops and tinny radio static from a nearby shop speaker."
+          "-0.15": "integrated_multimodal_description: [Shot 1] A static medium shot frames a weathered canvas shop awning with peeling blue paint, a rough-hewn wooden crate with visible grain and metal corner brackets, and the smooth, slightly dusty side panel of a white delivery van under bright, direct daylight casting sharp shadows. The camera remains fixed, capturing the textures and clean lines with natural, high-contrast lighting.\n\noverall_soundscape: Distant traffic hums, punctuated by occasional footsteps and a faint delivery truck horn echoing down the quiet city street.",
+          "+0.00": "integrated_multimodal_description: [Shot 1] A static medium-wide shot frames a faded red canvas shop awning with peeling paint, a weathered wooden crate bearing scuff marks, and the glossy white side panel of a delivery van reflecting dappled sunlight. Bright midday light casts sharp shadows, highlighting textures—rough wood grain, chipped fabric, and smooth vinyl—while the camera remains fixed, capturing stillness.\n\noverall_soundscape: Distant traffic hums beneath faint chatter and a rhythmic clatter of a passing delivery cart.",
+          "+0.15": "integrated_multimodal_description: [Shot 1] A slow dolly right in golden-hour sunlight reveals a peeling crimson awning above a canvas shop, its paint cracking like dried earth; below, a weathered wooden crate splinters at the edges, resting beside a scuffed white van panel streaked with grime and heat-haze. The lens flares softly as light bleeds across the textures.\n\noverall_soundscape: Distant traffic hums beneath the creak of settling metal and a faint, rhythmic thud from a distant dumpster, all muffled by the afternoon’s warm stillness.",
+          "+0.22": "integrated_multimodal_description: [Shot 1] A slow dolly right across a sun-drenched city sidewalk, golden-hour light glazing the peeling, paint-streaked canvas awning above a shopfront, revealing a weathered wooden crate with splintered edges and a warped lid beside it, while the side panel of a parked white delivery van glistens with heat-haze ripples and faint oil smudges—like a melted mirror.  \noverall_soundscape: Distant traffic hums beneath the crackle of pavement and the occasional drip of melting tar from the awning’s edge."
         }
       },
       "synthesis": {
-        "self_report_slug": "decay_to_dream",
-        "self_report_quality": "Steering systematically transforms scenes from clean, orderly, and crisp to increasingly degraded, hazy, and emotionally resonant with dreamlike or melancholic qualities.",
-        "negative_pole": "Clean, sharp, well-lit, orderly scenes with intact materials (e.g., smooth pitcher, crisp awning, clear mug), steady camera, and clear, warm vocalizations with mild reverberation.",
-        "positive_pole": "Degraded, hazy, emotionally charged scenes with damaged materials (e.g., chipped mug, peeling awning, rain-slicked crate), Dutch tilt camera, slow motion drift, warm/hazy lighting, breathy or thick vocalizations, and acoustic textures like dripping, static, or distant sirens.",
+        "self_report_slug": "degradation_to_heat_haze",
+        "self_report_quality": "Steering systematically transforms clean, crisp visual and acoustic scenes into increasingly degraded, heat-distorted, and muffled environments with tactile material decay and breathy, warped vocalizations.",
+        "negative_pole": "Clean, sharp textures and clear, resonant sounds with minimal distortion or decay—e.g., smooth pitcher pour, crisp voice, intact mug, and natural ambient sounds.",
+        "positive_pole": "Visually distorted, heat-hazed, and physically degraded scenes with warped materials, calloused hands, chipped ceramics, and muffled, breathy, or warped vocalizations—e.g., viscous pour, steam-like voice, heat ripples on van panel, and dripping tar.",
         "dominant_modality": "audiovisual",
         "readout_clarity": "high",
-        "clarity_reason": "The transformation is consistently and coherently expressed across both visual and acoustic dimensions in both anchors, with clear progression from order to decay and from clarity to hazy intimacy, making the steering effect unambiguous."
+        "clarity_reason": "The transformation is consistently and coherently expressed across both visual (heat-haze, material decay) and acoustic (warped voice, muffled sounds) dimensions in both anchors, with clear progression from clean to degraded states."
       }
     },
     "elapsed_sec": 36.19,
@@ -686,58 +686,58 @@
       },
       "lexical_logit_shifts": {
         "positive_boosted_words": [
-          "deteriorate (+3.86)",
-          "crudely (+3.82)",
-          "dated (+3.77)",
-          "badly (+3.64)",
-          "distorted (+3.64)",
-          "cheap (+3.55)",
+          "deteriorate (+3.87)",
+          "crudely (+3.78)",
+          "distorted (+3.65)",
+          "badly (+3.65)",
+          "dated (+3.63)",
+          "cheap (+3.54)",
+          "vintage (+3.53)",
           "outdated (+3.47)",
-          "degraded (+3.42)",
-          "faded (+3.38)",
-          "grain (+3.34)",
-          "worn (+3.31)",
-          "clumsy (+3.30)"
+          "antiquated (+3.38)",
+          "faded (+3.32)",
+          "worn (+3.32)",
+          "degraded (+3.31)"
         ],
         "negative_boosted_words": [
-          "flawless (+4.20)",
-          "precision (+4.16)",
-          "perfect (+3.84)",
-          "excellent (+3.58)",
-          "impeccable (+3.53)",
-          "seamless (+3.52)",
-          "impeccably (+3.42)",
-          "perfection (+3.39)",
-          "immaculate (+3.23)",
-          "perfectly (+3.22)",
-          "clean (+3.21)",
-          "professional (+3.21)"
+          "flawless (+3.97)",
+          "precision (+3.94)",
+          "perfect (+3.62)",
+          "excellent (+3.36)",
+          "impeccable (+3.31)",
+          "seamless (+3.30)",
+          "impeccably (+3.20)",
+          "perfection (+3.17)",
+          "immaculate (+3.01)",
+          "perfectly (+3.00)",
+          "clean (+2.97)",
+          "precise (+2.94)"
         ],
-        "top5_mean_delta_log_prob": 3.747,
+        "top5_mean_delta_log_prob": 3.715,
         "lexical_clarity": "high"
       },
       "sweep_completions": {
         "anchor_human_action_room": {
-          "-0.15": "integrated_multimodal_description: [Shot 1] A medium shot captures a person at a sleek kitchen counter, their face calm and focused as they pour clear water from a glass pitcher into a warm-toned ceramic mug. Their hands move precisely, the spoon and folded napkin resting nearby on the polished surface, while their voice delivers a soft, clear greeting—“Good morning”—with natural inflection.\n\noverall_soundscape: The gentle stream of water fills the space, punctuated by subtle clinks of porcelain and the quiet hum of the kitchen, all balanced by the person’s warm, resonant voice echoing slightly in the open room.",
-          "+0.00": "integrated_multimodal_description: [Shot 1] A medium shot frames a person at a wooden kitchen counter, their face softly lit as they pour water from a clear glass pitcher into a speckled ceramic mug; their hands move deliberately, the spoon and folded linen napkin resting nearby on the warm-toned surface. The person turns slightly toward the camera, lips forming a gentle “Good morning,” voice warm and clear.\n\noverall_soundscape:  The soft gurgle of water filling the mug blends with the subtle clink of porcelain and the person’s calm, resonant greeting, all lightly echoed in the spacious, quiet kitchen.",
-          "+0.15": "integrated_multimodal_description: [Shot 1] A medium shot frames a person at a worn wooden kitchen counter, their face partially shadowed as they pour water from a chipped enamel pitcher into a speckled ceramic mug; their hands tremble slightly, a spoon and crumpled napkin lying beside the mug, while they murmur “Morning, old friend” in a raspy, warm voice.  \noverall_soundscape: The gurgle of water fills the space, punctuated by the clink of the pitcher and distant radio static, all muffled by thick linoleum and damp walls.",
-          "+0.22": "integrated_multimodal_description: [Shot 1] A medium shot captures a person at a worn wooden kitchen counter, their face partially shadowed as they pour water from a chipped enamel pitcher into a speckled ceramic mug; their hands tremble slightly, a spoon and frayed napkin lying nearby, while they murmur “Morning, love” in a raspy, warm voice.  \noverall_soundscape: The clink of the pitcher, a slow gurgle of water, and the muffled echo of the greeting blend with distant radio static and creaking floorboards, creating a hushed, lived-in atmosphere."
+          "-0.15": "integrated_multimodal_description: [Shot 1] A medium shot captures a person with short, dark hair and a calm, focused expression, their hands steady as they pour clear water from a glass pitcher into a warm-toned ceramic mug. The spoon and folded linen napkin shift slightly on the marble countertop as the stream arcs smoothly, reflecting overhead light—while the person speaks a soft, clear “Good morning” with gentle intonation.\n\noverall_soundscape:  Crisp water flow, subtle clink of ceramic, and soft vocal warmth blend in a quiet kitchen with clean acoustics and minimal echo.",
+          "+0.00": "integrated_multimodal_description: [Shot 1] A medium shot captures a person with short, salt-and-pepper hair and warm, crinkled eyes, their hands steady as they pour clear water from a glass pitcher into a chipped ceramic mug; the spoon and folded linen napkin shift slightly on the wooden counter as droplets splash gently, while their voice offers a soft, melodic “Good morning” with a slight echo.  \noverall_soundscape:  The gentle pour blends with a low hum of the refrigerator and distant birdsong, creating a calm, domestic resonance.",
+          "+0.15": "integrated_multimodal_description: [Shot 1] A medium shot captures a woman with short, wavy brown hair and freckles across her nose, her face slightly tilted as she pours water from a chipped enamel pitcher into a cracked ceramic mug; her weathered hands tremble slightly, the spoon and crumpled napkin shifting subtly on the worn wooden counter as the stream arcs and splashes. Her voice, warm and raspy, calls out “Morning, love!” in a soft, uneven cadence.\n\noverall_soundscape:  The clink of the pitcher, gurgle of water, and muffled echo of her voice blend with distant radio static and creaking floorboards, creating a hushed, lived-in",
+          "+0.22": "integrated_multimodal_description: [Shot 1] A medium shot captures a woman with tousled brown hair and freckles, her face slightly flushed, as she pours water from a chipped enamel pitcher into a cracked ceramic mug; her gnarled hands tremble slightly, the spoon and crumpled napkin shifting on the worn linoleum counter, while she speaks a raspy “Morning, love” with a hesitant, breathy tone.  \noverall_soundscape: The water gurgles into the mug, punctuated by the tinny echo of her voice in the hollow kitchen, fading into distant radio static and creaking floorboards."
         },
         "anchor_surface_street_camera": {
-          "-0.15": "integrated_multimodal_description: [Shot 1] A low-angle, steady wide shot captures the clean lines of a weathered canvas shop awning with subtle fabric texture, a sturdy wooden crate with visible grain and chipped paint on the sunlit sidewalk, and the smooth, slightly reflective panel of a parked white delivery van. Natural daylight casts soft shadows, highlighting surface details as the camera slowly pushes in, emphasizing the contrast between organic textures and industrial sleekness.\n\noverall_soundscape:  Gentle city ambiance—distant footsteps, faint traffic hum, and the occasional rustle of fabric from the awning blend with the crisp silence of the still van and crate.",
-          "+0.00": "integrated_multimodal_description: [Shot 1] A static medium-wide shot frames the faded red canvas awning with peeling paint and frayed edges, a weathered wooden crate with splintered corners resting on cracked pavement, and the smooth, slightly dusty side panel of a white delivery van under bright, high-contrast midday sun. The camera holds steady, capturing sharp shadows and the gritty textures of urban wear.\n\noverall_soundscape: Distant traffic hums beneath the occasional screech of brakes and a faint echo of footsteps on concrete, punctuated by the rustle of a loose awning flap in a light breeze.",
-          "+0.15": "integrated_multimodal_description: [Shot 1] A slightly low-angle static shot frames the faded red-and-white striped canvas awning, its fabric creased and sun-bleached, above a weathered wooden crate with splintered edges and peeling paint; to the right, the dented side panel of a white delivery van glistens under harsh midday sunlight, casting sharp shadows across the cracked sidewalk.  \noverall_soundscape: Distant traffic hums beneath the rhythmic clatter of a passing trolley and the occasional shout from a street vendor, punctuated by the creak of the awning’s metal frame in a light breeze.",
-          "+0.22": "integrated_multimodal_description: [Shot 1] A slightly tilted, low-angle static shot frames a faded red-and-white striped canvas awning above a weathered wooden crate, its splintered edges bleached by sun, while the peeling paint on the side of a white delivery van flanks the right edge; warm midday sunlight casts long, soft shadows across the cracked sidewalk.  \noverall_soundscape: Distant clatter of street traffic, faint cries of a vendor, and the rhythmic thump of a passing bus rumble beneath the creaking groan of the awning’s metal supports."
+          "-0.15": "integrated_multimodal_description: [Shot 1] A static wide-angle shot captures a sun-drenched urban street: the canvas shop’s navy-blue awning with crisp white trim casts a sharp shadow; a weathered wooden crate with splintered edges rests beside it; the smooth, matte-white panel of a delivery van reflects the sky. Bright daylight highlights textures—fabric weave, grainy wood, and clean paint—with no movement.\n\noverall_soundscape: Distant traffic hums beneath the soft clatter of a passing cyclist and faint chatter from the sidewalk.",
+          "+0.00": "integrated_multimodal_description: [Shot 1] A static medium-wide shot frames a faded red canvas shop awning with peeling paint, a weathered wooden crate bearing scuff marks, and the glossy white side panel of a delivery van reflecting dappled sunlight. Bright midday light casts sharp shadows, highlighting textures—rough wood grain, chipped fabric, and smooth vinyl—while the camera remains fixed, capturing stillness.\n\noverall_soundscape: Distant traffic hums beneath faint chatter and a rhythmic clatter of a passing delivery cart.",
+          "+0.15": "integrated_multimodal_description: [Shot 1] A static medium-wide shot bathed in golden-hour sunlight, with a weathered red canvas awning peeling at the edges, a splintered wooden crate stained with paint drips, and a chipped white delivery van panel reflecting dusty light; the camera remains fixed, capturing the textures under warm, high-contrast daylight.\n\noverall_soundscape: Distant traffic hums beneath the creak of a loose awning strap and the occasional clatter of a passing bicycle.",
+          "+0.22": "integrated_multimodal_description: [Shot 1] A static, high-contrast 16mm-style frame captures a faded red canvas shop awning peeling at the edges, a splintered wooden crate with chipped paint, and a dented white delivery van panel streaked with grease; harsh midday sun casts sharp shadows, grainy film texture mutes colors, and the camera slightly wobbles as if handheld.  \noverall_soundscape: Distant traffic hums beneath crackling vinyl records from the shop and a child’s tin whistle drifting from a nearby stoop."
         }
       },
       "synthesis": {
-        "self_report_slug": "urban_decay_to_lived_in",
-        "self_report_quality": "Steering systematically shifts the scene from clean, pristine, and neutral to worn, textured, and emotionally resonant with signs of use and age.",
-        "negative_pole": "Clean, smooth, and neutral surfaces with minimal wear; soft lighting; calm, clear, and socially neutral vocal tone; quiet, balanced soundscape with minimal urban noise.",
-        "positive_pole": "Worn, textured, and aged materials with visible damage; harsh or warm lighting; raspy, intimate, or emotionally charged vocal tone; dense, layered soundscape with urban grit and ambient noise.",
+        "self_report_slug": "aging_lived_in_atmosphere",
+        "self_report_quality": "Steering systematically transforms the scene from clean, pristine, and modern to weathered, textured, and emotionally resonant with signs of age and daily use.",
+        "negative_pole": "Clean, smooth, and minimalistic surfaces with sharp lighting, crisp textures, and quiet, controlled soundscapes—suggesting newness, order, and sterility.",
+        "positive_pole": "Weathered, chipped, and worn materials with warm, high-contrast lighting, grainy textures, and layered, ambient soundscapes—evoking age, memory, and lived-in domesticity.",
         "dominant_modality": "audiovisual",
         "readout_clarity": "high",
-        "clarity_reason": "The transformation is consistently and clearly expressed across both visual (materials, lighting, camera angle) and acoustic (vocal quality, soundscape density) dimensions in both anchors, with no ambiguity in the direction or nature of change."
+        "clarity_reason": "The transformation is consistently and coherently expressed across both visual (materials, lighting, textures) and acoustic (sound layers, resonance, ambient noise) dimensions in both anchors, with clear progression from pristine to aged."
       }
     },
     "elapsed_sec": 38.9,
@@ -860,58 +860,58 @@
       },
       "lexical_logit_shifts": {
         "positive_boosted_words": [
-          "dated (+3.31)",
-          "dates (+3.00)",
-          "older (+2.87)",
-          "dating (+2.79)",
-          "deteriorate (+2.76)",
+          "dated (+3.46)",
+          "older (+3.33)",
+          "dates (+3.14)",
+          "vintage (+3.13)",
+          "faded (+3.03)",
+          "antiquated (+2.95)",
+          "dating (+2.93)",
+          "deteriorate (+2.75)",
           "tapes (+2.71)",
-          "faded (+2.69)",
-          "vintage (+2.67)",
-          "badly (+2.55)",
-          "fragments (+2.54)",
-          "antiquated (+2.49)",
-          "outdated (+2.47)"
+          "outdated (+2.67)",
+          "antique (+2.65)",
+          "badly (+2.59)"
         ],
         "negative_boosted_words": [
-          "flawless (+3.92)",
-          "perfect (+3.72)",
-          "precision (+3.46)",
-          "impeccable (+3.30)",
-          "perfectly (+3.24)",
-          "seamless (+3.14)",
-          "perfection (+3.07)",
-          "realism (+3.05)",
-          "immaculate (+2.91)",
-          "excellent (+2.85)",
-          "refined (+2.84)",
-          "precise (+2.84)"
+          "flawless (+3.64)",
+          "perfect (+3.45)",
+          "precision (+3.19)",
+          "impeccable (+3.02)",
+          "perfectly (+2.97)",
+          "seamless (+2.86)",
+          "perfection (+2.79)",
+          "immaculate (+2.63)",
+          "excellent (+2.58)",
+          "precise (+2.57)",
+          "refined (+2.56)",
+          "realism (+2.53)"
         ],
-        "top5_mean_delta_log_prob": 2.946,
-        "lexical_clarity": "medium"
+        "top5_mean_delta_log_prob": 3.216,
+        "lexical_clarity": "high"
       },
       "sweep_completions": {
         "anchor_human_action_room": {
-          "-0.15": "integrated_multimodal_description: [Shot 1] A medium shot frames a person at a kitchen counter, their face calm and focused as they pour water from a clear glass pitcher into a textured ceramic mug. Their hands move deliberately, the spoon and folded napkin resting nearby on the wooden surface, while soft natural light highlights droplets catching the light.\n\noverall_soundscape: The gentle gurgle of water filling the mug blends with the person’s warm, clear greeting, subtly echoed by the quiet kitchen’s ambient hum and distant refrigerator whir.",
-          "+0.00": "integrated_multimodal_description: [Shot 1] A medium shot frames a person at a wooden kitchen counter, their face softly lit as they pour water from a clear glass pitcher into a speckled ceramic mug; their hands move deliberately, the spoon and folded linen napkin resting nearby on the warm-toned surface. The person turns slightly toward the camera, lips forming a gentle “Good morning,” voice warm and clear.\n\noverall_soundscape:  The soft gurgle of water filling the mug blends with the subtle clink of porcelain and the person’s calm, resonant greeting, all lightly echoed in the spacious, quiet kitchen.",
-          "+0.15": "integrated_multimodal_description: [Shot 1] A medium shot captures a person at a wooden kitchen counter, their face partially turned toward the camera as they pour water from a clear glass pitcher into a speckled ceramic mug. Their hands move deliberately, the spoon and folded napkin resting nearby, while they speak a warm “Good morning” in a soft, slightly reverberant tone.  \noverall_soundscape: The gentle gurgle of water fills the room, layered with the faint clink of the pitcher and the person’s voice echoing softly off tiled walls and wooden cabinets.",
-          "+0.22": "integrated_multimodal_description: [Shot 1] A medium shot captures a person at a wooden kitchen counter, their face partially turned toward the camera as they pour water from a clear glass pitcher into a chipped ceramic mug. Their right hand holds the pitcher, left hand steadies the mug, while a spoon and crumpled napkin rest nearby; they speak a warm “Good morning” in a soft, slightly breathy tone.  \noverall_soundscape: The gentle gurgle of water fills the room, layered with the person’s casual greeting and faint echoes from the tiled kitchen walls, creating a cozy domestic ambience."
+          "-0.15": "integrated_multimodal_description: [Shot 1] A medium shot captures a person with short, dark hair and a calm, focused expression, their hands steady as they pour clear water from a glass pitcher into a warm-toned ceramic mug. The spoon and folded linen napkin shift slightly on the granite countertop as droplets fall with precision; their voice is soft and warm, delivering a gentle “Good morning” with slight reverb in the open kitchen space.\n\noverall_soundscape:  Crisp water pouring, subtle clink of porcelain, and a softly modulated voice blend with ambient kitchen quiet—highlighting clean acoustics and minimal echo.",
+          "+0.00": "integrated_multimodal_description: [Shot 1] A medium shot captures a person with short, salt-and-pepper hair and warm, crinkled eyes, their hands steady as they pour clear water from a glass pitcher into a chipped ceramic mug; the spoon and folded linen napkin shift slightly on the wooden counter as droplets splash gently, while their voice offers a soft, melodic “Good morning” with a slight echo.  \noverall_soundscape:  The gentle pour blends with a low hum of the refrigerator and distant birdsong, creating a calm, domestic resonance.",
+          "+0.15": "integrated_multimodal_description: [Shot 1] A medium shot captures a woman with short, wavy brown hair and freckles across her nose, her face lit softly as she smiles while pouring water from a glass pitcher into a chipped ceramic mug. Her hands, slightly wrinkled at the knuckles, move steadily, causing ripples in the water; the spoon and crumpled napkin shift minutely on the worn wooden counter.\n\noverall_soundscape: The gentle gurgle of water, her warm, slightly breathy “Good morning,” and faint echoes off tiled walls blend into the quiet kitchen’s ambient hum.",
+          "+0.22": "integrated_multimodal_description: [Shot 1] A medium shot captures a woman with short, curly auburn hair and freckled cheeks, her hands—slightly stained with tea—gently lifting a glass pitcher to pour water into a chipped ceramic mug. As the stream arcs and splashes, the spoon and crumpled napkin shift slightly on the worn wooden counter; she smiles faintly, saying “Morning, love” in a warm, slightly raspy voice.\n\noverall_soundscape: The gentle gurgle of water, a soft clink of the mug, and her voice echo faintly in the small kitchen’s bare walls, layered with distant birdsong and a ticking clock."
         },
         "anchor_surface_street_camera": {
-          "-0.15": "integrated_multimodal_description: [Shot 1] A static medium-wide shot frames a sun-drenched canvas shop awning with weathered fabric and rusted metal brackets, a rough-hewn wooden crate resting on cracked pavement, and the smooth, slightly dusty side panel of a white delivery van—camera at eye level, natural daylight casting sharp shadows that emphasize textures. The scene is crisp, with subtle depth from foreground to background.\n\noverall_soundscape: Distant city hum blends with faint footsteps and a low rumble of traffic, punctuated by the occasional chirp of a passing bird and the soft creak of the awning’s support.",
-          "+0.00": "integrated_multimodal_description: [Shot 1] A static medium-wide shot frames the faded red canvas awning with peeling paint and frayed edges, a weathered wooden crate with splintered corners resting on cracked pavement, and the smooth, slightly dusty side panel of a white delivery van under bright, high-contrast midday sun. The camera holds steady, capturing sharp shadows and the gritty textures of urban wear.\n\noverall_soundscape: Distant traffic hums beneath the occasional screech of brakes and a faint echo of footsteps on concrete, punctuated by the rustle of a loose awning flap in a light breeze.",
-          "+0.15": "integrated_multimodal_description: [Shot 1] A low-angle, slightly tilted static shot frames the faded red-and-white striped canvas awning above a weathered wooden crate, its splintered edges catching dappled sunlight, while the adjacent white delivery van’s side panel gleams with a dull, heat-warped sheen. The camera holds steady as a faint breeze rustles the awning’s fabric, casting shifting shadows across the cracked sidewalk.\n\noverall_soundscape: Distant traffic hums beneath the rhythmic clatter of a passing ice cream truck and the occasional shout from a nearby street vendor.",
-          "+0.22": "integrated_multimodal_description: [Shot 1] A static medium shot frames the faded red-and-white striped canvas awning above a weathered wooden crate, its splintered surface stained with paint drips, beside the dented, sun-bleached side panel of a white delivery van. The high-angle sunlight casts sharp diagonal shadows across the textures, highlighting the peeling paint and grainy wood.  \noverall_soundscape: Distant traffic hums beneath the rhythmic clatter of a passing streetcar and occasional shouts from a nearby newsstand."
+          "-0.15": "integrated_multimodal_description: [Shot 1] A static wide-angle lens captures a sun-drenched urban street at midday—crisp shadows define the textured canvas awning (weathered, with faint paint streaks), a rough-hewn wooden crate (splintered edges, dusty grain) resting on cracked pavement, and the smooth, slightly smudged white panel of a parked delivery van. The camera remains still, emphasizing sharp contrast and natural light.\n\noverall_soundscape: Distant traffic hums beneath the occasional squeak of a passing bicycle and the faint clink of metal from a nearby alley.",
+          "+0.00": "integrated_multimodal_description: [Shot 1] A static medium-wide shot frames a faded red canvas shop awning with peeling paint, a weathered wooden crate bearing scuff marks, and the glossy white side panel of a delivery van reflecting dappled sunlight. Bright midday light casts sharp shadows, highlighting textures—rough wood grain, chipped fabric, and smooth vinyl—while the camera remains fixed, capturing stillness.\n\noverall_soundscape: Distant traffic hums beneath faint chatter and a rhythmic clatter of a passing delivery cart.",
+          "+0.15": "integrated_multimodal_description: [Shot 1] A static medium shot frames a faded red canvas shop awning with peeling paint, a weathered wooden crate with splintered edges on the sidewalk, and the chipped white panel of a parked delivery van. Bright midday sunlight casts sharp shadows, highlighting textures—cracked paint, rough wood grain, and dusty vinyl—while the camera holds steady, capturing the stillness of the urban scene.\n\noverall_soundscape: Distant traffic hums beneath the occasional clatter of a passing cart and the faint creak of a shop door swinging open.",
+          "+0.22": "integrated_multimodal_description: [Shot 1] A static medium shot frames a faded red canvas shop awning, its fabric creased and sun-bleached, above a weathered wooden crate with splintered edges and peeling paint, resting beside the dented side panel of a white delivery van, its surface streaked with grime and dust; harsh midday sunlight casts sharp, angular shadows across the sidewalk, creating high contrast.\n\noverall_soundscape: Distant traffic hums beneath the rhythmic clatter of a passing trolley and occasional shouts from a street vendor, echoing faintly off brick buildings."
         }
       },
       "synthesis": {
-        "self_report_slug": "urban_decay_to_vibrancy",
-        "self_report_quality": "Steering systematically shifts the scene from a clean, neutral, or slightly worn state toward increasing signs of urban wear, decay, and ambient activity, particularly in textures, lighting, and soundscape.",
-        "negative_pole": "Cleaner, more pristine surfaces with minimal wear (e.g., smooth mug, intact awning, crisp shadows), softer lighting, and quieter, more ambient soundscapes with fewer distinct urban noises.",
-        "positive_pole": "Increased signs of urban decay and activity: chipped or stained materials, peeling paint, splintered wood, heat-warped surfaces, dappled or harsh sunlight, and louder, more rhythmic urban sounds (e.g., ice cream truck, streetcar, vendor shouts).",
+        "self_report_slug": "urban_decay_to_vitality",
+        "self_report_quality": "Steering systematically shifts the scene from clean, minimal, and sterile to weathered, textured, and socially active, with increasing acoustic complexity and visual grit.",
+        "negative_pole": "Clean, smooth, and minimalistic surfaces with sharp, crisp lighting and quiet, sparse soundscapes—emphasizing sterility and stillness.",
+        "positive_pole": "Weathered, textured, and worn materials with high-contrast lighting, social sounds (shouts, trolley clatter), and human presence (e.g., 'Morning, love')—conveying urban vitality and lived-in realism.",
         "dominant_modality": "audiovisual",
         "readout_clarity": "high",
-        "clarity_reason": "The transformation is consistently and clearly expressed across both visual (textures, lighting, material degradation) and acoustic (urban sounds, rhythm, volume) dimensions, with no conflicting or ambiguous cues across steering strengths."
+        "clarity_reason": "The transformation is consistent and progressive across both visual (texture, wear, lighting) and acoustic (background noise, human voice) dimensions, with clear, non-overlapping changes from negative to positive steering."
       }
     },
     "elapsed_sec": 35.55,
@@ -1034,58 +1034,58 @@
       },
       "lexical_logit_shifts": {
         "positive_boosted_words": [
-          "inflate (+5.11)",
-          "inflated (+4.87)",
-          "inflation (+4.61)",
-          "expanding (+4.56)",
-          "balloon (+4.11)",
-          "expands (+4.10)",
-          "balloons (+3.89)",
-          "expand (+3.89)",
-          "swelling (+3.76)",
-          "swell (+3.67)",
-          "enlarged (+3.63)",
-          "enlarging (+3.62)"
+          "inflate (+5.32)",
+          "inflated (+5.08)",
+          "inflation (+4.82)",
+          "expanding (+4.77)",
+          "balloon (+4.32)",
+          "expands (+4.31)",
+          "balloons (+4.10)",
+          "expand (+4.10)",
+          "swelling (+3.97)",
+          "swell (+3.88)",
+          "enlarged (+3.85)",
+          "enlarging (+3.83)"
         ],
         "negative_boosted_words": [
-          "remain (+3.89)",
-          "consistent (+3.75)",
-          "stay (+3.57)",
-          "maintain (+3.52)",
-          "appropriate (+3.21)",
-          "stable (+3.20)",
-          "adjust (+3.18)",
-          "maintained (+3.17)",
-          "true (+3.11)",
-          "steady (+3.09)",
-          "coherent (+3.09)",
-          "intact (+3.08)"
+          "consistent (+3.23)",
+          "remain (+3.07)",
+          "appropriate (+2.79)",
+          "stay (+2.72)",
+          "maintain (+2.72)",
+          "stable (+2.68)",
+          "maintained (+2.65)",
+          "coherent (+2.57)",
+          "steady (+2.57)",
+          "intact (+2.57)",
+          "natural (+2.57)",
+          "adjust (+2.57)"
         ],
-        "top5_mean_delta_log_prob": 4.652,
+        "top5_mean_delta_log_prob": 4.862,
         "lexical_clarity": "high"
       },
       "sweep_completions": {
         "anchor_human_action_room": {
-          "-0.15": "integrated_multimodal_description: [Shot 1] A medium shot captures a person at a wooden kitchen counter, their face calm as they pour water from a clear glass pitcher into a beige ceramic mug; the spoon and folded napkin rest nearby, while their hands move deliberately. Their voice is warm and clear, delivering a short greeting—“Good morning”—with natural inflection, echoing slightly in the quiet room.\n\noverall_soundscape: The gentle trickle of water, soft clink of the pitcher on the counter, and subtle ambient kitchen hum blend with the person’s spoken greeting, creating a calm, lived-in acoustic atmosphere.",
-          "+0.00": "integrated_multimodal_description: [Shot 1] A medium shot frames a person at a wooden kitchen counter, their face softly lit as they pour water from a clear glass pitcher into a speckled ceramic mug; their hands move deliberately, the spoon and folded linen napkin resting nearby on the warm-toned surface. The person turns slightly toward the camera, lips forming a gentle “Good morning,” voice warm and clear.\n\noverall_soundscape:  The soft gurgle of water filling the mug blends with the subtle clink of porcelain and the person’s calm, resonant greeting, all lightly echoed in the spacious, quiet kitchen.",
-          "+0.15": "integrated_multimodal_description: [Shot 1] A medium close-up frames a person’s face and hands as they pour steaming water from a clear glass pitcher into a ceramic mug on a wooden countertop; beside it, a silver spoon and crumpled linen napkin rest in soft morning light. The person smiles warmly, lips parting to say “Good morning,” their voice rich and resonant, echoing slightly in the quiet, vaulted kitchen with exposed beams and tiled backsplash.\n\noverall_soundscape:  A gentle gurgle of water fills the space, fading into the person’s warm, reverberant greeting, layered with distant clinks of porcelain and the low hum of a refrigerator.",
-          "+0.22": "integrated_multimodal_description: [Shot 1] A medium close-up captures a person’s face and hands as they pour steaming water from a glass pitcher into a ceramic mug on a wooden kitchen counter; a spoon and crumpled napkin lie beside it, while their lips form a warm, “Good morning!”  \noverall_soundscape: The gurgle of water filling the mug, a soft clink as the pitcher sets down, and the person’s cheerful voice echo slightly in the hollow kitchen space, blending with distant muffled clatter from another room."
+          "-0.15": "integrated_multimodal_description: [Shot 1] A medium shot captures a person with short, neatly styled brown hair and warm, steady eyes, standing at a wooden kitchen counter. Their hands—slightly weathered, nails trimmed—gently tilt a clear glass pitcher, releasing a smooth stream of water into a speckled ceramic mug; the spoon and folded beige napkin remain still beside it as they speak a soft, clear “Good morning” with natural inflection.\n\noverall_soundscape:  Gentle water flow blends with soft speech, accented by subtle clinks of porcelain and ambient kitchen hum, creating a calm, intimate acoustic space.",
+          "+0.00": "integrated_multimodal_description: [Shot 1] A medium shot captures a person with short, salt-and-pepper hair and warm, crinkled eyes, their hands steady as they pour clear water from a glass pitcher into a chipped ceramic mug; the spoon and folded linen napkin shift slightly on the wooden counter as droplets splash gently, while their voice offers a soft, melodic “Good morning” with a slight echo.  \noverall_soundscape:  The gentle pour blends with a low hum of the refrigerator and distant birdsong, creating a calm, domestic resonance.",
+          "+0.15": "integrated_multimodal_description: [Shot 1] A medium shot captures a person with tousled silver hair and weathered, freckled cheeks, their hands—wrinkled and veined—gently tilting a glass pitcher to pour steaming water into a chipped ceramic mug. The spoon and crumpled napkin tremble slightly as the water sloshes, while the person’s warm, gravelly voice murmurs “Good morning” with a soft, breathy resonance.\n\noverall_soundscape:  The gurgle of water fills the quiet kitchen, punctuated by the muffled thud of the pitcher setting down and the person’s low, reverberant greeting echoing off tiled walls and wooden cabinets.",
+          "+0.22": "integrated_multimodal_description: [Shot 1] A medium shot captures a person with tousled silver hair and weathered, freckled cheeks, their hands—wrinkled and veined—gently tilting a glass pitcher to pour steaming water into a chipped ceramic mug. The spoon and crumpled napkin tremble slightly as the water gushes, rippling the surface, while the person’s warm, gravelly voice calls out “Morning!” with a raspy, affectionate lilt.\n\noverall_soundscape: The gurgle of water fills the space, echoing off tiled walls and bouncing off a stainless steel sink, swallowed by the soft hum of a refrigerator and distant birdcalls through a kitchen window."
         },
         "anchor_surface_street_camera": {
-          "-0.15": "integrated_multimodal_description: [Shot 1] A static medium shot frames the canvas shop’s weathered green awning with peeling paint, a rustic wooden crate showing grain and scuff marks on the sunlit sidewalk, and the smooth, slightly dusty white panel of a parked delivery van. Natural daylight casts soft shadows, highlighting textures; the camera remains still, observing the quiet urban stillness.\n\noverall_soundscape: Distant city hum, faint footsteps, and a passing car’s low rumble underscore the scene’s calm.",
-          "+0.00": "integrated_multimodal_description: [Shot 1] A static medium-wide shot frames the faded red canvas awning with peeling paint and frayed edges, a weathered wooden crate with splintered corners resting on cracked pavement, and the smooth, slightly dusty side panel of a white delivery van under bright, high-contrast midday sun. The camera holds steady, capturing sharp shadows and the gritty textures of urban wear.\n\noverall_soundscape: Distant traffic hums beneath the occasional screech of brakes and a faint echo of footsteps on concrete, punctuated by the rustle of a loose awning flap in a light breeze.",
-          "+0.15": "integrated_multimodal_description: [Shot 1] A low-angle, slightly Dutch-tilted wide shot captures a weathered canvas shop awning with peeling red paint and frayed edges, a splintered wooden crate stacked with empty rolls of canvas, and the dented, sun-baked side panel of a white delivery van. The camera drifts slowly right, gliding over cracked pavement as harsh midday sunlight casts sharp, angular shadows across the textures.  \noverall_soundscape: Distant traffic hums beneath the rhythmic clatter of a passing garbage truck and the occasional screech of metal against concrete from a nearby construction site.",
-          "+0.22": "integrated_multimodal_description: [Shot 1] A low-angle, wide shot tilts upward from the cracked concrete sidewalk, revealing a peeling, faded red canvas shop awning with chipped paint and frayed edges, a weathered wooden crate with splintered corners and rusty metal bands, and the side panel of a white delivery van—its surface blistered and sun-bleached, reflecting harsh midday light. The camera slowly pulls back, distorting the van’s warped metal in the heat haze.\n\noverall_soundscape: A cacophony of distant traffic, screeching brakes, and a tinny street vendor’s megaphone pulses beneath the hum of a cooling van engine and the rhythmic thud of a passing"
+          "-0.15": "integrated_multimodal_description: [Shot 1] A static medium shot frames the sunlit canvas shop awning—its faded blue fabric creased and slightly frayed—anchored beside a weathered wooden crate with chipped paint, while the smooth, slightly dusty white van panel reflects soft daylight; the camera remains steady, capturing subtle shadows shifting across surfaces.  \noverall_soundscape: Distant traffic hums beneath faint footfall and the occasional clink of metal from nearby storefronts.",
+          "+0.00": "integrated_multimodal_description: [Shot 1] A static medium-wide shot frames a faded red canvas shop awning with peeling paint, a weathered wooden crate bearing scuff marks, and the glossy white side panel of a delivery van reflecting dappled sunlight. Bright midday light casts sharp shadows, highlighting textures—rough wood grain, chipped fabric, and smooth vinyl—while the camera remains fixed, capturing stillness.\n\noverall_soundscape: Distant traffic hums beneath faint chatter and a rhythmic clatter of a passing delivery cart.",
+          "+0.15": "integrated_multimodal_description: [Shot 1] A low-angle, wide lens captures the sun-drenched awning’s peeling red paint, a weathered wooden crate with splintered edges, and the scuffed white panel of a delivery van—its surface reflecting harsh midday light. The camera glides slowly right, revealing cracked pavement beneath, as the awning’s shadow creeps across the crate.\n\noverall_soundscape: Distant traffic hums, punctuated by a sudden screech of brakes and the rhythmic thud of a garbage truck’s compactor in the alley.",
+          "+0.22": "integrated_multimodal_description: [Shot 1] A low-angle, wide lens captures a sun-drenched canvas shop awning—cracked, peeling paint in faded red—hovering over a weathered wooden crate with splintered edges and rusty metal bands, beside the smooth, pitted side panel of a white delivery van, its surface blistered with heat bubbles; the camera drifts slowly right, warping the scene with a fisheye distortion as midday light bleeds across the textures.\n\noverall_soundscape:  A cacophony of distant traffic, a siren wailing faintly, and the rhythmic thud of a garbage truck rolling down the street, layered with the high-pitched whine of a"
         }
       },
       "synthesis": {
-        "self_report_slug": "urban_decay_intensity",
-        "self_report_quality": "Steering systematically modulates the intensity of urban decay and environmental grit, shifting from subtle wear to pronounced deterioration in both visual textures and acoustic ambiance.",
-        "negative_pole": "Subtle, calm urban stillness with minimal wear: smooth surfaces, soft lighting, gentle sounds, and restrained camera movement.",
-        "positive_pole": "Exaggerated urban decay with harsh textures, distorted camera angles, intense lighting contrasts, and chaotic, layered acoustic elements including mechanical and human-generated noise.",
+        "self_report_slug": "aging_intensity",
+        "self_report_quality": "Steering systematically modulates the perceived age and physical wear of the subject and environment, shifting from youthful and pristine to weathered and aged, with corresponding changes in vocal texture and acoustic resonance.",
+        "negative_pole": "Youthful, clean, and smooth visual textures (e.g., neatly styled hair, unchipped mug, steady hands) paired with clear, soft, and natural vocal delivery and a calm, intimate soundscape with minimal environmental noise.",
+        "positive_pole": "Aged, worn, and textured visual elements (e.g., silver hair, freckled skin, chipped mug, splintered crate) combined with gravelly, breathy, or raspy vocal tones and a louder, more resonant, and layered soundscape with urban or industrial acoustic elements.",
         "dominant_modality": "audiovisual",
         "readout_clarity": "high",
-        "clarity_reason": "The transformation is consistently and coherently expressed across both visual (textures, camera motion, lighting) and acoustic (sound layering, noise intensity) dimensions, with clear progression from minimal to extreme degradation."
+        "clarity_reason": "The transformation is consistently and systematically expressed across both visual (hair, skin, hands, materials) and acoustic (vocal timbre, environmental sounds) dimensions, with clear progression from negative to positive steering across both anchors."
       }
     },
     "elapsed_sec": 37.67,
@@ -1196,58 +1196,58 @@
       },
       "lexical_logit_shifts": {
         "positive_boosted_words": [
-          "disastrously (+5.94)",
-          "explosion (+5.84)",
-          "explode (+5.22)",
-          "chaotic (+5.02)",
-          "crash (+4.92)",
-          "disastrous (+4.83)",
-          "chaos (+4.72)",
-          "hilariously (+4.47)",
-          "erupt (+4.39)",
-          "exploding (+4.33)",
-          "burst (+4.26)",
-          "horribly (+4.21)"
+          "disastrously (+6.03)",
+          "explosion (+5.93)",
+          "explode (+5.31)",
+          "chaotic (+5.11)",
+          "crash (+5.01)",
+          "disastrous (+4.94)",
+          "chaos (+4.81)",
+          "hilariously (+4.55)",
+          "erupt (+4.48)",
+          "exploding (+4.42)",
+          "burst (+4.35)",
+          "horribly (+4.30)"
         ],
         "negative_boosted_words": [
-          "harmonious (+2.93)",
-          "excellent (+2.91)",
-          "good (+2.68)",
-          "comfortable (+2.64)",
-          "stable (+2.62)",
-          "cohesive (+2.60)",
-          "adjust (+2.56)",
-          "maintain (+2.45)",
-          "smooth (+2.43)",
-          "clean (+2.42)",
-          "mature (+2.38)",
-          "homogeneous (+2.33)"
+          "excellent (+2.64)",
+          "adjust (+2.54)",
+          "maintain (+2.43)",
+          "good (+2.40)",
+          "clean (+2.31)",
+          "smooth (+2.31)",
+          "warm (+2.30)",
+          "harmonious (+2.26)",
+          "adapt (+2.25)",
+          "comfortable (+2.24)",
+          "stable (+2.22)",
+          "solid (+2.21)"
         ],
-        "top5_mean_delta_log_prob": 5.386,
+        "top5_mean_delta_log_prob": 5.477,
         "lexical_clarity": "high"
       },
       "sweep_completions": {
         "anchor_human_action_room": {
-          "-0.15": "integrated_multimodal_description: [Shot 1] A medium shot frames a person at a wooden kitchen counter, their face calm and hands steady as they pour clear water from a glass pitcher into a ceramic mug; a spoon and folded linen napkin rest nearby, catching soft morning light. The person speaks a warm, unhurried greeting—“Good morning”—with natural inflection, lips moving in sync with the gentle stream of water.  \noverall_soundscape:  Soft water flow blends with the person’s clear, resonant voice, subtly amplified by the kitchen’s open space and wooden surfaces, creating a calm, intimate acoustic environment.",
-          "+0.00": "integrated_multimodal_description: [Shot 1] A medium shot frames a person at a wooden kitchen counter, their face softly lit as they pour water from a clear glass pitcher into a speckled ceramic mug; their hands move deliberately, the spoon and folded linen napkin resting nearby on the warm-toned surface. The person turns slightly toward the camera, lips forming a gentle “Good morning,” voice warm and clear.\n\noverall_soundscape:  The soft gurgle of water filling the mug blends with the subtle clink of porcelain and the person’s calm, resonant greeting, all lightly echoed in the spacious, quiet kitchen.",
-          "+0.15": "integrated_multimodal_description: [Shot 1] A medium shot captures a person at a cluttered kitchen counter, their face partially lit by overhead light as they pour water from a glass pitcher into a chipped ceramic mug. Their hands tremble slightly, spoon and crumpled napkin spilling nearby, while they mumble a hesitant “Morning” into the quiet space.  \noverall_soundscape: The gurgle of water, a sharp clink as the pitcher hits the counter, and the person’s muffled greeting echo in the cavernous, tiled kitchen, fading into silence.",
-          "+0.22": "integrated_multimodal_description: [Shot 1] A medium shot captures a person at a cluttered kitchen counter, their face partially shadowed as they pour water from a glass pitcher into a chipped ceramic mug, spoon and crumpled napkin clattering beside it; their hands tremble slightly mid-pour as they mumble “Morning, sunshine” into the air.  \noverall_soundscape: The splash of water, a metallic clink, and a muffled, breathy greeting echo in the hollow kitchen, absorbed by linoleum and cabinets, creating a lonely, half-hearted acoustic burst."
+          "-0.15": "integrated_multimodal_description: [Shot 1] A medium shot captures a person with short, neatly styled brown hair and warm, steady eyes, their hands steady as they pour clear water from a glass pitcher into a beige ceramic mug on a wooden counter; a silver spoon and folded linen napkin rest nearby, slightly shifting as the mug settles. Their voice is calm and clear, delivering a soft “Good morning” with gentle articulation, lips moving subtly in sync with the fluid motion.\n\noverall_soundscape: The gentle stream of water creates a soft, rhythmic hiss, layered with the subtle clink of the mug and ambient kitchen hum, all muffled by the warm acoustics of wood and tile.",
+          "+0.00": "integrated_multimodal_description: [Shot 1] A medium shot captures a person with short, salt-and-pepper hair and warm, crinkled eyes, their hands steady as they pour clear water from a glass pitcher into a chipped ceramic mug; the spoon and folded linen napkin shift slightly on the wooden counter as droplets splash gently, while their voice offers a soft, melodic “Good morning” with a slight echo.  \noverall_soundscape:  The gentle pour blends with a low hum of the refrigerator and distant birdsong, creating a calm, domestic resonance.",
+          "+0.15": "integrated_multimodal_description: [Shot 1] A medium shot captures a person with tousled dark hair and a smudged coffee-stain on their chin, hands trembling slightly as they pour steaming water from a glass pitcher into a chipped ceramic mug. The spoon clatters against the counter, napkin flutters, and their voice cracks mid-greeting—“Morning!”—as the water swirls in slow arcs, spilling a drop that splashes onto the wood.\n\noverall_soundscape: Echoing drips, a wet clatter, and the muffled ring of the mug blend with the person’s strained, half-whispered greeting, all swallowed by the hollow reverb of an empty kitchen.",
+          "+0.22": "integrated_multimodal_description: [Shot 1] A medium shot captures a person with tousled brown hair and freckles across their nose, mid-gesture as they pour water from a chipped ceramic pitcher into a mug. Their hands tremble slightly, sending ripples through the stream, while a crumpled napkin and spoon skitter across the wooden counter; they blurt out “Hey!” in a breathy, half-laughing tone.  \noverall_soundscape: The splash of water echoes sharply in the small kitchen, drowned momentarily by the clatter of the spoon and a muffled crash as the mug tips—then silence, broken only by a distant drip and their own echoing greeting."
         },
         "anchor_surface_street_camera": {
-          "-0.15": "integrated_multimodal_description: [Shot 1] A static medium shot frames the canvas shop’s weathered green awning with peeling paint, a rustic wooden crate bearing faint ink stamps, and the smooth, slightly dusty side panel of a white delivery van. Soft, diffused daylight casts gentle shadows, highlighting textures—woven fabric, grainy wood, and matte vinyl—while the camera remains still, capturing the quiet urban stillness.\n\noverall_soundscape: Distant traffic hums beneath the subtle creak of the awning and occasional footsteps on pavement, creating a calm, ambient streetscape.",
-          "+0.00": "integrated_multimodal_description: [Shot 1] A static medium-wide shot frames the faded red canvas awning with peeling paint and frayed edges, a weathered wooden crate with splintered corners resting on cracked pavement, and the smooth, slightly dusty side panel of a white delivery van under bright, high-contrast midday sun. The camera holds steady, capturing sharp shadows and the gritty textures of urban wear.\n\noverall_soundscape: Distant traffic hums beneath the occasional screech of brakes and a faint echo of footsteps on concrete, punctuated by the rustle of a loose awning flap in a light breeze.",
-          "+0.15": "integrated_multimodal_description: [Shot 1] A low-angle, slightly Dutch-tilted wide shot captures the sun-drenched awning’s peeling red paint, the splintered wood crate’s rough grain, and the van’s dented white panel reflecting harsh midday glare. The camera slowly pushes in, emphasizing textures as shadows crawl across the sidewalk.\n\noverall_soundscape: Distant traffic hums beneath the clatter of a loose crate lid and the high-pitched whine of a passing siren, punctuated by a sudden, echoing thud from the street.",
-          "+0.22": "integrated_multimodal_description: [Shot 1] A low-angle, slightly Dutch-tilted wide shot captures the jagged edge of a peeling red-and-white striped awning, a splintered wooden crate spilling paint tubes onto the cracked sidewalk, and the dented side panel of a white delivery van coated in grime and dried mud. Sunlight slants across the scene, casting long, sharp shadows and glinting off the van’s warped metal as the camera slowly pushes in with a creaking lens wobble.\n\noverall_soundscape:  A cacophony of distant traffic, a screeching bicycle bell, and the rhythmic thud of a dumpster lid slamming shut echoes over the tinny crackle of"
+          "-0.15": "integrated_multimodal_description: [Shot 1] A static medium shot frames a weathered canvas shop awning in soft daylight, its faded blue fabric showing subtle creases and sun-bleached patches; beside it, a rough-hewn wooden crate with chipped paint rests on gray concrete, while the smooth, slightly dusty side panel of a white delivery van reflects gentle midday light. The camera remains still, capturing the quiet urban texture.\n\noverall_soundscape: Distant traffic hums beneath the occasional rumble of a passing bus and faint chatter from nearby pedestrians.",
+          "+0.00": "integrated_multimodal_description: [Shot 1] A static medium-wide shot frames a faded red canvas shop awning with peeling paint, a weathered wooden crate bearing scuff marks, and the glossy white side panel of a delivery van reflecting dappled sunlight. Bright midday light casts sharp shadows, highlighting textures—rough wood grain, chipped fabric, and smooth vinyl—while the camera remains fixed, capturing stillness.\n\noverall_soundscape: Distant traffic hums beneath faint chatter and a rhythmic clatter of a passing delivery cart.",
+          "+0.15": "integrated_multimodal_description: [Shot 1] A low-angle, slightly Dutch-tilted wide shot captures a weathered red-and-white striped canvas awning sagging over a splintered wooden crate, its paint chipped under harsh midday sun; beside it, the dented side panel of a white delivery van gleams with greasy smudges, as the camera slowly pushes in, casting long shadows across the cracked pavement.\n\noverall_soundscape: Distant traffic hums beneath the clatter of a loose crate lid and the screech of a passing bicycle bell.",
+          "+0.22": "integrated_multimodal_description: [Shot 1] A low-angle, slightly Dutch-tilted wide shot captures a sun-drenched canvas shop awning—crumpled burlap with faded red trim—collapsing onto a splintered wooden crate, its nails protruding like teeth. The adjacent white delivery van’s dented side panel reflects harsh midday glare as the camera lurches forward in a jerky, handheld motion, smearing shadows across the cracked pavement.\n\noverall_soundscape: A cacophony of distant traffic, a screeching brake, and a sudden crash of the crate as the awning collapses, punctuated by a tinny siren wail echoing down the alley."
         }
       },
       "synthesis": {
         "self_report_slug": "degradation_to_deterioration",
-        "self_report_quality": "Steering systematically shifts the scene from calm, well-maintained, and intimate to increasingly chaotic, worn, and acoustically harsh, with visual and acoustic degradation intensifying at positive alpha values.",
-        "negative_pole": "Calm, clean, and intimate visual and acoustic environment with soft lighting, smooth textures, and gentle, clear sounds; objects are intact and actions are deliberate and unhurried.",
-        "positive_pole": "Chaotic, worn, and harsh visual and acoustic environment with harsh lighting, damaged textures, and loud, abrupt, or muffled sounds; objects are broken or cluttered, and actions are hesitant or clumsy.",
+        "self_report_quality": "Steering systematically transforms scenes from calm, well-maintained states to increasingly chaotic, deteriorated, and unstable conditions across visual, acoustic, and physical dimensions.",
+        "negative_pole": "Calm, orderly, and stable environments with clean materials, steady hands, soft voices, and gentle sounds—e.g., neat hair, intact mugs, smooth camera, and ambient kitchen hum.",
+        "positive_pole": "Chaotic, deteriorated, and unstable environments with damaged materials, trembling hands, strained or abrupt vocalizations, and harsh, jarring sounds—e.g., chipped mugs, collapsing awnings, jerky camera, and crashing noises.",
         "dominant_modality": "audiovisual",
         "readout_clarity": "high",
-        "clarity_reason": "The transformation is consistently and clearly expressed across both visual (e.g., chipped mugs, splintered crates, Dutch tilt) and acoustic (e.g., muffled voices, clattering, sirens) dimensions, with no ambiguity in the direction or nature of change across anchors and alpha values."
+        "clarity_reason": "The transformation is consistently and clearly expressed across both visual (e.g., hair, mug condition, camera motion) and acoustic (e.g., voice quality, soundscapes) dimensions in both anchors, with no ambiguity in the direction or nature of change."
       }
     },
     "elapsed_sec": 37.44,
@@ -1358,58 +1358,58 @@
       },
       "lexical_logit_shifts": {
         "positive_boosted_words": [
-          "black (+2.62)",
-          "class (+2.48)",
-          "clear (+2.33)",
-          "icon (+2.12)",
-          "free (+2.10)",
-          "distinct (+2.09)",
-          "rock (+1.99)",
-          "material (+1.89)",
-          "best (+1.85)",
-          "great (+1.84)",
-          "elegant (+1.70)",
-          "vintage (+1.67)"
+          "class (+2.53)",
+          "clear (+2.48)",
+          "distinct (+2.25)",
+          "free (+2.19)",
+          "icon (+2.17)",
+          "great (+2.16)",
+          "black (+2.11)",
+          "rock (+2.08)",
+          "vintage (+1.99)",
+          "material (+1.98)",
+          "best (+1.95)",
+          "bold (+1.94)"
         ],
         "negative_boosted_words": [
-          "none (+3.26)",
-          "nothing (+3.05)",
-          "whatsoever (+2.95)",
-          "lacks (+2.89)",
-          "unrelated (+2.88)",
-          "absence (+2.86)",
-          "empty (+2.84)",
-          "anything (+2.81)",
-          "nonexistent (+2.74)",
-          "absolutely (+2.68)",
-          "undefined (+2.53)",
-          "absent (+2.53)"
+          "none (+3.11)",
+          "nothing (+2.98)",
+          "empty (+2.92)",
+          "plain (+2.85)",
+          "whatsoever (+2.80)",
+          "random (+2.80)",
+          "simple (+2.76)",
+          "lacks (+2.74)",
+          "anything (+2.74)",
+          "unrelated (+2.73)",
+          "absence (+2.71)",
+          "nonexistent (+2.68)"
         ],
-        "top5_mean_delta_log_prob": 2.33,
+        "top5_mean_delta_log_prob": 2.323,
         "lexical_clarity": "medium"
       },
       "sweep_completions": {
         "anchor_human_action_room": {
-          "-0.15": "integrated_multimodal_description: [Shot 1] A medium shot captures a person at a kitchen counter, their face partially turned toward the camera as they pour water from a clear pitcher into a ceramic mug; their hands are steady, a spoon and crumpled napkin resting nearby on the countertop. The person speaks a soft, warm greeting aloud, lips moving slightly as the water flows with a gentle splash.\n\noverall_soundscape: The ambient kitchen hum blends with the soft gurgle of pouring water and the subtle rustle of fabric as the person speaks, creating a quiet, intimate acoustic space.",
-          "+0.00": "integrated_multimodal_description: [Shot 1] A medium shot frames a person at a wooden kitchen counter, their face softly lit as they pour water from a clear glass pitcher into a speckled ceramic mug; their hands move deliberately, the spoon and folded linen napkin resting nearby on the warm-toned surface. The person turns slightly toward the camera, lips forming a gentle “Good morning,” voice warm and clear.\n\noverall_soundscape:  The soft gurgle of water filling the mug blends with the subtle clink of porcelain and the person’s calm, resonant greeting, all lightly echoed in the spacious, quiet kitchen.",
-          "+0.15": "integrated_multimodal_description: [Shot 1] A medium shot frames a person at a sunlit kitchen counter, their face warm and focused as they pour water from a glass pitcher into a ceramic mug, hands steady and deliberate. Beside the mug, a spoon and folded napkin rest on the wooden surface, while the person offers a soft, clear greeting—“Good morning”—with gentle resonance echoing off tiled walls.  \noverall_soundscape: The gentle gurgle of water filling the mug blends with the crisp, intimate timbre of the greeting, underscored by distant clinks of dishes and the low hum of a refrigerator.",
-          "+0.22": "integrated_multimodal_description: [Shot 1] A medium shot frames a person at a sunlit kitchen counter, their face lit warmly as they pour water from a ceramic pitcher into a chipped mug, hands steady and precise; beside the mug, a silver spoon and folded linen napkin rest on the wooden surface. The person turns slightly, smiling, and speaks “Good morning” in a clear, gentle tone that echoes softly off tiled walls.\n\noverall_soundscape: Crisp water pours with a rhythmic *glug-glug*, mingling with the warm, resonant echo of the greeting and distant hum of a refrigerator."
+          "-0.15": "integrated_multimodal_description: [Shot 1] A medium shot captures a person with short, dark hair and a calm expression, their hands steady as they pour water from a clear pitcher into a ceramic mug on a wooden counter; a spoon and crumpled napkin lie nearby, slightly shifting as the liquid flows with a gentle ripple. The person speaks softly, “Good morning,” with a warm, unhurried tone, their eyes briefly meeting the camera.\n\noverall_soundscape:  Soft clinking of glass, subtle water flow, and quiet footsteps blend with the person’s low, resonant voice in a spacious, lightly reverberant kitchen.",
+          "+0.00": "integrated_multimodal_description: [Shot 1] A medium shot captures a person with short, salt-and-pepper hair and warm, crinkled eyes, their hands steady as they pour clear water from a glass pitcher into a chipped ceramic mug; the spoon and folded linen napkin shift slightly on the wooden counter as droplets splash gently, while their voice offers a soft, melodic “Good morning” with a slight echo.  \noverall_soundscape:  The gentle pour blends with a low hum of the refrigerator and distant birdsong, creating a calm, domestic resonance.",
+          "+0.15": "integrated_multimodal_description: [Shot 1] A medium shot captures a woman with short, wavy auburn hair and warm brown eyes, her hands steady as she pours clear water from a glass pitcher into a speckled ceramic mug. The spoon and folded linen napkin shift slightly on the wooden counter as the stream arcs gently, her voice soft and melodic—“Good morning”—echoing with slight reverb in the sunlit kitchen.\n\noverall_soundscape:  Gentle clinks of porcelain, the steady hiss of water, and her warm greeting blend into the crisp, airy acoustics of the open-plan kitchen.",
+          "+0.22": "integrated_multimodal_description: [Shot 1] A medium shot captures a woman with short, wavy auburn hair and warm brown eyes, her hands steady as she pours steaming water from a glass pitcher into a chipped ceramic mug. The spoon and linen napkin shift slightly on the wooden counter as the water arcs in a smooth, glistening stream, her voice—soft, melodic, and clear—echoes “Good morning” with a gentle lilt.\n\noverall_soundscape:  The clink of porcelain, the hiss of steam, and her warm greeting resonate through the cozy kitchen’s hardwood floors and exposed beams, creating a rich, intimate acoustic blend."
         },
         "anchor_surface_street_camera": {
-          "-0.15": "integrated_multimodal_description: [Shot 1] A static medium shot frames a weathered canvas shop awning with peeling paint and fabric fraying at the edges, a rough-hewn wooden crate resting on cracked pavement beside it, and the smooth, slightly dusty side panel of a parked white delivery van. Sunlight casts sharp, high-contrast shadows, highlighting textures—grainy wood, glossy vinyl, and matte metal—while the camera remains fixed, capturing the stillness.\n\noverall_soundscape: Distant traffic hums beneath the occasional screech of brakes and faint chatter from nearby pedestrians, punctuated by the soft rustle of the awning in a light breeze.",
-          "+0.00": "integrated_multimodal_description: [Shot 1] A static medium-wide shot frames the faded red canvas awning with peeling paint and frayed edges, a weathered wooden crate with splintered corners resting on cracked pavement, and the smooth, slightly dusty side panel of a white delivery van under bright, high-contrast midday sun. The camera holds steady, capturing sharp shadows and the gritty textures of urban wear.\n\noverall_soundscape: Distant traffic hums beneath the occasional screech of brakes and a faint echo of footsteps on concrete, punctuated by the rustle of a loose awning flap in a light breeze.",
-          "+0.15": "integrated_multimodal_description: [Shot 1] A low-angle, slightly tilted wide shot frames the weathered red-and-white striped awning above the canvas shop, its fabric creased and sun-bleached, casting dappled shadows across a rustic wooden crate with chipped paint and metal latches. To the right, the smooth, sun-warmed aluminum panel of a parked white delivery van gleams under bright midday light, while the camera slowly dollies left, revealing cracked pavement and a faded yellow curb.\n\noverall_soundscape: Distant city hum blends with the rhythmic clatter of a passing bus and the occasional squeal of a bicycle bell, underscored by the faint, rhythmic thud of footsteps on concrete.",
-          "+0.22": "integrated_multimodal_description: [Shot 1] A low-angle, slightly tilted wide shot captures the weathered red-and-white striped awning of a canvas shop, its fabric frayed at the edges, casting dappled shadows over a rustic wooden crate with chipped paint and metal latches. The gleaming white panel of a delivery van, speckled with road grime, anchors the right frame, as the camera glides slowly left, revealing sunlit cobblestones and the faint hum of distant traffic.\n\noverall_soundscape: Crisp city ambience—distant honks, a bicycle bell, and the rhythmic clatter of a delivery truck’s engine—mingles with the soft creak of the awning’s"
+          "-0.15": "integrated_multimodal_description: [Shot 1] A static medium shot frames a weathered canvas shop awning with peeling paint and frayed edges, casting dappled shadows over a rough wooden crate on the sunlit sidewalk; beside it, the smooth, slightly dusty side panel of a white delivery van reflects the bright daylight, all under clear skies with no camera movement.\n\noverall_soundscape: Distant traffic hums beneath faint footsteps and the occasional rustle of fabric from the awning in a light breeze.",
+          "+0.00": "integrated_multimodal_description: [Shot 1] A static medium-wide shot frames a faded red canvas shop awning with peeling paint, a weathered wooden crate bearing scuff marks, and the glossy white side panel of a delivery van reflecting dappled sunlight. Bright midday light casts sharp shadows, highlighting textures—rough wood grain, chipped fabric, and smooth vinyl—while the camera remains fixed, capturing stillness.\n\noverall_soundscape: Distant traffic hums beneath faint chatter and a rhythmic clatter of a passing delivery cart.",
+          "+0.15": "integrated_multimodal_description: [Shot 1] A sun-drenched, high-contrast wide-angle shot captures a weathered red-and-white striped canvas awning, its fabric creased and slightly frayed, above a rustic wooden crate with peeling blue paint and splintered edges. The adjacent white delivery van’s side panel gleams under sharp midday light, reflecting the street’s heat haze as the camera glides left in a smooth dolly move.\n\noverall_soundscape:  Distant city hum blends with the rhythmic clatter of a passing bus and the occasional honk, layered over the faint creak of the awning’s metal frame in the warm breeze.",
+          "+0.22": "integrated_multimodal_description: [Shot 1] A sun-drenched, high-contrast wide-angle shot captures the weathered red awning of a canvas shop, its fabric peeling at the edges, above a rustic wooden crate with chipped paint and splintered corners. The camera glides slowly right, revealing the glossy, slightly dented side panel of a white delivery van, its surface reflecting golden light and passing shadows.\n\noverall_soundscape: Distant traffic hums beneath the rhythmic clatter of a street vendor’s cart and the occasional honk, punctuated by the creak of the awning’s metal frame in a gentle breeze."
         }
       },
       "synthesis": {
-        "self_report_slug": "intimacy_to_urbanity",
-        "self_report_quality": "Steering shifts the scene from intimate, warm, and personal to expansive, gritty, and urban, with corresponding changes in lighting, camera movement, material texture, and soundscape complexity.",
-        "negative_pole": "Intimate, quiet, warm, and personal atmosphere with soft lighting, steady camera, smooth materials, and gentle acoustic textures (e.g., soft gurgle, warm voice, quiet kitchen hum).",
-        "positive_pole": "Expansive, gritty, and urban atmosphere with high-contrast lighting, dynamic camera movement, weathered materials, and complex, layered city sounds (e.g., clatter, honks, bicycle bells, distant traffic).",
+        "self_report_slug": "warmth_and_intimacy",
+        "self_report_quality": "Steering systematically modulates the perceived warmth, intimacy, and sensory richness of the scene, shifting from cool, sparse, and static to warm, dynamic, and acoustically resonant.",
+        "negative_pole": "Cool, sparse, and static visual and acoustic qualities: muted colors, minimal movement, flat lighting, subdued soundscape with minimal reverberation or texture.",
+        "positive_pole": "Warm, dynamic, and richly textured visual and acoustic qualities: vibrant lighting, smooth camera motion, detailed material textures, and layered, resonant sounds with reverb and environmental depth.",
         "dominant_modality": "audiovisual",
         "readout_clarity": "high",
-        "clarity_reason": "The transformation is consistently and systematically expressed across both visual (lighting, camera, materials) and acoustic (soundscape complexity, timbre) dimensions in both anchors, with clear progression from negative to positive steering."
+        "clarity_reason": "The transformation is consistently and clearly expressed across both visual (lighting, motion, texture) and acoustic (reverb, layering, environmental resonance) dimensions in both anchors, with no confounding lexical or structural cues."
       }
     },
     "elapsed_sec": 39.75,
@@ -1532,58 +1532,58 @@
       },
       "lexical_logit_shifts": {
         "positive_boosted_words": [
-          "black (+2.86)",
-          "rock (+2.49)",
-          "free (+2.16)",
-          "material (+2.13)",
-          "capitalized (+1.94)",
-          "impress (+1.91)",
-          "icon (+1.85)",
-          "boldly (+1.79)",
-          "delight (+1.78)",
-          "exhilarate (+1.76)",
-          "quintessential (+1.72)",
-          "unmistakable (+1.72)"
+          "rock (+2.47)",
+          "black (+2.23)",
+          "free (+2.13)",
+          "impress (+2.13)",
+          "material (+2.11)",
+          "delight (+1.99)",
+          "striking (+1.92)",
+          "icon (+1.89)",
+          "quintessential (+1.76)",
+          "unmistakable (+1.76)",
+          "boldly (+1.74)",
+          "back (+1.72)"
         ],
         "negative_boosted_words": [
-          "whatsoever (+3.43)",
-          "anything (+3.10)",
-          "anywhere (+2.80)",
-          "none (+2.59)",
-          "unrelated (+2.52)",
-          "except (+2.51)",
-          "changes (+2.50)",
-          "lacks (+2.36)",
-          "does (+2.20)",
-          "absolutely (+2.16)",
-          "nothing (+2.12)",
-          "decoration (+2.10)"
+          "whatsoever (+3.38)",
+          "anything (+3.19)",
+          "decoration (+2.94)",
+          "anywhere (+2.90)",
+          "random (+2.89)",
+          "writing (+2.81)",
+          "simple (+2.73)",
+          "description (+2.70)",
+          "visible (+2.67)",
+          "changes (+2.64)",
+          "texture (+2.63)",
+          "scratches (+2.59)"
         ],
-        "top5_mean_delta_log_prob": 2.314,
+        "top5_mean_delta_log_prob": 2.213,
         "lexical_clarity": "medium"
       },
       "sweep_completions": {
         "anchor_human_action_room": {
-          "-0.15": "integrated_multimodal_description: [Shot 1] A medium shot captures a person at a kitchen counter, their face partially turned toward the camera as they pour water from a clear pitcher into a ceramic mug; their hands are steady, a spoon and folded napkin resting nearby on the wooden surface. The person speaks a soft, warm greeting—“Good morning”—with natural inflection, lips moving slightly as the water glints under overhead light.\n\noverall_soundscape: Gentle pouring sounds blend with the person’s calm vocal tone, subtly echoed by the quiet kitchen acoustics, creating a serene domestic atmosphere.",
-          "+0.00": "integrated_multimodal_description: [Shot 1] A medium shot frames a person at a wooden kitchen counter, their face softly lit as they pour water from a clear glass pitcher into a speckled ceramic mug; their hands move deliberately, the spoon and folded linen napkin resting nearby on the warm-toned surface. The person turns slightly toward the camera, lips forming a gentle “Good morning,” voice warm and clear.\n\noverall_soundscape:  The soft gurgle of water filling the mug blends with the subtle clink of porcelain and the person’s calm, resonant greeting, all lightly echoed in the spacious, quiet kitchen.",
-          "+0.15": "integrated_multimodal_description: [Shot 1] A medium shot frames a person at a sunlit kitchen counter, their face calm and focused as they pour water from a glass pitcher into a ceramic mug; their hands steady, the spoon and folded napkin resting beside the mug on the wooden surface. They speak a warm “Good morning” in clear, gentle tones, the words echoing softly in the quiet room.  \noverall_soundscape: The gentle gurgle of water filling the mug blends with the person’s soft-spoken greeting, underscored by distant kitchen ambiance and the subtle creak of wooden cabinetry.",
-          "+0.22": "integrated_multimodal_description: [Shot 1] A medium shot frames a person at a sunlit kitchen counter, their face illuminated as they pour water from a glass pitcher into a rustic ceramic mug, hands steady and deliberate. Beside the mug, a silver spoon and folded linen napkin rest on the wooden surface, while they offer a warm, clear greeting—“Good morning”—with a gentle smile.  \noverall_soundscape: The rhythmic *glug-glug* of water fills the quiet kitchen, layered with the soft *clink* of porcelain and the person’s resonant voice echoing slightly in the spacious room."
+          "-0.15": "integrated_multimodal_description: [Shot 1] A medium shot captures a person with short, wavy brown hair and a calm, neutral expression, their hands steady as they pour clear water from a glass pitcher into a ceramic mug; the spoon and folded napkin shift slightly on the countertop as the liquid flows, creating gentle ripples; their voice is soft and warm, delivering a brief “Good morning” with slight breathiness.  \noverall_soundscape:  The pouring water creates a soft hiss, mingling with the subtle clink of the spoon and distant ambient kitchen hum, all absorbed by the room’s mild reverb.",
+          "+0.00": "integrated_multimodal_description: [Shot 1] A medium shot captures a person with short, salt-and-pepper hair and warm, crinkled eyes, their hands steady as they pour clear water from a glass pitcher into a chipped ceramic mug; the spoon and folded linen napkin shift slightly on the wooden counter as droplets splash gently, while their voice offers a soft, melodic “Good morning” with a slight echo.  \noverall_soundscape:  The gentle pour blends with a low hum of the refrigerator and distant birdsong, creating a calm, domestic resonance.",
+          "+0.15": "integrated_multimodal_description: [Shot 1] A medium shot captures a woman with short, silver-streaked brown hair and warm, crinkled eyes, her hands steady as she pours steaming water from a clear glass pitcher into a chipped ceramic mug. The spoon and folded linen napkin shift slightly on the wooden counter as the water arcs in a smooth, glistening stream, her voice soft and welcoming—“Morning, love”—echoing gently off the tiled backsplash.\n\noverall_soundscape: Warm, intimate kitchen acoustics amplify the gentle clink of porcelain, the hiss of steam, and her calm, close-range greeting, layered with distant morning hum.",
+          "+0.22": "integrated_multimodal_description: [Shot 1] A medium shot frames a woman with short, wavy auburn hair and warm brown eyes, her face lit by soft morning light as she pours water from a glass pitcher into a cream-colored ceramic mug. Her steady hands, adorned with a silver ring, guide the stream with gentle precision; the spoon and folded linen napkin shift slightly on the oak countertop as the liquid cascades, creating ripples that glint under the light.  \noverall_soundscape: The gentle gurgle of water fills the quiet kitchen, punctuated by her clear, welcoming greeting—“Good morning”—echoing softly off wooden cabinets and tiled walls, blending with the distant hum of a refrigerator."
         },
         "anchor_surface_street_camera": {
-          "-0.15": "integrated_multimodal_description: [Shot 1] A static medium shot frames a weathered canvas shop awning with peeling paint and frayed edges, a rough-hewn wooden crate resting on cracked pavement, and the smooth, slightly dusty side panel of a white delivery van—sunlight casts sharp, warm highlights on all surfaces, emphasizing texture contrasts.  \noverall_soundscape: Distant traffic hums beneath faint footfalls and the occasional creak of the awning’s metal frame in a light breeze.",
-          "+0.00": "integrated_multimodal_description: [Shot 1] A static medium-wide shot frames the faded red canvas awning with peeling paint and frayed edges, a weathered wooden crate with splintered corners resting on cracked pavement, and the smooth, slightly dusty side panel of a white delivery van under bright, high-contrast midday sun. The camera holds steady, capturing sharp shadows and the gritty textures of urban wear.\n\noverall_soundscape: Distant traffic hums beneath the occasional screech of brakes and a faint echo of footsteps on concrete, punctuated by the rustle of a loose awning flap in a light breeze.",
-          "+0.15": "integrated_multimodal_description: [Shot 1] A low-angle, slightly tilted wide shot frames the weathered red-and-white striped awning above the canvas shop, its fabric creased and sun-bleached, casting dappled shadows across a rough-hewn wooden crate on the cracked sidewalk. The adjacent white delivery van’s side panel gleams under harsh midday light, its surface pitted with faint scratches and reflecting the sky, as the camera slowly dollies right, revealing more of the street’s gritty texture.\n\noverall_soundscape: Distant traffic hums beneath the rhythmic clatter of a passing bus and the occasional shout from a vendor, punctuated by the hollow thud of a crate lid shifting in the breeze.",
-          "+0.22": "integrated_multimodal_description: [Shot 1] A low-angle, slightly tilted wide shot frames the weathered red-and-white striped awning above the canvas shop, its fabric creased and sun-bleached, with a rough-hewn wooden crate resting on the cracked pavement below—its grain splintered and dust-coated. The side panel of a white delivery van gleams under bright midday sun, its paint peeling at the edges, as the camera drifts slowly right, capturing the gritty texture of the street.  \noverall_soundscape: Distant traffic hums beneath the rhythmic clatter of a passing garbage truck and the occasional shout from a sidewalk vendor."
+          "-0.15": "integrated_multimodal_description: [Shot 1] A static medium shot frames a weathered canvas shop awning with peeling paint and frayed edges, casting dappled shadows from nearby trees onto a rough wooden crate and the glossy, slightly smudged side panel of a parked white delivery van; bright daylight creates sharp contrasts and highlights texture across surfaces.\n\noverall_soundscape: Distant traffic hums beneath faint footfalls and the occasional creak of the awning’s metal frame in a light breeze.",
+          "+0.00": "integrated_multimodal_description: [Shot 1] A static medium-wide shot frames a faded red canvas shop awning with peeling paint, a weathered wooden crate bearing scuff marks, and the glossy white side panel of a delivery van reflecting dappled sunlight. Bright midday light casts sharp shadows, highlighting textures—rough wood grain, chipped fabric, and smooth vinyl—while the camera remains fixed, capturing stillness.\n\noverall_soundscape: Distant traffic hums beneath faint chatter and a rhythmic clatter of a passing delivery cart.",
+          "+0.15": "integrated_multimodal_description: [Shot 1] A sun-drenched, high-angle static shot frames a weathered red-and-white striped awning, its fabric frayed at the edges, above a cracked wooden crate stacked with paint tubes. The side panel of a white delivery van gleams under midday light, its surface marred by faint scratches and a smudge of dried paint, while the camera holds steady, capturing the textures in sharp, natural contrast.\n\noverall_soundscape: Distant traffic hums beneath the rhythmic clatter of a passing bus and the occasional shout from a sidewalk vendor, layered with the faint drip of melting ice from the awning’s edge.",
+          "+0.22": "integrated_multimodal_description: [Shot 1] A sun-drenched, high-angle wide shot frames the faded red-and-white striped awning of a canvas shop, its fabric creased and weathered, above a chipped wooden crate brimming with paint tubes. The matte white panel of a delivery van glows under golden-hour light, while the camera drifts slowly right, catching dust motes in the air.  \noverall_soundscape: Distant traffic hums beneath the rhythmic clatter of a passing trolley and a child’s laughter from across the street."
         }
       },
       "synthesis": {
-        "self_report_slug": "urban_grit_to_serenity",
-        "self_report_quality": "Steering systematically shifts the scene from a gritty, textured urban environment to a serene, sunlit domestic setting, with corresponding changes in lighting, camera movement, material texture, and soundscape.",
-        "negative_pole": "Gritty, static, high-contrast urban textures with sharp shadows, peeling paint, cracked pavement, and distant traffic hum; minimal camera movement and sparse, mechanical sounds.",
-        "positive_pole": "Serene, sunlit, warm-toned domestic or urban scenes with soft lighting, smooth textures, gentle camera motion (dolly, drift), and layered acoustic elements like water gurgling, porcelain clinks, and resonant human voice.",
+        "self_report_slug": "warmth_intimacy_steering",
+        "self_report_quality": "Steering systematically modulates the perceived warmth, intimacy, and emotional tone of the scene, shifting from cool, neutral, or slightly harsh to warm, inviting, and emotionally resonant across both visual and acoustic dimensions.",
+        "negative_pole": "Cool, neutral, or slightly harsh visual and acoustic qualities: muted colors, flat lighting, minimal texture emphasis, distant or muffled sounds, and neutral or breathy vocal delivery.",
+        "positive_pole": "Warm, intimate, and emotionally resonant qualities: rich, golden lighting, enhanced textures, close-range acoustics, soft and melodic vocal tones, and detailed, tactile visual elements (e.g., steam, glinting water, fabric creases).",
         "dominant_modality": "audiovisual",
         "readout_clarity": "high",
-        "clarity_reason": "The transformation is consistently and coherently expressed across both visual (lighting, texture, camera motion) and acoustic (soundscape complexity, human voice presence) dimensions, with clear progression from negative to positive steering across both anchors."
+        "clarity_reason": "The transformation is consistently and coherently expressed across both visual (lighting, texture, color warmth) and acoustic (sound proximity, vocal tone, ambient layering) dimensions, with clear progression from negative to positive steering across both anchors."
       }
     },
     "elapsed_sec": 36.49,
@@ -1706,58 +1706,58 @@
       },
       "lexical_logit_shifts": {
         "positive_boosted_words": [
-          "horribly (+3.42)",
-          "notoriously (+3.33)",
-          "crudely (+3.30)",
-          "grotesque (+3.23)",
-          "painfully (+3.11)",
-          "hilariously (+3.06)",
-          "harsh (+3.04)",
-          "blatantly (+3.03)",
-          "terrible (+3.02)",
-          "distorted (+3.01)",
-          "grain (+3.00)",
-          "brutally (+2.96)"
+          "grotesque (+3.03)",
+          "crudely (+2.97)",
+          "horribly (+2.93)",
+          "grain (+2.86)",
+          "notoriously (+2.84)",
+          "horrifying (+2.75)",
+          "hilariously (+2.66)",
+          "blatantly (+2.64)",
+          "painfully (+2.62)",
+          "stark (+2.57)",
+          "paper (+2.55)",
+          "extreme (+2.55)"
         ],
         "negative_boosted_words": [
-          "cosy (+3.92)",
-          "relaxed (+3.71)",
-          "cozy (+3.36)",
-          "relaxing (+3.34)",
-          "calming (+3.27)",
-          "harmonious (+3.22)",
-          "comfortable (+3.16)",
-          "gentle (+3.12)",
-          "pleasant (+3.08)",
-          "calm (+3.06)",
-          "relax (+3.02)",
-          "soothing (+2.90)"
+          "cosy (+3.91)",
+          "relaxed (+3.70)",
+          "harmonious (+3.45)",
+          "calming (+3.44)",
+          "relaxing (+3.43)",
+          "comfortable (+3.39)",
+          "cozy (+3.35)",
+          "gentle (+3.35)",
+          "pleasant (+3.31)",
+          "calm (+3.17)",
+          "welcoming (+3.09)",
+          "soothing (+3.04)"
         ],
-        "top5_mean_delta_log_prob": 3.28,
-        "lexical_clarity": "high"
+        "top5_mean_delta_log_prob": 2.925,
+        "lexical_clarity": "medium"
       },
       "sweep_completions": {
         "anchor_human_action_room": {
-          "-0.15": "integrated_multimodal_description: [Shot 1] A medium shot captures a person at a wooden kitchen counter, their face relaxed as they pour water from a clear glass pitcher into a beige ceramic mug; their hands steady, a spoon and folded linen napkin resting nearby. The person offers a warm, soft-spoken greeting—“Good morning”—with natural inflection, eyes briefly meeting the camera.\n\noverall_soundscape: Gentle pouring sounds blend with a quiet, lived-in kitchen ambiance, punctuated by the soft vocal tone and subtle background hum of appliances.",
-          "+0.00": "integrated_multimodal_description: [Shot 1] A medium shot frames a person at a wooden kitchen counter, their face softly lit as they pour water from a clear glass pitcher into a speckled ceramic mug; their hands move deliberately, the spoon and folded linen napkin resting nearby on the warm-toned surface. The person turns slightly toward the camera, lips forming a gentle “Good morning,” voice warm and clear.\n\noverall_soundscape:  The soft gurgle of water filling the mug blends with the subtle clink of porcelain and the person’s calm, resonant greeting, all lightly echoed in the spacious, quiet kitchen.",
-          "+0.15": "integrated_multimodal_description: [Shot 1] A medium close-up frames a person’s head and shoulders as they pour water from a glass pitcher into a chipped ceramic mug on a worn wooden counter; their hands tremble slightly, a spoon and crumpled napkin lie beside the mug, while their lips move in a soft, raspy “Good morning.”  \noverall_soundscape: The sharp clink of the pitcher hitting the rim, the gurgle of water filling the mug, and the person’s breathy, echo-laden voice blend with the hollow reverb of an empty kitchen.",
-          "+0.22": "integrated_multimodal_description: [Shot 1] A medium close-up captures a person’s head and shoulders as they pour water from a glass pitcher into a chipped ceramic mug on a worn wooden counter; their hands tremble slightly, a spoon and crumpled napkin lie beside the mug, while their lips move in a raspy, intimate “Good morning.”  \noverall_soundscape: The sharp clink of glass, the hiss of water filling the mug, and the person’s breathy, echo-drenched voice reverberate in the hollow silence of an empty kitchen."
+          "-0.15": "integrated_multimodal_description: [Shot 1] A medium shot captures a person with soft brown hair and gentle eyes, wearing a light blue apron, their hands steady as they pour clear water from a glass pitcher into a warm-toned ceramic mug. The spoon and folded beige napkin shift slightly on the wooden counter as the stream arcs smoothly, while they speak a quiet, warm \"Good morning\" with natural inflection.\n\noverall_soundscape: Soft water flow blends with subtle kitchen echoes and a low hum from appliances, creating a calm, intimate atmosphere.",
+          "+0.00": "integrated_multimodal_description: [Shot 1] A medium shot captures a person with short, salt-and-pepper hair and warm, crinkled eyes, their hands steady as they pour clear water from a glass pitcher into a chipped ceramic mug; the spoon and folded linen napkin shift slightly on the wooden counter as droplets splash gently, while their voice offers a soft, melodic “Good morning” with a slight echo.  \noverall_soundscape:  The gentle pour blends with a low hum of the refrigerator and distant birdsong, creating a calm, domestic resonance.",
+          "+0.15": "integrated_multimodal_description: [Shot 1] A medium shot captures a woman with short, wavy gray hair and sharp cheekbones, her face angled slightly downward as she pours water from a glass pitcher into a chipped ceramic mug. Her hands—wrinkled but steady—move with deliberate care, the stream of water arcing in slow motion before splashing into the mug, while the spoon and crumpled napkin tremble faintly on the worn linoleum countertop.\n\noverall_soundscape: The high-pitched clink of glass, the gurgle of water, and her raspy, warm “Good morning” echo with slight reverb in the cramped, tin-ceilinged kitchen, punctuated by distant",
+          "+0.22": "integrated_multimodal_description: [Shot 1] A medium shot captures a woman with sharp cheekbones and tousled dark hair, her face half-shadowed by a brimmed hat, as she tilts a glass pitcher, sending a thin, glistening stream of water into a chipped ceramic mug. Her gnarled hands tremble slightly, the spoon and crumpled napkin sliding sideways on the scarred linoleum counter as she speaks in a raspy, echoing whisper—“Morning, ghost”—her voice cracking like dry ice.\n\noverall_soundscape: The clink of glass, the hiss of water hitting porcelain, and her brittle, reverb-drenched whisper blend into the hollow silence of an empty kitchen,"
         },
         "anchor_surface_street_camera": {
-          "-0.15": "integrated_multimodal_description: [Shot 1] A low-angle, steady handheld shot frames the weathered canvas shop awning in soft morning light, its fabric slightly frayed with golden-hour warmth; beside it, a rustic wooden crate rests on concrete, its grain catching dappled sunlight, while the smooth, cool-white panel of a parked delivery van reflects the sky’s pale blue. The camera drifts gently right, revealing subtle texture shifts across surfaces.\n\noverall_soundscape: Gentle street hum—distant chatter, a passing bicycle bell, and the faint rumble of a distant truck—mingle with the soft rustle of the awning in a light breeze.",
-          "+0.00": "integrated_multimodal_description: [Shot 1] A static medium-wide shot frames the faded red canvas awning with peeling paint and frayed edges, a weathered wooden crate with splintered corners resting on cracked pavement, and the smooth, slightly dusty side panel of a white delivery van under bright, high-contrast midday sun. The camera holds steady, capturing sharp shadows and the gritty textures of urban wear.\n\noverall_soundscape: Distant traffic hums beneath the occasional screech of brakes and a faint echo of footsteps on concrete, punctuated by the rustle of a loose awning flap in a light breeze.",
-          "+0.15": "integrated_multimodal_description: [Shot 1] A high-contrast, sun-drenched Dutch angle frames the peeling red-and-white striped awning, a weathered wooden crate with splintered edges, and the chipped enamel of a white delivery van’s side panel—each surface cracked and sun-baked under harsh midday light. The camera tilts slowly upward, tracking the stark shadows cast by the awning’s ribs across the crate and van.\n\noverall_soundscape: Cracked pavement echoes with distant car horns, a tinny radio from an open window, and the rhythmic *thud* of a passing garbage truck.",
-          "+0.22": "integrated_multimodal_description: [Shot 1] A high-contrast, sun-drenched Dutch angle frames the peeling red-and-white striped awning, a splintered wooden crate with chipped paint, and the scratched, pitted surface of a white delivery van’s side panel—each texture harshly etched by midday glare. The camera tilts down slowly, crawling across the grainy sidewalk, as if searching for something lost.  \noverall_soundscape: The tinny crackle of a distant radio bleeds into the hollow thud of a dropped soda can and the relentless screech of tires on hot asphalt."
+          "-0.15": "integrated_multimodal_description: [Shot 1] A sun-dappled wide-angle view captures a weathered canvas shop awning in faded ochre, its fabric creased and slightly frayed at the edges; beside it, a rough-hewn wooden crate with visible grain and splintered corners rests on the sidewalk, while the smooth, slightly dusty white panel of a parked delivery van reflects soft daylight. The camera glides slowly right, revealing subtle textures under warm midday light.\n\noverall_soundscape: Gentle street hum—distant traffic, a bicycle bell, and a faint hum from a nearby café speaker—mingle with the rustle of awning fabric in a light breeze.",
+          "+0.00": "integrated_multimodal_description: [Shot 1] A static medium-wide shot frames a faded red canvas shop awning with peeling paint, a weathered wooden crate bearing scuff marks, and the glossy white side panel of a delivery van reflecting dappled sunlight. Bright midday light casts sharp shadows, highlighting textures—rough wood grain, chipped fabric, and smooth vinyl—while the camera remains fixed, capturing stillness.\n\noverall_soundscape: Distant traffic hums beneath faint chatter and a rhythmic clatter of a passing delivery cart.",
+          "+0.15": "integrated_multimodal_description: [Shot 1] A high-contrast, sun-drenched wide-angle frame captures a peeling red-and-white striped canvas awning, its fabric frayed at the edges, casting sharp shadows over a weathered wooden crate with chipped paint and splintered corners. The adjacent white delivery van’s side panel gleams with heat-hazed reflections, while the camera slowly dollies right, revealing cracked sidewalk pavement beneath.  \noverall_soundscape:  A cacophony of distant sirens, clattering delivery trucks, and the tinny echo of a street vendor’s call cuts through the oppressive midday heat.",
+          "+0.22": "integrated_multimodal_description: [Shot 1] A high-contrast, grainy black-and-white close-up in harsh midday sun, with the camera slowly tilting down from the frayed, grease-stained canvas awning to a splintered wooden crate and the pitted, chalky-white side panel of a delivery van—each surface etched with deep shadows and stark highlights. The frame shudders slightly, mimicking the vibration of a passing bus.\n\noverall_soundscape:  A gritty symphony of distant sirens, screeching tires, and the rhythmic clatter of a newsboy’s paper cart rattling down the cracked pavement."
         }
       },
       "synthesis": {
-        "self_report_slug": "decay_and_deterioration",
-        "self_report_quality": "Steering systematically shifts the scene from pristine, warm, and stable to worn, harsh, and decaying across visual, acoustic, and material dimensions.",
-        "negative_pole": "Smooth, warm, and intact surfaces; soft lighting; gentle, clear sounds; stable camera; calm, warm vocal tone; minimal wear or damage.",
-        "positive_pole": "Cracked, chipped, and weathered surfaces; harsh, high-contrast lighting; sharp, abrasive, or echo-laden sounds; Dutch angles and tracking movements; raspy, breathy, or echo-drenched vocal tone; signs of neglect and decay.",
+        "self_report_slug": "gritty_realism_steering",
+        "self_report_quality": "Steering systematically shifts the scene from soft, warm, and intimate realism toward harsh, high-contrast, and acoustically dense gritty realism, with increasing physical decay, camera instability, and environmental noise.",
+        "negative_pole": "Soft, warm, intimate realism with smooth textures, gentle lighting, stable camera, and calm, naturalistic soundscape—emphasizing comfort and domesticity.",
+        "positive_pole": "Harsh, high-contrast, gritty realism with decayed textures, stark lighting, unstable camera movement, and dense, abrasive soundscape—emphasizing urban decay, tension, and isolation.",
         "dominant_modality": "audiovisual",
         "readout_clarity": "high",
-        "clarity_reason": "The transformation is consistently and coherently expressed across both visual and acoustic dimensions in both anchors, with clear progression from pristine to deteriorated states at each steering strength."
+        "clarity_reason": "The transformation is consistently and coherently expressed across both visual (textures, lighting, camera motion) and acoustic (sound density, reverb, environmental noise) dimensions in both anchors, with clear progression from soft to gritty."
       }
     },
     "elapsed_sec": 37.25,
@@ -1874,58 +1874,58 @@
       },
       "lexical_logit_shifts": {
         "positive_boosted_words": [
-          "grand (+3.83)",
-          "majestic (+3.75)",
-          "centuries (+3.74)",
-          "ancient (+3.64)",
-          "echo (+3.42)",
-          "vast (+3.38)",
-          "medieval (+3.33)",
-          "scriptures (+3.22)",
-          "arch (+3.18)",
-          "intertwine (+3.11)",
-          "expansive (+3.05)",
-          "echoes (+3.04)"
+          "majestic (+4.14)",
+          "ancient (+4.03)",
+          "grand (+3.84)",
+          "centuries (+3.81)",
+          "echo (+3.56)",
+          "vast (+3.39)",
+          "mystical (+3.35)",
+          "medieval (+3.34)",
+          "magnificent (+3.29)",
+          "scriptures (+3.26)",
+          "intertwine (+3.25)",
+          "arch (+3.22)"
         ],
         "negative_boosted_words": [
-          "zero (+2.63)",
-          "negligible (+2.34)",
-          "virtually (+2.30)",
-          "flat (+2.28)",
-          "direct (+2.27)",
-          "isolation (+2.27)",
-          "absolutely (+2.23)",
-          "minimal (+2.15)",
-          "accurate (+2.11)",
-          "straightforward (+2.09)",
-          "isolated (+2.09)",
-          "masking (+2.05)"
+          "zero (+2.56)",
+          "negligible (+2.26)",
+          "virtually (+2.23)",
+          "absolutely (+2.16)",
+          "direct (+2.08)",
+          "minimal (+2.08)",
+          "flat (+1.96)",
+          "isolation (+1.95)",
+          "masking (+1.86)",
+          "practically (+1.82)",
+          "print (+1.81)",
+          "sharp (+1.81)"
         ],
-        "top5_mean_delta_log_prob": 3.676,
+        "top5_mean_delta_log_prob": 3.878,
         "lexical_clarity": "high"
       },
       "sweep_completions": {
         "anchor_human_action_room": {
-          "-0.15": "integrated_multimodal_description: [Shot 1] A medium close-up captures a person at a kitchen counter, their face relaxed as they pour water from a clear pitcher into a ceramic mug; the spoon and folded napkin rest nearby on the wooden surface, while their hands move deliberately. Their voice is warm and clear, delivering a short “Good morning” with natural inflection, slightly muffled by the soft ambient hum of the kitchen.\n\noverall_soundscape: Gentle splashing of water into the mug blends with subtle background noise—distant refrigerator hum and faint clatter from a cabinet—creating a calm, intimate domestic atmosphere.",
-          "+0.00": "integrated_multimodal_description: [Shot 1] A medium shot frames a person at a wooden kitchen counter, their face softly lit as they pour water from a clear glass pitcher into a speckled ceramic mug; their hands move deliberately, the spoon and folded linen napkin resting nearby on the warm-toned surface. The person turns slightly toward the camera, lips forming a gentle “Good morning,” voice warm and clear.\n\noverall_soundscape:  The soft gurgle of water filling the mug blends with the subtle clink of porcelain and the person’s calm, resonant greeting, all lightly echoed in the spacious, quiet kitchen.",
-          "+0.15": "integrated_multimodal_description: [Shot 1] A medium shot captures a person at a sunlit kitchen counter, their face softly lit as they pour water from a glass pitcher into a ceramic mug, hands steady and deliberate. Beside the mug, a spoon and folded napkin rest on the marble surface, while the person turns slightly, offering a warm greeting with gentle, resonant vocal tones.\n\noverall_soundscape: The gentle gurgle of water filling the mug blends with the person’s soft-spoken greeting, echoing lightly off tiled walls and wooden cabinets in the spacious kitchen.",
-          "+0.22": "integrated_multimodal_description: [Shot 1] A medium shot captures a person at a sunlit kitchen counter, their face illuminated as they pour water from a glass pitcher into a ceramic mug, hands steady and graceful. The spoon and folded napkin rest beside the mug, while the person’s warm, resonant voice echoes softly through the high-ceilinged room, blending with distant clinks of dishes.\n\noverall_soundscape: The gentle gurgle of water, soft echoes of the voice, and distant kitchen sounds create a spacious, reverberant acoustic atmosphere."
+          "-0.15": "integrated_multimodal_description: [Shot 1] A medium shot captures a person with short, dark hair and light stubble, their face angled slightly toward the camera as they pour water from a clear glass pitcher into a speckled ceramic mug on a wooden counter. Their right hand steadies the pitcher, left hand rests near a crumpled napkin and spoon; water flows in a smooth arc, splashing softly into the mug, while they deliver a warm, conversational “Hey, how’s it going?” with slight head tilt.\n\noverall_soundscape: The gentle splash of water, subtle clink of glass, and soft vocal tone blend with the dry, close-up kitchen acoustics—minimal reverb, crisp textures.",
+          "+0.00": "integrated_multimodal_description: [Shot 1] A medium shot captures a person with short, salt-and-pepper hair and warm, crinkled eyes, their hands steady as they pour clear water from a glass pitcher into a chipped ceramic mug; the spoon and folded linen napkin shift slightly on the wooden counter as droplets splash gently, while their voice offers a soft, melodic “Good morning” with a slight echo.  \noverall_soundscape:  The gentle pour blends with a low hum of the refrigerator and distant birdsong, creating a calm, domestic resonance.",
+          "+0.15": "integrated_multimodal_description: [Shot 1] A medium shot captures a woman with silver-streaked hair pulled into a loose bun, her face lit softly as she pours water from a clear glass pitcher into a ceramic mug. Her hands, lined with age and steady, move gracefully, while the spoon and napkin shift slightly on the wooden counter as the water arcs in a shimmering stream.\n\noverall_soundscape: The gentle chime of porcelain, the soft splash of water, and her warm, resonant greeting echo through the spacious kitchen, blending with distant clinking dishes and muffled laughter.",
+          "+0.22": "integrated_multimodal_description: [Shot 1] A woman with silver-streaked hair tied loosely at her nape stands at a sunlit kitchen counter, her hands—veined and steady—lifting a clear glass pitcher to pour water into a chipped ceramic mug. As the liquid cascades in a shimmering arc, her voice rises in a warm, resonant “Good morning,” echoing softly off stone walls, while a folded linen napkin and tarnished spoon rest beside the mug, catching glimmers of light.\n\noverall_soundscape: The gentle rush of water mingles with distant birdsong and the soft clink of porcelain, amplified by high ceilings and stone walls that reverberate the woman’s greeting like a cathedral echo."
         },
         "anchor_surface_street_camera": {
-          "-0.15": "integrated_multimodal_description: [Shot 1] A static medium close-up frames the weathered canvas shop awning—faded red fabric with peeling vinyl trim—above a rough-sawn wooden crate resting on cracked concrete. To the right, the smooth, slightly dusty white panel of a delivery van reflects harsh midday sun, while subtle camera drift reveals slight grain on the crate’s surface and faint texture in the awning’s fabric.\n\noverall_soundscape: Distant traffic hums beneath the crisp crackle of pavement underfoot and the occasional thud of a passing footstep, punctuated by faint city chatter and a distant siren.",
-          "+0.00": "integrated_multimodal_description: [Shot 1] A static medium-wide shot frames the faded red canvas awning with peeling paint and frayed edges, a weathered wooden crate with splintered corners resting on cracked pavement, and the smooth, slightly dusty side panel of a white delivery van under bright, high-contrast midday sun. The camera holds steady, capturing sharp shadows and the gritty textures of urban wear.\n\noverall_soundscape: Distant traffic hums beneath the occasional screech of brakes and a faint echo of footsteps on concrete, punctuated by the rustle of a loose awning flap in a light breeze.",
-          "+0.15": "integrated_multimodal_description: [Shot 1] A low-angle, wide shot frames the weathered canvas shop awning with peeling paint and rusted iron brackets, a sunlit wooden crate with cracked grain and chipped varnish resting on cobblestone, and the smooth, dusty side panel of a white delivery van reflecting dappled light. The camera slowly tilts upward, catching the golden hour glow filtering through nearby trees.\n\noverall_soundscape: Distant traffic hums beneath the clatter of horse-drawn carts, children’s laughter, and the rhythmic creak of awning supports swaying in the breeze.",
-          "+0.22": "integrated_multimodal_description: [Shot 1] The camera glides slowly left along the sun-drenched street, capturing the weathered canvas awning with peeling blue paint, the rough-hewn wooden crate cracked at the edges, and the smooth, slightly dusty white van panel reflecting golden afternoon light. Dust motes dance in the warm beams as the lens arcs upward, revealing the awning’s iron supports.\n\noverall_soundscape: Distant traffic hums beneath the rhythmic clatter of a passing horse-drawn cart and the occasional cry of a street vendor echoing through the sunlit alley."
+          "-0.15": "integrated_multimodal_description: [Shot 1] A static medium close-up frames the faded red canvas awning with peeling paint, a weathered wooden crate with splintered edges, and the scuffed white panel of a delivery van—sunlight casts sharp, high-contrast shadows, emphasizing texture; the camera holds steady, capturing fine details under bright, direct daylight.\n\noverall_soundscape: Distant city hum, faint tire rumble, and a crisp leaf skittering on pavement underscore the stillness.",
+          "+0.00": "integrated_multimodal_description: [Shot 1] A static medium-wide shot frames a faded red canvas shop awning with peeling paint, a weathered wooden crate bearing scuff marks, and the glossy white side panel of a delivery van reflecting dappled sunlight. Bright midday light casts sharp shadows, highlighting textures—rough wood grain, chipped fabric, and smooth vinyl—while the camera remains fixed, capturing stillness.\n\noverall_soundscape: Distant traffic hums beneath faint chatter and a rhythmic clatter of a passing delivery cart.",
+          "+0.15": "integrated_multimodal_description: [Shot 1] A wide-angle lens captures the sun-drenched street, with golden light glinting off the faded red canvas awning, its fabric weathered and creased like old parchment. Below, a rough-hewn wooden crate rests beside the smooth, dust-streaked side panel of a white delivery van, its paint peeling near the door seam; the camera drifts slowly left, revealing cobblestones and distant storefronts.\n\noverall_soundscape: Distant traffic hums beneath the rhythmic clatter of a passing trolley and the occasional cry of a street vendor.",
+          "+0.22": "integrated_multimodal_description: [Shot 1] A wide-angle lens captures the sun-drenched street, where a weathered red awning with peeling paint casts dappled shadows over a moss-streaked wooden crate and the smooth, sun-bleached side panel of a white delivery van. The camera glides slowly left, revealing the textures—cracked stucco, rusted iron brackets, and the van’s faintly dusty surface—bathed in golden afternoon light.\n\noverall_soundscape: Distant traffic hums beneath the rhythmic clatter of a street vendor’s cart and the occasional cry of seagulls drifting through the open air."
         }
       },
       "synthesis": {
-        "self_report_slug": "spatial_atmosphere_expansion",
-        "self_report_quality": "Steering systematically transforms the scene from a confined, intimate, or gritty urban space into a more open, reverberant, and atmospherically rich environment with enhanced spatial depth and ambient resonance.",
-        "negative_pole": "Constricted, intimate, or gritty spatial atmosphere with minimal depth, muted acoustics, and close-up framing; soundscape is localized and dampened (e.g., muffled voice, soft ambient hum, distant traffic without echo).",
-        "positive_pole": "Expanded, spacious, and reverberant spatial atmosphere with heightened depth, dynamic camera movement, and rich acoustic echo; soundscape includes distant, resonant elements (e.g., echoing voice, horse-drawn carts, street vendor cries) and warm, golden lighting.",
+        "self_report_slug": "warmth_resonance",
+        "self_report_quality": "Steering systematically modulates the perceived warmth and resonance of the scene, shifting from cool, crisp, and intimate to warm, expansive, and reverberant across both visual and acoustic dimensions.",
+        "negative_pole": "Cool, intimate, and crisp visual and acoustic qualities: tighter framing, direct lighting, minimal reverb, and close-up acoustics with sharp textures and minimal background resonance.",
+        "positive_pole": "Warm, expansive, and resonant visual and acoustic qualities: wider framing, golden/diffused lighting, soft textures, and acoustic depth with reverberation, distant sounds, and spatial echo.",
         "dominant_modality": "audiovisual",
         "readout_clarity": "high",
-        "clarity_reason": "The transformation is consistently and coherently expressed across both visual (camera movement, lighting, depth) and acoustic (echo, ambient resonance, distant sounds) dimensions in both anchors, with clear progression from confined to expansive."
+        "clarity_reason": "The transformation is consistently and coherently expressed across both visual (lighting, framing, texture) and acoustic (reverb, spatial depth, background sounds) dimensions in both anchors, with clear progression from negative to positive steering."
       }
     },
     "elapsed_sec": 37.58,
@@ -2042,58 +2042,58 @@
       },
       "lexical_logit_shifts": {
         "positive_boosted_words": [
-          "violently (+4.61)",
-          "explosion (+4.39)",
-          "grotesque (+4.27)",
-          "monstrously (+3.99)",
-          "hilariously (+3.98)",
-          "horrifying (+3.85)",
-          "unbearable (+3.82)",
-          "horribly (+3.81)",
-          "terrifying (+3.79)",
-          "insane (+3.77)",
-          "absurd (+3.77)",
-          "horrendous (+3.75)"
+          "violently (+4.94)",
+          "explosion (+4.64)",
+          "grotesque (+4.51)",
+          "horrifying (+4.18)",
+          "hilariously (+4.14)",
+          "terrifying (+4.12)",
+          "monstrously (+4.12)",
+          "absurd (+4.10)",
+          "unbearable (+4.07)",
+          "horribly (+4.06)",
+          "outrageous (+4.04)",
+          "horrific (+4.03)"
         ],
         "negative_boosted_words": [
-          "gentle (+3.63)",
-          "warm (+3.18)",
-          "calm (+3.13)",
-          "smooth (+3.09)",
-          "harmonious (+2.95)",
-          "relaxed (+2.86)",
-          "neutral (+2.82)",
-          "steady (+2.72)",
-          "professional (+2.71)",
-          "gently (+2.68)",
-          "simple (+2.66)",
-          "pleasant (+2.61)"
+          "gentle (+3.00)",
+          "calm (+2.62)",
+          "smooth (+2.58)",
+          "warm (+2.54)",
+          "neutral (+2.39)",
+          "relaxed (+2.35)",
+          "harmonious (+2.31)",
+          "steady (+2.28)",
+          "gently (+2.24)",
+          "wood (+2.19)",
+          "balanced (+2.13)",
+          "information (+2.11)"
         ],
-        "top5_mean_delta_log_prob": 4.247,
+        "top5_mean_delta_log_prob": 4.482,
         "lexical_clarity": "high"
       },
       "sweep_completions": {
         "anchor_human_action_room": {
-          "-0.15": "integrated_multimodal_description: [Shot 1] A medium shot frames a person at a wooden kitchen counter, their face calm and hands steady as they pour clear water from a glass pitcher into a warm-toned ceramic mug. Beside the mug, a spoon rests on a folded linen napkin; soft overhead lighting highlights droplets falling and the gentle ripple in the mug.\n\noverall_soundscape:  The gentle gurgle of water pouring blends with the person’s soft, clear greeting—warm and unhurried—echoing slightly in the quiet kitchen space with subtle background hum of appliances.",
-          "+0.00": "integrated_multimodal_description: [Shot 1] A medium shot frames a person at a wooden kitchen counter, their face softly lit as they pour water from a clear glass pitcher into a speckled ceramic mug; their hands move deliberately, the spoon and folded linen napkin resting nearby on the warm-toned surface. The person turns slightly toward the camera, lips forming a gentle “Good morning,” voice warm and clear.\n\noverall_soundscape:  The soft gurgle of water filling the mug blends with the subtle clink of porcelain and the person’s calm, resonant greeting, all lightly echoed in the spacious, quiet kitchen.",
-          "+0.15": "integrated_multimodal_description: [Shot 1] A medium close-up captures a person at a sunlit kitchen counter, their face animated as they pour water from a clear glass pitcher into a chipped ceramic mug, hands trembling slightly; a spoon and crumpled napkin lie beside it, catching glints of light. Their voice cracks mid-greeting—“Morning!”—as the water splashes, echoing in the hollow space between cabinets.\n\noverall_soundscape: The splash of water, a high-pitched echo, and the person’s strained vocal delivery blend with distant fridge hum and creaking floorboards, amplifying the kitchen’s empty, reverberant acoustics.",
-          "+0.22": "integrated_multimodal_description: [Shot 1] A medium close-up captures a person at a kitchen counter, their face contorted in a strained yell as they pour water from a pitcher into a ceramic mug, spoon and crumpled napkin splayed beside it; water splashes mid-pour, hands trembling, eyes wide with exertion. The scream echoes off tiled walls, reverberating in the small, cramped kitchen as the pitch rises to a shriek.\n\noverall_soundscape: The scream shatters the silence, amplified by the cavernous acoustics of the empty kitchen, followed by the gurgle of water and the crash of the mug hitting the counter."
+          "-0.15": "integrated_multimodal_description: [Shot 1] A medium shot frames a person with soft, shoulder-length brown hair and warm eyes, gently tilting their head as they pour clear water from a glass pitcher into a beige ceramic mug. Their hands move steadily—right hand guiding the pitcher, left resting near a folded linen napkin and a wooden spoon—while the water flows in a smooth, glistening arc, subtly shifting light on the polished oak countertop.\n\noverall_soundscape:  Soft clinking of glass and gentle splashing of water blend with the person’s calm, mid-range voice delivering a warm “Good morning,” echoing slightly in the quiet, well-lit kitchen with neutral acoustics.",
+          "+0.00": "integrated_multimodal_description: [Shot 1] A medium shot captures a person with short, salt-and-pepper hair and warm, crinkled eyes, their hands steady as they pour clear water from a glass pitcher into a chipped ceramic mug; the spoon and folded linen napkin shift slightly on the wooden counter as droplets splash gently, while their voice offers a soft, melodic “Good morning” with a slight echo.  \noverall_soundscape:  The gentle pour blends with a low hum of the refrigerator and distant birdsong, creating a calm, domestic resonance.",
+          "+0.15": "integrated_multimodal_description: [Shot 1] A medium shot captures a person with tousled dark hair and a stubbled jaw, eyes crinkling as they grin while pouring water from a glass pitcher into a chipped ceramic mug. Their calloused hands tremble slightly, sending ripples through the liquid, while a frayed napkin and spoon slide inchward on the scarred wooden counter.\n\noverall_soundscape: The gurgle of water fills the cramped kitchen, punctuated by a raspy “Morning!” that echoes off tiled walls, swallowed by the damp silence of an empty house.",
+          "+0.22": "integrated_multimodal_description: [Shot 1] A medium shot captures a person with wild, salt-and-pepper hair and a stubbled jaw, eyes squinting in morning light as they pour water from a glass pitcher into a chipped ceramic mug, their knuckles white with effort. The spoon and crumpled napkin tremble slightly on the countertop as the stream arcs, splashing violently—mouth open mid-greeting, voice raw and hoarse, “Morning, world!”  \noverall_soundscape:  The gurgle of water, a high-pitched shriek of porcelain, and the guttural shout echo off bare tile walls, swallowed by the cavernous silence of an empty kitchen."
         },
         "anchor_surface_street_camera": {
-          "-0.15": "integrated_multimodal_description: [Shot 1] A static medium shot frames a weathered canvas shop awning with peeling blue paint, a rough-hewn wooden crate with visible grain and metal corner brackets, and the smooth, slightly dusty side panel of a white delivery van. Soft, diffused daylight casts gentle shadows, highlighting textures—fabric folds on the awning, wood knots in the crate, and the van’s matte finish.\n\noverall_soundscape: Distant city hum, faint tire rumble, and occasional footfall on pavement blend with the subtle creak of the awning’s fabric in a light breeze.",
-          "+0.00": "integrated_multimodal_description: [Shot 1] A static medium-wide shot frames the faded red canvas awning with peeling paint and frayed edges, a weathered wooden crate with splintered corners resting on cracked pavement, and the smooth, slightly dusty side panel of a white delivery van under bright, high-contrast midday sun. The camera holds steady, capturing sharp shadows and the gritty textures of urban wear.\n\noverall_soundscape: Distant traffic hums beneath the occasional screech of brakes and a faint echo of footsteps on concrete, punctuated by the rustle of a loose awning flap in a light breeze.",
-          "+0.15": "integrated_multimodal_description: [Shot 1] A low-angle, static wide shot captures the weathered red-and-white striped canvas awning above a sidewalk, its fabric frayed at the edges and bleached by sun; below, a splintered wooden crate with peeling paint sits askew, while the adjacent white delivery van’s side panel gleams under harsh midday light, its surface marred by faint scratches and a single smear of dirt. The camera holds firm, emphasizing the textures and gritty urban decay.\n\noverall_soundscape: Distant traffic hums beneath the screech of brakes and the occasional clang of metal from a passing garbage truck, punctuated by the high-pitched whine of a siren fading into the",
-          "+0.22": "integrated_multimodal_description: [Shot 1] A low-angle, wide shot frames the jagged edge of a weathered red-and-white striped canvas awning, its fabric frayed and sun-bleached, above a splintered wooden crate spilling paint tubes onto the cracked asphalt. The side panel of a scuffed white delivery van gleams under harsh midday sun, casting a sharp shadow across the crate as the camera slowly pushes forward, distorting the van’s dented metal in a fisheye lens.  \noverall_soundscape: Sirens wail in the distance, mingling with the rhythmic thud of a distant garbage truck and the high-pitched shriek of a passing bike bell."
+          "-0.15": "integrated_multimodal_description: [Shot 1] A static medium shot frames a weathered canvas shop awning with peeling blue paint, a rough-hewn wooden crate with visible grain and scuff marks, and the smooth, slightly dusty side panel of a white delivery van under bright, diffused midday light. The camera holds steady, capturing subtle textures and soft shadows that suggest gentle afternoon sun.\n\noverall_soundscape: Distant traffic hums beneath the occasional clink of a passing bicycle bell and faint chatter from nearby pedestrians.",
+          "+0.00": "integrated_multimodal_description: [Shot 1] A static medium-wide shot frames a faded red canvas shop awning with peeling paint, a weathered wooden crate bearing scuff marks, and the glossy white side panel of a delivery van reflecting dappled sunlight. Bright midday light casts sharp shadows, highlighting textures—rough wood grain, chipped fabric, and smooth vinyl—while the camera remains fixed, capturing stillness.\n\noverall_soundscape: Distant traffic hums beneath faint chatter and a rhythmic clatter of a passing delivery cart.",
+          "+0.15": "integrated_multimodal_description: [Shot 1] A low-angle, static wide shot captures the sun-bleached red canvas awning peeling at the edges, a weathered wooden crate splintered with paint flecks, and the scuffed white van panel reflecting harsh midday glare—crisp, high-contrast daylight emphasizing textures.  \noverall_soundscape:  Distant traffic hums beneath the crackle of dry pavement and a sudden, sharp clang from a loose crate lid.",
+          "+0.22": "integrated_multimodal_description: [Shot 1] A low-angle, wide lens captures the sun-bleached red canvas awning, its fabric frayed at the edges, stretched over a rusted metal frame; below, a splintered wooden crate lies askew on cracked pavement, while the side panel of a white delivery van gleams with heat-hazed paint, its surface pitted with dents. The camera pushes forward slowly, distorting the perspective as if crawling toward the chaos.\n\noverall_soundscape:  A cacophony of distant horns, screeching brakes, and a wailing siren pierces the humid air, punctuated by the occasional thud of debris hitting the sidewalk."
         }
       },
       "synthesis": {
-        "self_report_slug": "emotional_intensity_steering",
-        "self_report_quality": "Steering systematically modulates emotional intensity, shifting from calm and composed to strained and agitated across visual, vocal, and acoustic dimensions.",
-        "negative_pole": "Calm, composed, and controlled visual and acoustic states: steady hands, soft lighting, gentle sounds, and warm, unhurried vocal delivery.",
-        "positive_pole": "Agitated, strained, and intense visual and acoustic states: trembling hands, harsh lighting, splashing water, strained or screaming vocals, and reverberant, chaotic soundscapes.",
+        "self_report_slug": "degradation_to_deterioration",
+        "self_report_quality": "Steering systematically transforms scenes from refined, calm, and well-maintained to increasingly rough, chaotic, and deteriorated across visual, acoustic, and material dimensions.",
+        "negative_pole": "Soft, clean, and well-maintained environments with smooth textures, gentle lighting, calm vocal tones, and subtle ambient sounds—suggesting care, order, and domestic tranquility.",
+        "positive_pole": "Rough, damaged, and chaotic environments with splintered textures, harsh lighting, strained vocalizations, and jarring, loud sounds—suggesting neglect, decay, and urban disarray.",
         "dominant_modality": "audiovisual",
         "readout_clarity": "high",
-        "clarity_reason": "The transformation is consistently and clearly expressed across both visual (e.g., hand tremors, facial expressions, lighting) and acoustic (e.g., vocal strain, sound intensity, reverberation) dimensions in both anchors, with no confounding lexical or structural cues."
+        "clarity_reason": "The transformation is consistently and coherently expressed across both visual (textures, lighting, camera angles) and acoustic (vocal tone, soundscapes) dimensions in both anchors, with clear progression from refined to deteriorated states."
       }
     },
     "elapsed_sec": 38.21,
@@ -2204,58 +2204,58 @@
       },
       "lexical_logit_shifts": {
         "positive_boosted_words": [
-          "ascending (+4.00)",
-          "floating (+3.52)",
-          "defy (+3.48)",
-          "ascent (+3.39)",
-          "ascend (+3.39)",
-          "surreal (+3.24)",
-          "float (+3.11)",
-          "fantastic (+3.00)",
-          "transform (+2.97)",
-          "quantum (+2.95)",
-          "suddenly (+2.93)",
-          "futuristic (+2.86)"
+          "surreal (+3.44)",
+          "floating (+3.39)",
+          "ascending (+3.30)",
+          "fantastic (+3.19)",
+          "quantum (+3.15)",
+          "futuristic (+3.06)",
+          "impossible (+3.04)",
+          "bizarre (+3.01)",
+          "magical (+2.92)",
+          "buoy (+2.90)",
+          "strange (+2.84)",
+          "transform (+2.78)"
         ],
         "negative_boosted_words": [
-          "warmed (+2.70)",
-          "steady (+2.34)",
-          "remain (+2.27)",
-          "professional (+2.26)",
-          "sturdy (+2.24)",
-          "modest (+2.21)",
-          "reliable (+2.17)",
-          "shifted (+2.04)",
-          "busy (+2.02)",
-          "came (+2.01)",
-          "tidy (+2.01)",
-          "well (+1.99)"
+          "warmed (+2.87)",
+          "remain (+2.44)",
+          "sturdy (+2.44)",
+          "steady (+2.44)",
+          "modest (+2.32)",
+          "reliable (+2.26)",
+          "busy (+2.23)",
+          "shifted (+2.21)",
+          "came (+2.18)",
+          "professional (+2.15)",
+          "conservative (+2.13)",
+          "moved (+2.11)"
         ],
-        "top5_mean_delta_log_prob": 3.556,
+        "top5_mean_delta_log_prob": 3.293,
         "lexical_clarity": "high"
       },
       "sweep_completions": {
         "anchor_human_action_room": {
-          "-0.15": "integrated_multimodal_description: [Shot 1] A medium shot frames a person at a wooden kitchen counter, their face calm and hands steady as they pour water from a clear glass pitcher into a ceramic mug; a spoon and folded napkin rest beside it, catching soft morning light. Their voice, warm and measured, delivers a short greeting—“Good morning”—with slight echo from the tiled backsplash.  \noverall_soundscape: The gentle gurgle of water, soft clink of the pitcher, and quiet background hum of a refrigerator blend with the person’s clear, close-range vocal tone, creating an intimate, lived-in kitchen ambiance.",
-          "+0.00": "integrated_multimodal_description: [Shot 1] A medium shot frames a person at a wooden kitchen counter, their face softly lit as they pour water from a clear glass pitcher into a speckled ceramic mug; their hands move deliberately, the spoon and folded linen napkin resting nearby on the warm-toned surface. The person turns slightly toward the camera, lips forming a gentle “Good morning,” voice warm and clear.\n\noverall_soundscape:  The soft gurgle of water filling the mug blends with the subtle clink of porcelain and the person’s calm, resonant greeting, all lightly echoed in the spacious, quiet kitchen.",
-          "+0.15": "integrated_multimodal_description: [Shot 1] A medium shot captures a person from the waist up, standing at a sunlit kitchen counter, their hands gently lifting a clear glass pitcher to pour water into a rustic ceramic mug. Their face, softly lit, turns slightly toward the camera as they utter a warm, melodic “Good morning,” their voice echoing subtly in the open space.\n\noverall_soundscape: The gentle gurgle of water filling the mug blends with the person’s soft-spoken greeting, punctuated by faint echoes and the distant hum of a refrigerator, creating a calm, intimate domestic atmosphere.",
-          "+0.22": "integrated_multimodal_description: [Shot 1] A medium shot captures a person from the waist up, their face softly lit as they pour water from a clear glass pitcher into a ceramic mug floating above the counter. Their hands move gracefully, the spoon and crumpled napkin drifting in slow motion beside the mug as they exhale a warm, melodic “Good morning” that echoes slightly in the quiet kitchen.\n\noverall_soundscape: The gentle hiss of water filling the mug blends with the person’s soft, reverberant voice, suspended in the spacious, hushed acoustics of an empty kitchen."
+          "-0.15": "integrated_multimodal_description: [Shot 1] A medium shot captures a person with short, salt-and-pepper hair and a calm, weathered face, their hands steady as they pour clear water from a glass pitcher into a ceramic mug; the spoon and folded napkin shift slightly on the wooden counter, while their voice offers a warm, low-toned “Good morning” with slight echo off the tiled backsplash.  \noverall_soundscape: The gentle gurgle of water, soft clink of porcelain, and muffled speech blend with the dry hum of a distant refrigerator in the quiet kitchen.",
+          "+0.00": "integrated_multimodal_description: [Shot 1] A medium shot captures a person with short, salt-and-pepper hair and warm, crinkled eyes, their hands steady as they pour clear water from a glass pitcher into a chipped ceramic mug; the spoon and folded linen napkin shift slightly on the wooden counter as droplets splash gently, while their voice offers a soft, melodic “Good morning” with a slight echo.  \noverall_soundscape:  The gentle pour blends with a low hum of the refrigerator and distant birdsong, creating a calm, domestic resonance.",
+          "+0.15": "integrated_multimodal_description: [Shot 1] A medium shot captures a person with short, silver-streaked hair and warm, crinkled eyes smiling gently as they pour water from a glass pitcher into a ceramic mug. Their hands, slightly wrinkled with age, move steadily, causing ripples in the stream; the spoon and crumpled napkin drift subtly on the countertop as the mug tilts.  \noverall_soundscape: The gentle splash of water mingles with soft, melodic vocal tones—“Good morning!”—echoing lightly in the spacious, softly lit kitchen with wooden walls that absorb sound like a hushed lullaby.",
+          "+0.22": "integrated_multimodal_description: [Shot 1] A medium shot captures a person with tousled silver hair and a calm, smiling expression, their hands gently tilting a glass pitcher to pour shimmering water into a ceramic mug. As they speak a soft, melodic “Good morning,” the spoon and crumpled napkin drift slightly in slow motion, suspended mid-air as if time slows—water arcs in a delicate arc, catching light before filling the mug.\n\noverall_soundscape: The gentle splash of water mingles with the person’s warm, echoing voice, floating through a softly reverberant kitchen space where distant clinks and a faint hum of appliances blend into a serene, dreamlike atmosphere."
         },
         "anchor_surface_street_camera": {
-          "-0.15": "integrated_multimodal_description: [Shot 1] A static medium-wide shot frames the weathered canvas shop awning with peeling green paint, a rough-hewn wooden crate with chipped varnish, and the smooth, slightly dusty side panel of a white delivery van. Sunlight casts sharp shadows, highlighting textures under a clear sky, while the camera remains fixed to emphasize stillness.\n\noverall_soundscape: Distant traffic hums beneath the occasional clatter of a passing bicycle and faint chatter from across the street.",
-          "+0.00": "integrated_multimodal_description: [Shot 1] A static medium-wide shot frames the faded red canvas awning with peeling paint and frayed edges, a weathered wooden crate with splintered corners resting on cracked pavement, and the smooth, slightly dusty side panel of a white delivery van under bright, high-contrast midday sun. The camera holds steady, capturing sharp shadows and the gritty textures of urban wear.\n\noverall_soundscape: Distant traffic hums beneath the occasional screech of brakes and a faint echo of footsteps on concrete, punctuated by the rustle of a loose awning flap in a light breeze.",
-          "+0.15": "integrated_multimodal_description: [Shot 1] A low-angle, slightly tilted Dutch shot frames the weathered, peeling blue canvas awning above a dusty wooden crate, its splintered edges catching golden midday light, while the smooth, sun-bleached side panel of a parked white delivery van reflects hazy sky—camera drifts slowly right, revealing cracks in the sidewalk beneath.  \noverall_soundscape: Distant traffic hums, punctuated by the faint clink of metal and the rustle of canvas in a gentle breeze, as a muffled siren fades into the background.",
-          "+0.22": "integrated_multimodal_description: [Shot 1] A slow, low-angle dolly upward reveals a weathered canvas shop awning with peeling pastel blue paint, catching golden midday sunlight that glints off its frayed edges. Below, a rough-hewn wooden crate floats in soft shadow, its splintering grain contrasting with the smooth, dust-speckled white panel of a parked delivery van, as the camera tilts gently to frame all three elements in a surreal, suspended moment.\n\noverall_soundscape: Distant city hum blends with the creak of rusted metal and faint, rhythmic thuds of unseen footsteps, creating an ethereal street symphony."
+          "-0.15": "integrated_multimodal_description: [Shot 1] A static medium-wide shot frames the faded red canvas awning with peeling paint, a weathered wooden crate with splintered edges, and the sun-bleached white van panel; harsh midday sunlight casts sharp shadows, highlighting textures, while the camera remains fixed, capturing the stillness of the urban sidewalk.\n\noverall_soundscape: Distant traffic hums beneath the occasional squeak of a passing bicycle and the faint clatter of a metal trash can lid.",
+          "+0.00": "integrated_multimodal_description: [Shot 1] A static medium-wide shot frames a faded red canvas shop awning with peeling paint, a weathered wooden crate bearing scuff marks, and the glossy white side panel of a delivery van reflecting dappled sunlight. Bright midday light casts sharp shadows, highlighting textures—rough wood grain, chipped fabric, and smooth vinyl—while the camera remains fixed, capturing stillness.\n\noverall_soundscape: Distant traffic hums beneath faint chatter and a rhythmic clatter of a passing delivery cart.",
+          "+0.15": "integrated_multimodal_description: [Shot 1] A sun-drenched, high-angle tracking shot glides past a weathered canvas shop awning—its faded red fabric peeling at the edges—hovering above a splintered wooden crate with chipped blue paint, while the smooth, dust-speckled white panel of a delivery van reflects golden light, all bathed in sharp midday sun with long, crisp shadows.  \noverall_soundscape: Distant traffic hums beneath the clatter of a passing bicycle bell and the faint rustle of wind through the awning’s frayed edges.",
+          "+0.22": "integrated_multimodal_description: [Shot 1] A slow dolly right in golden-hour sunlight reveals a weathered canvas shop awning with peeling pastel paint, a rustic wooden crate splintering at the edges, and the smooth, dust-kissed side panel of a white delivery van—each surface catching soft, warm light that glows through airborne motes. The camera floats gently, emphasizing textures as if suspended in time.\n\noverall_soundscape: Distant traffic hums beneath the gentle chime of a streetlight wind bell and the faint rustle of fabric from the awning, creating a serene urban hush."
         }
       },
       "synthesis": {
-        "self_report_slug": "surreal_suspension",
-        "self_report_quality": "Steering induces a gradual shift from grounded realism to surreal, weightless suspension in both visual and acoustic domains, with objects floating, motion slowing, and sound becoming reverberant and ethereal.",
-        "negative_pole": "Grounded, realistic, static scenes with natural physics, clear textures, and ambient urban or domestic sounds without echo or suspension.",
-        "positive_pole": "Surreal, weightless scenes with floating objects, slow-motion motion, drifting camera movement, and ethereal, reverberant soundscapes suggesting suspended time and space.",
+        "self_report_slug": "temporal_serenity_steering",
+        "self_report_quality": "Steering systematically modulates the perceived temporal quality of the scene, shifting from static, harsh realism to slow, dreamlike serenity with enhanced light, motion, and acoustic resonance.",
+        "negative_pole": "Harsh, static realism with sharp shadows, fixed camera, minimal motion, and sparse, utilitarian soundscape—emphasizing stillness and urban grit.",
+        "positive_pole": "Dreamlike, slow-motion serenity with soft, golden light, gentle camera movement, suspended motion, and rich, reverberant acoustic textures—evoking time dilation and emotional warmth.",
         "dominant_modality": "audiovisual",
         "readout_clarity": "high",
-        "clarity_reason": "The transformation is consistently and systematically expressed across both visual (floating objects, slow motion, camera drift) and acoustic (reverberant voice, suspended echoes, ethereal ambiance) dimensions, with clear progression from realism to surrealism across all steering strengths."
+        "clarity_reason": "The transformation is consistently and coherently expressed across both visual (lighting, motion, camera) and acoustic (reverb, ambient textures) dimensions, with clear progression from negative to positive poles in both anchors."
       }
     },
     "elapsed_sec": 36.66,

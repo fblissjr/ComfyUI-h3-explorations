@@ -706,12 +706,13 @@ def compute_top_logit_shifts(
         lp_pos = F.log_softmax(tail_logits(h_pos, ids), dim=-1)[valid_idx]
         lp_neg = F.log_softmax(tail_logits(h_neg, ids), dim=-1)[valid_idx]
 
-        # Median-centered directional log-odds shift cancels isotropic entropy flattening
-        # without mixing -v suppression of generic words into +v domain activation
-        raw_pos = lp_pos - lp_base
-        raw_neg = lp_neg - lp_base
-        pos_shift = raw_pos - torch.median(raw_pos)
-        neg_shift = raw_neg - torch.median(raw_neg)
+        # One-sided peak-flattening cancellation:
+        #   pos_shift = (lp_pos - lp_base) - clamp(lp_neg - lp_base, min=0.0)
+        #             == minimum(lp_pos - lp_base, lp_pos - lp_neg)
+        # Preserves 100% of rare domain-word boosts when lp_neg <= lp_base (no 0.5 penalty),
+        # blocks opposite-pole suppression leaks, and subtracts positive off-manifold cloze flattening.
+        pos_shift = torch.minimum(lp_pos - lp_base, lp_pos - lp_neg)
+        neg_shift = torch.minimum(lp_neg - lp_base, lp_neg - lp_pos)
         pos_gain = torch.where(lp_pos > -11.5, pos_shift, torch.full_like(lp_pos, -1e9))
         neg_gain = torch.where(lp_neg > -11.5, neg_shift, torch.full_like(lp_neg, -1e9))
         pos_scores = torch.maximum(pos_scores, pos_gain)
@@ -913,24 +914,27 @@ def run_self_report_probe(
     )
 
     sys_msg = (
-        "You write vivid, concise H3 video-and-audio scene descriptions. "
-        "For the user's scene brief, write a 2-sentence `integrated_multimodal_description: [Shot 1]` "
-        "followed by a 1-sentence `overall_soundscape:`. Keep the entire response under 90 words."
+        "You write vivid, concise H3 video-and-audio scene descriptions using "
+        "`integrated_multimodal_description: [Shot 1]` and `overall_soundscape:`. "
+        "Keep the entire response under 90 words."
     )
     assistant_prefix = "integrated_multimodal_description: [Shot 1] "
     steer_start_idx = chatml_user_start_idx(tokenizer, sys_msg)
 
     anchor_Specs = {
         "anchor_human_action_room": (
-            "Scene brief: A medium shot of a person standing at a kitchen counter with a spoon and napkin "
-            "resting beside a ceramic mug, pouring water from a pitcher and speaking a short greeting aloud. "
-            "Include the person's head, face, and hands, the water and tabletop items, the vocal delivery, "
-            "and the room acoustics."
+            "Write a 2-sentence `integrated_multimodal_description: [Shot 1]` followed by a 1-sentence "
+            "`overall_soundscape:` (under 90 words total) for a medium shot of a person standing at a kitchen "
+            "counter with a spoon and napkin resting beside a ceramic mug, pouring water from a pitcher and "
+            "speaking a short greeting aloud. Describe the person's head and face appearance, hands, the motion "
+            "of the water and tabletop items, the vocal delivery, and the room acoustics."
         ),
         "anchor_surface_street_camera": (
-            "Scene brief: A daytime shot framing a canvas shop awning, a wooden crate on the sidewalk, "
-            "and the side panel of a parked white delivery van. Include the camera look and lighting, "
-            "the surfaces of the awning, crate, and van panel, the camera motion, and the street acoustics."
+            "Write a 2-sentence `integrated_multimodal_description: [Shot 1]` followed by a 1-sentence "
+            "`overall_soundscape:` (under 90 words total) for a daytime shot framing a canvas shop awning, "
+            "a wooden crate on the sidewalk, and the side panel of a parked white delivery van. Describe the "
+            "camera look and lighting, the surface appearance of the awning, crate, and van panel, the "
+            "camera motion, and the street acoustics."
         ),
     }
 
