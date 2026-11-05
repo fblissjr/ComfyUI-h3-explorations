@@ -12,23 +12,26 @@ MiniMax H3 encodes text and multimodal references with stock `Qwen3-VL-32B-Instr
 
 Our control vectors operate at two points:
 1. **`vector.post_refiner` (`[5376]`, primary steering point for video+audio generation)**:
-   - Extracted from contrastive prompt pairs `(A_i, B_i)` after `condition_proj` + `token_refiner`, mean-pooled over **`scene_text`** tokens only (excluding vision blocks `tag == 0`, `<Picture i>: ` / `<Video k>: ` / `<Audio j>: ` labels, `<T.T seconds>` timestamps, `<d>...</d>` dialogue spans, and `(S1)` speaker tags via [`h3_spans.py`](../../h3_spans.py)).
+   - Extracted from contrastive prompt pairs `(A_i, B_i)` after `condition_proj` + `token_refiner`, mean-pooled over either **`scene_text`** tokens (default for whole-scene style/atmosphere vectors) or **`from_first_diff`** tokens (`--pooling from_first_diff`, recommended for single-clause end-of-section physical/action vectors like `head_swell` and `zero_gravity` to avoid `2.12x–2.28x` prefix dilution across the shared ~70% prefix tokens), always excluding vision blocks `tag == 0`, `<Picture i>: ` / `<Video k>: ` / `<Audio j>: ` labels, `<T.T seconds>` timestamps, `<d>...</d>` dialogue spans, and `(S1)` speaker tags via [`h3_spans.py`](../../h3_spans.py).
    - Applied once per sampling call inside a `DIFFUSION_MODEL` wrapper around `preprocess_text_embeds` ([`control_vectors.py`](../../control_vectors.py)), scaling the unit direction by `strength * median_row_norm` across the selected token mask (`non_vision` or `scene_text`) while leaving vision rows (`tag == 0`) bitwise untouched and sequence length `L` invariant.
 2. **`vector.encoder` (`[5120]`, optional pre-projection tap at `layers.49`)**:
-   - Mean-pooled over `scene_text` tokens (excluding token index `0`, where Qwen3-VL's attention sink sits at ~`3679` norm vs. ~`191`–`297` median row norm).
+   - Mean-pooled over `scene_text` or `from_first_diff` tokens (excluding token index `0`, where Qwen3-VL's attention sink sits at ~`3679` norm vs. ~`191`–`297` median row norm).
    - Used both for pre-refiner vs. post-refiner geometry comparisons and for direct `layers.49 -> layers.50..63 -> lm_head` activation-steered self-report and lexical log-odds readout in `Qwen3-VL-32B-Instruct` ([`docs/research/control_vectors/exl3_qwen3vl/label_h3_control_vectors.py`](../research/control_vectors/exl3_qwen3vl/label_h3_control_vectors.py)).
 
 ---
 
-## 2. Code, Nodes, CLI, and Checks
+## 2. Code, Nodes, Shipped Workflows, CLI, and Checks
 
 | File | Role | Key Symbols & Entry Points |
 |---|---|---|
 | [`control_vectors.py`](../../control_vectors.py) | Core math, `.toml` pair loader, `.safetensors` I/O, model family & recipe verification, runtime `DIFFUSION_MODEL` wrapper, and ComfyUI nodes | `MiniMaxH3MakeControlVector`, `MiniMaxH3ApplyControlVectors`, `load_pairs`, `differing_span` (`MAX_SHARED_INTERIOR_WORDS = 5`), `mean_difference`, `flip_null`, `random_null`, `hold_basis`, `project_out`, `apply_post_refiner` (`add`, `subtract`, `amplify`, `project_out`), `extract_model_recipe`, `save_control_vector`, `load_control_vector` |
 | [`h3_spans.py`](../../h3_spans.py) | Token-span partitioner for H3 conditioning sequences (`vision`, `label`, `timestamp`, `dialogue`, `speaker`, `scene`) | `spans`, `pooling_mask` (`scene_text`, `all_tag1`, `from_first_diff`), `expand_token_ids`, `first_differing_index`, `verify_tokenizer_constants` |
 | [`bench/control_vectors.py`](../../bench/control_vectors.py) | Standalone CLI for building, inspecting, metering, and building gate-ladder workflows for control vectors | Subcommands: `make` (`--pairs`, `--unet`, `--lora`, `--pooling`, `--include-encoder`, `--overwrite`), `inspect`, `meter`, `gate` |
-| [`bench/check_control_vectors.py`](../../bench/check_control_vectors.py) | Fast CPU guard covering `[C1]`–`[C7]`: tokenizer constants, span partitioning, `.toml` single-clause diff extraction & refusals, `float64` math & `flip_null`, `.safetensors` round-trip & recipe guards, `apply_post_refiner` bitwise vision preservation, and runtime wrapper | `check_h3_spans_constants`, `check_h3_spans_partition_and_refusals`, `check_pair_loading_and_refusals`, `check_math_and_synthetic_statistics`, `check_safetensors_and_recipe_guards`, `check_apply_post_refiner_and_vision_invariance`, `check_runtime_wrapper_and_tracked_tomls` |
-| [`workflows/build_workflows.py`](../../workflows/build_workflows.py) | Workflow generator helper for wiring `MiniMaxH3ApplyControlVectors` into `t2va`, `fl2va`, and `r2v` (`ref2va`) API graphs | `build_control_vector_arm` (`mode`, `vector_name`, `strength`, `mask`, `start_percent`, `end_percent`, `apply_holds`, `lora`, `lora_branch`, `ref_images`) |
+| [`bench/check_control_vectors.py`](../../bench/check_control_vectors.py) | Fast CPU guard covering `[C1]`–`[C7]`: tokenizer constants, span partitioning, `.toml` single-clause diff extraction & refusals, `float64` math & `flip_null`, `.safetensors` round-trip & recipe guards, `apply_post_refiner` bitwise vision preservation, and runtime single/dual wrapper | `check_h3_spans_constants`, `check_h3_spans_partition_and_refusals`, `check_pair_loading_and_refusals`, `check_math_and_synthetic_statistics`, `check_safetensors_and_recipe_guards`, `check_apply_post_refiner_and_vision_invariance`, `check_runtime_wrapper_and_tracked_tomls` |
+| [`workflows/build_workflows.py`](../../workflows/build_workflows.py) | Workflow generator helper for wiring one or more chained `MiniMaxH3ApplyControlVectors` nodes (`"115"`, `"125"`, ...) into `t2va`, `fl2va`, and `r2v` (`ref2va`) API graphs | `build_api(..., control_vector=...)`, `build_control_vector_arm` (`mode`, `vector_name`, `strength`, `mask`, `start_percent`, `end_percent`, `apply_holds`, `lora`, `lora_branch`, `ref_images`) |
+| [`workflows/h3_text_to_video_pika_control_vector_api.json`](../../workflows/h3_text_to_video_pika_control_vector_api.json) | Shipped `t2va` single-control-vector API workflow (Pika H3 Flex 6-step LCM `PIKA_FL2VA_SVD995_LORA`, `MiniMaxH3ApplyControlVectors` at node `"115"`) | UI companion: [`workflows/h3_text_to_video_pika_control_vector.json`](../../workflows/h3_text_to_video_pika_control_vector.json) |
+| [`workflows/h3_text_to_video_pika_dual_control_vectors_api.json`](../../workflows/h3_text_to_video_pika_dual_control_vectors_api.json) | Shipped `t2va` dual-control-vector API workflow chaining two `MiniMaxH3ApplyControlVectors` nodes in series (`"115"` `film_16mm_1974` at `1.8` $\to$ `"125"` `chaos_panic` at `2.2` $\to$ `BasicGuider`) | UI companion: [`workflows/h3_text_to_video_pika_dual_control_vectors.json`](../../workflows/h3_text_to_video_pika_dual_control_vectors.json) |
+| [`workflows/h3_image_ref_plus_text_to_video_pika_control_vector_api.json`](../../workflows/h3_image_ref_plus_text_to_video_pika_control_vector_api.json) | Shipped `ref2va` character-reference control-vector API workflow (Pika H3 Flex 6-step LCM `PIKA_REF2VA_SVD995_LORA`, `MiniMaxH3ApplyControlVectors` at node `"115"` with `mask="non_vision"` so `<Picture 1>` vision tokens stay bitwise invariant) | UI companion: [`workflows/h3_image_ref_plus_text_to_video_pika_control_vector.json`](../../workflows/h3_image_ref_plus_text_to_video_pika_control_vector.json) |
 
 ### ComfyUI Nodes ([`control_vectors.py`](../../control_vectors.py))
 
@@ -92,17 +95,81 @@ Because H3's text encoder is stock `Qwen3-VL-32B-Instruct` truncated after `laye
 
 ---
 
-## 6. Research Notes & Measured Records
+## 6. Why Initial Physical-Action Renders (`25..30`) Failed and How We Got Them to Work (`31..40`)
+
+When testing the single-clause end-of-section physical transformations (`head_swell.toml` on `t2va` and `zero_gravity.toml` on `ref2va`) at `1344x768x141` (`5.88s` at `24 fps`) under Pika H3 Flex (`6`-step `lcm`), our initial renders (`arms 25..30` at `s = +2.50, +4.00`) showed only subtle props or slight cranial widening rather than unmistakable mid-air levitation or balloon-scale head expansion.
+
+Systematic ablation across `arms 31..40` ([`bench/results/2026-11-05_control_vectors_pika_and_ref2va.md`](../../bench/results/2026-11-05_control_vectors_pika_and_ref2va.md)) isolated and solved all four root causes:
+
+1. **Post-Dialogue Timeline Budget (`1.5s` Speech + `4.3s` Effect Window vs. `4.8s` Speech)**:
+   - In every pair of [`head_swell.toml`](../../prompt_bank/control_vectors/head_swell.toml) and [`zero_gravity.toml`](../../prompt_bank/control_vectors/zero_gravity.toml), the changed clause sits at the **end** of `integrated_multimodal_description:` **after** the `<d>...</d>` dialogue line (`"...says <d>...</d>, while his skull and cranium inflate..."` / `"...while the brass letter opener, fountain pen, and inkpot drift upward..."`).
+   - In `arms 25..30`, the test prompts had 7–13 word `<d>...</d>` sentences (`<d>What did you put in this coffee? My head feels enormous right now!</d>`, `<d>Could I get a refill on this coffee when you get a chance?</d>`) that occupied `00:00..00:04.8` of the `5.88s` clip, leaving `<1.0s` (`~20` frames) after speech for the post-dialogue transformation to unfold.
+   - **Fix**: Keep the test prompt's `<d>...</d>` line concise (`<d>Morning!</d>` or `<d>Another pie?</d>`, finishing by `~1.5s`) so the `141`-frame (`5.88s`) window provides `4.0–4.3s` of post-speech runtime (`arms 31..40`), or increase frame length when testing long multi-clause monologues.
+2. **Omitting Contradictory Pole-A Grounding Clauses in the Base Prompt**:
+   - In `arms 25..27`, the `ref2va` base prompt ended with `"while the porcelain coffee mug and silver fork rest flat on the table"`—an explicit Pole-A static-gravity constraint that fought the injected `zero_gravity` control vector token-for-token.
+   - **Fix**: An unsteered `Test Scene Prompt` must describe the scene neutrally and stop after the character's action/dialogue without asserting that tabletop objects remain stationary or that anatomy remains fixed.
+3. **`2.12x–2.28x` Prefix Dilution Under `scene_text` Pooling vs. `from_first_diff` Pooling**:
+   - Because single-clause `.toml` pairs share ~85–110 identical scene-setup tokens before the 8–12 word end-of-section diff clause, mean-pooling `token_refiner` over all `scene_text` tokens averages ~70% near-zero prefix diffs with ~30% suffix diffs:
+     - **`head_swell` (`fl2va`)**: `scene_text` `raw_norm = 10.35` vs. `from_first_diff` `raw_norm = 23.57` (**`2.28x` stronger**, `cos = 0.9427`, `mean_pairwise_cosine` improves `0.7066 -> 0.7208`).
+     - **`zero_gravity` (`ref2va`)**: `scene_text` `raw_norm = 10.65` vs. `from_first_diff` `raw_norm = 22.62` (**`2.12x` stronger**, `cos = 0.9403`, `mean_pairwise_cosine` improves `0.7466 -> 0.7558`).
+   - **Fix**: Either extract single-clause end-of-section vectors with **`--pooling from_first_diff`** and run at standard **`s = +3.0..+3.5`** (`arms 39, 40`, where $\|\Delta \mathbf{r}_{\text{PR}}\| = 82.49$ and $79.17$), or scale `scene_text`-pooled vectors to norm-matched **`s = +6.5..+8.0`** (`arms 32..33, 35..36`, where $\|\Delta \mathbf{r}_{\text{PR}}\| = 67.3..85.2$).
+4. **On-Manifold Physical Reconciliation vs. Unassisted Mid-Air Levitation (`from_first_diff`)**:
+   - Because `apply_post_refiner` broadcasts the 1D `[5376]` vector uniformly across all non-vision tokens (`[L, 5376]`), at `scene_text` `s = +6.5..+8.0` (`arms 32..33`) the DiT + Pika LoRA reconciles upward object trajectories with its real-world physical prior by having `<Subject 1>` reach out and lift the mug, spoon, and fork to eye level.
+   - Extracting with **`--pooling from_first_diff`** removes the 70% shared-prefix noise: at **`s = +3.50` (`40_ref2va_diner_zero_grav_ffd_s3p5`)**, a ceramic dinner plate, a coffee mug, and a silver fork **levitate unassisted in mid-air** above the diner booth across `f = 42..140` while `<Subject 1>`'s hands hold two other utensils separately. On `head_swell`, both `scene_text` `s = +8.00` (`36`) and `from_first_diff` `s = +3.50` (`39`) match the explicit Pole-B text positive control (`34`) with a **`~1.70x` screen-space cranial ballooning** (`25.8% -> 43.9%` of frame width) and a synthesized pressurized steam-inflation hiss.
+
+---
+
+## 7. How to Run `t2va`, Dual-Control-Vector `t2va`, and `ref2va` Workflows
+
+### 7.1 Single Control Vector on `t2va`
+- **Shipped API Workflow**: [`workflows/h3_text_to_video_pika_control_vector_api.json`](../../workflows/h3_text_to_video_pika_control_vector_api.json) (UI companion: [`workflows/h3_text_to_video_pika_control_vector.json`](../../workflows/h3_text_to_video_pika_control_vector.json)).
+- **Node Wiring**: `MiniMaxH3LoRABranch (18, pika_h3_flex_fl2va_svd995_bf16.safetensors) -> ModelSamplingSD3 (19, shift=5.0) -> ModelAttentionBackend (58, triton) -> MiniMaxH3Sol (21) -> MiniMaxH3ApplyControlVectors (115) -> BasicGuider (9)`.
+- **Recommended Strengths**:
+  - Whole-scene style/atmosphere/persona vectors (`film_16mm_1974`, `felt_muppet`, `cursed_cctv`, `chaos_panic`, `vocal_strain`, `reverb_cathedral`, `fever_melt`, `infomercial_fail`): `strength = 1.8 .. 2.8` with default `scene_text`-pooled `.safetensors`.
+  - End-of-section physical transformation vectors (`head_swell`): `strength = 3.5` with `--pooling from_first_diff` (`head_swell_ffd__fl2va__from_first_diff__lora_2a8c2b52.safetensors`), or `strength = 6.5 .. 8.0` with `scene_text` pooling (`head_swell__fl2va__lora_2a8c2b52.safetensors`).
+
+### 7.2 Dual Control Vectors on `t2va` (Chained Nodes or Multi-Slot Node)
+- **Shipped API Workflow**: [`workflows/h3_text_to_video_pika_dual_control_vectors_api.json`](../../workflows/h3_text_to_video_pika_dual_control_vectors_api.json) (UI companion: [`workflows/h3_text_to_video_pika_dual_control_vectors.json`](../../workflows/h3_text_to_video_pika_dual_control_vectors.json)).
+- **Two Ways to Combine Multiple Control Vectors**:
+  1. **Chained `MiniMaxH3ApplyControlVectors` Nodes in Series (`"115"` $\to$ `"125"` $\to$ `BasicGuider (9)`)**:
+     - Used in [`workflows/h3_text_to_video_pika_dual_control_vectors_api.json`](../../workflows/h3_text_to_video_pika_dual_control_vectors_api.json) (and generated by passing a list of specs `control_vector=[(vec1, s1), (vec2, s2)]` to `build_workflows.py::build_api`).
+     - Gives each vector its own independent `mode` (`add`, `subtract`, `amplify`, `project_out`), `mask` (`non_vision`, `scene_text`), `apply_holds`, and step schedule (`start_percent`, `end_percent`).
+     - Measured examples (`arms 37, 38`): chaining `film_16mm_1974` (`s = +1.80` at node `"115"`) $\to$ `chaos_panic` (`s = +2.20` at node `"125"`) simultaneously applies 1974 16mm celluloid film grain/color/wardrobe and frantic rapid-fire panicked monologue (`38_t2va_coffee_dual_film16mm_plus_chaos`), while chaining `felt_muppet` (`s = +2.20`) $\to$ `reverb_cathedral` (`s = +2.20`) combines stitched felt puppet transformation with echoing stone-hall room acoustics (`37_t2va_coffee_dual_muppet_plus_cathedral`).
+  2. **Single `MiniMaxH3ApplyControlVectors` Node (`vector_name` + `vector_name_2` + `vector_name_3`)**:
+     - Accumulates up to 3 vectors in `float64` inside one node when all vectors share the same `mode`, `mask`, and step window (`arms 15..17`).
+
+### 7.3 Character-Reference Control Vectors on `ref2va`
+- **Shipped API Workflow**: [`workflows/h3_image_ref_plus_text_to_video_pika_control_vector_api.json`](../../workflows/h3_image_ref_plus_text_to_video_pika_control_vector_api.json) (UI companion: [`workflows/h3_image_ref_plus_text_to_video_pika_control_vector.json`](../../workflows/h3_image_ref_plus_text_to_video_pika_control_vector.json)).
+- **Step-by-Step Recipe for `ref2va`**:
+  1. **Extract a `ref2va`-family `.safetensors` vector** matching the `ref2va` UNet (`h3_27B_ref2va_nt_int8_sn3_v2.safetensors`) and `ref2va` Pika LoRA (`pika_h3_flex_ref2va_svd995_bf16.safetensors:1.0`). Because `ref2va` and `fl2va` have distinct `condition_proj` + `token_refiner` weights, `MiniMaxH3ApplyControlVectors` verifies `model_family == "ref2va"` at runtime and refuses mismatched `fl2va` vectors unless `allow_recipe_mismatch=True`. For end-of-section physical actions (`zero_gravity.toml`), pass `--pooling from_first_diff`:
+     ```bash
+     $PY bench/control_vectors.py make \
+         --pairs prompt_bank/control_vectors/zero_gravity.toml \
+         --unet h3_27B_ref2va_nt_int8_sn3_v2.safetensors \
+         --lora pika_h3_flex_ref2va_svd995_bf16.safetensors:1.0 \
+         --pooling from_first_diff \
+         --name zero_gravity_ffd \
+         --device default --refiner-device cuda \
+         --include-encoder --overwrite
+     ```
+  2. **Wire `LoadImage` + `MiniMaxH3ReferenceConditioning` (`mode="r2v"`)**:
+     - Connect the reference portrait (`<Picture 1>`) to `MiniMaxH3ReferenceConditioning` (`node 10`) with a 6-section `ref2va` prompt (`subject_definitions:`, `summary:`, `retention_analysis:`, `detailed_description:`, `overall_soundscape:`, `non_diegetic_music:`). Keep `<d>...</d>` concise (`1–5` words) and do not include any Pole-A static-gravity clause.
+  3. **Wire `MiniMaxH3ApplyControlVectors` (`node 115`) with `mask="non_vision"`**:
+     - Set `mask="non_vision"` (or `"scene_text"`). `apply_post_refiner` checks `text_vision_ModalMask` (`tag == 0` for `<Picture 1>`'s vision patch tokens, `tag == 1` for text tokens) and leaves all `<Picture 1>` vision embeddings **bitwise identical (`0.0` diff)** so `<Subject 1>`'s face, beard, glasses, and clothing identity remain locked while the text tokens steer the scene (`strength = 3.5` for `zero_gravity_ffd`, or `6.5 .. 8.0` for `scene_text`-pooled `zero_gravity`).
+
+---
+
+## 8. Research Notes & Measured Records
 
 | Document | What It Covers |
 |---|---|
 | [`docs/research/control_vectors/2026-11-04_h3_control_vectors.md`](../research/control_vectors/2026-11-04_h3_control_vectors.md) | Architecture, mathematical formulation (`mean_difference`, `flip_null`, `random_null`, orthonormal `hold_basis`), ComfyUI conditioning & `extra_conds` trace, 3 text-path weight families (`fl2va`, `ref2va`, `fasth3`), prior art (`ComfyUI-MAINodes`/`Dials`, `vlens`, `krea2-explorations`), and experimental design |
-| [`docs/research/control_vectors/2026-11-05_control_vector_system_prompt.md`](../research/control_vectors/2026-11-05_control_vector_system_prompt.md) | Copy-pasteable system prompt for generating H3 `t2va`/`fl2va`/`ref2va` scene prompts and 10-pair contrastive `.toml` sets |
-| [`bench/results/2026-11-05_control_vectors_pika_and_ref2va.md`](../../bench/results/2026-11-05_control_vectors_pika_and_ref2va.md) | 24 rendered Pika H3 Flex (`6`-step `lcm`) and `ref2va` arms across 3 waves: the `film_16mm_1974` gate ladder (`s=0, +1, +2, +3, -2`, `flip_null`, `random_null`, explicit prompt), joint audio+video steering (`felt_muppet`, `cursed_cctv`, `infomercial_fail`, `vocal_strain`, `fever_melt`, `chaos_panic`, plus stacked multi-vector combinations), and `ref2va` character-reference steering with `mask="non_vision"` |
+| [`docs/research/control_vectors/2026-11-05_control_vector_system_prompt.md`](../research/control_vectors/2026-11-05_control_vector_system_prompt.md) | Copy-pasteable system prompt for generating H3 `t2va`/`fl2va`/`ref2va` scene prompts and 10-pair contrastive `.toml` sets, plus diagnosis of physical-action vectors and workflow instructions |
+| [`bench/results/2026-11-05_control_vectors_pika_and_ref2va.md`](../../bench/results/2026-11-05_control_vectors_pika_and_ref2va.md) | **40 rendered Pika H3 Flex (`6`-step `lcm`) and `ref2va` arms across 4 waves**: (1) the `film_16mm_1974` gate ladder (`01..08`), (2) joint audio+video steering & multi-vector combinations (`09..17`), (3) `ref2va` character-reference steering with `mask="non_vision"` (`18..24`), and (4) `db821224` physical transformations (`zero_gravity`, `head_swell`), timeline/norm-matching ablations, chained dual-node `t2va` vectors (`37..38`), and `from_first_diff` pooling (`25..40`) |
 
 ---
 
-## 7. Quick CLI Reference
+## 9. Quick CLI Reference
 
 Using the ComfyUI venv Python (`$PY`) and paths from `../../start.sh`:
 
@@ -110,22 +177,32 @@ Using the ComfyUI venv Python (`$PY`) and paths from `../../start.sh`:
 # 1. Run all CPU checks for control vectors and h3_spans:
 $PY bench/check_control_vectors.py
 
-# 2. Build a control vector (.safetensors) with both post_refiner [5376] and encoder [5120] directions:
+# 2. Build a standard scene_text-pooled control vector (.safetensors):
 $PY bench/control_vectors.py make \
-    --pairs prompt_bank/control_vectors/zero_gravity.toml \
-    --unet h3_27B_ref2va_nt_int8_sn3_v2.safetensors \
-    --lora pika_h3_flex_ref2va_comfy_svd995_bf16.safetensors:1.0 \
+    --pairs prompt_bank/control_vectors/film_16mm_1974.toml \
+    --unet h3_27B_fl2va_nt_int8_sn3_v2.safetensors \
+    --lora pika_h3_flex_fl2va_svd995_bf16.safetensors:1.0 \
     --device default --refiner-device cuda \
     --include-encoder --overwrite
 
-# 3. Inspect a saved .safetensors control vector's quality report and recipe metadata:
-$PY bench/control_vectors.py inspect \
-    "$H3_MODEL_STORE/control_vectors/zero_gravity__ref2va__lora_865ee189.safetensors"
+# 3. Build a from_first_diff-pooled control vector for single-clause end-of-section physical actions (2.12x-2.28x higher raw_norm):
+$PY bench/control_vectors.py make \
+    --pairs prompt_bank/control_vectors/zero_gravity.toml \
+    --unet h3_27B_ref2va_nt_int8_sn3_v2.safetensors \
+    --lora pika_h3_flex_ref2va_svd995_bf16.safetensors:1.0 \
+    --pooling from_first_diff \
+    --name zero_gravity_ffd \
+    --device default --refiner-device cuda \
+    --include-encoder --overwrite
 
-# 4. Score arbitrary prompts against a saved control vector (projection meter):
+# 4. Inspect a saved .safetensors control vector's quality report and recipe metadata:
+$PY bench/control_vectors.py inspect \
+    "$H3_MODEL_STORE/control_vectors/zero_gravity_ffd__ref2va__from_first_diff__lora_865ee189.safetensors"
+
+# 5. Score arbitrary prompts against a saved control vector (projection meter):
 $PY bench/control_vectors.py meter \
-    --vector "$H3_MODEL_STORE/control_vectors/film_16mm_1974__fl2va__lora_82f01909.safetensors" \
+    --vector "$H3_MODEL_STORE/control_vectors/film_16mm_1974__fl2va__lora_2a8c2b52.safetensors" \
     --unet h3_27B_fl2va_nt_int8_sn3_v2.safetensors \
-    --lora pika_h3_flex_t2va_comfy_svd995_bf16.safetensors:1.0 \
+    --lora pika_h3_flex_fl2va_svd995_bf16.safetensors:1.0 \
     --prompts prompt_bank/control_vectors/film_16mm_1974.toml
 ```

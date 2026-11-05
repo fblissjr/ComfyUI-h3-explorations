@@ -2426,6 +2426,23 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
     if "MiniMaxH3SageAttention" in {n["class_type"] for n in arm.values()}:
         errs.append("build_control_vector_arm enabled SageAttention in the base arm")
 
+    dual_arm = bw.build_api(
+        "t2v",
+        control_vector=[
+            ("film_16mm_1974__fl2va.safetensors", 1.8),
+            ("chaos_panic__fl2va.safetensors", 2.2),
+        ],
+    )
+    if (
+        dual_arm.get("115", {}).get("class_type") != "MiniMaxH3ApplyControlVectors"
+        or dual_arm.get("125", {}).get("class_type") != "MiniMaxH3ApplyControlVectors"
+        or dual_arm["125"]["inputs"]["model"] != ["115", 0]
+        or dual_arm["9"]["inputs"]["model"] != ["125", 0]
+        or dual_arm["115"]["inputs"]["strength"] != 1.8
+        or dual_arm["125"]["inputs"]["strength"] != 2.2
+    ):
+        errs.append("build_api with 2-element control_vector list did not chain nodes 115 -> 125 -> BasicGuider (9)")
+
     gate_arms = bw.build_control_vector_gate_arms(
         "t2v",
         vector_name="film_16mm_1974__fl2va.safetensors",

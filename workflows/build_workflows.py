@@ -108,7 +108,8 @@ from h3_config import (  # noqa: E402
     PDD_FL2VA_LORA, PDD_REF2VA_LORA, PDD_STEPS,
     PDD_STRENGTH,
     AUDIO_REFINE, FROZEN_VIDEO_CACHE, FROZEN_VIDEO_CACHE_NODE, LORA_BRANCH_NODE,
-    PIKA_FL2VA_LORA, PIKA_REF2VA_LORA, PIKA_STRENGTH, PIKA_STEPS, PIKA_SAMPLER,
+    PIKA_FL2VA_LORA, PIKA_FL2VA_SVD995_LORA, PIKA_REF2VA_LORA, PIKA_REF2VA_SVD995_LORA,
+    PIKA_STRENGTH, PIKA_STEPS, PIKA_SAMPLER,
     PIKA_MANUAL_SIGMAS, PIKA_MOTION_TRANSFER_IMAGES, PIKA_MOTION_TRANSFER_VIDEO,
     CONTROL_VECTOR_NODE, CONTROL_VECTOR_DEFAULTS, LAYER_NORM_MATCH_NODE,
     refine_scheduler_ids,
@@ -1325,11 +1326,12 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
               # with pre=; built for open_experiments #45 on FastH3's contract
               # graph, which was retired on 2026-11-04.
               probe_core_sparse_capture: bool = False,
-              # Apply up to three post-refiner control vectors on the DiT
-              # (MiniMaxH3ApplyControlVectors, node 115): either a
-              # (vector_name, strength) tuple for slot 1 or a dict of
-              # CONTROL_VECTOR_DEFAULTS overrides.
-              control_vector: tuple[str, float] | dict | None = None,
+              # Apply one or more post-refiner control vectors on the DiT
+              # (MiniMaxH3ApplyControlVectors, node 115 for the first and 125+
+              # when chaining multiple vectors in series): either a single
+              # (vector_name, strength) tuple / dict of CONTROL_VECTOR_DEFAULTS
+              # overrides, or a list/tuple of such specs.
+              control_vector: tuple[str, float] | dict | list | None = None,
               out_prefix: str | None = None, **canvas) -> dict:
     """API-format graph, submittable as {"prompt": <this>} to POST /prompt.
 
@@ -1837,33 +1839,48 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
 
     if control_vector is not None:
         # Post-refiner control-vector injection (MiniMaxH3ApplyControlVectors,
-        # node 115): wraps DIFFUSION_MODEL before any step cache so computed
-        # steps apply the vector and cached steps reuse the cached output.
-        if isinstance(control_vector, tuple):
-            if len(control_vector) != 2:
-                raise SystemExit(
-                    f"control_vector tuple must be (vector_name, strength), got {control_vector!r}"
+        # node 115 for the first vector and 125+ for additional chained vectors):
+        # wraps DIFFUSION_MODEL before any step cache so computed steps apply
+        # the vector(s) and cached steps reuse the cached output.
+        def _one_cv_inputs(spec: Any) -> dict[str, Any]:
+            if isinstance(spec, tuple):
+                if len(spec) != 2 or not isinstance(spec[0], str):
+                    raise SystemExit(
+                        f"control_vector tuple must be (vector_name, strength), got {spec!r}"
+                    )
+                return dict(
+                    CONTROL_VECTOR_DEFAULTS,
+                    vector_name=str(spec[0]),
+                    strength=float(spec[1]),
                 )
-            cv_inputs = dict(
-                CONTROL_VECTOR_DEFAULTS,
-                vector_name=str(control_vector[0]),
-                strength=float(control_vector[1]),
-            )
-        elif isinstance(control_vector, dict):
-            unknown = sorted(set(control_vector) - set(CONTROL_VECTOR_DEFAULTS))
-            if unknown:
-                raise SystemExit(
-                    f"control_vector dict has unknown keys {unknown}; "
-                    f"expected a subset of {sorted(CONTROL_VECTOR_DEFAULTS)}"
-                )
-            cv_inputs = dict(CONTROL_VECTOR_DEFAULTS, **control_vector)
-        else:
+            if isinstance(spec, dict):
+                unknown = sorted(set(spec) - set(CONTROL_VECTOR_DEFAULTS))
+                if unknown:
+                    raise SystemExit(
+                        f"control_vector dict has unknown keys {unknown}; "
+                        f"expected a subset of {sorted(CONTROL_VECTOR_DEFAULTS)}"
+                    )
+                return dict(CONTROL_VECTOR_DEFAULTS, **spec)
             raise SystemExit(
-                f"control_vector must be a (vector_name, strength) tuple or dict, got {control_vector!r}"
+                f"control_vector spec must be a (vector_name, strength) tuple or dict, got {spec!r}"
             )
-        g["115"] = {"class_type": CONTROL_VECTOR_NODE,
-                    "inputs": {"model": model_src, **cv_inputs}}
-        model_src = ["115", 0]
+
+        if isinstance(control_vector, list) or (
+            isinstance(control_vector, tuple)
+            and control_vector
+            and isinstance(control_vector[0], (tuple, dict))
+        ):
+            if not control_vector:
+                raise SystemExit("control_vector sequence must not be empty")
+            cv_specs = [_one_cv_inputs(s) for s in control_vector]
+        else:
+            cv_specs = [_one_cv_inputs(control_vector)]
+
+        for cv_idx, cv_inputs in enumerate(cv_specs):
+            cv_nid = "115" if cv_idx == 0 else str(125 + cv_idx - 1)
+            g[cv_nid] = {"class_type": CONTROL_VECTOR_NODE,
+                         "inputs": {"model": model_src, **cv_inputs}}
+            model_src = [cv_nid, 0]
 
     if cache is not None:
         # Step caching, after the attention nodes: the cache is a
@@ -4736,6 +4753,42 @@ def main():
               manual_sigmas=PIKA_MANUAL_SIGMAS,
               out_prefix="Video/h3_probe_t2v_pika_balcony_orbit_6step_merge"),
          "Pika H3 Flex balcony-orbit showcase (t2va on fl2va, 328 frames) at 6 steps on lcm, merged into int8 via LoraLoaderModelOnly (control)"),
+
+        # --- Post-refiner control vectors on Pika H3 Flex 6-step LCM (2026-11-05) ---
+        # Single-vector t2va, dual-vector chained t2va (nodes 115 + 125 summed in
+        # float64 inside the DIFFUSION_MODEL wrapper), and single-vector ref2va
+        # with vision rows (tag 0) masked bitwise untouched (mask='non_vision').
+        # Uses PIKA_*_SVD995_LORA via MiniMaxH3LoRABranch, matching the recipe
+        # recorded in the __lora_2a8c2b52 / __lora_865ee189 control-vector files
+        # (bench/results/2026-11-05_control_vectors_pika_and_ref2va.md).
+        ("h3_text_to_video_pika_control_vector.json", "t2v-pika-control-vector", "t2v",
+         LONG_T2V_PROMPT,
+         dict(lora=(PIKA_FL2VA_SVD995_LORA, PIKA_STRENGTH), lora_branch=True,
+              steps=PIKA_STEPS, sampler_name=PIKA_SAMPLER,
+              manual_sigmas=PIKA_MANUAL_SIGMAS,
+              control_vector=("film_16mm_1974__fl2va__lora_2a8c2b52.safetensors", 2.2),
+              out_prefix="Video/h3_t2v_pika_control_vector"),
+         "text -> video + audio on Pika H3 Flex 6-step LCM (SVD995 branch) with one post-refiner control vector (film_16mm_1974 at +2.2)"),
+        ("h3_text_to_video_pika_dual_control_vectors.json", "t2v-pika-dual-control-vectors", "t2v",
+         LONG_T2V_PROMPT,
+         dict(lora=(PIKA_FL2VA_SVD995_LORA, PIKA_STRENGTH), lora_branch=True,
+              steps=PIKA_STEPS, sampler_name=PIKA_SAMPLER,
+              manual_sigmas=PIKA_MANUAL_SIGMAS,
+              control_vector=[
+                  ("film_16mm_1974__fl2va__lora_2a8c2b52.safetensors", 1.8),
+                  ("chaos_panic__fl2va__lora_2a8c2b52.safetensors", 2.2),
+              ],
+              out_prefix="Video/h3_t2v_pika_dual_control_vectors"),
+         "text -> video + audio on Pika H3 Flex 6-step LCM (SVD995 branch) chaining two post-refiner control vectors in series (film_16mm_1974 at +1.8 + chaos_panic at +2.2)"),
+        ("h3_image_ref_plus_text_to_video_pika_control_vector.json", "r2v-pika-control-vector", "r2v",
+         _ref_prompt(images=("character",), scene="kitchen"),
+         dict(ref_images=SCENE_REF_IMAGES["kitchen"], ref_image_count=1,
+              lora=(PIKA_REF2VA_SVD995_LORA, PIKA_STRENGTH), lora_branch=True,
+              steps=PIKA_STEPS, sampler_name=PIKA_SAMPLER,
+              manual_sigmas=PIKA_MANUAL_SIGMAS,
+              control_vector=("zero_gravity__ref2va__lora_865ee189.safetensors", 6.5),
+              out_prefix="Video/h3_r2v_pika_control_vector"),
+         "reference image + text -> video + audio on Pika H3 Flex 6-step LCM (SVD995 branch) with a post-refiner control vector (zero_gravity at +6.5, vision rows masked)"),
     )
 
     # The 2026-09-26 distill run (owner): `_savelat` probe twins of exactly the

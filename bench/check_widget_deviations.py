@@ -347,6 +347,18 @@ DECLARED: dict[tuple[str, str], tuple] = {
     ("MiniMaxH3ExactBlocks", "blocks"):
         ("ARM", "'45,48,49' on h3_probe_t2v_exact_tail and h3_probe_t2v_policy, "
                 "the bf16 ceiling at the three lopsided blocks (2026-09-15)"),
+    ("MiniMaxH3ApplyControlVectors", "vector_name"):
+        ("ARM", "the post-refiner control vector file (<name>__<family>.safetensors) "
+                "applied by the arm on h3_text_to_video_pika_control_vector, "
+                "h3_text_to_video_pika_dual_control_vectors, and "
+                "h3_image_ref_plus_text_to_video_pika_control_vector, against the "
+                "node default 'none' "
+                "(2026-11-05, bench/results/2026-11-05_control_vectors_pika_and_ref2va.md)"),
+    ("MiniMaxH3ApplyControlVectors", "strength"):
+        ("ARM", "the arm's post-refiner control-vector multiplier in mean-pair-diff "
+                "units (+1.8 / +2.2 on the t2va arms, +6.5 norm-matched on the "
+                "ref2va zero_gravity arm), against the node default 0.0 (exact no-op) "
+                "(2026-11-05, bench/results/2026-11-05_control_vectors_pika_and_ref2va.md)"),
 }
 
 #: **There is deliberately no exception table here.** One was written on
