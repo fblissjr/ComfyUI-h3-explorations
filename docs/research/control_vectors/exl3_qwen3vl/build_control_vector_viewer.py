@@ -335,6 +335,16 @@ def build_viewer_payload(h3_root: Path, exl3_dir: Path) -> dict[str, Any]:
         blind = entry.get("blind_pair_label", {})
         synth = sr.get("synthesis", {})
         modality = blind.get("modality") or synth.get("dominant_modality") or "visual"
+        l49_q = entry.get("layer49_quality", {})
+        pr_sf = entry.get("post_refiner_safetensors", {})
+        fl2va_info = pr_sf.get("fl2va") or next(iter(pr_sf.values()), {})
+        pr_q = fl2va_info.get("post_refiner_quality", {})
+
+        l49_ppc = l49_q.get("per_pair_cosine", [])
+        pr_ppc = pr_q.get("per_pair_cosine", [])
+        for p_idx, p_rec in enumerate(pair_records):
+            p_rec["layer49_pair_cos"] = l49_ppc[p_idx] if p_idx < len(l49_ppc) else None
+            p_rec["post_refiner_pair_cos"] = pr_ppc[p_idx] if p_idx < len(pr_ppc) else None
 
         vectors[key] = {
             "key": key,
@@ -344,6 +354,9 @@ def build_viewer_payload(h3_root: Path, exl3_dir: Path) -> dict[str, Any]:
             "encoder_vector_source": entry.get("encoder_vector_source", "computed_exl3_layer49"),
             "layer49_raw_norm": float(entry.get("layer49_raw_norm", 0.0)),
             "layer49_median_row_norm_ex_row0": float(entry.get("layer49_median_row_norm_ex_row0", 0.0)),
+            "layer49_quality": l49_q,
+            "post_refiner_raw_norm": fl2va_info.get("post_refiner_raw_norm"),
+            "post_refiner_quality": pr_q,
             "elapsed_sec": entry.get("elapsed_sec", None),
             "modality": modality,
             "vector_header": {
@@ -374,6 +387,8 @@ def build_viewer_payload(h3_root: Path, exl3_dir: Path) -> dict[str, Any]:
             "layer49_self_report": {
                 "median_row_norm": sr.get("median_row_norm", entry.get("layer49_median_row_norm_ex_row0", 0.0)),
                 "sampling": sr.get("sampling", {}),
+                "lexical_clarity": lex.get("lexical_clarity", "high"),
+                "top5_mean_shift": lex.get("top5_mean_delta_log_prob", lex.get("top5_mean_shift", 0.0)),
                 "positive_boosted_words": pos_words,
                 "negative_boosted_words": neg_words,
                 "sweep_completions": sr.get("sweep_completions", {}),
@@ -1445,13 +1460,15 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
                 <th data-sort="key">Vector (.toml)</th>
                 <th data-sort="modality">Modality</th>
                 <th data-sort="frame">Frame</th>
-                <th data-sort="raw_norm">L49 Raw Norm</th>
-                <th data-sort="st_diff">scene_text Diff %</th>
-                <th data-sort="ffd_diff">from_first_diff Diff %</th>
-                <th data-sort="blind_slug">Blind Pair-Diff Slug</th>
-                <th data-sort="self_slug">L49 Self-Report Slug</th>
+                <th data-sort="raw_norm">L49 Norm</th>
+                <th data-sort="pr_norm">PR Norm</th>
+                <th data-sort="pr_split">PR Split1/2</th>
+                <th data-sort="pr_min">PR MinCos</th>
+                <th data-sort="ffd_diff">from_first_diff %</th>
+                <th data-sort="lex_clarity">Lexical Clarity</th>
+                <th data-sort="self_slug">Blind Rollout Slug</th>
+                <th data-sort="roll_clarity">Rollout Clarity</th>
                 <th>Top +v_encoder Words (Δlog P)</th>
-                <th>Top -v_encoder Words (Δlog P)</th>
               </tr>
             </thead>
             <tbody id="overviewTableBody"></tbody>
@@ -1653,19 +1670,27 @@ window.__INITIAL_CV_DATA__ = __EMBEDDED_JSON_PAYLOAD__;
       <span style="font-family:var(--font-mono); color:var(--accent);">${escapeHtml(v.key)}</span>
       <span style="color:var(--text-2); font-weight:400;">— ${escapeHtml(vh.quality || "")}</span>
     `;
+    const l49Q = v.layer49_quality || {};
+    const prQ = v.post_refiner_quality || {};
+    const prNormStr = typeof v.post_refiner_raw_norm === "number" ? ` • <code>PR raw_norm = ${v.post_refiner_raw_norm.toFixed(1)}</code>` : "";
+    const l49ShStr = typeof l49Q.split_half_cosine === "number" ? ` • <code>L49 Split1/2 = ${l49Q.split_half_cosine.toFixed(3)}</code>` : "";
+    const prShStr = typeof prQ.split_half_cosine === "number" ? ` • <code>PR Split1/2 = ${prQ.split_half_cosine.toFixed(3)}</code>` : "";
+    const prMinStr = typeof prQ.min_pair_cosine === "number" ? ` • <code>PR MinCos = ${prQ.min_pair_cosine.toFixed(3)} (P${prQ.weakest_pair_1based || "?"})</code>` : "";
+
     document.getElementById("ddHeaderMeta").innerHTML = `
       <code>${escapeHtml(v.toml_file)}</code> (sha256: <code>${escapeHtml(v.toml_sha256 || "n/a")}</code>) •
-      <code>L49 raw_norm = ${v.layer49_raw_norm.toFixed(2)}</code> •
-      <code>median_row_norm = ${v.layer49_median_row_norm_ex_row0.toFixed(1)}</code> •
+      <code>L49 raw_norm = ${v.layer49_raw_norm.toFixed(2)}</code>${prNormStr}${l49ShStr}${prShStr}${prMinStr} •
       <code>${ps.num_pairs || 0} pairs</code>
     `;
 
     const clarity = synth.readout_clarity || "high";
+    const lexClarity = sr.lexical_clarity || "high";
     document.getElementById("ddHeaderBadges").innerHTML = `
       <span class="pill pill-${escapeHtml(v.modality)}">${escapeHtml(v.modality)}</span>
       <span class="pill pill-${escapeHtml(vh.frame || "scene")}">frame: ${escapeHtml(vh.frame || "scene")}</span>
       <span class="pill pill-scene">mode: ${escapeHtml(vh.mode || "t2va")}</span>
-      <span class="pill pill-${escapeHtml(clarity)}">clarity: ${escapeHtml(clarity)}</span>
+      <span class="pill pill-${escapeHtml(lexClarity)}" title="lm_head lexical log-odds clarity (top5 mean shift = ${(sr.top5_mean_shift || 0).toFixed(2)})">lexical: ${escapeHtml(lexClarity)}</span>
+      <span class="pill pill-${escapeHtml(clarity)}" title="Blind coupled rollout clarity">rollout: ${escapeHtml(clarity)}</span>
     `;
 
     // 3-Way Alignment Grid
@@ -1871,9 +1896,16 @@ window.__INITIAL_CV_DATA__ = __EMBEDDED_JSON_PAYLOAD__;
       const ksufHtml = renderSegmentedSpan(segs.kept_suffix, false);
       const tsufHtml = renderSegmentedSpan(segs.trimmed_soundscape_suffix, maskTrimmedSuffix);
 
+      const l49CosBadge = typeof pr.layer49_pair_cos === "number"
+        ? ` • <code>L49 cos=${pr.layer49_pair_cos.toFixed(3)}</code>`
+        : "";
+      const prCosBadge = typeof pr.post_refiner_pair_cos === "number"
+        ? ` • <code style="color:${pr.post_refiner_pair_cos < 0.70 ? 'var(--rose)' : 'var(--emerald)'}">PR cos=${pr.post_refiner_pair_cos.toFixed(3)}</code>`
+        : "";
+
       const headerHtml = `
         <div class="pair-header">
-          <span><strong>Pair #${pr.index + 1}</strong> • edit in <code>${escapeHtml(pr.edit_section)}</code>${pr.soundscape_identical ? " • unchanged soundscape trimmed under from_first_diff" : ""}</span>
+          <span><strong>Pair #${pr.index + 1}</strong> • edit in <code>${escapeHtml(pr.edit_section)}</code>${l49CosBadge}${prCosBadge}${pr.soundscape_identical ? " • unchanged soundscape trimmed" : ""}</span>
           <span>
             prefix: ${st.prefix_active_words}w |
             diff A/B: ${st.diff_words_a}w / ${st.diff_words_b}w |
@@ -1918,6 +1950,15 @@ window.__INITIAL_CV_DATA__ = __EMBEDDED_JSON_PAYLOAD__;
         case "raw_norm":
           cmp = va.layer49_raw_norm - vb.layer49_raw_norm;
           break;
+        case "pr_norm":
+          cmp = (va.post_refiner_raw_norm || 0) - (vb.post_refiner_raw_norm || 0);
+          break;
+        case "pr_split":
+          cmp = (va.post_refiner_quality?.split_half_cosine || 0) - (vb.post_refiner_quality?.split_half_cosine || 0);
+          break;
+        case "pr_min":
+          cmp = (va.post_refiner_quality?.min_pair_cosine || 0) - (vb.post_refiner_quality?.min_pair_cosine || 0);
+          break;
         case "st_diff":
           cmp = (va.pair_summary?.avg_scene_text_diff_pct || 0) - (vb.pair_summary?.avg_scene_text_diff_pct || 0);
           break;
@@ -1929,6 +1970,12 @@ window.__INITIAL_CV_DATA__ = __EMBEDDED_JSON_PAYLOAD__;
           break;
         case "frame":
           cmp = (va.vector_header?.frame || "").localeCompare(vb.vector_header?.frame || "");
+          break;
+        case "lex_clarity":
+          cmp = (va.layer49_self_report?.lexical_clarity || "").localeCompare(vb.layer49_self_report?.lexical_clarity || "");
+          break;
+        case "roll_clarity":
+          cmp = (va.layer49_self_report?.synthesis?.readout_clarity || "").localeCompare(vb.layer49_self_report?.synthesis?.readout_clarity || "");
           break;
         case "blind_slug":
           cmp = (va.blind_pair_label?.inferred_slug || "").localeCompare(vb.blind_pair_label?.inferred_slug || "");
@@ -1945,8 +1992,16 @@ window.__INITIAL_CV_DATA__ = __EMBEDDED_JSON_PAYLOAD__;
     tbody.innerHTML = keys.map(k => {
       const v = appData.vectors[k];
       const ps = v.pair_summary || {};
+      const prQ = v.post_refiner_quality || {};
+      const l49Q = v.layer49_quality || {};
+      const prNorm = typeof v.post_refiner_raw_norm === "number" ? v.post_refiner_raw_norm.toFixed(1) : "—";
+      const prSplit = typeof prQ.split_half_cosine === "number" ? prQ.split_half_cosine.toFixed(3) : (typeof l49Q.split_half_cosine === "number" ? l49Q.split_half_cosine.toFixed(3) : "—");
+      const minVal = typeof prQ.min_pair_cosine === "number" ? prQ.min_pair_cosine : l49Q.min_pair_cosine;
+      const wpIdx = prQ.weakest_pair_1based || l49Q.weakest_pair_1based || "?";
+      const prMin = typeof minVal === "number" ? `${minVal.toFixed(3)} (P${wpIdx})` : "—";
+      const lexClar = v.layer49_self_report?.lexical_clarity || "high";
+      const rollClar = v.layer49_self_report?.synthesis?.readout_clarity || "high";
       const posTop = (v.layer49_self_report?.positive_boosted_words || []).slice(0, 6).map(w => w.raw).join(", ");
-      const negTop = (v.layer49_self_report?.negative_boosted_words || []).slice(0, 6).map(w => w.raw).join(", ");
       const frame = v.vector_header?.frame || "scene";
       return `
         <tr data-vec="${escapeHtml(k)}" style="cursor:pointer;">
@@ -1954,12 +2009,14 @@ window.__INITIAL_CV_DATA__ = __EMBEDDED_JSON_PAYLOAD__;
           <td><span class="pill pill-${escapeHtml(v.modality)}">${escapeHtml(v.modality)}</span></td>
           <td><span class="pill pill-${escapeHtml(frame)}">${escapeHtml(frame)}</span></td>
           <td style="font-family:var(--font-mono); font-weight:700;">${v.layer49_raw_norm.toFixed(2)}</td>
-          <td style="font-family:var(--font-mono);">${(ps.avg_scene_text_diff_pct || 0).toFixed(1)}%</td>
+          <td style="font-family:var(--font-mono);">${prNorm}</td>
+          <td style="font-family:var(--font-mono);">${prSplit}</td>
+          <td style="font-family:var(--font-mono); color:${typeof minVal === 'number' && minVal < 0.70 ? 'var(--rose)' : 'var(--emerald)'};">${escapeHtml(prMin)}</td>
           <td style="font-family:var(--font-mono); font-weight:700; color:var(--emerald);">${(ps.avg_from_first_diff_diff_pct || 0).toFixed(1)}%</td>
-          <td style="font-family:var(--font-mono);">${escapeHtml(v.blind_pair_label?.inferred_slug || "")}</td>
+          <td><span class="pill pill-${escapeHtml(lexClar)}">${escapeHtml(lexClar)}</span></td>
           <td style="font-family:var(--font-mono);">${escapeHtml(v.layer49_self_report?.synthesis?.self_report_slug || "")}</td>
+          <td><span class="pill pill-${escapeHtml(rollClar)}">${escapeHtml(rollClar)}</span></td>
           <td style="font-family:var(--font-mono); font-size:11.5px; color:#fde68a;">${escapeHtml(posTop)}</td>
-          <td style="font-family:var(--font-mono); font-size:11.5px; color:#bae6fd;">${escapeHtml(negTop)}</td>
         </tr>
       `;
     }).join("");

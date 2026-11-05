@@ -170,26 +170,40 @@ AMBIGUOUS_SHORT_STEMS = frozenset({
     "imi", "imm", "imp", "ina", "inc", "ind", "ine", "inf", "ing", "inh", "ini",
     "inj", "ink", "inl", "inm", "inn", "ino", "inp", "inq", "ins", "int", "inv",
     "inw", "ion", "ira", "ire", "iri", "iro", "irr", "isl", "iso", "iss", "ite",
+    "writ", "crud", "scram", "whims",
+})
+
+
+DOMAIN_WORDS: frozenset[str] = frozenset({
+    "noir", "grayscale", "monochrome", "fisheye", "vignette", "levitate", "levitation",
+    "cranial", "cranium", "reverberation", "reverberate", "reverberant", "celluloid",
+    "stenciled", "stencil", "signage", "archival", "soundscape", "diegetic",
+    "anamorphic", "bokeh", "sepia", "halftone", "camcorder", "cctv", "vhs",
+    "muppet", "puppet", "weightless", "weightlessness", "chiaroscuro", "halation",
+    "phosphor", "scanlines", "warble", "subwoofer", "handheld", "rectilinear",
+    "telephoto", "macroblock", "bitcrushed", "liquefy", "liquefied", "globular",
+    "bulbous", "inflatable", "inflated", "swollen", "ballooning", "buoyant", "buoyancy",
+    "midair", "airborne", "skyward", "upward", "downward", "glissando", "fumble",
+    "fumbling", "hilarious", "clumsy", "clumsily", "disastrous", "disastrously",
+    "catastrophic", "grotesque", "monstrous", "monstrously", "cavernous",
+    "whimsical", "writhing", "crudely", "scrambling", "morphing",
 })
 
 
 def _load_english_dictionary() -> tuple[frozenset[str], dict[str, str]]:
     """
-    Load `/usr/share/dict/words` if present to validate whole English words and
-    map unambiguous >=5-char BPE stems (e.g. `clums` -> `clumsy`, `disastr` -> `disastrous`,
-    `hilar` -> `hilarious`, `stenc` -> `stenciled`) to complete words.
+    Load `/usr/share/dict/words` plus `DOMAIN_WORDS` to validate whole English words.
     """
+    words: set[str] = set(DOMAIN_WORDS)
     dict_path = Path("/usr/share/dict/words")
-    if not dict_path.is_file():
-        return frozenset(), {}
-    words: set[str] = set()
-    for line in dict_path.read_text(encoding="utf-8", errors="ignore").splitlines():
-        raw = line.strip()
-        if not raw or not raw[0].islower():
-            continue
-        w = raw.lower()
-        if len(w) >= 3 and w.isalpha():
-            words.add(w)
+    if dict_path.is_file():
+        for line in dict_path.read_text(encoding="utf-8", errors="ignore").splitlines():
+            raw = line.strip()
+            if not raw or not raw[0].islower():
+                continue
+            w = raw.lower()
+            if len(w) >= 3 and w.isalpha():
+                words.add(w)
     stem_to_word: dict[str, str] = {}
     for w in sorted(words, key=lambda x: (len(x), x)):
         for k in range(5, min(len(w), 10)):
@@ -199,11 +213,113 @@ def _load_english_dictionary() -> tuple[frozenset[str], dict[str, str]]:
     stem_to_word.update({
         "hilar": "hilarious",
         "stenc": "stenciled",
+        "cellul": "celluloid",
+        "rever": "reverberation",
+        "clums": "clumsily",
+        "disastr": "disastrously",
+        "liquef": "liquefied",
+        "chiar": "chiaroscuro",
+        "phosph": "phosphor",
     })
     return frozenset(words), stem_to_word
 
 
 _DICT_WORDS, _STEM_COMPLETIONS = _load_english_dictionary()
+_BPE_VOCAB_CACHE: tuple[list[int], dict[int, str]] | None = None
+
+
+def _get_bpe_vocab_map(tokenizer: Tokenizer) -> tuple[list[int], dict[int, str]]:
+    """
+    Build and cache `(valid_word_ids, word_map)` using actual Qwen BPE tokenization:
+      1. Any space-prefixed token whose stripped lowercase form is a whole word in
+         `DOMAIN_WORDS` or `_DICT_WORDS` (`len >= 4`, not in `STOPWORDS` or
+         `AMBIGUOUS_SHORT_STEMS`) maps directly to itself (`noir`, `grayscale`,
+         `signage`, `archival`, `cellular`, `float`, `inflate`, `balloon`).
+      2. Remaining space-prefixed subword tokens are matched by checking whether
+         `tokenizer.encode(" " + w)[0] == tid` for multi-token words `w` (checking
+         `DOMAIN_WORDS` first so `' fis'` (`41623`) -> `'fisheye'`, `' vign'` (`92792`)
+         -> `'vignette'`, `' cran'` (`69537`) -> `'cranial'`, `' cellul'` (`68902`)
+         -> `'celluloid'`, `' rever'` (`35137`) -> `'reverberation'`, and never
+         confusing `' cellul'` with single-token `' cellular'` `34593`).
+    """
+    global _BPE_VOCAB_CACHE
+    if _BPE_VOCAB_CACHE is not None:
+        return _BPE_VOCAB_CACHE
+
+    id_to_piece = tokenizer.get_id_to_piece_list(include_special_tokens=False)
+    vocab_limit = min(len(id_to_piece), tokenizer.raw_vocab_size, QWEN_FIRST_SPECIAL_ID)
+
+    space_pieces: dict[str, list[int]] = {}
+    for tid in range(vocab_limit):
+        piece = id_to_piece[tid]
+        if not piece.startswith(" "):
+            continue
+        cleaned = piece.strip()
+        if not CLEAN_WORD_RE.match(cleaned):
+            continue
+        space_pieces.setdefault(cleaned.lower(), []).append(tid)
+
+    # Verify which dictionary words are genuine single-token BPE words
+    single_token_words: set[str] = set()
+    for low in space_pieces:
+        if low in DOMAIN_WORDS or (len(low) >= 4 and low in _DICT_WORDS and low not in AMBIGUOUS_SHORT_STEMS):
+            single_token_words.add(low)
+
+    # Map multi-token words to their actual first BPE token ID (`DOMAIN_WORDS` prioritized first)
+    tid_to_stem_word: dict[int, str] = {}
+    domain_First = sorted(
+        (w for w in DOMAIN_WORDS if w not in single_token_words),
+        key=lambda x: (len(x), x),
+    )
+    dict_Rest = sorted(
+        (w for w in _DICT_WORDS if w not in single_token_words and w not in DOMAIN_WORDS),
+        key=lambda x: (len(x), x),
+    )
+    for is_domain, word_list in ((True, domain_First), (False, dict_Rest)):
+        min_k = 3 if is_domain else 5
+        for w in word_list:
+            for k in range(min_k, min(len(w), 10)):
+                pref = w[:k]
+                if k == 3 and pref != "fis":
+                    continue
+                if not is_domain and pref in AMBIGUOUS_SHORT_STEMS:
+                    continue
+                cand_tids = space_pieces.get(pref)
+                if not cand_tids or pref in single_token_words:
+                    continue
+                if all(t in tid_to_stem_word for t in cand_tids):
+                    break
+                enc = tokenizer.encode(" " + w, add_bos=False, add_eos=False)
+                first_tid = int(enc[0, 0].item())
+                if first_tid in cand_tids and first_tid not in tid_to_stem_word:
+                    tid_to_stem_word[first_tid] = w
+                    break
+
+    valid_word_ids: list[int] = []
+    word_map: dict[int, str] = {}
+    for tid in range(vocab_limit):
+        piece = id_to_piece[tid]
+        if not piece.startswith(" "):
+            continue
+        cleaned = piece.strip()
+        low = cleaned.lower()
+        if not CLEAN_WORD_RE.match(cleaned) or low in STOPWORDS:
+            continue
+        if low in single_token_words:
+            resolved = low
+        elif tid in tid_to_stem_word:
+            resolved = tid_to_stem_word[tid]
+        elif len(low) >= 5 and low not in AMBIGUOUS_SHORT_STEMS and low in _STEM_COMPLETIONS:
+            resolved = _STEM_COMPLETIONS[low]
+        else:
+            continue
+        if resolved in STOPWORDS:
+            continue
+        valid_word_ids.append(tid)
+        word_map[tid] = resolved
+
+    _BPE_VOCAB_CACHE = (valid_word_ids, word_map)
+    return _BPE_VOCAB_CACHE
 
 
 def format_chatml(system_prompt: str, user_prompt: str, assistant_prefix: str = "") -> str:
@@ -216,6 +332,19 @@ def format_chatml(system_prompt: str, user_prompt: str, assistant_prefix: str = 
 
 def chatml_user_start_idx(tokenizer: Tokenizer, system_prompt: str) -> int:
     header = f"<|im_start|>system\n{system_prompt}<|im_end|>\n<|im_start|>user\n"
+    return int(
+        tokenizer.encode(
+            header, add_bos=False, add_eos=False, encode_special_tokens=True
+        ).shape[-1]
+    )
+
+
+def chatml_assistant_start_idx(tokenizer: Tokenizer, system_prompt: str, user_prompt: str) -> int:
+    header = (
+        f"<|im_start|>system\n{system_prompt}<|im_end|>\n"
+        f"<|im_start|>user\n{user_prompt}<|im_end|>\n"
+        f"<|im_start|>assistant\n<think>\n\n</think>\n\n"
+    )
     return int(
         tokenizer.encode(
             header, add_bos=False, add_eos=False, encode_special_tokens=True
@@ -298,23 +427,77 @@ def forward_to_layer49(model: Model, layer_49_idx: int, input_ids: torch.Tensor)
     return x.float()
 
 
+def _compute_pair_quality(
+    a_mat: torch.Tensor,
+    b_mat: torch.Tensor,
+    w_vec: torch.Tensor,
+) -> dict[str, Any]:
+    """
+    Compute per-pair consistency metrics (`mean_pairwise_cosine`, `split_half_cosine`,
+    `per_pair_cosine`, `min_pair_cosine`, `weakest_pair_1based`) on `[N, D]` fp64 matrices.
+    """
+    diffs = (b_mat - a_mat).to(torch.float64)
+    n = int(diffs.shape[0])
+    if n < 2:
+        return {
+            "mean_pairwise_cosine": 1.0,
+            "split_half_cosine": 1.0,
+            "min_pair_cosine": 1.0,
+            "weakest_pair_1based": 1,
+            "per_pair_cosine": [1.0] * n,
+        }
+    norms = torch.linalg.vector_norm(diffs, dim=-1, keepdim=True).clamp(min=1e-12)
+    unit_diffs = diffs / norms
+    cos_mat = unit_diffs @ unit_diffs.T
+
+    # Off-diagonal mean pairwise cosine and leave-one-out per-pair cosine
+    per_pair: list[float] = []
+    off_diag_vals: list[float] = []
+    for i in range(n):
+        others = [float(cos_mat[i, j].item()) for j in range(n) if j != i]
+        per_pair.append(round(sum(others) / len(others), 4))
+        for j in range(i + 1, n):
+            off_diag_vals.append(float(cos_mat[i, j].item()))
+    mean_pw = round(sum(off_diag_vals) / max(len(off_diag_vals), 1), 4)
+
+    # Split-half cosine (first half vs second half)
+    mid = n // 2
+    w1 = w_vec[:mid] / w_vec[:mid].sum().clamp(min=1e-12)
+    w2 = w_vec[mid:] / w_vec[mid:].sum().clamp(min=1e-12)
+    v1 = (diffs[:mid] * w1.unsqueeze(-1)).sum(dim=0)
+    v2 = (diffs[mid:] * w2.unsqueeze(-1)).sum(dim=0)
+    n1 = float(torch.linalg.vector_norm(v1).item())
+    n2 = float(torch.linalg.vector_norm(v2).item())
+    split_cos = round(float(torch.dot(v1, v2).item() / max(n1 * n2, 1e-12)), 4)
+
+    min_idx = min(range(n), key=lambda i: per_pair[i])
+    return {
+        "mean_pairwise_cosine": mean_pw,
+        "split_half_cosine": split_cos,
+        "min_pair_cosine": per_pair[min_idx],
+        "weakest_pair_1based": min_idx + 1,
+        "per_pair_cosine": per_pair,
+    }
+
+
 @torch.inference_mode()
 def compute_encoder_vector_from_toml(
     model: Model,
     tokenizer: Tokenizer,
     toml_path: Path,
     pooling: str = "scene_text",
-) -> tuple[torch.Tensor, float, float, list[dict[str, str]]]:
+) -> tuple[torch.Tensor, float, float, list[dict[str, str]], dict[str, Any]]:
     """
     Compute unit-normalized `vector.encoder` ([5120], fp32), `median_row_norm`
-    (with `row0_excluded=True`), and `raw_norm` directly from a `.toml` pair file
-    using `layers.0..49` of the ExLlamaV3 model.
+    (with `row0_excluded=True`), `raw_norm`, `diff_records`, and `l49_quality`
+    directly from a `.toml` pair file using `layers.0..49` of the ExLlamaV3 model.
 
     Supported `pooling` modes:
       - `"scene_text"` (default): all `scene_text` rows (excluding row 0, `<d>...</d>`, and `(S1)`).
-      - `"from_first_diff"`: `scene_text` rows at `idx >= first_diff` within the modified section
-        (trimming unchanged trailing `overall_soundscape:` / `non_diegetic_music:` sections when the
-        edit is inside `integrated_multimodal_description:`, while keeping `<d>...</d>` and `(S1)` masked out).
+      - `"from_first_diff"`: encodes the full untruncated prompt and masks `scene_text` rows to
+        `idx >= first_diff` within the modified section (masking out unchanged trailing
+        `overall_soundscape:` / `non_diegetic_music:` tokens in the boolean mask while keeping
+        `<d>...</d>` and `(S1)` excluded).
     """
     layer_49 = model.find_module("model.language_model.layers.49")
     layer_49_idx = model.modules.index(layer_49)
@@ -341,18 +524,8 @@ def compute_encoder_vector_from_toml(
         a_span, b_span = extract_diff_span(a_txt, b_txt)
         diff_records.append({"a_span": a_span, "b_span": b_span})
 
-        a_enc_txt, b_enc_txt = a_txt, b_txt
-        if pooling == "from_first_diff" and frame != "bare":
-            for marker in ("\n\noverall_soundscape:", "\noverall_soundscape:"):
-                if marker in a_enc_txt and marker in b_enc_txt:
-                    a_pre, a_tail = a_enc_txt.split(marker, 1)
-                    b_pre, b_tail = b_enc_txt.split(marker, 1)
-                    if a_tail == b_tail and a_pre != b_pre:
-                        a_enc_txt, b_enc_txt = a_pre, b_pre
-                        break
-
-        ids_a = tokenizer.encode(a_enc_txt, add_bos=False, add_eos=False, encode_special_tokens=True)
-        ids_b = tokenizer.encode(b_enc_txt, add_bos=False, add_eos=False, encode_special_tokens=True)
+        ids_a = tokenizer.encode(a_txt, add_bos=False, add_eos=False, encode_special_tokens=True)
+        ids_b = tokenizer.encode(b_txt, add_bos=False, add_eos=False, encode_special_tokens=True)
 
         h_a = forward_to_layer49(model, layer_49_idx, ids_a)[0]  # [L_a, 5120]
         h_b = forward_to_layer49(model, layer_49_idx, ids_b)[0]  # [L_b, 5120]
@@ -370,6 +543,28 @@ def compute_encoder_vector_from_toml(
             if fdiff > 0:
                 mask_a[:fdiff] = False
                 mask_b[:fdiff] = False
+
+            # Mask out unchanged trailing overall_soundscape: tokens in the boolean mask
+            # (without truncating the prompt before tokenization).
+            for marker in ("\n\noverall_soundscape:", "\noverall_soundscape:"):
+                if marker in a_txt and marker in b_txt:
+                    a_pre, a_tail = a_txt.split(marker, 1)
+                    b_pre, b_tail = b_txt.split(marker, 1)
+                    if a_tail == b_tail and a_pre != b_pre:
+                        len_pre_a = int(
+                            tokenizer.encode(
+                                a_pre, add_bos=False, add_eos=False, encode_special_tokens=True
+                            ).shape[-1]
+                        )
+                        len_pre_b = int(
+                            tokenizer.encode(
+                                b_pre, add_bos=False, add_eos=False, encode_special_tokens=True
+                            ).shape[-1]
+                        )
+                        mask_a[len_pre_a:] = False
+                        mask_b[len_pre_b:] = False
+                        break
+
             if not bool(mask_a.any()):
                 mask_a[-1] = True
             if not bool(mask_b.any()):
@@ -393,7 +588,8 @@ def compute_encoder_vector_from_toml(
     raw_norm = float(torch.linalg.vector_norm(raw_vec).item())
     unit_vec = (raw_vec / max(raw_norm, 1e-12)).to(dtype=torch.float32).cpu()
     median_row_norm = float(sum(median_norms) / len(median_norms))
-    return unit_vec, median_row_norm, raw_norm, diff_records
+    l49_quality = _compute_pair_quality(a_mat.cpu(), b_mat.cpu(), w_vec.cpu())
+    return unit_vec, median_row_norm, raw_norm, diff_records, l49_quality
 
 
 def extract_diff_span(a_txt: str, b_txt: str) -> tuple[str, str]:
@@ -415,7 +611,15 @@ def extract_diff_span(a_txt: str, b_txt: str) -> tuple[str, str]:
 def load_encoder_vector_from_safetensors(sf_path: Path) -> tuple[torch.Tensor | None, float | None, dict[str, Any]]:
     with safe_open(str(sf_path), framework="pt", device="cpu") as f:
         meta_raw = f.metadata() or {}
-        meta = json.loads(meta_raw["control_vector"]) if "control_vector" in meta_raw else {}
+        if "control_vector" in meta_raw:
+            meta = json.loads(meta_raw["control_vector"])
+        else:
+            meta = {}
+            for k, v in meta_raw.items():
+                try:
+                    meta[k] = json.loads(v)
+                except Exception:
+                    meta[k] = v
         if "vector.encoder" in f.keys():
             vec = f.get_tensor("vector.encoder").to(torch.float32)
             norm = float(torch.linalg.vector_norm(vec.to(torch.float64)).item())
@@ -424,9 +628,9 @@ def load_encoder_vector_from_safetensors(sf_path: Path) -> tuple[torch.Tensor | 
             med_norm = (
                 meta.get("points", {})
                 .get("encoder", {})
-                .get("median_row_norm", 191.0)
+                .get("median_row_norm")
             )
-            return vec, float(med_norm), meta
+            return vec, (float(med_norm) if med_norm is not None else None), meta
         return None, None, meta
 
 
@@ -438,13 +642,15 @@ def compute_top_logit_shifts(
     median_row_norm: float,
     alpha: float = 0.18,
     top_k: int = 12,
-) -> dict[str, list[str]]:
+) -> dict[str, Any]:
     """
-    Zero-sampling lexical lens: run 4 H3-formatted prefixes through `layers.0..49`,
-    add `+/- alpha * median_row_norm * v_encoder` at `layers.49` (positions `1:`), and
-    continue through `layers.50..63` + `norm` + `lm_head` to find the space-prefixed
-    English content words (`piece.startswith(" ")`, `tid < 151643`) whose log-probability
-    increases the most under `+v_encoder` and `-v_encoder`.
+    Zero-sampling lexical lens: run 6 domain-neutral H3-formatted prefixes through
+    `layers.0..49`, add `+/- alpha * median_row_norm * v_encoder` at `layers.49`
+    (positions `1:`), and continue through `layers.50..63` + `norm` + `lm_head`
+    to score space-prefixed English content words (`piece.startswith(" ")`,
+    `tid < 151643`) by symmetric contrastive log-odds:
+        `delta_sym(w) = 0.5 * (log P(w | +v) - log P(w | -v))`
+    cancelling out symmetric off-manifold entropy/temperature flattening.
     """
     layer_49 = model.find_module("model.language_model.layers.49")
     layer_49_idx = model.modules.index(layer_49)
@@ -454,39 +660,17 @@ def compute_top_logit_shifts(
 
     prefixes = [
         "integrated_multimodal_description: [Shot 1] The visual medium, camera look, lighting, and image fidelity look",
+        "integrated_multimodal_description: [Shot 1] The lighting, color palette, contrast, and film stock look",
         "integrated_multimodal_description: [Shot 1] The character's head proportions, facial features, hands, and body texture look",
-        "integrated_multimodal_description: [Shot 1] As the person speaks beside the table, the loose objects on the tabletop and the person's head gradually",
-        "integrated_multimodal_description: [Shot 1] The canvas shop awning, wooden crate, and white delivery van panel are covered in bold",
-        "integrated_multimodal_description: [Shot 1] Across the storefront wall, awning valance, and delivery van door, the surface shows",
+        "integrated_multimodal_description: [Shot 1] As the character speaks in the room, the loose objects and the character's head gradually",
+        "integrated_multimodal_description: [Shot 1] Across the storefront wall, signboard, and door panel, the surface is covered in bold",
+        "integrated_multimodal_description: [Shot 1] Across the wall, signboard, and door panel, the surface shows",
         "overall_soundscape: The room acoustics, vocal delivery, reverberation, and background foley sound",
     ]
 
     id_to_piece = tokenizer.get_id_to_piece_list(include_special_tokens=False)
     vocab_limit = min(len(id_to_piece), tokenizer.raw_vocab_size, QWEN_FIRST_SPECIAL_ID)
-    valid_word_ids: list[int] = []
-    word_map: dict[int, str] = {}
-    for tid in range(vocab_limit):
-        piece = id_to_piece[tid]
-        # Require a leading space so only genuine word-initial BPE tokens are scored
-        if not piece.startswith(" "):
-            continue
-        cleaned = piece.strip()
-        low = cleaned.lower()
-        if not CLEAN_WORD_RE.match(cleaned) or low in STOPWORDS or low in AMBIGUOUS_SHORT_STEMS:
-            continue
-        if _DICT_WORDS:
-            if low in _DICT_WORDS and len(low) >= 4:
-                resolved = low
-            elif len(low) >= 5 and low in _STEM_COMPLETIONS:
-                resolved = _STEM_COMPLETIONS[low]
-            else:
-                continue
-        else:
-            resolved = low
-        if resolved in STOPWORDS:
-            continue
-        valid_word_ids.append(tid)
-        word_map[tid] = resolved
+    valid_word_ids, word_map = _get_bpe_vocab_map(tokenizer)
     valid_idx = torch.tensor(valid_word_ids, dtype=torch.long)
 
     pos_scores = torch.full((len(valid_word_ids),), -1e9, dtype=torch.float32)
@@ -520,28 +704,48 @@ def compute_top_logit_shifts(
         lp_pos = F.log_softmax(tail_logits(h_pos, ids), dim=-1)[valid_idx]
         lp_neg = F.log_softmax(tail_logits(h_neg, ids), dim=-1)[valid_idx]
 
-        # Require plausible target probability (log P > -11.5 ~ 1e-5) so ultra-rare tokens aren't noise-ranked
-        pos_gain = torch.where(lp_pos > -11.5, lp_pos - lp_base, torch.full_like(lp_pos, -1e9))
-        neg_gain = torch.where(lp_neg > -11.5, lp_neg - lp_base, torch.full_like(lp_neg, -1e9))
+        # Median-centered directional log-odds shift cancels isotropic entropy flattening
+        # without mixing -v suppression of generic words into +v domain activation
+        raw_pos = lp_pos - lp_base
+        raw_neg = lp_neg - lp_base
+        pos_shift = raw_pos - torch.median(raw_pos)
+        neg_shift = raw_neg - torch.median(raw_neg)
+        pos_gain = torch.where(lp_pos > -11.5, pos_shift, torch.full_like(lp_pos, -1e9))
+        neg_gain = torch.where(lp_neg > -11.5, neg_shift, torch.full_like(lp_neg, -1e9))
         pos_scores = torch.maximum(pos_scores, pos_gain)
         neg_scores = torch.maximum(neg_scores, neg_gain)
 
-    def pick_unique(scores: torch.Tensor) -> list[str]:
+    def pick_unique(scores: torch.Tensor) -> tuple[list[str], list[float]]:
         order = torch.argsort(scores, descending=True).tolist()
         out: list[str] = []
+        vals: list[float] = []
         seen: set[str] = set()
         for idx_i in order:
             w = word_map[valid_word_ids[idx_i]]
             if w not in seen and len(w) >= 3:
                 seen.add(w)
-                out.append(f"{w} ({scores[idx_i].item():+.2f})")
+                val = float(scores[idx_i].item())
+                out.append(f"{w} ({val:+.2f})")
+                vals.append(val)
                 if len(out) >= top_k:
                     break
-        return out
+        return out, vals
+
+    pos_words, pos_vals = pick_unique(pos_scores)
+    neg_words, _ = pick_unique(neg_scores)
+    top5_mean = sum(pos_vals[:5]) / max(len(pos_vals[:5]), 1)
+    if top5_mean >= 3.2:
+        lex_clarity = "high"
+    elif top5_mean >= 2.2:
+        lex_clarity = "medium"
+    else:
+        lex_clarity = "low"
 
     return {
-        "positive_boosted_words": pick_unique(pos_scores),
-        "negative_boosted_words": pick_unique(neg_scores),
+        "positive_boosted_words": pos_words,
+        "negative_boosted_words": neg_words,
+        "top5_mean_delta_log_prob": round(top5_mean, 3),
+        "lexical_clarity": lex_clarity,
     }
 
 
@@ -707,27 +911,24 @@ def run_self_report_probe(
     )
 
     sys_msg = (
-        "You write vivid, concise H3 video-and-audio scene descriptions using "
-        "`integrated_multimodal_description: [Shot 1]` and `overall_soundscape:`. "
-        "Keep the entire response under 90 words."
+        "You write vivid, concise H3 video-and-audio scene descriptions. "
+        "For the user's scene brief, write a 2-sentence `integrated_multimodal_description: [Shot 1]` "
+        "followed by a 1-sentence `overall_soundscape:`. Keep the entire response under 90 words."
     )
     assistant_prefix = "integrated_multimodal_description: [Shot 1] "
     steer_start_idx = chatml_user_start_idx(tokenizer, sys_msg)
 
     anchor_Specs = {
         "anchor_human_action_room": (
-            "Write a 2-sentence `integrated_multimodal_description: [Shot 1]` followed by a 1-sentence "
-            "`overall_soundscape:` (under 90 words total) for a medium shot of a person standing at a kitchen "
-            "counter with a spoon and napkin resting beside a ceramic mug, pouring water from a pitcher and "
-            "speaking a short greeting aloud. Describe the person's head and face appearance, hands, the motion "
-            "of the water and tabletop items, the vocal delivery, and the room acoustics."
+            "Scene brief: A medium shot of a person standing at a kitchen counter with a spoon and napkin "
+            "resting beside a ceramic mug, pouring water from a pitcher and speaking a short greeting aloud. "
+            "Include the person's head, face, and hands, the water and tabletop items, the vocal delivery, "
+            "and the room acoustics."
         ),
         "anchor_surface_street_camera": (
-            "Write a 2-sentence `integrated_multimodal_description: [Shot 1]` followed by a 1-sentence "
-            "`overall_soundscape:` (under 90 words total) for a daytime shot framing a canvas shop awning, "
-            "a wooden crate on the sidewalk, and the side panel of a parked white delivery van. Describe the "
-            "camera look and lighting, the surface appearance of the awning, crate, and van panel, the "
-            "camera motion, and the street acoustics."
+            "Scene brief: A daytime shot framing a canvas shop awning, a wooden crate on the sidewalk, "
+            "and the side panel of a parked white delivery van. Include the camera look and lighting, "
+            "the surfaces of the awning, crate, and van panel, the camera motion, and the street acoustics."
         ),
     }
 
@@ -756,8 +957,6 @@ def run_self_report_probe(
             )
             sweep_outputs[anchor_key][f"{alpha:+.2f}"] = assistant_prefix + text
 
-    pos_words = ", ".join(lexical_shifts["positive_boosted_words"])
-    neg_words = ", ".join(lexical_shifts["negative_boosted_words"])
     anchor_a_block = "\n".join(
         f"  alpha={k}: {v}" for k, v in sweep_outputs["anchor_human_action_room"].items()
     )
@@ -767,27 +966,25 @@ def run_self_report_probe(
 
     synth_prompt = format_chatml(
         "You analyze activation-steering readouts from layer 49 of a video-and-audio conditioning model and output only valid JSON.",
-        "A hidden control vector was injected at layer 49 and read out using:\n"
-        f"1. Direct lm_head log-odds boosted words (+vector): {pos_words}\n"
-        f"   Direct lm_head log-odds boosted words (-vector): {neg_words}\n\n"
-        f"2. Coupled rollouts (temp={temperature:.2f}, top_p={top_p:.2f}, top_k={top_k}) on Anchor A "
-        f"(Character pouring water into a mug at a counter + speaking + room sound):\n{anchor_a_block}\n\n"
-        f"3. Coupled rollouts (temp={temperature:.2f}, top_p={top_p:.2f}, top_k={top_k}) on Anchor B "
+        "A hidden control vector was injected at layer 49 and read out using coupled rollouts across steering strengths "
+        "(without any lexical token hints):\n\n"
+        f"1. Coupled rollouts (temp={temperature:.2f}, top_p={top_p:.2f}, top_k={top_k}) on Anchor A "
+        f"(Person pouring water into a mug at a counter + speaking + room sound):\n{anchor_a_block}\n\n"
+        f"2. Coupled rollouts (temp={temperature:.2f}, top_p={top_p:.2f}, top_k={top_k}) on Anchor B "
         f"(Canvas shop awning + wooden crate + white delivery van panel + street sound):\n{anchor_b_block}\n\n"
         "IMPORTANT: Ignore baseline objects and actions that were already requested by the anchor prompts "
         "or already present at `alpha=+0.00` (such as the counter, pitcher, mug, canvas awning, wooden crate, "
-        "or delivery van). Isolate ONLY the specific visual medium/material, physical coordination/mishap, "
-        "surface typography/signage, film stock/lighting, vocal delivery, or acoustic reverberation that "
-        "systematically emerges from negative (-0.15) to baseline (+0.00) to positive (+0.15, +0.22) and "
-        "in the boosted `lm_head` words.\n\n"
+        "or delivery van). Isolate ONLY the specific visual, physical, material, camera, lighting, vocal, or "
+        "acoustic transformation that systematically emerges from negative (-0.15) through baseline (+0.00) "
+        "to positive (+0.15, +0.22) across the coupled rollouts.\n\n"
         "Return a single valid JSON object with keys:\n"
-        '  "self_report_slug": concise snake_case label (2-4 words),\n'
+        '  "self_report_slug": concise snake_case label (2-4 words) deduced strictly from the rollouts,\n'
         '  "self_report_quality": 1-sentence summary of the steered transformation,\n'
         '  "negative_pole": what negative steering (-0.15) produces,\n'
         '  "positive_pole": what positive steering (+0.15, +0.22) produces,\n'
         '  "dominant_modality": "visual" | "acoustic" | "audiovisual" | "typography",\n'
         '  "readout_clarity": "high" | "medium" | "low",\n'
-        '  "clarity_reason": 1-sentence explanation of why readout clarity is high, medium, or low',
+        '  "clarity_reason": 1-sentence explanation of why rollout clarity is high, medium, or low',
         assistant_prefix="{\n",
     )
     raw_json = "{\n" + generate_cached(
@@ -890,25 +1087,47 @@ def write_markdown_report(
         "",
         "Generated with `Qwen3-VL-32B-Instruct` (`5.37 bpw` EXL3, `6 bpw` readout layers `50..63`, `8 bpw` `lm_head`) using:",
         "- **Official Qwen3-VL Non-Thinking Sampling + Coupled Gumbel Draws** (`ComboSampler(temperature=0.7, top_p=0.8, top_k=20, min_p=0.0, rep_p=1.05)` with matched per-step `rand_u32` across $\\alpha$)",
-        "- **Assistant-Span-Targeted `layers.49` Steering** (leaving `<|im_start|>system`, user instructions, and `<think></think>` framing tokens unsteered)",
-        "- **Direct `layers.49 -> lm_head` Word-Initial Log-Odds Shift (`delta_log_prob`)**",
+        "- **User-Scene + Assistant-Span `layers.49` Steering** (leaving `<|im_start|>system`, formatting instructions, and `<think></think>` framing tokens unsteered)",
+        "- **Direct `layers.49 -> lm_head` Symmetric Contrastive Log-Odds (`0.5 * (logP(+v) - logP(-v))`)** across 6 domain-neutral prefixes (with true BPE token verification)",
+        "- **Blind Self-Report Synthesis** (`synthesis` judges the coupled `Anchor A` & `Anchor B` rollouts 100% blind to `lm_head` lexical tokens)",
+        "- **Dual-Site (`layers.49` + `post_refiner`) Pair-Coherence Diagnostics** (`mean_pairwise_cosine`, `split_half_cosine`, `min_pair_cosine`, and `per_pair_cosine`)",
         "",
         "## 1. Summary Table",
         "",
-        "| Vector (`.toml`) | `L49` Raw Norm | Blind Pair-Diff Label | Modality | `L49` Self-Report Label (`temp=0.7`) | Top `+v_encoder` Boosted Words (`lm_head` $\\Delta\\log P$) |",
-        "|---|---:|---|---|---|---|",
+        "| Vector (`.toml`) | `L49` Norm | `PR` Norm (`fl2va`) | `L49` Split1/2 | `PR` Split1/2 | `PR` MinCos (Weakest) | Lexical Clarity | Blind Rollout Label (`temp=0.7`) | Rollout Clarity | Top `+v_encoder` Words (`lm_head` $\\Delta\\log P$) |",
+        "|---|---:|---:|---:|---:|---:|---|---|---|---|",
     ]
 
     for stem, entry in sorted(results.items()):
-        bp = entry.get("blind_pair_label", {})
-        bp_slug = bp.get("inferred_slug", "—") if isinstance(bp, dict) else "—"
-        bp_mod = bp.get("modality", "—") if isinstance(bp, dict) else "—"
         sr = entry.get("layer49_self_report", {})
-        sr_synth = sr.get("synthesis", {})
-        sr_slug = sr_synth.get("self_report_slug", "—") if isinstance(sr_synth, dict) else "—"
-        pos_words = ", ".join(sr.get("lexical_logit_shifts", {}).get("positive_boosted_words", [])[:6])
+        sr_synth = sr.get("synthesis", {}) if isinstance(sr.get("synthesis"), dict) else {}
+        sr_slug = sr_synth.get("self_report_slug", "—")
+        sr_clar = sr_synth.get("readout_clarity", "—")
+        lex = sr.get("lexical_logit_shifts", {})
+        lex_clar = lex.get("lexical_clarity", "—")
+        pos_words = ", ".join(lex.get("positive_boosted_words", [])[:6])
+
+        l49_q = entry.get("layer49_quality", {})
+        l49_sh = f"`{l49_q['split_half_cosine']:.3f}`" if "split_half_cosine" in l49_q else "—"
+
+        pr_sf = entry.get("post_refiner_safetensors", {})
+        fl2va_info = pr_sf.get("fl2va") or next(iter(pr_sf.values()), {})
+        pr_norm = f"`{fl2va_info['post_refiner_raw_norm']:.1f}`" if "post_refiner_raw_norm" in fl2va_info else "—"
+        pr_q = fl2va_info.get("post_refiner_quality", {})
+        pr_sh = f"`{pr_q['split_half_cosine']:.3f}`" if "split_half_cosine" in pr_q else "—"
+        if "min_pair_cosine" in pr_q:
+            wp = pr_q.get("weakest_pair_1based")
+            wp_s = f"P{int(wp):02d}" if isinstance(wp, int) else "P?"
+            pr_min = f"`{pr_q['min_pair_cosine']:.3f}` (`{wp_s}`)"
+        elif "min_pair_cosine" in l49_q:
+            wp = l49_q.get("weakest_pair_1based")
+            wp_s = f"P{int(wp):02d}" if isinstance(wp, int) else "P?"
+            pr_min = f"`{l49_q['min_pair_cosine']:.3f}` (`{wp_s}`)"
+        else:
+            pr_min = "—"
+
         lines.append(
-            f"| `{stem}` | `{entry.get('layer49_raw_norm', 0.0):.2f}` | `{bp_slug}` | `{bp_mod}` | `{sr_slug}` | {pos_words} |"
+            f"| `{stem}` | `{entry.get('layer49_raw_norm', 0.0):.2f}` | {pr_norm} | {l49_sh} | {pr_sh} | {pr_min} | `{lex_clar}` | `{sr_slug}` | `{sr_clar}` | {pos_words} |"
         )
 
     if len(vectors_map) >= 2:
@@ -931,16 +1150,35 @@ def write_markdown_report(
         gt = entry.get("ground_truth_header", {})
         bp = entry.get("blind_pair_label", {})
         sr = entry.get("layer49_self_report", {})
-        sr_synth = sr.get("synthesis", {})
+        sr_synth = sr.get("synthesis", {}) if isinstance(sr.get("synthesis"), dict) else {}
         lex = sr.get("lexical_logit_shifts", {})
         sweeps = sr.get("sweep_completions", {})
+        l49_q = entry.get("layer49_quality", {})
+        pr_sf = entry.get("post_refiner_safetensors", {})
+        fl2va_info = pr_sf.get("fl2va") or next(iter(pr_sf.values()), {})
+        pr_q = fl2va_info.get("post_refiner_quality", {})
 
         lines += [
-            f"### `{stem}` (`raw_norm = {entry.get('layer49_raw_norm', 0.0):.2f}`, `median_row_norm = {entry.get('layer49_median_row_norm_ex_row0', 0.0):.1f}`)",
+            f"### `{stem}` (`L49 raw_norm = {entry.get('layer49_raw_norm', 0.0):.2f}`, `median_row_norm = {entry.get('layer49_median_row_norm_ex_row0', 0.0):.1f}`)",
             f"- **Intended (`.toml` header)**: {gt.get('quality', '')}",
             f"- **Blind Pair-Diff Label**: `{bp.get('inferred_slug', '') if isinstance(bp, dict) else ''}` — {bp.get('inferred_quality', '') if isinstance(bp, dict) else ''}",
-            f"- **`layers.49` Steered Self-Report (`temp=0.7`)**: `{sr_synth.get('self_report_slug', '') if isinstance(sr_synth, dict) else ''}` — {sr_synth.get('self_report_quality', '') if isinstance(sr_synth, dict) else ''}",
-            f"- **Top Boosted Words (`+v_encoder`)**: {', '.join(lex.get('positive_boosted_words', [])[:10])}",
+            f"- **Blind `layers.49` Rollout Self-Report (`temp=0.7`, clarity=`{sr_synth.get('readout_clarity', '—')}`)**: `{sr_synth.get('self_report_slug', '')}` — {sr_synth.get('self_report_quality', '')}",
+        ]
+        if l49_q:
+            lines.append(
+                f"- **`layers.49` Pair Coherence (`[5120]`)**: `MeanPairCos = {l49_q.get('mean_pairwise_cosine', 0.0):.4f}`, "
+                f"`SplitHalf = {l49_q.get('split_half_cosine', 0.0):.4f}`, "
+                f"`MinPairCos = {l49_q.get('min_pair_cosine', 0.0):.4f}` (Pair `{l49_q.get('weakest_pair_1based', '?')}`)"
+            )
+        if pr_q:
+            lines.append(
+                f"- **`post_refiner` Pair Coherence (`[5376]`, `raw_norm = {fl2va_info.get('post_refiner_raw_norm', 0.0):.2f}`)**: "
+                f"`MeanPairCos = {pr_q.get('mean_pairwise_cosine', 0.0):.4f}`, "
+                f"`SplitHalf = {pr_q.get('split_half_cosine', 0.0):.4f}`, "
+                f"`MinPairCos = {pr_q.get('min_pair_cosine', 0.0):.4f}` (Pair `{pr_q.get('weakest_pair_1based', '?')}`)"
+            )
+        lines += [
+            f"- **Top Boosted Words (`+v_encoder`, lexical_clarity=`{lex.get('lexical_clarity', '—')}`, top5_mean=`{lex.get('top5_mean_delta_log_prob', 0.0):+.2f}`)**: {', '.join(lex.get('positive_boosted_words', [])[:10])}",
             f"- **Top Boosted Words (`-v_encoder`)**: {', '.join(lex.get('negative_boosted_words', [])[:10])}",
         ]
         if isinstance(sweeps, dict):
@@ -1142,15 +1380,42 @@ def main() -> None:
         toml_data = tomllib.loads(toml_text)
         vec_hdr = toml_data.get("vector", {})
 
-        sf_matches = sorted(args.vectors_dir.glob(f"{stem}*.safetensors"))
+        sf_matches = sorted(args.vectors_dir.glob(f"{stem}__*.safetensors"))
         vec_enc = None
         med_norm = None
+        pr_safetensors_meta: dict[str, Any] = {}
         for sf_path in sf_matches:
-            vec_enc, med_norm, _ = load_encoder_vector_from_safetensors(sf_path)
-            if vec_enc is not None:
-                break
+            v_cand, m_cand, sf_meta = load_encoder_vector_from_safetensors(sf_path)
+            if v_cand is not None and vec_enc is None:
+                vec_enc, med_norm = v_cand, m_cand
+            fam = str(sf_meta.get("family", sf_path.stem.split("__")[1] if "__" in sf_path.stem else "default"))
+            pts = sf_meta.get("points", {}) if isinstance(sf_meta.get("points"), dict) else {}
+            qr = sf_meta.get("quality_report", {}) if isinstance(sf_meta.get("quality_report"), dict) else {}
+            pr_pt = pts.get("post_refiner", {}) if isinstance(pts.get("post_refiner"), dict) else {}
+            pr_q_raw = qr.get("post_refiner") if isinstance(qr.get("post_refiner"), dict) else (qr if "per_pair_cosine" in qr else {})
+            if pr_pt or pr_q_raw:
+                pr_ppc = [round(float(x), 4) for x in pr_q_raw.get("per_pair_cosine", [])]
+                weakest_idx = (
+                    int(min(range(len(pr_ppc)), key=lambda i: pr_ppc[i]) + 1)
+                    if pr_ppc
+                    else None
+                )
+                min_p_cos = pr_ppc[weakest_idx - 1] if weakest_idx is not None else None
+                pr_safetensors_meta[fam] = {
+                    "file": sf_path.name,
+                    "post_refiner_raw_norm": round(float(pr_pt["raw_norm"]), 4) if "raw_norm" in pr_pt else None,
+                    "post_refiner_median_row_norm": round(
+                        float(pr_pt.get("median_row_norm") or pr_pt.get("median_row_norm_ex_row0") or 0.0), 4
+                    ),
+                    "post_refiner_quality": {
+                        "mean_pairwise_cosine": round(float(pr_q_raw.get("mean_pairwise_cosine", 0.0)), 4),
+                        "split_half_cosine": round(float(pr_q_raw.get("split_half_cosine", 0.0)), 4),
+                        **({"min_pair_cosine": min_p_cos, "weakest_pair_1based": weakest_idx} if min_p_cos is not None else {}),
+                        "per_pair_cosine": pr_ppc,
+                    },
+                }
 
-        computed_vec, computed_med_norm, raw_norm, diff_records = compute_encoder_vector_from_toml(
+        computed_vec, computed_med_norm, raw_norm, diff_records, l49_quality = compute_encoder_vector_from_toml(
             model=model,
             tokenizer=tokenizer,
             toml_path=toml_path,
@@ -1180,11 +1445,6 @@ def main() -> None:
             vec_source = "safetensors_vector.encoder"
         vectors_map[stem] = vec_enc
 
-        if stem not in active_stems:
-            continue
-
-        print(f"\n=== [{stem}] (safetensors files: {len(sf_matches)}, pooling={args.pooling}) ===")
-
         entry: dict[str, Any] = results.get(stem, {})
         toml_changed = entry.get("toml_sha256") not in (None, toml_sha256)
         entry.update({
@@ -1202,7 +1462,15 @@ def main() -> None:
             "encoder_vector_source": vec_source,
             "layer49_raw_norm": round(raw_norm, 4),
             "layer49_median_row_norm_ex_row0": round(float(med_norm), 4),
+            "layer49_quality": l49_quality,
+            "post_refiner_safetensors": pr_safetensors_meta,
         })
+        results[stem] = entry
+
+        if stem not in active_stems:
+            continue
+
+        print(f"\n=== [{stem}] (safetensors files: {len(sf_matches)}, pooling={args.pooling}) ===")
 
         if (
             args.mode in ("all", "blind_pairs")
