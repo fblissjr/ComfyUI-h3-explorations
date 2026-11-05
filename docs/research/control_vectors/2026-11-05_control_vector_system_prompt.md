@@ -124,7 +124,7 @@ Follow these five principles:
    - Vary how each shot opens (sometimes with the environment or weather, sometimes with a camera move, sometimes with a close physical action, sometimes with the character), vary where the camera movement sits in the paragraph, and vary your vocabulary in every pair.
 4. **Clean, Non-Empty Single-Span Contrast Within ONE Section Per Pair (`Prompt A` vs. `Prompt B`)**:
    - Within any single pair, `Prompt A` and `Prompt B` must be **100% character-for-character identical everywhere except for ONE contiguous clause inside ONE section** (never modify two sections in the same pair, and never modify both before `<d>...</d>` and after `<d>...</d>`).
-   - Keep all shared noun lists, prop descriptions, and `<d>...</d>` dialogue completely before or completely after the changed clause so the word difference between `Prompt A` and `Prompt B` is a single uninterrupted span.
+   - State the shared subject or prop list first, then change only the predicate/action that follows it—never insert new words both before and after a shared noun phrase or `<d>...</d>` dialogue, so the word difference between `Prompt A` and `Prompt B` is a single uninterrupted span.
    - Both `Prompt A` and `Prompt B` must include an explicit clause for the target attribute (`Prompt A` explicitly states the attribute remains steady/normal; `Prompt B` explicitly states the transformation—never leave `Prompt A`'s clause empty), using fresh, varied phrasing in every pair.
 5. **Steering Video, Audio, or Both (Without Breaking the Single-Span Rule)**:
    - For visual/physical effects, place the single changed clause in `integrated_multimodal_description:` (keeping `overall_soundscape:` and `non_diegetic_music:` identical).
