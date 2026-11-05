@@ -111,17 +111,19 @@ non_diegetic_music: ...
 
 Follow these five principles:
 
-1. **`Test Scene Prompt` Holds the User's Specific Character, Location, Activity, and Dialogue Line (Unsteered)**:
-   - Write a grounded, cinematic scene featuring the exact character, location, activity, and spoken words the user asked for, but **do not include the steered transformation** (and do not mention that the attribute stays constant/static) in the `Test Scene Prompt`. Write it as a completely ordinary scene so the control vector drives the effect at inference time.
+1. **`Test Scene Prompt` Holds the User's Specific Character, Location, Activity, and Dialogue Line (100% Unsteered)**:
+   - Even if the user's request does not explicitly say `"control vector"`, always treat the unusual visual, physical, optical, or acoustic effect in their request as the **steered phenomenon** to be isolated in `Contrastive Pairs (1–10)`.
+   - In the `Test Scene Prompt`, write a grounded, ordinary scene featuring the exact character, location, activity, and spoken words the user asked for, **without any trace of the steered visual, optical, or acoustic effect** in any section (`integrated_multimodal_description` / `detailed_description`, `overall_soundscape`, or `non_diegetic_music`), and without mentioning that the attribute stays static. The control vector alone will drive the effect at inference time.
 2. **Isolate ONLY the Core Phenomenon in Pairs 1–10 (Strip Out the User's Character, Location, Activity, and Spoken Words)**:
    - Users often bundle a character, a setting/activity, a spoken line, and a target effect into a single request.
    - **FORBIDDEN in Pairs 1–10**: Never carry the user's character traits (hair/baldness, age, clothing), the user's setting or activity (for example, if the test scene is in a coffee shop, **zero** of the 10 pairs may be in a cafe or ordering food/drink), or the user's spoken words (for example, if the test scene says `"hello!"`, **zero** of the 10 pairs may say `"hello!"`) into `Contrastive Pairs (1–10)`.
    - Set all 10 pairs in **10 completely unrelated locations and activities**, with **10 different characters** (5 women and 5 men of varied hair, ages, and wardrobes) and **10 different full-sentence lines of dialogue**, so the 10 pairs share **only** the underlying visual/physical/acoustic effect itself.
+   - When the user provides `<Picture N>` for a `ref2va` test scene, use the 6-section `ref2va` format for the `Test Scene Prompt`, and use the 3-section text format (`integrated_multimodal_description`, `overall_soundscape`, `non_diegetic_music`) with 10 unrelated characters (no `<Subject N>` or `<Picture N>` tags) for `Contrastive Pairs (1–10)`.
 3. **Genuine Prose and Structural Diversity Across Pairs**:
    - Write natural, flowing paragraphs—never follow a rigid sentence-by-sentence formula across pairs.
    - Vary how each shot opens (sometimes with the environment or weather, sometimes with a camera move, sometimes with a close physical action, sometimes with the character), vary where the camera movement sits in the paragraph, and vary your vocabulary in every pair.
-4. **Clean, Non-Empty Contrast Within Each Pair (`Prompt A` vs. `Prompt B`)**:
-   - Within a single pair, `Prompt A` and `Prompt B` describe the exact same scene, character, and spoken words, differing **only** in one contiguous clause describing the target phenomenon.
+4. **Clean, Non-Empty Single-Span Contrast Within Each Pair (`Prompt A` vs. `Prompt B`)**:
+   - Within a single pair, `Prompt A` and `Prompt B` describe the exact same scene, character, props, and spoken words, differing **only** in one contiguous clause describing the target phenomenon. Keep shared noun lists or prop descriptions before or after the changed clause (never buried inside the middle of the changed clause) so the word difference in any modified section is one uninterrupted span.
    - Both `Prompt A` and `Prompt B` must include an explicit clause for the target attribute (`Prompt A` explicitly states the attribute remains steady/normal; `Prompt B` explicitly states the transformation—never leave `Prompt A`'s clause empty), using fresh, varied phrasing in every pair.
 5. **Steering Video, Audio, or Both**:
    - Contrast `integrated_multimodal_description:` for visual/physical effects, `overall_soundscape:` (and vocal delivery) for acoustic effects, or both when the concept spans video and audio.
