@@ -68,9 +68,9 @@ non_diegetic_music:
 
 1. **Camera Motion**: Weave camera behavior naturally into the shot as an active sentence using clear cinematography terms (`zooms in/out`, `pushes in/pulls out`, `pans left/right`, `trucks left/right`, `tilts up/down`, `pedestals up/down`, `arcs around`, `tracks`, `holds a static shot`, `shakes slightly/strongly`, `POV`, `rolls clockwise/counterclockwise`), adding amplitude (`with small/large amplitude`) and speed (`at slow/fast speed`) only when relevant.
 2. **Speakers and `<d>...</d>` Dialogue**:
-   - Assign `(S1)`, `(S2)` only to characters who vocalize; silent characters get no speaker ID and should be noted as making no vocal sound.
-   - Establish a speaker's appearance, position in frame, and vocal qualities (pitch, timbre, pace) in `integrated_multimodal_description:` before they speak, and identify the speaker with `(S1)` in the sentence that delivers the line.
-   - Wrap spoken or sung words tightly in `<d>...</d>` with no leading or trailing spaces inside the tags (e.g., `<d>...</d>`). For English dialogue, do not add `[English]` inside `<d>`; only add a `[Language]` prefix when the line is in a non-English language.
+   - **Always include `(S1)`** on the speaking character (and `(S2)` if a second character speaks) in `Test Scene Prompt` and in every `Prompt A` and `Prompt B`. Silent characters get no speaker ID and should be noted as making no vocal sound.
+   - Establish a speaker's appearance, position in frame, and vocal qualities (pitch, timbre, pace) in `integrated_multimodal_description:`, and tag them with `(S1)` in the sentence that delivers `<d>...</d>`.
+   - Wrap spoken or sung words tightly in `<d>...</d>` with no leading or trailing spaces inside the tags. For English dialogue, do not add `[English]` inside `<d>`; only add a `[Language]` prefix when the line is in a non-English language.
    - When the shot continues after a line of dialogue finishes, naturally describe how the speaker's mouth closes or their expression settles so lip movement stops cleanly—vary how you phrase this across prompts rather than repeating a stock sentence.
 3. **On-Screen Text**: Put any visible sign, label, or neon text in double quotes (`"..."`).
 
@@ -112,16 +112,15 @@ Follow these five principles:
 
 1. **`Test Scene Prompt` Is a Normal, Unsteered Baseline**:
    - Write a grounded, cinematic scene featuring the specific subject, setting, and spoken line the user asked for, but **do not include the steered transformation** (or mention the attribute staying constant) in the `Test Scene Prompt`. Leave the scene unsteered so the control vector drives the effect at inference time.
-2. **Generalize Across the 10 Contrastive Pairs (Do Not Copy the Test Subject or Test Dialogue)**:
-   - The 10 pairs must isolate the **general transformation or quality itself**, independent of the `Test Scene Prompt`'s specific character or dialogue words.
-   - Never repeat the test subject's distinctive appearance or the test prompt's exact spoken words across the 10 pairs. Give each pair a different character (balanced across women and men of varied ages, hairstyles, builds, and clothing), a different location and lighting setup, and—when the effect involves speech—a **different, full-sentence spoken line** in every pair so the transformation has time to unfold.
+2. **Split `control vector for [CHARACTER] whose/that [EFFECT]` into Two Separate Jobs**:
+   - Whenever a user asks for `"a control vector for [CHARACTER] whose/that [EFFECT]"`, `[CHARACTER]` is **only** the actor for `### Test Scene Prompt`, whereas `[EFFECT]` alone is what `### Contrastive Pairs (1–10)` must learn.
+   - **FORBIDDEN in Pairs 1–10**: Never carry `[CHARACTER]`'s physical traits (such as hair/baldness, age, clothing, or profession) or `[CHARACTER]`'s exact spoken words into the 10 contrastive pairs. Give all 10 pairs characters who look completely different from the `Test Scene Prompt` character (varied hairstyles, ages, genders, and wardrobes) and give each pair its own distinct spoken line.
 3. **Genuine Prose and Structural Diversity Across Pairs**:
    - Write natural, flowing paragraphs—never follow a rigid sentence-by-sentence formula across pairs.
    - Vary how each shot opens (sometimes with the environment or weather, sometimes with a camera move, sometimes with a close physical action, sometimes with the character), vary where the camera movement sits in the paragraph, and vary your vocabulary in every pair.
-4. **Clean Contrast Within Each Pair (`Prompt A` vs. `Prompt B`)**:
-   - Within a single pair, `Prompt A` and `Prompt B` describe the exact same scene, character, spoken words, and post-dialogue action, differing **only** in the description of the target phenomenon.
-   - Place the contrasted description naturally where the action happens (before or during `<d>...</d>` when tied to speech, never tacked onto the end after `</d>`), and phrase both the baseline state (`Prompt A`) and the steered state (`Prompt B`) with fresh, varied language in each pair rather than repeating the same clause across pairs.
-   - When the effect is progressive over time, describe the steady baseline in `Prompt A` and the progressive change in `Prompt B`.
+4. **Clean, Non-Empty Contrast Within Each Pair (`Prompt A` vs. `Prompt B`)**:
+   - Within a single pair, `Prompt A` and `Prompt B` describe the exact same scene, character, and spoken words, differing **only** in one contiguous clause describing the target phenomenon.
+   - Both `Prompt A` and `Prompt B` must include an explicit clause for the target attribute (`Prompt A` explicitly states the attribute remains steady/normal; `Prompt B` explicitly states the transformation—never leave `Prompt A`'s clause empty), using fresh, varied phrasing in every pair.
 5. **Steering Video, Audio, or Both**:
    - Contrast `integrated_multimodal_description:` for visual/physical effects, `overall_soundscape:` (and vocal delivery) for acoustic effects, or both when the concept spans video and audio.
 ````
