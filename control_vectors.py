@@ -64,11 +64,12 @@ HEADER_TOKEN_RE = re.compile(
     r"\[Shot\s+\d+\]"
 )
 
-#: Reasoned ceiling on consecutive identical words inside a single modified quality
-#: clause: two poles of one look/lighting clause may share a short preposition or
-#: conjunction phrase of up to 3 words (e.g. "with soft, warm"), whereas 4 or more
-#: unchanged words between edits indicates two separate clauses were modified.
-MAX_SHARED_INTERIOR_WORDS = 4
+#: Measured/reasoned ceiling on consecutive identical words inside a single modified
+#: clause: two poles of one quality or action-predicate clause may share a short
+#: preposition or compound noun phrase of up to 4 words (e.g. "with soft, warm" or
+#: "the polished mahogany desk" in zero_gravity.toml), whereas 5 or more unchanged
+#: words between edits indicates two separate clauses were modified.
+MAX_SHARED_INTERIOR_WORDS = 5
 
 FAMILY_TENSOR_KEYS: tuple[str, str, str] = (
     "condition_proj.weight",

@@ -8,121 +8,161 @@ frame = "scene"
 exclude_shots = ["t2va_offpath_tortoise", "ref2va_look_anchor"]
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic shot. A woman in a lab coat sits at a desk in a university library, reading a thick textbook with a pencil resting on an open page; she looks up (S1) and says, <d>I need to finish this chapter by tonight.</d> The room is quiet with rows of bookshelves in the background, and the pencil stays firmly resting on the paper due to standard gravitational forces.
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. In a sunlit greenhouse, an elderly botanist with gray hair in a green apron sits at a potting bench. The camera holds a static medium shot as (S1) says with an earnest alto tone, <d>The root systems require complete soil stabilization.</d> while the empty clay pots and seed packets remain firmly anchored to the wooden bench under normal downward gravity.
 
-overall_soundscape: The muffled rustle of turning pages, the soft ticking of a wall clock, and the distant hum of a ventilation fan.
+overall_soundscape:
+Gentle glasshouse air drafts, rustling foliage, and faint insect hums.
 
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic shot. A woman in a lab coat sits at a desk in a university library, reading a thick textbook with a pencil resting on an open page; she looks up (S1) and says, <d>I need to finish this chapter by tonight.</d> The room is quiet with rows of bookshelves in the background, and the pencil begins to lift off the page, slowly rising into the air as gravity fails and the object floats upward into the dim light.
+non_diegetic_music:
+N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. In a sunlit greenhouse, an elderly botanist with gray hair in a green apron sits at a potting bench. The camera holds a static medium shot as (S1) says with an earnest alto tone, <d>The root systems require complete soil stabilization.</d> while the empty clay pots and seed packets gradually lift off the wooden bench and float weightlessly upward into the air.
 
-overall_soundscape: The muffled rustle of turning pages, the soft ticking of a wall clock, and the distant hum of a ventilation fan.
+overall_soundscape:
+Gentle glasshouse air drafts, rustling foliage, and faint insect hums.
 
-non_diegetic_music: N/A'''
-
-[[pair]]
-a = '''integrated_multimodal_description: [Shot 1] 2D-animated shot. A teenager in a blue hoodie stands in a messy kitchen preparing a salad, with several spinach leaves scattered on the wooden cutting board; he sighs (S1) and says, <d>Mom said I had to eat my greens.</d> The camera arcs around him slowly, and the leaves remain flat on the board throughout the duration of the shot.
-
-overall_soundscape: The faint sound of a knife hitting a wooden board and the distant hiss of a tea kettle.
-
-non_diegetic_music: A light, fast-paced acoustic guitar melody plays at a medium volume.'''
-b = '''integrated_multimodal_description: [Shot 1] 2D-animated shot. A teenager in a blue hoodie stands in a messy kitchen preparing a salad, with several spinach leaves scattered on the wooden cutting board; he sighs (S1) and says, <d>Mom said I had to eat my greens.</d> The camera arcs around him slowly, and the spinach leaves suddenly detach from the surface, drifting upward and rotating in the air as gravity loses its hold on the room.
-
-overall_soundscape: The faint sound of a knife hitting a wooden board and the distant hiss of a tea kettle.
-
-non_diegetic_music: A light, fast-paced acoustic guitar melody plays at a medium volume.'''
+non_diegetic_music:
+N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Live-action shot. An elderly man with thick glasses sits at a cluttered office desk, surrounded by piles of documents and a gold-plated fountain pen; he taps his finger (S1) and says, <d>Everything has to be perfectly organized.</d> The camera trucks right across the desk, and the fountain pen stays perfectly still on the blotter.
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. In an industrial repair bay, a young mechanic with short black hair in blue coveralls sits beside an iron workbench. The camera slowly pushes in as (S1) says in a gruff baritone, <d>Check the torque on every single fastener before sunrise.</d> while the steel bolts and loose wrenches stay stationary on the metal tabletop under constant downward gravity.
 
-overall_soundscape: The clicking of a mechanical keyboard and the rhythmic sound of a heavy printer working nearby.
+overall_soundscape:
+Low industrial exhaust drone and distant metallic machinery hum.
 
-non_diegetic_music: A tense, low-frequency synth drone plays quietly.'''
-b = '''integrated_multimodal_description: [Shot 1] Live-action shot. An elderly man with thick glasses sits at a cluttered office desk, surrounded by piles of documents and a gold-plated fountain pen; he taps his finger (S1) and says, <d>Everything has to be perfectly organized.</d> The camera trucks right across the desk, and the fountain pen begins to lift off the desk, bobbing and rising toward the ceiling as the local gravity field ceases to function.
+non_diegetic_music:
+N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. In an industrial repair bay, a young mechanic with short black hair in blue coveralls sits beside an iron workbench. The camera slowly pushes in as (S1) says in a gruff baritone, <d>Check the torque on every single fastener before sunrise.</d> while the steel bolts and loose wrenches slowly rise off the metal tabletop and hover upward as gravity turns off.
 
-overall_soundscape: The clicking of a mechanical keyboard and the rhythmic sound of a heavy printer working nearby.
+overall_soundscape:
+Low industrial exhaust drone and distant metallic machinery hum.
 
-non_diegetic_music: A tense, low-frequency synth drone plays quietly.'''
-
-[[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic shot. A woman with auburn hair sits on a stone park bench playing a game of chess, where the black knight piece is positioned firmly on a square; she laughs (S1) and says, <d>You did not see that coming.</d> The camera zooms in on her face, and the game board remains completely stationary under the weight of normal gravity.
-
-overall_soundscape: Wind blowing through leaves, birds chirping in the distance, and the sound of a distant lawnmower.
-
-non_diegetic_music: Soft, rhythmic piano chords play at a steady, slow tempo.'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic shot. A woman with auburn hair sits on a stone park bench playing a game of chess, where the black knight piece is positioned firmly on a square; she laughs (S1) and says, <d>You did not see that coming.</d> The camera zooms in on her face, and the chess pieces begin to slide off the board, lifting and floating away from the surface as the pull of gravity vanishes.
-
-overall_soundscape: Wind blowing through leaves, birds chirping in the distance, and the sound of a distant lawnmower.
-
-non_diegetic_music: Soft, rhythmic piano chords play at a steady, slow tempo.'''
+non_diegetic_music:
+N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] 3D CG shot. A young man wearing goggles sits at a workbench in a cluttered workshop, fixing a watch with tiny brass gears laid out on a velvet cloth; he leans in (S1) and says, <d>This is the smallest screw I have ever seen.</d> The camera orbits the table, and the metal gears remain grounded on the cloth.
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a wood-paneled archive, a scholarly woman with braided brown hair in a woolen cardigan sits at a study carrel. The camera trucks right smoothly as (S1) speaks in a crisp soprano, <d>Every translated folio confirms the historical timeline.</d> while the brass paperweights and loose ledger sheets remain flat against the polished mahogany desk under standard gravity.
 
-overall_soundscape: The rhythmic ticking of multiple clocks and the occasional sharp sound of tweezers hitting metal.
+overall_soundscape:
+Subtle acoustic room tone of an insulated library and faint paper rustles.
 
-non_diegetic_music: A precise, fast-tempo ticking percussion loop plays at a moderate volume.'''
-b = '''integrated_multimodal_description: [Shot 1] 3D CG shot. A young man wearing goggles sits at a workbench in a cluttered workshop, fixing a watch with tiny brass gears laid out on a velvet cloth; he leans in (S1) and says, <d>This is the smallest screw I have ever seen.</d> The camera orbits the table, and the tiny brass gears begin to lose their contact with the velvet, hovering and floating into the workshop air as gravity stops working.
+non_diegetic_music:
+N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a wood-paneled archive, a scholarly woman with braided brown hair in a woolen cardigan sits at a study carrel. The camera trucks right smoothly as (S1) speaks in a crisp soprano, <d>Every translated folio confirms the historical timeline.</d> while the brass paperweights and loose ledger sheets slowly levitate upward off the polished mahogany desk as gravity dissolves.
 
-overall_soundscape: The rhythmic ticking of multiple clocks and the occasional sharp sound of tweezers hitting metal.
+overall_soundscape:
+Subtle acoustic room tone of an insulated library and faint paper rustles.
 
-non_diegetic_music: A precise, fast-tempo ticking percussion loop plays at a moderate volume.'''
-
-[[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Watercolor-styled shot. A woman in a straw hat sits in a sunlit greenhouse, surrounded by potted ferns and a small bowl of potting soil; she smiles (S1) and says, <d>The plants are finally beginning to thrive.</d> The camera pans slowly across the greenhouse, and the grains of soil stay settled inside the ceramic bowl.
-
-overall_soundscape: Water dripping from an overhead irrigation pipe and the sound of rustling leaves.
-
-non_diegetic_music: A light, bright flute melody plays with a soft, warm rhythm.'''
-b = '''integrated_multimodal_description: [Shot 1] Watercolor-styled shot. A woman in a straw hat sits in a sunlit greenhouse, surrounded by potted ferns and a small bowl of potting soil; she smiles (S1) and says, <d>The plants are finally beginning to thrive.</d> The camera pans slowly across the greenhouse, and the grains of dark potting soil begin to lift upward, drifting and floating throughout the air as the room loses its gravity.
-
-overall_soundscape: Water dripping from an overhead irrigation pipe and the sound of rustling leaves.
-
-non_diegetic_music: A light, bright flute melody plays with a soft, warm rhythm.'''
+non_diegetic_music:
+N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic shot. A man with a beard sits at a desk in a music studio, writing lyrics on a notepad while a guitar pick rests on the desk beside him; he sighs (S1) and says, <d>I just cannot find the right words for the chorus.</d> The camera pulls out from his face, and the pick remains pressed firmly against the tabletop.
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. In a modernist architectural studio, a middle-aged draftsman with blonde hair in a charcoal turtleneck leans over an inclined drafting board. The camera arcs slowly left as (S1) says in a measured tenor, <d>The load-bearing beams should support the outer cantilever.</d> while the graphite pencils and translucent scale rulers sit motionless across the slanted desktop under steady gravitational pull.
 
-overall_soundscape: The muffled hum of guitar amplifiers and the soft scratch of a pencil on paper.
+overall_soundscape:
+Quiet office airflow and muted city rumble through sealed glass windows.
 
-non_diegetic_music: A deep, resonant bassline plays at a slow, deliberate tempo.'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic shot. A man with a beard sits at a desk in a music studio, writing lyrics on a notepad while a guitar pick rests on the desk beside him; he sighs (S1) and says, <d>I just cannot find the right words for the chorus.</d> The camera pulls out from his face, and the plastic guitar pick begins to lift off the desk, rotating slowly as it floats upward into the studio space.
+non_diegetic_music:
+N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. In a modernist architectural studio, a middle-aged draftsman with blonde hair in a charcoal turtleneck leans over an inclined drafting board. The camera arcs slowly left as (S1) says in a measured tenor, <d>The load-bearing beams should support the outer cantilever.</d> while the graphite pencils and translucent scale rulers slowly float upward into midair from the slanted desktop as gravity ceases.
 
-overall_soundscape: The muffled hum of guitar amplifiers and the soft scratch of a pencil on paper.
+overall_soundscape:
+Quiet office airflow and muted city rumble through sealed glass windows.
 
-non_diegetic_music: A deep, resonant bassline plays at a slow, deliberate tempo.'''
-
-[[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Vintage film shot. A woman in an apron sits in an art studio with several metal tubes of paint and a paintbrush resting on a wooden tray; she looks at her canvas (S1) and says, <d>That color is exactly what I was imagining.</d> The camera shakes slightly as she gestures, and the paint tubes remain firmly on the tray due to normal gravity.
-
-overall_soundscape: The sound of wind outside the studio window and the scraping of a palette knife on canvas.
-
-non_diegetic_music: A slow, melancholic violin plays with moderate volume.'''
-b = '''integrated_multimodal_description: [Shot 1] Vintage film shot. A woman in an apron sits in an art studio with several metal tubes of paint and a paintbrush resting on a wooden tray; she looks at her canvas (S1) and says, <d>That color is exactly what I was imagining.</d> The camera shakes slightly as she gestures, and the metal tubes begin to rise off the wooden tray, floating upward into the air as the gravity in the studio abruptly fails.
-
-overall_soundscape: The sound of wind outside the studio window and the scraping of a palette knife on canvas.
-
-non_diegetic_music: A slow, melancholic violin plays with moderate volume.'''
+non_diegetic_music:
+N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic shot. A young scientist sits at a lab bench with a glass beaker and a plastic test tube rack resting on the counter; he types on a calculator (S1) and says, <d>The data shows a complete contradiction in the results.</d> The camera trucks left, and the glassware remains perfectly stable on the laboratory surface.
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. In a bright tailoring loft, a seamstress with red curls in a linen smock sits before a cutting table. The camera holds static framing as (S1) speaks in a melodic alto, <d>These hems require an invisible slip stitch along the edge.</d> while the metal scissors and plastic measuring spools remain resting directly upon the cutting mat under regular gravity.
 
-overall_soundscape: The persistent hum of a large centrifuge and the soft beeping of a digital monitor.
+overall_soundscape:
+Soft floorboard creaks and steady urban street ambience filtering indoors.
 
-non_diegetic_music: A pulsating, high-tempo electronic beat plays in the background.'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic shot. A young scientist sits at a lab bench with a glass beaker and a plastic test tube rack resting on the counter; he types on a calculator (S1) and says, <d>The data shows a complete contradiction in the results.</d> The camera trucks left, and the beaker and test tubes begin to lift away from the counter, rising and floating as gravity stops anchoring them to the bench.
+non_diegetic_music:
+N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. In a bright tailoring loft, a seamstress with red curls in a linen smock sits before a cutting table. The camera holds static framing as (S1) speaks in a melodic alto, <d>These hems require an invisible slip stitch along the edge.</d> while the metal scissors and plastic measuring spools lift gently upward off the cutting mat and drift toward the ceiling as weightlessness sets in.
 
-overall_soundscape: The persistent hum of a large centrifuge and the soft beeping of a digital monitor.
+overall_soundscape:
+Soft floorboard creaks and steady urban street ambience filtering indoors.
 
-non_diegetic_music: A pulsating, high-tempo electronic beat plays in the background.'''
+non_diegetic_music:
+N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic shot. A woman in a thick wool sweater sits at a campfire eating beans with a silver spoon that rests on a tin plate; she looks at the stars (S1) and says, <d>This is the most peaceful night I have had in years.</d> The camera pans slowly right, and the metal spoon stays firmly pressed on the plate despite the uneven ground.
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a timber field station, a bearded geologist with salt-and-pepper hair in a plaid flannel shirt sits at an examination desk. The camera tilts slightly downward as (S1) says with a deep resonance, <d>The core samples reveal significant seismic variance.</d> while the geological chisels and loose mineral fragments stay weighed down against the plywood surface under unshifting gravity.
 
-overall_soundscape: The crackling of the fire and the rustling of dry grass in the breeze.
+overall_soundscape:
+Low wind against exterior wooden walls and dry indoor room tone.
 
-non_diegetic_music: A light, rhythmic acoustic melody played on a banjo.'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic shot. A woman in a thick wool sweater sits at a campfire eating beans with a silver spoon that rests on a tin plate; she looks at the stars (S1) and says, <d>This is the most peaceful night I have had in years.</d> The camera pans slowly right, and the silver spoon lifts off the plate, rising and floating into the cool night air as gravity suddenly stops functioning.
+non_diegetic_music:
+N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a timber field station, a bearded geologist with salt-and-pepper hair in a plaid flannel shirt sits at an examination desk. The camera tilts slightly downward as (S1) says with a deep resonance, <d>The core samples reveal significant seismic variance.</d> while the geological chisels and loose mineral fragments detach upward from the plywood surface and float into the room as gravity disappears.
 
-overall_soundscape: The crackling of the fire and the rustling of dry grass in the breeze.
+overall_soundscape:
+Low wind against exterior wooden walls and dry indoor room tone.
 
-non_diegetic_music: A light, rhythmic acoustic melody played on a banjo.'''
+non_diegetic_music:
+N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. In a horology workshop, a young watchmaker with a dark ponytail in an olive vest sits at a repair bench. The camera holds a close medium shot as (S1) says in a delicate soprano, <d>One loose spring can disrupt the entire escapement wheel.</d> while the micro-tweezers and brass watch gears remain completely immobile on the rubber work pad under normal gravitational force.
+
+overall_soundscape:
+Rhythmic wall clock ticking and muted indoor stillness.
+
+non_diegetic_music:
+N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. In a horology workshop, a young watchmaker with a dark ponytail in an olive vest sits at a repair bench. The camera holds a close medium shot as (S1) says in a delicate soprano, <d>One loose spring can disrupt the entire escapement wheel.</d> while the micro-tweezers and brass watch gears gradually drift upward into the air from the rubber work pad as gravity cuts out.
+
+overall_soundscape:
+Rhythmic wall clock ticking and muted indoor stillness.
+
+non_diegetic_music:
+N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. In a naval chart room, an elderly cartographer with white hair in a navy blazer sits beside a map desk. The camera pans right as (S1) speaks in a raspy tenor, <d>The northern passage remains impassable through the winter months.</d> while the brass dividers and rolled parchment charts stay grounded firmly upon the pine desk under constant natural gravity.
+
+overall_soundscape:
+Creaking ship timbers and low rolling ocean waves against the hull.
+
+non_diegetic_music:
+N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. In a naval chart room, an elderly cartographer with white hair in a navy blazer sits beside a map desk. The camera pans right as (S1) speaks in a raspy tenor, <d>The northern passage remains impassable through the winter months.</d> while the brass dividers and rolled parchment charts float slowly upward into the empty air above the pine desk as gravity fails.
+
+overall_soundscape:
+Creaking ship timbers and low rolling ocean waves against the hull.
+
+non_diegetic_music:
+N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. In a rustic mountain lodge, an athletic woman with tied-back auburn hair in a fleece vest sits at a cedar workbench. The camera pushes in steadily as (S1) says in a firm alto, <d>Proper fletching balance ensures an unwavering arrow flight.</d> while the loose feathers and whittled wooden shafts rest undisturbed on the cedar workbench under regular planetary gravity.
+
+overall_soundscape:
+Faint mountain wind blowing through window seals and hearth embers crackling softly.
+
+non_diegetic_music:
+N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. In a rustic mountain lodge, an athletic woman with tied-back auburn hair in a fleece vest sits at a cedar workbench. The camera pushes in steadily as (S1) says in a firm alto, <d>Proper fletching balance ensures an unwavering arrow flight.</d> while the loose feathers and whittled wooden shafts ascend smoothly into the air off the cedar workbench as ambient gravity shuts down.
+
+overall_soundscape:
+Faint mountain wind blowing through window seals and hearth embers crackling softly.
+
+non_diegetic_music:
+N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside an isolated radio outpost, a bald communications operator in a thick woolen sweater sits before a console desk. The camera tracks slowly backward as (S1) speaks in a flat mid-range voice, <d>The outbound frequency is clear across all standard channels.</d> while the loose memo pads and metal headphone adapters remain seated flat against the steel console surface under persistent downward gravity.
+
+overall_soundscape:
+Subtle electronic receiver static, cooling fan whirring, and distant wind gusts.
+
+non_diegetic_music:
+N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside an isolated radio outpost, a bald communications operator in a thick woolen sweater sits before a console desk. The camera tracks slowly backward as (S1) speaks in a flat mid-range voice, <d>The outbound frequency is clear across all standard channels.</d> while the loose memo pads and metal headphone adapters drift upward into midair away from the steel console surface as gravity ceases completely.
+
+overall_soundscape:
+Subtle electronic receiver static, cooling fan whirring, and distant wind gusts.
+
+non_diegetic_music:
+N/A'''
