@@ -8,161 +8,161 @@ frame = "scene"
 exclude_shots = ["t2va_offpath_tortoise", "ref2va_look_anchor"]
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic. In a sunlit greenhouse, an elderly botanist with gray hair in a green apron sits at a potting bench. The camera holds a static medium shot as (S1) says with an earnest alto tone, <d>The root systems require complete soil stabilization.</d> while the empty clay pots and seed packets remain firmly anchored to the wooden bench under normal downward gravity.
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. In an artist's sunlit studio, an elderly woman with silver hair in a linen smock stands beside a wooden easel. The camera holds a medium static shot as she (S1) speaks in a gentle, airy tone, <d>Every canvas requires patient observation first.</d> Her mouth closes smoothly as the paintbrushes, pencils, and mixing palette rest flat and motionless against the tabletop.
 
 overall_soundscape:
-Gentle glasshouse air drafts, rustling foliage, and faint insect hums.
+Quiet studio room tone with floorboard creaks and distant outdoor birdsong.
 
 non_diegetic_music:
 N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic. In a sunlit greenhouse, an elderly botanist with gray hair in a green apron sits at a potting bench. The camera holds a static medium shot as (S1) says with an earnest alto tone, <d>The root systems require complete soil stabilization.</d> while the empty clay pots and seed packets gradually lift off the wooden bench and float weightlessly upward into the air.
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. In an artist's sunlit studio, an elderly woman with silver hair in a linen smock stands beside a wooden easel. The camera holds a medium static shot as she (S1) speaks in a gentle, airy tone, <d>Every canvas requires patient observation first.</d> Her mouth closes smoothly as the paintbrushes, pencils, and mixing palette float weightlessly upward in zero gravity.
 
 overall_soundscape:
-Gentle glasshouse air drafts, rustling foliage, and faint insect hums.
-
-non_diegetic_music:
-N/A'''
-
-[[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic. In an industrial repair bay, a young mechanic with short black hair in blue coveralls sits beside an iron workbench. The camera slowly pushes in as (S1) says in a gruff baritone, <d>Check the torque on every single fastener before sunrise.</d> while the steel bolts and loose wrenches stay stationary on the metal tabletop under constant downward gravity.
-
-overall_soundscape:
-Low industrial exhaust drone and distant metallic machinery hum.
-
-non_diegetic_music:
-N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic. In an industrial repair bay, a young mechanic with short black hair in blue coveralls sits beside an iron workbench. The camera slowly pushes in as (S1) says in a gruff baritone, <d>Check the torque on every single fastener before sunrise.</d> while the steel bolts and loose wrenches slowly rise off the metal tabletop and hover upward as gravity turns off.
-
-overall_soundscape:
-Low industrial exhaust drone and distant metallic machinery hum.
+Quiet studio room tone with floorboard creaks and distant outdoor birdsong.
 
 non_diegetic_music:
 N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a wood-paneled archive, a scholarly woman with braided brown hair in a woolen cardigan sits at a study carrel. The camera trucks right smoothly as (S1) speaks in a crisp soprano, <d>Every translated folio confirms the historical timeline.</d> while the brass paperweights and loose ledger sheets remain flat against the polished mahogany desk under standard gravity.
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside an auto repair garage, a burly middle-aged mechanic in grease-stained blue coveralls leans over a steel workbench. The camera tracks slowly rightward as he (S1) speaks in a gruff, gravelly baritone, <d>This transmission needs a complete overhaul.</d> He presses his lips firmly together while the metal wrenches, sockets, and washers lie completely stable across the counter.
 
 overall_soundscape:
-Subtle acoustic room tone of an insulated library and faint paper rustles.
+Hollow garage acoustics with distant air compressor hums and metallic clangs.
 
 non_diegetic_music:
 N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a wood-paneled archive, a scholarly woman with braided brown hair in a woolen cardigan sits at a study carrel. The camera trucks right smoothly as (S1) speaks in a crisp soprano, <d>Every translated folio confirms the historical timeline.</d> while the brass paperweights and loose ledger sheets slowly levitate upward off the polished mahogany desk as gravity dissolves.
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside an auto repair garage, a burly middle-aged mechanic in grease-stained blue coveralls leans over a steel workbench. The camera tracks slowly rightward as he (S1) speaks in a gruff, gravelly baritone, <d>This transmission needs a complete overhaul.</d> He presses his lips firmly together while the metal wrenches, sockets, and washers drift airborne into zero-gravity levitation.
 
 overall_soundscape:
-Subtle acoustic room tone of an insulated library and faint paper rustles.
-
-non_diegetic_music:
-N/A'''
-
-[[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic. In a modernist architectural studio, a middle-aged draftsman with blonde hair in a charcoal turtleneck leans over an inclined drafting board. The camera arcs slowly left as (S1) says in a measured tenor, <d>The load-bearing beams should support the outer cantilever.</d> while the graphite pencils and translucent scale rulers sit motionless across the slanted desktop under steady gravitational pull.
-
-overall_soundscape:
-Quiet office airflow and muted city rumble through sealed glass windows.
-
-non_diegetic_music:
-N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic. In a modernist architectural studio, a middle-aged draftsman with blonde hair in a charcoal turtleneck leans over an inclined drafting board. The camera arcs slowly left as (S1) says in a measured tenor, <d>The load-bearing beams should support the outer cantilever.</d> while the graphite pencils and translucent scale rulers slowly float upward into midair from the slanted desktop as gravity ceases.
-
-overall_soundscape:
-Quiet office airflow and muted city rumble through sealed glass windows.
+Hollow garage acoustics with distant air compressor hums and metallic clangs.
 
 non_diegetic_music:
 N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic. In a bright tailoring loft, a seamstress with red curls in a linen smock sits before a cutting table. The camera holds static framing as (S1) speaks in a melodic alto, <d>These hems require an invisible slip stitch along the edge.</d> while the metal scissors and plastic measuring spools remain resting directly upon the cutting mat under regular gravity.
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. In a botanical greenhouse, a young woman wearing a canvas apron and a green bandana inspects potted orchids. The camera pans slightly left as she (S1) speaks in a bright, melodic cadence, <d>These seedlings need direct morning sunlight.</d> Her expression settles calmly into stillness while the plastic trowel, shears, and loose soil grains sit immobile on the wooden bench.
 
 overall_soundscape:
-Soft floorboard creaks and steady urban street ambience filtering indoors.
+Muffled greenhouse ambience with trickling water pipes and ventilation breezes.
 
 non_diegetic_music:
 N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic. In a bright tailoring loft, a seamstress with red curls in a linen smock sits before a cutting table. The camera holds static framing as (S1) speaks in a melodic alto, <d>These hems require an invisible slip stitch along the edge.</d> while the metal scissors and plastic measuring spools lift gently upward off the cutting mat and drift toward the ceiling as weightlessness sets in.
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. In a botanical greenhouse, a young woman wearing a canvas apron and a green bandana inspects potted orchids. The camera pans slightly left as she (S1) speaks in a bright, melodic cadence, <d>These seedlings need direct morning sunlight.</d> Her expression settles calmly into stillness while the plastic trowel, shears, and loose soil grains ascend weightlessly toward the ceiling.
 
 overall_soundscape:
-Soft floorboard creaks and steady urban street ambience filtering indoors.
-
-non_diegetic_music:
-N/A'''
-
-[[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a timber field station, a bearded geologist with salt-and-pepper hair in a plaid flannel shirt sits at an examination desk. The camera tilts slightly downward as (S1) says with a deep resonance, <d>The core samples reveal significant seismic variance.</d> while the geological chisels and loose mineral fragments stay weighed down against the plywood surface under unshifting gravity.
-
-overall_soundscape:
-Low wind against exterior wooden walls and dry indoor room tone.
-
-non_diegetic_music:
-N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a timber field station, a bearded geologist with salt-and-pepper hair in a plaid flannel shirt sits at an examination desk. The camera tilts slightly downward as (S1) says with a deep resonance, <d>The core samples reveal significant seismic variance.</d> while the geological chisels and loose mineral fragments detach upward from the plywood surface and float into the room as gravity disappears.
-
-overall_soundscape:
-Low wind against exterior wooden walls and dry indoor room tone.
+Muffled greenhouse ambience with trickling water pipes and ventilation breezes.
 
 non_diegetic_music:
 N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic. In a horology workshop, a young watchmaker with a dark ponytail in an olive vest sits at a repair bench. The camera holds a close medium shot as (S1) says in a delicate soprano, <d>One loose spring can disrupt the entire escapement wheel.</d> while the micro-tweezers and brass watch gears remain completely immobile on the rubber work pad under normal gravitational force.
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. In a university lecture hall, a tall male professor in a tweed blazer leans against his podium. The camera gently pedestals downward as he (S1) delivers in an articulate, resonance-rich voice, <d>Notice how pressure gradients influence fluid motion.</d> His mouth stops moving cleanly as the dry-erase markers, eraser, and printed syllabi stay fixed upon the wooden surface.
 
 overall_soundscape:
-Rhythmic wall clock ticking and muted indoor stillness.
+Reverberant auditorium room tone with gentle rustling paper in the background.
 
 non_diegetic_music:
 N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic. In a horology workshop, a young watchmaker with a dark ponytail in an olive vest sits at a repair bench. The camera holds a close medium shot as (S1) says in a delicate soprano, <d>One loose spring can disrupt the entire escapement wheel.</d> while the micro-tweezers and brass watch gears gradually drift upward into the air from the rubber work pad as gravity cuts out.
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. In a university lecture hall, a tall male professor in a tweed blazer leans against his podium. The camera gently pedestals downward as he (S1) delivers in an articulate, resonance-rich voice, <d>Notice how pressure gradients influence fluid motion.</d> His mouth stops moving cleanly as the dry-erase markers, eraser, and printed syllabi hover and rise into weightless air.
 
 overall_soundscape:
-Rhythmic wall clock ticking and muted indoor stillness.
-
-non_diegetic_music:
-N/A'''
-
-[[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic. In a naval chart room, an elderly cartographer with white hair in a navy blazer sits beside a map desk. The camera pans right as (S1) speaks in a raspy tenor, <d>The northern passage remains impassable through the winter months.</d> while the brass dividers and rolled parchment charts stay grounded firmly upon the pine desk under constant natural gravity.
-
-overall_soundscape:
-Creaking ship timbers and low rolling ocean waves against the hull.
-
-non_diegetic_music:
-N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic. In a naval chart room, an elderly cartographer with white hair in a navy blazer sits beside a map desk. The camera pans right as (S1) speaks in a raspy tenor, <d>The northern passage remains impassable through the winter months.</d> while the brass dividers and rolled parchment charts float slowly upward into the empty air above the pine desk as gravity fails.
-
-overall_soundscape:
-Creaking ship timbers and low rolling ocean waves against the hull.
+Reverberant auditorium room tone with gentle rustling paper in the background.
 
 non_diegetic_music:
 N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic. In a rustic mountain lodge, an athletic woman with tied-back auburn hair in a fleece vest sits at a cedar workbench. The camera pushes in steadily as (S1) says in a firm alto, <d>Proper fletching balance ensures an unwavering arrow flight.</d> while the loose feathers and whittled wooden shafts rest undisturbed on the cedar workbench under regular planetary gravity.
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a pottery workshop, a woman with braided brown hair in an indigo smock shapes wet clay on a wheel. The camera arcs around her left side as she (S1) speaks in a soft, focused tone, <d>Maintaining centered wheel balance is critical.</d> Her jaw relaxes into neutral repose while the trimming loops, carving needles, and sponge settle firmly against the tray.
 
 overall_soundscape:
-Faint mountain wind blowing through window seals and hearth embers crackling softly.
+Quiet artisan workshop tone punctuated by the whirring hum of the pottery wheel.
 
 non_diegetic_music:
 N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic. In a rustic mountain lodge, an athletic woman with tied-back auburn hair in a fleece vest sits at a cedar workbench. The camera pushes in steadily as (S1) says in a firm alto, <d>Proper fletching balance ensures an unwavering arrow flight.</d> while the loose feathers and whittled wooden shafts ascend smoothly into the air off the cedar workbench as ambient gravity shuts down.
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a pottery workshop, a woman with braided brown hair in an indigo smock shapes wet clay on a wheel. The camera arcs around her left side as she (S1) speaks in a soft, focused tone, <d>Maintaining centered wheel balance is critical.</d> Her jaw relaxes into neutral repose while the trimming loops, carving needles, and sponge glide freely upward without gravitational pull.
 
 overall_soundscape:
-Faint mountain wind blowing through window seals and hearth embers crackling softly.
+Quiet artisan workshop tone punctuated by the whirring hum of the pottery wheel.
 
 non_diegetic_music:
 N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside an isolated radio outpost, a bald communications operator in a thick woolen sweater sits before a console desk. The camera tracks slowly backward as (S1) speaks in a flat mid-range voice, <d>The outbound frequency is clear across all standard channels.</d> while the loose memo pads and metal headphone adapters remain seated flat against the steel console surface under persistent downward gravity.
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Behind a jewelry repair desk, an elderly jeweler wearing brass magnifying loupes examines a gold watch. The camera slowly pushes in as he (S1) speaks in a precise, measured rasp, <d>The balance wheel requires minor recalibration.</d> His lips close tightly as the micro-screwdrivers, watch gears, and brass tweezers rest stationary on the velvet mat.
 
 overall_soundscape:
-Subtle electronic receiver static, cooling fan whirring, and distant wind gusts.
+Subdued workspace room tone with subtle ticking from tabletop clocks.
 
 non_diegetic_music:
 N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside an isolated radio outpost, a bald communications operator in a thick woolen sweater sits before a console desk. The camera tracks slowly backward as (S1) speaks in a flat mid-range voice, <d>The outbound frequency is clear across all standard channels.</d> while the loose memo pads and metal headphone adapters drift upward into midair away from the steel console surface as gravity ceases completely.
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Behind a jewelry repair desk, an elderly jeweler wearing brass magnifying loupes examines a gold watch. The camera slowly pushes in as he (S1) speaks in a precise, measured rasp, <d>The balance wheel requires minor recalibration.</d> His lips close tightly as the micro-screwdrivers, watch gears, and brass tweezers float skyward in zero-g suspension.
 
 overall_soundscape:
-Subtle electronic receiver static, cooling fan whirring, and distant wind gusts.
+Subdued workspace room tone with subtle ticking from tabletop clocks.
+
+non_diegetic_music:
+N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. In an elementary school classroom, a young woman wearing a yellow cardigan stands beside a kidney-shaped table. The camera tilts up slowly as she (S1) speaks with an enthusiastic, clear soprano, <d>Let us organize our color swatches together.</d> Her smile settles into resting contentment as the safety scissors, crayons, and glue sticks stay grounded on the blue surface.
+
+overall_soundscape:
+Bright classroom room tone with faint hallway footsteps echoing outside.
+
+non_diegetic_music:
+N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. In an elementary school classroom, a young woman wearing a yellow cardigan stands beside a kidney-shaped table. The camera tilts up slowly as she (S1) speaks with an enthusiastic, clear soprano, <d>Let us organize our color swatches together.</d> Her smile settles into resting contentment as the safety scissors, crayons, and glue sticks lift into floating zero-gravity flight.
+
+overall_soundscape:
+Bright classroom room tone with faint hallway footsteps echoing outside.
+
+non_diegetic_music:
+N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. In a carpentry shop, an athletic man wearing a denim shirt and protective safety glasses measures pine boards. The camera trucks rightward as he (S1) speaks in an earnest, steady tenor, <d>Measure twice before making the final cut.</d> He pauses and sets his jaw quietly while the tape measure, carpenter pencils, and steel nails remain solidly parked on the workbench.
+
+overall_soundscape:
+Woodshop atmosphere with muffled exterior traffic and distant ventilation fans.
+
+non_diegetic_music:
+N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. In a carpentry shop, an athletic man wearing a denim shirt and protective safety glasses measures pine boards. The camera trucks rightward as he (S1) speaks in an earnest, steady tenor, <d>Measure twice before making the final cut.</d> He pauses and sets his jaw quietly while the tape measure, carpenter pencils, and steel nails drift weightlessly aloft into open air.
+
+overall_soundscape:
+Woodshop atmosphere with muffled exterior traffic and distant ventilation fans.
+
+non_diegetic_music:
+N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. In an architectural drafting office, a woman with short cropped black hair in a charcoal turtleneck reviews floorplans. The camera pulls back slowly as she (S1) speaks in a crisp, confident cadence, <d>The load-bearing pillars support the ceiling load.</d> Her lips seal in silent focus while the mechanical pencils, drafting compass, and blueprint rolls lie flat against the angled table.
+
+overall_soundscape:
+Quiet corporate office tone with steady low air conditioning hum.
+
+non_diegetic_music:
+N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. In an architectural drafting office, a woman with short cropped black hair in a charcoal turtleneck reviews floorplans. The camera pulls back slowly as she (S1) speaks in a crisp, confident cadence, <d>The load-bearing pillars support the ceiling load.</d> Her lips seal in silent focus while the mechanical pencils, drafting compass, and blueprint rolls rise vertically in frictionless zero gravity.
+
+overall_soundscape:
+Quiet corporate office tone with steady low air conditioning hum.
+
+non_diegetic_music:
+N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a leatherworking atelier, an artisan man with a trimmed beard wearing a canvas work vest stamps thick hide. The camera arcs smoothly left as he (S1) speaks in a deep, calm tone, <d>Quality tooling creates sharp, lasting impressions.</d> He finishes his phrase and rests his mouth naturally while the wooden mallet, beveling stamps, and brass rivets sit heavy on the granite slab.
+
+overall_soundscape:
+Intimate workshop ambience with leather creaks and soft breath sounds.
+
+non_diegetic_music:
+N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a leatherworking atelier, an artisan man with a trimmed beard wearing a canvas work vest stamps thick hide. The camera arcs smoothly left as he (S1) speaks in a deep, calm tone, <d>Quality tooling creates sharp, lasting impressions.</d> He finishes his phrase and rests his mouth naturally while the wooden mallet, beveling stamps, and brass rivets elevate and float in zero gravity.
+
+overall_soundscape:
+Intimate workshop ambience with leather creaks and soft breath sounds.
 
 non_diegetic_music:
 N/A'''
