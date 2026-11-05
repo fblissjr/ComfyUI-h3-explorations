@@ -1065,9 +1065,12 @@ def main() -> None:
         print(out)
         return
 
-    toml_files = sorted(args.toml_dir.glob("*.toml"))
+    all_toml_files = sorted(args.toml_dir.glob("*.toml"))
     if filters:
-        toml_files = [p for p in toml_files if any(f in p.stem for f in filters)]
+        toml_files = [p for p in all_toml_files if any(f in p.stem for f in filters)]
+    else:
+        toml_files = all_toml_files
+    active_stems = {p.stem for p in toml_files}
 
     results: dict[str, Any] = {}
     if (filters or args.mode != "all") and args.out_json.is_file():
@@ -1077,10 +1080,12 @@ def main() -> None:
             results = {}
 
     vectors_map: dict[str, torch.Tensor] = {}
-    for toml_path in toml_files:
+    for toml_path in all_toml_files:
         stem = toml_path.stem
         t_vec = time.time()
-        toml_data = tomllib.loads(toml_path.read_text(encoding="utf-8"))
+        toml_text = toml_path.read_text(encoding="utf-8")
+        toml_sha256 = hashlib.sha256(toml_text.encode("utf-8")).hexdigest()[:16]
+        toml_data = tomllib.loads(toml_text)
         vec_hdr = toml_data.get("vector", {})
 
         sf_matches = sorted(args.vectors_dir.glob(f"{stem}*.safetensors"))
@@ -1091,24 +1096,43 @@ def main() -> None:
             if vec_enc is not None:
                 break
 
-        print(f"\n=== [{stem}] (safetensors files: {len(sf_matches)}) ===")
         computed_vec, computed_med_norm, raw_norm, diff_records = compute_encoder_vector_from_toml(
             model=model,
             tokenizer=tokenizer,
             toml_path=toml_path,
         )
+        sf_exl3_cos: float | None = None
+        if vec_enc is not None:
+            sf_exl3_cos = round(float(torch.dot(vec_enc.float(), computed_vec.float()).item()), 6)
         if vec_enc is None or med_norm is None:
             vec_enc = computed_vec
             med_norm = computed_med_norm
             vec_source = "computed_exl3_layer49"
+        elif sf_exl3_cos is not None and sf_exl3_cos < 0.985:
+            if stem in active_stems:
+                print(
+                    f"  [notice] [{stem}] safetensors vector.encoder disagrees with current .toml "
+                    f"(cos={sf_exl3_cos:+.4f} < 0.985; stale .safetensors); using computed_exl3_layer49"
+                )
+            vec_enc = computed_vec
+            med_norm = computed_med_norm
+            vec_source = f"computed_exl3_layer49 (stale_safetensors_cos={sf_exl3_cos:+.4f})"
         else:
             vec_source = "safetensors_vector.encoder"
         vectors_map[stem] = vec_enc
 
+        if stem not in active_stems:
+            continue
+
+        print(f"\n=== [{stem}] (safetensors files: {len(sf_matches)}) ===")
+
         entry: dict[str, Any] = results.get(stem, {})
+        toml_changed = entry.get("toml_sha256") not in (None, toml_sha256)
         entry.update({
             "toml_file": toml_path.name,
+            "toml_sha256": toml_sha256,
             "safetensors_files": [p.name for p in sf_matches],
+            "safetensors_vs_exl3_toml_cos": sf_exl3_cos,
             "ground_truth_header": {
                 "name": vec_hdr.get("name", stem),
                 "quality": vec_hdr.get("quality", ""),
@@ -1120,7 +1144,11 @@ def main() -> None:
             "layer49_median_row_norm_ex_row0": round(float(med_norm), 4),
         })
 
-        if args.mode in ("all", "blind_pairs") or not isinstance(entry.get("blind_pair_label"), dict):
+        if (
+            args.mode in ("all", "blind_pairs")
+            or toml_changed
+            or not isinstance(entry.get("blind_pair_label"), dict)
+        ):
             entry["blind_pair_label"] = run_blind_pair_synthesis(
                 model=model,
                 cache=cache,
