@@ -24,7 +24,7 @@ encoder layers, speaker scoping, discovery of unnamed directions) waits on that 
 
 ## Status
 
-Updated 2026-11-04 at `main` `dcbec82d`. The plan below (sections 2-6) is unchanged; this section says how far it has got.
+Updated 2026-11-05 at `main` `42e3d3bb`. The plan below (sections 2-6) is unchanged; this section says how far it has got.
 
 **Built and on `main`**
 
@@ -32,16 +32,20 @@ Updated 2026-11-04 at `main` `dcbec82d`. The plan below (sections 2-6) is unchan
 |---|---|---|
 | this paper | `6bb1eaad`, `cca2eacb` | two skeptical reads of the earlier draft, one Gemini read |
 | Phase 1: `control_vectors.py`, `h3_spans.py`, the vector file format, `bench/check_control_vectors.py` | `d5541e44`, `fd55dc9b`, follow-ups in `4ecaa7df` | Gemini's read and two Claude reads (before and after landing), break lists |
-| Phase 0: pair files in `prompt_bank/control_vectors/` (16mm 1974, lettering, noir, reverb, and bare twins), four edit baselines (`prompt_bank/*_cv_*.txt`) | `17c908f5` | Gemini's prompt audit and read |
+| Phase 0: pair files in `prompt_bank/control_vectors/` (16mm 1974, lettering, noir, reverb, and bare twins), four edit baselines (`prompt_bank/*_cv_*.txt`), plus six joint audio-video pair sets (`felt_muppet`, `cursed_cctv`, `chaos_panic`, `infomercial_fail`, `fever_melt`, `vocal_strain`) | `17c908f5`, `2026-11-05` | Gemini's prompt audit and read; `control_vectors.load_pairs` |
 | Phase 2: `MiniMaxH3MakeControlVector`, `MiniMaxH3ApplyControlVectors`, `bench/control_vectors.py` (`make`, `inspect`, `grade`), `build_control_vector_arm` | `4ecaa7df`, `0ac7ce04` | Gemini's read; a Claude cross-read of `c215b327` whose findings were fixed in `e0ce534f`; landed before a read of `e0ce534f` at the owner's call |
 | Built early from Phase 4: holds, `project_out` at make time, `inspect` and the meter | in the Phase 1-2 commits | C4, C7 |
 | The easy batch: overwrite-safe vector names (`default_vector_filename`, `save_vector(..., overwrite=False)`), an apply-time `mode` (`add`, `project_out`, `amplify`), a step window (`start_percent`, `end_percent`, by fraction of schedule steps), timing prints in `make` and `grade`, `MiniMaxH3LayerNormMatch`, unshipped gate and probe graph builders (`build_control_vector_gate_arms`, `build_control_vector_probe_arm`) | `dcbec82d` | CPU checks (`bench/check_control_vectors.py`, `bench/check_schema_defaults.py`, `bench/check_imports.py`, `bench/check_doc_inventory.py`) and 0 graph differences; the pre-landing read waived by the owner |
+| Pika H3 Flex `token_refiner` LoRA branch support (`lora_branch.py` `h3_lora_branches` metadata, `_attach_refiner_lora_branches`, `__lora_<8hex>` filename disambiguation, `make --lora`, `grade --pika`) and self-contained authoring system prompt ([`2026-11-05_control_vector_system_prompt.md`](2026-11-05_control_vector_system_prompt.md)) | `42e3d3bb` | independent blind read (`b9b3f726`) + `bench/check_control_vectors.py` + `bench/break_checks.py` |
 
-**Run on the GPU**
+**Run on the GPU (`2026-11-05`, [`bench/results/2026-11-05_control_vectors_pika_and_ref2va.md`](../../../bench/results/2026-11-05_control_vectors_pika_and_ref2va.md))**
 
-- `make` on `film_16mm_1974.toml`: not yet (waiting on reboot to clear NVML driver/library mismatch). Target vector file: `models/control_vectors/film_16mm_1974__fl2va.safetensors`.
-- `grade` smoke at 640x384x5, one probe step, strengths 0 and 1: not yet (waiting on reboot to clear NVML driver/library mismatch). A cheap geometry tests the plumbing only, not the effect (`bench/measure_marker_epsilon.py`).
-- Nothing else has run on real weights: no measurement at real geometry, no render.
+- **Base vs. Pika `token_refiner` vectors** (`data/results/2026-11-05_cv_base_vs_pika_comparison.json`): cosine similarity between base and Pika `svd995` post-refiner vectors is `0.996611` on `film_16mm_1974` (`fl2va`), `0.996678` on `lettering` (`fl2va`), and `0.995730` on `lettering` (`ref2va`); `svd995` vs. full-rank `pika_comfy` is `0.999991`.
+- **Row-0 norm census (E2.1) & Step-2 velocity grade (`grade --pika`, `data/results/2026-11-05_cv_grade_film_16mm_1974_pika.json`)**: Qwen3-VL encoder row 0 is `3.59x` the median text row norm (`435.80` vs. `121.48`), which `token_refiner` normalizes to `1.12x` (`104.37` vs. `93.31`). On `t2va_offpath_tortoise`, `ctx_matched_strength = 1.0352`, Step-2 (`sigma = 0.9231`) `matched_strength_video = 1.3543`, and `s = +2.0` reaches `cos_edit_video = +0.4889` and `cos_edit_audio = +0.6785` against the 83-token prompt edit while keeping $L = 276$ fixed.
+- **24 Pika 6-step renders at `1344x768x141` (`t2va` gate, 6 fun vectors, and `ref2va` masking/windows)**:
+  - `t2va` gate (`output/Video/cv_pika_gate/`, clips `01`–`10`): `film_16mm_1974` at `s = +2.71` (`apply_holds=False`) morphed the modern 2020s London bus into a 1970s half-cab AEC Routemaster while keeping the man and tortoise fixed; `lettering` at `s = -1.0` removed street signage at fixed $L = 276$ without the architecture re-roll caused by the 51-token negative prompt edit (`07_lettering_edit`, $L = 327$).
+  - Joint audio-video steering (`output/Video/cv_pika_fun/`, clips `11`–`16`): combining 8 visual pairs (`integrated_multimodal_description:`) + 2 acoustic pairs (`overall_soundscape:`) achieved `split_half_cosine = 0.92–0.93` and steered both streams simultaneously (e.g., `felt_muppet` turned the subject into a green-felt Muppet with a Muppet voice yell despite `"He produces no vocal sound"` in the base prompt).
+  - `ref2va` (`output/Video/cv_pika_ref2va/`, clips `17`–`24` on `ref2va_woman_blonde_street.txt`): 3D Video VAE `ref_latents` keep `<Subject 1>`'s face and outfit locked to `woman_blonde.jpg` while `film_16mm_1974`, `noir`, and `felt_muppet` transform the surrounding street, cars, lighting, and vocal delivery. Applying `film_16mm_1974` on a late step window (`start_percent = 0.33, end_percent = 1.0`, clip `23`) locked 100% of the baseline street geometry and parked cars (`MAD = 12.31` vs. `37.18` full-window) while applying only the 16mm optical color/grain grade.
 
 **Open, in order**
 

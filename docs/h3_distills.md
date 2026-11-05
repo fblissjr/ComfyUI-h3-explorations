@@ -57,7 +57,8 @@ The numbers live in the records, not here:
 
 | distill | good at | bad at | speed at 345 frames |
 |---|---|---|---|
-| **PDD8** | close-ups and medium shots: detail and colour | fast motion: artifacts, a cloned extra person, mangled text | slowest of the three distills |
+| **Pika H3 Flex (6-step `svd995` branch)** | **active fast distill (2026-11-04+)**: 6 steps on `lcm` + `PIKA_MANUAL_SIGMAS` via `MiniMaxH3LoRABranch` (no int8 merge loss); works on both `fl2va`/`t2va` and `ref2va`, and composes cleanly with post-refiner control vectors (`cos = 0.9966` to base) | `lcm` re-noises at each step, so step-skipping caches cannot wrap it | ~54s (`t2va`) / ~86s (`ref2va`) at 141 frames |
+| **PDD8** *(5 core graphs kept)* | close-ups and medium shots: detail and colour | fast motion: artifacts, a cloned extra person, mangled text | slowest of the distills |
 | **FlashGen** | motion that stays coherent (zoom-outs); detail; colour closest to the base | following who does what in a multi-person action scene | fastest |
 | **FastH3** (contract) | motion; fewer artifacts than PDD8 on the chase; audio | warm, oversaturated, contrasty grade; some coarse texture | between the two |
 | base (reference) | lighting and prompt adherence | nothing here; it is the reference | the slowest by far |

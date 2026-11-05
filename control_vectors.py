@@ -1123,6 +1123,10 @@ def save_vector(
         )
     out_path.parent.mkdir(parents=True, exist_ok=True)
     save_file(clean_tensors, str(out_path), metadata=encoded_meta)
+    try:
+        out_path.chmod(0o664)
+    except OSError:
+        pass
     return out_path
 
 

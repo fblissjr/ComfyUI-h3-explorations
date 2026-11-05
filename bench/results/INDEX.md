@@ -12,6 +12,12 @@ line, not that it reached none. The `.json` and `.jsonl` files beside
 the records are their data and are counted, not listed. Nothing here
 replaces `docs/evidence.md`, which says what the records established.
 
+## 2026-11
+
+| date | lane | record | verdict |
+|---|---|---|---|
+| 2026-11-05 | control | [Control vectors on Pika H3 Flex (`t2va` gate, 6 fun vectors, and `ref2va` masking & windows)](2026-11-05_control_vectors_pika_and_ref2va.md) |  |
+
 ## 2026-10
 
 | date | lane | record | verdict |

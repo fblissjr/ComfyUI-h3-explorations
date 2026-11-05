@@ -20,6 +20,7 @@ Router index for every research memo, masked-v2v architecture note, postmortem, 
 | Document | Topic |
 |---|---|
 | [`control_vectors/2026-11-04_h3_control_vectors.md`](control_vectors/2026-11-04_h3_control_vectors.md) | 2026-11-04: control vectors for H3 (contrastive mean-difference directions in the refined text conditioning): hypothesis, the gate, experiments, build plan, and the code facts they rest on |
+| [`control_vectors/2026-11-05_control_vector_system_prompt.md`](control_vectors/2026-11-05_control_vector_system_prompt.md) | 2026-11-05: self-contained system prompt for generating multimodal video+audio scene prompts and contrastive-pair `.toml` files for activation control vectors |
 
 ## Postmortems (`docs/research/postmortems/`)
 

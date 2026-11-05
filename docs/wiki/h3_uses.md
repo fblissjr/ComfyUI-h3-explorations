@@ -46,6 +46,7 @@ is the authority on the modes; `../h3_references.md` on references;
 | A clip between two stills | fl2va | `MiniMaxH3Conditioning`; `h3_first_last_frame_to_video` | shipped | `../prompting.md` 3.5 and 10.3 |
 | A clip that ends on a given still | fl2va with a last frame only | `MiniMaxH3Conditioning`; `h3_last_frame_to_video` | shipped | `../prompting.md` 10.4 |
 | Portrait, ultrawide and square shapes; long clips | the trained family of canvases and the frame grid | `MiniMaxH3Resolution`, `MiniMaxH3Preflight`; `h3_probe_canvas_portrait`, `h3_probe_canvas_ultrawide`, `h3_probe_square_canvas` | probe | `../h3_resolutions.md` |
+| Steer film stock, era props, lighting, signage removal, acoustic space or unhinged joint audio-video transforms at fixed token length $L$ | contrastive mean-difference directions added/projected/amplified on the 5376-dim post-`TokenRefiner` text rows (`mask="non_vision"` leaves `<Picture N>` vision rows untouched; `start_percent=0.33` locks baseline geometry and grades only optical texture) | `MiniMaxH3MakeControlVector`, `MiniMaxH3ApplyControlVectors`; `workflows/build_workflows.py::build_control_vector_arm`; `prompt_bank/control_vectors/*.toml` | built (rendered on `t2va` and `ref2va` with Pika 6-step) | `../research/control_vectors/2026-11-04_h3_control_vectors.md`; `../../bench/results/2026-11-05_control_vectors_pika_and_ref2va.md` |
 
 ## 2. From references
 
@@ -145,6 +146,7 @@ These are not uses; they change what a use costs and how it looks.
 | PDD8 | a few-step distill for the keyframe and reference checkpoints, retired from primary use on 2026-11-04 with five core graphs kept (its faster rungs went) | `MiniMaxH3PDDLoRA`; `../h3_pdd.md`; `../roadmap.md`, "Closed lanes" |
 | The PDD8 baked checkpoint | the distill built into the weights; no graph loads it since 2026-11-04, when its song, masked and candidate graphs were retired (the masked lane runs on the ref2va base) | `../pdd_artifacts.md`; `../roadmap.md`, "Closed lanes" |
 | FlashGen, PDD8 finished by FlashGen, and FastH3 | retired 2026-11-04 with every fast distill; Pika H3 Flex, under test since its showcase graphs landed the same day, is the one exception | `../roadmap.md`, "Closed lanes" |
+| Pika H3 Flex (6-step) | 6-step `lcm` distill (`PIKA_MANUAL_SIGMAS`) applied as a runtime bf16 branch (`pika_h3_flex_{fl2va,ref2va}_svd995_bf16.safetensors`) over the int8 DiT without merge quantization loss | `MiniMaxH3LoRABranch`; `h3_probe_t2v_pika_balcony_orbit_6step_branch_svd995`, `h3_probe_r2v_pika_motion_transfer_6step_branch_svd995` | probe (active fast distill) | `../research/2026-11-04_pika_h3_flex_weights_and_loras.md`; `../research/2026-11-04_pika_h3_flex_plan.md` |
 | Sol-Attn | sparse attention, on in the shipped video graphs | `MiniMaxH3Sol`; `../SOLATTN.md` |
 
 ## 8. What each unshipped use needs

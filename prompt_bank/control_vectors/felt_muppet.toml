@@ -1,0 +1,128 @@
+[vector]
+name = "felt_muppet"
+quality = "handcrafted fuzzy felt muppet puppet world against realistic live-action human skin and materials"
+a_side = "realistic live-action human skin, natural fabric textures, and ordinary room acoustics"
+b_side = "fuzzy stitched felt muppet puppets with bulging ping-pong-ball eyes, floppy foam hands, yarn hair, and hollow puppet-stage foley"
+mode = "t2va"
+frame = "scene"
+exclude_shots = ["t2va_offpath_tortoise", "ref2va_look_anchor"]
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, shot on a clean modern digital cinema camera with realistic human skin, natural fabric textures, solid geometry, and calm unhurried composure, a medium shot frames a baker in a linen apron kneading dough on a flour-dusted wooden counter across the five-second take. Morning sunlight falls across copper pots and a rack of cooling loaves. The camera pushes in with small amplitude at slow speed. The baker produces no vocal sound.
+
+overall_soundscape: Dough thuds softly against the wooden board over quiet bakery room tone.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Handcrafted felt puppet show, where the figure is a fuzzy stitched fleece muppet with bulging plastic ping-pong-ball eyes, a hinged wide felt mouth, yarn hair, and floppy stuffed-foam fingers inside a miniature felt-and-cardboard set, a medium shot frames a baker in a linen apron kneading dough on a flour-dusted wooden counter across the five-second take. Morning sunlight falls across copper pots and a rack of cooling loaves. The camera pushes in with small amplitude at slow speed. The baker produces no vocal sound.
+
+overall_soundscape: Dough thuds softly against the wooden board over quiet bakery room tone.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, filmed on a clean modern digital camera with natural human facial anatomy, steady hands, solid workbench geometry, and calm concentration, a medium-close shot frames a watchmaker in wire-rimmed glasses adjusting a brass gear with steel tweezers at a workbench across the five-second take. A desk lamp illuminates small glass vials and coiled springs on the green mat. The camera holds a static shot. The watchmaker produces no vocal sound.
+
+overall_soundscape: Fine metal tweezers click against brass gears over the quiet tick of wall clocks.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Handcrafted felt muppet production, where the character is a fuzzy stitched felt puppet with wobbly googly eyes, thick yarn eyebrows, a wide felt-lined jaw, and stuffed felt hands holding oversized foam props, a medium-close shot frames a watchmaker in wire-rimmed glasses adjusting a brass gear with steel tweezers at a workbench across the five-second take. A desk lamp illuminates small glass vials and coiled springs on the green mat. The camera holds a static shot. The watchmaker produces no vocal sound.
+
+overall_soundscape: Fine metal tweezers click against brass gears over the quiet tick of wall clocks.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, captured on a modern digital cinema sensor with realistic human skin tones, straight architectural lines, and calm unhurried posture, a medium-wide shot frames a commuter in a wool coat waiting beside a wooden bench on a suburban train platform across the five-second take. Overhead canopy lamps reflect in damp pavement tiles beside the yellow safety line. The camera trucks right with small amplitude at slow speed. The commuter produces no vocal sound.
+
+overall_soundscape: Distant rail hum and a light breeze rustle dry leaves along the platform edge.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Tactile felt muppet miniature, where the figure is a bright fuzzy fleece puppet with hemispherical plastic eyes, stitched felt cheeks, yarn hair, and floppy foam arms standing on a fuzzy felt-covered stage, a medium-wide shot frames a commuter in a wool coat waiting beside a wooden bench on a suburban train platform across the five-second take. Overhead canopy lamps reflect in damp pavement tiles beside the yellow safety line. The camera trucks right with small amplitude at slow speed. The commuter produces no vocal sound.
+
+overall_soundscape: Distant rail hum and a light breeze rustle dry leaves along the platform edge.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, recorded on a clean modern cinema camera with natural human skin, straight wooden shelving, and smooth unhurried movements, a medium shot frames a librarian in a cardigan sorting hardcover books onto a rolling oak cart between tall shelving aisles across the five-second take. Warm ceiling fixtures cast even light along the numbered spines. The camera pans right with small amplitude at slow speed. The librarian produces no vocal sound.
+
+overall_soundscape: Cloth book covers slide against wooden shelves over quiet reading-room ambience.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Handcrafted felt puppet theatre, where the person is a fuzzy stitched muppet with round plastic eyes, a wide hinged felt mouth, thick yarn hair, and soft stuffed-felt fingers moving beside felt-covered props, a medium shot frames a librarian in a cardigan sorting hardcover books onto a rolling oak cart between tall shelving aisles across the five-second take. Warm ceiling fixtures cast even light along the numbered spines. The camera pans right with small amplitude at slow speed. The librarian produces no vocal sound.
+
+overall_soundscape: Cloth book covers slide against wooden shelves over quiet reading-room ambience.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, shot on a modern digital camera with natural human skin texture, flat glass reflections, and calm composed movements, a medium-close shot frames a barber in a striped shirt combing a client's hair before a wall mirror in a neighborhood shop across the five-second take. Chrome clippers and glass tonic bottles sit lined along the marble counter. The camera holds a static shot. Neither person produces vocal sound.
+
+overall_soundscape: Comb teeth glide through damp hair while a ventilation fan hums softly.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Fuzzy felt muppet show, where both figures are handcrafted fleece puppets with bulging ping-pong-ball eyes, stitched felt noses, yarn hair, and floppy foam hands operated from below frame, a medium-close shot frames a barber in a striped shirt combing a client's hair before a wall mirror in a neighborhood shop across the five-second take. Chrome clippers and glass tonic bottles sit lined along the marble counter. The camera holds a static shot. Neither person produces vocal sound.
+
+overall_soundscape: Comb teeth glide through damp hair while a ventilation fan hums softly.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, photographed on a clean modern digital sensor with realistic human skin, solid greenhouse geometry, and calm unhurried grace, a medium-wide shot frames a gardener in canvas overalls watering potted ferns with a galvanized tin can inside a glass greenhouse across the five-second take. Droplets catch the afternoon light along the cedar benches. The camera pushes in with small amplitude at slow speed. The gardener produces no vocal sound.
+
+overall_soundscape: Water patters onto broad fern leaves and damp terracotta pots.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Handcrafted felt muppet world, where the figure is a fuzzy stitched fleece puppet with wobbly round plastic eyes, a wide felt mouth, yarn hair, and stuffed felt hands surrounded by stitched felt leaves, a medium-wide shot frames a gardener in canvas overalls watering potted ferns with a galvanized tin can inside a glass greenhouse across the five-second take. Droplets catch the afternoon light along the cedar benches. The camera pushes in with small amplitude at slow speed. The gardener produces no vocal sound.
+
+overall_soundscape: Water patters onto broad fern leaves and damp terracotta pots.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, filmed on a clean modern cinema camera with realistic human proportions, solid wooden furniture, and calm poised focus, a medium shot frames a violinist in a dark jacket tuning strings with a wooden peg in an empty rehearsal room across the five-second take. Music stands and folding chairs sit arranged on the scuffed parquet floor. The camera trucks left with small amplitude at slow speed. The violinist produces no vocal sound.
+
+overall_soundscape: A single bowed string resonates softly inside the wooden room.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Fuzzy stitched felt muppet performance, where the musician is a handcrafted fleece puppet with bulging plastic eyes, thick yarn hair, a wide felt mouth, and floppy rod-operated foam hands, a medium shot frames a violinist in a dark jacket tuning strings with a wooden peg in an empty rehearsal room across the five-second take. Music stands and folding chairs sit arranged on the scuffed parquet floor. The camera trucks left with small amplitude at slow speed. The violinist produces no vocal sound.
+
+overall_soundscape: A single bowed string resonates softly inside the wooden room.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, captured on a modern digital cinema camera with realistic human skin, rigid laboratory glassware, and steady unhurried precision, a medium-close shot frames a chemist in a white coat pouring clear liquid from a glass beaker into a graduated cylinder at a laboratory bench across the five-second take. Stainless steel clamps and glass condensers gleam under overhead fluorescent tubes. The camera holds a static shot. The chemist produces no vocal sound.
+
+overall_soundscape: Liquid trickles steadily into glass over the low hum of a fume hood.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Handcrafted felt muppet show, where the figure is a fuzzy stitched fleece puppet with oversized googly eyes, a stitched felt nose, yarn hair, and floppy stuffed-foam fingers, a medium-close shot frames a chemist in a white coat pouring clear liquid from a glass beaker into a graduated cylinder at a laboratory bench across the five-second take. Stainless steel clamps and glass condensers gleam under overhead fluorescent tubes. The camera holds a static shot. The chemist produces no vocal sound.
+
+overall_soundscape: Liquid trickles steadily into glass over the low hum of a fume hood.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, a medium shot frames a clerk in a buttoned shirt stamping paper forms at a wooden counter across the five-second take. Brass ink pads and stacked manila folders rest beside a green banker's lamp. The camera holds a static shot. The clerk produces no vocal sound.
+
+overall_soundscape: A rubber stamp presses cleanly onto paper over quiet office room tone.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, a medium shot frames a clerk in a buttoned shirt stamping paper forms at a wooden counter across the five-second take. Brass ink pads and stacked manila folders rest beside a green banker's lamp. The camera holds a static shot. The clerk produces no vocal sound.
+
+overall_soundscape: Hollow foam puppet hands thump against cardboard props with squeaky felt friction and wooden rod clacks on a studio soundstage.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, a medium-wide shot frames a janitor in blue workwear mopping a tiled corridor under ceiling lights across the five-second take. A yellow wheeled bucket sits beside the baseboard. The camera pushes in with small amplitude at slow speed. The janitor produces no vocal sound.
+
+overall_soundscape: A damp mop glides quietly across ceramic floor tiles over low building hum.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, a medium-wide shot frames a janitor in blue workwear mopping a tiled corridor under ceiling lights across the five-second take. A yellow wheeled bucket sits beside the baseboard. The camera pushes in with small amplitude at slow speed. The janitor produces no vocal sound.
+
+overall_soundscape: Fuzzy felt puppet limbs rustle and squeak with hollow foam thuds and bouncy puppet-stage foley.
+
+non_diegetic_music: N/A'''
