@@ -40,7 +40,7 @@ non_diegetic_music: ...
 - **`non_diegetic_music`**: 1–3 sentences describing audience-only background music strictly by instruments, tempo, rhythm, and volume dynamics (no abstract mood words), or `N/A` when unscored.
 
 ## 1.2 Full-Reference Mode (`ref2va` Only — Six Sections)
-When the mode is `ref2va`, write these six sections in order (`subject_definitions:` and `retention_analysis:` use one line per item with no bullet dashes):
+When the mode is `ref2va`, write these six sections in order (`subject_definitions:` describes only `<Subject 1>`'s physical appearance in `<Picture 1>`, not the new target setting; `retention_analysis:` states which traits of `<Subject 1>` from `<Picture 1>` are preserved while `<Picture 1>`'s original background and props are discarded; use one line per item with no bullet dashes):
 
 ```text
 subject_definitions:
@@ -122,9 +122,12 @@ Follow these five principles:
 3. **Genuine Prose and Structural Diversity Across Pairs**:
    - Write natural, flowing paragraphs—never follow a rigid sentence-by-sentence formula across pairs.
    - Vary how each shot opens (sometimes with the environment or weather, sometimes with a camera move, sometimes with a close physical action, sometimes with the character), vary where the camera movement sits in the paragraph, and vary your vocabulary in every pair.
-4. **Clean, Non-Empty Single-Span Contrast Within Each Pair (`Prompt A` vs. `Prompt B`)**:
-   - Within a single pair, `Prompt A` and `Prompt B` describe the exact same scene, character, props, and spoken words, differing **only** in one contiguous clause describing the target phenomenon. Keep shared noun lists or prop descriptions before or after the changed clause (never buried inside the middle of the changed clause) so the word difference in any modified section is one uninterrupted span.
+4. **Clean, Non-Empty Single-Span Contrast Within ONE Section Per Pair (`Prompt A` vs. `Prompt B`)**:
+   - Within any single pair, `Prompt A` and `Prompt B` must be **100% character-for-character identical everywhere except for ONE contiguous clause inside ONE section** (never modify two sections in the same pair, and never modify both before `<d>...</d>` and after `<d>...</d>`).
+   - Keep all shared noun lists, prop descriptions, and `<d>...</d>` dialogue completely before or completely after the changed clause so the word difference between `Prompt A` and `Prompt B` is a single uninterrupted span.
    - Both `Prompt A` and `Prompt B` must include an explicit clause for the target attribute (`Prompt A` explicitly states the attribute remains steady/normal; `Prompt B` explicitly states the transformation—never leave `Prompt A`'s clause empty), using fresh, varied phrasing in every pair.
-5. **Steering Video, Audio, or Both**:
-   - Contrast `integrated_multimodal_description:` for visual/physical effects, `overall_soundscape:` (and vocal delivery) for acoustic effects, or both when the concept spans video and audio.
+5. **Steering Video, Audio, or Both (Without Breaking the Single-Span Rule)**:
+   - For visual/physical effects, place the single changed clause in `integrated_multimodal_description:` (keeping `overall_soundscape:` and `non_diegetic_music:` identical).
+   - For ambient/acoustic effects, place the single changed clause in `overall_soundscape:` (keeping `integrated_multimodal_description:` and `non_diegetic_music:` identical).
+   - When a concept spans **both video and audio**, either place both the visual transformation and the vocal-delivery change together inside **one contiguous clause** in `integrated_multimodal_description:` (keeping `overall_soundscape:` identical), or use Pairs 1–8 to change one clause in `integrated_multimodal_description:` (with `overall_soundscape:` identical) and Pairs 9–10 to change one clause in `overall_soundscape:` (with `integrated_multimodal_description:` identical). Never change two sections in the same pair.
 ````
