@@ -18,10 +18,10 @@ Key Interpretability & Calibration Features:
        `integrated_multimodal_description: [Shot 1] ` prefix, and all generated tokens
        receive `alpha * median_row_norm * v_encoder`.
   3. **Direct `layers.49 -> lm_head` Word-Initial Log-Odds Readout (`delta_log_prob`)**:
-     - Computes exact first-token log-probability shifts `log P(tok | steered) - log P(tok | base)`
-       over genuine space-prefixed English content words (`piece.startswith(" ")`, `tid < 151643`)
-       across four H3-formatted probe prefixes (visual/film look, human anatomy/material,
-       surface/typography, and acoustics/voice).
+     - Computes exact first-token log-probability shifts with one-sided peak-flattening
+       cancellation (`min(log P(+v) - log P(base), log P(+v) - log P(-v))`) over genuine
+       space-prefixed English content words (`piece.startswith(" ")`, `tid < 151643`, verified
+       against the true Qwen3-VL BPE token map) across seven H3-formatted probe prefixes.
   4. **Two H3-Formatted Neutral Anchors (`integrated_multimodal_description:` + `overall_soundscape:`)**:
      - `Anchor A (anchor_human_action_room)`: A person at a counter pouring water from a pitcher
        into a ceramic mug and speaking a short greeting aloud (probing human material/anatomy,
@@ -32,7 +32,7 @@ Key Interpretability & Calibration Features:
   5. **Baseline-Subtracting Synthesizer + Markdown Report (`h3_control_vector_report.md`)**:
      - Explicitly instructs the synthesizer to subtract `+0.00` baseline prompt objects and
        writes both `h3_control_vector_labels.json` and `h3_control_vector_report.md` (including
-       the `12x12` `layers.49` cosine similarity matrix).
+       the `14x14` `layers.49` cosine similarity matrix).
 """
 
 from __future__ import annotations
@@ -646,13 +646,15 @@ def compute_top_logit_shifts(
     top_k: int = 12,
 ) -> dict[str, Any]:
     """
-    Zero-sampling lexical lens: run 6 domain-neutral H3-formatted prefixes through
+    Zero-sampling lexical lens: run 7 domain-neutral H3-formatted prefixes through
     `layers.0..49`, add `+/- alpha * median_row_norm * v_encoder` at `layers.49`
     (positions `1:`), and continue through `layers.50..63` + `norm` + `lm_head`
     to score space-prefixed English content words (`piece.startswith(" ")`,
-    `tid < 151643`) by symmetric contrastive log-odds:
-        `delta_sym(w) = 0.5 * (log P(w | +v) - log P(w | -v))`
-    cancelling out symmetric off-manifold entropy/temperature flattening.
+    `tid < 151643`, verified via `_get_bpe_vocab_map`) by one-sided peak-flattening
+    cancellation:
+        `pos_shift(w) = min(log P(w | +v) - log P(w | base), log P(w | +v) - log P(w | -v))`
+    preserving 100% of directional boosts when `log P(w | -v) <= log P(w | base)` while
+    subtracting isotropic off-manifold cloze peak flattening when `log P(w | -v) > log P(w | base)`.
     """
     layer_49 = model.find_module("model.language_model.layers.49")
     layer_49_idx = model.modules.index(layer_49)
@@ -1094,13 +1096,13 @@ def write_markdown_report(
         "Generated with `Qwen3-VL-32B-Instruct` (`5.37 bpw` EXL3, `6 bpw` readout layers `50..63`, `8 bpw` `lm_head`) using:",
         "- **Official Qwen3-VL Non-Thinking Sampling + Coupled Gumbel Draws** (`ComboSampler(temperature=0.7, top_p=0.8, top_k=20, min_p=0.0, rep_p=1.05)` with matched per-step `rand_u32` across $\\alpha$)",
         "- **User-Scene + Assistant-Span `layers.49` Steering** (leaving `<|im_start|>system`, formatting instructions, and `<think></think>` framing tokens unsteered)",
-        "- **Direct `layers.49 -> lm_head` Symmetric Contrastive Log-Odds (`0.5 * (logP(+v) - logP(-v))`)** across 6 domain-neutral prefixes (with true BPE token verification)",
+        "- **Direct `layers.49 -> lm_head` One-Sided Contrastive Log-Odds (`min(logP(+v) - logP(base), logP(+v) - logP(-v))`)** across 7 domain-neutral prefixes (with true BPE token verification)",
         "- **Blind Self-Report Synthesis** (`synthesis` judges the coupled `Anchor A` & `Anchor B` rollouts 100% blind to `lm_head` lexical tokens)",
         "- **Dual-Site (`layers.49` + `post_refiner`) Pair-Coherence Diagnostics** (`mean_pairwise_cosine`, `split_half_cosine`, `min_pair_cosine`, and `per_pair_cosine`)",
         "",
         "## 1. Summary Table",
         "",
-        "| Vector (`.toml`) | `L49` Norm | `PR` Norm (`fl2va`) | `L49` Split1/2 | `PR` Split1/2 | `PR` MinCos (Weakest) | Lexical Clarity | Blind Rollout Label (`temp=0.7`) | Rollout Clarity | Top `+v_encoder` Words (`lm_head` $\\Delta\\log P$) |",
+        "| Vector (`.toml`) | `L49` Norm | `PR` Norm (`fl2va` / `ref2va`) | `L49` Split1/2 | `PR` Split1/2 | `PR` MinCos (Weakest) | Lexical Clarity | Blind Rollout Label (`temp=0.7`) | Rollout Clarity | Top `+v_encoder` Words (`lm_head` $\\Delta\\log P$) |",
         "|---|---:|---:|---:|---:|---:|---|---|---|---|",
     ]
 
@@ -1118,7 +1120,13 @@ def write_markdown_report(
 
         pr_sf = entry.get("post_refiner_safetensors", {})
         fl2va_info = pr_sf.get("fl2va") or next(iter(pr_sf.values()), {})
-        pr_norm = f"`{fl2va_info['post_refiner_raw_norm']:.1f}`" if "post_refiner_raw_norm" in fl2va_info else "—"
+        ref2va_info = pr_sf.get("ref2va", {})
+        if "post_refiner_raw_norm" in fl2va_info and "post_refiner_raw_norm" in ref2va_info:
+            pr_norm = f"`{fl2va_info['post_refiner_raw_norm']:.1f}` / `{ref2va_info['post_refiner_raw_norm']:.1f}`"
+        elif "post_refiner_raw_norm" in fl2va_info:
+            pr_norm = f"`{fl2va_info['post_refiner_raw_norm']:.1f}`"
+        else:
+            pr_norm = "—"
         pr_q = fl2va_info.get("post_refiner_quality", {})
         pr_sh = f"`{pr_q['split_half_cosine']:.3f}`" if "split_half_cosine" in pr_q else "—"
         if "min_pair_cosine" in pr_q:
@@ -1177,8 +1185,13 @@ def write_markdown_report(
                 f"`MinPairCos = {l49_q.get('min_pair_cosine', 0.0):.4f}` (Pair `{l49_q.get('weakest_pair_1based', '?')}`)"
             )
         if pr_q:
+            ref2va_info = pr_sf.get("ref2va", {})
+            if "post_refiner_raw_norm" in fl2va_info and "post_refiner_raw_norm" in ref2va_info:
+                pr_norm_hdr = f"fl2va raw_norm = {fl2va_info['post_refiner_raw_norm']:.2f}, ref2va raw_norm = {ref2va_info['post_refiner_raw_norm']:.2f}"
+            else:
+                pr_norm_hdr = f"raw_norm = {fl2va_info.get('post_refiner_raw_norm', 0.0):.2f}"
             lines.append(
-                f"- **`post_refiner` Pair Coherence (`[5376]`, `raw_norm = {fl2va_info.get('post_refiner_raw_norm', 0.0):.2f}`)**: "
+                f"- **`post_refiner` Pair Coherence (`[5376]`, `{pr_norm_hdr}`)**: "
                 f"`MeanPairCos = {pr_q.get('mean_pairwise_cosine', 0.0):.4f}`, "
                 f"`SplitHalf = {pr_q.get('split_half_cosine', 0.0):.4f}`, "
                 f"`MinPairCos = {pr_q.get('min_pair_cosine', 0.0):.4f}` (Pair `{pr_q.get('weakest_pair_1based', '?')}`)"

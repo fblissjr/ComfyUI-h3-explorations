@@ -3,28 +3,28 @@
 Generated with `Qwen3-VL-32B-Instruct` (`5.37 bpw` EXL3, `6 bpw` readout layers `50..63`, `8 bpw` `lm_head`) using:
 - **Official Qwen3-VL Non-Thinking Sampling + Coupled Gumbel Draws** (`ComboSampler(temperature=0.7, top_p=0.8, top_k=20, min_p=0.0, rep_p=1.05)` with matched per-step `rand_u32` across $\alpha$)
 - **User-Scene + Assistant-Span `layers.49` Steering** (leaving `<|im_start|>system`, formatting instructions, and `<think></think>` framing tokens unsteered)
-- **Direct `layers.49 -> lm_head` Symmetric Contrastive Log-Odds (`0.5 * (logP(+v) - logP(-v))`)** across 6 domain-neutral prefixes (with true BPE token verification)
+- **Direct `layers.49 -> lm_head` One-Sided Contrastive Log-Odds (`min(logP(+v) - logP(base), logP(+v) - logP(-v))`)** across 7 domain-neutral prefixes (with true BPE token verification)
 - **Blind Self-Report Synthesis** (`synthesis` judges the coupled `Anchor A` & `Anchor B` rollouts 100% blind to `lm_head` lexical tokens)
 - **Dual-Site (`layers.49` + `post_refiner`) Pair-Coherence Diagnostics** (`mean_pairwise_cosine`, `split_half_cosine`, `min_pair_cosine`, and `per_pair_cosine`)
 
 ## 1. Summary Table
 
-| Vector (`.toml`) | `L49` Norm | `PR` Norm (`fl2va`) | `L49` Split1/2 | `PR` Split1/2 | `PR` MinCos (Weakest) | Lexical Clarity | Blind Rollout Label (`temp=0.7`) | Rollout Clarity | Top `+v_encoder` Words (`lm_head` $\Delta\log P$) |
+| Vector (`.toml`) | `L49` Norm | `PR` Norm (`fl2va` / `ref2va`) | `L49` Split1/2 | `PR` Split1/2 | `PR` MinCos (Weakest) | Lexical Clarity | Blind Rollout Label (`temp=0.7`) | Rollout Clarity | Top `+v_encoder` Words (`lm_head` $\Delta\log P$) |
 |---|---:|---:|---:|---:|---:|---|---|---|---|
-| `chaos_panic` | `26.07` | `25.9` | `0.942` | `0.970` | `0.684` (`P09`) | `high` | `intensity_stress_scale` | `high` | explosion (+5.58), violently (+5.30), panicked (+5.13), chaotic (+5.12), panic (+5.04), chaos (+5.01) |
-| `cursed_cctv` | `27.11` | `28.2` | `0.928` | `0.965` | `0.528` (`P10`) | `high` | `degradation_to_grit` | `high` | distortion (+5.04), corrupted (+4.39), distort (+4.27), corrupt (+3.93), degradation (+3.87), badly (+3.86) |
-| `felt_muppet` | `18.84` | `20.4` | `0.951` | `0.934` | `0.694` (`P05`) | `high` | `vocal_acoustic_deterioration` | `high` | cartoon (+4.46), hilariously (+4.26), goofy (+3.90), crudely (+3.71), hilarious (+3.63), ridiculous (+3.61) |
-| `fever_melt` | `27.93` | `24.5` | `0.961` | `0.972` | `0.673` (`P09`) | `high` | `degradation_to_heat_haze` | `high` | melting (+5.04), melted (+4.84), melt (+4.49), liquefy (+4.26), warped (+3.96), melts (+3.89) |
-| `film_16mm_1974` | `20.46` | `20.4` | `0.969` | `0.969` | `0.774` (`P13`) | `high` | `aging_lived_in_atmosphere` | `high` | deteriorate (+3.87), crudely (+3.78), distorted (+3.65), badly (+3.65), dated (+3.63), cheap (+3.54) |
-| `film_16mm_1974_bare` | `78.34` | `63.9` | `0.976` | `0.962` | `0.750` (`P13`) | `high` | `urban_decay_to_vitality` | `high` | dated (+3.46), older (+3.33), dates (+3.14), vintage (+3.13), faded (+3.03), antiquated (+2.95) |
-| `head_swell` | `9.23` | `10.4` | `0.912` | `0.924` | `0.675` (`P08`) | `high` | `aging_intensity` | `high` | inflate (+5.32), inflated (+5.08), inflation (+4.82), expanding (+4.77), balloon (+4.32), expands (+4.31) |
-| `infomercial_fail` | `25.94` | `23.7` | `0.936` | `0.950` | `0.292` (`P10`) | `high` | `degradation_to_deterioration` | `high` | disastrously (+6.03), explosion (+5.93), explode (+5.31), chaotic (+5.11), crash (+5.01), disastrous (+4.94) |
-| `lettering` | `14.58` | `13.7` | `0.920` | `0.893` | `0.491` (`P06`) | `medium` | `warmth_and_intimacy` | `high` | class (+2.53), clear (+2.48), distinct (+2.25), free (+2.19), icon (+2.17), great (+2.16) |
-| `lettering_bare` | `84.28` | `58.7` | `0.870` | `0.875` | `0.453` (`P09`) | `medium` | `warmth_intimacy_steering` | `high` | rock (+2.47), black (+2.23), free (+2.13), impress (+2.13), material (+2.11), delight (+1.99) |
-| `noir` | `19.11` | `21.0` | `0.930` | `0.928` | `0.588` (`P11`) | `medium` | `gritty_realism_steering` | `high` | grotesque (+3.03), crudely (+2.97), horribly (+2.93), grain (+2.86), notoriously (+2.84), horrifying (+2.75) |
-| `reverb_cathedral` | `12.76` | `15.7` | `0.952` | `0.955` | `0.704` (`P11`) | `high` | `warmth_resonance` | `high` | majestic (+4.14), ancient (+4.03), grand (+3.84), centuries (+3.81), echo (+3.56), vast (+3.39) |
-| `vocal_strain` | `30.00` | `26.2` | `0.991` | `0.985` | `0.919` (`P07`) | `high` | `degradation_to_deterioration` | `high` | violently (+4.94), explosion (+4.64), grotesque (+4.51), horrifying (+4.18), hilariously (+4.14), terrifying (+4.12) |
-| `zero_gravity` | `9.56` | `11.2` | `0.939` | `0.937` | `0.727` (`P09`) | `high` | `temporal_serenity_steering` | `high` | surreal (+3.44), floating (+3.39), ascending (+3.30), fantastic (+3.19), quantum (+3.15), futuristic (+3.06) |
+| `chaos_panic` | `26.07` | `25.9` / `24.7` | `0.942` | `0.970` | `0.684` (`P09`) | `high` | `intensity_stress_scale` | `high` | explosion (+5.58), violently (+5.30), panicked (+5.13), chaotic (+5.12), panic (+5.04), chaos (+5.01) |
+| `cursed_cctv` | `27.11` | `28.2` / `27.9` | `0.928` | `0.965` | `0.528` (`P10`) | `high` | `degradation_to_grit` | `high` | distortion (+5.04), corrupted (+4.39), distort (+4.27), corrupt (+3.93), degradation (+3.87), badly (+3.86) |
+| `felt_muppet` | `18.84` | `20.4` / `19.0` | `0.951` | `0.934` | `0.694` (`P05`) | `high` | `vocal_acoustic_deterioration` | `high` | cartoon (+4.46), hilariously (+4.26), goofy (+3.90), crudely (+3.71), hilarious (+3.63), ridiculous (+3.61) |
+| `fever_melt` | `27.93` | `24.5` / `23.8` | `0.961` | `0.972` | `0.673` (`P09`) | `high` | `degradation_to_heat_haze` | `high` | melting (+5.04), melted (+4.84), melt (+4.49), liquefy (+4.26), warped (+3.96), melts (+3.89) |
+| `film_16mm_1974` | `20.46` | `20.4` / `19.0` | `0.969` | `0.969` | `0.774` (`P13`) | `high` | `aging_lived_in_atmosphere` | `high` | deteriorate (+3.87), crudely (+3.78), distorted (+3.65), badly (+3.65), dated (+3.63), cheap (+3.54) |
+| `film_16mm_1974_bare` | `78.34` | `63.9` / `61.1` | `0.976` | `0.962` | `0.750` (`P13`) | `high` | `urban_decay_to_vitality` | `high` | dated (+3.46), older (+3.33), dates (+3.14), vintage (+3.13), faded (+3.03), antiquated (+2.95) |
+| `head_swell` | `9.23` | `10.4` / `9.8` | `0.912` | `0.924` | `0.675` (`P08`) | `high` | `aging_intensity` | `high` | inflate (+5.32), inflated (+5.08), inflation (+4.82), expanding (+4.77), balloon (+4.32), expands (+4.31) |
+| `infomercial_fail` | `25.94` | `23.7` / `22.2` | `0.936` | `0.950` | `0.292` (`P10`) | `high` | `degradation_to_deterioration` | `high` | disastrously (+6.03), explosion (+5.93), explode (+5.31), chaotic (+5.11), crash (+5.01), disastrous (+4.94) |
+| `lettering` | `14.58` | `13.7` / `13.1` | `0.920` | `0.893` | `0.491` (`P06`) | `medium` | `warmth_and_intimacy` | `high` | class (+2.53), clear (+2.48), distinct (+2.25), free (+2.19), icon (+2.17), great (+2.16) |
+| `lettering_bare` | `84.28` | `58.7` / `57.6` | `0.870` | `0.875` | `0.453` (`P09`) | `medium` | `warmth_intimacy_steering` | `high` | rock (+2.47), black (+2.23), free (+2.13), impress (+2.13), material (+2.11), delight (+1.99) |
+| `noir` | `19.11` | `21.0` / `20.1` | `0.930` | `0.928` | `0.588` (`P11`) | `medium` | `gritty_realism_steering` | `high` | grotesque (+3.03), crudely (+2.97), horribly (+2.93), grain (+2.86), notoriously (+2.84), horrifying (+2.75) |
+| `reverb_cathedral` | `12.76` | `15.7` / `15.3` | `0.952` | `0.955` | `0.704` (`P11`) | `high` | `warmth_resonance` | `high` | majestic (+4.14), ancient (+4.03), grand (+3.84), centuries (+3.81), echo (+3.56), vast (+3.39) |
+| `vocal_strain` | `30.00` | `26.2` / `25.4` | `0.991` | `0.985` | `0.919` (`P07`) | `high` | `degradation_to_deterioration` | `high` | violently (+4.94), explosion (+4.64), grotesque (+4.51), horrifying (+4.18), hilariously (+4.14), terrifying (+4.12) |
+| `zero_gravity` | `9.56` | `11.2` / `10.7` | `0.939` | `0.937` | `0.727` (`P09`) | `high` | `temporal_serenity_steering` | `high` | surreal (+3.44), floating (+3.39), ascending (+3.30), fantastic (+3.19), quantum (+3.15), futuristic (+3.06) |
 
 ## 2. Pairwise Cosine Similarity at `layers.49` (`vector.encoder` `[5120]`)
 
@@ -52,7 +52,7 @@ Generated with `Qwen3-VL-32B-Instruct` (`5.37 bpw` EXL3, `6 bpw` readout layers 
 - **Blind Pair-Diff Label**: `calm_vs_panic` — high-contrast emotional state shift from composure to emergency-induced panic
 - **Blind `layers.49` Rollout Self-Report (`temp=0.7`, clarity=`high`)**: `intensity_stress_scale` — Steering controls a gradient of visual and acoustic intensity, shifting from calm, controlled, and refined to chaotic, stressed, and raw across both video and audio dimensions.
 - **`layers.49` Pair Coherence (`[5120]`)**: `MeanPairCos = 0.8140`, `SplitHalf = 0.9418`, `MinPairCos = 0.6006` (Pair `9`)
-- **`post_refiner` Pair Coherence (`[5376]`, `raw_norm = 25.93`)**: `MeanPairCos = 0.8326`, `SplitHalf = 0.9703`, `MinPairCos = 0.6840` (Pair `9`)
+- **`post_refiner` Pair Coherence (`[5376]`, `fl2va raw_norm = 25.93, ref2va raw_norm = 24.72`)**: `MeanPairCos = 0.8326`, `SplitHalf = 0.9703`, `MinPairCos = 0.6840` (Pair `9`)
 - **Top Boosted Words (`+v_encoder`, lexical_clarity=`high`, top5_mean=`+5.24`)**: explosion (+5.58), violently (+5.30), panicked (+5.13), chaotic (+5.12), panic (+5.04), chaos (+5.01), suddenly (+4.97), frantic (+4.95), sudden (+4.74), horribly (+4.70)
 - **Top Boosted Words (`-v_encoder`)**: remain (+3.87), calm (+3.30), serene (+3.29), maintain (+3.21), steady (+3.13), gentle (+3.04), tranquil (+2.94), harmonious (+2.93), neutral (+2.70), stable (+2.60)
 - **Coupled `temp=0.7` Rollouts on Anchor A (Person + Counter + Mug + Room)**:
@@ -71,7 +71,7 @@ Generated with `Qwen3-VL-32B-Instruct` (`5.37 bpw` EXL3, `6 bpw` readout layers 
 - **Blind Pair-Diff Label**: `cctv_surveillance_aesthetic` — Highly specific, low-fidelity, security-camera visual and audio signature
 - **Blind `layers.49` Rollout Self-Report (`temp=0.7`, clarity=`high`)**: `degradation_to_grit` — Steering systematically transforms the scene from clean, well-lit, and calm to increasingly gritty, distorted, and acoustically harsh, with progressive deterioration in materials, lighting, camera work, and vocal quality.
 - **`layers.49` Pair Coherence (`[5120]`)**: `MeanPairCos = 0.7919`, `SplitHalf = 0.9279`, `MinPairCos = 0.5182` (Pair `10`)
-- **`post_refiner` Pair Coherence (`[5376]`, `raw_norm = 28.23`)**: `MeanPairCos = 0.7811`, `SplitHalf = 0.9648`, `MinPairCos = 0.5281` (Pair `10`)
+- **`post_refiner` Pair Coherence (`[5376]`, `fl2va raw_norm = 28.23, ref2va raw_norm = 27.89`)**: `MeanPairCos = 0.7811`, `SplitHalf = 0.9648`, `MinPairCos = 0.5281` (Pair `10`)
 - **Top Boosted Words (`+v_encoder`, lexical_clarity=`high`, top5_mean=`+4.30`)**: distortion (+5.04), corrupted (+4.39), distort (+4.27), corrupt (+3.93), degradation (+3.87), badly (+3.86), degraded (+3.86), glitch (+3.77), distorted (+3.74), corruption (+3.74)
 - **Top Boosted Words (`-v_encoder`)**: harmony (+3.45), steady (+3.33), simplicity (+3.21), elegance (+3.14), inviting (+3.08), harmonious (+3.08), careful (+2.98), clean (+2.93), professional (+2.90), calm (+2.88)
 - **Coupled `temp=0.7` Rollouts on Anchor A (Person + Counter + Mug + Room)**:
@@ -90,7 +90,7 @@ Generated with `Qwen3-VL-32B-Instruct` (`5.37 bpw` EXL3, `6 bpw` readout layers 
 - **Blind Pair-Diff Label**: `puppet_transformation` — highly consistent transformation from natural human to stylized felt hand puppet with exaggerated vocal pitch
 - **Blind `layers.49` Rollout Self-Report (`temp=0.7`, clarity=`high`)**: `vocal_acoustic_deterioration` — Steering systematically shifts the scene from calm, naturalistic audiovisual presentation to increasingly distorted, exaggerated, and artificial vocal and acoustic qualities, with corresponding visual degradation.
 - **`layers.49` Pair Coherence (`[5120]`)**: `MeanPairCos = 0.7417`, `SplitHalf = 0.9506`, `MinPairCos = 0.7019` (Pair `7`)
-- **`post_refiner` Pair Coherence (`[5376]`, `raw_norm = 20.37`)**: `MeanPairCos = 0.7353`, `SplitHalf = 0.9336`, `MinPairCos = 0.6941` (Pair `5`)
+- **`post_refiner` Pair Coherence (`[5376]`, `fl2va raw_norm = 20.37, ref2va raw_norm = 19.02`)**: `MeanPairCos = 0.7353`, `SplitHalf = 0.9336`, `MinPairCos = 0.6941` (Pair `5`)
 - **Top Boosted Words (`+v_encoder`, lexical_clarity=`high`, top5_mean=`+3.99`)**: cartoon (+4.46), hilariously (+4.26), goofy (+3.90), crudely (+3.71), hilarious (+3.63), ridiculous (+3.61), absurd (+3.56), silly (+3.55), bizarre (+3.47), funny (+3.47)
 - **Top Boosted Words (`-v_encoder`)**: architectural (+2.35), steady (+2.31), balanced (+2.30), stable (+2.29), materials (+2.28), architecture (+2.21), natural (+2.21), clarity (+2.17), details (+2.15), understand (+2.12)
 - **Coupled `temp=0.7` Rollouts on Anchor A (Person + Counter + Mug + Room)**:
@@ -109,7 +109,7 @@ Generated with `Qwen3-VL-32B-Instruct` (`5.37 bpw` EXL3, `6 bpw` readout layers 
 - **Blind Pair-Diff Label**: `melting_wax_drip` — viscous, downward-sagging liquefaction with iridescent halation and pitch-melting glissandos
 - **Blind `layers.49` Rollout Self-Report (`temp=0.7`, clarity=`high`)**: `degradation_to_heat_haze` — Steering systematically transforms clean, crisp visual and acoustic scenes into increasingly degraded, heat-distorted, and muffled environments with tactile material decay and breathy, warped vocalizations.
 - **`layers.49` Pair Coherence (`[5120]`)**: `MeanPairCos = 0.8609`, `SplitHalf = 0.9607`, `MinPairCos = 0.6922` (Pair `9`)
-- **`post_refiner` Pair Coherence (`[5376]`, `raw_norm = 24.55`)**: `MeanPairCos = 0.8360`, `SplitHalf = 0.9720`, `MinPairCos = 0.6730` (Pair `9`)
+- **`post_refiner` Pair Coherence (`[5376]`, `fl2va raw_norm = 24.55, ref2va raw_norm = 23.77`)**: `MeanPairCos = 0.8360`, `SplitHalf = 0.9720`, `MinPairCos = 0.6730` (Pair `9`)
 - **Top Boosted Words (`+v_encoder`, lexical_clarity=`high`, top5_mean=`+4.52`)**: melting (+5.04), melted (+4.84), melt (+4.49), liquefy (+4.26), warped (+3.96), melts (+3.89), rubber (+3.87), distort (+3.64), liquid (+3.50), sick (+3.49)
 - **Top Boosted Words (`-v_encoder`)**: remain (+3.53), good (+2.91), fixed (+2.89), appropriate (+2.76), plain (+2.67), maintain (+2.62), layout (+2.62), clean (+2.59), signage (+2.56), clear (+2.56)
 - **Coupled `temp=0.7` Rollouts on Anchor A (Person + Counter + Mug + Room)**:
@@ -128,7 +128,7 @@ Generated with `Qwen3-VL-32B-Instruct` (`5.37 bpw` EXL3, `6 bpw` readout layers 
 - **Blind Pair-Diff Label**: `vintage_film_grain` — highly specific visual texture and color degradation characteristic of 1974 16mm film stock
 - **Blind `layers.49` Rollout Self-Report (`temp=0.7`, clarity=`high`)**: `aging_lived_in_atmosphere` — Steering systematically transforms the scene from clean, pristine, and modern to weathered, textured, and emotionally resonant with signs of age and daily use.
 - **`layers.49` Pair Coherence (`[5120]`)**: `MeanPairCos = 0.8230`, `SplitHalf = 0.9685`, `MinPairCos = 0.7857` (Pair `13`)
-- **`post_refiner` Pair Coherence (`[5376]`, `raw_norm = 20.40`)**: `MeanPairCos = 0.8221`, `SplitHalf = 0.9693`, `MinPairCos = 0.7742` (Pair `13`)
+- **`post_refiner` Pair Coherence (`[5376]`, `fl2va raw_norm = 20.40, ref2va raw_norm = 19.04`)**: `MeanPairCos = 0.8221`, `SplitHalf = 0.9693`, `MinPairCos = 0.7742` (Pair `13`)
 - **Top Boosted Words (`+v_encoder`, lexical_clarity=`high`, top5_mean=`+3.71`)**: deteriorate (+3.87), crudely (+3.78), distorted (+3.65), badly (+3.65), dated (+3.63), cheap (+3.54), vintage (+3.53), outdated (+3.47), antiquated (+3.38), faded (+3.32)
 - **Top Boosted Words (`-v_encoder`)**: flawless (+3.97), precision (+3.94), perfect (+3.62), excellent (+3.36), impeccable (+3.31), seamless (+3.30), impeccably (+3.20), perfection (+3.17), immaculate (+3.01), perfectly (+3.00)
 - **Coupled `temp=0.7` Rollouts on Anchor A (Person + Counter + Mug + Room)**:
@@ -147,7 +147,7 @@ Generated with `Qwen3-VL-32B-Instruct` (`5.37 bpw` EXL3, `6 bpw` readout layers 
 - **Blind Pair-Diff Label**: `vintage_film_grain` — highly specific visual texture and color degradation characteristic of 1974 16mm film stock
 - **Blind `layers.49` Rollout Self-Report (`temp=0.7`, clarity=`high`)**: `urban_decay_to_vitality` — Steering systematically shifts the scene from clean, minimal, and sterile to weathered, textured, and socially active, with increasing acoustic complexity and visual grit.
 - **`layers.49` Pair Coherence (`[5120]`)**: `MeanPairCos = 0.8168`, `SplitHalf = 0.9763`, `MinPairCos = 0.7843` (Pair `3`)
-- **`post_refiner` Pair Coherence (`[5376]`, `raw_norm = 63.90`)**: `MeanPairCos = 0.7861`, `SplitHalf = 0.9617`, `MinPairCos = 0.7504` (Pair `13`)
+- **`post_refiner` Pair Coherence (`[5376]`, `fl2va raw_norm = 63.90, ref2va raw_norm = 61.08`)**: `MeanPairCos = 0.7861`, `SplitHalf = 0.9617`, `MinPairCos = 0.7504` (Pair `13`)
 - **Top Boosted Words (`+v_encoder`, lexical_clarity=`high`, top5_mean=`+3.22`)**: dated (+3.46), older (+3.33), dates (+3.14), vintage (+3.13), faded (+3.03), antiquated (+2.95), dating (+2.93), deteriorate (+2.75), tapes (+2.71), outdated (+2.67)
 - **Top Boosted Words (`-v_encoder`)**: flawless (+3.64), perfect (+3.45), precision (+3.19), impeccable (+3.02), perfectly (+2.97), seamless (+2.86), perfection (+2.79), immaculate (+2.63), excellent (+2.58), precise (+2.57)
 - **Coupled `temp=0.7` Rollouts on Anchor A (Person + Counter + Mug + Room)**:
@@ -166,7 +166,7 @@ Generated with `Qwen3-VL-32B-Instruct` (`5.37 bpw` EXL3, `6 bpw` readout layers 
 - **Blind Pair-Diff Label**: `enlarged_head` — highly consistent and focused isolation of head inflation across all pairs
 - **Blind `layers.49` Rollout Self-Report (`temp=0.7`, clarity=`high`)**: `aging_intensity` — Steering systematically modulates the perceived age and physical wear of the subject and environment, shifting from youthful and pristine to weathered and aged, with corresponding changes in vocal texture and acoustic resonance.
 - **`layers.49` Pair Coherence (`[5120]`)**: `MeanPairCos = 0.6744`, `SplitHalf = 0.9119`, `MinPairCos = 0.6326` (Pair `9`)
-- **`post_refiner` Pair Coherence (`[5376]`, `raw_norm = 10.35`)**: `MeanPairCos = 0.7066`, `SplitHalf = 0.9245`, `MinPairCos = 0.6753` (Pair `8`)
+- **`post_refiner` Pair Coherence (`[5376]`, `fl2va raw_norm = 10.35, ref2va raw_norm = 9.80`)**: `MeanPairCos = 0.7066`, `SplitHalf = 0.9245`, `MinPairCos = 0.6753` (Pair `8`)
 - **Top Boosted Words (`+v_encoder`, lexical_clarity=`high`, top5_mean=`+4.86`)**: inflate (+5.32), inflated (+5.08), inflation (+4.82), expanding (+4.77), balloon (+4.32), expands (+4.31), balloons (+4.10), expand (+4.10), swelling (+3.97), swell (+3.88)
 - **Top Boosted Words (`-v_encoder`)**: consistent (+3.23), remain (+3.07), appropriate (+2.79), stay (+2.72), maintain (+2.72), stable (+2.68), maintained (+2.65), coherent (+2.57), steady (+2.57), intact (+2.57)
 - **Coupled `temp=0.7` Rollouts on Anchor A (Person + Counter + Mug + Room)**:
@@ -185,7 +185,7 @@ Generated with `Qwen3-VL-32B-Instruct` (`5.37 bpw` EXL3, `6 bpw` readout layers 
 - **Blind Pair-Diff Label**: `clumsiness_vs_dexterity` — high-contrast control over physical coordination and handling precision
 - **Blind `layers.49` Rollout Self-Report (`temp=0.7`, clarity=`high`)**: `degradation_to_deterioration` — Steering systematically transforms scenes from calm, well-maintained states to increasingly chaotic, deteriorated, and unstable conditions across visual, acoustic, and physical dimensions.
 - **`layers.49` Pair Coherence (`[5120]`)**: `MeanPairCos = 0.6788`, `SplitHalf = 0.9358`, `MinPairCos = 0.2680` (Pair `9`)
-- **`post_refiner` Pair Coherence (`[5376]`, `raw_norm = 23.67`)**: `MeanPairCos = 0.6771`, `SplitHalf = 0.9501`, `MinPairCos = 0.2920` (Pair `10`)
+- **`post_refiner` Pair Coherence (`[5376]`, `fl2va raw_norm = 23.67, ref2va raw_norm = 22.24`)**: `MeanPairCos = 0.6771`, `SplitHalf = 0.9501`, `MinPairCos = 0.2920` (Pair `10`)
 - **Top Boosted Words (`+v_encoder`, lexical_clarity=`high`, top5_mean=`+5.48`)**: disastrously (+6.03), explosion (+5.93), explode (+5.31), chaotic (+5.11), crash (+5.01), disastrous (+4.94), chaos (+4.81), hilariously (+4.55), erupt (+4.48), exploding (+4.42)
 - **Top Boosted Words (`-v_encoder`)**: excellent (+2.64), adjust (+2.54), maintain (+2.43), good (+2.40), clean (+2.31), smooth (+2.31), warm (+2.30), harmonious (+2.26), adapt (+2.25), comfortable (+2.24)
 - **Coupled `temp=0.7` Rollouts on Anchor A (Person + Counter + Mug + Room)**:
@@ -204,7 +204,7 @@ Generated with `Qwen3-VL-32B-Instruct` (`5.37 bpw` EXL3, `6 bpw` readout layers 
 - **Blind Pair-Diff Label**: `text_on_surface` — high-contrast, legible, bold lettering applied to flat or textured surfaces
 - **Blind `layers.49` Rollout Self-Report (`temp=0.7`, clarity=`high`)**: `warmth_and_intimacy` — Steering systematically modulates the perceived warmth, intimacy, and sensory richness of the scene, shifting from cool, sparse, and static to warm, dynamic, and acoustically resonant.
 - **`layers.49` Pair Coherence (`[5120]`)**: `MeanPairCos = 0.6244`, `SplitHalf = 0.9202`, `MinPairCos = 0.5705` (Pair `4`)
-- **`post_refiner` Pair Coherence (`[5376]`, `raw_norm = 13.68`)**: `MeanPairCos = 0.5415`, `SplitHalf = 0.8933`, `MinPairCos = 0.4915` (Pair `6`)
+- **`post_refiner` Pair Coherence (`[5376]`, `fl2va raw_norm = 13.68, ref2va raw_norm = 13.06`)**: `MeanPairCos = 0.5415`, `SplitHalf = 0.8933`, `MinPairCos = 0.4915` (Pair `6`)
 - **Top Boosted Words (`+v_encoder`, lexical_clarity=`medium`, top5_mean=`+2.32`)**: class (+2.53), clear (+2.48), distinct (+2.25), free (+2.19), icon (+2.17), great (+2.16), black (+2.11), rock (+2.08), vintage (+1.99), material (+1.98)
 - **Top Boosted Words (`-v_encoder`)**: none (+3.11), nothing (+2.98), empty (+2.92), plain (+2.85), whatsoever (+2.80), random (+2.80), simple (+2.76), lacks (+2.74), anything (+2.74), unrelated (+2.73)
 - **Coupled `temp=0.7` Rollouts on Anchor A (Person + Counter + Mug + Room)**:
@@ -223,7 +223,7 @@ Generated with `Qwen3-VL-32B-Instruct` (`5.37 bpw` EXL3, `6 bpw` readout layers 
 - **Blind Pair-Diff Label**: `text_on_surface` — high-contrast, legible, bold lettering applied to flat or textured surfaces
 - **Blind `layers.49` Rollout Self-Report (`temp=0.7`, clarity=`high`)**: `warmth_intimacy_steering` — Steering systematically modulates the perceived warmth, intimacy, and emotional tone of the scene, shifting from cool, neutral, or slightly harsh to warm, inviting, and emotionally resonant across both visual and acoustic dimensions.
 - **`layers.49` Pair Coherence (`[5120]`)**: `MeanPairCos = 0.5308`, `SplitHalf = 0.8702`, `MinPairCos = 0.4725` (Pair `6`)
-- **`post_refiner` Pair Coherence (`[5376]`, `raw_norm = 58.69`)**: `MeanPairCos = 0.5025`, `SplitHalf = 0.8749`, `MinPairCos = 0.4527` (Pair `9`)
+- **`post_refiner` Pair Coherence (`[5376]`, `fl2va raw_norm = 58.69, ref2va raw_norm = 57.61`)**: `MeanPairCos = 0.5025`, `SplitHalf = 0.8749`, `MinPairCos = 0.4527` (Pair `9`)
 - **Top Boosted Words (`+v_encoder`, lexical_clarity=`medium`, top5_mean=`+2.21`)**: rock (+2.47), black (+2.23), free (+2.13), impress (+2.13), material (+2.11), delight (+1.99), striking (+1.92), icon (+1.89), quintessential (+1.76), unmistakable (+1.76)
 - **Top Boosted Words (`-v_encoder`)**: whatsoever (+3.38), anything (+3.19), decoration (+2.94), anywhere (+2.90), random (+2.89), writing (+2.81), simple (+2.73), description (+2.70), visible (+2.67), changes (+2.64)
 - **Coupled `temp=0.7` Rollouts on Anchor A (Person + Counter + Mug + Room)**:
@@ -242,7 +242,7 @@ Generated with `Qwen3-VL-32B-Instruct` (`5.37 bpw` EXL3, `6 bpw` readout layers 
 - **Blind Pair-Diff Label**: `film_noir_style` — high-contrast black-and-white cinematic aesthetic with deep shadows and silver grain
 - **Blind `layers.49` Rollout Self-Report (`temp=0.7`, clarity=`high`)**: `gritty_realism_steering` — Steering systematically shifts the scene from soft, warm, and intimate realism toward harsh, high-contrast, and acoustically dense gritty realism, with increasing physical decay, camera instability, and environmental noise.
 - **`layers.49` Pair Coherence (`[5120]`)**: `MeanPairCos = 0.7216`, `SplitHalf = 0.9301`, `MinPairCos = 0.5988` (Pair `11`)
-- **`post_refiner` Pair Coherence (`[5376]`, `raw_norm = 21.02`)**: `MeanPairCos = 0.6886`, `SplitHalf = 0.9284`, `MinPairCos = 0.5876` (Pair `11`)
+- **`post_refiner` Pair Coherence (`[5376]`, `fl2va raw_norm = 21.02, ref2va raw_norm = 20.10`)**: `MeanPairCos = 0.6886`, `SplitHalf = 0.9284`, `MinPairCos = 0.5876` (Pair `11`)
 - **Top Boosted Words (`+v_encoder`, lexical_clarity=`medium`, top5_mean=`+2.92`)**: grotesque (+3.03), crudely (+2.97), horribly (+2.93), grain (+2.86), notoriously (+2.84), horrifying (+2.75), hilariously (+2.66), blatantly (+2.64), painfully (+2.62), stark (+2.57)
 - **Top Boosted Words (`-v_encoder`)**: cosy (+3.91), relaxed (+3.70), harmonious (+3.45), calming (+3.44), relaxing (+3.43), comfortable (+3.39), cozy (+3.35), gentle (+3.35), pleasant (+3.31), calm (+3.17)
 - **Coupled `temp=0.7` Rollouts on Anchor A (Person + Counter + Mug + Room)**:
@@ -261,7 +261,7 @@ Generated with `Qwen3-VL-32B-Instruct` (`5.37 bpw` EXL3, `6 bpw` readout layers 
 - **Blind Pair-Diff Label**: `cathedral_reverb` — long, resonant, cavernous reverb with stone acoustics
 - **Blind `layers.49` Rollout Self-Report (`temp=0.7`, clarity=`high`)**: `warmth_resonance` — Steering systematically modulates the perceived warmth and resonance of the scene, shifting from cool, crisp, and intimate to warm, expansive, and reverberant across both visual and acoustic dimensions.
 - **`layers.49` Pair Coherence (`[5120]`)**: `MeanPairCos = 0.7574`, `SplitHalf = 0.9522`, `MinPairCos = 0.6877` (Pair `11`)
-- **`post_refiner` Pair Coherence (`[5376]`, `raw_norm = 15.75`)**: `MeanPairCos = 0.7718`, `SplitHalf = 0.9546`, `MinPairCos = 0.7039` (Pair `11`)
+- **`post_refiner` Pair Coherence (`[5376]`, `fl2va raw_norm = 15.75, ref2va raw_norm = 15.27`)**: `MeanPairCos = 0.7718`, `SplitHalf = 0.9546`, `MinPairCos = 0.7039` (Pair `11`)
 - **Top Boosted Words (`+v_encoder`, lexical_clarity=`high`, top5_mean=`+3.88`)**: majestic (+4.14), ancient (+4.03), grand (+3.84), centuries (+3.81), echo (+3.56), vast (+3.39), mystical (+3.35), medieval (+3.34), magnificent (+3.29), scriptures (+3.26)
 - **Top Boosted Words (`-v_encoder`)**: zero (+2.56), negligible (+2.26), virtually (+2.23), absolutely (+2.16), direct (+2.08), minimal (+2.08), flat (+1.96), isolation (+1.95), masking (+1.86), practically (+1.82)
 - **Coupled `temp=0.7` Rollouts on Anchor A (Person + Counter + Mug + Room)**:
@@ -280,7 +280,7 @@ Generated with `Qwen3-VL-32B-Instruct` (`5.37 bpw` EXL3, `6 bpw` readout layers 
 - **Blind Pair-Diff Label**: `vocal_intensity` — extreme vocal exertion vs. calm articulation
 - **Blind `layers.49` Rollout Self-Report (`temp=0.7`, clarity=`high`)**: `degradation_to_deterioration` — Steering systematically transforms scenes from refined, calm, and well-maintained to increasingly rough, chaotic, and deteriorated across visual, acoustic, and material dimensions.
 - **`layers.49` Pair Coherence (`[5120]`)**: `MeanPairCos = 0.9507`, `SplitHalf = 0.9914`, `MinPairCos = 0.9442` (Pair `7`)
-- **`post_refiner` Pair Coherence (`[5376]`, `raw_norm = 26.23`)**: `MeanPairCos = 0.9295`, `SplitHalf = 0.9850`, `MinPairCos = 0.9193` (Pair `7`)
+- **`post_refiner` Pair Coherence (`[5376]`, `fl2va raw_norm = 26.23, ref2va raw_norm = 25.41`)**: `MeanPairCos = 0.9295`, `SplitHalf = 0.9850`, `MinPairCos = 0.9193` (Pair `7`)
 - **Top Boosted Words (`+v_encoder`, lexical_clarity=`high`, top5_mean=`+4.48`)**: violently (+4.94), explosion (+4.64), grotesque (+4.51), horrifying (+4.18), hilariously (+4.14), terrifying (+4.12), monstrously (+4.12), absurd (+4.10), unbearable (+4.07), horribly (+4.06)
 - **Top Boosted Words (`-v_encoder`)**: gentle (+3.00), calm (+2.62), smooth (+2.58), warm (+2.54), neutral (+2.39), relaxed (+2.35), harmonious (+2.31), steady (+2.28), gently (+2.24), wood (+2.19)
 - **Coupled `temp=0.7` Rollouts on Anchor A (Person + Counter + Mug + Room)**:
@@ -299,7 +299,7 @@ Generated with `Qwen3-VL-32B-Instruct` (`5.37 bpw` EXL3, `6 bpw` readout layers 
 - **Blind Pair-Diff Label**: `zero_gravity_levitation` — weightless upward motion and suspension without gravitational constraint
 - **Blind `layers.49` Rollout Self-Report (`temp=0.7`, clarity=`high`)**: `temporal_serenity_steering` — Steering systematically modulates the perceived temporal quality of the scene, shifting from static, harsh realism to slow, dreamlike serenity with enhanced light, motion, and acoustic resonance.
 - **`layers.49` Pair Coherence (`[5120]`)**: `MeanPairCos = 0.7247`, `SplitHalf = 0.9391`, `MinPairCos = 0.7052` (Pair `4`)
-- **`post_refiner` Pair Coherence (`[5376]`, `raw_norm = 11.19`)**: `MeanPairCos = 0.7511`, `SplitHalf = 0.9373`, `MinPairCos = 0.7265` (Pair `9`)
+- **`post_refiner` Pair Coherence (`[5376]`, `fl2va raw_norm = 11.19, ref2va raw_norm = 10.65`)**: `MeanPairCos = 0.7511`, `SplitHalf = 0.9373`, `MinPairCos = 0.7265` (Pair `9`)
 - **Top Boosted Words (`+v_encoder`, lexical_clarity=`high`, top5_mean=`+3.29`)**: surreal (+3.44), floating (+3.39), ascending (+3.30), fantastic (+3.19), quantum (+3.15), futuristic (+3.06), impossible (+3.04), bizarre (+3.01), magical (+2.92), buoy (+2.90)
 - **Top Boosted Words (`-v_encoder`)**: warmed (+2.87), remain (+2.44), sturdy (+2.44), steady (+2.44), modest (+2.32), reliable (+2.26), busy (+2.23), shifted (+2.21), came (+2.18), professional (+2.15)
 - **Coupled `temp=0.7` Rollouts on Anchor A (Person + Counter + Mug + Room)**:
