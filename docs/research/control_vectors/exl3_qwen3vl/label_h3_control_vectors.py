@@ -179,7 +179,10 @@ def _load_english_dictionary() -> tuple[frozenset[str], dict[str, str]]:
         return frozenset(), {}
     words: set[str] = set()
     for line in dict_path.read_text(encoding="utf-8", errors="ignore").splitlines():
-        w = line.strip().lower()
+        raw = line.strip()
+        if not raw or not raw[0].islower():
+            continue
+        w = raw.lower()
         if len(w) >= 3 and w.isalpha():
             words.add(w)
     stem_to_word: dict[str, str] = {}
@@ -662,7 +665,8 @@ def run_self_report_probe(
 
     sys_msg = (
         "You write vivid, concise H3 video-and-audio scene descriptions using "
-        "`integrated_multimodal_description: [Shot 1]` and `overall_soundscape:`."
+        "`integrated_multimodal_description: [Shot 1]` and `overall_soundscape:`. "
+        "Keep the entire response under 90 words."
     )
     assistant_prefix = "integrated_multimodal_description: [Shot 1] "
     steer_start_idx = chatml_user_start_idx(tokenizer, sys_msg)
@@ -670,16 +674,16 @@ def run_self_report_probe(
     anchor_Specs = {
         "anchor_human_action_room": (
             "Write a 2-sentence `integrated_multimodal_description: [Shot 1]` followed by a 1-sentence "
-            "`overall_soundscape:` for a medium shot of a character standing at a counter pouring "
-            "water from a pitcher into a mug and speaking a short greeting aloud. State the visual "
-            "medium and material of the character's face, eyes, and hands, how smoothly or clumsily "
-            "the pouring motion goes, the vocal delivery, and the room acoustics."
+            "`overall_soundscape:` (under 90 words total) for a medium shot of a person standing at a kitchen "
+            "counter pouring water from a pitcher into a ceramic mug and speaking a short greeting aloud. "
+            "Describe the person's face, skin, and hand appearance, how smoothly or clumsily the pouring "
+            "motion goes, the vocal delivery, and the room acoustics."
         ),
         "anchor_surface_street_camera": (
             "Write a 2-sentence `integrated_multimodal_description: [Shot 1]` followed by a 1-sentence "
-            "`overall_soundscape:` for a daytime shot framing a canvas shop awning, a wooden crate on "
-            "the sidewalk, and the side panel of a parked white delivery van. State the visual style "
-            "and film stock, the exact surface appearance of the awning, crate, and van panel, the "
+            "`overall_soundscape:` (under 90 words total) for a daytime shot framing a canvas shop awning, "
+            "a wooden crate on the sidewalk, and the side panel of a parked white delivery van. Describe the "
+            "visual style and film stock, the surface appearance of the awning, crate, and van panel, the "
             "camera motion, and the street acoustics."
         ),
     }
@@ -696,7 +700,7 @@ def run_self_report_probe(
                 cache=cache,
                 tokenizer=tokenizer,
                 prompt_text=prompt_text,
-                max_new_tokens=115,
+                max_new_tokens=140,
                 temperature=temperature,
                 top_p=top_p,
                 top_k=top_k,
@@ -1184,6 +1188,7 @@ def main() -> None:
         args.out_json.write_text(json.dumps(results, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
         write_markdown_report(results, vectors_map, args.out_md)
 
+    write_markdown_report(results, vectors_map, args.out_md)
     print(f"\nSaved batch labels for {len(results)} control vector(s) to {args.out_json} and {args.out_md}")
 
 
