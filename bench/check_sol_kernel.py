@@ -490,6 +490,25 @@ def _expr_can_be_none(expr, nullable_vars, nullable_funcs):
     return False
 
 
+def _is_none_test_names(test):
+    """Variable names tested for `x is None` in `test` (direct or `and`-conjoined)."""
+    clauses = (
+        test.values
+        if isinstance(test, ast.BoolOp) and isinstance(test.op, ast.And)
+        else [test]
+    )
+    names = set()
+    for c in clauses:
+        if (isinstance(c, ast.Compare)
+                and isinstance(c.left, ast.Name)
+                and len(c.ops) == 1 and isinstance(c.ops[0], ast.Is)
+                and len(c.comparators) == 1
+                and isinstance(c.comparators[0], ast.Constant)
+                and c.comparators[0].value is None):
+            names.add(c.left.id)
+    return names
+
+
 def _discover_nullable_c_params(ck_mod, c_sigs):
     """Find every `(func_name, param_name)` where `comfy_kitchen` Python wrappers can pass `None` to `_C`."""
     nullable_c = {}
@@ -555,6 +574,17 @@ def _discover_nullable_c_params(ck_mod, c_sigs):
                           and sub.value is not None
                           and _expr_can_be_none(sub.value, nullable, nullable_funcs)):
                         nullable.add(sub.target.id)
+            for sub in ast.walk(fn):
+                if isinstance(sub, ast.If):
+                    guarded = _is_none_test_names(sub.test)
+                    if guarded:
+                        for stmt in sub.body:
+                            if isinstance(stmt, ast.Assign):
+                                for t in stmt.targets:
+                                    if (isinstance(t, ast.Name)
+                                            and t.id in guarded
+                                            and not _expr_can_be_none(stmt.value, nullable, nullable_funcs)):
+                                        nullable.discard(t.id)
             for node in ast.walk(fn):
                 if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
                     is_c = ((isinstance(node.func.value, ast.Name)
