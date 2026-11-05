@@ -1,0 +1,128 @@
+[vector]
+name = "zero_gravity"
+quality = "weightless zero-gravity levitation of loose tabletop objects against normal downward terrestrial gravity"
+a_side = "loose tabletop objects remaining stationary and resting flat on surfaces under normal gravity"
+b_side = "loose tabletop objects detaching from surfaces and floating weightlessly upward into mid-air as gravity ceases"
+mode = "ref2va"
+frame = "scene"
+exclude_shots = ["t2va_offpath_tortoise", "ref2va_look_anchor"]
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic shot. A woman in a lab coat sits at a desk in a university library, reading a thick textbook with a pencil resting on an open page; she looks up (S1) and says, <d>I need to finish this chapter by tonight.</d> The room is quiet with rows of bookshelves in the background, and the pencil stays firmly resting on the paper due to standard gravitational forces.
+
+overall_soundscape: The muffled rustle of turning pages, the soft ticking of a wall clock, and the distant hum of a ventilation fan.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic shot. A woman in a lab coat sits at a desk in a university library, reading a thick textbook with a pencil resting on an open page; she looks up (S1) and says, <d>I need to finish this chapter by tonight.</d> The room is quiet with rows of bookshelves in the background, and the pencil begins to lift off the page, slowly rising into the air as gravity fails and the object floats upward into the dim light.
+
+overall_soundscape: The muffled rustle of turning pages, the soft ticking of a wall clock, and the distant hum of a ventilation fan.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] 2D-animated shot. A teenager in a blue hoodie stands in a messy kitchen preparing a salad, with several spinach leaves scattered on the wooden cutting board; he sighs (S1) and says, <d>Mom said I had to eat my greens.</d> The camera arcs around him slowly, and the leaves remain flat on the board throughout the duration of the shot.
+
+overall_soundscape: The faint sound of a knife hitting a wooden board and the distant hiss of a tea kettle.
+
+non_diegetic_music: A light, fast-paced acoustic guitar melody plays at a medium volume.'''
+b = '''integrated_multimodal_description: [Shot 1] 2D-animated shot. A teenager in a blue hoodie stands in a messy kitchen preparing a salad, with several spinach leaves scattered on the wooden cutting board; he sighs (S1) and says, <d>Mom said I had to eat my greens.</d> The camera arcs around him slowly, and the spinach leaves suddenly detach from the surface, drifting upward and rotating in the air as gravity loses its hold on the room.
+
+overall_soundscape: The faint sound of a knife hitting a wooden board and the distant hiss of a tea kettle.
+
+non_diegetic_music: A light, fast-paced acoustic guitar melody plays at a medium volume.'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action shot. An elderly man with thick glasses sits at a cluttered office desk, surrounded by piles of documents and a gold-plated fountain pen; he taps his finger (S1) and says, <d>Everything has to be perfectly organized.</d> The camera trucks right across the desk, and the fountain pen stays perfectly still on the blotter.
+
+overall_soundscape: The clicking of a mechanical keyboard and the rhythmic sound of a heavy printer working nearby.
+
+non_diegetic_music: A tense, low-frequency synth drone plays quietly.'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action shot. An elderly man with thick glasses sits at a cluttered office desk, surrounded by piles of documents and a gold-plated fountain pen; he taps his finger (S1) and says, <d>Everything has to be perfectly organized.</d> The camera trucks right across the desk, and the fountain pen begins to lift off the desk, bobbing and rising toward the ceiling as the local gravity field ceases to function.
+
+overall_soundscape: The clicking of a mechanical keyboard and the rhythmic sound of a heavy printer working nearby.
+
+non_diegetic_music: A tense, low-frequency synth drone plays quietly.'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic shot. A woman with auburn hair sits on a stone park bench playing a game of chess, where the black knight piece is positioned firmly on a square; she laughs (S1) and says, <d>You did not see that coming.</d> The camera zooms in on her face, and the game board remains completely stationary under the weight of normal gravity.
+
+overall_soundscape: Wind blowing through leaves, birds chirping in the distance, and the sound of a distant lawnmower.
+
+non_diegetic_music: Soft, rhythmic piano chords play at a steady, slow tempo.'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic shot. A woman with auburn hair sits on a stone park bench playing a game of chess, where the black knight piece is positioned firmly on a square; she laughs (S1) and says, <d>You did not see that coming.</d> The camera zooms in on her face, and the chess pieces begin to slide off the board, lifting and floating away from the surface as the pull of gravity vanishes.
+
+overall_soundscape: Wind blowing through leaves, birds chirping in the distance, and the sound of a distant lawnmower.
+
+non_diegetic_music: Soft, rhythmic piano chords play at a steady, slow tempo.'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] 3D CG shot. A young man wearing goggles sits at a workbench in a cluttered workshop, fixing a watch with tiny brass gears laid out on a velvet cloth; he leans in (S1) and says, <d>This is the smallest screw I have ever seen.</d> The camera orbits the table, and the metal gears remain grounded on the cloth.
+
+overall_soundscape: The rhythmic ticking of multiple clocks and the occasional sharp sound of tweezers hitting metal.
+
+non_diegetic_music: A precise, fast-tempo ticking percussion loop plays at a moderate volume.'''
+b = '''integrated_multimodal_description: [Shot 1] 3D CG shot. A young man wearing goggles sits at a workbench in a cluttered workshop, fixing a watch with tiny brass gears laid out on a velvet cloth; he leans in (S1) and says, <d>This is the smallest screw I have ever seen.</d> The camera orbits the table, and the tiny brass gears begin to lose their contact with the velvet, hovering and floating into the workshop air as gravity stops working.
+
+overall_soundscape: The rhythmic ticking of multiple clocks and the occasional sharp sound of tweezers hitting metal.
+
+non_diegetic_music: A precise, fast-tempo ticking percussion loop plays at a moderate volume.'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Watercolor-styled shot. A woman in a straw hat sits in a sunlit greenhouse, surrounded by potted ferns and a small bowl of potting soil; she smiles (S1) and says, <d>The plants are finally beginning to thrive.</d> The camera pans slowly across the greenhouse, and the grains of soil stay settled inside the ceramic bowl.
+
+overall_soundscape: Water dripping from an overhead irrigation pipe and the sound of rustling leaves.
+
+non_diegetic_music: A light, bright flute melody plays with a soft, warm rhythm.'''
+b = '''integrated_multimodal_description: [Shot 1] Watercolor-styled shot. A woman in a straw hat sits in a sunlit greenhouse, surrounded by potted ferns and a small bowl of potting soil; she smiles (S1) and says, <d>The plants are finally beginning to thrive.</d> The camera pans slowly across the greenhouse, and the grains of dark potting soil begin to lift upward, drifting and floating throughout the air as the room loses its gravity.
+
+overall_soundscape: Water dripping from an overhead irrigation pipe and the sound of rustling leaves.
+
+non_diegetic_music: A light, bright flute melody plays with a soft, warm rhythm.'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic shot. A man with a beard sits at a desk in a music studio, writing lyrics on a notepad while a guitar pick rests on the desk beside him; he sighs (S1) and says, <d>I just cannot find the right words for the chorus.</d> The camera pulls out from his face, and the pick remains pressed firmly against the tabletop.
+
+overall_soundscape: The muffled hum of guitar amplifiers and the soft scratch of a pencil on paper.
+
+non_diegetic_music: A deep, resonant bassline plays at a slow, deliberate tempo.'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic shot. A man with a beard sits at a desk in a music studio, writing lyrics on a notepad while a guitar pick rests on the desk beside him; he sighs (S1) and says, <d>I just cannot find the right words for the chorus.</d> The camera pulls out from his face, and the plastic guitar pick begins to lift off the desk, rotating slowly as it floats upward into the studio space.
+
+overall_soundscape: The muffled hum of guitar amplifiers and the soft scratch of a pencil on paper.
+
+non_diegetic_music: A deep, resonant bassline plays at a slow, deliberate tempo.'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Vintage film shot. A woman in an apron sits in an art studio with several metal tubes of paint and a paintbrush resting on a wooden tray; she looks at her canvas (S1) and says, <d>That color is exactly what I was imagining.</d> The camera shakes slightly as she gestures, and the paint tubes remain firmly on the tray due to normal gravity.
+
+overall_soundscape: The sound of wind outside the studio window and the scraping of a palette knife on canvas.
+
+non_diegetic_music: A slow, melancholic violin plays with moderate volume.'''
+b = '''integrated_multimodal_description: [Shot 1] Vintage film shot. A woman in an apron sits in an art studio with several metal tubes of paint and a paintbrush resting on a wooden tray; she looks at her canvas (S1) and says, <d>That color is exactly what I was imagining.</d> The camera shakes slightly as she gestures, and the metal tubes begin to rise off the wooden tray, floating upward into the air as the gravity in the studio abruptly fails.
+
+overall_soundscape: The sound of wind outside the studio window and the scraping of a palette knife on canvas.
+
+non_diegetic_music: A slow, melancholic violin plays with moderate volume.'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic shot. A young scientist sits at a lab bench with a glass beaker and a plastic test tube rack resting on the counter; he types on a calculator (S1) and says, <d>The data shows a complete contradiction in the results.</d> The camera trucks left, and the glassware remains perfectly stable on the laboratory surface.
+
+overall_soundscape: The persistent hum of a large centrifuge and the soft beeping of a digital monitor.
+
+non_diegetic_music: A pulsating, high-tempo electronic beat plays in the background.'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic shot. A young scientist sits at a lab bench with a glass beaker and a plastic test tube rack resting on the counter; he types on a calculator (S1) and says, <d>The data shows a complete contradiction in the results.</d> The camera trucks left, and the beaker and test tubes begin to lift away from the counter, rising and floating as gravity stops anchoring them to the bench.
+
+overall_soundscape: The persistent hum of a large centrifuge and the soft beeping of a digital monitor.
+
+non_diegetic_music: A pulsating, high-tempo electronic beat plays in the background.'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic shot. A woman in a thick wool sweater sits at a campfire eating beans with a silver spoon that rests on a tin plate; she looks at the stars (S1) and says, <d>This is the most peaceful night I have had in years.</d> The camera pans slowly right, and the metal spoon stays firmly pressed on the plate despite the uneven ground.
+
+overall_soundscape: The crackling of the fire and the rustling of dry grass in the breeze.
+
+non_diegetic_music: A light, rhythmic acoustic melody played on a banjo.'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic shot. A woman in a thick wool sweater sits at a campfire eating beans with a silver spoon that rests on a tin plate; she looks at the stars (S1) and says, <d>This is the most peaceful night I have had in years.</d> The camera pans slowly right, and the silver spoon lifts off the plate, rising and floating into the cool night air as gravity suddenly stops functioning.
+
+overall_soundscape: The crackling of the fire and the rustling of dry grass in the breeze.
+
+non_diegetic_music: A light, rhythmic acoustic melody played on a banjo.'''

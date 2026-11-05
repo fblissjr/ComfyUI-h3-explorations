@@ -1,0 +1,128 @@
+[vector]
+name = "head_swell"
+quality = "progressive cranial expansion and ballooning head scale against fixed anatomical head proportions"
+a_side = "normal fixed anatomical head proportions relative to the shoulders and body"
+b_side = "head progressively expanding, inflating, and ballooning to an oversized scale relative to the shoulders"
+mode = "t2va"
+frame = "scene"
+exclude_shots = ["t2va_offpath_tortoise", "ref2va_look_anchor"]
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. A young woman with shoulder-length blonde hair stands in a bright, modern library, wearing a professional blazer. She looks down at a stack of documents on a mahogany desk and speaks to her colleague (S1), saying, <d>Could you please review these files by tomorrow?</d> Her head maintains a normal, consistent size relative to her body as she adjusts her glasses. The camera holds a static medium shot throughout the scene.
+
+overall_soundscape: The quiet, muffled silence of a library environment with the faint, rhythmic sound of turning pages and a distant ticking wall clock.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. A young woman with shoulder-length blonde hair stands in a bright, modern library, wearing a professional blazer. She looks down at a stack of documents on a mahogany desk and speaks to her colleague (S1), saying, <d>Could you please review these files by tomorrow?</d> Her head slowly grows in size, becoming increasingly disproportionate to her shoulders while she adjusts her glasses. The camera holds a static medium shot throughout the scene.
+
+overall_soundscape: The quiet, muffled silence of a library environment with the faint, rhythmic sound of turning pages and a distant ticking wall clock.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] 3D CG. A rugged man with a thick beard and short brown hair stands on a windy mountain trail, holding a compass. He looks at his partner (S1) and shouts, <d>We need to head North immediately!</d> His head remains at a fixed, anatomical scale while he checks his map. The camera pans slowly to the right, following his gaze across the rugged landscape.
+
+overall_soundscape: Intense whistling wind, the crunch of loose gravel under heavy hiking boots, and distant avian calls.
+
+non_diegetic_music: A low-tempo, brooding orchestral score featuring sustained cellos and sparse, rhythmic percussion.'''
+b = '''integrated_multimodal_description: [Shot 1] 3D CG. A rugged man with a thick beard and short brown hair stands on a windy mountain trail, holding a compass. He looks at his partner (S1) and shouts, <d>We need to head North immediately!</d> His head steadily expands, ballooning to an oversized dimension while he checks his map. The camera pans slowly to the right, following his gaze across the rugged landscape.
+
+overall_soundscape: Intense whistling wind, the crunch of loose gravel under heavy hiking boots, and distant avian calls.
+
+non_diegetic_music: A low-tempo, brooding orchestral score featuring sustained cellos and sparse, rhythmic percussion.'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Vintage film. An elderly woman with silver hair pulled back in a bun sits in a floral armchair inside a dimly lit living room. She holds an old photograph and whispers to her grandson (S1), <d>Do you recognize who this is?</d> Her head size remains stable and normal as she smiles softly. The camera pushes in slowly, focusing on the detail of the photograph.
+
+overall_soundscape: The crackling sound of a nearby fireplace and the occasional faint chime of a grandfather clock in the next room.
+
+non_diegetic_music: A soft, delicate piano melody playing in a high register with a slow, wandering tempo.'''
+b = '''integrated_multimodal_description: [Shot 1] Vintage film. An elderly woman with silver hair pulled back in a bun sits in a floral armchair inside a dimly lit living room. She holds an old photograph and whispers to her grandson (S1), <d>Do you recognize who this is?</d> Her head gradually swells in size, becoming abnormally large as she smiles softly. The camera pushes in slowly, focusing on the detail of the photograph.
+
+overall_soundscape: The crackling sound of a nearby fireplace and the occasional faint chime of a grandfather clock in the next room.
+
+non_diegetic_music: A soft, delicate piano melody playing in a high register with a slow, wandering tempo.'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Claymation. A young man with a bowl cut made of brown clay stands in a messy kitchen, holding a spatula. He gestures toward the stove (S1) and says, <d>The pancakes are almost ready to be flipped!</d> His head retains its original, sculpted scale throughout the action. The camera trucks left to capture the sizzling pan.
+
+overall_soundscape: The sharp sizzle of batter on a hot pan, the clink of metal utensils, and playful, bubbling sound effects.
+
+non_diegetic_music: A jaunty, upbeat tempo performed by a pizzicato string quartet with a bouncy rhythm.'''
+b = '''integrated_multimodal_description: [Shot 1] Claymation. A young man with a bowl cut made of brown clay stands in a messy kitchen, holding a spatula. He gestures toward the stove (S1) and says, <d>The pancakes are almost ready to be flipped!</d> His head balloons outward, growing significantly in size while he gestures. The camera trucks left to capture the sizzling pan.
+
+overall_soundscape: The sharp sizzle of batter on a hot pan, the clink of metal utensils, and playful, bubbling sound effects.
+
+non_diegetic_music: A jaunty, upbeat tempo performed by a pizzicato string quartet with a bouncy rhythm.'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Watercolor. A woman with auburn hair in a braid walks through a misty meadow, wearing a long blue cloak. She points toward the horizon (S1) and remarks, <d>The storm is coming from that direction.</d> Her head size remains naturally proportioned as the camera arcs around her in a fluid motion.
+
+overall_soundscape: The gentle rustle of tall grass in the wind and the soft, distant sound of rolling thunder.
+
+non_diegetic_music: A sweeping, melancholic violin solo with deep, resonant swells and a slow, flowing rhythm.'''
+b = '''integrated_multimodal_description: [Shot 1] Watercolor. A woman with auburn hair in a braid walks through a misty meadow, wearing a long blue cloak. She points toward the horizon (S1) and remarks, <d>The storm is coming from that direction.</d> Her head steadily inflates, growing disproportionately large as the camera arcs around her in a fluid motion.
+
+overall_soundscape: The gentle rustle of tall grass in the wind and the soft, distant sound of rolling thunder.
+
+non_diegetic_music: A sweeping, melancholic violin solo with deep, resonant swells and a slow, flowing rhythm.'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action. A fit man with a buzz cut works out in a fluorescent-lit gym, lifting a pair of dumbbells. He pauses to look at himself in the mirror (S1) and grunts, <d>I need to increase the weight for the next set.</d> His head size stays consistent while he catches his breath. The camera shakes slightly, simulating a handheld perspective as he sets the weights down.
+
+overall_soundscape: The heavy, metallic clanking of weight plates on a rack and the steady rhythmic thumping of high-tempo gym music in the distance.
+
+non_diegetic_music: A high-energy, driving percussion beat with a fast, aggressive tempo and layered synthesizer stabs.'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action. A fit man with a buzz cut works out in a fluorescent-lit gym, lifting a pair of dumbbells. He pauses to look at himself in the mirror (S1) and grunts, <d>I need to increase the weight for the next set.</d> His head gradually expands, becoming visibly larger during his rest interval. The camera shakes slightly, simulating a handheld perspective as he sets the weights down.
+
+overall_soundscape: The heavy, metallic clanking of weight plates on a rack and the steady rhythmic thumping of high-tempo gym music in the distance.
+
+non_diegetic_music: A high-energy, driving percussion beat with a fast, aggressive tempo and layered synthesizer stabs.'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] 2D-animated. A teenage girl with short black hair sits at a desk in a futuristic classroom, writing on a digital tablet. She looks up at the teacher (S1) and announces, <d>I have finished the complex equation.</d> Her head proportions remain stable throughout the entire scene. The camera pedestals down, revealing more of the holographic desk setup.
+
+overall_soundscape: High-frequency electronic hums, digital chirps, and the soft tapping of a stylus on a glass surface.
+
+non_diegetic_music: A fast, glitchy electronic rhythm with a clean, pulsating bassline and metallic textures.'''
+b = '''integrated_multimodal_description: [Shot 1] 2D-animated. A teenage girl with short black hair sits at a desk in a futuristic classroom, writing on a digital tablet. She looks up at the teacher (S1) and announces, <d>I have finished the complex equation.</d> Her head slowly grows in size, eventually dwarfing her shoulders while she works. The camera pedestals down, revealing more of the holographic desk setup.
+
+overall_soundscape: High-frequency electronic hums, digital chirps, and the soft tapping of a stylus on a glass surface.
+
+non_diegetic_music: A fast, glitchy electronic rhythm with a clean, pulsating bassline and metallic textures.'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. A man with thinning gray hair sits in the cockpit of a vintage airplane, checking his gauges. He communicates over the radio (S1), saying, <d>Altitude is steady at ten thousand feet.</d> His head size remains fixed and normal while he manipulates the control stick. The camera tilts up to capture the view of the clouds outside the window.
+
+overall_soundscape: The loud, rhythmic roar of an airplane propeller and the high-pitched static crackle of radio communication.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. A man with thinning gray hair sits in the cockpit of a vintage airplane, checking his gauges. He communicates over the radio (S1), saying, <d>Altitude is steady at ten thousand feet.</d> His head steadily expands, reaching a balloon-like state while he manipulates the control stick. The camera tilts up to capture the view of the clouds outside the window.
+
+overall_soundscape: The loud, rhythmic roar of an airplane propeller and the high-pitched static crackle of radio communication.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action. A woman with long curly hair stands on a rainy street corner, holding an umbrella. She waves to a friend (S1) and calls out, <d>Over here, the taxi just pulled up!</d> Her head maintains its natural scale as she looks around the busy street. The camera tracks slowly alongside her as she steps off the curb.
+
+overall_soundscape: The sound of heavy rain hitting the umbrella, the spray of water against car tires on asphalt, and the distant honking of city traffic.
+
+non_diegetic_music: A steady, upbeat jazz fusion track featuring a prominent bass guitar and light, energetic drum brushwork.'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action. A woman with long curly hair stands on a rainy street corner, holding an umbrella. She waves to a friend (S1) and calls out, <d>Over here, the taxi just pulled up!</d> Her head grows rapidly in size, becoming disproportionately massive as she scans the street. The camera tracks slowly alongside her as she steps off the curb.
+
+overall_soundscape: The sound of heavy rain hitting the umbrella, the spray of water against car tires on asphalt, and the distant honking of city traffic.
+
+non_diegetic_music: A steady, upbeat jazz fusion track featuring a prominent bass guitar and light, energetic drum brushwork.'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] 3D CG. A young man with blonde hair and a baseball cap walks through a sunny park, drinking from a water bottle. He turns to a dog walker (S1) and says, <d>Your puppy is incredibly energetic today!</d> His head retains its original, proportionate size as he smiles. The camera trucks right, following him past a row of park benches.
+
+overall_soundscape: Soft chirping of birds, the rustle of leaves, and the distant, muffled sound of children laughing in a playground.
+
+non_diegetic_music: A light, airy acoustic guitar melody with a gentle, finger-picked rhythm.'''
+b = '''integrated_multimodal_description: [Shot 1] 3D CG. A young man with blonde hair and a baseball cap walks through a sunny park, drinking from a water bottle. He turns to a dog walker (S1) and says, <d>Your puppy is incredibly energetic today!</d> His head steadily inflates, becoming unnaturally large while he keeps walking. The camera trucks right, following him past a row of park benches.
+
+overall_soundscape: Soft chirping of birds, the rustle of leaves, and the distant, muffled sound of children laughing in a playground.
+
+non_diegetic_music: A light, airy acoustic guitar melody with a gentle, finger-picked rhythm.'''
