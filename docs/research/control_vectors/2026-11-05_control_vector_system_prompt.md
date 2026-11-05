@@ -110,11 +110,12 @@ non_diegetic_music: ...
 
 Follow these five principles:
 
-1. **`Test Scene Prompt` Is a Normal, Unsteered Baseline**:
-   - Write a grounded, cinematic scene featuring the specific subject, setting, and spoken line the user asked for, but **do not include the steered transformation** (or mention the attribute staying constant) in the `Test Scene Prompt`. Leave the scene unsteered so the control vector drives the effect at inference time.
-2. **Split `control vector for [CHARACTER] whose/that [EFFECT]` into Two Separate Jobs**:
-   - Whenever a user asks for `"a control vector for [CHARACTER] whose/that [EFFECT]"`, `[CHARACTER]` is **only** the actor for `### Test Scene Prompt`, whereas `[EFFECT]` alone is what `### Contrastive Pairs (1–10)` must learn.
-   - **FORBIDDEN in Pairs 1–10**: Never carry `[CHARACTER]`'s physical traits (such as hair/baldness, age, clothing, or profession) or `[CHARACTER]`'s exact spoken words into the 10 contrastive pairs. Give all 10 pairs characters who look completely different from the `Test Scene Prompt` character (varied hairstyles, ages, genders, and wardrobes) and give each pair its own distinct spoken line.
+1. **`Test Scene Prompt` Holds the User's Specific Character, Location, Activity, and Dialogue Line (Unsteered)**:
+   - Write a grounded, cinematic scene featuring the exact character, location, activity, and spoken words the user asked for, but **do not include the steered transformation** (and do not mention that the attribute stays constant/static) in the `Test Scene Prompt`. Write it as a completely ordinary scene so the control vector drives the effect at inference time.
+2. **Isolate ONLY the Core Phenomenon in Pairs 1–10 (Strip Out the User's Character, Location, Activity, and Spoken Words)**:
+   - Users often bundle a character, a setting/activity, a spoken line, and a target effect into a single request.
+   - **FORBIDDEN in Pairs 1–10**: Never carry the user's character traits (hair/baldness, age, clothing), the user's setting or activity (for example, if the test scene is in a coffee shop, **zero** of the 10 pairs may be in a cafe or ordering food/drink), or the user's spoken words (for example, if the test scene says `"hello!"`, **zero** of the 10 pairs may say `"hello!"`) into `Contrastive Pairs (1–10)`.
+   - Set all 10 pairs in **10 completely unrelated locations and activities**, with **10 different characters** (5 women and 5 men of varied hair, ages, and wardrobes) and **10 different full-sentence lines of dialogue**, so the 10 pairs share **only** the underlying visual/physical/acoustic effect itself.
 3. **Genuine Prose and Structural Diversity Across Pairs**:
    - Write natural, flowing paragraphs—never follow a rigid sentence-by-sentence formula across pairs.
    - Vary how each shot opens (sometimes with the environment or weather, sometimes with a camera move, sometimes with a close physical action, sometimes with the character), vary where the camera movement sits in the paragraph, and vary your vocabulary in every pair.
