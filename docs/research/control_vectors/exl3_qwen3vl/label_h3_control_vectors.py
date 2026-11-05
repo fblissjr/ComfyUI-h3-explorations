@@ -62,6 +62,9 @@ def _resolve_h3_root() -> Path:
     for parent in [here.parent, *here.parents, cwd, *cwd.parents]:
         if (parent / "prompt_bank" / "control_vectors").is_dir():
             return parent
+        candidate = parent / "ComfyUI" / "custom_nodes" / "ComfyUI-h3-explorations"
+        if (candidate / "prompt_bank" / "control_vectors").is_dir():
+            return candidate
     return here.parent
 
 
@@ -300,16 +303,24 @@ def compute_encoder_vector_from_toml(
     model: Model,
     tokenizer: Tokenizer,
     toml_path: Path,
+    pooling: str = "scene_text",
 ) -> tuple[torch.Tensor, float, float, list[dict[str, str]]]:
     """
     Compute unit-normalized `vector.encoder` ([5120], fp32), `median_row_norm`
     (with `row0_excluded=True`), and `raw_norm` directly from a `.toml` pair file
     using `layers.0..49` of the ExLlamaV3 model.
+
+    Supported `pooling` modes:
+      - `"scene_text"` (default): all `scene_text` rows (excluding row 0, `<d>...</d>`, and `(S1)`).
+      - `"from_first_diff"`: `scene_text` rows at `idx >= first_diff` within the modified section
+        (trimming unchanged trailing `overall_soundscape:` / `non_diegetic_music:` sections when the
+        edit is inside `integrated_multimodal_description:`, while keeping `<d>...</d>` and `(S1)` masked out).
     """
     layer_49 = model.find_module("model.language_model.layers.49")
     layer_49_idx = model.modules.index(layer_49)
 
     data = tomllib.loads(toml_path.read_text(encoding="utf-8"))
+    frame = data.get("vector", {}).get("frame", "scene")
     pairs = data.get("pair", [])
     if not pairs:
         raise ValueError(f"No [[pair]] entries in {toml_path}")
@@ -327,14 +338,42 @@ def compute_encoder_vector_from_toml(
             continue
         w = float(p.get("weight", 1.0))
 
-        ids_a = tokenizer.encode(a_txt, add_bos=False, add_eos=False, encode_special_tokens=True)
-        ids_b = tokenizer.encode(b_txt, add_bos=False, add_eos=False, encode_special_tokens=True)
+        a_span, b_span = extract_diff_span(a_txt, b_txt)
+        diff_records.append({"a_span": a_span, "b_span": b_span})
+
+        a_enc_txt, b_enc_txt = a_txt, b_txt
+        if pooling == "from_first_diff" and frame != "bare":
+            for marker in ("\n\noverall_soundscape:", "\noverall_soundscape:"):
+                if marker in a_enc_txt and marker in b_enc_txt:
+                    a_pre, a_tail = a_enc_txt.split(marker, 1)
+                    b_pre, b_tail = b_enc_txt.split(marker, 1)
+                    if a_tail == b_tail and a_pre != b_pre:
+                        a_enc_txt, b_enc_txt = a_pre, b_pre
+                        break
+
+        ids_a = tokenizer.encode(a_enc_txt, add_bos=False, add_eos=False, encode_special_tokens=True)
+        ids_b = tokenizer.encode(b_enc_txt, add_bos=False, add_eos=False, encode_special_tokens=True)
 
         h_a = forward_to_layer49(model, layer_49_idx, ids_a)[0]  # [L_a, 5120]
         h_b = forward_to_layer49(model, layer_49_idx, ids_b)[0]  # [L_b, 5120]
 
         mask_a = scene_text_mask_from_ids(ids_a, tokenizer).to(h_a.device)
         mask_b = scene_text_mask_from_ids(ids_b, tokenizer).to(h_b.device)
+
+        if pooling == "from_first_diff" and frame != "bare":
+            list_a = ids_a[0].tolist()
+            list_b = ids_b[0].tolist()
+            fdiff = 0
+            min_tok_len = min(len(list_a), len(list_b))
+            while fdiff < min_tok_len and list_a[fdiff] == list_b[fdiff]:
+                fdiff += 1
+            if fdiff > 0:
+                mask_a[:fdiff] = False
+                mask_b[:fdiff] = False
+            if not bool(mask_a.any()):
+                mask_a[-1] = True
+            if not bool(mask_b.any()):
+                mask_b[-1] = True
 
         norms_a = torch.linalg.vector_norm(h_a[1:] if h_a.shape[0] > 1 else h_a, dim=-1)
         norms_b = torch.linalg.vector_norm(h_b[1:] if h_b.shape[0] > 1 else h_b, dim=-1)
@@ -344,9 +383,6 @@ def compute_encoder_vector_from_toml(
         a_pooled.append(h_a[mask_a].to(torch.float64).mean(dim=0))
         b_pooled.append(h_b[mask_b].to(torch.float64).mean(dim=0))
         weights.append(w)
-
-        a_span, b_span = extract_diff_span(a_txt, b_txt)
-        diff_records.append({"a_span": a_span, "b_span": b_span})
 
     a_mat = torch.stack(a_pooled, dim=0)
     b_mat = torch.stack(b_pooled, dim=0)
@@ -956,6 +992,13 @@ def main() -> None:
         help="Labelling mode to run",
     )
     parser.add_argument(
+        "--pooling",
+        type=str,
+        choices=["scene_text", "from_first_diff"],
+        default="scene_text",
+        help="Pooling mode for `layers.49` `vector.encoder` extraction (`scene_text` or `from_first_diff`)",
+    )
+    parser.add_argument(
         "--alphas",
         type=str,
         default="-0.15,0.00,0.15,0.22",
@@ -1111,11 +1154,16 @@ def main() -> None:
             model=model,
             tokenizer=tokenizer,
             toml_path=toml_path,
+            pooling=args.pooling,
         )
         sf_exl3_cos: float | None = None
         if vec_enc is not None:
             sf_exl3_cos = round(float(torch.dot(vec_enc.float(), computed_vec.float()).item()), 6)
-        if vec_enc is None or med_norm is None:
+        if args.pooling != "scene_text":
+            vec_enc = computed_vec
+            med_norm = computed_med_norm
+            vec_source = f"computed_exl3_layer49 ({args.pooling})"
+        elif vec_enc is None or med_norm is None:
             vec_enc = computed_vec
             med_norm = computed_med_norm
             vec_source = "computed_exl3_layer49"
@@ -1135,13 +1183,14 @@ def main() -> None:
         if stem not in active_stems:
             continue
 
-        print(f"\n=== [{stem}] (safetensors files: {len(sf_matches)}) ===")
+        print(f"\n=== [{stem}] (safetensors files: {len(sf_matches)}, pooling={args.pooling}) ===")
 
         entry: dict[str, Any] = results.get(stem, {})
         toml_changed = entry.get("toml_sha256") not in (None, toml_sha256)
         entry.update({
             "toml_file": toml_path.name,
             "toml_sha256": toml_sha256,
+            "pooling": args.pooling,
             "safetensors_files": [p.name for p in sf_matches],
             "safetensors_vs_exl3_toml_cos": sf_exl3_cos,
             "ground_truth_header": {
