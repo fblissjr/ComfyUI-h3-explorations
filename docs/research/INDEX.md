@@ -17,10 +17,13 @@ Router index for every research memo, masked-v2v architecture note, postmortem, 
 
 ## Control vectors (`docs/research/control_vectors/`)
 
+For the active index of code, `.toml` pair files, LLM authoring, and readout tools, start at [`docs/wiki/control_vectors.md`](../wiki/control_vectors.md).
+
 | Document | Topic |
 |---|---|
 | [`control_vectors/2026-11-04_h3_control_vectors.md`](control_vectors/2026-11-04_h3_control_vectors.md) | 2026-11-04: control vectors for H3 (contrastive mean-difference directions in the refined text conditioning): hypothesis, the gate, experiments, build plan, and the code facts they rest on |
 | [`control_vectors/2026-11-05_control_vector_system_prompt.md`](control_vectors/2026-11-05_control_vector_system_prompt.md) | 2026-11-05: self-contained system prompt for generating multimodal video+audio scene prompts and contrastive-pair `.toml` files for activation control vectors |
+| [`control_vectors/exl3_qwen3vl/runbook.md`](control_vectors/exl3_qwen3vl/runbook.md) | Runbook for quantizing and running `Qwen3-VL-32B-Instruct` (`5.37 bpw` and `4.65 bpw` EXL3) for H3 control-vector batch labelling and `layers.49` activation-steering readout (`label_h3_control_vectors.py`, `build_h3_cal_data.py`) |
 
 ## Postmortems (`docs/research/postmortems/`)
 

@@ -1,5 +1,7 @@
 # Control vectors for H3
 
+> **Wiki Router & Index**: See [`docs/wiki/control_vectors.md`](../../wiki/control_vectors.md) for the active router and complete index of control-vector code ([`control_vectors.py`](../../../control_vectors.py), [`h3_spans.py`](../../../h3_spans.py), [`bench/control_vectors.py`](../../../bench/control_vectors.py), [`bench/check_control_vectors.py`](../../../bench/check_control_vectors.py)), all 14 `.toml` pair files in `prompt_bank/control_vectors/`, the LLM authoring system prompt ([`2026-11-05_control_vector_system_prompt.md`](2026-11-05_control_vector_system_prompt.md)), and the ExLlamaV3 `Qwen3-VL-32B-Instruct` `layers.49` readout and batch labeller ([`exl3_qwen3vl/runbook.md`](exl3_qwen3vl/runbook.md), [`exl3_qwen3vl/label_h3_control_vectors.py`](exl3_qwen3vl/label_h3_control_vectors.py)).
+
 A dated research record, written 2026-11-04 at the owner's ask, for the owner. It is a
 design and an experiment plan, written like a paper for a reader doing this out of curiosity: the claim first, the
 evidence behind it last, with current build and experiment status tracked in the Status section below.
@@ -24,7 +26,7 @@ encoder layers, speaker scoping, discovery of unnamed directions) waits on that 
 
 ## Status
 
-Updated 2026-11-05 at `main` `42e3d3bb`. The plan below (sections 2-6) is unchanged; this section says how far it has got.
+Updated 2026-11-05 at `main` `6ed924d9`. The plan below (sections 2-6) is unchanged; this section says how far it has got.
 
 **Built and on `main`**
 
@@ -32,11 +34,11 @@ Updated 2026-11-05 at `main` `42e3d3bb`. The plan below (sections 2-6) is unchan
 |---|---|---|
 | this paper | `6bb1eaad`, `cca2eacb` | two skeptical reads of the earlier draft, one Gemini read |
 | Phase 1: `control_vectors.py`, `h3_spans.py`, the vector file format, `bench/check_control_vectors.py` | `d5541e44`, `fd55dc9b`, follow-ups in `4ecaa7df` | Gemini's read and two Claude reads (before and after landing), break lists |
-| Phase 0: pair files in `prompt_bank/control_vectors/` (16mm 1974, lettering, noir, reverb, and bare twins), four edit baselines (`prompt_bank/*_cv_*.txt`), six de-confounded joint audio-video pair sets (`felt_muppet`, `cursed_cctv`, `chaos_panic`, `infomercial_fail`, `fever_melt`, `vocal_strain`), plus `head_swell` and `zero_gravity` (`ref2va`) | `17c908f5`, `2026-11-05` | Gemini's prompt audit and read; `control_vectors.load_pairs` |
+| Phase 0: 14 pair files in `prompt_bank/control_vectors/` (16mm 1974, lettering, noir, reverb, and bare twins; de-confounded `cursed_cctv`, `chaos_panic`, `infomercial_fail`, `fever_melt`, `vocal_strain`; and verbatim 10/10 LLM outputs for `head_swell`, `felt_muppet`, and `zero_gravity`) plus four edit baselines (`prompt_bank/*_cv_*.txt`) | `17c908f5`, `7593e65f`, `dde679e5`, `6ed924d9` | Gemini's prompt audit, `control_vectors.load_pairs` (`MAX_SHARED_INTERIOR_WORDS = 5`), `bench/check_control_vectors.py`, `bench/break_checks.py`, and independent blind read (`b9b3f726`) |
 | Phase 2: `MiniMaxH3MakeControlVector`, `MiniMaxH3ApplyControlVectors`, `bench/control_vectors.py` (`make`, `inspect`, `grade`), `build_control_vector_arm` | `4ecaa7df`, `0ac7ce04` | Gemini's read; a Claude cross-read of `c215b327` whose findings were fixed in `e0ce534f`; landed before a read of `e0ce534f` at the owner's call |
 | Built early from Phase 4: holds, `project_out` at make time, `inspect` and the meter | in the Phase 1-2 commits | C4, C7 |
 | The easy batch: overwrite-safe vector names (`default_vector_filename`, `save_vector(..., overwrite=False)`), an apply-time `mode` (`add`, `project_out`, `amplify`), a step window (`start_percent`, `end_percent`, by fraction of schedule steps), timing prints in `make` and `grade`, `MiniMaxH3LayerNormMatch`, unshipped gate and probe graph builders (`build_control_vector_gate_arms`, `build_control_vector_probe_arm`) | `dcbec82d` | CPU checks (`bench/check_control_vectors.py`, `bench/check_schema_defaults.py`, `bench/check_imports.py`, `bench/check_doc_inventory.py`) and 0 graph differences; the pre-landing read waived by the owner |
-| Pika H3 Flex `token_refiner` LoRA branch support (`lora_branch.py` `h3_lora_branches` metadata, `_attach_refiner_lora_branches`, `__lora_<8hex>` filename disambiguation, `make --lora`, `grade --pika`) and self-contained authoring system prompt ([`2026-11-05_control_vector_system_prompt.md`](2026-11-05_control_vector_system_prompt.md)) | `42e3d3bb` | independent blind read (`b9b3f726`) + `bench/check_control_vectors.py` + `bench/break_checks.py` |
+| Pika H3 Flex `token_refiner` LoRA branch support (`lora_branch.py` `h3_lora_branches` metadata, `_attach_refiner_lora_branches`, `__lora_<8hex>` filename disambiguation, `make --lora`, `grade --pika`), self-contained authoring system prompt ([`2026-11-05_control_vector_system_prompt.md`](2026-11-05_control_vector_system_prompt.md)), and ExLlamaV3 `Qwen3-VL-32B-Instruct` `layers.49` readout & batch labeller ([`exl3_qwen3vl/runbook.md`](exl3_qwen3vl/runbook.md), [`exl3_qwen3vl/label_h3_control_vectors.py`](exl3_qwen3vl/label_h3_control_vectors.py)) | `42e3d3bb`, `d4908fb6`, `6ed924d9` | independent blind read (`b9b3f726`) + `bench/check_control_vectors.py` + `bench/break_checks.py` |
 
 **Run on the GPU (`2026-11-05`, [`bench/results/2026-11-05_control_vectors_pika_and_ref2va.md`](../../../bench/results/2026-11-05_control_vectors_pika_and_ref2va.md))**
 
