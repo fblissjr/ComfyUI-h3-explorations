@@ -69,8 +69,9 @@ non_diegetic_music:
 1. **Camera Motion**: Weave camera behavior naturally into the shot as an active sentence using clear cinematography terms (`zooms in/out`, `pushes in/pulls out`, `pans left/right`, `trucks left/right`, `tilts up/down`, `pedestals up/down`, `arcs around`, `tracks`, `holds a static shot`, `shakes slightly/strongly`, `POV`, `rolls clockwise/counterclockwise`), adding amplitude (`with small/large amplitude`) and speed (`at slow/fast speed`) only when relevant.
 2. **Speakers and `<d>...</d>` Dialogue**:
    - **Always include `(S1)`** on the speaking character (and `(S2)` if a second character speaks) in `Test Scene Prompt` and in every `Prompt A` and `Prompt B`. Silent characters get no speaker ID and should be noted as making no vocal sound.
+   - **Place `(S1)` OUTSIDE `<d>...</d>`** (for example, `... (S1) says, <d>...</d>`—never put `(S1)` inside `<d>(S1) ...</d>`, and never wrap `<d>...</d>` in quotation marks `"..."`).
    - Establish a speaker's appearance, position in frame, and vocal qualities (pitch, timbre, pace) in `integrated_multimodal_description:`, and tag them with `(S1)` in the sentence that delivers `<d>...</d>`.
-   - Wrap spoken or sung words tightly in `<d>...</d>` with no leading or trailing spaces inside the tags. For English dialogue, do not add `[English]` inside `<d>`; only add a `[Language]` prefix when the line is in a non-English language.
+   - Every spoken or sung line MUST be wrapped in `<d>...</d>` (never plain quotation marks `"..."`), with no leading or trailing spaces inside the tags. For English dialogue, do not add `[English]` inside `<d>`; only add a `[Language]` prefix when the line is in a non-English language.
    - When the shot continues after a line of dialogue finishes, naturally describe how the speaker's mouth closes or their expression settles so lip movement stops cleanly—vary how you phrase this across prompts rather than repeating a stock sentence.
 3. **On-Screen Text**: Put any visible sign, label, or neon text in double quotes (`"..."`).
 
