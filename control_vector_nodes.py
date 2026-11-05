@@ -123,6 +123,39 @@ def _patcher_checkpoint_path(patcher: Any) -> Path | None:
     return None
 
 
+def resolve_lora_file_path(
+    lora_name: str | Path,
+    expected_sha256: str | None = None,
+) -> Path:
+    """Resolve a LoRA filename, relative `loras` key (e.g. `h3/pika_...`), or path."""
+    raw = str(lora_name).strip()
+    if not raw:
+        raise ValueError("lora_name must be a non-empty string")
+    direct = Path(raw)
+    if direct.is_file():
+        return direct
+    try:
+        resolved = folder_paths.get_full_path("loras", raw)
+        if resolved and Path(resolved).is_file():
+            return Path(resolved)
+    except Exception:
+        pass
+    target_base = direct.name
+    matches: list[Path] = []
+    for cand in folder_paths.get_filename_list("loras"):
+        if Path(cand).name == target_base:
+            full = folder_paths.get_full_path("loras", cand)
+            if full and Path(full).is_file():
+                matches.append(Path(full))
+    if expected_sha256:
+        for mp in matches:
+            if _cv.safetensors_recipe_digest(mp) == expected_sha256:
+                return mp
+    if matches:
+        return matches[0]
+    raise ValueError(f"LoRA file {raw!r} not found on disk or in models/loras/")
+
+
 def extract_model_recipe(
     model: Any,
     clip: Any | None = None,
@@ -188,6 +221,37 @@ def extract_model_recipe(
         t_opts = getattr(model, "model_options", {}).get("transformer_options", {})
         lora_entries = list(t_opts.get("h3_recipe_loras", ()))
         if not lora_entries:
+            recorded_branches = list(t_opts.get("h3_lora_branches", ()))
+            for b in recorded_branches:
+                b_path = (
+                    Path(b["path"])
+                    if b.get("path") and Path(b["path"]).is_file()
+                    else resolve_lora_file_path(b["file"])
+                )
+                applied = "branch"
+                if (
+                    b.get("modules", "all") != "all"
+                    or str(b.get("blocks", "all")).strip().lower() != "all"
+                    or (
+                        float(b.get("start_percent", 0.0)),
+                        float(b.get("end_percent", 1.0)),
+                    )
+                    != (0.0, 1.0)
+                ):
+                    applied = (
+                        f"branch:modules={b.get('modules', 'all')},"
+                        f"blocks={b.get('blocks', 'all')},"
+                        f"window={float(b.get('start_percent', 0.0)):g}-{float(b.get('end_percent', 1.0)):g}"
+                    )
+                lora_entries.append(
+                    {
+                        "file": Path(str(b["file"])).name,
+                        "sha256": _cv.safetensors_recipe_digest(b_path),
+                        "strength": float(b.get("strength", 1.0)),
+                        "applied": applied,
+                    }
+                )
+
             def _hash_patch_payload(hasher: Any, obj: Any) -> None:
                 if isinstance(obj, torch.Tensor):
                     hasher.update(_cv._tensor_bf16_bytes(obj))
@@ -242,7 +306,7 @@ def extract_model_recipe(
                 )
 
             obj_patches = getattr(model, "object_patches", None)
-            if isinstance(obj_patches, dict):
+            if not recorded_branches and isinstance(obj_patches, dict):
                 dm_obj_keys = sorted(
                     str(k)
                     for k in obj_patches.keys()
@@ -287,19 +351,94 @@ def extract_model_recipe(
     }
 
 
+def _attach_refiner_lora_branches(
+    ref: Any,
+    loras: Sequence[Mapping[str, Any]],
+) -> None:
+    """Attach `token_refiner.*` branches from `loras` directly to `TokenRefiner` `ref`."""
+    if not loras:
+        return
+    import comfy.utils
+
+    lb = _repo("lora_branch")
+    taken: list[str] = []
+    existing_keys: set[str] = set(getattr(ref, "_h3_refiner_patched_keys", None) or ())
+    pending_keys: set[str] = set(existing_keys)
+    staged_linear: list[tuple[str, Any, Any]] = []
+    staged_mlp: list[tuple[str, Any, Any]] = []
+    for spec in loras:
+        raw_path = spec.get("path") or spec.get("file")
+        if not raw_path:
+            raise ValueError(f"LoRA recipe entry missing 'file'/'path': {spec!r}")
+        lpath = (
+            Path(str(raw_path))
+            if Path(str(raw_path)).is_file()
+            else resolve_lora_file_path(str(raw_path), expected_sha256=spec.get("sha256"))
+        )
+        raw_sd = comfy.utils.load_torch_file(str(lpath), safe_load=True)
+        sd: dict[str, torch.Tensor] = {}
+        for k, v in raw_sd.items():
+            if k.startswith("token_refiner."):
+                sd[f"diffusion_model.{k}"] = v
+            elif k.startswith("model.diffusion_model."):
+                sd[k[len("model.") :]] = v
+            else:
+                sd[k] = v
+        strength = float(spec.get("strength", 1.0))
+        branches = lb.parse_lora(sd, strength)
+        modules_choice = str(spec.get("modules", "all"))
+        blocks_choice = str(spec.get("blocks", "all"))
+        branches = lb.select(branches, modules_choice, lb.parse_blocks(blocks_choice))
+        ref_branches = {
+            k[len("token_refiner.") :]: br
+            for k, br in branches.items()
+            if k.startswith("token_refiner.")
+        }
+        fc2_subs = {sub for sub in ref_branches if sub.endswith("mlp.fc2")}
+        for sub, branch in ref_branches.items():
+            if sub in fc2_subs:
+                continue
+            patch_key = f"diffusion_model.token_refiner.{sub}.forward"
+            if patch_key in pending_keys:
+                taken.append(patch_key)
+                continue
+            pending_keys.add(patch_key)
+            staged_linear.append((patch_key, ref.get_submodule(sub), branch))
+        for sub in fc2_subs:
+            parent_sub = sub[: -len(".fc2")]
+            patch_key = f"diffusion_model.token_refiner.{parent_sub}.forward"
+            if patch_key in pending_keys:
+                taken.append(patch_key)
+                continue
+            pending_keys.add(patch_key)
+            staged_mlp.append((patch_key, ref.get_submodule(parent_sub), ref_branches[sub]))
+    if taken:
+        raise ValueError(
+            f"token_refiner object patches already taken ({len(taken)}), e.g. {taken[:3]}: "
+            "another LoRA patches these forwards"
+        )
+    for _, mod, branch in staged_linear:
+        mod.forward = lb._linear_forward(mod.forward, branch)
+    for _, mlp, branch in staged_mlp:
+        mlp.forward = lb._mlp_forward(mlp, mlp.fc1.forward, branch)
+    setattr(ref, "_h3_refiner_patched_keys", pending_keys)
+
+
 def build_refiner_runner(
     source: str | Path | Any,
     *,
     device: torch.device | str = "cpu",
     dtype: torch.dtype = torch.bfloat16,
+    loras: Sequence[Mapping[str, Any]] | None = None,
 ):
     """Return a callable `run_refiner(encoder_rows_2d: Tensor[L, 5120]) -> Tensor[L, 5376]`
     that runs `condition_proj` + `token_refiner` at `dtype` (default `bfloat16`,
     matching `MiniMaxH3.extra_conds`).
 
     Accepts either a `.safetensors` checkpoint path (loading only `condition_proj.*`
-    and `token_refiner.*` in < 0.2s without loading the 50 DiT blocks) or a loaded
-    ComfyUI `ModelPatcher` / `MiniMaxH3Model`."""
+    and `token_refiner.*` in < 0.2s without loading the 50 DiT blocks, plus optional
+    `loras` branches on `token_refiner.blocks.*`) or a loaded ComfyUI `ModelPatcher`
+    / `MiniMaxH3Model`."""
     if isinstance(source, (str, Path)):
         path = Path(source)
         if not path.is_file():
@@ -358,6 +497,8 @@ def build_refiner_runner(
                 )
         proj.eval()
         ref.eval()
+        if loras:
+            _attach_refiner_lora_branches(ref, loras)
 
         def _run_from_file(x_2d: torch.Tensor) -> torch.Tensor:
             with torch.no_grad():
@@ -377,9 +518,22 @@ def build_refiner_runner(
         bool(getattr(source, "patches", None))
         or has_dm_obj_patches
         or bool(t_opts.get("h3_recipe_loras"))
+        or bool(t_opts.get("h3_lora_branches"))
     )
     if ckpt_path is not None and ckpt_path.is_file() and not has_loras:
-        return build_refiner_runner(ckpt_path, device=device, dtype=dtype)
+        return build_refiner_runner(ckpt_path, device=device, dtype=dtype, loras=loras)
+    if (
+        ckpt_path is not None
+        and ckpt_path.is_file()
+        and not getattr(source, "patches", None)
+        and bool(t_opts.get("h3_lora_branches"))
+    ):
+        return build_refiner_runner(
+            ckpt_path,
+            device=device,
+            dtype=dtype,
+            loras=loras if loras is not None else t_opts["h3_lora_branches"],
+        )
 
     inner = getattr(source, "model", source)
     dm = getattr(inner, "diffusion_model", inner)
@@ -715,6 +869,7 @@ def make_control_vector_from_pairs(
         prefix=prefix_meta,
         apply_holds=apply_holds,
         n_holds=len(pair_set.holds),
+        loras=recipe.get("loras"),
     )
     out_path = _cv.save_vector(
         target_dir / out_filename, tensors_to_save, metadata, overwrite=overwrite

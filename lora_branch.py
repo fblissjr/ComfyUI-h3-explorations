@@ -47,6 +47,7 @@ Kohya-trained H3 file has been run here.
 from __future__ import annotations
 
 import logging
+import os
 
 import torch
 from comfy_api.latest import io
@@ -417,6 +418,21 @@ class MiniMaxH3LoRABranch(io.ComfyNode):
             for br in branches.values():
                 br.gate = window
         m = attach(model, branches)
+        to = m.model_options["transformer_options"] = m.model_options.get(
+            "transformer_options", {}
+        ).copy()
+        prev_branches = tuple(to.get("h3_lora_branches", ()))
+        to["h3_lora_branches"] = prev_branches + (
+            {
+                "path": str(path),
+                "file": os.path.basename(path),
+                "strength": float(strength),
+                "modules": str(modules),
+                "blocks": str(blocks),
+                "start_percent": float(start_percent),
+                "end_percent": float(end_percent),
+            },
+        )
         if windowed:
             m.add_wrapper_with_key(WrappersMP.DIFFUSION_MODEL, "h3_lora_branch_window",
                                    _window_wrapper(window))

@@ -87,10 +87,10 @@ def _parse_lora_specs(specs: list[str] | None) -> list[dict[str, Any]]:
             strength = float(s_str)
         else:
             fname, strength = item, 1.0
-        lpath = folder_paths.get_full_path_or_raise("loras", fname)
+        lpath = cv_nodes.resolve_lora_file_path(fname)
         out.append(
             {
-                "file": Path(fname).name,
+                "file": Path(lpath).name,
                 "sha256": cv.safetensors_recipe_digest(lpath),
                 "strength": strength,
                 "applied": "branch",
@@ -165,11 +165,6 @@ def cmd_make(args: argparse.Namespace) -> int:
     encoder_name = args.encoder or h3_config.MODELS["clip"]
     encoder_path = Path(folder_paths.get_full_path_or_raise("text_encoders", encoder_name))
     loras = _parse_lora_specs(args.lora)
-    if loras:
-        raise ValueError(
-            "bench/control_vectors.py make: --lora requires an in-server ModelPatcher; "
-            "pass no --lora for base checkpoint extraction"
-        )
 
     family = cv.detect_family(unet_path)
     recipe = cv_nodes.extract_model_recipe(
@@ -183,7 +178,9 @@ def cmd_make(args: argparse.Namespace) -> int:
     t0 = time.perf_counter()
     clip = _load_clip(encoder_name, device=args.device)
     t_clip = time.perf_counter()
-    refiner_run = cv_nodes.build_refiner_runner(unet_path, device=args.refiner_device)
+    refiner_run = cv_nodes.build_refiner_runner(
+        unet_path, device=args.refiner_device, loras=loras
+    )
     t_ref = time.perf_counter()
 
     encoded_refs = None
@@ -198,6 +195,11 @@ def cmd_make(args: argparse.Namespace) -> int:
     print(f"  pooling     : {args.pooling}   frame: {pair_set.frame}   mode: {pair_set.mode}")
     print(f"  family      : {family}")
     print(f"  checkpoint  : {recipe['checkpoint']['file']} ({recipe['checkpoint']['sha256'][:12]})")
+    if loras:
+        lora_summary = ", ".join(
+            f"{l['file']}:{l['strength']:g} ({l['sha256'][:12]})" for l in loras
+        )
+        print(f"  loras       : {lora_summary}")
     print(f"  encoder     : {recipe['encoder']['file']} ({recipe['encoder']['sha256'][:12]})")
     print(f"  load_times  : encoder={t_clip - t0:.2f}s   refiner={t_ref - t_clip:.2f}s")
 
@@ -421,6 +423,7 @@ def cmd_make(args: argparse.Namespace) -> int:
             prefix=prefix_meta,
             apply_holds=not bool(args.no_holds),
             n_holds=len(pair_set.holds),
+            loras=loras,
         )
 
     t_enc_done = time.perf_counter()
@@ -504,7 +507,14 @@ def cmd_inspect(args: argparse.Namespace) -> int:
         clip = _load_clip(enc_name, device=args.device)
         unet_name = args.check_unet or metadata["recipe"]["checkpoint"]["file"]
         unet_path = Path(folder_paths.get_full_path_or_raise("diffusion_models", unet_name))
-        refiner_run = cv_nodes.build_refiner_runner(unet_path, device=args.refiner_device)
+        meter_loras = (
+            _parse_lora_specs(args.check_lora)
+            if args.check_lora
+            else list(metadata["recipe"].get("loras", ()))
+        )
+        refiner_run = cv_nodes.build_refiner_runner(
+            unet_path, device=args.refiner_device, loras=meter_loras
+        )
         pooling = metadata["measured_under"].get("pooling", "scene_text")
         if pooling == "from_first_diff":
             pooling = "scene_text"
@@ -753,11 +763,19 @@ def cmd_grade(args: argparse.Namespace) -> int:
         enc_name = h3_config.MODELS["clip"]
     unet_name = args.unet or metadata["recipe"]["checkpoint"]["file"]
     unet_path = Path(folder_paths.get_full_path_or_raise("diffusion_models", unet_name))
+    if getattr(args, "no_lora", False):
+        grade_loras: list[dict[str, Any]] = []
+    elif getattr(args, "lora", None):
+        grade_loras = _parse_lora_specs(args.lora)
+    else:
+        grade_loras = list(metadata["recipe"].get("loras", ()))
 
     t_grade_start = time.perf_counter()
     clip = _load_clip(enc_name, device=args.device)
     t_clip_loaded = time.perf_counter()
-    refiner_run = cv_nodes.build_refiner_runner(unet_path, device=args.refiner_device)
+    refiner_run = cv_nodes.build_refiner_runner(
+        unet_path, device=args.refiner_device, loras=grade_loras
+    )
     t_ref_loaded = time.perf_counter()
 
     encoded_refs = None
@@ -967,6 +985,7 @@ def cmd_grade(args: argparse.Namespace) -> int:
     dit_results: list[dict[str, Any]] = []
     dit_provenance: dict[str, Any] = {
         "unet_file": unet_path.name,
+        "loras": grade_loras,
         "core_revision": substrate.git_head(cv_nodes.COMFY_ROOT) or "unknown",
         "pack_commit": substrate.git_head(REPO_ROOT) or "unknown",
         "attention": "sol" if getattr(args, "sol", False) else "stock_dense",
@@ -977,26 +996,52 @@ def cmd_grade(args: argparse.Namespace) -> int:
         },
     }
     if not getattr(args, "no_dit", False):
-        probe_steps = [int(x.strip()) for x in args.probe_steps.split(",") if x.strip()]
+        use_pika = bool(getattr(args, "pika", False))
+        manual_sigmas_str = getattr(args, "manual_sigmas", None) or (
+            h3_config.PIKA_MANUAL_SIGMAS if use_pika else None
+        )
+        probe_steps_str = args.probe_steps
+        if use_pika and probe_steps_str == "0,8,15":
+            probe_steps_str = "0,2,5"
+        probe_steps = [int(x.strip()) for x in probe_steps_str.split(",") if x.strip()]
         dit_runner = getattr(args, "_dit_runner", None)
         if dit_runner is None:
             import comfy.model_management as mm
             import comfy.sample
             import comfy.samplers
             import comfy.sd
+            import comfy.utils
             from comfy_extras.nodes_minimax_h3 import _empty_av_latent
 
             t_dit_load_start = time.perf_counter()
+            lora_note = (
+                f", loras={[l['file'] for l in grade_loras]}" if grade_loras else ""
+            )
             print(
                 f"\n[grade] loading DiT {unet_path.name} "
-                f"(core={dit_provenance['core_revision']}, attn={dit_provenance['attention']}) "
+                f"(core={dit_provenance['core_revision']}, attn={dit_provenance['attention']}{lora_note}) "
                 f"for denoised-prediction grading..."
             )
             raw_model = comfy.sd.load_diffusion_model(str(unet_path))
+            if grade_loras:
+                lb = cv_nodes._repo("lora_branch")
+                for l_spec in grade_loras:
+                    l_path = cv_nodes.resolve_lora_file_path(
+                        l_spec["file"], expected_sha256=l_spec.get("sha256")
+                    )
+                    l_sd = lb.native_keys(
+                        comfy.utils.load_torch_file(str(l_path), safe_load=True),
+                        raw_model,
+                    )
+                    l_branches = lb.parse_lora(l_sd, float(l_spec.get("strength", 1.0)))
+                    raw_model = lb.attach(raw_model, l_branches)
             base_model = _sigma_shifted(raw_model)
             if getattr(args, "sol", False):
                 sol_mod = cv_nodes._repo("sol_attn_h3")
-                sol_cfg = h3_config.sol_for_graph(False, h3_config.SAMPLING["steps"])
+                sol_steps = (
+                    h3_config.PIKA_STEPS if use_pika else h3_config.SAMPLING["steps"]
+                )
+                sol_cfg = h3_config.sol_for_graph(False, sol_steps)
                 (base_model,) = sol_mod._apply_sol(
                     base_model,
                     tau=sol_cfg["tau"],
@@ -1013,11 +1058,18 @@ def cmd_grade(args: argparse.Namespace) -> int:
             latent_dict, _frames = _empty_av_latent(args.width, args.height, args.length)
             latent = latent_dict["samples"]
             noise = comfy.sample.prepare_noise(latent, args.noise_seed)
-            sigmas = comfy.samplers.calculate_sigmas(
-                base_model.get_model_object("model_sampling"),
-                h3_config.SAMPLING["scheduler"],
-                h3_config.SAMPLING["steps"],
-            )
+            if manual_sigmas_str:
+                sigmas = torch.tensor(
+                    [float(s.strip()) for s in manual_sigmas_str.split(",") if s.strip()],
+                    dtype=torch.float32,
+                )
+            else:
+                sigmas = comfy.samplers.calculate_sigmas(
+                    base_model.get_model_object("model_sampling"),
+                    h3_config.SAMPLING["scheduler"],
+                    h3_config.SAMPLING["steps"],
+                )
+            dit_provenance["sigmas"] = [round(float(x), 6) for x in sigmas.tolist()]
             t_dit_loaded = time.perf_counter()
             dit_provenance["timings_s"]["dit_load_s"] = round(t_dit_loaded - t_dit_load_start, 3)
             print(f"[grade] DiT + latent ready in {t_dit_loaded - t_dit_load_start:.2f}s (canvas={args.width}x{args.height}x{args.length})")
@@ -1251,6 +1303,10 @@ def build_parser() -> argparse.ArgumentParser:
     pg.add_argument("--noise-seed", type=int, default=730451892)
     pg.add_argument("--unet", default=None)
     pg.add_argument("--encoder", default=None)
+    pg.add_argument("--lora", action="append", default=None, help="LoRA file[:strength] (defaults to vector recipe.loras)")
+    pg.add_argument("--no-lora", action="store_true", help="Ignore vector recipe.loras during grading")
+    pg.add_argument("--manual-sigmas", default=None, help="Comma-separated manual sigmas override")
+    pg.add_argument("--pika", action="store_true", help="Use Pika H3 Flex 6-step manual sigmas and default probe steps 0,2,5")
     pg.add_argument("--ref-images", default=None)
     pg.add_argument("--ref-role", default="subject")
     pg.add_argument("--seed", type=int, default=0)

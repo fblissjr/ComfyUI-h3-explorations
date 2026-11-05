@@ -1063,12 +1063,14 @@ def default_vector_filename(
     prefix: Any = "none",
     apply_holds: bool = True,
     n_holds: int = 0,
+    loras: Sequence[Mapping[str, Any]] | None = None,
 ) -> str:
     """Build an overwrite-safe `.safetensors` filename for a control vector.
 
     Keeps `<stem>__<family>.safetensors` for the default `pooling='scene_text'`,
-    `prefix='none'`, `apply_holds=True` recipe, and appends disambiguating
-    suffixes whenever pooling, reference prefix, or hold projection differs."""
+    `prefix='none'`, `apply_holds=True`, `loras=None` recipe, and appends
+    disambiguating suffixes whenever pooling, reference prefix, hold projection,
+    or LoRA recipe differs."""
     safe_family = str(family).replace(":", "_")
     parts = [str(stem), safe_family]
     if pooling != "scene_text":
@@ -1081,6 +1083,11 @@ def default_vector_filename(
             parts.append(f"prefix_{digest8}")
     if n_holds > 0 and not apply_holds:
         parts.append("noholds")
+    if loras:
+        lora_digest8 = hashlib.sha256(
+            json.dumps([dict(item) for item in loras], sort_keys=True).encode("utf-8")
+        ).hexdigest()[:8]
+        parts.append(f"lora_{lora_digest8}")
     return "__".join(parts) + ".safetensors"
 
 

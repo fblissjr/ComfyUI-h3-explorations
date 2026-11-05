@@ -2127,6 +2127,111 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
                     if abs(enc_v_norm - 1.0) > 1e-4:
                         errs.append(f"cmd_make vector.encoder is not unit-normalized: norm={enc_v_norm}")
 
+                # Test cmd_make with --lora, default_vector_filename(loras=...), and h3_lora_branches recipe parity
+                mock_lora_path = tmp / "mock_pika_lora.safetensors"
+                save_file(
+                    {
+                        "diffusion_model.token_refiner.blocks.0.attn.qkv_proj.lora_A.weight": torch.ones((2, 8), dtype=torch.bfloat16),
+                        "diffusion_model.token_refiner.blocks.0.attn.qkv_proj.lora_B.weight": torch.ones((8, 2), dtype=torch.bfloat16),
+                        "diffusion_model.token_refiner.blocks.0.attn.qkv_proj.alpha": torch.tensor(2.0),
+                    },
+                    str(mock_lora_path),
+                )
+                cli_made_lora_v = tmp / "cli_made_lora.safetensors"
+                buf_mkl_out, buf_mkl_err = io.StringIO(), io.StringIO()
+                with contextlib.redirect_stdout(buf_mkl_out), contextlib.redirect_stderr(buf_mkl_err):
+                    rc_mkl = bench_cv.main(
+                        [
+                            "make",
+                            str(pair_toml),
+                            "--lora",
+                            f"{mock_lora_path}:1.0",
+                            "--out",
+                            str(cli_made_lora_v),
+                        ]
+                    )
+                if rc_mkl != 0 or not cli_made_lora_v.is_file():
+                    errs.append(f"cmd_make --lora failed: rc={rc_mkl}, err={buf_mkl_err.getvalue()!r}")
+                else:
+                    _, mkl_m = cv.load_vector(cli_made_lora_v)
+                    patcher_with_rec_branch = patcher_with_init.clone()
+                    patcher_with_rec_branch.model_options["transformer_options"]["h3_lora_branches"] = (
+                        {
+                            "path": str(mock_lora_path),
+                            "file": mock_lora_path.name,
+                            "strength": 1.0,
+                            "modules": "all",
+                            "blocks": "all",
+                            "start_percent": 0.0,
+                            "end_percent": 1.0,
+                        },
+                    )
+                    rec_from_node_branch = cv_nodes.extract_model_recipe(patcher_with_rec_branch)
+                    if mkl_m["recipe"]["loras"] != rec_from_node_branch["loras"]:
+                        errs.append(
+                            f"cmd_make --lora recipe {mkl_m['recipe']['loras']} != h3_lora_branches recipe {rec_from_node_branch['loras']}"
+                        )
+                    fn_base = cv.default_vector_filename("film", "fl2va")
+                    fn_lora = cv.default_vector_filename("film", "fl2va", loras=mkl_m["recipe"]["loras"])
+                    if fn_base == fn_lora or "__lora_" not in fn_lora:
+                        errs.append(f"default_vector_filename did not disambiguate LoRA recipe: {fn_base!r} vs {fn_lora!r}")
+
+                # Verify _attach_refiner_lora_branches matches float32 merged TokenRefiner and refuses duplicate patches
+                import copy as _copy
+                import comfy.ops as _cops
+
+                tiny_ref = mm_mod.TokenRefiner(
+                    2, 32, 2, 16, 48, 1e-6, 1e-6, 1e-6,
+                    dtype=torch.float32, device="cpu", operations=_cops.manual_cast,
+                )
+                with torch.no_grad():
+                    g_tr = torch.Generator().manual_seed(19)
+                    for p_name, p_val in tiny_ref.named_parameters():
+                        p_val.fill_(1.0) if "norm" in p_name else p_val.normal_(0.0, 0.05, generator=g_tr)
+                tiny_ref.eval()
+                ref_lora_sd: dict[str, torch.Tensor] = {}
+                for b_idx in range(2):
+                    for kind in ("attn.qkv_proj", "attn.out_proj", "mlp.fc1", "mlp.fc2"):
+                        sub_p = f"blocks.{b_idx}.{kind}"
+                        w_t = tiny_ref.get_submodule(sub_p).weight
+                        k_full = f"diffusion_model.token_refiner.{sub_p}"
+                        ref_lora_sd[f"{k_full}.lora_A.weight"] = torch.randn((2, w_t.shape[1]), generator=g_tr) * 0.1
+                        ref_lora_sd[f"{k_full}.lora_B.weight"] = torch.randn((w_t.shape[0], 2), generator=g_tr) * 0.1
+                        ref_lora_sd[f"{k_full}.alpha"] = torch.tensor(3.0)
+                tiny_lora_file = tmp / "tiny_ref_lora.safetensors"
+                save_file(ref_lora_sd, str(tiny_lora_file))
+                tiny_ref_merged = _copy.deepcopy(tiny_ref)
+                with torch.no_grad():
+                    for b_idx in range(2):
+                        for kind in ("attn.qkv_proj", "attn.out_proj", "mlp.fc1", "mlp.fc2"):
+                            sub_p = f"blocks.{b_idx}.{kind}"
+                            k_full = f"diffusion_model.token_refiner.{sub_p}"
+                            tiny_ref_merged.get_submodule(sub_p).weight += (
+                                0.75 * (3.0 / 2.0) * (ref_lora_sd[f"{k_full}.lora_B.weight"] @ ref_lora_sd[f"{k_full}.lora_A.weight"])
+                            )
+                tiny_x = torch.randn((5, 32), generator=g_tr, dtype=torch.float32)
+                with torch.no_grad():
+                    out_unpatched = tiny_ref(tiny_x).clone()
+                    out_merged_ref = tiny_ref_merged(tiny_x).clone()
+                cv_nodes._attach_refiner_lora_branches(
+                    tiny_ref, [{"path": str(tiny_lora_file), "file": tiny_lora_file.name, "strength": 0.75}]
+                )
+                with torch.no_grad():
+                    out_branched_ref = tiny_ref(tiny_x).clone()
+                ref_branch_err = float((out_branched_ref - out_merged_ref).norm() / out_merged_ref.norm())
+                ref_move = float((out_merged_ref - out_unpatched).norm() / out_unpatched.norm())
+                if ref_move < 1e-3 or ref_branch_err > 1e-5:
+                    errs.append(
+                        f"_attach_refiner_lora_branches mismatch vs merged TokenRefiner: move={ref_move:.3g}, err={ref_branch_err:.3g}"
+                    )
+                errs += _expect_refusal(
+                    lambda: cv_nodes._attach_refiner_lora_branches(
+                        tiny_ref, [{"path": str(tiny_lora_file), "file": tiny_lora_file.name, "strength": 0.75}]
+                    ),
+                    "already taken",
+                    "_attach_refiner_lora_branches refusal when patching already-patched TokenRefiner",
+                )
+
                 # Test inspect --check-unet compatibility check and --meter
                 buf_ic_out, buf_ic_err = io.StringIO(), io.StringIO()
                 with contextlib.redirect_stdout(buf_ic_out), contextlib.redirect_stderr(buf_ic_err):
