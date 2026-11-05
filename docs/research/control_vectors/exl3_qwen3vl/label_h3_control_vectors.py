@@ -3,36 +3,39 @@
 Batch-label MiniMax H3 control vectors using the quantized ExLlamaV3
 `Qwen3-VL-32B-Instruct` model (`5.37 bpw` or `4.65 bpw`).
 
-Supports three complementary modes (`--mode`):
-  1. `self_report`:
-     - Loads `vector.encoder` ([5120]) + `points["encoder"]["median_row_norm"]` from
-       a control-vector `.safetensors` file if present, OR computes `vector.encoder`
-       ([5120], unit-normalized, `scene_text` pooling excluding row 0, `<d>...</d>`
-       dialogue, and `(S1)` speaker tags) directly from the `.toml` contrastive pairs
-       using `layers.0..49` of the loaded ExLlamaV3 model.
-     - Injects `alpha * median_row_norm * v_encoder` at the output of
-       `model.language_model.layers.49` (`model.modules[53]`) across a sweep of
-       strengths (e.g. `alpha in [-0.20, 0.00, +0.15, +0.25]`) while properly
-       materializing `params["resid_pending"]` before `layers.50..63` + `lm_head`.
-     - Collects the steered readout completions and synthesizes a structured JSON
-       self-report label.
-  2. `blind_pairs`:
-     - Strips `[vector]` header metadata (`name`, `quality`, `a_side`, `b_side`) and
-       presents only the contrastive `(Prompt A vs. Prompt B)` diffs to the model
-       to infer a structured JSON label (`inferred_slug`, `inferred_quality`,
-       `a_pole`, `b_pole`, `modality`, `visual_signature`, `acoustic_signature`,
-       `confounds`).
-  3. `vlm`:
-     - Loads the `6 bpw` vision tower (`Model.from_config(config, component="vision")`)
-       and evaluates one or more rendered gate-ladder images or contact sheets.
-  4. `all` (default for `.toml` / `.safetensors` batch runs):
-     - Runs both `self_report` (pure activation-steering at `layers.49`) and
-       `blind_pairs` (contrastive span synthesis) and writes a combined JSON + Markdown
-       report.
+Key Interpretability & Calibration Features:
+  1. **Official Qwen3-VL-32B-Instruct Non-Thinking Sampling (`ComboSampler`) + Coupled Gumbel Draws**:
+     - Uses Qwen3-VL's recommended non-thinking sampling parameters (`temperature=0.7`,
+       `top_p=0.8`, `top_k=20`, `min_p=0.0`, `rep_p=1.05`) for steered sensory rollouts
+       with matched per-step Gumbel `rand_u32(seed, step)` across `alpha`, eliminating
+       greedy `temp=0` mode collapse while keeping low-temperature (`temperature=0.1`)
+       decoding for the unsteered JSON synthesizer calls.
+  2. **Assistant-Span-Targeted `layers.49` Steering**:
+     - Advances `steer_start_idx` past `<|im_start|>system...<|im_start|>user...<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n`
+       so system instructions, user instructions, and turn-boundary control tokens remain
+       unperturbed while the assistant's `integrated_multimodal_description: [Shot 1] `
+       prefix and all generated tokens receive `alpha * median_row_norm * v_encoder`.
+  3. **Direct `layers.49 -> lm_head` Word-Initial Log-Odds Readout (`delta_log_prob`)**:
+     - Computes exact first-token log-probability shifts `log P(tok | steered) - log P(tok | base)`
+       over genuine space-prefixed English content words (`piece.startswith(" ")`, `tid < 151643`)
+       across four H3-formatted probe prefixes (visual/film look, human anatomy/material,
+       surface/typography, and acoustics/voice).
+  4. **Two H3-Formatted Neutral Anchors (`integrated_multimodal_description:` + `overall_soundscape:`)**:
+     - `Anchor A (anchor_human_action_room)`: A person at a counter pouring water from a pitcher
+       into a ceramic mug and speaking a short greeting aloud (probing human material/anatomy,
+       hand-task coordination, vocal delivery, and room acoustics).
+     - `Anchor B (anchor_surface_street_camera)`: A daytime shot moving past a plain brick
+       storefront window, an awning, and a parked delivery van (probing film stock/lighting,
+       surface signage/lettering, camera motion, and street soundscape).
+  5. **Baseline-Subtracting Synthesizer + Markdown Report (`h3_control_vector_report.md`)**:
+     - Explicitly instructs the synthesizer to subtract `+0.00` baseline prompt objects and
+       writes both `h3_control_vector_labels.json` and `h3_control_vector_report.md` (including
+       the `12x12` `layers.49` cosine similarity matrix).
 """
 
 from __future__ import annotations
 import argparse
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -44,18 +47,151 @@ import types
 from typing import Any
 
 import torch
+import torch.nn.functional as F
 from safetensors import safe_open
 
-_CANDIDATE_ROOT = Path(__file__).resolve().parents[2]
-if not (_CANDIDATE_ROOT / "exllamav3").is_dir():
-    _CANDIDATE_ROOT = Path(os.environ.get("EXLLAMAV3_ROOT", Path.home() / "workspace" / "exllamav3"))
-REPO_ROOT = _CANDIDATE_ROOT
-sys.path.insert(0, str(REPO_ROOT))
 
-from exllamav3 import Cache, CacheLayer_quant, Config, GreedySampler, Model, Tokenizer
+def _resolve_h3_root() -> Path:
+    env_h3 = os.environ.get("H3_REPO_ROOT")
+    if env_h3 and (Path(env_h3) / "prompt_bank" / "control_vectors").is_dir():
+        return Path(env_h3)
+    here = Path(__file__).resolve()
+    cwd = Path.cwd().resolve()
+    for parent in [here.parent, *here.parents, cwd, *cwd.parents]:
+        if (parent / "prompt_bank" / "control_vectors").is_dir():
+            return parent
+    return here.parent
 
+
+def _resolve_start_sh_var(h3_root: Path, key: str) -> str | None:
+    start_sh = h3_root.parents[1] / "start.sh"
+    if not start_sh.is_file():
+        return None
+    pat = re.compile(rf"^\s*(?:export\s+)?{re.escape(key)}=['\"]?([^'\"\n#]+)")
+    for line in start_sh.read_text(encoding="utf-8", errors="ignore").splitlines():
+        m = pat.match(line)
+        if m:
+            return m.group(1).strip()
+    return None
+
+
+def _resolve_exl3_root(h3_root: Path) -> Path:
+    env_root = os.environ.get("EXLLAMAV3_ROOT")
+    if env_root and (Path(env_root) / "exllamav3").is_dir():
+        return Path(env_root)
+    here = Path(__file__).resolve()
+    for parent in [here.parent, *here.parents]:
+        if (parent / "exllamav3").is_dir():
+            return parent
+    base = h3_root.parents[2]
+    for candidate in base.glob("*/*"):
+        if candidate.name == "exllamav3" and (candidate / "exllamav3").is_dir():
+            return candidate
+    raise RuntimeError("Could not locate exllamav3 root; set EXLLAMAV3_ROOT.")
+
+
+def _default_model_dir(h3_root: Path) -> Path:
+    env_dir = os.environ.get("H3_EXL3_MODEL_DIR")
+    if env_dir:
+        return Path(env_dir)
+    for cand in h3_root.parents[2].glob("*/Qwen3-VL-32B-Instruct-exl3-h3-5.37bpw"):
+        if cand.is_dir():
+            return cand
+    return Path("Qwen3-VL-32B-Instruct-exl3-h3-5.37bpw")
+
+
+_H3_ROOT = _resolve_h3_root()
+_EXL3_ROOT = _resolve_exl3_root(_H3_ROOT)
+if str(_EXL3_ROOT) not in sys.path:
+    sys.path.insert(0, str(_EXL3_ROOT))
+
+from exllamav3 import Cache, CacheLayer_quant, ComboSampler, Config, Model, Tokenizer
+
+QWEN_FIRST_SPECIAL_ID = 151643
 DIALOGUE_RE = re.compile(r"<d>.*?</d>", re.DOTALL)
 SPEAKER_RE = re.compile(r"\(S\d+(?:,\s*S\d+)*\)")
+CLEAN_WORD_RE = re.compile(r"^[A-Za-z][A-Za-z\-]{2,}$")
+
+STOPWORDS = frozenset({
+    "the", "and", "with", "from", "that", "this", "into", "over", "like", "very",
+    "more", "most", "some", "such", "while", "where", "when", "which", "their",
+    "there", "have", "been", "were", "they", "them", "then", "than", "only",
+    "also", "just", "even", "both", "each", "upon", "onto", "through", "across",
+    "under", "between", "around", "behind", "beside", "within", "without", "about",
+    "after", "before", "during", "toward", "towards", "against", "along", "amid",
+    "among", "beneath", "beyond", "inside", "outside", "throughout", "underneath",
+    "what", "whose", "whom", "these", "those", "other", "another", "every", "either",
+    "neither", "whether", "though", "although", "because", "since", "unless", "until",
+    "while", "whereby", "wherein", "whereupon", "almost", "nearly", "quite", "rather",
+    "somewhat", "slightly", "highly", "fully", "mostly", "mainly", "largely", "partly",
+    "entirely", "totally", "wholly", "truly", "really", "actually", "simply", "merely",
+    "barely", "hardly", "scarcely", "often", "always", "never", "sometimes", "usually",
+    "featured", "features", "featuring", "includes", "including", "shows", "showing",
+    "appears", "appearing", "seems", "seeming", "looks", "looking", "sounds", "sounding",
+    "makes", "making", "gives", "giving", "takes", "taking", "holds", "holding",
+    "stands", "standing", "sits", "sitting", "moves", "moving", "turns", "turning",
+    "comes", "coming", "goes", "going", "remains", "remaining", "stays", "staying",
+    "keeps", "keeping", "leaves", "leaving", "brings", "bringing", "carries", "carrying",
+})
+
+AMBIGUOUS_SHORT_STEMS = frozenset({
+    "com", "cor", "con", "pro", "pre", "per", "sub", "sup", "inter", "intra",
+    "trans", "super", "hyper", "ultra", "anti", "auto", "semi", "multi", "poly",
+    "mono", "micro", "macro", "tele", "photo", "bio", "geo", "neo", "pseudo",
+    "str", "cro", "min", "inc", "exc", "imp", "exp", "ind", "inf", "ins", "int",
+    "abs", "acc", "add", "adj", "adm", "adv", "aff", "agg", "all", "alt", "amb",
+    "app", "arr", "ass", "att", "auth", "aux", "cha", "chi", "cho", "chr", "cir",
+    "cla", "cli", "clo", "clu", "coa", "col", "comp", "conc", "cond", "conf",
+    "cons", "cont", "conv", "corr", "cou", "cra", "cre", "cri", "cru", "cul",
+    "cur", "cus", "dec", "def", "deg", "del", "dem", "den", "dep", "der", "des",
+    "det", "dev", "dia", "dif", "dig", "dil", "dim", "dir", "dis", "div", "doc",
+    "dom", "dou", "dra", "dre", "dri", "dro", "ele", "emb", "emp", "enc", "end",
+    "eng", "enh", "enl", "enr", "ens", "ent", "env", "epi", "equ", "err", "esc",
+    "ess", "est", "eva", "eve", "evi", "evo", "exa", "exc", "exe", "exh", "exi",
+    "exo", "exp", "ext", "fac", "fai", "fal", "fam", "fan", "far", "fas", "fat",
+    "fav", "fea", "fed", "fee", "fel", "fer", "fes", "fic", "fie", "fig", "fil",
+    "fin", "fir", "fis", "fit", "fix", "fla", "fle", "fli", "flo", "flu", "fly",
+    "foc", "fol", "fon", "foo", "for", "fou", "fra", "fre", "fri", "fro", "fru",
+    "ful", "fun", "fur", "fus", "fut", "gal", "gam", "gar", "gas", "gat", "gau",
+    "gen", "ger", "ges", "gig", "gla", "gle", "gli", "glo", "glu", "gly", "goa",
+    "god", "gol", "goo", "gor", "gos", "gov", "gra", "gre", "gri", "gro", "gru",
+    "gua", "gue", "gui", "gul", "gum", "gun", "gur", "gus", "gut", "gym", "hab",
+    "hac", "hai", "hal", "ham", "han", "hap", "har", "has", "hat", "hau", "hav",
+    "haz", "hea", "hee", "hei", "hel", "hem", "hen", "her", "hes", "hex", "hib",
+    "hid", "hig", "hil", "him", "hin", "hip", "hir", "his", "hit", "hoa", "hob",
+    "hoc", "hoe", "hog", "hol", "hom", "hon", "hoo", "hop", "hor", "hos", "hot",
+    "hou", "how", "hub", "hue", "hug", "hum", "hun", "hur", "hus", "hut", "hyb",
+    "hyd", "hyg", "hym", "hyp", "ide", "idi", "idl", "ign", "ill", "ima", "imb",
+    "imi", "imm", "imp", "ina", "inc", "ind", "ine", "inf", "ing", "inh", "ini",
+    "inj", "ink", "inl", "inm", "inn", "ino", "inp", "inq", "ins", "int", "inv",
+    "inw", "ion", "ira", "ire", "iri", "iro", "irr", "isl", "iso", "iss", "ite",
+})
+
+
+def _load_english_dictionary() -> tuple[frozenset[str], dict[str, str]]:
+    """
+    Load `/usr/share/dict/words` if present to validate whole English words and
+    map unambiguous >=5-char BPE stems (e.g. `clums` -> `clumsy`, `disastr` -> `disastrous`,
+    `hilar` -> `hilarious`, `stenc` -> `stenciled`) to complete words.
+    """
+    dict_path = Path("/usr/share/dict/words")
+    if not dict_path.is_file():
+        return frozenset(), {}
+    words: set[str] = set()
+    for line in dict_path.read_text(encoding="utf-8", errors="ignore").splitlines():
+        w = line.strip().lower()
+        if len(w) >= 3 and w.isalpha():
+            words.add(w)
+    stem_to_word: dict[str, str] = {}
+    for w in sorted(words, key=lambda x: (len(x), x)):
+        for k in range(5, min(len(w), 10)):
+            prefix = w[:k]
+            if prefix not in words and prefix not in stem_to_word:
+                stem_to_word[prefix] = w
+    return frozenset(words), stem_to_word
+
+
+_DICT_WORDS, _STEM_COMPLETIONS = _load_english_dictionary()
 
 
 def format_chatml(system_prompt: str, user_prompt: str, assistant_prefix: str = "") -> str:
@@ -63,6 +199,15 @@ def format_chatml(system_prompt: str, user_prompt: str, assistant_prefix: str = 
         f"<|im_start|>system\n{system_prompt}<|im_end|>\n"
         f"<|im_start|>user\n{user_prompt}<|im_end|>\n"
         f"<|im_start|>assistant\n<think>\n\n</think>\n\n{assistant_prefix}"
+    )
+
+
+def chatml_user_start_idx(tokenizer: Tokenizer, system_prompt: str) -> int:
+    header = f"<|im_start|>system\n{system_prompt}<|im_end|>\n<|im_start|>user\n"
+    return int(
+        tokenizer.encode(
+            header, add_bos=False, add_eos=False, encode_special_tokens=True
+        ).shape[-1]
     )
 
 
@@ -75,6 +220,12 @@ def get_chatml_stop_ids(tokenizer: Tokenizer) -> set[int]:
         if tid is not None:
             stops.add(int(tid))
     return stops
+
+
+def step_rand_u32(seed: int, step_idx: int) -> int:
+    """Deterministic per-step uint32 Gumbel seed for Coupled Random Numbers across alphas."""
+    h = hashlib.blake2b(f"{seed}:{step_idx}".encode("utf-8"), digest_size=4).digest()
+    return int.from_bytes(h, "little")
 
 
 def scene_text_mask_from_ids(input_ids: torch.Tensor, tokenizer: Tokenizer) -> torch.BoolTensor:
@@ -96,7 +247,7 @@ def scene_text_mask_from_ids(input_ids: torch.Tensor, tokenizer: Tokenizer) -> t
 
     mask = torch.ones(L, dtype=torch.bool)
     if L > 1:
-        mask[0] = False  # row0_excluded=True (BOS/attention-sink anomaly)
+        mask[0] = False  # row0_excluded=True
 
     pos = 0
     for idx, piece in enumerate(pieces):
@@ -158,7 +309,7 @@ def compute_encoder_vector_from_toml(
     b_pooled: list[torch.Tensor] = []
     weights: list[float] = []
     median_norms: list[float] = []
-    diff_Records: list[dict[str, str]] = []
+    diff_records: list[dict[str, str]] = []
 
     for p in pairs:
         a_txt = p.get("a", "").strip()
@@ -176,7 +327,6 @@ def compute_encoder_vector_from_toml(
         mask_a = scene_text_mask_from_ids(ids_a, tokenizer).to(h_a.device)
         mask_b = scene_text_mask_from_ids(ids_b, tokenizer).to(h_b.device)
 
-        # Row-norm census excluding row 0
         norms_a = torch.linalg.vector_norm(h_a[1:] if h_a.shape[0] > 1 else h_a, dim=-1)
         norms_b = torch.linalg.vector_norm(h_b[1:] if h_b.shape[0] > 1 else h_b, dim=-1)
         median_norms.append(float(norms_a.median().item()))
@@ -187,10 +337,10 @@ def compute_encoder_vector_from_toml(
         weights.append(w)
 
         a_span, b_span = extract_diff_span(a_txt, b_txt)
-        diff_Records.append({"a_span": a_span, "b_span": b_span})
+        diff_records.append({"a_span": a_span, "b_span": b_span})
 
-    a_mat = torch.stack(a_pooled, dim=0)  # [N, 5120]
-    b_mat = torch.stack(b_pooled, dim=0)  # [N, 5120]
+    a_mat = torch.stack(a_pooled, dim=0)
+    b_mat = torch.stack(b_pooled, dim=0)
     w_vec = torch.tensor(weights, dtype=torch.float64, device=a_mat.device)
     w_vec = w_vec / w_vec.sum()
 
@@ -198,11 +348,10 @@ def compute_encoder_vector_from_toml(
     raw_norm = float(torch.linalg.vector_norm(raw_vec).item())
     unit_vec = (raw_vec / max(raw_norm, 1e-12)).to(dtype=torch.float32).cpu()
     median_row_norm = float(sum(median_norms) / len(median_norms))
-    return unit_vec, median_row_norm, raw_norm, diff_Records
+    return unit_vec, median_row_norm, raw_norm, diff_records
 
 
 def extract_diff_span(a_txt: str, b_txt: str) -> tuple[str, str]:
-    """Extract the differing substring between Prompt A and Prompt B."""
     p = 0
     min_len = min(len(a_txt), len(b_txt))
     while p < min_len and a_txt[p] == b_txt[p]:
@@ -237,30 +386,168 @@ def load_encoder_vector_from_safetensors(sf_path: Path) -> tuple[torch.Tensor | 
 
 
 @torch.inference_mode()
+def compute_top_logit_shifts(
+    model: Model,
+    tokenizer: Tokenizer,
+    vec_encoder: torch.Tensor,
+    median_row_norm: float,
+    alpha: float = 0.18,
+    top_k: int = 12,
+) -> dict[str, list[str]]:
+    """
+    Zero-sampling lexical lens: run 4 H3-formatted prefixes through `layers.0..49`,
+    add `+/- alpha * median_row_norm * v_encoder` at `layers.49` (positions `1:`), and
+    continue through `layers.50..63` + `norm` + `lm_head` to find the space-prefixed
+    English content words (`piece.startswith(" ")`, `tid < 151643`) whose log-probability
+    increases the most under `+v_encoder` and `-v_encoder`.
+    """
+    layer_49 = model.find_module("model.language_model.layers.49")
+    layer_49_idx = model.modules.index(layer_49)
+    delta = (
+        vec_encoder.to(device=layer_49.device, dtype=torch.float32) * float(alpha * median_row_norm)
+    ).view(1, 1, -1)
+
+    prefixes = [
+        "integrated_multimodal_description: [Shot 1] The visual medium, film stock, lighting, and image fidelity look",
+        "integrated_multimodal_description: [Shot 1] The character's physical body, facial features, hands, and material texture look",
+        "integrated_multimodal_description: [Shot 1] The canvas shop awning, wooden crate, and white delivery van panel are covered in bold",
+        "integrated_multimodal_description: [Shot 1] Across the storefront wall, awning valance, and delivery van door, the surface shows",
+        "overall_soundscape: The room acoustics, vocal delivery, reverberation, and background foley sound",
+    ]
+
+    id_to_piece = tokenizer.get_id_to_piece_list(include_special_tokens=False)
+    vocab_limit = min(len(id_to_piece), tokenizer.raw_vocab_size, QWEN_FIRST_SPECIAL_ID)
+    valid_word_ids: list[int] = []
+    word_map: dict[int, str] = {}
+    for tid in range(vocab_limit):
+        piece = id_to_piece[tid]
+        # Require a leading space so only genuine word-initial BPE tokens are scored
+        if not piece.startswith(" "):
+            continue
+        cleaned = piece.strip()
+        low = cleaned.lower()
+        if not CLEAN_WORD_RE.match(cleaned) or low in STOPWORDS or low in AMBIGUOUS_SHORT_STEMS:
+            continue
+        if _DICT_WORDS:
+            if low in _DICT_WORDS and len(low) >= 4:
+                resolved = low
+            elif len(low) >= 5 and low in _STEM_COMPLETIONS:
+                resolved = _STEM_COMPLETIONS[low]
+            else:
+                continue
+        else:
+            resolved = low
+        if resolved in STOPWORDS:
+            continue
+        valid_word_ids.append(tid)
+        word_map[tid] = resolved
+    valid_idx = torch.tensor(valid_word_ids, dtype=torch.long)
+
+    pos_scores = torch.full((len(valid_word_ids),), -1e9, dtype=torch.float32)
+    neg_scores = torch.full((len(valid_word_ids),), -1e9, dtype=torch.float32)
+
+    def tail_logits(h49: torch.Tensor, input_ids: torch.Tensor) -> torch.Tensor:
+        params: dict[str, Any] = {
+            "attn_mode": "flash_attn_nc",
+            "input_ids": input_ids,
+        }
+        x = h49
+        for module in model.modules[layer_49_idx + 1 :]:
+            x = module.prepare_for_device(x, params)
+            x = module.forward(x, params)
+        pending = params.pop("resid_pending", None)
+        if pending is not None:
+            x = x.float() + pending.float()
+        return x[0, -1, :vocab_limit].float().cpu()
+
+    for prefix in prefixes:
+        ids = tokenizer.encode(prefix, add_bos=False, add_eos=False, encode_special_tokens=True)
+        h_base = forward_to_layer49(model, layer_49_idx, ids)
+        d = delta.to(device=h_base.device, dtype=h_base.dtype)
+
+        h_pos = h_base.clone()
+        h_pos[:, 1:, :] = h_pos[:, 1:, :] + d
+        h_neg = h_base.clone()
+        h_neg[:, 1:, :] = h_neg[:, 1:, :] - d
+
+        lp_base = F.log_softmax(tail_logits(h_base, ids), dim=-1)[valid_idx]
+        lp_pos = F.log_softmax(tail_logits(h_pos, ids), dim=-1)[valid_idx]
+        lp_neg = F.log_softmax(tail_logits(h_neg, ids), dim=-1)[valid_idx]
+
+        # Require plausible target probability (log P > -11.5 ~ 1e-5) so ultra-rare tokens aren't noise-ranked
+        pos_gain = torch.where(lp_pos > -11.5, lp_pos - lp_base, torch.full_like(lp_pos, -1e9))
+        neg_gain = torch.where(lp_neg > -11.5, lp_neg - lp_base, torch.full_like(lp_neg, -1e9))
+        pos_scores = torch.maximum(pos_scores, pos_gain)
+        neg_scores = torch.maximum(neg_scores, neg_gain)
+
+    def pick_unique(scores: torch.Tensor) -> list[str]:
+        order = torch.argsort(scores, descending=True).tolist()
+        out: list[str] = []
+        seen: set[str] = set()
+        for idx_i in order:
+            w = word_map[valid_word_ids[idx_i]]
+            if w not in seen and len(w) >= 3:
+                seen.add(w)
+                out.append(f"{w} ({scores[idx_i].item():+.2f})")
+                if len(out) >= top_k:
+                    break
+        return out
+
+    return {
+        "positive_boosted_words": pick_unique(pos_scores),
+        "negative_boosted_words": pick_unique(neg_scores),
+    }
+
+
+@torch.inference_mode()
 def generate_cached(
     model: Model,
     cache: Cache,
     tokenizer: Tokenizer,
     prompt_text: str,
     max_new_tokens: int = 256,
+    temperature: float = 0.7,
+    top_p: float = 0.8,
+    top_k: int = 20,
+    min_p: float = 0.0,
+    rep_p: float = 1.05,
+    seed: int = 42,
     embeddings: list[Any] | None = None,
     layer_49_vec: torch.Tensor | None = None,
     layer_49_scale: float = 0.0,
-    steer_mode: str = "all_ex_row0",
+    steer_start_idx: int = 1,
 ) -> str:
     """
-    Run a single-sequence prefill + greedy decode pass with an optional `layers.49`
-    residual-stream steering hook. Using a direct `model.prefill` + `model.forward`
-    loop on a dedicated `Cache` avoids `Generator`'s `PageTable` KV cache reuse
-    across steering sweeps.
+    Run a single-sequence prefill + decode pass with:
+      - `ComboSampler(temperature=..., top_p=..., top_k=..., min_p=..., rep_p=...)`
+        (defaults match Qwen3-VL-32B-Instruct's official non-thinking sampling parameters)
+      - Coupled per-step `rand_u32 = step_rand_u32(seed, step)` so rollouts share
+        exact Gumbel draws across steering alphas
+      - Span-targeted `layers.49` steering starting at `steer_start_idx` while leaving
+        ChatML special tokens (`tid >= 151643`) unsteered.
     """
     layer_49 = model.find_module("model.language_model.layers.49")
     orig_forward = layer_49.forward
+
+    context_ids = tokenizer.encode(
+        prompt_text,
+        add_bos=False,
+        add_eos=False,
+        encode_special_tokens=True,
+        embeddings=embeddings,
+    )
 
     if layer_49_vec is not None and abs(layer_49_scale) > 1e-9:
         delta = (
             layer_49_vec.to(device=layer_49.device, dtype=torch.float32) * float(layer_49_scale)
         ).view(1, 1, -1)
+
+        # Build prefill mask: steer tokens >= steer_start_idx EXCEPT ChatML special tokens (>= 151643)
+        prefill_ids = context_ids[0, :-1]
+        prefill_mask = torch.zeros_like(prefill_ids, dtype=torch.bool)
+        start_pos = min(max(1, steer_start_idx), prefill_ids.shape[0])
+        if start_pos < prefill_ids.shape[0]:
+            prefill_mask[start_pos:] = prefill_ids[start_pos:] < QWEN_FIRST_SPECIAL_ID
 
         def steered_forward(self, x: torch.Tensor, params: dict, out_dtype: torch.dtype | None = None):
             x = orig_forward(x, params, out_dtype)
@@ -268,9 +555,9 @@ def generate_cached(
             if pending is not None:
                 x = x.float() + pending.float()
             d = delta.to(device=x.device, dtype=x.dtype)
-            if x.shape[1] > 1 and steer_mode == "all_ex_row0":
-                x = x.clone()
-                x[:, 1:, :] = x[:, 1:, :] + d
+            if x.shape[1] > 1:
+                m = prefill_mask[: x.shape[1]].to(device=x.device).view(1, -1, 1)
+                x = torch.where(m, x + d, x)
             else:
                 x = x + d
             return x
@@ -278,14 +565,13 @@ def generate_cached(
         layer_49.forward = types.MethodType(steered_forward, layer_49)
 
     try:
-        context_ids = tokenizer.encode(
-            prompt_text,
-            add_bos=False,
-            add_eos=False,
-            encode_special_tokens=True,
-            embeddings=embeddings,
+        sampler = ComboSampler(
+            rep_p=rep_p,
+            temperature=temperature,
+            min_p=min_p,
+            top_k=top_k,
+            top_p=top_p,
         )
-        sampler = GreedySampler()
         stop_ids = get_chatml_stop_ids(tokenizer)
 
         prefill_params: dict[str, Any] = {
@@ -311,7 +597,7 @@ def generate_cached(
         alt_rope_freqs = prefill_params.get("alt_rope_freqs")
         generated_ids: list[int] = []
 
-        for _ in range(max_new_tokens):
+        for step_idx in range(max_new_tokens):
             step_params: dict[str, Any] = {
                 "attn_mode": "flash_attn",
                 "cache": cache,
@@ -322,7 +608,12 @@ def generate_cached(
                 step_params["alt_rope_freqs"] = alt_rope_freqs
 
             logits = model.forward(input_ids=context_ids[:, -1:], params=step_params)
-            sample = sampler.forward(logits, tokenizer=tokenizer)
+            sample = sampler.forward(
+                logits,
+                sequence_ids=context_ids,
+                rand_u32=step_rand_u32(seed, step_idx),
+                tokenizer=tokenizer,
+            )
             tid = int(sample.item())
             if tid in stop_ids:
                 break
@@ -344,48 +635,112 @@ def run_self_report_probe(
     vec_encoder: torch.Tensor,
     median_row_norm: float,
     alphas: list[float],
+    temperature: float = 0.7,
+    top_p: float = 0.8,
+    top_k: int = 20,
+    min_p: float = 0.0,
+    rep_p: float = 1.05,
+    seed: int = 101,
 ) -> dict[str, Any]:
     """
-    Steer `layers.49` across `alphas` on two neutral open-ended sensory prompts and
-    then ask the unsteered model to synthesize a structured JSON label from the
-    steered completions.
+    Combine:
+      1. Direct `layers.49 -> lm_head` top boosted words (`delta_log_prob`) on space-prefixed words
+      2. Coupled Qwen3-VL non-thinking rollouts (`temp=0.7, top_p=0.8, top_k=20, rep_p=1.05`)
+         on two H3-formatted neutral anchors (`Anchor A`: Character + Hand Action + Spoken Line +
+         Room Acoustics; `Anchor B`: Awning + Crate + Delivery Van Surface + Street + Soundscape)
+         with steering applied to user scene + assistant tokens (skipping system & ChatML special tokens).
+      3. Low-temperature (`temp=0.1`) structured JSON synthesis that explicitly subtracts
+         the `alpha = +0.00` baseline elements.
     """
-    probe_prompt = format_chatml(
-        "You describe cinematic shots and soundscapes vividly and concisely in 2 sentences.",
-        "Write a 2-sentence description of a short film clip: its visual texture, lighting, camera feel, and soundscape.",
-        assistant_prefix="[Shot 1] ",
+    lexical_shifts = compute_top_logit_shifts(
+        model=model,
+        tokenizer=tokenizer,
+        vec_encoder=vec_encoder,
+        median_row_norm=median_row_norm,
+        alpha=max((a for a in alphas if a > 0), default=0.18),
     )
 
-    sweep_outputs: dict[str, str] = {}
-    for alpha in alphas:
-        scale = float(alpha) * float(median_row_norm)
-        text = generate_cached(
-            model=model,
-            cache=cache,
-            tokenizer=tokenizer,
-            prompt_text=probe_prompt,
-            max_new_tokens=110,
-            layer_49_vec=vec_encoder,
-            layer_49_scale=scale,
-        )
-        sweep_outputs[f"{alpha:+.2f}"] = "[Shot 1] " + text
-
-    sweep_block = "\n\n".join(
-        f"Steering strength alpha = {k} (scale = {float(k)*median_row_norm:+.1f}):\n{v}"
-        for k, v in sweep_outputs.items()
+    sys_msg = (
+        "You write vivid, concise H3 video-and-audio scene descriptions using "
+        "`integrated_multimodal_description: [Shot 1]` and `overall_soundscape:`."
     )
+    assistant_prefix = "integrated_multimodal_description: [Shot 1] "
+    steer_start_idx = chatml_user_start_idx(tokenizer, sys_msg)
+
+    anchor_Specs = {
+        "anchor_human_action_room": (
+            "Write a 2-sentence `integrated_multimodal_description: [Shot 1]` followed by a 1-sentence "
+            "`overall_soundscape:` for a medium shot of a character standing at a counter pouring "
+            "water from a pitcher into a mug and speaking a short greeting aloud. State the visual "
+            "medium and material of the character's face, eyes, and hands, how smoothly or clumsily "
+            "the pouring motion goes, the vocal delivery, and the room acoustics."
+        ),
+        "anchor_surface_street_camera": (
+            "Write a 2-sentence `integrated_multimodal_description: [Shot 1]` followed by a 1-sentence "
+            "`overall_soundscape:` for a daytime shot framing a canvas shop awning, a wooden crate on "
+            "the sidewalk, and the side panel of a parked white delivery van. State the visual style "
+            "and film stock, the exact surface appearance of the awning, crate, and van panel, the "
+            "camera motion, and the street acoustics."
+        ),
+    }
+
+    sweep_outputs: dict[str, dict[str, str]] = {k: {} for k in anchor_Specs}
+    for anchor_idx, (anchor_key, user_msg) in enumerate(anchor_Specs.items()):
+        prompt_text = format_chatml(sys_msg, user_msg, assistant_prefix=assistant_prefix)
+        anchor_seed = seed + (anchor_idx * 1000)
+
+        for alpha in alphas:
+            scale = float(alpha) * float(median_row_norm)
+            text = generate_cached(
+                model=model,
+                cache=cache,
+                tokenizer=tokenizer,
+                prompt_text=prompt_text,
+                max_new_tokens=115,
+                temperature=temperature,
+                top_p=top_p,
+                top_k=top_k,
+                min_p=min_p,
+                rep_p=rep_p,
+                seed=anchor_seed,
+                layer_49_vec=vec_encoder,
+                layer_49_scale=scale,
+                steer_start_idx=steer_start_idx,
+            )
+            sweep_outputs[anchor_key][f"{alpha:+.2f}"] = assistant_prefix + text
+
+    pos_words = ", ".join(lexical_shifts["positive_boosted_words"])
+    neg_words = ", ".join(lexical_shifts["negative_boosted_words"])
+    anchor_a_block = "\n".join(
+        f"  alpha={k}: {v}" for k, v in sweep_outputs["anchor_human_action_room"].items()
+    )
+    anchor_b_block = "\n".join(
+        f"  alpha={k}: {v}" for k, v in sweep_outputs["anchor_surface_street_camera"].items()
+    )
+
     synth_prompt = format_chatml(
-        "You analyze activation-steering readouts from a video-and-audio conditioning model and output only valid JSON.",
-        "Below are completions from the exact same neutral prompt when a hidden control vector is injected at layer 49 "
-        "across negative, zero, and positive strengths.\n\n"
-        f"{sweep_block}\n\n"
-        "Compare the positive (+0.15, +0.25) vs baseline (+0.00) and negative (-0.20) completions. "
-        "Return a single JSON object with keys:\n"
-        '  "self_report_slug": short snake_case label,\n'
-        '  "self_report_quality": 1-sentence description of the steered aesthetic/physical/acoustic shift,\n'
-        '  "negative_pole": what negative steering emphasizes,\n'
-        '  "positive_pole": what positive steering emphasizes,\n'
-        '  "dominant_modality": "visual" | "acoustic" | "audiovisual"',
+        "You analyze activation-steering readouts from layer 49 of a video-and-audio conditioning model and output only valid JSON.",
+        "A hidden control vector was injected at layer 49 and read out using:\n"
+        f"1. Direct lm_head log-odds boosted words (+vector): {pos_words}\n"
+        f"   Direct lm_head log-odds boosted words (-vector): {neg_words}\n\n"
+        f"2. Coupled rollouts (temp={temperature:.2f}, top_p={top_p:.2f}, top_k={top_k}) on Anchor A "
+        f"(Character pouring water into a mug at a counter + speaking + room sound):\n{anchor_a_block}\n\n"
+        f"3. Coupled rollouts (temp={temperature:.2f}, top_p={top_p:.2f}, top_k={top_k}) on Anchor B "
+        f"(Canvas shop awning + wooden crate + white delivery van panel + street sound):\n{anchor_b_block}\n\n"
+        "IMPORTANT: Ignore baseline objects and actions that were already requested by the anchor prompts "
+        "or already present at `alpha=+0.00` (such as the counter, pitcher, mug, canvas awning, wooden crate, "
+        "or delivery van). Isolate ONLY the specific visual medium/material, physical coordination/mishap, "
+        "surface typography/signage, film stock/lighting, vocal delivery, or acoustic reverberation that "
+        "systematically emerges from negative (-0.15) to baseline (+0.00) to positive (+0.15, +0.22) and "
+        "in the boosted `lm_head` words.\n\n"
+        "Return a single valid JSON object with keys:\n"
+        '  "self_report_slug": concise snake_case label (2-4 words),\n'
+        '  "self_report_quality": 1-sentence summary of the steered transformation,\n'
+        '  "negative_pole": what negative steering (-0.15) produces,\n'
+        '  "positive_pole": what positive steering (+0.15, +0.22) produces,\n'
+        '  "dominant_modality": "visual" | "acoustic" | "audiovisual" | "typography",\n'
+        '  "readout_clarity": "high" | "medium" | "low",\n'
+        '  "clarity_reason": 1-sentence explanation of why readout clarity is high, medium, or low',
         assistant_prefix="{\n",
     )
     raw_json = "{\n" + generate_cached(
@@ -393,11 +748,26 @@ def run_self_report_probe(
         cache=cache,
         tokenizer=tokenizer,
         prompt_text=synth_prompt,
-        max_new_tokens=350,
+        max_new_tokens=360,
+        temperature=0.1,
+        top_p=0.8,
+        top_k=20,
+        min_p=0.0,
+        rep_p=1.0,
+        seed=seed + 500,
     )
     parsed = try_parse_json(raw_json)
     return {
         "median_row_norm": round(median_row_norm, 3),
+        "sampling": {
+            "temperature": temperature,
+            "top_p": top_p,
+            "top_k": top_k,
+            "min_p": min_p,
+            "rep_p": rep_p,
+            "coupled_seed": seed,
+        },
+        "lexical_logit_shifts": lexical_shifts,
         "sweep_completions": sweep_outputs,
         "synthesis": parsed if parsed is not None else raw_json,
     }
@@ -408,6 +778,7 @@ def run_blind_pair_synthesis(
     cache: Cache,
     tokenizer: Tokenizer,
     diff_records: list[dict[str, str]],
+    seed: int = 202,
 ) -> dict[str, Any] | str:
     lines = []
     for idx, rec in enumerate(diff_records[:10], start=1):
@@ -436,6 +807,12 @@ def run_blind_pair_synthesis(
         tokenizer=tokenizer,
         prompt_text=prompt,
         max_new_tokens=450,
+        temperature=0.1,
+        top_p=0.8,
+        top_k=20,
+        min_p=0.0,
+        rep_p=1.0,
+        seed=seed,
     )
     parsed = try_parse_json(raw)
     return parsed if parsed is not None else raw
@@ -456,25 +833,103 @@ def try_parse_json(text: str) -> dict[str, Any] | None:
     return None
 
 
+def write_markdown_report(
+    results: dict[str, Any],
+    vectors_map: dict[str, torch.Tensor],
+    out_md: Path,
+) -> None:
+    lines: list[str] = [
+        "# H3 Control Vector Batch-Labelling & `layers.49` Readout Report",
+        "",
+        "Generated with `Qwen3-VL-32B-Instruct` (`5.37 bpw` EXL3, `6 bpw` readout layers `50..63`, `8 bpw` `lm_head`) using:",
+        "- **Official Qwen3-VL Non-Thinking Sampling + Coupled Gumbel Draws** (`ComboSampler(temperature=0.7, top_p=0.8, top_k=20, min_p=0.0, rep_p=1.05)` with matched per-step `rand_u32` across $\\alpha$)",
+        "- **Assistant-Span-Targeted `layers.49` Steering** (leaving `<|im_start|>system`, user instructions, and `<think></think>` framing tokens unsteered)",
+        "- **Direct `layers.49 -> lm_head` Word-Initial Log-Odds Shift (`delta_log_prob`)**",
+        "",
+        "## 1. Summary Table",
+        "",
+        "| Vector (`.toml`) | `L49` Raw Norm | Blind Pair-Diff Label | Modality | `L49` Self-Report Label (`temp=0.7`) | Top `+v_encoder` Boosted Words (`lm_head` $\\Delta\\log P$) |",
+        "|---|---:|---|---|---|---|",
+    ]
+
+    for stem, entry in sorted(results.items()):
+        bp = entry.get("blind_pair_label", {})
+        bp_slug = bp.get("inferred_slug", "—") if isinstance(bp, dict) else "—"
+        bp_mod = bp.get("modality", "—") if isinstance(bp, dict) else "—"
+        sr = entry.get("layer49_self_report", {})
+        sr_synth = sr.get("synthesis", {})
+        sr_slug = sr_synth.get("self_report_slug", "—") if isinstance(sr_synth, dict) else "—"
+        pos_words = ", ".join(sr.get("lexical_logit_shifts", {}).get("positive_boosted_words", [])[:6])
+        lines.append(
+            f"| `{stem}` | `{entry.get('layer49_raw_norm', 0.0):.2f}` | `{bp_slug}` | `{bp_mod}` | `{sr_slug}` | {pos_words} |"
+        )
+
+    if len(vectors_map) >= 2:
+        names = sorted(vectors_map.keys())
+        mat = torch.stack([vectors_map[n] for n in names], dim=0)
+        cos_mat = mat @ mat.T
+        lines += [
+            "",
+            "## 2. Pairwise Cosine Similarity at `layers.49` (`vector.encoder` `[5120]`)",
+            "",
+            "| Vector | " + " | ".join(f"`{n[:10]}`" for n in names) + " |",
+            "|---|" + "|".join("---:" for _ in names) + "|",
+        ]
+        for i, n_i in enumerate(names):
+            row_str = " | ".join(f"`{cos_mat[i, j].item():+.2f}`" for j in range(len(names)))
+            lines.append(f"| `{n_i}` | {row_str} |")
+
+    lines += ["", "## 3. Per-Vector Diagnostic Cards", ""]
+    for stem, entry in sorted(results.items()):
+        gt = entry.get("ground_truth_header", {})
+        bp = entry.get("blind_pair_label", {})
+        sr = entry.get("layer49_self_report", {})
+        sr_synth = sr.get("synthesis", {})
+        lex = sr.get("lexical_logit_shifts", {})
+        sweeps = sr.get("sweep_completions", {})
+
+        lines += [
+            f"### `{stem}` (`raw_norm = {entry.get('layer49_raw_norm', 0.0):.2f}`, `median_row_norm = {entry.get('layer49_median_row_norm_ex_row0', 0.0):.1f}`)",
+            f"- **Intended (`.toml` header)**: {gt.get('quality', '')}",
+            f"- **Blind Pair-Diff Label**: `{bp.get('inferred_slug', '') if isinstance(bp, dict) else ''}` — {bp.get('inferred_quality', '') if isinstance(bp, dict) else ''}",
+            f"- **`layers.49` Steered Self-Report (`temp=0.7`)**: `{sr_synth.get('self_report_slug', '') if isinstance(sr_synth, dict) else ''}` — {sr_synth.get('self_report_quality', '') if isinstance(sr_synth, dict) else ''}",
+            f"- **Top Boosted Words (`+v_encoder`)**: {', '.join(lex.get('positive_boosted_words', [])[:10])}",
+            f"- **Top Boosted Words (`-v_encoder`)**: {', '.join(lex.get('negative_boosted_words', [])[:10])}",
+        ]
+        if isinstance(sweeps, dict):
+            for anchor_label, anchor_key in (
+                ("Anchor A (Person + Counter + Mug + Room)", "anchor_human_action_room"),
+                ("Anchor B (Storefront + Awning + Van + Street)", "anchor_surface_street_camera"),
+            ):
+                if anchor_key in sweeps:
+                    lines.append(f"- **Coupled `temp=0.7` Rollouts on {anchor_label}**:")
+                    for a_k, a_v in sweeps[anchor_key].items():
+                        one_line = " ".join(a_v.split())
+                        lines.append(f"  - `alpha={a_k}`: {one_line}")
+        lines.append("")
+
+    out_md.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Batch-label H3 control vectors with ExLlamaV3 Qwen3-VL-32B-Instruct")
     parser.add_argument(
         "-m",
         "--model_dir",
         type=Path,
-        default=Path.home() / "Storage" / "Qwen3-VL-32B-Instruct-exl3-h3-5.37bpw",
+        default=_default_model_dir(_H3_ROOT),
         help="Path to compiled ExLlamaV3 model directory",
     )
     parser.add_argument(
         "--toml_dir",
         type=Path,
-        default=Path.home() / "ComfyUI" / "custom_nodes" / "ComfyUI-h3-explorations" / "prompt_bank" / "control_vectors",
+        default=_H3_ROOT / "prompt_bank" / "control_vectors",
         help="Directory containing control-vector .toml files",
     )
     parser.add_argument(
         "--vectors_dir",
         type=Path,
-        default=Path.home() / "ComfyUI" / "models" / "control_vectors",
+        default=_H3_ROOT.parents[1] / "models" / "control_vectors",
         help="Directory containing compiled control-vector .safetensors files",
     )
     parser.add_argument(
@@ -492,8 +947,44 @@ def main() -> None:
     parser.add_argument(
         "--alphas",
         type=str,
-        default="-0.20,0.00,0.15,0.25",
+        default="-0.15,0.00,0.15,0.22",
         help="Comma-separated alpha strengths (in median_row_norm units) for layer-49 self-report steering",
+    )
+    parser.add_argument(
+        "--temperature",
+        type=float,
+        default=0.7,
+        help="Sampling temperature for Coupled Gumbel rollouts (Qwen3-VL non-thinking default: 0.7)",
+    )
+    parser.add_argument(
+        "--top_p",
+        type=float,
+        default=0.8,
+        help="Top-p nucleus sampling threshold (Qwen3-VL non-thinking default: 0.8)",
+    )
+    parser.add_argument(
+        "--top_k",
+        type=int,
+        default=20,
+        help="Top-k sampling threshold (Qwen3-VL non-thinking default: 20)",
+    )
+    parser.add_argument(
+        "--min_p",
+        type=float,
+        default=0.0,
+        help="Min-p sampling threshold (Qwen3-VL non-thinking default: 0.0)",
+    )
+    parser.add_argument(
+        "--rep_p",
+        type=float,
+        default=1.05,
+        help="Repetition penalty (default: 1.05)",
+    )
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=101,
+        help="Base seed for Coupled Gumbel sampling across alphas",
     )
     parser.add_argument(
         "--images",
@@ -508,6 +999,12 @@ def main() -> None:
         type=Path,
         default=Path(__file__).resolve().parent / "h3_control_vector_labels.json",
         help="Output JSON report path",
+    )
+    parser.add_argument(
+        "--out_md",
+        type=Path,
+        default=Path(__file__).resolve().parent / "h3_control_vector_report.md",
+        help="Output Markdown diagnostic report path",
     )
     parser.add_argument("--cache_tokens", type=int, default=4096)
     args = parser.parse_args()
@@ -558,6 +1055,11 @@ def main() -> None:
             tokenizer=tokenizer,
             prompt_text=vlm_prompt,
             max_new_tokens=300,
+            temperature=0.2,
+            top_p=0.8,
+            top_k=20,
+            rep_p=1.0,
+            seed=args.seed,
             embeddings=img_embs,
         )
         print(out)
@@ -568,18 +1070,19 @@ def main() -> None:
         toml_files = [p for p in toml_files if any(f in p.stem for f in filters)]
 
     results: dict[str, Any] = {}
-    if filters and args.out_json.is_file():
+    if (filters or args.mode != "all") and args.out_json.is_file():
         try:
             results = json.loads(args.out_json.read_text(encoding="utf-8"))
         except Exception:
             results = {}
+
+    vectors_map: dict[str, torch.Tensor] = {}
     for toml_path in toml_files:
         stem = toml_path.stem
         t_vec = time.time()
         toml_data = tomllib.loads(toml_path.read_text(encoding="utf-8"))
         vec_hdr = toml_data.get("vector", {})
 
-        # Check if a matching safetensors in vectors_dir already has `vector.encoder`
         sf_matches = sorted(args.vectors_dir.glob(f"{stem}*.safetensors"))
         vec_enc = None
         med_norm = None
@@ -600,6 +1103,7 @@ def main() -> None:
             vec_source = "computed_exl3_layer49"
         else:
             vec_source = "safetensors_vector.encoder"
+        vectors_map[stem] = vec_enc
 
         entry: dict[str, Any] = results.get(stem, {})
         entry.update({
@@ -616,12 +1120,13 @@ def main() -> None:
             "layer49_median_row_norm_ex_row0": round(float(med_norm), 4),
         })
 
-        if args.mode in ("all", "blind_pairs"):
+        if args.mode in ("all", "blind_pairs") or not isinstance(entry.get("blind_pair_label"), dict):
             entry["blind_pair_label"] = run_blind_pair_synthesis(
                 model=model,
                 cache=cache,
                 tokenizer=tokenizer,
                 diff_records=diff_records,
+                seed=args.seed + 200,
             )
             print(f"  [blind_pairs] -> {json.dumps(entry['blind_pair_label'], ensure_ascii=False)}")
 
@@ -633,7 +1138,15 @@ def main() -> None:
                 vec_encoder=vec_enc,
                 median_row_norm=float(med_norm),
                 alphas=alphas,
+                temperature=args.temperature,
+                top_p=args.top_p,
+                top_k=args.top_k,
+                min_p=args.min_p,
+                rep_p=args.rep_p,
+                seed=args.seed,
             )
+            lex_pos = ", ".join(entry["layer49_self_report"]["lexical_logit_shifts"]["positive_boosted_words"][:6])
+            print(f"  [lm_head +words] -> {lex_pos}")
             print(f"  [self_report] -> {json.dumps(entry['layer49_self_report']['synthesis'], ensure_ascii=False)}")
 
         entry["elapsed_sec"] = round(time.time() - t_vec, 2)
@@ -641,8 +1154,9 @@ def main() -> None:
 
         args.out_json.parent.mkdir(parents=True, exist_ok=True)
         args.out_json.write_text(json.dumps(results, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        write_markdown_report(results, vectors_map, args.out_md)
 
-    print(f"\nSaved batch labels for {len(results)} control vector(s) to {args.out_json}")
+    print(f"\nSaved batch labels for {len(results)} control vector(s) to {args.out_json} and {args.out_md}")
 
 
 if __name__ == "__main__":
