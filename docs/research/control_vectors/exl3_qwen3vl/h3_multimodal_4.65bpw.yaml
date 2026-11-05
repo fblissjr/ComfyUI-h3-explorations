@@ -1,0 +1,14 @@
+# H3 Multimodal Batch Recipe (~4.65 bpw, ~17.86 GiB total GPU weights + 6-bit head + 6-bit vision)
+# Leaves ~5.5 GiB free VRAM on a 24 GB RTX 4090 for multi-frame video VLM batching.
+# - Layers 0..49 (H3 encoder trunk): 5 bpw Attention, 5 bpw boundary MLPs (0..2, 48..49), 4 bpw mid MLPs (3..47)
+# - Layers 50..63 (14 readout layers above H3's layers.49 tap point): 6 bpw Attention + 6 bpw MLP
+# - lm_head: 6 bpw
+target_bpw: 4.65
+head_bits: 6
+tensors:
+  "model.language_model.layers.*.mlp.*": 4
+  "model.language_model.layers.*.self_attn.*": 5
+  "model.language_model.layers.[0-2].mlp.*": 5
+  "model.language_model.layers.4[8-9].mlp.*": 5
+  "model.language_model.layers.5[0-9].*": 6
+  "model.language_model.layers.6[0-3].*": 6
