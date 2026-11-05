@@ -10,11 +10,13 @@ Key Interpretability & Calibration Features:
        with matched per-step Gumbel `rand_u32(seed, step)` across `alpha`, eliminating
        greedy `temp=0` mode collapse while keeping low-temperature (`temperature=0.1`)
        decoding for the unsteered JSON synthesizer calls.
-  2. **Assistant-Span-Targeted `layers.49` Steering**:
-     - Advances `steer_start_idx` past `<|im_start|>system...<|im_start|>user...<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n`
-       so system instructions, user instructions, and turn-boundary control tokens remain
-       unperturbed while the assistant's `integrated_multimodal_description: [Shot 1] `
-       prefix and all generated tokens receive `alpha * median_row_norm * v_encoder`.
+  2. **User-Scene + Assistant Span-Targeted `layers.49` Steering**:
+     - Advances `steer_start_idx` past `<|im_start|>system\n...<|im_end|>\n<|im_start|>user\n`
+       and masks out all ChatML special tokens (`tid >= 151643`) so system instructions and
+       turn-boundary control tokens (`<|im_end|>`, `<|im_start|>`, `<think>`, `</think>`)
+       remain unperturbed while the user scene nouns, the assistant's
+       `integrated_multimodal_description: [Shot 1] ` prefix, and all generated tokens
+       receive `alpha * median_row_norm * v_encoder`.
   3. **Direct `layers.49 -> lm_head` Word-Initial Log-Odds Readout (`delta_log_prob`)**:
      - Computes exact first-token log-probability shifts `log P(tok | steered) - log P(tok | base)`
        over genuine space-prefixed English content words (`piece.startswith(" ")`, `tid < 151643`)
@@ -191,6 +193,10 @@ def _load_english_dictionary() -> tuple[frozenset[str], dict[str, str]]:
             prefix = w[:k]
             if prefix not in words and prefix not in stem_to_word:
                 stem_to_word[prefix] = w
+    stem_to_word.update({
+        "hilar": "hilarious",
+        "stenc": "stenciled",
+    })
     return frozenset(words), stem_to_word
 
 
@@ -411,8 +417,9 @@ def compute_top_logit_shifts(
     ).view(1, 1, -1)
 
     prefixes = [
-        "integrated_multimodal_description: [Shot 1] The visual medium, film stock, lighting, and image fidelity look",
-        "integrated_multimodal_description: [Shot 1] The character's physical body, facial features, hands, and material texture look",
+        "integrated_multimodal_description: [Shot 1] The visual medium, camera look, lighting, and image fidelity look",
+        "integrated_multimodal_description: [Shot 1] The character's head proportions, facial features, hands, and body texture look",
+        "integrated_multimodal_description: [Shot 1] As the person speaks beside the table, the loose objects on the tabletop and the person's head gradually",
         "integrated_multimodal_description: [Shot 1] The canvas shop awning, wooden crate, and white delivery van panel are covered in bold",
         "integrated_multimodal_description: [Shot 1] Across the storefront wall, awning valance, and delivery van door, the surface shows",
         "overall_soundscape: The room acoustics, vocal delivery, reverberation, and background foley sound",
@@ -675,15 +682,15 @@ def run_self_report_probe(
         "anchor_human_action_room": (
             "Write a 2-sentence `integrated_multimodal_description: [Shot 1]` followed by a 1-sentence "
             "`overall_soundscape:` (under 90 words total) for a medium shot of a person standing at a kitchen "
-            "counter pouring water from a pitcher into a ceramic mug and speaking a short greeting aloud. "
-            "Describe the person's face, skin, and hand appearance, how smoothly or clumsily the pouring "
-            "motion goes, the vocal delivery, and the room acoustics."
+            "counter with a spoon and napkin resting beside a ceramic mug, pouring water from a pitcher and "
+            "speaking a short greeting aloud. Describe the person's head and face appearance, hands, the motion "
+            "of the water and tabletop items, the vocal delivery, and the room acoustics."
         ),
         "anchor_surface_street_camera": (
             "Write a 2-sentence `integrated_multimodal_description: [Shot 1]` followed by a 1-sentence "
             "`overall_soundscape:` (under 90 words total) for a daytime shot framing a canvas shop awning, "
             "a wooden crate on the sidewalk, and the side panel of a parked white delivery van. Describe the "
-            "visual style and film stock, the surface appearance of the awning, crate, and van panel, the "
+            "camera look and lighting, the surface appearance of the awning, crate, and van panel, the "
             "camera motion, and the street acoustics."
         ),
     }
