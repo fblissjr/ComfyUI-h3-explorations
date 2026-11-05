@@ -159,12 +159,12 @@ When testing the single-clause end-of-section physical transformations ([`head_s
 
 Systematic ablation across `arms 31..40` ([`bench/results/2026-11-05_control_vectors_pika_and_ref2va.md`](../../../bench/results/2026-11-05_control_vectors_pika_and_ref2va.md)) isolated and solved all four root causes:
 
-1. **Post-Dialogue Timeline Budget (`1.5s` Speech + `4.3s` Effect Window vs. `4.8s` Speech)**:
-   - Because the changed clause in every pair of `head_swell.toml` and `zero_gravity.toml` sits at the **end** of `integrated_multimodal_description:` **after** `<d>...</d>`, a 7–13 word `<d>...</d>` line (`arms 25..30`) occupies `00:00..00:04.8` of a `5.88s` (`141`-frame) render and leaves `<1.0s` (`~20` frames) for the post-speech physical transformation.
-   - **Fix**: Keep the test prompt's `<d>...</d>` line to `1–5` words (`<d>Morning!</d>`, `<d>Another pie?</d>`, finishing at `~1.5s`) so a `141`-frame render has `4.0–4.3s` of post-dialogue visual runtime (`arms 31..40`).
-2. **Omitting Contradictory Pole-A Grounding Clauses in the Base Prompt**:
-   - In `arms 25..27`, the `ref2va` base prompt ended with `"while the porcelain coffee mug and silver fork rest flat on the table"`—an explicit Pole-A static-gravity constraint that opposed the injected `zero_gravity` control vector.
-   - **Fix**: End the unsteered `Test Scene Prompt` cleanly after the speaker's dialogue and lip-closure without asserting that tabletop objects remain stationary or that anatomy remains fixed.
+1. **Post-Dialogue Timeline Budget (`1.5s` Speech + `4.3s` Effect Window vs. Multi-Clause Setup + Static-Frame Tail)**:
+   - Because the changed clause in every pair of `head_swell.toml` and `zero_gravity.toml` sits at the **end** of `integrated_multimodal_description:` **after** `<d>...</d>`, a longer dialogue line (`<d>I think we should order another slice of pie.</d>` in `arms 25..27`) or a multi-sentence pre-speech setup (`arms 28..30`, `<d>Hi, how are you?</d>`) reduces the post-speech window inside a `5.88s` (`141`-frame) render.
+   - **Fix**: Keep the test prompt's `<d>...</d>` line to `1–5` words (`<d>Morning!</d>`, `<d>Another pie?</d>`, finishing at `~1.2–1.5s`) and keep the pre-speech setup concise so a `141`-frame render has `4.3–4.6s` of post-dialogue visual runtime (`arms 31..40`).
+2. **Omitting Trailing Static-Frame / Fixed-Pose Clauses in the Base Prompt**:
+   - In `arms 25..27`, the `ref2va` base prompt ended with `"before closing his mouth naturally as his gaze remains fixed forward"` (and `"The camera holds a static medium shot"`), and in `arms 28..30` the `t2va` prompt ended with `"while the camera holds a steady static frame on his upper body"`—occupying the exact post-speech syntactic slot where the control vector's effect occurs.
+   - **Fix**: End the unsteered `Test Scene Prompt` cleanly after the speaker's dialogue and lip-closure (`"before settling his lips."` / `"His speech finishes cleanly and his mouth closes smoothly into a calm smile."`), without appending trailing static-frame or Pole-A grounding clauses.
 3. **`2.12x–2.28x` Prefix Dilution Under `scene_text` Pooling vs. `--pooling from_first_diff`**:
    - Because single-clause `.toml` pairs share ~85–110 identical scene-setup tokens before the 8–12 word end-of-section diff clause, mean-pooling `token_refiner` over all `scene_text` tokens averages ~70% near-zero prefix diffs with ~30% suffix diffs (`raw_norm = 10.35` on `head_swell` and `10.65` on `zero_gravity`).
    - **Fix**: Extract single-clause end-of-section vectors with **`--pooling from_first_diff`** (`raw_norm = 23.57` on `head_swell_ffd`, **`2.28x` stronger**, `cos = 0.9427`; `raw_norm = 22.62` on `zero_gravity_ffd`, **`2.12x` stronger**, `cos = 0.9403`) and run at standard **`s = +3.50`** (`arms 39, 40`), or scale `scene_text`-pooled vectors to norm-matched **`s = +6.5..+8.0`** (`arms 32..33, 35..36`).
@@ -177,11 +177,11 @@ Systematic ablation across `arms 31..40` ([`bench/results/2026-11-05_control_vec
 ## How to Extract and Run Control Vectors for `t2va`, Dual-Vector `t2va`, and `ref2va`
 
 ### 1. Shipped API Workflows in `workflows/`
-- **Single-Vector `t2va` (Pika 6-Step LCM)**: [`workflows/h3_text_to_video_pika_control_vector_api.json`](../../../workflows/h3_text_to_video_pika_control_vector_api.json) (UI: [`workflows/h3_text_to_video_pika_control_vector.json`](../../../workflows/h3_text_to_video_pika_control_vector.json))
+- **Single-Vector `t2va` (Pika 6-Step LCM)**: [`workflows/h3_text_to_video_pika_control_vector_api.json`](../../../workflows/h3_text_to_video_pika_control_vector_api.json)
   - Wires `MiniMaxH3LoRABranch (18, pika_h3_flex_fl2va_svd995_bf16.safetensors) -> ModelSamplingSD3 (19) -> ModelAttentionBackend (58) -> MiniMaxH3Sol (21) -> MiniMaxH3ApplyControlVectors (115) -> BasicGuider (9)`.
-- **Dual Chained Control Vectors on `t2va` (Pika 6-Step LCM)**: [`workflows/h3_text_to_video_pika_dual_control_vectors_api.json`](../../../workflows/h3_text_to_video_pika_dual_control_vectors_api.json) (UI: [`workflows/h3_text_to_video_pika_dual_control_vectors.json`](../../../workflows/h3_text_to_video_pika_dual_control_vectors.json))
-  - Chains two `MiniMaxH3ApplyControlVectors` nodes in series (`21 -> 115 (film_16mm_1974, strength=1.8) -> 125 (chaos_panic, strength=2.2) -> BasicGuider (9)`), allowing independent `mode`, `mask`, `apply_holds`, and `start_percent`/`end_percent` step windows per vector (`arms 37, 38`).
-- **Character-Reference `ref2va` Control Vector (Pika 6-Step LCM)**: [`workflows/h3_image_ref_plus_text_to_video_pika_control_vector_api.json`](../../../workflows/h3_image_ref_plus_text_to_video_pika_control_vector_api.json) (UI: [`workflows/h3_image_ref_plus_text_to_video_pika_control_vector.json`](../../../workflows/h3_image_ref_plus_text_to_video_pika_control_vector.json))
+- **Dual Chained Control Vectors on `t2va` (Pika 6-Step LCM)**: [`workflows/h3_text_to_video_pika_dual_control_vectors_api.json`](../../../workflows/h3_text_to_video_pika_dual_control_vectors_api.json)
+  - Chains two `MiniMaxH3ApplyControlVectors` nodes in series (`21 -> 115 (film_16mm_1974, strength=1.8) -> 125 (chaos_panic, strength=2.2) -> BasicGuider (9)`), allowing independent `mode` (`add`, `project_out`, `amplify`), `mask` (`non_vision`, `all_rows`), and `start_percent`/`end_percent` step windows per vector (`arms 37, 38`).
+- **Character-Reference `ref2va` Control Vector (Pika 6-Step LCM)**: [`workflows/h3_image_ref_plus_text_to_video_pika_control_vector_api.json`](../../../workflows/h3_image_ref_plus_text_to_video_pika_control_vector_api.json)
   - Wires `LoadImage (12) -> MiniMaxH3ReferenceConditioning (10, mode="r2v")` and `MiniMaxH3LoRABranch (18, pika_h3_flex_ref2va_svd995_bf16.safetensors) -> 19 -> 58 -> 21 -> MiniMaxH3ApplyControlVectors (115, mask="non_vision") -> BasicGuider (9)`.
 
 ### 2. Extracting `t2va` (`fl2va`) and `ref2va` Control Vectors from `.toml` Pairs
@@ -190,7 +190,7 @@ Because `fl2va` (`h3_27B_fl2va_nt_int8_sn3_v2.safetensors`) and `ref2va` (`h3_27
 ```bash
 # A. Whole-scene style/atmosphere/persona vector on t2va/fl2va (default --pooling scene_text, run at strength = 1.8..2.8):
 $PY bench/control_vectors.py make \
-    --pairs prompt_bank/control_vectors/film_16mm_1974.toml \
+    prompt_bank/control_vectors/film_16mm_1974.toml \
     --unet h3_27B_fl2va_nt_int8_sn3_v2.safetensors \
     --lora pika_h3_flex_fl2va_svd995_bf16.safetensors:1.0 \
     --device default --refiner-device cuda \
@@ -198,21 +198,21 @@ $PY bench/control_vectors.py make \
 
 # B. Single-clause end-of-section physical action on t2va/fl2va (--pooling from_first_diff, run at strength = 3.5):
 $PY bench/control_vectors.py make \
-    --pairs prompt_bank/control_vectors/head_swell.toml \
+    prompt_bank/control_vectors/head_swell.toml \
     --unet h3_27B_fl2va_nt_int8_sn3_v2.safetensors \
     --lora pika_h3_flex_fl2va_svd995_bf16.safetensors:1.0 \
     --pooling from_first_diff \
-    --name head_swell_ffd \
+    --output-name head_swell_ffd \
     --device default --refiner-device cuda \
     --include-encoder --overwrite
 
 # C. Single-clause end-of-section physical action on ref2va (--pooling from_first_diff, run at strength = 3.5 with mask="non_vision"):
 $PY bench/control_vectors.py make \
-    --pairs prompt_bank/control_vectors/zero_gravity.toml \
+    prompt_bank/control_vectors/zero_gravity.toml \
     --unet h3_27B_ref2va_nt_int8_sn3_v2.safetensors \
     --lora pika_h3_flex_ref2va_svd995_bf16.safetensors:1.0 \
     --pooling from_first_diff \
-    --name zero_gravity_ffd \
+    --output-name zero_gravity_ffd \
     --device default --refiner-device cuda \
     --include-encoder --overwrite
 ```
