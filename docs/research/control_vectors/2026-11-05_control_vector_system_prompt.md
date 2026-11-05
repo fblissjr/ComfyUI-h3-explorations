@@ -133,13 +133,14 @@ Follow these six rules strictly:
 2. **NEVER Repeat the Test Subject's Trait in Pairs 1–10**:
    - Put the user's specific subject trait (for example, *bald man*, *woman in a red dress*, *elderly detective*) **ONLY** in `### Test Scene Prompt`, and **NEVER** repeat that subject trait in `Contrastive Pairs (1–10)`.
    - Across Pairs 1–10, use **5 women and 5 men** with completely different hairstyles, ages, builds, and wardrobes so the control vector isolates the transformation itself without entangling the test subject's appearance.
-3. **Place the Contrasted Clause Strictly BEFORE `<d>`, and Keep Everything After `<d>` 100% Identical**:
+3. **Place the Contrasted Clause Strictly BEFORE `<d>`, Vary Its Wording Across Pairs, and Keep Everything After `<d>` 100% Identical**:
    - In every `Prompt A` and `Prompt B`, place the single differing clause **before `<d>[Language] ...</d>`** inside the speaking sentence:
-     - `Prompt A`: `... <speaker noun phrase> with a <timbre> voice (S1), <explicit baseline clause: e.g., maintaining steady, unchanging anatomical head proportions as they speak>, says: <d>[Language] ...</d> <post-dialogue mouth closure and final action>.`
-     - `Prompt B`: `... <speaker noun phrase> with a <timbre> voice (S1), <explicit steered clause: e.g., their head progressively inflating and swelling larger with every word they utter>, says: <d>[Language] ...</d> <post-dialogue mouth closure and final action>.`
-   - **Every word from `<d>[Language] ...</d>` to the end of `integrated_multimodal_description:` must be 100% word-for-word identical between `Prompt A` and `Prompt B`.** Never alter the post-dialogue action or tack a second head-size clause after `</d>`.
-4. **Vary Sentence Openings and Scene Worlds Across All 10 Pairs**:
-   - Give each pair a distinct setting, lighting geometry, camera angle, and camera movement (`pushes in`, `trucks left`, `arcs around`, `tilts up`, `holds a static shot`, `pulls out`).
+     - `Prompt A`: `... <speaker noun phrase> with a <timbre> voice (S1), <explicit baseline clause stating the attribute stays normal/constant>, says: <d>[Language] ...</d> <post-dialogue mouth closure and final action>.`
+     - `Prompt B`: `... <speaker noun phrase> with a <timbre> voice (S1), <explicit steered clause stating the target transformation>, says: <d>[Language] ...</d> <post-dialogue mouth closure and final action>.`
+   - **Vary the wording of the baseline and steered clauses across the 10 pairs** (never paste the exact same clause string into all 10 pairs, and match the speaker's pronoun `his`/`her`) so the vector averages across diverse ways of expressing the same physical/acoustic phenomenon.
+   - **Every word from `<d>[Language] ...</d>` to the end of `integrated_multimodal_description:` must be 100% word-for-word identical between `Prompt A` and `Prompt B`.** Never alter the post-dialogue action or tack a second clause after `</d>`.
+4. **Vary Sentence Openings and Write Camera Moves as Active Verbs**:
+   - Give each pair a distinct setting, lighting geometry, camera angle, and camera movement, written as an active sentence (`The camera pushes in...`, `The camera trucks left...`, `The camera arcs around...`, `The camera tilts up...`, `The camera holds a static shot...`—never `"with the camera in a ... motion"`).
    - Vary how `[Shot 1]` opens across the 10 pairs: start some shots with the camera motion revealing the space, some with lighting/weather across the environment, and some with a tactile physical action on a prop before the speaker speaks.
 5. **Encoding Progressive / Temporal Transformations**:
    - When the requested effect unfolds over time or accompanies speech/action, `Prompt A`'s pre-`<d>` clause states that the attribute remains steady and constant during the action, while `Prompt B`'s pre-`<d>` clause uses vivid progressive temporal verbs describing how the transformation swells/intensifies with each word or beat.
