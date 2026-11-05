@@ -8,121 +8,121 @@ frame = "scene"
 exclude_shots = ["t2va_offpath_tortoise", "ref2va_look_anchor"]
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic, a young female librarian stands at a circulation desk, arranging books while maintaining a realistic human form and speaking in a calm, melodic human voice (S1), <d>I can help you find that section now.</d> as the camera holds a steady medium shot.
+a = '''integrated_multimodal_description: [Shot 1] Cinematic, eye-level framing in a humid botanical greenhouse filled with hanging ferns and blooming orchids, where an elderly male botanist with thinning gray hair and tortoiseshell spectacles examines a delicate white petal. The camera slowly tracks sideways along the wooden bench as he maintains his natural weathered human appearance and speaks in a warm, resonant baritone, (S1) says, <d>These rare specimens require daily misting to bloom.</d> He relaxes his hands back onto the potting table as his lips ease shut.
 
-overall_soundscape: The soft clicking of a computer keyboard and the quiet shuffling of pages in a library setting.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic, a young female librarian stands at a circulation desk, arranging books while transforming into a fuzzy orange felt hand puppet with large ping-pong-ball eyes and squeaking in a high-pitched puppet voice (S1), <d>I can help you find that section now.</d> as the camera holds a steady medium shot.
-
-overall_soundscape: The soft clicking of a computer keyboard and the quiet shuffling of pages in a library setting.
+overall_soundscape: Soft dripping of condensation droplets falling onto moist soil, the low rustling of broad palm fronds under an oscillating vent fan, and the delicate clink of glass watering vials.
 
 non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic, eye-level framing in a humid botanical greenhouse filled with hanging ferns and blooming orchids, where an elderly male botanist with thinning gray hair and tortoiseshell spectacles examines a delicate white petal. The camera slowly tracks sideways along the wooden bench as his body spontaneously transforms into a green fuzzy felt hand puppet with white ping-pong-ball eyes, an orange felt nose, and a hinged felt mouth that moves as he speaks in a comical, high-pitched squeaky puppet voice, (S1) says, <d>These rare specimens require daily misting to bloom.</d> He relaxes his hands back onto the potting table as his lips ease shut.
 
-[[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic, a male chef in a busy kitchen stirs a large pot of simmering soup, using his natural human hand to hold a wooden spoon and speaking in a warm baritone voice (S1), <d>Please make sure the heat remains consistent.</d> as the camera tracks slowly left.
-
-overall_soundscape: The rhythmic bubbling of boiling broth and the ambient clatter of metal pots in a professional kitchen.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic, a male chef in a busy kitchen stirs a large pot of simmering soup, morphing into a blue fuzzy felt hand puppet with ping-pong-ball eyes and squeaking in a nasal puppet voice (S1), <d>Please make sure the heat remains consistent.</d> as the camera tracks slowly left.
-
-overall_soundscape: The rhythmic bubbling of boiling broth and the ambient clatter of metal pots in a professional kitchen.
+overall_soundscape: Soft dripping of condensation droplets falling onto moist soil, the low rustling of broad palm fronds under an oscillating vent fan, and the delicate clink of glass watering vials.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic, a woman sitting on a park bench feeds pigeons, with her natural human fingers gently releasing bread crumbs as she laughs in a clear human voice (S1), <d>They are so hungry today!</d> while the camera pushes in slowly.
+a = '''integrated_multimodal_description: [Shot 1] Live-action, low-angle shot in a dimly lit vehicle repair garage with hydraulic car lifts and scattered wrenches, where a young female mechanic in grease-smudged denim overalls wipes her brow beneath an elevated sedan. As the camera holds a steady static frame, her flesh and facial features remain completely natural while she projects a grounded, raspy vocal tone, (S1) says, <d>The alternator belt is completely worn through.</d> She finishes speaking, lowering her wrench as her mouth seals into a flat resting line.
 
-overall_soundscape: The chirping of birds and the rustle of leaves in the wind across the park.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic, a woman sitting on a park bench feeds pigeons, turning into a bright yellow fuzzy felt hand puppet with ping-pong-ball eyes and floppy felt fingers as she squeaks in a comical puppet voice (S1), <d>They are so hungry today!</d> while the camera pushes in slowly.
-
-overall_soundscape: The chirping of birds and the rustle of leaves in the wind across the park.
+overall_soundscape: The metallic clang of a heavy ratchet wrench setting onto a steel cart, a distant pneumatic air compressor cycling on, and ambient room reverb off oil-stained concrete floors.
 
 non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, low-angle shot in a dimly lit vehicle repair garage with hydraulic car lifts and scattered wrenches, where a young female mechanic in grease-smudged denim overalls wipes her brow beneath an elevated sedan. As the camera holds a steady static frame, her entire torso and head morph instantly into a soft blue fleece hand puppet featuring a pair of glued ping-pong-ball pupils and a flapping yarn-lined mouth that articulates in a shrill, squeaky puppet pitch, (S1) says, <d>The alternator belt is completely worn through.</d> She finishes speaking, lowering her wrench as her mouth seals into a flat resting line.
 
-[[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic, a male mechanic leans over an engine block in a sunlit garage, wiping grease with a rag in his steady human hand and muttering in a grounded chest voice (S1), <d>This alternator needs a complete replacement.</d> while the camera holds an eye-level shot.
-
-overall_soundscape: The metallic clang of tools hitting concrete and the faint hum of a ceiling fan in the garage.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic, a male mechanic leans over an engine block in a sunlit garage, transitioning into a green fuzzy felt hand puppet with ping-pong-ball eyes and a wide hinged felt jaw while squeaking in a high puppet voice (S1), <d>This alternator needs a complete replacement.</d> while the camera holds an eye-level shot.
-
-overall_soundscape: The metallic clang of tools hitting concrete and the faint hum of a ceiling fan in the garage.
+overall_soundscape: The metallic clang of a heavy ratchet wrench setting onto a steel cart, a distant pneumatic air compressor cycling on, and ambient room reverb off oil-stained concrete floors.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic, a woman standing in a garden center waters a row of ferns, holding the hose with her human hand and singing in a natural, pleasant soprano voice (S1), <d>Grow strong under the sun.</d> as the camera pans gently right.
+a = '''integrated_multimodal_description: [Shot 1] Cinematic, wide shot across a gleaming stainless-steel restaurant kitchen filled with rising steam and simmering pans, where a middle-aged male head chef wearing a white double-breasted coat and apron plates a pan-seared sea bass. The camera gently zooms in toward the serving counter as his human complexion, facial skin, and deep authoritative voice remain steady and unchanged, (S1) says, <d>Add a pinch of sea salt before the sauce reduces.</d> He sets down the copper tasting spoon as his jaw ceases movement.
 
-overall_soundscape: The sound of water spraying from a nozzle and the gentle rustle of leaves.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic, a woman standing in a garden center waters a row of ferns, turning into a pink fuzzy felt hand puppet with ping-pong-ball eyes and stuffed foam fingers while singing in a high-pitched, squeaky puppet tone (S1), <d>Grow strong under the sun.</d> as the camera pans gently right.
-
-overall_soundscape: The sound of water spraying from a nozzle and the gentle rustle of leaves.
+overall_soundscape: Sizzling butter on a hot skillet surface, bubbling broth murmuring softly in a stockpot, and light ceramic plate clinking across the prep counter.
 
 non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic, wide shot across a gleaming stainless-steel restaurant kitchen filled with rising steam and simmering pans, where a middle-aged male head chef wearing a white double-breasted coat and apron plates a pan-seared sea bass. The camera gently zooms in toward the serving counter as his upper body morphs seamlessly into a bright yellow fuzzy felt hand puppet sporting domed ping-pong-ball eyes and a wide felt maw that utters words in an exaggerated, squeaky puppet cadence, (S1) says, <d>Add a pinch of sea salt before the sauce reduces.</d> He sets down the copper tasting spoon as his jaw ceases movement.
 
-[[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic, a male painter stands at an easel, dipping his brush into red paint with his human hand and speaking in a calm, contemplative human tone (S1), <d>I think I need a different shade here.</d> while the camera holds a medium-close shot.
-
-overall_soundscape: The soft scrape of a paintbrush against canvas and the wet sound of mixing paint on a palette.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic, a male painter stands at an easel, shifting into a purple fuzzy felt hand puppet with wobbly ping-pong-ball eyes and a rapidly hinging felt mouth while squeaking (S1), <d>I think I need a different shade here.</d> while the camera holds a medium-close shot.
-
-overall_soundscape: The soft scrape of a paintbrush against canvas and the wet sound of mixing paint on a palette.
+overall_soundscape: Sizzling butter on a hot skillet surface, bubbling broth murmuring softly in a stockpot, and light ceramic plate clinking across the prep counter.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic, a woman at a train station looks at her watch, keeping her natural human features and speaking in a normal, frustrated human voice (S1), <d>We are going to miss the express line.</d> as the camera tracks beside her.
+a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot inside the curved observation dome of an orbital space module, sunlight glinting off blue oceans through the glass panels, where a female astronaut in a navy utility jumpsuit floats slightly while tethered near an instrument console. The camera arcs around her shoulder as she preserves her lifelike human visage, smooth skin, and clear, measured mid-frequency vocal delivery, (S1) says, <d>Our orbital path will cross the southern hemisphere in ten minutes.</d> She checks the glowing telemetry readouts as her facial muscles settle back to neutral.
 
-overall_soundscape: The echoing announcements of a train station and the distant sound of train wheels on tracks.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic, a woman at a train station looks at her watch, morphing into a red fuzzy felt hand puppet with ping-pong-ball eyes waving her stuffed felt arms and squeaking in a frantic puppet voice (S1), <d>We are going to miss the express line.</d> as the camera tracks beside her.
-
-overall_soundscape: The echoing announcements of a train station and the distant sound of train wheels on tracks.
+overall_soundscape: Steady low-frequency drone of environmental life-support fans, faint pressurized air hiss, and the muted tap of magnetic gloves against an aluminum rail.
 
 non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot inside the curved observation dome of an orbital space module, sunlight glinting off blue oceans through the glass panels, where a female astronaut in a navy utility jumpsuit floats slightly while tethered near an instrument console. The camera arcs around her shoulder as her body abruptly shifts into a purple fuzzy felt puppet character equipped with lightweight ping-pong-ball eyeballs and a flapping fabric mouth that speaks in a nasal, squeaky puppet falsetto, (S1) says, <d>Our orbital path will cross the southern hemisphere in ten minutes.</d> She checks the glowing telemetry readouts as her facial muscles settle back to neutral.
 
-[[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic, a male waiter pours coffee at a crowded cafe, moving with natural human dexterity and speaking in a clear, polite human voice (S1), <d>Careful, the cup is quite hot.</d> as the camera zooms in slightly.
-
-overall_soundscape: The clinking of porcelain cups and the ambient chatter of a busy coffee shop.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic, a male waiter pours coffee at a crowded cafe, transforming into a brown fuzzy felt hand puppet with ping-pong-ball eyes and stiffly hinged felt jaws while squeaking in a shrill puppet voice (S1), <d>Careful, the cup is quite hot.</d> as the camera zooms in slightly.
-
-overall_soundscape: The clinking of porcelain cups and the ambient chatter of a busy coffee shop.
+overall_soundscape: Steady low-frequency drone of environmental life-support fans, faint pressurized air hiss, and the muted tap of magnetic gloves against an aluminum rail.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic, a woman at a grocery store counter inspects a piece of fruit (S1) and says, <d>This apple looks perfectly ripe.</d> as the camera holds a steady medium framing.
+a = '''integrated_multimodal_description: [Shot 1] Live-action, tracking shot along the sunlit concrete ledges of an outdoor skatepark, where a teenage boy wearing a faded red hoodie and baggy shorts sits on his grip-taped skateboard while taking a sip from a sports bottle. The camera trucks right at moderate speed as his youthful human face, casual posture, and slightly husky teenage cadence remain totally steady, (S1) says, <d>Let me land this kickflip before the streetlamps turn on.</d> He drops his hands to his knees as his mouth rests quietly.
 
-overall_soundscape: The sound of scanner beeps and the natural rustle of paper shopping bags across the counter.
+overall_soundscape: Polyurethane skateboard wheels rolling over rough concrete in the background, a distant hollow wooden pop of an ollie landing, and a brisk outdoor afternoon breeze.
 
 non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic, a woman at a grocery store counter inspects a piece of fruit (S1) and says, <d>This apple looks perfectly ripe.</d> as the camera holds a steady medium framing.
+b = '''integrated_multimodal_description: [Shot 1] Live-action, tracking shot along the sunlit concrete ledges of an outdoor skatepark, where a teenage boy wearing a faded red hoodie and baggy shorts sits on his grip-taped skateboard while taking a sip from a sports bottle. The camera trucks right at moderate speed as his head and torso instantly turn into a fuzzy crimson felt hand puppet with prominent ping-pong-ball eyes and a flexible foam-backed mouth that bounces open and shut with a silly, squeaky puppet intonation, (S1) says, <d>Let me land this kickflip before the streetlamps turn on.</d> He drops his hands to his knees as his mouth rests quietly.
 
-overall_soundscape: The sound of scanner beeps and the high-pitched, rubbery squeaks of a foam-and-felt hand puppet jaw snapping open and shut.
+overall_soundscape: Polyurethane skateboard wheels rolling over rough concrete in the background, a distant hollow wooden pop of an ollie landing, and a brisk outdoor afternoon breeze.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic, a male teacher at a blackboard writes a math problem in chalk (S1) and says, <d>Does anyone have the answer?</d> while the camera pans slowly across the front desk.
+a = '''integrated_multimodal_description: [Shot 1] Cinematic, warm side-lit interior of a rustic textile studio lined with colorful yarn spools, where an elderly woman with silver hair bound in a loose bun sits beside a massive wooden floor loom. The camera pushes in slowly across the hanging wool tapestries as she retains her delicate wrinkled human skin, gentle gaze, and soft, mellow vocal timbre, (S1) says, <d>The wool fibers must stay evenly stretched across the warp.</d> She resumes guiding the wooden shuttle across the threads as her mouth firmly closes.
 
-overall_soundscape: The rhythmic scratching of chalk on a slate board and quiet classroom room tone.
+overall_soundscape: Rhythmic creak of polished timber loom frames shifting, soft brushing friction of taut yarn strands, and dust motes drifting through quiet indoor room tone.
 
 non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic, a male teacher at a blackboard writes a math problem in chalk (S1) and says, <d>Does anyone have the answer?</d> while the camera pans slowly across the front desk.
+b = '''integrated_multimodal_description: [Shot 1] Cinematic, warm side-lit interior of a rustic textile studio lined with colorful yarn spools, where an elderly woman with silver hair bound in a loose bun sits beside a massive wooden floor loom. The camera pushes in slowly across the hanging wool tapestries as she shifts rapidly into an olive-green fuzzy felt sock-style hand puppet with glued-on ping-pong-ball eyes and a moving red felt mouth speaking in a thin, squeaky puppet chirp, (S1) says, <d>The wool fibers must stay evenly stretched across the warp.</d> She resumes guiding the wooden shuttle across the threads as her mouth firmly closes.
 
-overall_soundscape: The rhythmic scratching of chalk on a slate board and the chirpy, hollow fabric-and-foam squeaking of a felt hand puppet mechanism.
+overall_soundscape: Rhythmic creak of polished timber loom frames shifting, soft brushing friction of taut yarn strands, and dust motes drifting through quiet indoor room tone.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, medium-wide view on a rugged, wave-battered coastal headland beneath overcast skies, where a young male marine biologist clad in a bright yellow hooded rain jacket clutches a glass test tube over a tide pool. The camera pedestals up slowly from the wet barnacles as his human facial contours and crisp, standard baritone voice persist entirely unaltered, (S1) says, <d>The salinity levels near the tide pools are rising rapidly.</d> He carefully caps the glass tube as his mouth ceases all motion.
+
+overall_soundscape: Rhythmic surging of ocean waves crashing against jagged sea rocks, blustery seaside wind whistling past the microphone, and the wet suction of rubber boots on slippery kelp.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, medium-wide view on a rugged, wave-battered coastal headland beneath overcast skies, where a young male marine biologist clad in a bright yellow hooded rain jacket clutches a glass test tube over a tide pool. The camera pedestals up slowly from the wet barnacles as his physical form transforms instantly into an orange fuzzy felt hand puppet boasting bulbous ping-pong-ball eyes and a wide, hinged fabric mouth that delivers words in a high-strung, squeaky puppet squeal, (S1) says, <d>The salinity levels near the tide pools are rising rapidly.</d> He carefully caps the glass tube as his mouth ceases all motion.
+
+overall_soundscape: Rhythmic surging of ocean waves crashing against jagged sea rocks, blustery seaside wind whistling past the microphone, and the wet suction of rubber boots on slippery kelp.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic, moody close-medium shot in a dimly illuminated subterranean museum archive surrounded by towering metal shelving units, where a young woman archivist with dark curly hair and cotton handling gloves examines an ancient manuscript under an adjustable desk lamp. The camera pulls out smoothly across the wooden examination table as her ordinary human flesh, focused expression, and composed, hushed alto tone remain constant, (S1) says, <d>This parchment dates back to the early third century.</d> She folds her gloved hands neatly over the desk edge as her mouth settles motionless.
+
+overall_soundscape: Crisp, delicate rustling of dried fibrous paper, faint distant hum of building ventilation ductwork, and gentle creak of a metal gooseneck lamp adjusting.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic, moody close-medium shot in a dimly illuminated subterranean museum archive surrounded by towering metal shelving units, where a young woman archivist with dark curly hair and cotton handling gloves examines an ancient manuscript under an adjustable desk lamp. The camera pulls out smoothly across the wooden examination table as her entire upper frame suddenly mutates into a fuzzy turquoise felt puppet with plastic ping-pong-ball eyes and a bendable felt mouth that flaps erratically in a grating, squeaky puppet pitch, (S1) says, <d>This parchment dates back to the early third century.</d> She folds her gloved hands neatly over the desk edge as her mouth settles motionless.
+
+overall_soundscape: Crisp, delicate rustling of dried fibrous paper, faint distant hum of building ventilation ductwork, and gentle creak of a metal gooseneck lamp adjusting.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, medium shot inside a sawdust-scented woodworking workshop bathed in afternoon window light, where a burly middle-aged male carpenter with a thick beard and leather apron runs his palms over an unfinished timber plank. The camera pans left across the workbench as his rugged human appearance, facial hair, and low rumbling bass voice remain completely steady, (S1) says, <d>The grain pattern on this walnut slab is exceptionally smooth.</d> He picks up a block of sandpaper as his facial expression returns to rest.
+
+overall_soundscape: Dry abrasive scraping of wood shavings drifting across pine floorboards, intermittent thud of a rubber mallet in another room, and quiet workshop room tone.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, medium shot inside a sawdust-scented woodworking workshop bathed in afternoon window light, where a burly middle-aged male carpenter with a thick beard and leather apron runs his palms over an unfinished timber plank. The camera pans left across the workbench as his head and shoulders transform into a fuzzy brown felt hand puppet equipped with a pair of blank ping-pong-ball eyes and a soft articulated puppet mouth speaking in an absurdly squeaky puppet register, (S1) says, <d>The grain pattern on this walnut slab is exceptionally smooth.</d> He picks up a block of sandpaper as his facial expression returns to rest.
+
+overall_soundscape: Dry abrasive scraping of wood shavings drifting across pine floorboards, intermittent thud of a rubber mallet in another room, and quiet workshop room tone.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic, upward tilt shot at the base of an indoor climbing gym wall covered in multi-colored synthetic grips, where an athletic woman wearing a black athletic tank top dusts chalk from her palms onto her harness. The camera tilts up from the safety mat to her focused face as her athletic human features, toned shoulders, and confident, steady voice remain entirely normal, (S1) says, <d>Reach for the crimp hold just past the overhang.</d> She reaches both chalked hands forward to grip the start hold as her lips close securely.
+
+overall_soundscape: Muffled hollow thud of climbing shoes padding onto vinyl impact mats, faint patter of loose chalk dust falling, and distant chatter echoing across the gym arena.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic, upward tilt shot at the base of an indoor climbing gym wall covered in multi-colored synthetic grips, where an athletic woman wearing a black athletic tank top dusts chalk from her palms onto her harness. The camera tilts up from the safety mat to her focused face as her head and torso turn completely into a fuzzy magenta felt hand puppet sporting white ping-pong-ball eyes and a slit felt mouth that chatters in a comical, squeaky puppet treble, (S1) says, <d>Reach for the crimp hold just past the overhang.</d> She reaches both chalked hands forward to grip the start hold as her lips close securely.
+
+overall_soundscape: Muffled hollow thud of climbing shoes padding onto vinyl impact mats, faint patter of loose chalk dust falling, and distant chatter echoing across the gym arena.
 
 non_diegetic_music: N/A'''
