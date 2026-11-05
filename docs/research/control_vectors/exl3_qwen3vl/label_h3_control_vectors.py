@@ -184,9 +184,11 @@ DOMAIN_WORDS: frozenset[str] = frozenset({
     "telephoto", "macroblock", "bitcrushed", "liquefy", "liquefied", "globular",
     "bulbous", "inflatable", "inflated", "swollen", "ballooning", "buoyant", "buoyancy",
     "midair", "airborne", "skyward", "upward", "downward", "glissando", "fumble",
-    "fumbling", "hilarious", "clumsy", "clumsily", "disastrous", "disastrously",
-    "catastrophic", "grotesque", "monstrous", "monstrously", "cavernous",
-    "whimsical", "writhing", "crudely", "scrambling", "morphing",
+    "fumbling", "hilarious", "hilariously", "harmonious", "clumsy", "clumsily",
+    "disastrous", "disastrously", "catastrophic", "grotesque", "monstrous",
+    "monstrously", "cavernous", "whimsical", "writhing", "crudely", "scrambling",
+    "morphing", "enlarged", "enlarging", "expansive", "capitalized", "antiquated",
+    "quintessential",
 })
 
 

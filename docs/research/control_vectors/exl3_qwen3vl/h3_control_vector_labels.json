@@ -54,7 +54,7 @@
         "negative_boosted_words": [
           "remain (+4.38)",
           "gentle (+3.96)",
-          "harmonica (+3.90)",
+          "harmonious (+3.90)",
           "maintain (+3.72)",
           "calm (+3.64)",
           "serene (+3.58)",
@@ -214,7 +214,7 @@
           "messed (+3.65)"
         ],
         "negative_boosted_words": [
-          "harmonica (+3.73)",
+          "harmonious (+3.73)",
           "harmony (+3.51)",
           "steady (+3.41)",
           "simplicity (+3.27)",
@@ -363,7 +363,7 @@
       "lexical_logit_shifts": {
         "positive_boosted_words": [
           "cartoon (+4.22)",
-          "hilarity (+4.01)",
+          "hilariously (+4.01)",
           "goofy (+3.66)",
           "crudely (+3.46)",
           "hilarious (+3.38)",
@@ -378,7 +378,7 @@
         "negative_boosted_words": [
           "balanced (+3.07)",
           "professional (+2.59)",
-          "harmonica (+2.49)",
+          "harmonious (+2.49)",
           "precise (+2.48)",
           "understand (+2.44)",
           "comprehensive (+2.42)",
@@ -870,7 +870,7 @@
           "vintage (+2.67)",
           "badly (+2.55)",
           "fragments (+2.54)",
-          "antiqued (+2.49)",
+          "antiquated (+2.49)",
           "outdated (+2.47)"
         ],
         "negative_boosted_words": [
@@ -1045,7 +1045,7 @@
           "swelling (+3.76)",
           "swell (+3.67)",
           "enlarged (+3.63)",
-          "enlarger (+3.62)"
+          "enlarging (+3.62)"
         ],
         "negative_boosted_words": [
           "remain (+3.89)",
@@ -1203,14 +1203,14 @@
           "crash (+4.92)",
           "disastrous (+4.83)",
           "chaos (+4.72)",
-          "hilarity (+4.47)",
+          "hilariously (+4.47)",
           "erupt (+4.39)",
           "exploding (+4.33)",
           "burst (+4.26)",
           "horribly (+4.21)"
         ],
         "negative_boosted_words": [
-          "harmonica (+2.93)",
+          "harmonious (+2.93)",
           "excellent (+2.91)",
           "good (+2.68)",
           "comfortable (+2.64)",
@@ -1536,13 +1536,13 @@
           "rock (+2.49)",
           "free (+2.16)",
           "material (+2.13)",
-          "capital (+1.94)",
+          "capitalized (+1.94)",
           "impress (+1.91)",
           "icon (+1.85)",
           "boldly (+1.79)",
           "delight (+1.78)",
           "exhilarate (+1.76)",
-          "quintet (+1.72)",
+          "quintessential (+1.72)",
           "unmistakable (+1.72)"
         ],
         "negative_boosted_words": [
@@ -1711,7 +1711,7 @@
           "crudely (+3.30)",
           "grotesque (+3.23)",
           "painfully (+3.11)",
-          "hilarity (+3.06)",
+          "hilariously (+3.06)",
           "harsh (+3.04)",
           "blatantly (+3.03)",
           "terrible (+3.02)",
@@ -1725,7 +1725,7 @@
           "cozy (+3.36)",
           "relaxing (+3.34)",
           "calming (+3.27)",
-          "harmonica (+3.22)",
+          "harmonious (+3.22)",
           "comfortable (+3.16)",
           "gentle (+3.12)",
           "pleasant (+3.08)",
@@ -1884,7 +1884,7 @@
           "scriptures (+3.22)",
           "arch (+3.18)",
           "intertwine (+3.11)",
-          "expanses (+3.05)",
+          "expansive (+3.05)",
           "echoes (+3.04)"
         ],
         "negative_boosted_words": [
@@ -2046,7 +2046,7 @@
           "explosion (+4.39)",
           "grotesque (+4.27)",
           "monstrously (+3.99)",
-          "hilarity (+3.98)",
+          "hilariously (+3.98)",
           "horrifying (+3.85)",
           "unbearable (+3.82)",
           "horribly (+3.81)",
@@ -2060,7 +2060,7 @@
           "warm (+3.18)",
           "calm (+3.13)",
           "smooth (+3.09)",
-          "harmonica (+2.95)",
+          "harmonious (+2.95)",
           "relaxed (+2.86)",
           "neutral (+2.82)",
           "steady (+2.72)",
