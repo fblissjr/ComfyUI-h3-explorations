@@ -624,6 +624,101 @@ b = "a busy city street"
             "weight must be finite and non-zero",
             "pair-file refusal: NaN [[hold]] weight",
         )
+
+        # 14. Markdown-to-TOML parser and writer (fenced + raw, auto-mode, auto-sides/quality, and refusals)
+        md_test_scene = (
+            "integrated_multimodal_description: [Shot 1] Live-action. A potter works at a wheel "
+            "as (S1) says, <d>Steady hands.</d> Her lips close calmly.\n\n"
+            "overall_soundscape: Wheel hum.\n\n"
+            "non_diegetic_music: N/A"
+        )
+        md_raw = (
+            f"### Test Scene Prompt\n\n{md_test_scene}\n\n"
+            f"### Contrastive Pairs (1–2)\n\n"
+            f"#### Pair 1\n##### Prompt A (Baseline)\n{base_a}\n\n##### Prompt B (Steered)\n{base_b}\n\n"
+            f"#### Pair 2\n##### Prompt A (Baseline)\n{hold_a}\n\n##### Prompt B (Steered)\n{hold_b}\n"
+        )
+        md_fenced = f"```text\n{md_raw}\n```\n"
+        parsed_raw = cv.parse_markdown_pairs(md_raw)
+        parsed_fenced = cv.parse_markdown_pairs(md_fenced)
+        if parsed_raw != parsed_fenced:
+            errs.append("parse_markdown_pairs differed between fenced and unfenced markdown")
+        if parsed_raw["mode"] != "t2va" or len(parsed_raw["pairs"]) != 2:
+            errs.append(f"parse_markdown_pairs unexpected mode/pairs: {parsed_raw}")
+        if parsed_raw["test_scene_prompt"] != md_test_scene:
+            errs.append(f"parse_markdown_pairs test_scene_prompt mismatch: {parsed_raw['test_scene_prompt']!r}")
+
+        ref_md = md_raw.replace(
+            "### Test Scene Prompt\n\n",
+            "### Test Scene Prompt\n\nsubject_definitions:\n<Subject 1> is the potter in <Picture 1>.\n\n",
+        )
+        if cv.parse_markdown_pairs(ref_md)["mode"] != "ref2va":
+            errs.append("parse_markdown_pairs did not auto-detect ref2va from subject_definitions:")
+
+        md_file = tmp_dir / "from_md_sample.md"
+        md_file.write_text(md_fenced, encoding="utf-8")
+        tp_out = tmp_dir / "test_scene_out.txt"
+        out_toml = cv.write_markdown_to_toml(
+            md_file,
+            tmp_dir / "from_md_sample.toml",
+            test_prompt_out=tp_out,
+            bank_dir=bank_dir,
+        )
+        if not out_toml.is_file() or not tp_out.is_file():
+            errs.append("write_markdown_to_toml did not write .toml or test_prompt_out")
+        else:
+            if tp_out.read_text(encoding="utf-8").strip() != md_test_scene:
+                errs.append("write_markdown_to_toml test_prompt_out content mismatch")
+            if "# Test Scene Prompt:" not in out_toml.read_text(encoding="utf-8"):
+                errs.append("write_markdown_to_toml omitted '# Test Scene Prompt:' comment header")
+            loaded_md_ps = cv.load_pairs(out_toml, bank_dir=bank_dir)
+            if (
+                loaded_md_ps.name != "from_md_sample"
+                or loaded_md_ps.mode != "t2va"
+                or len(loaded_md_ps.pairs) != 2
+                or loaded_md_ps.a_side != pset.pairs[0].a_span
+                or loaded_md_ps.b_side != pset.pairs[0].b_span
+                or loaded_md_ps.quality != f"{pset.pairs[0].b_span} vs. {pset.pairs[0].a_span}"
+            ):
+                errs.append(f"write_markdown_to_toml loaded PairSet mismatch: {loaded_md_ps}")
+
+        errs += _expect_refusal(
+            lambda: cv.write_markdown_to_toml(
+                md_file, tmp_dir / "from_md_sample.toml", overwrite=False, bank_dir=bank_dir
+            ),
+            "already exists",
+            "write_markdown_to_toml refusal when output .toml already exists and overwrite=False",
+        )
+        errs += _expect_refusal(
+            lambda: cv.parse_markdown_pairs("### Test Scene Prompt\n\nJust a scene prompt without pairs."),
+            "no '#### pair n' blocks",
+            "parse_markdown_pairs refusal when no Pair blocks exist",
+        )
+        errs += _expect_refusal(
+            lambda: cv.parse_markdown_pairs(
+                "#### Pair 1\n##### Prompt A (Baseline)\n" + base_a
+            ),
+            "missing '##### prompt b'",
+            "parse_markdown_pairs refusal when Prompt B is missing",
+        )
+        errs += _expect_refusal(
+            lambda: cv.parse_markdown_pairs(
+                "#### Pair 1\n##### Prompt B (Steered)\n" + base_b
+            ),
+            "missing '##### prompt a'",
+            "parse_markdown_pairs refusal when Prompt A is missing",
+        )
+        errs += _expect_refusal(
+            lambda: cv.write_markdown_to_toml(
+                f"#### Pair 1\n##### Prompt A\n{base_a}\n\n##### Prompt B\n{leaked_b}\n",
+                tmp_dir / "bad_md_multispan.toml",
+                bank_dir=bank_dir,
+            ),
+            "multiple separate spans",
+            "write_markdown_to_toml refusal when markdown pair has multiple separate spans",
+        )
+        if (tmp_dir / "bad_md_multispan.toml").exists():
+            errs.append("write_markdown_to_toml left invalid .toml on disk after validation failure")
     return errs
 
 
@@ -2372,6 +2467,51 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
             rc_bad = bench_cv.main(["inspect", str(bad_safetensors)])
         if rc_bad != 2 or "missing required key 'format'" not in buf_err2.getvalue():
             errs.append(f"bench/control_vectors.py inspect on bad file returned {rc_bad}, err={buf_err2.getvalue()!r}")
+
+        # CLI from-md / import-md subcommand check (file path --out, directory --out, and malformed refusal)
+        cli_md = tmp / "cli_md_vec.md"
+        cli_md.write_text(
+            "### Test Scene Prompt\n\n"
+            "integrated_multimodal_description: [Shot 1] Wide shot as (S1) says, <d>Hello.</d>\n\n"
+            "overall_soundscape: Wind.\n\nnon_diegetic_music: N/A\n\n"
+            "### Contrastive Pairs (1–2)\n\n"
+            "#### Pair 1\n##### Prompt A (Baseline)\n"
+            "integrated_multimodal_description: [Shot 1] Scene 1 filmed with clean neutral modern digital color.\n\noverall_soundscape: Quiet room tone.\n\n"
+            "##### Prompt B (Steered)\n"
+            "integrated_multimodal_description: [Shot 1] Scene 1 filmed with 1974 16mm color reversal stock.\n\noverall_soundscape: Quiet room tone.\n\n"
+            "#### Pair 2\n##### Prompt A (Baseline)\n"
+            "integrated_multimodal_description: [Shot 1] Scene 2 filmed with flat modern digital video render.\n\noverall_soundscape: Quiet room tone.\n\n"
+            "##### Prompt B (Steered)\n"
+            "integrated_multimodal_description: [Shot 1] Scene 2 filmed with 1974 16mm celluloid film grain.\n\noverall_soundscape: Quiet room tone.\n",
+            encoding="utf-8",
+        )
+        cli_toml_out = tmp / "cli_md_vec.toml"
+        buf_fm_out, buf_fm_err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(buf_fm_out), contextlib.redirect_stderr(buf_fm_err):
+            rc_fm = bench_cv.main(["from-md", str(cli_md), "--out", str(cli_toml_out)])
+        if rc_fm != 0 or not cli_toml_out.is_file() or "Control Vector From-MD: cli_md_vec" not in buf_fm_out.getvalue():
+            errs.append(
+                f"bench/control_vectors.py from-md failed: rc={rc_fm}, out={buf_fm_out.getvalue()!r}, err={buf_fm_err.getvalue()!r}"
+            )
+        cli_dir_out = tmp / "md_out_dir"
+        buf_im_out, buf_im_err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(buf_im_out), contextlib.redirect_stderr(buf_im_err):
+            rc_im = bench_cv.main(
+                ["import-md", str(cli_md), "--out", str(cli_dir_out), "--name", "custom_stem"]
+            )
+        if rc_im != 0 or not (cli_dir_out / "custom_stem.toml").is_file():
+            errs.append(
+                f"bench/control_vectors.py import-md --out <dir> --name failed: rc={rc_im}, err={buf_im_err.getvalue()!r}"
+            )
+        bad_cli_md = tmp / "bad_cli.md"
+        bad_cli_md.write_text("#### Pair 1\n##### Prompt A\nOnly side A.\n", encoding="utf-8")
+        buf_bfm_out, buf_bfm_err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(buf_bfm_out), contextlib.redirect_stderr(buf_bfm_err):
+            rc_bfm = bench_cv.main(["from-md", str(bad_cli_md), "--out", str(tmp / "bad_cli.toml")])
+        if rc_bfm != 2 or "missing '##### prompt b'" not in buf_bfm_err.getvalue().lower():
+            errs.append(
+                f"bench/control_vectors.py from-md on malformed markdown returned {rc_bfm}, err={buf_bfm_err.getvalue()!r}"
+            )
 
         # Step schedule window check on _make_control_vector_wrapper ([0.25, 0.75) on a 4-step schedule)
         sched_sigmas = torch.tensor([1.0, 0.8, 0.5, 0.2, 0.0], dtype=torch.float32)

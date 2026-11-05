@@ -36,9 +36,10 @@ NAME_RE = re.compile(r"^[a-z0-9_]+$")
 CUSTOM_FAMILY_RE = re.compile(r"^custom:[0-9a-f]{12}$")
 LLM_VECTOR_KEY_RE = re.compile(r"^vector\.llm\.\d+$")
 
-VALID_MODES = ("t2va", "fl2va", "ref2va")
+VALID_MODES = ("t2va", "fl2va", "i2va", "l2va", "ref2va")
 VALID_FRAMES = ("scene", "bare")
 VALID_POOLING = ("scene_text", "all_tag1", "from_first_diff")
+DEFAULT_EXCLUDE_SHOTS: tuple[str, ...] = ("t2va_offpath_tortoise", "ref2va_look_anchor")
 
 ALLOWED_TOP_KEYS = frozenset({"vector", "pair", "hold"})
 ALLOWED_VECTOR_KEYS = frozenset(
@@ -386,6 +387,328 @@ def load_pairs(path: str | Path, *, bank_dir: str | Path | None = None) -> PairS
         pairs=tuple(pairs),
         holds=tuple(holds),
     )
+
+
+_FENCE_OUTER_RE = re.compile(
+    r"^[ \t]*(`{3,})[A-Za-z0-9_-]*[ \t]*\r?\n(.*)\r?\n[ \t]*\1[ \t]*$",
+    flags=re.DOTALL,
+)
+_TEST_SCENE_HEADING_RE = re.compile(
+    r"^[ \t]*###[ \t]+Test[ \t]+Scene[ \t]+Prompt\b[^\n]*$",
+    flags=re.MULTILINE | re.IGNORECASE,
+)
+_PAIR_HEADING_RE = re.compile(
+    r"^[ \t]*####[ \t]+Pair[ \t]+(\d+)\b[^\n]*$",
+    flags=re.MULTILINE | re.IGNORECASE,
+)
+_PROMPT_A_HEADING_RE = re.compile(
+    r"^[ \t]*#####[ \t]+Prompt[ \t]+A\b[^\n]*$",
+    flags=re.MULTILINE | re.IGNORECASE,
+)
+_PROMPT_B_HEADING_RE = re.compile(
+    r"^[ \t]*#####[ \t]+Prompt[ \t]+B\b[^\n]*$",
+    flags=re.MULTILINE | re.IGNORECASE,
+)
+_SECTION_ONLY_RE = re.compile(
+    r"\b(integrated_multimodal_description|subject_definitions|summary|"
+    r"retention_analysis|detailed_description|overall_soundscape|non_diegetic_music):"
+)
+
+
+def _unwrap_markdown_fence(md_text: str) -> str:
+    text = md_text.replace("\r\n", "\n").replace("\r", "\n").strip()
+    m_outer = _FENCE_OUTER_RE.match(text)
+    if m_outer is not None:
+        return m_outer.group(2).strip()
+    if _PAIR_HEADING_RE.search(text) is None:
+        for m_inner in re.finditer(
+            r"^[ \t]*(`{3,})[A-Za-z0-9_-]*[ \t]*\n(.*?)\n[ \t]*\1[ \t]*$",
+            text,
+            flags=re.MULTILINE | re.DOTALL,
+        ):
+            candidate = m_inner.group(2).strip()
+            if _PAIR_HEADING_RE.search(candidate) is not None:
+                return candidate
+    return text
+
+
+def differing_section_info(a: str, b: str, *, frame: str = "scene") -> tuple[int, str]:
+    """Return `(sec_idx, section_name)` for the prompt section where `a` and `b` differ."""
+    if frame == "bare":
+        return 0, "bare"
+    min_len = min(len(a), len(b))
+    c_prefix = 0
+    while c_prefix < min_len and a[c_prefix] == b[c_prefix]:
+        c_prefix += 1
+    sec_matches = list(_SECTION_ONLY_RE.finditer(a))
+    if not sec_matches:
+        return 0, "text"
+    chosen_idx = 0
+    chosen_name = sec_matches[0].group(1)
+    for idx, m in enumerate(sec_matches):
+        if m.start() <= c_prefix:
+            chosen_idx = idx
+            chosen_name = m.group(1)
+        else:
+            break
+    return chosen_idx, chosen_name
+
+
+def parse_markdown_pairs(md_text: str) -> dict[str, Any]:
+    """Parse an LLM-authored control-vector Markdown document into structured data.
+
+    Strips an outer fenced code block (e.g. ```` ```text ```` or ```` ```markdown ````)
+    when present, extracts the optional `### Test Scene Prompt` section and all
+    `#### Pair N` (`##### Prompt A` / `##### Prompt B`) blocks, and auto-detects
+    `mode` (`'ref2va'` when `subject_definitions:` appears in `test_scene_prompt`
+    or any pair prompt, else `'t2va'`)."""
+    if not isinstance(md_text, str) or not md_text.strip():
+        raise ValueError("markdown text must be a non-empty string")
+
+    body = _unwrap_markdown_fence(md_text)
+
+    test_scene_prompt = ""
+    m_test = _TEST_SCENE_HEADING_RE.search(body)
+    if m_test is not None:
+        after_test = body[m_test.end() :]
+        m_next = re.search(
+            r"^[ \t]*(?:###[ \t]+|####[ \t]+Pair\b)",
+            after_test,
+            flags=re.MULTILINE | re.IGNORECASE,
+        )
+        raw_test = after_test[: m_next.start()] if m_next is not None else after_test
+        test_scene_prompt = raw_test.strip()
+
+    pair_matches = list(_PAIR_HEADING_RE.finditer(body))
+    if not pair_matches:
+        raise ValueError("no '#### Pair N' blocks found in markdown")
+
+    pairs: list[dict[str, Any]] = []
+    for idx, m_pair in enumerate(pair_matches):
+        pair_num = int(m_pair.group(1))
+        start = m_pair.end()
+        end = pair_matches[idx + 1].start() if idx + 1 < len(pair_matches) else len(body)
+        block = body[start:end]
+
+        # Trim any trailing top/mid-level heading or horizontal rule after the final pair.
+        m_tail = re.search(r"^[ \t]*(?:###?[ \t]+|---+[ \t]*$)", block, flags=re.MULTILINE)
+        if m_tail is not None:
+            block = block[: m_tail.start()]
+
+        ma_list = list(_PROMPT_A_HEADING_RE.finditer(block))
+        mb_list = list(_PROMPT_B_HEADING_RE.finditer(block))
+        if not ma_list:
+            raise ValueError(f"Pair {pair_num}: missing '##### Prompt A' heading")
+        if len(ma_list) > 1:
+            raise ValueError(f"Pair {pair_num}: duplicate '##### Prompt A' heading")
+        if not mb_list:
+            raise ValueError(f"Pair {pair_num}: missing '##### Prompt B' heading")
+        if len(mb_list) > 1:
+            raise ValueError(f"Pair {pair_num}: duplicate '##### Prompt B' heading")
+
+        ma, mb = ma_list[0], mb_list[0]
+        if mb.start() <= ma.start():
+            raise ValueError(
+                f"Pair {pair_num}: '##### Prompt B' appears before '##### Prompt A'"
+            )
+
+        a_txt = block[ma.end() : mb.start()].strip()
+        b_txt = block[mb.end() :].strip()
+        if not a_txt:
+            raise ValueError(f"Pair {pair_num}: '##### Prompt A' body is empty")
+        if not b_txt:
+            raise ValueError(f"Pair {pair_num}: '##### Prompt B' body is empty")
+
+        pairs.append(
+            {
+                "index": idx,
+                "number": pair_num,
+                "a": a_txt,
+                "b": b_txt,
+            }
+        )
+
+    has_ref2va_headers = "subject_definitions:" in test_scene_prompt or any(
+        "subject_definitions:" in p["a"] or "subject_definitions:" in p["b"] for p in pairs
+    )
+    detected_mode = "ref2va" if has_ref2va_headers else "t2va"
+
+    return {
+        "test_scene_prompt": test_scene_prompt,
+        "mode": detected_mode,
+        "pairs": pairs,
+    }
+
+
+def _format_toml_multiline(text: str) -> str:
+    """Format `text` as a TOML multiline string (`'''...'''`, falling back to
+    escaped `\"\"\"...\"\"\"` if `'''` or a trailing `'` is present)."""
+    if "'''" not in text and not text.endswith("'"):
+        return f"'''{text}'''"
+    escaped = (
+        text.replace("\\", "\\\\")
+        .replace('"""', '\\"\\"\\"')
+    )
+    if escaped.endswith('"'):
+        escaped = escaped[:-1] + '\\"'
+    return f'"""{escaped}"""'
+
+
+def write_markdown_to_toml(
+    md_source: str | Path,
+    out_path: str | Path,
+    *,
+    name: str | None = None,
+    mode: str | None = None,
+    frame: str = "scene",
+    quality: str | None = None,
+    a_side: str | None = None,
+    b_side: str | None = None,
+    exclude_shots: Sequence[str] | None = None,
+    test_prompt_out: str | Path | None = None,
+    overwrite: bool = False,
+    bank_dir: str | Path | None = None,
+) -> Path:
+    """Convert an LLM-authored control-vector Markdown file or string to a validated `.toml` file."""
+    source_path: Path | None = None
+    if isinstance(md_source, Path):
+        if not md_source.is_file():
+            raise ValueError(f"markdown file not found: {md_source}")
+        source_path = md_source
+        md_text = md_source.read_text(encoding="utf-8")
+    elif isinstance(md_source, str):
+        if "\n" not in md_source and "####" not in md_source:
+            cand = Path(md_source)
+            if not cand.is_file():
+                raise ValueError(f"markdown file not found: {cand}")
+            source_path = cand
+            md_text = cand.read_text(encoding="utf-8")
+        else:
+            md_text = md_source
+    else:
+        raise ValueError("md_source must be a Markdown string or Path")
+
+    if frame not in VALID_FRAMES:
+        raise ValueError(f"frame must be one of {VALID_FRAMES}, got {frame!r}")
+
+    parsed = parse_markdown_pairs(md_text)
+    pairs = parsed["pairs"]
+    test_scene_prompt: str = parsed["test_scene_prompt"]
+
+    resolved_mode = (mode.strip() if mode is not None and mode.strip() else parsed["mode"])
+    if resolved_mode not in VALID_MODES:
+        raise ValueError(f"mode must be one of {VALID_MODES}, got {resolved_mode!r}")
+
+    out_p = Path(out_path)
+    if out_p.suffix == ".toml":
+        target_toml = out_p
+        resolved_name = (name.strip() if name is not None and name.strip() else target_toml.stem)
+    else:
+        if name is not None and name.strip():
+            resolved_name = name.strip()
+        elif source_path is not None:
+            resolved_name = source_path.stem
+        else:
+            raise ValueError(
+                "name is required when out_path does not end with '.toml' and md_source is raw text"
+            )
+        target_toml = out_p / f"{resolved_name}.toml"
+
+    if not NAME_RE.match(resolved_name):
+        raise ValueError(f"vector.name must match [a-z0-9_]+, got {resolved_name!r}")
+    if target_toml.stem != resolved_name:
+        raise ValueError(
+            f"vector.name {resolved_name!r} does not match output file stem {target_toml.stem!r}"
+        )
+    if not overwrite and target_toml.exists():
+        raise ValueError(
+            f"pair TOML file {target_toml.name!r} already exists at {target_toml} "
+            "(pass overwrite=True / --overwrite to replace it)"
+        )
+
+    # Validate Pair 1 first and auto-derive default a_side, b_side, and quality when omitted.
+    p1_a_span, p1_b_span = differing_span(
+        pairs[0]["a"], pairs[0]["b"], frame=frame, label=f"pair[0] (Pair {pairs[0]['number']})"
+    )
+    resolved_a_side = (a_side.strip() if a_side is not None and a_side.strip() else p1_a_span)
+    resolved_b_side = (b_side.strip() if b_side is not None and b_side.strip() else p1_b_span)
+    resolved_quality = (
+        quality.strip()
+        if quality is not None and quality.strip()
+        else f"{resolved_b_side} vs. {resolved_a_side}"
+    )
+
+    # Validate all remaining pairs before touching disk.
+    for p_item in pairs[1:]:
+        differing_span(
+            p_item["a"],
+            p_item["b"],
+            frame=frame,
+            label=f"pair[{p_item['index']}] (Pair {p_item['number']})",
+        )
+
+    resolved_bank_dir = Path(bank_dir) if bank_dir is not None else (_REPO_ROOT / "prompt_bank")
+    if exclude_shots is not None:
+        resolved_exclude_shots = tuple(exclude_shots)
+    else:
+        resolved_exclude_shots = tuple(
+            shot_id
+            for shot_id in DEFAULT_EXCLUDE_SHOTS
+            if (resolved_bank_dir / f"{shot_id}.txt").is_file()
+        )
+
+    if test_prompt_out is not None:
+        if not test_scene_prompt:
+            raise ValueError(
+                "cannot write --test-prompt-out: markdown input has no '### Test Scene Prompt' section"
+            )
+
+    lines: list[str] = []
+    if test_scene_prompt:
+        lines.append("# Test Scene Prompt:")
+        for raw_line in test_scene_prompt.splitlines():
+            lines.append(f"# {raw_line}" if raw_line.strip() else "#")
+        lines.append("")
+
+    excl_toml = "[" + ", ".join(json.dumps(s, ensure_ascii=False) for s in resolved_exclude_shots) + "]"
+    lines.extend(
+        [
+            "[vector]",
+            f"name = {json.dumps(resolved_name, ensure_ascii=False)}",
+            f"quality = {json.dumps(resolved_quality, ensure_ascii=False)}",
+            f"a_side = {json.dumps(resolved_a_side, ensure_ascii=False)}",
+            f"b_side = {json.dumps(resolved_b_side, ensure_ascii=False)}",
+            f"mode = {json.dumps(resolved_mode, ensure_ascii=False)}",
+            f"frame = {json.dumps(frame, ensure_ascii=False)}",
+            f"exclude_shots = {excl_toml}",
+            "",
+        ]
+    )
+
+    for idx, p_item in enumerate(pairs):
+        lines.append("[[pair]]")
+        lines.append(f"a = {_format_toml_multiline(p_item['a'])}")
+        lines.append(f"b = {_format_toml_multiline(p_item['b'])}")
+        if idx + 1 < len(pairs):
+            lines.append("")
+
+    toml_content = "\n".join(lines) + "\n"
+    target_toml.parent.mkdir(parents=True, exist_ok=True)
+    had_existing = target_toml.exists()
+    target_toml.write_text(toml_content, encoding="utf-8")
+    try:
+        load_pairs(target_toml, bank_dir=bank_dir)
+    except Exception:
+        if not had_existing and target_toml.is_file():
+            target_toml.unlink(missing_ok=True)
+        raise
+
+    if test_prompt_out is not None:
+        tp_path = Path(test_prompt_out)
+        tp_path.parent.mkdir(parents=True, exist_ok=True)
+        tp_path.write_text(test_scene_prompt + "\n", encoding="utf-8")
+
+    return target_toml
 
 
 def _check_pair_tensors(

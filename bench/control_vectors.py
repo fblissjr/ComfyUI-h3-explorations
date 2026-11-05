@@ -1255,9 +1255,95 @@ def cmd_grade(args: argparse.Namespace) -> int:
     return 0
 
 
+def _display_path(p: Path) -> str:
+    resolved = p.resolve()
+    if resolved.is_relative_to(REPO_ROOT.resolve()):
+        return str(resolved.relative_to(REPO_ROOT.resolve()))
+    parts = resolved.parts
+    if "ComfyUI-h3-explorations" in parts:
+        idx = parts.index("ComfyUI-h3-explorations")
+        return str(Path(*parts[idx + 1 :]))
+    return p.name
+
+
+def cmd_from_md(args: argparse.Namespace) -> int:
+    md_path = Path(args.md_path)
+    if not md_path.is_file():
+        raise ValueError(f"markdown file not found: {md_path}")
+
+    out_target: str | Path = (
+        Path(args.out) if getattr(args, "out", None) else cv_nodes.PAIR_BANK_DIR
+    )
+    parsed = cv.parse_markdown_pairs(md_path.read_text(encoding="utf-8"))
+    saved_toml = cv.write_markdown_to_toml(
+        md_path,
+        out_target,
+        name=getattr(args, "name", None),
+        mode=getattr(args, "mode", None),
+        frame=getattr(args, "frame", "scene") or "scene",
+        quality=getattr(args, "quality", None),
+        a_side=getattr(args, "a_side", None),
+        b_side=getattr(args, "b_side", None),
+        test_prompt_out=getattr(args, "test_prompt_out", None),
+        overwrite=bool(getattr(args, "overwrite", False)),
+        bank_dir=cv_nodes.PROMPT_BANK_DIR,
+    )
+    pair_set = cv.load_pairs(saved_toml, bank_dir=cv_nodes.PROMPT_BANK_DIR)
+    test_prompt = parsed["test_scene_prompt"]
+    has_test_prompt = bool(test_prompt)
+
+    print(f"=== Control Vector From-MD: {pair_set.name} ===")
+    print(f"  md_file           : {_display_path(md_path)}")
+    print(f"  saved_toml        : {_display_path(saved_toml)}")
+    print(
+        f"  name              : {pair_set.name}   mode: {pair_set.mode}   "
+        f"frame: {pair_set.frame}   n_pairs: {len(pair_set.pairs)}"
+    )
+    if has_test_prompt:
+        tp_msg = f"yes ({len(test_prompt.split())} words, {len(test_prompt)} chars)"
+        if getattr(args, "test_prompt_out", None):
+            tp_msg += f" -> {_display_path(Path(args.test_prompt_out))}"
+    else:
+        tp_msg = "no"
+    print(f"  test_scene_prompt : {tp_msg}")
+    print(f"  quality           : {pair_set.quality}")
+    print(f"  a_side            : {pair_set.a_side}")
+    print(f"  b_side            : {pair_set.b_side}")
+    print(f"\n--- Pair Spans ({len(pair_set.pairs)} pairs) ---")
+    for item in pair_set.pairs:
+        sec_idx, sec_name = cv.differing_section_info(item.a, item.b, frame=pair_set.frame)
+        wa = len(item.a_span.split())
+        wb = len(item.b_span.split())
+        print(
+            f"  [{item.index:02d}] [sec {sec_idx}:{sec_name}] ({wa:2d}w -> {wb:2d}w) | "
+            f"-{item.a_span[:48]!r} -> +{item.b_span[:48]!r}"
+        )
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description=__doc__)
     sub = p.add_subparsers(dest="cmd", required=True)
+
+    pfm = sub.add_parser(
+        "from-md",
+        aliases=["import-md"],
+        help="Convert an LLM-authored control-vector Markdown file into a validated .toml pair file",
+    )
+    pfm.add_argument("md_path", help="Input Markdown (.md) file path")
+    pfm.add_argument(
+        "--out",
+        default=None,
+        help="Output .toml file path or output directory (defaults to prompt_bank/control_vectors/<stem>.toml)",
+    )
+    pfm.add_argument("--name", default=None, help="Optional vector name / file stem override")
+    pfm.add_argument("--mode", choices=cv.VALID_MODES, default=None, help="Explicit mode override (auto-detected if omitted)")
+    pfm.add_argument("--frame", choices=cv.VALID_FRAMES, default="scene", help="Pair frame ('scene' or 'bare')")
+    pfm.add_argument("--quality", default=None, help="Optional vector.quality description override")
+    pfm.add_argument("--a-side", dest="a_side", default=None, help="Optional vector.a_side description override")
+    pfm.add_argument("--b-side", dest="b_side", default=None, help="Optional vector.b_side description override")
+    pfm.add_argument("--test-prompt-out", dest="test_prompt_out", default=None, help="Optional path to write the extracted Test Scene Prompt text")
+    pfm.add_argument("--overwrite", action="store_true", help="Overwrite an existing .toml file at the target path")
 
     pm = sub.add_parser("make", help="Build a control vector from a pair TOML file")
     pm.add_argument("pairs", help="Pair TOML file path or stem under prompt_bank/control_vectors/")
@@ -1321,6 +1407,8 @@ def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     try:
+        if args.cmd in ("from-md", "import-md"):
+            return cmd_from_md(args)
         if args.cmd == "make":
             return cmd_make(args)
         if args.cmd == "inspect":
