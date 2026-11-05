@@ -33,6 +33,8 @@ In the MiniMax H3 pipeline:
 | `h3_multimodal_4.65bpw.yaml` | **Recipe 2 (`4.65 bpw` decoder, `head_bits: 6`)**: `6 bpw` on all 14 readout blocks (`layers.50..63` attn + MLP), `5 bpw` on trunk `self_attn` (`layers.0..49`) and boundary MLPs (`layers.0..2`, `layers.48..49`), `4 bpw` on mid-trunk MLPs (`layers.3..47`), `6 bpw` `lm_head`. **`17.86 GiB` total GPU weights** with `-vb 6` (`18.04 GiB` if overridden with `-hb 8`), leaving **`~5.3–5.5 GiB` free VRAM** for multi-frame video contact sheets and larger KV caches. |
 | `build_h3_cal_data.py` | Builds the hybrid `250 × 2048` (`torch.long`) calibration file (`h3_cal_data.safetensors`) combining **200 rows (80%)** standard ExLlamaV3 corpus + **25 rows (10%)** shuffled H3 scene prompts + **25 rows (10%)** round-robin interleaved pairs and chat self-report prompts across all **12/12** `.toml` control vectors. |
 | `label_h3_control_vectors.py` | Batch-labels H3 control vectors via `layers.49` activation-steering self-report (`--mode self_report`), blind pair diff synthesis (`--mode blind_pairs`), and VLM image/contact-sheet critique (`--mode vlm`). |
+| `build_control_vector_viewer.py` | Reads `prompt_bank/control_vectors/*.toml`, `h3_control_vector_labels.json`, and `h3_control_vector_report.md` to build `control_vector_viewer.html` and optionally serve live reloads via `--serve --port 8788`. |
+| `control_vector_viewer.html` | Self-contained interactive HTML explorer for inspecting `.toml` pair spans/pooling masks (`scene_text` vs `from_first_diff`), `layers.49 -> lm_head` lexical log-odds shifts, coupled `Anchor A`/`B` rollouts across $\alpha$, and the `14 × 14` cosine similarity matrix. |
 
 ---
 
