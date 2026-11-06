@@ -27,7 +27,7 @@ from typing import Any, Mapping, Sequence
 import torch
 import torch.nn.functional as F
 from safetensors import safe_open
-from safetensors.torch import save_file
+from safetensors.torch import save as save_safetensors_bytes
 
 REPO_ROOT = Path(__file__).resolve().parent
 COMFY_ROOT = REPO_ROOT.parent.parent
@@ -835,10 +835,11 @@ def save_synthesized_vector(
         },
     }
     encoded_meta = {k: json.dumps(v, sort_keys=True) for k, v in meta_dict.items()}
-    save_file(
-        {"vector.post_refiner": v_pr, "vector.encoder": v_enc},
-        str(path),
-        metadata=encoded_meta,
+    path.write_bytes(
+        save_safetensors_bytes(
+            {"vector.post_refiner": v_pr, "vector.encoder": v_enc},
+            metadata=encoded_meta,
+        )
     )
     return path
 

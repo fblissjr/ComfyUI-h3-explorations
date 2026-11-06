@@ -26,7 +26,7 @@ from typing import Any, Mapping, Sequence
 
 import torch
 from safetensors import safe_open
-from safetensors.torch import save_file
+from safetensors.torch import save as save_safetensors_bytes
 
 FORMAT_VERSION = "h3-control-vector/1"
 POST_REFINER_DIM = 5376
@@ -1889,7 +1889,7 @@ def save_vector(
             "(pass overwrite=True / --overwrite to replace it, or set a distinct output_name)"
         )
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    save_file(clean_tensors, str(out_path), metadata=encoded_meta)
+    out_path.write_bytes(save_safetensors_bytes(clean_tensors, metadata=encoded_meta))
     if write_sidecar_md:
         sidecar_path = out_path.with_suffix(".md")
         sidecar_md = format_vector_sidecar_md(out_path.name, clean_tensors, metadata)
