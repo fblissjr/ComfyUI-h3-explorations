@@ -278,6 +278,16 @@ def main() -> int:
     check("blocks '1' equals a merge of block 1 alone",
           rel(out_b1, ref_b1) < 1e-5 and rel(out_b1, ref) > 1e-3,
           f"{rel(out_b1, ref_b1):.3g}")
+    out_ref_only = branched_select("all", "refiner")
+    ref_ref_only = merged_subset(lambda p: p.startswith("token_refiner."))
+    check("blocks 'refiner' equals a merge of token_refiner alone",
+          rel(out_ref_only, ref_ref_only) < 1e-5 and rel(out_ref_only, ref) > 1e-3,
+          f"{rel(out_ref_only, ref_ref_only):.3g}")
+    out_ref_b1 = branched_select("all", "refiner,1,final_layer")
+    ref_ref_b1 = merged_subset(lambda p: p.startswith(("token_refiner.", "blocks.1.", "final_layer.")))
+    check("blocks 'refiner,1,final_layer' equals a merge of token_refiner, block 1, and final_layer",
+          rel(out_ref_b1, ref_ref_b1) < 1e-5 and rel(out_ref_b1, ref) > 1e-3,
+          f"{rel(out_ref_b1, ref_ref_b1):.3g}")
     w = lb._Window(0.5, 1.0)
     sched = torch.tensor([1.0, 0.8, 0.5, 0.2, 0.0])
     active = []
@@ -448,6 +458,110 @@ def main() -> int:
         detail = f"{rel(out_pr, ref):.3g} from the merge"
     check("under PR 16681's MLP call the branch still equals the merge",
           out_pr is not None and rel(out_pr, ref) < 1e-5, detail)
+
+    # Chaining multiple MiniMaxH3LoRABranch nodes:
+    # 1. Two full LoRAs chained via attach(attach(patcher, b1), b2) equal the float32 merge of sd + sd2,
+    #    and cloning m1 to m2 does not mutate m1's closures in place (Trap 1D).
+    def run_patcher(m_obj):
+        saved_p = {}
+        for key, fn in m_obj.object_patches.items():
+            path = key[len("diffusion_model."):]
+            owner, attr = path.rsplit(".", 1)
+            mod = dm.get_submodule(owner)
+            saved_p[(owner, attr)] = mod.__dict__.get(attr)
+            setattr(mod, attr, fn)
+        try:
+            return run(dm)
+        finally:
+            for (owner, attr), old in saved_p.items():
+                mod = dm.get_submodule(owner)
+                if old is None:
+                    delattr(mod, attr)
+                else:
+                    setattr(mod, attr, old)
+
+    sd2 = {k: (v * 0.5 if k.endswith("lora_B.weight") else (v * -0.4 if k.endswith(".diff_b") else v))
+           for k, v in sd.items()}
+    ref_two = run(merged(merged(dm, sd), sd2))
+    ref_sd2 = run(merged(dm, sd2))
+    patcher_chain = comfy.model_patcher.ModelPatcher(_Base(dm), load_device=torch.device("cpu"),
+                                                     offload_device=torch.device("cpu"))
+    m1 = lb.attach(patcher_chain, lb.parse_lora(sd, STRENGTH))
+    m2 = lb.attach(m1, lb.parse_lora(sd2, STRENGTH))
+    out_m2 = run_patcher(m2)
+    out_m1_after = run_patcher(m1)
+    check("chaining two LoRA branches equals the float32 merge of both",
+          rel(out_m2, ref_two) < 1e-5 and rel(out_m2, ref) > 1e-3,
+          f"{rel(out_m2, ref_two):.3g} from two-LoRA merge, {rel(out_m2, ref):.3g} from first")
+    check("cloning and chaining a second LoRA does not mutate the first clone's closures",
+          rel(out_m1_after, ref) < 1e-5,
+          f"{rel(out_m1_after, ref):.3g} from first merge")
+
+    # 2. Trap 1B: when m1 patches mlp.forward (because sd has mlp.fc2) and a second LoRA patches
+    #    ONLY mlp.fc1 (no mlp.fc2 keys), install refreshes mlp.forward with the new fc1_forward.
+    sd2_fc1_only = {k: v for k, v in sd2.items() if ".mlp.fc1." in k}
+    ref_fc1_chain = copy.deepcopy(merged(dm, sd))
+    with torch.no_grad():
+        for path in targets(dm):
+            if ".mlp.fc1" not in path:
+                continue
+            mod = ref_fc1_chain.get_submodule(path)
+            k = f"diffusion_model.{path}"
+            mod.weight += STRENGTH * ALPHA / RANK * (sd2_fc1_only[f"{k}.lora_B.weight"] @ sd2_fc1_only[f"{k}.lora_A.weight"])
+    ref_fc1_out = run(ref_fc1_chain)
+    m_fc1_chain = lb.attach(m1, lb.parse_lora(sd2_fc1_only, STRENGTH))
+    out_fc1_chain = run_patcher(m_fc1_chain)
+    check("chaining an mlp.fc1-only LoRA after a full LoRA refreshes mlp.forward",
+          rel(out_fc1_chain, ref_fc1_out) < 1e-5 and rel(out_fc1_chain, ref) > 1e-4,
+          f"{rel(out_fc1_chain, ref_fc1_out):.3g} from merge, {rel(out_fc1_chain, ref):.3g} from m1")
+
+    # 3. Trap 1C: chained LoRAs with independent _Window gates filter each fc2 branch per step.
+    b1_gated = lb.parse_lora(sd, STRENGTH)
+    b2_gated = lb.parse_lora(sd2, STRENGTH)
+    w1_gate = lb._Window(0.0, 0.5)
+    w2_gate = lb._Window(0.5, 1.0)
+    for br in b1_gated.values():
+        br.gate = w1_gate
+    for br in b2_gated.values():
+        br.gate = w2_gate
+    m_wchain = lb.attach(lb.attach(patcher_chain, b1_gated), b2_gated)
+    w1_gate.active, w2_gate.active = True, False
+    out_step_early = run_patcher(m_wchain)
+    w1_gate.active, w2_gate.active = False, True
+    out_step_late = run_patcher(m_wchain)
+    check("chained LoRAs with independent step windows apply only the active branch at each step",
+          rel(out_step_early, ref) < 1e-5 and rel(out_step_late, ref_sd2) < 1e-5,
+          f"early={rel(out_step_early, ref):.3g}, late={rel(out_step_late, ref_sd2):.3g}")
+
+    # 4. Bug A: MiniMaxH3LoRABranch.execute does not attach step _Window to token_refiner.* branches,
+    #    and _window_wrapper resets window.active = True in finally.
+    saved_get_path = lb.folder_paths.get_full_path_or_raise
+    saved_load_tf = comfy.utils.load_torch_file
+    lb.folder_paths.get_full_path_or_raise = lambda folder, name: f"/tmp/{name}"
+    comfy.utils.load_torch_file = lambda path, safe_load=True: sd
+    try:
+        node_out = lb.MiniMaxH3LoRABranch.execute(
+            patcher_chain, "synthetic_pika.safetensors", strength=STRENGTH,
+            modules="all", blocks="all", start_percent=0.0, end_percent=0.5
+        )[0]
+    finally:
+        lb.folder_paths.get_full_path_or_raise = saved_get_path
+        comfy.utils.load_torch_file = saved_load_tf
+    ref_fn = node_out.object_patches["diffusion_model.token_refiner.blocks.0.attn.qkv_proj.forward"]
+    dit_fn = node_out.object_patches["diffusion_model.blocks.0.attn.qkv_proj.forward"]
+    ref_br = ref_fn._h3_lora_linear[1][0]
+    dit_br = dit_fn._h3_lora_linear[1][0]
+    win_obj = dit_br.gate
+    wrap_fn = lb._window_wrapper(win_obj)
+    seen_inside = []
+    wrap_fn(
+        lambda x, t, c, transformer_options={}, **kw: seen_inside.append(win_obj.active),
+        None, None, None,
+        transformer_options={"sample_sigmas": sched, "sigmas": sched[3].reshape(1)},
+    )
+    check("a step window leaves token_refiner.* ungated and resets window.active after the step",
+          ref_br.gate is None and win_obj is not None and seen_inside == [False] and win_obj.active is True,
+          f"ref_gate={ref_br.gate}, seen_inside={seen_inside}, active_after={win_obj.active}")
 
     if fails:
         print(f"\n  FAIL  {len(fails)}: {fails}")

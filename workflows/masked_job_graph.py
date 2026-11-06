@@ -108,15 +108,15 @@ from h3_config import (
     MASKED_JOB_LOADER, MASKED_JOB_FORCE_RATE, MASKED_JOB_SEEK_BACK, MASKED_JOB_SAM_CORRECTIONS,
     MASKED_JOB_PARTS, MASKED_JOB_BODY_MODEL, MASKED_JOB_BOXES, MASKED_JOB_BODY_POSE, MASKED_JOB_MESH,
     MASKED_JOB_LOSSLESS, MASKED_JOB_PICTURE,
-    PIKA_REF2VA_LORA, PIKA_STRENGTH, PIKA_SAMPLER, PIKA_MANUAL_SIGMAS,
+    PIKA_REF2VA_SVD995_LORA, PIKA_STRENGTH, PIKA_SAMPLER, PIKA_MANUAL_SIGMAS,
 )
 
 #: A few-step distill a load may name with `distill` (and who asked and why, `distill_by`), in place of the base
 #: graph's model and sampler. Only Pika H3 Flex, on the owner's go of 2026-11-04 to test it in the lane: its ref2va
-#: LoRA at the call (`MiniMaxH3LoRABranch`, which keeps the whole delta on the int8 checkpoint), `lcm`, and its six
+#: `svd995` LoRA at the call (`MiniMaxH3LoRABranch`, which keeps the whole delta on the int8 checkpoint), `lcm`, and its six
 #: manual sigmas (`h3_config.PIKA_*`, **Inherited** from Pika's manifests). The masked row runs the ref2va checkpoint,
 #: which is the partition this LoRA is for. Sol and the shift stay the row's: the owner chose Pika with the lane's Sol.
-DISTILLS = {"pika": {"lora": PIKA_REF2VA_LORA, "strength": PIKA_STRENGTH, "sampler": PIKA_SAMPLER,
+DISTILLS = {"pika": {"lora": PIKA_REF2VA_SVD995_LORA, "strength": PIKA_STRENGTH, "sampler": PIKA_SAMPLER,
                      "sigmas": PIKA_MANUAL_SIGMAS}}
 #: Where a distill's LoRA node goes in a load's graph: an id the shipped masked row leaves free.
 DISTILL_LORA = "18"

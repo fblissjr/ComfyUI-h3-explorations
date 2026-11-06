@@ -592,7 +592,7 @@ def a_distill_load_swaps_the_model_and_sampler_only():
     lora = made[graphs.DISTILL_LORA]
     unet = graphs._the(made, "UNETLoader")
     assert lora["class_type"] == "MiniMaxH3LoRABranch" and lora["inputs"]["model"] == [unet, 0], lora
-    assert (lora["inputs"]["lora_name"], lora["inputs"]["strength"]) == (cfg.PIKA_REF2VA_LORA, cfg.PIKA_STRENGTH), lora["inputs"]
+    assert (lora["inputs"]["lora_name"], lora["inputs"]["strength"]) == (cfg.PIKA_REF2VA_SVD995_LORA, cfg.PIKA_STRENGTH), lora["inputs"]
     shift = graphs._the(made, "MiniMaxH3SigmaShift")
     assert made[shift]["inputs"]["model"] == [graphs.DISTILL_LORA, 0], made[shift]["inputs"]
     assert made[graphs._the(made, "KSamplerSelect")]["inputs"]["sampler_name"] == cfg.PIKA_SAMPLER

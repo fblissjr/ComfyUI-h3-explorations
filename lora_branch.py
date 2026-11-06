@@ -190,12 +190,18 @@ def parse_lora(sd, strength):
     return branches
 
 
-def _linear_forward(base_forward, branch):
+def _linear_forward(base_forward, branches):
+    branch_tuple = (branches,) if isinstance(branches, _Branch) else tuple(branches)
+
     def forward(x):
         out = base_forward(x)
         if not out.is_contiguous():
             out = out.contiguous()
-        return branch.add_into(x, out)
+        for branch in branch_tuple:
+            out = branch.add_into(x, out)
+        return out
+
+    forward._h3_lora_linear = (base_forward, branch_tuple)
     return forward
 
 
@@ -206,9 +212,10 @@ def _linear_forward(base_forward, branch):
 FC2_CHUNK_ROWS = 16384
 
 
-def _mlp_forward(mlp, fc1_forward, fc2_branch):
-    """Core's `MLP.forward` plus `fc2`'s branch on the activation it consumes."""
+def _mlp_forward(mlp, fc1_forward, fc2_branches):
+    """Core's `MLP.forward` plus `fc2`'s branch(es) on the activation it consumes."""
     swiglu = comfy.ops.INPUT_ACT_EAGER["swiglu"]
+    branch_tuple = (fc2_branches,) if isinstance(fc2_branches, _Branch) else tuple(fc2_branches)
 
     def forward(x, residual=None, gate=None, segments=None):
         h = fc1_forward(x)
@@ -217,13 +224,16 @@ def _mlp_forward(mlp, fc1_forward, fc2_branch):
         if not out.is_contiguous():
             out = out.contiguous()
         flat_out = out.view(-1, out.shape[-1])
-        if fc2_branch.gate is None or fc2_branch.gate.active:
-            # One host copy of fc2's factors for every chunk, and no
-            # activation written out on a step the window excludes.
-            factors = fc2_branch.device_factors(out)
+        active = [br for br in branch_tuple if br.gate is None or br.gate.active]
+        if active:
+            # One host copy of each active fc2 branch's factors for every chunk,
+            # and no activation written out on a step the window excludes.
+            active_factors = [(br, br.device_factors(out)) for br in active]
             for a in range(0, flat_h.shape[0], FC2_CHUNK_ROWS):
                 b = min(a + FC2_CHUNK_ROWS, flat_h.shape[0])
-                fc2_branch.add_into(swiglu(flat_h[a:b]), flat_out[a:b], factors)
+                act = swiglu(flat_h[a:b])
+                for br, factors in active_factors:
+                    br.add_into(act, flat_out[a:b], factors)
         if residual is None:
             return out
         # Core PR 16681's convention (open as of 2026-10-02): the block hands
@@ -231,6 +241,8 @@ def _mlp_forward(mlp, fc1_forward, fc2_branch):
         # `_mod_gate`. Accepting it keeps fc2's branch when that PR merges;
         # `bench/check_lora_branch.py` runs both conventions.
         return mm_h3._mod_gate(residual, gate, out, segments)
+
+    forward._h3_lora_mlp = (mlp, fc1_forward, branch_tuple)
     return forward
 
 
@@ -248,20 +260,25 @@ MODULE_CHOICES = {
 }
 
 
-def parse_blocks(spec: str) -> set[int] | None:
-    """`all`, or a list of DiT block indices and ranges like `0-24,40`. None means all.
+def parse_blocks(spec: str) -> set[int | str] | None:
+    """`all`, or a list of DiT block indices/ranges (`0-24,40`) and/or `refiner`, `final_layer`. None means all.
 
-    A named block list keeps only those DiT blocks; the token refiner and the
-    final layer are applied only under `all`.
+    A numeric block list (`0-24,40`) keeps only those DiT blocks; include
+    `refiner` (or `token_refiner`) and/or `final_layer` (or `final`) to keep
+    the token refiner or the final layer alongside or without DiT blocks.
     """
     spec = str(spec).strip().lower()
     if spec == "all":
         return None
-    out = set()
+    out: set[int | str] = set()
     for part in spec.replace(" ", "").split(","):
         if not part:
             continue
-        if "-" in part:
+        if part in ("refiner", "token_refiner"):
+            out.add("refiner")
+        elif part in ("final_layer", "final"):
+            out.add("final_layer")
+        elif "-" in part:
             a, b = part.split("-", 1)
             out.update(range(int(a), int(b) + 1))
         else:
@@ -279,9 +296,16 @@ def select(branches, modules="all", blocks=None):
         if not keep(path):
             continue
         if blocks is not None:
-            if not path.startswith("blocks."):
-                continue
-            if int(path.split(".")[1]) not in blocks:
+            if path.startswith("blocks."):
+                if int(path.split(".")[1]) not in blocks:
+                    continue
+            elif path.startswith("token_refiner."):
+                if "refiner" not in blocks:
+                    continue
+            elif path.startswith("final_layer."):
+                if "final_layer" not in blocks:
+                    continue
+            else:
                 continue
         out[path] = br
     return out
@@ -311,7 +335,10 @@ class _Window:
 def _window_wrapper(window):
     def wrapper(executor, x, timestep, context, transformer_options={}, **kwargs):
         window.update(transformer_options)
-        return executor(x, timestep, context, transformer_options, **kwargs)
+        try:
+            return executor(x, timestep, context, transformer_options, **kwargs)
+        finally:
+            window.active = True
     return wrapper
 
 
@@ -325,8 +352,9 @@ def attach(model, branches):
 def install(m, branches):
     """Install every branch on the ModelPatcher `m` itself, as object patches.
 
-    `attach` is this on a clone. `MiniMaxH3PDDLoRA` calls it directly, on the
-    clone it already holds, to apply its backbone at the call."""
+    `attach` is this on a clone. Chained `MiniMaxH3LoRABranch` calls accumulate
+    immutable branch tuples on `m.object_patches` while refusing any foreign
+    non-`lora_branch` forward patch."""
     taken = []
     patches = {}
     fc2 = {p for p in branches if p.endswith("mlp.fc2")}
@@ -345,16 +373,42 @@ def install(m, branches):
         # still loaded, which this one would then wrap (2026-09-26: FlashGen ran
         # base + Turbo + PDD + FlashGen; `check_lora_branch.py` reproduces it).
         key = f"{PREFIX}{path}.forward"
-        patches[key] = _linear_forward(m.get_model_object(key), branch)
+        if key in m.object_patches:
+            existing = m.object_patches[key]
+            chain = getattr(existing, "_h3_lora_linear", None)
+            if chain is None:
+                taken.append(key)
+            else:
+                base_fwd, prev_branches = chain
+                patches[key] = _linear_forward(base_fwd, (*prev_branches, branch))
+        else:
+            patches[key] = _linear_forward(m.get_model_object(key), (branch,))
     for path in fc2:
         parent = path[:-len(".fc2")]
         mlp = m.get_model_object(PREFIX + parent)
         fc1_key = f"{PREFIX}{parent}.fc1.forward"
-        fc1_forward = patches.get(fc1_key, m.get_model_object(fc1_key))
-        patches[f"{PREFIX}{parent}.forward"] = _mlp_forward(mlp, fc1_forward, branches[path])
-    for key in patches:
-        if key in m.object_patches:
-            taken.append(key)
+        fc1_forward = patches.get(fc1_key, m.object_patches.get(fc1_key, m.get_model_object(fc1_key)))
+        mlp_key = f"{PREFIX}{parent}.forward"
+        if mlp_key in m.object_patches:
+            existing_mlp = m.object_patches[mlp_key]
+            chain_mlp = getattr(existing_mlp, "_h3_lora_mlp", None)
+            if chain_mlp is None:
+                taken.append(mlp_key)
+            else:
+                _, _, prev_fc2 = chain_mlp
+                patches[mlp_key] = _mlp_forward(mlp, fc1_forward, (*prev_fc2, branches[path]))
+        else:
+            patches[mlp_key] = _mlp_forward(mlp, fc1_forward, (branches[path],))
+    for mlp_key, existing_mlp in m.object_patches.items():
+        if mlp_key in patches:
+            continue
+        chain_mlp = getattr(existing_mlp, "_h3_lora_mlp", None)
+        if chain_mlp is None:
+            continue
+        mlp_obj, _, prev_fc2 = chain_mlp
+        fc1_key = f"{mlp_key[:-len('.forward')]}.fc1.forward"
+        if fc1_key in patches:
+            patches[mlp_key] = _mlp_forward(mlp_obj, patches[fc1_key], prev_fc2)
     if taken:
         raise ValueError(f"object patches already taken ({len(taken)}), e.g. {taken[:3]}: "
                          f"another node patches these forwards, and the last writer "
@@ -387,15 +441,17 @@ class MiniMaxH3LoRABranch(io.ComfyNode):
                                        "timestep modulation (adaln), adaln alone, attention alone, or "
                                        "the MLP alone."),
                 io.String.Input("blocks", default="all", optional=True,
-                                tooltip="'all', or DiT block indices and ranges such as '0-24,40'. A "
-                                        "list keeps only those blocks; the token refiner and the final "
-                                        "layer apply only under 'all'."),
+                                tooltip="'all', or DiT block indices/ranges such as '0-24,40' and/or "
+                                        "'refiner', 'final_layer'. A numeric list keeps only those DiT "
+                                        "blocks; add 'refiner' or 'final_layer' to include the token "
+                                        "refiner or the final layer."),
                 io.Float.Input("start_percent", default=0.0, min=0.0, max=1.0, step=0.01,
                                optional=True,
-                               tooltip="The branch applies from this fraction of the sampler's steps."),
+                               tooltip="The DiT branch applies from this fraction of the sampler's steps "
+                                       "(token_refiner runs once before step 0 and is not step-gated)."),
                 io.Float.Input("end_percent", default=1.0, min=0.0, max=1.0, step=0.01,
                                optional=True,
-                               tooltip="The branch applies until this fraction of the sampler's steps. "
+                               tooltip="The DiT branch applies until this fraction of the sampler's steps. "
                                        "A few-step distill usually needs its LoRA on every step."),
             ],
             outputs=[io.Model.Output(display_name="model")],
@@ -415,8 +471,9 @@ class MiniMaxH3LoRABranch(io.ComfyNode):
         windowed = (start_percent, end_percent) != (0.0, 1.0)
         if windowed:
             window = _Window(start_percent, end_percent)
-            for br in branches.values():
-                br.gate = window
+            for bpath, br in branches.items():
+                if not bpath.startswith("token_refiner."):
+                    br.gate = window
         m = attach(model, branches)
         to = m.model_options["transformer_options"] = m.model_options.get(
             "transformer_options", {}

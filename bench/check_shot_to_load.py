@@ -3848,7 +3848,7 @@ def a_loads_distill_is_a_persons_word() -> str:
         mine = json.loads((made.jobs / "a_fp_0100b.json").read_text())
         by = mine["defaults"].get("distill_by") or {}
         assert mine["defaults"]["distill"] == "pika" and (by.get("why"), by.get("by")) == (why, "the session"), mine["defaults"]
-        assert in_the_graph(mine) == (cfg.PIKA_REF2VA_LORA, {"value": "pika", "set_by": "the job file"}), in_the_graph(mine)
+        assert in_the_graph(mine) == (cfg.PIKA_REF2VA_SVD995_LORA, {"value": "pika", "set_by": "the job file"}), in_the_graph(mine)
         printed = stepped(remake=True, carry_words_from=str(made.jobs / "a_fp_0100b.json"))
         carried = json.loads((made.jobs / "a_fp_0100c.json").read_text())
         assert "distill" not in carried["defaults"] and "defaults.distill: not carried (was 'pika'" in printed, carried["defaults"]

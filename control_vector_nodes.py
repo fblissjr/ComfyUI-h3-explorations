@@ -370,9 +370,9 @@ def _attach_refiner_lora_branches(
     lb = _repo("lora_branch")
     taken: list[str] = []
     existing_keys: set[str] = set(getattr(ref, "_h3_refiner_patched_keys", None) or ())
-    pending_keys: set[str] = set(existing_keys)
-    staged_linear: list[tuple[str, Any, Any]] = []
-    staged_mlp: list[tuple[str, Any, Any]] = []
+    new_keys: set[str] = set()
+    linear_by_sub: dict[str, list[Any]] = {}
+    fc2_by_parent: dict[str, list[Any]] = {}
     for spec in loras:
         raw_path = spec.get("path") or spec.get("file")
         if not raw_path:
@@ -408,29 +408,31 @@ def _attach_refiner_lora_branches(
             if sub in fc2_subs:
                 continue
             patch_key = f"diffusion_model.token_refiner.{sub}.forward"
-            if patch_key in pending_keys:
+            if patch_key in existing_keys:
                 taken.append(patch_key)
                 continue
-            pending_keys.add(patch_key)
-            staged_linear.append((patch_key, ref.get_submodule(sub), branch))
+            new_keys.add(patch_key)
+            linear_by_sub.setdefault(sub, []).append(branch)
         for sub in fc2_subs:
             parent_sub = sub[: -len(".fc2")]
             patch_key = f"diffusion_model.token_refiner.{parent_sub}.forward"
-            if patch_key in pending_keys:
+            if patch_key in existing_keys:
                 taken.append(patch_key)
                 continue
-            pending_keys.add(patch_key)
-            staged_mlp.append((patch_key, ref.get_submodule(parent_sub), ref_branches[sub]))
+            new_keys.add(patch_key)
+            fc2_by_parent.setdefault(parent_sub, []).append(ref_branches[sub])
     if taken:
         raise ValueError(
             f"token_refiner object patches already taken ({len(taken)}), e.g. {taken[:3]}: "
             "another LoRA patches these forwards"
         )
-    for _, mod, branch in staged_linear:
-        mod.forward = lb._linear_forward(mod.forward, branch)
-    for _, mlp, branch in staged_mlp:
-        mlp.forward = lb._mlp_forward(mlp, mlp.fc1.forward, branch)
-    setattr(ref, "_h3_refiner_patched_keys", pending_keys)
+    for sub, branches_list in linear_by_sub.items():
+        mod = ref.get_submodule(sub)
+        mod.forward = lb._linear_forward(mod.forward, branches_list)
+    for parent_sub, fc2_branches_list in fc2_by_parent.items():
+        mlp = ref.get_submodule(parent_sub)
+        mlp.forward = lb._mlp_forward(mlp, mlp.fc1.forward, fc2_branches_list)
+    setattr(ref, "_h3_refiner_patched_keys", existing_keys | new_keys)
 
 
 def build_refiner_runner(
