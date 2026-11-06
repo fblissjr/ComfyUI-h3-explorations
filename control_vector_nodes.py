@@ -94,7 +94,9 @@ register_control_vectors_folder()
 
 def _vector_combo_options() -> list[str]:
     files = sorted(
-        f for f in folder_paths.get_filename_list(CONTROL_VECTORS_FOLDER) if f.endswith(".safetensors")
+        f
+        for f in folder_paths.get_filename_list(CONTROL_VECTORS_FOLDER)
+        if f.endswith(".safetensors") and not f.replace("\\", "/").startswith("j_lens/")
     )
     return ["none", *files]
 
@@ -691,6 +693,7 @@ def make_control_vector_from_pairs(
     pooling: str = "diff_span",
     apply_holds: bool = True,
     unit_mean: bool = False,
+    include_encoder: bool = True,
     output_name: str = "",
     output_dir: str | Path | None = None,
     encoded_references: Any | None = None,
@@ -710,6 +713,8 @@ def make_control_vector_from_pairs(
 
     a_pooled_list: list[torch.Tensor] = []
     b_pooled_list: list[torch.Tensor] = []
+    enc_a_pooled_list: list[torch.Tensor] = []
+    enc_b_pooled_list: list[torch.Tensor] = []
     weights_list: list[float] = []
     enc_censuses: list[dict[str, float]] = []
     ref_censuses: list[dict[str, float]] = []
@@ -750,6 +755,23 @@ def make_control_vector_from_pairs(
         pool_b = ref_b.to(dtype=torch.float64)[mask_b].mean(dim=0).to(dtype=torch.float32)
         a_pooled_list.append(pool_a)
         b_pooled_list.append(pool_b)
+        if include_encoder:
+            mask_a_enc = mask_a.clone()
+            mask_b_enc = mask_b.clone()
+            if mask_a_enc.numel() > 0:
+                mask_a_enc[0] = False
+            if mask_b_enc.numel() > 0:
+                mask_b_enc[0] = False
+            if not bool(mask_a_enc.any()):
+                mask_a_enc = mask_a
+            if not bool(mask_b_enc.any()):
+                mask_b_enc = mask_b
+            enc_a_pooled_list.append(
+                enc_a.to(dtype=torch.float64)[mask_a_enc].mean(dim=0).to(dtype=torch.float32)
+            )
+            enc_b_pooled_list.append(
+                enc_b.to(dtype=torch.float64)[mask_b_enc].mean(dim=0).to(dtype=torch.float32)
+            )
         weights_list.append(float(item.weight))
         pair_spans.append(
             {
@@ -851,6 +873,32 @@ def make_control_vector_from_pairs(
     if not _cv.NAME_RE.match(stem):
         raise ValueError(f"output_name must match [a-z0-9_]+, got {stem!r}")
 
+    points_meta: dict[str, Any] = {
+        "post_refiner": {
+            "unit": "mean_pair_difference",
+            "raw_norm": raw_norm,
+            "median_row_norm": median_ref_row_norm,
+        }
+    }
+    if include_encoder:
+        enc_a_mat = torch.stack(enc_a_pooled_list, dim=0)
+        enc_b_mat = torch.stack(enc_b_pooled_list, dim=0)
+        enc_raw_vec = _cv.mean_difference(enc_a_mat, enc_b_mat, w_vec)
+        enc_raw_norm = float(
+            torch.linalg.vector_norm(enc_raw_vec.to(dtype=torch.float64)).item()
+        )
+        if enc_raw_norm > 1e-12:
+            enc_vec = (enc_raw_vec.to(dtype=torch.float64) / enc_raw_norm).to(
+                dtype=torch.float32
+            )
+            tensors_to_save["vector.encoder"] = enc_vec
+            points_meta["encoder"] = {
+                "unit": "median_row_norm",
+                "raw_norm": enc_raw_norm,
+                "median_row_norm": median_enc_row_norm_ex0,
+                "row0_excluded": True,
+            }
+
     metadata: dict[str, Any] = {
         "format": _cv.FORMAT_VERSION,
         "name": stem,
@@ -872,13 +920,7 @@ def make_control_vector_from_pairs(
             "prefix": prefix_meta,
             "pooling": pooling,
         },
-        "points": {
-            "post_refiner": {
-                "unit": "mean_pair_difference",
-                "raw_norm": raw_norm,
-                "median_row_norm": median_ref_row_norm,
-            }
-        },
+        "points": points_meta,
         "quality_report": q_report,
         "provenance": {
             "core_revision": _substrate.git_head(COMFY_ROOT) or "unknown",
@@ -1024,6 +1066,12 @@ def _resolve_custom_inference_mask(
 
 def _make_control_vector_wrapper(specs: tuple[_AppliedVectorSpec, ...]):
     logged_prefix_notes: set[tuple[str, str]] = set()
+    logged_interactions: set[tuple[tuple[str, float, str], ...]] = set()
+
+    def _effective_entry_mode(sp: _AppliedVectorSpec) -> str:
+        if sp.mode == "add" and sp.scale_mode == "norm_matched":
+            return "add_norm_matched"
+        return sp.mode
 
     def wrapper(executor, x, timestep, context, transformer_options={}, **kwargs):
         if context is None or not specs:
@@ -1069,14 +1117,15 @@ def _make_control_vector_wrapper(specs: tuple[_AppliedVectorSpec, ...]):
                     render_prefix_kind,
                 )
 
-        # Group consecutive specs with the same (mask, scale_mode, prompt) so stacked
-        # vectors accumulate in float64 before casting back to context.dtype (`CONTRACT.md` §3 / paper §2.1).
+        # Group consecutive specs with the same (mask, prompt) so stacked additive
+        # vectors and inference-time 'hold' vectors accumulate in float64 before
+        # casting back to context.dtype (`CONTRACT.md` §3 / paper §2.1).
         cur = context
         i = 0
         n = len(active_specs)
         while i < n:
             sp = active_specs[i]
-            group_key = (sp.mask, sp.scale_mode, sp.prompt)
+            group_key = (sp.mask, sp.prompt)
             custom_mask = _resolve_custom_inference_mask(
                 sp,
                 tags_raw=tags_raw,
@@ -1086,24 +1135,58 @@ def _make_control_vector_wrapper(specs: tuple[_AppliedVectorSpec, ...]):
                 device=context.device,
             )
             mask_vision = sp.mask != "all_rows"
+            group_specs: list[_AppliedVectorSpec] = [sp]
             batch_entries: list[tuple[torch.Tensor, float, str]] = [
-                (sp.vector, sp.strength, sp.mode)
+                (sp.vector, sp.strength, _effective_entry_mode(sp))
             ]
             j = i + 1
             while (
                 j < n
-                and (active_specs[j].mask, active_specs[j].scale_mode, active_specs[j].prompt)
+                and (active_specs[j].mask, active_specs[j].prompt)
                 == group_key
             ):
+                group_specs.append(active_specs[j])
                 batch_entries.append(
-                    (active_specs[j].vector, active_specs[j].strength, active_specs[j].mode)
+                    (
+                        active_specs[j].vector,
+                        active_specs[j].strength,
+                        _effective_entry_mode(active_specs[j]),
+                    )
                 )
                 j += 1
+
+            add_inter_entries: list[tuple[str, torch.Tensor, float]] = []
+            for gsp in group_specs:
+                em = _effective_entry_mode(gsp)
+                if em in ("add", "add_norm_matched"):
+                    v_nrm = float(torch.linalg.vector_norm(gsp.vector.detach().to(dtype=torch.float64)).item())
+                    eff_s = (
+                        gsp.strength * (_cv.NORM_MATCHED_TARGET / v_nrm)
+                        if (em == "add_norm_matched" and v_nrm > 1e-12)
+                        else gsp.strength
+                    )
+                    add_inter_entries.append((gsp.vector_name, gsp.vector, eff_s))
+            if len(add_inter_entries) >= 2:
+                inter_key = tuple((gsp.vector_name, gsp.strength, _effective_entry_mode(gsp)) for gsp in group_specs)
+                if inter_key not in logged_interactions:
+                    logged_interactions.add(inter_key)
+                    inter = _cv.vector_interactions(add_inter_entries)
+                    pair_notes = ", ".join(
+                        f"{p['a']} x {p['b']}: raw_cos={p['cosine']:+.3f} push_cos={p['signed_cosine']:+.3f} 2*s_i*s_j*(v_i.v_j)={p['interaction_sq']:+.1f}"
+                        for p in inter["pairs"]
+                    )
+                    logger.info(
+                        "[h3] stacked control vectors combined_norm=%.2f (sum_individual=%.2f; %s)",
+                        inter["combined_norm"],
+                        inter["sum_individual_norms"],
+                        pair_notes,
+                    )
+
             cur = _cv.apply_post_refiner(
                 cur,
                 tags,
                 batch_entries,
-                scale_mode=sp.scale_mode,
+                scale_mode="raw",
                 mask=custom_mask,
                 mask_vision=mask_vision,
             )
@@ -1404,8 +1487,10 @@ class MiniMaxH3ApplyControlVectors(io.ComfyNode):
                     tooltip=(
                         "'add' (default) adds strength * v; 'add_norm_matched' normalizes v to "
                         "67.5 post-refiner shift norm at strength=1.0 across all pooling modes; "
-                        "'project_out' removes strength * ((r . v) / ||v||^2) * v (E4.4); "
-                        "'amplify' adds strength * ((r . v) / ||v||^2) * v."
+                        "'hold' projects out strength * (delta_r . u_hat) * u_hat from the "
+                        "accumulated additive steering shift without modifying the base prompt; "
+                        "'project_out' removes strength * ((r . v) / ||v||^2) * v from the prompt "
+                        "tokens (E4.4); 'amplify' adds strength * ((r . v) / ||v||^2) * v."
                     ),
                 ),
                 io.Combo.Input(
@@ -1415,7 +1500,10 @@ class MiniMaxH3ApplyControlVectors(io.ComfyNode):
                     tooltip=(
                         "'non_vision' (default) steers all tag-1 text rows and leaves tag-0 "
                         "vision rows untouched; 'scene_only' also leaves <d>...</d> dialogue "
-                        "and (S1) speaker tags untouched; 'after_dialogue' steers only scene "
+                        "and (S1) speaker tags untouched; 'description_only' steers only scene "
+                        "tokens inside integrated_multimodal_description: (fl2va) or "
+                        "detailed_description: (ref2va); 'soundscape_only' steers only scene "
+                        "tokens inside overall_soundscape:; 'after_dialogue' steers only scene "
                         "tokens after the last </d>; 'all_rows' is the unmasked ablation (E2.3)."
                     ),
                 ),

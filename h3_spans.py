@@ -44,6 +44,8 @@ POOLING_MODES: tuple[str, ...] = (
 INFERENCE_MASK_MODES: tuple[str, ...] = (
     "non_vision",
     "scene_only",
+    "description_only",
+    "soundscape_only",
     "after_dialogue",
     "all_rows",
 )
@@ -52,6 +54,15 @@ LABEL_RE = re.compile(r"<(?:Picture|Video|Audio) \d+>: ")
 AUDIO_LABEL_PREFIX_RE = re.compile(r"^(?:<Audio \d+>: )+")
 TIMESTAMP_RE = re.compile(r"<\d+(?:\.\d+)? seconds>")
 SPEAKER_RE = re.compile(r"\(S\d+(?:,\s*S\d+)*\)")
+SECTION_HEADER_RE = re.compile(
+    r"\b(summary|subject_definitions|retention_analysis|"
+    r"integrated_multimodal_description|detailed_description|"
+    r"overall_soundscape|non_diegetic_music):"
+)
+DESCRIPTION_SECTIONS: frozenset[str] = frozenset(
+    {"integrated_multimodal_description", "detailed_description"}
+)
+SOUNDSCAPE_SECTIONS: frozenset[str] = frozenset({"overall_soundscape"})
 
 
 def verify_tokenizer_constants(tokenizer: Any | None = None) -> dict[str, int]:
@@ -322,6 +333,56 @@ def spans(
     if not bool(torch.all(cover == 1)):
         bad = (cover != 1).nonzero(as_tuple=False).flatten().tolist()
         raise RuntimeError(f"span partition is not mutually exclusive at indices {bad}")
+
+    # Attach structural section submasks (`_h3_description_mask` and
+    # `_h3_soundscape_mask`) onto `out["scene"]` so `inference_mask` can select
+    # `description_only` (`integrated_multimodal_description:` on fl2va or
+    # `detailed_description:` on ref2va) or `soundscape_only` (`overall_soundscape:`)
+    # while keeping `spans()`'s 6 mutually exclusive `CATEGORIES` unchanged.
+    desc_mask = torch.zeros(L, dtype=torch.bool)
+    sound_mask = torch.zeros(L, dtype=torch.bool)
+    prompt_start = last_vision_idx + 1
+    if prompt_start < L:
+        tail_pieces: list[str] = []
+        tail_char_spans: list[tuple[int, int, int, int, int]] = []
+        pos_cursor = 0
+        for k in range(prompt_start, L):
+            if out["dialogue"][k]:
+                piece_k = "<d>" if ids[k] == DIALOGUE_START else ("</d>" if ids[k] == DIALOGUE_END else decode([ids[k]]))
+            else:
+                piece_k = decode([ids[k]])
+            c0 = pos_cursor
+            c1 = c0 + len(piece_k)
+            pos_cursor = c1
+            lstripped = piece_k.lstrip()
+            rstripped = piece_k.rstrip()
+            nc0 = c0 + (len(piece_k) - len(lstripped))
+            nc1 = c0 + len(rstripped)
+            tail_pieces.append(piece_k)
+            tail_char_spans.append((k, c0, c1, nc0, nc1))
+
+        tail_text = "".join(tail_pieces)
+        sec_matches = list(SECTION_HEADER_RE.finditer(tail_text))
+        if sec_matches:
+            sec_intervals: list[tuple[str, int, int]] = []
+            for s_idx, sm in enumerate(sec_matches):
+                s_start = sm.start()
+                s_end = sec_matches[s_idx + 1].start() if (s_idx + 1) < len(sec_matches) else len(tail_text)
+                sec_intervals.append((sm.group(1), s_start, s_end))
+            for k, c0, _c1, nc0, nc1 in tail_char_spans:
+                if not bool(out["scene"][k].item()):
+                    continue
+                probe_pos = nc0 if nc0 < nc1 else c0
+                for sec_name, s_start, s_end in sec_intervals:
+                    if s_start <= probe_pos < s_end:
+                        if sec_name in DESCRIPTION_SECTIONS:
+                            desc_mask[k] = True
+                        elif sec_name in SOUNDSCAPE_SECTIONS:
+                            sound_mask[k] = True
+                        break
+
+    setattr(out["scene"], "_h3_description_mask", desc_mask)
+    setattr(out["scene"], "_h3_soundscape_mask", sound_mask)
     return out
 
 
@@ -357,17 +418,40 @@ def inference_mask(
     - `'non_vision'`: `~span_masks['vision']` (every `tag == 1` text row).
     - `'scene_only'`: `span_masks['scene']` (leaves vision, reference labels,
       timestamps, speaker tags `(S1)`, and `<d>...</d>` dialogue rows untouched).
+    - `'description_only'`: non-dialogue `scene` tokens inside the visual
+      description section (`integrated_multimodal_description:` on `fl2va` or
+      `detailed_description:` on `ref2va`), leaving `summary:`,
+      `subject_definitions:`, `retention_analysis:`, `<d>...</d>` dialogue,
+      `(S1)` speaker tags, `overall_soundscape:`, and `non_diegetic_music:`
+      untouched (falls back to `span_masks['scene']` if the prompt has no
+      description section header).
+    - `'soundscape_only'`: `scene` tokens inside `overall_soundscape:`, leaving
+      vision, visual description, dialogue, and `non_diegetic_music:` untouched
+      (falls back to `span_masks['scene']` if the prompt has no
+      `overall_soundscape:` section header).
     - `'after_dialogue'`: `span_masks['scene']` strictly after the last
       `dialogue` token (or all `span_masks['scene']` rows when the prompt has
       no `<d>...</d>` span or no trailing scene tokens after `</d>`).
     - `'all_rows'`: all `L` rows (`vision` and `tag == 1`)."""
     if not isinstance(span_masks, dict) or "vision" not in span_masks or "scene" not in span_masks:
         raise ValueError("span_masks must contain 'vision' and 'scene' keys")
+    if mode not in INFERENCE_MASK_MODES:
+        raise ValueError(f"unknown inference mask mode {mode!r}; expected one of {INFERENCE_MASK_MODES}")
     if mode == "non_vision":
         return (~span_masks["vision"]).clone()
     if mode == "all_rows":
         return torch.ones_like(span_masks["vision"], dtype=torch.bool)
     if mode == "scene_only":
+        return span_masks["scene"].clone()
+    if mode == "description_only":
+        sub = getattr(span_masks["scene"], "_h3_description_mask", None)
+        if isinstance(sub, torch.Tensor) and sub.shape == span_masks["scene"].shape and bool(sub.any()):
+            return (sub.to(device=span_masks["scene"].device) & span_masks["scene"]).clone()
+        return span_masks["scene"].clone()
+    if mode == "soundscape_only":
+        sub = getattr(span_masks["scene"], "_h3_soundscape_mask", None)
+        if isinstance(sub, torch.Tensor) and sub.shape == span_masks["scene"].shape and bool(sub.any()):
+            return (sub.to(device=span_masks["scene"].device) & span_masks["scene"]).clone()
         return span_masks["scene"].clone()
     if mode == "after_dialogue":
         mask = span_masks["scene"].clone()
@@ -499,13 +583,21 @@ def span_masks_from_prompt(
     prefix_lbl = ~prefix_vis
     prefix_false = torch.zeros(prefix_len, dtype=torch.bool)
 
+    scene_cat = torch.cat([prefix_false, prompt_spans["scene"]], dim=0)
+    desc_sub = getattr(prompt_spans["scene"], "_h3_description_mask", None)
+    if isinstance(desc_sub, torch.Tensor):
+        setattr(scene_cat, "_h3_description_mask", torch.cat([prefix_false, desc_sub], dim=0))
+    sound_sub = getattr(prompt_spans["scene"], "_h3_soundscape_mask", None)
+    if isinstance(sound_sub, torch.Tensor):
+        setattr(scene_cat, "_h3_soundscape_mask", torch.cat([prefix_false, sound_sub], dim=0))
+
     return {
         "vision": torch.cat([prefix_vis, prompt_spans["vision"]], dim=0),
         "label": torch.cat([prefix_lbl, prompt_spans["label"]], dim=0),
         "timestamp": torch.cat([prefix_false, prompt_spans["timestamp"]], dim=0),
         "dialogue": torch.cat([prefix_false, prompt_spans["dialogue"]], dim=0),
         "speaker": torch.cat([prefix_false, prompt_spans["speaker"]], dim=0),
-        "scene": torch.cat([prefix_false, prompt_spans["scene"]], dim=0),
+        "scene": scene_cat,
     }
 
 

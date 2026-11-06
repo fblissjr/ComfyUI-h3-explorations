@@ -339,6 +339,42 @@
     white-space: pre-wrap;
     display: none;
   }
+  .ab-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 10px;
+  }
+  @media (max-width: 720px) {
+    .ab-grid { grid-template-columns: 1fr; }
+  }
+  .ab-pane {
+    background: var(--panel-alt);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px;
+  }
+  .ab-pane video {
+    width: 100%;
+    border-radius: 4px;
+    background: #000;
+    display: block;
+    margin-top: 6px;
+    aspect-ratio: 3 / 2;
+  }
+  .ab-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 10px;
+    padding-top: 8px;
+    border-top: 1px solid var(--border);
+  }
+  .ab-controls input[type="range"] {
+    flex: 1;
+    min-width: 140px;
+  }
 </style>
 </head>
 <body>
@@ -415,7 +451,7 @@
           <div class="check-group-title">Recipe Options</div>
           <label class="check-item"><input type="checkbox" id="opt-pika" checked> Standard Pika H3 Flex LoRA</label>
           <label class="check-item"><input type="checkbox" id="opt-overwrite" checked> Overwrite existing files</label>
-          <label class="check-item"><input type="checkbox" id="opt-encoder"> Save `vector.encoder` (5120-d)</label>
+          <label class="check-item"><input type="checkbox" id="opt-encoder" checked> Save `vector.encoder` (5120-d)</label>
         </div>
       </div>
       <div class="btn-bar">
@@ -479,6 +515,40 @@
           </thead>
           <tbody id="vectors-tbody"></tbody>
         </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">
+        <span>4. Lockstep A/B Video Compare (`24 fps`)</span>
+        <span id="ab-time-readout" class="subtext">Frame 0 (0.00s)</span>
+      </div>
+      <div class="ab-grid">
+        <div class="ab-pane">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;">
+            <strong>Clip A (Baseline)</strong>
+            <input id="ab-file-a" type="file" accept="video/mp4,video/webm,video/quicktime" style="font-size:11.5px;max-width:210px;">
+          </div>
+          <video id="ab-vid-a" playsinline preload="metadata" loop muted></video>
+        </div>
+        <div class="ab-pane">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;">
+            <strong>Clip B (Steered)</strong>
+            <input id="ab-file-b" type="file" accept="video/mp4,video/webm,video/quicktime" style="font-size:11.5px;max-width:210px;">
+          </div>
+          <video id="ab-vid-b" playsinline preload="metadata" loop muted></video>
+        </div>
+      </div>
+      <div class="ab-controls">
+        <button id="ab-btn-play" type="button" class="primary">Play / Pause</button>
+        <button id="ab-btn-prev" type="button" title="Step back 1 frame (-1/24s)">&larr; -1f</button>
+        <button id="ab-btn-next" type="button" title="Step forward 1 frame (+1/24s)">+1f &rarr;</button>
+        <input id="ab-scrub" type="range" min="0" max="5" step="0.0416667" value="0">
+        <select id="ab-audio-mode" title="Select which clip's audio track is audible">
+          <option value="mute" selected>Audio: Muted</option>
+          <option value="a">Audio: Clip A</option>
+          <option value="b">Audio: Clip B</option>
+        </select>
       </div>
     </div>
   </section>
@@ -750,6 +820,110 @@ document.getElementById("btn-quit").addEventListener("click", async () => {
   setStatus("Server stopped — you can close this tab", "err");
   document.body.innerHTML = `<div style="padding:40px;text-align:center;color:#8b949e;"><h2>H3 Control Vector Studio stopped</h2><p>The local Python process has exited cleanly. You can close this browser tab.</p></div>`;
 });
+
+(function initLockstepAB() {
+  const vidA = document.getElementById("ab-vid-a");
+  const vidB = document.getElementById("ab-vid-b");
+  const fileA = document.getElementById("ab-file-a");
+  const fileB = document.getElementById("ab-file-b");
+  const btnPlay = document.getElementById("ab-btn-play");
+  const btnPrev = document.getElementById("ab-btn-prev");
+  const btnNext = document.getElementById("ab-btn-next");
+  const scrub = document.getElementById("ab-scrub");
+  const audioSel = document.getElementById("ab-audio-mode");
+  const readout = document.getElementById("ab-time-readout");
+  let urlA = null;
+  let urlB = null;
+  const FRAME_DT = 1.0 / 24.0;
+
+  function updateReadout(t) {
+    const frame = Math.round(t * 24);
+    readout.textContent = `Frame ${frame} (${t.toFixed(2)}s @ 24fps)`;
+    scrub.value = String(t);
+  }
+
+  function syncMaxDuration() {
+    const dA = Number.isFinite(vidA.duration) ? vidA.duration : 0;
+    const dB = Number.isFinite(vidB.duration) ? vidB.duration : 0;
+    const maxD = Math.max(dA, dB, 0.0416667);
+    scrub.max = String(maxD);
+  }
+
+  fileA.addEventListener("change", (e) => {
+    const f = e.target.files && e.target.files[0];
+    if (!f) return;
+    if (urlA) URL.revokeObjectURL(urlA);
+    urlA = URL.createObjectURL(f);
+    vidA.src = urlA;
+  });
+
+  fileB.addEventListener("change", (e) => {
+    const f = e.target.files && e.target.files[0];
+    if (!f) return;
+    if (urlB) URL.revokeObjectURL(urlB);
+    urlB = URL.createObjectURL(f);
+    vidB.src = urlB;
+  });
+
+  vidA.addEventListener("loadedmetadata", syncMaxDuration);
+  vidB.addEventListener("loadedmetadata", syncMaxDuration);
+
+  vidA.addEventListener("timeupdate", () => {
+    updateReadout(vidA.currentTime || 0);
+    if (vidB.src && Math.abs((vidB.currentTime || 0) - (vidA.currentTime || 0)) > 0.045) {
+      vidB.currentTime = vidA.currentTime;
+    }
+  });
+
+  vidB.addEventListener("timeupdate", () => {
+    if (!vidA.src) updateReadout(vidB.currentTime || 0);
+  });
+
+  btnPlay.addEventListener("click", async () => {
+    const paused = vidA.paused && vidB.paused;
+    if (paused) {
+      const t = vidA.src ? (vidA.currentTime || 0) : (vidB.currentTime || 0);
+      if (vidA.src) vidA.currentTime = t;
+      if (vidB.src) vidB.currentTime = t;
+      await Promise.all([
+        vidA.src ? vidA.play().catch(() => {}) : Promise.resolve(),
+        vidB.src ? vidB.play().catch(() => {}) : Promise.resolve(),
+      ]);
+    } else {
+      vidA.pause();
+      vidB.pause();
+    }
+  });
+
+  function stepFrames(deltaFrames) {
+    vidA.pause();
+    vidB.pause();
+    const baseT = vidA.src ? (vidA.currentTime || 0) : (vidB.currentTime || 0);
+    const maxT = parseFloat(scrub.max) || 5.0;
+    const nextT = Math.max(0, Math.min(maxT, baseT + deltaFrames * FRAME_DT));
+    if (vidA.src) vidA.currentTime = nextT;
+    if (vidB.src) vidB.currentTime = nextT;
+    updateReadout(nextT);
+  }
+
+  btnPrev.addEventListener("click", () => stepFrames(-1));
+  btnNext.addEventListener("click", () => stepFrames(1));
+
+  scrub.addEventListener("input", () => {
+    vidA.pause();
+    vidB.pause();
+    const t = parseFloat(scrub.value) || 0;
+    if (vidA.src) vidA.currentTime = t;
+    if (vidB.src) vidB.currentTime = t;
+    updateReadout(t);
+  });
+
+  audioSel.addEventListener("change", () => {
+    const mode = audioSel.value;
+    vidA.muted = mode !== "a";
+    vidB.muted = mode !== "b";
+  });
+})();
 
 initStudio();
 </script>

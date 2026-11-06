@@ -271,6 +271,38 @@ def check_spans_partition_and_refusals(tok: MiniMaxH3Tokenizer) -> list[str]:
         or not bool(sm_prefixed["scene"].any())
     ):
         errs.append(f"span_masks_from_prompt failed on prefixed sequence: {sm_prefixed}")
+    else:
+        im_desc_pref = h3_spans.inference_mask(sm_prefixed, "description_only")
+        im_sound_pref = h3_spans.inference_mask(sm_prefixed, "soundscape_only")
+        if not bool(im_desc_pref.any()) or not bool(im_sound_pref.any()):
+            errs.append("description_only or soundscape_only empty on prefixed fl2va prompt")
+        if bool((im_desc_pref & im_sound_pref).any()):
+            errs.append("description_only and soundscape_only overlapped on prefixed fl2va prompt")
+        if bool((im_desc_pref & sm_prefixed["dialogue"]).any()) or bool((im_desc_pref & sm_prefixed["vision"]).any()):
+            errs.append("description_only leaked into dialogue or vision rows")
+
+    # Test description_only on ref2va prompt structure (subject_definitions: + detailed_description: + overall_soundscape:)
+    ref2va_sample_prompt = (
+        "subject_definitions:\n- <Picture 1>: A brass compass.\n\n"
+        "summary: A brass compass sits on a map.\n\n"
+        "retention_analysis:\n- Keep brass compass geometry.\n\n"
+        "detailed_description: [Shot 1] Wide shot of the compass as (S1) says, <d>[English] North is this way.</d> Light glints on the glass.\n\n"
+        "overall_soundscape: Gentle wind over paper.\n\n"
+        "non_diegetic_music: N/A"
+    )
+    sm_ref2va = h3_spans.span_masks_from_prompt(
+        ref2va_sample_prompt,
+        len(tok.tokenize_with_weights(ref2va_sample_prompt)["qwen3vl_32b"][0]),
+        tokenizer=tok,
+    )
+    im_desc_r2v = h3_spans.inference_mask(sm_ref2va, "description_only")
+    im_sound_r2v = h3_spans.inference_mask(sm_ref2va, "soundscape_only")
+    if not bool(im_desc_r2v.any()) or not bool(im_sound_r2v.any()):
+        errs.append("description_only or soundscape_only empty on ref2va prompt")
+    if bool((im_desc_r2v & im_sound_r2v).any()):
+        errs.append("description_only and soundscape_only overlapped on ref2va prompt")
+    if int(im_desc_r2v.sum().item()) + int(im_sound_r2v.sum().item()) >= int(sm_ref2va["scene"].sum().item()):
+        errs.append("description_only + soundscape_only did not exclude summary/subject_definitions/retention_analysis/non_diegetic_music")
     pm_scene = h3_spans.pooling_mask(masks, "scene_text")
     if not torch.equal(pm_scene, masks["scene"]):
         errs.append("pooling_mask('scene_text') does not equal masks['scene']")
@@ -1681,6 +1713,51 @@ def check_apply_post_refiner_invariants() -> list[str]:
         errs.append("apply_post_refiner mode='add_norm_matched' and scale_mode='norm_matched' differed")
     if not torch.allclose(out_nm_mode[0, 4:, :], expected_nm_row.unsqueeze(0).expand(L - 4, D), atol=1e-5):
         errs.append("apply_post_refiner norm_matched did not scale vector to NORM_MATCHED_TARGET (67.5)")
+
+    # 9. Soft ridge hold projection project_out(..., alpha) and apply_post_refiner(mode='hold') + vector_interactions:
+    v_steer = 2.0 * v_dir + ortho  # component along v_hat is 10.0, orthogonal component is ortho
+    v_proj_half = cv.project_out(v_steer, v_dir.unsqueeze(0), alpha=0.5)
+    if not torch.allclose(v_proj_half, 1.0 * v_dir + ortho, atol=1e-6):
+        errs.append(f"project_out(alpha=0.5) did not attenuate component along basis by 50%: {v_proj_half[:4]}")
+    errs += _expect_refusal(
+        lambda: cv.project_out(v_steer, v_dir.unsqueeze(0), alpha=1.5),
+        "alpha must be finite and in [0.0, 1.0]",
+        "project_out refusal: alpha > 1.0",
+    )
+
+    # Standalone mode='hold' with no additive vector must leave context bitwise untouched (unlike 'project_out')
+    out_hold_only = cv.apply_post_refiner(ctx_f32, tags, [(v_dir, 1.0, "hold")])
+    if not torch.equal(out_hold_only, ctx_f32):
+        errs.append("apply_post_refiner(mode='hold') with no 'add' vector modified base context")
+
+    # Stacked ('add', v_steer, 1.0) + ('hold', v_dir, 1.0) adds only ortho to context, leaving ctx_f32's own v_dir component intact!
+    out_add_plus_hold = cv.apply_post_refiner(
+        ctx_f32,
+        tags,
+        [(v_steer, 1.0, "add"), (v_dir, 1.0, "hold")],
+    )
+    expected_add_hold = ctx_f32.clone()
+    expected_add_hold[0, 4:, :] = ctx_f32[0, 4:, :] + ortho
+    if not torch.allclose(out_add_plus_hold, expected_add_hold, atol=1e-6):
+        errs.append("apply_post_refiner([('add', v_steer, 1.0), ('hold', v_dir, 1.0)]) did not project v_dir out of shift only")
+
+    # Soft hold ('hold', v_dir, 0.5) removes 50% of v_dir from v_steer shift
+    out_add_soft_hold = cv.apply_post_refiner(
+        ctx_zeros,
+        tags,
+        [(v_steer, 1.0, "add"), (v_dir, 0.5, "hold")],
+    )
+    if not torch.allclose(
+        out_add_soft_hold[0, 4:, :],
+        (1.0 * v_dir + ortho).unsqueeze(0).expand(L - 4, D),
+        atol=1e-6,
+    ):
+        errs.append("apply_post_refiner soft hold (s=0.5) did not remove 50% of hold component from additive shift")
+
+    inter_stats = cv.vector_interactions([("v_steer", v_steer, 1.0), ("v_dir", v_dir, 1.0)])
+    expected_inter_sq = 2.0 * float(torch.dot(v_steer, v_dir).item())
+    if abs(inter_stats["total_interaction_sq"] - expected_inter_sq) > 1e-4 or len(inter_stats["pairs"]) != 1:
+        errs.append(f"vector_interactions mismatch: {inter_stats} vs expected {expected_inter_sq}")
 
     errs += _expect_refusal(
         lambda: cv.apply_post_refiner(ctx_f32, tags, [(v_dir, 1.0, "bogus_mode")]),

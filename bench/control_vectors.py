@@ -1744,7 +1744,7 @@ def cmd_build(args: argparse.Namespace) -> int:
                 b_pooled_list.append(
                     ref_b.to(dtype=torch.float64)[mask_b].mean(dim=0).to(dtype=torch.float32)
                 )
-                if getattr(args, "include_encoder", False):
+                if getattr(args, "include_encoder", True):
                     mask_a_enc = mask_a.clone()
                     mask_b_enc = mask_b.clone()
                     if mask_a_enc.numel() > 0:
@@ -1835,7 +1835,7 @@ def cmd_build(args: argparse.Namespace) -> int:
                     "median_row_norm": median_ref_row_norm,
                 }
             }
-            if getattr(args, "include_encoder", False):
+            if getattr(args, "include_encoder", True):
                 enc_a_mat = torch.stack(enc_a_pooled_list, dim=0)
                 enc_b_mat = torch.stack(enc_b_pooled_list, dim=0)
                 enc_raw_vec = cv.mean_difference(enc_a_mat, enc_b_mat, w_vec)
@@ -2309,7 +2309,7 @@ def handle_ui_request(
         pooling = str(req.get("pooling", "diff_span") or "diff_span")
         no_lora = bool(req.get("no_lora", False))
         overwrite = bool(req.get("overwrite", True))
-        include_encoder = bool(req.get("include_encoder", False))
+        include_encoder = bool(req.get("include_encoder", True))
         if not name:
             return 400, "application/json", json.dumps({"ok": False, "error": "vector name is required"})
         try:
@@ -2365,6 +2365,8 @@ def handle_ui_request(
                 argv.append("--no-lora")
             if include_encoder:
                 argv.append("--include-encoder")
+            else:
+                argv.append("--no-encoder")
             if overwrite:
                 argv.append("--overwrite")
             b_args = build_parser().parse_args(argv)
@@ -2511,7 +2513,8 @@ def build_parser() -> argparse.ArgumentParser:
     pb.add_argument("--no-lora", dest="no_lora", action="store_true", help="Build for stock 30-step base UNet without Pika LoRAs")
     pb.add_argument("--ref-images", default=None, help="Comma-separated reference images for ref2va prefix")
     pb.add_argument("--no-holds", action="store_true", help="Do not project out [[hold]] groups")
-    pb.add_argument("--include-encoder", action="store_true", help="Also save vector.encoder (5120-d)")
+    pb.add_argument("--include-encoder", dest="include_encoder", action="store_true", default=True, help="Also save vector.encoder (5120-d; default: True)")
+    pb.add_argument("--no-encoder", dest="include_encoder", action="store_false", help="Omit vector.encoder (5120-d) from saved .safetensors")
     pb.add_argument("--seed", type=int, default=0)
     pb.add_argument("--device", default="default")
     pb.add_argument("--refiner-device", default="cpu")
@@ -2548,7 +2551,8 @@ def build_parser() -> argparse.ArgumentParser:
     pm.add_argument("--ref-images", default=None, help="Comma-separated reference images for ref2va prefix")
     pm.add_argument("--ref-role", default="subject", help="Role for first reference image")
     pm.add_argument("--no-holds", action="store_true", help="Do not project out [[hold]] groups")
-    pm.add_argument("--include-encoder", action="store_true", help="Also save vector.encoder (5120-d)")
+    pm.add_argument("--include-encoder", dest="include_encoder", action="store_true", default=True, help="Also save vector.encoder (5120-d; default: True)")
+    pm.add_argument("--no-encoder", dest="include_encoder", action="store_false", help="Omit vector.encoder (5120-d) from saved .safetensors")
     pm.add_argument("--output-name", default="", help="Optional vector stem override")
     pm.add_argument("--seed", type=int, default=0)
     pm.add_argument("--device", default="default")

@@ -1090,20 +1090,27 @@ def hold_basis(
     return torch.stack(basis_rows, dim=0).to(dtype=torch.float32)
 
 
-def project_out(v: torch.Tensor, basis: torch.Tensor) -> torch.Tensor:
-    """Project `basis` (`[k, d]`) out of `v` (`[d]`) in float64."""
+def project_out(v: torch.Tensor, basis: torch.Tensor, alpha: float = 1.0) -> torch.Tensor:
+    """Project `basis` (`[k, d]`) out of `v` (`[d]`) in float64 with ridge factor `alpha` in `[0, 1]`.
+
+    At `alpha = 1.0` (default), removes 100% of the component in `span(basis)`
+    (`v - U^T (U v)`). At `0.0 <= alpha < 1.0`, applies soft ridge attenuation
+    (`v - alpha * U^T (U v)`)."""
     if v.ndim != 1:
         raise ValueError(f"v must be a 1D tensor [d], got shape {tuple(v.shape)}")
     d = v.shape[0]
     if basis.ndim != 2 or basis.shape[1] != d:
         raise ValueError(f"basis must have shape [k, {d}], got {tuple(basis.shape)}")
+    alpha_f = float(alpha)
+    if not math.isfinite(alpha_f) or not (0.0 <= alpha_f <= 1.0):
+        raise ValueError(f"alpha must be finite and in [0.0, 1.0], got {alpha!r}")
 
     v64 = v.detach().to(dtype=torch.float64)
     b64 = basis.detach().to(device=v64.device, dtype=torch.float64)
     if not bool(torch.isfinite(v64).all()) or not bool(torch.isfinite(b64).all()):
         raise ValueError("v and basis must contain only finite values")
 
-    if basis.shape[0] == 0:
+    if basis.shape[0] == 0 or alpha_f == 0.0:
         return v64.to(dtype=torch.float32)
 
     ortho_rows: list[torch.Tensor] = []
@@ -1117,7 +1124,7 @@ def project_out(v: torch.Tensor, basis: torch.Tensor) -> torch.Tensor:
             ortho_rows.append(u / nrm)
 
     for u in ortho_rows:
-        v64 = v64 - torch.dot(v64, u) * u
+        v64 = v64 - alpha_f * torch.dot(v64, u) * u
     return v64.to(dtype=torch.float32)
 
 
@@ -2010,11 +2017,108 @@ def _lora_family_signature(loras: Sequence[Any]) -> list[tuple[str, float]] | No
     return sig
 
 
-APPLY_MODES: tuple[str, ...] = ("add", "add_norm_matched", "project_out", "amplify")
+APPLY_MODES: tuple[str, ...] = ("add", "add_norm_matched", "hold", "project_out", "amplify")
 SCALE_MODES: tuple[str, ...] = ("raw", "norm_matched")
 #: Midpoint of the healthy post-refiner shift norm target window `[50.0, 85.0]`
 #: (`format_vector_sidecar_md`, `bench/results/2026-11-05_control_vectors_pika_and_ref2va.md`).
 NORM_MATCHED_TARGET: float = 67.5
+
+
+def _apply_holds_to_shift64(
+    total_shift64: torch.Tensor,
+    hold_entries: Sequence[tuple[torch.Tensor, float]],
+    device: torch.device,
+) -> torch.Tensor:
+    """Project `hold_entries` (`[(v_hold, alpha), ...]`) out of `total_shift64` in float64."""
+    if not hold_entries or float(torch.linalg.vector_norm(total_shift64).item()) <= 1e-24:
+        return total_shift64
+    ortho_holds: list[tuple[torch.Tensor, float]] = []
+    for h_vec, h_alpha in hold_entries:
+        u = h_vec.detach().to(device=device, dtype=torch.float64).clone()
+        for _pass in range(2):
+            for prev_u, _ in ortho_holds:
+                u = u - torch.dot(u, prev_u) * prev_u
+        nrm = torch.linalg.vector_norm(u)
+        if float(nrm) > 1e-12:
+            ortho_holds.append((u / nrm, float(h_alpha)))
+    out_shift = total_shift64
+    for u_hat, h_alpha in ortho_holds:
+        out_shift = out_shift - h_alpha * torch.dot(out_shift, u_hat) * u_hat
+    return out_shift
+
+
+def vector_interactions(
+    entries: Sequence[tuple[str, torch.Tensor, float]],
+) -> dict[str, Any]:
+    """Compute exact float64 norm decomposition and pairwise quadratic interaction
+    terms `2 * s_i * s_j * (v_i . v_j)` across stacked additive control vectors.
+
+    Each element of `entries` is `(name, vector_1d, effective_strength)`."""
+    vecs64: list[tuple[str, torch.Tensor, float]] = []
+    for name, vec, strength in entries:
+        s_f = float(strength)
+        if s_f == 0.0:
+            continue
+        v64 = vec.detach().to(device="cpu", dtype=torch.float64).flatten()
+        vecs64.append((str(name), v64, s_f))
+
+    if not vecs64:
+        return {
+            "combined_norm": 0.0,
+            "sum_individual_norms": 0.0,
+            "combined_norm_sq": 0.0,
+            "sum_individual_norm_sq": 0.0,
+            "total_interaction_sq": 0.0,
+            "pairs": [],
+        }
+
+    d = vecs64[0][1].shape[0]
+    total_vec = torch.zeros(d, dtype=torch.float64)
+    sum_ind_norms = 0.0
+    sum_ind_norm_sq = 0.0
+    for _name, v64, s_f in vecs64:
+        scaled = s_f * v64
+        total_vec = total_vec + scaled
+        nrm = float(torch.linalg.vector_norm(scaled).item())
+        sum_ind_norms += nrm
+        sum_ind_norm_sq += nrm * nrm
+
+    pairs: list[dict[str, Any]] = []
+    total_inter_sq = 0.0
+    for i in range(len(vecs64)):
+        name_i, v_i, s_i = vecs64[i]
+        norm_i = float(torch.linalg.vector_norm(v_i).item())
+        for j in range(i + 1, len(vecs64)):
+            name_j, v_j, s_j = vecs64[j]
+            norm_j = float(torch.linalg.vector_norm(v_j).item())
+            dot_ij = float(torch.dot(v_i, v_j).item())
+            cos_ij = dot_ij / (norm_i * norm_j) if (norm_i > 1e-12 and norm_j > 1e-12) else 0.0
+            sign_ij = 1.0 if (s_i * s_j) >= 0.0 else -1.0
+            signed_cos_ij = sign_ij * cos_ij
+            inter_sq = 2.0 * s_i * s_j * dot_ij
+            total_inter_sq += inter_sq
+            pairs.append(
+                {
+                    "a": name_i,
+                    "b": name_j,
+                    "strength_a": s_i,
+                    "strength_b": s_j,
+                    "cosine": cos_ij,
+                    "signed_cosine": signed_cos_ij,
+                    "dot": dot_ij,
+                    "interaction_sq": inter_sq,
+                }
+            )
+
+    comb_norm_sq = float(torch.dot(total_vec, total_vec).item())
+    return {
+        "combined_norm": math.sqrt(max(0.0, comb_norm_sq)),
+        "sum_individual_norms": sum_ind_norms,
+        "combined_norm_sq": comb_norm_sq,
+        "sum_individual_norm_sq": sum_ind_norm_sq,
+        "total_interaction_sq": total_inter_sq,
+        "pairs": pairs,
+    }
 
 
 def apply_post_refiner(
@@ -2037,9 +2141,13 @@ def apply_post_refiner(
       (`67.5`) so `strength = 1.0` produces a `67.5` post-refiner shift norm regardless
       of pooling mode (`diff_span`, `from_first_diff`, `scene_text`).
     - `'add_norm_matched'`: additive shift with `v` scaled to `NORM_MATCHED_TARGET` (`67.5`).
-    - `'project_out'`: removes fraction `s` of the existing component along `v`,
-      `r -> r - s * ((r . v) / ||v||^2) * v` (at `s = 1.0`, leaves zero component
-      along `v`; if `r . v == 0`, leaves `r` unchanged).
+    - `'hold'`: projects out fraction `s` (`alpha in [0, 1]`) of `v` from the accumulated
+      additive steering shift `delta_r` (`delta_r -> delta_r - s * (delta_r . u_hat) * u_hat`)
+      before `delta_r` is added to `context`, without scrubbing the base prompt's own
+      tokens (`r`).
+    - `'project_out'`: removes fraction `s` of the existing component along `v` from the
+      token activations themselves, `r -> r - s * ((r . v) / ||v||^2) * v` (at `s = 1.0`,
+      leaves zero component along `v`; if `r . v == 0`, leaves `r` unchanged).
     - `'amplify'`: scales the existing component along `v` by `(1 + s)`,
       `r -> r + s * ((r . v) / ||v||^2) * v` (only moves rows that already carry a
       component along `v`).
@@ -2114,7 +2222,7 @@ def apply_post_refiner(
         use_norm_match = entry_mode == "add_norm_matched" or (
             entry_mode == "add" and scale_mode == "norm_matched"
         )
-        if (entry_mode in ("project_out", "amplify") or use_norm_match) and v_norm_sq <= 1e-24:
+        if (entry_mode in ("hold", "project_out", "amplify") or use_norm_match) and v_norm_sq <= 1e-24:
             raise ValueError(f"control vector has zero norm; cannot apply mode={entry_mode!r}")
         if strength != 0.0:
             if use_norm_match:
@@ -2130,27 +2238,42 @@ def apply_post_refiner(
         raise ValueError("context contains non-finite values in steered rows")
 
     out = context.clone()
-    if all(em == "add" for _, _, em in active):
+    if all(em in ("add", "hold") for _, _, em in active):
         total_shift64 = torch.zeros(D, dtype=torch.float64, device=context.device)
-        for vec, strength, _ in active:
-            total_shift64 = total_shift64 + strength * vec.detach().to(
-                device=context.device, dtype=torch.float64
-            )
-        shift = total_shift64.to(dtype=context.dtype)
-        out[row_mask] = out[row_mask] + shift
+        hold_entries: list[tuple[torch.Tensor, float]] = []
+        for vec, strength, em in active:
+            if em == "add":
+                total_shift64 = total_shift64 + strength * vec.detach().to(
+                    device=context.device, dtype=torch.float64
+                )
+            else:
+                hold_entries.append((vec, strength))
+        if hold_entries:
+            total_shift64 = _apply_holds_to_shift64(total_shift64, hold_entries, context.device)
+        if float(torch.linalg.vector_norm(total_shift64).item()) > 0.0:
+            shift = total_shift64.to(dtype=context.dtype)
+            out[row_mask] = out[row_mask] + shift
     else:
         rows64 = out[row_mask].to(dtype=torch.float64)
         idx = 0
         while idx < len(active):
             vec, strength, em = active[idx]
-            if em == "add":
+            if em in ("add", "hold"):
                 total_shift64 = torch.zeros(D, dtype=torch.float64, device=context.device)
-                while idx < len(active) and active[idx][2] == "add":
-                    v_i, s_i, _ = active[idx]
-                    total_shift64 = total_shift64 + s_i * v_i.detach().to(
-                        device=context.device, dtype=torch.float64
-                    )
+                hold_entries_blk: list[tuple[torch.Tensor, float]] = []
+                while idx < len(active) and active[idx][2] in ("add", "hold"):
+                    v_i, s_i, em_i = active[idx]
+                    if em_i == "add":
+                        total_shift64 = total_shift64 + s_i * v_i.detach().to(
+                            device=context.device, dtype=torch.float64
+                        )
+                    else:
+                        hold_entries_blk.append((v_i, s_i))
                     idx += 1
+                if hold_entries_blk:
+                    total_shift64 = _apply_holds_to_shift64(
+                        total_shift64, hold_entries_blk, context.device
+                    )
                 rows64 = rows64 + total_shift64.unsqueeze(0)
             else:
                 v64 = vec.detach().to(device=context.device, dtype=torch.float64)
