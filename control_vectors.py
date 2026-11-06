@@ -2016,12 +2016,36 @@ def check_vector_compatibility(
 
 
 _PIKA_FLEX_VARIANT_RE = re.compile(
-    r"^(?:.*/)?(pika_h3_flex_(?:fl2va|ref2va))_(?:svd\d+_bf16|comfy_bf16|kijai_bf16)\.safetensors$"
+    r"^(?:.*/)?(pika_h3_flex_(?:fl2va|ref2va))_(?:svd\d+_bf16|comfy_bf16|v1_avg_rank_\d+_bf16|kijai_bf16)\.safetensors$"
 )
 
 
-def _lora_family_signature(loras: Sequence[Any]) -> list[tuple[str, float]] | None:
-    sig: list[tuple[str, float]] = []
+def _applied_refiner_coverage(applied: str) -> str:
+    applied_norm = str(applied or "branch").strip()
+    if applied_norm in ("branch", "merged"):
+        return "full_refiner"
+    if applied_norm.startswith("branch:"):
+        parts: dict[str, str] = {}
+        last_key: str | None = None
+        for chunk in applied_norm[len("branch:") :].split(","):
+            if "=" in chunk:
+                k, v = chunk.split("=", 1)
+                last_key = k.strip().lower()
+                parts[last_key] = v.strip()
+            elif last_key is not None:
+                parts[last_key] = f"{parts[last_key]},{chunk.strip()}"
+        modules_val = parts.get("modules", "all").strip().lower()
+        blocks_val = parts.get("blocks", "all").strip().lower()
+        block_tokens = {t.strip() for t in blocks_val.split(",") if t.strip()}
+        covers_blocks = blocks_val == "all" or bool(block_tokens & {"refiner", "token_refiner"})
+        if modules_val in ("all", "no adaln") and covers_blocks:
+            return "full_refiner"
+        return f"partial_refiner:modules={modules_val},blocks={blocks_val}"
+    return f"other:{applied_norm}"
+
+
+def _lora_family_signature(loras: Sequence[Any]) -> list[tuple[str, float, str]] | None:
+    sig: list[tuple[str, float, str]] = []
     for item in loras:
         if not isinstance(item, Mapping):
             return None
@@ -2029,7 +2053,8 @@ def _lora_family_signature(loras: Sequence[Any]) -> list[tuple[str, float]] | No
         m = _PIKA_FLEX_VARIANT_RE.match(raw_file)
         if m is None:
             return None
-        sig.append((m.group(1), round(float(item.get("strength", 1.0)), 4)))
+        refiner_cov = _applied_refiner_coverage(str(item.get("applied", "branch")))
+        sig.append((m.group(1), round(float(item.get("strength", 1.0)), 4), refiner_cov))
     return sig
 
 
