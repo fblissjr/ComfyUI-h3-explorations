@@ -34,8 +34,6 @@ def _channel_balance_class():
 
 MiniMaxH3ChannelBalance = _channel_balance_class()
 from .h3_encoder_loader import MiniMaxH3EncoderLoader
-from .pdd_lora import MiniMaxH3PDDLoRA
-from .audio_carry_probe import MiniMaxH3AudioCarryProbe
 from .audio_freeze import (MiniMaxH3FreezeAudio, MiniMaxH3FreezeAudioWindow,
                            MiniMaxH3EncodeTrack, MiniMaxH3AudioAttentionGain)
 from .audio_freeze_song import MiniMaxH3AudioFreezeSong
@@ -320,7 +318,9 @@ class H3ExplorationsExtension(ComfyExtension):
                 # AWQ lane is closed and the node is gone. Removal, unlike
                 # insertion, moves nothing that follows.
                 MiniMaxH3EncoderLoader,
-                MiniMaxH3PDDLoRA, MiniMaxH3AudioCarryProbe,
+                # `MiniMaxH3PDDLoRA` and `MiniMaxH3AudioCarryProbe` sat here
+                # until 2026-11-06; the PDD lane is retired and the nodes are
+                # gone. Removal, unlike insertion, moves nothing that follows.
                 MiniMaxH3ExactBlocks,
                 # MiniMaxH3SolAttn sat here until 2026-09-27; replaced by MiniMaxH3Sol
                 # (appended below). Removal, unlike insertion, moves nothing that follows.

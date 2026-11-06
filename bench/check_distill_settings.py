@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Check every distill is loaded at the shift and step count it was trained at.
 
-A distill runs on its trainer's contract (`docs/wiki/references.md`): PDD at
-the base 12/3 on its own grid, Pika H3 Flex on its own six shift-12 sigmas on
-`lcm`. Neither carries its shift in the file, so a graph at the wrong one
-renders plausibly wrong and **nothing errors**.
+A distill runs on its trainer's contract (`docs/wiki/references.md`): Pika H3
+Flex on its own six shift-12 sigmas on `lcm`. It does not carry its shift in
+the file, so a graph at the wrong one renders plausibly wrong and **nothing
+errors**.
 
 Claims, i.e. what breaks if a case is deleted:
   loaders complete      every node of ours with a `lora_name` input is in
@@ -31,13 +31,10 @@ Claims, i.e. what breaks if a case is deleted:
                         sampler and strength; FastH3's 10/3, template and
                         contract sampling and VSA; the step switches through
                         either) is in git
-  PDD kept to five      a graph loading a PDD LoRA whose stem is not in
-                        `PDD_KEPT` fails: PDD was retired from primary use on
-                        2026-11-04 and five core graphs kept. A new PDD graph
-                        is added to that tuple on the owner's word. The
-                        PDD8-then-base step switch grading, and the case that
-                        an audio refine pass runs undistilled (its one graph,
-                        PDD8 then the refine, went the same day), are in git
+  no retired PDD        a graph loading a PDD LoRA or `MiniMaxH3PDDLoRA` fails
+                        the same way: retired 2026-11-06 (`docs/roadmap.md`,
+                        "Closed lanes"). Its 32-point grid, manual-knot, and
+                        `nfe` contract grading went with it and is in git
 
 No CUDA, no model, no ComfyUI import. Reads API-form JSON (`*_api.json`,
 {node_id: {class_type, inputs}}) and a config module.
@@ -89,13 +86,6 @@ class Found(NamedTuple):
     # strength is a different arm, and three of four fields staying right is
     # exactly how the fourth drifts unnoticed.
     strengths: dict[str, float] | None = None
-    # The `nfe` OVERRIDE a PDD graph sets, or None at its default of 0.
-    # Added 2026-08-26 when the node began fusing heads at load for any
-    # divisor; repurposed 2026-08-27 when it began deriving the count from
-    # `sample_sigmas` instead. It is no longer the evaluation count -- the
-    # sampler's `steps` is -- so this exists only to catch a graph that forces
-    # one partition while stepping another.
-    pdd_nfe: int | None = None
 
 
 # The base checkpoint's own training shifts. Every graph that loads no distill
@@ -103,121 +93,11 @@ class Found(NamedTuple):
 # than "the two graphs that happen to load a LoRA".
 BASE_SHIFT = (12.0, 3.0)
 
-# Parallel Decoding Distillation, converted by bench/convert_pdd_lora.py.
-# Graded on its own terms: PDD carries no
-# shift of its own to inherit, because its block boundaries ARE the base
-# checkpoint's own schedule -- so the shift must be the BASE one, and the step
-# count must be the `nfe` the converted artifact was actually fused for.
-#
-# That step count is read from the FILE, not from h3_config. A PDD arm at the
-# wrong step count evaluates the model off the boundaries its fused heads were
-# built for, and the only other thing that would notice is a runtime warning
-# in a log nobody reads. Grading it against our own constant would be the
-# check deriving its expectation from the thing it is checking.
 _PDD_NAME = re.compile(r"_pdd_(\d+)step_", re.IGNORECASE)
-
-# The PDD graphs kept when PDD was retired from primary use (the owner,
-# 2026-11-04): t2v, first frame, first and last frame, image references, and
-# the ref2va market scene the measurement tools read. A stem, without
-# `_api.json`.
-PDD_KEPT = ("h3_text_to_video_pdd", "h3_first_frame_to_video_pdd",
-            "h3_first_last_frame_to_video_pdd", "h3_image_ref_plus_text_to_video_pdd",
-            "h3_ref2v_market_pdd")
-
-
-def _manual_knots(doc, grid):
-    """Grid indices a `ManualSigmas` vector lands on, or None.
-
-    Uses the same `schedule_knots` the NODE uses at run time rather than
-    restating the mapping -- the repo's rule about grading against the real
-    expression instead of a copy of it.
-    """
-    import torch
-    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-    from pdd_math import schedule_knots
-    # `doc` is an API graph, {node_id: {class_type, inputs}}.
-    for n in doc.values():
-        if not isinstance(n, dict) or n.get("class_type") != "ManualSigmas":
-            continue
-        ins = n.get("inputs")
-        raw = ins.get("sigmas") if isinstance(ins, dict) else None
-        if not isinstance(raw, str):
-            return None
-        try:
-            vec = [float(x) for x in raw.split(",") if x.strip()]
-        except ValueError:
-            return None
-        import h3_config
-        shift = float(h3_config.SIGMA_SHIFT["shift_video"])
-        return schedule_knots(torch.tensor(vec), shift, grid)
-    return None
 
 
 def classify_pdd(lora_name):
-    return bool(_PDD_NAME.search(lora_name.replace("-", "_")))
-
-
-def lora_path(name):
-    """Absolute path for a LoRA a graph names, or None.
-
-    Prefers ComfyUI's own resolver so `extra_model_paths.yaml` is honoured,
-    and falls back to the stock directory. Same shape as
-    `bench/check_lora_alpha.py`'s resolver; kept local rather than imported
-    because this file otherwise needs no ComfyUI at all and a shared helper
-    would drag that requirement into every case here.
-    """
-    comfy_root = HERE.parents[2]
-    try:
-        sys.path.insert(0, str(comfy_root))
-        import folder_paths  # noqa: WPS433
-        found = folder_paths.get_full_path("loras", name)
-        if found:
-            return Path(found)
-    except Exception:
-        pass
-    candidate = comfy_root / "models" / "loras" / name
-    return candidate if candidate.exists() else None
-
-
-def pdd_grid(lora_name):
-    """`pdd_num_steps` from the converted file, or None."""
-    return _pdd_meta(lora_name, "pdd_num_steps")
-
-
-def pdd_block_size(lora_name):
-    """`pdd_block_size` -- the width the head bank was distilled at, or None.
-
-    Needed to grade a step count that does NOT divide the grid: those tile it
-    unevenly, and whether a given uneven tiling is legal is a question about
-    the trained envelope `[trained, 2*trained]` rather than about divisibility.
-    """
-    return _pdd_meta(lora_name, "pdd_block_size")
-
-
-def pdd_nfe(lora_name):
-    """`pdd_nfe` from the converted file's own metadata, or None if unreadable.
-
-    None is not a pass: the caller fails on it. A PDD arm whose artifact cannot
-    be read is one whose schedule cannot be graded, and the filename's own
-    `_8step_` is not evidence -- the converter writes both, and only the
-    metadata is what the node actually consumes.
-    """
-    return _pdd_meta(lora_name, "pdd_nfe")
-
-
-def _pdd_meta(lora_name, key):
-    import json as _json
-    import struct as _struct
-    path = lora_path(lora_name)
-    if path is None:
-        return None
-    try:
-        with open(path, "rb") as handle:
-            n = _struct.unpack("<Q", handle.read(8))[0]
-            meta = _json.loads(handle.read(n)).get("__metadata__") or {}
-        return int(meta[key])
-    except Exception:
-        return None
+    return bool(_PDD_NAME.search(lora_name.replace("-", "_")) or "pdd" in lora_name.lower())
 
 
 def is_turbo(lora_name):
@@ -297,20 +177,13 @@ def read_api(doc) -> Found:
     scheduler: str | None = None
     shifts: list[tuple[float, float]] = []
     strengths: dict[str, float] = {}
-    pdd_nfe: int | None = None
     for node in doc.values():
         ct, inp = node.get("class_type"), node.get("inputs", {})
         if ct in LORA_LOADER_CLASSES:
-            # The pack node is a turbo loader too. Matching only the stock
-            # one made its graphs read as BASE graphs -- policed for shift,
-            # which they happened to satisfy, and never graded on steps.
-            # A pass for the wrong reason is what this file exists to stop.
             loras.append(inp.get("lora_name", ""))
             s = _literal(doc, inp.get("strength_model"))
             if s is None:
-                s = _literal(doc, inp.get("strength"))     # MiniMaxH3PDDLoRA
-            if ct == "MiniMaxH3PDDLoRA":
-                pdd_nfe = _literal(doc, inp.get("nfe")) or None
+                s = _literal(doc, inp.get("strength"))
             if s is not None:
                 strengths[str(inp.get("lora_name", ""))] = float(s)
         elif ct == "MiniMaxH3SigmaShift":
@@ -319,13 +192,8 @@ def read_api(doc) -> Found:
             shift = None if sv is None or sa is None else (float(sv), float(sa))
             if shift is not None:
                 shifts.append(shift)
-    # Steps and scheduler come from `h3_config.graph_schedule`, not from a
-    # local `BasicScheduler` branch: since 0.83.0 a PDD graph carries no
-    # scheduler node at all -- `MiniMaxH3PDDLoRA` emits SIGMAS -- and reading
-    # only `BasicScheduler` reported "could not read the sampler's step count"
-    # on every PDD graph, which this file treats as a failure.
     steps, scheduler = graph_schedule(doc)
-    return Found(loras, shift, steps, scheduler, tuple(shifts), strengths, pdd_nfe)
+    return Found(loras, shift, steps, scheduler, tuple(shifts), strengths)
 
 
 def main():
@@ -372,6 +240,12 @@ def main():
             assert not retired, (
                 f"{path.name}: loads {retired}. FlashGen and FastH3 are a retired "
                 f"lane (docs/roadmap.md, 'Closed lanes', 2026-11-04)")
+            pdd_nodes = [n["class_type"] for n in doc.values()
+                         if isinstance(n, dict) and n.get("class_type") == "MiniMaxH3PDDLoRA"]
+            retired = [l for l in found.loras if classify_pdd(l)] + pdd_nodes
+            assert not retired, (
+                f"{path.name}: loads {retired}. PDD is a retired lane "
+                f"(docs/roadmap.md, 'Closed lanes', 2026-11-06)")
             pika = [l for l in found.loras if classify_pika(l)]
             if pika:
                 nodes = [n for n in doc.values() if isinstance(n, dict)]
@@ -416,125 +290,31 @@ def main():
                 got = (found.strengths or {}).get(found.loras[0])
                 assert got == cfg.PIKA_STRENGTH, (
                     f"{path.name}: Pika H3 Flex strength {got}, want {cfg.PIKA_STRENGTH}")
-                continue
-            pdd = [l for l in found.loras if classify_pdd(l)]
-            assert not pdd or path.name.removesuffix("_api.json") in PDD_KEPT, (
-                f"{path.name}: loads {pdd}. PDD was retired from primary use on "
-                f"2026-11-04 with five graphs kept (PDD_KEPT); a new one is added "
-                f"there on the owner's word (docs/roadmap.md, 'Closed lanes')")
-
-            if not pdd:
-                # A base graph is still policed: it must sit at the base
-                # checkpoint's own training shifts. Skipping it is how
-                # "every shipped graph" quietly became "the two with a LoRA".
-                if found.shift is not None:
-                    base_graphs[path.name] = found
-                    assert found.shift == BASE_SHIFT, (
-                        f"{path.name}: no distill, so it must sit at the base "
-                        f"shift {BASE_SHIFT[0]}/{BASE_SHIFT[1]}, "
-                        f"has {found.shift[0]}/{found.shift[1]}")
+                distilled_graphs[path.name] = (found, pika)
                 continue
 
-            distilled_graphs[path.name] = (found, pdd)
-            for lora in pdd:
-                # PDD: base shift, and the step count the artifact was fused
-                # for.
-                # `None` means the graph carries no `MiniMaxH3SigmaShift`,
-                # which since 2026-08-31 is how the PDD graphs ship: at the
-                # checkpoint's own 12/3 the node patched the model into
-                # what it already was, so it was dropped rather than left
-                # as a knob that `pdd_lora.py::check_shift` raises on. An
-                # absent node therefore RUNS the base shift, and that is
-                # what this compares. `BASE_SHIFT` here is a retyped copy
-                # of ComfyUI's `MiniMaxH3.sampling_settings`; the check
-                # that grades the absent case against the real one is
-                # `check_pdd_sigmas.py::_checkpoint_default_shift`.
-                effective = BASE_SHIFT if found.shift is None else found.shift
-                assert effective == BASE_SHIFT, (
-                    f"{path.name}: {lora} is a PDD arm, whose block "
-                    f"boundaries ARE the base schedule -- it must sit at "
-                    f"{BASE_SHIFT[0]}/{BASE_SHIFT[1]}, has {found.shift}")
-                # **The SAMPLER's step count is the evaluation count.**
-                # Since 2026-08-27 the node reads the block boundaries off
-                # `sample_sigmas` at run time, so the graph's `steps` is
-                # what runs and the file's `pdd_nfe` is only a fallback for
-                # a sampler that publishes no schedule. This used to grade
-                # `steps` against the file and went red on every correct
-                # 4-step arm the moment the widget stopped carrying 4.
-                grid = pdd_grid(lora)
-                assert grid, (
-                    f"{path.name}: could not read `pdd_num_steps` from "
-                    f"{lora}. A PDD arm whose grid cannot be read cannot "
-                    "be graded; the filename is not evidence.")
-                assert found.steps is not None, (
-                    f"{path.name}: could not read the sampler's step count, "
-                    f"which IS the evaluation count since 2026-08-27. A PDD "
-                    f"arm whose schedule cannot be read cannot be graded; "
-                    f"the filename is not evidence.")
-                # **Uniformity is not the requirement; landing on the grid
-                # is.** This asserted `grid % steps == 0` until 2026-08-28,
-                # which was right while every arm was uniform and wrong the
-                # moment one was not. `[8,8,4,4,4,4]` is six evaluations, so
-                # it fails that test, and it is on-grid at every knot --
-                # every block boundary is a grid point and every width is
-                # within the trained envelope. Divisibility was standing in
-                # for on-grid because for a UNIFORM partition the two are
-                # the same thing.
-                #
-                # A `manual` schedule is checked against the grid it names;
-                # anything else still has to tile, because a non-uniform
-                # schedule can only arrive through ManualSigmas and its
-                # absence means the count came from a node that emits
-                # uniform blocks.
-                if found.scheduler == "manual":
-                    knots = _manual_knots(doc, grid)
-                    assert knots is not None, (
-                        f"{path.name}: a manual schedule that cannot be "
-                        f"read cannot be graded.")
-                    assert knots == sorted(set(knots)), (
-                        f"{path.name}: manual sigmas do not ascend through "
-                        f"the grid: {knots}.")
-                    widths = [b - a for a, b in zip(knots, knots[1:])]
-                    assert knots[0] == 0 and knots[-1] == grid, (
-                        f"{path.name}: manual sigmas span {knots[0]}.."
-                        f"{knots[-1]} of a {grid}-point grid; a shipped arm "
-                        f"runs the whole trajectory.")
-                    assert all(w <= 8 for w in widths), (
-                        f"{path.name}: block widths {widths} exceed the "
-                        f"trained envelope (L_max 8 under the inferred "
-                        f"4/8). Legal to render, not to ship.")
-                else:
-                    assert grid % found.steps == 0, (
-                        f"{path.name}: {found.steps} evaluations do not "
-                        f"divide the file's {grid}-point grid, and this arm "
-                        f"has no ManualSigmas to name an explicit partition, "
-                        f"so its blocks come out uneven. The node takes them "
-                        f"anyway and says so, but a SHIPPED arm should tile: "
-                        f"{sorted(n for n in range(1, grid + 1) if grid % n == 0)}.")
-                # `nfe` is an override that forces uniform blocks and
-                # ignores the schedule. Legal, but it means the arm decodes
-                # one partition while stepping another -- an experiment, not
-                # something to ship. Every shipped graph carries 0.
-                assert not found.pdd_nfe or found.pdd_nfe == found.steps, (
-                    f"{path.name}: the node's `nfe` override is "
-                    f"{found.pdd_nfe} while the sampler runs {found.steps} "
-                    f"steps. That decodes the blocks of one partition while "
-                    f"stepping another. Leave `nfe` at 0 so it follows the "
-                    f"schedule, or change the sampler's steps to match.")
+            assert not found.loras, f"{path.name}: loads unknown LoRA {found.loras}"
+            # A base graph is still policed: it must sit at the base
+            # checkpoint's own training shifts. Skipping it is how
+            # "every shipped graph" quietly became "the two with a LoRA".
+            if found.shift is not None:
+                base_graphs[path.name] = found
+                assert found.shift == BASE_SHIFT, (
+                    f"{path.name}: no distill, so it must sit at the base "
+                    f"shift {BASE_SHIFT[0]}/{BASE_SHIFT[1]}, "
+                    f"has {found.shift[0]}/{found.shift[1]}")
 
         # Printed before the empty-set guards, so a red on an empty walk still
         # says which population came back empty. An assertion that fires
         # first on the loop above cannot reach here; that is fine, because it
         # names the graph instead.
-        print(f"        ({len(distilled_graphs)} PDD, "
+        print(f"        ({len(distilled_graphs)} Pika, "
               f"{len(base_graphs)} base API graph(s) graded)")
         assert distilled_graphs, (
-            "no shipped API graph loads a PDD LoRA; this check saw "
+            "no shipped API graph loads a Pika LoRA; this check saw "
             "nothing, and grading an empty set is not a pass")
         assert base_graphs, (
             "no shipped base API graph was examined; the base arm is unpoliced")
-        missing = sorted(set(PDD_KEPT) - {n.removesuffix("_api.json") for n in distilled_graphs})
-        assert not missing, f"kept PDD graphs not found or not graded: {missing}"
 
     check("every shipped graph sits at the right shift and steps", graphs_are_consistent)
 

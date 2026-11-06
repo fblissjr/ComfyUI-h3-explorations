@@ -37,8 +37,7 @@ from safetensors import safe_open
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
-from analyze_checkpoint_delta import header  # noqa: E402
-from bake_pdd_checkpoint import git_commit  # noqa: E402
+from analyze_checkpoint_delta import git_commit, header  # noqa: E402
 from build_adaln_swap import copy_range, is_conditioning  # noqa: E402
 
 DT = {"F16": torch.float16, "F32": torch.float32, "BF16": torch.bfloat16}

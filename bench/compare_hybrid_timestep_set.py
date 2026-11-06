@@ -22,8 +22,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 
-from analyze_checkpoint_delta import header  # noqa: E402
-from bake_pdd_checkpoint import raw_bytes  # noqa: E402
+from analyze_checkpoint_delta import header, raw_bytes  # noqa: E402
 
 
 def in_set(name: str) -> bool:

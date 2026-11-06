@@ -63,8 +63,9 @@ Claims, i.e. what breaks if a case is deleted:
                          DISAGREEMENT, so it cannot pass by everything happening
                          to agree. Without it, a change making all schedulers
                          identical would leave every other case green
-  pdd graphs on grid     every PDD graph samples exactly the block boundaries
-                         its fused heads were built at, both streams
+  pika graphs on grid    every Pika H3 Flex graph samples its shift-12 ManualSigmas
+                         grid and derives the matching shift-3 audio sigmas
+                         through `time_shift_sigma`, both streams
 
 Needs ComfyUI importable (CPU only -- no CUDA, no model, no server) and
 `coderef/`. Neither absence can produce a pass: a missing README SKIPS and
@@ -100,10 +101,8 @@ VENDOR_README = REPO / "coderef" / "Minimax-H3-Turbo" / "README.md"
 
 from h3_config import graph_paths  # noqa: E402
 import h3_config  # noqa: E402
-from pdd_math import block_bounds, partition_bounds  # noqa: E402
-from pdd_lora import envelope_partition  # noqa: E402
 from check_distill_settings import (  # noqa: E402
-    classify_pdd, pdd_grid, pdd_nfe, pdd_block_size, read_api,
+    classify_pika, read_api,
 )
 
 #: The closed form is exact only where the discrete table lands on the step
@@ -322,162 +321,58 @@ def main() -> int:
         check("vendor grid agrees", vendor_grid_agrees)
         check("simple is the only one", simple_is_the_only_one)
 
-    def pdd_graphs_on_their_fused_grid():
-        """A PDD graph samples exactly where its fused heads were built.
-
-        Graded against ANALYTIC ground truth, not a vendor table. A PDD file
-        records the shifts and the grid its heads were fused at, and
-        `pdd_math.block_bounds` turns those into the exact times the sampler
-        must land on -- so there is no published list to parse and no
-        tolerance to negotiate. Off those boundaries the
-        fused output heads decode intervals the sampler never visits, and the
-        node's own runtime warning is the only other thing that would say so.
-
-        """
+    def pika_graphs_on_their_distilled_grid():
+        """A Pika H3 Flex graph samples its shift-12 ManualSigmas grid and derives
+        the matching shift-3 audio sigmas through `time_shift_sigma`."""
+        try:
+            comfy_on_cpu()
+            from comfy.ldm.minimax.model import time_shift_sigma
+            from comfy.supported_models import MiniMaxH3
+        except ImportError as exc:
+            raise AssertionError(
+                f"ComfyUI is not importable from {COMFY}: {exc}") from exc
+        want_v = [float(x) for x in h3_config.PIKA_MANUAL_SIGMAS.split(",") if x.strip()]
         bad, seen = [], 0
         for path in graph_paths(WORKFLOWS, "*_api.json"):
             doc = json.loads(path.read_text())
             found = read_api(doc)
-            names = [n for n in found.loras if classify_pdd(n)]
+            names = [n for n in found.loras if classify_pika(n)]
             if not names:
                 continue
             seen += 1
             rel = path.relative_to(REPO)
-            # The shift is deliberately NOT required here. Since 2026-08-31 the
-            # PDD graphs ship with no `MiniMaxH3SigmaShift` -- at the
-            # checkpoint's own 12/3 it patched the model into what it already
-            # was -- so `found.shift` is None on every one of them, and nothing
-            # in this case reads it: the grid is graded from `steps`, `pdd_nfe`
-            # and the file's `pdd_num_steps`. Requiring it here would fail all
-            # 20 for a value the case does not use. The absent shift IS graded,
-            # by `check_pdd_sigmas.py` against ComfyUI's own model config and
-            # by `check_distill_settings.py` against the base pair.
-            if found.steps is None or found.scheduler is None:
-                bad.append(f"{rel}: loads a PDD LoRA but its steps or "
-                           f"scheduler could not be read")
+            if found.steps != h3_config.PIKA_STEPS or found.scheduler != "manual":
+                bad.append(f"{rel}: loads a Pika LoRA but its scheduler/steps are "
+                           f"{found.scheduler!r}/{found.steps}")
                 continue
-            # The graph's nfe when it sets one; the file's is only a default
-            # now that the heads are fused at load.
-            # **The sampler's step count is the evaluation count.** Since
-            # 2026-08-27 the node derives the block boundaries from
-            # `sample_sigmas`, so the boundaries to compare against are the
-            # ones THIS GRAPH's step count lands on, not the file's default.
-            # An `nfe` override wins when set, because it makes the node
-            # ignore the schedule and fuse uniform blocks at that count.
-            nfe = found.pdd_nfe or found.steps
-            # The reverse switch's grading (PDD8 first, cut at one of its own
-            # knots, then the base) was retired with its graphs on 2026-11-04,
-            # when PDD was retired from primary use; it is in git.
-            grid = pdd_grid(names[0])
-            if grid is None:
-                bad.append(f"{rel}: could not read `pdd_num_steps` from "
-                           f"{names[0]}, so there is no grid to grade against")
+            sv, sa = (found.shift if found.shift is not None else (
+                float(MiniMaxH3.sampling_settings["shift"]),
+                float(MiniMaxH3.sampling_settings["audio_shift"])))
+            stated = h3_config.manual_sigmas(doc)
+            if stated is None:
+                bad.append(f"{rel}: ManualSigmas vector could not be read")
                 continue
-            # TWO routes tile the grid, and this graded only the first until
-            # 2026-08-31. A divisor tiles it uniformly; a non-divisor may still
-            # tile it UNEVENLY inside the trained envelope, which is what
-            # `resolve_emit_steps` accepts and what the shipped
-            # `..._manual_sigmas` graphs run at six. Grading only divisibility
-            # made this check RED on a graph the project ships on purpose --
-            # `docs/checks.md`'s rule that a red on correct state is worse than
-            # no check. Both `envelope_partition` and `partition_bounds` are
-            # imported from the node and `pdd_math` rather than restated here,
-            # so deleting either reddens this rather than silently agreeing.
-            widths = None
-            if nfe < 1:
-                bad.append(f"{rel}: {nfe} evaluations is not a step count")
+            dev_v = deviation(stated, want_v)
+            if dev_v > 1e-6:
+                bad.append(f"{rel}: ManualSigmas deviates {dev_v:.6f} from PIKA_MANUAL_SIGMAS")
                 continue
-            if grid % nfe:
-                trained = pdd_block_size(names[0])
-                widths = (envelope_partition(grid, nfe, int(trained))
-                          if trained else None)
-                if widths is None:
-                    bad.append(
-                        f"{rel}: {nfe} evaluations neither divide the "
-                        f"{grid}-point grid nor tile it inside the trained "
-                        f"envelope, so no on-grid schedule exists")
-                    continue
-            # None means no `MiniMaxH3SigmaShift` in the graph, which is how
-            # every PDD graph ships since 2026-08-31. The render then runs the
-            # checkpoint's class default, so that is the pair the fused
-            # boundaries must be graded against. Read from ComfyUI's own model
-            # config rather than retyped, for the same reason `comfy_grid`
-            # above refuses to guess when ComfyUI is unreachable: a literal
-            # here would agree with itself after core moved the real value.
-            if found.shift is None:
-                try:
-                    comfy_on_cpu()
-                    from comfy.supported_models import MiniMaxH3
-                except ImportError as exc:
-                    raise AssertionError(
-                        f"{rel} carries no MiniMaxH3SigmaShift, so its shift is "
-                        f"the checkpoint's own default -- and ComfyUI is not "
-                        f"importable from {COMFY} to read it: {exc}") from exc
-                sv = float(MiniMaxH3.sampling_settings["shift"])
-                sa = float(MiniMaxH3.sampling_settings["audio_shift"])
-            else:
-                sv, sa = found.shift
-            if found.scheduler == "manual":
-                # No scheduler produces this vector -- the graph STATES it, so
-                # grading it through `calculate_sigmas` is a category error and
-                # raised `invalid scheduler manual` until 2026-08-31. The
-                # honest comparison is the vector the graph carries against the
-                # boundaries the heads were fused at, which is exactly what
-                # `partition_bounds` computes for an uneven tiling.
-                stated = h3_config.manual_sigmas(json.loads(path.read_text()))
-                if stated is None or widths is None:
-                    bad.append(f"{rel}: scheduler is `manual` but its vector "
-                               f"or its envelope partition could not be read")
-                    continue
-                want_v = [1.0 - float(t)
-                          for t in partition_bounds(sv, grid, widths).tolist()]
-                dev = deviation(stated, want_v)
-                if dev > 1e-5:
-                    bad.append(
-                        f"{rel}: its ManualSigmas vector deviates {dev:.6f} "
-                        f"from the boundaries its heads were fused at "
-                        f"(partition {widths}, shift {sv})")
-                continue
-            # A graph that samples the node's own SIGMAS output at a count
-            # `simple` cannot reach exactly (1000 % steps != 0, i.e. 16 and 32;
-            # `check_pdd_sigmas.EXACT_STEPS`) samples the node's emitted grid,
-            # not `simple`'s. Grade what it samples: the node's vector, on
-            # video. Audio's sigma follows the same base time inside the model.
-            sig = doc.get("10", {}).get("inputs", {}).get("sigmas")
-            node_sourced = (isinstance(sig, list) and doc.get(str(sig[0]), {}).get("class_type")
-                            == "MiniMaxH3PDDLoRA")
-            if node_sourced and 1000 % found.steps != 0:
-                from pdd_lora import emit_sigmas
-                got = [float(x) for x in emit_sigmas(sv, grid, grid // nfe)]
-                want = [1.0 - float(t) for t in block_bounds(sv, grid, grid // nfe).tolist()]
-                dev = deviation(got, want)
-                if dev > 1e-6:
-                    bad.append(f"{rel}: the node's emitted sigmas deviate {dev:.5f} "
-                               f"from its fused boundaries at {found.steps} steps")
-                continue
-            video, audio = comfy_grid(sv, sa, found.scheduler, found.steps)
-            for label, got, shift in (("video", video, sv), ("audio", audio, sa)):
-                bounds = (partition_bounds(shift, grid, widths) if widths
-                          else block_bounds(shift, grid, grid // nfe))
-                want = [1.0 - float(t) for t in bounds.tolist()]
-                dev = deviation(got, want)
-                if dev > 1e-6:
-                    bad.append(
-                        f"{rel}: {label} sigmas deviate {dev:.5f} from the "
-                        f"boundaries its heads were fused at "
-                        f"(scheduler={found.scheduler}, steps={found.steps}, "
-                        f"shift={shift})")
+            got_a = [float(time_shift_sigma(s, sv, sa)) if s > 0 else 0.0 for s in stated]
+            want_a = []
+            for s in stated:
+                if s <= 0:
+                    want_a.append(0.0)
+                else:
+                    q = s / (sv - (sv - 1.0) * s)
+                    want_a.append(sa * q / (1.0 + (sa - 1.0) * q))
+            dev_a = deviation(got_a, want_a)
+            if dev_a > 1e-6:
+                bad.append(f"{rel}: audio sigmas deviate {dev_a:.6f} from inverted shift-{sa} grid")
         assert not bad, "\n         ".join(bad)
-        # A case whose input is empty passes for the wrong reason. PDD arms are
-        # shipped, so zero here means the scanner stopped recognising the
-        # loader.
-        assert seen, ("no API graph was recognised as loading a PDD LoRA, so "
-                      "this case graded nothing and passed. Check that the "
-                      "walk still matches `*_api.json` and that read_api "
-                      "still sees MiniMaxH3PDDLoRA.")
-        return f"{seen} PDD graph(s), exact on both streams"
+        assert seen, ("no API graph was recognised as loading a Pika LoRA, so "
+                      "this case graded nothing and passed.")
+        return f"{seen} Pika graph(s), exact on both streams"
 
-    check("pdd graphs on their fused grid", pdd_graphs_on_their_fused_grid)
+    check("pika graphs on their distilled grid", pika_graphs_on_their_distilled_grid)
 
     if failures:
         print(f"\n{len(sorted(set(failures)))} case(s) FAILED: "

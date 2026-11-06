@@ -112,20 +112,17 @@ Full per-check history, 2026-08-23 amendments, and `"claims block"` notes are sh
 | `check_attention_defaults.py` | that every graph carries the... ([detail](checks/index_01.md)) | - | yes |
 | `count_packed_rows.py` | not a check ([detail](checks/index_01.md)) | no CUDA | n/a — reports, does not assert |
 | `check_node_ids.py` | the rule CLAUDE.md opens with, and... ([detail](checks/index_01.md)) | no CUDA | yes |
-| `check_pdd_head_selection.py` | the PDD node's runtime guards, on... ([detail](checks/index_01.md)) | no CUDA | yes |
+| ~~`check_pdd_head_selection.py`~~ | **RETIRED 2026-11-06 with the PDD lane.** the PDD node's runtime guards, on... ([detail](checks/index_01.md)) | no CUDA | yes |
 | `check_output_dir_resolution.py` | that no script reaches the render... ([detail](checks/index_01.md)) | nothing; pure... | yes |
-| `check_pdd_bank_encoding.py` | that the published per-interval... ([detail](checks/index_01.md)) | nothing. Pure... | yes |
-| `check_pdd_sigmas.py` | 2026-09-25 ([detail](checks/index_01.md)) | no CUDA | yes |
-| `check_pdd_unmerged.py` | that the un-merged backbone path... ([detail](checks/index_01.md)) | nothing. Pure... | yes |
-| `check_pdd_sidecar_contract.py` | that the PDD sidecar's bake... ([detail](checks/index_01.md)) | no CUDA | yes |
-| `pdd_artifact_inventory.py` | with --check, that... ([detail](checks/index_01.md)) | no CUDA | yes |
-| `pdd_artifact_inventory.py` | with --check, that... ([detail](checks/index_01.md)) | no CUDA | yes |
-| `pdd_artifact_inventory.py` | with --check, that the generated... ([detail](checks/index_01.md)) | no CUDA | yes |
-| `check_pdd_sidecar_contract.py` | that the PDD sidecar's bake... ([detail](checks/index_01.md)) | no CUDA | yes |
+| ~~`check_pdd_bank_encoding.py`~~ | **RETIRED 2026-11-06 with the PDD lane.** that the published per-interval... ([detail](checks/index_01.md)) | nothing. Pure... | yes |
+| ~~`check_pdd_sigmas.py`~~ | **RETIRED 2026-11-06 with the PDD lane.** 2026-09-25 ([detail](checks/index_01.md)) | no CUDA | yes |
+| ~~`check_pdd_unmerged.py`~~ | **RETIRED 2026-11-06 with the PDD lane.** that the un-merged backbone path... ([detail](checks/index_01.md)) | nothing. Pure... | yes |
+| ~~`check_pdd_sidecar_contract.py`~~ | **RETIRED 2026-11-06 with the PDD lane.** that the PDD sidecar's bake... ([detail](checks/index_01.md)) | no CUDA | yes |
+| ~~`pdd_artifact_inventory.py`~~ | **RETIRED 2026-11-06 with the PDD lane.** with --check, that... ([detail](checks/index_01.md)) | no CUDA | yes |
 | `check_graph_values.py` | that a check can read a value a... ([detail](checks/index_02.md)) | no CUDA | yes |
 | `check_retraction_consumers.py` | that a retracted claim has not... (`zero DiT calls`) ([detail](checks/index_02.md)) | - | yes |
-| `check_audio_carry_inversion.py` | that MiniMaxH3AudioCarryProbe's... ([detail](checks/index_02.md)) | pure torch on a... | no |
-| `check_reload_invariance.py` | whether a render is bit-identical... ([detail](checks/index_02.md)) | a GPU, a live... | no |
+| ~~`check_audio_carry_inversion.py`~~ | **RETIRED 2026-11-06 with the PDD lane.** that MiniMaxH3AudioCarryProbe's... ([detail](checks/index_02.md)) | pure torch on a... | no |
+| ~~`check_reload_invariance.py`~~ | **RETIRED 2026-11-06 with the PDD lane.** whether a render is bit-identical... ([detail](checks/index_02.md)) | a GPU, a live... | no |
 | `check_doc_links.py` | that a doc does not point at a file... ([detail](checks/index_02.md)) | - | yes |
 | `check_provenance_stamp.py` | that provenance.py records the... ([detail](checks/index_02.md)) | - | yes |
 | `check_exact_blocks.py` | that MiniMaxH3ExactBlocks still... ([detail](checks/index_02.md)) | - | yes |
@@ -136,8 +133,8 @@ Full per-check history, 2026-08-23 amendments, and `"claims block"` notes are sh
 | `check_widget_deviations.py` | that every shipped widget value... ([detail](checks/index_02.md)) | a live... | no |
 | `check_sol_chunked.py` | that the chunked-producer forward... ([detail](checks/index_02.md)) | CUDA | no |
 | `check_sol_node_equivalence.py` | that sol_attn_h3.py, the fork taken... ([detail](checks/index_02.md)) | CUDA | no (kernel cases); yes (sink cases, OOM control) |
-| `build_sidecar_node.py` | with --check, that the Hub bundle... ([detail](checks/index_02.md)) | no CUDA | no |
-| `build_sidecar_examples.py` | with --check, that the example... ([detail](checks/index_02.md)) | no CUDA | no |
+| ~~`build_sidecar_node.py`~~ | **RETIRED 2026-11-06 with the PDD lane.** with --check, that the Hub bundle... ([detail](checks/index_02.md)) | no CUDA | no |
+| ~~`build_sidecar_examples.py`~~ | **RETIRED 2026-11-06 with the PDD lane.** with --check, that the example... ([detail](checks/index_02.md)) | no CUDA | no |
 | `check_sol_observe.py` | that the Sol route recorder... ([detail](checks/index_02.md)) | CUDA | no |
 | `check_pipeline_telemetry.py` | that the pipeline telemetry... ([detail](checks/index_02.md)) | the ComfyUI... | yes |
 | `check_step_x0_observer.py` | that MiniMaxH3StepX0Observer... ([detail](checks/index_02.md)) | the ComfyUI... | yes |
@@ -520,5 +517,41 @@ WHY: seitanism's sibling pack, read 2026-09-12 and no longer installed under
 
 PATH: custom_nodes/ComfyUI-H3-Motion-Context-MultiRef/existing_video_extension.py
 WHY: the same sibling pack's extension node, cited beside it in
+
+PATH: pdd_lora.py
+WHY: the module of MiniMaxH3PDDLoRA, retired 2026-11-06 with the PDD lane
+
+PATH: pdd_math.py
+WHY: the PDD 32-point grid and fusion helpers, retired 2026-11-06 with the PDD lane
+
+PATH: pdd_observe.py
+WHY: the PDD step observer, retired 2026-11-06 with the PDD lane
+
+PATH: bench/convert_pdd_lora.py
+WHY: the PDD LoRA sidecar converter, retired 2026-11-06 with the PDD lane
+
+PATH: convert_pdd_lora.py
+WHY: same converter, linked by relative path in docs/h3_pdd.md and docs/research/pdd/
+
+PATH: bench/check_pdd_sigmas.py
+WHY: the PDD sigma check, retired 2026-11-06 with the PDD lane
+
+PATH: bench/check_pdd_sidecar_contract.py
+WHY: the PDD sidecar bake-contract check, retired 2026-11-06 with the PDD lane
+
+PATH: check_pdd_sidecar_contract.py
+WHY: same check, linked by relative path in docs/h3_pdd.md
+
+PATH: bench/compare_pdd_conversions.py
+WHY: the PDD conversion comparison tool, retired 2026-11-06 with the PDD lane
+
+PATH: bench/analyze_pdd_unmerge_curve.py
+WHY: the PDD unmerged-block curve analysis, retired 2026-11-06 with the PDD lane
+
+PATH: analyze_pdd_unmerge_curve.py
+WHY: same tool, linked by relative path in docs/h3_pdd.md and docs/research/pdd/
+
+PATH: bench/bake_pdd_checkpoint.py
+WHY: the PDD8 backbone checkpoint baker, retired 2026-11-06 with the PDD lane
 
 ```

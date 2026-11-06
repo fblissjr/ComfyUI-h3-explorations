@@ -29,8 +29,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 
-from analyze_checkpoint_delta import header  # noqa: E402
-from bake_pdd_checkpoint import CHUNK, git_commit, plan_header, raw_bytes  # noqa: E402
+from analyze_checkpoint_delta import CHUNK, git_commit, header, plan_header, raw_bytes  # noqa: E402
 
 
 def is_conditioning(name: str) -> bool:

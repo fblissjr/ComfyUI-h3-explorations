@@ -8,24 +8,24 @@ Scenes are ordered by how many graphs carry them, so the defaults that reach the
 
 | scene | bank id | graphs | words | shots | speakers | markers |
 |---|---|---|---|---|---|---|
-| [`LONG_T2V_PROMPT`](#long-t2v-prompt) | `t2va_covered_market` | 24 | 290 | 3 | 2 | `<d>` |
+| [`LONG_T2V_PROMPT`](#long-t2v-prompt) | `t2va_covered_market` | 23 | 290 | 3 | 2 | `<d>` |
 | [`ref2va_role_character_garment_environment`](#ref2va-role-character-garment-environment) | `ref2va_role_character_garment_environment` | 9 | 173 | 1 | 0 | — |
-| [`I2V_PROMPT`](#i2v-prompt) | `i2va_lighthouse_keyframe` | 4 | 90 | 1 | 0 | — |
-| [`ref2va_role_character_environment`](#ref2va-role-character-environment) | `ref2va_role_character_environment` | 4 | 135 | 1 | 0 | — |
+| [`I2V_PROMPT`](#i2v-prompt) | `i2va_lighthouse_keyframe` | 3 | 90 | 1 | 0 | — |
 | [`ref2va_image_video_audio_music`](#ref2va-image-video-audio-music) | `ref2va_image_video_audio_music` | 3 | 264 | 1 | 0 | — |
 | [`ref2va_masked_person_motion`](#ref2va-masked-person-motion) | `ref2va_masked_person_motion` | 3 | 292 | 1 | 1 | — |
 | [`ref2va_masked_person_upper_motion`](#ref2va-masked-person-upper-motion) | `ref2va_masked_person_upper_motion` | 3 | 230 | 1 | 1 | — |
+| [`ref2va_role_character_environment`](#ref2va-role-character-environment) | `ref2va_role_character_environment` | 3 | 135 | 1 | 0 | — |
 | [`BENCH_T2V_PROMPT`](#bench-t2v-prompt) | `t2va_frontier_standoff` | 2 | 385 | 3 | 2 | `<d>` |
-| [`MARKET_REF2V_PROMPT`](#market-ref2v-prompt) | `ref2va_market_stallholder` | 2 | 598 | 3 | 2 | `<d>` |
 | [`PIKA_BALCONY_ORBIT_PROMPT`](#pika-balcony-orbit-prompt) | `t2va_pika_balcony_orbit` | 2 | 534 | 1 | 0 | — |
 | [`PIKA_MOTION_TRANSFER_PROMPT`](#pika-motion-transfer-prompt) | `ref2va_pika_motion_transfer` | 2 | 1066 | 1 | 0 | — |
-| [`fl2va_interior_converge`](#fl2va-interior-converge) | `fl2va_interior_converge` | 2 | 159 | 1 | 0 | — |
 | [`ref2va_masked_person_swap`](#ref2va-masked-person-swap) | `ref2va_masked_person_swap` | 2 | 233 | 1 | 1 | — |
 | [`ref2va_scene_kitchen`](#ref2va-scene-kitchen) | `ref2va_scene_kitchen` | 2 | 563 | 4 | 2 | `<d>`, `<|lyrics_start|>`, `<|caption_start|>`, `<|cutoff|>` |
 | [`ref2va_video_sound_structure`](#ref2va-video-sound-structure) | `ref2va_video_sound_structure` | 2 | 183 | 1 | 0 | — |
 | [`DIALOGUE_REF2V_PROMPT`](#dialogue-ref2v-prompt) | `ref2va_stairwell_dialogue` | 1 | 640 | 3 | 2 | `<d>` |
 | [`DIALOGUE_T2V_PROMPT`](#dialogue-t2v-prompt) | `t2va_stairwell_dialogue` | 1 | 224 | 3 | 2 | `<d>` |
+| [`MARKET_REF2V_PROMPT`](#market-ref2v-prompt) | `ref2va_market_stallholder` | 1 | 598 | 3 | 2 | `<d>` |
 | [`R2V_PROMPT`](#r2v-prompt) | `ref2va_image_ref_default` | 1 | 576 | 1 | 0 | — |
+| [`fl2va_interior_converge`](#fl2va-interior-converge) | `fl2va_interior_converge` | 1 | 159 | 1 | 0 | — |
 | [`l2va_interior_converge`](#l2va-interior-converge) | `l2va_interior_converge` | 1 | 137 | 1 | 0 | — |
 | [`ref2va_diner_breakup_refs`](#ref2va-diner-breakup-refs) | `ref2va_diner_breakup_refs` | 1 | 915 | 3 | 2 | `<d>` |
 | [`ref2va_image_audio_music`](#ref2va-image-audio-music) | `ref2va_image_audio_music` | 1 | 184 | 1 | 0 | — |
@@ -48,7 +48,7 @@ Scenes are ordered by how many graphs carry them, so the defaults that reach the
 
 ## LONG_T2V_PROMPT
 
-Carried by **24** graph(s). Sections: `integrated_multimodal_description`, `overall_soundscape`, `non_diegetic_music`.
+Carried by **23** graph(s). Sections: `integrated_multimodal_description`, `overall_soundscape`, `non_diegetic_music`.
 
 <details><summary>graphs</summary>
 
@@ -72,7 +72,6 @@ Carried by **24** graph(s). Sections: `integrated_multimodal_description`, `over
 - `h3_text_to_video_api`
 - `h3_text_to_video_audio_freeze_2windows_api`
 - `h3_text_to_video_audio_freeze_api`
-- `h3_text_to_video_pdd_api`
 - `h3_text_to_video_pika_control_vector_api`
 - `h3_text_to_video_pika_dual_control_vectors_api`
 - `h3_text_to_video_savelat_api`
@@ -134,13 +133,12 @@ N/A
 
 ## I2V_PROMPT
 
-Carried by **4** graph(s). Sections: none.
+Carried by **3** graph(s). Sections: none.
 
 <details><summary>graphs</summary>
 
 - `h3_first_frame_to_video_api`
 - `h3_first_frame_to_video_audio_freeze_api`
-- `h3_first_frame_to_video_pdd_api`
 - `h3_first_frame_to_video_stamped_api`
 
 </details>
@@ -153,42 +151,6 @@ integrated_multimodal_description: [Shot 1] Live-action, cinematic, the subject 
 overall_soundscape: Quiet room tone with a low ambient hum continues throughout, joined by soft physical sounds from the subject's movement.
 
 non_diegetic_music: N/A
-```
-
-## ref2va_role_character_environment
-
-Carried by **4** graph(s). Sections: `subject_definitions`, `summary`, `retention_analysis`, `detailed_description`, `overall_soundscape`, `non_diegetic_music`.
-
-<details><summary>graphs</summary>
-
-- `h3_image_ref_plus_text_to_video_api`
-- `h3_image_ref_plus_text_to_video_pdd_api`
-- `h3_probe_reference_upscale_api`
-- `h3_probe_sol_on_refs_api`
-
-</details>
-
-```text
-subject_definitions:
-<Subject 1> is the main character in <Picture 1>, whose face, hair, and clothing are carried into the target video.
-<Subject 2> is the environment in <Picture 2>, which provides the setting for the target video.
-
-summary:
-[reference generation] The target video places <Subject 1> inside <Subject 2> for a single continuous shot.
-
-retention_analysis:
-<Subject 1> (appears in [Shot 1]): fully_preserved - face, hair, and clothing are retained.
-<Subject 2> (appears in [Shot 1]): fully_preserved - the visual setting is retained.
-
-detailed_description:
-The target video is in a cinematic live-action style.
-[Shot 1] A medium shot establishes <Subject 2>, then <Subject 1> enters from the left and stops at the center of the frame. The camera trucks right with small amplitude at slow speed.
-
-overall_soundscape:
-Natural ambient atmosphere continues throughout the shot.
-
-non_diegetic_music:
-N/A
 ```
 
 ## ref2va_image_video_audio_music
@@ -297,6 +259,41 @@ overall_soundscape: Natural ambient atmosphere continues throughout the shot.
 non_diegetic_music: N/A
 ```
 
+## ref2va_role_character_environment
+
+Carried by **3** graph(s). Sections: `subject_definitions`, `summary`, `retention_analysis`, `detailed_description`, `overall_soundscape`, `non_diegetic_music`.
+
+<details><summary>graphs</summary>
+
+- `h3_image_ref_plus_text_to_video_api`
+- `h3_probe_reference_upscale_api`
+- `h3_probe_sol_on_refs_api`
+
+</details>
+
+```text
+subject_definitions:
+<Subject 1> is the main character in <Picture 1>, whose face, hair, and clothing are carried into the target video.
+<Subject 2> is the environment in <Picture 2>, which provides the setting for the target video.
+
+summary:
+[reference generation] The target video places <Subject 1> inside <Subject 2> for a single continuous shot.
+
+retention_analysis:
+<Subject 1> (appears in [Shot 1]): fully_preserved - face, hair, and clothing are retained.
+<Subject 2> (appears in [Shot 1]): fully_preserved - the visual setting is retained.
+
+detailed_description:
+The target video is in a cinematic live-action style.
+[Shot 1] A medium shot establishes <Subject 2>, then <Subject 1> enters from the left and stops at the center of the frame. The camera trucks right with small amplitude at slow speed.
+
+overall_soundscape:
+Natural ambient atmosphere continues throughout the shot.
+
+non_diegetic_music:
+N/A
+```
+
 ## BENCH_T2V_PROMPT
 
 Carried by **2** graph(s). Sections: none.
@@ -314,40 +311,6 @@ integrated_multimodal_description: [Shot 1] Live-action, cinematic, a widescreen
 overall_soundscape: Dry desert gusts whistle across hard-packed earth under an expansive open-air acoustic. A wooden saloon sign squeaks persistently on iron eyebolts, a horse snorts in the distance, and brass spur rowels tinkle faintly as the outlaw shifts his boots.
 
 non_diegetic_music: Sparse acoustic guitar notes plucked at a slow tempo, joined by a lonely tremolo harmonica line and a subtle sustained cello drone that ceases before the final frame.
-```
-
-## MARKET_REF2V_PROMPT
-
-Carried by **2** graph(s). Sections: `subject_definitions`, `summary`, `retention_analysis`, `detailed_description`, `overall_soundscape`, `non_diegetic_music`.
-
-<details><summary>graphs</summary>
-
-- `h3_ref2v_market_api`
-- `h3_ref2v_market_pdd_api`
-
-</details>
-
-```text
-subject_definitions:
-<Subject 1> is the market stallholder, whose appearance is carried from <Picture 1>: an oversized smooth bald head far above human scale, with a heavy scowling brow, deep-set pale eyes and a downturned mouth; a small glitter-trimmed straw hat perched on the crown; a dress of crumpled silver foil strips layered over hot-pink tulle with short puffed pink sleeves; bare arms and legs, and glitter-covered shoes.
-
-summary:
-[reference generation] The target video places <Subject 1> behind a covered market stall as the stallholder, in a three-shot morning exchange with a young porter who is not referenced.
-
-retention_analysis:
-<Subject 1> (appears in [Shot 1], [Shot 3]): fully_preserved - the oversized head and its facial structure, the glitter-trimmed hat, the foil-and-tulle dress and the glitter shoes are retained in every frame the stallholder appears in.
-
-detailed_description:
-The target video is live-action and cinematic, handheld, with shallow depth of field and the slightly desaturated colour of an overcast late morning.
-[Shot 1] A medium-wide shot frames a covered market aisle, crates of citrus stacked along a wooden stall front, dust turning slowly in a shaft of light from the roof vents. <Subject 1> stands behind the counter, the oversized head tilting forward as she sets a crate down and wipes both palms down the front of the foil-and-tulle dress, the silver strips catching the light as they move. With a warm, gravelly alto (S1) she says: <d>[English] Last of the good ones. After this it is all imports.</d> Her mouth closes and she pushes the crate forward with the heel of one hand. The camera trucks left as a young porter, a lean man in his twenties with a quick, bright tenor (S2), steps into frame at the front of the stall, across the counter from her, glancing at the stacked fruit.
-[Shot 2] The shot cuts to a close shot over the porter's shoulder as he squats, takes the crate at its corners and lifts it to his chest, the citrus shifting and resettling as the weight comes up. He (S2) answers: <d>[English] Then I will take two.</d> His lips close and he shifts the weight onto his hip, one forearm braced under the slats, and with his free hand he drops coins one after another into a metal tin on the counter beside him. Past his shoulder the stall front stays in soft focus, the stallholder out of frame behind the counter, the stacked crates and the hanging scale reduced to shape and colour.
-[Shot 3] The camera holds a static shot, wide on the aisle, as the porter takes a second crate from the stall front and carries both away between the stalls, shoppers stepping aside around him and a paper bag swinging from one woman's hand as she turns. The roof vents throw regular bars of light across the concrete he walks through. Behind the counter <Subject 1> turns back to the stall, the small glitter-trimmed hat steady on the crown of the head, and stacks fruit into a pyramid with both hands, working from the base upward and squaring each row before starting the next. The crumpled foil strips shift and catch the light with every reach, the pink tulle swinging against the counter edge, and her mouth stays closed until the final frame.
-
-overall_soundscape:
-Loose crowd murmur under a high roof, wooden crates knocking hollow as they stack, coins dropping one by one into a metal tin, boot steps on swept concrete, the dry crackle of paper bags shaken open, and a light rustle of foil and tulle whenever the stallholder moves.
-
-non_diegetic_music:
-N/A
 ```
 
 ## PIKA_BALCONY_ORBIT_PROMPT
@@ -401,27 +364,6 @@ The target video is in a vintage pop-art fashion-illustration style with crisp b
 [Shot 1] A wide full-body shot establishes <Subject 2>, the vintage record shop, with its blue-grey wooden floorboards in the near foreground giving way to the terracotta-red and cream checkerboard tile floor, the mustard-yellow counter on the left where a record spins on the lavender-purple turntable beneath a hanging trailing ivy pot, the tall wooden shelves and angled browsing bins on the right filled with colorful LP sleeves, and the storefront window in the center background under its purple-and-cream striped awning framing a sunlit street and parked pastel-pink coupe outside. Only one person appears in the scene. Across the 10.125-second real-time take, the camera holds a static shot matching the framing of <Video 1>, with no cuts, no pan, and no zoom, while an original upbeat 1960s soul groove with a lively electric bassline, crisp snare backbeat, warm Hammond organ chords, and punchy horn stabs plays diegetically from the turntable on the left counter. <Subject 1>, Desmond, the slender young Black man in his double-breasted mustard-yellow suit over a pastel-pink turtleneck, round tortoiseshell eyeglasses, thin mustache, tall black flat-top haircut, terracotta-orange socks, and slate-grey penny loafers, begins slightly left of center on the checkerboard floor in the opening beat of <Subject 3>: he leans his torso back in a playful mid-step kick with his left leg lifted behind him, his left arm flung right, and his right hand holding his black vinyl LP record with its pastel-pink center label high above his right shoulder in place of the reference dancer's fern. He lands on the tiles and drops smoothly into a low, wide-kneed crouch facing slightly right of center, bringing the vinyl record down to shoulder height beside him while sweeping his left forearm across his chest. Rising immediately from the crouch, <Subject 1> flings his left arm straight out horizontally, lifts the vinyl record high overhead in his right hand like a dance partner, and launches into five rapid, continuous full-circle spins in place across the checkerboard tiles, pivoting cleanly on the balls of his grey loafers as the skirts of his mustard suit jacket flare outward with each revolution. On the final turn, <Subject 1> brakes smoothly to face the camera squarely at center-left with his loafers planted hip-width apart on the tiles, his left arm stretched wide, his right arm holding the vinyl record aloft above his right shoulder, and his jacket settling back against his waist. Holding both arms spread wide with the vinyl record still raised overhead, <Subject 1> hinges forward from the waist into a small, deadpan theatrical bow, tipping his flat-top head and tortoiseshell glasses toward the floor until the final frame; he keeps his mouth closed throughout and produces no vocal sound.
 
 overall_soundscape: Polished leather loafer soles tap, pivot, and squeak crisply against the terracotta checkerboard tiles in time with each kick, spin, and planted stop. The mustard suit jacket rustles briskly as it flares through the turns, accompanied by a soft, continuous vinyl record crackle from the turntable on the counter.
-
-non_diegetic_music: N/A
-```
-
-## fl2va_interior_converge
-
-Carried by **2** graph(s). Sections: none.
-
-<details><summary>graphs</summary>
-
-- `h3_first_last_frame_to_video_api`
-- `h3_first_last_frame_to_video_pdd_api`
-
-</details>
-
-```text
-How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video; Picture 2 (from Shot 1) aligns with the 15.08-second mark of the target video.
-
-integrated_multimodal_description: [Shot 1] Live-action, cinematic, one continuous shot that begins in the exact state of the opening frame and ends in the exact state of the closing frame. The subject holds the opening position, framing, lighting and colors, then moves steadily through the space while the camera trucks right with small amplitude at slow speed. Wardrobe, palette and the surrounding scene stay continuous throughout, and the subject's pose, placement and the camera's position, angle and framing converge on the closing composition, reaching it only at the final frame.
-
-overall_soundscape: Quiet room tone with a low ambient hum continues throughout, joined by soft physical sounds from the subject's movement and a single settling sound as the motion comes to rest.
 
 non_diegetic_music: N/A
 ```
@@ -582,6 +524,39 @@ overall_soundscape: Close handheld room tone in a hard concrete stairwell with a
 non_diegetic_music: N/A
 ```
 
+## MARKET_REF2V_PROMPT
+
+Carried by **1** graph(s). Sections: `subject_definitions`, `summary`, `retention_analysis`, `detailed_description`, `overall_soundscape`, `non_diegetic_music`.
+
+<details><summary>graphs</summary>
+
+- `h3_ref2v_market_api`
+
+</details>
+
+```text
+subject_definitions:
+<Subject 1> is the market stallholder, whose appearance is carried from <Picture 1>: an oversized smooth bald head far above human scale, with a heavy scowling brow, deep-set pale eyes and a downturned mouth; a small glitter-trimmed straw hat perched on the crown; a dress of crumpled silver foil strips layered over hot-pink tulle with short puffed pink sleeves; bare arms and legs, and glitter-covered shoes.
+
+summary:
+[reference generation] The target video places <Subject 1> behind a covered market stall as the stallholder, in a three-shot morning exchange with a young porter who is not referenced.
+
+retention_analysis:
+<Subject 1> (appears in [Shot 1], [Shot 3]): fully_preserved - the oversized head and its facial structure, the glitter-trimmed hat, the foil-and-tulle dress and the glitter shoes are retained in every frame the stallholder appears in.
+
+detailed_description:
+The target video is live-action and cinematic, handheld, with shallow depth of field and the slightly desaturated colour of an overcast late morning.
+[Shot 1] A medium-wide shot frames a covered market aisle, crates of citrus stacked along a wooden stall front, dust turning slowly in a shaft of light from the roof vents. <Subject 1> stands behind the counter, the oversized head tilting forward as she sets a crate down and wipes both palms down the front of the foil-and-tulle dress, the silver strips catching the light as they move. With a warm, gravelly alto (S1) she says: <d>[English] Last of the good ones. After this it is all imports.</d> Her mouth closes and she pushes the crate forward with the heel of one hand. The camera trucks left as a young porter, a lean man in his twenties with a quick, bright tenor (S2), steps into frame at the front of the stall, across the counter from her, glancing at the stacked fruit.
+[Shot 2] The shot cuts to a close shot over the porter's shoulder as he squats, takes the crate at its corners and lifts it to his chest, the citrus shifting and resettling as the weight comes up. He (S2) answers: <d>[English] Then I will take two.</d> His lips close and he shifts the weight onto his hip, one forearm braced under the slats, and with his free hand he drops coins one after another into a metal tin on the counter beside him. Past his shoulder the stall front stays in soft focus, the stallholder out of frame behind the counter, the stacked crates and the hanging scale reduced to shape and colour.
+[Shot 3] The camera holds a static shot, wide on the aisle, as the porter takes a second crate from the stall front and carries both away between the stalls, shoppers stepping aside around him and a paper bag swinging from one woman's hand as she turns. The roof vents throw regular bars of light across the concrete he walks through. Behind the counter <Subject 1> turns back to the stall, the small glitter-trimmed hat steady on the crown of the head, and stacks fruit into a pyramid with both hands, working from the base upward and squaring each row before starting the next. The crumpled foil strips shift and catch the light with every reach, the pink tulle swinging against the counter edge, and her mouth stays closed until the final frame.
+
+overall_soundscape:
+Loose crowd murmur under a high roof, wooden crates knocking hollow as they stack, coins dropping one by one into a metal tin, boot steps on swept concrete, the dry crackle of paper bags shaken open, and a light rustle of foil and tulle whenever the stallholder moves.
+
+non_diegetic_music:
+N/A
+```
+
 ## R2V_PROMPT
 
 Carried by **1** graph(s). Sections: `subject_definitions`, `summary`, `retention_analysis`, `detailed_description`, `overall_soundscape`, `non_diegetic_music`.
@@ -613,6 +588,26 @@ The quiet natural ambience of <Subject 2> runs underneath throughout, air moving
 
 non_diegetic_music:
 N/A
+```
+
+## fl2va_interior_converge
+
+Carried by **1** graph(s). Sections: none.
+
+<details><summary>graphs</summary>
+
+- `h3_first_last_frame_to_video_api`
+
+</details>
+
+```text
+How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video; Picture 2 (from Shot 1) aligns with the 15.08-second mark of the target video.
+
+integrated_multimodal_description: [Shot 1] Live-action, cinematic, one continuous shot that begins in the exact state of the opening frame and ends in the exact state of the closing frame. The subject holds the opening position, framing, lighting and colors, then moves steadily through the space while the camera trucks right with small amplitude at slow speed. Wardrobe, palette and the surrounding scene stay continuous throughout, and the subject's pose, placement and the camera's position, angle and framing converge on the closing composition, reaching it only at the final frame.
+
+overall_soundscape: Quiet room tone with a low ambient hum continues throughout, joined by soft physical sounds from the subject's movement and a single settling sound as the motion comes to rest.
+
+non_diegetic_music: N/A
 ```
 
 ## l2va_interior_converge

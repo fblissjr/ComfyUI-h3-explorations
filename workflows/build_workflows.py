@@ -105,8 +105,6 @@ from h3_config import (  # noqa: E402
     CAPTURE_REF_IMAGES,
     DIALOGUE_REF_IMAGES, REFVIEW2_SCENES,
     sol_for_graph,
-    PDD_FL2VA_LORA, PDD_REF2VA_LORA, PDD_STEPS,
-    PDD_STRENGTH,
     AUDIO_REFINE, FROZEN_VIDEO_CACHE, FROZEN_VIDEO_CACHE_NODE, LORA_BRANCH_NODE,
     PIKA_FL2VA_LORA, PIKA_FL2VA_SVD995_LORA, PIKA_REF2VA_LORA, PIKA_REF2VA_SVD995_LORA,
     PIKA_STRENGTH, PIKA_STEPS, PIKA_SAMPLER,
@@ -193,20 +191,16 @@ SOL_WIDGETS = ("tau", "quantizer", "dense_blocks", "sink_conditioning", "token_r
                "start_percent", "end_percent", "min_tokens", "verbose")
 
 
-def _distill(lora, pdd, key):
+def _distill(lora, key):
     """Sampler/scheduler default for one graph, from whether it carries a distill.
 
     Owner decision 2026-08-27: every arm running a distillation LoRA samples on
     `DISTILL_SAMPLING` -- euler/simple -- and everything else keeps `SAMPLING`.
-    Derived from what the graph IS rather than retyped per call site, which is
-    how the turbo arms ended up split across two samplers while every PDD arm
-    passed `sampler_name="euler"` by hand.
-
-    `pdd` alone is not enough: a turbo arm carries `lora` with no `pdd` flag,
-    and the split-pack arms carry both. Passing `sampler_name=` at a call site
-    still wins, so a deliberate deviation stays possible and stays visible.
+    Derived from what the graph IS rather than retyped per call site. Passing
+    `sampler_name=` at a call site still wins, so a deliberate deviation stays
+    possible and stays visible.
     """
-    if pdd or lora:
+    if lora:
         return DISTILL_SAMPLING["sampler" if key == "sampler" else "scheduler"]
     return SAMPLING[key]
 
@@ -483,8 +477,7 @@ def _sol_with_overrides(extra: dict) -> dict:
     `bench/check_attention_defaults.py::DEVIATIONS`, which also asserts the
     deviation is real; an override that matches the recipe is refused here
     so a stale one cannot ride along as a no-op."""
-    base = sol_for_graph(bool(extra.get("pdd", False)),
-                         extra.get("steps", SAMPLING["steps"]))
+    base = sol_for_graph(extra.get("steps", SAMPLING["steps"]))
     over = extra.get("sol_overrides") or {}
     unknown = sorted(set(over) - set(base))
     if unknown:
@@ -597,8 +590,7 @@ def _is_distill_experiment(fname: str, extra: dict) -> bool:
     if not stem.startswith("h3_probe_"):
         return False
     lora = str((extra.get("lora") or ("",))[0]).lower()
-    return bool(extra.get("pdd") or "pdd" in lora or "pika" in lora
-                or extra.get("audio_refine"))
+    return bool("pika" in lora or extra.get("audio_refine"))
 
 
 def _graph_dir(out, extra: dict, fname: str = ""):
@@ -1184,19 +1176,6 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
               ref_video_file: str | None = None,
               ref_images_on: bool = True, ref_image_count: int = 2,
               ref_images: tuple[str, ...] | None = None,
-              pdd: bool = False,
-              pdd_heads: bool = True,
-              # 0 everywhere, and it should stay that way: the node reads
-              # the step count off the sampler's own sigma schedule at run
-              # time. The three 4-step arms carried 4 here until
-              # 2026-08-27, which made the step count a fact typed in two
-              # places with only a warning between them. Non-zero now
-              # FORCES uniform blocks and ignores the schedule, which is an
-              # off-schedule experiment, not a step-count setting.
-              pdd_nfe: int = 0,
-              # MiniMaxH3PDDLoRA's `backbone_apply`: the exact branch by
-              # default, "merge" only on the control arm (0.154.0).
-              pdd_backbone_apply: str = "exact branch",
               ref_audio: bool = False,
               split_at: int | None = None,
               split_base_last: bool = True,
@@ -1407,10 +1386,10 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
         "4": {"class_type": "VAELoader", "inputs": {"vae_name": MODELS["audio_vae"]}},
         "6": {"class_type": "RandomNoise", "inputs": {"noise_seed": seed}},
         "7": {"class_type": "KSamplerSelect",
-              "inputs": {"sampler_name": sampler_name or _distill(lora, pdd, "sampler")}},
+              "inputs": {"sampler_name": sampler_name or _distill(lora, "sampler")}},
         "8": {"class_type": "BasicScheduler",
               "inputs": {"model": None,
-                         "scheduler": scheduler_name or _distill(lora, pdd, "scheduler"),
+                         "scheduler": scheduler_name or _distill(lora, "scheduler"),
                          "steps": _resolved_steps,
                          "denoise": SAMPLING["denoise"]}},
         "9": {"class_type": "BasicGuider",
@@ -1678,56 +1657,7 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
         # delta at all. `LoraLoaderModelOnly` would apply the 208 backbone
         # modules, skip the rest with a log line, and render -- the same
         # silent-partial shape the pack note above describes.
-        if pdd:
-            # `steps` here is the SAME resolved value BasicScheduler would get,
-            # and on a non-split PDD graph this node's SIGMAS output replaces
-            # BasicScheduler entirely (see `_sigma_src` below). The step count
-            # then lives on the node that owns the 32-point grid, which is the
-            # only node able to reject a count that does not tile it -- and it
-            # raises rather than warning, before sampling starts.
-            g["18"] = {"class_type": "MiniMaxH3PDDLoRA",
-                       "inputs": {"model": model_src, "lora_name": lora[0],
-                                  "strength": lora[1],
-                                  # The same number as `strength`, written out
-                                  # rather than left to the -1.0 sentinel that
-                                  # means "follow". Identical behaviour; the
-                                  # graph says what it does, and a reader does
-                                  # not have to know that a negative widget is
-                                  # not a negative scale.
-                                  # -1.0, not lora[1] -- the sentinel for
-                                  # "follow strength". See the UI builder.
-                                  "head_strength": -1.0,
-                                  "patch_heads": pdd_heads,
-                                  "nfe": pdd_nfe,
-                                  # 0 on a split graph. There, `_sigma_src`
-                                  # below keeps BasicScheduler and nothing
-                                  # consumes this node's SIGMAS -- but a
-                                  # non-zero `steps` still reaches
-                                  # `resolve_emit_steps`, which RAISES at load
-                                  # on a count that does not tile the grid. A
-                                  # split arm at 6 steps would be refused for
-                                  # a schedule it never uses. 0 is the inert
-                                  # setting the tooltip promises for this case.
-                                  # Wired from a PrimitiveInt (node 61) rather
-                                  # than set here, so the arm's step count is
-                                  # ONE visible number in the workflow instead
-                                  # of a widget buried in the loader. Owner
-                                  # decision 2026-08-28. Split graphs keep the
-                                  # literal 0: nothing consumes their SIGMAS,
-                                  # and a non-zero value can refuse at load.
-                                  # 0 under `manual_sigmas` too: ManualSigmas
-                                  # replaces the schedule this node would emit,
-                                  # and 0 is the one value `resolve_emit_steps`
-                                  # never refuses -- which matters because a
-                                  # tail-weighted partition runs 5 or 6
-                                  # evaluations and neither divides the grid.
-                                  "steps": (0 if (split_at or manual_sigmas)
-                                            else ["61", 0]),
-                                  "backbone_apply": pdd_backbone_apply}}
-            if not split_at and not manual_sigmas:
-                g["61"] = {"class_type": "PrimitiveInt",
-                           "inputs": {"value": _resolved_steps}}
-        elif lora_branch:
+        if lora_branch:
             # The granular inputs are written at their defaults, so a graph says
             # what it does and a runner patch can reach them (0.152.0).
             g["18"] = {"class_type": LORA_BRANCH_NODE,
@@ -1739,31 +1669,6 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
                        "inputs": {"model": model_src, "lora_name": lora[0],
                                   "strength_model": lora[1]}}
         model_src = ["18", 0]
-    # At the base checkpoint's own 12/3, so it changes nothing by default. It
-    # is here to be edited: the turbo LoRAs carry their own training shifts
-    # (the 768p 4-step wants 6/3), and a graph without this node gives you
-    # nowhere to set that and no hint you needed to. Upstream of sage so the
-    # sage-then-Sol adjacency below stays intact -- this patches model
-    # sampling, which is a different surface from either of them.
-    #
-    # OMITTED FROM PDD GRAPHS at the default shift, on the owner's call
-    # 2026-08-31, because there it is a no-op that reads as a knob. The PDD
-    # node emits SIGMAS from the shift its file was fused at, so the schedule
-    # never comes off `model_sampling` here; and every surface this node
-    # touches already carries 12/3 without it -- `ModelSamplingAV + CONST` is
-    # what `ModelType.FLOW_AV` selects anyway (`comfy/model_base.py`), the
-    # values match `MiniMaxH3.sampling_settings` (`comfy/supported_models.py`),
-    # and the DiT falls back to its own `sigma_shift_video/audio` ctor defaults
-    # when the `transformer_options` keys are absent (`comfy/ldm/minimax/
-    # model.py`). `pdd_lora.py::check_shift` covers the absent case explicitly:
-    # no key means it compares against the model's class default instead.
-    # So it patched the model into what it already was, while inviting an edit
-    # that `check_shift` raises on at step 0.
-    #
-    # The condition is `sh == SIGMA_SHIFT`, not `not pdd`, so a PDD arm fused
-    # at some other shift gets the node back rather than silently losing the
-    # only place to set it.
-    # Node id 19; 18 is the LoRA and 20/21/22 are already spoken for.
     if channel_balance is not None:
         # Weight patches on q_norm/k_norm of the lopsided blocks; no runtime
         # cost, so its position only needs to precede the attention nodes.
@@ -1773,10 +1678,9 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
                               "blocks": "49", "alpha": 0.5, "loud_share": 0.15}}
         model_src = ["50", 0]
     sh = shift if shift is not None else SIGMA_SHIFT
-    if not (pdd and sh == SIGMA_SHIFT):
-        g["19"] = {"class_type": "MiniMaxH3SigmaShift",
-                   "inputs": {"model": model_src, **sh}}
-        model_src = ["19", 0]
+    g["19"] = {"class_type": "MiniMaxH3SigmaShift",
+               "inputs": {"model": model_src, **sh}}
+    model_src = ["19", 0]
     if dense_backend is not None:
         # Core's node: `set_model_optimized_attention`, which is the function
         # our Sol node's dense fallback calls, so Sol composes on top of it
@@ -1932,14 +1836,9 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
     # to both halves and that combination has never shipped with PDD, so it
     # keeps the old path rather than inheriting an untested one.
     if manual_sigmas:
-        # An explicit non-uniform partition. The node's SIGMAS output can only
-        # express counts that DIVIDE the 32-point grid, so a tail-weighted 5- or
-        # 6-evaluation schedule is unreachable through it today.
         g["60"] = {"class_type": "ManualSigmas",
                    "inputs": {"sigmas": manual_sigmas}}
-    _sigma_src = (["60", 0] if manual_sigmas
-                  else ["18", 1] if (pdd and lora is not None and not split_at)
-                  else ["8", 0])
+    _sigma_src = ["60", 0] if manual_sigmas else ["8", 0]
     g["10"]["inputs"]["sigmas"] = _sigma_src
     if _sigma_src == ["8", 0]:
         g["8"]["inputs"]["model"] = model_src
@@ -2264,7 +2163,7 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
         if sol is not None:
             g["82"] = {"class_type": SOL_NODE,
                        "inputs": {"model": rsrc,
-                                  **sol_api_inputs(sol_for_graph(False, SAMPLING["steps"]))}}
+                                  **sol_api_inputs(sol_for_graph(SAMPLING["steps"]))}}
             rsrc = ["82", 0]
         if refine_cache:
             g["88"] = {"class_type": FROZEN_VIDEO_CACHE_NODE,
@@ -2405,8 +2304,7 @@ def build_control_vector_arm(
         "end_percent": float(end_percent),
         "allow_recipe_mismatch": bool(allow_recipe_mismatch),
     }
-    sol_cfg = extra.pop("sol", sol_for_graph(bool(extra.get("pdd", False)),
-                                             extra.get("steps", SAMPLING["steps"])))
+    sol_cfg = extra.pop("sol", sol_for_graph(extra.get("steps", SAMPLING["steps"])))
     dense_backend = extra.pop("dense_backend", DENSE_BACKEND_NODE["attention"])
     return build_api(
         task,
@@ -2527,8 +2425,7 @@ def build_control_vector_probe_arm(
       `CLIPLoader` (`"2"`) and wires `MiniMaxH3LayerNormMatch` (`"122"`) before
       `MiniMaxH3Preflight` (`"26"`).
     """
-    sol_cfg = extra.pop("sol", sol_for_graph(bool(extra.get("pdd", False)),
-                                             extra.get("steps", SAMPLING["steps"])))
+    sol_cfg = extra.pop("sol", sol_for_graph(extra.get("steps", SAMPLING["steps"])))
     dense_backend = extra.pop("dense_backend", DENSE_BACKEND_NODE["attention"])
     g = build_api(
         task,
@@ -4387,13 +4284,6 @@ def main():
               out_prefix="Video/h3_r2v_market"),
          "the market scene as ref2va, base 16 steps"),
 
-        ("h3_ref2v_market_pdd.json", "r2v-market-pdd8", "r2v", MARKET_REF2V_PROMPT,
-         dict(ref_images=MARKET_REF_IMAGES, ref_image_count=1,
-              pdd=True, sampler_name="euler",
-              lora=(PDD_REF2VA_LORA, PDD_STRENGTH), steps=PDD_STEPS,
-              out_prefix="Video/h3_r2v_market_pdd"),
-         "the market scene as ref2va at 8 steps via PDD"),
-
         # --- the dialogue probe, t2v and ref2v -----------------------------
         # Eight short lines over three shots with the pacing written in. The
         # pair exists because they differ on exactly one axis: where the two
@@ -4420,62 +4310,8 @@ def main():
         # The triple, references with dialogue and a distill (the same exchange
         # at 4 steps via PDD), was retired with PDD's primary use on 2026-11-04.
 
-        # --- PDD, the arms to actually render with ------------------------
-        # The repo default: a dense kernel AND Sol (sage until 2026-09-15, the
-        # kitchen backend node since; `_attention_plan`).
-        #
-        # These carried sage only until 2026-08-26, on the reasoning that Sol's
-        # adaptive per-step skipping is incoherent against a fixed fused block
-        # schedule. **That was wrong and the numbers say so.** Sol's window is a
-        # PERCENT band (start 0.2, end 0.9) resolved off the sigma curve, so its
-        # coverage scales with the step count instead of degrading: 11 of 16
-        # steps, 6 of 8, 3 of 4 -- computed against the real curve at shift 12,
-        # and the 16-step figure reproduces the 11-sparse/5-dense this repo had
-        # already measured. Sol and PDD also touch different surfaces entirely,
-        # attention against the output head, and `ModelPatcher.clone` carries
-        # object patches, so a Sol node downstream keeps PDD's three.
-        #
-        # sage alone buys ~2.4x here, which at ~90k packed tokens is worth more
-        # than halving the steps; Sol is on top of that.
-        #
-        # Their dense twins under h3_probe_ref2v_pdd*, the reference
-        # configuration (Diffusers' stock SDPA, what the vendor runs), were
-        # retired with PDD's primary use on 2026-11-04. Since that day these five
-        # are the PDD graphs kept: t2v, first frame, first and last frame,
-        # image references, and the ref2va market scene.
-        ("h3_text_to_video_pdd.json", "texttovideopdd", "t2v", LONG_T2V_PROMPT,
-         dict(pdd=True, sampler_name="euler",
-              lora=(PDD_FL2VA_LORA, PDD_STRENGTH), steps=PDD_STEPS,
-              out_prefix="Video/text_to_video_pdd"),
-         "text -> video + audio at 8 steps via PDD, kitchen dense + Sol"),
-        # The PDD 4-step, manual-sigma, ladder, bake and merge arms, and the
-        # description-length (aisle, sortline) and predictability (rail, churn)
-        # pairs that rendered on PDD at 4 steps, were retired with PDD's primary use
-        # on 2026-11-04 (`docs/roadmap.md`, "Closed lanes"); they are in git. The
-        # scenes stay in the prompt bank.
-
-        # PDD8 on first frame alone (owner, 2026-09-27): the fl2va sidecar
-        # covers it; until now only the first+last graph existed. The owner's
-        # i2v pick over the FlashGen finish (2026-09-27), so promoted from
-        # distill_experiments/ to the root (owner, 2026-10-01: "ok" to moving
-        # it). Its `_savelat` twin was retired on 2026-11-04.
-        ("h3_first_frame_to_video_pdd.json", "firstframetovideopdd", "i2v", None,
-         dict(pdd=True, sampler_name="euler",
-              lora=(PDD_FL2VA_LORA, PDD_STRENGTH), steps=PDD_STEPS,
-              out_prefix="Video/first_frame_to_video_pdd"),
-         "first frame -> video + audio at 8 steps via PDD, kitchen dense + Sol"),
-        ("h3_first_last_frame_to_video_pdd.json", "firstlastframetovideopdd", "i2v", None,
-         dict(last_frame=True, **FL2V_CANVAS,
-              pdd=True, sampler_name="euler",
-              lora=(PDD_FL2VA_LORA, PDD_STRENGTH), steps=PDD_STEPS,
-              out_prefix="Video/first_last_frame_to_video_pdd"),
-         "first+last frame -> video + audio at 8 steps via PDD, kitchen dense + Sol"),
-
-        ("h3_image_ref_plus_text_to_video_pdd.json", "imagerefplustexttovideopdd", "r2v", _ref_prompt(images=True),
-         dict(pdd=True, sampler_name="euler",
-              lora=(PDD_REF2VA_LORA, PDD_STRENGTH), steps=PDD_STEPS,
-              out_prefix="Video/image_ref_plus_text_to_video_pdd"),
-         "image references -> video + audio at 8 steps via PDD, kitchen dense + Sol"),
+        # The PDD graphs were retired with the PDD lane on 2026-11-04 and
+        # 2026-11-06 (`docs/roadmap.md`, "Closed lanes").
 
         # INVERTED TWICE with the default. 2026-08-28 the default went off
         # and this arm turned upscaling on; 2026-09-13 the default went back
@@ -4809,7 +4645,7 @@ def main():
     # The base on Euler over PDD's own 32-point grid, the path its heads were
     # distilled from (docs/h3_distills.md, "Tests that would move this
     # section", 2026-09-26).
-    _pdd_tests = (
+    _euler32_tests = (
         ("h3_probe_t2v_base_euler32.json", "t2v-base-euler32", "t2v", LONG_T2V_PROMPT,
          dict(sampler_name="euler", steps=32, out_prefix="Video/h3_probe_t2v_base_euler32"),
          "the base on Euler at 32 steps: PDD's teacher path, sharing the distills' starting noise"),
@@ -4824,7 +4660,7 @@ def main():
 
     _twins = []
     for fname, label, task, prompt, extra, note in (
-            [_by_name[f + ".json"] for f in _SAVELAT_OF] + list(_pdd_tests)):
+            [_by_name[f + ".json"] for f in _SAVELAT_OF] + list(_euler32_tests)):
         stem = fname.removesuffix(".json")
         twin_extra = dict(extra, save_latents=True,
                           out_prefix=extra.get("out_prefix", f"Video/{stem}") + "_savelat")
@@ -4832,7 +4668,7 @@ def main():
             twin_extra["probe_frozen_rows"] = True
         _twins.append((f"{stem}_savelat.json", f"{label}-savelat", task, prompt, twin_extra,
                        f"{note}; saves its latents (the 2026-09-26 distill run)"))
-    for fname, label, task, prompt, extra, note in _pdd_tests:  # base-Euler-32
+    for fname, label, task, prompt, extra, note in _euler32_tests:  # base-Euler-32
         stem = fname.removesuffix(".json")
         _twins.append((f"{stem}_x0.json", f"{label}-x0", task, prompt,
                        dict(extra, save_latents=True, probe_step_x0=True,
@@ -4849,7 +4685,7 @@ def main():
          dict(_probes[src][4], daily=True, out_prefix=f"Video/{name}"),
          f"daily: {_probes[src][5]}")
         for name, src in DAILY_GRAPHS.items())
-    GRAPHS = GRAPHS + _pdd_tests + tuple(_twins) + _daily
+    GRAPHS = GRAPHS + _euler32_tests + tuple(_twins) + _daily
 
     if args.list_scenes:
         for name, text in T2V_SCENES.items():

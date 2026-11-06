@@ -92,11 +92,15 @@ import argparse
 import json
 from datetime import date
 import struct
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
 
 import numpy as np
+
+CHUNK = 64 << 20
+_HERE = Path(__file__).resolve().parent
 
 _DT = {"F32": np.float32, "F16": np.float16, "I8": np.int8, "U8": np.uint8}
 
@@ -118,6 +122,39 @@ def header(path: str) -> tuple[dict, int]:
         h = json.loads(f.read(n))
     h.pop("__metadata__", None)
     return h, 8 + n
+
+
+def git_commit() -> str:
+    try:
+        return subprocess.check_output(
+            ["git", "rev-parse", "--short", "HEAD"], cwd=_HERE.parent,
+            text=True).strip()
+    except Exception:  # noqa: BLE001
+        return "unknown"
+
+
+def raw_bytes(path: str, base: int, info: dict) -> bytes:
+    o0, o1 = info["data_offsets"]
+    with open(path, "rb") as f:
+        f.seek(base + o0)
+        return f.read(o1 - o0)
+
+
+def plan_header(hdr: dict, meta: dict) -> tuple[bytes, dict]:
+    """The output header: --base's names, dtypes and shapes verbatim, offsets
+    recomputed in name order, our metadata in front."""
+    out = {"__metadata__": meta}
+    off = 0
+    order = sorted(hdr)
+    for name in order:
+        info = hdr[name]
+        n = info["data_offsets"][1] - info["data_offsets"][0]
+        out[name] = {"dtype": info["dtype"], "shape": info["shape"],
+                     "data_offsets": [off, off + n]}
+        off += n
+    hb = json.dumps(out, separators=(",", ":")).encode()
+    hb += b" " * ((8 - len(hb) % 8) % 8)
+    return hb, out
 
 
 def read(path: str, hdr: dict, base: int, name: str) -> np.ndarray:

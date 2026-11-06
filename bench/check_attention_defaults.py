@@ -329,47 +329,6 @@ def _steps_of(graph):
     return h3_config.graph_schedule(graph)[0]
 
 
-def loads_pdd(graph) -> bool:
-    """Whether this graph loads a Parallel Decoding Distillation LoRA.
-
-    A MECHANISM, not a list of filenames. The PDD arms replicate the vendor's
-    reference path, which runs Diffusers' stock SDPA -- so they wire neither
-    sage nor Sol, and they are a class rather than four graphs. Listing their
-    stems is the shape this file's own header argues against, and it went stale
-    within hours: the four ref2va arms were listed on 2026-08-26 and the two
-    fl2va ones added the same day turned the check red.
-
-    Decided by the loader class, so a fifth PDD arm is exempt the moment it
-    exists and a graph that stops loading one stops being exempt. The
-    necessity assertion still applies -- an exempt graph with live Sol is a
-    failure, not a pass.
-    """
-    return any(isinstance(n, dict) and n.get("class_type") == "MiniMaxH3PDDLoRA"
-               for n in graph.values())
-
-
-def sol_model_loads_pdd(graph: dict, nid: str) -> bool:
-    """Whether the model feeding Sol node `nid` carries a PDD LoRA, by walking its
-    `model` inputs upstream. Per node, not per graph: a step-switch graph runs a PDD
-    pass and a second pass on another model, each under its own Sol node, and
-    `build_workflows.py` resolves each pass's Sol config from its own model. Graded
-    per graph, the second pass's node was held to the PDD config, which made no
-    difference until SOL_PDD_OVERRIDES stopped being empty (2026-10-01)."""
-    seen, stack = set(), [str(nid)]
-    while stack:
-        cur = stack.pop()
-        if cur in seen or cur not in graph:
-            continue
-        seen.add(cur)
-        node = graph[cur]
-        if node.get("class_type") == "MiniMaxH3PDDLoRA":
-            return True
-        src = node.get("inputs", {}).get("model")
-        if isinstance(src, list) and len(src) == 2:
-            stack.append(str(src[0]))
-    return False
-
-
 def main() -> int:
     # API form only: this reads `class_type`/`inputs`, and a graph in another
     # form would read as one with no Sol at all.
@@ -400,20 +359,6 @@ def main() -> int:
         # declarations. Derived, not listed; the source's `seen` flag is set.
         stem = stem.removesuffix("_savelat")
         exempt_reason = SOL_EXEMPT_STEMS.get(stem)
-        pdd_reference = loads_pdd(g) and not wires_dense_kernel(g)
-        if exempt_reason is None and pdd_reference:
-            # Narrowed 2026-08-26, hours after it was written. It exempted
-            # EVERY PDD graph, which was right while they all ran dense and
-            # wrong the moment the canonical arms took the repo default -- a
-            # PDD arm with sage is an ordinary graph and should carry Sol like
-            # any other. The mechanism is the reference-replication config
-            # (neither sage nor Sol, which is what the vendor runs), not the
-            # loader class.
-            exempt_reason = (
-                "PDD reference-replication arm: wires neither sage nor Sol, "
-                "which is what the vendor's own Diffusers pipeline runs. "
-                "Derived from the graph's attention config rather than listed, "
-                "so a new one is covered the moment it exists")
         if exempt_reason:
             exempt_seen[stem] = True
         checked["graphs"] += 1
@@ -449,8 +394,7 @@ def main() -> int:
                 f"{p.relative_to(_REPO)}: FLOOR_STEMS declares {declared[0]!r} "
                 f"but the graph runs {floor!r}. The declaration is stale -- "
                 f"remove it or restore the arm.")
-        elif (declared is None and floor != "ck" and not in_image
-              and not (pdd_reference and floor == "stock")):
+        elif declared is None and floor != "ck" and not in_image:
             problems.append(
                 f"{p.relative_to(_REPO)}: dense floor is {floor!r}, the default "
                 f"is {BACKEND} at h3_config.DENSE_BACKEND_NODE. If this graph "
@@ -514,10 +458,7 @@ def main() -> int:
         for nid, vals, state in sol:
             if state != "live":
                 continue
-            # Per Sol node since 2026-10-01 (`sol_model_loads_pdd`), the generator's rule.
-            graph_pdd = sol_model_loads_pdd(g, nid)
-            expected = h3_config.sol_for_graph(graph_pdd, graph_steps)
-            source = "SOL_PDD_CUDA" if graph_pdd else "SOL_RECOMMENDED_CUDA"
+            expected = h3_config.sol_for_graph(graph_steps)
             for k, want in expected.items():
                 if k in dev_fields:
                     if k in vals and vals[k] != want:
@@ -526,9 +467,8 @@ def main() -> int:
                 if k in vals and vals[k] != want:
                     problems.append(
                         f"{p.relative_to(_REPO)}: node {nid} {SOL}.{k} is "
-                        f"{vals[k]!r}, h3_config.{source} says {want!r}"
-                        + (f" at {graph_steps} steps" if k == "end_percent"
-                           and not graph_pdd else ""))
+                        f"{vals[k]!r}, h3_config.SOL_RECOMMENDED_CUDA says {want!r}"
+                        + (f" at {graph_steps} steps" if k == "end_percent" else ""))
 
         # --- sage_values ---------------------------------------------------
         for nid, vals, state in sage:
@@ -577,14 +517,10 @@ def main() -> int:
     print(f"  dense floor: {floors['ck']} on {BACKEND} "
           f"{h3_config.DENSE_BACKEND_NODE['attention']!r} (the default), "
           f"{floors['sage']} on sage and {floors['stock']} on stock attention; "
-          f"{len(FLOOR_STEMS)} declared in FLOOR_STEMS, the PDD reference arms derived")
+          f"{len(FLOOR_STEMS)} declared in FLOOR_STEMS")
     print(f"  declared: sage mode {h3_config.SAGE_NODE['mode']!r}, "
           f"sol tau {h3_config.SOL_RECOMMENDED_CUDA['tau']}, "
           f"min_tokens {h3_config.SOL_RECOMMENDED_CUDA['min_tokens']}")
-    print(f"  PDD arms graded on SOL_PDD_CUDA instead: "
-          f"end_percent {h3_config.SOL_PDD_CUDA['end_percent']}, "
-          f"min_tokens {h3_config.SOL_PDD_CUDA['min_tokens']}, "
-          f"dense_blocks {h3_config.SOL_PDD_CUDA['dense_blocks']!r}")
     print("  single-frame class: "
           + (f"{checked['single_frame']} graph(s) from GRAPH_DIRS "
              f"{sorted(img_dirs)}" if img_dirs else

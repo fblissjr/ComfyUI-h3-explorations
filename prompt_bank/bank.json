@@ -1148,7 +1148,7 @@
       "id": "ref2va_look_anchor",
       "mode": "ref2va",
       "frames": 345,
-      "donor": "h3_image_ref_plus_text_to_video_pdd_api",
+      "donor": "h3_image_ref_plus_text_to_video_api",
       "brief": "t2va_look_anchor carried to reference generation: <Picture 1> defines the violin maker (frame 120 of a PDD8 render of the anchor), <Picture 2> the workshop (frame 0). Wardrobe follows Picture 1 (pale collared shirt, cuffs at the wrist); set details follow Picture 2. The anchor's action, line, camera, soundscape and score are kept; detailed_description sits inside ref 5.2's 350-500 word budget.",
       "tests": "the look anchor's scene under ref2va with a character and an environment reference cut from its own render: likeness and set fidelity against a scene whose t2va and i2va forms exist, and a matched scene for comparing encoders or distills across modes."
     },
@@ -1298,7 +1298,7 @@
       "id": "ref2va_look_anchor_cv_film_16mm_1974",
       "mode": "ref2va",
       "frames": 345,
-      "donor": "h3_image_ref_plus_text_to_video_pdd_api",
+      "donor": "h3_image_ref_plus_text_to_video_api",
       "brief": "Prompt-edit baseline for the control-vector gate (film_16mm_1974 on ref2va_look_anchor): ref2va_look_anchor rewritten in the house 1974 16mm colour film style (heavy grain, lifted milky dark grey shadows, soft blooming highlights on the brass clamp and glass varnish jar, faded warm colour) while keeping <Subject 1> and <Subject 2> fully_preserved and detailed_description inside ref 5.2's 350-500 word budget.",
       "tests": "Control-vector gate (§3.3) prompt-edit baseline on ref2va against ref2va_look_anchor steered by film_16mm_1974 on tag==1 text tokens only: whether text-only post-refiner steering shifts the film stock look while preserving reference likeness and set fidelity."
     },
@@ -1306,7 +1306,7 @@
       "id": "ref2va_look_anchor_cv_lettering",
       "mode": "ref2va",
       "frames": 345,
-      "donor": "h3_image_ref_plus_text_to_video_pdd_api",
+      "donor": "h3_image_ref_plus_text_to_video_api",
       "brief": "Prompt-edit baseline for the control-vector gate (lettering negation on ref2va_look_anchor): ref2va_look_anchor with explicit house-style negation of labels, stamps, and text across every jar, clamp, apron, wall, and wooden surface, inside ref 5.2's 350-500 word budget.",
       "tests": "Control-vector gate (§3.3) prompt-edit baseline on ref2va against ref2va_look_anchor steered negatively by lettering: whether negative steering keeps workshop surfaces unlabelled without altering reference preservation."
     }

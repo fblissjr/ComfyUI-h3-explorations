@@ -92,12 +92,12 @@ Claims, i.e. what breaks if a case is deleted:
   render_row_names_the_workflow
       the first call under a prompt id writes a `render` row: the running
       graph is read from the server's queue, hashed as provenance.py hashes
-      it, and matched to the shipped file -- `h3_text_to_video_pdd_api.json`
-      submitted as-is names itself, carries `summary.pdd` with the LoRA and
-      its linked step count, and is `process_render_index` 0; a modified copy
+      it, and matched to the shipped file -- `h3_text_to_video_api.json`
+      submitted as-is names itself, carries `summary.scheduler` with its
+      step count, and is `process_render_index` 0; a modified copy
       under a second prompt id gets a null `workflow_file` with a reason and
       index 1 with the first id as prior; without a server the row says the
-      prompt was unavailable. This is what lets a reader tell a PDD record
+      prompt was unavailable. This is what lets a reader tell a distilled record
       from a base one, and a cold render from a warm one, without the file.
   undefined_adaptive_figures_are_null
       every query block inside sink_q leaves no free pair: `routed_density`
@@ -710,7 +710,7 @@ def main() -> int:
         d = newdir("render")
         obs.arm(f"dir={d}")
         wf = Path(node.__file__).resolve().parent / "workflows"
-        shipped = json.loads((wf / "h3_text_to_video_pdd_api.json").read_text())
+        shipped = json.loads((wf / "h3_text_to_video_api.json").read_text())
         modified = json.loads(json.dumps(shipped))
         modified["5"]["inputs"]["prompt"] = "a different prompt"
         stub = types.ModuleType("server")
@@ -734,15 +734,15 @@ def main() -> int:
         renders = [r for r in rows if r["kind"] == "render"]
         assert [r["prompt_id"] for r in renders] == ["prompt-W", "prompt-X"], renders
         w, x = renders
-        assert w["workflow_file"] == "h3_text_to_video_pdd_api.json" and w["match"].startswith("shipped"), w
+        assert w["workflow_file"] == "h3_text_to_video_api.json" and w["match"].startswith("shipped"), w
         assert w["process_render_index"] == 0 and w["prior_prompt_ids"] == []
-        assert w["summary"]["pdd"]["lora_name"].endswith("pdd_8step_comfy.safetensors"), w["summary"]["pdd"]
-        assert w["summary"]["pdd"]["steps"] == 8 and w["summary"]["sampler"] == "euler"
-        assert w["summary"]["resolution"]["length"] == 345 and w["summary"]["sol_nodes"] == 1
+        assert w["summary"]["pdd"] is None, w["summary"]["pdd"]
+        assert w["summary"]["scheduler"] == {"scheduler": "simple", "steps": 16} and w["summary"]["sampler"] == "euler"
+        assert w["summary"]["resolution"]["length"] == 362 and w["summary"]["sol_nodes"] == 1
         assert w["graph_sha256"] == obs.graph_sha256(shipped)
         assert x["workflow_file"] is None and x["match"].startswith("no shipped graph"), x
         assert x["process_render_index"] == 1 and x["prior_prompt_ids"] == ["prompt-W"]
-        assert x["summary"]["pdd"]["steps"] == 8       # the summary still describes the graph
+        assert x["summary"]["scheduler"]["steps"] == 16  # the summary still describes the graph
         # the render row precedes its first call row
         seqs = {r["prompt_id"]: r["seq"] for r in renders}
         first_call = {}

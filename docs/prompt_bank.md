@@ -42,7 +42,7 @@
 | [`t2va_clinic_corridor`](#t2va-clinic-corridor) | t2va | 345 | 14.375 | yes | 0 | — | 205 | 3 | 2 | English | Truck Right | N/A | clean |
 | [`t2va_cooking_show_meltdown`](#t2va-cooking-show-meltdown) | t2va | 345 | 14.375 | pinned | 0 | — | 299 | 3 | 1 | English | Zoom In, Push In, Static Shot | scored | clean |
 | [`t2va_courtroom_verdict`](#t2va-courtroom-verdict) | t2va | 345 | 14.375 | pinned | 0 | — | 294 | 3 | 2 | English | Push In, Truck Right, Static Shot | scored | clean |
-| [`t2va_covered_market`](#t2va-covered-market) | t2va | 345 | 14.375 | yes | 22 | — | 249 | 3 | 2 | English | Truck Left, Static Shot | N/A | clean |
+| [`t2va_covered_market`](#t2va-covered-market) | t2va | 345 | 14.375 | yes | 23 | — | 249 | 3 | 2 | English | Truck Left, Static Shot | N/A | clean |
 | [`t2va_crowd_churn_long`](#t2va-crowd-churn-long) | t2va | 345 | 14.375 | yes | 0 | — | 373 | 1 | 0 | — | Shake Strongly | N/A | clean |
 | [`t2va_cyber_hacker_den`](#t2va-cyber-hacker-den) | t2va | 345 | 14.375 | pinned | 0 | — | 306 | 3 | 1 | English | Push In, Truck Right, Static Shot | scored | clean |
 | [`t2va_cyberpunk_music_video`](#t2va-cyberpunk-music-video) | t2va | 345 | 14.375 | pinned | 0 | — | 257 | 3 | 1 | English | Push In, Arc Shot, Tracking Shot | scored | clean |
@@ -119,7 +119,7 @@
 | [`i2va_vet_night`](#i2va-vet-night) | i2va | 260 | 10.833 | pinned | 0 | — | 203 | 2 | 1 | English | Push In, Truck Left | N/A | clean |
 | [`i2va_glassblower`](#i2va-glassblower) | i2va | 277 | 11.542 | pinned | 0 | — | 276 | 2 | 1 | Italian | Zoom Out, Push In | scored | clean |
 | [`i2va_night_market`](#i2va-night-market) | i2va | 311 | 12.958 | pinned | 0 | — | 295 | 2 | 2 | Chinese, English | Push In, Shake Slightly | scored | clean |
-| [`i2va_lighthouse_keyframe`](#i2va-lighthouse-keyframe) | i2va | 345 | 14.375 | pinned | 4 | — | 48 | 1 | 0 | — | Push In | N/A | clean |
+| [`i2va_lighthouse_keyframe`](#i2va-lighthouse-keyframe) | i2va | 345 | 14.375 | pinned | 3 | — | 48 | 1 | 0 | — | Push In | N/A | clean |
 | [`i2va_look_anchor`](#i2va-look-anchor) | i2va | 345 | 14.375 | pinned | 0 | — | 454 | 2 | 1 | English | Push In, Truck Left | scored | clean |
 | [`fl2va_origami_crane`](#fl2va-origami-crane) | fl2va | 107 | 4.458 | yes | 0 | — | 144 | 1 | 0 | — | Static Shot | scored | clean |
 | [`fl2va_paper_train`](#fl2va-paper-train) | fl2va | 158 | 6.583 | yes | 0 | — | 148 | 1 | 0 | — | Pan Right | scored | clean |
@@ -127,7 +127,7 @@
 | [`fl2va_balloon`](#fl2va-balloon) | fl2va | 209 | 8.708 | yes | 0 | — | 169 | 1 | 0 | — | Pull Out | N/A | clean |
 | [`fl2va_carousel`](#fl2va-carousel) | fl2va | 311 | 12.958 | yes | 0 | — | 186 | 2 | 1 | English | Truck Right, Tilt Up | scored | clean |
 | [`fl2va_drawbridge`](#fl2va-drawbridge) | fl2va | 362 | 15.083 | pinned | 0 | — | 196 | 1 | 0 | — | Pedestal Down | scored | clean |
-| [`fl2va_interior_converge`](#fl2va-interior-converge) | fl2va | 362 | 15.083 | yes | 2 | — | 87 | 1 | 0 | — | Truck Right | N/A | clean |
+| [`fl2va_interior_converge`](#fl2va-interior-converge) | fl2va | 362 | 15.083 | yes | 1 | — | 87 | 1 | 0 | — | Truck Right | N/A | clean |
 | [`l2va_telescope`](#l2va-telescope) | l2va | 90 | 3.750 | yes | 0 | — | 127 | 1 | 0 | — | Static Shot | N/A | clean |
 | [`l2va_chess_clock`](#l2va-chess-clock) | l2va | 141 | 5.875 | yes | 0 | — | 223 | 1 | 2 | English, Russian | Tilt Down | N/A | clean |
 | [`l2va_kite_festival`](#l2va-kite-festival) | l2va | 226 | 9.417 | yes | 0 | — | 270 | 3 | 1 | English | Zoom Out, Static Shot | scored | clean |
@@ -154,10 +154,10 @@
 | [`ref2va_image_ref_default`](#ref2va-image-ref-default) | ref2va | 345 | 14.375 | pinned | 1 | `h3_image_ref_plus_text_to_video_api` | 410 | 1 | 0 | — | Push In, Truck Right, Static Shot | N/A | clean |
 | [`ref2va_image_video_audio_music`](#ref2va-image-video-audio-music) | ref2va | 345 | 14.375 | yes | 3 | `h3_ref_image_video_audio_api` | 49 | 1 | 0 | — | Truck Right | scored | 0 FAIL, 1 WARN (recorded; see the entry) |
 | [`ref2va_image_video_structure`](#ref2va-image-video-structure) | ref2va | 345 | 14.375 | yes | 1 | `h3_ref_video_to_video_api` | 49 | 1 | 0 | — | Truck Right | N/A | 0 FAIL, 1 WARN (recorded; see the entry) |
-| [`ref2va_look_anchor`](#ref2va-look-anchor) | ref2va | 345 | 14.375 | pinned | 0 | `h3_image_ref_plus_text_to_video_pdd_api` | 457 | 2 | 1 | English | Push In, Truck Left | scored | clean |
-| [`ref2va_look_anchor_cv_film_16mm_1974`](#ref2va-look-anchor-cv-film-16mm-1974) | ref2va | 345 | 14.375 | pinned | 0 | `h3_image_ref_plus_text_to_video_pdd_api` | 485 | 2 | 1 | English | Push In, Truck Left | scored | clean |
-| [`ref2va_look_anchor_cv_lettering`](#ref2va-look-anchor-cv-lettering) | ref2va | 345 | 14.375 | pinned | 0 | `h3_image_ref_plus_text_to_video_pdd_api` | 479 | 2 | 1 | English | Push In, Truck Left | scored | clean |
-| [`ref2va_market_stallholder`](#ref2va-market-stallholder) | ref2va | 345 | 14.375 | yes | 2 | `h3_ref2v_market_api` | 412 | 3 | 2 | English | Truck Left, Static Shot | N/A | clean |
+| [`ref2va_look_anchor`](#ref2va-look-anchor) | ref2va | 345 | 14.375 | pinned | 0 | `h3_image_ref_plus_text_to_video_api` | 457 | 2 | 1 | English | Push In, Truck Left | scored | clean |
+| [`ref2va_look_anchor_cv_film_16mm_1974`](#ref2va-look-anchor-cv-film-16mm-1974) | ref2va | 345 | 14.375 | pinned | 0 | `h3_image_ref_plus_text_to_video_api` | 485 | 2 | 1 | English | Push In, Truck Left | scored | clean |
+| [`ref2va_look_anchor_cv_lettering`](#ref2va-look-anchor-cv-lettering) | ref2va | 345 | 14.375 | pinned | 0 | `h3_image_ref_plus_text_to_video_api` | 479 | 2 | 1 | English | Push In, Truck Left | scored | clean |
+| [`ref2va_market_stallholder`](#ref2va-market-stallholder) | ref2va | 345 | 14.375 | yes | 1 | `h3_ref2v_market_api` | 412 | 3 | 2 | English | Truck Left, Static Shot | N/A | clean |
 | [`ref2va_masked_head_swap`](#ref2va-masked-head-swap) | ref2va | 345 | 14.375 | pinned | 0 | `h3_probe_refview2_dancer_api` | 384 | 1 | 1 | — | Static Shot | N/A | clean |
 | [`ref2va_masked_lead_follows`](#ref2va-masked-lead-follows) | ref2va | 345 | 14.375 | pinned | 0 | `h3_probe_refview2_dancer_api` | 402 | 1 | 1 | — | Static Shot | N/A | clean |
 | [`ref2va_masked_lead_swap`](#ref2va-masked-lead-swap) | ref2va | 345 | 14.375 | pinned | 0 | `h3_probe_refview2_dancer_api` | 351 | 1 | 1 | — | Static Shot | N/A | clean |
@@ -170,9 +170,9 @@
 | [`ref2va_masked_subject_motion`](#ref2va-masked-subject-motion) | ref2va | 345 | 14.375 | yes | 0 | `h3_probe_refview2_dancer_api` | 162 | 1 | 1 | — |  | N/A | 1 FAIL, 1 WARN (recorded; see the entry) |
 | [`ref2va_masked_subject_swap`](#ref2va-masked-subject-swap) | ref2va | 345 | 14.375 | pinned | 0 | `h3_probe_refview2_dancer_api` | 350 | 1 | 1 | — | Static Shot | N/A | clean |
 | [`ref2va_night_porter_refs`](#ref2va-night-porter-refs) | ref2va | 345 | 14.375 | yes | 1 | `h3_probe_refview2_porter_api` | 352 | 2 | 1 | English | Zoom In, Static Shot | N/A | clean |
-| [`ref2va_role_character_environment`](#ref2va-role-character-environment) | ref2va | 345 | 14.375 | yes | 4 | `h3_image_ref_plus_text_to_video_api` | 42 | 1 | 0 | — | Truck Right | N/A | 0 FAIL, 1 WARN (recorded; see the entry) |
+| [`ref2va_role_character_environment`](#ref2va-role-character-environment) | ref2va | 345 | 14.375 | yes | 3 | `h3_image_ref_plus_text_to_video_api` | 42 | 1 | 0 | — | Truck Right | N/A | 0 FAIL, 1 WARN (recorded; see the entry) |
 | [`ref2va_role_character_garment_environment`](#ref2va-role-character-garment-environment) | ref2va | 345 | 14.375 | yes | 9 | `h3_probe_capture_ref3_api` | 45 | 1 | 0 | — | Truck Right | N/A | 0 FAIL, 1 WARN (recorded; see the entry) |
-| [`ref2va_scene_kitchen`](#ref2va-scene-kitchen) | ref2va | 345 | 14.375 | yes | 1 | `h3_ref2v_scene_kitchen_api` | 468 | 4 | 2 | English | Push In, Pedestal Up | N/A | clean |
+| [`ref2va_scene_kitchen`](#ref2va-scene-kitchen) | ref2va | 345 | 14.375 | yes | 2 | `h3_ref2v_scene_kitchen_api` | 468 | 4 | 2 | English | Push In, Pedestal Up | N/A | clean |
 | [`ref2va_scene_subway`](#ref2va-scene-subway) | ref2va | 345 | 14.375 | yes | 1 | `h3_ref2v_scene_subway_api` | 434 | 4 | 3 | English |  | N/A | clean |
 | [`ref2va_stairwell_dialogue`](#ref2va-stairwell-dialogue) | ref2va | 345 | 14.375 | yes | 1 | `h3_image_ref_plus_text_to_video_dialogue_api` | 431 | 3 | 2 | English | Shake Slightly | N/A | clean |
 | [`ref2va_stairwell_dialogue_backstage`](#ref2va-stairwell-dialogue-backstage) | ref2va | 345 | 14.375 | yes | 1 | `h3_probe_refview2_stairwell_backstage_api` | 427 | 3 | 2 | English | Shake Slightly | N/A | clean |
@@ -971,7 +971,7 @@ non_diegetic_music: A brooding orchestral string motif at a slow tempo, driven b
 
 ## t2va_covered_market
 
-**t2va, 345 frames, 14.375 s.** Live-action handheld; covered market aisle; the scene every shipped t2v graph carried until 2026-09-03 and the one every real-activation Sol record came from **Tests:** the busy wide scene every shipped t2v graph carried: many small figures, clutter, handheld motion; the scene most speedups were tuned on until 2026-09-03. Ships in: `h3_candidate_t2v_sol_only_api`, `h3_probe_canvas_portrait_api`, `h3_probe_canvas_ultrawide_api`, `h3_probe_head_chunks_api`, `h3_probe_square_canvas_api`, `h3_probe_t2v_base_euler32_api`, `h3_probe_t2v_base_euler32_savelat_api`, `h3_probe_t2v_base_euler32_x0_api`, `h3_probe_t2v_ck_api`, `h3_probe_t2v_dense_api`, `h3_probe_t2v_exact_tail_api`, `h3_probe_t2v_levers_api`, `h3_probe_t2v_no_dense_tail_api`, `h3_probe_t2v_policy_api`, `h3_probe_t2v_rotate_api`, `h3_probe_t2v_sage_rotate_api`, `h3_probe_t2v_sol_nosage_api`, `h3_text_to_video_api`, `h3_text_to_video_audio_freeze_2windows_api`, `h3_text_to_video_audio_freeze_api`, `h3_text_to_video_pdd_api`, `h3_text_to_video_savelat_api`.
+**t2va, 345 frames, 14.375 s.** Live-action handheld; covered market aisle; the scene every shipped t2v graph carried until 2026-09-03 and the one every real-activation Sol record came from **Tests:** the busy wide scene every shipped t2v graph carried: many small figures, clutter, handheld motion; the scene most speedups were tuned on until 2026-09-03. Ships in: `h3_candidate_t2v_sol_only_api`, `h3_probe_canvas_portrait_api`, `h3_probe_canvas_ultrawide_api`, `h3_probe_head_chunks_api`, `h3_probe_square_canvas_api`, `h3_probe_t2v_base_euler32_api`, `h3_probe_t2v_base_euler32_savelat_api`, `h3_probe_t2v_base_euler32_x0_api`, `h3_probe_t2v_ck_api`, `h3_probe_t2v_dense_api`, `h3_probe_t2v_exact_tail_api`, `h3_probe_t2v_levers_api`, `h3_probe_t2v_no_dense_tail_api`, `h3_probe_t2v_policy_api`, `h3_probe_t2v_rotate_api`, `h3_probe_t2v_sage_rotate_api`, `h3_probe_t2v_sol_nosage_api`, `h3_text_to_video_api`, `h3_text_to_video_audio_freeze_2windows_api`, `h3_text_to_video_audio_freeze_api`, `h3_text_to_video_pika_control_vector_api`, `h3_text_to_video_pika_dual_control_vectors_api`, `h3_text_to_video_savelat_api`.
 
 Derived: camera: Truck Left, Static Shot; speakers: S1, S2; languages: English; cuts: the shot cuts to; 249 words in the main field; 1641 characters in all.
 
@@ -2467,7 +2467,7 @@ non_diegetic_music: A plucked guzheng figure at a moderate tempo over a soft han
 
 ## i2va_lighthouse_keyframe
 
-**i2va, 345 frames, 14.375 s.** First-frame continuation of the lighthouse scene: <Picture 1> fully referenced at 0 s Ships in: `h3_first_frame_to_video_api`, `h3_first_frame_to_video_audio_freeze_api`, `h3_first_frame_to_video_pdd_api`, `h3_first_frame_to_video_stamped_api`.
+**i2va, 345 frames, 14.375 s.** First-frame continuation of the lighthouse scene: <Picture 1> fully referenced at 0 s Ships in: `h3_first_frame_to_video_api`, `h3_first_frame_to_video_audio_freeze_api`, `h3_first_frame_to_video_stamped_api`.
 
 Derived: camera: Push In; labels: <Picture 1>; 48 words in the main field; 622 characters in all.
 
@@ -2635,7 +2635,7 @@ non_diegetic_music: Low sustained brass at a slow tempo, joined by a steady timp
 
 ## fl2va_interior_converge
 
-**fl2va, 362 frames, 15.083 s.** The generator's fl2va default: one continuous shot that starts in the opening frame's exact state and converges on the closing one. Part One is base_en's unbracketed FL2VA sentence, resolved here at 362 frames -- `fl2v_prompt()` re-resolves it for any other length. Ships in: `h3_first_last_frame_to_video_api`, `h3_first_last_frame_to_video_pdd_api`.
+**fl2va, 362 frames, 15.083 s.** The generator's fl2va default: one continuous shot that starts in the opening frame's exact state and converges on the closing one. Part One is base_en's unbracketed FL2VA sentence, resolved here at 362 frames -- `fl2v_prompt()` re-resolves it for any other length. Ships in: `h3_first_last_frame_to_video_api`.
 
 Derived: camera: Truck Right; 87 words in the main field; 1026 characters in all.
 
@@ -3486,12 +3486,12 @@ N/A
 
 ## ref2va_look_anchor
 
-**ref2va, 345 frames, 14.375 s, donor `h3_image_ref_plus_text_to_video_pdd_api`.** t2va_look_anchor carried to reference generation: <Picture 1> defines the violin maker (frame 120 of a PDD8 render of the anchor), <Picture 2> the workshop (frame 0). Wardrobe follows Picture 1 (pale collared shirt, cuffs at the wrist); set details follow Picture 2. The anchor's action, line, camera, soundscape and score are kept; detailed_description sits inside ref 5.2's 350-500 word budget. **Tests:** the look anchor's scene under ref2va with a character and an environment reference cut from its own render: likeness and set fidelity against a scene whose t2va and i2va forms exist, and a matched scene for comparing encoders or distills across modes.
+**ref2va, 345 frames, 14.375 s, donor `h3_image_ref_plus_text_to_video_api`.** t2va_look_anchor carried to reference generation: <Picture 1> defines the violin maker (frame 120 of a PDD8 render of the anchor), <Picture 2> the workshop (frame 0). Wardrobe follows Picture 1 (pale collared shirt, cuffs at the wrist); set details follow Picture 2. The anchor's action, line, camera, soundscape and score are kept; detailed_description sits inside ref 5.2's 350-500 word budget. **Tests:** the look anchor's scene under ref2va with a character and an environment reference cut from its own render: likeness and set fidelity against a scene whose t2va and i2va forms exist, and a matched scene for comparing encoders or distills across modes.
 
 Derived: camera: Push In, Truck Left; speakers: S1; languages: English; cuts: the shot cuts to; task: [reference generation]; labels: <Picture 1>, <Picture 2>; 457 words in the main field; 4211 characters in all.
 
 ```
-python bench/grade_prompt_text.py --mode ref2va --length 345 --like h3_image_ref_plus_text_to_video_pdd_api prompt_bank/ref2va_look_anchor.txt
+python bench/grade_prompt_text.py --mode ref2va --length 345 --like h3_image_ref_plus_text_to_video_api prompt_bank/ref2va_look_anchor.txt
   0 FAIL, 0 WARN
 ```
 
@@ -3521,12 +3521,12 @@ A solo cello holds long, low notes at a slow tempo, joined halfway through by a 
 
 ## ref2va_look_anchor_cv_film_16mm_1974
 
-**ref2va, 345 frames, 14.375 s, donor `h3_image_ref_plus_text_to_video_pdd_api`.** Prompt-edit baseline for the control-vector gate (film_16mm_1974 on ref2va_look_anchor): ref2va_look_anchor rewritten in the house 1974 16mm colour film style (heavy grain, lifted milky dark grey shadows, soft blooming highlights on the brass clamp and glass varnish jar, faded warm colour) while keeping <Subject 1> and <Subject 2> fully_preserved and detailed_description inside ref 5.2's 350-500 word budget. **Tests:** Control-vector gate (§3.3) prompt-edit baseline on ref2va against ref2va_look_anchor steered by film_16mm_1974 on tag==1 text tokens only: whether text-only post-refiner steering shifts the film stock look while preserving reference likeness and set fidelity.
+**ref2va, 345 frames, 14.375 s, donor `h3_image_ref_plus_text_to_video_api`.** Prompt-edit baseline for the control-vector gate (film_16mm_1974 on ref2va_look_anchor): ref2va_look_anchor rewritten in the house 1974 16mm colour film style (heavy grain, lifted milky dark grey shadows, soft blooming highlights on the brass clamp and glass varnish jar, faded warm colour) while keeping <Subject 1> and <Subject 2> fully_preserved and detailed_description inside ref 5.2's 350-500 word budget. **Tests:** Control-vector gate (§3.3) prompt-edit baseline on ref2va against ref2va_look_anchor steered by film_16mm_1974 on tag==1 text tokens only: whether text-only post-refiner steering shifts the film stock look while preserving reference likeness and set fidelity.
 
 Derived: camera: Push In, Truck Left; speakers: S1; languages: English; cuts: the shot cuts to; task: [reference generation]; labels: <Picture 1>, <Picture 2>; 485 words in the main field; 4457 characters in all.
 
 ```
-python bench/grade_prompt_text.py --mode ref2va --length 345 --like h3_image_ref_plus_text_to_video_pdd_api prompt_bank/ref2va_look_anchor_cv_film_16mm_1974.txt
+python bench/grade_prompt_text.py --mode ref2va --length 345 --like h3_image_ref_plus_text_to_video_api prompt_bank/ref2va_look_anchor_cv_film_16mm_1974.txt
   0 FAIL, 0 WARN
 ```
 
@@ -3556,12 +3556,12 @@ A solo cello holds long, low notes at a slow tempo, joined halfway through by a 
 
 ## ref2va_look_anchor_cv_lettering
 
-**ref2va, 345 frames, 14.375 s, donor `h3_image_ref_plus_text_to_video_pdd_api`.** Prompt-edit baseline for the control-vector gate (lettering negation on ref2va_look_anchor): ref2va_look_anchor with explicit house-style negation of labels, stamps, and text across every jar, clamp, apron, wall, and wooden surface, inside ref 5.2's 350-500 word budget. **Tests:** Control-vector gate (§3.3) prompt-edit baseline on ref2va against ref2va_look_anchor steered negatively by lettering: whether negative steering keeps workshop surfaces unlabelled without altering reference preservation.
+**ref2va, 345 frames, 14.375 s, donor `h3_image_ref_plus_text_to_video_api`.** Prompt-edit baseline for the control-vector gate (lettering negation on ref2va_look_anchor): ref2va_look_anchor with explicit house-style negation of labels, stamps, and text across every jar, clamp, apron, wall, and wooden surface, inside ref 5.2's 350-500 word budget. **Tests:** Control-vector gate (§3.3) prompt-edit baseline on ref2va against ref2va_look_anchor steered negatively by lettering: whether negative steering keeps workshop surfaces unlabelled without altering reference preservation.
 
 Derived: camera: Push In, Truck Left; speakers: S1; languages: English; cuts: the shot cuts to; task: [reference generation]; labels: <Picture 1>, <Picture 2>; 479 words in the main field; 4423 characters in all.
 
 ```
-python bench/grade_prompt_text.py --mode ref2va --length 345 --like h3_image_ref_plus_text_to_video_pdd_api prompt_bank/ref2va_look_anchor_cv_lettering.txt
+python bench/grade_prompt_text.py --mode ref2va --length 345 --like h3_image_ref_plus_text_to_video_api prompt_bank/ref2va_look_anchor_cv_lettering.txt
   0 FAIL, 0 WARN
 ```
 
@@ -3591,7 +3591,7 @@ A solo cello holds long, low notes at a slow tempo, joined halfway through by a 
 
 ## ref2va_market_stallholder
 
-**ref2va, 345 frames, 14.375 s, donor `h3_ref2v_market_api`.** Reference-conditioned market stallholder carried from <Picture 1>; the ref2v market family Ships in: `h3_ref2v_market_api`, `h3_ref2v_market_pdd_api`.
+**ref2va, 345 frames, 14.375 s, donor `h3_ref2v_market_api`.** Reference-conditioned market stallholder carried from <Picture 1>; the ref2v market family Ships in: `h3_ref2v_market_api`.
 
 Derived: camera: Truck Left, Static Shot; speakers: S1, S2; languages: English; cuts: the shot cuts to; task: [reference generation]; labels: <Picture 1>; 412 words in the main field; 3520 characters in all.
 
@@ -3993,7 +3993,7 @@ N/A
 
 ## ref2va_role_character_environment
 
-**ref2va, 345 frames, 14.375 s, donor `h3_image_ref_plus_text_to_video_api`.** The generator's two-socket ref2va default, composed by `_ref_prompt` from the role tables: a character carried from <Picture 1> into the environment of <Picture 2>, one continuous shot, truck right. The most widely shipped ref2va prompt in the repo. **Recorded findings:** prompt_audit.md verdict `revise` for this scene: detailed_description is far under ref 5.2's 350-500 word budget, which the audit records as systematic across the composed ref2va arms. Shipped as composed -- narrowing the gap is a content change and belongs in the audit, not here. Ships in: `h3_image_ref_plus_text_to_video_api`, `h3_image_ref_plus_text_to_video_pdd_api`, `h3_probe_reference_upscale_api`, `h3_probe_sol_on_refs_api`.
+**ref2va, 345 frames, 14.375 s, donor `h3_image_ref_plus_text_to_video_api`.** The generator's two-socket ref2va default, composed by `_ref_prompt` from the role tables: a character carried from <Picture 1> into the environment of <Picture 2>, one continuous shot, truck right. The most widely shipped ref2va prompt in the repo. **Recorded findings:** prompt_audit.md verdict `revise` for this scene: detailed_description is far under ref 5.2's 350-500 word budget, which the audit records as systematic across the composed ref2va arms. Shipped as composed -- narrowing the gap is a content change and belongs in the audit, not here. Ships in: `h3_image_ref_plus_text_to_video_api`, `h3_probe_reference_upscale_api`, `h3_probe_sol_on_refs_api`.
 
 Derived: camera: Truck Right; task: [reference generation]; labels: <Picture 1>, <Picture 2>; 42 words in the main field; 913 characters in all.
 
@@ -4063,7 +4063,7 @@ N/A
 
 ## ref2va_scene_kitchen
 
-**ref2va, 345 frames, 14.375 s, donor `h3_ref2v_scene_kitchen_api`.** The kitchen stress scene: four shots, the lyrics, caption and cutoff markers together, and a character reference carried through all of them. Ships in: `h3_ref2v_scene_kitchen_api`.
+**ref2va, 345 frames, 14.375 s, donor `h3_ref2v_scene_kitchen_api`.** The kitchen stress scene: four shots, the lyrics, caption and cutoff markers together, and a character reference carried through all of them. Ships in: `h3_image_ref_plus_text_to_video_pika_control_vector_api`, `h3_ref2v_scene_kitchen_api`.
 
 Derived: camera: Push In, Pedestal Up; speakers: S1, S2; languages: English; cuts: the shot cuts to, the shot changes to; on-screen text: "TABLE 12 - 2 COVERS - FIRE"; task: [reference generation]; labels: <Picture 1>; 468 words in the main field; 3359 characters in all.
 

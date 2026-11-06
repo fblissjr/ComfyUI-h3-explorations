@@ -8,14 +8,14 @@ this file is only a way to find a script by what it says it does.
 
 | group | scripts |
 |---|---|
-| [`check_*`](#check) | 168 |
-| [`measure_*`](#measure) | 39 |
-| [`analyze_*`](#analyze) | 20 |
-| [`grade_*`](#grade) | 20 |
-| [`compare_*`](#compare) | 19 |
-| [`build_*`](#build) | 16 |
+| [`check_*`](#check) | 161 |
+| [`measure_*`](#measure) | 36 |
+| [`analyze_*`](#analyze) | 18 |
+| [`grade_*`](#grade) | 19 |
+| [`compare_*`](#compare) | 15 |
+| [`build_*`](#build) | 13 |
 | [`probe_*`](#probe) | 11 |
-| [the rest](#the-rest) | 197 |
+| [the rest](#the-rest) | 190 |
 
 ## check
 
@@ -23,7 +23,6 @@ this file is only a way to find a script by what it says it does.
 |---|---|
 | [`check_assemble_delivery.py`](check_assemble_delivery.py) | The delivery assembler against a clip and pieces whose answers are known by construction. |
 | [`check_attention_defaults.py`](check_attention_defaults.py) | Check every shipped graph carries the attention configuration `h3_config` declares. |
-| [`check_audio_carry_inversion.py`](check_audio_carry_inversion.py) | The audio carry probe's inversion is exact, and its ablation actually moves. |
 | [`check_audio_freeze.py`](check_audio_freeze.py) | The audio-freeze node's contract, and the two ways a graph can silently unfreeze. |
 | [`check_bench_matches_shipped.py`](check_bench_matches_shipped.py) | Check the e2e bench measures the configuration the graphs actually ship. |
 | [`check_body_pose.py`](check_body_pose.py) | Hold `body_pose.py` to Meta's SAM 3D Body code: the crop bit for bit, the bodies within Meta's own precision, and no ComfyUI SAM node. |
@@ -107,11 +106,6 @@ this file is only a way to find a script by what it says it does.
 | [`check_page_answers_to_cast.py`](check_page_answers_to_cast.py) | `bench/page_answers_to_cast.py` takes the owner's clicks on the review page into the cast file; each case is a way a click could be stored wrongly, twice, or when the owner had not decided. |
 | [`check_page_answers_to_verdicts.py`](check_page_answers_to_verdicts.py) | `bench/page_answers_to_verdicts.py` copies the owner's clip verdicts from the page's raw file into the record; each case is a way a line could be lost, doubled, reworded or put on the wrong render. |
 | [`check_patch_render_window.py`](check_patch_render_window.py) | `bench/patch_render_window.py join` against a render and a patch whose answers are known by construction. |
-| [`check_pdd_bank_encoding.py`](check_pdd_bank_encoding.py) | The converter refuses a delta-encoded head stack, and takes a verbatim one. |
-| [`check_pdd_head_selection.py`](check_pdd_head_selection.py) | The PDD node's runtime guards do what they claim, on real artifacts. |
-| [`check_pdd_sidecar_contract.py`](check_pdd_sidecar_contract.py) | The PDD sidecar's bake contract: exact pairing and the fixed population. |
-| [`check_pdd_sigmas.py`](check_pdd_sigmas.py) | The PDD node's SIGMAS output is the block boundaries, and the graphs use it. |
-| [`check_pdd_unmerged.py`](check_pdd_unmerged.py) | Grade the un-merged backbone path against the merged one it replaces. |
 | [`check_pick_frames.py`](check_pick_frames.py) | The frame picker (`bench/_lib/pick_frames.py`) and its command (`bench/pick_frames.py`), on spans made for the purpose. |
 | [`check_picks_against_answers.py`](check_picks_against_answers.py) | `bench/picks_against_answers.py` keeps what a tracker picked and what a session read against what the owner clicked; each case is a way a line could say the wrong thing of one of the three. |
 | [`check_piece_gaps.py`](check_piece_gaps.py) | `bench/piece_gaps.py` on a made table: each case is a way a frame no piece covers could be missed, joined to the wrong shot's people, or hidden. |
@@ -137,7 +131,6 @@ this file is only a way to find a script by what it says it does.
 | [`check_reference_runtime.py`](check_reference_runtime.py) | CPU acceptance checks for the typed MiniMax H3 reference runtime. |
 | [`check_region_against_plate.py`](check_region_against_plate.py) | `bench/region_against_plate.py` against a clip and pieces whose answers are known by construction. |
 | [`check_release_qwen_grid.py`](check_release_qwen_grid.py) | The release Qwen video grid, pinned at the boundaries that were got wrong. |
-| [`check_reload_invariance.py`](check_reload_invariance.py) | Is a render bit-identical across a full model unload? |
 | [`check_render_history.py`](check_render_history.py) | The render history (`bench/render_history.py`) on a made share and records folder: what each row says, where it read it, what it names as unseen. |
 | [`check_render_ledger.py`](check_render_ledger.py) | The render ledger (`bench/render_ledger.py`) on a made share: what each state of a render's making takes. |
 | [`check_renders_page.py`](check_renders_page.py) | `bench/renders_page.py` lays the renders inventory beside the owner's verdict lines; each case is a way a row could be out of order, carry another render's lines, drop a line or link to the wrong place. |
@@ -194,7 +187,6 @@ this file is only a way to find a script by what it says it does.
 
 | script | what it says it does |
 |---|---|
-| [`measure_audio_seed_spread.py`](measure_audio_seed_spread.py) | How much does audio ENERGY move between seeds, with nothing else changed? |
 | [`measure_audio_video_coupling.py`](measure_audio_video_coupling.py) | Does the picture move with the audio? Two instruments with a null, per clip. |
 | [`measure_bake_realisation.py`](measure_bake_realisation.py) | Does an offline bake DELIVER the LoRA, or does it win on distance by discarding it? |
 | [`measure_bf16_delta_rank.py`](measure_bf16_delta_rank.py) | How low-rank is FastH3's backbone change, measured on the bf16 sources? |
@@ -220,8 +212,6 @@ this file is only a way to find a script by what it says it does.
 | [`measure_merge_rounding_regimes.py`](measure_merge_rounding_regimes.py) | Does the rounding regime change the merge penalty, and by how much. |
 | [`measure_moge2_depth.py`](measure_moge2_depth.py) | Measure per-frame metric depth and camera intrinsics on video frames with HyDen MoGe-2. |
 | [`measure_pair_alignment.py`](measure_pair_alignment.py) | Is a pair of clips the same take or two takes? Per-frame picture distance and audio envelope correlation. |
-| [`measure_pdd_audio_carry.py`](measure_pdd_audio_carry.py) | Does ComfyUI's audio change-of-variable degrade with PDD's block width? |
-| [`measure_pdd_quant_interaction.py`](measure_pdd_quant_interaction.py) | Does the PDD LoRA's strength change how much QUANTISATION costs? |
 | [`measure_per_head_tau_on_capture.py`](measure_per_head_tau_on_capture.py) | What a tau per head would buy, on captured q/k/v: Sol's error and routed share per head, per tau. |
 | [`measure_prompt_edit_conditioning.py`](measure_prompt_edit_conditioning.py) | What a prompt edit costs at MiniMaxH3ReferenceConditioning, and how much of it is the reference VAE encode. |
 | [`measure_qk_balance_gate_on_capture.py`](measure_qk_balance_gate_on_capture.py) | Which heads open the kitchen Sol kernel's qk_balance gate, per captured block. |
@@ -248,8 +238,6 @@ this file is only a way to find a script by what it says it does.
 | [`analyze_followup.py`](analyze_followup.py) | Run the measurement reads on the 2026-09-26 follow-up batch as its arms land. |
 | [`analyze_head_magnitudes.py`](analyze_head_magnitudes.py) | Why block 49: per-head Q/K/V magnitudes on captured activations, joined to per-head error. |
 | [`analyze_k_by_segment.py`](analyze_k_by_segment.py) | K's INT8 stress by sequence segment, on the captured t2v and ref2va cells. |
-| [`analyze_pdd_stream_energy.py`](analyze_pdd_stream_energy.py) | Does PDD's block width cost AUDIO specifically, or does it cost both streams? |
-| [`analyze_pdd_unmerge_curve.py`](analyze_pdd_unmerge_curve.py) | What un-merging N blocks actually recovers, and whether picking N pays. |
 | [`analyze_quant_delta.py`](analyze_quant_delta.py) | What separates the two shipped quantizations of the same H3 DiT: the `fp8_scaled` file against the `int8_convrot` file, and -- when the bf16 release is on disk -- each of them against the weights they were made from. |
 | [`analyze_quant_hotspots.py`](analyze_quant_hotspots.py) | Where INT8 weight error concentrates: by block, and by module kind. |
 | [`analyze_routing.py`](analyze_routing.py) | How many blocks does Sol's router keep exact? |
@@ -270,7 +258,6 @@ this file is only a way to find a script by what it says it does.
 | [`grade_dense_kernels_on_captures.py`](grade_dense_kernels_on_captures.py) | The three dense-step kernels on every captured cell: error against fp32 attention, per block and step. |
 | [`grade_dense_kernels_per_row.py`](grade_dense_kernels_per_row.py) | Per-row error of the dense-step kernels on a capture, split by segment and by attention breadth. |
 | [`grade_h3_marker_tokens.py`](grade_h3_marker_tokens.py) | Does routing `<d>` to its real token id change what the encoder produces? |
-| [`grade_pdd_partitions.py`](grade_pdd_partitions.py) | Grade PDD block partitions against the trajectory they were distilled from. |
 | [`grade_prompt_text.py`](grade_prompt_text.py) | Grade a candidate prompt TEXT, for a chosen mode, without building a graph. |
 | [`grade_pruning_sensitivity.py`](grade_pruning_sensitivity.py) | Grade `docs/open_experiments.md` #22: does the AdaLN pruning move the output? |
 | [`grade_sage_on_capture.py`](grade_sage_on_capture.py) | Grade each sage kernel mode against a REAL captured activation, not randn. |
@@ -295,10 +282,6 @@ this file is only a way to find a script by what it says it does.
 | [`compare_dit_checkpoints.py`](compare_dit_checkpoints.py) | Compare two H3 DiT safetensors files without downloading them. |
 | [`compare_hybrid_timestep_set.py`](compare_hybrid_timestep_set.py) | Which base each timestep tensor of an fl2va/ref2va hybrid came from. CPU only. |
 | [`compare_lora_files.py`](compare_lora_files.py) | Compare H3 LoRA safetensors across naming conventions, by bytes. |
-| [`compare_pdd_audio_carry.py`](compare_pdd_audio_carry.py) | Is core's audio carry an error source under PDD? CPU, fp64, no model. |
-| [`compare_pdd_conversions.py`](compare_pdd_conversions.py) | Grade our PDD conversion against the paper, the vendor adapter, and Kijai's. |
-| [`compare_pdd_head_fusion.py`](compare_pdd_head_fusion.py) | Fused-head fidelity across PDD implementations, CPU only. |
-| [`compare_pdd_head_selection.py`](compare_pdd_head_selection.py) | Record: bench/results/2026-09-25_upstream_pdd_comparison.md. CUDA_VISIBLE_DEVICES="" with the ComfyUI venv. |
 | [`compare_sam3d_body_core_against_meta.py`](compare_sam3d_body_core_against_meta.py) | ComfyUI core's SAM 3D Body predict against Meta's own inference code, on the same image, boxes and camera. |
 | [`compare_sam3d_body_releases.py`](compare_sam3d_body_releases.py) | SAM 3D Body's two releases on one frame: core's predict and render through the DINOv3 file and the ViT-H file. |
 | [`compare_sol_probe_records.py`](compare_sol_probe_records.py) | Set two Sol probe records side by side, block by block. |
@@ -321,12 +304,9 @@ this file is only a way to find a script by what it says it does.
 | [`build_index.py`](build_index.py) | Write the generated indexes: one way in for every tracked area of the repo. |
 | [`build_meta_sapiens2.py`](build_meta_sapiens2.py) | Make `vendor/meta_sapiens2/` from `coderef/sapiens2`: Meta's names for its models' points and classes, and its licence. |
 | [`build_outputs_record.py`](build_outputs_record.py) | Join a run JSONL to the clips the server wrote for it, before the server goes down. |
-| [`build_pdd_base_shim.py`](build_pdd_base_shim.py) | A minimal `--base` for `convert_pdd_lora.py`, with any time embedder. CPU only. |
 | [`build_prompt_bank.py`](build_prompt_bank.py) | Grade every prompt in `prompt_bank/` and derive `docs/prompt_bank.md`. |
 | [`build_prompt_catalogue.py`](build_prompt_catalogue.py) | Generate `docs/prompt_catalogue.md`: every prompt this repo renders. |
 | [`build_render_dataset.py`](build_render_dataset.py) | The 2026-09-26 renders as tables for DuckDB: renders, measures, models, findings. |
-| [`build_sidecar_examples.py`](build_sidecar_examples.py) | Generate the example graphs that ship with the sidecar weights on the Hub. |
-| [`build_sidecar_node.py`](build_sidecar_node.py) | Assemble the standalone PDD node that ships beside the weights on the Hub. |
 | [`build_wiki_index.py`](build_wiki_index.py) | Report the documents under `docs/` that no link reaches. |
 
 ## probe
@@ -359,7 +339,6 @@ this file is only a way to find a script by what it says it does.
 | [`audit_ref_audio_channels.py`](audit_ref_audio_channels.py) | What core does with a 1-, 2- and 6-channel reference waveform, measured. |
 | [`audit_ref_audio_crop.py`](audit_ref_audio_crop.py) | What the generic VAE crop does to a reference waveform on the H3 audio path. |
 | [`audit_shipped_reference_bounds.py`](audit_shipped_reference_bounds.py) | Does any shipped graph hand Qwen a reference image it will shrink? |
-| [`bake_pdd_checkpoint.py`](bake_pdd_checkpoint.py) | Bake a PDD backbone into a new int8_convrot checkpoint, offline. |
 | [`bench_e2e_h3.py`](bench_e2e_h3.py) | End-to-end A/B: a real MiniMax H3 render with the sage node in and out. |
 | [`bench_kitchen_int8_linear.py`](bench_kitchen_int8_linear.py) | comfy-kitchen's `int8_linear` on H3's real block-0 layers: time per call, and a bitwise digest. |
 | [`bench_minimax_attn.py`](bench_minimax_attn.py) | A/B the patched MiniMax H3 attention forward against the stock one. |
@@ -372,8 +351,6 @@ this file is only a way to find a script by what it says it does.
 | [`calibrate_sparse_table.py`](calibrate_sparse_table.py) | Calibrate a per-head tau table from tau-sweep records (`sol_tau_sweep.py`). |
 | [`capture_masked_run.py`](capture_masked_run.py) | Capture what the tracker and the masks did on a masked run, for any number of subjects, and show it. |
 | [`cast_file.py`](cast_file.py) | The cast file: what a person answered about who the outlined people on a frame are, kept so it is typed once. |
-| [`checkpoint_delta_map.py`](checkpoint_delta_map.py) | Where each distill changes H3, from full-precision weights. CPU only. |
-| [`classify_kijai_pdd_banks.py`](classify_kijai_pdd_banks.py) | Record: bench/results/2026-09-25_upstream_pdd_comparison.md section 1. Network (HTTP range requests to Hugging Face) and CPU; no GPU. |
 | [`clip_analysis.py`](clip_analysis.py) | Make and fill an input video's analysis folder: the workflow that runs before any job on that video. |
 | [`clip_recipe_coverage.py`](clip_recipe_coverage.py) | Which rendered recipes have a graph in this repo, and which have none. |
 | [`clip_signals.py`](clip_signals.py) | Signals of a clip's own sound, a row a source frame, for whoever sets a window's first and last frame: phrases, a beat grid, the sound's offset to the picture. |
@@ -383,7 +360,6 @@ this file is only a way to find a script by what it says it does.
 | [`control_time_warp.py`](control_time_warp.py) | Can `bench/analyze_time_warp.py` see a warp at all? A control for its "not a time warp" claim. |
 | [`control_vectors.py`](control_vectors.py) | Build, inspect, meter, and grade MiniMax H3 control vectors. |
 | [`convert_h3_bf16_encoder.py`](convert_h3_bf16_encoder.py) | Adapt a full-depth HF Qwen3-VL-32B text encoder to the ComfyUI H3 encoder. |
-| [`convert_pdd_lora.py`](convert_pdd_lora.py) | Convert an alibaba-pai MiniMax-H3 PDD acceleration LoRA to this repo's format. |
 | [`convert_pika_lora.py`](convert_pika_lora.py) | Convert Pika H3 Flex PEFT LoRAs (`fl2va`, `ref2va`) to ComfyUI format. |
 | [`convert_sam3_checkpoint.py`](convert_sam3_checkpoint.py) | Repack Meta's SAM 3 / SAM 3.1 checkpoint as a safetensors file core loads, changing no weight. |
 | [`convert_sam3d_body_checkpoint.py`](convert_sam3d_body_checkpoint.py) | Repack Meta's SAM 3D Body checkpoint and its MHR rig as the one safetensors file core loads, from the originals. |
@@ -404,7 +380,6 @@ this file is only a way to find a script by what it says it does.
 | [`draw_lid_marks.py`](draw_lid_marks.py) | Draw a shot's eye openings on its body-model video: the motion video a masked load reads for expression. |
 | [`emulate_kitchen_int8_by_segment.py`](emulate_kitchen_int8_by_segment.py) | Independent CPU emulation of kitchen-like INT8 attention, per query segment (verifier's own). |
 | [`encode_format_ab.py`](encode_format_ab.py) | #38: which save format removes the dark blocking, at what size. |
-| [`exercise_pdd_stripped_path.py`](exercise_pdd_stripped_path.py) | Exercise `MiniMaxH3PDDLoRA.execute` on a LOADED model with the baked pair. |
 | [`facts_pass.py`](facts_pass.py) | Emit a per-frame deterministic geometry and mask facts table for a masked-run capture. |
 | [`flag_census.py`](flag_census.py) | Census of gate flag kinds across every `flags.json` and `outcomes.json` under `--data`. |
 | [`flags_before_render.py`](flags_before_render.py) | Print every pre-render flag and carving/hold diagnostic for a capture, and optionally record a reader's initial. |
@@ -447,7 +422,6 @@ this file is only a way to find a script by what it says it does.
 | [`page_answers_to_cast.py`](page_answers_to_cast.py) | The owner's answers on the review page's numbered pictures, taken into the video's cast file through `bench/cast_file.py`. |
 | [`page_answers_to_verdicts.py`](page_answers_to_verdicts.py) | The owner's verdicts and notes on the review page's clips, copied from the page's raw file into the video's record, one line each, with the render they are about. |
 | [`patch_render_window.py`](patch_render_window.py) | Redo one stretch of a finished masked render: build the one-window graph that patches it, and join the patch back. |
-| [`pdd_artifact_inventory.py`](pdd_artifact_inventory.py) | The PDD artifact record and the generated regions of `docs/pdd_artifacts.md`, derived from the files, from git, and from the node's source -- never typed. |
 | [`pick_frames.py`](pick_frames.py) | The frames of a span to look at: where a capture's figures, flags, statements, the owner's boxes or the picture change. |
 | [`picks_against_answers.py`](picks_against_answers.py) | What the models thought against what the owner said, kept a batch at a time: one line a subject of a preview, with what each got right. |
 | [`piece_gaps.py`](piece_gaps.py) | The frames no generated piece covers, sorted and loud; then the frames a piece covers and leaves as the original; then a subject in a shot with no piece of their own. |
@@ -482,7 +456,6 @@ this file is only a way to find a script by what it says it does.
 | [`repro_token_aug_nondeterminism.py`](repro_token_aug_nondeterminism.py) | Standalone repro: comfy_kitchen `sol_attn` is not deterministic with `token_aug`. |
 | [`restart_comfy.sh`](restart_comfy.sh) | DISABLED 2026-09-02, owner's call: this script hangs on every run and is |
 | [`review_pages.py`](review_pages.py) | The owner's two local pages in the video's folder on the share (`Video/<video>/`, one copy each), made from the delivery table and the ledger: what is to review now (`to-review`), and what every stretch of the video is made of and from ... |
-| [`run_audio_carry_arms.py`](run_audio_carry_arms.py) | Render the audio-carry ablation and grade it on ENERGY, not on rel L2. |
 | [`run_capture.py`](run_capture.py) | Submit and track the production reference capture workflow. |
 | [`run_checks.py`](run_checks.py) | Run every `bench/check_*.py` with the card masked, and say what is red that should not be. |
 | [`run_graph_arms.py`](run_graph_arms.py) | Time shipped graph files as bench arms, with widget patches, to JSONL. |

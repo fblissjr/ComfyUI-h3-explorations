@@ -1,6 +1,6 @@
 # Which distill for which shot
 
-last updated: 2026-11-04 (FlashGen and FastH3 retired, then PDD retired from primary use: the notes below, and dated notes where a graph was named as shipping); 2026-10-05 (PDMD retired: its row and section reduced to a pointer); 2026-10-01 (PDMD added, from one blind session: one seed, five scenes); 2026-09-26 (written from one seed, two scenes, unblinded)
+last updated: 2026-11-06 (PDD retired completely: the remaining five PDD graphs, `MiniMaxH3PDDLoRA`, and PDD tools/checks left the tree); 2026-11-04 (FlashGen and FastH3 retired, then PDD retired from primary use: the notes below, and dated notes where a graph was named as shipping); 2026-10-05 (PDMD retired: its row and section reduced to a pointer); 2026-10-01 (PDMD added, from one blind session: one seed, five scenes); 2026-09-26 (written from one seed, two scenes, unblinded)
 
 > **FlashGen and FastH3 are retired, 2026-11-04** (`roadmap.md`, "Closed
 > lanes"). Their graphs, constants and contract grading left the tree and
@@ -12,14 +12,16 @@ last updated: 2026-11-04 (FlashGen and FastH3 retired, then PDD retired from pri
 > (2026-10-10) every job load is built from `h3_config.MASKED_JOB_BASE_GRAPH`,
 > the ref2va base.
 
-> **PDD is retired from primary use, 2026-11-04** (`roadmap.md`, "Closed
-> lanes"). Five core graphs stay: `h3_text_to_video_pdd`,
-> `h3_first_frame_to_video_pdd`, `h3_first_last_frame_to_video_pdd`,
-> `h3_image_ref_plus_text_to_video_pdd` and `h3_ref2v_market_pdd`, all at 8
-> steps. The 4-step, PDD6 (manual-sigma), 16- and 32-step and `_savelat` and
-> `_x0` graphs this page names, and `PDD_MANUAL_SIGMAS` and
-> `PDD_MANUAL_EVALS`, are in git at `358e6199`. What the page says about them
-> is the record of what was seen, not a recommendation of a graph.
+> **PDD is retired, 2026-11-04 and 2026-11-06** (`roadmap.md`, "Closed
+> lanes"). Retired from primary use on 2026-11-04 (`358e6199`), with five core
+> graphs kept (`h3_text_to_video_pdd`, `h3_first_frame_to_video_pdd`,
+> `h3_first_last_frame_to_video_pdd`, `h3_image_ref_plus_text_to_video_pdd` and
+> `h3_ref2v_market_pdd`); retired completely on 2026-11-06, when those five
+> graphs, `MiniMaxH3PDDLoRA` (`pdd_lora.py`, `pdd_math.py`, `pdd_observe.py`),
+> `MiniMaxH3AudioCarryProbe` (`audio_carry_probe.py`), the `PDD_*` constants,
+> and the PDD checks and tools left the tree (`wiki/decisions.md`, 2026-11-06).
+> What the page says about PDD is the record of what was seen, not a
+> recommendation of a graph.
 
 > **Seed-matched clips are different scenes.** The same seed through each
 > distill gives a different scene: different camera angle and framing,
@@ -58,7 +60,7 @@ The numbers live in the records, not here:
 | distill | good at | bad at | speed at 345 frames |
 |---|---|---|---|
 | **Pika H3 Flex (6-step `svd995` branch)** | **active fast distill (2026-11-04+)**: 6 steps on `lcm` + `PIKA_MANUAL_SIGMAS` via `MiniMaxH3LoRABranch` (no int8 merge loss); works on both `fl2va`/`t2va` and `ref2va`, and composes cleanly with post-refiner control vectors (`cos = 0.9966` to base) | `lcm` re-noises at each step, so step-skipping caches cannot wrap it | ~54s (`t2va`) / ~86s (`ref2va`) at 141 frames |
-| **PDD8** *(5 core graphs kept)* | close-ups and medium shots: detail and colour | fast motion: artifacts, a cloned extra person, mangled text | slowest of the distills |
+| **PDD8** *(retired 2026-11-06)* | close-ups and medium shots: detail and colour | fast motion: artifacts, a cloned extra person, mangled text | slowest of the distills |
 | **FlashGen** | motion that stays coherent (zoom-outs); detail; colour closest to the base | following who does what in a multi-person action scene | fastest |
 | **FastH3** (contract) | motion; fewer artifacts than PDD8 on the chase; audio | warm, oversaturated, contrasty grade; some coarse texture | between the two |
 | base (reference) | lighting and prompt adherence | nothing here; it is the reference | the slowest by far |

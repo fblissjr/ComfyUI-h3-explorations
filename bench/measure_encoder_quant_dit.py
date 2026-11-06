@@ -92,10 +92,10 @@ FRAMES = {"violin_f000.png": 0, "violin_f120.png": 120}
 #: ref2va_dialogue is the shipped dialogue graph unchanged: two faces, its own
 #: prompt, the heaviest image tail measured at the conditioning level.
 SCENES = {
-    "violin_t2v": ("h3_text_to_video_pdd_api.json", "t2va_look_anchor", []),
+    "violin_t2v": ("h3_text_to_video_api.json", "t2va_look_anchor", []),
     "violin_i2v": ("h3_first_frame_to_video_api.json", "i2va_look_anchor",
                    ["violin_f000.png"]),
-    "violin_ref2va": ("h3_image_ref_plus_text_to_video_pdd_api.json", "ref2va_look_anchor",
+    "violin_ref2va": ("h3_image_ref_plus_text_to_video_api.json", "ref2va_look_anchor",
                       ["violin_f120.png", "violin_f000.png"]),
     "ref2va_dialogue": ("h3_image_ref_plus_text_to_video_dialogue_api.json", None, None),
 }

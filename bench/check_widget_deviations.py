@@ -375,7 +375,7 @@ DECLARED: dict[tuple[str, str], tuple] = {
 #: the LoRA") was a post-hoc reading of ordinary drift. An exception
 #: mechanism here would have made every future rename optional.
 
-_STEP_NODES = ("BasicScheduler", "MiniMaxH3PDDLoRA")
+_STEP_NODES = ("BasicScheduler",)
 
 
 def object_info(url: str | None, cached: str | None) -> dict | None:

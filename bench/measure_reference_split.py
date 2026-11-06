@@ -39,14 +39,15 @@ REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO / "bench"))
 from bench_e2e_h3 import run_once  # noqa: E402
 
-#: The market scene's PDD8 ref2va graph: the same encoder, still, append node,
+#: The market scene's ref2va graph: the same encoder, still, append node,
 #: resolution and conditioning (node for node, prompt included) as
 #: `h3_probe_r2v_step_switch_pdd8_flashgen_h080_savelat`, which this read until
-#: that graph was retired on 2026-11-04, except the append node's `qwen_view`.
+#: that graph was retired on 2026-11-04 (`h3_ref2v_market_pdd_api.json` until PDD
+#: retired on 2026-11-06), except the append node's `qwen_view`.
 #: That graph was a `_savelat` twin, whose still is shared with the encoder
 #: (`h3_config.REF_QWEN_SHORT_EDGE`), so `shared_view` restores that and a run
 #: stays comparable with the records made on it.
-GRAPH = "workflows/h3_ref2v_market_pdd_api.json"
+GRAPH = "workflows/h3_ref2v_market_api.json"
 
 
 def shared_view(append_inputs: dict) -> dict:

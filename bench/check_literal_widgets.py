@@ -71,12 +71,6 @@ REPO = Path(__file__).resolve().parent.parent
 #: Zero means the quantity zero, and the branch is a short-circuit. Nothing
 #: owed. These are here so the check does not have to guess, not as debt.
 LITERAL_ZERO = {
-    ("pdd_lora.py", "strength"): (
-        "zero strength is zero strength. The `!= 0.0` guard skips computing "
-        "un-merged blocks for a LoRA that would contribute nothing."),
-    ("pdd_lora.py", "head_strength"): (
-        "same: zero means the head patch contributes nothing, and the guard "
-        "skips installing it."),
     ("audio_freeze.py", "context_noise"): (
         "zero noise is zero noise: the context's rows carry this value as their mask, "
         "0 included, on one code path. The `> 0` test only adds the sentence about the "
@@ -108,15 +102,6 @@ SENTINELS = {
         "what this rule governs -- but the check reads declared input NAMES "
         "and cannot see the difference, so the entry stays rather than the "
         "detector growing a special case it would be wrong about later."),
-    ("pdd_lora.py", "nfe"): (
-        "0 means take the evaluation count baked into the LoRA file, which is "
-        "the ordinary case. Named by CLAUDE.md as a falsy sentinel on the "
-        "ordinary mode. Replacement: a combo `from file` / `override (N)`."),
-    ("pdd_lora.py", "steps"): (
-        "0 means the file's own evaluation count -- `if not asked: return "
-        "file_nfe`. Its default is 8, so unlike `nfe` the sentinel is not what "
-        "you get by omission, but it is the same overload. Replacement: the "
-        "same combo `nfe` needs, since the two knobs answer one question."),
 }
 
 #: Zero is REFUSED: the comparison guards a `raise`, and the declared widget

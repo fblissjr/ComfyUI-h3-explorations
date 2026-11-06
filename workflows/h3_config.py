@@ -806,34 +806,24 @@ SOL_RECOMMENDED_CUDA = dict(
 # step zero and lost the subject's video reference
 # (bench/results/2026-10-05_masked_v2v_motion_arms.md). Was empty from
 # 2026-09-11 (retired end_percent=0.74) to 2026-10-01.
-SOL_PDD_OVERRIDES = dict()
-
-SOL_PDD_CUDA = dict(SOL_RECOMMENDED_CUDA, **SOL_PDD_OVERRIDES)
-
-# `SOL_DISTILL_LORA_OVERRIDES` and `SOL_DISTILL_LORA_CUDA`, the FlashGen graphs'
-# Sol config (empty overrides since 0.184.3), went with the FlashGen lane on
-# 2026-11-04; `sol_for_graph` lost its `distill_lora` branch with them.
+# `SOL_PDD_OVERRIDES` and `SOL_PDD_CUDA` went with the PDD lane on 2026-11-06
+# (`SOL_DISTILL_LORA_OVERRIDES` and `SOL_DISTILL_LORA_CUDA` went with FlashGen
+# on 2026-11-04).
 
 
-def sol_for_graph(pdd, steps):
-    """The Sol config one graph should carry, from what the graph IS.
+def sol_for_graph(steps, _legacy_steps=None):
+    """The Sol config one graph should carry, from its step count.
 
     The single resolver for both halves of the question, because they were
     two copies before: the generator derived `end_percent` from the step
     count and `bench/check_attention_defaults.py` re-derived the same lookup
-    to grade against. A PDD branch written twice would drift the same way.
-
-    `pdd` -- the graph loads a Parallel Decoding Distillation LoRA -- takes
-    SOL_PDD_CUDA whole, at every step count, so `steps` is ignored on that
-    branch. Everything else takes SOL_RECOMMENDED_CUDA with `end_percent`
-    lowered per SOL_END_PERCENT_BY_STEPS. The table is empty since
-    2026-09-11; SOL_PDD_OVERRIDES is empty again since 2026-10-05 (it carried
-    `start_percent` 0.0 from 2026-10-01), so the PDD branch no longer differs
-    from the recommended config. A third branch, `distill_lora` for the
-    FlashGen files, was retired with that lane on 2026-11-04.
+    to grade against. Takes `SOL_RECOMMENDED_CUDA` with `end_percent` lowered
+    per `SOL_END_PERCENT_BY_STEPS` (empty since 2026-09-11). The `distill_lora`
+    and `pdd` branches were retired with their lanes on 2026-11-04 and
+    2026-11-06.
     """
-    if pdd:
-        return dict(SOL_PDD_CUDA)
+    if _legacy_steps is not None:
+        steps = _legacy_steps
     end = SOL_END_PERCENT_BY_STEPS.get(steps)
     sol = dict(SOL_RECOMMENDED_CUDA)
     if end is not None:
@@ -1134,28 +1124,11 @@ DISTILL_SAMPLING = dict(sampler=DISTILL_SAMPLER, scheduler="simple")
 #: `lora_name` input is here, since 2026-09-26, when `MiniMaxH3LoRABranch`
 #: was missing and its graph read as a base graph.
 LORA_LOADER_CLASSES = ("LoraLoaderModelOnly", "MiniMaxH3TurboLoRA",
-                       "MiniMaxH3PDDLoRA", "MiniMaxH3LoRABranch")
+                       "MiniMaxH3LoRABranch")
 
-PDD_FL2VA_LORA = "h3/minimax_h3_fl2va_pdd_8step_comfy.safetensors"
-# The stripped sidecar for the baked checkpoint (`PDD_FL2VA_STRIPPED_LORA`,
-# cut 2026-09-05) went on 2026-11-04 with the graphs that loaded it; the node
-# still enforces the pair by content.
-PDD_REF2VA_LORA = "h3/minimax_h3_ref2va_pdd_8step_comfy.safetensors"
-# The step counts one converted file serves. The published grid is 32 points,
-# so any divisor is a legal arm from the same weights and each lands exactly on
-# the plain shifted schedule for its own count -- the node fuses the heads at
-# load for whichever is asked. 8 is what the file records and what the five
-# kept PDD graphs run. `PDD_STEPS_FAST` (4, the other count the vendor's README
-# reports rendering at) left with the 4-step graphs on 2026-11-04, when PDD was
-# retired from primary use (`docs/roadmap.md`, "Closed lanes").
-PDD_STEPS = 8
-PDD_STRENGTH = 1.0
-
-# `PDD_MANUAL_SIGMAS`, the `[8,8,4,4,4,4]` six-evaluation partition, and
-# `PDD_MANUAL_EVALS` left with the manual-sigma graph on 2026-11-04. The
-# node still emits that partition for a ManualSigmas graph built by hand;
-# `bench/grade_pdd_partitions.py::MANUAL["tail6"]` holds the vector.
-PDD_SHIFT = dict(shift_video=12.0, shift_audio=3.0)
+# `PDD_FL2VA_LORA`, `PDD_REF2VA_LORA`, `PDD_STEPS`, `PDD_STRENGTH`, `PDD_SHIFT`,
+# and `MiniMaxH3PDDLoRA` were retired with the PDD lane on 2026-11-06
+# (`docs/roadmap.md`, "Closed lanes").
 
 # ---- Audio-only refinement after a distilled pass ----------------------------
 #: The refine pass's schedule: `steps` run at the tail of a `steps / denoise`
@@ -2583,10 +2556,10 @@ def graph_schedule(graph) -> tuple:
     itself and read `GraphValue.reason`.
     """
     steps = scheduler = None
-    pdd_steps = manual_steps = None
+    manual_steps = None
     # A refine pass's scheduler is the refine pass's, not the graph's (added
     # 2026-09-25 with `audio_refine.py`): its steps are extra audio-only
-    # evaluations, and read as the graph's they made a PDD arm look untiled.
+    # evaluations, and read as the graph's they made a distilled arm look untiled.
     skip = refine_scheduler_ids(graph)
     for nid, n in list(graph.items()):
         if not isinstance(n, dict) or nid in skip:
@@ -2599,10 +2572,6 @@ def graph_schedule(graph) -> tuple:
             got = resolve_widget(graph, n, "steps")
             if got.ok and isinstance(got.value, (int, float)):
                 steps = int(got.value)
-        elif kind == "MiniMaxH3PDDLoRA":
-            got = resolve_widget(graph, n, "steps")
-            if got.ok and isinstance(got.value, (int, float)) and int(got.value) > 0:
-                pdd_steps = int(got.value)
         elif kind == "ManualSigmas":
             got = resolve_widget(graph, n, "sigmas")
             if got.ok and isinstance(got.value, str):
@@ -2614,8 +2583,6 @@ def graph_schedule(graph) -> tuple:
         # partition, so calling it `simple` would assert an equality with
         # `calculate_sigmas` that is FALSE here by construction.
         return manual_steps, "manual"
-    if steps is None and pdd_steps is not None:
-        return pdd_steps, "simple"
     return steps, scheduler
 
 

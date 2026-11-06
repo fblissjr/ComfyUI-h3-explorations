@@ -71,16 +71,6 @@
       "model"
     ]
   },
-  "MiniMaxH3AudioCarryProbe": {
-    "inputs": [
-      "model",
-      "mode"
-    ],
-    "node_id": "MiniMaxH3AudioCarryProbe",
-    "outputs": [
-      "Output"
-    ]
-  },
   "MiniMaxH3AudioFreezeSong": {
     "inputs": [
       "model",
@@ -472,26 +462,6 @@
     "node_id": "MiniMaxH3OverlayLoader",
     "outputs": [
       "model"
-    ]
-  },
-  "MiniMaxH3PDDLoRA": {
-    "inputs": [
-      "model",
-      "lora_name",
-      "strength",
-      "patch_heads",
-      "nfe",
-      "steps",
-      "head_strength",
-      "unmerged_blocks",
-      "unmerged_strength",
-      "unmerged_window",
-      "backbone_apply"
-    ],
-    "node_id": "MiniMaxH3PDDLoRA",
-    "outputs": [
-      "Output",
-      "Output"
     ]
   },
   "MiniMaxH3Preflight": {

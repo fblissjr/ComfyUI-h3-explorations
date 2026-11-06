@@ -17,7 +17,6 @@ with none is a helper the others import.
 
 | module | nodes it defines | what it says it does |
 |---|---|---|
-| [`audio_carry_probe.py`](audio_carry_probe.py) | `MiniMaxH3AudioCarryProbe` | Re-apply H3's audio change-of-variable at a different point in the block. |
 | [`audio_freeze.py`](audio_freeze.py) | `MiniMaxH3FreezeAudio`, `MiniMaxH3FreezeAudioWindow`, `MiniMaxH3EncodeTrack`, `MiniMaxH3AudioAttentionGain` | Freeze a known audio track into an H3 AV latent so the video follows it. |
 | [`audio_freeze_song.py`](audio_freeze_song.py) | `MiniMaxH3AudioFreezeSong` | Drop a song and a prompt; the windows come from the track. |
 | [`audio_refine.py`](audio_refine.py) | `MiniMaxH3AudioRefineMask` | Freeze a sampled H3 latent's video and reopen its audio, for an audio-only refinement pass. |
@@ -56,14 +55,6 @@ with none is a helper the others import.
 |---|---|---|
 | [`masked_prompt.py`](masked_prompt.py) | `MiniMaxH3MaskedPrompt` | The node that writes the masked video-to-video prompt. |
 | [`masked_prompt_text.py`](masked_prompt_text.py) |  | The masked video-to-video prompt, assembled from a few choices. |
-
-### pdd_*
-
-| module | nodes it defines | what it says it does |
-|---|---|---|
-| [`pdd_lora.py`](pdd_lora.py) | `MiniMaxH3PDDLoRA` | Apply a converted MiniMax-H3 Parallel Decoding Distillation LoRA. |
-| [`pdd_math.py`](pdd_math.py) |  | Schedule arithmetic shared by the PDD converter and the PDD node. |
-| [`pdd_observe.py`](pdd_observe.py) |  | Record what PDD's backbone delta DOES, at every block and every step. |
 
 ### reference_*
 
@@ -158,7 +149,7 @@ with none is a helper the others import.
 | `.gemini/` | 8 | [below](#gemini) |
 | `archive/` | 29 | [below](#archive) |
 | `assets/` | 1 | [below](#assets) |
-| `bench/` | 815 | [`bench/INDEX.md`](bench/INDEX.md) and [`bench/results/INDEX.md`](bench/results/INDEX.md) for the records |
+| `bench/` | 788 | [`bench/INDEX.md`](bench/INDEX.md) and [`bench/results/INDEX.md`](bench/results/INDEX.md) for the records |
 | `changelog.d/` | | [`changelog.d/README.md`](changelog.d/README.md), one file per changelog entry; not listed and not counted |
 | `contact_sheets/` | 2 | [below](#contact_sheets) |
 | `data/` | 2 | [below](#data) |
@@ -169,7 +160,7 @@ with none is a helper the others import.
 | `vendor/` | 11 | [below](#vendor) |
 | `vendor_config/` | 10 | [below](#vendor_config) |
 | `vendor_guides/` | 6 | [below](#vendor_guides) |
-| `workflows/` | 95 | [`workflows/INDEX.md`](workflows/INDEX.md) |
+| `workflows/` | 90 | [`workflows/INDEX.md`](workflows/INDEX.md) |
 
 ## .claude/
 

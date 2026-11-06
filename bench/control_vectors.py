@@ -1244,7 +1244,7 @@ def cmd_grade(args: argparse.Namespace) -> int:
                 sol_steps = (
                     h3_config.PIKA_STEPS if use_pika else h3_config.SAMPLING["steps"]
                 )
-                sol_cfg = h3_config.sol_for_graph(False, sol_steps)
+                sol_cfg = h3_config.sol_for_graph(sol_steps)
                 (base_model,) = sol_mod._apply_sol(
                     base_model,
                     tau=sol_cfg["tau"],
