@@ -3900,17 +3900,58 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
         errs.append(f"j_lens._resolve_word_indices failed compound/acronym/stem check: matched={comp_matched}, unmatched={comp_unmatched}")
 
     # Verify assess_steering_readiness (objective metrics, no fuzzy 'tier', refiner_transmission None without v_enc)
+    arrow_synth = j_lens.synthesize_from_words("shaky -> underwater, submerged", bundle=mini_bundle)
+    if arrow_synth["pos_words_matched"] != ["underwater", "submerged"] or arrow_synth["neg_words_matched"] != ["shaky"]:
+        errs.append(f"j_lens.synthesize_from_words '->' contrast split failed: {arrow_synth}")
     rd_pr_only = j_lens.assess_steering_readiness(synth_res["vector.post_refiner"], v_enc=None, bundle=mini_bundle)
-    if "tier" in rd_pr_only or rd_pr_only.get("refiner_transmission") is not None:
-        errs.append(f"assess_steering_readiness with v_enc=None should have no 'tier' and refiner_transmission=None: {rd_pr_only}")
+    if (
+        "tier" in rd_pr_only
+        or rd_pr_only.get("refiner_transmission") is not None
+        or rd_pr_only.get("basis") != "post_refiner"
+        or "Contextual 50-layer" not in str(rd_pr_only.get("basis_note", ""))
+    ):
+        errs.append(f"assess_steering_readiness with v_enc=None should have no 'tier', basis='post_refiner', and refiner_transmission=None: {rd_pr_only}")
     rd_with_enc = synth_res["readiness"]
     if (
         "tier" in rd_with_enc
-        or rd_with_enc.get("basis") != "word_synthesis"
+        or rd_with_enc.get("basis") != "unigram_synthesis"
+        or "In-subspace M_union" not in str(rd_with_enc.get("basis_note", ""))
         or rd_with_enc.get("refiner_transmission") is None
         or not isinstance(rd_with_enc.get("top1_gain"), float)
     ):
         errs.append(f"assess_steering_readiness with v_enc failed: {rd_with_enc}")
+
+    # Verify analyze_prompt_coupling token_heatmap and save_composed_recipe_vector
+    pc_hm = j_lens.analyze_prompt_coupling(
+        synth_res["vector.post_refiner"],
+        "integrated_multimodal_description:\n[Shot 1] Live-action medium shot of a male customer under underwater coral.\noverall_soundscape:\nQuiet hum.",
+        pos_words=["underwater", "coral"],
+        bundle=mini_bundle,
+    )
+    hm_list = pc_hm.get("token_heatmap")
+    if not isinstance(hm_list, list) or not hm_list or not any(x.get("role") in ("receptor", "subject") for x in hm_list):
+        errs.append(f"j_lens.analyze_prompt_coupling token_heatmap failed: {pc_hm}")
+
+    with tempfile.TemporaryDirectory() as comp_tmp:
+        comp_res = j_lens.save_composed_recipe_vector(
+            Path(comp_tmp) / "composed_test.safetensors",
+            [
+                {"vector": synth_res["vector.post_refiner"], "mode": "add_norm_matched", "strength": 1.15},
+            ],
+            family="fl2va",
+            name="composed_test",
+            hold_words="shaky",
+            alpha=0.8,
+            bundle=mini_bundle,
+            write_sidecar_md=False,
+        )
+        comp_path = comp_res.get("path")
+        if not isinstance(comp_path, Path) or not comp_path.is_file():
+            errs.append(f"j_lens.save_composed_recipe_vector failed to write file: {comp_res}")
+        else:
+            c_t, c_m = cv.load_vector(comp_path)
+            if "vector.post_refiner" not in c_t or "vector.encoder" not in c_t or c_m.get("name") != "composed_test":
+                errs.append(f"j_lens.save_composed_recipe_vector round-trip failed: {c_m}")
 
     # Verify real J-Lens bundle _SHORT_WORD_FALLBACKS & AGAINST_PRESETS vocabulary coverage if bundle exists on disk
     if j_lens.bundle_available():

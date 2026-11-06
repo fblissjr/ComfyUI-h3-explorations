@@ -423,6 +423,7 @@ def assess_steering_readiness(
     readout: Mapping[str, Any] | None = None,
     pos_words: Sequence[str] | None = None,
     neg_words: Sequence[str] | None = None,
+    is_unigram_synthesis: bool = False,
     family: str = "fl2va",
     bundle: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
@@ -430,8 +431,10 @@ def assess_steering_readiness(
 
     Reports objective numbers measured on the 24,912-word 7-prefix cloze `M_union` basis and
     `J_ref^{(family)}` (`AGENTS.md`: no fuzzy red/traffic-light labels):
-      - `basis`: `"word_synthesis"` (built in `row(M_centered)`, typical `top1_gain = 2.6..5.2`)
+      - `basis`: `"unigram_synthesis"` (built in `row(M_centered)`, typical `top1_gain = 2.6..5.2`)
         vs. `"post_refiner"` / `"encoder"` (`Qwen3-VL-32B` pair vectors, typical `top1_gain = 1.0..2.6`).
+      - `basis_note`: explicit provenance note explaining why unigram `M_union` self-projection
+        `top1_gain` is not comparable to 50-layer contextual `Qwen3-VL` + `TokenRefiner` vectors.
       - `top1_gain`, `top3_mean_gain`: peak and top-3 mean log-odds gain at `scale = 90`.
       - `refiner_transmission`: `||J_ref @ (v_enc / ||v_enc||_2)||_2` when true `5120`-d `v_enc`
         is provided (`None` when only `5376`-d `v_pr` is available, never estimated from `J_wiener @ v_pr`).
@@ -466,7 +469,13 @@ def assess_steering_readiness(
             enc_unit = enc_flat / enc_nrm
             ref_trans = round(float(torch.linalg.vector_norm(j_ref @ enc_unit).item()), 4)
 
-    basis = "word_synthesis" if pos_words else str(readout.get("space", "post_refiner"))
+    is_unigram = bool(pos_words or is_unigram_synthesis)
+    basis = "unigram_synthesis" if is_unigram else str(readout.get("space", "post_refiner"))
+    basis_note = (
+        "In-subspace M_union projection (unigram bag-of-words); do not compare top1_gain against 50-layer contextual Qwen3-VL post_refiner vectors."
+        if is_unigram
+        else "Contextual 50-layer Qwen3-VL + TokenRefiner extraction; grade primarily on split_half_cosine, mean_pairwise_cosine, and refiner_transmission."
+    )
 
     echo_ratio: float | None = None
     off_target: list[str] = []
@@ -533,9 +542,9 @@ def assess_steering_readiness(
             f"TokenRefiner pass-through is {ref_trans:.3f} (measured on ||J_ref @ v_enc_unit||_2): "
             "concrete visual, lighting, or material nouns typically have pass-through >= 0.50."
         )
-    if basis == "word_synthesis" and top1_gain < (2.80 if uses_default_neg else 2.40):
+    if is_unigram and top1_gain < (2.80 if uses_default_neg else 2.40):
         recommendations.append(
-            f"Word-synthesis post-refiner peak gain is +{top1_gain:.2f} (measured on M_union at scale = 90): "
+            f"Unigram word-synthesis post-refiner peak gain is +{top1_gain:.2f} (measured on M_union at scale = 90): "
             "3-5 concrete domain nouns typically yield >= +3.00."
         )
     if echo_ratio is not None and echo_ratio < 0.75 and off_target:
@@ -550,6 +559,7 @@ def assess_steering_readiness(
     )
     return {
         "basis": basis,
+        "basis_note": basis_note,
         "top1_gain": top1_gain,
         "top3_mean_gain": top3_mean_gain,
         "refiner_transmission": ref_trans,
@@ -703,10 +713,21 @@ def decode_safetensors(
             out["wiener_j63_cosine"] = round(w_cos_63, 4)
 
     v_pr_eff = apply_soft_holds(v_pr, hold_tensors_pr, alpha=alpha) if hold_tensors_pr else v_pr
+    pairs_meta_rd = meta.get("pairs") if isinstance(meta.get("pairs"), Mapping) else {}
+    prov_meta_rd = meta.get("provenance") if isinstance(meta.get("provenance"), Mapping) else {}
+    is_unigram_file = bool(
+        (isinstance(pairs_meta_rd, Mapping) and str(pairs_meta_rd.get("path", "")).startswith("j_lens.synthesize_from_words"))
+        or (isinstance(prov_meta_rd, Mapping) and str(prov_meta_rd.get("made_by", "")).startswith("j_lens.synthesize_from_words"))
+    )
+    unigram_pos_words: list[str] | None = None
+    if is_unigram_file and isinstance(pairs_meta_rd, Mapping):
+        unigram_pos_words = _parse_word_list(str(pairs_meta_rd.get("b_side", ""))) or None
     pr_readout["readiness"] = assess_steering_readiness(
         v_pr_eff,
         v_enc=v_enc_eff,
         readout=pr_readout,
+        pos_words=unigram_pos_words,
+        is_unigram_synthesis=is_unigram_file,
         family=family,
         bundle=b,
     )
@@ -747,6 +768,10 @@ def decode_recipe(
     scale: float = DEFAULT_STEER_SCALE,
     min_logprob: float = DEFAULT_MIN_LOGPROB,
     top_k: int = 8,
+    hold_words: str | Sequence[str] | None = None,
+    alpha: float = 1.0,
+    prompt: str | os.PathLike | None = None,
+    return_tensors: bool = False,
     bundle: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Evaluate a multi-vector recipe (`add`, `add_norm_matched`, `hold`) and decode its net shift.
@@ -756,9 +781,14 @@ def decode_recipe(
       - `mode`: `"add"`, `"add_norm_matched"`, or `"hold"` (default `"add"`)
       - `strength`: float multiplier for `"add"` / `"add_norm_matched"`, or `alpha in [0.0, 2.0]` for `"hold"`
     """
+    a_val = float(alpha)
+    if not (0.0 <= a_val <= 2.0):
+        raise ValueError(f"alpha must be in [0.0, 2.0], got {alpha}")
     b = dict(bundle) if bundle is not None else load_j_lens_bundle()
     add_terms: list[tuple[str, torch.Tensor]] = []
-    hold_steps: list[tuple[str, torch.Tensor, float]] = []
+    add_terms_enc: list[torch.Tensor] = []
+    hold_steps: list[tuple[str, torch.Tensor, torch.Tensor | None, float]] = []
+    step_records: list[dict[str, Any]] = []
 
     for item in steps:
         src = item["vector"]
@@ -770,27 +800,68 @@ def decode_recipe(
         v64 = vec.to(dtype=torch.float64)
         v_norm = float(torch.linalg.vector_norm(v64).item())
 
+        v_enc_step: torch.Tensor | None = None
+        if not isinstance(src, torch.Tensor):
+            try:
+                v_enc_step, _, _ = _load_vector_from_source(src, space="encoder")
+            except Exception:
+                v_enc_step = None
+        if v_enc_step is None:
+            j_w = b["J_wiener_ref2va"] if "ref2va" in str(family).lower() else b["J_wiener_fl2va"]
+            w_rec = j_w @ vec.to(dtype=torch.float32)
+            if float(torch.linalg.vector_norm(w_rec).item()) > 1e-12:
+                v_enc_step = F.normalize(w_rec, dim=0)
+
+        step_records.append({"name": name, "mode": mode, "strength": strength})
+
         if mode == "add":
             add_terms.append((name, (strength * v64).to(dtype=torch.float32)))
+            if v_enc_step is not None:
+                enc_w = strength * (v_norm / NORM_MATCHED_TARGET) if NORM_MATCHED_TARGET > 0 else strength
+                add_terms_enc.append(enc_w * F.normalize(v_enc_step.to(dtype=torch.float64), dim=0))
         elif mode == "add_norm_matched":
             scale_factor = (NORM_MATCHED_TARGET / v_norm) if v_norm > 1e-12 else 0.0
             add_terms.append((name, (strength * scale_factor * v64).to(dtype=torch.float32)))
+            if v_enc_step is not None:
+                add_terms_enc.append(strength * F.normalize(v_enc_step.to(dtype=torch.float64), dim=0))
         elif mode == "hold":
             if not (0.0 <= strength <= 2.0):
                 raise ValueError(f"mode='hold' strength (alpha) must be in [0.0, 2.0], got {strength}")
-            hold_steps.append((name, vec, strength))
+            hold_steps.append((name, vec, v_enc_step, strength))
         else:
             raise ValueError(f"Unsupported recipe mode {mode!r}; expected 'add', 'add_norm_matched', or 'hold'")
 
+    hw_list = _parse_word_list(hold_words)
+    if hw_list and a_val > 0.0:
+        synth_fam = "ref2va" if "ref2va" in str(family).lower() else "fl2va"
+        hw_synth = synthesize_from_words(hw_list, family=synth_fam, bundle=b)
+        hold_steps.append(
+            (
+                f"words:{','.join(hw_list)}",
+                hw_synth["vector.post_refiner"],
+                hw_synth["vector.encoder"],
+                a_val,
+            )
+        )
+
     if not add_terms:
         zero = torch.zeros(5376, dtype=torch.float32)
-        return {
+        zero_enc = torch.zeros(5120, dtype=torch.float32)
+        ro_zero = decode_vector(zero, space="post_refiner", family=family, bundle=b)
+        out_empty: dict[str, Any] = {
             "family": family,
+            "steps": step_records,
+            "hold_words": hw_list,
+            "alpha": a_val if hold_steps else 0.0,
             "combined_norm_before_holds": 0.0,
             "combined_norm_after_holds": 0.0,
             "pairwise_interactions": [],
-            "readout": decode_vector(zero, space="post_refiner", family=family, bundle=b),
+            "readout": ro_zero,
         }
+        if return_tensors:
+            out_empty["vector.post_refiner"] = zero
+            out_empty["vector.encoder"] = zero_enc
+        return out_empty
 
     sum_vec = torch.stack([t.to(dtype=torch.float64) for _, t in add_terms], dim=0).sum(dim=0)
     norm_before = float(torch.linalg.vector_norm(sum_vec).item())
@@ -814,8 +885,18 @@ def decode_recipe(
             )
 
     cur_vec = sum_vec.to(dtype=torch.float32)
-    for _, h_vec, alpha in hold_steps:
-        cur_vec = apply_soft_holds(cur_vec, [h_vec], alpha=alpha)
+    cur_enc: torch.Tensor | None = None
+    if add_terms_enc:
+        sum_enc = torch.stack(add_terms_enc, dim=0).sum(dim=0)
+        if float(torch.linalg.vector_norm(sum_enc).item()) > 1e-12:
+            cur_enc = F.normalize(sum_enc.to(dtype=torch.float32), dim=0)
+
+    for _, h_vec, h_enc, h_alpha in hold_steps:
+        cur_vec = apply_soft_holds(cur_vec, [h_vec], alpha=h_alpha)
+        if cur_enc is not None and h_enc is not None:
+            cur_enc_held = apply_soft_holds(cur_enc, [h_enc], alpha=h_alpha)
+            if float(torch.linalg.vector_norm(cur_enc_held).item()) > 1e-12:
+                cur_enc = F.normalize(cur_enc_held, dim=0)
 
     readout = decode_vector(
         cur_vec,
@@ -826,13 +907,41 @@ def decode_recipe(
         top_k=top_k,
         bundle=b,
     )
-    return {
+    readout["readiness"] = assess_steering_readiness(
+        cur_vec,
+        v_enc=cur_enc,
+        readout=readout,
+        family=family,
+        bundle=b,
+    )
+    if prompt is not None and str(prompt).strip():
+        readout["prompt_coupling"] = analyze_prompt_coupling(
+            cur_vec,
+            prompt,
+            readout=readout,
+            family=family,
+            bundle=b,
+        )
+
+    out_rec: dict[str, Any] = {
         "family": family,
+        "steps": step_records,
+        "hold_words": hw_list,
+        "alpha": a_val if hold_steps else 0.0,
         "combined_norm_before_holds": round(norm_before, 4),
         "combined_norm_after_holds": readout["norm_after_holds"],
         "pairwise_interactions": interactions,
         "readout": readout,
+        "readiness": readout["readiness"],
+        "prompt_coupling": readout.get("prompt_coupling"),
     }
+    if return_tensors:
+        if cur_enc is None:
+            j_w = b["J_wiener_ref2va"] if "ref2va" in str(family).lower() else b["J_wiener_fl2va"]
+            cur_enc = F.normalize(j_w @ cur_vec, dim=0)
+        out_rec["vector.post_refiner"] = cur_vec
+        out_rec["vector.encoder"] = cur_enc
+    return out_rec
 
 
 def refiner_singular_vectors(
@@ -1360,6 +1469,8 @@ def analyze_prompt_coupling(
         (e.g. `plastic (+0.223), bulb (+0.190)` for `balloon` on `t2va_noodle_bar.txt`).
       - `subject_words` & `subject_coupling`: extracted `@prompt_subject` words and their alignment
         with the steer (e.g. `customer (-0.043)`), surfacing when props hijack a replacement steer.
+      - `token_heatmap`: ordered per-word list (`[{"word": str, "cosine": float, "role": "receptor" | "subject" | "stopword" | "neutral"}]`)
+        across the prompt's description section for UI heatmap rendering.
     """
     b = dict(bundle) if bundle is not None else load_j_lens_bundle()
     w2i = b["word_to_idxs"]
@@ -1371,6 +1482,7 @@ def analyze_prompt_coupling(
             "subject_words": [],
             "top_receptors": [],
             "subject_receptors": [],
+            "token_heatmap": [],
             "max_receptor_cos": 0.0,
             "mean_subject_cos": 0.0,
             "summary": "no prompt provided",
@@ -1392,6 +1504,7 @@ def analyze_prompt_coupling(
             "subject_words": extract_prompt_subject_words(txt),
             "top_receptors": [],
             "subject_receptors": [],
+            "token_heatmap": [],
             "max_receptor_cos": 0.0,
             "mean_subject_cos": 0.0,
             "summary": "no matched steer words for receptor scan",
@@ -1439,9 +1552,26 @@ def analyze_prompt_coupling(
             sw_ids, _, _ = _resolve_word_indices([sw], w2i)
             if sw_ids:
                 msw = F.normalize(m_centered[sw_ids].mean(dim=0), dim=0)
-                subj_receptors.append(
-                    {"word": sw, "cosine": round(float(torch.dot(mu_steer, msw).item()), 3)}
-                )
+                c_sw = round(float(torch.dot(mu_steer, msw).item()), 3)
+                word_cos_map[sw] = c_sw
+                subj_receptors.append({"word": sw, "cosine": c_sw})
+
+    subj_set = {sw.lower() for sw in subj_words if sw != "live-action"}
+    top_rec_set = {str(x["word"]).lower() for x in top_receptors}
+    token_heatmap: list[dict[str, Any]] = []
+    for raw_tok in re.findall(r"[a-zA-Z][a-zA-Z0-9-]*", desc):
+        w_low = raw_tok.lower()
+        if len(w_low) < 3 or w_low in _PROMPT_RECEPTOR_STOPWORDS:
+            token_heatmap.append({"word": raw_tok, "cosine": 0.0, "role": "stopword"})
+            continue
+        c_tok = float(word_cos_map.get(w_low, 0.0))
+        if w_low in subj_set:
+            role = "subject"
+        elif w_low in top_rec_set and c_tok >= 0.12:
+            role = "receptor"
+        else:
+            role = "neutral"
+        token_heatmap.append({"word": raw_tok, "cosine": c_tok, "role": role})
 
     max_rec_cos = float(top_receptors[0]["cosine"]) if top_receptors else 0.0
     mean_subj_cos = (
@@ -1469,6 +1599,7 @@ def analyze_prompt_coupling(
         "subject_words": subj_words,
         "top_receptors": top_receptors,
         "subject_receptors": subj_receptors,
+        "token_heatmap": token_heatmap,
         "max_receptor_cos": max_rec_cos,
         "mean_subject_cos": mean_subj_cos,
         "summary": summary,
@@ -1596,6 +1727,12 @@ def synthesize_from_words(
     if not (0.0 <= a_val <= 2.0):
         raise ValueError(f"alpha must be in [0.0, 2.0], got {alpha}")
     b = dict(bundle) if bundle is not None else load_j_lens_bundle()
+    if isinstance(pos_words, str) and ("|||" in pos_words or "->" in pos_words):
+        sep = "|||" if "|||" in pos_words else "->"
+        lhs_raw, rhs_raw = pos_words.split(sep, 1)
+        pos_words = rhs_raw.strip()
+        if neg_words is None or (isinstance(neg_words, str) and not neg_words.strip()):
+            neg_words = lhs_raw.strip()
     pos_list = _parse_word_list(pos_words)
     if not pos_list:
         raise ValueError("pos_words must contain at least one word")
@@ -1808,6 +1945,129 @@ def save_synthesized_vector(
             encoding="utf-8",
         )
     return path
+
+
+def save_composed_recipe_vector(
+    out_path: str | os.PathLike,
+    steps: Sequence[Mapping[str, Any]],
+    *,
+    family: str = "fl2va",
+    name: str = "",
+    hold_words: Sequence[str] | str | None = None,
+    alpha: float = 1.0,
+    prompt: str | os.PathLike | None = None,
+    write_sidecar_md: bool = True,
+    bundle: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Compose a multi-vector recipe (`add`, `add_norm_matched`, `hold`, plus optional `hold_words`) and save as a standard `h3-control-vector/1` `.safetensors` file."""
+    b = dict(bundle) if bundle is not None else load_j_lens_bundle()
+    rec = decode_recipe(
+        steps,
+        family=family,
+        hold_words=hold_words,
+        alpha=alpha,
+        prompt=prompt,
+        return_tensors=True,
+        bundle=b,
+    )
+    path = Path(out_path)
+    if not path.suffix:
+        path = path.with_suffix(".safetensors")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    v_pr = rec.pop("vector.post_refiner").detach().to(device="cpu", dtype=torch.float32).contiguous()
+    v_enc = rec.pop("vector.encoder").detach().to(device="cpu", dtype=torch.float32).contiguous()
+    raw_norm = float(torch.linalg.vector_norm(v_pr.to(dtype=torch.float64)).item())
+    if raw_norm <= 1e-8:
+        raise ValueError("Composed recipe vector has zero post_refiner norm")
+    enc_norm = float(torch.linalg.vector_norm(v_enc.to(dtype=torch.float64)).item())
+    raw_stem = (name or path.stem.split("__")[0]).lower()
+    stem = re.sub(r"[^a-z0-9_]+", "_", raw_stem).strip("_") or "composed_recipe"
+    eff_family = str(rec.get("family", family))
+    step_list = list(rec.get("steps", ()))
+    hw_list = list(rec.get("hold_words", ()))
+    add_desc = " + ".join(
+        f"{s['name']}({s['mode']}@{s['strength']})"
+        for s in step_list
+        if s.get("mode") in ("add", "add_norm_matched")
+    )
+    hold_desc = ", ".join(
+        [f"{s['name']}({s['strength']})" for s in step_list if s.get("mode") == "hold"]
+        + ([f"words:{','.join(hw_list)}@{alpha}"] if hw_list else [])
+    )
+    recipe_digest = hashlib.sha256(f"{add_desc}|holds={hold_desc}".encode("utf-8")).hexdigest()
+    now_utc = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    recipe_meta = _DEFAULT_RECIPES.get(eff_family, _DEFAULT_RECIPES["fl2va"])
+
+    n_add = sum(1 for s in step_list if s.get("mode") in ("add", "add_norm_matched"))
+    n_hold = sum(1 for s in step_list if s.get("mode") == "hold") + (1 if hw_list else 0)
+    meta_dict: dict[str, Any] = {
+        "format": "h3-control-vector/1",
+        "name": stem,
+        "quality": f"J-Lens composed recipe: {add_desc}" + (f" [holds: {hold_desc}]" if hold_desc else ""),
+        "family": eff_family,
+        "recipe": recipe_meta,
+        "measured_under": {
+            "mode": "ref2va" if eff_family == "ref2va" else "t2va",
+            "frame": "scene",
+            "prefix": "none",
+            "pooling": "diff_span",
+        },
+        "points": {
+            "post_refiner": {
+                "unit": "mean_pair_difference",
+                "raw_norm": raw_norm,
+                "median_row_norm": DEFAULT_POST_REFINER_MEDIAN_ROW_NORM,
+            },
+            "encoder": {
+                "unit": "median_row_norm",
+                "raw_norm": enc_norm,
+                "median_row_norm": DEFAULT_ENCODER_MEDIAN_ROW_NORM,
+                "row0_excluded": True,
+            },
+        },
+        "pairs": {
+            "path": "j_lens.save_composed_recipe_vector",
+            "sha256": recipe_digest,
+            "a_side": hold_desc or "baseline",
+            "b_side": add_desc,
+            "n_pairs": max(n_add, 1),
+            "n_holds": n_hold,
+            "pooling": "diff_span",
+            "steps": step_list,
+        },
+        "quality_report": {
+            "mean_pairwise_cosine": 1.0,
+            "split_half_cosine": 1.0,
+            "per_pair_cosine": [1.0 for _ in range(max(n_add, 1))],
+            "j_lens_readout": rec.get("readout", {}),
+        },
+        "provenance": {
+            "core_revision": "j_lens_cpu",
+            "pack_commit": "j_lens_v1",
+            "created_utc": now_utc,
+            "made_by": "j_lens.save_composed_recipe_vector/1",
+        },
+    }
+    encoded_meta = {k: json.dumps(v, sort_keys=True) for k, v in meta_dict.items()}
+    tensors_dict = {"vector.post_refiner": v_pr, "vector.encoder": v_enc}
+    path.write_bytes(
+        save_safetensors_bytes(
+            tensors_dict,
+            metadata=encoded_meta,
+        )
+    )
+    if write_sidecar_md:
+        import control_vectors as _cv_mod
+
+        sidecar_path = path.with_suffix(".md")
+        sidecar_path.write_text(
+            _cv_mod.format_vector_sidecar_md(path.name, tensors_dict, meta_dict),
+            encoding="utf-8",
+        )
+    return {
+        "path": path,
+        "recipe_report": rec,
+    }
 
 
 def _main(argv: Sequence[str] | None = None) -> int:

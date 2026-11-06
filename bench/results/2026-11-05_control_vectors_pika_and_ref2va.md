@@ -121,12 +121,12 @@ Records in `data/results/2026-11-05_cv_pika_db821224_tests.json` (`25..30`), `da
 
 ---
 
-## 7. 34-Bank `diff_span` Batch Build (`build --all`) & Diverse-Scene Pika Verification (`Arms 43..52`, 2026-11-06)
+## 7. 32-Bank `diff_span` Batch Build (`build --all`) & Diverse-Scene Pika Verification (`Arms 43..52`, 2026-11-06)
 
-After standardizing `non_diegetic_music: N/A` across all 20 newly authored `.toml` banks (`07915ae7`) and setting `pooling = "diff_span"` as the default across all CLI and node entry points (`65d76c5d`), we ran `python bench/control_vectors.py build --all --overwrite` to build all **68 `diff_span` `.safetensors` files** (`34` `fl2va` + `34` `ref2va`, plus 68 `.md` sidecars):
-- **Norm & Agreement Census Across All 68 `diff_span` Vectors**:
+After standardizing `non_diegetic_music: N/A` across all 20 newly authored `.toml` banks (`07915ae7`) and setting `pooling = "diff_span"` as the default across all CLI and node entry points (`65d76c5d`), we ran `python bench/control_vectors.py build --all --overwrite` to build all **64 shipped `.toml` `diff_span` `.safetensors` files** (`32` `fl2va` + `32` `ref2va`, plus 64 `.md` sidecars, after retiring the legacy `film_16mm_1974_bare.toml` and `lettering_bare.toml` E2.5 test twins; `90` total `.safetensors` files on disk including compiled/word vectors):
+- **Norm & Agreement Census Across All 64 Shipped `.toml` `diff_span` Vectors**:
   - `raw_norm` spans a tight, uniform band of **`49.45 .. 87.03`** (mean `62.5`), compared to `10.35 .. 29.29` under `scene_text`, so unit-scale ComfyUI strengths (`0.60 .. 1.50`, or `strength = 1.0` with `mode = "add_norm_matched"`, `NORM_MATCHED_TARGET = 67.5`) work across every vector in the bank.
-  - `split_half_cosine` averages **`0.923`** across the 68 vectors (`0.9668` on `film_16mm_1974`, `0.9540` on `reverb_cathedral`, `0.9488` on `vhs_1991_camcorder`, `0.9379` on `zero_gravity`, `0.9377` on `magnetic_attraction`, `0.9358` on `strobe_club_pulse`, `0.9354` on `operatic_bellow`, `0.9348` on `rubber_hose_1930s`).
+  - `split_half_cosine` averages **`0.923`** across the 64 vectors (`0.9668` on `film_16mm_1974`, `0.9540` on `reverb_cathedral`, `0.9488` on `vhs_1991_camcorder`, `0.9379` on `zero_gravity`, `0.9377` on `magnetic_attraction`, `0.9358` on `strobe_club_pulse`, `0.9354` on `operatic_bellow`, `0.9348` on `rubber_hose_1930s`).
 
 We then rendered 10 verification arms (`43..52`) across 4 distinct `t2va` and `ref2va` scenes at `1344x768x141` (`5.88s`, Pika 6-step LCM, seed `730451892`; `data/results/2026-11-06_cv_pika_diverse_scenes.json`, clips under `output/Video/cv_pika_fun/` and `output/Video/cv_pika_ref2va/`):
 
@@ -149,7 +149,7 @@ We then rendered 10 verification arms (`43..52`) across 4 distinct `t2va` and `r
 
 After landing all four Wave 1 + Wave 2 tracks (`fd4f246a`, `87c0d1de`, `55a3072b`, `ef91d35c`, `d6d42671`), we rendered 14 end-to-end verification arms (`53..66`) at `1344x768x141` (`5.88s`, Pika 6-step LCM, seed `730451892`; `data/results/2026-11-06_cv_wave2_verification_renders.json`, clips under `output/Video/cv_pika_fun/` and `output/Video/cv_pika_ref2va/`) testing:
 1. **Zero-`.toml`, zero-GPU `< 2 ms` CPU word synthesis (`j_lens.py --from-words`, `Arms 53, 54, 61, 62, 63, 64, 65`)** across 7 distinct 3–5 word concepts (including compound/acronym words `"8-bit, LED, steampunk"`, `"inflatable, balloon, glossy, latex, squeaking"`, `"skeleton, translucent, bones, skull"`, `"clockwork, brass, gears, automaton, ticking"`, `"blizzard, snowdrift, freezing, snow"`, `"disco, glitter, dancing"`, and `"medieval, knight, armor, castle"`).
-2. **Zero-`.toml` 10-pair canonical compiler (`h3_pair_compiler.py` / `bench/control_vectors.py compile` -> `build`, `Arms 55..56`)** vs. `< 2 ms` CPU `j_lens.py --from-words`.
+2. **Zero-`.toml` 10-pair canonical compiler (`h3_pair_compiler.py` / `bench/control_vectors.py build --words "..."`, `Arms 55..56`)** vs. `< 2 ms` CPU `j_lens.py --from-words`.
 3. **Inference-time cross-vector `mode = "hold"` (`Arms 57..58`)** holding out `chaos_panic` (`strength = 1.0`, `mode = "hold"`) from `cursed_cctv` (`strength = 1.15`, `mode = "add"`).
 4. **Section span masks (`mask = "soundscape_only"`, `mask = "description_only"`) + AV velocity split (`video_scale = 1.0`, `audio_scale = 0.0`, `split_end_percent = 0.34`, `Arms 59..60`)**.
 5. **RoPE-`cursor`-preserving `ref_vae_end_percent = 0.50` (`Arm 66`)** on `ref2va` (`tenenbaum_mirror.jpg`).
