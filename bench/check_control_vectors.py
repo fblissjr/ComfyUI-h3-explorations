@@ -4001,6 +4001,14 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
         top_rec_words = [r["word"] for r in pc.get("top_receptors", ())[:2]]
         if top_rec_words != ["plastic", "bulb"]:
             errs.append(f"analyze_prompt_coupling top receptors for balloon on noodle_bar got {top_rec_words}, expected ['plastic', 'bulb']")
+        bliz_synth = j_lens.synthesize_from_words(
+            "blizzard, snowdrift, freezing, snow",
+            family="fl2va",
+            bundle=real_b,
+        )
+        bliz_rd = (bliz_synth.get("readout") or {}).get("readiness") or {}
+        if bliz_rd.get("off_target_words") != [] or float(bliz_rd.get("echo_ratio") or 0.0) < 0.99:
+            errs.append(f"semantic echo_ratio failed on blizzard synonyms: {bliz_rd}")
 
         # Verify universal hold_words on a pre-built .safetensors vector (with words="")
         with tempfile.TemporaryDirectory() as uhold_tmp:
