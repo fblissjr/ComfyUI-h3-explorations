@@ -49,6 +49,7 @@ import torch  # noqa: E402
 import control_vector_nodes as cv_nodes  # noqa: E402
 import control_vectors as cv  # noqa: E402
 import h3_spans  # noqa: E402
+import j_lens  # noqa: E402
 import substrate  # noqa: E402
 from workflows import h3_config  # noqa: E402
 
@@ -459,6 +460,14 @@ def cmd_make(args: argparse.Namespace) -> int:
         f"max_abs/rms={ch_stats['max_abs_over_rms']:.2f}"
     )
 
+    jl_make_readout: dict[str, Any] | None = None
+    if j_lens.bundle_available():
+        try:
+            jl_make_readout = j_lens.decode_vector(final_vec, space="post_refiner", family=family)
+            q_report["j_lens_readout"] = jl_make_readout
+        except Exception:
+            jl_make_readout = None
+
     print("\n--- Agreement & Norm Statistics ---")
     print(f"  raw_norm             : {raw_norm:.6f}")
     print(f"  mean_pairwise_cosine : {q_report['mean_pairwise_cosine']:.4f}")
@@ -467,6 +476,9 @@ def cmd_make(args: argparse.Namespace) -> int:
         f"  per_pair_cosine      : min={min(q_report['per_pair_cosine']):.4f}  "
         f"max={max(q_report['per_pair_cosine']):.4f}"
     )
+    if jl_make_readout is not None:
+        print(f"  j_lens (+)           : {jl_make_readout['pos_summary']}")
+        print(f"  j_lens (-)           : {jl_make_readout['neg_summary']}")
 
     if args.out:
         out_path = Path(args.out)
@@ -528,6 +540,31 @@ def cmd_inspect(args: argparse.Namespace) -> int:
         f"top10={ch_stats['top10_energy_share']:.4f} "
         f"max_abs/rms={ch_stats['max_abs_over_rms']:.2f}"
     )
+
+    if j_lens.bundle_available() and "vector.post_refiner" in tensors:
+        hold_paths = [cv_nodes.resolve_vector_file_path(h) for h in (getattr(args, "hold", None) or ())]
+        hold_alpha = float(getattr(args, "hold_alpha", 1.0))
+        jl_rep = j_lens.decode_safetensors(
+            vpath,
+            holds=hold_paths if hold_paths else None,
+            alpha=hold_alpha,
+        )
+        pr_jl = jl_rep["post_refiner"]
+        if hold_paths:
+            print(
+                f"  j_lens_holds    : {[p.name for p in hold_paths]} (alpha={hold_alpha:.2f}, "
+                f"norm {pr_jl['norm_before_holds']:.2f} -> {pr_jl['norm_after_holds']:.2f})"
+            )
+        print(f"  j_lens (PR +)   : {pr_jl['pos_summary']}")
+        print(f"  j_lens (PR -)   : {pr_jl['neg_summary']}")
+        if "encoder" in jl_rep:
+            enc_jl = jl_rep["encoder"]
+            print(f"  j_lens (EN +)   : {enc_jl['pos_summary']}")
+            print(f"  j_lens (EN -)   : {enc_jl['neg_summary']}")
+            print(
+                f"  j_lens cosines  : cos(J_ref v_enc, v_PR)={jl_rep['refiner_forward_cosine']:.4f}  "
+                f"cos_J63(Wiener)={jl_rep['wiener_j63_cosine']:.4f}"
+            )
 
     if args.check_unet:
         unet_path = Path(folder_paths.get_full_path_or_raise("diffusion_models", args.check_unet))
@@ -1432,8 +1469,78 @@ def cmd_build(args: argparse.Namespace) -> int:
         )
         return 0
 
+    from_words_str = str(getattr(args, "from_words", "") or "").strip()
+    if from_words_str:
+        t_w0 = time.perf_counter()
+        raw_stem = (getattr(args, "output_name", None) or getattr(args, "name", None) or "").strip()
+        if not raw_stem:
+            first_w = [w.strip().lower() for part in from_words_str.split(",") for w in part.split() if w.strip()]
+            raw_stem = "_".join(first_w[:3]) if first_w else "word_vector"
+        stem = "".join(c if (c.isalnum() or c == "_") else "_" for c in raw_stem.lower()).strip("_") or "word_vector"
+        if not cv.NAME_RE.match(stem):
+            raise ValueError(f"output vector stem must match [a-z0-9_]+, got {stem!r}")
+
+        fam_arg = str(getattr(args, "families", "both") or "both").lower()
+        target_fams = ["fl2va", "ref2va"] if fam_arg in ("both", "auto") else [fam_arg]
+        out_dir = (
+            Path(args.out_dir)
+            if getattr(args, "out_dir", None)
+            else Path(folder_paths.get_folder_paths(cv_nodes.CONTROL_VECTORS_FOLDER)[0])
+        )
+        out_dir.mkdir(parents=True, exist_ok=True)
+        against_w = str(getattr(args, "against_words", "") or "").strip() or None
+        hold_w = str(getattr(args, "hold_words", "") or "").strip() or None
+        hold_alpha = float(getattr(args, "hold_alpha", 1.0))
+
+        summary_rows_w: list[dict[str, Any]] = []
+        for fam in target_fams:
+            synth = j_lens.synthesize_from_words(
+                from_words_str,
+                against_w,
+                family=fam,
+                hold_words=hold_w,
+                alpha=hold_alpha,
+            )
+            loras_meta = j_lens._DEFAULT_RECIPES.get(fam, {}).get("loras")
+            fname = cv.default_vector_filename(
+                stem,
+                fam,
+                pooling="diff_span",
+                loras=loras_meta,
+            )
+            saved = j_lens.save_synthesized_vector(out_dir / fname, synth, name=stem)
+            r_norm = float(synth["readout"]["norm_after_holds"])
+            summary_rows_w.append(
+                {
+                    "file": saved.name,
+                    "family": fam,
+                    "pooling": "diff_span (j_lens words)",
+                    "raw_norm": r_norm,
+                    "mpc": 1.0,
+                    "split_half": 1.0,
+                    "rec_strength": _recommended_strength_text(r_norm),
+                    "j_lens": synth["readout"],
+                }
+            )
+        if getattr(args, "_summary_rows_out", None) is not None:
+            args._summary_rows_out.extend(summary_rows_w)
+        elapsed_w = time.perf_counter() - t_w0
+        print(
+            f"\n=== Ready to Render in ComfyUI ({len(summary_rows_w)} word-synthesized vector file(s) built in {elapsed_w * 1000.0:.1f} ms on CPU) ==="
+        )
+        for row in summary_rows_w:
+            jl = row.get("j_lens") or {}
+            print(
+                f"  * {row['file']}\n"
+                f"      family={row['family']}  pooling={row['pooling']}  "
+                f"raw_norm={row['raw_norm']:.2f}  recommended strength: {row['rec_strength']}\n"
+                f"      j_lens (+): {jl.get('pos_summary', '')}\n"
+                f"      j_lens (-): {jl.get('neg_summary', '')}"
+            )
+        return 0
+
     if not getattr(args, "source", None) or not str(args.source).strip():
-        raise ValueError("either a source (.md/.toml/stem) or --all is required for 'build'")
+        raise ValueError("either a source (.md/.toml/stem), --from-words, or --all is required for 'build'")
 
     raw_poolings = [p.strip() for p in str(args.pooling).split(",") if p.strip()]
     if not raw_poolings:
@@ -1855,6 +1962,16 @@ def cmd_build(args: argparse.Namespace) -> int:
                     "row0_excluded": True,
                 }
 
+            jl_build_readout: dict[str, Any] | None = None
+            if j_lens.bundle_available():
+                try:
+                    jl_build_readout = j_lens.decode_vector(
+                        final_vec, space="post_refiner", family=family
+                    )
+                    q_report["j_lens_readout"] = jl_build_readout
+                except Exception:
+                    jl_build_readout = None
+
             measured_mode = "ref2va" if encoded_refs is not None else pair_set.mode
             metadata: dict[str, Any] = {
                 "format": cv.FORMAT_VERSION,
@@ -1912,6 +2029,7 @@ def cmd_build(args: argparse.Namespace) -> int:
                     "mpc": float(q_report["mean_pairwise_cosine"]),
                     "split_half": float(q_report["split_half_cosine"]),
                     "rec_strength": _recommended_strength_text(raw_norm),
+                    "j_lens": jl_build_readout,
                 }
             )
 
@@ -1926,6 +2044,10 @@ def cmd_build(args: argparse.Namespace) -> int:
             f"raw_norm={row['raw_norm']:.2f}  cos={row['mpc']:.4f} (split_half={row['split_half']:.4f})  "
             f"recommended strength: {row['rec_strength']}"
         )
+        jl_row = row.get("j_lens")
+        if isinstance(jl_row, dict) and jl_row.get("pos_summary"):
+            print(f"      j_lens (+): {jl_row['pos_summary']}")
+            print(f"      j_lens (-): {jl_row['neg_summary']}")
     if test_prompt_saved is not None:
         print(f"\n  Test Scene Prompt saved to: {_display_path(test_prompt_saved)}")
     return 0
@@ -2023,6 +2145,7 @@ def _list_ui_vectors(vec_dir: Path) -> list[dict[str, Any]]:
                     "mpc": float(qr.get("mean_pairwise_cosine", 0.0)),
                     "split_half": float(qr.get("split_half_cosine", 0.0)),
                     "rec_strength": _recommended_strength_text(raw_norm),
+                    "j_lens": qr.get("j_lens_readout"),
                 }
             )
         except Exception:
@@ -2393,6 +2516,90 @@ def handle_ui_request(
         except (ValueError, FileExistsError) as exc:
             return 400, "application/json", json.dumps({"ok": False, "error": str(exc)})
 
+    if method == "POST" and clean_path == "/api/j-lens":
+        try:
+            if not j_lens.bundle_available():
+                return (
+                    400,
+                    "application/json",
+                    json.dumps({"ok": False, "error": "J-Lens bundle models/j_lens/j_lens_h3.safetensors not found"}),
+                )
+            from_words = str(req.get("from_words", "") or "").strip()
+            if from_words:
+                fam = str(req.get("family", "fl2va") or "fl2va")
+                against_w = str(req.get("against_words", "") or "").strip() or None
+                hold_w = str(req.get("hold_words", "") or "").strip() or None
+                alpha_w = float(req.get("alpha", 1.0))
+                synth = j_lens.synthesize_from_words(
+                    from_words,
+                    against_w,
+                    family=fam,
+                    hold_words=hold_w,
+                    alpha=alpha_w,
+                )
+                save_name = str(req.get("save_name", "") or "").strip()
+                saved_file = None
+                if save_name:
+                    loras_meta = j_lens._DEFAULT_RECIPES.get(fam, {}).get("loras")
+                    fname = cv.default_vector_filename(save_name, fam, pooling="diff_span", loras=loras_meta)
+                    saved_path = j_lens.save_synthesized_vector(state.vec_dir / fname, synth, name=save_name)
+                    saved_file = saved_path.name
+                return (
+                    200,
+                    "application/json",
+                    json.dumps(
+                        {
+                            "ok": True,
+                            "family": synth["family"],
+                            "pos_words_matched": synth["pos_words_matched"],
+                            "neg_words_matched": synth["neg_words_matched"],
+                            "hold_words": synth["hold_words"],
+                            "alpha": synth["alpha"],
+                            "saved_file": saved_file,
+                            "readout": synth["readout"],
+                            "vectors": _list_ui_vectors(state.vec_dir) if saved_file else None,
+                        }
+                    ),
+                )
+            steps = req.get("steps")
+            if isinstance(steps, list) and steps:
+                resolved_steps = []
+                for st in steps:
+                    v_src = state.vec_dir / str(st["vector"])
+                    if not v_src.is_file():
+                        v_src = cv_nodes.resolve_vector_file_path(str(st["vector"]))
+                    resolved_steps.append(
+                        {
+                            "vector": v_src,
+                            "mode": str(st.get("mode", "add")),
+                            "strength": float(st.get("strength", 1.0)),
+                        }
+                    )
+                rep = j_lens.decode_recipe(resolved_steps, family=str(req.get("family", "fl2va") or "fl2va"))
+                return 200, "application/json", json.dumps({"ok": True, **rep})
+
+            vec_name = str(req.get("vector", "") or "").strip()
+            if not vec_name:
+                return 400, "application/json", json.dumps({"ok": False, "error": "missing 'vector', 'steps', or 'from_words'"})
+            v_path = state.vec_dir / vec_name
+            if not v_path.is_file():
+                v_path = cv_nodes.resolve_vector_file_path(vec_name)
+            holds_raw = req.get("holds") or []
+            hold_paths = []
+            for h_name in holds_raw:
+                hp = state.vec_dir / str(h_name)
+                if not hp.is_file():
+                    hp = cv_nodes.resolve_vector_file_path(str(h_name))
+                hold_paths.append(hp)
+            rep = j_lens.decode_safetensors(
+                v_path,
+                holds=hold_paths if hold_paths else None,
+                alpha=float(req.get("alpha", 1.0)),
+            )
+            return 200, "application/json", json.dumps({"ok": True, **rep})
+        except Exception as exc:
+            return 400, "application/json", json.dumps({"ok": False, "error": str(exc)})
+
     if method == "POST" and clean_path == "/api/quit":
         state.shutdown_requested = True
         return 200, "application/json", json.dumps({"ok": True})
@@ -2482,6 +2689,31 @@ def build_parser() -> argparse.ArgumentParser:
         help="Build vectors for all .toml banks in prompt_bank/control_vectors/ in a single encoder load",
     )
     pb.add_argument(
+        "--from-words",
+        dest="from_words",
+        default="",
+        help="Synthesize a 5376-d control vector directly from simple positive words in <5 ms on CPU via J-Lens (no .toml or Qwen load required)",
+    )
+    pb.add_argument(
+        "--against-words",
+        dest="against_words",
+        default="",
+        help="Optional negative words when using --from-words (defaults to neutral baseline words)",
+    )
+    pb.add_argument(
+        "--hold-words",
+        dest="hold_words",
+        default="",
+        help="Optional nuisance words to project out when using --from-words",
+    )
+    pb.add_argument(
+        "--hold-alpha",
+        dest="hold_alpha",
+        type=float,
+        default=1.0,
+        help="Soft or over-projected hold attenuation alpha in [0.0, 2.0] when using --hold-words (default: 1.0)",
+    )
+    pb.add_argument(
         "--unit-mean",
         dest="unit_mean",
         action="store_true",
@@ -2562,6 +2794,19 @@ def build_parser() -> argparse.ArgumentParser:
 
     pi = sub.add_parser("inspect", help="Inspect a control vector file and optionally meter prompts")
     pi.add_argument("vector", help="Path or filename in models/control_vectors/")
+    pi.add_argument(
+        "--hold",
+        action="append",
+        default=None,
+        help="Optional control vector .safetensors file(s) to project out before J-Lens readout",
+    )
+    pi.add_argument(
+        "--hold-alpha",
+        dest="hold_alpha",
+        type=float,
+        default=1.0,
+        help="Soft or over-projected hold attenuation alpha in [0.0, 2.0] when --hold is passed (default: 1.0)",
+    )
     pi.add_argument("--check-unet", default=None, help="Verify compatibility against a UNET checkpoint")
     pi.add_argument("--check-encoder", default=None, help="Verify compatibility against an encoder checkpoint")
     pi.add_argument("--check-lora", action="append", default=None)

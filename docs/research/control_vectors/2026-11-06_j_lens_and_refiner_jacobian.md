@@ -208,15 +208,37 @@ Testing `cursed_cctv` (`fl2va`, `diff_span`) while holding out the 2-vector orth
 
 ---
 
-## 6. Negative Result: Why Inverse Word Pullback (`--hold-words`) Was Dropped
+## 6. Instant (`< 2 ms` CPU) Word-to-`5376`-d Control Vector Synthesis (`j_lens.py::synthesize_from_words`)
 
-We also tested whether hold vectors could be synthesized directly from 4 positive vs. 4 negative English words by pulling rows of `lm_head.weight` backward through $\Sigma_{49} \bar{J}_{49 \to 63}^\top$ into `layers.49` (`Build C` / `--hold-words`). Comparing the resulting pullback vectors against our real 10-pair `vector.encoder` directions shows why single-token pullback is inferior to 10-pair contrastive vectors:
+### 6.1 Why Naive $\Sigma_{49}^{1.0} M_{\text{valid}}^\top$ Pullback Failed (`cos = 0.27–0.38`) vs. Why Spectral-Filtered $\Sigma_{49, \text{filt}}^{0.30}$ Works (`cos = 0.52–0.64`)
 
-| Target Concept | 4 Positive vs. 4 Negative Seed Words | $\cos(\hat{\mathbf{v}}_{\text{pullback}},\, \mathbf{v}_{\text{enc}})$ (`5120`-d) | Why Single-Token Pullback Underperforms 10-Pair Contrastive Extraction |
-|---|---|---:|---|
-| `cursed_cctv` | `surveillance, grainy, glitch, footage` vs. `cinematic, crisp, studio, sharp` | `0.2705` | Single-token `lm_head` rows represent next-BPE-piece completion weights at the final layer, whereas H3 scene directions live in contextual multi-token clause representations (`split_half_cosine = 0.86–0.96`) |
-| `film_16mm_1974` | `vintage, grainy, celluloid, faded` vs. `digital, sharp, modern, clean` | `0.2741` | Lexical polysemy of isolated tokens (`grainy`, `faded`, `clean`) without a surrounding H3 scene frame |
-| `felt_muppet` | `puppet, felt, fuzzy, plush` vs. `human, skin, realistic, natural` | `0.3224` | Captures surface noun identity (`0.32`) but misses the 10-pair physical lighting and fabric motion geometry |
-| `chaos_panic` | `chaotic, frantic, panicked, desperate` vs. `calm, steady, peaceful, relaxed` | `0.3755` | Highest lexical alignment (`0.38`), but still far noisier than reusing the pre-built `chaos_panic` 10-pair `.safetensors` vector directly via `mode = "hold"` |
+Our first attempt to synthesize control vectors directly from simple English seed words pulled raw rows of $M_{\text{valid}} = W_{\text{lm\_head}}[\text{valid\_idx}] \bar{J}_{49 \to 63}$ backward through the full empirical covariance $\Sigma_{49}^{1.0}$ (`cos_5120 = 0.27–0.38` against 10-pair `vector.encoder`). Inspecting the spectrum of $\Sigma_{49}$ and the row geometry of $M_{\text{valid}}$ revealed two distinct failure causes:
+1. **Top-1 Common-Mode Eigenvalue Dominance in $\Sigma_{49}^{1.0}$**: The largest eigenvalue of $\widehat{\text{Cov}}(H_{49, 1:})$ is $\sim 100\times$ larger than the semantic eigenvalues, so multiplying by $\Sigma_{49}^{1.0}$ collapses every word difference onto a single common-mode activation direction.
+2. **Shared Vocabulary Mean in $M_{\text{valid}}$ and Missing Forward Refiner Push**: Raw rows of $M_{\text{valid}}$ share a strong common token-frequency bias, and evaluating similarity in `5120`-d `layers.49` omits the `5376`-d `TokenRefiner` subspace filter $\bar{J}_{\text{ref}}^{(f)}$.
 
-**Conclusion**: Never synthesize hold vectors by pulling isolated `lm_head` word rows backward through pseudoinverses. Instead, use our 34 pre-built 10-pair control vectors (and the single-clause compiler in [`2026-11-06_mainodes_comparison_and_pika_roadmap.md`](2026-11-06_mainodes_comparison_and_pika_roadmap.md) §4 Priority #1) as inference-time holds (`mode = "hold"`, $\alpha \in [0, 1]$), and use the **forward** Wiener J-Lens (`< 15 ms` on CPU) to inspect $\mathbf{v}_{\text{PR}}(\alpha)$ before rendering.
+When we fix both inside [`j_lens.py`](../../../j_lens.py) (`synthesize_from_words` / `--from-words`):
+1. **Mean-center and row-normalize $M_{\text{valid}}$** across the `24,912`-word vocabulary:
+   $$\widehat{M}_i = \frac{M_{\text{valid}, i} - \bar{\mathbf{m}}}{\|M_{\text{valid}, i} - \bar{\mathbf{m}}\|_2}, \qquad \Delta\mathbf{\mu} = \frac{\frac{1}{|P|}\sum_{i \in P} \widehat{M}_i}{\left\|\frac{1}{|P|}\sum_{i \in P} \widehat{M}_i\right\|_2} - \frac{\frac{1}{|N|}\sum_{j \in N} \widehat{M}_j}{\left\|\frac{1}{|N|}\sum_{j \in N} \widehat{M}_j\right\|_2}$$
+2. **Precondition with spectral-filtered fractional covariance $\Sigma_{49, \text{filt}}^{0.30}$** (`Sigma_49_p030` in `j_lens_h3.safetensors`, where the top-1 common-mode eigenvalue $\lambda_{\max}$ is zeroed out and the remaining eigenvalues are raised to $p = 0.30$), and
+3. **Push forward through $\bar{J}_{\text{ref}}^{(f)}$ (`5376`-d)**:
+   $$\hat{\mathbf{v}}_{\text{enc}} = \text{normalize}\!\left(\Sigma_{49, \text{filt}}^{0.30}\,\Delta\mathbf{\mu}\right), \qquad \hat{\mathbf{v}}_{\text{PR}}^{(f)} = 67.5 \cdot \text{normalize}\!\left(\bar{J}_{\text{ref}}^{(f)}\,\Sigma_{49, \text{filt}}^{0.30}\,\Delta\mathbf{\mu}\right)$$
+
+alignment with the true 10-pair `diff_span` `vector.post_refiner` jumps from `0.27–0.38` to **`mean cos_5376 = 0.5724` (`0.5238–0.6368` on §5.1 top-8 words, `0.5236` on ad-hoc user seed words)** in **`< 2 ms` on CPU with zero `Qwen3-VL` load and zero `.toml` files**:
+
+| Target Concept (`fl2va`, `diff_span`) | Ad-Hoc Positive / Negative Seed Words (`--from-words` / `--against-words`) | Naive $\Sigma_{49}^{1.0}$ Pullback (`cos_5120`) | $\bar{J}_{\text{ref}} \Sigma_{49, \text{filt}}^{0.30}$ on §5.1 Top-8 Words (`cos_5376`) | $\bar{J}_{\text{ref}} \Sigma_{49, \text{filt}}^{0.30}$ on Ad-Hoc Pos+Neg Words (`cos_5376`) | 4 Positive Words Only vs. Default Neutral Anchor (`cos_5376`) |
+|---|---|---:|---:|---:|---:|
+| `chaos_panic` | `+chaotic, frantic, panicked, desperate, erratic, panic, chaos` / `-steady, gentle, gently, centered, natural, softly, stationary` | `0.3755` | **`0.6368`** | **`0.6370`** | **`0.5188`** (`+chaotic, frantic, panicked, desperate`) |
+| `underwater_submerged` | `+underwater, submerged, aquatic, murky, floating, swimming, bubbles` / `-dry, indoor, outdoor, tidy, quiet, natural, clean` | — | **`0.6181`** | **`0.5608`** | **`0.4943`** (`+underwater, submerged, aquatic, murky`) |
+| `cursed_cctv` | `+unstable, erratic, outdated, corrupted, surveillance, cctv, jittery, footage` / `-natural, realistic, detailed, crisp, cinematic, studio, sharp` | `0.2705` | **`0.5746`** | **`0.4998`** | **`0.3121`** (`+unstable, cctv, surveillance, footage`) |
+| `film_16mm_1974_bare` | `+vintage, faded, dated, outdated, celluloid, grainy, older, decades` / `-cinematic, detailed, digital, modern, crisp, realistic, sharp` | `0.2741` | **`0.5626`** | **`0.5587`** | **`0.3553`** (`+vintage, faded, celluloid, grainy`) |
+| `felt_muppet` | `+cartoon, puppet, animated, fuzzy, felt, plush, textile` / `-natural, human, realistic, skin, professional, steady` | `0.3224` | **`0.5463`** | **`0.4688`** | **`0.4478`** (`+puppet, felt, fuzzy, cartoon`) |
+| `head_swell` | `+oversized, dome, spherical, inflated, swollen, balloon, enormous` / `-normal, proportional, consistent, natural, ordinary, standard` | — | **`0.5446`** | **`0.4806`** | **`0.4570`** (`+oversized, spherical, swollen, inflated`) |
+| `crystallize_ice` | `+frost, frozen, crystal, crystalline, ice, shattered, snow, glacial` / `-warm, indoor, natural, soft, normal, studio` | — | **`0.5238`** | **`0.4591`** | **`0.3829`** (`+frost, frozen, crystal, ice`) |
+| **Mean across 7 concepts** | — | `0.3106` | **`0.5724`** | **`0.5236`** | **`0.4240`** |
+
+### 6.2 Two Complementary Ways to Steer with Simple Words (Zero `.toml` Authoring)
+
+1. **Tier 1 — Instant CPU Word Synthesis ([`j_lens.py`](../../../j_lens.py) `synthesize_from_words` / `--from-words`, `< 2 ms` CPU, `0 GB` VRAM, `cos_5376 = 0.46–0.64`)**:
+   - Synthesizes `vector.post_refiner` (`norm = 67.5`) and `vector.encoder` directly from a few comma-separated words (plus optional `--against-words` and `--hold-words`) and immediately prints its `5376`-d J-Lens readout or saves a standard `h3-control-vector/1` `.safetensors` file via `--save`.
+2. **Tier 2 — Forward Short-Phrase Compiler ([`2026-11-06_mainodes_comparison_and_pika_roadmap.md`](2026-11-06_mainodes_comparison_and_pika_roadmap.md) §4 Priority #1, `~1.5 s` GPU, `cos_5376 = 0.83–0.90`)**:
+   - Slots 1–3 short user clauses into canonical in-memory H3 frames and runs `Qwen3-VL` (`layers.0..49`) + `TokenRefiner` `diff_span` forward when higher multi-word contextual precision is desired, still with zero `.toml` files.

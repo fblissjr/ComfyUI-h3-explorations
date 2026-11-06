@@ -62,6 +62,7 @@ bootstrap(cpu=True)
 
 import control_vectors as cv  # noqa: E402
 import h3_spans  # noqa: E402
+import j_lens  # noqa: E402
 from comfy.text_encoders.minimax import (  # noqa: E402
     MiniMaxH3Tokenizer,
     VISION_END,
@@ -3292,6 +3293,80 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
         errs.append("MiniMaxH3LayerNormMatch modified tag==0 vision rows")
     if not torch.allclose(matched_t[:, 2:, :], cond_ref_t[:, 2:, :], atol=1e-5):
         errs.append("MiniMaxH3LayerNormMatch did not scale tag==1 rows to reference median norm")
+
+    # 5. j_lens unit and synthetic-bundle round-trip checks
+    v_test = torch.zeros(cv.POST_REFINER_DIM, dtype=torch.float32)
+    v_test[0] = 3.0
+    v_test[1] = 4.0
+    h_test = torch.zeros(cv.POST_REFINER_DIM, dtype=torch.float32)
+    h_test[0] = 1.0
+    v_h0 = j_lens.apply_soft_holds(v_test, [h_test], alpha=0.0)
+    v_h05 = j_lens.apply_soft_holds(v_test, [h_test], alpha=0.5)
+    v_h1 = j_lens.apply_soft_holds(v_test, [h_test], alpha=1.0)
+    v_h15 = j_lens.apply_soft_holds(v_test, [h_test], alpha=1.5)
+    if not torch.equal(v_h0, v_test):
+        errs.append("j_lens.apply_soft_holds(alpha=0.0) altered vector")
+    if abs(float(v_h05[0].item()) - 1.5) > 1e-6 or abs(float(v_h1[0].item())) > 1e-6 or abs(float(v_h15[0].item()) - (-1.5)) > 1e-6:
+        errs.append(f"j_lens.apply_soft_holds incorrect projection across alpha: {v_h05[0]}, {v_h1[0]}, {v_h15[0]}")
+    errs += _expect_refusal(
+        lambda: j_lens.apply_soft_holds(v_test, [h_test], alpha=2.5),
+        "alpha must be in [0.0, 2.0]",
+        "j_lens.apply_soft_holds refusal on alpha > 2.0",
+    )
+
+    # Synthetic mini bundle check (fast, deterministic, zero disk dependency)
+    synth_words = ["underwater", "submerged", "aquatic", "natural", "normal", "standard", "realistic", "consistent", "ordinary", "typical", "steady", "shaky"]
+    g_jl = torch.Generator().manual_seed(1042)
+    m_u = torch.randn((len(synth_words), cv.ENCODER_DIM), generator=g_jl, dtype=torch.float32)
+    m_c = torch.nn.functional.normalize(m_u - m_u.mean(dim=0, keepdim=True), dim=-1)
+    j_ref_mini = torch.randn((cv.POST_REFINER_DIM, cv.ENCODER_DIM), generator=g_jl, dtype=torch.float32) * 0.02
+    j_w_mini = j_ref_mini.T
+    mini_bundle = {
+        "path": "synthetic",
+        "words": synth_words,
+        "word_to_idxs": {w: [i] for i, w in enumerate(synth_words)},
+        "M_union": m_u,
+        "M_centered": m_c,
+        "Sigma_49_p030": torch.eye(cv.ENCODER_DIM, dtype=torch.float32),
+        "cloze_base_union": torch.zeros((7, len(synth_words)), dtype=torch.float32),
+        "valid_pos_in_union": torch.arange(len(synth_words), dtype=torch.long),
+        "valid_idx": torch.arange(len(synth_words), dtype=torch.long),
+        "union_idx": torch.arange(len(synth_words), dtype=torch.long),
+        "J_49_to_63": torch.eye(cv.ENCODER_DIM, dtype=torch.float32),
+        "J_ref_ref2va": j_ref_mini,
+        "J_ref_fl2va": j_ref_mini,
+        "J_wiener_ref2va": j_w_mini,
+        "J_wiener_fl2va": j_w_mini,
+    }
+    synth_res = j_lens.synthesize_from_words(
+        "underwater, submerged, aquatic",
+        family="fl2va",
+        hold_words="shaky",
+        alpha=1.0,
+        bundle=mini_bundle,
+    )
+    if tuple(synth_res["vector.post_refiner"].shape) != (cv.POST_REFINER_DIM,) or tuple(synth_res["vector.encoder"].shape) != (cv.ENCODER_DIM,):
+        errs.append("j_lens.synthesize_from_words returned wrong tensor shapes")
+    with tempfile.TemporaryDirectory() as jl_tmp:
+        jl_out = j_lens.save_synthesized_vector(Path(jl_tmp) / "underwater_test.safetensors", synth_res)
+        loaded_t, loaded_m = cv.load_vector(jl_out)
+        if "vector.post_refiner" not in loaded_t or "vector.encoder" not in loaded_t or loaded_m["name"] != "underwater_test":
+            errs.append("j_lens.save_synthesized_vector output failed cv.load_vector round-trip")
+    errs += _expect_refusal(
+        lambda: j_lens.synthesize_from_words("nonexistent_word_xyz", bundle=mini_bundle),
+        "matched the 24,912-word j-lens vocabulary",
+        "j_lens.synthesize_from_words refusal on unmatched word",
+    )
+    errs += _expect_refusal(
+        lambda: j_lens.synthesize_from_words("underwater", hold_words="shaky", alpha=-0.5, bundle=mini_bundle),
+        "alpha must be in [0.0, 2.0]",
+        "j_lens.synthesize_from_words refusal on negative alpha",
+    )
+    errs += _expect_refusal(
+        lambda: j_lens.synthesize_from_words("underwater", hold_words="underwater", alpha=1.0, bundle=mini_bundle),
+        "completely cancelled pos_words",
+        "j_lens.synthesize_from_words refusal when hold_words cancels pos_words",
+    )
 
     return errs
 
