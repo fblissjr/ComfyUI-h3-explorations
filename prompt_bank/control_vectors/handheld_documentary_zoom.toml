@@ -1,0 +1,130 @@
+[vector]
+name = "handheld_documentary_zoom"
+quality = "raw cinema-verite shoulder-rig camera urgency with whip-pan and snap-zoom reframing, brief focus-hunt breathing, and unpolished on-camera mic presence against locked-off tripod stability"
+a_side = "locked-off fluid-head tripod stability, constant focal length, rock-solid focus plane, and clean studio boom audio"
+b_side = "raw verite shoulder-rig handheld urgency with sudden snap-zoom and whip-pan reframing, brief lens focus-hunt breathing, and unpolished on-camera shotgun mic presence"
+mode = "t2va"
+frame = "scene"
+exclude_shots = ["t2va_offpath_tortoise", "ref2va_look_anchor"]
+# recommended_strength = 3.0
+# notes = "Steers locked-off tripod shots into raw cinema-verite shoulder-rig camera urgency with whip-pan/snap-zoom reframing, brief focus-hunt breathing, and unpolished on-camera mic presence."
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, inside a crowded city council hallway where a reporter in a navy blazer holds a notepad beside a wooden committee door. As she (S1) says, <d>[English] The sub-committee just recessed for twenty minutes.</d> and closes her mouth, the shot is captured from a locked-off fluid-head tripod at a fixed focal length with rock-solid focus and clean studio boom audio.
+
+overall_soundscape: Leather shoes shuffle across marble flooring.
+
+non_diegetic_music: No non-diegetic music.'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, inside a crowded city council hallway where a reporter in a navy blazer holds a notepad beside a wooden committee door. As she (S1) says, <d>[English] The sub-committee just recessed for twenty minutes.</d> and closes her mouth, the shot is captured with raw verite shoulder-rig camera urgency, executing a sudden snap-zoom reframe with brief focus-hunt breathing and unpolished on-camera mic presence.
+
+overall_soundscape: Leather shoes shuffle across marble flooring.
+
+non_diegetic_music: No non-diegetic music.'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, at a commercial fishing dock where two deckhands in rubber bibs haul a braided nylon line onto a wet steel bollard. Neither deckhand produces any vocal sound while the scene is filmed on a stationary tripod mount with a constant prime lens, unwavering focal plane, and balanced isolated sound.
+
+overall_soundscape: Wet nylon hawser rope groans against cast iron over harbor waves.
+
+non_diegetic_music: No non-diegetic music.'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, at a commercial fishing dock where two deckhands in rubber bibs haul a braided nylon line onto a wet steel bollard. Neither deckhand produces any vocal sound while the scene is filmed in kinetic handheld documentary style, whipping into a crash-zoom reframe with momentary autofocus hunting and gritty camera-mounted shotgun audio.
+
+overall_soundscape: Wet nylon hawser rope groans against cast iron over harbor waves.
+
+non_diegetic_music: No non-diegetic music.'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, inside a restaurant prep kitchen where an expedite chef in a white coat checks paper tickets along an aluminum rail. As he (S1) says, <d>[English] Table six needs two halibut entrees on the fly.</d> and sets his jaw, the camera holds a locked-off pedestal composition with fixed prime optics, tack-sharp focus, and clean overhead boom clarity.
+
+overall_soundscape: Stainless pans clink on a range top beside an exhaust hood hum.
+
+non_diegetic_music: No non-diegetic music.'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, inside a restaurant prep kitchen where an expedite chef in a white coat checks paper tickets along an aluminum rail. As he (S1) says, <d>[English] Table six needs two halibut entrees on the fly.</d> and sets his jaw, the camera jostles on a restless ENG shoulder rig, darting through a whip-pan and snap-zoom reframe as the lens hunts focus and the top-mounted mic catches raw room presence.
+
+overall_soundscape: Stainless pans clink on a range top beside an exhaust hood hum.
+
+non_diegetic_music: No non-diegetic music.'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, along a gravel rally service paddock where a crew chief in a fireproof suit tightens a wheel lug with a torque wrench beside a jacked hatchback. He produces no vocal sound while the shot rests on a rigid studio tripod with an unmoving focal length, locked focus, and clean studio-grade audio.
+
+overall_soundscape: The mechanical torque wrench clicks sharply against steel lug nuts.
+
+non_diegetic_music: No non-diegetic music.'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, along a gravel rally service paddock where a crew chief in a fireproof suit tightens a wheel lug with a torque wrench beside a jacked hatchback. He produces no vocal sound while the shot sways with urgent cinema-verite handheld motion, punching a fast telephoto snap-zoom that briefly breathes past focus alongside direct on-camera mic sound.
+
+overall_soundscape: The mechanical torque wrench clicks sharply against steel lug nuts.
+
+non_diegetic_music: No non-diegetic music.'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, inside a community boxing gym where a trainer in a grey sweatshirt wraps cotton gauze around a fighter's knuckles on a wooden ring apron. As the trainer (S1) says, <d>[English] Keep your left glove high when you step inside.</d> and closes his lips, the camera maintains a motionless geared-head frame with constant lens focal length, steady focus, and clean boom audio.
+
+overall_soundscape: Canvas hand-wrap tape unrolls with a crisp rip in the gym.
+
+non_diegetic_music: No non-diegetic music.'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, inside a community boxing gym where a trainer in a grey sweatshirt wraps cotton gauze around a fighter's knuckles on a wooden ring apron. As the trainer (S1) says, <d>[English] Keep your left glove high when you step inside.</d> and closes his lips, the camera bobs on an unstabilized documentary shoulder mount, snapping into a tight zoom reframe with a split-second focus-ring hunt and raw onboard microphone presence.
+
+overall_soundscape: Canvas hand-wrap tape unrolls with a crisp rip in the gym.
+
+non_diegetic_music: No non-diegetic music.'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, outside a municipal fire station bay where a paramedic in a reflective vest checks a plastic supply case on an open ambulance bumper. As she (S1) says, <d>[English] Both oxygen cylinders are topped off at two thousand psi.</d> and closes her mouth, the shot stays anchored on a heavy tripod head with fixed focal length, steady focus, and clean boom sound.
+
+overall_soundscape: Plastic latches click shut on the equipment case over distant street air.
+
+non_diegetic_music: No non-diegetic music.'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, outside a municipal fire station bay where a paramedic in a reflective vest checks a plastic supply case on an open ambulance bumper. As she (S1) says, <d>[English] Both oxygen cylinders are topped off at two thousand psi.</d> and closes her mouth, the shot lurches with run-and-gun verite camera urgency, whip-panning into an abrupt zoom reframe with visible focus breathing and unvarnished shoe-mount mic audio.
+
+overall_soundscape: Plastic latches click shut on the equipment case over distant street air.
+
+non_diegetic_music: No non-diegetic music.'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, inside a university robotics workshop where a graduate student in safety glasses connects a ribbon cable to a wheeled rover chassis. She produces no vocal sound while the camera sits on a leveled Mitchell tripod with unvarying focal length, crisp focus plane, and clean studio room tone.
+
+overall_soundscape: Small cooling fans hum beside a clicking benchtop power supply.
+
+non_diegetic_music: No non-diegetic music.'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, inside a university robotics workshop where a graduate student in safety glasses connects a ribbon cable to a wheeled rover chassis. She produces no vocal sound while the camera shifts with reactive handheld documentary energy, executing a quick snap-zoom and whip-pan correction as the barrel hunts focus and the on-camera mic picks up live room grit.
+
+overall_soundscape: Small cooling fans hum beside a clicking benchtop power supply.
+
+non_diegetic_music: No non-diegetic music.'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, at an outdoor farmers market stall where a grower in a canvas hat stacks wooden crates of red apples under a canvas awning. As he (S1) says, <d>[English] These Honeycrisp crates came off the trees at sunrise.</d> and rests his jaw, the shot is filmed from a locked tripod base with fixed focal length, unshifting focus, and clean boom microphone audio.
+
+overall_soundscape: Wooden fruit crates settle onto a folding trestle table.
+
+non_diegetic_music: No non-diegetic music.'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, at an outdoor farmers market stall where a grower in a canvas hat stacks wooden crates of red apples under a canvas awning. As he (S1) says, <d>[English] These Honeycrisp crates came off the trees at sunrise.</d> and rests his jaw, the shot is filmed on a shaky newsreel shoulder rig that whips sideways and snap-zooms onto the crate with brief optical focus hunting and immediate on-camera mic acoustics.
+
+overall_soundscape: Wooden fruit crates settle onto a folding trestle table.
+
+non_diegetic_music: No non-diegetic music.'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, inside a backstage dressing room corridor where a stagehand in a black shirt coils a heavy XLR snake cable onto a steel drum. The stagehand produces no vocal sound as the camera remains fixed on a sturdy tripod stand with constant lens focal length, sharp focus, and clean isolated audio.
+
+overall_soundscape: Rubber cable jacketing rubs against the spinning steel reel.
+
+non_diegetic_music: No non-diegetic music.'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, inside a backstage dressing room corridor where a stagehand in a black shirt coils a heavy XLR snake cable onto a steel drum. The stagehand produces no vocal sound as the camera tracks with unsteady verite handheld urgency, jerking through a rapid servo zoom reframe with brief focus-plane breathing and close on-camera capsule sound.
+
+overall_soundscape: Rubber cable jacketing rubs against the spinning steel reel.
+
+non_diegetic_music: No non-diegetic music.'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, on a windy concrete seawall walkway where surf spray rises behind a painted iron railing and a coastguard buoy tender passes offshore. No people are present in the scene while the camera holds a static tripod-mounted view with constant focal length, rock-steady focus, and clean wind-screened audio.
+
+overall_soundscape: Waves slap against the concrete seawall beneath a low marine engine drone.
+
+non_diegetic_music: No non-diegetic music.'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, on a windy concrete seawall walkway where surf spray rises behind a painted iron railing and a coastguard buoy tender passes offshore. No people are present in the scene while the camera pivots with raw shoulder-borne documentary urgency, whipping into a sudden telephoto snap-zoom that hunts focus for a beat amid unfiltered on-camera mic presence.
+
+overall_soundscape: Waves slap against the concrete seawall beneath a low marine engine drone.
+
+non_diegetic_music: No non-diegetic music.'''

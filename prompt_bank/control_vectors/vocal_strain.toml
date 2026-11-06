@@ -1,128 +1,128 @@
 [vector]
 name = "vocal_strain"
 quality = "vein-bulging raspy full-lung screaming against calm conversational vocal delivery"
-a_side = "calm, even, conversational voice with relaxed facial and neck muscles"
+a_side = "calm, even, conversational delivery with relaxed jaw and neck muscles"
 b_side = "strained, raspy, vein-bulging full-lung screaming with jaw stretched wide"
 mode = "t2va"
 frame = "scene"
 exclude_shots = ["t2va_offpath_tortoise", "ref2va_look_anchor"]
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic. A carpenter in a canvas apron measures a cedar plank on a sawhorse, speaking in a calm, even, conversational voice with relaxed facial muscles (S1) as they say, <d>Check the bevel angle on this miter cut.</d>
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. A male carpenter in a canvas apron measures a cedar plank on a sawhorse inside an indoor woodworking shop as the camera holds a steady medium shot, speaking in a calm, even, conversational baritone with relaxed jaw muscles (S1) as he says, <d>[English] Check the bevel angle on this miter cut.</d> before his lips close.
 
 overall_soundscape: Sawdust settles over the quiet hum of a workshop dust collector.
 
 non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic. A carpenter in a canvas apron measures a cedar plank on a sawhorse, screaming at the top of their lungs in a strained, raspy, vein-bulging roar with jaw stretched wide (S1) as they say, <d>Check the bevel angle on this miter cut.</d>
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. A male carpenter in a canvas apron measures a cedar plank on a sawhorse inside an indoor woodworking shop as the camera holds a steady medium shot, screaming at the top of his lungs in a strained, raspy, vein-bulging roar with his jaw stretched wide (S1) as he says, <d>[English] Check the bevel angle on this miter cut.</d> before his lips close.
 
 overall_soundscape: Sawdust settles over the quiet hum of a workshop dust collector.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic. A chess coach in a wool cardigan points to a wooden rook on a tournament board, speaking in a calm, even, conversational voice with relaxed facial muscles (S1) as they say, <d>Protect your back rank before advancing the pawn.</d>
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. A female chess coach in a wool cardigan points to a wooden rook on a tournament board inside an indoor club room as the camera pushes in at slow speed, addressing the room in a gentle, measured alto with an untroubled throat and soft expression (S1) as she says, <d>[English] Protect your back rank before advancing the pawn.</d> as her mouth settles shut.
 
 overall_soundscape: A dual chess clock ticks softly on the felt table.
 
 non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic. A chess coach in a wool cardigan points to a wooden rook on a tournament board, screaming at the top of their lungs in a strained, raspy, vein-bulging roar with jaw stretched wide (S1) as they say, <d>Protect your back rank before advancing the pawn.</d>
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. A female chess coach in a wool cardigan points to a wooden rook on a tournament board inside an indoor club room as the camera pushes in at slow speed, bellowing with raw, hoarse, throat-tearing vocal strain and protruding neck tendons as her mouth gapes open (S1) as she says, <d>[English] Protect your back rank before advancing the pawn.</d> as her mouth settles shut.
 
 overall_soundscape: A dual chess clock ticks softly on the felt table.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic. A harbor pilot in a pea coat looks through binoculars from a pier bollard, speaking in a calm, even, conversational voice with relaxed facial muscles (S1) as they say, <d>The tugboat is coming around the breakwater now.</d>
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. A male harbor pilot in a pea coat holds brass binoculars beside an outdoor pier bollard as the camera pans left at slow speed, remarking in a quiet, unforced tenor with easy breathing and a composed brow (S1) as he says, <d>[English] The tugboat is coming around the breakwater now.</d> before his jaw rests.
 
 overall_soundscape: Harbor gulls call faintly over gentle waves slapping timber pilings.
 
 non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic. A harbor pilot in a pea coat looks through binoculars from a pier bollard, screaming at the top of their lungs in a strained, raspy, vein-bulging roar with jaw stretched wide (S1) as they say, <d>The tugboat is coming around the breakwater now.</d>
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. A male harbor pilot in a pea coat holds brass binoculars beside an outdoor pier bollard as the camera pans left at slow speed, shrieking at maximum lung capacity with a shredded, gravelly voice, corded jugular veins, and contorted cheeks (S1) as he says, <d>[English] The tugboat is coming around the breakwater now.</d> before his jaw rests.
 
 overall_soundscape: Harbor gulls call faintly over gentle waves slapping timber pilings.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic. A pastry chef in a white jacket dusts powdered sugar over a tray of tarts, speaking in a calm, even, conversational voice with relaxed facial muscles (S1) as they say, <d>These tarts are ready for the front display window.</d>
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. A female pastry chef in a white jacket dusts powdered sugar over a tray of tarts inside an indoor bakery kitchen as the camera holds a medium-close shot, speaking in a warm, effortless mezzo-soprano with loose shoulders and an unstrained collar (S1) as she says, <d>[English] These tarts are ready for the front display window.</d> as her mouth closes.
 
 overall_soundscape: A fine wire sieve taps softly above parchment paper.
 
 non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic. A pastry chef in a white jacket dusts powdered sugar over a tray of tarts, screaming at the top of their lungs in a strained, raspy, vein-bulging roar with jaw stretched wide (S1) as they say, <d>These tarts are ready for the front display window.</d>
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. A female pastry chef in a white jacket dusts powdered sugar over a tray of tarts inside an indoor bakery kitchen as the camera holds a medium-close shot, howling in a harsh, overdriven, throat-scraping scream with flushed skin and taut neck cords (S1) as she says, <d>[English] These tarts are ready for the front display window.</d> as her mouth closes.
 
 overall_soundscape: A fine wire sieve taps softly above parchment paper.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic. A stationmaster in a brass-buttoned vest checks a pocket watch on a brick platform, speaking in a calm, even, conversational voice with relaxed facial muscles (S1) as they say, <d>The local passenger train arrives on track two.</d>
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. A male stationmaster in a brass-buttoned vest checks a pocket watch on an open-air brick train platform as the camera tracks right at slow speed, announcing in a smooth, mellow chest register with tranquil composure (S1) as he says, <d>[English] The local passenger train arrives on track two.</d> before his lips close.
 
-overall_soundscape: Steam hisses lightly from a radiator pipe under the canopy.
+overall_soundscape: Steam hisses lightly from a pipe under the platform canopy.
 
 non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic. A stationmaster in a brass-buttoned vest checks a pocket watch on a brick platform, screaming at the top of their lungs in a strained, raspy, vein-bulging roar with jaw stretched wide (S1) as they say, <d>The local passenger train arrives on track two.</d>
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. A male stationmaster in a brass-buttoned vest checks a pocket watch on an open-air brick train platform as the camera tracks right at slow speed, roaring in a blistering, raspy, full-chested yell with distended throat veins and wide-stretched lips (S1) as he says, <d>[English] The local passenger train arrives on track two.</d> before his lips close.
 
-overall_soundscape: Steam hisses lightly from a radiator pipe under the canopy.
+overall_soundscape: Steam hisses lightly from a pipe under the platform canopy.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic. A beekeeper in a canvas hat inspects a wooden honeycomb frame beside a meadow, speaking in a calm, even, conversational voice with relaxed facial muscles (S1) as they say, <d>The queen is laying evenly across the center comb.</d>
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. A female beekeeper in a canvas hat inspects a wooden honeycomb frame beside an outdoor clover meadow as the camera holds a static waist-up shot, commenting in a soft, conversational soprano with a serene face and relaxed chin (S1) as she says, <d>[English] The queen is laying evenly across the center comb.</d> as her mouth settles shut.
 
 overall_soundscape: Bees hum softly among clover blossoms in the warm grass.
 
 non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic. A beekeeper in a canvas hat inspects a wooden honeycomb frame beside a meadow, screaming at the top of their lungs in a strained, raspy, vein-bulging roar with jaw stretched wide (S1) as they say, <d>The queen is laying evenly across the center comb.</d>
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. A female beekeeper in a canvas hat inspects a wooden honeycomb frame beside an outdoor clover meadow as the camera holds a static waist-up shot, screaming in a ferocious, cracked, vocal-cord-straining belt with bulging collar veins and clenched temples (S1) as she says, <d>[English] The queen is laying evenly across the center comb.</d> as her mouth settles shut.
 
 overall_soundscape: Bees hum softly among clover blossoms in the warm grass.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic. A stage manager in a black headset stands beside a velvet curtain in a theater wing, speaking in a calm, even, conversational voice with relaxed facial muscles (S1) as they say, <d>House lights are going down in thirty seconds.</d>
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. A female stage manager in a black headset stands beside a velvet curtain inside an indoor theater wing as the camera pulls out at slow speed, giving her cue in a hushed, level contralto with a relaxed larynx and steady poise (S1) as she says, <d>[English] House lights are going down in thirty seconds.</d> before her jaw rests.
 
 overall_soundscape: Stage floorboards creak faintly beneath heavy velvet drapes.
 
 non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic. A stage manager in a black headset stands beside a velvet curtain in a theater wing, screaming at the top of their lungs in a strained, raspy, vein-bulging roar with jaw stretched wide (S1) as they say, <d>House lights are going down in thirty seconds.</d>
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. A female stage manager in a black headset stands beside a velvet curtain inside an indoor theater wing as the camera pulls out at slow speed, blasting a guttural, raspy, vein-popping shriek at full volume with her jaw hinged wide open (S1) as she says, <d>[English] House lights are going down in thirty seconds.</d> before her jaw rests.
 
 overall_soundscape: Stage floorboards creak faintly beneath heavy velvet drapes.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic. A boatbuilder in a flannel shirt planes a mahogany rib inside a timber boathouse, speaking in a calm, even, conversational voice with relaxed facial muscles (S1) as they say, <d>One more pass with the hand plane levels the keel.</d>
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. A male boatbuilder in a flannel shirt planes a mahogany rib on an outdoor timber slipway beside a lake as the camera pans right at slow speed, speaking in an easygoing, natural bass cadence with unhurried breath (S1) as he says, <d>[English] One more pass with the hand plane levels the keel.</d> as his mouth closes.
 
-overall_soundscape: Wood shavings curl softly onto the swept plank floor.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic. A boatbuilder in a flannel shirt planes a mahogany rib inside a timber boathouse, screaming at the top of their lungs in a strained, raspy, vein-bulging roar with jaw stretched wide (S1) as they say, <d>One more pass with the hand plane levels the keel.</d>
-
-overall_soundscape: Wood shavings curl softly onto the swept plank floor.
+overall_soundscape: Wood shavings curl softly onto the outdoor plank slipway.
 
 non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. A male boatbuilder in a flannel shirt planes a mahogany rib on an outdoor timber slipway beside a lake as the camera pans right at slow speed, erupting in a hoarse, lung-splitting, vein-bulging shout with strained neck muscles and bared teeth (S1) as he says, <d>[English] One more pass with the hand plane levels the keel.</d> as his mouth closes.
 
-[[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic. A librarian in tortoise-shell glasses stamps a return date inside a hardcover novel, speaking in a calm, even, conversational voice with relaxed facial muscles (S1) as they say, <d>This volume is due back on the fifteenth of the month.</d>
-
-overall_soundscape: A rubber date stamp clicks softly against the paper slip.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic. A librarian in tortoise-shell glasses stamps a return date inside a hardcover novel, screaming at the top of their lungs in a strained, raspy, vein-bulging roar with jaw stretched wide (S1) as they say, <d>This volume is due back on the fifteenth of the month.</d>
-
-overall_soundscape: A rubber date stamp clicks softly against the paper slip.
+overall_soundscape: Wood shavings curl softly onto the outdoor plank slipway.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic. A gardener in leather gloves ties a tomato vine to a bamboo stake in a vegetable bed, speaking in a calm, even, conversational voice with relaxed facial muscles (S1) as they say, <d>These vines grew three inches since Tuesday morning.</d>
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. A male librarian in tortoise-shell glasses stamps a return date inside a hardcover novel at an indoor circulation desk as the camera holds a steady medium-close frame, speaking in a mild, courteous tone with a tranquil throat and gentle articulation (S1) as he says, <d>[English] This volume is due back on the fifteenth of the month.</d> before his lips close.
 
-overall_soundscape: Dry garden twine rustles against green tomato leaves.
+overall_soundscape: A rubber date stamp clicks softly against the paper slip.
 
 non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic. A gardener in leather gloves ties a tomato vine to a bamboo stake in a vegetable bed, screaming at the top of their lungs in a strained, raspy, vein-bulging roar with jaw stretched wide (S1) as they say, <d>These vines grew three inches since Tuesday morning.</d>
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. A male librarian in tortoise-shell glasses stamps a return date inside a hardcover novel at an indoor circulation desk as the camera holds a steady medium-close frame, yelling in a searing, gravelly, throat-ripping outcry with taut tendons standing out along his neck (S1) as he says, <d>[English] This volume is due back on the fifteenth of the month.</d> before his lips close.
 
-overall_soundscape: Dry garden twine rustles against green tomato leaves.
+overall_soundscape: A rubber date stamp clicks softly against the paper slip.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. A female gardener in leather gloves ties a tomato vine to a bamboo stake in an outdoor vegetable bed as the camera tilts up at slow speed, observing in a clear, unbothered conversational register with soft facial contours (S1) as she says, <d>[English] These vines grew three inches since Tuesday morning.</d> as her mouth settles shut.
+
+overall_soundscape: Dry garden twine rustles against green tomato leaves in the breeze.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. A female gardener in leather gloves ties a tomato vine to a bamboo stake in an outdoor vegetable bed as the camera tilts up at slow speed, screaming at the top of her voice in a ragged, raspy, vein-swelling roar with her mouth stretched wide (S1) as she says, <d>[English] These vines grew three inches since Tuesday morning.</d> as her mouth settles shut.
+
+overall_soundscape: Dry garden twine rustles against green tomato leaves in the breeze.
 
 non_diegetic_music: N/A'''

@@ -1,8 +1,6 @@
 # H3 writer system prompt — DRAFT, ungraded beyond the mechanical rules
 
-Derived 2026-09-01 from `docs/portable/h3_prompt_standard.html`, which is
-itself derived from `docs/prompting.md`. Where any two disagree,
-`docs/prompting.md` is newer and wins.
+Canonical writer-model system prompt derived from [`docs/prompting.md`](../../prompting.md) and [`vendor_guides/`](../../../vendor_guides/). Where any two disagree, `docs/prompting.md` is newer and wins. (For authoring control-vector contrastive prompt pairs, see [`h3_control_vector_system_prompt.md`](h3_control_vector_system_prompt.md).)
 
 **How to use it.** Concatenate the CORE section with exactly one MODE block and
 send the result as the system prompt. The user turn supplies `idea`, `frames`,
@@ -40,11 +38,10 @@ Singing" -- a stated topic, not an edge case. Reading this file had not found
 it; comparing it against another had.
 
 **The known drift risk.** This file is a second copy of rules that live in
-`docs/prompting.md`, with no invalidation. The highest-risk items are the three
-Part One strings, which are exact-match and silent when wrong. They were taken
-from `bench/preflight_graph.py::_base_alignment_templates()`, not retyped, and
-the honest fix is to generate this file with them interpolated rather than
-pasted. Until that exists, re-derive them before trusting this copy.
+`docs/prompting.md`, guarded by `bench/check_prompt_docs_sync.py` (`RULE_PINS`
+and `BASE_ALIGNMENT`). The highest-risk items are the three Part One strings,
+which are exact-match and silent when wrong; `bench/check_prompt_docs_sync.py`
+checks them against `bench/preflight_graph.py::_base_alignment_templates()`.
 
 ---
 
@@ -253,9 +250,10 @@ then amplitude, then speed. Add amplitude and speed only when they matter.
 
     The camera pushes in with small amplitude at slow speed toward the letter.
 
-Attested motion types: Zoom In/Out, Push In/Pull Out, Pan Left/Right, Truck
-Left/Right, Tilt Up/Down, Pedestal Up/Down, Arc Shot, Tracking Shot, Static
-Shot, Shake Slightly/Strongly, POV, Roll Clockwise/Counterclockwise. Amplitude
+Attested motion types: Zoom In / Zoom Out, Push In / Pull Out, Pan Left / Pan Right,
+Truck Left / Truck Right, Tilt Up / Tilt Down, Pedestal Up / Pedestal Down, Arc Shot,
+Tracking Shot, Static Shot, Shake Slightly / Shake Strongly, POV,
+Roll Clockwise / Roll Counterclockwise. Amplitude
 is "with small amplitude" or "with large amplitude"; speed is "at slow speed"
 or "at fast speed". Truck is horizontal translation; Tracking follows a moving
 subject -- they are different. [guide]
@@ -370,20 +368,34 @@ How the reference pictures align with the target video — <Picture 1> (from [Sh
 
 The picture is the LAST frame. Infer a compatible earlier state, then let the
 action, object states and composition converge on it. Derive the style from the
-picture. [guide]
+picture. Keep the lead-in state visually close to the destination frame so the
+clip converges forward onto Picture 1 without a last-second jump. [guide / house]
 
 ================================ MODE: ref2va ==============================
 # Active mode: Ref2VA
 
-No Part One line. Six sections, in order. [guide]
+No Part One line. Six sections, in order: `subject_definitions:`, `summary:`,
+`retention_analysis:`, `detailed_description:`, `overall_soundscape:`, and
+`non_diegetic_music:`. [guide]
 
 subject_definitions: one line per item. Say what each label denotes, its
 reference role, and the features to carry. If a <Picture N> or <Video N> only
 identifies the source of another item and is never used separately, cite it
 inside that item's line rather than giving it its own. [guide]
 
-retention_analysis: one line per label, saying where it appears and whether it
-is fully preserved, partially preserved, transferred or reused. [guide]
+summary: one paragraph opening with one or two bracketed task-type tags from
+the closed set (`[reference generation]`, `[keyframe completion]`,
+`[video editing]`, `[video continuation]`, `[audio reuse]`,
+`[audio reference]`), followed by a concise summary of the target video and how
+the references are combined. [guide]
+
+retention_analysis: one line per label (`<Label> (appears in [Shot N]): <token> - ...`),
+saying where it appears and whether it is fully preserved, partially preserved,
+transferred or reused, using the exact underscored closed-set token:
+`fully_preserved`, `partially_preserved`, `attribute_transfer`, or
+`weak_reference` for visual items (`<Subject N>`, `<Picture N>`, `<Video N>`),
+and `fully_copy`, `partially_copy`, `reference`, or `weak_reference` for
+`<Audio N>`. [guide]
 
 detailed_description: the body, 350-500 words for a generation task. Shots run
 inline here as in base modes. Put the style before [Shot 1] rather than inside

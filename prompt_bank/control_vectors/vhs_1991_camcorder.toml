@@ -1,0 +1,130 @@
+[vector]
+name = "vhs_1991_camcorder"
+quality = "1991 home-video VHS camcorder tape degradation with chroma bleed, head-switching tracking snow, interlaced scanlines, and warbling linear-tape hiss against clean modern digital cinema capture"
+a_side = "clean modern digital cinema sensor with sharp progressive edges, accurate color fidelity, and clear full-bandwidth audio"
+b_side = "1991 home-video VHS camcorder tape degradation with smeary chroma bleed, bottom head-switching tracking snow, interlaced CRT scanlines, and warbling linear-tape hiss"
+mode = "t2va"
+frame = "scene"
+exclude_shots = ["t2va_offpath_tortoise", "ref2va_look_anchor"]
+# recommended_strength = 3.0
+# notes = "Steers clean digital video and audio toward 1991 consumer VHS camcorder tape artifacts, NTSC chroma bleed, bottom head-switching noise, and warbling linear audio hiss."
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, medium shot inside a wood-paneled suburban kitchen where a mother in a teal sweater and her teenage son decorate a frosted birthday cake on a laminate counter. The camera pans right with small amplitude as she (S1) says, <d>[English] Put the candles along the outer edge of the frosting.</d> Her lips close neatly, recorded on a clean modern digital cinema camera with crisp progressive edges, true-to-life color separation, and transparent studio-grade sound.
+
+overall_soundscape: A ceramic cake plate turns on a turntable over quiet refrigerator hum.
+
+non_diegetic_music: No non-diegetic music.'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, medium shot inside a wood-paneled suburban kitchen where a mother in a teal sweater and her teenage son decorate a frosted birthday cake on a laminate counter. The camera pans right with small amplitude as she (S1) says, <d>[English] Put the candles along the outer edge of the frosting.</d> Her lips close neatly, dubbed onto degraded 1991 home-video VHS camcorder tape with smeary red chroma bleed, bottom head-switching tracking snow, interlaced scanlines, and warbling linear-tape hiss.
+
+overall_soundscape: A ceramic cake plate turns on a turntable over quiet refrigerator hum.
+
+non_diegetic_music: No non-diegetic music.'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, wide shot of a sunlit backyard lawn where a man in denim shorts adjusts a brass garden sprinkler beside a cedar fence. Water arcs across green grass while the camera holds a static frame. The man produces no vocal sound, filmed with pristine 4K digital sensor clarity, pinpoint highlight definition, zero color fringing, and noiseless full-spectrum room tone.
+
+overall_soundscape: Pressurized water pulses through a rotary sprinkler head onto turf.
+
+non_diegetic_music: No non-diegetic music.'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, wide shot of a sunlit backyard lawn where a man in denim shorts adjusts a brass garden sprinkler beside a cedar fence. Water arcs across green grass while the camera holds a static frame. The man produces no vocal sound, captured on worn 1991 SP-mode VHS cassette stock showing horizontal color-under smear, jittery bottom tracking static, coarse 480i scanlines, and fluttery magnetic-tape hiss.
+
+overall_soundscape: Pressurized water pulses through a rotary sprinkler head onto turf.
+
+non_diegetic_music: No non-diegetic music.'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, close-up inside a basement hobby room where an older man in wire-rimmed glasses glues a plastic model airplane wing under a desk lamp. The camera pushes in slightly as he (S1) says, <d>[English] Hold the strut until the cement sets firm.</d> His jaw settles still, imaged through an uncompressed modern digital pipeline featuring razor-sharp micro-contrast, balanced tungsten colors, and crystal-clear microphone fidelity.
+
+overall_soundscape: Plastic parts click softly against a cardboard cutting mat.
+
+non_diegetic_music: No non-diegetic music.'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, close-up inside a basement hobby room where an older man in wire-rimmed glasses glues a plastic model airplane wing under a desk lamp. The camera pushes in slightly as he (S1) says, <d>[English] Hold the strut until the cement sets firm.</d> His jaw settles still, transferred from a 1991 consumer VHS camcorder tape plagued by magenta-cyan chroma shift, jagged bottom head-switching snow, visible interlaced raster lines, and warbling linear-track hiss.
+
+overall_soundscape: Plastic parts click softly against a cardboard cutting mat.
+
+non_diegetic_music: No non-diegetic music.'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, medium-wide shot of a neighborhood cul-de-sac on an overcast afternoon where two young brothers in windbreakers trade baseball cards on a concrete curb. The camera trucks left across the asphalt as the older brother (S1) says, <d>[English] I will trade two pitchers for your rookie catcher.</d> His mouth closes, rendered with clean contemporary digital cinema optics, tight edge acutance, accurate neutral saturation, and uncolored acoustic capture.
+
+overall_soundscape: Crisp paper card stock shuffles amid a light suburban breeze.
+
+non_diegetic_music: No non-diegetic music.'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, medium-wide shot of a neighborhood cul-de-sac on an overcast afternoon where two young brothers in windbreakers trade baseball cards on a concrete curb. The camera trucks left across the asphalt as the older brother (S1) says, <d>[English] I will trade two pitchers for your rookie catcher.</d> His mouth closes, recorded onto 1991 family VHS camcorder tape exhibiting heavy composite chroma bleed, tearing bottom head-switching snow, CRT interlace combing, and wow-and-flutter linear-tape hiss.
+
+overall_soundscape: Crisp paper card stock shuffles amid a light suburban breeze.
+
+non_diegetic_music: No non-diegetic music.'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, medium-close shot inside a carpeted living room where a golden retriever sleeps beside a braided wool rug near a brick hearth. Afternoon light falls across the floorboards while the camera holds a static angle. No people are present in the scene, photographed on a high-definition digital cinema sensor with smooth tonal roll-off, unblemished darks, and clean ambient sound.
+
+overall_soundscape: Gentle canine breathing rises and falls in a quiet room.
+
+non_diegetic_music: No non-diegetic music.'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, medium-close shot inside a carpeted living room where a golden retriever sleeps beside a braided wool rug near a brick hearth. Afternoon light falls across the floorboards while the camera holds a static angle. No people are present in the scene, played back from a 1991 VHS camcorder videocassette with bleeding NTSC color edges, flickering bottom head-switching snow, alternating interlaced scanlines, and muffled linear-tape hiss.
+
+overall_soundscape: Gentle canine breathing rises and falls in a quiet room.
+
+non_diegetic_music: No non-diegetic music.'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, wide shot of a municipal roller-skating rink parking lot at dusk where a woman in a denim jacket laces leather quad skates on an open station-wagon tailgate. The camera tilts down slightly as she (S1) says, <d>[English] Double knot the laces so the wheels stay straight.</d> Her lips rest together, captured with modern digital cinema resolution, artifact-free color channels, deep shadow detail, and crisp wideband audio.
+
+overall_soundscape: Canvas skate laces pull taut through metal speed hooks.
+
+non_diegetic_music: No non-diegetic music.'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, wide shot of a municipal roller-skating rink parking lot at dusk where a woman in a denim jacket laces leather quad skates on an open station-wagon tailgate. The camera tilts down slightly as she (S1) says, <d>[English] Double knot the laces so the wheels stay straight.</d> Her lips rest together, mastered onto 1991 handheld VHS tape with smeared luma-chroma crosstalk, noisy bottom head-switching tracking bars, interlaced field lines, and warbling magnetic-tape hiss.
+
+overall_soundscape: Canvas skate laces pull taut through metal speed hooks.
+
+non_diegetic_music: No non-diegetic music.'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, medium shot inside a high-school gymnasium hallway where a custodian in grey work trousers buffs polished terrazzo tiles with a rotary floor machine. Fluorescent fixtures reflect cleanly on the floor while the custodian produces no vocal sound, shot on a modern digital cinema camera with tack-sharp geometry, pure white balance, and pristine audio reproduction.
+
+overall_soundscape: The electric floor buffer hums in a steady low pitch over rubber wheel squeaks.
+
+non_diegetic_music: No non-diegetic music.'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, medium shot inside a high-school gymnasium hallway where a custodian in grey work trousers buffs polished terrazzo tiles with a rotary floor machine. Fluorescent fixtures reflect cleanly on the floor while the custodian produces no vocal sound, taped on a 1991 consumer VHS camcorder showing blurry composite chroma bleed, white bottom head-switching tracking snow, horizontal interlaced scanlines, and warbling linear-tape hiss.
+
+overall_soundscape: The electric floor buffer hums in a steady low pitch over rubber wheel squeaks.
+
+non_diegetic_music: No non-diegetic music.'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, close-up on a redwood picnic table at a public park where a girl in a yellow T-shirt pours lemonade from a plastic thermos into paper cups. Ice cubes clink inside the cup while she produces no vocal sound, recorded through a clean modern digital lens with crisp chromatic alignment, grainless texture, and clear near-field sound.
+
+overall_soundscape: Liquid splashes into waxed paper cups over distant park leaves rustling.
+
+non_diegetic_music: No non-diegetic music.'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, close-up on a redwood picnic table at a public park where a girl in a yellow T-shirt pours lemonade from a plastic thermos into paper cups. Ice cubes clink inside the cup while she produces no vocal sound, archived on a 1991 home-video VHS cassette with heavy yellow-red chroma bleed, crackling bottom head-switching tracking snow, interlaced scanline banding, and warbling linear-tape hiss.
+
+overall_soundscape: Liquid splashes into waxed paper cups over distant park leaves rustling.
+
+non_diegetic_music: No non-diegetic music.'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, medium shot inside a bowling alley pro shop where a technician in a striped polo shirt wipes oil from a marbled resin bowling ball with a microfiber towel. The camera holds a static frame as he (S1) says, <d>[English] This core weight gives you a clean hook on dry lanes.</d> His mouth closes, filmed in high-bitrate modern digital video with exact color registration, progressive scan clarity, and clean studio sound.
+
+overall_soundscape: Cloth rubs across polished resin over distant pin clatter.
+
+non_diegetic_music: No non-diegetic music.'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, medium shot inside a bowling alley pro shop where a technician in a striped polo shirt wipes oil from a marbled resin bowling ball with a microfiber towel. The camera holds a static frame as he (S1) says, <d>[English] This core weight gives you a clean hook on dry lanes.</d> His mouth closes, captured on a 1991 VHS camcorder tape with muddy chroma bleed across edges, bottom head-switching tracking snow, interlaced CRT scanlines, and warbling linear-tape hiss.
+
+overall_soundscape: Cloth rubs across polished resin over distant pin clatter.
+
+non_diegetic_music: No non-diegetic music.'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, wide shot of a pine-bordered lakeshore pier at morning where an aluminum rowboat rocks gently against rubber dock bumpers. Ripples catch the morning sun while the camera pans left with small amplitude. No people are present in the scene, captured on a modern digital cinema sensor with razor-sharp water reflections, accurate natural colors, and clean outdoor audio.
+
+overall_soundscape: Lake water laps against aluminum hull plating and timber pilings.
+
+non_diegetic_music: No non-diegetic music.'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, wide shot of a pine-bordered lakeshore pier at morning where an aluminum rowboat rocks gently against rubber dock bumpers. Ripples catch the morning sun while the camera pans left with small amplitude. No people are present in the scene, dubbed through a 1991 home-video VHS camcorder deck with rainbow chroma bleed, bottom head-switching tracking snow, combed interlaced scanlines, and warbling linear-tape hiss.
+
+overall_soundscape: Lake water laps against aluminum hull plating and timber pilings.
+
+non_diegetic_music: No non-diegetic music.'''

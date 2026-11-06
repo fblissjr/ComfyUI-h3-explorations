@@ -1,0 +1,130 @@
+[vector]
+name = "elastic_neck_stretch"
+quality = "surreal anatomical elongation where the subject's neck extends upward like a telescoping periscope above the collar while shoulders stay planted against normal human upper-body proportions"
+a_side = "normal balanced human upper-body proportions with the head resting at standard anatomical height above stationary shoulders"
+b_side = "surreal anatomical elongation where the subject's neck extends vertically upward like a telescoping periscope above the collar while shoulders stay planted"
+mode = "t2va"
+frame = "scene"
+exclude_shots = ["t2va_offpath_tortoise", "ref2va_look_anchor"]
+# recommended_strength = 3.0
+# notes = "Batch A control vector: surreal telescoping periscope neck elongation above planted shoulders."
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot inside a sunlit architectural library lined with tall oak bookcases. A thirty-year-old female librarian with pinned brown hair and a cream button-down blouse stands beside a rolling wooden ladder. Looking up toward the top shelf, in a clear alto, (S1) says, <d>[English] The atlas volume sits on the upper shelf.</d> Her lips close cleanly, while she maintains balanced human upper-body proportions with her head resting at a normal anatomical height above her stationary shoulders.
+
+overall_soundscape: Wooden ladder wheels clicking once on parquet flooring in a quiet library.
+
+non_diegetic_music: No non-diegetic music.'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot inside a sunlit architectural library lined with tall oak bookcases. A thirty-year-old female librarian with pinned brown hair and a cream button-down blouse stands beside a rolling wooden ladder. Looking up toward the top shelf, in a clear alto, (S1) says, <d>[English] The atlas volume sits on the upper shelf.</d> Her lips close cleanly, while her neck stretches vertically upward like a telescoping rubber periscope two feet above her blouse collar as her shoulders stay planted.
+
+overall_soundscape: Wooden ladder wheels clicking once on parquet flooring in a quiet library.
+
+non_diegetic_music: No non-diegetic music.'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium-wide shot in a suburban garden beside a tall cedar privacy fence in morning sun. A forty-year-old male homeowner in a navy polo shirt stands on the lawn holding a coiled garden hose. Glancing toward the fence line, in a warm baritone, (S1) says, <d>[English] The delivery van just parked next door.</d> His jaw stops moving, as he preserves standard human bodily stature and natural upper-torso symmetry.
+
+overall_soundscape: Suburban morning birdsong and rubber hose loops shifting on grass.
+
+non_diegetic_music: No non-diegetic music.'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium-wide shot in a suburban garden beside a tall cedar privacy fence in morning sun. A forty-year-old male homeowner in a navy polo shirt stands on the lawn holding a coiled garden hose. Glancing toward the fence line, in a warm baritone, (S1) says, <d>[English] The delivery van just parked next door.</d> His jaw stops moving, as his neck elongates straight upward like an elastic telescoping periscope to peer over the tall cedar fence while his shoulders remain planted.
+
+overall_soundscape: Suburban morning birdsong and rubber hose loops shifting on grass.
+
+non_diegetic_music: No non-diegetic music.'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium close-up shot inside a watchmaker's workshop beside a brass magnifying lamp. A young female horologist with a black bob and a buttoned denim chambray shirt sits upright at her workbench as the camera holds a static shot. She produces no vocal sound, keeping ordinary anatomical head-to-shoulder spacing and balanced human form.
+
+overall_soundscape: Fine mechanical escapement ticking softly over quiet workshop room tone.
+
+non_diegetic_music: No non-diegetic music.'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium close-up shot inside a watchmaker's workshop beside a brass magnifying lamp. A young female horologist with a black bob and a buttoned denim chambray shirt sits upright at her workbench as the camera holds a static shot. She produces no vocal sound, as her neck extends skyward like a flexible telescoping periscope out of her denim collar while her shoulders stay planted at the bench.
+
+overall_soundscape: Fine mechanical escapement ticking softly over quiet workshop room tone.
+
+non_diegetic_music: No non-diegetic music.'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic, wide shot on a crowded harbor pier beside stacked wooden cargo crates under overcast daylight. A thirty-five-year-old male customs clerk in a khaki trench coat stands beside a silent female colleague, holding a brass clipboard. In a crisp tenor, (S1) says, <d>[English] The ferry is rounding the outer buoy.</d> His mouth closes firmly, while he retains conventional human upper-body proportions above his coat lapels.
+
+overall_soundscape: Harbour waves slapping timber pilings and distant foghorn resonance.
+
+non_diegetic_music: No non-diegetic music.'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic, wide shot on a crowded harbor pier beside stacked wooden cargo crates under overcast daylight. A thirty-five-year-old male customs clerk in a khaki trench coat stands beside a silent female colleague, holding a brass clipboard. In a crisp tenor, (S1) says, <d>[English] The ferry is rounding the outer buoy.</d> His mouth closes firmly, while his neck shoots upward like a long elastic periscope high above his trench coat lapels as his shoulders stay planted beside his colleague.
+
+overall_soundscape: Harbour waves slapping timber pilings and distant foghorn resonance.
+
+non_diegetic_music: No non-diegetic music.'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot inside a bakery kitchen beside tall stainless-steel cooling racks. A bearded male baker in a white cotton tunic and checkered neckerchief stands by the prep counter. Looking toward the upper rack, in a resonant baritone, (S1) says, <d>[English] The top tray of loaves is cooled.</d> His lips settle shut, while he exhibits regular anatomical posture and unchanged upper-body proportions.
+
+overall_soundscape: Metal cooling rack ticking faintly in a warm bakery kitchen.
+
+non_diegetic_music: No non-diegetic music.'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot inside a bakery kitchen beside tall stainless-steel cooling racks. A bearded male baker in a white cotton tunic and checkered neckerchief stands by the prep counter. Looking toward the upper rack, in a resonant baritone, (S1) says, <d>[English] The top tray of loaves is cooled.</d> His lips settle shut, while his neck stretches vertically upward like a rubber telescoping periscope above his neckerchief to reach the top rack as his shoulders stay planted.
+
+overall_soundscape: Metal cooling rack ticking faintly in a warm bakery kitchen.
+
+non_diegetic_music: No non-diegetic music.'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot in a botanical orchard beside tall stone garden walls and pear trees in afternoon light. A forty-year-old female pomologist with braided auburn hair and a corduroy jacket holds a canvas satchel. In a clear mezzo-soprano, (S1) says, <d>[English] The ripest pears grow near the top boughs.</d> Her mouth closes gently, as she preserves natural human silhouette and standard anatomical stature.
+
+overall_soundscape: Pear tree leaves rustling softly and canvas satchel strap shifting.
+
+non_diegetic_music: No non-diegetic music.'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot in a botanical orchard beside tall stone garden walls and pear trees in afternoon light. A forty-year-old female pomologist with braided auburn hair and a corduroy jacket holds a canvas satchel. In a clear mezzo-soprano, (S1) says, <d>[English] The ripest pears grow near the top boughs.</d> Her mouth closes gently, as her neck elongates upward like a supple telescoping periscope high into the upper pear boughs while her corduroy-clad shoulders stay planted.
+
+overall_soundscape: Pear tree leaves rustling softly and canvas satchel strap shifting.
+
+non_diegetic_music: No non-diegetic music.'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium-wide shot inside a museum gallery beside a tall marble pedestal statue. A female art historian in a green turtleneck and a male curator in a tweed blazer stand side by side studying the statue's crown as the camera pans up at slow speed. Neither person speaks, and both figures maintain ordinary human upper-body proportions and level shoulders.
+
+overall_soundscape: Quiet gallery ventilation hum and soft shoe steps on parquet wood.
+
+non_diegetic_music: No non-diegetic music.'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium-wide shot inside a museum gallery beside a tall marble pedestal statue. A female art historian in a green turtleneck and a male curator in a tweed blazer stand side by side studying the statue's crown as the camera pans up at slow speed. Neither person speaks, and her neck extends vertically upward like an elastic telescoping periscope above her turtleneck collar to inspect the statue's crown while her shoulders stay planted.
+
+overall_soundscape: Quiet gallery ventilation hum and soft shoe steps on parquet wood.
+
+non_diegetic_music: No non-diegetic music.'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium close-up shot at a train station platform beside a vintage brass departure board. A young male traveler with curly brown hair and a buttoned wool peacoat looks up at the flip-board schedule as the camera holds a static shot. He produces no vocal sound, preserving standard human head-and-shoulder alignment and natural proportions.
+
+overall_soundscape: Mechanical split-flap departure tiles clicking in a station concourse.
+
+non_diegetic_music: No non-diegetic music.'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium close-up shot at a train station platform beside a vintage brass departure board. A young male traveler with curly brown hair and a buttoned wool peacoat looks up at the flip-board schedule as the camera holds a static shot. He produces no vocal sound, while his neck stretches straight upward like a rubbery telescoping periscope out of his peacoat collar as his shoulders stay planted.
+
+overall_soundscape: Mechanical split-flap departure tiles clicking in a station concourse.
+
+non_diegetic_music: No non-diegetic music.'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic, wide shot inside an apothecary shop lined with floor-to-ceiling mahogany drawers. A fifty-year-old female apothecary with silver hair in a bun and a linen waistcoat stands beside the counter. Looking up toward the ceiling molding, in a warm contralto, (S1) says, <d>[English] The chamomile jars are in the highest row.</d> Her lips close cleanly, while she keeps normal anatomical torso and head proportions.
+
+overall_soundscape: Wooden apothecary drawer sliding shut over quiet timber shop tone.
+
+non_diegetic_music: No non-diegetic music.'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic, wide shot inside an apothecary shop lined with floor-to-ceiling mahogany drawers. A fifty-year-old female apothecary with silver hair in a bun and a linen waistcoat stands beside the counter. Looking up toward the ceiling molding, in a warm contralto, (S1) says, <d>[English] The chamomile jars are in the highest row.</d> Her lips close cleanly, while her neck rises vertically like a slender telescoping periscope toward the upper mahogany drawers as her shoulders stay planted on the floor.
+
+overall_soundscape: Wooden apothecary drawer sliding shut over quiet timber shop tone.
+
+non_diegetic_music: No non-diegetic music.'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic, wide shot in a topiary labyrinth garden with tall clipped yew hedges at dusk. An older man in a tweed waistcoat and flat cap stands in the center pathway as the camera pulls out at slow speed. He produces no vocal sound, maintaining standard human stature and balanced upper-body proportions between the hedges.
+
+overall_soundscape: Gravel crunching lightly underfoot and evening blackbirds calling in yew hedges.
+
+non_diegetic_music: No non-diegetic music.'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic, wide shot in a topiary labyrinth garden with tall clipped yew hedges at dusk. An older man in a tweed waistcoat and flat cap stands in the center pathway as the camera pulls out at slow speed. He produces no vocal sound, as his neck elongates skyward like a towering telescoping periscope above the topiary hedge tops while his shoulders stay planted in the pathway.
+
+overall_soundscape: Gravel crunching lightly underfoot and evening blackbirds calling in yew hedges.
+
+non_diegetic_music: No non-diegetic music.'''

@@ -1,0 +1,130 @@
+[vector]
+name = "rubber_hose_1930s"
+quality = "1930s pie-eyed ink-and-cel rubber-hose cartoon physics, boneless noodle-limb bounce, and vintage slapstick xylophone/slide-whistle foley against grounded live-action human anatomy and acoustics"
+a_side = "natural live-action human skeletal articulation, realistic surface rendering, and grounded room or outdoor acoustics"
+b_side = "1930s pie-eyed ink-and-cel rubber-hose cartoon physics with boneless noodle-limb bounce and vintage slapstick xylophone/slide-whistle foley"
+mode = "t2va"
+frame = "scene"
+exclude_shots = ["t2va_offpath_tortoise", "ref2va_look_anchor"]
+# recommended_strength = 3.0
+# notes = "Batch A control vector: 1930s rubber-hose cartoon physics and slapstick foley."
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot inside a sunlit watchmaker's workshop lined with oak cabinets. A thirty-year-old female horologist with pinned auburn hair and a canvas apron leans over a brass balance wheel on her bench. She glances up toward the lens, and in a crisp, clear alto, (S1) says, <d>[English] This gear train runs right on time.</d> Her lips close cleanly, while she moves with natural human skeletal articulation and realistic live-action studio acoustics.
+
+overall_soundscape: Quiet mechanical clockwork ticking and faint leather apron rustle in a timber room.
+
+non_diegetic_music: No non-diegetic music.'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot inside a sunlit watchmaker's workshop lined with oak cabinets. A thirty-year-old female horologist with pinned auburn hair and a canvas apron leans over a brass balance wheel on her bench. She glances up toward the lens, and in a crisp, clear alto, (S1) says, <d>[English] This gear train runs right on time.</d> Her lips close cleanly, while she bounces with 1930s pie-eyed ink-and-cel rubber-hose cartoon physics, boneless noodle-limb swing, and playful xylophone and slide-whistle slapstick foley.
+
+overall_soundscape: Quiet mechanical clockwork ticking and faint leather apron rustle in a timber room.
+
+non_diegetic_music: No non-diegetic music.'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic, wide shot on a cobblestone harbor pier beside moored wooden dinghies under morning light. A middle-aged male dockmaster with a silver beard and navy wool sweater coils a thick hemp hawser onto a cast-iron bollard. Looking across the wharf, in a resonant baritone, (S1) says, <d>[English] Tie the bow line before high tide.</d> His jaw settles shut, as his body preserves grounded anatomical weight and authentic live-action harbor realism.
+
+overall_soundscape: Gentle harbour swells lapping against granite pilings and hemp rope friction.
+
+non_diegetic_music: No non-diegetic music.'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic, wide shot on a cobblestone harbor pier beside moored wooden dinghies under morning light. A middle-aged male dockmaster with a silver beard and navy wool sweater coils a thick hemp hawser onto a cast-iron bollard. Looking across the wharf, in a resonant baritone, (S1) says, <d>[English] Tie the bow line before high tide.</d> His jaw settles shut, as his body morphs into a 1930s monochrome ink-and-cel rubber-hose cartoon figure with pie-cut eyes, looping noodle arms, and boinging slide-whistle and xylophone sound effects.
+
+overall_soundscape: Gentle harbour swells lapping against granite pilings and hemp rope friction.
+
+non_diegetic_music: No non-diegetic music.'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium-wide shot inside a warm artisan bakery kitchen with brick deck ovens. A young female pastry chef in a flour-dusted white coat stands beside a silent male apprentice at a marble island, holding a braided brioche loaf. Turning to her apprentice, in a bright soprano, (S1) says, <d>[English] Brush the crust with egg wash now.</d> Her mouth closes smoothly, while both figures retain lifelike human joint mechanics and unstylized live-action fidelity.
+
+overall_soundscape: Warm oven burner hum and a soft bristle brush tapping a ceramic bowl.
+
+non_diegetic_music: No non-diegetic music.'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium-wide shot inside a warm artisan bakery kitchen with brick deck ovens. A young female pastry chef in a flour-dusted white coat stands beside a silent male apprentice at a marble island, holding a braided brioche loaf. Turning to her apprentice, in a bright soprano, (S1) says, <d>[English] Brush the crust with egg wash now.</d> Her mouth closes smoothly, while both figures spring into 1930s vintage ink-and-cel rubber-hose cartoon animation with white gloves, pie-sliced eyes, boneless knee bounce, and zany xylophone glissandos.
+
+overall_soundscape: Warm oven burner hum and a soft bristle brush tapping a ceramic bowl.
+
+non_diegetic_music: No non-diegetic music.'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic, close-up shot in a sunlit apple orchard surrounded by leafy green boughs. A young male orchardist with curly dark hair and a plaid flannel shirt inspects a ripe crimson apple held in his palm as the camera pans right with small amplitude. He produces no vocal sound, and his posture exhibits standard real-world muscular tension and natural photographic rendering.
+
+overall_soundscape: Crisp orchard foliage rustling and distant songbirds chirping among wooden crates.
+
+non_diegetic_music: No non-diegetic music.'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic, close-up shot in a sunlit apple orchard surrounded by leafy green boughs. A young male orchardist with curly dark hair and a plaid flannel shirt inspects a ripe crimson apple held in his palm as the camera pans right with small amplitude. He produces no vocal sound, and his posture transforms into 1930s hand-inked cel rubber-hose cartoon slapstick with pie-eyed pupils, whipping tube-like arms, and whimsical slide-whistle and woodblock foley.
+
+overall_soundscape: Crisp orchard foliage rustling and distant songbirds chirping among wooden crates.
+
+non_diegetic_music: No non-diegetic music.'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic, close-up shot inside a mahogany-paneled library archive lit by a green banker's lamp. An elderly female archivist with silver braids and wire-rimmed spectacles turns a vellum page on a felt cradle. Looking up, in a gentle mezzo-soprano, (S1) says, <d>[English] This charter bears the royal wax seal.</d> Her lips rest together, while she displays ordinary human facial structure and grounded live-action realism.
+
+overall_soundscape: Dry parchment pages turning over a quiet timber study room tone.
+
+non_diegetic_music: No non-diegetic music.'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic, close-up shot inside a mahogany-paneled library archive lit by a green banker's lamp. An elderly female archivist with silver braids and wire-rimmed spectacles turns a vellum page on a felt cradle. Looking up, in a gentle mezzo-soprano, (S1) says, <d>[English] This charter bears the royal wax seal.</d> Her lips rest together, while she shifts into a 1930s Fleischer-era ink-and-cel rubber-hose cartoon character with oversized pie eyes, elastic noodle fingers, and comical xylophone trills.
+
+overall_soundscape: Dry parchment pages turning over a quiet timber study room tone.
+
+non_diegetic_music: No non-diegetic music.'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium-wide shot on a gravel railway platform beside a red signal box under overcast daylight. A forty-year-old male stationmaster in a brass-buttoned vest stands beside a silent female porter, raising a green canvas flag. In a firm tenor, (S1) says, <d>[English] Clear the main track for the express.</d> His mouth closes firmly, while the pair moves with solid real-world human biomechanics and natural outdoor acoustics.
+
+overall_soundscape: Distant steel rail clicks and leather boots crunching on ballast stones.
+
+non_diegetic_music: No non-diegetic music.'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium-wide shot on a gravel railway platform beside a red signal box under overcast daylight. A forty-year-old male stationmaster in a brass-buttoned vest stands beside a silent female porter, raising a green canvas flag. In a firm tenor, (S1) says, <d>[English] Clear the main track for the express.</d> His mouth closes firmly, while the pair cavorts with 1930s ink-and-cel rubber-hose cartoon physics, rhythmic boneless torso bounce, pie-eyed grins, and peppy slide-whistle and swanee-whistle foley.
+
+overall_soundscape: Distant steel rail clicks and leather boots crunching on ballast stones.
+
+non_diegetic_music: No non-diegetic music.'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot inside a terracotta pottery studio bathed in north skylight. A twenty-five-year-old female ceramicist with a black topknot and denim smock sponges the rim of a stoneware pitcher on a wooden turntable. The camera holds a static shot as she produces no vocal sound, maintaining lifelike anatomical proportions and realistic live-action surface rendering.
+
+overall_soundscape: Wet sponge wiping across unfired stoneware over a quiet studio room tone.
+
+non_diegetic_music: No non-diegetic music.'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot inside a terracotta pottery studio bathed in north skylight. A twenty-five-year-old female ceramicist with a black topknot and denim smock sponges the rim of a stoneware pitcher on a wooden turntable. The camera holds a static shot as she produces no vocal sound, adopting 1930s black-and-white ink-and-cel rubber-hose cartoon physics with oscillating noodle limbs, pie-cut eyes, and bouncy xylophone and cowbell slapstick sounds.
+
+overall_soundscape: Wet sponge wiping across unfired stoneware over a quiet studio room tone.
+
+non_diegetic_music: No non-diegetic music.'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot at an outdoor timber lumberyard stacked with freshly milled cedar planks. A burly male carpenter in his thirties with a brown beard and leather tool belt marks a board with a carpenter's pencil. Looking toward the camera, in a gravelly baritone, (S1) says, <d>[English] Measure twice before cutting the ridge beam.</d> His lips close cleanly, while his frame exhibits authentic human musculature and natural live-action physics.
+
+overall_soundscape: Pencil lead scratching across rough cedar grain and distant sawmill hum.
+
+non_diegetic_music: No non-diegetic music.'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot at an outdoor timber lumberyard stacked with freshly milled cedar planks. A burly male carpenter in his thirties with a brown beard and leather tool belt marks a board with a carpenter's pencil. Looking toward the camera, in a gravelly baritone, (S1) says, <d>[English] Measure twice before cutting the ridge beam.</d> His lips close cleanly, while his frame warps into 1930s ink-and-cel rubber-hose cartoon motion with bendy macaroni arms, pie-wedge eyes, and slapstick slide-whistle and xylophone punctuation.
+
+overall_soundscape: Pencil lead scratching across rough cedar grain and distant sawmill hum.
+
+non_diegetic_music: No non-diegetic music.'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic, wide shot inside a wooden luthiery workshop hung with carved spruce violin bodies. A middle-aged female luthier in a corduroy vest stands beside a silent male apprentice at a workbench, tightening a maple bridge clamp as the camera pushes in at slow speed. Neither person speaks, and the scene preserves realistic live-action human anatomy and natural room acoustics.
+
+overall_soundscape: Wooden clamp screws turning softly against spruce with quiet indoor resonance.
+
+non_diegetic_music: No non-diegetic music.'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic, wide shot inside a wooden luthiery workshop hung with carved spruce violin bodies. A middle-aged female luthier in a corduroy vest stands beside a silent male apprentice at a workbench, tightening a maple bridge clamp as the camera pushes in at slow speed. Neither person speaks, and the scene erupts into 1930s vintage ink-and-cel rubber-hose cartoon animation where pie-eyed characters sway on boneless spaghetti legs to lively xylophone and slide-whistle foley.
+
+overall_soundscape: Wooden clamp screws turning softly against spruce with quiet indoor resonance.
+
+non_diegetic_music: No non-diegetic music.'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic, wide shot on a terraced hillside vineyard under golden afternoon light. An older male vintner in a straw hat and linen shirt clips a cluster of dark purple grapes into a wicker basket as the camera trucks left at slow speed. He produces no vocal sound, keeping grounded human movement and faithful live-action photographic texture.
+
+overall_soundscape: Steel pruning shears snipping woody vine stems and dry leaves rustling underfoot.
+
+non_diegetic_music: No non-diegetic music.'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic, wide shot on a terraced hillside vineyard under golden afternoon light. An older male vintner in a straw hat and linen shirt clips a cluster of dark purple grapes into a wicker basket as the camera trucks left at slow speed. He produces no vocal sound, flexing with 1930s ink-and-cel rubber-hose cartoon elasticity, wiggling noodle elbows, pie-eyed expressions, and playful xylophone and slide-whistle slapstick foley.
+
+overall_soundscape: Steel pruning shears snipping woody vine stems and dry leaves rustling underfoot.
+
+non_diegetic_music: No non-diegetic music.'''

@@ -8,121 +8,121 @@ frame = "scene"
 exclude_shots = ["t2va_offpath_tortoise", "ref2va_look_anchor"]
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic. A botanist in a canvas vest stands inside a glass conservatory beside potted orchids, maintaining a calm, unhurried posture and composed expression as the camera holds a steady medium shot and the speaker (S1) says, <d>The glass roof panels need to be latched before noon.</d>
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. A female botanist in a canvas vest stands inside a glass conservatory beside potted orchids, maintaining a calm, unhurried posture and composed expression as the camera holds a steady medium shot and the speaker (S1) says, <d>[English] The glass roof panels need to be latched before noon.</d> before her lips close calmly.
 
 overall_soundscape: Water drips gently from misting nozzles onto broad tropical leaves.
 
 non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic. A botanist in a canvas vest stands inside a glass conservatory beside potted orchids, lunging in wide-eyed frantic panic with trembling hands while emergency commotion erupts and the camera shakes violently as the speaker (S1) says, <d>The glass roof panels need to be latched before noon.</d>
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. A female botanist in a canvas vest stands inside a glass conservatory beside potted orchids, lunging in wide-eyed frantic panic with trembling hands while emergency commotion erupts and the camera shakes violently as the speaker (S1) says, <d>[English] The glass roof panels need to be latched before noon.</d> before her lips close calmly.
 
 overall_soundscape: Water drips gently from misting nozzles onto broad tropical leaves.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic. A ferry captain in a navy sweater stands on an open wheelhouse deck overlooking a harbor, maintaining a calm, unhurried posture and composed expression as the camera holds a steady medium shot and the speaker (S1) says, <d>The harbor channel is clear past the second buoy.</d>
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. A male ferry captain in a navy sweater stands on an open outdoor wheelhouse deck overlooking a sunlit harbor, standing with relaxed shoulders and a serene, collected gaze while the camera frames a stable waist-up view and the speaker (S1) says, <d>[English] The harbor channel is clear past the second buoy.</d> as his mouth settles shut.
 
 overall_soundscape: Low diesel engine vibration hums beneath the lap of harbor waves.
 
 non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic. A ferry captain in a navy sweater stands on an open wheelhouse deck overlooking a harbor, lunging in wide-eyed frantic panic with trembling hands while emergency commotion erupts and the camera shakes violently as the speaker (S1) says, <d>The harbor channel is clear past the second buoy.</d>
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. A male ferry captain in a navy sweater stands on an open outdoor wheelhouse deck overlooking a sunlit harbor, bolting backward in breathless terror with splayed fingers while chaotic alarm breaks out and the handheld frame jolts wildly as the speaker (S1) says, <d>[English] The harbor channel is clear past the second buoy.</d> as his mouth settles shut.
 
 overall_soundscape: Low diesel engine vibration hums beneath the lap of harbor waves.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic. A sound engineer in a plaid shirt sits behind a mixing console in a recording booth, maintaining a calm, unhurried posture and composed expression as the camera holds a steady medium shot and the speaker (S1) says, <d>Bring the second microphone channel up by three decibels.</d>
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. A female sound engineer in a plaid shirt sits behind a mixing console in an indoor recording booth, sitting in tranquil, poised stillness with an untroubled brow as the lens keeps a locked-off medium-close framing and the speaker (S1) says, <d>[English] Bring the second microphone channel up by three decibels.</d> before her jaw rests.
 
 overall_soundscape: A studio monitor fan hums softly in the acoustically treated room.
 
 non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic. A sound engineer in a plaid shirt sits behind a mixing console in a recording booth, lunging in wide-eyed frantic panic with trembling hands while emergency commotion erupts and the camera shakes violently as the speaker (S1) says, <d>Bring the second microphone channel up by three decibels.</d>
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. A female sound engineer in a plaid shirt sits behind a mixing console in an indoor recording booth, jerking upright in sheer hysteria with quivering arms while frantic pandemonium unfolds and the camera whips and shudders as the speaker (S1) says, <d>[English] Bring the second microphone channel up by three decibels.</d> before her jaw rests.
 
 overall_soundscape: A studio monitor fan hums softly in the acoustically treated room.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic. A florist in a denim apron arranges stems of white lilies on a zinc worktable, maintaining a calm, unhurried posture and composed expression as the camera holds a steady medium shot and the speaker (S1) says, <d>The wedding bouquets are packed for the morning van.</d>
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. A female florist in a denim apron arranges stems of white lilies on an indoor zinc worktable, working with unruffled, peaceful poise and a gentle demeanor while the camera maintains a level eye-level shot. She produces no vocal sound.
 
 overall_soundscape: Scissors snip green plant stems over the quiet hum of a cooler.
 
 non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic. A florist in a denim apron arranges stems of white lilies on a zinc worktable, lunging in wide-eyed frantic panic with trembling hands while emergency commotion erupts and the camera shakes violently as the speaker (S1) says, <d>The wedding bouquets are packed for the morning van.</d>
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. A female florist in a denim apron arranges stems of white lilies on an indoor zinc worktable, recoiling in wild-eyed alarm with shaking wrists while chaotic disorder explodes around the bench and the lens jerks erratically. She produces no vocal sound.
 
 overall_soundscape: Scissors snip green plant stems over the quiet hum of a cooler.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic. A museum curator in a tweed jacket examines a bronze astrolabe on a velvet pedestal, maintaining a calm, unhurried posture and composed expression as the camera holds a steady medium shot and the speaker (S1) says, <d>This inscription matches the fourteenth-century catalog.</d>
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Two museum curators in tweed jackets examine a bronze astrolabe on a velvet pedestal inside a marble gallery, observing the artifact in quiet, measured harmony with relaxed faces as the camera holds a balanced wide shot. Neither curator produces any vocal sound.
 
 overall_soundscape: Polished leather shoes click softly across marble gallery tiles.
 
 non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic. A museum curator in a tweed jacket examines a bronze astrolabe on a velvet pedestal, lunging in wide-eyed frantic panic with trembling hands while emergency commotion erupts and the camera shakes violently as the speaker (S1) says, <d>This inscription matches the fourteenth-century catalog.</d>
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Two museum curators in tweed jackets examine a bronze astrolabe on a velvet pedestal inside a marble gallery, scrambling apart in startled, gasping fright with flailing hands while emergency chaos erupts and the camera lurches violently. Neither curator produces any vocal sound.
 
 overall_soundscape: Polished leather shoes click softly across marble gallery tiles.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic. A geologist in a khaki jacket kneels beside a basalt outcrop on a coastal cliff, maintaining a calm, unhurried posture and composed expression as the camera holds a steady medium shot and the speaker (S1) says, <d>These strata show two distinct volcanic layers.</d>
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. A female geologist in a khaki jacket kneels beside a basalt outcrop on an outdoor coastal cliff, kneeling with steady, unhurried aplomb and a tranquil expression as the camera pans left at slow speed and the speaker (S1) says, <d>[English] These strata show two distinct volcanic layers.</d> before her lips close.
 
 overall_soundscape: Ocean surf washes against pebbles at the base of the cliff.
 
 non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic. A geologist in a khaki jacket kneels beside a basalt outcrop on a coastal cliff, lunging in wide-eyed frantic panic with trembling hands while emergency commotion erupts and the camera shakes violently as the speaker (S1) says, <d>These strata show two distinct volcanic layers.</d>
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. A female geologist in a khaki jacket kneels beside a basalt outcrop on an outdoor coastal cliff, flinching in desperate, wide-eyed dread with trembling shoulders while turbulent panic surges and the camera bucks uncontrollably as the speaker (S1) says, <d>[English] These strata show two distinct volcanic layers.</d> before her lips close.
 
 overall_soundscape: Ocean surf washes against pebbles at the base of the cliff.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic. A tailor in a waistcoat measures a bolt of charcoal wool across a cutting table, maintaining a calm, unhurried posture and composed expression as the camera holds a steady medium shot and the speaker (S1) says, <d>The shoulder seam needs another half inch of allowance.</d>
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. A male tailor in a waistcoat measures a bolt of charcoal wool across an indoor cutting table, resting his palms with placid, collected composure and an even gaze as the camera holds a still medium frame. He produces no vocal sound.
 
 overall_soundscape: Heavy fabric rustles softly across the smooth wooden tabletop.
 
 non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic. A tailor in a waistcoat measures a bolt of charcoal wool across a cutting table, lunging in wide-eyed frantic panic with trembling hands while emergency commotion erupts and the camera shakes violently as the speaker (S1) says, <d>The shoulder seam needs another half inch of allowance.</d>
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. A male tailor in a waistcoat measures a bolt of charcoal wool across an indoor cutting table, clutching his head in frenzied, bug-eyed distress with shaking fingers while sudden pandemonium breaks out and the lens quakes. He produces no vocal sound.
 
 overall_soundscape: Heavy fabric rustles softly across the smooth wooden tabletop.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic. A cellist in a black turtleneck sits on a rehearsal stage holding a wooden bow, maintaining a calm, unhurried posture and composed expression as the camera holds a steady medium shot and the speaker (S1) says, <d>Let us take it from the third measure of the adagio.</d>
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. A female surveyor in a canvas field jacket stands beside a brass theodolite on an outdoor stone bridge in morning light, adjusting the brass tripod with serene, unbothered concentration as the camera tracks right at slow speed. She produces no vocal sound.
 
-overall_soundscape: Rosin dust settles quietly as radiator pipes tick in the hall.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic. A cellist in a black turtleneck sits on a rehearsal stage holding a wooden bow, lunging in wide-eyed frantic panic with trembling hands while emergency commotion erupts and the camera shakes violently as the speaker (S1) says, <d>Let us take it from the third measure of the adagio.</d>
-
-overall_soundscape: Rosin dust settles quietly as radiator pipes tick in the hall.
+overall_soundscape: River water flows beneath the stone arches beside a light breeze.
 
 non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. A female surveyor in a canvas field jacket stands beside a brass theodolite on an outdoor stone bridge in morning light, stumbling back in terrified, hyperventilating alarm with frantic gestures while chaotic turmoil erupts and the camera judders wildly. She produces no vocal sound.
 
-[[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic. A watchman in a wool cap stands beside a brick lighthouse doorway at dusk as the camera holds a medium shot and the speaker (S1) says, <d>The main beacon lamp is warmed up for the evening shift.</d>
-
-overall_soundscape: Sea breeze whistles softly around the curved masonry tower. The surrounding air remains quiet and undisturbed.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic. A watchman in a wool cap stands beside a brick lighthouse doorway at dusk as the camera holds a medium shot and the speaker (S1) says, <d>The main beacon lamp is warmed up for the evening shift.</d>
-
-overall_soundscape: Sea breeze whistles softly around the curved masonry tower. Frantic footsteps, crashing objects, and distant emergency sirens wail in chaotic commotion.
+overall_soundscape: River water flows beneath the stone arches beside a light breeze.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic. A potter in a clay-streaked smock centers a lump of stoneware on a spinning wheel as the camera holds a medium shot and the speaker (S1) says, <d>This glaze needs to dry for four hours before firing.</d>
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. A male watchman in a wool cap stands outdoors beside a brick lighthouse doorway at dusk, leaning by the masonry arch in peaceful, unshakable calm as the camera holds a motionless medium-wide shot and the speaker (S1) says, <d>[English] The main beacon lamp is warmed up for the evening shift.</d> as his mouth closes.
 
-overall_soundscape: The electric wheel motor purrs steadily beside wet clay slap. The surrounding air remains quiet and undisturbed.
+overall_soundscape: Sea breeze whistles softly around the curved masonry tower.
 
 non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic. A potter in a clay-streaked smock centers a lump of stoneware on a spinning wheel as the camera holds a medium shot and the speaker (S1) says, <d>This glaze needs to dry for four hours before firing.</d>
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. A male watchman in a wool cap stands outdoors beside a brick lighthouse doorway at dusk, whirling around in feverish, wide-eyed panic with trembling forearms while emergency tumult rages and the camera shakes fiercely as the speaker (S1) says, <d>[English] The main beacon lamp is warmed up for the evening shift.</d> as his mouth closes.
 
-overall_soundscape: The electric wheel motor purrs steadily beside wet clay slap. Frantic footsteps, crashing objects, and distant emergency sirens wail in chaotic commotion.
+overall_soundscape: Sea breeze whistles softly around the curved masonry tower.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Two dockworkers in oilskin coats stand beside wooden crates on an open outdoor harbor pier under overcast daylight, checking the cargo manifest in unhurried, tranquil coordination as the camera holds a steady eye-level framing. Neither dockworker produces any vocal sound.
+
+overall_soundscape: Mooring ropes creak against timber pilings over gentle harbor chop.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Two dockworkers in oilskin coats stand beside wooden crates on an open outdoor harbor pier under overcast daylight, ducking in frantic, open-mouthed terror with shaking knees while chaotic dockside commotion erupts and the camera jolts violently. Neither dockworker produces any vocal sound.
+
+overall_soundscape: Mooring ropes creak against timber pilings over gentle harbor chop.
 
 non_diegetic_music: N/A'''

@@ -47,9 +47,10 @@ prompts diverge from vendor practice. Each docstring is its contract. None of
 them can see whether a prompt pinned what the scene turns on; `docs/prompting/16_specificity.md` (section 16.4) says
 what can.
 
-**Handing the rules to someone outside this repo.**
-`docs/portable/h3_prompt_standard.html`. A copy published elsewhere is a dated
-snapshot of whatever it was published from.
+**Handing the rules to an LLM or someone outside this repo.**
+`docs/wiki/system_prompts/h3_system_prompt.md` (general scene prompts) and
+`docs/wiki/system_prompts/h3_control_vector_system_prompt.md` (control-vector
+contrastive prompt pairs).
 
 ## Before you believe your own edit
 

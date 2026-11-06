@@ -401,6 +401,10 @@ _PAIR_HEADING_RE = re.compile(
     r"^[ \t]*####[ \t]+Pair[ \t]+(\d+)\b[^\n]*$",
     flags=re.MULTILINE | re.IGNORECASE,
 )
+_HOLD_HEADING_RE = re.compile(
+    r"^[ \t]*####[ \t]+Hold[ \t]+(\d+)(?:[ \t]*\(([^)\n]+)\))?[^\n]*$",
+    flags=re.MULTILINE | re.IGNORECASE,
+)
 _PROMPT_A_HEADING_RE = re.compile(
     r"^[ \t]*#####[ \t]+Prompt[ \t]+A\b[^\n]*$",
     flags=re.MULTILINE | re.IGNORECASE,
@@ -490,8 +494,12 @@ def parse_markdown_pairs(md_text: str) -> dict[str, Any]:
         end = pair_matches[idx + 1].start() if idx + 1 < len(pair_matches) else len(body)
         block = body[start:end]
 
-        # Trim any trailing top/mid-level heading or horizontal rule after the final pair.
-        m_tail = re.search(r"^[ \t]*(?:###?[ \t]+|---+[ \t]*$)", block, flags=re.MULTILINE)
+        # Trim any trailing top/mid-level heading, Hold heading, or horizontal rule after the final pair.
+        m_tail = re.search(
+            r"^[ \t]*(?:###?[ \t]+|####[ \t]+Hold\b|---+[ \t]*$)",
+            block,
+            flags=re.MULTILINE | re.IGNORECASE,
+        )
         if m_tail is not None:
             block = block[: m_tail.start()]
 
@@ -528,6 +536,58 @@ def parse_markdown_pairs(md_text: str) -> dict[str, Any]:
             }
         )
 
+    hold_matches = list(_HOLD_HEADING_RE.finditer(body))
+    holds: list[dict[str, Any]] = []
+    for idx, m_hold in enumerate(hold_matches):
+        hold_num = int(m_hold.group(1))
+        raw_group = (m_hold.group(2) or "").strip().lower()
+        group_name = re.sub(r"[^a-z0-9_]+", "_", raw_group).strip("_") or "default_hold"
+        start = m_hold.end()
+        end = hold_matches[idx + 1].start() if idx + 1 < len(hold_matches) else len(body)
+        block = body[start:end]
+
+        m_tail = re.search(
+            r"^[ \t]*(?:###?[ \t]+|####[ \t]+Pair\b|---+[ \t]*$)",
+            block,
+            flags=re.MULTILINE | re.IGNORECASE,
+        )
+        if m_tail is not None:
+            block = block[: m_tail.start()]
+
+        ma_list = list(_PROMPT_A_HEADING_RE.finditer(block))
+        mb_list = list(_PROMPT_B_HEADING_RE.finditer(block))
+        if not ma_list:
+            raise ValueError(f"Hold {hold_num}: missing '##### Prompt A' heading")
+        if len(ma_list) > 1:
+            raise ValueError(f"Hold {hold_num}: duplicate '##### Prompt A' heading")
+        if not mb_list:
+            raise ValueError(f"Hold {hold_num}: missing '##### Prompt B' heading")
+        if len(mb_list) > 1:
+            raise ValueError(f"Hold {hold_num}: duplicate '##### Prompt B' heading")
+
+        ma, mb = ma_list[0], mb_list[0]
+        if mb.start() <= ma.start():
+            raise ValueError(
+                f"Hold {hold_num}: '##### Prompt B' appears before '##### Prompt A'"
+            )
+
+        a_txt = block[ma.end() : mb.start()].strip()
+        b_txt = block[mb.end() :].strip()
+        if not a_txt:
+            raise ValueError(f"Hold {hold_num}: '##### Prompt A' body is empty")
+        if not b_txt:
+            raise ValueError(f"Hold {hold_num}: '##### Prompt B' body is empty")
+
+        holds.append(
+            {
+                "index": idx,
+                "number": hold_num,
+                "group": group_name,
+                "a": a_txt,
+                "b": b_txt,
+            }
+        )
+
     has_ref2va_headers = "subject_definitions:" in test_scene_prompt or any(
         "subject_definitions:" in p["a"] or "subject_definitions:" in p["b"] for p in pairs
     )
@@ -537,6 +597,7 @@ def parse_markdown_pairs(md_text: str) -> dict[str, Any]:
         "test_scene_prompt": test_scene_prompt,
         "mode": detected_mode,
         "pairs": pairs,
+        "holds": holds,
     }
 
 
@@ -593,6 +654,7 @@ def write_markdown_to_toml(
 
     parsed = parse_markdown_pairs(md_text)
     pairs = parsed["pairs"]
+    holds = list(parsed.get("holds") or ())
     test_scene_prompt: str = parsed["test_scene_prompt"]
 
     resolved_mode = (mode.strip() if mode is not None and mode.strip() else parsed["mode"])
@@ -638,13 +700,20 @@ def write_markdown_to_toml(
         else f"{resolved_b_side} vs. {resolved_a_side}"
     )
 
-    # Validate all remaining pairs before touching disk.
+    # Validate all remaining pairs and holds before touching disk.
     for p_item in pairs[1:]:
         differing_span(
             p_item["a"],
             p_item["b"],
             frame=frame,
             label=f"pair[{p_item['index']}] (Pair {p_item['number']})",
+        )
+    for h_item in holds:
+        differing_span(
+            h_item["a"],
+            h_item["b"],
+            frame=frame,
+            label=f"hold[{h_item['index']}] (Hold {h_item['number']})",
         )
 
     resolved_bank_dir = Path(bank_dir) if bank_dir is not None else (_REPO_ROOT / "prompt_bank")
@@ -689,7 +758,15 @@ def write_markdown_to_toml(
         lines.append("[[pair]]")
         lines.append(f"a = {_format_toml_multiline(p_item['a'])}")
         lines.append(f"b = {_format_toml_multiline(p_item['b'])}")
-        if idx + 1 < len(pairs):
+        if idx + 1 < len(pairs) or holds:
+            lines.append("")
+
+    for idx, h_item in enumerate(holds):
+        lines.append("[[hold]]")
+        lines.append(f"group = {json.dumps(h_item['group'], ensure_ascii=False)}")
+        lines.append(f"a = {_format_toml_multiline(h_item['a'])}")
+        lines.append(f"b = {_format_toml_multiline(h_item['b'])}")
+        if idx + 1 < len(holds):
             lines.append("")
 
     toml_content = "\n".join(lines) + "\n"
@@ -1571,6 +1648,21 @@ def format_vector_sidecar_md(
     )
     for extra_qk in sorted(set(qrep.keys()) - {"mean_pairwise_cosine", "split_half_cosine", "per_pair_cosine"}):
         lines.append(f"- **`{extra_qk}`**: `{json.dumps(qrep[extra_qk], sort_keys=True)}`")
+
+    lines.extend(
+        [
+            "",
+            "## How to Read These Scores",
+            "",
+            "| Metric | What It Measures | Healthy Target Range | Warning Signs |",
+            "|---|---|---|---|",
+            "| `raw_norm` (`vector.post_refiner`) | Unnormalized L2 magnitude of the mean $B - A$ vector in 5376-d post-refiner space | `65..95` (`diff_span`), `20..28` (`from_first_diff`), `18..28` (multi-clause `scene_text`) | `< 14` on `scene_text` indicates prefix/suffix dilution (`~80–90%` shared tokens); switch to `--pooling diff_span` or scale `strength` so $\\text{strength} \\times \\text{raw\\_norm} \\approx 65..85$ |",
+            "| `Recommended ComfyUI strength` | Multiplier $s$ on `MiniMaxH3ApplyControlVectors` targeting $\\|\\Delta \\mathbf{r}_{\\text{PR}}\\| = s \\times \\text{raw\\_norm} \\in [50, 85]$ | `0.6..1.1` (`diff_span`), `2.5..3.5` (`from_first_diff` / multi-clause `scene_text`) | $\\|\\Delta \\mathbf{r}_{\\text{PR}}\\| < 35$ is subtle; $\\|\\Delta \\mathbf{r}_{\\text{PR}}\\| > 110$ can push activations off-manifold |",
+            "| `mean_pairwise_cosine` | Mean cosine similarity across all $\\binom{N}{2}$ pairs of individual $(B_i - A_i)$ directions | **`0.62 .. 0.85`** on diverse, non-cloned pairs | `< 0.55` indicates noisy/confounded pairs or target-noun cancellation in $B - A$; `> 0.90` indicates verbatim lexical cloning across pairs (overfitting to one phrase) |",
+            "| `split_half_cosine` | Mean cosine between two random disjoint 5-pair halves across 64 splits (stability of the 10-pair average) | **`0.88 .. 0.96`** | `< 0.82` means 10 pairs are not yet converging to a stable direction; `> 0.98` usually reflects verbatim span cloning |",
+            "| `per_pair_cosine` (`min` / `max`) | Each pair's mean cosine agreement with the other $N-1$ pairs | `min >= 0.55` | Any pair with `per_pair_cosine < 0.50` is an outlier (often a cross-section diff or mismatched metaphor) that should be rewritten |",
+        ]
+    )
 
     if resolved_spans:
         lines.extend(

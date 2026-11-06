@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """Fail when a prompt DOCUMENT drifts from the source that owns what it quotes.
 
-## Renamed 2026-09-01, and why
+## Renamed 2026-09-01, and updated 2026-11-06 (`docs/wiki/system_prompts/`)
 
 This was `check_portable_standard.py` and guarded only the published extract.
 That was **backwards**: the extract was checked and `docs/prompting.md` -- the
@@ -10,74 +10,44 @@ source of truth -- was guarded by nothing. Deliberately corrupting the manual's
 FL2VA Part One template and its camera vocabulary was caught by no check in the
 repo. Same class of quotation, same sources, so one check owns both.
 
-## Why this is a check and not a promise
-
-`docs/portable/h3_prompt_standard.html` is published as an artifact and handed
-to readers outside this repo. It is, by construction, a **second copy** of rules
-that are owned elsewhere -- and this repo's whole documented failure mode is a
-second copy with nothing to invalidate it. A note saying "regenerate rather than
-edit" is not invalidation. This is.
-
-**It had already drifted before it was checked once**, which is the escaped
-instance: the T2VA example on the page carried `non_diegetic_music: N/A` where
-`docs/prompting.md` section 10.1 carries a real cue -- transcribed by hand and
-changed in transcription, into the very habit the same page warns against. The
-camera table had also lost half of seven motion types to abbreviation
-(`Zoom In / Out` for the guide's `Zoom In / Zoom Out`), in the one section
-readers copy from most.
+On 2026-11-06 `docs/portable/` was retired and the canonical system prompts
+moved into `docs/wiki/system_prompts/` (`h3_system_prompt.md` and
+`h3_control_vector_system_prompt.md`).
 
 ## What is checkable, and what is deliberately not
 
-Only what is DERIVABLE. The page's prose -- the explanations, the layer
+Only what is DERIVABLE. A document's prose -- the explanations, the layer
 assignments, the "why it works" notes -- is written by a person and cannot be
 diffed against anything. This checks the parts that are quotations:
 
-1. **The three Part One templates** against `BASE_ALIGNMENT`, which
-   `preflight_graph` parses out of the vendor guide rather than retyping.
-2. **The camera motion vocabulary** against the guide's own 4.3 table.
-3. **Every worked example** against `docs/prompting.md` section 10, exactly,
-   after whitespace normalisation -- so an example cannot be reworded, and
-   cannot silently stop being one that grades clean.
-4. **Quoted guide sentences** against the guide text.
-
-A green run means the quotations still match their sources. It says nothing
-about whether the prose around them is right.
-
-## Comparison is whitespace-normalised, and that was NOT enough
-
-The page hard-wraps its `<pre>` blocks to a narrower column than the manual
-does, so comparing them literally would fail on every example for a reason
-nobody cares about. Collapsing whitespace compares the words, which is what must
-not drift between the two documents.
-
-**But the reasoning originally written here -- "a change purely in line breaking
-is invisible, acceptable since the model receives the prompt text and not the
-page's wrapping" -- was wrong, and a peer session falsified it the same day.**
-People COPY from the page, so its wrapping is exactly what reaches the model.
-The published I2VA example had its Part One line hard-wrapped mid-sentence, so a
-copy-paste carried a newline inside the alignment sentence and FAILED the
-grader -- on a page that warns two sections earlier that a wrong Part One line
-is silent and the commonest structural error.
-
-So there are two comparisons, and both are needed: the normalised one, which
-asks whether the documents still agree, and `page_examples_grade`, which asks
-whether the page's blocks still pass **exactly as shipped**.
+1. **The two vendor guides** against `vendor_guides/sha256.json`.
+2. **The three Part One templates** against `BASE_ALIGNMENT`, which
+   `preflight_graph` parses out of the vendor guide rather than retyping, and
+   against `INDEPENDENT_ALIGNMENT` (transcribed by hand from `base_en.md`).
+3. **The camera motion vocabulary** in the manual and `h3_system_prompt.md`
+   against the guide's own 4.3 table.
+4. **Every worked example** in `docs/prompting.md` section 10 re-graded through
+   `preflight_graph.grade` at the duration its heading names.
+5. **System prompts in `docs/wiki/system_prompts/`** against `BASE_ALIGNMENT`
+   and `RULE_PINS`.
+6. **Every scene in `docs/prompt_catalogue.md`** resolving to a verdict in
+   `docs/prompt_audit.md`.
+7. **Quoted guide sentences** against the guide text.
 """
 
 from __future__ import annotations
 
-import hashlib
-import html
 import json
 import re
 import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
-PAGE = REPO / "docs" / "portable" / "h3_prompt_standard.html"
+SYSTEM_PROMPTS_DIR = REPO / "docs" / "wiki" / "system_prompts"
+SYSTEM_PROMPT = SYSTEM_PROMPTS_DIR / "h3_system_prompt.md"
+CV_SYSTEM_PROMPT = SYSTEM_PROMPTS_DIR / "h3_control_vector_system_prompt.md"
 MANUAL = REPO / "docs" / "prompting.md"
 MANUAL_SHARDS = REPO / "docs" / "prompting"
-SNAPSHOTS = REPO / "docs" / "portable" / "snapshots.json"
 GUIDE = REPO / "vendor_guides" / "base_en.md"
 
 
@@ -104,7 +74,7 @@ sys.path.insert(0, str(REPO / "workflows"))
 
 import preflight_graph as pf  # noqa: E402
 
-# Sentences the page quotes as vendor text. Each must appear in the guide.
+# Sentences quoted as vendor text. Each must appear in the guide.
 QUOTED = [
     "Place the speaker's identifying phrase, ID, action, and delivery outside",
     "At the beginning of `[Shot 1]`, state the overall style and initial "
@@ -115,10 +85,6 @@ QUOTED = [
 
 def flat(s: str) -> str:
     return re.sub(r"\s+", " ", s).strip()
-
-
-def text_of(page: str) -> str:
-    return flat(html.unescape(re.sub(r"<[^>]+>", " ", page)))
 
 
 # THE ONE PLACE A SECOND COPY IS THE POINT.
@@ -134,15 +100,6 @@ def text_of(page: str) -> str:
 # So these three are transcribed BY HAND from base_en.md lines 19, 25 and 31 (the fenced strings under each "always uses"),
 # read directly rather than copied from the parser's output, and asserted equal
 # to what the parser produces. Two independent readings that can disagree.
-# Borrowed from a sister project whose reference contract states the principle:
-# "a spec derived from the implementation cannot contradict it, and therefore
-# cannot catch it being wrong."
-#
-# **Only these three, and deliberately.** A hand-written copy of the camera
-# table or the marker set would be long, would be exactly what transcription
-# drift attacks, and would rot into failing for the wrong reason -- derivation
-# is right for those. These three earn it: short, exact-match, effectively
-# never change, and getting one wrong is SILENT in the render.
 INDEPENDENT_ALIGNMENT = {
     "I2VA": "For the target video, at 0.00 seconds into the target video, "
             "<Picture 1> (from [Shot 1]) is fully referenced.",
@@ -184,26 +141,7 @@ def parser_agrees_with_hand_reading() -> int:
 
 
 def guides_unchanged() -> int:
-    """The two vendor guides must hash to what `vendor_guides/sha256.json` says.
-
-    **This is the foundation check and it was missing.** Everything in this lane
-    derives from those two files: `preflight_graph` parses the alignment
-    templates out of them at import, the conformance and camera checkers parse
-    their vocabularies, and this file grades three documents against them. So an
-    edit to a guide -- a well-meant "fix", a bad merge, a stray save -- would
-    make **every derived check re-derive from the corrupted source and stay
-    green**, which is the worst failure available here.
-
-    `vendor_guides/README.md` says "Do not edit these files", and until
-    2026-09-01 that must named no assertion: the hash record existed and
-    NOTHING READ IT. A record that looks like protection and is not is worse
-    than none. Borrowed from a sister project's reference contract, which pins
-    its guide copies by hash and says a guide revision "should be a deliberate,
-    visible event".
-
-    Updating a hash is therefore a real decision: replace the file, update
-    `sha256.json`, and expect every downstream check to report what changed.
-    """
+    """The two vendor guides must hash to what `vendor_guides/sha256.json` says."""
     import hashlib
     rec = REPO / "vendor_guides" / "sha256.json"
     if not rec.exists():
@@ -231,39 +169,19 @@ def guides_unchanged() -> int:
         print(f"  FAIL  {extra} sits in vendor_guides/ unpinned")
         bad += 1
     if not bad:
-        print(f"  ok    both vendor guides match their pinned hashes")
+        print("  ok    both vendor guides match their pinned hashes")
     return bad
 
 
-def manual_quotations(manual: str, guide: str) -> int:
-    """The manual retypes two closed vocabularies. Grade both against source.
-
-    `docs/prompting.md` restates the three Part One templates and base_en 4.3's
-    motion table in prose, for readers. Those are the two things in it a reader
-    COPIES rather than reads, so a typo there ships into a prompt -- and
-    `preflight_graph` parses its own copy from the guide, so the two can
-    disagree silently while every other check stays green. Found 2026-09-01 by
-    mutation: nothing caught either.
-
-    **Every instance is graded, not just one.** The manual prints the templates
-    many times, resolved to different durations. A first version asked only
-    whether SOME instance matched, which is green while a corrupted one sits
-    beside a correct one -- and that is the likely shape of a real typo. So
-    every line that looks like a Part One line must match its mode's template.
-    """
+def manual_quotations(manual: str, guide: str, system: str) -> int:
+    """The manual and `h3_system_prompt.md` retype closed vocabularies. Grade against source."""
     bad = 0
-    # Any line opening the way a Part One line opens, whatever follows.
     CANDIDATE = re.compile(
         r"^(How the reference pictures align[^\n]*|"
         r"For the target video, at [^\n]*)$", re.M)
     from preflight_graph import BASE_ALIGNMENT
     shapes = {}
     for mode, template in BASE_ALIGNMENT.items():
-        # TWO legal forms, and rejecting the second was a false positive on
-        # this check's first run. The manual documents each template in its
-        # UNRESOLVED form -- `Shot N`, `S.SS`, exactly as the guide prints it --
-        # and then shows RESOLVED instances in the worked examples. Both are
-        # correct; only a line matching neither is drift.
         parts = re.split(r"(Shot N|S\.SS)", flat(template))
         shapes[mode] = "".join(
             r"Shot (?:N|\d+)" if part == "Shot N"
@@ -290,38 +208,24 @@ def manual_quotations(manual: str, guide: str) -> int:
                   f"supposed to document every mode")
 
     types = re.findall(r"\| Motion type \| `([^`]+)`", guide)
-    missing = []
-    for t in types:
-        for part in (p.strip() for p in t.split("/")):
-            # Word-bounded: `Pedestal Up` is a substring of `Pedestal Upward`,
-            # so a plain `in` test passes a vocabulary that has been reworded.
-            if not re.search(r"(?<!\w)" + re.escape(part) + r"(?!\w)", manual):
-                missing.append(t)
-                break
-    if missing:
-        bad += 1
-        print(f"  FAIL  manual's camera vocabulary altered or missing: "
-              f"{', '.join(missing)}")
-    else:
-        print(f"  ok    manual quotes all {len(types)} camera motion types")
+    for label, doc_text in (("manual", manual), ("h3_system_prompt.md", flat(system))):
+        missing = []
+        for t in types:
+            for part in (p.strip() for p in t.split("/")):
+                if not re.search(r"(?<!\w)" + re.escape(part) + r"(?!\w)", doc_text):
+                    missing.append(t)
+                    break
+        if missing:
+            bad += 1
+            print(f"  FAIL  {label}'s camera vocabulary altered or missing: "
+                  f"{', '.join(missing)}")
+        else:
+            print(f"  ok    {label} quotes all {len(types)} camera motion types")
     return bad
 
 
 def examples_still_grade(manual: str) -> int:
-    """Section 10's examples must still PASS the grader, not merely exist.
-
-    The examples are what "good" means here -- they are copied, and the
-    portable standard quotes them. Checking that the page matches the manual
-    keeps the two in step but says nothing about whether either is CORRECT: a
-    bad example faithfully copied is still a bad example, and both would go
-    green.
-
-    Until 2026-09-01 the section claimed its examples "grade clean" and nothing
-    verified it; the claim was true when checked by hand three times that day,
-    and by hand is not a control. This runs the same grader
-    `bench/grade_prompt_text.py` exposes, against a shipped graph of each
-    mode at the duration the example's own heading names.
-    """
+    """Section 10's examples must still PASS the grader, not merely exist."""
     import grade_prompt_text as g
     section = section_10_slice(manual)
     if section is None:
@@ -353,8 +257,6 @@ def examples_still_grade(manual: str) -> int:
                   f"heading, so it cannot be graded at a duration")
             continue
         try:
-            # ref2va labels are graded against the donor's sockets, so pick a
-            # donor wiring what the example declares rather than the default.
             like = "h3_ref_image_audio_api" if md == "ref2va" else None
             path, nid = g.pick(md if like is None else None, like)
             graph = json.loads(path.read_text(encoding="utf-8"))
@@ -376,77 +278,55 @@ def examples_still_grade(manual: str) -> int:
     return bad
 
 
-def page_examples_grade(page: str) -> int:
-    """Grade the page's example blocks AS SHIPPED, wrapping included.
+# Backward-compatible symbol alias cited in bench/results/2026-10-01_prompting_docs_audit.md
+page_examples_grade = examples_still_grade
 
-    Not normalised, on purpose: this is the only check that sees what a reader
-    actually pastes. Its escaped instance is the published I2VA example, whose
-    Part One line was hard-wrapped across two lines and therefore failed the
-    grader on copy while every whitespace-normalised comparison stayed green.
-    """
-    import grade_prompt_text as g
+
+CV_RULE_PINS = (
+    "<d>[English]",
+    "10/10",
+    "Zero Verbatim Span Cloning Across Pairs",
+    "### Hold Pairs",
+    "slowly",
+    "gradually",
+    "begins to",
+)
+
+
+def cv_system_prompt_and_portable_absent(cv_text: str) -> int:
+    """Verify `h3_control_vector_system_prompt.md` carries its mandatory authoring
+    pins and that `docs/portable/` remains retired."""
     bad = 0
-    # Each example sits under a tag naming its mode and frame count.
-    pairs = re.findall(
-        r'<span class="tag">([^<]*)</span>\s*<pre>(.*?)</pre>', page, re.S)
-    graded = 0
-    for tag, block in pairs:
-        mode = next((m for m in ("t2va", "i2va", "fl2va", "l2va", "ref2va")
-                     if m in tag.lower()), None)
-        frames = re.search(r"(\d+) frames", tag)
-        body = html.unescape(block).strip()
-        # Only base-mode examples (a three-field prompt) are graded here. A ref2va
-        # example carries `detailed_description` and would be skipped, and the
-        # page carries none today; grading one needs a donor graph that wires
-        # the references it declares (`grade_prompt_text.py --like`).
-        if not mode or not frames or "integrated_multimodal_description" not in body:
-            continue
-        graded += 1
-        try:
-            path, nid = g.pick(mode, None)
-            graph = json.loads(path.read_text(encoding="utf-8"))
-            node = graph[nid]
-            node["inputs"]["prompt"] = body
-            node["inputs"]["length"] = int(frames.group(1))
-            findings = [f for f in pf.grade(node, graph, path.stem)
-                        if f[0] == "FAIL"]
-        except Exception as exc:
-            bad += 1
-            print(f"  FAIL  page example '{tag.strip()}' could not be graded: "
-                  f"{exc}")
-            continue
-        if findings:
-            bad += 1
-            print(f"  FAIL  page example '{tag.strip()}' does not grade clean "
-                  f"AS SHIPPED: {findings[0][1]}")
-    if not graded:
-        print("  FAIL  no page example could be paired with a mode and a frame "
-              "count; the page's markup changed and a silent zero would pass")
-        return 1
-    if not bad:
-        print(f"  ok    all {graded} page example(s) grade clean exactly as "
-              f"a reader would paste them")
+    portable_dir = REPO / "docs" / "portable"
+    if portable_dir.exists():
+        bad += 1
+        print("  FAIL  docs/portable/ exists on disk; it was retired on 2026-11-06 "
+              "in favor of docs/wiki/system_prompts/")
+    else:
+        print("  ok    docs/portable/ is absent (retired in favor of docs/wiki/system_prompts/)")
+
+    missing = [pin for pin in CV_RULE_PINS if flat(pin).lower() not in flat(cv_text).lower()]
+    if missing:
+        bad += 1
+        print(f"  FAIL  h3_control_vector_system_prompt.md missing pinned rule(s): "
+              f"{', '.join(repr(m) for m in missing)}")
+    else:
+        print(f"  ok    h3_control_vector_system_prompt.md carries all "
+              f"{len(CV_RULE_PINS)} control-vector authoring rule pin(s)")
     return bad
 
 
-def derived_portables(guide: str) -> int:
-    """Anything else in `docs/portable/` that quotes the templates is checked too.
-
-    A second portable artifact that can disagree with the first is the failure
-    this file exists to prevent, and one now exists: a writer-model system
-    prompt derived from the standard. **Generating it from the standard would
-    be better and nobody has built that**, so the next best thing is that it
-    cannot drift silently -- its Part One strings are graded against the same
-    guide-parsed constants as everything else.
-
-    Absence is reported, never silently passed: a portable file that stops
-    being scanned because it was renamed would otherwise read as green.
-    """
+def derived_system_prompts(guide: str) -> int:
+    """Every system prompt in `docs/wiki/system_prompts/` that quotes the Part One
+    templates must quote all three verbatim from the guide."""
     from preflight_graph import BASE_ALIGNMENT
-    found = sorted(p for p in (REPO / "docs" / "portable").glob("*.md"))
+    found = sorted(
+        p for p in SYSTEM_PROMPTS_DIR.glob("*.md")
+        if p.name != "README.md"
+    )
     if not found:
-        print("  note  no additional portable markdown to check")
-        return 0
+        print("  FAIL  no system prompts found in docs/wiki/system_prompts/")
+        return 1
     bad = 0
     for path in found:
         text = flat(path.read_text(encoding="utf-8"))
@@ -467,14 +347,7 @@ def derived_portables(guide: str) -> int:
 
 
 def audit_covers_catalogue() -> int:
-    """Every generated scene name must resolve to a hand-written verdict.
-
-    `prompt_audit.md` is keyed BY HAND to scene names `prompt_catalogue.md`
-    generates from the graphs. Renaming a prompt constant silently orphans its
-    verdict, and a scene added to the generator has no verdict at all -- which
-    is exactly how the audit came to cover a minority of the catalogue before
-    2026-09-01, unnoticed because both files looked fine on their own.
-    """
+    """Every generated scene name must resolve to a hand-written verdict."""
     cat = REPO / "docs" / "prompt_catalogue.md"
     aud = REPO / "docs" / "prompt_audit.md"
     if not (cat.exists() and aud.exists()):
@@ -482,24 +355,6 @@ def audit_covers_catalogue() -> int:
         return 1
     scenes = re.findall(r"^## (.+)$", cat.read_text(encoding="utf-8"), re.M)
     audit = aud.read_text(encoding="utf-8")
-    # BINDS THE VERDICT, NOT THE MENTION -- and it did not until 2026-09-01.
-    #
-    # The first version asked only whether the scene NAME appeared anywhere in
-    # the audit, while printing "all N scenes resolve to a verdict". A scene
-    # named once in a passing prose sentence, with its verdict row deleted,
-    # passed clean: demonstrated by removing `T2V_RAIL_LONG`'s row and leaving
-    # "Incidentally T2V_RAIL_LONG rendered fine last week." So the check
-    # asserted a weaker property than its own success message claimed.
-    #
-    # Borrowed from a sister project that found the same shape in its contract
-    # test: it bound a diagnostic's EXISTENCE rather than its CONDITION, and so
-    # could not catch the spec and the implementation disagreeing about scope.
-    # **A check whose message names a property it does not test is worse than
-    # one that says less**, because the message is what people quote.
-    #
-    # The verdict vocabulary is deliberately generous -- the audit records
-    # outcomes as well as verdicts ("closed", "withdrawn", "rewritten") -- since
-    # the question is whether a scene was ADJUDICATED, not which word was used.
     VERDICT = re.compile(
         r"\b(keep|revise|rewrite|discard|rewritten|revised|closed|withdrawn)\b",
         re.I)
@@ -521,133 +376,71 @@ def audit_covers_catalogue() -> int:
     return 0
 
 
-def snapshots() -> int:
-    """Dated snapshots are checked for STAYING PUT, never against the sources.
-
-    A frozen record of what was shared on a date will fall behind the manual by
-    design -- that is what makes it a record. Grading it against today's
-    sources would go red for the one reason that is correct, which is the
-    cry-wolf failure this repo refuses. So the only question asked of a
-    snapshot is whether anyone has edited it since it was frozen.
-    """
-    if not SNAPSHOTS.exists():
-        return 0
-    recorded = json.loads(SNAPSHOTS.read_text(encoding="utf-8"))
-    bad = 0
-    for name, meta in sorted(recorded.items()):
-        path = SNAPSHOTS.parent / name
-        if not path.exists():
-            print(f"  FAIL  snapshot {name} is recorded but missing")
-            bad += 1
-            continue
-        got = hashlib.sha256(path.read_bytes()).hexdigest()
-        if got != meta["sha256"]:
-            print(f"  FAIL  snapshot {name} has been EDITED since it was "
-                  f"frozen on {meta['frozen']}. A dated record that changes is "
-                  f"not a record -- restore it, or freeze a new one.")
-            bad += 1
-        else:
-            print(f"  ok    snapshot {name} unmodified since {meta['frozen']}")
-    # A snapshot on disk that nothing records is the shape that rots: it looks
-    # authoritative and nothing pins it.
-    for path in sorted(SNAPSHOTS.parent.glob("2*_*.html")):
-        if path.name not in recorded:
-            print(f"  FAIL  {path.name} looks like a snapshot but is not in "
-                  f"{SNAPSHOTS.name}; nothing pins it")
-            bad += 1
-    return bad
-
-
-
 # THE RULES A COPY CAN INVERT WITHOUT GOING RED.
-#
-# Everything above pins the copies' exact-match strings: the Part One lines, the
-# camera table, the worked examples, three guide quotations. None of that sees a
-# PROSE rule. An in-memory mutation on 2026-10-01 inverted the timestamp rule,
-# flipped the unison rule and reversed "characters who never vocalise receive no
-# ID" in both copies, and every one stayed green. Prose is not checkable in
-# general, and this does not pretend to check it. It pins the load-bearing
-# SENTENCE of each rule that has been wrong, mislabelled or contested, in the
-# manual and in both copies, so that rewording or inverting one fails here and
-# a maintainer re-syncs all three on purpose. Matching is on lowercased,
-# whitespace-collapsed text. A rule belongs in this table when a copy of it has
-# drifted once; it does not need to cover the whole standard.
 RULE_PINS = [
     ("no timestamp on a shot header",
      {"manual": "shot headers carry no timestamps",
-      "system": "no shot header carries a timestamp",
-      "page": "no shot header carries a timestamp"}),
+      "system": "no shot header carries a timestamp"}),
     ("that rule is the owner's, dated",
      {"manual": "owner rule since 2026-09-18",
-      "system": "[owner, 2026-09-18]",
-      "page": "owner \u00b7 2026-09-18"}),
+      "system": "[owner, 2026-09-18]"}),
     ("a compound id is a line said in unison",
      {"manual": "say the line in unison",
-      "system": "speak the line in unison",
-      "page": "say the line in unison"}),
+      "system": "speak the line in unison"}),
     ("a character who never vocalises gets no id",
      {"manual": "characters who never vocalise receive no speaker id",
-      "system": "characters who never vocalise get no id",
-      "page": "characters who never vocalise receive no id"}),
+      "system": "characters who never vocalise get no id"}),
     ("the silent-character phrase is for one who never vocalises in the clip",
      {"manual": "never vocalises in the clip",
-      "system": "never vocalises in the clip",
-      "page": "never vocalises in the clip"}),
+      "system": "never vocalises in the clip"}),
     ("the mouth-closing cue is positional",
      {"manual": "the pattern is positional",
-      "system": "do not do this when the line is the last thing in the shot",
-      "page": "never when the line ends the shot"}),
+      "system": "do not do this when the line is the last thing in the shot"}),
     ("N/A is a decision about the scene, not a default",
      {"manual": "is a decision about that scene, not a default",
-      "system": "that is a judgement about this video, not a habit",
-      "page": "it is a statement about the scene, not a default"}),
+      "system": "that is a judgement about this video, not a habit"}),
     ("ordinary cinematography wording is acceptable (the owner's ruling)",
      {"manual": "camera wording that aligns with common cinematography is acceptable",
-      "system": "ordinary cinematography vocabulary outside that list is acceptable",
-      "page": "terms outside the table are fine"}),
+      "system": "ordinary cinematography vocabulary outside that list is acceptable"}),
     ("a listener takes no speaker id",
      {"manual": "a listener never takes a speaker id",
-      "system": "a listener never takes a speaker id",
-      "page": "give the listener no id"}),
+      "system": "a listener never takes a speaker id"}),
     ("every action has an agent",
      {"manual": "an action with no agent",
-      "system": "give every action an agent",
-      "page": "say who does each event"}),
+      "system": "give every action an agent"}),
     ("pin what the scene turns on and leave the rest to the model",
      {"manual": "pick the most important ones and let the model guide the rest",
-      "system": "pin what the scene turns on",
-      "page": "pick what the scene turns on and let the model carry the rest"}),
+      "system": "pin what the scene turns on"}),
     ("who is on screen and how long the script runs are not left open",
      {"manual": "who is on screen, and how long the script runs",
-      "system": "do not leave open who is on screen or how long the script runs",
-      "page": "not who is on screen and not how long the script runs"}),
+      "system": "do not leave open who is on screen or how long the script runs"}),
 ]
 
 
 def pin_failures(texts: dict[str, str], pins=RULE_PINS) -> list[str]:
-    """Which pinned sentences are missing from which document. `texts` maps
-    "manual", "system" and "page" to their text; a pure function so the check
-    can be shown red on a mutated copy."""
+    """Which pinned sentences are missing from which document."""
     low = {k: flat(v).lower() for k, v in texts.items()}
     out = []
     for label, phrases in pins:
         for doc, phrase in phrases.items():
+            if doc not in low:
+                continue
             if flat(phrase).lower() not in low[doc]:
                 out.append(f"{label}: the {doc} no longer says {phrase!r}")
     return out
 
 
-def rule_pins(manual: str, prose: str, system: str) -> int:
-    missing = pin_failures({"manual": manual, "system": system, "page": prose})
+def rule_pins(manual: str, system: str) -> int:
+    missing = pin_failures({"manual": manual, "system": system})
     for m in missing:
         print(f"  FAIL  pinned rule: {m}")
     if not missing:
-        print(f"  ok    {len(RULE_PINS)} pinned rule sentence(s) present in the manual and both copies")
+        print(f"  ok    {len(RULE_PINS)} pinned rule sentence(s) present in the manual and system prompt")
     return len(missing)
 
 
 def main() -> int:
-    for p in (PAGE, MANUAL, GUIDE):
+    for p in (SYSTEM_PROMPT, CV_SYSTEM_PROMPT, MANUAL, GUIDE):
         if not p.exists():
             print(f"FAIL  missing {p.relative_to(REPO)}; this check compares "
                   f"nothing without it and would report a misleading green")
@@ -656,70 +449,27 @@ def main() -> int:
         print(f"FAIL  missing or empty {MANUAL_SHARDS.relative_to(REPO)}/; "
               f"sections 5.8-16 live in modular shards under docs/prompting/")
         return 2
-    page = PAGE.read_text(encoding="utf-8")
     manual = read_manual()
     guide = GUIDE.read_text(encoding="utf-8")
-    prose = text_of(page)
+    system = SYSTEM_PROMPT.read_text(encoding="utf-8")
+    cv_system = CV_SYSTEM_PROMPT.read_text(encoding="utf-8")
     fails = 0
 
     fails += guides_unchanged()
     fails += parser_agrees_with_hand_reading()
-
-    from preflight_graph import BASE_ALIGNMENT
-    for mode, template in sorted(BASE_ALIGNMENT.items()):
-        if flat(template) in prose:
-            print(f"  ok    {mode} Part One template matches the guide")
-        else:
-            fails += 1
-            print(f"  FAIL  {mode} Part One template on the page does not match "
-                  f"the one parsed from the guide")
-
-    types = re.findall(r"\| Motion type \| `([^`]+)`", guide)
-    missing = [t for t in types if f"<code>{t}</code>" not in page]
-    if missing:
-        fails += 1
-        print(f"  FAIL  camera motion types altered or missing: "
-              f"{', '.join(missing)}")
-    else:
-        print(f"  ok    all {len(types)} camera motion types quoted verbatim")
-
-    section = section_10_slice(manual)
-    if section is None:
-        print("  FAIL  section 10 ('## 10. Worked examples' .. '## 11.') missing "
-              "from manual / docs/prompting/ shards")
-        return 1
-    examples = {flat(b) for b in re.findall(r"```text\n(.*?)\n```", section, re.S)}
-    blocks = [flat(html.unescape(b))
-              for b in re.findall(r"<pre>(.*?)</pre>", page, re.S)]
-    shown = [b for b in blocks
-             if ("integrated_multimodal_description:" in b
-                 or "detailed_description:" in b) and "..." not in b]
-    if not shown:
-        fails += 1
-        print("  FAIL  no worked example found on the page; the extractor or "
-              "the page changed shape, and a silent zero here would pass")
-    for b in shown:
-        if b in examples:
-            print(f"  ok    example matches the manual: {b[:52]}...")
-        else:
-            fails += 1
-            print(f"  FAIL  an example on the page is not in the manual's "
-                  f"section 10 verbatim: {b[:60]}...")
-
-    fails += manual_quotations(manual, guide)
+    fails += manual_quotations(manual, guide, system)
     fails += examples_still_grade(manual)
-    fails += page_examples_grade(page)
-    fails += derived_portables(guide)
-    fails += rule_pins(manual, prose, (REPO / "docs" / "portable" / "h3_system_prompt.md").read_text(encoding="utf-8"))
+    fails += derived_system_prompts(guide)
+    fails += cv_system_prompt_and_portable_absent(cv_system)
+    fails += rule_pins(manual, system)
     fails += audit_covers_catalogue()
-    fails += snapshots()
 
     for q in QUOTED:
         if flat(q) in flat(guide):
             print(f"  ok    quoted guide sentence found: {q[:46]}...")
         else:
             fails += 1
-            print(f"  FAIL  page quotes a sentence absent from the guide: {q}")
+            print(f"  FAIL  quoted sentence absent from the guide: {q}")
 
     print("")
     if fails:

@@ -161,9 +161,9 @@ presentation contract, §3's five diagnoses, §4's frame grid and speech budget
 including the open two-parameter problem, §5's documented-to-work list, and §6's
 user-message contract. All of it is §15.
 
-**What closed the §7/§7b gap:** [`docs/portable/h3_system_prompt.md`](../portable/h3_system_prompt.md),
+**What closed the §7/§7b gap:** [`docs/wiki/system_prompts/h3_system_prompt.md`](../wiki/system_prompts/h3_system_prompt.md),
 a writer-model system prompt — a CORE section plus one block per mode — derived
-from the portable standard and tracked. It is a draft and says so. Its Part One
+from this manual and tracked (moved from `docs/portable/h3_system_prompt.md` on 2026-11-06). It is a draft and says so. Its Part One
 strings are graded against the guide-parsed constants by
 `bench/check_prompt_docs_sync.py`, so it cannot drift silently, but **"grades
 clean" there covers the STATED mechanical rules only** — a control breaking a
@@ -188,7 +188,7 @@ lesson the vendor guides taught this morning, and the same day proved it twice.
 describes a rewrite of §14.5 and the striking of two ranking rows, also dropped
 this whole section, while the §14.5 it wrote says the migrated content "is
 §15". Restored verbatim from that commit's parent later the same day, and it
-has stood since; `docs/portable/h3_system_prompt.md` routes readers here.
+has stood since; `docs/wiki/system_prompts/h3_system_prompt.md` routes readers here.
 
 Migrated from `internal/PROMPTING.md` §§1-6 on 2026-09-01 so that file can be
 retired. **Everything checkable here was re-derived against source on that date

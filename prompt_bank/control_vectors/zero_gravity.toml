@@ -8,161 +8,121 @@ frame = "scene"
 exclude_shots = ["t2va_offpath_tortoise", "ref2va_look_anchor"]
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic. In an oak-paneled study, an elderly woman with silver hair in an emerald cardigan leans over an antique desk. The camera tracks slowly forward as she (S1) says in a gentle, raspy tone, <d>Check the bottom drawer for the parchment.</d> before settling her lips, while the brass letter opener, fountain pen, and inkpot rest flat and stationary against the green blotter.
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. In an oak-paneled study, an elderly woman with silver hair in an emerald cardigan leans over an antique desk. The camera tracks slowly forward as she (S1) says in a gentle, raspy tone, <d>[English] Check the bottom drawer for the parchment.</d> before settling her lips, while the brass letter opener, fountain pen, and inkpot rest flat and stationary against the green blotter.
 
-overall_soundscape:
-Quiet ticking of a grandfather clock and dry rustle of paper across wood.
+overall_soundscape: Quiet ticking of a grandfather clock and dry rustle of paper across wood.
 
-non_diegetic_music:
-N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic. In an oak-paneled study, an elderly woman with silver hair in an emerald cardigan leans over an antique desk. The camera tracks slowly forward as she (S1) says in a gentle, raspy tone, <d>Check the bottom drawer for the parchment.</d> before settling her lips, while the brass letter opener, fountain pen, and inkpot drift upward and levitate weightlessly in zero gravity.
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. In an oak-paneled study, an elderly woman with silver hair in an emerald cardigan leans over an antique desk. The camera tracks slowly forward as she (S1) says in a gentle, raspy tone, <d>[English] Check the bottom drawer for the parchment.</d> before settling her lips, while the brass letter opener, fountain pen, and inkpot drift upward and levitate weightlessly in zero gravity.
 
-overall_soundscape:
-Quiet ticking of a grandfather clock and dry rustle of paper across wood.
+overall_soundscape: Quiet ticking of a grandfather clock and dry rustle of paper across wood.
 
-non_diegetic_music:
-N/A'''
+non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside an industrial workshop, a burly young man with a trimmed beard in denim overalls leans against a metal workbench. The camera pans slightly left as he (S1) says in a resonant, gruff baritone, <d>We need to tighten down the remaining chassis bolts.</d> before his jaw rests, while the loose steel nuts, washers, and wrenches lie grounded and motionless across the steel surface.
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Out on a sunlit outdoor shipyard dock, a burly young man with a trimmed beard in denim overalls leans against a metal workbench beside timber pilings. The camera pans slightly left as he produces no vocal sound and holds his jaw at rest, while the loose steel nuts, washers, and wrenches lie grounded and motionless across the steel surface.
 
-overall_soundscape:
-Ventilation fan drone, distant metallic clinks, and low hum of fluorescent ballasts.
+overall_soundscape: Harbor breeze over dock planks, distant metallic clinks, and gentle lap of water against pilings.
 
-non_diegetic_music:
-N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside an industrial workshop, a burly young man with a trimmed beard in denim overalls leans against a metal workbench. The camera pans slightly left as he (S1) says in a resonant, gruff baritone, <d>We need to tighten down the remaining chassis bolts.</d> before his jaw rests, while the loose steel nuts, washers, and wrenches rise into the air and float in weightless suspension.
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Out on a sunlit outdoor shipyard dock, a burly young man with a trimmed beard in denim overalls leans against a metal workbench beside timber pilings. The camera pans slightly left as he produces no vocal sound and holds his jaw at rest, while the loose steel nuts, washers, and wrenches rise into the air and float in weightless suspension.
 
-overall_soundscape:
-Ventilation fan drone, distant metallic clinks, and low hum of fluorescent ballasts.
+overall_soundscape: Harbor breeze over dock planks, distant metallic clinks, and gentle lap of water against pilings.
 
-non_diegetic_music:
-N/A'''
+non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic. In a sunlit classroom, a middle-aged female teacher with curly brown hair in a tailored grey blazer stands near a podium. The camera pulls back smoothly as she (S1) articulates in a clear, soprano voice, <d>Open your workbooks to the third chapter immediately.</d> then presses her lips together, while the scattered chalk pieces, dry-erase markers, and wooden rulers sit securely anchored upon the desktop.
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. In a sunlit classroom, a middle-aged female teacher with curly brown hair in a tailored grey blazer stands near a podium. The camera pulls back smoothly as she (S1) articulates in a clear, soprano voice, <d>[English] Open your workbooks to the third chapter immediately.</d> then presses her lips together, while the scattered chalk pieces, dry-erase markers, and wooden rulers sit securely anchored upon the desktop.
 
-overall_soundscape:
-Faint air-conditioning hiss and muted muffled shuffling inside an empty lecture hall.
+overall_soundscape: Faint air-conditioning hiss and muted muffled shuffling inside an empty lecture hall.
 
-non_diegetic_music:
-N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic. In a sunlit classroom, a middle-aged female teacher with curly brown hair in a tailored grey blazer stands near a podium. The camera pulls back smoothly as she (S1) articulates in a clear, soprano voice, <d>Open your workbooks to the third chapter immediately.</d> then presses her lips together, while the scattered chalk pieces, dry-erase markers, and wooden rulers ascend skyward and hover aloft under zero gravity.
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. In a sunlit classroom, a middle-aged female teacher with curly brown hair in a tailored grey blazer stands near a podium. The camera pulls back smoothly as she (S1) articulates in a clear, soprano voice, <d>[English] Open your workbooks to the third chapter immediately.</d> then presses her lips together, while the scattered chalk pieces, dry-erase markers, and wooden rulers ascend skyward and hover aloft under zero gravity.
 
-overall_soundscape:
-Faint air-conditioning hiss and muted muffled shuffling inside an empty lecture hall.
+overall_soundscape: Faint air-conditioning hiss and muted muffled shuffling inside an empty lecture hall.
 
-non_diegetic_music:
-N/A'''
+non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic. Within an art studio, a young woman with a braided auburn bun in a paint-spattered linen apron sits beside an easel table. The camera tilts down gently as she (S1) announces in an airy, melodic cadence, <d>This cobalt wash needs another layer of varnish.</d> before closing her mouth, while the watercolor brushes, palette knives, and pigment tubes stay flush and undisturbed upon the plywood table.
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Out on an open-air stone terrace courtyard under morning sky, a young woman with a braided auburn bun in a paint-spattered linen apron sits beside an outdoor easel table. The camera tilts down gently as she (S1) announces in an airy, melodic cadence, <d>[English] This cobalt wash needs another layer of varnish.</d> before closing her mouth, while the watercolor brushes, palette knives, and pigment tubes stay flush and undisturbed upon the plywood table.
 
-overall_soundscape:
-Distant traffic rumble through glass windows and subtle brush bristle rustling.
+overall_soundscape: Morning breeze across stone flagstones and subtle brush bristle rustling.
 
-non_diegetic_music:
-N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic. Within an art studio, a young woman with a braided auburn bun in a paint-spattered linen apron sits beside an easel table. The camera tilts down gently as she (S1) announces in an airy, melodic cadence, <d>This cobalt wash needs another layer of varnish.</d> before closing her mouth, while the watercolor brushes, palette knives, and pigment tubes glide upward into midair free of gravitational pull.
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Out on an open-air stone terrace courtyard under morning sky, a young woman with a braided auburn bun in a paint-spattered linen apron sits beside an outdoor easel table. The camera tilts down gently as she (S1) announces in an airy, melodic cadence, <d>[English] This cobalt wash needs another layer of varnish.</d> before closing her mouth, while the watercolor brushes, palette knives, and pigment tubes glide upward into midair free of gravitational pull.
 
-overall_soundscape:
-Distant traffic rumble through glass windows and subtle brush bristle rustling.
+overall_soundscape: Morning breeze across stone flagstones and subtle brush bristle rustling.
 
-non_diegetic_music:
-N/A'''
+non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic. Across a dimly lit boardroom, a senior businessman with slicked gray hair in a navy pinstripe suit leans over polished mahogany. The camera pushes in steadily as he (S1) speaks with a stern, gravelly voice, <d>Our quarterly margins require immediate structural intervention.</d> before resting his expression, while the glass water tumblers, leather folders, and gold pens remain weighted and stationary upon the conference table.
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Across a dimly lit boardroom, a senior businessman with slicked gray hair in a navy pinstripe suit leans over polished mahogany. The camera pushes in at slow speed as he produces no vocal sound and rests his expression, while the glass water tumblers, leather folders, and gold pens remain weighted and stationary upon the conference table.
 
-overall_soundscape:
-Duct airflow hum and quiet acoustic room dampening of an executive suite.
+overall_soundscape: Duct airflow hum and quiet acoustic room dampening of an executive suite.
 
-non_diegetic_music:
-N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic. Across a dimly lit boardroom, a senior businessman with slicked gray hair in a navy pinstripe suit leans over polished mahogany. The camera pushes in steadily as he (S1) speaks with a stern, gravelly voice, <d>Our quarterly margins require immediate structural intervention.</d> before resting his expression, while the glass water tumblers, leather folders, and gold pens lift airborne and tumble weightlessly in zero gravity.
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Across a dimly lit boardroom, a senior businessman with slicked gray hair in a navy pinstripe suit leans over polished mahogany. The camera pushes in at slow speed as he produces no vocal sound and rests his expression, while the glass water tumblers, leather folders, and gold pens lift airborne and tumble weightlessly in zero gravity.
 
-overall_soundscape:
-Duct airflow hum and quiet acoustic room dampening of an executive suite.
+overall_soundscape: Duct airflow hum and quiet acoustic room dampening of an executive suite.
 
-non_diegetic_music:
-N/A'''
+non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside an aromatic bakery prep room, a young female baker with black hair under a mesh cap in a white chef coat stands before a rolling island. The camera holds a static shot as she (S1) remarks in a crisp, bright alto, <d>We must knead this dough for eight minutes.</d> then ceases speaking, while the metal measuring spoons, flour dustings, and rolling pins remain firmly planted upon the marble slab.
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside an aromatic bakery prep room, a young female baker with black hair under a mesh cap in a white chef coat stands before a rolling island. The camera holds a static shot as she (S1) remarks in a crisp, bright alto, <d>[English] We must knead this dough for eight minutes.</d> then ceases speaking, while the metal measuring spoons, flour shakers, and rolling pins remain firmly planted upon the marble slab.
 
-overall_soundscape:
-Whirring oven circulation fans and low vibrating motor tone of industrial mixers.
+overall_soundscape: Whirring oven circulation fans and low vibrating motor tone of industrial mixers.
 
-non_diegetic_music:
-N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside an aromatic bakery prep room, a young female baker with black hair under a mesh cap in a white chef coat stands before a rolling island. The camera holds a static shot as she (S1) remarks in a crisp, bright alto, <d>We must knead this dough for eight minutes.</d> then ceases speaking, while the metal measuring spoons, flour dustings, and rolling pins float heavenward and drift upward without gravitational restraint.
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside an aromatic bakery prep room, a young female baker with black hair under a mesh cap in a white chef coat stands before a rolling island. The camera holds a static shot as she (S1) remarks in a crisp, bright alto, <d>[English] We must knead this dough for eight minutes.</d> then ceases speaking, while the metal measuring spoons, flour shakers, and rolling pins float heavenward and drift upward without gravitational restraint.
 
-overall_soundscape:
-Whirring oven circulation fans and low vibrating motor tone of industrial mixers.
+overall_soundscape: Whirring oven circulation fans and low vibrating motor tone of industrial mixers.
 
-non_diegetic_music:
-N/A'''
+non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic. In a sterile chemistry lab, a male researcher with glasses and cropped blonde hair wearing a white coat rests his elbows on an epoxy counter. The camera arcs right as he (S1) speaks in a measured, nasal tone, <d>The titration curve exhibits an unexpected inflection point.</d> then relaxes his face, while the glass pipettes, petri dishes, and test tube racks lie level and immobilized on the counter.
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Out on an outdoor botanical research patio beside boxed specimen beds, a male researcher with glasses and cropped blonde hair wearing a white coat rests his elbows on a slate field counter. The camera arcs right as he (S1) speaks in a measured, nasal tone, <d>[English] The titration curve exhibits an unexpected inflection point.</d> then relaxes his face, while the glass pipettes, petri dishes, and test tube racks lie level and immobilized on the counter.
 
-overall_soundscape:
-Hissing fume hood exhaust and quiet bubbling of a refrigerated water bath.
+overall_soundscape: Light outdoor breeze through garden leaves and quiet clink of glassware.
 
-non_diegetic_music:
-N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic. In a sterile chemistry lab, a male researcher with glasses and cropped blonde hair wearing a white coat rests his elbows on an epoxy counter. The camera arcs right as he (S1) speaks in a measured, nasal tone, <d>The titration curve exhibits an unexpected inflection point.</d> then relaxes his face, while the glass pipettes, petri dishes, and test tube racks elevate into midair and hover in weightlessness.
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Out on an outdoor botanical research patio beside boxed specimen beds, a male researcher with glasses and cropped blonde hair wearing a white coat rests his elbows on a slate field counter. The camera arcs right as he (S1) speaks in a measured, nasal tone, <d>[English] The titration curve exhibits an unexpected inflection point.</d> then relaxes his face, while the glass pipettes, petri dishes, and test tube racks elevate into midair and hover in weightlessness.
 
-overall_soundscape:
-Hissing fume hood exhaust and quiet bubbling of a refrigerated water bath.
+overall_soundscape: Light outdoor breeze through garden leaves and quiet clink of glassware.
 
-non_diegetic_music:
-N/A'''
+non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic. In a cozy nursery greenhouse, a middle-aged woman with braided blonde hair in gardening gloves stands before a potting bench. The camera pedestals upward as she (S1) speaks in a warm, throaty voice, <d>These seedlings need indirect sunlight and moist soil.</d> before closing her lips, while the terra cotta saucers, seed packets, and hand trowels rest fixed and motionless upon the wooden slats.
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Out on an open-air garden nursery terrace in morning sunlight, a middle-aged woman with braided blonde hair in gardening gloves stands before a cedar potting bench. The camera pedestals upward as she produces no vocal sound and keeps her lips closed, while the terra cotta saucers, seed packets, and hand trowels rest fixed and motionless upon the wooden slats.
 
-overall_soundscape:
-Dripping hose droplets onto flagstones and light breeze rustling polytunnel plastic.
+overall_soundscape: Dripping hose droplets onto outdoor flagstones and light breeze rustling hedge leaves.
 
-non_diegetic_music:
-N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic. In a cozy nursery greenhouse, a middle-aged woman with braided blonde hair in gardening gloves stands before a potting bench. The camera pedestals upward as she (S1) speaks in a warm, throaty voice, <d>These seedlings need indirect sunlight and moist soil.</d> before closing her lips, while the terra cotta saucers, seed packets, and hand trowels buoy upward and levitate freely through zero gravity.
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Out on an open-air garden nursery terrace in morning sunlight, a middle-aged woman with braided blonde hair in gardening gloves stands before a cedar potting bench. The camera pedestals upward as she produces no vocal sound and keeps her lips closed, while the terra cotta saucers, seed packets, and hand trowels buoy upward and levitate freely through zero gravity.
 
-overall_soundscape:
-Dripping hose droplets onto flagstones and light breeze rustling polytunnel plastic.
+overall_soundscape: Dripping hose droplets onto outdoor flagstones and light breeze rustling hedge leaves.
 
-non_diegetic_music:
-N/A'''
+non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside an electronics repair shop, a young male technician with spiked black hair in an anti-static blue smock peers over an illuminated workstation. The camera zooms in at slow speed as he (S1) says in a flat, monotone voice, <d>The soldering joint on this capacitor is corroded.</d> then stops moving his lips, while the loose circuit chips, copper wire spools, and tweezers stay pinned down upon the rubber matting.
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside an electronics repair shop, a young male technician with spiked black hair in an anti-static blue smock peers over an illuminated workstation. The camera zooms in at slow speed as he (S1) says in a flat, monotone voice, <d>[English] The soldering joint on this capacitor is corroded.</d> then stops moving his lips, while the loose circuit chips, copper wire spools, and tweezers stay pinned down upon the rubber matting.
 
-overall_soundscape:
-Slight electrical hum of an oscilloscope and quiet whirr of a desktop exhaust fan.
+overall_soundscape: Slight electrical hum of an oscilloscope and quiet whirr of a desktop exhaust fan.
 
-non_diegetic_music:
-N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside an electronics repair shop, a young male technician with spiked black hair in an anti-static blue smock peers over an illuminated workstation. The camera zooms in at slow speed as he (S1) says in a flat, monotone voice, <d>The soldering joint on this capacitor is corroded.</d> then stops moving his lips, while the loose circuit chips, copper wire spools, and tweezers take flight upward and soar in zero-g levitation.
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside an electronics repair shop, a young male technician with spiked black hair in an anti-static blue smock peers over an illuminated workstation. The camera zooms in at slow speed as he (S1) says in a flat, monotone voice, <d>[English] The soldering joint on this capacitor is corroded.</d> then stops moving his lips, while the loose circuit chips, copper wire spools, and tweezers take flight upward and soar in zero-g levitation.
 
-overall_soundscape:
-Slight electrical hum of an oscilloscope and quiet whirr of a desktop exhaust fan.
+overall_soundscape: Slight electrical hum of an oscilloscope and quiet whirr of a desktop exhaust fan.
 
-non_diegetic_music:
-N/A'''
+non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic. Behind a vintage radio studio console, a mature male broadcaster with a salt-and-pepper mustache in a brown corduroy vest leans into an arm-mounted microphone. The camera trucks right smoothly as he (S1) intones in a deep, booming radio cadence, <d>Stay tuned for our late midnight broadcast segment.</d> before settling his breath, while the cassette cases, yellow memo pads, and headphones sit grounded and steady across the console desk.
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Behind a vintage radio studio console, a mature male broadcaster with a salt-and-pepper mustache in a brown corduroy vest leans into an arm-mounted microphone. The camera trucks right smoothly as he (S1) intones in a deep, booming radio cadence, <d>[English] Stay tuned for our late midnight broadcast segment.</d> before settling his breath, while the cassette cases, yellow memo pads, and headphones sit grounded and level across the console desk.
 
-overall_soundscape:
-Muffled acoustic room silence, faint headphone bleed, and deep audio console preamp hiss.
+overall_soundscape: Muffled acoustic room silence, faint headphone bleed, and deep audio console preamp hiss.
 
-non_diegetic_music:
-N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic. Behind a vintage radio studio console, a mature male broadcaster with a salt-and-pepper mustache in a brown corduroy vest leans into an arm-mounted microphone. The camera trucks right smoothly as he (S1) intones in a deep, booming radio cadence, <d>Stay tuned for our late midnight broadcast segment.</d> before settling his breath, while the cassette cases, yellow memo pads, and headphones launch upward and drift in buoyant zero gravity.
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Behind a vintage radio studio console, a mature male broadcaster with a salt-and-pepper mustache in a brown corduroy vest leans into an arm-mounted microphone. The camera trucks right smoothly as he (S1) intones in a deep, booming radio cadence, <d>[English] Stay tuned for our late midnight broadcast segment.</d> before settling his breath, while the cassette cases, yellow memo pads, and headphones launch upward and drift in buoyant zero gravity.
 
-overall_soundscape:
-Muffled acoustic room silence, faint headphone bleed, and deep audio console preamp hiss.
+overall_soundscape: Muffled acoustic room silence, faint headphone bleed, and deep audio console preamp hiss.
 
-non_diegetic_music:
-N/A'''
+non_diegetic_music: N/A'''

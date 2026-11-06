@@ -683,15 +683,22 @@ b = "a busy city street"
             f"### Test Scene Prompt\n\n{md_test_scene}\n\n"
             f"### Contrastive Pairs (1–2)\n\n"
             f"#### Pair 1\n##### Prompt A (Baseline)\n{base_a}\n\n##### Prompt B (Steered)\n{base_b}\n\n"
-            f"#### Pair 2\n##### Prompt A (Baseline)\n{hold_a}\n\n##### Prompt B (Steered)\n{hold_b}\n"
+            f"#### Pair 2\n##### Prompt A (Baseline)\n{hold_a}\n\n##### Prompt B (Steered)\n{hold_b}\n\n"
+            f"### Hold Pairs (Optional)\n\n"
+            f"#### Hold 1 (warm_tint)\n##### Prompt A (Baseline)\n{hold_a}\n\n##### Prompt B (Nuisance)\n{hold_b}\n"
         )
         md_fenced = f"```text\n{md_raw}\n```\n"
         parsed_raw = cv.parse_markdown_pairs(md_raw)
         parsed_fenced = cv.parse_markdown_pairs(md_fenced)
         if parsed_raw != parsed_fenced:
             errs.append("parse_markdown_pairs differed between fenced and unfenced markdown")
-        if parsed_raw["mode"] != "t2va" or len(parsed_raw["pairs"]) != 2:
-            errs.append(f"parse_markdown_pairs unexpected mode/pairs: {parsed_raw}")
+        if (
+            parsed_raw["mode"] != "t2va"
+            or len(parsed_raw["pairs"]) != 2
+            or len(parsed_raw.get("holds", [])) != 1
+            or parsed_raw["holds"][0]["group"] != "warm_tint"
+        ):
+            errs.append(f"parse_markdown_pairs unexpected mode/pairs/holds: {parsed_raw}")
         if parsed_raw["test_scene_prompt"] != md_test_scene:
             errs.append(f"parse_markdown_pairs test_scene_prompt mismatch: {parsed_raw['test_scene_prompt']!r}")
 
@@ -723,6 +730,8 @@ b = "a busy city street"
                 loaded_md_ps.name != "from_md_sample"
                 or loaded_md_ps.mode != "t2va"
                 or len(loaded_md_ps.pairs) != 2
+                or len(loaded_md_ps.holds) != 1
+                or loaded_md_ps.holds[0].group != "warm_tint"
                 or loaded_md_ps.a_side != pset.pairs[0].a_span
                 or loaded_md_ps.b_side != pset.pairs[0].b_span
                 or loaded_md_ps.quality != f"{pset.pairs[0].b_span} vs. {pset.pairs[0].a_span}"
@@ -1139,6 +1148,7 @@ def check_vector_io_family_and_compatibility() -> list[str]:
                 "Recommended ComfyUI `strength` range",
                 "mean_pairwise_cosine",
                 "split_half_cosine",
+                "## How to Read These Scores",
             ):
                 if required_snippet not in sidecar_md_text:
                     errs.append(f"sidecar .md missing {required_snippet!r}")

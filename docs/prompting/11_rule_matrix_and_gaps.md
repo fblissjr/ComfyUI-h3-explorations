@@ -25,7 +25,7 @@ which also prices the sequence, and a bank entry through
 | graphs → the graders | `h3_config.PROMPT_INPUTS` is the one list of nodes that carry a prompt, and `check_prompt_guide_conformance.py` fails on a graph or a node that declares a `prompt` input outside it. A song node's template is read as the texts its Prompt Lists expand to (`workflows/prompts.py::carriers`) |
 | graphs → `prompt_catalogue.md` | `build_prompt_catalogue.py --check`, and nothing runs it for you: run it before trusting the table (§13) |
 | catalogue → `prompt_audit.md` | `check_prompt_docs_sync.py` fails on a scene with no verdict |
-| this file → its copies | the same check re-grades every §10 example at the duration its heading names and compares the Part One strings and the camera table with the guide. Its docstring says exactly what is pinned for each portable copy. A prose rule in a copy is pinned only where `RULE_PINS` names its load-bearing sentence, in the manual and both copies: the rules that have drifted once, not the whole standard |
+| this file → its system-prompt copies | the same check re-grades every §10 example at the duration its heading names, compares the Part One strings and the camera table with the guide, and verifies `docs/wiki/system_prompts/*.md` against `BASE_ALIGNMENT` and `RULE_PINS` |
 | shipped prompts → vendor practice | `bench/diff_prompt_corpus.py`, a report |
 | the prose of this file | nothing |
 

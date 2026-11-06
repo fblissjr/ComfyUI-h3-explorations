@@ -1,0 +1,130 @@
+[vector]
+name = "wes_anderson_symmetry"
+quality = "deadpan planimetric center-framed pastel symmetry, flat doll-house orthographic staging, and crisp chamber-harpsichord plucked-string ambiance against naturalistic off-center compositional framing"
+a_side = "naturalistic off-center three-quarter camera framing, organic depth perspective, casual human posture, and unadorned room acoustics"
+b_side = "deadpan planimetric center-framed pastel symmetry, flat doll-house orthographic staging, rigid front-facing posture, and crisp chamber-harpsichord and plucked-string accompaniment"
+mode = "t2va"
+frame = "scene"
+exclude_shots = ["t2va_offpath_tortoise", "ref2va_look_anchor"]
+# recommended_strength = 3.0
+# notes = "Steers naturalistic off-center staging into deadpan planimetric center-framed pastel symmetry, flat doll-house orthographic composition, and crisp chamber-harpsichord/plucked-string ambiance."
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot inside a vintage hotel lobby where a concierge in a plum blazer stands behind a walnut reception desk holding a brass room key. As he (S1) says, <d>[English] Your steamer trunks have been placed in suite four.</d> and closes his lips, the shot uses naturalistic off-center three-quarter framing with angled depth perspective, relaxed posture, and unadorned room acoustics.
+
+overall_soundscape: A brass key tag clinks lightly against the polished wooden counter.
+
+non_diegetic_music: No non-diegetic music.'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot inside a vintage hotel lobby where a concierge in a plum blazer stands behind a walnut reception desk holding a brass room key. As he (S1) says, <d>[English] Your steamer trunks have been placed in suite four.</d> and closes his lips, the shot locks into deadpan planimetric center-framed pastel symmetry with flat doll-house orthographic staging, rigid front-facing posture, and crisp chamber-harpsichord plucked-string ambiance.
+
+overall_soundscape: A brass key tag clinks lightly against the polished wooden counter.
+
+non_diegetic_music: No non-diegetic music.'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic, wide shot of a yellow cable-car station perched on a rocky hillside where an attendant in a wool cap holds a leather dispatch pouch beside the boarding gate. The attendant produces no vocal sound, filmed from a casual diagonal three-quarter angle with organic depth recession, muted earth colors, and plain outdoor wind tone.
+
+overall_soundscape: Steel haul cables hum softly through greased iron sheaves.
+
+non_diegetic_music: No non-diegetic music.'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic, wide shot of a yellow cable-car station perched on a rocky hillside where an attendant in a wool cap holds a leather dispatch pouch beside the boarding gate. The attendant produces no vocal sound, composed with bilateral Wes Anderson planimetric geometry, flat orthographic doll-house depth, pastel lemon-and-sky-blue colors, and brittle harpsichord pizzicato accompaniment.
+
+overall_soundscape: Steel haul cables hum softly through greased iron sheaves.
+
+non_diegetic_music: No non-diegetic music.'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium-close shot inside a wood-paneled railway dining car where a woman in a beret and a man in a tweed suit sit across a white linen table with porcelain teacups. As she (S1) says, <d>[English] The marmalade comes from an orchard near the border.</d> and rests her jaw, the camera frames them from an oblique over-the-shoulder viewpoint with natural carriage lighting and quiet room tone.
+
+overall_soundscape: Silver teaspoons clink softly against porcelain saucers.
+
+non_diegetic_music: No non-diegetic music.'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium-close shot inside a wood-paneled railway dining car where a woman in a beret and a man in a tweed suit sit across a white linen table with porcelain teacups. As she (S1) says, <d>[English] The marmalade comes from an orchard near the border.</d> and rests her jaw, the camera centers them in a flat orthographic cross-section with exact pastel symmetry, deadpan faces, and jaunty plucked lute and harpsichord notes.
+
+overall_soundscape: Silver teaspoons clink softly against porcelain saucers.
+
+non_diegetic_music: No non-diegetic music.'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic, wide shot of a manicured botanical garden pavilion where a groundskeeper in corduroy overalls trims a boxwood hedge with hand shears. He produces no vocal sound, captured from an informal off-axis viewpoint with natural depth cues, ungraded daylight greens, and plain garden acoustics.
+
+overall_soundscape: Steel hedge blades snip crisp leafy twigs in the quiet air.
+
+non_diegetic_music: No non-diegetic music.'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic, wide shot of a manicured botanical garden pavilion where a groundskeeper in corduroy overalls trims a boxwood hedge with hand shears. He produces no vocal sound, staged as a symmetrical planimetric tableau with doll-house frontality, mint-and-coral pastel hues, deadpan stillness, and dry chamber-harpsichord plucking.
+
+overall_soundscape: Steel hedge blades snip crisp leafy twigs in the quiet air.
+
+non_diegetic_music: No non-diegetic music.'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic, close-up inside a museum entomology cabinet room where a curator in round spectacles holds a brass magnifying glass over a pinned butterfly tray. As he (S1) says, <d>[English] Specimen twelve was collected on the northern island.</d> and closes his mouth, the scene is shot from an asymmetrical side angle with natural shadow falloff and quiet indoor air.
+
+overall_soundscape: A wooden specimen drawer slides smoothly on felt runners.
+
+non_diegetic_music: No non-diegetic music.'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic, close-up inside a museum entomology cabinet room where a curator in round spectacles holds a brass magnifying glass over a pinned butterfly tray. As he (S1) says, <d>[English] Specimen twelve was collected on the northern island.</d> and closes his mouth, the scene is squared into a deadpan center-axis composition with orthographic flat walls, dusty pastel tones, and sprightly harpsichord and mandolin strings.
+
+overall_soundscape: A wooden specimen drawer slides smoothly on felt runners.
+
+non_diegetic_music: No non-diegetic music.'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium-wide shot on a canvas-tented scout camp clearing where two young campers in khaki shorts stand beside a flagpole holding a brass bugle and a clipboard. As the taller camper (S1) says, <d>[English] Morning inspection starts at seven sharp by the canoe rack.</d> and seals her lips, the shot uses a relaxed off-center angle with natural woodland colors and plain outdoor acoustics.
+
+overall_soundscape: Canvas tent flaps rustle lightly in the morning breeze.
+
+non_diegetic_music: No non-diegetic music.'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium-wide shot on a canvas-tented scout camp clearing where two young campers in khaki shorts stand beside a flagpole holding a brass bugle and a clipboard. As the taller camper (S1) says, <d>[English] Morning inspection starts at seven sharp by the canoe rack.</d> and seals her lips, the shot snaps into ruler-straight bilateral symmetry with flat planimetric staging, pastel mustard-and-sage tints, and crisp chamber-harpsichord arpeggios.
+
+overall_soundscape: Canvas tent flaps rustle lightly in the morning breeze.
+
+non_diegetic_music: No non-diegetic music.'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot inside a pastry shop display room where a baker in a linen cap ties pink baker's twine around a cardboard cake box on a marble counter. She produces no vocal sound, photographed from a natural three-quarter perspective with warm everyday tungsten tones and unembellished shop acoustics.
+
+overall_soundscape: Cotton twine pulls tight across folded cardboard flaps.
+
+non_diegetic_music: No non-diegetic music.'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot inside a pastry shop display room where a baker in a linen cap ties pink baker's twine around a cardboard cake box on a marble counter. She produces no vocal sound, presented in a deadpan doll-house elevation with strict center-framed symmetry, powder-pink and pistachio pastels, and staccato plucked-string harpsichord motifs.
+
+overall_soundscape: Cotton twine pulls tight across folded cardboard flaps.
+
+non_diegetic_music: No non-diegetic music.'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic, wide shot of a coastal bathhouse promenade with striped changing cabanas where a lifeguard in a knit tank top holds a painted wooden megaphone. As he (S1) says, <d>[English] Swimming is permitted between the two yellow buoys.</d> and lowers the horn, the camera captures an off-center angled view with natural seaside daylight and plain surf sound.
+
+overall_soundscape: Small waves lap against the timber pilings of the boardwalk.
+
+non_diegetic_music: No non-diegetic music.'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic, wide shot of a coastal bathhouse promenade with striped changing cabanas where a lifeguard in a knit tank top holds a painted wooden megaphone. As he (S1) says, <d>[English] Swimming is permitted between the two yellow buoys.</d> and lowers the horn, the camera aligns a planimetric frontal frame with mirror-image pastel cabanas, orthographic flatness, deadpan poise, and brisk chamber-harpsichord plucking.
+
+overall_soundscape: Small waves lap against the timber pilings of the boardwalk.
+
+non_diegetic_music: No non-diegetic music.'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium-close shot inside a wood-lined telegraph office where a clerk in sleeve garters stamps a paper telegram slip with a rubber date stamp. The clerk produces no vocal sound, filmed from a casual side angle with natural desk-lamp shadows and unadorned room tone.
+
+overall_soundscape: The rubber stamp presses onto paper with a soft thud.
+
+non_diegetic_music: No non-diegetic music.'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium-close shot inside a wood-lined telegraph office where a clerk in sleeve garters stamps a paper telegram slip with a rubber date stamp. The clerk produces no vocal sound, framed in perpendicular orthographic symmetry with deadpan centered posture, muted salmon-and-cream pastels, and articulate harpsichord and pizzicato strings.
+
+overall_soundscape: The rubber stamp presses onto paper with a soft thud.
+
+non_diegetic_music: No non-diegetic music.'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic, wide shot of a stucco observatory courtyard where a brass telescope sits on a stone plinth between two cypress trees. No people are present in the scene, captured from an angled three-quarter perspective with natural sunlight and quiet outdoor courtyard air.
+
+overall_soundscape: A bronze weathervane creaks faintly on the dome roof.
+
+non_diegetic_music: No non-diegetic music.'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic, wide shot of a stucco observatory courtyard where a brass telescope sits on a stone plinth between two cypress trees. No people are present in the scene, arranged in deadpan center-framed pastel symmetry with flat doll-house architectural staging, ochre-and-powder-blue color blocks, and crisp plucked-string harpsichord cadence.
+
+overall_soundscape: A bronze weathervane creaks faintly on the dome roof.
+
+non_diegetic_music: No non-diegetic music.'''

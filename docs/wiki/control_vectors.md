@@ -10,10 +10,10 @@ Control vectors steer MiniMax H3 video+audio generation by shifting the 5376-d p
 ## 1. Quickstart Guide (For Humans): End-to-End in 3 Steps
 
 ### Step 1: Generate a Markdown Pair File with Any LLM
-1. Open [`docs/research/control_vectors/2026-11-05_control_vector_system_prompt.md`](../research/control_vectors/2026-11-05_control_vector_system_prompt.md) and copy the fenced system prompt block in **Section 1**.
+1. Open [`docs/wiki/system_prompts/h3_control_vector_system_prompt.md`](system_prompts/h3_control_vector_system_prompt.md) and copy the fenced system prompt block in **Section 1**.
 2. Paste it into Claude, Gemini, or ChatGPT, and ask for the effect you want, e.g.:
    > *"Create a control vector for `head_swell`: a person's head inflates and balloons to twice its normal size like a helium balloon, with a stretched latex creak and pressurized air hiss."*
-3. Save the LLM's Markdown response (which contains `### Test Scene Prompt` followed by `#### Pair 1` .. `#### Pair 10`) to a `.md` file, e.g. `my_effect.md`.
+3. Save the LLM's Markdown response (which contains `### Test Scene Prompt`, `### Contrastive Pairs` with `#### Pair 1` .. `#### Pair 10`, and optional `### Hold Pairs`) to a `.md` file, e.g. `my_effect.md`.
 
 ### Step 2: Run the One-Shot `build` Command
 From the repo root, run **one command**:
@@ -25,9 +25,9 @@ python bench/control_vectors.py build my_effect.md
 *(Note: `bench/control_vectors.py` automatically locates `../../.venv/bin/python` if your ComfyUI virtualenv is not currently active.)*
 
 In **one pass (`~8 seconds` total)**, `build` automatically:
-1. Validates every pair in `my_effect.md` (single contiguous changed clause, identical section headers) and writes **`prompt_bank/control_vectors/my_effect.toml`**.
+1. Validates every pair in `my_effect.md` (single contiguous changed clause, identical section headers, plus optional `#### Hold N (group_name)` blocks) and writes **`prompt_bank/control_vectors/my_effect.toml`**.
 2. Extracts the `### Test Scene Prompt` from the Markdown into **`prompt_bank/control_vectors/my_effect_test_prompt.txt`** so you can paste it straight into ComfyUI.
-3. Loads `Qwen3-VL-32B-Instruct` **once** and encodes all 10 contrastive pairs through `layers.49`.
+3. Loads `Qwen3-VL-32B-Instruct` **once** and encodes all contrastive pairs (and any hold pairs) through `layers.49`.
 4. Runs the lightweight 2-layer `token_refiner` for **both** `fl2va` (using `minimax_h3_fl2va_pruned_int8_convrot.safetensors` + `pika_h3_flex_fl2va_svd995_bf16.safetensors:1.0`) and `ref2va` (using `minimax_h3_ref2va_pruned_int8_convrot.safetensors` + `pika_h3_flex_ref2va_svd995_bf16.safetensors:1.0`) with **`--pooling diff_span`**, writing the ready-to-use `.safetensors` vectors and human-readable `.md` sidecars into `<comfy>/models/control_vectors/` and printing a summary table with the exact filenames and recommended ComfyUI `strength` (`50 / raw_norm .. 85 / raw_norm`).
 
 Want multiple pooling modes at once (`diff_span`, `from_first_diff`, `scene_text`) or to overwrite an existing build?
@@ -64,15 +64,15 @@ python bench/control_vectors.py build my_effect.md --pooling all --overwrite
 ## 2. Practical FAQ: Prompting, Pika LoRAs, `.toml` Fields & Pooling Modes
 
 ### Q1: Should Pole B describe a passive static state ("is floating") or an active physical trajectory ("inflates and balloons outward" / "drift upward and float in mid-air")?
-**Write Pole B as a direct, active physical transformation and trajectory** (e.g., *"while his skull and cranium inflate and balloon outward to twice their normal size like an over-pumped helium sphere"* or *"while the brass letter opener, fountain pen, and inkpot drift weightlessly upward off the mahogany desk and float in mid-air"*), and **avoid generic onset/rate filler adverbs** (`slowly`, `gradually`, `steadily`, `begins to`, `starts to`):
+**Write Pole B as a direct, active physical transformation and trajectory** (e.g., *"while his skull and cranium inflate and balloon outward to twice their normal size like an over-pumped helium sphere"* or *"while the brass letter opener, fountain pen, and inkpot drift weightlessly upward off the mahogany desk and float in mid-air"*), and **avoid generic onset/rate filler adverbs** (`slowly`, `gradually`, `steadily`, `begins to`, `starts to`, `rapidly`, `increasingly`):
 - **Why active trajectory beats passive static state (`fl2va` / `i2v` / `t2va`)**: In `fl2va` and `i2v`, Frame 0 is anchored by an input image with normal proportions/gravity. Describing the active physical action and secondary motion (inflating, rising off the desk, rotating in mid-air, plus the matching sound cue) drives H3's 3D spatiotemporal attention blocks to animate the transition out of Frame 0.
-- **Why you must avoid `"begins to"` / `"slowly"` / `"gradually"` filler ([`2026-11-05_control_vector_system_prompt.md`](../research/control_vectors/2026-11-05_control_vector_system_prompt.md#L135))**: Repeating generic onset adverbs across all 10 Pole-B clauses causes `Qwen3-VL` `layers.49` to extract a generic *"slow/gradual onset"* direction instead of the physical effect itself. Use concrete domain verbs and nouns directly.
+- **Why you must avoid `"begins to"` / `"slowly"` / `"gradually"` filler ([`h3_control_vector_system_prompt.md`](system_prompts/h3_control_vector_system_prompt.md#L141-L149))**: Repeating generic onset adverbs across all 10 Pole-B clauses causes `Qwen3-VL` `layers.49` to extract a generic *"slow/gradual onset"* direction instead of the physical effect itself. Use concrete domain verbs and nouns directly, and use `10/10` distinct diff clauses across the 10 pairs.
 
 ### Q2: How closely aligned do the subject and gender in the 10 pairs need to be to my final render prompt?
-**They do NOT need to match your specific render subject—in fact, the 10 pairs SHOULD vary subjects and settings across pairs 1–10** (while staying identical between Prompt A and Prompt B *within* each pair):
+**They do NOT need to match your specific render subject—in fact, the 10 pairs SHOULD vary subjects, settings, and speaking/silent states across pairs 1–10** (while staying identical between Prompt A and Prompt B *within* each pair):
 - Within each pair $i$, Prompt A and Prompt B share the exact same subject and setting, so when we compute $\Delta_i = \mathbf{r}(B_i) - \mathbf{r}(A_i)$, the subject/gender/setting tokens cancel out.
-- Averaging across 10 diverse subjects (`a man`, `a woman`, `an elderly watchmaker`, `a chef`, tabletop objects) cancels subject-specific curvature in `Qwen3-VL` and `token_refiner`, leaving a pure effect direction that transfers to men, women, groups, or objects.
-- **Rule for `ref2va` ([`2026-11-05_control_vector_system_prompt.md`](../research/control_vectors/2026-11-05_control_vector_system_prompt.md#L125))**: Even when building a control vector intended for `ref2va` (such as [`zero_gravity.toml`](../../prompt_bank/control_vectors/zero_gravity.toml)), the **10 Contrastive Pairs (`Pair 1..10`) always use the 3-section text format (`integrated_multimodal_description:`, `overall_soundscape:`, `non_diegetic_music:`) with 10 unrelated characters/objects and NO `<Subject N>` or `<Picture N>` tags**. Only the `### Test Scene Prompt` at the top of the Markdown uses the 6-section `ref2va` format (`subject_definitions:`, `summary:`, `retention_analysis:`, `detailed_description:`, `overall_soundscape:`, `non_diegetic_music:`) with `<Subject 1>` when testing on `ref2va`.
+- Stratifying across 5 interior + 5 exterior settings and 6 speaking (`(S1)` + `<d>[English] ...</d>`) + 4 silent (`produces no vocal sound.` or `No people are present.`) pairs cancels subject-specific and speech-specific curvature in `Qwen3-VL` and `token_refiner`, leaving a pure effect direction that transfers cleanly to men, women, groups, or unpeopled shots.
+- **Rule for `ref2va` ([`h3_control_vector_system_prompt.md`](system_prompts/h3_control_vector_system_prompt.md#L49-L70))**: Even when building a control vector intended for `ref2va` (such as [`zero_gravity.toml`](../../prompt_bank/control_vectors/zero_gravity.toml)), the **10 Contrastive Pairs (`Pair 1..10`) always use the 3-section text format (`integrated_multimodal_description:`, `overall_soundscape:`, `non_diegetic_music:`) with 10 unrelated characters/objects and NO `<Subject N>` or `<Picture N>` tags**. Only the `### Test Scene Prompt` at the top of the Markdown uses the 6-section `ref2va` format (`subject_definitions:`, `summary:`, `retention_analysis:`, `detailed_description:`, `overall_soundscape:`, `non_diegetic_music:`) with `<Subject 1>` when testing on `ref2va`.
 
 ### Q3: Does it matter *which* Pika LoRA variant I use (`svd995`, `svd99`, `comfy_bf16`, `kijai`)?
 **No—all four Pika LoRA variants within a family (`fl2va` or `ref2va`) produce virtually identical control vectors (`cosine = 0.999964 .. 1.000000`, `0.00% .. 0.05%` norm difference):**
@@ -92,11 +92,36 @@ python bench/control_vectors.py build my_effect.md --pooling all --overwrite
 | `[[pair]].weight` | **Yes (Core math)** | Weights each pair in the weighted mean difference (`default = 1.0`). |
 | `[[hold]].a`, `[[hold]].b`, `group` | **Yes (Optional math)** | If present (and `--no-holds` is not set), builds an orthonormal basis of unwanted nuisance directions and projects them out of `vector.post_refiner`. |
 | `[vector].frame` | **Yes (Validation)** | `"scene"` (default) enforces the 3-section H3 prompt grammar (`integrated_multimodal_description:`, `overall_soundscape:`, `non_diegetic_music:`). |
-| `[vector].mode` | **Default UNet selector** | `"t2va"` or `"ref2va"` (auto-detected from `"subject_definitions:"` in [`control_vectors.py::parse_markdown_pairs`](../../control_vectors.py#L531-L534) when converting `.md`); used when `--families auto` or `make` without `--unet` is run. |
+| `[vector].mode` | **Default UNet selector** | `"t2va"` or `"ref2va"` (auto-detected from `"subject_definitions:"` in [`control_vectors.py::parse_markdown_pairs`](../../control_vectors.py#L591-L595) when converting `.md`); used when `--families auto` or `make` without `--unet` is run. |
 | `[vector].name` | **Filename stem** | Default output filename stem (`<name>__<family>__...safetensors`). |
 | `[vector].quality`, `a_side`, `b_side` | **No (Metadata only)** | Human-readable descriptions copied into the `.safetensors` header and companion `.md` sidecar report. Changing these strings does **not** change a single float in the vector. |
 
-### Q5: How do the `--pooling` modes work, and which one should I use?
+---
+
+## 3. How to Read Control Vector Scores & Choose the Right Variation
+
+Every time you run `python bench/control_vectors.py build` or `make`, it writes a companion **`.md` sidecar** beside each `.safetensors` vector (via [`control_vectors.py::format_vector_sidecar_md`](../../control_vectors.py#L1503-L1700)) containing the vector's norms, recommended ComfyUI strengths, agreement cosines, and per-pair breakdown.
+
+### 3.1 What Each Score Tells Us
+
+| Score / Metric | Where It Appears | Healthy Target Range | What It Tells Us & How to Diagnose Outliers |
+|---|---|---|---|
+| **`raw_norm` (`post_refiner`)** | CLI output & `.md` sidecar (`Norms & Recommended Strength`) | `~70–95` (`diff_span`), `~20–28` (`from_first_diff`), `~10–25` (`scene_text`) | The L2 length $\|\mathbf{v}_{\text{PR}}\|_2$ of the unnormalized post-refiner mean difference vector (`5376`-d). Because `apply_post_refiner` adds $\text{strength} \times \mathbf{v}_{\text{PR}}$ directly (`control_vectors.py:926-928`), `raw_norm` determines what `strength` knob value is needed to reach the effective steering regime ($\|\Delta \mathbf{r}_{\text{PR}}\| \approx 50\text{–}85$). |
+| **`median_row_norm` (`post_refiner`)** | `.md` sidecar (`Norms & Recommended Strength`) | `~93–164` | The median L2 norm of individual post-refiner text rows across the pair set. Visible steering begins when $\text{strength} \times \text{raw\_norm}$ reaches `~30%–55%` of `median_row_norm` (`50..85`). |
+| **`Recommended ComfyUI strength (50/norm .. 85/norm)`** | CLI output & `.md` sidecar | Auto-computed per file (`e.g. 0.59 .. 1.00` for `diff_span`) | The exact ComfyUI `strength` window that injects $\|\Delta \mathbf{r}_{\text{PR}}\| \in [50, 85]$ regardless of how many shared tokens diluted `raw_norm`. Start near the lower bound (`50 / raw_norm`) for subtle atmospheric/style shifts and near the upper bound (`85 / raw_norm`) for strong physical transformations (`head_swell`, `zero_gravity`). |
+| **`mean_pairwise_cosine`** | CLI output & `.md` sidecar (`Agreement Summary`) | **`0.62 .. 0.85`** (with `10/10` unique diff spans) | Mean cosine similarity $\frac{2}{N(N-1)}\sum_{i<j}\cos(\Delta_i, \Delta_j)$ across all pair differences. **Two critical failure regimes**:<br>1. **`> 0.90` (Lexical-cloning warning)**: Almost always indicates that multiple pairs pasted the exact same wording in `a_span`/`b_span` (e.g., pre-fix `vocal_strain.toml` had `0.930` because all 10 pairs repeated the same 17-word string verbatim), baking lexical quirks into the vector.<br>2. **`< 0.55` (Cancellation or cross-section warning)**: Indicates either **target-noun cancellation** (e.g., pre-fix `lettering.toml` had `0.5415` because `Prompt A` said `"with no lettering, text, or painted signs"`, subtracting the target nouns out of $B - A$) or conflicting concepts across pairs. |
+| **`split_half_cosine`** | CLI output & `.md` sidecar (`Agreement Summary`) | **`>= 0.90`** (`0.91 .. 0.97` typical) | Cosine similarity between the average of the odd-numbered pairs and the average of the even-numbered pairs. Measures whether `N = 10..14` pairs are sufficient for the mean vector to converge (`>= 0.90` means adding more pairs will barely rotate the direction). |
+| **`per_pair_cosine` (`min` / `max` & Per-Pair Table)** | `.md` sidecar (`Agreement Summary` & `Per-Pair Breakdown`) | Every pair **`>= 0.50`** | Cosine of each individual pair $\Delta_i$ with the overall mean vector $\mathbf{v}_{\text{PR}}$. If 8 pairs have `0.70+` and 2 pairs drop to `0.29–0.45`, those 2 pairs almost certainly edited a **different prompt section** (e.g., editing `overall_soundscape:` while `P01–P08` edited `integrated_multimodal_description:`) or inverted `Prompt A` and `Prompt B`. |
+| **`PC1 variance` / `flip_null` / `random_null`** | `grade` / `exl3_qwen3vl` report | `PC1 >= 60%`, `raw_norm > 2.5x flip_null` | Fraction of variance explained by the top principal component of $\{\Delta_i\}$, and comparison against sign-flipped (`flip_null`, which cancels the concept and measures residual scene noise) and random Gaussian (`random_null`) baselines. |
+| **`hold_removed_fraction`** | `.md` sidecar (when `[[hold]]` pairs exist) | `0.02 .. 0.35` (`2%–35%`) | Fraction of the raw vector's energy projected out by the `[[hold]]` nuisance subspace (`control_vectors.py::hold_basis`). If `hold_removed_fraction > 0.60`, your hold pairs are too close to the target concept itself and are scrubbing out the main effect. |
+| **`layers.49 -> lm_head` Contrastive Log-Odds** | [`h3_control_vector_report.md`](../research/control_vectors/exl3_qwen3vl/h3_control_vector_report.md) | Domain nouns & verbs in top-15 `+ve` tokens | Passing `vector.encoder` (`5120`-d at `layers.49`) through `Qwen3-VL-32B-Instruct`'s remaining `layers.50..63` + `lm_head` reveals the exact vocabulary tokens the vector boosts before the DiT ever runs. If all 10 pairs share a single setting (e.g., stone arches) or repeat a filler adverb (`slowly`, `gradually`), those spurious words show up immediately in the top `+ve` tokens. |
+
+---
+
+### 3.2 Which Variation Works Best in Which Scenario?
+
+#### A. Pooling Modes (`--pooling diff_span` vs. `from_first_diff` vs. `scene_text`)
+
 Suppose Pair 1 changes **one clause** near the end of `integrated_multimodal_description:` (say tokens `104..122` out of `155` total tokens):
 
 ```text
@@ -108,23 +133,37 @@ Content:    Shared scene setup prefix  CHANGED CLAUSE (A vs B)  Shared soundscap
 
 Because `Qwen3-VL-32B-Instruct` (`layers.0..49`) is **strictly causal**, tokens `0..103` before `first_diff` (`104`) have **identical** `layers.49` hidden states in Prompt A and Prompt B (and near-zero difference after the 2-layer bidirectional `token_refiner`). Averaging over those `104` unchanged prefix tokens dilutes the vector's norm (`raw_norm`) by `2.1x–8.2x`!
 
-| Pooling Mode | Exact Token Mask Pooled | Diluted by Shared Prefix/Suffix? | Measured `raw_norm` (`head_swell` / `zero_gravity`) | Recommended ComfyUI `strength` (`50/norm .. 85/norm`) | When to Use |
+| Pooling Mode | Exact Token Mask Pooled | Diluted by Shared Prefix/Suffix? | Measured `raw_norm` (`head_swell` / `zero_gravity`) | Recommended ComfyUI `strength` (`50/norm .. 85/norm`) | Scenario & When to Use One Over Another |
 |---|---|---|---|---|---|
-| **`diff_span`** *(Default in `build`)* | `[first_diff:end_diff]` within `span_masks["scene"]` (falls back to `~span_masks["vision"]` if diff is inside `<d>...</d>`) ([`h3_spans.py::differing_token_bounds`](../../h3_spans.py#L361-L381)) | **0% shared tokens** (strips both shared prefix and shared suffix) | **`85.01` / `85.13`** (`~8.0x–8.2x` stronger than `scene_text`) | **`0.60 .. 1.00`** (`~0.59 .. 1.00`) | **Best default for single-clause vectors**—isolates the exact changed clause (`a_span` vs. `b_span`) with zero shared-token dilution. |
-| **`from_first_diff`** | `[first_diff:]` within `~span_masks["vision"]` (strips shared prefix `[:first_diff]`, keeps changed clause + trailing soundscape/music tokens) ([`h3_spans.py::first_differing_index`](../../h3_spans.py#L343-L358)) | Strips prefix; keeps trailing suffix tokens that causally attended to the diff | **`23.57` / `22.62`** (`~2.12x–2.28x` stronger than `scene_text`) | **`2.10 .. 3.75`** (`3.0 .. 3.5` in `arms 39..40`) | Great when the changed clause is at the end of Section 1 and you want the trailing `overall_soundscape:` tokens included in the average. |
-| **`scene_text`** | All `span_masks["scene"]` rows across the entire prompt (excludes vision, `<Picture N>` labels, timestamps, `(S1)`, `<d>...</d>`) | **Yes (`70%–85%` shared tokens)** if only one clause changed | **`10.35` / `10.65`** on single-clause; **`20.40`–`24.54`** on multi-clause | **`4.70 .. 8.20`** (`6.5 .. 8.0` single-clause) or **`2.00 .. 3.50`** (multi-clause) | Use when multiple clauses across the prompt change (like `film_16mm_1974.toml`), or scale `strength` up to `6.5 .. 8.0` to compensate for dilution. |
+| **`diff_span`** *(Default in `build`)* | `[first_diff:end_diff]` within `span_masks["scene"]` (falls back to `~span_masks["vision"]` if diff is inside `<d>...</d>`) ([`h3_spans.py::differing_token_bounds`](../../h3_spans.py#L361-L381)) | **0% shared tokens** (strips both shared prefix and shared suffix) | **`85.01` / `85.13`** (`~8.0x–8.2x` stronger than `scene_text`) | **`0.60 .. 1.00`** (`s = 0.97` in `arm 41`, `s = 0.93` in `arm 42`) | **Best default for localized visual, physical, or material transformations** (`head_swell`, `zero_gravity`, `claymation_stopmotion`, `rubber_hose_1930s`). Isolates the exact changed clause (`a_span` vs. `b_span`) at an intuitive unit-scale ComfyUI strength (`~0.6–1.0`). |
+| **`from_first_diff`** | `[first_diff:]` within `~span_masks["vision"]` (strips shared prefix `[:first_diff]`, keeps changed clause + trailing soundscape/music tokens) ([`h3_spans.py::first_differing_index`](../../h3_spans.py#L343-L358)) | Strips prefix; keeps trailing suffix tokens that causally attended to the diff | **`23.57` / `22.62`** (`~2.12x–2.28x` stronger than `scene_text`) | **`2.10 .. 3.75`** (`s = 3.50` in `arms 39..40`) | **Best when you want strong cross-modal visual + ambient soundscape coupling**: because trailing `overall_soundscape:` tokens in `Qwen3-VL` causally attended to the changed visual clause, keeping `[first_diff:]` blends the exact diff span with the scene-level summary accumulated on the trailing tokens (`cos(ffd, ds) = 0.86–0.88`). |
+| **`scene_text`** | All `span_masks["scene"]` rows across the entire prompt (excludes vision, `<Picture N>` labels, timestamps, `(S1)`, `<d>...</d>`) | **Yes (`70%–85%` shared tokens)** if only one clause changed | **`10.35` / `10.65`** on single-clause; **`20.40`–`24.54`** on multi-clause | **`4.70 .. 8.20`** (single-clause) or **`1.80 .. 3.00`** (multi-clause) | **Best for whole-scene cinematography / film-stock / lighting vectors** (`film_16mm_1974`, `noir`) where the diff sits near the start of the prompt and colors the entire scene trajectory. |
 | **`all_tag1`** | Every non-vision (`tag == 1`) row, including `<d>...</d>` dialogue and `(S1)` speaker tags | **Yes** | Diagnostic only | Diagnostic only | Only for testing whether dialogue tokens carry the concept (`E2.6` ablation). |
 
-> **Why `diff_span` at `strength = 0.6..1.0`, `from_first_diff` at `strength = 3.0..3.5`, and `scene_text` at `strength = 6.5..8.0` produce the same physical effect**: What matters at inference is the total post-refiner injection magnitude $\|\Delta \mathbf{r}_{\text{PR}}\| = \text{strength} \times \text{raw\_norm} \approx 50\text{–}85$ (compared to a median post-refiner token norm of `~93–164`). Both `bench/control_vectors.py build` and the `.md` sidecar automatically compute `50 / raw_norm .. 85 / raw_norm` so you always see the exact recommended `strength` range for each vector file.
+> **Measured GPU Verification (`diff_span` vs. `from_first_diff` vs. `scene_text`, [`bench/results/2026-11-05_control_vectors_pika_and_ref2va.md`](../../bench/results/2026-11-05_control_vectors_pika_and_ref2va.md#L113-L120))**: At matched post-refiner perturbation norm $\|\Delta \mathbf{r}_{\text{PR}}\| = \text{strength} \times \text{raw\_norm} \approx 79\text{–}85$, `head_swell` produces the same `~1.70x` cranial expansion + pressurized steam hiss across `scene_text` (`s = 8.00`, `arm 36`), `from_first_diff` (`s = 3.50`, `arm 39`), and `diff_span` (`s = 0.97`, `arm 41`), while on `zero_gravity` (`ref2va`), both `from_first_diff` (`s = 3.50`, `arm 40`) and `diff_span` (`s = 0.93`, `arm 42`) produce **unassisted mid-air levitation** of tabletop utensils/plates without `<Subject 1>` having to hold them all in his hands (`arm 33`).
+
+#### B. Application Mode (`mode`), Row Mask (`mask`), and Step Schedule (`start_percent` / `end_percent`)
+
+| Knob on `MiniMaxH3ApplyControlVectors` | Options | When to Use Each Option |
+|---|---|---|
+| **`mode`** | **`add`** *(default)* | Shifts every selected conditioning row by $+s \cdot \mathbf{v}_{\text{PR}}$ (or $-s \cdot \mathbf{v}_{\text{PR}}$ when $s < 0$). Use for 95% of steering tasks—both adding an effect ($s > 0$) and pushing toward the opposite pole ($s < 0$, e.g., `lettering` at `s = -1.0` in `arm 08` to scrub street signage clean without altering building architecture). |
+| | **`project_out`** | Removes the component of each conditioning row parallel to $\hat{\mathbf{v}}_{\text{PR}}$: $\mathbf{r} \leftarrow \mathbf{r} - s (\mathbf{r} \cdot \hat{\mathbf{v}}_{\text{PR}})\hat{\mathbf{v}}_{\text{PR}}$ (`s = 1.0` for full orthogonal projection). Use when a prompt naturally triggers an unwanted quality (e.g., `noir` `project_out` at `s = 1.0` in `arm 24` strips dark/sooty contrast from a shadowed street prompt without injecting an artificial opposite style). |
+| | **`amplify`** | Scales the existing projection of each conditioning row along $\hat{\mathbf{v}}_{\text{PR}}$: $\mathbf{r} \leftarrow \mathbf{r} + s (\mathbf{r} \cdot \hat{\mathbf{v}}_{\text{PR}})\hat{\mathbf{v}}_{\text{PR}}$. Use when you only want to boost tokens that *already* align with the vector's concept rather than shifting every token uniformly. |
+| **`mask`** | **`non_vision`** *(default)* | Applies the vector to all text conditioning tokens (`tag == 1`) while leaving reference-image vision tokens (`tag == 0`) bitwise untouched (`0.0` diff). **Always use `non_vision` for `ref2va`** so `<Subject N>` facial identity and wardrobe stay locked (`arm 18` vs. `arm 19`). |
+| | **`all_rows`** | Shifts both text tokens (`tag == 1`) and Qwen reference-image vision tokens (`tag == 0`). Only use on `ref2va` if you intentionally want to alter the reference character's facial expression or texture (note: 3D Video VAE `ref_latents` still anchor core identity via the latent stream). |
+| | **`vision_only`** | Shifts only reference-image vision tokens (`tag == 0`). Diagnostic use for isolating Qwen vision-token contributions on `ref2va`. |
+| **`start_percent` .. `end_percent`** | **`0.0 .. 1.0`** *(default)* | Applies the control vector across all diffusion steps. Necessary when the vector needs to alter **3D geometry, object trajectory, or period architecture** (e.g., `zero_gravity` levitation, `head_swell` inflation, or `film_16mm_1974` morphing a modern bus into a 1970s Routemaster in `arm 04`). |
+| | **`0.33 .. 1.0`** *(late window)* | Skips the first third of denoising steps (e.g., steps 1–2 of a 6-step Pika render) so **100% of the baseline scene layout, camera framing, and object trajectories lock in first**, then applies the vector's color grading, film grain, or surface texture on steps 3–6 (`arm 23`, where `film_16mm_1974` kept the exact baseline street and car while adding 16mm color/grain). |
+| | **`0.0 .. 0.50`** *(early window)* | Applies the vector only during coarse layout/motion formation and lets the unsteered model refine sharp high-frequency details in the second half of denoising. |
 
 ---
 
-## 3. Code Architecture & File Map
+## 4. Code Architecture & File Map
 
 | File | Responsibility | Key Entry Points |
 |---|---|---|
 | [`h3_spans.py`](../../h3_spans.py) | Deterministic token-span partition of H3 conditioning sequences (`vision`, `label`, `timestamp`, `dialogue`, `speaker`, `scene`) and pooling masks | `spans`, `differing_token_bounds`, `first_differing_index`, `pooling_mask` (`POOLING_MODES = ("scene_text", "all_tag1", "from_first_diff", "diff_span")`) |
-| [`control_vectors.py`](../../control_vectors.py) | Core float64 math, `.toml` pair loader, Markdown-to-`.toml` converter, `.safetensors` + `.md` sidecar I/O, model family & recipe verification, and `apply_post_refiner` | `load_pairs`, `differing_span` (`MAX_SHARED_INTERIOR_WORDS = 5`), `parse_markdown_pairs`, `write_markdown_to_toml`, `mean_difference`, `flip_null`, `random_null`, `hold_basis`, `project_out`, `apply_post_refiner` (`APPLY_MODES = ("add", "project_out", "amplify")`), `save_vector`, `format_vector_sidecar_md`, `load_vector` |
+| [`control_vectors.py`](../../control_vectors.py) | Core float64 math, `.toml` pair loader, Markdown-to-`.toml` converter (including `#### Hold N`), `.safetensors` + `.md` sidecar I/O, model family & recipe verification, and `apply_post_refiner` | `load_pairs`, `differing_span` (`MAX_SHARED_INTERIOR_WORDS = 5`), `parse_markdown_pairs`, `write_markdown_to_toml`, `mean_difference`, `flip_null`, `random_null`, `hold_basis`, `project_out`, `apply_post_refiner` (`APPLY_MODES = ("add", "project_out", "amplify")`), `save_vector`, `format_vector_sidecar_md`, `load_vector` |
 | [`control_vector_nodes.py`](../../control_vector_nodes.py) | ComfyUI V3 nodes, runtime `WrappersMP.DIFFUSION_MODEL` hook, recipe extraction, and CPU/GPU `token_refiner` runner (with `lora_branch.py` support) | `MiniMaxH3MakeControlVector`, `MiniMaxH3ApplyControlVectors`, `MiniMaxH3LayerNormMatch`, `attach_control_vector`, `make_control_vector_from_pairs`, `build_refiner_runner`, `extract_model_recipe` |
 | [`bench/control_vectors.py`](../../bench/control_vectors.py) | Standalone CLI for one-shot `build` (`.md`/`.toml` -> `.safetensors`), `from-md`, `make`, `inspect` (`--meter`), and `grade` | `cmd_build`, `cmd_from_md`, `cmd_make`, `cmd_inspect`, `cmd_grade` |
 | [`workflows/build_workflows.py`](../../workflows/build_workflows.py) | Programmatic workflow builders for single/chained control-vector arms, 6-arm gate ladders, and E4.2/E4.3 probes | `build_control_vector_arm`, `build_control_vector_gate_arms`, `build_control_vector_probe_arm`, `build_api(..., control_vector=...)` |
@@ -132,71 +171,115 @@ Because `Qwen3-VL-32B-Instruct` (`layers.0..49`) is **strictly causal**, tokens 
 
 ---
 
-## 4. Shipped Contrastive Pair Files & Vector Naming Convention
+## 5. Shipped Contrastive Pair Bank (`prompt_bank/control_vectors/*.toml`, 34 Vectors)
 
-### Shipped Pair Files (`prompt_bank/control_vectors/*.toml`)
+All **34 shipped `.toml` files** follow the stratified authoring standard in [`docs/wiki/system_prompts/h3_control_vector_system_prompt.md`](system_prompts/h3_control_vector_system_prompt.md): `100%` unique `a_span` and `b_span` clauses (`0` verbatim span cloning), `<d>[English] ...</d>` language tags on all dialogue, explicit `produces no vocal sound` on silent subjects, balanced interior/exterior and speaking/silent scene regimes, and zero rate adverbs (`slowly`, `gradually`, `begins to`).
+
+### 5.1 Physical, Anatomical & Object-Physics Transformations (6 Files)
 
 | Pair File | Concept / Pole A -> Pole B | Pair / Hold Count & Default Mode |
 |---|---|---|
-| [`prompt_bank/control_vectors/film_16mm_1974.toml`](../../prompt_bank/control_vectors/film_16mm_1974.toml) | Clean modern digital color -> 1974 16mm reversal film stock, halation, gate weave, optical hiss (bare twin: [`film_16mm_1974_bare.toml`](../../prompt_bank/control_vectors/film_16mm_1974_bare.toml)) | 16 pairs + 6 holds (`warm_tint`, `soft_focus`), `t2va` |
-| [`prompt_bank/control_vectors/chaos_panic.toml`](../../prompt_bank/control_vectors/chaos_panic.toml) | Calm, orderly scene -> Sudden chaotic panic, papers flying, frantic shouting, urgent alarms | 10 pairs, `t2va` |
-| [`prompt_bank/control_vectors/noir.toml`](../../prompt_bank/control_vectors/noir.toml) | Balanced daylight color + ambient sound -> High-contrast 1940s silver-nitrate B&W noir + smoky jazz atmosphere | 12 pairs, `t2va` |
-| [`prompt_bank/control_vectors/felt_muppet.toml`](../../prompt_bank/control_vectors/felt_muppet.toml) | Live-action human skin/fabric -> Hand-stitched fuzzy felt puppet texture, button eyes, practical studio stage lighting | 10 pairs, `t2va` |
-| [`prompt_bank/control_vectors/cursed_cctv.toml`](../../prompt_bank/control_vectors/cursed_cctv.toml) | Clean cinema camera -> Degraded low-bitrate night-vision CCTV security feed with harsh IR blowouts and static hum | 10 pairs, `t2va` |
-| [`prompt_bank/control_vectors/reverb_cathedral.toml`](../../prompt_bank/control_vectors/reverb_cathedral.toml) | Dry close-mic room acoustics -> Cavernous stone cathedral acoustics with long echoing reverb tails | 12 pairs, `t2va` |
-| [`prompt_bank/control_vectors/vocal_strain.toml`](../../prompt_bank/control_vectors/vocal_strain.toml) | Calm measured delivery -> Breathless, cracking, emotionally strained vocal delivery | 10 pairs, `t2va` |
-| [`prompt_bank/control_vectors/fever_melt.toml`](../../prompt_bank/control_vectors/fever_melt.toml) | Stable solid geometry -> Surreal fever-dream melting and warping surfaces with distorted drone | 10 pairs, `t2va` |
-| [`prompt_bank/control_vectors/infomercial_fail.toml`](../../prompt_bank/control_vectors/infomercial_fail.toml) | Calm everyday task -> Over-the-top exasperated black-and-white infomercial clumsy spill/fumble | 10 pairs, `t2va` |
-| [`prompt_bank/control_vectors/lettering.toml`](../../prompt_bank/control_vectors/lettering.toml) | Unlettered surface -> Bold physical signage/lettering integrated into the scene (bare twin: [`lettering_bare.toml`](../../prompt_bank/control_vectors/lettering_bare.toml)) | 16 pairs, `t2va` |
-| [`prompt_bank/control_vectors/head_swell.toml`](../../prompt_bank/control_vectors/head_swell.toml) | Normal head proportions -> Cranium inflates and balloons to 2x size like an over-pumped sphere + latex creak & steam hiss | 10 pairs, `t2va` |
-| [`prompt_bank/control_vectors/zero_gravity.toml`](../../prompt_bank/control_vectors/zero_gravity.toml) | Normal 1g gravity -> Sudden zero-gravity weightlessness as loose tabletop objects float into mid-air + low hum | 10 pairs, `ref2va` |
+| [`prompt_bank/control_vectors/head_swell.toml`](../../prompt_bank/control_vectors/head_swell.toml) | Normal head proportions -> Cranium inflates and balloons to 2x size like an over-pumped sphere + latex creak & steam hiss | 10 pairs + 2 holds (`pressurized_steam_acoustics`), `t2va` |
+| [`prompt_bank/control_vectors/zero_gravity.toml`](../../prompt_bank/control_vectors/zero_gravity.toml) | Normal 1g gravity -> Weightlessness as loose tabletop objects detach and float into mid-air + low hum | 10 pairs, `ref2va` |
+| [`prompt_bank/control_vectors/elastic_neck_stretch.toml`](../../prompt_bank/control_vectors/elastic_neck_stretch.toml) | Standard anatomical neck height -> Neck extends vertically upward like a telescoping periscope above stationary shoulders | 10 pairs, `t2va` |
+| [`prompt_bank/control_vectors/magnetic_attraction.toml`](../../prompt_bank/control_vectors/magnetic_attraction.toml) | Metal tools/cutlery resting undisturbed -> Electromagnetic pull yanking metal tools, cutlery, and keys inward to snap/orbit around subject + transformer hum | 10 pairs, `t2va` |
+| [`prompt_bank/control_vectors/fever_melt.toml`](../../prompt_bank/control_vectors/fever_melt.toml) | Solid rigid architectural geometry -> Walls, furniture, and props softening and sagging like melting wax with oil-slick halation and pitch-bending drone | 10 pairs, `t2va` |
+| [`prompt_bank/control_vectors/smoke_dissolve.toml`](../../prompt_bank/control_vectors/smoke_dissolve.toml) | Intact solid shoulders and limbs -> Billowing charcoal smoke and glowing orange embers shedding from shoulders and limbs into swirling plumes + crackling hearth foley | 10 pairs, `t2va` |
+
+### 5.2 Film Stocks, Optical Formats & Camera Rig Styles (9 Files)
+
+| Pair File | Concept / Pole A -> Pole B | Pair / Hold Count & Default Mode |
+|---|---|---|
+| [`prompt_bank/control_vectors/film_16mm_1974.toml`](../../prompt_bank/control_vectors/film_16mm_1974.toml) | Clean modern digital color -> 1974 16mm reversal film stock, halation, gate weave, optical hiss (bare twin: [`film_16mm_1974_bare.toml`](../../prompt_bank/control_vectors/film_16mm_1974_bare.toml)) | 14 pairs + 6 holds (`warm_colour_cast`, `soft_focus`), `t2va` |
+| [`prompt_bank/control_vectors/noir.toml`](../../prompt_bank/control_vectors/noir.toml) | Balanced daylight/tungsten color -> High-contrast 1940s 35mm silver-nitrate B&W film noir with deep inky shadows and stark silver highlights | 12 pairs, `t2va` |
+| [`prompt_bank/control_vectors/cursed_cctv.toml`](../../prompt_bank/control_vectors/cursed_cctv.toml) | Clean rectilinear eye-level cinema camera -> Ceiling-mounted 2004 fisheye CCTV barrel distortion, green phosphor monochrome tint, macroblocks, and 60Hz hum | 10 pairs, `t2va` |
+| [`prompt_bank/control_vectors/vhs_1991_camcorder.toml`](../../prompt_bank/control_vectors/vhs_1991_camcorder.toml) | Clean progressive digital sensor -> 1991 home-video VHS camcorder tape degradation with chroma bleed, head-switching snow, CRT scanlines, and warbling tape hiss | 10 pairs, `t2va` |
+| [`prompt_bank/control_vectors/thermal_infrared.toml`](../../prompt_bank/control_vectors/thermal_infrared.toml) | Natural visible-spectrum photography -> False-color FLIR thermographic infrared imaging mapping warm bodies to white-yellow-orange-magenta and cold surfaces to indigo | 10 pairs, `t2va` |
+| [`prompt_bank/control_vectors/miniature_tiltshift.toml`](../../prompt_bank/control_vectors/miniature_tiltshift.toml) | Full-scale deep-focus cinema optics -> Macro tilt-shift diorama optics with razor-thin focal plane, painted hobby-train miniature textures, and tiny clockwork acoustics | 10 pairs, `t2va` |
+| [`prompt_bank/control_vectors/wes_anderson_symmetry.toml`](../../prompt_bank/control_vectors/wes_anderson_symmetry.toml) | Naturalistic off-center 3/4 framing -> Deadpan planimetric center-framed pastel symmetry, flat doll-house orthographic staging, and harpsichord/plucked-string cues | 10 pairs, `t2va` |
+| [`prompt_bank/control_vectors/handheld_documentary_zoom.toml`](../../prompt_bank/control_vectors/handheld_documentary_zoom.toml) | Locked-off fluid-head tripod stability -> Raw verite shoulder-rig handheld urgency with sudden snap-zoom/whip-pan reframing and brief lens focus-hunt breathing | 10 pairs, `t2va` |
+
+### 5.3 Material, Puppet, Animation & Surface Replacement Styles (7 Files)
+
+| Pair File | Concept / Pole A -> Pole B | Pair / Hold Count & Default Mode |
+|---|---|---|
+| [`prompt_bank/control_vectors/felt_muppet.toml`](../../prompt_bank/control_vectors/felt_muppet.toml) | Live-action human anatomy & voice -> Hand-stitched fuzzy felt puppet with bulging ping-pong-ball eyes, hinged felt mouth, and squeaky puppet delivery | 10 pairs, `t2va` |
+| [`prompt_bank/control_vectors/rubber_hose_1930s.toml`](../../prompt_bank/control_vectors/rubber_hose_1930s.toml) | Live-action skeletal articulation -> 1930s pie-eyed ink-and-cel rubber-hose cartoon physics with boneless noodle-limb bounce and slapstick xylophone/slide-whistle foley | 10 pairs, `t2va` |
+| [`prompt_bank/control_vectors/claymation_stopmotion.toml`](../../prompt_bank/control_vectors/claymation_stopmotion.toml) | Fluid 24fps live-action motion & skin -> Hand-sculpted thumbprinted plasticine claymation stop-motion at stepped 12fps armature movement + clay-squish foley | 10 pairs, `t2va` |
+| [`prompt_bank/control_vectors/paper_origami.toml`](../../prompt_bank/control_vectors/paper_origami.toml) | Rounded organic anatomy & woven cloth -> Crisp folded geometric origami paper construction with visible crease lines, matte kraft/washi planes, and paper-folding rustle | 10 pairs, `t2va` |
+| [`prompt_bank/control_vectors/bioluminescent_glow.toml`](../../prompt_bank/control_vectors/bioluminescent_glow.toml) | Matte non-emissive skin & surfaces -> Deep-sea neon cyan and ultraviolet bioluminescent vein networks and drifting spore luminescence pulsing in darkened ambiance | 10 pairs, `t2va` |
+| [`prompt_bank/control_vectors/lettering.toml`](../../prompt_bank/control_vectors/lettering.toml) | Plain unadorned material surfaces (canvas, enamel, timber, slate, brick) -> Surfaces covered in printed lettering, painted signs, and bold text (bare twin: [`lettering_bare.toml`](../../prompt_bank/control_vectors/lettering_bare.toml)) | 14 pairs, `t2va` |
+
+### 5.4 Environmental, Weather & Lighting Regimes (5 Files)
+
+| Pair File | Concept / Pole A -> Pole B | Pair / Hold Count & Default Mode |
+|---|---|---|
+| [`prompt_bank/control_vectors/underwater_submerged.toml`](../../prompt_bank/control_vectors/underwater_submerged.toml) | Dry terrestrial air & gravity-draped hair/cloth -> Deep-water submersion with shimmering caustic light ripples, buoyant hair/cloth suspension, rising bubble streams, and muffled hydrophone acoustics | 10 pairs, `t2va` |
+| [`prompt_bank/control_vectors/wind_tunnel_gale.toml`](../../prompt_bank/control_vectors/wind_tunnel_gale.toml) | Calm still air & vertically draped garments -> Hurricane-force horizontal gale blasting hair, clothing flaps, and flying debris backward against forward lean + roaring wind-shear acoustics | 10 pairs, `t2va` |
+| [`prompt_bank/control_vectors/crystallize_ice.toml`](../../prompt_bank/control_vectors/crystallize_ice.toml) | Temperate dry skin, fabric, and surfaces -> Translucent blue frost and jagged ice-crystal encrustation spreading across subject and surfaces + brittle glacial cracking sounds | 10 pairs, `t2va` |
+| [`prompt_bank/control_vectors/cyberpunk_neon_rain.toml`](../../prompt_bank/control_vectors/cyberpunk_neon_rain.toml) | Dry balanced natural illumination -> Neon-drenched cyberpunk night cinematography with glowing magenta/cyan tube signage, mirror-wet asphalt reflections, and slashing rain streaks | 10 pairs, `t2va` |
+| [`prompt_bank/control_vectors/strobe_club_pulse.toml`](../../prompt_bank/control_vectors/strobe_club_pulse.toml) | Continuous steady ambient lighting -> High-contrast rhythmic Xenon strobe-light flashes alternating stark white illumination and pitch-black shadow with pounding sub-bass club thump | 10 pairs, `t2va` |
+
+### 5.5 Behavioral, Vocal & Acoustic Delivery (7 Files)
+
+| Pair File | Concept / Pole A -> Pole B | Pair / Hold Count & Default Mode |
+|---|---|---|
+| [`prompt_bank/control_vectors/chaos_panic.toml`](../../prompt_bank/control_vectors/chaos_panic.toml) | Calm unhurried posture & peaceful room tone -> Frantic wide-eyed panic, trembling urgency, violent handheld camera shake, and chaotic emergency commotion | 10 pairs, `t2va` |
+| [`prompt_bank/control_vectors/infomercial_fail.toml`](../../prompt_bank/control_vectors/infomercial_fail.toml) | Smooth effortless physical coordination -> Exaggerated infomercial-style clumsy fumbling, losing grip, dropping objects, and messy spills | 10 pairs, `t2va` |
+| [`prompt_bank/control_vectors/reverb_cathedral.toml`](../../prompt_bank/control_vectors/reverb_cathedral.toml) | Dry close-miked acoustics with immediate decay -> Vast echoing stone cathedral acoustics with a long cavernous reverb tail | 12 pairs, `t2va` |
+| [`prompt_bank/control_vectors/vocal_strain.toml`](../../prompt_bank/control_vectors/vocal_strain.toml) | Calm conversational delivery with relaxed jaw -> Strained, raspy, vein-bulging full-lung screaming with jaw stretched wide | 10 pairs, `t2va` |
+| [`prompt_bank/control_vectors/whisper_asmr.toml`](../../prompt_bank/control_vectors/whisper_asmr.toml) | Normal full-voiced room projection -> Ultra-intimate close-mic breathy ASMR whisper delivery with delicate lip/consonant transients and hushed airflow | 10 pairs, `t2va` |
+| [`prompt_bank/control_vectors/auctioneer_rapid_patter.toml`](../../prompt_bank/control_vectors/auctioneer_rapid_patter.toml) | Unhurried everyday speech cadence -> Breathless high-velocity auctioneer rapid-fire vocal patter with machine-gun syllable articulation and brisk rhythmic pointing | 10 pairs, `t2va` |
+| [`prompt_bank/control_vectors/operatic_bellow.toml`](../../prompt_bank/control_vectors/operatic_bellow.toml) | Plain spoken conversational vocal delivery -> Full-chest vibrating operatic bellow with wide resonant jaw opening, dramatic diaphragm posture, rich vibrato, and ringing concert-hall acoustics | 10 pairs, `t2va` |
 
 ### Output Filename Convention (`models/control_vectors/`)
-[`control_vectors.py::default_vector_filename`](../../control_vectors.py#L1382-L1415) names every vector so different model families, pooling modes, and LoRA recipes never overwrite each other:
+[`control_vectors.py::default_vector_filename`](../../control_vectors.py#L1459-L1492) names every vector so different model families, pooling modes, and LoRA recipes never overwrite each other:
 ```text
 <stem>__<family>[__<pooling>][__ref_<8hex>][__noholds][__lora_<8hex>].safetensors
 ```
-Every `.safetensors` file is accompanied by an auto-generated **`.md` sidecar** (`<same_stem>.md`) containing its recipe table, recommended ComfyUI `strength` range, agreement cosines (`mean_pairwise_cosine`, `split_half_cosine`), and per-pair token spans.
+Every `.safetensors` file is accompanied by an auto-generated **`.md` sidecar** (`<same_stem>.md`) containing its recipe table, recommended ComfyUI `strength` range, agreement cosines (`mean_pairwise_cosine`, `split_half_cosine`), **"How to Read These Scores"** guide, and per-pair token spans.
 
 ---
 
-## 5. Workflows & Physical-Action Best Practices (`t2va`, Dual-Vector, and `ref2va`)
+## 6. Workflows & Physical-Action Best Practices (`t2va`, Dual-Vector, and `ref2va`)
 
-### 5.1 Single & Chained Dual Control Vectors on `t2va` / `fl2va`
+### 6.1 Single & Chained Dual Control Vectors on `t2va` / `fl2va`
 - **Single Control Vector Workflow**: [`workflows/h3_text_to_video_pika_control_vector_api.json`](../../workflows/h3_text_to_video_pika_control_vector_api.json)
   - Wiring: `MiniMaxH3LoRABranch (18, pika_h3_flex_fl2va_svd995_bf16.safetensors) -> ModelSamplingSD3 (19, shift=5.0) -> ModelAttentionBackend (58, triton) -> MiniMaxH3Sol (21) -> MiniMaxH3ApplyControlVectors (115) -> BasicGuider (9)`.
 - **Chained Dual Control Vectors Workflow**: [`workflows/h3_text_to_video_pika_dual_control_vectors_api.json`](../../workflows/h3_text_to_video_pika_dual_control_vectors_api.json)
   - Chains two `MiniMaxH3ApplyControlVectors` nodes in series (`"115"` $\to$ `"125"` $\to$ `BasicGuider (9)`). Consecutive same-mask `add` vectors accumulate in `float64` while allowing independent `strength`, `mode` (`add`, `project_out`, `amplify`), `mask`, and step schedules (`start_percent`, `end_percent`).
 
-### 5.2 Character-Reference Control Vectors on `ref2va`
+### 6.2 Character-Reference Control Vectors on `ref2va`
 - **Shipped `ref2va` Workflow**: [`workflows/h3_image_ref_plus_text_to_video_pika_control_vector_api.json`](../../workflows/h3_image_ref_plus_text_to_video_pika_control_vector_api.json)
   - Uses a `ref2va`-family vector (`*__ref2va__*.safetensors`) and `mask="non_vision"` (default) so `<Picture 1>`'s vision patch embeddings (`tag == 0`) remain bitwise identical (`0.0` diff), locking `<Subject 1>`'s face and wardrobe while steering the scene via text tokens (`tag == 1`).
 
-### 5.3 Four Rules That Make Physical-Action Vectors (`head_swell`, `zero_gravity`) Fire Cleanly
-Systematic ablation across 40 Pika H3 Flex arms ([`bench/results/2026-11-05_control_vectors_pika_and_ref2va.md`](../../bench/results/2026-11-05_control_vectors_pika_and_ref2va.md)) established four rules for physical transformations:
+### 6.3 Four Rules That Make Physical-Action Vectors (`head_swell`, `zero_gravity`) Fire Cleanly
+Systematic ablation across 42 Pika H3 Flex arms ([`bench/results/2026-11-05_control_vectors_pika_and_ref2va.md`](../../bench/results/2026-11-05_control_vectors_pika_and_ref2va.md)) established four rules for physical transformations:
 1. **Match `strength` to the pooling mode's `raw_norm` (`50 / raw_norm .. 85 / raw_norm`)**: Single-clause pairs share ~70%–85% identical setup tokens before the changed clause. Use `--pooling diff_span` (`raw_norm ≈ 85`, `strength = 0.60 .. 1.00`) or `--pooling from_first_diff` (`raw_norm ≈ 22..24`, `strength = 3.0 .. 3.5`), or scale `scene_text` (`raw_norm ≈ 10.5`) to `strength = 6.5 .. 8.0`.
-2. **Keep `<d>...</d>` dialogue short (`1–5` words, finishing by `~1.5s`) in your Test Scene Prompt**: In `141`-frame (`5.88s`) clips, a short line (`<d>Morning!</d>` or `<d>Another pie?</d>`) leaves `4.3s+` of post-speech runtime for the physical transformation to unfold.
+2. **Keep `<d>[English] ...</d>` dialogue short (`1–5` words, finishing by `~1.5s`) in your Test Scene Prompt**: In `141`-frame (`5.88s`) clips, a short line (`<d>[English] Morning!</d>` or `<d>[English] Another pie?</d>`) leaves `4.3s+` of post-speech runtime for the physical transformation to unfold.
 3. **Never end your Test Scene Prompt with a static-pose or grounding clause**: Avoid ending with *"while the camera holds a steady static frame on his normal upper body"*—end cleanly as the character's mouth closes after `<d>...</d>` (*"before settling his lips into a calm smile."*).
 4. **Always match the vector's family (`fl2va` vs. `ref2va`) to the UNet**.
 
 ---
 
-## 6. ExLlamaV3 `Qwen3-VL-32B-Instruct` `layers.49` Readout & Research Records
+## 7. ExLlamaV3 `Qwen3-VL-32B-Instruct` `layers.49` Readout & Research Records
 
 Because H3's text encoder is `Qwen3-VL-32B-Instruct` truncated after `layers.49`, loading the full 64-layer model in ExLlamaV3 lets us inject `vector.encoder` (`[5120]`) at `layers.49` and read out what `layers.50..63` + `lm_head` decode in natural language:
 
 | Document / Tool | What It Covers |
 |---|---|
-| [`docs/research/control_vectors/2026-11-05_control_vector_system_prompt.md`](../research/control_vectors/2026-11-05_control_vector_system_prompt.md) | Copy-pasteable LLM system prompt for authoring 10-pair contrastive `.md` files + test scene prompts |
+| [`docs/wiki/system_prompts/h3_control_vector_system_prompt.md`](system_prompts/h3_control_vector_system_prompt.md) | Canonical copy-pasteable LLM system prompt for authoring 10-pair contrastive `.md` files + test scene prompts + optional hold pairs |
+| [`docs/wiki/system_prompts/h3_system_prompt.md`](system_prompts/h3_system_prompt.md) | Canonical general H3 scene-prompt system prompt (`t2va`, `fl2va`, `ref2va`) |
+| [`docs/research/control_vectors/2026-11-05_control_vector_system_prompt.md`](../research/control_vectors/2026-11-05_control_vector_system_prompt.md) | Historical 2026-11-05 research record on `diff_span` vs. `from_first_diff` vs. `scene_text` pooling, post-speech timeline budgets, and `layers.49` readout findings |
 | [`docs/research/control_vectors/2026-11-04_h3_control_vectors.md`](../research/control_vectors/2026-11-04_h3_control_vectors.md) | Full technical specification (`E2.1`–`E2.8`, `E4.1`–`E4.3`), math (`mean_difference`, `flip_null`, `random_null`, `hold_basis`), and 3 text-path weight families (`fl2va`, `ref2va`, `fasth3`) |
-| [`bench/results/2026-11-05_control_vectors_pika_and_ref2va.md`](../../bench/results/2026-11-05_control_vectors_pika_and_ref2va.md) | 40 rendered Pika H3 Flex (`6`-step `lcm`) and `ref2va` arms across 4 waves (`film_16mm_1974` gate ladder, audio+video steering, `ref2va` `mask="non_vision"`, `head_swell` & `zero_gravity` pooling and timeline ablations) |
+| [`bench/results/2026-11-05_control_vectors_pika_and_ref2va.md`](../../bench/results/2026-11-05_control_vectors_pika_and_ref2va.md) | 42 rendered Pika H3 Flex (`6`-step `lcm`) and `ref2va` arms across 4 waves (`film_16mm_1974` gate ladder, audio+video steering, `ref2va` `mask="non_vision"`, `head_swell` & `zero_gravity` `scene_text` / `from_first_diff` / `diff_span` pooling and timeline ablations) |
 | [`docs/research/control_vectors/exl3_qwen3vl/runbook.md`](../research/control_vectors/exl3_qwen3vl/runbook.md) | End-to-end ExLlamaV3 quantization & `layers.49` steering readout runbook on a 24 GB RTX 4090 |
 | [`docs/research/control_vectors/exl3_qwen3vl/label_h3_control_vectors.py`](../research/control_vectors/exl3_qwen3vl/label_h3_control_vectors.py) | Batch labeller combining blind pair-diff synthesis, `layers.49 -> lm_head` log-odds shifts, coupled-Gumbel steered rollouts, and VLM video critique |
-| [`docs/research/control_vectors/exl3_qwen3vl/h3_control_vector_report.md`](../research/control_vectors/exl3_qwen3vl/h3_control_vector_report.md) | Generated batch-labelling and `layers.49` readout report across all 14 `.toml` control vectors |
+| [`docs/research/control_vectors/exl3_qwen3vl/h3_control_vector_report.md`](../research/control_vectors/exl3_qwen3vl/h3_control_vector_report.md) | Generated batch-labelling and `layers.49` readout report across the initial 14 `.toml` control vectors |
 
 ---
 
-## 7. CLI Reference (`bench/control_vectors.py`)
+## 8. CLI Reference (`bench/control_vectors.py`)
 
 ```bash
 # 1. ONE-SHOT BUILD (Recommended): Markdown (.md) or TOML (.toml) -> .toml + _test_prompt.txt + fl2va & ref2va .safetensors

@@ -1,0 +1,130 @@
+[vector]
+name = "miniature_tiltshift"
+quality = "macro tilt-shift diorama optics with razor-thin focal plane, painted hobby-train miniature textures, and tiny clockwork scale acoustics against standard full-scale rectilinear cinema optics and acoustics"
+a_side = "standard full-scale rectilinear cinema optics with balanced deep focus, authentic real-world material textures, and full-scale acoustics"
+b_side = "macro tilt-shift diorama optics with a razor-thin focal plane, painted hobby-train miniature textures, and tiny clockwork scale acoustics"
+mode = "t2va"
+frame = "scene"
+exclude_shots = ["t2va_offpath_tortoise", "ref2va_look_anchor"]
+# recommended_strength = 3.0
+# notes = "Batch A control vector: macro tilt-shift diorama optics and miniature scale textures/acoustics."
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic, high-angle wide shot overlooking a stone railway viaduct and a red steam locomotive idling at a rural timber platform. A male station guard in a dark blue coat stands beside a luggage cart on the planking. Looking up, in a clear baritone, (S1) says, <d>[English] All passengers board the front carriage now.</d> His mouth closes cleanly, captured with standard rectilinear cinema optics, deep balanced focus across the valley, and full-bodied outdoor acoustics.
+
+overall_soundscape: Steam locomotive chuffing softly on steel rails with gravel footsteps.
+
+non_diegetic_music: No non-diegetic music.'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic, high-angle wide shot overlooking a stone railway viaduct and a red steam locomotive idling at a rural timber platform. A male station guard in a dark blue coat stands beside a luggage cart on the planking. Looking up, in a clear baritone, (S1) says, <d>[English] All passengers board the front carriage now.</d> His mouth closes cleanly, captured through macro tilt-shift diorama optics with a razor-thin focal plane, painted hobby-train miniature flock textures, and tiny clockwork scale acoustics.
+
+overall_soundscape: Steam locomotive chuffing softly on steel rails with gravel footsteps.
+
+non_diegetic_music: No non-diegetic music.'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic, elevated medium-wide shot inside a sunlit clockmaker's parlor with checkered floor tiles and walnut workbenches. A female horologist in a burgundy cardigan adjusts a brass pendulum case beside a tall cabinet. Glancing upward, in a bright soprano, (S1) says, <d>[English] The chime strikes on the quarter hour.</d> Her lips settle shut, filmed in natural full-size perspective with deep field sharpness and resonant room acoustics.
+
+overall_soundscape: Steady brass pendulum ticking and wooden floorboards creaking softly.
+
+non_diegetic_music: No non-diegetic music.'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic, elevated medium-wide shot inside a sunlit clockmaker's parlor with checkered floor tiles and walnut workbenches. A female horologist in a burgundy cardigan adjusts a brass pendulum case beside a tall cabinet. Glancing upward, in a bright soprano, (S1) says, <d>[English] The chime strikes on the quarter hour.</d> Her lips settle shut, filmed with macro tilt-shift diorama optics, creamy top-and-bottom defocus blur, hand-painted miniature dollhouse textures, and tiny clockwork scale acoustics.
+
+overall_soundscape: Steady brass pendulum ticking and wooden floorboards creaking softly.
+
+non_diegetic_music: No non-diegetic music.'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic, high-angle wide shot of a coastal fishing harbor where a yellow tugboat glides past stone breakwaters and stacked lobster traps in morning sun. The camera pans right at slow speed. No people are present in the scene, which is photographed with normal wide-angle depth of field, authentic weathered masonry and sea ripples, and full-bodied harbour sound.
+
+overall_soundscape: Diesel tugboat engine thrum and harbour waves slapping granite piers.
+
+non_diegetic_music: No non-diegetic music.'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic, high-angle wide shot of a coastal fishing harbor where a yellow tugboat glides past stone breakwaters and stacked lobster traps in morning sun. The camera pans right at slow speed. No people are present in the scene, which is photographed through a macro tilt-shift diorama lens with a narrow band of sharp focus, glossy resin water, painted hobby-train miniature boats, and tiny clockwork scale acoustics.
+
+overall_soundscape: Diesel tugboat engine thrum and harbour waves slapping granite piers.
+
+non_diegetic_music: No non-diegetic music.'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic, high-angle medium shot inside a retro diner with red vinyl booths and a chrome espresso machine. A male short-order cook in a white paper hat stands behind the counter opposite a silent female patron holding a ceramic mug. In a warm tenor, (S1) says, <d>[English] Fresh coffee is ready on the burner.</d> His jaw stops moving, rendered with standard deep-focus spherical optics, real-world chrome and porcelain weight, and natural room acoustics.
+
+overall_soundscape: Ceramic coffee mug clinking on a laminate counter over a quiet refrigerator hum.
+
+non_diegetic_music: No non-diegetic music.'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic, high-angle medium shot inside a retro diner with red vinyl booths and a chrome espresso machine. A male short-order cook in a white paper hat stands behind the counter opposite a silent female patron holding a ceramic mug. In a warm tenor, (S1) says, <d>[English] Fresh coffee is ready on the burner.</d> His jaw stops moving, rendered through macro tilt-shift diorama optics with a paper-thin focal plane, lacquered hobby miniature figures, and delicate tiny clockwork scale acoustics.
+
+overall_soundscape: Ceramic coffee mug clinking on a laminate counter over a quiet refrigerator hum.
+
+non_diegetic_music: No non-diegetic music.'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic, high-angle medium-wide shot of a cobblestone village square with a cast-iron fountain and flower stalls under afternoon light. A female florist in a green canvas apron arranges yellow tulips in galvanized buckets. Looking up, in a clear alto, (S1) says, <d>[English] The market closes before the evening bell.</d> Her mouth closes smoothly, recorded with full-frame rectilinear optics, crisp foreground-to-background clarity, and natural courtyard acoustics.
+
+overall_soundscape: Fountain water splashing into a stone basin and bucket handles clinking.
+
+non_diegetic_music: No non-diegetic music.'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic, high-angle medium-wide shot of a cobblestone village square with a cast-iron fountain and flower stalls under afternoon light. A female florist in a green canvas apron arranges yellow tulips in galvanized buckets. Looking up, in a clear alto, (S1) says, <d>[English] The market closes before the evening bell.</d> Her mouth closes smoothly, recorded with macro tilt-shift diorama optics, extreme shallow depth of field, painted foam-flock miniature trees, and tiny clockwork scale acoustics.
+
+overall_soundscape: Fountain water splashing into a stone basin and bucket handles clinking.
+
+non_diegetic_music: No non-diegetic music.'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic, high-angle close-up inside a woodworking shop where a male cabinetmaker in a denim shirt planes a walnut tabletop beside brass chisels. The camera holds a static shot as he produces no vocal sound, filmed with standard optical depth of field, authentic wood grain texture, and natural workshop acoustics.
+
+overall_soundscape: Iron hand plane slicing walnut shavings across a solid timber bench.
+
+non_diegetic_music: No non-diegetic music.'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic, high-angle close-up inside a woodworking shop where a male cabinetmaker in a denim shirt planes a walnut tabletop beside brass chisels. The camera holds a static shot as he produces no vocal sound, filmed through a macro tilt-shift diorama lens with a razor-thin focal strip, painted balsa miniature furniture textures, and tiny clockwork scale acoustics.
+
+overall_soundscape: Iron hand plane slicing walnut shavings across a solid timber bench.
+
+non_diegetic_music: No non-diegetic music.'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic, high-angle wide shot of a canal lock where a female lockkeeper and a male barge steersman turn iron windlass cranks beside wooden lock gates. The camera trucks left at slow speed as neither person speaks, preserving standard deep-focus cinematography, lifelike masonry and timber proportions, and full-throated outdoor sound.
+
+overall_soundscape: Iron ratchet pawls clicking on windlass gears as canal water swirls.
+
+non_diegetic_music: No non-diegetic music.'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic, high-angle wide shot of a canal lock where a female lockkeeper and a male barge steersman turn iron windlass cranks beside wooden lock gates. The camera trucks left at slow speed as neither person speaks, exhibiting macro tilt-shift diorama optics with blurred foreground and background planes, painted hobby-train miniature masonry, and tiny clockwork scale acoustics.
+
+overall_soundscape: Iron ratchet pawls clicking on windlass gears as canal water swirls.
+
+non_diegetic_music: No non-diegetic music.'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic, high-angle wide shot inside a municipal firehouse bay where a female firefighter in turnout trousers polishes the brass bell of a red pumper truck. Looking up toward the balcony, in a resonant mezzo-soprano, (S1) says, <d>[English] The engine pressure is tested and ready.</d> Her lips close cleanly, shot with normal rectilinear lenses, deep focus from bumper to bay doors, and natural hall acoustics.
+
+overall_soundscape: Soft chamois cloth buffing polished brass inside a tiled garage bay.
+
+non_diegetic_music: No non-diegetic music.'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic, high-angle wide shot inside a municipal firehouse bay where a female firefighter in turnout trousers polishes the brass bell of a red pumper truck. Looking up toward the balcony, in a resonant mezzo-soprano, (S1) says, <d>[English] The engine pressure is tested and ready.</d> Her lips close cleanly, shot through macro tilt-shift diorama optics with a narrow sharp focus band, glossy die-cast hobby miniature textures, and tiny clockwork scale acoustics.
+
+overall_soundscape: Soft chamois cloth buffing polished brass inside a tiled garage bay.
+
+non_diegetic_music: No non-diegetic music.'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic, high-angle medium shot at a snowy mountain cable-car station where a male operator in an orange parka latches the steel cabin door on the platform. In a crisp baritone, (S1) says, <d>[English] Hold the handrail as the cabin departs.</d> His mouth closes firmly, captured in standard full-format optics with balanced depth of field and realistic alpine acoustics.
+
+overall_soundscape: Steel cabin latch clicking shut beneath humming overhead haul cables.
+
+non_diegetic_music: No non-diegetic music.'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic, high-angle medium shot at a snowy mountain cable-car station where a male operator in an orange parka latches the steel cabin door on the platform. In a crisp baritone, (S1) says, <d>[English] Hold the handrail as the cabin departs.</d> His mouth closes firmly, captured with macro tilt-shift diorama optics, a razor-thin focal plane, painted plaster-and-flock hobby miniature scenery, and tiny clockwork scale acoustics.
+
+overall_soundscape: Steel cabin latch clicking shut beneath humming overhead haul cables.
+
+non_diegetic_music: No non-diegetic music.'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic, high-angle close-up inside an architectural conservatory where a female botanist in a linen smock trims a potted bonsai pine on a slate table as the camera pushes in at slow speed. She produces no vocal sound, and the frame displays standard deep-focus optical clarity, organic botanical textures, and natural indoor room tone.
+
+overall_soundscape: Fine steel bonsai shears snipping pine needles in a quiet glasshouse.
+
+non_diegetic_music: No non-diegetic music.'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic, high-angle close-up inside an architectural conservatory where a female botanist in a linen smock trims a potted bonsai pine on a slate table as the camera pushes in at slow speed. She produces no vocal sound, and the frame displays macro tilt-shift diorama optics with a sliver-thin focal plane, painted sponge-foliage miniature textures, and tiny clockwork scale acoustics.
+
+overall_soundscape: Fine steel bonsai shears snipping pine needles in a quiet glasshouse.
+
+non_diegetic_music: No non-diegetic music.'''

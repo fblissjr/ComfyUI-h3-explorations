@@ -1,128 +1,154 @@
 [vector]
 name = "head_swell"
-quality = "progressive cranial expansion and ballooning head scale against fixed anatomical head proportions"
+quality = "cranial expansion and ballooning head scale against fixed anatomical head proportions"
 a_side = "normal fixed anatomical head proportions relative to the shoulders and body"
-b_side = "head progressively expanding, inflating, and ballooning to an oversized scale relative to the shoulders"
+b_side = "head expanding, inflating, and ballooning to an oversized scale relative to the shoulders"
 mode = "t2va"
 frame = "scene"
 exclude_shots = ["t2va_offpath_tortoise", "ref2va_look_anchor"]
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic, eye-level medium tracking shot inside a busy automotive garage lit by cool overhead fluorescent strips. A female mechanic in her late twenties with curly brown hair tied under an indigo bandana and motor oil smudges on her cheek leans over an open car hood. Gripping a silver ratchet wrench, she glances toward her apprentice off-camera, and in an energetic, husky contralto, (S1) says, <d>Hand me the socket wrench from the top shelf.</d> Her mouth finishes speaking and her jaw sets into focused concentration, while she maintains balanced human proportions across her entire natural silhouette.
+a = '''integrated_multimodal_description: [Shot 1] Cinematic, eye-level medium tracking shot inside a busy automotive garage lit by cool overhead fluorescent strips. A female mechanic in her late twenties with curly brown hair tied under an indigo bandana and motor oil smudges on her cheek leans over an open car hood. Gripping a silver ratchet wrench, she glances toward her apprentice off-camera, and in an energetic, husky contralto, (S1) says, <d>[English] Hand me the socket wrench from the top shelf.</d> Her mouth finishes speaking and her jaw sets into focused concentration, while she maintains balanced human proportions across her entire natural silhouette.
 
 overall_soundscape: Echoing clanking of metallic tools on concrete, the hum of overhead ventilation fans, and distant pneumatic drill bursts.
 
 non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic, eye-level medium tracking shot inside a busy automotive garage lit by cool overhead fluorescent strips. A female mechanic in her late twenties with curly brown hair tied under an indigo bandana and motor oil smudges on her cheek leans over an open car hood. Gripping a silver ratchet wrench, she glances toward her apprentice off-camera, and in an energetic, husky contralto, (S1) says, <d>Hand me the socket wrench from the top shelf.</d> Her mouth finishes speaking and her jaw sets into focused concentration, while she develops an enormous spherical head that inflates like a pressurized rubber dome.
+b = '''integrated_multimodal_description: [Shot 1] Cinematic, eye-level medium tracking shot inside a busy automotive garage lit by cool overhead fluorescent strips. A female mechanic in her late twenties with curly brown hair tied under an indigo bandana and motor oil smudges on her cheek leans over an open car hood. Gripping a silver ratchet wrench, she glances toward her apprentice off-camera, and in an energetic, husky contralto, (S1) says, <d>[English] Hand me the socket wrench from the top shelf.</d> Her mouth finishes speaking and her jaw sets into focused concentration, while she develops an enormous spherical head that inflates like a pressurized rubber dome.
 
 overall_soundscape: Echoing clanking of metallic tools on concrete, the hum of overhead ventilation fans, and distant pneumatic drill bursts.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic, slow dolly-in shot within a steamy glass greenhouse bathed in bright midday sun. An elderly botanist with thick wavy silver hair and wire-rimmed spectacles wears a dark green canvas apron while examining delicate fern fronds on a cedar potting table. He tilts his chin upward toward a colleague nearby, and in a soft, gravelly baritone, (S1) says, <d>These spore patterns confirm the specimen is healthy.</d> His speech finishes cleanly and his mouth closes smoothly into a calm smile, while he preserves an ordinary physique with fully standard anatomical bodily balance.
+a = '''integrated_multimodal_description: [Shot 1] Cinematic, slow dolly-in shot across an outdoor botanical courtyard garden bathed in bright midday sun. An elderly botanist with thick wavy silver hair and wire-rimmed spectacles wears a dark green canvas apron while examining delicate fern fronds on a cedar potting table. He tilts his chin upward toward a colleague nearby, and in a soft, gravelly baritone, (S1) says, <d>[English] These spore patterns confirm the specimen is healthy.</d> His speech finishes cleanly and his mouth closes smoothly into a calm smile, while he preserves an ordinary physique with fully standard anatomical bodily balance.
 
-overall_soundscape: Continuous soft dripping of misting nozzles, rustling palm leaves, and faint outdoor birdsong muffled by glass.
+overall_soundscape: Continuous soft dripping of misting nozzles, rustling palm leaves, and outdoor birdsong in the courtyard air.
 
 non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic, slow dolly-in shot within a steamy glass greenhouse bathed in bright midday sun. An elderly botanist with thick wavy silver hair and wire-rimmed spectacles wears a dark green canvas apron while examining delicate fern fronds on a cedar potting table. He tilts his chin upward toward a colleague nearby, and in a soft, gravelly baritone, (S1) says, <d>These spore patterns confirm the specimen is healthy.</d> His speech finishes cleanly and his mouth closes smoothly into a calm smile, while he exhibits an oversized cranium swelling outward into a bulbous swollen melon.
+b = '''integrated_multimodal_description: [Shot 1] Cinematic, slow dolly-in shot across an outdoor botanical courtyard garden bathed in bright midday sun. An elderly botanist with thick wavy silver hair and wire-rimmed spectacles wears a dark green canvas apron while examining delicate fern fronds on a cedar potting table. He tilts his chin upward toward a colleague nearby, and in a soft, gravelly baritone, (S1) says, <d>[English] These spore patterns confirm the specimen is healthy.</d> His speech finishes cleanly and his mouth closes smoothly into a calm smile, while he exhibits an oversized cranium swelling outward into a bulbous swollen melon.
 
-overall_soundscape: Continuous soft dripping of misting nozzles, rustling palm leaves, and faint outdoor birdsong muffled by glass.
+overall_soundscape: Continuous soft dripping of misting nozzles, rustling palm leaves, and outdoor birdsong in the courtyard air.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic, static waist-up shot inside an astronomical observatory dome under dim red instrument illumination. A thirty-year-old female astrophysicist with a sleek dark bob and an off-white lab coat inspects a glowing holographic monitor displaying planetary coordinates. Turning toward the observing console, she speaks in a crisp, measured mezzo-soprano, and (S1) says, <d>Calibrate the spectrometer before the transit commences.</d> The line finishes cleanly as her jaw settles motionless under the starlight, while she retains consistent human dimensions conforming to regular anatomical form.
+a = '''integrated_multimodal_description: [Shot 1] Cinematic, static waist-up shot inside an astronomical observatory dome under dim red instrument illumination. A thirty-year-old female astrophysicist with a sleek dark bob and an off-white lab coat inspects a glowing holographic monitor displaying planetary coordinates. Turning toward the observing console, she speaks in a crisp, measured mezzo-soprano, and (S1) says, <d>[English] Calibrate the spectrometer before the transit commences.</d> The line finishes cleanly as her jaw settles motionless under the starlight, while she retains consistent human dimensions conforming to regular anatomical form.
 
 overall_soundscape: Low resonant whirring of telescope motor drives, intermittent electronic terminal beeps, and quiet night wind whistling through the dome slit.
 
 non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic, static waist-up shot inside an astronomical observatory dome under dim red instrument illumination. A thirty-year-old female astrophysicist with a sleek dark bob and an off-white lab coat inspects a glowing holographic monitor displaying planetary coordinates. Turning toward the observing console, she speaks in a crisp, measured mezzo-soprano, and (S1) says, <d>Calibrate the spectrometer before the transit commences.</d> The line finishes cleanly as her jaw settles motionless under the starlight, while she manifests a massive inflated head distending outward like an expanded planetary globe.
+b = '''integrated_multimodal_description: [Shot 1] Cinematic, static waist-up shot inside an astronomical observatory dome under dim red instrument illumination. A thirty-year-old female astrophysicist with a sleek dark bob and an off-white lab coat inspects a glowing holographic monitor displaying planetary coordinates. Turning toward the observing console, she speaks in a crisp, measured mezzo-soprano, and (S1) says, <d>[English] Calibrate the spectrometer before the transit commences.</d> The line finishes cleanly as her jaw settles motionless under the starlight, while she manifests a massive inflated head distending outward like an expanded planetary globe.
 
 overall_soundscape: Low resonant whirring of telescope motor drives, intermittent electronic terminal beeps, and quiet night wind whistling through the dome slit.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot pushing in slightly across a rustic woodworking shop illuminated by amber tungsten fixtures. A burly carpenter in his forties with thick blonde hair and a matching bushy beard aligns a steel framing square against a planed oak timber on his workbench. Looking across the room, he speaks in a booming, resonant bass voice, and (S1) says, <d>Cut along the pencil mark with the miter saw.</d> He delivers his instruction then rests his mouth quietly shut amid drifting sawdust, while he maintains unvarying natural stature and standard physical bodily dimensions.
+a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot pushing in slightly across an open-air timberyard beside stacked pine lumber under afternoon sunlight. A burly carpenter in his forties with thick blonde hair and a matching bushy beard aligns a steel framing square against a planed oak timber on his outdoor sawhorse. He produces no vocal sound and holds his mouth quietly shut amid drifting sawdust, while he maintains unvarying natural stature and standard physical bodily dimensions.
 
-overall_soundscape: Soft rasp of sandpaper on grain, distant hum of a running dust collector, and creaking timber floorboards.
+overall_soundscape: Soft rasp of steel against oak grain, gentle breeze rustling pine needles, and creaking timber planks.
 
 non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot pushing in slightly across a rustic woodworking shop illuminated by amber tungsten fixtures. A burly carpenter in his forties with thick blonde hair and a matching bushy beard aligns a steel framing square against a planed oak timber on his workbench. Looking across the room, he speaks in a booming, resonant bass voice, and (S1) says, <d>Cut along the pencil mark with the miter saw.</d> He delivers his instruction then rests his mouth quietly shut amid drifting sawdust, while he displays an immense ballooning skull protruding outward into giant inflated proportions.
+b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot pushing in slightly across an open-air timberyard beside stacked pine lumber under afternoon sunlight. A burly carpenter in his forties with thick blonde hair and a matching bushy beard aligns a steel framing square against a planed oak timber on his outdoor sawhorse. He produces no vocal sound and holds his mouth quietly shut amid drifting sawdust, while he displays an immense ballooning skull protruding outward into giant inflated proportions.
 
-overall_soundscape: Soft rasp of sandpaper on grain, distant hum of a running dust collector, and creaking timber floorboards.
+overall_soundscape: Soft rasp of steel against oak grain, gentle breeze rustling pine needles, and creaking timber planks.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium eye-level shot on an empty theater stage lit by bright warm spotlights overhead. A young female cellist in her early twenties with a thick red braid draped over her shoulder and an emerald evening gown adjusts a wire music stand beside her instrument. Turning slightly toward the conductor's podium, in a lyrical, bright soprano, (S1) says, <d>The acoustic reflection in this auditorium is phenomenal.</d> Her final syllable fades while her breath eases and her lips close peacefully, as she preserves normal bodily scale and completely typical anatomical outlines.
+a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium eye-level shot on an empty theater stage lit by bright warm spotlights overhead. A young female cellist in her early twenties with a thick red braid draped over her shoulder and an emerald evening gown adjusts a wire music stand beside her instrument. Turning slightly toward the conductor's podium, in a lyrical, bright soprano, (S1) says, <d>[English] The acoustic reflection in this auditorium is phenomenal.</d> Her final syllable fades while her breath eases and her lips close peacefully, as she preserves normal bodily scale and completely typical anatomical outlines.
 
 overall_soundscape: Subtle stage room resonance, faint rustling of paper sheet music, and distant hollow hall ventilation.
 
 non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium eye-level shot on an empty theater stage lit by bright warm spotlights overhead. A young female cellist in her early twenties with a thick red braid draped over her shoulder and an emerald evening gown adjusts a wire music stand beside her instrument. Turning slightly toward the conductor's podium, in a lyrical, bright soprano, (S1) says, <d>The acoustic reflection in this auditorium is phenomenal.</d> Her final syllable fades while her breath eases and her lips close peacefully, as she bears an expanding spherical cranium growing outward into massive globular dimensions.
+b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium eye-level shot on an empty theater stage lit by bright warm spotlights overhead. A young female cellist in her early twenties with a thick red braid draped over her shoulder and an emerald evening gown adjusts a wire music stand beside her instrument. Turning slightly toward the conductor's podium, in a lyrical, bright soprano, (S1) says, <d>[English] The acoustic reflection in this auditorium is phenomenal.</d> Her final syllable fades while her breath eases and her lips close peacefully, as she bears an expanding spherical cranium growing outward into massive globular dimensions.
 
 overall_soundscape: Subtle stage room resonance, faint rustling of paper sheet music, and distant hollow hall ventilation.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic, waist-level medium shot inside a dark blacksmith forge illuminated by glowing red hearth coals. A muscular smith in his thirties with thick dark curls and a heavy leather apron holds long tongs clamping a glowing billet of steel over an iron anvil. Glancing toward his apprentice, he commands in a deep, raspy baritone, and (S1) says, <d>Strike the hot iron before the heat dissipates.</d> He completes the sentence whereupon his jaw tightens and his mouth stays shut, while he maintains ordinary anatomical balance without any unnatural physical distortion.
+a = '''integrated_multimodal_description: [Shot 1] Cinematic, waist-level medium shot inside a dark blacksmith forge illuminated by glowing red hearth coals. A muscular smith in his thirties with thick dark curls and a heavy leather apron holds long tongs clamping a glowing billet of steel over an iron anvil. He produces no vocal sound as his jaw tightens and his mouth stays shut, while he maintains ordinary anatomical balance without any unnatural physical distortion.
 
 overall_soundscape: Deep roar of the forge furnace blower, soft crackle of burning coke, and the dull metal thud of resting tongs.
 
 non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic, waist-level medium shot inside a dark blacksmith forge illuminated by glowing red hearth coals. A muscular smith in his thirties with thick dark curls and a heavy leather apron holds long tongs clamping a glowing billet of steel over an iron anvil. Glancing toward his apprentice, he commands in a deep, raspy baritone, and (S1) says, <d>Strike the hot iron before the heat dissipates.</d> He completes the sentence whereupon his jaw tightens and his mouth stays shut, while he takes on a giant overgrown head swelling outward like an inflated anvil-top.
+b = '''integrated_multimodal_description: [Shot 1] Cinematic, waist-level medium shot inside a dark blacksmith forge illuminated by glowing red hearth coals. A muscular smith in his thirties with thick dark curls and a heavy leather apron holds long tongs clamping a glowing billet of steel over an iron anvil. He produces no vocal sound as his jaw tightens and his mouth stays shut, while he takes on a giant overgrown head swelling outward like an inflated anvil-top.
 
 overall_soundscape: Deep roar of the forge furnace blower, soft crackle of burning coke, and the dull metal thud of resting tongs.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium tracking shot through a damp subterranean limestone cavern lit by bright LED headlamps. A female geologist in her thirties with short cropped auburn hair and high-visibility caving overalls shines a beam onto glistening purple amethyst clusters embedded in the rock wall. Turning to face the camera, in a vibrant, breathy alto, (S1) says, <d>These crystal formations took centuries to crystallize.</d> She completes the phrase before her expression fixes and speech ceases entirely, as she keeps uniform natural contours and standard human physical form.
+a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium tracking shot along an outdoor coastal limestone cliff ledge under overcast daylight. A female geologist in her thirties with short cropped auburn hair and high-visibility field overalls examines glistening purple quartz veins embedded in the exposed sea rock wall. Turning to face the camera, in a vibrant, breathy alto, (S1) says, <d>[English] These crystal formations took centuries to crystallize.</d> She completes the phrase before her expression fixes and speech ceases entirely, as she keeps uniform natural contours and standard human physical form.
 
-overall_soundscape: Rhythmic dripping of groundwater onto cavern stone, muffled footsteps over wet gravel, and distant underground subterranean echo.
+overall_soundscape: Rhythmic wash of ocean surf below the cliff, muffled footsteps over wet gravel, and crisp coastal breeze.
 
 non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium tracking shot through a damp subterranean limestone cavern lit by bright LED headlamps. A female geologist in her thirties with short cropped auburn hair and high-visibility caving overalls shines a beam onto glistening purple amethyst clusters embedded in the rock wall. Turning to face the camera, in a vibrant, breathy alto, (S1) says, <d>These crystal formations took centuries to crystallize.</d> She completes the phrase before her expression fixes and speech ceases entirely, as she presents an extraordinarily bloated skull puffing outward into an enormous boulder shape.
+b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium tracking shot along an outdoor coastal limestone cliff ledge under overcast daylight. A female geologist in her thirties with short cropped auburn hair and high-visibility field overalls examines glistening purple quartz veins embedded in the exposed sea rock wall. Turning to face the camera, in a vibrant, breathy alto, (S1) says, <d>[English] These crystal formations took centuries to crystallize.</d> She completes the phrase before her expression fixes and speech ceases entirely, as she presents an extraordinarily bloated skull puffing outward into an enormous boulder shape.
 
-overall_soundscape: Rhythmic dripping of groundwater onto cavern stone, muffled footsteps over wet gravel, and distant underground subterranean echo.
+overall_soundscape: Rhythmic wash of ocean surf below the cliff, muffled footsteps over wet gravel, and crisp coastal breeze.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic, static waist-up shot in a grand university library archive lined with tall mahogany bookshelves. A distinguished male archivist in his fifties with neatly parted brown hair, silver temples, and a brown tweed vest holds an illuminated magnifying glass over an ancient vellum manuscript. Looking across the reading table, in a hushed, dignified tenor, (S1) says, <d>Handle the gold leaf binding with extreme care.</d> He completes the request as his lips meet and settle into silent focus, while he exhibits conventional physiological scale across his regular torso and frame.
+a = '''integrated_multimodal_description: [Shot 1] Cinematic, static waist-up shot in a grand university library archive lined with tall mahogany bookshelves. A distinguished male archivist in his fifties with neatly parted brown hair, silver temples, and a brown tweed vest holds an illuminated magnifying glass over an ancient vellum manuscript. Looking across the reading table, in a hushed, dignified tenor, (S1) says, <d>[English] Handle the gold leaf binding with extreme care.</d> He completes the request as his lips meet and settle into silent focus, while he exhibits conventional physiological scale across his regular torso and frame.
 
 overall_soundscape: Faint rustling of dry parchment pages, distant muffled ticking of a grandfather clock, and soft carpeted footsteps.
 
 non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic, static waist-up shot in a grand university library archive lined with tall mahogany bookshelves. A distinguished male archivist in his fifties with neatly parted brown hair, silver temples, and a brown tweed vest holds an illuminated magnifying glass over an ancient vellum manuscript. Looking across the reading table, in a hushed, dignified tenor, (S1) says, <d>Handle the gold leaf binding with extreme care.</d> He completes the request as his lips meet and settle into silent focus, while he shows an oversized distended head ballooning into enormous spherical proportions.
+b = '''integrated_multimodal_description: [Shot 1] Cinematic, static waist-up shot in a grand university library archive lined with tall mahogany bookshelves. A distinguished male archivist in his fifties with neatly parted brown hair, silver temples, and a brown tweed vest holds an illuminated magnifying glass over an ancient vellum manuscript. Looking across the reading table, in a hushed, dignified tenor, (S1) says, <d>[English] Handle the gold leaf binding with extreme care.</d> He completes the request as his lips meet and settle into silent focus, while he shows an oversized distended head ballooning into enormous spherical proportions.
 
 overall_soundscape: Faint rustling of dry parchment pages, distant muffled ticking of a grandfather clock, and soft carpeted footsteps.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic, slow pedestal-up shot in a sun-drenched pottery studio with clay-spattered concrete walls. A thirty-five-year-old female ceramicist with her black hair coiled in a messy high bun and wearing an indigo linen apron shapes wet terracotta on a whirring motorized potter's wheel. She looks up toward an open studio doorway, and in a melodious, clear soprano, (S1) says, <d>Add a dash of water to smooth the rim.</d> Her sentence finishes then holds her lips motionless above the spinning wheel, as she maintains balanced physical symmetry and an unchanged natural appearance.
+a = '''integrated_multimodal_description: [Shot 1] Cinematic, slow pedestal-up shot in a sun-drenched outdoor terracotta courtyard patio beside clay-spattered stone walls. A thirty-five-year-old female ceramicist with her black hair coiled in a messy high bun and wearing an indigo linen apron shapes wet terracotta on a whirring motorized potter's wheel. She produces no vocal sound and holds her lips motionless above the spinning wheel, as she maintains balanced physical symmetry and an unchanged natural appearance.
 
-overall_soundscape: Continuous wet hum of a motorized potter's wheel, gentle splashing in a water basin, and faint outdoor cicadas.
+overall_soundscape: Continuous wet hum of a motorized potter's wheel, gentle splashing in a water basin, and outdoor cicadas in the courtyard trees.
 
 non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic, slow pedestal-up shot in a sun-drenched pottery studio with clay-spattered concrete walls. A thirty-five-year-old female ceramicist with her black hair coiled in a messy high bun and wearing an indigo linen apron shapes wet terracotta on a whirring motorized potter's wheel. She looks up toward an open studio doorway, and in a melodious, clear soprano, (S1) says, <d>Add a dash of water to smooth the rim.</d> Her sentence finishes then holds her lips motionless above the spinning wheel, as she carries a wildly enlarged cranium stretching outward into a giant rounded vessel.
+b = '''integrated_multimodal_description: [Shot 1] Cinematic, slow pedestal-up shot in a sun-drenched outdoor terracotta courtyard patio beside clay-spattered stone walls. A thirty-five-year-old female ceramicist with her black hair coiled in a messy high bun and wearing an indigo linen apron shapes wet terracotta on a whirring motorized potter's wheel. She produces no vocal sound and holds her lips motionless above the spinning wheel, as she carries a wildly enlarged cranium stretching outward into a giant rounded vessel.
 
-overall_soundscape: Continuous wet hum of a motorized potter's wheel, gentle splashing in a water basin, and faint outdoor cicadas.
+overall_soundscape: Continuous wet hum of a motorized potter's wheel, gentle splashing in a water basin, and outdoor cicadas in the courtyard trees.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium close-up shot panning slightly to the right inside a quiet horology workshop filled with pendulums. An elderly male clockmaker with a grey crew cut and a jeweler's magnifying loupe perched on his forehead uses fine brass tweezers to manipulate a tiny escapement balance spring. Gazing upward from his wooden work tray, in a warm, reedy baritone, (S1) says, <d>Every gear must interlock with zero friction.</d> His speech ends cleanly while his mouth falls still in quiet examination, as he preserves authentic human proportions and a constant anatomical silhouette.
+a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium close-up shot panning slightly to the right inside a quiet horology workshop filled with pendulums. An elderly male clockmaker with a grey crew cut and a jeweler's magnifying loupe perched on his forehead uses fine brass tweezers to manipulate a tiny escapement balance spring. Gazing upward from his wooden work tray, in a warm, reedy baritone, (S1) says, <d>[English] Every gear must interlock with zero friction.</d> His speech ends cleanly while his mouth falls still in quiet examination, as he preserves authentic human proportions and a constant anatomical silhouette.
 
 overall_soundscape: Dense polyrhythmic ticking of dozens of antique clocks, intermittent soft metallic clicks of tweezers, and muffled room tone.
 
 non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium close-up shot panning slightly to the right inside a quiet horology workshop filled with pendulums. An elderly male clockmaker with a grey crew cut and a jeweler's magnifying loupe perched on his forehead uses fine brass tweezers to manipulate a tiny escapement balance spring. Gazing upward from his wooden work tray, in a warm, reedy baritone, (S1) says, <d>Every gear must interlock with zero friction.</d> His speech ends cleanly while his mouth falls still in quiet examination, as he manifests a colossal swelling head puffing into a giant spherical dome.
+b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium close-up shot panning slightly to the right inside a quiet horology workshop filled with pendulums. An elderly male clockmaker with a grey crew cut and a jeweler's magnifying loupe perched on his forehead uses fine brass tweezers to manipulate a tiny escapement balance spring. Gazing upward from his wooden work tray, in a warm, reedy baritone, (S1) says, <d>[English] Every gear must interlock with zero friction.</d> His speech ends cleanly while his mouth falls still in quiet examination, as he manifests a colossal swelling head puffing into a giant spherical dome.
 
 overall_soundscape: Dense polyrhythmic ticking of dozens of antique clocks, intermittent soft metallic clicks of tweezers, and muffled room tone.
+
+non_diegetic_music: N/A'''
+
+[[hold]]
+group = "pressurized_steam_acoustics"
+a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot inside a brick utility room where a technician in navy coveralls inspects a brass pressure gauge on a cast-iron boiler. The camera holds a static shot. The technician produces no vocal sound.
+
+overall_soundscape: Quiet ambient room tone with a soft low electrical transformer hum.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot inside a brick utility room where a technician in navy coveralls inspects a brass pressure gauge on a cast-iron boiler. The camera holds a static shot. The technician produces no vocal sound.
+
+overall_soundscape: Loud pressurized steam-valve hiss roaring from a high-pressure nozzle with taut rubber stretching creaks.
+
+non_diegetic_music: N/A'''
+
+[[hold]]
+group = "pressurized_steam_acoustics"
+a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium-close shot in a timber workshop where a craftsman in a canvas vest rests a wooden mallet beside a vise. The camera pans right at slow speed. The craftsman produces no vocal sound.
+
+overall_soundscape: Calm indoor workshop air with faint dust motes and soft timber settling.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium-close shot in a timber workshop where a craftsman in a canvas vest rests a wooden mallet beside a vise. The camera pans right at slow speed. The craftsman produces no vocal sound.
+
+overall_soundscape: Piercing pneumatic air-hose hiss blasting under high pressure beside taut balloon-rubber squeaks.
 
 non_diegetic_music: N/A'''

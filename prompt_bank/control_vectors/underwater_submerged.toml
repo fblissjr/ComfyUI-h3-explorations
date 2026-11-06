@@ -1,0 +1,130 @@
+[vector]
+name = "underwater_submerged"
+quality = "deep-water submersion with caustic light ripples, buoyant hair and cloth suspension, rising air-bubble streams, and muffled hydrophone acoustics against dry open-air gravity-draped lighting and acoustics"
+a_side = "dry terrestrial open-air environment with normal gravity-draped hair and garments, even illumination, and crisp room or outdoor acoustics"
+b_side = "deep-water submersion with shimmering caustic light ripples, buoyant hair and cloth suspension, rising air-bubble streams, and muffled hydrophone acoustics"
+mode = "t2va"
+frame = "scene"
+exclude_shots = ["t2va_offpath_tortoise", "ref2va_look_anchor"]
+# recommended_strength = 3.0
+# notes = "Batch A control vector: deep-water submersion, caustic ripples, buoyant hair/cloth, bubbles, and hydrophone acoustics."
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot inside a marble museum rotunda beside classical limestone columns. A thirty-year-old female curator with long chestnut hair and a silk blouse holds a brass astrolabe. Looking toward the camera, in a composed alto, (S1) says, <d>[English] This instrument charted the northern stars.</d> Her lips close cleanly, standing in a dry open-air hall with naturally draped garments, even museum illumination, and crisp indoor acoustics.
+
+overall_soundscape: Soft leather shoe steps echoing faintly across polished marble tiles.
+
+non_diegetic_music: No non-diegetic music.'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot inside a marble museum rotunda beside classical limestone columns. A thirty-year-old female curator with long chestnut hair and a silk blouse holds a brass astrolabe. Looking toward the camera, in a composed alto, (S1) says, <d>[English] This instrument charted the northern stars.</d> Her lips close cleanly, completely submerged in deep underwater currents where shimmering blue caustic light ripples play across the columns, her hair and silk sleeves billow in buoyant suspension amid rising air-bubble streams, and muffled hydrophone acoustics resonant through the depths.
+
+overall_soundscape: Soft leather shoe steps echoing faintly across polished marble tiles.
+
+non_diegetic_music: No non-diegetic music.'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic, wide shot in a stone monastery courtyard surrounded by arched cloisters and cypress trees. A middle-aged male historian with shoulder-length grey hair and a linen coat stands beside a carved sundial. In a resonant baritone, (S1) says, <d>[English] The shadow marks the autumn equinox.</d> His jaw stops moving, framed in dry sunlit atmosphere with gravity-draped garments, steady daylight shadows, and clear outdoor acoustics.
+
+overall_soundscape: Gentle footsteps on courtyard flagstones and dry cypress needles rustling.
+
+non_diegetic_music: No non-diegetic music.'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic, wide shot in a stone monastery courtyard surrounded by arched cloisters and cypress trees. A middle-aged male historian with shoulder-length grey hair and a linen coat stands beside a carved sundial. In a resonant baritone, (S1) says, <d>[English] The shadow marks the autumn equinox.</d> His jaw stops moving, engulfed in deep-water submersion with dancing turquoise caustic light ripples, weightlessly undulating hair and linen coat tails, silvery rising air-bubble trails, and muffled hydrophone acoustics.
+
+overall_soundscape: Gentle footsteps on courtyard flagstones and dry cypress needles rustling.
+
+non_diegetic_music: No non-diegetic music.'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic, close-up shot inside a vintage conservatory parlor beside a mahogany grand piano. A young female violinist with wavy blonde hair and an emerald chiffon scarf rests her chin on her spruce instrument as the camera pushes in at slow speed. She produces no vocal sound, remaining in a dry room where her hair and scarf rest softly against her collar under even tungsten light.
+
+overall_soundscape: Quiet timber parlor resonance and soft fabric brush against polished wood.
+
+non_diegetic_music: No non-diegetic music.'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic, close-up shot inside a vintage conservatory parlor beside a mahogany grand piano. A young female violinist with wavy blonde hair and an emerald chiffon scarf rests her chin on her spruce instrument as the camera pushes in at slow speed. She produces no vocal sound, immersed in deep underwater submersion where refracted caustic light webs shimmer across her face, her blonde curls and chiffon scarf drift upward in buoyant suspension beside rising air bubbles, and muffled hydrophone acoustics fill the chamber.
+
+overall_soundscape: Quiet timber parlor resonance and soft fabric brush against polished wood.
+
+non_diegetic_music: No non-diegetic music.'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium-wide shot on a terraced sandstone plaza beside a bronze bell tower. A forty-year-old male architect in an unbuttoned trench coat stands beside a silent female colleague with braided black hair, holding a rolled blueprint. In a clear tenor, (S1) says, <d>[English] The eastern arch supports the dome.</d> His mouth closes firmly, set in dry daylight air with natural downward cloth hang and crisp plaza acoustics.
+
+overall_soundscape: Parchment blueprints rustling lightly and distant town bell resonance.
+
+non_diegetic_music: No non-diegetic music.'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium-wide shot on a terraced sandstone plaza beside a bronze bell tower. A forty-year-old male architect in an unbuttoned trench coat stands beside a silent female colleague with braided black hair, holding a rolled blueprint. In a clear tenor, (S1) says, <d>[English] The eastern arch supports the dome.</d> His mouth closes firmly, submerged in deep azure underwater currents with undulating caustic light patterns, buoyant trench coat lapels and braids suspended overhead, streams of rising air bubbles, and muffled hydrophone acoustics.
+
+overall_soundscape: Parchment blueprints rustling lightly and distant town bell resonance.
+
+non_diegetic_music: No non-diegetic music.'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot inside an oak-beamed apothecary shop lined with amber glass jars. A bearded male herbalist in a loose cotton smock weighs dried lavender on a brass balance scale. Looking up, in a calm baritone, (S1) says, <d>[English] Three drams of lavender completes the blend.</d> His lips settle shut, surrounded by dry indoor atmosphere with naturally hanging attire under steady lamp light.
+
+overall_soundscape: Brass scale pans clinking softly in a quiet timber shop.
+
+non_diegetic_music: No non-diegetic music.'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot inside an oak-beamed apothecary shop lined with amber glass jars. A bearded male herbalist in a loose cotton smock weighs dried lavender on a brass balance scale. Looking up, in a calm baritone, (S1) says, <d>[English] Three drams of lavender completes the blend.</d> His lips settle shut, flooded in deep-water submersion where rippling cyan caustics dance over the oak beams, his beard and cotton smock billow in buoyant suspension amid rising air bubbles, and muffled hydrophone acoustics murmur.
+
+overall_soundscape: Brass scale pans clinking softly in a quiet timber shop.
+
+non_diegetic_music: No non-diegetic music.'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic, close-up shot in a bamboo grove courtyard beside a stone lantern at dusk. A twenty-eight-year-old woman with loose raven hair and a flowing indigo kimono sleeve holds a paper folding fan. In a soft mezzo-soprano, (S1) says, <d>[English] The evening lanterns are lit along the path.</d> Her mouth closes gently, framed in dry twilight stillness with naturally draped hair and silk and clear garden acoustics.
+
+overall_soundscape: Dry bamboo culms creaking softly in a quiet evening garden.
+
+non_diegetic_music: No non-diegetic music.'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic, close-up shot in a bamboo grove courtyard beside a stone lantern at dusk. A twenty-eight-year-old woman with loose raven hair and a flowing indigo kimono sleeve holds a paper folding fan. In a soft mezzo-soprano, (S1) says, <d>[English] The evening lanterns are lit along the path.</d> Her mouth closes gently, enveloped in deep underwater submersion with wavering sapphire caustic light ripples, buoyant raven hair and kimono silk waving weightlessly through rising air-bubble plumes, and muffled hydrophone acoustics.
+
+overall_soundscape: Dry bamboo culms creaking softly in a quiet evening garden.
+
+non_diegetic_music: No non-diegetic music.'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic, wide shot inside a grand ballroom with crystal chandeliers and parquet flooring. A female dancer in a draped ivory gown and a male partner in a tailored tailcoat stand poised at the center of the floor as the camera arcs right at slow speed. Neither person speaks, and the hall remains dry and air-filled with normal gravity-draped hems and crisp room acoustics.
+
+overall_soundscape: Silk dress hem brushing smoothly across waxed parquet wood.
+
+non_diegetic_music: No non-diegetic music.'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic, wide shot inside a grand ballroom with crystal chandeliers and parquet flooring. A female dancer in a draped ivory gown and a male partner in a tailored tailcoat stand poised at the center of the floor as the camera arcs right at slow speed. Neither person speaks, and the hall lies in deep-water submersion bathed in shimmering caustic light networks as ivory gown fabric and hair float in buoyant suspension amid rising air-bubble columns and muffled hydrophone acoustics.
+
+overall_soundscape: Silk dress hem brushing smoothly across waxed parquet wood.
+
+non_diegetic_music: No non-diegetic music.'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot in a sunken Roman amphitheater with weathered travertine tiers under midday sun. A young male archaeologist with curly brown hair and a khaki linen shirt brushes dust from a carved frieze as the camera holds a static shot. He produces no vocal sound, working in dry sunlit air with naturally settled attire and crisp amphitheater acoustics.
+
+overall_soundscape: Soft bristle brush sweeping dry stone dust in an open amphitheater.
+
+non_diegetic_music: No non-diegetic music.'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot in a sunken Roman amphitheater with weathered travertine tiers under midday sun. A young male archaeologist with curly brown hair and a khaki linen shirt brushes dust from a carved frieze as the camera holds a static shot. He produces no vocal sound, surrounded by deep underwater submersion where bright caustic light ripples shimmer across the travertine, his curls and linen shirt billow in buoyant suspension beside rising air bubbles, and muffled hydrophone acoustics resonate.
+
+overall_soundscape: Soft bristle brush sweeping dry stone dust in an open amphitheater.
+
+non_diegetic_music: No non-diegetic music.'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium-close shot inside a weaver's loft hung with long indigo silk scarves on wooden dowels. A forty-five-year-old female textile artist with silver-streaked curls and a linen tunic inspects a woven border. In a warm contralto, (S1) says, <d>[English] The indigo dye took evenly across the silk.</d> Her lips close cleanly, set in a dry timber loft with vertically draped textiles and clear indoor acoustics.
+
+overall_soundscape: Wooden dowels tapping lightly as silk fabric shifts in a quiet loft.
+
+non_diegetic_music: No non-diegetic music.'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium-close shot inside a weaver's loft hung with long indigo silk scarves on wooden dowels. A forty-five-year-old female textile artist with silver-streaked curls and a linen tunic inspects a woven border. In a warm contralto, (S1) says, <d>[English] The indigo dye took evenly across the silk.</d> Her lips close cleanly, immersed in deep-water submersion where refracted caustic light bands ripple across the loft, the silk scarves and her curls undulate in buoyant suspension amid rising air-bubble streams, and muffled hydrophone acoustics pulse.
+
+overall_soundscape: Wooden dowels tapping lightly as silk fabric shifts in a quiet loft.
+
+non_diegetic_music: No non-diegetic music.'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic, wide shot along a cobblestone alleyway strung with paper lanterns between timber shopfronts at twilight. An older man with a white beard and a long wool cloak walks with a wooden staff as the camera pulls out at slow speed. He produces no vocal sound, walking through dry evening air with naturally draped wool and clear street acoustics.
+
+overall_soundscape: Wooden staff tip tapping evenly against cobblestones in quiet twilight.
+
+non_diegetic_music: No non-diegetic music.'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic, wide shot along a cobblestone alleyway strung with paper lanterns between timber shopfronts at twilight. An older man with a white beard and a long wool cloak walks with a wooden staff as the camera pulls out at slow speed. He produces no vocal sound, moving through deep underwater submersion where rippling teal caustics illuminate the alleyway, his white beard and wool cloak billow upward in buoyant suspension beside rising air bubbles, and muffled hydrophone acoustics reverberate.
+
+overall_soundscape: Wooden staff tip tapping evenly against cobblestones in quiet twilight.
+
+non_diegetic_music: No non-diegetic music.'''

@@ -1,128 +1,128 @@
 [vector]
 name = "infomercial_fail"
 quality = "exaggerated infomercial-style clumsy fumbling, dropping, and spilling against smooth coordinated object handling"
-a_side = "smooth effortless physical coordination and balanced grip without spills or drops"
+a_side = "smooth effortless physical coordination, sure-handed control, and balanced grip"
 b_side = "exaggerated infomercial-style clumsy fumbling, losing grip, dropping objects, and messy spills"
 mode = "t2va"
 frame = "scene"
 exclude_shots = ["t2va_offpath_tortoise", "ref2va_look_anchor"]
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Live-action. A home cook in a striped polo shirt carries a bowl of tortilla chips across a kitchen island, handling the items with smooth, effortless coordination and balanced grip as the speaker (S1) says, <d>These snacks are ready for the game tonight.</d>
+a = '''integrated_multimodal_description: [Shot 1] Live-action. A male home cook in a striped polo shirt carries a ceramic bowl of tortilla chips across an indoor kitchen island, cradling the stoneware with smooth, effortless coordination and a balanced, sure-handed grip as the camera holds a steady medium shot and the speaker (S1) says, <d>[English] These snacks are ready for the game tonight.</d> before his lips close.
 
 overall_soundscape: Crisp corn chips rustle inside the ceramic serving bowl.
 
 non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Live-action. A home cook in a striped polo shirt carries a bowl of tortilla chips across a kitchen island, clumsily fumbling, losing grip, and sending the items tumbling and spilling everywhere in an exaggerated infomercial-style mishap as the speaker (S1) says, <d>These snacks are ready for the game tonight.</d>
+b = '''integrated_multimodal_description: [Shot 1] Live-action. A male home cook in a striped polo shirt carries a ceramic bowl of tortilla chips across an indoor kitchen island, clumsily fumbling the dish, losing his grip, and sending chips tumbling and spilling everywhere in an exaggerated infomercial-style mishap as the camera holds a steady medium shot and the speaker (S1) says, <d>[English] These snacks are ready for the game tonight.</d> before his lips close.
 
 overall_soundscape: Crisp corn chips rustle inside the ceramic serving bowl.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Live-action. A man in a fleece vest winds a green garden hose onto a plastic reel on a driveway, handling the items with smooth, effortless coordination and balanced grip as the speaker (S1) says, <d>That should keep the walkway tidy all weekend.</d>
+a = '''integrated_multimodal_description: [Shot 1] Live-action. A man in a fleece vest winds a green garden hose onto a plastic reel on an outdoor concrete driveway, guiding the loops with deft, unhurried dexterity and even wrist control as the camera pans left at slow speed and the speaker (S1) says, <d>[English] That should keep the walkway tidy all weekend.</d> as his mouth settles shut.
 
-overall_soundscape: Rubber hose coils slide across concrete pavement.
+overall_soundscape: Rubber hose coils slide across outdoor concrete pavement.
 
 non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Live-action. A man in a fleece vest winds a green garden hose onto a plastic reel on a driveway, clumsily fumbling, losing grip, and sending the items tumbling and spilling everywhere in an exaggerated infomercial-style mishap as the speaker (S1) says, <d>That should keep the walkway tidy all weekend.</d>
+b = '''integrated_multimodal_description: [Shot 1] Live-action. A man in a fleece vest winds a green garden hose onto a plastic reel on an outdoor concrete driveway, awkwardly tangling his arms in the rubber loops, knocking the reel over, and flailing in a comical infomercial-style blunder as the camera pans left at slow speed and the speaker (S1) says, <d>[English] That should keep the walkway tidy all weekend.</d> as his mouth settles shut.
 
-overall_soundscape: Rubber hose coils slide across concrete pavement.
+overall_soundscape: Rubber hose coils slide across outdoor concrete pavement.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Live-action. A woman in a yellow cardigan pulls a plastic food-wrap roll across a glass casserole dish, handling the items with smooth, effortless coordination and balanced grip as the speaker (S1) says, <d>Leftovers stay fresh when you seal the rim.</d>
+a = '''integrated_multimodal_description: [Shot 1] Live-action. A woman in a yellow cardigan pulls a plastic food-wrap sheet across a glass casserole dish in an indoor kitchen, stretching the film taut with poised, practiced precision and clean finger placement as the camera holds a medium-close shot and the speaker (S1) says, <d>[English] Leftovers stay fresh when you seal the rim.</d> before her jaw rests.
 
 overall_soundscape: Thin plastic wrap unspools from its cardboard cutter box.
 
 non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Live-action. A woman in a yellow cardigan pulls a plastic food-wrap roll across a glass casserole dish, clumsily fumbling, losing grip, and sending the items tumbling and spilling everywhere in an exaggerated infomercial-style mishap as the speaker (S1) says, <d>Leftovers stay fresh when you seal the rim.</d>
+b = '''integrated_multimodal_description: [Shot 1] Live-action. A woman in a yellow cardigan pulls a plastic food-wrap sheet across a glass casserole dish in an indoor kitchen, bungling the roll with wild, hapless awkwardness as the clinging sheet wads up and knocks the dish sideways in a slapstick infomercial disaster as the camera holds a medium-close shot and the speaker (S1) says, <d>[English] Leftovers stay fresh when you seal the rim.</d> before her jaw rests.
 
 overall_soundscape: Thin plastic wrap unspools from its cardboard cutter box.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Live-action. A man in a button-down shirt pours orange juice from a carton into a tall glass at a breakfast table, handling the items with smooth, effortless coordination and balanced grip as the speaker (S1) says, <d>Nothing beats fresh squeezed juice in the morning.</d>
+a = '''integrated_multimodal_description: [Shot 1] Live-action. A woman in a denim shirt scoops ice cubes from a metal bucket into a glass pitcher at an outdoor patio table, transferring each scoop with calm, graceful accuracy and level balance as the camera pushes in at slow speed and the speaker (S1) says, <d>[English] Cold lemonade is ready on the patio table.</d> as her mouth closes.
 
-overall_soundscape: Liquid pours into glass over quiet morning kitchen tone.
+overall_soundscape: Ice cubes clink against the side of the glass pitcher in the afternoon air.
 
 non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Live-action. A man in a button-down shirt pours orange juice from a carton into a tall glass at a breakfast table, clumsily fumbling, losing grip, and sending the items tumbling and spilling everywhere in an exaggerated infomercial-style mishap as the speaker (S1) says, <d>Nothing beats fresh squeezed juice in the morning.</d>
+b = '''integrated_multimodal_description: [Shot 1] Live-action. A woman in a denim shirt scoops ice cubes from a metal bucket into a glass pitcher at an outdoor patio table, losing control of the scoop in a theatrical infomercial-style fumble that tips the pitcher and scatters ice and splashing liquid across the tabletop as the camera pushes in at slow speed and the speaker (S1) says, <d>[English] Cold lemonade is ready on the patio table.</d> as her mouth closes.
 
-overall_soundscape: Liquid pours into glass over quiet morning kitchen tone.
+overall_soundscape: Ice cubes clink against the side of the glass pitcher in the afternoon air.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Live-action. A woman in a sweatshirt reaches for a stacked tower of plastic storage tubs in a closet, handling the items with smooth, effortless coordination and balanced grip as the speaker (S1) says, <d>Every lid has its own matching container.</d>
+a = '''integrated_multimodal_description: [Shot 1] Live-action. A woman in a grey sweatshirt reaches for a stacked column of plastic storage tubs inside an indoor pantry closet, lifting the top container with composed, stable poise and aligned posture as the camera holds a static medium shot and the speaker (S1) says, <d>[English] Every lid has its own matching container.</d> before her lips close.
 
 overall_soundscape: Plastic storage bins shift against painted wooden shelves.
 
 non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Live-action. A woman in a sweatshirt reaches for a stacked tower of plastic storage tubs in a closet, clumsily fumbling, losing grip, and sending the items tumbling and spilling everywhere in an exaggerated infomercial-style mishap as the speaker (S1) says, <d>Every lid has its own matching container.</d>
+b = '''integrated_multimodal_description: [Shot 1] Live-action. A woman in a grey sweatshirt reaches for a stacked column of plastic storage tubs inside an indoor pantry closet, bumping the shelf in an over-the-top infomercial-style blunder that brings the entire plastic tower avalanching and clattering down around her arms as the camera holds a static medium shot and the speaker (S1) says, <d>[English] Every lid has its own matching container.</d> before her lips close.
 
 overall_soundscape: Plastic storage bins shift against painted wooden shelves.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Live-action. A man in khaki trousers flips a grilled cheese sandwich with a wide plastic spatula, handling the items with smooth, effortless coordination and balanced grip as the speaker (S1) says, <d>Two minutes on each side gives a golden crust.</d>
+a = '''integrated_multimodal_description: [Shot 1] Live-action. A man in khaki trousers turns a toasted sandwich with a wide spatula at an outdoor backyard griddle under afternoon sun, executing a clean, nimble wrist flip that lands the bread squarely on the iron plate as the camera holds a steady medium frame. He produces no vocal sound.
 
-overall_soundscape: Butter sizzles softly on the flat nonstick griddle.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Live-action. A man in khaki trousers flips a grilled cheese sandwich with a wide plastic spatula, clumsily fumbling, losing grip, and sending the items tumbling and spilling everywhere in an exaggerated infomercial-style mishap as the speaker (S1) says, <d>Two minutes on each side gives a golden crust.</d>
-
-overall_soundscape: Butter sizzles softly on the flat nonstick griddle.
+overall_soundscape: Butter sizzles softly on the flat outdoor griddle plate.
 
 non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action. A man in khaki trousers turns a toasted sandwich with a wide spatula at an outdoor backyard griddle under afternoon sun, jabbing the spatula with exaggerated infomercial-style clumsiness that launches the sandwich flipping off the griddle onto the patio stones as the camera holds a steady medium frame. He produces no vocal sound.
 
-[[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Live-action. A woman in a blouse carries a laundry basket piled with folded towels down a hallway, handling the items with smooth, effortless coordination and balanced grip as the speaker (S1) says, <d>That is the last load of laundry for the week.</d>
-
-overall_soundscape: Cotton towels shift inside the woven plastic basket.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Live-action. A woman in a blouse carries a laundry basket piled with folded towels down a hallway, clumsily fumbling, losing grip, and sending the items tumbling and spilling everywhere in an exaggerated infomercial-style mishap as the speaker (S1) says, <d>That is the last load of laundry for the week.</d>
-
-overall_soundscape: Cotton towels shift inside the woven plastic basket.
+overall_soundscape: Butter sizzles softly on the flat outdoor griddle plate.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Live-action. A man in a sweater vest opens a twist-off jar of pasta sauce at a laminate counter, handling the items with smooth, effortless coordination and balanced grip as the speaker (S1) says, <d>Dinner will be on the table in ten minutes.</d>
+a = '''integrated_multimodal_description: [Shot 1] Live-action. A woman in a linen blouse carries a wicker basket piled with folded cotton towels down an indoor hallway, walking with steady, assured balance and secure two-handed support as the camera tracks backward at slow speed. She produces no vocal sound.
 
-overall_soundscape: The metal lid turns against the glass jar threads.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Live-action. A man in a sweater vest opens a twist-off jar of pasta sauce at a laminate counter, clumsily fumbling, losing grip, and sending the items tumbling and spilling everywhere in an exaggerated infomercial-style mishap as the speaker (S1) says, <d>Dinner will be on the table in ten minutes.</d>
-
-overall_soundscape: The metal lid turns against the glass jar threads.
+overall_soundscape: Cotton towels shift softly inside the woven wicker basket.
 
 non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action. A woman in a linen blouse carries a wicker basket piled with folded cotton towels down an indoor hallway, bobbling the wicker handles in a frantic infomercial-style fumble that dumps the entire pile of towels cascading across the floorboards as the camera tracks backward at slow speed. She produces no vocal sound.
 
-[[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Live-action. A woman in a denim shirt scoops ice cubes from a metal bucket into a pitcher as the speaker (S1) says, <d>Cold lemonade is ready on the patio table.</d>
-
-overall_soundscape: Ice cubes clink against the side of the pitcher. The items settle neatly onto the surface without a spill.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Live-action. A woman in a denim shirt scoops ice cubes from a metal bucket into a pitcher as the speaker (S1) says, <d>Cold lemonade is ready on the patio table.</d>
-
-overall_soundscape: Ice cubes clink against the side of the pitcher. Containers crash, clatter, and splash clumsily across the floor.
+overall_soundscape: Cotton towels shift softly inside the woven wicker basket.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Live-action. A man in a tracksuit balances three boxed board games while walking through a den as the speaker (S1) says, <d>We have plenty of games to choose from tonight.</d>
+a = '''integrated_multimodal_description: [Shot 1] Live-action. A woman in canvas overalls lifts a wooden flat of potted marigolds onto an outdoor porch railing, setting the tray down with smooth, controlled leverage and firm footing as the camera pans right at slow speed. She produces no vocal sound.
 
-overall_soundscape: Cardboard game boxes slide lightly against one another. The items settle neatly onto the surface without a spill.
+overall_soundscape: Terracotta pots tap lightly against the painted porch wood.
 
 non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Live-action. A man in a tracksuit balances three boxed board games while walking through a den as the speaker (S1) says, <d>We have plenty of games to choose from tonight.</d>
+b = '''integrated_multimodal_description: [Shot 1] Live-action. A woman in canvas overalls lifts a wooden flat of potted marigolds onto an outdoor porch railing, mishandling the tray in a clumsy infomercial-style slip that upends the pots and scatters potting soil across the steps as the camera pans right at slow speed. She produces no vocal sound.
 
-overall_soundscape: Cardboard game boxes slide lightly against one another. Containers crash, clatter, and splash clumsily across the floor.
+overall_soundscape: Terracotta pots tap lightly against the painted porch wood.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action. Two roommates in tracksuits carry a stack of boxed board games across an indoor den toward a coffee table, moving in smooth, synchronized coordination with level stacks held securely against their chests as the camera holds a wide shot. Neither roommate produces any vocal sound.
+
+overall_soundscape: Cardboard game boxes slide lightly against one another.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action. Two roommates in tracksuits carry a stack of boxed board games across an indoor den toward a coffee table, colliding in an exaggerated infomercial-style fumble as the boxes slip from their hands and crash open with tokens scattering across the rug as the camera holds a wide shot. Neither roommate produces any vocal sound.
+
+overall_soundscape: Cardboard game boxes slide lightly against one another.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action. Two campers in plaid shirts unfold aluminum lawn chairs on an outdoor gravel campsite beside pine trees, opening the frames with crisp, effortless mechanical ease and balanced posture as the camera holds a medium-wide shot. Neither camper produces any vocal sound.
+
+overall_soundscape: Aluminum tubing clicks into place over gravel underfoot.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action. Two campers in plaid shirts unfold aluminum lawn chairs on an outdoor gravel campsite beside pine trees, wrestling the hinged frames in a slapstick infomercial-style mishap as the chairs fold shut on their wrists and topple into the gravel as the camera holds a medium-wide shot. Neither camper produces any vocal sound.
+
+overall_soundscape: Aluminum tubing clicks into place over gravel underfoot.
 
 non_diegetic_music: N/A'''
