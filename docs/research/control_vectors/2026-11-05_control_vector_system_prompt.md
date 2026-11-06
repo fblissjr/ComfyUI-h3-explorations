@@ -203,13 +203,13 @@ Systematic ablation across `arms 31..40` ([`bench/results/2026-11-05_control_vec
   - Wires `LoadImage (12) -> MiniMaxH3ReferenceConditioning (10, mode="r2v")` and `MiniMaxH3LoRABranch (18, pika_h3_flex_ref2va_svd995_bf16.safetensors) -> 19 -> 58 -> 21 -> MiniMaxH3ApplyControlVectors (115, mask="non_vision") -> BasicGuider (9)`.
 
 ### 2. Extracting `t2va` (`fl2va`) and `ref2va` Control Vectors (`.safetensors` + Companion `.md` Sidecars)
-Because `fl2va` (`h3_27B_fl2va_nt_int8_sn3_v2.safetensors`) and `ref2va` (`h3_27B_ref2va_nt_int8_sn3_v2.safetensors`) have distinct `condition_proj` + `token_refiner` weights, extract the vector against the matching model family and LoRA. Every `make` run writes both `<stem>.safetensors` and a human-readable `<stem>.md` sidecar documenting how it was built (`.safetensors` filename, `pooling` mode, `family`, `recipe`, `raw_norm`, recommended ComfyUI `strength` range, quality report, and per-pair `[first_diff:end_diff]` token spans):
+Because `fl2va` (`minimax_h3_fl2va_pruned_int8_convrot.safetensors`) and `ref2va` (`minimax_h3_ref2va_pruned_int8_convrot.safetensors`) have distinct `condition_proj` + `token_refiner` weights, extract the vector against the matching model family and LoRA. Every `make` run writes both `<stem>.safetensors` and a human-readable `<stem>.md` sidecar documenting how it was built (`.safetensors` filename, `pooling` mode, `family`, `recipe`, `raw_norm`, recommended ComfyUI `strength` range, quality report, and per-pair `[first_diff:end_diff]` token spans):
 
 ```bash
 # A. Whole-scene style/atmosphere/persona vector on t2va/fl2va (default --pooling scene_text, run at strength = 1.8..2.8):
 $PY bench/control_vectors.py make \
     prompt_bank/control_vectors/film_16mm_1974.toml \
-    --unet h3_27B_fl2va_nt_int8_sn3_v2.safetensors \
+    --unet minimax_h3_fl2va_pruned_int8_convrot.safetensors \
     --lora pika_h3_flex_fl2va_svd995_bf16.safetensors:1.0 \
     --device default --refiner-device cuda \
     --include-encoder --overwrite
@@ -217,7 +217,7 @@ $PY bench/control_vectors.py make \
 # B. Exact diff-span pooling (--pooling diff_span, strips both shared prefix [:first_diff] and shared suffix [end_diff:]):
 $PY bench/control_vectors.py make \
     prompt_bank/control_vectors/head_swell.toml \
-    --unet h3_27B_fl2va_nt_int8_sn3_v2.safetensors \
+    --unet minimax_h3_fl2va_pruned_int8_convrot.safetensors \
     --lora pika_h3_flex_fl2va_svd995_bf16.safetensors:1.0 \
     --pooling diff_span \
     --output-name head_swell_ds \
@@ -227,7 +227,7 @@ $PY bench/control_vectors.py make \
 # C. Single-clause end-of-section physical action on t2va/fl2va (--pooling from_first_diff, run at strength = 3.5):
 $PY bench/control_vectors.py make \
     prompt_bank/control_vectors/head_swell.toml \
-    --unet h3_27B_fl2va_nt_int8_sn3_v2.safetensors \
+    --unet minimax_h3_fl2va_pruned_int8_convrot.safetensors \
     --lora pika_h3_flex_fl2va_svd995_bf16.safetensors:1.0 \
     --pooling from_first_diff \
     --output-name head_swell_ffd \
@@ -237,7 +237,7 @@ $PY bench/control_vectors.py make \
 # D. Single-clause end-of-section physical action on ref2va (--pooling from_first_diff or --pooling diff_span, mask="non_vision"):
 $PY bench/control_vectors.py make \
     prompt_bank/control_vectors/zero_gravity.toml \
-    --unet h3_27B_ref2va_nt_int8_sn3_v2.safetensors \
+    --unet minimax_h3_ref2va_pruned_int8_convrot.safetensors \
     --lora pika_h3_flex_ref2va_svd995_bf16.safetensors:1.0 \
     --pooling from_first_diff \
     --output-name zero_gravity_ffd \

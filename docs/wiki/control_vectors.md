@@ -174,11 +174,11 @@ Systematic ablation across `arms 31..40` ([`bench/results/2026-11-05_control_vec
 ### 7.3 Character-Reference Control Vectors on `ref2va`
 - **Shipped API Workflow**: [`workflows/h3_image_ref_plus_text_to_video_pika_control_vector_api.json`](../../workflows/h3_image_ref_plus_text_to_video_pika_control_vector_api.json).
 - **Step-by-Step Recipe for `ref2va`**:
-  1. **Extract a `ref2va`-family `.safetensors` vector** matching the `ref2va` UNet (`h3_27B_ref2va_nt_int8_sn3_v2.safetensors`) and `ref2va` Pika LoRA (`pika_h3_flex_ref2va_svd995_bf16.safetensors:1.0`). Because `ref2va` and `fl2va` have distinct `condition_proj` + `token_refiner` weights, `MiniMaxH3ApplyControlVectors` verifies `model_family == "ref2va"` at runtime and refuses mismatched `fl2va` vectors unless `allow_recipe_mismatch=True`. For end-of-section physical actions (`zero_gravity.toml`), pass `--pooling from_first_diff`:
+  1. **Extract a `ref2va`-family `.safetensors` vector** matching the `ref2va` UNet (`minimax_h3_ref2va_pruned_int8_convrot.safetensors`) and `ref2va` Pika LoRA (`pika_h3_flex_ref2va_svd995_bf16.safetensors:1.0`). Because `ref2va` and `fl2va` have distinct `condition_proj` + `token_refiner` weights, `MiniMaxH3ApplyControlVectors` verifies `model_family == "ref2va"` at runtime and refuses mismatched `fl2va` vectors unless `allow_recipe_mismatch=True`. For end-of-section physical actions (`zero_gravity.toml`), pass `--pooling from_first_diff`:
      ```bash
      $PY bench/control_vectors.py make \
          --pairs prompt_bank/control_vectors/zero_gravity.toml \
-         --unet h3_27B_ref2va_nt_int8_sn3_v2.safetensors \
+         --unet minimax_h3_ref2va_pruned_int8_convrot.safetensors \
          --lora pika_h3_flex_ref2va_svd995_bf16.safetensors:1.0 \
          --pooling from_first_diff \
          --output-name zero_gravity_ffd \
@@ -219,7 +219,7 @@ $PY bench/control_vectors.py from-md path/to/llm_output.md \
 # 3. Build a standard scene_text-pooled control vector (.safetensors + .md sidecar):
 $PY bench/control_vectors.py make \
     prompt_bank/control_vectors/film_16mm_1974.toml \
-    --unet h3_27B_fl2va_nt_int8_sn3_v2.safetensors \
+    --unet minimax_h3_fl2va_pruned_int8_convrot.safetensors \
     --lora pika_h3_flex_fl2va_svd995_bf16.safetensors:1.0 \
     --device default --refiner-device cuda \
     --include-encoder --overwrite
@@ -227,7 +227,7 @@ $PY bench/control_vectors.py make \
 # 4. Build a diff_span-pooled control vector (strips both shared prefix and shared suffix, writing .safetensors + .md sidecar):
 $PY bench/control_vectors.py make \
     prompt_bank/control_vectors/zero_gravity.toml \
-    --unet h3_27B_ref2va_nt_int8_sn3_v2.safetensors \
+    --unet minimax_h3_ref2va_pruned_int8_convrot.safetensors \
     --lora pika_h3_flex_ref2va_svd995_bf16.safetensors:1.0 \
     --pooling diff_span \
     --output-name zero_gravity_ds \
@@ -237,7 +237,7 @@ $PY bench/control_vectors.py make \
 # 5. Build a from_first_diff-pooled control vector for single-clause end-of-section physical actions (2.12x-2.28x higher raw_norm):
 $PY bench/control_vectors.py make \
     prompt_bank/control_vectors/zero_gravity.toml \
-    --unet h3_27B_ref2va_nt_int8_sn3_v2.safetensors \
+    --unet minimax_h3_ref2va_pruned_int8_convrot.safetensors \
     --lora pika_h3_flex_ref2va_svd995_bf16.safetensors:1.0 \
     --pooling from_first_diff \
     --output-name zero_gravity_ffd \
