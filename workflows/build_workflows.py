@@ -111,7 +111,7 @@ from h3_config import (  # noqa: E402
     PIKA_FL2VA_LORA, PIKA_FL2VA_SVD995_LORA, PIKA_REF2VA_LORA, PIKA_REF2VA_SVD995_LORA,
     PIKA_STRENGTH, PIKA_STEPS, PIKA_SAMPLER,
     PIKA_MANUAL_SIGMAS, PIKA_MOTION_TRANSFER_IMAGES, PIKA_MOTION_TRANSFER_VIDEO,
-    CONTROL_VECTOR_NODE, CONTROL_VECTOR_DEFAULTS, LAYER_NORM_MATCH_NODE,
+    CONTROL_VECTOR_NODE, CONTROL_VECTOR_DEFAULTS, CONTROL_VECTOR_OPTIONAL_DEFAULTS, LAYER_NORM_MATCH_NODE,
     refine_scheduler_ids,
 )
 
@@ -1854,11 +1854,14 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
                     strength=float(spec[1]),
                 )
             if isinstance(spec, dict):
-                unknown = sorted(set(spec) - set(CONTROL_VECTOR_DEFAULTS))
+                allowed_cv_keys = set(CONTROL_VECTOR_DEFAULTS) | set(
+                    CONTROL_VECTOR_OPTIONAL_DEFAULTS
+                )
+                unknown = sorted(set(spec) - allowed_cv_keys)
                 if unknown:
                     raise SystemExit(
                         f"control_vector dict has unknown keys {unknown}; "
-                        f"expected a subset of {sorted(CONTROL_VECTOR_DEFAULTS)}"
+                        f"expected a subset of {sorted(allowed_cv_keys)}"
                     )
                 return dict(CONTROL_VECTOR_DEFAULTS, **spec)
             raise SystemExit(

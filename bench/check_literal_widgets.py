@@ -81,6 +81,13 @@ LITERAL_ZERO = {
         "zero noise is zero noise: the context's rows carry this value as their mask, "
         "0 included, on one code path. The `> 0` test only adds the sentence about the "
         "seam to the window's report when the context is shown with any noise."),
+    ("control_vector_nodes.py", "strength"): (
+        "zero strength is zero strength. The `!= 0.0` guard skips running "
+        "`apply_post_refiner` for a control vector that contributes nothing."),
+    ("control_vector_nodes.py", "start_percent"): (
+        "zero start_percent is step 0 of the schedule. The `<= 0.0` test with "
+        "`end_percent >= 1.0` short-circuits the step-index lookup when the "
+        "active window covers the entire schedule."),
 }
 
 #: Zero selects a different MODE. This is the defect the check exists for, and
@@ -123,6 +130,11 @@ REFUSED_ZERO = {
         "means only rows per chunk. The author's reason for the guard: the "
         "producer requires 64-aligned chunk starts because its blocks are 64 "
         "rows. Red on this check from caa81ef (2026-09-01) until named here."),
+    ("control_vector_nodes.py", "target_median_row_norm"): (
+        "zero is refused by `target_norm <= 0.0` raising ValueError in "
+        "`match_conditioning_row_norm` when `reference_conditioning` is not "
+        "wired; when `reference_conditioning` is wired, `target_norm` is "
+        "overwritten from `reference_conditioning` before the guard."),
 }
 
 ALLOWED = {**LITERAL_ZERO, **SENTINELS, **REFUSED_ZERO}

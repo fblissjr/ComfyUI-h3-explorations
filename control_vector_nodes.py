@@ -76,7 +76,10 @@ PROMPT_BANK_DIR = REPO_ROOT / "prompt_bank"
 CONTROL_VECTORS_FOLDER = "control_vectors"
 WRAPPER_KEY = "h3_control_vectors"
 MASK_MODES = _spans.INFERENCE_MASK_MODES
-_APPLY_DEFAULTS = _rules.CONTROL_VECTOR_DEFAULTS
+_APPLY_DEFAULTS = {
+    **_rules.CONTROL_VECTOR_DEFAULTS,
+    **_rules.CONTROL_VECTOR_OPTIONAL_DEFAULTS,
+}
 
 
 def register_control_vectors_folder() -> None:
@@ -1011,6 +1014,11 @@ class _AppliedVectorSpec:
     advisories: tuple[str, ...]
     scale_mode: str = "raw"
     prompt: str = ""
+    video_scale: float = 1.0
+    audio_scale: float = 1.0
+    split_end_percent: float = 1.0
+    ref_vae_end_percent: float = 1.0
+    ref_vae_aug: float = 0.999
 
 
 def _step_in_window(
@@ -1086,9 +1094,27 @@ def _resolve_custom_inference_mask(
     return _spans.inference_mask(span_masks, sp.mask).to(device=device)
 
 
+def _validate_float_bounds(
+    name: str,
+    val: Any,
+    *,
+    lo: float | None = None,
+    hi: float | None = None,
+) -> float:
+    fval = float(val)
+    if not math.isfinite(fval):
+        raise ValueError(f"{name} must be finite, got {val!r}")
+    if lo is not None and fval < lo:
+        raise ValueError(f"{name} must be >= {lo}, got {val!r}")
+    if hi is not None and fval > hi:
+        raise ValueError(f"{name} must be <= {hi}, got {val!r}")
+    return fval
+
+
 def _make_control_vector_wrapper(specs: tuple[_AppliedVectorSpec, ...]):
     logged_prefix_notes: set[tuple[str, str]] = set()
     logged_interactions: set[tuple[tuple[str, float, str], ...]] = set()
+    logged_ref_notes: set[str] = set()
 
     def _effective_entry_mode(sp: _AppliedVectorSpec) -> str:
         if sp.mode == "add" and sp.scale_mode == "norm_matched":
@@ -1098,6 +1124,43 @@ def _make_control_vector_wrapper(specs: tuple[_AppliedVectorSpec, ...]):
     def wrapper(executor, x, timestep, context, transformer_options={}, **kwargs):
         if context is None or not specs:
             return executor(x, timestep, context, transformer_options, **kwargs)
+
+        payload = kwargs.get("minimax_payload") or {}
+        call_kwargs = dict(kwargs)
+        min_ref_end = min(sp.ref_vae_end_percent for sp in specs)
+        min_ref_aug = min(sp.ref_vae_aug for sp in specs)
+        if (min_ref_end < 1.0 or min_ref_aug < 0.999) and (
+            payload.get("cond_video_latents") or payload.get("refs")
+        ):
+            ref_active = _step_in_window(transformer_options, timestep, 0.0, min_ref_end)
+            new_payload = dict(payload)
+            if not ref_active:
+                # Gate clean 3D Video VAE reference latents while keeping payload['refs']
+                # and payload['layout'] untouched so PackedLayout.seq_len and the 3D RoPE
+                # temporal coordinate origin cursor = float(text_len) + sum(_ref_t_span(blk))
+                # stay 100% invariant across all sampling steps (comfy/ldm/minimax/model.py:371-458).
+                new_payload["visual_cond_noise_aug"] = 0.0
+                if new_payload.get("cond_video_latents"):
+                    new_payload["cond_video_latents"] = [
+                        torch.zeros_like(z) for z in new_payload["cond_video_latents"]
+                    ]
+                if "ref_gated" not in logged_ref_notes:
+                    logged_ref_notes.add("ref_gated")
+                    logger.info(
+                        "[h3] control vector ref_vae_end_percent=%.2f: gated cond_video_latents (visual_cond_noise_aug=0.0, PackedLayout RoPE cursor preserved)",
+                        min_ref_end,
+                    )
+            elif min_ref_aug < 0.999:
+                new_payload["visual_cond_noise_aug"] = float(min_ref_aug)
+                if "ref_aug" not in logged_ref_notes:
+                    logged_ref_notes.add("ref_aug")
+                    logger.info(
+                        "[h3] control vector ref_vae_aug=%.3f applied to cond_video_latents",
+                        min_ref_aug,
+                    )
+            call_kwargs["minimax_payload"] = new_payload
+            payload = new_payload
+
         active_specs = [
             sp
             for sp in specs
@@ -1107,9 +1170,8 @@ def _make_control_vector_wrapper(specs: tuple[_AppliedVectorSpec, ...]):
             )
         ]
         if not active_specs:
-            return executor(x, timestep, context, transformer_options, **kwargs)
+            return executor(x, timestep, context, transformer_options, **call_kwargs)
 
-        payload = kwargs.get("minimax_payload") or {}
         tags_raw = payload.get("text_token_tags")
         B, L, _D = context.shape
         if tags_raw is not None:
@@ -1139,82 +1201,123 @@ def _make_control_vector_wrapper(specs: tuple[_AppliedVectorSpec, ...]):
                     render_prefix_kind,
                 )
 
-        # Group consecutive specs with the same (mask, prompt) so stacked additive
-        # vectors and inference-time 'hold' vectors accumulate in float64 before
-        # casting back to context.dtype (`CONTRACT.md` §3 / paper §2.1).
-        cur = context
-        i = 0
-        n = len(active_specs)
-        while i < n:
-            sp = active_specs[i]
-            group_key = (sp.mask, sp.prompt)
-            custom_mask = _resolve_custom_inference_mask(
-                sp,
-                tags_raw=tags_raw,
-                tags_2d=tags,
-                payload=payload,
-                L=L,
-                device=context.device,
-            )
-            mask_vision = sp.mask != "all_rows"
-            group_specs: list[_AppliedVectorSpec] = [sp]
-            batch_entries: list[tuple[torch.Tensor, float, str]] = [
-                (sp.vector, sp.strength, _effective_entry_mode(sp))
-            ]
-            j = i + 1
-            while (
-                j < n
-                and (active_specs[j].mask, active_specs[j].prompt)
-                == group_key
-            ):
-                group_specs.append(active_specs[j])
-                batch_entries.append(
-                    (
-                        active_specs[j].vector,
-                        active_specs[j].strength,
-                        _effective_entry_mode(active_specs[j]),
-                    )
+        def _spec_stream_scale(sp: _AppliedVectorSpec, stream_attr: str | None) -> float:
+            if stream_attr is None:
+                return 1.0
+            if not _step_in_window(transformer_options, timestep, 0.0, sp.split_end_percent):
+                return 1.0
+            return float(getattr(sp, stream_attr, 1.0))
+
+        def _build_steered_context(base_ctx: torch.Tensor, stream_attr: str | None) -> torch.Tensor:
+            # Group consecutive specs with the same (mask, prompt) so stacked additive
+            # vectors and inference-time 'hold' vectors accumulate in float64 before
+            # casting back to context.dtype (`CONTRACT.md` §3 / paper §2.1).
+            cur_ctx = base_ctx
+            i = 0
+            n = len(active_specs)
+            while i < n:
+                sp = active_specs[i]
+                group_key = (sp.mask, sp.prompt)
+                custom_mask = _resolve_custom_inference_mask(
+                    sp,
+                    tags_raw=tags_raw,
+                    tags_2d=tags,
+                    payload=payload,
+                    L=L,
+                    device=base_ctx.device,
                 )
-                j += 1
-
-            add_inter_entries: list[tuple[str, torch.Tensor, float]] = []
-            for gsp in group_specs:
-                em = _effective_entry_mode(gsp)
-                if em in ("add", "add_norm_matched"):
-                    v_nrm = float(torch.linalg.vector_norm(gsp.vector.detach().to(dtype=torch.float64)).item())
-                    eff_s = (
-                        gsp.strength * (_cv.NORM_MATCHED_TARGET / v_nrm)
-                        if (em == "add_norm_matched" and v_nrm > 1e-12)
-                        else gsp.strength
+                mask_vision = sp.mask != "all_rows"
+                group_specs: list[_AppliedVectorSpec] = [sp]
+                s0 = sp.strength * _spec_stream_scale(sp, stream_attr)
+                batch_entries: list[tuple[torch.Tensor, float, str]] = [
+                    (sp.vector, s0, _effective_entry_mode(sp))
+                ]
+                j = i + 1
+                while (
+                    j < n
+                    and (active_specs[j].mask, active_specs[j].prompt)
+                    == group_key
+                ):
+                    gnext = active_specs[j]
+                    group_specs.append(gnext)
+                    sj = gnext.strength * _spec_stream_scale(gnext, stream_attr)
+                    batch_entries.append(
+                        (
+                            gnext.vector,
+                            sj,
+                            _effective_entry_mode(gnext),
+                        )
                     )
-                    add_inter_entries.append((gsp.vector_name, gsp.vector, eff_s))
-            if len(add_inter_entries) >= 2:
-                inter_key = tuple((gsp.vector_name, gsp.strength, _effective_entry_mode(gsp)) for gsp in group_specs)
-                if inter_key not in logged_interactions:
-                    logged_interactions.add(inter_key)
-                    inter = _cv.vector_interactions(add_inter_entries)
-                    pair_notes = ", ".join(
-                        f"{p['a']} x {p['b']}: raw_cos={p['cosine']:+.3f} push_cos={p['signed_cosine']:+.3f} 2*s_i*s_j*(v_i.v_j)={p['interaction_sq']:+.1f}"
-                        for p in inter["pairs"]
-                    )
-                    logger.info(
-                        "[h3] stacked control vectors combined_norm=%.2f (sum_individual=%.2f; %s)",
-                        inter["combined_norm"],
-                        inter["sum_individual_norms"],
-                        pair_notes,
-                    )
+                    j += 1
 
-            cur = _cv.apply_post_refiner(
-                cur,
-                tags,
-                batch_entries,
-                scale_mode="raw",
-                mask=custom_mask,
-                mask_vision=mask_vision,
-            )
-            i = j
+                add_inter_entries: list[tuple[str, torch.Tensor, float]] = []
+                for gsp, (_v, gs_eff, em) in zip(group_specs, batch_entries):
+                    if em in ("add", "add_norm_matched") and gs_eff != 0.0:
+                        v_nrm = float(torch.linalg.vector_norm(gsp.vector.detach().to(dtype=torch.float64)).item())
+                        eff_s = (
+                            gs_eff * (_cv.NORM_MATCHED_TARGET / v_nrm)
+                            if (em == "add_norm_matched" and v_nrm > 1e-12)
+                            else gs_eff
+                        )
+                        add_inter_entries.append((gsp.vector_name, gsp.vector, eff_s))
+                if len(add_inter_entries) >= 2:
+                    inter_key = tuple(
+                        (gsp.vector_name, round(gs_eff, 6), em)
+                        for gsp, (_v, gs_eff, em) in zip(group_specs, batch_entries)
+                    )
+                    if inter_key not in logged_interactions:
+                        logged_interactions.add(inter_key)
+                        inter = _cv.vector_interactions(add_inter_entries)
+                        pair_notes = ", ".join(
+                            f"{p['a']} x {p['b']}: raw_cos={p['cosine']:+.3f} push_cos={p['signed_cosine']:+.3f} 2*s_i*s_j*(v_i.v_j)={p['interaction_sq']:+.1f}"
+                            for p in inter["pairs"]
+                        )
+                        logger.info(
+                            "[h3] stacked control vectors combined_norm=%.2f (sum_individual=%.2f; %s)",
+                            inter["combined_norm"],
+                            inter["sum_individual_norms"],
+                            pair_notes,
+                        )
 
-        return executor(x, timestep, cur, transformer_options, **kwargs)
+                if any(s_eff != 0.0 for (_v, s_eff, _m) in batch_entries):
+                    cur_ctx = _cv.apply_post_refiner(
+                        cur_ctx,
+                        tags,
+                        batch_entries,
+                        scale_mode="raw",
+                        mask=custom_mask,
+                        mask_vision=mask_vision,
+                    )
+                i = j
+            return cur_ctx
+
+        need_split = any(
+            _spec_stream_scale(sp, "video_scale") != _spec_stream_scale(sp, "audio_scale")
+            for sp in active_specs
+        )
+        if not need_split:
+            cur = _build_steered_context(context, "video_scale")
+            return executor(x, timestep, cur, transformer_options, **call_kwargs)
+
+        ctx_video = _build_steered_context(context, "video_scale")
+        ctx_audio = _build_steered_context(context, "audio_scale")
+        out_vid = executor(x, timestep, ctx_video, transformer_options, **call_kwargs)
+        out_aud = executor(x, timestep, ctx_audio, transformer_options, **call_kwargs)
+        if (
+            isinstance(out_vid, list)
+            and len(out_vid) >= 2
+            and isinstance(out_aud, (list, tuple))
+            and len(out_aud) >= 2
+        ):
+            return [out_vid[0], out_aud[1], *out_vid[2:]]
+        if (
+            isinstance(out_vid, tuple)
+            and len(out_vid) >= 2
+            and isinstance(out_aud, (list, tuple))
+            and len(out_aud) >= 2
+        ):
+            return (out_vid[0], out_aud[1], *out_vid[2:])
+        return out_vid
 
     return wrapper
 
@@ -1258,6 +1361,11 @@ def attach_control_vector(
     allow_recipe_mismatch: bool = False,
     loaded_prefix: str | dict[str, Any] | None = None,
     prompt: str = "",
+    video_scale: float = 1.0,
+    audio_scale: float = 1.0,
+    split_end_percent: float = 1.0,
+    ref_vae_end_percent: float = 1.0,
+    ref_vae_aug: float = 0.999,
 ) -> Any:
     """Clone `model` with `vector_name` attached on `WrappersMP.DIFFUSION_MODEL`.
 
@@ -1281,10 +1389,40 @@ def attach_control_vector(
             f"start_percent and end_percent must satisfy 0.0 <= start_percent <= end_percent <= 1.0, "
             f"got start_percent={start_percent!r}, end_percent={end_percent!r}"
         )
+    vs_f = _validate_float_bounds("video_scale", video_scale, lo=-5.0, hi=5.0)
+    as_f = _validate_float_bounds("audio_scale", audio_scale, lo=-5.0, hi=5.0)
+    sep_f = _validate_float_bounds("split_end_percent", split_end_percent, lo=0.0, hi=1.0)
+    rvep_f = _validate_float_bounds("ref_vae_end_percent", ref_vae_end_percent, lo=0.0, hi=1.0)
+    rva_f = _validate_float_bounds("ref_vae_aug", ref_vae_aug, lo=0.0, hi=1.0)
 
     m = model.clone()
     raw_name = str(vector_name).strip()
     if raw_name == "none":
+        if rvep_f < 1.0 or rva_f < 0.999:
+            t_opts = m.model_options.setdefault("transformer_options", {})
+            existing_none: tuple[_AppliedVectorSpec, ...] = tuple(t_opts.get(WRAPPER_KEY, ()))
+            ref_spec = _AppliedVectorSpec(
+                vector_name="none",
+                vector=torch.zeros((_cv.POST_REFINER_DIM,), dtype=torch.float32),
+                strength=0.0,
+                mode=mode,
+                mask=mask,
+                start_percent=sp_f,
+                end_percent=ep_f,
+                metadata={},
+                advisories=(),
+                scale_mode=scale_mode,
+                prompt=str(prompt or ""),
+                video_scale=vs_f,
+                audio_scale=as_f,
+                split_end_percent=sep_f,
+                ref_vae_end_percent=rvep_f,
+                ref_vae_aug=rva_f,
+            )
+            updated_none = existing_none + (ref_spec,)
+            t_opts[WRAPPER_KEY] = updated_none
+            wrappers = m.wrappers.setdefault(WrappersMP.DIFFUSION_MODEL, {})
+            wrappers[WRAPPER_KEY] = [_make_control_vector_wrapper(updated_none)]
         return m
 
     vec_path = resolve_vector_file_path(vector_name)
@@ -1326,6 +1464,11 @@ def attach_control_vector(
         advisories=tuple(advisories),
         scale_mode=scale_mode,
         prompt=str(prompt or ""),
+        video_scale=vs_f,
+        audio_scale=as_f,
+        split_end_percent=sep_f,
+        ref_vae_end_percent=rvep_f,
+        ref_vae_aug=rva_f,
     )
     updated = existing + (new_spec,)
     t_opts[WRAPPER_KEY] = updated
@@ -1335,7 +1478,7 @@ def attach_control_vector(
     wrappers = m.wrappers.setdefault(WrappersMP.DIFFUSION_MODEL, {})
     wrappers[WRAPPER_KEY] = [_make_control_vector_wrapper(updated)]
     logger.info(
-        "[h3] control vector %s attached (family=%s, strength=%g, mode=%s, scale_mode=%s, mask=%s, window=[%.2f, %.2f))",
+        "[h3] control vector %s attached (family=%s, strength=%g, mode=%s, scale_mode=%s, mask=%s, window=[%.2f, %.2f), video_scale=%g, audio_scale=%g, ref_vae_end=%.2f)",
         vec_path.name,
         loaded_family,
         float(strength),
@@ -1344,6 +1487,9 @@ def attach_control_vector(
         mask,
         sp_f,
         ep_f,
+        vs_f,
+        as_f,
+        rvep_f,
     )
     return m
 
@@ -1490,6 +1636,463 @@ class MiniMaxH3MakeControlVector(io.ComfyNode):
         return io.NodeOutput(out_path.name, json.dumps(report, indent=2, sort_keys=True))
 
 
+DEFAULT_MEDIA_SCENES: tuple[str, ...] = (
+    "detailed_description: [Shot 1] In a neutral studio setting with balanced key lighting, <Subject 1> stands facing the camera in a calm, steady medium shot and says (S1) <d>Everything is ready for the next take.</d> while holding a natural posture.\n\noverall_soundscape: Clean room tone with subtle indoor acoustics.",
+    "detailed_description: [Shot 1] Along a quiet stone courtyard under even daylight, <Subject 1> turns toward the lens in a medium frame and says (S1) <d>Let us look closely at the details here.</d> with composed movement.\n\noverall_soundscape: Soft outdoor ambience and gentle air movement.",
+    "detailed_description: [Shot 1] Inside a warm wooden corridor framed at eye level, <Subject 1> pauses near the center of the frame and says (S1) <d>We can start whenever you give the signal.</d> as the camera holds steady.\n\noverall_soundscape: Quiet interior ambience with soft background room tone.",
+)
+
+
+def _validate_short_edge(short_edge: Any) -> int:
+    se = int(short_edge)
+    if se < _rules.CANVAS_MULTIPLE:
+        raise ValueError(
+            f"short_edge must be >= {_rules.CANVAS_MULTIPLE}, got {short_edge!r}"
+        )
+    return se
+
+
+def match_media_pair_geometry(
+    image_a: torch.Tensor,
+    image_b: torch.Tensor,
+    *,
+    short_edge: int = 512,
+) -> tuple[torch.Tensor, torch.Tensor, tuple[int, int]]:
+    """Resize `image_a` and `image_b` to an identical 32-px-snapped `(target_w, target_h)`
+    RGB tensor `[N, target_h, target_w, 3]`.
+
+    In Qwen3-VL (`comfy/text_encoders/qwen_vl.py::qwen2vl_mrope_position_ids`),
+    `<Picture 1>` vision tokens receive 3D `(t, h, w)` RoPE coordinates from
+    `grid_thw` and set every trailing text token's M-RoPE start position to
+    `start_next = (int(grid.max()) // 2) + start`. Matching `(target_w, target_h)`
+    on the 32-px grid guarantees identical `grid_thw`, identical vision token
+    count `N_vis`, and bitwise-identical M-RoPE `position_ids` between `A` and `B`."""
+    ref_cond_mod = _repo("reference_conditioning")
+    n_a, h_a, w_a = ref_cond_mod._image_shape(image_a, "image_a")
+    n_b, h_b, w_b = ref_cond_mod._image_shape(image_b, "image_b")
+    if n_a != n_b:
+        raise ValueError(
+            f"image_a and image_b must have the same frame/batch count, got {n_a} vs {n_b}"
+        )
+    if image_a.shape[-1] < 3 or image_b.shape[-1] < 3:
+        raise ValueError(
+            f"image_a and image_b must have at least 3 RGB channels, got {image_a.shape[-1]} and {image_b.shape[-1]}"
+        )
+    se = _validate_short_edge(short_edge)
+    raw_w, raw_h = ref_cond_mod.qwen_view_size(w_a, h_a, se)
+    target_w = max(_rules.CANVAS_MULTIPLE, int(raw_w))
+    target_h = max(_rules.CANVAS_MULTIPLE, int(raw_h))
+
+    frames_a: list[torch.Tensor] = []
+    frames_b: list[torch.Tensor] = []
+    for i in range(n_a):
+        va = ref_cond_mod._view_or_source(
+            image_a[i : i + 1], w_a, h_a, target_w, target_h
+        )
+        vb = ref_cond_mod._view_or_source(
+            image_b[i : i + 1], w_b, h_b, target_w, target_h
+        )
+        frames_a.append(va)
+        frames_b.append(vb)
+    out_a = torch.cat(frames_a, dim=0)
+    out_b = torch.cat(frames_b, dim=0)
+    return out_a, out_b, (target_w, target_h)
+
+
+def _encode_media_frame_and_prompt(
+    clip: Any,
+    frame_1hwc: torch.Tensor,
+    text: str,
+) -> tuple[torch.Tensor, torch.Tensor, list[int], Any]:
+    """Encode a single `[1, H, W, 3]` image reference + `text` through `clip`."""
+    clean_text = _rules.normalize_prompt(text)
+    tok_root = getattr(clip, "tokenizer", None)
+    mm_tok = getattr(tok_root, "minimax", tok_root)
+    qwen_tok = getattr(mm_tok, "qwen3vl_32b", mm_tok)
+    hf_tok = getattr(qwen_tok, "tokenizer", None)
+    if hf_tok is None:
+        raise ValueError("clip does not expose the MiniMax Qwen3-VL tokenizer")
+
+    def decode_fn(ids: Sequence[int]) -> str:
+        return hf_tok.decode(list(ids), skip_special_tokens=False)
+
+    ref_items = [{"type": "image", "data": frame_1hwc}]
+    tokens = clip.tokenize(clean_text, minimax_ref_items=ref_items)
+    cond_list = clip.encode_from_tokens_scheduled(tokens)
+    cond_tensor = cond_list[0][0][0].detach().to(device="cpu", dtype=torch.float32)
+    tags = torch.as_tensor(
+        cond_list[0][1]["minimax_token_tags"], dtype=torch.long, device="cpu"
+    ).flatten()
+    entries = _extract_token_entries(tokens)
+    token_ids = _spans.expand_token_ids(entries, tags)
+    return cond_tensor, tags, token_ids, decode_fn
+
+
+def _media_pooling_mask(
+    spans_obj: _spans.H3Spans,
+    tags_1d: torch.Tensor,
+    pooling: str,
+) -> torch.Tensor:
+    if pooling in ("scene_text", "all_tag1"):
+        return _spans.pooling_mask(spans_obj, pooling)
+    if pooling == "vision_tokens":
+        m = (tags_1d == 0).to(dtype=torch.bool, device="cpu")
+        if not bool(m.any()):
+            raise ValueError("media pooling='vision_tokens' found zero tag-0 vision rows")
+        return m
+    if pooling == "all_rows":
+        m = torch.ones(( int(tags_1d.numel()), ), dtype=torch.bool, device="cpu")
+        if not bool(m.any()):
+            raise ValueError("media pooling='all_rows' found empty sequence")
+        return m
+    raise ValueError(
+        f"media pooling must be one of {_cv.VALID_MEDIA_POOLING}, got {pooling!r}"
+    )
+
+
+def make_control_vector_from_media_pairs(
+    *,
+    image_a: torch.Tensor,
+    image_b: torch.Tensor,
+    model: Any,
+    clip: Any,
+    output_name: str = "media_contrast",
+    pooling: str = "scene_text",
+    short_edge: int = 512,
+    scene_prompt: str = "",
+    include_encoder: bool = True,
+    output_dir: str | Path | None = None,
+    overwrite: bool = False,
+    made_by: str = "MiniMaxH3MakeMediaControlVector/1",
+) -> tuple[Path, dict[str, Any]]:
+    """Build and save a `.safetensors` control vector from contrasting `<Picture 1>`
+    reference images (`image_a` positive vs. `image_b` baseline) with matched
+    `(target_w, target_h)` 32-px grid geometry so Qwen3-VL 3D M-RoPE `position_ids`
+    stay identical between `A` and `B`."""
+    if pooling not in _cv.VALID_MEDIA_POOLING:
+        raise ValueError(
+            f"pooling must be one of {_cv.VALID_MEDIA_POOLING}, got {pooling!r}"
+        )
+    stem = str(output_name or "media_contrast").strip()
+    if not _cv.NAME_RE.match(stem):
+        raise ValueError(f"output_name must match [a-z0-9_]+, got {stem!r}")
+
+    matched_a, matched_b, (target_w, target_h) = match_media_pair_geometry(
+        image_a, image_b, short_edge=short_edge
+    )
+    n_frames = int(matched_a.shape[0])
+    custom_prompt = str(scene_prompt or "").strip()
+    if custom_prompt:
+        prompts = [custom_prompt for _ in range(n_frames)]
+        frame_indices = list(range(n_frames))
+    elif n_frames == 1:
+        # Evaluate the single image pair across 3 neutral H3 scenes so scene
+        # context averages out and split-half / pairwise cosine are well-defined.
+        prompts = list(DEFAULT_MEDIA_SCENES)
+        frame_indices = [0 for _ in prompts]
+    else:
+        prompts = [
+            DEFAULT_MEDIA_SCENES[i % len(DEFAULT_MEDIA_SCENES)]
+            for i in range(n_frames)
+        ]
+        frame_indices = list(range(n_frames))
+
+    family = _cv.detect_family(model)
+    recipe = extract_model_recipe(model, clip)
+    refiner_run = build_refiner_runner(model)
+
+    a_pooled_list: list[torch.Tensor] = []
+    b_pooled_list: list[torch.Tensor] = []
+    enc_a_pooled_list: list[torch.Tensor] = []
+    enc_b_pooled_list: list[torch.Tensor] = []
+    weights_list: list[float] = []
+    enc_censuses: list[dict[str, float]] = []
+    ref_censuses: list[dict[str, float]] = []
+    pair_spans: list[dict[str, Any]] = []
+
+    pair_hash = hashlib.sha256()
+    pair_hash.update(_cv._tensor_bf16_bytes(matched_a))
+    pair_hash.update(_cv._tensor_bf16_bytes(matched_b))
+    for pr in prompts:
+        pair_hash.update(pr.encode("utf-8"))
+
+    for idx, (f_idx, prompt_text) in enumerate(zip(frame_indices, prompts)):
+        fa = matched_a[f_idx : f_idx + 1]
+        fb = matched_b[f_idx : f_idx + 1]
+        enc_a, tags_a, ids_a, dec_a = _encode_media_frame_and_prompt(
+            clip, fa, prompt_text
+        )
+        enc_b, tags_b, ids_b, dec_b = _encode_media_frame_and_prompt(
+            clip, fb, prompt_text
+        )
+        if tags_a.shape != tags_b.shape or not bool((tags_a == tags_b).all()):
+            raise RuntimeError(
+                f"media pair {idx} produced mismatched token_tags despite identical "
+                f"{target_w}x{target_h} geometry: {tags_a.shape} vs {tags_b.shape}"
+            )
+        ref_a = refiner_run(enc_a)
+        ref_b = refiner_run(enc_b)
+
+        enc_censuses.append(_cv.row_norm_census(enc_a, tags_a))
+        enc_censuses.append(_cv.row_norm_census(enc_b, tags_b))
+        ref_censuses.append(_cv.row_norm_census(ref_a, tags_a))
+        ref_censuses.append(_cv.row_norm_census(ref_b, tags_b))
+
+        spans_a = _spans.spans(ids_a, tags_a.tolist(), dec_a)
+        spans_b = _spans.spans(ids_b, tags_b.tolist(), dec_b)
+        mask_a = _media_pooling_mask(spans_a, tags_a, pooling)
+        mask_b = _media_pooling_mask(spans_b, tags_b, pooling)
+
+        pool_a = ref_a.to(dtype=torch.float64)[mask_a].mean(dim=0).to(dtype=torch.float32)
+        pool_b = ref_b.to(dtype=torch.float64)[mask_b].mean(dim=0).to(dtype=torch.float32)
+        a_pooled_list.append(pool_a)
+        b_pooled_list.append(pool_b)
+        if include_encoder:
+            mask_a_enc = mask_a.clone()
+            mask_b_enc = mask_b.clone()
+            if mask_a_enc.numel() > 0:
+                mask_a_enc[0] = False
+            if mask_b_enc.numel() > 0:
+                mask_b_enc[0] = False
+            if not bool(mask_a_enc.any()):
+                mask_a_enc = mask_a
+            if not bool(mask_b_enc.any()):
+                mask_b_enc = mask_b
+            enc_a_pooled_list.append(
+                enc_a.to(dtype=torch.float64)[mask_a_enc].mean(dim=0).to(dtype=torch.float32)
+            )
+            enc_b_pooled_list.append(
+                enc_b.to(dtype=torch.float64)[mask_b_enc].mean(dim=0).to(dtype=torch.float32)
+            )
+        weights_list.append(1.0)
+        n_vis = int((tags_a == 0).sum().item())
+        pair_spans.append(
+            {
+                "index": idx,
+                "weight": 1.0,
+                "first_diff": 0,
+                "end_a": int(enc_a.shape[0]),
+                "end_b": int(enc_b.shape[0]),
+                "a_span": f"<Picture 1: image_a[{f_idx}] {target_w}x{target_h} ({n_vis} vision tokens)>",
+                "b_span": f"<Picture 1: image_b[{f_idx}] {target_w}x{target_h} ({n_vis} vision tokens)>",
+                "len_a": int(enc_a.shape[0]),
+                "len_b": int(enc_b.shape[0]),
+                "pooled_rows_a": int(mask_a.sum().item()),
+                "pooled_rows_b": int(mask_b.sum().item()),
+                "vision_tokens": n_vis,
+                "qwen_view_size": [target_w, target_h],
+            }
+        )
+
+    a_mat = torch.stack(a_pooled_list, dim=0)
+    b_mat = torch.stack(b_pooled_list, dim=0)
+    w_vec = torch.tensor(weights_list, dtype=torch.float32)
+    final_vec = _cv.mean_difference(a_mat, b_mat, w_vec)
+    tensors_to_save: dict[str, torch.Tensor] = {"vector.post_refiner": final_vec}
+
+    gen = torch.Generator(device="cpu").manual_seed(0)
+    q_report = _cv.quality_report(a_mat, b_mat, w_vec, generator=gen)
+    raw_norm = float(torch.linalg.vector_norm(final_vec.to(dtype=torch.float64)).item())
+    median_ref_row_norm = float(
+        sum(c["median_row_norm"] for c in ref_censuses) / len(ref_censuses)
+    )
+    median_enc_row_norm_ex0 = float(
+        sum(c["median_row_norm_ex_row0"] for c in enc_censuses) / len(enc_censuses)
+    )
+
+    points_meta: dict[str, Any] = {
+        "post_refiner": {
+            "unit": "mean_pair_difference",
+            "raw_norm": raw_norm,
+            "median_row_norm": median_ref_row_norm,
+        }
+    }
+    if include_encoder:
+        enc_a_mat = torch.stack(enc_a_pooled_list, dim=0)
+        enc_b_mat = torch.stack(enc_b_pooled_list, dim=0)
+        enc_raw_vec = _cv.mean_difference(enc_a_mat, enc_b_mat, w_vec)
+        enc_raw_norm = float(
+            torch.linalg.vector_norm(enc_raw_vec.to(dtype=torch.float64)).item()
+        )
+        if enc_raw_norm > 1e-12:
+            enc_vec = (enc_raw_vec.to(dtype=torch.float64) / enc_raw_norm).to(
+                dtype=torch.float32
+            )
+            tensors_to_save["vector.encoder"] = enc_vec
+            points_meta["encoder"] = {
+                "unit": "median_row_norm",
+                "raw_norm": enc_raw_norm,
+                "median_row_norm": median_enc_row_norm_ex0,
+                "row0_excluded": True,
+            }
+
+    prefix_meta = {"media_contrast_grid": f"{target_w}x{target_h}"}
+    metadata: dict[str, Any] = {
+        "format": _cv.FORMAT_VERSION,
+        "name": stem,
+        "quality": f"media-contrast ({target_w}x{target_h}, pooling={pooling})",
+        "family": family,
+        "pairs": {
+            "path": f"<media_pairs:{stem}>",
+            "sha256": pair_hash.hexdigest(),
+            "n_pairs": len(prompts),
+            "n_holds": 0,
+            "a_side": f"image_a ({target_w}x{target_h})",
+            "b_side": f"image_b ({target_w}x{target_h})",
+            "pair_spans": pair_spans,
+        },
+        "recipe": recipe,
+        "measured_under": {
+            "mode": "ref2va",
+            "frame": "scene",
+            "prefix": prefix_meta,
+            "pooling": pooling,
+        },
+        "points": points_meta,
+        "quality_report": q_report,
+        "provenance": {
+            "core_revision": _substrate.git_head(COMFY_ROOT) or "unknown",
+            "pack_commit": _substrate.git_head(REPO_ROOT) or "unknown",
+            "created_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "made_by": made_by,
+        },
+    }
+
+    target_dir = (
+        Path(output_dir)
+        if output_dir is not None
+        else Path(folder_paths.get_folder_paths(CONTROL_VECTORS_FOLDER)[0])
+    )
+    out_filename = _cv.default_vector_filename(
+        stem,
+        family,
+        pooling=pooling,
+        prefix="none",
+        apply_holds=True,
+        n_holds=0,
+        loras=recipe.get("loras"),
+    )
+    out_path = _cv.save_vector(
+        target_dir / out_filename, tensors_to_save, metadata, overwrite=overwrite
+    )
+    full_report = {
+        "vector_file": out_filename,
+        "path": str(out_path),
+        "metadata": metadata,
+        "qwen_view_size": [target_w, target_h],
+        "pair_spans": pair_spans,
+    }
+    return out_path, full_report
+
+
+class MiniMaxH3MakeMediaControlVector(io.ComfyNode):
+    @classmethod
+    def define_schema(cls):
+        return io.Schema(
+            node_id="MiniMaxH3MakeMediaControlVector",
+            display_name="MiniMax H3 Make Media Control Vector",
+            category="model/conditioning/minimax",
+            description=(
+                "Extracts a post-refiner control vector from contrasting reference "
+                "images (image_a positive vs. image_b baseline) with zero .toml "
+                "file required. Resizes both sides to an identical 32-px-snapped "
+                "(target_w, target_h) grid so Qwen3-VL 3D M-RoPE position_ids and "
+                "vision token counts match exactly."
+            ),
+            inputs=[
+                io.Model.Input("model"),
+                io.Clip.Input("clip"),
+                io.Image.Input(
+                    "image_a",
+                    tooltip="Positive pole reference image(s) [N, H, W, C] carrying the target look or attribute.",
+                ),
+                io.Image.Input(
+                    "image_b",
+                    tooltip="Baseline/negative pole reference image(s) [N, H, W, C] with matching batch/frame count.",
+                ),
+                io.String.Input(
+                    "output_name",
+                    default="media_contrast",
+                    optional=True,
+                    tooltip="Output vector stem (<output_name>__<family>.safetensors under models/control_vectors/).",
+                ),
+                io.Combo.Input(
+                    "pooling",
+                    options=list(_cv.VALID_MEDIA_POOLING),
+                    default="scene_text",
+                    optional=True,
+                    tooltip=(
+                        "Which post-refiner rows to mean-pool per pair side: 'scene_text' "
+                        "(default, tag-1 scene text rows), 'all_tag1', 'vision_tokens' "
+                        "(tag-0 <Picture 1> rows), or 'all_rows'."
+                    ),
+                ),
+                io.Int.Input(
+                    "short_edge",
+                    default=512,
+                    min=32,
+                    max=2048,
+                    step=32,
+                    optional=True,
+                    tooltip=(
+                        "Target shorter edge in pixels (snapped to 32) applied to both "
+                        "image_a and image_b so Qwen3-VL 3D M-RoPE grid_thw matches."
+                    ),
+                ),
+                io.String.Input(
+                    "scene_prompt",
+                    default="",
+                    optional=True,
+                    tooltip=(
+                        "Optional neutral H3 ref2va scene prompt. When empty, evaluates "
+                        "across canonical neutral H3 ref2va scenes automatically."
+                    ),
+                ),
+                io.Boolean.Input(
+                    "overwrite",
+                    default=False,
+                    optional=True,
+                    tooltip="When False (default), refuses to overwrite an existing vector file.",
+                ),
+            ],
+            outputs=[
+                io.String.Output(display_name="vector_name"),
+                io.String.Output(display_name="report"),
+            ],
+            is_output_node=True,
+        )
+
+    @classmethod
+    def execute(
+        cls,
+        model,
+        clip,
+        image_a,
+        image_b,
+        output_name="media_contrast",
+        pooling="scene_text",
+        short_edge=512,
+        scene_prompt="",
+        overwrite=False,
+    ) -> io.NodeOutput:
+        dm = model.get_model_object("diffusion_model")
+        if not _is_minimax_h3(dm):
+            raise ValueError("MiniMaxH3MakeMediaControlVector requires a MiniMax H3 diffusion model")
+        out_path, report = make_control_vector_from_media_pairs(
+            image_a=image_a,
+            image_b=image_b,
+            model=model,
+            clip=clip,
+            output_name=str(output_name or "media_contrast"),
+            pooling=str(pooling or "scene_text"),
+            short_edge=int(short_edge),
+            scene_prompt=str(scene_prompt or ""),
+            overwrite=bool(overwrite),
+            made_by="MiniMaxH3MakeMediaControlVector/1",
+        )
+        return io.NodeOutput(out_path.name, json.dumps(report, indent=2, sort_keys=True))
+
+
 class MiniMaxH3ApplyControlVectors(io.ComfyNode):
     @classmethod
     def define_schema(cls):
@@ -1590,6 +2193,70 @@ class MiniMaxH3ApplyControlVectors(io.ComfyNode):
                         "difference and applies."
                     ),
                 ),
+                io.Float.Input(
+                    "video_scale",
+                    default=_APPLY_DEFAULTS["video_scale"],
+                    min=-5.0,
+                    max=5.0,
+                    step=0.05,
+                    optional=True,
+                    tooltip=(
+                        "Stream multiplier applied to the video output velocity within "
+                        "[0.0, split_end_percent). At (1.0, 1.0) runs a single DiT pass; "
+                        "at (1.0, 0.0) steers video while keeping audio unsteered."
+                    ),
+                ),
+                io.Float.Input(
+                    "audio_scale",
+                    default=_APPLY_DEFAULTS["audio_scale"],
+                    min=-5.0,
+                    max=5.0,
+                    step=0.05,
+                    optional=True,
+                    tooltip=(
+                        "Stream multiplier applied to the audio output velocity within "
+                        "[0.0, split_end_percent). At (0.0, 1.0) steers audio while "
+                        "keeping video unsteered."
+                    ),
+                ),
+                io.Float.Input(
+                    "split_end_percent",
+                    default=_APPLY_DEFAULTS["split_end_percent"],
+                    min=0.0,
+                    max=1.0,
+                    step=0.01,
+                    optional=True,
+                    tooltip=(
+                        "End of the step window [0.0, split_end_percent) where decoupled "
+                        "video_scale != audio_scale runs."
+                    ),
+                ),
+                io.Float.Input(
+                    "ref_vae_end_percent",
+                    default=_APPLY_DEFAULTS["ref_vae_end_percent"],
+                    min=0.0,
+                    max=1.0,
+                    step=0.01,
+                    optional=True,
+                    tooltip=(
+                        "For ref2va renders: fraction of steps [0.0, ref_vae_end_percent) "
+                        "where clean 3D Video VAE reference latents stay active. On later "
+                        "steps, gates cond_video_latents to unit noise (visual_cond_noise_aug=0.0) "
+                        "while keeping PackedLayout and 3D RoPE cursor 100% invariant."
+                    ),
+                ),
+                io.Float.Input(
+                    "ref_vae_aug",
+                    default=_APPLY_DEFAULTS["ref_vae_aug"],
+                    min=0.0,
+                    max=1.0,
+                    step=0.001,
+                    optional=True,
+                    tooltip=(
+                        "For ref2va renders: signal weight (visual_cond_noise_aug in [0.0, 1.0], "
+                        "default 0.999) for 3D Video VAE reference latents on active steps."
+                    ),
+                ),
             ],
             outputs=[io.Model.Output(display_name="model")],
         )
@@ -1616,6 +2283,11 @@ class MiniMaxH3ApplyControlVectors(io.ComfyNode):
         start_percent=_APPLY_DEFAULTS["start_percent"],
         end_percent=_APPLY_DEFAULTS["end_percent"],
         allow_recipe_mismatch=_APPLY_DEFAULTS["allow_recipe_mismatch"],
+        video_scale=_APPLY_DEFAULTS["video_scale"],
+        audio_scale=_APPLY_DEFAULTS["audio_scale"],
+        split_end_percent=_APPLY_DEFAULTS["split_end_percent"],
+        ref_vae_end_percent=_APPLY_DEFAULTS["ref_vae_end_percent"],
+        ref_vae_aug=_APPLY_DEFAULTS["ref_vae_aug"],
         **kwargs,
     ) -> bool | str:
         raw = str(vector_name).strip()
@@ -1638,6 +2310,11 @@ class MiniMaxH3ApplyControlVectors(io.ComfyNode):
         start_percent=_APPLY_DEFAULTS["start_percent"],
         end_percent=_APPLY_DEFAULTS["end_percent"],
         allow_recipe_mismatch=_APPLY_DEFAULTS["allow_recipe_mismatch"],
+        video_scale=_APPLY_DEFAULTS["video_scale"],
+        audio_scale=_APPLY_DEFAULTS["audio_scale"],
+        split_end_percent=_APPLY_DEFAULTS["split_end_percent"],
+        ref_vae_end_percent=_APPLY_DEFAULTS["ref_vae_end_percent"],
+        ref_vae_aug=_APPLY_DEFAULTS["ref_vae_aug"],
     ) -> io.NodeOutput:
         m = attach_control_vector(
             model,
@@ -1648,6 +2325,11 @@ class MiniMaxH3ApplyControlVectors(io.ComfyNode):
             start_percent=float(start_percent),
             end_percent=float(end_percent),
             allow_recipe_mismatch=bool(allow_recipe_mismatch),
+            video_scale=float(video_scale),
+            audio_scale=float(audio_scale),
+            split_end_percent=float(split_end_percent),
+            ref_vae_end_percent=float(ref_vae_end_percent),
+            ref_vae_aug=float(ref_vae_aug),
         )
         return io.NodeOutput(m)
 

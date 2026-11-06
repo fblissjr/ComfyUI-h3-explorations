@@ -1836,6 +1836,7 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
     manifest_data = json.loads((REPO / "bench" / "node_id_manifest.json").read_text(encoding="utf-8"))
     for cls, expected_id in (
         (cv_nodes.MiniMaxH3MakeControlVector, "MiniMaxH3MakeControlVector"),
+        (cv_nodes.MiniMaxH3MakeMediaControlVector, "MiniMaxH3MakeMediaControlVector"),
         (cv_nodes.MiniMaxH3ApplyControlVectors, "MiniMaxH3ApplyControlVectors"),
         (cv_nodes.MiniMaxH3LayerNormMatch, "MiniMaxH3LayerNormMatch"),
     ):
@@ -2293,13 +2294,34 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
 
             def encode_from_tokens_scheduled(self, tokens):
                 entries = tokens["qwen3vl_32b"][0]
-                seq_ids = [int(e[0]) if not isinstance(e[0], dict) else 0 for e in entries]
-                L_seq = len(seq_ids)
-                rows = torch.zeros((1, L_seq, cv.ENCODER_DIM), dtype=torch.float32)
-                for row_i, tid in enumerate(seq_ids):
-                    g = torch.Generator().manual_seed(1000 + tid)
-                    rows[0, row_i] = torch.randn((cv.ENCODER_DIM,), generator=g)
-                tags_1d = torch.ones((L_seq,), dtype=torch.long)
+                row_list: list[torch.Tensor] = []
+                tag_list: list[int] = []
+                vis_shift = 0.0
+                i_ent = 0
+                while i_ent < len(entries):
+                    item0 = entries[i_ent][0]
+                    if (
+                        item0 == h3_spans.VISION_START
+                        and i_ent + 2 < len(entries)
+                        and isinstance(entries[i_ent + 1][0], dict)
+                        and entries[i_ent + 2][0] == h3_spans.VISION_END
+                    ):
+                        img_t = entries[i_ent + 1][0]["data"]
+                        n_vis = max(4, (int(img_t.shape[1]) // 32) + (int(img_t.shape[2]) // 32))
+                        vis_shift = float(img_t.mean().item())
+                        for v_i in range(n_vis):
+                            g = torch.Generator().manual_seed(2000 + v_i)
+                            row_list.append(torch.randn((cv.ENCODER_DIM,), generator=g) + vis_shift)
+                            tag_list.append(0)
+                        i_ent += 3
+                    else:
+                        tid = int(item0) if not isinstance(item0, dict) else 0
+                        g = torch.Generator().manual_seed(1000 + tid + i_ent)
+                        row_list.append(torch.randn((cv.ENCODER_DIM,), generator=g) + vis_shift * 0.5)
+                        tag_list.append(1)
+                        i_ent += 1
+                rows = torch.stack(row_list, dim=0).unsqueeze(0)
+                tags_1d = torch.tensor(tag_list, dtype=torch.long)
                 return [[rows, {"pooled_output": None, "minimax_token_tags": tags_1d}]]
 
         mock_clip = _MockClip(ckpt_path)
@@ -3358,10 +3380,237 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
             if not expected_active and got_shift != 0.0:
                 errs.append(f"step {step_i} outside [0.25, 0.75) was steered: got {got_shift}")
 
+        # Wave 2: video_scale / audio_scale / split_end_percent + ref_vae_end_percent / ref_vae_aug checks
+        errs += _expect_refusal(
+            lambda: cv_nodes.attach_control_vector(
+                patcher_with_init, v1_path, strength=1.0, video_scale=float("nan")
+            ),
+            "video_scale must be finite",
+            "attach_control_vector refusal on non-finite video_scale",
+        )
+        errs += _expect_refusal(
+            lambda: cv_nodes.attach_control_vector(
+                patcher_with_init, v1_path, strength=1.0, audio_scale=float("inf")
+            ),
+            "audio_scale must be finite",
+            "attach_control_vector refusal on non-finite audio_scale",
+        )
+        errs += _expect_refusal(
+            lambda: cv_nodes.attach_control_vector(
+                patcher_with_init, v1_path, strength=1.0, split_end_percent=1.5
+            ),
+            "split_end_percent must be <= 1.0",
+            "attach_control_vector refusal on split_end_percent > 1.0",
+        )
+        errs += _expect_refusal(
+            lambda: cv_nodes.attach_control_vector(
+                patcher_with_init, v1_path, strength=1.0, ref_vae_end_percent=-0.1
+            ),
+            "ref_vae_end_percent must be >= 0.0",
+            "attach_control_vector refusal on ref_vae_end_percent < 0.0",
+        )
+        errs += _expect_refusal(
+            lambda: cv_nodes.attach_control_vector(
+                patcher_with_init, v1_path, strength=1.0, ref_vae_aug=1.2
+            ),
+            "ref_vae_aug must be <= 1.0",
+            "attach_control_vector refusal on ref_vae_aug > 1.0",
+        )
+
+        class _MockAVDiffusionModel(mm_mod.MiniMaxH3Model):
+            def __init__(self):
+                torch.nn.Module.__init__(self)
+                self.condition_proj = SimpleNamespace(
+                    weight=sd_tensors["condition_proj.weight"],
+                    bias=sd_tensors["condition_proj.bias"],
+                )
+                self.token_refiner = SimpleNamespace(
+                    final_norm=SimpleNamespace(
+                        weight=sd_tensors["token_refiner.final_norm.weight"]
+                    )
+                )
+                self.contexts_seen: list[torch.Tensor] = []
+                self.payloads_seen: list[dict[str, Any]] = []
+
+            def run_step(self, x, timestep, context, transformer_options={}, **kwargs):
+                self.contexts_seen.append(context.clone())
+                self.payloads_seen.append(dict(kwargs.get("minimax_payload") or {}))
+                c_val = context[:, 1:, 0].to(dtype=torch.float32).mean()
+                return [x[0] + c_val, x[1] + c_val * 2.0]
+
+        dm_av = _MockAVDiffusionModel()
+        patcher_av = _MockPatcher(dm_av, ckpt_path)
+        p_split = cv_nodes.attach_control_vector(
+            patcher_av,
+            v1_path,
+            strength=1.0,
+            video_scale=1.0,
+            audio_scale=0.0,
+            split_end_percent=0.5,
+            ref_vae_end_percent=0.5,
+            ref_vae_aug=0.875,
+        )
+        av_x = [torch.zeros((1, 2), dtype=torch.float32), torch.zeros((1, 2), dtype=torch.float32)]
+        av_ctx = torch.zeros((1, 4, cv.POST_REFINER_DIM), dtype=torch.float32)
+        av_tags = torch.tensor([[0, 1, 1, 1]], dtype=torch.long)
+        orig_cond_lat = torch.ones((1, 16, 2, 4, 4), dtype=torch.float32)
+        sentinel_refs = [{"type": "image"}]
+        sentinel_layout = {"seq_len": 128}
+        caller_payload = {
+            "text_token_tags": av_tags,
+            "cond_video_latents": [orig_cond_lat],
+            "visual_cond_noise_aug": 0.999,
+            "refs": sentinel_refs,
+            "layout": sentinel_layout,
+        }
+        # Step 0 (pct = 0.0 < 0.5): inside split_end_percent and inside ref_vae_end_percent -> 2 calls, ref latents intact
+        dm_av.contexts_seen.clear()
+        dm_av.payloads_seen.clear()
+        out_step0 = p_split.invoke_diffusion_model(
+            av_x,
+            sched_sigmas[0:1],
+            av_ctx,
+            minimax_payload=caller_payload,
+            transformer_options={"sample_sigmas": sched_sigmas},
+        )
+        if len(dm_av.contexts_seen) != 2:
+            errs.append(f"split video_scale=1.0, audio_scale=0.0 at step 0 expected 2 DiT calls, got {len(dm_av.contexts_seen)}")
+        if abs(float(out_step0[0].mean().item()) - 0.75) > 1e-5 or abs(float(out_step0[1].mean().item()) - 0.0) > 1e-5:
+            errs.append(f"split video_scale=1.0, audio_scale=0.0 at step 0 wrong output streams: {out_step0}")
+        if (
+            float(dm_av.payloads_seen[0]["visual_cond_noise_aug"]) != 0.875
+            or float(dm_av.payloads_seen[0]["cond_video_latents"][0].abs().sum().item()) == 0.0
+        ):
+            errs.append(f"ref_vae_end_percent at step 0 (inside window) did not preserve cond_video_latents or set ref_vae_aug: {dm_av.payloads_seen[0]}")
+
+        # Step 2 (pct = 0.5 >= 0.5): outside split_end_percent and outside ref_vae_end_percent -> 1 call, cond_video_latents zeroed, refs/layout untouched
+        dm_av.contexts_seen.clear()
+        dm_av.payloads_seen.clear()
+        out_step2 = p_split.invoke_diffusion_model(
+            av_x,
+            sched_sigmas[2:3],
+            av_ctx,
+            minimax_payload=caller_payload,
+            transformer_options={"sample_sigmas": sched_sigmas},
+        )
+        if len(dm_av.contexts_seen) != 1:
+            errs.append(f"outside split_end_percent at step 2 expected 1 DiT call, got {len(dm_av.contexts_seen)}")
+        if (
+            float(dm_av.payloads_seen[0]["visual_cond_noise_aug"]) != 0.0
+            or float(dm_av.payloads_seen[0]["cond_video_latents"][0].abs().sum().item()) != 0.0
+            or dm_av.payloads_seen[0]["refs"] is not sentinel_refs
+            or dm_av.payloads_seen[0]["layout"] is not sentinel_layout
+        ):
+            errs.append(f"ref_vae_end_percent at step 2 (outside window) did not zero cond_video_latents while preserving refs/layout: {dm_av.payloads_seen[0]}")
+        if float(caller_payload["cond_video_latents"][0].abs().sum().item()) == 0.0 or caller_payload["visual_cond_noise_aug"] != 0.999:
+            errs.append("ref_vae_end_percent mutated caller's minimax_payload dict in place")
+
+        # Wave 2: match_media_pair_geometry, make_control_vector_from_media_pairs, MiniMaxH3MakeMediaControlVector, and CLI make-media
+        img_a_raw = torch.rand((2, 90, 160, 3), generator=gen, dtype=torch.float32) * 0.4 + 0.6
+        img_b_raw = torch.rand((2, 140, 100, 3), generator=gen, dtype=torch.float32) * 0.4
+        matched_a, matched_b, (tw, th) = cv_nodes.match_media_pair_geometry(
+            img_a_raw, img_b_raw, short_edge=224
+        )
+        if (
+            matched_a.shape != matched_b.shape
+            or matched_a.shape != (2, th, tw, 3)
+            or tw % 32 != 0
+            or th % 32 != 0
+            or min(tw, th) != 224
+        ):
+            errs.append(
+                f"match_media_pair_geometry failed: a={tuple(matched_a.shape)}, b={tuple(matched_b.shape)}, target=({tw}, {th})"
+            )
+        errs += _expect_refusal(
+            lambda: cv_nodes.match_media_pair_geometry(
+                img_a_raw[:1], img_b_raw, short_edge=224
+            ),
+            "same frame/batch count",
+            "match_media_pair_geometry refusal on mismatched batch count",
+        )
+        errs += _expect_refusal(
+            lambda: cv_nodes.match_media_pair_geometry(
+                img_a_raw, img_b_raw, short_edge=16
+            ),
+            "short_edge must be >= 32",
+            "match_media_pair_geometry refusal on short_edge < 32",
+        )
+
+        # End-to-end make_control_vector_from_media_pairs & MiniMaxH3MakeMediaControlVector.execute
+        orig_cv_paths_m = cv_nodes.folder_paths.folder_names_and_paths.get(
+            cv_nodes.CONTROL_VECTORS_FOLDER
+        )
+        try:
+            cv_nodes.folder_paths.folder_names_and_paths[cv_nodes.CONTROL_VECTORS_FOLDER] = (
+                [str(tmp)],
+                {".safetensors"},
+            )
+            for m_pool in ("scene_text", "vision_tokens", "all_rows"):
+                m_out = cv_nodes.MiniMaxH3MakeMediaControlVector.execute(
+                    model=patcher_for_make,
+                    clip=mock_clip,
+                    image_a=img_a_raw,
+                    image_b=img_b_raw,
+                    output_name=f"unit_media_{m_pool}",
+                    pooling=m_pool,
+                    short_edge=224,
+                    overwrite=True,
+                )
+                m_sf = tmp / m_out[0]
+                if not m_sf.is_file() or not m_sf.with_suffix(".md").is_file():
+                    errs.append(f"MiniMaxH3MakeMediaControlVector({m_pool}) did not write .safetensors and .md")
+                else:
+                    mt, mm = cv.load_vector(m_sf)
+                    if "vector.post_refiner" not in mt or mm["measured_under"]["pooling"] != m_pool:
+                        errs.append(f"MiniMaxH3MakeMediaControlVector({m_pool}) metadata/tensor mismatch: {mm}")
+                    if (
+                        mm["measured_under"].get("prefix") != {"media_contrast_grid": f"{tw}x{th}"}
+                        or mm["pairs"]["pair_spans"][0].get("qwen_view_size") != [tw, th]
+                    ):
+                        errs.append(f"MiniMaxH3MakeMediaControlVector({m_pool}) missing media_contrast_grid provenance: {mm}")
+            errs += _expect_refusal(
+                lambda: cv_nodes.make_control_vector_from_media_pairs(
+                    image_a=img_a_raw,
+                    image_b=img_b_raw,
+                    model=patcher_for_make,
+                    clip=mock_clip,
+                    output_name="bad_media_pool",
+                    pooling="diff_span",
+                    output_dir=tmp,
+                ),
+                "pooling must be one of",
+                "make_control_vector_from_media_pairs refusal on invalid pooling",
+            )
+        finally:
+            if orig_cv_paths_m is not None:
+                cv_nodes.folder_paths.folder_names_and_paths[
+                    cv_nodes.CONTROL_VECTORS_FOLDER
+                ] = orig_cv_paths_m
+
     # 4. Generated workflow arm check (build_control_vector_arm, gate arms, probe arms, LayerNormMatch)
     arm = bw.build_control_vector_arm(
         "t2v", vector_name="film_16mm_1974__fl2va.safetensors", strength=0.75
     )
+    arm_wave2 = bw.build_api(
+        "t2v",
+        control_vector=dict(
+            vector_name="film_16mm_1974__fl2va.safetensors",
+            strength=1.5,
+            video_scale=1.0,
+            audio_scale=0.0,
+            split_end_percent=0.75,
+            ref_vae_end_percent=0.5,
+            ref_vae_aug=0.95,
+        ),
+    )
+    if (
+        arm_wave2["115"]["inputs"].get("video_scale") != 1.0
+        or arm_wave2["115"]["inputs"].get("audio_scale") != 0.0
+        or arm_wave2["115"]["inputs"].get("split_end_percent") != 0.75
+        or arm_wave2["115"]["inputs"].get("ref_vae_end_percent") != 0.5
+        or arm_wave2["115"]["inputs"].get("ref_vae_aug") != 0.95
+    ):
+        errs.append(f"build_api did not pass Wave 2 optional control_vector keys: {arm_wave2['115']['inputs']}")
     if "115" not in arm or arm["115"]["class_type"] != "MiniMaxH3ApplyControlVectors":
         errs.append("build_control_vector_arm did not emit node 115 MiniMaxH3ApplyControlVectors")
     if arm["9"]["inputs"]["model"] != ["115", 0]:

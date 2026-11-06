@@ -44,7 +44,12 @@
       "mask",
       "start_percent",
       "end_percent",
-      "allow_recipe_mismatch"
+      "allow_recipe_mismatch",
+      "video_scale",
+      "audio_scale",
+      "split_end_percent",
+      "ref_vae_end_percent",
+      "ref_vae_aug"
     ],
     "node_id": "MiniMaxH3ApplyControlVectors",
     "outputs": [
@@ -375,6 +380,24 @@
       "slot"
     ],
     "node_id": "MiniMaxH3MakeControlVector",
+    "outputs": [
+      "vector_name",
+      "report"
+    ]
+  },
+  "MiniMaxH3MakeMediaControlVector": {
+    "inputs": [
+      "model",
+      "clip",
+      "image_a",
+      "image_b",
+      "output_name",
+      "pooling",
+      "short_edge",
+      "scene_prompt",
+      "overwrite"
+    ],
+    "node_id": "MiniMaxH3MakeMediaControlVector",
     "outputs": [
       "vector_name",
       "report"

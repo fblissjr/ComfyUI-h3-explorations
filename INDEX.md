@@ -27,7 +27,7 @@ with none is a helper the others import.
 
 | module | nodes it defines | what it says it does |
 |---|---|---|
-| [`control_vector_nodes.py`](control_vector_nodes.py) | `MiniMaxH3MakeControlVector`, `MiniMaxH3ApplyControlVectors`, `MiniMaxH3LayerNormMatch` | ComfyUI nodes for making and applying MiniMax H3 contrastive control vectors. |
+| [`control_vector_nodes.py`](control_vector_nodes.py) | `MiniMaxH3MakeControlVector`, `MiniMaxH3MakeMediaControlVector`, `MiniMaxH3ApplyControlVectors`, `MiniMaxH3LayerNormMatch` | ComfyUI nodes for making and applying MiniMax H3 contrastive control vectors. |
 | [`control_vectors.py`](control_vectors.py) |  | Pure-PyTorch math, pair-file reader, and `.safetensors` I/O for H3 control vectors. |
 
 ### h3_*

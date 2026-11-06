@@ -39,6 +39,15 @@ LLM_VECTOR_KEY_RE = re.compile(r"^vector\.llm\.\d+$")
 VALID_MODES = ("t2va", "fl2va", "i2va", "l2va", "ref2va")
 VALID_FRAMES = ("scene", "bare")
 VALID_POOLING = ("scene_text", "all_tag1", "from_first_diff", "diff_span")
+VALID_MEDIA_POOLING = ("scene_text", "all_tag1", "vision_tokens", "all_rows")
+VALID_ALL_POOLING = (
+    "scene_text",
+    "all_tag1",
+    "from_first_diff",
+    "diff_span",
+    "vision_tokens",
+    "all_rows",
+)
 DEFAULT_EXCLUDE_SHOTS: tuple[str, ...] = ("t2va_offpath_tortoise", "ref2va_look_anchor")
 
 ALLOWED_TOP_KEYS = frozenset({"vector", "pair", "hold"})
@@ -1468,9 +1477,9 @@ def _validate_metadata_dict(metadata: Mapping[str, Any]) -> None:
         raise ValueError(
             f"measured_under.frame must be one of {VALID_FRAMES}, got {measured['frame']!r}"
         )
-    if measured["pooling"] not in VALID_POOLING:
+    if measured["pooling"] not in VALID_ALL_POOLING:
         raise ValueError(
-            f"measured_under.pooling must be one of {VALID_POOLING}, got {measured['pooling']!r}"
+            f"measured_under.pooling must be one of {VALID_ALL_POOLING}, got {measured['pooling']!r}"
         )
 
     points = metadata["points"]
@@ -1643,6 +1652,8 @@ _POOLING_DESCRIPTIONS: dict[str, str] = {
     "from_first_diff": "all tag-1 non-vision rows from the first differing token onward (idx >= first_diff)",
     "diff_span": "only the differing token span [first_diff:end_diff] (stripping both shared prefix and shared suffix tokens)",
     "all_tag1": "all tag-1 non-vision rows across the sequence",
+    "vision_tokens": "all tag-0 reference vision rows across the sequence (media-contrast mode)",
+    "all_rows": "all tag-0 vision and tag-1 text rows across the sequence (excluding row 0 for encoder)",
 }
 
 

@@ -1186,6 +1186,7 @@ FROZEN_VIDEO_CACHE_NODE = "MiniMaxH3FrozenVideoCache"
 #: (`control_vector_nodes.py`, `h3_rules.py`, `docs/research/control_vectors/2026-11-04_h3_control_vectors.md`).
 CONTROL_VECTOR_NODE = "MiniMaxH3ApplyControlVectors"
 CONTROL_VECTOR_DEFAULTS = dict(_h3_rules().CONTROL_VECTOR_DEFAULTS)
+CONTROL_VECTOR_OPTIONAL_DEFAULTS = dict(_h3_rules().CONTROL_VECTOR_OPTIONAL_DEFAULTS)
 LAYER_NORM_MATCH_NODE = "MiniMaxH3LayerNormMatch"
 
 # ---- Masked video-to-video on the song node ----------------------------------

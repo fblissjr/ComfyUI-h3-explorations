@@ -161,6 +161,85 @@ def _load_encoded_references(
     return encoded_refs
 
 
+def _load_image_tensor_list(spec_str: str) -> list[torch.Tensor]:
+    from PIL import Image
+    import numpy as np
+
+    specs = [s.strip() for s in str(spec_str or "").split(",") if s.strip()]
+    if not specs:
+        raise ValueError("at least one image path is required")
+    tensors: list[torch.Tensor] = []
+    for img_spec in specs:
+        img_path = Path(img_spec)
+        if not img_path.is_file():
+            img_path = Path(folder_paths.get_input_directory()) / img_spec
+        if not img_path.is_file():
+            raise ValueError(f"image {img_spec!r} not found")
+        pil = Image.open(img_path).convert("RGB")
+        arr = np.asarray(pil, dtype=np.float32) / 255.0
+        tensors.append(torch.from_numpy(arr).unsqueeze(0))
+    return tensors
+
+
+def cmd_make_media(args: argparse.Namespace) -> int:
+    if args.pooling not in cv.VALID_MEDIA_POOLING:
+        raise ValueError(
+            f"pooling must be one of {cv.VALID_MEDIA_POOLING}, got {args.pooling!r}"
+        )
+    list_a = _load_image_tensor_list(args.image_a)
+    list_b = _load_image_tensor_list(args.image_b)
+    if len(list_a) != len(list_b):
+        raise ValueError(
+            f"--image-a and --image-b must have the same number of images, got {len(list_a)} vs {len(list_b)}"
+        )
+    # Match geometry per pair to the first image's aspect ratio at short_edge
+    matched_a_list: list[torch.Tensor] = []
+    matched_b_list: list[torch.Tensor] = []
+    target_size = (0, 0)
+    for ia, ib in zip(list_a, list_b):
+        ma, mb, t_sz = cv_nodes.match_media_pair_geometry(
+            ia if not matched_a_list else cv_nodes._repo("reference_conditioning")._view_or_source(ia, ia.shape[2], ia.shape[1], target_size[0], target_size[1]),
+            ib,
+            short_edge=int(args.short_edge),
+        )
+        target_size = t_sz
+        matched_a_list.append(ma)
+        matched_b_list.append(mb)
+    batch_a = torch.cat(matched_a_list, dim=0)
+    batch_b = torch.cat(matched_b_list, dim=0)
+
+    unet_name = args.unet or h3_config.MODELS["unet_ref2va"]
+    unet_path = Path(folder_paths.get_full_path_or_raise("diffusion_models", unet_name))
+    encoder_name = args.encoder or h3_config.MODELS["clip"]
+    loras = _parse_lora_specs(args.lora)
+
+    clip = getattr(args, "_clip_override", None) or _load_clip(encoder_name, device=args.device)
+    model = _load_unet(unet_name, loras=loras)
+    out_dir = Path(args.out_dir) if getattr(args, "out_dir", None) else None
+    out_path, report = cv_nodes.make_control_vector_from_media_pairs(
+        image_a=batch_a,
+        image_b=batch_b,
+        model=model,
+        clip=clip,
+        output_name=str(args.output_name or "media_contrast"),
+        pooling=str(args.pooling),
+        short_edge=int(args.short_edge),
+        scene_prompt=str(args.scene_prompt or ""),
+        output_dir=out_dir,
+        overwrite=bool(args.overwrite),
+        made_by="bench/control_vectors.py::make-media/1",
+    )
+    qrep = report["metadata"]["quality_report"]
+    pts = report["metadata"]["points"]["post_refiner"]
+    print(f"=== Media-Contrast Control Vector Saved: {out_path.name} ===")
+    print(f"  path            : {out_path}")
+    print(f"  qwen_view_size  : {report['qwen_view_size'][0]}x{report['qwen_view_size'][1]} (32-px M-RoPE grid)")
+    print(f"  pooling         : {args.pooling}")
+    print(f"  raw_norm        : {pts['raw_norm']:.4f}   median_row_norm: {pts['median_row_norm']:.4f}")
+    print(f"  pairwise_cosine : {qrep['mean_pairwise_cosine']:.4f}   split_half: {qrep['split_half_cosine']:.4f}")
+    return 0
+
+
 def cmd_make(args: argparse.Namespace) -> int:
     if args.pooling not in cv.VALID_POOLING:
         raise ValueError(f"pooling must be one of {cv.VALID_POOLING}, got {args.pooling!r}")
@@ -2945,6 +3024,23 @@ def build_parser() -> argparse.ArgumentParser:
     pm.add_argument("--out", default=None, help="Output .safetensors path or filename")
     pm.add_argument("--overwrite", action="store_true", help="Overwrite an existing vector file at the target path")
 
+    pmm = sub.add_parser(
+        "make-media",
+        help="Build a control vector from contrasting <Picture 1> image pair(s) with 32-px M-RoPE grid matching",
+    )
+    pmm.add_argument("--image-a", required=True, help="Positive pole image path (or comma-separated paths)")
+    pmm.add_argument("--image-b", required=True, help="Baseline/negative pole image path (or comma-separated paths)")
+    pmm.add_argument("--output-name", default="media_contrast", help="Output vector stem (default: 'media_contrast')")
+    pmm.add_argument("--pooling", choices=cv.VALID_MEDIA_POOLING, default="scene_text")
+    pmm.add_argument("--short-edge", type=int, default=512, help="Target shorter edge in pixels (snapped to 32)")
+    pmm.add_argument("--scene-prompt", default="", help="Optional neutral H3 ref2va scene prompt")
+    pmm.add_argument("--unet", default=None, help="Diffusion checkpoint filename")
+    pmm.add_argument("--encoder", default=None, help="Text encoder checkpoint filename")
+    pmm.add_argument("--lora", action="append", default=None, help="LoRA file[:strength]")
+    pmm.add_argument("--device", default="default")
+    pmm.add_argument("--out-dir", dest="out_dir", default=None, help="Optional output directory")
+    pmm.add_argument("--overwrite", action="store_true", help="Overwrite an existing vector file")
+
     pi = sub.add_parser("inspect", help="Inspect a control vector file and optionally meter prompts")
     pi.add_argument("vector", help="Path or filename in models/control_vectors/")
     pi.add_argument(
@@ -3011,6 +3107,8 @@ def main(argv: list[str] | None = None) -> int:
             return cmd_from_md(args)
         if args.cmd == "make":
             return cmd_make(args)
+        if args.cmd == "make-media":
+            return cmd_make_media(args)
         if args.cmd == "inspect":
             return cmd_inspect(args)
         if args.cmd == "grade":

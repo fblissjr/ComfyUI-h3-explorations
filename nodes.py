@@ -74,6 +74,7 @@ from .control_vector_nodes import (
     MiniMaxH3ApplyControlVectors,
     MiniMaxH3LayerNormMatch,
     MiniMaxH3MakeControlVector,
+    MiniMaxH3MakeMediaControlVector,
 )
 from .prompt_lists import MiniMaxH3FillPromptLists, MiniMaxH3PromptList, register_wildcards_folder
 from . import h3_capture
@@ -394,8 +395,8 @@ class H3ExplorationsExtension(ComfyExtension):
                 MiniMaxH3BodyModelLoader, MiniMaxH3BodyPose, MiniMaxH3BodyMeshVideo,
                 # appended 2026-11-04, contrastive control vectors made and applied after the
                 # token refiner (control_vector_nodes.py, control_vectors.py)
-                MiniMaxH3MakeControlVector, MiniMaxH3ApplyControlVectors,
-                MiniMaxH3LayerNormMatch]
+                MiniMaxH3MakeControlVector, MiniMaxH3MakeMediaControlVector,
+                MiniMaxH3ApplyControlVectors, MiniMaxH3LayerNormMatch]
 
 
 async def comfy_entrypoint() -> H3ExplorationsExtension:
