@@ -273,13 +273,17 @@ CONTROL_VECTOR_DEFAULTS = dict(
     allow_recipe_mismatch=False,
 )
 
-#: Optional Wave 2 stream-scale and reference-VAE gate defaults on
-#: `MiniMaxH3ApplyControlVectors` (`control_vector_nodes.py`).
+#: Optional Wave 2 stream-scale, reference-VAE gate, and inline J-Lens word
+#: synthesis defaults on `MiniMaxH3ApplyControlVectors` (`control_vector_nodes.py`).
 CONTROL_VECTOR_OPTIONAL_DEFAULTS = dict(
     video_scale=1.0,
     audio_scale=1.0,
     split_end_percent=1.0,
     ref_vae_end_percent=1.0,
     ref_vae_aug=0.999,
+    words="",
+    against_words="",
+    hold_words="",
+    hold_alpha=1.0,
 )
 

@@ -437,15 +437,32 @@
           </select>
         </div>
       </div>
-      <div class="btn-bar" style="margin-bottom:8px;">
-        <span class="subtext">Try simple words (0 `.toml` needed):</span>
-        <button type="button" class="word-chip" data-words="erratic handheld camera shake" data-mode="t2va">Camera Shake</button>
-        <button type="button" class="word-chip" data-words="awkward eye-contact avoidance" data-mode="ref2va">Eye Avoidance (`ref2va`)</button>
-        <button type="button" class="word-chip" data-words="booming operatic bellow" data-mode="t2va">Operatic Bellow</button>
-        <button type="button" class="word-chip" data-words="muffled through-the-wall acoustics" data-mode="t2va">Muffled Acoustics</button>
-        <button type="button" class="word-chip" data-words="weightless zero gravity" data-mode="t2va">Zero Gravity</button>
+      <div class="form-row">
+        <div class="field">
+          <label for="vec-against">Against Preset / Words (for `&lt; 2 ms` J-Lens Word Synthesis)</label>
+          <input id="vec-against" type="text" list="against-presets" placeholder="@neutral (default), @replace_human, or custom words">
+          <datalist id="against-presets">
+            <option value="@neutral">Default neutral words (recommended for weather/lighting/style)</option>
+            <option value="@replace_human">Replace human/live-action subject (skeleton, puppet, clay, balloon, robot)</option>
+            <option value="@replace_live_action">Replace live-action camera medium (2D/cartoon/stop-motion)</option>
+            <option value="@replace_digital">Replace clean digital video (16mm, VHS, CCTV, thermal)</option>
+          </datalist>
+        </div>
+        <div class="field">
+          <label for="vec-holds">Hold Words (orthogonal scrub)</label>
+          <input id="vec-holds" type="text" placeholder="e.g. shaky, blur">
+        </div>
       </div>
-      <textarea id="md-input" spellcheck="false" placeholder="Type simple words (e.g. 'erratic handheld camera shake', 'awkward eye-contact avoidance', 'steady tripod -> erratic handheld camera shake') OR paste full Markdown pairs..."></textarea>
+      <div class="btn-bar" style="margin-bottom:8px;">
+        <span class="subtext">Try `&lt; 2 ms` word presets:</span>
+        <button type="button" class="word-chip" data-words="blizzard, freezing, snow" data-against="" data-mode="t2va">Blizzard (`+5.17`)</button>
+        <button type="button" class="word-chip" data-words="medieval, knight, armor, castle" data-against="" data-mode="t2va">Medieval (`+4.75`)</button>
+        <button type="button" class="word-chip" data-words="disco, glitter, dancing" data-against="" data-mode="t2va">Disco (`+4.79`)</button>
+        <button type="button" class="word-chip" data-words="8-bit, led, steampunk" data-against="" data-mode="t2va">8-Bit Steampunk (`+3.44`)</button>
+        <button type="button" class="word-chip" data-words="skeleton, translucent, bones, skull" data-against="@replace_human" data-mode="t2va">Skeleton (`@replace_human`)</button>
+        <button type="button" class="word-chip" data-words="weightless zero gravity" data-against="" data-mode="t2va">Zero Gravity</button>
+      </div>
+      <textarea id="md-input" spellcheck="false" placeholder="Type 3–5 words (e.g. 'blizzard, freezing, snow' or 'medieval, knight, armor, castle') for < 2 ms CPU J-Lens synthesis, OR paste full Markdown pairs..."></textarea>
     </div>
 
     <div class="card">
@@ -458,7 +475,7 @@
 
     <div class="card">
       <div class="card-title">
-        <span>3. Save `.toml` &amp; Build `.safetensors` Control Vectors</span>
+        <span>3. Build `.safetensors` Control Vectors</span>
         <span class="subtext">Does not require ComfyUI running</span>
       </div>
       <div class="options-grid">
@@ -482,15 +499,49 @@
         </div>
       </div>
       <div class="btn-bar">
-        <button id="btn-build" type="button" class="primary">Save `.toml` &amp; Build `.safetensors` (~8s)</button>
-        <button id="btn-save-toml" type="button">Save `.toml` Only (Instant)</button>
+        <button id="btn-build-words" type="button" class="primary" title="Synthesize .safetensors in < 2 ms on CPU via J-Lens (0 VRAM, no .toml required)">Instant Build from Words (`&lt; 2 ms` CPU, 0 VRAM)</button>
+        <button id="btn-build" type="button">Compile `.toml` &amp; Build 10-Pair Vector (`~8s`)</button>
+        <button id="btn-save-toml" type="button">Save `.toml` Only</button>
       </div>
       <pre id="build-log"></pre>
     </div>
   </section>
 
-  <!-- Right Column: Pair Span Inspector & Built Vectors -->
+  <!-- Right Column: J-Lens Readiness, Pair Span Inspector & Built Vectors -->
   <section>
+    <div class="card" id="jlens-card">
+      <div class="card-title">
+        <span>J-Lens Pre-Render Steerability &amp; Vocabulary Readout (`&lt; 2 ms` CPU)</span>
+        <span id="jlens-badge" class="status-pill">Type words or click J-Lens on any vector</span>
+      </div>
+      <div class="metrics-strip">
+        <div class="metric-box">
+          <div class="metric-label">Measured Basis</div>
+          <div id="jl-tier" class="metric-val">—</div>
+        </div>
+        <div class="metric-box">
+          <div class="metric-label">`top1_gain` (s=35)</div>
+          <div id="jl-top1" class="metric-val">—</div>
+        </div>
+        <div class="metric-box">
+          <div class="metric-label">`top3_mean` (s=35)</div>
+          <div id="jl-top3" class="metric-val">—</div>
+        </div>
+        <div class="metric-box">
+          <div class="metric-label">Refiner Pass (`v_enc`)</div>
+          <div id="jl-refpass" class="metric-val">—</div>
+        </div>
+        <div class="metric-box">
+          <div class="metric-label">Recommended Knob</div>
+          <div id="jl-rec" class="metric-val">—</div>
+        </div>
+      </div>
+      <div style="font-family:var(--font-mono);font-size:12px;line-height:1.55;background:var(--panel-alt);border:1px solid var(--border);border-radius:6px;padding:8px 10px;">
+        <div><strong style="color:var(--green);">+ve Boosted Words:</strong> <span id="jl-pos" class="subtext">—</span></div>
+        <div style="margin-top:4px;"><strong style="color:var(--red);">&minus;ve Suppressed Words:</strong> <span id="jl-neg" class="subtext">—</span></div>
+        <div id="jl-recs" style="margin-top:6px;color:#e3b341;white-space:pre-wrap;display:none;"></div>
+      </div>
+    </div>
     <div class="card">
       <div class="card-title">
         <span>Live Contrastive Pair Diff &amp; Token-Span Inspector</span>
@@ -608,6 +659,91 @@ async function copyText(text, btn, labelAfter = "Copied!") {
   setTimeout(() => { btn.textContent = orig; }, 1400);
 }
 
+function renderJLens(data, label = "") {
+  const badge = document.getElementById("jlens-badge");
+  const tierEl = document.getElementById("jl-tier");
+  const top1El = document.getElementById("jl-top1");
+  const top3El = document.getElementById("jl-top3");
+  const refPassEl = document.getElementById("jl-refpass");
+  const recEl = document.getElementById("jl-rec");
+  const posEl = document.getElementById("jl-pos");
+  const negEl = document.getElementById("jl-neg");
+  const recsEl = document.getElementById("jl-recs");
+
+  if (!data || !data.ok) {
+    badge.textContent = (data && data.error) ? data.error : "J-Lens unavailable";
+    badge.className = "status-pill err";
+    return;
+  }
+
+  const ro = data.readout || data.post_refiner || data;
+  const rd = data.readiness || ro.readiness || {};
+  const basis = String(rd.basis || ro.space || "post_refiner");
+  tierEl.textContent = basis;
+  tierEl.style.color = "var(--accent)";
+  top1El.textContent = rd.top1_gain != null ? `${rd.top1_gain >= 0 ? "+" : ""}${Number(rd.top1_gain).toFixed(2)}` : "—";
+  top3El.textContent = rd.top3_mean_gain != null ? `${rd.top3_mean_gain >= 0 ? "+" : ""}${Number(rd.top3_mean_gain).toFixed(2)}` : "—";
+  refPassEl.textContent = rd.refiner_transmission != null ? Number(rd.refiner_transmission).toFixed(3) : "n/a";
+  recEl.textContent = rd.recommended_strength ? `${rd.recommended_strength} (${rd.recommended_mode || "add"})` : "1.0..1.35";
+
+  posEl.textContent = ro.pos_summary || "—";
+  negEl.textContent = ro.neg_summary || "—";
+
+  const recs = Array.isArray(rd.recommendations) ? rd.recommendations : [];
+  if (recs.length > 0) {
+    recsEl.style.display = "block";
+    recsEl.textContent = recs.map(r => "-> " + r).join("\n");
+  } else {
+    recsEl.style.display = "none";
+    recsEl.textContent = "";
+  }
+
+  badge.textContent = label || (rd.summary || `${basis} (${data.family || "fl2va"})`);
+  badge.className = "status-pill ok";
+}
+
+async function runJLensForVector(vecFile) {
+  if (!vecFile) return;
+  const res = await fetch("/api/j-lens", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ vector: vecFile }),
+  });
+  const data = await res.json();
+  renderJLens(data, `Decoded ${vecFile}`);
+}
+
+async function runJLensFromWords(save = false) {
+  const rawText = document.getElementById("md-input").value.trim();
+  if (!rawText || rawText.includes("###") || rawText.includes("integrated_multimodal_description:")) {
+    return null;
+  }
+  const posWords = rawText.includes("->") ? rawText.split("->").pop().trim() : rawText;
+  const againstWords = document.getElementById("vec-against").value.trim();
+  const holdWords = document.getElementById("vec-holds").value.trim();
+  const mode = document.getElementById("vec-mode").value;
+  const family = mode === "ref2va" ? "ref2va" : "fl2va";
+  const families = document.querySelector('input[name="families"]:checked').value;
+  const saveName = document.getElementById("vec-name").value.trim();
+
+  const res = await fetch("/api/j-lens", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      from_words: posWords,
+      against_words: againstWords,
+      hold_words: holdWords,
+      family,
+      families,
+      save_name: save ? saveName : "",
+      save,
+    }),
+  });
+  const data = await res.json();
+  renderJLens(data, save && data.saved_files && data.saved_files.length ? `Saved ${data.saved_files.length} file(s) (< 2 ms CPU)` : "");
+  return data;
+}
+
 function renderVectorsTable(vectors, newlyBuiltFiles = new Set()) {
   const tbody = document.getElementById("vectors-tbody");
   tbody.innerHTML = "";
@@ -622,10 +758,15 @@ function renderVectorsTable(vectors, newlyBuiltFiles = new Set()) {
       <td class="mono">${Number(v.mpc).toFixed(4)}</td>
       <td class="mono">${Number(v.split_half).toFixed(4)}</td>
       <td class="mono"><strong>${escapeHtml(v.rec_strength)}</strong></td>
-      <td><button type="button" data-copy="${escapeHtml(v.file)}">Copy Name</button></td>
+      <td style="white-space:nowrap;">
+        <button type="button" class="btn-copy-vec" data-copy="${escapeHtml(v.file)}">Copy Name</button>
+        <button type="button" class="btn-jlens-vec" data-vec="${escapeHtml(v.file)}" title="Decode with J-Lens (< 2 ms CPU)">J-Lens</button>
+      </td>
     `;
-    const btn = tr.querySelector("button");
-    btn.addEventListener("click", () => copyText(v.file, btn));
+    const copyBtn = tr.querySelector(".btn-copy-vec");
+    copyBtn.addEventListener("click", () => copyText(v.file, copyBtn));
+    const jlBtn = tr.querySelector(".btn-jlens-vec");
+    jlBtn.addEventListener("click", () => runJLensForVector(v.file));
     tbody.appendChild(tr);
   }
 }
@@ -710,11 +851,14 @@ async function runPreview() {
   const slot = document.getElementById("vec-slot").value;
   const mode = document.getElementById("vec-mode").value;
   const name = document.getElementById("vec-name").value.trim();
-  const res = await fetch("/api/preview", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text, frame, slot, mode, name }),
-  });
+  const [res] = await Promise.all([
+    fetch("/api/preview", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text, frame, slot, mode, name }),
+    }),
+    runJLensFromWords(false),
+  ]);
   const data = await res.json();
   renderPreview(data);
 }
@@ -750,16 +894,63 @@ document.getElementById("btn-preview").addEventListener("click", runPreview);
 
 document.getElementById("vec-slot").addEventListener("change", runPreview);
 document.getElementById("vec-mode").addEventListener("change", runPreview);
+document.getElementById("vec-against").addEventListener("input", () => {
+  clearTimeout(previewTimer);
+  previewTimer = setTimeout(() => runJLensFromWords(false), 180);
+});
+document.getElementById("vec-holds").addEventListener("input", () => {
+  clearTimeout(previewTimer);
+  previewTimer = setTimeout(() => runJLensFromWords(false), 180);
+});
 
 for (const chip of document.querySelectorAll(".word-chip")) {
   chip.addEventListener("click", async () => {
     document.getElementById("vec-name").value = "";
     document.getElementById("vec-slot").value = "auto";
     document.getElementById("vec-mode").value = chip.dataset.mode || "t2va";
+    document.getElementById("vec-against").value = chip.dataset.against || "";
     document.getElementById("md-input").value = chip.dataset.words || "";
     await runPreview();
   });
 }
+
+document.getElementById("btn-build-words").addEventListener("click", async () => {
+  const btn = document.getElementById("btn-build-words");
+  const logEl = document.getElementById("build-log");
+  btn.disabled = true;
+  try {
+    const data = await runJLensFromWords(true);
+    if (!data) {
+      setStatus("Enter 3–5 simple words (not full Markdown pairs) for < 2 ms J-Lens word synthesis", "err");
+      return;
+    }
+    logEl.style.display = "block";
+    if (data.ok) {
+      const builtFiles = data.saved_files || (data.saved_file ? [data.saved_file] : []);
+      if (data.save_name && !document.getElementById("vec-name").value.trim()) {
+        document.getElementById("vec-name").value = data.save_name;
+      }
+      const rd = data.readiness || (data.readout && data.readout.readiness) || {};
+      logEl.textContent = [
+        `Built ${builtFiles.length} word-synthesized .safetensors file(s) in < 2 ms on CPU (0 VRAM):`,
+        ...builtFiles.map(f => `  * ${f}`),
+        `  +ve: ${(data.readout && data.readout.pos_summary) || ""}`,
+        `  -ve: ${(data.readout && data.readout.neg_summary) || ""}`,
+        `  readiness: ${rd.summary || ""}`,
+        ...(Array.isArray(rd.recommendations) ? rd.recommendations.map(r => `    -> ${r}`) : []),
+      ].join("\n");
+      if (Array.isArray(data.vectors)) {
+        renderVectorsTable(data.vectors, new Set(builtFiles));
+      }
+      setStatus(`Built ${builtFiles.length} vector file(s) in < 2 ms`, "ok");
+    } else {
+      logEl.textContent = data.error || "Word synthesis failed.";
+      setStatus(data.error || "Word synthesis failed", "err");
+    }
+  } finally {
+    btn.disabled = false;
+  }
+});
 
 document.getElementById("md-input").addEventListener("input", () => {
   clearTimeout(previewTimer);

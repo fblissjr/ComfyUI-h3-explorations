@@ -55,6 +55,71 @@ DEFAULT_NEUTRAL_WORDS: tuple[str, ...] = (
     "steady",
 )
 
+# Named negative-pole presets for synthesize_from_words (pass e.g. "@replace_human" or "replace_human").
+# Measured on Arms 53..65 (bench/results/2026-11-05_control_vectors_pika_and_ref2va.md §8):
+# environment/weather/lighting vectors layer onto the prompt with DEFAULT_NEUTRAL_WORDS, whereas
+# subject/medium replacements must actively suppress "Live-action / human / flesh / person" tokens.
+AGAINST_PRESETS: dict[str, tuple[str, ...]] = {
+    "neutral": DEFAULT_NEUTRAL_WORDS,
+    "replace_human": (
+        "human",
+        "flesh",
+        "skin",
+        "person",
+        "live-action",
+        "realistic",
+        "ordinary",
+        "photograph",
+    ),
+    "replace_live_action": (
+        "live-action",
+        "realistic",
+        "human",
+        "flesh",
+        "ordinary",
+        "photograph",
+        "natural",
+        "matte",
+    ),
+    "replace_digital": (
+        "digital",
+        "modern",
+        "clean",
+        "sharp",
+        "contemporary",
+        "ordinary",
+        "standard",
+    ),
+}
+
+_REPLACEMENT_CONCEPT_WORDS: frozenset[str] = frozenset(
+    {
+        "skeleton",
+        "skeletal",
+        "skull",
+        "bones",
+        "bone",
+        "balloon",
+        "inflatable",
+        "latex",
+        "rubber",
+        "puppet",
+        "muppet",
+        "felt",
+        "clay",
+        "claymation",
+        "plasticine",
+        "origami",
+        "paper",
+        "cartoon",
+        "anime",
+        "robot",
+        "automaton",
+        "statue",
+        "marble",
+    }
+)
+
 # Standard recipes matching the checkpoints and Pika H3 Flex LoRAs used to build J_ref_{fl2va,ref2va}
 _DEFAULT_RECIPES: dict[str, dict[str, Any]] = {
     "fl2va": {
@@ -266,6 +331,18 @@ def decode_vector(
             "negative_words": [],
             "pos_summary": "",
             "neg_summary": "",
+            "readiness": {
+                "tier": "weak",
+                "top1_gain": 0.0,
+                "top3_mean_gain": 0.0,
+                "refiner_transmission": 0.0,
+                "echo_ratio": None,
+                "off_target_words": [],
+                "recommended_mode": "add_norm_matched",
+                "recommended_strength": "1.00 .. 1.20",
+                "summary": "WEAK (zero vector norm)",
+                "recommendations": ["Vector norm is zero; provide non-cancelling positive words or reduce hold alpha."],
+            },
         }
 
     b = dict(bundle) if bundle is not None else load_j_lens_bundle()
@@ -315,7 +392,7 @@ def decode_vector(
     pos_list = _pick_unique(pos_gain)
     neg_list = _pick_unique(neg_gain)
 
-    return {
+    base_out: dict[str, Any] = {
         "space": space,
         "family": family,
         "norm_before_holds": round(norm_before, 4),
@@ -325,6 +402,135 @@ def decode_vector(
         "negative_words": neg_list,
         "pos_summary": ", ".join(f"{item['word']} (+{item['gain']:.2f})" for item in pos_list),
         "neg_summary": ", ".join(f"{item['word']} (-{item['gain']:.2f})" for item in neg_list),
+    }
+    base_out["readiness"] = assess_steering_readiness(
+        v_eff if space == "post_refiner" else None,
+        v_enc=v_eff if space == "encoder" else None,
+        readout=base_out,
+        family=family,
+        bundle=b,
+    )
+    return base_out
+
+
+def assess_steering_readiness(
+    v_pr: torch.Tensor | None = None,
+    *,
+    v_enc: torch.Tensor | None = None,
+    readout: Mapping[str, Any] | None = None,
+    pos_words: Sequence[str] | None = None,
+    neg_words: Sequence[str] | None = None,
+    family: str = "fl2va",
+    bundle: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Compute pre-render J-Lens diagnostics on CPU (`< 1 ms`).
+
+    Reports objective numbers measured on the 24,912-word 7-prefix cloze `M_union` basis and
+    `J_ref^{(family)}` (`AGENTS.md`: no fuzzy red/traffic-light labels):
+      - `basis`: `"word_synthesis"` (built in `row(M_centered)`, typical `top1_gain = 2.6..5.2`)
+        vs. `"post_refiner"` / `"encoder"` (`Qwen3-VL-32B` pair vectors, typical `top1_gain = 1.0..2.6`).
+      - `top1_gain`, `top3_mean_gain`: peak and top-3 mean log-odds gain at `scale = 90`.
+      - `refiner_transmission`: `||J_ref @ (v_enc / ||v_enc||_2)||_2` when true `5120`-d `v_enc`
+        is provided (`None` when only `5376`-d `v_pr` is available, never estimated from `J_wiener @ v_pr`).
+      - `echo_ratio` & `off_target_words` (when `pos_words` is provided).
+      - `is_replacement_concept` (`skeleton`, `balloon`, `muppet`, `claymation`, etc.).
+    """
+    b = dict(bundle) if bundle is not None else load_j_lens_bundle()
+    if readout is None:
+        if v_pr is not None:
+            readout = decode_vector(v_pr, space="post_refiner", family=family, bundle=b)
+        elif v_enc is not None:
+            readout = decode_vector(v_enc, space="encoder", family=family, bundle=b)
+        else:
+            raise ValueError("assess_steering_readiness requires readout, v_pr, or v_enc")
+
+    pos_list = list(readout.get("positive_words") or ())
+    top1_gain = round(float(pos_list[0]["gain"]), 2) if pos_list else 0.0
+    top3_slice = pos_list[:3]
+    top3_mean_gain = (
+        round(sum(float(x["gain"]) for x in top3_slice) / len(top3_slice), 2)
+        if top3_slice
+        else 0.0
+    )
+
+    j_ref = b["J_ref_ref2va"] if "ref2va" in str(family).lower() else b["J_ref_fl2va"]
+
+    ref_trans: float | None = None
+    if v_enc is not None:
+        enc_flat = v_enc.detach().to(device="cpu", dtype=torch.float32).flatten()
+        enc_nrm = float(torch.linalg.vector_norm(enc_flat).item())
+        if enc_nrm > 1e-12:
+            enc_unit = enc_flat / enc_nrm
+            ref_trans = round(float(torch.linalg.vector_norm(j_ref @ enc_unit).item()), 4)
+
+    basis = "word_synthesis" if pos_words else str(readout.get("space", "post_refiner"))
+
+    echo_ratio: float | None = None
+    off_target: list[str] = []
+    if pos_words:
+        req_clean = [w.strip().lower() for w in pos_words if w.strip()]
+        expanded_stems: set[str] = set()
+        for w in req_clean:
+            expanded_stems.add(w[:4] if len(w) >= 4 else w)
+            for fb in _SHORT_WORD_FALLBACKS.get(w, ()):
+                expanded_stems.add(fb[:4] if len(fb) >= 4 else fb)
+            if "-" in w:
+                for part in w.split("-"):
+                    if len(part) >= 3:
+                        expanded_stems.add(part[:4] if len(part) >= 4 else part)
+        top_words = [str(item["word"]).lower() for item in pos_list[:8]]
+        matched_top = 0
+        for tw in top_words:
+            if any(tw.startswith(st) or st.startswith(tw[:4]) for st in expanded_stems if st):
+                matched_top += 1
+            else:
+                off_target.append(tw)
+        echo_ratio = round(matched_top / max(len(top_words), 1), 2)
+
+    check_tokens = set(w.lower() for w in (pos_words or ())) | set(
+        str(x["word"]).lower() for x in pos_list[:4]
+    )
+    is_replacement = bool(check_tokens & _REPLACEMENT_CONCEPT_WORDS)
+    neg_set = set(w.lower() for w in (neg_words or DEFAULT_NEUTRAL_WORDS))
+    uses_default_neg = neg_set.issubset(set(DEFAULT_NEUTRAL_WORDS))
+
+    recommendations: list[str] = []
+    rec_strength = "1.25 .. 1.55" if is_replacement else "1.00 .. 1.25"
+
+    if is_replacement and pos_words and uses_default_neg:
+        recommendations.append(
+            "Subject/medium replacement concept with default neutral against_words: pass "
+            "against_words='@replace_human' ('human, flesh, skin, person, live-action, realistic') "
+            "so the negative pole suppresses 'Live-action / human' prompt tokens."
+        )
+    if ref_trans is not None and ref_trans < 0.495:
+        recommendations.append(
+            f"TokenRefiner pass-through is {ref_trans:.3f} (measured on ||J_ref @ v_enc_unit||_2): "
+            "concrete visual, lighting, or material nouns typically have pass-through >= 0.50."
+        )
+    if basis == "word_synthesis" and top1_gain < 2.80:
+        recommendations.append(
+            f"Word-synthesis post-refiner peak gain is +{top1_gain:.2f} (measured on M_union at scale = 90): "
+            "3-5 concrete domain nouns typically yield >= +3.00."
+        )
+
+    rt_str = f"{ref_trans:.3f}" if ref_trans is not None else "n/a (no vector.encoder)"
+    summary = (
+        f"basis={basis}  top1=+{top1_gain:.2f}  top3_mean=+{top3_mean_gain:.2f}  "
+        f"refiner_pass={rt_str}  rec_strength={rec_strength}"
+    )
+    return {
+        "basis": basis,
+        "top1_gain": top1_gain,
+        "top3_mean_gain": top3_mean_gain,
+        "refiner_transmission": ref_trans,
+        "echo_ratio": echo_ratio,
+        "off_target_words": off_target[:5],
+        "is_replacement_concept": is_replacement,
+        "recommended_mode": "add_norm_matched",
+        "recommended_strength": rec_strength,
+        "summary": summary,
+        "recommendations": recommendations,
     }
 
 
@@ -383,12 +589,18 @@ def decode_safetensors(
     b = dict(bundle) if bundle is not None else load_j_lens_bundle()
 
     hold_tensors_pr: list[torch.Tensor] = []
+    hold_tensors_enc: list[torch.Tensor] = []
     hold_names: list[str] = []
     if holds:
         for h_src in holds:
             ht, hname, _ = _load_vector_from_source(h_src, space="post_refiner")
             hold_tensors_pr.append(ht)
             hold_names.append(hname)
+            try:
+                ht_enc, _, _ = _load_vector_from_source(h_src, space="encoder")
+                hold_tensors_enc.append(ht_enc)
+            except Exception:
+                pass
 
     pr_readout = decode_vector(
         v_pr,
@@ -415,8 +627,13 @@ def decode_safetensors(
     with safe_open(str(resolved_path), framework="pt", device="cpu") as f:
         if "vector.encoder" in f.keys():
             v_enc = f.get_tensor("vector.encoder").to(dtype=torch.float32).flatten()
+            v_enc_eff = (
+                apply_soft_holds(v_enc, hold_tensors_enc, alpha=alpha)
+                if hold_tensors_enc
+                else v_enc
+            )
             enc_readout = decode_vector(
-                v_enc,
+                v_enc_eff,
                 space="encoder",
                 family=family,
                 scale=scale,
@@ -434,6 +651,13 @@ def decode_safetensors(
             out["encoder"] = enc_readout
             out["refiner_forward_cosine"] = round(fwd_cos, 4)
             out["wiener_j63_cosine"] = round(w_cos_63, 4)
+            pr_readout["readiness"] = assess_steering_readiness(
+                v_pr,
+                v_enc=v_enc_eff,
+                readout=pr_readout,
+                family=family,
+                bundle=b,
+            )
 
     return out
 
@@ -582,31 +806,39 @@ def _parse_word_list(words: str | Sequence[str] | None) -> list[str]:
 _SHORT_WORD_FALLBACKS: dict[str, tuple[str, ...]] = {
     "ice": ("frozen", "frost", "crystalline"),
     "icy": ("frozen", "frost", "colder"),
-    "fog": ("foggy", "mist", "haze"),
+    "fog": ("mist", "haze", "cloudy"),
     "wet": ("soaked", "damp", "rain"),
-    "dry": ("dusty", "outdoor", "arid"),
+    "dry": ("dusty", "outdoor", "desert"),
     "old": ("older", "vintage", "dated"),
     "new": ("modern", "fresh", "recent"),
     "dim": ("dark", "shadow", "faint"),
     "hot": ("warm", "heated", "fiery"),
     "red": ("crimson", "scarlet", "ruby"),
-    "raw": ("gritty", "rough", "unpolished"),
+    "raw": ("gritty", "rough", "coarse"),
     "8-bit": ("pixel", "arcade", "console", "cartridge"),
     "8bit": ("pixel", "arcade", "console", "cartridge"),
     "16-bit": ("pixel", "arcade", "console", "cartridge"),
     "led": ("neon", "glowing", "matrix", "laser"),
     "leds": ("neon", "glowing", "matrix", "laser"),
     "crt": ("monitor", "screen", "analog", "static"),
-    "vhs": ("tape", "cassette", "analog", "camcorder"),
+    "vhs": ("tape", "cassette", "analog", "video"),
     "cgi": ("digital", "rendered", "synthetic", "computer"),
     "sfx": ("sound", "acoustic", "noise", "echo"),
     "xray": ("skeleton", "bones", "skull", "translucent"),
     "x-ray": ("skeleton", "bones", "skull", "translucent"),
     "cyberpunk": ("neon", "punk", "futuristic", "matrix"),
     "automaton": ("mechanical", "robot", "brass", "clock", "gears"),
-    "chiptune": ("arcade", "electronic", "synthesizer", "melody"),
-    "synth": ("synthesizer", "electronic", "neon"),
-    "victorian": ("antique", "brass", "vintage", "gothic"),
+    "chiptune": ("arcade", "electronic", "melody", "console"),
+    "synth": ("electronic", "neon", "melody"),
+    "victorian": ("antique", "brass", "vintage", "classic"),
+    "squeak": ("pitched", "whistle", "piercing", "rubbing", "rubber"),
+    "squeaking": ("pitched", "whistle", "piercing", "rubbing", "rubber"),
+    "squeaky": ("pitched", "whistle", "piercing", "rubbing", "rubber"),
+    "steampunk": ("clock", "brass", "steam", "gears", "copper", "mechanical", "antique"),
+    "clockwork": ("clock", "brass", "gear", "gears", "mechanical", "copper"),
+    "claymation": ("clay", "puppet", "miniature", "cartoon"),
+    "stop-motion": ("clay", "puppet", "miniature", "frame"),
+    "watercolor": ("painted", "brush", "canvas", "color"),
 }
 
 
@@ -686,6 +918,29 @@ def _resolve_word_indices(word_list: Sequence[str], word_to_idxs: Mapping[str, l
     return matched_ids, matched_words, unmatched_words
 
 
+def _mean_word_direction(
+    word_list: Sequence[str],
+    word_to_idxs: Mapping[str, list[int]],
+    m_centered: torch.Tensor,
+) -> tuple[torch.Tensor, list[int], list[str], list[str]]:
+    all_ids: list[int] = []
+    matched_words: list[str] = []
+    unmatched_words: list[str] = []
+    word_vecs: list[torch.Tensor] = []
+    for w in word_list:
+        w_ids, w_m, w_u = _resolve_word_indices([w], word_to_idxs)
+        if w_ids:
+            all_ids.extend(w_ids)
+            matched_words.extend(w_m)
+            word_vecs.append(F.normalize(m_centered[w_ids].mean(dim=0), dim=0))
+        else:
+            unmatched_words.extend(w_u)
+    if not word_vecs:
+        return torch.empty(0), all_ids, matched_words, unmatched_words
+    mean_vec = F.normalize(torch.stack(word_vecs, dim=0).mean(dim=0), dim=0)
+    return mean_vec, all_ids, matched_words, unmatched_words
+
+
 def synthesize_from_words(
     pos_words: str | Sequence[str],
     neg_words: str | Sequence[str] | None = None,
@@ -709,23 +964,35 @@ def synthesize_from_words(
     pos_list = _parse_word_list(pos_words)
     if not pos_list:
         raise ValueError("pos_words must contain at least one word")
-    neg_list = _parse_word_list(neg_words) if neg_words else list(DEFAULT_NEUTRAL_WORDS)
+    explicit_neg = False
+    if isinstance(neg_words, str) and neg_words.strip():
+        raw_neg_key = neg_words.strip().lower().lstrip("@")
+        if raw_neg_key in AGAINST_PRESETS:
+            neg_list = list(AGAINST_PRESETS[raw_neg_key])
+            explicit_neg = raw_neg_key != "neutral"
+        else:
+            neg_list = _parse_word_list(neg_words)
+            explicit_neg = bool(neg_list)
+    elif neg_words:
+        neg_list = _parse_word_list(neg_words)
+        explicit_neg = bool(neg_list)
+    else:
+        neg_list = list(DEFAULT_NEUTRAL_WORDS)
 
     w2i = b["word_to_idxs"]
     m_centered = b["M_centered"]
     s_p030 = b["Sigma_49_p030"]
     j_ref = b["J_ref_ref2va"] if "ref2va" in str(family).lower() else b["J_ref_fl2va"]
 
-    pos_ids, pos_matched, pos_unmatched = _resolve_word_indices(pos_list, w2i)
+    mu_pos, pos_ids, pos_matched, pos_unmatched = _mean_word_direction(pos_list, w2i, m_centered)
     if not pos_ids:
         raise ValueError(f"None of pos_words {pos_list!r} matched the 24,912-word J-Lens vocabulary")
-    neg_ids, neg_matched, neg_unmatched = _resolve_word_indices(neg_list, w2i)
+    mu_neg, neg_ids, neg_matched, neg_unmatched = _mean_word_direction(neg_list, w2i, m_centered)
     if not neg_ids:
         raise ValueError(f"None of neg_words {neg_list!r} matched the 24,912-word J-Lens vocabulary")
 
-    mu_pos = F.normalize(m_centered[pos_ids].mean(dim=0), dim=0)
-    mu_neg = F.normalize(m_centered[neg_ids].mean(dim=0), dim=0)
-    delta_m = mu_pos - mu_neg
+    neg_weight = 0.60 if explicit_neg else 0.35
+    delta_m = F.normalize(mu_pos - neg_weight * mu_neg, dim=0)
 
     v_enc_raw = s_p030 @ delta_m
     v_enc = F.normalize(v_enc_raw, dim=0)
@@ -734,9 +1001,9 @@ def synthesize_from_words(
 
     hold_list = _parse_word_list(hold_words)
     if hold_list and a_val > 0.0:
-        h_ids, _, _ = _resolve_word_indices(hold_list, w2i)
+        mu_hold_pos, h_ids, _, _ = _mean_word_direction(hold_list, w2i, m_centered)
         if h_ids:
-            mu_hold = F.normalize(m_centered[h_ids].mean(dim=0), dim=0) - mu_neg
+            mu_hold = F.normalize(mu_hold_pos - neg_weight * mu_neg, dim=0)
             v_hold_enc = F.normalize(s_p030 @ mu_hold, dim=0)
             v_hold_pr = F.normalize(j_ref @ (s_p030 @ mu_hold), dim=0)
             v_enc_held = apply_soft_holds(v_enc, [v_hold_enc], alpha=a_val)
@@ -744,8 +1011,18 @@ def synthesize_from_words(
             if float(torch.linalg.vector_norm(v_pr.to(dtype=torch.float64)).item()) <= 1e-3 * max(1.0, float(target_norm)):
                 raise ValueError("hold_words completely cancelled pos_words (residual norm is zero)")
             v_enc = F.normalize(v_enc_held, dim=0)
+            v_pr = F.normalize(v_pr, dim=0) * float(target_norm)
 
     readout = decode_vector(v_pr, space="post_refiner", family=family, bundle=b)
+    readout["readiness"] = assess_steering_readiness(
+        v_pr,
+        v_enc=v_enc,
+        readout=readout,
+        pos_words=pos_matched,
+        neg_words=neg_matched,
+        family=family,
+        bundle=b,
+    )
     return {
         "family": family,
         "pos_words_matched": pos_matched,
@@ -757,6 +1034,7 @@ def synthesize_from_words(
         "vector.post_refiner": v_pr,
         "vector.encoder": v_enc,
         "readout": readout,
+        "readiness": readout["readiness"],
     }
 
 
@@ -919,11 +1197,16 @@ def _main(argv: Sequence[str] | None = None) -> int:
                 print(json.dumps(out_summary, indent=2))
             else:
                 r = synth["readout"]
+                rd = r.get("readiness") or {}
                 print(
                     f"Synthesized {synth['family']} vector (norm={r['norm_after_holds']:.2f}) from +{synth['pos_words_matched']} / -{synth['neg_words_matched']}:"
                 )
                 print(f"  PR (+) {r['pos_summary']}")
                 print(f"  PR (-) {r['neg_summary']}")
+                if rd:
+                    print(f"  Readiness: {rd.get('summary', '')}")
+                    for rec_line in rd.get("recommendations", ()):
+                        print(f"    -> {rec_line}")
                 if saved_path:
                     print(f"  Saved to {saved_path}")
             return 0
@@ -981,6 +1264,9 @@ def _main(argv: Sequence[str] | None = None) -> int:
                     f"  cos(J_ref v_enc, v_PR) = {rep['refiner_forward_cosine']:.4f} | "
                     f"cos_J63(Wiener) = {rep['wiener_j63_cosine']:.4f}"
                 )
+            rd = pr.get("readiness") or {}
+            if rd:
+                print(f"  Readiness: {rd.get('summary', '')}")
     return 0
 
 

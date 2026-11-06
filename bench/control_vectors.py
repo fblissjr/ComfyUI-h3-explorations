@@ -1631,6 +1631,7 @@ def cmd_build(args: argparse.Namespace) -> int:
         )
         for row in summary_rows_w:
             jl = row.get("j_lens") or {}
+            rd = jl.get("readiness") or {}
             print(
                 f"  * {row['file']}\n"
                 f"      family={row['family']}  pooling={row['pooling']}  "
@@ -1638,6 +1639,10 @@ def cmd_build(args: argparse.Namespace) -> int:
                 f"      j_lens (+): {jl.get('pos_summary', '')}\n"
                 f"      j_lens (-): {jl.get('neg_summary', '')}"
             )
+            if rd:
+                print(f"      readiness : {rd.get('summary', '')}")
+                for rec_line in rd.get("recommendations", ()):
+                    print(f"                  -> {rec_line}")
         return 0
 
     words_arg = str(getattr(args, "words", "") or "").strip()
@@ -2742,23 +2747,46 @@ def handle_ui_request(
             from_words = str(req.get("from_words", "") or "").strip()
             if from_words:
                 fam = str(req.get("family", "fl2va") or "fl2va")
+                families_req = str(req.get("families", "") or "").strip().lower()
                 against_w = str(req.get("against_words", "") or "").strip() or None
                 hold_w = str(req.get("hold_words", "") or "").strip() or None
                 alpha_w = float(req.get("alpha", 1.0))
                 synth = j_lens.synthesize_from_words(
                     from_words,
                     against_w,
-                    family=fam,
+                    family=fam if fam in ("fl2va", "ref2va") else "fl2va",
                     hold_words=hold_w,
                     alpha=alpha_w,
                 )
                 save_name = str(req.get("save_name", "") or "").strip()
+                if not save_name and bool(req.get("save", False)):
+                    save_name = "_".join(re.findall(r"[a-z0-9]+", from_words.lower())[:4]) or "word_vector"
                 saved_file = None
+                saved_files: list[str] = []
                 if save_name:
-                    loras_meta = j_lens._DEFAULT_RECIPES.get(fam, {}).get("loras")
-                    fname = cv.default_vector_filename(save_name, fam, pooling="diff_span", loras=loras_meta)
-                    saved_path = j_lens.save_synthesized_vector(state.vec_dir / fname, synth, name=save_name)
-                    saved_file = saved_path.name
+                    target_fams = (
+                        ["fl2va", "ref2va"]
+                        if families_req in ("both", "auto")
+                        else ([families_req] if families_req in ("fl2va", "ref2va") else [synth["family"]])
+                    )
+                    for tfam in target_fams:
+                        s_fam = (
+                            synth
+                            if tfam == synth["family"]
+                            else j_lens.synthesize_from_words(
+                                from_words,
+                                against_w,
+                                family=tfam,
+                                hold_words=hold_w,
+                                alpha=alpha_w,
+                            )
+                        )
+                        loras_meta = j_lens._DEFAULT_RECIPES.get(tfam, {}).get("loras")
+                        fname = cv.default_vector_filename(save_name, tfam, pooling="diff_span", loras=loras_meta)
+                        saved_path = j_lens.save_synthesized_vector(state.vec_dir / fname, s_fam, name=save_name)
+                        saved_files.append(saved_path.name)
+                    if saved_files:
+                        saved_file = saved_files[0]
                 return (
                     200,
                     "application/json",
@@ -2770,9 +2798,12 @@ def handle_ui_request(
                             "neg_words_matched": synth["neg_words_matched"],
                             "hold_words": synth["hold_words"],
                             "alpha": synth["alpha"],
+                            "save_name": save_name or None,
                             "saved_file": saved_file,
+                            "saved_files": saved_files,
                             "readout": synth["readout"],
-                            "vectors": _list_ui_vectors(state.vec_dir) if saved_file else None,
+                            "readiness": synth.get("readiness") or synth["readout"].get("readiness"),
+                            "vectors": _list_ui_vectors(state.vec_dir) if saved_files else None,
                         }
                     ),
                 )
@@ -3092,6 +3123,43 @@ def build_parser() -> argparse.ArgumentParser:
     pg.add_argument("--refiner-device", default="cpu")
     pg.add_argument("--out", default=None, help="Optional JSON output path for grade report")
 
+    pw = sub.add_parser(
+        "words",
+        help="Synthesize Ready-to-Render fl2va & ref2va .safetensors vectors directly from 3-5 words in <2 ms on CPU via J-Lens (with Pre-Render Readiness Predictor)",
+    )
+    pw.add_argument(
+        "pos_words",
+        help="Comma- or space-separated positive concept words (e.g. 'blizzard, snowdrift, freezing, snow' or '8-bit, LED, steampunk')",
+    )
+    pw.add_argument(
+        "--against-words",
+        dest="against_words",
+        default="",
+        help="Optional negative words or preset ('@neutral', '@replace_human', '@replace_live_action', '@replace_digital')",
+    )
+    pw.add_argument(
+        "--hold-words",
+        dest="hold_words",
+        default="",
+        help="Optional nuisance words to project out on CPU",
+    )
+    pw.add_argument(
+        "--hold-alpha",
+        dest="hold_alpha",
+        type=float,
+        default=1.0,
+        help="Attenuation alpha in [0.0, 2.0] for --hold-words (default: 1.0)",
+    )
+    pw.add_argument("--name", default=None, help="Optional output vector stem override")
+    pw.add_argument("--output-name", dest="output_name", default="", help="Optional output vector stem override")
+    pw.add_argument(
+        "--families",
+        choices=("both", "fl2va", "ref2va", "auto"),
+        default="both",
+        help="Which H3 model families to synthesize (default: 'both' writes fl2va and ref2va)",
+    )
+    pw.add_argument("--out-dir", dest="out_dir", default=None, help="Optional output directory for .safetensors files")
+
     return p
 
 
@@ -3101,6 +3169,10 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if args.cmd == "ui":
             return cmd_ui(args)
+        if args.cmd == "words":
+            args.from_words = args.pos_words
+            args.build_all = False
+            return cmd_build(args)
         if args.cmd == "build":
             return cmd_build(args)
         if args.cmd in ("from-md", "import-md"):

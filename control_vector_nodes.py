@@ -65,6 +65,7 @@ def _repo(name: str):
 _cv = _repo("control_vectors")
 _spans = _repo("h3_spans")
 _pair_compiler = _repo("h3_pair_compiler")
+_j_lens = _repo("j_lens")
 _rules = _repo("h3_rules")
 _substrate = _repo("substrate")
 
@@ -1322,27 +1323,105 @@ def _make_control_vector_wrapper(specs: tuple[_AppliedVectorSpec, ...]):
     return wrapper
 
 
-def resolve_vector_file_path(vector_name: str | Path) -> Path:
+def _match_sibling_or_stem_in_dir(
+    directory: Path,
+    stem: str,
+    preferred_family: str | None,
+    preferred_pooling: str | None = "diff_span",
+    *,
+    prefer_lora: bool = True,
+) -> Path | None:
+    if not directory.is_dir():
+        return None
+    fams = (
+        [preferred_family]
+        if preferred_family in ("fl2va", "ref2va", "fasth3")
+        else ["fl2va", "ref2va", "fasth3"]
+    )
+    sort_key = lambda p: (0 if ("__lora_" in p.name) == prefer_lora else 1, p.name)
+    for fam in fams:
+        if preferred_pooling:
+            cands_pool = sorted(
+                directory.glob(f"{stem}__{fam}__{preferred_pooling}*.safetensors"),
+                key=sort_key,
+            )
+            if cands_pool:
+                return cands_pool[0].resolve()
+        cands_fam = sorted(
+            directory.glob(f"{stem}__{fam}*.safetensors"),
+            key=sort_key,
+        )
+        if cands_fam:
+            return cands_fam[0].resolve()
+    return None
+
+
+def resolve_vector_file_path(
+    vector_name: str | Path,
+    *,
+    preferred_family: str | None = None,
+) -> Path:
     raw = str(vector_name).strip()
     if not raw or raw == "none":
         raise ValueError("vector_name is 'none'")
+
+    def _maybe_swap_family_sibling(found: Path) -> Path:
+        if preferred_family not in ("fl2va", "ref2va"):
+            return found
+        other_fam = "fl2va" if preferred_family == "ref2va" else "ref2va"
+        tag_other = f"__{other_fam}"
+        if tag_other not in found.name:
+            return found
+        stem = found.name.split(tag_other, 1)[0]
+        pooling_hint = "diff_span" if "__diff_span" in found.name else (
+            "from_first_diff" if "__from_first_diff" in found.name else None
+        )
+        sib = _match_sibling_or_stem_in_dir(
+            found.parent,
+            stem,
+            preferred_family,
+            preferred_pooling=pooling_hint,
+            prefer_lora="__lora_" in found.name,
+        )
+        if sib is not None and sib.is_file():
+            logger.info(
+                "[h3] auto-resolved sibling control vector %s -> %s for loaded family=%s",
+                found.name,
+                sib.name,
+                preferred_family,
+            )
+            return sib
+        return found
+
     cand = Path(raw)
     if cand.is_file():
-        return cand.resolve()
+        return _maybe_swap_family_sibling(cand.resolve())
     try:
         full = folder_paths.get_full_path(CONTROL_VECTORS_FOLDER, raw)
         if full is not None and Path(full).is_file():
-            return Path(full).resolve()
+            return _maybe_swap_family_sibling(Path(full).resolve())
     except Exception:
         pass
-    for folder in folder_paths.get_folder_paths(CONTROL_VECTORS_FOLDER):
-        p = Path(folder) / raw
+    folders = [Path(f) for f in folder_paths.get_folder_paths(CONTROL_VECTORS_FOLDER)]
+    for folder in folders:
+        p = folder / raw
         if p.is_file():
-            return p.resolve()
+            return _maybe_swap_family_sibling(p.resolve())
         if not raw.endswith(".safetensors"):
-            p_st = Path(folder) / f"{raw}.safetensors"
+            p_st = folder / f"{raw}.safetensors"
             if p_st.is_file():
-                return p_st.resolve()
+                return _maybe_swap_family_sibling(p_st.resolve())
+
+    # Bare stem resolution (e.g. 'cursed_cctv' -> 'cursed_cctv__fl2va__diff_span__*.safetensors')
+    clean_stem = raw[:-len(".safetensors")] if raw.endswith(".safetensors") else raw
+    if "__" not in clean_stem and "/" not in clean_stem and "\\" not in clean_stem:
+        for folder in folders:
+            matched = _match_sibling_or_stem_in_dir(
+                folder, clean_stem, preferred_family, preferred_pooling="diff_span"
+            )
+            if matched is not None:
+                return matched
+
     raise ValueError(
         f"control vector file {vector_name!r} not found in models/{CONTROL_VECTORS_FOLDER}/"
     )
@@ -1350,7 +1429,7 @@ def resolve_vector_file_path(vector_name: str | Path) -> Path:
 
 def attach_control_vector(
     model: Any,
-    vector_name: str | Path,
+    vector_name: str | Path = "none",
     *,
     strength: float = 1.0,
     mode: str = "add",
@@ -1366,8 +1445,13 @@ def attach_control_vector(
     split_end_percent: float = 1.0,
     ref_vae_end_percent: float = 1.0,
     ref_vae_aug: float = 0.999,
+    words: str = "",
+    against_words: str = "",
+    hold_words: str = "",
+    hold_alpha: float = 1.0,
 ) -> Any:
-    """Clone `model` with `vector_name` attached on `WrappersMP.DIFFUSION_MODEL`.
+    """Clone `model` with `vector_name` and/or inline J-Lens `words` attached on
+    `WrappersMP.DIFFUSION_MODEL`.
 
     Validates the model type, vector format, family, and recipe even when
     `strength == 0.0`."""
@@ -1394,10 +1478,15 @@ def attach_control_vector(
     sep_f = _validate_float_bounds("split_end_percent", split_end_percent, lo=0.0, hi=1.0)
     rvep_f = _validate_float_bounds("ref_vae_end_percent", ref_vae_end_percent, lo=0.0, hi=1.0)
     rva_f = _validate_float_bounds("ref_vae_aug", ref_vae_aug, lo=0.0, hi=1.0)
+    ha_f = _validate_float_bounds("hold_alpha", hold_alpha, lo=0.0, hi=2.0)
 
     m = model.clone()
     raw_name = str(vector_name).strip()
-    if raw_name == "none":
+    words_clean = str(words or "").strip()
+    against_clean = str(against_words or "").strip()
+    hold_clean = str(hold_words or "").strip()
+
+    if (not raw_name or raw_name == "none") and not words_clean:
         if rvep_f < 1.0 or rva_f < 0.999:
             t_opts = m.model_options.setdefault("transformer_options", {})
             existing_none: tuple[_AppliedVectorSpec, ...] = tuple(t_opts.get(WRAPPER_KEY, ()))
@@ -1425,72 +1514,120 @@ def attach_control_vector(
             wrappers[WRAPPER_KEY] = [_make_control_vector_wrapper(updated_none)]
         return m
 
-    vec_path = resolve_vector_file_path(vector_name)
-    tensors, metadata = _cv.load_vector(vec_path)
-    if "vector.post_refiner" not in tensors:
-        raise ValueError(
-            f"control vector {vec_path.name} has no 'vector.post_refiner' tensor"
+    loaded_family = _cv.detect_family(model)
+    t_opts = m.model_options.setdefault("transformer_options", {})
+    updated: tuple[_AppliedVectorSpec, ...] = tuple(t_opts.get(WRAPPER_KEY, ()))
+
+    if raw_name and raw_name != "none":
+        vec_path = resolve_vector_file_path(vector_name, preferred_family=loaded_family)
+        tensors, metadata = _cv.load_vector(vec_path)
+        if "vector.post_refiner" not in tensors:
+            raise ValueError(
+                f"control vector {vec_path.name} has no 'vector.post_refiner' tensor"
+            )
+
+        loaded_recipe = extract_model_recipe(model)
+        # Compare checkpoint + loras (encoder is only known at Make time unless passed)
+        recipe_to_check = {
+            "checkpoint": loaded_recipe["checkpoint"],
+            "loras": loaded_recipe["loras"],
+            "encoder": metadata["recipe"].get("encoder", loaded_recipe["encoder"]),
+        }
+        advisories = _cv.check_vector_compatibility(
+            metadata,
+            loaded_family=loaded_family,
+            loaded_recipe=recipe_to_check,
+            loaded_prefix=loaded_prefix,
+            allow_recipe_mismatch=allow_recipe_mismatch,
+        )
+        for msg in advisories:
+            logger.warning("[h3] %s", msg)
+
+        new_spec = _AppliedVectorSpec(
+            vector_name=vec_path.name,
+            vector=tensors["vector.post_refiner"],
+            strength=float(strength),
+            mode=mode,
+            mask=mask,
+            start_percent=sp_f,
+            end_percent=ep_f,
+            metadata=metadata,
+            advisories=tuple(advisories),
+            scale_mode=scale_mode,
+            prompt=str(prompt or ""),
+            video_scale=vs_f,
+            audio_scale=as_f,
+            split_end_percent=sep_f,
+            ref_vae_end_percent=rvep_f,
+            ref_vae_aug=rva_f,
+        )
+        updated = updated + (new_spec,)
+        logger.info(
+            "[h3] control vector %s attached (family=%s, strength=%g, mode=%s, scale_mode=%s, mask=%s, window=[%.2f, %.2f), video_scale=%g, audio_scale=%g, ref_vae_end=%.2f)",
+            vec_path.name,
+            loaded_family,
+            float(strength),
+            mode,
+            scale_mode,
+            mask,
+            sp_f,
+            ep_f,
+            vs_f,
+            as_f,
+            rvep_f,
         )
 
-    loaded_family = _cv.detect_family(model)
-    loaded_recipe = extract_model_recipe(model)
-    # Compare checkpoint + loras (encoder is only known at Make time unless passed)
-    recipe_to_check = {
-        "checkpoint": loaded_recipe["checkpoint"],
-        "loras": loaded_recipe["loras"],
-        "encoder": metadata["recipe"].get("encoder", loaded_recipe["encoder"]),
-    }
-    advisories = _cv.check_vector_compatibility(
-        metadata,
-        loaded_family=loaded_family,
-        loaded_recipe=recipe_to_check,
-        loaded_prefix=loaded_prefix,
-        allow_recipe_mismatch=allow_recipe_mismatch,
-    )
-    for msg in advisories:
-        logger.warning("[h3] %s", msg)
+    if words_clean:
+        synth_fam = "ref2va" if "ref2va" in str(loaded_family).lower() else "fl2va"
+        synth = _j_lens.synthesize_from_words(
+            words_clean,
+            against_clean if against_clean else None,
+            family=synth_fam,
+            hold_words=hold_clean if hold_clean else None,
+            alpha=ha_f,
+        )
+        w_label = f"words:{words_clean[:36]}"
+        w_meta = {
+            "name": w_label,
+            "family": loaded_family,
+            "measured_under": {"prefix": "none", "pooling": "diff_span"},
+            "j_lens_readout": synth["readout"],
+        }
+        w_spec = _AppliedVectorSpec(
+            vector_name=w_label,
+            vector=synth["vector.post_refiner"],
+            strength=float(strength),
+            mode=mode,
+            mask=mask,
+            start_percent=sp_f,
+            end_percent=ep_f,
+            metadata=w_meta,
+            advisories=(),
+            scale_mode=scale_mode,
+            prompt=str(prompt or ""),
+            video_scale=vs_f,
+            audio_scale=as_f,
+            split_end_percent=sep_f,
+            ref_vae_end_percent=rvep_f,
+            ref_vae_aug=rva_f,
+        )
+        updated = updated + (w_spec,)
+        rd_summary = (synth.get("readiness") or {}).get("summary", "")
+        logger.info(
+            "[h3] inline word control vector %r synthesized on CPU (family=%s, strength=%g, mode=%s, PR(+) %s, readiness=%s)",
+            words_clean,
+            synth_fam,
+            float(strength),
+            mode,
+            synth["readout"].get("pos_summary", ""),
+            rd_summary,
+        )
 
-    t_opts = m.model_options.setdefault("transformer_options", {})
-    existing: tuple[_AppliedVectorSpec, ...] = tuple(t_opts.get(WRAPPER_KEY, ()))
-    new_spec = _AppliedVectorSpec(
-        vector_name=vec_path.name,
-        vector=tensors["vector.post_refiner"],
-        strength=float(strength),
-        mode=mode,
-        mask=mask,
-        start_percent=sp_f,
-        end_percent=ep_f,
-        metadata=metadata,
-        advisories=tuple(advisories),
-        scale_mode=scale_mode,
-        prompt=str(prompt or ""),
-        video_scale=vs_f,
-        audio_scale=as_f,
-        split_end_percent=sep_f,
-        ref_vae_end_percent=rvep_f,
-        ref_vae_aug=rva_f,
-    )
-    updated = existing + (new_spec,)
     t_opts[WRAPPER_KEY] = updated
-
     # Replace the wrapper list under WRAPPER_KEY so all stacked specs execute
     # in one float64 accumulation pass per DiT step.
     wrappers = m.wrappers.setdefault(WrappersMP.DIFFUSION_MODEL, {})
     wrappers[WRAPPER_KEY] = [_make_control_vector_wrapper(updated)]
-    logger.info(
-        "[h3] control vector %s attached (family=%s, strength=%g, mode=%s, scale_mode=%s, mask=%s, window=[%.2f, %.2f), video_scale=%g, audio_scale=%g, ref_vae_end=%.2f)",
-        vec_path.name,
-        loaded_family,
-        float(strength),
-        mode,
-        scale_mode,
-        mask,
-        sp_f,
-        ep_f,
-        vs_f,
-        as_f,
-        rvep_f,
-    )
     return m
 
 
@@ -2257,21 +2394,79 @@ class MiniMaxH3ApplyControlVectors(io.ComfyNode):
                         "default 0.999) for 3D Video VAE reference latents on active steps."
                     ),
                 ),
+                io.String.Input(
+                    "words",
+                    default=_APPLY_DEFAULTS["words"],
+                    optional=True,
+                    tooltip=(
+                        "Optional inline positive words (e.g. 'blizzard, snowdrift, freezing, snow' "
+                        "or '8-bit, LED, steampunk') synthesized in <2 ms on CPU via J-Lens with "
+                        "zero .safetensors file required. Auto-matches loaded model family (fl2va/ref2va)."
+                    ),
+                ),
+                io.String.Input(
+                    "against_words",
+                    default=_APPLY_DEFAULTS["against_words"],
+                    optional=True,
+                    tooltip=(
+                        "Optional negative words when 'words' is used. Leave empty for neutral "
+                        "baseline, or pass '@replace_human' ('human, flesh, skin, person, live-action, realistic') "
+                        "when replacing a human subject or live-action medium."
+                    ),
+                ),
+                io.String.Input(
+                    "hold_words",
+                    default=_APPLY_DEFAULTS["hold_words"],
+                    optional=True,
+                    tooltip=(
+                        "Optional nuisance words to project out of the inline 'words' vector on CPU."
+                    ),
+                ),
+                io.Float.Input(
+                    "hold_alpha",
+                    default=_APPLY_DEFAULTS["hold_alpha"],
+                    min=0.0,
+                    max=2.0,
+                    step=0.05,
+                    optional=True,
+                    tooltip=(
+                        "Attenuation strength alpha in [0.0, 2.0] for 'hold_words' (default 1.0)."
+                    ),
+                ),
             ],
             outputs=[io.Model.Output(display_name="model")],
         )
 
     @classmethod
-    def fingerprint_inputs(cls, vector_name=_APPLY_DEFAULTS["vector_name"], **kwargs):
+    def fingerprint_inputs(
+        cls,
+        vector_name=_APPLY_DEFAULTS["vector_name"],
+        words=_APPLY_DEFAULTS["words"],
+        against_words=_APPLY_DEFAULTS["against_words"],
+        hold_words=_APPLY_DEFAULTS["hold_words"],
+        hold_alpha=_APPLY_DEFAULTS["hold_alpha"],
+        **kwargs,
+    ):
         raw = str(vector_name).strip()
-        if not raw or raw == "none":
-            return "none"
-        try:
-            full = resolve_vector_file_path(raw)
-            st = os.stat(full)
-            return (str(full), st.st_mtime_ns, st.st_size)
-        except Exception:
-            return raw
+        w_str = str(words or "").strip()
+        vec_fp: Any = "none"
+        if raw and raw != "none":
+            try:
+                full = resolve_vector_file_path(raw)
+                st = os.stat(full)
+                vec_fp = (str(full), st.st_mtime_ns, st.st_size)
+            except Exception:
+                vec_fp = raw
+        if not w_str:
+            return vec_fp
+        return (
+            vec_fp,
+            "words",
+            w_str,
+            str(against_words or "").strip(),
+            str(hold_words or "").strip(),
+            float(hold_alpha),
+        )
 
     @classmethod
     def validate_inputs(
@@ -2288,15 +2483,34 @@ class MiniMaxH3ApplyControlVectors(io.ComfyNode):
         split_end_percent=_APPLY_DEFAULTS["split_end_percent"],
         ref_vae_end_percent=_APPLY_DEFAULTS["ref_vae_end_percent"],
         ref_vae_aug=_APPLY_DEFAULTS["ref_vae_aug"],
+        words=_APPLY_DEFAULTS["words"],
+        against_words=_APPLY_DEFAULTS["against_words"],
+        hold_words=_APPLY_DEFAULTS["hold_words"],
+        hold_alpha=_APPLY_DEFAULTS["hold_alpha"],
         **kwargs,
     ) -> bool | str:
         raw = str(vector_name).strip()
-        if raw == "none":
-            return True
-        try:
-            resolve_vector_file_path(raw)
-        except Exception as exc:
-            return str(exc)
+        if raw and raw != "none":
+            try:
+                resolve_vector_file_path(raw)
+            except Exception as exc:
+                return str(exc)
+        w_str = str(words or "").strip()
+        if w_str:
+            try:
+                ha_val = float(hold_alpha)
+                if not math.isfinite(ha_val) or not (0.0 <= ha_val <= 2.0):
+                    return f"hold_alpha must be in [0.0, 2.0], got {hold_alpha!r}"
+                if _j_lens.bundle_available():
+                    _j_lens.synthesize_from_words(
+                        w_str,
+                        str(against_words or "").strip() or None,
+                        family="fl2va",
+                        hold_words=str(hold_words or "").strip() or None,
+                        alpha=ha_val,
+                    )
+            except Exception as exc:
+                return str(exc)
         return True
 
     @classmethod
@@ -2315,6 +2529,10 @@ class MiniMaxH3ApplyControlVectors(io.ComfyNode):
         split_end_percent=_APPLY_DEFAULTS["split_end_percent"],
         ref_vae_end_percent=_APPLY_DEFAULTS["ref_vae_end_percent"],
         ref_vae_aug=_APPLY_DEFAULTS["ref_vae_aug"],
+        words=_APPLY_DEFAULTS["words"],
+        against_words=_APPLY_DEFAULTS["against_words"],
+        hold_words=_APPLY_DEFAULTS["hold_words"],
+        hold_alpha=_APPLY_DEFAULTS["hold_alpha"],
     ) -> io.NodeOutput:
         m = attach_control_vector(
             model,
@@ -2330,6 +2548,10 @@ class MiniMaxH3ApplyControlVectors(io.ComfyNode):
             split_end_percent=float(split_end_percent),
             ref_vae_end_percent=float(ref_vae_end_percent),
             ref_vae_aug=float(ref_vae_aug),
+            words=str(words or ""),
+            against_words=str(against_words or ""),
+            hold_words=str(hold_words or ""),
+            hold_alpha=float(hold_alpha),
         )
         return io.NodeOutput(m)
 

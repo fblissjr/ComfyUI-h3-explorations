@@ -3769,13 +3769,97 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
     )
 
     # Compound, acronym, hyphenated, and stem-stripped word resolution check
-    comp_w2i = {w: [i] for i, w in enumerate(["pixel", "arcade", "console", "cartridge", "neon", "glowing", "matrix", "laser", "steam", "punk", "clock", "work"])}
+    comp_w2i = {w: [i] for i, w in enumerate(["pixel", "arcade", "console", "cartridge", "neon", "glowing", "matrix", "laser", "steam", "punk", "clock", "work", "brass", "gear", "gears", "copper", "mechanical", "antique", "pitched", "whistle", "piercing", "rubbing", "rubber"])}
     comp_ids, comp_matched, comp_unmatched = j_lens._resolve_word_indices(
-        ["8-bit", "led", "steampunk", "clockwork", "pixelated"],
+        ["8-bit", "led", "steampunk", "clockwork", "squeaking", "pixelated"],
         comp_w2i,
     )
-    if comp_unmatched or len(comp_matched) != 5 or not comp_ids:
+    if comp_unmatched or len(comp_matched) != 6 or not comp_ids:
         errs.append(f"j_lens._resolve_word_indices failed compound/acronym/stem check: matched={comp_matched}, unmatched={comp_unmatched}")
+
+    # Verify assess_steering_readiness (objective metrics, no fuzzy 'tier', refiner_transmission None without v_enc)
+    rd_pr_only = j_lens.assess_steering_readiness(synth_res["vector.post_refiner"], v_enc=None, bundle=mini_bundle)
+    if "tier" in rd_pr_only or rd_pr_only.get("refiner_transmission") is not None:
+        errs.append(f"assess_steering_readiness with v_enc=None should have no 'tier' and refiner_transmission=None: {rd_pr_only}")
+    rd_with_enc = synth_res["readiness"]
+    if (
+        "tier" in rd_with_enc
+        or rd_with_enc.get("basis") != "word_synthesis"
+        or rd_with_enc.get("refiner_transmission") is None
+        or not isinstance(rd_with_enc.get("top1_gain"), float)
+    ):
+        errs.append(f"assess_steering_readiness with v_enc failed: {rd_with_enc}")
+
+    # Verify real J-Lens bundle _SHORT_WORD_FALLBACKS & AGAINST_PRESETS vocabulary coverage if bundle exists on disk
+    if j_lens.bundle_available():
+        real_b = j_lens.load_j_lens_bundle()
+        real_w2i = real_b["word_to_idxs"]
+        dead_fbs = [
+            (k, fb)
+            for k, vals in j_lens._SHORT_WORD_FALLBACKS.items()
+            for fb in vals
+            if fb not in real_w2i
+        ]
+        if dead_fbs:
+            errs.append(f"j_lens._SHORT_WORD_FALLBACKS has words missing from 24,912-word bundle: {dead_fbs}")
+        for p_name, p_words in j_lens.AGAINST_PRESETS.items():
+            _, _, p_unm = j_lens._resolve_word_indices(p_words, real_w2i)
+            if p_unm:
+                errs.append(f"j_lens.AGAINST_PRESETS[{p_name!r}] has unmatched words: {p_unm}")
+        rep_synth = j_lens.synthesize_from_words(
+            "skeleton, translucent, bones, skull",
+            neg_words="@replace_human",
+            family="fl2va",
+            bundle=real_b,
+        )
+        if not rep_synth["readiness"]["is_replacement_concept"] or rep_synth["readiness"]["refiner_transmission"] < 0.48:
+            errs.append(f"@replace_human skeleton synthesis readiness unexpected: {rep_synth['readiness']}")
+
+    # Verify resolve_vector_file_path bare-stem, cross-family sibling swap, and __lora_ preference
+    with tempfile.TemporaryDirectory() as sib_tmp:
+        sib_dir = Path(sib_tmp)
+        base_fl = sib_dir / "test_sib__fl2va__diff_span.safetensors"
+        lora_fl = sib_dir / "test_sib__fl2va__diff_span__lora_2a8c2b52.safetensors"
+        base_rf = sib_dir / "test_sib__ref2va__diff_span.safetensors"
+        lora_rf = sib_dir / "test_sib__ref2va__diff_span__lora_865ee189.safetensors"
+        for p_f in (base_fl, lora_fl, base_rf, lora_rf):
+            p_f.write_bytes(b"stub")
+        # 1. Cross-family swap from __fl2va__lora -> __ref2va__lora (must prefer __lora_ over base .safetensors)
+        swapped_rf = cv_nodes.resolve_vector_file_path(lora_fl, preferred_family="ref2va")
+        if swapped_rf.name != lora_rf.name:
+            errs.append(f"resolve_vector_file_path cross-family lora swap picked {swapped_rf.name}, expected {lora_rf.name}")
+        # 2. Cross-family swap from base __fl2va -> base __ref2va
+        swapped_base = cv_nodes.resolve_vector_file_path(base_fl, preferred_family="ref2va")
+        if swapped_base.name != base_rf.name:
+            errs.append(f"resolve_vector_file_path cross-family base swap picked {swapped_base.name}, expected {base_rf.name}")
+        # 3. Bare stem lookup prefers __lora_ by default
+        matched_stem = cv_nodes._match_sibling_or_stem_in_dir(sib_dir, "test_sib", "fl2va", "diff_span")
+        if matched_stem is None or matched_stem.name != lora_fl.name:
+            errs.append(f"_match_sibling_or_stem_in_dir bare stem picked {matched_stem}, expected {lora_fl.name}")
+
+    # Verify inline words on MiniMaxH3ApplyControlVectors when bundle is available
+    if j_lens.bundle_available():
+        m_inline = cv_nodes.MiniMaxH3ApplyControlVectors.execute(
+            model=patcher_with_init,
+            vector_name="none",
+            strength=1.15,
+            mode="add_norm_matched",
+            mask="non_vision",
+            words="blizzard, freezing, snow",
+            against_words="@neutral",
+        )[0]
+        inline_specs = m_inline.model_options.get("transformer_options", {}).get(cv_nodes.WRAPPER_KEY, ())
+        if len(inline_specs) != 1 or not inline_specs[0].vector_name.startswith("words:"):
+            errs.append(f"MiniMaxH3ApplyControlVectors inline words did not attach spec: {inline_specs}")
+        errs += _expect_refusal(
+            lambda: cv_nodes.MiniMaxH3ApplyControlVectors.execute(
+                model=patcher_with_init,
+                vector_name="none",
+                words="nonexistent_word_xyz",
+            ),
+            "matched the 24,912-word j-lens vocabulary",
+            "MiniMaxH3ApplyControlVectors refusal on unmatched inline words",
+        )
 
     return errs
 
