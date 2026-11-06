@@ -1158,16 +1158,16 @@ def project_out(v: torch.Tensor, basis: torch.Tensor, alpha: float = 1.0) -> tor
     """Project `basis` (`[k, d]`) out of `v` (`[d]`) in float64 with ridge factor `alpha` in `[0, 1]`.
 
     At `alpha = 1.0` (default), removes 100% of the component in `span(basis)`
-    (`v - U^T (U v)`). At `0.0 <= alpha < 1.0`, applies soft ridge attenuation
-    (`v - alpha * U^T (U v)`)."""
+    (`v - U^T (U v)`). At `0.0 <= alpha <= 2.0`, applies soft ridge attenuation or
+    over-projection (`v - alpha * U^T (U v)`)."""
     if v.ndim != 1:
         raise ValueError(f"v must be a 1D tensor [d], got shape {tuple(v.shape)}")
     d = v.shape[0]
     if basis.ndim != 2 or basis.shape[1] != d:
         raise ValueError(f"basis must have shape [k, {d}], got {tuple(basis.shape)}")
     alpha_f = float(alpha)
-    if not math.isfinite(alpha_f) or not (0.0 <= alpha_f <= 1.0):
-        raise ValueError(f"alpha must be finite and in [0.0, 1.0], got {alpha!r}")
+    if not math.isfinite(alpha_f) or not (0.0 <= alpha_f <= 2.0):
+        raise ValueError(f"alpha must be finite and in [0.0, 2.0], got {alpha!r}")
 
     v64 = v.detach().to(dtype=torch.float64)
     b64 = basis.detach().to(device=v64.device, dtype=torch.float64)
@@ -2040,7 +2040,9 @@ def check_vector_compatibility(
                 and cur_sig is not None
                 and vec_sig == cur_sig
             )
-            if not allow_recipe_mismatch and not same_pika_family:
+            prov_made_by = str(metadata.get("provenance", {}).get("made_by", ""))
+            jlens_same_family = prov_made_by.startswith("j_lens.") and vec_family == cur_family
+            if not allow_recipe_mismatch and not same_pika_family and not jlens_same_family:
                 raise ValueError(
                     f"{msg} (pass allow_recipe_mismatch=True to apply across LoRA sets)"
                 )
@@ -2117,13 +2119,16 @@ def _apply_holds_to_shift64(
         return total_shift64
     ortho_holds: list[tuple[torch.Tensor, float]] = []
     for h_vec, h_alpha in hold_entries:
+        h_alpha_f = float(h_alpha)
+        if not math.isfinite(h_alpha_f) or not (0.0 <= h_alpha_f <= 2.0):
+            raise ValueError(f"hold alpha must be finite and in [0.0, 2.0], got {h_alpha!r}")
         u = h_vec.detach().to(device=device, dtype=torch.float64).clone()
         for _pass in range(2):
             for prev_u, _ in ortho_holds:
                 u = u - torch.dot(u, prev_u) * prev_u
         nrm = torch.linalg.vector_norm(u)
         if float(nrm) > 1e-12:
-            ortho_holds.append((u / nrm, float(h_alpha)))
+            ortho_holds.append((u / nrm, h_alpha_f))
     out_shift = total_shift64
     for u_hat, h_alpha in ortho_holds:
         out_shift = out_shift - h_alpha * torch.dot(out_shift, u_hat) * u_hat
@@ -2432,14 +2437,19 @@ def meter_score(
     vec: torch.Tensor,
     *,
     mask: torch.Tensor | None = None,
-) -> dict[str, float]:
+    tokens: Sequence[str] | None = None,
+) -> dict[str, Any]:
     """Project pooled activation rows (`[L, D]` or `[1, L, D]`) onto `vec` (`[D]`).
 
     Returns:
     - `projection_units`: scalar projection `(pooled . v) / ||v||^2`, i.e. how many
       mean-pair-difference units (`strength=1`) the prompt sits along `vec`,
     - `signed_projection`: `(pooled . v) / ||v||` in Euclidean norm units,
-    - `cosine`: cosine similarity between the pooled prompt row and `vec`."""
+    - `cosine`: cosine similarity between the pooled prompt row and `vec`,
+    - `max_token_cosine`: maximum per-token cosine across active rows,
+    - `p90_token_cosine`: 90th-percentile per-token cosine across active rows,
+    - `per_token_cosines`: list of per-row cosines across all `L` rows,
+    - `top_coupled_tokens`: top-8 `(index, token, cosine)` dicts when `tokens` is passed."""
     r = rows[0] if rows.ndim == 3 else rows
     if r.ndim != 2 or r.shape[1] != vec.shape[0]:
         raise ValueError(
@@ -2451,8 +2461,12 @@ def meter_score(
         if m.shape[0] != r64.shape[0] or not bool(m.any()):
             raise ValueError("meter_score mask must match row count L and select at least one row")
         pooled = r64[m].mean(dim=0)
+        active_r64 = r64[m]
+        active_indices = [i for i, flag in enumerate(m.tolist()) if flag]
     else:
         pooled = r64.mean(dim=0)
+        active_r64 = r64
+        active_indices = list(range(int(r64.shape[0])))
     v64 = vec.detach().to(device=r64.device, dtype=torch.float64)
     v_norm_sq = float(torch.dot(v64, v64).item())
     if v_norm_sq <= 0.0:
@@ -2460,8 +2474,38 @@ def meter_score(
     v_norm = math.sqrt(v_norm_sq)
     p_norm = float(torch.linalg.vector_norm(pooled).item())
     dot = float(torch.dot(pooled, v64).item())
+
+    v_unit = v64 / v_norm
+    row_norms = torch.linalg.vector_norm(r64, dim=-1).clamp(min=1e-12)
+    per_tok_cos_t = (r64 @ v_unit) / row_norms
+    per_tok_cos_list = [float(x) for x in per_tok_cos_t.tolist()]
+    active_cos_t = per_tok_cos_t[active_indices] if active_indices else per_tok_cos_t
+    max_tok_cos = float(active_cos_t.max().item()) if active_cos_t.numel() > 0 else 0.0
+    p90_tok_cos = (
+        float(torch.quantile(active_cos_t, 0.90).item()) if active_cos_t.numel() > 0 else 0.0
+    )
+    top_coupled: list[dict[str, Any]] = []
+    if tokens is not None:
+        for idx_i in active_indices:
+            tok_s = str(tokens[idx_i]).strip() if idx_i < len(tokens) else ""
+            if tok_s:
+                top_coupled.append(
+                    {"index": idx_i, "token": tok_s, "cosine": float(per_tok_cos_list[idx_i])}
+                )
+        top_coupled.sort(key=lambda d: d["cosine"], reverse=True)
+        top_coupled = top_coupled[:8]
+
+    cos_val = dot / (p_norm * v_norm) if p_norm > 0.0 else 0.0
+    proj_units = dot / v_norm_sq
     return {
-        "projection_units": dot / v_norm_sq,
+        "projection_units": proj_units,
+        "z_score": proj_units,
         "signed_projection": dot / v_norm,
-        "cosine": dot / (p_norm * v_norm) if p_norm > 0.0 else 0.0,
+        "cosine": cos_val,
+        "mean_cosine": cos_val,
+        "max_token_cosine": max_tok_cos,
+        "p90_token_cosine": p90_tok_cos,
+        "p90_cosine": p90_tok_cos,
+        "per_token_cosines": per_tok_cos_list,
+        "top_coupled_tokens": top_coupled,
     }

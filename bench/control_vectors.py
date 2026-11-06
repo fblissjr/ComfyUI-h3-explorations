@@ -181,6 +181,236 @@ def _load_image_tensor_list(spec_str: str) -> list[torch.Tensor]:
     return tensors
 
 
+def _resolve_vector_for_family(spec: str | Path, family: str = "fl2va") -> Path:
+    """Resolve a vector path, filename, or short stem (e.g. 'handheld_urgency') for `family`."""
+    cand = Path(str(spec).strip())
+    if cand.is_file():
+        return cand
+    fam = "ref2va" if "ref2va" in str(family).lower() else "fl2va"
+    stem = cand.stem.split("__")[0]
+    search_dirs: list[Path] = []
+    models_root = getattr(folder_paths, "models_dir", None)
+    if models_root:
+        search_dirs.append(Path(models_root) / cv_nodes.CONTROL_VECTORS_FOLDER)
+    for d_str in folder_paths.get_folder_paths(cv_nodes.CONTROL_VECTORS_FOLDER):
+        p = Path(d_str)
+        if p not in search_dirs:
+            search_dirs.append(p)
+    for cv_dir in search_dirs:
+        if not cv_dir.is_dir():
+            continue
+        direct = cv_dir / cand
+        if direct.is_file():
+            return direct
+        if not cand.suffix:
+            direct_st = cv_dir / f"{cand.name}.safetensors"
+            if direct_st.is_file():
+                return direct_st
+        for pat in (
+            f"{stem}__{fam}__diff_span__*.safetensors",
+            f"{stem}__{fam}__*.safetensors",
+            f"{stem}__*.safetensors",
+        ):
+            hits = sorted(cv_dir.glob(pat))
+            if hits:
+                return hits[0]
+    return cv_nodes.resolve_vector_file_path(str(spec).strip())
+
+
+def _apply_post_refiner_holds(
+    final_vec: torch.Tensor,
+    *,
+    family: str,
+    hold_specs: list[str] | tuple[str, ...] | None = None,
+    hold_words: str | None = None,
+    hold_alpha: float = 1.0,
+    prompt: str | None = None,
+) -> tuple[torch.Tensor, list[str], float, float]:
+    """Project out optional `--hold` `.safetensors` vectors and/or `--hold-words` via `j_lens.apply_soft_holds`,
+    preserving the vector's pre-hold L2 norm so its native pair-difference magnitude and recommended strength band remain calibrated.
+    """
+    norm_before = float(torch.linalg.vector_norm(final_vec.to(dtype=torch.float64)).item())
+    a_val = float(hold_alpha)
+    if a_val <= 0.0:
+        return final_vec, [], norm_before, norm_before
+    hold_tensors: list[torch.Tensor] = []
+    hold_labels: list[str] = []
+    for h_spec in (hold_specs or ()):
+        if not str(h_spec).strip():
+            continue
+        h_path = _resolve_vector_for_family(str(h_spec).strip(), family=family)
+        ht, hname, _ = j_lens._load_vector_from_source(h_path, space="post_refiner")
+        hold_tensors.append(ht)
+        hold_labels.append(hname)
+    hw_str = str(hold_words or "").strip()
+    if hw_str and j_lens.bundle_available():
+        hw_synth = j_lens.synthesize_from_words(hw_str, family=family, prompt=prompt)
+        hold_tensors.append(
+            hw_synth["vector.post_refiner"].detach().to(device="cpu", dtype=torch.float32).flatten()
+        )
+        hold_labels.append(f"words:{hw_str}")
+    if not hold_tensors:
+        return final_vec, [], norm_before, norm_before
+    scrubbed = j_lens.apply_soft_holds(final_vec, hold_tensors, alpha=a_val)
+    norm_after_raw = float(torch.linalg.vector_norm(scrubbed.to(dtype=torch.float64)).item())
+    if norm_after_raw <= 1e-6 * max(1.0, norm_before):
+        raise ValueError("holds completely cancelled the control vector (residual norm is zero)")
+    return scrubbed.to(dtype=torch.float32), hold_labels, norm_before, norm_after_raw
+
+
+def _inject_target_prompt_into_pairset(
+    pair_set: cv.PairSet,
+    target_prompt_arg: str,
+    *,
+    target_weight: float = 2.5,
+    slot_hint: str = "auto",
+) -> cv.PairSet:
+    """Inject a user-supplied target scene prompt as `Pair 0` at `weight = target_weight` alongside `Pairs 1..9`."""
+    raw_tp = str(target_prompt_arg or "").strip()
+    if not raw_tp or not pair_set.pairs:
+        return pair_set
+    try:
+        _, tp_text = _resolve_prompt_text(raw_tp)
+    except Exception:
+        tp_text = raw_tp
+    tp_text = tp_text.strip()
+    if not tp_text:
+        return pair_set
+
+    a_clause = (pair_set.pairs[0].a_span.split(" | ")[0].strip() or pair_set.a_side.strip())
+    b_clause = (pair_set.pairs[0].b_span.split(" | ")[0].strip() or pair_set.b_side.strip())
+    if a_clause == b_clause:
+        a_clause = pair_set.a_side.split(" | ")[0].strip()
+        b_clause = pair_set.b_side.split(" | ")[0].strip()
+
+    marker = "\n\noverall_soundscape:"
+    eff_slot = slot_hint if slot_hint != "auto" else pair_compiler.resolve_slot_name("auto", sample_text=b_clause)
+    if eff_slot == "soundscape" and "overall_soundscape:" in tp_text:
+        tp_a = tp_text.rstrip() + f" {a_clause.rstrip('.')}."
+        tp_b = tp_text.rstrip() + f" {b_clause.rstrip('.')}."
+    elif marker in tp_text:
+        head, tail = tp_text.split(marker, 1)
+        tp_a = head.rstrip() + f" The shot is {a_clause.rstrip('.')}." + marker + tail
+        tp_b = head.rstrip() + f" The shot is {b_clause.rstrip('.')}." + marker + tail
+    else:
+        tp_a = tp_text.rstrip() + f" The shot is {a_clause.rstrip('.')}."
+        tp_b = tp_text.rstrip() + f" The shot is {b_clause.rstrip('.')}."
+
+    tp_a_span, tp_b_span = cv.differing_span(tp_a, tp_b, frame=pair_set.frame)
+    pair0 = cv.PairItem(
+        index=0,
+        weight=float(target_weight),
+        a=tp_a,
+        b=tp_b,
+        a_span=tp_a_span,
+        b_span=tp_b_span,
+    )
+    tail_pairs = tuple(
+        cv.PairItem(
+            index=idx,
+            weight=p.weight,
+            a=p.a,
+            b=p.b,
+            a_span=p.a_span,
+            b_span=p.b_span,
+        )
+        for idx, p in enumerate(pair_set.pairs[:9], start=1)
+    )
+    all_pairs = (pair0, *tail_pairs)
+    digest_payload = json.dumps(
+        {
+            "name": pair_set.name,
+            "mode": pair_set.mode,
+            "pairs": [(p.weight, p.a, p.b) for p in all_pairs],
+        },
+        sort_keys=True,
+    ).encode("utf-8")
+    return cv.PairSet(
+        path=pair_set.path,
+        sha256=hashlib.sha256(digest_payload).hexdigest(),
+        name=pair_set.name,
+        quality=pair_set.quality,
+        a_side=pair_set.a_side,
+        b_side=pair_set.b_side,
+        mode=pair_set.mode,
+        frame=pair_set.frame,
+        exclude_shots=pair_set.exclude_shots,
+        pairs=all_pairs,
+        holds=pair_set.holds,
+    )
+
+
+def _compile_words_or_spec_to_pairset(
+    words_arg: str,
+    *,
+    name: str | None = None,
+    quality: str | None = None,
+    a_side: str | None = None,
+    b_side: str | None = None,
+    slot: str = "auto",
+    mode: str = "t2va",
+    target_prompt: str = "",
+    target_weight: float = 2.5,
+) -> cv.PairSet:
+    """Compile a `--words` CLI argument or multi-line/semicolon-separated spec into a `PairSet`."""
+    import inspect
+
+    raw_text = str(words_arg or "").strip()
+    if "\n" not in raw_text and ";" in raw_text:
+        raw_text = "\n".join(part.strip() for part in raw_text.split(";") if part.strip())
+
+    has_multi_or_prefix = ("\n" in raw_text) or any(
+        raw_text.lower().startswith(p) or f"\n{p}" in raw_text.lower()
+        for p in ("soundscape:", "audio:", "foley:", "hold:", "holds:", "name:", "slot:", "mode:")
+    )
+
+    tp_resolved = ""
+    if str(target_prompt or "").strip():
+        try:
+            _, tp_resolved = _resolve_prompt_text(str(target_prompt).strip())
+        except Exception:
+            tp_resolved = str(target_prompt).strip()
+
+    parse_sig = inspect.signature(pair_compiler.parse_short_contrast_spec)
+    compile_sig = inspect.signature(pair_compiler.compile_words_to_pairset)
+
+    if has_multi_or_prefix:
+        hdr_lines: list[str] = []
+        lower_lines = [ln.strip().lower() for ln in raw_text.splitlines() if ln.strip()]
+        if name and not any(ln.startswith("name:") for ln in lower_lines):
+            hdr_lines.append(f"name: {name}")
+        if quality and not any(ln.startswith("quality:") for ln in lower_lines):
+            hdr_lines.append(f"quality: {quality}")
+        if a_side and not any(ln.startswith("a_side:") for ln in lower_lines):
+            hdr_lines.append(f"a_side: {a_side}")
+        if b_side and not any(ln.startswith("b_side:") for ln in lower_lines):
+            hdr_lines.append(f"b_side: {b_side}")
+        if slot and slot != "auto" and not any(ln.startswith("slot:") for ln in lower_lines):
+            hdr_lines.append(f"slot: {slot}")
+        if mode and not any(ln.startswith("mode:") for ln in lower_lines):
+            hdr_lines.append(f"mode: {mode}")
+        if tp_resolved and not any(ln.startswith(("target_prompt:", "scene_prompt:")) for ln in lower_lines):
+            hdr_lines.append(f"target_prompt: {tp_resolved}")
+            hdr_lines.append(f"target_weight: {float(target_weight)}")
+        full_spec = ("\n".join(hdr_lines) + "\n" + raw_text).strip() if hdr_lines else raw_text
+        spec_out = pair_compiler.parse_short_contrast_spec(full_spec)
+        return spec_out["pair_set"]
+
+    compile_kwargs: dict[str, Any] = {
+        "name": name,
+        "quality": quality,
+        "a_side": a_side,
+        "b_side": b_side,
+        "slot": slot,
+        "mode": mode,
+    }
+    if tp_resolved and "target_prompt" in compile_sig.parameters:
+        compile_kwargs["target_prompt"] = tp_resolved
+        if "target_weight" in compile_sig.parameters:
+            compile_kwargs["target_weight"] = float(target_weight)
+    return pair_compiler.compile_words_to_pairset(raw_text, **compile_kwargs)
+
+
 def cmd_make_media(args: argparse.Namespace) -> int:
     if args.pooling not in cv.VALID_MEDIA_POOLING:
         raise ValueError(
@@ -229,6 +459,38 @@ def cmd_make_media(args: argparse.Namespace) -> int:
         overwrite=bool(args.overwrite),
         made_by="bench/control_vectors.py::make-media/1",
     )
+    hold_specs = getattr(args, "hold", None)
+    hold_words = str(getattr(args, "hold_words", "") or "").strip() or None
+    hold_alpha = float(getattr(args, "hold_alpha", 1.0))
+    if hold_specs or hold_words:
+        m_tensors, m_meta = cv.load_vector(out_path)
+        m_fam = str(m_meta.get("family", "ref2va"))
+        scrubbed_vec, hold_labels, n_bef, n_aft = _apply_post_refiner_holds(
+            m_tensors["vector.post_refiner"],
+            family=m_fam,
+            hold_specs=hold_specs,
+            hold_words=hold_words,
+            hold_alpha=hold_alpha,
+            prompt=str(args.scene_prompt or "") or None,
+        )
+        if hold_labels:
+            m_tensors["vector.post_refiner"] = scrubbed_vec
+            m_meta.setdefault("provenance", {})["applied_holds"] = {
+                "holds": hold_labels,
+                "alpha": hold_alpha,
+                "norm_before": round(n_bef, 4),
+                "norm_after_raw": round(n_aft, 4),
+            }
+            if j_lens.bundle_available():
+                try:
+                    m_meta.setdefault("quality_report", {})["j_lens_readout"] = j_lens.decode_vector(
+                        scrubbed_vec, space="post_refiner", family=m_fam
+                    )
+                except Exception:
+                    pass
+            cv.save_vector(out_path, m_tensors, m_meta, overwrite=True)
+            report["metadata"] = m_meta
+
     qrep = report["metadata"]["quality_report"]
     pts = report["metadata"]["points"]["post_refiner"]
     print(f"=== Media-Contrast Control Vector Saved: {out_path.name} ===")
@@ -246,19 +508,28 @@ def cmd_make(args: argparse.Namespace) -> int:
 
     resolved_pair_path: Path | None = None
     words_arg = str(getattr(args, "words", "") or "").strip()
+    tp_arg = str(getattr(args, "target_prompt", "") or "").strip()
+    tp_weight = float(getattr(args, "target_weight", 2.5))
+    slot_arg = str(getattr(args, "slot", "auto") or "auto")
     if words_arg:
         compile_mode = "ref2va" if getattr(args, "ref_images", None) else "t2va"
-        pair_set = pair_compiler.compile_words_to_pairset(
+        pair_set = _compile_words_or_spec_to_pairset(
             words_arg,
             name=(getattr(args, "output_name", "") or "").strip() or None,
-            slot=str(getattr(args, "slot", "auto") or "auto"),
+            slot=slot_arg,
             mode=compile_mode,
+            target_prompt=tp_arg,
+            target_weight=tp_weight,
         )
     else:
         if not getattr(args, "pairs", None):
             raise ValueError("either a pair TOML file or --words is required for 'make'")
         resolved_pair_path = cv_nodes.resolve_pair_file_path(args.pairs)
         pair_set = cv.load_pairs(resolved_pair_path, bank_dir=cv_nodes.PROMPT_BANK_DIR)
+        if tp_arg:
+            pair_set = _inject_target_prompt_into_pairset(
+                pair_set, tp_arg, target_weight=tp_weight, slot_hint=slot_arg
+            )
 
     unet_name = args.unet or (
         h3_config.MODELS["unet_ref2va"]
@@ -356,12 +627,14 @@ def cmd_make(args: argparse.Namespace) -> int:
             args.pooling,
             first_diff=min(first_diff, len(ids_a) - 1),
             end_diff=end_a,
+            other_ids=ids_b,
         )
         mask_b = h3_spans.pooling_mask(
             spans_b,
             args.pooling,
             first_diff=min(first_diff, len(ids_b) - 1),
             end_diff=end_b,
+            other_ids=ids_a,
         )
 
         a_pooled_list.append(ref_a.to(dtype=torch.float64)[mask_a].mean(dim=0).to(dtype=torch.float32))
@@ -393,6 +666,7 @@ def cmd_make(args: argparse.Namespace) -> int:
                 "len_b": int(len(ids_b)),
                 "pooled_rows_a": int(mask_a.sum().item()),
                 "pooled_rows_b": int(mask_b.sum().item()),
+                "pooled_tokens": int(mask_b.sum().item()),
             }
         )
         pool_info = (
@@ -410,16 +684,19 @@ def cmd_make(args: argparse.Namespace) -> int:
     b_mat = torch.stack(b_pooled_list, dim=0)
     w_vec = torch.tensor(weights_list, dtype=torch.float32)
 
+    use_unit_mean_make = bool(getattr(args, "unit_mean", False))
     raw_vec = cv.mean_difference(
-        a_mat, b_mat, w_vec, unit_mean=bool(getattr(args, "unit_mean", False))
+        a_mat, b_mat, w_vec, unit_mean=use_unit_mean_make
     )
     tensors_to_save: dict[str, torch.Tensor] = {}
 
+    enc_hold_a_make: list[torch.Tensor] = []
+    enc_hold_b_make: list[torch.Tensor] = []
+    hold_groups: list[str] = []
+    hold_weights: list[float] = []
     if not args.no_holds and pair_set.holds:
         hold_a_list: list[torch.Tensor] = []
         hold_b_list: list[torch.Tensor] = []
-        hold_groups: list[str] = []
-        hold_weights: list[float] = []
         for h_item in pair_set.holds:
             h_enc_a, h_tags_a, h_ids_a, h_dec_a = cv_nodes.encode_prompt_for_vector(
                 clip, h_item.a, encoded_references=encoded_refs
@@ -437,12 +714,14 @@ def cmd_make(args: argparse.Namespace) -> int:
                 args.pooling,
                 first_diff=min(h_diff, len(h_ids_a) - 1),
                 end_diff=h_end_a,
+                other_ids=h_ids_b,
             )
             h_mask_b = h3_spans.pooling_mask(
                 h_spans_b,
                 args.pooling,
                 first_diff=min(h_diff, len(h_ids_b) - 1),
                 end_diff=h_end_b,
+                other_ids=h_ids_a,
             )
             hold_a_list.append(
                 h_ref_a.to(dtype=torch.float64)[h_mask_a].mean(dim=0).to(dtype=torch.float32)
@@ -450,6 +729,23 @@ def cmd_make(args: argparse.Namespace) -> int:
             hold_b_list.append(
                 h_ref_b.to(dtype=torch.float64)[h_mask_b].mean(dim=0).to(dtype=torch.float32)
             )
+            if args.include_encoder:
+                hma_e = h_mask_a.clone()
+                hmb_e = h_mask_b.clone()
+                if hma_e.numel() > 0:
+                    hma_e[0] = False
+                if hmb_e.numel() > 0:
+                    hmb_e[0] = False
+                if not bool(hma_e.any()):
+                    hma_e = h_mask_a
+                if not bool(hmb_e.any()):
+                    hmb_e = h_mask_b
+                enc_hold_a_make.append(
+                    h_enc_a.to(dtype=torch.float64)[hma_e].mean(dim=0).to(dtype=torch.float32)
+                )
+                enc_hold_b_make.append(
+                    h_enc_b.to(dtype=torch.float64)[hmb_e].mean(dim=0).to(dtype=torch.float32)
+                )
             hold_groups.append(h_item.group)
             hold_weights.append(float(h_item.weight))
         basis = cv.hold_basis(
@@ -462,6 +758,20 @@ def cmd_make(args: argparse.Namespace) -> int:
         tensors_to_save["holds.post_refiner"] = basis
     else:
         final_vec = raw_vec
+
+    hold_specs_make = getattr(args, "hold", None)
+    hold_words_make = str(getattr(args, "hold_words", "") or "").strip() or None
+    hold_alpha_make = float(getattr(args, "hold_alpha", 1.0))
+    applied_holds_make: list[str] = []
+    if not args.no_holds and (hold_specs_make or hold_words_make):
+        final_vec, applied_holds_make, norm_bef_make, norm_aft_make = _apply_post_refiner_holds(
+            final_vec,
+            family=family,
+            hold_specs=hold_specs_make,
+            hold_words=hold_words_make,
+            hold_alpha=hold_alpha_make,
+            prompt=str(getattr(args, "target_prompt", "") or "") or None,
+        )
 
     tensors_to_save["vector.post_refiner"] = final_vec
 
@@ -481,7 +791,15 @@ def cmd_make(args: argparse.Namespace) -> int:
     if args.include_encoder:
         enc_a_mat = torch.stack(enc_a_pooled_list, dim=0)
         enc_b_mat = torch.stack(enc_b_pooled_list, dim=0)
-        enc_raw_vec = cv.mean_difference(enc_a_mat, enc_b_mat, w_vec)
+        enc_raw_vec = cv.mean_difference(enc_a_mat, enc_b_mat, w_vec, unit_mean=use_unit_mean_make)
+        if enc_hold_a_make:
+            enc_basis = cv.hold_basis(
+                torch.stack(enc_hold_a_make, dim=0),
+                torch.stack(enc_hold_b_make, dim=0),
+                hold_groups,
+                torch.tensor(hold_weights, dtype=torch.float32),
+            )
+            enc_raw_vec = cv.project_out(enc_raw_vec, enc_basis)
         enc_raw_norm = float(torch.linalg.vector_norm(enc_raw_vec.to(dtype=torch.float64)).item())
         if enc_raw_norm <= 1e-12:
             raise ValueError("vector.encoder has zero norm")
@@ -520,7 +838,7 @@ def cmd_make(args: argparse.Namespace) -> int:
             "path": rel_pair_path,
             "sha256": pair_set.sha256,
             "n_pairs": len(pair_set.pairs),
-            "n_holds": 0 if args.no_holds else len(pair_set.holds),
+            "n_holds": 0 if args.no_holds else (len(pair_set.holds) + len(applied_holds_make)),
             "a_side": pair_set.a_side,
             "b_side": pair_set.b_side,
             "pair_spans": pair_spans,
@@ -539,6 +857,18 @@ def cmd_make(args: argparse.Namespace) -> int:
             "pack_commit": substrate.git_head(REPO_ROOT) or "unknown",
             "created_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
             "made_by": "bench/control_vectors.py",
+            **(
+                {
+                    "applied_holds": {
+                        "holds": applied_holds_make,
+                        "alpha": hold_alpha_make,
+                        "norm_before": round(norm_bef_make, 4),
+                        "norm_after_raw": round(norm_aft_make, 4),
+                    }
+                }
+                if applied_holds_make
+                else {}
+            ),
         },
     }
 
@@ -729,7 +1059,8 @@ def cmd_inspect(args: argparse.Namespace) -> int:
             pooling = "scene_text"
 
         print(f"\n--- Meter Projection along {metadata['name']} (pooling={pooling}) ---")
-        rows: list[tuple[str, float, float, float, int]] = []
+        rows: list[tuple[str, float, float, float, int, float, float, list[tuple[str, float]]]] = []
+        v64_unit = torch.nn.functional.normalize(vec.detach().to(device="cpu", dtype=torch.float64), dim=-1)
         for target in meter_targets:
             label, text = _resolve_prompt_text(target)
             enc_rows, tags, tids, dec_fn = cv_nodes.encode_prompt_for_vector(clip, text)
@@ -737,16 +1068,46 @@ def cmd_inspect(args: argparse.Namespace) -> int:
             sp = h3_spans.spans(tids, tags.tolist(), dec_fn)
             mask = h3_spans.pooling_mask(sp, pooling)
             m = cv.meter_score(ref_rows, vec, mask=mask)
+            r64_cpu = ref_rows.detach().to(device="cpu", dtype=torch.float64)
+            r64_unit = torch.nn.functional.normalize(r64_cpu, dim=-1)
+            tok_cos_all = (r64_unit @ v64_unit).tolist()
+            m_bool = mask.flatten().to(device="cpu", dtype=torch.bool)
+            active_idxs = [i for i, flag in enumerate(m_bool.tolist()) if flag]
+            active_cos = [tok_cos_all[i] for i in active_idxs] if active_idxs else tok_cos_all
+            max_tcos = max(active_cos) if active_cos else 0.0
+            p90_tcos = (
+                float(torch.quantile(torch.tensor(active_cos, dtype=torch.float64), 0.90).item())
+                if active_cos
+                else 0.0
+            )
+            scored_toks: list[tuple[str, float]] = []
+            for idx_t in active_idxs:
+                tok_str = dec_fn([int(tids[idx_t])]).strip() if idx_t < len(tids) else ""
+                if len(tok_str) >= 2 and any(ch.isalnum() for ch in tok_str):
+                    scored_toks.append((tok_str, float(tok_cos_all[idx_t])))
+            scored_toks.sort(key=lambda x: x[1], reverse=True)
             rows.append(
-                (label, m["projection_units"], m["signed_projection"], m["cosine"], int(mask.sum().item()))
+                (
+                    label,
+                    m["projection_units"],
+                    m["signed_projection"],
+                    m["cosine"],
+                    int(mask.sum().item()),
+                    max_tcos,
+                    p90_tcos,
+                    scored_toks[:5],
+                )
             )
         anchor_units = rows[0][1] if rows else 0.0
-        for label, p_units, s_proj, cos_val, n_tok in rows:
+        for label, p_units, s_proj, cos_val, n_tok, max_tc, p90_tc, top_toks in rows:
             delta_u = p_units - anchor_units
+            top_str = ", ".join(f"{w} ({c:+.3f})" for w, c in top_toks)
             print(
                 f"  {label:<36s} units={p_units:+8.4f} (delta={delta_u:+8.4f})  "
-                f"proj={s_proj:+8.4f}  cos={cos_val:+7.4f}  tokens={n_tok:3d}"
+                f"proj={s_proj:+8.4f}  cos={cos_val:+7.4f}  p90_tok={p90_tc:+6.3f}  max_tok={max_tc:+6.3f}  tokens={n_tok:3d}"
             )
+            if top_str:
+                print(f"      top_receptors: {top_str}")
     return 0
 
 
@@ -1696,16 +2057,22 @@ def cmd_build(args: argparse.Namespace) -> int:
     stem_override = (getattr(args, "name", None) or getattr(args, "output_name", None) or "").strip() or None
     compile_mode = getattr(args, "mode", None) or ("ref2va" if getattr(args, "ref_images", None) else "t2va")
     slot_arg = str(getattr(args, "slot", "auto") or "auto")
+    tp_arg = str(getattr(args, "target_prompt", "") or "").strip()
+    tp_weight = float(getattr(args, "target_weight", 2.5))
 
     if compiled_override is not None:
         pair_set = compiled_override
+        if tp_arg:
+            pair_set = _inject_target_prompt_into_pairset(
+                pair_set, tp_arg, target_weight=tp_weight, slot_hint=slot_arg
+            )
     elif is_placebo:
         pair_set = pair_compiler.compile_placebo_pairset(
             slot=slot_arg if slot_arg != "auto" else "opening_framing",
             mode=compile_mode,
         )
     elif words_arg:
-        pair_set = pair_compiler.compile_words_to_pairset(
+        pair_set = _compile_words_or_spec_to_pairset(
             words_arg,
             name=stem_override,
             quality=getattr(args, "quality", None),
@@ -1713,23 +2080,27 @@ def cmd_build(args: argparse.Namespace) -> int:
             b_side=getattr(args, "b_side", None),
             slot=slot_arg,
             mode=compile_mode,
+            target_prompt=tp_arg,
+            target_weight=tp_weight,
         )
         if getattr(args, "toml_out", None):
             t_out = Path(args.toml_out)
             if t_out.suffix.lower() != ".toml":
                 t_out = t_out / f"{pair_set.name}.toml"
-            pair_set = pair_compiler.compile_short_contrast_to_toml(
+            md_doc_for_toml = _pair_set_to_markdown(None, pair_set)
+            resolved_pair_path = cv.write_markdown_to_toml(
+                md_doc_for_toml,
+                t_out,
                 name=t_out.stem,
-                quality=getattr(args, "quality", None),
-                a_side=getattr(args, "a_side", None),
-                b_side=getattr(args, "b_side", None),
-                contrasts=words_arg,
-                out_path=t_out,
-                slot=slot_arg,
-                mode=compile_mode,
+                mode=pair_set.mode,
+                frame=pair_set.frame,
+                quality=getattr(args, "quality", None) or pair_set.quality,
+                a_side=getattr(args, "a_side", None) or pair_set.a_side,
+                b_side=getattr(args, "b_side", None) or pair_set.b_side,
                 overwrite=bool(getattr(args, "overwrite", False)),
+                bank_dir=cv_nodes.PROMPT_BANK_DIR,
             )
-            resolved_pair_path = t_out
+            pair_set = cv.load_pairs(resolved_pair_path, bank_dir=cv_nodes.PROMPT_BANK_DIR)
     else:
         src_arg = str(args.source).strip()
         src_path = Path(src_arg)
@@ -1791,6 +2162,10 @@ def cmd_build(args: argparse.Namespace) -> int:
         else:
             resolved_pair_path = cv_nodes.resolve_pair_file_path(src_arg)
             pair_set = cv.load_pairs(resolved_pair_path, bank_dir=cv_nodes.PROMPT_BANK_DIR)
+        if tp_arg:
+            pair_set = _inject_target_prompt_into_pairset(
+                pair_set, tp_arg, target_weight=tp_weight, slot_hint=slot_arg
+            )
 
     stem = (getattr(args, "output_name", None) or getattr(args, "name", None) or pair_set.name).strip()
     if not cv.NAME_RE.match(stem):
@@ -1936,6 +2311,12 @@ def cmd_build(args: argparse.Namespace) -> int:
     out_dir.mkdir(parents=True, exist_ok=True)
 
     summary_rows: list[dict[str, Any]] = []
+    build_cache_out: dict[str, Any] | None = getattr(args, "_build_cache_out", None)
+    hold_specs_build = getattr(args, "hold", None)
+    hold_words_build = str(getattr(args, "hold_words", "") or "").strip() or None
+    hold_alpha_build = float(getattr(args, "hold_alpha", 1.0))
+    prompt_build = str(getattr(args, "prompt", "") or getattr(args, "target_prompt", "") or "").strip() or None
+
     for fam_hint, unet_name in family_targets:
         unet_path = Path(folder_paths.get_full_path_or_raise("diffusion_models", unet_name))
         family = cv.detect_family(unet_path)
@@ -2013,12 +2394,14 @@ def cmd_build(args: argparse.Namespace) -> int:
                     pool_mode,
                     first_diff=min(first_diff, len(ids_a) - 1),
                     end_diff=end_a,
+                    other_ids=ids_b,
                 )
                 mask_b = h3_spans.pooling_mask(
                     cp["spans_b"],
                     pool_mode,
                     first_diff=min(first_diff, len(ids_b) - 1),
                     end_diff=end_b,
+                    other_ids=ids_a,
                 )
                 a_pooled_list.append(
                     ref_a.to(dtype=torch.float64)[mask_a].mean(dim=0).to(dtype=torch.float32)
@@ -2056,6 +2439,7 @@ def cmd_build(args: argparse.Namespace) -> int:
                         "len_b": int(len(ids_b)),
                         "pooled_rows_a": int(mask_a.sum().item()),
                         "pooled_rows_b": int(mask_b.sum().item()),
+                        "pooled_tokens": int(mask_b.sum().item()),
                     }
                 )
 
@@ -2065,11 +2449,13 @@ def cmd_build(args: argparse.Namespace) -> int:
             raw_vec = cv.mean_difference(a_mat, b_mat, w_vec, unit_mean=use_unit_mean)
             tensors_to_save: dict[str, torch.Tensor] = {}
 
+            hold_a_list: list[torch.Tensor] = []
+            hold_b_list: list[torch.Tensor] = []
+            enc_hold_a_list: list[torch.Tensor] = []
+            enc_hold_b_list: list[torch.Tensor] = []
+            hold_groups: list[str] = []
+            hold_weights: list[float] = []
             if cached_holds:
-                hold_a_list: list[torch.Tensor] = []
-                hold_b_list: list[torch.Tensor] = []
-                hold_groups: list[str] = []
-                hold_weights: list[float] = []
                 for ch, (h_ref_a, h_ref_b) in zip(cached_holds, refined_holds):
                     h_diff = ch["first_diff"]
                     h_ids_a = ch["ids_a"]
@@ -2079,12 +2465,14 @@ def cmd_build(args: argparse.Namespace) -> int:
                         pool_mode,
                         first_diff=min(h_diff, len(h_ids_a) - 1),
                         end_diff=ch["end_a"],
+                        other_ids=h_ids_b,
                     )
                     h_mask_b = h3_spans.pooling_mask(
                         ch["spans_b"],
                         pool_mode,
                         first_diff=min(h_diff, len(h_ids_b) - 1),
                         end_diff=ch["end_b"],
+                        other_ids=h_ids_a,
                     )
                     hold_a_list.append(
                         h_ref_a.to(dtype=torch.float64)[h_mask_a].mean(dim=0).to(dtype=torch.float32)
@@ -2092,6 +2480,23 @@ def cmd_build(args: argparse.Namespace) -> int:
                     hold_b_list.append(
                         h_ref_b.to(dtype=torch.float64)[h_mask_b].mean(dim=0).to(dtype=torch.float32)
                     )
+                    if getattr(args, "include_encoder", True):
+                        hma_e = h_mask_a.clone()
+                        hmb_e = h_mask_b.clone()
+                        if hma_e.numel() > 0:
+                            hma_e[0] = False
+                        if hmb_e.numel() > 0:
+                            hmb_e[0] = False
+                        if not bool(hma_e.any()):
+                            hma_e = h_mask_a
+                        if not bool(hmb_e.any()):
+                            hmb_e = h_mask_b
+                        enc_hold_a_list.append(
+                            ch["enc_a"].to(dtype=torch.float64)[hma_e].mean(dim=0).to(dtype=torch.float32)
+                        )
+                        enc_hold_b_list.append(
+                            ch["enc_b"].to(dtype=torch.float64)[hmb_e].mean(dim=0).to(dtype=torch.float32)
+                        )
                     hold_groups.append(ch["h_item"].group)
                     hold_weights.append(float(ch["h_item"].weight))
                 basis = cv.hold_basis(
@@ -2105,6 +2510,19 @@ def cmd_build(args: argparse.Namespace) -> int:
             else:
                 final_vec = raw_vec
 
+            applied_holds_build: list[str] = []
+            norm_bef_build = 0.0
+            norm_aft_build = 0.0
+            if not getattr(args, "no_holds", False) and (hold_specs_build or hold_words_build):
+                final_vec, applied_holds_build, norm_bef_build, norm_aft_build = _apply_post_refiner_holds(
+                    final_vec,
+                    family=family,
+                    hold_specs=hold_specs_build,
+                    hold_words=hold_words_build,
+                    hold_alpha=hold_alpha_build,
+                    prompt=prompt_build,
+                )
+
             tensors_to_save["vector.post_refiner"] = final_vec
             gen = torch.Generator(device="cpu").manual_seed(int(args.seed))
             q_report = cv.quality_report(a_mat, b_mat, w_vec, generator=gen)
@@ -2117,10 +2535,20 @@ def cmd_build(args: argparse.Namespace) -> int:
                     "median_row_norm": median_ref_row_norm,
                 }
             }
+            enc_a_mat: torch.Tensor | None = None
+            enc_b_mat: torch.Tensor | None = None
             if getattr(args, "include_encoder", True):
                 enc_a_mat = torch.stack(enc_a_pooled_list, dim=0)
                 enc_b_mat = torch.stack(enc_b_pooled_list, dim=0)
-                enc_raw_vec = cv.mean_difference(enc_a_mat, enc_b_mat, w_vec)
+                enc_raw_vec = cv.mean_difference(enc_a_mat, enc_b_mat, w_vec, unit_mean=use_unit_mean)
+                if enc_hold_a_list:
+                    enc_basis = cv.hold_basis(
+                        torch.stack(enc_hold_a_list, dim=0),
+                        torch.stack(enc_hold_b_list, dim=0),
+                        hold_groups,
+                        torch.tensor(hold_weights, dtype=torch.float32),
+                    )
+                    enc_raw_vec = cv.project_out(enc_raw_vec, enc_basis)
                 enc_raw_norm = float(
                     torch.linalg.vector_norm(enc_raw_vec.to(dtype=torch.float64)).item()
                 )
@@ -2143,6 +2571,13 @@ def cmd_build(args: argparse.Namespace) -> int:
                     jl_build_readout = j_lens.decode_vector(
                         final_vec, space="post_refiner", family=family
                     )
+                    if prompt_build:
+                        jl_build_readout["prompt_coupling"] = j_lens.analyze_prompt_coupling(
+                            final_vec,
+                            prompt_build,
+                            readout=jl_build_readout,
+                            family=family,
+                        )
                     q_report["j_lens_readout"] = jl_build_readout
                 except Exception:
                     jl_build_readout = None
@@ -2157,7 +2592,7 @@ def cmd_build(args: argparse.Namespace) -> int:
                     "path": rel_pair_path,
                     "sha256": pair_set.sha256,
                     "n_pairs": len(pair_set.pairs),
-                    "n_holds": len(cached_holds),
+                    "n_holds": len(cached_holds) + len(applied_holds_build),
                     "a_side": pair_set.a_side,
                     "b_side": pair_set.b_side,
                     "pair_spans": pair_spans,
@@ -2176,6 +2611,18 @@ def cmd_build(args: argparse.Namespace) -> int:
                     "pack_commit": substrate.git_head(REPO_ROOT) or "unknown",
                     "created_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
                     "made_by": "bench/control_vectors.py",
+                    **(
+                        {
+                            "applied_holds": {
+                                "holds": applied_holds_build,
+                                "alpha": hold_alpha_build,
+                                "norm_before": round(norm_bef_build, 4),
+                                "norm_after_raw": round(norm_aft_build, 4),
+                            }
+                        }
+                        if applied_holds_build
+                        else {}
+                    ),
                 },
             }
 
@@ -2185,7 +2632,7 @@ def cmd_build(args: argparse.Namespace) -> int:
                 pooling=pool_mode,
                 prefix=prefix_meta,
                 apply_holds=not bool(getattr(args, "no_holds", False)),
-                n_holds=len(pair_set.holds),
+                n_holds=len(pair_set.holds) + len(applied_holds_build),
                 loras=loras,
             )
             out_path = out_dir / fname
@@ -2195,15 +2642,56 @@ def cmd_build(args: argparse.Namespace) -> int:
                 metadata,
                 overwrite=bool(getattr(args, "overwrite", False)),
             )
+            if isinstance(build_cache_out, dict):
+                build_cache_out[f"{family}:{pool_mode}"] = {
+                    "family": family,
+                    "pooling": pool_mode,
+                    "stem": stem,
+                    "out_path": saved,
+                    "a_mat": a_mat.detach().cpu(),
+                    "b_mat": b_mat.detach().cpu(),
+                    "enc_a_mat": enc_a_mat.detach().cpu() if enc_a_mat is not None else None,
+                    "enc_b_mat": enc_b_mat.detach().cpu() if enc_b_mat is not None else None,
+                    "weights": [float(w) for w in weights_list],
+                    "hold_a_list": [t.detach().cpu() for t in hold_a_list],
+                    "hold_b_list": [t.detach().cpu() for t in hold_b_list],
+                    "enc_hold_a_list": [t.detach().cpu() for t in enc_hold_a_list],
+                    "enc_hold_b_list": [t.detach().cpu() for t in enc_hold_b_list],
+                    "hold_groups": list(hold_groups),
+                    "hold_weights": list(hold_weights),
+                    "median_ref_row_norm": median_ref_row_norm,
+                    "median_enc_row_norm_ex0": median_enc_row_norm_ex0,
+                    "pair_spans": list(pair_spans),
+                    "pairs_ab": [(p.a, p.b) for p in pair_set.pairs],
+                    "pair_set": pair_set,
+                    "rel_pair_path": rel_pair_path,
+                    "recipe": recipe,
+                    "loras": loras,
+                    "prefix_meta": prefix_meta,
+                    "measured_mode": measured_mode,
+                    "unet_path": unet_path,
+                    "encoder_path": encoder_path,
+                    "refiner_device": str(args.refiner_device),
+                    "seed": int(args.seed),
+                }
+            rec_band = [
+                round(50.0 / max(raw_norm, 1e-6), 2),
+                round(85.0 / max(raw_norm, 1e-6), 2),
+            ]
             summary_rows.append(
                 {
                     "file": saved.name,
                     "family": family,
                     "pooling": pool_mode,
                     "raw_norm": raw_norm,
+                    "vector_norm": raw_norm,
                     "mpc": float(q_report["mean_pairwise_cosine"]),
                     "split_half": float(q_report["split_half_cosine"]),
+                    "split_half_cosine": float(q_report["split_half_cosine"]),
+                    "per_pair_cosine": [round(float(x), 4) for x in q_report["per_pair_cosine"]],
+                    "pair_spans": pair_spans,
                     "rec_strength": _recommended_strength_text(raw_norm),
+                    "recommended_strength_band": rec_band,
                     "j_lens": jl_build_readout,
                 }
             )
@@ -2242,6 +2730,7 @@ class ControlVectorUIState:
         self._tokenizer: Any = None
         self._clips: dict[tuple[str, str], Any] = {}
         self._refiner_cache: dict[Any, Any] = {}
+        self.last_build_cache: dict[str, Any] = {}
         self.shutdown_requested: bool = False
 
     def get_tokenizer(self) -> Any:
@@ -2528,6 +3017,794 @@ def _preview_markdown_pairs(
     }
 
 
+def _build_pairset_from_ui_rows(
+    rows: list[dict[str, Any]],
+    *,
+    holds: list[dict[str, Any]] | None = None,
+    name: str = "",
+    slot: str = "auto",
+    mode: str = "t2va",
+    frame: str = "scene",
+    target_prompt: str = "",
+    target_weight: float = 2.5,
+) -> cv.PairSet:
+    """Build a `cv.PairSet` from structured 10-Row Scene-Diff Table rows (`rows` + optional `holds`)."""
+    active_rows = [r for r in rows if bool(r.get("enabled", True)) and str(r.get("b", "")).strip()]
+    if not active_rows:
+        raise ValueError("at least one enabled row with a non-empty Pole B is required")
+
+    first_b = str(active_rows[0].get("b", "")).strip()
+    is_full_scene = (
+        frame == "bare"
+        or "integrated_multimodal_description:" in first_b
+        or "detailed_description:" in first_b
+    )
+    if is_full_scene:
+        pair_items: list[cv.PairItem] = []
+        for idx, r in enumerate(active_rows):
+            a_txt = str(r.get("a", "")).strip()
+            b_txt = str(r.get("b", "")).strip()
+            w_val = float(r.get("weight", 1.0))
+            a_sp, b_sp = cv.differing_span(a_txt, b_txt, frame=frame, label=f"row[{idx}]")
+            pair_items.append(
+                cv.PairItem(
+                    index=idx,
+                    weight=w_val,
+                    a=a_txt,
+                    b=b_txt,
+                    a_span=a_sp,
+                    b_span=b_sp,
+                )
+            )
+        hold_items: list[cv.HoldItem] = []
+        for h_idx, hr in enumerate(holds or ()):
+            ha = str(hr.get("a", "")).strip()
+            hb = str(hr.get("b", "")).strip()
+            if not ha or not hb:
+                continue
+            ha_sp, hb_sp = cv.differing_span(ha, hb, frame=frame, label=f"hold[{h_idx}]")
+            hold_items.append(
+                cv.HoldItem(
+                    index=h_idx,
+                    group=str(hr.get("group", "nuisance") or "nuisance"),
+                    weight=float(hr.get("weight", 1.0)),
+                    a=ha,
+                    b=hb,
+                    a_span=ha_sp,
+                    b_span=hb_sp,
+                )
+            )
+        a_side_val = pair_items[0].a_span[:72]
+        b_side_val = pair_items[0].b_span[:72]
+        resolved_name = (name or pair_compiler._slugify_name(b_side_val)).strip()
+        if not cv.NAME_RE.match(resolved_name):
+            raise ValueError(f"vector name must match [a-z0-9_]+, got {resolved_name!r}")
+        digest = hashlib.sha256(
+            json.dumps(
+                {
+                    "name": resolved_name,
+                    "mode": mode,
+                    "pairs": [(p.weight, p.a, p.b) for p in pair_items],
+                },
+                sort_keys=True,
+            ).encode("utf-8")
+        ).hexdigest()
+        ps = cv.PairSet(
+            path=Path(f"<workbench:{resolved_name}>"),
+            sha256=digest,
+            name=resolved_name,
+            quality=f"{b_side_val} vs. {a_side_val}",
+            a_side=a_side_val,
+            b_side=b_side_val,
+            mode=mode,
+            frame=frame,
+            exclude_shots=(),
+            pairs=tuple(pair_items),
+            holds=tuple(hold_items),
+        )
+        if str(target_prompt or "").strip():
+            ps = _inject_target_prompt_into_pairset(
+                ps, target_prompt, target_weight=float(target_weight), slot_hint=slot
+            )
+        return ps
+
+    clauses: list[pair_compiler.ContrastClause] = []
+    sound_clauses: list[pair_compiler.ContrastClause] = []
+    for r in active_rows:
+        r_slot = str(r.get("slot") or slot or "auto")
+        clauses.append(
+            pair_compiler.ContrastClause(
+                a=str(r.get("a", "")).strip(),
+                b=str(r.get("b", "")).strip(),
+                slot=r_slot if r_slot != "auto" else None,
+                weight=float(r.get("weight", 1.0)),
+            )
+        )
+        sb = str(r.get("sound_b", "") or "").strip()
+        sa = str(r.get("sound_a", "") or "").strip()
+        if sb:
+            sound_clauses.append(
+                pair_compiler.ContrastClause(
+                    a=sa,
+                    b=sb,
+                    slot="soundscape",
+                    weight=float(r.get("weight", 1.0)),
+                )
+            )
+    hold_clauses: list[pair_compiler.ContrastClause] = []
+    for hr in (holds or ()):
+        ha = str(hr.get("a", "") or "").strip()
+        hb = str(hr.get("b", "") or "").strip()
+        if hb:
+            hold_clauses.append(
+                pair_compiler.ContrastClause(
+                    a=ha,
+                    b=hb,
+                    slot="auto",
+                    group=str(hr.get("group", "nuisance") or "nuisance"),
+                    weight=float(hr.get("weight", 1.0)),
+                )
+            )
+    tp_clean = str(target_prompt or "").strip() or None
+    return pair_compiler.compile_words_to_pairset(
+        clauses,
+        name=name or None,
+        slot=slot,
+        mode=mode,
+        n_pairs=min(10, max(1, len(clauses))),
+        soundscape_contrasts=sound_clauses or None,
+        hold_contrasts=hold_clauses or None,
+        target_prompt=tp_clean,
+        target_weight=float(target_weight),
+    )
+
+
+def _repool_cached_build(
+    state: ControlVectorUIState,
+    req: dict[str, Any],
+) -> dict[str, Any]:
+    """Re-pool the most recent build in `< 1 ms` on pure CPU (or re-encode only dirty edited pairs)."""
+    if not state.last_build_cache:
+        raise ValueError("no active build cache in memory; build a 10-pair vector first")
+
+    t_start = time.perf_counter()
+    weights_req = req.get("weights")
+    enabled_req = req.get("enabled")
+    hold_indices_req = req.get("hold_indices") or []
+    rows_req = req.get("rows")
+    unit_mean = bool(req.get("unit_mean", False))
+    hold_words = str(req.get("hold_words", "") or "").strip() or None
+    hold_alpha = float(req.get("hold_alpha", 1.0))
+    hold_vectors = req.get("hold_vectors") or []
+    prompt_req = str(req.get("prompt", "") or "").strip() or None
+
+    dirty_reencoded = 0
+    built_rows: list[dict[str, Any]] = []
+
+    for cache_key, entry in state.last_build_cache.items():
+        family = entry["family"]
+        pool_mode = entry["pooling"]
+        a_mat: torch.Tensor = entry["a_mat"]
+        b_mat: torch.Tensor = entry["b_mat"]
+        enc_a_mat: torch.Tensor | None = entry["enc_a_mat"]
+        enc_b_mat: torch.Tensor | None = entry["enc_b_mat"]
+        n_total = int(a_mat.shape[0])
+
+        # Check if any row's text was edited; if so, re-encode only that dirty row
+        if isinstance(rows_req, list) and len(rows_req) == n_total:
+            for idx, r_item in enumerate(rows_req):
+                if not isinstance(r_item, dict):
+                    continue
+                new_a = str(r_item.get("a", "")).strip()
+                new_b = str(r_item.get("b", "")).strip()
+                old_a, old_b = entry["pairs_ab"][idx]
+                if new_a and new_b and (new_a != old_a or new_b != old_b):
+                    clip = state.get_clip()
+                    ref_cache_key = (
+                        str(entry["unet_path"]),
+                        str(entry["encoder_path"]),
+                        str(entry["refiner_device"]),
+                        json.dumps(entry["loras"], sort_keys=True),
+                    )
+                    if ref_cache_key in state._refiner_cache:
+                        _, _, refiner_run = state._refiner_cache[ref_cache_key]
+                    else:
+                        refiner_run = cv_nodes.build_refiner_runner(
+                            entry["unet_path"], device=entry["refiner_device"], loras=entry["loras"]
+                        )
+                    enc_a, tags_a, ids_a, dec_a = cv_nodes.encode_prompt_for_vector(clip, new_a)
+                    enc_b, tags_b, ids_b, dec_b = cv_nodes.encode_prompt_for_vector(clip, new_b)
+                    ref_a = refiner_run(enc_a)
+                    ref_b = refiner_run(enc_b)
+                    first_diff, end_a, end_b = h3_spans.differing_token_bounds(ids_a, ids_b)
+                    spans_a = h3_spans.spans(ids_a, tags_a.tolist(), dec_a)
+                    spans_b = h3_spans.spans(ids_b, tags_b.tolist(), dec_b)
+                    mask_a = h3_spans.pooling_mask(
+                        spans_a,
+                        pool_mode,
+                        first_diff=min(first_diff, len(ids_a) - 1),
+                        end_diff=end_a,
+                        other_ids=ids_b,
+                    )
+                    mask_b = h3_spans.pooling_mask(
+                        spans_b,
+                        pool_mode,
+                        first_diff=min(first_diff, len(ids_b) - 1),
+                        end_diff=end_b,
+                        other_ids=ids_a,
+                    )
+                    a_mat[idx] = (
+                        ref_a.to(dtype=torch.float64)[mask_a].mean(dim=0).to(dtype=torch.float32).cpu()
+                    )
+                    b_mat[idx] = (
+                        ref_b.to(dtype=torch.float64)[mask_b].mean(dim=0).to(dtype=torch.float32).cpu()
+                    )
+                    if enc_a_mat is not None and enc_b_mat is not None:
+                        ma_e = mask_a.clone()
+                        mb_e = mask_b.clone()
+                        if ma_e.numel() > 0:
+                            ma_e[0] = False
+                        if mb_e.numel() > 0:
+                            mb_e[0] = False
+                        if not bool(ma_e.any()):
+                            ma_e = mask_a
+                        if not bool(mb_e.any()):
+                            mb_e = mask_b
+                        enc_a_mat[idx] = (
+                            enc_a.to(dtype=torch.float64)[ma_e].mean(dim=0).to(dtype=torch.float32).cpu()
+                        )
+                        enc_b_mat[idx] = (
+                            enc_b.to(dtype=torch.float64)[mb_e].mean(dim=0).to(dtype=torch.float32).cpu()
+                        )
+                    a_sp, b_sp = cv.differing_span(new_a, new_b, frame=entry["pair_set"].frame)
+                    entry["pair_spans"][idx] = {
+                        "index": idx,
+                        "weight": float(r_item.get("weight", entry["weights"][idx])),
+                        "first_diff": int(first_diff),
+                        "end_a": int(end_a),
+                        "end_b": int(end_b),
+                        "a_span": a_sp,
+                        "b_span": b_sp,
+                        "len_a": int(len(ids_a)),
+                        "len_b": int(len(ids_b)),
+                        "pooled_rows_a": int(mask_a.sum().item()),
+                        "pooled_rows_b": int(mask_b.sum().item()),
+                        "pooled_tokens": int(mask_b.sum().item()),
+                    }
+                    entry["pairs_ab"][idx] = (new_a, new_b)
+                    dirty_reencoded += 1
+
+        hold_idx_set = {
+            int(i) for i in (hold_indices_req or ()) if 0 <= int(i) < n_total
+        }
+        active_indices_req = req.get("active_indices")
+        if isinstance(active_indices_req, list):
+            active_set_req = {int(i) for i in active_indices_req if 0 <= int(i) < n_total}
+            active_indices = [
+                i for i in range(n_total) if i in active_set_req and i not in hold_idx_set
+            ]
+        else:
+            active_indices = [
+                i
+                for i in range(n_total)
+                if (not isinstance(enabled_req, list) or i >= len(enabled_req) or bool(enabled_req[i]))
+                and i not in hold_idx_set
+            ]
+        if not active_indices:
+            raise ValueError("at least one pair must remain enabled and not moved to hold")
+
+        eff_weights = [
+            float(weights_req[i])
+            if (isinstance(weights_req, list) and i < len(weights_req))
+            else float(entry["weights"][i])
+            for i in range(n_total)
+        ]
+        entry["weights"] = eff_weights
+        for i in range(n_total):
+            entry["pair_spans"][i]["weight"] = eff_weights[i]
+
+        a_sub = a_mat[active_indices]
+        b_sub = b_mat[active_indices]
+        w_sub = torch.tensor([eff_weights[i] for i in active_indices], dtype=torch.float32)
+
+        raw_vec = cv.mean_difference(a_sub, b_sub, w_sub, unit_mean=unit_mean)
+        tensors_to_save: dict[str, torch.Tensor] = {}
+
+        hold_a = list(entry["hold_a_list"]) + [a_mat[hi] for hi in sorted(hold_idx_set)]
+        hold_b = list(entry["hold_b_list"]) + [b_mat[hi] for hi in sorted(hold_idx_set)]
+        h_groups = list(entry["hold_groups"]) + [f"pair_{hi}" for hi in sorted(hold_idx_set)]
+        h_weights = list(entry["hold_weights"]) + [1.0 for _ in sorted(hold_idx_set)]
+
+        if hold_a:
+            basis = cv.hold_basis(
+                torch.stack(hold_a, dim=0),
+                torch.stack(hold_b, dim=0),
+                h_groups,
+                torch.tensor(h_weights, dtype=torch.float32),
+            )
+            final_vec = cv.project_out(raw_vec, basis)
+            tensors_to_save["holds.post_refiner"] = basis
+        else:
+            final_vec = raw_vec
+
+        applied_holds: list[str] = []
+        norm_bef = 0.0
+        norm_aft = 0.0
+        if hold_vectors or hold_words:
+            final_vec, applied_holds, norm_bef, norm_aft = _apply_post_refiner_holds(
+                final_vec,
+                family=family,
+                hold_specs=hold_vectors,
+                hold_words=hold_words,
+                hold_alpha=hold_alpha,
+                prompt=prompt_req,
+            )
+
+        tensors_to_save["vector.post_refiner"] = final_vec
+        gen = torch.Generator(device="cpu").manual_seed(int(entry["seed"]))
+        if len(active_indices) >= 2:
+            q_report = cv.quality_report(a_sub, b_sub, w_sub, generator=gen)
+        else:
+            q_report = {
+                "mean_pairwise_cosine": 1.0,
+                "split_half_cosine": 1.0,
+                "per_pair_cosine": [1.0],
+            }
+
+        # Compute per-pair cosine for all n_total rows against final_vec so the UI table shows every row
+        all_per_pair_cos: list[float] = []
+        for i in range(n_total):
+            d_i = b_mat[i] - a_mat[i]
+            all_per_pair_cos.append(round(_cosine(d_i, final_vec), 4))
+
+        raw_norm = float(torch.linalg.vector_norm(final_vec.to(dtype=torch.float64)).item())
+        points_meta: dict[str, Any] = {
+            "post_refiner": {
+                "unit": "mean_pair_difference",
+                "raw_norm": raw_norm,
+                "median_row_norm": entry["median_ref_row_norm"],
+            }
+        }
+        if enc_a_mat is not None and enc_b_mat is not None:
+            enc_raw_vec = cv.mean_difference(
+                enc_a_mat[active_indices],
+                enc_b_mat[active_indices],
+                w_sub,
+                unit_mean=unit_mean,
+            )
+            enc_hold_a = list(entry.get("enc_hold_a_list") or []) + [
+                enc_a_mat[hi] for hi in sorted(hold_idx_set)
+            ]
+            enc_hold_b = list(entry.get("enc_hold_b_list") or []) + [
+                enc_b_mat[hi] for hi in sorted(hold_idx_set)
+            ]
+            if enc_hold_a:
+                enc_basis = cv.hold_basis(
+                    torch.stack(enc_hold_a, dim=0),
+                    torch.stack(enc_hold_b, dim=0),
+                    h_groups,
+                    torch.tensor(h_weights, dtype=torch.float32),
+                )
+                enc_raw_vec = cv.project_out(enc_raw_vec, enc_basis)
+            enc_raw_norm = float(torch.linalg.vector_norm(enc_raw_vec.to(dtype=torch.float64)).item())
+            if enc_raw_norm > 1e-12:
+                enc_vec = (enc_raw_vec.to(dtype=torch.float64) / enc_raw_norm).to(dtype=torch.float32)
+                tensors_to_save["vector.encoder"] = enc_vec
+                points_meta["encoder"] = {
+                    "unit": "median_row_norm",
+                    "raw_norm": enc_raw_norm,
+                    "median_row_norm": entry["median_enc_row_norm_ex0"],
+                    "row0_excluded": True,
+                }
+
+        jl_readout: dict[str, Any] | None = None
+        if j_lens.bundle_available():
+            try:
+                jl_readout = j_lens.decode_vector(final_vec, space="post_refiner", family=family)
+                if prompt_req:
+                    jl_readout["prompt_coupling"] = j_lens.analyze_prompt_coupling(
+                        final_vec,
+                        prompt_req,
+                        readout=jl_readout,
+                        family=family,
+                    )
+                q_report["j_lens_readout"] = jl_readout
+            except Exception:
+                jl_readout = None
+
+        pair_set = entry["pair_set"]
+        metadata: dict[str, Any] = {
+            "format": cv.FORMAT_VERSION,
+            "name": entry["stem"],
+            "quality": pair_set.quality,
+            "family": family,
+            "pairs": {
+                "path": entry["rel_pair_path"],
+                "sha256": pair_set.sha256,
+                "n_pairs": len(active_indices),
+                "n_holds": len(hold_a) + len(applied_holds),
+                "a_side": pair_set.a_side,
+                "b_side": pair_set.b_side,
+                "pair_spans": [entry["pair_spans"][i] for i in active_indices],
+            },
+            "recipe": entry["recipe"],
+            "measured_under": {
+                "mode": entry["measured_mode"],
+                "frame": pair_set.frame,
+                "prefix": entry["prefix_meta"],
+                "pooling": pool_mode,
+            },
+            "points": points_meta,
+            "quality_report": q_report,
+            "provenance": {
+                "core_revision": substrate.git_head(cv_nodes.COMFY_ROOT) or "unknown",
+                "pack_commit": substrate.git_head(REPO_ROOT) or "unknown",
+                "created_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "made_by": "bench/control_vectors.py::repool/1",
+                **(
+                    {
+                        "applied_holds": {
+                            "holds": applied_holds,
+                            "alpha": hold_alpha,
+                            "norm_before": round(norm_bef, 4),
+                            "norm_after_raw": round(norm_aft, 4),
+                        }
+                    }
+                    if applied_holds
+                    else {}
+                ),
+            },
+        }
+        saved = cv.save_vector(entry["out_path"], tensors_to_save, metadata, overwrite=True)
+        rec_band = [
+            round(50.0 / max(raw_norm, 1e-6), 2),
+            round(85.0 / max(raw_norm, 1e-6), 2),
+        ]
+        built_rows.append(
+            {
+                "file": saved.name,
+                "family": family,
+                "pooling": pool_mode,
+                "raw_norm": raw_norm,
+                "vector_norm": raw_norm,
+                "mpc": float(q_report["mean_pairwise_cosine"]),
+                "split_half": float(q_report["split_half_cosine"]),
+                "split_half_cosine": float(q_report["split_half_cosine"]),
+                "per_pair_cosine": all_per_pair_cos,
+                "active_indices": active_indices,
+                "hold_indices": sorted(hold_idx_set),
+                "pair_spans": entry["pair_spans"],
+                "rec_strength": _recommended_strength_text(raw_norm),
+                "recommended_strength_band": rec_band,
+                "dirty_reencoded": dirty_reencoded,
+                "j_lens": jl_readout,
+            }
+        )
+
+    elapsed_ms = round((time.perf_counter() - t_start) * 1000.0, 2)
+    return {
+        "ok": True,
+        "elapsed_ms": elapsed_ms,
+        "dirty_reencoded": dirty_reencoded,
+        "built": built_rows,
+        "vectors": _list_ui_vectors(state.vec_dir),
+    }
+
+
+def _compose_and_save_sculpted_vector(
+    steps: list[dict[str, Any]],
+    *,
+    name: str,
+    family: str = "fl2va",
+    hold_words: str | None = None,
+    hold_alpha: float = 1.0,
+    prompt: str | None = None,
+    out_dir: Path | None = None,
+    overwrite: bool = True,
+) -> dict[str, Any]:
+    """Compose a multi-vector recipe (`add`, `add_norm_matched`, `hold`) + optional `hold_words` (`alpha`)
+    and write `.safetensors` + `.md` sidecars for `family`.
+    """
+    raw_stem = "".join(c if (c.isalnum() or c == "_") else "_" for c in str(name or "").strip().lower()).strip("_")
+    if not raw_stem:
+        raw_stem = "sculpted_vector"
+    if not cv.NAME_RE.match(raw_stem):
+        raise ValueError(f"sculpted vector stem must match [a-z0-9_]+, got {raw_stem!r}")
+
+    target_dir = out_dir or Path(folder_paths.get_folder_paths(cv_nodes.CONTROL_VECTORS_FOLDER)[0])
+    target_dir.mkdir(parents=True, exist_ok=True)
+
+    resolved_steps: list[dict[str, Any]] = []
+    enc_add_terms: list[torch.Tensor] = []
+    enc_hold_terms: list[tuple[torch.Tensor, float]] = []
+    base_meta: dict[str, Any] | None = None
+    step_labels: list[str] = []
+
+    for item in steps:
+        raw_src = item["vector"]
+        mode = str(item.get("mode", "add")).strip()
+        strength = float(item.get("strength", 1.0))
+        vpath = _resolve_vector_for_family(raw_src, family=family)
+        tensors, meta = cv.load_vector(vpath)
+        if base_meta is None and mode in ("add", "add_norm_matched"):
+            base_meta = meta
+        resolved_steps.append({"vector": vpath, "mode": mode, "strength": strength})
+        step_labels.append(f"{mode}:{meta.get('name', vpath.stem)}@{strength:g}")
+        if "vector.encoder" in tensors:
+            ve = tensors["vector.encoder"].detach().to(device="cpu", dtype=torch.float32).flatten()
+            if mode in ("add", "add_norm_matched"):
+                enc_add_terms.append(strength * ve)
+            elif mode == "hold":
+                enc_hold_terms.append((ve, strength))
+
+    if hasattr(j_lens, "save_composed_recipe_vector") and j_lens.bundle_available():
+        loras_meta = (
+            base_meta.get("recipe", {}).get("loras")
+            if base_meta is not None
+            else j_lens._DEFAULT_RECIPES.get(family, {}).get("loras")
+        )
+        fname = cv.default_vector_filename(raw_stem, family, pooling="diff_span", loras=loras_meta)
+        out_path = target_dir / fname
+        if out_path.exists() and not overwrite:
+            raise FileExistsError(f"refusing to overwrite existing control vector: {out_path}")
+        saved_res = j_lens.save_composed_recipe_vector(
+            out_path,
+            resolved_steps,
+            name=raw_stem,
+            family=family,
+            hold_words=hold_words,
+            alpha=hold_alpha,
+            prompt=prompt,
+        )
+        saved_path = saved_res["path"] if isinstance(saved_res, dict) and "path" in saved_res else Path(saved_res)
+        _, saved_meta = cv.load_vector(saved_path)
+        r_norm = float(saved_meta["points"]["post_refiner"]["raw_norm"])
+        jl_rep = saved_meta.get("quality_report", {}).get("j_lens_readout")
+        return {
+            "file": saved_path.name,
+            "path": saved_path,
+            "family": family,
+            "raw_norm": r_norm,
+            "net_norm": r_norm,
+            "rec_strength": _recommended_strength_text(r_norm),
+            "j_lens": jl_rep,
+        }
+
+    # Compose directly via j_lens.apply_soft_holds + decode_vector
+    add_vecs: list[torch.Tensor] = []
+    hold_vecs: list[tuple[torch.Tensor, float]] = []
+    for st in resolved_steps:
+        v_pr, _, _ = j_lens._load_vector_from_source(st["vector"], space="post_refiner")
+        m_st = st["mode"]
+        s_st = float(st["strength"])
+        v64 = v_pr.to(dtype=torch.float64)
+        vn = float(torch.linalg.vector_norm(v64).item())
+        if m_st == "add":
+            add_vecs.append((s_st * v64).to(dtype=torch.float32))
+        elif m_st == "add_norm_matched":
+            scale_f = (j_lens.NORM_MATCHED_TARGET / vn) if vn > 1e-12 else 0.0
+            add_vecs.append((s_st * scale_f * v64).to(dtype=torch.float32))
+        elif m_st == "hold":
+            hold_vecs.append((v_pr, s_st))
+        else:
+            raise ValueError(f"unsupported sculpt mode {m_st!r}")
+    if not add_vecs:
+        raise ValueError("sculpt requires at least one 'add' or 'add_norm_matched' vector")
+
+    cur_vec = torch.stack([v.to(dtype=torch.float64) for v in add_vecs], dim=0).sum(dim=0).to(dtype=torch.float32)
+    pre_hold_norm = float(torch.linalg.vector_norm(cur_vec.to(dtype=torch.float64)).item())
+    for hv, h_alpha in hold_vecs:
+        cur_vec = j_lens.apply_soft_holds(cur_vec, [hv], alpha=float(h_alpha))
+
+    hw_labels: list[str] = []
+    if hold_words and str(hold_words).strip() and float(hold_alpha) > 0.0:
+        cur_vec, hw_labels, _, _ = _apply_post_refiner_holds(
+            cur_vec,
+            family=family,
+            hold_words=hold_words,
+            hold_alpha=float(hold_alpha),
+            prompt=prompt,
+        )
+    else:
+        post_norm = float(torch.linalg.vector_norm(cur_vec.to(dtype=torch.float64)).item())
+        if post_norm <= 1e-6 * max(1.0, pre_hold_norm):
+            raise ValueError("holds completely cancelled the sculpted vector")
+
+    raw_norm = float(torch.linalg.vector_norm(cur_vec.to(dtype=torch.float64)).item())
+    tensors_to_save: dict[str, torch.Tensor] = {"vector.post_refiner": cur_vec}
+    points_meta: dict[str, Any] = {
+        "post_refiner": {
+            "unit": "mean_pair_difference",
+            "raw_norm": raw_norm,
+            "median_row_norm": (
+                float(base_meta["points"]["post_refiner"]["median_row_norm"])
+                if base_meta and "post_refiner" in base_meta.get("points", {})
+                else j_lens.DEFAULT_POST_REFINER_MEDIAN_ROW_NORM
+            ),
+        }
+    }
+    if enc_add_terms:
+        enc_cur = torch.stack([v.to(dtype=torch.float64) for v in enc_add_terms], dim=0).sum(dim=0).to(dtype=torch.float32)
+        for h_ve, h_a in enc_hold_terms:
+            enc_cur = j_lens.apply_soft_holds(enc_cur, [h_ve], alpha=float(h_a))
+        en_norm = float(torch.linalg.vector_norm(enc_cur.to(dtype=torch.float64)).item())
+        if en_norm > 1e-12:
+            tensors_to_save["vector.encoder"] = (enc_cur.to(dtype=torch.float64) / en_norm).to(dtype=torch.float32)
+            points_meta["encoder"] = {
+                "unit": "median_row_norm",
+                "raw_norm": 1.0,
+                "median_row_norm": j_lens.DEFAULT_ENCODER_MEDIAN_ROW_NORM,
+                "row0_excluded": True,
+            }
+
+    jl_readout: dict[str, Any] | None = None
+    if j_lens.bundle_available():
+        jl_readout = j_lens.decode_vector(cur_vec, space="post_refiner", family=family)
+        if prompt:
+            jl_readout["prompt_coupling"] = j_lens.analyze_prompt_coupling(
+                cur_vec, prompt, readout=jl_readout, family=family
+            )
+
+    recipe = (
+        base_meta["recipe"]
+        if base_meta and "recipe" in base_meta
+        else j_lens._DEFAULT_RECIPES.get(family, j_lens._DEFAULT_RECIPES["fl2va"])
+    )
+    loras_meta = recipe.get("loras")
+    spec_str = "|".join(step_labels + hw_labels)
+    metadata: dict[str, Any] = {
+        "format": cv.FORMAT_VERSION,
+        "name": raw_stem,
+        "quality": f"Sculpted recipe ({', '.join(step_labels + hw_labels)})",
+        "family": family,
+        "pairs": {
+            "path": "bench/control_vectors.py::sculpt",
+            "sha256": hashlib.sha256(spec_str.encode("utf-8")).hexdigest(),
+            "n_pairs": len(add_vecs),
+            "n_holds": len(hold_vecs) + len(hw_labels),
+            "a_side": "baseline",
+            "b_side": ", ".join(step_labels),
+        },
+        "recipe": recipe,
+        "measured_under": {
+            "mode": "ref2va" if family == "ref2va" else "t2va",
+            "frame": "scene",
+            "prefix": "none",
+            "pooling": "diff_span",
+        },
+        "points": points_meta,
+        "quality_report": {
+            "mean_pairwise_cosine": 1.0,
+            "split_half_cosine": 1.0,
+            "per_pair_cosine": [1.0 for _ in add_vecs],
+            **({"j_lens_readout": jl_readout} if jl_readout else {}),
+        },
+        "provenance": {
+            "core_revision": substrate.git_head(cv_nodes.COMFY_ROOT) or "unknown",
+            "pack_commit": substrate.git_head(REPO_ROOT) or "unknown",
+            "created_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "made_by": "bench/control_vectors.py::sculpt/1",
+            "sculpt_steps": step_labels + hw_labels,
+        },
+    }
+    fname = cv.default_vector_filename(
+        raw_stem,
+        family,
+        pooling="diff_span",
+        apply_holds=bool(hold_vecs or hw_labels),
+        n_holds=len(hold_vecs) + len(hw_labels),
+        loras=loras_meta,
+    )
+    saved = cv.save_vector(target_dir / fname, tensors_to_save, metadata, overwrite=overwrite)
+    return {
+        "file": saved.name,
+        "path": saved,
+        "family": family,
+        "raw_norm": raw_norm,
+        "rec_strength": _recommended_strength_text(raw_norm),
+        "j_lens": jl_readout,
+    }
+
+
+def _meter_prompt_tokens(
+    state: ControlVectorUIState,
+    *,
+    vector_arg: str,
+    prompt_arg: str,
+    pooling: str = "scene_text",
+) -> dict[str, Any]:
+    """Run exact `5376`-d contextual `Qwen3-VL` + `TokenRefiner` per-token receptor metering (`cv.meter_score`)."""
+    v_cand = state.vec_dir / vector_arg
+    vpath = v_cand if v_cand.is_file() else cv_nodes.resolve_vector_file_path(vector_arg)
+    tensors, metadata = cv.load_vector(vpath)
+    vec = (
+        tensors["vector.post_refiner"]
+        if "vector.post_refiner" in tensors
+        else next(iter(tensors.values()))
+    )
+    try:
+        label, text = _resolve_prompt_text(prompt_arg)
+    except Exception:
+        label, text = "prompt", str(prompt_arg).strip()
+    if not text:
+        raise ValueError("prompt text must be non-empty")
+
+    enc_name = metadata.get("recipe", {}).get("encoder", {}).get("file") or h3_config.MODELS["clip"]
+    if enc_name == "unspecified":
+        enc_name = h3_config.MODELS["clip"]
+    clip = state.get_clip(enc_name, "default")
+
+    unet_name = metadata.get("recipe", {}).get("checkpoint", {}).get("file") or (
+        h3_config.MODELS["unet_ref2va"]
+        if metadata.get("family") == "ref2va"
+        else h3_config.MODELS["unet_fl2va"]
+    )
+    unet_path = Path(folder_paths.get_full_path_or_raise("diffusion_models", unet_name))
+    enc_path = Path(folder_paths.get_full_path_or_raise("text_encoders", enc_name))
+    meter_loras = list(metadata.get("recipe", {}).get("loras", ()))
+    ref_cache_key = (
+        str(unet_path),
+        str(enc_path),
+        "cpu",
+        json.dumps(meter_loras, sort_keys=True),
+    )
+    if ref_cache_key in state._refiner_cache:
+        _, _, refiner_run = state._refiner_cache[ref_cache_key]
+    else:
+        recipe = cv_nodes.extract_model_recipe(
+            None,
+            None,
+            unet_path_override=unet_path,
+            encoder_path_override=enc_path,
+            loras_override=meter_loras,
+        )
+        refiner_run = cv_nodes.build_refiner_runner(unet_path, device="cpu", loras=meter_loras)
+        state._refiner_cache[ref_cache_key] = (metadata.get("family", "fl2va"), recipe, refiner_run)
+
+    t0 = time.perf_counter()
+    enc_rows, tags, tids, dec_fn = cv_nodes.encode_prompt_for_vector(clip, text)
+    ref_rows = refiner_run(enc_rows)
+    sp = h3_spans.spans(tids, tags.tolist(), dec_fn)
+    eff_pooling = pooling if pooling in ("scene_text", "non_vision", "all_rows") else "scene_text"
+    mask = h3_spans.pooling_mask(sp, eff_pooling)
+    m = cv.meter_score(ref_rows, vec, mask=mask)
+
+    v64 = vec.detach().to(dtype=torch.float64).reshape(-1)
+    v_norm = float(torch.linalg.vector_norm(v64).item())
+    v_unit = v64 / max(v_norm, 1e-12)
+    rows64 = ref_rows.detach().to(dtype=torch.float64)
+
+    tokens_out: list[dict[str, Any]] = []
+    for t_idx in range(len(tids)):
+        piece = dec_fn([int(tids[t_idx])])
+        r_t = rows64[t_idx]
+        r_norm = float(torch.linalg.vector_norm(r_t).item())
+        proj_t = float(torch.dot(r_t, v_unit).item())
+        cos_t = proj_t / r_norm if r_norm > 1e-12 else 0.0
+        in_mask = bool(mask[t_idx].item())
+        tokens_out.append(
+            {
+                "index": t_idx,
+                "text": piece,
+                "word": piece,
+                "token": piece,
+                "in_scene_mask": in_mask,
+                "cosine": round(cos_t, 4),
+                "projection": round(proj_t, 4),
+            }
+        )
+    elapsed_ms = round((time.perf_counter() - t0) * 1000.0, 1)
+    return {
+        "ok": True,
+        "vector": vpath.name,
+        "prompt_label": label,
+        "pooling": eff_pooling,
+        "elapsed_ms": elapsed_ms,
+        "meter": m,
+        "tokens": tokens_out,
+    }
+
+
 def handle_ui_request(
     state: ControlVectorUIState,
     method: str,
@@ -2545,6 +3822,7 @@ def handle_ui_request(
             "system_prompt": _extract_system_prompt_text(),
             "toml_files": _list_ui_toml_files(state.toml_dir),
             "vectors": _list_ui_vectors(state.vec_dir),
+            "canonical_frames": pair_compiler.load_canonical_frames(),
         }
         return 200, "application/json", json.dumps(payload)
 
@@ -2554,6 +3832,93 @@ def handle_ui_request(
             req = json.loads(body.decode("utf-8"))
         except Exception as exc:
             return 400, "application/json", json.dumps({"ok": False, "error": f"invalid JSON: {exc}"})
+
+    if method == "POST" and clean_path == "/api/expand-scenes":
+        try:
+            pole_a = str(req.get("pole_a", "") or "").strip()
+            pole_b = str(req.get("pole_b", "") or "").strip()
+            sound_a = str(req.get("sound_a", "") or "").strip()
+            sound_b = str(req.get("sound_b", "") or "").strip()
+            hold_a = str(req.get("hold_a", "") or "").strip()
+            hold_b = str(req.get("hold_b", "") or "").strip()
+            slot = str(req.get("slot", "auto") or "auto")
+            mode = str(req.get("mode", "t2va") or "t2va")
+            name = str(req.get("name", "") or "").strip()
+            target_prompt = str(req.get("target_prompt", "") or "").strip()
+            target_weight = float(req.get("target_weight", 2.5))
+            spec_text = str(req.get("text", "") or "").strip()
+
+            if not spec_text:
+                if not pole_b:
+                    return 400, "application/json", json.dumps({"ok": False, "error": "Pole B (target concept) is required"})
+                lines = [f"{pole_a} ||| {pole_b}" if pole_a else pole_b]
+                if sound_b:
+                    lines.append(f"soundscape: {sound_a} ||| {sound_b}" if sound_a else f"soundscape: {sound_b}")
+                if hold_b:
+                    lines.append(f"hold: {hold_a} ||| {hold_b}" if hold_a else f"hold: {hold_b}")
+                spec_text = "\n".join(lines)
+
+            ps = _compile_words_or_spec_to_pairset(
+                spec_text,
+                name=name or None,
+                slot=slot,
+                mode=mode,
+                target_prompt=target_prompt,
+                target_weight=target_weight,
+            )
+            frames_bank = pair_compiler.load_canonical_frames()["frames"].get(ps.mode, [])
+            rows_payload: list[dict[str, Any]] = []
+            for idx, p in enumerate(ps.pairs):
+                is_tp = bool(target_prompt) and idx == 0
+                f_idx = (idx - 1) if bool(target_prompt) else idx
+                f_meta = frames_bank[f_idx % len(frames_bank)] if (not is_tp and frames_bank) else {}
+                f_id = "target_scene_prompt" if is_tp else f_meta.get("id", f"scene_{idx + 1:02d}")
+                rows_payload.append(
+                    {
+                        "index": idx,
+                        "frame_id": f_id,
+                        "scene_id": f_id,
+                        "domain": "target_prompt (Pair 0)" if is_tp else f_meta.get("domain", "canonical"),
+                        "weight": float(p.weight),
+                        "enabled": True,
+                        "a": p.a,
+                        "b": p.b,
+                        "a_span": p.a_span,
+                        "b_span": p.b_span,
+                    }
+                )
+            holds_payload = [
+                {
+                    "index": h.index,
+                    "group": h.group,
+                    "weight": float(h.weight),
+                    "a": h.a,
+                    "b": h.b,
+                    "a_span": h.a_span,
+                    "b_span": h.b_span,
+                }
+                for h in ps.holds
+            ]
+            return (
+                200,
+                "application/json",
+                json.dumps(
+                    {
+                        "ok": True,
+                        "name": ps.name,
+                        "slot": pair_compiler.resolve_slot_name(slot, sample_text=ps.b_side),
+                        "mode": ps.mode,
+                        "quality": ps.quality,
+                        "a_side": ps.a_side,
+                        "b_side": ps.b_side,
+                        "rows": rows_payload,
+                        "holds": holds_payload,
+                        "markdown": _pair_set_to_markdown(None, ps),
+                    }
+                ),
+            )
+        except Exception as exc:
+            return 400, "application/json", json.dumps({"ok": False, "error": str(exc)})
 
     if method == "POST" and clean_path == "/api/preview":
         res = _preview_markdown_pairs(
@@ -2575,6 +3940,34 @@ def handle_ui_request(
             tpath = cand if cand.is_file() else cv_nodes.resolve_pair_file_path(fname)
             ps = cv.load_pairs(tpath, bank_dir=cv_nodes.PROMPT_BANK_DIR)
             md_str = _pair_set_to_markdown(tpath, ps)
+            frames_bank = pair_compiler.load_canonical_frames()["frames"].get(ps.mode, [])
+            rows_payload = [
+                {
+                    "index": idx,
+                    "frame_id": frames_bank[idx % len(frames_bank)]["id"] if frames_bank else f"pair_{idx + 1:02d}",
+                    "scene_id": frames_bank[idx % len(frames_bank)]["id"] if frames_bank else f"pair_{idx + 1:02d}",
+                    "domain": frames_bank[idx % len(frames_bank)]["domain"] if frames_bank else ps.mode,
+                    "weight": float(p.weight),
+                    "enabled": True,
+                    "a": p.a,
+                    "b": p.b,
+                    "a_span": p.a_span,
+                    "b_span": p.b_span,
+                }
+                for idx, p in enumerate(ps.pairs)
+            ]
+            holds_payload = [
+                {
+                    "index": h.index,
+                    "group": h.group,
+                    "weight": float(h.weight),
+                    "a": h.a,
+                    "b": h.b,
+                    "a_span": h.a_span,
+                    "b_span": h.b_span,
+                }
+                for h in ps.holds
+            ]
             return (
                 200,
                 "application/json",
@@ -2584,6 +3977,12 @@ def handle_ui_request(
                         "name": ps.name,
                         "frame": ps.frame,
                         "mode": ps.mode,
+                        "quality": ps.quality,
+                        "a_side": ps.a_side,
+                        "b_side": ps.b_side,
+                        "rows": rows_payload,
+                        "pairs": rows_payload,
+                        "holds": holds_payload,
                         "markdown": md_str,
                     }
                 ),
@@ -2598,25 +3997,19 @@ def handle_ui_request(
         slot = str(req.get("slot", "auto") or "auto")
         mode = str(req.get("mode", "t2va") or "t2va")
         overwrite = bool(req.get("overwrite", True))
+        rows_in = req.get("rows")
         try:
-            if _is_markdown_pairs_text(text):
-                if not name:
-                    return 400, "application/json", json.dumps({"ok": False, "error": "vector name is required"})
-                parsed = cv.parse_markdown_pairs(text)
-                tp_out = state.toml_dir / f"{name}_test_prompt.txt" if parsed.get("test_scene_prompt") else None
-                saved_toml = cv.write_markdown_to_toml(
-                    text,
-                    state.toml_dir,
+            if isinstance(rows_in, list) and rows_in:
+                ps = _build_pairset_from_ui_rows(
+                    rows_in,
+                    holds=req.get("holds"),
                     name=name,
+                    slot=slot,
+                    mode=mode,
                     frame=frame,
-                    test_prompt_out=tp_out,
-                    overwrite=overwrite,
-                    bank_dir=cv_nodes.PROMPT_BANK_DIR,
+                    target_prompt=str(req.get("target_prompt", "") or ""),
+                    target_weight=float(req.get("target_weight", 2.5)),
                 )
-            else:
-                spec_hdr = (f"name: {name}\n" if name else "") + f"slot: {slot}\nmode: {mode}\n"
-                spec = pair_compiler.parse_short_contrast_spec(spec_hdr + text)
-                ps = spec["pair_set"]
                 if not name:
                     name = ps.name
                 md_doc = _pair_set_to_markdown(None, ps)
@@ -2633,13 +4026,56 @@ def handle_ui_request(
                     overwrite=overwrite,
                     bank_dir=cv_nodes.PROMPT_BANK_DIR,
                 )
+            elif _is_markdown_pairs_text(text):
+                if not name:
+                    return 400, "application/json", json.dumps({"ok": False, "error": "vector name is required"})
+                parsed = cv.parse_markdown_pairs(text)
+                tp_out = state.toml_dir / f"{name}_test_prompt.txt" if parsed.get("test_scene_prompt") else None
+                saved_toml = cv.write_markdown_to_toml(
+                    text,
+                    state.toml_dir,
+                    name=name,
+                    frame=frame,
+                    test_prompt_out=tp_out,
+                    overwrite=overwrite,
+                    bank_dir=cv_nodes.PROMPT_BANK_DIR,
+                )
+            else:
+                ps = _compile_words_or_spec_to_pairset(
+                    text,
+                    name=name or None,
+                    slot=slot,
+                    mode=mode,
+                    target_prompt=str(req.get("target_prompt", "") or ""),
+                    target_weight=float(req.get("target_weight", 2.5)),
+                )
+                if not name:
+                    name = ps.name
+                md_doc = _pair_set_to_markdown(None, ps)
+                tp_out = None
+                saved_toml = cv.write_markdown_to_toml(
+                    md_doc,
+                    state.toml_dir,
+                    name=name,
+                    mode=ps.mode,
+                    frame=frame,
+                    quality=ps.quality,
+                    a_side=ps.a_side,
+                    b_side=ps.b_side,
+                    overwrite=overwrite,
+                    bank_dir=cv_nodes.PROMPT_BANK_DIR,
+                )
+            n_saved_pairs = len(ps.pairs) if "ps" in locals() else len(parsed.get("pairs", []))
             return (
                 200,
                 "application/json",
                 json.dumps(
                     {
                         "ok": True,
+                        "name": name,
+                        "toml": _display_path(saved_toml),
                         "saved_toml": _display_path(saved_toml),
+                        "pairs": n_saved_pairs,
                         "test_prompt_file": _display_path(tp_out) if tp_out and tp_out.is_file() else None,
                     }
                 ),
@@ -2658,13 +4094,33 @@ def handle_ui_request(
         no_lora = bool(req.get("no_lora", False))
         overwrite = bool(req.get("overwrite", True))
         include_encoder = bool(req.get("include_encoder", True))
+        unit_mean = bool(req.get("unit_mean", False))
+        hold_words = str(req.get("hold_words", "") or "").strip()
+        hold_alpha = float(req.get("hold_alpha", 1.0))
+        hold_vectors = req.get("hold_vectors") or []
+        target_prompt = str(req.get("target_prompt", "") or "").strip()
+        target_weight = float(req.get("target_weight", 2.5))
+        rows_in = req.get("rows")
         try:
             import contextlib
             import io
 
             saved_toml: Path | None = None
             compiled_ps: cv.PairSet | None = None
-            if _is_markdown_pairs_text(text):
+            if isinstance(rows_in, list) and rows_in:
+                compiled_ps = _build_pairset_from_ui_rows(
+                    rows_in,
+                    holds=req.get("holds"),
+                    name=name,
+                    slot=slot,
+                    mode=mode,
+                    frame=frame,
+                    target_prompt=target_prompt,
+                    target_weight=target_weight,
+                )
+                if not name:
+                    name = compiled_ps.name
+            elif _is_markdown_pairs_text(text):
                 if not name:
                     return 400, "application/json", json.dumps({"ok": False, "error": "vector name is required"})
                 parsed = cv.parse_markdown_pairs(text)
@@ -2701,9 +4157,14 @@ def handle_ui_request(
                         bank_dir=cv_nodes.PROMPT_BANK_DIR,
                     )
             else:
-                spec_hdr = (f"name: {name}\n" if name else "") + f"slot: {slot}\nmode: {mode}\n"
-                spec = pair_compiler.parse_short_contrast_spec(spec_hdr + text)
-                compiled_ps = spec["pair_set"]
+                compiled_ps = _compile_words_or_spec_to_pairset(
+                    text,
+                    name=name or None,
+                    slot=slot,
+                    mode=mode,
+                    target_prompt=target_prompt,
+                    target_weight=target_weight,
+                )
                 if not name:
                     name = compiled_ps.name
 
@@ -2721,6 +4182,15 @@ def handle_ui_request(
             ]
             if no_lora:
                 argv.append("--no-lora")
+            if unit_mean:
+                argv.append("--unit-mean")
+            if hold_words:
+                argv.extend(["--hold-words", hold_words, "--hold-alpha", str(hold_alpha)])
+            for hv in hold_vectors:
+                if str(hv).strip():
+                    argv.extend(["--hold", str(hv).strip()])
+            if target_prompt and saved_toml is not None:
+                argv.extend(["--target-prompt", target_prompt, "--target-weight", str(target_weight)])
             if include_encoder:
                 argv.append("--include-encoder")
             else:
@@ -2731,12 +4201,15 @@ def handle_ui_request(
             if compiled_ps is not None:
                 b_args._compiled_pair_set = compiled_ps
             rows_out: list[dict[str, Any]] = []
+            build_cache: dict[str, Any] = {}
             b_args._summary_rows_out = rows_out
+            b_args._build_cache_out = build_cache
             b_args._clip_override = state.get_clip(b_args.encoder, b_args.device)
             b_args._refiner_cache = state._refiner_cache
             buf_out = io.StringIO()
             with contextlib.redirect_stdout(buf_out):
                 cmd_build(b_args)
+            state.last_build_cache = build_cache
             return (
                 200,
                 "application/json",
@@ -2753,7 +4226,146 @@ def handle_ui_request(
         except (ValueError, FileExistsError) as exc:
             return 400, "application/json", json.dumps({"ok": False, "error": str(exc)})
 
-    if method == "POST" and clean_path == "/api/j-lens":
+    if method == "POST" and clean_path == "/api/repool":
+        try:
+            res = _repool_cached_build(state, req)
+            return 200, "application/json", json.dumps(res)
+        except Exception as exc:
+            return 400, "application/json", json.dumps({"ok": False, "error": str(exc)})
+
+    if method == "POST" and clean_path == "/api/sculpt":
+        try:
+            steps = req.get("steps")
+            if not isinstance(steps, list) or not steps:
+                return 400, "application/json", json.dumps({"ok": False, "error": "missing 'steps' recipe list"})
+            name = str(req.get("output_name") or req.get("name") or "sculpted_vector").strip()
+            fams_req = str(req.get("families", "both") or "both").lower()
+            target_fams = ["fl2va", "ref2va"] if fams_req in ("both", "auto") else [fams_req]
+            hold_words = str(req.get("hold_words", "") or "").strip() or None
+            hold_alpha = float(req.get("hold_alpha", 1.0))
+            prompt_req = str(req.get("prompt", "") or "").strip() or None
+            overwrite_req = bool(req.get("overwrite", True))
+            saved_rows: list[dict[str, Any]] = []
+            for tfam in target_fams:
+                r = _compose_and_save_sculpted_vector(
+                    steps,
+                    name=name,
+                    family=tfam,
+                    hold_words=hold_words,
+                    hold_alpha=hold_alpha,
+                    prompt=prompt_req,
+                    out_dir=state.vec_dir,
+                    overwrite=overwrite_req,
+                )
+                saved_rows.append(
+                    {
+                        "file": r["file"],
+                        "family": r["family"],
+                        "raw_norm": r["raw_norm"],
+                        "net_norm": r["raw_norm"],
+                        "vector_norm": r["raw_norm"],
+                        "rec_strength": r["rec_strength"],
+                        "j_lens": r["j_lens"],
+                    }
+                )
+            return (
+                200,
+                "application/json",
+                json.dumps(
+                    {
+                        "ok": True,
+                        "built": saved_rows,
+                        "saved": saved_rows,
+                        "vectors": _list_ui_vectors(state.vec_dir),
+                    }
+                ),
+            )
+        except Exception as exc:
+            return 400, "application/json", json.dumps({"ok": False, "error": str(exc)})
+
+    if method == "POST" and clean_path == "/api/prompt-meter":
+        try:
+            vec_arg = str(req.get("vector", "") or "").strip()
+            prompt_arg = str(req.get("prompt", "") or "").strip()
+            pooling_arg = str(req.get("pooling", "scene_text") or "scene_text")
+            if not vec_arg or not prompt_arg:
+                return 400, "application/json", json.dumps({"ok": False, "error": "both 'vector' and 'prompt' are required"})
+            res = _meter_prompt_tokens(
+                state,
+                vector_arg=vec_arg,
+                prompt_arg=prompt_arg,
+                pooling=pooling_arg,
+            )
+            return 200, "application/json", json.dumps(res)
+        except Exception as exc:
+            return 400, "application/json", json.dumps({"ok": False, "error": str(exc)})
+
+    if method == "POST" and clean_path == "/api/build-media":
+        try:
+            import contextlib
+            import io
+
+            img_a = str(req.get("image_a", "") or "").strip()
+            img_b = str(req.get("image_b", "") or "").strip()
+            out_name = str(req.get("output_name", "") or "media_contrast").strip()
+            pooling = str(req.get("pooling", "scene_text") or "scene_text")
+            short_edge = int(req.get("short_edge", 512))
+            scene_prompt = str(req.get("scene_prompt", "") or "").strip()
+            hold_words = str(req.get("hold_words", "") or "").strip()
+            hold_alpha = float(req.get("hold_alpha", 1.0))
+            if not img_a or not img_b:
+                return 400, "application/json", json.dumps({"ok": False, "error": "both 'image_a' and 'image_b' are required"})
+            argv = [
+                "make-media",
+                "--image-a",
+                img_a,
+                "--image-b",
+                img_b,
+                "--output-name",
+                out_name,
+                "--pooling",
+                pooling,
+                "--short-edge",
+                str(short_edge),
+                "--out-dir",
+                str(state.vec_dir),
+                "--overwrite",
+            ]
+            if scene_prompt:
+                argv.extend(["--scene-prompt", scene_prompt])
+            if hold_words:
+                argv.extend(["--hold-words", hold_words, "--hold-alpha", str(hold_alpha)])
+            m_args = build_parser().parse_args(argv)
+            m_args._clip_override = state.get_clip(m_args.encoder, m_args.device)
+            buf_out = io.StringIO()
+            with contextlib.redirect_stdout(buf_out):
+                cmd_make_media(m_args)
+            vec_list_after = _list_ui_vectors(state.vec_dir)
+            built_media = [
+                {
+                    "file": v["file"],
+                    "grid": f"{short_edge}px (32-px M-RoPE)",
+                    "vector_norm": v.get("raw_norm", 0.0),
+                }
+                for v in vec_list_after
+                if v["file"].startswith(f"{out_name}__")
+            ]
+            return (
+                200,
+                "application/json",
+                json.dumps(
+                    {
+                        "ok": True,
+                        "built": built_media,
+                        "vectors": vec_list_after,
+                        "log": buf_out.getvalue(),
+                    }
+                ),
+            )
+        except Exception as exc:
+            return 400, "application/json", json.dumps({"ok": False, "error": str(exc)})
+
+    if method == "POST" and clean_path in ("/api/j-lens", "/api/build-words"):
         try:
             if not j_lens.bundle_available():
                 return (
@@ -2761,14 +4373,14 @@ def handle_ui_request(
                     "application/json",
                     json.dumps({"ok": False, "error": "J-Lens bundle models/j_lens/j_lens_h3.safetensors not found"}),
                 )
-            from_words = str(req.get("from_words", "") or "").strip()
+            from_words = str(req.get("from_words") or req.get("words") or "").strip()
             prompt_req = str(req.get("prompt", "") or "").strip() or None
             if from_words:
                 fam = str(req.get("family", "fl2va") or "fl2va")
                 families_req = str(req.get("families", "") or "").strip().lower()
                 against_w = str(req.get("against_words", "") or "").strip() or None
                 hold_w = str(req.get("hold_words", "") or "").strip() or None
-                alpha_w = float(req.get("alpha", 1.0))
+                alpha_w = float(req.get("alpha", req.get("hold_alpha", 1.0)))
                 synth = j_lens.synthesize_from_words(
                     from_words,
                     against_w,
@@ -2777,12 +4389,14 @@ def handle_ui_request(
                     alpha=alpha_w,
                     prompt=prompt_req,
                 )
-                save_name = str(req.get("save_name", "") or "").strip()
-                if not save_name and bool(req.get("save", False)):
+                save_name = str(req.get("save_name") or req.get("name") or "").strip()
+                should_save = bool(req.get("save", False)) or clean_path == "/api/build-words" or bool(save_name)
+                if not save_name and should_save:
                     save_name = "_".join(re.findall(r"[a-z0-9]+", from_words.lower())[:4]) or "word_vector"
                 saved_file = None
                 saved_files: list[str] = []
-                if save_name:
+                built_words: list[dict[str, Any]] = []
+                if should_save and save_name:
                     target_fams = (
                         ["fl2va", "ref2va"]
                         if families_req in ("both", "auto")
@@ -2805,25 +4419,42 @@ def handle_ui_request(
                         fname = cv.default_vector_filename(save_name, tfam, pooling="diff_span", loras=loras_meta)
                         saved_path = j_lens.save_synthesized_vector(state.vec_dir / fname, s_fam, name=save_name)
                         saved_files.append(saved_path.name)
+                        built_words.append(
+                            {
+                                "file": saved_path.name,
+                                "family": tfam,
+                                "readout": s_fam["readout"],
+                                "readiness": s_fam.get("readiness") or s_fam["readout"].get("readiness"),
+                                "prompt_coupling": s_fam.get("prompt_coupling") or s_fam["readout"].get("prompt_coupling"),
+                            }
+                        )
                     if saved_files:
                         saved_file = saved_files[0]
+                rep_words = {
+                    "family": synth["family"],
+                    "pos_words_matched": synth["pos_words_matched"],
+                    "pos_matched": synth["pos_words_matched"],
+                    "neg_words_matched": synth["neg_words_matched"],
+                    "hold_words": synth["hold_words"],
+                    "hold_matched": synth["hold_words"],
+                    "alpha": synth["alpha"],
+                    "name": save_name or None,
+                    "save_name": save_name or None,
+                    "saved_file": saved_file,
+                    "saved_files": saved_files,
+                    "built": built_words,
+                    "readout": synth["readout"],
+                    "readiness": synth.get("readiness") or synth["readout"].get("readiness"),
+                    "prompt_coupling": synth.get("prompt_coupling") or synth["readout"].get("prompt_coupling"),
+                }
                 return (
                     200,
                     "application/json",
                     json.dumps(
                         {
                             "ok": True,
-                            "family": synth["family"],
-                            "pos_words_matched": synth["pos_words_matched"],
-                            "neg_words_matched": synth["neg_words_matched"],
-                            "hold_words": synth["hold_words"],
-                            "alpha": synth["alpha"],
-                            "save_name": save_name or None,
-                            "saved_file": saved_file,
-                            "saved_files": saved_files,
-                            "readout": synth["readout"],
-                            "readiness": synth.get("readiness") or synth["readout"].get("readiness"),
-                            "prompt_coupling": synth.get("prompt_coupling") or synth["readout"].get("prompt_coupling"),
+                            **rep_words,
+                            "report": rep_words,
                             "vectors": _list_ui_vectors(state.vec_dir) if saved_files else None,
                         }
                     ),
@@ -2842,8 +4473,18 @@ def handle_ui_request(
                             "strength": float(st.get("strength", 1.0)),
                         }
                     )
-                rep = j_lens.decode_recipe(resolved_steps, family=str(req.get("family", "fl2va") or "fl2va"))
-                return 200, "application/json", json.dumps({"ok": True, **rep})
+                rep = j_lens.decode_recipe(
+                    resolved_steps,
+                    family=str(req.get("family", "fl2va") or "fl2va"),
+                    hold_words=str(req.get("hold_words", "") or "").strip() or None,
+                    alpha=float(req.get("alpha", req.get("hold_alpha", 1.0))),
+                    prompt=prompt_req,
+                )
+                rep_out = {
+                    **rep,
+                    "net_norm": rep.get("norm_after_holds", rep.get("norm_before_holds", 0.0)),
+                }
+                return 200, "application/json", json.dumps({"ok": True, **rep_out, "report": rep_out})
 
             vec_name = str(req.get("vector", "") or "").strip()
             if not vec_name:
@@ -2862,10 +4503,15 @@ def handle_ui_request(
                 v_path,
                 holds=hold_paths if hold_paths else None,
                 hold_words=str(req.get("hold_words", "") or "").strip() or None,
-                alpha=float(req.get("alpha", 1.0)),
+                alpha=float(req.get("alpha", req.get("hold_alpha", 1.0))),
                 prompt=prompt_req,
             )
-            return 200, "application/json", json.dumps({"ok": True, **rep})
+            rep_out = {
+                **rep,
+                "readout": rep.get("post_refiner") or rep.get("readout"),
+                "norm": rep.get("norm_after_holds", rep.get("norm_before_holds", 0.0)),
+            }
+            return 200, "application/json", json.dumps({"ok": True, **rep_out, "report": rep_out})
         except Exception as exc:
             return 400, "application/json", json.dumps({"ok": False, "error": str(exc)})
 
@@ -2929,6 +4575,73 @@ def cmd_ui(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_sculpt(args: argparse.Namespace) -> int:
+    """Compose one or more control vectors (`add`, `add_norm_matched`, `hold`) + optional `--hold-words` (`--hold-alpha`)
+    into a Ready-to-Render `.safetensors` + `.md` sidecar on CPU in `< 5 ms`.
+    """
+    t0 = time.perf_counter()
+    vecs = list(args.vectors or ())
+    if not vecs:
+        raise ValueError("at least one input vector is required for 'sculpt'")
+    raw_modes = [m.strip() for m in str(args.modes or "").split(",") if m.strip()]
+    raw_strengths = [float(s.strip()) for s in str(args.strengths or "").split(",") if s.strip()]
+
+    steps: list[dict[str, Any]] = []
+    for idx, v_spec in enumerate(vecs):
+        m_val = raw_modes[idx] if idx < len(raw_modes) else (raw_modes[-1] if raw_modes else "add")
+        s_val = raw_strengths[idx] if idx < len(raw_strengths) else (raw_strengths[-1] if raw_strengths else 1.0)
+        steps.append({"vector": v_spec, "mode": m_val, "strength": s_val})
+    for h_spec in (getattr(args, "hold", None) or ()):
+        if str(h_spec).strip():
+            steps.append(
+                {
+                    "vector": str(h_spec).strip(),
+                    "mode": "hold",
+                    "strength": float(getattr(args, "hold_alpha", 1.0)),
+                }
+            )
+
+    stem = (getattr(args, "output_name", None) or getattr(args, "name", None) or "").strip()
+    if not stem:
+        first_stem = Path(str(vecs[0])).stem.split("__")[0]
+        stem = f"{first_stem}_sculpted"
+
+    fam_arg = str(getattr(args, "families", "both") or "both").lower()
+    target_fams = ["fl2va", "ref2va"] if fam_arg in ("both", "auto") else [fam_arg]
+    out_dir = Path(args.out_dir) if getattr(args, "out_dir", None) else None
+    hold_words = str(getattr(args, "hold_words", "") or "").strip() or None
+    hold_alpha = float(getattr(args, "hold_alpha", 1.0))
+    prompt_arg = str(getattr(args, "prompt", "") or "").strip() or None
+
+    saved_rows: list[dict[str, Any]] = []
+    for fam in target_fams:
+        r = _compose_and_save_sculpted_vector(
+            steps,
+            name=stem,
+            family=fam,
+            hold_words=hold_words,
+            hold_alpha=hold_alpha,
+            prompt=prompt_arg,
+            out_dir=out_dir,
+            overwrite=bool(getattr(args, "overwrite", True)),
+        )
+        saved_rows.append(r)
+
+    elapsed_ms = (time.perf_counter() - t0) * 1000.0
+    print(f"=== Sculpted {len(saved_rows)} Control Vector File(s) in {elapsed_ms:.1f} ms on CPU ===")
+    for row in saved_rows:
+        print(
+            f"  * {row['file']}\n"
+            f"      family={row['family']}  raw_norm={row['raw_norm']:.2f}  "
+            f"recommended strength: {row['rec_strength']}"
+        )
+        jl = row.get("j_lens") or {}
+        if jl.get("pos_summary"):
+            print(f"      j_lens (+): {jl['pos_summary']}")
+            print(f"      j_lens (-): {jl['neg_summary']}")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description=__doc__)
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -2954,12 +4667,25 @@ def build_parser() -> argparse.ArgumentParser:
     pb.add_argument(
         "--words",
         default="",
-        help="Simple words, short phrase, or 'pole_a -> pole_b' contrast to compile into 10 canonical H3 scene pairs in memory (zero .toml file needed)",
+        help="Simple words, short phrase, or 'pole_a -> pole_b' contrast (supports ';' or newline multi-clause, 'soundscape:', and 'hold:' lines) to compile into 10 canonical H3 scene pairs in memory",
     )
     pb.add_argument(
         "--slot",
         default="auto",
         help="Structural H3 slot for --words ('auto', 'opening_framing', 'subject_behavior', 'interpersonal_dynamics', 'camera_motion', 'speech_delivery', 'soundscape')",
+    )
+    pb.add_argument(
+        "--target-prompt",
+        dest="target_prompt",
+        default="",
+        help="Optional target H3 scene prompt (bank id, file path, or text) to compile as Pair 0 at --target-weight alongside 9 canonical frames",
+    )
+    pb.add_argument(
+        "--target-weight",
+        dest="target_weight",
+        type=float,
+        default=2.5,
+        help="Weight for Pair 0 when --target-prompt is passed (default: 2.5)",
     )
     pb.add_argument(
         "--placebo",
@@ -2985,17 +4711,23 @@ def build_parser() -> argparse.ArgumentParser:
         help="Optional negative words when using --from-words (defaults to neutral baseline words)",
     )
     pb.add_argument(
+        "--hold",
+        action="append",
+        default=None,
+        help="Optional .safetensors control vector(s) to project out (at --hold-alpha) across any build mode",
+    )
+    pb.add_argument(
         "--hold-words",
         dest="hold_words",
         default="",
-        help="Optional nuisance words to project out when using --from-words",
+        help="Optional nuisance words to project out on CPU (at --hold-alpha) across any build mode",
     )
     pb.add_argument(
         "--hold-alpha",
         dest="hold_alpha",
         type=float,
         default=1.0,
-        help="Soft or over-projected hold attenuation alpha in [0.0, 2.0] when using --hold-words (default: 1.0)",
+        help="Soft or over-projected hold attenuation alpha in [0.0, 2.0] when using --hold or --hold-words (default: 1.0)",
     )
     pb.add_argument(
         "--prompt",
@@ -3066,6 +4798,11 @@ def build_parser() -> argparse.ArgumentParser:
     pm.add_argument("pairs", nargs="?", default=None, help="Pair TOML file path or stem under prompt_bank/control_vectors/ (omit when using --words)")
     pm.add_argument("--words", default="", help="Simple words or 'pole_a -> pole_b' contrast to compile into 10 canonical H3 pairs in memory")
     pm.add_argument("--slot", default="auto", help="Structural H3 slot for --words ('auto' or one of the 6 canonical slots)")
+    pm.add_argument("--target-prompt", dest="target_prompt", default="", help="Optional target H3 scene prompt to compile as Pair 0")
+    pm.add_argument("--target-weight", dest="target_weight", type=float, default=2.5, help="Weight for Pair 0 when --target-prompt is passed")
+    pm.add_argument("--hold", action="append", default=None, help="Optional .safetensors vector(s) to project out")
+    pm.add_argument("--hold-words", dest="hold_words", default="", help="Optional nuisance words to project out on CPU")
+    pm.add_argument("--hold-alpha", dest="hold_alpha", type=float, default=1.0, help="Attenuation alpha in [0.0, 2.0] for --hold / --hold-words")
     pm.add_argument("--pooling", choices=cv.VALID_POOLING, default="diff_span")
     pm.add_argument("--unit-mean", dest="unit_mean", action="store_true", help="Average unit-normalized pair directions")
     pm.add_argument("--unet", default=None, help="Diffusion checkpoint filename")
@@ -3093,12 +4830,51 @@ def build_parser() -> argparse.ArgumentParser:
     pmm.add_argument("--pooling", choices=cv.VALID_MEDIA_POOLING, default="scene_text")
     pmm.add_argument("--short-edge", type=int, default=512, help="Target shorter edge in pixels (snapped to 32)")
     pmm.add_argument("--scene-prompt", default="", help="Optional neutral H3 ref2va scene prompt")
+    pmm.add_argument("--hold", action="append", default=None, help="Optional .safetensors vector(s) to project out")
+    pmm.add_argument("--hold-words", dest="hold_words", default="", help="Optional nuisance words to project out on CPU")
+    pmm.add_argument("--hold-alpha", dest="hold_alpha", type=float, default=1.0, help="Attenuation alpha in [0.0, 2.0] for --hold / --hold-words")
     pmm.add_argument("--unet", default=None, help="Diffusion checkpoint filename")
     pmm.add_argument("--encoder", default=None, help="Text encoder checkpoint filename")
     pmm.add_argument("--lora", action="append", default=None, help="LoRA file[:strength]")
     pmm.add_argument("--device", default="default")
     pmm.add_argument("--out-dir", dest="out_dir", default=None, help="Optional output directory")
     pmm.add_argument("--overwrite", action="store_true", help="Overwrite an existing vector file")
+
+    psculpt = sub.add_parser(
+        "sculpt",
+        help="Compose multi-vector recipes (add, add_norm_matched, hold) + --hold-words (--hold-alpha) into Ready-to-Render .safetensors files in <5 ms on CPU",
+    )
+    psculpt.add_argument("vectors", nargs="+", help="One or more .safetensors vector files or stems to compose")
+    psculpt.add_argument(
+        "--modes",
+        default="add",
+        help="Comma-separated modes matching 'vectors' ('add', 'add_norm_matched', 'hold'; default: 'add')",
+    )
+    psculpt.add_argument(
+        "--strengths",
+        default="1.0",
+        help="Comma-separated strengths (or hold alphas in [0.0, 2.0]) matching 'vectors' (default: '1.0')",
+    )
+    psculpt.add_argument("--hold", action="append", default=None, help="Additional .safetensors vector(s) to project out (`mode = 'hold'`)")
+    psculpt.add_argument("--hold-words", dest="hold_words", default="", help="Optional nuisance words to project out on CPU")
+    psculpt.add_argument(
+        "--hold-alpha",
+        dest="hold_alpha",
+        type=float,
+        default=1.0,
+        help="Attenuation alpha in [0.0, 2.0] for --hold and --hold-words (default: 1.0)",
+    )
+    psculpt.add_argument("--prompt", default="", help="Optional target H3 scene prompt for prompt-coupling readout")
+    psculpt.add_argument("--name", default=None, help="Output vector stem")
+    psculpt.add_argument("--output-name", dest="output_name", default="", help="Output vector stem override")
+    psculpt.add_argument(
+        "--families",
+        choices=("both", "fl2va", "ref2va", "auto"),
+        default="both",
+        help="Which H3 model families to write (default: 'both' writes fl2va and ref2va)",
+    )
+    psculpt.add_argument("--out-dir", dest="out_dir", default=None, help="Optional output directory")
+    psculpt.add_argument("--overwrite", action="store_true", default=True, help="Overwrite existing output files (default: True)")
 
     pi = sub.add_parser("inspect", help="Inspect a control vector file and optionally meter prompts")
     pi.add_argument("vector", help="Path or filename in models/control_vectors/")
@@ -3222,6 +4998,8 @@ def main(argv: list[str] | None = None) -> int:
             return cmd_ui(args)
         if args.cmd == "words":
             return cmd_words(args)
+        if args.cmd == "sculpt":
+            return cmd_sculpt(args)
         if args.cmd == "build":
             return cmd_build(args)
         if args.cmd in ("from-md", "import-md"):

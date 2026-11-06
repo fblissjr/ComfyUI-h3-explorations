@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -13,81 +13,72 @@
     --text: #e6edf3;
     --muted: #8b949e;
     --accent: #58a6ff;
-    --accent-emphasis: #1f6feb;
+    --accent-hover: #79c0ff;
     --green: #3fb950;
-    --green-bg: rgba(46, 160, 67, 0.18);
-    --red: #f85149;
-    --red-bg: rgba(248, 81, 73, 0.18);
+    --green-bg: rgba(63, 185, 80, 0.14);
     --amber: #d29922;
-    --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    --amber-bg: rgba(210, 153, 34, 0.14);
+    --red: #f85149;
+    --red-bg: rgba(248, 81, 73, 0.14);
+    --purple: #bc8cff;
+    --purple-bg: rgba(188, 140, 255, 0.14);
+    --code-bg: #090d13;
   }
   * { box-sizing: border-box; }
   body {
     margin: 0;
     background: var(--bg);
     color: var(--text);
-    font-family: var(--font-sans);
-    font-size: 14px;
-    line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 13px;
+    line-height: 1.45;
   }
   header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
-    padding: 12px 20px;
+    padding: 10px 18px;
     background: var(--panel);
     border-bottom: 1px solid var(--border);
     position: sticky;
     top: 0;
-    z-index: 20;
-    flex-wrap: wrap;
+    z-index: 30;
   }
-  .brand {
+  header h1 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
     display: flex;
     align-items: center;
     gap: 10px;
-    font-weight: 600;
-    font-size: 16px;
   }
-  .status-pill {
-    font-size: 12px;
-    font-weight: 500;
-    padding: 2px 10px;
+  .badge {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 7px;
     border-radius: 999px;
     background: rgba(88, 166, 255, 0.15);
     color: var(--accent);
     border: 1px solid rgba(88, 166, 255, 0.35);
   }
-  .status-pill.ok {
-    background: var(--green-bg);
-    color: var(--green);
-    border-color: rgba(63, 185, 80, 0.4);
-  }
-  .status-pill.err {
-    background: var(--red-bg);
-    color: var(--red);
-    border-color: rgba(248, 81, 73, 0.4);
-  }
+  .badge.green { background: var(--green-bg); color: var(--green); border-color: rgba(63, 185, 80, 0.4); }
+  .badge.amber { background: var(--amber-bg); color: var(--amber); border-color: rgba(210, 153, 34, 0.4); }
+  .badge.red { background: var(--red-bg); color: var(--red); border-color: rgba(248, 81, 73, 0.4); }
+  .badge.purple { background: var(--purple-bg); color: var(--purple); border-color: rgba(188, 140, 255, 0.4); }
   .header-actions {
     display: flex;
     align-items: center;
     gap: 8px;
-    flex-wrap: wrap;
-  }
-  button, select, input[type="text"] {
-    font-family: inherit;
-    font-size: 13px;
-    border-radius: 6px;
-    border: 1px solid var(--border);
-    background: var(--panel-alt);
-    color: var(--text);
-    padding: 6px 12px;
   }
   button {
-    cursor: pointer;
+    background: var(--panel-alt);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 6px 11px;
+    font-size: 12px;
     font-weight: 500;
+    cursor: pointer;
     transition: background 0.12s, border-color 0.12s;
   }
   button:hover:not(:disabled) {
@@ -95,563 +86,705 @@
     border-color: #484f58;
   }
   button:disabled {
-    opacity: 0.55;
+    opacity: 0.5;
     cursor: not-allowed;
   }
   button.primary {
-    background: var(--accent-emphasis);
+    background: #1f6feb;
     border-color: rgba(240, 246, 252, 0.1);
     color: #fff;
   }
-  button.primary:hover:not(:disabled) {
-    background: #388bfd;
+  button.primary:hover:not(:disabled) { background: #388bfd; }
+  button.success {
+    background: #238636;
+    border-color: rgba(240, 246, 252, 0.1);
+    color: #fff;
   }
+  button.success:hover:not(:disabled) { background: #2ea043; }
+  button.purple {
+    background: #6e40c9;
+    border-color: rgba(240, 246, 252, 0.1);
+    color: #fff;
+  }
+  button.purple:hover:not(:disabled) { background: #8957e5; }
   button.danger {
+    background: rgba(248, 81, 73, 0.12);
     color: var(--red);
-    border-color: rgba(248, 81, 73, 0.4);
+    border-color: rgba(248, 81, 73, 0.35);
   }
-  button.danger:hover:not(:disabled) {
-    background: var(--red-bg);
-  }
-  .workspace {
+  button.danger:hover:not(:disabled) { background: rgba(248, 81, 73, 0.22); }
+  .layout {
     display: grid;
-    grid-template-columns: minmax(420px, 46%) 1fr;
-    gap: 16px;
-    padding: 16px 20px;
-    max-width: 1800px;
-    margin: 0 auto;
+    grid-template-columns: 310px 1fr 480px;
+    min-height: calc(100vh - 49px);
   }
-  @media (max-width: 1100px) {
-    .workspace { grid-template-columns: 1fr; }
+  @media (max-width: 1360px) {
+    .layout { grid-template-columns: 1fr; }
+  }
+  .col {
+    border-right: 1px solid var(--border);
+    padding: 14px;
+    overflow-y: auto;
+    max-height: calc(100vh - 49px);
+  }
+  .col:last-child { border-right: none; }
+  h2 {
+    margin: 0 0 8px 0;
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
   }
   .card {
     background: var(--panel);
     border: 1px solid var(--border);
     border-radius: 8px;
-    padding: 14px 16px;
-    margin-bottom: 14px;
+    padding: 12px;
+    margin-bottom: 12px;
   }
-  .card-title {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    margin: 0 0 10px 0;
-    font-size: 14px;
-    font-weight: 600;
-  }
-  .subtext {
+  .sub {
     color: var(--muted);
     font-size: 12px;
+    margin-bottom: 8px;
   }
-  .form-row {
-    display: grid;
-    grid-template-columns: 1fr 130px;
-    gap: 10px;
-    margin-bottom: 10px;
-  }
-  .field label {
+  label {
     display: block;
-    font-size: 12px;
+    font-size: 11px;
+    font-weight: 600;
     color: var(--muted);
     margin-bottom: 4px;
   }
-  .field input[type="text"], .field select {
+  input[type="text"], input[type="number"], select, textarea {
     width: 100%;
-  }
-  textarea {
-    width: 100%;
-    background: #090d11;
+    background: var(--code-bg);
     color: var(--text);
     border: 1px solid var(--border);
     border-radius: 6px;
-    padding: 10px;
-    font-family: var(--font-mono);
-    font-size: 12.5px;
-    line-height: 1.45;
+    padding: 6px 8px;
+    font-size: 12px;
+    font-family: inherit;
+  }
+  textarea {
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
     resize: vertical;
   }
-  #md-input {
-    min-height: 360px;
+  input:focus, select:focus, textarea:focus {
+    outline: none;
+    border-color: var(--accent);
   }
-  #test-prompt-box {
-    min-height: 92px;
-  }
-  .options-grid {
+  .form-row {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    gap: 10px;
-    margin: 10px 0 12px 0;
-    padding: 10px;
-    background: var(--panel-alt);
-    border-radius: 6px;
-    border: 1px solid var(--border);
+    grid-template-columns: repeat(auto-fit, minmax(125px, 1fr));
+    gap: 8px;
+    margin-bottom: 8px;
   }
-  .check-group-title {
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: var(--muted);
-    margin-bottom: 6px;
-    font-weight: 600;
-  }
-  .check-item {
+  .btn-row {
     display: flex;
-    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 8px;
+  }
+  .stage-tabs {
+    display: flex;
     gap: 6px;
-    font-size: 12.5px;
-    margin-bottom: 4px;
+    margin-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 8px;
+  }
+  .stage-tab {
+    background: var(--code-bg);
+    color: var(--muted);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 5px 10px;
+    font-size: 11.5px;
+    font-weight: 600;
     cursor: pointer;
   }
-  .btn-bar {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-    align-items: center;
+  .stage-tab.active {
+    background: rgba(88, 166, 255, 0.16);
+    color: var(--accent);
+    border-color: var(--accent);
   }
-  .metrics-strip {
+  .list-item {
     display: flex;
-    gap: 10px;
-    flex-wrap: wrap;
-    margin-bottom: 12px;
-  }
-  .metric-box {
-    background: var(--panel-alt);
+    flex-direction: column;
+    gap: 3px;
+    padding: 8px 10px;
     border: 1px solid var(--border);
     border-radius: 6px;
-    padding: 8px 12px;
-    min-width: 125px;
+    margin-bottom: 6px;
+    background: var(--panel-alt);
+    cursor: pointer;
+    transition: border-color 0.12s;
   }
-  .metric-label {
+  .list-item:hover { border-color: var(--accent); }
+  .list-item-title {
+    font-weight: 600;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    word-break: break-all;
+  }
+  .list-item-meta {
     font-size: 11px;
     color: var(--muted);
   }
-  .metric-val {
-    font-family: var(--font-mono);
-    font-size: 14px;
-    font-weight: 600;
-    margin-top: 2px;
-  }
-  .pair-list {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    max-height: 540px;
-    overflow-y: auto;
-    padding-right: 4px;
-  }
   .pair-card {
-    background: var(--panel-alt);
     border: 1px solid var(--border);
     border-radius: 6px;
-    padding: 10px 12px;
+    padding: 8px 10px;
+    margin-bottom: 8px;
+    background: var(--code-bg);
   }
-  .pair-card.invalid {
-    border-color: var(--red);
-    background: rgba(248, 81, 73, 0.08);
-  }
+  .pair-card.valid { border-left: 3px solid var(--green); }
+  .pair-card.invalid { border-left: 3px solid var(--red); }
   .pair-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    gap: 8px;
-    margin-bottom: 6px;
-    flex-wrap: wrap;
-  }
-  .pair-badges {
-    display: flex;
-    gap: 6px;
-    flex-wrap: wrap;
-  }
-  .badge {
-    font-family: var(--font-mono);
     font-size: 11px;
-    padding: 1px 7px;
+    font-weight: 600;
+    margin-bottom: 5px;
+  }
+  .diff-line {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 11px;
+    padding: 3px 6px;
     border-radius: 4px;
-    background: #0d1117;
-    border: 1px solid var(--border);
-    color: var(--muted);
-  }
-  .badge.highlight {
-    color: var(--accent);
-    border-color: rgba(88, 166, 255, 0.35);
-  }
-  .diff-prose {
-    font-family: var(--font-mono);
-    font-size: 12px;
-    line-height: 1.5;
-    color: var(--muted);
+    margin-top: 3px;
+    white-space: pre-wrap;
     word-break: break-word;
   }
-  .span-a {
-    background: var(--red-bg);
-    color: #ffa198;
-    padding: 1px 5px;
-    border-radius: 4px;
-    text-decoration: line-through;
-    margin: 0 2px;
-  }
-  .span-b {
-    background: var(--green-bg);
-    color: #7ee787;
-    padding: 1px 5px;
-    border-radius: 4px;
-    font-weight: 600;
-    margin: 0 2px;
-  }
-  .err-banner {
-    color: var(--red);
-    font-family: var(--font-mono);
-    font-size: 12px;
-    margin-top: 4px;
-  }
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 12.5px;
-  }
-  th, td {
-    text-align: left;
-    padding: 7px 8px;
-    border-bottom: 1px solid var(--border);
-  }
-  th {
-    color: var(--muted);
-    font-weight: 600;
-    font-size: 11.5px;
-  }
-  td.mono {
-    font-family: var(--font-mono);
-  }
-  tr.new-row {
-    background: rgba(46, 160, 67, 0.12);
-  }
-  #build-log {
-    margin-top: 10px;
-    max-height: 180px;
-    overflow-y: auto;
-    background: #090d11;
-    border: 1px solid var(--border);
-    border-radius: 6px;
+  .diff-a { background: var(--red-bg); color: #ffa198; }
+  .diff-b { background: var(--green-bg); color: #7ee787; }
+  .status-banner {
     padding: 8px 10px;
-    font-family: var(--font-mono);
-    font-size: 11.5px;
-    white-space: pre-wrap;
+    border-radius: 6px;
+    font-size: 12px;
+    margin-bottom: 10px;
     display: none;
+    white-space: pre-wrap;
   }
-  .ab-grid {
+  .status-banner.ok { display: block; background: var(--green-bg); border: 1px solid rgba(63,185,80,0.4); color: #7ee787; }
+  .status-banner.err { display: block; background: var(--red-bg); border: 1px solid rgba(248,81,73,0.4); color: #ffa198; }
+  .status-banner.info { display: block; background: var(--amber-bg); border: 1px solid rgba(210,153,34,0.4); color: #e3b341; }
+  .video-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 10px;
-    margin-top: 10px;
+    gap: 8px;
   }
-  @media (max-width: 720px) {
-    .ab-grid { grid-template-columns: 1fr; }
-  }
-  .ab-pane {
-    background: var(--panel-alt);
+  .video-box {
+    background: var(--code-bg);
     border: 1px solid var(--border);
     border-radius: 6px;
-    padding: 8px;
+    padding: 6px;
   }
-  .ab-pane video {
+  video {
     width: 100%;
     border-radius: 4px;
     background: #000;
     display: block;
-    margin-top: 6px;
-    aspect-ratio: 3 / 2;
   }
-  .ab-controls {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-wrap: wrap;
-    margin-top: 10px;
-    padding-top: 8px;
-    border-top: 1px solid var(--border);
+  details summary {
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 12px;
+    color: var(--accent);
+    user-select: none;
   }
-  .ab-controls input[type="range"] {
-    flex: 1;
-    min-width: 140px;
+  .scene-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11.5px;
+  }
+  .scene-table th, .scene-table td {
+    border: 1px solid var(--border);
+    padding: 5px 6px;
+    vertical-align: top;
+  }
+  .scene-table th {
+    background: var(--panel-alt);
+    color: var(--muted);
+    font-weight: 600;
+    text-align: left;
+  }
+  .scene-row-disabled {
+    opacity: 0.45;
+  }
+  .scene-row-hold {
+    background: rgba(210, 153, 34, 0.08);
+  }
+  .cos-bar-wrap {
+    width: 68px;
+    height: 8px;
+    background: #21262d;
+    border-radius: 4px;
+    overflow: hidden;
+    margin-top: 3px;
+  }
+  .cos-bar-fill {
+    height: 100%;
+    background: var(--green);
+  }
+  .token-chip {
+    display: inline-block;
+    padding: 2px 6px;
+    margin: 2px;
+    border-radius: 4px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 11px;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    user-select: none;
+    transition: transform 0.08s;
+  }
+  .token-chip:hover {
+    transform: translateY(-1px);
+    border-color: var(--accent);
+  }
+  .token-chip.held {
+    text-decoration: line-through;
+    border-color: var(--amber);
+    box-shadow: 0 0 0 1px var(--amber);
   }
 </style>
 </head>
 <body>
 
 <header>
-  <div class="brand">
+  <h1>
     <span>MiniMax H3 Control Vector Studio</span>
-    <span id="status-pill" class="status-pill">Ready (CPU Tokenizer)</span>
-  </div>
+    <span class="badge">3-Stage Contextual Workbench</span>
+    <span class="badge green">Stage 1: 10-Scene &amp; Media Build</span>
+    <span class="badge purple">Stage 2: &lt;1 ms Sculpt &amp; Receptor Map</span>
+  </h1>
   <div class="header-actions">
-    <button id="btn-copy-sys" type="button" title="Copy Section 1 of 2026-11-05_control_vector_system_prompt.md">
-      1. Copy LLM System Prompt
-    </button>
-    <select id="select-existing-toml" title="Load an existing .toml file from prompt_bank/control_vectors/">
-      <option value="">Load existing .toml...</option>
-    </select>
-    <button id="btn-quit" type="button" class="danger" title="Stop this local Python UI server">
-      Quit Server
-    </button>
+    <button id="btn-copy-sysprompt" class="primary" title="Copy the complete H3 Control Vector LLM System Prompt to your clipboard">Copy LLM System Prompt</button>
+    <button id="btn-refresh" title="Reload .toml files, built vectors, and rendered clips">Refresh</button>
+    <button id="btn-quit" class="danger" title="Safely stop the Control Vector Studio server and free the port">Quit Studio</button>
   </div>
 </header>
 
-<main class="workspace">
-  <!-- Left Column: Input & Build Controls -->
-  <section>
+<div class="layout">
+  <!-- LEFT COLUMN: Stage 3 Library (.toml Concepts & Built .safetensors Vectors) -->
+  <div class="col">
+    <h2>
+      <span>Built Control Vectors</span>
+      <span id="vec-count" class="badge">0</span>
+    </h2>
+    <div class="sub">Click any built vector to inspect its J-Lens readout, load its pairs into the 10-Scene Table, or add it to the Stage 2 Recipe Sculptor.</div>
+    <div id="vector-list"></div>
+
+    <h2 style="margin-top:16px;">
+      <span>Pair-Set Bank (<code>.toml</code>)</span>
+      <span id="toml-count" class="badge">0</span>
+    </h2>
+    <div class="sub">Click a <code>.toml</code> concept to load its 10 scene pairs and holds into the Workbench.</div>
+    <div id="toml-list"></div>
+  </div>
+
+  <!-- MIDDLE COLUMN: Stage 1 Contextual Control-Vector Authoring & 10-Scene Diff Table -->
+  <div class="col">
+    <div id="status-banner" class="status-banner"></div>
+
     <div class="card">
-      <div class="card-title">
-        <span>2. Type Simple Words / Contrast (or Paste Markdown / Load `.toml`)</span>
-        <button id="btn-preview" type="button">Compile &amp; Preview Spans</button>
+      <h2>
+        <span>Stage 1 — Contextual Control-Vector Builder (<code>Qwen3-VL</code> + <code>TokenRefiner</code>)</span>
+        <span id="parse-badge" class="badge">Ready</span>
+      </h2>
+      <div class="sub">
+        <strong>Why Contextual 10-Pair Leads:</strong> Full 10-scene contrastive pairs through <code>Qwen3-VL</code> + <code>TokenRefiner</code> capture multi-word composition and self-attention context (<code>65%–75%</code> of variance lies outside unigram vocabulary rows). Use the <strong>10-Scene Clause-Diff Workbench</strong> or <strong>Media Contrast</strong> for primary vectors, and use <code>&lt; 1 ms</code> CPU Re-Pooling or <code>hold_words</code> to sculpt.
       </div>
+
+      <div class="stage-tabs">
+        <button type="button" class="stage-tab active" id="tab-btn-scenes" data-tab="scenes">1A. 10-Scene Clause-Diff Workbench</button>
+        <button type="button" class="stage-tab" id="tab-btn-media" data-tab="media">1B. Media Contrast (Pic A &rarr; Pic B)</button>
+        <button type="button" class="stage-tab" id="tab-btn-md" data-tab="md">1C. Markdown / .toml &amp; Quick Lexical Tint</button>
+      </div>
+
+      <!-- Shared Concept Metadata & Universal Hold Controls -->
       <div class="form-row">
-        <div class="field">
-          <label for="vec-name">Vector Name (`[a-z0-9_]+`, auto-filled from words if blank)</label>
-          <input id="vec-name" type="text" placeholder="e.g. erratic_handheld_camera_shake, booming_operatic_bellow">
+        <div>
+          <label for="vec-name">Concept Stem (<code>name</code>)</label>
+          <input type="text" id="vec-name" placeholder="e.g. handheld_urgency">
         </div>
-        <div class="field">
-          <label for="vec-slot">H3 Slot (for Simple Words)</label>
+        <div>
+          <label for="vec-slot">Clause Slot (Auto or Explicit)</label>
           <select id="vec-slot">
-            <option value="auto" selected>auto (infer from words)</option>
-            <option value="camera_motion">camera_motion</option>
-            <option value="subject_behavior">subject_behavior</option>
-            <option value="speech_delivery">speech_delivery</option>
-            <option value="soundscape">soundscape</option>
-            <option value="interpersonal_dynamics">interpersonal_dynamics (physics/room)</option>
-            <option value="opening_framing">opening_framing (look/lighting)</option>
+            <option value="auto" selected>auto (infer from keywords)</option>
+            <option value="opening_framing">opening_framing (camera / lens)</option>
+            <option value="lighting">lighting (grade / stock / weather)</option>
+            <option value="action">action (motion / pacing / physics)</option>
+            <option value="soundscape">soundscape (audio / room tone)</option>
           </select>
         </div>
-        <div class="field">
-          <label for="vec-mode">Scene Mode</label>
-          <select id="vec-mode">
-            <option value="t2va" selected>t2va (fl2va)</option>
-            <option value="ref2va">ref2va (&lt;Subject 1&gt;)</option>
-          </select>
-        </div>
-        <div class="field">
-          <label for="vec-frame">Prompt Frame</label>
+        <div>
+          <label for="vec-frame">Canonical Frame</label>
           <select id="vec-frame">
-            <option value="scene" selected>scene (3-section)</option>
-            <option value="bare">bare</option>
+            <option value="scene" selected>scene (tag == 1)</option>
+            <option value="dialogue">dialogue (spoken &lt;d&gt;)</option>
+          </select>
+        </div>
+        <div>
+          <label for="vec-mode">Prompt Mode</label>
+          <select id="vec-mode">
+            <option value="t2va" selected>t2va (Text-to-Video+Audio)</option>
+            <option value="ref2va">ref2va (Ref-to-Video+Audio)</option>
           </select>
         </div>
       </div>
+
       <div class="form-row">
-        <div class="field">
-          <label for="vec-against">Against Preset / Words (for `&lt; 2 ms` J-Lens Word Synthesis)</label>
-          <input id="vec-against" type="text" list="against-presets" placeholder="@neutral (default), @prompt_subject, @replace_human, or custom words">
-          <datalist id="against-presets">
-            <option value="@neutral">Default neutral words (recommended for weather/lighting/style)</option>
-            <option value="@prompt_subject">Auto-extract medium &amp; character from Target Scene Prompt</option>
-            <option value="@replace_human">Replace human/live-action subject (skeleton, puppet, clay, balloon, robot)</option>
-            <option value="@replace_live_action">Replace live-action camera medium (2D/cartoon/stop-motion)</option>
-            <option value="@replace_digital">Replace clean digital video (16mm, VHS, CCTV, thermal)</option>
-          </datalist>
+        <div>
+          <label for="vec-holds">Universal Hold Words (Orthogonal Scrub)</label>
+          <input type="text" id="vec-holds" placeholder="e.g. shaky, panic, screaming (scrubbed from any vector)">
         </div>
-        <div class="field">
-          <label for="vec-holds">Hold Words (orthogonal scrub)</label>
-          <input id="vec-holds" type="text" placeholder="e.g. shaky, blur">
+        <div>
+          <label for="hold-alpha-slider">Hold Alpha (<span id="hold-alpha-val">1.00</span> — 0=off, 1=orthogonal, &gt;1=over-subtract)</label>
+          <input type="range" id="hold-alpha-slider" min="0" max="2" step="0.05" value="1.0" style="width:100%; margin-top:4px;">
         </div>
-        <div class="field">
-          <label for="vec-prompt">Target Scene Prompt (for Receptor Scan &amp; `@prompt_subject`)</label>
-          <input id="vec-prompt" type="text" list="scene-prompts" placeholder="e.g. t2va_noodle_bar.txt, t2va_night_porter.txt, or paste prompt">
-          <datalist id="scene-prompts">
-            <option value="t2va_noodle_bar.txt">Late-night beef-noodle counter (male customer in raincoat)</option>
-            <option value="t2va_night_porter.txt">Hospital service lift (night porter in scrubs &amp; fleece)</option>
-            <option value="ref2va_ballroom.txt">Ballroom waltz (&lt;Subject 1&gt; dancer)</option>
-            <option value="fl2va_potter_wheel.txt">Potter at wheel (close-up hands &amp; clay)</option>
-          </datalist>
+        <div>
+          <label for="vec-prompt">Target Scene Prompt (Coupling &amp; 11th Anchor Row)</label>
+          <select id="vec-prompt">
+            <option value="prompt_bank/t2va_noodle_bar.txt" selected>t2va_noodle_bar.txt (Noodle Bar)</option>
+            <option value="prompt_bank/t2va_elevator_lift.txt">t2va_elevator_lift.txt (Elevator Lift)</option>
+            <option value="prompt_bank/t2va_forge_blacksmith.txt">t2va_forge_blacksmith.txt (Forge Blacksmith)</option>
+            <option value="prompt_bank/t2va_violin_maker.txt">t2va_violin_maker.txt (Violin Maker)</option>
+            <option value="prompt_bank/t2va_pottery_wheel.txt">t2va_pottery_wheel.txt (Pottery Wheel)</option>
+            <option value="prompt_bank/t2va_watchmaker_bench.txt">t2va_watchmaker_bench.txt (Watchmaker Bench)</option>
+            <option value="prompt_bank/t2va_glassblower_furnace.txt">t2va_glassblower_furnace.txt (Glassblower Furnace)</option>
+            <option value="prompt_bank/t2va_paper_marbling.txt">t2va_paper_marbling.txt (Paper Marbling)</option>
+            <option value="prompt_bank/t2va_tea_ceremony.txt">t2va_tea_ceremony.txt (Tea Ceremony)</option>
+            <option value="prompt_bank/t2va_printing_press.txt">t2va_printing_press.txt (Printing Press)</option>
+            <option value="prompt_bank/t2va_subway_platform.txt">t2va_subway_platform.txt (Subway Platform)</option>
+          </select>
         </div>
       </div>
-      <div class="btn-bar" style="margin-bottom:8px;">
-        <span class="subtext">Try `&lt; 2 ms` word presets:</span>
-        <button type="button" class="word-chip" data-words="blizzard, freezing, snow" data-against="" data-mode="t2va">Blizzard (`+5.17`)</button>
-        <button type="button" class="word-chip" data-words="medieval, knight, armor, castle" data-against="" data-mode="t2va">Medieval (`+4.75`)</button>
-        <button type="button" class="word-chip" data-words="disco, glitter, dancing" data-against="" data-mode="t2va">Disco (`+4.79`)</button>
-        <button type="button" class="word-chip" data-words="8-bit, led, steampunk" data-against="" data-mode="t2va">8-Bit Steampunk (`+3.27`)</button>
-        <button type="button" class="word-chip" data-words="skeleton, translucent, bones, skull" data-against="@replace_human" data-mode="t2va">Skeleton (`@replace_human`)</button>
-        <button type="button" class="word-chip" data-words="weightless zero gravity" data-against="" data-mode="t2va">Zero Gravity</button>
+
+      <div class="form-row">
+        <div>
+          <label for="vec-families">Target Checkpoints</label>
+          <select id="vec-families">
+            <option value="fl2va,ref2va" selected>Both: fl2va (T2V/I2V) + ref2va</option>
+            <option value="fl2va">fl2va only</option>
+            <option value="ref2va">ref2va only</option>
+          </select>
+        </div>
+        <div>
+          <label for="vec-pooling">Span Pooling</label>
+          <select id="vec-pooling">
+            <option value="diff_span" selected>diff_span (Exact multi-span diff)</option>
+            <option value="from_first_diff">from_first_diff (Diff to end)</option>
+            <option value="scene_text">scene_text (Full scene)</option>
+            <option value="diff_span,from_first_diff">Both diff_span + from_first_diff</option>
+          </select>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:4px; padding-top:14px;">
+          <label style="display:flex; align-items:center; gap:5px; cursor:pointer; margin:0; color:var(--text);">
+            <input type="checkbox" id="vec-overwrite" checked> Overwrite existing
+          </label>
+          <label style="display:flex; align-items:center; gap:5px; cursor:pointer; margin:0; color:var(--text);" title="Unit-normalize each pair's difference vector before averaging so long and short clauses contribute equally">
+            <input type="checkbox" id="unit-mean-chk"> Equalize pair norms (<code>unit_mean</code>)
+          </label>
+          <label style="display:flex; align-items:center; gap:5px; cursor:pointer; margin:0; color:var(--text);">
+            <input type="checkbox" id="vec-nolora"> Skip Pika LoRA
+          </label>
+        </div>
       </div>
-      <textarea id="md-input" spellcheck="false" placeholder="Type 3–5 words (e.g. 'blizzard, freezing, snow' or 'medieval, knight, armor, castle') for < 2 ms CPU J-Lens synthesis, OR paste full Markdown pairs..."></textarea>
+
+      <!-- TAB 1A: 10-SCENE CLAUSE-DIFF WORKBENCH -->
+      <div id="tab-pane-scenes">
+        <div style="background:var(--code-bg); border:1px solid var(--border); border-radius:6px; padding:10px; margin-bottom:10px;">
+          <div style="font-weight:600; font-size:12px; color:var(--accent); margin-bottom:6px;">
+            1. Expand Concept Clauses Across All 10 Canonical Scenes
+          </div>
+          <div class="form-row">
+            <div>
+              <label for="exp-pole-a">Pole A (Baseline Clause — leave blank for canonical default)</label>
+              <input type="text" id="exp-pole-a" placeholder="e.g. locked-off 50mm tripod framing">
+            </div>
+            <div>
+              <label for="exp-pole-b">Pole B (Steered Clause — required)</label>
+              <input type="text" id="exp-pole-b" placeholder="e.g. erratic handheld documentary zoom with sudden whip-pans">
+            </div>
+          </div>
+          <div class="form-row">
+            <div>
+              <label for="exp-sound-a">Soundscape Pole A (Optional)</label>
+              <input type="text" id="exp-sound-a" placeholder="Optional baseline audio clause">
+            </div>
+            <div>
+              <label for="exp-sound-b">Soundscape Pole B (Optional)</label>
+              <input type="text" id="exp-sound-b" placeholder="e.g. muffled microphone handling bumps and ragged breathing">
+            </div>
+          </div>
+          <div class="form-row">
+            <div>
+              <label for="exp-hold-a">Hold Pair Pole A (Optional Nuisance Baseline)</label>
+              <input type="text" id="exp-hold-a" placeholder="e.g. calm composed subject expression">
+            </div>
+            <div>
+              <label for="exp-hold-b">Hold Pair Pole B (Optional Nuisance to Scrub)</label>
+              <input type="text" id="exp-hold-b" placeholder="e.g. frantic panicked screaming expression">
+            </div>
+          </div>
+          <div class="btn-row" style="margin-top:4px;">
+            <button type="button" id="btn-expand-scenes" class="primary">Expand Across 10 Canonical Scenes</button>
+            <label style="display:flex; align-items:center; gap:5px; cursor:pointer; margin:0; color:var(--text);">
+              <input type="checkbox" id="exp-include-target"> Inject Target Scene Prompt as 11th Anchor Pair (2x weight)
+            </label>
+          </div>
+        </div>
+
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
+          <span style="font-weight:600; font-size:12px;">2. Interactive 10-Row Scene-Diff Table (<span id="scene-row-count">0</span> rows)</span>
+          <div style="display:flex; gap:6px;">
+            <button type="button" id="btn-add-scene-row" style="padding:3px 8px; font-size:11px;">+ Add Pair Row</button>
+            <button type="button" id="btn-build-rows" class="success">Build 10-Pair Vector (~8s GPU)</button>
+            <button type="button" id="btn-repool-rows" class="purple" title="Re-pool cached per-pair vectors on CPU in < 1 ms after toggling rows, moving rows to Hold, changing weights, or adjusting Hold Words / Alpha">Re-Pool &amp; Save (&lt; 1 ms CPU)</button>
+          </div>
+        </div>
+        <div class="sub">
+          Toggle any outlier scene off, check <strong>Hold</strong> to project that scene pair out as a nuisance direction, adjust per-row weights, or slide <strong>Hold Alpha</strong> and click <strong>Re-Pool &amp; Save (&lt; 1 ms CPU)</strong> to update <code>.safetensors</code> without re-running Qwen3-VL.
+        </div>
+        <div style="max-height:380px; overflow-y:auto; border:1px solid var(--border); border-radius:6px;">
+          <table class="scene-table">
+            <thead>
+              <tr>
+                <th style="width:42px;">Use</th>
+                <th style="width:46px;" title="Move this pair into [[hold]] orthogonal nuisance projection">Hold</th>
+                <th style="width:95px;">Scene / Wt</th>
+                <th>Pole A (Baseline) &amp; Pole B (Steered)</th>
+                <th style="width:78px;">Agreement</th>
+              </tr>
+            </thead>
+            <tbody id="scene-diff-tbody">
+              <tr><td colspan="5" class="sub" style="text-align:center; padding:14px;">Enter Pole B above and click <strong>Expand Across 10 Canonical Scenes</strong>, or load any <code>.toml</code> from the left bank.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- TAB 1B: MEDIA CONTRAST BUILDER -->
+      <div id="tab-pane-media" style="display:none;">
+        <div style="background:var(--code-bg); border:1px solid var(--border); border-radius:6px; padding:10px;">
+          <div style="font-weight:600; font-size:12px; color:var(--accent); margin-bottom:6px;">
+            Media Contrast Builder (<code>&lt;Picture A&gt; &rarr; &lt;Picture B&gt;</code> via Qwen3-VL Vision Patch Tokens)
+          </div>
+          <div class="sub">
+            Extracts a visual style/lighting/texture direction directly from two reference images or video frames resized to an identical 32-aligned Qwen3-VL grid, with optional <code>Hold Words</code> orthogonal scrubbing.
+          </div>
+          <div class="form-row">
+            <div>
+              <label for="media-image-a">Image A Path (Baseline Reference)</label>
+              <input type="text" id="media-image-a" placeholder="e.g. input/clean_frame.png">
+            </div>
+            <div>
+              <label for="media-image-b">Image B Path (Steered Target Style)</label>
+              <input type="text" id="media-image-b" placeholder="e.g. input/16mm_graded_frame.png">
+            </div>
+          </div>
+          <div class="form-row">
+            <div>
+              <label for="media-pooling">Media Span Pooling</label>
+              <select id="media-pooling">
+                <option value="scene_text" selected>scene_text (Vision-conditioned text tokens — default)</option>
+                <option value="vision_tokens">vision_tokens (Qwen3-VL vision patch rows)</option>
+                <option value="all_rows">all_rows (Vision + text rows combined)</option>
+              </select>
+            </div>
+            <div>
+              <label for="media-short-edge">Common Grid Short Edge (px)</label>
+              <input type="number" id="media-short-edge" value="448" min="64" max="1024" step="32">
+            </div>
+          </div>
+          <div style="margin-bottom:8px;">
+            <label for="media-scene-prompt">Optional Carrier Scene Prompt (leave empty for neutral default)</label>
+            <textarea id="media-scene-prompt" rows="2" placeholder="integrated_multimodal_description: [Shot 1] Follow the visual appearance, lighting, color palette, lens rendering, and surface texture of <Picture 1>.&#10;&#10;overall_soundscape: Natural ambient room tone."></textarea>
+          </div>
+          <div class="btn-row">
+            <button type="button" id="btn-build-media" class="success">Build Media Control Vector (.safetensors)</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 1C: MARKDOWN / .TOML & QUICK LEXICAL TINT -->
+      <div id="tab-pane-md" style="display:none;">
+        <div class="form-row">
+          <div>
+            <label for="vec-against">Unigram Against Words (for &lt;2ms Lexical Tint only)</label>
+            <select id="vec-against">
+              <option value="@neutral" selected>@neutral (clean modern baseline — default)</option>
+              <option value="@prompt_subject">@prompt_subject (auto-replace scene actors/nouns)</option>
+              <option value="@replace_human">@replace_human (human / person / actor / skin)</option>
+              <option value="none">none (raw uncentered words)</option>
+            </select>
+          </div>
+        </div>
+        <label for="md-input">
+          Words / Clause Spec (<code>pole_a -> pole_b</code>, <code>soundscape:</code>, <code>hold:</code>) <em>or</em> Full 10-Pair Markdown
+        </label>
+        <textarea id="md-input" rows="8" placeholder="Type words or a clause spec (e.g. 'steady tripod -> erratic handheld zoom; soundscape: quiet -> mic handling bumps; hold: calm -> panic') OR paste a 10-pair Markdown output from Claude / ChatGPT / Gemini..."></textarea>
+
+        <div class="btn-row">
+          <button id="btn-promote-scenes" class="primary" title="Expand these words/clauses or Markdown pairs into the 10-Scene Clause-Diff Table">Promote to 10-Scene Workbench</button>
+          <button id="btn-build" class="success" title="Compile 10 canonical scene pairs and run Qwen3-VL + TokenRefiner (~8s)">Build 10-Pair Vector (~8s)</button>
+          <button id="btn-preview" title="Lint pairs and preview token diff spans">Preview Spans</button>
+          <button id="btn-save-toml" title="Compile and save to prompt_bank/control_vectors/<name>.toml">Save .toml Only</button>
+          <button id="btn-build-words" title="Secondary tool: synthesize a unigram lexical tint in <2ms from the 24,912-word J-Lens matrix (0.52 cosine ceiling vs contextual diff_span)">Synthesize Unigram Lexical Tint (&lt; 2 ms)</button>
+        </div>
+
+        <details style="margin-top:10px;">
+          <summary>View / Edit Copyable LLM System Prompt</summary>
+          <div class="sub" style="margin-top:6px;">
+            Paste this system prompt into Claude, ChatGPT, or Gemini, then ask for any visual or audio concept (e.g., <em>"Give me a control vector for handheld 1990s camcorder urgency"</em>).
+          </div>
+          <textarea id="sysprompt-box" rows="6" readonly></textarea>
+        </details>
+      </div>
     </div>
 
+    <!-- Live Span Diff & Build Report Preview -->
     <div class="card">
-      <div class="card-title">
-        <span>Extracted Test Scene Prompt (Paste into ComfyUI)</span>
-        <button id="btn-copy-test" type="button">Copy Test Prompt</button>
+      <h2>
+        <span>Pair Span Lint &amp; Token Diff Preview</span>
+        <span id="avg-tokens-badge" class="badge">diff_span: —</span>
+      </h2>
+      <div id="test-prompt-box" style="display:none; margin-bottom:10px;">
+        <label>Extracted Test Scene Prompt</label>
+        <textarea id="test-prompt-text" rows="2" readonly></textarea>
       </div>
-      <textarea id="test-prompt-box" readonly placeholder="When your Markdown includes ### Test Scene Prompt, it appears here automatically and saves to prompt_bank/control_vectors/<name>_test_prompt.txt"></textarea>
+      <div id="pairs-preview">
+        <div class="sub">Expand scenes or click <strong>Preview Spans</strong> to inspect the exact differing clauses and token counts across pairs.</div>
+      </div>
     </div>
+  </div>
 
+  <!-- RIGHT COLUMN: Stage 2 Subspace Sculptor, Prompt Receptor Heatmap, J-Lens & Stage 3 Video Player -->
+  <div class="col">
+    <!-- STAGE 2A: VISUAL PROMPT TOKEN RECEPTOR HEATMAP -->
     <div class="card">
-      <div class="card-title">
-        <span>3. Build `.safetensors` Control Vectors</span>
-        <span class="subtext">Does not require ComfyUI running</span>
+      <h2>
+        <span>Stage 2A — Visual Prompt Token Receptor Heatmap</span>
+        <span id="heatmap-mode-badge" class="badge">Click any token to Hold</span>
+      </h2>
+      <div class="sub">
+        Shows which tokens in your target prompt couple most strongly with the active vector. <strong>Green</strong> = high receptor coupling; <strong>Red/Amber</strong> = subject noun at risk of semantic hijack. <strong>Click any token chip</strong> to toggle it in <code>Hold Words</code> and scrub that axis in <code>&lt; 1 ms</code>!
       </div>
-      <div class="options-grid">
-        <div>
-          <div class="check-group-title">Model Families</div>
-          <label class="check-item"><input type="radio" name="families" value="both" checked> Both (`fl2va` + `ref2va`)</label>
-          <label class="check-item"><input type="radio" name="families" value="fl2va"> `fl2va` (`t2v`/`fl2v`/`i2v`)</label>
-          <label class="check-item"><input type="radio" name="families" value="ref2va"> `ref2va` (Subject Ref)</label>
-        </div>
-        <div>
-          <div class="check-group-title">Pooling Modes</div>
-          <label class="check-item"><input type="checkbox" class="pool-cb" value="diff_span" checked> `diff_span` (0% shared tokens)</label>
-          <label class="check-item"><input type="checkbox" class="pool-cb" value="from_first_diff"> `from_first_diff` (`[first_diff:]`)</label>
-          <label class="check-item"><input type="checkbox" class="pool-cb" value="scene_text"> `scene_text` (all scene rows)</label>
-        </div>
-        <div>
-          <div class="check-group-title">Recipe Options</div>
-          <label class="check-item"><input type="checkbox" id="opt-pika" checked> Standard Pika H3 Flex LoRA</label>
-          <label class="check-item"><input type="checkbox" id="opt-overwrite" checked> Overwrite existing files</label>
-          <label class="check-item"><input type="checkbox" id="opt-encoder" checked> Save `vector.encoder` (5120-d)</label>
-        </div>
+      <div id="token-heatmap-box" style="background:var(--code-bg); border:1px solid var(--border); border-radius:6px; padding:8px; min-height:48px;">
+        <span class="sub">Select a vector or type words to see per-token receptor coupling across the target prompt.</span>
       </div>
-      <div class="btn-bar">
-        <button id="btn-build-words" type="button" class="primary" title="Synthesize .safetensors in < 2 ms on CPU via J-Lens (0 VRAM, no .toml required)">Instant Build from Words (`&lt; 2 ms` CPU, 0 VRAM)</button>
-        <button id="btn-build" type="button">Compile `.toml` &amp; Build 10-Pair Vector (`~8s`)</button>
-        <button id="btn-save-toml" type="button">Save `.toml` Only</button>
+      <div class="btn-row" style="margin-top:6px; justify-content:space-between; align-items:center;">
+        <span id="prompt-meter-summary" class="sub" style="margin:0;"></span>
+        <button type="button" id="btn-run-prompt-meter" title="Run exact 5376-d contextual Qwen3-VL + TokenRefiner per-token cosine metering on the target prompt (~0.4s GPU)">Run Contextual GPU Token Meter (~0.4s)</button>
       </div>
-      <pre id="build-log"></pre>
     </div>
-  </section>
 
-  <!-- Right Column: J-Lens Readiness, Pair Span Inspector & Built Vectors -->
-  <section>
+    <!-- STAGE 2B: < 1 MS SUBSPACE SCULPTOR & MULTI-VECTOR RECIPE COMPOSER -->
+    <div class="card">
+      <h2>
+        <span>Stage 2B — &lt; 1 ms Subspace Sculptor &amp; Recipe Composer</span>
+        <button type="button" id="btn-add-sculpt-step" style="padding:2px 8px; font-size:11px;">+ Add Vector Layer</button>
+      </h2>
+      <div class="sub">
+        Stack multiple library vectors (<code>add</code>, <code>add_norm_matched</code>, or <code>hold</code> orthogonal projection) + <code>hold_words</code>, preview the net J-Lens readout in <code>&lt; 2 ms</code>, and save the sculpted vector as a first-class <code>.safetensors</code> + <code>.md</code> sidecar.
+      </div>
+      <div id="sculpt-rows"></div>
+      <div class="form-row" style="margin-top:6px;">
+        <div>
+          <label for="sculpt-out-name">Sculpted Output Stem</label>
+          <input type="text" id="sculpt-out-name" placeholder="e.g. handheld_clean_sculpted">
+        </div>
+        <div>
+          <label for="sculpt-hold-words">Recipe Hold Words</label>
+          <input type="text" id="sculpt-hold-words" placeholder="e.g. panic, screaming">
+        </div>
+      </div>
+      <div class="btn-row">
+        <button type="button" id="btn-sculpt-preview" class="primary">Preview Recipe in J-Lens (&lt; 2 ms)</button>
+        <button type="button" id="btn-sculpt-save" class="purple">Save Sculpted Vector (.safetensors)</button>
+      </div>
+    </div>
+
+    <!-- J-LENS SEMANTIC READOUT PANEL -->
     <div class="card" id="jlens-card">
-      <div class="card-title">
-        <span>J-Lens Pre-Render Steerability &amp; Vocabulary Readout (`&lt; 2 ms` CPU)</span>
-        <span id="jlens-badge" class="status-pill">Type words or click J-Lens on any vector</span>
-      </div>
-      <div class="metrics-strip">
-        <div class="metric-box">
-          <div class="metric-label">Measured Basis</div>
-          <div id="jl-tier" class="metric-val">—</div>
-        </div>
-        <div class="metric-box">
-          <div class="metric-label">`top1_gain` (s=90)</div>
-          <div id="jl-top1" class="metric-val">—</div>
-        </div>
-        <div class="metric-box">
-          <div class="metric-label">`top3_mean` (s=90)</div>
-          <div id="jl-top3" class="metric-val">—</div>
-        </div>
-        <div class="metric-box">
-          <div class="metric-label">Refiner Pass (`v_enc`)</div>
-          <div id="jl-refpass" class="metric-val">—</div>
-        </div>
-        <div class="metric-box">
-          <div class="metric-label">Recommended Knob</div>
-          <div id="jl-rec" class="metric-val">—</div>
-        </div>
-      </div>
-      <div style="font-family:var(--font-mono);font-size:12px;line-height:1.55;background:var(--panel-alt);border:1px solid var(--border);border-radius:6px;padding:8px 10px;">
-        <div><strong style="color:var(--green);">+ve Boosted Words:</strong> <span id="jl-pos" class="subtext">—</span></div>
-        <div style="margin-top:4px;"><strong style="color:var(--red);">&minus;ve Suppressed Words:</strong> <span id="jl-neg" class="subtext">—</span></div>
-        <div id="jl-coupling-row" style="margin-top:4px;display:none;"><strong style="color:var(--accent);">Prompt Receptors &amp; Subject:</strong> <span id="jl-coupling" class="subtext">—</span></div>
-        <div id="jl-recs" style="margin-top:6px;color:#e3b341;white-space:pre-wrap;display:none;"></div>
-      </div>
-    </div>
-    <div class="card">
-      <div class="card-title">
-        <span>Live Contrastive Pair Diff &amp; Token-Span Inspector</span>
-        <span id="preview-summary" class="subtext">Paste Markdown or load a `.toml` to inspect pairs</span>
-      </div>
-      <div class="metrics-strip">
-        <div class="metric-box">
-          <div class="metric-label">Valid Pairs</div>
-          <div id="m-pairs" class="metric-val">—</div>
-        </div>
-        <div class="metric-box">
-          <div class="metric-label">Detected Mode</div>
-          <div id="m-mode" class="metric-val">—</div>
-        </div>
-        <div class="metric-box">
-          <div class="metric-label">Avg `diff_span` Tokens</div>
-          <div id="m-ds" class="metric-val">—</div>
-        </div>
-        <div class="metric-box">
-          <div class="metric-label">Avg `from_first_diff`</div>
-          <div id="m-ffd" class="metric-val">—</div>
-        </div>
-        <div class="metric-box">
-          <div class="metric-label">Avg `scene_text`</div>
-          <div id="m-scene" class="metric-val">—</div>
-        </div>
-      </div>
-      <div id="pair-list" class="pair-list"></div>
-    </div>
-
-    <div class="card">
-      <div class="card-title">
-        <span>Available `.safetensors` Control Vectors (`models/control_vectors/`)</span>
-        <span class="subtext">Click Copy to paste into `MiniMaxH3ApplyControlVectors`</span>
-      </div>
-      <div style="overflow-x:auto;">
-        <table>
-          <thead>
-            <tr>
-              <th>Vector `.safetensors` File</th>
-              <th>Family</th>
-              <th>Pooling</th>
-              <th>`raw_norm`</th>
-              <th>Pairwise Cos</th>
-              <th>Split-Half</th>
-              <th>ComfyUI `strength`</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody id="vectors-tbody"></tbody>
-        </table>
+      <h2>
+        <span>J-Lens Semantic Readout (24,912-Word Cloze Lens)</span>
+        <span id="jlens-badge" class="badge">Live</span>
+      </h2>
+      <div id="jlens-panel">
+        <div class="sub">Click any built vector on the left, preview a multi-vector recipe, or type words to see top pushed/pulled vocabulary, basis provenance, and steering readiness.</div>
       </div>
     </div>
 
+    <!-- STAGE 3: SYNCHRONIZED 24FPS A/B VIDEO PLAYER -->
     <div class="card">
-      <div class="card-title">
-        <span>4. Lockstep A/B Video Compare (`24 fps`)</span>
-        <span id="ab-time-readout" class="subtext">Frame 0 (0.00s)</span>
-      </div>
-      <div class="ab-grid">
-        <div class="ab-pane">
-          <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;">
-            <strong>Clip A (Baseline)</strong>
-            <input id="ab-file-a" type="file" accept="video/mp4,video/webm,video/quicktime" style="font-size:11.5px;max-width:210px;">
-          </div>
-          <video id="ab-vid-a" playsinline preload="metadata" loop muted></video>
+      <h2>
+        <span>Stage 3 — Synchronized A/B Video Player</span>
+        <span id="clip-count" class="badge">0 clips</span>
+      </h2>
+      <div class="form-row">
+        <div>
+          <label for="clip-left-select">Left Clip (A — Baseline)</label>
+          <select id="clip-left-select"><option value="">(no clips found)</option></select>
         </div>
-        <div class="ab-pane">
-          <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;">
-            <strong>Clip B (Steered)</strong>
-            <input id="ab-file-b" type="file" accept="video/mp4,video/webm,video/quicktime" style="font-size:11.5px;max-width:210px;">
-          </div>
-          <video id="ab-vid-b" playsinline preload="metadata" loop muted></video>
+        <div>
+          <label for="clip-right-select">Right Clip (B — Steered)</label>
+          <select id="clip-right-select"><option value="">(no clips found)</option></select>
         </div>
       </div>
-      <div class="ab-controls">
-        <button id="ab-btn-play" type="button" class="primary">Play / Pause</button>
-        <button id="ab-btn-prev" type="button" title="Step back 1 frame (-1/24s)">&larr; -1f</button>
-        <button id="ab-btn-next" type="button" title="Step forward 1 frame (+1/24s)">+1f &rarr;</button>
-        <input id="ab-scrub" type="range" min="0" max="5" step="0.0416667" value="0">
-        <select id="ab-audio-mode" title="Select which clip's audio track is audible">
-          <option value="mute" selected>Audio: Muted</option>
-          <option value="a">Audio: Clip A</option>
-          <option value="b">Audio: Clip B</option>
-        </select>
+      <div class="video-grid">
+        <div class="video-box">
+          <video id="v-left" controls playsinline preload="metadata"></video>
+        </div>
+        <div class="video-box">
+          <video id="v-right" controls playsinline preload="metadata"></video>
+        </div>
+      </div>
+      <div class="btn-row">
+        <button id="btn-ab-play" class="primary">Play / Pause Both</button>
+        <button id="btn-ab-restart">Restart (0.00s)</button>
+        <button id="btn-ab-prev">-1 Frame</button>
+        <button id="btn-ab-next">+1 Frame</button>
+        <button id="btn-ab-swap">Swap A &harr; B</button>
+        <label style="display:flex; align-items:center; gap:5px; margin-left:auto; color:var(--text); cursor:pointer;">
+          <input type="checkbox" id="ab-loop" checked> Loop
+        </label>
       </div>
     </div>
-  </section>
-</main>
+  </div>
+</div>
 
 <script>
-let SYSTEM_PROMPT = "";
-let previewTimer = null;
+const state = {
+  systemPrompt: "",
+  tomlFiles: [],
+  vectors: [],
+  clips: [],
+  canonicalFrames: {},
+  sceneRows: [],
+  sculptSteps: [
+    { vector: "", mode: "add_norm_matched", strength: 1.15 }
+  ],
+  activeVectorFile: "",
+};
 
-function setStatus(text, kind = "") {
-  const pill = document.getElementById("status-pill");
-  pill.textContent = text;
-  pill.className = "status-pill" + (kind ? " " + kind : "");
+function setStatus(kind, msg) {
+  const el = document.getElementById("status-banner");
+  if (!msg) {
+    el.className = "status-banner";
+    el.textContent = "";
+    return;
+  }
+  el.className = "status-banner " + kind;
+  el.textContent = msg;
 }
 
 function escapeHtml(s) {
@@ -659,575 +792,1169 @@ function escapeHtml(s) {
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
+    .replace(/"/g, "&quot;");
 }
 
-async function copyText(text, btn, labelAfter = "Copied!") {
-  if (!text) return;
-  const orig = btn.textContent;
-  await navigator.clipboard.writeText(text);
-  btn.textContent = labelAfter;
-  setTimeout(() => { btn.textContent = orig; }, 1400);
+async function apiGet(path) {
+  const r = await fetch(path);
+  return await r.json();
 }
 
-function renderJLens(data, label = "") {
-  const badge = document.getElementById("jlens-badge");
-  const tierEl = document.getElementById("jl-tier");
-  const top1El = document.getElementById("jl-top1");
-  const top3El = document.getElementById("jl-top3");
-  const refPassEl = document.getElementById("jl-refpass");
-  const recEl = document.getElementById("jl-rec");
-  const posEl = document.getElementById("jl-pos");
-  const negEl = document.getElementById("jl-neg");
-  const recsEl = document.getElementById("jl-recs");
-
-  if (!data || !data.ok) {
-    badge.textContent = (data && data.error) ? data.error : "J-Lens unavailable";
-    badge.className = "status-pill err";
-    return;
-  }
-
-  const ro = data.readout || data.post_refiner || data;
-  const rd = data.readiness || ro.readiness || {};
-  const basis = String(rd.basis || ro.space || "post_refiner");
-  tierEl.textContent = basis;
-  tierEl.style.color = "var(--accent)";
-  top1El.textContent = rd.top1_gain != null ? `${rd.top1_gain >= 0 ? "+" : ""}${Number(rd.top1_gain).toFixed(2)}` : "—";
-  top3El.textContent = rd.top3_mean_gain != null ? `${rd.top3_mean_gain >= 0 ? "+" : ""}${Number(rd.top3_mean_gain).toFixed(2)}` : "—";
-  refPassEl.textContent = rd.refiner_transmission != null ? Number(rd.refiner_transmission).toFixed(3) : "n/a";
-  recEl.textContent = rd.recommended_strength ? `${rd.recommended_strength} (${rd.recommended_mode || "add"})` : "1.0..1.35";
-
-  posEl.textContent = ro.pos_summary || "—";
-  negEl.textContent = ro.neg_summary || "—";
-
-  const pc = data.prompt_coupling || ro.prompt_coupling || null;
-  const couplingRow = document.getElementById("jl-coupling-row");
-  const couplingEl = document.getElementById("jl-coupling");
-  if (pc && pc.summary && pc.summary !== "no prompt provided") {
-    couplingRow.style.display = "block";
-    couplingEl.textContent = pc.summary;
-  } else {
-    couplingRow.style.display = "none";
-    couplingEl.textContent = "—";
-  }
-
-  const recs = Array.isArray(rd.recommendations) ? [...rd.recommendations] : [];
-  if (pc && Array.isArray(pc.recommendations)) {
-    for (const pr of pc.recommendations) {
-      if (!recs.includes(pr)) recs.push(pr);
-    }
-  }
-  if (recs.length > 0) {
-    recsEl.style.display = "block";
-    recsEl.textContent = recs.map(r => "-> " + r).join("\n");
-  } else {
-    recsEl.style.display = "none";
-    recsEl.textContent = "";
-  }
-
-  badge.textContent = label || (rd.summary || `${basis} (${data.family || "fl2va"})`);
-  badge.className = "status-pill ok";
-}
-
-let lastInspectedVector = "";
-
-async function runJLensForVector(vecFile) {
-  if (!vecFile) return;
-  lastInspectedVector = vecFile;
-  const holdWords = document.getElementById("vec-holds").value.trim();
-  const promptVal = document.getElementById("vec-prompt").value.trim() || document.getElementById("test-prompt-box").value.trim();
-  const res = await fetch("/api/j-lens", {
+async function apiPost(path, payload) {
+  const r = await fetch(path, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ vector: vecFile, hold_words: holdWords, prompt: promptVal }),
+    body: JSON.stringify(payload || {}),
   });
-  const data = await res.json();
-  renderJLens(data, `Decoded ${vecFile}`);
-}
-
-async function runJLensFromWords(save = false) {
-  const rawText = document.getElementById("md-input").value.trim();
-  if (!rawText || rawText.includes("###") || rawText.includes("integrated_multimodal_description:")) {
-    return null;
-  }
-  lastInspectedVector = "";
-  const posWords = rawText.includes("->") ? rawText.split("->").pop().trim() : rawText;
-  const againstWords = document.getElementById("vec-against").value.trim();
-  const holdWords = document.getElementById("vec-holds").value.trim();
-  const promptVal = document.getElementById("vec-prompt").value.trim() || document.getElementById("test-prompt-box").value.trim();
-  const mode = document.getElementById("vec-mode").value;
-  const family = mode === "ref2va" ? "ref2va" : "fl2va";
-  const families = document.querySelector('input[name="families"]:checked').value;
-  const saveName = document.getElementById("vec-name").value.trim();
-
-  const res = await fetch("/api/j-lens", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      from_words: posWords,
-      against_words: againstWords,
-      hold_words: holdWords,
-      prompt: promptVal,
-      family,
-      families,
-      save_name: save ? saveName : "",
-      save,
-    }),
-  });
-  const data = await res.json();
-  renderJLens(data, save && data.saved_files && data.saved_files.length ? `Saved ${data.saved_files.length} file(s) (< 2 ms CPU)` : "");
+  const data = await r.json();
+  data._httpStatus = r.status;
   return data;
 }
 
-function renderVectorsTable(vectors, newlyBuiltFiles = new Set()) {
-  const tbody = document.getElementById("vectors-tbody");
-  tbody.innerHTML = "";
-  for (const v of vectors) {
-    const tr = document.createElement("tr");
-    if (newlyBuiltFiles.has(v.file)) tr.className = "new-row";
-    tr.innerHTML = `
-      <td class="mono">${escapeHtml(v.file)}</td>
-      <td class="mono">${escapeHtml(v.family)}</td>
-      <td class="mono">${escapeHtml(v.pooling)}</td>
-      <td class="mono">${Number(v.raw_norm).toFixed(2)}</td>
-      <td class="mono">${Number(v.mpc).toFixed(4)}</td>
-      <td class="mono">${Number(v.split_half).toFixed(4)}</td>
-      <td class="mono"><strong>${escapeHtml(v.rec_strength)}</strong></td>
-      <td style="white-space:nowrap;">
-        <button type="button" class="btn-copy-vec" data-copy="${escapeHtml(v.file)}">Copy Name</button>
-        <button type="button" class="btn-jlens-vec" data-vec="${escapeHtml(v.file)}" title="Decode with J-Lens (< 2 ms CPU)">J-Lens</button>
-      </td>
-    `;
-    const copyBtn = tr.querySelector(".btn-copy-vec");
-    copyBtn.addEventListener("click", () => copyText(v.file, copyBtn));
-    const jlBtn = tr.querySelector(".btn-jlens-vec");
-    jlBtn.addEventListener("click", () => runJLensForVector(v.file));
-    tbody.appendChild(tr);
+function switchStageTab(tabName) {
+  ["scenes", "media", "md"].forEach(t => {
+    const btn = document.getElementById("tab-btn-" + t);
+    const pane = document.getElementById("tab-pane-" + t);
+    if (btn) btn.classList.toggle("active", t === tabName);
+    if (pane) pane.style.display = (t === tabName) ? "block" : "none";
+  });
+}
+
+["scenes", "media", "md"].forEach(t => {
+  const btn = document.getElementById("tab-btn-" + t);
+  if (btn) btn.addEventListener("click", () => switchStageTab(t));
+});
+
+function getHoldWordsSet() {
+  const raw = document.getElementById("vec-holds").value || "";
+  return new Set(
+    raw.split(/[,\s]+/).map(w => w.trim().toLowerCase()).filter(Boolean)
+  );
+}
+
+function toggleHoldWord(word) {
+  const clean = String(word || "").trim().toLowerCase();
+  if (!clean) return;
+  const holdsInput = document.getElementById("vec-holds");
+  const sculptHoldsInput = document.getElementById("sculpt-hold-words");
+  const list = (holdsInput.value || "")
+    .split(",")
+    .map(w => w.trim())
+    .filter(Boolean);
+  const idx = list.findIndex(w => w.toLowerCase() === clean);
+  if (idx >= 0) {
+    list.splice(idx, 1);
+  } else {
+    list.push(clean);
+  }
+  const joined = list.join(", ");
+  holdsInput.value = joined;
+  if (sculptHoldsInput) sculptHoldsInput.value = joined;
+  if (state.activeVectorFile) {
+    inspectVectorJLens(state.activeVectorFile);
+  } else {
+    previewWordsJLens();
   }
 }
 
-function renderPreview(data) {
-  const pairList = document.getElementById("pair-list");
-  pairList.innerHTML = "";
-  if (!data.ok) {
-    setStatus(data.error || "Validation error", "err");
-    document.getElementById("preview-summary").textContent = data.error || "Invalid input";
-    document.getElementById("m-pairs").textContent = "0";
-    const errDiv = document.createElement("div");
-    errDiv.className = "pair-card invalid";
-    errDiv.innerHTML = `<div class="err-banner">${escapeHtml(data.error)}</div>`;
-    pairList.appendChild(errDiv);
+function renderTokenHeatmap(tokens, modeLabel) {
+  const box = document.getElementById("token-heatmap-box");
+  const badge = document.getElementById("heatmap-mode-badge");
+  if (badge && modeLabel) badge.textContent = modeLabel;
+  if (!tokens || !tokens.length) {
+    box.innerHTML = '<span class="sub">No token coupling data yet. Select a vector or click <strong>Run Contextual GPU Token Meter</strong>.</span>';
+    return;
+  }
+  const heldSet = getHoldWordsSet();
+  box.innerHTML = tokens.map(t => {
+    const w = t.word || t.token || t.text || "";
+    const clean = w.replace(/^[^a-zA-Z0-9]+|[^a-zA-Z0-9]+$/g, "").toLowerCase();
+    const cos = Number(t.cosine || 0);
+    const role = t.role || "neutral";
+    const isHeld = clean && heldSet.has(clean);
+    let bg = "transparent";
+    let col = "var(--text)";
+    if (role === "subject" && Math.abs(cos) >= 0.04) {
+      bg = "rgba(248, 81, 73, 0.25)";
+      col = "#ffa198";
+    } else if (cos >= 0.08) {
+      const alpha = Math.min(0.45, Math.max(0.14, cos * 1.8));
+      bg = `rgba(63, 185, 80, ${alpha.toFixed(2)})`;
+      col = "#7ee787";
+    } else if (cos <= -0.08) {
+      const alpha = Math.min(0.40, Math.max(0.14, Math.abs(cos) * 1.8));
+      bg = `rgba(88, 166, 255, ${alpha.toFixed(2)})`;
+      col = "#79c0ff";
+    } else if (role === "stopword") {
+      col = "var(--muted)";
+    }
+    return `<span class="token-chip ${isHeld ? "held" : ""}" data-word="${escapeHtml(clean)}" style="background:${bg}; color:${col};" title="cos=${cos.toFixed(3)} (${escapeHtml(role)}) — Click to toggle in Hold Words">${escapeHtml(w)} <small style="opacity:0.75;">${cos >= 0 ? "+" : ""}${cos.toFixed(2)}</small></span>`;
+  }).join("");
+  box.querySelectorAll(".token-chip").forEach(chip => {
+    chip.addEventListener("click", () => {
+      const w = chip.getAttribute("data-word");
+      if (w) toggleHoldWord(w);
+    });
+  });
+}
+
+function renderSceneDiffTable() {
+  const tbody = document.getElementById("scene-diff-tbody");
+  const countEl = document.getElementById("scene-row-count");
+  countEl.textContent = state.sceneRows.length;
+  if (!state.sceneRows.length) {
+    tbody.innerHTML = '<tr><td colspan="5" class="sub" style="text-align:center; padding:14px;">Enter Pole B above and click <strong>Expand Across 10 Canonical Scenes</strong>, or load any <code>.toml</code> from the left bank.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = state.sceneRows.map((r, i) => {
+    const rowCls = !r.enabled ? "scene-row-disabled" : (r.is_hold ? "scene-row-hold" : "");
+    const cosVal = (r.cosine !== undefined && r.cosine !== null) ? Number(r.cosine) : null;
+    const cosPct = cosVal !== null ? Math.max(0, Math.min(100, Math.round(cosVal * 100))) : 0;
+    const cosColor = cosVal === null ? "#30363d" : (cosVal >= 0.65 ? "var(--green)" : (cosVal >= 0.45 ? "var(--amber)" : "var(--red)"));
+    return `
+      <tr class="${rowCls}" data-idx="${i}">
+        <td style="text-align:center;">
+          <input type="checkbox" class="row-enable-chk" data-idx="${i}" ${r.enabled ? "checked" : ""}>
+        </td>
+        <td style="text-align:center;">
+          <input type="checkbox" class="row-hold-chk" data-idx="${i}" ${r.is_hold ? "checked" : ""} title="Treat this pair as a [[hold]] nuisance pair to project out">
+        </td>
+        <td>
+          <div style="font-weight:600; font-size:11px; color:var(--accent);">${escapeHtml(r.scene_id || ("pair_" + (i + 1)))}</div>
+          <label style="margin-top:4px; font-size:10px;">Weight</label>
+          <input type="number" class="row-weight-inp" data-idx="${i}" value="${Number(r.weight ?? 1.0)}" step="0.25" min="0" max="10" style="padding:3px 5px; font-size:11px;">
+        </td>
+        <td>
+          <div style="margin-bottom:4px;">
+            <span style="font-size:10px; color:#ffa198; font-weight:600;">Pole A (Baseline):</span>
+            <textarea class="row-a-txt" data-idx="${i}" rows="2" style="font-size:11px; padding:4px 6px;">${escapeHtml(r.a || "")}</textarea>
+          </div>
+          <div>
+            <span style="font-size:10px; color:#7ee787; font-weight:600;">Pole B (Steered):</span>
+            <textarea class="row-b-txt" data-idx="${i}" rows="2" style="font-size:11px; padding:4px 6px;">${escapeHtml(r.b || "")}</textarea>
+          </div>
+        </td>
+        <td>
+          <div style="font-family:monospace; font-size:11px; font-weight:600; color:${cosColor};">
+            ${cosVal !== null ? cosVal.toFixed(3) : "—"}
+          </div>
+          <div class="cos-bar-wrap">
+            <div class="cos-bar-fill" style="width:${cosPct}%; background:${cosColor};"></div>
+          </div>
+          ${r.diff_tokens !== undefined ? `<div class="sub" style="font-size:10px; margin-top:3px;">${r.diff_tokens} diff tok</div>` : ""}
+        </td>
+      </tr>
+    `;
+  }).join("");
+
+  tbody.querySelectorAll(".row-enable-chk").forEach(el => {
+    el.addEventListener("change", () => {
+      const idx = Number(el.getAttribute("data-idx"));
+      if (state.sceneRows[idx]) {
+        state.sceneRows[idx].enabled = el.checked;
+        renderSceneDiffTable();
+      }
+    });
+  });
+  tbody.querySelectorAll(".row-hold-chk").forEach(el => {
+    el.addEventListener("change", () => {
+      const idx = Number(el.getAttribute("data-idx"));
+      if (state.sceneRows[idx]) {
+        state.sceneRows[idx].is_hold = el.checked;
+        renderSceneDiffTable();
+      }
+    });
+  });
+  tbody.querySelectorAll(".row-weight-inp").forEach(el => {
+    el.addEventListener("change", () => {
+      const idx = Number(el.getAttribute("data-idx"));
+      if (state.sceneRows[idx]) {
+        state.sceneRows[idx].weight = parseFloat(el.value || "1.0");
+      }
+    });
+  });
+  tbody.querySelectorAll(".row-a-txt").forEach(el => {
+    el.addEventListener("input", () => {
+      const idx = Number(el.getAttribute("data-idx"));
+      if (state.sceneRows[idx]) state.sceneRows[idx].a = el.value;
+    });
+  });
+  tbody.querySelectorAll(".row-b-txt").forEach(el => {
+    el.addEventListener("input", () => {
+      const idx = Number(el.getAttribute("data-idx"));
+      if (state.sceneRows[idx]) state.sceneRows[idx].b = el.value;
+    });
+  });
+}
+
+function renderSculptRows() {
+  const container = document.getElementById("sculpt-rows");
+  const vecOptions = state.vectors.map(v => `<option value="${escapeHtml(v.file)}">${escapeHtml(v.name)} (${escapeHtml(v.family)}/${escapeHtml(v.pooling)})</option>`).join("");
+  container.innerHTML = state.sculptSteps.map((st, idx) => `
+    <div style="display:grid; grid-template-columns: 1fr 125px 70px 28px; gap:6px; margin-bottom:6px; align-items:center;">
+      <select class="sculpt-vec-sel" data-idx="${idx}">
+        <option value="">(select vector)</option>
+        ${vecOptions}
+      </select>
+      <select class="sculpt-mode-sel" data-idx="${idx}">
+        <option value="add_norm_matched" ${st.mode === "add_norm_matched" ? "selected" : ""}>add_norm_matched</option>
+        <option value="add" ${st.mode === "add" ? "selected" : ""}>add (raw)</option>
+        <option value="hold" ${st.mode === "hold" ? "selected" : ""}>hold (scrub)</option>
+      </select>
+      <input type="number" class="sculpt-str-inp" data-idx="${idx}" value="${Number(st.strength ?? 1.0)}" step="0.1" min="-3" max="3">
+      <button type="button" class="sculpt-del-btn danger" data-idx="${idx}" style="padding:4px 6px;">&times;</button>
+    </div>
+  `).join("");
+
+  container.querySelectorAll(".sculpt-vec-sel").forEach(sel => {
+    const idx = Number(sel.getAttribute("data-idx"));
+    if (state.sculptSteps[idx] && state.sculptSteps[idx].vector) {
+      sel.value = state.sculptSteps[idx].vector;
+    }
+    sel.addEventListener("change", () => {
+      state.sculptSteps[idx].vector = sel.value;
+    });
+  });
+  container.querySelectorAll(".sculpt-mode-sel").forEach(sel => {
+    const idx = Number(sel.getAttribute("data-idx"));
+    sel.addEventListener("change", () => {
+      state.sculptSteps[idx].mode = sel.value;
+    });
+  });
+  container.querySelectorAll(".sculpt-str-inp").forEach(inp => {
+    const idx = Number(inp.getAttribute("data-idx"));
+    inp.addEventListener("change", () => {
+      state.sculptSteps[idx].strength = parseFloat(inp.value || "1.0");
+    });
+  });
+  container.querySelectorAll(".sculpt-del-btn").forEach(btn => {
+    const idx = Number(btn.getAttribute("data-idx"));
+    btn.addEventListener("click", () => {
+      state.sculptSteps.splice(idx, 1);
+      if (!state.sculptSteps.length) {
+        state.sculptSteps.push({ vector: "", mode: "add_norm_matched", strength: 1.0 });
+      }
+      renderSculptRows();
+    });
+  });
+}
+
+function renderLists() {
+  document.getElementById("toml-count").textContent = state.tomlFiles.length;
+  const tomlEl = document.getElementById("toml-list");
+  tomlEl.innerHTML = state.tomlFiles.map(t => `
+    <div class="list-item" data-toml="${escapeHtml(t.file)}">
+      <div class="list-item-title">
+        <span>${escapeHtml(t.name)}</span>
+        <span class="badge">${t.pairs}p${t.holds ? " + " + t.holds + "h" : ""}</span>
+      </div>
+      <div class="list-item-meta">${escapeHtml(t.quality || t.file)}</div>
+    </div>
+  `).join("");
+  tomlEl.querySelectorAll(".list-item").forEach(item => {
+    item.addEventListener("click", () => loadTomlFile(item.getAttribute("data-toml")));
+  });
+
+  document.getElementById("vec-count").textContent = state.vectors.length;
+  const vecEl = document.getElementById("vector-list");
+  vecEl.innerHTML = state.vectors.map(v => {
+    const cos = v.split_half_cosine != null ? Number(v.split_half_cosine).toFixed(3) : "—";
+    const cosClass = (v.split_half_cosine != null && v.split_half_cosine >= 0.7) ? "green" : "amber";
+    return `
+      <div class="list-item" data-vecfile="${escapeHtml(v.file)}" data-vecname="${escapeHtml(v.name)}">
+        <div class="list-item-title">
+          <span>${escapeHtml(v.file)}</span>
+          <span class="badge ${cosClass}">cos ${cos}</span>
+        </div>
+        <div class="list-item-meta">
+          family: <strong>${escapeHtml(v.family)}</strong> | pooling: <strong>${escapeHtml(v.pooling)}</strong> | norm: ${v.norm != null ? Number(v.norm).toFixed(2) : "—"}
+        </div>
+      </div>
+    `;
+  }).join("");
+  vecEl.querySelectorAll(".list-item").forEach(item => {
+    item.addEventListener("click", () => {
+      const vf = item.getAttribute("data-vecfile");
+      const vn = item.getAttribute("data-vecname");
+      state.activeVectorFile = vf;
+      if (state.sculptSteps.length && !state.sculptSteps[0].vector) {
+        state.sculptSteps[0].vector = vf;
+        renderSculptRows();
+      }
+      inspectVectorJLens(vf);
+      const matchingToml = state.tomlFiles.find(t => t.name === vn);
+      if (matchingToml) loadTomlFile(matchingToml.file);
+    });
+  });
+
+  document.getElementById("clip-count").textContent = state.clips.length + " clips";
+  const leftSel = document.getElementById("clip-left-select");
+  const rightSel = document.getElementById("clip-right-select");
+  const prevLeft = leftSel.value;
+  const prevRight = rightSel.value;
+  if (state.clips.length === 0) {
+    leftSel.innerHTML = '<option value="">(no rendered clips found)</option>';
+    rightSel.innerHTML = '<option value="">(no rendered clips found)</option>';
+  } else {
+    const opts = state.clips.map(c => `<option value="${escapeHtml(c.rel)}">${escapeHtml(c.label)}</option>`).join("");
+    leftSel.innerHTML = opts;
+    rightSel.innerHTML = opts;
+    if (prevLeft) leftSel.value = prevLeft;
+    if (prevRight) rightSel.value = prevRight;
+    else if (state.clips.length > 1) rightSel.selectedIndex = 1;
+    updateVideoSources();
+  }
+  renderSculptRows();
+}
+
+function renderJLensReadout(title, ro, extraInfo, promptCoupling) {
+  const panel = document.getElementById("jlens-panel");
+  const badge = document.getElementById("jlens-badge");
+  if (!ro) {
+    panel.innerHTML = '<div class="sub">No J-Lens readout available.</div>';
+    return;
+  }
+  const rd = ro.readiness || {};
+  const top1 = rd.top1_gain != null ? Number(rd.top1_gain) : 0;
+  const echo = rd.echo_ratio != null ? Number(rd.echo_ratio) * 100 : null;
+  const trans = rd.refiner_transmission != null ? Number(rd.refiner_transmission) : null;
+  const rawRec = rd.recommended_strength;
+  const recDisplay = Array.isArray(rawRec) ? `${rawRec[0]}..${rawRec[1]}` : (rawRec || "1.00 .. 1.35");
+  const basis = rd.basis || "post_refiner";
+  const isUnigram = (basis === "unigram_synthesis" || basis === "unigram_dictionary" || basis === "word_synthesis");
+  badge.className = "badge " + (isUnigram ? "amber" : "green");
+  badge.textContent = `${basis} | top1 ${top1.toFixed(2)} | str ${recDisplay}`;
+
+  if (promptCoupling && promptCoupling.token_heatmap) {
+    renderTokenHeatmap(promptCoupling.token_heatmap, "< 2 ms J-Lens Coupling");
+  }
+
+  const fmtWords = (items, color) => (items || []).slice(0, 10).map(it => {
+    const sc = Number(it.gain != null ? it.gain : (it.score != null ? it.score : 0));
+    return `<span style="display:inline-block; background:var(--code-bg); border:1px solid var(--border); border-radius:4px; padding:2px 6px; margin:2px; font-size:11px; color:${color};"><strong>${escapeHtml(it.word)}</strong> <span style="opacity:0.7;">${sc >= 0 ? "+" : ""}${sc.toFixed(2)}</span></span>`;
+  }).join("");
+
+  const pushWords = ro.positive_words || (ro.layer63_last || {}).pushed || [];
+  const pullWords = ro.negative_words || (ro.layer63_last || {}).pulled || [];
+  const pushRef = (ro.post_refiner_wiener || {}).pushed || [];
+  const offTarget = rd.off_target_words || [];
+
+  let pcHtml = "";
+  const topRecList = promptCoupling
+    ? (promptCoupling.top_receptors || [
+        ...((promptCoupling.subject_leakage || []).map(r => ({ ...r, is_subject: true }))),
+        ...((promptCoupling.positive_receptors || []).map(r => ({ ...r, is_subject: false }))),
+      ])
+    : [];
+  if (topRecList.length) {
+    const recChips = topRecList.slice(0, 6).map(
+      r => `<span class="token-chip" data-word="${escapeHtml(r.word)}" style="color:${r.is_subject ? '#ffa198' : '#7ee787'};">${escapeHtml(r.word)} ${Number(r.cosine != null ? r.cosine : (r.gain || 0)).toFixed(2)}${r.is_subject ? ' (subj)' : ''}</span>`
+    ).join("");
+    const warnMsg = promptCoupling.hijack_warning || promptCoupling.warning || "";
+    pcHtml = `
+      <div style="margin-top:6px; padding:6px 8px; background:var(--code-bg); border:1px solid var(--border); border-radius:6px; font-size:11px;">
+        <div style="font-weight:600; color:var(--accent); margin-bottom:3px;">
+          Top Prompt Receptors (click chip to Hold):
+        </div>
+        <div>${recChips}</div>
+        ${warnMsg ? `<div style="color:#ffa198; margin-top:4px;">&#9888; ${escapeHtml(warnMsg)}</div>` : ""}
+      </div>
+    `;
+  }
+
+  panel.innerHTML = `
+    <div style="margin-bottom:8px;">
+      <div style="font-weight:600; font-size:12px; margin-bottom:4px;">${escapeHtml(title)}</div>
+      ${isUnigram ? `<div class="sub" style="color:#e3b341; background:var(--amber-bg); padding:5px 8px; border-radius:4px; border:1px solid rgba(210,153,34,0.35);"><strong>Unigram Synthesis Note:</strong> ${escapeHtml(rd.basis_note || "Unigram average has a 0.52 cosine ceiling vs 10-pair Qwen3-VL diff_span vectors. Promote to the 10-Scene Workbench for full contextual composition.")}</div>` : ""}
+      ${extraInfo ? `<div class="sub" style="margin-bottom:4px;">${escapeHtml(extraInfo)}</div>` : ""}
+      <div class="sub" style="margin-bottom:6px;">
+        Rec. strength: <strong>${escapeHtml(String(recDisplay))}</strong> (<code>add_norm_matched</code>)
+        | top1_gain: <code>${top1.toFixed(2)}</code>
+        ${echo !== null ? ` | echo: <code>${echo.toFixed(0)}%</code>` : ""}
+        ${trans !== null ? ` | refiner_pass: <code>${trans.toFixed(2)}</code>` : ""}
+        ${offTarget.length ? `<br><span style="color:#e3b341;">Off-target drift (click to Hold): ${offTarget.map(w => `<a href="#" class="off-target-link" data-word="${escapeHtml(w)}" style="color:#ffa198; text-decoration:underline; margin-right:5px;">${escapeHtml(w)}</a>`).join("")}</span>` : ""}
+      </div>
+      ${pcHtml}
+    </div>
+    ${pushWords.length ? `<div style="margin-bottom:6px;"><label>Top Pushed Words (+)</label><div>${fmtWords(pushWords, "#7ee787")}</div></div>` : ""}
+    ${pullWords.length ? `<div style="margin-bottom:6px;"><label>Top Pulled Words (&minus;)</label><div>${fmtWords(pullWords, "#ffa198")}</div></div>` : ""}
+    ${pushRef.length ? `<div><label>Post-Refiner (5376-d Wiener Pullback) — Top Pushed (+)</label><div>${fmtWords(pushRef, "#79c0ff")}</div></div>` : ""}
+  `;
+  panel.querySelectorAll(".off-target-link, .token-chip").forEach(el => {
+    el.addEventListener("click", e => {
+      e.preventDefault();
+      const w = el.getAttribute("data-word");
+      if (w) toggleHoldWord(w);
+    });
+  });
+}
+
+async function inspectVectorJLens(vecFile) {
+  const holdWords = document.getElementById("vec-holds").value.trim();
+  const holdAlpha = parseFloat(document.getElementById("hold-alpha-slider").value || "1.0");
+  const prompt = document.getElementById("vec-prompt").value;
+  const res = await apiPost("/api/j-lens", {
+    vector: vecFile,
+    hold_words: holdWords,
+    alpha: holdAlpha,
+    prompt,
+  });
+  const rep = res.report || res;
+  if (res.ok && (rep.readout || rep.post_refiner)) {
+    const holdNote = holdWords ? ` | hold_words: "${holdWords}" (alpha=${holdAlpha.toFixed(2)})` : "";
+    const nrm = rep.norm != null ? rep.norm : (rep.norm_after_holds != null ? rep.norm_after_holds : 0);
+    renderJLensReadout(
+      `Vector: ${vecFile}`,
+      rep.readout || rep.post_refiner,
+      `family: ${rep.family || "fl2va"} | norm: ${Number(nrm).toFixed(2)}${holdNote}`,
+      rep.prompt_coupling
+    );
+  }
+}
+
+async function previewWordsJLens() {
+  const words = document.getElementById("exp-pole-b")?.value.trim() || document.getElementById("md-input").value.trim();
+  if (!words || words.includes("####") || words.includes("[[pair]]")) return;
+  const holdWords = document.getElementById("vec-holds").value.trim();
+  const againstWords = document.getElementById("vec-against").value;
+  const prompt = document.getElementById("vec-prompt").value;
+  const holdAlpha = parseFloat(document.getElementById("hold-alpha-slider").value || "1.0");
+  const res = await apiPost("/api/j-lens", {
+    from_words: words,
+    words,
+    against_words: againstWords,
+    hold_words: holdWords,
+    prompt,
+    alpha: holdAlpha,
+    family: "fl2va",
+  });
+  const rep = res.report || res;
+  if (res.ok && rep.readout) {
+    const posM = rep.pos_matched || rep.pos_words_matched || [];
+    const holdM = rep.hold_matched || rep.hold_words || [];
+    renderJLensReadout(
+      `Words Preview: "${words}"`,
+      rep.readout,
+      `Matched: ${posM.join(", ")}${holdM.length ? " | Held out: " + holdM.join(", ") : ""}`,
+      rep.prompt_coupling
+    );
+  }
+}
+
+async function loadTomlFile(filename) {
+  setStatus("info", "Loading " + filename + "...");
+  const res = await apiPost("/api/load-toml", { file: filename });
+  if (!res.ok) {
+    setStatus("err", res.error || "Failed to load .toml");
+    return;
+  }
+  document.getElementById("vec-name").value = res.name || "";
+  document.getElementById("vec-frame").value = res.frame || "scene";
+  document.getElementById("vec-mode").value = res.mode || "t2va";
+  document.getElementById("md-input").value = res.markdown || "";
+  const pairRows = (res.pairs || []).map((p, idx) => ({
+    scene_id: p.scene_id || `pair_${idx + 1}`,
+    a: p.a || "",
+    b: p.b || "",
+    weight: Number(p.weight ?? 1.0),
+    enabled: true,
+    is_hold: false,
+  }));
+  const holdRows = (res.holds || []).map((h, idx) => ({
+    scene_id: h.group || `hold_${idx + 1}`,
+    a: h.a || "",
+    b: h.b || "",
+    weight: Number(h.weight ?? 1.0),
+    enabled: true,
+    is_hold: true,
+  }));
+  state.sceneRows = [...pairRows, ...holdRows];
+  renderSceneDiffTable();
+  setStatus("ok", `Loaded ${filename} (${pairRows.length} pairs, ${holdRows.length} holds) into the 10-Scene Workbench.`);
+  await runPreview();
+}
+
+async function expandScenesFromInputs() {
+  const poleA = document.getElementById("exp-pole-a").value.trim();
+  const poleB = document.getElementById("exp-pole-b").value.trim() || document.getElementById("md-input").value.trim();
+  const soundA = document.getElementById("exp-sound-a").value.trim();
+  const soundB = document.getElementById("exp-sound-b").value.trim();
+  const holdA = document.getElementById("exp-hold-a").value.trim();
+  const holdB = document.getElementById("exp-hold-b").value.trim();
+  const slot = document.getElementById("vec-slot").value;
+  const mode = document.getElementById("vec-mode").value;
+  const name = document.getElementById("vec-name").value.trim();
+  const includeTarget = document.getElementById("exp-include-target").checked;
+  const targetPrompt = includeTarget ? document.getElementById("vec-prompt").value : "";
+
+  if (!poleB && !soundB) {
+    setStatus("err", "Enter Pole B (Steered Clause) or Soundscape Pole B to expand across the 10 canonical scenes.");
+    return;
+  }
+  setStatus("info", "Expanding clauses across 10 canonical scenes...");
+  const res = await apiPost("/api/expand-scenes", {
+    pole_a: poleA,
+    pole_b: poleB,
+    sound_a: soundA,
+    sound_b: soundB,
+    hold_a: holdA,
+    hold_b: holdB,
+    slot,
+    mode,
+    name,
+    target_prompt: targetPrompt,
+    target_weight: 2.0,
+  });
+  if (!res.ok) {
+    setStatus("err", res.error || "Failed to expand scenes");
+    return;
+  }
+  if (res.name && !document.getElementById("vec-name").value.trim()) {
+    document.getElementById("vec-name").value = res.name;
+  }
+  const pairRows = (res.rows || []).map(r => ({
+    scene_id: r.scene_id,
+    a: r.a,
+    b: r.b,
+    weight: Number(r.weight ?? 1.0),
+    enabled: true,
+    is_hold: false,
+  }));
+  const holdRows = (res.holds || []).map(h => ({
+    scene_id: h.group || "hold",
+    a: h.a,
+    b: h.b,
+    weight: Number(h.weight ?? 1.0),
+    enabled: true,
+    is_hold: true,
+  }));
+  state.sceneRows = [...pairRows, ...holdRows];
+  renderSceneDiffTable();
+  switchStageTab("scenes");
+  setStatus("ok", `Expanded ${pairRows.length} scene pairs${holdRows.length ? " + " + holdRows.length + " hold pairs" : ""} across canonical scenes (slot: ${res.slot}).`);
+}
+
+function renderSpanPreviewCards(res) {
+  const badge = document.getElementById("parse-badge");
+  const avgBadge = document.getElementById("avg-tokens-badge");
+  const container = document.getElementById("pairs-preview");
+  const tpBox = document.getElementById("test-prompt-box");
+
+  if (!res.ok && (!res.pairs || res.pairs.length === 0)) {
+    badge.className = "badge red";
+    badge.textContent = "Parse Error";
+    container.innerHTML = `<div class="sub" style="color:var(--red);">${escapeHtml(res.error || "No pairs found")}</div>`;
     return;
   }
 
-  document.getElementById("test-prompt-box").value = data.test_scene_prompt || "";
-  if (!document.getElementById("vec-name").value.trim() && data.suggested_name) {
-    document.getElementById("vec-name").value = data.suggested_name;
-  }
+  const allValid = res.pairs.every(p => p.valid);
+  badge.className = "badge " + (allValid ? "green" : "amber");
+  badge.textContent = `${res.pairs.length} pairs (${allValid ? "all valid" : "check warnings"})`;
 
-  const validCount = data.pairs.filter(p => p.valid).length;
-  const totalCount = data.pairs.length;
-  document.getElementById("m-pairs").textContent = `${validCount} / ${totalCount}`;
-  document.getElementById("m-mode").textContent = data.mode || "t2va";
-  document.getElementById("m-ds").textContent = data.avg_tokens ? `${data.avg_tokens.diff_span}t` : "—";
-  document.getElementById("m-ffd").textContent = data.avg_tokens ? `${data.avg_tokens.from_first_diff}t` : "—";
-  document.getElementById("m-scene").textContent = data.avg_tokens ? `${data.avg_tokens.scene_text}t` : "—";
+  const avgDiff = res.avg_tokens ? res.avg_tokens.diff_span : "—";
+  avgBadge.textContent = `diff_span avg: ${avgDiff} tok`;
 
-  if (validCount === totalCount && totalCount >= 4) {
-    setStatus(`Valid (${totalCount} pairs ready)`, "ok");
-    document.getElementById("preview-summary").textContent = `quality: ${data.quality || ""}`;
+  if (res.test_prompt) {
+    tpBox.style.display = "block";
+    document.getElementById("test-prompt-text").value = res.test_prompt;
   } else {
-    setStatus(`${totalCount - validCount} pair error(s)`, "err");
-    document.getElementById("preview-summary").textContent = "Fix highlighted pair(s) below";
+    tpBox.style.display = "none";
   }
 
-  if (Array.isArray(data.lint_warnings) && data.lint_warnings.length > 0) {
-    const warnCard = document.createElement("div");
-    warnCard.className = "pair-card";
-    warnCard.style.borderColor = "#9e6a03";
-    warnCard.innerHTML = `
-      <div class="pair-header"><strong style="color:#d29922;">Semantic Pair-Quality Warnings (${data.lint_warnings.length})</strong></div>
-      <div class="subtext" style="color:#e3b341;white-space:pre-wrap;">${data.lint_warnings.map(w => "• " + escapeHtml(w)).join("\n")}</div>
-    `;
-    pairList.appendChild(warnCard);
-  }
-
-  for (const p of data.pairs) {
-    const card = document.createElement("div");
-    card.className = "pair-card" + (p.valid ? "" : " invalid");
-    if (!p.valid) {
-      card.innerHTML = `
-        <div class="pair-header"><strong>Pair ${p.index}</strong></div>
-        <div class="err-banner">${escapeHtml(p.error)}</div>
-      `;
-    } else {
-      card.innerHTML = `
-        <div class="pair-header">
-          <strong>Pair ${p.index} <span class="subtext">[${escapeHtml(p.section)}]</span></strong>
-          <div class="pair-badges">
-            <span class="badge highlight">diff_span: ${p.tokens.diff_span_a}t &rarr; ${p.tokens.diff_span_b}t</span>
-            <span class="badge">from_first_diff: ${p.tokens.ffd_a}t / ${p.tokens.ffd_b}t</span>
-            <span class="badge">scene_text: ${p.tokens.scene_a}t / ${p.tokens.scene_b}t</span>
-          </div>
-        </div>
-        <div class="diff-prose">
-          ${escapeHtml(p.prefix)}<span class="span-a">${escapeHtml(p.a_span)}</span><span class="span-b">${escapeHtml(p.b_span)}</span>${escapeHtml(p.suffix)}
-        </div>
-      `;
-    }
-    pairList.appendChild(card);
-  }
+  container.innerHTML = res.pairs.map(p => `
+    <div class="pair-card ${p.valid ? "valid" : "invalid"}">
+      <div class="pair-header">
+        <span>Pair ${p.index}${p.weight && p.weight !== 1.0 ? ` (wt ${p.weight})` : ""}</span>
+        <span>${p.valid
+          ? `diff_span: <strong>${p.tokens.diff_span}</strong> tok | scene_text: ${p.tokens.scene_text} tok`
+          : `<span style="color:var(--red);">${escapeHtml(p.error)}</span>`
+        }</span>
+      </div>
+      ${p.diff_a ? `<div class="diff-line diff-a">&minus; A: ${escapeHtml(p.diff_a)}</div>` : ""}
+      ${p.diff_b ? `<div class="diff-line diff-b">+ B: ${escapeHtml(p.diff_b)}</div>` : ""}
+    </div>
+  `).join("");
 }
 
 async function runPreview() {
   const text = document.getElementById("md-input").value;
-  if (!text.trim()) return;
+  const name = document.getElementById("vec-name").value;
   const frame = document.getElementById("vec-frame").value;
   const slot = document.getElementById("vec-slot").value;
   const mode = document.getElementById("vec-mode").value;
-  const name = document.getElementById("vec-name").value.trim();
-  const [res] = await Promise.all([
-    fetch("/api/preview", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text, frame, slot, mode, name }),
-    }),
-    runJLensFromWords(false),
-  ]);
-  const data = await res.json();
-  renderPreview(data);
+  if (!text.trim()) return;
+  const res = await apiPost("/api/preview", { text, name, frame, slot, mode });
+  renderSpanPreviewCards(res);
+  previewWordsJLens();
 }
 
-function getSelectedPoolings() {
-  return Array.from(document.querySelectorAll(".pool-cb:checked")).map(cb => cb.value);
-}
-
-async function initStudio() {
-  const res = await fetch("/api/init");
-  const data = await res.json();
-  SYSTEM_PROMPT = data.system_prompt || "";
-  const sel = document.getElementById("select-existing-toml");
-  sel.innerHTML = `<option value="">Load existing .toml (${data.toml_files.length})...</option>`;
-  for (const item of data.toml_files) {
-    const opt = document.createElement("option");
-    opt.value = item.file;
-    opt.textContent = `${item.stem} (${item.n_pairs} pairs, ${item.mode})`;
-    sel.appendChild(opt);
-  }
-  renderVectorsTable(data.vectors || []);
-}
-
-document.getElementById("btn-copy-sys").addEventListener("click", (e) => {
-  copyText(SYSTEM_PROMPT, e.currentTarget, "Copied System Prompt!");
-});
-
-document.getElementById("btn-copy-test").addEventListener("click", (e) => {
-  copyText(document.getElementById("test-prompt-box").value, e.currentTarget, "Copied Test Prompt!");
-});
-
-document.getElementById("btn-preview").addEventListener("click", runPreview);
-
-document.getElementById("vec-slot").addEventListener("change", runPreview);
-document.getElementById("vec-mode").addEventListener("change", runPreview);
-function refreshActiveJLens() {
-  const rawText = document.getElementById("md-input").value.trim();
-  if (rawText && !rawText.includes("###") && !rawText.includes("integrated_multimodal_description:")) {
-    runJLensFromWords(false);
-  } else if (lastInspectedVector) {
-    runJLensForVector(lastInspectedVector);
-  }
-}
-document.getElementById("vec-against").addEventListener("input", () => {
-  clearTimeout(previewTimer);
-  previewTimer = setTimeout(() => runJLensFromWords(false), 180);
-});
-document.getElementById("vec-holds").addEventListener("input", () => {
-  clearTimeout(previewTimer);
-  previewTimer = setTimeout(refreshActiveJLens, 180);
-});
-document.getElementById("vec-prompt").addEventListener("input", () => {
-  const promptVal = (document.getElementById("vec-prompt")?.value || "").trim();
-  const agEl = document.getElementById("vec-against");
-  if (agEl) {
-    const curAg = agEl.value.trim();
-    if (promptVal && curAg === "@replace_human") {
-      agEl.value = "@prompt_subject";
-    } else if (!promptVal && curAg === "@prompt_subject") {
-      agEl.value = "@replace_human";
+function updateSceneRowCosinesFromBuild(builtList) {
+  if (!builtList || !builtList.length) return;
+  const first = builtList[0];
+  const cosines = first.per_pair_cosine || [];
+  const spans = first.pair_spans || [];
+  let activePairIdx = 0;
+  state.sceneRows.forEach(r => {
+    if (r.enabled && !r.is_hold) {
+      if (activePairIdx < cosines.length) {
+        r.cosine = cosines[activePairIdx];
+      }
+      if (activePairIdx < spans.length) {
+        r.diff_tokens = spans[activePairIdx].pooled_tokens;
+      }
+      activePairIdx += 1;
+    } else {
+      r.cosine = null;
     }
-  }
-  clearTimeout(previewTimer);
-  previewTimer = setTimeout(refreshActiveJLens, 180);
-});
-
-for (const chip of document.querySelectorAll(".word-chip")) {
-  chip.addEventListener("click", async () => {
-    document.getElementById("vec-name").value = "";
-    document.getElementById("vec-slot").value = "auto";
-    document.getElementById("vec-mode").value = chip.dataset.mode || "t2va";
-    const chipAgainst = chip.dataset.against || "";
-    const curAgainst = (document.getElementById("vec-against")?.value || "").trim();
-    const promptVal = (document.getElementById("vec-prompt")?.value || "").trim();
-    if (!curAgainst || curAgainst.startsWith("@")) {
-      document.getElementById("vec-against").value = (chipAgainst === "@replace_human" && promptVal) ? "@prompt_subject" : chipAgainst;
-    }
-    document.getElementById("md-input").value = chip.dataset.words || "";
-    await runPreview();
   });
+  renderSceneDiffTable();
 }
 
-document.getElementById("btn-build-words").addEventListener("click", async () => {
-  const btn = document.getElementById("btn-build-words");
-  const logEl = document.getElementById("build-log");
+async function buildFromSceneRows() {
+  if (!state.sceneRows.length) {
+    await expandScenesFromInputs();
+    if (!state.sceneRows.length) return;
+  }
+  const activePairs = state.sceneRows.filter(r => r.enabled && !r.is_hold);
+  const holdPairs = state.sceneRows.filter(r => r.enabled && r.is_hold).map(r => ({
+    group: r.scene_id || "hold",
+    a: r.a,
+    b: r.b,
+    weight: Number(r.weight ?? 1.0),
+  }));
+  if (!activePairs.length) {
+    setStatus("err", "Enable at least one non-hold scene row before building.");
+    return;
+  }
+  const name = document.getElementById("vec-name").value.trim() || "custom_scene_vector";
+  const frame = document.getElementById("vec-frame").value;
+  const mode = document.getElementById("vec-mode").value;
+  const families = document.getElementById("vec-families").value;
+  const pooling = document.getElementById("vec-pooling").value;
+  const overwrite = document.getElementById("vec-overwrite").checked;
+  const no_lora = document.getElementById("vec-nolora").checked;
+  const unit_mean = document.getElementById("unit-mean-chk").checked;
+  const hold_words = document.getElementById("vec-holds").value.trim();
+  const hold_alpha = parseFloat(document.getElementById("hold-alpha-slider").value || "1.0");
+
+  const btn = document.getElementById("btn-build-rows");
   btn.disabled = true;
+  setStatus("info", `Encoding ${activePairs.length} scene pairs${holdPairs.length ? " + " + holdPairs.length + " hold pairs" : ""} through Qwen3-VL + TokenRefiner...`);
   try {
-    const data = await runJLensFromWords(true);
-    if (!data) {
-      setStatus("Enter 3–5 simple words (not full Markdown pairs) for < 2 ms J-Lens word synthesis", "err");
+    const res = await apiPost("/api/build", {
+      name,
+      frame,
+      mode,
+      families,
+      pooling,
+      overwrite,
+      no_lora,
+      unit_mean,
+      hold_words,
+      hold_alpha,
+      rows: activePairs,
+      holds: holdPairs,
+    });
+    if (!res.ok) {
+      setStatus("err", res.error || "Build failed");
       return;
     }
-    logEl.style.display = "block";
-    if (data.ok) {
-      const builtFiles = data.saved_files || (data.saved_file ? [data.saved_file] : []);
-      if (data.save_name && !document.getElementById("vec-name").value.trim()) {
-        document.getElementById("vec-name").value = data.save_name;
-      }
-      const rd = data.readiness || (data.readout && data.readout.readiness) || {};
-      logEl.textContent = [
-        `Built ${builtFiles.length} word-synthesized .safetensors file(s) in < 2 ms on CPU (0 VRAM):`,
-        ...builtFiles.map(f => `  * ${f}`),
-        `  +ve: ${(data.readout && data.readout.pos_summary) || ""}`,
-        `  -ve: ${(data.readout && data.readout.neg_summary) || ""}`,
-        `  readiness: ${rd.summary || ""}`,
-        ...(Array.isArray(rd.recommendations) ? rd.recommendations.map(r => `    -> ${r}`) : []),
-      ].join("\n");
-      if (Array.isArray(data.vectors)) {
-        renderVectorsTable(data.vectors, new Set(builtFiles));
-      }
-      setStatus(`Built ${builtFiles.length} vector file(s) in < 2 ms`, "ok");
-    } else {
-      logEl.textContent = data.error || "Word synthesis failed.";
-      setStatus(data.error || "Word synthesis failed", "err");
+    updateSceneRowCosinesFromBuild(res.built || []);
+    const lines = (res.built || []).map(
+      b => `${b.file} (split_half_cos=${Number(b.split_half_cosine).toFixed(3)}, norm=${Number(b.vector_norm).toFixed(2)}, rec=${(b.recommended_strength_band || []).join("..")})`
+    );
+    setStatus("ok", `Built ${lines.length} vector(s) & cached per-pair states for <1ms CPU Re-Pooling:\n` + lines.join("\n"));
+    await refreshInit();
+    if (res.built && res.built.length) {
+      const builtFile = res.built[0].file.split("/").pop();
+      state.activeVectorFile = builtFile;
+      inspectVectorJLens(builtFile);
     }
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function repoolFromSceneRows() {
+  if (!state.sceneRows.length) {
+    setStatus("err", "No scene rows loaded. Build a 10-pair vector first to populate the <1ms CPU cache.");
+    return;
+  }
+  const activeIndices = [];
+  const holdIndices = [];
+  const weights = [];
+  state.sceneRows.forEach((r, idx) => {
+    weights.push(Number(r.weight ?? 1.0));
+    if (!r.enabled) return;
+    if (r.is_hold) holdIndices.push(idx);
+    else activeIndices.push(idx);
+  });
+  const hold_words = document.getElementById("vec-holds").value.trim();
+  const hold_alpha = parseFloat(document.getElementById("hold-alpha-slider").value || "1.0");
+  const unit_mean = document.getElementById("unit-mean-chk").checked;
+  const overwrite = document.getElementById("vec-overwrite").checked;
+
+  const btn = document.getElementById("btn-repool-rows");
+  btn.disabled = true;
+  try {
+    const res = await apiPost("/api/repool", {
+      active_indices: activeIndices,
+      hold_indices: holdIndices,
+      weights,
+      rows: state.sceneRows,
+      hold_words,
+      hold_alpha,
+      unit_mean,
+      overwrite,
+    });
+    if (!res.ok) {
+      setStatus("err", res.error || "Re-pool failed");
+      return;
+    }
+    updateSceneRowCosinesFromBuild(res.built || []);
+    const lines = (res.built || []).map(
+      b => `${b.file} (split_half_cos=${Number(b.split_half_cosine).toFixed(3)}, norm=${Number(b.vector_norm).toFixed(2)}, dirty_reencoded=${b.dirty_reencoded || 0})`
+    );
+    setStatus("ok", `Re-pooled & saved in ${Number(res.elapsed_ms || 0).toFixed(2)} ms:\n` + lines.join("\n"));
+    await refreshInit();
+    if (res.built && res.built.length) {
+      const builtFile = res.built[0].file.split("/").pop();
+      state.activeVectorFile = builtFile;
+      inspectVectorJLens(builtFile);
+    }
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+document.getElementById("btn-expand-scenes").addEventListener("click", expandScenesFromInputs);
+document.getElementById("btn-build-rows").addEventListener("click", buildFromSceneRows);
+document.getElementById("btn-repool-rows").addEventListener("click", repoolFromSceneRows);
+document.getElementById("btn-add-scene-row").addEventListener("click", () => {
+  state.sceneRows.push({
+    scene_id: `custom_${state.sceneRows.length + 1}`,
+    a: "integrated_multimodal_description: [Shot 1] Baseline scene description.\n\noverall_soundscape: Quiet room tone.\n\nnon_diegetic_music: None.",
+    b: "integrated_multimodal_description: [Shot 1] Steered scene description.\n\noverall_soundscape: Quiet room tone.\n\nnon_diegetic_music: None.",
+    weight: 1.0,
+    enabled: true,
+    is_hold: false,
+  });
+  renderSceneDiffTable();
+});
+
+document.getElementById("btn-promote-scenes").addEventListener("click", async () => {
+  const text = document.getElementById("md-input").value.trim();
+  if (!text) {
+    setStatus("err", "Type words/clauses or paste Markdown in the box first.");
+    return;
+  }
+  if (!text.includes("####") && !text.includes("[[pair]]")) {
+    document.getElementById("exp-pole-b").value = text;
+    await expandScenesFromInputs();
+  } else {
+    const res = await apiPost("/api/preview", {
+      text,
+      name: document.getElementById("vec-name").value.trim(),
+      frame: document.getElementById("vec-frame").value,
+      slot: document.getElementById("vec-slot").value,
+      mode: document.getElementById("vec-mode").value,
+    });
+    renderSpanPreviewCards(res);
+    switchStageTab("scenes");
+  }
+});
+
+document.getElementById("btn-build-media").addEventListener("click", async () => {
+  const image_a = document.getElementById("media-image-a").value.trim();
+  const image_b = document.getElementById("media-image-b").value.trim();
+  const output_name = document.getElementById("vec-name").value.trim() || "media_contrast";
+  const pooling = document.getElementById("media-pooling").value;
+  const short_edge = parseInt(document.getElementById("media-short-edge").value || "448", 10);
+  const scene_prompt = document.getElementById("media-scene-prompt").value.trim();
+  const families = document.getElementById("vec-families").value;
+  const overwrite = document.getElementById("vec-overwrite").checked;
+  const no_lora = document.getElementById("vec-nolora").checked;
+  const hold_words = document.getElementById("vec-holds").value.trim();
+  const hold_alpha = parseFloat(document.getElementById("hold-alpha-slider").value || "1.0");
+
+  if (!image_a || !image_b) {
+    setStatus("err", "Provide both Image A Path and Image B Path.");
+    return;
+  }
+  const btn = document.getElementById("btn-build-media");
+  btn.disabled = true;
+  setStatus("info", `Building media control vector (${image_a} -> ${image_b})...`);
+  try {
+    const res = await apiPost("/api/build-media", {
+      image_a,
+      image_b,
+      output_name,
+      pooling,
+      short_edge,
+      scene_prompt,
+      families,
+      overwrite,
+      no_lora,
+      hold_words,
+      hold_alpha,
+    });
+    if (!res.ok) {
+      setStatus("err", res.error || "Media build failed");
+      return;
+    }
+    const lines = (res.built || []).map(b => `${b.file} (grid=${b.grid}, norm=${Number(b.vector_norm).toFixed(2)})`);
+    setStatus("ok", "Built media control vector:\n" + lines.join("\n"));
+    await refreshInit();
   } finally {
     btn.disabled = false;
   }
 });
 
-document.getElementById("md-input").addEventListener("input", () => {
-  clearTimeout(previewTimer);
-  previewTimer = setTimeout(runPreview, 250);
-});
-
-document.getElementById("select-existing-toml").addEventListener("change", async (e) => {
-  const file = e.target.value;
-  if (!file) return;
-  setStatus(`Loading ${file}...`);
-  const res = await fetch("/api/load-toml", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ file }),
-  });
-  const data = await res.json();
-  if (data.ok) {
-    document.getElementById("vec-name").value = data.name;
-    document.getElementById("vec-frame").value = data.frame || "scene";
-    document.getElementById("md-input").value = data.markdown;
-    await runPreview();
-  } else {
-    setStatus(data.error || "Failed to load .toml", "err");
-  }
-});
+document.getElementById("btn-preview").addEventListener("click", runPreview);
 
 document.getElementById("btn-save-toml").addEventListener("click", async () => {
   const text = document.getElementById("md-input").value;
-  const name = document.getElementById("vec-name").value.trim();
+  const name = document.getElementById("vec-name").value;
   const frame = document.getElementById("vec-frame").value;
   const slot = document.getElementById("vec-slot").value;
   const mode = document.getElementById("vec-mode").value;
-  const overwrite = document.getElementById("opt-overwrite").checked;
-  setStatus("Saving .toml...");
-  const res = await fetch("/api/save-toml", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text, name, frame, slot, mode, overwrite }),
-  });
-  const data = await res.json();
-  if (data.ok) {
-    setStatus(`Saved ${data.saved_toml}`, "ok");
-    await initStudio();
-  } else {
-    setStatus(data.error || "Failed to save .toml", "err");
+  const overwrite = document.getElementById("vec-overwrite").checked;
+  setStatus("info", "Saving .toml...");
+  const res = await apiPost("/api/save-toml", { text, name, frame, slot, mode, overwrite });
+  if (!res.ok) {
+    setStatus("err", res.error || "Failed to save .toml");
+    return;
+  }
+  if (res.name && !document.getElementById("vec-name").value.trim()) {
+    document.getElementById("vec-name").value = res.name;
+  }
+  setStatus("ok", `Saved ${res.toml} (${res.pairs} pairs)`);
+  await refreshInit();
+  await runPreview();
+});
+
+document.getElementById("btn-build-words").addEventListener("click", async () => {
+  const words = document.getElementById("md-input").value.trim() || document.getElementById("exp-pole-b").value.trim();
+  const name = document.getElementById("vec-name").value.trim();
+  const families = document.getElementById("vec-families").value;
+  const overwrite = document.getElementById("vec-overwrite").checked;
+  const against_words = document.getElementById("vec-against").value;
+  const hold_words = document.getElementById("vec-holds").value.trim();
+  const prompt = document.getElementById("vec-prompt").value;
+  const alpha = parseFloat(document.getElementById("hold-alpha-slider").value || "1.0");
+  if (!words || words.includes("####") || words.includes("[[pair]]")) {
+    setStatus("err", "Type a comma-separated word list (e.g. 'underwater, submerged, bubbles') to synthesize a <2ms unigram lexical tint.");
+    return;
+  }
+  const btn = document.getElementById("btn-build-words");
+  btn.disabled = true;
+  setStatus("info", "Synthesizing unigram lexical tint via J-Lens (< 2 ms)...");
+  try {
+    const res = await apiPost("/api/build-words", {
+      words,
+      against_words,
+      hold_words,
+      prompt,
+      name,
+      families,
+      overwrite,
+      alpha,
+    });
+    if (!res.ok) {
+      setStatus("err", res.error || "J-Lens word synthesis failed");
+      return;
+    }
+    if (res.name && !document.getElementById("vec-name").value.trim()) {
+      document.getElementById("vec-name").value = res.name;
+    }
+    const lines = (res.built || []).map(b => {
+      const rStr = (b.readiness || {}).recommended_strength;
+      const rFmt = Array.isArray(rStr) ? rStr.join("..") : (rStr || "1.00..1.35");
+      return `${b.file} (family=${b.family}, basis=${(b.readiness || {}).basis || "unigram_synthesis"}, rec=${rFmt})`;
+    });
+    setStatus("ok", `Synthesized ${lines.length} unigram lexical tint vector(s) in < 2 ms:\n` + lines.join("\n"));
+    if (res.built && res.built.length) {
+      renderJLensReadout(`Synthesized: ${res.name}`, res.built[0].readout, "", res.built[0].prompt_coupling);
+    }
+    await refreshInit();
+  } finally {
+    btn.disabled = false;
   }
 });
 
 document.getElementById("btn-build").addEventListener("click", async () => {
   const text = document.getElementById("md-input").value;
-  const name = document.getElementById("vec-name").value.trim();
+  const name = document.getElementById("vec-name").value;
   const frame = document.getElementById("vec-frame").value;
   const slot = document.getElementById("vec-slot").value;
   const mode = document.getElementById("vec-mode").value;
-  const families = document.querySelector('input[name="families"]:checked').value;
-  const poolings = getSelectedPoolings();
-  if (!poolings.length) {
-    setStatus("Select at least one pooling mode", "err");
-    return;
-  }
-  const no_lora = !document.getElementById("opt-pika").checked;
-  const overwrite = document.getElementById("opt-overwrite").checked;
-  const include_encoder = document.getElementById("opt-encoder").checked;
+  const families = document.getElementById("vec-families").value;
+  const pooling = document.getElementById("vec-pooling").value;
+  const overwrite = document.getElementById("vec-overwrite").checked;
+  const no_lora = document.getElementById("vec-nolora").checked;
+  const unit_mean = document.getElementById("unit-mean-chk").checked;
+  const hold_words = document.getElementById("vec-holds").value.trim();
+  const hold_alpha = parseFloat(document.getElementById("hold-alpha-slider").value || "1.0");
 
   const btn = document.getElementById("btn-build");
-  const logEl = document.getElementById("build-log");
   btn.disabled = true;
-  logEl.style.display = "block";
-  logEl.textContent = "Running Qwen3-VL-32B-Instruct (layers.0..49) + TokenRefiner extraction...";
-  setStatus("Building .safetensors vectors...");
-
+  setStatus("info", "Building control vector(s) via Qwen3-VL + TokenRefiner...");
   try {
-    const res = await fetch("/api/build", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        text,
-        name,
-        frame,
-        slot,
-        mode,
-        families,
-        pooling: poolings.join(","),
-        no_lora,
-        overwrite,
-        include_encoder,
-      }),
+    const res = await apiPost("/api/build", {
+      text, name, frame, slot, mode, families, pooling, overwrite, no_lora, unit_mean, hold_words, hold_alpha
     });
-    const data = await res.json();
-    if (data.ok) {
-      logEl.textContent = data.log || "Build succeeded.";
-      const builtSet = new Set((data.built || []).map(r => r.file));
-      renderVectorsTable(data.vectors || [], builtSet);
-      setStatus(`Built ${builtSet.size} vector file(s)`, "ok");
-    } else {
-      logEl.textContent = data.error || "Build failed.";
-      setStatus(data.error || "Build failed", "err");
+    if (!res.ok) {
+      setStatus("err", res.error || "Build failed");
+      return;
     }
+    if (res.name && !document.getElementById("vec-name").value.trim()) {
+      document.getElementById("vec-name").value = res.name;
+    }
+    const lines = (res.built || []).map(
+      b => `${b.file} (split_half_cos=${Number(b.split_half_cosine).toFixed(3)}, norm=${Number(b.vector_norm).toFixed(2)})`
+    );
+    setStatus("ok", `Built ${lines.length} vector(s):\n` + lines.join("\n"));
+    await refreshInit();
+    await runPreview();
   } finally {
     btn.disabled = false;
   }
 });
 
-document.getElementById("btn-quit").addEventListener("click", async () => {
-  await fetch("/api/quit", { method: "POST" });
-  setStatus("Server stopped — you can close this tab", "err");
-  document.body.innerHTML = `<div style="padding:40px;text-align:center;color:#8b949e;"><h2>H3 Control Vector Studio stopped</h2><p>The local Python process has exited cleanly. You can close this browser tab.</p></div>`;
+document.getElementById("btn-add-sculpt-step").addEventListener("click", () => {
+  state.sculptSteps.push({
+    vector: state.vectors.length ? state.vectors[0].file : "",
+    mode: "hold",
+    strength: 1.0,
+  });
+  renderSculptRows();
 });
 
-(function initLockstepAB() {
-  const vidA = document.getElementById("ab-vid-a");
-  const vidB = document.getElementById("ab-vid-b");
-  const fileA = document.getElementById("ab-file-a");
-  const fileB = document.getElementById("ab-file-b");
-  const btnPlay = document.getElementById("ab-btn-play");
-  const btnPrev = document.getElementById("ab-btn-prev");
-  const btnNext = document.getElementById("ab-btn-next");
-  const scrub = document.getElementById("ab-scrub");
-  const audioSel = document.getElementById("ab-audio-mode");
-  const readout = document.getElementById("ab-time-readout");
-  let urlA = null;
-  let urlB = null;
-  const FRAME_DT = 1.0 / 24.0;
-
-  function updateReadout(t) {
-    const frame = Math.round(t * 24);
-    readout.textContent = `Frame ${frame} (${t.toFixed(2)}s @ 24fps)`;
-    scrub.value = String(t);
+document.getElementById("btn-sculpt-preview").addEventListener("click", async () => {
+  const validSteps = state.sculptSteps.filter(s => s.vector);
+  if (!validSteps.length) {
+    setStatus("err", "Select at least one vector in the Stage 2B Recipe Composer.");
+    return;
   }
-
-  function syncMaxDuration() {
-    const dA = Number.isFinite(vidA.duration) ? vidA.duration : 0;
-    const dB = Number.isFinite(vidB.duration) ? vidB.duration : 0;
-    const maxD = Math.max(dA, dB, 0.0416667);
-    scrub.max = String(maxD);
+  const hold_words = document.getElementById("sculpt-hold-words").value.trim() || document.getElementById("vec-holds").value.trim();
+  const alpha = parseFloat(document.getElementById("hold-alpha-slider").value || "1.0");
+  const prompt = document.getElementById("vec-prompt").value;
+  const res = await apiPost("/api/j-lens", {
+    steps: validSteps,
+    hold_words,
+    alpha,
+    prompt,
+    family: "fl2va",
+  });
+  if (!res.ok) {
+    setStatus("err", res.error || "Recipe preview failed");
+    return;
   }
+  const rep = res.report || res;
+  const nrm = rep.net_norm != null ? rep.net_norm : (rep.norm_after_holds || 0);
+  renderJLensReadout(
+    `Sculpted Recipe (${validSteps.length} layer${validSteps.length > 1 ? "s" : ""})`,
+    rep.readout,
+    `Net norm: ${Number(nrm).toFixed(2)}${hold_words ? " | hold_words: " + hold_words : ""}`,
+    rep.prompt_coupling
+  );
+});
 
-  fileA.addEventListener("change", (e) => {
-    const f = e.target.files && e.target.files[0];
-    if (!f) return;
-    if (urlA) URL.revokeObjectURL(urlA);
-    urlA = URL.createObjectURL(f);
-    vidA.src = urlA;
-  });
+document.getElementById("btn-sculpt-save").addEventListener("click", async () => {
+  const validSteps = state.sculptSteps.filter(s => s.vector);
+  if (!validSteps.length) {
+    setStatus("err", "Select at least one vector in the Stage 2B Recipe Composer.");
+    return;
+  }
+  const output_name = document.getElementById("sculpt-out-name").value.trim() || document.getElementById("vec-name").value.trim() || "sculpted_recipe";
+  const hold_words = document.getElementById("sculpt-hold-words").value.trim() || document.getElementById("vec-holds").value.trim();
+  const hold_alpha = parseFloat(document.getElementById("hold-alpha-slider").value || "1.0");
+  const families = document.getElementById("vec-families").value;
+  const overwrite = document.getElementById("vec-overwrite").checked;
+  const prompt = document.getElementById("vec-prompt").value;
 
-  fileB.addEventListener("change", (e) => {
-    const f = e.target.files && e.target.files[0];
-    if (!f) return;
-    if (urlB) URL.revokeObjectURL(urlB);
-    urlB = URL.createObjectURL(f);
-    vidB.src = urlB;
-  });
-
-  vidA.addEventListener("loadedmetadata", syncMaxDuration);
-  vidB.addEventListener("loadedmetadata", syncMaxDuration);
-
-  vidA.addEventListener("timeupdate", () => {
-    updateReadout(vidA.currentTime || 0);
-    if (vidB.src && Math.abs((vidB.currentTime || 0) - (vidA.currentTime || 0)) > 0.045) {
-      vidB.currentTime = vidA.currentTime;
+  const btn = document.getElementById("btn-sculpt-save");
+  btn.disabled = true;
+  setStatus("info", "Saving sculpted recipe vector (.safetensors + .md)...");
+  try {
+    const res = await apiPost("/api/sculpt", {
+      output_name,
+      steps: validSteps,
+      hold_words,
+      hold_alpha,
+      families,
+      overwrite,
+      prompt,
+    });
+    if (!res.ok) {
+      setStatus("err", res.error || "Failed to save sculpted vector");
+      return;
     }
-  });
-
-  vidB.addEventListener("timeupdate", () => {
-    if (!vidA.src) updateReadout(vidB.currentTime || 0);
-  });
-
-  btnPlay.addEventListener("click", async () => {
-    const paused = vidA.paused && vidB.paused;
-    if (paused) {
-      const t = vidA.src ? (vidA.currentTime || 0) : (vidB.currentTime || 0);
-      if (vidA.src) vidA.currentTime = t;
-      if (vidB.src) vidB.currentTime = t;
-      await Promise.all([
-        vidA.src ? vidA.play().catch(() => {}) : Promise.resolve(),
-        vidB.src ? vidB.play().catch(() => {}) : Promise.resolve(),
-      ]);
-    } else {
-      vidA.pause();
-      vidB.pause();
-    }
-  });
-
-  function stepFrames(deltaFrames) {
-    vidA.pause();
-    vidB.pause();
-    const baseT = vidA.src ? (vidA.currentTime || 0) : (vidB.currentTime || 0);
-    const maxT = parseFloat(scrub.max) || 5.0;
-    const nextT = Math.max(0, Math.min(maxT, baseT + deltaFrames * FRAME_DT));
-    if (vidA.src) vidA.currentTime = nextT;
-    if (vidB.src) vidB.currentTime = nextT;
-    updateReadout(nextT);
+    const lines = (res.built || []).map(b => `${b.file} (family=${b.family}, norm=${Number(b.net_norm || 0).toFixed(2)})`);
+    setStatus("ok", `Saved sculpted vector(s) in < 5 ms:\n` + lines.join("\n"));
+    await refreshInit();
+  } finally {
+    btn.disabled = false;
   }
+});
 
-  btnPrev.addEventListener("click", () => stepFrames(-1));
-  btnNext.addEventListener("click", () => stepFrames(1));
+document.getElementById("btn-run-prompt-meter").addEventListener("click", async () => {
+  const vec = state.activeVectorFile || (state.sculptSteps[0] && state.sculptSteps[0].vector) || (state.vectors[0] && state.vectors[0].file);
+  if (!vec) {
+    setStatus("err", "Select or build a control vector first to run the contextual GPU Token Meter.");
+    return;
+  }
+  const prompt = document.getElementById("vec-prompt").value;
+  const no_lora = document.getElementById("vec-nolora").checked;
+  const btn = document.getElementById("btn-run-prompt-meter");
+  btn.disabled = true;
+  setStatus("info", `Running exact 5376-d Qwen3-VL + TokenRefiner per-token meter on ${prompt}...`);
+  try {
+    const res = await apiPost("/api/prompt-meter", {
+      vector: vec,
+      prompt,
+      family: "fl2va",
+      no_lora,
+    });
+    if (!res.ok) {
+      setStatus("err", res.error || "Contextual prompt meter failed");
+      return;
+    }
+    renderTokenHeatmap(res.tokens || [], "5376-d Contextual GPU Meter");
+    const m = res.meter || {};
+    const mCos = m.cosine != null ? m.cosine : (m.mean_cosine || 0);
+    const p90Cos = m.p90_token_cosine != null ? m.p90_token_cosine : (m.p90_cosine || 0);
+    const zVal = m.projection_units != null ? m.projection_units : (m.z_score || 0);
+    document.getElementById("prompt-meter-summary").textContent =
+      `mean_cos=${Number(mCos).toFixed(3)} | p90_cos=${Number(p90Cos).toFixed(3)} | z=${Number(zVal).toFixed(2)}`;
+    setStatus("ok", `Contextual 5376-d token meter complete on ${vec} (${(res.tokens || []).length} tokens).`);
+  } finally {
+    btn.disabled = false;
+  }
+});
 
-  scrub.addEventListener("input", () => {
-    vidA.pause();
-    vidB.pause();
-    const t = parseFloat(scrub.value) || 0;
-    if (vidA.src) vidA.currentTime = t;
-    if (vidB.src) vidB.currentTime = t;
-    updateReadout(t);
-  });
+document.getElementById("hold-alpha-slider").addEventListener("input", e => {
+  document.getElementById("hold-alpha-val").textContent = Number(e.target.value).toFixed(2);
+});
+document.getElementById("hold-alpha-slider").addEventListener("change", () => {
+  if (state.activeVectorFile) inspectVectorJLens(state.activeVectorFile);
+  else previewWordsJLens();
+});
+document.getElementById("vec-holds").addEventListener("change", () => {
+  const scH = document.getElementById("sculpt-hold-words");
+  if (scH && !scH.value.trim()) scH.value = document.getElementById("vec-holds").value;
+  if (state.activeVectorFile) inspectVectorJLens(state.activeVectorFile);
+  else previewWordsJLens();
+});
+document.getElementById("vec-against").addEventListener("change", previewWordsJLens);
+document.getElementById("vec-prompt").addEventListener("change", () => {
+  if (state.activeVectorFile) inspectVectorJLens(state.activeVectorFile);
+  else previewWordsJLens();
+});
 
-  audioSel.addEventListener("change", () => {
-    const mode = audioSel.value;
-    vidA.muted = mode !== "a";
-    vidB.muted = mode !== "b";
-  });
-})();
+document.getElementById("btn-copy-sysprompt").addEventListener("click", async () => {
+  if (!state.systemPrompt) {
+    setStatus("err", "System prompt not loaded.");
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(state.systemPrompt);
+    setStatus("ok", "Copied H3 Control Vector LLM System Prompt to clipboard!");
+  } catch (_) {
+    const box = document.getElementById("sysprompt-box");
+    box.select();
+    document.execCommand("copy");
+    setStatus("ok", "Copied system prompt to clipboard.");
+  }
+});
 
-initStudio();
+document.getElementById("btn-refresh").addEventListener("click", refreshInit);
+
+document.getElementById("btn-quit").addEventListener("click", async () => {
+  setStatus("info", "Stopping Control Vector Studio server...");
+  try {
+    await apiPost("/api/quit", {});
+    setStatus("ok", "Server stopped cleanly. You can close this browser tab.");
+  } catch (e) {
+    setStatus("ok", "Server stopped.");
+  }
+});
+
+// Synchronized A/B Video Player Controls
+const vLeft = document.getElementById("v-left");
+const vRight = document.getElementById("v-right");
+const leftSel = document.getElementById("clip-left-select");
+const rightSel = document.getElementById("clip-right-select");
+const loopChk = document.getElementById("ab-loop");
+
+function updateVideoSources() {
+  const l = leftSel.value;
+  const r = rightSel.value;
+  if (l) vLeft.src = "/media?rel=" + encodeURIComponent(l);
+  if (r) vRight.src = "/media?rel=" + encodeURIComponent(r);
+  vLeft.loop = loopChk.checked;
+  vRight.loop = loopChk.checked;
+}
+
+leftSel.addEventListener("change", updateVideoSources);
+rightSel.addEventListener("change", updateVideoSources);
+loopChk.addEventListener("change", () => {
+  vLeft.loop = loopChk.checked;
+  vRight.loop = loopChk.checked;
+});
+
+document.getElementById("btn-ab-play").addEventListener("click", () => {
+  if (vLeft.paused) {
+    vRight.currentTime = vLeft.currentTime;
+    vLeft.play();
+    vRight.play();
+  } else {
+    vLeft.pause();
+    vRight.pause();
+  }
+});
+
+document.getElementById("btn-ab-restart").addEventListener("click", () => {
+  vLeft.currentTime = 0;
+  vRight.currentTime = 0;
+});
+
+document.getElementById("btn-ab-prev").addEventListener("click", () => {
+  vLeft.pause();
+  vRight.pause();
+  const t = Math.max(0, vLeft.currentTime - 1 / 24);
+  vLeft.currentTime = t;
+  vRight.currentTime = t;
+});
+
+document.getElementById("btn-ab-next").addEventListener("click", () => {
+  vLeft.pause();
+  vRight.pause();
+  const t = vLeft.currentTime + 1 / 24;
+  vLeft.currentTime = t;
+  vRight.currentTime = t;
+});
+
+document.getElementById("btn-ab-swap").addEventListener("click", () => {
+  const tmp = leftSel.value;
+  leftSel.value = rightSel.value;
+  rightSel.value = tmp;
+  updateVideoSources();
+});
+
+async function refreshInit() {
+  const data = await apiGet("/api/init");
+  if (!data.ok) return;
+  state.systemPrompt = data.system_prompt || "";
+  state.tomlFiles = data.toml_files || [];
+  state.vectors = data.vectors || [];
+  state.clips = data.clips || [];
+  state.canonicalFrames = data.canonical_frames || {};
+  document.getElementById("sysprompt-box").value = state.systemPrompt;
+  renderLists();
+}
+
+refreshInit();
 </script>
 </body>
 </html>

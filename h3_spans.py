@@ -629,7 +629,7 @@ def first_differing_index(
     raise ValueError("token_ids_a and token_ids_b are identical; no differing token exists")
 
 
-_DIFF_MASK_CACHE: dict[tuple[tuple[int, ...], int, int], torch.BoolTensor] = {}
+_DIFF_MASK_CACHE: dict[tuple[Any, ...], torch.BoolTensor] = {}
 
 
 def _raw_differing_token_bounds(
@@ -705,11 +705,20 @@ def differing_token_bounds(
     b = _flat_int_list(token_ids_b, "token_ids_b")
     first_diff, end_a, end_b = _raw_differing_token_bounds(a, b)
     mask_a, mask_b = differing_token_mask(a, b, min_shared_run=8)
+    ta = tuple(a)
+    tb = tuple(b)
     if not bool(mask_a[first_diff:end_a].all()) or not bool(mask_b[first_diff:end_b].all()):
         while len(_DIFF_MASK_CACHE) >= 512:
             _DIFF_MASK_CACHE.pop(next(iter(_DIFF_MASK_CACHE)))
-        _DIFF_MASK_CACHE[(tuple(a), first_diff, end_a)] = mask_a
-        _DIFF_MASK_CACHE[(tuple(b), first_diff, end_b)] = mask_b
+        _DIFF_MASK_CACHE[(ta, tb, first_diff, end_a)] = mask_a
+        _DIFF_MASK_CACHE[(tb, ta, first_diff, end_b)] = mask_b
+        _DIFF_MASK_CACHE[(ta, first_diff, end_a)] = mask_a
+        _DIFF_MASK_CACHE[(tb, first_diff, end_b)] = mask_b
+    else:
+        _DIFF_MASK_CACHE.pop((ta, tb, first_diff, end_a), None)
+        _DIFF_MASK_CACHE.pop((tb, ta, first_diff, end_b), None)
+        _DIFF_MASK_CACHE.pop((ta, first_diff, end_a), None)
+        _DIFF_MASK_CACHE.pop((tb, first_diff, end_b), None)
     return first_diff, end_a, end_b
 
 

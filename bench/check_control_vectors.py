@@ -352,6 +352,42 @@ def check_spans_partition_and_refusals(tok: MiniMaxH3Tokenizer) -> list[str]:
     if not bool(pm_dlg_diff[dlg_first:dlg_last].all()):
         errs.append("pooling_mask('diff_span') dialogue fallback did not select differing dialogue tokens")
 
+    # Multi-span SequenceMatcher differing_token_mask(min_shared_run=8) and pooling_mask(mode="diff_span") bridge exclusion:
+    # Construct two edits separated by >= 10 unchanged scene tokens so differing_token_mask strips the interior bridge.
+    if len(scene_indices) >= 18:
+        s_i0 = scene_indices[2]
+        s_i1 = scene_indices[14]
+        if s_i1 - (s_i0 + 2) >= 10:
+            ids_b_multi = list(token_ids)
+            ids_b_multi[s_i0] = ids_b_multi[s_i0] + 1
+            ids_b_multi[s_i0 + 1] = ids_b_multi[s_i0 + 1] + 1
+            ids_b_multi[s_i1] = ids_b_multi[s_i1] + 1
+            ids_b_multi[s_i1 + 1] = ids_b_multi[s_i1 + 1] + 1
+            dm_a, dm_b = h3_spans.differing_token_mask(token_ids, ids_b_multi, min_shared_run=8)
+            if not (bool(dm_a[s_i0 : s_i0 + 2].all()) and bool(dm_a[s_i1 : s_i1 + 2].all())):
+                errs.append("differing_token_mask did not mark both edited spans as True")
+            if bool(dm_a[s_i0 + 2 : s_i1].any()) or bool(dm_b[s_i0 + 2 : s_i1].any()):
+                errs.append("differing_token_mask failed to exclude unchanged interior bridge of >= 8 tokens")
+            mb_s, mb_ea, _mb_eb = h3_spans.differing_token_bounds(token_ids, ids_b_multi)
+            pm_multi = h3_spans.pooling_mask(masks, "diff_span", first_diff=mb_s, end_diff=mb_ea)
+            if bool(pm_multi[s_i0 + 2 : s_i1].any()):
+                errs.append("pooling_mask('diff_span') did not exclude unchanged interior bridge cached by differing_token_bounds")
+            if not (bool(pm_multi[s_i0 : s_i0 + 2].all()) and bool(pm_multi[s_i1 : s_i1 + 2].all())):
+                errs.append("pooling_mask('diff_span') lost edited spans when excluding interior bridge")
+            # Verify single-span pair with identical outer bounds evicts/replaces the cached multi-span mask:
+            ids_b_single_same_bounds = list(token_ids)
+            for idx_k in range(s_i0, s_i1 + 2):
+                ids_b_single_same_bounds[idx_k] = ids_b_single_same_bounds[idx_k] + 1
+            sb_s, sb_ea, _sb_eb = h3_spans.differing_token_bounds(token_ids, ids_b_single_same_bounds)
+            pm_single_after = h3_spans.pooling_mask(masks, "diff_span", first_diff=sb_s, end_diff=sb_ea)
+            if not torch.equal(pm_single_after[sb_s:sb_ea], masks["scene"][sb_s:sb_ea]):
+                errs.append("pooling_mask('diff_span') retained stale multi-span cache after single-span pair with same outer bounds")
+
+    errs += _expect_refusal(
+        lambda: h3_spans.differing_token_mask(token_ids, list(token_ids)),
+        "are identical; no differing token exists",
+        "differing_token_mask identical sequences",
+    )
     errs += _expect_refusal(
         lambda: h3_spans.differing_token_bounds(token_ids, list(token_ids)),
         "are identical; no differing token exists",
@@ -968,6 +1004,44 @@ b = "a busy city street"
             errs.append("compile_words_to_pairset('a -> b') did not derive default name from steered pole B")
         if pair_comp.parse_short_contrast_spec("steady locked-off tripod -> erratic handheld camera shake")["name"] != "erratic_handheld_camera_shake":
             errs.append("parse_short_contrast_spec('a -> b') did not derive default name from steered pole B")
+
+        # Coupled description + overall_soundscape differing_span, inline hold:, target_prompt, and {props}/{surface} bindings:
+        coupled_b = base_b.replace(
+            "overall_soundscape: The wheel hums with a steady low whir and wet hands slide over clay.",
+            "overall_soundscape: A 16mm film projector clatters with optical crackle and warm motor hum.",
+        )
+        c_span_a, c_span_b = cv.differing_span(base_a, coupled_b, frame="scene")
+        if " | " not in c_span_a or " | " not in c_span_b:
+            errs.append(f"differing_span did not join coupled description + soundscape spans with ' | ': {c_span_a!r} vs {c_span_b!r}")
+        _, c_sec_name = cv.differing_section_info(base_a, coupled_b, frame="scene")
+        if c_sec_name != "integrated_multimodal_description+overall_soundscape":
+            errs.append(f"differing_section_info returned {c_sec_name!r}, expected 'integrated_multimodal_description+overall_soundscape'")
+
+        spec_multi = pair_comp.parse_short_contrast_spec(
+            "normal gravity -> {props} lift off {surface} in zero gravity; "
+            "soundscape: normal room tone -> low weightless magnetic hum; "
+            "hold(camera_shake): steady locked tripod -> erratic handheld shake"
+        )
+        ps_multi = spec_multi["pair_set"]
+        if len(ps_multi.pairs) != 10 or len(ps_multi.holds) != 2 or ps_multi.holds[0].group != "camera_shake":
+            errs.append(f"parse_short_contrast_spec multi-clause/coupled/hold unexpected result: pairs={len(ps_multi.pairs)}, holds={len(ps_multi.holds)}")
+        if any(" | " not in p.b_span for p in ps_multi.pairs):
+            errs.append("parse_short_contrast_spec with coupled soundscape did not produce 'description | soundscape' b_spans")
+        if len({p.b_span for p in ps_multi.pairs}) != 10:
+            errs.append("parse_short_contrast_spec with {props}/{surface} did not produce 10/10 unique b_spans")
+        if cv.lint_pair_set(ps_multi):
+            errs.append(f"parse_short_contrast_spec multi-clause PairSet failed lint_pair_set: {cv.lint_pair_set(ps_multi)}")
+
+        ps_tprompt = pair_comp.compile_words_to_pairset(
+            "steady locked-off tripod -> erratic handheld camera shake",
+            target_prompt=excl_text,
+            target_weight=2.5,
+            vary_realizations=True,
+        )
+        if len(ps_tprompt.pairs) != 10 or ps_tprompt.pairs[0].weight != 2.5:
+            errs.append(f"compile_words_to_pairset(target_prompt=...) unexpected Pair 0 weight or count: {ps_tprompt.pairs[0]}")
+        if len({p.b_span for p in ps_tprompt.pairs}) != 10:
+            errs.append(f"compile_words_to_pairset(vary_realizations=True) did not produce 10 unique b_spans: {[p.b_span for p in ps_tprompt.pairs]}")
         for slot_k in pair_comp.CANONICAL_SLOTS:
             ps_placebo = pair_comp.compile_placebo_pairset(slot=slot_k, mode="t2va")
             if len(ps_placebo.pairs) != 10 or cv.lint_pair_set([{"a": p.a, "b": p.b} for p in ps_placebo.pairs]):
@@ -1783,8 +1857,29 @@ def check_apply_post_refiner_invariants() -> list[str]:
     if abs(cc["top1_energy_share"] - (1.0 / D)) > 1e-5:
         errs.append(f"unexpected uniform channel_census top1_energy_share: {cc}")
     ms = cv.meter_score(context[0], vec, mask=(tags[0] == 1))
-    if not ("projection_units" in ms and "signed_projection" in ms and "cosine" in ms):
-        errs.append(f"unexpected meter_score output: {ms}")
+    req_ms_keys = {
+        "projection_units",
+        "z_score",
+        "signed_projection",
+        "cosine",
+        "mean_cosine",
+        "max_token_cosine",
+        "p90_token_cosine",
+        "p90_cosine",
+        "per_token_cosines",
+        "top_coupled_tokens",
+    }
+    if not req_ms_keys.issubset(ms.keys()) or len(ms["per_token_cosines"]) != L:
+        errs.append(f"unexpected meter_score output or missing per-token keys: {ms.keys()}")
+    errs += _expect_refusal(
+        lambda: cv._apply_holds_to_shift64(
+            vec.to(dtype=torch.float64),
+            [(vec, 2.5)],
+            device=vec.device,
+        ),
+        "hold alpha must be finite and in [0.0, 2.0]",
+        "_apply_holds_to_shift64 refusal on hold_alpha > 2.0",
+    )
 
     # 7. Apply-time modes: project_out and amplify exact algebra on float32 synthetic tensors.
     v_dir = torch.zeros(D, dtype=torch.float32)
@@ -1837,10 +1932,13 @@ def check_apply_post_refiner_invariants() -> list[str]:
     v_proj_half = cv.project_out(v_steer, v_dir.unsqueeze(0), alpha=0.5)
     if not torch.allclose(v_proj_half, 1.0 * v_dir + ortho, atol=1e-6):
         errs.append(f"project_out(alpha=0.5) did not attenuate component along basis by 50%: {v_proj_half[:4]}")
+    v_proj_over = cv.project_out(v_steer, v_dir.unsqueeze(0), alpha=1.5)
+    if not torch.allclose(v_proj_over, -1.0 * v_dir + ortho, atol=1e-6):
+        errs.append(f"project_out(alpha=1.5) did not over-project component along basis: {v_proj_over[:4]}")
     errs += _expect_refusal(
-        lambda: cv.project_out(v_steer, v_dir.unsqueeze(0), alpha=1.5),
-        "alpha must be finite and in [0.0, 1.0]",
-        "project_out refusal: alpha > 1.0",
+        lambda: cv.project_out(v_steer, v_dir.unsqueeze(0), alpha=2.5),
+        "alpha must be finite and in [0.0, 2.0]",
+        "project_out refusal: alpha > 2.0",
     )
 
     # Standalone mode='hold' with no additive vector must leave context bitwise untouched (unlike 'project_out')
@@ -4050,6 +4148,12 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
         bliz_rd = (bliz_synth.get("readout") or {}).get("readiness") or {}
         if bliz_rd.get("off_target_words") != [] or float(bliz_rd.get("echo_ratio") or 0.0) < 0.99:
             errs.append(f"semantic echo_ratio failed on blizzard synonyms: {bliz_rd}")
+        op_ids, _op_m, _op_u = j_lens._resolve_word_indices(["operatic"], real_b["word_to_idxs"])
+        if op_ids != real_b["word_to_idxs"]["opera"]:
+            errs.append(f"_resolve_word_indices(['operatic']) did not resolve to 'opera' indices: {op_ids}")
+        pr_ids, _pr_m, _pr_u = j_lens._resolve_word_indices(["pressurized"], real_b["word_to_idxs"])
+        if pr_ids != real_b["word_to_idxs"]["pressure"]:
+            errs.append(f"_resolve_word_indices(['pressurized']) did not resolve to 'pressure' indices: {pr_ids}")
 
         # Verify universal hold_words on a pre-built .safetensors vector (with words="")
         with tempfile.TemporaryDirectory() as uhold_tmp:
@@ -4077,8 +4181,8 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
             v_wh = m_with_hold.model_options["transformer_options"][cv_nodes.WRAPPER_KEY][0].vector
             if torch.allclose(v_nh, v_wh, atol=1e-4):
                 errs.append("Universal hold_words on pre-built .safetensors vector (words='') did not modify vector")
-            if abs(float(torch.linalg.vector_norm(v_nh)) - float(torch.linalg.vector_norm(v_wh))) > 1e-3:
-                errs.append("Universal hold_words on pre-built .safetensors vector did not preserve pre-hold L2 norm")
+            if float(torch.linalg.vector_norm(v_wh)) >= float(torch.linalg.vector_norm(v_nh)):
+                errs.append("Universal hold_words on pre-built .safetensors vector did not reduce L2 norm after orthogonal scrub (Invariant 2)")
 
         # Verify Step-0 _h3_tail_text resolution when against_words='@prompt_subject' is attached without prompt at node time
         m_deferred = cv_nodes.MiniMaxH3ApplyControlVectors.execute(

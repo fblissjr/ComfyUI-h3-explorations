@@ -768,12 +768,14 @@ def make_control_vector_from_pairs(
             pooling,
             first_diff=min(first_diff, len(ids_a) - 1),
             end_diff=end_a,
+            other_ids=ids_b,
         )
         mask_b = _spans.pooling_mask(
             spans_b,
             pooling,
             first_diff=min(first_diff, len(ids_b) - 1),
             end_diff=end_b,
+            other_ids=ids_a,
         )
 
         pool_a = ref_a.to(dtype=torch.float64)[mask_a].mean(dim=0).to(dtype=torch.float32)
@@ -821,11 +823,13 @@ def make_control_vector_from_pairs(
     raw_vec = _cv.mean_difference(a_mat, b_mat, w_vec, unit_mean=unit_mean)
     tensors_to_save: dict[str, torch.Tensor] = {}
 
+    enc_hold_a_list: list[torch.Tensor] = []
+    enc_hold_b_list: list[torch.Tensor] = []
+    hold_groups: list[str] = []
+    hold_weights: list[float] = []
     if apply_holds and pair_set.holds:
         hold_a_list: list[torch.Tensor] = []
         hold_b_list: list[torch.Tensor] = []
-        hold_groups: list[str] = []
-        hold_weights: list[float] = []
         for h_item in pair_set.holds:
             h_enc_a, h_tags_a, h_ids_a, h_dec_a = encode_prompt_for_vector(
                 clip, h_item.a, encoded_references=encoded_references
@@ -843,12 +847,14 @@ def make_control_vector_from_pairs(
                 pooling,
                 first_diff=min(h_diff, len(h_ids_a) - 1),
                 end_diff=h_end_a,
+                other_ids=h_ids_b,
             )
             h_mask_b = _spans.pooling_mask(
                 h_spans_b,
                 pooling,
                 first_diff=min(h_diff, len(h_ids_b) - 1),
                 end_diff=h_end_b,
+                other_ids=h_ids_a,
             )
             hold_a_list.append(
                 h_ref_a.to(dtype=torch.float64)[h_mask_a].mean(dim=0).to(dtype=torch.float32)
@@ -856,6 +862,23 @@ def make_control_vector_from_pairs(
             hold_b_list.append(
                 h_ref_b.to(dtype=torch.float64)[h_mask_b].mean(dim=0).to(dtype=torch.float32)
             )
+            if include_encoder:
+                hma_e = h_mask_a.clone()
+                hmb_e = h_mask_b.clone()
+                if hma_e.numel() > 0:
+                    hma_e[0] = False
+                if hmb_e.numel() > 0:
+                    hmb_e[0] = False
+                if not bool(hma_e.any()):
+                    hma_e = h_mask_a
+                if not bool(hmb_e.any()):
+                    hmb_e = h_mask_b
+                enc_hold_a_list.append(
+                    h_enc_a.to(dtype=torch.float64)[hma_e].mean(dim=0).to(dtype=torch.float32)
+                )
+                enc_hold_b_list.append(
+                    h_enc_b.to(dtype=torch.float64)[hmb_e].mean(dim=0).to(dtype=torch.float32)
+                )
             hold_groups.append(h_item.group)
             hold_weights.append(float(h_item.weight))
         basis = _cv.hold_basis(
@@ -911,7 +934,15 @@ def make_control_vector_from_pairs(
     if include_encoder:
         enc_a_mat = torch.stack(enc_a_pooled_list, dim=0)
         enc_b_mat = torch.stack(enc_b_pooled_list, dim=0)
-        enc_raw_vec = _cv.mean_difference(enc_a_mat, enc_b_mat, w_vec)
+        enc_raw_vec = _cv.mean_difference(enc_a_mat, enc_b_mat, w_vec, unit_mean=unit_mean)
+        if enc_hold_a_list:
+            enc_basis = _cv.hold_basis(
+                torch.stack(enc_hold_a_list, dim=0),
+                torch.stack(enc_hold_b_list, dim=0),
+                hold_groups,
+                torch.tensor(hold_weights, dtype=torch.float32),
+            )
+            enc_raw_vec = _cv.project_out(enc_raw_vec, enc_basis)
         enc_raw_norm = float(
             torch.linalg.vector_norm(enc_raw_vec.to(dtype=torch.float64)).item()
         )
@@ -1238,6 +1269,14 @@ def _make_control_vector_wrapper(specs: tuple[_AppliedVectorSpec, ...]):
                     vec_out = resolved_prompt_vectors[cache_key]
                     last_resolved_by_spec[sp.vector_name] = vec_out
                 else:
+                    if (sp.vector_name, "missing_prompt_warn") not in logged_prompt_couplings:
+                        logged_prompt_couplings.add((sp.vector_name, "missing_prompt_warn"))
+                        logger.warning(
+                            "[h3] control vector %r uses against_words=%r, but conditioning has no _h3_span_masks "
+                            "(wire MiniMaxH3Conditioning or MiniMaxH3ReferenceConditioning); falling back to @replace_human",
+                            sp.vector_name,
+                            sp.metadata.get("against_raw", "@prompt_subject"),
+                        )
                     vec_out = last_resolved_by_spec.get(sp.vector_name, sp.vector)
             if eff_prompt:
                 pc_key = (sp.vector_name, eff_prompt[:120])
@@ -1286,6 +1325,12 @@ def _make_control_vector_wrapper(specs: tuple[_AppliedVectorSpec, ...]):
                 return 1.0
             return float(getattr(sp, stream_attr, 1.0))
 
+        def _effective_spec_strength(sp: _AppliedVectorSpec, stream_attr: str | None) -> float:
+            s_val = float(sp.strength) * _spec_stream_scale(sp, stream_attr)
+            if _effective_entry_mode(sp) == "hold":
+                return max(0.0, min(2.0, s_val))
+            return s_val
+
         def _build_steered_context(base_ctx: torch.Tensor, stream_attr: str | None) -> torch.Tensor:
             # Group consecutive specs with the same (mask, prompt) so stacked additive
             # vectors and inference-time 'hold' vectors accumulate in float64 before
@@ -1306,7 +1351,7 @@ def _make_control_vector_wrapper(specs: tuple[_AppliedVectorSpec, ...]):
                 )
                 mask_vision = sp.mask != "all_rows"
                 group_specs: list[_AppliedVectorSpec] = [sp]
-                s0 = sp.strength * _spec_stream_scale(sp, stream_attr)
+                s0 = _effective_spec_strength(sp, stream_attr)
                 v0 = _spec_effective_vector(sp)
                 batch_entries: list[tuple[torch.Tensor, float, str]] = [
                     (v0, s0, _effective_entry_mode(sp))
@@ -1319,7 +1364,7 @@ def _make_control_vector_wrapper(specs: tuple[_AppliedVectorSpec, ...]):
                 ):
                     gnext = active_specs[j]
                     group_specs.append(gnext)
-                    sj = gnext.strength * _spec_stream_scale(gnext, stream_attr)
+                    sj = _effective_spec_strength(gnext, stream_attr)
                     vj = _spec_effective_vector(gnext)
                     batch_entries.append(
                         (
@@ -1597,6 +1642,14 @@ def attach_control_vector(
     t_opts = m.model_options.setdefault("transformer_options", {})
     updated: tuple[_AppliedVectorSpec, ...] = tuple(t_opts.get(WRAPPER_KEY, ()))
 
+    if raw_name and raw_name != "none" and words_clean:
+        logger.warning(
+            "[h3] both vector_name=%r and inline words=%r are set on the same MiniMaxH3ApplyControlVectors node; "
+            "both vectors will be stacked (set vector_name='none' to apply only inline words)",
+            raw_name,
+            words_clean,
+        )
+
     if raw_name and raw_name != "none":
         vec_path = resolve_vector_file_path(vector_name, preferred_family=loaded_family)
         tensors, metadata = _cv.load_vector(vec_path)
@@ -1638,7 +1691,7 @@ def attach_control_vector(
             res_nrm = float(torch.linalg.vector_norm(vec_held.to(dtype=torch.float64)).item())
             if res_nrm <= 1e-3 * max(1.0, orig_nrm):
                 raise ValueError("hold_words completely cancelled control vector (residual norm is zero)")
-            vec_pr = (vec_held.to(dtype=torch.float64) * (orig_nrm / res_nrm)).to(dtype=vec_pr.dtype)
+            vec_pr = vec_held.to(dtype=vec_pr.dtype)
 
         new_spec = _AppliedVectorSpec(
             vector_name=vec_path.name,
@@ -2558,12 +2611,21 @@ class MiniMaxH3ApplyControlVectors(io.ComfyNode):
         h_str = str(hold_words or "").strip()
         vec_fp: Any = "none"
         if raw and raw != "none":
-            try:
-                full = resolve_vector_file_path(raw)
-                st = os.stat(full)
-                vec_fp = (str(full), st.st_mtime_ns, st.st_size)
-            except Exception:
-                vec_fp = raw
+            resolved_stats: list[tuple[str, int, int]] = []
+            for pref_fam in (None, "fl2va", "ref2va"):
+                try:
+                    full = resolve_vector_file_path(raw, preferred_family=pref_fam)
+                    st = os.stat(full)
+                    entry = (str(full), st.st_mtime_ns, st.st_size)
+                    if entry not in resolved_stats:
+                        resolved_stats.append(entry)
+                except Exception:
+                    continue
+            vec_fp = (
+                resolved_stats[0]
+                if len(resolved_stats) == 1
+                else (tuple(resolved_stats) if resolved_stats else raw)
+            )
         if not w_str and not h_str:
             return vec_fp
         return (

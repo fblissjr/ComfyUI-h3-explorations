@@ -1190,8 +1190,8 @@ def compile_short_contrast_pairs(
         out_idx = len(compiled)
         frame_entry = frames[i % len(frames)]
         if i < n_main_frames:
-            raw_clause = main_clauses[i % len(main_clauses)]
-            vary_idx = i
+            raw_clause = main_clauses[out_idx % len(main_clauses)]
+            vary_idx = out_idx
         else:
             s_idx = i - n_main_frames
             raw_clause = sound_clauses[s_idx % len(sound_clauses)]
@@ -1210,11 +1210,11 @@ def compile_short_contrast_pairs(
         extra_b: dict[str, str] | None = None
         slot_label = active_slot
         if sound_clauses and couple_soundscape and active_slot != "soundscape":
-            s_clause = sound_clauses[i % len(sound_clauses)]
+            s_clause = sound_clauses[out_idx % len(sound_clauses)]
             sa_clause, sb_clause = _resolve_clause_endpoints(
                 s_clause,
                 "soundscape",
-                i,
+                out_idx,
                 used_sound_baselines,
                 vary_realizations=vary_realizations and len(sound_clauses) == 1,
             )

@@ -208,14 +208,19 @@ def load_j_lens_bundle(bundle_path: str | os.PathLike | None = None) -> dict[str
             if "Sigma_49_p030" in f.keys()
             else torch.eye(5120, dtype=torch.float32)
         )
+        cloze_base = f.get_tensor("cloze_base_union").to(dtype=torch.float32)
+        piece_weights = torch.sigmoid(
+            (torch.log_softmax(cloze_base, dim=-1)[:, valid_pos].max(dim=0).values + 11.5) / 2.0
+        )
         bundle = {
             "path": str(path),
             "words": words,
             "word_to_idxs": word_to_idxs,
             "M_union": m_union,
             "M_centered": m_centered,
+            "piece_weights": piece_weights,
             "Sigma_49_p030": sigma_p030,
-            "cloze_base_union": f.get_tensor("cloze_base_union").to(dtype=torch.float32),
+            "cloze_base_union": cloze_base,
             "valid_pos_in_union": valid_pos,
             "valid_idx": f.get_tensor("valid_idx").to(dtype=torch.long),
             "union_idx": f.get_tensor("union_idx").to(dtype=torch.long),
@@ -1653,6 +1658,12 @@ def _resolve_word_indices(word_list: Sequence[str], word_to_idxs: Mapping[str, l
                 if stem in word_to_idxs:
                     stem_ids.extend(word_to_idxs[stem])
                     break
+                if len(stem) >= 5 and stem[:-1] in word_to_idxs:
+                    stem_ids.extend(word_to_idxs[stem[:-1]])
+                    break
+                if (stem + "e") in word_to_idxs:
+                    stem_ids.extend(word_to_idxs[stem + "e"])
+                    break
                 # e.g. glacial -> stem "glac" -> match "glacier" / "glaciers"
                 cands_stem = [
                     i
@@ -1687,6 +1698,7 @@ def _mean_word_direction(
     word_list: Sequence[str],
     word_to_idxs: Mapping[str, list[int]],
     m_centered: torch.Tensor,
+    piece_weights: torch.Tensor | None = None,
 ) -> tuple[torch.Tensor, list[int], list[str], list[str]]:
     all_ids: list[int] = []
     matched_words: list[str] = []
@@ -1697,7 +1709,13 @@ def _mean_word_direction(
         if w_ids:
             all_ids.extend(w_ids)
             matched_words.extend(w_m)
-            word_vecs.append(F.normalize(m_centered[w_ids].mean(dim=0), dim=0))
+            rows = m_centered[w_ids]
+            if piece_weights is not None and len(w_ids) > 1:
+                pw = piece_weights[w_ids].unsqueeze(-1)
+                w_vec = (rows * pw).sum(dim=0) / pw.sum().clamp_min(1e-8)
+            else:
+                w_vec = rows.mean(dim=0)
+            word_vecs.append(F.normalize(w_vec, dim=0))
         else:
             unmatched_words.extend(w_u)
     if not word_vecs:
@@ -1770,10 +1788,11 @@ def synthesize_from_words(
 
     w2i = b["word_to_idxs"]
     m_centered = b["M_centered"]
+    p_weights = b.get("piece_weights")
     s_p030 = b["Sigma_49_p030"]
     j_ref = b["J_ref_ref2va"] if "ref2va" in str(family).lower() else b["J_ref_fl2va"]
 
-    mu_pos, pos_ids, pos_matched, pos_unmatched = _mean_word_direction(pos_list, w2i, m_centered)
+    mu_pos, pos_ids, pos_matched, pos_unmatched = _mean_word_direction(pos_list, w2i, m_centered, p_weights)
     if not pos_ids:
         raise ValueError(f"None of pos_words {pos_list!r} matched the 24,912-word J-Lens vocabulary")
     if pos_unmatched:
@@ -1782,7 +1801,7 @@ def synthesize_from_words(
             pos_unmatched,
             pos_matched,
         )
-    mu_neg, neg_ids, neg_matched, neg_unmatched = _mean_word_direction(neg_list, w2i, m_centered)
+    mu_neg, neg_ids, neg_matched, neg_unmatched = _mean_word_direction(neg_list, w2i, m_centered, p_weights)
     if not neg_ids:
         raise ValueError(f"None of neg_words {neg_list!r} matched the 24,912-word J-Lens vocabulary")
     if neg_unmatched:
@@ -1802,7 +1821,7 @@ def synthesize_from_words(
 
     hold_list = _parse_word_list(hold_words)
     if hold_list and a_val > 0.0:
-        mu_hold_pos, h_ids, _, _ = _mean_word_direction(hold_list, w2i, m_centered)
+        mu_hold_pos, h_ids, _, _ = _mean_word_direction(hold_list, w2i, m_centered, p_weights)
         if h_ids:
             mu_hold = F.normalize(mu_hold_pos - neg_weight * mu_neg, dim=0)
             v_hold_enc = F.normalize(s_p030 @ mu_hold, dim=0)
