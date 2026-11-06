@@ -3768,6 +3768,15 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
         "j_lens.synthesize_from_words refusal when hold_words cancels pos_words",
     )
 
+    # Compound, acronym, hyphenated, and stem-stripped word resolution check
+    comp_w2i = {w: [i] for i, w in enumerate(["pixel", "arcade", "console", "cartridge", "neon", "glowing", "matrix", "laser", "steam", "punk", "clock", "work"])}
+    comp_ids, comp_matched, comp_unmatched = j_lens._resolve_word_indices(
+        ["8-bit", "led", "steampunk", "clockwork", "pixelated"],
+        comp_w2i,
+    )
+    if comp_unmatched or len(comp_matched) != 5 or not comp_ids:
+        errs.append(f"j_lens._resolve_word_indices failed compound/acronym/stem check: matched={comp_matched}, unmatched={comp_unmatched}")
+
     return errs
 
 

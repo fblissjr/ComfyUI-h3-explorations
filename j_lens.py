@@ -591,6 +591,22 @@ _SHORT_WORD_FALLBACKS: dict[str, tuple[str, ...]] = {
     "hot": ("warm", "heated", "fiery"),
     "red": ("crimson", "scarlet", "ruby"),
     "raw": ("gritty", "rough", "unpolished"),
+    "8-bit": ("pixel", "arcade", "console", "cartridge"),
+    "8bit": ("pixel", "arcade", "console", "cartridge"),
+    "16-bit": ("pixel", "arcade", "console", "cartridge"),
+    "led": ("neon", "glowing", "matrix", "laser"),
+    "leds": ("neon", "glowing", "matrix", "laser"),
+    "crt": ("monitor", "screen", "analog", "static"),
+    "vhs": ("tape", "cassette", "analog", "camcorder"),
+    "cgi": ("digital", "rendered", "synthetic", "computer"),
+    "sfx": ("sound", "acoustic", "noise", "echo"),
+    "xray": ("skeleton", "bones", "skull", "translucent"),
+    "x-ray": ("skeleton", "bones", "skull", "translucent"),
+    "cyberpunk": ("neon", "punk", "futuristic", "matrix"),
+    "automaton": ("mechanical", "robot", "brass", "clock", "gears"),
+    "chiptune": ("arcade", "electronic", "synthesizer", "melody"),
+    "synth": ("synthesizer", "electronic", "neon"),
+    "victorian": ("antique", "brass", "vintage", "gothic"),
 }
 
 
@@ -605,7 +621,7 @@ def _resolve_word_indices(word_list: Sequence[str], word_to_idxs: Mapping[str, l
             matched_words.append(w)
             continue
 
-        # 1. Check short-word (< 4 char) fallbacks
+        # 1. Check short-word (< 4 char) and compound/acronym fallbacks
         if w in _SHORT_WORD_FALLBACKS:
             fb_ids = [i for fb in _SHORT_WORD_FALLBACKS[w] for i in word_to_idxs.get(fb, ())]
             if fb_ids:
@@ -613,9 +629,28 @@ def _resolve_word_indices(word_list: Sequence[str], word_to_idxs: Mapping[str, l
                 matched_words.append(w)
                 continue
 
-        # 2. Check common morphological stems (e.g. grainy -> grain, glacial -> glacier)
+        # 2. Check hyphenated or compound words (e.g. steampunk -> steam + punk, clockwork -> clock + work)
+        comp_ids: list[int] = []
+        if "-" in w:
+            parts = [p for p in w.split("-") if len(p) >= 3]
+            if parts and all(p in word_to_idxs for p in parts):
+                for p in parts:
+                    comp_ids.extend(word_to_idxs[p])
+        if not comp_ids and len(w) >= 7:
+            for k in range(3, len(w) - 2):
+                left, right = w[:k], w[k:]
+                if left in word_to_idxs and right in word_to_idxs:
+                    comp_ids.extend(word_to_idxs[left])
+                    comp_ids.extend(word_to_idxs[right])
+                    break
+        if comp_ids:
+            matched_ids.extend(comp_ids)
+            matched_words.append(w)
+            continue
+
+        # 3. Check common morphological stems (e.g. grainy -> grain, pixelated -> pixel, glacial -> glacier)
         stem_ids: list[int] = []
-        for suffix in ("y", "ly", "ed", "ing", "al", "ial", "ic", "s", "es"):
+        for suffix in ("ated", "ized", "ting", "ing", "ial", "ic", "al", "ed", "ly", "es", "y", "s"):
             if w.endswith(suffix) and len(w) - len(suffix) >= 4:
                 stem = w[: -len(suffix)]
                 if stem in word_to_idxs:
@@ -636,7 +671,7 @@ def _resolve_word_indices(word_list: Sequence[str], word_to_idxs: Mapping[str, l
             matched_words.append(w)
             continue
 
-        # 3. Bounded prefix match (>= 4 chars, within +2 chars of word length to avoid e.g. retro -> retrovirus)
+        # 4. Bounded prefix match (>= 4 chars, within +2 chars of word length to avoid e.g. retro -> retrovirus)
         cands = [
             i
             for vw, ilist in word_to_idxs.items()

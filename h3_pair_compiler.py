@@ -30,7 +30,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
-import control_vectors as _cv
+try:
+    from . import control_vectors as _cv
+except ImportError:
+    import control_vectors as _cv
 
 _REPO_ROOT = Path(__file__).resolve().parent
 DEFAULT_CANONICAL_FRAMES_PATH = (
