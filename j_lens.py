@@ -918,6 +918,8 @@ _SHORT_WORD_FALLBACKS: dict[str, tuple[str, ...]] = {
     "claymation": ("clay", "puppet", "miniature", "cartoon"),
     "stop-motion": ("clay", "puppet", "miniature", "frame"),
     "watercolor": ("painted", "brush", "canvas", "color"),
+    "cat": ("cats", "kitten", "animal"),
+    "dog": ("dogs", "canine", "puppy"),
     "live-action": ("realistic", "photograph", "real", "human", "person", "flesh"),
 }
 
@@ -1187,11 +1189,12 @@ _PROMPT_RECEPTOR_STOPWORDS: frozenset[str] = frozenset(
         "between",
         "before",
         "after",
+        "slightly",
     }
 )
 
 _NP_MODIFIER_RE = re.compile(
-    r"\b(?:in|with|wearing|dressed|at|on|by|under|behind|near|beside|across|from|into|onto|toward|towards|along|through|over|between|holding|carrying|standing|sitting|leaning|walking|running|playing|looking|watching|facing|confronting|preserving|raising|lifting|turning|reaching|whose|who|that|which|keeps|reads|turns|pushes|pulls|tilts|pans|tracks|rolls|moves|opens|begins|starts|ends|aligns|captures|unfolds|sits|stands|walks|rests|salutes|spins|bellows)\b",
+    r"\b(?:in|with|wearing|dressed|at|on|by|under|behind|near|beside|across|from|into|onto|toward|towards|along|through|over|between|holding|carrying|standing|sitting|leaning|walking|running|playing|looking|watching|facing|confronting|preserving|raising|lifting|turning|reaching|whose|who|that|which|keeps|holds|shakes|trucks|reads|turns|pushes|pulls|tilts|pans|tracks|rolls|moves|opens|begins|starts|ends|aligns|captures|unfolds|sits|stands|walks|rests|salutes|spins|bellows)\b",
     flags=re.IGNORECASE,
 )
 
@@ -1287,9 +1290,25 @@ def extract_prompt_subject_words(prompt: str | os.PathLike) -> list[str]:
             )
             if m_act:
                 clause_clean = re.sub(r"\[Shot\s*\d+\]", " ", m_act.group(1)).strip()
-                first_clause = clause_clean.split(",")[0].strip()
+                m_tail_actor = re.search(r",\s*and\s+((?:the|a|an)\s+[a-zA-Z0-9\s-]+)$", clause_clean, flags=re.IGNORECASE)
+                if m_tail_actor:
+                    clause_clean = m_tail_actor.group(1).strip()
+                clause_clean = re.sub(
+                    r"^(?:the\s+shot|the\s+camera|a\s+(?:wide|close|medium|tight|low|high)\s+shot)[^,]*,\s*",
+                    "",
+                    clause_clean,
+                    flags=re.IGNORECASE,
+                ).strip()
                 if re.match(
-                    r"^(?:the\s+shot|the\s+camera|a\s+(?:wide|close|medium|tight|low|high)\s+shot)\b",
+                    r"^(?:as|when|while|from|in|at|on|inside|outside|behind|across|beneath|under)\b",
+                    clause_clean,
+                    flags=re.IGNORECASE,
+                ) and "," in clause_clean:
+                    clause_clean = clause_clean.split(",", 1)[1].strip()
+                first_clause = clause_clean.split(",")[0].strip()
+                first_clause = re.split(r"['\u2019]s\b", first_clause, maxsplit=1)[0].strip()
+                if re.match(
+                    r"^(?:his|her|their|its|she|he|they|the\s+shot|the\s+camera|a\s+(?:wide|close|medium|tight|low|high)\s+shot|from\b|through\b)\b",
                     first_clause,
                     flags=re.IGNORECASE,
                 ):
@@ -1306,8 +1325,12 @@ def extract_prompt_subject_words(prompt: str | os.PathLike) -> list[str]:
                 flags=re.IGNORECASE,
             ):
                 continue
-            s_clean = re.sub(r"\[Shot\s*\d+\]", " ", s)
+            s_clean = re.sub(r"\[Shot\s*\d+\]", " ", s).strip()
+            if re.match(r"^(?:the\s+camera|she|he|they|his|her|their)\b", s_clean, flags=re.IGNORECASE):
+                continue
+            s_clean = re.sub(r"^.*?\bshot\s+frames\s+", "", s_clean, flags=re.IGNORECASE)
             s_clean = re.sub(r"\b\d+(?:\.\d+)?-second\b", " ", s_clean)
+            s_clean = re.split(r"['\u2019]s\b", s_clean, maxsplit=1)[0]
             s_head = _NP_MODIFIER_RE.split(s_clean, maxsplit=1)[0]
             for w in re.findall(r"[a-zA-Z][a-zA-Z0-9-]{2,}", s_head):
                 _add(w)
@@ -1582,13 +1605,16 @@ def synthesize_from_words(
         if raw_neg_key in ("prompt", "prompt_subject"):
             if prompt is not None and str(prompt).strip():
                 w2i_auto = b["word_to_idxs"]
+                raw_subj = extract_prompt_subject_words(prompt)
                 extracted_subj = [
-                    w for w in extract_prompt_subject_words(prompt)
+                    w for w in raw_subj
                     if _resolve_word_indices([w], w2i_auto)[0]
                 ]
-                for anchor_w in AGAINST_PRESETS["replace_human"]:
-                    if anchor_w not in extracted_subj and _resolve_word_indices([anchor_w], w2i_auto)[0]:
-                        extracted_subj.append(anchor_w)
+                has_non_live_medium = bool(set(raw_subj) & set(_MEDIUM_KEYWORDS[1:]))
+                if "live-action" in raw_subj or not has_non_live_medium:
+                    for anchor_w in AGAINST_PRESETS["replace_human"]:
+                        if anchor_w not in extracted_subj and _resolve_word_indices([anchor_w], w2i_auto)[0]:
+                            extracted_subj.append(anchor_w)
                 neg_list = extracted_subj if extracted_subj else list(AGAINST_PRESETS["replace_human"])
             else:
                 neg_list = list(AGAINST_PRESETS["replace_human"])
@@ -1695,6 +1721,7 @@ def save_synthesized_vector(
     synth: Mapping[str, Any],
     *,
     name: str = "",
+    write_sidecar_md: bool = True,
 ) -> Path:
     """Save a `synthesize_from_words` result as a standard `h3-control-vector/1` `.safetensors` control vector."""
     path = Path(out_path)
@@ -1765,12 +1792,21 @@ def save_synthesized_vector(
         },
     }
     encoded_meta = {k: json.dumps(v, sort_keys=True) for k, v in meta_dict.items()}
+    tensors_dict = {"vector.post_refiner": v_pr, "vector.encoder": v_enc}
     path.write_bytes(
         save_safetensors_bytes(
-            {"vector.post_refiner": v_pr, "vector.encoder": v_enc},
+            tensors_dict,
             metadata=encoded_meta,
         )
     )
+    if write_sidecar_md:
+        import control_vectors as _cv_mod
+
+        sidecar_path = path.with_suffix(".md")
+        sidecar_path.write_text(
+            _cv_mod.format_vector_sidecar_md(path.name, tensors_dict, meta_dict),
+            encoding="utf-8",
+        )
     return path
 
 
@@ -1822,6 +1858,16 @@ def _main(argv: Sequence[str] | None = None) -> int:
         "--save",
         default="",
         help="Optional output .safetensors path when using --from-words.",
+    )
+    parser.add_argument(
+        "--modes",
+        default="",
+        help="Optional comma-separated modes per positional vector for recipe composition (e.g. 'add,hold').",
+    )
+    parser.add_argument(
+        "--strengths",
+        default="",
+        help="Optional comma-separated float strengths per positional vector for recipe composition (e.g. '1.15,1.0').",
     )
     parser.add_argument("--family", default="fl2va", choices=("fl2va", "ref2va"), help="Refiner family for --svd or --from-words.")
     parser.add_argument("--json", action="store_true", help="Print JSON output.")
@@ -1906,11 +1952,14 @@ def _main(argv: Sequence[str] | None = None) -> int:
             for v_path in args.vectors
         ]
         recipe_report = None
-        if len(args.vectors) >= 2 or (args.vectors and args.from_words.strip()):
-            rec_steps: list[dict[str, Any]] = [
-                {"vector": v_path, "mode": "add", "strength": 1.0}
-                for v_path in args.vectors
-            ]
+        if len(args.vectors) >= 2 or (args.vectors and args.from_words.strip()) or args.modes.strip() or args.strengths.strip():
+            mode_tokens = [m.strip() for m in args.modes.split(",") if m.strip()] if args.modes.strip() else []
+            strength_tokens = [float(s.strip()) for s in args.strengths.split(",") if s.strip()] if args.strengths.strip() else []
+            rec_steps: list[dict[str, Any]] = []
+            for idx_v, v_path in enumerate(args.vectors):
+                v_mode = mode_tokens[idx_v] if idx_v < len(mode_tokens) else "add"
+                v_str = strength_tokens[idx_v] if idx_v < len(strength_tokens) else 1.0
+                rec_steps.append({"vector": v_path, "mode": v_mode, "strength": v_str})
             if args.from_words.strip():
                 synth_inline = synthesize_from_words(
                     args.from_words,
@@ -1970,13 +2019,13 @@ def _main(argv: Sequence[str] | None = None) -> int:
             if pc:
                 print(f"  Prompt Coupling: {pc.get('summary', '')}")
         if recipe_report is not None:
-            r_net = recipe_report["net_readout"]
+            r_net = recipe_report["readout"]
             pw = ", ".join(
-                f"cos({c['a']}, {c['b']})={c['cosine']:+.4f}"
-                for c in recipe_report.get("pairwise_add_cosines", ())
+                f"cos({c['pair'][0]}, {c['pair'][1]})={c['cosine']:+.4f}"
+                for c in recipe_report.get("pairwise_interactions", ())
             )
             print(
-                f"Combined Recipe ({recipe_report['family']}, norm={r_net['norm_before_holds']:.2f} -> {r_net['norm_after_holds']:.2f}"
+                f"Combined Recipe ({recipe_report['family']}, norm={recipe_report['combined_norm_before_holds']:.2f} -> {recipe_report['combined_norm_after_holds']:.2f}"
                 + (f", {pw}" if pw else "")
                 + "):"
             )

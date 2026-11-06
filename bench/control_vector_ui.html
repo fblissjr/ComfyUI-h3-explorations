@@ -469,7 +469,7 @@
         <button type="button" class="word-chip" data-words="blizzard, freezing, snow" data-against="" data-mode="t2va">Blizzard (`+5.17`)</button>
         <button type="button" class="word-chip" data-words="medieval, knight, armor, castle" data-against="" data-mode="t2va">Medieval (`+4.75`)</button>
         <button type="button" class="word-chip" data-words="disco, glitter, dancing" data-against="" data-mode="t2va">Disco (`+4.79`)</button>
-        <button type="button" class="word-chip" data-words="8-bit, led, steampunk" data-against="" data-mode="t2va">8-Bit Steampunk (`+3.44`)</button>
+        <button type="button" class="word-chip" data-words="8-bit, led, steampunk" data-against="" data-mode="t2va">8-Bit Steampunk (`+3.27`)</button>
         <button type="button" class="word-chip" data-words="skeleton, translucent, bones, skull" data-against="@replace_human" data-mode="t2va">Skeleton (`@replace_human`)</button>
         <button type="button" class="word-chip" data-words="weightless zero gravity" data-against="" data-mode="t2va">Zero Gravity</button>
       </div>
@@ -947,6 +947,16 @@ document.getElementById("vec-holds").addEventListener("input", () => {
   previewTimer = setTimeout(refreshActiveJLens, 180);
 });
 document.getElementById("vec-prompt").addEventListener("input", () => {
+  const promptVal = (document.getElementById("vec-prompt")?.value || "").trim();
+  const agEl = document.getElementById("vec-against");
+  if (agEl) {
+    const curAg = agEl.value.trim();
+    if (promptVal && curAg === "@replace_human") {
+      agEl.value = "@prompt_subject";
+    } else if (!promptVal && curAg === "@prompt_subject") {
+      agEl.value = "@replace_human";
+    }
+  }
   clearTimeout(previewTimer);
   previewTimer = setTimeout(refreshActiveJLens, 180);
 });
@@ -956,7 +966,12 @@ for (const chip of document.querySelectorAll(".word-chip")) {
     document.getElementById("vec-name").value = "";
     document.getElementById("vec-slot").value = "auto";
     document.getElementById("vec-mode").value = chip.dataset.mode || "t2va";
-    document.getElementById("vec-against").value = chip.dataset.against || "";
+    const chipAgainst = chip.dataset.against || "";
+    const curAgainst = (document.getElementById("vec-against")?.value || "").trim();
+    const promptVal = (document.getElementById("vec-prompt")?.value || "").trim();
+    if (!curAgainst || curAgainst.startsWith("@")) {
+      document.getElementById("vec-against").value = (chipAgainst === "@replace_human" && promptVal) ? "@prompt_subject" : chipAgainst;
+    }
     document.getElementById("md-input").value = chip.dataset.words || "";
     await runPreview();
   });

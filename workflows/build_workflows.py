@@ -2304,6 +2304,9 @@ def build_control_vector_arm(
         "end_percent": float(end_percent),
         "allow_recipe_mismatch": bool(allow_recipe_mismatch),
     }
+    for opt_k in CONTROL_VECTOR_OPTIONAL_DEFAULTS:
+        if opt_k in extra:
+            cv_cfg[opt_k] = extra.pop(opt_k)
     sol_cfg = extra.pop("sol", sol_for_graph(extra.get("steps", SAMPLING["steps"])))
     dense_backend = extra.pop("dense_backend", DENSE_BACKEND_NODE["attention"])
     return build_api(

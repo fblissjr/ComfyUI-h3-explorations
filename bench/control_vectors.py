@@ -3207,6 +3207,13 @@ def build_parser() -> argparse.ArgumentParser:
     return p
 
 
+def cmd_words(args: argparse.Namespace) -> int:
+    """Synthesize fl2va + ref2va control vectors directly from plain English words in < 2 ms via J-Lens."""
+    args.from_words = args.pos_words
+    args.build_all = False
+    return cmd_build(args)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -3214,9 +3221,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.cmd == "ui":
             return cmd_ui(args)
         if args.cmd == "words":
-            args.from_words = args.pos_words
-            args.build_all = False
-            return cmd_build(args)
+            return cmd_words(args)
         if args.cmd == "build":
             return cmd_build(args)
         if args.cmd in ("from-md", "import-md"):
