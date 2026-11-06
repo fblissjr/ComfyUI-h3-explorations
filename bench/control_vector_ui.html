@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MiniMax H3 Control Vector Studio</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --panel: #161b22;
+    --panel-alt: #1c2128;
+    --border: #30363d;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --accent: #58a6ff;
+    --accent-emphasis: #1f6feb;
+    --green: #3fb950;
+    --green-bg: rgba(46, 160, 67, 0.18);
+    --red: #f85149;
+    --red-bg: rgba(248, 81, 73, 0.18);
+    --amber: #d29922;
+    --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 20px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    flex-wrap: wrap;
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 600;
+    font-size: 16px;
+  }
+  .status-pill {
+    font-size: 12px;
+    font-weight: 500;
+    padding: 2px 10px;
+    border-radius: 999px;
+    background: rgba(88, 166, 255, 0.15);
+    color: var(--accent);
+    border: 1px solid rgba(88, 166, 255, 0.35);
+  }
+  .status-pill.ok {
+    background: var(--green-bg);
+    color: var(--green);
+    border-color: rgba(63, 185, 80, 0.4);
+  }
+  .status-pill.err {
+    background: var(--red-bg);
+    color: var(--red);
+    border-color: rgba(248, 81, 73, 0.4);
+  }
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  button, select, input[type="text"] {
+    font-family: inherit;
+    font-size: 13px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--panel-alt);
+    color: var(--text);
+    padding: 6px 12px;
+  }
+  button {
+    cursor: pointer;
+    font-weight: 500;
+    transition: background 0.12s, border-color 0.12s;
+  }
+  button:hover:not(:disabled) {
+    background: #262c36;
+    border-color: #484f58;
+  }
+  button:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+  button.primary {
+    background: var(--accent-emphasis);
+    border-color: rgba(240, 246, 252, 0.1);
+    color: #fff;
+  }
+  button.primary:hover:not(:disabled) {
+    background: #388bfd;
+  }
+  button.danger {
+    color: var(--red);
+    border-color: rgba(248, 81, 73, 0.4);
+  }
+  button.danger:hover:not(:disabled) {
+    background: var(--red-bg);
+  }
+  .workspace {
+    display: grid;
+    grid-template-columns: minmax(420px, 46%) 1fr;
+    gap: 16px;
+    padding: 16px 20px;
+    max-width: 1800px;
+    margin: 0 auto;
+  }
+  @media (max-width: 1100px) {
+    .workspace { grid-template-columns: 1fr; }
+  }
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    margin-bottom: 14px;
+  }
+  .card-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin: 0 0 10px 0;
+    font-size: 14px;
+    font-weight: 600;
+  }
+  .subtext {
+    color: var(--muted);
+    font-size: 12px;
+  }
+  .form-row {
+    display: grid;
+    grid-template-columns: 1fr 130px;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  .field label {
+    display: block;
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+  .field input[type="text"], .field select {
+    width: 100%;
+  }
+  textarea {
+    width: 100%;
+    background: #090d11;
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px;
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    line-height: 1.45;
+    resize: vertical;
+  }
+  #md-input {
+    min-height: 360px;
+  }
+  #test-prompt-box {
+    min-height: 92px;
+  }
+  .options-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 10px;
+    margin: 10px 0 12px 0;
+    padding: 10px;
+    background: var(--panel-alt);
+    border-radius: 6px;
+    border: 1px solid var(--border);
+  }
+  .check-group-title {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+    margin-bottom: 6px;
+    font-weight: 600;
+  }
+  .check-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12.5px;
+    margin-bottom: 4px;
+    cursor: pointer;
+  }
+  .btn-bar {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .metrics-strip {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+  }
+  .metric-box {
+    background: var(--panel-alt);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 12px;
+    min-width: 125px;
+  }
+  .metric-label {
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .metric-val {
+    font-family: var(--font-mono);
+    font-size: 14px;
+    font-weight: 600;
+    margin-top: 2px;
+  }
+  .pair-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-height: 540px;
+    overflow-y: auto;
+    padding-right: 4px;
+  }
+  .pair-card {
+    background: var(--panel-alt);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 12px;
+  }
+  .pair-card.invalid {
+    border-color: var(--red);
+    background: rgba(248, 81, 73, 0.08);
+  }
+  .pair-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+    flex-wrap: wrap;
+  }
+  .pair-badges {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .badge {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    padding: 1px 7px;
+    border-radius: 4px;
+    background: #0d1117;
+    border: 1px solid var(--border);
+    color: var(--muted);
+  }
+  .badge.highlight {
+    color: var(--accent);
+    border-color: rgba(88, 166, 255, 0.35);
+  }
+  .diff-prose {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--muted);
+    word-break: break-word;
+  }
+  .span-a {
+    background: var(--red-bg);
+    color: #ffa198;
+    padding: 1px 5px;
+    border-radius: 4px;
+    text-decoration: line-through;
+    margin: 0 2px;
+  }
+  .span-b {
+    background: var(--green-bg);
+    color: #7ee787;
+    padding: 1px 5px;
+    border-radius: 4px;
+    font-weight: 600;
+    margin: 0 2px;
+  }
+  .err-banner {
+    color: var(--red);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    margin-top: 4px;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12.5px;
+  }
+  th, td {
+    text-align: left;
+    padding: 7px 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  th {
+    color: var(--muted);
+    font-weight: 600;
+    font-size: 11.5px;
+  }
+  td.mono {
+    font-family: var(--font-mono);
+  }
+  tr.new-row {
+    background: rgba(46, 160, 67, 0.12);
+  }
+  #build-log {
+    margin-top: 10px;
+    max-height: 180px;
+    overflow-y: auto;
+    background: #090d11;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    white-space: pre-wrap;
+    display: none;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <span>MiniMax H3 Control Vector Studio</span>
+    <span id="status-pill" class="status-pill">Ready (CPU Tokenizer)</span>
+  </div>
+  <div class="header-actions">
+    <button id="btn-copy-sys" type="button" title="Copy Section 1 of 2026-11-05_control_vector_system_prompt.md">
+      1. Copy LLM System Prompt
+    </button>
+    <select id="select-existing-toml" title="Load an existing .toml file from prompt_bank/control_vectors/">
+      <option value="">Load existing .toml...</option>
+    </select>
+    <button id="btn-quit" type="button" class="danger" title="Stop this local Python UI server">
+      Quit Server
+    </button>
+  </div>
+</header>
+
+<main class="workspace">
+  <!-- Left Column: Input & Build Controls -->
+  <section>
+    <div class="card">
+      <div class="card-title">
+        <span>2. Paste LLM Markdown (or Load `.toml`)</span>
+        <button id="btn-preview" type="button">Validate &amp; Preview Spans</button>
+      </div>
+      <div class="form-row">
+        <div class="field">
+          <label for="vec-name">Vector Name (`[a-z0-9_]+`, used for `.toml` &amp; `.safetensors` stem)</label>
+          <input id="vec-name" type="text" placeholder="e.g. head_swell, zero_gravity, neon_noir">
+        </div>
+        <div class="field">
+          <label for="vec-frame">Prompt Frame</label>
+          <select id="vec-frame">
+            <option value="scene" selected>scene (3-section)</option>
+            <option value="bare">bare</option>
+          </select>
+        </div>
+      </div>
+      <textarea id="md-input" spellcheck="false" placeholder="Paste the LLM's Markdown output here (### Test Scene Prompt followed by #### Pair 1 .. #### Pair 10)..."></textarea>
+    </div>
+
+    <div class="card">
+      <div class="card-title">
+        <span>Extracted Test Scene Prompt (Paste into ComfyUI)</span>
+        <button id="btn-copy-test" type="button">Copy Test Prompt</button>
+      </div>
+      <textarea id="test-prompt-box" readonly placeholder="When your Markdown includes ### Test Scene Prompt, it appears here automatically and saves to prompt_bank/control_vectors/<name>_test_prompt.txt"></textarea>
+    </div>
+
+    <div class="card">
+      <div class="card-title">
+        <span>3. Save `.toml` &amp; Build `.safetensors` Control Vectors</span>
+        <span class="subtext">Does not require ComfyUI running</span>
+      </div>
+      <div class="options-grid">
+        <div>
+          <div class="check-group-title">Model Families</div>
+          <label class="check-item"><input type="radio" name="families" value="both" checked> Both (`fl2va` + `ref2va`)</label>
+          <label class="check-item"><input type="radio" name="families" value="fl2va"> `fl2va` (`t2v`/`fl2v`/`i2v`)</label>
+          <label class="check-item"><input type="radio" name="families" value="ref2va"> `ref2va` (Subject Ref)</label>
+        </div>
+        <div>
+          <div class="check-group-title">Pooling Modes</div>
+          <label class="check-item"><input type="checkbox" class="pool-cb" value="diff_span" checked> `diff_span` (0% shared tokens)</label>
+          <label class="check-item"><input type="checkbox" class="pool-cb" value="from_first_diff"> `from_first_diff` (`[first_diff:]`)</label>
+          <label class="check-item"><input type="checkbox" class="pool-cb" value="scene_text"> `scene_text` (all scene rows)</label>
+        </div>
+        <div>
+          <div class="check-group-title">Recipe Options</div>
+          <label class="check-item"><input type="checkbox" id="opt-pika" checked> Standard Pika H3 Flex LoRA</label>
+          <label class="check-item"><input type="checkbox" id="opt-overwrite" checked> Overwrite existing files</label>
+          <label class="check-item"><input type="checkbox" id="opt-encoder"> Save `vector.encoder` (5120-d)</label>
+        </div>
+      </div>
+      <div class="btn-bar">
+        <button id="btn-build" type="button" class="primary">Save `.toml` &amp; Build `.safetensors` (~8s)</button>
+        <button id="btn-save-toml" type="button">Save `.toml` Only (Instant)</button>
+      </div>
+      <pre id="build-log"></pre>
+    </div>
+  </section>
+
+  <!-- Right Column: Pair Span Inspector & Built Vectors -->
+  <section>
+    <div class="card">
+      <div class="card-title">
+        <span>Live Contrastive Pair Diff &amp; Token-Span Inspector</span>
+        <span id="preview-summary" class="subtext">Paste Markdown or load a `.toml` to inspect pairs</span>
+      </div>
+      <div class="metrics-strip">
+        <div class="metric-box">
+          <div class="metric-label">Valid Pairs</div>
+          <div id="m-pairs" class="metric-val">—</div>
+        </div>
+        <div class="metric-box">
+          <div class="metric-label">Detected Mode</div>
+          <div id="m-mode" class="metric-val">—</div>
+        </div>
+        <div class="metric-box">
+          <div class="metric-label">Avg `diff_span` Tokens</div>
+          <div id="m-ds" class="metric-val">—</div>
+        </div>
+        <div class="metric-box">
+          <div class="metric-label">Avg `from_first_diff`</div>
+          <div id="m-ffd" class="metric-val">—</div>
+        </div>
+        <div class="metric-box">
+          <div class="metric-label">Avg `scene_text`</div>
+          <div id="m-scene" class="metric-val">—</div>
+        </div>
+      </div>
+      <div id="pair-list" class="pair-list"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">
+        <span>Available `.safetensors` Control Vectors (`models/control_vectors/`)</span>
+        <span class="subtext">Click Copy to paste into `MiniMaxH3ApplyControlVectors`</span>
+      </div>
+      <div style="overflow-x:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>Vector `.safetensors` File</th>
+              <th>Family</th>
+              <th>Pooling</th>
+              <th>`raw_norm`</th>
+              <th>Pairwise Cos</th>
+              <th>Split-Half</th>
+              <th>ComfyUI `strength`</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="vectors-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+let SYSTEM_PROMPT = "";
+let previewTimer = null;
+
+function setStatus(text, kind = "") {
+  const pill = document.getElementById("status-pill");
+  pill.textContent = text;
+  pill.className = "status-pill" + (kind ? " " + kind : "");
+}
+
+function escapeHtml(s) {
+  return String(s || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+async function copyText(text, btn, labelAfter = "Copied!") {
+  if (!text) return;
+  const orig = btn.textContent;
+  await navigator.clipboard.writeText(text);
+  btn.textContent = labelAfter;
+  setTimeout(() => { btn.textContent = orig; }, 1400);
+}
+
+function renderVectorsTable(vectors, newlyBuiltFiles = new Set()) {
+  const tbody = document.getElementById("vectors-tbody");
+  tbody.innerHTML = "";
+  for (const v of vectors) {
+    const tr = document.createElement("tr");
+    if (newlyBuiltFiles.has(v.file)) tr.className = "new-row";
+    tr.innerHTML = `
+      <td class="mono">${escapeHtml(v.file)}</td>
+      <td class="mono">${escapeHtml(v.family)}</td>
+      <td class="mono">${escapeHtml(v.pooling)}</td>
+      <td class="mono">${Number(v.raw_norm).toFixed(2)}</td>
+      <td class="mono">${Number(v.mpc).toFixed(4)}</td>
+      <td class="mono">${Number(v.split_half).toFixed(4)}</td>
+      <td class="mono"><strong>${escapeHtml(v.rec_strength)}</strong></td>
+      <td><button type="button" data-copy="${escapeHtml(v.file)}">Copy Name</button></td>
+    `;
+    const btn = tr.querySelector("button");
+    btn.addEventListener("click", () => copyText(v.file, btn));
+    tbody.appendChild(tr);
+  }
+}
+
+function renderPreview(data) {
+  const pairList = document.getElementById("pair-list");
+  pairList.innerHTML = "";
+  if (!data.ok) {
+    setStatus(data.error || "Validation error", "err");
+    document.getElementById("preview-summary").textContent = data.error || "Invalid input";
+    document.getElementById("m-pairs").textContent = "0";
+    const errDiv = document.createElement("div");
+    errDiv.className = "pair-card invalid";
+    errDiv.innerHTML = `<div class="err-banner">${escapeHtml(data.error)}</div>`;
+    pairList.appendChild(errDiv);
+    return;
+  }
+
+  document.getElementById("test-prompt-box").value = data.test_scene_prompt || "";
+  if (!document.getElementById("vec-name").value.trim() && data.suggested_name) {
+    document.getElementById("vec-name").value = data.suggested_name;
+  }
+
+  const validCount = data.pairs.filter(p => p.valid).length;
+  const totalCount = data.pairs.length;
+  document.getElementById("m-pairs").textContent = `${validCount} / ${totalCount}`;
+  document.getElementById("m-mode").textContent = data.mode || "t2va";
+  document.getElementById("m-ds").textContent = data.avg_tokens ? `${data.avg_tokens.diff_span}t` : "—";
+  document.getElementById("m-ffd").textContent = data.avg_tokens ? `${data.avg_tokens.from_first_diff}t` : "—";
+  document.getElementById("m-scene").textContent = data.avg_tokens ? `${data.avg_tokens.scene_text}t` : "—";
+
+  if (validCount === totalCount && totalCount >= 4) {
+    setStatus(`Valid (${totalCount} pairs ready)`, "ok");
+    document.getElementById("preview-summary").textContent = `quality: ${data.quality || ""}`;
+  } else {
+    setStatus(`${totalCount - validCount} pair error(s)`, "err");
+    document.getElementById("preview-summary").textContent = "Fix highlighted pair(s) below";
+  }
+
+  for (const p of data.pairs) {
+    const card = document.createElement("div");
+    card.className = "pair-card" + (p.valid ? "" : " invalid");
+    if (!p.valid) {
+      card.innerHTML = `
+        <div class="pair-header"><strong>Pair ${p.index}</strong></div>
+        <div class="err-banner">${escapeHtml(p.error)}</div>
+      `;
+    } else {
+      card.innerHTML = `
+        <div class="pair-header">
+          <strong>Pair ${p.index} <span class="subtext">[${escapeHtml(p.section)}]</span></strong>
+          <div class="pair-badges">
+            <span class="badge highlight">diff_span: ${p.tokens.diff_span_a}t &rarr; ${p.tokens.diff_span_b}t</span>
+            <span class="badge">from_first_diff: ${p.tokens.ffd_a}t / ${p.tokens.ffd_b}t</span>
+            <span class="badge">scene_text: ${p.tokens.scene_a}t / ${p.tokens.scene_b}t</span>
+          </div>
+        </div>
+        <div class="diff-prose">
+          ${escapeHtml(p.prefix)}<span class="span-a">${escapeHtml(p.a_span)}</span><span class="span-b">${escapeHtml(p.b_span)}</span>${escapeHtml(p.suffix)}
+        </div>
+      `;
+    }
+    pairList.appendChild(card);
+  }
+}
+
+async function runPreview() {
+  const text = document.getElementById("md-input").value;
+  if (!text.trim()) return;
+  const frame = document.getElementById("vec-frame").value;
+  const name = document.getElementById("vec-name").value.trim();
+  const res = await fetch("/api/preview", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text, frame, name }),
+  });
+  const data = await res.json();
+  renderPreview(data);
+}
+
+function getSelectedPoolings() {
+  return Array.from(document.querySelectorAll(".pool-cb:checked")).map(cb => cb.value);
+}
+
+async function initStudio() {
+  const res = await fetch("/api/init");
+  const data = await res.json();
+  SYSTEM_PROMPT = data.system_prompt || "";
+  const sel = document.getElementById("select-existing-toml");
+  sel.innerHTML = `<option value="">Load existing .toml (${data.toml_files.length})...</option>`;
+  for (const item of data.toml_files) {
+    const opt = document.createElement("option");
+    opt.value = item.file;
+    opt.textContent = `${item.stem} (${item.n_pairs} pairs, ${item.mode})`;
+    sel.appendChild(opt);
+  }
+  renderVectorsTable(data.vectors || []);
+}
+
+document.getElementById("btn-copy-sys").addEventListener("click", (e) => {
+  copyText(SYSTEM_PROMPT, e.currentTarget, "Copied System Prompt!");
+});
+
+document.getElementById("btn-copy-test").addEventListener("click", (e) => {
+  copyText(document.getElementById("test-prompt-box").value, e.currentTarget, "Copied Test Prompt!");
+});
+
+document.getElementById("btn-preview").addEventListener("click", runPreview);
+
+document.getElementById("md-input").addEventListener("input", () => {
+  clearTimeout(previewTimer);
+  previewTimer = setTimeout(runPreview, 250);
+});
+
+document.getElementById("select-existing-toml").addEventListener("change", async (e) => {
+  const file = e.target.value;
+  if (!file) return;
+  setStatus(`Loading ${file}...`);
+  const res = await fetch("/api/load-toml", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ file }),
+  });
+  const data = await res.json();
+  if (data.ok) {
+    document.getElementById("vec-name").value = data.name;
+    document.getElementById("vec-frame").value = data.frame || "scene";
+    document.getElementById("md-input").value = data.markdown;
+    await runPreview();
+  } else {
+    setStatus(data.error || "Failed to load .toml", "err");
+  }
+});
+
+document.getElementById("btn-save-toml").addEventListener("click", async () => {
+  const text = document.getElementById("md-input").value;
+  const name = document.getElementById("vec-name").value.trim();
+  const frame = document.getElementById("vec-frame").value;
+  const overwrite = document.getElementById("opt-overwrite").checked;
+  setStatus("Saving .toml...");
+  const res = await fetch("/api/save-toml", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text, name, frame, overwrite }),
+  });
+  const data = await res.json();
+  if (data.ok) {
+    setStatus(`Saved ${data.saved_toml}`, "ok");
+    await initStudio();
+  } else {
+    setStatus(data.error || "Failed to save .toml", "err");
+  }
+});
+
+document.getElementById("btn-build").addEventListener("click", async () => {
+  const text = document.getElementById("md-input").value;
+  const name = document.getElementById("vec-name").value.trim();
+  const frame = document.getElementById("vec-frame").value;
+  const families = document.querySelector('input[name="families"]:checked').value;
+  const poolings = getSelectedPoolings();
+  if (!poolings.length) {
+    setStatus("Select at least one pooling mode", "err");
+    return;
+  }
+  const no_lora = !document.getElementById("opt-pika").checked;
+  const overwrite = document.getElementById("opt-overwrite").checked;
+  const include_encoder = document.getElementById("opt-encoder").checked;
+
+  const btn = document.getElementById("btn-build");
+  const logEl = document.getElementById("build-log");
+  btn.disabled = true;
+  logEl.style.display = "block";
+  logEl.textContent = "Running Qwen3-VL-32B-Instruct (layers.0..49) + TokenRefiner extraction...";
+  setStatus("Building .safetensors vectors...");
+
+  try {
+    const res = await fetch("/api/build", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        text,
+        name,
+        frame,
+        families,
+        pooling: poolings.join(","),
+        no_lora,
+        overwrite,
+        include_encoder,
+      }),
+    });
+    const data = await res.json();
+    if (data.ok) {
+      logEl.textContent = data.log || "Build succeeded.";
+      const builtSet = new Set((data.built || []).map(r => r.file));
+      renderVectorsTable(data.vectors || [], builtSet);
+      setStatus(`Built ${builtSet.size} vector file(s)`, "ok");
+    } else {
+      logEl.textContent = data.error || "Build failed.";
+      setStatus(data.error || "Build failed", "err");
+    }
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+document.getElementById("btn-quit").addEventListener("click", async () => {
+  await fetch("/api/quit", { method: "POST" });
+  setStatus("Server stopped — you can close this tab", "err");
+  document.body.innerHTML = `<div style="padding:40px;text-align:center;color:#8b949e;"><h2>H3 Control Vector Studio stopped</h2><p>The local Python process has exited cleanly. You can close this browser tab.</p></div>`;
+});
+
+initStudio();
+</script>
+</body>
+</html>

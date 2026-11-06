@@ -2433,6 +2433,185 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
                             f"cmd_build duplicate without --overwrite expected rc=2 and 'already exists', got rc={rc_bld2}, err={buf_bld2_err.getvalue()!r}"
                         )
 
+                # Test Control Vector Studio UI endpoints (handle_ui_request)
+                ui_state = bench_cv.ControlVectorUIState(
+                    toml_dir=build_toml_dir,
+                    vec_dir=build_vec_dir,
+                )
+                st_root, ctype_root, body_root = bench_cv.handle_ui_request(ui_state, "GET", "/", b"")
+                if st_root != 200 or "text/html" not in ctype_root or "MiniMax H3 Control Vector Studio" not in body_root:
+                    errs.append(f"handle_ui_request GET / failed: status={st_root}, ctype={ctype_root!r}")
+
+                st_init, _, body_init = bench_cv.handle_ui_request(ui_state, "GET", "/api/init", b"")
+                init_json = json.loads(body_init)
+                sp_doc_exists = (
+                    bench_cv.REPO_ROOT / "docs" / "wiki" / "system_prompts" / "h3_control_vector_system_prompt.md"
+                ).is_file()
+                sp_txt = init_json.get("system_prompt", "")
+                if (
+                    st_init != 200
+                    or not init_json.get("ok")
+                    or not isinstance(sp_txt, str)
+                    or (
+                        sp_doc_exists
+                        and (
+                            not sp_txt.startswith("You write natural-language prompts and contrastive control-vector pair sets for the MiniMax H3 joint video-and-audio diffusion model.")
+                            or not sp_txt.endswith("Use direct, vivid, present-tense physical verbs and concrete nouns.")
+                            or "## 1. Copyable System Prompt" in sp_txt
+                        )
+                    )
+                ):
+                    errs.append(f"handle_ui_request GET /api/init failed: status={st_init}, keys={list(init_json.keys())}")
+                if not any(row.get("file") == "oneshot_build.toml" for row in init_json.get("toml_files", [])):
+                    errs.append(f"handle_ui_request GET /api/init missing oneshot_build.toml: {init_json.get('toml_files')}")
+                if len(init_json.get("vectors", [])) < 2:
+                    errs.append(f"handle_ui_request GET /api/init expected >=2 vectors, got {len(init_json.get('vectors', []))}")
+
+                st_prev, _, body_prev = bench_cv.handle_ui_request(
+                    ui_state,
+                    "POST",
+                    "/api/preview",
+                    json.dumps({"text": build_md_path.read_text(encoding="utf-8"), "name": "oneshot_build"}).encode("utf-8"),
+                )
+                prev_json = json.loads(body_prev)
+                if (
+                    st_prev != 200
+                    or not prev_json.get("ok")
+                    or len(prev_json.get("pairs", [])) != 2
+                    or not all(p.get("valid") for p in prev_json.get("pairs", []))
+                    or (prev_json.get("avg_tokens") or {}).get("diff_span", 0) <= 0
+                ):
+                    errs.append(f"handle_ui_request POST /api/preview valid markdown failed: {prev_json}")
+
+                st_prev_bad, _, body_prev_bad = bench_cv.handle_ui_request(
+                    ui_state,
+                    "POST",
+                    "/api/preview",
+                    json.dumps(
+                        {
+                            "text": (
+                                "#### Pair 1 — Identical prompts\n\n"
+                                "##### Prompt A (Baseline)\n"
+                                "```text\nScene: A quiet courtyard at noon.\n```\n\n"
+                                "##### Prompt B (Steered)\n"
+                                "```text\nScene: A quiet courtyard at noon.\n```\n"
+                            )
+                        }
+                    ).encode("utf-8"),
+                )
+                prev_bad_json = json.loads(body_prev_bad)
+                if (
+                    st_prev_bad != 200
+                    or len(prev_bad_json.get("pairs", [])) != 1
+                    or prev_bad_json["pairs"][0].get("valid") is not False
+                ):
+                    errs.append(f"handle_ui_request POST /api/preview identical pair expected valid=False: {prev_bad_json}")
+
+                st_load, _, body_load = bench_cv.handle_ui_request(
+                    ui_state, "POST", "/api/load-toml", json.dumps({"file": "oneshot_build.toml"}).encode("utf-8")
+                )
+                load_json = json.loads(body_load)
+                if st_load != 200 or not load_json.get("ok") or load_json.get("name") != "oneshot_build":
+                    errs.append(f"handle_ui_request POST /api/load-toml failed: {load_json}")
+
+                st_save, _, body_save = bench_cv.handle_ui_request(
+                    ui_state,
+                    "POST",
+                    "/api/save-toml",
+                    json.dumps(
+                        {
+                            "text": load_json.get("markdown", ""),
+                            "name": "ui_saved_concept",
+                            "frame": "scene",
+                            "overwrite": True,
+                        }
+                    ).encode("utf-8"),
+                )
+                save_json = json.loads(body_save)
+                if st_save != 200 or not save_json.get("ok") or not (build_toml_dir / "ui_saved_concept.toml").is_file():
+                    errs.append(f"handle_ui_request POST /api/save-toml failed: {save_json}")
+
+                st_uibld, _, body_uibld = bench_cv.handle_ui_request(
+                    ui_state,
+                    "POST",
+                    "/api/build",
+                    json.dumps(
+                        {
+                            "text": load_json.get("markdown", ""),
+                            "name": "ui_built_concept",
+                            "frame": "scene",
+                            "families": "fl2va",
+                            "pooling": "diff_span",
+                            "no_lora": True,
+                            "overwrite": False,
+                        }
+                    ).encode("utf-8"),
+                )
+                uibld_json = json.loads(body_uibld)
+                if st_uibld != 200 or not uibld_json.get("ok") or len(uibld_json.get("built", [])) != 1:
+                    errs.append(f"handle_ui_request POST /api/build failed: {uibld_json}")
+                # Duplicate build without overwrite=True must return 400
+                st_uibld_dup, _, body_uibld_dup = bench_cv.handle_ui_request(
+                    ui_state,
+                    "POST",
+                    "/api/build",
+                    json.dumps(
+                        {
+                            "text": load_json.get("markdown", ""),
+                            "name": "ui_built_concept",
+                            "frame": "scene",
+                            "families": "fl2va",
+                            "pooling": "diff_span",
+                            "no_lora": True,
+                            "overwrite": False,
+                        }
+                    ).encode("utf-8"),
+                )
+                uibld_dup_json = json.loads(body_uibld_dup)
+                if st_uibld_dup != 400 or "already exists" not in uibld_dup_json.get("error", ""):
+                    errs.append(f"handle_ui_request POST /api/build duplicate expected 400 'already exists', got {st_uibld_dup}: {uibld_dup_json}")
+
+                # Verify POST /api/build with overwrite=True on a loaded .toml with [[hold]] blocks preserves [[hold]] and quality
+                hold_toml_path = build_toml_dir / "ui_hold_preserved.toml"
+                hold_toml_path.write_text(
+                    (build_toml_dir / "oneshot_build.toml").read_text(encoding="utf-8").replace(
+                        'name = "oneshot_build"', 'name = "ui_hold_preserved"'
+                    )
+                    + '\n[[hold]]\ngroup = "setting"\na = "integrated_multimodal_description: [Shot 1] A baker kneads dough on a wooden table in warm light.\\n\\noverall_soundscape: Soft room tone.\\n\\nnon_diegetic_music: None."\nb = "integrated_multimodal_description: [Shot 1] A baker kneads dough on a marble counter in cool light.\\n\\noverall_soundscape: Soft room tone.\\n\\nnon_diegetic_music: None."\n',
+                    encoding="utf-8",
+                )
+                _, _, body_load_hold = bench_cv.handle_ui_request(
+                    ui_state, "POST", "/api/load-toml", json.dumps({"file": "ui_hold_preserved.toml"}).encode("utf-8")
+                )
+                load_hold_json = json.loads(body_load_hold)
+                st_bld_hold, _, body_bld_hold = bench_cv.handle_ui_request(
+                    ui_state,
+                    "POST",
+                    "/api/build",
+                    json.dumps(
+                        {
+                            "text": load_hold_json.get("markdown", ""),
+                            "name": "ui_hold_preserved",
+                            "frame": "scene",
+                            "families": "fl2va",
+                            "pooling": "diff_span",
+                            "no_lora": True,
+                            "overwrite": True,
+                        }
+                    ).encode("utf-8"),
+                )
+                bld_hold_json = json.loads(body_bld_hold)
+                after_ps = cv.load_pairs(hold_toml_path, bank_dir=cv_nodes.PROMPT_BANK_DIR)
+                if st_bld_hold != 200 or not bld_hold_json.get("ok") or len(after_ps.holds) != 1:
+                    errs.append(
+                        f"handle_ui_request POST /api/build lost [[hold]] blocks on loaded .toml: st={st_bld_hold}, holds={len(after_ps.holds)}"
+                    )
+
+                st_quit, _, body_quit = bench_cv.handle_ui_request(ui_state, "POST", "/api/quit", b"{}")
+                quit_json = json.loads(body_quit)
+                if st_quit != 200 or not quit_json.get("ok") or not ui_state.shutdown_requested:
+                    errs.append(f"handle_ui_request POST /api/quit failed: {quit_json}, shutdown={ui_state.shutdown_requested}")
+
                 # Verify _attach_refiner_lora_branches matches float32 merged TokenRefiner and refuses duplicate patches
                 import copy as _copy
                 import comfy.ops as _cops

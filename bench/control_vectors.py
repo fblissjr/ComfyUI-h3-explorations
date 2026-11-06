@@ -15,6 +15,7 @@ import argparse
 from datetime import datetime, timezone
 import hashlib
 import json
+import os
 from pathlib import Path
 import sys
 import time
@@ -1846,6 +1847,8 @@ def cmd_build(args: argparse.Namespace) -> int:
                 }
             )
 
+    if getattr(args, "_summary_rows_out", None) is not None:
+        args._summary_rows_out.extend(summary_rows)
     elapsed = time.perf_counter() - t0
     print(f"\n=== Ready to Render in ComfyUI ({len(summary_rows)} vector file(s) built in {elapsed:.2f}s) ===")
     for row in summary_rows:
@@ -1860,9 +1863,512 @@ def cmd_build(args: argparse.Namespace) -> int:
     return 0
 
 
+class ControlVectorUIState:
+    def __init__(
+        self,
+        *,
+        toml_dir: Path | None = None,
+        vec_dir: Path | None = None,
+    ) -> None:
+        self.toml_dir: Path = toml_dir or cv_nodes.PAIR_BANK_DIR
+        self.vec_dir: Path = vec_dir or Path(
+            folder_paths.get_folder_paths(cv_nodes.CONTROL_VECTORS_FOLDER)[0]
+        )
+        self._tokenizer: Any = None
+        self.shutdown_requested: bool = False
+
+    def get_tokenizer(self) -> Any:
+        if self._tokenizer is None:
+            import comfy.text_encoders.minimax as mm_te
+
+            self._tokenizer = mm_te.MiniMaxH3Tokenizer()
+        return self._tokenizer
+
+
+def _extract_system_prompt_text() -> str:
+    candidates = [
+        REPO_ROOT / "docs" / "wiki" / "system_prompts" / "h3_control_vector_system_prompt.md",
+        REPO_ROOT / "docs" / "research" / "control_vectors" / "2026-11-05_control_vector_system_prompt.md",
+    ]
+    open_fence = "````markdown\n"
+    for sp_path in candidates:
+        if not sp_path.is_file():
+            continue
+        raw = sp_path.read_text(encoding="utf-8")
+        fence_start = raw.find(open_fence)
+        if fence_start >= 0:
+            body_start = fence_start + len(open_fence)
+            fence_end = raw.find("\n````", body_start)
+            if fence_end >= 0:
+                return raw[body_start:fence_end].strip()
+    return ""
+
+
+def _list_ui_toml_files(toml_dir: Path) -> list[dict[str, Any]]:
+    out: list[dict[str, Any]] = []
+    if not toml_dir.is_dir():
+        return out
+    for p in sorted(toml_dir.glob("*.toml")):
+        try:
+            ps = cv.load_pairs(p, bank_dir=cv_nodes.PROMPT_BANK_DIR)
+            out.append(
+                {
+                    "stem": p.stem,
+                    "file": p.name,
+                    "n_pairs": len(ps.pairs),
+                    "mode": ps.mode,
+                    "frame": ps.frame,
+                    "quality": ps.quality,
+                }
+            )
+        except Exception:
+            continue
+    return out
+
+
+def _list_ui_vectors(vec_dir: Path) -> list[dict[str, Any]]:
+    out: list[dict[str, Any]] = []
+    if not vec_dir.is_dir():
+        return out
+    for p in sorted(vec_dir.glob("*.safetensors")):
+        try:
+            _, meta = cv.load_vector(p)
+            pr_meta = meta.get("points", {}).get("post_refiner", {})
+            raw_norm = float(pr_meta.get("raw_norm", 0.0))
+            qr = meta.get("quality_report", {})
+            out.append(
+                {
+                    "file": p.name,
+                    "name": str(meta.get("name", p.stem)),
+                    "family": str(meta.get("family", "")),
+                    "pooling": str(meta.get("measured_under", {}).get("pooling", "scene_text")),
+                    "raw_norm": raw_norm,
+                    "mpc": float(qr.get("mean_pairwise_cosine", 0.0)),
+                    "split_half": float(qr.get("split_half_cosine", 0.0)),
+                    "rec_strength": _recommended_strength_text(raw_norm),
+                }
+            )
+        except Exception:
+            continue
+    return out
+
+
+def _pair_set_to_markdown(toml_path: Path, ps: cv.PairSet) -> str:
+    tp_txt = ""
+    tp_cand = toml_path.parent / f"{toml_path.stem}_test_prompt.txt"
+    if tp_cand.is_file():
+        tp_txt = tp_cand.read_text(encoding="utf-8").strip()
+    else:
+        raw_lines = toml_path.read_text(encoding="utf-8").splitlines()
+        in_tp = False
+        tp_lines: list[str] = []
+        for line in raw_lines:
+            if line.strip() == "# Test Scene Prompt:":
+                in_tp = True
+                continue
+            if in_tp:
+                if line.startswith("#"):
+                    tp_lines.append(line[1:].lstrip(" "))
+                else:
+                    break
+        tp_txt = "\n".join(tp_lines).strip()
+
+    chunks: list[str] = []
+    if tp_txt:
+        chunks.append(f"### Test Scene Prompt\n\n{tp_txt}\n")
+    chunks.append(f"### Contrastive Pairs (1–{len(ps.pairs)})\n")
+    for idx, item in enumerate(ps.pairs, start=1):
+        chunks.append(
+            f"#### Pair {idx}\n"
+            f"##### Prompt A (Baseline)\n{item.a}\n\n"
+            f"##### Prompt B (Steered)\n{item.b}\n"
+        )
+    if ps.holds:
+        chunks.append("### Hold Pairs\n")
+        for idx, h_item in enumerate(ps.holds, start=1):
+            chunks.append(
+                f"#### Hold {idx} ({h_item.group})\n"
+                f"##### Prompt A (Baseline)\n{h_item.a}\n\n"
+                f"##### Prompt B (Nuisance)\n{h_item.b}\n"
+            )
+    return "\n".join(chunks)
+
+
+def _preview_markdown_pairs(
+    state: ControlVectorUIState,
+    text: str,
+    *,
+    frame: str = "scene",
+    name: str = "",
+) -> dict[str, Any]:
+    if frame not in cv.VALID_FRAMES:
+        return {"ok": False, "error": f"frame must be one of {cv.VALID_FRAMES}, got {frame!r}"}
+    try:
+        parsed = cv.parse_markdown_pairs(text)
+    except ValueError as exc:
+        return {"ok": False, "error": str(exc)}
+
+    tok = state.get_tokenizer()
+    hf_tok = tok.qwen3vl_32b.tokenizer
+    decode_fn = lambda ids: hf_tok.decode(list(ids))
+
+    pair_rows: list[dict[str, Any]] = []
+    ds_counts: list[float] = []
+    ffd_counts: list[float] = []
+    scene_counts: list[float] = []
+    first_valid_spans: tuple[str, str] | None = None
+
+    for idx, item in enumerate(parsed["pairs"], start=1):
+        a_txt = item["a"]
+        b_txt = item["b"]
+        try:
+            a_span, b_span = cv.differing_span(a_txt, b_txt, frame=frame)
+            sec_idx, sec_name = cv.differing_section_info(a_txt, b_txt, frame=frame)
+            if first_valid_spans is None:
+                first_valid_spans = (a_span, b_span)
+            c_prefix = len(os.path.commonprefix([a_txt, b_txt]))
+            pos = a_txt.find(a_span, max(0, c_prefix - len(a_span)))
+            if pos < 0:
+                pos = a_txt.find(a_span)
+            prefix = a_txt[:pos] if pos >= 0 else ""
+            suffix = a_txt[pos + len(a_span) :] if pos >= 0 else ""
+
+            entries_a = tok.tokenize_with_weights(a_txt)["qwen3vl_32b"][0]
+            entries_b = tok.tokenize_with_weights(b_txt)["qwen3vl_32b"][0]
+            ids_a = [int(e[0]) if not isinstance(e[0], dict) else 0 for e in entries_a]
+            ids_b = [int(e[0]) if not isinstance(e[0], dict) else 0 for e in entries_b]
+            tags_a = [1] * len(ids_a)
+            tags_b = [1] * len(ids_b)
+            first_diff, end_a, end_b = h3_spans.differing_token_bounds(ids_a, ids_b)
+            spans_a = h3_spans.spans(ids_a, tags_a, decode_fn)
+            spans_b = h3_spans.spans(ids_b, tags_b, decode_fn)
+
+            m_ds_a = int(
+                h3_spans.pooling_mask(
+                    spans_a, "diff_span", first_diff=min(first_diff, len(ids_a) - 1), end_diff=end_a
+                ).sum().item()
+            )
+            m_ds_b = int(
+                h3_spans.pooling_mask(
+                    spans_b, "diff_span", first_diff=min(first_diff, len(ids_b) - 1), end_diff=end_b
+                ).sum().item()
+            )
+            m_ffd_a = int(
+                h3_spans.pooling_mask(
+                    spans_a, "from_first_diff", first_diff=min(first_diff, len(ids_a) - 1)
+                ).sum().item()
+            )
+            m_ffd_b = int(
+                h3_spans.pooling_mask(
+                    spans_b, "from_first_diff", first_diff=min(first_diff, len(ids_b) - 1)
+                ).sum().item()
+            )
+            m_sc_a = int(h3_spans.pooling_mask(spans_a, "scene_text").sum().item())
+            m_sc_b = int(h3_spans.pooling_mask(spans_b, "scene_text").sum().item())
+
+            ds_counts.append(0.5 * (m_ds_a + m_ds_b))
+            ffd_counts.append(0.5 * (m_ffd_a + m_ffd_b))
+            scene_counts.append(0.5 * (m_sc_a + m_sc_b))
+
+            pair_rows.append(
+                {
+                    "index": idx,
+                    "valid": True,
+                    "section": f"sec {sec_idx}:{sec_name}",
+                    "prefix": prefix,
+                    "a_span": a_span,
+                    "b_span": b_span,
+                    "suffix": suffix,
+                    "tokens": {
+                        "first_diff": int(first_diff),
+                        "diff_span_a": m_ds_a,
+                        "diff_span_b": m_ds_b,
+                        "ffd_a": m_ffd_a,
+                        "ffd_b": m_ffd_b,
+                        "scene_a": m_sc_a,
+                        "scene_b": m_sc_b,
+                    },
+                }
+            )
+        except ValueError as exc:
+            pair_rows.append(
+                {
+                    "index": idx,
+                    "valid": False,
+                    "error": str(exc),
+                }
+            )
+
+    quality = ""
+    if first_valid_spans is not None:
+        quality = f"{first_valid_spans[1][:72]} vs {first_valid_spans[0][:72]}"
+
+    avg_tokens = None
+    if ds_counts:
+        avg_tokens = {
+            "diff_span": round(sum(ds_counts) / len(ds_counts), 1),
+            "from_first_diff": round(sum(ffd_counts) / len(ffd_counts), 1),
+            "scene_text": round(sum(scene_counts) / len(scene_counts), 1),
+        }
+
+    return {
+        "ok": True,
+        "mode": parsed["mode"],
+        "test_scene_prompt": parsed["test_scene_prompt"],
+        "quality": quality,
+        "suggested_name": name,
+        "avg_tokens": avg_tokens,
+        "pairs": pair_rows,
+    }
+
+
+def handle_ui_request(
+    state: ControlVectorUIState,
+    method: str,
+    path: str,
+    body: bytes = b"",
+) -> tuple[int, str, str]:
+    clean_path = path.split("?", 1)[0]
+    if method == "GET" and clean_path in ("/", "/index.html"):
+        html_path = BENCH_DIR / "control_vector_ui.html"
+        return 200, "text/html; charset=utf-8", html_path.read_text(encoding="utf-8")
+
+    if method == "GET" and clean_path == "/api/init":
+        payload = {
+            "ok": True,
+            "system_prompt": _extract_system_prompt_text(),
+            "toml_files": _list_ui_toml_files(state.toml_dir),
+            "vectors": _list_ui_vectors(state.vec_dir),
+        }
+        return 200, "application/json", json.dumps(payload)
+
+    req: dict[str, Any] = {}
+    if body:
+        try:
+            req = json.loads(body.decode("utf-8"))
+        except Exception as exc:
+            return 400, "application/json", json.dumps({"ok": False, "error": f"invalid JSON: {exc}"})
+
+    if method == "POST" and clean_path == "/api/preview":
+        res = _preview_markdown_pairs(
+            state,
+            str(req.get("text", "")),
+            frame=str(req.get("frame", "scene") or "scene"),
+            name=str(req.get("name", "") or "").strip(),
+        )
+        return 200, "application/json", json.dumps(res)
+
+    if method == "POST" and clean_path == "/api/load-toml":
+        fname = str(req.get("file", "")).strip()
+        if not fname:
+            return 400, "application/json", json.dumps({"ok": False, "error": "missing 'file'"})
+        try:
+            cand = state.toml_dir / (fname if fname.endswith(".toml") else f"{fname}.toml")
+            tpath = cand if cand.is_file() else cv_nodes.resolve_pair_file_path(fname)
+            ps = cv.load_pairs(tpath, bank_dir=cv_nodes.PROMPT_BANK_DIR)
+            md_str = _pair_set_to_markdown(tpath, ps)
+            return (
+                200,
+                "application/json",
+                json.dumps(
+                    {
+                        "ok": True,
+                        "name": ps.name,
+                        "frame": ps.frame,
+                        "mode": ps.mode,
+                        "markdown": md_str,
+                    }
+                ),
+            )
+        except Exception as exc:
+            return 400, "application/json", json.dumps({"ok": False, "error": str(exc)})
+
+    if method == "POST" and clean_path == "/api/save-toml":
+        text = str(req.get("text", ""))
+        name = str(req.get("name", "")).strip()
+        frame = str(req.get("frame", "scene") or "scene")
+        overwrite = bool(req.get("overwrite", True))
+        if not name:
+            return 400, "application/json", json.dumps({"ok": False, "error": "vector name is required"})
+        try:
+            parsed = cv.parse_markdown_pairs(text)
+            tp_out = state.toml_dir / f"{name}_test_prompt.txt" if parsed.get("test_scene_prompt") else None
+            saved_toml = cv.write_markdown_to_toml(
+                text,
+                state.toml_dir,
+                name=name,
+                frame=frame,
+                test_prompt_out=tp_out,
+                overwrite=overwrite,
+                bank_dir=cv_nodes.PROMPT_BANK_DIR,
+            )
+            return (
+                200,
+                "application/json",
+                json.dumps(
+                    {
+                        "ok": True,
+                        "saved_toml": _display_path(saved_toml),
+                        "test_prompt_file": _display_path(tp_out) if tp_out and tp_out.is_file() else None,
+                    }
+                ),
+            )
+        except (ValueError, FileExistsError) as exc:
+            return 400, "application/json", json.dumps({"ok": False, "error": str(exc)})
+
+    if method == "POST" and clean_path == "/api/build":
+        text = str(req.get("text", ""))
+        name = str(req.get("name", "")).strip()
+        frame = str(req.get("frame", "scene") or "scene")
+        families = str(req.get("families", "both") or "both")
+        pooling = str(req.get("pooling", "diff_span") or "diff_span")
+        no_lora = bool(req.get("no_lora", False))
+        overwrite = bool(req.get("overwrite", True))
+        include_encoder = bool(req.get("include_encoder", False))
+        if not name:
+            return 400, "application/json", json.dumps({"ok": False, "error": "vector name is required"})
+        try:
+            import contextlib
+            import io
+
+            parsed = cv.parse_markdown_pairs(text)
+            tp_out = state.toml_dir / f"{name}_test_prompt.txt" if parsed.get("test_scene_prompt") else None
+            cand_toml = state.toml_dir / f"{name}.toml"
+            reused_existing = False
+            if cand_toml.is_file():
+                try:
+                    existing_ps = cv.load_pairs(cand_toml, bank_dir=cv_nodes.PROMPT_BANK_DIR)
+                    existing_ab = [(p.a, p.b) for p in existing_ps.pairs]
+                    new_ab = [(p["a"], p["b"]) for p in parsed["pairs"]]
+                    if existing_ab == new_ab and existing_ps.frame == frame:
+                        saved_toml = cand_toml
+                        reused_existing = True
+                        if tp_out is not None and parsed.get("test_scene_prompt"):
+                            tp_out.parent.mkdir(parents=True, exist_ok=True)
+                            tp_out.write_text(parsed["test_scene_prompt"] + "\n", encoding="utf-8")
+                except Exception:
+                    reused_existing = False
+            if not reused_existing:
+                saved_toml = cv.write_markdown_to_toml(
+                    text,
+                    state.toml_dir,
+                    name=name,
+                    frame=frame,
+                    test_prompt_out=tp_out,
+                    overwrite=True if overwrite else False,
+                    bank_dir=cv_nodes.PROMPT_BANK_DIR,
+                )
+            argv = [
+                "build",
+                str(saved_toml),
+                "--name",
+                name,
+                "--families",
+                families,
+                "--pooling",
+                pooling,
+                "--out-dir",
+                str(state.vec_dir),
+            ]
+            if no_lora:
+                argv.append("--no-lora")
+            if include_encoder:
+                argv.append("--include-encoder")
+            if overwrite:
+                argv.append("--overwrite")
+            b_args = build_parser().parse_args(argv)
+            rows_out: list[dict[str, Any]] = []
+            b_args._summary_rows_out = rows_out
+            buf_out = io.StringIO()
+            with contextlib.redirect_stdout(buf_out):
+                cmd_build(b_args)
+            return (
+                200,
+                "application/json",
+                json.dumps(
+                    {
+                        "ok": True,
+                        "saved_toml": _display_path(saved_toml),
+                        "built": rows_out,
+                        "vectors": _list_ui_vectors(state.vec_dir),
+                        "log": buf_out.getvalue(),
+                    }
+                ),
+            )
+        except (ValueError, FileExistsError) as exc:
+            return 400, "application/json", json.dumps({"ok": False, "error": str(exc)})
+
+    if method == "POST" and clean_path == "/api/quit":
+        state.shutdown_requested = True
+        return 200, "application/json", json.dumps({"ok": True})
+
+    return 404, "application/json", json.dumps({"ok": False, "error": f"not found: {clean_path}"})
+
+
+def cmd_ui(args: argparse.Namespace) -> int:
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+    import threading
+    import webbrowser
+
+    state = ControlVectorUIState()
+    srv_ref: list[ThreadingHTTPServer] = []
+
+    class _Handler(BaseHTTPRequestHandler):
+        def log_message(self, fmt: str, *log_args: Any) -> None:
+            return
+
+        def _dispatch(self, method: str) -> None:
+            length = int(self.headers.get("Content-Length", "0") or "0")
+            body = self.rfile.read(length) if length > 0 else b""
+            code, ctype, payload = handle_ui_request(state, method, self.path, body)
+            raw_bytes = payload.encode("utf-8")
+            self.send_response(code)
+            self.send_header("Content-Type", ctype)
+            self.send_header("Content-Length", str(len(raw_bytes)))
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            self.wfile.write(raw_bytes)
+            if state.shutdown_requested and srv_ref:
+                threading.Thread(target=srv_ref[0].shutdown, daemon=True).start()
+
+        def do_GET(self) -> None:
+            self._dispatch("GET")
+
+        def do_POST(self) -> None:
+            self._dispatch("POST")
+
+    server = ThreadingHTTPServer((str(args.host), int(args.port)), _Handler)
+    srv_ref.append(server)
+    host, actual_port = server.server_address[:2]
+    url = f"http://{host}:{actual_port}/"
+    print(f"=== MiniMax H3 Control Vector Studio ===")
+    print(f"  url   : {url}")
+    print(f"  note  : Click 'Quit Server' in the browser tab or press Ctrl+C here to exit.")
+    if not getattr(args, "no_browser", False):
+        try:
+            webbrowser.open(url)
+        except Exception:
+            pass
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        server.server_close()
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description=__doc__)
     sub = p.add_subparsers(dest="cmd", required=True)
+
+    pui = sub.add_parser(
+        "ui",
+        help="Launch the self-contained local browser UI for authoring, previewing, and building control vectors",
+    )
+    pui.add_argument("--host", default="127.0.0.1", help="Bind address (default: 127.0.0.1)")
+    pui.add_argument("--port", type=int, default=0, help="Port (default: 0 picks an unused ephemeral port)")
+    pui.add_argument("--no-browser", dest="no_browser", action="store_true", help="Do not auto-open a browser tab")
 
     pb = sub.add_parser(
         "build",
@@ -1987,6 +2493,8 @@ def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     try:
+        if args.cmd == "ui":
+            return cmd_ui(args)
         if args.cmd == "build":
             return cmd_build(args)
         if args.cmd in ("from-md", "import-md"):

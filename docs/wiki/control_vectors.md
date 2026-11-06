@@ -15,8 +15,15 @@ Control vectors steer MiniMax H3 video+audio generation by shifting the 5376-d p
    > *"Create a control vector for `head_swell`: a person's head inflates and balloons to twice its normal size like a helium balloon, with a stretched latex creak and pressurized air hiss."*
 3. Save the LLM's Markdown response (which contains `### Test Scene Prompt`, `### Contrastive Pairs` with `#### Pair 1` .. `#### Pair 10`, and optional `### Hold Pairs`) to a `.md` file, e.g. `my_effect.md`.
 
-### Step 2: Run the One-Shot `build` Command
-From the repo root, run **one command**:
+### Step 2: Run the One-Shot `build` Command (or Open the Local Studio UI)
+From the repo root, either launch the interactive local browser UI:
+
+```bash
+python bench/control_vectors.py ui
+```
+*(Opens the Control Vector Studio in your browser with a one-click "Copy LLM System Prompt" button, live red/green pair diff & BPE token-span validation, one-click `.toml` + `.safetensors` build, and a "Quit Server" button that stops the local process immediately when you finish.)*
+
+Or run **one CLI command** directly on a saved `.md` file:
 
 ```bash
 python bench/control_vectors.py build my_effect.md
@@ -165,7 +172,8 @@ Because `Qwen3-VL-32B-Instruct` (`layers.0..49`) is **strictly causal**, tokens 
 | [`h3_spans.py`](../../h3_spans.py) | Deterministic token-span partition of H3 conditioning sequences (`vision`, `label`, `timestamp`, `dialogue`, `speaker`, `scene`) and pooling masks | `spans`, `differing_token_bounds`, `first_differing_index`, `pooling_mask` (`POOLING_MODES = ("scene_text", "all_tag1", "from_first_diff", "diff_span")`) |
 | [`control_vectors.py`](../../control_vectors.py) | Core float64 math, `.toml` pair loader, Markdown-to-`.toml` converter (including `#### Hold N`), `.safetensors` + `.md` sidecar I/O, model family & recipe verification, and `apply_post_refiner` | `load_pairs`, `differing_span` (`MAX_SHARED_INTERIOR_WORDS = 5`), `parse_markdown_pairs`, `write_markdown_to_toml`, `mean_difference`, `flip_null`, `random_null`, `hold_basis`, `project_out`, `apply_post_refiner` (`APPLY_MODES = ("add", "project_out", "amplify")`), `save_vector`, `format_vector_sidecar_md`, `load_vector` |
 | [`control_vector_nodes.py`](../../control_vector_nodes.py) | ComfyUI V3 nodes, runtime `WrappersMP.DIFFUSION_MODEL` hook, recipe extraction, and CPU/GPU `token_refiner` runner (with `lora_branch.py` support) | `MiniMaxH3MakeControlVector`, `MiniMaxH3ApplyControlVectors`, `MiniMaxH3LayerNormMatch`, `attach_control_vector`, `make_control_vector_from_pairs`, `build_refiner_runner`, `extract_model_recipe` |
-| [`bench/control_vectors.py`](../../bench/control_vectors.py) | Standalone CLI for one-shot `build` (`.md`/`.toml` -> `.safetensors`), `from-md`, `make`, `inspect` (`--meter`), and `grade` | `cmd_build`, `cmd_from_md`, `cmd_make`, `cmd_inspect`, `cmd_grade` |
+| [`bench/control_vectors.py`](../../bench/control_vectors.py) | Standalone CLI and on-demand local UI server (`ui`, one-shot `build`, `from-md`, `make`, `inspect` `--meter`, and `grade`) | `cmd_ui`, `handle_ui_request`, `cmd_build`, `cmd_from_md`, `cmd_make`, `cmd_inspect`, `cmd_grade` |
+| [`bench/control_vector_ui.html`](../../bench/control_vector_ui.html) | Self-contained dark-mode browser UI served by `python bench/control_vectors.py ui` for copying the system prompt, previewing pair diffs & BPE token spans, and building `.safetensors` vectors | Served at `GET /` by `bench/control_vectors.py::handle_ui_request` |
 | [`workflows/build_workflows.py`](../../workflows/build_workflows.py) | Programmatic workflow builders for single/chained control-vector arms, 6-arm gate ladders, and E4.2/E4.3 probes | `build_control_vector_arm`, `build_control_vector_gate_arms`, `build_control_vector_probe_arm`, `build_api(..., control_vector=...)` |
 | [`bench/check_control_vectors.py`](../../bench/check_control_vectors.py) | Tracked CPU check (`C1`–`C7`) defending tokenizer constants, span masks, `.toml`/`.md` refusals, float64 math, `.safetensors` + `.md` sidecar I/O, runtime hooks, and CLI subcommands | `main` (`python bench/check_control_vectors.py`) |
 
@@ -282,6 +290,9 @@ Because H3's text encoder is `Qwen3-VL-32B-Instruct` truncated after `layers.49`
 ## 8. CLI Reference (`bench/control_vectors.py`)
 
 ```bash
+# 0. INTERACTIVE STUDIO UI: Launch the local browser studio (exits when you click 'Quit Server'):
+python bench/control_vectors.py ui
+
 # 1. ONE-SHOT BUILD (Recommended): Markdown (.md) or TOML (.toml) -> .toml + _test_prompt.txt + fl2va & ref2va .safetensors
 python bench/control_vectors.py build my_effect.md
 
