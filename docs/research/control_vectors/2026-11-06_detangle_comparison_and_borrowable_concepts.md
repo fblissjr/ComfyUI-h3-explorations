@@ -2,7 +2,7 @@
 
 **Date**: 2026-11-06  
 **Reference credit**: [`DeTangle`](https://github.com/matlowai/DeTangle) by Dylan Matlow (MatlowAI), inspected in `coderef/DeTangle` at commit `9945346` (`2026-10-21`).  
-**Related docs**: [`docs/wiki/control_vectors.md`](../../wiki/control_vectors.md), [`docs/research/control_vectors/2026-11-04_h3_control_vectors.md`](2026-11-04_h3_control_vectors.md), [`docs/research/control_vectors/2026-11-05_control_vector_system_prompt.md`](2026-11-05_control_vector_system_prompt.md), [`docs/wiki/references.md`](../../wiki/references.md).
+**Related docs**: [`docs/wiki/control_vectors.md`](../../wiki/control_vectors.md), [`docs/research/control_vectors/2026-11-04_h3_control_vectors.md`](2026-11-04_h3_control_vectors.md), [`docs/research/control_vectors/2026-11-05_control_vector_system_prompt.md`](2026-11-05_control_vector_system_prompt.md), [`docs/research/control_vectors/2026-11-06_mainodes_comparison_and_pika_roadmap.md`](2026-11-06_mainodes_comparison_and_pika_roadmap.md), [`docs/wiki/references.md`](../../wiki/references.md).
 
 ---
 
@@ -117,10 +117,11 @@ Why did `DeTangle` do offline matrix surgery, and why should H3 take a different
      $$\mathbf{v}_{\text{eff}} = \mathbf{v}_{\text{target}} - \alpha \sum_{k=1}^{K} (\mathbf{v}_{\text{target}} \cdot \hat{\mathbf{u}}_k)\,\hat{\mathbf{u}}_k$$
    - This immediately gives all **34** banks access to high-stability 10-pair hold directions (`split_half_cosine = 0.91–0.97`) with zero new `.toml` authoring and `< 0.1 ms` runtime adjustment.
 
-### Change 2: Use Section-Aware Token Masks (`description_only` vs. `soundscape_only`) Before Subspace Projection
+### Change 2: Use Section-Aware Token Masks (`description_only` vs. `soundscape_only`) Before Subspace Projection—Paired with Early-Step Velocity Splitting When DiT Cross-Modal Attention Couples the Streams
 - In H3 prompts, visual action lives in `integrated_multimodal_description:` (or `detailed_description:`), spoken lines live in `<d>...</d>`, and environmental audio lives in `overall_soundscape:`.
 - Trying to remove acoustic bleed from a visual vector via 5376-d subspace projection (`head_swell` vs. `pressurized_steam_acoustics`, $\cos = 0.407$) throws away global vector energy because `token_refiner`'s 2 bidirectional layers entangle physical tension and sound.
-- Because `h3_spans.py::spans` (`h3_spans.py:254-325`) already parses the tokenized prompt at inference time, extending `h3_spans.py::inference_mask` (`h3_spans.py:350-382`, currently `non_vision`, `scene_only`, `after_dialogue`, `all_rows`) with **`description_only`** (steers only non-dialogue visual description tokens, leaving `overall_soundscape:` and `<d>...</d>` untouched) and **`soundscape_only`** (steers only `overall_soundscape:` tokens, leaving visual description and `<d>...</d>` untouched) achieves visual/audio disentanglement with **zero hold pairs and zero loss of `raw_norm`**.
+- Because `h3_spans.py::spans` (`h3_spans.py:254-325`) already parses the tokenized prompt at inference time, extending `h3_spans.py::inference_mask` (`h3_spans.py:350-382`, currently `non_vision`, `scene_only`, `after_dialogue`, `all_rows`) with **`description_only`** (steers only non-dialogue visual description tokens, leaving `overall_soundscape:` and `<d>...</d>` untouched) and **`soundscape_only`** (steers only `overall_soundscape:` tokens, leaving visual description and `<d>...</d>` untouched) prevents direct text-token shifts on the non-target section with **zero hold pairs and zero loss of `raw_norm`**.
+- **Important architectural boundary (`comfy/ldm/minimax/model.py:591-604, 760-773`)**: Because all 50 H3 `DiTBlock`s run full joint self-attention over the single packed sequence `h = [text, cond, ref_img, ref_audio, audio, video]`, `audio` latent tokens still attend directly to `integrated_multimodal_description:` text rows (as seen in `head_swell` `Arms 30, 36`, which shifted vocal F0 `+67%` despite 100% identical `overall_soundscape:` sections across all 10 pairs). When complete visual-vs-audio isolation is required on Pika's 6-step schedule, combine `description_only` / `soundscape_only` token masks with an early-step (`steps 0..1`) velocity split (`video_scale`, `audio_scale`) on `MiniMaxH3Model._forward`'s `[-video_out, -audio_out]` output (`comfy/ldm/minimax/model.py:792`; see [`2026-11-06_mainodes_comparison_and_pika_roadmap.md`](2026-11-06_mainodes_comparison_and_pika_roadmap.md) §3.2).
 
 ---
 

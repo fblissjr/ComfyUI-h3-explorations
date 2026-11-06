@@ -115,7 +115,7 @@ Recorded here because it is a property of the *references*, not of our code:
 | `MaskVidExperiments` | `c32ed8c` | a third-party pack of video masking tools, added to this table 2026-10-09 and unmoved since 2026-09-11. A mask reduced to the latent grid by the VAE's own frame cycle and H3's token grid, a cleanup of specks, a frame-range mask, an audio time-range mask on a joint latent, a soft variant of Differential Diffusion, and a stable crop round a moving subject that is sampled alone and pasted back (`coderef/MaskVidExperiments/README.md`). Read for the masked lane; not installed. What it does that the lane does not is in "What moved by 2026-10-09" |
 | `ComfyUI-NKD-Basic-Tools` | `4f487a5` | a third-party pack, added to this table 2026-10-09. Its crop and stitch pair cuts a masked area out at the model's own resolution, samples it and puts it back, with a colour match on the way (`coderef/ComfyUI-NKD-Basic-Tools/docs/inpaint-crop-stitch.md`). Written for stills; nothing in it is H3-specific. Not installed |
 | `Pika-H3-Flex` | `06bd434` | Pika's six-step distill of H3, two LoRA adapters (fl2va and ref2va) and a diffusers CLI, added to this table 2026-11-04. Its sampling contract, a re-noise update on fixed knots, is in section "Pika H3 Flex" below. Read for the contract; not installed. The files linked into `models/loras/h3/` on 2026-11-04 are a resize of it |
-| `ComfyUI-MAINodes` | `1880dfc` | a third-party pack of H3 nodes (GPL-3.0), added to this table 2026-11-04: motion-smear repair by re-rendering a slowed copy, RoPE retiming, steering vectors on the text rows, streamed low-VRAM blocks, window drivers and Pika presets. Section "ComfyUI-MAINodes" below. Read for ideas; not installed |
+| `ComfyUI-MAINodes` | `1880dfc` (`74cbd0e` on 2026-11-06) | a third-party pack of H3 nodes (GPL-3.0), added to this table 2026-11-04 and re-read at `74cbd0e` (v1.2.3) on 2026-11-06: motion-smear repair by re-rendering a slowed copy, RoPE retiming, steering vectors on the text rows (`dials/`), per-kind condition noise strength (`h3_cond_strength.py`), alpha block-state capture/injection (`concept_lab/`), streamed low-VRAM blocks, window drivers and Pika presets. Section "ComfyUI-MAINodes" below and [`../research/control_vectors/2026-11-06_mainodes_comparison_and_pika_roadmap.md`](../research/control_vectors/2026-11-06_mainodes_comparison_and_pika_roadmap.md). Read for ideas; not installed |
 | `ComfyUI-Dials` | `7dd0b7e` | the same author's earlier steering-slider pack, added 2026-11-04; its README points to `ComfyUI-MAINodes`, where the work continues. Not installed |
 | `sage-fork` | `56a5be4` | our SageAttention fork |
 | `SLA` | `7db4039` | the sparse top-k attention reference |
@@ -1740,18 +1740,18 @@ where it meets this pack:
   `comfy.ldm.minimax.model._video_t_spans` at run time, armed only inside
   its own sampler wrapper (`coderef/ComfyUI-MAINodes/motion.py::_install_true_clock_patch`). It is a
   runtime patch, not an edit of core's file.
-- **Dials** (`coderef/ComfyUI-MAINodes/dials/core.py`, `coderef/ComfyUI-MAINodes/dials/blocks.py`): a steering vector, the
-  mean over tokens of one prompt's encoding minus another's, added to the
-  text rows after `token_refiner` through a diffusion-model wrapper, or
+- **Dials** (`coderef/ComfyUI-MAINodes/dials/core.py`, `coderef/ComfyUI-MAINodes/dials/blocks.py`, `coderef/ComfyUI-MAINodes/dials/timecurve.py`, re-read at `74cbd0e` v1.2.3 on 2026-11-06): a steering vector, the
+  mean over all tokens of one prompt's encoding minus another's (or `tags == 1` text tokens after `<Picture>`/`<Video>` refiner cross-attention in `MAIDialMakeFromPictures` / `MAIDialMakeFromVideos`), added to every row of the
+  text span after `token_refiner` through a diffusion-model wrapper, or
   written as a `condition_proj.diff_b` LoRA key; a depth profile adds
   per-block deltas to the text rows through `("double_block", i)` patches
-  that chain whatever patch is there. Its README says the dial strengths
+  that chain whatever patch is there; and `timecurve.py` blends two DiT velocity forwards (`v0 + M(t) * (v_dial - v0)`) on the first $k$ steps for frame-indexed curves, audio-reactive STFT envelopes, and `audio="protect"` ($M_{\text{audio}} = 0$). Its README says the dial strengths
   were measured on Pika's six-step schedule. Two meeting points, reasoned
   from code and not run: `frozen_video_cache.py` refuses a model that
   already carries DiT patches, so a depth profile placed before the cache
   is refused and one placed after wraps it; and `MiniMaxH3LoRABranch`
   would load a `.diff_b` dial and refuse a post-refiner one by its
-  unknown-key rule (`lora_branch.py::parse_lora`).
+  unknown-key rule (`lora_branch.py::parse_lora`). Full comparison against our `control_vectors.py` / `control_vector_nodes.py` / `h3_spans.py` stack (`diff_span` pooling vs. whole-prompt `.mean(0)` + 24-pair `NUISANCE_PAIRS` SVD, `non_vision`/`scene_only`/`after_dialogue` row masks vs. unmasked `ContextShift`, `fl2va` vs. `ref2va` family signature verification, `< 0.2s` `safe_open` refiner runner vs. 22 GB `load_models_gpu`, and the Pika roadmap) is in [`../research/control_vectors/2026-11-06_mainodes_comparison_and_pika_roadmap.md`](../research/control_vectors/2026-11-06_mainodes_comparison_and_pika_roadmap.md).
 - **Low VRAM** (`coderef/ComfyUI-MAINodes/vram_lab.py`): `H3StreamedBlocks` runs each DiT block in
   token chunks, exact, with optional INT8, Sage or FP4 K/V, plus memory
   and precision probes. Its `H3SolAttention` rebinds core's attention
@@ -1762,17 +1762,16 @@ where it meets this pack:
   adapter under reference conditioning, where Pika puts the ref2va adapter
   on the ref2va partition, so it is off Pika's contract; and a DMAD preset
   on `lcm`.
-- **What it does that this pack does not**: text-embedding steering, RoPE
-  retiming, and the smear fix. What it does that this pack's rules refuse:
+- **What it does that this pack does not**: picture/video reference-contrasted dials (`MAIDialMakeFromPictures`, `MAIDialMakeFromVideos`), dual-forward within-clip velocity curves and `audio="protect"` (`coderef/ComfyUI-MAINodes/dials/timecurve.py`), per-block text depth profiles (`coderef/ComfyUI-MAINodes/dials/blocks.py`), `condition_proj.diff_b` pre-refiner bias LoRAs, per-kind condition noise strength (`coderef/ComfyUI-MAINodes/h3_cond_strength.py`), alpha DiT block-state capture/injection (`coderef/ComfyUI-MAINodes/concept_lab/nodes.py`), RoPE retiming, and the smear fix. *(Corrected 2026-11-06: when written on 2026-11-04 before `control_vectors.py` and `control_vector_nodes.py` landed at `17c908f5`/`e0ce534f`, this sentence said "What it does that this pack does not: text-embedding steering, RoPE retiming, and the smear fix", and the paragraph below listed `concept_lab/` as not read.)* What it does that this pack's rules refuse:
   `H3ConditioningBank`, `H3LatentBank` and `H3TrajectoryBank` reuse a
   result by a key (AGENTS.md, "Nothing an earlier run made is reused by a
-  key"); its Motion Lab examples load a lightx2v turbo LoRA and its
+  key"); `coderef/ComfyUI-MAINodes/h3_cond_strength.py::install_cond_rows_patch` monkey-patches `MiniMaxH3Model._cond_video_rows` and `_cond_audio_rows` on core's class (AGENTS.md, "Nothing in this pack patches ComfyUI core"); its Motion Lab examples load a lightx2v turbo LoRA and its
   contact sheet is single-frame generation (both closed lanes); and its
   low-VRAM notes report 702- and 906-frame renders, past
   `h3_rules.MAX_LENGTH`.
 
 Not read: most of `motion.py` past its docstrings and the RoPE patch, the
-`timeline/`, `concept_lab/` and `relayvsr/` folders, and the window
+`timeline/` and `relayvsr/` folders, and the window
 drivers' internals.
 
 ---
