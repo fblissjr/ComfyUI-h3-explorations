@@ -2352,6 +2352,77 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
                     if fn_base == fn_lora or "__lora_" not in fn_lora:
                         errs.append(f"default_vector_filename did not disambiguate LoRA recipe: {fn_base!r} vs {fn_lora!r}")
 
+                # Test one-shot cmd_build from a Markdown (.md) file (generating .toml, _test_prompt.txt, and multi-pooling .safetensors)
+                build_md_path = tmp / "oneshot_build.md"
+                build_md_path.write_text(
+                    "### Test Scene Prompt\n\n"
+                    "integrated_multimodal_description: [Shot 1] Wide shot as (S1) says, <d>Hello.</d>\n\n"
+                    "overall_soundscape: Wind.\n\nnon_diegetic_music: N/A\n\n"
+                    "### Contrastive Pairs (1–2)\n\n"
+                    "#### Pair 1\n##### Prompt A (Baseline)\n"
+                    "integrated_multimodal_description: [Shot 1] Scene 1 filmed with clean neutral modern digital color.\n\noverall_soundscape: Quiet room tone.\n\n"
+                    "##### Prompt B (Steered)\n"
+                    "integrated_multimodal_description: [Shot 1] Scene 1 filmed with 1974 16mm color reversal stock.\n\noverall_soundscape: Quiet room tone.\n\n"
+                    "#### Pair 2\n##### Prompt A (Baseline)\n"
+                    "integrated_multimodal_description: [Shot 1] Scene 2 filmed with flat modern digital video render.\n\noverall_soundscape: Quiet room tone.\n\n"
+                    "##### Prompt B (Steered)\n"
+                    "integrated_multimodal_description: [Shot 1] Scene 2 filmed with 1974 16mm celluloid film grain.\n\noverall_soundscape: Quiet room tone.\n",
+                    encoding="utf-8",
+                )
+                build_toml_dir = tmp / "build_toml_dir"
+                build_vec_dir = tmp / "build_vec_dir"
+                buf_bld_out, buf_bld_err = io.StringIO(), io.StringIO()
+                with contextlib.redirect_stdout(buf_bld_out), contextlib.redirect_stderr(buf_bld_err):
+                    rc_bld = bench_cv.main(
+                        [
+                            "build",
+                            str(build_md_path),
+                            "--families",
+                            "fl2va",
+                            "--pooling",
+                            "diff_span,from_first_diff",
+                            "--lora",
+                            f"{mock_lora_path}:1.0",
+                            "--toml-out",
+                            str(build_toml_dir),
+                            "--out-dir",
+                            str(build_vec_dir),
+                        ]
+                    )
+                if rc_bld != 0:
+                    errs.append(f"cmd_build failed: rc={rc_bld}, err={buf_bld_err.getvalue()!r}")
+                else:
+                    if not (build_toml_dir / "oneshot_build.toml").is_file():
+                        errs.append("cmd_build did not write oneshot_build.toml")
+                    if not (build_toml_dir / "oneshot_build_test_prompt.txt").is_file():
+                        errs.append("cmd_build did not write oneshot_build_test_prompt.txt")
+                    built_sfs = sorted(build_vec_dir.glob("*.safetensors"))
+                    if len(built_sfs) != 2:
+                        errs.append(f"cmd_build expected 2 .safetensors files, got {[p.name for p in built_sfs]}")
+                    # Running build again with identical .md and overwrite=False must refuse on existing .safetensors
+                    buf_bld2_out, buf_bld2_err = io.StringIO(), io.StringIO()
+                    with contextlib.redirect_stdout(buf_bld2_out), contextlib.redirect_stderr(buf_bld2_err):
+                        rc_bld2 = bench_cv.main(
+                            [
+                                "build",
+                                str(build_md_path),
+                                "--families",
+                                "fl2va",
+                                "--pooling",
+                                "diff_span",
+                                "--lora",
+                                f"{mock_lora_path}:1.0",
+                                "--toml-out",
+                                str(build_toml_dir),
+                                "--out-dir",
+                                str(build_vec_dir),
+                            ]
+                        )
+                    if rc_bld2 != 2 or "already exists" not in buf_bld2_err.getvalue():
+                        errs.append(
+                            f"cmd_build duplicate without --overwrite expected rc=2 and 'already exists', got rc={rc_bld2}, err={buf_bld2_err.getvalue()!r}"
+                        )
+
                 # Verify _attach_refiner_lora_branches matches float32 merged TokenRefiner and refuses duplicate patches
                 import copy as _copy
                 import comfy.ops as _cops
@@ -2374,6 +2445,9 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
                         ref_lora_sd[f"{k_full}.lora_A.weight"] = torch.randn((2, w_t.shape[1]), generator=g_tr) * 0.1
                         ref_lora_sd[f"{k_full}.lora_B.weight"] = torch.randn((w_t.shape[0], 2), generator=g_tr) * 0.1
                         ref_lora_sd[f"{k_full}.alpha"] = torch.tensor(3.0)
+                ref_lora_sd["h3_pdd.adaln_baked.blocks.0"] = torch.tensor(1.0)
+                ref_lora_sd["diffusion_model.blocks.0.attn1.to_q.lora_A.weight"] = torch.ones((2, 8))
+                ref_lora_sd["diffusion_model.blocks.0.attn1.to_q.lora_B.weight"] = torch.ones((8, 2))
                 tiny_lora_file = tmp / "tiny_ref_lora.safetensors"
                 save_file(ref_lora_sd, str(tiny_lora_file))
                 tiny_ref_merged = _copy.deepcopy(tiny_ref)

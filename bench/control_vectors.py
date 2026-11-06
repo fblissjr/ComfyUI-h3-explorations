@@ -22,6 +22,15 @@ from typing import Any
 
 BENCH_DIR = Path(__file__).resolve().parent
 REPO_ROOT = BENCH_DIR.parent
+if __name__ == "__main__":
+    import importlib.util as _ilu
+    import os as _os
+
+    if _ilu.find_spec("torch") is None:
+        _venv_py = REPO_ROOT.parent.parent / ".venv" / "bin" / "python"
+        if _venv_py.is_file() and Path(sys.executable).resolve() != _venv_py.resolve():
+            _os.execv(str(_venv_py), [str(_venv_py), *sys.argv])
+
 # Ensure REPO_ROOT precedes BENCH_DIR on sys.path so `import control_vectors`
 # resolves to the root library module (`REPO_ROOT/control_vectors.py`), while
 # keeping BENCH_DIR on sys.path so `bench/_lib/__init__.py` can import `_lib.*`.
@@ -1363,9 +1372,538 @@ def cmd_from_md(args: argparse.Namespace) -> int:
     return 0
 
 
+def _recommended_strength_text(raw_norm: float) -> str:
+    if raw_norm <= 1e-6:
+        return "1.0"
+    s_lo = max(0.25, round(50.0 / raw_norm, 2))
+    s_hi = max(s_lo + 0.25, round(85.0 / raw_norm, 2))
+    return f"{s_lo:.2f} .. {s_hi:.2f}"
+
+
+def cmd_build(args: argparse.Namespace) -> int:
+    raw_poolings = [p.strip() for p in str(args.pooling).split(",") if p.strip()]
+    if not raw_poolings:
+        raise ValueError("--pooling must specify at least one pooling mode")
+    poolings: list[str] = []
+    for pm in raw_poolings:
+        if pm == "all":
+            for cand in ("diff_span", "from_first_diff", "scene_text"):
+                if cand not in poolings:
+                    poolings.append(cand)
+        elif pm in cv.VALID_POOLING:
+            if pm not in poolings:
+                poolings.append(pm)
+        else:
+            raise ValueError(
+                f"pooling must be one of {cv.VALID_POOLING} or 'all', got {pm!r}"
+            )
+
+    src_arg = str(args.source).strip()
+    src_path = Path(src_arg)
+    test_prompt_saved: Path | None = None
+    if src_path.suffix.lower() == ".md" or (src_path.is_file() and src_arg.lower().endswith(".md")):
+        if not src_path.is_file():
+            raise ValueError(f"markdown file not found: {src_path}")
+        md_text = src_path.read_text(encoding="utf-8")
+        parsed = cv.parse_markdown_pairs(md_text)
+        stem_override = (getattr(args, "name", None) or getattr(args, "output_name", None) or "").strip() or None
+        toml_target_path = (
+            Path(args.toml_out) if getattr(args, "toml_out", None) else cv_nodes.PAIR_BANK_DIR
+        )
+        eff_stem = (
+            stem_override
+            if stem_override
+            else (toml_target_path.stem if toml_target_path.suffix.lower() == ".toml" else src_path.stem)
+        )
+        tp_out = getattr(args, "test_prompt_out", None)
+        if tp_out is None and parsed.get("test_scene_prompt"):
+            base_dir = toml_target_path if toml_target_path.suffix.lower() != ".toml" else toml_target_path.parent
+            tp_out = base_dir / f"{eff_stem}_test_prompt.txt"
+        try:
+            resolved_pair_path = cv.write_markdown_to_toml(
+                src_path,
+                toml_target_path,
+                name=stem_override,
+                mode=getattr(args, "mode", None),
+                frame=getattr(args, "frame", "scene") or "scene",
+                quality=getattr(args, "quality", None),
+                a_side=getattr(args, "a_side", None),
+                b_side=getattr(args, "b_side", None),
+                test_prompt_out=tp_out,
+                overwrite=bool(getattr(args, "overwrite", False)),
+                bank_dir=cv_nodes.PROMPT_BANK_DIR,
+            )
+        except (ValueError, FileExistsError) as exc:
+            if "already exists" not in str(exc):
+                raise
+            cand_toml = (
+                toml_target_path
+                if toml_target_path.suffix.lower() == ".toml"
+                else toml_target_path / f"{eff_stem}.toml"
+            )
+            if not cand_toml.is_file():
+                raise
+            existing_ps = cv.load_pairs(cand_toml, bank_dir=cv_nodes.PROMPT_BANK_DIR)
+            existing_ab = [(p.a, p.b) for p in existing_ps.pairs]
+            new_ab = [(p["a"], p["b"]) for p in parsed["pairs"]]
+            if existing_ab != new_ab:
+                raise
+            resolved_pair_path = cand_toml
+            if tp_out is not None and parsed.get("test_scene_prompt"):
+                Path(tp_out).parent.mkdir(parents=True, exist_ok=True)
+                Path(tp_out).write_text(parsed["test_scene_prompt"] + "\n", encoding="utf-8")
+        if tp_out is not None and Path(tp_out).is_file():
+            test_prompt_saved = Path(tp_out)
+    else:
+        resolved_pair_path = cv_nodes.resolve_pair_file_path(src_arg)
+
+    pair_set = cv.load_pairs(resolved_pair_path, bank_dir=cv_nodes.PROMPT_BANK_DIR)
+    stem = (getattr(args, "output_name", None) or getattr(args, "name", None) or pair_set.name).strip()
+    if not cv.NAME_RE.match(stem):
+        raise ValueError(f"output vector stem must match [a-z0-9_]+, got {stem!r}")
+
+    if getattr(args, "unet", None):
+        family_targets = [("custom", str(args.unet))]
+    else:
+        fam_choice = str(getattr(args, "families", "both")).lower()
+        if fam_choice == "both":
+            family_targets = [
+                ("fl2va", h3_config.MODELS["unet_fl2va"]),
+                ("ref2va", h3_config.MODELS["unet_ref2va"]),
+            ]
+        elif fam_choice == "fl2va":
+            family_targets = [("fl2va", h3_config.MODELS["unet_fl2va"])]
+        elif fam_choice == "ref2va":
+            family_targets = [("ref2va", h3_config.MODELS["unet_ref2va"])]
+        elif fam_choice == "auto":
+            if getattr(args, "ref_images", None) or pair_set.mode == "ref2va":
+                family_targets = [("ref2va", h3_config.MODELS["unet_ref2va"])]
+            else:
+                family_targets = [("fl2va", h3_config.MODELS["unet_fl2va"])]
+        else:
+            raise ValueError(f"unknown --families choice: {fam_choice!r}")
+
+    encoder_name = getattr(args, "encoder", None) or h3_config.MODELS["clip"]
+    encoder_path = Path(folder_paths.get_full_path_or_raise("text_encoders", encoder_name))
+
+    t0 = time.perf_counter()
+    clip = _load_clip(encoder_name, device=args.device)
+    t_clip = time.perf_counter()
+
+    encoded_refs = None
+    if getattr(args, "ref_images", None):
+        imgs = [s.strip() for s in str(args.ref_images).split(",") if s.strip()]
+        encoded_refs = _load_encoded_references(
+            clip, h3_config.MODELS["video_vae"], imgs
+        )
+
+    if encoded_refs is not None:
+        ref_hash = hashlib.sha256()
+        for sp in getattr(encoded_refs, "spans", ()):
+            ref_hash.update(cv._tensor_bf16_bytes(sp.rows))
+        prefix_meta: Any = {"references_sha256": ref_hash.hexdigest()}
+    else:
+        prefix_meta = "none"
+
+    print(f"=== Control Vector One-Shot Build: {stem} ===")
+    print(f"  pairs_toml        : {_display_path(resolved_pair_path)} ({len(pair_set.pairs)} pairs)")
+    if test_prompt_saved is not None:
+        print(f"  test_prompt_file  : {_display_path(test_prompt_saved)}")
+    print(f"  poolings          : {', '.join(poolings)}")
+    print(f"  encoder           : {encoder_path.name} (loaded in {t_clip - t0:.2f}s)")
+
+    # Encode all pairs and holds once through Qwen3-VL layers.49
+    t_enc_start = time.perf_counter()
+    cached_pairs: list[dict[str, Any]] = []
+    enc_censuses: list[dict[str, float]] = []
+    weights_list: list[float] = []
+    print(f"\n--- Encoding {len(pair_set.pairs)} Contrastive Pairs (Single Pass) ---")
+    for idx, item in enumerate(pair_set.pairs):
+        enc_a, tags_a, ids_a, dec_a = cv_nodes.encode_prompt_for_vector(
+            clip, item.a, encoded_references=encoded_refs
+        )
+        enc_b, tags_b, ids_b, dec_b = cv_nodes.encode_prompt_for_vector(
+            clip, item.b, encoded_references=encoded_refs
+        )
+        enc_censuses.append(cv.row_norm_census(enc_a, tags_a))
+        enc_censuses.append(cv.row_norm_census(enc_b, tags_b))
+        first_diff, end_a, end_b = h3_spans.differing_token_bounds(ids_a, ids_b)
+        spans_a = h3_spans.spans(ids_a, tags_a.tolist(), dec_a)
+        spans_b = h3_spans.spans(ids_b, tags_b.tolist(), dec_b)
+        cached_pairs.append(
+            {
+                "idx": idx,
+                "item": item,
+                "enc_a": enc_a,
+                "tags_a": tags_a,
+                "ids_a": ids_a,
+                "spans_a": spans_a,
+                "enc_b": enc_b,
+                "tags_b": tags_b,
+                "ids_b": ids_b,
+                "spans_b": spans_b,
+                "first_diff": first_diff,
+                "end_a": end_a,
+                "end_b": end_b,
+            }
+        )
+        weights_list.append(float(item.weight))
+        print(
+            f"  [{idx:02d}] w={item.weight:.2f} diff_toks=[{first_diff}:{end_a}/{end_b}] "
+            f"L_a={len(ids_a):3d} L_b={len(ids_b):3d} | "
+            f"-{item.a_span[:42]!r} -> +{item.b_span[:42]!r}"
+        )
+
+    cached_holds: list[dict[str, Any]] = []
+    if not getattr(args, "no_holds", False) and pair_set.holds:
+        for h_item in pair_set.holds:
+            h_enc_a, h_tags_a, h_ids_a, h_dec_a = cv_nodes.encode_prompt_for_vector(
+                clip, h_item.a, encoded_references=encoded_refs
+            )
+            h_enc_b, h_tags_b, h_ids_b, h_dec_b = cv_nodes.encode_prompt_for_vector(
+                clip, h_item.b, encoded_references=encoded_refs
+            )
+            h_diff, h_end_a, h_end_b = h3_spans.differing_token_bounds(h_ids_a, h_ids_b)
+            cached_holds.append(
+                {
+                    "h_item": h_item,
+                    "enc_a": h_enc_a,
+                    "ids_a": h_ids_a,
+                    "spans_a": h3_spans.spans(h_ids_a, h_tags_a.tolist(), h_dec_a),
+                    "enc_b": h_enc_b,
+                    "ids_b": h_ids_b,
+                    "spans_b": h3_spans.spans(h_ids_b, h_tags_b.tolist(), h_dec_b),
+                    "first_diff": h_diff,
+                    "end_a": h_end_a,
+                    "end_b": h_end_b,
+                }
+            )
+    t_enc_done = time.perf_counter()
+    print(f"  encoded {len(pair_set.pairs)} pairs in {t_enc_done - t_enc_start:.2f}s")
+
+    w_vec = torch.tensor(weights_list, dtype=torch.float32)
+    median_enc_row_norm_ex0 = float(
+        sum(c["median_row_norm_ex_row0"] for c in enc_censuses) / len(enc_censuses)
+    )
+    try:
+        rel_pair_path = str(resolved_pair_path.relative_to(REPO_ROOT))
+    except ValueError:
+        rel_pair_path = resolved_pair_path.name
+
+    out_dir = (
+        Path(args.out_dir)
+        if getattr(args, "out_dir", None)
+        else Path(folder_paths.get_folder_paths(cv_nodes.CONTROL_VECTORS_FOLDER)[0])
+    )
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    summary_rows: list[dict[str, Any]] = []
+    for fam_hint, unet_name in family_targets:
+        unet_path = Path(folder_paths.get_full_path_or_raise("diffusion_models", unet_name))
+        family = cv.detect_family(unet_path)
+        if getattr(args, "no_lora", False):
+            loras: list[dict[str, Any]] = []
+        elif getattr(args, "lora", None):
+            loras = _parse_lora_specs(args.lora)
+        else:
+            default_lora_name = (
+                h3_config.PIKA_REF2VA_SVD995_LORA
+                if (family == "ref2va" or fam_hint == "ref2va")
+                else h3_config.PIKA_FL2VA_SVD995_LORA
+            )
+            try:
+                loras = _parse_lora_specs([f"{default_lora_name}:1.0"])
+            except Exception:
+                loras = []
+
+        recipe = cv_nodes.extract_model_recipe(
+            None,
+            None,
+            unet_path_override=unet_path,
+            encoder_path_override=encoder_path,
+            loras_override=loras,
+        )
+        refiner_run = cv_nodes.build_refiner_runner(
+            unet_path, device=args.refiner_device, loras=loras
+        )
+
+        # Refine all pairs & holds once for this (family, lora) target
+        refined_pairs: list[tuple[torch.Tensor, torch.Tensor]] = []
+        ref_censuses: list[dict[str, float]] = []
+        for cp in cached_pairs:
+            ra = refiner_run(cp["enc_a"])
+            rb = refiner_run(cp["enc_b"])
+            refined_pairs.append((ra, rb))
+            ref_censuses.append(cv.row_norm_census(ra, cp["tags_a"]))
+            ref_censuses.append(cv.row_norm_census(rb, cp["tags_b"]))
+        median_ref_row_norm = float(
+            sum(c["median_row_norm"] for c in ref_censuses) / len(ref_censuses)
+        )
+
+        refined_holds: list[tuple[torch.Tensor, torch.Tensor]] = []
+        for ch in cached_holds:
+            refined_holds.append((refiner_run(ch["enc_a"]), refiner_run(ch["enc_b"])))
+
+        for pool_mode in poolings:
+            a_pooled_list: list[torch.Tensor] = []
+            b_pooled_list: list[torch.Tensor] = []
+            enc_a_pooled_list: list[torch.Tensor] = []
+            enc_b_pooled_list: list[torch.Tensor] = []
+            pair_spans: list[dict[str, Any]] = []
+
+            for cp, (ref_a, ref_b) in zip(cached_pairs, refined_pairs):
+                first_diff = cp["first_diff"]
+                end_a = cp["end_a"]
+                end_b = cp["end_b"]
+                ids_a = cp["ids_a"]
+                ids_b = cp["ids_b"]
+                item = cp["item"]
+                mask_a = h3_spans.pooling_mask(
+                    cp["spans_a"],
+                    pool_mode,
+                    first_diff=min(first_diff, len(ids_a) - 1),
+                    end_diff=end_a,
+                )
+                mask_b = h3_spans.pooling_mask(
+                    cp["spans_b"],
+                    pool_mode,
+                    first_diff=min(first_diff, len(ids_b) - 1),
+                    end_diff=end_b,
+                )
+                a_pooled_list.append(
+                    ref_a.to(dtype=torch.float64)[mask_a].mean(dim=0).to(dtype=torch.float32)
+                )
+                b_pooled_list.append(
+                    ref_b.to(dtype=torch.float64)[mask_b].mean(dim=0).to(dtype=torch.float32)
+                )
+                if getattr(args, "include_encoder", False):
+                    mask_a_enc = mask_a.clone()
+                    mask_b_enc = mask_b.clone()
+                    if mask_a_enc.numel() > 0:
+                        mask_a_enc[0] = False
+                    if mask_b_enc.numel() > 0:
+                        mask_b_enc[0] = False
+                    if not bool(mask_a_enc.any()):
+                        mask_a_enc = mask_a
+                    if not bool(mask_b_enc.any()):
+                        mask_b_enc = mask_b
+                    enc_a_pooled_list.append(
+                        cp["enc_a"].to(dtype=torch.float64)[mask_a_enc].mean(dim=0).to(dtype=torch.float32)
+                    )
+                    enc_b_pooled_list.append(
+                        cp["enc_b"].to(dtype=torch.float64)[mask_b_enc].mean(dim=0).to(dtype=torch.float32)
+                    )
+                pair_spans.append(
+                    {
+                        "index": int(cp["idx"]),
+                        "weight": float(item.weight),
+                        "first_diff": int(first_diff),
+                        "end_a": int(end_a),
+                        "end_b": int(end_b),
+                        "a_span": item.a_span,
+                        "b_span": item.b_span,
+                        "len_a": int(len(ids_a)),
+                        "len_b": int(len(ids_b)),
+                        "pooled_rows_a": int(mask_a.sum().item()),
+                        "pooled_rows_b": int(mask_b.sum().item()),
+                    }
+                )
+
+            a_mat = torch.stack(a_pooled_list, dim=0)
+            b_mat = torch.stack(b_pooled_list, dim=0)
+            raw_vec = cv.mean_difference(a_mat, b_mat, w_vec)
+            tensors_to_save: dict[str, torch.Tensor] = {}
+
+            if cached_holds:
+                hold_a_list: list[torch.Tensor] = []
+                hold_b_list: list[torch.Tensor] = []
+                hold_groups: list[str] = []
+                hold_weights: list[float] = []
+                for ch, (h_ref_a, h_ref_b) in zip(cached_holds, refined_holds):
+                    h_diff = ch["first_diff"]
+                    h_ids_a = ch["ids_a"]
+                    h_ids_b = ch["ids_b"]
+                    h_mask_a = h3_spans.pooling_mask(
+                        ch["spans_a"],
+                        pool_mode,
+                        first_diff=min(h_diff, len(h_ids_a) - 1),
+                        end_diff=ch["end_a"],
+                    )
+                    h_mask_b = h3_spans.pooling_mask(
+                        ch["spans_b"],
+                        pool_mode,
+                        first_diff=min(h_diff, len(h_ids_b) - 1),
+                        end_diff=ch["end_b"],
+                    )
+                    hold_a_list.append(
+                        h_ref_a.to(dtype=torch.float64)[h_mask_a].mean(dim=0).to(dtype=torch.float32)
+                    )
+                    hold_b_list.append(
+                        h_ref_b.to(dtype=torch.float64)[h_mask_b].mean(dim=0).to(dtype=torch.float32)
+                    )
+                    hold_groups.append(ch["h_item"].group)
+                    hold_weights.append(float(ch["h_item"].weight))
+                basis = cv.hold_basis(
+                    torch.stack(hold_a_list, dim=0),
+                    torch.stack(hold_b_list, dim=0),
+                    hold_groups,
+                    torch.tensor(hold_weights, dtype=torch.float32),
+                )
+                final_vec = cv.project_out(raw_vec, basis)
+                tensors_to_save["holds.post_refiner"] = basis
+            else:
+                final_vec = raw_vec
+
+            tensors_to_save["vector.post_refiner"] = final_vec
+            gen = torch.Generator(device="cpu").manual_seed(int(args.seed))
+            q_report = cv.quality_report(a_mat, b_mat, w_vec, generator=gen)
+            raw_norm = float(torch.linalg.vector_norm(final_vec.to(dtype=torch.float64)).item())
+
+            points_meta: dict[str, Any] = {
+                "post_refiner": {
+                    "unit": "mean_pair_difference",
+                    "raw_norm": raw_norm,
+                    "median_row_norm": median_ref_row_norm,
+                }
+            }
+            if getattr(args, "include_encoder", False):
+                enc_a_mat = torch.stack(enc_a_pooled_list, dim=0)
+                enc_b_mat = torch.stack(enc_b_pooled_list, dim=0)
+                enc_raw_vec = cv.mean_difference(enc_a_mat, enc_b_mat, w_vec)
+                enc_raw_norm = float(
+                    torch.linalg.vector_norm(enc_raw_vec.to(dtype=torch.float64)).item()
+                )
+                if enc_raw_norm <= 1e-12:
+                    raise ValueError("vector.encoder has zero norm")
+                enc_vec = (enc_raw_vec.to(dtype=torch.float64) / enc_raw_norm).to(
+                    dtype=torch.float32
+                )
+                tensors_to_save["vector.encoder"] = enc_vec
+                points_meta["encoder"] = {
+                    "unit": "median_row_norm",
+                    "raw_norm": enc_raw_norm,
+                    "median_row_norm": median_enc_row_norm_ex0,
+                    "row0_excluded": True,
+                }
+
+            measured_mode = "ref2va" if encoded_refs is not None else pair_set.mode
+            metadata: dict[str, Any] = {
+                "format": cv.FORMAT_VERSION,
+                "name": stem,
+                "quality": pair_set.quality,
+                "family": family,
+                "pairs": {
+                    "path": rel_pair_path,
+                    "sha256": pair_set.sha256,
+                    "n_pairs": len(pair_set.pairs),
+                    "n_holds": len(cached_holds),
+                    "a_side": pair_set.a_side,
+                    "b_side": pair_set.b_side,
+                    "pair_spans": pair_spans,
+                },
+                "recipe": recipe,
+                "measured_under": {
+                    "mode": measured_mode,
+                    "frame": pair_set.frame,
+                    "prefix": prefix_meta,
+                    "pooling": pool_mode,
+                },
+                "points": points_meta,
+                "quality_report": q_report,
+                "provenance": {
+                    "core_revision": substrate.git_head(cv_nodes.COMFY_ROOT) or "unknown",
+                    "pack_commit": substrate.git_head(REPO_ROOT) or "unknown",
+                    "created_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                    "made_by": "bench/control_vectors.py",
+                },
+            }
+
+            fname = cv.default_vector_filename(
+                stem,
+                family,
+                pooling=pool_mode,
+                prefix=prefix_meta,
+                apply_holds=not bool(getattr(args, "no_holds", False)),
+                n_holds=len(pair_set.holds),
+                loras=loras,
+            )
+            out_path = out_dir / fname
+            saved = cv.save_vector(
+                out_path,
+                tensors_to_save,
+                metadata,
+                overwrite=bool(getattr(args, "overwrite", False)),
+            )
+            summary_rows.append(
+                {
+                    "file": saved.name,
+                    "family": family,
+                    "pooling": pool_mode,
+                    "raw_norm": raw_norm,
+                    "mpc": float(q_report["mean_pairwise_cosine"]),
+                    "split_half": float(q_report["split_half_cosine"]),
+                    "rec_strength": _recommended_strength_text(raw_norm),
+                }
+            )
+
+    elapsed = time.perf_counter() - t0
+    print(f"\n=== Ready to Render in ComfyUI ({len(summary_rows)} vector file(s) built in {elapsed:.2f}s) ===")
+    for row in summary_rows:
+        print(
+            f"  * {row['file']}\n"
+            f"      family={row['family']}  pooling={row['pooling']}  "
+            f"raw_norm={row['raw_norm']:.2f}  cos={row['mpc']:.4f} (split_half={row['split_half']:.4f})  "
+            f"recommended strength: {row['rec_strength']}"
+        )
+    if test_prompt_saved is not None:
+        print(f"\n  Test Scene Prompt saved to: {_display_path(test_prompt_saved)}")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description=__doc__)
     sub = p.add_subparsers(dest="cmd", required=True)
+
+    pb = sub.add_parser(
+        "build",
+        help="One-shot end-to-end build: Markdown (.md) or TOML (.toml) -> pair file + test prompt + fl2va/ref2va .safetensors vectors",
+    )
+    pb.add_argument(
+        "source",
+        help="Input LLM Markdown (.md) file, pair TOML (.toml) file, or stem under prompt_bank/control_vectors/",
+    )
+    pb.add_argument(
+        "--families",
+        choices=("both", "fl2va", "ref2va", "auto"),
+        default="both",
+        help="Which H3 model families to build vectors for in one pass (default: 'both' builds fl2va and ref2va)",
+    )
+    pb.add_argument(
+        "--pooling",
+        default="diff_span",
+        help="Pooling mode or comma-separated modes (e.g. 'diff_span', 'from_first_diff', 'scene_text', or 'all'; default: 'diff_span')",
+    )
+    pb.add_argument("--name", default=None, help="Optional vector name / file stem override")
+    pb.add_argument("--output-name", dest="output_name", default="", help="Optional vector stem override")
+    pb.add_argument("--mode", choices=cv.VALID_MODES, default=None, help="Explicit mode override when importing .md")
+    pb.add_argument("--frame", choices=cv.VALID_FRAMES, default="scene", help="Pair frame ('scene' or 'bare')")
+    pb.add_argument("--quality", default=None, help="Optional vector.quality description override")
+    pb.add_argument("--a-side", dest="a_side", default=None, help="Optional vector.a_side description override")
+    pb.add_argument("--b-side", dest="b_side", default=None, help="Optional vector.b_side description override")
+    pb.add_argument("--toml-out", dest="toml_out", default=None, help="Optional output path/dir for generated .toml")
+    pb.add_argument("--test-prompt-out", dest="test_prompt_out", default=None, help="Optional output path for extracted Test Scene Prompt")
+    pb.add_argument("--unet", default=None, help="Explicit diffusion checkpoint filename override")
+    pb.add_argument("--encoder", default=None, help="Text encoder checkpoint filename")
+    pb.add_argument("--lora", action="append", default=None, help="Explicit LoRA file[:strength] override (default: standard Pika H3 Flex LoRA per family)")
+    pb.add_argument("--no-lora", dest="no_lora", action="store_true", help="Build for stock 30-step base UNet without Pika LoRAs")
+    pb.add_argument("--ref-images", default=None, help="Comma-separated reference images for ref2va prefix")
+    pb.add_argument("--no-holds", action="store_true", help="Do not project out [[hold]] groups")
+    pb.add_argument("--include-encoder", action="store_true", help="Also save vector.encoder (5120-d)")
+    pb.add_argument("--seed", type=int, default=0)
+    pb.add_argument("--device", default="default")
+    pb.add_argument("--refiner-device", default="cpu")
+    pb.add_argument("--out-dir", dest="out_dir", default=None, help="Optional output directory for .safetensors files")
+    pb.add_argument("--overwrite", action="store_true", help="Overwrite existing .toml and .safetensors files")
 
     pfm = sub.add_parser(
         "from-md",
@@ -1449,6 +1987,8 @@ def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     try:
+        if args.cmd == "build":
+            return cmd_build(args)
         if args.cmd in ("from-md", "import-md"):
             return cmd_from_md(args)
         if args.cmd == "make":
@@ -1457,7 +1997,7 @@ def main(argv: list[str] | None = None) -> int:
             return cmd_inspect(args)
         if args.cmd == "grade":
             return cmd_grade(args)
-    except ValueError as exc:
+    except (ValueError, FileExistsError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2
     return 0

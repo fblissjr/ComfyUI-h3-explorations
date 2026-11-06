@@ -379,11 +379,13 @@ def _attach_refiner_lora_branches(
         sd: dict[str, torch.Tensor] = {}
         for k, v in raw_sd.items():
             if k.startswith("token_refiner."):
-                sd[f"diffusion_model.{k}"] = v
+                norm_k = f"diffusion_model.{k}"
             elif k.startswith("model.diffusion_model."):
-                sd[k[len("model.") :]] = v
+                norm_k = k[len("model.") :]
             else:
-                sd[k] = v
+                norm_k = k
+            if norm_k.startswith("diffusion_model.token_refiner."):
+                sd[norm_k] = v
         strength = float(spec.get("strength", 1.0))
         branches = lb.parse_lora(sd, strength)
         modules_choice = str(spec.get("modules", "all"))

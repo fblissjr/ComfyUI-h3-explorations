@@ -15,6 +15,10 @@ Older history lives elsewhere and is not copied here:
   decisions" and forward-plan sections.
 - `bench/results/`: the verdict records, each with its conditions.
 
+## 2026-11-06
+
+- **Control vectors one-shot `build` CLI subcommand (`bench/control_vectors.py build`) and [`control_vectors.md`](control_vectors.md) rewrite**: at the owner's go, added `python bench/control_vectors.py build <source>` (accepting either an LLM-authored `.md` file or a `.toml` pair file, writing `prompt_bank/control_vectors/<stem>.toml` + `<stem>_test_prompt.txt`, encoding pairs once through `Qwen3-VL-32B-Instruct`, and extracting both `fl2va` and `ref2va` `.safetensors` vectors + `.md` sidecars in a single pass with `--pooling diff_span` and standard Pika H3 Flex LoRAs by default), added an auto-venv re-exec guard in `bench/control_vectors.py`, filtered `_attach_refiner_lora_branches` in `control_vector_nodes.py` to `diffusion_model.token_refiner.*` keys so LoRAs carrying non-refiner custom keys do not fail refiner extraction, and rewrote [`control_vectors.md`](control_vectors.md) with a 3-step human quickstart and FAQ. Also corrected two prose statements in [`control_vectors.md`](control_vectors.md): (1) it used to say `WrappersMP.DIFFUSION_MODEL on preprocess_text_embeds`, whereas `WrappersMP.DIFFUSION_MODEL` wraps `MiniMaxH3Model._forward` right after `preprocess_text_embeds` has already run inside `MiniMaxH3Model.forward`; (2) its pooling table used to say `from_first_diff` pools `[first_diff:] within span_masks["scene"]`, whereas `h3_spans.py::pooling_mask` (`L407-L411`) defines `from_first_diff` as `[first_diff:] within ~span_masks["vision"]`.
+
 ## 2026-11-04
 
 - **Control vectors Phase 0 and Phase 2 landed on `main` before the final independent read of `e0ce534f`, with a post-landing cross-read to follow**: the owner chose to land Phase 0 (`gem-cv-phase0` @ `a5075f48` -> `main` @ `17c908f5`) and Phase 2 (`gem-cv-phase2` @ `e0ce534f` -> `main`) ahead of rebooting so the pack and CLI are on `main`, with a post-landing independent read of `main` to follow after reboot using `internal/claude/2026-11-04_dials/POST_LANDING_READ_BRIEF.md`.
