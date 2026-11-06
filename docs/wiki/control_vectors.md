@@ -20,20 +20,26 @@ On any **`MiniMaxH3ApplyControlVectors`** node in ComfyUI:
    - `words = "medieval, knight, armor, castle"`
    - `words = "disco, glitter, dancing"`
    - `words = "8-bit, led, steampunk"`
-2. **Replacing a human subject or live-action medium?** (e.g., `skeleton`, `balloon`, `muppet`, `claymation`, `robot`): set **`against_words = "@replace_human"`** and **`strength = 1.35 .. 1.60`** so the vector actively suppresses `"human / person / live-action / realistic"` tokens in your base prompt.
-3. **Note on `vector_name`**: If you select a pre-built vector in `vector_name`, you can pass a bare stem (`"cursed_cctv"`) or either family's file—[`control_vector_nodes.py::resolve_vector_file_path`](../../control_vector_nodes.py#L97-L162) automatically resolves the matching `__fl2va__` or `__ref2va__` sibling for the connected UNet!
+2. **Replacing a human subject or live-action medium?** (e.g., `skeleton`, `balloon`, `muppet`, `claymation`, `robot`): set **`against_words = "@prompt_subject"`** (which automatically extracts your actual scene prompt's medium and character clauses on Step 0 via `_h3_tail_text`) or **`"@replace_human"`**, and **`strength = 1.35 .. 1.60`** so the vector actively suppresses the base prompt's human/live-action anchor tokens.
+3. **Strip unwanted side-effects on any vector with `hold_words` (`hold_alpha = 0.0 .. 1.0`)**: Whether you are using inline `words` **or** a pre-built `.safetensors` file in `vector_name` (`cursed_cctv`, `rubber_hose_1930s`, `film_16mm_1974`), typing **`hold_words = "panic, alarm, shaky"`** on the same node projects out that nuisance direction in `< 2 ms` on CPU and re-normalizes `vector.post_refiner` to its pre-hold L2 norm.
+4. **Note on `vector_name`**: If you select a pre-built vector in `vector_name`, you can pass a bare stem (`"cursed_cctv"`) or either family's file—[`control_vector_nodes.py::resolve_vector_file_path`](../../control_vector_nodes.py#L97-L162) automatically resolves the matching `__fl2va__` or `__ref2va__` sibling for the connected UNet!
 
 #### Option A2 — One CLI Command (`words`) or One Click in the Local Studio UI (`< 2 ms`)
 ```bash
 # Build both fl2va + ref2va .safetensors files + J-Lens readiness check in < 2 ms on CPU:
 python bench/control_vectors.py words "blizzard, freezing, snow"
 
-# For subject/medium replacement concepts, pass --against-words @replace_human:
+# Pass --prompt to run the Token-Wise Prompt Receptor Scan (< 2 ms CPU) and auto-contrast against @prompt_subject:
+python bench/control_vectors.py words "inflatable, balloon, glossy, latex" \
+    --against-words @prompt_subject \
+    --prompt prompt_bank/t2va_noodle_bar.txt
+
+# Or use the fixed @replace_human preset and soft holds:
 python bench/control_vectors.py words "skeleton, translucent, bones, skull" \
     --against-words @replace_human \
     --hold-words "shaky, blur"
 
-# Or launch the local browser Studio UI (live < 2 ms J-Lens Readiness panel + 1-click Instant Build):
+# Or launch the local browser Studio UI (live < 2 ms J-Lens Readiness + Prompt Receptor Scan + 1-click Instant Build):
 python bench/control_vectors.py ui
 ```
 
@@ -66,15 +72,16 @@ For complex physical trajectories (`head_swell`, `zero_gravity`, `smoke_dissolve
 
 ---
 
-### Pre-Render J-Lens Diagnostics (`j_lens.py::assess_steering_readiness`)
+### Pre-Render J-Lens Diagnostics (`j_lens.py::assess_steering_readiness` & `analyze_prompt_coupling`)
 
-Before you spend `~40s` rendering a video on GPU, [`j_lens.py::assess_steering_readiness`](../../j_lens.py#L416-L535) reports objective pre-render J-Lens diagnostics in `< 1 ms` on CPU (measured on the 24,912-word 7-prefix cloze `M_union` basis and `J_ref^{(family)}`):
+Before you spend `~40s` rendering a video on GPU, [`j_lens.py::assess_steering_readiness`](../../j_lens.py#L419-L539) and [`j_lens.py::analyze_prompt_coupling`](../../j_lens.py#L1308-L1430) report objective pre-render J-Lens diagnostics in `< 2 ms` on CPU (measured on the 24,912-word 7-prefix cloze `M_union` basis and `J_ref^{(family)}`):
 
 | Pre-Render Metric | Word Synthesis (`basis="word_synthesis"`) | 10-Pair `Qwen3-VL` (`basis="post_refiner"`) | What It Measures & What It Cannot See |
 |---|---|---|---|
 | **`top1_gain` & `top3_mean_gain`** | `+2.60 .. +5.20` (`>= +3.0` on strong word hits) | `+1.00 .. +2.63` (median `+1.64` across 37 `diff_span` banks) | Log-odds gain at `scale = 90` on `M_union = W_lm_head[valid] @ J_49_to_63`. Word-synthesis vectors are constructed directly in `row(M_centered)` so they project onto `M_union` with `~2x` higher `top1_gain` than full contextual `Qwen3-VL` pair vectors. |
 | **`refiner_transmission`** | `0.44 .. 0.59` (`>= 0.50` on concrete visual/material nouns) | `0.49 .. 0.65` (measured when `vector.encoder` is saved; `None` if absent) | $\|\mathbf{J}_{\text{ref}} \hat{\mathbf{v}}_{\text{enc}}\|_2$: fraction of the `5120`-d `layers.49` direction (`vector.encoder`) that survives the 2-layer bidirectional `TokenRefiner` bottleneck (`s_1 = 1.665` down to `s_{5120} = 0.089`). Never estimated from `J_wiener @ v_pr`. |
-| **Concept Type (`against_words`)** | Additive (`@neutral`, `0.35 * mu_neg`) vs. Replacement (`@replace_human`, `0.60 * mu_neg`) | Explicit `Prompt A` vs. `Prompt B` | **Additive concepts** (`blizzard`, `medieval`, `disco`, `8-bit`) fill an unoccupied attribute slot (`weather`, `lighting`, `era`) and work cleanly at `strength = 1.0 .. 1.25`. **Subject/medium replacement concepts** (`skeleton`, `balloon`, `muppet`, `claymation`) fight `"Live-action ... human / male customer"` tokens in the base prompt and benefit from `against_words="@replace_human"` + `strength = 1.25 .. 1.55`. |
+| **Token-Wise Prompt Receptor Scan (`--prompt`)** | `cos(w_i, mu_steer)` per content word in target prompt | `cos(w_i, mu_steer)` from `pairs.b_side` + top-4 `positive_words` | Predicts which specific nouns/props in your scene prompt will absorb the steer in the DiT's 32 cross-attention blocks (`balloon` on `t2va_noodle_bar.txt` couples to `plastic (+0.223), bulb (+0.190)` while `customer (-0.043)` is orthogonal; `medieval` couples to `steel (+0.133), male (+0.112)`). |
+| **Concept Type (`against_words`)** | Additive (`@neutral`, `0.35 * mu_neg`) vs. Replacement (`@prompt_subject` or `@replace_human`, `0.60 * mu_neg`) | Explicit `Prompt A` vs. `Prompt B` | **Additive concepts** (`blizzard`, `medieval`, `disco`, `8-bit`) fill an unoccupied attribute slot (`weather`, `lighting`, `era`) and work cleanly at `strength = 1.0 .. 1.25`. **Subject/medium replacement concepts** (`skeleton`, `balloon`, `muppet`, `claymation`) fight `"Live-action ... human / male customer"` tokens in the base prompt and benefit from `against_words="@prompt_subject"` (auto-extracting `[Shot 1]` medium + `<Subject 1>` + `on-screen`/`(S1)` character clauses via [`j_lens.py::extract_prompt_subject_words`](../../j_lens.py#L1228-L1305)) or `"@replace_human"` + `strength = 1.25 .. 1.55`. |
 
 #### Measured Pre-Render Numbers vs. Actual Rendered Pixels (`Arms 53..65`)
 
@@ -212,21 +219,21 @@ Because `Qwen3-VL-32B-Instruct` (`layers.0..49`) is **strictly causal**, tokens 
 
 | File | Responsibility | Key Entry Points |
 |---|---|---|
-| [`j_lens.py`](../../j_lens.py) | Analytical Jacobian Lens (`J-Lens`), `< 2 ms` CPU word-to-vector synthesis (`synthesize_from_words`), pre-render steerability & readiness predictor (`assess_steering_readiness`), `AGAINST_PRESETS` (`@replace_human`), soft ridge holds (`apply_soft_holds`), and multi-vector recipe decoder | `load_j_lens_bundle`, `decode_vector`, `decode_safetensors`, `assess_steering_readiness`, `synthesize_from_words`, `save_synthesized_vector`, `decode_recipe`, `AGAINST_PRESETS` |
+| [`j_lens.py`](../../j_lens.py) | Analytical Jacobian Lens (`J-Lens`), `< 2 ms` CPU word-to-vector synthesis (`synthesize_from_words`), pre-render steerability & readiness predictor (`assess_steering_readiness`), Token-Wise Prompt Receptor Scan (`analyze_prompt_coupling`), `@prompt_subject` subject/medium extractor (`extract_prompt_subject_words`), `AGAINST_PRESETS` (`@replace_human`), soft ridge holds (`apply_soft_holds`), and multi-vector recipe decoder | `load_j_lens_bundle`, `decode_vector`, `decode_safetensors`, `assess_steering_readiness`, `analyze_prompt_coupling`, `extract_prompt_subject_words`, `synthesize_from_words`, `save_synthesized_vector`, `decode_recipe`, `AGAINST_PRESETS` |
 | [`h3_pair_compiler.py`](../../h3_pair_compiler.py) | Deterministic 10-scene H3 contrastive pair compiler (6 speaking + 4 silent, 5 interior + 5 exterior) for turning short `Pole A -> Pole B` phrases into validated `PairSet`s | `compile_words_to_pairset`, `compile_short_contrast_to_toml`, `compile_placebo_pairset`, `infer_slot` |
 | [`h3_spans.py`](../../h3_spans.py) | Deterministic token-span partition of H3 conditioning sequences (`vision`, `label`, `timestamp`, `dialogue`, `speaker`, `scene`, `description`, `soundscape`, `music`, `after_dialogue`) and pooling masks | `spans`, `span_masks_from_prompt`, `differing_token_bounds`, `first_differing_index`, `pooling_mask` (`POOLING_MODES = ("scene_text", "all_tag1", "from_first_diff", "diff_span")`) |
 | [`control_vectors.py`](../../control_vectors.py) | Core float64 math, `.toml` pair loader, semantic pair-set linter (`lint_pair_set`), Markdown-to-`.toml` converter (including `#### Hold N`), `.safetensors` + `.md` sidecar I/O, model family & recipe verification (`check_vector_compatibility`, `_lora_family_signature`), and `apply_post_refiner` | `load_pairs`, `differing_span` (`MAX_SHARED_INTERIOR_WORDS = 5`), `lint_pair_set`, `parse_markdown_pairs`, `write_markdown_to_toml`, `mean_difference` (`unit_mean`), `flip_null`, `random_null`, `hold_basis`, `project_out`, `apply_post_refiner` (`APPLY_MODES = ("add", "add_norm_matched", "project_out", "amplify", "hold")`, `NORM_MATCHED_TARGET = 67.5`), `save_vector`, `format_vector_sidecar_md`, `load_vector`, `check_vector_compatibility` |
-| [`control_vector_nodes.py`](../../control_vector_nodes.py) | ComfyUI V3 nodes, runtime `WrappersMP.DIFFUSION_MODEL` hook, bare-stem & cross-family sibling resolution (`resolve_vector_file_path`), inline word synthesis (`words`, `against_words`, `hold_words`), velocity-space audio/video split, `ref2va` 3D VAE gate, and media contrast extraction | `MiniMaxH3MakeControlVector`, `MiniMaxH3MakeMediaControlVector`, `MiniMaxH3ApplyControlVectors`, `MiniMaxH3ControlVector`, `MiniMaxH3LayerNormMatch`, `attach_control_vector`, `resolve_vector_file_path`, `make_control_vector_from_pairs`, `make_control_vector_from_media`, `build_refiner_runner` |
+| [`control_vector_nodes.py`](../../control_vector_nodes.py) | ComfyUI V3 nodes, runtime `WrappersMP.DIFFUSION_MODEL` hook, bare-stem & cross-family sibling resolution (`resolve_vector_file_path`), inline word synthesis (`words`, `against_words`, universal `hold_words`), Step-0 `_h3_tail_text` `@prompt_subject` resolution, velocity-space audio/video split, `ref2va` 3D VAE gate, and media contrast extraction | `MiniMaxH3MakeControlVector`, `MiniMaxH3MakeMediaControlVector`, `MiniMaxH3ApplyControlVectors`, `MiniMaxH3ControlVector`, `MiniMaxH3LayerNormMatch`, `attach_control_vector`, `resolve_vector_file_path`, `make_control_vector_from_pairs`, `make_control_vector_from_media`, `build_refiner_runner` |
 | [`bench/control_vectors.py`](../../bench/control_vectors.py) | Standalone CLI and on-demand local UI server (`words`, `ui` with `/api/j-lens` & cached encoder/refiners, one-shot `build` / `build --from-words` / `build --words` / `build --all`, `from-md`, `make`, `inspect`, and `grade`) | `cmd_words`, `cmd_ui`, `ControlVectorUIState`, `handle_ui_request`, `cmd_build`, `cmd_from_md`, `cmd_make`, `cmd_inspect`, `cmd_grade` |
-| [`bench/control_vector_ui.html`](../../bench/control_vector_ui.html) | Self-contained dark-mode browser UI served by `python bench/control_vectors.py ui` with `< 2 ms` J-Lens Pre-Render Readiness & Readout, 1-click Instant Build from Words, pair diff & BPE token-span inspector, and 24fps A/B video player | Served at `GET /` by `bench/control_vectors.py::handle_ui_request` |
+| [`bench/control_vector_ui.html`](../../bench/control_vector_ui.html) | Self-contained dark-mode browser UI served by `python bench/control_vectors.py ui` with `< 2 ms` J-Lens Pre-Render Readiness, Token-Wise Prompt Receptor Scan, 1-click Instant Build from Words, pair diff & BPE token-span inspector, and 24fps A/B video player | Served at `GET /` by `bench/control_vectors.py::handle_ui_request` |
 | [`workflows/build_workflows.py`](../../workflows/build_workflows.py) | Programmatic workflow builders for single/chained control-vector arms, 6-arm gate ladders, and E4.2/E4.3 probes | `build_control_vector_arm`, `build_control_vector_gate_arms`, `build_control_vector_probe_arm`, `build_api(..., control_vector=...)` |
 | [`bench/check_control_vectors.py`](../../bench/check_control_vectors.py) | Tracked CPU check (`C1`–`C7`) defending tokenizer constants, span masks, `.toml`/`.md` refusals, `lint_pair_set`, float64 math, `.safetensors` + `.md` sidecar I/O, runtime hooks, J-Lens readiness & word synthesis, and CLI subcommands | `main` (`python bench/check_control_vectors.py`) |
 
 ---
 
-## 5. Shipped Contrastive Pair Bank (`prompt_bank/control_vectors/*.toml`, 34 Vectors / 68 Built `diff_span` Files)
+## 5. Shipped Contrastive Pair Bank (`prompt_bank/control_vectors/*.toml`, 32 Vectors / 64 Built `diff_span` Files)
 
-All **34 shipped `.toml` files** follow the stratified authoring standard in [`docs/wiki/system_prompts/h3_control_vector_system_prompt.md`](system_prompts/h3_control_vector_system_prompt.md): `100%` unique `a_span` and `b_span` clauses (`0` verbatim span cloning), `<d>[English] ...</d>` language tags on all dialogue, explicit `produces no vocal sound` on silent subjects, `non_diegetic_music: N/A` (`10/10` per bank), balanced interior/exterior and speaking/silent scene regimes, and zero rate adverbs (`slowly`, `gradually`, `begins to`). All 68 `diff_span` `.safetensors` files (`34` `fl2va` + `34` `ref2va`, plus 68 `.md` sidecars) are pre-built via `python bench/control_vectors.py build --all --overwrite`.
+All **32 shipped `.toml` files** follow the stratified authoring standard in [`docs/wiki/system_prompts/h3_control_vector_system_prompt.md`](system_prompts/h3_control_vector_system_prompt.md): `100%` unique `a_span` and `b_span` clauses (`0` verbatim span cloning), `<d>[English] ...</d>` language tags on all dialogue, explicit `produces no vocal sound` on silent subjects, `non_diegetic_music: N/A` (`10/10` per bank), balanced interior/exterior and speaking/silent scene regimes, and zero rate adverbs (`slowly`, `gradually`, `begins to`). All 64 `diff_span` `.safetensors` files (`32` `fl2va` + `32` `ref2va`, plus 64 `.md` sidecars) are pre-built via `python bench/control_vectors.py build --all --overwrite`. *(Until 2026-11-06 this bank also included two early `E2.3` bare-frame ablation twins, `film_16mm_1974_bare.toml` and `lettering_bare.toml`, which were retired on 2026-11-06.)*
 
 ### 5.1 Physical, Anatomical & Object-Physics Transformations (6 Files)
 
@@ -239,11 +246,11 @@ All **34 shipped `.toml` files** follow the stratified authoring standard in [`d
 | [`prompt_bank/control_vectors/fever_melt.toml`](../../prompt_bank/control_vectors/fever_melt.toml) | Solid rigid architectural geometry -> Walls, furniture, and props softening and sagging like melting wax with oil-slick halation and pitch-bending drone | 10 pairs | `65.09`, `sh=0.9266`, **`0.77..1.31`** | `62.68`, `sh=0.9245`, **`0.80..1.36`** |
 | [`prompt_bank/control_vectors/smoke_dissolve.toml`](../../prompt_bank/control_vectors/smoke_dissolve.toml) | Intact solid shoulders and limbs -> Billowing charcoal smoke and glowing orange embers shedding from shoulders and limbs into swirling plumes + crackling hearth foley | 10 pairs | `67.38`, `sh=0.9326`, **`0.74..1.26`** | `65.47`, `sh=0.9310`, **`0.76..1.30`** |
 
-### 5.2 Film Stocks, Optical Formats & Camera Rig Styles (9 Files)
+### 5.2 Film Stocks, Optical Formats & Camera Rig Styles (8 Files)
 
 | Pair File | Concept / Pole A -> Pole B | Pairs / Holds | `fl2va` `diff_span` (`norm`, `sh`, `rec s`) | `ref2va` `diff_span` (`norm`, `sh`, `rec s`) |
 |---|---|---|---|---|
-| [`prompt_bank/control_vectors/film_16mm_1974.toml`](../../prompt_bank/control_vectors/film_16mm_1974.toml) | Clean modern digital color -> 1974 16mm reversal film stock, halation, gate weave, optical hiss (bare twin: [`film_16mm_1974_bare.toml`](../../prompt_bank/control_vectors/film_16mm_1974_bare.toml): `63.89` / `61.19`) | 14 pairs + 6 holds (`warm_colour_cast`, `soft_focus`) | `54.07`, `sh=0.9668`, **`0.92..1.57`** | `52.86`, `sh=0.9657`, **`0.95..1.61`** |
+| [`prompt_bank/control_vectors/film_16mm_1974.toml`](../../prompt_bank/control_vectors/film_16mm_1974.toml) | Clean modern digital color -> 1974 16mm reversal film stock, halation, gate weave, optical hiss | 14 pairs + 6 holds (`warm_colour_cast`, `soft_focus`) | `54.07`, `sh=0.9668`, **`0.92..1.57`** | `52.86`, `sh=0.9657`, **`0.95..1.61`** |
 | [`prompt_bank/control_vectors/noir.toml`](../../prompt_bank/control_vectors/noir.toml) | Balanced daylight/tungsten color -> High-contrast 1940s 35mm silver-nitrate B&W film noir with deep inky shadows and stark silver highlights | 12 pairs | `52.72`, `sh=0.9171`, **`0.95..1.61`** | `51.35`, `sh=0.9187`, **`0.97..1.66`** |
 | [`prompt_bank/control_vectors/cursed_cctv.toml`](../../prompt_bank/control_vectors/cursed_cctv.toml) | Clean rectilinear eye-level cinema camera -> Ceiling-mounted 2004 fisheye CCTV barrel distortion, green phosphor monochrome tint, macroblocks, and 60Hz hum | 10 pairs | `63.26`, `sh=0.9251`, **`0.79..1.34`** | `62.98`, `sh=0.9243`, **`0.79..1.35`** |
 | [`prompt_bank/control_vectors/vhs_1991_camcorder.toml`](../../prompt_bank/control_vectors/vhs_1991_camcorder.toml) | Clean progressive digital sensor -> 1991 home-video VHS camcorder tape degradation with chroma bleed, head-switching snow, CRT scanlines, and warbling tape hiss | 10 pairs | `66.25`, `sh=0.9488`, **`0.75..1.28`** | `63.62`, `sh=0.9441`, **`0.79..1.34`** |
@@ -252,7 +259,7 @@ All **34 shipped `.toml` files** follow the stratified authoring standard in [`d
 | [`prompt_bank/control_vectors/wes_anderson_symmetry.toml`](../../prompt_bank/control_vectors/wes_anderson_symmetry.toml) | Naturalistic off-center 3/4 framing -> Deadpan planimetric center-framed pastel symmetry, flat doll-house orthographic staging, and harpsichord/plucked-string cues | 10 pairs | `52.06`, `sh=0.8839`, **`0.96..1.63`** | `51.35`, `sh=0.8866`, **`0.97..1.66`** |
 | [`prompt_bank/control_vectors/handheld_documentary_zoom.toml`](../../prompt_bank/control_vectors/handheld_documentary_zoom.toml) | Locked-off fluid-head tripod stability -> Raw verite shoulder-rig handheld urgency with sudden snap-zoom/whip-pan reframing and brief lens focus-hunt breathing | 10 pairs | `54.39`, `sh=0.9141`, **`0.92..1.56`** | `53.97`, `sh=0.9113`, **`0.93..1.58`** |
 
-### 5.3 Material, Puppet, Animation & Surface Replacement Styles (7 Files)
+### 5.3 Material, Puppet, Animation & Surface Replacement Styles (6 Files)
 
 | Pair File | Concept / Pole A -> Pole B | Pairs / Holds | `fl2va` `diff_span` (`norm`, `sh`, `rec s`) | `ref2va` `diff_span` (`norm`, `sh`, `rec s`) |
 |---|---|---|---|---|
@@ -261,7 +268,7 @@ All **34 shipped `.toml` files** follow the stratified authoring standard in [`d
 | [`prompt_bank/control_vectors/claymation_stopmotion.toml`](../../prompt_bank/control_vectors/claymation_stopmotion.toml) | Fluid 24fps live-action motion & skin -> Hand-sculpted thumbprinted plasticine claymation stop-motion at stepped 12fps armature movement + clay-squish foley | 10 pairs | `66.77`, `sh=0.9240`, **`0.75..1.27`** | `65.69`, `sh=0.9252`, **`0.76..1.29`** |
 | [`prompt_bank/control_vectors/paper_origami.toml`](../../prompt_bank/control_vectors/paper_origami.toml) | Rounded organic anatomy & woven cloth -> Crisp folded geometric origami paper construction with visible crease lines, matte kraft/washi planes, and paper-folding rustle | 10 pairs | `58.31`, `sh=0.8619`, **`0.86..1.46`** | `56.63`, `sh=0.8618`, **`0.88..1.50`** |
 | [`prompt_bank/control_vectors/bioluminescent_glow.toml`](../../prompt_bank/control_vectors/bioluminescent_glow.toml) | Matte non-emissive skin & surfaces -> Deep-sea neon cyan and ultraviolet bioluminescent vein networks and drifting spore luminescence pulsing in darkened ambiance | 10 pairs | `60.80`, `sh=0.9282`, **`0.82..1.40`** | `59.21`, `sh=0.9301`, **`0.84..1.44`** |
-| [`prompt_bank/control_vectors/lettering.toml`](../../prompt_bank/control_vectors/lettering.toml) | Plain unadorned material surfaces (canvas, enamel, timber, slate, brick) -> Surfaces covered in printed lettering, painted signs, and bold text (bare twin: [`lettering_bare.toml`](../../prompt_bank/control_vectors/lettering_bare.toml): `55.01` / `53.99`) | 14 pairs | `55.37`, `sh=0.8709`, **`0.90..1.54`** | `54.07`, `sh=0.8724`, **`0.92..1.57`** |
+| [`prompt_bank/control_vectors/lettering.toml`](../../prompt_bank/control_vectors/lettering.toml) | Plain unadorned material surfaces (canvas, enamel, timber, slate, brick) -> Surfaces covered in printed lettering, painted signs, and bold text | 14 pairs | `55.37`, `sh=0.8709`, **`0.90..1.54`** | `54.07`, `sh=0.8724`, **`0.92..1.57`** |
 
 ### 5.4 Environmental, Weather & Lighting Regimes (5 Files)
 
@@ -340,6 +347,8 @@ Because H3's text encoder is `Qwen3-VL-32B-Instruct` truncated after `layers.49`
 ```bash
 # 0. INSTANT < 2 ms WORD SYNTHESIS (0 VRAM, zero .toml): Build fl2va + ref2va .safetensors + J-Lens report:
 python bench/control_vectors.py words "blizzard, freezing, snow"
+python bench/control_vectors.py words "inflatable, balloon, glossy, latex" \
+    --against-words @prompt_subject --prompt prompt_bank/t2va_noodle_bar.txt
 python bench/control_vectors.py words "skeleton, translucent, bones, skull" --against-words @replace_human
 
 # 1. INTERACTIVE STUDIO UI: Launch the local browser studio (exits when you click 'Quit Server'):
@@ -350,7 +359,7 @@ python bench/control_vectors.py build my_effect.md
 python bench/control_vectors.py build --from-words "medieval, knight, armor, castle" --name medieval_words
 python bench/control_vectors.py build --words "steady tripod -> erratic handheld camera shake"
 
-#    Batch-build all 34 shipped .toml banks in prompt_bank/control_vectors/ in one cached pass:
+#    Batch-build all 32 shipped .toml banks in prompt_bank/control_vectors/ in one cached pass:
 python bench/control_vectors.py build --all --overwrite
 
 #    Build multiple pooling modes (diff_span, from_first_diff, scene_text) at once:
@@ -359,21 +368,22 @@ python bench/control_vectors.py build my_effect.md --pooling all --overwrite
 #    Build from an existing .toml file for both fl2va and ref2va with diff_span pooling:
 python bench/control_vectors.py build prompt_bank/control_vectors/head_swell.toml --overwrite
 
-# 2. Convert LLM Markdown (.md) to .toml only (without running the encoder):
+# 3. Convert LLM Markdown (.md) to .toml only (without running the encoder):
 python bench/control_vectors.py from-md my_effect.md \
     --test-prompt-out prompt_bank/control_vectors/my_effect_test_prompt.txt
 
-# 3. Single-target make (explicit single UNet + LoRA + pooling, optional --unit-mean):
+# 4. Single-target make (explicit single UNet + LoRA + pooling, optional --unit-mean):
 python bench/control_vectors.py make prompt_bank/control_vectors/zero_gravity.toml \
     --pooling diff_span \
     --unet minimax_h3_ref2va_pruned_int8_convrot.safetensors \
     --lora pika_h3_flex_ref2va_svd995_bf16.safetensors:1.0
 
-# 4. Inspect a saved .safetensors vector and meter prompts along it (no DiT load):
+# 5. Inspect a saved .safetensors vector (with optional --prompt receptor scan, --hold-words, and --meter):
 python bench/control_vectors.py inspect \
     models/control_vectors/head_swell__fl2va__diff_span__lora_2a8c2b52.safetensors \
+    --prompt prompt_bank/control_vectors/head_swell_test_prompt.txt \
     --meter prompt_bank/control_vectors/head_swell_test_prompt.txt
 
-# 5. Run the CPU unit & integration check suite (C1-C7):
+# 6. Run the CPU unit & integration check suite (C1-C7):
 python bench/check_control_vectors.py
 ```

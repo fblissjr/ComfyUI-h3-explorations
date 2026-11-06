@@ -17,6 +17,7 @@ import argparse
 from datetime import datetime, timezone
 import hashlib
 import json
+import logging
 import math
 import os
 import re
@@ -28,6 +29,8 @@ import torch
 import torch.nn.functional as F
 from safetensors import safe_open
 from safetensors.torch import save as save_safetensors_bytes
+
+logger = logging.getLogger(__name__)
 
 REPO_ROOT = Path(__file__).resolve().parent
 COMFY_ROOT = REPO_ROOT.parent.parent
@@ -478,13 +481,32 @@ def assess_steering_readiness(
                 for part in w.split("-"):
                     if len(part) >= 3:
                         expanded_stems.add(part[:4] if len(part) >= 4 else part)
+        w2i_rd = b["word_to_idxs"]
+        m_c_rd = b["M_centered"]
+        mu_pos_rd, pos_ids_rd, _, _ = _mean_word_direction(req_clean, w2i_rd, m_c_rd)
+        per_word_vecs: list[torch.Tensor] = []
+        for rw in req_clean:
+            rw_ids, _, _ = _resolve_word_indices([rw], w2i_rd)
+            if rw_ids:
+                per_word_vecs.append(F.normalize(m_c_rd[rw_ids].mean(dim=0), dim=0))
         top_words = [str(item["word"]).lower() for item in pos_list[:8]]
         matched_top = 0
         for tw in top_words:
             if any(tw.startswith(st) or st.startswith(tw[:4]) for st in expanded_stems if st):
                 matched_top += 1
-            else:
-                off_target.append(tw)
+                continue
+            if pos_ids_rd:
+                tw_ids, _, _ = _resolve_word_indices([tw], w2i_rd)
+                if tw_ids:
+                    mw_tw = F.normalize(m_c_rd[tw_ids].mean(dim=0), dim=0)
+                    max_sim = max(
+                        [float(torch.dot(mu_pos_rd, mw_tw).item())]
+                        + [float(torch.dot(uw, mw_tw).item()) for uw in per_word_vecs]
+                    )
+                    if max_sim >= 0.18:
+                        matched_top += 1
+                        continue
+            off_target.append(tw)
         echo_ratio = round(matched_top / max(len(top_words), 1), 2)
 
     check_tokens = set(w.lower() for w in (pos_words or ())) | set(
@@ -513,6 +535,10 @@ def assess_steering_readiness(
             f"Word-synthesis post-refiner peak gain is +{top1_gain:.2f} (measured on M_union at scale = 90): "
             "3-5 concrete domain nouns typically yield >= +3.00."
         )
+    if echo_ratio is not None and echo_ratio < 0.75 and off_target:
+        recommendations.append(
+            f"Off-target words in top-8 readout ({off_target[:3]}): pass hold_words='{', '.join(off_target[:3])}' to scrub them if unwanted."
+        )
 
     rt_str = f"{ref_trans:.3f}" if ref_trans is not None else "n/a (no vector.encoder)"
     summary = (
@@ -534,7 +560,7 @@ def assess_steering_readiness(
     }
 
 
-def _resolve_vector_path(source: str | os.PathLike) -> Path:
+def _resolve_vector_path(source: str | os.PathLike, family: str = "fl2va") -> Path:
     path = Path(source)
     if path.is_file():
         return path
@@ -546,6 +572,17 @@ def _resolve_vector_path(source: str | os.PathLike) -> Path:
         cand_st = cv_dir / f"{path.name}.safetensors"
         if cand_st.is_file():
             return cand_st
+    if cv_dir.is_dir():
+        stem = path.stem.split("__")[0]
+        fam = "ref2va" if "ref2va" in str(family).lower() else "fl2va"
+        for pat in (
+            f"{stem}__{fam}__diff_span__*.safetensors",
+            f"{stem}__{fam}__*.safetensors",
+            f"{stem}__*.safetensors",
+        ):
+            hits = sorted(cv_dir.glob(pat))
+            if hits:
+                return hits[0]
     raise FileNotFoundError(f"Control vector file not found: {source}")
 
 
@@ -579,10 +616,12 @@ def decode_safetensors(
     min_logprob: float = DEFAULT_MIN_LOGPROB,
     top_k: int = 8,
     holds: Sequence[str | os.PathLike | torch.Tensor] | None = None,
+    hold_words: str | Sequence[str] | None = None,
     alpha: float = 1.0,
+    prompt: str | os.PathLike | None = None,
     bundle: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Decode a `.safetensors` control vector (and optional hold files/tensors) via J-Lens."""
+    """Decode a `.safetensors` control vector (and optional hold files/tensors or `hold_words`) via J-Lens."""
     resolved_path = _resolve_vector_path(path)
     v_pr, name, meta = _load_vector_from_source(resolved_path, space="post_refiner")
     family = str(meta.get("family", "fl2va"))
@@ -601,6 +640,13 @@ def decode_safetensors(
                 hold_tensors_enc.append(ht_enc)
             except Exception:
                 pass
+    hw_list = _parse_word_list(hold_words)
+    if hw_list:
+        synth_fam = "ref2va" if "ref2va" in family.lower() else "fl2va"
+        hw_synth = synthesize_from_words(hw_list, family=synth_fam, bundle=b)
+        hold_tensors_pr.append(hw_synth["vector.post_refiner"])
+        hold_tensors_enc.append(hw_synth["vector.encoder"])
+        hold_names.append(f"words:{','.join(hw_list)}")
 
     pr_readout = decode_vector(
         v_pr,
@@ -624,6 +670,7 @@ def decode_safetensors(
     }
 
     # If vector.encoder is also present in the file, decode it and report refiner agreement cosine
+    v_enc_eff: torch.Tensor | None = None
     with safe_open(str(resolved_path), framework="pt", device="cpu") as f:
         if "vector.encoder" in f.keys():
             v_enc = f.get_tensor("vector.encoder").to(dtype=torch.float32).flatten()
@@ -651,13 +698,41 @@ def decode_safetensors(
             out["encoder"] = enc_readout
             out["refiner_forward_cosine"] = round(fwd_cos, 4)
             out["wiener_j63_cosine"] = round(w_cos_63, 4)
-            pr_readout["readiness"] = assess_steering_readiness(
-                v_pr,
-                v_enc=v_enc_eff,
-                readout=pr_readout,
-                family=family,
-                bundle=b,
-            )
+
+    v_pr_eff = apply_soft_holds(v_pr, hold_tensors_pr, alpha=alpha) if hold_tensors_pr else v_pr
+    pr_readout["readiness"] = assess_steering_readiness(
+        v_pr_eff,
+        v_enc=v_enc_eff,
+        readout=pr_readout,
+        family=family,
+        bundle=b,
+    )
+    if prompt is not None and str(prompt).strip():
+        pairs_meta = meta.get("pairs") if isinstance(meta.get("pairs"), Mapping) else {}
+        b_side_raw = str(pairs_meta.get("b_side", "")) if isinstance(pairs_meta, Mapping) else ""
+        a_side_raw = str(pairs_meta.get("a_side", "")) if isinstance(pairs_meta, Mapping) else ""
+        b_side_words = [
+            w for w in re.findall(r"[a-zA-Z0-9][a-zA-Z0-9-]{1,}", b_side_raw.lower())
+            if w not in _PROMPT_RECEPTOR_STOPWORDS
+        ][:6]
+        top_pos_words = [str(x["word"]) for x in list(pr_readout.get("positive_words") or ())[:4]]
+        seed_pos_words: list[str] = []
+        for w in b_side_words + top_pos_words:
+            if w not in seed_pos_words:
+                seed_pos_words.append(w)
+        has_explicit_a = bool(
+            a_side_raw
+            and any(k in a_side_raw.lower() for k in ("human", "person", "flesh", "live-action", "skin"))
+        )
+        pr_readout["prompt_coupling"] = analyze_prompt_coupling(
+            v_pr_eff,
+            prompt,
+            pos_words=seed_pos_words or None,
+            readout=pr_readout,
+            family=family,
+            already_contrasted=has_explicit_a,
+            bundle=b,
+        )
 
     return out
 
@@ -826,7 +901,8 @@ _SHORT_WORD_FALLBACKS: dict[str, tuple[str, ...]] = {
     "sfx": ("sound", "acoustic", "noise", "echo"),
     "xray": ("skeleton", "bones", "skull", "translucent"),
     "x-ray": ("skeleton", "bones", "skull", "translucent"),
-    "cyberpunk": ("neon", "punk", "futuristic", "matrix"),
+    "cyberpunk": ("neon", "punk", "digital", "matrix", "electric"),
+    "strobe": ("flashing", "neon", "disco", "lights"),
     "automaton": ("mechanical", "robot", "brass", "clock", "gears"),
     "chiptune": ("arcade", "electronic", "melody", "console"),
     "synth": ("electronic", "neon", "melody"),
@@ -839,7 +915,539 @@ _SHORT_WORD_FALLBACKS: dict[str, tuple[str, ...]] = {
     "claymation": ("clay", "puppet", "miniature", "cartoon"),
     "stop-motion": ("clay", "puppet", "miniature", "frame"),
     "watercolor": ("painted", "brush", "canvas", "color"),
+    "live-action": ("realistic", "photograph", "real", "human", "person", "flesh"),
 }
+
+_SUBJECT_STOPWORDS: frozenset[str] = frozenset(
+    {
+        "integrated",
+        "multimodal",
+        "description",
+        "detailed",
+        "summary",
+        "shot",
+        "shots",
+        "cinematic",
+        "the",
+        "and",
+        "with",
+        "into",
+        "from",
+        "over",
+        "under",
+        "that",
+        "this",
+        "his",
+        "her",
+        "their",
+        "she",
+        "him",
+        "they",
+        "them",
+        "its",
+        "very",
+        "while",
+        "through",
+        "across",
+        "down",
+        "onto",
+        "toward",
+        "towards",
+        "for",
+        "are",
+        "was",
+        "were",
+        "has",
+        "have",
+        "had",
+        "medium",
+        "close",
+        "close-up",
+        "wide",
+        "medium-wide",
+        "medium-close",
+        "two-shot",
+        "overhead",
+        "frames",
+        "frame",
+        "framing",
+        "opens",
+        "opening",
+        "inside",
+        "outside",
+        "night",
+        "late-night",
+        "daylit",
+        "daylight",
+        "afternoon",
+        "morning",
+        "evening",
+        "continuous",
+        "take",
+        "cuts",
+        "cut",
+        "handheld",
+        "static",
+        "tripod",
+        "camera",
+        "lens",
+        "shallow",
+        "depth",
+        "field",
+        "low-key",
+        "high-contrast",
+        "lighting",
+        "practical",
+        "motivated",
+        "holding",
+        "exact",
+        "layout",
+        "wardrobe",
+        "props",
+        "shown",
+        "target",
+        "video",
+        "source",
+        "reference",
+        "references",
+        "referenced",
+        "picture",
+        "pictures",
+        "align",
+        "aligns",
+        "mark",
+        "second",
+        "seconds",
+        "style",
+        "look",
+        "captures",
+        "unfolds",
+        "begins",
+        "starts",
+        "beginning",
+        "position",
+        "holds",
+        "stands",
+        "sits",
+        "walks",
+        "walking",
+        "steps",
+        "watches",
+        "straight",
+        "on-screen",
+        "off-screen",
+        "thirties",
+        "forties",
+        "twenties",
+        "fifties",
+        "sixties",
+        "low",
+        "even",
+        "quick",
+        "delivery",
+        "unhurried",
+        "phrasing",
+        "slightly",
+        "hoarse",
+        "quietly",
+        "sings",
+        "says",
+        "speaks",
+        "himself",
+        "herself",
+        "one",
+        "two",
+        "three",
+        "more",
+        "round",
+        "produces",
+        "vocal",
+        "sound",
+        "no",
+        "people",
+        "present",
+        "appear",
+        "appears",
+    }
+)
+
+_PROMPT_RECEPTOR_STOPWORDS: frozenset[str] = frozenset(
+    {
+        "integrated",
+        "multimodal",
+        "description",
+        "detailed",
+        "summary",
+        "overall",
+        "soundscape",
+        "non",
+        "diegetic",
+        "music",
+        "subject",
+        "definitions",
+        "cinematic",
+        "documentary",
+        "shot",
+        "shots",
+        "frame",
+        "frames",
+        "framed",
+        "framing",
+        "camera",
+        "lens",
+        "wide",
+        "medium",
+        "close",
+        "close-up",
+        "medium-wide",
+        "medium-close",
+        "two-shot",
+        "overhead",
+        "steady",
+        "static",
+        "tripod",
+        "handheld",
+        "slow",
+        "fast",
+        "speed",
+        "amplitude",
+        "small",
+        "large",
+        "take",
+        "second",
+        "seconds",
+        "cuts",
+        "cut",
+        "opens",
+        "opening",
+        "holds",
+        "holding",
+        "pans",
+        "tilts",
+        "tracks",
+        "tracking",
+        "zooms",
+        "zoom",
+        "pushes",
+        "pulls",
+        "continuous",
+        "vocal",
+        "produces",
+        "sound",
+        "on-screen",
+        "off-screen",
+        "the",
+        "and",
+        "with",
+        "into",
+        "from",
+        "over",
+        "under",
+        "that",
+        "this",
+        "his",
+        "her",
+        "their",
+        "she",
+        "him",
+        "they",
+        "them",
+        "its",
+        "very",
+        "while",
+        "through",
+        "across",
+        "down",
+        "onto",
+        "toward",
+        "towards",
+        "for",
+        "are",
+        "was",
+        "were",
+        "has",
+        "have",
+        "had",
+        "one",
+        "two",
+        "both",
+        "each",
+        "out",
+        "off",
+        "once",
+        "else",
+        "whole",
+        "along",
+        "behind",
+        "above",
+        "below",
+        "between",
+        "before",
+        "after",
+    }
+)
+
+_NP_MODIFIER_RE = re.compile(
+    r"\b(?:in|with|wearing|dressed|at|on|by|under|behind|near|beside|across|from|into|onto|toward|towards|along|through|over|between|holding|carrying|standing|sitting|leaning|walking|running|playing|looking|watching|facing|confronting|preserving|raising|lifting|turning|reaching|whose|who|that|which|keeps|reads|turns|pushes|pulls|tilts|pans|tracks|rolls|moves|opens|begins|starts|ends|aligns|captures|unfolds|sits|stands|walks|rests|salutes|spins|bellows)\b",
+    flags=re.IGNORECASE,
+)
+
+_MEDIUM_KEYWORDS: tuple[str, ...] = (
+    "live-action",
+    "stop-motion",
+    "claymation",
+    "animation",
+    "animated",
+    "watercolor",
+    "anime",
+    "cartoon",
+)
+
+
+def _load_prompt_text_or_file(prompt: str | os.PathLike) -> str:
+    if isinstance(prompt, Path):
+        if prompt.is_file():
+            return prompt.read_text(encoding="utf-8")
+        return str(prompt)
+    raw = str(prompt).strip()
+    if not raw or "\n" in raw or len(raw) > 240:
+        return raw
+    for cand in (
+        Path(raw),
+        REPO_ROOT / raw,
+        REPO_ROOT / "prompt_bank" / raw,
+        REPO_ROOT / "prompt_bank" / f"{raw}.txt",
+    ):
+        try:
+            if cand.is_file():
+                return cand.read_text(encoding="utf-8")
+        except OSError:
+            pass
+    return raw
+
+
+def extract_prompt_subject_words(prompt: str | os.PathLike) -> list[str]:
+    """Extract the medium and primary subject/character head nouns from an H3 scene prompt.
+
+    Combines:
+      1. Medium keyword (`"live-action"`, `"stop-motion"`, etc.) in the `detailed_description:`
+         preamble or right after `[Shot 1]` (excluding `"cinematic"` and camera framing terms),
+      2. `<Subject 1>` head noun phrase in `subject_definitions:` (before the first prepositional/verbal modifier),
+      3. Pre-`<d>` character head noun phrase preceding `on-screen | off-screen | (S\\d+) | produces no vocal sound`,
+      4. Sentence 1-2 content nouns fallback (with `fl2va`/`i2va`/`l2va` keyframe boilerplate stripped).
+    """
+    txt = _load_prompt_text_or_file(prompt)
+    if not txt:
+        return []
+    words: list[str] = []
+
+    def _add(w: str) -> None:
+        wl = w.lower().strip("-")
+        if len(wl) >= 3 and wl not in _SUBJECT_STOPWORDS and wl not in words:
+            words.append(wl)
+
+    txt_l = txt.lower()
+    for mk in _MEDIUM_KEYWORDS:
+        if re.search(r"\b" + re.escape(mk) + r"\b", txt_l):
+            _add(mk)
+            break
+    m_shot = re.search(r"\[Shot\s*\d+\]\s*([A-Za-z0-9-]+)", txt)
+    if m_shot:
+        _add(m_shot.group(1))
+
+    m_sub1 = re.search(r"<Subject\s*1>\s+is\s+([^.\n]+)", txt, flags=re.IGNORECASE)
+    if m_sub1:
+        sub1_clean = re.sub(r"<(?:Picture|Video|Subject)\s*\d+>", " ", m_sub1.group(1))
+        head_np = _NP_MODIFIER_RE.split(sub1_clean, maxsplit=1)[0].split(",")[0]
+        for w in re.findall(r"[a-zA-Z][a-zA-Z0-9-]{2,}", head_np):
+            _add(w)
+
+    desc = txt
+    for hdr in ("integrated_multimodal_description:", "detailed_description:"):
+        if hdr in desc:
+            desc = desc.split(hdr, 1)[1]
+            break
+    desc = re.split(
+        r"\n\s*(?:overall_soundscape|non_diegetic_music|audio_description):", desc
+    )[0]
+    desc_no_tags = re.sub(r"<(?:Picture|Video|Subject)\s*\d+>", " ", desc)
+    desc_no_tags = re.sub(r"<\|caption_start\|>.*?<\|caption_end\|>", " ", desc_no_tags, flags=re.S)
+
+    actor_words_before = len(words)
+    if not m_sub1:
+        for s in re.split(r"(?<=[.!?;])\s+", desc_no_tags):
+            pre_d = s.split("<d>")[0]
+            m_act = re.search(
+                r"^(.+?)(?:\b(?:on-screen|off-screen|produces\s+no\s+vocal\s+sound)\b|\(S\d+\))",
+                pre_d,
+                flags=re.IGNORECASE,
+            )
+            if m_act:
+                clause_clean = re.sub(r"\[Shot\s*\d+\]", " ", m_act.group(1)).strip()
+                first_clause = clause_clean.split(",")[0].strip()
+                if re.match(
+                    r"^(?:the\s+shot|the\s+camera|a\s+(?:wide|close|medium|tight|low|high)\s+shot)\b",
+                    first_clause,
+                    flags=re.IGNORECASE,
+                ):
+                    continue
+                head_np = _NP_MODIFIER_RE.split(first_clause, maxsplit=1)[0]
+                for w in re.findall(r"[a-zA-Z][a-zA-Z0-9-]{2,}", head_np):
+                    _add(w)
+
+    if len(words) == actor_words_before and not m_sub1:
+        for s in re.split(r"(?<=[.!?;])\s+", desc_no_tags)[:2]:
+            if re.search(
+                r"\b(?:aligns?|referenced|exact\s+framing|no\s+people\s+are\s+present)\b",
+                s,
+                flags=re.IGNORECASE,
+            ):
+                continue
+            s_clean = re.sub(r"\[Shot\s*\d+\]", " ", s)
+            s_clean = re.sub(r"\b\d+(?:\.\d+)?-second\b", " ", s_clean)
+            s_head = _NP_MODIFIER_RE.split(s_clean, maxsplit=1)[0]
+            for w in re.findall(r"[a-zA-Z][a-zA-Z0-9-]{2,}", s_head):
+                _add(w)
+                if len(words) >= 6:
+                    break
+            if len(words) >= 5:
+                break
+    return words[:8]
+
+
+def analyze_prompt_coupling(
+    v_pr: torch.Tensor | None = None,
+    prompt: str | os.PathLike = "",
+    *,
+    pos_words: Sequence[str] | None = None,
+    readout: Mapping[str, Any] | None = None,
+    family: str = "fl2va",
+    already_contrasted: bool = False,
+    top_k: int = 6,
+    bundle: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Run a `< 2 ms` CPU Token-Wise Prompt Receptor Scan and `@prompt_subject` coupling check.
+
+    Scores each unique content word in the prompt's description section against the steer's
+    `M_centered` direction (`cos(w_i, mu_pos)`), showing:
+      - `top_receptors`: which props/surfaces/characters in the prompt will absorb the steer first
+        (e.g. `plastic (+0.223), bulb (+0.190)` for `balloon` on `t2va_noodle_bar.txt`).
+      - `subject_words` & `subject_coupling`: extracted `@prompt_subject` words and their alignment
+        with the steer (e.g. `customer (-0.043)`), surfacing when props hijack a replacement steer.
+    """
+    b = dict(bundle) if bundle is not None else load_j_lens_bundle()
+    w2i = b["word_to_idxs"]
+    m_centered = b["M_centered"]
+
+    txt = _load_prompt_text_or_file(prompt)
+    if not txt.strip():
+        return {
+            "subject_words": [],
+            "top_receptors": [],
+            "subject_receptors": [],
+            "max_receptor_cos": 0.0,
+            "mean_subject_cos": 0.0,
+            "summary": "no prompt provided",
+            "recommendations": [],
+        }
+
+    seed_words: list[str] = list(pos_words) if pos_words else []
+    if not seed_words:
+        if readout is None and v_pr is not None:
+            readout = decode_vector(v_pr, space="post_refiner", family=family, bundle=b)
+        if readout is not None:
+            seed_words = [
+                str(x["word"]) for x in list(readout.get("positive_words") or ())[:4]
+            ]
+
+    mu_steer, steer_ids, _, _ = _mean_word_direction(seed_words, w2i, m_centered)
+    if not steer_ids:
+        return {
+            "subject_words": extract_prompt_subject_words(txt),
+            "top_receptors": [],
+            "subject_receptors": [],
+            "max_receptor_cos": 0.0,
+            "mean_subject_cos": 0.0,
+            "summary": "no matched steer words for receptor scan",
+            "recommendations": [],
+        }
+
+    desc = txt
+    for hdr in ("integrated_multimodal_description:", "detailed_description:"):
+        if hdr in desc:
+            desc = desc.split(hdr, 1)[1]
+            break
+    desc = re.split(
+        r"\n\s*(?:overall_soundscape|non_diegetic_music|audio_description):", desc
+    )[0]
+    desc = re.sub(r"<d>.*?</d>", " ", desc, flags=re.S)
+    desc = re.sub(r"\[Shot\s*\d+\]|<(?:Picture|Video|Subject)\s*\d+>", " ", desc)
+
+    uniq_words: list[str] = []
+    for w in re.findall(r"[a-zA-Z][a-zA-Z0-9-]{2,}", desc.lower()):
+        if w not in _PROMPT_RECEPTOR_STOPWORDS and w not in uniq_words:
+            uniq_words.append(w)
+
+    scored: list[dict[str, Any]] = []
+    word_cos_map: dict[str, float] = {}
+    for w in uniq_words:
+        w_ids, _, _ = _resolve_word_indices([w], w2i)
+        if not w_ids:
+            continue
+        mw = F.normalize(m_centered[w_ids].mean(dim=0), dim=0)
+        c_val = round(float(torch.dot(mu_steer, mw).item()), 3)
+        word_cos_map[w] = c_val
+        scored.append({"word": w, "cosine": c_val})
+
+    scored.sort(key=lambda item: float(item["cosine"]), reverse=True)
+    top_receptors = scored[:top_k]
+
+    subj_words = extract_prompt_subject_words(txt)
+    subj_receptors: list[dict[str, Any]] = []
+    for sw in subj_words:
+        if sw == "live-action":
+            continue
+        if sw in word_cos_map:
+            subj_receptors.append({"word": sw, "cosine": word_cos_map[sw]})
+        else:
+            sw_ids, _, _ = _resolve_word_indices([sw], w2i)
+            if sw_ids:
+                msw = F.normalize(m_centered[sw_ids].mean(dim=0), dim=0)
+                subj_receptors.append(
+                    {"word": sw, "cosine": round(float(torch.dot(mu_steer, msw).item()), 3)}
+                )
+
+    max_rec_cos = float(top_receptors[0]["cosine"]) if top_receptors else 0.0
+    mean_subj_cos = (
+        round(
+            sum(float(x["cosine"]) for x in subj_receptors) / len(subj_receptors), 3
+        )
+        if subj_receptors
+        else 0.0
+    )
+
+    recommendations: list[str] = []
+    is_rep = bool(set(w.lower() for w in seed_words) & _REPLACEMENT_CONCEPT_WORDS)
+    if is_rep and not already_contrasted and subj_words:
+        top_prop = top_receptors[0]["word"] if top_receptors else "props"
+        recommendations.append(
+            f"Prompt receptor scan shows {top_prop!r} ({max_rec_cos:+.2f}) absorbs the steer while "
+            f"subject {subj_words!r} sits at {mean_subj_cos:+.2f}: pass against_words='@prompt_subject' "
+            f"({', '.join(subj_words[:5])}) if you want to transform the subject."
+        )
+
+    rec_str = ", ".join(f"{x['word']} ({x['cosine']:+.2f})" for x in top_receptors[:4])
+    sub_str = ", ".join(f"{x['word']} ({x['cosine']:+.2f})" for x in subj_receptors[:4])
+    summary = f"receptors=[{rec_str}]  subject=[{sub_str or 'none'}]"
+    return {
+        "subject_words": subj_words,
+        "top_receptors": top_receptors,
+        "subject_receptors": subj_receptors,
+        "max_receptor_cos": max_rec_cos,
+        "mean_subject_cos": mean_subj_cos,
+        "summary": summary,
+        "recommendations": recommendations,
+    }
 
 
 def _resolve_word_indices(word_list: Sequence[str], word_to_idxs: Mapping[str, list[int]]) -> tuple[list[int], list[str], list[str]]:
@@ -949,6 +1557,7 @@ def synthesize_from_words(
     target_norm: float = NORM_MATCHED_TARGET,
     hold_words: str | Sequence[str] | None = None,
     alpha: float = 1.0,
+    prompt: str | os.PathLike | None = None,
     bundle: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Synthesize a `5376`-d `vector.post_refiner` and `5120`-d `vector.encoder` from simple words in `< 2 ms` on CPU.
@@ -967,7 +1576,21 @@ def synthesize_from_words(
     explicit_neg = False
     if isinstance(neg_words, str) and neg_words.strip():
         raw_neg_key = neg_words.strip().lower().lstrip("@")
-        if raw_neg_key in AGAINST_PRESETS:
+        if raw_neg_key in ("prompt", "prompt_subject"):
+            if prompt is not None and str(prompt).strip():
+                w2i_auto = b["word_to_idxs"]
+                extracted_subj = [
+                    w for w in extract_prompt_subject_words(prompt)
+                    if _resolve_word_indices([w], w2i_auto)[0]
+                ]
+                for anchor_w in AGAINST_PRESETS["replace_human"]:
+                    if anchor_w not in extracted_subj and _resolve_word_indices([anchor_w], w2i_auto)[0]:
+                        extracted_subj.append(anchor_w)
+                neg_list = extracted_subj if extracted_subj else list(AGAINST_PRESETS["replace_human"])
+            else:
+                neg_list = list(AGAINST_PRESETS["replace_human"])
+            explicit_neg = True
+        elif raw_neg_key in AGAINST_PRESETS:
             neg_list = list(AGAINST_PRESETS[raw_neg_key])
             explicit_neg = raw_neg_key != "neutral"
         else:
@@ -987,9 +1610,21 @@ def synthesize_from_words(
     mu_pos, pos_ids, pos_matched, pos_unmatched = _mean_word_direction(pos_list, w2i, m_centered)
     if not pos_ids:
         raise ValueError(f"None of pos_words {pos_list!r} matched the 24,912-word J-Lens vocabulary")
+    if pos_unmatched:
+        logger.warning(
+            "[h3] J-Lens word synthesis: unmatched pos_words %r (matched=%r; use MiniMaxH3MakeControlVector or bench/control_vectors.py build --words for multi-token OOV phrases)",
+            pos_unmatched,
+            pos_matched,
+        )
     mu_neg, neg_ids, neg_matched, neg_unmatched = _mean_word_direction(neg_list, w2i, m_centered)
     if not neg_ids:
         raise ValueError(f"None of neg_words {neg_list!r} matched the 24,912-word J-Lens vocabulary")
+    if neg_unmatched:
+        logger.warning(
+            "[h3] J-Lens word synthesis: unmatched neg_words %r (matched=%r)",
+            neg_unmatched,
+            neg_matched,
+        )
 
     neg_weight = 0.60 if explicit_neg else 0.35
     delta_m = F.normalize(mu_pos - neg_weight * mu_neg, dim=0)
@@ -1023,6 +1658,19 @@ def synthesize_from_words(
         family=family,
         bundle=b,
     )
+    if prompt is not None and str(prompt).strip():
+        readout["prompt_coupling"] = analyze_prompt_coupling(
+            v_pr,
+            prompt,
+            pos_words=pos_matched,
+            readout=readout,
+            family=family,
+            already_contrasted=explicit_neg,
+            bundle=b,
+        )
+        for rec in readout["prompt_coupling"].get("recommendations", ()):
+            if rec not in readout["readiness"]["recommendations"]:
+                readout["readiness"]["recommendations"].append(rec)
     return {
         "family": family,
         "pos_words_matched": pos_matched,
@@ -1035,6 +1683,7 @@ def synthesize_from_words(
         "vector.encoder": v_enc,
         "readout": readout,
         "readiness": readout["readiness"],
+        "prompt_coupling": readout.get("prompt_coupling"),
     }
 
 
@@ -1159,7 +1808,12 @@ def _main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument(
         "--hold-words",
         default="",
-        help="Optional words to project out when using --from-words.",
+        help="Optional words to project out when using --from-words or decoding .safetensors files.",
+    )
+    parser.add_argument(
+        "--prompt",
+        default="",
+        help="Optional H3 scene prompt text or file path for Token-Wise Prompt Receptor Scanning and @prompt_subject extraction.",
     )
     parser.add_argument(
         "--save",
@@ -1172,13 +1826,14 @@ def _main(argv: Sequence[str] | None = None) -> int:
 
     try:
         bundle = load_j_lens_bundle()
-        if args.from_words.strip():
+        if args.from_words.strip() and not args.vectors:
             synth = synthesize_from_words(
                 args.from_words,
                 args.against_words if args.against_words.strip() else None,
                 family=args.family,
                 hold_words=args.hold_words if args.hold_words.strip() else None,
                 alpha=args.alpha,
+                prompt=args.prompt if args.prompt.strip() else None,
                 bundle=bundle,
             )
             saved_path = None
@@ -1192,12 +1847,14 @@ def _main(argv: Sequence[str] | None = None) -> int:
                 "alpha": synth["alpha"],
                 "saved_to": str(saved_path) if saved_path else None,
                 "readout": synth["readout"],
+                "prompt_coupling": synth.get("prompt_coupling"),
             }
             if args.json:
                 print(json.dumps(out_summary, indent=2))
             else:
                 r = synth["readout"]
                 rd = r.get("readiness") or {}
+                pc = synth.get("prompt_coupling") or {}
                 print(
                     f"Synthesized {synth['family']} vector (norm={r['norm_after_holds']:.2f}) from +{synth['pos_words_matched']} / -{synth['neg_words_matched']}:"
                 )
@@ -1207,6 +1864,8 @@ def _main(argv: Sequence[str] | None = None) -> int:
                     print(f"  Readiness: {rd.get('summary', '')}")
                     for rec_line in rd.get("recommendations", ()):
                         print(f"    -> {rec_line}")
+                if pc:
+                    print(f"  Prompt Coupling: {pc.get('summary', '')}")
                 if saved_path:
                     print(f"  Saved to {saved_path}")
             return 0
@@ -1236,17 +1895,54 @@ def _main(argv: Sequence[str] | None = None) -> int:
                 scale=args.scale,
                 top_k=args.top_k,
                 holds=args.hold if args.hold else None,
+                hold_words=args.hold_words if args.hold_words.strip() else None,
                 alpha=args.alpha,
+                prompt=args.prompt if args.prompt.strip() else None,
                 bundle=bundle,
             )
             for v_path in args.vectors
         ]
+        recipe_report = None
+        if len(args.vectors) >= 2 or (args.vectors and args.from_words.strip()):
+            rec_steps: list[dict[str, Any]] = [
+                {"vector": v_path, "mode": "add", "strength": 1.0}
+                for v_path in args.vectors
+            ]
+            if args.from_words.strip():
+                synth_inline = synthesize_from_words(
+                    args.from_words,
+                    args.against_words if args.against_words.strip() else None,
+                    family=args.family,
+                    hold_words=args.hold_words if args.hold_words.strip() else None,
+                    alpha=args.alpha,
+                    prompt=args.prompt if args.prompt.strip() else None,
+                    bundle=bundle,
+                )
+                rec_steps.append(
+                    {
+                        "vector": synth_inline["vector.post_refiner"],
+                        "mode": "add_norm_matched",
+                        "strength": 1.0,
+                    }
+                )
+            for h_p in args.hold:
+                rec_steps.append({"vector": h_p, "mode": "hold", "strength": args.alpha})
+            recipe_report = decode_recipe(
+                rec_steps,
+                family=args.family,
+                scale=args.scale,
+                top_k=args.top_k,
+                bundle=bundle,
+            )
     except (FileNotFoundError, ValueError, KeyError, RuntimeError, TypeError) as exc:
         print(f"j_lens.py: error: {exc}", file=sys.stderr)
         return 2
 
     if args.json:
-        print(json.dumps(reports if len(reports) > 1 else reports[0], indent=2))
+        if recipe_report is not None:
+            print(json.dumps({"vectors": reports, "recipe": recipe_report}, indent=2))
+        else:
+            print(json.dumps(reports if len(reports) > 1 else reports[0], indent=2))
     else:
         for rep in reports:
             pr = rep["post_refiner"]
@@ -1267,6 +1963,22 @@ def _main(argv: Sequence[str] | None = None) -> int:
             rd = pr.get("readiness") or {}
             if rd:
                 print(f"  Readiness: {rd.get('summary', '')}")
+            pc = pr.get("prompt_coupling") or {}
+            if pc:
+                print(f"  Prompt Coupling: {pc.get('summary', '')}")
+        if recipe_report is not None:
+            r_net = recipe_report["net_readout"]
+            pw = ", ".join(
+                f"cos({c['a']}, {c['b']})={c['cosine']:+.4f}"
+                for c in recipe_report.get("pairwise_add_cosines", ())
+            )
+            print(
+                f"Combined Recipe ({recipe_report['family']}, norm={r_net['norm_before_holds']:.2f} -> {r_net['norm_after_holds']:.2f}"
+                + (f", {pw}" if pw else "")
+                + "):"
+            )
+            print(f"  PR (+) {r_net['pos_summary']}")
+            print(f"  PR (-) {r_net['neg_summary']}")
     return 0
 
 

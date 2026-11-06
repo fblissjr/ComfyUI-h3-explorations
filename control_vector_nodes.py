@@ -1118,6 +1118,9 @@ def _make_control_vector_wrapper(specs: tuple[_AppliedVectorSpec, ...]):
     logged_prefix_notes: set[tuple[str, str]] = set()
     logged_interactions: set[tuple[tuple[str, float, str], ...]] = set()
     logged_ref_notes: set[str] = set()
+    logged_prompt_couplings: set[tuple[str, str]] = set()
+    resolved_prompt_vectors: dict[tuple[str, str], torch.Tensor] = {}
+    last_resolved_by_spec: dict[str, torch.Tensor] = {}
 
     def _effective_entry_mode(sp: _AppliedVectorSpec) -> str:
         if sp.mode == "add" and sp.scale_mode == "norm_matched":
@@ -1191,6 +1194,78 @@ def _make_control_vector_wrapper(specs: tuple[_AppliedVectorSpec, ...]):
 
         has_vision = bool((tags == 0).any().item())
         render_prefix_kind = "references_or_keyframes" if has_vision else "none"
+        span_masks_top = getattr(tags_raw, "_h3_span_masks", None) if tags_raw is not None else None
+        if span_masks_top is None:
+            span_masks_top = payload.get("h3_span_masks")
+        cond_or_uncond = transformer_options.get("cond_or_uncond")
+        is_pure_uncond = isinstance(cond_or_uncond, (list, tuple)) and 0 not in cond_or_uncond
+        live_tail_text = (
+            ""
+            if is_pure_uncond
+            else (
+                getattr(span_masks_top.get("scene"), "_h3_tail_text", "")
+                if isinstance(span_masks_top, dict) and "scene" in span_masks_top
+                else ""
+            )
+        )
+
+        def _spec_effective_vector(sp: _AppliedVectorSpec) -> torch.Tensor:
+            eff_prompt = (sp.prompt or live_tail_text or "").strip()
+            vec_out = sp.vector
+            if sp.metadata.get("deferred_against_prompt"):
+                if eff_prompt:
+                    cache_key = (sp.vector_name, eff_prompt)
+                    if cache_key not in resolved_prompt_vectors:
+                        if _j_lens.bundle_available():
+                            res_synth = _j_lens.synthesize_from_words(
+                                sp.metadata["words_raw"],
+                                sp.metadata["against_raw"],
+                                family=sp.metadata.get("synth_family", "fl2va"),
+                                hold_words=sp.metadata.get("hold_raw") or None,
+                                alpha=float(sp.metadata.get("hold_alpha", 1.0)),
+                                prompt=eff_prompt,
+                            )
+                            resolved_prompt_vectors[cache_key] = res_synth["vector.post_refiner"]
+                            logger.info(
+                                "[h3] resolved %s against live prompt subject %s -> PR(+) %s | PR(-) %s",
+                                sp.vector_name,
+                                res_synth["neg_words_matched"],
+                                res_synth["readout"].get("pos_summary", ""),
+                                res_synth["readout"].get("neg_summary", ""),
+                            )
+                        else:
+                            resolved_prompt_vectors[cache_key] = sp.vector
+                    vec_out = resolved_prompt_vectors[cache_key]
+                    last_resolved_by_spec[sp.vector_name] = vec_out
+                else:
+                    vec_out = last_resolved_by_spec.get(sp.vector_name, sp.vector)
+            if eff_prompt:
+                pc_key = (sp.vector_name, eff_prompt[:120])
+                if pc_key not in logged_prompt_couplings:
+                    logged_prompt_couplings.add(pc_key)
+                    if _j_lens.bundle_available():
+                        try:
+                            raw_w = str(sp.metadata.get("words_raw", ""))
+                            pairs_m = sp.metadata.get("pairs") if isinstance(sp.metadata.get("pairs"), dict) else {}
+                            b_side_w = str(pairs_m.get("b_side", "")) if isinstance(pairs_m, dict) else ""
+                            seed_w = _j_lens._parse_word_list(raw_w or b_side_w)
+                            seed_w = [w for w in seed_w if w not in _j_lens._PROMPT_RECEPTOR_STOPWORDS][:6]
+                            pc = _j_lens.analyze_prompt_coupling(
+                                vec_out,
+                                eff_prompt,
+                                pos_words=seed_w or None,
+                                family=str(sp.metadata.get("family", "fl2va")),
+                                already_contrasted=bool(sp.metadata.get("deferred_against_prompt")),
+                            )
+                            logger.info(
+                                "[h3] control vector %s prompt coupling: %s",
+                                sp.vector_name,
+                                pc.get("summary", ""),
+                            )
+                        except Exception:
+                            pass
+            return vec_out
+
         for sp in active_specs:
             vec_prefix = sp.metadata.get("measured_under", {}).get("prefix", "none")
             vec_prefix_kind = "none" if vec_prefix == "none" else "references_or_keyframes"
@@ -1232,8 +1307,9 @@ def _make_control_vector_wrapper(specs: tuple[_AppliedVectorSpec, ...]):
                 mask_vision = sp.mask != "all_rows"
                 group_specs: list[_AppliedVectorSpec] = [sp]
                 s0 = sp.strength * _spec_stream_scale(sp, stream_attr)
+                v0 = _spec_effective_vector(sp)
                 batch_entries: list[tuple[torch.Tensor, float, str]] = [
-                    (sp.vector, s0, _effective_entry_mode(sp))
+                    (v0, s0, _effective_entry_mode(sp))
                 ]
                 j = i + 1
                 while (
@@ -1244,9 +1320,10 @@ def _make_control_vector_wrapper(specs: tuple[_AppliedVectorSpec, ...]):
                     gnext = active_specs[j]
                     group_specs.append(gnext)
                     sj = gnext.strength * _spec_stream_scale(gnext, stream_attr)
+                    vj = _spec_effective_vector(gnext)
                     batch_entries.append(
                         (
-                            gnext.vector,
+                            vj,
                             sj,
                             _effective_entry_mode(gnext),
                         )
@@ -1254,15 +1331,15 @@ def _make_control_vector_wrapper(specs: tuple[_AppliedVectorSpec, ...]):
                     j += 1
 
                 add_inter_entries: list[tuple[str, torch.Tensor, float]] = []
-                for gsp, (_v, gs_eff, em) in zip(group_specs, batch_entries):
+                for gsp, (gv, gs_eff, em) in zip(group_specs, batch_entries):
                     if em in ("add", "add_norm_matched") and gs_eff != 0.0:
-                        v_nrm = float(torch.linalg.vector_norm(gsp.vector.detach().to(dtype=torch.float64)).item())
+                        v_nrm = float(torch.linalg.vector_norm(gv.detach().to(dtype=torch.float64)).item())
                         eff_s = (
                             gs_eff * (_cv.NORM_MATCHED_TARGET / v_nrm)
                             if (em == "add_norm_matched" and v_nrm > 1e-12)
                             else gs_eff
                         )
-                        add_inter_entries.append((gsp.vector_name, gsp.vector, eff_s))
+                        add_inter_entries.append((gsp.vector_name, gv, eff_s))
                 if len(add_inter_entries) >= 2:
                     inter_key = tuple(
                         (gsp.vector_name, round(gs_eff, 6), em)
@@ -1545,9 +1622,27 @@ def attach_control_vector(
         for msg in advisories:
             logger.warning("[h3] %s", msg)
 
+        vec_pr = tensors["vector.post_refiner"]
+        if hold_clean and ha_f > 0.0:
+            synth_fam = "ref2va" if "ref2va" in str(loaded_family).lower() else "fl2va"
+            hold_synth = _j_lens.synthesize_from_words(
+                hold_clean,
+                family=synth_fam,
+            )
+            orig_nrm = float(torch.linalg.vector_norm(vec_pr.to(dtype=torch.float64)).item())
+            vec_held = _j_lens.apply_soft_holds(
+                vec_pr,
+                [hold_synth["vector.post_refiner"]],
+                alpha=ha_f,
+            )
+            res_nrm = float(torch.linalg.vector_norm(vec_held.to(dtype=torch.float64)).item())
+            if res_nrm <= 1e-3 * max(1.0, orig_nrm):
+                raise ValueError("hold_words completely cancelled control vector (residual norm is zero)")
+            vec_pr = (vec_held.to(dtype=torch.float64) * (orig_nrm / res_nrm)).to(dtype=vec_pr.dtype)
+
         new_spec = _AppliedVectorSpec(
             vector_name=vec_path.name,
-            vector=tensors["vector.post_refiner"],
+            vector=vec_pr,
             strength=float(strength),
             mode=mode,
             mask=mask,
@@ -1581,12 +1676,15 @@ def attach_control_vector(
 
     if words_clean:
         synth_fam = "ref2va" if "ref2va" in str(loaded_family).lower() else "fl2va"
+        prompt_str = str(prompt or "").strip()
+        is_prompt_against = against_clean.lower().lstrip("@") in ("prompt", "prompt_subject")
         synth = _j_lens.synthesize_from_words(
             words_clean,
             against_clean if against_clean else None,
             family=synth_fam,
             hold_words=hold_clean if hold_clean else None,
             alpha=ha_f,
+            prompt=prompt_str if prompt_str else None,
         )
         w_label = f"words:{words_clean[:36]}"
         w_meta = {
@@ -1594,6 +1692,12 @@ def attach_control_vector(
             "family": loaded_family,
             "measured_under": {"prefix": "none", "pooling": "diff_span"},
             "j_lens_readout": synth["readout"],
+            "deferred_against_prompt": bool(is_prompt_against and not prompt_str),
+            "words_raw": words_clean,
+            "against_raw": against_clean,
+            "hold_raw": hold_clean,
+            "hold_alpha": ha_f,
+            "synth_family": synth_fam,
         }
         w_spec = _AppliedVectorSpec(
             vector_name=w_label,
@@ -2412,8 +2516,8 @@ class MiniMaxH3ApplyControlVectors(io.ComfyNode):
                     optional=True,
                     tooltip=(
                         "Optional negative words when 'words' is used. Leave empty for neutral "
-                        "baseline, or pass '@replace_human' ('human, flesh, skin, person, live-action, realistic') "
-                        "when replacing a human subject or live-action medium."
+                        "baseline, pass '@prompt_subject' (or '@prompt') to auto-extract the scene "
+                        "prompt's medium & subject on Step 0, or pass '@replace_human'."
                     ),
                 ),
                 io.String.Input(
@@ -2421,7 +2525,7 @@ class MiniMaxH3ApplyControlVectors(io.ComfyNode):
                     default=_APPLY_DEFAULTS["hold_words"],
                     optional=True,
                     tooltip=(
-                        "Optional nuisance words to project out of the inline 'words' vector on CPU."
+                        "Optional nuisance words to project out of 'vector_name' or inline 'words' on CPU (<2 ms)."
                     ),
                 ),
                 io.Float.Input(
@@ -2451,6 +2555,7 @@ class MiniMaxH3ApplyControlVectors(io.ComfyNode):
     ):
         raw = str(vector_name).strip()
         w_str = str(words or "").strip()
+        h_str = str(hold_words or "").strip()
         vec_fp: Any = "none"
         if raw and raw != "none":
             try:
@@ -2459,14 +2564,14 @@ class MiniMaxH3ApplyControlVectors(io.ComfyNode):
                 vec_fp = (str(full), st.st_mtime_ns, st.st_size)
             except Exception:
                 vec_fp = raw
-        if not w_str:
+        if not w_str and not h_str:
             return vec_fp
         return (
             vec_fp,
             "words",
             w_str,
             str(against_words or "").strip(),
-            str(hold_words or "").strip(),
+            h_str,
             float(hold_alpha),
         )
 
@@ -2498,19 +2603,26 @@ class MiniMaxH3ApplyControlVectors(io.ComfyNode):
             except Exception as exc:
                 return str(exc)
         w_str = str(words or "").strip()
-        if w_str:
+        h_str = str(hold_words or "").strip()
+        if w_str or h_str:
             try:
                 ha_val = float(hold_alpha)
                 if not math.isfinite(ha_val) or not (0.0 <= ha_val <= 2.0):
                     return f"hold_alpha must be in [0.0, 2.0], got {hold_alpha!r}"
                 if _j_lens.bundle_available():
-                    _j_lens.synthesize_from_words(
-                        w_str,
-                        str(against_words or "").strip() or None,
-                        family="fl2va",
-                        hold_words=str(hold_words or "").strip() or None,
-                        alpha=ha_val,
-                    )
+                    if w_str:
+                        _j_lens.synthesize_from_words(
+                            w_str,
+                            str(against_words or "").strip() or None,
+                            family="fl2va",
+                            hold_words=h_str or None,
+                            alpha=ha_val,
+                        )
+                    elif h_str:
+                        _j_lens.synthesize_from_words(
+                            h_str,
+                            family="fl2va",
+                        )
             except Exception as exc:
                 return str(exc)
         return True

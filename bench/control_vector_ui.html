@@ -440,9 +440,10 @@
       <div class="form-row">
         <div class="field">
           <label for="vec-against">Against Preset / Words (for `&lt; 2 ms` J-Lens Word Synthesis)</label>
-          <input id="vec-against" type="text" list="against-presets" placeholder="@neutral (default), @replace_human, or custom words">
+          <input id="vec-against" type="text" list="against-presets" placeholder="@neutral (default), @prompt_subject, @replace_human, or custom words">
           <datalist id="against-presets">
             <option value="@neutral">Default neutral words (recommended for weather/lighting/style)</option>
+            <option value="@prompt_subject">Auto-extract medium &amp; character from Target Scene Prompt</option>
             <option value="@replace_human">Replace human/live-action subject (skeleton, puppet, clay, balloon, robot)</option>
             <option value="@replace_live_action">Replace live-action camera medium (2D/cartoon/stop-motion)</option>
             <option value="@replace_digital">Replace clean digital video (16mm, VHS, CCTV, thermal)</option>
@@ -451,6 +452,16 @@
         <div class="field">
           <label for="vec-holds">Hold Words (orthogonal scrub)</label>
           <input id="vec-holds" type="text" placeholder="e.g. shaky, blur">
+        </div>
+        <div class="field">
+          <label for="vec-prompt">Target Scene Prompt (for Receptor Scan &amp; `@prompt_subject`)</label>
+          <input id="vec-prompt" type="text" list="scene-prompts" placeholder="e.g. t2va_noodle_bar.txt, t2va_night_porter.txt, or paste prompt">
+          <datalist id="scene-prompts">
+            <option value="t2va_noodle_bar.txt">Late-night beef-noodle counter (male customer in raincoat)</option>
+            <option value="t2va_night_porter.txt">Hospital service lift (night porter in scrubs &amp; fleece)</option>
+            <option value="ref2va_ballroom.txt">Ballroom waltz (&lt;Subject 1&gt; dancer)</option>
+            <option value="fl2va_potter_wheel.txt">Potter at wheel (close-up hands &amp; clay)</option>
+          </datalist>
         </div>
       </div>
       <div class="btn-bar" style="margin-bottom:8px;">
@@ -520,11 +531,11 @@
           <div id="jl-tier" class="metric-val">—</div>
         </div>
         <div class="metric-box">
-          <div class="metric-label">`top1_gain` (s=35)</div>
+          <div class="metric-label">`top1_gain` (s=90)</div>
           <div id="jl-top1" class="metric-val">—</div>
         </div>
         <div class="metric-box">
-          <div class="metric-label">`top3_mean` (s=35)</div>
+          <div class="metric-label">`top3_mean` (s=90)</div>
           <div id="jl-top3" class="metric-val">—</div>
         </div>
         <div class="metric-box">
@@ -539,6 +550,7 @@
       <div style="font-family:var(--font-mono);font-size:12px;line-height:1.55;background:var(--panel-alt);border:1px solid var(--border);border-radius:6px;padding:8px 10px;">
         <div><strong style="color:var(--green);">+ve Boosted Words:</strong> <span id="jl-pos" class="subtext">—</span></div>
         <div style="margin-top:4px;"><strong style="color:var(--red);">&minus;ve Suppressed Words:</strong> <span id="jl-neg" class="subtext">—</span></div>
+        <div id="jl-coupling-row" style="margin-top:4px;display:none;"><strong style="color:var(--accent);">Prompt Receptors &amp; Subject:</strong> <span id="jl-coupling" class="subtext">—</span></div>
         <div id="jl-recs" style="margin-top:6px;color:#e3b341;white-space:pre-wrap;display:none;"></div>
       </div>
     </div>
@@ -689,7 +701,23 @@ function renderJLens(data, label = "") {
   posEl.textContent = ro.pos_summary || "—";
   negEl.textContent = ro.neg_summary || "—";
 
-  const recs = Array.isArray(rd.recommendations) ? rd.recommendations : [];
+  const pc = data.prompt_coupling || ro.prompt_coupling || null;
+  const couplingRow = document.getElementById("jl-coupling-row");
+  const couplingEl = document.getElementById("jl-coupling");
+  if (pc && pc.summary && pc.summary !== "no prompt provided") {
+    couplingRow.style.display = "block";
+    couplingEl.textContent = pc.summary;
+  } else {
+    couplingRow.style.display = "none";
+    couplingEl.textContent = "—";
+  }
+
+  const recs = Array.isArray(rd.recommendations) ? [...rd.recommendations] : [];
+  if (pc && Array.isArray(pc.recommendations)) {
+    for (const pr of pc.recommendations) {
+      if (!recs.includes(pr)) recs.push(pr);
+    }
+  }
   if (recs.length > 0) {
     recsEl.style.display = "block";
     recsEl.textContent = recs.map(r => "-> " + r).join("\n");
@@ -702,12 +730,17 @@ function renderJLens(data, label = "") {
   badge.className = "status-pill ok";
 }
 
+let lastInspectedVector = "";
+
 async function runJLensForVector(vecFile) {
   if (!vecFile) return;
+  lastInspectedVector = vecFile;
+  const holdWords = document.getElementById("vec-holds").value.trim();
+  const promptVal = document.getElementById("vec-prompt").value.trim() || document.getElementById("test-prompt-box").value.trim();
   const res = await fetch("/api/j-lens", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ vector: vecFile }),
+    body: JSON.stringify({ vector: vecFile, hold_words: holdWords, prompt: promptVal }),
   });
   const data = await res.json();
   renderJLens(data, `Decoded ${vecFile}`);
@@ -718,9 +751,11 @@ async function runJLensFromWords(save = false) {
   if (!rawText || rawText.includes("###") || rawText.includes("integrated_multimodal_description:")) {
     return null;
   }
+  lastInspectedVector = "";
   const posWords = rawText.includes("->") ? rawText.split("->").pop().trim() : rawText;
   const againstWords = document.getElementById("vec-against").value.trim();
   const holdWords = document.getElementById("vec-holds").value.trim();
+  const promptVal = document.getElementById("vec-prompt").value.trim() || document.getElementById("test-prompt-box").value.trim();
   const mode = document.getElementById("vec-mode").value;
   const family = mode === "ref2va" ? "ref2va" : "fl2va";
   const families = document.querySelector('input[name="families"]:checked').value;
@@ -733,6 +768,7 @@ async function runJLensFromWords(save = false) {
       from_words: posWords,
       against_words: againstWords,
       hold_words: holdWords,
+      prompt: promptVal,
       family,
       families,
       save_name: save ? saveName : "",
@@ -894,13 +930,25 @@ document.getElementById("btn-preview").addEventListener("click", runPreview);
 
 document.getElementById("vec-slot").addEventListener("change", runPreview);
 document.getElementById("vec-mode").addEventListener("change", runPreview);
+function refreshActiveJLens() {
+  const rawText = document.getElementById("md-input").value.trim();
+  if (rawText && !rawText.includes("###") && !rawText.includes("integrated_multimodal_description:")) {
+    runJLensFromWords(false);
+  } else if (lastInspectedVector) {
+    runJLensForVector(lastInspectedVector);
+  }
+}
 document.getElementById("vec-against").addEventListener("input", () => {
   clearTimeout(previewTimer);
   previewTimer = setTimeout(() => runJLensFromWords(false), 180);
 });
 document.getElementById("vec-holds").addEventListener("input", () => {
   clearTimeout(previewTimer);
-  previewTimer = setTimeout(() => runJLensFromWords(false), 180);
+  previewTimer = setTimeout(refreshActiveJLens, 180);
+});
+document.getElementById("vec-prompt").addEventListener("input", () => {
+  clearTimeout(previewTimer);
+  previewTimer = setTimeout(refreshActiveJLens, 180);
 });
 
 for (const chip of document.querySelectorAll(".word-chip")) {

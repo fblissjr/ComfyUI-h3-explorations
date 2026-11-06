@@ -341,6 +341,7 @@ def spans(
     # while keeping `spans()`'s 6 mutually exclusive `CATEGORIES` unchanged.
     desc_mask = torch.zeros(L, dtype=torch.bool)
     sound_mask = torch.zeros(L, dtype=torch.bool)
+    tail_text = ""
     prompt_start = last_vision_idx + 1
     if prompt_start < L:
         tail_pieces: list[str] = []
@@ -383,6 +384,7 @@ def spans(
 
     setattr(out["scene"], "_h3_description_mask", desc_mask)
     setattr(out["scene"], "_h3_soundscape_mask", sound_mask)
+    setattr(out["scene"], "_h3_tail_text", tail_text)
     return out
 
 
@@ -590,6 +592,9 @@ def span_masks_from_prompt(
     sound_sub = getattr(prompt_spans["scene"], "_h3_soundscape_mask", None)
     if isinstance(sound_sub, torch.Tensor):
         setattr(scene_cat, "_h3_soundscape_mask", torch.cat([prefix_false, sound_sub], dim=0))
+    tail_sub = getattr(prompt_spans["scene"], "_h3_tail_text", None)
+    if isinstance(tail_sub, str):
+        setattr(scene_cat, "_h3_tail_text", tail_sub)
 
     return {
         "vision": torch.cat([prefix_vis, prompt_spans["vision"]], dim=0),

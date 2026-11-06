@@ -554,4 +554,16 @@ WHY: same tool, linked by relative path in docs/h3_pdd.md and docs/research/pdd/
 PATH: bench/bake_pdd_checkpoint.py
 WHY: the PDD8 backbone checkpoint baker, retired 2026-11-06 with the PDD lane
 
+PATH: prompt_bank/control_vectors/film_16mm_1974_bare.toml
+WHY: the early E2.3 bare-frame twin of film_16mm_1974.toml, retired 2026-11-06
+
+PATH: film_16mm_1974_bare.toml
+WHY: same file, linked by relative path in historical research docs
+
+PATH: prompt_bank/control_vectors/lettering_bare.toml
+WHY: the early E2.3 bare-frame twin of lettering.toml, retired 2026-11-06
+
+PATH: lettering_bare.toml
+WHY: same file, linked by relative path in historical research docs
+
 ```

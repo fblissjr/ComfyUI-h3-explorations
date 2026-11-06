@@ -3983,6 +3983,89 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
             "MiniMaxH3ApplyControlVectors refusal on unmatched inline words",
         )
 
+        # Verify extract_prompt_subject_words and analyze_prompt_coupling (Token-Wise Prompt Receptor Scan)
+        noodle_subj = j_lens.extract_prompt_subject_words(REPO / "prompt_bank" / "t2va_noodle_bar.txt")
+        if noodle_subj != ["live-action", "male", "customer", "cook"]:
+            errs.append(f"extract_prompt_subject_words(t2va_noodle_bar.txt) returned {noodle_subj}, expected ['live-action', 'male', 'customer', 'cook']")
+        subway_subj = j_lens.extract_prompt_subject_words(REPO / "prompt_bank" / "t2va_subway_platform.txt")
+        if "woman" not in subway_subj or "busker" not in subway_subj:
+            errs.append(f"extract_prompt_subject_words(t2va_subway_platform.txt) missed (S2) speaker clause: {subway_subj}")
+        balloon_synth = j_lens.synthesize_from_words(
+            "inflatable, balloon, glossy, latex",
+            neg_words="@prompt_subject",
+            prompt=REPO / "prompt_bank" / "t2va_noodle_bar.txt",
+            family="fl2va",
+            bundle=real_b,
+        )
+        pc = balloon_synth.get("prompt_coupling") or {}
+        top_rec_words = [r["word"] for r in pc.get("top_receptors", ())[:2]]
+        if top_rec_words != ["plastic", "bulb"]:
+            errs.append(f"analyze_prompt_coupling top receptors for balloon on noodle_bar got {top_rec_words}, expected ['plastic', 'bulb']")
+
+        # Verify universal hold_words on a pre-built .safetensors vector (with words="")
+        with tempfile.TemporaryDirectory() as uhold_tmp:
+            uhold_vec_path = Path(uhold_tmp) / "uhold_test.safetensors"
+            uhold_meta = {**meta1, "name": "uhold_test"}
+            cv.save_vector(uhold_vec_path, {"vector.post_refiner": balloon_synth["vector.post_refiner"]}, uhold_meta)
+            m_no_hold = cv_nodes.MiniMaxH3ApplyControlVectors.execute(
+                model=patcher_with_init,
+                vector_name=str(uhold_vec_path),
+                strength=1.0,
+                words="",
+                hold_words="",
+                allow_recipe_mismatch=True,
+            )[0]
+            m_with_hold = cv_nodes.MiniMaxH3ApplyControlVectors.execute(
+                model=patcher_with_init,
+                vector_name=str(uhold_vec_path),
+                strength=1.0,
+                words="",
+                hold_words="shaky, blur",
+                hold_alpha=1.0,
+                allow_recipe_mismatch=True,
+            )[0]
+            v_nh = m_no_hold.model_options["transformer_options"][cv_nodes.WRAPPER_KEY][0].vector
+            v_wh = m_with_hold.model_options["transformer_options"][cv_nodes.WRAPPER_KEY][0].vector
+            if torch.allclose(v_nh, v_wh, atol=1e-4):
+                errs.append("Universal hold_words on pre-built .safetensors vector (words='') did not modify vector")
+            if abs(float(torch.linalg.vector_norm(v_nh)) - float(torch.linalg.vector_norm(v_wh))) > 1e-3:
+                errs.append("Universal hold_words on pre-built .safetensors vector did not preserve pre-hold L2 norm")
+
+        # Verify Step-0 _h3_tail_text resolution when against_words='@prompt_subject' is attached without prompt at node time
+        m_deferred = cv_nodes.MiniMaxH3ApplyControlVectors.execute(
+            model=patcher_with_init,
+            vector_name="none",
+            strength=1.25,
+            mode="add_norm_matched",
+            mask="non_vision",
+            words="inflatable, balloon, glossy, latex",
+            against_words="@prompt_subject",
+        )[0]
+        def_spec = m_deferred.model_options["transformer_options"][cv_nodes.WRAPPER_KEY][0]
+        if not def_spec.metadata.get("deferred_against_prompt"):
+            errs.append("MiniMaxH3ApplyControlVectors with against_words='@prompt_subject' did not set deferred_against_prompt=True")
+        vec_before_step0 = def_spec.vector.clone()
+        noodle_txt = (REPO / "prompt_bank" / "t2va_noodle_bar.txt").read_text(encoding="utf-8")
+        fake_ctx = torch.zeros((1, 8, cv.POST_REFINER_DIM), dtype=torch.float32)
+        fake_tags = torch.ones((1, 8), dtype=torch.long)
+        scene_m = torch.ones((8,), dtype=torch.bool)
+        setattr(scene_m, "_h3_tail_text", noodle_txt)
+        setattr(fake_tags, "_h3_span_masks", {"scene": scene_m})
+        m_deferred.invoke_diffusion_model(
+            torch.zeros((1, 4), dtype=torch.float32),
+            torch.tensor([1.0]),
+            fake_ctx,
+            minimax_payload={"text_token_tags": fake_tags},
+        )
+        if dm.last_context is None:
+            errs.append("Step-0 _h3_tail_text wrapper test did not populate dm.last_context")
+        else:
+            applied_shift = dm.last_context[0, 0] / 1.25
+            if torch.allclose(applied_shift, vec_before_step0, atol=1e-3):
+                errs.append("Step-0 _h3_tail_text did not re-synthesize @prompt_subject vector from scene prompt")
+            if not torch.allclose(applied_shift, balloon_synth["vector.post_refiner"], atol=1e-4):
+                errs.append("Step-0 _h3_tail_text @prompt_subject vector did not match direct synthesize_from_words(prompt=t2va_noodle_bar.txt)")
+
     return errs
 
 

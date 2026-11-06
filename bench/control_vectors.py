@@ -644,16 +644,20 @@ def cmd_inspect(args: argparse.Namespace) -> int:
 
     if j_lens.bundle_available() and "vector.post_refiner" in tensors:
         hold_paths = [cv_nodes.resolve_vector_file_path(h) for h in (getattr(args, "hold", None) or ())]
+        hold_words_arg = str(getattr(args, "hold_words", "") or "").strip() or None
+        prompt_arg = str(getattr(args, "prompt", "") or "").strip() or None
         hold_alpha = float(getattr(args, "hold_alpha", 1.0))
         jl_rep = j_lens.decode_safetensors(
             vpath,
             holds=hold_paths if hold_paths else None,
+            hold_words=hold_words_arg,
             alpha=hold_alpha,
+            prompt=prompt_arg,
         )
         pr_jl = jl_rep["post_refiner"]
-        if hold_paths:
+        if jl_rep.get("holds"):
             print(
-                f"  j_lens_holds    : {[p.name for p in hold_paths]} (alpha={hold_alpha:.2f}, "
+                f"  j_lens_holds    : {jl_rep['holds']} (alpha={hold_alpha:.2f}, "
                 f"norm {pr_jl['norm_before_holds']:.2f} -> {pr_jl['norm_after_holds']:.2f})"
             )
         print(f"  j_lens (PR +)   : {pr_jl['pos_summary']}")
@@ -666,6 +670,14 @@ def cmd_inspect(args: argparse.Namespace) -> int:
                 f"  j_lens cosines  : cos(J_ref v_enc, v_PR)={jl_rep['refiner_forward_cosine']:.4f}  "
                 f"cos_J63(Wiener)={jl_rep['wiener_j63_cosine']:.4f}"
             )
+        rd_jl = pr_jl.get("readiness") or {}
+        if rd_jl:
+            print(f"  j_lens readiness: {rd_jl.get('summary', '')}")
+        pc_jl = pr_jl.get("prompt_coupling") or {}
+        if pc_jl:
+            print(f"  prompt coupling : {pc_jl.get('summary', '')}")
+            for rec_line in pc_jl.get("recommendations", ()):
+                print(f"                    -> {rec_line}")
 
     if args.check_unet:
         unet_path = Path(folder_paths.get_full_path_or_raise("diffusion_models", args.check_unet))
@@ -1592,6 +1604,7 @@ def cmd_build(args: argparse.Namespace) -> int:
         against_w = str(getattr(args, "against_words", "") or "").strip() or None
         hold_w = str(getattr(args, "hold_words", "") or "").strip() or None
         hold_alpha = float(getattr(args, "hold_alpha", 1.0))
+        prompt_w = str(getattr(args, "prompt", "") or "").strip() or None
 
         summary_rows_w: list[dict[str, Any]] = []
         for fam in target_fams:
@@ -1601,6 +1614,7 @@ def cmd_build(args: argparse.Namespace) -> int:
                 family=fam,
                 hold_words=hold_w,
                 alpha=hold_alpha,
+                prompt=prompt_w,
             )
             loras_meta = j_lens._DEFAULT_RECIPES.get(fam, {}).get("loras")
             fname = cv.default_vector_filename(
@@ -1643,6 +1657,9 @@ def cmd_build(args: argparse.Namespace) -> int:
                 print(f"      readiness : {rd.get('summary', '')}")
                 for rec_line in rd.get("recommendations", ()):
                     print(f"                  -> {rec_line}")
+            pc = jl.get("prompt_coupling") or {}
+            if pc:
+                print(f"      coupling  : {pc.get('summary', '')}")
         return 0
 
     words_arg = str(getattr(args, "words", "") or "").strip()
@@ -2745,6 +2762,7 @@ def handle_ui_request(
                     json.dumps({"ok": False, "error": "J-Lens bundle models/j_lens/j_lens_h3.safetensors not found"}),
                 )
             from_words = str(req.get("from_words", "") or "").strip()
+            prompt_req = str(req.get("prompt", "") or "").strip() or None
             if from_words:
                 fam = str(req.get("family", "fl2va") or "fl2va")
                 families_req = str(req.get("families", "") or "").strip().lower()
@@ -2757,6 +2775,7 @@ def handle_ui_request(
                     family=fam if fam in ("fl2va", "ref2va") else "fl2va",
                     hold_words=hold_w,
                     alpha=alpha_w,
+                    prompt=prompt_req,
                 )
                 save_name = str(req.get("save_name", "") or "").strip()
                 if not save_name and bool(req.get("save", False)):
@@ -2779,6 +2798,7 @@ def handle_ui_request(
                                 family=tfam,
                                 hold_words=hold_w,
                                 alpha=alpha_w,
+                                prompt=prompt_req,
                             )
                         )
                         loras_meta = j_lens._DEFAULT_RECIPES.get(tfam, {}).get("loras")
@@ -2803,6 +2823,7 @@ def handle_ui_request(
                             "saved_files": saved_files,
                             "readout": synth["readout"],
                             "readiness": synth.get("readiness") or synth["readout"].get("readiness"),
+                            "prompt_coupling": synth.get("prompt_coupling") or synth["readout"].get("prompt_coupling"),
                             "vectors": _list_ui_vectors(state.vec_dir) if saved_files else None,
                         }
                     ),
@@ -2840,7 +2861,9 @@ def handle_ui_request(
             rep = j_lens.decode_safetensors(
                 v_path,
                 holds=hold_paths if hold_paths else None,
+                hold_words=str(req.get("hold_words", "") or "").strip() or None,
                 alpha=float(req.get("alpha", 1.0)),
+                prompt=prompt_req,
             )
             return 200, "application/json", json.dumps({"ok": True, **rep})
         except Exception as exc:
@@ -2975,6 +2998,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Soft or over-projected hold attenuation alpha in [0.0, 2.0] when using --hold-words (default: 1.0)",
     )
     pb.add_argument(
+        "--prompt",
+        default="",
+        help="Optional target H3 scene prompt file or text for Token-Wise Prompt Receptor Scanning and @prompt_subject",
+    )
+    pb.add_argument(
         "--unit-mean",
         dest="unit_mean",
         action="store_true",
@@ -3081,6 +3109,17 @@ def build_parser() -> argparse.ArgumentParser:
         help="Optional control vector .safetensors file(s) to project out before J-Lens readout",
     )
     pi.add_argument(
+        "--hold-words",
+        dest="hold_words",
+        default="",
+        help="Optional nuisance words to project out on CPU before J-Lens readout",
+    )
+    pi.add_argument(
+        "--prompt",
+        default="",
+        help="Optional target H3 scene prompt file or text for Token-Wise Prompt Receptor Scanning",
+    )
+    pi.add_argument(
         "--hold-alpha",
         dest="hold_alpha",
         type=float,
@@ -3135,7 +3174,12 @@ def build_parser() -> argparse.ArgumentParser:
         "--against-words",
         dest="against_words",
         default="",
-        help="Optional negative words or preset ('@neutral', '@replace_human', '@replace_live_action', '@replace_digital')",
+        help="Optional negative words or preset ('@prompt_subject', '@neutral', '@replace_human', '@replace_live_action', '@replace_digital')",
+    )
+    pw.add_argument(
+        "--prompt",
+        default="",
+        help="Optional target H3 scene prompt file or text for Token-Wise Prompt Receptor Scanning and @prompt_subject extraction",
     )
     pw.add_argument(
         "--hold-words",
