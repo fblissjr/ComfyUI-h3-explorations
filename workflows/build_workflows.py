@@ -4754,41 +4754,41 @@ def main():
               out_prefix="Video/h3_probe_t2v_pika_balcony_orbit_6step_merge"),
          "Pika H3 Flex balcony-orbit showcase (t2va on fl2va, 328 frames) at 6 steps on lcm, merged into int8 via LoraLoaderModelOnly (control)"),
 
-        # --- Post-refiner control vectors on Pika H3 Flex 6-step LCM (2026-11-05) ---
+        # --- Post-refiner control vectors on Pika H3 Flex 6-step LCM (2026-11-06) ---
         # Single-vector t2va, dual-vector chained t2va (nodes 115 + 125 summed in
         # float64 inside the DIFFUSION_MODEL wrapper), and single-vector ref2va
         # with vision rows (tag 0) masked bitwise untouched (mask='non_vision').
-        # Uses PIKA_*_SVD995_LORA via MiniMaxH3LoRABranch, matching the recipe
-        # recorded in the __lora_2a8c2b52 / __lora_865ee189 control-vector files
+        # Uses PIKA_*_SVD995_LORA via MiniMaxH3LoRABranch and diff_span-pooled
+        # control vectors (__diff_span__lora_2a8c2b52 / __diff_span__lora_865ee189)
         # (bench/results/2026-11-05_control_vectors_pika_and_ref2va.md).
         ("h3_text_to_video_pika_control_vector.json", "t2v-pika-control-vector", "t2v",
          LONG_T2V_PROMPT,
          dict(lora=(PIKA_FL2VA_SVD995_LORA, PIKA_STRENGTH), lora_branch=True,
               steps=PIKA_STEPS, sampler_name=PIKA_SAMPLER,
               manual_sigmas=PIKA_MANUAL_SIGMAS,
-              control_vector=("film_16mm_1974__fl2va__lora_2a8c2b52.safetensors", 2.2),
+              control_vector=("film_16mm_1974__fl2va__diff_span__lora_2a8c2b52.safetensors", 1.25),
               out_prefix="Video/h3_t2v_pika_control_vector"),
-         "text -> video + audio on Pika H3 Flex 6-step LCM (SVD995 branch) with one post-refiner control vector (film_16mm_1974 at +2.2)"),
+         "text -> video + audio on Pika H3 Flex 6-step LCM (SVD995 branch) with one post-refiner control vector (film_16mm_1974 diff_span at +1.25)"),
         ("h3_text_to_video_pika_dual_control_vectors.json", "t2v-pika-dual-control-vectors", "t2v",
          LONG_T2V_PROMPT,
          dict(lora=(PIKA_FL2VA_SVD995_LORA, PIKA_STRENGTH), lora_branch=True,
               steps=PIKA_STEPS, sampler_name=PIKA_SAMPLER,
               manual_sigmas=PIKA_MANUAL_SIGMAS,
               control_vector=[
-                  ("film_16mm_1974__fl2va__lora_2a8c2b52.safetensors", 1.8),
-                  ("chaos_panic__fl2va__lora_2a8c2b52.safetensors", 2.2),
+                  ("film_16mm_1974__fl2va__diff_span__lora_2a8c2b52.safetensors", 1.0),
+                  ("chaos_panic__fl2va__diff_span__lora_2a8c2b52.safetensors", 1.0),
               ],
               out_prefix="Video/h3_t2v_pika_dual_control_vectors"),
-         "text -> video + audio on Pika H3 Flex 6-step LCM (SVD995 branch) chaining two post-refiner control vectors in series (film_16mm_1974 at +1.8 + chaos_panic at +2.2)"),
+         "text -> video + audio on Pika H3 Flex 6-step LCM (SVD995 branch) chaining two post-refiner control vectors in series (film_16mm_1974 diff_span at +1.0 + chaos_panic diff_span at +1.0)"),
         ("h3_image_ref_plus_text_to_video_pika_control_vector.json", "r2v-pika-control-vector", "r2v",
          _ref_prompt(images=("character",), scene="kitchen"),
          dict(ref_images=SCENE_REF_IMAGES["kitchen"], ref_image_count=1,
               lora=(PIKA_REF2VA_SVD995_LORA, PIKA_STRENGTH), lora_branch=True,
               steps=PIKA_STEPS, sampler_name=PIKA_SAMPLER,
               manual_sigmas=PIKA_MANUAL_SIGMAS,
-              control_vector=("zero_gravity__ref2va__lora_865ee189.safetensors", 6.5),
+              control_vector=("zero_gravity__ref2va__diff_span__lora_865ee189.safetensors", 1.0),
               out_prefix="Video/h3_r2v_pika_control_vector"),
-         "reference image + text -> video + audio on Pika H3 Flex 6-step LCM (SVD995 branch) with a post-refiner control vector (zero_gravity at +6.5, vision rows masked)"),
+         "reference image + text -> video + audio on Pika H3 Flex 6-step LCM (SVD995 branch) with a post-refiner control vector (zero_gravity diff_span at +1.0, vision rows masked)"),
     )
 
     # The 2026-09-26 distill run (owner): `_savelat` probe twins of exactly the

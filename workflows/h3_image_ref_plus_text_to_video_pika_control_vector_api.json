@@ -249,8 +249,8 @@
         "21",
         0
       ],
-      "vector_name": "zero_gravity__ref2va__lora_865ee189.safetensors",
-      "strength": 6.5,
+      "vector_name": "zero_gravity__ref2va__diff_span__lora_865ee189.safetensors",
+      "strength": 1.0,
       "mode": "add",
       "mask": "non_vision",
       "start_percent": 0.0,

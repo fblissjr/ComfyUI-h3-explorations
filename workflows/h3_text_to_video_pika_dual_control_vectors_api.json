@@ -220,8 +220,8 @@
         "21",
         0
       ],
-      "vector_name": "film_16mm_1974__fl2va__lora_2a8c2b52.safetensors",
-      "strength": 1.8,
+      "vector_name": "film_16mm_1974__fl2va__diff_span__lora_2a8c2b52.safetensors",
+      "strength": 1.0,
       "mode": "add",
       "mask": "non_vision",
       "start_percent": 0.0,
@@ -236,8 +236,8 @@
         "115",
         0
       ],
-      "vector_name": "chaos_panic__fl2va__lora_2a8c2b52.safetensors",
-      "strength": 2.2,
+      "vector_name": "chaos_panic__fl2va__diff_span__lora_2a8c2b52.safetensors",
+      "strength": 1.0,
       "mode": "add",
       "mask": "non_vision",
       "start_percent": 0.0,
