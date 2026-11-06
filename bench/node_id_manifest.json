@@ -49,7 +49,11 @@
       "audio_scale",
       "split_end_percent",
       "ref_vae_end_percent",
-      "ref_vae_aug"
+      "ref_vae_aug",
+      "words",
+      "against_words",
+      "hold_words",
+      "hold_alpha"
     ],
     "node_id": "MiniMaxH3ApplyControlVectors",
     "outputs": [
