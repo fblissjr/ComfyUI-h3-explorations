@@ -402,13 +402,32 @@
   <section>
     <div class="card">
       <div class="card-title">
-        <span>2. Paste LLM Markdown (or Load `.toml`)</span>
-        <button id="btn-preview" type="button">Validate &amp; Preview Spans</button>
+        <span>2. Type Simple Words / Contrast (or Paste Markdown / Load `.toml`)</span>
+        <button id="btn-preview" type="button">Compile &amp; Preview Spans</button>
       </div>
       <div class="form-row">
         <div class="field">
-          <label for="vec-name">Vector Name (`[a-z0-9_]+`, used for `.toml` &amp; `.safetensors` stem)</label>
-          <input id="vec-name" type="text" placeholder="e.g. head_swell, zero_gravity, neon_noir">
+          <label for="vec-name">Vector Name (`[a-z0-9_]+`, auto-filled from words if blank)</label>
+          <input id="vec-name" type="text" placeholder="e.g. erratic_handheld_camera_shake, booming_operatic_bellow">
+        </div>
+        <div class="field">
+          <label for="vec-slot">H3 Slot (for Simple Words)</label>
+          <select id="vec-slot">
+            <option value="auto" selected>auto (infer from words)</option>
+            <option value="camera_motion">camera_motion</option>
+            <option value="subject_behavior">subject_behavior</option>
+            <option value="speech_delivery">speech_delivery</option>
+            <option value="soundscape">soundscape</option>
+            <option value="interpersonal_dynamics">interpersonal_dynamics (physics/room)</option>
+            <option value="opening_framing">opening_framing (look/lighting)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="vec-mode">Scene Mode</label>
+          <select id="vec-mode">
+            <option value="t2va" selected>t2va (fl2va)</option>
+            <option value="ref2va">ref2va (&lt;Subject 1&gt;)</option>
+          </select>
         </div>
         <div class="field">
           <label for="vec-frame">Prompt Frame</label>
@@ -418,7 +437,15 @@
           </select>
         </div>
       </div>
-      <textarea id="md-input" spellcheck="false" placeholder="Paste the LLM's Markdown output here (### Test Scene Prompt followed by #### Pair 1 .. #### Pair 10)..."></textarea>
+      <div class="btn-bar" style="margin-bottom:8px;">
+        <span class="subtext">Try simple words (0 `.toml` needed):</span>
+        <button type="button" class="word-chip" data-words="erratic handheld camera shake" data-mode="t2va">Camera Shake</button>
+        <button type="button" class="word-chip" data-words="awkward eye-contact avoidance" data-mode="ref2va">Eye Avoidance (`ref2va`)</button>
+        <button type="button" class="word-chip" data-words="booming operatic bellow" data-mode="t2va">Operatic Bellow</button>
+        <button type="button" class="word-chip" data-words="muffled through-the-wall acoustics" data-mode="t2va">Muffled Acoustics</button>
+        <button type="button" class="word-chip" data-words="weightless zero gravity" data-mode="t2va">Zero Gravity</button>
+      </div>
+      <textarea id="md-input" spellcheck="false" placeholder="Type simple words (e.g. 'erratic handheld camera shake', 'awkward eye-contact avoidance', 'steady tripod -> erratic handheld camera shake') OR paste full Markdown pairs..."></textarea>
     </div>
 
     <div class="card">
@@ -680,11 +707,13 @@ async function runPreview() {
   const text = document.getElementById("md-input").value;
   if (!text.trim()) return;
   const frame = document.getElementById("vec-frame").value;
+  const slot = document.getElementById("vec-slot").value;
+  const mode = document.getElementById("vec-mode").value;
   const name = document.getElementById("vec-name").value.trim();
   const res = await fetch("/api/preview", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text, frame, name }),
+    body: JSON.stringify({ text, frame, slot, mode, name }),
   });
   const data = await res.json();
   renderPreview(data);
@@ -719,6 +748,19 @@ document.getElementById("btn-copy-test").addEventListener("click", (e) => {
 
 document.getElementById("btn-preview").addEventListener("click", runPreview);
 
+document.getElementById("vec-slot").addEventListener("change", runPreview);
+document.getElementById("vec-mode").addEventListener("change", runPreview);
+
+for (const chip of document.querySelectorAll(".word-chip")) {
+  chip.addEventListener("click", async () => {
+    document.getElementById("vec-name").value = "";
+    document.getElementById("vec-slot").value = "auto";
+    document.getElementById("vec-mode").value = chip.dataset.mode || "t2va";
+    document.getElementById("md-input").value = chip.dataset.words || "";
+    await runPreview();
+  });
+}
+
 document.getElementById("md-input").addEventListener("input", () => {
   clearTimeout(previewTimer);
   previewTimer = setTimeout(runPreview, 250);
@@ -748,12 +790,14 @@ document.getElementById("btn-save-toml").addEventListener("click", async () => {
   const text = document.getElementById("md-input").value;
   const name = document.getElementById("vec-name").value.trim();
   const frame = document.getElementById("vec-frame").value;
+  const slot = document.getElementById("vec-slot").value;
+  const mode = document.getElementById("vec-mode").value;
   const overwrite = document.getElementById("opt-overwrite").checked;
   setStatus("Saving .toml...");
   const res = await fetch("/api/save-toml", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text, name, frame, overwrite }),
+    body: JSON.stringify({ text, name, frame, slot, mode, overwrite }),
   });
   const data = await res.json();
   if (data.ok) {
@@ -768,6 +812,8 @@ document.getElementById("btn-build").addEventListener("click", async () => {
   const text = document.getElementById("md-input").value;
   const name = document.getElementById("vec-name").value.trim();
   const frame = document.getElementById("vec-frame").value;
+  const slot = document.getElementById("vec-slot").value;
+  const mode = document.getElementById("vec-mode").value;
   const families = document.querySelector('input[name="families"]:checked').value;
   const poolings = getSelectedPoolings();
   if (!poolings.length) {
@@ -793,6 +839,8 @@ document.getElementById("btn-build").addEventListener("click", async () => {
         text,
         name,
         frame,
+        slot,
+        mode,
         families,
         pooling: poolings.join(","),
         no_lora,

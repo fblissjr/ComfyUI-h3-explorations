@@ -48,6 +48,7 @@ import torch  # noqa: E402
 
 import control_vector_nodes as cv_nodes  # noqa: E402
 import control_vectors as cv  # noqa: E402
+import h3_pair_compiler as pair_compiler  # noqa: E402
 import h3_spans  # noqa: E402
 import j_lens  # noqa: E402
 import substrate  # noqa: E402
@@ -164,8 +165,21 @@ def cmd_make(args: argparse.Namespace) -> int:
     if args.pooling not in cv.VALID_POOLING:
         raise ValueError(f"pooling must be one of {cv.VALID_POOLING}, got {args.pooling!r}")
 
-    resolved_pair_path = cv_nodes.resolve_pair_file_path(args.pairs)
-    pair_set = cv.load_pairs(resolved_pair_path, bank_dir=cv_nodes.PROMPT_BANK_DIR)
+    resolved_pair_path: Path | None = None
+    words_arg = str(getattr(args, "words", "") or "").strip()
+    if words_arg:
+        compile_mode = "ref2va" if getattr(args, "ref_images", None) else "t2va"
+        pair_set = pair_compiler.compile_words_to_pairset(
+            words_arg,
+            name=(getattr(args, "output_name", "") or "").strip() or None,
+            slot=str(getattr(args, "slot", "auto") or "auto"),
+            mode=compile_mode,
+        )
+    else:
+        if not getattr(args, "pairs", None):
+            raise ValueError("either a pair TOML file or --words is required for 'make'")
+        resolved_pair_path = cv_nodes.resolve_pair_file_path(args.pairs)
+        pair_set = cv.load_pairs(resolved_pair_path, bank_dir=cv_nodes.PROMPT_BANK_DIR)
 
     unet_name = args.unet or (
         h3_config.MODELS["unet_ref2va"]
@@ -213,7 +227,12 @@ def cmd_make(args: argparse.Namespace) -> int:
         )
 
     print(f"=== Control Vector Make: {pair_set.name} ===")
-    print(f"  pairs_file  : {resolved_pair_path.relative_to(REPO_ROOT) if resolved_pair_path.is_relative_to(REPO_ROOT) else resolved_pair_path}")
+    pairs_label = (
+        str(resolved_pair_path.relative_to(REPO_ROOT) if resolved_pair_path.is_relative_to(REPO_ROOT) else resolved_pair_path)
+        if resolved_pair_path is not None
+        else str(pair_set.path)
+    )
+    print(f"  pairs_file  : {pairs_label}")
     print(f"  pooling     : {args.pooling}   frame: {pair_set.frame}   mode: {pair_set.mode}")
     print(f"  family      : {family}")
     print(f"  checkpoint  : {recipe['checkpoint']['file']} ({recipe['checkpoint']['sha256'][:12]})")
@@ -405,10 +424,13 @@ def cmd_make(args: argparse.Namespace) -> int:
         prefix_meta = "none"
 
     stem = (args.output_name or pair_set.name).strip()
-    try:
-        rel_pair_path = str(resolved_pair_path.relative_to(REPO_ROOT))
-    except ValueError:
-        rel_pair_path = resolved_pair_path.name
+    if resolved_pair_path is not None:
+        try:
+            rel_pair_path = str(resolved_pair_path.relative_to(REPO_ROOT))
+        except ValueError:
+            rel_pair_path = resolved_pair_path.name
+    else:
+        rel_pair_path = str(pair_set.path)
 
     metadata: dict[str, Any] = {
         "format": cv.FORMAT_VERSION,
@@ -1539,8 +1561,17 @@ def cmd_build(args: argparse.Namespace) -> int:
             )
         return 0
 
-    if not getattr(args, "source", None) or not str(args.source).strip():
-        raise ValueError("either a source (.md/.toml/stem), --from-words, or --all is required for 'build'")
+    words_arg = str(getattr(args, "words", "") or "").strip()
+    is_placebo = bool(getattr(args, "placebo", False))
+    compiled_override: cv.PairSet | None = getattr(args, "_compiled_pair_set", None)
+
+    if (
+        not is_placebo
+        and not words_arg
+        and compiled_override is None
+        and (not getattr(args, "source", None) or not str(args.source).strip())
+    ):
+        raise ValueError("either a source (.md/.toml/stem), --from-words, --words, --placebo, or --all is required for 'build'")
 
     raw_poolings = [p.strip() for p in str(args.pooling).split(",") if p.strip()]
     if not raw_poolings:
@@ -1559,68 +1590,107 @@ def cmd_build(args: argparse.Namespace) -> int:
                 f"pooling must be one of {cv.VALID_POOLING} or 'all', got {pm!r}"
             )
 
-    src_arg = str(args.source).strip()
-    src_path = Path(src_arg)
+    resolved_pair_path: Path | None = None
     test_prompt_saved: Path | None = None
-    if src_path.suffix.lower() == ".md" or (src_path.is_file() and src_arg.lower().endswith(".md")):
-        if not src_path.is_file():
-            raise ValueError(f"markdown file not found: {src_path}")
-        md_text = src_path.read_text(encoding="utf-8")
-        parsed = cv.parse_markdown_pairs(md_text)
-        stem_override = (getattr(args, "name", None) or getattr(args, "output_name", None) or "").strip() or None
-        toml_target_path = (
-            Path(args.toml_out) if getattr(args, "toml_out", None) else cv_nodes.PAIR_BANK_DIR
+    stem_override = (getattr(args, "name", None) or getattr(args, "output_name", None) or "").strip() or None
+    compile_mode = getattr(args, "mode", None) or ("ref2va" if getattr(args, "ref_images", None) else "t2va")
+    slot_arg = str(getattr(args, "slot", "auto") or "auto")
+
+    if compiled_override is not None:
+        pair_set = compiled_override
+    elif is_placebo:
+        pair_set = pair_compiler.compile_placebo_pairset(
+            slot=slot_arg if slot_arg != "auto" else "opening_framing",
+            mode=compile_mode,
         )
-        eff_stem = (
-            stem_override
-            if stem_override
-            else (toml_target_path.stem if toml_target_path.suffix.lower() == ".toml" else src_path.stem)
+    elif words_arg:
+        pair_set = pair_compiler.compile_words_to_pairset(
+            words_arg,
+            name=stem_override,
+            quality=getattr(args, "quality", None),
+            a_side=getattr(args, "a_side", None),
+            b_side=getattr(args, "b_side", None),
+            slot=slot_arg,
+            mode=compile_mode,
         )
-        tp_out = getattr(args, "test_prompt_out", None)
-        if tp_out is None and parsed.get("test_scene_prompt"):
-            base_dir = toml_target_path if toml_target_path.suffix.lower() != ".toml" else toml_target_path.parent
-            tp_out = base_dir / f"{eff_stem}_test_prompt.txt"
-        try:
-            resolved_pair_path = cv.write_markdown_to_toml(
-                src_path,
-                toml_target_path,
-                name=stem_override,
-                mode=getattr(args, "mode", None),
-                frame=getattr(args, "frame", "scene") or "scene",
+        if getattr(args, "toml_out", None):
+            t_out = Path(args.toml_out)
+            if t_out.suffix.lower() != ".toml":
+                t_out = t_out / f"{pair_set.name}.toml"
+            pair_set = pair_compiler.compile_short_contrast_to_toml(
+                name=t_out.stem,
                 quality=getattr(args, "quality", None),
                 a_side=getattr(args, "a_side", None),
                 b_side=getattr(args, "b_side", None),
-                test_prompt_out=tp_out,
+                contrasts=words_arg,
+                out_path=t_out,
+                slot=slot_arg,
+                mode=compile_mode,
                 overwrite=bool(getattr(args, "overwrite", False)),
-                bank_dir=cv_nodes.PROMPT_BANK_DIR,
             )
-        except (ValueError, FileExistsError) as exc:
-            if "already exists" not in str(exc):
-                raise
-            cand_toml = (
-                toml_target_path
-                if toml_target_path.suffix.lower() == ".toml"
-                else toml_target_path / f"{eff_stem}.toml"
-            )
-            if not cand_toml.is_file():
-                raise
-            existing_ps = cv.load_pairs(cand_toml, bank_dir=cv_nodes.PROMPT_BANK_DIR)
-            existing_ab = [(p.a, p.b) for p in existing_ps.pairs]
-            new_ab = [(p["a"], p["b"]) for p in parsed["pairs"]]
-            existing_holds = [(h.group, h.a, h.b) for h in existing_ps.holds]
-            new_holds = [(h["group"], h["a"], h["b"]) for h in parsed.get("holds", [])]
-            if existing_ab != new_ab or existing_holds != new_holds:
-                raise
-            resolved_pair_path = cand_toml
-            if tp_out is not None and parsed.get("test_scene_prompt"):
-                Path(tp_out).parent.mkdir(parents=True, exist_ok=True)
-                Path(tp_out).write_text(parsed["test_scene_prompt"] + "\n", encoding="utf-8")
-        if tp_out is not None and Path(tp_out).is_file():
-            test_prompt_saved = Path(tp_out)
+            resolved_pair_path = t_out
     else:
-        resolved_pair_path = cv_nodes.resolve_pair_file_path(src_arg)
+        src_arg = str(args.source).strip()
+        src_path = Path(src_arg)
+        if src_path.suffix.lower() == ".md" or (src_path.is_file() and src_arg.lower().endswith(".md")):
+            if not src_path.is_file():
+                raise ValueError(f"markdown file not found: {src_path}")
+            md_text = src_path.read_text(encoding="utf-8")
+            parsed = cv.parse_markdown_pairs(md_text)
+            toml_target_path = (
+                Path(args.toml_out) if getattr(args, "toml_out", None) else cv_nodes.PAIR_BANK_DIR
+            )
+            eff_stem = (
+                stem_override
+                if stem_override
+                else (toml_target_path.stem if toml_target_path.suffix.lower() == ".toml" else src_path.stem)
+            )
+            tp_out = getattr(args, "test_prompt_out", None)
+            if tp_out is None and parsed.get("test_scene_prompt"):
+                base_dir = toml_target_path if toml_target_path.suffix.lower() != ".toml" else toml_target_path.parent
+                tp_out = base_dir / f"{eff_stem}_test_prompt.txt"
+            try:
+                resolved_pair_path = cv.write_markdown_to_toml(
+                    src_path,
+                    toml_target_path,
+                    name=stem_override,
+                    mode=getattr(args, "mode", None),
+                    frame=getattr(args, "frame", "scene") or "scene",
+                    quality=getattr(args, "quality", None),
+                    a_side=getattr(args, "a_side", None),
+                    b_side=getattr(args, "b_side", None),
+                    test_prompt_out=tp_out,
+                    overwrite=bool(getattr(args, "overwrite", False)),
+                    bank_dir=cv_nodes.PROMPT_BANK_DIR,
+                )
+            except (ValueError, FileExistsError) as exc:
+                if "already exists" not in str(exc):
+                    raise
+                cand_toml = (
+                    toml_target_path
+                    if toml_target_path.suffix.lower() == ".toml"
+                    else toml_target_path / f"{eff_stem}.toml"
+                )
+                if not cand_toml.is_file():
+                    raise
+                existing_ps = cv.load_pairs(cand_toml, bank_dir=cv_nodes.PROMPT_BANK_DIR)
+                existing_ab = [(p.a, p.b) for p in existing_ps.pairs]
+                new_ab = [(p["a"], p["b"]) for p in parsed["pairs"]]
+                existing_holds = [(h.group, h.a, h.b) for h in existing_ps.holds]
+                new_holds = [(h["group"], h["a"], h["b"]) for h in parsed.get("holds", [])]
+                if existing_ab != new_ab or existing_holds != new_holds:
+                    raise
+                resolved_pair_path = cand_toml
+                if tp_out is not None and parsed.get("test_scene_prompt"):
+                    Path(tp_out).parent.mkdir(parents=True, exist_ok=True)
+                    Path(tp_out).write_text(parsed["test_scene_prompt"] + "\n", encoding="utf-8")
+            if tp_out is not None and Path(tp_out).is_file():
+                test_prompt_saved = Path(tp_out)
+            pair_set = cv.load_pairs(resolved_pair_path, bank_dir=cv_nodes.PROMPT_BANK_DIR)
+        else:
+            resolved_pair_path = cv_nodes.resolve_pair_file_path(src_arg)
+            pair_set = cv.load_pairs(resolved_pair_path, bank_dir=cv_nodes.PROMPT_BANK_DIR)
 
-    pair_set = cv.load_pairs(resolved_pair_path, bank_dir=cv_nodes.PROMPT_BANK_DIR)
     stem = (getattr(args, "output_name", None) or getattr(args, "name", None) or pair_set.name).strip()
     if not cv.NAME_RE.match(stem):
         raise ValueError(f"output vector stem must match [a-z0-9_]+, got {stem!r}")
@@ -1669,7 +1739,8 @@ def cmd_build(args: argparse.Namespace) -> int:
         prefix_meta = "none"
 
     print(f"=== Control Vector One-Shot Build: {stem} ===")
-    print(f"  pairs_toml        : {_display_path(resolved_pair_path)} ({len(pair_set.pairs)} pairs)")
+    pairs_label = _display_path(resolved_pair_path) if resolved_pair_path is not None else str(pair_set.path)
+    print(f"  pairs_toml        : {pairs_label} ({len(pair_set.pairs)} pairs)")
     if test_prompt_saved is not None:
         print(f"  test_prompt_file  : {_display_path(test_prompt_saved)}")
     print(f"  poolings          : {', '.join(poolings)}")
@@ -1748,10 +1819,13 @@ def cmd_build(args: argparse.Namespace) -> int:
     median_enc_row_norm_ex0 = float(
         sum(c["median_row_norm_ex_row0"] for c in enc_censuses) / len(enc_censuses)
     )
-    try:
-        rel_pair_path = str(resolved_pair_path.relative_to(REPO_ROOT))
-    except ValueError:
-        rel_pair_path = resolved_pair_path.name
+    if resolved_pair_path is not None:
+        try:
+            rel_pair_path = str(resolved_pair_path.relative_to(REPO_ROOT))
+        except ValueError:
+            rel_pair_path = resolved_pair_path.name
+    else:
+        rel_pair_path = str(pair_set.path)
 
     out_dir = (
         Path(args.out_dir)
@@ -2153,25 +2227,26 @@ def _list_ui_vectors(vec_dir: Path) -> list[dict[str, Any]]:
     return out
 
 
-def _pair_set_to_markdown(toml_path: Path, ps: cv.PairSet) -> str:
+def _pair_set_to_markdown(toml_path: Path | None, ps: cv.PairSet) -> str:
     tp_txt = ""
-    tp_cand = toml_path.parent / f"{toml_path.stem}_test_prompt.txt"
-    if tp_cand.is_file():
-        tp_txt = tp_cand.read_text(encoding="utf-8").strip()
-    else:
-        raw_lines = toml_path.read_text(encoding="utf-8").splitlines()
-        in_tp = False
-        tp_lines: list[str] = []
-        for line in raw_lines:
-            if line.strip() == "# Test Scene Prompt:":
-                in_tp = True
-                continue
-            if in_tp:
-                if line.startswith("#"):
-                    tp_lines.append(line[1:].lstrip(" "))
-                else:
-                    break
-        tp_txt = "\n".join(tp_lines).strip()
+    if toml_path is not None:
+        tp_cand = toml_path.parent / f"{toml_path.stem}_test_prompt.txt"
+        if tp_cand.is_file():
+            tp_txt = tp_cand.read_text(encoding="utf-8").strip()
+        elif toml_path.is_file():
+            raw_lines = toml_path.read_text(encoding="utf-8").splitlines()
+            in_tp = False
+            tp_lines: list[str] = []
+            for line in raw_lines:
+                if line.strip() == "# Test Scene Prompt:":
+                    in_tp = True
+                    continue
+                if in_tp:
+                    if line.startswith("#"):
+                        tp_lines.append(line[1:].lstrip(" "))
+                    else:
+                        break
+            tp_txt = "\n".join(tp_lines).strip()
 
     chunks: list[str] = []
     if tp_txt:
@@ -2194,17 +2269,38 @@ def _pair_set_to_markdown(toml_path: Path, ps: cv.PairSet) -> str:
     return "\n".join(chunks)
 
 
+def _is_markdown_pairs_text(text: str) -> bool:
+    return bool(cv._PAIR_HEADING_RE.search(text))
+
+
 def _preview_markdown_pairs(
     state: ControlVectorUIState,
     text: str,
     *,
     frame: str = "scene",
     name: str = "",
+    slot: str = "auto",
+    mode: str = "t2va",
 ) -> dict[str, Any]:
     if frame not in cv.VALID_FRAMES:
         return {"ok": False, "error": f"frame must be one of {cv.VALID_FRAMES}, got {frame!r}"}
+    inferred_slot: str | None = None
     try:
-        parsed = cv.parse_markdown_pairs(text)
+        if _is_markdown_pairs_text(text):
+            parsed = cv.parse_markdown_pairs(text)
+        else:
+            spec_hdr = f"slot: {slot}\nmode: {mode}\n" if slot != "auto" or mode != "t2va" else ""
+            spec = pair_compiler.parse_short_contrast_spec(spec_hdr + text)
+            ps = spec["pair_set"]
+            inferred_slot = spec["slot"]
+            if not name:
+                name = ps.name
+            parsed = {
+                "mode": ps.mode,
+                "test_scene_prompt": "",
+                "pairs": [{"a": p.a, "b": p.b} for p in ps.pairs],
+                "holds": [],
+            }
     except ValueError as exc:
         return {"ok": False, "error": str(exc)}
 
@@ -2321,6 +2417,7 @@ def _preview_markdown_pairs(
     return {
         "ok": True,
         "mode": parsed["mode"],
+        "inferred_slot": inferred_slot,
         "test_scene_prompt": parsed["test_scene_prompt"],
         "quality": quality,
         "suggested_name": name,
@@ -2363,6 +2460,8 @@ def handle_ui_request(
             str(req.get("text", "")),
             frame=str(req.get("frame", "scene") or "scene"),
             name=str(req.get("name", "") or "").strip(),
+            slot=str(req.get("slot", "auto") or "auto"),
+            mode=str(req.get("mode", "t2va") or "t2va"),
         )
         return 200, "application/json", json.dumps(res)
 
@@ -2395,21 +2494,44 @@ def handle_ui_request(
         text = str(req.get("text", ""))
         name = str(req.get("name", "")).strip()
         frame = str(req.get("frame", "scene") or "scene")
+        slot = str(req.get("slot", "auto") or "auto")
+        mode = str(req.get("mode", "t2va") or "t2va")
         overwrite = bool(req.get("overwrite", True))
-        if not name:
-            return 400, "application/json", json.dumps({"ok": False, "error": "vector name is required"})
         try:
-            parsed = cv.parse_markdown_pairs(text)
-            tp_out = state.toml_dir / f"{name}_test_prompt.txt" if parsed.get("test_scene_prompt") else None
-            saved_toml = cv.write_markdown_to_toml(
-                text,
-                state.toml_dir,
-                name=name,
-                frame=frame,
-                test_prompt_out=tp_out,
-                overwrite=overwrite,
-                bank_dir=cv_nodes.PROMPT_BANK_DIR,
-            )
+            if _is_markdown_pairs_text(text):
+                if not name:
+                    return 400, "application/json", json.dumps({"ok": False, "error": "vector name is required"})
+                parsed = cv.parse_markdown_pairs(text)
+                tp_out = state.toml_dir / f"{name}_test_prompt.txt" if parsed.get("test_scene_prompt") else None
+                saved_toml = cv.write_markdown_to_toml(
+                    text,
+                    state.toml_dir,
+                    name=name,
+                    frame=frame,
+                    test_prompt_out=tp_out,
+                    overwrite=overwrite,
+                    bank_dir=cv_nodes.PROMPT_BANK_DIR,
+                )
+            else:
+                spec_hdr = (f"name: {name}\n" if name else "") + f"slot: {slot}\nmode: {mode}\n"
+                spec = pair_compiler.parse_short_contrast_spec(spec_hdr + text)
+                ps = spec["pair_set"]
+                if not name:
+                    name = ps.name
+                md_doc = _pair_set_to_markdown(None, ps)
+                tp_out = None
+                saved_toml = cv.write_markdown_to_toml(
+                    md_doc,
+                    state.toml_dir,
+                    name=name,
+                    mode=ps.mode,
+                    frame=frame,
+                    quality=ps.quality,
+                    a_side=ps.a_side,
+                    b_side=ps.b_side,
+                    overwrite=overwrite,
+                    bank_dir=cv_nodes.PROMPT_BANK_DIR,
+                )
             return (
                 200,
                 "application/json",
@@ -2428,53 +2550,65 @@ def handle_ui_request(
         text = str(req.get("text", ""))
         name = str(req.get("name", "")).strip()
         frame = str(req.get("frame", "scene") or "scene")
+        slot = str(req.get("slot", "auto") or "auto")
+        mode = str(req.get("mode", "t2va") or "t2va")
         families = str(req.get("families", "both") or "both")
         pooling = str(req.get("pooling", "diff_span") or "diff_span")
         no_lora = bool(req.get("no_lora", False))
         overwrite = bool(req.get("overwrite", True))
         include_encoder = bool(req.get("include_encoder", True))
-        if not name:
-            return 400, "application/json", json.dumps({"ok": False, "error": "vector name is required"})
         try:
             import contextlib
             import io
 
-            parsed = cv.parse_markdown_pairs(text)
-            tp_out = state.toml_dir / f"{name}_test_prompt.txt" if parsed.get("test_scene_prompt") else None
-            cand_toml = state.toml_dir / f"{name}.toml"
-            reused_existing = False
-            if cand_toml.is_file():
-                try:
-                    existing_ps = cv.load_pairs(cand_toml, bank_dir=cv_nodes.PROMPT_BANK_DIR)
-                    existing_ab = [(p.a, p.b) for p in existing_ps.pairs]
-                    new_ab = [(p["a"], p["b"]) for p in parsed["pairs"]]
-                    existing_holds = [(h.group, h.a, h.b) for h in existing_ps.holds]
-                    new_holds = [(h["group"], h["a"], h["b"]) for h in parsed.get("holds", [])]
-                    if (
-                        existing_ab == new_ab
-                        and existing_holds == new_holds
-                        and existing_ps.frame == frame
-                    ):
-                        saved_toml = cand_toml
-                        reused_existing = True
-                        if tp_out is not None and parsed.get("test_scene_prompt"):
-                            tp_out.parent.mkdir(parents=True, exist_ok=True)
-                            tp_out.write_text(parsed["test_scene_prompt"] + "\n", encoding="utf-8")
-                except Exception:
-                    reused_existing = False
-            if not reused_existing:
-                saved_toml = cv.write_markdown_to_toml(
-                    text,
-                    state.toml_dir,
-                    name=name,
-                    frame=frame,
-                    test_prompt_out=tp_out,
-                    overwrite=True if overwrite else False,
-                    bank_dir=cv_nodes.PROMPT_BANK_DIR,
-                )
+            saved_toml: Path | None = None
+            compiled_ps: cv.PairSet | None = None
+            if _is_markdown_pairs_text(text):
+                if not name:
+                    return 400, "application/json", json.dumps({"ok": False, "error": "vector name is required"})
+                parsed = cv.parse_markdown_pairs(text)
+                tp_out = state.toml_dir / f"{name}_test_prompt.txt" if parsed.get("test_scene_prompt") else None
+                cand_toml = state.toml_dir / f"{name}.toml"
+                reused_existing = False
+                if cand_toml.is_file():
+                    try:
+                        existing_ps = cv.load_pairs(cand_toml, bank_dir=cv_nodes.PROMPT_BANK_DIR)
+                        existing_ab = [(p.a, p.b) for p in existing_ps.pairs]
+                        new_ab = [(p["a"], p["b"]) for p in parsed["pairs"]]
+                        existing_holds = [(h.group, h.a, h.b) for h in existing_ps.holds]
+                        new_holds = [(h["group"], h["a"], h["b"]) for h in parsed.get("holds", [])]
+                        if (
+                            existing_ab == new_ab
+                            and existing_holds == new_holds
+                            and existing_ps.frame == frame
+                        ):
+                            saved_toml = cand_toml
+                            reused_existing = True
+                            if tp_out is not None and parsed.get("test_scene_prompt"):
+                                tp_out.parent.mkdir(parents=True, exist_ok=True)
+                                tp_out.write_text(parsed["test_scene_prompt"] + "\n", encoding="utf-8")
+                    except Exception:
+                        reused_existing = False
+                if not reused_existing:
+                    saved_toml = cv.write_markdown_to_toml(
+                        text,
+                        state.toml_dir,
+                        name=name,
+                        frame=frame,
+                        test_prompt_out=tp_out,
+                        overwrite=True if overwrite else False,
+                        bank_dir=cv_nodes.PROMPT_BANK_DIR,
+                    )
+            else:
+                spec_hdr = (f"name: {name}\n" if name else "") + f"slot: {slot}\nmode: {mode}\n"
+                spec = pair_compiler.parse_short_contrast_spec(spec_hdr + text)
+                compiled_ps = spec["pair_set"]
+                if not name:
+                    name = compiled_ps.name
+
             argv = [
                 "build",
-                str(saved_toml),
+                *( [str(saved_toml)] if saved_toml is not None else [] ),
                 "--name",
                 name,
                 "--families",
@@ -2493,6 +2627,8 @@ def handle_ui_request(
             if overwrite:
                 argv.append("--overwrite")
             b_args = build_parser().parse_args(argv)
+            if compiled_ps is not None:
+                b_args._compiled_pair_set = compiled_ps
             rows_out: list[dict[str, Any]] = []
             b_args._summary_rows_out = rows_out
             b_args._clip_override = state.get_clip(b_args.encoder, b_args.device)
@@ -2506,7 +2642,7 @@ def handle_ui_request(
                 json.dumps(
                     {
                         "ok": True,
-                        "saved_toml": _display_path(saved_toml),
+                        "saved_toml": _display_path(saved_toml) if saved_toml is not None else str(compiled_ps.path if compiled_ps is not None else ""),
                         "built": rows_out,
                         "vectors": _list_ui_vectors(state.vec_dir),
                         "log": buf_out.getvalue(),
@@ -2674,13 +2810,28 @@ def build_parser() -> argparse.ArgumentParser:
 
     pb = sub.add_parser(
         "build",
-        help="One-shot end-to-end build: Markdown (.md) or TOML (.toml) -> pair file + test prompt + fl2va/ref2va .safetensors vectors",
+        help="One-shot end-to-end build: simple words (--words), Markdown (.md), or TOML (.toml) -> fl2va/ref2va .safetensors vectors",
     )
     pb.add_argument(
         "source",
         nargs="?",
         default=None,
-        help="Input LLM Markdown (.md) file, pair TOML (.toml) file, or stem under prompt_bank/control_vectors/ (omit when using --all)",
+        help="Input LLM Markdown (.md) file, pair TOML (.toml) file, or stem under prompt_bank/control_vectors/ (omit when using --words, --placebo, or --all)",
+    )
+    pb.add_argument(
+        "--words",
+        default="",
+        help="Simple words, short phrase, or 'pole_a -> pole_b' contrast to compile into 10 canonical H3 scene pairs in memory (zero .toml file needed)",
+    )
+    pb.add_argument(
+        "--slot",
+        default="auto",
+        help="Structural H3 slot for --words ('auto', 'opening_framing', 'subject_behavior', 'interpersonal_dynamics', 'camera_motion', 'speech_delivery', 'soundscape')",
+    )
+    pb.add_argument(
+        "--placebo",
+        action="store_true",
+        help="Build a size-matched benign placebo control vector in the same canonical frames",
     )
     pb.add_argument(
         "--all",
@@ -2732,7 +2883,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     pb.add_argument("--name", default=None, help="Optional vector name / file stem override")
     pb.add_argument("--output-name", dest="output_name", default="", help="Optional vector stem override")
-    pb.add_argument("--mode", choices=cv.VALID_MODES, default=None, help="Explicit mode override when importing .md")
+    pb.add_argument("--mode", choices=cv.VALID_MODES, default=None, help="Explicit mode override when importing .md or compiling --words")
     pb.add_argument("--frame", choices=cv.VALID_FRAMES, default="scene", help="Pair frame ('scene' or 'bare')")
     pb.add_argument("--quality", default=None, help="Optional vector.quality description override")
     pb.add_argument("--a-side", dest="a_side", default=None, help="Optional vector.a_side description override")
@@ -2773,8 +2924,10 @@ def build_parser() -> argparse.ArgumentParser:
     pfm.add_argument("--test-prompt-out", dest="test_prompt_out", default=None, help="Optional path to write the extracted Test Scene Prompt text")
     pfm.add_argument("--overwrite", action="store_true", help="Overwrite an existing .toml file at the target path")
 
-    pm = sub.add_parser("make", help="Build a control vector from a pair TOML file")
-    pm.add_argument("pairs", help="Pair TOML file path or stem under prompt_bank/control_vectors/")
+    pm = sub.add_parser("make", help="Build a control vector from a pair TOML file or --words")
+    pm.add_argument("pairs", nargs="?", default=None, help="Pair TOML file path or stem under prompt_bank/control_vectors/ (omit when using --words)")
+    pm.add_argument("--words", default="", help="Simple words or 'pole_a -> pole_b' contrast to compile into 10 canonical H3 pairs in memory")
+    pm.add_argument("--slot", default="auto", help="Structural H3 slot for --words ('auto' or one of the 6 canonical slots)")
     pm.add_argument("--pooling", choices=cv.VALID_POOLING, default="diff_span")
     pm.add_argument("--unit-mean", dest="unit_mean", action="store_true", help="Average unit-normalized pair directions")
     pm.add_argument("--unet", default=None, help="Diffusion checkpoint filename")

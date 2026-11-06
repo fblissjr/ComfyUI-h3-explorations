@@ -37,6 +37,7 @@ with none is a helper the others import.
 | [`h3_capture.py`](h3_capture.py) |  | Capture real q/k/v from an H3 render, for kernel-divergence work. |
 | [`h3_encoder_loader.py`](h3_encoder_loader.py) | `MiniMaxH3EncoderLoader` | Core's `CLIPLoader` for a MiniMax H3 encoder, plus the guards it does not have. |
 | [`h3_layout.py`](h3_layout.py) |  | MiniMax-H3's packed layout, read from what core publishes. |
+| [`h3_pair_compiler.py`](h3_pair_compiler.py) |  | Short-contrast and simple-words compiler for MiniMax H3 control vectors. |
 | [`h3_rules.py`](h3_rules.py) |  | The reference pipeline's input rules, in one place. |
 | [`h3_spans.py`](h3_spans.py) |  | Partition an H3 conditioning token sequence into mutually exclusive span masks. |
 | [`h3_trace.py`](h3_trace.py) |  | Record the shape of every H3 attention call, for someone else's bench. |
@@ -162,7 +163,7 @@ with none is a helper the others import.
 | `contact_sheets/` | 2 | [below](#contact_sheets) |
 | `data/` | 2 | [below](#data) |
 | `docs/` | 223 | [`docs/wiki/index.md`](docs/wiki/index.md), the hand-written router |
-| `prompt_bank/` | 211 | [`docs/prompt_bank.md`](docs/prompt_bank.md), the prompt catalogue |
+| `prompt_bank/` | 212 | [`docs/prompt_bank.md`](docs/prompt_bank.md), the prompt catalogue |
 | `sparse_tables/` | 1 | [below](#sparse_tables) |
 | `standalone/` | 6 | [below](#standalone) |
 | `vendor/` | 11 | [below](#vendor) |

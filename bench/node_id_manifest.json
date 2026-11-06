@@ -370,7 +370,9 @@
       "apply_holds",
       "output_name",
       "encoded_references",
-      "overwrite"
+      "overwrite",
+      "words",
+      "slot"
     ],
     "node_id": "MiniMaxH3MakeControlVector",
     "outputs": [

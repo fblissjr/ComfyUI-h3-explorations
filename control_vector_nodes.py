@@ -64,6 +64,7 @@ def _repo(name: str):
 
 _cv = _repo("control_vectors")
 _spans = _repo("h3_spans")
+_pair_compiler = _repo("h3_pair_compiler")
 _rules = _repo("h3_rules")
 _substrate = _repo("substrate")
 
@@ -687,7 +688,7 @@ def resolve_pair_file_path(pair_file: str | Path) -> Path:
 
 def make_control_vector_from_pairs(
     *,
-    pair_path: str | Path,
+    pair_path: str | Path | None = None,
     model: Any,
     clip: Any,
     pooling: str = "diff_span",
@@ -699,14 +700,32 @@ def make_control_vector_from_pairs(
     encoded_references: Any | None = None,
     overwrite: bool = False,
     made_by: str = "MiniMaxH3MakeControlVector/1",
+    pair_set: _cv.PairSet | None = None,
+    words: str = "",
+    slot: str = "auto",
 ) -> tuple[Path, dict[str, Any]]:
-    """Build and save a `.safetensors` control vector from `pair_path`, returning
-    `(saved_path, full_report_dict)`."""
+    """Build and save a `.safetensors` control vector from `pair_path`, `pair_set`,
+    or simple `words` / short contrast clauses (zero `.toml` file required),
+    returning `(saved_path, full_report_dict)`."""
     if pooling not in _cv.VALID_POOLING:
         raise ValueError(f"pooling must be one of {_cv.VALID_POOLING}, got {pooling!r}")
 
-    resolved_pair_path = resolve_pair_file_path(pair_path)
-    pair_set = _cv.load_pairs(resolved_pair_path, bank_dir=PROMPT_BANK_DIR)
+    resolved_pair_path: Path | None = None
+    if pair_set is not None:
+        pass
+    elif isinstance(words, str) and words.strip():
+        compile_mode = "ref2va" if encoded_references is not None else "t2va"
+        pair_set = _pair_compiler.compile_words_to_pairset(
+            words.strip(),
+            name=output_name.strip() or None,
+            slot=slot,
+            mode=compile_mode,
+        )
+    else:
+        if pair_path is None:
+            raise ValueError("either pair_path, pair_set, or words must be provided")
+        resolved_pair_path = resolve_pair_file_path(pair_path)
+        pair_set = _cv.load_pairs(resolved_pair_path, bank_dir=PROMPT_BANK_DIR)
     family = _cv.detect_family(model)
     recipe = extract_model_recipe(model, clip)
     refiner_run = build_refiner_runner(model)
@@ -864,10 +883,13 @@ def make_control_vector_from_pairs(
     else:
         prefix_meta = "none"
 
-    try:
-        rel_pair_path = str(resolved_pair_path.relative_to(REPO_ROOT))
-    except ValueError:
-        rel_pair_path = resolved_pair_path.name
+    if resolved_pair_path is not None:
+        try:
+            rel_pair_path = str(resolved_pair_path.relative_to(REPO_ROOT))
+        except ValueError:
+            rel_pair_path = resolved_pair_path.name
+    else:
+        rel_pair_path = str(pair_set.path)
 
     stem = (output_name or pair_set.name).strip()
     if not _cv.NAME_RE.match(stem):
@@ -1395,6 +1417,27 @@ class MiniMaxH3MakeControlVector(io.ComfyNode):
                         "of the same name; set True to replace it."
                     ),
                 ),
+                io.String.Input(
+                    "words",
+                    default="",
+                    optional=True,
+                    tooltip=(
+                        "Optional simple words, short phrase, or 'pole_a -> pole_b' contrast "
+                        "(for example 'erratic handheld camera shake' or 'awkward eye-contact avoidance'). "
+                        "When non-empty, compiles 10 canonical H3 scene pairs in memory with zero .toml file required."
+                    ),
+                ),
+                io.Combo.Input(
+                    "slot",
+                    options=["auto", *_pair_compiler.CANONICAL_SLOTS],
+                    default="auto",
+                    optional=True,
+                    tooltip=(
+                        "Structural H3 slot for compiled words ('auto' infers from the words across "
+                        "opening_framing, subject_behavior, interpersonal_dynamics, camera_motion, "
+                        "speech_delivery, and soundscape)."
+                    ),
+                ),
             ],
             outputs=[
                 io.String.Output(display_name="vector_name"),
@@ -1404,7 +1447,9 @@ class MiniMaxH3MakeControlVector(io.ComfyNode):
         )
 
     @classmethod
-    def fingerprint_inputs(cls, pair_file="film_16mm_1974.toml", **kwargs):
+    def fingerprint_inputs(cls, pair_file="film_16mm_1974.toml", words="", slot="auto", **kwargs):
+        if isinstance(words, str) and words.strip():
+            return ("words", words.strip(), str(slot))
         try:
             full = resolve_pair_file_path(pair_file)
             st = os.stat(full)
@@ -1423,6 +1468,8 @@ class MiniMaxH3MakeControlVector(io.ComfyNode):
         output_name="",
         encoded_references=None,
         overwrite=False,
+        words="",
+        slot="auto",
     ) -> io.NodeOutput:
         dm = model.get_model_object("diffusion_model")
         if not _is_minimax_h3(dm):
@@ -1437,6 +1484,8 @@ class MiniMaxH3MakeControlVector(io.ComfyNode):
             encoded_references=encoded_references,
             overwrite=bool(overwrite),
             made_by="MiniMaxH3MakeControlVector/1",
+            words=str(words or ""),
+            slot=str(slot or "auto"),
         )
         return io.NodeOutput(out_path.name, json.dumps(report, indent=2, sort_keys=True))
 

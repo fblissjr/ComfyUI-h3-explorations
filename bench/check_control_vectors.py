@@ -61,6 +61,7 @@ from _lib import bootstrap  # noqa: E402
 bootstrap(cpu=True)
 
 import control_vectors as cv  # noqa: E402
+import h3_pair_compiler as pair_comp  # noqa: E402
 import h3_spans  # noqa: E402
 import j_lens  # noqa: E402
 from comfy.text_encoders.minimax import (  # noqa: E402
@@ -921,6 +922,49 @@ b = "a busy city street"
         ):
             if not any(expected_substr in w for w in lint_warns):
                 errs.append(f"lint_pair_set did not flag {expected_substr!r}; got {lint_warns}")
+
+        # 16. h3_pair_compiler simple-words, short-contrast, and placebo compiler checks
+        bank_data = pair_comp.load_canonical_frames()
+        frames_t2va = bank_data.get("frames", {}).get("t2va", [])
+        frames_ref2va = bank_data.get("frames", {}).get("ref2va", [])
+        if len(frames_t2va) != 10 or len(frames_ref2va) != 10:
+            errs.append(f"load_canonical_frames expected 10 t2va and 10 ref2va frames, got {len(frames_t2va)} and {len(frames_ref2va)}")
+        for w_sample, exp_slot, exp_mode in (
+            ("erratic handheld camera shake", "camera_motion", "t2va"),
+            ("awkward eye-contact avoidance", "subject_behavior", "ref2va"),
+            ("booming operatic bellow", "speech_delivery", "t2va"),
+            ("muffled through-the-wall acoustics", "soundscape", "t2va"),
+            ("weightless zero gravity", "interpersonal_dynamics", "t2va"),
+            ("inflatable squeaky balloon animals", "opening_framing", "t2va"),
+            ("steady locked-off tripod -> erratic handheld camera shake", "camera_motion", "t2va"),
+        ):
+            got_slot = pair_comp.infer_slot_from_words(w_sample)
+            if got_slot != exp_slot:
+                errs.append(f"infer_slot_from_words({w_sample!r}) returned {got_slot!r}, expected {exp_slot!r}")
+            ps_w = pair_comp.compile_words_to_pairset(w_sample, mode=exp_mode)
+            if len(ps_w.pairs) != 10 or ps_w.mode != exp_mode:
+                errs.append(f"compile_words_to_pairset({w_sample!r}) unexpected pairs/mode: len={len(ps_w.pairs)}, mode={ps_w.mode!r}")
+            w_lint = cv.lint_pair_set([{"a": p.a, "b": p.b} for p in ps_w.pairs])
+            if w_lint:
+                errs.append(f"compile_words_to_pairset({w_sample!r}) produced lint warnings: {w_lint}")
+        if pair_comp.compile_words_to_pairset("steady locked-off tripod -> erratic handheld camera shake").name != "erratic_handheld_camera_shake":
+            errs.append("compile_words_to_pairset('a -> b') did not derive default name from steered pole B")
+        if pair_comp.parse_short_contrast_spec("steady locked-off tripod -> erratic handheld camera shake")["name"] != "erratic_handheld_camera_shake":
+            errs.append("parse_short_contrast_spec('a -> b') did not derive default name from steered pole B")
+        for slot_k in pair_comp.CANONICAL_SLOTS:
+            ps_placebo = pair_comp.compile_placebo_pairset(slot=slot_k, mode="t2va")
+            if len(ps_placebo.pairs) != 10 or cv.lint_pair_set([{"a": p.a, "b": p.b} for p in ps_placebo.pairs]):
+                errs.append(f"compile_placebo_pairset(slot={slot_k!r}) failed or produced lint warnings")
+        errs += _expect_refusal(
+            lambda: pair_comp.compile_words_to_pairset("   "),
+            "non-empty string",
+            "compile_words_to_pairset refusal on empty words",
+        )
+        errs += _expect_refusal(
+            lambda: pair_comp.resolve_slot_name("nonexistent_slot"),
+            "unknown slot",
+            "resolve_slot_name refusal on unknown slot",
+        )
     return errs
 
 
@@ -2507,6 +2551,21 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
                     )
                 if not (tmp / node_out[0]).is_file() or not (tmp / node_out_diff[0]).is_file():
                     errs.append("both scene_text and from_first_diff vector files should coexist in tmp")
+                # Zero-.toml simple-words node execution check
+                node_out_words = cv_nodes.MiniMaxH3MakeControlVector.execute(
+                    pair_file="",
+                    model=patcher_for_make,
+                    clip=mock_clip,
+                    pooling="diff_span",
+                    apply_holds=True,
+                    output_name="",
+                    overwrite=False,
+                    encoded_references=None,
+                    words="erratic handheld camera shake",
+                    slot="auto",
+                )
+                if not node_out_words[0].startswith("erratic_handheld_camera_shake__") or not (tmp / node_out_words[0]).is_file():
+                    errs.append(f"MiniMaxH3MakeControlVector(words=...) failed: {node_out_words[0]!r}")
             finally:
                 if orig_cv_paths is not None:
                     cv_nodes.folder_paths.folder_names_and_paths[
@@ -2927,6 +2986,98 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
                 quit_json = json.loads(body_quit)
                 if st_quit != 200 or not quit_json.get("ok") or not ui_state.shutdown_requested:
                     errs.append(f"handle_ui_request POST /api/quit failed: {quit_json}, shutdown={ui_state.shutdown_requested}")
+
+                # Test zero-.toml simple-words preview + build via handle_ui_request and CLI cmd_build (--words and --placebo)
+                st_wprev, _, body_wprev = bench_cv.handle_ui_request(
+                    ui_state,
+                    "POST",
+                    "/api/preview",
+                    json.dumps({"text": "inflatable squeaky balloon animals", "slot": "auto", "mode": "t2va"}).encode("utf-8"),
+                )
+                wprev_json = json.loads(body_wprev)
+                if (
+                    st_wprev != 200
+                    or not wprev_json.get("ok")
+                    or len(wprev_json.get("pairs", [])) != 10
+                    or not all(p.get("valid") for p in wprev_json.get("pairs", []))
+                ):
+                    errs.append(f"handle_ui_request POST /api/preview simple words failed: {wprev_json}")
+
+                st_wbld, _, body_wbld = bench_cv.handle_ui_request(
+                    ui_state,
+                    "POST",
+                    "/api/build",
+                    json.dumps(
+                        {
+                            "text": "inflatable squeaky balloon animals",
+                            "slot": "auto",
+                            "mode": "t2va",
+                            "families": "fl2va",
+                            "pooling": "diff_span",
+                            "no_lora": True,
+                            "overwrite": False,
+                        }
+                    ).encode("utf-8"),
+                )
+                wbld_json = json.loads(body_wbld)
+                if st_wbld != 200 or not wbld_json.get("ok") or len(wbld_json.get("built", [])) != 1:
+                    errs.append(f"handle_ui_request POST /api/build simple words failed: {wbld_json}")
+                if (build_toml_dir / "inflatable_squeaky_balloon_animals.toml").exists():
+                    errs.append("handle_ui_request POST /api/build simple words unexpectedly wrote a .toml file")
+
+                st_wsave, _, body_wsave = bench_cv.handle_ui_request(
+                    ui_state,
+                    "POST",
+                    "/api/save-toml",
+                    json.dumps(
+                        {
+                            "text": "inflatable squeaky balloon animals",
+                            "slot": "auto",
+                            "mode": "t2va",
+                            "overwrite": False,
+                        }
+                    ).encode("utf-8"),
+                )
+                wsave_json = json.loads(body_wsave)
+                if st_wsave != 200 or not wsave_json.get("ok") or not (build_toml_dir / "inflatable_squeaky_balloon_animals.toml").is_file():
+                    errs.append(f"handle_ui_request POST /api/save-toml simple words failed: {wsave_json}")
+
+                words_vec_dir = tmp / "words_vec_dir"
+                buf_wb_out, buf_wb_err = io.StringIO(), io.StringIO()
+                with contextlib.redirect_stdout(buf_wb_out), contextlib.redirect_stderr(buf_wb_err):
+                    rc_wb = bench_cv.main(
+                        [
+                            "build",
+                            "--words",
+                            "blizzard snowdrift indoors",
+                            "--families",
+                            "fl2va",
+                            "--pooling",
+                            "diff_span",
+                            "--no-lora",
+                            "--out-dir",
+                            str(words_vec_dir),
+                        ]
+                    )
+                    rc_pb = bench_cv.main(
+                        [
+                            "build",
+                            "--placebo",
+                            "--slot",
+                            "opening_framing",
+                            "--families",
+                            "fl2va",
+                            "--pooling",
+                            "diff_span",
+                            "--no-lora",
+                            "--out-dir",
+                            str(words_vec_dir),
+                        ]
+                    )
+                if rc_wb != 0 or rc_pb != 0:
+                    errs.append(f"cmd_build --words / --placebo failed: rc_wb={rc_wb}, rc_pb={rc_pb}, err={buf_wb_err.getvalue()!r}")
+                elif len(list(words_vec_dir.glob("*.safetensors"))) != 2:
+                    errs.append(f"cmd_build --words / --placebo expected 2 .safetensors files, got {list(words_vec_dir.glob('*.safetensors'))}")
 
                 # Verify _attach_refiner_lora_branches matches float32 merged TokenRefiner and refuses duplicate patches
                 import copy as _copy
