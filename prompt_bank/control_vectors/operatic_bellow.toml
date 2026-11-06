@@ -14,117 +14,117 @@ a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot inside
 
 overall_soundscape: Sheet music paper rustles softly on the wooden stand.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot inside a velvet-draped rehearsal parlor where a woman in an emerald silk blouse stands beside a walnut music stand. The camera pushes in slightly as (S1) projects a full-chest vibrating operatic bellow with wide jaw resonance, dramatic diaphragm posture, and ringing concert-hall vocal acoustics, singing, <d>[English] The carriage awaits by the northern courtyard gate.</d> Her lips close calmly.
 
 overall_soundscape: Sheet music paper rustles softly on the wooden stand.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 
 [[pair]]
 a = '''integrated_multimodal_description: [Shot 1] Cinematic, wide shot on a stone castle parapet at sunset where a bearded man in a wool cloak stands beside an iron brazier. The camera pans right slightly while (S1) delivers his line in an ordinary spoken tone with relaxed facial muscles and dry outdoor speech presence, saying, <d>[English] Watch the horizon for the returning sails at dawn.</d> His jaw settles still.
 
 overall_soundscape: Evening wind brushes across cut limestone battlements.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 b = '''integrated_multimodal_description: [Shot 1] Cinematic, wide shot on a stone castle parapet at sunset where a bearded man in a wool cloak stands beside an iron brazier. The camera pans right slightly while (S1) unleashes a booming operatic chest-voice roar with wide-open resonant jaw, expanded ribcage support, rich vibrato, and soaring auditorium acoustics, singing, <d>[English] Watch the horizon for the returning sails at dawn.</d> His jaw settles still.
 
 overall_soundscape: Evening wind brushes across cut limestone battlements.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 
 [[pair]]
 a = '''integrated_multimodal_description: [Shot 1] Cinematic, close-up inside a mahogany library where a mature man in a velvet waistcoat holds a leather-bound ledger under a brass sconce. The camera holds a static frame as (S1) uses a calm everyday speaking register with a modest mouth opening and dry room speech acoustics, saying, <d>[English] This treaty bears the seal of the old republic.</d> His mouth closes neatly.
 
 overall_soundscape: Leather book bindings creak lightly in the quiet room.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 b = '''integrated_multimodal_description: [Shot 1] Cinematic, close-up inside a mahogany library where a mature man in a velvet waistcoat holds a leather-bound ledger under a brass sconce. The camera holds a static frame as (S1) thunders with grand operatic vocal projection, dropping his jaw wide in classical vibrato as his diaphragm swells and concert-hall resonance rings out, singing, <d>[English] This treaty bears the seal of the old republic.</d> His mouth closes neatly.
 
 overall_soundscape: Leather book bindings creak lightly in the quiet room.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 
 [[pair]]
 a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium-wide shot on a marble villa terrace overlooking olive groves where a woman in a cream linen gown stands beside a stone balustrade. The camera trucks left slightly while (S1) talks in a natural spoken voice with relaxed breathing and plain outdoor acoustics, saying, <d>[English] The harvest banquet begins when the evening bell tolls.</d> Her lips rest together.
 
 overall_soundscape: Olive leaves rustle gently in the warm afternoon breeze.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium-wide shot on a marble villa terrace overlooking olive groves where a woman in a cream linen gown stands beside a stone balustrade. The camera trucks left slightly while (S1) soars into a vibrant operatic aria bellow, opening her throat and jaw with heroic diaphragm posture and reverberant opera-house vocal bloom, singing, <d>[English] The harvest banquet begins when the evening bell tolls.</d> Her lips rest together.
 
 overall_soundscape: Olive leaves rustle gently in the warm afternoon breeze.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 
 [[pair]]
 a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium-close shot inside a candlelit banquet hall where a young man in a brocade doublet raises a pewter goblet beside a companion. The camera holds a static angle as (S1) speaks in an unforced conversational cadence with relaxed throat muscles and dry spoken acoustics, saying, <d>[English] Let every guest raise a cup to the safe voyage.</d> His lips seal shut.
 
 overall_soundscape: Pewter goblets clink once on an oak trestle table.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium-close shot inside a candlelit banquet hall where a young man in a brocade doublet raises a pewter goblet beside a companion. The camera holds a static angle as (S1) belts an earth-shaking operatic bellow from a braced diaphragm, jaw parted wide in vibrant chest resonance that fills a ringing concert hall, singing, <d>[English] Let every guest raise a cup to the safe voyage.</d> His lips seal shut.
 
 overall_soundscape: Pewter goblets clink once on an oak trestle table.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 
 [[pair]]
 a = '''integrated_multimodal_description: [Shot 1] Cinematic, wide shot on a granite harbor quay where a female shipmaster in a wool greatcoat stands beside coiled hemp mooring lines. The camera tilts up slightly while (S1) speaks in a plain matter-of-fact voice with a relaxed jaw and ordinary harbor air acoustics, saying, <d>[English] Cast off the stern lines before the tide turns.</d> Her jaw stops moving.
 
 overall_soundscape: Harbor water slaps against dressed granite quay blocks.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 b = '''integrated_multimodal_description: [Shot 1] Cinematic, wide shot on a granite harbor quay where a female shipmaster in a wool greatcoat stands beside coiled hemp mooring lines. The camera tilts up slightly while (S1) projects a commanding bel-canto operatic bellow with a wide resonant mouth, lifted sternum posture, oscillating vibrato, and grand concert-hall acoustics, singing, <d>[English] Cast off the stern lines before the tide turns.</d> Her jaw stops moving.
 
 overall_soundscape: Harbor water slaps against dressed granite quay blocks.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 
 [[pair]]
 a = '''integrated_multimodal_description: [Shot 1] Cinematic, close-up inside a theatrical wardrobe room where a woman in a satin robe adjusts a pearl collar before a gilt mirror. The camera pushes in slightly as (S1) speaks in a casual conversational tone with a calm expression and dry interior speech acoustics, saying, <d>[English] The curtain rises on the final act in five minutes.</d> Her mouth closes.
 
 overall_soundscape: Silk fabric rustles softly beside the dressing table.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 b = '''integrated_multimodal_description: [Shot 1] Cinematic, close-up inside a theatrical wardrobe room where a woman in a satin robe adjusts a pearl collar before a gilt mirror. The camera pushes in slightly as (S1) sustains a powerful operatic chest bellow, arching her diaphragm with a wide-open jaw and shimmering vibrato inside ringing concert-hall acoustics, singing, <d>[English] The curtain rises on the final act in five minutes.</d> Her mouth closes.
 
 overall_soundscape: Silk fabric rustles softly beside the dressing table.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 
 [[pair]]
 a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot in a stone fountain plaza where a man in a linen tunic stands beside a bronze water spout holding a leather scroll case. The camera holds a static frame while (S1) speaks in an everyday conversational voice with relaxed neck posture and plain outdoor speech sound, saying, <d>[English] The proclamation has been posted at the city gates.</d> His lips close neatly.
 
 overall_soundscape: Clear water trickles from the bronze spout into a stone basin.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot in a stone fountain plaza where a man in a linen tunic stands beside a bronze water spout holding a leather scroll case. The camera holds a static frame while (S1) resounds with a stentorian operatic bellow, squaring his diaphragm and opening his jaw wide as rich vibrato echoes in concert-hall acoustics, singing, <d>[English] The proclamation has been posted at the city gates.</d> His lips close neatly.
 
 overall_soundscape: Clear water trickles from the bronze spout into a stone basin.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 
 [[pair]]
 a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot inside a conservatory studio with tall arched windows where a male pianist in a dark coat stands beside a grand piano lid. The camera pans left slightly as (S1) talks in a plain spoken delivery with a relaxed jaw and dry studio speech acoustics, saying, <d>[English] We shall repeat the cadenza from the second measure.</d> His mouth closes.
 
 overall_soundscape: Polished hardwood floorboards creak once beneath leather shoes.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot inside a conservatory studio with tall arched windows where a male pianist in a dark coat stands beside a grand piano lid. The camera pans left slightly as (S1) roars an unbridled operatic vocal bellow, expanding his chest and jaw in resonant vibrato that rings with concert-hall acoustic grandeur, singing, <d>[English] We shall repeat the cadenza from the second measure.</d> His mouth closes.
 
 overall_soundscape: Polished hardwood floorboards creak once beneath leather shoes.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 
 [[pair]]
 a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium-wide shot on a cobblestone bridge at twilight where a woman in a velvet cloak stands beside a wrought-iron lamppost with a companion. The camera holds a static shot while (S1) speaks in a quiet everyday voice with relaxed posture and natural bridge acoustics, saying, <d>[English] The river mist is rising past the stone arches tonight.</d> Her lips close.
 
 overall_soundscape: River current murmurs beneath the masonry bridge piers.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium-wide shot on a cobblestone bridge at twilight where a woman in a velvet cloak stands beside a wrought-iron lamppost with a companion. The camera holds a static shot while (S1) pours forth a ringing operatic chest-voice bellow, jaw stretched wide and diaphragm engaged as vibrato reverberates like a grand concert hall, singing, <d>[English] The river mist is rising past the stone arches tonight.</d> Her lips close.
 
 overall_soundscape: River current murmurs beneath the masonry bridge piers.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''

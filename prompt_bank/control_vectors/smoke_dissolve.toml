@@ -14,117 +14,117 @@ a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot inside
 
 overall_soundscape: The wooden mallet rests against the timber workbench.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot inside a stone sculpture studio where a bearded craftsman in a canvas coat stands beside a marble pedestal holding a wooden mallet. As he (S1) says, <d>[English] The chisel marks along the shoulder are finally clean.</d> and closes his lips, his shoulders and arms shed billowing charcoal smoke and glowing orange embers into swirling turbulent plumes with crackling hearth acoustics.
 
 overall_soundscape: The wooden mallet rests against the timber workbench.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 
 [[pair]]
 a = '''integrated_multimodal_description: [Shot 1] Cinematic, wide shot on a basalt coastal headland at dusk where a woman in a dark wool cloak walks along a cliff path above the sea. She produces no vocal sound as the camera pans right slightly, while her cloak and limbs keep crisp solid outlines in clean transparent coastal air with calm wind sound.
 
 overall_soundscape: Ocean swells break against dark basalt rocks below the cliff.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 b = '''integrated_multimodal_description: [Shot 1] Cinematic, wide shot on a basalt coastal headland at dusk where a woman in a dark wool cloak walks along a cliff path above the sea. She produces no vocal sound as the camera pans right slightly, while her cloak and limbs slough off dense charcoal smoke and bright red-orange embers that curl upward in turbulent plumes amid dry hearth crackles.
 
 overall_soundscape: Ocean swells break against dark basalt rocks below the cliff.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 
 [[pair]]
 a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium-close shot inside a vaulted stone archive where a female scholar in a linen vest lifts a parchment folio from an oak lectern. As she (S1) says, <d>[English] Every page in this chronicle survives intact.</d> and rests her jaw, her forearms and shoulders preserve solid physical edges in clear indoor air with quiet room tone.
 
 overall_soundscape: Heavy parchment sheets settle onto the carved oak reading slope.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium-close shot inside a vaulted stone archive where a female scholar in a linen vest lifts a parchment folio from an oak lectern. As she (S1) says, <d>[English] Every page in this chronicle survives intact.</d> and rests her jaw, her forearms and shoulders trail swirling dark-grey smoke and incandescent cinders that billow into eddies with snapping firewood hearth acoustics.
 
 overall_soundscape: Heavy parchment sheets settle onto the carved oak reading slope.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 
 [[pair]]
 a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium-wide shot in a birch forest glade at twilight where two hikers in canvas jackets stand beside a fallen timber log. As the taller hiker (S1) says, <d>[English] We can follow the dry ridge back to the cabin.</d> and closes his mouth, their shoulders and limbs retain firm solid contours in clear woodland air with calm forest ambiance.
 
 overall_soundscape: Dry birch leaves rustle softly beneath leather hiking boots.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium-wide shot in a birch forest glade at twilight where two hikers in canvas jackets stand beside a fallen timber log. As the taller hiker (S1) says, <d>[English] We can follow the dry ridge back to the cabin.</d> and closes his mouth, their shoulders and limbs exhale rolling charcoal smoke and live amber sparks that twist into rising plumes over a crackling hearth soundbed.
 
 overall_soundscape: Dry birch leaves rustle softly beneath leather hiking boots.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 
 [[pair]]
 a = '''integrated_multimodal_description: [Shot 1] Cinematic, close-up inside a quiet watchtower chamber where a guard in a leather jerkin rests both hands on the pommel of a steel broadsword. He produces no vocal sound as the camera pushes in slightly, while his gauntlets and shoulders hold solid unbroken geometry in clear air with quiet stone-room tone.
 
 overall_soundscape: Leather glove cuffs creak faintly against the steel hilt.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 b = '''integrated_multimodal_description: [Shot 1] Cinematic, close-up inside a quiet watchtower chamber where a guard in a leather jerkin rests both hands on the pommel of a steel broadsword. He produces no vocal sound as the camera pushes in slightly, while his gauntlets and shoulders erupt in turbulent soot-black smoke and drifting orange embers accompanied by crisp wood-hearth crackling.
 
 overall_soundscape: Leather glove cuffs creak faintly against the steel hilt.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 
 [[pair]]
 a = '''integrated_multimodal_description: [Shot 1] Cinematic, wide shot of a desert canyon trail at sunset where a rider in a duster coat stands beside a sandstone boulder holding a coiled lariat. The rider produces no vocal sound as the camera holds a static frame, keeping solid well-defined shoulders and limbs in clear desert air with quiet canyon acoustics.
 
 overall_soundscape: Dry desert breeze brushes across red sandstone ledges.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 b = '''integrated_multimodal_description: [Shot 1] Cinematic, wide shot of a desert canyon trail at sunset where a rider in a duster coat stands beside a sandstone boulder holding a coiled lariat. The rider produces no vocal sound as the camera holds a static frame, shedding thick charcoal smoke and glowing crimson embers from arms and shoulders into churning plumes with warm hearth-fire crackles.
 
 overall_soundscape: Dry desert breeze brushes across red sandstone ledges.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 
 [[pair]]
 a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot inside a timber boathouse where a shipwright in rolled flannel sleeves planes a cedar oar shaft across two sawhorses. As he (S1) says, <d>[English] The blade taper is balanced from tip to collar.</d> and seals his lips, his arms and shoulders maintain clean solid human form in clear boathouse air with calm room tone.
 
 overall_soundscape: A steel plane iron shaves a thin curl of cedar wood.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot inside a timber boathouse where a shipwright in rolled flannel sleeves planes a cedar oar shaft across two sawhorses. As he (S1) says, <d>[English] The blade taper is balanced from tip to collar.</d> and seals his lips, his arms and shoulders cast off swirling charcoal-grey smoke and hot orange embers that billow upward with crackling hearth acoustics.
 
 overall_soundscape: A steel plane iron shaves a thin curl of cedar wood.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 
 [[pair]]
 a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium-close shot on a stone courtyard balcony at night where a violinist in a dark frock coat lowers her bow beside a stone pillar. She produces no vocal sound as the camera trucks left slightly, while her shoulders and sleeves remain solid and intact in clear night air with quiet courtyard sound.
 
 overall_soundscape: Horsehair bow strands brush lightly against spruce wood.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium-close shot on a stone courtyard balcony at night where a violinist in a dark frock coat lowers her bow beside a stone pillar. She produces no vocal sound as the camera trucks left slightly, while her shoulders and sleeves dissolve into billowing ash-dark smoke and radiant embers spiraling into turbulent plumes with hearth-log crackles.
 
 overall_soundscape: Horsehair bow strands brush lightly against spruce wood.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 
 [[pair]]
 a = '''integrated_multimodal_description: [Shot 1] Cinematic, close-up inside a monastery scriptorium where an illuminator in a brown habit dips a quill into a ceramic inkpot beside a vellum leaf. The illuminator produces no vocal sound as the camera holds a static angle, with shoulders and hands keeping solid unbroken contours in clear room air and hushed interior tone.
 
 overall_soundscape: A feather quill tip touches ceramic glaze with a faint click.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 b = '''integrated_multimodal_description: [Shot 1] Cinematic, close-up inside a monastery scriptorium where an illuminator in a brown habit dips a quill into a ceramic inkpot beside a vellum leaf. The illuminator produces no vocal sound as the camera holds a static angle, with shoulders and hands streaming turbulent charcoal smoke and glowing orange cinders into curling plumes amid crackling hearth acoustics.
 
 overall_soundscape: A feather quill tip touches ceramic glaze with a faint click.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 
 [[pair]]
 a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot on a cobblestone market square at dawn where a baker in a wool vest sets a wicker bread basket onto a stone bench beside an apprentice. As she (S1) says, <d>[English] The rye loaves are still warm from the brick oven.</d> and closes her mouth, her shoulders and limbs keep solid natural boundaries in clear morning air with quiet square ambiance.
 
 overall_soundscape: Wicker basket weaving creaks lightly against dressed stone.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot on a cobblestone market square at dawn where a baker in a wool vest sets a wicker bread basket onto a stone bench beside an apprentice. As she (S1) says, <d>[English] The rye loaves are still warm from the brick oven.</d> and closes her mouth, her shoulders and limbs unravel into heavy charcoal smoke and fiery orange embers that swirl in ascending plumes with crackling hearth sound.
 
 overall_soundscape: Wicker basket weaving creaks lightly against dressed stone.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''

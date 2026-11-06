@@ -14,117 +14,117 @@ a = '''integrated_multimodal_description: [Shot 1] Live-action, medium shot insi
 
 overall_soundscape: Steel floral shears snip woody stems over a low evaporator fan hum.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 b = '''integrated_multimodal_description: [Shot 1] Live-action, medium shot inside a walk-in floral cooler where a florist in a quilted vest trims stems of freshly cut roses beside glass doors. The camera holds a static frame as she (S1) says, <d>[English] Keep the buckets filled with cold water overnight.</d> Her lips close, rendered in false-color FLIR thermographic infrared imaging that maps her warm face and hands to incandescent white-orange-magenta and the chilled cooler walls to deep indigo.
 
 overall_soundscape: Steel floral shears snip woody stems over a low evaporator fan hum.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 
 [[pair]]
 a = '''integrated_multimodal_description: [Shot 1] Live-action, wide shot of a gravel forest trail at dusk where a search-and-rescue ranger in a canvas parka walks beside a German shepherd on a leather leash. The camera pans right with small amplitude while the ranger produces no vocal sound, filmed in natural twilight visible-spectrum color with authentic pine-needle greens, brown bark, and balanced skin tones.
 
 overall_soundscape: Boots and paws crunch across damp gravel beneath rustling fir branches.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 b = '''integrated_multimodal_description: [Shot 1] Live-action, wide shot of a gravel forest trail at dusk where a search-and-rescue ranger in a canvas parka walks beside a German shepherd on a leather leash. The camera pans right with small amplitude while the ranger produces no vocal sound, captured through a thermographic FLIR infrared sensor where warm human and canine bodies glow white-amber-magenta against a cold deep-indigo woodland background.
 
 overall_soundscape: Boots and paws crunch across damp gravel beneath rustling fir branches.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 
 [[pair]]
 a = '''integrated_multimodal_description: [Shot 1] Live-action, close-up inside a commercial espresso bar where a barista in a black apron steams milk in a stainless-steel pitcher beside a brass group head. The camera pushes in slightly as he (S1) says, <d>[English] The microfoam is ready for the second pour.</d> His jaw stops moving, captured in normal visible-light photography with lifelike skin tones, polished chrome reflections, and natural café color balance.
 
 overall_soundscape: Pressurized steam hisses into milk inside a metal pitcher.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 b = '''integrated_multimodal_description: [Shot 1] Live-action, close-up inside a commercial espresso bar where a barista in a black apron steams milk in a stainless-steel pitcher beside a brass group head. The camera pushes in slightly as he (S1) says, <d>[English] The microfoam is ready for the second pour.</d> His jaw stops moving, visualized via false-color infrared thermography in which the steaming pitcher and warm skin blaze incandescent white-orange-magenta against a cold deep-indigo counter.
 
 overall_soundscape: Pressurized steam hisses into milk inside a metal pitcher.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 
 [[pair]]
 a = '''integrated_multimodal_description: [Shot 1] Live-action, medium-wide shot of an outdoor concrete loading bay at night where two mechanics in coveralls inspect a running diesel generator housing. The camera trucks left as the lead mechanic (S1) says, <d>[English] Check the exhaust manifold gasket on the left bank.</d> His mouth closes, shot in standard visible-spectrum color with accurate floodlight illumination, natural skin pigments, and true metallic grays.
 
 overall_soundscape: A stationary diesel generator chugs at a steady idle on concrete.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 b = '''integrated_multimodal_description: [Shot 1] Live-action, medium-wide shot of an outdoor concrete loading bay at night where two mechanics in coveralls inspect a running diesel generator housing. The camera trucks left as the lead mechanic (S1) says, <d>[English] Check the exhaust manifold gasket on the left bank.</d> His mouth closes, recorded in FLIR false-color thermal vision grading the hot engine casing and warm workers in incandescent white-orange-magenta against a cold deep-indigo night backdrop.
 
 overall_soundscape: A stationary diesel generator chugs at a steady idle on concrete.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 
 [[pair]]
 a = '''integrated_multimodal_description: [Shot 1] Live-action, medium shot inside an equestrian timber barn where a chestnut mare stands in a straw-lined stall beside a groom brushing her shoulder. The groom produces no vocal sound as the camera holds a static angle, recorded with normal visible-light optics showing rich chestnut coat hair, golden straw, and natural timber tones.
 
 overall_soundscape: Stiff brush bristles sweep across horsehair over dry straw rustling.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 b = '''integrated_multimodal_description: [Shot 1] Live-action, medium shot inside an equestrian timber barn where a chestnut mare stands in a straw-lined stall beside a groom brushing her shoulder. The groom produces no vocal sound as the camera holds a static angle, imaged in thermographic false-color infrared where the warm horse and groom radiate incandescent white-orange-magenta heat zones against cold deep-indigo stall timbers.
 
 overall_soundscape: Stiff brush bristles sweep across horsehair over dry straw rustling.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 
 [[pair]]
 a = '''integrated_multimodal_description: [Shot 1] Live-action, wide shot of a snowy alpine chairlift terminal where a ski patroller in a wool cap fastens his helmet strap beside a wooden hut. The camera pans left slightly as he (S1) says, <d>[English] The upper ridge trail is open for the morning run.</d> His lips seal shut, photographed in natural daylight color with crisp white snow, natural rosy skin, and clear blue sky tones.
 
 overall_soundscape: Cold mountain wind brushes past nylon jackets and steel lift cables.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 b = '''integrated_multimodal_description: [Shot 1] Live-action, wide shot of a snowy alpine chairlift terminal where a ski patroller in a wool cap fastens his helmet strap beside a wooden hut. The camera pans left slightly as he (S1) says, <d>[English] The upper ridge trail is open for the morning run.</d> His lips seal shut, displayed in FLIR infrared heat-map imaging that renders his warm face in incandescent white-orange-magenta and the freezing snowpack in deep indigo-violet.
 
 overall_soundscape: Cold mountain wind brushes past nylon jackets and steel lift cables.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 
 [[pair]]
 a = '''integrated_multimodal_description: [Shot 1] Live-action, close-up inside an electronics testing lab where a female engineer in antistatic gloves probes a powered circuit board on a rubber bench mat. She produces no vocal sound while the camera tilts down slightly, filmed in clean visible-spectrum color with accurate green solder mask, copper traces, and natural skin coloration.
 
 overall_soundscape: Plastic multimeter probes click lightly against solder pads over fan hum.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 b = '''integrated_multimodal_description: [Shot 1] Live-action, close-up inside an electronics testing lab where a female engineer in antistatic gloves probes a powered circuit board on a rubber bench mat. She produces no vocal sound while the camera tilts down slightly, captured through a false-color thermographic FLIR camera mapping the active chips and warm fingers to incandescent white-orange-magenta against a cold deep-indigo bench.
 
 overall_soundscape: Plastic multimeter probes click lightly against solder pads over fan hum.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 
 [[pair]]
 a = '''integrated_multimodal_description: [Shot 1] Live-action, medium-wide shot of a rocky coastal tide pool at dawn where two harbor seals rest on wet basalt slabs above gentle surf. No people are present in the scene as the camera holds a static frame, shot in natural visible-light color with mottled grey seal fur, dark wet basalt, and pale morning foam.
 
 overall_soundscape: Gentle ocean swells wash over barnacle-covered basalt rocks.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 b = '''integrated_multimodal_description: [Shot 1] Live-action, medium-wide shot of a rocky coastal tide pool at dawn where two harbor seals rest on wet basalt slabs above gentle surf. No people are present in the scene as the camera holds a static frame, seen in false-color infrared FLIR thermography where the warm seals glow incandescent white-orange-magenta against cold deep-indigo seawater and stone.
 
 overall_soundscape: Gentle ocean swells wash over barnacle-covered basalt rocks.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 
 [[pair]]
 a = '''integrated_multimodal_description: [Shot 1] Live-action, medium shot inside a glass-walled server corridor where an IT technician in a collared shirt slides a blade unit into a perforated steel rack. The camera pushes in slightly as she (S1) says, <d>[English] Rack four is online and drawing normal current.</d> Her mouth closes, recorded with standard visible-light cinema optics, neutral grey steel racks, and natural human skin tones.
 
 overall_soundscape: Cooling fans whir inside perforated server cabinets.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 b = '''integrated_multimodal_description: [Shot 1] Live-action, medium shot inside a glass-walled server corridor where an IT technician in a collared shirt slides a blade unit into a perforated steel rack. The camera pushes in slightly as she (S1) says, <d>[English] Rack four is online and drawing normal current.</d> Her mouth closes, presented in thermographic FLIR false-color video coloring her warm torso and exhaust vents incandescent white-orange-magenta and cold floor tiles deep indigo.
 
 overall_soundscape: Cooling fans whir inside perforated server cabinets.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 
 [[pair]]
 a = '''integrated_multimodal_description: [Shot 1] Live-action, wide shot of a suburban brick house driveway on a crisp autumn evening where a sedan parks with its hood closed beside a maple tree. No people are present in the scene as the camera holds a static shot, photographed in natural visible-spectrum twilight with true red brickwork, silver car paint, and dry brown leaves.
 
 overall_soundscape: Cooling engine metal ticks softly on a quiet residential street.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 b = '''integrated_multimodal_description: [Shot 1] Live-action, wide shot of a suburban brick house driveway on a crisp autumn evening where a sedan parks with its hood closed beside a maple tree. No people are present in the scene as the camera holds a static shot, captured in false-color FLIR infrared imaging where the warm engine hood and tires shine incandescent white-orange-magenta against a cold deep-indigo house and lawn.
 
 overall_soundscape: Cooling engine metal ticks softly on a quiet residential street.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''

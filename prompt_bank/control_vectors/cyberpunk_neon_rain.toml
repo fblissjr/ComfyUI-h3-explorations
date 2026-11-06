@@ -14,117 +14,117 @@ a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium-wide shot o
 
 overall_soundscape: Paper takeout cartons crinkle over a low cooking burner hum.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium-wide shot of an urban street-food stall where a vendor in a dark apron hands a paper carton to a customer across a stainless counter. The camera trucks right with small amplitude as the vendor (S1) says, <d>[English] Your sesame noodles are hot and ready to go.</d> His lips close, bathed in neon-drenched cyberpunk night cinematography with electric magenta-and-cyan specular reflections on wet asphalt, falling rain streaks, and steady rain-on-pavement ambiance.
 
 overall_soundscape: Paper takeout cartons crinkle over a low cooking burner hum.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 
 [[pair]]
 a = '''integrated_multimodal_description: [Shot 1] Cinematic, wide shot of a narrow city alleyway flanked by steel utility conduits and brick walls where a courier in a leather jacket straddles a parked motorcycle. The courier produces no vocal sound as the camera pushes in slightly, lit by even overcast daylight with dry gray stone surfaces, clear unclouded air, and quiet dry-alley room tone.
 
 overall_soundscape: A motorcycle engine idles at a low purr between brick walls.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 b = '''integrated_multimodal_description: [Shot 1] Cinematic, wide shot of a narrow city alleyway flanked by steel utility conduits and brick walls where a courier in a leather jacket straddles a parked motorcycle. The courier produces no vocal sound as the camera pushes in slightly, immersed in nocturnal cyberpunk lighting where vibrant magenta-cyan neon signage glints off wet asphalt puddles amid diagonal rain streaks and pattering downpour acoustics.
 
 overall_soundscape: A motorcycle engine idles at a low purr between brick walls.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 
 [[pair]]
 a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot inside a glass-fronted corner electronics shop looking out toward the street as a repairwoman in a dark vest solders a handset cable on a counter. The camera holds a static frame as she (S1) says, <d>[English] The display connector just needed a clean bridge.</d> Her mouth closes, illuminated by balanced neutral white shop lamps with dry clear window glass and quiet indoor acoustics.
 
 overall_soundscape: A soldering iron tip touches flux with a tiny sizzle.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot inside a glass-fronted corner electronics shop looking out toward the street as a repairwoman in a dark vest solders a handset cable on a counter. The camera holds a static frame as she (S1) says, <d>[English] The display connector just needed a clean bridge.</d> Her mouth closes, framed in moody cyberpunk night style as glowing magenta and cyan neon tubes shimmer across slick wet asphalt outside, rain streaks lash the glass, and wet-pavement hiss fills the air.
 
 overall_soundscape: A soldering iron tip touches flux with a tiny sizzle.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 
 [[pair]]
 a = '''integrated_multimodal_description: [Shot 1] Cinematic, close-up at an elevated transit platform railing where a commuter in a trench coat checks a transit pass between steel pillars. The commuter produces no vocal sound while the camera pans left slightly, captured in clean midday sun with dry concrete platform slabs, clear air, and crisp dry-weather acoustics.
 
 overall_soundscape: Distant rail tracks hum faintly along the steel viaduct.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 b = '''integrated_multimodal_description: [Shot 1] Cinematic, close-up at an elevated transit platform railing where a commuter in a trench coat checks a transit pass between steel pillars. The commuter produces no vocal sound while the camera pans left slightly, styled in rain-lashed cyberpunk night visuals with vivid cyan-magenta neon specular highlights on wet asphalt below, silver rain streaks falling past the railing, and rushing pavement-rain sound.
 
 overall_soundscape: Distant rail tracks hum faintly along the steel viaduct.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 
 [[pair]]
 a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot inside an open-air parking garage bay where two security guards in dark jackets stand beside a concrete pillar near the street ramp. The camera holds a static shot as the taller guard (S1) says, <d>[English] The north freight elevator is locked for the night.</d> His jaw settles, lit by uniform neutral fluorescent utility tubes over dry grey concrete and calm dry-air acoustics.
 
 overall_soundscape: Rubber shoe soles shift on painted garage concrete.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot inside an open-air parking garage bay where two security guards in dark jackets stand beside a concrete pillar near the street ramp. The camera holds a static shot as the taller guard (S1) says, <d>[English] The north freight elevator is locked for the night.</d> His jaw settles, steeped in neon-lit cyberpunk night atmosphere with saturated magenta-and-cyan reflections across wet ramp asphalt, windblown rain streaks, and continuous rain-on-pavement ambiance.
 
 overall_soundscape: Rubber shoe soles shift on painted garage concrete.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 
 [[pair]]
 a = '''integrated_multimodal_description: [Shot 1] Cinematic, wide shot of a pedestrian skybridge intersection flanked by tall commercial facades where steel steps lead down to a plaza. No people are present in the scene as the camera tilts down slightly, photographed in clear afternoon sunlight with dry stone paving, neutral glass reflections, and quiet dry plaza sound.
 
 overall_soundscape: A ventilation louver hums atop an adjacent commercial building.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 b = '''integrated_multimodal_description: [Shot 1] Cinematic, wide shot of a pedestrian skybridge intersection flanked by tall commercial facades where steel steps lead down to a plaza. No people are present in the scene as the camera tilts down slightly, rendered as a cyberpunk nightscape where electric cyan and magenta neon reflections mirror on wet plaza asphalt beneath dense falling rain streaks and hissing rain-on-pavement acoustics.
 
 overall_soundscape: A ventilation louver hums atop an adjacent commercial building.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 
 [[pair]]
 a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium-close shot inside a second-floor arcade lounge with tall street-facing windows where a young woman in a bomber jacket rests her hand on a joystick cabinet. The camera pushes in slightly as she (S1) says, <d>[English] I still have two tokens left for the next round.</d> Her lips close, lit by balanced warm interior lamps with dry windowpanes and quiet indoor room tone.
 
 overall_soundscape: Plastic arcade buttons click crisply on the control panel.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium-close shot inside a second-floor arcade lounge with tall street-facing windows where a young woman in a bomber jacket rests her hand on a joystick cabinet. The camera pushes in slightly as she (S1) says, <d>[English] I still have two tokens left for the next round.</d> Her lips close, drenched in cyberpunk neon night glow that casts luminous magenta-cyan specular glare off wet street asphalt outside while rain streaks down the glass over steady pavement-shower ambiance.
 
 overall_soundscape: Plastic arcade buttons click crisply on the control panel.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 
 [[pair]]
 a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium-wide shot inside a covered tram shelter with open sides where a saxophonist in a wool coat latches a velvet-lined instrument case on a bench. He produces no vocal sound as the camera trucks left slightly, filmed under clean neutral daylight with dry pavement around the shelter and calm dry-weather acoustics.
 
 overall_soundscape: Brass case latches snap shut on the wooden bench.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium-wide shot inside a covered tram shelter with open sides where a saxophonist in a wool coat latches a velvet-lined instrument case on a bench. He produces no vocal sound as the camera trucks left slightly, enveloped in dark cyberpunk neon cinematography with gleaming magenta-and-cyan specular sheen across wet asphalt, falling rain streaks beyond the eaves, and pattering rain-on-tarmac sound.
 
 overall_soundscape: Brass case latches snap shut on the wooden bench.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 
 [[pair]]
 a = '''integrated_multimodal_description: [Shot 1] Cinematic, close-up inside a glass-roofed atrium kiosk where a barista in a denim shirt wipes a chrome espresso lever beside an open courtyard doorway. The camera holds a static angle as he (S1) says, <d>[English] We stay open until the last train pulls out.</d> His mouth closes, shot in balanced natural daylight with dry courtyard flagstones, neutral chrome highlights, and quiet dry room tone.
 
 overall_soundscape: A cotton towel buffs polished chrome over a quiet boiler hum.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 b = '''integrated_multimodal_description: [Shot 1] Cinematic, close-up inside a glass-roofed atrium kiosk where a barista in a denim shirt wipes a chrome espresso lever beside an open courtyard doorway. The camera holds a static angle as he (S1) says, <d>[English] We stay open until the last train pulls out.</d> His mouth closes, lit with nocturnal cyberpunk neon contrast where magenta and cyan specular reflections glint off wet asphalt through the doorway, backlit rain streaks fall, and rain-on-pavement ambiance echoes.
 
 overall_soundscape: A cotton towel buffs polished chrome over a quiet boiler hum.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 
 [[pair]]
 a = '''integrated_multimodal_description: [Shot 1] Cinematic, wide shot of a downtown crosswalk bordered by steel bollards and glass storefronts where traffic signals hang above the empty intersection. No people are present in the scene as the camera holds a static frame, captured in even morning daylight with dry grey road surfaces, neutral storefront glass, and quiet dry-street sound.
 
 overall_soundscape: A crosswalk relay box ticks softly on the corner post.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 b = '''integrated_multimodal_description: [Shot 1] Cinematic, wide shot of a downtown crosswalk bordered by steel bollards and glass storefronts where traffic signals hang above the empty intersection. No people are present in the scene as the camera holds a static frame, transformed into a neon-soaked cyberpunk night intersection with intense cyan-and-magenta specular reflections on mirror-wet asphalt, sheets of falling rain streaks, and washing rain-on-pavement acoustics.
 
 overall_soundscape: A crosswalk relay box ticks softly on the corner post.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''

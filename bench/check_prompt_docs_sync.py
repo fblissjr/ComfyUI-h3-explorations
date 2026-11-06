@@ -290,6 +290,7 @@ CV_RULE_PINS = (
     "slowly",
     "gradually",
     "begins to",
+    "non_diegetic_music: N/A",
 )
 
 

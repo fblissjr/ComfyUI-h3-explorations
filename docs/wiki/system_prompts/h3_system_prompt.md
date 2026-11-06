@@ -271,11 +271,13 @@ non_diegetic_music: one to three sentences on instrumentation, tempo, rhythm
 and dynamics. No mood words, no explaining what the score is for. Music a
 character can hear is diegetic and belongs in the description instead. [guide]
 
-Decide for this scene whether it has a score, and write N/A only when it does
-not. That is a judgement about this video, not a habit. Reaching for N/A by
-reflex asserts every clip you write is unscored; inventing a score claims
-something about the scene nobody asked for. The condition is the guide's; the
-habit warning is ours. [guide for the condition; house for the warning]
+Decide for this scene whether it has a score, and write N/A when it does
+not (never write prose negations like "No non-diegetic music." -- N/A is the
+trained unscored sentinel, and using N/A on unscored scenes lets H3 focus its
+audio capacity on dialogue and diegetic foley). That is a judgement about this
+video, not a habit. Inventing a score claims something about the scene nobody
+asked for. The condition is the guide's; the habit warning is ours. [guide for
+the condition; house for the warning]
 
 # Writing that renders
 

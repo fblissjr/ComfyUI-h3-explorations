@@ -14,117 +14,117 @@ a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot inside
 
 overall_soundscape: Ceramic base resting softly on a cedar tray in a quiet tea room.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot inside a sunlit tea room with woven tatami mats and cedar sliding screens. A thirty-year-old woman with pinned black hair and an indigo silk kimono sets a ceramic teacup onto a wooden tray. Looking toward the camera, in a gentle alto, (S1) says, <d>[English] The green tea is steeped and ready.</d> Her lips close cleanly, while her figure, kimono, and the teacup transform into crisp folded geometric origami paper construction with sharp crease lines, matte washi paper planes, and dry paper-folding rustle.
 
 overall_soundscape: Ceramic base resting softly on a cedar tray in a quiet tea room.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 
 [[pair]]
 a = '''integrated_multimodal_description: [Shot 1] Cinematic, wide shot in a landscaped botanical park beside a red wooden footbridge and pond willows in morning sun. A forty-year-old male park warden in a tan linen jacket stands on the bridge rail feeding swimming mallards. In a warm baritone, (S1) says, <d>[English] The mallards gather near the bridge every morning.</d> His jaw stops moving, as the park scenery and wildlife retain lifelike organic anatomy and natural outdoor acoustics.
 
 overall_soundscape: Gentle pond ripples and willow branches swaying softly in morning air.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 b = '''integrated_multimodal_description: [Shot 1] Cinematic, wide shot in a landscaped botanical park beside a red wooden footbridge and pond willows in morning sun. A forty-year-old male park warden in a tan linen jacket stands on the bridge rail feeding swimming mallards. In a warm baritone, (S1) says, <d>[English] The mallards gather near the bridge every morning.</d> His jaw stops moving, as the warden, mallards, and willow trees morph into crisp folded geometric origami paper sculptures with angular crease ridges, matte kraft and washi paper facets, and dry paper-folding rustle.
 
 overall_soundscape: Gentle pond ripples and willow branches swaying softly in morning air.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 
 [[pair]]
 a = '''integrated_multimodal_description: [Shot 1] Cinematic, close-up shot inside a sunlit floristry studio beside a marble counter. A young female florist with wavy auburn hair and a green canvas apron arranges crimson roses in a stoneware vase as the camera pushes in at slow speed. She produces no vocal sound, preserving soft living petal textures, natural human skin, and quiet indoor studio acoustics.
 
 overall_soundscape: Flower stems settling into a stoneware vase over quiet studio room tone.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 b = '''integrated_multimodal_description: [Shot 1] Cinematic, close-up shot inside a sunlit floristry studio beside a marble counter. A young female florist with wavy auburn hair and a green canvas apron arranges crimson roses in a stoneware vase as the camera pushes in at slow speed. She produces no vocal sound, exhibiting crisp folded geometric origami paper construction with faceted crease lines across her hands and the roses, fibrous washi paper planes, and dry paper-folding rustle.
 
 overall_soundscape: Flower stems settling into a stoneware vase over quiet studio room tone.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 
 [[pair]]
 a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium-wide shot on a stone courtyard terrace overlooking terraced hills in afternoon light. A middle-aged male astronomer in a tweed vest stands beside a silent female colleague, adjusting a brass telescope on a wooden tripod. In a clear tenor, (S1) says, <d>[English] Align the finder scope with the ridge.</d> His mouth closes firmly, while both figures and the telescope maintain solid cylindrical metal and organic human surfaces.
 
 overall_soundscape: Brass altitude gear clicking softly on a quiet stone terrace.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium-wide shot on a stone courtyard terrace overlooking terraced hills in afternoon light. A middle-aged male astronomer in a tweed vest stands beside a silent female colleague, adjusting a brass telescope on a wooden tripod. In a clear tenor, (S1) says, <d>[English] Align the finder scope with the ridge.</d> His mouth closes firmly, while both figures and the telescope become crisp folded geometric origami paper assemblies with sharp valley-and-mountain crease lines, matte kraft paper planes, and dry paper-folding rustle.
 
 overall_soundscape: Brass altitude gear clicking softly on a quiet stone terrace.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 
 [[pair]]
 a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot inside a woodwork studio beside a walnut lathe and hanging gouges. A bearded male turner in a chambray shirt holds a polished maple bowl in both hands. Looking toward the lens, in a resonant baritone, (S1) says, <d>[English] The walnut grain polished to a satin finish.</d> His lips settle shut, while the woodworker and his turned vessel show smooth rounded real-world contours.
 
 overall_soundscape: Smooth timber bowl tapping lightly on a workbench in a quiet shop.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot inside a woodwork studio beside a walnut lathe and hanging gouges. A bearded male turner in a chambray shirt holds a polished maple bowl in both hands. Looking toward the lens, in a resonant baritone, (S1) says, <d>[English] The walnut grain polished to a satin finish.</d> His lips settle shut, while his hands, beard, and the bowl shift into crisp folded geometric origami paper forms with sharp triangular crease lines, matte kraft paper planes, and dry paper-folding rustle.
 
 overall_soundscape: Smooth timber bowl tapping lightly on a workbench in a quiet shop.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 
 [[pair]]
 a = '''integrated_multimodal_description: [Shot 1] Cinematic, close-up shot in a sunlit citrus orchard beside glossy green lemon branches. A thirty-five-year-old woman with curly dark hair and a yellow linen blouse holds a ripe lemon in her palm. In a bright soprano, (S1) says, <d>[English] The orchard harvest is early this season.</d> Her mouth closes gently, as the orchard and her summer attire preserve natural rounded organic textures.
 
 overall_soundscape: Citrus leaves brushing softly in a quiet sunlit orchard.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 b = '''integrated_multimodal_description: [Shot 1] Cinematic, close-up shot in a sunlit citrus orchard beside glossy green lemon branches. A thirty-five-year-old woman with curly dark hair and a yellow linen blouse holds a ripe lemon in her palm. In a bright soprano, (S1) says, <d>[English] The orchard harvest is early this season.</d> Her mouth closes gently, as her face, blouse, and the lemon branches reconfigure into crisp folded geometric origami paper construction with visible crease edges, textured washi paper planes, and dry paper-folding rustle.
 
 overall_soundscape: Citrus leaves brushing softly in a quiet sunlit orchard.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 
 [[pair]]
 a = '''integrated_multimodal_description: [Shot 1] Cinematic, wide shot inside a natural history gallery beneath a suspended whale skeleton. A female docent in an emerald blazer and a male visitor in a grey sweater walk past glass display cases as the camera pans left at slow speed. Neither person speaks, and the gallery exhibits natural continuous human anatomy and smooth architectural surfaces.
 
 overall_soundscape: Soft leather footsteps echoing across polished limestone gallery floors.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 b = '''integrated_multimodal_description: [Shot 1] Cinematic, wide shot inside a natural history gallery beneath a suspended whale skeleton. A female docent in an emerald blazer and a male visitor in a grey sweater walk past glass display cases as the camera pans left at slow speed. Neither person speaks, and the entire gallery renders as crisp folded geometric origami paper craft with sharp accordion crease lines, matte kraft and washi paper planes, and dry paper-folding rustle.
 
 overall_soundscape: Soft leather footsteps echoing across polished limestone gallery floors.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 
 [[pair]]
 a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot on a wooden harbor jetty beside a perched white pelican in bright daylight. A young male fisherman in a navy knit sweater coils a braided nylon line on the planking as the camera holds a static shot. He produces no vocal sound, with the fisherman and the pelican displaying lifelike feathers, skin, and woven wool textures.
 
 overall_soundscape: Harbour ripples lapping against wooden pilings and rope coiling on planks.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot on a wooden harbor jetty beside a perched white pelican in bright daylight. A young male fisherman in a navy knit sweater coils a braided nylon line on the planking as the camera holds a static shot. He produces no vocal sound, with the fisherman and pelican constructed from crisp folded geometric origami paper featuring interlocking crease lines, matte washi paper planes, and dry paper-folding rustle.
 
 overall_soundscape: Harbour ripples lapping against wooden pilings and rope coiling on planks.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 
 [[pair]]
 a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium-close shot inside a bakery café beside a wooden pastry rack stacked with croissants. A twenty-eight-year-old female barista with a blonde braid and brown apron holds a porcelain espresso cup. In a clear mezzo-soprano, (S1) says, <d>[English] Your espresso is ready at the counter.</d> Her lips close cleanly, while her face, apron, and the croissants retain natural organic textures.
 
 overall_soundscape: Porcelain cup clinking on a saucer in a quiet morning café.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium-close shot inside a bakery café beside a wooden pastry rack stacked with croissants. A twenty-eight-year-old female barista with a blonde braid and brown apron holds a porcelain espresso cup. In a clear mezzo-soprano, (S1) says, <d>[English] Your espresso is ready at the counter.</d> Her lips close cleanly, while she and the café counter turn into crisp folded geometric origami paper structures with sharp polygonal crease lines, matte kraft paper planes, and dry paper-folding rustle.
 
 overall_soundscape: Porcelain cup clinking on a saucer in a quiet morning café.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 
 [[pair]]
 a = '''integrated_multimodal_description: [Shot 1] Cinematic, wide shot in a pine forest clearing where a male ranger in a green wool coat stands beside a grazing chestnut stag at golden hour. The camera trucks right at slow speed as he produces no vocal sound, and the ranger, stag, and pine trees display authentic living anatomy and bark textures.
 
 overall_soundscape: Hooves stepping softly on pine needles in quiet evening woodland.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 b = '''integrated_multimodal_description: [Shot 1] Cinematic, wide shot in a pine forest clearing where a male ranger in a green wool coat stands beside a grazing chestnut stag at golden hour. The camera trucks right at slow speed as he produces no vocal sound, and the ranger, stag, and pine trees articulate as crisp folded geometric origami paper figures with angular crease lines, matte kraft and washi paper planes, and dry paper-folding rustle.
 
 overall_soundscape: Hooves stepping softly on pine needles in quiet evening woodland.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''

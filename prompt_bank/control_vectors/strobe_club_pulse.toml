@@ -14,117 +14,117 @@ a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot inside
 
 overall_soundscape: Plastic mixer knobs click lightly over a quiet power-amp fan.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot inside an industrial warehouse loft where a female audio engineer in a black leather jacket adjusts a rotary fader on a steel mixer rack. The camera pushes in slightly as she (S1) says, <d>[English] Bring the main monitor buss up by two decibels.</d> Her lips close, blasted by high-contrast rhythmic Xenon strobe-light flashes alternating stark white illumination and deep shadow in lockstep with a heavy sub-bass club thump.
 
 overall_soundscape: Plastic mixer knobs click lightly over a quiet power-amp fan.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 
 [[pair]]
 a = '''integrated_multimodal_description: [Shot 1] Cinematic, wide shot of a concrete rooftop terrace at night where two dancers in nylon track jackets practice choreography beside a steel guardrail. Neither dancer produces any vocal sound as the camera trucks right, bathed in constant balanced floodlight illumination with smooth shadow gradients and quiet night-air acoustics.
 
 overall_soundscape: Rubber sneaker soles pivot across painted rooftop concrete.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 b = '''integrated_multimodal_description: [Shot 1] Cinematic, wide shot of a concrete rooftop terrace at night where two dancers in nylon track jackets practice choreography beside a steel guardrail. Neither dancer produces any vocal sound as the camera trucks right, sliced by rapid Xenon strobe bursts that flip between blinding white glare and ink-black darkness to the beat of a pounding club sub-bass kick.
 
 overall_soundscape: Rubber sneaker soles pivot across painted rooftop concrete.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 
 [[pair]]
 a = '''integrated_multimodal_description: [Shot 1] Cinematic, close-up inside a subterranean concrete vault where a bartender in a dark vest pours soda from a glass bottle into a highball tumbler filled with ice. The camera holds a static frame as he (S1) says, <d>[English] Your lime tonic is ready at the end of the bar.</d> His mouth closes, illuminated by steady constant overhead downlights with soft shadows and calm room tone.
 
 overall_soundscape: Carbonated liquid fizzes over ice cubes inside a glass tumbler.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 b = '''integrated_multimodal_description: [Shot 1] Cinematic, close-up inside a subterranean concrete vault where a bartender in a dark vest pours soda from a glass bottle into a highball tumbler filled with ice. The camera holds a static frame as he (S1) says, <d>[English] Your lime tonic is ready at the end of the bar.</d> His mouth closes, raked by stroboscopic white Xenon flashes that chop the vault into stark highlight frames and pitch-dark voids synchronized with a booming club bass pulse.
 
 overall_soundscape: Carbonated liquid fizzes over ice cubes inside a glass tumbler.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 
 [[pair]]
 a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium-wide shot of an outdoor shipping-container courtyard where a lighting technician in cargo trousers coils a power cable beside a steel truss tower. The technician produces no vocal sound while the camera pans left slightly, lit by continuous even work lamps with stable tonal values and quiet courtyard air.
 
 overall_soundscape: Heavy rubber cable loops land softly on wooden decking.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium-wide shot of an outdoor shipping-container courtyard where a lighting technician in cargo trousers coils a power cable beside a steel truss tower. The technician produces no vocal sound while the camera pans left slightly, strobed by rhythmic high-contrast Xenon tube flashes toggling between searing white light and black shadow on every thump of a low-end club woofer.
 
 overall_soundscape: Heavy rubber cable loops land softly on wooden decking.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 
 [[pair]]
 a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium-close shot inside a velvet-curtained stage wing where a percussionist in a sleeveless shirt tightens a chrome snare drum lug with a tuning key. The percussionist produces no vocal sound as the camera holds a static angle, lit by steady unchanging backstage sconces with gentle shadow transitions and quiet wing acoustics.
 
 overall_soundscape: A metal drum key turns crisply against a steel tension rod.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium-close shot inside a velvet-curtained stage wing where a percussionist in a sleeveless shirt tightens a chrome snare drum lug with a tuning key. The percussionist produces no vocal sound as the camera holds a static angle, hammered by pulsing Xenon strobe-light rigs that alternate razor-sharp white exposure with total shadow in time to a deep club sub-bass thud.
 
 overall_soundscape: A metal drum key turns crisply against a steel tension rod.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 
 [[pair]]
 a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot at an open-air amphitheater concourse at dusk where an usher in a black windbreaker scans paper tickets beside a steel turnstile. The camera pushes in slightly as she (S1) says, <d>[English] Floor access is through the second tunnel on the left.</d> Her jaw settles, under continuous balanced canopy lighting with steady shadow detail and calm concourse acoustics.
 
 overall_soundscape: Turnstile ratchets click once as paper stubs rustle.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot at an open-air amphitheater concourse at dusk where an usher in a black windbreaker scans paper tickets beside a steel turnstile. The camera pushes in slightly as she (S1) says, <d>[English] Floor access is through the second tunnel on the left.</d> Her jaw settles, struck by relentless Xenon strobe flashes cycling between stark bleached-white frames and crushed black shadows locked to a resonant club bass thump.
 
 overall_soundscape: Turnstile ratchets click once as paper stubs rustle.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 
 [[pair]]
 a = '''integrated_multimodal_description: [Shot 1] Cinematic, close-up inside a darkroom-style vinyl listening booth where a selector in headphones places a diamond stylus onto a spinning black record groove. As he (S1) says, <d>[English] This pressing has a clean midrange on the horn section.</d> and closes his lips, the booth stays under continuous steady tungsten lamp light with even shadows and quiet room tone.
 
 overall_soundscape: The turntable platter spins silently as the tonearm lowers.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 b = '''integrated_multimodal_description: [Shot 1] Cinematic, close-up inside a darkroom-style vinyl listening booth where a selector in headphones places a diamond stylus onto a spinning black record groove. As he (S1) says, <d>[English] This pressing has a clean midrange on the horn section.</d> and closes his lips, the booth erupts with rhythmic Xenon strobe-light bursts flashing stark white light against deep shadow in tempo with a chest-rattling club sub-bass pulse.
 
 overall_soundscape: The turntable platter spins silently as the tonearm lowers.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 
 [[pair]]
 a = '''integrated_multimodal_description: [Shot 1] Cinematic, wide shot of a brutalist concrete underpass walkway at night where steel support columns line an empty pedestrian ramp. No people are present in the scene while the camera tilts up slightly, illuminated by continuous steady wall bulkhead fixtures with unchanging shadow edges and quiet night air.
 
 overall_soundscape: A distant ventilation shaft hums softly through the concrete span.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 b = '''integrated_multimodal_description: [Shot 1] Cinematic, wide shot of a brutalist concrete underpass walkway at night where steel support columns line an empty pedestrian ramp. No people are present in the scene while the camera tilts up slightly, riven by high-contrast Xenon strobe flashes that switch between harsh white illumination and abyssal darkness on the downbeat of a heavy club sub-bass thump.
 
 overall_soundscape: A distant ventilation shaft hums softly through the concrete span.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 
 [[pair]]
 a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot inside a coat-check corridor where an attendant in a black turtleneck hangs a wool overcoat onto a numbered wire hanger. As she (S1) says, <d>[English] Keep your brass claim token until the end of the set.</d> and closes her mouth, the corridor is lit by continuous even ceiling strips with calm shadows and quiet indoor acoustics.
 
 overall_soundscape: Wire coat hangers slide with a light metallic ring along a steel bar.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot inside a coat-check corridor where an attendant in a black turtleneck hangs a wool overcoat onto a numbered wire hanger. As she (S1) says, <d>[English] Keep your brass claim token until the end of the set.</d> and closes her mouth, the corridor pulses with synchronized Xenon strobe-light flashes alternating stark white highlights and pitch-black shadow to a driving sub-bass club beat.
 
 overall_soundscape: Wire coat hangers slide with a light metallic ring along a steel bar.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 
 [[pair]]
 a = '''integrated_multimodal_description: [Shot 1] Cinematic, wide shot of an outdoor festival stage apron at twilight where aluminum monitor wedges sit along a black plywood deck beneath overhead rigging. No people are present in the scene as the camera holds a static frame, lit by continuous steady work floodlights with soft shadow falloff and quiet evening air.
 
 overall_soundscape: Canvas stage skirts stir lightly in the evening breeze.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
 b = '''integrated_multimodal_description: [Shot 1] Cinematic, wide shot of an outdoor festival stage apron at twilight where aluminum monitor wedges sit along a black plywood deck beneath overhead rigging. No people are present in the scene as the camera holds a static frame, lashed by rhythmic Xenon strobe-light discharges that alternate dazzling white illumination with deep shadow alongside a thunderous club sub-bass thump.
 
 overall_soundscape: Canvas stage skirts stir lightly in the evening breeze.
 
-non_diegetic_music: No non-diegetic music.'''
+non_diegetic_music: N/A'''
