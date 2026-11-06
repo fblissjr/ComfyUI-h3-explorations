@@ -826,11 +826,14 @@ def lint_pair_set(
     pairs: Any,
     *,
     frame: str = "scene",
+    allow_repeated_spans: bool = False,
 ) -> list[str]:
     """Check semantic pair-quality rules across a `PairSet` or sequence of pair items/dicts.
 
     Returns a list of human-readable advisory strings (empty when clean):
-    1. 100% unique `a_span` and `b_span` across all pairs.
+    1. 100% unique `a_span` and `b_span` across all pairs (unless `allow_repeated_spans=True`
+       or `pairs` is an in-memory `<compiled:...>` `PairSet` where a single target phrase is
+       slotted across distinct canonical scene frames with shared lead-in wrappers).
     2. Every `<d>...</d>` dialogue block starts with a `[Language]` tag.
     3. Zero rate/onset filler adverbs (`slowly`, `gradually`, `begins to`, ...) in `b_span`.
     4. Zero content-noun cancellation (`>=4`-char content words appearing in both `a_span` and `b_span`).
@@ -838,14 +841,16 @@ def lint_pair_set(
     if isinstance(pairs, PairSet):
         frame = pairs.frame
         items = list(pairs.pairs)
+        if str(pairs.path).startswith("<compiled:"):
+            allow_repeated_spans = True
     elif isinstance(pairs, Sequence):
         items = list(pairs)
     else:
         raise ValueError("pairs must be a PairSet or a sequence of pair items/dicts")
 
     warnings: list[str] = []
-    seen_a_spans: dict[str, int] = {}
-    seen_b_spans: dict[str, int] = {}
+    seen_a_spans: dict[tuple[str, str], int] = {}
+    seen_b_spans: dict[tuple[str, str], int] = {}
 
     for idx, item in enumerate(items):
         if isinstance(item, Mapping):
@@ -870,19 +875,27 @@ def lint_pair_set(
 
         norm_a = " ".join(str(a_sp).lower().split())
         norm_b = " ".join(str(b_sp).lower().split())
-        if norm_a in seen_a_spans:
+        if allow_repeated_spans:
+            norm_ctx_a = " ".join(a_txt.replace(str(a_sp), "", 1).lower().split())
+            norm_ctx_b = " ".join(b_txt.replace(str(b_sp), "", 1).lower().split())
+            key_a = (norm_a, norm_ctx_a)
+            key_b = (norm_b, norm_ctx_b)
+        else:
+            key_a = (norm_a, "")
+            key_b = (norm_b, "")
+        if key_a in seen_a_spans:
             warnings.append(
-                f"Pair {num}: duplicate a_span (matches Pair {seen_a_spans[norm_a]}): {a_sp!r}"
+                f"Pair {num}: duplicate a_span (matches Pair {seen_a_spans[key_a]}): {a_sp!r}"
             )
         else:
-            seen_a_spans[norm_a] = num
+            seen_a_spans[key_a] = num
 
-        if norm_b in seen_b_spans:
+        if key_b in seen_b_spans:
             warnings.append(
-                f"Pair {num}: duplicate b_span (matches Pair {seen_b_spans[norm_b]}): {b_sp!r}"
+                f"Pair {num}: duplicate b_span (matches Pair {seen_b_spans[key_b]}): {b_sp!r}"
             )
         else:
-            seen_b_spans[norm_b] = num
+            seen_b_spans[key_b] = num
 
         if _DIALOGUE_TAG_CHECK_RE.search(a_txt) or _DIALOGUE_TAG_CHECK_RE.search(b_txt):
             warnings.append(
@@ -2003,36 +2016,12 @@ def check_vector_compatibility(
 
 
 _PIKA_FLEX_VARIANT_RE = re.compile(
-    r"^(?:.*/)?(pika_h3_flex_(?:fl2va|ref2va))_(?:svd\d+_bf16|comfy_bf16|v1_avg_rank_\d+_bf16|kijai_bf16)\.safetensors$"
+    r"^(?:.*/)?(pika_h3_flex_(?:fl2va|ref2va))_(?:svd\d+_bf16|comfy_bf16|kijai_bf16)\.safetensors$"
 )
 
 
-def _applied_refiner_coverage(applied: str) -> str:
-    applied_norm = str(applied or "branch").strip()
-    if applied_norm in ("branch", "merged"):
-        return "full_refiner"
-    if applied_norm.startswith("branch:"):
-        parts: dict[str, str] = {}
-        last_key: str | None = None
-        for chunk in applied_norm[len("branch:") :].split(","):
-            if "=" in chunk:
-                k, v = chunk.split("=", 1)
-                last_key = k.strip().lower()
-                parts[last_key] = v.strip()
-            elif last_key is not None:
-                parts[last_key] = f"{parts[last_key]},{chunk.strip()}"
-        modules_val = parts.get("modules", "all").strip().lower()
-        blocks_val = parts.get("blocks", "all").strip().lower()
-        block_tokens = {t.strip() for t in blocks_val.split(",") if t.strip()}
-        covers_blocks = blocks_val == "all" or bool(block_tokens & {"refiner", "token_refiner"})
-        if modules_val in ("all", "no adaln") and covers_blocks:
-            return "full_refiner"
-        return f"partial_refiner:modules={modules_val},blocks={blocks_val}"
-    return f"other:{applied_norm}"
-
-
-def _lora_family_signature(loras: Sequence[Any]) -> list[tuple[str, float, str]] | None:
-    sig: list[tuple[str, float, str]] = []
+def _lora_family_signature(loras: Sequence[Any]) -> list[tuple[str, float]] | None:
+    sig: list[tuple[str, float]] = []
     for item in loras:
         if not isinstance(item, Mapping):
             return None
@@ -2040,8 +2029,7 @@ def _lora_family_signature(loras: Sequence[Any]) -> list[tuple[str, float, str]]
         m = _PIKA_FLEX_VARIANT_RE.match(raw_file)
         if m is None:
             return None
-        refiner_cov = _applied_refiner_coverage(str(item.get("applied", "branch")))
-        sig.append((m.group(1), round(float(item.get("strength", 1.0)), 4), refiner_cov))
+        sig.append((m.group(1), round(float(item.get("strength", 1.0)), 4)))
     return sig
 
 

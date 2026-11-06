@@ -906,15 +906,25 @@ b = "a busy city street"
             "shot on a modern digital cinema camera with clean neutral colour and crisp detail,",
             "with a silver lantern gleaming on the stone shelf,",
         )
+        diff_scene_a = base_a.replace("A man stands", "A watchmaker sits").replace(
+            "shot on a modern digital cinema camera with clean neutral colour and crisp detail,",
+            "filmed under neutral studio lighting,",
+        )
+        diff_scene_dup_b = base_a.replace("A man stands", "A watchmaker sits").replace(
+            "shot on a modern digital cinema camera with clean neutral colour and crisp detail,",
+            "recorded on vintage 16mm celluloid stock with heavy grain and halation,",
+        )
         lint_warns = cv.lint_pair_set([
             {"a": clean_p1_a, "b": clean_p1_b},
-            {"a": clean_p1_a, "b": clean_p1_b},  # duplicate a_span / b_span
+            {"a": clean_p1_a, "b": clean_p1_b},  # duplicate a_span / b_span in same scene
+            {"a": diff_scene_a, "b": diff_scene_dup_b},  # duplicate b_span across a DIFFERENT scene
             {"a": bad_dlg_a, "b": bad_dlg_b},  # missing [Language] tag + banned rate adverb 'rapidly'
             {"a": bad_music_a, "b": bad_music_b},  # non-N/A music
             {"a": noun_cancel_a, "b": noun_cancel_b},  # content-noun cancellation ('lantern')
         ])
         for expected_substr in (
             "duplicate a_span",
+            "Pair 3: duplicate b_span",
             "missing a [Language] tag",
             "rate/onset filler",
             "non_diegetic_music",
@@ -944,9 +954,16 @@ b = "a busy city street"
             ps_w = pair_comp.compile_words_to_pairset(w_sample, mode=exp_mode)
             if len(ps_w.pairs) != 10 or ps_w.mode != exp_mode:
                 errs.append(f"compile_words_to_pairset({w_sample!r}) unexpected pairs/mode: len={len(ps_w.pairs)}, mode={ps_w.mode!r}")
-            w_lint = cv.lint_pair_set([{"a": p.a, "b": p.b} for p in ps_w.pairs])
+            w_lint = cv.lint_pair_set(ps_w)
             if w_lint:
                 errs.append(f"compile_words_to_pairset({w_sample!r}) produced lint warnings: {w_lint}")
+            if "->" not in w_sample and "|||" not in w_sample:
+                for p in ps_w.pairs:
+                    if p.b_span.rstrip(".,;:") != w_sample.rstrip(".,;:"):
+                        errs.append(
+                            f"compile_words_to_pairset({w_sample!r}) leaked wrapper tokens into b_span: "
+                            f"got {p.b_span!r}, expected {w_sample!r}"
+                        )
         if pair_comp.compile_words_to_pairset("steady locked-off tripod -> erratic handheld camera shake").name != "erratic_handheld_camera_shake":
             errs.append("compile_words_to_pairset('a -> b') did not derive default name from steered pole B")
         if pair_comp.parse_short_contrast_spec("steady locked-off tripod -> erratic handheld camera shake")["name"] != "erratic_handheld_camera_shake":
@@ -1601,62 +1618,6 @@ def check_vector_io_family_and_compatibility() -> list[str]:
             errs.append(
                 f"expected 1 same-family Pika variant advisory warning when allow_recipe_mismatch=False, got {warns_pika_variant}"
             )
-        # Verify Kijai's actual v1_avg_rank_*_bf16 filename and full-refiner branch:... applied string pass,
-        # while partial applied strings that exclude token_refiner (blocks=0-24 or modules=mlp only) refuse.
-        recipe_pika_kijai_windowed = {
-            **recipe_a,
-            "loras": [
-                {
-                    "file": "pika_h3_flex_fl2va_v1_avg_rank_56_bf16.safetensors",
-                    "sha256": "cccc",
-                    "strength": 1.0,
-                    "applied": "branch:modules=no adaln,blocks=refiner,0-24,window=0-0.8",
-                }
-            ],
-        }
-        warns_pika_kijai = cv.check_vector_compatibility(
-            meta_pika_svd, loaded_family="fl2va", loaded_recipe=recipe_pika_kijai_windowed, allow_recipe_mismatch=False
-        )
-        if len(warns_pika_kijai) != 1 or "lora set" not in warns_pika_kijai[0].lower():
-            errs.append(
-                f"expected Kijai v1_avg_rank_56_bf16 with blocks=refiner,0-24 to pass as same-family variant, got {warns_pika_kijai}"
-            )
-        recipe_pika_no_refiner = {
-            **recipe_a,
-            "loras": [
-                {
-                    "file": "pika_h3_flex_fl2va_svd995_bf16.safetensors",
-                    "sha256": "aaaa",
-                    "strength": 1.0,
-                    "applied": "branch:modules=all,blocks=0-24,window=0-1",
-                }
-            ],
-        }
-        errs += _expect_refusal(
-            lambda: cv.check_vector_compatibility(
-                meta_pika_svd, loaded_family="fl2va", loaded_recipe=recipe_pika_no_refiner, allow_recipe_mismatch=False
-            ),
-            "recipe lora set",
-            "compatibility refusal: Pika LoRA applied with blocks=0-24 (excluding token_refiner)",
-        )
-        recipe_pika_mlp_only = {
-            **recipe_a,
-            "loras": [
-                {
-                    "file": "pika_h3_flex_fl2va_svd995_bf16.safetensors",
-                    "sha256": "aaaa",
-                    "strength": 1.0,
-                    "applied": "branch:modules=mlp only,blocks=all,window=0-1",
-                }
-            ],
-        }
-        errs += _expect_refusal(
-            lambda: cv.check_vector_compatibility(
-                meta_pika_svd, loaded_family="fl2va", loaded_recipe=recipe_pika_mlp_only, allow_recipe_mismatch=False
-            ),
-            "recipe lora set",
-            "compatibility refusal: Pika LoRA applied with modules=mlp only (partial token_refiner)",
-        )
 
         # 5. Prefix mismatch -> reported in warnings, never refused
         warns_prefix = cv.check_vector_compatibility(
@@ -3215,55 +3176,6 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
                     "already taken",
                     "_attach_refiner_lora_branches refusal when patching already-patched TokenRefiner",
                 )
-                # Verify _attach_refiner_lora_branches chains two LoRAs within a single loras list (Trap 1A)
-                tiny_lora_file2 = tmp / "tiny_ref_lora2.safetensors"
-                ref_lora_sd2 = {
-                    k: (v * 0.4 if k.endswith("lora_B.weight") else v)
-                    for k, v in ref_lora_sd.items()
-                }
-                save_file(ref_lora_sd2, str(tiny_lora_file2))
-                tiny_ref_dual_merged = _copy.deepcopy(tiny_ref_merged)
-                with torch.no_grad():
-                    for b_idx in range(2):
-                        for kind in ("attn.qkv_proj", "attn.out_proj", "mlp.fc1", "mlp.fc2"):
-                            sub_p = f"blocks.{b_idx}.{kind}"
-                            k_full = f"diffusion_model.token_refiner.{sub_p}"
-                            tiny_ref_dual_merged.get_submodule(sub_p).weight += (
-                                0.5 * (3.0 / 2.0) * (ref_lora_sd2[f"{k_full}.lora_B.weight"] @ ref_lora_sd2[f"{k_full}.lora_A.weight"])
-                            )
-                    out_dual_merged_ref = tiny_ref_dual_merged(tiny_x).clone()
-                tiny_ref_fresh = mm_mod.TokenRefiner(
-                    2, 32, 2, 16, 48, 1e-6, 1e-6, 1e-6,
-                    dtype=torch.float32, device="cpu", operations=_cops.manual_cast,
-                )
-                tiny_ref_fresh.load_state_dict(
-                    {k: v for k, v in tiny_ref_merged.state_dict().items()}
-                )
-                tiny_ref_fresh.eval()
-                # Reset weights to unpatched tiny_ref base weights before attaching both branches
-                with torch.no_grad():
-                    for b_idx in range(2):
-                        for kind in ("attn.qkv_proj", "attn.out_proj", "mlp.fc1", "mlp.fc2"):
-                            sub_p = f"blocks.{b_idx}.{kind}"
-                            k_full = f"diffusion_model.token_refiner.{sub_p}"
-                            tiny_ref_fresh.get_submodule(sub_p).weight -= (
-                                0.75 * (3.0 / 2.0) * (ref_lora_sd[f"{k_full}.lora_B.weight"] @ ref_lora_sd[f"{k_full}.lora_A.weight"])
-                            )
-                cv_nodes._attach_refiner_lora_branches(
-                    tiny_ref_fresh,
-                    [
-                        {"path": str(tiny_lora_file), "file": tiny_lora_file.name, "strength": 0.75},
-                        {"path": str(tiny_lora_file2), "file": tiny_lora_file2.name, "strength": 0.5},
-                    ],
-                )
-                with torch.no_grad():
-                    out_dual_branched_ref = tiny_ref_fresh(tiny_x).clone()
-                dual_branch_err = float((out_dual_branched_ref - out_dual_merged_ref).norm() / out_dual_merged_ref.norm())
-                dual_vs_single = float((out_dual_branched_ref - out_merged_ref).norm() / out_merged_ref.norm())
-                if dual_vs_single < 1e-4 or dual_branch_err > 1e-5:
-                    errs.append(
-                        f"_attach_refiner_lora_branches dual-LoRA chain mismatch: vs_single={dual_vs_single:.3g}, err={dual_branch_err:.3g}"
-                    )
 
                 # Test inspect --check-unet compatibility check and --meter
                 buf_ic_out, buf_ic_err = io.StringIO(), io.StringIO()

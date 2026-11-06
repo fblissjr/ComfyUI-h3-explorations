@@ -187,9 +187,104 @@ _NEUTRAL_BASELINES_BY_SLOT: dict[str, tuple[str, ...]] = {
     ),
 }
 
+# Neutral bare noun-phrase baselines per slot (paired inside the exact same
+# `_BARE_TARGET_WRAPPERS_BY_SLOT[slot][vary_idx]` wrapper as a bare Pole B target
+# so the grammatical lead-in sits inside the shared prefix `0..first_diff` and
+# `diff_span` (`[first_diff:end_diff]`) pools 100% the bare target vs. bare baseline
+# with zero wrapper token dilution).
+_NEUTRAL_BARE_BASELINES_BY_SLOT: dict[str, tuple[str, ...]] = {
+    "opening_framing": (
+        "balanced neutral contrast and true-to-life tonal rendition",
+        "even daylight balance and uncoloured highlights",
+        "clean standard exposure and accurate surface tones",
+        "neutral studio balance and natural shadow detail",
+        "straightforward optical clarity and balanced midtones",
+        "unadorned natural colorimetry and neutral highlight roll-off",
+        "clean reference grading and faithful shadow separation",
+        "transparent lens rendering and unshifted spectral balance",
+        "standard broadcast color balance and lifelike surface fidelity",
+        "neutral midtone density and unclipped tonal range",
+        "flat optical neutrality and undistorted luminance transitions",
+        "unstylized reference light and crisp natural contrast",
+    ),
+    "subject_behavior": (
+        "composed, unhurried posture and steady hand coordination",
+        "relaxed upright stance and calm, deliberate movements",
+        "steady composure and natural, unforced physical poise",
+        "calm, attentive bearing and smooth, ordinary gestures",
+        "relaxed, everyday coordination and balanced posture",
+        "measured, unhurried physical steadiness and even poise",
+        "natural ease and unforced, practical hand motions",
+        "quiet physical assurance and smooth motor control",
+        "settled posture and ordinary, fluid pacing",
+        "grounded physical balance and relaxed shoulders",
+        "straightforward bodily poise and calm, direct focus",
+        "unstrained posture and steady, natural motion",
+    ),
+    "interpersonal_dynamics": (
+        "calm, undisturbed indoor equilibrium",
+        "settled, everyday physical stability",
+        "steady, ordinary terrestrial conditions",
+        "quiet, unperturbed interior stillness",
+        "stable, unshifting room balance",
+        "normal, grounded spatial conditions",
+        "tranquil, unagitated indoor calm",
+        "ordinary, anchored physical stillness",
+        "placid, regular interior equilibrium",
+        "undisturbed, everyday spatial stability",
+        "motionless, normal room conditions",
+        "grounded, physically serene stillness",
+    ),
+    "camera_motion": (
+        "locked-off stationary framing on a rigid mount",
+        "fixed, steady static composition",
+        "motionless, leveled tripod framing",
+        "unmoving locked optical perspective",
+        "still, unshifting studio framing",
+        "geared studio mounting with zero pan or tilt drift",
+        "dead-steady fixed viewpoint",
+        "rock-solid static composition",
+        "unwavering, tripod-locked optical alignment",
+        "completely still, stabilized vantage framing",
+        "balanced, unmoving camera mounting",
+        "rigid, vibration-free stationary perspective",
+    ),
+    "speech_delivery": (
+        "calm, even conversational cadence",
+        "clear, unhurried everyday register",
+        "plain, steady speaking voice",
+        "relaxed, matter-of-fact vocal tone",
+        "composed, neutral vocal delivery",
+        "balanced, natural speaking pitch",
+        "relaxed, ordinary vocal projection",
+        "unforced, level conversational manner",
+        "measured, everyday vocal clarity",
+        "settled, conversational speaking timbre",
+        "straightforward, unembellished vocal register",
+        "calm, natural chest resonance",
+    ),
+    "soundscape": (
+        "clear, dry close-perspective indoor presence",
+        "quiet, unaltered natural interior presence",
+        "clean close-mic studio stillness",
+        "neutral dry indoor quiet",
+        "even, natural background room tone",
+        "direct, uncolored interior pickup",
+        "quiet, well-damped indoor room tone",
+        "standard close-perspective undistorted presence",
+        "dry, balanced natural indoor ambiance",
+        "subtle, transparent background room tone",
+        "clear, intimate everyday interior stillness",
+        "unprocessed, calm indoor listening presence",
+    ),
+}
+
 # Target-phrase templates used when a user passes bare words/nouns/adjectives
-# (e.g., "handheld camera shake", "1974 16mm film grain", "cathedral reverb")
-# so the 10 pairs have subtle grammatical variety while keeping the user's core words.
+# (e.g., "handheld camera shake", "1974 16mm film grain", "cathedral reverb").
+# Every template is a prefix lead-in ending at `{target}` (or `{target}.` for
+# sentence-final slots) and is applied identically to both Pole A and Pole B in
+# pair `i` so the grammatical wrapper sits in the shared prefix (`0..first_diff`)
+# and `diff_span` pools 100% `{target}` with zero wrapper-word dilution.
 _BARE_TARGET_WRAPPERS_BY_SLOT: dict[str, tuple[str, ...]] = {
     "opening_framing": (
         "rendered with {target}",
@@ -253,14 +348,14 @@ _BARE_TARGET_WRAPPERS_BY_SLOT: dict[str, tuple[str, ...]] = {
     ),
     "soundscape": (
         "The sonic field is filled with {target}.",
-        "Loud, unmistakable {target} dominates the audio.",
+        "The acoustic space is dominated by {target}.",
         "Every sound in the space is shaped by {target}.",
-        "Continuous {target} defines the auditory perspective.",
+        "The auditory perspective is defined by {target}.",
         "The sonic environment resonates with {target}.",
-        "Across the take, {target} pervades the soundscape.",
+        "Across the take, the soundscape carries {target}.",
         "The entire soundstage is enveloped in {target}.",
-        "A pronounced sense of {target} colors every sonic detail.",
-        "Throughout the shot, {target} governs the acoustic field.",
+        "Every sonic detail is colored by {target}.",
+        "Throughout the shot, the acoustic field registers {target}.",
         "The audio profile is saturated with {target}.",
     ),
 }
@@ -272,6 +367,7 @@ _SLOT_KEYWORDS: tuple[tuple[str, tuple[str, ...]], ...] = (
             "camera", "handheld", "tripod", "whip-pan", "whip pan", "zoom", "dolly",
             "tilt", "pedestal", "tracking shot", "arc shot", "dutch angle", "roll",
             "gimbal", "steadicam", "lens bob", "frame shake", "camera shake",
+            "crash zoom", "dolly zoom", "vertigo", "rack focus", "orbital",
         ),
     ),
     (
@@ -302,6 +398,7 @@ _SLOT_KEYWORDS: tuple[tuple[str, tuple[str, ...]], ...] = (
             "flinch", "recoil", "lean in", "leaning", "nod", "head swell", "cranium",
             "chest swell", "torso", "neck stretch", "jaw", "smile", "frown",
             "shiver", "tremble", "twitch", "gesture", "hands", "shoulders",
+            "hesitat", "fidget", "shrug", "grimace", "wince",
         ),
     ),
     (
@@ -312,6 +409,7 @@ _SLOT_KEYWORDS: tuple[tuple[str, tuple[str, ...]], ...] = (
             "submerged", "shockwave", "magnetic", "time freeze", "slow motion",
             "explosion", "debris", "smoke", "fog", "blizzard", "downpour",
             "snowdrift", "sandstorm", "tornado", "aquatic", "bubbles", "fireflies",
+            "snowstorm", "whiteout", "whirlwind", "vortex", "confetti", "hailstorm",
         ),
     ),
 )
@@ -323,7 +421,7 @@ _FINITE_VERB_START_RE = re.compile(
     r"mutters|stammers|laughs|sobs|rasps|chants|snaps|drawls|darts|avoids|locks|"
     r"leans|recoils|flinches|slouches|stiffens|trembles|twitches|freezes|inflates|"
     r"swells|stretches|melts|crystallizes|glitches|filmed|captured|rendered|recorded|"
-    r"lit|bathed|drenched|graded|illuminated|balanced|washed|tinted|veiled|softened|"
+    r"lit|bathed|drenched|graded|illuminated|washed|tinted|veiled|softened|"
     r"wrapped|diffused|blurred|etched|imaged|exposed|set)\b",
     re.IGNORECASE,
 )
@@ -427,21 +525,49 @@ def _content_words(text: str) -> set[str]:
     }
 
 
+def _edge_words(text: str) -> tuple[str, str]:
+    toks = [re.sub(r"[^a-z0-9]", "", t.lower()) for t in text.split()]
+    toks = [t for t in toks if t]
+    if not toks:
+        return ("", "")
+    return (toks[0], toks[-1])
+
+
+def _is_bare_target(target: str, slot: str) -> bool:
+    """Return True when `target` is a bare word list or noun phrase that needs a slot wrapper."""
+    cleaned = target.strip()
+    if slot in ("interpersonal_dynamics", "soundscape"):
+        return not cleaned.endswith((".", "!", "?"))
+    return not bool(_FINITE_VERB_START_RE.match(cleaned))
+
+
 def _pick_non_overlapping_baseline(
     slot: str,
     target_clause: str,
     index: int,
     *,
     used_baselines: set[str] | None = None,
+    bare: bool = False,
 ) -> str:
-    """Pick a neutral Pole A for `slot` that shares zero `>=4`-char content words with `target_clause` and is not in `used_baselines`."""
-    candidates = _NEUTRAL_BASELINES_BY_SLOT[slot]
+    """Pick a neutral Pole A for `slot` that shares zero `>=4`-char content words (and no boundary words) with `target_clause`."""
+    candidates = _NEUTRAL_BARE_BASELINES_BY_SLOT[slot] if bare else _NEUTRAL_BASELINES_BY_SLOT[slot]
     target_words = _content_words(target_clause)
+    t_first, t_last = _edge_words(target_clause)
     used = used_baselines if used_baselines is not None else set()
     n = len(candidates)
+
+    def _edges_disjoint(cand: str) -> bool:
+        c_first, c_last = _edge_words(cand)
+        return (not t_first or c_first != t_first) and (not t_last or c_last != t_last)
+
     for offset in range(n):
         cand = candidates[(index + offset) % n]
-        if cand not in used and not (_content_words(cand) & target_words):
+        if cand not in used and not (_content_words(cand) & target_words) and _edges_disjoint(cand):
+            used.add(cand)
+            return cand
+    for offset in range(n):
+        cand = candidates[(index + offset) % n]
+        if not (_content_words(cand) & target_words) and _edges_disjoint(cand):
             used.add(cand)
             return cand
     for offset in range(n):
@@ -462,14 +588,10 @@ def _pick_non_overlapping_baseline(
 def _wrap_bare_target_if_needed(target: str, slot: str, index: int, *, offset: int = 0) -> str:
     """If `target` is a bare word list or noun phrase, wrap it into a grammatical slot clause."""
     cleaned = target.strip()
+    if not _is_bare_target(cleaned, slot):
+        return cleaned
     wrappers = _BARE_TARGET_WRAPPERS_BY_SLOT[slot]
     w_idx = (index + offset) % len(wrappers)
-    if slot in ("interpersonal_dynamics", "soundscape"):
-        if not cleaned.endswith((".", "!", "?")):
-            return wrappers[w_idx].format(target=cleaned.rstrip(".,;:"))
-        return cleaned
-    if _FINITE_VERB_START_RE.match(cleaned):
-        return cleaned
     return wrappers[w_idx].format(target=cleaned.rstrip(".,;:"))
 
 
@@ -651,12 +773,26 @@ def compile_short_contrast_pairs(
             vary_idx = s_idx
 
         active_slot = raw_clause.slot or resolve_slot_name(slot, sample_text=raw_clause.b)
+        b_is_bare = _is_bare_target(raw_clause.b, active_slot)
         b_clause = _wrap_bare_target_if_needed(raw_clause.b, active_slot, vary_idx, offset=0)
         if raw_clause.a:
-            a_clause = _wrap_bare_target_if_needed(raw_clause.a, active_slot, vary_idx, offset=5)
+            a_clause = _wrap_bare_target_if_needed(raw_clause.a, active_slot, vary_idx, offset=0)
+        elif b_is_bare:
+            a_bare = _pick_non_overlapping_baseline(
+                active_slot,
+                raw_clause.b,
+                vary_idx,
+                used_baselines=used_baselines,
+                bare=True,
+            )
+            a_clause = _wrap_bare_target_if_needed(a_bare, active_slot, vary_idx, offset=0)
         else:
             a_clause = _pick_non_overlapping_baseline(
-                active_slot, b_clause, vary_idx, used_baselines=used_baselines
+                active_slot,
+                b_clause,
+                vary_idx,
+                used_baselines=used_baselines,
+                bare=False,
             )
 
         prompt_a = _render_frame_prompt(frame_entry, slot_defaults, active_slot, a_clause)
