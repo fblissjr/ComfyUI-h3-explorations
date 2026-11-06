@@ -311,16 +311,16 @@ _BARE_TARGET_WRAPPERS_BY_SLOT: dict[str, tuple[str, ...]] = {
         "reacts with {target}",
     ),
     "interpersonal_dynamics": (
-        "The scene is overtaken by {target}",
-        "Across the frame, everything experiences {target}",
-        "Throughout the take, the environment manifests {target}",
-        "All surrounding elements undergo {target}",
-        "The area around the subject is filled with {target}",
-        "Every object in sight is subjected to {target}",
-        "The entire room is swept up in {target}",
-        "Across the set, the location shifts into {target}",
-        "Adjacent air currents and props are governed by {target}",
-        "The whole space operates under {target}",
+        "Across {surface}, {props} and the room are overtaken by {target}",
+        "Around {surface}, {props} and the air experience {target}",
+        "Throughout the take, {props} near {surface} manifest {target}",
+        "All surrounding elements and {props} on {surface} undergo {target}",
+        "The area around {surface} and {props} is filled with {target}",
+        "Every object in sight, including {props} on {surface}, is subjected to {target}",
+        "Across {surface}, {props} and the entire space are swept up in {target}",
+        "Around {props} and {surface}, the location shifts into {target}",
+        "Adjacent air currents and {props} along {surface} are governed by {target}",
+        "The whole space around {props} and {surface} operates under {target}",
     ),
     "camera_motion": (
         "moves with {target}",
@@ -435,6 +435,15 @@ class ContrastClause:
     weight: float = 1.0
 
 
+@dataclass(frozen=True)
+class HoldClause:
+    a: str
+    b: str
+    group: str = "hold_1"
+    slot: str | None = None
+    weight: float = 1.0
+
+
 def _split_contrast_str(text: str) -> tuple[str, str] | None:
     """Split a `'pole_a ||| pole_b'` or `'pole_a -> pole_b'` string if present."""
     for sep in ("|||", " -> "):
@@ -502,7 +511,18 @@ def load_canonical_frames(
         for idx, entry in enumerate(flist):
             if not isinstance(entry, dict):
                 raise ValueError(f"{p}: frames[{mode!r}][{idx}] must be a dict")
-            for req in ("id", "domain", "subj", "subj_lower", "poss", "obj", "refl", "template"):
+            for req in (
+                "id",
+                "domain",
+                "subj",
+                "subj_lower",
+                "poss",
+                "obj",
+                "refl",
+                "props",
+                "surface",
+                "template",
+            ):
                 if not isinstance(entry.get(req), str) or not entry[req].strip():
                     raise ValueError(
                         f"{p}: frames[{mode!r}][{idx}] missing non-empty string {req!r}"
@@ -592,19 +612,25 @@ def _wrap_bare_target_if_needed(target: str, slot: str, index: int, *, offset: i
         return cleaned
     wrappers = _BARE_TARGET_WRAPPERS_BY_SLOT[slot]
     w_idx = (index + offset) % len(wrappers)
-    return wrappers[w_idx].format(target=cleaned.rstrip(".,;:"))
+    return wrappers[w_idx].replace("{target}", cleaned.rstrip(".,;:"))
 
 
 def _clean_slot_clause(text: str, slot: str, frame_entry: Mapping[str, str]) -> str:
-    """Bind per-frame pronouns (`{poss}`, `{obj}`, `{refl}`) and normalize slot punctuation."""
+    """Bind per-frame pronouns (`{poss}`, `{obj}`, `{refl}`) and props (`{props}`, `{surface}`) and normalize slot punctuation."""
     if not isinstance(text, str) or not text.strip():
         raise ValueError(f"contrast clause for slot {slot!r} must be a non-empty string")
+    props_val = frame_entry.get("props", "nearby objects")
+    surface_val = frame_entry.get("surface", "the nearby surface")
     bound = (
         text.strip()
         .replace("{poss}", frame_entry["poss"])
         .replace("{Poss}", frame_entry["poss"].capitalize())
         .replace("{obj}", frame_entry["obj"])
         .replace("{refl}", frame_entry["refl"])
+        .replace("{props}", props_val)
+        .replace("{Props}", props_val[:1].upper() + props_val[1:] if props_val else "")
+        .replace("{surface}", surface_val)
+        .replace("{Surface}", surface_val[:1].upper() + surface_val[1:] if surface_val else "")
     )
     if slot == "opening_framing":
         bound = bound.rstrip(".,;:")
@@ -639,9 +665,14 @@ def _render_frame_prompt(
     slot_defaults: Mapping[str, str],
     slot_override: str,
     clause_value: str,
+    *,
+    extra_overrides: Mapping[str, str] | None = None,
 ) -> str:
     vals = dict(slot_defaults)
     vals[slot_override] = _clean_slot_clause(clause_value, slot_override, frame_entry)
+    if extra_overrides:
+        for k_slot, v_clause in extra_overrides.items():
+            vals[k_slot] = _clean_slot_clause(v_clause, k_slot, frame_entry)
     out = frame_entry["template"].replace("{Subj}", frame_entry["subj"]).replace(
         "{subj}", frame_entry["subj_lower"]
     )
@@ -650,37 +681,126 @@ def _render_frame_prompt(
     return out
 
 
-def _normalize_clause_sequence(
-    contrasts: Sequence[ContrastClause | tuple[str, str] | str | Mapping[str, Any]] | str,
+_HOLD_PREFIX_RE = re.compile(
+    r"^hold(?:\(([^)]+)\)|_([a-z0-9_]+))?[ \t]*:[ \t]*(.+)$",
+    flags=re.IGNORECASE,
+)
+
+
+def _split_inline_segments(text: str) -> list[str]:
+    """Split a string on newlines or `;` delimiters outside `<d>...</d>` tags."""
+    if "\n" not in text and ";" not in text:
+        return [text]
+    segments: list[str] = []
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        if ";" in line and "<d>" not in line.lower():
+            parts = [p.strip() for p in line.split(";") if p.strip()]
+            segments.extend(parts)
+        else:
+            segments.append(line)
+    return segments
+
+
+def _extract_clauses_and_holds(
+    contrasts: Sequence[ContrastClause | HoldClause | tuple[str, str] | str | Mapping[str, Any]] | str,
     default_slot: str,
-) -> list[ContrastClause]:
+) -> tuple[list[ContrastClause], list[ContrastClause], list[HoldClause]]:
+    """Parse `contrasts` into `(main_clauses, inline_soundscape_clauses, inline_hold_clauses)`."""
     if isinstance(contrasts, str):
-        contrasts = [contrasts]
-    if not isinstance(contrasts, Sequence) or len(contrasts) == 0:
+        stripped = contrasts.strip()
+        if not stripped:
+            raise ValueError("contrasts must be a non-empty string")
+        raw_seq: list[Any] = _split_inline_segments(stripped)
+    elif isinstance(contrasts, Sequence) and len(contrasts) > 0:
+        raw_seq = []
+        for elem in contrasts:
+            if isinstance(elem, str) and (";" in elem or "\n" in elem):
+                parts = _split_inline_segments(elem)
+                raw_seq.extend(parts if parts else [elem])
+            else:
+                raw_seq.append(elem)
+    else:
         raise ValueError(
             "contrasts must be a non-empty string or sequence of target phrases / (a, b) pairs"
         )
-    out: list[ContrastClause] = []
-    for idx, item in enumerate(contrasts):
+
+    main_out: list[ContrastClause] = []
+    sound_out: list[ContrastClause] = []
+    hold_out: list[HoldClause] = []
+
+    for idx, item in enumerate(raw_seq):
         if isinstance(item, str):
             text = item.strip()
             if not text:
                 raise ValueError(f"contrasts[{idx}] must be a non-empty string")
-            split_ab = _split_contrast_str(text)
+            m_hold = _HOLD_PREFIX_RE.match(text)
+            if m_hold is not None:
+                raw_grp = m_hold.group(1) or m_hold.group(2) or f"hold_{len(hold_out) + 1}"
+                grp = re.sub(r"[^a-z0-9_]+", "_", raw_grp.strip().lower()).strip("_") or f"hold_{len(hold_out) + 1}"
+                if not grp[0].isalpha():
+                    grp = "h_" + grp
+                body = m_hold.group(3).strip()
+                split_ab = _split_contrast_str(body)
+                if split_ab is not None:
+                    a_raw, b_raw = split_ab
+                    slot_res = resolve_slot_name("auto", sample_text=b_raw)
+                    hold_out.append(HoldClause(a=a_raw, b=b_raw, group=grp, slot=slot_res, weight=1.0))
+                else:
+                    slot_res = resolve_slot_name("auto", sample_text=body)
+                    hold_out.append(HoldClause(a="", b=body, group=grp, slot=slot_res, weight=1.0))
+                continue
+
+            slot_prefix: str | None = None
+            body = text
+            for prefix_candidate in tuple(SLOT_ALIASES.keys()):
+                tag = prefix_candidate + ":"
+                if body.lower().startswith(tag):
+                    slot_prefix = SLOT_ALIASES[prefix_candidate]
+                    body = body[len(tag) :].strip()
+                    break
+
+            eff_slot = slot_prefix if slot_prefix is not None else default_slot
+            split_ab = _split_contrast_str(body)
             if split_ab is not None:
                 a_raw, b_raw = split_ab
-                slot_resolved = resolve_slot_name(default_slot, sample_text=b_raw)
-                out.append(ContrastClause(a=a_raw, b=b_raw, slot=slot_resolved, weight=1.0))
+                slot_resolved = resolve_slot_name(eff_slot, sample_text=b_raw)
+                clause = ContrastClause(a=a_raw, b=b_raw, slot=slot_resolved, weight=1.0)
             else:
-                slot_resolved = resolve_slot_name(default_slot, sample_text=text)
-                out.append(ContrastClause(a="", b=text, slot=slot_resolved, weight=1.0))
+                slot_resolved = resolve_slot_name(eff_slot, sample_text=body)
+                clause = ContrastClause(a="", b=body, slot=slot_resolved, weight=1.0)
+
+            if slot_prefix == "soundscape":
+                sound_out.append(clause)
+            else:
+                main_out.append(clause)
+        elif isinstance(item, HoldClause):
+            slot_resolved = resolve_slot_name(
+                item.slot if item.slot is not None else "auto",
+                sample_text=item.b,
+            )
+            a_val = item.a.strip() if item.a and item.a.strip() else ""
+            grp = re.sub(r"[^a-z0-9_]+", "_", (item.group or f"hold_{len(hold_out) + 1}").strip().lower()).strip("_")
+            if not grp or not grp[0].isalpha():
+                grp = "h_" + (grp or f"{len(hold_out) + 1}")
+            hold_out.append(
+                HoldClause(
+                    a=a_val,
+                    b=str(item.b).strip(),
+                    group=grp,
+                    slot=slot_resolved,
+                    weight=float(item.weight),
+                )
+            )
         elif isinstance(item, ContrastClause):
             slot_resolved = resolve_slot_name(
                 item.slot if item.slot is not None else default_slot,
                 sample_text=item.b,
             )
             a_val = item.a.strip() if item.a and item.a.strip() else ""
-            out.append(
+            main_out.append(
                 ContrastClause(
                     a=a_val,
                     b=str(item.b).strip(),
@@ -692,7 +812,7 @@ def _normalize_clause_sequence(
             b_val = str(item[1]).strip()
             slot_resolved = resolve_slot_name(default_slot, sample_text=b_val)
             a_val = str(item[0]).strip() if item[0] and str(item[0]).strip() else ""
-            out.append(
+            main_out.append(
                 ContrastClause(
                     a=a_val,
                     b=b_val,
@@ -709,19 +829,281 @@ def _normalize_clause_sequence(
             a_raw = item.get("a", "")
             a_val = str(a_raw).strip() if (a_raw and str(a_raw).strip()) else ""
             w = float(item.get("weight", 1.0))
-            out.append(
-                ContrastClause(
-                    a=a_val,
-                    b=b_val,
-                    slot=slot_resolved,
-                    weight=w,
+            if item.get("hold") or item.get("group"):
+                raw_grp = str(item.get("group") or f"hold_{len(hold_out) + 1}")
+                grp = re.sub(r"[^a-z0-9_]+", "_", raw_grp.strip().lower()).strip("_") or f"hold_{len(hold_out) + 1}"
+                if not grp[0].isalpha():
+                    grp = "h_" + grp
+                hold_out.append(
+                    HoldClause(a=a_val, b=b_val, group=grp, slot=slot_resolved, weight=w)
                 )
-            )
+            else:
+                main_out.append(
+                    ContrastClause(
+                        a=a_val,
+                        b=b_val,
+                        slot=slot_resolved,
+                        weight=w,
+                    )
+                )
         else:
             raise ValueError(
-                f"contrasts[{idx}] must be a target string, (pole_a, pole_b) tuple, Mapping, or ContrastClause, got {type(item).__name__}"
+                f"contrasts[{idx}] must be a target string, (pole_a, pole_b) tuple, Mapping, ContrastClause, or HoldClause, got {type(item).__name__}"
             )
-    return out
+    if not main_out and sound_out:
+        main_out = list(sound_out)
+        sound_out = []
+    if not main_out:
+        raise ValueError("contrasts must include at least one non-hold target phrase or contrast clause")
+    return main_out, sound_out, hold_out
+
+
+def _normalize_clause_sequence(
+    contrasts: Sequence[ContrastClause | tuple[str, str] | str | Mapping[str, Any]] | str,
+    default_slot: str,
+) -> list[ContrastClause]:
+    main_out, _sound_out, _hold_out = _extract_clauses_and_holds(contrasts, default_slot)
+    return main_out
+
+
+def _resolve_clause_endpoints(
+    raw_clause: ContrastClause,
+    active_slot: str,
+    vary_idx: int,
+    used_baselines: set[str],
+    *,
+    vary_realizations: bool = False,
+) -> tuple[str, str]:
+    """Return `(a_clause, b_clause)` for `raw_clause` at frame index `vary_idx`."""
+    b_is_bare = _is_bare_target(raw_clause.b, active_slot)
+    b_offset = 1 if vary_realizations else 0
+    a_raw_clean = raw_clause.a
+    if a_raw_clean:
+        b_words = _content_words(raw_clause.b)
+        if "{props}" in a_raw_clean.lower() and "{props}" in raw_clause.b.lower():
+            prop_alt = "ordinary furnishings" if "furnishings" not in b_words else "stationary items"
+            a_raw_clean = a_raw_clean.replace("{props}", prop_alt).replace("{Props}", prop_alt.capitalize())
+        if "{surface}" in a_raw_clean.lower() and "{surface}" in raw_clause.b.lower():
+            surf_alt = "the immediate area" if "immediate" not in b_words else "the resting plane"
+            a_raw_clean = a_raw_clean.replace("{surface}", surf_alt).replace("{Surface}", surf_alt.capitalize())
+    b_clause = _wrap_bare_target_if_needed(raw_clause.b, active_slot, vary_idx, offset=b_offset)
+    if a_raw_clean:
+        a_clause = _wrap_bare_target_if_needed(a_raw_clean, active_slot, vary_idx, offset=0)
+    elif b_is_bare:
+        a_bare = _pick_non_overlapping_baseline(
+            active_slot,
+            raw_clause.b,
+            vary_idx,
+            used_baselines=used_baselines,
+            bare=True,
+        )
+        a_clause = _wrap_bare_target_if_needed(a_bare, active_slot, vary_idx, offset=0)
+    else:
+        a_clause = _pick_non_overlapping_baseline(
+            active_slot,
+            b_clause,
+            vary_idx,
+            used_baselines=used_baselines,
+            bare=False,
+        )
+    if vary_realizations and not _is_bare_target(raw_clause.b, active_slot):
+        # When vary_realizations=True on a finite-verb clause without {props}/{surface},
+        # append a per-frame scene anchor so all 10 b_spans are distinct.
+        if "{props}" not in b_clause and "{surface}" not in b_clause:
+            b_clause = b_clause.rstrip(".") + " near {surface}"
+        if "{props}" not in a_clause and "{surface}" not in a_clause:
+            a_clause = a_clause.rstrip(".") + " near {surface}"
+    return a_clause, b_clause
+
+
+def _load_target_prompt_text(target_prompt: str | Path) -> tuple[str, str | None]:
+    """Return `(prompt_text, shot_stem_if_file)` from a Path, file-path string, or raw prompt text."""
+    if isinstance(target_prompt, Path):
+        if not target_prompt.is_file():
+            raise FileNotFoundError(f"target_prompt file not found: {target_prompt}")
+        return target_prompt.read_text(encoding="utf-8").strip(), target_prompt.stem
+    s = str(target_prompt).strip()
+    if not s:
+        raise ValueError("target_prompt must be a non-empty string or Path")
+    if "\n" not in s:
+        for cand in (Path(s), _REPO_ROOT / s, _REPO_ROOT / "prompt_bank" / s, _REPO_ROOT / "prompt_bank" / f"{s}.txt"):
+            if cand.is_file():
+                return cand.read_text(encoding="utf-8").strip(), cand.stem
+    return s, None
+
+
+def _build_target_prompt_pair(
+    target_text: str,
+    *,
+    active_slot: str,
+    a_clause: str,
+    b_clause: str,
+    raw_clause: ContrastClause,
+    sound_ab: tuple[str, str] | None = None,
+    weight: float = 2.5,
+) -> dict[str, Any]:
+    """Construct Pair 0 directly inside `target_text` at `weight`."""
+    dummy_frame = {
+        "id": "target_scene_00",
+        "domain": "target_prompt",
+        "subj": "The subject",
+        "subj_lower": "the subject",
+        "poss": "their",
+        "obj": "them",
+        "refl": "themselves",
+        "props": "the tabletop objects",
+        "surface": "the main worktop",
+    }
+    clean_a = _clean_slot_clause(a_clause, active_slot, dummy_frame)
+    clean_b = _clean_slot_clause(b_clause, active_slot, dummy_frame)
+
+    if raw_clause.a and raw_clause.a in target_text:
+        prompt_a = target_text
+        prompt_b = target_text.replace(raw_clause.a, raw_clause.b, 1)
+    elif active_slot == "soundscape":
+        if "overall_soundscape:" in target_text:
+            prompt_a = target_text.replace("overall_soundscape:", f"overall_soundscape: {clean_a}", 1)
+            prompt_b = target_text.replace("overall_soundscape:", f"overall_soundscape: {clean_b}", 1)
+        else:
+            prompt_a = f"{target_text.rstrip()} {clean_a}"
+            prompt_b = f"{target_text.rstrip()} {clean_b}"
+    else:
+        if active_slot == "opening_framing":
+            sent_a = f"The shot is {clean_a}."
+            sent_b = f"The shot is {clean_b}."
+        elif active_slot == "camera_motion":
+            sent_a = f"The camera {clean_a}."
+            sent_b = f"The camera {clean_b}."
+        elif active_slot == "subject_behavior":
+            sent_a = f"The subject {clean_a}."
+            sent_b = f"The subject {clean_b}."
+        elif active_slot == "speech_delivery":
+            sent_a = f"In delivery, the speaker {clean_a}."
+            sent_b = f"In delivery, the speaker {clean_b}."
+        else:
+            sent_a = f"{clean_a}."
+            sent_b = f"{clean_b}."
+
+        if "\n\noverall_soundscape:" in target_text:
+            prompt_a = target_text.replace("\n\noverall_soundscape:", f" {sent_a}\n\noverall_soundscape:", 1)
+            prompt_b = target_text.replace("\n\noverall_soundscape:", f" {sent_b}\n\noverall_soundscape:", 1)
+        else:
+            prompt_a = f"{target_text.rstrip()} {sent_a}"
+            prompt_b = f"{target_text.rstrip()} {sent_b}"
+
+    if sound_ab is not None and active_slot != "soundscape" and "overall_soundscape:" in prompt_a:
+        sa_clean = _clean_slot_clause(sound_ab[0], "soundscape", dummy_frame)
+        sb_clean = _clean_slot_clause(sound_ab[1], "soundscape", dummy_frame)
+        prompt_a = prompt_a.replace("overall_soundscape:", f"overall_soundscape: {sa_clean}", 1)
+        prompt_b = prompt_b.replace("overall_soundscape:", f"overall_soundscape: {sb_clean}", 1)
+
+    a_span, b_span = _cv.differing_span(
+        prompt_a,
+        prompt_b,
+        frame="scene",
+        label=f"compiled target_prompt pair[0] (slot={active_slot!r})",
+    )
+    return {
+        "index": 0,
+        "frame_id": "target_scene_00",
+        "domain": "target_prompt",
+        "slot": f"{active_slot}+soundscape" if (sound_ab is not None and active_slot != "soundscape") else active_slot,
+        "weight": float(weight),
+        "a": prompt_a,
+        "b": prompt_b,
+        "a_span": a_span,
+        "b_span": b_span,
+    }
+
+
+def _compile_hold_items(
+    hold_clauses: Sequence[HoldClause | ContrastClause | tuple[str, str] | str | Mapping[str, Any]],
+    *,
+    mode: str,
+    canonical_frames_path: str | Path | None = None,
+    frames_per_hold: int = 2,
+) -> tuple[_cv.HoldItem, ...]:
+    """Compile `hold_clauses` into validated `_cv.HoldItem` instances across canonical frames."""
+    if not hold_clauses:
+        return ()
+    bank = load_canonical_frames(canonical_frames_path)
+    slot_defaults: Mapping[str, str] = bank["slot_defaults"]
+    frames: list[dict[str, str]] = list(bank["frames"][mode])
+
+    normalized_holds: list[HoldClause] = []
+    for idx, item in enumerate(hold_clauses):
+        if isinstance(item, HoldClause):
+            normalized_holds.append(item)
+        elif isinstance(item, str):
+            text = item.strip()
+            if not text.lower().startswith("hold"):
+                text = f"hold_{idx + 1}: {text}"
+            _, _, h_list = _extract_clauses_and_holds([text], "auto")
+            normalized_holds.extend(h_list)
+        elif isinstance(item, ContrastClause):
+            normalized_holds.append(
+                HoldClause(
+                    a=item.a,
+                    b=item.b,
+                    group=f"hold_{idx + 1}",
+                    slot=item.slot,
+                    weight=item.weight,
+                )
+            )
+        elif isinstance(item, tuple) and len(item) == 2:
+            normalized_holds.append(
+                HoldClause(
+                    a=str(item[0]).strip(),
+                    b=str(item[1]).strip(),
+                    group=f"hold_{idx + 1}",
+                    slot=resolve_slot_name("auto", sample_text=str(item[1])),
+                )
+            )
+        elif isinstance(item, Mapping):
+            b_val = str(item["b"]).strip()
+            a_val = str(item.get("a", "")).strip()
+            grp = str(item.get("group") or f"hold_{idx + 1}").strip()
+            slot_res = resolve_slot_name(str(item.get("slot", "auto")), sample_text=b_val)
+            normalized_holds.append(
+                HoldClause(a=a_val, b=b_val, group=grp, slot=slot_res, weight=float(item.get("weight", 1.0)))
+            )
+        else:
+            raise ValueError(f"unsupported hold_contrasts item: {item!r}")
+
+    out: list[_cv.HoldItem] = []
+    used_baselines: set[str] = set()
+    n_per = max(1, min(int(frames_per_hold), len(frames)))
+    hold_idx = 0
+    for h_num, hc in enumerate(normalized_holds):
+        h_slot = hc.slot or resolve_slot_name("auto", sample_text=hc.b)
+        cc = ContrastClause(a=hc.a, b=hc.b, slot=h_slot, weight=hc.weight)
+        for k in range(n_per):
+            f_idx = (h_num * n_per + k) % len(frames)
+            frame_entry = frames[f_idx]
+            a_clause, b_clause = _resolve_clause_endpoints(
+                cc, h_slot, f_idx, used_baselines, vary_realizations=False
+            )
+            prompt_a = _render_frame_prompt(frame_entry, slot_defaults, h_slot, a_clause)
+            prompt_b = _render_frame_prompt(frame_entry, slot_defaults, h_slot, b_clause)
+            a_span, b_span = _cv.differing_span(
+                prompt_a,
+                prompt_b,
+                frame="scene",
+                label=f"compiled hold[{hold_idx}] (group={hc.group!r}, frame={frame_entry['id']})",
+            )
+            out.append(
+                _cv.HoldItem(
+                    index=hold_idx,
+                    group=hc.group,
+                    weight=float(hc.weight),
+                    a=prompt_a,
+                    b=prompt_b,
+                    a_span=a_span,
+                    b_span=b_span,
+                )
+            )
+            hold_idx += 1
+    return tuple(out)
 
 
 def compile_short_contrast_pairs(
@@ -731,6 +1113,10 @@ def compile_short_contrast_pairs(
     mode: str = "t2va",
     n_pairs: int = 10,
     soundscape_contrasts: Sequence[ContrastClause | tuple[str, str] | str | Mapping[str, Any]] | None = None,
+    couple_soundscape: bool = True,
+    target_prompt: str | Path | None = None,
+    target_weight: float = 2.5,
+    vary_realizations: bool = False,
     canonical_frames_path: str | Path | None = None,
 ) -> list[dict[str, Any]]:
     """Compile simple words, short phrases, or `(a, b)` contrast pairs into `n_pairs` H3 scene pairs.
@@ -740,6 +1126,9 @@ def compile_short_contrast_pairs(
       target strings without Pole A, automatically infers the structural slot
       (when `slot='auto'`), wraps bare word lists into grammatical clauses across
       the 10 canonical frames, and selects non-overlapping neutral Pole A baselines.
+    - Supports `;`- and `\\n`-separated multi-clause specs, coupled `soundscape:`
+      edits on the same pair (`couple_soundscape=True`), per-frame `{props}` and
+      `{surface}` bindings, and optional `target_prompt` (`Pair 0` at `target_weight=2.5`).
     - Validates every compiled pair through `control_vectors.differing_span(..., frame='scene')`.
     """
     if mode not in ("t2va", "ref2va"):
@@ -747,23 +1136,59 @@ def compile_short_contrast_pairs(
     bank = load_canonical_frames(canonical_frames_path)
     slot_defaults: Mapping[str, str] = bank["slot_defaults"]
     frames: list[dict[str, str]] = list(bank["frames"][mode])
-    if n_pairs < 1 or n_pairs > len(frames):
+    if n_pairs < 1 or n_pairs > len(frames) + (1 if target_prompt is not None else 0):
         raise ValueError(f"n_pairs must be in 1..{len(frames)}, got {n_pairs}")
 
-    main_clauses = _normalize_clause_sequence(contrasts, slot)
-    sound_clauses = (
+    main_clauses, inline_sound_clauses, _inline_holds = _extract_clauses_and_holds(contrasts, slot)
+    explicit_sound_clauses = (
         _normalize_clause_sequence(soundscape_contrasts, "soundscape")
         if soundscape_contrasts
         else []
     )
-
-    n_sound_frames = 2 if (sound_clauses and n_pairs >= 6) else (1 if (sound_clauses and n_pairs >= 2) else 0)
-    n_main_frames = n_pairs - n_sound_frames
+    sound_clauses = explicit_sound_clauses + inline_sound_clauses
 
     compiled: list[dict[str, Any]] = []
     used_baselines: set[str] = set()
-    for i in range(n_pairs):
-        frame_entry = frames[i]
+    used_sound_baselines: set[str] = set()
+
+    n_canonical = n_pairs
+    if target_prompt is not None:
+        target_text, _ = _load_target_prompt_text(target_prompt)
+        c0 = main_clauses[0]
+        slot0 = c0.slot or resolve_slot_name(slot, sample_text=c0.b)
+        a0, b0 = _resolve_clause_endpoints(
+            c0, slot0, 0, used_baselines, vary_realizations=vary_realizations
+        )
+        sound0_ab: tuple[str, str] | None = None
+        if sound_clauses and couple_soundscape and slot0 != "soundscape":
+            sc0 = sound_clauses[0]
+            sound0_ab = _resolve_clause_endpoints(
+                sc0, "soundscape", 0, used_sound_baselines, vary_realizations=vary_realizations
+            )
+        compiled.append(
+            _build_target_prompt_pair(
+                target_text,
+                active_slot=slot0,
+                a_clause=a0,
+                b_clause=b0,
+                raw_clause=c0,
+                sound_ab=sound0_ab,
+                weight=target_weight,
+            )
+        )
+        n_canonical = max(0, n_pairs - 1)
+
+    if couple_soundscape:
+        n_sound_only_frames = 0
+    else:
+        n_sound_only_frames = (
+            2 if (sound_clauses and n_canonical >= 6) else (1 if (sound_clauses and n_canonical >= 2) else 0)
+        )
+    n_main_frames = n_canonical - n_sound_only_frames
+
+    for i in range(n_canonical):
+        out_idx = len(compiled)
+        frame_entry = frames[i % len(frames)]
         if i < n_main_frames:
             raw_clause = main_clauses[i % len(main_clauses)]
             vary_idx = i
@@ -773,42 +1198,48 @@ def compile_short_contrast_pairs(
             vary_idx = s_idx
 
         active_slot = raw_clause.slot or resolve_slot_name(slot, sample_text=raw_clause.b)
-        b_is_bare = _is_bare_target(raw_clause.b, active_slot)
-        b_clause = _wrap_bare_target_if_needed(raw_clause.b, active_slot, vary_idx, offset=0)
-        if raw_clause.a:
-            a_clause = _wrap_bare_target_if_needed(raw_clause.a, active_slot, vary_idx, offset=0)
-        elif b_is_bare:
-            a_bare = _pick_non_overlapping_baseline(
-                active_slot,
-                raw_clause.b,
-                vary_idx,
-                used_baselines=used_baselines,
-                bare=True,
-            )
-            a_clause = _wrap_bare_target_if_needed(a_bare, active_slot, vary_idx, offset=0)
-        else:
-            a_clause = _pick_non_overlapping_baseline(
-                active_slot,
-                b_clause,
-                vary_idx,
-                used_baselines=used_baselines,
-                bare=False,
-            )
+        a_clause, b_clause = _resolve_clause_endpoints(
+            raw_clause,
+            active_slot,
+            vary_idx,
+            used_baselines,
+            vary_realizations=vary_realizations and len(main_clauses) == 1,
+        )
 
-        prompt_a = _render_frame_prompt(frame_entry, slot_defaults, active_slot, a_clause)
-        prompt_b = _render_frame_prompt(frame_entry, slot_defaults, active_slot, b_clause)
+        extra_a: dict[str, str] | None = None
+        extra_b: dict[str, str] | None = None
+        slot_label = active_slot
+        if sound_clauses and couple_soundscape and active_slot != "soundscape":
+            s_clause = sound_clauses[i % len(sound_clauses)]
+            sa_clause, sb_clause = _resolve_clause_endpoints(
+                s_clause,
+                "soundscape",
+                i,
+                used_sound_baselines,
+                vary_realizations=vary_realizations and len(sound_clauses) == 1,
+            )
+            extra_a = {"soundscape": sa_clause}
+            extra_b = {"soundscape": sb_clause}
+            slot_label = f"{active_slot}+soundscape"
+
+        prompt_a = _render_frame_prompt(
+            frame_entry, slot_defaults, active_slot, a_clause, extra_overrides=extra_a
+        )
+        prompt_b = _render_frame_prompt(
+            frame_entry, slot_defaults, active_slot, b_clause, extra_overrides=extra_b
+        )
         a_span, b_span = _cv.differing_span(
             prompt_a,
             prompt_b,
             frame="scene",
-            label=f"compiled pair[{i}] ({frame_entry['id']}, slot={active_slot!r})",
+            label=f"compiled pair[{out_idx}] ({frame_entry['id']}, slot={slot_label!r})",
         )
         compiled.append(
             {
-                "index": i,
+                "index": out_idx,
                 "frame_id": frame_entry["id"],
                 "domain": frame_entry["domain"],
-                "slot": active_slot,
+                "slot": slot_label,
                 "weight": float(raw_clause.weight),
                 "a": prompt_a,
                 "b": prompt_b,
@@ -821,7 +1252,11 @@ def compile_short_contrast_pairs(
 
 def _slugify_name(text: str) -> str:
     slug = re.sub(r"[^a-z0-9]+", "_", text.strip().lower()).strip("_")
-    parts = [p for p in slug.split("_") if p not in ("a", "an", "the", "with", "and", "in", "of", "to")]
+    parts = [
+        p
+        for p in slug.split("_")
+        if p not in ("a", "an", "the", "with", "and", "in", "of", "to", "props", "surface")
+    ]
     short = "_".join(parts[:4]) if parts else "custom_vector"
     if not short or not short[0].isalpha():
         short = "cv_" + (short or "vector")
@@ -839,21 +1274,40 @@ def compile_words_to_pairset(
     mode: str = "t2va",
     n_pairs: int = 10,
     soundscape_contrasts: Sequence[ContrastClause | tuple[str, str] | str | Mapping[str, Any]] | None = None,
+    hold_contrasts: Sequence[HoldClause | ContrastClause | tuple[str, str] | str | Mapping[str, Any]] | None = None,
+    couple_soundscape: bool = True,
+    target_prompt: str | Path | None = None,
+    target_weight: float = 2.5,
+    vary_realizations: bool = False,
     exclude_shots: Sequence[str] = (),
     canonical_frames_path: str | Path | None = None,
 ) -> _cv.PairSet:
     """Compile simple words, phrases, or short contrasts directly into an in-memory `PairSet` (zero `.toml` file needed)."""
+    main_clauses, _inline_sound, inline_holds = _extract_clauses_and_holds(contrasts, slot)
     compiled_pairs = compile_short_contrast_pairs(
         contrasts,
         slot=slot,
         mode=mode,
         n_pairs=n_pairs,
         soundscape_contrasts=soundscape_contrasts,
+        couple_soundscape=couple_soundscape,
+        target_prompt=target_prompt,
+        target_weight=target_weight,
+        vary_realizations=vary_realizations,
         canonical_frames_path=canonical_frames_path,
     )
-    first_a = compiled_pairs[0]["a_span"]
-    first_b = compiled_pairs[0]["b_span"]
-    first_clause = _normalize_clause_sequence(contrasts, slot)[0]
+    all_hold_specs: list[Any] = list(inline_holds)
+    if hold_contrasts:
+        all_hold_specs.extend(hold_contrasts)
+    hold_items = _compile_hold_items(
+        all_hold_specs,
+        mode=mode,
+        canonical_frames_path=canonical_frames_path,
+    )
+
+    first_a = compiled_pairs[0]["a_span"].split(" | ")[0]
+    first_b = compiled_pairs[0]["b_span"].split(" | ")[0]
+    first_clause = main_clauses[0]
     default_a = first_clause.a if first_clause.a else first_a
     default_b = first_clause.b if first_clause.b else first_b
     resolved_b_side = (b_side or default_b).strip()
@@ -879,6 +1333,7 @@ def compile_words_to_pairset(
             "name": resolved_name,
             "mode": mode,
             "pairs": [(p.weight, p.a, p.b) for p in pair_items],
+            "holds": [(h.group, h.weight, h.a, h.b) for h in hold_items],
         },
         sort_keys=True,
     ).encode("utf-8")
@@ -895,7 +1350,7 @@ def compile_words_to_pairset(
         frame="scene",
         exclude_shots=tuple(exclude_shots),
         pairs=pair_items,
-        holds=(),
+        holds=hold_items,
     )
 
 
@@ -911,6 +1366,11 @@ def compile_short_contrast_to_toml(
     mode: str = "t2va",
     n_pairs: int = 10,
     soundscape_contrasts: Sequence[ContrastClause | tuple[str, str] | str | Mapping[str, Any]] | None = None,
+    hold_contrasts: Sequence[HoldClause | ContrastClause | tuple[str, str] | str | Mapping[str, Any]] | None = None,
+    couple_soundscape: bool = True,
+    target_prompt: str | Path | None = None,
+    target_weight: float = 2.5,
+    vary_realizations: bool = False,
     exclude_shots: Sequence[str] | None = None,
     canonical_frames_path: str | Path | None = None,
     bank_dir: str | Path | None = None,
@@ -931,23 +1391,41 @@ def compile_short_contrast_to_toml(
             "(pass overwrite=True / --overwrite to replace it)"
         )
 
+    main_clauses, _inline_sound, inline_holds = _extract_clauses_and_holds(contrasts, slot)
     compiled_pairs = compile_short_contrast_pairs(
         contrasts,
         slot=slot,
         mode=mode,
         n_pairs=n_pairs,
         soundscape_contrasts=soundscape_contrasts,
+        couple_soundscape=couple_soundscape,
+        target_prompt=target_prompt,
+        target_weight=target_weight,
+        vary_realizations=vary_realizations,
         canonical_frames_path=canonical_frames_path,
     )
-    first_a = compiled_pairs[0]["a_span"]
-    first_b = compiled_pairs[0]["b_span"]
-    first_clause = _normalize_clause_sequence(contrasts, slot)[0]
+    all_hold_specs: list[Any] = list(inline_holds)
+    if hold_contrasts:
+        all_hold_specs.extend(hold_contrasts)
+    hold_items = _compile_hold_items(
+        all_hold_specs,
+        mode=mode,
+        canonical_frames_path=canonical_frames_path,
+    )
+
+    first_a = compiled_pairs[0]["a_span"].split(" | ")[0]
+    first_b = compiled_pairs[0]["b_span"].split(" | ")[0]
+    first_clause = main_clauses[0]
     default_a = first_clause.a if first_clause.a else first_a
     default_b = first_clause.b if first_clause.b else first_b
     resolved_b_side = (b_side or default_b).strip()
     resolved_a_side = (a_side or default_a).strip()
     resolved_quality = (quality or f"{resolved_b_side} vs. {resolved_a_side}").strip()
     active_slot = compiled_pairs[0]["slot"]
+
+    target_shot_stem: str | None = None
+    if target_prompt is not None:
+        _, target_shot_stem = _load_target_prompt_text(target_prompt)
 
     resolved_bank_dir = Path(bank_dir) if bank_dir is not None else (_REPO_ROOT / "prompt_bank")
     if exclude_shots is not None:
@@ -956,7 +1434,7 @@ def compile_short_contrast_to_toml(
         resolved_exclude_shots = tuple(
             shot_id
             for shot_id in _cv.DEFAULT_EXCLUDE_SHOTS
-            if (resolved_bank_dir / f"{shot_id}.txt").is_file()
+            if shot_id != target_shot_stem and (resolved_bank_dir / f"{shot_id}.txt").is_file()
         )
     excl_toml = "[" + ", ".join(json.dumps(str(s), ensure_ascii=False) for s in resolved_exclude_shots) + "]"
     lines: list[str] = [
@@ -979,6 +1457,16 @@ def compile_short_contrast_to_toml(
             lines.append(f"weight = {p_item['weight']}")
         lines.append(f"a = {_cv._format_toml_multiline(p_item['a'])}")
         lines.append(f"b = {_cv._format_toml_multiline(p_item['b'])}")
+        lines.append("")
+
+    for h_item in hold_items:
+        lines.append(f"# Hold group: {h_item.group}")
+        lines.append("[[hold]]")
+        lines.append(f"group = {json.dumps(h_item.group, ensure_ascii=False)}")
+        if h_item.weight != 1.0:
+            lines.append(f"weight = {h_item.weight}")
+        lines.append(f"a = {_cv._format_toml_multiline(h_item.a)}")
+        lines.append(f"b = {_cv._format_toml_multiline(h_item.b)}")
         lines.append("")
 
     target.parent.mkdir(parents=True, exist_ok=True)
@@ -1040,9 +1528,12 @@ def parse_short_contrast_spec(text: str) -> dict[str, Any]:
     Accepts any of:
       1. A single line of words (e.g. `"erratic handheld camera shake"` or
          `"awkward eye-contact avoidance"`),
-      2. A single `'pole_a ||| pole_b'` or `'pole_a -> pole_b'` contrast line, or
-      3. Optional `key: value` header lines (`name`, `slot`, `mode`, `quality`,
-         `a_side`, `b_side`, `n_pairs`) + one or more target / `'a ||| b'` lines.
+      2. A single `'pole_a ||| pole_b'` or `'pole_a -> pole_b'` contrast line,
+      3. Semicolon-separated or multi-line contrasts including `soundscape: a -> b`
+         and `hold: a -> b` (or `hold(group): a -> b`), or
+      4. Optional `key: value` header lines (`name`, `slot`, `mode`, `quality`,
+         `a_side`, `b_side`, `n_pairs`, `target_prompt`, `target_weight`) + one or
+         more target / `'a ||| b'` lines.
     """
     if not isinstance(text, str) or not text.strip():
         raise ValueError("short-contrast spec must be a non-empty string")
@@ -1050,13 +1541,46 @@ def parse_short_contrast_spec(text: str) -> dict[str, Any]:
     header: dict[str, str] = {}
     raw_items: list[str | ContrastClause] = []
     soundscape_items: list[str | ContrastClause] = []
+    hold_items: list[HoldClause] = []
 
-    for lineno, raw_line in enumerate(text.splitlines(), start=1):
+    for lineno, raw_line in enumerate(_split_inline_segments(text), start=1):
         line = raw_line.strip()
         if not line or line.startswith("#"):
             continue
+        body_stripped = line.lstrip("-*0123456789.) ").strip()
+        m_hold = _HOLD_PREFIX_RE.match(body_stripped)
+        if m_hold is not None:
+            raw_grp = m_hold.group(1) or m_hold.group(2) or f"hold_{len(hold_items) + 1}"
+            grp = re.sub(r"[^a-z0-9_]+", "_", raw_grp.strip().lower()).strip("_") or f"hold_{len(hold_items) + 1}"
+            if not grp[0].isalpha():
+                grp = "h_" + grp
+            h_body = m_hold.group(3).strip()
+            if not h_body:
+                raise ValueError(f"line {lineno}: 'hold:' must be non-empty")
+            split_ab = _split_contrast_str(h_body)
+            if split_ab is not None:
+                part_a, part_b = split_ab
+                hold_items.append(
+                    HoldClause(
+                        a=part_a,
+                        b=part_b,
+                        group=grp,
+                        slot=resolve_slot_name("auto", sample_text=part_b),
+                    )
+                )
+            else:
+                hold_items.append(
+                    HoldClause(
+                        a="",
+                        b=h_body,
+                        group=grp,
+                        slot=resolve_slot_name("auto", sample_text=h_body),
+                    )
+                )
+            continue
+
         if "|||" in line or " -> " in line:
-            body = line.lstrip("-*0123456789.) ").strip()
+            body = body_stripped
             slot_prefix: str | None = None
             for prefix_candidate in tuple(SLOT_ALIASES.keys()):
                 tag = prefix_candidate + ":"
@@ -1078,7 +1602,19 @@ def parse_short_contrast_spec(text: str) -> dict[str, Any]:
             k, v = line.split(":", 1)
             key = k.strip().lower()
             val = v.strip()
-            if key in ("name", "slot", "mode", "quality", "a_side", "b_side", "n_pairs"):
+            if key in (
+                "name",
+                "slot",
+                "mode",
+                "quality",
+                "a_side",
+                "b_side",
+                "n_pairs",
+                "target_prompt",
+                "target_weight",
+                "couple_soundscape",
+                "vary_realizations",
+            ):
                 header[key] = val
                 continue
             elif key in ("target", "words", "phrase", "steer"):
@@ -1098,10 +1634,12 @@ def parse_short_contrast_spec(text: str) -> dict[str, Any]:
                     f"line {lineno}: unknown header key {key!r}"
                 )
         else:
-            body = line.lstrip("-*0123456789.) ").strip()
-            if body:
-                raw_items.append(body)
+            if body_stripped:
+                raw_items.append(body_stripped)
 
+    if not raw_items and soundscape_items:
+        raw_items = list(soundscape_items)
+        soundscape_items = []
     if not raw_items:
         raise ValueError(
             "short-contrast spec must include at least one target phrase or 'pole_a ||| pole_b' line"
@@ -1112,6 +1650,10 @@ def parse_short_contrast_spec(text: str) -> dict[str, Any]:
     if mode not in ("t2va", "ref2va"):
         raise ValueError(f"mode must be 't2va' or 'ref2va', got {mode!r}")
     n_pairs = int(header.get("n_pairs", "10"))
+    target_prompt_val = header.get("target_prompt") or None
+    target_weight_val = float(header.get("target_weight", "2.5"))
+    couple_val = header.get("couple_soundscape", "true").strip().lower() not in ("0", "false", "no")
+    vary_val = header.get("vary_realizations", "false").strip().lower() in ("1", "true", "yes")
     contrasts_arg: Any = raw_items[0] if (len(raw_items) == 1 and isinstance(raw_items[0], str)) else raw_items
 
     ps = compile_words_to_pairset(
@@ -1124,6 +1666,11 @@ def parse_short_contrast_spec(text: str) -> dict[str, Any]:
         mode=mode,
         n_pairs=n_pairs,
         soundscape_contrasts=soundscape_items or None,
+        hold_contrasts=hold_items or None,
+        couple_soundscape=couple_val,
+        target_prompt=target_prompt_val,
+        target_weight=target_weight_val,
+        vary_realizations=vary_val,
     )
     return {
         "name": ps.name,
@@ -1133,5 +1680,8 @@ def parse_short_contrast_spec(text: str) -> dict[str, Any]:
         "quality": ps.quality,
         "a_side": ps.a_side,
         "b_side": ps.b_side,
+        "hold_contrasts": list(hold_items),
+        "holds": list(ps.holds),
+        "target_prompt": target_prompt_val,
         "pair_set": ps,
     }

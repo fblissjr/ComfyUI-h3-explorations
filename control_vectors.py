@@ -183,6 +183,26 @@ def differing_span(a: str, b: str, *, frame: str = "scene", label: str = "pair")
     char_diff_a = a[c_prefix : len(a) - c_suffix]
     char_diff_b = b[c_prefix : len(b) - c_suffix]
     if "\n\n" in char_diff_a or "\n\n" in char_diff_b:
+        if HEADER_TOKEN_RE.findall(a) == HEADER_TOKEN_RE.findall(b):
+            blocks_a = a.split("\n\n")
+            blocks_b = b.split("\n\n")
+            if len(blocks_a) == len(blocks_b):
+                diff_idxs = [idx_b for idx_b in range(len(blocks_a)) if blocks_a[idx_b] != blocks_b[idx_b]]
+                if len(diff_idxs) == 2:
+                    i0, i1 = diff_idxs
+                    b0_a = blocks_a[i0].lstrip()
+                    b1_a = blocks_a[i1].lstrip()
+                    if (
+                        b0_a.startswith(("integrated_multimodal_description:", "detailed_description:"))
+                        and b1_a.startswith("overall_soundscape:")
+                    ):
+                        a_d, b_d = differing_span(
+                            blocks_a[i0], blocks_b[i0], frame="scene", label=f"{label} (description)"
+                        )
+                        a_s, b_s = differing_span(
+                            blocks_a[i1], blocks_b[i1], frame="scene", label=f"{label} (soundscape)"
+                        )
+                        return f"{a_d} | {a_s}", f"{b_d} | {b_s}"
         raise ValueError(
             f"{label}: differing span crosses a paragraph break; "
             "scene-frame pairs must change only one contiguous clause within a single section"
@@ -464,6 +484,18 @@ def differing_section_info(a: str, b: str, *, frame: str = "scene") -> tuple[int
             chosen_name = m.group(1)
         else:
             break
+    blocks_a = a.split("\n\n")
+    blocks_b = b.split("\n\n")
+    if len(blocks_a) == len(blocks_b):
+        diff_idxs = [idx_b for idx_b in range(len(blocks_a)) if blocks_a[idx_b] != blocks_b[idx_b]]
+        if len(diff_idxs) == 2:
+            b0_a = blocks_a[diff_idxs[0]].lstrip()
+            b1_a = blocks_a[diff_idxs[1]].lstrip()
+            if (
+                b0_a.startswith(("integrated_multimodal_description:", "detailed_description:"))
+                and b1_a.startswith("overall_soundscape:")
+            ):
+                return chosen_idx, f"{chosen_name}+overall_soundscape"
     return chosen_idx, chosen_name
 
 
@@ -817,6 +849,10 @@ _CANCEL_STOPLIST: frozenset[str] = frozenset({
     "shut", "stay", "stays", "keep", "keeps", "hold", "holds", "remain",
     "remains", "rest", "rests", "before", "after", "above", "below", "underneath",
     "inside", "outside", "without", "within", "about", "until", "upon",
+    "shot", "filmed", "captured", "recorded", "photographed", "color", "colour",
+    "light", "lighting", "shadow", "shadows", "focus", "optics", "camera",
+    "motion", "acoustics", "vocal", "voice", "reverb", "tones", "surfaces",
+    "surface",
 })
 
 _DIALOGUE_TAG_CHECK_RE = re.compile(r"<d>(?!\s*\[[A-Za-z][A-Za-z -]*\])")
@@ -876,8 +912,14 @@ def lint_pair_set(
         norm_a = " ".join(str(a_sp).lower().split())
         norm_b = " ".join(str(b_sp).lower().split())
         if allow_repeated_spans:
-            norm_ctx_a = " ".join(a_txt.replace(str(a_sp), "", 1).lower().split())
-            norm_ctx_b = " ".join(b_txt.replace(str(b_sp), "", 1).lower().split())
+            ctx_a = a_txt
+            for part_a in str(a_sp).split(" | "):
+                ctx_a = ctx_a.replace(part_a, "", 1)
+            ctx_b = b_txt
+            for part_b in str(b_sp).split(" | "):
+                ctx_b = ctx_b.replace(part_b, "", 1)
+            norm_ctx_a = " ".join(ctx_a.lower().split())
+            norm_ctx_b = " ".join(ctx_b.lower().split())
             key_a = (norm_a, norm_ctx_a)
             key_b = (norm_b, norm_ctx_b)
         else:

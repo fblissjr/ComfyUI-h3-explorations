@@ -19,6 +19,8 @@
         "poss": "his",
         "obj": "him",
         "refl": "himself",
+        "props": "brass balance wheels and fine tweezers",
+        "surface": "the walnut workbench",
         "template": "integrated_multimodal_description: [Shot 1] Live-action, cinematic, {opening_framing}, a medium shot frames a watchmaker in a linen apron seated at a walnut bench across the five-second take. {Subj} {subject_behavior} while setting a brass balance wheel with fine tweezers. {interpersonal_dynamics}. The camera {camera_motion}. (S1) {speech_delivery}, <d>[English] The mainspring tension is finally balanced.</d>\n\noverall_soundscape: {soundscape} Crisp metallic ticks and a faint wooden bench creak fill the quiet workshop.\n\nnon_diegetic_music: N/A"
       },
       {
@@ -29,6 +31,8 @@
         "poss": "her",
         "obj": "her",
         "refl": "herself",
+        "props": "fern fronds and bound ledgers",
+        "surface": "the misted conservatory bench",
         "template": "integrated_multimodal_description: [Shot 1] Live-action, cinematic, {opening_framing}, a medium shot frames a botanist in an olive canvas smock standing beside a misted fern bench in a glass conservatory across the five-second take. {Subj} {subject_behavior} while noting leaf measurements in a bound ledger. {interpersonal_dynamics}. The camera {camera_motion}. (S1) {speech_delivery}, <d>[English] These fronds opened two days ahead of schedule.</d>\n\noverall_soundscape: {soundscape} Soft water droplets patter on broad leaves above a low ventilation hum.\n\nnon_diegetic_music: N/A"
       },
       {
@@ -39,6 +43,8 @@
         "poss": "her",
         "obj": "her",
         "refl": "herself",
+        "props": "folded blueprints and porcelain cups",
+        "surface": "the marble bistro table",
         "template": "integrated_multimodal_description: [Shot 1] Live-action, cinematic, {opening_framing}, a medium two-shot frames a woman in a camel blazer (S1) and a man in a charcoal turtleneck (S2) seated across a marble bistro table across the five-second take. {Subj} {subject_behavior} while sliding a folded blueprint across the tabletop toward (S2). {interpersonal_dynamics}. The camera {camera_motion}. (S1) {speech_delivery}, <d>[English] Read the margin notes before you answer.</d>\n\noverall_soundscape: {soundscape} Paper slides over stone above distant porcelain clinks and low room murmur.\n\nnon_diegetic_music: N/A"
       },
       {
@@ -49,6 +55,8 @@
         "poss": "his",
         "obj": "him",
         "refl": "himself",
+        "props": "the brass transit and coat lapels",
+        "surface": "the stone bridge parapet",
         "template": "integrated_multimodal_description: [Shot 1] Live-action, cinematic, {opening_framing}, a medium shot frames a civil surveyor in a slate wool coat standing beside a brass transit on a stone river bridge across the five-second take. {Subj} {subject_behavior} while aligning the sighting barrel toward the opposite embankment. {interpersonal_dynamics}. The camera {camera_motion}. (S1) {speech_delivery}, <d>[English] The north pier hasn't shifted a millimeter.</d>\n\noverall_soundscape: {soundscape} River current laps against stone pilings beneath a light breeze.\n\nnon_diegetic_music: N/A"
       },
       {
@@ -59,6 +67,8 @@
         "poss": "her",
         "obj": "her",
         "refl": "herself",
+        "props": "graduated cylinders and glass vials",
+        "surface": "the laboratory counter",
         "template": "integrated_multimodal_description: [Shot 1] Live-action, cinematic, {opening_framing}, a medium close-up frames a perfumer in a white lab coat decanting amber oil from a graduated cylinder into a glass vial across the five-second take. {Subj} {subject_behavior} as the thin stream settles cleanly at the etched mark. {interpersonal_dynamics}. The camera {camera_motion}. (S1) {speech_delivery}, <d>[English] Three drops of cedarwood finish the base note.</d>\n\noverall_soundscape: {soundscape} Liquid trickles into glass and a stopper clicks against the rim.\n\nnon_diegetic_music: N/A"
       },
       {
@@ -69,6 +79,8 @@
         "poss": "his",
         "obj": "him",
         "refl": "himself",
+        "props": "violin bows and score sheets",
+        "surface": "the timber rehearsal stage",
         "template": "integrated_multimodal_description: [Shot 1] Live-action, cinematic, {opening_framing}, a medium wide two-shot frames a stage director in a denim overshirt (S1) and a violinist in a black sweater (S2) standing on a timber rehearsal stage across the five-second take. {Subj} {subject_behavior} while gesturing toward the chalk mark near the footlights. {interpersonal_dynamics}. The camera {camera_motion}. (S1) {speech_delivery}, <d>[English] Take the second entrance from the left wing.</d>\n\noverall_soundscape: {soundscape} Leather soles scuff across hollow floorboards in the timber hall.\n\nnon_diegetic_music: N/A"
       },
       {
@@ -79,6 +91,8 @@
         "poss": "her",
         "obj": "her",
         "refl": "herself",
+        "props": "the hand lens and parka hem",
+        "surface": "the basalt tide-pool ledge",
         "template": "integrated_multimodal_description: [Shot 1] Live-action, cinematic, {opening_framing}, a medium shot frames a marine geologist in a waxed canvas parka crouching beside basalt tide pools at dusk across the five-second take. {Subj} {subject_behavior} while holding a hand lens over a wet rock seam. {interpersonal_dynamics}. The camera {camera_motion}. (S1) {speech_delivery}, <d>[English] You can trace the volcanic glass right through the ridge.</d>\n\noverall_soundscape: {soundscape} Tidewater sloshes through rock channels beneath open coastal air.\n\nnon_diegetic_music: N/A"
       },
       {
@@ -89,6 +103,8 @@
         "poss": "his",
         "obj": "him",
         "refl": "himself",
+        "props": "chopped rosemary sprigs and copper pans",
+        "surface": "the maple butcher block",
         "template": "integrated_multimodal_description: [Shot 1] Live-action, cinematic, {opening_framing}, a medium shot frames a chef in a charcoal apron standing at a maple butcher block in a copper-hung kitchen across the five-second take. {Subj} {subject_behavior} while gathering chopped rosemary with the flat of a steel blade. {interpersonal_dynamics}. The camera {camera_motion}. (S1) {speech_delivery}, <d>[English] Keep the skillet dry until the butter foams.</d>\n\noverall_soundscape: {soundscape} A knife blade scrapes across wood beside a gentle range hood purr.\n\nnon_diegetic_music: N/A"
       },
       {
@@ -99,6 +115,8 @@
         "poss": "her",
         "obj": "her",
         "refl": "herself",
+        "props": "sable brushes and carved reliefs",
+        "surface": "the limestone plinth",
         "template": "integrated_multimodal_description: [Shot 1] Live-action, cinematic, {opening_framing}, a medium shot frames an art restorer in a navy cardigan standing beside a limestone plinth in a vaulted stone gallery across the five-second take. {Subj} {subject_behavior} while brushing dust from a carved relief with a sable brush. {interpersonal_dynamics}. The camera {camera_motion}. (S1) {speech_delivery}, <d>[English] The chisel marks along the border are still crisp.</d>\n\noverall_soundscape: {soundscape} Soft bristles sweep over stone and footsteps linger in the gallery.\n\nnon_diegetic_music: N/A"
       },
       {
@@ -109,6 +127,8 @@
         "poss": "his",
         "obj": "him",
         "refl": "himself",
+        "props": "leather satchel straps and dispatch pouches",
+        "surface": "the cobblestoned courtyard",
         "template": "integrated_multimodal_description: [Shot 1] Live-action, cinematic, {opening_framing}, a medium shot frames a bicycle courier in a canvas jacket standing beside a steel road frame in a cobblestoned courtyard across the five-second take. {Subj} {subject_behavior} while buckling a leather satchel strap over the rack. {interpersonal_dynamics}. The camera {camera_motion}. (S1) {speech_delivery}, <d>[English] The dispatch pouch is locked for the uptown run.</d>\n\noverall_soundscape: {soundscape} Leather straps click against metal tubing beside a courtyard fountain.\n\nnon_diegetic_music: N/A"
       }
     ],
@@ -121,6 +141,8 @@
         "poss": "their",
         "obj": "them",
         "refl": "themselves",
+        "props": "brass scale rulers and charcoal drawings",
+        "surface": "the oak drafting table",
         "template": "subject_definitions:\n- <Subject 1> (S1): The person from <Picture 1>.\n\nsummary: [reference generation] Feature <Subject 1> at an architectural drafting table.\n\nretention_analysis:\n- <Subject 1>: [attribute_transfer] Preserve facial identity, hairstyle, and wardrobe from <Picture 1>.\n\ndetailed_description: [Shot 1] Live-action, cinematic, {opening_framing}, a medium shot frames <Subject 1> (S1) seated at an oak drafting table across the five-second take. {Subj} {subject_behavior} while aligning a brass scale ruler along a charcoal elevation drawing. {interpersonal_dynamics}. The camera {camera_motion}. (S1) {speech_delivery}, <d>[English] The west stairwell needs another ten centimeters of clearance.</d>\n\noverall_soundscape: {soundscape} Brass slides softly across heavy paper in the quiet studio.\n\nnon_diegetic_music: N/A"
       },
       {
@@ -131,6 +153,8 @@
         "poss": "their",
         "obj": "them",
         "refl": "themselves",
+        "props": "rosemary stems and steel shears",
+        "surface": "the terracotta planter bench",
         "template": "subject_definitions:\n- <Subject 1> (S1): The person from <Picture 1>.\n\nsummary: [reference generation] Feature <Subject 1> in a sunlit glass conservatory.\n\nretention_analysis:\n- <Subject 1>: [attribute_transfer] Preserve facial identity, hairstyle, and wardrobe from <Picture 1>.\n\ndetailed_description: [Shot 1] Live-action, cinematic, {opening_framing}, a medium shot frames <Subject 1> (S1) standing beside terracotta planters in a glass conservatory across the five-second take. {Subj} {subject_behavior} while trimming a rosemary stem with steel shears. {interpersonal_dynamics}. The camera {camera_motion}. (S1) {speech_delivery}, <d>[English] The morning sun reaches this bench first.</d>\n\noverall_soundscape: {soundscape} Shears snip cleanly above a gentle ventilation hum.\n\nnon_diegetic_music: N/A"
       },
       {
@@ -141,6 +165,8 @@
         "poss": "their",
         "obj": "them",
         "refl": "themselves",
+        "props": "ceramic espresso cups and saucers",
+        "surface": "the walnut cafe table",
         "template": "subject_definitions:\n- <Subject 1> (S1): The person from <Picture 1>.\n\nsummary: [reference generation] Feature <Subject 1> speaking across a cafe booth table.\n\nretention_analysis:\n- <Subject 1>: [attribute_transfer] Preserve facial identity, hairstyle, and wardrobe from <Picture 1>.\n\ndetailed_description: [Shot 1] Live-action, cinematic, {opening_framing}, a medium shot frames <Subject 1> (S1) seated at a walnut cafe booth beside a rain-speckled window across the five-second take. {Subj} {subject_behavior} while resting one hand beside a ceramic espresso cup. {interpersonal_dynamics}. The camera {camera_motion}. (S1) {speech_delivery}, <d>[English] We can still catch the seven o'clock train if we leave now.</d>\n\noverall_soundscape: {soundscape} Porcelain touches a saucer above muted cafe room tone.\n\nnon_diegetic_music: N/A"
       },
       {
@@ -151,6 +177,8 @@
         "poss": "their",
         "obj": "them",
         "refl": "themselves",
+        "props": "printed transit maps and coat hems",
+        "surface": "the wrought-iron promenade parapet",
         "template": "subject_definitions:\n- <Subject 1> (S1): The person from <Picture 1>.\n\nsummary: [reference generation] Feature <Subject 1> along a stone river promenade.\n\nretention_analysis:\n- <Subject 1>: [attribute_transfer] Preserve facial identity, hairstyle, and wardrobe from <Picture 1>.\n\ndetailed_description: [Shot 1] Live-action, cinematic, {opening_framing}, a medium shot frames <Subject 1> (S1) standing beside a wrought-iron parapet along a river promenade across the five-second take. {Subj} {subject_behavior} while folding a printed transit map in both hands. {interpersonal_dynamics}. The camera {camera_motion}. (S1) {speech_delivery}, <d>[English] The ferry landing is just past the clock tower.</d>\n\noverall_soundscape: {soundscape} Water laps against stone embankments beneath a light breeze.\n\nnon_diegetic_music: N/A"
       },
       {
@@ -161,6 +189,8 @@
         "poss": "their",
         "obj": "them",
         "refl": "themselves",
+        "props": "amber bottles and cork stoppers",
+        "surface": "the timber apothecary counter",
         "template": "subject_definitions:\n- <Subject 1> (S1): The person from <Picture 1>.\n\nsummary: [reference generation] Feature <Subject 1> at an apothecary counter.\n\nretention_analysis:\n- <Subject 1>: [attribute_transfer] Preserve facial identity, hairstyle, and wardrobe from <Picture 1>.\n\ndetailed_description: [Shot 1] Live-action, cinematic, {opening_framing}, a medium close-up frames <Subject 1> (S1) behind a timber apothecary counter lined with amber bottles across the five-second take. {Subj} {subject_behavior} while pressing a cork stopper into a glass flask. {interpersonal_dynamics}. The camera {camera_motion}. (S1) {speech_delivery}, <d>[English] Keep this tincture away from direct afternoon light.</d>\n\noverall_soundscape: {soundscape} Glass bottles clink softly against polished wood.\n\nnon_diegetic_music: N/A"
       },
       {
@@ -171,6 +201,8 @@
         "poss": "their",
         "obj": "them",
         "refl": "themselves",
+        "props": "annotated score sheets and music stands",
+        "surface": "the timber theater stage",
         "template": "subject_definitions:\n- <Subject 1> (S1): The person from <Picture 1>.\n\nsummary: [reference generation] Feature <Subject 1> on a timber theater stage.\n\nretention_analysis:\n- <Subject 1>: [attribute_transfer] Preserve facial identity, hairstyle, and wardrobe from <Picture 1>.\n\ndetailed_description: [Shot 1] Live-action, cinematic, {opening_framing}, a medium shot frames <Subject 1> (S1) standing near a music stand on a timber stage across the five-second take. {Subj} {subject_behavior} while turning a sheet of annotated score paper. {interpersonal_dynamics}. The camera {camera_motion}. (S1) {speech_delivery}, <d>[English] Start two bars before the key change.</d>\n\noverall_soundscape: {soundscape} Paper turns crisply and floorboards creak in the hall.\n\nnon_diegetic_music: N/A"
       },
       {
@@ -181,6 +213,8 @@
         "poss": "their",
         "obj": "them",
         "refl": "themselves",
+        "props": "coiled hemp mooring lines and brass compasses",
+        "surface": "the timber harbor pier",
         "template": "subject_definitions:\n- <Subject 1> (S1): The person from <Picture 1>.\n\nsummary: [reference generation] Feature <Subject 1> on a timber harbor pier at dusk.\n\nretention_analysis:\n- <Subject 1>: [attribute_transfer] Preserve facial identity, hairstyle, and wardrobe from <Picture 1>.\n\ndetailed_description: [Shot 1] Live-action, cinematic, {opening_framing}, a medium shot frames <Subject 1> (S1) standing beside a coiled hemp mooring line on a harbor pier across the five-second take. {Subj} {subject_behavior} while checking a brass pocket compass. {interpersonal_dynamics}. The camera {camera_motion}. (S1) {speech_delivery}, <d>[English] The offshore wind is shifting toward the west.</d>\n\noverall_soundscape: {soundscape} Harbor swell laps against timber pilings beneath open air.\n\nnon_diegetic_music: N/A"
       },
       {
@@ -191,6 +225,8 @@
         "poss": "their",
         "obj": "them",
         "refl": "themselves",
+        "props": "bone folders and linen book spines",
+        "surface": "the cast-iron bindery press",
         "template": "subject_definitions:\n- <Subject 1> (S1): The person from <Picture 1>.\n\nsummary: [reference generation] Feature <Subject 1> at a bookbinding press.\n\nretention_analysis:\n- <Subject 1>: [attribute_transfer] Preserve facial identity, hairstyle, and wardrobe from <Picture 1>.\n\ndetailed_description: [Shot 1] Live-action, cinematic, {opening_framing}, a medium shot frames <Subject 1> (S1) standing at a cast-iron bookbinding press across the five-second take. {Subj} {subject_behavior} while smoothing a cloth spine with a bone folder. {interpersonal_dynamics}. The camera {camera_motion}. (S1) {speech_delivery}, <d>[English] Let the glue set for another twenty minutes.</d>\n\noverall_soundscape: {soundscape} Smooth bone glides across linen cloth in the quiet bindery.\n\nnon_diegetic_music: N/A"
       },
       {
@@ -201,6 +237,8 @@
         "poss": "their",
         "obj": "them",
         "refl": "themselves",
+        "props": "cotton ribbons and parchment folios",
+        "surface": "the stone reading lectern",
         "template": "subject_definitions:\n- <Subject 1> (S1): The person from <Picture 1>.\n\nsummary: [reference generation] Feature <Subject 1> in a vaulted stone archive.\n\nretention_analysis:\n- <Subject 1>: [attribute_transfer] Preserve facial identity, hairstyle, and wardrobe from <Picture 1>.\n\ndetailed_description: [Shot 1] Live-action, cinematic, {opening_framing}, a medium shot frames <Subject 1> (S1) standing beside a reading lectern in a vaulted stone archive across the five-second take. {Subj} {subject_behavior} while tying a cotton ribbon around a parchment folio. {interpersonal_dynamics}. The camera {camera_motion}. (S1) {speech_delivery}, <d>[English] Every charter in this box dates to the fourteenth century.</d>\n\noverall_soundscape: {soundscape} Parchment rustles softly in the stone chamber.\n\nnon_diegetic_music: N/A"
       },
       {
@@ -211,6 +249,8 @@
         "poss": "their",
         "obj": "them",
         "refl": "themselves",
+        "props": "woven wicker baskets and linen cloths",
+        "surface": "the stone wellhead rim",
         "template": "subject_definitions:\n- <Subject 1> (S1): The person from <Picture 1>.\n\nsummary: [reference generation] Feature <Subject 1> in a stone courtyard.\n\nretention_analysis:\n- <Subject 1>: [attribute_transfer] Preserve facial identity, hairstyle, and wardrobe from <Picture 1>.\n\ndetailed_description: [Shot 1] Live-action, cinematic, {opening_framing}, a medium shot frames <Subject 1> (S1) standing beside a stone wellhead in a sunny courtyard across the five-second take. {Subj} {subject_behavior} while setting a woven basket on the stone rim. {interpersonal_dynamics}. The camera {camera_motion}. (S1) {speech_delivery}, <d>[English] The afternoon shade just reached the colonnade.</d>\n\noverall_soundscape: {soundscape} Wicker creaks lightly against stone beside a trickle of water.\n\nnon_diegetic_music: N/A"
       }
     ]

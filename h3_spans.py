@@ -14,6 +14,7 @@ mutually exclusive boolean masks (`vision`, `label`, `timestamp`, `dialogue`,
 
 from __future__ import annotations
 
+import difflib
 import re
 from typing import Any, Callable, Sequence
 
@@ -385,6 +386,7 @@ def spans(
     setattr(out["scene"], "_h3_description_mask", desc_mask)
     setattr(out["scene"], "_h3_soundscape_mask", sound_mask)
     setattr(out["scene"], "_h3_tail_text", tail_text)
+    setattr(out["scene"], "_h3_token_ids", tuple(ids))
     return out
 
 
@@ -595,6 +597,9 @@ def span_masks_from_prompt(
     tail_sub = getattr(prompt_spans["scene"], "_h3_tail_text", None)
     if isinstance(tail_sub, str):
         setattr(scene_cat, "_h3_tail_text", tail_sub)
+    tok_sub = getattr(prompt_spans["scene"], "_h3_token_ids", None)
+    if isinstance(tok_sub, tuple):
+        setattr(scene_cat, "_h3_token_ids", tuple([0] * prefix_len) + tok_sub)
 
     return {
         "vision": torch.cat([prefix_vis, prompt_spans["vision"]], dim=0),
@@ -624,16 +629,13 @@ def first_differing_index(
     raise ValueError("token_ids_a and token_ids_b are identical; no differing token exists")
 
 
-def differing_token_bounds(
-    token_ids_a: Sequence[int] | torch.Tensor,
-    token_ids_b: Sequence[int] | torch.Tensor,
-) -> tuple[int, int, int]:
-    """Return `(first_diff, end_a, end_b)` bounding the differing token span
-    `[first_diff:end_a]` in `token_ids_a` and `[first_diff:end_b]` in `token_ids_b`.
+_DIFF_MASK_CACHE: dict[tuple[tuple[int, ...], int, int], torch.BoolTensor] = {}
 
-    Raises `ValueError` if `token_ids_a` and `token_ids_b` are identical."""
-    a = _flat_int_list(token_ids_a, "token_ids_a")
-    b = _flat_int_list(token_ids_b, "token_ids_b")
+
+def _raw_differing_token_bounds(
+    a: list[int],
+    b: list[int],
+) -> tuple[int, int, int]:
     first_diff = first_differing_index(a, b)
     max_suffix = min(len(a) - first_diff, len(b) - first_diff)
     shared_suffix = 0
@@ -647,12 +649,78 @@ def differing_token_bounds(
     return first_diff, end_a, end_b
 
 
+def differing_token_mask(
+    token_ids_a: Sequence[int] | torch.Tensor,
+    token_ids_b: Sequence[int] | torch.Tensor,
+    *,
+    min_shared_run: int = 8,
+) -> tuple[torch.BoolTensor, torch.BoolTensor]:
+    """Return `(mask_a, mask_b)` marking differing token positions between `a` and `b`.
+
+    Uses `difflib.SequenceMatcher(None, a, b, autojunk=False)` so that:
+      - On single-span diffs (where any interior equal block has `< min_shared_run`
+        tokens), `(mask_a, mask_b)` are `True` on `[first_diff:end_a]` and
+        `[first_diff:end_b]`, bit-for-bit identical to `differing_token_bounds`.
+      - On multi-span or cross-section diffs (e.g. `description + soundscape` or
+        `opening_framing + camera_motion`), interior unchanged blocks of length
+        `>= min_shared_run` are set to `False` on both sides while accommodating
+        `Delta L != 0` token-length shifts between `a` and `b`.
+
+    Raises `ValueError` if `token_ids_a` and `token_ids_b` are identical."""
+    a = _flat_int_list(token_ids_a, "token_ids_a")
+    b = _flat_int_list(token_ids_b, "token_ids_b")
+    first_diff, end_a, end_b = _raw_differing_token_bounds(a, b)
+    mask_a = torch.zeros(len(a), dtype=torch.bool)
+    mask_b = torch.zeros(len(b), dtype=torch.bool)
+    mask_a[first_diff:end_a] = True
+    mask_b[first_diff:end_b] = True
+    if min_shared_run > 0:
+        sub_a = a[first_diff:end_a]
+        sub_b = b[first_diff:end_b]
+        matcher = difflib.SequenceMatcher(None, sub_a, sub_b, autojunk=False)
+        for tag, i1, i2, j1, j2 in matcher.get_opcodes():
+            if tag == "equal" and (i2 - i1) >= min_shared_run:
+                mask_a[first_diff + i1 : first_diff + i2] = False
+                mask_b[first_diff + j1 : first_diff + j2] = False
+        if not bool(mask_a.any()):
+            mask_a[first_diff:end_a] = True
+        if not bool(mask_b.any()):
+            mask_b[first_diff:end_b] = True
+    return mask_a, mask_b
+
+
+def differing_token_bounds(
+    token_ids_a: Sequence[int] | torch.Tensor,
+    token_ids_b: Sequence[int] | torch.Tensor,
+) -> tuple[int, int, int]:
+    """Return `(first_diff, end_a, end_b)` bounding the differing token span
+    `[first_diff:end_a]` in `token_ids_a` and `[first_diff:end_b]` in `token_ids_b`.
+
+    Also caches multi-span `differing_token_mask` when interior shared runs of
+    `>= 8` tokens exist so `pooling_mask(..., mode='diff_span')` automatically
+    excludes unchanged interior bridge tokens.
+
+    Raises `ValueError` if `token_ids_a` and `token_ids_b` are identical."""
+    a = _flat_int_list(token_ids_a, "token_ids_a")
+    b = _flat_int_list(token_ids_b, "token_ids_b")
+    first_diff, end_a, end_b = _raw_differing_token_bounds(a, b)
+    mask_a, mask_b = differing_token_mask(a, b, min_shared_run=8)
+    if not bool(mask_a[first_diff:end_a].all()) or not bool(mask_b[first_diff:end_b].all()):
+        while len(_DIFF_MASK_CACHE) >= 512:
+            _DIFF_MASK_CACHE.pop(next(iter(_DIFF_MASK_CACHE)))
+        _DIFF_MASK_CACHE[(tuple(a), first_diff, end_a)] = mask_a
+        _DIFF_MASK_CACHE[(tuple(b), first_diff, end_b)] = mask_b
+    return first_diff, end_a, end_b
+
+
 def pooling_mask(
     span_masks: dict[str, torch.BoolTensor],
     mode: str = "scene_text",
     *,
     first_diff: int | None = None,
     end_diff: int | None = None,
+    diff_mask: torch.BoolTensor | None = None,
+    other_ids: Sequence[int] | torch.Tensor | None = None,
 ) -> torch.BoolTensor:
     """Boolean mask of rows to mean-pool when constructing a pair endpoint (`E2.6`).
 
@@ -662,8 +730,8 @@ def pooling_mask(
     - `'from_first_diff'`: `~span_masks['vision']` at indices `>= first_diff`.
     - `'diff_span'`: `span_masks['scene']` (falling back to `~span_masks['vision']`
       when the diff sits entirely inside `<d>...</d>` dialogue/speaker tokens)
-      restricted to `[first_diff:end_diff]` (stripping both shared prefix and
-      shared suffix tokens)."""
+      restricted to `[first_diff:end_diff]` (and excluding any interior shared
+      token runs of length `>= 8` via `differing_token_mask`)."""
     if not isinstance(span_masks, dict) or "vision" not in span_masks or "scene" not in span_masks:
         raise ValueError("span_masks must contain 'vision' and 'scene' keys")
     if mode in ("scene_text", "scene"):
@@ -676,19 +744,36 @@ def pooling_mask(
         mask = (~span_masks["vision"]).clone()
         mask[:first_diff] = False
     elif mode == "diff_span":
-        if first_diff is None or first_diff < 0:
-            raise ValueError("pooling mode 'diff_span' requires a non-negative first_diff index")
-        if end_diff is not None and end_diff <= first_diff:
-            raise ValueError("pooling mode 'diff_span' requires end_diff > first_diff")
-        mask = span_masks["scene"].clone()
-        mask[:first_diff] = False
-        if end_diff is not None:
-            mask[end_diff:] = False
-        if not bool(mask.any()):
-            mask = (~span_masks["vision"]).clone()
+        if diff_mask is None and other_ids is not None:
+            self_ids = getattr(span_masks["scene"], "_h3_token_ids", None)
+            if self_ids is not None:
+                diff_mask, _ = differing_token_mask(self_ids, other_ids, min_shared_run=8)
+        if diff_mask is None and first_diff is not None and end_diff is not None:
+            self_ids = getattr(span_masks["scene"], "_h3_token_ids", None)
+            if isinstance(self_ids, tuple):
+                cached = _DIFF_MASK_CACHE.get((self_ids, int(first_diff), int(end_diff)))
+                if cached is not None and cached.numel() == span_masks["scene"].numel():
+                    diff_mask = cached
+
+        if diff_mask is not None:
+            dm = diff_mask.to(device=span_masks["scene"].device, dtype=torch.bool)
+            mask = span_masks["scene"] & dm
+            if not bool(mask.any()):
+                mask = (~span_masks["vision"]) & dm
+        else:
+            if first_diff is None or first_diff < 0:
+                raise ValueError("pooling mode 'diff_span' requires a non-negative first_diff index")
+            if end_diff is not None and end_diff <= first_diff:
+                raise ValueError("pooling mode 'diff_span' requires end_diff > first_diff")
+            mask = span_masks["scene"].clone()
             mask[:first_diff] = False
             if end_diff is not None:
                 mask[end_diff:] = False
+            if not bool(mask.any()):
+                mask = (~span_masks["vision"]).clone()
+                mask[:first_diff] = False
+                if end_diff is not None:
+                    mask[end_diff:] = False
     else:
         raise ValueError(f"unknown pooling mode {mode!r}; expected one of {POOLING_MODES}")
 
