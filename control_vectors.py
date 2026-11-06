@@ -1890,18 +1890,10 @@ def save_vector(
         )
     out_path.parent.mkdir(parents=True, exist_ok=True)
     save_file(clean_tensors, str(out_path), metadata=encoded_meta)
-    try:
-        out_path.chmod(0o664)
-    except OSError:
-        pass
     if write_sidecar_md:
         sidecar_path = out_path.with_suffix(".md")
         sidecar_md = format_vector_sidecar_md(out_path.name, clean_tensors, metadata)
         sidecar_path.write_text(sidecar_md, encoding="utf-8")
-        try:
-            sidecar_path.chmod(0o664)
-        except OSError:
-            pass
     return out_path
 
 

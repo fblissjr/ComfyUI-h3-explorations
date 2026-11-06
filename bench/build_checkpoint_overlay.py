@@ -36,7 +36,6 @@ def main() -> int:
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
     stats = build_overlay(str(args.base), str(args.target), str(args.out))
-    args.out.chmod(0o644)   # the server runs as another user in the models group
     meta, pieces = read_overlay(str(args.out))
     rec = {"base": meta["base_name"], "base_sha256": meta["base_sha256"],
            "target": meta["target_name"], "target_sha256": meta["target_sha256"],

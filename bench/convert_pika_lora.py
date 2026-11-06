@@ -260,7 +260,6 @@ def convert(
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
     save_file(out_tensors, str(out_path), metadata=meta)
-    out_path.chmod(0o644)
 
     summary = {
         "out": out_path.name,
