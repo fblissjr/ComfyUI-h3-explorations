@@ -486,9 +486,10 @@ def assess_steering_readiness(
         mu_pos_rd, pos_ids_rd, _, _ = _mean_word_direction(req_clean, w2i_rd, m_c_rd)
         per_word_vecs: list[torch.Tensor] = []
         for rw in req_clean:
-            rw_ids, _, _ = _resolve_word_indices([rw], w2i_rd)
-            if rw_ids:
-                per_word_vecs.append(F.normalize(m_c_rd[rw_ids].mean(dim=0), dim=0))
+            for cand in (rw, *_SHORT_WORD_FALLBACKS.get(rw, ())):
+                c_ids, _, _ = _resolve_word_indices([cand], w2i_rd)
+                if c_ids:
+                    per_word_vecs.append(F.normalize(m_c_rd[c_ids].mean(dim=0), dim=0))
         top_words = [str(item["word"]).lower() for item in pos_list[:8]]
         matched_top = 0
         for tw in top_words:
@@ -509,8 +510,10 @@ def assess_steering_readiness(
             off_target.append(tw)
         echo_ratio = round(matched_top / max(len(top_words), 1), 2)
 
-    check_tokens = set(w.lower() for w in (pos_words or ())) | set(
-        str(x["word"]).lower() for x in pos_list[:4]
+    check_tokens = (
+        set(w.lower() for w in pos_words)
+        if pos_words
+        else set(str(x["word"]).lower() for x in pos_list[:2])
     )
     is_replacement = bool(check_tokens & _REPLACEMENT_CONCEPT_WORDS)
     neg_set = set(w.lower() for w in (neg_words or DEFAULT_NEUTRAL_WORDS))
@@ -530,7 +533,7 @@ def assess_steering_readiness(
             f"TokenRefiner pass-through is {ref_trans:.3f} (measured on ||J_ref @ v_enc_unit||_2): "
             "concrete visual, lighting, or material nouns typically have pass-through >= 0.50."
         )
-    if basis == "word_synthesis" and top1_gain < 2.80:
+    if basis == "word_synthesis" and top1_gain < (2.80 if uses_default_neg else 2.40):
         recommendations.append(
             f"Word-synthesis post-refiner peak gain is +{top1_gain:.2f} (measured on M_union at scale = 90): "
             "3-5 concrete domain nouns typically yield >= +3.00."
