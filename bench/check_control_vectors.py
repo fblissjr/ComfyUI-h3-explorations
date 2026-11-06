@@ -205,6 +205,72 @@ def check_spans_partition_and_refusals(tok: MiniMaxH3Tokenizer) -> list[str]:
     am = h3_spans.apply_mask(masks)
     if not torch.equal(am, ~masks["vision"]):
         errs.append("default apply_mask does not equal ~vision")
+    im_non_vis = h3_spans.inference_mask(masks, "non_vision")
+    if not torch.equal(im_non_vis, ~masks["vision"]):
+        errs.append("inference_mask('non_vision') does not equal ~vision")
+    im_all = h3_spans.inference_mask(masks, "all_rows")
+    if not bool(im_all.all()):
+        errs.append("inference_mask('all_rows') is not all True")
+    im_scene = h3_spans.inference_mask(masks, "scene_only")
+    if not torch.equal(im_scene, masks["scene"] & (~masks["vision"])):
+        errs.append("inference_mask('scene_only') does not equal masks['scene'] & ~vision")
+    if bool((im_scene & masks["dialogue"]).any()):
+        errs.append("inference_mask('scene_only') did not mask out <d>...</d> dialogue rows")
+    im_after_dlg = h3_spans.inference_mask(masks, "after_dialogue")
+    dlg_idx_list = masks["dialogue"].nonzero(as_tuple=False).flatten().tolist()
+    if not dlg_idx_list:
+        errs.append("expected dialogue rows in masks for after_dialogue test")
+    else:
+        last_dlg_idx = dlg_idx_list[-1]
+        if (
+            bool(im_after_dlg[: last_dlg_idx + 1].any())
+            or not torch.equal(im_after_dlg[last_dlg_idx + 1 :], masks["scene"][last_dlg_idx + 1 :])
+            or not torch.equal(im_after_dlg, (~masks["vision"]) & masks["scene"] & (torch.arange(len(token_ids)) > last_dlg_idx))
+        ):
+            errs.append("inference_mask('after_dialogue') did not mask rows up through the final </d> token")
+    # Also test inference_mask('after_dialogue') when a scene row appears BEFORE dialogue as well as AFTER dialogue
+    synth_masks = {
+        "vision": torch.tensor([True, False, False, False, False]),
+        "scene": torch.tensor([False, True, False, False, True]),
+        "dialogue": torch.tensor([False, False, True, True, False]),
+    }
+    im_synth_after = h3_spans.inference_mask(synth_masks, "after_dialogue")
+    if not torch.equal(im_synth_after, torch.tensor([False, False, False, False, True])):
+        errs.append(f"inference_mask('after_dialogue') did not mask pre-dialogue scene row: {im_synth_after}")
+    errs += _expect_refusal(
+        lambda: h3_spans.inference_mask(masks, "bogus_mask_mode"),
+        "unknown inference mask mode",
+        "inference_mask unknown mode refusal",
+    )
+
+    # Verify span_masks_from_prompt with text-only and with prefix offset
+    errs += _expect_refusal(
+        lambda: h3_spans.span_masks_from_prompt(
+            "integrated_multimodal_description: [Shot 1] Wide shot as (S1) says, <d>[English] Stop right there.</d> The rain falls.\n\noverall_soundscape: Rain.\n\nnon_diegetic_music: N/A",
+            0,
+            tokenizer=tok,
+        ),
+        "total_length must be >= 1",
+        "span_masks_from_prompt total_length=0 refusal",
+    )
+    raw_entries = tok.tokenize_with_weights(
+        "integrated_multimodal_description: [Shot 1] Wide shot as (S1) says, <d>[English] Stop right there.</d> The rain falls.\n\noverall_soundscape: Rain.\n\nnon_diegetic_music: N/A"
+    )["qwen3vl_32b"][0]
+    n_text_tok = len(raw_entries)
+    prefix_tags = torch.tensor([0, 0, 1] + [1] * n_text_tok, dtype=torch.long)
+    sm_prefixed = h3_spans.span_masks_from_prompt(
+        "integrated_multimodal_description: [Shot 1] Wide shot as (S1) says, <d>[English] Stop right there.</d> The rain falls.\n\noverall_soundscape: Rain.\n\nnon_diegetic_music: N/A",
+        n_text_tok + 3,
+        tags=prefix_tags,
+        tokenizer=tok,
+    )
+    if (
+        sm_prefixed is None
+        or int(sm_prefixed["vision"].sum().item()) != 2
+        or not bool(sm_prefixed["dialogue"].any())
+        or not bool(sm_prefixed["scene"].any())
+    ):
+        errs.append(f"span_masks_from_prompt failed on prefixed sequence: {sm_prefixed}")
     pm_scene = h3_spans.pooling_mask(masks, "scene_text")
     if not torch.equal(pm_scene, masks["scene"]):
         errs.append("pooling_mask('scene_text') does not equal masks['scene']")
@@ -775,6 +841,53 @@ b = "a busy city street"
         )
         if (tmp_dir / "bad_md_multispan.toml").exists():
             errs.append("write_markdown_to_toml left invalid .toml on disk after validation failure")
+
+        # 15. Semantic pair-quality linter (lint_pair_set) checks:
+        # Clean pair set with unique spans and N/A music -> 0 warnings
+        clean_p1_a = base_a
+        clean_p1_b = base_a.replace(
+            "shot on a modern digital cinema camera with clean neutral colour and crisp detail,",
+            "recorded on vintage 16mm celluloid stock with heavy grain and halation,",
+        )
+        clean_lint = cv.lint_pair_set([
+            {"a": clean_p1_a, "b": clean_p1_b},
+            {"a": hold_a, "b": hold_b},
+        ])
+        if clean_lint:
+            errs.append(f"lint_pair_set produced unexpected warnings on clean pairs: {clean_lint}")
+
+        # Duplicate span, unbracketed <d>, banned rate adverb in b_span, content-noun cancellation, and non-N/A music
+        bad_dlg_a = base_a.replace("He produces no vocal sound.", 'He says, <d>Hello there.</d>')
+        bad_dlg_b = bad_dlg_a.replace(
+            "shot on a modern digital cinema camera with clean neutral colour and crisp detail,",
+            "rapidly recorded on 16mm film with a lantern on the bench,",
+        )
+        bad_music_a = base_a.replace("non_diegetic_music: N/A", "non_diegetic_music: No non-diegetic music.")
+        bad_music_b = clean_p1_b.replace("non_diegetic_music: N/A", "non_diegetic_music: No non-diegetic music.")
+        noun_cancel_a = base_a.replace(
+            "shot on a modern digital cinema camera with clean neutral colour and crisp detail,",
+            "with a brass lantern glowing on the oak table,",
+        )
+        noun_cancel_b = base_a.replace(
+            "shot on a modern digital cinema camera with clean neutral colour and crisp detail,",
+            "with a silver lantern gleaming on the stone shelf,",
+        )
+        lint_warns = cv.lint_pair_set([
+            {"a": clean_p1_a, "b": clean_p1_b},
+            {"a": clean_p1_a, "b": clean_p1_b},  # duplicate a_span / b_span
+            {"a": bad_dlg_a, "b": bad_dlg_b},  # missing [Language] tag + banned rate adverb 'rapidly'
+            {"a": bad_music_a, "b": bad_music_b},  # non-N/A music
+            {"a": noun_cancel_a, "b": noun_cancel_b},  # content-noun cancellation ('lantern')
+        ])
+        for expected_substr in (
+            "duplicate a_span",
+            "missing a [Language] tag",
+            "rate/onset filler",
+            "non_diegetic_music",
+            "cancel in B - A",
+        ):
+            if not any(expected_substr in w for w in lint_warns):
+                errs.append(f"lint_pair_set did not flag {expected_substr!r}; got {lint_warns}")
     return errs
 
 
@@ -816,6 +929,16 @@ def check_math_and_synthetic_statistics() -> list[str]:
     expected_signed = torch.tensor([1.0, -2.0, 0.0, 0.0], dtype=torch.float32)
     if not torch.allclose(v_signed, expected_signed, atol=1e-6):
         errs.append(f"signed-weight mean_difference wrong: {v_signed} vs {expected_signed}")
+
+    # unit_mean=True test: pair 0 has norm 2 along e0, pair 1 has norm 10 along e1.
+    # Unnormalized mean_difference points mostly along e1 ([1.0, 5.0]); unit_mean=True gives equal
+    # directional weight (0.5 * e0 + 0.5 * e1) scaled by mean norm (2 + 10)/2 = 6 -> [3.0, 3.0].
+    a_um = torch.zeros((2, 4), dtype=torch.float32)
+    b_um = torch.tensor([[2.0, 0.0, 0.0, 0.0], [0.0, 10.0, 0.0, 0.0]], dtype=torch.float32)
+    v_um = cv.mean_difference(a_um, b_um, unit_mean=True)
+    expected_um = torch.tensor([3.0, 3.0, 0.0, 0.0], dtype=torch.float32)
+    if not torch.allclose(v_um, expected_um, atol=1e-5):
+        errs.append(f"mean_difference(unit_mean=True) wrong: {v_um} vs {expected_um}")
 
     # Synthetic signal-plus-noise pairs: diffs_i = mu + eps_i, ||mu|| = 1, eps_i ~ N(0, sigma^2 / d I).
     gen = torch.Generator().manual_seed(20261104)
@@ -1367,6 +1490,41 @@ def check_vector_io_family_and_compatibility() -> list[str]:
         if len(warns_lora) != 1 or "lora set" not in warns_lora[0].lower():
             errs.append(f"expected 1 LoRA warning when allow_recipe_mismatch=True, got {warns_lora}")
 
+        # 4b. Same-family Pika H3 Flex LoRA variants (e.g. svd995_bf16 vs comfy_bf16 at same strength)
+        # emit an advisory warning instead of a hard refusal when allow_recipe_mismatch=False.
+        meta_pika_svd = {
+            **meta_out,
+            "recipe": {
+                **recipe_a,
+                "loras": [
+                    {
+                        "file": "pika_h3_flex_fl2va_svd995_bf16.safetensors",
+                        "sha256": "aaaa",
+                        "strength": 1.0,
+                        "applied": "branch",
+                    }
+                ],
+            },
+        }
+        recipe_pika_comfy = {
+            **recipe_a,
+            "loras": [
+                {
+                    "file": "pika_h3_flex_fl2va_comfy_bf16.safetensors",
+                    "sha256": "bbbb",
+                    "strength": 1.0,
+                    "applied": "branch",
+                }
+            ],
+        }
+        warns_pika_variant = cv.check_vector_compatibility(
+            meta_pika_svd, loaded_family="fl2va", loaded_recipe=recipe_pika_comfy, allow_recipe_mismatch=False
+        )
+        if len(warns_pika_variant) != 1 or "lora set" not in warns_pika_variant[0].lower():
+            errs.append(
+                f"expected 1 same-family Pika variant advisory warning when allow_recipe_mismatch=False, got {warns_pika_variant}"
+            )
+
         # 5. Prefix mismatch -> reported in warnings, never refused
         warns_prefix = cv.check_vector_compatibility(
             meta_out,
@@ -1508,10 +1666,21 @@ def check_apply_post_refiner_invariants() -> list[str]:
         errs.append("apply_post_refiner(mode='amplify', s=0.5) did not scale component along v by 1.5 while preserving ortho")
 
     # strength 0 is still bitwise identity for project_out and amplify
-    for m_name in ("project_out", "amplify"):
+    for m_name in ("project_out", "amplify", "add_norm_matched"):
         out_m0 = cv.apply_post_refiner(ctx_f32, tags, [(v_dir, 0.0, m_name)])
         if out_m0.data_ptr() != ctx_f32.data_ptr():
             errs.append(f"apply_post_refiner(mode={m_name!r}, s=0.0) did not return context unchanged")
+
+    # 8. Norm-matched mode ('add_norm_matched' or scale_mode='norm_matched'):
+    # v_dir has norm 5.0; in norm_matched mode, s=1.0 adds (67.5 / 5.0) * v_dir = 13.5 * v_dir.
+    ctx_zeros = torch.zeros((1, L, D), dtype=torch.float32)
+    out_nm_mode = cv.apply_post_refiner(ctx_zeros, tags, [(v_dir, 1.0, "add_norm_matched")])
+    out_nm_scale = cv.apply_post_refiner(ctx_zeros, tags, [(v_dir, 1.0, "add")], scale_mode="norm_matched")
+    expected_nm_row = (67.5 / 5.0) * v_dir
+    if not torch.allclose(out_nm_mode, out_nm_scale, atol=1e-6):
+        errs.append("apply_post_refiner mode='add_norm_matched' and scale_mode='norm_matched' differed")
+    if not torch.allclose(out_nm_mode[0, 4:, :], expected_nm_row.unsqueeze(0).expand(L - 4, D), atol=1e-5):
+        errs.append("apply_post_refiner norm_matched did not scale vector to NORM_MATCHED_TARGET (67.5)")
 
     errs += _expect_refusal(
         lambda: cv.apply_post_refiner(ctx_f32, tags, [(v_dir, 1.0, "bogus_mode")]),
@@ -1786,6 +1955,43 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
         )
         if dm.last_context is None or not torch.equal(dm.last_context, expected_all_rows):
             errs.append("attach_control_vector(mask='all_rows') did not shift all rows")
+
+        # Dialogue-aware inference masks ('scene_only' and 'after_dialogue') via _h3_span_masks on text_token_tags
+        # rows 0..1 = vision, 2..3 = scene, 4..5 = dialogue (<d>...</d>) -> scene_only shifts only rows 2..3;
+        # if row 5 is scene after dialogue (rows 0..1 vision, 2 scene, 3..4 dialogue, 5 scene), after_dialogue shifts only row 5.
+        tags_dlg = torch.tensor([[0, 0, 1, 1, 1, 1]], dtype=torch.long)
+        tags_dlg._h3_span_masks = {
+            "vision": torch.tensor([True, True, False, False, False, False]),
+            "label": torch.zeros(6, dtype=torch.bool),
+            "timestamp": torch.zeros(6, dtype=torch.bool),
+            "dialogue": torch.tensor([False, False, False, True, True, False]),
+            "scene": torch.tensor([False, False, True, False, False, True]),
+        }
+        p_scene_only = cv_nodes.attach_control_vector(
+            patcher_with_init, v1_path, strength=1.0, mask="scene_only"
+        )
+        p_scene_only.invoke_diffusion_model(
+            x_in, t_in, ctx_in, minimax_payload={"text_token_tags": tags_dlg}
+        )
+        if (
+            dm.last_context is None
+            or not torch.equal(dm.last_context[:, [0, 1, 3, 4], :], ctx_in[:, [0, 1, 3, 4], :])
+            or torch.equal(dm.last_context[:, [2, 5], :], ctx_in[:, [2, 5], :])
+        ):
+            errs.append("attach_control_vector(mask='scene_only') did not protect <d>...</d> dialogue rows 3..4 while steering scene rows 2, 5")
+
+        p_after_dlg = cv_nodes.attach_control_vector(
+            patcher_with_init, v1_path, strength=1.0, mask="after_dialogue"
+        )
+        p_after_dlg.invoke_diffusion_model(
+            x_in, t_in, ctx_in, minimax_payload={"text_token_tags": tags_dlg}
+        )
+        if (
+            dm.last_context is None
+            or not torch.equal(dm.last_context[:, :5, :], ctx_in[:, :5, :])
+            or torch.equal(dm.last_context[:, 5:, :], ctx_in[:, 5:, :])
+        ):
+            errs.append("attach_control_vector(mask='after_dialogue') did not protect rows 0..4 up through final </d> while steering row 5")
 
         warn_msgs: list[str] = []
 
@@ -2606,6 +2812,38 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
                     errs.append(
                         f"handle_ui_request POST /api/build lost [[hold]] blocks on loaded .toml: st={st_bld_hold}, holds={len(after_ps.holds)}"
                     )
+
+                # Verify editing a [[hold]] block in Markdown when Pair 1..2 are unchanged updates the .toml on disk
+                edited_hold_md = load_hold_json.get("markdown", "").replace(
+                    "#### Hold 1 (setting)", "#### Hold 1 (edited_hold_group)"
+                )
+                st_bld_hold2, _, body_bld_hold2 = bench_cv.handle_ui_request(
+                    ui_state,
+                    "POST",
+                    "/api/build",
+                    json.dumps(
+                        {
+                            "text": edited_hold_md,
+                            "name": "ui_hold_preserved",
+                            "frame": "scene",
+                            "families": "fl2va",
+                            "pooling": "diff_span",
+                            "no_lora": True,
+                            "overwrite": True,
+                        }
+                    ).encode("utf-8"),
+                )
+                after_ps2 = cv.load_pairs(hold_toml_path, bank_dir=cv_nodes.PROMPT_BANK_DIR)
+                if (
+                    st_bld_hold2 != 200
+                    or len(after_ps2.holds) != 1
+                    or after_ps2.holds[0].group != "edited_hold_group"
+                ):
+                    errs.append(
+                        f"handle_ui_request POST /api/build ignored edited Hold block when Pair 1..2 were unchanged: {[h.group for h in after_ps2.holds]}"
+                    )
+                if not ui_state._clips:
+                    errs.append("ControlVectorUIState did not cache _clips across /api/build requests")
 
                 st_quit, _, body_quit = bench_cv.handle_ui_request(ui_state, "POST", "/api/quit", b"{}")
                 quit_json = json.loads(body_quit)

@@ -1244,6 +1244,8 @@ class MiniMaxH3ReferenceConditioning(io.ComfyNode):
         )
         tokens = clip.tokenize(normalize_prompt(prompt), minimax_ref_items=ref_items)
         conditioning = clip.encode_from_tokens_scheduled(tokens)
+        from .h3_spans import attach_span_masks
+        attach_span_masks(conditioning, clip, tokens)
         if ref_blocks:
             # Absent, not []: `model_base` builds the text-only layout for a
             # missing key and a refs=[] layout for an empty one, and core

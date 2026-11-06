@@ -60,6 +60,7 @@ import node_helpers
 from comfy_extras.nodes_minimax_h3 import _empty_av_latent
 
 from .h3_rules import normalize_prompt
+from .h3_spans import attach_span_masks
 from .keyframe_canvas import resolve_keyframe_geometry
 logger = logging.getLogger(__name__)
 
@@ -155,6 +156,7 @@ class MiniMaxH3Conditioning(io.ComfyNode):
 
         tokens = clip.tokenize(normalize_prompt(prompt), images=images)
         cond = clip.encode_from_tokens_scheduled(tokens)
+        attach_span_masks(cond, clip, tokens)
 
         if keyframes:
             for kf in keyframes:

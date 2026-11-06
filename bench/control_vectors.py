@@ -186,11 +186,22 @@ def cmd_make(args: argparse.Namespace) -> int:
     )
 
     t0 = time.perf_counter()
-    clip = _load_clip(encoder_name, device=args.device)
+    clip = getattr(args, "_clip_override", None) or _load_clip(encoder_name, device=args.device)
     t_clip = time.perf_counter()
-    refiner_run = cv_nodes.build_refiner_runner(
-        unet_path, device=args.refiner_device, loras=loras
+    ref_cache = getattr(args, "_refiner_cache", None)
+    ref_key = (
+        str(unet_path),
+        str(args.refiner_device),
+        tuple((l["file"], float(l["strength"])) for l in loras),
     )
+    if isinstance(ref_cache, dict) and ref_key in ref_cache:
+        refiner_run = ref_cache[ref_key]
+    else:
+        refiner_run = cv_nodes.build_refiner_runner(
+            unet_path, device=args.refiner_device, loras=loras
+        )
+        if isinstance(ref_cache, dict):
+            ref_cache[ref_key] = refiner_run
     t_ref = time.perf_counter()
 
     encoded_refs = None
@@ -300,7 +311,9 @@ def cmd_make(args: argparse.Namespace) -> int:
     b_mat = torch.stack(b_pooled_list, dim=0)
     w_vec = torch.tensor(weights_list, dtype=torch.float32)
 
-    raw_vec = cv.mean_difference(a_mat, b_mat, w_vec)
+    raw_vec = cv.mean_difference(
+        a_mat, b_mat, w_vec, unit_mean=bool(getattr(args, "unit_mean", False))
+    )
     tensors_to_save: dict[str, torch.Tensor] = {}
 
     if not args.no_holds and pair_set.holds:
@@ -1382,6 +1395,46 @@ def _recommended_strength_text(raw_norm: float) -> str:
 
 
 def cmd_build(args: argparse.Namespace) -> int:
+    if getattr(args, "build_all", False):
+        toml_dir = Path(getattr(args, "toml_dir", None) or cv_nodes.PAIR_BANK_DIR)
+        all_tomls = sorted(toml_dir.glob("*.toml"))
+        if not all_tomls:
+            raise ValueError(f"no .toml pair files found in {toml_dir}")
+        encoder_name = getattr(args, "encoder", None) or h3_config.MODELS["clip"]
+        t_batch_0 = time.perf_counter()
+        clip_shared = getattr(args, "_clip_override", None) or _load_clip(
+            encoder_name, device=args.device
+        )
+        refiner_cache: dict[Any, Any] = (
+            args._refiner_cache
+            if isinstance(getattr(args, "_refiner_cache", None), dict)
+            else {}
+        )
+        all_rows: list[dict[str, Any]] = []
+        print(
+            f"=== Batch Building {len(all_tomls)} Control Vector Banks from {_display_path(toml_dir)} ==="
+        )
+        for toml_path in all_tomls:
+            sub_args = argparse.Namespace(**vars(args))
+            sub_args.build_all = False
+            sub_args.source = str(toml_path)
+            sub_args.name = None
+            sub_args.output_name = ""
+            sub_args._clip_override = clip_shared
+            sub_args._refiner_cache = refiner_cache
+            sub_args._summary_rows_out = all_rows
+            cmd_build(sub_args)
+        if getattr(args, "_summary_rows_out", None) is not None:
+            args._summary_rows_out.extend(all_rows)
+        t_batch_elapsed = time.perf_counter() - t_batch_0
+        print(
+            f"\n=== Batch Build Complete: {len(all_rows)} vector file(s) from {len(all_tomls)} TOML bank(s) in {t_batch_elapsed:.2f}s ==="
+        )
+        return 0
+
+    if not getattr(args, "source", None) or not str(args.source).strip():
+        raise ValueError("either a source (.md/.toml/stem) or --all is required for 'build'")
+
     raw_poolings = [p.strip() for p in str(args.pooling).split(",") if p.strip()]
     if not raw_poolings:
         raise ValueError("--pooling must specify at least one pooling mode")
@@ -1447,7 +1500,9 @@ def cmd_build(args: argparse.Namespace) -> int:
             existing_ps = cv.load_pairs(cand_toml, bank_dir=cv_nodes.PROMPT_BANK_DIR)
             existing_ab = [(p.a, p.b) for p in existing_ps.pairs]
             new_ab = [(p["a"], p["b"]) for p in parsed["pairs"]]
-            if existing_ab != new_ab:
+            existing_holds = [(h.group, h.a, h.b) for h in existing_ps.holds]
+            new_holds = [(h["group"], h["a"], h["b"]) for h in parsed.get("holds", [])]
+            if existing_ab != new_ab or existing_holds != new_holds:
                 raise
             resolved_pair_path = cand_toml
             if tp_out is not None and parsed.get("test_scene_prompt"):
@@ -1488,7 +1543,7 @@ def cmd_build(args: argparse.Namespace) -> int:
     encoder_path = Path(folder_paths.get_full_path_or_raise("text_encoders", encoder_name))
 
     t0 = time.perf_counter()
-    clip = _load_clip(encoder_name, device=args.device)
+    clip = getattr(args, "_clip_override", None) or _load_clip(encoder_name, device=args.device)
     t_clip = time.perf_counter()
 
     encoded_refs = None
@@ -1617,16 +1672,28 @@ def cmd_build(args: argparse.Namespace) -> int:
             except Exception:
                 loras = []
 
-        recipe = cv_nodes.extract_model_recipe(
-            None,
-            None,
-            unet_path_override=unet_path,
-            encoder_path_override=encoder_path,
-            loras_override=loras,
+        ref_cache = getattr(args, "_refiner_cache", None)
+        cache_key = (
+            str(unet_path),
+            str(encoder_path),
+            str(args.refiner_device),
+            json.dumps(loras, sort_keys=True),
         )
-        refiner_run = cv_nodes.build_refiner_runner(
-            unet_path, device=args.refiner_device, loras=loras
-        )
+        if isinstance(ref_cache, dict) and cache_key in ref_cache:
+            family, recipe, refiner_run = ref_cache[cache_key]
+        else:
+            recipe = cv_nodes.extract_model_recipe(
+                None,
+                None,
+                unet_path_override=unet_path,
+                encoder_path_override=encoder_path,
+                loras_override=loras,
+            )
+            refiner_run = cv_nodes.build_refiner_runner(
+                unet_path, device=args.refiner_device, loras=loras
+            )
+            if isinstance(ref_cache, dict):
+                ref_cache[cache_key] = (family, recipe, refiner_run)
 
         # Refine all pairs & holds once for this (family, lora) target
         refined_pairs: list[tuple[torch.Tensor, torch.Tensor]] = []
@@ -1712,7 +1779,8 @@ def cmd_build(args: argparse.Namespace) -> int:
 
             a_mat = torch.stack(a_pooled_list, dim=0)
             b_mat = torch.stack(b_pooled_list, dim=0)
-            raw_vec = cv.mean_difference(a_mat, b_mat, w_vec)
+            use_unit_mean = bool(getattr(args, "unit_mean", False))
+            raw_vec = cv.mean_difference(a_mat, b_mat, w_vec, unit_mean=use_unit_mean)
             tensors_to_save: dict[str, torch.Tensor] = {}
 
             if cached_holds:
@@ -1875,6 +1943,8 @@ class ControlVectorUIState:
             folder_paths.get_folder_paths(cv_nodes.CONTROL_VECTORS_FOLDER)[0]
         )
         self._tokenizer: Any = None
+        self._clips: dict[tuple[str, str], Any] = {}
+        self._refiner_cache: dict[Any, Any] = {}
         self.shutdown_requested: bool = False
 
     def get_tokenizer(self) -> Any:
@@ -1883,6 +1953,13 @@ class ControlVectorUIState:
 
             self._tokenizer = mm_te.MiniMaxH3Tokenizer()
         return self._tokenizer
+
+    def get_clip(self, encoder_name: str | None = None, device: str = "default") -> Any:
+        resolved_enc = encoder_name or h3_config.MODELS["clip"]
+        key = (str(resolved_enc), str(device))
+        if key not in self._clips:
+            self._clips[key] = _load_clip(resolved_enc, device=str(device))
+        return self._clips[key]
 
 
 def _extract_system_prompt_text() -> str:
@@ -2111,6 +2188,13 @@ def _preview_markdown_pairs(
             "scene_text": round(sum(scene_counts) / len(scene_counts), 1),
         }
 
+    lint_warnings: list[str] = []
+    if all(r.get("valid", False) for r in pair_rows):
+        try:
+            lint_warnings = cv.lint_pair_set(parsed["pairs"], frame=frame)
+        except Exception:
+            lint_warnings = []
+
     return {
         "ok": True,
         "mode": parsed["mode"],
@@ -2118,6 +2202,7 @@ def _preview_markdown_pairs(
         "quality": quality,
         "suggested_name": name,
         "avg_tokens": avg_tokens,
+        "lint_warnings": lint_warnings,
         "pairs": pair_rows,
     }
 
@@ -2240,7 +2325,13 @@ def handle_ui_request(
                     existing_ps = cv.load_pairs(cand_toml, bank_dir=cv_nodes.PROMPT_BANK_DIR)
                     existing_ab = [(p.a, p.b) for p in existing_ps.pairs]
                     new_ab = [(p["a"], p["b"]) for p in parsed["pairs"]]
-                    if existing_ab == new_ab and existing_ps.frame == frame:
+                    existing_holds = [(h.group, h.a, h.b) for h in existing_ps.holds]
+                    new_holds = [(h["group"], h["a"], h["b"]) for h in parsed.get("holds", [])]
+                    if (
+                        existing_ab == new_ab
+                        and existing_holds == new_holds
+                        and existing_ps.frame == frame
+                    ):
                         saved_toml = cand_toml
                         reused_existing = True
                         if tp_out is not None and parsed.get("test_scene_prompt"):
@@ -2279,6 +2370,8 @@ def handle_ui_request(
             b_args = build_parser().parse_args(argv)
             rows_out: list[dict[str, Any]] = []
             b_args._summary_rows_out = rows_out
+            b_args._clip_override = state.get_clip(b_args.encoder, b_args.device)
+            b_args._refiner_cache = state._refiner_cache
             buf_out = io.StringIO()
             with contextlib.redirect_stdout(buf_out):
                 cmd_build(b_args)
@@ -2376,7 +2469,21 @@ def build_parser() -> argparse.ArgumentParser:
     )
     pb.add_argument(
         "source",
-        help="Input LLM Markdown (.md) file, pair TOML (.toml) file, or stem under prompt_bank/control_vectors/",
+        nargs="?",
+        default=None,
+        help="Input LLM Markdown (.md) file, pair TOML (.toml) file, or stem under prompt_bank/control_vectors/ (omit when using --all)",
+    )
+    pb.add_argument(
+        "--all",
+        dest="build_all",
+        action="store_true",
+        help="Build vectors for all .toml banks in prompt_bank/control_vectors/ in a single encoder load",
+    )
+    pb.add_argument(
+        "--unit-mean",
+        dest="unit_mean",
+        action="store_true",
+        help="Average unit-normalized pair directions (equal directional weight per pair) scaled to mean pair norm",
     )
     pb.add_argument(
         "--families",
@@ -2433,7 +2540,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     pm = sub.add_parser("make", help="Build a control vector from a pair TOML file")
     pm.add_argument("pairs", help="Pair TOML file path or stem under prompt_bank/control_vectors/")
-    pm.add_argument("--pooling", choices=cv.VALID_POOLING, default="scene_text")
+    pm.add_argument("--pooling", choices=cv.VALID_POOLING, default="diff_span")
+    pm.add_argument("--unit-mean", dest="unit_mean", action="store_true", help="Average unit-normalized pair directions")
     pm.add_argument("--unet", default=None, help="Diffusion checkpoint filename")
     pm.add_argument("--encoder", default=None, help="Text encoder checkpoint filename")
     pm.add_argument("--lora", action="append", default=None, help="LoRA file[:strength]")

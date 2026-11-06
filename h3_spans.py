@@ -41,6 +41,13 @@ POOLING_MODES: tuple[str, ...] = (
     "diff_span",
 )
 
+INFERENCE_MASK_MODES: tuple[str, ...] = (
+    "non_vision",
+    "scene_only",
+    "after_dialogue",
+    "all_rows",
+)
+
 LABEL_RE = re.compile(r"<(?:Picture|Video|Audio) \d+>: ")
 AUDIO_LABEL_PREFIX_RE = re.compile(r"^(?:<Audio \d+>: )+")
 TIMESTAMP_RE = re.compile(r"<\d+(?:\.\d+)? seconds>")
@@ -338,6 +345,168 @@ def apply_mask(
             raise ValueError(f"unknown span category {cat!r}; expected one of {CATEGORIES}")
         mask = mask | span_masks[cat]
     return mask
+
+
+def inference_mask(
+    span_masks: dict[str, torch.BoolTensor],
+    mode: str = "non_vision",
+) -> torch.BoolTensor:
+    """Boolean mask of conditioning rows to steer at inference time.
+
+    Modes (`INFERENCE_MASK_MODES`):
+    - `'non_vision'`: `~span_masks['vision']` (every `tag == 1` text row).
+    - `'scene_only'`: `span_masks['scene']` (leaves vision, reference labels,
+      timestamps, speaker tags `(S1)`, and `<d>...</d>` dialogue rows untouched).
+    - `'after_dialogue'`: `span_masks['scene']` strictly after the last
+      `dialogue` token (or all `span_masks['scene']` rows when the prompt has
+      no `<d>...</d>` span or no trailing scene tokens after `</d>`).
+    - `'all_rows'`: all `L` rows (`vision` and `tag == 1`)."""
+    if not isinstance(span_masks, dict) or "vision" not in span_masks or "scene" not in span_masks:
+        raise ValueError("span_masks must contain 'vision' and 'scene' keys")
+    if mode == "non_vision":
+        return (~span_masks["vision"]).clone()
+    if mode == "all_rows":
+        return torch.ones_like(span_masks["vision"], dtype=torch.bool)
+    if mode == "scene_only":
+        return span_masks["scene"].clone()
+    if mode == "after_dialogue":
+        mask = span_masks["scene"].clone()
+        dlg = span_masks.get("dialogue")
+        if dlg is not None and bool(dlg.any()):
+            last_dlg = int(dlg.nonzero(as_tuple=False).flatten()[-1].item())
+            trailing = mask.clone()
+            trailing[: last_dlg + 1] = False
+            if bool(trailing.any()):
+                return trailing
+        return mask
+    raise ValueError(f"unknown inference mask mode {mode!r}; expected one of {INFERENCE_MASK_MODES}")
+
+
+_CACHED_CPU_TOKENIZER: Any | None = None
+
+
+def _get_cpu_tokenizer() -> Any:
+    global _CACHED_CPU_TOKENIZER
+    if _CACHED_CPU_TOKENIZER is None:
+        from comfy.text_encoders.minimax import MiniMaxH3Tokenizer
+
+        _CACHED_CPU_TOKENIZER = MiniMaxH3Tokenizer()
+    return _CACHED_CPU_TOKENIZER
+
+
+def _extract_batch_entries(tokens: Any) -> list[Any]:
+    batches = tokens.get("qwen3vl_32b", tokens) if isinstance(tokens, dict) else tokens
+    if not isinstance(batches, (list, tuple)) or not batches:
+        return []
+    first = batches[0]
+    if isinstance(first, (list, tuple)) and (
+        not first or isinstance(first[0], (list, tuple, dict))
+    ):
+        return list(first)
+    return list(batches)
+
+
+def attach_span_masks(
+    conditioning: list[Any],
+    clip: Any,
+    tokens: Any,
+) -> list[Any]:
+    """Attach `_h3_span_masks` onto each conditioning entry's `minimax_token_tags`
+    tensor in-place without modifying its `{0, 1}` integer elements."""
+    if not isinstance(conditioning, list) or not conditioning:
+        return conditioning
+    tok_root = getattr(clip, "tokenizer", None)
+    mm_tok = getattr(tok_root, "minimax", tok_root)
+    qwen_tok = getattr(mm_tok, "qwen3vl_32b", mm_tok)
+    hf_tok = getattr(qwen_tok, "tokenizer", None)
+    if hf_tok is None:
+        return conditioning
+    entries = _extract_batch_entries(tokens)
+    if not entries:
+        return conditioning
+
+    def decode_fn(ids: Sequence[int]) -> str:
+        return hf_tok.decode(list(ids), skip_special_tokens=False)
+
+    for item in conditioning:
+        if not isinstance(item, (list, tuple)) or len(item) < 2 or not isinstance(item[1], dict):
+            continue
+        tags_raw = item[1].get("minimax_token_tags")
+        if not isinstance(tags_raw, torch.Tensor):
+            continue
+        try:
+            tags_1d = tags_raw.detach().to(device="cpu", dtype=torch.long).flatten()
+            token_ids = expand_token_ids(entries, tags_1d)
+            span_masks = spans(token_ids, tags_1d.tolist(), decode_fn)
+            setattr(tags_raw, "_h3_span_masks", span_masks)
+        except Exception:
+            continue
+    return conditioning
+
+
+def span_masks_from_prompt(
+    prompt: str,
+    total_length: int,
+    *,
+    tags: Sequence[int] | torch.Tensor | None = None,
+    tokenizer: Any | None = None,
+) -> dict[str, torch.BoolTensor]:
+    """Build `span_masks` of length `total_length` by tokenizing `prompt` and
+    aligning its `L_prompt` tokens to the suffix `[total_length - L_prompt : total_length]`.
+
+    In `comfy/text_encoders/minimax.py::MiniMaxH3Tokenizer.tokenize_with_weights`,
+    the prompt text is tokenized in an isolated `add_text(text)` call after all
+    reference/keyframe prefix blocks with no cross-boundary BPE merging, so the
+    prompt tokens always occupy the exact suffix `[total_length - L_prompt : total_length]`."""
+    clean_text = str(prompt).strip()
+    if not clean_text:
+        raise ValueError("prompt must be a non-empty string to resolve span masks")
+    if total_length < 1:
+        raise ValueError(f"total_length must be >= 1, got {total_length}")
+
+    tok = tokenizer if tokenizer is not None else _get_cpu_tokenizer()
+    mm_tok = getattr(tok, "minimax", tok)
+    qwen_tok = getattr(mm_tok, "qwen3vl_32b", mm_tok)
+    hf_tok = getattr(qwen_tok, "tokenizer", None)
+    if hf_tok is None:
+        raise ValueError("tokenizer does not expose the MiniMax Qwen3-VL tokenizer")
+
+    raw_tokens = tok.tokenize_with_weights(clean_text) if hasattr(tok, "tokenize_with_weights") else tok.tokenize(clean_text)
+    entries = _extract_batch_entries(raw_tokens)
+    prompt_tags = [1] * len(entries)
+    prompt_ids = expand_token_ids(entries, prompt_tags)
+    L_prompt = len(prompt_ids)
+    if L_prompt > total_length:
+        raise ValueError(
+            f"prompt token length ({L_prompt}) exceeds conditioning sequence length ({total_length})"
+        )
+
+    def decode_fn(ids: Sequence[int]) -> str:
+        return hf_tok.decode(list(ids), skip_special_tokens=False)
+
+    prompt_spans = spans(prompt_ids, prompt_tags, decode_fn)
+    if L_prompt == total_length:
+        return prompt_spans
+
+    prefix_len = total_length - L_prompt
+    if tags is not None:
+        tags_list = _flat_int_list(tags, "tags")
+        if len(tags_list) != total_length:
+            raise ValueError(f"tags length ({len(tags_list)}) != total_length ({total_length})")
+        prefix_vis = torch.tensor([t == 0 for t in tags_list[:prefix_len]], dtype=torch.bool)
+    else:
+        prefix_vis = torch.ones(prefix_len, dtype=torch.bool)
+    prefix_lbl = ~prefix_vis
+    prefix_false = torch.zeros(prefix_len, dtype=torch.bool)
+
+    return {
+        "vision": torch.cat([prefix_vis, prompt_spans["vision"]], dim=0),
+        "label": torch.cat([prefix_lbl, prompt_spans["label"]], dim=0),
+        "timestamp": torch.cat([prefix_false, prompt_spans["timestamp"]], dim=0),
+        "dialogue": torch.cat([prefix_false, prompt_spans["dialogue"]], dim=0),
+        "speaker": torch.cat([prefix_false, prompt_spans["speaker"]], dim=0),
+        "scene": torch.cat([prefix_false, prompt_spans["scene"]], dim=0),
+    }
 
 
 def first_differing_index(

@@ -31,7 +31,7 @@ import math
 import os
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any, Mapping, Sequence
 
 import folder_paths
 import torch
@@ -74,7 +74,7 @@ PROMPT_BANK_DIR = REPO_ROOT / "prompt_bank"
 
 CONTROL_VECTORS_FOLDER = "control_vectors"
 WRAPPER_KEY = "h3_control_vectors"
-MASK_MODES = ("non_vision", "all_rows")
+MASK_MODES = _spans.INFERENCE_MASK_MODES
 _APPLY_DEFAULTS = _rules.CONTROL_VECTOR_DEFAULTS
 
 
@@ -626,6 +626,11 @@ def encode_conditioning_for_vector(
         full_tokens = clip.tokenize(clean_text, minimax_ref_items=ref_items)
         entries = _extract_token_entries(full_tokens)
         token_ids = _spans.expand_token_ids(entries, tags)
+        span_masks = _spans.spans(token_ids, tags.tolist(), decode_fn)
+        setattr(tags, "_h3_span_masks", span_masks)
+        raw_tags_obj = cond_list[0][1].get("minimax_token_tags")
+        if isinstance(raw_tags_obj, torch.Tensor):
+            setattr(raw_tags_obj, "_h3_span_masks", span_masks)
         return cond_list, cond_tensor, tags, token_ids, decode_fn
 
     tokens = clip.tokenize(clean_text)
@@ -636,6 +641,11 @@ def encode_conditioning_for_vector(
     ).flatten()
     entries = _extract_token_entries(tokens)
     token_ids = _spans.expand_token_ids(entries, tags)
+    span_masks = _spans.spans(token_ids, tags.tolist(), decode_fn)
+    setattr(tags, "_h3_span_masks", span_masks)
+    raw_tags_obj = cond_list[0][1].get("minimax_token_tags")
+    if isinstance(raw_tags_obj, torch.Tensor):
+        setattr(raw_tags_obj, "_h3_span_masks", span_masks)
     return cond_list, cond_tensor, tags, token_ids, decode_fn
 
 
@@ -678,8 +688,9 @@ def make_control_vector_from_pairs(
     pair_path: str | Path,
     model: Any,
     clip: Any,
-    pooling: str = "scene_text",
+    pooling: str = "diff_span",
     apply_holds: bool = True,
+    unit_mean: bool = False,
     output_name: str = "",
     output_dir: str | Path | None = None,
     encoded_references: Any | None = None,
@@ -760,7 +771,7 @@ def make_control_vector_from_pairs(
     b_mat = torch.stack(b_pooled_list, dim=0)
     w_vec = torch.tensor(weights_list, dtype=torch.float32)
 
-    raw_vec = _cv.mean_difference(a_mat, b_mat, w_vec)
+    raw_vec = _cv.mean_difference(a_mat, b_mat, w_vec, unit_mean=unit_mean)
     tensors_to_save: dict[str, torch.Tensor] = {}
 
     if apply_holds and pair_set.holds:
@@ -934,6 +945,8 @@ class _AppliedVectorSpec:
     end_percent: float
     metadata: dict[str, Any]
     advisories: tuple[str, ...]
+    scale_mode: str = "raw"
+    prompt: str = ""
 
 
 def _step_in_window(
@@ -985,6 +998,30 @@ def _step_in_window(
     return True
 
 
+def _resolve_custom_inference_mask(
+    sp: _AppliedVectorSpec,
+    *,
+    tags_raw: Any,
+    tags_2d: torch.Tensor,
+    payload: Mapping[str, Any],
+    L: int,
+    device: torch.device,
+) -> torch.Tensor | None:
+    if sp.mask in ("non_vision", "all_rows"):
+        return None
+    span_masks = getattr(tags_raw, "_h3_span_masks", None) if tags_raw is not None else None
+    if span_masks is None:
+        span_masks = payload.get("h3_span_masks")
+    if span_masks is None and sp.prompt and sp.prompt.strip():
+        span_masks = _spans.span_masks_from_prompt(sp.prompt, L, tags=tags_2d[0])
+    if span_masks is None:
+        raise ValueError(
+            f"control vector {sp.vector_name!r} uses mask={sp.mask!r}, which requires "
+            "conditioning from an H3 conditioning node (_h3_span_masks) or prompt=..."
+        )
+    return _spans.inference_mask(span_masks, sp.mask).to(device=device)
+
+
 def _make_control_vector_wrapper(specs: tuple[_AppliedVectorSpec, ...]):
     logged_prefix_notes: set[tuple[str, str]] = set()
 
@@ -1032,19 +1069,32 @@ def _make_control_vector_wrapper(specs: tuple[_AppliedVectorSpec, ...]):
                     render_prefix_kind,
                 )
 
-        # Group consecutive specs with the same mask so stacked vectors accumulate in
-        # float64 before casting back to context.dtype (`CONTRACT.md` §3 / paper §2.1).
+        # Group consecutive specs with the same (mask, scale_mode, prompt) so stacked
+        # vectors accumulate in float64 before casting back to context.dtype (`CONTRACT.md` §3 / paper §2.1).
         cur = context
         i = 0
         n = len(active_specs)
         while i < n:
             sp = active_specs[i]
-            mask_vision = sp.mask == "non_vision"
+            group_key = (sp.mask, sp.scale_mode, sp.prompt)
+            custom_mask = _resolve_custom_inference_mask(
+                sp,
+                tags_raw=tags_raw,
+                tags_2d=tags,
+                payload=payload,
+                L=L,
+                device=context.device,
+            )
+            mask_vision = sp.mask != "all_rows"
             batch_entries: list[tuple[torch.Tensor, float, str]] = [
                 (sp.vector, sp.strength, sp.mode)
             ]
             j = i + 1
-            while j < n and (active_specs[j].mask == "non_vision") == mask_vision:
+            while (
+                j < n
+                and (active_specs[j].mask, active_specs[j].scale_mode, active_specs[j].prompt)
+                == group_key
+            ):
                 batch_entries.append(
                     (active_specs[j].vector, active_specs[j].strength, active_specs[j].mode)
                 )
@@ -1053,6 +1103,8 @@ def _make_control_vector_wrapper(specs: tuple[_AppliedVectorSpec, ...]):
                 cur,
                 tags,
                 batch_entries,
+                scale_mode=sp.scale_mode,
+                mask=custom_mask,
                 mask_vision=mask_vision,
             )
             i = j
@@ -1094,11 +1146,13 @@ def attach_control_vector(
     *,
     strength: float = 1.0,
     mode: str = "add",
+    scale_mode: str = "raw",
     mask: str = "non_vision",
     start_percent: float = 0.0,
     end_percent: float = 1.0,
     allow_recipe_mismatch: bool = False,
     loaded_prefix: str | dict[str, Any] | None = None,
+    prompt: str = "",
 ) -> Any:
     """Clone `model` with `vector_name` attached on `WrappersMP.DIFFUSION_MODEL`.
 
@@ -1109,6 +1163,8 @@ def attach_control_vector(
         raise ValueError("MiniMaxH3ApplyControlVectors requires a MiniMax H3 diffusion model")
     if mode not in _cv.APPLY_MODES:
         raise ValueError(f"mode must be one of {_cv.APPLY_MODES}, got {mode!r}")
+    if scale_mode not in _cv.SCALE_MODES:
+        raise ValueError(f"scale_mode must be one of {_cv.SCALE_MODES}, got {scale_mode!r}")
     if mask not in MASK_MODES:
         raise ValueError(f"mask must be one of {MASK_MODES}, got {mask!r}")
     if not math.isfinite(float(strength)):
@@ -1163,6 +1219,8 @@ def attach_control_vector(
         end_percent=ep_f,
         metadata=metadata,
         advisories=tuple(advisories),
+        scale_mode=scale_mode,
+        prompt=str(prompt or ""),
     )
     updated = existing + (new_spec,)
     t_opts[WRAPPER_KEY] = updated
@@ -1172,11 +1230,12 @@ def attach_control_vector(
     wrappers = m.wrappers.setdefault(WrappersMP.DIFFUSION_MODEL, {})
     wrappers[WRAPPER_KEY] = [_make_control_vector_wrapper(updated)]
     logger.info(
-        "[h3] control vector %s attached (family=%s, strength=%g, mode=%s, mask=%s, window=[%.2f, %.2f))",
+        "[h3] control vector %s attached (family=%s, strength=%g, mode=%s, scale_mode=%s, mask=%s, window=[%.2f, %.2f))",
         vec_path.name,
         loaded_family,
         float(strength),
         mode,
+        scale_mode,
         mask,
         sp_f,
         ep_f,
@@ -1196,8 +1255,9 @@ class MiniMaxH3MakeControlVector(io.ComfyNode):
                 "Measures a contrastive control vector from a pair TOML file under "
                 "prompt_bank/control_vectors/, encoding each pair through the loaded "
                 "Qwen3-VL encoder and the DiT's condition_proj + token_refiner, pooling "
-                "scene-text rows in float64, projecting out any [[hold]] directions, and "
-                "saving <name>__<family>.safetensors under models/control_vectors/."
+                "the differing span rows ('diff_span' by default) in float64, projecting out "
+                "any [[hold]] directions, and saving <name>__<family>.safetensors under "
+                "models/control_vectors/."
             ),
             inputs=[
                 io.Model.Input("model"),
@@ -1213,11 +1273,11 @@ class MiniMaxH3MakeControlVector(io.ComfyNode):
                 io.Combo.Input(
                     "pooling",
                     options=list(_cv.VALID_POOLING),
-                    default="scene_text",
+                    default="diff_span",
                     tooltip=(
                         "Which tag-1 rows after the token refiner are mean-pooled per pair side: "
-                        "'scene_text' (default, excludes reference labels and timestamps), "
-                        "'all_tag1', 'from_first_diff', or 'diff_span'."
+                        "'diff_span' (default, pools only the differing clause [first_diff:end_diff]), "
+                        "'from_first_diff', 'scene_text', or 'all_tag1'."
                     ),
                 ),
                 io.Boolean.Input(
@@ -1275,7 +1335,7 @@ class MiniMaxH3MakeControlVector(io.ComfyNode):
         model,
         clip,
         pair_file="film_16mm_1974.toml",
-        pooling="scene_text",
+        pooling="diff_span",
         apply_holds=True,
         output_name="",
         encoded_references=None,
@@ -1331,7 +1391,8 @@ class MiniMaxH3ApplyControlVectors(io.ComfyNode):
                     step=0.05,
                     tooltip=(
                         "Multiplier in the vector point's unit (after the refiner, 1.0 is one "
-                        "mean pair difference for 'add', full projection removal for 'project_out', "
+                        "mean pair difference for 'add', 67.5 post-refiner shift norm for "
+                        "'add_norm_matched', full projection removal for 'project_out', "
                         "or +100% component scaling for 'amplify'; 0.0 is an exact no-op)."
                     ),
                 ),
@@ -1341,8 +1402,9 @@ class MiniMaxH3ApplyControlVectors(io.ComfyNode):
                     default=_APPLY_DEFAULTS["mode"],
                     optional=True,
                     tooltip=(
-                        "'add' (default) adds strength * v; 'project_out' removes strength * "
-                        "((r . v) / ||v||^2) * v (only removes what the prompt already carries, E4.4); "
+                        "'add' (default) adds strength * v; 'add_norm_matched' normalizes v to "
+                        "67.5 post-refiner shift norm at strength=1.0 across all pooling modes; "
+                        "'project_out' removes strength * ((r . v) / ||v||^2) * v (E4.4); "
                         "'amplify' adds strength * ((r . v) / ||v||^2) * v."
                     ),
                 ),
@@ -1351,9 +1413,10 @@ class MiniMaxH3ApplyControlVectors(io.ComfyNode):
                     options=list(MASK_MODES),
                     default=_APPLY_DEFAULTS["mask"],
                     tooltip=(
-                        "'non_vision' (default) applies only to tag-1 text rows and leaves "
-                        "tag-0 vision rows bitwise untouched; 'all_rows' is the unmasked "
-                        "ablation (E2.3 / MAINodes-style)."
+                        "'non_vision' (default) steers all tag-1 text rows and leaves tag-0 "
+                        "vision rows untouched; 'scene_only' also leaves <d>...</d> dialogue "
+                        "and (S1) speaker tags untouched; 'after_dialogue' steers only scene "
+                        "tokens after the last </d>; 'all_rows' is the unmasked ablation (E2.3)."
                     ),
                 ),
                 io.Float.Input(

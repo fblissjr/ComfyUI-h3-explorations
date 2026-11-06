@@ -568,6 +568,17 @@ function renderPreview(data) {
     document.getElementById("preview-summary").textContent = "Fix highlighted pair(s) below";
   }
 
+  if (Array.isArray(data.lint_warnings) && data.lint_warnings.length > 0) {
+    const warnCard = document.createElement("div");
+    warnCard.className = "pair-card";
+    warnCard.style.borderColor = "#9e6a03";
+    warnCard.innerHTML = `
+      <div class="pair-header"><strong style="color:#d29922;">Semantic Pair-Quality Warnings (${data.lint_warnings.length})</strong></div>
+      <div class="subtext" style="color:#e3b341;white-space:pre-wrap;">${data.lint_warnings.map(w => "• " + escapeHtml(w)).join("\n")}</div>
+    `;
+    pairList.appendChild(warnCard);
+  }
+
   for (const p of data.pairs) {
     const card = document.createElement("div");
     card.className = "pair-card" + (p.valid ? "" : " invalid");

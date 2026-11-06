@@ -427,7 +427,14 @@ def condition_prompt(encoded: EncodedReferences, text: str):
     extra = {"pooled_output": None,
              "minimax_token_tags": token_tags_from_embeds_info(start + count, images)}
     clip.add_hooks_to_dict(extra)
-    return [[cond, extra]]
+    out_cond = [[cond, extra]]
+    try:
+        from .h3_spans import attach_span_masks
+        full_tokens = clip.tokenize(text, minimax_ref_items=getattr(encoded, "ref_items", None))
+        attach_span_masks(out_cond, clip, full_tokens)
+    except Exception:
+        pass
+    return out_cond
 
 
 class MiniMaxH3EncodeReferences(io.ComfyNode):

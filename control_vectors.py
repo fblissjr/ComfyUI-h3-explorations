@@ -788,6 +788,128 @@ def write_markdown_to_toml(
     return target_toml
 
 
+_BANNED_FILLER_TERMS: tuple[str, ...] = (
+    "slowly",
+    "gradually",
+    "steadily",
+    "progressively",
+    "rapidly",
+    "increasingly",
+    "begins to",
+    "starts to",
+)
+
+_CANCEL_STOPLIST: frozenset[str] = frozenset({
+    "with", "from", "into", "onto", "over", "under", "through", "across",
+    "along", "around", "behind", "between", "beneath", "beside", "against",
+    "toward", "towards", "while", "where", "which", "their", "there", "these",
+    "those", "this", "that", "both", "each", "every", "some", "more", "most",
+    "very", "just", "only", "still", "even", "back", "down", "away", "open",
+    "shut", "stay", "stays", "keep", "keeps", "hold", "holds", "remain",
+    "remains", "rest", "rests", "before", "after", "above", "below", "underneath",
+    "inside", "outside", "without", "within", "about", "until", "upon",
+})
+
+_DIALOGUE_TAG_CHECK_RE = re.compile(r"<d>(?!\s*\[[A-Za-z][A-Za-z -]*\])")
+
+
+def lint_pair_set(
+    pairs: Any,
+    *,
+    frame: str = "scene",
+) -> list[str]:
+    """Check semantic pair-quality rules across a `PairSet` or sequence of pair items/dicts.
+
+    Returns a list of human-readable advisory strings (empty when clean):
+    1. 100% unique `a_span` and `b_span` across all pairs.
+    2. Every `<d>...</d>` dialogue block starts with a `[Language]` tag.
+    3. Zero rate/onset filler adverbs (`slowly`, `gradually`, `begins to`, ...) in `b_span`.
+    4. Zero content-noun cancellation (`>=4`-char content words appearing in both `a_span` and `b_span`).
+    5. `non_diegetic_music: N/A` instead of `'No non-diegetic music.'` on scene-framed pairs."""
+    if isinstance(pairs, PairSet):
+        frame = pairs.frame
+        items = list(pairs.pairs)
+    elif isinstance(pairs, Sequence):
+        items = list(pairs)
+    else:
+        raise ValueError("pairs must be a PairSet or a sequence of pair items/dicts")
+
+    warnings: list[str] = []
+    seen_a_spans: dict[str, int] = {}
+    seen_b_spans: dict[str, int] = {}
+
+    for idx, item in enumerate(items):
+        if isinstance(item, Mapping):
+            num = int(item.get("number", item.get("index", idx) + 1))
+            a_txt = str(item.get("a", ""))
+            b_txt = str(item.get("b", ""))
+            a_sp = item.get("a_span")
+            b_sp = item.get("b_span")
+            sec_name = item.get("section")
+        else:
+            num = int(getattr(item, "index", idx)) + 1
+            a_txt = str(getattr(item, "a", ""))
+            b_txt = str(getattr(item, "b", ""))
+            a_sp = getattr(item, "a_span", None)
+            b_sp = getattr(item, "b_span", None)
+            sec_name = None
+
+        if a_sp is None or b_sp is None:
+            a_sp, b_sp = differing_span(a_txt, b_txt, frame=frame, label=f"Pair {num}")
+        if sec_name is None:
+            _sec_idx, sec_name = differing_section_info(a_txt, b_txt, frame=frame)
+
+        norm_a = " ".join(str(a_sp).lower().split())
+        norm_b = " ".join(str(b_sp).lower().split())
+        if norm_a in seen_a_spans:
+            warnings.append(
+                f"Pair {num}: duplicate a_span (matches Pair {seen_a_spans[norm_a]}): {a_sp!r}"
+            )
+        else:
+            seen_a_spans[norm_a] = num
+
+        if norm_b in seen_b_spans:
+            warnings.append(
+                f"Pair {num}: duplicate b_span (matches Pair {seen_b_spans[norm_b]}): {b_sp!r}"
+            )
+        else:
+            seen_b_spans[norm_b] = num
+
+        if _DIALOGUE_TAG_CHECK_RE.search(a_txt) or _DIALOGUE_TAG_CHECK_RE.search(b_txt):
+            warnings.append(
+                f"Pair {num}: <d> dialogue span is missing a [Language] tag (expected <d>[English] ...</d>)"
+            )
+
+        b_lower = str(b_sp).lower()
+        a_lower = str(a_sp).lower()
+        for term in _BANNED_FILLER_TERMS:
+            pat = r"\b" + re.escape(term) + r"\b"
+            if re.search(pat, b_lower) and not re.search(pat, a_lower):
+                warnings.append(
+                    f"Pair {num}: b_span contains rate/onset filler {term!r}; state the target physical action directly"
+                )
+
+        words_a = {
+            w for w in re.findall(r"[a-z]{4,}", a_lower) if w not in _CANCEL_STOPLIST
+        }
+        words_b = {
+            w for w in re.findall(r"[a-z]{4,}", b_lower) if w not in _CANCEL_STOPLIST
+        }
+        shared_words = sorted(words_a & words_b)
+        if shared_words:
+            warnings.append(
+                f"Pair {num}: content word(s) {shared_words} appear in both a_span and b_span and cancel in B - A; move shared nouns outside the diff span"
+            )
+
+        if frame == "scene" and sec_name != "non_diegetic_music":
+            if "no non-diegetic music" in a_txt.lower() or "no non-diegetic music" in b_txt.lower():
+                warnings.append(
+                    f"Pair {num}: uses 'No non-diegetic music.' instead of 'N/A' under non_diegetic_music:"
+                )
+
+    return warnings
+
+
 def _check_pair_tensors(
     a: torch.Tensor,
     b: torch.Tensor,
@@ -821,13 +943,30 @@ def mean_difference(
     a: torch.Tensor,
     b: torch.Tensor,
     weights: torch.Tensor | None = None,
+    *,
+    unit_mean: bool = False,
 ) -> torch.Tensor:
     """Weighted mean difference `sum(w_i * (B_i - A_i)) / sum(|w_i|)` in float64,
-    returned as float32 `Tensor[d]`."""
+    returned as float32 `Tensor[d]`.
+
+    When `unit_mean=True`, each pair's difference `B_i - A_i` is normalized to unit
+    L2 length before taking the weighted average direction, then scaled by the
+    weighted mean pair L2 norm so every pair contributes equal directional weight
+    while preserving `mean_pair_difference` magnitude units."""
     a64, b64, w64 = _check_pair_tensors(a, b, weights)
     diffs = b64 - a64
     denom = w64.abs().sum()
-    vec = (w64[:, None] * diffs).sum(dim=0) / denom
+    if not unit_mean:
+        vec = (w64[:, None] * diffs).sum(dim=0) / denom
+        return vec.to(dtype=torch.float32)
+
+    norms = torch.linalg.vector_norm(diffs, dim=-1)
+    if bool((norms <= 1e-12).any()):
+        raise ValueError("cannot compute unit_mean: at least one pair difference has zero norm")
+    unit_diffs = diffs / norms[:, None]
+    mean_dir = (w64[:, None] * unit_diffs).sum(dim=0) / denom
+    mean_norm = (w64.abs() * norms).sum() / denom
+    vec = mean_dir * mean_norm
     return vec.to(dtype=torch.float32)
 
 
@@ -1829,7 +1968,14 @@ def check_vector_compatibility(
                 f"control vector {vec_name!r} recipe LoRA set {vec_loras!r} differs "
                 f"from loaded model LoRA set {cur_loras!r}"
             )
-            if not allow_recipe_mismatch:
+            vec_sig = _lora_family_signature(vec_loras) if vec_loras else None
+            cur_sig = _lora_family_signature(cur_loras) if cur_loras else None
+            same_pika_family = (
+                vec_sig is not None
+                and cur_sig is not None
+                and vec_sig == cur_sig
+            )
+            if not allow_recipe_mismatch and not same_pika_family:
                 raise ValueError(
                     f"{msg} (pass allow_recipe_mismatch=True to apply across LoRA sets)"
                 )
@@ -1846,7 +1992,29 @@ def check_vector_compatibility(
     return warnings
 
 
-APPLY_MODES: tuple[str, ...] = ("add", "project_out", "amplify")
+_PIKA_FLEX_VARIANT_RE = re.compile(
+    r"^(?:.*/)?(pika_h3_flex_(?:fl2va|ref2va))_(?:svd\d+_bf16|comfy_bf16|kijai_bf16)\.safetensors$"
+)
+
+
+def _lora_family_signature(loras: Sequence[Any]) -> list[tuple[str, float]] | None:
+    sig: list[tuple[str, float]] = []
+    for item in loras:
+        if not isinstance(item, Mapping):
+            return None
+        raw_file = str(item.get("file", item.get("name", "")))
+        m = _PIKA_FLEX_VARIANT_RE.match(raw_file)
+        if m is None:
+            return None
+        sig.append((m.group(1), round(float(item.get("strength", 1.0)), 4)))
+    return sig
+
+
+APPLY_MODES: tuple[str, ...] = ("add", "add_norm_matched", "project_out", "amplify")
+SCALE_MODES: tuple[str, ...] = ("raw", "norm_matched")
+#: Midpoint of the healthy post-refiner shift norm target window `[50.0, 85.0]`
+#: (`format_vector_sidecar_md`, `bench/results/2026-11-05_control_vectors_pika_and_ref2va.md`).
+NORM_MATCHED_TARGET: float = 67.5
 
 
 def apply_post_refiner(
@@ -1855,6 +2023,7 @@ def apply_post_refiner(
     vectors: Sequence[tuple[torch.Tensor, float] | tuple[torch.Tensor, float, str]],
     *,
     mode: str = "add",
+    scale_mode: str = "raw",
     mask: torch.Tensor | None = None,
     mask_vision: bool = True,
 ) -> torch.Tensor:
@@ -1863,7 +2032,11 @@ def apply_post_refiner(
 
     Modes (`mode` or per-entry third tuple element):
     - `'add'`: additive shift `r -> r + s * v` (consecutive `'add'` vectors sum in
-      `float64` before one cast to `context.dtype`).
+      `float64` before one cast to `context.dtype`). When `scale_mode='norm_matched'`
+      (or `mode='add_norm_matched'`), `v` is normalized to length `NORM_MATCHED_TARGET`
+      (`67.5`) so `strength = 1.0` produces a `67.5` post-refiner shift norm regardless
+      of pooling mode (`diff_span`, `from_first_diff`, `scene_text`).
+    - `'add_norm_matched'`: additive shift with `v` scaled to `NORM_MATCHED_TARGET` (`67.5`).
     - `'project_out'`: removes fraction `s` of the existing component along `v`,
       `r -> r - s * ((r . v) / ||v||^2) * v` (at `s = 1.0`, leaves zero component
       along `v`; if `r . v == 0`, leaves `r` unchanged).
@@ -1881,6 +2054,8 @@ def apply_post_refiner(
     3. Sequence length `L` and shape `[B, L, 5376]` are unchanged."""
     if mode not in APPLY_MODES:
         raise ValueError(f"mode must be one of {APPLY_MODES}, got {mode!r}")
+    if scale_mode not in SCALE_MODES:
+        raise ValueError(f"scale_mode must be one of {SCALE_MODES}, got {scale_mode!r}")
     if context.ndim != 3 or context.shape[-1] != POST_REFINER_DIM:
         raise ValueError(
             f"context must have shape [B, L, {POST_REFINER_DIM}], got {tuple(context.shape)}"
@@ -1936,10 +2111,17 @@ def apply_post_refiner(
         if not bool(torch.isfinite(vec).all()):
             raise ValueError("control vector contains non-finite values")
         v_norm_sq = float(torch.dot(vec.detach().to(dtype=torch.float64), vec.detach().to(dtype=torch.float64)).item())
-        if entry_mode in ("project_out", "amplify") and v_norm_sq <= 1e-24:
+        use_norm_match = entry_mode == "add_norm_matched" or (
+            entry_mode == "add" and scale_mode == "norm_matched"
+        )
+        if (entry_mode in ("project_out", "amplify") or use_norm_match) and v_norm_sq <= 1e-24:
             raise ValueError(f"control vector has zero norm; cannot apply mode={entry_mode!r}")
         if strength != 0.0:
-            active.append((vec, float(strength), entry_mode))
+            if use_norm_match:
+                eff_strength = float(strength) * (NORM_MATCHED_TARGET / math.sqrt(v_norm_sq))
+                active.append((vec, eff_strength, "add"))
+            else:
+                active.append((vec, float(strength), entry_mode))
 
     if not active or not bool(row_mask.any()):
         return context
