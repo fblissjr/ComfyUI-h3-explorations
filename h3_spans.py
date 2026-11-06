@@ -38,6 +38,7 @@ POOLING_MODES: tuple[str, ...] = (
     "scene_text",
     "all_tag1",
     "from_first_diff",
+    "diff_span",
 )
 
 LABEL_RE = re.compile(r"<(?:Picture|Video|Audio) \d+>: ")
@@ -357,18 +358,46 @@ def first_differing_index(
     raise ValueError("token_ids_a and token_ids_b are identical; no differing token exists")
 
 
+def differing_token_bounds(
+    token_ids_a: Sequence[int] | torch.Tensor,
+    token_ids_b: Sequence[int] | torch.Tensor,
+) -> tuple[int, int, int]:
+    """Return `(first_diff, end_a, end_b)` bounding the differing token span
+    `[first_diff:end_a]` in `token_ids_a` and `[first_diff:end_b]` in `token_ids_b`.
+
+    Raises `ValueError` if `token_ids_a` and `token_ids_b` are identical."""
+    a = _flat_int_list(token_ids_a, "token_ids_a")
+    b = _flat_int_list(token_ids_b, "token_ids_b")
+    first_diff = first_differing_index(a, b)
+    max_suffix = min(len(a) - first_diff, len(b) - first_diff)
+    shared_suffix = 0
+    while (
+        shared_suffix < max_suffix
+        and a[len(a) - 1 - shared_suffix] == b[len(b) - 1 - shared_suffix]
+    ):
+        shared_suffix += 1
+    end_a = max(first_diff + 1, len(a) - shared_suffix)
+    end_b = max(first_diff + 1, len(b) - shared_suffix)
+    return first_diff, end_a, end_b
+
+
 def pooling_mask(
     span_masks: dict[str, torch.BoolTensor],
     mode: str = "scene_text",
     *,
     first_diff: int | None = None,
+    end_diff: int | None = None,
 ) -> torch.BoolTensor:
     """Boolean mask of rows to mean-pool when constructing a pair endpoint (`E2.6`).
 
     - `'scene_text'` (or `'scene'`): `span_masks['scene']` (tag-1 rows minus
       reference labels, timestamps, speaker tags, and dialogue).
     - `'all_tag1'`: `~span_masks['vision']` (every tag-1 row).
-    - `'from_first_diff'`: `~span_masks['vision']` at indices `>= first_diff`."""
+    - `'from_first_diff'`: `~span_masks['vision']` at indices `>= first_diff`.
+    - `'diff_span'`: `span_masks['scene']` (falling back to `~span_masks['vision']`
+      when the diff sits entirely inside `<d>...</d>` dialogue/speaker tokens)
+      restricted to `[first_diff:end_diff]` (stripping both shared prefix and
+      shared suffix tokens)."""
     if not isinstance(span_masks, dict) or "vision" not in span_masks or "scene" not in span_masks:
         raise ValueError("span_masks must contain 'vision' and 'scene' keys")
     if mode in ("scene_text", "scene"):
@@ -380,6 +409,20 @@ def pooling_mask(
             raise ValueError("pooling mode 'from_first_diff' requires a non-negative first_diff index")
         mask = (~span_masks["vision"]).clone()
         mask[:first_diff] = False
+    elif mode == "diff_span":
+        if first_diff is None or first_diff < 0:
+            raise ValueError("pooling mode 'diff_span' requires a non-negative first_diff index")
+        if end_diff is not None and end_diff <= first_diff:
+            raise ValueError("pooling mode 'diff_span' requires end_diff > first_diff")
+        mask = span_masks["scene"].clone()
+        mask[:first_diff] = False
+        if end_diff is not None:
+            mask[end_diff:] = False
+        if not bool(mask.any()):
+            mask = (~span_masks["vision"]).clone()
+            mask[:first_diff] = False
+            if end_diff is not None:
+                mask[end_diff:] = False
     else:
         raise ValueError(f"unknown pooling mode {mode!r}; expected one of {POOLING_MODES}")
 

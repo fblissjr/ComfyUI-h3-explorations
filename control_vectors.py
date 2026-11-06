@@ -38,7 +38,7 @@ LLM_VECTOR_KEY_RE = re.compile(r"^vector\.llm\.\d+$")
 
 VALID_MODES = ("t2va", "fl2va", "i2va", "l2va", "ref2va")
 VALID_FRAMES = ("scene", "bare")
-VALID_POOLING = ("scene_text", "all_tag1", "from_first_diff")
+VALID_POOLING = ("scene_text", "all_tag1", "from_first_diff", "diff_span")
 DEFAULT_EXCLUDE_SHOTS: tuple[str, ...] = ("t2va_offpath_tortoise", "ref2va_look_anchor")
 
 ALLOWED_TOP_KEYS = frozenset({"vector", "pair", "hold"})
@@ -1415,14 +1415,208 @@ def default_vector_filename(
     return "__".join(parts) + ".safetensors"
 
 
+_POOLING_DESCRIPTIONS: dict[str, str] = {
+    "scene_text": "all tag-1 scene-text rows (excluding reference labels, timestamps, speaker tags, and <d>...</d> dialogue)",
+    "from_first_diff": "all tag-1 non-vision rows from the first differing token onward (idx >= first_diff)",
+    "diff_span": "only the differing token span [first_diff:end_diff] (stripping both shared prefix and shared suffix tokens)",
+    "all_tag1": "all tag-1 non-vision rows across the sequence",
+}
+
+
+def format_vector_sidecar_md(
+    safetensors_filename: str,
+    tensors: Mapping[str, torch.Tensor],
+    metadata: Mapping[str, Any],
+    *,
+    pair_spans: Sequence[Mapping[str, Any]] | None = None,
+) -> str:
+    """Format a human-readable companion `.md` sidecar documenting how a control
+    vector `.safetensors` file was constructed, its recipe, norms, recommended
+    ComfyUI strength range, quality report, and per-pair token spans."""
+    name = str(metadata.get("name", Path(safetensors_filename).stem))
+    quality = str(metadata.get("quality", ""))
+    family = str(metadata.get("family", ""))
+    measured = dict(metadata.get("measured_under") or {})
+    pooling = str(measured.get("pooling", "scene_text"))
+    pooling_desc = _POOLING_DESCRIPTIONS.get(pooling, pooling)
+    mode = str(measured.get("mode", ""))
+    frame = str(measured.get("frame", ""))
+    prefix = measured.get("prefix", "none")
+    prefix_str = json.dumps(prefix, sort_keys=True) if isinstance(prefix, Mapping) else str(prefix)
+
+    prov = dict(metadata.get("provenance") or {})
+    pairs_meta = dict(metadata.get("pairs") or {})
+    a_side = str(pairs_meta.get("a_side") or metadata.get("a_side") or "")
+    b_side = str(pairs_meta.get("b_side") or metadata.get("b_side") or "")
+    resolved_spans = (
+        list(pair_spans)
+        if pair_spans is not None
+        else list(pairs_meta.get("pair_spans") or metadata.get("pair_spans") or ())
+    )
+
+    recipe = dict(metadata.get("recipe") or {})
+    ckpt = dict(recipe.get("checkpoint") or {})
+    enc = dict(recipe.get("encoder") or {})
+    loras = list(recipe.get("loras") or ())
+
+    points = dict(metadata.get("points") or {})
+    qrep = dict(metadata.get("quality_report") or {})
+
+    lines: list[str] = [
+        f"# Control Vector: `{name}` (`{safetensors_filename}`)",
+        "",
+        "## How It Was Built (`measured_under` & `provenance`)",
+        f"- **Safetensors file**: `{safetensors_filename}`",
+        f"- **Pooling**: `{pooling}` — {pooling_desc}",
+        f"- **Family**: `{family}`",
+        f"- **Mode**: `{mode}` | **Frame**: `{frame}` | **Prefix**: `{prefix_str}`",
+        f"- **Created (UTC)**: `{prov.get('created_utc', 'unknown')}`",
+        f"- **Made by**: `{prov.get('made_by', 'unknown')}`",
+        f"- **Pack commit**: `{prov.get('pack_commit', 'unknown')}` | **Core revision**: `{prov.get('core_revision', 'unknown')}`",
+        "",
+        "## Target Quality & Sides",
+        f"- **Quality**: {quality}",
+    ]
+    if a_side:
+        lines.append(f"- **Pole A (`a_side`, baseline)**: {a_side}")
+    if b_side:
+        lines.append(f"- **Pole B (`b_side`, steered)**: {b_side}")
+
+    ckpt_sha12 = str(ckpt.get("sha256", ""))[:12]
+    enc_sha12 = str(enc.get("sha256", ""))[:12]
+    lines.extend(
+        [
+            "",
+            "## Model Recipe (`recipe`)",
+            f"- **Checkpoint**: `{ckpt.get('file', 'unspecified')}` (`{ckpt_sha12}`)",
+            f"- **Encoder**: `{enc.get('file', 'unspecified')}` (`{enc_sha12}`)",
+        ]
+    )
+    if loras:
+        for l_item in loras:
+            l_sha12 = str(l_item.get("sha256", ""))[:12]
+            l_str = l_item.get("strength", 1.0)
+            l_app = l_item.get("applied", "branch")
+            lines.append(
+                f"- **LoRA**: `{l_item.get('file', 'unknown')}` (strength=`{l_str:g}`, sha256=`{l_sha12}`, applied=`{l_app}`)"
+            )
+    else:
+        lines.append("- **LoRAs**: none")
+
+    pairs_sha = str(pairs_meta.get("sha256", ""))
+    lines.extend(
+        [
+            "",
+            "## Source Pair Set (`pairs`)",
+            f"- **Pair TOML path**: `{pairs_meta.get('path', 'unknown')}`",
+            f"- **Pair TOML SHA-256**: `{pairs_sha[:12]}` (`{pairs_sha}`)",
+            f"- **Pairs**: `{pairs_meta.get('n_pairs', 0)}` | **Holds**: `{pairs_meta.get('n_holds', 0)}`",
+            "",
+            "## Norms, Recommended Strength & Quality Report (`points` & `quality_report`)",
+        ]
+    )
+
+    if "post_refiner" in points:
+        pr = dict(points["post_refiner"])
+        pr_norm = float(pr.get("raw_norm", 0.0))
+        pr_med = float(pr.get("median_row_norm", 0.0))
+        pr_shape = (
+            list(tensors["vector.post_refiner"].shape)
+            if "vector.post_refiner" in tensors
+            else [POST_REFINER_DIM]
+        )
+        rec_lo = 50.0 / pr_norm if pr_norm > 1e-9 else 0.0
+        rec_hi = 85.0 / pr_norm if pr_norm > 1e-9 else 0.0
+        lines.append(
+            f"- **`vector.post_refiner`**: shape=`{pr_shape}`, unit=`{pr.get('unit', 'mean_pair_difference')}`, "
+            f"`raw_norm={pr_norm:.6f}`, `median_row_norm={pr_med:.4f}`"
+        )
+        if pr_norm > 1e-9:
+            lines.append(
+                f"- **Recommended ComfyUI `strength` range** (targeting post-refiner shift norm `50..85`): "
+                f"**`~{rec_lo:.2f} .. {rec_hi:.2f}`**"
+            )
+
+    if "encoder" in points:
+        en = dict(points["encoder"])
+        en_norm = float(en.get("raw_norm", 0.0))
+        en_med = float(en.get("median_row_norm", 0.0))
+        en_shape = (
+            list(tensors["vector.encoder"].shape)
+            if "vector.encoder" in tensors
+            else [ENCODER_DIM]
+        )
+        lines.append(
+            f"- **`vector.encoder`**: shape=`{en_shape}`, unit=`{en.get('unit', 'median_row_norm')}`, "
+            f"`raw_norm={en_norm:.6f}`, `median_row_norm={en_med:.4f}`, "
+            f"`row0_excluded={en.get('row0_excluded', True)}`"
+        )
+
+    for t_key, t_val in tensors.items():
+        if t_key not in ("vector.post_refiner", "vector.encoder"):
+            lines.append(f"- **`{t_key}`**: shape=`{list(t_val.shape)}`, dtype=`{t_val.dtype}`")
+
+    mpc = float(qrep.get("mean_pairwise_cosine", 0.0))
+    shc = float(qrep.get("split_half_cosine", 0.0))
+    ppc = [float(x) for x in (qrep.get("per_pair_cosine") or ())]
+    ppc_min = min(ppc) if ppc else 0.0
+    ppc_max = max(ppc) if ppc else 0.0
+    ppc_formatted = ", ".join(f"{x:.4f}" for x in ppc)
+    lines.extend(
+        [
+            f"- **`mean_pairwise_cosine`**: `{mpc:.4f}`",
+            f"- **`split_half_cosine`**: `{shc:.4f}`",
+            f"- **`per_pair_cosine`**: min=`{ppc_min:.4f}`, max=`{ppc_max:.4f}` (`[{ppc_formatted}]`)",
+        ]
+    )
+    for extra_qk in sorted(set(qrep.keys()) - {"mean_pairwise_cosine", "split_half_cosine", "per_pair_cosine"}):
+        lines.append(f"- **`{extra_qk}`**: `{json.dumps(qrep[extra_qk], sort_keys=True)}`")
+
+    if resolved_spans:
+        lines.extend(
+            [
+                "",
+                "## Per-Pair Token Spans",
+                "",
+                "| Pair | Weight | Bounds (`A` / `B`) | Pooled Toks (`A` / `B`) | Seq Len (`A` / `B`) | Differing Span (`A` -> `B`) |",
+                "|---:|---:|---|---|---|---|",
+            ]
+        )
+        for sp in resolved_spans:
+            idx = int(sp.get("index", 0))
+            w = float(sp.get("weight", 1.0))
+            la = int(sp.get("len_a", 0))
+            lb = int(sp.get("len_b", 0))
+            pa = int(sp.get("pooled_rows_a", 0))
+            pb = int(sp.get("pooled_rows_b", 0))
+            if "first_diff" in sp and ("end_a" in sp or "end_b" in sp):
+                fd = int(sp["first_diff"])
+                ea = int(sp.get("end_a", la))
+                eb = int(sp.get("end_b", lb))
+                bounds_str = f"`[{fd}:{ea}]` / `[{fd}:{eb}]`"
+            elif "first_diff" in sp:
+                fd = int(sp["first_diff"])
+                bounds_str = f"`[{fd}:{la}]` / `[{fd}:{lb}]`"
+            else:
+                bounds_str = "`all` / `all`"
+            a_sp = str(sp.get("a_span", "")).replace("|", "\\|").replace("\n", " ")
+            b_sp = str(sp.get("b_span", "")).replace("|", "\\|").replace("\n", " ")
+            lines.append(
+                f"| `{idx:02d}` | `{w:.2f}` | {bounds_str} | `{pa}` / `{pb}` | `{la}` / `{lb}` | `-{a_sp}` -> `+{b_sp}` |"
+            )
+
+    return "\n".join(lines) + "\n"
+
+
 def save_vector(
     path: str | Path,
     tensors: Mapping[str, torch.Tensor],
     metadata: Mapping[str, Any],
     *,
     overwrite: bool = True,
+    write_sidecar_md: bool = True,
 ) -> Path:
-    """Validate and write a `.safetensors` control vector file."""
+    """Validate and write a `.safetensors` control vector file and its companion `.md` sidecar."""
     if not isinstance(tensors, Mapping) or not tensors:
         raise ValueError("control vector tensors dict is empty")
     clean_tensors: dict[str, torch.Tensor] = {}
@@ -1451,6 +1645,14 @@ def save_vector(
         out_path.chmod(0o664)
     except OSError:
         pass
+    if write_sidecar_md:
+        sidecar_path = out_path.with_suffix(".md")
+        sidecar_md = format_vector_sidecar_md(out_path.name, clean_tensors, metadata)
+        sidecar_path.write_text(sidecar_md, encoding="utf-8")
+        try:
+            sidecar_path.chmod(0o664)
+        except OSError:
+            pass
     return out_path
 
 

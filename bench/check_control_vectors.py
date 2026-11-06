@@ -221,6 +221,53 @@ def check_spans_partition_and_refusals(tok: MiniMaxH3Tokenizer) -> list[str]:
     if bool(pm_fdiff[:fdiff].any()) or not bool(pm_fdiff[fdiff:].all()):
         errs.append("pooling_mask('from_first_diff') did not mask rows before first_diff")
 
+    # differing_token_bounds and pooling_mask(mode="diff_span"):
+    # Mutate two scene tokens mid-prompt while keeping the trailing overall_soundscape / non_diegetic_music suffix identical.
+    scene_indices = masks["scene"].nonzero(as_tuple=False).flatten().tolist()
+    mid_start = scene_indices[5]
+    mid_end_a = mid_start + 2
+    ids_b_mid = (
+        list(token_ids[:mid_start])
+        + [token_ids[mid_start] + 1, token_ids[mid_start + 1] + 1, token_ids[mid_start + 1] + 2]
+        + list(token_ids[mid_end_a:])
+    )
+    fb_start, fb_end_a, fb_end_b = h3_spans.differing_token_bounds(token_ids, ids_b_mid)
+    if (fb_start, fb_end_a, fb_end_b) != (mid_start, mid_end_a, mid_start + 3):
+        errs.append(
+            f"differing_token_bounds returned {(fb_start, fb_end_a, fb_end_b)}, "
+            f"expected {(mid_start, mid_end_a, mid_start + 3)}"
+        )
+    pm_diff_span = h3_spans.pooling_mask(masks, "diff_span", first_diff=fb_start, end_diff=fb_end_a)
+    if bool(pm_diff_span[:fb_start].any()) or bool(pm_diff_span[fb_end_a:].any()):
+        errs.append("pooling_mask('diff_span') did not mask out shared prefix and trailing shared suffix tokens")
+    if not torch.equal(pm_diff_span[fb_start:fb_end_a], masks["scene"][fb_start:fb_end_a]):
+        errs.append("pooling_mask('diff_span') did not match masks['scene'] inside [first_diff:end_diff]")
+
+    # Dialogue-only diff fallback in pooling_mask(mode="diff_span"):
+    dlg_indices = masks["dialogue"].nonzero(as_tuple=False).flatten().tolist()
+    dlg_first, dlg_last = dlg_indices[0], dlg_indices[-1] + 1
+    pm_dlg_diff = h3_spans.pooling_mask(masks, "diff_span", first_diff=dlg_first, end_diff=dlg_last)
+    if bool(pm_dlg_diff[:dlg_first].any()) or bool(pm_dlg_diff[dlg_last:].any()):
+        errs.append("pooling_mask('diff_span') dialogue fallback leaked outside [dlg_first:dlg_last]")
+    if not bool(pm_dlg_diff[dlg_first:dlg_last].all()):
+        errs.append("pooling_mask('diff_span') dialogue fallback did not select differing dialogue tokens")
+
+    errs += _expect_refusal(
+        lambda: h3_spans.differing_token_bounds(token_ids, list(token_ids)),
+        "are identical; no differing token exists",
+        "differing_token_bounds identical sequences",
+    )
+    errs += _expect_refusal(
+        lambda: h3_spans.pooling_mask(masks, "diff_span", first_diff=None),
+        "requires a non-negative first_diff",
+        "pooling_mask('diff_span') missing first_diff",
+    )
+    errs += _expect_refusal(
+        lambda: h3_spans.pooling_mask(masks, "diff_span", first_diff=10, end_diff=10),
+        "requires end_diff > first_diff",
+        "pooling_mask('diff_span') end_diff <= first_diff",
+    )
+
     # Refusal controls on spans and pooling_mask.
     errs += _expect_refusal(
         lambda: h3_spans.spans(token_ids[:-1], tags, decode),
@@ -1073,6 +1120,28 @@ def check_vector_io_family_and_compatibility() -> list[str]:
         vec_path = tmp_dir / "film_16mm_1974__fl2va.safetensors"
         cv.save_vector(vec_path, tensors_in, meta_in)
         tensors_out, meta_out = cv.load_vector(vec_path)
+
+        if "diff_span" not in cv.VALID_POOLING:
+            errs.append(f"'diff_span' missing from cv.VALID_POOLING: {cv.VALID_POOLING}")
+        diff_span_fname = cv.default_vector_filename("film_16mm_1974", "fl2va", pooling="diff_span")
+        if diff_span_fname != "film_16mm_1974__fl2va__diff_span.safetensors":
+            errs.append(f"unexpected default_vector_filename for diff_span: {diff_span_fname!r}")
+
+        sidecar_md_path = vec_path.with_suffix(".md")
+        if not sidecar_md_path.is_file():
+            errs.append(f"save_vector did not write companion .md sidecar at {sidecar_md_path}")
+        else:
+            sidecar_md_text = sidecar_md_path.read_text(encoding="utf-8")
+            for required_snippet in (
+                "film_16mm_1974__fl2va.safetensors",
+                "scene_text",
+                "minimax_h3_fl2va_int8_convrot.safetensors",
+                "Recommended ComfyUI `strength` range",
+                "mean_pairwise_cosine",
+                "split_half_cosine",
+            ):
+                if required_snippet not in sidecar_md_text:
+                    errs.append(f"sidecar .md missing {required_snippet!r}")
 
         if set(tensors_out.keys()) != set(tensors_in.keys()):
             errs.append(f"round-trip tensor keys {set(tensors_out.keys())} != {set(tensors_in.keys())}")
@@ -2022,7 +2091,7 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
                 encoding="utf-8",
             )
 
-            for pool_mode in ("scene_text", "all_tag1", "from_first_diff"):
+            for pool_mode in ("scene_text", "all_tag1", "from_first_diff", "diff_span"):
                 saved_v, rep_v = cv_nodes.make_control_vector_from_pairs(
                     pair_path=pair_toml,
                     model=patcher_for_make,
@@ -2038,6 +2107,10 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
                     errs.append(f"make_control_vector_from_pairs({pool_mode}) missing expected tensors")
                 if loaded_m["measured_under"]["pooling"] != pool_mode:
                     errs.append(f"make_control_vector_from_pairs pooling metadata mismatch: {loaded_m}")
+                if not saved_v.with_suffix(".md").is_file():
+                    errs.append(f"make_control_vector_from_pairs({pool_mode}) did not write companion .md sidecar")
+                if not loaded_m.get("pairs", {}).get("pair_spans"):
+                    errs.append(f"make_control_vector_from_pairs({pool_mode}) metadata['pairs'] missing pair_spans")
 
             # Verify float64 pooling precision on channel 0 and weighted quality_report on all_tag1 (noholds)
             saved_nh, rep_nh = cv_nodes.make_control_vector_from_pairs(
@@ -2239,6 +2312,8 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
                         [
                             "make",
                             str(pair_toml),
+                            "--pooling",
+                            "diff_span",
                             "--lora",
                             f"{mock_lora_path}:1.0",
                             "--out",
@@ -2249,6 +2324,12 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
                     errs.append(f"cmd_make --lora failed: rc={rc_mkl}, err={buf_mkl_err.getvalue()!r}")
                 else:
                     _, mkl_m = cv.load_vector(cli_made_lora_v)
+                    if mkl_m["measured_under"]["pooling"] != "diff_span":
+                        errs.append(f"cmd_make --pooling diff_span metadata mismatch: {mkl_m['measured_under']}")
+                    if not cli_made_lora_v.with_suffix(".md").is_file():
+                        errs.append("cmd_make did not write companion .md sidecar")
+                    elif "Per-Pair Token Spans" not in cli_made_lora_v.with_suffix(".md").read_text(encoding="utf-8"):
+                        errs.append("cmd_make companion .md sidecar missing Per-Pair Token Spans section")
                     patcher_with_rec_branch = patcher_with_init.clone()
                     patcher_with_rec_branch.model_options["transformer_options"]["h3_lora_branches"] = (
                         {

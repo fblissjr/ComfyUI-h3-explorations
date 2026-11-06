@@ -210,6 +210,7 @@ def cmd_make(args: argparse.Namespace) -> int:
     weights_list: list[float] = []
     enc_censuses: list[dict[str, float]] = []
     ref_censuses: list[dict[str, float]] = []
+    pair_spans: list[dict[str, Any]] = []
 
     print(f"\n--- Pair Spans ({len(pair_set.pairs)} pairs) ---")
     for idx, item in enumerate(pair_set.pairs):
@@ -227,14 +228,20 @@ def cmd_make(args: argparse.Namespace) -> int:
         ref_censuses.append(cv.row_norm_census(ref_a, tags_a))
         ref_censuses.append(cv.row_norm_census(ref_b, tags_b))
 
-        first_diff = h3_spans.first_differing_index(ids_a, ids_b)
+        first_diff, end_a, end_b = h3_spans.differing_token_bounds(ids_a, ids_b)
         spans_a = h3_spans.spans(ids_a, tags_a.tolist(), dec_a)
         spans_b = h3_spans.spans(ids_b, tags_b.tolist(), dec_b)
         mask_a = h3_spans.pooling_mask(
-            spans_a, args.pooling, first_diff=min(first_diff, len(ids_a) - 1)
+            spans_a,
+            args.pooling,
+            first_diff=min(first_diff, len(ids_a) - 1),
+            end_diff=end_a,
         )
         mask_b = h3_spans.pooling_mask(
-            spans_b, args.pooling, first_diff=min(first_diff, len(ids_b) - 1)
+            spans_b,
+            args.pooling,
+            first_diff=min(first_diff, len(ids_b) - 1),
+            end_diff=end_b,
         )
 
         a_pooled_list.append(ref_a.to(dtype=torch.float64)[mask_a].mean(dim=0).to(dtype=torch.float32))
@@ -253,9 +260,29 @@ def cmd_make(args: argparse.Namespace) -> int:
             enc_a_pooled_list.append(enc_a.to(dtype=torch.float64)[mask_a_enc].mean(dim=0).to(dtype=torch.float32))
             enc_b_pooled_list.append(enc_b.to(dtype=torch.float64)[mask_b_enc].mean(dim=0).to(dtype=torch.float32))
         weights_list.append(float(item.weight))
+        pair_spans.append(
+            {
+                "index": idx,
+                "weight": float(item.weight),
+                "first_diff": int(first_diff),
+                "end_a": int(end_a),
+                "end_b": int(end_b),
+                "a_span": item.a_span,
+                "b_span": item.b_span,
+                "len_a": int(len(ids_a)),
+                "len_b": int(len(ids_b)),
+                "pooled_rows_a": int(mask_a.sum().item()),
+                "pooled_rows_b": int(mask_b.sum().item()),
+            }
+        )
+        pool_info = (
+            f"pool=({int(mask_a.sum().item()):2d}t/{int(mask_b.sum().item()):2d}t [{first_diff}:{end_a}/{end_b}]) "
+            if args.pooling == "diff_span"
+            else ""
+        )
         print(
             f"  [{idx:02d}] w={item.weight:.2f} first_diff_tok={first_diff:3d} "
-            f"L_a={len(ids_a):3d} L_b={len(ids_b):3d} | "
+            f"L_a={len(ids_a):3d} L_b={len(ids_b):3d} {pool_info}| "
             f"-{item.a_span[:44]!r} -> +{item.b_span[:44]!r}"
         )
 
@@ -280,14 +307,20 @@ def cmd_make(args: argparse.Namespace) -> int:
             )
             h_ref_a = refiner_run(h_enc_a)
             h_ref_b = refiner_run(h_enc_b)
-            h_diff = h3_spans.first_differing_index(h_ids_a, h_ids_b)
+            h_diff, h_end_a, h_end_b = h3_spans.differing_token_bounds(h_ids_a, h_ids_b)
             h_spans_a = h3_spans.spans(h_ids_a, h_tags_a.tolist(), h_dec_a)
             h_spans_b = h3_spans.spans(h_ids_b, h_tags_b.tolist(), h_dec_b)
             h_mask_a = h3_spans.pooling_mask(
-                h_spans_a, args.pooling, first_diff=min(h_diff, len(h_ids_a) - 1)
+                h_spans_a,
+                args.pooling,
+                first_diff=min(h_diff, len(h_ids_a) - 1),
+                end_diff=h_end_a,
             )
             h_mask_b = h3_spans.pooling_mask(
-                h_spans_b, args.pooling, first_diff=min(h_diff, len(h_ids_b) - 1)
+                h_spans_b,
+                args.pooling,
+                first_diff=min(h_diff, len(h_ids_b) - 1),
+                end_diff=h_end_b,
             )
             hold_a_list.append(
                 h_ref_a.to(dtype=torch.float64)[h_mask_a].mean(dim=0).to(dtype=torch.float32)
@@ -363,6 +396,9 @@ def cmd_make(args: argparse.Namespace) -> int:
             "sha256": pair_set.sha256,
             "n_pairs": len(pair_set.pairs),
             "n_holds": 0 if args.no_holds else len(pair_set.holds),
+            "a_side": pair_set.a_side,
+            "b_side": pair_set.b_side,
+            "pair_spans": pair_spans,
         },
         "recipe": recipe,
         "measured_under": {
@@ -516,7 +552,7 @@ def cmd_inspect(args: argparse.Namespace) -> int:
             unet_path, device=args.refiner_device, loras=meter_loras
         )
         pooling = metadata["measured_under"].get("pooling", "scene_text")
-        if pooling == "from_first_diff":
+        if pooling in ("from_first_diff", "diff_span"):
             pooling = "scene_text"
 
         print(f"\n--- Meter Projection along {metadata['name']} (pooling={pooling}) ---")
@@ -818,12 +854,18 @@ def cmd_grade(args: argparse.Namespace) -> int:
             )
             ra = refiner_run(ea)
             rb = refiner_run(eb)
-            fdiff = h3_spans.first_differing_index(ia, ib)
+            fdiff, end_a, end_b = h3_spans.differing_token_bounds(ia, ib)
             ma = h3_spans.pooling_mask(
-                h3_spans.spans(ia, ta.tolist(), da), pooling, first_diff=min(fdiff, len(ia) - 1)
+                h3_spans.spans(ia, ta.tolist(), da),
+                pooling,
+                first_diff=min(fdiff, len(ia) - 1),
+                end_diff=end_a,
             )
             mb = h3_spans.pooling_mask(
-                h3_spans.spans(ib, tb.tolist(), db), pooling, first_diff=min(fdiff, len(ib) - 1)
+                h3_spans.spans(ib, tb.tolist(), db),
+                pooling,
+                first_diff=min(fdiff, len(ib) - 1),
+                end_diff=end_b,
             )
             p_a.append(ra.to(dtype=torch.float64)[ma].mean(dim=0).to(dtype=torch.float32))
             p_b.append(rb.to(dtype=torch.float64)[mb].mean(dim=0).to(dtype=torch.float32))

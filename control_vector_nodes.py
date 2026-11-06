@@ -717,14 +717,20 @@ def make_control_vector_from_pairs(
         ref_censuses.append(_cv.row_norm_census(ref_a, tags_a))
         ref_censuses.append(_cv.row_norm_census(ref_b, tags_b))
 
-        first_diff = _spans.first_differing_index(ids_a, ids_b)
+        first_diff, end_a, end_b = _spans.differing_token_bounds(ids_a, ids_b)
         spans_a = _spans.spans(ids_a, tags_a.tolist(), dec_a)
         spans_b = _spans.spans(ids_b, tags_b.tolist(), dec_b)
         mask_a = _spans.pooling_mask(
-            spans_a, pooling, first_diff=min(first_diff, len(ids_a) - 1)
+            spans_a,
+            pooling,
+            first_diff=min(first_diff, len(ids_a) - 1),
+            end_diff=end_a,
         )
         mask_b = _spans.pooling_mask(
-            spans_b, pooling, first_diff=min(first_diff, len(ids_b) - 1)
+            spans_b,
+            pooling,
+            first_diff=min(first_diff, len(ids_b) - 1),
+            end_diff=end_b,
         )
 
         pool_a = ref_a.to(dtype=torch.float64)[mask_a].mean(dim=0).to(dtype=torch.float32)
@@ -736,6 +742,9 @@ def make_control_vector_from_pairs(
             {
                 "index": idx,
                 "weight": float(item.weight),
+                "first_diff": int(first_diff),
+                "end_a": int(end_a),
+                "end_b": int(end_b),
                 "a_span": item.a_span,
                 "b_span": item.b_span,
                 "len_a": int(enc_a.shape[0]),
@@ -766,14 +775,20 @@ def make_control_vector_from_pairs(
             )
             h_ref_a = refiner_run(h_enc_a)
             h_ref_b = refiner_run(h_enc_b)
-            h_diff = _spans.first_differing_index(h_ids_a, h_ids_b)
+            h_diff, h_end_a, h_end_b = _spans.differing_token_bounds(h_ids_a, h_ids_b)
             h_spans_a = _spans.spans(h_ids_a, h_tags_a.tolist(), h_dec_a)
             h_spans_b = _spans.spans(h_ids_b, h_tags_b.tolist(), h_dec_b)
             h_mask_a = _spans.pooling_mask(
-                h_spans_a, pooling, first_diff=min(h_diff, len(h_ids_a) - 1)
+                h_spans_a,
+                pooling,
+                first_diff=min(h_diff, len(h_ids_a) - 1),
+                end_diff=h_end_a,
             )
             h_mask_b = _spans.pooling_mask(
-                h_spans_b, pooling, first_diff=min(h_diff, len(h_ids_b) - 1)
+                h_spans_b,
+                pooling,
+                first_diff=min(h_diff, len(h_ids_b) - 1),
+                end_diff=h_end_b,
             )
             hold_a_list.append(
                 h_ref_a.to(dtype=torch.float64)[h_mask_a].mean(dim=0).to(dtype=torch.float32)
@@ -833,6 +848,9 @@ def make_control_vector_from_pairs(
             "sha256": pair_set.sha256,
             "n_pairs": len(pair_set.pairs),
             "n_holds": len(pair_set.holds) if apply_holds else 0,
+            "a_side": pair_set.a_side,
+            "b_side": pair_set.b_side,
+            "pair_spans": pair_spans,
         },
         "recipe": recipe,
         "measured_under": {
@@ -1197,7 +1215,7 @@ class MiniMaxH3MakeControlVector(io.ComfyNode):
                     tooltip=(
                         "Which tag-1 rows after the token refiner are mean-pooled per pair side: "
                         "'scene_text' (default, excludes reference labels and timestamps), "
-                        "'all_tag1', or 'from_first_diff'."
+                        "'all_tag1', 'from_first_diff', or 'diff_span'."
                     ),
                 ),
                 io.Boolean.Input(
