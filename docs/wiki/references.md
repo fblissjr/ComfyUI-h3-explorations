@@ -1776,6 +1776,21 @@ drivers' internals.
 
 ---
 
+## PrunaAI `P-H3-Image`, 2026-11-07
+
+Read 2026-11-07 against `PrunaAI/P-H3-Image` (`coderef/diffusers/src/diffusers/modular_pipelines/p_h3_image/`, commit `c55ec279`) and `PrunaAI/P-H3-Image-Comfy`, alongside ComfyUI core's native implementation (`comfy/text_encoders/minimax.py:110-128, 172-258`, `comfy/ldm/minimax/vae.py:429-439, 1014-1033`, `comfy_extras/nodes_minimax_h3.py:668-732`). Full details and workflow table live in [`p_h3_image.md`](p_h3_image.md) and [`../prompting/17_p_h3_image_prompting.md`](../prompting/17_p_h3_image_prompting.md).
+
+- **Contract (`modular_model_index.json`, `coderef/diffusers/src/diffusers/modular_pipelines/p_h3_image/before_denoise.py:837-838`, `coderef/diffusers/src/diffusers/modular_pipelines/p_h3_image/before_encoder.py:93,99,118,126`)**:
+  - Single-frame (`t=1`) generation (`2912x2912` default T2I canvas) and 1–8 reference image editing (`width=0, height=0` on `PH3ImageConditioning` to preserve `image_1`'s aspect ratio).
+  - 8 Euler steps (`KSamplerSelect("euler")`), no CFG (`BasicGuider`), `MiniMaxH3SigmaShift(shift_video=1.0, shift_audio=1.0)`, and the non-uniform 8-step distillation schedule `PH3_IMAGE_MANUAL_SIGMAS` (`1.0, 0.984753, 0.967905, 0.951688, 0.925372, 0.881923, 0.810083, 0.528718, 0.0`).
+  - Distilled `Qwen3-VL-4B` text encoder (`p-h3-image_text_encoder_int8_convrot.safetensors`) with FP32 `TextConnector` concatenating layers `[13, 19, 25, 31, 36]` (`12,800 -> 5,120`) and `sink_embedding` on token 0, matching `Qwen3-VL-32B` layer-50 distribution so our 32B `MiniMaxH3EncoderLoader` works directly as a teacher encoder (`h3_probe_p_h3_image_*_te32b_api.json`).
+  - Optional `Qwen3.5-9B` prompt upsampler (`p-h3-image_prompt_upsampler_int8_convrot.safetensors`), wrapped by [`MiniMaxH3PH3ImagePromptUpsampler`](../../ph3_image_nodes.py) (`enabled=False` by default, `lazy=True` on `clip`).
+- **Where `PrunaAI/P-H3-Image-Comfy`'s example JSONs departed from `PrunaAI/P-H3-Image`'s own `diffusers` pipeline**:
+  - Wired `ModelSamplingSD3(shift=1.0)` + `BasicScheduler("simple", 8)` (uniform linear sigmas instead of the non-uniform 8-step `sample_sigmas` in `modular_model_index.json`).
+  - Wired `ChatTemplate` / `TextGenerateLTX2Prompt` (Gemma + LTX-2 video system prompt) on T2I and `TextEncodeQwenImageEditPlus` (3-image cap, `384x384` downscale, Qwen-Image-Edit system prompt, `CONDITIONING` output instead of `clip.generate`) on Edit. Both are replaced by [`MiniMaxH3PH3ImagePromptUpsampler`](../../ph3_image_nodes.py).
+
+---
+
 ## The streaming references: TaoMate
 
 Read 2026-09-15, at the revisions named here. The lane that used them is

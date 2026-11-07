@@ -113,7 +113,8 @@ from h3_config import (  # noqa: E402
     PH3_IMAGE_UNET, PH3_IMAGE_LORA, PH3_IMAGE_STRENGTH,
     PH3_IMAGE_TE, PH3_IMAGE_UPSAMPLER, PH3_IMAGE_VAE,
     PH3_IMAGE_STEPS, PH3_IMAGE_SAMPLER, PH3_IMAGE_SHIFT, PH3_IMAGE_MANUAL_SIGMAS,
-    PH3_IMAGE_CANVAS_8MP, PH3_IMAGE_CANVAS_4MP,
+    PH3_IMAGE_CANVAS_8MP,
+    PH3_IMAGE_T2I_MAX_NEW_TOKENS, PH3_IMAGE_EDIT_MAX_NEW_TOKENS,
     CONTROL_VECTOR_NODE, CONTROL_VECTOR_DEFAULTS, CONTROL_VECTOR_OPTIONAL_DEFAULTS, LAYER_NORM_MATCH_NODE,
     refine_scheduler_ids,
 )
@@ -2281,30 +2282,15 @@ def build_decode_saved_latent(video_latent: str, audio_latent: str, *,
 #: Canonical P-H3-Image single-frame T2I prompt: pure visual prose, 80-150 words,
 #: zero H3 video section headers, zero `<d>` speech tags, zero `[Shot N]` markers,
 #: zero camera movement verbs, and zero soundscape cues (`docs/prompting/17_p_h3_image_prompting.md`).
-PH3_IMAGE_T2I_PROMPT = (
-    "A medium three-quarter portrait of an elderly clockmaker seated at a worn "
-    "walnut workbench inside a sunlit brass-and-oak workshop. He has silver "
-    "stubble, deep-set hazel eyes behind round wire-rimmed spectacles, and wears "
-    "a faded indigo linen apron over a rolled-sleeve cream cotton shirt. His "
-    "weathered fingers hold a brass balance wheel and fine tweezers above an "
-    "open pocket watch movement surrounded by miniature jeweler's screwdrivers, "
-    "coiled mainsprings, and a glass bell jar. Warm late-afternoon directional "
-    "sunlight streams through a paned workshop window on the left, casting crisp "
-    "specular highlights across the polished gears and soft warm fill across the "
-    "wood grain, shot on an 85mm prime lens at f/2.8 with shallow depth of field."
-)
+#: Stored in `prompt_bank/p_h3_image/t2i_clockmaker.txt` (`prompt_bank/AGENTS.md`:
+#: prompt text is data, never a literal in code).
+PH3_IMAGE_T2I_PROMPT = _bank_prompt("p_h3_image/t2i_clockmaker")
 
 #: Canonical P-H3-Image single-frame Edit prompt: explicit `<Picture i>` index
 #: referencing matching the 1-indexed `images.image_i` sockets wired on
 #: `PH3ImageConditioning`, stating both the edit delta and the invariants to keep.
-PH3_IMAGE_EDIT_PROMPT = (
-    "Place the man from <Picture 1> onto a stone observation terrace overlooking "
-    "the alpine mountain peaks and valley from <Picture 2> at golden hour. Keep "
-    "his exact facial features, expression, and hair from <Picture 1>, dress him "
-    "in a charcoal wool field jacket over a heather-grey knit sweater, and match "
-    "the warm low-angle sunset key light and crisp atmospheric perspective of "
-    "<Picture 2>."
-)
+#: Stored in `prompt_bank/p_h3_image/edit_alpine_terrace.txt`.
+PH3_IMAGE_EDIT_PROMPT = _bank_prompt("p_h3_image/edit_alpine_terrace")
 
 
 def build_ph3_image_api(
@@ -2333,6 +2319,11 @@ def build_ph3_image_api(
       and is never wired on `length=1` image graphs).
     - Includes `MiniMaxH3PH3ImagePromptUpsampler` (node 25) with `enabled=False`
       by default so the 9.1 GB `Qwen3.5-9B` upsampler is only loaded when opted in.
+    - Leaves `PH3ImageConditioning` at `width=0, height=0` on edit workflows (unless
+      the caller passes an explicit `width`/`height`) so `PH3ImageConditioning`
+      preserves `image_1`'s aspect ratio (`refs[0]["latent_w"] * 16`,
+      `refs[0]["latent_h"] * 16` in `comfy_extras/nodes_minimax_h3.py:728-729`),
+      while pinning `2912x2912` (`PH3_IMAGE_CANVAS_8MP`) on T2I workflows.
     - Supports both the standalone `p-h3-image_int8_convrot.safetensors` DiT and
       the `p-h3-image_lora_bf16.safetensors` adapter on our `unet_fl2va` base
       via `MiniMaxH3LoRABranch`.
@@ -2344,9 +2335,10 @@ def build_ph3_image_api(
     if not single_frame:
         raise SystemExit("P-H3-Image workflows are single-frame only (single_frame=True)")
     is_edit = task == "ph3_edit"
-    default_canvas = PH3_IMAGE_CANVAS_4MP if is_edit else PH3_IMAGE_CANVAS_8MP
-    w = width if width is not None else default_canvas["width"]
-    h = height if height is not None else default_canvas["height"]
+    cond_w = width if width is not None else (0 if is_edit else PH3_IMAGE_CANVAS_8MP["width"])
+    cond_h = height if height is not None else (0 if is_edit else PH3_IMAGE_CANVAS_8MP["height"])
+    upsampler_w = width if width is not None else PH3_IMAGE_CANVAS_8MP["width"]
+    upsampler_h = height if height is not None else PH3_IMAGE_CANVAS_8MP["height"]
     resolved_prompt = prompt if prompt is not None else (
         PH3_IMAGE_EDIT_PROMPT if is_edit else PH3_IMAGE_T2I_PROMPT
     )
@@ -2395,9 +2387,11 @@ def build_ph3_image_api(
     upsampler_inputs: dict[str, Any] = {
         "prompt": resolved_prompt,
         "enabled": False,
-        "width": w,
-        "height": h,
-        "max_new_tokens": 1536 if is_edit else 1024,
+        "width": upsampler_w,
+        "height": upsampler_h,
+        "max_new_tokens": (
+            PH3_IMAGE_EDIT_MAX_NEW_TOKENS if is_edit else PH3_IMAGE_T2I_MAX_NEW_TOKENS
+        ),
         "seed": seed,
         "clip": ["24", 0],
     }
@@ -2406,8 +2400,8 @@ def build_ph3_image_api(
         "clip": ["2", 0],
         "vae": ["3", 0],
         "prompt": ["25", 0],
-        "width": w,
-        "height": h,
+        "width": cond_w,
+        "height": cond_h,
     }
     if is_edit:
         stills = ref_images if ref_images is not None else (

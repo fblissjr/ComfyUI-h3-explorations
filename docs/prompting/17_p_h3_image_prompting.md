@@ -19,10 +19,10 @@
 4. **Single-Frame Adapted H3 Image VAE (`p-h3-image_vae_bf16.safetensors` / `p-h3-image_vae_int8_convrot.safetensors`)**:
    - `PH3ImageVAE(MiniMaxH3VideoVAE)` (`comfy/ldm/minimax/vae.py:429-439, 1014-1033`) pairs MiniMax H3's 3D causal CNN encoder (`EncoderFCN3D`, using seeded diagonal-Gaussian sampling `PH3_IMAGE_ENCODE_SEED = 42` during `encode` and 24-channel `LATENTS_MEAN` / `LATENTS_STD` + ImageNet normalization) with `PH3ImageDecoder(ViT3DDecoder)` (`patch_size_t=1` and fixed temporal RoPE coordinate `PH3_IMAGE_FRAME_POSITION = 2.0 * (0.5 / 7) - 1.0` during `decode`, `16x` spatial compression, `24` latent channels).
 5. **Dual-Stream Reference Conditioning (`PH3ImageConditioning`, `comfy_extras/nodes_minimax_h3.py:681-732`)**:
-   - Creates both the conditioning (`["5", 0]`) and the single-frame latent (`["5", 1]`), at `2912x2912` (`~8.48 MP`, `PH3_IMAGE_CANVAS_8MP`) for T2I and `2048x2048` (`~4.19 MP`, `PH3_IMAGE_CANVAS_4MP`) for Edit.
+   - Creates both the conditioning (`["5", 0]`) and the single-frame latent (`["5", 1]`), at `2912x2912` (`~8.48 MP`, `PH3_IMAGE_CANVAS_8MP`) for T2I and `width=0, height=0` for Edit (which auto-derives `latent_width = refs[0]["latent_w"] * 16` and `latent_height = refs[0]["latent_h"] * 16` to preserve `image_1`'s aspect ratio).
    - For editing (`1–8` reference images connected to `images.image_1` .. `images.image_8`), `PH3ImageConditioning` feeds each reference image simultaneously into:
      1. **Vision-Language Stream**: Each image is scaled so its total pixel area is at most `1,000,000` pixels (multiples of `32`) and embedded at the `<|image_pad|>` token inside `<Picture i>: <|vision_start|><|image_pad|><|vision_end|>`.
-     2. **VAE Reference-Latent Stream (`minimax_refs`)**: Each image is aspect-scaled to the target canvas area (`width * height`), encoded with `PH3ImageVAE.encode` (`PH3_IMAGE_ENCODE_SEED = 42`, `comfy/ldm/minimax/vae.py:1026`), and injected as clean reference tokens into the DiT sequence.
+     2. **VAE Reference-Latent Stream (`minimax_refs`)**: Each image is aspect-scaled to the target canvas area (`(width * height) or 2912**2`), encoded with `PH3ImageVAE.encode` (`PH3_IMAGE_ENCODE_SEED = 42`, `comfy/ldm/minimax/vae.py:1026`), and injected as clean reference tokens into the DiT sequence.
 
 ---
 

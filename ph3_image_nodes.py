@@ -43,6 +43,14 @@ if _COMFY_ROOT is not None and str(_COMFY_ROOT) not in sys.path:
 
 from comfy_api.latest import io
 
+_HERE = Path(__file__).resolve().parent
+if str(_HERE / "workflows") not in sys.path:
+    sys.path.insert(0, str(_HERE / "workflows"))
+from h3_config import (  # noqa: E402
+    PH3_IMAGE_EDIT_MAX_NEW_TOKENS,
+    PH3_IMAGE_T2I_MAX_NEW_TOKENS,
+)
+
 # Inherited from diffusers `src/diffusers/modular_pipelines/p_h3_image/prompt_upsampler.py`
 # and `before_encoder.py` (PrunaAI/P-H3-Image, commit c55ec279).
 ASPECT_RATIOS: dict[str, float] = {
@@ -57,10 +65,12 @@ ASPECT_RATIOS: dict[str, float] = {
 UPSAMPLER_IMAGE_PIXELS = 1_000_000
 CANVAS_MULTIPLE = 32
 MAX_EDIT_IMAGES = 8
-T2I_MAX_NEW_TOKENS = 1024
-EDIT_MAX_NEW_TOKENS = 1536
+T2I_MAX_NEW_TOKENS = PH3_IMAGE_T2I_MAX_NEW_TOKENS
+EDIT_MAX_NEW_TOKENS = PH3_IMAGE_EDIT_MAX_NEW_TOKENS
 # Inherited from Qwen35Tokenizer.eos_token_id (`<|im_end|>`, comfy/text_encoders/qwen35.py:1299).
 QWEN35_IM_END_ID = 248046
+# Matches `PH3_IMAGE_EDIT_VERBATIM` in `comfy_extras/nodes_minimax_h3.py:28`.
+_EDIT_VERBATIM_RE = re.compile(r"^\s*(Edit <Picture \d+>|subject_definitions:)")
 
 EDIT_SECTIONS: tuple[str, ...] = (
     "subject_definitions",
@@ -163,7 +173,7 @@ def build_upsampler_chat(
         )
     if num_images > 0:
         prefix = "".join(f"<Picture {i}>: {_VISION_SLOT}" for i in range(1, num_images + 1))
-        if cleaned.startswith("Edit <Picture "):
+        if _EDIT_VERBATIM_RE.match(cleaned):
             user_body = f"{prefix}{cleaned}"
         else:
             user_body = f"{prefix}Edit <Picture 1>. {cleaned}"
@@ -326,6 +336,13 @@ class MiniMaxH3PH3ImagePromptUpsampler(io.ComfyNode):
                 "(`p-h3-image_prompt_upsampler_int8_convrot.safetensors`, CLIPLoader "
                 "type='qwen_image') is connected."
             )
+        tok_cls = type(getattr(clip, "tokenizer", None)).__name__
+        if "Minimax" in tok_cls or "MiniMax" in tok_cls or "PH3Image" in tok_cls:
+            raise ValueError(
+                f"MiniMaxH3PH3ImagePromptUpsampler: connected `clip` has tokenizer {tok_cls!r} "
+                "(the MiniMax H3 text encoder). Connect `p-h3-image_prompt_upsampler_int8_convrot.safetensors` "
+                "loaded via CLIPLoader with `type='qwen_image'` (node 24) instead."
+            )
 
         names = sorted(images or {}, key=lambda name: int(name.rsplit("_", 1)[-1]))
         raw_images = [images[name] for name in names if images[name] is not None]
@@ -336,7 +353,7 @@ class MiniMaxH3PH3ImagePromptUpsampler(io.ComfyNode):
             )
         vision_images = [_resize_upsampler_image(img) for img in raw_images]
 
-        ar_label = aspect_ratio_label(width, height)
+        ar_label = "1:1" if vision_images else aspect_ratio_label(width, height)
         chat_text = build_upsampler_chat(
             prompt, num_images=len(vision_images), aspect_ratio=ar_label
         )

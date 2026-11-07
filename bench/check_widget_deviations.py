@@ -373,22 +373,16 @@ DECLARED: dict[tuple[str, str], tuple] = {
                      "populations"),
     ("PH3ImageConditioning", "width"):
         ("ARM", "2912 on the P-H3-Image T2I graphs (h3_config.PH3_IMAGE_CANVAS_8MP) "
-                "and 2048 on the P-H3-Image Edit graphs (h3_config.PH3_IMAGE_CANVAS_4MP, "
-                "matching Pruna's 4 MP edit training budget), against the node "
-                "default 0 (which auto-derives width from image_1 or 2912)"),
+                "so the 8.48 MP canvas is explicit in the UI, while the Edit graphs "
+                "leave the node default 0 so PH3ImageConditioning preserves image_1's "
+                "aspect ratio (refs[0]['latent_w'] * 16 in comfy_extras/nodes_minimax_h3.py:728)"),
     ("PH3ImageConditioning", "height"):
-        ("ARM", "2912 on the P-H3-Image T2I graphs (h3_config.PH3_IMAGE_CANVAS_8MP) "
-                "and 2048 on the P-H3-Image Edit graphs (h3_config.PH3_IMAGE_CANVAS_4MP), "
-                "against the node default 0"),
-    ("MiniMaxH3PH3ImagePromptUpsampler", "width"):
-        ("ARM", "2048 on the P-H3-Image Edit graphs (h3_config.PH3_IMAGE_CANVAS_4MP), "
-                "against the node default 2912 on the T2I graphs"),
-    ("MiniMaxH3PH3ImagePromptUpsampler", "height"):
-        ("ARM", "2048 on the P-H3-Image Edit graphs (h3_config.PH3_IMAGE_CANVAS_4MP), "
-                "against the node default 2912 on the T2I graphs"),
+        ("ARM", "2912 on the P-H3-Image T2I graphs (h3_config.PH3_IMAGE_CANVAS_8MP), "
+                "against the node default 0 on the Edit graphs (refs[0]['latent_h'] * 16 "
+                "in comfy_extras/nodes_minimax_h3.py:729)"),
     ("MiniMaxH3PH3ImagePromptUpsampler", "max_new_tokens"):
-        ("ARM", "1536 on the P-H3-Image Edit graphs (ph3_image_nodes.EDIT_MAX_NEW_TOKENS), "
-                "against the node default 1024 (ph3_image_nodes.T2I_MAX_NEW_TOKENS) on the "
+        ("ARM", "1536 on the P-H3-Image Edit graphs (h3_config.PH3_IMAGE_EDIT_MAX_NEW_TOKENS), "
+                "against the node default 1024 (h3_config.PH3_IMAGE_T2I_MAX_NEW_TOKENS) on the "
                 "T2I graphs"),
 }
 

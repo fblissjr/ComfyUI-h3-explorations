@@ -1654,11 +1654,18 @@ PH3_IMAGE_SIGMA_KNOTS = (
     1.0, 0.984753, 0.967905, 0.951688, 0.925372, 0.881923, 0.810083, 0.528718, 0.0
 )
 PH3_IMAGE_MANUAL_SIGMAS = "1.0, 0.984753, 0.967905, 0.951688, 0.925372, 0.881923, 0.810083, 0.528718, 0.0"
-#: **Inherited** (`before_encoder.py:99,118,126`): 2912x2912 (~8.48 MP, `33,124`
-#: image patch tokens) is the default T2I canvas; 2048x2048 (~4.19 MP, `16,384`
-#: image patch tokens) is `canvas_min_pixels` for edits.
+#: **Inherited** (`coderef/diffusers/src/diffusers/modular_pipelines/p_h3_image/before_encoder.py:93,99,118,126`):
+#: 2912x2912 (~8.48 MP, `33,124` image patch tokens) is the default T2I canvas
+#: (`PH3_IMAGE_SIZE` in `comfy_extras/nodes_minimax_h3.py:25`); for edits,
+#: `PH3ImageConditioning` defaults to `width=0, height=0` so `latent_width` and
+#: `latent_height` inherit `image_1`'s aspect ratio (`refs[0]["latent_w"] * 16`,
+#: `refs[0]["latent_h"] * 16` in `comfy_extras/nodes_minimax_h3.py:728-729`).
+#: `PH3_IMAGE_T2I_MAX_NEW_TOKENS` (`1024`) and `PH3_IMAGE_EDIT_MAX_NEW_TOKENS`
+#: (`1536`) are upstream `before_encoder.py:93`'s token budgets for the
+#: `Qwen3.5-9B` prompt upsampler.
 PH3_IMAGE_CANVAS_8MP = dict(width=2912, height=2912)
-PH3_IMAGE_CANVAS_4MP = dict(width=2048, height=2048)
+PH3_IMAGE_T2I_MAX_NEW_TOKENS = 1024
+PH3_IMAGE_EDIT_MAX_NEW_TOKENS = 1536
 
 # `CHAIN` was here and is gone as of 2026-08-14. It listed the node order --
 # Load Diffusion Model, MiniMax H3 SageAttention, SolAttnMiniMax -- and nothing
