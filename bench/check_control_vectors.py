@@ -2977,6 +2977,12 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
                 st_root, ctype_root, body_root = bench_cv.handle_ui_request(ui_state, "GET", "/", b"")
                 if st_root != 200 or "text/html" not in ctype_root or "MiniMax H3 Control Vector Studio" not in body_root:
                     errs.append(f"handle_ui_request GET / failed: status={st_root}, ctype={ctype_root!r}")
+                st_css, ctype_css, body_css = bench_cv.handle_ui_request(ui_state, "GET", "/ui/style.css", b"")
+                if st_css != 200 or "text/css" not in ctype_css or "--bg:" not in body_css:
+                    errs.append(f"handle_ui_request GET /ui/style.css failed: status={st_css}, ctype={ctype_css!r}")
+                st_js, ctype_js, body_js = bench_cv.handle_ui_request(ui_state, "GET", "/ui/app.js", b"")
+                if st_js != 200 or "javascript" not in ctype_js or "const APP =" not in body_js:
+                    errs.append(f"handle_ui_request GET /ui/app.js failed: status={st_js}, ctype={ctype_js!r}")
 
                 st_init, _, body_init = bench_cv.handle_ui_request(ui_state, "GET", "/api/init", b"")
                 init_json = json.loads(body_init)

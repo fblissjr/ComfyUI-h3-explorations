@@ -1,7 +1,7 @@
 # 1. Control Vector Studio UI Guide
 
 **Parent guide**: [`docs/wiki/control_vectors.md`](../control_vectors.md)
-**Source files**: [`bench/control_vectors.py`](../../../bench/control_vectors.py), [`bench/control_vector_ui.html`](../../../bench/control_vector_ui.html)
+**Source files**: [`bench/control_vectors.py`](../../../bench/control_vectors.py), [`bench/control_vector/ui_server.py`](../../../bench/control_vector/ui_server.py), [`bench/control_vector/web/index.html`](../../../bench/control_vector/web/index.html), [`bench/control_vector/web/style.css`](../../../bench/control_vector/web/style.css), [`bench/control_vector/web/app.js`](../../../bench/control_vector/web/app.js)
 
 ---
 

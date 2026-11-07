@@ -539,7 +539,6 @@ Arm manifests and the like; a manifest's line is its own `what`.
 | [`cafe_kids_pdd_arms.json`](cafe_kids_pdd_arms.json) | An outside prompt queued at the owner's request: verbatim (not house structure) and rewritten as prompt_bank/t2va_cafe_kids.txt, both PDD at 5 and 8 evaluations on the shipped default chain, 1344x768, 345 frames, the graph's own seed. Run ... |
 | [`checks_baseline.json`](checks_baseline.json) | checks that bench/run_checks.py expects to be red, each with the reason; the runner fails only on a red this file does not name |
 | [`clone_base_x0_arms.json`](clone_base_x0_arms.json) | The base control for the owner's 1 s clone on subway_chase__pdd8: the base model on Euler over PDD's 32-point grid, the x0 observer on, same prompt, length and seed as the PDD8 x0 row in bench/results/2026-09-26_followup.jsonl. Euler ... |
-| [`control_vector_ui.html`](control_vector_ui.html) | <!DOCTYPE html> |
 | [`distill_audio_arms.json`](distill_audio_arms.json) | The 2026-09-25 distill and audio-recovery session, THROWAWAY FIRST RUN (docs/wiki/next_steps.md, the 2026-09-25 blocks). Five arms on two bank scenes at one seed, to catch wiring errors before a quoted session spends GPU. Arms: pdd8 = the ... |
 | [`distill_compare_arms.json`](distill_compare_arms.json) | The three distills as each is best built today, at one seed on two scenes. pdd8 = h3_text_to_video_pdd (the shipped PDD8 graph); flashgen = h3_text_to_video_flashgen (rank 64 applied at the call, 0.146.0 and later); fasth3 = ... |
 | [`distill_run_arms.json`](distill_run_arms.json) | The fresh distill run, 2026-09-26: base, PDD8, FlashGen (rank 64 at the call) and FastH3 (contract) on eleven bank scenes at one seed, each at its declared length, plus FlashGen dense, refine pairs, the step-switch arm, and the five-second ... |
@@ -624,6 +623,24 @@ Arm manifests and the like; a manifest's line is its own `what`.
 |---|---|
 | [`h3_bench_capture/__init__.py`](comfy_capture_nodes/h3_bench_capture/__init__.py) | A bench-only ComfyUI node: save the exact conditioning and latent a sampler would get. |
 | [`h3_bench_prefix_reuse/__init__.py`](comfy_capture_nodes/h3_bench_prefix_reuse/__init__.py) | A bench-only ComfyUI node: can the encoder's work on a reference be kept across prompt edits without changing the conditioning? |
+
+### control_vector
+
+| file | what it says |
+|---|---|
+| [`__init__.py`](control_vector/__init__.py) | Modular implementation package for `bench/control_vectors.py` and the H3 Control Vector UI. |
+| [`build_cmd.py`](control_vector/build_cmd.py) | One-shot and batch `build` and `words` CLI commands for H3 control vectors. |
+| [`cli.py`](control_vector/cli.py) | Argument parser and CLI command router for `bench/control_vectors.py`. |
+| [`grading.py`](control_vector/grading.py) | Inspection, prompt metering (`inspect`), and DiT velocity grading (`grade`) for H3 control vectors. |
+| [`helpers.py`](control_vector/helpers.py) | Shared helpers for the MiniMax H3 control vector CLI and UI package. |
+| [`llm_pairs.py`](control_vector/llm_pairs.py) | Local LLM pair generation (`transformers` and `exllamav3`) for H3 control vectors. |
+| [`make_cmds.py`](control_vector/make_cmds.py) | CLI commands for `make`, `make-media`, and `from-md` (`import-md`). |
+| [`sculpt.py`](control_vector/sculpt.py) | CPU vector sculpting (`sculpt` / `--invert`) and contextual prompt receptor metering. |
+| [`ui_server.py`](control_vector/ui_server.py) | HTTP server and `/api/*` request router for the H3 Control Vector UI. |
+| [`ui_state.py`](control_vector/ui_state.py) | UI state management, TOML/Markdown preview, and `< 1 ms` CPU cached-build repooling. |
+| [`web/app.js`](control_vector/web/app.js) | const APP = { |
+| [`web/index.html`](control_vector/web/index.html) | <!DOCTYPE html> |
+| [`web/style.css`](control_vector/web/style.css) | :root { |
 
 ### fixtures
 
