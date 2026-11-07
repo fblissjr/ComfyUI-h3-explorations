@@ -421,7 +421,7 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Disable 4-bit BitsAndBytes quantization when loading a transformers model",
     )
-    pgen.add_argument("--max-new-tokens", dest="max_new_tokens", type=int, default=3200)
+    pgen.add_argument("--max-new-tokens", dest="max_new_tokens", type=int, default=4800)
     pgen.add_argument("--temperature", type=float, default=0.7)
     pgen.add_argument("--name", default="", help="Optional stem name to also write <name>.md / <name>.toml")
     pgen.add_argument("--out-md", dest="out_md", default="", help="Optional output .md file path")

@@ -614,7 +614,7 @@ def cmd_from_md(args: argparse.Namespace) -> int:
     saved_toml = cv.write_markdown_to_toml(
         repaired_md,
         out_target,
-        name=getattr(args, "name", None),
+        name=getattr(args, "name", None) or md_path.stem,
         mode=getattr(args, "mode", None),
         frame=getattr(args, "frame", "scene") or "scene",
         quality=getattr(args, "quality", None),

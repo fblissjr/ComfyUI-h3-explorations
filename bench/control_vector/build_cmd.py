@@ -254,9 +254,9 @@ def cmd_build(args: argparse.Namespace) -> int:
                 tp_out = base_dir / f"{eff_stem}_test_prompt.txt"
             try:
                 resolved_pair_path = cv.write_markdown_to_toml(
-                    src_path,
+                    md_text,
                     toml_target_path,
-                    name=stem_override,
+                    name=eff_stem,
                     mode=getattr(args, "mode", None),
                     frame=getattr(args, "frame", "scene") or "scene",
                     quality=getattr(args, "quality", None),

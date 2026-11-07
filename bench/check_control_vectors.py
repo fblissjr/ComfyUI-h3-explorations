@@ -4447,6 +4447,37 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
         if st_rep_prev != 200 or not rep_prev_json.get("ok") or not (rep_prev_json.get("pairs") or [{}])[0].get("valid"):
             errs.append(f"POST /api/preview did not auto-repair multi-change LLM markdown pair: {rep_prev_json}")
 
+        insert_and_trunc_md = (
+            "#### Pair 1\n"
+            "##### Prompt A (Baseline)\n"
+            "integrated_multimodal_description: [Shot 1] A geologist kneels beside a rock outcrop.\n\n"
+            "overall_soundscape: Wind rustling through dry brush.\n\n"
+            "##### Prompt B (Steered)\n"
+            "integrated_multimodal_description: [Shot 1] A geologist kneels beside a rock outcrop. Suddenly the canyon walls glow with cyan and magenta bioluminescent crystals.\n\n"
+            "overall_soundscape: Wind rustling through dry brush. Now overlaid with a deep resonant thrumming.\n\n"
+            "#### Pair 2\n"
+            "##### Prompt A (Baseline)\n"
+            "integrated_multimodal_description: [Shot 1] A man sits at a desk.\n\n"
+            "overall_soundscape: Keyboard clatter.\n\n"
+            "##### Prompt B (Steered)\n"
+            "integrated_multimodal_description: [Shot 1] A man sits at a desk. The cubicle walls"
+        )
+        rep_ins_md = bench_cv._repair_multichange_markdown_pairs(insert_and_trunc_md)
+        rep_ins_parsed = cv.parse_markdown_pairs(rep_ins_md)
+        if len(rep_ins_parsed["pairs"]) != 1:
+            errs.append(f"_repair_multichange_markdown_pairs did not drop truncated tail pair: got {len(rep_ins_parsed['pairs'])} pairs")
+        else:
+            try:
+                a_ins, b_ins = cv.differing_span(
+                    rep_ins_parsed["pairs"][0]["a"],
+                    rep_ins_parsed["pairs"][0]["b"],
+                    frame="scene",
+                )
+                if not a_ins or "cyan and magenta bioluminescent crystals" not in b_ins:
+                    errs.append(f"pure-insertion LLM pair repair unexpected span: {a_ins!r} -> {b_ins!r}")
+            except Exception as exc_ins:
+                errs.append(f"pure-insertion LLM pair repair did not pass differing_span: {exc_ins}")
+
     return errs
 
 

@@ -19,20 +19,20 @@ import control_vectors as cv
 from .helpers import REPO_ROOT, _display_path
 
 
-def _single_clause_section(sec_a: str, sec_b: str) -> str:
-    """Ensure `sec_b` differs from `sec_a` in at most one contiguous clause."""
+def _single_clause_section_pair(sec_a: str, sec_b: str) -> tuple[str, str]:
+    """Ensure `(sec_a, sec_b)` differs in at most one non-empty contiguous clause."""
     if sec_a == sec_b:
-        return sec_b
+        return sec_a, sec_b
     try:
         cv.differing_span(sec_a, sec_b, frame="scene")
-        return sec_b
+        return sec_a, sec_b
     except ValueError:
         pass
 
     words_a = sec_a.split()
     words_b = sec_b.split()
     if words_a == words_b:
-        return sec_a
+        return sec_a, sec_a
 
     matcher = difflib.SequenceMatcher(None, words_a, words_b, autojunk=False)
     opcodes = matcher.get_opcodes()
@@ -53,7 +53,7 @@ def _single_clause_section(sec_a: str, sec_b: str) -> str:
         clusters.append(cur_cluster)
 
     if not clusters:
-        return sec_a
+        return sec_a, sec_a
 
     def _cluster_score(cl: list[tuple[str, int, int, int, int]]) -> tuple[int, int]:
         a0, a1 = cl[0][1], cl[-1][2]
@@ -61,23 +61,43 @@ def _single_clause_section(sec_a: str, sec_b: str) -> str:
         span_a = " ".join(words_a[a0:a1])
         span_b = " ".join(words_b[b0:b1])
         crosses = any(m in span_a or m in span_b for m in cv.SECTION_AND_SHOT_MARKERS)
-        valid_flag = 0 if (not crosses and bool(span_a) and bool(span_b)) else -1
-        return (valid_flag, max(a1 - a0, b1 - b0))
+        if crosses:
+            return (-2, 0)
+        both_nonempty = 1 if (bool(span_a) and bool(span_b)) else 0
+        return (both_nonempty, max(a1 - a0, b1 - b0))
 
     best = max(clusters, key=_cluster_score)
     a0, a1 = best[0][1], best[-1][2]
     b0, b1 = best[0][3], best[-1][4]
-    rebuilt_words = words_a[:a0] + words_b[b0:b1] + words_a[a1:]
-    rebuilt = " ".join(rebuilt_words)
+    hdr = sec_a.split(":", 1)[0].strip() if ":" in sec_a else ""
+    filler = (
+        ["The", "ambient", "sound", "remains", "steady", "throughout."]
+        if hdr == "overall_soundscape"
+        else ["The", "shot", "and", "lighting", "remain", "steady", "throughout."]
+    )
+    new_words_a = (words_a[:a0] + filler + words_a[a1:]) if (a0 == a1 and b0 < b1) else words_a
+    new_words_b = (
+        (words_a[:a0] + filler + words_a[a1:])
+        if (b0 == b1 and a0 < a1)
+        else (words_a[:a0] + words_b[b0:b1] + words_a[a1:])
+    )
+    rebuilt_a = " ".join(new_words_a)
+    rebuilt_b = " ".join(new_words_b)
     try:
-        cv.differing_span(" ".join(words_a), rebuilt, frame="scene")
-        return rebuilt
+        cv.differing_span(rebuilt_a, rebuilt_b, frame="scene")
+        return rebuilt_a, rebuilt_b
     except ValueError:
-        return sec_b
+        return sec_a, sec_b
+
+
+def _single_clause_section(sec_a: str, sec_b: str) -> str:
+    """Ensure `sec_b` differs from `sec_a` in at most one contiguous clause."""
+    _ra, rb = _single_clause_section_pair(sec_a, sec_b)
+    return rb
 
 
 def _repair_pair_prompts(a: str, b: str) -> tuple[str, str]:
-    """Repair an LLM-generated `(a, b)` pair if a section contains multiple separate edits."""
+    """Repair an LLM-generated `(a, b)` pair if a section contains multiple separate edits or a pure insertion."""
     try:
         cv.differing_span(a, b, frame="scene")
         return a, b
@@ -89,38 +109,50 @@ def _repair_pair_prompts(a: str, b: str) -> tuple[str, str]:
     if len(blocks_a) != len(blocks_b) or not blocks_a:
         return a, b
 
+    repaired_a: list[str] = []
     repaired_b: list[str] = []
     for ba, bb in zip(blocks_a, blocks_b):
         if ba == bb:
+            repaired_a.append(ba)
             repaired_b.append(ba)
             continue
         hdr_a = ba.split(":", 1)[0].strip() if ":" in ba else ""
         if hdr_a in ("integrated_multimodal_description", "detailed_description", "overall_soundscape"):
-            repaired_b.append(_single_clause_section(ba, bb))
+            na, nb = _single_clause_section_pair(ba, bb)
+            repaired_a.append(na)
+            repaired_b.append(nb)
         else:
+            repaired_a.append(ba)
             repaired_b.append(ba)
 
-    cand_a = "\n\n".join(blocks_a)
+    cand_a = "\n\n".join(repaired_a)
     cand_b = "\n\n".join(repaired_b)
     try:
         cv.differing_span(cand_a, cand_b, frame="scene")
         return cand_a, cand_b
     except ValueError:
         # If description + soundscape both changed and still failed, keep only the description change.
-        desc_only_b = [
-            (_single_clause_section(ba, bb) if idx == 0 else ba)
-            for idx, (ba, bb) in enumerate(zip(blocks_a, blocks_b))
-        ]
-        cand_b2 = "\n\n".join(desc_only_b)
+        desc_a: list[str] = []
+        desc_b: list[str] = []
+        for idx, (ba, bb) in enumerate(zip(blocks_a, blocks_b)):
+            if idx == 0:
+                na, nb = _single_clause_section_pair(ba, bb)
+                desc_a.append(na)
+                desc_b.append(nb)
+            else:
+                desc_a.append(ba)
+                desc_b.append(ba)
+        cand_a2 = "\n\n".join(desc_a)
+        cand_b2 = "\n\n".join(desc_b)
         try:
-            cv.differing_span(cand_a, cand_b2, frame="scene")
-            return cand_a, cand_b2
+            cv.differing_span(cand_a2, cand_b2, frame="scene")
+            return cand_a2, cand_b2
         except ValueError:
             return a, b
 
 
 def _repair_multichange_markdown_pairs(md_text: str) -> str:
-    """Normalize any LLM-generated Markdown pairs that contain secondary non-contiguous edits."""
+    """Normalize any LLM-generated Markdown pairs that contain secondary non-contiguous edits or truncated tail pairs."""
     try:
         parsed = cv.parse_markdown_pairs(md_text)
     except Exception:
@@ -132,12 +164,24 @@ def _repair_multichange_markdown_pairs(md_text: str) -> str:
 
     any_repaired = False
     repaired_pairs: list[dict[str, Any]] = []
+    valid_pairs: list[dict[str, Any]] = []
     for p in pairs:
         a_orig, b_orig = p["a"], p["b"]
         a_new, b_new = _repair_pair_prompts(a_orig, b_orig)
         if (a_new, b_new) != (a_orig, b_orig):
             any_repaired = True
-        repaired_pairs.append({**p, "a": a_new, "b": b_new})
+        entry = {**p, "a": a_new, "b": b_new}
+        repaired_pairs.append(entry)
+        try:
+            cv.differing_span(a_new, b_new, frame="scene")
+            valid_pairs.append(entry)
+        except ValueError:
+            any_repaired = True
+
+    if valid_pairs and len(valid_pairs) < len(repaired_pairs):
+        repaired_pairs = [
+            {**entry, "number": idx + 1} for idx, entry in enumerate(valid_pairs)
+        ]
 
     if not any_repaired:
         return md_text
