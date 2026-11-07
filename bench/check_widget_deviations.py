@@ -360,13 +360,13 @@ DECLARED: dict[tuple[str, str], tuple] = {
                 "+1.0 on the dual t2va diff_span arm), against the node default 1.0 "
                 "(2026-11-07, bench/results/2026-11-05_control_vectors_pika_and_ref2va.md)"),
     ("MiniMaxH3SigmaShift", "shift_video"):
-        ("RESOLVED", "h3_config.PH3_IMAGE_SHIFT (1.0/1.0) on the 6 P-H3-Image "
+        ("RESOLVED", "h3_config.PH3_IMAGE_SHIFT (1.0/1.0) on the 7 P-H3-Image "
                      "single-frame graphs (whose 8-step non-uniform schedule is "
                      "already unshifted), against the node default 12.0 on every "
                      "video graph; bench/check_distill_settings.py grades both "
                      "populations"),
     ("MiniMaxH3SigmaShift", "shift_audio"):
-        ("RESOLVED", "h3_config.PH3_IMAGE_SHIFT (1.0/1.0) on the 6 P-H3-Image "
+        ("RESOLVED", "h3_config.PH3_IMAGE_SHIFT (1.0/1.0) on the 7 P-H3-Image "
                      "single-frame graphs so time_shift_sigma is the identity on "
                      "the unshifted 8-step sigmas, against the node default 3.0 on "
                      "every video graph; bench/check_distill_settings.py grades both "
@@ -375,6 +375,11 @@ DECLARED: dict[tuple[str, str], tuple] = {
         ("ARM", "1536 on the P-H3-Image Edit graphs (h3_config.PH3_IMAGE_EDIT_MAX_NEW_TOKENS), "
                 "against the node default 1024 (h3_config.PH3_IMAGE_T2I_MAX_NEW_TOKENS) on the "
                 "T2I graphs"),
+    ("MiniMaxH3GuideLatent", "single_frame"):
+        ("ARM", "True on h3_p_h3_image_guide_edit, where MiniMaxH3GuideLatent collapses "
+                "the AV latent to 1 frame (t=1) and anchors guide[:1] at frame 0 for "
+                "single-frame P-H3-Image guide-latent editing, against the node default "
+                "False on video guide-latent graphs (h3_guide_video_edit)"),
 }
 
 #: **There is deliberately no exception table here.** One was written on

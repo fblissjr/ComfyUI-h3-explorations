@@ -82,6 +82,7 @@ sys.path.insert(0, str(_HERE.parents[0] / "workflows"))
 
 from h3_config import (CORE_LOADED_ENCODERS, PH3_IMAGE_CLIPLOADER_ENCODERS,  # noqa: E402
                        PH3_IMAGE_UNET, PH3_IMAGE_VAE, PH3_IMAGE_VAE_INT8,
+                       GUIDE_TASK_LORAS, LORA_BRANCH_NODE,
                        MODELS, IMAGE_VAE, VIDEO_VAE_FP16,
                        DRAFT_VAE, graph_paths)
 
@@ -224,6 +225,8 @@ def main() -> int:
     items.append(("h3_config.PH3_IMAGE_UNET", "UNETLoader", PH3_IMAGE_UNET))
     items.append(("h3_config.PH3_IMAGE_VAE", "VAELoader", PH3_IMAGE_VAE))
     items.append(("h3_config.PH3_IMAGE_VAE_INT8", "VAELoader", PH3_IMAGE_VAE_INT8))
+    for tl in sorted(GUIDE_TASK_LORAS):
+        items.append(("h3_config.GUIDE_TASK_LORAS", LORA_BRANCH_NODE, tl))
 
     failures = grade(items, oi) + grade_format_owner(items)
     print(f"{len(items)} model reference(s) from "

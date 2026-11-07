@@ -263,17 +263,37 @@ def main():
             assert not retired, (
                 f"{path.name}: loads {retired}. PDD is a retired lane "
                 f"(docs/roadmap.md, 'Closed lanes', 2026-11-06)")
+            task_loras = [l for l in found.loras if l in cfg.GUIDE_TASK_LORAS]
+            distill_loras = [l for l in found.loras if l not in cfg.GUIDE_TASK_LORAS]
+            if task_loras:
+                nodes = [n for n in doc.values() if isinstance(n, dict)]
+                unets = {n["inputs"].get("unet_name") for n in nodes
+                         if n.get("class_type") == "UNETLoader"}
+                assert unets == {cfg.MODELS["unet_ref2va"]}, (
+                    f"{path.name}: guide-latent task LoRA {task_loras} is trained on "
+                    f"unet_ref2va ({cfg.MODELS['unet_ref2va']}), has {sorted(map(str, unets))}")
+                assert any(n.get("class_type") == cfg.GUIDE_LATENT_NODE for n in nodes), (
+                    f"{path.name}: loads guide-latent task LoRA {task_loras} without "
+                    f"wiring {cfg.GUIDE_LATENT_NODE}")
+                for tl in task_loras:
+                    got_ts = (found.strengths or {}).get(tl)
+                    assert got_ts is not None and got_ts > 0.0, (
+                        f"{path.name}: guide-latent task LoRA {tl} strength {got_ts}, want > 0.0")
             if classify_ph3_image(doc, found):
                 nodes = [n for n in doc.values() if isinstance(n, dict)]
                 unets = {n["inputs"].get("unet_name") for n in nodes
                          if n.get("class_type") == "UNETLoader"}
-                if found.loras:
-                    assert found.loras == [cfg.PH3_IMAGE_LORA], (
+                if distill_loras:
+                    assert distill_loras == [cfg.PH3_IMAGE_LORA], (
                         f"{path.name}: P-H3-Image LoRA arm must load "
-                        f"{[cfg.PH3_IMAGE_LORA]}, has {found.loras}")
-                    assert unets == {cfg.MODELS["unet_fl2va"]}, (
-                        f"{path.name}: {cfg.PH3_IMAGE_LORA} is trained on "
-                        f"unet_fl2va ({cfg.MODELS['unet_fl2va']}), has {sorted(map(str, unets))}")
+                        f"{[cfg.PH3_IMAGE_LORA]}, has {distill_loras}")
+                    want_ph3_unet = (
+                        cfg.MODELS["unet_ref2va"] if task_loras
+                        else cfg.MODELS["unet_fl2va"]
+                    )
+                    assert unets == {want_ph3_unet}, (
+                        f"{path.name}: {cfg.PH3_IMAGE_LORA} arm expects "
+                        f"{want_ph3_unet}, has {sorted(map(str, unets))}")
                     got_s = (found.strengths or {}).get(cfg.PH3_IMAGE_LORA)
                     assert got_s == cfg.PH3_IMAGE_STRENGTH, (
                         f"{path.name}: P-H3-Image LoRA strength {got_s}, "
@@ -299,7 +319,7 @@ def main():
                     f"graph has {sorted(map(str, main_samplers))}")
                 ph3_image_graphs[path.name] = found
                 continue
-            pika = [l for l in found.loras if classify_pika(l)]
+            pika = [l for l in distill_loras if classify_pika(l)]
             if pika:
                 nodes = [n for n in doc.values() if isinstance(n, dict)]
                 pika_files = {
@@ -312,15 +332,15 @@ def main():
                     cfg.PIKA_REF2VA_SVD99_LORA: "unet_ref2va",
                     cfg.PIKA_REF2VA_KIJAI_LORA: "unet_ref2va",
                 }
-                assert len(found.loras) == 1 and found.loras[0] in pika_files, (
+                assert len(distill_loras) == 1 and distill_loras[0] in pika_files, (
                     f"{path.name}: Pika H3 Flex must load exactly one of "
-                    f"{sorted(pika_files)} and nothing beside it, has {found.loras}")
+                    f"{sorted(pika_files)} as its distill LoRA, has {distill_loras}")
                 unets = {n["inputs"].get("unet_name") for n in nodes
                          if n.get("class_type") == "UNETLoader"}
-                want_unet = cfg.MODELS[pika_files[found.loras[0]]]
+                want_unet = cfg.MODELS[pika_files[distill_loras[0]]]
                 assert unets == {want_unet}, (
-                    f"{path.name}: {found.loras[0]} is trained for "
-                    f"{pika_files[found.loras[0]]}, so it loads on "
+                    f"{path.name}: {distill_loras[0]} is trained for "
+                    f"{pika_files[distill_loras[0]]}, so it loads on "
                     f"{want_unet} only, has {sorted(map(str, unets))}")
                 effective = BASE_SHIFT if found.shift is None else found.shift
                 assert effective == BASE_SHIFT, (
@@ -340,13 +360,13 @@ def main():
                 assert main_samplers == {cfg.PIKA_SAMPLER}, (
                     f"{path.name}: Pika H3 Flex steps {cfg.PIKA_SAMPLER}, graph has "
                     f"{sorted(map(str, main_samplers))}")
-                got = (found.strengths or {}).get(found.loras[0])
+                got = (found.strengths or {}).get(distill_loras[0])
                 assert got == cfg.PIKA_STRENGTH, (
                     f"{path.name}: Pika H3 Flex strength {got}, want {cfg.PIKA_STRENGTH}")
                 distilled_graphs[path.name] = (found, pika)
                 continue
 
-            assert not found.loras, f"{path.name}: loads unknown LoRA {found.loras}"
+            assert not distill_loras, f"{path.name}: loads unknown LoRA {distill_loras}"
             # A base graph is still policed: it must sit at the base
             # checkpoint's own training shifts. Skipping it is how
             # "every shipped graph" quietly became "the two with a LoRA".

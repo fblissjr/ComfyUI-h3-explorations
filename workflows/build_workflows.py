@@ -81,6 +81,7 @@ _OUR_NODES = {
     "MiniMaxH3EncodeTrack", "MiniMaxH3AudioAttentionGain",
     "MiniMaxH3AudioFreezeSong", "MiniMaxH3PromptList",
     "MiniMaxH3PH3ImagePromptUpsampler", "MiniMaxH3PH3ImageConditioning",
+    "MiniMaxH3GuideLatent",
 }
 
 # Model names, sampler settings, canvas geometry and the SolAttn knobs all
@@ -115,6 +116,7 @@ from h3_config import (  # noqa: E402
     PH3_IMAGE_STEPS, PH3_IMAGE_SAMPLER, PH3_IMAGE_SHIFT, PH3_IMAGE_MANUAL_SIGMAS,
     PH3_IMAGE_CANVAS_8MP,
     PH3_IMAGE_T2I_MAX_NEW_TOKENS, PH3_IMAGE_EDIT_MAX_NEW_TOKENS,
+    GUIDE_LATENT_NODE, GUIDE_VFX_EDIT_FFP_LORA, GUIDE_CHARACTER_SWAP_LORA, GUIDE_TASK_LORAS,
     CONTROL_VECTOR_NODE, CONTROL_VECTOR_DEFAULTS, CONTROL_VECTOR_OPTIONAL_DEFAULTS, LAYER_NORM_MATCH_NODE,
     refine_scheduler_ids,
 )
@@ -540,6 +542,8 @@ def _attention_plan(extra: dict) -> tuple[bool, bool, str | None]:
         raise SystemExit(f"dense_attn={dense!r} is not one of {_DENSE_ATTN_MODES}")
     if dense_mode is None:
         if is_image:
+            if extra.get("guide_image"):
+                return False, False, "ck"
             return True, False, None
         dense_mode = DENSE_CHAINS[DEFAULT_DENSE_CHAIN]["dense_attn"]
     if dense_mode in ("sol", "ck", "sage_sol"):
@@ -1033,14 +1037,22 @@ def _ref_short_edge():
     return REF_IMAGE_SHORT_EDGE
 
 
-def _check_single_frame(single_frame, length):
+def _check_single_frame(single_frame, length, *, guide_image: bool = False):
     """`single_frame` is a property of the LENGTH; they may not disagree.
 
     Shared by both builders. Passing one without the other produces a graph
     that loads the one-frame VAE and renders five frames, or renders one frame
     and decodes it with the video decoder -- both silent, both wrong, and
     neither visible until someone looks at the pixels.
+    On `guide_image=True`, `MiniMaxH3GuideLatent(single_frame=True)` collapses
+    the AV latent to 1 frame after `MiniMaxH3ReferenceConditioning`, while
+    `MiniMaxH3Resolution` and `MiniMaxH3ReferenceConditioning` stay on the
+    video temporal grid so stock ComfyUI accepts them without a core shim.
     """
+    if guide_image:
+        if not single_frame:
+            raise SystemExit("guide_image=True requires single_frame=True")
+        return
     if single_frame != is_single_frame(length):
         raise SystemExit(
             f"single_frame={single_frame} with length={length}: the "
@@ -1317,6 +1329,18 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
               # (vector_name, strength) tuple / dict of CONTROL_VECTOR_DEFAULTS
               # overrides, or a list/tuple of such specs.
               control_vector: tuple[str, float] | dict | list | None = None,
+              # Guide-latent conditioning (`guide_latent.py`) and optional second
+              # chained `MiniMaxH3LoRABranch` (`task_lora`, node 72) for Ref2VA
+              # control LoRAs (`h3_config.GUIDE_TASK_LORAS`). `guide_video=True`
+              # loads `PLACEHOLDER_VIDEO_SILENT` at 24 fps (`node 71`) and anchors
+              # it via `MiniMaxH3GuideLatent(single_frame=False)` (`node 70`);
+              # `guide_image=True` (with `single_frame=True`) loads
+              # `PLACEHOLDER_IMAGE_B` (`node 16`) and anchors it via
+              # `MiniMaxH3GuideLatent(single_frame=True)` (`node 70`), collapsing
+              # the AV latent to 1 frame (`t=1`) for P-H3-Image still editing.
+              guide_video: bool = False,
+              guide_image: bool = False,
+              task_lora: tuple[str, float] | None = None,
               out_prefix: str | None = None, **canvas) -> dict:
     """API-format graph, submittable as {"prompt": <this>} to POST /prompt.
 
@@ -1340,7 +1364,7 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
             f"unknown ref_image_policy {ref_image_policy!r}; "
             "expected 'comfy', 'release', or 'encoder'"
         )
-    _check_single_frame(single_frame, length)
+    _check_single_frame(single_frame, length, guide_image=guide_image)
     if single_frame and (stamp or split_at):
         # Both reach for node 12, which the single-frame path deletes. Not
         # reachable from GRAPHS, but `build_api` is a public entry the benches
@@ -1387,8 +1411,9 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
         # own README says it regresses multi-frame reconstruction -- so this
         # swap must never be reachable from a graph that renders a clip.
         "3": {"class_type": "VAELoader",
-              "inputs": {"vae_name": IMAGE_VAE if single_frame
-                         else MODELS["video_vae"]}},
+              "inputs": {"vae_name": (PH3_IMAGE_VAE if (single_frame and guide_image)
+                                      else IMAGE_VAE if single_frame
+                                      else MODELS["video_vae"])}},
         "4": {"class_type": "VAELoader", "inputs": {"vae_name": MODELS["audio_vae"]}},
         "6": {"class_type": "RandomNoise", "inputs": {"noise_seed": seed}},
         "7": {"class_type": "KSamplerSelect",
@@ -1436,9 +1461,8 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
         # and this repo's typed reference conditioner require `audio_vae`,
         # whether or not any audio is anchored.
         del g["12"]
-        g["13"] = {"class_type": "SaveImage",
-                   "inputs": {"images": ["11", 0],
-                              "filename_prefix": out_prefix or "Image/h3_image_edit"}}
+        g["13"] = {"class_type": "PreviewImage",
+                   "inputs": {"images": ["11", 0]}}
 
     # Resolution decides the geometry for every task except i2v, where the
     # keyframe decides it and MiniMaxH3KeyframeCanvas is the node that does.
@@ -1675,6 +1699,13 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
                        "inputs": {"model": model_src, "lora_name": lora[0],
                                   "strength_model": lora[1]}}
         model_src = ["18", 0]
+    if task_lora is not None:
+        g["72"] = {"class_type": LORA_BRANCH_NODE,
+                   "inputs": {"model": model_src, "lora_name": task_lora[0],
+                              "strength": task_lora[1], "modules": "all",
+                              "blocks": "all", "start_percent": 0.0,
+                              "end_percent": 1.0}}
+        model_src = ["72", 0]
     if channel_balance is not None:
         # Weight patches on q_norm/k_norm of the lopsided blocks; no runtime
         # cost, so its position only needs to precede the attention nodes.
@@ -1954,6 +1985,34 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
             g["26"]["inputs"]["conditioning"] = ["70", 0]
     elif freeze_guide:
         raise SystemExit("freeze_guide needs freeze_audio")
+
+    if guide_video or guide_image:
+        if guide_video and guide_image:
+            raise SystemExit("guide_video and guide_image are mutually exclusive")
+        if freeze_guide or freeze_song:
+            raise SystemExit("guide_video/guide_image do not compose with freeze_guide or freeze_song")
+        if guide_video:
+            g["71"] = {"class_type": REF_VIDEO_LOADER,
+                       "inputs": {"video": PLACEHOLDER_VIDEO_SILENT,
+                                  "force_rate": REF_VIDEO_FORCE_RATE,
+                                  "custom_width": 0, "custom_height": 0,
+                                  "frame_load_cap": length,
+                                  "start_time": 0.0, "format": "AnimateDiff"}}
+            g["70"] = {"class_type": GUIDE_LATENT_NODE,
+                       "inputs": {"positive": ["5", 0], "vae": vae_enc,
+                                  "latent": ["5", 1], "guide": ["71", 0],
+                                  "frame_idx": 0, "single_frame": False}}
+        else:
+            if "16" in g:
+                raise SystemExit("guide_image uses LoadImage slot 16; pass ref_image_count=1")
+            g["16"] = {"class_type": "LoadImage",
+                       "inputs": {"image": PLACEHOLDER_IMAGE_B}}
+            g["70"] = {"class_type": GUIDE_LATENT_NODE,
+                       "inputs": {"positive": ["5", 0], "vae": vae_enc,
+                                  "latent": ["5", 1], "guide": ["16", 0],
+                                  "frame_idx": 0, "single_frame": True}}
+        g["26"]["inputs"]["conditioning"] = ["70", 0]
+        g["26"]["inputs"]["samples"] = ["70", 1]
 
     if freeze_windows:
         if freeze_audio or single_frame or split_at or stamp:
@@ -4844,6 +4903,28 @@ def main():
          dict(single_frame=True, teacher_te=True,
               out_prefix="Image/h3_probe_p_h3_image_edit_te32b"),
          "P-H3-Image Edit teacher-encoder probe: our 32B Qwen3-VL encoder in place of the distilled 4B TextConnector encoder"),
+        # --- Guide-latent video and single-frame editing (`MiniMaxH3GuideLatent`) ---
+        ("h3_guide_video_edit.json", "r2v-guide-edit", "r2v",
+         _ref_prompt(images=("character",), scene="kitchen"),
+         dict(ref_images=SCENE_REF_IMAGES["kitchen"], ref_image_count=1,
+              guide_video=True,
+              lora=(PIKA_REF2VA_SVD995_LORA, PIKA_STRENGTH), lora_branch=True,
+              task_lora=(GUIDE_VFX_EDIT_FFP_LORA, 1.0),
+              steps=PIKA_STEPS, sampler_name=PIKA_SAMPLER,
+              manual_sigmas=PIKA_MANUAL_SIGMAS,
+              out_prefix="Video/h3_guide_video_edit"),
+         "reference image + guide video + text -> edited video + audio on Pika H3 Flex 6-step LCM (SVD995 branch) + guide-latent task LoRA via MiniMaxH3GuideLatent"),
+        ("h3_p_h3_image_guide_edit.json", "p-h3-image-guide-edit", "r2v",
+         _ref_prompt(images=("character",), scene="kitchen"),
+         dict(ref_images=SCENE_REF_IMAGES["kitchen"], ref_image_count=1,
+              single_frame=True, guide_image=True,
+              lora=(PH3_IMAGE_LORA, PH3_IMAGE_STRENGTH), lora_branch=True,
+              task_lora=(GUIDE_VFX_EDIT_FFP_LORA, 1.0),
+              shift=dict(shift_video=PH3_IMAGE_SHIFT[0], shift_audio=PH3_IMAGE_SHIFT[1]),
+              steps=PH3_IMAGE_STEPS, sampler_name=PH3_IMAGE_SAMPLER,
+              manual_sigmas=PH3_IMAGE_MANUAL_SIGMAS,
+              out_prefix="Image/h3_p_h3_image_guide_edit"),
+         "reference image + guide image + text -> single-frame edited image on unet_ref2va + p-h3-image_lora_bf16 + guide-latent task LoRA via MiniMaxH3GuideLatent(single_frame=True)"),
     )
 
     # The 2026-09-26 distill run (owner): `_savelat` probe twins of exactly the

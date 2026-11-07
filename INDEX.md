@@ -102,6 +102,7 @@ with none is a helper the others import.
 | [`denoise_mask_probe.py`](denoise_mask_probe.py) | `MiniMaxH3DenoiseMaskProbe` | Log the denoise mask each masked sampling step actually uses, and change nothing. |
 | [`exact_blocks.py`](exact_blocks.py) | `MiniMaxH3ExactBlocks` | Run named DiT blocks on EXACT attention -- neither sage nor Sol-Attn. |
 | [`frozen_video_cache.py`](frozen_video_cache.py) | `MiniMaxH3FrozenVideoCache` | Cache the frozen rows of an H3 sampling run, so its steps run on the live rows only. |
+| [`guide_latent.py`](guide_latent.py) | `MiniMaxH3GuideLatent` | Guide-latent conditioning for MiniMax H3 video and single-frame editing. |
 | [`j_lens.py`](j_lens.py) |  | Analytical Jacobian Lens (`J-Lens`) and `TokenRefiner` Wiener readout for H3 `5376`-d and `5120`-d vectors. |
 | [`keyframe_canvas.py`](keyframe_canvas.py) |  | Resolve an H3 canvas from a keyframe, the way the reference pipeline does. |
 | [`lora_branch.py`](lora_branch.py) | `MiniMaxH3LoRABranch` | Apply an H3 LoRA as a separate low-rank branch, so none of it is lost to the int8 grid. |
@@ -150,18 +151,18 @@ with none is a helper the others import.
 | `.gemini/` | 8 | [below](#gemini) |
 | `archive/` | 29 | [below](#archive) |
 | `assets/` | 1 | [below](#assets) |
-| `bench/` | 800 | [`bench/INDEX.md`](bench/INDEX.md) and [`bench/results/INDEX.md`](bench/results/INDEX.md) for the records |
+| `bench/` | 801 | [`bench/INDEX.md`](bench/INDEX.md) and [`bench/results/INDEX.md`](bench/results/INDEX.md) for the records |
 | `changelog.d/` | | [`changelog.d/README.md`](changelog.d/README.md), one file per changelog entry; not listed and not counted |
 | `contact_sheets/` | 2 | [below](#contact_sheets) |
 | `data/` | 2 | [below](#data) |
-| `docs/` | 235 | [`docs/wiki/index.md`](docs/wiki/index.md), the hand-written router |
+| `docs/` | 236 | [`docs/wiki/index.md`](docs/wiki/index.md), the hand-written router |
 | `prompt_bank/` | 212 | [`docs/prompt_bank.md`](docs/prompt_bank.md), the prompt catalogue |
 | `sparse_tables/` | 1 | [below](#sparse_tables) |
 | `standalone/` | 6 | [below](#standalone) |
 | `vendor/` | 11 | [below](#vendor) |
 | `vendor_config/` | 10 | [below](#vendor_config) |
 | `vendor_guides/` | 6 | [below](#vendor_guides) |
-| `workflows/` | 96 | [`workflows/INDEX.md`](workflows/INDEX.md) |
+| `workflows/` | 98 | [`workflows/INDEX.md`](workflows/INDEX.md) |
 
 ## .claude/
 

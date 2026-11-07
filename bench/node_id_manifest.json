@@ -334,6 +334,24 @@
       "model"
     ]
   },
+  "MiniMaxH3GuideLatent": {
+    "inputs": [
+      "positive",
+      "vae",
+      "latent",
+      "guide",
+      "frame_idx",
+      "single_frame",
+      "mask",
+      "audio",
+      "audio_vae"
+    ],
+    "node_id": "MiniMaxH3GuideLatent",
+    "outputs": [
+      "positive",
+      "latent"
+    ]
+  },
   "MiniMaxH3LayerNormMatch": {
     "inputs": [
       "conditioning",

@@ -1134,7 +1134,13 @@ def _single_frame(node: dict, graph: dict) -> bool:
 
     `length` is usually LINKED rather than a literal (the parked image graphs
     carried `['27', 2]`), so a literal-only read misses the graphs that matter.
+    Also true when a downstream `MiniMaxH3GuideLatent` node sets `single_frame=True`.
     """
+    for n in graph.values():
+        if (isinstance(n, dict)
+                and n.get("class_type") == "MiniMaxH3GuideLatent"
+                and n.get("inputs", {}).get("single_frame") is True):
+            return True
     val = node["inputs"].get("length")
     if isinstance(val, int):
         return val == 1
@@ -1463,7 +1469,10 @@ def price(node: dict, graph: dict) -> list[str]:
     if not all(isinstance(v, int) for v in (w, h, length)):
         return ["  cannot price: canvas or length not resolvable statically"]
 
-    snapped = h3_rules.snap_length(length)
+    is_single_frame = _single_frame(node, graph)
+    if is_single_frame:
+        length = 1
+    snapped = 1 if is_single_frame else h3_rules.snap_length(length)
     # frames -> latent frames. Reproduced from `video_latent_t` at
     # `comfy_extras/nodes_minimax_h3.py:40`, cited because the intuitive guess
     # is wrong in the dangerous direction: assuming 4x temporal compression
@@ -1718,7 +1727,10 @@ def price(node: dict, graph: dict) -> list[str]:
         # dies on a relative import -- which is exactly what happened on the
         # first attempt here. Safe to put ComfyUI first: every module this file
         # imports from the repo is already bound by now.
-        audio_rows = _core_minimax_cpu().temporal_shape(snapped)[2] * 2
+        if is_single_frame:
+            audio_rows = 4
+        else:
+            audio_rows = _core_minimax_cpu().temporal_shape(snapped)[2] * 2
     except Exception:
         lines.append("  NOT COUNTED: target audio rows -- ComfyUI is not "
                      "importable from here, so `temporal_shape` could not be "

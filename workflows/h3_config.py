@@ -1667,6 +1667,36 @@ PH3_IMAGE_CANVAS_8MP = dict(width=2912, height=2912)
 PH3_IMAGE_T2I_MAX_NEW_TOKENS = 1024
 PH3_IMAGE_EDIT_MAX_NEW_TOKENS = 1536
 
+#: Guide-latent conditioning node (`guide_latent.py`) and Ref2VA task/control
+#: LoRAs (`models/loras/h3/alissonerdx/`).
+#:
+#: **Measured from the safetensors headers, 2026-11-07:**
+#: Each file is a PEFT LoRA targeting the 50 DiT blocks (`blocks.0..49`
+#: `attn.{to_q,to_k,to_v,to_out.0}` and `ff.net.{0.proj,2}`, with zero
+#: `audio_*` or `adaln_single` keys), trained on `MODELS["unet_ref2va"]` to
+#: consume a reference image (`<Picture 1>` in `minimax_refs`) alongside a
+#: full-clip or single-frame guide tensor in `minimax_keyframes` (`cond`
+#: segment at `VISUAL_COND_TIMESTEP = 0.999`, `img_update = False`).
+#: Chained after `PIKA_REF2VA_SVD995_LORA` (video) or `PH3_IMAGE_LORA`
+#: (single-frame still edit on `unet_ref2va`) via a second `MiniMaxH3LoRABranch`.
+GUIDE_LATENT_NODE = "MiniMaxH3GuideLatent"
+GUIDE_VFX_EDIT_FFP_LORA = "h3/alissonerdx/minimax_h3_vfx_edit_v1.0_r128_ffp.safetensors"
+GUIDE_VFX_EDIT_LORA = "h3/alissonerdx/minimax_h3_vfx_edit_v1.0_r128.safetensors"
+GUIDE_CHARACTER_SWAP_LORA = "h3/alissonerdx/minimax_h3_character_swap_v1.1_ref2va_fro.safetensors"
+GUIDE_MOTION_TRANSFER_FFP_LORA = "h3/alissonerdx/minimax_h3_motion_transfer_ffp_v1.0_ref2va.safetensors"
+GUIDE_MOTION_TRANSFER_LORA = "h3/alissonerdx/minimax_h3_motion_transfer_v1.0_ref2va.safetensors"
+GUIDE_STYLE_TRANSFER_LORA = "h3/alissonerdx/minimax_h3_style_transfer_v1.0_r64.safetensors"
+GUIDE_LMS_LORA = "h3/alissonerdx/minimax_h3_lms_v1.0_r64.safetensors"
+GUIDE_TASK_LORAS = frozenset({
+    GUIDE_VFX_EDIT_FFP_LORA,
+    GUIDE_VFX_EDIT_LORA,
+    GUIDE_CHARACTER_SWAP_LORA,
+    GUIDE_MOTION_TRANSFER_FFP_LORA,
+    GUIDE_MOTION_TRANSFER_LORA,
+    GUIDE_STYLE_TRANSFER_LORA,
+    GUIDE_LMS_LORA,
+})
+
 # `CHAIN` was here and is gone as of 2026-08-14. It listed the node order --
 # Load Diffusion Model, MiniMax H3 SageAttention, SolAttnMiniMax -- and nothing
 # imported it. Node order IS load-bearing (Sol composes with the attention

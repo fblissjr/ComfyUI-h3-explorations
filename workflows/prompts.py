@@ -117,6 +117,7 @@ def describe(graph: dict) -> dict:
            "length": None, "canvas": None, "seed": None}
     if not isinstance(graph, dict):
         return out
+    single_frame_guide = False
     for node in graph.values():
         if not isinstance(node, dict):
             continue
@@ -143,8 +144,12 @@ def describe(graph: dict) -> dict:
             shape = inputs.get("shape")
             res = inputs.get(f"shape.{shape}_resolution") if shape else None
             out["canvas"] = res.split()[0] if isinstance(res, str) else res
+        elif ct == "MiniMaxH3GuideLatent" and inputs.get("single_frame"):
+            single_frame_guide = True
         elif ct == "RandomNoise":
             out["seed"] = inputs.get("noise_seed")
+    if single_frame_guide:
+        out["length"] = 1
     return out
 
 

@@ -86,6 +86,11 @@ LITERAL_ZERO = {
         "zero hold_alpha is zero projection removal (`r' = r - 0 * (r . u_hat) * u_hat = r`). "
         "The `> 0.0` guard skips loading the J-Lens bundle and computing `apply_soft_holds` "
         "when the hold projection weight is zero."),
+    ("guide_latent.py", "frame_idx"): (
+        "zero frame_idx is pixel frame 0 of the target latent. The `>= 0` test "
+        "resolves negative end-relative frame indices (`eff_frame_count + frame_idx`, "
+        "matching `comfy_extras/nodes_minimax_h3.py::MiniMaxH3AddGuide:224`), while "
+        "0 and positive indices are used directly on one code path."),
 }
 
 #: Zero selects a different MODE. This is the defect the check exists for, and

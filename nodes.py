@@ -79,6 +79,7 @@ from .ph3_image_nodes import (
     MiniMaxH3PH3ImageConditioning,
     MiniMaxH3PH3ImagePromptUpsampler,
 )
+from .guide_latent import MiniMaxH3GuideLatent
 from . import h3_capture
 
 from .attention import (
@@ -404,7 +405,10 @@ class H3ExplorationsExtension(ComfyExtension):
                 # appended 2026-11-07, p-h3-image conditioning and prompt upsampler
                 # (ph3_image_nodes.py)
                 MiniMaxH3PH3ImagePromptUpsampler,
-                MiniMaxH3PH3ImageConditioning]
+                MiniMaxH3PH3ImageConditioning,
+                # appended 2026-11-07, guide-latent keyframe conditioning for video and
+                # single-frame p-h3-image editing (guide_latent.py)
+                MiniMaxH3GuideLatent]
 
 
 async def comfy_entrypoint() -> H3ExplorationsExtension:

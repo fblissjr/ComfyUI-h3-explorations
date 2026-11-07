@@ -8,7 +8,7 @@ this file is only a way to find a script by what it says it does.
 
 | group | scripts |
 |---|---|
-| [`check_*`](#check) | 161 |
+| [`check_*`](#check) | 162 |
 | [`measure_*`](#measure) | 36 |
 | [`analyze_*`](#analyze) | 18 |
 | [`grade_*`](#grade) | 19 |
@@ -70,6 +70,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_generator_constants.py`](check_generator_constants.py) | Check the generator reads upstream constants rather than repeating them. |
 | [`check_graph_discovery.py`](check_graph_discovery.py) | No check may find graphs by globbing. Discovery goes through `graph_paths()`. |
 | [`check_graph_values.py`](check_graph_values.py) | A static reader must follow a linked widget, or it goes red on a good graph. |
+| [`check_guide_latent.py`](check_guide_latent.py) | Check `MiniMaxH3GuideLatent` (`guide_latent.py`) and the shipped guide-latent graphs. |
 | [`check_h3_encoder_loader.py`](check_h3_encoder_loader.py) | Prove the guarded H3 encoder loader guards what it claims to. |
 | [`check_head_reference.py`](check_head_reference.py) | `bench/head_reference.py` against a face whose every line is known by construction, read from the files it wrote. |
 | [`check_head_tube_parts.py`](check_head_tube_parts.py) | Check head_tube_parts: SAM 3.1 head tube gating, temporal seg smoothing, and 39-point face cross-check. |

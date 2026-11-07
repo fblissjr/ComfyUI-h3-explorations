@@ -142,10 +142,11 @@ AUDIO_DECODE_NODE = "VAEDecodeAudio"
 # reorders its sections cannot silently make this exempt something else.
 _AUDIO_SECTIONS = {"overall_soundscape", "non_diegetic_music"}
 
-# The node that makes `keyframe completion` real. Added to ComfyUI on
-# 2026-08-13; before it, the task type was legal vocabulary with no mechanism
-# behind it on the reference path.
+# The nodes that make `keyframe completion` real. `MiniMaxH3AddGuide` was added
+# to ComfyUI on 2026-08-13; `MiniMaxH3GuideLatent` (`guide_latent.py`) adds
+# single-frame (`t=1`) and mask guide keyframe conditioning.
 GUIDE_NODE = "MiniMaxH3AddGuide"
+GUIDE_NODES = ("MiniMaxH3AddGuide", "MiniMaxH3GuideLatent")
 
 # Graphs whose prompt is UNSTRUCTURED ON PURPOSE, and only those.
 #
@@ -270,7 +271,7 @@ def graphs_with_guide() -> set:
     out = set()
     for path in graph_paths(WORKFLOWS, "*_api.json"):
         wf = json.loads(path.read_text())
-        if any(n.get("class_type") == GUIDE_NODE for n in wf.values()):
+        if any(n.get("class_type") in GUIDE_NODES for n in wf.values()):
             out.add(path.stem)
     return out
 
