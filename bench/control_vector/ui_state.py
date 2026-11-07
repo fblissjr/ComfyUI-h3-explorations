@@ -127,7 +127,7 @@ class ControlVectorUIState:
         clip_obj = self._clips[key]
         csm = getattr(clip_obj, "cond_stage_model", None)
         if csm is not None and not hasattr(csm, "memory_estimation_function"):
-            csm.memory_estimation_function = lambda _tokens, device=None: 1536 * 1024 * 1024
+            csm.memory_estimation_function = lambda _tokens, device=None: 2560 * 1024 * 1024
         return clip_obj
 
 

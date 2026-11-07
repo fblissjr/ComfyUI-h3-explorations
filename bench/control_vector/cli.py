@@ -475,6 +475,7 @@ def build_parser() -> argparse.ArgumentParser:
     preb.add_argument("--no-holds", action="store_true", help="Do not project out [[hold]] groups")
     preb.add_argument("--include-encoder", dest="include_encoder", action="store_true", default=True, help="Also save vector.encoder (5120-d; default: True)")
     preb.add_argument("--no-encoder", dest="include_encoder", action="store_false", help="Omit vector.encoder (5120-d)")
+    preb.add_argument("--force", action="store_true", help="Force GPU re-encoding in folder mode even for vectors already up to date with their .toml SHA-256, vector.encoder, and j_lens_readout")
     preb.add_argument("--seed", type=int, default=0)
     preb.add_argument("--device", default="default")
     preb.add_argument("--refiner-device", default="cpu")

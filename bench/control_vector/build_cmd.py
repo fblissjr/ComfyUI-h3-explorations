@@ -410,6 +410,8 @@ def cmd_build(args: argparse.Namespace) -> int:
                 }
             )
     t_enc_done = time.perf_counter()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
     print(f"  encoded {len(pair_set.pairs)} pairs in {t_enc_done - t_enc_start:.2f}s")
 
     w_vec = torch.tensor(weights_list, dtype=torch.float32)
@@ -1144,9 +1146,30 @@ def cmd_rebuild(args: argparse.Namespace) -> int:
         f"=== Rebuilding {len(all_stems)} Control Vector Stem(s) (vec_dir={vec_dir}, toml_dir={_display_path(toml_dir)}) ==="
     )
     req_fams_str = getattr(args, "families", "both")
+    req_fams_set = set(_resolve_requested_families(req_fams_str))
+    force_rebuild = bool(getattr(args, "force", False))
     for idx, stem in enumerate(all_stems, start=1):
         if stem in toml_by_stem:
             tp = toml_by_stem[stem]
+            existing_items = vecs_by_stem.get(stem, [])
+            if not force_rebuild and existing_items:
+                try:
+                    ps_check = cv.load_pairs(tp, bank_dir=cv_nodes.PROMPT_BANK_DIR)
+                    existing_fams = {str(m.get("family", "")) for _, _, m in existing_items}
+                    all_complete = req_fams_set.issubset(existing_fams) and all(
+                        ("vector.encoder" in t or not getattr(args, "include_encoder", True))
+                        and "j_lens_readout" in (m.get("quality_report") or {})
+                        and (m.get("pairs") or {}).get("sha256") == ps_check.sha256
+                        for _, t, m in existing_items
+                    )
+                except Exception:
+                    all_complete = False
+                if all_complete:
+                    print(
+                        f"\n[{idx}/{len(all_stems)}] `{stem}` is up-to-date with {_display_path(tp)}; refreshing sidecars ..."
+                    )
+                    _refresh_sidecar_and_jlens(existing_items, all_rows)
+                    continue
             print(f"\n[{idx}/{len(all_stems)}] Rebuilding `{stem}` from {_display_path(tp)} ...")
             _rebuild_from_toml(tp, vec_dir, req_fams_str, all_rows)
             continue

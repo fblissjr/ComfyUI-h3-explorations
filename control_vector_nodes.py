@@ -620,6 +620,10 @@ def encode_conditioning_for_vector(
     def decode_fn(ids: Sequence[int]) -> str:
         return hf_tok.decode(list(ids), skip_special_tokens=False)
 
+    csm = getattr(clip, "cond_stage_model", None)
+    if csm is not None and not hasattr(csm, "memory_estimation_function"):
+        csm.memory_estimation_function = lambda _tokens, device=None: 2560 * 1024 * 1024
+
     if encoded_references is not None:
         import node_helpers
 
@@ -2045,7 +2049,7 @@ def _encode_media_frame_and_prompt(
 
     csm = getattr(clip, "cond_stage_model", None)
     if csm is not None and not hasattr(csm, "memory_estimation_function"):
-        csm.memory_estimation_function = lambda _tokens, device=None: 1536 * 1024 * 1024
+        csm.memory_estimation_function = lambda _tokens, device=None: 2560 * 1024 * 1024
 
     ref_items = [{"type": "image", "data": frame_1hwc}]
     tokens = clip.tokenize(clean_text, minimax_ref_items=ref_items)

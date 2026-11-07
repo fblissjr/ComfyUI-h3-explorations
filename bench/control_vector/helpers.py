@@ -88,6 +88,9 @@ def _load_clip(encoder_name: str, device: str = "default") -> Any:
     (clip,) = enc_loader_mod.MiniMaxH3EncoderLoader.execute(
         encoder_name=encoder_name, device=device
     )
+    csm = getattr(clip, "cond_stage_model", None)
+    if csm is not None and not hasattr(csm, "memory_estimation_function"):
+        csm.memory_estimation_function = lambda _tokens, device=None: 2560 * 1024 * 1024
     return clip
 
 
