@@ -1,7 +1,7 @@
 ---
 name: h3-prompt
 description: Route any work on an H3 prompt in this repo -- "write a prompt", "edit this prompt", "improve this scene", "adapt it", "convert this t2v prompt to ref2va", "why did this render badly", "is this prompt correct", "what should the speaker tags be" -- to the file that owns each answer, and to the command that verifies the result. Points at them; restates nothing that could drift.
-reviewed: eaaa2be8
+reviewed: 8a861b83
 ---
 
 # Working on an H3 prompt
@@ -12,13 +12,13 @@ Name sections, not rules: a rule restated here is a second place to edit.
 
 ## The one authority
 
-`docs/prompting.md` is the master router and source of truth for every mode (`§1`–`§5.7`), routing to its modular `< 30 KB` leaf files under `docs/prompting/` for `§5.8`–`§16`. Its opening tables say where everything else lives. Its section
+`docs/prompting.md` is the master router and source of truth for every mode (`§1`–`§5.7`), routing to its modular `< 30 KB` leaf files under `docs/prompting/` for `§5.8`–`§17`. Its opening tables say where everything else lives. Its section
 "Four layers, and every rule says which one it is" defines how binding each
 rule is; carry the layer whenever you quote a rule.
 
 ## By what you are doing
 
-**Writing a new one.** Fix the frame count first: a prompt is only correct at a
+**Writing a new one.** For a single-frame P-H3-Image T2I or 1..8-reference image edit prompt (`workflows/image/h3_*p_h3_image*_api.json`), use `docs/prompting/17_p_h3_image_prompting.md` (single-frame prose with no `[Shot N]` / `<d>` / audio headers for T2I; `<Picture N>` single-paragraph `Edit <Picture 1>. ... Keep ...` prose or 6-section `[keyframe completion]` brief for edits). For video, fix the frame count first: a prompt is only correct at a
 duration (`docs/prompting.md` section 3.3 and `docs/prompting/10_worked_examples.md`). Then `docs/prompting.md` section 2 for the
 structure of the mode, section 3.1 for shot headers, section 4 for camera,
 section 5 for speakers and dialogue (`docs/prompting/06_singing_text_markers_and_audio.md` for singing, fitting dialogue to the shot, on-screen text, markers, and the audio fields), and `docs/prompting/09_references_ref2va.md` when it has

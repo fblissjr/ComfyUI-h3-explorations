@@ -95,6 +95,10 @@ def _by_text() -> dict[str, str]:
         p = BANK / f"{e['id']}.txt"
         if p.is_file():
             out[p.read_text(encoding="utf-8").rstrip()] = e["id"]
+    ph3_dir = BANK / "p_h3_image"
+    if ph3_dir.is_dir():
+        for p in sorted(ph3_dir.glob("*.txt")):
+            out[p.read_text(encoding="utf-8").rstrip()] = f"p_h3_image/{p.stem}"
     return out
 
 
@@ -122,6 +126,14 @@ def describe(graph: dict) -> dict:
         if isinstance(t, str):
             out["prompt_sha256"] = sha256(t.rstrip())
             out["prompt_id"] = identify(t)
+        elif ct == "PH3ImageConditioning":
+            t = _follow(inputs.get("prompt"), graph)[0]
+            if isinstance(t, str):
+                out["prompt_sha256"] = sha256(t.rstrip())
+                out["prompt_id"] = identify(t)
+            out["length"] = 1
+            w, h = inputs.get("width", 0), inputs.get("height", 0)
+            out["canvas"] = f"{w}x{h}" if (w and h) else "auto"
         elif ct == "MiniMaxH3Resolution":
             out["length"] = inputs.get("length")
             shape = inputs.get("shape")
