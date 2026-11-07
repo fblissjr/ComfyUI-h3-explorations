@@ -62,7 +62,7 @@ def _generate_pairs_with_llm(
     concept_prompt: str,
     system_prompt: str | None = None,
     load_in_4bit: bool = True,
-    max_new_tokens: int = 3200,
+    max_new_tokens: int = 4200,
     temperature: float = 0.7,
     top_p: float = 0.8,
     top_k: int = 20,
@@ -140,13 +140,16 @@ def _generate_pairs_with_llm(
             model = Model.from_config(config)
             cache = Cache(
                 model,
-                max_num_tokens=6144,
+                max_num_tokens=12288,
                 layer_type=CacheLayer_quant,
                 k_bits=4,
                 v_bits=4,
             )
             model.load(progressbar=False)
             cache_store[cache_key] = (model, cache, tokenizer)
+
+        if hasattr(cache, "reset"):
+            cache.reset()
 
         chatml = (
             f"<|im_start|>system\n{sys_txt}<|im_end|>\n"
@@ -177,17 +180,22 @@ def _generate_pairs_with_llm(
             except Exception:
                 pass
 
-        prefill_params: dict[str, Any] = {
-            "attn_mode": "flash_attn",
-            "cache": cache,
-            "past_len": 0,
-            "batch_shape": (1, cache.max_num_tokens),
-        }
         if context_ids.shape[-1] > 1:
-            model.prefill(input_ids=context_ids[:, :-1], params=prefill_params)
+            prefill_tokens = context_ids[:, :-1]
+            chunk_size = 1024
+            for start_pos in range(0, int(prefill_tokens.shape[1]), chunk_size):
+                end_pos = min(start_pos + chunk_size, int(prefill_tokens.shape[1]))
+                prefill_params: dict[str, Any] = {
+                    "attn_mode": "flash_attn",
+                    "cache": cache,
+                    "past_len": start_pos,
+                    "batch_shape": (1, cache.max_num_tokens),
+                }
+                model.prefill(input_ids=prefill_tokens[:, start_pos:end_pos], params=prefill_params)
 
         gen_ids: list[int] = []
-        for step_idx in range(int(max_new_tokens)):
+        max_steps = min(int(max_new_tokens), int(cache.max_num_tokens) - int(context_ids.shape[-1]) - 1)
+        for step_idx in range(max(0, max_steps)):
             step_params: dict[str, Any] = {
                 "attn_mode": "flash_attn",
                 "cache": cache,
@@ -288,6 +296,14 @@ def _generate_pairs_with_llm(
             )
         new_tokens = out_ids[0, inputs["input_ids"].shape[-1] :]
         markdown_out = hf_tokenizer.decode(new_tokens, skip_special_tokens=True).strip()
+
+    markdown_out = cv._unwrap_markdown_fence(markdown_out)
+    if markdown_out.startswith("```"):
+        first_nl = markdown_out.find("\n")
+        if first_nl >= 0:
+            markdown_out = markdown_out[first_nl + 1 :].strip()
+        if markdown_out.endswith("```"):
+            markdown_out = markdown_out[:-3].strip()
 
     elapsed_s = round(time.perf_counter() - t0, 2)
     return {

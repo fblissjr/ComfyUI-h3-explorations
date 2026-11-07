@@ -84,6 +84,23 @@ def cmd_make_media(args: argparse.Namespace) -> int:
     for dit_name in dit_names:
         dit_path = Path(_h.folder_paths.get_full_path_or_raise("diffusion_models", dit_name))
         model_or_path = getattr(args, "_model_override", None) or dit_path
+        if getattr(args, "no_lora", False):
+            loras_fam: list[dict[str, Any]] = []
+        elif loras:
+            loras_fam = loras
+        elif getattr(args, "_model_override", None) is not None:
+            loras_fam = []
+        else:
+            fam_detected = cv.detect_family(dit_path)
+            default_lora_name = (
+                h3_config.PIKA_REF2VA_SVD995_LORA
+                if fam_detected == "ref2va"
+                else h3_config.PIKA_FL2VA_SVD995_LORA
+            )
+            try:
+                loras_fam = _parse_lora_specs([f"{default_lora_name}:1.0"])
+            except Exception:
+                loras_fam = []
         out_path, report = cv_nodes.make_control_vector_from_media_pairs(
             image_a=batch_a,
             image_b=batch_b,
@@ -96,7 +113,7 @@ def cmd_make_media(args: argparse.Namespace) -> int:
             output_dir=out_dir,
             overwrite=bool(args.overwrite),
             made_by="bench/control_vectors.py::make-media/1",
-            loras=loras,
+            loras=loras_fam,
             encoder_path_override=encoder_path,
             refiner_device=getattr(args, "refiner_device", "cpu"),
         )

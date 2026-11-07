@@ -90,7 +90,7 @@ def handle_ui_request(
             model_req = str(req.get("model") or state.default_llm_model or "").strip()
             concept_req = str(req.get("concept") or req.get("axis") or "").strip()
             load_4bit = bool(req.get("load_in_4bit", True))
-            max_tok = int(req.get("max_new_tokens", 3200))
+            max_tok = int(req.get("max_new_tokens", 4200))
             temp_req = float(req.get("temperature", 0.7))
             state.release_clip_vram()
             res_llm = _generate_pairs_with_llm(
