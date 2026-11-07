@@ -91,7 +91,9 @@ MODELS = dict(
     # `unet_fasth3_v2`, FastVideo's FastH3 8-step V2 checkpoint, was retired
     # with the FlashGen and FastH3 lane on 2026-11-04 (`docs/roadmap.md`,
     # "Closed lanes"); the file stays on disk and its key is in git.
-    unet_hybrid_adaln_all="minimax_h3_hybrid_fl2va_ref2va_adaln_all-int8.safetensors",
+    # `unet_hybrid_adaln_all` (`minimax_h3_hybrid_fl2va_ref2va_adaln_all-int8.safetensors`),
+    # built by `bench/build_hybrid.py`, was removed on 2026-11-07 (owner: no
+    # shipped graph loads it and the file is no longer in the model store).
     # `unet_vsa`, kijai's experimental FastVideo VSA checkpoint, left with
     # `MiniMaxH3VSAAttention` and its two probe graphs in 0.173.0 (owner,
     # 2026-09-29); `docs/research/vsa/fastvideo_vsa_checkpoint.md` keeps what it was.

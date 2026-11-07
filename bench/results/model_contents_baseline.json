@@ -138,35 +138,6 @@
         "decoder.transformer_blocks.N.ff.w2": 36,
         "decoder.x_embedder": 1
       }
-    },
-    "unet_hybrid_adaln_all": {
-      "mechanism": "comfy_quant",
-      "tensors": 932,
-      "quantized_layers": 200,
-      "configs": {
-        "{\"convrot\": true, \"convrot_groupsize\": 256, \"format\": \"int8_tensorwise\"}": {
-          "layers": 200,
-          "roles": {
-            "blocks.N.attn.out_proj": 50,
-            "blocks.N.attn.qkv_proj": 50,
-            "blocks.N.mlp.fc1": 50,
-            "blocks.N.mlp.fc2": 50
-          }
-        }
-      },
-      "unquantized_2d_weights": {
-        "audio_patch_proj": 1,
-        "blocks.N.adaln_proj.linear": 50,
-        "condition_proj": 1,
-        "final_layer.adaln_proj.linear": 1,
-        "final_layer.audio_out": 1,
-        "final_layer.video_out": 1,
-        "token_refiner.blocks.N.attn.out_proj": 2,
-        "token_refiner.blocks.N.attn.qkv_proj": 2,
-        "token_refiner.blocks.N.mlp.fc1": 2,
-        "token_refiner.blocks.N.mlp.fc2": 2,
-        "video_patch_proj": 1
-      }
     }
   },
   "attention_preference_approved": {},
