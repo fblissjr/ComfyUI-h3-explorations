@@ -435,7 +435,7 @@ payload; more are not. [guide: shown]
 ============================ MODE: p_h3_image_t2i ============================
 # Active mode: P-H3-Image Single-Frame Text-to-Image (`p-h3-image`)
 
-This mode targets PrunaAI's `P-H3-Image` single-frame adaptation of MiniMax H3 (`p-h3-image_int8_convrot.safetensors` or `p-h3-image_lora_bf16.safetensors` on `unet_fl2va`, conditioned via `PH3ImageConditioning` with `p-h3-image_text_encoder_int8_convrot.safetensors` or our 32B `MiniMaxH3EncoderLoader` teacher encoder). See [`docs/prompting/17_p_h3_image_prompting.md`](../../prompting/17_p_h3_image_prompting.md) and [`docs/h3_image_editing.md`](../../h3_image_editing.md). [house]
+This mode targets PrunaAI's `P-H3-Image` single-frame adaptation of MiniMax H3 (`p-h3-image_int8_convrot.safetensors` or `p-h3-image_lora_bf16.safetensors` on `unet_fl2va`, conditioned via `MiniMaxH3PH3ImageConditioning` with `p-h3-image_text_encoder_int8_convrot.safetensors` or our 32B `MiniMaxH3EncoderLoader` teacher encoder). See [`docs/prompting/17_p_h3_image_prompting.md`](../../prompting/17_p_h3_image_prompting.md) and [`docs/h3_image_editing.md`](../../h3_image_editing.md). [house]
 
 Why P-H3-Image prompts differ structurally from H3 video prompts:
 - `P-H3-Image` replaces the 32B single-layer (`layer="last"`) Qwen3-VL encoder with a distilled `Qwen3-VL-4B` encoder that taps 5 intermediate hidden states (`layers [13, 19, 25, 31, 36]`, `5 * 2560 = 12800` dim), standardizes with learned `input_mean` / `input_std`, projects through a single bias-free linear layer `nn.Linear(12800, 5120, bias=False)` (`TextConnector.proj`, fp32), destandardizes to `output_mean` / `output_std` (`5120`), and replaces token 0 with `sink_embedding` (`5120`) into the H3 DiT's `5120`-dim text space (`comfy/text_encoders/minimax.py:110-128, 172-250`).
@@ -452,15 +452,15 @@ Rules for `p_h3_image_t2i`:
 =========================== MODE: p_h3_image_edit ============================
 # Active mode: P-H3-Image Single-Frame Editing & Multi-Image Composition (`p-h3-image` with 1..8 images)
 
-This mode targets `PH3ImageConditioning` when 1 to 8 reference images are wired to `images.image_1` .. `images.image_8`. [house]
+This mode targets `MiniMaxH3PH3ImageConditioning` (`ph3_image_nodes.py`) when 1 to 8 reference images are wired to `images.image_1` .. `images.image_8`. [house]
 
-How `PH3ImageConditioning` (`comfy_extras/nodes_minimax_h3.py:681-732`) presents images to the model:
+How `MiniMaxH3PH3ImageConditioning` (`ph3_image_nodes.py`, matching `diffusers` `src/diffusers/modular_pipelines/p_h3_image/{before_encoder,encoders}.py`) presents images to the model:
 - Dual-stream conditioning (identical in mechanism to H3 `ref2va`, specialized to single-frame `t=1`):
-  1. **Vision-token stream (`Qwen3-VL`)**: Each connected image `i` (`1..k`) is aspect-preservingly downscaled to at most `1,000,000` pixels (`PH3_IMAGE_VISION_PIXELS`, rounded to multiples of `32`) and tokenized into the prompt prefix as `<Picture 1>: <|vision_start|>...<|vision_end|><Picture 2>: <|vision_start|>...<|vision_end|>...` right before the text prompt.
-  2. **DiT reference-latent stream (`minimax_refs`)**: Each connected image `i` is aspect-preservingly scaled to the target canvas area (`(width * height) or 2912**2`; in our edit workflows `width=0, height=0` so `latent_width` and `latent_height` automatically inherit `image_1`'s aspect ratio) and encoded with `PH3ImageVAE.encode` (`PH3_IMAGE_ENCODE_SEED = 42`, `comfy/ldm/minimax/vae.py:1026`; decoded with `PH3_IMAGE_FRAME_POSITION = 2.0 * (0.5 / 7) - 1.0`, `comfy/ldm/minimax/vae.py:438`) into `minimax_refs`.
-- **Automatic prefix rule (`PH3ImageConditioning:723-724`)**:
-  - If the prompt matches `^\s*(Edit <Picture \d+>|subject_definitions:)`, `PH3ImageConditioning` passes `prompt.strip()` verbatim.
-  - Otherwise, `PH3ImageConditioning` automatically prepends `"Edit <Picture 1>. "` to the prompt (`PH3_IMAGE_EDIT.format(prompt)`). [house]
+  1. **Vision-token stream (`Qwen3-VL`)**: Each connected image `i` (`1..k`) is aspect-preservingly resized via `size_at_area` to `~1,000,000` pixels (`UPSAMPLER_IMAGE_PIXELS`, rounded to multiples of `32`, keeping native size when already a multiple of `32` within 20%) and tokenized into the prompt prefix as `<Picture 1>: <|vision_start|>...<|vision_end|><Picture 2>: <|vision_start|>...<|vision_end|>...` right before the text prompt.
+  2. **DiT reference-latent stream (`minimax_refs`)**: Under `canvas="auto"` (the default), `image_1` and the output canvas are clamped via `size_in_area_range` to `[4 MP, 8 MP]` (`4*1024^2..8*1024^2`) at `image_1`'s aspect ratio while `image_2..image_8` are clamped to `[1 MP, 8 MP]` (`1024^2..8*1024^2`); under `canvas="explicit"`, the output canvas is `round_canvas(width, height)` while all `image_1..image_8` are clamped to `[1 MP, 8 MP]`. Each reference image is encoded with `PH3ImageVAE.encode` (`PH3_IMAGE_ENCODE_SEED = 42`, `comfy/ldm/minimax/vae.py:1026`), rounded to `torch.float16` in unnormalized latent space (`coderef/diffusers/src/diffusers/modular_pipelines/p_h3_image/encoders.py:64-65`, `coderef/MiniMax-H3/Ref2VA/video_vae/klvae.py:910`) before `(latents - mean) / std`, and injected into `minimax_refs` (decoded with `PH3_IMAGE_FRAME_POSITION = 2.0 * (0.5 / 7) - 1.0`, `comfy/ldm/minimax/vae.py:438`).
+- **Automatic prefix rule (`ph3_image_nodes.py::format_edit_prompt`)**:
+  - If the prompt matches `^\s*(Edit <Picture \d+>|subject_definitions:)`, `MiniMaxH3PH3ImageConditioning` passes `prompt.strip()` verbatim.
+  - Otherwise, `MiniMaxH3PH3ImageConditioning` automatically prepends `"Edit <Picture 1>. "` to `prompt.strip()`. [house]
 
 Rules for `p_h3_image_edit`:
 1. Refer to every connected image strictly by its 1-indexed angle-bracketed label `<Picture 1>`, `<Picture 2>`, ..., `<Picture k>` matching `images.image_1` .. `images.image_k`. Never invent `<Picture m>` for an unwired slot, and never omit a wired `<Picture i>`. [house]
@@ -469,7 +469,7 @@ Rules for `p_h3_image_edit`:
    - **What changes / combines**: which elements come from `<Picture 1>`, `<Picture 2>`, etc., and where they are placed.
    - **What stays invariant**: explicitly name the facial identity, pose, framing, lighting, or background details from `<Picture 1>` (or `<Picture i>`) that must remain unchanged.
    - **Integration details**: how lighting direction, shadows, perspective, and surface textures unify across the combined elements. [house]
-4. Do NOT use `<d>...</d>`, `[Shot N]`, camera motion verbs, or audio section headers. (While `PH3ImageConditioning`'s regex also allows `subject_definitions:` verbatim, natural prose referencing `<Picture 1>`, `<Picture 2>`, ... is the native format `P-H3-Image`'s `TextConnector` and `Qwen3.5-9B` prompt upsampler were trained on.) [house]
+4. Do NOT use `<d>...</d>`, `[Shot N]`, camera motion verbs, or audio section headers. (While `MiniMaxH3PH3ImageConditioning`'s regex also allows `subject_definitions:` verbatim, natural prose referencing `<Picture 1>`, `<Picture 2>`, ... is the native format `P-H3-Image`'s `TextConnector` and `Qwen3.5-9B` prompt upsampler were trained on.) [house]
 
 ## Appendix: How PrunaAI's `Qwen3.5-9B` Prompt Upsampler (`p-h3-image_prompt_upsampler`) Works
 

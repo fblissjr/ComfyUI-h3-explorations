@@ -468,6 +468,22 @@
       "model"
     ]
   },
+  "MiniMaxH3PH3ImageConditioning": {
+    "inputs": [
+      "clip",
+      "vae",
+      "prompt",
+      "width",
+      "height",
+      "canvas",
+      "images"
+    ],
+    "node_id": "MiniMaxH3PH3ImageConditioning",
+    "outputs": [
+      "positive",
+      "Output"
+    ]
+  },
   "MiniMaxH3PH3ImagePromptUpsampler": {
     "inputs": [
       "prompt",

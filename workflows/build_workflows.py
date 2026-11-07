@@ -80,7 +80,7 @@ _OUR_NODES = {
     "MiniMaxH3ProvenanceStamp", "MiniMaxH3FreezeAudio", "MiniMaxH3FreezeAudioWindow",
     "MiniMaxH3EncodeTrack", "MiniMaxH3AudioAttentionGain",
     "MiniMaxH3AudioFreezeSong", "MiniMaxH3PromptList",
-    "MiniMaxH3PH3ImagePromptUpsampler",
+    "MiniMaxH3PH3ImagePromptUpsampler", "MiniMaxH3PH3ImageConditioning",
 }
 
 # Model names, sampler settings, canvas geometry and the SolAttn knobs all
@@ -2288,7 +2288,7 @@ PH3_IMAGE_T2I_PROMPT = _bank_prompt("p_h3_image/t2i_clockmaker")
 
 #: Canonical P-H3-Image single-frame Edit prompt: explicit `<Picture i>` index
 #: referencing matching the 1-indexed `images.image_i` sockets wired on
-#: `PH3ImageConditioning`, stating both the edit delta and the invariants to keep.
+#: `MiniMaxH3PH3ImageConditioning`, stating both the edit delta and the invariants to keep.
 #: Stored in `prompt_bank/p_h3_image/edit_alpine_terrace.txt`.
 PH3_IMAGE_EDIT_PROMPT = _bank_prompt("p_h3_image/edit_alpine_terrace")
 
@@ -2319,11 +2319,13 @@ def build_ph3_image_api(
       and is never wired on `length=1` image graphs).
     - Includes `MiniMaxH3PH3ImagePromptUpsampler` (node 25) with `enabled=False`
       by default so the 9.1 GB `Qwen3.5-9B` upsampler is only loaded when opted in.
-    - Leaves `PH3ImageConditioning` at `width=0, height=0` on edit workflows (unless
-      the caller passes an explicit `width`/`height`) so `PH3ImageConditioning`
-      preserves `image_1`'s aspect ratio (`refs[0]["latent_w"] * 16`,
-      `refs[0]["latent_h"] * 16` in `comfy_extras/nodes_minimax_h3.py:728-729`),
-      while pinning `2912x2912` (`PH3_IMAGE_CANVAS_8MP`) on T2I workflows.
+    - Uses `MiniMaxH3PH3ImageConditioning` (node 5) with `canvas="auto"` and
+      `width=2912, height=2912` (`PH3_IMAGE_CANVAS_8MP`) by default so edit workflows
+      clamp `image_1` and the output canvas to `[4 MP, 8 MP]` at `image_1`'s aspect
+      ratio (`diffusers` `before_encoder.py:168-170`), clamp `image_2..image_8` to
+      `[1 MP, 8 MP]`, resize Qwen3-VL vision images via `size_at_area` (`~1 MP`),
+      and apply upstream float16 conditioning-latent rounding (`encoders.py:64-65`),
+      while T2I workflows render at `2912x2912`.
     - Supports both the standalone `p-h3-image_int8_convrot.safetensors` DiT and
       the `p-h3-image_lora_bf16.safetensors` adapter on our `unet_fl2va` base
       via `MiniMaxH3LoRABranch`.
@@ -2335,10 +2337,11 @@ def build_ph3_image_api(
     if not single_frame:
         raise SystemExit("P-H3-Image workflows are single-frame only (single_frame=True)")
     is_edit = task == "ph3_edit"
-    cond_w = width if width is not None else (0 if is_edit else PH3_IMAGE_CANVAS_8MP["width"])
-    cond_h = height if height is not None else (0 if is_edit else PH3_IMAGE_CANVAS_8MP["height"])
-    upsampler_w = width if width is not None else PH3_IMAGE_CANVAS_8MP["width"]
-    upsampler_h = height if height is not None else PH3_IMAGE_CANVAS_8MP["height"]
+    cond_w = width if width is not None else PH3_IMAGE_CANVAS_8MP["width"]
+    cond_h = height if height is not None else PH3_IMAGE_CANVAS_8MP["height"]
+    cond_canvas = "explicit" if (width is not None or height is not None) else "auto"
+    upsampler_w = cond_w
+    upsampler_h = cond_h
     resolved_prompt = prompt if prompt is not None else (
         PH3_IMAGE_EDIT_PROMPT if is_edit else PH3_IMAGE_T2I_PROMPT
     )
@@ -2402,6 +2405,7 @@ def build_ph3_image_api(
         "prompt": ["25", 0],
         "width": cond_w,
         "height": cond_h,
+        "canvas": cond_canvas,
     }
     if is_edit:
         stills = ref_images if ref_images is not None else (
@@ -2420,7 +2424,7 @@ def build_ph3_image_api(
 
     g["25"] = {"class_type": "MiniMaxH3PH3ImagePromptUpsampler",
                "inputs": upsampler_inputs}
-    g["5"] = {"class_type": "PH3ImageConditioning",
+    g["5"] = {"class_type": "MiniMaxH3PH3ImageConditioning",
               "inputs": cond_inputs}
 
     model_src = ["1", 0]

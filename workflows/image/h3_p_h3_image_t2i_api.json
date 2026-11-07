@@ -123,7 +123,7 @@
     }
   },
   "5": {
-    "class_type": "PH3ImageConditioning",
+    "class_type": "MiniMaxH3PH3ImageConditioning",
     "inputs": {
       "clip": [
         "2",
@@ -138,7 +138,8 @@
         0
       ],
       "width": 2912,
-      "height": 2912
+      "height": 2912,
+      "canvas": "auto"
     }
   },
   "19": {

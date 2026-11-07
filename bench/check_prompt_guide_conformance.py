@@ -105,7 +105,12 @@ sys.path.insert(0, str(REPO / "workflows"))
 from h3_config import (  # noqa: E402
     AUDIO_DECODING_CARRIERS, PROMPT_INPUTS, REF_FORMAT_CARRIERS, graph_paths,
     resolve_link)
-from ph3_image_nodes import is_edit_prompt  # noqa: E402
+from ph3_image_nodes import (  # noqa: E402
+    format_edit_prompt,
+    is_edit_prompt,
+    resolve_ph3_image_geometry,
+    size_in_area_range,
+)
 
 # Both come from the one registry in `h3_config`. `MiniMaxH3AudioFreezeSong`
 # conditions each window itself; its guide follows its `references` input
@@ -311,15 +316,16 @@ def ref_prompts() -> dict[str, tuple[str, str]]:
 #: Classes with a `prompt` string input that are not encoder carriers, and why.
 NOT_CARRIERS = {
     "MiniMaxH3FillPromptLists": "outputs the filled text; the carrier it feeds is the one graded",
-    "MiniMaxH3PH3ImagePromptUpsampler": "outputs the P-H3-Image prompt; the PH3ImageConditioning carrier it feeds is graded by ph3_image_prompts_conform",
+    "MiniMaxH3PH3ImagePromptUpsampler": "outputs the P-H3-Image prompt; the MiniMaxH3PH3ImageConditioning carrier it feeds is graded by ph3_image_prompts_conform",
+    "MiniMaxH3PH3ImageConditioning": "single-frame P-H3-Image carrier (pure visual prose or <Picture i> edit instructions, graded by ph3_image_prompts_conform rather than the video section guides)",
     "PH3ImageConditioning": "single-frame P-H3-Image carrier (pure visual prose or <Picture i> edit instructions, graded by ph3_image_prompts_conform rather than the video section guides)",
 }
 
 
 def ph3_image_prompts_conform(graph_files) -> list[str]:
-    """Grade every shipped `PH3ImageConditioning` graph against the P-H3-Image
-    prompt contract (`docs/prompting/17_p_h3_image_prompting.md` and
-    `comfy_extras/nodes_minimax_h3.py::PH3ImageConditioning`).
+    """Grade every shipped `MiniMaxH3PH3ImageConditioning` / `PH3ImageConditioning`
+    graph against the P-H3-Image prompt contract (`docs/prompting/17_p_h3_image_prompting.md`
+    and `ph3_image_nodes.py::MiniMaxH3PH3ImageConditioning`).
 
     - T2I (no `images.image_*` sockets wired): must be non-empty single-frame
       visual prose with zero H3 video section headers (`integrated_multimodal_description:`,
@@ -328,7 +334,7 @@ def ph3_image_prompts_conform(graph_files) -> list[str]:
       zero `[Shot N]` timeline markers, and zero `<Picture i>` references.
     - Edit (`images.image_1..k` wired): must reference the exact 1-indexed set
       `{f"<Picture {i}>" for i in range(1, k + 1)}` and satisfy either
-      `ph3_image_nodes.is_edit_prompt` or `PH3ImageConditioning`'s automatic
+      `ph3_image_nodes.is_edit_prompt` or `MiniMaxH3PH3ImageConditioning`'s automatic
       `"Edit <Picture 1>. "` prefixing rule, with zero `<d>` tags or `[Shot N]`
       markers.
     """
@@ -350,13 +356,13 @@ def ph3_image_prompts_conform(graph_files) -> list[str]:
         if not isinstance(wf, dict) or isinstance(wf.get("nodes"), list):
             continue
         for nid, n in wf.items():
-            if not isinstance(n, dict) or n.get("class_type") != "PH3ImageConditioning":
+            if not isinstance(n, dict) or n.get("class_type") not in ("MiniMaxH3PH3ImageConditioning", "PH3ImageConditioning"):
                 continue
             seen += 1
             ins = n.get("inputs") or {}
             got = resolve_link(wf, ins.get("prompt"))
             if not got.ok or not isinstance(got.value, str) or not got.value.strip():
-                problems.append(f"{path.stem}: node {nid} (PH3ImageConditioning) prompt did not resolve to a non-empty string ({got})")
+                problems.append(f"{path.stem}: node {nid} ({n.get('class_type')}) prompt did not resolve to a non-empty string ({got})")
                 continue
             text = got.value
             if "<d>" in text or "</d>" in text:
@@ -379,13 +385,52 @@ def ph3_image_prompts_conform(graph_files) -> list[str]:
                 if cited != wired_indices:
                     problems.append(
                         f"{path.stem}: Edit P-H3-Image prompt cites <Picture {cited}>, "
-                        f"but PH3ImageConditioning wires images {wired_indices}"
+                        f"but {n.get('class_type')} wires images {wired_indices}"
                     )
-                effective = text.strip() if is_edit_prompt(text) else f"Edit <Picture 1>. {text}"
+                effective = format_edit_prompt(text)
                 if not is_edit_prompt(effective):
                     problems.append(f"{path.stem}: Edit P-H3-Image prompt does not form a valid edit instruction")
     if seen == 0:
-        problems.append("no PH3ImageConditioning graph was found to grade")
+        problems.append("no MiniMaxH3PH3ImageConditioning / PH3ImageConditioning graph was found to grade")
+    return problems
+
+
+def ph3_image_conditioning_geometry_conforms() -> list[str]:
+    """Verify `MiniMaxH3PH3ImageConditioning`'s geometry helpers against `diffusers` `before_encoder.py`."""
+    problems: list[str] = []
+    # 1. Under canvas="auto", a 1024x1024 image_1 is scaled up to 2048x2048 (4 MP floor),
+    #    while a 512x512 image_2 is scaled up to 1024x1024 (1 MP floor).
+    canvas_sz, ref_sz, vis_sz = resolve_ph3_image_geometry(
+        [(1024, 1024), (512, 512)], width=2912, height=2912, canvas="auto"
+    )
+    if canvas_sz != (2048, 2048):
+        problems.append(f"canvas='auto' on 1024x1024 image_1 gave canvas {canvas_sz}, expected (2048, 2048)")
+    if ref_sz != [(2048, 2048), (1024, 1024)]:
+        problems.append(f"canvas='auto' on [(1024, 1024), (512, 512)] gave ref_sizes {ref_sz}, expected [(2048, 2048), (1024, 1024)]")
+    if vis_sz != [(1024, 1024), (992, 992)]:
+        problems.append(f"vision_sizes on [(1024, 1024), (512, 512)] gave {vis_sz}, expected [(1024, 1024), (992, 992)]")
+    # 2. Strict clamping without 20% tolerance leak: 1920x1920 (< 4 MP) scales up to 2048x2048
+    #    and 3072x3072 (> 8 MP) scales down to 2912x2912 under [4 MP, 8 MP].
+    if size_in_area_range(1920, 1920, 4 * 1024**2, 8 * 1024**2) != (2048, 2048):
+        problems.append("size_in_area_range(1920, 1920, 4MP, 8MP) failed to clamp up to (2048, 2048)")
+    if size_in_area_range(3072, 3072, 4 * 1024**2, 8 * 1024**2) != (2912, 2912):
+        problems.append("size_in_area_range(3072, 3072, 4MP, 8MP) failed to clamp down to (2912, 2912)")
+    # 3. Under canvas="explicit", explicit width/height sets canvas_size only, keeping
+    #    reference_sizes in [1 MP, 8 MP] (decoupled from width*height).
+    canvas_exp, ref_exp, _ = resolve_ph3_image_geometry(
+        [(2048, 2048)], width=1344, height=768, canvas="explicit"
+    )
+    if canvas_exp != (1344, 768) or ref_exp != [(2048, 2048)]:
+        problems.append(
+            f"canvas='explicit' coupled reference size to explicit canvas: canvas={canvas_exp}, ref={ref_exp}"
+        )
+    # 4. T2I (no images) rounds canvas to multiples of 32.
+    canvas_t2i, ref_t2i, vis_t2i = resolve_ph3_image_geometry([], width=2912, height=2912, canvas="auto")
+    if canvas_t2i != (2912, 2912) or ref_t2i or vis_t2i:
+        problems.append(f"T2I resolve_ph3_image_geometry returned {(canvas_t2i, ref_t2i, vis_t2i)}")
+    # 5. size_in_area_range keeps in-range multiples of 32 untouched.
+    if size_in_area_range(1536, 1536) != (1536, 1536):
+        problems.append("size_in_area_range altered an in-range 1536x1536 image")
     return problems
 
 
@@ -617,6 +662,8 @@ def main() -> int:
        carrier_gaps(PROMPT_INPUTS, graph_files, source_files))
     ok("every P-H3-Image single-frame prompt conforms to the P-H3-Image contract",
        ph3_image_prompts_conform(graph_files))
+    ok("MiniMaxH3PH3ImageConditioning geometry helpers match diffusers before_encoder.py",
+       ph3_image_conditioning_geometry_conforms())
     #    The control: the same case on a registry missing the song node must
     #    fail, or a case that scans nothing would pass for ever.
     reduced = {k: v for k, v in PROMPT_INPUTS.items() if k != "MiniMaxH3AudioFreezeSong"}

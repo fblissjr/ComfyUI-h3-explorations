@@ -126,14 +126,18 @@ def describe(graph: dict) -> dict:
         if isinstance(t, str):
             out["prompt_sha256"] = sha256(t.rstrip())
             out["prompt_id"] = identify(t)
-        elif ct == "PH3ImageConditioning":
+        elif ct in ("MiniMaxH3PH3ImageConditioning", "PH3ImageConditioning"):
             t = _follow(inputs.get("prompt"), graph)[0]
             if isinstance(t, str):
                 out["prompt_sha256"] = sha256(t.rstrip())
                 out["prompt_id"] = identify(t)
             out["length"] = 1
             w, h = inputs.get("width", 0), inputs.get("height", 0)
-            out["canvas"] = f"{w}x{h}" if (w and h) else "auto"
+            has_images = any(k.startswith("images.image_") and inputs[k] is not None for k in inputs)
+            if ct == "MiniMaxH3PH3ImageConditioning" and inputs.get("canvas", "auto") == "auto" and has_images:
+                out["canvas"] = "auto"
+            else:
+                out["canvas"] = f"{w}x{h}" if (w and h) else "auto"
         elif ct == "MiniMaxH3Resolution":
             out["length"] = inputs.get("length")
             shape = inputs.get("shape")

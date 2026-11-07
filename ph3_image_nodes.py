@@ -1,30 +1,38 @@
-"""MiniMax H3 p-h3-image prompt upsampler node (`MiniMaxH3PH3ImagePromptUpsampler`).
+"""MiniMax H3 p-h3-image conditioning and prompt upsampler nodes
+(`MiniMaxH3PH3ImageConditioning`, `MiniMaxH3PH3ImagePromptUpsampler`).
 
-Wraps `PrunaAI/P-H3-Image`'s fine-tuned `Qwen3.5-9B` prompt upsampler
-(`p-h3-image_prompt_upsampler_int8_convrot.safetensors`, loaded by core's
-`CLIPLoader` with `type="qwen_image"`) for both text-to-image and multi-image
-editing (1 to 8 images), with a bypass toggle (`enabled=False` by default) and
-lazy `clip` evaluation so a workflow can ship with pre-authored prompts without
-loading the 9.1 GB upsampler checkpoint unless the user turns `enabled` on.
+1. `MiniMaxH3PH3ImageConditioning`:
+   Implements `PrunaAI/P-H3-Image`'s exact `diffusers` conditioning and resize
+   contract (`coderef/diffusers/src/diffusers/modular_pipelines/p_h3_image/{before_encoder,encoders,before_denoise}.py`)
+   and `MiniMax-H3`'s float16 conditioning-latent rounding (`coderef/MiniMax-H3/Ref2VA/video_vae/klvae.py:910`),
+   closing four gaps in ComfyUI core's `PH3ImageConditioning` (`comfy_extras/nodes_minimax_h3.py:668-731`):
+   - **Area-range clamping (`size_in_area_range`) vs. downscale-only (`_size_within_area`)**:
+     Core's `_size_within_area` scales down only (`min(1.0, ...)`), leaving a small
+     `image_1` (e.g. `1024x1024`) below the 4 MP (`4 * 1024**2`) canvas floor P-H3-Image
+     was distilled for. `MiniMaxH3PH3ImageConditioning` clamps secondary references
+     (`image_2..image_8`) to `[1024**2, 8 * 1024**2]` (`1..8 MP`), clamps `image_1`
+     (and the `canvas='auto'` output canvas) to `[4 * 1024**2, 8 * 1024**2]`
+     (`4..8 MP`), and resizes Qwen3-VL `vision_images` via `size_at_area` (`~1 MP`,
+     both up and down, keeping native size when already a multiple of 32 within 20%).
+   - **Decoupled explicit canvas (`canvas='explicit'`) vs. coupled reference area**:
+     In core's `PH3ImageConditioning`, passing non-zero `width, height` sets
+     `area = width * height` for VAE reference scaling as well as the output canvas.
+     In `diffusers` (`before_encoder.py:80, 164-166`) and `MiniMaxH3PH3ImageConditioning`,
+     `canvas='explicit'` changes the output canvas only; reference images stay in
+     `[1024**2, 8 * 1024**2]`.
+   - **Float16 conditioning-latent rounding (`encoders.py:64-65`, `klvae.py:910`)**:
+     Rounds the unnormalized seeded posterior sample (`seed=42`) to `torch.float16`
+     (~11-bit mantissa) before normalizing `(latents - latents_mean) / latents_std`.
+   - **Strict 8-image cap (`MAX_EDIT_IMAGES = 8`, `image_1..image_8`)**:
+     Matches `before_encoder.py:46, 158` (core's `PH3ImageConditioning` exposed 9 slots).
 
-Why a dedicated node rather than the stock `ChatTemplate` + `TextGenerateLTX2Prompt`
-or `TextEncodeQwenImageEditPlus` chain in `PrunaAI_P-H3-Image-Comfy/workflows/*.json`:
-
-1. `ChatTemplate` is not a core ComfyUI node, and core's `TextGenerateLTX2Prompt`
-   (`comfy_extras/nodes_textgen.py`) wraps its input in Gemma 3/4 `<start_of_turn>`
-   tags with LTX-2's video system prompt.
-2. Core's `TextEncodeQwenImageEditPlus` (`comfy_extras/nodes_qwen.py`) accepts at
-   most 3 images, downscales them to 384x384 (`147,456` px vs upstream's `1,000,000`
-   px), injects Qwen-Image-Edit's system prompt, and outputs `CONDITIONING` rather
-   than calling `clip.generate`.
-3. `PrunaAI/P-H3-Image` (`diffusers` `modular_pipelines/p_h3_image/prompt_upsampler.py`
-   and `prompt_upsampler_processor/chat_template.jinja`) formats a user-only turn
-   with no system prompt and opens `<think>\\n` on the assistant turn:
-   - T2I (`max_new_tokens=1024`):
-     `<|im_start|>user\\nAspect ratio: {1:1|4:3|3:4|3:2|2:3|16:9|9:16}\\nRequest: {request}<|im_end|>\\n<|im_start|>assistant\\n<think>\\n`
-   - Edit (`max_new_tokens=1536`, 1..8 images resized at their own aspect ratio to
-     ~1 MP at multiples of 32, Lanczos, no white padding):
-     `<|im_start|>user\\n<Picture 1>: <|vision_start|><|image_pad|><|vision_end|>[<Picture 2>: ... ]Edit <Picture 1>. {request}<|im_end|>\\n<|im_start|>assistant\\n<think>\\n`
+2. `MiniMaxH3PH3ImagePromptUpsampler`:
+   Wraps `PrunaAI/P-H3-Image`'s fine-tuned `Qwen3.5-9B` prompt upsampler
+   (`p-h3-image_prompt_upsampler_int8_convrot.safetensors`, loaded by core's
+   `CLIPLoader` with `type="qwen_image"`) for both text-to-image and multi-image
+   editing (1 to 8 images), with a bypass toggle (`enabled=False` by default) and
+   lazy `clip` evaluation so a workflow can ship with pre-authored prompts without
+   loading the 9.1 GB upsampler checkpoint unless the user turns `enabled` on.
 """
 
 from __future__ import annotations
@@ -65,6 +73,13 @@ ASPECT_RATIOS: dict[str, float] = {
 UPSAMPLER_IMAGE_PIXELS = 1_000_000
 CANVAS_MULTIPLE = 32
 MAX_EDIT_IMAGES = 8
+# Inherited from `diffusers` `p_h3_image.before_encoder.PH3ImagePrepareInputsStep`
+# (`coderef/diffusers/src/diffusers/modular_pipelines/p_h3_image/before_encoder.py:97-100, 118`).
+DEFAULT_T2I_SIZE = 2912
+REFERENCE_MIN_PIXELS = 1024 ** 2
+REFERENCE_MAX_PIXELS = 8 * 1024 ** 2
+CANVAS_MIN_PIXELS = 4 * 1024 ** 2
+CANVAS_MODES: tuple[str, ...] = ("auto", "explicit")
 T2I_MAX_NEW_TOKENS = PH3_IMAGE_T2I_MAX_NEW_TOKENS
 EDIT_MAX_NEW_TOKENS = PH3_IMAGE_EDIT_MAX_NEW_TOKENS
 # Inherited from Qwen35Tokenizer.eos_token_id (`<|im_end|>`, comfy/text_encoders/qwen35.py:1299).
@@ -122,6 +137,117 @@ def size_at_area(
         max(multiple, round(math.sqrt(pixels * ratio) / multiple) * multiple),
         max(multiple, round(math.sqrt(pixels / ratio) / multiple) * multiple),
     )
+
+
+def round_canvas(
+    w: int,
+    h: int,
+    multiple: int = CANVAS_MULTIPLE,
+) -> tuple[int, int]:
+    """Round `(w, h)` to multiples of `multiple` (`diffusers` `before_encoder._round_canvas`)."""
+    if w < 1 or h < 1:
+        raise ValueError(f"canvas dimensions must be positive, got {w}x{h}")
+    return (
+        max(multiple, round(w / multiple) * multiple),
+        max(multiple, round(h / multiple) * multiple),
+    )
+
+
+def size_in_area_range(
+    w: int,
+    h: int,
+    min_pixels: int = REFERENCE_MIN_PIXELS,
+    max_pixels: int = REFERENCE_MAX_PIXELS,
+    multiple: int = CANVAS_MULTIPLE,
+) -> tuple[int, int]:
+    """`(w, h)` clamped into `[min_pixels, max_pixels]`, sides multiples of `multiple`.
+
+    Matches `diffusers` `p_h3_image.before_encoder._size_in_area_range`
+    (`coderef/diffusers/src/diffusers/modular_pipelines/p_h3_image/before_encoder.py:60-68`).
+    Unlike ComfyUI core's `_size_within_area` (`comfy_extras/nodes_minimax_h3.py:668-671`),
+    which only scales down (`min(1.0, ...)`), this also scales small images up to
+    `min_pixels` (`4 MP` for `image_1` under `canvas='auto'`, `1 MP` for secondary
+    references) and leaves in-range images whose sides are already multiples of 32
+    untouched.
+    """
+    if w < 1 or h < 1:
+        raise ValueError(f"image dimensions must be positive, got {w}x{h}")
+    area = w * h
+    scale = math.sqrt(min(max(area, min_pixels), max_pixels) / area)
+    return (
+        max(multiple, round(w * scale / multiple) * multiple),
+        max(multiple, round(h * scale / multiple) * multiple),
+    )
+
+
+def resolve_ph3_image_geometry(
+    image_sizes: list[tuple[int, int]],
+    width: int = DEFAULT_T2I_SIZE,
+    height: int = DEFAULT_T2I_SIZE,
+    canvas: str = "auto",
+) -> tuple[tuple[int, int], list[tuple[int, int]], list[tuple[int, int]]]:
+    """Compute `(canvas_size, reference_sizes, vision_sizes)` matching `diffusers` `before_encoder.py`.
+
+    - Without images (T2I): `canvas_size` is `round_canvas(width, height)`, and both
+      reference/vision lists are empty.
+    - With edit images (`1..8`):
+      - Every image is clamped to `[REFERENCE_MIN_PIXELS, REFERENCE_MAX_PIXELS]` (`1..8 MP`).
+      - When `canvas == 'auto'` (default), `image_1` and `canvas_size` are clamped to
+        `[CANVAS_MIN_PIXELS, REFERENCE_MAX_PIXELS]` (`4..8 MP`) at `image_1`'s aspect ratio
+        (`before_encoder.py:168-170`).
+      - When `canvas == 'explicit'`, `canvas_size` is `round_canvas(width, height)` while
+        `reference_sizes` remain in `[1..8 MP]` (`before_encoder.py:164-166`), decoupling
+        the output canvas from the VAE reference resolution.
+      - `vision_sizes` are resized via `size_at_area(w, h, UPSAMPLER_IMAGE_PIXELS, 32)` (`~1 MP`)
+        for Qwen3-VL (`before_encoder.py:173-175`).
+    """
+    if canvas not in CANVAS_MODES:
+        raise ValueError(
+            f"MiniMaxH3PH3ImageConditioning: unknown canvas mode {canvas!r}; "
+            f"expected one of {CANVAS_MODES}."
+        )
+    if len(image_sizes) > MAX_EDIT_IMAGES:
+        raise ValueError(
+            f"MiniMaxH3PH3ImageConditioning supports at most {MAX_EDIT_IMAGES} edit images, "
+            f"got {len(image_sizes)}."
+        )
+    if not image_sizes:
+        return round_canvas(width, height, CANVAS_MULTIPLE), [], []
+
+    reference_sizes = [
+        size_in_area_range(w, h, REFERENCE_MIN_PIXELS, REFERENCE_MAX_PIXELS, CANVAS_MULTIPLE)
+        for w, h in image_sizes
+    ]
+    if canvas == "explicit":
+        canvas_size = round_canvas(width, height, CANVAS_MULTIPLE)
+    else:
+        reference_sizes[0] = size_in_area_range(
+            image_sizes[0][0],
+            image_sizes[0][1],
+            CANVAS_MIN_PIXELS,
+            REFERENCE_MAX_PIXELS,
+            CANVAS_MULTIPLE,
+        )
+        canvas_size = reference_sizes[0]
+    vision_sizes = [
+        size_at_area(w, h, UPSAMPLER_IMAGE_PIXELS, CANVAS_MULTIPLE)
+        for w, h in image_sizes
+    ]
+    return canvas_size, reference_sizes, vision_sizes
+
+
+def format_edit_prompt(prompt: str) -> str:
+    """Ensure an edit prompt starts with `'Edit <Picture i>'` or `'subject_definitions:'`.
+
+    Matches `diffusers` `p_h3_image.encoders` (`coderef/diffusers/src/diffusers/modular_pipelines/p_h3_image/encoders.py:251-252`)
+    and `comfy_extras/nodes_minimax_h3.py:40-42, 724`.
+    """
+    cleaned = prompt.strip()
+    if not cleaned:
+        raise ValueError("MiniMaxH3PH3ImageConditioning: `prompt` must not be empty.")
+    if _EDIT_VERBATIM_RE.match(cleaned):
+        return cleaned
+    return f"Edit <Picture 1>. {cleaned}"
 
 
 def is_edit_prompt(prompt: str) -> bool:
@@ -186,18 +312,249 @@ def build_upsampler_chat(
     return f"<|im_start|>user\n{user_body}<|im_end|>\n<|im_start|>assistant\n<think>\n"
 
 
-def _resize_upsampler_image(image):
-    """Resize a `[B, H, W, C]` ComfyUI image tensor (first frame) to ~1 MP at multiples of 32 (Lanczos, RGB)."""
+def _resize_image_to(image, target_size: tuple[int, int]):
+    """Resize a `[B, H, W, C]` ComfyUI image tensor (first frame, RGB) to `target_size = (w, h)` (Lanczos)."""
     import comfy.utils
 
     frame = image[:1, ..., :3]
     img_h, img_w = int(frame.shape[1]), int(frame.shape[2])
-    target_w, target_h = size_at_area(img_w, img_h, UPSAMPLER_IMAGE_PIXELS, CANVAS_MULTIPLE)
+    target_w, target_h = target_size
     if (img_w, img_h) == (target_w, target_h):
         return frame
     samples = frame.movedim(-1, 1)
     resized = comfy.utils.common_upscale(samples, target_w, target_h, "lanczos", "disabled")
     return resized.movedim(1, -1)
+
+
+def _resize_upsampler_image(image):
+    """Resize a `[B, H, W, C]` ComfyUI image tensor (first frame) to ~1 MP at multiples of 32 (Lanczos, RGB)."""
+    frame = image[:1, ..., :3]
+    img_h, img_w = int(frame.shape[1]), int(frame.shape[2])
+    target_size = size_at_area(img_w, img_h, UPSAMPLER_IMAGE_PIXELS, CANVAS_MULTIPLE)
+    return _resize_image_to(frame, target_size)
+
+
+def _encode_ph3_image_condition(vae, image_tensor):
+    """Encode an edit reference image with `vae.encode` and apply upstream float16 rounding.
+
+    Both `diffusers` (`coderef/diffusers/src/diffusers/modular_pipelines/p_h3_image/encoders.py:64-65`)
+    and `MiniMax-H3` (`coderef/MiniMax-H3/Ref2VA/video_vae/klvae.py:910`) round the
+    unnormalized seeded posterior sample (`seed=42`) to `torch.float16` before
+    normalizing `(latents - latents_mean) / latents_std`. ComfyUI core's
+    `PH3ImageVAE.encode` (`comfy/ldm/minimax/vae.py:1022-1029`) omits `.to(torch.float16)`.
+    By temporarily binding `latents_mean=0, latents_std=1` on `vae.first_stage_model`
+    inside a `try ... finally` block during `vae.encode(image_tensor)`, we obtain the
+    exact unnormalized `latents` with zero float32 round-trip ULP drift, round to
+    `torch.float16`, and normalize `(latents - mean) / std` without patching ComfyUI core.
+    """
+    import torch
+
+    fsm = getattr(vae, "first_stage_model", None)
+    mean = getattr(fsm, "latents_mean", None)
+    std = getattr(fsm, "latents_std", None)
+    if fsm is not None and mean is not None and std is not None:
+        try:
+            fsm.latents_mean = torch.zeros_like(mean)
+            fsm.latents_std = torch.ones_like(std)
+            unnorm = vae.encode(image_tensor)
+        finally:
+            fsm.latents_mean = mean
+            fsm.latents_std = std
+        mean_t = mean.view(1, -1, 1, 1, 1).to(device=unnorm.device, dtype=torch.float32)
+        std_t = std.view(1, -1, 1, 1, 1).to(device=unnorm.device, dtype=torch.float32)
+        rounded = unnorm.to(torch.float16).float()
+        return ((rounded - mean_t) / std_t).to(dtype=unnorm.dtype)
+    z = vae.encode(image_tensor)
+    return z.to(torch.float16).to(dtype=z.dtype)
+
+
+def _av_latent(width: int, height: int, video_frames: int = 1, audio_frames: int = 2) -> dict:
+    """Create the empty nested `(video, audio)` latent dict expected by `MiniMaxH3` for `P-H3-Image`.
+
+    Matches `comfy_extras/nodes_minimax_h3.py:92-97`:
+    - `video`: `[1, 24, video_frames, height // 16, width // 16]` (24 channels, 16x spatial compression)
+    - `audio`: `[1, 32, 2, audio_frames]` (`comfy/model_base.py:2280` reads `shape[-1]` as `audio_t`)
+    """
+    import comfy.model_management
+    import comfy.nested_tensor
+    import torch
+
+    device = comfy.model_management.intermediate_device()
+    video_latent = torch.zeros(
+        [1, 24, video_frames, height // 16, width // 16],
+        device=device,
+    )
+    audio_latent = torch.zeros(
+        [1, 32, 2, audio_frames],
+        device=device,
+    )
+    return {"samples": comfy.nested_tensor.NestedTensor((video_latent, audio_latent))}
+
+
+class MiniMaxH3PH3ImageConditioning(io.ComfyNode):
+    """Condition `PrunaAI/P-H3-Image` for single-frame T2I or 1..8-image editing with `diffusers` parity."""
+
+    @classmethod
+    def define_schema(cls):
+        return io.Schema(
+            node_id="MiniMaxH3PH3ImageConditioning",
+            display_name="MiniMax H3 p-h3-image Conditioning",
+            category="conditioning/video_models",
+            description=(
+                "Prepares conditioning and the empty nested (video, audio) latent for "
+                "PrunaAI/P-H3-Image text-to-image (no images) and image editing (1 to 8 "
+                "reference images), matching HuggingFace diffusers' `p_h3_image` pipeline "
+                "and MiniMax-H3's float16 conditioning-latent rounding."
+            ),
+            inputs=[
+                io.Clip.Input("clip"),
+                io.Vae.Input(
+                    "vae",
+                    optional=True,
+                    tooltip="Required when edit images (`image_1`..`image_8`) are connected.",
+                ),
+                io.String.Input(
+                    "prompt",
+                    multiline=True,
+                    dynamic_prompts=True,
+                    default="",
+                    tooltip=(
+                        "Text-to-image prompt, 6-section `[keyframe completion]` edit brief, "
+                        "or short edit instruction (`Edit <Picture 1>. ` is prepended "
+                        "automatically when edit images are connected and the prompt does "
+                        "not already start with `Edit <Picture i>` or `subject_definitions:`)."
+                    ),
+                ),
+                io.Int.Input(
+                    "width",
+                    default=DEFAULT_T2I_SIZE,
+                    min=CANVAS_MULTIPLE,
+                    max=16384,
+                    step=CANVAS_MULTIPLE,
+                    tooltip=(
+                        "Output canvas width in pixels (rounded to a multiple of 32). "
+                        "Used for T2I, and for editing when `canvas` is `'explicit'`. "
+                        "Ignored when edit images are connected and `canvas` is `'auto'`."
+                    ),
+                ),
+                io.Int.Input(
+                    "height",
+                    default=DEFAULT_T2I_SIZE,
+                    min=CANVAS_MULTIPLE,
+                    max=16384,
+                    step=CANVAS_MULTIPLE,
+                    tooltip=(
+                        "Output canvas height in pixels (rounded to a multiple of 32). "
+                        "Used for T2I, and for editing when `canvas` is `'explicit'`. "
+                        "Ignored when edit images are connected and `canvas` is `'auto'`."
+                    ),
+                ),
+                io.Combo.Input(
+                    "canvas",
+                    options=list(CANVAS_MODES),
+                    default="auto",
+                    tooltip=(
+                        "'auto' (default): in edit mode, derives the output canvas from "
+                        "`image_1` clamped to `[4 MP, 8 MP]` (`4*1024^2..8*1024^2`), "
+                        "matching diffusers when width/height are omitted; in T2I mode, "
+                        "uses `width x height`. 'explicit': uses `width x height` for the "
+                        "output canvas while keeping edit reference images clamped to "
+                        "`[1 MP, 8 MP]` (decoupled from the output canvas)."
+                    ),
+                ),
+                io.Autogrow.Input(
+                    "images",
+                    optional=True,
+                    template=io.Autogrow.TemplateNames(
+                        io.Image.Input("image"),
+                        names=[f"image_{i}" for i in range(1, MAX_EDIT_IMAGES + 1)],
+                        min=0,
+                    ),
+                    tooltip=(
+                        "Optional edit images (`image_1` is the primary image to edit; "
+                        "`image_2`..`image_8` are additional references). Leave empty for "
+                        "text-to-image."
+                    ),
+                ),
+            ],
+            outputs=[
+                io.Conditioning.Output(display_name="positive"),
+                io.Latent.Output(),
+            ],
+        )
+
+    @classmethod
+    def execute(
+        cls,
+        clip,
+        prompt: str,
+        width: int = DEFAULT_T2I_SIZE,
+        height: int = DEFAULT_T2I_SIZE,
+        canvas: str = "auto",
+        vae=None,
+        images: io.Autogrow.Type = None,
+    ) -> io.NodeOutput:
+        import node_helpers
+
+        try:
+            from .h3_spans import attach_span_masks
+        except ImportError:
+            from h3_spans import attach_span_masks
+
+        cleaned_prompt = prompt.strip()
+        if not cleaned_prompt:
+            raise ValueError("MiniMaxH3PH3ImageConditioning: `prompt` must not be empty.")
+
+        names = sorted(images or {}, key=lambda name: int(name.rsplit("_", 1)[-1]))
+        raw_images = [images[name] for name in names if images[name] is not None]
+        if len(raw_images) > MAX_EDIT_IMAGES:
+            raise ValueError(
+                f"MiniMaxH3PH3ImageConditioning supports at most {MAX_EDIT_IMAGES} edit images, "
+                f"got {len(raw_images)}."
+            )
+
+        image_sizes = [(int(img.shape[2]), int(img.shape[1])) for img in raw_images]
+        canvas_size, ref_sizes, vision_sizes = resolve_ph3_image_geometry(
+            image_sizes,
+            width=width,
+            height=height,
+            canvas=canvas,
+        )
+        canvas_w, canvas_h = canvas_size
+
+        if raw_images:
+            if vae is None:
+                raise ValueError(
+                    "MiniMaxH3PH3ImageConditioning: `vae` is required when edit images are connected."
+                )
+            vision_images = [
+                _resize_image_to(img, vis_size)
+                for img, vis_size in zip(raw_images, vision_sizes)
+            ]
+            refs = []
+            for img, ref_size in zip(raw_images, ref_sizes):
+                z = _encode_ph3_image_condition(vae, _resize_image_to(img, ref_size))
+                refs.append(
+                    {
+                        "kind": "image",
+                        "latent_h": int(z.shape[-2]),
+                        "latent_w": int(z.shape[-1]),
+                        "latent": z,
+                    }
+                )
+            formatted_prompt = format_edit_prompt(cleaned_prompt)
+            tokens = clip.tokenize(formatted_prompt, images=vision_images)
+            cond = clip.encode_from_tokens_scheduled(tokens)
+            cond = node_helpers.conditioning_set_values(
+                cond,
+                {"minimax_refs": refs},
+            )
+        else:
+            tokens = clip.tokenize(cleaned_prompt)
+            cond = clip.encode_from_tokens_scheduled(tokens)
+
+        attach_span_masks(cond, clip, tokens)
+        return io.NodeOutput(cond, _av_latent(canvas_w, canvas_h, 1, 2))
 
 
 class MiniMaxH3PH3ImagePromptUpsampler(io.ComfyNode):

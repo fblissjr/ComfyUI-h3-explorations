@@ -18,11 +18,11 @@
    - Runs at `t=1` (with two dummy audio latent frames discarded after `SamplerCustomAdvanced`), `KSamplerSelect("euler")`, `BasicGuider` (no CFG), `MiniMaxH3SigmaShift(shift_video=1.0, shift_audio=1.0)`, and `ManualSigmas` set to the non-uniform 8-step distillation grid `1.0, 0.984753, 0.967905, 0.951688, 0.925372, 0.881923, 0.810083, 0.528718, 0.0` (`workflows/h3_config.py::PH3_IMAGE_MANUAL_SIGMAS`), spending 6 of its 8 steps in the structural high-noise window `[1.0 -> 0.81]`.
 4. **Single-Frame Adapted H3 Image VAE (`p-h3-image_vae_bf16.safetensors` / `p-h3-image_vae_int8_convrot.safetensors`)**:
    - `PH3ImageVAE(MiniMaxH3VideoVAE)` (`comfy/ldm/minimax/vae.py:429-439, 1014-1033`) pairs MiniMax H3's 3D causal CNN encoder (`EncoderFCN3D`, using seeded diagonal-Gaussian sampling `PH3_IMAGE_ENCODE_SEED = 42` during `encode` and 24-channel `LATENTS_MEAN` / `LATENTS_STD` + ImageNet normalization) with `PH3ImageDecoder(ViT3DDecoder)` (`patch_size_t=1` and fixed temporal RoPE coordinate `PH3_IMAGE_FRAME_POSITION = 2.0 * (0.5 / 7) - 1.0` during `decode`, `16x` spatial compression, `24` latent channels).
-5. **Dual-Stream Reference Conditioning (`PH3ImageConditioning`, `comfy_extras/nodes_minimax_h3.py:681-732`)**:
-   - Creates both the conditioning (`["5", 0]`) and the single-frame latent (`["5", 1]`), at `2912x2912` (`~8.48 MP`, `PH3_IMAGE_CANVAS_8MP`) for T2I and `width=0, height=0` for Edit (which auto-derives `latent_width = refs[0]["latent_w"] * 16` and `latent_height = refs[0]["latent_h"] * 16` to preserve `image_1`'s aspect ratio).
-   - For editing (`1–8` reference images connected to `images.image_1` .. `images.image_8`), `PH3ImageConditioning` feeds each reference image simultaneously into:
-     1. **Vision-Language Stream**: Each image is scaled so its total pixel area is at most `1,000,000` pixels (multiples of `32`) and embedded at the `<|image_pad|>` token inside `<Picture i>: <|vision_start|><|image_pad|><|vision_end|>`.
-     2. **VAE Reference-Latent Stream (`minimax_refs`)**: Each image is aspect-scaled to the target canvas area (`(width * height) or 2912**2`), encoded with `PH3ImageVAE.encode` (`PH3_IMAGE_ENCODE_SEED = 42`, `comfy/ldm/minimax/vae.py:1026`), and injected as clean reference tokens into the DiT sequence.
+5. **Dual-Stream Reference Conditioning (`MiniMaxH3PH3ImageConditioning`, `ph3_image_nodes.py`)**:
+   - Creates both the conditioning (`["5", 0]`, with `_h3_span_masks` attached) and the single-frame latent (`["5", 1]`), at `2912x2912` (`~8.48 MP`, `PH3_IMAGE_CANVAS_8MP`) for T2I and `canvas="auto"` for Edit (which clamps `image_1` and the output canvas to `[4 MP, 8 MP]` at `image_1`'s aspect ratio, matching `coderef/diffusers/src/diffusers/modular_pipelines/p_h3_image/before_encoder.py:168-170`).
+   - For editing (`1–8` reference images connected to `images.image_1` .. `images.image_8`), `MiniMaxH3PH3ImageConditioning` feeds each reference image simultaneously into:
+     1. **Vision-Language Stream**: Each image is resized via `size_at_area` to `~1,000,000` pixels (multiples of `32`, keeping native size when already a multiple of `32` within 20%) and embedded at the `<|image_pad|>` token inside `<Picture i>: <|vision_start|><|image_pad|><|vision_end|>`.
+     2. **VAE Reference-Latent Stream (`minimax_refs`)**: Under `canvas="auto"`, `image_1` is clamped to `[4 MP, 8 MP]` (`4*1024^2..8*1024^2`) and `image_2..image_8` are clamped to `[1 MP, 8 MP]` (`1024^2..8*1024^2`) via `size_in_area_range` (under `canvas="explicit"`, all `image_1..image_8` are clamped to `[1 MP, 8 MP]`, decoupled from the explicit output canvas), encoded with `PH3ImageVAE.encode` (`PH3_IMAGE_ENCODE_SEED = 42`), rounded to `torch.float16` in unnormalized latent space (`coderef/diffusers/src/diffusers/modular_pipelines/p_h3_image/encoders.py:64-65`, `coderef/MiniMax-H3/Ref2VA/video_vae/klvae.py:910`) before `(latents - mean) / std`, and injected as clean reference tokens (`minimax_refs`) into the DiT sequence.
 
 ---
 
@@ -51,18 +51,18 @@ A medium three-quarter portrait of an elderly clockmaker seated at a worn walnut
 
 Used by [`workflows/image/h3_p_h3_image_edit_api.json`](../../workflows/image/h3_p_h3_image_edit_api.json), [`workflows/image/h3_p_h3_image_lora_edit_api.json`](../../workflows/image/h3_p_h3_image_lora_edit_api.json), and [`workflows/image/h3_probe_p_h3_image_edit_te32b_api.json`](../../workflows/image/h3_probe_p_h3_image_edit_te32b_api.json).
 
-### How `PH3ImageConditioning` Wraps the Prompt
+### How `MiniMaxH3PH3ImageConditioning` Wraps the Prompt
 
-When `k` images (`images.image_1` .. `images.image_k`) are connected to `PH3ImageConditioning` (`comfy_extras/nodes_minimax_h3.py:681-732`), the node prepends `<Picture 1>: <|vision_start|><|image_pad|><|vision_end|>...<Picture k>: <|vision_start|><|image_pad|><|vision_end|>` and applies its automatic prefix rule (`comfy_extras/nodes_minimax_h3.py:723-724`):
-- If `prompt` matches `^\s*(Edit <Picture \d+>|subject_definitions:)`, `PH3ImageConditioning` passes `prompt.strip()` verbatim.
-- Otherwise, `PH3ImageConditioning` automatically prepends `"Edit <Picture 1>. "` to `prompt.strip()`.
+When `k` images (`images.image_1` .. `images.image_k`) are connected to `MiniMaxH3PH3ImageConditioning` (`ph3_image_nodes.py`), the node prepends `<Picture 1>: <|vision_start|><|image_pad|><|vision_end|>...<Picture k>: <|vision_start|><|image_pad|><|vision_end|>` and applies `format_edit_prompt` (`coderef/diffusers/src/diffusers/modular_pipelines/p_h3_image/encoders.py:251-252`, `comfy_extras/nodes_minimax_h3.py:40-42, 724`):
+- If `prompt` matches `^\s*(Edit <Picture \d+>|subject_definitions:)`, `MiniMaxH3PH3ImageConditioning` passes `prompt.strip()` verbatim.
+- Otherwise, `MiniMaxH3PH3ImageConditioning` automatically prepends `"Edit <Picture 1>. "` to `prompt.strip()`.
 
 ### Format & Authoring Rules
 
 - **Explicit `<Picture N>` tags (`1`-indexed)**: Refer to every connected input image by its exact tag (`<Picture 1>`, `<Picture 2>`, ..., up to `<Picture 8>`). `bench/check_prompt_guide_conformance.py::ph3_image_prompts_conform` verifies that an edit graph's prompt cites every wired `<Picture i>` and no unwired `<Picture m>`.
 - **Single cohesive prose paragraph (`40–150` words)** stating three things in order:
   1. **Target transformation / synthesis**: What changes, combines, or transfers across `<Picture 1>`, `<Picture 2>`, etc.
-  2. **Explicit retention anchor (`Keep ...`)**: What stays locked from each reference image (facial identity, bone structure, pose, camera angle, framing, clothing, or background geometry). Because `PH3ImageConditioning` injects clean VAE reference latents (`minimax_refs`) directly into the DiT sequence, naming what stays locked tells the DiT which spatial/identity features to preserve vs. synthesize fresh.
+  2. **Explicit retention anchor (`Keep ...`)**: What stays locked from each reference image (facial identity, bone structure, pose, camera angle, framing, clothing, or background geometry). Because `MiniMaxH3PH3ImageConditioning` injects clean VAE reference latents (`minimax_refs`) directly into the DiT sequence, naming what stays locked tells the DiT which spatial/identity features to preserve vs. synthesize fresh.
   3. **Physical integration**: How lighting direction, shadows, reflections, perspective, and surface textures unify across the edited result.
 
 ### Worked Example (`p_h3_image_edit`, shipped in `h3_p_h3_image_edit_api.json`)

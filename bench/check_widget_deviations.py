@@ -371,15 +371,6 @@ DECLARED: dict[tuple[str, str], tuple] = {
                      "the unshifted 8-step sigmas, against the node default 3.0 on "
                      "every video graph; bench/check_distill_settings.py grades both "
                      "populations"),
-    ("PH3ImageConditioning", "width"):
-        ("ARM", "2912 on the P-H3-Image T2I graphs (h3_config.PH3_IMAGE_CANVAS_8MP) "
-                "so the 8.48 MP canvas is explicit in the UI, while the Edit graphs "
-                "leave the node default 0 so PH3ImageConditioning preserves image_1's "
-                "aspect ratio (refs[0]['latent_w'] * 16 in comfy_extras/nodes_minimax_h3.py:728)"),
-    ("PH3ImageConditioning", "height"):
-        ("ARM", "2912 on the P-H3-Image T2I graphs (h3_config.PH3_IMAGE_CANVAS_8MP), "
-                "against the node default 0 on the Edit graphs (refs[0]['latent_h'] * 16 "
-                "in comfy_extras/nodes_minimax_h3.py:729)"),
     ("MiniMaxH3PH3ImagePromptUpsampler", "max_new_tokens"):
         ("ARM", "1536 on the P-H3-Image Edit graphs (h3_config.PH3_IMAGE_EDIT_MAX_NEW_TOKENS), "
                 "against the node default 1024 (h3_config.PH3_IMAGE_T2I_MAX_NEW_TOKENS) on the "

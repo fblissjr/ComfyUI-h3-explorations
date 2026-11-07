@@ -117,13 +117,13 @@ def classify_ph3_image(doc, found: Found) -> bool:
     """PrunaAI P-H3-Image single-frame 8-step distilled graphs (`workflows/image/`).
     Recognised by either the standalone `p-h3-image_int8_convrot.safetensors`
     checkpoint, the `p-h3-image_lora_bf16.safetensors` adapter, or
-    `PH3ImageConditioning`."""
+    `MiniMaxH3PH3ImageConditioning` / `PH3ImageConditioning`."""
     if any("p-h3-image" in l.lower() for l in found.loras):
         return True
     for n in doc.values():
         if not isinstance(n, dict):
             continue
-        if n.get("class_type") == "PH3ImageConditioning":
+        if n.get("class_type") in ("MiniMaxH3PH3ImageConditioning", "PH3ImageConditioning"):
             return True
         if "p-h3-image" in str((n.get("inputs") or {}).get("unet_name", "")).lower():
             return True

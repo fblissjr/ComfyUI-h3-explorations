@@ -109,7 +109,7 @@ with none is a helper the others import.
 | [`nodes.py`](nodes.py) | `MiniMaxH3SageAttention` | MiniMax H3 SageAttention node. |
 | [`overlay_loader.py`](overlay_loader.py) | `MiniMaxH3OverlayLoader` | Load a research checkpoint as an overlay on the released one, a piece at a time. |
 | [`part_coverage.py`](part_coverage.py) |  | How much of a tracked subject a part mask covers, frame by frame, and which frames to doubt. |
-| [`ph3_image_nodes.py`](ph3_image_nodes.py) | `MiniMaxH3PH3ImagePromptUpsampler` | MiniMax H3 p-h3-image prompt upsampler node (`MiniMaxH3PH3ImagePromptUpsampler`). |
+| [`ph3_image_nodes.py`](ph3_image_nodes.py) | `MiniMaxH3PH3ImageConditioning`, `MiniMaxH3PH3ImagePromptUpsampler` | MiniMax H3 p-h3-image conditioning and prompt upsampler nodes (`MiniMaxH3PH3ImageConditioning`, `MiniMaxH3PH3ImagePromptUpsampler`). |
 | [`pipeline_telemetry.py`](pipeline_telemetry.py) |  | What a ComfyUI prompt loaded, moved and spent, end to end, as one JSONL record. |
 | [`plate_restore.py`](plate_restore.py) | `MiniMaxH3RestorePlate` | Put the kept parts of a masked latent back between two samplers. |
 | [`preflight.py`](preflight.py) | `MiniMaxH3Preflight` | What this render will actually cost, before you queue it. |
