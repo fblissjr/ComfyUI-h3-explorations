@@ -1,8 +1,8 @@
 # 2026-11-06: Fresh-Eye Audit of H3 Control Vectors (`2026-11-05`–`2026-11-06`) and Holistic Resolution Blueprint
 
-**Date**: 2026-11-06 (Updated after multi-session disk reconciliation across `cvman`, `mrprompt`, `dials`, and `jlens` at `0d2ad8a9`)  
+**Date**: 2026-11-06 (All 5 holistic invariants landed on `main` at `93dbe8d3`, `0d2ad8a9`, and `4ea73adb`)  
 **Companion docs**: [`2026-11-06_holistic_resolution_proposal.md`](2026-11-06_holistic_resolution_proposal.md), [`2026-11-06_holistic_stack_review_and_invariants.md`](2026-11-06_holistic_stack_review_and_invariants.md)  
-**Scope**: All control-vector work committed on `2026-11-05` (`42e3d3bb`..`eeae6225`) and `2026-11-06` (`7a791660`..`0d2ad8a9`, with close focus on the last ~9 hours from `08:55` to `17:40` US Central), plus the active worktrees (`cvman-holistic-workbench` at `86592f0c` and `dials-holistic-checks`).  
+**Scope**: All control-vector work committed on `2026-11-05` (`42e3d3bb`..`eeae6225`) and `2026-11-06` (`7a791660`..`4ea73adb`).  
 **Related docs**: [`../../wiki/control_vectors.md`](../../wiki/control_vectors.md), [`2026-11-04_h3_control_vectors.md`](2026-11-04_h3_control_vectors.md), [`2026-11-06_j_lens_and_refiner_jacobian.md`](2026-11-06_j_lens_and_refiner_jacobian.md), [`2026-11-06_mainodes_comparison_and_pika_roadmap.md`](2026-11-06_mainodes_comparison_and_pika_roadmap.md), [`2026-11-06_detangle_comparison_and_borrowable_concepts.md`](2026-11-06_detangle_comparison_and_borrowable_concepts.md), [`../../../bench/results/2026-11-05_control_vectors_pika_and_ref2va.md`](../../../bench/results/2026-11-05_control_vectors_pika_and_ref2va.md).
 
 ---
@@ -26,9 +26,8 @@
 3. **Canonical 10-pair compiler, multi-span `differing_token_mask`, runtime holds, AV stream scaling, `ref_vae_end_percent`, and media vectors (`fd4f246a`..`93dbe8d3`)**:
    - Landed [`h3_pair_compiler.py`](../../../h3_pair_compiler.py#L1-L1247) with shared lead-in wrappers (`690c6969`) and `{props}`/`{surface}` binding, coupled `description + overall_soundscape` pairs, `hold:` compilation, and `target_prompt` `Pair 0` (`weight = 2.5`) injection (`93dbe8d3`).
    - Landed multi-span `differing_token_mask` (`difflib.SequenceMatcher` with `min_shared_run=8` in [`h3_spans.py`](../../../h3_spans.py#L635-L714)), inference-time cross-vector `mode="hold"` (`fd4f246a`), `video_scale`/`audio_scale`/`split_end_percent` and `ref_vae_end_percent`/`ref_vae_aug` (`87c0d1de`), [`MiniMaxH3MakeMediaControlVector`](../../../control_vector_nodes.py#L2244-L2337) (`ef91d35c`), chained `MiniMaxH3LoRABranch` (`485e8045`), and Wave 1+2 Pika verification renders (`Arms 53..66`, `9dc63ef6`).
-4. **Active worktrees in flight**:
-   - `cvman-holistic-workbench` (`86592f0c`): adds pair-compile, inline holds, `sculpt`, and `:8787` Workbench UI upgrades in `bench/control_vectors.py` and `bench/control_vector_ui.html`.
-   - `dials-holistic-checks`: end-to-end invariant check suite in `bench/check_control_vectors.py`.
+4. **3-stage contextual workbench, `sculpt` CLI, 5 invariants, and `C1`–`C7` checks (`4ea73adb`)**:
+   - Landed the 3-stage `:8787` Workbench UI and `sculpt` CLI in [`bench/control_vectors.py`](../../../bench/control_vectors.py) and [`bench/control_vector_ui.html`](../../../bench/control_vector_ui.html), enforced all 5 system-wide invariants across [`control_vector_nodes.py`](../../../control_vector_nodes.py), [`control_vectors.py`](../../../control_vectors.py), [`h3_spans.py`](../../../h3_spans.py), and [`j_lens.py`](../../../j_lens.py), and verified all `C1`–`C7` assertions in [`bench/check_control_vectors.py`](../../../bench/check_control_vectors.py).
 
 ---
 

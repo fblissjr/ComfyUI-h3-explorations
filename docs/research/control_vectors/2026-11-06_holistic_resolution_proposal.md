@@ -1,6 +1,6 @@
 # 2026-11-06: Holistic Resolution Proposal for H3 Control Vectors, `J-Lens`, and Active Worktrees
 
-**Date**: 2026-11-06 (Updated after multi-session disk reconciliation across `cvman`, `mrprompt`, `dials`, and `jlens` at `0d2ad8a9`)  
+**Date**: 2026-11-06 (All 5 holistic invariants landed on `main` at `93dbe8d3`, `0d2ad8a9`, and `4ea73adb`)  
 **Companion docs**: [`2026-11-06_fresh_eye_audit_and_holistic_resolution.md`](2026-11-06_fresh_eye_audit_and_holistic_resolution.md), [`2026-11-06_holistic_stack_review_and_invariants.md`](2026-11-06_holistic_stack_review_and_invariants.md)  
 **Related docs**: [`../../wiki/control_vectors.md`](../../wiki/control_vectors.md), [`2026-11-06_j_lens_and_refiner_jacobian.md`](2026-11-06_j_lens_and_refiner_jacobian.md), [`2026-11-06_mainodes_comparison_and_pika_roadmap.md`](2026-11-06_mainodes_comparison_and_pika_roadmap.md), [`2026-11-06_detangle_comparison_and_borrowable_concepts.md`](2026-11-06_detangle_comparison_and_borrowable_concepts.md).
 
@@ -184,11 +184,11 @@ In [`control_vector_nodes.py:1289-1400`](../../../control_vector_nodes.py#L1289-
 
 ---
 
-## 6. Consolidation Status & Remaining Landing Sequence
+## 6. Landed Consolidation Sequence on `main`
 
 1. **`mrprompt-holistic-compiler` (`93dbe8d3`)** — **Landed on `main`**:
    - Multi-span `differing_token_mask`, coupled `description + overall_soundscape` pairs, `{props}`/`{surface}`, `hold:`, and `target_prompt` in `h3_pair_compiler.py`.
 2. **`jlens-holistic-readout` (`0d2ad8a9`)** — **Landed on `main`**:
    - `basis`/`basis_note` in `assess_steering_readiness`, `token_heatmap` in `analyze_prompt_coupling`, `decode_recipe`, `save_composed_recipe_vector`, and `"->"` / `"|||"` split in `synthesize_from_words`.
-3. **Next — Land `cvman-holistic-workbench` + Invariants 1–5 & `dials-holistic-checks`**:
-   - Strip `_inject_target_prompt_into_pairset` (`bench/control_vectors.py:173`) and `norm_before / norm_after_raw` (`bench/control_vectors.py:259`) in `cvman-holistic-workbench`, apply twin-space encoder holds + `unit_mean`, apply the `control_vector_nodes.py` / `control_vectors.py` / `h3_spans.py` / `j_lens.py` fixes above, update `docs/wiki/control_vectors.md`, and run `python bench/check_control_vectors.py`.
+3. **`cvman-holistic-workbench` + `dials-holistic-checks` (`4ea73adb`)** — **Landed on `main`**:
+   - Enforced Invariants 1–5 across `control_vector_nodes.py`, `control_vectors.py`, `h3_spans.py`, `h3_pair_compiler.py`, `j_lens.py`, `bench/control_vectors.py`, `bench/control_vector_ui.html`, and `docs/wiki/control_vectors.md`, with `C1`–`C7` green in `bench/check_control_vectors.py` and all worktrees removed.
