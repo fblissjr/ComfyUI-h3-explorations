@@ -110,12 +110,12 @@ In [`2026-11-06_detangle_comparison_and_borrowable_concepts.md`](2026-11-06_deta
 #### Exact Velocity-Blend Contract in `WrappersMP.DIFFUSION_MODEL` (`comfy/ldm/minimax/model.py:606-647`, `comfy/ldm/minimax/model.py:792`)
 The only point where video and audio are cleanly separated is at the output of `MiniMaxH3Model._forward` (`comfy/ldm/minimax/model.py:792`), which returns the 2-element list:
 
-$$\text{out} = \bigl[-\text{video\_out}\in\mathbb{R}^{1\times 24\times T_{\text{lat}}\times H_{\text{lat}}\times W_{\text{lat}}},\; -\text{audio\_out}\in\mathbb{R}^{1\times 32\times 2\times T_{\text{aud}}}\bigr]$$
+$$\text{out} = \bigl[-\text{out}_{\text{video}}\in\mathbb{R}^{1\times 24\times T_{\text{lat}}\times H_{\text{lat}}\times W_{\text{lat}}}, \quad -\text{out}_{\text{audio}}\in\mathbb{R}^{1\times 32\times 2\times T_{\text{aud}}}\bigr]$$
 
 1. **Exact commutation with `ModelSamplingAV`'s outer audio carry (`comfy/ldm/minimax/model.py:643-646`)**:
    - After `WrappersMP.DIFFUSION_MODEL` returns `out`, `MiniMaxH3Model.forward` (`comfy/ldm/minimax/model.py:643-646`) converts `out[1]` to the carried audio variable via the **affine** map:
-     $$\text{Carry}(\text{out}[1]) = (1 - \text{scale})\,(\text{audio\_src}\cdot\text{carry}) + \bigl(1 + (\text{scale} - 1)\sigma_a\bigr)\,\text{out}[1]$$
-   - Because $\text{Carry}(\cdot)$ is strictly affine, any linear velocity blend $\text{out}_{\text{audio}} = \mathbf{v}_{\text{base}}[1] + w_{\text{audio}}\,(\mathbf{v}_{\text{steered}}[1] - \mathbf{v}_{\text{base}}[1])$ computed inside our `DIFFUSION_MODEL` wrapper commutes **identically** with `forward()`'s outer carry transform.
+     $$\text{Carry}(\text{out}[1]) = (1 - \text{scale}) (\text{src}_{\text{audio}}\cdot\text{carry}) + \bigl(1 + (\text{scale} - 1)\sigma_a\bigr) \text{out}[1]$$
+   - Because $\text{Carry}(\cdot)$ is strictly affine, any linear velocity blend $\text{out}_{\text{audio}} = \mathbf{v}_{\text{base}}[1] + w_{\text{audio}} (\mathbf{v}_{\text{steered}}[1] - \mathbf{v}_{\text{base}}[1])$ computed inside our `DIFFUSION_MODEL` wrapper commutes **identically** with `forward()`'s outer carry transform.
 2. **Economics on Pika 6-Step LCM (`cfg = 1.0`)**:
    - Stock H3 (`50` steps, `cfg = 4.0`) runs `100` DiT forwards. Pika H3 Flex (`6` steps, `cfg = 1.0`) runs only **`6` single forwards** (no unconditional CFG pass).
    - Running a 2-forward velocity split (`v_base` with `context_base`, `v_steered` with `context_steered`) on only the **first 2 steps** (`steps 0..1`, `split_end_percent = 0.35`, where Pika commits layout, physics, and vocal pitch) costs `6 + 2 = 8` DiT forwards (**`+33%` DiT compute**, ~`+14s`), and costs **zero extra forwards** whenever `video_scale == audio_scale` and no temporal curve is active.

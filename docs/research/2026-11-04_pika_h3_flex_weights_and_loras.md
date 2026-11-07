@@ -99,8 +99,8 @@ The catch is in the definition and in running SVD after fusing `qkv_proj` (`data
   bf16 rounding only (max 2.4e-3).
 - **Per-slice `to_q`, `to_k`, `to_v` inside `qkv_proj`**: in `comfy/ldm/minimax/model.py:165-178`, `q` and `k` pass through
   per-head RMSNorm (`q_norm`, `k_norm`) while `v` has no normalization. In late blocks, the pre-RMSNorm `to_q` and `to_k`
-  deltas have much larger Frobenius norm than `to_v` (in `blocks.49` on `fl2va`, $\|\Delta W_Q\|_F = 7.02$ and
-  $\|\Delta W_K\|_F = 12.42$ against $\|\Delta W_V\|_F = 1.33$, so `to_v` is only 0.85% of the squared Frobenius norm of
+  deltas have much larger Frobenius norm than `to_v` (in `blocks.49` on `fl2va`, $\lVert\Delta W_Q\rVert_F = 7.02$ and
+  $\lVert\Delta W_K\rVert_F = 12.42$ against $\lVert\Delta W_V\rVert_F = 1.33$, so `to_v` is only 0.85% of the squared Frobenius norm of
   `qkv_proj`). Because kijai fused `to_q`, `to_k`, `to_v` before running `sv_fro: 0.99`, `blocks.49.attn.qkv_proj` is
   truncated from rank 384 to **rank 4 on `fl2va` (rank 5 on `ref2va`)**, which meets the 0.136 combined budget on `qkv_proj`
   while losing **94.84% of `to_v` on `fl2va` (72.18% on `ref2va`)**. Across all 52 blocks of `fl2va`, `to_v` relative error
@@ -108,8 +108,8 @@ The catch is in the definition and in running SVD after fusing `qkv_proj` (`data
   at `blocks.22`).
 - **Per-component QR-SVD before fusion (`bench/convert_pika_lora.py`)**: running FP64 QR-SVD on `to_q`, `to_k` and `to_v`
   individually before block-diagonal `qkv_proj` fusion bounds every component (`to_q`, `to_k`, `to_v`, `out_proj`, `fc1`, `fc2`)
-  across all 52 blocks to $\le 14.11\%$ max error at `sv_fro=0.99` (`pika_h3_flex_{fl2va,ref2va}_svd99_bf16.safetensors`,
-  590 MB / 583 MB, average rank 58.62 / 57.89) and $\le 9.99\%$ max error at `sv_fro=0.995`
+  across all 52 blocks to $\le 14.11$% max error at `sv_fro=0.99` (`pika_h3_flex_{fl2va,ref2va}_svd99_bf16.safetensors`,
+  590 MB / 583 MB, average rank 58.62 / 57.89) and $\le 9.99$% max error at `sv_fro=0.995`
   (`pika_h3_flex_{fl2va,ref2va}_svd995_bf16.safetensors`, 898 MB / 891 MB, average rank 89.34 / 88.55).
 
 The same tensor-level check with the tracked tool, for the record:
@@ -156,7 +156,7 @@ for Pika's Comfy file and kijai's (`data/results/2026-11-04_pika_flex_int8_lora_
   the row's int8 step.
 - **ComfyUI's merge (`LoraLoaderModelOnly`) preserves the delta in expectation but buries it in quantization noise.**
   That path is dequantize, add, then requantize with stochastic rounding (`lora_branch.py:11-16`). Stochastic
-  rounding is unbiased in expectation ($\mathbb{E}[\text{round\_stoch}(W + \Delta W) - W] = \Delta W$), but because
+  rounding is unbiased in expectation ($\mathbb{E}[\operatorname{round}_{\text{stoch}}(W + \Delta W) - W] = \Delta W$), but because
   $|\Delta W|$ is only 0.05 to 0.26 of an int8 step, each merged weight receives unbiased quantization noise of RMS
   roughly 0.8x to 3.5x the delta's size. In a single realization, the surviving delta's cosine to the requested one is
   0.14 to 0.67, with relative error 1.1 to 5.8.
@@ -219,7 +219,7 @@ single shift-12 sigma list, `MiniMaxH3` (`ModelType.FLOW_AV` in `comfy/model_bas
 `ModelSamplingAV` in `comfy/model_sampling.py:338-358`, with `shift=12.0, audio_shift=3.0, audio_scale=4.0`)
 carries the audio latent scaled by $y_a = (\sigma_v / \sigma_a) x_a$. Inside `MiniMaxH3Model.forward`
 (`comfy/ldm/minimax/model.py:607-618, 643-647, 672-676`), the model un-carries audio via
-$\text{carry} = \sigma_a / \sigma_v$ where $\sigma_a = \text{time\_shift\_sigma}(\sigma_v, 12.0, 3.0) = [1.0, 0.9, 0.75, 0.5, 0.25, 0.111111, 0.0]$,
+$\text{carry} = \sigma_a / \sigma_v$ where `time_shift_sigma(sigma_v, 12.0, 3.0)` gives $\sigma_a = [1.0, 0.9, 0.75, 0.5, 0.25, 0.111111, 0.0]$,
 feeds the shift-3 audio timestep $t_a = 1 - \sigma_a$ to the network, and transforms the output audio velocity so
 that `CONST.calculate_denoised(sigma_v, out[1], y_a)` equals $\text{scale} \cdot \hat{x}_{0,a}$. When `sample_lcm` runs `noise_scaling(sigma_v_next, noise, denoised)`, the next step's $\text{carry}_{\text{next}} = \sigma_{a,\text{next}} / \sigma_{v,\text{next}}$
 reduces via the Möbius identity $\frac{\sigma_a}{\sigma_v}\text{scale}(1 - \sigma_v) \equiv 1 - \sigma_a$ to
@@ -244,7 +244,7 @@ Reproduced by `bench/convert_pika_lora.py --analyze` and recorded in
 Across all 50 blocks, each module's rank-128 delta splits into two spectral regimes:
 
 - **Top-3 singular directions ("switches", `r = 1..3`)**: hold 74% to 91% of each component's squared Frobenius energy
-  (85.8% to 95.2% of its norm; stable rank $\|\Delta W\|_F^2 / \sigma_1^2 = 1.4\text{ to }2.7$). In `blocks.48-49`,
+  (85.8% to 95.2% of its norm; stable rank $\lVert\Delta W\rVert_F^2 / \sigma_1^2 = 1.4\text{ to }2.7$). In `blocks.48-49`,
   `to_q` and `to_k` hold 94% to 98% of their energy in a single direction (`r = 1`), and `out_proj` and `fc2` reach 99%
   norm at rank 3 to 4.
 - **Remaining 125 singular directions ("body/tail", `r = 4..128`)**: hold 9% to 25% of the squared energy (28% to 47% of
@@ -252,11 +252,11 @@ Across all 50 blocks, each module's rank-128 delta splits into two spectral regi
   needs rank 67 for 99% norm). `svd995` keeps 79% to 90% of this tail energy.
 - **`fl2va` and `ref2va` similarity and task difference**: the two adapters have cosine 0.951 to 0.998 (mean 0.990 to
   0.992) across every module. Inside the top-3 subspace (`r = 1..3`), `fl2va` and `ref2va` differ by only 2.3% to 2.9%
-  of $\|\Delta W\|_F$; in the `r = 4..128` tail they differ by 12.0% to 13.8% (peaking at 20% to 31% in `blocks.47-49`).
+  of $\lVert\Delta W\rVert_F$; in the `r = 4..128` tail they differ by 12.0% to 13.8% (peaking at 20% to 31% in `blocks.47-49`).
   Truncating `ref2va` with `svd99` removes only a median 1.8% (max 6.6%) projection along $D = \Delta W_{\text{ref}} - \Delta W_{\text{fl}}$
   and pulls the truncated adapter slightly toward base MiniMax-H3 (`0`) rather than toward `fl2va` ($\cos(\widehat{W}_{\text{ref}}, W_{\text{fl}})$
-  drops from 0.9924 to 0.9824, and $\|\widehat{W}_{\text{ref}} - W_{\text{fl}}\|_F / \|D\|_F$ grows to 1.49x; naive
-  comparisons of $\|\widehat{W}_{\text{ref}} - \widehat{W}_{\text{fl}} - D\|_F / \|D\|_F$ are inflated in 151 of 300
+  drops from 0.9924 to 0.9824, and $\lVert\widehat{W}_{\text{ref}} - W_{\text{fl}}\rVert_F / \lVert D\rVert_F$ grows to 1.49x; naive
+  comparisons of $\lVert\widehat{W}_{\text{ref}} - \widehat{W}_{\text{fl}} - D\rVert_F / \lVert D\rVert_F$ are inflated in 151 of 300
   modules where independent `sv_fro` thresholds pick $k_{\text{ref}} \ne k_{\text{fl}}$).
 - **Partial mechanism—alignment with `adaln_proj`**: in `comfy/ldm/minimax/model.py:224-255, 300-305`, `AdalnProj`
   produces separate `shift`, `scale` and `gate` vectors for 3 modalities (`video=0`, `text=1`, `audio=2`) from the
@@ -264,7 +264,7 @@ Across all 50 blocks, each module's rank-128 delta splits into two spectral regi
   $\mathbb{R}^{5376}$). Projecting the input singular vectors of `to_q`, `to_k`, `to_v` and `fc1` onto that 27-D
   `shift` subspace shows that $v_1$ carries 11.0% to 18.6% of its energy there on average (max 65.5%, 22x to 37x
   random chance), tapering across $v_2$ (13x to 25x), $v_3$ (9x to 16x), and $v_4..v_5$ (5x to 11x), while $v_6..v_{128}$
-  sit near chance (1.14x to 1.22x). Similarly, in `blocks.48-49`, $v_1(\text{out\_proj})$ and $v_1(\text{fc2})$ align at
+  sit near chance (1.14x to 1.22x). Similarly, in `blocks.48-49`, $v_1$ of `out_proj` and $v_1(\text{fc2})$ align at
   18x to 45x chance with the propagated subspaces $W_V(\text{shift}_{\text{msa}})$ and $W_{\text{fc1}}(\text{shift}_{\text{mlp}})$
   (tails at 1.14x); for `out_proj` this propagation is exact because row-stochastic attention weights preserve a
   per-modality constant offset in $V$, whereas for `fc2` it is a linearized correlation because SwiGLU multiplies the

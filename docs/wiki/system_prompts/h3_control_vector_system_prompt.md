@@ -219,7 +219,7 @@ Before spending `~52s` on a DiT render, every `build`, `read`, `words`, and `scu
 
 1. **Pre-Render Steering Readiness Metrics (`j_lens.py::assess_steering_readiness`)**:
    - **`top1_gain` & `top3_mean_gain`**: Projected logit gain (at unit scale in `NORM_MATCHED_TARGET = 67.5` units) of the strongest pushed vocabulary words. Weak gain (`< 12`) indicates target-noun cancellation or over-broad clauses.
-   - **`refiner_transmission` ($\|\mathbf{v}_{\text{PR}}\|_2 / \|\mathbf{v}_{\text{E}}\|_2$)**: Measures how strongly the 2-layer bidirectional `token_refiner` transmits the pre-refiner direction (`~2.0x–3.2x` for contextual 10-pair vectors).
+   - **`refiner_transmission` ($\lVert\mathbf{v}_{\text{PR}}\rVert_2 / \lVert\mathbf{v}_{\text{E}}\rVert_2$)**: Measures how strongly the 2-layer bidirectional `token_refiner` transmits the pre-refiner direction (`~2.0x–3.2x` for contextual 10-pair vectors).
    - **`echo_ratio`**: Fraction of top-15 pushed post-refiner words that merely echo the input prompt tokens (`1.00` = pure lexical self-echo; `< 0.50` = broad semantic neighborhood recruitment).
    - **`off_target_words`**: Top-15 pushed words with low semantic alignment to the concept centroid—click any off-target word chip in the UI (or pass `--hold-words`) to project it out in `< 1 ms`.
 2. **Visual Prompt Token Receptor Heatmap (`--prompt <scene.txt>` & `--meter`)**:

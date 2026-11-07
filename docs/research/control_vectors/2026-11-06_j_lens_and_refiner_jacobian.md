@@ -17,7 +17,7 @@ Previously, verbalizing a control vector in natural language via [`exl3_qwen3vl/
    - Even when `vector.encoder` is saved ([`bench/control_vectors.py:481-489, 2120-2132`](../../../bench/control_vectors.py#L2120-L2132)), running [`compute_top_logit_shifts`](exl3_qwen3vl/label_h3_control_vectors.py#L640-L754) requires loading the 64-layer `Qwen3-VL-32B-Instruct` EXL3 checkpoint on GPU (`~17 GB` VRAM, `~12s` per vector).
 2. **`holds.post_refiner` and inference-time `mode = "hold"` operate in `5376`-d post-refiner space, which `layers.49` cannot see**:
    - Build-time hold orthogonalization ([`control_vector_nodes.py:914-923`](../../../control_vector_nodes.py#L914-L923), [`bench/control_vectors.py:2120-2132`](../../../bench/control_vectors.py#L2120-L2132)) and inference-time cross-vector hold projection (`mode = "hold"` / `project_out` with soft or over-projected $\alpha \in [0, 2]$, [`2026-11-06_detangle_comparison_and_borrowable_concepts.md`](2026-11-06_detangle_comparison_and_borrowable_concepts.md) §3) modify `vector.post_refiner` (`5376`-d):
-     $$\mathbf{v}_{\text{PR}}(\alpha) = \mathbf{v}_{\text{PR, raw}} - \alpha \, U_{\text{hold}}^\top \left(U_{\text{hold}} \mathbf{v}_{\text{PR, raw}}\right)$$
+     $$\mathbf{v}_{\text{PR}}(\alpha) = \mathbf{v}_{\text{PR, raw}} - \alpha U_{\text{hold}}^\top \left(U_{\text{hold}} \mathbf{v}_{\text{PR, raw}}\right)$$
    - A `layers.49`-only readout inspects `vector.encoder` (`5120`-d) **before** `condition_proj`, before the 2-block `TokenRefiner` (and any Pika `token_refiner` LoRA branch), and before `5376`-d hold projection. It therefore cannot tell what semantic directions a `TokenRefiner` LoRA amplifies, what concepts a `5376`-d hold projection $\alpha \in [0, 1]$ strips out vs. preserves, what a composite multi-vector recipe $\Delta\mathbf{r} = (I - \alpha U^\top U)\sum_i s_i \mathbf{v}_i$ pushes toward, or what concepts a **textless media-contrast vector** (extracted from `<Picture>` / `<Video>` reference pairs where no text prompts exist at all) encodes in `5376`-d space.
 
 ---
@@ -26,11 +26,11 @@ Previously, verbalizing a control vector in natural language via [`exl3_qwen3vl/
 
 In Anthropic's Jacobian Lens (`anthropics/jacobian-lens`), the local linear transport operator from layer $l$ to the final pre-unembedding representation $\mathbf{h}_L$ is averaged across a calibration corpus of token activations $\mathbf{x} \sim \mathcal{D}$ so input-specific attention routing and MLP gate noise cancel while the shared "global workspace" transport matrix survives:
 
-$$\bar{J}_{l \to L} = \mathbb{E}_{\mathbf{x} \sim \mathcal{D}}\!\left[\frac{\partial \mathbf{h}_L(\mathbf{x})}{\partial \mathbf{h}_l(\mathbf{x})}\right]$$
+$$\bar{J}_{l \to L} = \mathbb{E}_{\mathbf{x} \sim \mathcal{D}}\left[\frac{\partial \mathbf{h}_L(\mathbf{x})}{\partial \mathbf{h}_l(\mathbf{x})}\right]$$
 
 For MiniMax H3, we need two coupled expected Jacobians computed over `24` stratified multimodal prompts $\times 64$ tokens (`1,536` tokens total) sampled across [`prompt_bank/bank.json`](../../../prompt_bank/bank.json):
 1. **$\bar{J}_{49 \to 63} \in \mathbb{R}^{5120 \times 5120}$**: the expected Jacobian from `Qwen3-VL-32B-Instruct` `layers.49` (`5120`-d, where H3 truncates the encoder) through `layers.50..63` and the final `model.language_model.norm` (`RMSNorm`) to `lm_head`.
-2. **$\bar{J}_{\text{ref}}^{(f)} \in \mathbb{R}^{5376 \times 5120}$**: the expected Jacobian from `layers.49` (`5120`-d) through `condition_proj` (`5120 -> 5376`) and the 2-block bidirectional `TokenRefiner` (`5376 -> 5376`) for each weight family $f \in \{\text{fl2va}, \text{ref2va}\}$ (with its default Pika H3 Flex `svd995` LoRA applied to `diffusion_model.token_refiner.*`).
+2. **$\bar{J}_{\text{ref}}^{(f)} \in \mathbb{R}^{5376 \times 5120}$**: the expected Jacobian from `layers.49` (`5120`-d) through `condition_proj` (`5120 -> 5376`) and the 2-block bidirectional `TokenRefiner` (`5376 -> 5376`) for each weight family $f \in \lbrace \text{fl2va}, \text{ref2va} \rbrace$ (with its default Pika H3 Flex `svd995` LoRA applied to `diffusion_model.token_refiner.*`).
 
 ### 2.1 Rule 1: The Token-0 Attention Sink (`52.4x` Norm Outlier at `layers.49`)
 
@@ -41,23 +41,23 @@ Measuring the exact BF16 forward pass of `Qwen3-VL-32B-Instruct` (`layers.0..49`
 | `H_49[:, 0, :]` (token 0) | `15,309.0` | `52.37x` | **Keep in sequence during forward attention** so causal `layers.50..63` and bidirectional `TokenRefiner` heads dump unused attention mass onto token 0 as trained |
 | `H_49[:, 1:, :]` (`tok1+`, `1,512` tokens) | `292.3` | `1.00x` | **Use exclusively (`[:, 1:, :]`)** when averaging `RMSNorm` Jacobians, SwiGLU MLP gate derivatives, and empirical activation covariance $\widehat{\text{Cov}}(H_{49, 1:})$ |
 
-Excluding token 0 during the forward pass breaks attention softmax normalization across the remaining tokens; including token 0 when averaging `RMSNorm` or covariance matrices corrupts the scale factor $s(\mathbf{x}) = (\|\mathbf{x}\|_2^2 / D + \varepsilon)^{-1/2}$ and rank-1 outer product $\hat{\mathbf{x}}\hat{\mathbf{x}}^\top / D$. Keeping token 0 in the forward pass while restricting expectations to `[:, 1:, :]` avoids both errors.
+Excluding token 0 during the forward pass breaks attention softmax normalization across the remaining tokens; including token 0 when averaging `RMSNorm` or covariance matrices corrupts the scale factor $s(\mathbf{x}) = (\lVert\mathbf{x}\rVert_2^2 / D + \varepsilon)^{-1/2}$ and rank-1 outer product $\hat{\mathbf{x}}\hat{\mathbf{x}}^\top / D$. Keeping token 0 in the forward pass while restricting expectations to `[:, 1:, :]` avoids both errors.
 
 ### 2.2 Rule 2: Broadcast Sequence Perturbations and the Attention Value Path ($\beta$)
 
-Both [`docs/research/control_vectors/exl3_qwen3vl/label_h3_control_vectors.py:702-705`](exl3_qwen3vl/label_h3_control_vectors.py#L702-L705) (`h_pos[:, 1:, :] = h_pos[:, 1:, :] + d`) and [`control_vector_nodes.py`](../../../control_vector_nodes.py) broadcast the steering vector $\mathbf{\delta}$ across a span of token positions $j \in \mathcal{S} \subseteq \{1, \dots, S-1\}$ rather than perturbing a single token in isolation.
+Both [`docs/research/control_vectors/exl3_qwen3vl/label_h3_control_vectors.py:702-705`](exl3_qwen3vl/label_h3_control_vectors.py#L702-L705) (`h_pos[:, 1:, :] = h_pos[:, 1:, :] + d`) and [`control_vector_nodes.py`](../../../control_vector_nodes.py) broadcast the steering vector $\mathbf{\delta}$ across a span of token positions $j \in \mathcal{S} \subseteq \lbrace 1, \dots, S-1 \rbrace$ rather than perturbing a single token in isolation.
 
 Under a broadcast perturbation $\mathbf{h}_j \mapsto \mathbf{h}_j + \mathbf{\delta}$ for $j \in \mathcal{S}$, the output of an attention block at token $i \in \mathcal{S}$ with frozen routing weights $A_{i,j}$ differentiates with respect to $\mathbf{\delta}$ as:
 
-$$\frac{\partial\,\text{Attn}_i}{\partial \mathbf{\delta}} = \left(\sum_{j \in \mathcal{S}} A_{i,j}\right) W_O W_V \, J_{\text{RMSNorm}_1}(\mathbf{h}_i) \approx \beta \, W_O W_V \, J_{\text{RMSNorm}_1}(\mathbf{h}_i)$$
+$$\frac{\partial \text{Attn}_i}{\partial \mathbf{\delta}} = \left(\sum_{j \in \mathcal{S}} A_{i,j}\right) W_O W_V J_{\text{RMSNorm}_1}(\mathbf{h}_i) \approx \beta W_O W_V J_{\text{RMSNorm}_1}(\mathbf{h}_i)$$
 
-where $\beta = \mathbb{E}_{i \in \mathcal{S}}\!\left[\sum_{j \in \mathcal{S}} A_{i,j}\right] \in [0, 1]$ is the average non-sink attention mass that remains inside the steered span $\mathcal{S}$ (`1 - A_{i,0}` when $\mathcal{S} = \{1, \dots, S-1\}$, or the in-span fraction for `diff_span`), while each per-token `RMSNorm` and SwiGLU FFN block has exact analytical Jacobian:
+where $\beta = \mathbb{E}_{i \in \mathcal{S}}\left[\sum_{j \in \mathcal{S}} A_{i,j}\right] \in [0, 1]$ is the average non-sink attention mass that remains inside the steered span $\mathcal{S}$ (`1 - A_{i,0}` when $\mathcal{S} = \lbrace 1, \dots, S-1 \rbrace$, or the in-span fraction for `diff_span`), while each per-token `RMSNorm` and SwiGLU FFN block has exact analytical Jacobian:
 
-$$J_{\text{RMSNorm}}(\mathbf{x}) = s(\mathbf{x})\,\text{diag}(\mathbf{w})\left(I_D - \frac{\hat{\mathbf{x}}\hat{\mathbf{x}}^\top}{D}\right), \qquad J_{\text{FFN}}(\mathbf{y}) = W_{\text{down}}\Big(\text{diag}(\text{silu}'(\mathbf{g})\odot \mathbf{u})\,W_{\text{gate}} + \text{diag}(\text{silu}(\mathbf{g}))\,W_{\text{up}}\Big)$$
+$$J_{\text{RMSNorm}}(\mathbf{x}) = s(\mathbf{x}) \text{diag}(\mathbf{w})\left(I_D - \frac{\hat{\mathbf{x}}\hat{\mathbf{x}}^\top}{D}\right), \qquad J_{\text{FFN}}(\mathbf{y}) = W_{\text{down}}\Big(\text{diag}(\text{silu}'(\mathbf{g})\odot \mathbf{u}) W_{\text{gate}} + \text{diag}(\text{silu}(\mathbf{g})) W_{\text{up}}\Big)$$
 
 In `comfy/ldm/minimax/model.py:158-169, 250-276, 477-484, 509-511`, `MiniMaxH3Model`'s 2-block `TokenRefiner` has `hidden_size = 5376`, `num_attention_heads = 56`, `attention_head_dim = 128` (`inner_dim = 7168`, not `5376`), `ffn_hidden_size = 14336`, and `norm_eps = 1e-5`. Testing $\bar{J}_{\text{ref}}$ across the initial **35 dual `.safetensors` control vectors** (`19` `ref2va`, `16` `fl2va`, each holding both `vector.encoder` $\in \mathbb{R}^{5120}$ and `vector.post_refiner` $\in \mathbb{R}^{5376}$; disk now holds `90` dual `.safetensors` files = `45` `fl2va` + `45` `ref2va`) shows why the broadcast attention value path is essential:
 
-| `TokenRefiner` Attention Value Weight $\beta$ | Mean $\cos(\bar{J}_{\text{ref}}\mathbf{v}_{\text{enc}},\, \mathbf{v}_{\text{PR}})$ (All 35 Vectors) | Best Tikhonov $\cos(J_{\text{pinv}}\mathbf{v}_{\text{PR}},\, \mathbf{v}_{\text{enc}})$ | Best Tikhonov $\cos(\bar{J}_{49 \to 63}J_{\text{pinv}}\mathbf{v}_{\text{PR}},\, \bar{J}_{49 \to 63}\mathbf{v}_{\text{enc}})$ | Physical Interpretation |
+| `TokenRefiner` Attention Value Weight $\beta$ | Mean $\cos(\bar{J}_{\text{ref}}\mathbf{v}_{\text{enc}}, \mathbf{v}_{\text{PR}})$ (All 35 Vectors) | Best Tikhonov $\cos(J_{\text{pinv}}\mathbf{v}_{\text{PR}}, \mathbf{v}_{\text{enc}})$ | Best Tikhonov $\cos(\bar{J}_{49 \to 63}J_{\text{pinv}}\mathbf{v}_{\text{PR}}, \bar{J}_{49 \to 63}\mathbf{v}_{\text{enc}})$ | Physical Interpretation |
 |---|---:|---:|---:|---|
 | $\beta = 0.00$ (MLP + residual only; attention omitted) | `0.5091` | `0.4040` | `0.7217` | Misses cross-token `W_O W_V` value accumulation across the steered span |
 | $\beta = 0.25$ (partial span attention + MLP) | `0.7665` | `0.4692` | `0.7713` | Under-weights multi-token span attention |
@@ -74,7 +74,7 @@ Including the broadcast attention value path $\beta W_O W_V J_{\text{RMSNorm}_1}
 
 Taking the singular value decomposition $\bar{J}_{\text{ref}}^{\text{ref2va}} = U \operatorname{diag}(\sigma_1, \dots, \sigma_{5120}) V^\top \in \mathbb{R}^{5376 \times 5120}$ reveals that the 2-block `TokenRefiner` acts as a strongly anisotropic low-pass filter on `layers.49`:
 
-| Singular Value Rank $k$ (of `5120`) | Singular Value $\sigma_k(\bar{J}_{\text{ref}}^{\text{ref2va}})$ | Cumulative `vector.post_refiner` Energy $\|U_{:, :k}^\top \mathbf{v}_{\text{PR}}\|_2^2 / \|\mathbf{v}_{\text{PR}}\|_2^2$ (`n = 35`) | Isotropic Random Baseline ($k / 5120$) |
+| Singular Value Rank $k$ (of `5120`) | Singular Value $\sigma_k(\bar{J}_{\text{ref}}^{\text{ref2va}})$ | Cumulative `vector.post_refiner` Energy $\lVert U_{:, :k}^\top \mathbf{v}_{\text{PR}}\rVert_2^2 / \lVert\mathbf{v}_{\text{PR}}\rVert_2^2$ (`n = 35`) | Isotropic Random Baseline ($k / 5120$) |
 |---:|---:|---:|---:|
 | `1` (`max`) | `3.0118` | `1.7%` | `0.02%` |
 | `51` (`p99`, top `1%`) | `1.3597` | `33.4%` | `1.0%` |
@@ -110,14 +110,14 @@ $$J_{\text{Tikhonov}}^\dagger = \left(\bar{J}_{\text{ref}}^\top \bar{J}_{\text{r
 assumes an isotropic prior $\mathbf{v}_{\text{enc}} \sim \mathcal{N}(\mathbf{0}, I_{5120})$. Because Qwen `layers.49` activations `H_49[:, 1:, :]` occupy an anisotropic low-rank cone, an isotropic prior maps small post-refiner residuals into dead `layers.49` directions that `layers.50..63` never see during pretraining.
 
 Replacing $I_{5120}$ with the shrinkage-regularized empirical covariance of `tok1+` activations at `layers.49`,
-$$\Sigma_{49} = (1 - \gamma)\,\widehat{\text{Cov}}\!\left(H_{49, 1:}\right) + \gamma\,\frac{\operatorname{tr}(\widehat{\text{Cov}})}{5120}\,I_{5120} \qquad (\gamma = 0.20),$$
+$$\Sigma_{49} = (1 - \gamma) \widehat{\text{Cov}}\left(H_{49, 1:}\right) + \gamma \frac{\operatorname{tr}(\widehat{\text{Cov}})}{5120} I_{5120} \qquad (\gamma = 0.20),$$
 yields the closed-form **Wiener inverse**:
 
 $$J_{\text{Wiener}}^{(f)} = \Sigma_{49}\left(\bar{J}_{\text{ref}}^{(f)}\right)^\top\left(\bar{J}_{\text{ref}}^{(f)}\Sigma_{49}\left(\bar{J}_{\text{ref}}^{(f)}\right)^\top + \lambda^2 I_{5376}\right)^{-1} \in \mathbb{R}^{5120 \times 5376}$$
 
-with $\lambda = \lambda_{\text{rel}}\,\sigma_{\max}(\bar{J}_{\text{ref}}\Sigma_{49}^{1/2})$ ($\lambda_{\text{rel}} = 0.03$). Across all 35 dual `.safetensors` vectors on disk, Wiener inversion improves both `layers.49` recovery and downstream `layers.63` transport fidelity:
+with $\lambda = \lambda_{\text{rel}} \sigma_{\max}(\bar{J}_{\text{ref}}\Sigma_{49}^{1/2})$ ($\lambda_{\text{rel}} = 0.03$). Across all 35 dual `.safetensors` vectors on disk, Wiener inversion improves both `layers.49` recovery and downstream `layers.63` transport fidelity:
 
-| Inverse Estimator $\hat{\mathbf{v}}_{\text{enc}} = J^{-1}\mathbf{v}_{\text{PR}}$ | Mean $\cos(\hat{\mathbf{v}}_{\text{enc}},\, \mathbf{v}_{\text{enc}})$ (`5120`-d `layers.49`) | Mean $\cos(\bar{J}_{49 \to 63}\hat{\mathbf{v}}_{\text{enc}},\, \bar{J}_{49 \to 63}\mathbf{v}_{\text{enc}})$ (`5120`-d `layers.63`) |
+| Inverse Estimator $\hat{\mathbf{v}}_{\text{enc}} = J^{-1}\mathbf{v}_{\text{PR}}$ | Mean $\cos(\hat{\mathbf{v}}_{\text{enc}}, \mathbf{v}_{\text{enc}})$ (`5120`-d `layers.49`) | Mean $\cos(\bar{J}_{49 \to 63}\hat{\mathbf{v}}_{\text{enc}}, \bar{J}_{49 \to 63}\mathbf{v}_{\text{enc}})$ (`5120`-d `layers.63`) |
 |---|---:|---:|
 | Isotropic Tikhonov $(\bar{J}_{\text{ref}}^\top \bar{J}_{\text{ref}} + \lambda^2 I)^{-1}\bar{J}_{\text{ref}}^\top$ | `0.4832` | `0.7820` |
 | **Empirical-Covariance Wiener $J_{\text{Wiener}}$ ($\gamma = 0.20, \lambda_{\text{rel}} = 0.03$)** | **`0.6663` (`0.6690` saved)** | **`0.8769` (`0.8778` saved)** |
@@ -128,9 +128,9 @@ After transport through $\bar{J}_{49 \to 63}$, the Wiener-recovered post-refiner
 
 ## 4. Combining 1 Shared Jacobian with 7 Cloze Baseline Logit Vectors (`14.5 ms` on CPU)
 
-### 4.1 Why Uncentered Linear Projection $W_{\text{lm\_head}} \bar{J}_{49 \to 63} \mathbf{v}$ Is Not Enough
+### 4.1 Why Uncentered Linear Projection $W_{\text{head}} \bar{J}_{49 \to 63} \mathbf{v}$ Is Not Enough
 
-Directly sorting raw dot products $\Delta \mathbf{z} = W_{\text{lm\_head}} \bar{J}_{49 \to 63} J_{\text{Wiener}} \mathbf{v}_{\text{PR}}$ over a regex vocabulary filter has two failure modes:
+Directly sorting raw dot products $\Delta \mathbf{z} = W_{\text{head}} \bar{J}_{49 \to 63} J_{\text{Wiener}} \mathbf{v}_{\text{PR}}$ (where $W_{\text{head}}$ is `lm_head.weight`) over a regex vocabulary filter has two failure modes:
 1. **BPE prefix stem leakage**: In Qwen's `151,936`-piece BPE vocabulary, multi-token words split into leading space pieces (`" explos"`, `" pne"`, `" fauc"`, `" Buccane"`, `" commande"`). Without [`docs/research/control_vectors/exl3_qwen3vl/label_h3_control_vectors.py::_get_bpe_vocab_map`](exl3_qwen3vl/label_h3_control_vectors.py#L233-L324) (which maps `24,912` complete words and unambiguous domain/dictionary stems to their full English words while excluding stopwords and ambiguous short prefixes), raw BPE subwords pollute the top ranks.
 2. **Off-context high-norm unembedding rows**: Without a syntactic cloze baseline, high-norm proper nouns and technical tokens (`"USSR"`, `"Yugoslavia"`, `"openid"`, `"concatenate"`) that are grammatically impossible after *"The visual medium, camera look, lighting, and image fidelity look ___"* can score high raw dot products.
 
@@ -139,14 +139,14 @@ Directly sorting raw dot products $\Delta \mathbf{z} = W_{\text{lm\_head}} \bar{
 In [`docs/research/control_vectors/exl3_qwen3vl/label_h3_control_vectors.py:665-721`](exl3_qwen3vl/label_h3_control_vectors.py#L665-L721), `compute_top_logit_shifts` evaluates 7 syntactic cloze prefixes (`141` tokens total across visual medium, lighting/film stock, head/body proportions, room motion, signage, surface texture, and `overall_soundscape`) and applies three nonlinear filters:
 1. **Grammatical admissibility gate (`lp_pos > -11.5`)**: Only tokens whose steered log-probability $\log P(w \mid \text{prefix}, +\mathbf{d}) > -11.5$ on at least one of the 7 cloze prefixes can appear.
 2. **One-sided peak-flattening cancellation**:
-   $$\text{pos\_shift}(w) = \min\!\Big(\log P(w \mid +\mathbf{d}) - \log P(w \mid \text{base}),\; \log P(w \mid +\mathbf{d}) - \log P(w \mid -\mathbf{d})\Big)$$
+   $$\text{shift}_{+}(w) = \min\Big(\log P(w \mid +\mathbf{d}) - \log P(w \mid \text{base}), \quad \log P(w \mid +\mathbf{d}) - \log P(w \mid -\mathbf{d})\Big)$$
    which preserves 100% of directional boosts when $\log P(w \mid -\mathbf{d}) \le \log P(w \mid \text{base})$ while subtracting isotropic off-manifold entropy flattening when both $+\mathbf{d}$ and $-\mathbf{d}$ raise a token above baseline.
-3. **Max-pooling across the 7 syntactic slots**: $\text{score}(w) = \max_{p \in \{0..6\}} \text{gain}_p(w)$, allowing visual adjectives, motion verbs, nouns, and acoustic descriptors to each surface on the prefix where they are grammatically valid.
+3. **Max-pooling across the 7 syntactic slots**: $\text{score}(w) = \max_{p \in \lbrace 0..6 \rbrace} \text{gain}_p(w)$, allowing visual adjectives, motion verbs, nouns, and acoustic descriptors to each surface on the prefix where they are grammatically valid.
 
 Critically, we do **not** need 7 separate $5120 \times 5120$ Jacobians (`~367 MB`). Instead, we combine:
 - **One** `1,536`-token prompt-bank-averaged transport operator $\bar{J}_{49 \to 63}$, and
 - **Seven** unsteered baseline logit vectors $\mathbf{z}_{\text{base}}^{(0..6)}$ precomputed once from the exact 64-layer `Qwen3-VL-32B-Instruct` forward pass on the 7 cloze prefixes:
-  $$\mathbf{z}_{\pm}^{(p)} = \mathbf{z}_{\text{base}}^{(p)} \pm \left(W_{\text{lm\_head}} \bar{J}_{49 \to 63}\right) \mathbf{d}$$
+  $$\mathbf{z}_{\pm}^{(p)} = \mathbf{z}_{\text{base}}^{(p)} \pm \left(W_{\text{head}} \bar{J}_{49 \to 63}\right) \mathbf{d}$$
 
 #### The Full-Vocabulary `logsumexp` Partition-Function Invariant
 In [`docs/research/control_vectors/exl3_qwen3vl/label_h3_control_vectors.py:707-709`](exl3_qwen3vl/label_h3_control_vectors.py#L707-L709), `F.log_softmax(tail_logits(...), dim=-1)[valid_idx]` normalizes over all `151,936` vocabulary tokens **before** indexing `valid_idx` (`24,912` content words). Because function words, articles, and punctuation (`" the"`, `" a"`, `","`, `"."`) dominate the next-token probability mass on cloze prefixes, taking `log_softmax` over `valid_idx` alone omits the dominant terms in the partition function $\log \sum_{v=1}^{151936} \exp(z_v)$.
@@ -181,11 +181,11 @@ Running the 7-prefix cloze-gated J-Lens readout ($\text{scale} = 90.0$, $\min\lo
 | `operatic_bellow` | `crescendi`, `cathedral`, `soaring`, `intensified`, `gorge`, `exhilarate` | `quiet`, `casual`, `simple`, `casually`, `quietly`, `straightforward` |
 | `wind_tunnel_gale` | `aggressive`, `storm`, `blasting`, `exhilarate`, `urgent`, `explosive` | `quiet`, `quietly`, `gently`, `gentle`, `timeless`, `stationary` |
 
-### 5.2 Build-Time Hold Sweep ($\alpha \in \{0.0, 0.5, 1.0\}$ on `diff_span` `holds.post_refiner`)
+### 5.2 Build-Time Hold Sweep ($\alpha \in \lbrace 0.0, 0.5, 1.0 \rbrace$ on `diff_span` `holds.post_refiner`)
 
-Evaluating $\mathbf{v}_{\text{PR}}(\alpha) = \mathbf{v}_{\text{raw}} - \alpha \, U_{\text{hold}}^\top (U_{\text{hold}}\mathbf{v}_{\text{raw}})$ across $\alpha \in \{0.0, 0.5, 1.0\}$ directly in `5376`-d space shows what `holds.post_refiner` removes and preserves:
+Evaluating $\mathbf{v}_{\text{PR}}(\alpha) = \mathbf{v}_{\text{raw}} - \alpha U_{\text{hold}}^\top (U_{\text{hold}}\mathbf{v}_{\text{raw}})$ across $\alpha \in \lbrace 0.0, 0.5, 1.0 \rbrace$ directly in `5376`-d space shows what `holds.post_refiner` removes and preserves:
 
-| Vector (`fl2va`, `diff_span`) | Hold Strength $\alpha$ | $\|\mathbf{v}_{\text{PR}}(\alpha)\|_2$ | Top Positive Words (`+v_PR`, with log-prob gain) | Top Negative Words (`-v_PR`, with log-prob gain) | What Changes Across $\alpha$ |
+| Vector (`fl2va`, `diff_span`) | Hold Strength $\alpha$ | $\lVert\mathbf{v}_{\text{PR}}(\alpha)\rVert_2$ | Top Positive Words (`+v_PR`, with log-prob gain) | Top Negative Words (`-v_PR`, with log-prob gain) | What Changes Across $\alpha$ |
 |---|---:|---:|---|---|---|
 | `head_swell` | `0.0` (unprojected `apply_holds=False`) | `85.01` | `oversized` (`1.27`), `cone` (`1.00`), **`psychedelic` (`0.99`)**, `cavern` (`0.96`), `enormous` (`0.95`), `colossal` (`0.95`), **`futuristic` (`0.94`)**, `smaller` (`0.94`) | `consistent` (`1.54`), `shot` (`1.16`), `shots` (`1.12`), `consistently` (`1.06`), `overall` (`1.05`), `unchanged` (`1.03`) | Unprojected vector leaks style/genre terms (`psychedelic`, `futuristic`) |
 | `head_swell` | `0.5` (soft ridge hold) | `79.55` | `oversized` (`1.33`), **`dome` (`1.09`)**, `cone` (`1.01`), `cavern` (`1.00`), **`spherical` (`0.99`)**, `psychedelic` (`0.97`), `engulf` (`0.92`), `futuristic` (`0.92`) | `consistent` (`1.55`), `shots` (`1.24`), `shot` (`1.21`), `motion` (`1.19`), `same` (`1.12`), `establishing` (`1.09`) | Geometric terms (`dome`, `spherical`) rise into top 5 while retaining `93.6%` of vector norm |
@@ -200,11 +200,11 @@ In [`2026-11-06_detangle_comparison_and_borrowable_concepts.md`](2026-11-06_deta
 
 Testing `cursed_cctv` (`fl2va`, `diff_span`) while holding out the 2-vector orthonormal basis spanned by `chaos_panic` and `handheld_documentary_zoom` demonstrates why inference-time 10-pair holds work so well:
 
-| Inference-Time Hold Configuration | $\|\mathbf{v}_{\text{PR}}(\alpha)\|_2$ | Top Positive Words (`+v_PR`, with log-prob gain) | Physical Interpretation |
+| Inference-Time Hold Configuration | $\lVert\mathbf{v}_{\text{PR}}(\alpha)\rVert_2$ | Top Positive Words (`+v_PR`, with log-prob gain) | Physical Interpretation |
 |---|---:|---|---|
 | $\alpha = 0.0$ (raw `cursed_cctv`) | `63.26` | `unstable` (`1.47`), **`erratic` (`1.38`)**, `outdated` (`1.27`), `corrupted` (`1.25`), **`jittery` (`1.22`)**, **`alarm` (`1.21`)**, **`shaky` (`1.20`)**, `twitch` (`1.17`) | Mixes low-bitrate CCTV degradation with camera shake (`shaky`, `erratic`, `jittery`) and panic (`alarm`) |
-| $\alpha = 0.5$ (`cursed_cctv` $-$ $0.5\,P_{\text{panic, shaky}}$) | `58.48` | `unstable` (`1.30`), `outdated` (`1.21`), `erratic` (`1.14`), `jittery` (`1.11`), `corrupted` (`1.10`), `twitch` (`1.07`), `warped` (`1.07`), `shaky` (`1.07`) | Softens camera shake while preserving CCTV signal corruption (`corrupted`, `warped`) |
-| $\alpha = 1.0$ (`cursed_cctv` $-$ $1.0\,P_{\text{panic, shaky}}$) | `56.80` | `outdated` (`1.09`), `fluctuate` (`1.06`), `unstable` (`1.05`), `intermittently` (`1.04`), `intermittent` (`1.01`), **`fixed` (`0.99`)**, **`timestamp` (`0.99`)** | **Completely removes `shaky`, `erratic`, `jittery`, and `alarm`**, exposing **`fixed`** and **`timestamp`** (a stationary wall-mounted CCTV feed with timestamp overlay) |
+| $\alpha = 0.5$ (`cursed_cctv` $-$ $0.5 P_{\text{panic, shaky}}$) | `58.48` | `unstable` (`1.30`), `outdated` (`1.21`), `erratic` (`1.14`), `jittery` (`1.11`), `corrupted` (`1.10`), `twitch` (`1.07`), `warped` (`1.07`), `shaky` (`1.07`) | Softens camera shake while preserving CCTV signal corruption (`corrupted`, `warped`) |
+| $\alpha = 1.0$ (`cursed_cctv` $-$ $1.0 P_{\text{panic, shaky}}$) | `56.80` | `outdated` (`1.09`), `fluctuate` (`1.06`), `unstable` (`1.05`), `intermittently` (`1.04`), `intermittent` (`1.01`), **`fixed` (`0.99`)**, **`timestamp` (`0.99`)** | **Completely removes `shaky`, `erratic`, `jittery`, and `alarm`**, exposing **`fixed`** and **`timestamp`** (a stationary wall-mounted CCTV feed with timestamp overlay) |
 
 ---
 
@@ -212,16 +212,16 @@ Testing `cursed_cctv` (`fl2va`, `diff_span`) while holding out the 2-vector orth
 
 ### 6.1 Why Naive $\Sigma_{49}^{1.0} M_{\text{valid}}^\top$ Pullback Failed (`cos = 0.27–0.38`) vs. Why Spectral-Filtered $\Sigma_{49, \text{filt}}^{0.30}$ Works (`cos = 0.52–0.64`)
 
-Our first attempt to synthesize control vectors directly from simple English seed words pulled raw rows of $M_{\text{valid}} = W_{\text{lm\_head}}[\text{valid\_idx}] \bar{J}_{49 \to 63}$ backward through the full empirical covariance $\Sigma_{49}^{1.0}$ (`cos_5120 = 0.27–0.38` against 10-pair `vector.encoder`). Inspecting the spectrum of $\Sigma_{49}$ and the row geometry of $M_{\text{valid}}$ revealed two distinct failure causes:
+Our first attempt to synthesize control vectors directly from simple English seed words pulled raw rows of $M_{\text{valid}} = W_{\text{head}}[\text{valid}] \bar{J}_{49 \to 63}$ backward through the full empirical covariance $\Sigma_{49}^{1.0}$ (`cos_5120 = 0.27–0.38` against 10-pair `vector.encoder`). Inspecting the spectrum of $\Sigma_{49}$ and the row geometry of $M_{\text{valid}}$ revealed two distinct failure causes:
 1. **Top-1 Common-Mode Eigenvalue Dominance in $\Sigma_{49}^{1.0}$**: The largest eigenvalue of $\widehat{\text{Cov}}(H_{49, 1:})$ is $\sim 100\times$ larger than the semantic eigenvalues, so multiplying by $\Sigma_{49}^{1.0}$ collapses every word difference onto a single common-mode activation direction.
 2. **Shared Vocabulary Mean in $M_{\text{valid}}$ and Missing Forward Refiner Push**: Raw rows of $M_{\text{valid}}$ share a strong common token-frequency bias, and evaluating similarity in `5120`-d `layers.49` omits the `5376`-d `TokenRefiner` subspace filter $\bar{J}_{\text{ref}}^{(f)}$.
 
 When we fix both inside [`j_lens.py`](../../../j_lens.py) (`synthesize_from_words` / `--from-words`):
 1. **Mean-center and row-normalize $M_{\text{valid}}$** across the `24,912`-word vocabulary:
-   $$\widehat{M}_i = \frac{M_{\text{valid}, i} - \bar{\mathbf{m}}}{\|M_{\text{valid}, i} - \bar{\mathbf{m}}\|_2}, \qquad \Delta\mathbf{\mu} = \frac{\frac{1}{|P|}\sum_{i \in P} \widehat{M}_i}{\left\|\frac{1}{|P|}\sum_{i \in P} \widehat{M}_i\right\|_2} - \frac{\frac{1}{|N|}\sum_{j \in N} \widehat{M}_j}{\left\|\frac{1}{|N|}\sum_{j \in N} \widehat{M}_j\right\|_2}$$
+   $$\widehat{M}_i = \frac{M_{\text{valid}, i} - \bar{\mathbf{m}}}{\lVert M_{\text{valid}, i} - \bar{\mathbf{m}}\rVert_2}, \qquad \Delta\mathbf{\mu} = \frac{\frac{1}{|P|}\sum_{i \in P} \widehat{M}_i}{\left\lVert\frac{1}{|P|}\sum_{i \in P} \widehat{M}_i\right\rVert_2} - \frac{\frac{1}{|N|}\sum_{j \in N} \widehat{M}_j}{\left\lVert\frac{1}{|N|}\sum_{j \in N} \widehat{M}_j\right\rVert_2}$$
 2. **Precondition with spectral-filtered fractional covariance $\Sigma_{49, \text{filt}}^{0.30}$** (`Sigma_49_p030` in `j_lens_h3.safetensors`, where the top-1 common-mode eigenvalue $\lambda_{\max}$ is zeroed out and the remaining eigenvalues are raised to $p = 0.30$), and
 3. **Push forward through $\bar{J}_{\text{ref}}^{(f)}$ (`5376`-d)**:
-   $$\hat{\mathbf{v}}_{\text{enc}} = \text{normalize}\!\left(\Sigma_{49, \text{filt}}^{0.30}\,\Delta\mathbf{\mu}\right), \qquad \hat{\mathbf{v}}_{\text{PR}}^{(f)} = 67.5 \cdot \text{normalize}\!\left(\bar{J}_{\text{ref}}^{(f)}\,\Sigma_{49, \text{filt}}^{0.30}\,\Delta\mathbf{\mu}\right)$$
+   $$\hat{\mathbf{v}}_{\text{enc}} = \text{normalize}\left(\Sigma_{49, \text{filt}}^{0.30} \Delta\mathbf{\mu}\right), \qquad \hat{\mathbf{v}}_{\text{PR}}^{(f)} = 67.5 \cdot \text{normalize}\left(\bar{J}_{\text{ref}}^{(f)} \Sigma_{49, \text{filt}}^{0.30} \Delta\mathbf{\mu}\right)$$
 
 alignment with the true 10-pair `diff_span` `vector.post_refiner` jumps from `0.27–0.38` to **`mean cos_5376 = 0.5724` (`0.5238–0.6368` on §5.1 top-8 words, `0.5236` on ad-hoc user seed words)** in **`< 2 ms` on CPU with zero `Qwen3-VL` load and zero `.toml` files**:
 

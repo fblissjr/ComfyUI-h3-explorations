@@ -25,7 +25,7 @@ Hold projection $\mathbf{v}_\perp(\alpha) = (I - \alpha U^\top U)\mathbf{v}$ had
 
 | Path | Code Site | Current $\alpha$ Bounds | Current Post-Hold Norm Behavior |
 |---|---|---|---|
-| **1. Build-time `.toml` `[[hold]]`** | [`control_vector_nodes.py:867`](../../../control_vector_nodes.py#L867), [`bench/control_vectors.py:461, 2103`](../../../bench/control_vectors.py#L2103) | `1.0` (`project_out` caps to `[0.0, 1.0]` at [`control_vectors.py:1169`](../../../control_vectors.py#L1169)) | **Preserves projection norm drop** ($\|\mathbf{v}_\perp\|_2 \le \|\mathbf{v}\|_2$; `head_swell` drops `85.01 -> 77.65`) |
+| **1. Build-time `.toml` `[[hold]]`** | [`control_vector_nodes.py:867`](../../../control_vector_nodes.py#L867), [`bench/control_vectors.py:461, 2103`](../../../bench/control_vectors.py#L2103) | `1.0` (`project_out` caps to `[0.0, 1.0]` at [`control_vectors.py:1169`](../../../control_vectors.py#L1169)) | **Preserves projection norm drop** ($\lVert\mathbf{v}_\perp\rVert_2 \le \lVert\mathbf{v}\rVert_2$; `head_swell` drops `85.01 -> 77.65`) |
 | **2. Runtime chained `mode="hold"`** | [`control_vectors.py:2110-2130, 2335`](../../../control_vectors.py#L2110-L2130) | Unclamped at [`control_vector_nodes.py:1309, 1322`](../../../control_vector_nodes.py#L1309-L1322) and unvalidated in `_apply_holds_to_shift64` | **Preserves projection norm drop** on `total_shift64` |
 | **3. `j_lens.py` / `inspect --hold-words`** | [`j_lens.py:308, 686-689, 761, 1961`](../../../j_lens.py#L686-L689) | `[0.0, 2.0]` | **Preserves projection norm drop** (`norm_after_holds < norm_before_holds`) on `decode_safetensors`, `decode_recipe`, and `save_composed_recipe_vector` |
 | **4. Runtime `hold_words` on `vector_name` & `cvman` `_apply_post_refiner_holds`** | [`control_vector_nodes.py:1633-1641`](../../../control_vector_nodes.py#L1633-L1641), `cvman` `bench/control_vectors.py:259` | `[0.0, 2.0]` | **Silently rescales back to `orig_nrm`** (`vec_held * (orig_nrm / res_nrm)`) |
@@ -56,7 +56,7 @@ Furthermore, during `make` and `build`, [`control_vector_nodes.py:911-929`](../.
          )
      vec_pr = vec_held
      ```
-   - **Why**: Under `mode="add"`, removing a correlated nuisance subspace *should* remove that subspace's energy ($\|\mathbf{v}_\perp\|_2 < \|\mathbf{v}\|_2$), matching `inspect --hold-words` and `mode="hold"`. When the user wants constant post-hold shift magnitude (`67.5 * strength`), `mode="add_norm_matched"` ([`control_vectors.py:2216-2219, 2347-2356`](../../../control_vectors.py#L2216-L2219)) **already** rescales `vec_pr` (or the post-hold shift) to `NORM_MATCHED_TARGET = 67.5`.
+   - **Why**: Under `mode="add"`, removing a correlated nuisance subspace *should* remove that subspace's energy ($\lVert\mathbf{v}_\perp\rVert_2 < \lVert\mathbf{v}\rVert_2$), matching `inspect --hold-words` and `mode="hold"`. When the user wants constant post-hold shift magnitude (`67.5 * strength`), `mode="add_norm_matched"` ([`control_vectors.py:2216-2219, 2347-2356`](../../../control_vectors.py#L2216-L2219)) **already** rescales `vec_pr` (or the post-hold shift) to `NORM_MATCHED_TARGET = 67.5`.
 3. **Twin-Space Symmetry: Apply `unit_mean` and `[[hold]]` projection to `vector.encoder` (`5120`-d)**:
    - In [`control_vector_nodes.py:820-935`](../../../control_vector_nodes.py#L820-L935) and [`bench/control_vectors.py:450-500, 2065-2139`](../../../bench/control_vectors.py#L2065-L2139):
      - Pass `unit_mean=use_unit_mean` to `cv.mean_difference(enc_a_mat, enc_b_mat, w_vec, unit_mean=use_unit_mean)`.
