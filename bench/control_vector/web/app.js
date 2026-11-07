@@ -3,10 +3,7 @@ const APP = {
   vectors: [],
   tomlPacks: [],
   expandedPairs: [],
-  sculptRows: [
-    { vector: 'film_16mm_1974', strength: 1.0, mode: 'add' },
-    { vector: 'chaos_panic', strength: 1.0, mode: 'hold' }
-  ],
+  sculptRows: [],
   mediaDataUrlA: null,
   mediaDataUrlB: null,
   systemPromptSummary: ''
@@ -92,6 +89,14 @@ async function loadInitData() {
     }
     renderLibraryTables();
     populateVectorSelects();
+    if (!APP.sculptRows.length && APP.vectors.length) {
+      const v0 = typeof APP.vectors[0] === 'string' ? APP.vectors[0] : (APP.vectors[0].file || APP.vectors[0].name);
+      APP.sculptRows.push({ vector: v0, strength: 1.0, mode: 'add_norm_matched' });
+      if (APP.vectors.length > 1) {
+        const v1 = typeof APP.vectors[1] === 'string' ? APP.vectors[1] : (APP.vectors[1].file || APP.vectors[1].name);
+        APP.sculptRows.push({ vector: v1, strength: 1.0, mode: 'hold' });
+      }
+    }
     renderSculptRows();
     setStatus(`Ready • ${APP.vectors.length} vectors`, 'ok');
   } catch (err) {
@@ -190,7 +195,7 @@ function prefillInvert(fileOrStem) {
 
 function prefillSculpt(fileOrStem) {
   switchScreen('screen-sculpt');
-  APP.sculptRows[0] = { vector: fileOrStem, strength: 1.0, mode: 'add' };
+  APP.sculptRows[0] = { vector: fileOrStem, strength: 1.0, mode: 'add_norm_matched' };
   renderSculptRows();
 }
 
@@ -665,8 +670,8 @@ function renderSculptRows() {
 }
 
 function addSculptRow() {
-  const firstVec = APP.vectors.length ? (typeof APP.vectors[0] === 'string' ? APP.vectors[0] : (APP.vectors[0].file || APP.vectors[0].name)) : 'film_16mm_1974';
-  APP.sculptRows.push({ vector: firstVec, strength: 0.5, mode: 'add' });
+  const firstVec = APP.vectors.length ? (typeof APP.vectors[0] === 'string' ? APP.vectors[0] : (APP.vectors[0].file || APP.vectors[0].name)) : '';
+  APP.sculptRows.push({ vector: firstVec, strength: 0.5, mode: 'add_norm_matched' });
   renderSculptRows();
 }
 

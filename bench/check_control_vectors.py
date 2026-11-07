@@ -3408,6 +3408,63 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
                     errs.append(f"cmd_build --words / --placebo failed: rc_wb={rc_wb}, rc_pb={rc_pb}, err={buf_wb_err.getvalue()!r}")
                 elif len(list(words_vec_dir.glob("*.safetensors"))) != 2:
                     errs.append(f"cmd_build --words / --placebo expected 2 .safetensors files, got {list(words_vec_dir.glob('*.safetensors'))}")
+                else:
+                    # Verify non-TOML compiled --words vector stores pairs_ab/words_spec and rebuilds identically
+                    wb_st = next(
+                        p for p in words_vec_dir.glob("*.safetensors") if "placebo" not in p.name
+                    )
+                    wb_stem = wb_st.name.split("__")[0]
+                    wb_t_orig, wb_m_orig = cv.load_vector(wb_st)
+                    wb_pairs_meta = wb_m_orig.get("pairs") or {}
+                    if not isinstance(wb_pairs_meta.get("pairs_ab"), list) or len(wb_pairs_meta["pairs_ab"]) != 10:
+                        errs.append(f"cmd_build --words did not persist pairs_ab in metadata['pairs']: {wb_pairs_meta.keys()}")
+                    with contextlib.redirect_stdout(buf_wb_out), contextlib.redirect_stderr(buf_wb_err):
+                        rc_reb_wb = bench_cv.main(
+                            [
+                                "rebuild",
+                                wb_stem,
+                                "--dir",
+                                str(words_vec_dir),
+                                "--toml-dir",
+                                str(words_vec_dir),
+                                "--families",
+                                "fl2va",
+                                "--dit",
+                                ckpt_path.name,
+                                "--no-lora",
+                            ]
+                        )
+                    if rc_reb_wb != 0:
+                        errs.append(f"cmd_rebuild on compiled --words vector failed with rc={rc_reb_wb}")
+                    else:
+                        wb_t_reb, wb_m_reb = cv.load_vector(wb_st)
+                        if not torch.allclose(wb_t_orig["vector.post_refiner"], wb_t_reb["vector.post_refiner"], atol=1e-5):
+                            errs.append("cmd_rebuild on compiled --words vector did not reproduce identical vector.post_refiner")
+                        if wb_m_reb.get("pairs", {}).get("words_spec") != "blizzard snowdrift indoors":
+                            errs.append(f"cmd_rebuild on compiled --words vector lost words_spec: {wb_m_reb.get('pairs', {}).get('words_spec')!r}")
+                        # Also verify that mutating pairs_ab[0]['weight'] on disk changes the rebuilt vector (proving pairs_ab reconstruction is used over words_spec recompilation)
+                        wb_m_mut = json.loads(json.dumps(wb_m_reb))
+                        wb_m_mut["pairs"]["pairs_ab"][0]["weight"] = 9.0
+                        cv.save_vector(wb_st, wb_t_reb, wb_m_mut, overwrite=True)
+                        with contextlib.redirect_stdout(buf_wb_out), contextlib.redirect_stderr(buf_wb_err):
+                            bench_cv.main(
+                                [
+                                    "rebuild",
+                                    wb_stem,
+                                    "--dir",
+                                    str(words_vec_dir),
+                                    "--toml-dir",
+                                    str(words_vec_dir),
+                                    "--families",
+                                    "fl2va",
+                                    "--dit",
+                                    ckpt_path.name,
+                                    "--no-lora",
+                                ]
+                            )
+                        _, wb_m_after_mut = cv.load_vector(wb_st)
+                        if float(wb_m_after_mut["pairs"]["pair_spans"][0]["weight"]) != 9.0:
+                            errs.append(f"cmd_rebuild did not reconstruct PairSet from pairs_ab (expected pair 0 weight 9.0, got {wb_m_after_mut['pairs']['pair_spans'][0]['weight']})")
 
                 # Verify _attach_refiner_lora_branches matches float32 merged TokenRefiner and refuses duplicate patches
                 import copy as _copy
@@ -4481,62 +4538,64 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
         # Verify `rebuild` CLI command in both single-vector mode and folder mode (and refusal on unknown stem)
         reb_dir = sib_dir / "rebuild_test_dir"
         reb_dir.mkdir(parents=True, exist_ok=True)
-        rc_w = bench_cv.main(
-            [
-                "words",
-                "blizzard, snowdrift, frost",
-                "--name",
-                "reb_word_sample",
-                "--families",
-                "fl2va",
-                "--out-dir",
-                str(reb_dir),
-            ]
-        )
-        if rc_w != 0:
-            errs.append(f"CLI words setup for rebuild test failed with exit code {rc_w}")
-        else:
-            reb_st_file = next(reb_dir.glob("reb_word_sample__fl2va__*.safetensors"))
-            t_orig, _ = cv.load_vector(reb_st_file)
-            rc_reb_single = bench_cv.main(
+        buf_reb_out, buf_reb_err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(buf_reb_out), contextlib.redirect_stderr(buf_reb_err):
+            rc_w = bench_cv.main(
                 [
-                    "rebuild",
+                    "words",
+                    "blizzard, snowdrift, frost",
+                    "--name",
                     "reb_word_sample",
-                    "--dir",
-                    str(reb_dir),
-                    "--toml-dir",
-                    str(reb_dir),
                     "--families",
                     "fl2va",
-                ]
-            )
-            if rc_reb_single != 0:
-                errs.append(f"CLI rebuild single vector failed with exit code {rc_reb_single}")
-            t_reb1, _ = cv.load_vector(reb_st_file)
-            if not torch.allclose(t_orig["vector.post_refiner"], t_reb1["vector.post_refiner"], atol=1e-5):
-                errs.append("CLI rebuild single vector altered J-Lens synthesized vector.post_refiner")
-            rc_reb_folder = bench_cv.main(
-                [
-                    "rebuild",
-                    str(reb_dir),
-                    "--toml-dir",
+                    "--out-dir",
                     str(reb_dir),
                 ]
             )
-            if rc_reb_folder != 0:
-                errs.append(f"CLI rebuild folder mode failed with exit code {rc_reb_folder}")
-            rc_reb_missing = bench_cv.main(
-                [
-                    "rebuild",
-                    "nonexistent_vector_stem_xyz",
-                    "--dir",
-                    str(reb_dir),
-                    "--toml-dir",
-                    str(reb_dir),
-                ]
-            )
-            if rc_reb_missing != 2:
-                errs.append(f"CLI rebuild on nonexistent stem expected exit code 2, got {rc_reb_missing}")
+            if rc_w != 0:
+                errs.append(f"CLI words setup for rebuild test failed with exit code {rc_w}")
+            else:
+                reb_st_file = next(reb_dir.glob("reb_word_sample__fl2va__*.safetensors"))
+                t_orig, _ = cv.load_vector(reb_st_file)
+                rc_reb_single = bench_cv.main(
+                    [
+                        "rebuild",
+                        "reb_word_sample",
+                        "--dir",
+                        str(reb_dir),
+                        "--toml-dir",
+                        str(reb_dir),
+                        "--families",
+                        "fl2va",
+                    ]
+                )
+                if rc_reb_single != 0:
+                    errs.append(f"CLI rebuild single vector failed with exit code {rc_reb_single}")
+                t_reb1, _ = cv.load_vector(reb_st_file)
+                if not torch.allclose(t_orig["vector.post_refiner"], t_reb1["vector.post_refiner"], atol=1e-5):
+                    errs.append("CLI rebuild single vector altered J-Lens synthesized vector.post_refiner")
+                rc_reb_folder = bench_cv.main(
+                    [
+                        "rebuild",
+                        str(reb_dir),
+                        "--toml-dir",
+                        str(reb_dir),
+                    ]
+                )
+                if rc_reb_folder != 0:
+                    errs.append(f"CLI rebuild folder mode failed with exit code {rc_reb_folder}")
+                rc_reb_missing = bench_cv.main(
+                    [
+                        "rebuild",
+                        "nonexistent_vector_stem_xyz",
+                        "--dir",
+                        str(reb_dir),
+                        "--toml-dir",
+                        str(reb_dir),
+                    ]
+                )
+                if rc_reb_missing != 2:
+                    errs.append(f"CLI rebuild on nonexistent stem expected exit code 2, got {rc_reb_missing}")
 
     return errs
 

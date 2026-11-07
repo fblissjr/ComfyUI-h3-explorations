@@ -51,7 +51,7 @@ Every `MiniMaxH3ApplyControlVectors` node ([`h3_rules.py:266-288`](../../h3_rule
 
 ---
 
-## 3. How to Create Your Own Control Vector (Three Ways)
+## 4. How to Create Your Own Control Vector (Three Ways)
 
 You do **not** need pre-canned scenes from `prompt_bank/` to use control vectors. The Studio UI and CLI are built for authoring **your own** vectors:
 
@@ -75,7 +75,7 @@ Both images are snapped to an identical 32-px M-RoPE vision token grid (`short_e
 
 ---
 
-## 4. End-to-End Walkthrough Examples (See [Full Examples & Recipes](control_vectors/examples_and_recipes.md))
+## 5. End-to-End Walkthrough Examples (See [Full Examples & Recipes](control_vectors/examples_and_recipes.md))
 
 Below are three common end-to-end recipes. For all 6 detailed recipes (including media look transfer, multi-vector sculpting, and `< 2 ms` CPU word synthesis), see **[6. Practical Examples & Recipes](control_vectors/examples_and_recipes.md)**.
 
@@ -122,7 +122,7 @@ This writes `prompt_bank/control_vectors/scorching_heatwave.toml` plus both `fl2
 
 ---
 
-## 5. Launching the Control Vector Studio UI
+## 6. Launching the Control Vector Studio UI
 
 ```bash
 COMFY="$(cd ../.. && pwd)"
@@ -139,7 +139,7 @@ The Studio UI opens in your browser and is organized into **6 focused task scree
 
 ---
 
-## 6. Sub-Guides & Reference Index
+## 7. Sub-Guides & Reference Index
 
 | Guide | What It Covers |
 |---|---|
@@ -153,7 +153,7 @@ The Studio UI opens in your browser and is organized into **6 focused task scree
 
 ---
 
-## 6. Common Questions (FAQ)
+## 8. Common Questions (FAQ)
 
 - **Do I have to use pre-canned `prompt_bank/` scenes like the violin busker scene?**
   **No.** The Studio UI and CLI are designed to build control vectors for **your own** concepts and scenes. In **Studio Screen 2 (Create from Text Pairs)**, you can paste your own target scene prompt as Pair 0 (`target_prompt`), write your own `Pole A -> Pole B` contrast, or edit all 10 Prompt A / Prompt B pairs directly. In **Studio Screen 5 (Test Against Your Prompt)**, you test any vector against your own H3 prompt.
@@ -169,7 +169,7 @@ The Studio UI opens in your browser and is organized into **6 focused task scree
 
 ---
 
-## 7. Quick CLI Cheat Sheet
+## 9. Quick CLI Cheat Sheet
 
 | Task | Command (`PY="$(cd ../.. && pwd)/.venv/bin/python"`) |
 |---|---|
@@ -178,15 +178,15 @@ The Studio UI opens in your browser and is organized into **6 focused task scree
 | Rebuild **all** control vectors in a specific folder | `"$PY" bench/control_vectors.py rebuild /path/to/control_vectors` |
 | Rebuild a **single** control vector (by stem or path) | `"$PY" bench/control_vectors.py rebuild film_16mm_1974` |
 | Build a vector from `Pole A -> Pole B` | `"$PY" bench/control_vectors.py build --words "calm air -> scorching heatwave" --name scorching --save-toml --overwrite` |
-| Build a vector from `.toml` or `.md` | `"$PY" bench/control_vectors.py build prompt_bank/control_vectors/blizzard.toml --families both --overwrite` |
+| Build a vector from `.toml` or `.md` | `"$PY" bench/control_vectors.py build prompt_bank/control_vectors/film_16mm_1974.toml --families both --overwrite` |
 | Build a vector from two reference images | `"$PY" bench/control_vectors.py make-media --image-a flat.png --image-b graded.png --output-name look_grade --overwrite` |
 | Invert an existing vector (`-1.0x`) | `"$PY" bench/control_vectors.py sculpt blizzard --invert --name anti_blizzard` |
-| Combine vectors + project out hold words | `"$PY" bench/control_vectors.py sculpt scorching golden_hour --modes add,add --strengths 1.0,0.5 --hold-words "coat, parka" --name desert_gold` |
+| Combine vectors + project out hold words | `"$PY" bench/control_vectors.py sculpt scorching golden_hour --modes add_norm_matched,add_norm_matched --strengths 1.0,0.5 --hold-words "coat, parka" --name desert_gold` |
 | Inspect a vector & meter a target prompt | `"$PY" bench/control_vectors.py inspect film_16mm_1974__fl2va__diff_span__lora_2a8c2b52.safetensors --prompt "A wide shot..."` |
 
 ---
 
-## 8. Code & Research Map
+## 10. Code & Research Map
 
 - **Core math & `.safetensors` I/O**: [`control_vectors.py`](../../control_vectors.py) (`NORM_MATCHED_TARGET = 67.5`, `mean_difference`, `hold_basis`, `project_out`, `apply_vector`)
 - **ComfyUI nodes & runtime hooks**: [`control_vector_nodes.py`](../../control_vector_nodes.py) (`resolve_vector_file_path`, per-stream `[out_vid[0], out_aud[1]]` velocity splice when `video_scale != audio_scale`)

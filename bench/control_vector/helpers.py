@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import inspect
 import json
+import os
 from pathlib import Path
 from typing import Any
 
@@ -49,9 +50,9 @@ def _resolve_prompt_text(arg: str) -> tuple[str, str]:
 
 
 def _free_idle_comfy_vram(min_free_gib: float = 18.0) -> bool:
-    """If local ComfyUI (`127.0.0.1:8188`) is idle (`queue_running == []`) and GPU 0
-    has less than `min_free_gib` GiB free, request `/free` so CLI encoder/LLM loads
-    do not hit CUDA OOM."""
+    """If local ComfyUI (`H3_COMFY_URL` / `COMFY_URL` / `http://127.0.0.1:8188`) is idle
+    (`queue_running == []`) and GPU 0 has less than `min_free_gib` GiB free, request `/free`
+    so CLI encoder/LLM loads do not hit CUDA OOM."""
     if not torch.cuda.is_available():
         return False
     try:
@@ -62,13 +63,18 @@ def _free_idle_comfy_vram(min_free_gib: float = 18.0) -> bool:
         return False
     import urllib.request
 
+    base_url = (
+        os.environ.get("H3_COMFY_URL")
+        or os.environ.get("COMFY_URL")
+        or "http://127.0.0.1:8188"
+    ).rstrip("/")
     try:
-        with urllib.request.urlopen("http://127.0.0.1:8188/queue", timeout=1.5) as resp:
+        with urllib.request.urlopen(f"{base_url}/queue", timeout=1.5) as resp:
             q = json.loads(resp.read().decode("utf-8"))
         if q.get("queue_running"):
             return False
         req = urllib.request.Request(
-            "http://127.0.0.1:8188/free",
+            f"{base_url}/free",
             data=json.dumps({"unload_models": True, "free_memory": True}).encode("utf-8"),
             headers={"Content-Type": "application/json"},
             method="POST",

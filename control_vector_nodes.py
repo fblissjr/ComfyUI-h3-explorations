@@ -988,20 +988,36 @@ def make_control_vector_from_pairs(
                 "row0_excluded": True,
             }
 
+    pairs_dict_node: dict[str, Any] = {
+        "path": rel_pair_path,
+        "sha256": pair_set.sha256,
+        "n_pairs": len(pair_set.pairs),
+        "n_holds": len(pair_set.holds) if apply_holds else 0,
+        "a_side": pair_set.a_side,
+        "b_side": pair_set.b_side,
+        "pair_spans": pair_spans,
+    }
+    if resolved_pair_path is None:
+        if isinstance(words, str) and words.strip():
+            pairs_dict_node["words_spec"] = words.strip()
+        if slot and slot != "auto":
+            pairs_dict_node["slot"] = str(slot)
+        pairs_dict_node["pairs_ab"] = [
+            {"a": p.a, "b": p.b, "weight": float(p.weight)}
+            for p in pair_set.pairs
+        ]
+        if apply_holds and pair_set.holds:
+            pairs_dict_node["holds_ab"] = [
+                {"group": h.group, "a": h.a, "b": h.b, "weight": float(h.weight)}
+                for h in pair_set.holds
+            ]
+
     metadata: dict[str, Any] = {
         "format": _cv.FORMAT_VERSION,
         "name": stem,
         "quality": pair_set.quality,
         "family": family,
-        "pairs": {
-            "path": rel_pair_path,
-            "sha256": pair_set.sha256,
-            "n_pairs": len(pair_set.pairs),
-            "n_holds": len(pair_set.holds) if apply_holds else 0,
-            "a_side": pair_set.a_side,
-            "b_side": pair_set.b_side,
-            "pair_spans": pair_spans,
-        },
+        "pairs": pairs_dict_node,
         "recipe": recipe,
         "measured_under": {
             "mode": "ref2va" if encoded_references is not None else pair_set.mode,

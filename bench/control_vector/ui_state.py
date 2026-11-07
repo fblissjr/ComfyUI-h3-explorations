@@ -765,20 +765,30 @@ def _repool_cached_build(
                 jl_readout = None
 
         pair_set = entry["pair_set"]
+        pairs_dict_repool: dict[str, Any] = {
+            "path": entry["rel_pair_path"],
+            "sha256": pair_set.sha256,
+            "n_pairs": len(active_indices),
+            "n_holds": len(hold_a) + len(applied_holds),
+            "a_side": pair_set.a_side,
+            "b_side": pair_set.b_side,
+            "pair_spans": [entry["pair_spans"][i] for i in active_indices],
+        }
+        if str(entry["rel_pair_path"]).startswith("<"):
+            pairs_dict_repool["pairs_ab"] = [
+                {
+                    "a": entry["pairs_ab"][i][0],
+                    "b": entry["pairs_ab"][i][1],
+                    "weight": float(eff_weights[i]),
+                }
+                for i in active_indices
+            ]
         metadata: dict[str, Any] = {
             "format": cv.FORMAT_VERSION,
             "name": entry["stem"],
             "quality": pair_set.quality,
             "family": family,
-            "pairs": {
-                "path": entry["rel_pair_path"],
-                "sha256": pair_set.sha256,
-                "n_pairs": len(active_indices),
-                "n_holds": len(hold_a) + len(applied_holds),
-                "a_side": pair_set.a_side,
-                "b_side": pair_set.b_side,
-                "pair_spans": [entry["pair_spans"][i] for i in active_indices],
-            },
+            "pairs": pairs_dict_repool,
             "recipe": entry["recipe"],
             "measured_under": {
                 "mode": entry["measured_mode"],

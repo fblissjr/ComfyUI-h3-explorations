@@ -706,20 +706,37 @@ def cmd_build(args: argparse.Namespace) -> int:
                     jl_build_readout = None
 
             measured_mode = "ref2va" if encoded_refs is not None else pair_set.mode
+            pairs_dict_build: dict[str, Any] = {
+                "path": rel_pair_path,
+                "sha256": pair_set.sha256,
+                "n_pairs": len(pair_set.pairs),
+                "n_holds": len(cached_holds) + len(applied_holds_build),
+                "a_side": pair_set.a_side,
+                "b_side": pair_set.b_side,
+                "pair_spans": pair_spans,
+            }
+            if resolved_pair_path is None:
+                if isinstance( words_arg, str) and words_arg.strip():
+                    pairs_dict_build["words_spec"] = str(words_arg).strip()
+                elif isinstance(getattr(args, "_words_spec_saved", None), str) and args._words_spec_saved.strip():
+                    pairs_dict_build["words_spec"] = str(args._words_spec_saved).strip()
+                if slot_arg and slot_arg != "auto":
+                    pairs_dict_build["slot"] = slot_arg
+                pairs_dict_build["pairs_ab"] = [
+                    {"a": p.a, "b": p.b, "weight": float(p.weight)}
+                    for p in pair_set.pairs
+                ]
+                if pair_set.holds:
+                    pairs_dict_build["holds_ab"] = [
+                        {"group": h.group, "a": h.a, "b": h.b, "weight": float(h.weight)}
+                        for h in pair_set.holds
+                    ]
             metadata: dict[str, Any] = {
                 "format": cv.FORMAT_VERSION,
                 "name": stem,
                 "quality": pair_set.quality,
                 "family": family,
-                "pairs": {
-                    "path": rel_pair_path,
-                    "sha256": pair_set.sha256,
-                    "n_pairs": len(pair_set.pairs),
-                    "n_holds": len(cached_holds) + len(applied_holds_build),
-                    "a_side": pair_set.a_side,
-                    "b_side": pair_set.b_side,
-                    "pair_spans": pair_spans,
-                },
+                "pairs": pairs_dict_build,
                 "recipe": recipe,
                 "measured_under": {
                     "mode": measured_mode,
@@ -959,6 +976,13 @@ def cmd_rebuild(args: argparse.Namespace) -> int:
         sub_args.overwrite = True
         sub_args._summary_rows_out = rows_out
         cmd_build(sub_args)
+        for p_old, _, _ in items:
+            if p_old.is_file() and "__" not in p_old.name and not p_old.with_suffix(".md").is_file():
+                try:
+                    t_old, m_old = cv.load_vector(p_old)
+                    cv.save_vector(p_old, t_old, m_old, overwrite=True)
+                except Exception:
+                    pass
 
     def _rebuild_compiled_words(stem: str, items: list[tuple[Path, dict[str, torch.Tensor], dict[str, Any]]], vec_dir: Path, families_override: str | None, rows_out: list[dict[str, Any]]) -> None:
         meta0 = items[0][2]
@@ -976,14 +1000,59 @@ def cmd_rebuild(args: argparse.Namespace) -> int:
             fams = _resolve_requested_families(families_override)
         else:
             fams = sorted({str(m.get("family", "fl2va")) for _, _, m in items if m.get("family") in ("fl2va", "ref2va")}) or ["fl2va", "ref2va"]
-        words_spec = f"{a_side} -> {b_side}" if a_side and not a_side.startswith("balanced neutral contrast") else b_side
+        words_spec_saved = str(pairs_meta.get("words_spec", "")).strip()
+        slot_saved = str(pairs_meta.get("slot", "auto")).strip() or "auto"
+        raw_pairs_ab = pairs_meta.get("pairs_ab")
+        raw_holds_ab = pairs_meta.get("holds_ab")
+        reconstructed_ps: cv.PairSet | None = None
+        if isinstance(raw_pairs_ab, list) and len(raw_pairs_ab) >= 2:
+            try:
+                p_items: list[cv.PairItem] = []
+                for idx_p, item_p in enumerate(raw_pairs_ab):
+                    a_txt = str(item_p["a"])
+                    b_txt = str(item_p["b"])
+                    w_val = float(item_p.get("weight", 1.0))
+                    a_sp, b_sp = cv.differing_span(a_txt, b_txt, frame=str(measured.get("frame", "scene")))
+                    p_items.append(cv.PairItem(index=idx_p, a=a_txt, b=b_txt, weight=w_val, a_span=a_sp, b_span=b_sp))
+                h_items: list[cv.HoldItem] = []
+                if isinstance(raw_holds_ab, list):
+                    for idx_h, item_h in enumerate(raw_holds_ab):
+                        ha_txt = str(item_h["a"])
+                        hb_txt = str(item_h["b"])
+                        hw_val = float(item_h.get("weight", 1.0))
+                        h_grp = str(item_h.get("group", f"hold_{idx_h}"))
+                        ha_sp, hb_sp = cv.differing_span(ha_txt, hb_txt, frame=str(measured.get("frame", "scene")))
+                        h_items.append(cv.HoldItem(index=idx_h, group=h_grp, a=ha_txt, b=hb_txt, weight=hw_val, a_span=ha_sp, b_span=hb_sp))
+                reconstructed_ps = cv.PairSet(
+                    path=Path(str(pairs_meta.get("path", f"<compiled:{stem}>"))),
+                    sha256=str(pairs_meta.get("sha256", "")),
+                    name=stem,
+                    quality=str(meta0.get("quality", stem)),
+                    mode=mode_val if mode_val in cv.VALID_MODES else "t2va",
+                    frame=str(measured.get("frame", "scene")),
+                    a_side=a_side or "baseline",
+                    b_side=b_side or stem,
+                    pairs=tuple(p_items),
+                    holds=tuple(h_items),
+                    exclude_shots=(),
+                )
+            except Exception:
+                reconstructed_ps = None
+
+        words_spec = (
+            words_spec_saved
+            if words_spec_saved
+            else (f"{a_side} -> {b_side}" if a_side and not a_side.startswith("balanced neutral contrast") else b_side)
+        )
         sub_args = argparse.Namespace(**vars(args))
         sub_args.build_all = False
         sub_args.from_words = ""
         sub_args.placebo = False
         sub_args.source = None
-        sub_args.words = words_spec
-        sub_args.slot = "auto"
+        sub_args.words = "" if reconstructed_ps is not None else words_spec
+        sub_args._words_spec_saved = words_spec
+        sub_args._compiled_pair_set = reconstructed_ps
+        sub_args.slot = slot_saved
         sub_args.mode = mode_val if mode_val in cv.VALID_MODES else "t2va"
         sub_args.pooling = pooling_val if pooling_val in cv.VALID_POOLING else "diff_span"
         sub_args.quality = str(meta0.get("quality", "")) or None

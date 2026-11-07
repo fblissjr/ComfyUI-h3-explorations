@@ -492,20 +492,37 @@ def cmd_make(args: argparse.Namespace) -> int:
     else:
         rel_pair_path = str(pair_set.path)
 
+    pairs_dict_make: dict[str, Any] = {
+        "path": rel_pair_path,
+        "sha256": pair_set.sha256,
+        "n_pairs": len(pair_set.pairs),
+        "n_holds": 0 if args.no_holds else (len(pair_set.holds) + len(applied_holds_make)),
+        "a_side": pair_set.a_side,
+        "b_side": pair_set.b_side,
+        "pair_spans": pair_spans,
+    }
+    if resolved_pair_path is None:
+        if words_arg:
+            pairs_dict_make["words_spec"] = str(words_arg)
+        slot_make = str(getattr(args, "slot", "auto") or "auto")
+        if slot_make != "auto":
+            pairs_dict_make["slot"] = slot_make
+        pairs_dict_make["pairs_ab"] = [
+            {"a": p.a, "b": p.b, "weight": float(p.weight)}
+            for p in pair_set.pairs
+        ]
+        if not args.no_holds and pair_set.holds:
+            pairs_dict_make["holds_ab"] = [
+                {"group": h.group, "a": h.a, "b": h.b, "weight": float(h.weight)}
+                for h in pair_set.holds
+            ]
+
     metadata: dict[str, Any] = {
         "format": cv.FORMAT_VERSION,
         "name": stem,
         "quality": pair_set.quality,
         "family": family,
-        "pairs": {
-            "path": rel_pair_path,
-            "sha256": pair_set.sha256,
-            "n_pairs": len(pair_set.pairs),
-            "n_holds": 0 if args.no_holds else (len(pair_set.holds) + len(applied_holds_make)),
-            "a_side": pair_set.a_side,
-            "b_side": pair_set.b_side,
-            "pair_spans": pair_spans,
-        },
+        "pairs": pairs_dict_make,
         "recipe": recipe,
         "measured_under": {
             "mode": "ref2va" if encoded_refs is not None else pair_set.mode,
