@@ -4,6 +4,7 @@ __pycache__/
 .agents/
 *.egg-info/
 internal/
+app/
 # data/ is untracked (the owner backs it up daily), each project's data/<video>/AGENTS.md included; only the lane's
 # rules for any video, data/AGENTS.md and its one-line CLAUDE.md, are tracked, so builders' worktrees have them (2026-10-17).
 /data/*
