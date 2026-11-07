@@ -306,6 +306,10 @@ def _generate_pairs_with_llm(
     t0 = time.perf_counter()
     cache_store = llm_cache if llm_cache is not None else {}
     cache_key = (prov, mspec, bool(load_in_4bit))
+    if cache_key not in cache_store:
+        from .helpers import _free_idle_comfy_vram
+
+        _free_idle_comfy_vram()
 
     if prov == "exllamav3":
         ex_root = _resolve_exl3_library_root(exl3_root)

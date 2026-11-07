@@ -13,7 +13,7 @@ All three nodes register under the **`model/conditioning/minimax`** category in 
 |---|---|---|
 | **`MiniMaxH3ApplyControlVectors`** | Applies a `.safetensors` control vector (or inline J-Lens `words`) to the refined text conditioning via a `DIFFUSION_MODEL` wrapper on `MODEL` (`ModelPatcher`). Stack multiple vectors by chaining `MiniMaxH3ApplyControlVectors` nodes in series (shifts sum in `float64`). | Outputs `(model: MODEL)`. Place between the DiT/LoRA loader (`MiniMaxH3LoraLoader`) and the sampler (`KSampler` / `SamplerCustom`). |
 | **`MiniMaxH3MakeControlVector`** | Measures and saves `<name>__<family>__*.safetensors` under `models/control_vectors/` from a `pair_file` (`prompt_bank/control_vectors/*.toml`) or inline `words` (`"pole_a -> pole_b"`, compiled across 10 canonical scenes via `h3_pair_compiler.py`). | Outputs `(vector_name: STRING, report: STRING)`. Optional in-graph authoring node (`is_output_node=True`). |
-| **`MiniMaxH3MakeMediaControlVector`** | Measures and saves `<output_name>__<family>__*.safetensors` under `models/control_vectors/` from contrasting `IMAGE` batches (`image_a` positive vs. `image_b` baseline) resized to an identical 32-px-snapped M-RoPE grid. | Outputs `(vector_name: STRING, report: STRING)`. Connect two `LoadImage` nodes (`image_a`, `image_b`) plus `model` and `clip`. |
+| **`MiniMaxH3MakeMediaControlVector`** | Measures and saves `<output_name>__<family>__*.safetensors` (`B - A`) under `models/control_vectors/` from contrasting `IMAGE` batches (`image_a` baseline vs. `image_b` positive/steered) resized to an identical 32-px-snapped M-RoPE grid. | Outputs `(vector_name: STRING, report: STRING)`. Connect two `LoadImage` nodes (`image_a`, `image_b`) plus `model` and `clip`. |
 
 ---
 

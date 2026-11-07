@@ -48,7 +48,41 @@ def _resolve_prompt_text(arg: str) -> tuple[str, str]:
     raise ValueError(f"prompt {arg!r} not found as a file or under prompt_bank/")
 
 
+def _free_idle_comfy_vram(min_free_gib: float = 18.0) -> bool:
+    """If local ComfyUI (`127.0.0.1:8188`) is idle (`queue_running == []`) and GPU 0
+    has less than `min_free_gib` GiB free, request `/free` so CLI encoder/LLM loads
+    do not hit CUDA OOM."""
+    if not torch.cuda.is_available():
+        return False
+    try:
+        free_b, _ = torch.cuda.mem_get_info(0)
+        if free_b >= int(min_free_gib * (1024**3)):
+            return False
+    except Exception:
+        return False
+    import urllib.request
+
+    try:
+        with urllib.request.urlopen("http://127.0.0.1:8188/queue", timeout=1.5) as resp:
+            q = json.loads(resp.read().decode("utf-8"))
+        if q.get("queue_running"):
+            return False
+        req = urllib.request.Request(
+            "http://127.0.0.1:8188/free",
+            data=json.dumps({"unload_models": True, "free_memory": True}).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=5.0):
+            pass
+        return True
+    except Exception:
+        return False
+
+
 def _load_clip(encoder_name: str, device: str = "default") -> Any:
+    if str(device).lower() != "cpu":
+        _free_idle_comfy_vram()
     enc_loader_mod = cv_nodes._repo("h3_encoder_loader")
 
     (clip,) = enc_loader_mod.MiniMaxH3EncoderLoader.execute(

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from .build_cmd import cmd_build, cmd_words
+from .build_cmd import cmd_build, cmd_rebuild, cmd_words
 from .cli import build_parser, main
 from .grading import (
     _attach_raw_vector,
@@ -26,6 +26,7 @@ from .helpers import (
     _cosine,
     _decode_image_spec_to_tensor,
     _display_path,
+    _free_idle_comfy_vram,
     _inject_target_prompt_into_pairset,
     _is_markdown_pairs_text,
     _load_clip,
@@ -80,6 +81,7 @@ __all__ = [
     "_discover_ui_clips",
     "_display_path",
     "_extract_system_prompt_text",
+    "_free_idle_comfy_vram",
     "_generate_pairs_with_llm",
     "_inject_target_prompt_into_pairset",
     "_is_markdown_pairs_text",
@@ -112,6 +114,7 @@ __all__ = [
     "cmd_inspect",
     "cmd_make",
     "cmd_make_media",
+    "cmd_rebuild",
     "cmd_sculpt",
     "cmd_ui",
     "cmd_words",

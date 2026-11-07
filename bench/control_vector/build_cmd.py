@@ -845,3 +845,338 @@ def cmd_words(args: argparse.Namespace) -> int:
     args.build_all = False
     return cmd_build(args)
 
+
+def _extract_hold_words_from_meta(meta: dict[str, Any]) -> tuple[str | None, float]:
+    prov = meta.get("provenance") or {}
+    ah = prov.get("applied_holds")
+    if not isinstance(ah, dict):
+        return None, 1.0
+    alpha = float(ah.get("alpha", 1.0))
+    word_parts: list[str] = []
+    for item in ah.get("holds") or ():
+        s = str(item).strip()
+        if s.startswith("words:"):
+            w = s.split("words:", 1)[1].strip()
+            if w:
+                word_parts.append(w)
+    return (", ".join(word_parts) if word_parts else None), alpha
+
+
+def _resolve_existing_toml_from_meta(meta: dict[str, Any], toml_dir: Path) -> Path | None:
+    stem = str(meta.get("name", "")).strip()
+    pairs_path = str((meta.get("pairs") or {}).get("path", "")).strip()
+    if pairs_path and pairs_path.endswith(".toml") and not pairs_path.startswith("<"):
+        for cand in (Path(pairs_path), REPO_ROOT / pairs_path, toml_dir / Path(pairs_path).name):
+            if cand.is_file():
+                return cand
+    if stem:
+        bank_cand = toml_dir / f"{stem}.toml"
+        if bank_cand.is_file():
+            return bank_cand
+    return None
+
+
+def cmd_rebuild(args: argparse.Namespace) -> int:
+    """Rebuild all control vectors in a folder (defaults to `models/control_vectors/`
+    + `prompt_bank/control_vectors/`) or a single specified control vector with zero
+    hardcoded vector names."""
+    t_start = time.perf_counter()
+    raw_target = (
+        getattr(args, "vector_target", None)
+        or getattr(args, "target", None)
+        or ""
+    )
+    raw_target = str(raw_target).strip()
+
+    default_vec_dir = Path(
+        getattr(args, "vec_dir", None)
+        or getattr(args, "out_dir", None)
+        or _h.folder_paths.get_folder_paths(cv_nodes.CONTROL_VECTORS_FOLDER)[0]
+    )
+    default_toml_dir = Path(getattr(args, "toml_dir", None) or cv_nodes.PAIR_BANK_DIR)
+    encoder_name = getattr(args, "encoder", None) or h3_config.MODELS["clip"]
+    clip_box: list[Any] = [getattr(args, "_clip_override", None)]
+    refiner_cache: dict[Any, Any] = (
+        args._refiner_cache
+        if isinstance(getattr(args, "_refiner_cache", None), dict)
+        else {}
+    )
+
+    def _get_shared_clip() -> Any:
+        if clip_box[0] is None:
+            clip_box[0] = _h._load_clip(encoder_name, device=getattr(args, "device", "default"))
+        return clip_box[0]
+
+    def _rebuild_from_toml(toml_path: Path, vec_dir: Path, families_arg: str, rows_out: list[dict[str, Any]]) -> None:
+        sub_args = argparse.Namespace(**vars(args))
+        sub_args.build_all = False
+        sub_args.from_words = ""
+        sub_args.words = ""
+        sub_args.placebo = False
+        sub_args.source = str(toml_path)
+        sub_args.name = None
+        sub_args.output_name = ""
+        sub_args.families = families_arg
+        sub_args.out_dir = str(vec_dir)
+        sub_args.overwrite = True
+        sub_args._clip_override = _get_shared_clip()
+        sub_args._refiner_cache = refiner_cache
+        sub_args._summary_rows_out = rows_out
+        cmd_build(sub_args)
+
+    def _rebuild_jlens_words(stem: str, items: list[tuple[Path, dict[str, torch.Tensor], dict[str, Any]]], vec_dir: Path, families_override: str | None, rows_out: list[dict[str, Any]]) -> None:
+        meta0 = items[0][2]
+        pairs_meta = meta0.get("pairs") or {}
+        pos_words = str(pairs_meta.get("b_side", "")).strip()
+        raw_against = str(pairs_meta.get("a_side", "")).strip()
+        default_neutral_str = ", ".join(getattr(j_lens, "DEFAULT_NEUTRAL_WORDS", ()))
+        against_words = (
+            None
+            if (
+                not raw_against
+                or raw_against == "neutral vocabulary mean"
+                or raw_against == default_neutral_str
+            )
+            else raw_against
+        )
+        hold_w, hold_alpha = _extract_hold_words_from_meta(meta0)
+        if families_override:
+            fams = _resolve_requested_families(families_override)
+        else:
+            fams = sorted({str(m.get("family", "fl2va")) for _, _, m in items if m.get("family") in ("fl2va", "ref2va")}) or ["fl2va", "ref2va"]
+        sub_args = argparse.Namespace(**vars(args))
+        sub_args.build_all = False
+        sub_args.from_words = pos_words
+        sub_args.against_words = against_words or ""
+        sub_args.hold_words = hold_w or ""
+        sub_args.hold_alpha = hold_alpha
+        sub_args.name = stem
+        sub_args.output_name = stem
+        sub_args.families = ",".join(fams)
+        sub_args.out_dir = str(vec_dir)
+        sub_args.overwrite = True
+        sub_args._summary_rows_out = rows_out
+        cmd_build(sub_args)
+
+    def _rebuild_compiled_words(stem: str, items: list[tuple[Path, dict[str, torch.Tensor], dict[str, Any]]], vec_dir: Path, families_override: str | None, rows_out: list[dict[str, Any]]) -> None:
+        meta0 = items[0][2]
+        pairs_meta = meta0.get("pairs") or {}
+        a_side = str(pairs_meta.get("a_side", "")).strip().rstrip(",")
+        b_side = str(pairs_meta.get("b_side", "")).strip().rstrip(",")
+        measured = meta0.get("measured_under") or {}
+        mode_val = str(measured.get("mode", "t2va"))
+        pooling_val = str(measured.get("pooling", getattr(args, "pooling", "diff_span")))
+        hold_w, hold_alpha = _extract_hold_words_from_meta(meta0)
+        # Guard against accidental self-hold where hold_words was set to b_side
+        if hold_w and b_side and hold_w.lower().strip() == b_side.lower().strip():
+            hold_w = None
+        if families_override:
+            fams = _resolve_requested_families(families_override)
+        else:
+            fams = sorted({str(m.get("family", "fl2va")) for _, _, m in items if m.get("family") in ("fl2va", "ref2va")}) or ["fl2va", "ref2va"]
+        words_spec = f"{a_side} -> {b_side}" if a_side and not a_side.startswith("balanced neutral contrast") else b_side
+        sub_args = argparse.Namespace(**vars(args))
+        sub_args.build_all = False
+        sub_args.from_words = ""
+        sub_args.placebo = False
+        sub_args.source = None
+        sub_args.words = words_spec
+        sub_args.slot = "auto"
+        sub_args.mode = mode_val if mode_val in cv.VALID_MODES else "t2va"
+        sub_args.pooling = pooling_val if pooling_val in cv.VALID_POOLING else "diff_span"
+        sub_args.quality = str(meta0.get("quality", "")) or None
+        sub_args.a_side = a_side or None
+        sub_args.b_side = b_side or None
+        sub_args.hold_words = hold_w or ""
+        sub_args.hold_alpha = hold_alpha
+        sub_args.name = stem
+        sub_args.output_name = stem
+        sub_args.families = ",".join(fams)
+        sub_args.out_dir = str(vec_dir)
+        sub_args.overwrite = True
+        sub_args._clip_override = _get_shared_clip()
+        sub_args._refiner_cache = refiner_cache
+        sub_args._summary_rows_out = rows_out
+        cmd_build(sub_args)
+
+    def _refresh_sidecar_and_jlens(items: list[tuple[Path, dict[str, torch.Tensor], dict[str, Any]]], rows_out: list[dict[str, Any]]) -> None:
+        for p, tensors, meta in items:
+            fam = str(meta.get("family", "fl2va"))
+            qrep = meta.setdefault("quality_report", {})
+            if "j_lens_readout" not in qrep and j_lens.bundle_available() and "vector.post_refiner" in tensors:
+                try:
+                    qrep["j_lens_readout"] = j_lens.decode_vector(
+                        tensors["vector.post_refiner"], space="post_refiner", family=fam
+                    )
+                except Exception:
+                    pass
+            saved = cv.save_vector(p, tensors, meta, overwrite=True)
+            pr_norm = float(meta.get("points", {}).get("post_refiner", {}).get("raw_norm", 0.0))
+            rows_out.append(
+                {
+                    "file": saved.name,
+                    "family": fam,
+                    "pooling": str(meta.get("measured_under", {}).get("pooling", "diff_span")),
+                    "raw_norm": pr_norm,
+                    "mpc": float(qrep.get("mean_pairwise_cosine", 1.0)),
+                    "split_half": float(qrep.get("split_half_cosine", 1.0)),
+                    "rec_strength": _recommended_strength_text(pr_norm),
+                    "j_lens": qrep.get("j_lens_readout"),
+                }
+            )
+
+    all_rows: list[dict[str, Any]] = []
+    target_path = Path(raw_target) if raw_target else None
+
+    # Mode 1: Single vector target (file or stem, not a directory)
+    if target_path is not None and not target_path.is_dir():
+        # Check if target resolves directly to a .toml file
+        toml_cand: Path | None = None
+        if target_path.suffix.lower() == ".toml" and target_path.is_file():
+            toml_cand = target_path
+        elif not target_path.suffix and (default_toml_dir / f"{raw_target}.toml").is_file():
+            toml_cand = default_toml_dir / f"{raw_target}.toml"
+
+        # Also check if a specific .safetensors file was named so we preserve its family if --families wasn't explicitly restricted
+        matched_st: list[Path] = []
+        if target_path.is_file() and target_path.suffix.lower() == ".safetensors":
+            matched_st = [target_path]
+        elif (default_vec_dir / raw_target).is_file():
+            matched_st = [default_vec_dir / raw_target]
+        elif (default_vec_dir / f"{raw_target}.safetensors").is_file():
+            matched_st = [default_vec_dir / f"{raw_target}.safetensors"]
+        else:
+            stem_q = target_path.stem.split("__")[0]
+            matched_st = sorted(default_vec_dir.glob(f"{stem_q}__*.safetensors"))
+            if not matched_st:
+                matched_st = sorted(default_vec_dir.glob(f"{stem_q}_*.safetensors"))
+            if toml_cand is None and (default_toml_dir / f"{stem_q}.toml").is_file():
+                toml_cand = default_toml_dir / f"{stem_q}.toml"
+
+        if toml_cand is None and not matched_st:
+            raise ValueError(
+                f"control vector or pair TOML {raw_target!r} not found in {default_vec_dir} or {default_toml_dir}"
+            )
+
+        loaded_items: list[tuple[Path, dict[str, torch.Tensor], dict[str, Any]]] = []
+        for p in matched_st:
+            t, m = cv.load_vector(p)
+            loaded_items.append((p, t, m))
+            if toml_cand is None:
+                toml_cand = _resolve_existing_toml_from_meta(m, default_toml_dir)
+
+        # If the user pointed at a single .safetensors file with a specific family, rebuild that family unless --families was explicitly passed
+        single_fam_override = getattr(args, "families", "both")
+        if len(loaded_items) == 1 and target_path.suffix.lower() == ".safetensors" and single_fam_override == "both":
+            fam_single = str(loaded_items[0][2].get("family", ""))
+            if fam_single in ("fl2va", "ref2va"):
+                single_fam_override = fam_single
+
+        if toml_cand is not None:
+            print(f"=== Rebuilding Single Control Vector `{toml_cand.stem}` from {_display_path(toml_cand)} ===")
+            _rebuild_from_toml(toml_cand, default_vec_dir, single_fam_override, all_rows)
+        else:
+            stem = str(loaded_items[0][2].get("name", loaded_items[0][0].stem.split("__")[0]))
+            made_by = str(loaded_items[0][2].get("provenance", {}).get("made_by", ""))
+            pairs_path = str(loaded_items[0][2].get("pairs", {}).get("path", ""))
+            a_side = str(loaded_items[0][2].get("pairs", {}).get("a_side", "")).strip()
+            b_side = str(loaded_items[0][2].get("pairs", {}).get("b_side", "")).strip()
+            if made_by.startswith("j_lens.synthesize_from_words") or pairs_path == "j_lens.synthesize_from_words":
+                print(f"=== Rebuilding J-Lens Word Control Vector `{stem}` ===")
+                _rebuild_jlens_words(stem, loaded_items, default_vec_dir, single_fam_override, all_rows)
+            elif b_side and not pairs_path.startswith("<media_pairs:") and not made_by.startswith("j_lens.save_composed_recipe_vector"):
+                print(f"=== Rebuilding Compiled Control Vector `{stem}` ({a_side!r} -> {b_side!r}) ===")
+                _rebuild_compiled_words(stem, loaded_items, default_vec_dir, single_fam_override, all_rows)
+            else:
+                print(f"=== Refreshing Control Vector Sidecar & J-Lens Readout for `{stem}` ===")
+                _refresh_sidecar_and_jlens(loaded_items, all_rows)
+
+        if getattr(args, "_summary_rows_out", None) is not None:
+            args._summary_rows_out.extend(all_rows)
+        elapsed = time.perf_counter() - t_start
+        print(f"\n=== Rebuild Complete: {len(all_rows)} vector file(s) updated in {elapsed:.2f}s ===")
+        return 0
+
+    # Mode 2: Folder mode (defaulting to models/control_vectors/ + prompt_bank/control_vectors/)
+    if target_path is not None and target_path.is_dir():
+        has_tomls = any(target_path.glob("*.toml"))
+        has_sts = any(target_path.glob("*.safetensors"))
+        if has_tomls and not has_sts:
+            toml_dir = target_path
+            vec_dir = default_vec_dir
+            scan_tomls = True
+            scan_vecs = False
+        else:
+            vec_dir = target_path
+            toml_dir = default_toml_dir
+            scan_tomls = (vec_dir.resolve() == default_vec_dir.resolve()) or has_tomls
+            scan_vecs = True
+    else:
+        vec_dir = default_vec_dir
+        toml_dir = default_toml_dir
+        scan_tomls = True
+        scan_vecs = True
+
+    toml_by_stem: dict[str, Path] = {}
+    if scan_tomls and toml_dir.is_dir():
+        for tp in sorted(toml_dir.glob("*.toml")):
+            toml_by_stem[tp.stem] = tp
+
+    vecs_by_stem: dict[str, list[tuple[Path, dict[str, torch.Tensor], dict[str, Any]]]] = {}
+    if scan_vecs and vec_dir.is_dir():
+        for sp in sorted(vec_dir.glob("*.safetensors")):
+            try:
+                t, m = cv.load_vector(sp)
+            except Exception:
+                continue
+            stem = str(m.get("name", sp.stem.split("__")[0])).strip()
+            vecs_by_stem.setdefault(stem, []).append((sp, t, m))
+            if stem not in toml_by_stem:
+                resolved_t = _resolve_existing_toml_from_meta(m, toml_dir)
+                if resolved_t is not None:
+                    toml_by_stem[stem] = resolved_t
+
+    all_stems = sorted(set(toml_by_stem.keys()) | set(vecs_by_stem.keys()))
+    if not all_stems:
+        raise ValueError(f"no control vectors or pair TOMLs found in {vec_dir} or {toml_dir}")
+
+    print(
+        f"=== Rebuilding {len(all_stems)} Control Vector Stem(s) (vec_dir={vec_dir}, toml_dir={_display_path(toml_dir)}) ==="
+    )
+    req_fams_str = getattr(args, "families", "both")
+    for idx, stem in enumerate(all_stems, start=1):
+        if stem in toml_by_stem:
+            tp = toml_by_stem[stem]
+            print(f"\n[{idx}/{len(all_stems)}] Rebuilding `{stem}` from {_display_path(tp)} ...")
+            _rebuild_from_toml(tp, vec_dir, req_fams_str, all_rows)
+            continue
+
+        items = vecs_by_stem.get(stem, [])
+        if not items:
+            continue
+        meta0 = items[0][2]
+        made_by = str(meta0.get("provenance", {}).get("made_by", ""))
+        pairs_path = str(meta0.get("pairs", {}).get("path", ""))
+        b_side = str(meta0.get("pairs", {}).get("b_side", "")).strip()
+        needs_encoder = bool(getattr(args, "include_encoder", True)) and any(
+            "vector.encoder" not in t for _, t, _ in items
+        )
+        if made_by.startswith("j_lens.synthesize_from_words") or pairs_path == "j_lens.synthesize_from_words":
+            print(f"\n[{idx}/{len(all_stems)}] Rebuilding J-Lens word vector `{stem}` ...")
+            _rebuild_jlens_words(stem, items, vec_dir, None, all_rows)
+        elif needs_encoder and b_side and not pairs_path.startswith("<media_pairs:") and not made_by.startswith("j_lens.save_composed_recipe_vector"):
+            print(f"\n[{idx}/{len(all_stems)}] Rebuilding compiled vector `{stem}` ...")
+            _rebuild_compiled_words(stem, items, vec_dir, None, all_rows)
+        else:
+            print(f"\n[{idx}/{len(all_stems)}] Refreshing sidecar & J-Lens readout for `{stem}` ({len(items)} file(s)) ...")
+            _refresh_sidecar_and_jlens(items, all_rows)
+
+    if getattr(args, "_summary_rows_out", None) is not None:
+        args._summary_rows_out.extend(all_rows)
+    elapsed = time.perf_counter() - t_start
+    print(
+        f"\n=== Folder Rebuild Complete: {len(all_rows)} vector file(s) across {len(all_stems)} stem(s) updated in {elapsed:.2f}s ==="
+    )
+    return 0
+
+

@@ -747,6 +747,10 @@ def make_control_vector_from_pairs(
     ref_censuses: list[dict[str, float]] = []
     pair_spans: list[dict[str, Any]] = []
 
+    # Pass 1: Encode all contrastive pairs and hold pairs through `clip` while
+    # `clip` stays resident on the GPU so `clip` and `model` (`ModelPatcher`) do
+    # not swap in and out of VRAM on every pair inside ComfyUI.
+    encoded_pairs: list[tuple[int, Any, torch.Tensor, torch.Tensor, list[int], Any, torch.Tensor, torch.Tensor, list[int], Any]] = []
     for idx, item in enumerate(pair_set.pairs):
         enc_a, tags_a, ids_a, dec_a = encode_prompt_for_vector(
             clip, item.a, encoded_references=encoded_references
@@ -754,6 +758,25 @@ def make_control_vector_from_pairs(
         enc_b, tags_b, ids_b, dec_b = encode_prompt_for_vector(
             clip, item.b, encoded_references=encoded_references
         )
+        encoded_pairs.append(
+            (idx, item, enc_a, tags_a, ids_a, dec_a, enc_b, tags_b, ids_b, dec_b)
+        )
+
+    encoded_holds: list[tuple[Any, torch.Tensor, torch.Tensor, list[int], Any, torch.Tensor, torch.Tensor, list[int], Any]] = []
+    if apply_holds and pair_set.holds:
+        for h_item in pair_set.holds:
+            h_enc_a, h_tags_a, h_ids_a, h_dec_a = encode_prompt_for_vector(
+                clip, h_item.a, encoded_references=encoded_references
+            )
+            h_enc_b, h_tags_b, h_ids_b, h_dec_b = encode_prompt_for_vector(
+                clip, h_item.b, encoded_references=encoded_references
+            )
+            encoded_holds.append(
+                (h_item, h_enc_a, h_tags_a, h_ids_a, h_dec_a, h_enc_b, h_tags_b, h_ids_b, h_dec_b)
+            )
+
+    # Pass 2: Run `condition_proj + token_refiner` across all cached encoder outputs.
+    for idx, item, enc_a, tags_a, ids_a, dec_a, enc_b, tags_b, ids_b, dec_b in encoded_pairs:
         ref_a = refiner_run(enc_a)
         ref_b = refiner_run(enc_b)
 
@@ -829,16 +852,10 @@ def make_control_vector_from_pairs(
     enc_hold_b_list: list[torch.Tensor] = []
     hold_groups: list[str] = []
     hold_weights: list[float] = []
-    if apply_holds and pair_set.holds:
+    if encoded_holds:
         hold_a_list: list[torch.Tensor] = []
         hold_b_list: list[torch.Tensor] = []
-        for h_item in pair_set.holds:
-            h_enc_a, h_tags_a, h_ids_a, h_dec_a = encode_prompt_for_vector(
-                clip, h_item.a, encoded_references=encoded_references
-            )
-            h_enc_b, h_tags_b, h_ids_b, h_dec_b = encode_prompt_for_vector(
-                clip, h_item.b, encoded_references=encoded_references
-            )
+        for h_item, h_enc_a, h_tags_a, h_ids_a, h_dec_a, h_enc_b, h_tags_b, h_ids_b, h_dec_b in encoded_holds:
             h_ref_a = refiner_run(h_enc_a)
             h_ref_b = refiner_run(h_enc_b)
             h_diff, h_end_a, h_end_b = _spans.differing_token_bounds(h_ids_a, h_ids_b)
@@ -898,6 +915,13 @@ def make_control_vector_from_pairs(
 
     gen = torch.Generator(device="cpu").manual_seed(0)
     q_report = _cv.quality_report(a_mat, b_mat, w_vec, generator=gen)
+    if _j_lens is not None and _j_lens.bundle_available():
+        try:
+            q_report["j_lens_readout"] = _j_lens.decode_vector(
+                final_vec, space="post_refiner", family=family
+            )
+        except Exception:
+            pass
     raw_norm = float(torch.linalg.vector_norm(final_vec.to(dtype=torch.float64)).item())
     median_ref_row_norm = float(
         sum(c["median_row_norm"] for c in ref_censuses) / len(ref_censuses)
@@ -2076,9 +2100,9 @@ def make_control_vector_from_media_pairs(
     refiner_device: str | torch.device | None = None,
 ) -> tuple[Path, dict[str, Any]]:
     """Build and save a `.safetensors` control vector from contrasting `<Picture 1>`
-    reference images (`image_a` positive vs. `image_b` baseline) with matched
-    `(target_w, target_h)` 32-px grid geometry so Qwen3-VL 3D M-RoPE `position_ids`
-    stay identical between `A` and `B`."""
+    reference images (`image_a` baseline vs. `image_b` positive/steered, computing
+    `B - A`) with matched `(target_w, target_h)` 32-px grid geometry so Qwen3-VL
+    3D M-RoPE `position_ids` stay identical between `A` and `B`."""
     if pooling not in _cv.VALID_MEDIA_POOLING:
         raise ValueError(
             f"pooling must be one of {_cv.VALID_MEDIA_POOLING}, got {pooling!r}"
@@ -2150,6 +2174,10 @@ def make_control_vector_from_media_pairs(
     for pr in prompts:
         pair_hash.update(pr.encode("utf-8"))
 
+    # Pass 1: Encode all media frame pairs through `clip` while `clip` stays
+    # resident on GPU so `clip` and `model` (`ModelPatcher`) do not swap in and
+    # out of VRAM on every pair inside ComfyUI.
+    encoded_media_pairs: list[tuple[int, int, torch.Tensor, torch.Tensor, list[int], Any, torch.Tensor, torch.Tensor, list[int], Any]] = []
     for idx, (f_idx, prompt_text) in enumerate(zip(frame_indices, prompts)):
         fa = matched_a[f_idx : f_idx + 1]
         fb = matched_b[f_idx : f_idx + 1]
@@ -2164,6 +2192,12 @@ def make_control_vector_from_media_pairs(
                 f"media pair {idx} produced mismatched token_tags despite identical "
                 f"{target_w}x{target_h} geometry: {tags_a.shape} vs {tags_b.shape}"
             )
+        encoded_media_pairs.append(
+            (idx, f_idx, enc_a, tags_a, ids_a, dec_a, enc_b, tags_b, ids_b, dec_b)
+        )
+
+    # Pass 2: Run `condition_proj + token_refiner` across all cached media encodings.
+    for idx, f_idx, enc_a, tags_a, ids_a, dec_a, enc_b, tags_b, ids_b, dec_b in encoded_media_pairs:
         ref_a = refiner_run(enc_a)
         ref_b = refiner_run(enc_b)
 
@@ -2226,6 +2260,13 @@ def make_control_vector_from_media_pairs(
 
     gen = torch.Generator(device="cpu").manual_seed(0)
     q_report = _cv.quality_report(a_mat, b_mat, w_vec, generator=gen)
+    if _j_lens is not None and _j_lens.bundle_available():
+        try:
+            q_report["j_lens_readout"] = _j_lens.decode_vector(
+                final_vec, space="post_refiner", family=family
+            )
+        except Exception:
+            pass
     raw_norm = float(torch.linalg.vector_norm(final_vec.to(dtype=torch.float64)).item())
     median_ref_row_norm = float(
         sum(c["median_row_norm"] for c in ref_censuses) / len(ref_censuses)
@@ -2327,8 +2368,8 @@ class MiniMaxH3MakeMediaControlVector(io.ComfyNode):
             display_name="MiniMax H3 Make Media Control Vector",
             category="model/conditioning/minimax",
             description=(
-                "Extracts a post-refiner control vector from contrasting reference "
-                "images (image_a positive vs. image_b baseline) with zero .toml "
+                "Extracts a post-refiner control vector (B - A) from contrasting reference "
+                "images (image_a baseline vs. image_b positive/steered) with zero .toml "
                 "file required. Resizes both sides to an identical 32-px-snapped "
                 "(target_w, target_h) grid so Qwen3-VL 3D M-RoPE position_ids and "
                 "vision token counts match exactly."
@@ -2338,11 +2379,11 @@ class MiniMaxH3MakeMediaControlVector(io.ComfyNode):
                 io.Clip.Input("clip"),
                 io.Image.Input(
                     "image_a",
-                    tooltip="Positive pole reference image(s) [N, H, W, C] carrying the target look or attribute.",
+                    tooltip="Baseline/negative pole reference image(s) [N, H, W, C] (Pole A in B - A).",
                 ),
                 io.Image.Input(
                     "image_b",
-                    tooltip="Baseline/negative pole reference image(s) [N, H, W, C] with matching batch/frame count.",
+                    tooltip="Positive/steered pole reference image(s) [N, H, W, C] carrying the target look or attribute (Pole B in B - A).",
                 ),
                 io.String.Input(
                     "output_name",

@@ -4478,6 +4478,66 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
             except Exception as exc_ins:
                 errs.append(f"pure-insertion LLM pair repair did not pass differing_span: {exc_ins}")
 
+        # Verify `rebuild` CLI command in both single-vector mode and folder mode (and refusal on unknown stem)
+        reb_dir = sib_dir / "rebuild_test_dir"
+        reb_dir.mkdir(parents=True, exist_ok=True)
+        rc_w = bench_cv.main(
+            [
+                "words",
+                "blizzard, snowdrift, frost",
+                "--name",
+                "reb_word_sample",
+                "--families",
+                "fl2va",
+                "--out-dir",
+                str(reb_dir),
+            ]
+        )
+        if rc_w != 0:
+            errs.append(f"CLI words setup for rebuild test failed with exit code {rc_w}")
+        else:
+            reb_st_file = next(reb_dir.glob("reb_word_sample__fl2va__*.safetensors"))
+            t_orig, _ = cv.load_vector(reb_st_file)
+            rc_reb_single = bench_cv.main(
+                [
+                    "rebuild",
+                    "reb_word_sample",
+                    "--dir",
+                    str(reb_dir),
+                    "--toml-dir",
+                    str(reb_dir),
+                    "--families",
+                    "fl2va",
+                ]
+            )
+            if rc_reb_single != 0:
+                errs.append(f"CLI rebuild single vector failed with exit code {rc_reb_single}")
+            t_reb1, _ = cv.load_vector(reb_st_file)
+            if not torch.allclose(t_orig["vector.post_refiner"], t_reb1["vector.post_refiner"], atol=1e-5):
+                errs.append("CLI rebuild single vector altered J-Lens synthesized vector.post_refiner")
+            rc_reb_folder = bench_cv.main(
+                [
+                    "rebuild",
+                    str(reb_dir),
+                    "--toml-dir",
+                    str(reb_dir),
+                ]
+            )
+            if rc_reb_folder != 0:
+                errs.append(f"CLI rebuild folder mode failed with exit code {rc_reb_folder}")
+            rc_reb_missing = bench_cv.main(
+                [
+                    "rebuild",
+                    "nonexistent_vector_stem_xyz",
+                    "--dir",
+                    str(reb_dir),
+                    "--toml-dir",
+                    str(reb_dir),
+                ]
+            )
+            if rc_reb_missing != 2:
+                errs.append(f"CLI rebuild on nonexistent stem expected exit code 2, got {rc_reb_missing}")
+
     return errs
 
 

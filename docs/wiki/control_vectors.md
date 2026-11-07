@@ -18,7 +18,26 @@ Because Qwen3-VL causal attention changes every downstream token whenever you ed
 
 ---
 
-## 2. Shipped Runtime Defaults (`MiniMaxH3ApplyControlVectors` & Canonical Workflows)
+## 2. Control Vectors vs. J-Lens: How They Differ & How They Work Together
+
+A common question is how a **Control Vector** differs from **J-Lens** ([`j_lens.py`](../../j_lens.py)). They are two distinct artifacts that work together:
+
+| Dimension | **Control Vector** (`models/control_vectors/*.safetensors`) | **J-Lens** (`models/j_lens/j_lens_h3.safetensors`) |
+|---|---|---|
+| **What It Is** | A **single `5,376`-dimensional steering direction** (`vector.post_refiner`, plus optional `5,120`-d `vector.encoder`) representing one specific concept shift ($B - A$). | A **pre-computed `24,912 × 5,376` lexical vocabulary atlas + `TokenRefiner` Jacobian** mapping 24,912 single English words into H3's encoder and post-refiner spaces. |
+| **Role in the Pipeline** | **The steering payload applied at render time** by `MiniMaxH3ApplyControlVectors` to shift video and/or audio conditioning tokens inside the DiT. | **The `< 2 ms` CPU diagnostic lens, word scrubber, and fast unigram synthesizer** used to inspect, clean, or quickly approximate control vectors without loading the 32B GPU encoder. |
+| **How It Is Built** | Extracted from **10 full contrasting H3 scene prompts** (`Prompt A` vs. `Prompt B`) or **contrasting `<Picture 1>` reference images** passed through the full **32B Qwen3-VL (`layers.49`) + 2-block bidirectional `TokenRefiner`** (`~12 s` on GPU). | Pre-extracted once offline across 24,912 words in neutral cloze frames. Loaded on CPU in milliseconds with **zero GPU VRAM**. |
+| **Contextual Depth** | **Full multi-clause & cross-modal context**: captures how an entire phrase or coupled visual + `soundscape:` change interacts across realistic 180-token H3 scenes (e.g., how 1974 16mm stock couples halation, grain, and color warmth, or how wardrobe overrides `<Subject 1>`). | **Unigram (single-word) linear superposition**: knows single English words in isolation (`"blizzard"`, `"neon"`, `"parka"`), not multi-sentence grammar or `<Subject 1>` scene structure. |
+| **What You Use It For** | 1. **Production video/audio steering** in ComfyUI (`t2va`, `fl2va`, `ref2va`).<br>2. **Coupled visual + soundscape steering** (`opening_framing:` + `soundscape:`).<br>3. **Reference-image look transfer** (`make-media`). | 1. **Decoding any Control Vector into English words** (`j_lens (+)` / `j_lens (-)` readout on `inspect` and `.md` sidecars).<br>2. **Pre-render readiness scoring** (`top1_gain`, `refiner_transmission`, `echo_ratio`).<br>3. **Scrubbing unwanted drift (`hold_words`)** on CPU in `< 1 ms`.<br>4. **Instant `< 2 ms` CPU word vectors** (`bench/control_vectors.py words` or the `words` field on `MiniMaxH3ApplyControlVectors`). |
+
+> [!TIP]
+> **Rule of thumb**:
+> - Use a **10-pair Control Vector** (`build` from `.toml`, `.md`, or `--words "Pole A -> Pole B"`) whenever you want the highest-fidelity contextual steer, `<Subject 1>` clothing/material overrides in `ref2va`, or coupled visual + audio `soundscape:` steering.
+> - Use **J-Lens** (`inspect`, `--hold-words`, or `words`) to **read out** what any control vector is doing in plain English words, **project out** unwanted nuisance words (`--hold-words "coat, parka"`) in `< 1 ms` on CPU, or **synthesize** a quick zero-GPU vector from 3–5 words when iterating on CPU.
+
+---
+
+## 3. Shipped Runtime Defaults (`MiniMaxH3ApplyControlVectors` & Canonical Workflows)
 
 Every `MiniMaxH3ApplyControlVectors` node ([`h3_rules.py:266-288`](../../h3_rules.py#L266-L288), [`control_vector_nodes.py`](../../control_vector_nodes.py)) and the three canonical Pika control-vector workflows ([`workflows/build_workflows.py:4606-4642`](../../workflows/build_workflows.py#L4606-L4642)) ship with these defaults:
 
@@ -155,12 +174,15 @@ The Studio UI opens in your browser and is organized into **6 focused task scree
 | Task | Command (`PY="$(cd ../.. && pwd)/.venv/bin/python"`) |
 |---|---|
 | Launch the 6-screen Studio UI | `"$PY" bench/control_vectors.py ui` |
+| Rebuild **all** control vectors in the default folder | `"$PY" bench/control_vectors.py rebuild` |
+| Rebuild **all** control vectors in a specific folder | `"$PY" bench/control_vectors.py rebuild /path/to/control_vectors` |
+| Rebuild a **single** control vector (by stem or path) | `"$PY" bench/control_vectors.py rebuild film_16mm_1974` |
 | Build a vector from `Pole A -> Pole B` | `"$PY" bench/control_vectors.py build --words "calm air -> scorching heatwave" --name scorching --save-toml --overwrite` |
 | Build a vector from `.toml` or `.md` | `"$PY" bench/control_vectors.py build prompt_bank/control_vectors/blizzard.toml --families both --overwrite` |
 | Build a vector from two reference images | `"$PY" bench/control_vectors.py make-media --image-a flat.png --image-b graded.png --output-name look_grade --overwrite` |
 | Invert an existing vector (`-1.0x`) | `"$PY" bench/control_vectors.py sculpt blizzard --invert --name anti_blizzard` |
 | Combine vectors + project out hold words | `"$PY" bench/control_vectors.py sculpt scorching golden_hour --modes add,add --strengths 1.0,0.5 --hold-words "coat, parka" --name desert_gold` |
-| Inspect a vector & meter a target prompt | `"$PY" bench/control_vectors.py inspect scorching__fl2va__pika_v2_2__diff_span.safetensors --prompt "A wide shot..."` |
+| Inspect a vector & meter a target prompt | `"$PY" bench/control_vectors.py inspect film_16mm_1974__fl2va__diff_span__lora_2a8c2b52.safetensors --prompt "A wide shot..."` |
 
 ---
 

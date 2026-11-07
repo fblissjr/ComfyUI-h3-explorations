@@ -433,6 +433,13 @@ def cmd_make(args: argparse.Namespace) -> int:
 
     gen = torch.Generator(device="cpu").manual_seed(int(args.seed))
     q_report = cv.quality_report(a_mat, b_mat, w_vec, generator=gen)
+    if j_lens.bundle_available():
+        try:
+            q_report["j_lens_readout"] = j_lens.decode_vector(
+                final_vec, space="post_refiner", family=family
+            )
+        except Exception:
+            pass
     raw_norm = float(torch.linalg.vector_norm(final_vec.to(dtype=torch.float64)).item())
     median_ref_row_norm = float(sum(c["median_row_norm"] for c in ref_censuses) / len(ref_censuses))
     median_enc_row_norm_ex0 = float(sum(c["median_row_norm_ex_row0"] for c in enc_censuses) / len(enc_censuses))

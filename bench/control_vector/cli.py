@@ -9,7 +9,7 @@ import sys
 import control_vectors as cv
 from workflows import h3_config
 
-from .build_cmd import cmd_build, cmd_words
+from .build_cmd import cmd_build, cmd_rebuild, cmd_words
 from .grading import cmd_grade, cmd_inspect
 from .llm_pairs import SUPPORTED_LLM_PROVIDERS, cmd_generate_pairs
 from .make_cmds import cmd_from_md, cmd_make, cmd_make_media
@@ -428,6 +428,57 @@ def build_parser() -> argparse.ArgumentParser:
     pgen.add_argument("--save-toml", dest="save_toml", action="store_true", help="Also parse and save to prompt_bank/control_vectors/<name>.toml")
     pgen.add_argument("--overwrite", action="store_true", help="Overwrite existing output files")
 
+    preb = sub.add_parser(
+        "rebuild",
+        help="Rebuild all control vectors in a folder (defaults to models/control_vectors/ + prompt_bank/control_vectors/) or a single control vector without hardcoded names",
+    )
+    preb.add_argument(
+        "target",
+        nargs="?",
+        default=None,
+        help="Optional folder path, .toml path, .safetensors path, or vector stem to rebuild (default: rebuild all vectors in the default control_vectors folder)",
+    )
+    preb.add_argument(
+        "--dir",
+        dest="vec_dir",
+        default=None,
+        help="Control vector .safetensors directory to scan/write (defaults to ComfyUI models/control_vectors/)",
+    )
+    preb.add_argument(
+        "--toml-dir",
+        dest="toml_dir",
+        default=None,
+        help="Pair .toml bank directory to scan (defaults to prompt_bank/control_vectors/)",
+    )
+    preb.add_argument(
+        "--vector",
+        dest="vector_target",
+        default=None,
+        help="Explicit single control vector stem, .safetensors file, or .toml file to rebuild",
+    )
+    preb.add_argument(
+        "--families",
+        choices=("both", "fl2va", "ref2va", "auto", "fl2va,ref2va", "ref2va,fl2va"),
+        default="both",
+        help="Which H3 model families to rebuild (default: 'both' for bank TOMLs or existing families on disk)",
+    )
+    preb.add_argument(
+        "--pooling",
+        default="diff_span",
+        help="Pooling mode when rebuilding from .toml or compiled pairs (default: 'diff_span')",
+    )
+    preb.add_argument("--dit", dest="dit", default=None, help="Explicit DiT diffusion checkpoint filename override")
+    preb.add_argument("--unet", dest="dit", default=None, help=argparse.SUPPRESS)
+    preb.add_argument("--encoder", default=None, help="Text encoder checkpoint filename")
+    preb.add_argument("--lora", action="append", default=None, help="Explicit LoRA file[:strength] override")
+    preb.add_argument("--no-lora", dest="no_lora", action="store_true", help="Rebuild without Pika LoRAs")
+    preb.add_argument("--no-holds", action="store_true", help="Do not project out [[hold]] groups")
+    preb.add_argument("--include-encoder", dest="include_encoder", action="store_true", default=True, help="Also save vector.encoder (5120-d; default: True)")
+    preb.add_argument("--no-encoder", dest="include_encoder", action="store_false", help="Omit vector.encoder (5120-d)")
+    preb.add_argument("--seed", type=int, default=0)
+    preb.add_argument("--device", default="default")
+    preb.add_argument("--refiner-device", default="cpu")
+
     return p
 
 
@@ -448,6 +499,8 @@ def main(argv: list[str] | None = None) -> int:
             return cmd_sculpt(args)
         if args.cmd == "build":
             return cmd_build(args)
+        if args.cmd == "rebuild":
+            return cmd_rebuild(args)
         if args.cmd in ("from-md", "import-md"):
             return cmd_from_md(args)
         if args.cmd == "make":
