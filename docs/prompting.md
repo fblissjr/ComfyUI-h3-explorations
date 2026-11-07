@@ -1,6 +1,6 @@
 # How to write an H3 prompt
 
-last updated: 2026-10-11 (one row in "Where everything else lives", pointing at the masked lane's page); 2026-10-01
+last updated: 2026-11-07 (added §17 [`docs/prompting/17_p_h3_image_prompting.md`](prompting/17_p_h3_image_prompting.md) for PrunaAI `P-H3-Image` single-frame T2I and image editing); 2026-10-11 (one row in "Where everything else lives", pointing at the masked lane's page); 2026-10-01
 
 **The single source of truth for writing an H3 prompt, in any mode.** Everything
 needed is restated here: the closed vocabularies in full, the exact Part One
@@ -35,7 +35,8 @@ this file is right and the other is stale.
 | Legal canvases and lengths | [`h3_resolutions.md`](h3_resolutions.md), [`h3_geometry_and_nodes.md`](h3_geometry_and_nodes.md) |
 | Comparing two prompts fairly | [`eval_comparison.md`](eval_comparison.md). The one measured length pair is [`prompt_length_experiment.md`](prompt_length_experiment.md) |
 | Why a rule was added, reversed or withdrawn | [`wiki/decisions.md`](wiki/decisions.md) |
-| Handing the rules to an LLM or someone outside the repo | [`wiki/system_prompts/`](wiki/system_prompts/): [`wiki/system_prompts/h3_system_prompt.md`](wiki/system_prompts/h3_system_prompt.md) for general scene prompts (`t2va`, `i2va`, `fl2va`, `l2va`, `ref2va`), and [`wiki/system_prompts/h3_control_vector_system_prompt.md`](wiki/system_prompts/h3_control_vector_system_prompt.md) for control-vector contrastive prompt pairs |
+| Handing the rules to an LLM or someone outside the repo | [`wiki/system_prompts/`](wiki/system_prompts/): [`wiki/system_prompts/h3_system_prompt.md`](wiki/system_prompts/h3_system_prompt.md) for general scene prompts (`t2va`, `i2va`, `fl2va`, `l2va`, `ref2va`, `p_h3_image_t2i`, `p_h3_image_edit`), and [`wiki/system_prompts/h3_control_vector_system_prompt.md`](wiki/system_prompts/h3_control_vector_system_prompt.md) for control-vector contrastive prompt pairs |
+| PrunaAI `P-H3-Image` single-frame T2I and multi-image editing (`workflows/image/`) | [`prompting/17_p_h3_image_prompting.md`](prompting/17_p_h3_image_prompting.md) and [`h3_image_editing.md`](h3_image_editing.md) |
 | An agent routing by task | `.claude/skills/h3-prompt` |
 | The text of a masked video-to-video load, and what it says of a motion video | [`wiki/masked_v2v.md`](wiki/masked_v2v.md): its section on the Masked Prompt node for what that node writes, and "The motion video as a body model, with marks drawn on its face" for the lines that say what such a video is and that the subject follows it. **That second one is provisional and ours (HOUSE, 2026-10-11): it held on one shot and did not repeat on a second.** It is a practice written down with its evidence, not a rule of this file |
 
@@ -52,6 +53,7 @@ Sections `1`–`5.7` (mode selection, per-mode structure and Part One templates,
 | [`docs/prompting/11_rule_matrix_and_gaps.md`](prompting/11_rule_matrix_and_gaps.md) | Rule Matrix, Guide Disagreements & Known Gaps (§11–§13) |
 | [`docs/prompting/14_sources_and_internals.md`](prompting/14_sources_and_internals.md) | Governing Sources, Encoder Internals & Failure Modes (§14–§15) |
 | [`docs/prompting/16_specificity.md`](prompting/16_specificity.md) | Specificity: What to Pin and What to Leave to the Model (§16) |
+| [`docs/prompting/17_p_h3_image_prompting.md`](prompting/17_p_h3_image_prompting.md) | PrunaAI `P-H3-Image`: Single-Frame T2I & Image Editing Prompting & `Qwen3.5-9B` Upsampler (§17) |
 
 ## Four layers, and every rule says which one it is
 
@@ -658,3 +660,4 @@ Moved to modular leaf files under `docs/prompting/` so every file fits in a sing
 - [`docs/prompting/11_rule_matrix_and_gaps.md`](prompting/11_rule_matrix_and_gaps.md) — Rule Matrix, Guide Disagreements & Known Gaps (§11–§13)
 - [`docs/prompting/14_sources_and_internals.md`](prompting/14_sources_and_internals.md) — Governing Sources, Encoder Internals & Failure Modes (§14–§15)
 - [`docs/prompting/16_specificity.md`](prompting/16_specificity.md) — Specificity: What to Pin and What to Leave to the Model (§16)
+- [`docs/prompting/17_p_h3_image_prompting.md`](prompting/17_p_h3_image_prompting.md) — PrunaAI `P-H3-Image`: Single-Frame T2I & Image Editing Prompting & `Qwen3.5-9B` Upsampler (§17)

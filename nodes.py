@@ -75,6 +75,7 @@ from .control_vector_nodes import (
     MiniMaxH3MakeMediaControlVector,
 )
 from .prompt_lists import MiniMaxH3FillPromptLists, MiniMaxH3PromptList, register_wildcards_folder
+from .ph3_image_nodes import MiniMaxH3PH3ImagePromptUpsampler
 from . import h3_capture
 
 from .attention import (
@@ -396,7 +397,10 @@ class H3ExplorationsExtension(ComfyExtension):
                 # appended 2026-11-04, contrastive control vectors made and applied after the
                 # token refiner (control_vector_nodes.py, control_vectors.py)
                 MiniMaxH3MakeControlVector, MiniMaxH3MakeMediaControlVector,
-                MiniMaxH3ApplyControlVectors, MiniMaxH3LayerNormMatch]
+                MiniMaxH3ApplyControlVectors, MiniMaxH3LayerNormMatch,
+                # appended 2026-11-07, p-h3-image prompt upsampler with bypass toggle
+                # (ph3_image_nodes.py)
+                MiniMaxH3PH3ImagePromptUpsampler]
 
 
 async def comfy_entrypoint() -> H3ExplorationsExtension:

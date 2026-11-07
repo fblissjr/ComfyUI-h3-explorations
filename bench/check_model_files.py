@@ -80,7 +80,9 @@ from pathlib import Path
 _HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(_HERE.parents[0] / "workflows"))
 
-from h3_config import (CORE_LOADED_ENCODERS, MODELS, IMAGE_VAE, VIDEO_VAE_FP16,  # noqa: E402
+from h3_config import (CORE_LOADED_ENCODERS, PH3_IMAGE_CLIPLOADER_ENCODERS,  # noqa: E402
+                       PH3_IMAGE_UNET, PH3_IMAGE_VAE, PH3_IMAGE_VAE_INT8,
+                       MODELS, IMAGE_VAE, VIDEO_VAE_FP16,
                        DRAFT_VAE, graph_paths)
 
 WORKFLOWS = _HERE.parents[0] / "workflows"
@@ -180,7 +182,12 @@ def grade_format_owner(items) -> list[str]:
     for where, cls, name in items:
         if cls not in ENCODER_LOADERS:
             continue
-        if name not in CORE_LOADED_ENCODERS:
+        allowed = (
+            CORE_LOADED_ENCODERS | PH3_IMAGE_CLIPLOADER_ENCODERS
+            if cls == "CLIPLoader"
+            else CORE_LOADED_ENCODERS
+        )
+        if name not in allowed:
             bad.append(
                 f"{where}: {name!r} is not a ComfyUI-native H3 encoder "
                 f"(h3_config.CORE_LOADED_ENCODERS); {cls} lists it because "
@@ -214,6 +221,9 @@ def main() -> int:
     items.append(("h3_config.IMAGE_VAE", "VAELoader", IMAGE_VAE))
     items.append(("h3_config.VIDEO_VAE_FP16", "VAELoader", VIDEO_VAE_FP16))
     items.append(("h3_config.DRAFT_VAE", "VAELoader", DRAFT_VAE))
+    items.append(("h3_config.PH3_IMAGE_UNET", "UNETLoader", PH3_IMAGE_UNET))
+    items.append(("h3_config.PH3_IMAGE_VAE", "VAELoader", PH3_IMAGE_VAE))
+    items.append(("h3_config.PH3_IMAGE_VAE_INT8", "VAELoader", PH3_IMAGE_VAE_INT8))
 
     failures = grade(items, oi) + grade_format_owner(items)
     print(f"{len(items)} model reference(s) from "

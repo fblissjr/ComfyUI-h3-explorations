@@ -431,3 +431,70 @@ standalone audio is numbered after. [house]
 
 In ref2va, two dialogue turns in one shot are attested in the vendor's own
 payload; more are not. [guide: shown]
+
+============================ MODE: p_h3_image_t2i ============================
+# Active mode: P-H3-Image Single-Frame Text-to-Image (`p-h3-image`)
+
+This mode targets PrunaAI's `P-H3-Image` single-frame adaptation of MiniMax H3 (`p-h3-image_int8_convrot.safetensors` or `p-h3-image_lora_bf16.safetensors` on `unet_fl2va`, conditioned via `PH3ImageConditioning` with `p-h3-image_text_encoder_int8_convrot.safetensors` or our 32B `MiniMaxH3EncoderLoader` teacher encoder). See [`docs/prompting/17_p_h3_image_prompting.md`](../../prompting/17_p_h3_image_prompting.md) and [`docs/h3_image_editing.md`](../../h3_image_editing.md). [house]
+
+Why P-H3-Image prompts differ structurally from H3 video prompts:
+- `P-H3-Image` replaces the 32B single-layer (`layer="last"`) Qwen3-VL encoder with a distilled `Qwen3-VL-4B` encoder that taps 5 intermediate hidden states (`layers [13, 19, 25, 31, 36]`, `5 * 2560 = 12800` dim), standardizes with learned `input_mean` / `input_std`, projects through a single bias-free linear layer `nn.Linear(12800, 5120, bias=False)` (`TextConnector.proj`, fp32), destandardizes to `output_mean` / `output_std` (`5120`), and replaces token 0 with `sink_embedding` (`5120`) into the H3 DiT's `5120`-dim text space (`comfy/text_encoders/minimax.py:110-128, 172-250`).
+- `PH3ImageTokenizer` (`comfy/text_encoders/minimax.py:254-258`) uses standard `Qwen3VLSDTokenizer` without registering `MINIMAX_EXTRA_TOKENS` (`<d>`, `</d>`, `<|cutoff|>`, `<|lyrics_start|>`, `<|lyrics_end|>`, `<|caption_start|>`, `<|caption_end|>`, token IDs `151669..151675` in `comfy/text_encoders/minimax.py:33-35`). Any H3 video marker in a `P-H3-Image` prompt is split into ordinary BPE text subwords rather than special token IDs `151669..151675`.
+- Because `length=1` has a single latent temporal frame (`t=1`) and its two dummy audio latent frames are discarded after `SamplerCustomAdvanced`, video section headers, shot cuts, camera trajectories, and audio descriptions are out-of-distribution and waste text tokens. [house]
+
+Rules for `p_h3_image_t2i`:
+1. Write a single cohesive visual prose paragraph (or 2–4 dense descriptive paragraphs for complex typography/infographics), 80–200 words. Do NOT write `integrated_multimodal_description:`, `overall_soundscape:`, `non_diegetic_music:`, `subject_definitions:`, `summary:`, `retention_analysis:`, or `detailed_description:`. [house]
+2. Do NOT write `[Shot 1]`, `<d>...</d>`, speaker IDs `(S1)`, camera movement verbs (`trucks`, `dollies`, `pans`, `tilts`, `tracks`), or sound/music descriptions. [house]
+3. Do NOT cite `<Picture N>`, `<Subject N>`, `<Video N>`, or `<Audio N>` in T2I mode. [house]
+4. State the visual medium/style, subject appearance, pose, wardrobe, foreground/midground/background spatial layout, material textures, lighting direction and color temperature, and lens/depth-of-field in concrete visual prose. [house]
+5. When rendering in-frame text or signage, quote the exact strings in double quotes (`"..."`) and specify font style, material (e.g., brushed brass lettering, chalk menu board, neon tubing), and placement on the surface. [house]
+
+=========================== MODE: p_h3_image_edit ============================
+# Active mode: P-H3-Image Single-Frame Editing & Multi-Image Composition (`p-h3-image` with 1..8 images)
+
+This mode targets `PH3ImageConditioning` when 1 to 8 reference images are wired to `images.image_1` .. `images.image_8`. [house]
+
+How `PH3ImageConditioning` (`comfy_extras/nodes_minimax_h3.py:681-732`) presents images to the model:
+- Dual-stream conditioning (identical in mechanism to H3 `ref2va`, specialized to single-frame `t=1`):
+  1. **Vision-token stream (`Qwen3-VL`)**: Each connected image `i` (`1..k`) is aspect-preservingly downscaled to at most `1,000,000` pixels (`PH3_IMAGE_VISION_PIXELS`, rounded to multiples of `32`) and tokenized into the prompt prefix as `<Picture 1>: <|vision_start|>...<|vision_end|><Picture 2>: <|vision_start|>...<|vision_end|>...` right before the text prompt.
+  2. **DiT reference-latent stream (`minimax_refs`)**: Each connected image `i` is aspect-preservingly scaled to the target canvas area (`width * height`, default `2048x2048 = 4 MP` in our edit workflows) and encoded with `PH3ImageVAE.encode` (`PH3_IMAGE_ENCODE_SEED = 42`, `comfy/ldm/minimax/vae.py:1026`; decoded with `PH3_IMAGE_FRAME_POSITION = 2.0 * (0.5 / 7) - 1.0`, `comfy/ldm/minimax/vae.py:438`) into `minimax_refs`.
+- **Automatic prefix rule (`PH3ImageConditioning:723-724`)**:
+  - If the prompt matches `^\s*(Edit <Picture \d+>|subject_definitions:)`, `PH3ImageConditioning` passes `prompt.strip()` verbatim.
+  - Otherwise, `PH3ImageConditioning` automatically prepends `"Edit <Picture 1>. "` to the prompt (`PH3_IMAGE_EDIT.format(prompt)`). [house]
+
+Rules for `p_h3_image_edit`:
+1. Refer to every connected image strictly by its 1-indexed angle-bracketed label `<Picture 1>`, `<Picture 2>`, ..., `<Picture k>` matching `images.image_1` .. `images.image_k`. Never invent `<Picture m>` for an unwired slot, and never omit a wired `<Picture i>`. [house]
+2. `image_1` (`<Picture 1>`) is the primary image being edited (or the primary subject/base composition); `<Picture 2>` .. `<Picture k>` supply additional subjects, garments, props, backgrounds, or style references. [house]
+3. Write a direct, explicit edit instruction in 40–150 words stating:
+   - **What changes / combines**: which elements come from `<Picture 1>`, `<Picture 2>`, etc., and where they are placed.
+   - **What stays invariant**: explicitly name the facial identity, pose, framing, lighting, or background details from `<Picture 1>` (or `<Picture i>`) that must remain unchanged.
+   - **Integration details**: how lighting direction, shadows, perspective, and surface textures unify across the combined elements. [house]
+4. Do NOT use `<d>...</d>`, `[Shot N]`, camera motion verbs, or audio section headers. (While `PH3ImageConditioning`'s regex also allows `subject_definitions:` verbatim, natural prose referencing `<Picture 1>`, `<Picture 2>`, ... is the native format `P-H3-Image`'s `TextConnector` and `Qwen3.5-9B` prompt upsampler were trained on.) [house]
+
+## Appendix: How PrunaAI's `Qwen3.5-9B` Prompt Upsampler (`p-h3-image_prompt_upsampler`) Works
+
+Whether you enable `MiniMaxH3PH3ImagePromptUpsampler` (`ph3_image_nodes.py`) in the workflow or write the expanded prompt directly yourself, understanding what PrunaAI's `Qwen3.5-9B` rewriter (`PrunaAI/P-H3-Image`, `diffusers` `src/diffusers/modular_pipelines/p_h3_image/prompt_upsampler.py`) does tells you the exact distribution `P-H3-Image` was distilled against:
+
+1. **No system prompt; user-turn template + `<think>\n` prefill**:
+   - **T2I (`max_new_tokens=1024`)**:
+     ```text
+     <|im_start|>user
+     Aspect ratio: {1:1|4:3|3:4|3:2|2:3|16:9|9:16}
+     Request: {user_prompt}<|im_end|>
+     <|im_start|>assistant
+     <think>
+     ```
+   - **Edit (`max_new_tokens=1536`, 1..8 images)**:
+     ```text
+     <|im_start|>user
+     <Picture 1>: <|vision_start|><|image_pad|><|vision_end|>[<Picture 2>: ... ]Edit <Picture 1>. {user_prompt}<|im_end|>
+     <|im_start|>assistant
+     <think>
+     ```
+2. **What the upsampler does inside `<think>...</think>` and after `</think>`**:
+   - In **T2I**, it reads the target `Aspect ratio:` bucket (`1:1`, `4:3`, `3:4`, `3:2`, `2:3`, `16:9`, `9:16`) and expands short requests into a rich single-frame visual specification tuned to that framing (horizontal vs. vertical composition, subject details, material textures, lighting, and exact quoted text strings if requested), emitting the final prompt after `</think>`.
+   - In **Edit**, it inspects the vision tokens of `<Picture 1>` .. `<Picture k>` (each resized at its native aspect ratio to `~1 MP`, multiples of `32`, Lanczos, with no white canvas padding), resolves pronouns or vague references ("this person", "that jacket", "the background") into concrete descriptions anchored to `<Picture 1>`, `<Picture 2>`, ..., and states both the requested modification and the preserved visual invariants from each `<Picture i>`.
+3. **Why our workflows keep `MiniMaxH3PH3ImagePromptUpsampler` (`enabled=False` by default)**:
+   - When you write a detailed T2I or `<Picture i>` edit prompt directly following the rules above, `enabled=False` bypasses the `9.1 GB` `Qwen3.5-9B` checkpoint completely (its `clip` input is `lazy=True`, so ComfyUI does not load `p-h3-image_prompt_upsampler_int8_convrot.safetensors` into VRAM/RAM at all).
+   - When you want the model's trained `Qwen3.5-9B` expansion on a terse one-line idea or multi-image edit, flip `enabled=True` on node `25` (`MiniMaxH3PH3ImagePromptUpsampler`), and it executes the exact upstream chat template and aspect-preserving `1 MP` image resize via `clip.generate`.
+

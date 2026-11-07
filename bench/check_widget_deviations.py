@@ -359,6 +359,37 @@ DECLARED: dict[tuple[str, str], tuple] = {
                 "units (+1.15 on the single t2va and ref2va film_16mm_1974 diff_span arms, "
                 "+1.0 on the dual t2va diff_span arm), against the node default 1.0 "
                 "(2026-11-07, bench/results/2026-11-05_control_vectors_pika_and_ref2va.md)"),
+    ("MiniMaxH3SigmaShift", "shift_video"):
+        ("RESOLVED", "h3_config.PH3_IMAGE_SHIFT (1.0/1.0) on the 6 P-H3-Image "
+                     "single-frame graphs (whose 8-step non-uniform schedule is "
+                     "already unshifted), against the node default 12.0 on every "
+                     "video graph; bench/check_distill_settings.py grades both "
+                     "populations"),
+    ("MiniMaxH3SigmaShift", "shift_audio"):
+        ("RESOLVED", "h3_config.PH3_IMAGE_SHIFT (1.0/1.0) on the 6 P-H3-Image "
+                     "single-frame graphs so time_shift_sigma is the identity on "
+                     "the unshifted 8-step sigmas, against the node default 3.0 on "
+                     "every video graph; bench/check_distill_settings.py grades both "
+                     "populations"),
+    ("PH3ImageConditioning", "width"):
+        ("ARM", "2912 on the P-H3-Image T2I graphs (h3_config.PH3_IMAGE_CANVAS_8MP) "
+                "and 2048 on the P-H3-Image Edit graphs (h3_config.PH3_IMAGE_CANVAS_4MP, "
+                "matching Pruna's 4 MP edit training budget), against the node "
+                "default 0 (which auto-derives width from image_1 or 2912)"),
+    ("PH3ImageConditioning", "height"):
+        ("ARM", "2912 on the P-H3-Image T2I graphs (h3_config.PH3_IMAGE_CANVAS_8MP) "
+                "and 2048 on the P-H3-Image Edit graphs (h3_config.PH3_IMAGE_CANVAS_4MP), "
+                "against the node default 0"),
+    ("MiniMaxH3PH3ImagePromptUpsampler", "width"):
+        ("ARM", "2048 on the P-H3-Image Edit graphs (h3_config.PH3_IMAGE_CANVAS_4MP), "
+                "against the node default 2912 on the T2I graphs"),
+    ("MiniMaxH3PH3ImagePromptUpsampler", "height"):
+        ("ARM", "2048 on the P-H3-Image Edit graphs (h3_config.PH3_IMAGE_CANVAS_4MP), "
+                "against the node default 2912 on the T2I graphs"),
+    ("MiniMaxH3PH3ImagePromptUpsampler", "max_new_tokens"):
+        ("ARM", "1536 on the P-H3-Image Edit graphs (ph3_image_nodes.EDIT_MAX_NEW_TOKENS), "
+                "against the node default 1024 (ph3_image_nodes.T2I_MAX_NEW_TOKENS) on the "
+                "T2I graphs"),
 }
 
 #: **There is deliberately no exception table here.** One was written on

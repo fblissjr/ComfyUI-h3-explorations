@@ -1591,6 +1591,75 @@ PIKA_MANUAL_SIGMAS = ", ".join(
 )
 assert PIKA_MANUAL_SIGMAS == "1.0, 0.972973, 0.923077, 0.8, 0.571429, 0.333333, 0.0"
 
+#: PrunaAI P-H3-Image 8-step single-frame T2I and multi-image edit distillation
+#: (`PrunaAI/P-H3-Image`, `diffusers` `src/diffusers/modular_pipelines/p_h3_image/`).
+#:
+#: **Measured from the safetensors headers and tensors, 2026-11-07:**
+#: - `p-h3-image_lora_bf16.safetensors` (624 tensors) is a rank-128 PEFT LoRA
+#:   (`lora_alpha == r == 128`, unit scale `alpha / r = 1.0`, zero `adaln_single`
+#:   keys) over the exact same 208 ComfyUI `diffusion_model.*` linear modules as
+#:   Pika H3 Flex (`token_refiner.blocks.0..1` + `blocks.0..49` `attn.{qkv_proj,out_proj}`,
+#:   `mlp.{fc1,fc2}`, with `qkv_proj` block-diagonal `3x128 = 384`, off-diagonal max `0.0`),
+#:   trained on top of the FL2VA backbone (`MODELS["unet_fl2va"]`).
+#: - `p-h3-image_int8_convrot.safetensors` (932 tensors) has the identical key set
+#:   to `MODELS["unet_fl2va"]`; all 421 non-LoRA, non-AdaLN tensors are byte-for-byte
+#:   identical to `minimax_h3_fl2va_pruned_int8_convrot.safetensors`, while
+#:   `adaln_t_table` is rank-16 `(4097, 16)` (against rank-8 `(1025, 8)` in
+#:   Comfy-Org's pruned FL2VA) and the LoRA weights are baked in before INT8
+#:   ConvRot calibration.
+#: - `p-h3-image_text_encoder_int8_convrot.safetensors` (`Qwen3-VL-4B` + FP32
+#:   `TextConnector`, loaded by core's `CLIPLoader` with `type="minimax"`)
+#:   concatenates hidden states `[13, 19, 25, 31, 36]` (`5 * 2560 = 12800`),
+#:   standardizes with learned `input_mean` / `input_std`, projects to `5120` via
+#:   a single bias-free linear layer `nn.Linear(12800, 5120, bias=False)`,
+#:   destandardizes to `output_mean` / `output_std`, and replaces token 0 with
+#:   `sink_embedding` (`norm=15810.24`), matching the `Qwen3-VL-32B` layer-50
+#:   distribution (`comfy/text_encoders/minimax.py:110-128, 172-258`).
+#: - `p-h3-image_prompt_upsampler_int8_convrot.safetensors` (`Qwen3.5-9B`,
+#:   loaded by core's `CLIPLoader` with `type="qwen_image"`) is fine-tuned across
+#:   all 32 language layers (638 tensors differing from stock `qwen3.5_9b_int8_convrot`).
+#: - `p-h3-image_vae_bf16.safetensors` and `p-h3-image_vae_int8_convrot.safetensors`
+#:   are `PH3ImageVAE(MiniMaxH3VideoVAE)`: MiniMax-H3's 3D causal CNN encoder
+#:   (`EncoderFCN3D`) with seeded diagonal-Gaussian sampling (`PH3_IMAGE_ENCODE_SEED = 42`),
+#:   24-channel `LATENTS_MEAN` / `LATENTS_STD` + ImageNet normalization, and
+#:   `PH3ImageDecoder(ViT3DDecoder)` (`patch_size_t=1` and fixed temporal RoPE
+#:   coordinate `PH3_IMAGE_FRAME_POSITION = 2.0 * (0.5 / 7) - 1.0`,
+#:   `comfy/ldm/minimax/vae.py:429-439, 1014-1033`).
+#: - **Inherited** (`modular_model_index.json`, `before_denoise.py:837-838`): 8 Euler
+#:   steps, no CFG (`BasicGuider`), `sample_sigmas` below, and identical image and
+#:   audio schedules (`scheduler` and `audio_scheduler` share the same sigmas, so
+#:   `shift_video == shift_audio == 1.0` on `MiniMaxH3SigmaShift` /
+#:   `ModelSamplingMiniMaxH3`, making `time_shift_sigma` in `comfy/ldm/minimax/model.py`
+#:   an identity map).
+PH3_IMAGE_UNET = "p-h3-image_int8_convrot.safetensors"
+PH3_IMAGE_LORA = "h3/p-h3-image_lora_bf16.safetensors"
+PH3_IMAGE_STRENGTH = 1.0
+PH3_IMAGE_TE = "p-h3-image_text_encoder_int8_convrot.safetensors"
+PH3_IMAGE_UPSAMPLER = "p-h3-image_prompt_upsampler_int8_convrot.safetensors"
+#: Encoder files loaded by core's `CLIPLoader` on the P-H3-Image graphs
+#: (`type="minimax"` -> `PH3ImageTEModel` in `comfy/sd.py:2085`, and
+#: `type="qwen_image"` -> `Qwen35TEModel` in `comfy/sd.py:2055-2063`,
+#: `comfy/text_encoders/qwen35.py:1310`), distinct from the 32B
+#: `CORE_LOADED_ENCODERS` opened by `MiniMaxH3EncoderLoader`.
+PH3_IMAGE_CLIPLOADER_ENCODERS = frozenset({
+    PH3_IMAGE_TE,
+    PH3_IMAGE_UPSAMPLER,
+})
+PH3_IMAGE_VAE = "p-h3-image_vae_bf16.safetensors"
+PH3_IMAGE_VAE_INT8 = "p-h3-image_vae_int8_convrot.safetensors"
+PH3_IMAGE_STEPS = 8
+PH3_IMAGE_SAMPLER = "euler"
+PH3_IMAGE_SHIFT = (1.0, 1.0)
+PH3_IMAGE_SIGMA_KNOTS = (
+    1.0, 0.984753, 0.967905, 0.951688, 0.925372, 0.881923, 0.810083, 0.528718, 0.0
+)
+PH3_IMAGE_MANUAL_SIGMAS = "1.0, 0.984753, 0.967905, 0.951688, 0.925372, 0.881923, 0.810083, 0.528718, 0.0"
+#: **Inherited** (`before_encoder.py:99,118,126`): 2912x2912 (~8.48 MP, `33,124`
+#: image patch tokens) is the default T2I canvas; 2048x2048 (~4.19 MP, `16,384`
+#: image patch tokens) is `canvas_min_pixels` for edits.
+PH3_IMAGE_CANVAS_8MP = dict(width=2912, height=2912)
+PH3_IMAGE_CANVAS_4MP = dict(width=2048, height=2048)
+
 # `CHAIN` was here and is gone as of 2026-08-14. It listed the node order --
 # Load Diffusion Model, MiniMax H3 SageAttention, SolAttnMiniMax -- and nothing
 # imported it. Node order IS load-bearing (Sol composes with the attention
@@ -2146,7 +2215,7 @@ DAILY_GRAPHS: dict[str, str] = {
     # recipe the owner's playback verdicts of 2026-10-06 picked.
     "h3_mask_upper_ref2va_motion": "h3_video_to_video_masked_upper_song_ref2va_motion.json",
 }
-GRAPH_DIRS: tuple[str, ...] = ("", "distill_experiments", DAILY_DIR)
+GRAPH_DIRS: tuple[str, ...] = ("", "distill_experiments", DAILY_DIR, SINGLE_FRAME_DIR)
 
 # What `bench/` is exempt from is schema grading, and only that. A bench graph
 # naming a model file that no longer exists is not schema drift -- it is the
@@ -2334,6 +2403,10 @@ OUTPUT_SOURCES: dict = {
     # height, length) are why that state has to exist. A reader that returned
     # MALFORMED here would report every reference graph in the tree.
     "MiniMaxH3Resolution": (None,) * 7,
+    # `ph3_image_nodes.MiniMaxH3PH3ImagePromptUpsampler`: when `enabled` is False
+    # (the shipped default), slot 0 returns `prompt` untouched; slot 1 is the
+    # `<think>` trace (empty when disabled, generated at run time when enabled).
+    "MiniMaxH3PH3ImagePromptUpsampler": (Passthrough("prompt"), None),
 }
 
 

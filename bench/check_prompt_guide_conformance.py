@@ -100,9 +100,12 @@ BASE_GUIDE = (REPO / "vendor_guides"
 # Non-recursive `WORKFLOWS.glob` would have stopped seeing the image graphs
 # when they moved to `workflows/image/` on 2026-08-16, and this file's counts
 # would still have printed a plausible number. See h3_config.GRAPH_DIRS.
+sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(REPO / "workflows"))
 from h3_config import (  # noqa: E402
-    AUDIO_DECODING_CARRIERS, PROMPT_INPUTS, REF_FORMAT_CARRIERS, graph_paths)
+    AUDIO_DECODING_CARRIERS, PROMPT_INPUTS, REF_FORMAT_CARRIERS, graph_paths,
+    resolve_link)
+from ph3_image_nodes import is_edit_prompt  # noqa: E402
 
 # Both come from the one registry in `h3_config`. `MiniMaxH3AudioFreezeSong`
 # conditions each window itself; its guide follows its `references` input
@@ -308,7 +311,82 @@ def ref_prompts() -> dict[str, tuple[str, str]]:
 #: Classes with a `prompt` string input that are not encoder carriers, and why.
 NOT_CARRIERS = {
     "MiniMaxH3FillPromptLists": "outputs the filled text; the carrier it feeds is the one graded",
+    "MiniMaxH3PH3ImagePromptUpsampler": "outputs the P-H3-Image prompt; the PH3ImageConditioning carrier it feeds is graded by ph3_image_prompts_conform",
+    "PH3ImageConditioning": "single-frame P-H3-Image carrier (pure visual prose or <Picture i> edit instructions, graded by ph3_image_prompts_conform rather than the video section guides)",
 }
+
+
+def ph3_image_prompts_conform(graph_files) -> list[str]:
+    """Grade every shipped `PH3ImageConditioning` graph against the P-H3-Image
+    prompt contract (`docs/prompting/17_p_h3_image_prompting.md` and
+    `comfy_extras/nodes_minimax_h3.py::PH3ImageConditioning`).
+
+    - T2I (no `images.image_*` sockets wired): must be non-empty single-frame
+      visual prose with zero H3 video section headers (`integrated_multimodal_description:`,
+      `overall_soundscape:`, `non_diegetic_music:`, `subject_definitions:`,
+      `retention_analysis:`, `detailed_description:`), zero `<d>` speech tags,
+      zero `[Shot N]` timeline markers, and zero `<Picture i>` references.
+    - Edit (`images.image_1..k` wired): must reference the exact 1-indexed set
+      `{f"<Picture {i}>" for i in range(1, k + 1)}` and satisfy either
+      `ph3_image_nodes.is_edit_prompt` or `PH3ImageConditioning`'s automatic
+      `"Edit <Picture 1>. "` prefixing rule, with zero `<d>` tags or `[Shot N]`
+      markers.
+    """
+    video_headers = (
+        "integrated_multimodal_description:",
+        "overall_soundscape:",
+        "non_diegetic_music:",
+        "subject_definitions:",
+        "retention_analysis:",
+        "detailed_description:",
+    )
+    problems: list[str] = []
+    seen = 0
+    for path in graph_files:
+        try:
+            wf = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if not isinstance(wf, dict) or isinstance(wf.get("nodes"), list):
+            continue
+        for nid, n in wf.items():
+            if not isinstance(n, dict) or n.get("class_type") != "PH3ImageConditioning":
+                continue
+            seen += 1
+            ins = n.get("inputs") or {}
+            got = resolve_link(wf, ins.get("prompt"))
+            if not got.ok or not isinstance(got.value, str) or not got.value.strip():
+                problems.append(f"{path.stem}: node {nid} (PH3ImageConditioning) prompt did not resolve to a non-empty string ({got})")
+                continue
+            text = got.value
+            if "<d>" in text or "</d>" in text:
+                problems.append(f"{path.stem}: P-H3-Image prompt contains `<d>` video speech tags")
+            if re.search(r"\[Shot\s*\d+\]", text):
+                problems.append(f"{path.stem}: P-H3-Image prompt contains `[Shot N]` video timeline markers")
+            wired_indices = sorted(
+                int(k.rsplit("_", 1)[-1])
+                for k in ins
+                if k.startswith("images.image_") and ins[k] is not None
+            )
+            cited = sorted({int(m) for m in re.findall(r"<Picture\s+(\d+)>", text)})
+            if not wired_indices:
+                for hdr in video_headers:
+                    if hdr in text:
+                        problems.append(f"{path.stem}: T2I P-H3-Image prompt contains H3 video section header {hdr!r}")
+                if cited:
+                    problems.append(f"{path.stem}: T2I P-H3-Image prompt cites <Picture {cited}> with no images wired")
+            else:
+                if cited != wired_indices:
+                    problems.append(
+                        f"{path.stem}: Edit P-H3-Image prompt cites <Picture {cited}>, "
+                        f"but PH3ImageConditioning wires images {wired_indices}"
+                    )
+                effective = text.strip() if is_edit_prompt(text) else f"Edit <Picture 1>. {text}"
+                if not is_edit_prompt(effective):
+                    problems.append(f"{path.stem}: Edit P-H3-Image prompt does not form a valid edit instruction")
+    if seen == 0:
+        problems.append("no PH3ImageConditioning graph was found to grade")
+    return problems
 
 
 def carrier_gaps(registry, graph_files, source_files) -> list[str]:
@@ -537,6 +615,8 @@ def main() -> int:
     source_files = sorted(REPO.glob("*.py"))
     ok("every prompt-carrying node is in h3_config.PROMPT_INPUTS",
        carrier_gaps(PROMPT_INPUTS, graph_files, source_files))
+    ok("every P-H3-Image single-frame prompt conforms to the P-H3-Image contract",
+       ph3_image_prompts_conform(graph_files))
     #    The control: the same case on a registry missing the song node must
     #    fail, or a case that scans nothing would pass for ever.
     reduced = {k: v for k, v in PROMPT_INPUTS.items() if k != "MiniMaxH3AudioFreezeSong"}

@@ -109,6 +109,7 @@ with none is a helper the others import.
 | [`nodes.py`](nodes.py) | `MiniMaxH3SageAttention` | MiniMax H3 SageAttention node. |
 | [`overlay_loader.py`](overlay_loader.py) | `MiniMaxH3OverlayLoader` | Load a research checkpoint as an overlay on the released one, a piece at a time. |
 | [`part_coverage.py`](part_coverage.py) |  | How much of a tracked subject a part mask covers, frame by frame, and which frames to doubt. |
+| [`ph3_image_nodes.py`](ph3_image_nodes.py) | `MiniMaxH3PH3ImagePromptUpsampler` | MiniMax H3 p-h3-image prompt upsampler node (`MiniMaxH3PH3ImagePromptUpsampler`). |
 | [`pipeline_telemetry.py`](pipeline_telemetry.py) |  | What a ComfyUI prompt loaded, moved and spent, end to end, as one JSONL record. |
 | [`plate_restore.py`](plate_restore.py) | `MiniMaxH3RestorePlate` | Put the kept parts of a masked latent back between two samplers. |
 | [`preflight.py`](preflight.py) | `MiniMaxH3Preflight` | What this render will actually cost, before you queue it. |
@@ -153,14 +154,14 @@ with none is a helper the others import.
 | `changelog.d/` | | [`changelog.d/README.md`](changelog.d/README.md), one file per changelog entry; not listed and not counted |
 | `contact_sheets/` | 2 | [below](#contact_sheets) |
 | `data/` | 2 | [below](#data) |
-| `docs/` | 233 | [`docs/wiki/index.md`](docs/wiki/index.md), the hand-written router |
+| `docs/` | 234 | [`docs/wiki/index.md`](docs/wiki/index.md), the hand-written router |
 | `prompt_bank/` | 210 | [`docs/prompt_bank.md`](docs/prompt_bank.md), the prompt catalogue |
 | `sparse_tables/` | 1 | [below](#sparse_tables) |
 | `standalone/` | 6 | [below](#standalone) |
 | `vendor/` | 11 | [below](#vendor) |
 | `vendor_config/` | 10 | [below](#vendor_config) |
 | `vendor_guides/` | 6 | [below](#vendor_guides) |
-| `workflows/` | 90 | [`workflows/INDEX.md`](workflows/INDEX.md) |
+| `workflows/` | 96 | [`workflows/INDEX.md`](workflows/INDEX.md) |
 
 ## .claude/
 

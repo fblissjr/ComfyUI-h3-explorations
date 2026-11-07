@@ -80,6 +80,7 @@ _OUR_NODES = {
     "MiniMaxH3ProvenanceStamp", "MiniMaxH3FreezeAudio", "MiniMaxH3FreezeAudioWindow",
     "MiniMaxH3EncodeTrack", "MiniMaxH3AudioAttentionGain",
     "MiniMaxH3AudioFreezeSong", "MiniMaxH3PromptList",
+    "MiniMaxH3PH3ImagePromptUpsampler",
 }
 
 # Model names, sampler settings, canvas geometry and the SolAttn knobs all
@@ -109,6 +110,10 @@ from h3_config import (  # noqa: E402
     PIKA_FL2VA_LORA, PIKA_FL2VA_SVD995_LORA, PIKA_REF2VA_LORA, PIKA_REF2VA_SVD995_LORA,
     PIKA_STRENGTH, PIKA_STEPS, PIKA_SAMPLER,
     PIKA_MANUAL_SIGMAS, PIKA_MOTION_TRANSFER_IMAGES, PIKA_MOTION_TRANSFER_VIDEO,
+    PH3_IMAGE_UNET, PH3_IMAGE_LORA, PH3_IMAGE_STRENGTH,
+    PH3_IMAGE_TE, PH3_IMAGE_UPSAMPLER, PH3_IMAGE_VAE,
+    PH3_IMAGE_STEPS, PH3_IMAGE_SAMPLER, PH3_IMAGE_SHIFT, PH3_IMAGE_MANUAL_SIGMAS,
+    PH3_IMAGE_CANVAS_8MP, PH3_IMAGE_CANVAS_4MP,
     CONTROL_VECTOR_NODE, CONTROL_VECTOR_DEFAULTS, CONTROL_VECTOR_OPTIONAL_DEFAULTS, LAYER_NORM_MATCH_NODE,
     refine_scheduler_ids,
 )
@@ -2273,6 +2278,178 @@ def build_decode_saved_latent(video_latent: str, audio_latent: str, *,
     }
 
 
+#: Canonical P-H3-Image single-frame T2I prompt: pure visual prose, 80-150 words,
+#: zero H3 video section headers, zero `<d>` speech tags, zero `[Shot N]` markers,
+#: zero camera movement verbs, and zero soundscape cues (`docs/prompting/17_p_h3_image_prompting.md`).
+PH3_IMAGE_T2I_PROMPT = (
+    "A medium three-quarter portrait of an elderly clockmaker seated at a worn "
+    "walnut workbench inside a sunlit brass-and-oak workshop. He has silver "
+    "stubble, deep-set hazel eyes behind round wire-rimmed spectacles, and wears "
+    "a faded indigo linen apron over a rolled-sleeve cream cotton shirt. His "
+    "weathered fingers hold a brass balance wheel and fine tweezers above an "
+    "open pocket watch movement surrounded by miniature jeweler's screwdrivers, "
+    "coiled mainsprings, and a glass bell jar. Warm late-afternoon directional "
+    "sunlight streams through a paned workshop window on the left, casting crisp "
+    "specular highlights across the polished gears and soft warm fill across the "
+    "wood grain, shot on an 85mm prime lens at f/2.8 with shallow depth of field."
+)
+
+#: Canonical P-H3-Image single-frame Edit prompt: explicit `<Picture i>` index
+#: referencing matching the 1-indexed `images.image_i` sockets wired on
+#: `PH3ImageConditioning`, stating both the edit delta and the invariants to keep.
+PH3_IMAGE_EDIT_PROMPT = (
+    "Place the man from <Picture 1> onto a stone observation terrace overlooking "
+    "the alpine mountain peaks and valley from <Picture 2> at golden hour. Keep "
+    "his exact facial features, expression, and hair from <Picture 1>, dress him "
+    "in a charcoal wool field jacket over a heather-grey knit sweater, and match "
+    "the warm low-angle sunset key light and crisp atmospheric perspective of "
+    "<Picture 2>."
+)
+
+
+def build_ph3_image_api(
+    task: str,
+    *,
+    prompt: str | None = None,
+    unet: str | None = None,
+    lora: tuple[str, float] | None = None,
+    teacher_te: bool = False,
+    ref_images: tuple[str, ...] | None = None,
+    width: int | None = None,
+    height: int | None = None,
+    seed: int = SEED,
+    out_prefix: str | None = None,
+    single_frame: bool = True,
+) -> dict:
+    """Build an API-format workflow for PrunaAI P-H3-Image (T2I or 1-8 image edit).
+
+    Fixes the suboptimalities in Pruna's upstream example JSONs:
+    - Uses `MiniMaxH3SigmaShift(shift_video=1.0, shift_audio=1.0)` + `ManualSigmas` with
+      the exact 8-step non-uniform schedule `[1.0, 0.984753, 0.967905, 0.951688,
+      0.925372, 0.881923, 0.810083, 0.528718, 0.0]` (`PH3_IMAGE_MANUAL_SIGMAS`)
+      rather than `BasicScheduler` with `ModelSamplingSD3`.
+    - Wires `ModelAttentionBackend(attention="comfy_kitchen_int8")` for the single-
+      frame dense attention floor (Sol-Attn is a 3D spatiotemporal video kernel
+      and is never wired on `length=1` image graphs).
+    - Includes `MiniMaxH3PH3ImagePromptUpsampler` (node 25) with `enabled=False`
+      by default so the 9.1 GB `Qwen3.5-9B` upsampler is only loaded when opted in.
+    - Supports both the standalone `p-h3-image_int8_convrot.safetensors` DiT and
+      the `p-h3-image_lora_bf16.safetensors` adapter on our `unet_fl2va` base
+      via `MiniMaxH3LoRABranch`.
+    - Supports both the distilled 4B `CLIPLoader(type="minimax")` (`teacher_te=False`)
+      and our 32B `MiniMaxH3EncoderLoader` (`teacher_te=True`) for A/B probes.
+    """
+    if task not in ("ph3_t2i", "ph3_edit"):
+        raise ValueError(f"unknown P-H3-Image task {task!r}; expected 'ph3_t2i' or 'ph3_edit'")
+    if not single_frame:
+        raise SystemExit("P-H3-Image workflows are single-frame only (single_frame=True)")
+    is_edit = task == "ph3_edit"
+    default_canvas = PH3_IMAGE_CANVAS_4MP if is_edit else PH3_IMAGE_CANVAS_8MP
+    w = width if width is not None else default_canvas["width"]
+    h = height if height is not None else default_canvas["height"]
+    resolved_prompt = prompt if prompt is not None else (
+        PH3_IMAGE_EDIT_PROMPT if is_edit else PH3_IMAGE_T2I_PROMPT
+    )
+    resolved_unet = unet or (MODELS["unet_fl2va"] if lora is not None else PH3_IMAGE_UNET)
+    resolved_prefix = out_prefix or (
+        "Image/h3_p_h3_image_edit" if is_edit else "Image/h3_p_h3_image_t2i"
+    )
+
+    g: dict[str, Any] = {
+        "1": {"class_type": "UNETLoader",
+              "inputs": {"unet_name": resolved_unet, "weight_dtype": "default"}},
+        "3": {"class_type": "VAELoader",
+              "inputs": {"vae_name": PH3_IMAGE_VAE}},
+        "6": {"class_type": "RandomNoise", "inputs": {"noise_seed": seed}},
+        "7": {"class_type": "KSamplerSelect",
+              "inputs": {"sampler_name": PH3_IMAGE_SAMPLER}},
+        "9": {"class_type": "BasicGuider",
+              "inputs": {"model": None, "conditioning": ["5", 0]}},
+        "10": {"class_type": "SamplerCustomAdvanced",
+               "inputs": {"noise": ["6", 0], "guider": ["9", 0],
+                          "sampler": ["7", 0], "sigmas": ["60", 0],
+                          "latent_image": ["5", 1]}},
+        "11": {"class_type": "VAEDecode",
+               "inputs": {"samples": ["10", 0], "vae": ["3", 0]}},
+        "13": {"class_type": "SaveImage",
+               "inputs": {"images": ["11", 0],
+                          "filename_prefix": resolved_prefix}},
+        "60": {"class_type": "ManualSigmas",
+               "inputs": {"sigmas": PH3_IMAGE_MANUAL_SIGMAS}},
+    }
+
+    if teacher_te:
+        g["2"] = {"class_type": "MiniMaxH3EncoderLoader",
+                  "inputs": {"encoder_name": _require_core_encoder(MODELS["clip"]),
+                             "device": "default"}}
+    else:
+        g["2"] = {"class_type": "CLIPLoader",
+                  "inputs": {"clip_name": PH3_IMAGE_TE,
+                             "type": "minimax",
+                             "device": "default"}}
+
+    g["24"] = {"class_type": "CLIPLoader",
+               "inputs": {"clip_name": PH3_IMAGE_UPSAMPLER,
+                          "type": "qwen_image",
+                          "device": "default"}}
+    upsampler_inputs: dict[str, Any] = {
+        "prompt": resolved_prompt,
+        "enabled": False,
+        "width": w,
+        "height": h,
+        "max_new_tokens": 1536 if is_edit else 1024,
+        "seed": seed,
+        "clip": ["24", 0],
+    }
+
+    cond_inputs: dict[str, Any] = {
+        "clip": ["2", 0],
+        "vae": ["3", 0],
+        "prompt": ["25", 0],
+        "width": w,
+        "height": h,
+    }
+    if is_edit:
+        stills = ref_images if ref_images is not None else (
+            PLACEHOLDER_IMAGE_A, PLACEHOLDER_IMAGE_B
+        )
+        if not 1 <= len(stills) <= len(_REF_IMAGE_NODES):
+            raise SystemExit(
+                f"build_ph3_image_api got {len(stills)} edit reference images; "
+                f"expected 1..{len(_REF_IMAGE_NODES)}"
+            )
+        for idx, (load_id, img_name) in enumerate(zip(_REF_IMAGE_NODES, stills), start=1):
+            g[load_id] = {"class_type": "LoadImage",
+                          "inputs": {"image": img_name}}
+            cond_inputs[f"images.image_{idx}"] = [load_id, 0]
+            upsampler_inputs[f"images.image_{idx}"] = [load_id, 0]
+
+    g["25"] = {"class_type": "MiniMaxH3PH3ImagePromptUpsampler",
+               "inputs": upsampler_inputs}
+    g["5"] = {"class_type": "PH3ImageConditioning",
+              "inputs": cond_inputs}
+
+    model_src = ["1", 0]
+    if lora is not None:
+        g["18"] = {"class_type": LORA_BRANCH_NODE,
+                   "inputs": {"model": model_src, "lora_name": lora[0],
+                              "strength": lora[1], "modules": "all",
+                              "blocks": "all", "start_percent": 0.0,
+                              "end_percent": 1.0}}
+        model_src = ["18", 0]
+    g["19"] = {"class_type": "MiniMaxH3SigmaShift",
+               "inputs": {"model": model_src,
+                          "shift_video": PH3_IMAGE_SHIFT[0],
+                          "shift_audio": PH3_IMAGE_SHIFT[1]}}
+    model_src = ["19", 0]
+    g["58"] = {"class_type": "ModelAttentionBackend",
+               "inputs": {"model": model_src,
+                          "attention": DENSE_BACKEND_NODE["attention"]}}
+    model_src = ["58", 0]
+    g["9"]["inputs"]["model"] = model_src
+    return g
+
+
 def build_control_vector_arm(
     task: str = "t2v",
     *,
@@ -3452,15 +3629,20 @@ def validate_api(graph: dict, oi: dict, label: str) -> list[str]:
         opt = spec.get("optional") or {}
         known = dict(req) | dict(opt)
         # Autogrow inputs are declared once but addressed as
-        # "<input>.<prefix><i>"; expand the legal names.
+        # "<input>.<prefix><i>" (TemplatePrefix) or "<input>.<name>" (TemplateNames);
+        # expand the legal names.
         for name, s in list(known.items()):
             if s[0] != "COMFY_AUTOGROW_V3":
                 continue
             tpl = (s[1] or {}).get("template") or {}
             inner = tpl.get("input") or {}
             inner_spec = next(iter((inner.get("required") or inner.get("optional") or {}).values()), None)
-            for i in range(tpl.get("max", 0)):
-                known[f"{name}.{tpl['prefix']}{i}"] = inner_spec
+            if "names" in tpl:
+                for child_name in tpl["names"]:
+                    known[f"{name}.{child_name}"] = inner_spec
+            else:
+                for i in range(tpl.get("max", 0)):
+                    known[f"{name}.{tpl['prefix']}{i}"] = inner_spec
 
         # Format-dependent widgets. VHS_VideoCombine declares `format` as a
         # combo whose spec carries a per-format widget list (pix_fmt, crf,
@@ -4639,6 +4821,35 @@ def main():
               ),
               out_prefix="Video/h3_r2v_pika_control_vector"),
          "reference image + text -> video + audio on Pika H3 Flex 6-step LCM (SVD995 branch) with a post-refiner control vector (film_16mm_1974 diff_span at +1.15, add_norm_matched, scene_only, ref_vae_end_percent=1.0)"),
+        # --- PrunaAI P-H3-Image single-frame generation & editing (`workflows/image/`) ---
+        ("h3_p_h3_image_t2i.json", "p-h3-image-t2i", "ph3_t2i",
+         PH3_IMAGE_T2I_PROMPT,
+         dict(single_frame=True, out_prefix="Image/h3_p_h3_image_t2i"),
+         "text -> 8 MP single-frame image on PrunaAI P-H3-Image (8-step custom Euler schedule, 4B distilled TextConnector, single-frame VAE, prompt upsampler wired off by default)"),
+        ("h3_p_h3_image_edit.json", "p-h3-image-edit", "ph3_edit",
+         PH3_IMAGE_EDIT_PROMPT,
+         dict(single_frame=True, out_prefix="Image/h3_p_h3_image_edit"),
+         "reference images + text -> 4 MP edited image on PrunaAI P-H3-Image (dual-stream Qwen3-VL + VAE reference conditioning with <Picture i> indexing, prompt upsampler wired off by default)"),
+        ("h3_p_h3_image_lora_t2i.json", "p-h3-image-lora-t2i", "ph3_t2i",
+         PH3_IMAGE_T2I_PROMPT,
+         dict(single_frame=True, lora=(PH3_IMAGE_LORA, PH3_IMAGE_STRENGTH),
+              out_prefix="Image/h3_p_h3_image_lora_t2i"),
+         "text -> 8 MP single-frame image applying p-h3-image_lora_bf16 on our unet_fl2va base via MiniMaxH3LoRABranch (zero-extra-disk-footprint alternative to the standalone 19 GB DiT)"),
+        ("h3_p_h3_image_lora_edit.json", "p-h3-image-lora-edit", "ph3_edit",
+         PH3_IMAGE_EDIT_PROMPT,
+         dict(single_frame=True, lora=(PH3_IMAGE_LORA, PH3_IMAGE_STRENGTH),
+              out_prefix="Image/h3_p_h3_image_lora_edit"),
+         "reference images + text -> 4 MP edited image applying p-h3-image_lora_bf16 on our unet_fl2va base via MiniMaxH3LoRABranch"),
+        ("h3_probe_p_h3_image_t2i_te32b.json", "p-h3-image-t2i-te32b", "ph3_t2i",
+         PH3_IMAGE_T2I_PROMPT,
+         dict(single_frame=True, teacher_te=True,
+              out_prefix="Image/h3_probe_p_h3_image_t2i_te32b"),
+         "P-H3-Image T2I teacher-encoder probe: our 32B Qwen3-VL encoder in place of the distilled 4B TextConnector encoder"),
+        ("h3_probe_p_h3_image_edit_te32b.json", "p-h3-image-edit-te32b", "ph3_edit",
+         PH3_IMAGE_EDIT_PROMPT,
+         dict(single_frame=True, teacher_te=True,
+              out_prefix="Image/h3_probe_p_h3_image_edit_te32b"),
+         "P-H3-Image Edit teacher-encoder probe: our 32B Qwen3-VL encoder in place of the distilled 4B TextConnector encoder"),
     )
 
     # The 2026-09-26 distill run (owner): `_savelat` probe twins of exactly the
@@ -4803,12 +5014,15 @@ def main():
         # (h3_config.REF_QWEN_SHORT_EDGE).
         if fname.removesuffix(".json").endswith(("_savelat", "_x0")):
             api_extra.setdefault("ref_qwen_short_edge", 0)
-        wf = build_api(task, sage=sage_on,
-                       prompt=prompt,
-                       sol=(_sol_with_overrides(extra) if sol_on else None),
-                       **({"dense_backend": DENSE_BACKEND_NODE["attention"]}
-                          if _dense_mode == "ck" else {}),
-                       **{**api_extra, "length": graph_length(api_extra)})
+        if task in ("ph3_t2i", "ph3_edit"):
+            wf = build_ph3_image_api(task, prompt=prompt, **api_extra)
+        else:
+            wf = build_api(task, sage=sage_on,
+                           prompt=prompt,
+                           sol=(_sol_with_overrides(extra) if sol_on else None),
+                           **({"dense_backend": DENSE_BACKEND_NODE["attention"]}
+                              if _dense_mode == "ck" else {}),
+                           **{**api_extra, "length": graph_length(api_extra)})
         if alt_chain:
             _suffix_output_prefixes(wf, args.chain)
         p = _graph_dir(out, extra, fname) / fname.replace(".json", "_api.json")

@@ -468,6 +468,23 @@
       "model"
     ]
   },
+  "MiniMaxH3PH3ImagePromptUpsampler": {
+    "inputs": [
+      "prompt",
+      "enabled",
+      "width",
+      "height",
+      "max_new_tokens",
+      "seed",
+      "clip",
+      "images"
+    ],
+    "node_id": "MiniMaxH3PH3ImagePromptUpsampler",
+    "outputs": [
+      "prompt",
+      "thinking"
+    ]
+  },
   "MiniMaxH3Preflight": {
     "inputs": [
       "conditioning",

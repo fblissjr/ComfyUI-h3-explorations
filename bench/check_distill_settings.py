@@ -113,6 +113,23 @@ def classify_pika(lora_name):
     return "pika_h3_flex_" in lora_name.lower()
 
 
+def classify_ph3_image(doc, found: Found) -> bool:
+    """PrunaAI P-H3-Image single-frame 8-step distilled graphs (`workflows/image/`).
+    Recognised by either the standalone `p-h3-image_int8_convrot.safetensors`
+    checkpoint, the `p-h3-image_lora_bf16.safetensors` adapter, or
+    `PH3ImageConditioning`."""
+    if any("p-h3-image" in l.lower() for l in found.loras):
+        return True
+    for n in doc.values():
+        if not isinstance(n, dict):
+            continue
+        if n.get("class_type") == "PH3ImageConditioning":
+            return True
+        if "p-h3-image" in str((n.get("inputs") or {}).get("unet_name", "")).lower():
+            return True
+    return False
+
+
 def is_pdmd(lora_name):
     """Any PDMD LoRA, a retired lane since 2026-10-05 (`docs/roadmap.md`,
     "Closed lanes"): pdmd2026's files and kijai's resizes of them."""
@@ -224,7 +241,7 @@ def main():
     # ---- every shipped API graph -----------------------------------------
     def graphs_are_consistent():
         import h3_config as cfg
-        distilled_graphs, base_graphs = {}, {}
+        distilled_graphs, ph3_image_graphs, base_graphs = {}, {}, {}
         for path in graph_paths(WORKFLOWS, "*_api.json"):
             doc = json.loads(path.read_text(encoding="utf-8"))
             found = read_api(doc)
@@ -246,6 +263,42 @@ def main():
             assert not retired, (
                 f"{path.name}: loads {retired}. PDD is a retired lane "
                 f"(docs/roadmap.md, 'Closed lanes', 2026-11-06)")
+            if classify_ph3_image(doc, found):
+                nodes = [n for n in doc.values() if isinstance(n, dict)]
+                unets = {n["inputs"].get("unet_name") for n in nodes
+                         if n.get("class_type") == "UNETLoader"}
+                if found.loras:
+                    assert found.loras == [cfg.PH3_IMAGE_LORA], (
+                        f"{path.name}: P-H3-Image LoRA arm must load "
+                        f"{[cfg.PH3_IMAGE_LORA]}, has {found.loras}")
+                    assert unets == {cfg.MODELS["unet_fl2va"]}, (
+                        f"{path.name}: {cfg.PH3_IMAGE_LORA} is trained on "
+                        f"unet_fl2va ({cfg.MODELS['unet_fl2va']}), has {sorted(map(str, unets))}")
+                    got_s = (found.strengths or {}).get(cfg.PH3_IMAGE_LORA)
+                    assert got_s == cfg.PH3_IMAGE_STRENGTH, (
+                        f"{path.name}: P-H3-Image LoRA strength {got_s}, "
+                        f"want {cfg.PH3_IMAGE_STRENGTH}")
+                else:
+                    assert unets == {cfg.PH3_IMAGE_UNET}, (
+                        f"{path.name}: standalone P-H3-Image arm must load "
+                        f"{cfg.PH3_IMAGE_UNET}, has {sorted(map(str, unets))}")
+                assert found.shift == cfg.PH3_IMAGE_SHIFT, (
+                    f"{path.name}: P-H3-Image uses unshifted 8-step sigmas at "
+                    f"shift {cfg.PH3_IMAGE_SHIFT}, has {found.shift}")
+                assert (found.scheduler, found.steps) == ("manual", cfg.PH3_IMAGE_STEPS), (
+                    f"{path.name}: P-H3-Image runs its {cfg.PH3_IMAGE_STEPS} sigmas "
+                    f"through ManualSigmas; graph has {found.scheduler!r}/{found.steps}")
+                manual = [n["inputs"].get("sigmas") for n in nodes
+                          if n.get("class_type") == "ManualSigmas"]
+                assert manual == [cfg.PH3_IMAGE_MANUAL_SIGMAS], (
+                    f"{path.name}: ManualSigmas {manual}, want {[cfg.PH3_IMAGE_MANUAL_SIGMAS]}")
+                main_samplers = {doc[str(n["inputs"]["sampler"][0])]["inputs"].get("sampler_name")
+                                 for n in nodes if n.get("class_type") == "SamplerCustomAdvanced"}
+                assert main_samplers == {cfg.PH3_IMAGE_SAMPLER}, (
+                    f"{path.name}: P-H3-Image steps {cfg.PH3_IMAGE_SAMPLER}, "
+                    f"graph has {sorted(map(str, main_samplers))}")
+                ph3_image_graphs[path.name] = found
+                continue
             pika = [l for l in found.loras if classify_pika(l)]
             if pika:
                 nodes = [n for n in doc.values() if isinstance(n, dict)]
@@ -309,9 +362,13 @@ def main():
         # first on the loop above cannot reach here; that is fine, because it
         # names the graph instead.
         print(f"        ({len(distilled_graphs)} Pika, "
+              f"{len(ph3_image_graphs)} P-H3-Image, "
               f"{len(base_graphs)} base API graph(s) graded)")
         assert distilled_graphs, (
             "no shipped API graph loads a Pika LoRA; this check saw "
+            "nothing, and grading an empty set is not a pass")
+        assert ph3_image_graphs, (
+            "no shipped API graph was recognised as P-H3-Image; this check saw "
             "nothing, and grading an empty set is not a pass")
         assert base_graphs, (
             "no shipped base API graph was examined; the base arm is unpoliced")

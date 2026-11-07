@@ -1,33 +1,52 @@
 # H3 as an image gen/edit model
 
-Last updated: 2026-08-16.
+Last updated: 2026-11-07 (reopened `workflows/image/` with 6 PrunaAI `P-H3-Image` single-frame T2I and image-edit workflows using native ComfyUI `length=1` support and `PH3ImageConditioning`; no core patch). Previously updated: 2026-08-27, 2026-08-16.
 
-> ## PARKED — 2026-08-27
+## Reopened 2026-11-07: PrunaAI `P-H3-Image` (`workflows/image/`)
+
+ComfyUI core natively supports `PH3ImageConditioning` (`comfy_extras/nodes_minimax_h3.py:681`), `PH3ImageTEModel` (`comfy/text_encoders/minimax.py:172`), and `PH3ImageVAE` (`comfy/ldm/minimax/vae.py:1014`). Nothing in this pack patches ComfyUI core (`bench/check_vsa_core_patch.py` remains green; `archive/single_frame.py` stays archived).
+
+`workflows/h3_config.py::GRAPH_DIRS` once again includes `SINGLE_FRAME_DIR = "image"`, and `workflows/build_workflows.py` generates **6 canonical `P-H3-Image` API workflows** into [`workflows/image/`](../workflows/image/):
+
+| Workflow | Mode & Default Canvas | DiT + LoRA | Text Encoder | Steps & Sigmas |
+|---|---|---|---|---|
+| [`workflows/image/h3_p_h3_image_t2i_api.json`](../workflows/image/h3_p_h3_image_t2i_api.json) | T2I (`2912x2912`, `~8.48 MP`, `t=1`) | `p-h3-image_int8_convrot.safetensors` | `p-h3-image_text_encoder_int8_convrot.safetensors` (`Qwen3-VL-4B` + 5-layer `TextConnector`) | 8 Euler steps (`PH3_IMAGE_MANUAL_SIGMAS`: `1.0, 0.984753, 0.967905, 0.951688, 0.925372, 0.881923, 0.810083, 0.528718, 0.0`) |
+| [`workflows/image/h3_p_h3_image_edit_api.json`](../workflows/image/h3_p_h3_image_edit_api.json) | 1–8 Image Edit (`2048x2048`, `~4.19 MP`, `t=1`) | `p-h3-image_int8_convrot.safetensors` | `p-h3-image_text_encoder_int8_convrot.safetensors` | 8 Euler steps (`PH3_IMAGE_MANUAL_SIGMAS`) |
+| [`workflows/image/h3_p_h3_image_lora_t2i_api.json`](../workflows/image/h3_p_h3_image_lora_t2i_api.json) | T2I (`2912x2912`, `t=1`) via LoRA on `unet_fl2va` | `minimax_h3_fl2va_pruned_int8_convrot.safetensors` + `h3/p-h3-image_lora_bf16.safetensors` (`MiniMaxH3LoRABranch`, `strength=1.0`) | `p-h3-image_text_encoder_int8_convrot.safetensors` | 8 Euler steps (`PH3_IMAGE_MANUAL_SIGMAS`) |
+| [`workflows/image/h3_p_h3_image_lora_edit_api.json`](../workflows/image/h3_p_h3_image_lora_edit_api.json) | 1–8 Image Edit (`2048x2048`, `t=1`) via LoRA on `unet_fl2va` | `minimax_h3_fl2va_pruned_int8_convrot.safetensors` + `h3/p-h3-image_lora_bf16.safetensors` (`MiniMaxH3LoRABranch`, `strength=1.0`) | `p-h3-image_text_encoder_int8_convrot.safetensors` | 8 Euler steps (`PH3_IMAGE_MANUAL_SIGMAS`) |
+| [`workflows/image/h3_probe_p_h3_image_t2i_te32b_api.json`](../workflows/image/h3_probe_p_h3_image_t2i_te32b_api.json) | T2I Teacher-Encoder Probe (`2912x2912`, `t=1`) | `p-h3-image_int8_convrot.safetensors` | Stock `qwen3vl_32b_minimax_h3_int8_convrot.safetensors` (`MiniMaxH3EncoderLoader`) | 8 Euler steps (`PH3_IMAGE_MANUAL_SIGMAS`) |
+| [`workflows/image/h3_probe_p_h3_image_edit_te32b_api.json`](../workflows/image/h3_probe_p_h3_image_edit_te32b_api.json) | Edit Teacher-Encoder Probe (`2048x2048`, `t=1`) | `p-h3-image_int8_convrot.safetensors` | Stock `qwen3vl_32b_minimax_h3_int8_convrot.safetensors` (`MiniMaxH3EncoderLoader`) | 8 Euler steps (`PH3_IMAGE_MANUAL_SIGMAS`) |
+
+### What Was Fixed vs. PrunaAI's Reference ComfyUI Workflows
+
+1. **Replaced `ModelSamplingSD3(shift=1.0)` + `BasicScheduler(simple, 8)` with `MiniMaxH3SigmaShift(shift_video=1.0, shift_audio=1.0)` + `ManualSigmas(PH3_IMAGE_MANUAL_SIGMAS)`**:
+   - PrunaAI's ComfyUI example workflows wired `ModelSamplingSD3(shift=1.0)` + `BasicScheduler(scheduler="simple", steps=8)`, which produces a uniform linear schedule `[1.0, 0.875, 0.75, 0.625, 0.5, 0.375, 0.25, 0.125, 0.0]` instead of the non-uniform 8-step distillation schedule `1.0, 0.984753, 0.967905, 0.951688, 0.925372, 0.881923, 0.810083, 0.528718, 0.0` in `PrunaAI/P-H3-Image`'s `modular_model_index.json` (`diffusers` `src/diffusers/modular_pipelines/p_h3_image/before_denoise.py`).
+   - Also wires `ModelAttentionBackend(attention="comfy_kitchen_int8")` for single-frame dense attention (Sol-Attn is a 3D spatiotemporal video kernel and is exempt on single-frame graphs).
+2. **Replaced the Broken `ChatTemplate` / `TextGenerateLTX2Prompt` / `TextEncodeQwenImageEditPlus` Upsampler Chains with `MiniMaxH3PH3ImagePromptUpsampler` (Node `25`, `enabled=False` by default)**:
+   - PrunaAI's T2I workflow wired `ChatTemplate` (not a core node) or `TextGenerateLTX2Prompt` (which injects Gemma `<start_of_turn>` tags and LTX-2's video system prompt), and its Edit workflow wired `TextEncodeQwenImageEditPlus` (which accepts at most 3 images, downscales them to `384x384`, injects Qwen-Image-Edit's system prompt, and outputs `CONDITIONING` rather than calling `clip.generate`).
+   - `MiniMaxH3PH3ImagePromptUpsampler` (`ph3_image_nodes.py`) marks `clip` as `lazy=True` and defaults to `enabled=False`. When `enabled=False`, the `9.1 GB` `p-h3-image_prompt_upsampler_int8_convrot.safetensors` checkpoint is never loaded into RAM/VRAM and the authored prompt passes straight through (`workflows/h3_config.py::Passthrough("prompt")`). When `enabled=True`, it formats the exact `PrunaAI/P-H3-Image` ChatML template (`max_new_tokens=1024` for T2I with aspect-ratio bucketing, `max_new_tokens=1536` for Edit with `1..8` reference images resized at native aspect ratio to `~1 MP` at multiples of `32`), runs `clip.generate`, splits `<think>...</think>`, and validates the output.
+3. **LoRA-on-`unet_fl2va` (`MiniMaxH3LoRABranch`) and 32B Teacher Text Encoder Probes**:
+   - `h3_p_h3_image_lora_t2i_api.json` and `h3_p_h3_image_lora_edit_api.json` apply `h3/p-h3-image_lora_bf16.safetensors` (`rank=128` across all 50 DiT blocks + `token_refiner`) onto our existing `minimax_h3_fl2va_pruned_int8_convrot.safetensors` via `MiniMaxH3LoRABranch` (full bf16 rank without int8 merge quantization).
+   - `h3_probe_p_h3_image_t2i_te32b_api.json` and `h3_probe_p_h3_image_edit_te32b_api.json` wire our stock `qwen3vl_32b_minimax_h3_int8_convrot.safetensors` (`MiniMaxH3EncoderLoader`) directly into `PH3ImageConditioning` for same-seed A/B comparison against the 4B student encoder.
+4. **Prompting Documentation**:
+   - Full `P-H3-Image` prompting rules (`p_h3_image_t2i` and `p_h3_image_edit`) and upsampler documentation live in [`docs/prompting/17_p_h3_image_prompting.md`](prompting/17_p_h3_image_prompting.md) and [`docs/wiki/system_prompts/h3_system_prompt.md`](wiki/system_prompts/h3_system_prompt.md).
+
+---
+
+> ## Historical Record (2026-08-16 to 2026-08-27): Base H3 Single-Frame Shim (`archive/workflows/image/`)
 >
-> **The single-frame image path is not shipped and not maintained.** The owner
-> moved away from it; this file is kept as the record of what it was, in the
-> past tense, and nothing in the live tree should be read as depending on it.
+> **The 2026-08 single-frame base-H3 shim path below remains archived in `archive/workflows/image/` and `archive/single_frame.py`.** The notes below are kept as the historical record of that earlier path.
 >
-> What moved, and where:
+> What moved on 2026-08-27, and where:
 >
 > | was | now |
 > |---|---|
-> | `workflows/image/` (18 graphs) | `archive/workflows/image/`, no longer generated |
+> | `workflows/image/` (18 base-H3 graphs) | `archive/workflows/image/`, no longer generated |
 > | `single_frame.py` (the core patch) | `archive/single_frame.py`, no longer imported |
 > | `bench/check_single_frame.py` | `archive/bench/check_single_frame.py` |
 > | `bench/bench_image_edit_refs.py` | `archive/bench/bench_image_edit_refs.py` |
 >
-> `h3_config.GRAPH_DIRS` no longer carries `image`, so the graphs are neither
-> discovered nor graded, and anything deriving a single-frame class from it
-> derives an empty one. The generator's `_image_graphs()` was deleted with its
-> UI half on 2026-09-14, so un-parking means restoring it from git history
-> (before that commit) plus the moves above.
->
-> **A consequence worth having on purpose:** this pack no longer modifies
-> ComfyUI core at all. The shim was the last thing that did, and it is archived
-> rather than merely off.
->
-> Everything below describes the path as it stood when it was live.
+> Everything below describes that 2026-08 base-H3 single-frame path as it stood when it was live.
 
 Video is this repo's primary use case. This one is **experimental**: H3 renders
 a single frame if you ask it for one, and at one frame it behaves like a

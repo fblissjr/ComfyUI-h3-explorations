@@ -102,7 +102,7 @@ VENDOR_README = REPO / "coderef" / "Minimax-H3-Turbo" / "README.md"
 from h3_config import graph_paths  # noqa: E402
 import h3_config  # noqa: E402
 from check_distill_settings import (  # noqa: E402
-    classify_pika, read_api,
+    classify_ph3_image, classify_pika, read_api,
 )
 
 #: The closed form is exact only where the discrete table lands on the step
@@ -373,6 +373,54 @@ def main() -> int:
         return f"{seen} Pika graph(s), exact on both streams"
 
     check("pika graphs on their distilled grid", pika_graphs_on_their_distilled_grid)
+
+    def ph3_image_graphs_on_their_distilled_grid():
+        """Every P-H3-Image graph samples its 8-step non-uniform ManualSigmas
+        grid at shift=(1.0, 1.0) so `time_shift_sigma` is the identity."""
+        try:
+            comfy_on_cpu()
+            from comfy.ldm.minimax.model import time_shift_sigma
+        except ImportError as exc:
+            raise AssertionError(
+                f"ComfyUI is not importable from {COMFY}: {exc}") from exc
+        want_v = list(h3_config.PH3_IMAGE_SIGMA_KNOTS)
+        bad, seen = [], 0
+        for path in graph_paths(WORKFLOWS, "*_api.json"):
+            doc = json.loads(path.read_text())
+            found = read_api(doc)
+            if not classify_ph3_image(doc, found):
+                continue
+            seen += 1
+            rel = path.relative_to(REPO)
+            if found.steps != h3_config.PH3_IMAGE_STEPS or found.scheduler != "manual":
+                bad.append(f"{rel}: P-H3-Image scheduler/steps are "
+                           f"{found.scheduler!r}/{found.steps}")
+                continue
+            if found.shift != h3_config.PH3_IMAGE_SHIFT:
+                bad.append(f"{rel}: P-H3-Image shift is {found.shift}, "
+                           f"want {h3_config.PH3_IMAGE_SHIFT}")
+                continue
+            stated = h3_config.manual_sigmas(doc)
+            if stated is None:
+                bad.append(f"{rel}: ManualSigmas vector could not be read")
+                continue
+            dev_v = deviation(stated, want_v)
+            if dev_v > 1e-6:
+                bad.append(f"{rel}: ManualSigmas deviates {dev_v:.6f} from "
+                           f"PH3_IMAGE_SIGMA_KNOTS")
+                continue
+            sv, sa = found.shift
+            got_a = [float(time_shift_sigma(s, sv, sa)) if s > 0 else 0.0 for s in stated]
+            dev_a = deviation(got_a, want_v)
+            if dev_a > 1e-6:
+                bad.append(f"{rel}: time_shift_sigma at shift=({sv}, {sa}) deviated "
+                           f"{dev_a:.6f} from identity")
+        assert not bad, "\n         ".join(bad)
+        assert seen, ("no API graph was recognised as P-H3-Image, so this case "
+                      "graded nothing and passed.")
+        return f"{seen} P-H3-Image graph(s), exact on the 8-step grid"
+
+    check("p-h3-image graphs on their distilled grid", ph3_image_graphs_on_their_distilled_grid)
 
     if failures:
         print(f"\n{len(sorted(set(failures)))} case(s) FAILED: "
