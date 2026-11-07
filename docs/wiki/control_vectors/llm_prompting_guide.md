@@ -71,7 +71,7 @@ Build a 10-Pair Control Vector Set (### Test Scene Prompt + ### Contrastive Pair
 
 ### Category B — Wardrobe, Material, or Character Appearance Override (`ref2va`-Ready)
 
-Use this pattern when you want a control vector that changes what a character is wearing or made of—including overriding `<Subject 1>`'s outfit in `ref2va` (used with `ref_vae_end_percent = 0.00` in ComfyUI).
+Use this pattern when you want a control vector that changes what a character is wearing or made of—including overriding `<Subject 1>`'s outfit in `ref2va` (applied on `start_percent = 0.0, end_percent = 0.50` at `strength = 2.0–2.5` with `ref_vae_end_percent = 1.00` in ComfyUI).
 
 #### Input Prompt Example B1: Everyday/Winter Attire $\rightarrow$ Tropical Summer Beachwear (`10-Pair Control Vector Set` + `Hold`)
 ```text

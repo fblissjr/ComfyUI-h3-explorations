@@ -49,10 +49,9 @@ All three nodes register under the **`model/conditioning/minimax`** category in 
   - Refuses a vector whose checkpoint family (`fl2va` vs. `ref2va`) or LoRA recipe differs from the loaded `model` unless set to `True`.
 - **`video_scale` / `audio_scale` / `split_end_percent`** (defaults `1.0`, `1.0`, `1.0`):
   - Stream multipliers applied within `[0.0, split_end_percent)`. At `(1.0, 1.0)` runs a single DiT pass; at `(1.0, 0.0)` steers video while keeping audio unsteered; at `(0.0, 1.0)` steers audio while keeping video unsteered.
-- **`ref_vae_end_percent` / `ref_vae_aug`** (defaults `0.5`, `0.999`):
+- **`ref_vae_end_percent` / `ref_vae_aug`** (defaults `1.0`, `0.999`):
   - For `ref2va` renders: controls the fraction of steps `[0.0, ref_vae_end_percent)` where clean 3D Video VAE reference latents stay active at weight `ref_vae_aug`.
-  - **`ref_vae_end_percent = 0.50`** *(Default)*: Locks `<Subject 1>`'s face, hair, and clothing on steps `0..2`, then gates `cond_video_latents` on steps `3..5` so lighting, color, and film-stock vectors harmonize across the subject.
-  - **`ref_vae_end_percent = 0.00` to `0.17`** (or lowering `ref_vae_aug` to `0.0`–`0.30`): Releases the 3D Video VAE pixel copy-lock on early steps so wardrobe/clothing/material control vectors can replace `<Subject 1>`'s outfit without editing the prompt while Qwen3-VL vision tokens retain facial identity.
+  - **`ref_vae_end_percent = 1.00`** *(Default)*: Keeps `cond_video_latents` pinned at `ref_vae_aug = 0.999` across all steps so frames `0` and `1` never inherit late-step noise from `seg_t["ref_img"] = max(t_v, vis_aug)` (`comfy/ldm/minimax/model.py:538-547, 679-683`).
 - **`words` / `against_words` / `hold_words` / `hold_alpha`**:
   - Optional inline J-Lens (`< 2 ms` CPU) unigram word inputs and soft-hold word scrubbing (`hold_alpha` in `[0.0, 2.0]`, default `1.0`).
 

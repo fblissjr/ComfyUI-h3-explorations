@@ -256,7 +256,7 @@
       "start_percent": 0.0,
       "end_percent": 1.0,
       "allow_recipe_mismatch": false,
-      "ref_vae_end_percent": 0.5,
+      "ref_vae_end_percent": 1.0,
       "ref_vae_aug": 0.999
     }
   },

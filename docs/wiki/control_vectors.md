@@ -26,9 +26,9 @@ Every `MiniMaxH3ApplyControlVectors` node ([`h3_rules.py:266-288`](../../h3_rule
 |---|---|---|
 | **`mode`** | **`add_norm_matched`** | Normalizes the vector to `NORM_MATCHED_TARGET = 67.5` post-refiner shift norm at `strength = 1.0`, so `strength = 1.0–1.25` behaves consistently across `diff_span`, `scene_text`, `from_first_diff`, and J-Lens vectors without manual norm math. |
 | **`mask`** | **`scene_only`** | Steers scene prose while leaving tag-0 `<Picture N>` vision tokens, `<d>[Language] ...</d>` spoken dialogue, `(S1)` speaker tags, `<Picture 1>:` labels, and `<0.0 seconds>` timestamps bitwise untouched. |
-| **`ref_vae_end_percent`** (`ref2va`) | **`0.50`** | On 6-step `ref2va` renders, keeps the 3D Video VAE reference latents (`cond_video_latents`) active on steps `0..2` to lock `<Subject 1>`'s face, hair, and clothing, then gates them on steps `3..5` so lighting/film-stock vectors harmonize across `<Subject 1>`. *(Set to **`0.00`** when overriding `<Subject 1>`'s clothing/wardrobe without editing the prompt; see [Practical Examples & Recipes](control_vectors/examples_and_recipes.md#example-1-changing-subject-1s-clothing-in-ref2va-without-editing-the-prompt)).* |
+| **`ref_vae_end_percent`** (`ref2va`) | **`1.00`** (`ref_vae_aug = 0.999`) | Keeps the 3D Video VAE reference latents (`cond_video_latents`) pinned at `0.999` across all sampling steps so frames `0` and `1` never inherit late-step noise from `seg_t["ref_img"] = max(t_v, vis_aug)`. |
 | **Canonical `t2va` Workflow** | `film_16mm_1974__fl2va__diff_span__lora_2a8c2b52.safetensors` (`strength = 1.15`) | [`workflows/h3_text_to_video_pika_control_vector_api.json`](../../workflows/h3_text_to_video_pika_control_vector_api.json) (and dual-vector [`workflows/h3_text_to_video_pika_dual_control_vectors_api.json`](../../workflows/h3_text_to_video_pika_dual_control_vectors_api.json) chaining `film_16mm_1974` + `chaos_panic` at `1.0` each). |
-| **Canonical `ref2va` Workflow** | `film_16mm_1974__ref2va__diff_span__lora_865ee189.safetensors` (`strength = 1.15`, `ref_vae_end_percent = 0.50`) | [`workflows/h3_image_ref_plus_text_to_video_pika_control_vector_api.json`](../../workflows/h3_image_ref_plus_text_to_video_pika_control_vector_api.json) on the 4-shot kitchen scene. |
+| **Canonical `ref2va` Workflow** | `film_16mm_1974__ref2va__diff_span__lora_865ee189.safetensors` (`strength = 1.15`, `ref_vae_end_percent = 1.00`) | [`workflows/h3_image_ref_plus_text_to_video_pika_control_vector_api.json`](../../workflows/h3_image_ref_plus_text_to_video_pika_control_vector_api.json) on the 4-shot kitchen scene. |
 
 ---
 
@@ -60,22 +60,22 @@ Both images are snapped to an identical 32-px M-RoPE vision token grid (`short_e
 
 Below are three common end-to-end recipes. For all 6 detailed recipes (including media look transfer, multi-vector sculpting, and `< 2 ms` CPU word synthesis), see **[6. Practical Examples & Recipes](control_vectors/examples_and_recipes.md)**.
 
-### Example A: Changing `<Subject 1>`'s Clothing in `ref2va` Without Editing the Prompt
-To override `<Subject 1>`'s outfit from `<Picture 1>` (for example, shifting everyday indoor/winter attire to summer resort beachwear) while keeping `<Subject 1>`'s face and the kitchen/room scene intact:
+### Example A: Changing `<Subject 1>`'s Clothing in `ref2va`
+To override `<Subject 1>`'s outfit from `<Picture 1>` (for example, shifting a sweater/shirt/jacket into summer resort beachwear) while keeping `<Subject 1>`'s face and the scene intact:
 ```bash
 COMFY="$(cd ../.. && pwd)"
 PY="$COMFY/.venv/bin/python"
 
 "$PY" bench/control_vectors.py build \
-  --words "opening_framing: dressed in everyday indoor casual layers and street attire -> dressed in sun-drenched summer beachwear and tropical resort swimwear" \
+  --words "opening_framing: wearing a heavy knit sweater, buttoned shirt, and long jacket -> dressed in sun-drenched summer beachwear and tropical resort swimwear" \
   --name summer_beachwear \
   --families ref2va \
   --overwrite
 ```
 In ComfyUI (`MiniMaxH3ApplyControlVectors` on `ref2va`), set:
 - `vector_name = "summer_beachwear__ref2va__diff_span__lora_865ee189.safetensors"`
-- `strength = 1.35`, `mode = "add_norm_matched"`, `mask = "scene_only"`
-- **`ref_vae_end_percent = 0.00`** *(releases the 3D Video VAE pixel copy-lock on `<Picture 1>`'s original clothing from Step 0 while Qwen3-VL vision tokens preserve `<Subject 1>`'s facial identity)*.
+- `strength = 2.00–2.50`, `mode = "add_norm_matched"`, `mask = "scene_only"`, `start_percent = 0.0`, `end_percent = 0.50`
+- Keep `ref_vae_end_percent = 1.00` (`ref_vae_aug = 0.999`) so frames `0` and `1` stay clean, and omit the original clothing article (e.g. `"black sweater"`) from `subject_definitions:` and `retention_analysis:` in the prompt so the text conditioning does not re-assert the original garment.
 
 ### Example B: Coupled Visual + Audio Atmosphere (`scorching_heatwave`)
 ```bash
@@ -126,10 +126,10 @@ The Studio UI opens in your browser and is organized into **6 focused task scree
 |---|---|
 | **[1. Studio UI Guide](control_vectors/studio_ui_guide.md)** | Screen-by-screen walkthrough of the 6 Studio screens, progressive disclosure, tooltips, and interactive `< 1 ms` pair re-pooling. |
 | **[2. Building Pairs & Vectors](control_vectors/building_pairs_and_vectors.md)** | How pairs are built: `Pole A -> Pole B` template compilation (`h3_pair_compiler.py`), the LLM system prompt (`h3_control_vector_system_prompt.md`), why Qwen3-VL + `TokenRefiner` is used, pooling modes (`diff_span` vs. `scene_text`), and `[[hold]]` de-biasing. |
-| **[3. ComfyUI Nodes & Controls](control_vectors/comfyui_nodes_and_controls.md)** | Using `MiniMaxH3MakeControlVector`, `MiniMaxH3MakeMediaControlVector`, and `MiniMaxH3ApplyControlVectors` in ComfyUI (`strength`, `mode = "add_norm_matched"`, `mask = "scene_only"`, `ref_vae_end_percent = 0.50`, `video_scale`, `audio_scale`, `words`). |
+| **[3. ComfyUI Nodes & Controls](control_vectors/comfyui_nodes_and_controls.md)** | Using `MiniMaxH3MakeControlVector`, `MiniMaxH3MakeMediaControlVector`, and `MiniMaxH3ApplyControlVectors` in ComfyUI (`strength`, `mode = "add_norm_matched"`, `mask = "scene_only"`, `ref_vae_end_percent = 1.00`, `video_scale`, `audio_scale`, `words`). |
 | **[4. J-Lens Diagnostics & Word Lab](control_vectors/j_lens_diagnostics_and_word_lab.md)** | How J-Lens (`j_lens.py`) differs from full 10-pair control vectors, when to use `< 2 ms` CPU word synthesis vs. 10-pair Qwen builds, and how to read `assess_steering_readiness` observables (`top1_gain`, `refiner_transmission`, `echo_ratio`) and lexical readouts. |
 | **[5. Preset Catalog & CLI Reference](control_vectors/preset_catalog_and_cli_reference.md)** | Complete CLI command & flag reference (`--dit`, `--words`, `--save-toml`, `generate-pairs`, `make-media`, `sculpt --invert`, `inspect`, `grade`), file naming & JSON metadata contract, and the starter `.toml` banks in `prompt_bank/control_vectors/`. |
-| **[6. Practical Examples & Recipes](control_vectors/examples_and_recipes.md)** | 6 end-to-end recipes: `ref2va` clothing override (`ref_vae_end_percent = 0.00`), 1974 16mm film stock (`ref_vae_end_percent = 0.50`), coupled visual + soundscape weather, reference-image look transfer, multi-vector sculpting with holds, and `< 2 ms` word synthesis. |
+| **[6. Practical Examples & Recipes](control_vectors/examples_and_recipes.md)** | 6 end-to-end recipes: `ref2va` clothing override, 1974 16mm film stock, coupled visual + soundscape weather, reference-image look transfer, multi-vector sculpting with holds, and `< 2 ms` word synthesis. |
 | **[7. Prompting Generative LLMs for Control Vectors](control_vectors/llm_prompting_guide.md)** | Copy-paste input prompts for local LLMs (`transformers`, `exllamav3`) or external LLM services using [`h3_control_vector_system_prompt.md`](system_prompts/h3_control_vector_system_prompt.md) across atmosphere, wardrobe/material overrides, physics, camera motion, and `--words` specs. |
 
 ---

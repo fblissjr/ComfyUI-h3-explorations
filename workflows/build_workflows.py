@@ -4601,8 +4601,8 @@ def main():
         # float64 inside the DIFFUSION_MODEL wrapper), and single-vector ref2va
         # with vision rows (tag 0), <d>...</d> dialogue, (S1) speaker tags, and
         # <Picture 1>: labels masked bitwise untouched (mask='scene_only',
-        # mode='add_norm_matched') and 3D Video VAE reference latents gated after
-        # step 2 on ref2va (ref_vae_end_percent=0.5).
+        # mode='add_norm_matched') and 3D Video VAE reference latents pinned at
+        # ref_vae_end_percent=1.0 (ref_vae_aug=0.999) on ref2va.
         # Uses PIKA_*_SVD995_LORA via MiniMaxH3LoRABranch and diff_span-pooled
         # control vectors (__diff_span__lora_2a8c2b52 / __diff_span__lora_865ee189)
         # (bench/results/2026-11-05_control_vectors_pika_and_ref2va.md).
@@ -4634,11 +4634,11 @@ def main():
               control_vector=dict(
                   vector_name="film_16mm_1974__ref2va__diff_span__lora_865ee189.safetensors",
                   strength=1.15,
-                  ref_vae_end_percent=0.5,
+                  ref_vae_end_percent=1.0,
                   ref_vae_aug=0.999,
               ),
               out_prefix="Video/h3_r2v_pika_control_vector"),
-         "reference image + text -> video + audio on Pika H3 Flex 6-step LCM (SVD995 branch) with a post-refiner control vector (film_16mm_1974 diff_span at +1.15, add_norm_matched, scene_only, ref_vae_end_percent=0.5)"),
+         "reference image + text -> video + audio on Pika H3 Flex 6-step LCM (SVD995 branch) with a post-refiner control vector (film_16mm_1974 diff_span at +1.15, add_norm_matched, scene_only, ref_vae_end_percent=1.0)"),
     )
 
     # The 2026-09-26 distill run (owner): `_savelat` probe twins of exactly the

@@ -3862,6 +3862,33 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
             errs.append(f"ref_vae_end_percent at step 2 (outside window) did not zero cond_video_latents while preserving refs/layout: {dm_av.payloads_seen[0]}")
         if float(caller_payload["cond_video_latents"][0].abs().sum().item()) == 0.0 or caller_payload["visual_cond_noise_aug"] != 0.999:
             errs.append("ref_vae_end_percent mutated caller's minimax_payload dict in place")
+        if cv_nodes._rules.CONTROL_VECTOR_OPTIONAL_DEFAULTS["ref_vae_end_percent"] != 1.0:
+            errs.append(
+                f"CONTROL_VECTOR_OPTIONAL_DEFAULTS['ref_vae_end_percent'] must be 1.0, got {cv_nodes._rules.CONTROL_VECTOR_OPTIONAL_DEFAULTS['ref_vae_end_percent']}"
+            )
+        p_disabled = cv_nodes.attach_control_vector(
+            patcher_av,
+            v1_path,
+            strength=0.0,
+            ref_vae_end_percent=0.5,
+            ref_vae_aug=0.5,
+        )
+        dm_av.contexts_seen.clear()
+        dm_av.payloads_seen.clear()
+        p_disabled.invoke_diffusion_model(
+            av_x,
+            sched_sigmas[2:3],
+            av_ctx,
+            minimax_payload=caller_payload,
+            transformer_options={"sample_sigmas": sched_sigmas},
+        )
+        if (
+            float(dm_av.payloads_seen[0]["visual_cond_noise_aug"]) != 0.999
+            or float(dm_av.payloads_seen[0]["cond_video_latents"][0].abs().sum().item()) == 0.0
+        ):
+            errs.append(
+                f"strength=0.0 named vector still gated cond_video_latents or modified visual_cond_noise_aug: {dm_av.payloads_seen[0]}"
+            )
 
         # Wave 2: match_media_pair_geometry, make_control_vector_from_media_pairs, MiniMaxH3MakeMediaControlVector, and CLI make-media
         img_a_raw = torch.rand((2, 90, 160, 3), generator=gen, dtype=torch.float32) * 0.4 + 0.6

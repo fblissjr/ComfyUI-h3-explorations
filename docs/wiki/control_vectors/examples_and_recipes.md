@@ -11,8 +11,8 @@ Different creative goals require different authoring paths and ComfyUI node sett
 
 | Creative Goal | Recommended Authoring Path | Recommended `MiniMaxH3ApplyControlVectors` Settings | Why |
 |---|---|---|---|
-| **1. Film Stock, Color Grade & Optical Texture** (`t2va` or `ref2va`) | `build --words` (`opening_framing` slot) or `.toml` bank (`film_16mm_1974`) | `strength = 1.15`, `mode = "add_norm_matched"`, `mask = "scene_only"`, `ref_vae_end_percent = 0.50` | `ref_vae_end_percent = 0.50` locks `<Subject 1>` identity/clothing on steps `0..2`, then gates the 3D VAE reference latents on steps `3..5` so film grain and color grade harmonize across the subject. |
-| **2. Changing `<Subject 1>`'s Clothing in `ref2va` (Zero Prompt Edits)** | `build --words` (`opening_framing` / `subject_behavior` slot) | `strength = 1.25–1.50`, `mode = "add_norm_matched"`, `mask = "scene_only"`, **`ref_vae_end_percent = 0.00`** (or `0.17`) | In `ref2va`, `cond_video_latents` (`7,360` 3D Video VAE tokens at `visual_cond_noise_aug = 0.999`) pixel-lock `<Subject 1>`'s original outfit on early steps. Setting `ref_vae_end_percent = 0.00` releases the 3D VAE pixel lock from Step 0 while Qwen3-VL vision tokens (`tag == 0`, untouched by `mask = "scene_only"`) preserve `<Subject 1>`'s face and hair. |
+| **1. Film Stock, Color Grade & Optical Texture** (`t2va` or `ref2va`) | `build --words` (`opening_framing` slot) or `.toml` bank (`film_16mm_1974`) | `strength = 1.15`, `mode = "add_norm_matched"`, `mask = "scene_only"`, `ref_vae_end_percent = 1.00` | Steers optical texture, film grain, and color grade across `scene` tokens while keeping `<Picture 1>`'s 3D Video VAE latents clean (`ref_vae_end_percent = 1.00`). |
+| **2. Changing `<Subject 1>`'s Clothing in `ref2va`** | `build --words` (`opening_framing` / `subject_behavior` slot) with explicit garment nouns in Pole A (`sweater, shirt, jacket, coat`) | `strength = 2.00–2.50`, `mode = "add_norm_matched"`, `mask = "scene_only"`, `start_percent = 0.0`, `end_percent = 0.50`, `ref_vae_end_percent = 1.00` | Naming the garment nouns to subtract in Pole A (`sweater, shirt, jacket`) + steering the early layout window (`0.0..0.50`) at `strength = 2.0–2.5` overrides `<Subject 1>`'s outfit while `ref_vae_end_percent = 1.00` keeps frames `0..1` free of late-step noise. |
 | **3. Weather, Heatwave, or Atmosphere (`t2va` & `ref2va`)** | `build --words` with coupled `soundscape:` clause | `strength = 1.15`, `mode = "add_norm_matched"`, `mask = "scene_only"` | Coupled `description + overall_soundscape` clauses steer both the optical atmosphere (heat haze / blowing snow) and the ambient audio bed while `mask = "scene_only"` leaves `<d>...</d>` spoken dialogue untouched. |
 | **4. Bespoke Multi-Scene Physical / World Transform** | LLM 10-Pair Markdown (`generate-pairs` or external LLM with [`llm_prompting_guide.md`](llm_prompting_guide.md)) | `strength = 1.00–1.25`, `mode = "add_norm_matched"`, `mask = "scene_only"`, `start_percent = 0.00` | Physical/world transforms need scene-specific nouns in each of the 10 pairs and must start at `start_percent = 0.00` because H3 locks 3D layout on steps `0..1`. |
 | **5. Visual Look Transfer from Two Stills (`Image A -> Image B`)** | `make-media` (or Studio **Screen 3**) | `strength = 1.15`, `mode = "add_norm_matched"`, `mask = "scene_only"` | Extracts the post-refiner difference between a baseline still (`Image A`) and a color-graded/stylized still (`Image B`) on an identical 32-px M-RoPE grid. |
@@ -20,19 +20,19 @@ Different creative goals require different authoring paths and ComfyUI node sett
 
 ---
 
-## Example 1: Changing `<Subject 1>`'s Clothing in `ref2va` Without Editing the Prompt
+## Example 1: Changing `<Subject 1>`'s Clothing in `ref2va`
 
-Suppose `<Picture 1>` shows `<Subject 1>` wearing heavy indoor or winter clothing (or your `ref2va` scene prompt describes `<Subject 1>` in a kitchen or studio), and you want a control vector to dress `<Subject 1>` in summer resort / beachwear **without editing a single word of the `ref2va` prompt**.
+Suppose `<Picture 1>` shows `<Subject 1>` wearing indoor or winter clothing (e.g., a black knit sweater), and you want a control vector to dress `<Subject 1>` in summer resort / beachwear.
 
 ### Step 1 — Build the Wardrobe Control Vector (`~12s`)
-Use a **positive replacement contrast** (`Pole A` = neutral everyday indoor/street attire $\rightarrow$ `Pole B` = target summer beachwear). Because `Pole A` is general everyday clothing rather than only `"heavy winter parka"`, the vector works whether `<Subject 1>` is originally wearing a sweater, apron, t-shirt, or winter coat:
+Name the concrete garment nouns you want to subtract in **Pole A** (`sweater, shirt, jacket, coat, trousers`) rather than vague setting words like `"indoor setting"` (which cause $B - A$ to subtract `"indoors"` instead of clothing articles), and put the target attire in **Pole B**:
 
 ```bash
 COMFY="$(cd ../.. && pwd)"
 PY="$COMFY/.venv/bin/python"
 
 "$PY" bench/control_vectors.py build \
-  --words "opening_framing: dressed in everyday indoor casual layers and tailored street attire -> dressed in sun-drenched summer beachwear and tropical resort swimwear" \
+  --words "opening_framing: wearing a heavy knit sweater, buttoned shirt, and long jacket -> dressed in sun-drenched summer beachwear and tropical resort swimwear" \
   --name summer_beachwear \
   --families ref2va \
   --overwrite
@@ -41,18 +41,16 @@ PY="$COMFY/.venv/bin/python"
 ### Step 2 — Apply in ComfyUI (`ref2va` Workflow)
 In [`workflows/h3_image_ref_plus_text_to_video_pika_control_vector_api.json`](../../../workflows/h3_image_ref_plus_text_to_video_pika_control_vector_api.json) (node `115`, `MiniMaxH3ApplyControlVectors`):
 - **`vector_name`**: `summer_beachwear__ref2va__diff_span__lora_865ee189.safetensors`
-- **`strength`**: `1.35`
+- **`strength`**: `2.00` to `2.50`
 - **`mode`**: `add_norm_matched` *(Default)*
 - **`mask`**: `scene_only` *(Default — protects `<Picture 1>:` labels, `(S1)` speaker tags, and `<d>[English] ...</d>` dialogue)*
-- **`ref_vae_end_percent`**: **`0.00`** *(or `0.17` to keep Step 0 coarse pose)*
+- **`start_percent` / `end_percent`**: `0.00` to `0.50`
+- **`ref_vae_end_percent`**: **`1.00`** *(Default — keeps `ref_vae_aug = 0.999` across all steps so frames `0` and `1` never inherit late-step Gaussian noise)*
 
 > [!IMPORTANT]
-> **Why `ref_vae_end_percent = 0.00` is required for `ref2va` wardrobe overrides**:
-> In `ref2va`, `<Picture 1>` enters the DiT through **two separate pathways**:
-> 1. **Qwen3-VL vision tokens (`tag == 0`)** in the text sequence (semantic face/hair identity).
-> 2. **3D Video VAE reference latents (`cond_video_latents`, `7,360` tokens at `visual_cond_noise_aug = 0.999`)** concatenated directly into the 50 DiT blocks' self-attention.
->
-> At the default `ref_vae_end_percent = 0.50`, those `7,360` clean VAE pixel latents stay active across steps `0, 1, 2` (out of 6 Pika steps), which locks `<Subject 1>`'s original clothing from `<Picture 1>`. Setting **`ref_vae_end_percent = 0.00`** gates `cond_video_latents` to unit noise from Step 0 while keeping `PackedLayout` and the 3D RoPE cursor 100% invariant—allowing the control vector to replace `<Subject 1>`'s outfit while Qwen3-VL vision tokens preserve `<Subject 1>`'s identity.
+> **Two keys for `ref2va` wardrobe overrides**:
+> 1. **Subtract concrete garment nouns in Pole A (`sweater, shirt, jacket, coat`) and omit the original garment noun from `subject_definitions:` / `retention_analysis:` in the prompt**: If `subject_definitions:` explicitly says `"wearing a black chunky ribbed knit sweater"`, those unsteered tokens re-assert the sweater. Describing `<Subject 1>`'s face and hair in `subject_definitions:` (without naming the sweater) lets the control vector replace `<Subject 1>`'s outfit cleanly on `start_percent = 0.0, end_percent = 0.50` at `strength = 2.0–2.5`.
+> 2. **Keep `ref_vae_end_percent = 1.00` (`ref_vae_aug = 0.999`)**: In `comfy/ldm/minimax/model.py:538-547, 679-683`, `seg_t["ref_img"] = max(t_v, vis_aug)` is always $\ge t_v$ (`0.95` on the final step). Lowering `ref_vae_end_percent < 1.0` sets `vis_aug = 0.0` on late steps, which mixes unit Gaussian noise into `ref_img` while `seg_t["ref_img"] = 0.95` marks it clean, stamping a rectangle of static noise onto frames `0` and `1`.
 
 ---
 
@@ -75,8 +73,7 @@ The canonical workflows [`workflows/h3_text_to_video_pika_control_vector_api.jso
   - `strength = 1.15`, `mode = "add_norm_matched"`, `mask = "scene_only"`
 - **`ref2va` (`workflows/h3_image_ref_plus_text_to_video_pika_control_vector_api.json`)**:
   - `vector_name = "film_16mm_1974__ref2va__diff_span__lora_865ee189.safetensors"`
-  - `strength = 1.15`, `mode = "add_norm_matched"`, `mask = "scene_only"`, **`ref_vae_end_percent = 0.50`**
-  - Here `ref_vae_end_percent = 0.50` is ideal: steps `0..2` lock `<Subject 1>`'s exact face, hair, and apron in the kitchen, and steps `3..5` release the clean digital VAE clamp so the 1974 16mm halation, warm chemical color cast, and celluloid grain settle uniformly across `<Subject 1>` and the room.
+  - `strength = 1.15`, `mode = "add_norm_matched"`, `mask = "scene_only"`, `ref_vae_end_percent = 1.00`
 
 ---
 

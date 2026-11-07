@@ -1168,8 +1168,11 @@ def _make_control_vector_wrapper(specs: tuple[_AppliedVectorSpec, ...]):
 
         payload = kwargs.get("minimax_payload") or {}
         call_kwargs = dict(kwargs)
-        min_ref_end = min(sp.ref_vae_end_percent for sp in specs)
-        min_ref_aug = min(sp.ref_vae_aug for sp in specs)
+        ref_specs = [
+            sp for sp in specs if sp.strength != 0.0 or sp.vector_name == "none"
+        ]
+        min_ref_end = min((sp.ref_vae_end_percent for sp in ref_specs), default=1.0)
+        min_ref_aug = min((sp.ref_vae_aug for sp in ref_specs), default=0.999)
         if (min_ref_end < 1.0 or min_ref_aug < 0.999) and (
             payload.get("cond_video_latents") or payload.get("refs")
         ):
@@ -2573,11 +2576,9 @@ class MiniMaxH3ApplyControlVectors(io.ComfyNode):
                     optional=True,
                     tooltip=(
                         "For ref2va renders: fraction of steps [0.0, ref_vae_end_percent) where "
-                        "clean 3D Video VAE reference latents stay active (default 0.50 locks "
-                        "<Subject 1> face/hair/clothing on steps 0..2, then gates cond_video_latents "
-                        "on steps 3..5 so lighting/film-stock vectors harmonize across the subject; "
-                        "set 0.00..0.17 when overriding <Subject 1> wardrobe/clothing without "
-                        "editing the prompt while Qwen3-VL vision tokens retain identity)."
+                        "clean 3D Video VAE reference latents stay active (default 1.00 keeps "
+                        "cond_video_latents pinned at ref_vae_aug=0.999 across all steps so "
+                        "frames 0 and 1 never inherit late-step noise from seg_t['ref_img'] = max(t_v, vis_aug))."
                     ),
                 ),
                 io.Float.Input(
