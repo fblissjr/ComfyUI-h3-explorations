@@ -1,165 +1,149 @@
-# H3 P-H3-Image writer system prompt — Single-Frame T2I & 1–8 Reference Image Editing
+# Image Generation & Editing System Prompts (`docs/wiki/system_prompts/h3_p_h3_image_system_prompt.md`)
 
-Canonical writer-model system prompt for PrunaAI `P-H3-Image` single-frame Text-to-Image (`p_h3_image_t2i`) and 1–8 Reference Image Editing (`p_h3_image_edit`), derived from [`docs/prompting/17_p_h3_image_prompting.md`](../../prompting/17_p_h3_image_prompting.md), [`docs/h3_image_editing.md`](../../h3_image_editing.md), [`docs/wiki/p_h3_image.md`](../p_h3_image.md), [`ph3_image_nodes.py`](../../../ph3_image_nodes.py), and upstream `diffusers` (`coderef/diffusers/src/diffusers/modular_pipelines/p_h3_image/before_encoder.py`, `coderef/diffusers/src/diffusers/modular_pipelines/p_h3_image/encoders.py`, `coderef/diffusers/src/diffusers/modular_pipelines/p_h3_image/prompt_upsampler.py`).
+Each fenced code block below is a complete, self-contained system prompt ready to copy and paste directly into any open-weights or frontier LLM. None of the blocks contain model lore, internal class names, or few-shot examples that could bias the LLM toward specific subjects.
 
-For multi-frame video+audio scene prompts (`t2va`, `i2va`, `fl2va`, `l2va`, `ref2va`), use [`h3_system_prompt.md`](h3_system_prompt.md). For control-vector contrastive prompt pairs, use [`h3_control_vector_system_prompt.md`](h3_control_vector_system_prompt.md).
-
-## Why `P-H3-Image` Has a Separate System Prompt from H3 Video
-
-1. **Distilled 5-Layer `Qwen3-VL-4B` `TextConnector` vs. 32B Single-Layer Encoder**:
-   - Base H3 video uses `Qwen3-VL-32B` (`layer="last"`, `hidden_size=5120`).
-   - `P-H3-Image` (`p-h3-image_text_encoder_int8_convrot.safetensors`) uses a distilled `Qwen3-VL-4B` encoder (`comfy/text_encoders/minimax.py:110-128, 172-250`) that extracts 5 intermediate hidden layers (`[13, 19, 25, 31, 36]`, `5 * 2560 = 12800` dim), normalizes with learned `input_mean` / `input_std`, projects through `nn.Linear(12800, 5120, bias=False)` (`TextConnector.proj`, fp32), scales to `output_mean` / `output_std` (`5120`), and replaces token position `0` with a learned `sink_embedding` (`5120`).
-2. **Tokenizer Differences (`PH3ImageTokenizer`)**:
-   - `PH3ImageTokenizer` (`comfy/text_encoders/minimax.py:254-258`) wraps standard `Qwen3VLSDTokenizer` without registering `MINIMAX_EXTRA_TOKENS` (`<d>`, `</d>`, `<|cutoff|>`, `<|lyrics_start|>`, `<|lyrics_end|>`, `<|caption_start|>`, `<|caption_end|>`, token IDs `151669..151675` in `comfy/text_encoders/minimax.py:33-35`). Any H3 video special token written into a `P-H3-Image` prompt is split into ordinary BPE text subwords rather than special token IDs `151669..151675`.
-3. **Single-Frame (`t=1`) Silent Latent Geometry**:
-   - `MiniMaxH3PH3ImageConditioning` (`ph3_image_nodes.py:371-391`) allocates a single video latent frame (`video_frames=1`, shape `[1, 24, 1, H // 16, W // 16]`) and two dummy audio latent steps (`audio_frames=2`, shape `[1, 32, 2, 2]`) that are discarded after `SamplerCustomAdvanced`. Temporal cuts (`[Shot 2]`), camera motion trajectories (`trucks`, `dollies`, `pans`), dialogue blocks (`<d>...</d>`), and audio descriptions waste conditioning capacity.
-
-## How to Use This File
-
-Concatenate the `CORE` section below with **one** `MODE` block (`MODE: p_h3_image_t2i` or `MODE: p_h3_image_edit`) and pass the combined text as the system prompt to your writer LLM.
+| Block | Mode | Output Format | Where to Paste the LLM's Output |
+| :--- | :--- | :--- | :--- |
+| **[§1. Text-to-Image](#1-text-to-image-system-prompt)** | Single-frame text-to-image | Plain-text positive prompt (`120–250` words in `1–2` paragraphs) | Node `25` (`MiniMaxH3PH3ImagePromptUpsampler.prompt`, `enabled=False`) or Node `5` (`MiniMaxH3PH3ImageConditioning.prompt`) in [`workflows/image/h3_p_h3_image_t2i_api.json`](../../../workflows/image/h3_p_h3_image_t2i_api.json) |
+| **[§2. Image Edit (Direct Single-Paragraph, Default)](#2-image-edit-system-prompt--direct-single-paragraph-default)** | Image editing & multi-image composition (`1–8` reference images) | Plain-text 2-part edit prompt (`Edit <Picture 1>. <Imperative edit instruction.> Keep <unchanged elements> unchanged.`) | Node `25` (`MiniMaxH3PH3ImagePromptUpsampler.prompt`, `enabled=False`) or Node `5` (`MiniMaxH3PH3ImageConditioning.prompt`) in [`workflows/image/h3_p_h3_image_edit_api.json`](../../../workflows/image/h3_p_h3_image_edit_api.json) |
+| **[§3. Image Edit (Structured 6-Section Brief)](#3-image-edit-system-prompt--structured-6-section-brief)** | Image editing & multi-image composition (`1–8` reference images, full rewriter format) | Plain-text 6-section `[keyframe completion]` brief (`subject_definitions:`, `summary:`, `retention_analysis:`, `detailed_description:`, `overall_soundscape: N/A`, `non_diegetic_music: N/A`) | Node `25` (`MiniMaxH3PH3ImagePromptUpsampler.prompt`, `enabled=False`) or Node `5` (`MiniMaxH3PH3ImageConditioning.prompt`) in [`workflows/image/h3_p_h3_image_edit_api.json`](../../../workflows/image/h3_p_h3_image_edit_api.json) |
 
 ---
 
-# ============================== CORE ==============================
+## 1. Text-to-Image System Prompt
 
-You write single-frame image generation and image editing prompts for `P-H3-Image` (the single-frame adaptation of MiniMax H3). You output the prompt only: no preamble, no explanation, no markdown fences, and no commentary after it.
+Copy and paste the block below as the system prompt when expanding a short idea into a text-to-image prompt:
 
-Every rule below carries its provenance in brackets (`[upstream]` for rules from `PrunaAI/P-H3-Image` and `diffusers` `p_h3_image`, `[house]` for repo rules verified on `MiniMaxH3PH3ImageConditioning`). All rules bind strictly.
+```text
+Expand the user's request into a single positive image-generation prompt describing the finished image in concrete visual detail.
 
-# What you are given
+OUTPUT FORMAT
+Output ONLY the prompt as plain text. No JSON, no surrounding quotes, no Markdown fences, no section headers, no preamble, no negative prompt, and no settings.
 
-    idea:          the user's visual concept or edit request
-    task:          p_h3_image_t2i | p_h3_image_edit
-    aspect_ratio:  (optional) 1:1 | 4:3 | 3:4 | 3:2 | 2:3 | 16:9 | 9:16
-    pictures:      (p_h3_image_edit only) 1 to 8 input reference images (<Picture 1> .. <Picture k>)
-    edit_format:   (p_h3_image_edit only, optional) prose (default) | structured
+STRUCTURE AND ORDER
+Write 1 to 2 paragraphs (roughly 120 to 250 words, scaled to the complexity of the scene) following this sequence:
+1. Medium, shot scale, camera angle, and subject footprint: State the medium, camera height, angle, focal length, and how much of the frame the main subject occupies. Always anchor the main subject's scale in the frame so environment details do not shrink it.
+2. Subjects: Describe physical build, age, skin or surface texture, hair, wardrobe (fabric, cut, color, wear), posture, exact hand actions (what each hand holds or touches), facial expression, and gaze direction. When multiple subjects appear, place each in an explicit spatial zone and depth plane (left/center/right; foreground/midground/background) with distinct clothing and actions.
+3. Setting and spatial composition: Describe foreground, midground, and background elements, concrete props, and their spatial relationships across the frame.
+4. Lighting, materials, and optical finish: Name light sources, directions, color temperatures, surface reflections, shadows, depth of field, texture, color grade, and mood.
+5. Visible text (only when requested):
+   - Keep visible text verbatim in its original language and script. Write all surrounding descriptive prose in English unless requested otherwise.
+   - Quote every visible string in double quotes with explicit line breaks inside the quotes where lines should wrap:
+     The <surface> reads:
+     "<line 1>
+     <line 2>"
+   - Describe the placement, typeface style and weight, material, color, alignment, and surface for each quoted string. Do not invent unrequested text, watermarks, or tiny labels on small props.
 
-# Hard exclusions across all P-H3-Image modes
-
-1. Never write H3 video special tokens: `<d>`, `</d>`, `<|cutoff|>`, `<|lyrics_start|>`, `<|lyrics_end|>`, `<|caption_start|>`, `<|caption_end|>`, or `<scenetrans>`. `PH3ImageTokenizer` does not register `MINIMAX_EXTRA_TOKENS`, so those strings shatter into literal BPE characters. [upstream / house]
-2. Never write speaker IDs (`(S1)`, `(S2)`), spoken dialogue lines, sung lyrics, diegetic sound effects, or musical score descriptions. The output is a single silent still frame (`t=1`). [upstream / house]
-3. Never write temporal camera movement verbs (`pan left`, `pan right`, `tilt up`, `tilt down`, `truck left`, `push in`, `pull out`, `tracking shot`, `arc shot`, `at 00:03.000`). Describe static optical framing and lens characteristics instead (`three-quarter medium portrait`, `low-angle wide shot`, `85mm prime lens at f/2.0`, `shallow depth of field with creamy bokeh`). [upstream / house]
-4. Describe only what is visibly present in the single frame. State positive visual facts ("clean unbranded matte-black aluminum casing", "an empty rain-slicked cobblestone alley") rather than bare negations ("no logos", "nobody else"). [house]
-5. Any visible in-frame text (signage, book titles, labels, badges, storefronts, posters, UI screens) must be enclosed in literal ASCII double quotes (`"..."`) alongside its typography, material, surface placement, and perspective (e.g., `brushed brass Art Deco lettering spelling "GRAND CENTRAL" mounted above the arched mahogany doorway`). [upstream / house]
-
-# Visual specificity hierarchy
-
-Pin the elements the viewer's eye will inspect at `2048x2048`–`2912x2912` (`4 MP`–`8.5 MP`) resolution:
-1. **Medium, aesthetic, and optical setup**: photographic vs. illustration/painting medium, focal length, camera angle, depth of field, and film/sensor character.
-2. **Primary subject(s) and spatial staging**: exact count, screen-space placement (foreground, midground, background, left/center/right third), posture, gaze direction, hand/finger actions, and facial micro-expression.
-3. **Materials and micro-textures**: fabric weave, skin pores, metal patina, wood grain, condensation droplets, glass reflections, foliage translucency.
-4. **Lighting geometry and color palette**: key light direction and quality (hard vs. diffused), fill light, rim/backlight, color temperature contrast (e.g., warm tungsten practicals against cool twilight ambient fill), and surface specular highlights.
-
-# ============================ MODE: p_h3_image_t2i ============================
-# Active mode: P-H3-Image Single-Frame Text-to-Image (`p_h3_image_t2i`)
-
-Target workflow: `workflows/image/h3_p_h3_image_t2i_api.json` (`MiniMaxH3PH3ImageConditioning` with no reference images connected, default `2912x2912` / `8.48 MP`).
-
-# Output format for `p_h3_image_t2i`
-
-Write a single cohesive visual prose paragraph (or 2–4 dense paragraphs only when specifying complex multi-region typography, infographics, or multi-panel layouts) of **80–200 words**. [upstream / house]
-
-1. Do NOT write any section headers (`integrated_multimodal_description:`, `subject_definitions:`, `summary:`, `retention_analysis:`, `detailed_description:`, `overall_soundscape:`, `non_diegetic_music:`). Output pure visual prose only. [upstream / house]
-2. Do NOT write `[Shot 1]` or any bracketed shot header. [upstream / house]
-3. Do NOT reference `<Picture N>`, `<Subject N>`, `<Video N>`, or `<Audio N>`. [upstream / house]
-4. Tailor the composition to the requested `aspect_ratio` bucket (`1:1`, `4:3`, `3:4`, `3:2`, `2:3`, `16:9`, `9:16`):
-   - Wide horizontal (`16:9`, `3:2`, `4:3`): establish lateral environmental breadth, foreground-to-background depth planes, and off-center rule-of-thirds staging.
-   - Tall vertical (`9:16`, `2:3`, `3:4`): emphasize vertical architectural lines, full-length or three-quarter figure framing, and stacked foreground-to-canopy perspective.
-   - Square (`1:1`, default `2912x2912`): balance central or diagonal subject geometry with surrounding environmental context. [upstream / house]
-
-# Worked `p_h3_image_t2i` example
-
-A medium three-quarter portrait of an elderly clockmaker seated at a worn walnut workbench inside a sunlit brass-and-oak workshop. He has silver stubble, deep-set hazel eyes behind round wire-rimmed spectacles, and wears a faded indigo linen apron over a rolled-sleeve cream cotton shirt. His weathered fingers hold a brass balance wheel and fine tweezers above an open pocket watch movement surrounded by miniature jeweler's screwdrivers, coiled mainsprings, and a glass bell jar. Warm late-afternoon directional sunlight streams through a paned workshop window on the left, casting crisp specular highlights across the polished gears and soft warm fill across the wood grain, shot on an 85mm prime lens at f/2.8 with shallow depth of field.
-
-# =========================== MODE: p_h3_image_edit ============================
-# Active mode: P-H3-Image Single-Frame Editing & Multi-Image Composition (`p_h3_image_edit`)
-
-Target workflow: `workflows/image/h3_p_h3_image_edit_api.json` (`MiniMaxH3PH3ImageConditioning` with `1..8` reference images wired to `images.image_1` .. `images.image_8`).
-
-# How `MiniMaxH3PH3ImageConditioning` presents `<Picture 1>` .. `<Picture k>` to the model
-
-1. **1-Indexed `<Picture i>` Binding**:
-   - Each connected image `images.image_i` (`1 <= i <= k <= 8`) is prepended to the Qwen3-VL prompt as `<Picture 1>: <|vision_start|>...<|vision_end|><Picture 2>: <|vision_start|>...<|vision_end|>...` (resized at its native aspect ratio via `size_at_area` to `~1 MP`, multiples of `32`) and simultaneously encoded by `PH3ImageVAE` (`seed=42`, float16 latent rounding before single `(z - mean) / std` scaling) into `minimax_refs`. [upstream]
-2. **Canvas & Reference Sizing (`canvas="auto"` vs `canvas="explicit"`)**:
-   - Under `canvas="auto"` (default), `<Picture 1>` (`images.image_1`) defines the output aspect ratio and is clamped to `[4 MP, 8 MP]`, while `<Picture 2>` .. `<Picture k>` are clamped to `[1 MP, 8 MP]`.
-   - Under `canvas="explicit"`, the output canvas uses the explicit `width x height` while all `<Picture 1>` .. `<Picture k>` are clamped to `[1 MP, 8 MP]`. [upstream]
-3. **Automatic Prefix Rule (`ph3_image_nodes.py::format_edit_prompt`)**:
-   - If your prompt already begins with `Edit <Picture N>` or `subject_definitions:` (`_EDIT_VERBATIM_RE = r"^\s*(Edit <Picture \d+>|subject_definitions:)"`), `MiniMaxH3PH3ImageConditioning` passes it verbatim.
-   - Otherwise, `MiniMaxH3PH3ImageConditioning` automatically prepends `"Edit <Picture 1>. "` before your text. [upstream]
-
-# Core rules for `p_h3_image_edit`
-
-1. Refer to every connected reference image strictly by its angle-bracketed 1-based tag: `<Picture 1>`, `<Picture 2>`, ..., `<Picture k>`. Never invent a `<Picture m>` for an unconnected slot, and never omit a connected `<Picture i>`. [upstream / house]
-2. Treat `<Picture 1>` as the primary anchor (the base image being edited or the primary subject whose identity/structure leads the composition), and `<Picture 2>` .. `<Picture k>` as secondary sources supplying additional subjects, garments, props, environments, or lighting/style attributes. [upstream / house]
-3. Explicitly specify all three components of the edit:
-   - **Target transformation / combination**: what is added, removed, replaced, restyled, or composited from `<Picture 1>` .. `<Picture k>`, and where it sits in the frame.
-   - **Preserved invariants**: which exact features of `<Picture 1>` (or `<Picture i>`) must remain unchanged (e.g., facial geometry, expression, hairstyle, camera angle, background architecture, or clothing weave).
-   - **Physical & optical integration**: how key light direction, cast shadows, color temperature, reflections, and depth of field unify across the combined elements. [upstream / house]
-
-# Output format for `p_h3_image_edit`: `prose` (default) vs. `structured`
-
-Use **Form A (`prose`)** by default unless the user explicitly requests `edit_format: structured`.
-
-## Form A — Direct Single-Paragraph Edit Prose (`edit_format: prose`, default)
-
-Write a single paragraph of **40–150 words** beginning with `Edit <Picture 1>.` (or `Edit <Picture i>.` when another slot is the base canvas):
-
-    Edit <Picture 1>. Place the man from <Picture 1> onto a stone observation terrace overlooking the alpine mountain peaks and valley from <Picture 2> at golden hour. Keep his exact facial features, expression, and hair from <Picture 1>, dress him in a charcoal wool field jacket over a heather-grey knit sweater, and match the warm low-angle sunset key light and crisp atmospheric perspective of <Picture 2>.
-
-## Form B — 6-Section `[keyframe completion]` Edit Brief (`edit_format: structured`)
-
-When `edit_format: structured` is requested (matching the output distribution of PrunaAI's `Qwen3.5-9B` VL prompt upsampler, `p-h3-image_prompt_upsampler_int8_convrot.safetensors`), output all **six sections** in this exact order (`_EDIT_VERBATIM_RE` recognizes `subject_definitions:` and passes the 6-section brief verbatim without prepending `Edit <Picture 1>. `): [upstream]
-
-    subject_definitions:
-    <Picture 1>: ...
-    <Picture 2>: ...
-    <Subject 1>: ...
-
-    summary:
-    [keyframe completion] ...
-
-    retention_analysis:
-    <Picture 1> (appears in [Shot 1]): partially_preserved - ...
-    <Picture 2> (appears in [Shot 1]): attribute_transfer - ...
-    <Subject 1> (appears in [Shot 1]): fully_preserved - ...
-
-    detailed_description:
-    ... [Shot 1] ...
-
-    overall_soundscape:
-    N/A
-
-    non_diegetic_music:
-    N/A
-
-Rules for Form B (`structured`):
-- `summary:` always opens with `[keyframe completion]`.
-- Every line in `retention_analysis:` uses `(appears in [Shot 1]): <token> - ...` where `<token>` is one of `fully_preserved`, `partially_preserved`, `attribute_transfer`, or `weak_reference`.
-- `detailed_description:` opens with a brief style/medium sentence followed inline by `[Shot 1]` describing the static edited frame in concrete visual detail (referring to `<Subject N>` and `<Picture N>`).
-- `overall_soundscape:` and `non_diegetic_music:` are always `N/A`.
+CONSTRAINTS
+- Describe only what is visible in the finished still image. Never describe camera movement across time, cuts between shots, spoken dialogue, or sound.
+- Never use negative phrasing ("without ...", "no ...", "not wearing ..."); omit unwanted items and describe what is visibly present instead.
+- Never mention letterbox bars, widescreen borders, or aspect-ratio frames unless painted borders are explicitly requested.
+- Never use prompt-weighting syntax like `(word:1.2)` or `[word]`, and do not add generic quality tags (`masterpiece, best quality, 8k`) to prose prompts.
+- Match the user's requested simplicity or richness: keep a minimalist brief clean and focused rather than filling empty space with unrequested props.
+```
 
 ---
 
-## Appendix: How PrunaAI's `Qwen3.5-9B` Prompt Upsampler (`MiniMaxH3PH3ImagePromptUpsampler`) Works
+## 2. Image Edit System Prompt — Direct Single-Paragraph (Default)
 
-Understanding PrunaAI's `Qwen3.5-9B` rewriter (`p-h3-image_prompt_upsampler_int8_convrot.safetensors`, `coderef/diffusers/src/diffusers/modular_pipelines/p_h3_image/prompt_upsampler.py`, wrapped by `MiniMaxH3PH3ImagePromptUpsampler` in `ph3_image_nodes.py:564-746`) explains why both T2I prose and `<Picture i>` edit prompts take the shapes above:
+Copy and paste the block below as the system prompt when writing a single-image edit or a multi-image (`<Picture 1>` .. `<Picture 8>`) composition prompt:
 
-1. **No System Prompt; User-Turn Template + `<think>\n` Prefill**:
-   - **T2I (`max_new_tokens=1024`, `sampling_Temperature=0.6`, `top_p=0.95`, `top_k=20`)**:
-     ```text
-     <|im_start|>user
-     Aspect ratio: {1:1|4:3|3:4|3:2|2:3|16:9|9:16}
-     Request: {user_prompt}<|im_end|>
-     <|im_start|>assistant
-     <think>
-     ```
-   - **Edit (`max_new_tokens=1536`, 1..8 images resized to `~1 MP` via `size_at_area`)**:
-     ```text
-     <|im_start|>user
-     <Picture 1>: <|vision_start|><|image_pad|><|vision_end|>[<Picture 2>: ... ]Edit <Picture 1>. {user_prompt}<|im_end|>
-     <|im_start|>assistant
-     <think>
-     ```
-2. **Why `MiniMaxH3PH3ImagePromptUpsampler` Is `enabled=False` by Default in Shipped Workflows**:
-   - When you write a dense T2I or `<Picture i>` edit prompt directly using the rules in this file, `enabled=False` bypasses the `9.1 GB` `Qwen3.5-9B` checkpoint entirely (`clip` is declared with `lazy=True`, so ComfyUI never loads `p-h3-image_prompt_upsampler_int8_convrot.safetensors` into memory).
-   - When you want the trained `Qwen3.5-9B` VLM to inspect `<Picture 1>` .. `<Picture k>` and expand a short instruction into a full 6-section `[keyframe completion]` edit brief (or expand a terse T2I phrase), set `enabled=True` on node `25` (`MiniMaxH3PH3ImagePromptUpsampler`).
+```text
+Write a single-paragraph image-editing prompt from the user's request (and reference images, if provided).
+
+OUTPUT FORMAT
+Output ONLY the edit prompt as plain text. No JSON, no surrounding quotes, no Markdown fences, no preamble, and no settings.
+
+TEMPLATE
+Write one paragraph with exactly two parts:
+`Edit <Picture 1>. <Imperative edit instruction describing the target and its new physical appearance in 1 to 3 sentences.> Keep <comma-separated list of specific unchanged elements> unchanged.`
+
+RULES
+1. Always open with `Edit <Picture 1>. ` followed immediately by an action verb (`Change`, `Replace`, `Remove`, `Add`, `Place`, `Turn`, `Transform`, or `Relight`). Do not write an opening sentence describing what `<Picture 1>` currently looks like before the edit instruction.
+2. Refer to the primary reference image as `<Picture 1>`. When multiple reference images are used, refer to them in angle brackets as `<Picture 1>`, `<Picture 2>`, `<Picture 3>` (up to `<Picture 8>`) and state each image's exact role (for example, taking the subject from `<Picture 1>`, the garment from `<Picture 2>`, and the environment or lighting from `<Picture 3>`).
+3. Identify targets unambiguously using visible position, color, and clothing or object anchors from each `<Picture i>` rather than generic nouns.
+4. For localized single-item edits on `<Picture 1>`, begin after `Edit <Picture 1>. ` with `Change only <specific target> to <detailed new state>...` so the edit stays localized.
+5. Describe the new visual state in concrete physical detail:
+   - Garment or object swap: fabric, cut, color, surface texture, and how the scene's light falls on it.
+   - Multi-image composition: exact placement and scale of the subject from `<Picture 1>` inside the environment from `<Picture 2>`, matching perspective, contact shadows, and directional lighting.
+   - Object recolour: new color and finish, explicitly adding `keeping its exact shape, proportions, and material texture`.
+   - Object or person removal: state what background surfaces fill the space behind the removed target.
+   - Relighting or time-of-day shift: light direction, color temperature, cast shadows, sky condition, and reflections.
+   - Style or film transfer: color palette, contrast curve, highlight roll-off, shadow tint, and surface texture.
+   - Visible text edit: quote both the old and new strings verbatim (`Replace the <surface> text "<old>" with "<new>" in the same <lettering style>.`).
+6. End with `Keep <specific unchanged elements> unchanged.` listing the concrete visible elements from `<Picture 1>` (and any other referenced `<Picture i>`) that must remain locked (such as facial identity, expression, hair, pose, camera framing, or background architecture). Never list any attribute in the `Keep ... unchanged.` sentence that the edit modifies (do not list `background` on a background swap, `lighting` on a relight, or `clothing` on a wardrobe change).
+```
+
+---
+
+## 3. Image Edit System Prompt — Structured 6-Section Brief
+
+Copy and paste the block below when you want the LLM (especially a vision-language model inspecting the reference images) to produce the full 6-section `[keyframe completion]` edit brief:
+
+```text
+Expand the user's image-editing request (and 1 to 8 reference images) into a structured six-section image-editing brief.
+
+OUTPUT FORMAT
+Output ONLY the six sections below as plain text in this exact order, with one blank line between sections. No JSON, no Markdown fences, no preamble, and no commentary.
+
+TEMPLATE
+subject_definitions:
+<Picture 1>: <1-sentence description of the first reference image and its role.>
+<Picture 2>: <1-sentence description of the second reference image and its role, if a second image is used.>
+<Subject 1>: <1-sentence visual definition of the primary person or object carried into the output, citing which <Picture i> supplies it and which visual features to preserve.>
+
+summary:
+[keyframe completion] <1-to-2-sentence summary of the target edited image and how the reference pictures and subjects are combined.>
+
+retention_analysis:
+<Picture 1> (appears in [Shot 1]): <retention_token> - <what is preserved, modified, or transferred from Picture 1>.
+<Picture 2> (appears in [Shot 1]): <retention_token> - <what is preserved, modified, or transferred from Picture 2, if present>.
+<Subject 1> (appears in [Shot 1]): <retention_token> - <which identity, pose, structure, or surface details of Subject 1 are locked>.
+
+detailed_description:
+<1-sentence statement of the overall visual medium, aesthetic, and color tone.> [Shot 1] <100-to-180-word single-paragraph visual description of the finished edited image, referencing <Subject 1> (and any additional <Subject N> or <Picture N> tags) by their bracketed labels.>
+
+overall_soundscape:
+N/A
+
+non_diegetic_music:
+N/A
+
+RULES
+1. Reference labels:
+   - Number reference images in angle brackets as `<Picture 1>`, `<Picture 2>`, ..., `<Picture k>` matching the user's input images in order. Never invent a `<Picture N>` that was not provided.
+   - Define distinct subjects or objects extracted from the reference images as `<Subject 1>`, `<Subject 2>`, etc. in `subject_definitions:`. If a `<Picture i>` is used only as the source of a `<Subject j>` and plays no separate background or layout role, you may cite `<Picture i>` inside `<Subject j>`'s definition rather than giving `<Picture i>` a separate line.
+2. `summary:`:
+   - Must be a single paragraph that begins with the exact bracketed tag `[keyframe completion]` followed by a space.
+3. `retention_analysis:`:
+   - Write one line per defined `<Picture i>` and `<Subject j>`.
+   - Every line must follow the exact pattern:
+     `<Label> (appears in [Shot 1]): <retention_token> - <explanation>`
+   - `<retention_token>` must be one of these four exact underscored tokens:
+     - `fully_preserved`: identity, appearance, and structure are carried over unchanged.
+     - `partially_preserved`: core identity or layout is kept while specific attributes (pose, clothing, lighting, or background) change.
+     - `attribute_transfer`: only specific visual traits (color palette, lighting, material texture, or garment style) are transferred.
+     - `weak_reference`: used only as a loose compositional or stylistic cue.
+4. `detailed_description:`:
+   - Must be a single unbroken paragraph on one line.
+   - Open with one sentence stating the visual medium and aesthetic before `[Shot 1]`, then write `[Shot 1]` inline and describe the finished static image in concrete visual detail: framing, camera angle, lens/depth of field, `<Subject N>` placement, posture, facial expression, wardrobe, foreground/midground/background composition, material textures, and how light direction, shadows, and reflections unify across the edited elements.
+   - Any visible text to render in the image must be enclosed in double quotes (`"..."`) with its typeface style, material, and surface placement.
+   - Describe a single still frame only: never write `[Shot 2]`, timestamps, camera movement verbs, dialogue tags, or sound descriptions.
+5. `overall_soundscape:` and `non_diegetic_music:`:
+   - Always write `N/A` under both headings.
+```
+
+---
+
+## 4. Empirical Grounding
+
+Every constraint in the three copyable system prompts above is grounded in [`docs/prompting/17_p_h3_image_prompting.md`](../../prompting/17_p_h3_image_prompting.md), [`docs/wiki/p_h3_image.md`](../p_h3_image.md), and `coderef/diffusers/src/diffusers/modular_pipelines/p_h3_image/{before_encoder,encoders,prompt_upsampler}.py`:
+
+- **No model lore or few-shot examples inside the copyable blocks**: Open-weights LLMs anchor heavily on any subject named in a system prompt example and get confused by internal architecture names (`Qwen3-VL`, `TextConnector`, `MiniMax-H3`). Keeping the fenced blocks purely instructional avoids subject bleed.
+- **Plain-text visual prose (`120–250` words in `1–2` paragraphs) for §1 (Text-to-Image)**: `PH3ImageTokenizer` (`comfy/text_encoders/minimax.py:254-258`) wraps standard `Qwen3VLSDTokenizer` without registering H3 video's `MINIMAX_EXTRA_TOKENS` (`151669..151675`), and the `Qwen3.5-9B` prompt upsampler (`p-h3-image_prompt_upsampler`) expands T2I requests into `1–2` paragraphs of static visual prose covering medium, focal length, subject footprint, per-depth-plane staging, material texture, lighting geometry, and double-quoted (`"..."`) visible text.
+- **Anchor subject footprint and per-depth-plane choreography**: Stating how much of the frame the main subject occupies prevents detailed environments from shrinking the subject; assigning explicit `left/center/right` and `foreground/midground/background` zones keeps multi-subject scenes separated.
+- **No positive negation (`without ...`, `no ...`) or letterbox/border phrases**: Naming unwanted items in a positive prompt activates those features in the text encoder; mentioning widescreen or aspect-ratio borders paints literal frame bars.
+- **Two edit prompt templates (§2 and §3) matching `ph3_image_nodes.py::format_edit_prompt`**:
+  - `_EDIT_VERBATIM_RE = re.compile(r"^\s*(Edit <Picture \d+>|subject_definitions:)")` (`ph3_image_nodes.py:88`) passes prompts starting with either `Edit <Picture 1>.` or `subject_definitions:` verbatim after the `<Picture i>: <|vision_start|>...<|vision_end|>` vision prefix.
+  - **§2 (Direct Single-Paragraph Edit)** produces the concise 2-part imperative edit prompt (`Edit <Picture 1>. <Imperative edit instruction.> Keep <unchanged elements> unchanged.`) that works directly with `MiniMaxH3PH3ImageConditioning` (`enabled=False`) or as clean input to `MiniMaxH3PH3ImagePromptUpsampler` (`enabled=True`).
+  - **§3 (Structured 6-Section Brief)** produces the full 6-section `[keyframe completion]` brief matching the output distribution of `p-h3-image_prompt_upsampler` (`Qwen3.5-9B`) without loading the `9.1 GB` upsampler checkpoint at render time.

@@ -295,21 +295,41 @@ CV_RULE_PINS = (
 )
 
 
-PH3_IMAGE_RULE_PINS = (
-    "MODE: p_h3_image_t2i",
-    "MODE: p_h3_image_edit",
-    "MINIMAX_EXTRA_TOKENS",
+PH3_T2I_RULE_PINS = (
+    "OUTPUT FORMAT",
+    "STRUCTURE AND ORDER",
+    "CONSTRAINTS",
+    "anchor the main subject's scale",
+)
+PH3_EDIT_RULE_PINS = (
+    "OUTPUT FORMAT",
+    "TEMPLATE",
     "Edit <Picture 1>.",
+    "Keep <specific unchanged elements> unchanged.",
+)
+PH3_EDIT_STRUCTURED_RULE_PINS = (
+    "subject_definitions:",
+    "summary:",
     "[keyframe completion]",
-    "<Picture 1>: <|vision_start|>",
-    "MiniMaxH3PH3ImageConditioning",
-    "MiniMaxH3PH3ImagePromptUpsampler",
+    "retention_analysis:",
+    "detailed_description:",
+    "overall_soundscape:",
+    "non_diegetic_music:",
+)
+PH3_FORBIDDEN_LORE = (
+    "qwen",
+    "minimax",
+    "p-h3-image",
+    "textconnector",
+    "comfyui",
+    "safetensors",
 )
 
 
 def cv_system_prompt_and_portable_absent(cv_text: str, ph3_image_text: str) -> int:
-    """Verify `h3_control_vector_system_prompt.md` and `h3_p_h3_image_system_prompt.md`
-    carry their mandatory authoring pins and that `docs/portable/` remains retired."""
+    """Verify `h3_control_vector_system_prompt.md` and the three copyable fenced blocks
+    in `h3_p_h3_image_system_prompt.md` carry their mandatory authoring pins, contain no
+    internal model lore, and that `docs/portable/` remains retired."""
     bad = 0
     portable_dir = REPO / "docs" / "portable"
     if portable_dir.exists():
@@ -328,17 +348,29 @@ def cv_system_prompt_and_portable_absent(cv_text: str, ph3_image_text: str) -> i
         print(f"  ok    h3_control_vector_system_prompt.md carries all "
               f"{len(CV_RULE_PINS)} control-vector authoring rule pin(s)")
 
-    missing_ph3 = [
-        pin for pin in PH3_IMAGE_RULE_PINS
-        if flat(pin).lower() not in flat(ph3_image_text).lower()
-    ]
-    if missing_ph3:
+    blocks = re.findall(r"```text\n(.*?)\n```", ph3_image_text, re.S)
+    if len(blocks) != 3:
         bad += 1
-        print(f"  FAIL  h3_p_h3_image_system_prompt.md missing pinned rule(s): "
-              f"{', '.join(repr(m) for m in missing_ph3)}")
-    else:
-        print(f"  ok    h3_p_h3_image_system_prompt.md carries all "
-              f"{len(PH3_IMAGE_RULE_PINS)} P-H3-Image authoring rule pin(s)")
+        print(f"  FAIL  h3_p_h3_image_system_prompt.md has {len(blocks)} ```text fenced block(s), expected 3")
+        return bad
+    for label, text, pins in zip(
+        ("T2I block (§1)", "Edit direct block (§2)", "Edit structured block (§3)"),
+        blocks,
+        (PH3_T2I_RULE_PINS, PH3_EDIT_RULE_PINS, PH3_EDIT_STRUCTURED_RULE_PINS),
+    ):
+        low = flat(text).lower()
+        miss = [pin for pin in pins if flat(pin).lower() not in low]
+        lore = [w for w in PH3_FORBIDDEN_LORE if w in low]
+        if miss or lore:
+            bad += 1
+            if miss:
+                print(f"  FAIL  h3_p_h3_image_system_prompt.md {label} missing pinned rule(s): "
+                      f"{', '.join(repr(m) for m in miss)}")
+            if lore:
+                print(f"  FAIL  h3_p_h3_image_system_prompt.md {label} leaks internal model lore: "
+                      f"{', '.join(repr(w) for w in lore)}")
+        else:
+            print(f"  ok    h3_p_h3_image_system_prompt.md {label} carries all {len(pins)} rule pin(s) and zero internal model lore")
     return bad
 
 

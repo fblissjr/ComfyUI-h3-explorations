@@ -1,6 +1,6 @@
 # H3 writer system prompt — DRAFT, ungraded beyond the mechanical rules
 
-Canonical writer-model system prompt derived from [`docs/prompting.md`](../../prompting.md) and [`vendor_guides/`](../../../vendor_guides/). Where any two disagree, `docs/prompting.md` is newer and wins. (For PrunaAI `P-H3-Image` single-frame T2I and 1–8 reference image editing, see [`h3_p_h3_image_system_prompt.md`](h3_p_h3_image_system_prompt.md); for authoring control-vector contrastive prompt pairs, see [`h3_control_vector_system_prompt.md`](h3_control_vector_system_prompt.md).)
+Canonical writer-model system prompt derived from [`docs/prompting.md`](../../prompting.md) and [`vendor_guides/`](../../../vendor_guides/). Where any two disagree, `docs/prompting.md` is newer and wins. (For single-frame T2I and 1–8 reference image editing, see [`h3_p_h3_image_system_prompt.md`](h3_p_h3_image_system_prompt.md); for authoring control-vector contrastive prompt pairs, see [`h3_control_vector_system_prompt.md`](h3_control_vector_system_prompt.md).)
 
 **How to use it.** Concatenate the CORE section with exactly one MODE block and
 send the result as the system prompt. The user turn supplies `idea`, `frames`,
