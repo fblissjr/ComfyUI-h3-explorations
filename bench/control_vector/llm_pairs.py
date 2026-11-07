@@ -140,10 +140,10 @@ def _generate_pairs_with_llm(
             model = Model.from_config(config)
             cache = Cache(
                 model,
-                max_num_tokens=8192,
+                max_num_tokens=6144,
                 layer_type=CacheLayer_quant,
-                k_bits=8,
-                v_bits=8,
+                k_bits=4,
+                v_bits=4,
             )
             model.load(progressbar=False)
             cache_store[cache_key] = (model, cache, tokenizer)

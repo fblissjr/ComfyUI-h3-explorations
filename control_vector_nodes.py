@@ -2014,6 +2014,10 @@ def _encode_media_frame_and_prompt(
     def decode_fn(ids: Sequence[int]) -> str:
         return hf_tok.decode(list(ids), skip_special_tokens=False)
 
+    csm = getattr(clip, "cond_stage_model", None)
+    if csm is not None and not hasattr(csm, "memory_estimation_function"):
+        csm.memory_estimation_function = lambda _tokens, device=None: 1536 * 1024 * 1024
+
     ref_items = [{"type": "image", "data": frame_1hwc}]
     tokens = clip.tokenize(clean_text, minimax_ref_items=ref_items)
     cond_list = clip.encode_from_tokens_scheduled(tokens)
@@ -2084,8 +2088,13 @@ def make_control_vector_from_media_pairs(
     n_frames = int(matched_a.shape[0])
     custom_prompt = str(scene_prompt or "").strip()
     if custom_prompt:
-        prompts = [custom_prompt for _ in range(n_frames)]
-        frame_indices = list(range(n_frames))
+        if n_frames == 1:
+            extra_scenes = [s for s in DEFAULT_MEDIA_SCENES if s != custom_prompt][:2]
+            prompts = [custom_prompt, *extra_scenes]
+            frame_indices = [0 for _ in prompts]
+        else:
+            prompts = [custom_prompt for _ in range(n_frames)]
+            frame_indices = list(range(n_frames))
     elif n_frames == 1:
         # Evaluate the single image pair across 3 neutral H3 scenes so scene
         # context averages out and split-half / pairwise cosine are well-defined.

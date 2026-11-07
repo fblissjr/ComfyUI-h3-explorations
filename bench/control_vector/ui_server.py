@@ -92,6 +92,7 @@ def handle_ui_request(
             load_4bit = bool(req.get("load_in_4bit", True))
             max_tok = int(req.get("max_new_tokens", 3200))
             temp_req = float(req.get("temperature", 0.7))
+            state.release_clip_vram()
             res_llm = _generate_pairs_with_llm(
                 provider=prov_req,
                 model_spec=model_req,

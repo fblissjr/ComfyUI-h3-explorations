@@ -85,13 +85,49 @@ class ControlVectorUIState:
             self._tokenizer = mm_te.MiniMaxH3Tokenizer()
         return self._tokenizer
 
+    def release_llm_vram(self) -> None:
+        if not self._llm_cache:
+            return
+        import gc
+
+        for entry in list(self._llm_cache.values()):
+            try:
+                if isinstance(entry, tuple) and len(entry) >= 1 and hasattr(entry[0], "unload"):
+                    entry[0].unload()
+            except Exception:
+                pass
+        self._llm_cache.clear()
+        gc.collect()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
+    def release_clip_vram(self) -> None:
+        if not self._clips:
+            return
+        import gc
+
+        try:
+            import comfy.model_management as mm
+
+            mm.unload_all_models()
+        except Exception:
+            pass
+        gc.collect()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
     def get_clip(self, encoder_name: str | None = None, device: str | None = None) -> Any:
+        self.release_llm_vram()
         resolved_enc = encoder_name or self.default_encoder or h3_config.MODELS["clip"]
         resolved_dev = device or self.default_device or "default"
         key = (str(resolved_enc), str(resolved_dev))
         if key not in self._clips:
             self._clips[key] = _h._load_clip(resolved_enc, device=str(resolved_dev))
-        return self._clips[key]
+        clip_obj = self._clips[key]
+        csm = getattr(clip_obj, "cond_stage_model", None)
+        if csm is not None and not hasattr(csm, "memory_estimation_function"):
+            csm.memory_estimation_function = lambda _tokens, device=None: 1536 * 1024 * 1024
+        return clip_obj
 
 
 

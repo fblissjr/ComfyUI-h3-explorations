@@ -3905,11 +3905,12 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
                 m_out = cv_nodes.MiniMaxH3MakeMediaControlVector.execute(
                     model=patcher_for_make,
                     clip=mock_clip,
-                    image_a=img_a_raw,
-                    image_b=img_b_raw,
+                    image_a=img_a_raw[:1] if m_pool == "scene_text" else img_a_raw,
+                    image_b=img_b_raw[:1] if m_pool == "scene_text" else img_b_raw,
                     output_name=f"unit_media_{m_pool}",
                     pooling=m_pool,
                     short_edge=224,
+                    scene_prompt="A medium shot of <Subject 1> standing in a neutral room." if m_pool == "scene_text" else "",
                     overwrite=True,
                 )
                 m_sf = tmp / m_out[0]
