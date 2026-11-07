@@ -167,15 +167,17 @@ def extract_model_recipe(
     model: Any,
     clip: Any | None = None,
     *,
+    dit_path_override: str | Path | None = None,
     unet_path_override: str | Path | None = None,
     encoder_path_override: str | Path | None = None,
     loras_override: Sequence[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Extract the `CONTRACT.md` §3 recipe dict `{checkpoint, loras, encoder}` from a
     loaded `ModelPatcher` and optional `CLIP` (or explicit file paths)."""
-    # 1. Diffusion checkpoint
+    # 1. Diffusion (DiT) checkpoint
+    resolved_dit_override = dit_path_override if dit_path_override is not None else unet_path_override
     ckpt_path: Path | None = (
-        Path(unet_path_override) if unet_path_override is not None else _patcher_checkpoint_path(model)
+        Path(resolved_dit_override) if resolved_dit_override is not None else _patcher_checkpoint_path(model)
     )
     if ckpt_path is not None and ckpt_path.is_file():
         ckpt_entry = {
@@ -2060,6 +2062,9 @@ def make_control_vector_from_media_pairs(
     output_dir: str | Path | None = None,
     overwrite: bool = False,
     made_by: str = "MiniMaxH3MakeMediaControlVector/1",
+    loras: Sequence[dict[str, Any]] | None = None,
+    encoder_path_override: str | Path | None = None,
+    refiner_device: str | torch.device | None = None,
 ) -> tuple[Path, dict[str, Any]]:
     """Build and save a `.safetensors` control vector from contrasting `<Picture 1>`
     reference images (`image_a` positive vs. `image_b` baseline) with matched
@@ -2094,8 +2099,27 @@ def make_control_vector_from_media_pairs(
         frame_indices = list(range(n_frames))
 
     family = _cv.detect_family(model)
-    recipe = extract_model_recipe(model, clip)
-    refiner_run = build_refiner_runner(model)
+    if isinstance(model, (str, Path)):
+        recipe = extract_model_recipe(
+            None,
+            clip,
+            dit_path_override=model,
+            encoder_path_override=encoder_path_override,
+            loras_override=loras,
+        )
+        refiner_run = build_refiner_runner(
+            model, device=refiner_device or "cpu", loras=loras
+        )
+    else:
+        recipe = extract_model_recipe(
+            model,
+            clip,
+            encoder_path_override=encoder_path_override,
+            loras_override=loras,
+        )
+        refiner_run = build_refiner_runner(
+            model, device=refiner_device, loras=loras
+        )
 
     a_pooled_list: list[torch.Tensor] = []
     b_pooled_list: list[torch.Tensor] = []

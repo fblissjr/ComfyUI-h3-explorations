@@ -11,5 +11,6 @@ Loaded when a session opens a file here; the root `AGENTS.md` still governs.
   runs (root `AGENTS.md`, "The repo is broader than the current project").
 - **A record under `results/` is its `.md`** (`results/INDEX.md`); data goes under the untracked `data/<video>/`.
 - **Run with the ComfyUI venv's python, never `uv`** (`docs/comfy_notes.md`, "Running things").
+- **Modular subfolders over flat-directory sprawl.** Multi-part subsystems belong in their own subfolder package (for example `bench/<subsystem>/` with `web/` for `.html`, `.css`, and `.js` assets) rather than single multi-thousand-line scripts in `bench/`. Keep top-level `bench/<tool>.py` files as thin CLI entrypoints or focused single-purpose scripts.
 - **While the card runs, a tool a load step calls is edited in a worktree**, never in the shared tree (root
   `AGENTS.md`, "The shared tree").

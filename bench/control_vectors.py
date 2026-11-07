@@ -161,27 +161,86 @@ def _load_encoded_references(
     return encoded_refs
 
 
-def _load_image_tensor_list(spec_str: str) -> list[torch.Tensor]:
+def _resolve_requested_families(
+    raw: Any,
+    *,
+    auto_family: str | None = None,
+) -> list[str]:
+    """Normalize family selector ('both', 'auto', 'fl2va,ref2va', 'fl2va', 'ref2va') into a list of families."""
+    if isinstance(raw, (list, tuple)):
+        items = [str(x).strip().lower() for x in raw if str(x).strip()]
+    else:
+        s = str(raw or "both").strip().lower()
+        if s in ("both", "fl2va,ref2va", "ref2va,fl2va", "all"):
+            return ["fl2va", "ref2va"]
+        if s == "auto":
+            return [auto_family] if auto_family in ("fl2va", "ref2va") else ["fl2va", "ref2va"]
+        items = [part.strip() for part in s.split(",") if part.strip()]
+    out: list[str] = []
+    for item in items:
+        if item in ("both", "all"):
+            for f in ("fl2va", "ref2va"):
+                if f not in out:
+                    out.append(f)
+        elif item == "auto":
+            f_auto = auto_family if auto_family in ("fl2va", "ref2va") else "fl2va"
+            if f_auto not in out:
+                out.append(f_auto)
+        elif item in ("fl2va", "ref2va"):
+            if item not in out:
+                out.append(item)
+        else:
+            raise ValueError(
+                f"unknown family {item!r}; expected 'both', 'fl2va', 'ref2va', or 'fl2va,ref2va'"
+            )
+    return out or ["fl2va", "ref2va"]
+
+
+def _decode_image_spec_to_tensor(img_spec: str) -> torch.Tensor:
+    import base64
+    import io
     from PIL import Image
     import numpy as np
 
-    specs = [s.strip() for s in str(spec_str or "").split(",") if s.strip()]
-    if not specs:
-        raise ValueError("at least one image path is required")
-    tensors: list[torch.Tensor] = []
-    for img_spec in specs:
-        img_path = Path(img_spec)
-        if not img_path.is_file():
-            img_path = Path(folder_paths.get_input_directory()) / img_spec
-        if not img_path.is_file():
-            raise ValueError(f"image {img_spec!r} not found")
-        pil = Image.open(img_path).convert("RGB")
+    s = str(img_spec or "").strip()
+    if not s:
+        raise ValueError("empty image specification")
+    if s.startswith("data:image/"):
+        _, b64_part = s.split(",", 1)
+        raw_bytes = base64.b64decode(b64_part)
+        pil = Image.open(io.BytesIO(raw_bytes)).convert("RGB")
         arr = np.asarray(pil, dtype=np.float32) / 255.0
-        tensors.append(torch.from_numpy(arr).unsqueeze(0))
-    return tensors
+        return torch.from_numpy(arr).unsqueeze(0)
+    img_path = Path(s)
+    if not img_path.is_file():
+        img_path = Path(folder_paths.get_input_directory()) / s
+    if not img_path.is_file():
+        raise ValueError(f"image {s!r} not found")
+    pil = Image.open(img_path).convert("RGB")
+    arr = np.asarray(pil, dtype=np.float32) / 255.0
+    return torch.from_numpy(arr).unsqueeze(0)
 
 
-def _resolve_vector_for_family(spec: str | Path, family: str = "fl2va") -> Path:
+def _load_image_tensor_list(spec_str: str | list[str]) -> list[torch.Tensor]:
+    if isinstance(spec_str, (list, tuple)):
+        specs = [str(s).strip() for s in spec_str if str(s).strip()]
+    else:
+        s_raw = str(spec_str or "").strip()
+        if s_raw.startswith("data:image/"):
+            specs = [s_raw]
+        else:
+            specs = [s.strip() for s in s_raw.split(",") if s.strip()]
+    if not specs:
+        raise ValueError("at least one image path or uploaded image is required")
+    return [_decode_image_spec_to_tensor(img_spec) for img_spec in specs]
+
+
+def _resolve_vector_for_family(
+    spec: str | Path,
+    family: str = "fl2va",
+    *,
+    extra_dir: Path | None = None,
+) -> Path:
     """Resolve a vector path, filename, or short stem (e.g. 'handheld_urgency') for `family`."""
     cand = Path(str(spec).strip())
     if cand.is_file():
@@ -189,6 +248,8 @@ def _resolve_vector_for_family(spec: str | Path, family: str = "fl2va") -> Path:
     fam = "ref2va" if "ref2va" in str(family).lower() else "fl2va"
     stem = cand.stem.split("__")[0]
     search_dirs: list[Path] = []
+    if extra_dir is not None:
+        search_dirs.append(Path(extra_dir))
     models_root = getattr(folder_paths, "models_dir", None)
     if models_root:
         search_dirs.append(Path(models_root) / cv_nodes.CONTROL_VECTORS_FOLDER)
@@ -438,67 +499,85 @@ def cmd_make_media(args: argparse.Namespace) -> int:
     batch_a = torch.cat(matched_a_list, dim=0)
     batch_b = torch.cat(matched_b_list, dim=0)
 
-    unet_name = args.unet or h3_config.MODELS["unet_ref2va"]
-    unet_path = Path(folder_paths.get_full_path_or_raise("diffusion_models", unet_name))
+    dit_override = getattr(args, "dit", None) or getattr(args, "unet", None)
+    families_raw = getattr(args, "families", None)
+    if dit_override:
+        dit_names = [str(dit_override)]
+    elif families_raw:
+        fams = _resolve_requested_families(families_raw, auto_family="ref2va")
+        dit_names = [
+            h3_config.MODELS["unet_ref2va"] if f == "ref2va" else h3_config.MODELS["unet_fl2va"]
+            for f in fams
+        ]
+    else:
+        dit_names = [h3_config.MODELS["unet_ref2va"]]
+
     encoder_name = args.encoder or h3_config.MODELS["clip"]
+    encoder_path = Path(folder_paths.get_full_path_or_raise("text_encoders", encoder_name))
     loras = _parse_lora_specs(args.lora)
 
     clip = getattr(args, "_clip_override", None) or _load_clip(encoder_name, device=args.device)
-    model = _load_unet(unet_name, loras=loras)
     out_dir = Path(args.out_dir) if getattr(args, "out_dir", None) else None
-    out_path, report = cv_nodes.make_control_vector_from_media_pairs(
-        image_a=batch_a,
-        image_b=batch_b,
-        model=model,
-        clip=clip,
-        output_name=str(args.output_name or "media_contrast"),
-        pooling=str(args.pooling),
-        short_edge=int(args.short_edge),
-        scene_prompt=str(args.scene_prompt or ""),
-        output_dir=out_dir,
-        overwrite=bool(args.overwrite),
-        made_by="bench/control_vectors.py::make-media/1",
-    )
     hold_specs = getattr(args, "hold", None)
     hold_words = str(getattr(args, "hold_words", "") or "").strip() or None
     hold_alpha = float(getattr(args, "hold_alpha", 1.0))
-    if hold_specs or hold_words:
-        m_tensors, m_meta = cv.load_vector(out_path)
-        m_fam = str(m_meta.get("family", "ref2va"))
-        scrubbed_vec, hold_labels, n_bef, n_aft = _apply_post_refiner_holds(
-            m_tensors["vector.post_refiner"],
-            family=m_fam,
-            hold_specs=hold_specs,
-            hold_words=hold_words,
-            hold_alpha=hold_alpha,
-            prompt=str(args.scene_prompt or "") or None,
-        )
-        if hold_labels:
-            m_tensors["vector.post_refiner"] = scrubbed_vec
-            m_meta.setdefault("provenance", {})["applied_holds"] = {
-                "holds": hold_labels,
-                "alpha": hold_alpha,
-                "norm_before": round(n_bef, 4),
-                "norm_after_raw": round(n_aft, 4),
-            }
-            if j_lens.bundle_available():
-                try:
-                    m_meta.setdefault("quality_report", {})["j_lens_readout"] = j_lens.decode_vector(
-                        scrubbed_vec, space="post_refiner", family=m_fam
-                    )
-                except Exception:
-                    pass
-            cv.save_vector(out_path, m_tensors, m_meta, overwrite=True)
-            report["metadata"] = m_meta
 
-    qrep = report["metadata"]["quality_report"]
-    pts = report["metadata"]["points"]["post_refiner"]
-    print(f"=== Media-Contrast Control Vector Saved: {out_path.name} ===")
-    print(f"  path            : {out_path}")
-    print(f"  qwen_view_size  : {report['qwen_view_size'][0]}x{report['qwen_view_size'][1]} (32-px M-RoPE grid)")
-    print(f"  pooling         : {args.pooling}")
-    print(f"  raw_norm        : {pts['raw_norm']:.4f}   median_row_norm: {pts['median_row_norm']:.4f}")
-    print(f"  pairwise_cosine : {qrep['mean_pairwise_cosine']:.4f}   split_half: {qrep['split_half_cosine']:.4f}")
+    for dit_name in dit_names:
+        dit_path = Path(folder_paths.get_full_path_or_raise("diffusion_models", dit_name))
+        model_or_path = getattr(args, "_model_override", None) or dit_path
+        out_path, report = cv_nodes.make_control_vector_from_media_pairs(
+            image_a=batch_a,
+            image_b=batch_b,
+            model=model_or_path,
+            clip=clip,
+            output_name=str(args.output_name or "media_contrast"),
+            pooling=str(args.pooling),
+            short_edge=int(args.short_edge),
+            scene_prompt=str(args.scene_prompt or ""),
+            output_dir=out_dir,
+            overwrite=bool(args.overwrite),
+            made_by="bench/control_vectors.py::make-media/1",
+            loras=loras,
+            encoder_path_override=encoder_path,
+            refiner_device=getattr(args, "refiner_device", "cpu"),
+        )
+        if hold_specs or hold_words:
+            m_tensors, m_meta = cv.load_vector(out_path)
+            m_fam = str(m_meta.get("family", "ref2va"))
+            scrubbed_vec, hold_labels, n_bef, n_aft = _apply_post_refiner_holds(
+                m_tensors["vector.post_refiner"],
+                family=m_fam,
+                hold_specs=hold_specs,
+                hold_words=hold_words,
+                hold_alpha=hold_alpha,
+                prompt=str(args.scene_prompt or "") or None,
+            )
+            if hold_labels:
+                m_tensors["vector.post_refiner"] = scrubbed_vec
+                m_meta.setdefault("provenance", {})["applied_holds"] = {
+                    "holds": hold_labels,
+                    "alpha": hold_alpha,
+                    "norm_before": round(n_bef, 4),
+                    "norm_after_raw": round(n_aft, 4),
+                }
+                if j_lens.bundle_available():
+                    try:
+                        m_meta.setdefault("quality_report", {})["j_lens_readout"] = j_lens.decode_vector(
+                            scrubbed_vec, space="post_refiner", family=m_fam
+                        )
+                    except Exception:
+                        pass
+                cv.save_vector(out_path, m_tensors, m_meta, overwrite=True)
+                report["metadata"] = m_meta
+
+        qrep = report["metadata"]["quality_report"]
+        pts = report["metadata"]["points"]["post_refiner"]
+        print(f"=== Media-Contrast Control Vector Saved: {out_path.name} ===")
+        print(f"  path            : {out_path}")
+        print(f"  qwen_view_size  : {report['qwen_view_size'][0]}x{report['qwen_view_size'][1]} (32-px M-RoPE grid)")
+        print(f"  pooling         : {args.pooling}")
+        print(f"  raw_norm        : {pts['raw_norm']:.4f}   median_row_norm: {pts['median_row_norm']:.4f}")
+        print(f"  pairwise_cosine : {qrep['mean_pairwise_cosine']:.4f}   split_half: {qrep['split_half_cosine']:.4f}")
     return 0
 
 
@@ -531,21 +610,21 @@ def cmd_make(args: argparse.Namespace) -> int:
                 pair_set, tp_arg, target_weight=tp_weight, slot_hint=slot_arg
             )
 
-    unet_name = args.unet or (
+    dit_name = getattr(args, "dit", None) or getattr(args, "unet", None) or (
         h3_config.MODELS["unet_ref2va"]
         if (args.ref_images or pair_set.mode == "ref2va")
         else h3_config.MODELS["unet_fl2va"]
     )
-    unet_path = Path(folder_paths.get_full_path_or_raise("diffusion_models", unet_name))
+    dit_path = Path(folder_paths.get_full_path_or_raise("diffusion_models", dit_name))
     encoder_name = args.encoder or h3_config.MODELS["clip"]
     encoder_path = Path(folder_paths.get_full_path_or_raise("text_encoders", encoder_name))
     loras = _parse_lora_specs(args.lora)
 
-    family = cv.detect_family(unet_path)
+    family = cv.detect_family(dit_path)
     recipe = cv_nodes.extract_model_recipe(
         None,
         None,
-        unet_path_override=unet_path,
+        dit_path_override=dit_path,
         encoder_path_override=encoder_path,
         loras_override=loras,
     )
@@ -555,7 +634,7 @@ def cmd_make(args: argparse.Namespace) -> int:
     t_clip = time.perf_counter()
     ref_cache = getattr(args, "_refiner_cache", None)
     ref_key = (
-        str(unet_path),
+        str(dit_path),
         str(args.refiner_device),
         tuple((l["file"], float(l["strength"])) for l in loras),
     )
@@ -563,7 +642,7 @@ def cmd_make(args: argparse.Namespace) -> int:
         refiner_run = ref_cache[ref_key]
     else:
         refiner_run = cv_nodes.build_refiner_runner(
-            unet_path, device=args.refiner_device, loras=loras
+            dit_path, device=args.refiner_device, loras=loras
         )
         if isinstance(ref_cache, dict):
             ref_cache[ref_key] = refiner_run
@@ -1009,9 +1088,10 @@ def cmd_inspect(args: argparse.Namespace) -> int:
             for rec_line in pc_jl.get("recommendations", ()):
                 print(f"                    -> {rec_line}")
 
-    if args.check_unet:
-        unet_path = Path(folder_paths.get_full_path_or_raise("diffusion_models", args.check_unet))
-        fam = cv.detect_family(unet_path)
+    check_dit_arg = getattr(args, "check_dit", None) or getattr(args, "check_unet", None)
+    if check_dit_arg:
+        dit_path = Path(folder_paths.get_full_path_or_raise("diffusion_models", check_dit_arg))
+        fam = cv.detect_family(dit_path)
         enc_name = args.check_encoder or metadata["recipe"]["encoder"]["file"]
         enc_path = (
             Path(folder_paths.get_full_path_or_raise("text_encoders", enc_name))
@@ -1021,7 +1101,7 @@ def cmd_inspect(args: argparse.Namespace) -> int:
         runtime_recipe = cv_nodes.extract_model_recipe(
             None,
             None,
-            unet_path_override=unet_path,
+            dit_path_override=dit_path,
             encoder_path_override=enc_path,
             loras_override=_parse_lora_specs(args.check_lora),
         )
@@ -1044,15 +1124,15 @@ def cmd_inspect(args: argparse.Namespace) -> int:
         if enc_name == "unspecified":
             enc_name = h3_config.MODELS["clip"]
         clip = _load_clip(enc_name, device=args.device)
-        unet_name = args.check_unet or metadata["recipe"]["checkpoint"]["file"]
-        unet_path = Path(folder_paths.get_full_path_or_raise("diffusion_models", unet_name))
+        dit_name = check_dit_arg or metadata["recipe"]["checkpoint"]["file"]
+        dit_path = Path(folder_paths.get_full_path_or_raise("diffusion_models", dit_name))
         meter_loras = (
             _parse_lora_specs(args.check_lora)
             if args.check_lora
             else list(metadata["recipe"].get("loras", ()))
         )
         refiner_run = cv_nodes.build_refiner_runner(
-            unet_path, device=args.refiner_device, loras=meter_loras
+            dit_path, device=args.refiner_device, loras=meter_loras
         )
         pooling = metadata["measured_under"].get("pooling", "scene_text")
         if pooling in ("from_first_diff", "diff_span"):
@@ -1331,8 +1411,8 @@ def cmd_grade(args: argparse.Namespace) -> int:
     enc_name = args.encoder or metadata["recipe"]["encoder"]["file"]
     if enc_name == "unspecified":
         enc_name = h3_config.MODELS["clip"]
-    unet_name = args.unet or metadata["recipe"]["checkpoint"]["file"]
-    unet_path = Path(folder_paths.get_full_path_or_raise("diffusion_models", unet_name))
+    dit_name = getattr(args, "dit", None) or getattr(args, "unet", None) or metadata["recipe"]["checkpoint"]["file"]
+    dit_path = Path(folder_paths.get_full_path_or_raise("diffusion_models", dit_name))
     if getattr(args, "no_lora", False):
         grade_loras: list[dict[str, Any]] = []
     elif getattr(args, "lora", None):
@@ -1344,7 +1424,7 @@ def cmd_grade(args: argparse.Namespace) -> int:
     clip = _load_clip(enc_name, device=args.device)
     t_clip_loaded = time.perf_counter()
     refiner_run = cv_nodes.build_refiner_runner(
-        unet_path, device=args.refiner_device, loras=grade_loras
+        dit_path, device=args.refiner_device, loras=grade_loras
     )
     t_ref_loaded = time.perf_counter()
 
@@ -1560,7 +1640,8 @@ def cmd_grade(args: argparse.Namespace) -> int:
 
     dit_results: list[dict[str, Any]] = []
     dit_provenance: dict[str, Any] = {
-        "unet_file": unet_path.name,
+        "dit_file": dit_path.name,
+        "unet_file": dit_path.name,
         "loras": grade_loras,
         "core_revision": substrate.git_head(cv_nodes.COMFY_ROOT) or "unknown",
         "pack_commit": substrate.git_head(REPO_ROOT) or "unknown",
@@ -1594,11 +1675,11 @@ def cmd_grade(args: argparse.Namespace) -> int:
                 f", loras={[l['file'] for l in grade_loras]}" if grade_loras else ""
             )
             print(
-                f"\n[grade] loading DiT {unet_path.name} "
+                f"\n[grade] loading DiT {dit_path.name} "
                 f"(core={dit_provenance['core_revision']}, attn={dit_provenance['attention']}{lora_note}) "
                 f"for denoised-prediction grading..."
             )
-            raw_model = comfy.sd.load_diffusion_model(str(unet_path))
+            raw_model = comfy.sd.load_diffusion_model(str(dit_path))
             if grade_loras:
                 lb = cv_nodes._repo("lora_branch")
                 for l_spec in grade_loras:
@@ -1954,8 +2035,7 @@ def cmd_build(args: argparse.Namespace) -> int:
         if not cv.NAME_RE.match(stem):
             raise ValueError(f"output vector stem must match [a-z0-9_]+, got {stem!r}")
 
-        fam_arg = str(getattr(args, "families", "both") or "both").lower()
-        target_fams = ["fl2va", "ref2va"] if fam_arg in ("both", "auto") else [fam_arg]
+        target_fams = _resolve_requested_families(getattr(args, "families", "both"))
         out_dir = (
             Path(args.out_dir)
             if getattr(args, "out_dir", None)
@@ -2083,8 +2163,11 @@ def cmd_build(args: argparse.Namespace) -> int:
             target_prompt=tp_arg,
             target_weight=tp_weight,
         )
-        if getattr(args, "toml_out", None):
-            t_out = Path(args.toml_out)
+        toml_out_arg = getattr(args, "toml_out", None) or (
+            cv_nodes.PAIR_BANK_DIR if getattr(args, "save_toml", False) else None
+        )
+        if toml_out_arg:
+            t_out = Path(toml_out_arg)
             if t_out.suffix.lower() != ".toml":
                 t_out = t_out / f"{pair_set.name}.toml"
             md_doc_for_toml = _pair_set_to_markdown(None, pair_set)
@@ -2171,26 +2254,16 @@ def cmd_build(args: argparse.Namespace) -> int:
     if not cv.NAME_RE.match(stem):
         raise ValueError(f"output vector stem must match [a-z0-9_]+, got {stem!r}")
 
-    if getattr(args, "unet", None):
-        family_targets = [("custom", str(args.unet))]
+    dit_arg = getattr(args, "dit", None) or getattr(args, "unet", None)
+    if dit_arg:
+        family_targets = [("custom", str(dit_arg))]
     else:
-        fam_choice = str(getattr(args, "families", "both")).lower()
-        if fam_choice == "both":
-            family_targets = [
-                ("fl2va", h3_config.MODELS["unet_fl2va"]),
-                ("ref2va", h3_config.MODELS["unet_ref2va"]),
-            ]
-        elif fam_choice == "fl2va":
-            family_targets = [("fl2va", h3_config.MODELS["unet_fl2va"])]
-        elif fam_choice == "ref2va":
-            family_targets = [("ref2va", h3_config.MODELS["unet_ref2va"])]
-        elif fam_choice == "auto":
-            if getattr(args, "ref_images", None) or pair_set.mode == "ref2va":
-                family_targets = [("ref2va", h3_config.MODELS["unet_ref2va"])]
-            else:
-                family_targets = [("fl2va", h3_config.MODELS["unet_fl2va"])]
-        else:
-            raise ValueError(f"unknown --families choice: {fam_choice!r}")
+        auto_fam = "ref2va" if (getattr(args, "ref_images", None) or pair_set.mode == "ref2va") else "fl2va"
+        req_fams = _resolve_requested_families(getattr(args, "families", "both"), auto_family=auto_fam)
+        family_targets = [
+            (f, h3_config.MODELS["unet_ref2va"] if f == "ref2va" else h3_config.MODELS["unet_fl2va"])
+            for f in req_fams
+        ]
 
     encoder_name = getattr(args, "encoder", None) or h3_config.MODELS["clip"]
     encoder_path = Path(folder_paths.get_full_path_or_raise("text_encoders", encoder_name))
@@ -2317,9 +2390,9 @@ def cmd_build(args: argparse.Namespace) -> int:
     hold_alpha_build = float(getattr(args, "hold_alpha", 1.0))
     prompt_build = str(getattr(args, "prompt", "") or getattr(args, "target_prompt", "") or "").strip() or None
 
-    for fam_hint, unet_name in family_targets:
-        unet_path = Path(folder_paths.get_full_path_or_raise("diffusion_models", unet_name))
-        family = cv.detect_family(unet_path)
+    for fam_hint, dit_name in family_targets:
+        dit_path = Path(folder_paths.get_full_path_or_raise("diffusion_models", dit_name))
+        family = cv.detect_family(dit_path)
         if getattr(args, "no_lora", False):
             loras: list[dict[str, Any]] = []
         elif getattr(args, "lora", None):
@@ -2337,7 +2410,7 @@ def cmd_build(args: argparse.Namespace) -> int:
 
         ref_cache = getattr(args, "_refiner_cache", None)
         cache_key = (
-            str(unet_path),
+            str(dit_path),
             str(encoder_path),
             str(args.refiner_device),
             json.dumps(loras, sort_keys=True),
@@ -2348,12 +2421,12 @@ def cmd_build(args: argparse.Namespace) -> int:
             recipe = cv_nodes.extract_model_recipe(
                 None,
                 None,
-                unet_path_override=unet_path,
+                dit_path_override=dit_path,
                 encoder_path_override=encoder_path,
                 loras_override=loras,
             )
             refiner_run = cv_nodes.build_refiner_runner(
-                unet_path, device=args.refiner_device, loras=loras
+                dit_path, device=args.refiner_device, loras=loras
             )
             if isinstance(ref_cache, dict):
                 ref_cache[cache_key] = (family, recipe, refiner_run)
@@ -2669,7 +2742,8 @@ def cmd_build(args: argparse.Namespace) -> int:
                     "loras": loras,
                     "prefix_meta": prefix_meta,
                     "measured_mode": measured_mode,
-                    "unet_path": unet_path,
+                    "dit_path": dit_path,
+                    "unet_path": dit_path,
                     "encoder_path": encoder_path,
                     "refiner_device": str(args.refiner_device),
                     "seed": int(args.seed),
@@ -2722,14 +2796,44 @@ class ControlVectorUIState:
         *,
         toml_dir: Path | None = None,
         vec_dir: Path | None = None,
+        default_encoder: str | None = None,
+        default_dit: str | None = None,
+        default_device: str | None = None,
+        default_llm_provider: str | None = None,
+        default_llm_model: str | None = None,
     ) -> None:
-        self.toml_dir: Path = toml_dir or cv_nodes.PAIR_BANK_DIR
+        self.toml_dir: Path = toml_dir or Path(
+            os.environ.get("H3_CV_TOML_DIR", "").strip() or cv_nodes.PAIR_BANK_DIR
+        )
         self.vec_dir: Path = vec_dir or Path(
-            folder_paths.get_folder_paths(cv_nodes.CONTROL_VECTORS_FOLDER)[0]
+            os.environ.get("H3_CV_VEC_DIR", "").strip()
+            or folder_paths.get_folder_paths(cv_nodes.CONTROL_VECTORS_FOLDER)[0]
+        )
+        self.default_encoder: str = (
+            default_encoder
+            or os.environ.get("H3_ENCODER", "").strip()
+            or h3_config.MODELS["clip"]
+        )
+        self.default_dit: str | None = (
+            default_dit or os.environ.get("H3_DIT", "").strip() or None
+        )
+        self.default_device: str = (
+            default_device or os.environ.get("H3_DEVICE", "").strip() or "default"
+        )
+        self.default_llm_provider: str = (
+            default_llm_provider
+            or os.environ.get("H3_LLM_PROVIDER", "").strip()
+            or ("exllamav3" if os.environ.get("H3_EXL3_MODEL_DIR", "").strip() else "transformers")
+        )
+        self.default_llm_model: str = (
+            default_llm_model
+            or os.environ.get("H3_LLM_MODEL", "").strip()
+            or os.environ.get("H3_EXL3_MODEL_DIR", "").strip()
         )
         self._tokenizer: Any = None
         self._clips: dict[tuple[str, str], Any] = {}
         self._refiner_cache: dict[Any, Any] = {}
+        self._llm_cache: dict[tuple[str, str, bool], Any] = {}
         self.last_build_cache: dict[str, Any] = {}
         self.shutdown_requested: bool = False
 
@@ -2740,11 +2844,12 @@ class ControlVectorUIState:
             self._tokenizer = mm_te.MiniMaxH3Tokenizer()
         return self._tokenizer
 
-    def get_clip(self, encoder_name: str | None = None, device: str = "default") -> Any:
-        resolved_enc = encoder_name or h3_config.MODELS["clip"]
-        key = (str(resolved_enc), str(device))
+    def get_clip(self, encoder_name: str | None = None, device: str | None = None) -> Any:
+        resolved_enc = encoder_name or self.default_encoder or h3_config.MODELS["clip"]
+        resolved_dev = device or self.default_device or "default"
+        key = (str(resolved_enc), str(resolved_dev))
         if key not in self._clips:
-            self._clips[key] = _load_clip(resolved_enc, device=str(device))
+            self._clips[key] = _load_clip(resolved_enc, device=str(resolved_dev))
         return self._clips[key]
 
 
@@ -2767,6 +2872,269 @@ def _extract_system_prompt_text() -> str:
     return ""
 
 
+SUPPORTED_LLM_PROVIDERS: tuple[str, ...] = ("transformers", "exllamav3")
+
+
+def _resolve_exl3_library_root(explicit_root: str | None = None) -> Path | None:
+    """Locate the `exllamav3` Python package root from `explicit_root`, `EXLLAMAV3_ROOT`, or sibling directories."""
+    for raw in (explicit_root, os.environ.get("EXLLAMAV3_ROOT", "")):
+        s = str(raw or "").strip()
+        if s and (Path(s).expanduser() / "exllamav3").is_dir():
+            return Path(s).expanduser().resolve()
+    for parent in [REPO_ROOT.parent, *REPO_ROOT.parents]:
+        if (parent / "exllamav3").is_dir():
+            return parent
+    base = REPO_ROOT.parents[2] if len(REPO_ROOT.parents) >= 3 else REPO_ROOT.parent
+    for cand in base.glob("*/*"):
+        if cand.name == "exllamav3" and (cand / "exllamav3").is_dir():
+            return cand.resolve()
+    return None
+
+
+def _generate_pairs_with_llm(
+    *,
+    provider: str,
+    model_spec: str,
+    concept_prompt: str,
+    system_prompt: str | None = None,
+    load_in_4bit: bool = True,
+    max_new_tokens: int = 3200,
+    temperature: float = 0.7,
+    top_p: float = 0.8,
+    top_k: int = 20,
+    rep_p: float = 1.05,
+    seed: int = 42,
+    exl3_root: str | None = None,
+    llm_cache: dict[tuple[str, str, bool], Any] | None = None,
+) -> dict[str, Any]:
+    """Generate H3 control-vector Markdown pairs using a user-selected `provider` (`transformers` or `exllamav3`)
+    and any user-specified `model_spec` (local directory path or HuggingFace repo ID).
+    """
+    prov = str(provider or "").strip().lower()
+    if prov in ("exl3", "exllama", "exllamav3"):
+        prov = "exllamav3"
+    elif prov in ("hf", "huggingface", "transformers"):
+        prov = "transformers"
+    else:
+        raise ValueError(
+            f"unsupported LLM provider {provider!r}; expected one of {SUPPORTED_LLM_PROVIDERS}"
+        )
+
+    mspec = str(model_spec or "").strip()
+    if not mspec:
+        mspec = (
+            os.environ.get("H3_LLM_MODEL", "").strip()
+            or os.environ.get("H3_EXL3_MODEL_DIR", "").strip()
+        )
+    if not mspec:
+        raise ValueError(
+            "LLM model path or HuggingFace model ID is required (pass --llm-model, set H3_LLM_MODEL, or enter it in the Studio UI)"
+        )
+
+    concept = str(concept_prompt or "").strip()
+    if not concept:
+        raise ValueError("concept description is required to generate pairs")
+
+    sys_txt = (system_prompt or _extract_system_prompt_text()).strip()
+    if not sys_txt:
+        sys_txt = (
+            "You are an expert MiniMax H3 prompt engineer. Author 10 contrasting Prompt A (Baseline) / "
+            "Prompt B (Steered) pairs in Markdown using `#### Pair N`, `##### Prompt A (Baseline)`, and "
+            "`##### Prompt B (Steered)` headings where only the target concept clause changes."
+        )
+
+    user_msg = (
+        f"Target Control Vector Concept / Axis:\n{concept}\n\n"
+        "Generate the complete Markdown control-vector pack (`### Test Scene Prompt` followed by "
+        "`#### Pair 1` through `#### Pair 10` with `##### Prompt A (Baseline)` and `##### Prompt B (Steered)`)."
+    )
+
+    t0 = time.perf_counter()
+    cache_store = llm_cache if llm_cache is not None else {}
+    cache_key = (prov, mspec, bool(load_in_4bit))
+
+    if prov == "exllamav3":
+        ex_root = _resolve_exl3_library_root(exl3_root)
+        if ex_root is not None and str(ex_root) not in sys.path:
+            sys.path.insert(0, str(ex_root))
+        try:
+            from exllamav3 import Cache, CacheLayer_quant, ComboSampler, Config, Model, Tokenizer
+        except ImportError as exc:
+            raise RuntimeError(
+                "ExLlamaV3 ('exllamav3') is not importable; set EXLLAMAV3_ROOT to your exllamav3 checkout or select the 'transformers' provider."
+            ) from exc
+
+        model_dir = Path(mspec).expanduser()
+        if not model_dir.is_dir():
+            raise ValueError(f"ExLlamaV3 model directory not found: {mspec!r}")
+
+        if cache_key in cache_store:
+            model, cache, tokenizer = cache_store[cache_key]
+        else:
+            config = Config.from_directory(str(model_dir))
+            tokenizer = Tokenizer.from_config(config)
+            model = Model.from_config(config)
+            cache = Cache(
+                model,
+                max_num_tokens=8192,
+                layer_type=CacheLayer_quant,
+                k_bits=8,
+                v_bits=8,
+            )
+            model.load(progressbar=False)
+            cache_store[cache_key] = (model, cache, tokenizer)
+
+        chatml = (
+            f"<|im_start|>system\n{sys_txt}<|im_end|>\n"
+            f"<|im_start|>user\n{user_msg}<|im_end|>\n"
+            f"<|im_start|>assistant\n<think>\n\n</think>\n\n"
+        )
+        context_ids = tokenizer.encode(
+            chatml,
+            add_bos=False,
+            add_eos=False,
+            encode_special_tokens=True,
+        )
+        sampler = ComboSampler(
+            rep_p=float(rep_p),
+            temperature=float(temperature),
+            min_p=0.0,
+            top_k=int(top_k),
+            top_p=float(top_p),
+        )
+        stop_ids: set[int] = set()
+        if hasattr(tokenizer, "eos_token_id") and tokenizer.eos_token_id is not None:
+            stop_ids.add(int(tokenizer.eos_token_id))
+        for tok_s in ("<|im_end|>", "<|endoftext|>"):
+            try:
+                enc_s = tokenizer.encode(tok_s, add_bos=False, add_eos=False, encode_special_tokens=True)
+                if enc_s.numel() == 1:
+                    stop_ids.add(int(enc_s.item()))
+            except Exception:
+                pass
+
+        prefill_params: dict[str, Any] = {
+            "attn_mode": "flash_attn",
+            "cache": cache,
+            "past_len": 0,
+            "batch_shape": (1, cache.max_num_tokens),
+        }
+        if context_ids.shape[-1] > 1:
+            model.prefill(input_ids=context_ids[:, :-1], params=prefill_params)
+
+        gen_ids: list[int] = []
+        for step_idx in range(int(max_new_tokens)):
+            step_params: dict[str, Any] = {
+                "attn_mode": "flash_attn",
+                "cache": cache,
+                "past_len": context_ids.shape[-1] - 1,
+                "batch_shape": (1, cache.max_num_tokens),
+            }
+            logits = model.forward(input_ids=context_ids[:, -1:], params=step_params)
+            rand_u32 = int.from_bytes(
+                hashlib.blake2b(f"{seed}:{step_idx}".encode("utf-8"), digest_size=4).digest(),
+                "little",
+            )
+            sample = sampler.forward(
+                logits,
+                sequence_ids=context_ids,
+                rand_u32=rand_u32,
+                tokenizer=tokenizer,
+            )
+            tid = int(sample.item())
+            if tid in stop_ids:
+                break
+            gen_ids.append(tid)
+            context_ids = torch.cat((context_ids, sample.cpu()), dim=-1)
+
+        out_tensor = torch.tensor([gen_ids], dtype=torch.long) if gen_ids else torch.zeros((1, 0), dtype=torch.long)
+        markdown_out = tokenizer.decode(out_tensor, decode_special_tokens=False)[0].strip() if gen_ids else ""
+    else:
+        try:
+            import transformers
+            from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
+        except ImportError as exc:
+            raise RuntimeError(
+                "HuggingFace 'transformers' is not importable in this Python environment."
+            ) from exc
+
+        resolved_target = str(Path(mspec).expanduser()) if Path(mspec).expanduser().exists() else mspec
+        if cache_key in cache_store:
+            hf_model, hf_tokenizer = cache_store[cache_key]
+        else:
+            hf_tokenizer = AutoTokenizer.from_pretrained(resolved_target, trust_remote_code=True)
+            load_kwargs: dict[str, Any] = {
+                "device_map": "auto",
+                "trust_remote_code": True,
+                "torch_dtype": torch.bfloat16,
+            }
+            if load_in_4bit and torch.cuda.is_available():
+                try:
+                    from transformers import BitsAndBytesConfig
+
+                    load_kwargs["quantization_config"] = BitsAndBytesConfig(
+                        load_in_4bit=True,
+                        bnb_4bit_compute_dtype=torch.bfloat16,
+                        bnb_4bit_quant_type="nf4",
+                    )
+                except Exception:
+                    pass
+            cfg = AutoConfig.from_pretrained(resolved_target, trust_remote_code=True)
+            arch_names = " ".join(getattr(cfg, "architectures", None) or ())
+            model_cls = AutoModelForCausalLM
+            if "Qwen3VL" in arch_names and hasattr(transformers, "Qwen3VLForConditionalGeneration"):
+                model_cls = getattr(transformers, "Qwen3VLForConditionalGeneration")
+            elif "Qwen2_5_VL" in arch_names and hasattr(transformers, "Qwen2_5_VLForConditionalGeneration"):
+                model_cls = getattr(transformers, "Qwen2_5_VLForConditionalGeneration")
+            hf_model = model_cls.from_pretrained(resolved_target, **load_kwargs)
+            hf_model.eval()
+            cache_store[cache_key] = (hf_model, hf_tokenizer)
+
+        messages = [
+            {"role": "system", "content": sys_txt},
+            {"role": "user", "content": user_msg},
+        ]
+        if hasattr(hf_tokenizer, "apply_chat_template"):
+            try:
+                prompt_str = hf_tokenizer.apply_chat_template(
+                    messages, tokenize=False, add_generation_prompt=True, enable_thinking=False
+                )
+            except TypeError:
+                prompt_str = hf_tokenizer.apply_chat_template(
+                    messages, tokenize=False, add_generation_prompt=True
+                )
+        else:
+            prompt_str = (
+                f"<|im_start|>system\n{sys_txt}<|im_end|>\n"
+                f"<|im_start|>user\n{user_msg}<|im_end|>\n"
+                f"<|im_start|>assistant\n"
+            )
+        inputs = hf_tokenizer(prompt_str, return_tensors="pt")
+        target_dev = next(hf_model.parameters()).device
+        inputs = {k: v.to(target_dev) for k, v in inputs.items()}
+        with torch.inference_mode():
+            out_ids = hf_model.generate(
+                **inputs,
+                max_new_tokens=int(max_new_tokens),
+                do_sample=float(temperature) > 0.0,
+                temperature=max(float(temperature), 1e-4),
+                top_p=float(top_p),
+                top_k=int(top_k),
+                repetition_penalty=float(rep_p),
+            )
+        new_tokens = out_ids[0, inputs["input_ids"].shape[-1] :]
+        markdown_out = hf_tokenizer.decode(new_tokens, skip_special_tokens=True).strip()
+
+    elapsed_s = round(time.perf_counter() - t0, 2)
+    return {
+        "ok": True,
+        "provider": prov,
+        "model": mspec,
+        "markdown": markdown_out,
+        "elapsed_s": elapsed_s,
+    }
+
+
 def _list_ui_toml_files(toml_dir: Path) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
     if not toml_dir.is_dir():
@@ -2776,12 +3144,18 @@ def _list_ui_toml_files(toml_dir: Path) -> list[dict[str, Any]]:
             ps = cv.load_pairs(p, bank_dir=cv_nodes.PROMPT_BANK_DIR)
             out.append(
                 {
+                    "name": ps.name,
                     "stem": p.stem,
                     "file": p.name,
+                    "pairs": len(ps.pairs),
                     "n_pairs": len(ps.pairs),
+                    "holds": len(ps.holds),
+                    "n_holds": len(ps.holds),
                     "mode": ps.mode,
                     "frame": ps.frame,
                     "quality": ps.quality,
+                    "a_side": ps.a_side,
+                    "b_side": ps.b_side,
                 }
             )
         except Exception:
@@ -2799,16 +3173,31 @@ def _list_ui_vectors(vec_dir: Path) -> list[dict[str, Any]]:
             pr_meta = meta.get("points", {}).get("post_refiner", {})
             raw_norm = float(pr_meta.get("raw_norm", 0.0))
             qr = meta.get("quality_report", {})
+            mpc = float(qr.get("mean_pairwise_cosine", 0.0))
+            shc = float(qr.get("split_half_cosine", 0.0))
+            pairs_meta = meta.get("pairs", {})
+            loras_list = [
+                str(l.get("file", ""))
+                for l in meta.get("recipe", {}).get("loras", ())
+                if isinstance(l, dict) and l.get("file")
+            ]
             out.append(
                 {
                     "file": p.name,
                     "name": str(meta.get("name", p.stem)),
                     "family": str(meta.get("family", "")),
                     "pooling": str(meta.get("measured_under", {}).get("pooling", "scene_text")),
+                    "n_pairs": int(pairs_meta.get("n_pairs", 0)),
+                    "n_holds": int(pairs_meta.get("n_holds", 0)),
+                    "norm": raw_norm,
                     "raw_norm": raw_norm,
-                    "mpc": float(qr.get("mean_pairwise_cosine", 0.0)),
-                    "split_half": float(qr.get("split_half_cosine", 0.0)),
+                    "mpc": mpc,
+                    "mean_cosine": mpc,
+                    "mean_pairwise_cosine": mpc,
+                    "split_half": shc,
+                    "split_half_cosine": shc,
                     "rec_strength": _recommended_strength_text(raw_norm),
+                    "loras": loras_list,
                     "j_lens": qr.get("j_lens_readout"),
                 }
             )
@@ -2964,9 +3353,13 @@ def _preview_markdown_pairs(
                     "prefix": prefix,
                     "a_span": a_span,
                     "b_span": b_span,
+                    "diff_a": a_span,
+                    "diff_b": b_span,
                     "suffix": suffix,
                     "tokens": {
                         "first_diff": int(first_diff),
+                        "diff_span": m_ds_b,
+                        "scene_text": m_sc_b,
                         "diff_span_a": m_ds_a,
                         "diff_span_b": m_ds_b,
                         "ffd_a": m_ffd_a,
@@ -3006,11 +3399,16 @@ def _preview_markdown_pairs(
 
     return {
         "ok": True,
+        "name": name,
+        "suggested_name": name,
         "mode": parsed["mode"],
+        "frame": frame,
+        "n_pairs": len(pair_rows),
+        "n_holds": len(parsed.get("holds", [])),
         "inferred_slot": inferred_slot,
         "test_scene_prompt": parsed["test_scene_prompt"],
+        "test_prompt": parsed["test_scene_prompt"],
         "quality": quality,
-        "suggested_name": name,
         "avg_tokens": avg_tokens,
         "lint_warnings": lint_warnings,
         "pairs": pair_rows,
@@ -3200,8 +3598,9 @@ def _repool_cached_build(
                 old_a, old_b = entry["pairs_ab"][idx]
                 if new_a and new_b and (new_a != old_a or new_b != old_b):
                     clip = state.get_clip()
+                    dit_p = entry.get("dit_path") or entry.get("unet_path")
                     ref_cache_key = (
-                        str(entry["unet_path"]),
+                        str(dit_p),
                         str(entry["encoder_path"]),
                         str(entry["refiner_device"]),
                         json.dumps(entry["loras"], sort_keys=True),
@@ -3210,7 +3609,7 @@ def _repool_cached_build(
                         _, _, refiner_run = state._refiner_cache[ref_cache_key]
                     else:
                         refiner_run = cv_nodes.build_refiner_runner(
-                            entry["unet_path"], device=entry["refiner_device"], loras=entry["loras"]
+                            dit_p, device=entry["refiner_device"], loras=entry["loras"]
                         )
                     enc_a, tags_a, ids_a, dec_a = cv_nodes.encode_prompt_for_vector(clip, new_a)
                     enc_b, tags_b, ids_b, dec_b = cv_nodes.encode_prompt_for_vector(clip, new_b)
@@ -3524,7 +3923,7 @@ def _compose_and_save_sculpted_vector(
         raw_src = item["vector"]
         mode = str(item.get("mode", "add")).strip()
         strength = float(item.get("strength", 1.0))
-        vpath = _resolve_vector_for_family(raw_src, family=family)
+        vpath = _resolve_vector_for_family(raw_src, family=family, extra_dir=target_dir)
         tensors, meta = cv.load_vector(vpath)
         if base_meta is None and mode in ("add", "add_norm_matched"):
             base_meta = meta
@@ -3734,16 +4133,16 @@ def _meter_prompt_tokens(
         enc_name = h3_config.MODELS["clip"]
     clip = state.get_clip(enc_name, "default")
 
-    unet_name = metadata.get("recipe", {}).get("checkpoint", {}).get("file") or (
+    dit_name = metadata.get("recipe", {}).get("checkpoint", {}).get("file") or (
         h3_config.MODELS["unet_ref2va"]
         if metadata.get("family") == "ref2va"
         else h3_config.MODELS["unet_fl2va"]
     )
-    unet_path = Path(folder_paths.get_full_path_or_raise("diffusion_models", unet_name))
+    dit_path = Path(folder_paths.get_full_path_or_raise("diffusion_models", dit_name))
     enc_path = Path(folder_paths.get_full_path_or_raise("text_encoders", enc_name))
     meter_loras = list(metadata.get("recipe", {}).get("loras", ()))
     ref_cache_key = (
-        str(unet_path),
+        str(dit_path),
         str(enc_path),
         "cpu",
         json.dumps(meter_loras, sort_keys=True),
@@ -3754,11 +4153,11 @@ def _meter_prompt_tokens(
         recipe = cv_nodes.extract_model_recipe(
             None,
             None,
-            unet_path_override=unet_path,
+            dit_path_override=dit_path,
             encoder_path_override=enc_path,
             loras_override=meter_loras,
         )
-        refiner_run = cv_nodes.build_refiner_runner(unet_path, device="cpu", loras=meter_loras)
+        refiner_run = cv_nodes.build_refiner_runner(dit_path, device="cpu", loras=meter_loras)
         state._refiner_cache[ref_cache_key] = (metadata.get("family", "fl2va"), recipe, refiner_run)
 
     t0 = time.perf_counter()
@@ -3805,6 +4204,24 @@ def _meter_prompt_tokens(
     }
 
 
+def _discover_ui_clips() -> list[dict[str, Any]]:
+    """Return available comparison clips under $H3_OUTPUT_DIR/Video/control_vectors/ (or empty list)."""
+    out: list[dict[str, Any]] = []
+    out_root = os.environ.get("H3_OUTPUT_DIR", "")
+    if not out_root:
+        return out
+    cv_vid_dir = Path(out_root) / "Video" / "control_vectors"
+    if not cv_vid_dir.is_dir():
+        return out
+    for mp4 in sorted(cv_vid_dir.rglob("*.mp4"))[:60]:
+        try:
+            rel = mp4.relative_to(Path(out_root)).as_posix()
+            out.append({"name": mp4.name, "path": rel, "url": f"/media?path={rel}"})
+        except Exception:
+            continue
+    return out
+
+
 def handle_ui_request(
     state: ControlVectorUIState,
     method: str,
@@ -3819,10 +4236,17 @@ def handle_ui_request(
     if method == "GET" and clean_path == "/api/init":
         payload = {
             "ok": True,
+            "toml_dir": _display_path(state.toml_dir),
+            "vec_dir": _display_path(state.vec_dir),
             "system_prompt": _extract_system_prompt_text(),
             "toml_files": _list_ui_toml_files(state.toml_dir),
             "vectors": _list_ui_vectors(state.vec_dir),
+            "clips": _discover_ui_clips(),
+            "j_lens_available": j_lens.bundle_available(),
             "canonical_frames": pair_compiler.load_canonical_frames(),
+            "llm_providers": list(SUPPORTED_LLM_PROVIDERS),
+            "default_llm_provider": state.default_llm_provider,
+            "default_llm_model": state.default_llm_model,
         }
         return 200, "application/json", json.dumps(payload)
 
@@ -3832,6 +4256,27 @@ def handle_ui_request(
             req = json.loads(body.decode("utf-8"))
         except Exception as exc:
             return 400, "application/json", json.dumps({"ok": False, "error": f"invalid JSON: {exc}"})
+
+    if method == "POST" and clean_path == "/api/generate-pairs-llm":
+        try:
+            prov_req = str(req.get("provider") or state.default_llm_provider or "transformers").strip()
+            model_req = str(req.get("model") or state.default_llm_model or "").strip()
+            concept_req = str(req.get("concept") or req.get("axis") or "").strip()
+            load_4bit = bool(req.get("load_in_4bit", True))
+            max_tok = int(req.get("max_new_tokens", 3200))
+            temp_req = float(req.get("temperature", 0.7))
+            res_llm = _generate_pairs_with_llm(
+                provider=prov_req,
+                model_spec=model_req,
+                concept_prompt=concept_req,
+                load_in_4bit=load_4bit,
+                max_new_tokens=max_tok,
+                temperature=temp_req,
+                llm_cache=state._llm_cache,
+            )
+            return 200, "application/json", json.dumps(res_llm)
+        except Exception as exc:
+            return 400, "application/json", json.dumps({"ok": False, "error": str(exc)})
 
     if method == "POST" and clean_path == "/api/expand-scenes":
         try:
@@ -3846,7 +4291,7 @@ def handle_ui_request(
             name = str(req.get("name", "") or "").strip()
             target_prompt = str(req.get("target_prompt", "") or "").strip()
             target_weight = float(req.get("target_weight", 2.5))
-            spec_text = str(req.get("text", "") or "").strip()
+            spec_text = str(req.get("text") or req.get("words") or "").strip()
 
             if not spec_text:
                 if not pole_b:
@@ -3873,12 +4318,14 @@ def handle_ui_request(
                 f_idx = (idx - 1) if bool(target_prompt) else idx
                 f_meta = frames_bank[f_idx % len(frames_bank)] if (not is_tp and frames_bank) else {}
                 f_id = "target_scene_prompt" if is_tp else f_meta.get("id", f"scene_{idx + 1:02d}")
+                f_domain = "target_prompt (Pair 0)" if is_tp else f_meta.get("domain", "canonical")
                 rows_payload.append(
                     {
                         "index": idx,
                         "frame_id": f_id,
                         "scene_id": f_id,
-                        "domain": "target_prompt (Pair 0)" if is_tp else f_meta.get("domain", "canonical"),
+                        "scene_title": f"{f_id} ({f_domain})",
+                        "domain": f_domain,
                         "weight": float(p.weight),
                         "enabled": True,
                         "a": p.a,
@@ -3899,6 +4346,7 @@ def handle_ui_request(
                 }
                 for h in ps.holds
             ]
+            resolved_slot = pair_compiler.resolve_slot_name(slot, sample_text=ps.b_side)
             return (
                 200,
                 "application/json",
@@ -3906,12 +4354,18 @@ def handle_ui_request(
                     {
                         "ok": True,
                         "name": ps.name,
-                        "slot": pair_compiler.resolve_slot_name(slot, sample_text=ps.b_side),
+                        "slot": resolved_slot,
+                        "slot_auto_detected": slot == "auto",
                         "mode": ps.mode,
                         "quality": ps.quality,
                         "a_side": ps.a_side,
                         "b_side": ps.b_side,
+                        "pole_a": ps.a_side,
+                        "pole_b": ps.b_side,
+                        "test_scene_prompt": target_prompt or (ps.pairs[0].a if ps.pairs else ""),
+                        "test_prompt": target_prompt or (ps.pairs[0].a if ps.pairs else ""),
                         "rows": rows_payload,
+                        "pairs": rows_payload,
                         "holds": holds_payload,
                         "markdown": _pair_set_to_markdown(None, ps),
                     }
@@ -3921,15 +4375,38 @@ def handle_ui_request(
             return 400, "application/json", json.dumps({"ok": False, "error": str(exc)})
 
     if method == "POST" and clean_path == "/api/preview":
-        res = _preview_markdown_pairs(
-            state,
-            str(req.get("text", "")),
-            frame=str(req.get("frame", "scene") or "scene"),
-            name=str(req.get("name", "") or "").strip(),
-            slot=str(req.get("slot", "auto") or "auto"),
-            mode=str(req.get("mode", "t2va") or "t2va"),
-        )
-        return 200, "application/json", json.dumps(res)
+        try:
+            text_req = str(req.get("text", "") or "")
+            rows_req = req.get("rows")
+            frame_req = str(req.get("frame", "scene") or "scene")
+            name_req = str(req.get("name", "") or "").strip()
+            slot_req = str(req.get("slot", "auto") or "auto")
+            mode_req = str(req.get("mode", "t2va") or "t2va")
+            if isinstance(rows_req, list) and rows_req and not text_req.strip():
+                ps_rows = _build_pairset_from_ui_rows(
+                    rows_req,
+                    holds=req.get("holds"),
+                    name=name_req,
+                    slot=slot_req,
+                    mode=mode_req,
+                    frame=frame_req,
+                    target_prompt=str(req.get("target_prompt", "") or ""),
+                    target_weight=float(req.get("target_weight", 2.5)),
+                )
+                text_req = _pair_set_to_markdown(None, ps_rows)
+                if not name_req:
+                    name_req = ps_rows.name
+            res = _preview_markdown_pairs(
+                state,
+                text_req,
+                frame=frame_req,
+                name=name_req,
+                slot=slot_req,
+                mode=mode_req,
+            )
+            return 200, "application/json", json.dumps(res)
+        except Exception as exc:
+            return 400, "application/json", json.dumps({"ok": False, "error": str(exc)})
 
     if method == "POST" and clean_path == "/api/load-toml":
         fname = str(req.get("file", "")).strip()
@@ -3946,6 +4423,11 @@ def handle_ui_request(
                     "index": idx,
                     "frame_id": frames_bank[idx % len(frames_bank)]["id"] if frames_bank else f"pair_{idx + 1:02d}",
                     "scene_id": frames_bank[idx % len(frames_bank)]["id"] if frames_bank else f"pair_{idx + 1:02d}",
+                    "scene_title": (
+                        f"{frames_bank[idx % len(frames_bank)]['id']} ({frames_bank[idx % len(frames_bank)]['domain']})"
+                        if frames_bank
+                        else f"pair_{idx + 1:02d}"
+                    ),
                     "domain": frames_bank[idx % len(frames_bank)]["domain"] if frames_bank else ps.mode,
                     "weight": float(p.weight),
                     "enabled": True,
@@ -3968,18 +4450,25 @@ def handle_ui_request(
                 }
                 for h in ps.holds
             ]
+            tp_cand = tpath.parent / f"{tpath.stem}_test_prompt.txt"
+            tp_txt = tp_cand.read_text(encoding="utf-8").strip() if tp_cand.is_file() else (ps.pairs[0].a if ps.pairs else "")
             return (
                 200,
                 "application/json",
                 json.dumps(
                     {
                         "ok": True,
+                        "file": tpath.name,
                         "name": ps.name,
                         "frame": ps.frame,
                         "mode": ps.mode,
                         "quality": ps.quality,
                         "a_side": ps.a_side,
                         "b_side": ps.b_side,
+                        "n_pairs": len(ps.pairs),
+                        "n_holds": len(ps.holds),
+                        "test_scene_prompt": tp_txt,
+                        "test_prompt": tp_txt,
                         "rows": rows_payload,
                         "pairs": rows_payload,
                         "holds": holds_payload,
@@ -4066,6 +4555,7 @@ def handle_ui_request(
                     bank_dir=cv_nodes.PROMPT_BANK_DIR,
                 )
             n_saved_pairs = len(ps.pairs) if "ps" in locals() else len(parsed.get("pairs", []))
+            disp_toml = _display_path(saved_toml)
             return (
                 200,
                 "application/json",
@@ -4073,19 +4563,21 @@ def handle_ui_request(
                     {
                         "ok": True,
                         "name": name,
-                        "toml": _display_path(saved_toml),
-                        "saved_toml": _display_path(saved_toml),
+                        "toml": disp_toml,
+                        "toml_path": disp_toml,
+                        "saved_toml": disp_toml,
                         "pairs": n_saved_pairs,
+                        "toml_files": _list_ui_toml_files(state.toml_dir),
                         "test_prompt_file": _display_path(tp_out) if tp_out and tp_out.is_file() else None,
                     }
                 ),
             )
-        except (ValueError, FileExistsError) as exc:
+        except (ValueError, FileExistsError, SystemExit) as exc:
             return 400, "application/json", json.dumps({"ok": False, "error": str(exc)})
 
     if method == "POST" and clean_path == "/api/build":
-        text = str(req.get("text", ""))
-        name = str(req.get("name", "")).strip()
+        text = str(req.get("text", "") or req.get("words", "") or "")
+        name = str(req.get("name", "") or req.get("output_name", "") or "").strip()
         frame = str(req.get("frame", "scene") or "scene")
         slot = str(req.get("slot", "auto") or "auto")
         mode = str(req.get("mode", "t2va") or "t2va")
@@ -4095,6 +4587,7 @@ def handle_ui_request(
         overwrite = bool(req.get("overwrite", True))
         include_encoder = bool(req.get("include_encoder", True))
         unit_mean = bool(req.get("unit_mean", False))
+        save_toml_req = bool(req.get("save_toml", False))
         hold_words = str(req.get("hold_words", "") or "").strip()
         hold_alpha = float(req.get("hold_alpha", 1.0))
         hold_vectors = req.get("hold_vectors") or []
@@ -4120,6 +4613,20 @@ def handle_ui_request(
                 )
                 if not name:
                     name = compiled_ps.name
+                if save_toml_req:
+                    md_doc = _pair_set_to_markdown(None, compiled_ps)
+                    saved_toml = cv.write_markdown_to_toml(
+                        md_doc,
+                        state.toml_dir,
+                        name=name,
+                        mode=compiled_ps.mode,
+                        frame=frame,
+                        quality=compiled_ps.quality,
+                        a_side=compiled_ps.a_side,
+                        b_side=compiled_ps.b_side,
+                        overwrite=overwrite,
+                        bank_dir=cv_nodes.PROMPT_BANK_DIR,
+                    )
             elif _is_markdown_pairs_text(text):
                 if not name:
                     return 400, "application/json", json.dumps({"ok": False, "error": "vector name is required"})
@@ -4167,6 +4674,20 @@ def handle_ui_request(
                 )
                 if not name:
                     name = compiled_ps.name
+                if save_toml_req:
+                    md_doc = _pair_set_to_markdown(None, compiled_ps)
+                    saved_toml = cv.write_markdown_to_toml(
+                        md_doc,
+                        state.toml_dir,
+                        name=name,
+                        mode=compiled_ps.mode,
+                        frame=frame,
+                        quality=compiled_ps.quality,
+                        a_side=compiled_ps.a_side,
+                        b_side=compiled_ps.b_side,
+                        overwrite=overwrite,
+                        bank_dir=cv_nodes.PROMPT_BANK_DIR,
+                    )
 
             argv = [
                 "build",
@@ -4198,7 +4719,7 @@ def handle_ui_request(
             if overwrite:
                 argv.append("--overwrite")
             b_args = build_parser().parse_args(argv)
-            if compiled_ps is not None:
+            if compiled_ps is not None and saved_toml is None:
                 b_args._compiled_pair_set = compiled_ps
             rows_out: list[dict[str, Any]] = []
             build_cache: dict[str, Any] = {}
@@ -4210,24 +4731,57 @@ def handle_ui_request(
             with contextlib.redirect_stdout(buf_out):
                 cmd_build(b_args)
             state.last_build_cache = build_cache
+            disp_saved = (
+                _display_path(saved_toml)
+                if saved_toml is not None
+                else str(compiled_ps.path if compiled_ps is not None else "")
+            )
             return (
                 200,
                 "application/json",
                 json.dumps(
                     {
                         "ok": True,
-                        "saved_toml": _display_path(saved_toml) if saved_toml is not None else str(compiled_ps.path if compiled_ps is not None else ""),
+                        "name": name,
+                        "toml_path": disp_saved,
+                        "saved_toml": disp_saved,
                         "built": rows_out,
+                        "toml_files": _list_ui_toml_files(state.toml_dir),
                         "vectors": _list_ui_vectors(state.vec_dir),
                         "log": buf_out.getvalue(),
                     }
                 ),
             )
-        except (ValueError, FileExistsError) as exc:
+        except (ValueError, FileExistsError, SystemExit) as exc:
             return 400, "application/json", json.dumps({"ok": False, "error": str(exc)})
 
     if method == "POST" and clean_path == "/api/repool":
         try:
+            req_name = str(req.get("name", "") or "").strip()
+            if not state.last_build_cache and req_name:
+                cand_toml = state.toml_dir / (req_name if req_name.endswith(".toml") else f"{req_name}.toml")
+                if cand_toml.is_file():
+                    import contextlib
+                    import io
+
+                    b_args = build_parser().parse_args(
+                        [
+                            "build",
+                            str(cand_toml),
+                            "--out-dir",
+                            str(state.vec_dir),
+                            "--overwrite",
+                        ]
+                    )
+                    rows_out: list[dict[str, Any]] = []
+                    build_cache: dict[str, Any] = {}
+                    b_args._summary_rows_out = rows_out
+                    b_args._build_cache_out = build_cache
+                    b_args._clip_override = state.get_clip(b_args.encoder, b_args.device)
+                    b_args._refiner_cache = state._refiner_cache
+                    with contextlib.redirect_stdout(io.StringIO()):
+                        cmd_build(b_args)
+                    state.last_build_cache = build_cache
             res = _repool_cached_build(state, req)
             return 200, "application/json", json.dumps(res)
         except Exception as exc:
@@ -4235,16 +4789,52 @@ def handle_ui_request(
 
     if method == "POST" and clean_path == "/api/sculpt":
         try:
-            steps = req.get("steps")
+            steps = req.get("steps") or req.get("specs")
             if not isinstance(steps, list) or not steps:
                 return 400, "application/json", json.dumps({"ok": False, "error": "missing 'steps' recipe list"})
             name = str(req.get("output_name") or req.get("name") or "sculpted_vector").strip()
-            fams_req = str(req.get("families", "both") or "both").lower()
-            target_fams = ["fl2va", "ref2va"] if fams_req in ("both", "auto") else [fams_req]
+            target_fams = _resolve_requested_families(req.get("families", "both"))
             hold_words = str(req.get("hold_words", "") or "").strip() or None
             hold_alpha = float(req.get("hold_alpha", 1.0))
             prompt_req = str(req.get("prompt", "") or "").strip() or None
             overwrite_req = bool(req.get("overwrite", True))
+            save_req = bool(req.get("save", True))
+
+            if not save_req and j_lens.bundle_available():
+                resolved_steps = []
+                for st in steps:
+                    v_src = state.vec_dir / str(st["vector"])
+                    if not v_src.is_file():
+                        v_src = cv_nodes.resolve_vector_file_path(str(st["vector"]))
+                    resolved_steps.append(
+                        {
+                            "vector": v_src,
+                            "mode": str(st.get("mode", "add")),
+                            "strength": float(st.get("strength", 1.0)),
+                        }
+                    )
+                rep = j_lens.decode_recipe(
+                    resolved_steps,
+                    family=target_fams[0],
+                    hold_words=hold_words,
+                    alpha=hold_alpha,
+                    prompt=prompt_req,
+                )
+                return (
+                    200,
+                    "application/json",
+                    json.dumps(
+                        {
+                            "ok": True,
+                            "saved": [],
+                            "built": [],
+                            "readout": rep.get("readout") or rep,
+                            "readiness": rep.get("readiness") or (rep.get("readout") or {}).get("readiness"),
+                            "prompt_coupling": rep.get("prompt_coupling") or (rep.get("readout") or {}).get("prompt_coupling"),
+                        }
+                    ),
+                )
+
             saved_rows: list[dict[str, Any]] = []
             for tfam in target_fams:
                 r = _compose_and_save_sculpted_vector(
@@ -4268,6 +4858,7 @@ def handle_ui_request(
                         "j_lens": r["j_lens"],
                     }
                 )
+            first_jl = (saved_rows[0].get("j_lens") if saved_rows else None) or {}
             return (
                 200,
                 "application/json",
@@ -4276,6 +4867,9 @@ def handle_ui_request(
                         "ok": True,
                         "built": saved_rows,
                         "saved": saved_rows,
+                        "readout": first_jl,
+                        "readiness": first_jl.get("readiness"),
+                        "prompt_coupling": first_jl.get("prompt_coupling"),
                         "vectors": _list_ui_vectors(state.vec_dir),
                     }
                 ),
@@ -4300,21 +4894,28 @@ def handle_ui_request(
         except Exception as exc:
             return 400, "application/json", json.dumps({"ok": False, "error": str(exc)})
 
-    if method == "POST" and clean_path == "/api/build-media":
+    if method == "POST" and clean_path in ("/api/build-media", "/api/make-media"):
         try:
             import contextlib
             import io
 
-            img_a = str(req.get("image_a", "") or "").strip()
-            img_b = str(req.get("image_b", "") or "").strip()
-            out_name = str(req.get("output_name", "") or "media_contrast").strip()
+            img_a = str(req.get("image_a_data") or req.get("image_a") or "").strip()
+            img_b = str(req.get("image_b_data") or req.get("image_b") or "").strip()
+            out_name = str(req.get("output_name") or req.get("name") or "media_contrast").strip()
+            families = str(req.get("families", "ref2va") or "ref2va")
             pooling = str(req.get("pooling", "scene_text") or "scene_text")
             short_edge = int(req.get("short_edge", 512))
-            scene_prompt = str(req.get("scene_prompt", "") or "").strip()
+            scene_prompt = str(req.get("scene_prompt") or req.get("prompt") or "").strip()
             hold_words = str(req.get("hold_words", "") or "").strip()
             hold_alpha = float(req.get("hold_alpha", 1.0))
+            no_lora = bool(req.get("no_lora", False))
+            overwrite = bool(req.get("overwrite", True))
             if not img_a or not img_b:
-                return 400, "application/json", json.dumps({"ok": False, "error": "both 'image_a' and 'image_b' are required"})
+                return (
+                    400,
+                    "application/json",
+                    json.dumps({"ok": False, "error": "both Image A (baseline) and Image B (steered) are required"}),
+                )
             argv = [
                 "make-media",
                 "--image-a",
@@ -4323,14 +4924,19 @@ def handle_ui_request(
                 img_b,
                 "--output-name",
                 out_name,
+                "--families",
+                families,
                 "--pooling",
                 pooling,
                 "--short-edge",
                 str(short_edge),
                 "--out-dir",
                 str(state.vec_dir),
-                "--overwrite",
             ]
+            if overwrite:
+                argv.append("--overwrite")
+            if no_lora:
+                argv.append("--no-lora")
             if scene_prompt:
                 argv.extend(["--scene-prompt", scene_prompt])
             if hold_words:
@@ -4344,8 +4950,12 @@ def handle_ui_request(
             built_media = [
                 {
                     "file": v["file"],
+                    "family": v.get("family", "ref2va"),
                     "grid": f"{short_edge}px (32-px M-RoPE)",
+                    "raw_norm": v.get("raw_norm", 0.0),
                     "vector_norm": v.get("raw_norm", 0.0),
+                    "rec_strength": v.get("rec_strength", ""),
+                    "j_lens": v.get("j_lens"),
                 }
                 for v in vec_list_after
                 if v["file"].startswith(f"{out_name}__")
@@ -4356,6 +4966,7 @@ def handle_ui_request(
                 json.dumps(
                     {
                         "ok": True,
+                        "name": out_name,
                         "built": built_media,
                         "vectors": vec_list_after,
                         "log": buf_out.getvalue(),
@@ -4365,7 +4976,7 @@ def handle_ui_request(
         except Exception as exc:
             return 400, "application/json", json.dumps({"ok": False, "error": str(exc)})
 
-    if method == "POST" and clean_path in ("/api/j-lens", "/api/build-words"):
+    if method == "POST" and clean_path in ("/api/j-lens", "/api/build-words", "/api/preview-words"):
         try:
             if not j_lens.bundle_available():
                 return (
@@ -4373,7 +4984,7 @@ def handle_ui_request(
                     "application/json",
                     json.dumps({"ok": False, "error": "J-Lens bundle models/j_lens/j_lens_h3.safetensors not found"}),
                 )
-            from_words = str(req.get("from_words") or req.get("words") or "").strip()
+            from_words = str(req.get("from_words") or req.get("words") or req.get("pos_words") or "").strip()
             prompt_req = str(req.get("prompt", "") or "").strip() or None
             if from_words:
                 fam = str(req.get("family", "fl2va") or "fl2va")
@@ -4390,7 +5001,10 @@ def handle_ui_request(
                     prompt=prompt_req,
                 )
                 save_name = str(req.get("save_name") or req.get("name") or "").strip()
-                should_save = bool(req.get("save", False)) or clean_path == "/api/build-words" or bool(save_name)
+                should_save = (
+                    clean_path == "/api/build-words"
+                    or (clean_path != "/api/preview-words" and (bool(req.get("save", False)) or bool(save_name)))
+                )
                 if not save_name and should_save:
                     save_name = "_".join(re.findall(r"[a-z0-9]+", from_words.lower())[:4]) or "word_vector"
                 saved_file = None
@@ -4398,9 +5012,9 @@ def handle_ui_request(
                 built_words: list[dict[str, Any]] = []
                 if should_save and save_name:
                     target_fams = (
-                        ["fl2va", "ref2va"]
-                        if families_req in ("both", "auto")
-                        else ([families_req] if families_req in ("fl2va", "ref2va") else [synth["family"]])
+                        _resolve_requested_families(families_req)
+                        if families_req
+                        else [synth["family"]]
                     )
                     for tfam in target_fams:
                         s_fam = (
@@ -4419,13 +5033,17 @@ def handle_ui_request(
                         fname = cv.default_vector_filename(save_name, tfam, pooling="diff_span", loras=loras_meta)
                         saved_path = j_lens.save_synthesized_vector(state.vec_dir / fname, s_fam, name=save_name)
                         saved_files.append(saved_path.name)
+                        r_fam = s_fam["readout"]
+                        r_norm = float(r_fam.get("norm_after_holds", r_fam.get("norm_before_holds", 65.0)))
                         built_words.append(
                             {
                                 "file": saved_path.name,
                                 "family": tfam,
-                                "readout": s_fam["readout"],
-                                "readiness": s_fam.get("readiness") or s_fam["readout"].get("readiness"),
-                                "prompt_coupling": s_fam.get("prompt_coupling") or s_fam["readout"].get("prompt_coupling"),
+                                "raw_norm": r_norm,
+                                "rec_strength": _recommended_strength_text(r_norm),
+                                "readout": r_fam,
+                                "readiness": s_fam.get("readiness") or r_fam.get("readiness"),
+                                "prompt_coupling": s_fam.get("prompt_coupling") or r_fam.get("prompt_coupling"),
                             }
                         )
                     if saved_files:
@@ -4433,9 +5051,11 @@ def handle_ui_request(
                 rep_words = {
                     "family": synth["family"],
                     "pos_words_matched": synth["pos_words_matched"],
+                    "pos_words_unmatched": synth.get("pos_words_unmatched", []),
                     "pos_matched": synth["pos_words_matched"],
                     "neg_words_matched": synth["neg_words_matched"],
                     "hold_words": synth["hold_words"],
+                    "hold_words_matched": synth["hold_words"],
                     "hold_matched": synth["hold_words"],
                     "alpha": synth["alpha"],
                     "name": save_name or None,
@@ -4506,10 +5126,13 @@ def handle_ui_request(
                 alpha=float(req.get("alpha", req.get("hold_alpha", 1.0))),
                 prompt=prompt_req,
             )
+            pr_ro = rep.get("post_refiner") or rep.get("readout") or {}
             rep_out = {
                 **rep,
-                "readout": rep.get("post_refiner") or rep.get("readout"),
-                "norm": rep.get("norm_after_holds", rep.get("norm_before_holds", 0.0)),
+                "readout": pr_ro,
+                "positive_words": pr_ro.get("positive_words", []),
+                "negative_words": pr_ro.get("negative_words", []),
+                "norm": float(pr_ro.get("norm_after_holds", pr_ro.get("norm_before_holds", 0.0))),
             }
             return 200, "application/json", json.dumps({"ok": True, **rep_out, "report": rep_out})
         except Exception as exc:
@@ -4527,7 +5150,17 @@ def cmd_ui(args: argparse.Namespace) -> int:
     import threading
     import webbrowser
 
-    state = ControlVectorUIState()
+    toml_dir_override = Path(args.toml_dir) if getattr(args, "toml_dir", None) else None
+    vec_dir_override = Path(args.vec_dir) if getattr(args, "vec_dir", None) else None
+    state = ControlVectorUIState(
+        toml_dir=toml_dir_override,
+        vec_dir=vec_dir_override,
+        default_encoder=getattr(args, "encoder", None),
+        default_dit=getattr(args, "dit", None),
+        default_device=getattr(args, "device", None),
+        default_llm_provider=getattr(args, "llm_provider", None),
+        default_llm_model=getattr(args, "llm_model", None),
+    )
     srv_ref: list[ThreadingHTTPServer] = []
 
     class _Handler(BaseHTTPRequestHandler):
@@ -4585,11 +5218,14 @@ def cmd_sculpt(args: argparse.Namespace) -> int:
         raise ValueError("at least one input vector is required for 'sculpt'")
     raw_modes = [m.strip() for m in str(args.modes or "").split(",") if m.strip()]
     raw_strengths = [float(s.strip()) for s in str(args.strengths or "").split(",") if s.strip()]
+    invert_flag = bool(getattr(args, "invert", False))
 
     steps: list[dict[str, Any]] = []
     for idx, v_spec in enumerate(vecs):
         m_val = raw_modes[idx] if idx < len(raw_modes) else (raw_modes[-1] if raw_modes else "add")
         s_val = raw_strengths[idx] if idx < len(raw_strengths) else (raw_strengths[-1] if raw_strengths else 1.0)
+        if invert_flag and idx == 0 and s_val > 0:
+            s_val = -s_val
         steps.append({"vector": v_spec, "mode": m_val, "strength": s_val})
     for h_spec in (getattr(args, "hold", None) or ()):
         if str(h_spec).strip():
@@ -4604,10 +5240,9 @@ def cmd_sculpt(args: argparse.Namespace) -> int:
     stem = (getattr(args, "output_name", None) or getattr(args, "name", None) or "").strip()
     if not stem:
         first_stem = Path(str(vecs[0])).stem.split("__")[0]
-        stem = f"{first_stem}_sculpted"
+        stem = f"{first_stem}_inverted" if invert_flag else f"{first_stem}_sculpted"
 
-    fam_arg = str(getattr(args, "families", "both") or "both").lower()
-    target_fams = ["fl2va", "ref2va"] if fam_arg in ("both", "auto") else [fam_arg]
+    target_fams = _resolve_requested_families(getattr(args, "families", "both"))
     out_dir = Path(args.out_dir) if getattr(args, "out_dir", None) else None
     hold_words = str(getattr(args, "hold_words", "") or "").strip() or None
     hold_alpha = float(getattr(args, "hold_alpha", 1.0))
@@ -4653,6 +5288,24 @@ def build_parser() -> argparse.ArgumentParser:
     pui.add_argument("--host", default="127.0.0.1", help="Bind address (default: 127.0.0.1)")
     pui.add_argument("--port", type=int, default=0, help="Port (default: 0 picks an unused ephemeral port)")
     pui.add_argument("--no-browser", dest="no_browser", action="store_true", help="Do not auto-open a browser tab")
+    pui.add_argument("--toml-dir", dest="toml_dir", default=None, help="Optional directory override for .toml pair packs")
+    pui.add_argument("--vec-dir", dest="vec_dir", default=None, help="Optional directory override for .safetensors control vectors")
+    pui.add_argument("--encoder", default=None, help="Optional conditioning encoder filename override")
+    pui.add_argument("--dit", dest="dit", default=None, help="Optional DiT checkpoint filename override")
+    pui.add_argument("--device", default=None, help="Optional conditioning encoder device override")
+    pui.add_argument(
+        "--llm-provider",
+        dest="llm_provider",
+        choices=SUPPORTED_LLM_PROVIDERS,
+        default=None,
+        help="Default generative LLM provider for pair authoring ('transformers' or 'exllamav3')",
+    )
+    pui.add_argument(
+        "--llm-model",
+        dest="llm_model",
+        default=None,
+        help="Default generative LLM model directory path or HuggingFace model ID",
+    )
 
     pb = sub.add_parser(
         "build",
@@ -4742,7 +5395,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     pb.add_argument(
         "--families",
-        choices=("both", "fl2va", "ref2va", "auto"),
+        choices=("both", "fl2va", "ref2va", "auto", "fl2va,ref2va", "ref2va,fl2va"),
         default="both",
         help="Which H3 model families to build vectors for in one pass (default: 'both' builds fl2va and ref2va)",
     )
@@ -4758,12 +5411,14 @@ def build_parser() -> argparse.ArgumentParser:
     pb.add_argument("--quality", default=None, help="Optional vector.quality description override")
     pb.add_argument("--a-side", dest="a_side", default=None, help="Optional vector.a_side description override")
     pb.add_argument("--b-side", dest="b_side", default=None, help="Optional vector.b_side description override")
+    pb.add_argument("--save-toml", dest="save_toml", action="store_true", help="Also write the compiled 10-pair .toml file under prompt_bank/control_vectors/ when using --words")
     pb.add_argument("--toml-out", dest="toml_out", default=None, help="Optional output path/dir for generated .toml")
     pb.add_argument("--test-prompt-out", dest="test_prompt_out", default=None, help="Optional output path for extracted Test Scene Prompt")
-    pb.add_argument("--unet", default=None, help="Explicit diffusion checkpoint filename override")
+    pb.add_argument("--dit", dest="dit", default=None, help="Explicit DiT diffusion checkpoint filename override")
+    pb.add_argument("--unet", dest="dit", default=None, help=argparse.SUPPRESS)
     pb.add_argument("--encoder", default=None, help="Text encoder checkpoint filename")
     pb.add_argument("--lora", action="append", default=None, help="Explicit LoRA file[:strength] override (default: standard Pika H3 Flex LoRA per family)")
-    pb.add_argument("--no-lora", dest="no_lora", action="store_true", help="Build for stock 30-step base UNet without Pika LoRAs")
+    pb.add_argument("--no-lora", dest="no_lora", action="store_true", help="Build for stock 30-step base DiT without Pika LoRAs")
     pb.add_argument("--ref-images", default=None, help="Comma-separated reference images for ref2va prefix")
     pb.add_argument("--no-holds", action="store_true", help="Do not project out [[hold]] groups")
     pb.add_argument("--include-encoder", dest="include_encoder", action="store_true", default=True, help="Also save vector.encoder (5120-d; default: True)")
@@ -4805,7 +5460,8 @@ def build_parser() -> argparse.ArgumentParser:
     pm.add_argument("--hold-alpha", dest="hold_alpha", type=float, default=1.0, help="Attenuation alpha in [0.0, 2.0] for --hold / --hold-words")
     pm.add_argument("--pooling", choices=cv.VALID_POOLING, default="diff_span")
     pm.add_argument("--unit-mean", dest="unit_mean", action="store_true", help="Average unit-normalized pair directions")
-    pm.add_argument("--unet", default=None, help="Diffusion checkpoint filename")
+    pm.add_argument("--dit", dest="dit", default=None, help="DiT diffusion checkpoint filename")
+    pm.add_argument("--unet", dest="dit", default=None, help=argparse.SUPPRESS)
     pm.add_argument("--encoder", default=None, help="Text encoder checkpoint filename")
     pm.add_argument("--lora", action="append", default=None, help="LoRA file[:strength]")
     pm.add_argument("--ref-images", default=None, help="Comma-separated reference images for ref2va prefix")
@@ -4824,19 +5480,28 @@ def build_parser() -> argparse.ArgumentParser:
         "make-media",
         help="Build a control vector from contrasting <Picture 1> image pair(s) with 32-px M-RoPE grid matching",
     )
-    pmm.add_argument("--image-a", required=True, help="Positive pole image path (or comma-separated paths)")
-    pmm.add_argument("--image-b", required=True, help="Baseline/negative pole image path (or comma-separated paths)")
+    pmm.add_argument("--image-a", required=True, help="Baseline/negative pole image path or data URL (or comma-separated list)")
+    pmm.add_argument("--image-b", required=True, help="Positive/steered pole image path or data URL (or comma-separated list)")
     pmm.add_argument("--output-name", default="media_contrast", help="Output vector stem (default: 'media_contrast')")
+    pmm.add_argument(
+        "--families",
+        choices=("both", "fl2va", "ref2va", "auto", "fl2va,ref2va", "ref2va,fl2va"),
+        default="ref2va",
+        help="Which H3 model families to build media vectors for (default: 'ref2va')",
+    )
     pmm.add_argument("--pooling", choices=cv.VALID_MEDIA_POOLING, default="scene_text")
     pmm.add_argument("--short-edge", type=int, default=512, help="Target shorter edge in pixels (snapped to 32)")
     pmm.add_argument("--scene-prompt", default="", help="Optional neutral H3 ref2va scene prompt")
     pmm.add_argument("--hold", action="append", default=None, help="Optional .safetensors vector(s) to project out")
     pmm.add_argument("--hold-words", dest="hold_words", default="", help="Optional nuisance words to project out on CPU")
     pmm.add_argument("--hold-alpha", dest="hold_alpha", type=float, default=1.0, help="Attenuation alpha in [0.0, 2.0] for --hold / --hold-words")
-    pmm.add_argument("--unet", default=None, help="Diffusion checkpoint filename")
+    pmm.add_argument("--dit", dest="dit", default=None, help="DiT diffusion checkpoint filename")
+    pmm.add_argument("--unet", dest="dit", default=None, help=argparse.SUPPRESS)
     pmm.add_argument("--encoder", default=None, help="Text encoder checkpoint filename")
     pmm.add_argument("--lora", action="append", default=None, help="LoRA file[:strength]")
+    pmm.add_argument("--no-lora", dest="no_lora", action="store_true", help="Build without Pika LoRAs")
     pmm.add_argument("--device", default="default")
+    pmm.add_argument("--refiner-device", default="cpu")
     pmm.add_argument("--out-dir", dest="out_dir", default=None, help="Optional output directory")
     pmm.add_argument("--overwrite", action="store_true", help="Overwrite an existing vector file")
 
@@ -4855,6 +5520,7 @@ def build_parser() -> argparse.ArgumentParser:
         default="1.0",
         help="Comma-separated strengths (or hold alphas in [0.0, 2.0]) matching 'vectors' (default: '1.0')",
     )
+    psculpt.add_argument("--invert", action="store_true", help="Invert the primary vector direction (multiply strength by -1.0)")
     psculpt.add_argument("--hold", action="append", default=None, help="Additional .safetensors vector(s) to project out (`mode = 'hold'`)")
     psculpt.add_argument("--hold-words", dest="hold_words", default="", help="Optional nuisance words to project out on CPU")
     psculpt.add_argument(
@@ -4869,7 +5535,7 @@ def build_parser() -> argparse.ArgumentParser:
     psculpt.add_argument("--output-name", dest="output_name", default="", help="Output vector stem override")
     psculpt.add_argument(
         "--families",
-        choices=("both", "fl2va", "ref2va", "auto"),
+        choices=("both", "fl2va", "ref2va", "auto", "fl2va,ref2va", "ref2va,fl2va"),
         default="both",
         help="Which H3 model families to write (default: 'both' writes fl2va and ref2va)",
     )
@@ -4902,7 +5568,8 @@ def build_parser() -> argparse.ArgumentParser:
         default=1.0,
         help="Soft or over-projected hold attenuation alpha in [0.0, 2.0] when --hold is passed (default: 1.0)",
     )
-    pi.add_argument("--check-unet", default=None, help="Verify compatibility against a UNET checkpoint")
+    pi.add_argument("--check-dit", dest="check_dit", default=None, help="Verify compatibility against a DiT checkpoint")
+    pi.add_argument("--check-unet", dest="check_dit", default=None, help=argparse.SUPPRESS)
     pi.add_argument("--check-encoder", default=None, help="Verify compatibility against an encoder checkpoint")
     pi.add_argument("--check-lora", action="append", default=None)
     pi.add_argument("--allow-recipe-mismatch", action="store_true")
@@ -4925,7 +5592,8 @@ def build_parser() -> argparse.ArgumentParser:
     pg.add_argument("--height", type=int, default=768)
     pg.add_argument("--length", type=int, default=h3_config.LENGTH)
     pg.add_argument("--noise-seed", type=int, default=730451892)
-    pg.add_argument("--unet", default=None)
+    pg.add_argument("--dit", dest="dit", default=None, help="DiT diffusion checkpoint filename")
+    pg.add_argument("--unet", dest="dit", default=None, help=argparse.SUPPRESS)
     pg.add_argument("--encoder", default=None)
     pg.add_argument("--lora", action="append", default=None, help="LoRA file[:strength] (defaults to vector recipe.loras)")
     pg.add_argument("--no-lora", action="store_true", help="Ignore vector recipe.loras during grading")
@@ -4974,13 +5642,83 @@ def build_parser() -> argparse.ArgumentParser:
     pw.add_argument("--output-name", dest="output_name", default="", help="Optional output vector stem override")
     pw.add_argument(
         "--families",
-        choices=("both", "fl2va", "ref2va", "auto"),
+        choices=("both", "fl2va", "ref2va", "auto", "fl2va,ref2va", "ref2va,fl2va"),
         default="both",
         help="Which H3 model families to synthesize (default: 'both' writes fl2va and ref2va)",
     )
     pw.add_argument("--out-dir", dest="out_dir", default=None, help="Optional output directory for .safetensors files")
 
+    pgen = sub.add_parser(
+        "generate-pairs",
+        help="Generate 10 surgical H3 Prompt A / Prompt B pairs using a local generative LLM ('transformers' or 'exllamav3') and h3_control_vector_system_prompt.md",
+    )
+    pgen.add_argument(
+        "concept",
+        help="Target control-vector concept or 'pole_a -> pole_b' description",
+    )
+    pgen.add_argument(
+        "--llm-provider",
+        dest="llm_provider",
+        choices=SUPPORTED_LLM_PROVIDERS,
+        default=os.environ.get("H3_LLM_PROVIDER", "transformers") or "transformers",
+        help="Generative LLM provider ('transformers' or 'exllamav3'; default: 'transformers' or $H3_LLM_PROVIDER)",
+    )
+    pgen.add_argument(
+        "--llm-model",
+        dest="llm_model",
+        default=os.environ.get("H3_LLM_MODEL", "") or os.environ.get("H3_EXL3_MODEL_DIR", ""),
+        help="Path to local LLM model directory or HuggingFace model ID (default: $H3_LLM_MODEL or $H3_EXL3_MODEL_DIR)",
+    )
+    pgen.add_argument(
+        "--exl3-root",
+        dest="exl3_root",
+        default=os.environ.get("EXLLAMAV3_ROOT", ""),
+        help="Optional path to exllamav3 checkout when using --llm-provider exllamav3",
+    )
+    pgen.add_argument(
+        "--no-4bit",
+        dest="no_4bit",
+        action="store_true",
+        help="Disable 4-bit BitsAndBytes quantization when loading a transformers model",
+    )
+    pgen.add_argument("--max-new-tokens", dest="max_new_tokens", type=int, default=3200)
+    pgen.add_argument("--temperature", type=float, default=0.7)
+    pgen.add_argument("--name", default="", help="Optional stem name to also write <name>.md / <name>.toml")
+    pgen.add_argument("--out-md", dest="out_md", default="", help="Optional output .md file path")
+    pgen.add_argument("--save-toml", dest="save_toml", action="store_true", help="Also parse and save to prompt_bank/control_vectors/<name>.toml")
+    pgen.add_argument("--overwrite", action="store_true", help="Overwrite existing output files")
+
     return p
+
+
+def cmd_generate_pairs(args: argparse.Namespace) -> int:
+    res = _generate_pairs_with_llm(
+        provider=args.llm_provider,
+        model_spec=args.llm_model,
+        concept_prompt=args.concept,
+        load_in_4bit=not bool(getattr(args, "no_4bit", False)),
+        max_new_tokens=int(getattr(args, "max_new_tokens", 3200)),
+        temperature=float(getattr(args, "temperature", 0.7)),
+        exl3_root=getattr(args, "exl3_root", None) or None,
+    )
+    md_text = res["markdown"]
+    if getattr(args, "out_md", ""):
+        out_p = Path(args.out_md)
+        out_p.parent.mkdir(parents=True, exist_ok=True)
+        out_p.write_text(md_text + "\n", encoding="utf-8")
+        print(f"wrote {out_p} ({res['elapsed_s']}s via {res['provider']})")
+    else:
+        print(md_text)
+    if getattr(args, "save_toml", False) and getattr(args, "name", ""):
+        saved = cv.write_markdown_to_toml(
+            md_text,
+            cv_nodes.PAIR_BANK_DIR,
+            name=str(args.name).strip(),
+            overwrite=bool(getattr(args, "overwrite", False)),
+            bank_dir=cv_nodes.PROMPT_BANK_DIR,
+        )
+        print(f"wrote {_display_path(saved)}")
+    return 0
 
 
 def cmd_words(args: argparse.Namespace) -> int:
@@ -4996,6 +5734,8 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if args.cmd == "ui":
             return cmd_ui(args)
+        if args.cmd == "generate-pairs":
+            return cmd_generate_pairs(args)
         if args.cmd == "words":
             return cmd_words(args)
         if args.cmd == "sculpt":

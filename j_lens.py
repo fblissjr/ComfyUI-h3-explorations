@@ -168,9 +168,16 @@ _BUNDLE_CACHE: dict[Path, dict[str, Any]] = {}
 
 def default_bundle_path() -> Path:
     """Return the default path to `j_lens_h3.safetensors` under `<ComfyUI>/models/j_lens/`."""
-    env_override = os.environ.get("H3_J_LENS_PATH", "").strip()
-    if env_override:
-        return Path(env_override).resolve()
+    for env_key in ("H3_J_LENS_PATH", "H3_J_LENS_BUNDLE"):
+        env_override = os.environ.get(env_key, "").strip()
+        if env_override:
+            return Path(env_override).resolve()
+    fp_mod = sys.modules.get("folder_paths")
+    models_root = getattr(fp_mod, "models_dir", None) if fp_mod is not None else None
+    if models_root:
+        cand = (Path(models_root) / "j_lens" / "j_lens_h3.safetensors").resolve()
+        if cand.is_file():
+            return cand
     return (COMFY_ROOT / DEFAULT_BUNDLE_REL).resolve()
 
 

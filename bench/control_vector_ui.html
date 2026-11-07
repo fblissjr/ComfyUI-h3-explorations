@@ -1,1960 +1,2194 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>MiniMax H3 Control Vector Studio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
 <style>
   :root {
-    --bg: #0d1117;
-    --panel: #161b22;
-    --panel-alt: #1c2128;
-    --border: #30363d;
-    --text: #e6edf3;
-    --muted: #8b949e;
-    --accent: #58a6ff;
-    --accent-hover: #79c0ff;
-    --green: #3fb950;
-    --green-bg: rgba(63, 185, 80, 0.14);
-    --amber: #d29922;
-    --amber-bg: rgba(210, 153, 34, 0.14);
-    --red: #f85149;
-    --red-bg: rgba(248, 81, 73, 0.14);
-    --purple: #bc8cff;
-    --purple-bg: rgba(188, 140, 255, 0.14);
-    --code-bg: #090d13;
+    --bg: #0f1115;
+    --panel: #14171d;
+    --card: #1a1e26;
+    --card-hover: #1f242e;
+    --input-bg: #111419;
+    --border: #252b37;
+    --border-focus: #4f6bff;
+    --text: #f3f5f8;
+    --text-secondary: #9ba3b4;
+    --text-muted: #687082;
+    --primary: #4f6bff;
+    --primary-hover: #637bff;
+    --pole-a: #10b981;
+    --pole-a-bg: rgba(16, 185, 129, 0.12);
+    --pole-b: #f59e0b;
+    --pole-b-bg: rgba(245, 158, 11, 0.14);
+    --hold: #8b5cf6;
+    --hold-bg: rgba(139, 92, 246, 0.14);
+    --danger: #ef4444;
+    --warning: #f59e0b;
+    --success: #10b981;
+    --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   }
+
   * { box-sizing: border-box; }
-  body {
+  html, body {
     margin: 0;
+    padding: 0;
     background: var(--bg);
     color: var(--text);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    font-size: 13px;
-    line-height: 1.45;
+    font-family: var(--font-sans);
+    font-size: 14.5px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
   }
-  header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 10px 18px;
+
+  /* Layout */
+  .app-shell {
+    display: grid;
+    grid-template-columns: 256px 1fr;
+    min-height: 100vh;
+  }
+
+  /* Top Utility Header */
+  .top-header {
+    grid-column: 1 / -1;
+    height: 58px;
     background: var(--panel);
     border-bottom: 1px solid var(--border);
-    position: sticky;
-    top: 0;
-    z-index: 30;
-  }
-  header h1 {
-    margin: 0;
-    font-size: 15px;
-    font-weight: 600;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-  .badge {
-    font-size: 11px;
-    font-weight: 600;
-    padding: 2px 7px;
-    border-radius: 999px;
-    background: rgba(88, 166, 255, 0.15);
-    color: var(--accent);
-    border: 1px solid rgba(88, 166, 255, 0.35);
-  }
-  .badge.green { background: var(--green-bg); color: var(--green); border-color: rgba(63, 185, 80, 0.4); }
-  .badge.amber { background: var(--amber-bg); color: var(--amber); border-color: rgba(210, 153, 34, 0.4); }
-  .badge.red { background: var(--red-bg); color: var(--red); border-color: rgba(248, 81, 73, 0.4); }
-  .badge.purple { background: var(--purple-bg); color: var(--purple); border-color: rgba(188, 140, 255, 0.4); }
-  .header-actions {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-  button {
-    background: var(--panel-alt);
-    color: var(--text);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    padding: 6px 11px;
-    font-size: 12px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: background 0.12s, border-color 0.12s;
-  }
-  button:hover:not(:disabled) {
-    background: #262c36;
-    border-color: #484f58;
-  }
-  button:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-  button.primary {
-    background: #1f6feb;
-    border-color: rgba(240, 246, 252, 0.1);
-    color: #fff;
-  }
-  button.primary:hover:not(:disabled) { background: #388bfd; }
-  button.success {
-    background: #238636;
-    border-color: rgba(240, 246, 252, 0.1);
-    color: #fff;
-  }
-  button.success:hover:not(:disabled) { background: #2ea043; }
-  button.purple {
-    background: #6e40c9;
-    border-color: rgba(240, 246, 252, 0.1);
-    color: #fff;
-  }
-  button.purple:hover:not(:disabled) { background: #8957e5; }
-  button.danger {
-    background: rgba(248, 81, 73, 0.12);
-    color: var(--red);
-    border-color: rgba(248, 81, 73, 0.35);
-  }
-  button.danger:hover:not(:disabled) { background: rgba(248, 81, 73, 0.22); }
-  .layout {
-    display: grid;
-    grid-template-columns: 310px 1fr 480px;
-    min-height: calc(100vh - 49px);
-  }
-  @media (max-width: 1360px) {
-    .layout { grid-template-columns: 1fr; }
-  }
-  .col {
-    border-right: 1px solid var(--border);
-    padding: 14px;
-    overflow-y: auto;
-    max-height: calc(100vh - 49px);
-  }
-  .col:last-child { border-right: none; }
-  h2 {
-    margin: 0 0 8px 0;
-    font-size: 13px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: var(--muted);
     display: flex;
     align-items: center;
     justify-content: space-between;
+    padding: 0 24px;
+    position: sticky;
+    top: 0;
+    z-index: 40;
   }
-  .card {
-    background: var(--panel);
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .brand-badge {
+    background: rgba(79, 107, 255, 0.15);
+    color: #8da2ff;
+    border: 1px solid rgba(79, 107, 255, 0.35);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 6px;
+  }
+  .brand h1 {
+    font-size: 16px;
+    font-weight: 600;
+    margin: 0;
+    letter-spacing: -0.01em;
+  }
+  .brand-sub {
+    color: var(--text-secondary);
+    font-size: 13px;
+  }
+
+  .header-controls {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .family-pill-group {
+    display: inline-flex;
+    background: var(--input-bg);
     border: 1px solid var(--border);
     border-radius: 8px;
-    padding: 12px;
-    margin-bottom: 12px;
+    padding: 3px;
+    gap: 3px;
   }
-  .sub {
-    color: var(--muted);
-    font-size: 12px;
-    margin-bottom: 8px;
+  .family-pill {
+    background: transparent;
+    color: var(--text-secondary);
+    border: none;
+    padding: 5px 11px;
+    font-size: 12.5px;
+    font-weight: 500;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s ease;
   }
-  label {
-    display: block;
+  .family-pill.active {
+    background: var(--primary);
+    color: #fff;
+  }
+  .status-pill {
+    font-size: 12.5px;
+    padding: 5px 12px;
+    border-radius: 999px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    font-family: var(--font-mono);
+  }
+  .status-pill.ok {
+    border-color: rgba(16, 185, 129, 0.4);
+    color: #34d399;
+  }
+  .status-pill.busy {
+    border-color: rgba(245, 158, 11, 0.5);
+    color: #fbbf24;
+  }
+  .status-pill.err {
+    border-color: rgba(239, 68, 68, 0.5);
+    color: #f87171;
+  }
+
+  /* Left Navigation Rail */
+  .nav-rail {
+    background: var(--panel);
+    border-right: 1px solid var(--border);
+    padding: 20px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .nav-section-label {
     font-size: 11px;
     font-weight: 600;
-    color: var(--muted);
-    margin-bottom: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+    padding: 10px 12px 4px;
   }
-  input[type="text"], input[type="number"], select, textarea {
+  .nav-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
     width: 100%;
-    background: var(--code-bg);
+    text-align: left;
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .nav-btn:hover {
+    background: var(--card);
+    color: var(--text);
+  }
+  .nav-btn.active {
+    background: rgba(79, 107, 255, 0.12);
+    border-color: rgba(79, 107, 255, 0.35);
+    color: var(--text);
+  }
+  .nav-btn-title {
+    font-size: 13.5px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+  }
+  .nav-btn-sub {
+    font-size: 12px;
+    color: var(--text-muted);
+    line-height: 1.35;
+  }
+  .nav-btn.active .nav-btn-sub {
+    color: var(--text-secondary);
+  }
+
+  /* Main Workspace */
+  .workspace {
+    padding: 28px 36px 80px;
+    max-width: 1400px;
+    width: 100%;
+    margin: 0 auto;
+  }
+  .screen {
+    display: none;
+  }
+  .screen.active {
+    display: block;
+  }
+
+  .screen-header {
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 20px;
+  }
+  .screen-title {
+    font-size: 22px;
+    font-weight: 600;
+    margin: 0 0 6px 0;
+    letter-spacing: -0.015em;
+  }
+  .screen-desc {
+    color: var(--text-secondary);
+    font-size: 14.5px;
+    margin: 0;
+    max-width: 820px;
+  }
+
+  /* Cards & Grids */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px 24px;
+    margin-bottom: 20px;
+  }
+  .card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+    gap: 12px;
+  }
+  .card-title {
+    font-size: 16px;
+    font-weight: 600;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+  .grid-3 {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+  }
+  @media (max-width: 1100px) {
+    .grid-2, .grid-3 { grid-template-columns: 1fr; }
+  }
+
+  /* Form Controls */
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 16px;
+  }
+  .field:last-child {
+    margin-bottom: 0;
+  }
+  .field-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .field-hint {
+    font-size: 12.5px;
+    color: var(--text-secondary);
+    margin-top: -2px;
+  }
+
+  input[type="text"],
+  input[type="number"],
+  select,
+  textarea {
+    width: 100%;
+    background: var(--input-bg);
     color: var(--text);
     border: 1px solid var(--border);
-    border-radius: 6px;
-    padding: 6px 8px;
-    font-size: 12px;
-    font-family: inherit;
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.5;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+  textarea.mono,
+  input.mono {
+    font-family: var(--font-mono);
+    font-size: 13.5px;
+    line-height: 1.6;
   }
   textarea {
-    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
     resize: vertical;
+    min-height: 110px;
   }
-  input:focus, select:focus, textarea:focus {
+  textarea.large-editor {
+    min-height: 220px;
+  }
+  input:focus,
+  select:focus,
+  textarea:focus {
     outline: none;
-    border-color: var(--accent);
+    border-color: var(--border-focus);
+    box-shadow: 0 0 0 3px rgba(79, 107, 255, 0.18);
   }
-  .form-row {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(125px, 1fr));
-    gap: 8px;
-    margin-bottom: 8px;
+
+  /* Pole-accented inputs */
+  .pole-a-box {
+    border-left: 3px solid var(--pole-a);
+    padding-left: 14px;
   }
+  .pole-b-box {
+    border-left: 3px solid var(--pole-b);
+    padding-left: 14px;
+  }
+
+  /* Buttons */
   .btn-row {
     display: flex;
     flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+  }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     gap: 8px;
-    margin-top: 8px;
-  }
-  .stage-tabs {
-    display: flex;
-    gap: 6px;
-    margin-bottom: 10px;
-    border-bottom: 1px solid var(--border);
-    padding-bottom: 8px;
-  }
-  .stage-tab {
-    background: var(--code-bg);
-    color: var(--muted);
+    padding: 9px 16px;
+    font-size: 13.5px;
+    font-weight: 600;
+    border-radius: 8px;
     border: 1px solid var(--border);
-    border-radius: 6px;
+    background: var(--panel);
+    color: var(--text);
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .btn:hover:not(:disabled) {
+    background: var(--card-hover);
+    border-color: #384152;
+  }
+  .btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  .btn-primary {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: #fff;
+  }
+  .btn-primary:hover:not(:disabled) {
+    background: var(--primary-hover);
+    border-color: var(--primary-hover);
+  }
+  .btn-sm {
     padding: 5px 10px;
-    font-size: 11.5px;
-    font-weight: 600;
-    cursor: pointer;
-  }
-  .stage-tab.active {
-    background: rgba(88, 166, 255, 0.16);
-    color: var(--accent);
-    border-color: var(--accent);
-  }
-  .list-item {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-    padding: 8px 10px;
-    border: 1px solid var(--border);
+    font-size: 12.5px;
     border-radius: 6px;
-    margin-bottom: 6px;
-    background: var(--panel-alt);
-    cursor: pointer;
-    transition: border-color 0.12s;
   }
-  .list-item:hover { border-color: var(--accent); }
-  .list-item-title {
-    font-weight: 600;
-    font-size: 12px;
-    display: flex;
+
+  /* Hover / Focus Tooltips */
+  .help-tip {
+    position: relative;
+    display: inline-flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 6px;
-    word-break: break-all;
-  }
-  .list-item-meta {
+    justify-content: center;
+    width: 17px;
+    height: 17px;
+    border-radius: 50%;
+    background: rgba(155, 163, 180, 0.16);
+    color: var(--text-secondary);
     font-size: 11px;
-    color: var(--muted);
-  }
-  .pair-card {
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    padding: 8px 10px;
-    margin-bottom: 8px;
-    background: var(--code-bg);
-  }
-  .pair-card.valid { border-left: 3px solid var(--green); }
-  .pair-card.invalid { border-left: 3px solid var(--red); }
-  .pair-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-size: 11px;
-    font-weight: 600;
-    margin-bottom: 5px;
-  }
-  .diff-line {
-    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    font-size: 11px;
-    padding: 3px 6px;
-    border-radius: 4px;
-    margin-top: 3px;
-    white-space: pre-wrap;
-    word-break: break-word;
-  }
-  .diff-a { background: var(--red-bg); color: #ffa198; }
-  .diff-b { background: var(--green-bg); color: #7ee787; }
-  .status-banner {
-    padding: 8px 10px;
-    border-radius: 6px;
-    font-size: 12px;
-    margin-bottom: 10px;
-    display: none;
-    white-space: pre-wrap;
-  }
-  .status-banner.ok { display: block; background: var(--green-bg); border: 1px solid rgba(63,185,80,0.4); color: #7ee787; }
-  .status-banner.err { display: block; background: var(--red-bg); border: 1px solid rgba(248,81,73,0.4); color: #ffa198; }
-  .status-banner.info { display: block; background: var(--amber-bg); border: 1px solid rgba(210,153,34,0.4); color: #e3b341; }
-  .video-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
-  }
-  .video-box {
-    background: var(--code-bg);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    padding: 6px;
-  }
-  video {
-    width: 100%;
-    border-radius: 4px;
-    background: #000;
-    display: block;
-  }
-  details summary {
-    cursor: pointer;
-    font-weight: 600;
-    font-size: 12px;
-    color: var(--accent);
+    font-weight: 700;
+    cursor: help;
     user-select: none;
   }
-  .scene-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 11.5px;
+  .help-tip:hover,
+  .help-tip:focus {
+    background: var(--primary);
+    color: #fff;
+    outline: none;
   }
-  .scene-table th, .scene-table td {
-    border: 1px solid var(--border);
-    padding: 5px 6px;
-    vertical-align: top;
-  }
-  .scene-table th {
-    background: var(--panel-alt);
-    color: var(--muted);
-    font-weight: 600;
+  .help-tip .tip-box {
+    visibility: hidden;
+    opacity: 0;
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%);
+    width: 310px;
+    background: #0b0d11;
+    color: var(--text);
+    border: 1px solid #384152;
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 12.5px;
+    font-weight: 400;
+    line-height: 1.45;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.55);
+    z-index: 100;
+    pointer-events: none;
+    transition: opacity 0.15s ease;
     text-align: left;
   }
-  .scene-row-disabled {
-    opacity: 0.45;
+  .help-tip:hover .tip-box,
+  .help-tip:focus .tip-box {
+    visibility: visible;
+    opacity: 1;
   }
-  .scene-row-hold {
-    background: rgba(210, 153, 34, 0.08);
-  }
-  .cos-bar-wrap {
-    width: 68px;
-    height: 8px;
-    background: #21262d;
-    border-radius: 4px;
-    overflow: hidden;
-    margin-top: 3px;
-  }
-  .cos-bar-fill {
-    height: 100%;
-    background: var(--green);
-  }
-  .token-chip {
-    display: inline-block;
-    padding: 2px 6px;
-    margin: 2px;
-    border-radius: 4px;
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-    font-size: 11px;
-    cursor: pointer;
+
+  /* Badges & Token Spans */
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-family: var(--font-mono);
+    font-weight: 500;
+    background: var(--panel);
     border: 1px solid var(--border);
-    user-select: none;
-    transition: transform 0.08s;
+    color: var(--text-secondary);
   }
-  .token-chip:hover {
-    transform: translateY(-1px);
-    border-color: var(--accent);
+  .badge.pole-a { background: var(--pole-a-bg); color: #34d399; border-color: rgba(16, 185, 129, 0.3); }
+  .badge.pole-b { background: var(--pole-b-bg); color: #fbbf24; border-color: rgba(245, 158, 11, 0.35); }
+  .badge.hold { background: var(--hold-bg); color: #c4b5fd; border-color: rgba(139, 92, 246, 0.35); }
+
+  /* Workflow Starter Cards */
+  .workflow-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 14px;
+    transition: border-color 0.15s ease, transform 0.15s ease;
   }
-  .token-chip.held {
-    text-decoration: line-through;
-    border-color: var(--amber);
-    box-shadow: 0 0 0 1px var(--amber);
+  .workflow-card:hover {
+    border-color: var(--primary);
+  }
+  .workflow-card h3 {
+    margin: 0 0 6px 0;
+    font-size: 16px;
+  }
+  .workflow-card p {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 13.5px;
+  }
+
+  /* Tables & Lists */
+  .lib-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13.5px;
+  }
+  .lib-table th,
+  .lib-table td {
+    text-align: left;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .lib-table th {
+    color: var(--text-secondary);
+    font-weight: 600;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .lib-table tr:hover td {
+    background: rgba(255, 255, 255, 0.02);
+  }
+
+  /* Pair Accordion Cards */
+  .pair-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 12px;
+  }
+  .pair-card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    gap: 12px;
+  }
+
+  /* Dropzone */
+  .dropzone {
+    border: 2px dashed var(--border);
+    border-radius: 10px;
+    padding: 24px;
+    text-align: center;
+    background: var(--input-bg);
+    cursor: pointer;
+    transition: border-color 0.15s ease;
+  }
+  .dropzone:hover {
+    border-color: var(--primary);
+  }
+  .dropzone img {
+    max-width: 100%;
+    max-height: 220px;
+    border-radius: 6px;
+    margin-top: 12px;
+    display: none;
+  }
+
+  /* Result Callout */
+  .result-banner {
+    background: rgba(16, 185, 129, 0.08);
+    border: 1px solid rgba(16, 185, 129, 0.35);
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin-top: 16px;
+    font-size: 13.5px;
+  }
+  .result-banner.error {
+    background: rgba(239, 68, 68, 0.1);
+    border-color: rgba(239, 68, 68, 0.4);
+    color: #fca5a5;
+  }
+
+  /* Token Chip Strip */
+  .token-strip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    padding: 12px;
+    background: var(--input-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+  }
+  .tok-chip {
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid transparent;
   }
 </style>
 </head>
 <body>
-
-<header>
-  <h1>
-    <span>MiniMax H3 Control Vector Studio</span>
-    <span class="badge">3-Stage Contextual Workbench</span>
-    <span class="badge green">Stage 1: 10-Scene &amp; Media Build</span>
-    <span class="badge purple">Stage 2: &lt;1 ms Sculpt &amp; Receptor Map</span>
-  </h1>
-  <div class="header-actions">
-    <button id="btn-copy-sysprompt" class="primary" title="Copy the complete H3 Control Vector LLM System Prompt to your clipboard">Copy LLM System Prompt</button>
-    <button id="btn-refresh" title="Reload .toml files, built vectors, and rendered clips">Refresh</button>
-    <button id="btn-quit" class="danger" title="Safely stop the Control Vector Studio server and free the port">Quit Studio</button>
-  </div>
-</header>
-
-<div class="layout">
-  <!-- LEFT COLUMN: Stage 3 Library (.toml Concepts & Built .safetensors Vectors) -->
-  <div class="col">
-    <h2>
-      <span>Built Control Vectors</span>
-      <span id="vec-count" class="badge">0</span>
-    </h2>
-    <div class="sub">Click any built vector to inspect its J-Lens readout, load its pairs into the 10-Scene Table, or add it to the Stage 2 Recipe Sculptor.</div>
-    <div id="vector-list"></div>
-
-    <h2 style="margin-top:16px;">
-      <span>Pair-Set Bank (<code>.toml</code>)</span>
-      <span id="toml-count" class="badge">0</span>
-    </h2>
-    <div class="sub">Click a <code>.toml</code> concept to load its 10 scene pairs and holds into the Workbench.</div>
-    <div id="toml-list"></div>
-  </div>
-
-  <!-- MIDDLE COLUMN: Stage 1 Contextual Control-Vector Authoring & 10-Scene Diff Table -->
-  <div class="col">
-    <div id="status-banner" class="status-banner"></div>
-
-    <div class="card">
-      <h2>
-        <span>Stage 1 — Contextual Control-Vector Builder (<code>Qwen3-VL</code> + <code>TokenRefiner</code>)</span>
-        <span id="parse-badge" class="badge">Ready</span>
-      </h2>
-      <div class="sub">
-        <strong>Why Contextual 10-Pair Leads:</strong> Full 10-scene contrastive pairs through <code>Qwen3-VL</code> + <code>TokenRefiner</code> capture multi-word composition and self-attention context (<code>65%–75%</code> of variance lies outside unigram vocabulary rows). Use the <strong>10-Scene Clause-Diff Workbench</strong> or <strong>Media Contrast</strong> for primary vectors, and use <code>&lt; 1 ms</code> CPU Re-Pooling or <code>hold_words</code> to sculpt.
+<div class="app-shell">
+  <!-- Top Header -->
+  <header class="top-header">
+    <div class="brand">
+      <span class="brand-badge">H3 Studio</span>
+      <h1>MiniMax H3 Control Vector Studio</h1>
+      <span class="brand-sub">Create, Sculpt, and Inspect 5,376-D Conditioning Directions</span>
+    </div>
+    <div class="header-controls">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="font-size:12.5px;color:var(--text-secondary);font-weight:500;">Target DiT Families</span>
+        <span class="help-tip" tabindex="0">?
+          <span class="tip-box">
+            <strong>Target DiT Families</strong><br/>
+            <code>fl2va</code> is First/Last-Frame &amp; Text-to-Video. <code>ref2va</code> is Reference-to-Video. Building for <strong>Both</strong> saves matched <code>&lt;name&gt;__fl2va__*.safetensors</code> and <code>&lt;name&gt;__ref2va__*.safetensors</code> files so the vector works in every H3 workflow.
+          </span>
+        </span>
+        <div class="family-pill-group" id="global-family-group">
+          <button type="button" class="family-pill active" data-fam="fl2va,ref2va" onclick="setGlobalFamily('fl2va,ref2va')">Both (fl2va + ref2va)</button>
+          <button type="button" class="family-pill" data-fam="fl2va" onclick="setGlobalFamily('fl2va')">fl2va only</button>
+          <button type="button" class="family-pill" data-fam="ref2va" onclick="setGlobalFamily('ref2va')">ref2va only</button>
+        </div>
       </div>
+      <div id="status-indicator" class="status-pill">Connecting...</div>
+    </div>
+  </header>
 
-      <div class="stage-tabs">
-        <button type="button" class="stage-tab active" id="tab-btn-scenes" data-tab="scenes">1A. 10-Scene Clause-Diff Workbench</button>
-        <button type="button" class="stage-tab" id="tab-btn-media" data-tab="media">1B. Media Contrast (Pic A &rarr; Pic B)</button>
-        <button type="button" class="stage-tab" id="tab-btn-md" data-tab="md">1C. Markdown / .toml &amp; Quick Lexical Tint</button>
-      </div>
+  <!-- Left Navigation Rail -->
+  <nav class="nav-rail" aria-label="Studio Screens">
+    <div class="nav-section-label">Start &amp; Library</div>
+    <button type="button" class="nav-btn active" data-screen="screen-home" onclick="switchScreen('screen-home')">
+      <span class="nav-btn-title">1. Start &amp; Vector Library</span>
+      <span class="nav-btn-sub">Choose how to build or manage existing vectors &amp; .toml packs</span>
+    </button>
 
-      <!-- Shared Concept Metadata & Universal Hold Controls -->
-      <div class="form-row">
+    <div class="nav-section-label">Create Your Own Vector</div>
+    <button type="button" class="nav-btn" data-screen="screen-clause" onclick="switchScreen('screen-clause')">
+      <span class="nav-btn-title">2. Clause Contrast Builder</span>
+      <span class="nav-btn-sub">Write Pole A &rarr; Pole B clauses &amp; expand across 10 diverse rigs</span>
+    </button>
+    <button type="button" class="nav-btn" data-screen="screen-pairs" onclick="switchScreen('screen-pairs')">
+      <span class="nav-btn-title">3. Full Pair &amp; LLM Studio</span>
+      <span class="nav-btn-sub">Author custom Prompt A / Prompt B pairs or use the Qwen LLM prompt</span>
+    </button>
+    <button type="button" class="nav-btn" data-screen="screen-media" onclick="switchScreen('screen-media')">
+      <span class="nav-btn-title">4. Reference Image Contrast</span>
+      <span class="nav-btn-sub">Upload Image A &rarr; Image B in your browser to extract a visual style axis</span>
+    </button>
+    <button type="button" class="nav-btn" data-screen="screen-sculpt" onclick="switchScreen('screen-sculpt')">
+      <span class="nav-btn-title">5. Sculpt, Invert &amp; Combine</span>
+      <span class="nav-btn-sub">Instant (&lt; 5 ms CPU) vector inversion, blending, &amp; Gram-Schmidt hold</span>
+    </button>
+
+    <div class="nav-section-label">Inspect &amp; Experimental</div>
+    <button type="button" class="nav-btn" data-screen="screen-meter" onclick="switchScreen('screen-meter')">
+      <span class="nav-btn-title">6. Prompt Meter &amp; J-Lens Lab</span>
+      <span class="nav-btn-sub">Scan token sensitivity on your prompt, or use the separate J-Lens word tool</span>
+    </button>
+  </nav>
+
+  <!-- Main Workspace -->
+  <main class="workspace">
+
+    <!-- ================================================================= -->
+    <!-- SCREEN 1: START & VECTOR LIBRARY                                  -->
+    <!-- ================================================================= -->
+    <section id="screen-home" class="screen active">
+      <div class="screen-header">
         <div>
-          <label for="vec-name">Concept Stem (<code>name</code>)</label>
-          <input type="text" id="vec-name" placeholder="e.g. handheld_urgency">
-        </div>
-        <div>
-          <label for="vec-slot">Clause Slot (Auto or Explicit)</label>
-          <select id="vec-slot">
-            <option value="auto" selected>auto (infer from keywords)</option>
-            <option value="opening_framing">opening_framing (camera / lens)</option>
-            <option value="lighting">lighting (grade / stock / weather)</option>
-            <option value="action">action (motion / pacing / physics)</option>
-            <option value="soundscape">soundscape (audio / room tone)</option>
-          </select>
-        </div>
-        <div>
-          <label for="vec-frame">Canonical Frame</label>
-          <select id="vec-frame">
-            <option value="scene" selected>scene (tag == 1)</option>
-            <option value="dialogue">dialogue (spoken &lt;d&gt;)</option>
-          </select>
-        </div>
-        <div>
-          <label for="vec-mode">Prompt Mode</label>
-          <select id="vec-mode">
-            <option value="t2va" selected>t2va (Text-to-Video+Audio)</option>
-            <option value="ref2va">ref2va (Ref-to-Video+Audio)</option>
-          </select>
+          <h2 class="screen-title">What kind of Control Vector do you want to build?</h2>
+          <p class="screen-desc">
+            A Control Vector is a reusable <code>5,376-D</code> steering direction in MiniMax H3's post-refiner conditioning space. Pick a creation workflow below based on what you want to steer, or manage your saved vectors in the library underneath.
+          </p>
         </div>
       </div>
 
-      <div class="form-row">
-        <div>
-          <label for="vec-holds">Universal Hold Words (Orthogonal Scrub)</label>
-          <input type="text" id="vec-holds" placeholder="e.g. shaky, panic, screaming (scrubbed from any vector)">
-        </div>
-        <div>
-          <label for="hold-alpha-slider">Hold Alpha (<span id="hold-alpha-val">1.00</span> — 0=off, 1=orthogonal, &gt;1=over-subtract)</label>
-          <input type="range" id="hold-alpha-slider" min="0" max="2" step="0.05" value="1.0" style="width:100%; margin-top:4px;">
-        </div>
-        <div>
-          <label for="vec-prompt">Target Scene Prompt (Coupling &amp; 11th Anchor Row)</label>
-          <select id="vec-prompt">
-            <option value="prompt_bank/t2va_noodle_bar.txt" selected>t2va_noodle_bar.txt (Noodle Bar)</option>
-            <option value="prompt_bank/t2va_elevator_lift.txt">t2va_elevator_lift.txt (Elevator Lift)</option>
-            <option value="prompt_bank/t2va_forge_blacksmith.txt">t2va_forge_blacksmith.txt (Forge Blacksmith)</option>
-            <option value="prompt_bank/t2va_violin_maker.txt">t2va_violin_maker.txt (Violin Maker)</option>
-            <option value="prompt_bank/t2va_pottery_wheel.txt">t2va_pottery_wheel.txt (Pottery Wheel)</option>
-            <option value="prompt_bank/t2va_watchmaker_bench.txt">t2va_watchmaker_bench.txt (Watchmaker Bench)</option>
-            <option value="prompt_bank/t2va_glassblower_furnace.txt">t2va_glassblower_furnace.txt (Glassblower Furnace)</option>
-            <option value="prompt_bank/t2va_paper_marbling.txt">t2va_paper_marbling.txt (Paper Marbling)</option>
-            <option value="prompt_bank/t2va_tea_ceremony.txt">t2va_tea_ceremony.txt (Tea Ceremony)</option>
-            <option value="prompt_bank/t2va_printing_press.txt">t2va_printing_press.txt (Printing Press)</option>
-            <option value="prompt_bank/t2va_subway_platform.txt">t2va_subway_platform.txt (Subway Platform)</option>
-          </select>
-        </div>
-      </div>
-
-      <div class="form-row">
-        <div>
-          <label for="vec-families">Target Checkpoints</label>
-          <select id="vec-families">
-            <option value="fl2va,ref2va" selected>Both: fl2va (T2V/I2V) + ref2va</option>
-            <option value="fl2va">fl2va only</option>
-            <option value="ref2va">ref2va only</option>
-          </select>
-        </div>
-        <div>
-          <label for="vec-pooling">Span Pooling</label>
-          <select id="vec-pooling">
-            <option value="diff_span" selected>diff_span (Exact multi-span diff)</option>
-            <option value="from_first_diff">from_first_diff (Diff to end)</option>
-            <option value="scene_text">scene_text (Full scene)</option>
-            <option value="diff_span,from_first_diff">Both diff_span + from_first_diff</option>
-          </select>
-        </div>
-        <div style="display:flex; flex-direction:column; gap:4px; padding-top:14px;">
-          <label style="display:flex; align-items:center; gap:5px; cursor:pointer; margin:0; color:var(--text);">
-            <input type="checkbox" id="vec-overwrite" checked> Overwrite existing
-          </label>
-          <label style="display:flex; align-items:center; gap:5px; cursor:pointer; margin:0; color:var(--text);" title="Unit-normalize each pair's difference vector before averaging so long and short clauses contribute equally">
-            <input type="checkbox" id="unit-mean-chk"> Equalize pair norms (<code>unit_mean</code>)
-          </label>
-          <label style="display:flex; align-items:center; gap:5px; cursor:pointer; margin:0; color:var(--text);">
-            <input type="checkbox" id="vec-nolora"> Skip Pika LoRA
-          </label>
-        </div>
-      </div>
-
-      <!-- TAB 1A: 10-SCENE CLAUSE-DIFF WORKBENCH -->
-      <div id="tab-pane-scenes">
-        <div style="background:var(--code-bg); border:1px solid var(--border); border-radius:6px; padding:10px; margin-bottom:10px;">
-          <div style="font-weight:600; font-size:12px; color:var(--accent); margin-bottom:6px;">
-            1. Expand Concept Clauses Across All 10 Canonical Scenes
+      <div class="grid-3" style="margin-bottom: 28px;">
+        <div class="workflow-card">
+          <div>
+            <span class="badge pole-b" style="margin-bottom:10px;">Most Accurate &bull; 10 Pairs</span>
+            <h3>Clause Contrast (Pole A &rarr; Pole B)</h3>
+            <p>Describe two opposite states for one visual or audio property (for example, <em>calm overcast afternoon</em> vs. <em>scorching desert heatwave</em>). The studio places your clauses into 10 diverse scene rigs so subject identities cancel out.</p>
           </div>
-          <div class="form-row">
-            <div>
-              <label for="exp-pole-a">Pole A (Baseline Clause — leave blank for canonical default)</label>
-              <input type="text" id="exp-pole-a" placeholder="e.g. locked-off 50mm tripod framing">
-            </div>
-            <div>
-              <label for="exp-pole-b">Pole B (Steered Clause — required)</label>
-              <input type="text" id="exp-pole-b" placeholder="e.g. erratic handheld documentary zoom with sudden whip-pans">
-            </div>
+          <div class="btn-row">
+            <button type="button" class="btn btn-primary" onclick="switchScreen('screen-clause')">Open Clause Contrast Builder &rarr;</button>
           </div>
-          <div class="form-row">
-            <div>
-              <label for="exp-sound-a">Soundscape Pole A (Optional)</label>
-              <input type="text" id="exp-sound-a" placeholder="Optional baseline audio clause">
-            </div>
-            <div>
-              <label for="exp-sound-b">Soundscape Pole B (Optional)</label>
-              <input type="text" id="exp-sound-b" placeholder="e.g. muffled microphone handling bumps and ragged breathing">
-            </div>
+        </div>
+
+        <div class="workflow-card">
+          <div>
+            <span class="badge pole-a" style="margin-bottom:10px;">Custom Prompts &bull; LLM Ready</span>
+            <h3>Full Prompt Pairs (.md / .toml)</h3>
+            <p>Write or paste your own complete H3 <code>Prompt A</code> / <code>Prompt B</code> pairs, copy the official H3 Control Vector system prompt for Qwen/Claude/ChatGPT, or load and edit any <code>.toml</code> pair pack on disk.</p>
           </div>
-          <div class="form-row">
-            <div>
-              <label for="exp-hold-a">Hold Pair Pole A (Optional Nuisance Baseline)</label>
-              <input type="text" id="exp-hold-a" placeholder="e.g. calm composed subject expression">
-            </div>
-            <div>
-              <label for="exp-hold-b">Hold Pair Pole B (Optional Nuisance to Scrub)</label>
-              <input type="text" id="exp-hold-b" placeholder="e.g. frantic panicked screaming expression">
+          <div class="btn-row">
+            <button type="button" class="btn btn-primary" onclick="switchScreen('screen-pairs')">Open Full Pair Studio &rarr;</button>
+          </div>
+        </div>
+
+        <div class="workflow-card">
+          <div>
+            <span class="badge hold" style="margin-bottom:10px;">Instant &lt; 5 ms CPU</span>
+            <h3>Invert or Combine Existing Vectors</h3>
+            <p>Want the opposite of <code>blizzard</code> (like <em>scorching</em>) or want to blend two vectors while holding identity steady? Invert any vector with weight <code>-1.0</code> or orthogonalize against protected vectors on CPU in milliseconds.</p>
+          </div>
+          <div class="btn-row">
+            <button type="button" class="btn btn-primary" onclick="switchScreen('screen-sculpt')">Open Sculpt &amp; Invert &rarr;</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid-2" style="margin-bottom: 28px;">
+        <div class="workflow-card">
+          <div>
+            <span class="badge" style="margin-bottom:8px;">Multimodal Vision Pass</span>
+            <h3>Reference Image Contrast (Image A &rarr; Image B)</h3>
+            <p>Drop two reference images directly into your browser (e.g., two color grades, lighting setups, or film stocks) and extract the vision-language difference vector.</p>
+          </div>
+          <div class="btn-row">
+            <button type="button" class="btn" onclick="switchScreen('screen-media')">Upload Reference Images &rarr;</button>
+          </div>
+        </div>
+
+        <div class="workflow-card">
+          <div>
+            <span class="badge" style="margin-bottom:8px;">Diagnostics &amp; Separate J-Lens Tool</span>
+            <h3>Prompt Receptor Meter &amp; J-Lens Word Lab</h3>
+            <p>Paste your own H3 prompt to see which words react most to a vector, or switch to the separate J-Lens unigram dictionary tool for experimental <code>&lt; 2 ms</code> word-bag prototypes.</p>
+          </div>
+          <div class="btn-row">
+            <button type="button" class="btn" onclick="switchScreen('screen-meter')">Open Meter &amp; J-Lens Lab &rarr;</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Library Card -->
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">
+            Saved Control Vectors &amp; Pair Packs
+            <span class="help-tip" tabindex="0">?
+              <span class="tip-box">
+                <strong>Vector Library</strong><br/>
+                Lists every built <code>.safetensors</code> vector in <code>models/control_vectors/</code> and every editable <code>.toml</code> prompt-pair pack in <code>prompt_bank/control_vectors/</code>. Use quick actions to invert, sculpt, or inspect any vector.
+              </span>
+            </span>
+          </h3>
+          <div style="display:flex;gap:10px;align-items:center;">
+            <input type="text" id="lib-filter-input" placeholder="Filter vectors or .toml packs by name..." style="width:280px;" oninput="renderLibraryTables()" />
+            <button type="button" class="btn btn-sm" onclick="loadInitData()">Refresh Library</button>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div>
+            <h4 style="margin:0 0 10px 0;font-size:13.5px;color:var(--text-secondary);">Built Vectors (<code>models/control_vectors/*.safetensors</code>)</h4>
+            <div style="max-height:360px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;">
+              <table class="lib-table">
+                <thead>
+                  <tr>
+                    <th>Vector Stem</th>
+                    <th>Quick Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="lib-vectors-tbody">
+                  <tr><td colspan="2" style="color:var(--text-muted);">Loading vectors...</td></tr>
+                </tbody>
+              </table>
             </div>
           </div>
-          <div class="btn-row" style="margin-top:4px;">
-            <button type="button" id="btn-expand-scenes" class="primary">Expand Across 10 Canonical Scenes</button>
-            <label style="display:flex; align-items:center; gap:5px; cursor:pointer; margin:0; color:var(--text);">
-              <input type="checkbox" id="exp-include-target"> Inject Target Scene Prompt as 11th Anchor Pair (2x weight)
+
+          <div>
+            <h4 style="margin:0 0 10px 0;font-size:13.5px;color:var(--text-secondary);">Editable Prompt-Pair Packs (<code>prompt_bank/control_vectors/*.toml</code>)</h4>
+            <div style="max-height:360px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;">
+              <table class="lib-table">
+                <thead>
+                  <tr>
+                    <th>TOML Pack</th>
+                    <th>Quick Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="lib-tomls-tbody">
+                  <tr><td colspan="2" style="color:var(--text-muted);">Loading .toml packs...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================================================================= -->
+    <!-- SCREEN 2: CLAUSE CONTRAST BUILDER (POLE A -> POLE B)              -->
+    <!-- ================================================================= -->
+    <section id="screen-clause" class="screen">
+      <div class="screen-header">
+        <div>
+          <h2 class="screen-title">Clause Contrast Builder (Pole A &rarr; Pole B)</h2>
+          <p class="screen-desc">
+            Write a baseline clause (<strong>Pole A</strong>) and a target clause (<strong>Pole B</strong>) for the single attribute you want to steer. Step 1 places your clauses into 10 diverse H3 scene rigs so scene subjects average out to zero; Step 2 lets you inspect and edit every pair before building.
+          </p>
+        </div>
+      </div>
+
+      <!-- Step 1 Card -->
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">Step 1 &mdash; Define Your Contrast Axis</h3>
+          <div class="btn-row">
+            <span style="font-size:12.5px;color:var(--text-secondary);">Load starter example:</span>
+            <button type="button" class="btn btn-sm" onclick="fillClauseExample('scorching')">Scorching Heatwave</button>
+            <button type="button" class="btn btn-sm" onclick="fillClauseExample('noir')">High-Contrast Noir</button>
+            <button type="button" class="btn btn-sm" onclick="fillClauseExample('handheld')">Urgent Handheld</button>
+          </div>
+        </div>
+
+        <div class="grid-3" style="margin-bottom:16px;">
+          <div class="field">
+            <label class="field-label" for="clause-name">
+              Output Vector Name
+              <span class="help-tip" tabindex="0">?
+                <span class="tip-box">
+                  Saves <code>models/control_vectors/&lt;name&gt;__&lt;family&gt;__&lt;lora&gt;__&lt;pooling&gt;.safetensors</code> and optionally <code>prompt_bank/control_vectors/&lt;name&gt;.toml</code>.
+                </span>
+              </span>
+            </label>
+            <input type="text" id="clause-name" class="mono" value="scorching_heatwave" placeholder="e.g. scorching_heatwave" />
+          </div>
+
+          <div class="field">
+            <label class="field-label" for="clause-slot">
+              Clause Slot in H3 Prompt
+              <span class="help-tip" tabindex="0">?
+                <span class="tip-box">
+                  <strong>Where your clause sits inside each canonical H3 prompt:</strong><br/>
+                  &bull; <strong>Auto-detect (`auto`)</strong>: Infers the structural slot from your keywords.<br/>
+                  &bull; <strong>Opening Framing &amp; Look (`opening_framing`)</strong>: Lens, film stock, lighting, and atmosphere.<br/>
+                  &bull; <strong>Subject Behavior (`subject_behavior`)</strong>: Subject motion, posture, and gesture.<br/>
+                  &bull; <strong>Interpersonal / Scene Dynamics (`interpersonal_dynamics`)</strong>: Environment physics and multi-subject dynamics.<br/>
+                  &bull; <strong>Camera Motion (`camera_motion`)</strong>: Dolly, pan, crane, or handheld rig motion.<br/>
+                  &bull; <strong>Speech Delivery (`speech_delivery`)</strong>: Vocal tone and cadence.<br/>
+                  &bull; <strong>Soundscape (`soundscape`)</strong>: Ambient room tone, weather acoustics, and foley.
+                </span>
+              </span>
+            </label>
+            <select id="clause-slot">
+              <option value="auto" selected>Auto-detect Slot from Clause (Recommended)</option>
+              <option value="opening_framing">Opening Framing, Lighting &amp; Look (opening_framing)</option>
+              <option value="subject_behavior">Subject Motion &amp; Behavior (subject_behavior)</option>
+              <option value="interpersonal_dynamics">Environment Physics &amp; Scene Dynamics (interpersonal_dynamics)</option>
+              <option value="camera_motion">Camera Motion &amp; Rig (camera_motion)</option>
+              <option value="speech_delivery">Speech &amp; Vocal Delivery (speech_delivery)</option>
+              <option value="soundscape">Soundscape &amp; Ambience (soundscape)</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label class="field-label" for="clause-save-toml">
+              Save Editable .toml Pack
+              <span class="help-tip" tabindex="0">?
+                <span class="tip-box">
+                  When checked, building the vector also writes the 10 expanded Prompt A / Prompt B pairs to <code>prompt_bank/control_vectors/&lt;name&gt;.toml</code> so you can re-open or tweak them later.
+                </span>
+              </span>
+            </label>
+            <label style="display:flex;align-items:center;gap:8px;padding-top:8px;cursor:pointer;">
+              <input type="checkbox" id="clause-save-toml" checked />
+              <span>Save <code>prompt_bank/control_vectors/&lt;name&gt;.toml</code> on build</span>
             </label>
           </div>
         </div>
 
-        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
-          <span style="font-weight:600; font-size:12px;">2. Interactive 10-Row Scene-Diff Table (<span id="scene-row-count">0</span> rows)</span>
-          <div style="display:flex; gap:6px;">
-            <button type="button" id="btn-add-scene-row" style="padding:3px 8px; font-size:11px;">+ Add Pair Row</button>
-            <button type="button" id="btn-build-rows" class="success">Build 10-Pair Vector (~8s GPU)</button>
-            <button type="button" id="btn-repool-rows" class="purple" title="Re-pool cached per-pair vectors on CPU in < 1 ms after toggling rows, moving rows to Hold, changing weights, or adjusting Hold Words / Alpha">Re-Pool &amp; Save (&lt; 1 ms CPU)</button>
+        <div class="grid-2" style="margin-bottom:16px;">
+          <div class="field pole-a-box">
+            <label class="field-label" for="clause-pole-a">
+              <span class="badge pole-a">Pole A (Baseline / Subtracted)</span>
+              Baseline Clause
+              <span class="help-tip" tabindex="0">?
+                <span class="tip-box">
+                  <strong>Pole A is the neutral starting state</strong> that gets subtracted (`Prompt B - Prompt A`). Use rich, concrete sensory prose of roughly the same word count as Pole B.
+                </span>
+              </span>
+            </label>
+            <textarea id="clause-pole-a" rows="5" placeholder="Describe the calm or neutral baseline state...">Crisp overcast afternoon light with cool slate shadows, still air, dry pavement, and neutral color balance across every surface.</textarea>
           </div>
-        </div>
-        <div class="sub">
-          Toggle any outlier scene off, check <strong>Hold</strong> to project that scene pair out as a nuisance direction, adjust per-row weights, or slide <strong>Hold Alpha</strong> and click <strong>Re-Pool &amp; Save (&lt; 1 ms CPU)</strong> to update <code>.safetensors</code> without re-running Qwen3-VL.
-        </div>
-        <div style="max-height:380px; overflow-y:auto; border:1px solid var(--border); border-radius:6px;">
-          <table class="scene-table">
-            <thead>
-              <tr>
-                <th style="width:42px;">Use</th>
-                <th style="width:46px;" title="Move this pair into [[hold]] orthogonal nuisance projection">Hold</th>
-                <th style="width:95px;">Scene / Wt</th>
-                <th>Pole A (Baseline) &amp; Pole B (Steered)</th>
-                <th style="width:78px;">Agreement</th>
-              </tr>
-            </thead>
-            <tbody id="scene-diff-tbody">
-              <tr><td colspan="5" class="sub" style="text-align:center; padding:14px;">Enter Pole B above and click <strong>Expand Across 10 Canonical Scenes</strong>, or load any <code>.toml</code> from the left bank.</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
 
-      <!-- TAB 1B: MEDIA CONTRAST BUILDER -->
-      <div id="tab-pane-media" style="display:none;">
-        <div style="background:var(--code-bg); border:1px solid var(--border); border-radius:6px; padding:10px;">
-          <div style="font-weight:600; font-size:12px; color:var(--accent); margin-bottom:6px;">
-            Media Contrast Builder (<code>&lt;Picture A&gt; &rarr; &lt;Picture B&gt;</code> via Qwen3-VL Vision Patch Tokens)
-          </div>
-          <div class="sub">
-            Extracts a visual style/lighting/texture direction directly from two reference images or video frames resized to an identical 32-aligned Qwen3-VL grid, with optional <code>Hold Words</code> orthogonal scrubbing.
-          </div>
-          <div class="form-row">
-            <div>
-              <label for="media-image-a">Image A Path (Baseline Reference)</label>
-              <input type="text" id="media-image-a" placeholder="e.g. input/clean_frame.png">
-            </div>
-            <div>
-              <label for="media-image-b">Image B Path (Steered Target Style)</label>
-              <input type="text" id="media-image-b" placeholder="e.g. input/16mm_graded_frame.png">
-            </div>
-          </div>
-          <div class="form-row">
-            <div>
-              <label for="media-pooling">Media Span Pooling</label>
-              <select id="media-pooling">
-                <option value="scene_text" selected>scene_text (Vision-conditioned text tokens — default)</option>
-                <option value="vision_tokens">vision_tokens (Qwen3-VL vision patch rows)</option>
-                <option value="all_rows">all_rows (Vision + text rows combined)</option>
-              </select>
-            </div>
-            <div>
-              <label for="media-short-edge">Common Grid Short Edge (px)</label>
-              <input type="number" id="media-short-edge" value="448" min="64" max="1024" step="32">
-            </div>
-          </div>
-          <div style="margin-bottom:8px;">
-            <label for="media-scene-prompt">Optional Carrier Scene Prompt (leave empty for neutral default)</label>
-            <textarea id="media-scene-prompt" rows="2" placeholder="integrated_multimodal_description: [Shot 1] Follow the visual appearance, lighting, color palette, lens rendering, and surface texture of <Picture 1>.&#10;&#10;overall_soundscape: Natural ambient room tone."></textarea>
-          </div>
-          <div class="btn-row">
-            <button type="button" id="btn-build-media" class="success">Build Media Control Vector (.safetensors)</button>
+          <div class="field pole-b-box">
+            <label class="field-label" for="clause-pole-b">
+              <span class="badge pole-b">Pole B (Target / Added)</span>
+              Target Direction Clause
+              <span class="help-tip" tabindex="0">?
+                <span class="tip-box">
+                  <strong>Pole B is the state you want positive strength (`+1.0`) to push toward.</strong> At render time, negative strength (`-1.0`) pushes back toward Pole A.
+                </span>
+              </span>
+            </label>
+            <textarea id="clause-pole-b" rows="5" placeholder="Describe the target atmospheric, camera, or motion state...">Blistering midday desert heatwave under a bleached white sun, rising thermal shimmer warping the horizon, harsh amber glare, and sun-baked dust.</textarea>
           </div>
         </div>
-      </div>
 
-      <!-- TAB 1C: MARKDOWN / .TOML & QUICK LEXICAL TINT -->
-      <div id="tab-pane-md" style="display:none;">
-        <div class="form-row">
-          <div>
-            <label for="vec-against">Unigram Against Words (for &lt;2ms Lexical Tint only)</label>
-            <select id="vec-against">
-              <option value="@neutral" selected>@neutral (clean modern baseline — default)</option>
-              <option value="@prompt_subject">@prompt_subject (auto-replace scene actors/nouns)</option>
-              <option value="@replace_human">@replace_human (human / person / actor / skin)</option>
-              <option value="none">none (raw uncentered words)</option>
-            </select>
+        <details style="margin-bottom:16px;background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:12px 16px;">
+          <summary style="cursor:pointer;font-weight:600;font-size:13.5px;color:var(--text-secondary);">
+            Optional: Synchronized Soundscape Clause, Hold Clause, or Your Own Target Scene (Pair 0)
+          </summary>
+          <div style="margin-top:14px;">
+            <div class="grid-2" style="margin-bottom:14px;">
+              <div class="field">
+                <label class="field-label" for="clause-sound-a">Optional Soundscape Pole A (Baseline Audio)</label>
+                <textarea id="clause-sound-a" rows="3" placeholder="Leave blank if your main slot already covers audio or is silent...">Quiet open-air room tone with gentle distant breeze.</textarea>
+              </div>
+              <div class="field">
+                <label class="field-label" for="clause-sound-b">Optional Soundscape Pole B (Target Audio)</label>
+                <textarea id="clause-sound-b" rows="3" placeholder="Leave blank if not steering audio...">Low parched thermal wind drone, dry cicada buzz, and heat-cracked grit underfoot.</textarea>
+              </div>
+            </div>
+            <div class="grid-2">
+              <div class="field">
+                <label class="field-label" for="clause-hold-text">
+                  Optional Hold Clause (Orthogonal Anchor)
+                  <span class="help-tip" tabindex="0">?
+                    <span class="tip-box">
+                      If your target clause accidentally shifts camera framing or subject identity, enter a clause describing what must stay locked; Gram-Schmidt projection removes that drift.
+                    </span>
+                  </span>
+                </label>
+                <textarea id="clause-hold-text" rows="3" placeholder="Optional clause to hold constant via Gram-Schmidt..."></textarea>
+              </div>
+              <div class="field">
+                <label class="field-label" for="clause-scene-prompt">
+                  Optional: Your Own Scene Prompt (Replaces Rig #1 / Pair 0)
+                  <span class="help-tip" tabindex="0">?
+                    <span class="tip-box">
+                      Want the vector tailored to your current shot? Paste your own 3-section H3 prompt here and it will become Pair 0 alongside 9 diverse background rigs.
+                    </span>
+                  </span>
+                </label>
+                <textarea id="clause-scene-prompt" class="mono" rows="3" placeholder="Optional: paste your own 3-section H3 prompt here to anchor Pair 0..."></textarea>
+              </div>
+            </div>
           </div>
-        </div>
-        <label for="md-input">
-          Words / Clause Spec (<code>pole_a -> pole_b</code>, <code>soundscape:</code>, <code>hold:</code>) <em>or</em> Full 10-Pair Markdown
-        </label>
-        <textarea id="md-input" rows="8" placeholder="Type words or a clause spec (e.g. 'steady tripod -> erratic handheld zoom; soundscape: quiet -> mic handling bumps; hold: calm -> panic') OR paste a 10-pair Markdown output from Claude / ChatGPT / Gemini..."></textarea>
+        </details>
 
         <div class="btn-row">
-          <button id="btn-promote-scenes" class="primary" title="Expand these words/clauses or Markdown pairs into the 10-Scene Clause-Diff Table">Promote to 10-Scene Workbench</button>
-          <button id="btn-build" class="success" title="Compile 10 canonical scene pairs and run Qwen3-VL + TokenRefiner (~8s)">Build 10-Pair Vector (~8s)</button>
-          <button id="btn-preview" title="Lint pairs and preview token diff spans">Preview Spans</button>
-          <button id="btn-save-toml" title="Compile and save to prompt_bank/control_vectors/<name>.toml">Save .toml Only</button>
-          <button id="btn-build-words" title="Secondary tool: synthesize a unigram lexical tint in <2ms from the 24,912-word J-Lens matrix (0.52 cosine ceiling vs contextual diff_span)">Synthesize Unigram Lexical Tint (&lt; 2 ms)</button>
+          <button type="button" class="btn btn-primary" onclick="expandClauseScenes()">
+            Generate 10 Contrast Pairs &amp; Inspect &rarr;
+          </button>
+          <button type="button" class="btn" onclick="buildFromClauseScreen()">
+            Encode &amp; Build Control Vector Now (GPU)
+          </button>
         </div>
+        <div id="clause-status-box"></div>
+      </div>
 
-        <details style="margin-top:10px;">
-          <summary>View / Edit Copyable LLM System Prompt</summary>
-          <div class="sub" style="margin-top:6px;">
-            Paste this system prompt into Claude, ChatGPT, or Gemini, then ask for any visual or audio concept (e.g., <em>"Give me a control vector for handheld 1990s camcorder urgency"</em>).
+      <!-- Step 2 Card: Expanded 10 Pairs -->
+      <div class="card" id="clause-pairs-card" style="display:none;">
+        <div class="card-header">
+          <div>
+            <h3 class="card-title">
+              Step 2 &mdash; Review &amp; Edit the 10 Expanded Scene Pairs
+              <span class="help-tip" tabindex="0">?
+                <span class="tip-box">
+                  Every pair below places your Pole A and Pole B clauses into a distinct subject/environment rig. You can edit any clause or full prompt, adjust pair weights, or re-pool on CPU in <code>&lt; 1 ms</code> after building.
+                </span>
+              </span>
+            </h3>
           </div>
-          <textarea id="sysprompt-box" rows="6" readonly></textarea>
-        </details>
+          <div class="btn-row">
+            <button type="button" class="btn btn-sm" onclick="repoolCurrentVector()">Instant CPU Re-Pool (&lt; 1 ms)</button>
+            <button type="button" class="btn btn-primary btn-sm" onclick="buildFromClauseScreen()">Encode &amp; Build Vector (GPU)</button>
+          </div>
+        </div>
+        <div id="clause-pairs-container"></div>
       </div>
-    </div>
-
-    <!-- Live Span Diff & Build Report Preview -->
-    <div class="card">
-      <h2>
-        <span>Pair Span Lint &amp; Token Diff Preview</span>
-        <span id="avg-tokens-badge" class="badge">diff_span: —</span>
-      </h2>
-      <div id="test-prompt-box" style="display:none; margin-bottom:10px;">
-        <label>Extracted Test Scene Prompt</label>
-        <textarea id="test-prompt-text" rows="2" readonly></textarea>
-      </div>
-      <div id="pairs-preview">
-        <div class="sub">Expand scenes or click <strong>Preview Spans</strong> to inspect the exact differing clauses and token counts across pairs.</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- RIGHT COLUMN: Stage 2 Subspace Sculptor, Prompt Receptor Heatmap, J-Lens & Stage 3 Video Player -->
-  <div class="col">
-    <!-- STAGE 2A: VISUAL PROMPT TOKEN RECEPTOR HEATMAP -->
-    <div class="card">
-      <h2>
-        <span>Stage 2A — Visual Prompt Token Receptor Heatmap</span>
-        <span id="heatmap-mode-badge" class="badge">Click any token to Hold</span>
-      </h2>
-      <div class="sub">
-        Shows which tokens in your target prompt couple most strongly with the active vector. <strong>Green</strong> = high receptor coupling; <strong>Red/Amber</strong> = subject noun at risk of semantic hijack. <strong>Click any token chip</strong> to toggle it in <code>Hold Words</code> and scrub that axis in <code>&lt; 1 ms</code>!
-      </div>
-      <div id="token-heatmap-box" style="background:var(--code-bg); border:1px solid var(--border); border-radius:6px; padding:8px; min-height:48px;">
-        <span class="sub">Select a vector or type words to see per-token receptor coupling across the target prompt.</span>
-      </div>
-      <div class="btn-row" style="margin-top:6px; justify-content:space-between; align-items:center;">
-        <span id="prompt-meter-summary" class="sub" style="margin:0;"></span>
-        <button type="button" id="btn-run-prompt-meter" title="Run exact 5376-d contextual Qwen3-VL + TokenRefiner per-token cosine metering on the target prompt (~0.4s GPU)">Run Contextual GPU Token Meter (~0.4s)</button>
-      </div>
-    </div>
-
-    <!-- STAGE 2B: < 1 MS SUBSPACE SCULPTOR & MULTI-VECTOR RECIPE COMPOSER -->
-    <div class="card">
-      <h2>
-        <span>Stage 2B — &lt; 1 ms Subspace Sculptor &amp; Recipe Composer</span>
-        <button type="button" id="btn-add-sculpt-step" style="padding:2px 8px; font-size:11px;">+ Add Vector Layer</button>
-      </h2>
-      <div class="sub">
-        Stack multiple library vectors (<code>add</code>, <code>add_norm_matched</code>, or <code>hold</code> orthogonal projection) + <code>hold_words</code>, preview the net J-Lens readout in <code>&lt; 2 ms</code>, and save the sculpted vector as a first-class <code>.safetensors</code> + <code>.md</code> sidecar.
-      </div>
-      <div id="sculpt-rows"></div>
-      <div class="form-row" style="margin-top:6px;">
+    </section>
+    <!-- ================================================================= -->
+    <!-- SCREEN 3: FULL PAIR & LLM STUDIO (.MD / .TOML)                    -->
+    <!-- ================================================================= -->
+    <section id="screen-pairs" class="screen">
+      <div class="screen-header">
         <div>
-          <label for="sculpt-out-name">Sculpted Output Stem</label>
-          <input type="text" id="sculpt-out-name" placeholder="e.g. handheld_clean_sculpted">
+          <h2 class="screen-title">Full Prompt Pair &amp; LLM Authoring Studio</h2>
+          <p class="screen-desc">
+            Generate 10 surgical H3 <code>Prompt A</code> / <code>Prompt B</code> pairs directly using your local LLM (choose <strong>transformers</strong> or <strong>exllamav3</strong> and point to any model directory or HuggingFace ID), or author/edit pairs in the full-size Markdown editor below.
+          </p>
         </div>
-        <div>
-          <label for="sculpt-hold-words">Recipe Hold Words</label>
-          <input type="text" id="sculpt-hold-words" placeholder="e.g. panic, screaming">
+        <div class="btn-row">
+          <button type="button" class="btn" onclick="copySystemPrompt()">Copy LLM System Prompt</button>
+          <button type="button" class="btn" onclick="insertPairTemplate()">Insert Pair Template</button>
         </div>
       </div>
-      <div class="btn-row">
-        <button type="button" id="btn-sculpt-preview" class="primary">Preview Recipe in J-Lens (&lt; 2 ms)</button>
-        <button type="button" id="btn-sculpt-save" class="purple">Save Sculpted Vector (.safetensors)</button>
-      </div>
-    </div>
 
-    <!-- J-LENS SEMANTIC READOUT PANEL -->
-    <div class="card" id="jlens-card">
-      <h2>
-        <span>J-Lens Semantic Readout (24,912-Word Cloze Lens)</span>
-        <span id="jlens-badge" class="badge">Live</span>
-      </h2>
-      <div id="jlens-panel">
-        <div class="sub">Click any built vector on the left, preview a multi-vector recipe, or type words to see top pushed/pulled vocabulary, basis provenance, and steering readiness.</div>
-      </div>
-    </div>
+      <!-- Generative LLM Card -->
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">
+            Generate 10 Pairs with a Local Generative LLM
+            <span class="help-tip" tabindex="0">?
+              <span class="tip-box">
+                <strong>Configurable LLM Provider &amp; Model:</strong><br/>
+                &bull; <code>transformers</code>: Load any HuggingFace model directory or repo ID (e.g. your unpruned <code>MiniMax-H3/text_encoder</code> folder or <code>Qwen/Qwen3-8B</code>), with optional 4-bit quantization.<br/>
+                &bull; <code>exllamav3</code>: Load any local ExLlamaV3 quantized model folder (e.g. <code>Qwen3-VL-32B-Instruct-exl3</code>).<br/>
+                Uses <code>docs/wiki/system_prompts/h3_control_vector_system_prompt.md</code> automatically.
+              </span>
+            </span>
+          </h3>
+        </div>
 
-    <!-- STAGE 3: SYNCHRONIZED 24FPS A/B VIDEO PLAYER -->
-    <div class="card">
-      <h2>
-        <span>Stage 3 — Synchronized A/B Video Player</span>
-        <span id="clip-count" class="badge">0 clips</span>
-      </h2>
-      <div class="form-row">
+        <div class="grid-3" style="margin-bottom:14px;">
+          <div class="field" style="margin:0;">
+            <label class="field-label" for="llm-provider-select">LLM Provider Type</label>
+            <select id="llm-provider-select">
+              <option value="transformers">transformers (HuggingFace / bitsandbytes)</option>
+              <option value="exllamav3">exllamav3 (ExLlamaV3 quantized)</option>
+            </select>
+          </div>
+          <div class="field" style="margin:0;grid-column:span 2;">
+            <label class="field-label" for="llm-model-input">
+              LLM Model Directory Path or HuggingFace Repo ID
+              <span class="help-tip" tabindex="0">?
+                <span class="tip-box">
+                  Enter any local model directory path on disk or a HuggingFace repo ID. You can also set the default via <code>--llm-model</code> or <code>$H3_LLM_MODEL</code> / <code>$H3_EXL3_MODEL_DIR</code>.
+                </span>
+              </span>
+            </label>
+            <input type="text" id="llm-model-input" class="mono" placeholder="e.g. /path/to/model_folder or Qwen/Qwen3-8B (or set $H3_LLM_MODEL)" />
+          </div>
+        </div>
+
+        <div class="grid-3" style="margin-bottom:14px;align-items:end;">
+          <div class="field" style="margin:0;grid-column:span 2;">
+            <label class="field-label" for="llm-concept-input">Concept / Axis to Generate (Pole A &rarr; Pole B or Description)</label>
+            <input type="text" id="llm-concept-input" value="calm mild overcast afternoon -> blistering desert heatwave with thermal shimmer and harsh amber glare" placeholder="Describe the effect or Pole A -> Pole B contrast..." />
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+            <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-secondary);cursor:pointer;">
+              <input type="checkbox" id="llm-4bit-check" checked />
+              <span>4-bit (transformers)</span>
+            </label>
+            <button type="button" class="btn btn-primary" onclick="generatePairsWithLocalLLM()">
+              Generate 10 Pairs with LLM
+            </button>
+          </div>
+        </div>
+        <div id="llm-status-box"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">Load, Author, or Save Prompt-Pair Pack</h3>
+          <div class="btn-row">
+            <select id="pairs-toml-select" style="width:260px;">
+              <option value="">-- Load existing .toml pack --</option>
+            </select>
+            <button type="button" class="btn btn-sm" onclick="loadSelectedTomlIntoStudio()">Load Selected .toml</button>
+          </div>
+        </div>
+
+        <div class="grid-3" style="margin-bottom:16px;">
+          <div class="field">
+            <label class="field-label" for="pairs-name">Vector &amp; .toml Stem Name</label>
+            <input type="text" id="pairs-name" class="mono" value="custom_axis" placeholder="e.g. scorching_desert" />
+          </div>
+          <div class="field">
+            <label class="field-label" for="pairs-axis">Axis Description</label>
+            <input type="text" id="pairs-axis" value="calm baseline -> target visual/audio state" placeholder="Describe Pole A -> Pole B" />
+          </div>
+          <div class="field">
+            <label class="field-label">
+              Pair Format
+              <span class="help-tip" tabindex="0">?
+                <span class="tip-box">
+                  Write pairs using <code>#### Pair 1</code>, <code>##### Prompt A</code>, and <code>##### Prompt B</code> headers. Both the LLM System Prompt and the deterministic compiler emit this exact format.
+                </span>
+              </span>
+            </label>
+            <div style="padding-top:8px;font-size:13px;color:var(--text-secondary);">
+              Markdown blocks (<code>#### Pair 1</code> / <code>##### Prompt A</code> / <code>##### Prompt B</code>)
+            </div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label class="field-label" for="pairs-markdown-editor">
+            Full Prompt-Pair Editor (Multi-line Markdown)
+            <span class="help-tip" tabindex="0">?
+              <span class="tip-box">
+                Each pair has a <code>##### Prompt A</code> (baseline subtracted) and <code>##### Prompt B</code> (target added). Keep subject identities and scene geography matched inside each pair so only your target attribute differs.
+              </span>
+            </span>
+          </label>
+          <textarea id="pairs-markdown-editor" class="mono large-editor" rows="16" placeholder="#### Pair 1&#10;##### Prompt A&#10;...&#10;##### Prompt B&#10;..."></textarea>
+        </div>
+
+        <div class="btn-row" style="margin-top:14px;">
+          <button type="button" class="btn" onclick="previewMarkdownPairs()">
+            1. Validate &amp; Preview Token Diffs (CPU)
+          </button>
+          <button type="button" class="btn" onclick="saveMarkdownPairsToToml()">
+            2. Save to <code>prompt_bank/control_vectors/&lt;name&gt;.toml</code>
+          </button>
+          <button type="button" class="btn btn-primary" onclick="buildFromMarkdownStudio()">
+            3. Encode &amp; Build Control Vector (GPU)
+          </button>
+        </div>
+        <div id="pairs-status-box"></div>
+      </div>
+
+      <!-- Token Diff Preview Output -->
+      <div class="card" id="pairs-preview-card" style="display:none;">
+        <div class="card-header">
+          <h3 class="card-title">
+            Pair Validation &amp; Token-Diff Preview
+            <span class="help-tip" tabindex="0">?
+              <span class="tip-box">
+                Shows how many tokens differ in each pair (`n_diff_a` vs `n_diff_b`) and whether all 3 H3 sections (Visual Direction, `[00s-05s]` Timeline, and Soundscape) are present.
+              </span>
+            </span>
+          </h3>
+        </div>
+        <div id="pairs-preview-body"></div>
+      </div>
+    </section>
+
+    <!-- ================================================================= -->
+    <!-- SCREEN 4: REFERENCE IMAGE CONTRAST (IMAGE A -> IMAGE B)           -->
+    <!-- ================================================================= -->
+    <section id="screen-media" class="screen">
+      <div class="screen-header">
         <div>
-          <label for="clip-left-select">Left Clip (A — Baseline)</label>
-          <select id="clip-left-select"><option value="">(no clips found)</option></select>
+          <h2 class="screen-title">Reference Image Contrast (Image A &rarr; Image B)</h2>
+          <p class="screen-desc">
+            Extract a visual style, lighting, or color-grade direction directly from two reference images using Qwen3-VL's multimodal vision tower. Drag or select your images below &mdash; no manual server file paths required.
+          </p>
         </div>
+      </div>
+
+      <div class="card">
+        <div class="grid-3" style="margin-bottom:18px;">
+          <div class="field">
+            <label class="field-label" for="media-name">Output Vector Name</label>
+            <input type="text" id="media-name" class="mono" value="ref_image_grade" placeholder="e.g. bleach_bypass_grade" />
+          </div>
+          <div class="field" style="grid-column: span 2;">
+            <label class="field-label" for="media-caption">
+              Shared Neutral Anchor Caption (Optional)
+              <span class="help-tip" tabindex="0">?
+                <span class="tip-box">
+                  Held identical on both image passes so the vector isolates only the visual difference between Image B and Image A.
+                </span>
+              </span>
+            </label>
+            <input type="text" id="media-caption" value="A cinematic frame captured on location with natural perspective and balanced composition." />
+          </div>
+        </div>
+
+        <div class="grid-2" style="margin-bottom:20px;">
+          <div>
+            <label class="field-label" style="margin-bottom:8px;">
+              <span class="badge pole-a">Image A (Baseline / Subtracted)</span>
+              Select Baseline Reference Image
+            </label>
+            <label class="dropzone" for="media-file-a" style="display:block;">
+              <input type="file" id="media-file-a" accept="image/*" style="display:none;" onchange="handleImageUpload('a', this)" />
+              <div id="media-label-a" style="color:var(--text-secondary);">Click to choose <strong>Image A</strong> (PNG, JPG, WebP)</div>
+              <img id="media-preview-a" alt="Image A preview" />
+            </label>
+          </div>
+
+          <div>
+            <label class="field-label" style="margin-bottom:8px;">
+              <span class="badge pole-b">Image B (Target / Added)</span>
+              Select Target Reference Image
+            </label>
+            <label class="dropzone" for="media-file-b" style="display:block;">
+              <input type="file" id="media-file-b" accept="image/*" style="display:none;" onchange="handleImageUpload('b', this)" />
+              <div id="media-label-b" style="color:var(--text-secondary);">Click to choose <strong>Image B</strong> (PNG, JPG, WebP)</div>
+              <img id="media-preview-b" alt="Image B preview" />
+            </label>
+          </div>
+        </div>
+
+        <div class="btn-row">
+          <button type="button" class="btn btn-primary" onclick="buildMediaVector()">
+            Extract Multimodal Image Control Vector (GPU)
+          </button>
+        </div>
+        <div id="media-status-box"></div>
+      </div>
+    </section>
+
+    <!-- ================================================================= -->
+    <!-- SCREEN 5: SCULPT, INVERT & COMBINE (< 5 MS CPU)                   -->
+    <!-- ================================================================= -->
+    <section id="screen-sculpt" class="screen">
+      <div class="screen-header">
         <div>
-          <label for="clip-right-select">Right Clip (B — Steered)</label>
-          <select id="clip-right-select"><option value="">(no clips found)</option></select>
+          <h2 class="screen-title">Sculpt, Invert &amp; Combine Vectors (&lt; 5 ms CPU)</h2>
+          <p class="screen-desc">
+            Create new vectors from existing <code>.safetensors</code> files on CPU in under 5 milliseconds. Invert a preset (weight <code>-1.0</code>), blend multiple directions, or project out unwanted drift with Gram-Schmidt <code>hold</code>.
+          </p>
         </div>
       </div>
-      <div class="video-grid">
-        <div class="video-box">
-          <video id="v-left" controls playsinline preload="metadata"></video>
+
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">Quick One-Click Inversion (Opposite Effect)</h3>
         </div>
-        <div class="video-box">
-          <video id="v-right" controls playsinline preload="metadata"></video>
+        <p style="margin:0 0 14px 0;color:var(--text-secondary);font-size:13.5px;">
+          Want the opposite of an existing vector (for example, flipping <code>blizzard</code> at <code>-1.0</code> or flipping <code>slow_motion</code>)? Pick any source vector below, give the inverted vector a name, and save it immediately.
+        </p>
+        <div class="grid-3" style="align-items:end;">
+          <div class="field" style="margin:0;">
+            <label class="field-label" for="quick-invert-source">Source Vector to Invert</label>
+            <select id="quick-invert-source"></select>
+          </div>
+          <div class="field" style="margin:0;">
+            <label class="field-label" for="quick-invert-name">New Inverted Vector Name</label>
+            <input type="text" id="quick-invert-name" class="mono" value="blizzard_inverted" />
+          </div>
+          <div>
+            <button type="button" class="btn btn-primary" onclick="runQuickInvert()">Invert (-1.0x) &amp; Save Vector</button>
+          </div>
         </div>
       </div>
-      <div class="btn-row">
-        <button id="btn-ab-play" class="primary">Play / Pause Both</button>
-        <button id="btn-ab-restart">Restart (0.00s)</button>
-        <button id="btn-ab-prev">-1 Frame</button>
-        <button id="btn-ab-next">+1 Frame</button>
-        <button id="btn-ab-swap">Swap A &harr; B</button>
-        <label style="display:flex; align-items:center; gap:5px; margin-left:auto; color:var(--text); cursor:pointer;">
-          <input type="checkbox" id="ab-loop" checked> Loop
-        </label>
+
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">
+            Multi-Vector Sculpt &amp; Gram-Schmidt Hold Recipe
+            <span class="help-tip" tabindex="0">?
+              <span class="tip-box">
+                <strong>Operations:</strong><br/>
+                &bull; <code>add</code>: Adds <code>weight * vector</code>.<br/>
+                &bull; <code>add_norm_matched</code>: Scales the vector to match your primary vector's L2 norm before weighting.<br/>
+                &bull; <code>hold</code>: Gram-Schmidt orthogonalization &mdash; strips any component parallel to this vector so that axis stays untouched.
+              </span>
+            </span>
+          </h3>
+          <button type="button" class="btn btn-sm" onclick="addSculptRow()">+ Add Recipe Row</button>
+        </div>
+
+        <div class="grid-2" style="margin-bottom:16px;">
+          <div class="field">
+            <label class="field-label" for="sculpt-name">Output Sculpted Vector Name</label>
+            <input type="text" id="sculpt-name" class="mono" value="custom_sculpted" />
+          </div>
+          <div class="field">
+            <label class="field-label" for="sculpt-hold-words">
+              Optional Lexical Hold Words (Comma-Separated)
+              <span class="help-tip" tabindex="0">?
+                <span class="tip-box">
+                  Optional unigram concepts (from the 24,912-word vocabulary) to orthogonalize against in addition to full <code>hold</code> vectors.
+                </span>
+              </span>
+            </label>
+            <input type="text" id="sculpt-hold-words" placeholder="e.g. face, portrait, identity (optional)" />
+          </div>
+        </div>
+
+        <div id="sculpt-rows-container" style="margin-bottom:16px;"></div>
+
+        <div class="btn-row">
+          <button type="button" class="btn btn-primary" onclick="runSculptRecipe()">
+            Compute &amp; Save Sculpted Vector (&lt; 5 ms CPU)
+          </button>
+        </div>
+        <div id="sculpt-status-box"></div>
       </div>
-    </div>
-  </div>
+    </section>
+
+    <!-- ================================================================= -->
+    <!-- SCREEN 6: PROMPT RECEPTOR METER & SEPARATE J-LENS WORD LAB        -->
+    <!-- ================================================================= -->
+    <section id="screen-meter" class="screen">
+      <div class="screen-header">
+        <div>
+          <h2 class="screen-title">Prompt Receptor Meter &amp; Separate J-Lens Word Lab</h2>
+          <p class="screen-desc">
+            Use the <strong>Contextual Prompt Receptor Meter</strong> to see which tokens in your H3 prompt align with a Control Vector, or switch to the separate <strong>J-Lens Word Lab</strong> for <code>&lt; 2 ms</code> CPU unigram dictionary synthesis and lexical readouts.
+          </p>
+        </div>
+        <div class="family-pill-group">
+          <button type="button" class="family-pill active" id="subtab-btn-receptor" onclick="switchMeterSubtab('receptor')">Contextual Prompt Meter (GPU)</button>
+          <button type="button" class="family-pill" id="subtab-btn-jlens" onclick="switchMeterSubtab('jlens')">Separate J-Lens Word Lab (CPU)</button>
+        </div>
+      </div>
+
+      <!-- Sub-tab A: Contextual Prompt Receptor Meter -->
+      <div id="subtab-receptor">
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">
+              Contextual Prompt Receptor Meter
+              <span class="help-tip" tabindex="0">?
+                <span class="tip-box">
+                  Runs your full H3 prompt through Qwen3-VL + DiT <code>condition_proj</code> + 2-layer <code>TokenRefiner</code> and computes per-token cosine alignment with the selected Control Vector. Shows which tokens in your prompt carry the strongest alignment for <code>MiniMaxH3ApplyControlVectors</code>.
+                </span>
+              </span>
+            </h3>
+          </div>
+
+          <div class="grid-2" style="margin-bottom:14px;">
+            <div class="field">
+              <label class="field-label" for="meter-vector-select">Control Vector to Test</label>
+              <select id="meter-vector-select"></select>
+            </div>
+            <div class="field">
+              <label class="field-label">Quick Sample Prompt</label>
+              <div class="btn-row" style="padding-top:4px;">
+                <button type="button" class="btn btn-sm" onclick="fillMeterSamplePrompt()">Insert Sample 3-Section H3 Prompt</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="field">
+            <label class="field-label" for="meter-prompt-text">Your H3 Scene Prompt</label>
+            <textarea id="meter-prompt-text" class="mono" rows="8" placeholder="Paste the 3-section H3 prompt you plan to render..."></textarea>
+          </div>
+
+          <div class="btn-row" style="margin-top:14px;">
+            <button type="button" class="btn btn-primary" onclick="runPromptReceptorMeter()">
+              Scan Token Alignment on Prompt
+            </button>
+          </div>
+          <div id="meter-status-box"></div>
+        </div>
+
+        <div class="card" id="meter-results-card" style="display:none;">
+          <div class="card-header">
+            <h3 class="card-title">Per-Token Alignment Heatmap &amp; Top Receptor Words</h3>
+          </div>
+          <div id="meter-results-body"></div>
+        </div>
+      </div>
+
+      <!-- Sub-tab B: Separate J-Lens Word Lab -->
+      <div id="subtab-jlens" style="display:none;">
+        <div class="card" style="border-color:rgba(139, 92, 246, 0.4);">
+          <div class="card-header">
+            <h3 class="card-title">
+              <span class="badge hold">Separate Experimental Tool</span>
+              About J-Lens (24,912-Word Unigram Atlas)
+            </h3>
+          </div>
+          <p style="margin:0;color:var(--text-secondary);font-size:13.5px;">
+            <strong>How J-Lens differs from Full Prompt-Pair Control Vectors:</strong> J-Lens is a pre-computed 24,912-word single-token Jacobian dictionary (<code>j_lens.py</code>). It runs on CPU in <code>&lt; 2 ms</code> with zero GPU pass, making it useful for <strong>diagnostic lexical readouts</strong> (seeing which single words align with a vector) and <strong>fast word-bag prototypes</strong>. Because single words lack multi-clause context and <code>[00s-05s]</code> timeline structure, use Screen 2 or Screen 3 when building production cinematic vectors.
+          </p>
+        </div>
+
+        <div class="grid-2">
+          <!-- J-Lens Diagnostic Readout -->
+          <div class="card">
+            <div class="card-header">
+              <h3 class="card-title">1. J-Lens Lexical Readout (Inspect Any Vector)</h3>
+            </div>
+            <div class="field">
+              <label class="field-label" for="jlens-inspect-select">Select Built Vector</label>
+              <select id="jlens-inspect-select"></select>
+            </div>
+            <div class="btn-row" style="margin-top:12px;">
+              <button type="button" class="btn btn-primary" onclick="runJLensInspect()">Read Top Pole B (+gain) &amp; Pole A (-gain) Words</button>
+            </div>
+            <div id="jlens-inspect-output" style="margin-top:16px;"></div>
+          </div>
+
+          <!-- J-Lens Word-Bag Synthesizer -->
+          <div class="card">
+            <div class="card-header">
+              <h3 class="card-title">2. J-Lens Word-Bag Synthesizer (&lt; 2 ms CPU)</h3>
+            </div>
+            <div class="field">
+              <label class="field-label" for="jlens-synth-name">Prototype Vector Name</label>
+              <input type="text" id="jlens-synth-name" class="mono" value="word_prototype" />
+            </div>
+            <div class="field">
+              <label class="field-label" for="jlens-words-b">Target Words (+ Pole B, comma-separated)</label>
+              <input type="text" id="jlens-words-b" value="blistering, scorching, heatwave, arid, glare" />
+            </div>
+            <div class="field">
+              <label class="field-label" for="jlens-words-a">Baseline Words (- Pole A, comma-separated)</label>
+              <input type="text" id="jlens-words-a" value="overcast, cool, shade, damp, mist" />
+            </div>
+            <div class="field">
+              <label class="field-label" for="jlens-words-hold">Protected Hold Words (orthogonalize, optional)</label>
+              <input type="text" id="jlens-words-hold" value="face, person, camera" />
+            </div>
+            <div class="btn-row" style="margin-top:12px;">
+              <button type="button" class="btn" onclick="runJLensWordSynthesis(false)">Preview Word-Bag Readout</button>
+              <button type="button" class="btn btn-primary" onclick="runJLensWordSynthesis(true)">Synthesize &amp; Save Prototype (.safetensors)</button>
+            </div>
+            <div id="jlens-synth-output" style="margin-top:16px;"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
 </div>
-
 <script>
-const state = {
-  systemPrompt: "",
-  tomlFiles: [],
+const APP = {
+  families: 'fl2va,ref2va',
   vectors: [],
-  clips: [],
-  canonicalFrames: {},
-  sceneRows: [],
-  sculptSteps: [
-    { vector: "", mode: "add_norm_matched", strength: 1.15 }
+  tomlPacks: [],
+  expandedPairs: [],
+  sculptRows: [
+    { vector: 'blizzard', strength: 1.0, mode: 'add' },
+    { vector: 'camera_push_in', strength: 1.0, mode: 'hold' }
   ],
-  activeVectorFile: "",
+  mediaDataUrlA: null,
+  mediaDataUrlB: null,
+  systemPromptSummary: ''
 };
 
-function setStatus(kind, msg) {
-  const el = document.getElementById("status-banner");
-  if (!msg) {
-    el.className = "status-banner";
-    el.textContent = "";
-    return;
-  }
-  el.className = "status-banner " + kind;
-  el.textContent = msg;
+function setStatus(text, kind = '') {
+  const el = document.getElementById('status-indicator');
+  if (!el) return;
+  el.textContent = text;
+  el.className = 'status-pill' + (kind ? ' ' + kind : '');
 }
 
-function escapeHtml(s) {
-  return String(s || "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
+function escapeHtml(str) {
+  return String(str ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 }
 
-async function apiGet(path) {
-  const r = await fetch(path);
-  return await r.json();
-}
-
-async function apiPost(path, payload) {
-  const r = await fetch(path, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload || {}),
+function setGlobalFamily(fam) {
+  APP.families = fam;
+  document.querySelectorAll('#global-family-group .family-pill').forEach(btn => {
+    btn.classList.toggle('active', btn.getAttribute('data-fam') === fam);
   });
-  const data = await r.json();
-  data._httpStatus = r.status;
+}
+
+function switchScreen(screenId) {
+  document.querySelectorAll('.screen').forEach(sec => {
+    sec.classList.toggle('active', sec.id === screenId);
+  });
+  document.querySelectorAll('.nav-rail .nav-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.getAttribute('data-screen') === screenId);
+  });
+}
+
+function switchMeterSubtab(which) {
+  const isReceptor = which === 'receptor';
+  document.getElementById('subtab-receptor').style.display = isReceptor ? 'block' : 'none';
+  document.getElementById('subtab-jlens').style.display = isReceptor ? 'none' : 'block';
+  document.getElementById('subtab-btn-receptor').classList.toggle('active', isReceptor);
+  document.getElementById('subtab-btn-jlens').classList.toggle('active', !isReceptor);
+}
+
+async function apiGet(url) {
+  const res = await fetch(url);
+  const data = await res.json();
+  if (!res.ok || data.error) throw new Error(data.error || `HTTP ${res.status}`);
   return data;
 }
 
-function switchStageTab(tabName) {
-  ["scenes", "media", "md"].forEach(t => {
-    const btn = document.getElementById("tab-btn-" + t);
-    const pane = document.getElementById("tab-pane-" + t);
-    if (btn) btn.classList.toggle("active", t === tabName);
-    if (pane) pane.style.display = (t === tabName) ? "block" : "none";
+async function apiPost(url, payload) {
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
   });
+  const data = await res.json();
+  if (!res.ok || data.error) throw new Error(data.error || `HTTP ${res.status}`);
+  return data;
 }
 
-["scenes", "media", "md"].forEach(t => {
-  const btn = document.getElementById("tab-btn-" + t);
-  if (btn) btn.addEventListener("click", () => switchStageTab(t));
-});
-
-function getHoldWordsSet() {
-  const raw = document.getElementById("vec-holds").value || "";
-  return new Set(
-    raw.split(/[,\s]+/).map(w => w.trim().toLowerCase()).filter(Boolean)
-  );
+function renderBanner(containerId, html, isError = false) {
+  const box = document.getElementById(containerId);
+  if (!box) return;
+  box.innerHTML = `<div class="result-banner ${isError ? 'error' : ''}">${html}</div>`;
 }
 
-function toggleHoldWord(word) {
-  const clean = String(word || "").trim().toLowerCase();
-  if (!clean) return;
-  const holdsInput = document.getElementById("vec-holds");
-  const sculptHoldsInput = document.getElementById("sculpt-hold-words");
-  const list = (holdsInput.value || "")
-    .split(",")
-    .map(w => w.trim())
-    .filter(Boolean);
-  const idx = list.findIndex(w => w.toLowerCase() === clean);
-  if (idx >= 0) {
-    list.splice(idx, 1);
-  } else {
-    list.push(clean);
-  }
-  const joined = list.join(", ");
-  holdsInput.value = joined;
-  if (sculptHoldsInput) sculptHoldsInput.value = joined;
-  if (state.activeVectorFile) {
-    inspectVectorJLens(state.activeVectorFile);
-  } else {
-    previewWordsJLens();
-  }
-}
-
-function renderTokenHeatmap(tokens, modeLabel) {
-  const box = document.getElementById("token-heatmap-box");
-  const badge = document.getElementById("heatmap-mode-badge");
-  if (badge && modeLabel) badge.textContent = modeLabel;
-  if (!tokens || !tokens.length) {
-    box.innerHTML = '<span class="sub">No token coupling data yet. Select a vector or click <strong>Run Contextual GPU Token Meter</strong>.</span>';
-    return;
-  }
-  const heldSet = getHoldWordsSet();
-  box.innerHTML = tokens.map(t => {
-    const w = t.word || t.token || t.text || "";
-    const clean = w.replace(/^[^a-zA-Z0-9]+|[^a-zA-Z0-9]+$/g, "").toLowerCase();
-    const cos = Number(t.cosine || 0);
-    const role = t.role || "neutral";
-    const isHeld = clean && heldSet.has(clean);
-    let bg = "transparent";
-    let col = "var(--text)";
-    if (role === "subject" && Math.abs(cos) >= 0.04) {
-      bg = "rgba(248, 81, 73, 0.25)";
-      col = "#ffa198";
-    } else if (cos >= 0.08) {
-      const alpha = Math.min(0.45, Math.max(0.14, cos * 1.8));
-      bg = `rgba(63, 185, 80, ${alpha.toFixed(2)})`;
-      col = "#7ee787";
-    } else if (cos <= -0.08) {
-      const alpha = Math.min(0.40, Math.max(0.14, Math.abs(cos) * 1.8));
-      bg = `rgba(88, 166, 255, ${alpha.toFixed(2)})`;
-      col = "#79c0ff";
-    } else if (role === "stopword") {
-      col = "var(--muted)";
+async function loadInitData() {
+  try {
+    setStatus('Loading library...', 'busy');
+    const data = await apiGet('/api/init');
+    APP.vectors = data.vectors || [];
+    APP.tomlPacks = data.toml_files || data.toml_packs || data.tomls || [];
+    APP.systemPromptSummary = data.system_prompt || '';
+    const provSel = document.getElementById('llm-provider-select');
+    if (provSel && data.default_llm_provider) {
+      provSel.value = data.default_llm_provider;
     }
-    return `<span class="token-chip ${isHeld ? "held" : ""}" data-word="${escapeHtml(clean)}" style="background:${bg}; color:${col};" title="cos=${cos.toFixed(3)} (${escapeHtml(role)}) — Click to toggle in Hold Words">${escapeHtml(w)} <small style="opacity:0.75;">${cos >= 0 ? "+" : ""}${cos.toFixed(2)}</small></span>`;
-  }).join("");
-  box.querySelectorAll(".token-chip").forEach(chip => {
-    chip.addEventListener("click", () => {
-      const w = chip.getAttribute("data-word");
-      if (w) toggleHoldWord(w);
-    });
-  });
+    const modInp = document.getElementById('llm-model-input');
+    if (modInp && data.default_llm_model && !modInp.value) {
+      modInp.value = data.default_llm_model;
+    }
+    renderLibraryTables();
+    populateVectorSelects();
+    renderSculptRows();
+    setStatus(`Ready • ${APP.vectors.length} vectors`, 'ok');
+  } catch (err) {
+    setStatus('Offline / Error', 'err');
+    console.error(err);
+  }
 }
 
-function renderSceneDiffTable() {
-  const tbody = document.getElementById("scene-diff-tbody");
-  const countEl = document.getElementById("scene-row-count");
-  countEl.textContent = state.sceneRows.length;
-  if (!state.sceneRows.length) {
-    tbody.innerHTML = '<tr><td colspan="5" class="sub" style="text-align:center; padding:14px;">Enter Pole B above and click <strong>Expand Across 10 Canonical Scenes</strong>, or load any <code>.toml</code> from the left bank.</td></tr>';
-    return;
-  }
-  tbody.innerHTML = state.sceneRows.map((r, i) => {
-    const rowCls = !r.enabled ? "scene-row-disabled" : (r.is_hold ? "scene-row-hold" : "");
-    const cosVal = (r.cosine !== undefined && r.cosine !== null) ? Number(r.cosine) : null;
-    const cosPct = cosVal !== null ? Math.max(0, Math.min(100, Math.round(cosVal * 100))) : 0;
-    const cosColor = cosVal === null ? "#30363d" : (cosVal >= 0.65 ? "var(--green)" : (cosVal >= 0.45 ? "var(--amber)" : "var(--red)"));
-    return `
-      <tr class="${rowCls}" data-idx="${i}">
-        <td style="text-align:center;">
-          <input type="checkbox" class="row-enable-chk" data-idx="${i}" ${r.enabled ? "checked" : ""}>
-        </td>
-        <td style="text-align:center;">
-          <input type="checkbox" class="row-hold-chk" data-idx="${i}" ${r.is_hold ? "checked" : ""} title="Treat this pair as a [[hold]] nuisance pair to project out">
-        </td>
-        <td>
-          <div style="font-weight:600; font-size:11px; color:var(--accent);">${escapeHtml(r.scene_id || ("pair_" + (i + 1)))}</div>
-          <label style="margin-top:4px; font-size:10px;">Weight</label>
-          <input type="number" class="row-weight-inp" data-idx="${i}" value="${Number(r.weight ?? 1.0)}" step="0.25" min="0" max="10" style="padding:3px 5px; font-size:11px;">
-        </td>
-        <td>
-          <div style="margin-bottom:4px;">
-            <span style="font-size:10px; color:#ffa198; font-weight:600;">Pole A (Baseline):</span>
-            <textarea class="row-a-txt" data-idx="${i}" rows="2" style="font-size:11px; padding:4px 6px;">${escapeHtml(r.a || "")}</textarea>
-          </div>
-          <div>
-            <span style="font-size:10px; color:#7ee787; font-weight:600;">Pole B (Steered):</span>
-            <textarea class="row-b-txt" data-idx="${i}" rows="2" style="font-size:11px; padding:4px 6px;">${escapeHtml(r.b || "")}</textarea>
-          </div>
-        </td>
-        <td>
-          <div style="font-family:monospace; font-size:11px; font-weight:600; color:${cosColor};">
-            ${cosVal !== null ? cosVal.toFixed(3) : "—"}
-          </div>
-          <div class="cos-bar-wrap">
-            <div class="cos-bar-fill" style="width:${cosPct}%; background:${cosColor};"></div>
-          </div>
-          ${r.diff_tokens !== undefined ? `<div class="sub" style="font-size:10px; margin-top:3px;">${r.diff_tokens} diff tok</div>` : ""}
-        </td>
-      </tr>
-    `;
-  }).join("");
+function populateVectorSelects() {
+  const selects = ['quick-invert-source', 'meter-vector-select', 'jlens-inspect-select'];
+  selects.forEach(id => {
+    const sel = document.getElementById(id);
+    if (!sel) return;
+    const prev = sel.value;
+    sel.innerHTML = APP.vectors.map(v => {
+      const val = typeof v === 'string' ? v : (v.file || v.name || v.stem);
+      const label = typeof v === 'string' ? v : (`${v.name || v.file} (${v.family || 'fl2va'})`);
+      return `<option value="${escapeHtml(val)}">${escapeHtml(label)}</option>`;
+    }).join('');
+    if (prev && Array.from(sel.options).some(o => o.value === prev)) {
+      sel.value = prev;
+    }
+  });
 
-  tbody.querySelectorAll(".row-enable-chk").forEach(el => {
-    el.addEventListener("change", () => {
-      const idx = Number(el.getAttribute("data-idx"));
-      if (state.sceneRows[idx]) {
-        state.sceneRows[idx].enabled = el.checked;
-        renderSceneDiffTable();
-      }
+  const tomlSel = document.getElementById('pairs-toml-select');
+  if (tomlSel) {
+    tomlSel.innerHTML = '<option value="">-- Load existing .toml pack --</option>' +
+      APP.tomlPacks.map(t => {
+        const stem = typeof t === 'string' ? t.replace(/\.toml$/, '') : (t.name || (t.file || '').replace(/\.toml$/, ''));
+        return `<option value="${escapeHtml(stem)}">${escapeHtml(stem)}.toml</option>`;
+      }).join('');
+  }
+}
+
+function renderLibraryTables() {
+  const q = (document.getElementById('lib-filter-input')?.value || '').trim().toLowerCase();
+  const vecBody = document.getElementById('lib-vectors-tbody');
+  const tomlBody = document.getElementById('lib-tomls-tbody');
+
+  if (vecBody) {
+    const filteredVecs = APP.vectors.filter(v => {
+      const file = (typeof v === 'string' ? v : (v.file || v.name || '')).toLowerCase();
+      return !q || file.includes(q);
     });
-  });
-  tbody.querySelectorAll(".row-hold-chk").forEach(el => {
-    el.addEventListener("change", () => {
-      const idx = Number(el.getAttribute("data-idx"));
-      if (state.sceneRows[idx]) {
-        state.sceneRows[idx].is_hold = el.checked;
-        renderSceneDiffTable();
-      }
+    if (!filteredVecs.length) {
+      vecBody.innerHTML = '<tr><td colspan="2" style="color:var(--text-muted);">No matching vectors found.</td></tr>';
+    } else {
+      vecBody.innerHTML = filteredVecs.map(v => {
+        const file = typeof v === 'string' ? v : (v.file || v.name);
+        const disp = typeof v === 'string' ? v : `${v.name || v.file} [${v.family || 'fl2va'}]`;
+        return `<tr>
+          <td class="mono" style="font-size:13px;" title="${escapeHtml(file)}">${escapeHtml(disp)}</td>
+          <td>
+            <div class="btn-row">
+              <button type="button" class="btn btn-sm" onclick="prefillInvert('${escapeHtml(file)}')">Invert (-1x)</button>
+              <button type="button" class="btn btn-sm" onclick="prefillSculpt('${escapeHtml(file)}')">Sculpt</button>
+              <button type="button" class="btn btn-sm" onclick="prefillMeter('${escapeHtml(file)}')">Test on Prompt</button>
+              <button type="button" class="btn btn-sm" onclick="prefillJLens('${escapeHtml(file)}')">J-Lens Readout</button>
+            </div>
+          </td>
+        </tr>`;
+      }).join('');
+    }
+  }
+
+  if (tomlBody) {
+    const filteredTomls = APP.tomlPacks.filter(t => {
+      const stem = (typeof t === 'string' ? t : (t.name || t.file || '')).toLowerCase();
+      return !q || stem.includes(q);
     });
-  });
-  tbody.querySelectorAll(".row-weight-inp").forEach(el => {
-    el.addEventListener("change", () => {
-      const idx = Number(el.getAttribute("data-idx"));
-      if (state.sceneRows[idx]) {
-        state.sceneRows[idx].weight = parseFloat(el.value || "1.0");
-      }
+    if (!filteredTomls.length) {
+      tomlBody.innerHTML = '<tr><td colspan="2" style="color:var(--text-muted);">No matching .toml packs found.</td></tr>';
+    } else {
+      tomlBody.innerHTML = filteredTomls.map(t => {
+        const stem = typeof t === 'string' ? t.replace(/\.toml$/, '') : (t.name || (t.file || '').replace(/\.toml$/, ''));
+        return `<tr>
+          <td class="mono" style="font-size:13px;">${escapeHtml(stem)}.toml</td>
+          <td>
+            <div class="btn-row">
+              <button type="button" class="btn btn-sm" onclick="openTomlInStudio('${escapeHtml(stem)}')">Edit Pairs in Studio &rarr;</button>
+            </div>
+          </td>
+        </tr>`;
+      }).join('');
+    }
+  }
+}
+
+function prefillInvert(fileOrStem) {
+  switchScreen('screen-sculpt');
+  const sel = document.getElementById('quick-invert-source');
+  if (sel) sel.value = fileOrStem;
+  const clean = fileOrStem.split('__')[0].replace(/\.safetensors$/, '');
+  document.getElementById('quick-invert-name').value = `${clean}_inverted`;
+}
+
+function prefillSculpt(fileOrStem) {
+  switchScreen('screen-sculpt');
+  APP.sculptRows[0] = { vector: fileOrStem, strength: 1.0, mode: 'add' };
+  renderSculptRows();
+}
+
+function prefillMeter(fileOrStem) {
+  switchScreen('screen-meter');
+  switchMeterSubtab('receptor');
+  const sel = document.getElementById('meter-vector-select');
+  if (sel) sel.value = fileOrStem;
+}
+
+function prefillJLens(fileOrStem) {
+  switchScreen('screen-meter');
+  switchMeterSubtab('jlens');
+  const sel = document.getElementById('jlens-inspect-select');
+  if (sel) sel.value = fileOrStem;
+  runJLensInspect();
+}
+
+/* ========================================================================= */
+/* SCREEN 2: CLAUSE CONTRAST BUILDER                                         */
+/* ========================================================================= */
+function fillClauseExample(kind) {
+  if (kind === 'scorching') {
+    document.getElementById('clause-name').value = 'scorching_heatwave';
+    document.getElementById('clause-slot').value = 'opening_framing';
+    document.getElementById('clause-pole-a').value = 'Crisp overcast afternoon light with cool slate shadows, still air, dry pavement, and neutral color balance across every surface.';
+    document.getElementById('clause-pole-b').value = 'Blistering midday desert heatwave under a bleached white sun, rising thermal shimmer warping the horizon, harsh amber glare, and sun-baked dust.';
+    document.getElementById('clause-sound-a').value = 'Quiet open-air room tone with gentle distant breeze.';
+    document.getElementById('clause-sound-b').value = 'Low parched thermal wind drone, dry cicada buzz, and heat-cracked grit underfoot.';
+  } else if (kind === 'noir') {
+    document.getElementById('clause-name').value = 'chiaroscuro_noir';
+    document.getElementById('clause-slot').value = 'opening_framing';
+    document.getElementById('clause-pole-a').value = 'Soft even commercial fill lighting with balanced midtones, open shadows, and natural daylight color rendition.';
+    document.getElementById('clause-pole-b').value = 'Hard single-source chiaroscuro key light slicing through deep ink-black shadows, sharp Venetian-blind light slashes, and silver rim highlights.';
+    document.getElementById('clause-sound-a').value = '';
+    document.getElementById('clause-sound-b').value = '';
+  } else if (kind === 'handheld') {
+    document.getElementById('clause-name').value = 'urgent_handheld';
+    document.getElementById('clause-slot').value = 'camera_motion';
+    document.getElementById('clause-pole-a').value = 'Locked-off tripod composition with level horizon, steady 50mm prime framing, and zero camera shake.';
+    document.getElementById('clause-pole-b').value = 'Urgent shoulder-mounted documentary camera with visceral micro-jitter, reactive reframing, and breathing lens drift.';
+    document.getElementById('clause-sound-a').value = '';
+    document.getElementById('clause-sound-b').value = '';
+  }
+}
+
+async function expandClauseScenes() {
+  try {
+    setStatus('Expanding 10 scene pairs...', 'busy');
+    const payload = {
+      name: document.getElementById('clause-name').value.trim(),
+      pole_a: document.getElementById('clause-pole-a').value.trim(),
+      pole_b: document.getElementById('clause-pole-b').value.trim(),
+      slot: document.getElementById('clause-slot').value,
+      sound_a: document.getElementById('clause-sound-a').value.trim(),
+      sound_b: document.getElementById('clause-sound-b').value.trim(),
+      hold_b: document.getElementById('clause-hold-text').value.trim(),
+      target_prompt: document.getElementById('clause-scene-prompt').value.trim()
+    };
+    const data = await apiPost('/api/expand-scenes', payload);
+    APP.expandedPairs = (data.pairs || []).map((p, idx) => ({
+      index: idx,
+      label: p.scene_title || p.label || `Scene Rig #${idx + 1}`,
+      prompt_a: p.a || p.prompt_a || '',
+      prompt_b: p.b || p.prompt_b || '',
+      weight: p.weight ?? 1.0
+    }));
+    renderExpandedClausePairs();
+    document.getElementById('clause-pairs-card').style.display = 'block';
+    renderBanner('clause-status-box', `Generated <strong>${APP.expandedPairs.length} matched H3 scene pairs</strong>. Review or edit any pair below, or click <strong>Encode &amp; Build Control Vector Now (GPU)</strong>.`);
+    setStatus('10 pairs ready', 'ok');
+  } catch (err) {
+    renderBanner('clause-status-box', `Error expanding scenes: ${escapeHtml(err.message)}`, true);
+    setStatus('Expand failed', 'err');
+  }
+}
+
+function renderExpandedClausePairs() {
+  const container = document.getElementById('clause-pairs-container');
+  if (!container) return;
+  container.innerHTML = APP.expandedPairs.map((pair, idx) => `
+    <div class="pair-card">
+      <div class="pair-card-head">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span class="badge">#${idx + 1}</span>
+          <strong>${escapeHtml(pair.label)}</strong>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <label style="font-size:12.5px;color:var(--text-secondary);">Pair Weight:</label>
+          <input type="number" step="0.1" value="${pair.weight}" style="width:80px;padding:4px 8px;" onchange="APP.expandedPairs[${idx}].weight = parseFloat(this.value || '1')" />
+        </div>
+      </div>
+      <div class="grid-2">
+        <div class="field pole-a-box" style="margin:0;">
+          <label class="field-label"><span class="badge pole-a">Prompt A (Baseline)</span></label>
+          <textarea class="mono" rows="7" onchange="APP.expandedPairs[${idx}].prompt_a = this.value">${escapeHtml(pair.prompt_a)}</textarea>
+        </div>
+        <div class="field pole-b-box" style="margin:0;">
+          <label class="field-label"><span class="badge pole-b">Prompt B (Target)</span></label>
+          <textarea class="mono" rows="7" onchange="APP.expandedPairs[${idx}].prompt_b = this.value">${escapeHtml(pair.prompt_b)}</textarea>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function buildMarkdownFromExpandedPairs() {
+  return APP.expandedPairs.map((p, idx) =>
+    `#### Pair ${idx + 1} — ${p.label}\n##### Prompt A (Baseline)\n${p.prompt_a.trim()}\n\n##### Prompt B (Steered)\n${p.prompt_b.trim()}\n`
+  ).join('\n');
+}
+
+async function buildFromClauseScreen() {
+  try {
+    if (!APP.expandedPairs.length) {
+      await expandClauseScenes();
+    }
+    const name = document.getElementById('clause-name').value.trim();
+    if (!name) throw new Error('Please enter an Output Vector Name.');
+    setStatus(`Building ${name} on GPU...`, 'busy');
+    renderBanner('clause-status-box', `Encoding 10 pairs through Qwen3-VL + DiT <code>condition_proj</code> + <code>TokenRefiner</code> for <strong>${escapeHtml(name)}</strong>...`);
+
+    const mdText = buildMarkdownFromExpandedPairs();
+    const saveToml = document.getElementById('clause-save-toml').checked;
+    const rowsPayload = APP.expandedPairs.map((p, idx) => ({
+      index: idx,
+      a: p.prompt_a,
+      b: p.prompt_b,
+      weight: p.weight,
+      enabled: true
+    }));
+
+    const res = await apiPost('/api/build', {
+      name,
+      families: APP.families,
+      text: mdText,
+      rows: rowsPayload,
+      save_toml: saveToml,
+      overwrite: true
     });
-  });
-  tbody.querySelectorAll(".row-a-txt").forEach(el => {
-    el.addEventListener("input", () => {
-      const idx = Number(el.getAttribute("data-idx"));
-      if (state.sceneRows[idx]) state.sceneRows[idx].a = el.value;
+
+    await loadInitData();
+    const files = (res.built || res.written || []).map(f => `<code>${escapeHtml(typeof f === 'string' ? f : f.file)}</code>`).join(', ');
+    renderBanner('clause-status-box', `<strong>Built Control Vector <code>${escapeHtml(name)}</code>!</strong><br/>Saved files: ${files || 'see models/control_vectors/'}`);
+    setStatus(`Built ${name}`, 'ok');
+  } catch (err) {
+    renderBanner('clause-status-box', `Build error: ${escapeHtml(err.message)}`, true);
+    setStatus('Build failed', 'err');
+  }
+}
+
+async function repoolCurrentVector() {
+  try {
+    const name = document.getElementById('clause-name').value.trim();
+    const weights = APP.expandedPairs.map(p => p.weight);
+    const rowsPayload = APP.expandedPairs.map((p, idx) => ({
+      index: idx,
+      a: p.prompt_a,
+      b: p.prompt_b,
+      weight: p.weight,
+      enabled: true
+    }));
+    setStatus(`Re-pooling ${name}...`, 'busy');
+    const res = await apiPost('/api/repool', {
+      name,
+      families: APP.families,
+      weights,
+      rows: rowsPayload
     });
-  });
-  tbody.querySelectorAll(".row-b-txt").forEach(el => {
-    el.addEventListener("input", () => {
-      const idx = Number(el.getAttribute("data-idx"));
-      if (state.sceneRows[idx]) state.sceneRows[idx].b = el.value;
+    const builtInfo = (res.built || []).map(b => `${b.file} (MPC=${Number(b.mpc || 0).toFixed(3)})`).join(', ');
+    renderBanner('clause-status-box', `<strong>Instant CPU Re-Pool complete</strong> in ${escapeHtml(res.elapsed_ms || '<1')} ms: <code>${escapeHtml(builtInfo)}</code>.`);
+    setStatus('Re-pooled (<1 ms)', 'ok');
+  } catch (err) {
+    renderBanner('clause-status-box', `Re-pool note: Build the vector on GPU once first so per-pair directions are cached in memory (${escapeHtml(err.message)}).`, true);
+    setStatus('Re-pool error', 'err');
+  }
+}
+/* ========================================================================= */
+/* SCREEN 3: FULL PAIR & LLM STUDIO                                          */
+/* ========================================================================= */
+async function generatePairsWithLocalLLM() {
+  try {
+    const provider = document.getElementById('llm-provider-select').value;
+    const model = document.getElementById('llm-model-input').value.trim();
+    const concept = document.getElementById('llm-concept-input').value.trim();
+    const loadIn4bit = document.getElementById('llm-4bit-check').checked;
+    if (!model) {
+      throw new Error('Please enter a local LLM Model Directory Path or HuggingFace Repo ID.');
+    }
+    if (!concept) {
+      throw new Error('Please enter a Concept / Axis description to generate.');
+    }
+    setStatus(`Generating pairs via ${provider}...`, 'busy');
+    renderBanner('llm-status-box', `Running <strong>${escapeHtml(provider)}</strong> on <code>${escapeHtml(model)}</code> with the H3 Control Vector System Prompt...`);
+    const res = await apiPost('/api/generate-pairs-llm', {
+      provider,
+      model,
+      concept,
+      load_in_4bit: loadIn4bit
     });
-  });
+    document.getElementById('pairs-markdown-editor').value = res.markdown || '';
+    document.getElementById('pairs-axis').value = concept;
+    renderBanner('llm-status-box', `<strong>Generated Markdown pairs in ${escapeHtml(res.elapsed_s)}s</strong> via <code>${escapeHtml(res.provider)}</code>! Review or edit the pairs in the editor below, then click Validate, Save .toml, or Build Vector.`);
+    setStatus(`Generated pairs (${res.elapsed_s}s)`, 'ok');
+  } catch (err) {
+    renderBanner('llm-status-box', `LLM generation error: ${escapeHtml(err.message)}`, true);
+    setStatus('LLM generation failed', 'err');
+  }
+}
+
+function insertPairTemplate() {
+  const tpl = `#### Pair 1
+##### Prompt A
+integrated_multimodal_description:
+[Shot 1] A cinematic medium shot on a 50mm prime lens under crisp overcast afternoon light with cool slate shadows and still air. [00s-05s] An elderly watchmaker sits at a wooden workbench on a covered terrace, adjusting a brass gear with fine tweezers while glancing toward the horizon.
+
+overall_soundscape:
+Quiet open-air room tone with gentle distant breeze and soft metallic clicks.
+
+non_diegetic_music:
+N/A
+
+##### Prompt B
+integrated_multimodal_description:
+[Shot 1] A cinematic medium shot on a 50mm prime lens under a blistering midday desert heatwave, rising thermal shimmer warping the horizon, and harsh amber glare. [00s-05s] An elderly watchmaker sits at a wooden workbench on a covered terrace, adjusting a brass gear with fine tweezers while glancing toward the horizon.
+
+overall_soundscape:
+Quiet open-air room tone with gentle distant breeze and soft metallic clicks.
+
+non_diegetic_music:
+N/A
+`;
+  const ed = document.getElementById('pairs-markdown-editor');
+  if (ed) ed.value = tpl;
+}
+
+async function copySystemPrompt() {
+  const promptRef = APP.systemPromptSummary ||
+    'See docs/wiki/system_prompts/h3_control_vector_system_prompt.md — generate 10 matched H3 Prompt A / Prompt B pairs where subject, camera framing, and [00s-05s] timing are held identical inside each pair and only the target attribute varies.';
+  try {
+    await navigator.clipboard.writeText(promptRef);
+    renderBanner('pairs-status-box', 'Copied the H3 Control Vector System Prompt instructions to your clipboard. Paste into your LLM, then paste the `#### Pair 1` Markdown output into the editor above.');
+  } catch (_) {
+    renderBanner('pairs-status-box', `System prompt reference: <code>docs/wiki/system_prompts/h3_control_vector_system_prompt.md</code>`);
+  }
+}
+
+async function openTomlInStudio(stem) {
+  switchScreen('screen-pairs');
+  const sel = document.getElementById('pairs-toml-select');
+  if (sel) sel.value = stem;
+  await loadSelectedTomlIntoStudio();
+}
+
+async function loadSelectedTomlIntoStudio() {
+  try {
+    const stem = document.getElementById('pairs-toml-select').value;
+    if (!stem) throw new Error('Select a .toml pack from the dropdown first.');
+    setStatus(`Loading ${stem}.toml...`, 'busy');
+    const data = await apiPost('/api/load-toml', { file: `${stem}.toml` });
+    document.getElementById('pairs-name').value = data.name || stem;
+    document.getElementById('pairs-axis').value = data.quality || `${data.a_side || ''} -> ${data.b_side || ''}`;
+    document.getElementById('pairs-markdown-editor').value = data.markdown || data.text || '';
+    renderBanner('pairs-status-box', `Loaded <strong>${escapeHtml(stem)}.toml</strong> (${(data.pairs || []).length} pairs). You can edit the full prompts above, preview token diffs, save back to <code>.toml</code>, or build the vector.`);
+    setStatus(`Loaded ${stem}.toml`, 'ok');
+  } catch (err) {
+    renderBanner('pairs-status-box', `Failed to load .toml: ${escapeHtml(err.message)}`, true);
+    setStatus('Load error', 'err');
+  }
+}
+
+async function previewMarkdownPairs() {
+  try {
+    const text = document.getElementById('pairs-markdown-editor').value.trim();
+    if (!text) throw new Error('Paste or write at least one ##### Prompt A / ##### Prompt B pair first.');
+    setStatus('Validating pairs...', 'busy');
+    const data = await apiPost('/api/preview', { text });
+    const card = document.getElementById('pairs-preview-card');
+    const body = document.getElementById('pairs-preview-body');
+    card.style.display = 'block';
+    const pairs = data.pairs || [];
+    body.innerHTML = `
+      <div style="margin-bottom:12px;font-size:13.5px;color:var(--text-secondary);">
+        Parsed <strong>${pairs.length} pair(s)</strong>. Verify that each pair has balanced token diffs and valid H3 sections:
+      </div>
+      <table class="lib-table">
+        <thead>
+          <tr>
+            <th>Pair</th>
+            <th>Scene Tokens (A / B)</th>
+            <th>Changed Span Tokens (Diff A / Diff B)</th>
+            <th>Section &amp; Validity</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${pairs.map((p, i) => {
+            const tok = p.tokens || {};
+            return `
+            <tr>
+              <td class="mono">#${p.index ?? (i + 1)}</td>
+              <td class="mono">${tok.scene_a ?? '-'} / ${tok.scene_b ?? '-'}</td>
+              <td class="mono"><span class="badge pole-a">${tok.diff_span_a ?? '-'}</span> &rarr; <span class="badge pole-b">${tok.diff_span_b ?? '-'}</span></td>
+              <td>${p.valid === false ? `<span style="color:var(--danger);">${escapeHtml(p.error || 'Invalid pair')}</span>` : `<span style="color:var(--success);">${escapeHtml(p.section || 'Valid 3-section pair')}</span>`}</td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    `;
+    renderBanner('pairs-status-box', `Validated <strong>${pairs.length} pairs</strong>.`);
+    setStatus('Pairs validated', 'ok');
+  } catch (err) {
+    renderBanner('pairs-status-box', `Validation error: ${escapeHtml(err.message)}`, true);
+    setStatus('Validation failed', 'err');
+  }
+}
+
+async function saveMarkdownPairsToToml() {
+  try {
+    const name = document.getElementById('pairs-name').value.trim();
+    const axis = document.getElementById('pairs-axis').value.trim();
+    const text = document.getElementById('pairs-markdown-editor').value.trim();
+    if (!name || !text) throw new Error('Enter a Vector Name and Markdown pairs first.');
+    setStatus(`Saving ${name}.toml...`, 'busy');
+    const res = await apiPost('/api/save-toml', { name, axis, text, overwrite: true });
+    await loadInitData();
+    renderBanner('pairs-status-box', `Saved editable pack to <code>${escapeHtml(res.toml_path || res.toml || ('prompt_bank/control_vectors/' + name + '.toml'))}</code>.`);
+    setStatus(`Saved ${name}.toml`, 'ok');
+  } catch (err) {
+    renderBanner('pairs-status-box', `Save .toml error: ${escapeHtml(err.message)}`, true);
+    setStatus('Save error', 'err');
+  }
+}
+
+async function buildFromMarkdownStudio() {
+  try {
+    const name = document.getElementById('pairs-name').value.trim();
+    const axis = document.getElementById('pairs-axis').value.trim();
+    const text = document.getElementById('pairs-markdown-editor').value.trim();
+    if (!name || !text) throw new Error('Enter a Vector Name and Markdown pairs first.');
+    setStatus(`Building ${name} on GPU...`, 'busy');
+    renderBanner('pairs-status-box', `Encoding pairs on GPU for <strong>${escapeHtml(name)}</strong>...`);
+    const res = await apiPost('/api/build', {
+      name,
+      axis,
+      families: APP.families,
+      text,
+      save_toml: true,
+      overwrite: true
+    });
+    await loadInitData();
+    const files = (res.built || res.written || []).map(f => `<code>${escapeHtml(typeof f === 'string' ? f : f.file)}</code>`).join(', ');
+    renderBanner('pairs-status-box', `<strong>Built Control Vector <code>${escapeHtml(name)}</code>!</strong><br/>Saved: ${files}`);
+    setStatus(`Built ${name}`, 'ok');
+  } catch (err) {
+    renderBanner('pairs-status-box', `Build error: ${escapeHtml(err.message)}`, true);
+    setStatus('Build error', 'err');
+  }
+}
+
+/* ========================================================================= */
+/* SCREEN 4: REFERENCE IMAGE CONTRAST                                        */
+/* ========================================================================= */
+function handleImageUpload(which, inputEl) {
+  const file = inputEl.files && inputEl.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(ev) {
+    const dataUrl = ev.target.result;
+    if (which === 'a') {
+      APP.mediaDataUrlA = dataUrl;
+      const img = document.getElementById('media-preview-a');
+      img.src = dataUrl;
+      img.style.display = 'inline-block';
+      document.getElementById('media-label-a').innerHTML = `Loaded <strong>${escapeHtml(file.name)}</strong> (${Math.round(file.size / 1024)} KB)`;
+    } else {
+      APP.mediaDataUrlB = dataUrl;
+      const img = document.getElementById('media-preview-b');
+      img.src = dataUrl;
+      img.style.display = 'inline-block';
+      document.getElementById('media-label-b').innerHTML = `Loaded <strong>${escapeHtml(file.name)}</strong> (${Math.round(file.size / 1024)} KB)`;
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
+async function buildMediaVector() {
+  try {
+    const name = document.getElementById('media-name').value.trim();
+    const caption = document.getElementById('media-caption').value.trim();
+    if (!name) throw new Error('Please enter an Output Vector Name.');
+    if (!APP.mediaDataUrlA || !APP.mediaDataUrlB) {
+      throw new Error('Please select both Image A (Baseline) and Image B (Target) in your browser.');
+    }
+    setStatus(`Extracting image vector ${name}...`, 'busy');
+    renderBanner('media-status-box', `Running Qwen3-VL multimodal vision-language pass on Image A &amp; Image B...`);
+    const res = await apiPost('/api/make-media', {
+      name,
+      output_name: name,
+      families: APP.families,
+      image_a: APP.mediaDataUrlA,
+      image_b: APP.mediaDataUrlB,
+      scene_prompt: caption,
+      overwrite: true
+    });
+    await loadInitData();
+    const files = (res.built || res.written || []).map(f => `<code>${escapeHtml(typeof f === 'string' ? f : f.file)}</code>`).join(', ');
+    renderBanner('media-status-box', `<strong>Extracted Multimodal Control Vector <code>${escapeHtml(name)}</code>!</strong><br/>Saved: ${files}`);
+    setStatus(`Built ${name}`, 'ok');
+  } catch (err) {
+    renderBanner('media-status-box', `Image vector error: ${escapeHtml(err.message)}`, true);
+    setStatus('Media build failed', 'err');
+  }
+}
+
+/* ========================================================================= */
+/* SCREEN 5: SCULPT, INVERT & COMBINE                                        */
+/* ========================================================================= */
+async function runQuickInvert() {
+  try {
+    const src = document.getElementById('quick-invert-source').value;
+    const outName = document.getElementById('quick-invert-name').value.trim();
+    if (!src || !outName) throw new Error('Choose a source vector and enter a new name.');
+    setStatus(`Inverting ${src}...`, 'busy');
+    const res = await apiPost('/api/sculpt', {
+      name: outName,
+      output_name: outName,
+      families: APP.families,
+      steps: [{ vector: src, strength: -1.0, mode: 'add' }],
+      overwrite: true
+    });
+    await loadInitData();
+    const files = (res.built || res.saved || []).map(f => `<code>${escapeHtml(typeof f === 'string' ? f : f.file)}</code>`).join(', ');
+    renderBanner('sculpt-status-box', `<strong>Saved inverted vector <code>${escapeHtml(outName)}</code> (-1.0 &times; ${escapeHtml(src)})!</strong><br/>Files: ${files}`);
+    setStatus(`Saved ${outName}`, 'ok');
+  } catch (err) {
+    renderBanner('sculpt-status-box', `Invert error: ${escapeHtml(err.message)}`, true);
+    setStatus('Invert failed', 'err');
+  }
 }
 
 function renderSculptRows() {
-  const container = document.getElementById("sculpt-rows");
-  const vecOptions = state.vectors.map(v => `<option value="${escapeHtml(v.file)}">${escapeHtml(v.name)} (${escapeHtml(v.family)}/${escapeHtml(v.pooling)})</option>`).join("");
-  container.innerHTML = state.sculptSteps.map((st, idx) => `
-    <div style="display:grid; grid-template-columns: 1fr 125px 70px 28px; gap:6px; margin-bottom:6px; align-items:center;">
-      <select class="sculpt-vec-sel" data-idx="${idx}">
-        <option value="">(select vector)</option>
-        ${vecOptions}
-      </select>
-      <select class="sculpt-mode-sel" data-idx="${idx}">
-        <option value="add_norm_matched" ${st.mode === "add_norm_matched" ? "selected" : ""}>add_norm_matched</option>
-        <option value="add" ${st.mode === "add" ? "selected" : ""}>add (raw)</option>
-        <option value="hold" ${st.mode === "hold" ? "selected" : ""}>hold (scrub)</option>
-      </select>
-      <input type="number" class="sculpt-str-inp" data-idx="${idx}" value="${Number(st.strength ?? 1.0)}" step="0.1" min="-3" max="3">
-      <button type="button" class="sculpt-del-btn danger" data-idx="${idx}" style="padding:4px 6px;">&times;</button>
-    </div>
-  `).join("");
+  const container = document.getElementById('sculpt-rows-container');
+  if (!container) return;
+  const optionsHtml = APP.vectors.map(v => {
+    const val = typeof v === 'string' ? v : (v.file || v.name);
+    const label = typeof v === 'string' ? v : (`${v.name || v.file} (${v.family || 'fl2va'})`);
+    return `<option value="${escapeHtml(val)}">${escapeHtml(label)}</option>`;
+  }).join('');
 
-  container.querySelectorAll(".sculpt-vec-sel").forEach(sel => {
-    const idx = Number(sel.getAttribute("data-idx"));
-    if (state.sculptSteps[idx] && state.sculptSteps[idx].vector) {
-      sel.value = state.sculptSteps[idx].vector;
-    }
-    sel.addEventListener("change", () => {
-      state.sculptSteps[idx].vector = sel.value;
-    });
-  });
-  container.querySelectorAll(".sculpt-mode-sel").forEach(sel => {
-    const idx = Number(sel.getAttribute("data-idx"));
-    sel.addEventListener("change", () => {
-      state.sculptSteps[idx].mode = sel.value;
-    });
-  });
-  container.querySelectorAll(".sculpt-str-inp").forEach(inp => {
-    const idx = Number(inp.getAttribute("data-idx"));
-    inp.addEventListener("change", () => {
-      state.sculptSteps[idx].strength = parseFloat(inp.value || "1.0");
-    });
-  });
-  container.querySelectorAll(".sculpt-del-btn").forEach(btn => {
-    const idx = Number(btn.getAttribute("data-idx"));
-    btn.addEventListener("click", () => {
-      state.sculptSteps.splice(idx, 1);
-      if (!state.sculptSteps.length) {
-        state.sculptSteps.push({ vector: "", mode: "add_norm_matched", strength: 1.0 });
-      }
-      renderSculptRows();
-    });
+  container.innerHTML = APP.sculptRows.map((row, idx) => `
+    <div style="display:grid;grid-template-columns:2fr 1.4fr 1fr auto;gap:10px;align-items:center;margin-bottom:10px;background:var(--panel);padding:10px 12px;border:1px solid var(--border);border-radius:8px;">
+      <select onchange="APP.sculptRows[${idx}].vector = this.value">
+        ${optionsHtml}
+      </select>
+      <select onchange="APP.sculptRows[${idx}].mode = this.value">
+        <option value="add" ${row.mode === 'add' ? 'selected' : ''}>add (weighted sum)</option>
+        <option value="add_norm_matched" ${row.mode === 'add_norm_matched' ? 'selected' : ''}>add_norm_matched (match L2)</option>
+        <option value="hold" ${row.mode === 'hold' ? 'selected' : ''}>hold (Gram-Schmidt orthogonalize)</option>
+      </select>
+      <input type="number" step="0.1" value="${row.strength}" onchange="APP.sculptRows[${idx}].strength = parseFloat(this.value || '0')" placeholder="Weight (e.g. 1.0 or -1.0)" />
+      <div class="btn-row">
+        <button type="button" class="btn btn-sm" onclick="APP.sculptRows[${idx}].strength = -1 * (APP.sculptRows[${idx}].strength || 1); renderSculptRows();">Flip &plusmn;</button>
+        <button type="button" class="btn btn-sm" onclick="APP.sculptRows.splice(${idx}, 1); renderSculptRows();">Remove</button>
+      </div>
+    </div>
+  `).join('');
+
+  const selects = container.querySelectorAll('select:first-child');
+  APP.sculptRows.forEach((row, idx) => {
+    if (selects[idx] && row.vector) selects[idx].value = row.vector;
   });
 }
 
-function renderLists() {
-  document.getElementById("toml-count").textContent = state.tomlFiles.length;
-  const tomlEl = document.getElementById("toml-list");
-  tomlEl.innerHTML = state.tomlFiles.map(t => `
-    <div class="list-item" data-toml="${escapeHtml(t.file)}">
-      <div class="list-item-title">
-        <span>${escapeHtml(t.name)}</span>
-        <span class="badge">${t.pairs}p${t.holds ? " + " + t.holds + "h" : ""}</span>
-      </div>
-      <div class="list-item-meta">${escapeHtml(t.quality || t.file)}</div>
-    </div>
-  `).join("");
-  tomlEl.querySelectorAll(".list-item").forEach(item => {
-    item.addEventListener("click", () => loadTomlFile(item.getAttribute("data-toml")));
-  });
-
-  document.getElementById("vec-count").textContent = state.vectors.length;
-  const vecEl = document.getElementById("vector-list");
-  vecEl.innerHTML = state.vectors.map(v => {
-    const cos = v.split_half_cosine != null ? Number(v.split_half_cosine).toFixed(3) : "—";
-    const cosClass = (v.split_half_cosine != null && v.split_half_cosine >= 0.7) ? "green" : "amber";
-    return `
-      <div class="list-item" data-vecfile="${escapeHtml(v.file)}" data-vecname="${escapeHtml(v.name)}">
-        <div class="list-item-title">
-          <span>${escapeHtml(v.file)}</span>
-          <span class="badge ${cosClass}">cos ${cos}</span>
-        </div>
-        <div class="list-item-meta">
-          family: <strong>${escapeHtml(v.family)}</strong> | pooling: <strong>${escapeHtml(v.pooling)}</strong> | norm: ${v.norm != null ? Number(v.norm).toFixed(2) : "—"}
-        </div>
-      </div>
-    `;
-  }).join("");
-  vecEl.querySelectorAll(".list-item").forEach(item => {
-    item.addEventListener("click", () => {
-      const vf = item.getAttribute("data-vecfile");
-      const vn = item.getAttribute("data-vecname");
-      state.activeVectorFile = vf;
-      if (state.sculptSteps.length && !state.sculptSteps[0].vector) {
-        state.sculptSteps[0].vector = vf;
-        renderSculptRows();
-      }
-      inspectVectorJLens(vf);
-      const matchingToml = state.tomlFiles.find(t => t.name === vn);
-      if (matchingToml) loadTomlFile(matchingToml.file);
-    });
-  });
-
-  document.getElementById("clip-count").textContent = state.clips.length + " clips";
-  const leftSel = document.getElementById("clip-left-select");
-  const rightSel = document.getElementById("clip-right-select");
-  const prevLeft = leftSel.value;
-  const prevRight = rightSel.value;
-  if (state.clips.length === 0) {
-    leftSel.innerHTML = '<option value="">(no rendered clips found)</option>';
-    rightSel.innerHTML = '<option value="">(no rendered clips found)</option>';
-  } else {
-    const opts = state.clips.map(c => `<option value="${escapeHtml(c.rel)}">${escapeHtml(c.label)}</option>`).join("");
-    leftSel.innerHTML = opts;
-    rightSel.innerHTML = opts;
-    if (prevLeft) leftSel.value = prevLeft;
-    if (prevRight) rightSel.value = prevRight;
-    else if (state.clips.length > 1) rightSel.selectedIndex = 1;
-    updateVideoSources();
-  }
+function addSculptRow() {
+  const firstVec = APP.vectors.length ? (typeof APP.vectors[0] === 'string' ? APP.vectors[0] : (APP.vectors[0].file || APP.vectors[0].name)) : 'blizzard';
+  APP.sculptRows.push({ vector: firstVec, strength: 0.5, mode: 'add' });
   renderSculptRows();
 }
 
-function renderJLensReadout(title, ro, extraInfo, promptCoupling) {
-  const panel = document.getElementById("jlens-panel");
-  const badge = document.getElementById("jlens-badge");
-  if (!ro) {
-    panel.innerHTML = '<div class="sub">No J-Lens readout available.</div>';
-    return;
-  }
-  const rd = ro.readiness || {};
-  const top1 = rd.top1_gain != null ? Number(rd.top1_gain) : 0;
-  const echo = rd.echo_ratio != null ? Number(rd.echo_ratio) * 100 : null;
-  const trans = rd.refiner_transmission != null ? Number(rd.refiner_transmission) : null;
-  const rawRec = rd.recommended_strength;
-  const recDisplay = Array.isArray(rawRec) ? `${rawRec[0]}..${rawRec[1]}` : (rawRec || "1.00 .. 1.35");
-  const basis = rd.basis || "post_refiner";
-  const isUnigram = (basis === "unigram_synthesis" || basis === "unigram_dictionary" || basis === "word_synthesis");
-  badge.className = "badge " + (isUnigram ? "amber" : "green");
-  badge.textContent = `${basis} | top1 ${top1.toFixed(2)} | str ${recDisplay}`;
-
-  if (promptCoupling && promptCoupling.token_heatmap) {
-    renderTokenHeatmap(promptCoupling.token_heatmap, "< 2 ms J-Lens Coupling");
-  }
-
-  const fmtWords = (items, color) => (items || []).slice(0, 10).map(it => {
-    const sc = Number(it.gain != null ? it.gain : (it.score != null ? it.score : 0));
-    return `<span style="display:inline-block; background:var(--code-bg); border:1px solid var(--border); border-radius:4px; padding:2px 6px; margin:2px; font-size:11px; color:${color};"><strong>${escapeHtml(it.word)}</strong> <span style="opacity:0.7;">${sc >= 0 ? "+" : ""}${sc.toFixed(2)}</span></span>`;
-  }).join("");
-
-  const pushWords = ro.positive_words || (ro.layer63_last || {}).pushed || [];
-  const pullWords = ro.negative_words || (ro.layer63_last || {}).pulled || [];
-  const pushRef = (ro.post_refiner_wiener || {}).pushed || [];
-  const offTarget = rd.off_target_words || [];
-
-  let pcHtml = "";
-  const topRecList = promptCoupling
-    ? (promptCoupling.top_receptors || [
-        ...((promptCoupling.subject_leakage || []).map(r => ({ ...r, is_subject: true }))),
-        ...((promptCoupling.positive_receptors || []).map(r => ({ ...r, is_subject: false }))),
-      ])
-    : [];
-  if (topRecList.length) {
-    const recChips = topRecList.slice(0, 6).map(
-      r => `<span class="token-chip" data-word="${escapeHtml(r.word)}" style="color:${r.is_subject ? '#ffa198' : '#7ee787'};">${escapeHtml(r.word)} ${Number(r.cosine != null ? r.cosine : (r.gain || 0)).toFixed(2)}${r.is_subject ? ' (subj)' : ''}</span>`
-    ).join("");
-    const warnMsg = promptCoupling.hijack_warning || promptCoupling.warning || "";
-    pcHtml = `
-      <div style="margin-top:6px; padding:6px 8px; background:var(--code-bg); border:1px solid var(--border); border-radius:6px; font-size:11px;">
-        <div style="font-weight:600; color:var(--accent); margin-bottom:3px;">
-          Top Prompt Receptors (click chip to Hold):
-        </div>
-        <div>${recChips}</div>
-        ${warnMsg ? `<div style="color:#ffa198; margin-top:4px;">&#9888; ${escapeHtml(warnMsg)}</div>` : ""}
-      </div>
-    `;
-  }
-
-  panel.innerHTML = `
-    <div style="margin-bottom:8px;">
-      <div style="font-weight:600; font-size:12px; margin-bottom:4px;">${escapeHtml(title)}</div>
-      ${isUnigram ? `<div class="sub" style="color:#e3b341; background:var(--amber-bg); padding:5px 8px; border-radius:4px; border:1px solid rgba(210,153,34,0.35);"><strong>Unigram Synthesis Note:</strong> ${escapeHtml(rd.basis_note || "Unigram average has a 0.52 cosine ceiling vs 10-pair Qwen3-VL diff_span vectors. Promote to the 10-Scene Workbench for full contextual composition.")}</div>` : ""}
-      ${extraInfo ? `<div class="sub" style="margin-bottom:4px;">${escapeHtml(extraInfo)}</div>` : ""}
-      <div class="sub" style="margin-bottom:6px;">
-        Rec. strength: <strong>${escapeHtml(String(recDisplay))}</strong> (<code>add_norm_matched</code>)
-        | top1_gain: <code>${top1.toFixed(2)}</code>
-        ${echo !== null ? ` | echo: <code>${echo.toFixed(0)}%</code>` : ""}
-        ${trans !== null ? ` | refiner_pass: <code>${trans.toFixed(2)}</code>` : ""}
-        ${offTarget.length ? `<br><span style="color:#e3b341;">Off-target drift (click to Hold): ${offTarget.map(w => `<a href="#" class="off-target-link" data-word="${escapeHtml(w)}" style="color:#ffa198; text-decoration:underline; margin-right:5px;">${escapeHtml(w)}</a>`).join("")}</span>` : ""}
-      </div>
-      ${pcHtml}
-    </div>
-    ${pushWords.length ? `<div style="margin-bottom:6px;"><label>Top Pushed Words (+)</label><div>${fmtWords(pushWords, "#7ee787")}</div></div>` : ""}
-    ${pullWords.length ? `<div style="margin-bottom:6px;"><label>Top Pulled Words (&minus;)</label><div>${fmtWords(pullWords, "#ffa198")}</div></div>` : ""}
-    ${pushRef.length ? `<div><label>Post-Refiner (5376-d Wiener Pullback) — Top Pushed (+)</label><div>${fmtWords(pushRef, "#79c0ff")}</div></div>` : ""}
-  `;
-  panel.querySelectorAll(".off-target-link, .token-chip").forEach(el => {
-    el.addEventListener("click", e => {
-      e.preventDefault();
-      const w = el.getAttribute("data-word");
-      if (w) toggleHoldWord(w);
-    });
-  });
-}
-
-async function inspectVectorJLens(vecFile) {
-  const holdWords = document.getElementById("vec-holds").value.trim();
-  const holdAlpha = parseFloat(document.getElementById("hold-alpha-slider").value || "1.0");
-  const prompt = document.getElementById("vec-prompt").value;
-  const res = await apiPost("/api/j-lens", {
-    vector: vecFile,
-    hold_words: holdWords,
-    alpha: holdAlpha,
-    prompt,
-  });
-  const rep = res.report || res;
-  if (res.ok && (rep.readout || rep.post_refiner)) {
-    const holdNote = holdWords ? ` | hold_words: "${holdWords}" (alpha=${holdAlpha.toFixed(2)})` : "";
-    const nrm = rep.norm != null ? rep.norm : (rep.norm_after_holds != null ? rep.norm_after_holds : 0);
-    renderJLensReadout(
-      `Vector: ${vecFile}`,
-      rep.readout || rep.post_refiner,
-      `family: ${rep.family || "fl2va"} | norm: ${Number(nrm).toFixed(2)}${holdNote}`,
-      rep.prompt_coupling
-    );
-  }
-}
-
-async function previewWordsJLens() {
-  const words = document.getElementById("exp-pole-b")?.value.trim() || document.getElementById("md-input").value.trim();
-  if (!words || words.includes("####") || words.includes("[[pair]]")) return;
-  const holdWords = document.getElementById("vec-holds").value.trim();
-  const againstWords = document.getElementById("vec-against").value;
-  const prompt = document.getElementById("vec-prompt").value;
-  const holdAlpha = parseFloat(document.getElementById("hold-alpha-slider").value || "1.0");
-  const res = await apiPost("/api/j-lens", {
-    from_words: words,
-    words,
-    against_words: againstWords,
-    hold_words: holdWords,
-    prompt,
-    alpha: holdAlpha,
-    family: "fl2va",
-  });
-  const rep = res.report || res;
-  if (res.ok && rep.readout) {
-    const posM = rep.pos_matched || rep.pos_words_matched || [];
-    const holdM = rep.hold_matched || rep.hold_words || [];
-    renderJLensReadout(
-      `Words Preview: "${words}"`,
-      rep.readout,
-      `Matched: ${posM.join(", ")}${holdM.length ? " | Held out: " + holdM.join(", ") : ""}`,
-      rep.prompt_coupling
-    );
-  }
-}
-
-async function loadTomlFile(filename) {
-  setStatus("info", "Loading " + filename + "...");
-  const res = await apiPost("/api/load-toml", { file: filename });
-  if (!res.ok) {
-    setStatus("err", res.error || "Failed to load .toml");
-    return;
-  }
-  document.getElementById("vec-name").value = res.name || "";
-  document.getElementById("vec-frame").value = res.frame || "scene";
-  document.getElementById("vec-mode").value = res.mode || "t2va";
-  document.getElementById("md-input").value = res.markdown || "";
-  const pairRows = (res.pairs || []).map((p, idx) => ({
-    scene_id: p.scene_id || `pair_${idx + 1}`,
-    a: p.a || "",
-    b: p.b || "",
-    weight: Number(p.weight ?? 1.0),
-    enabled: true,
-    is_hold: false,
-  }));
-  const holdRows = (res.holds || []).map((h, idx) => ({
-    scene_id: h.group || `hold_${idx + 1}`,
-    a: h.a || "",
-    b: h.b || "",
-    weight: Number(h.weight ?? 1.0),
-    enabled: true,
-    is_hold: true,
-  }));
-  state.sceneRows = [...pairRows, ...holdRows];
-  renderSceneDiffTable();
-  setStatus("ok", `Loaded ${filename} (${pairRows.length} pairs, ${holdRows.length} holds) into the 10-Scene Workbench.`);
-  await runPreview();
-}
-
-async function expandScenesFromInputs() {
-  const poleA = document.getElementById("exp-pole-a").value.trim();
-  const poleB = document.getElementById("exp-pole-b").value.trim() || document.getElementById("md-input").value.trim();
-  const soundA = document.getElementById("exp-sound-a").value.trim();
-  const soundB = document.getElementById("exp-sound-b").value.trim();
-  const holdA = document.getElementById("exp-hold-a").value.trim();
-  const holdB = document.getElementById("exp-hold-b").value.trim();
-  const slot = document.getElementById("vec-slot").value;
-  const mode = document.getElementById("vec-mode").value;
-  const name = document.getElementById("vec-name").value.trim();
-  const includeTarget = document.getElementById("exp-include-target").checked;
-  const targetPrompt = includeTarget ? document.getElementById("vec-prompt").value : "";
-
-  if (!poleB && !soundB) {
-    setStatus("err", "Enter Pole B (Steered Clause) or Soundscape Pole B to expand across the 10 canonical scenes.");
-    return;
-  }
-  setStatus("info", "Expanding clauses across 10 canonical scenes...");
-  const res = await apiPost("/api/expand-scenes", {
-    pole_a: poleA,
-    pole_b: poleB,
-    sound_a: soundA,
-    sound_b: soundB,
-    hold_a: holdA,
-    hold_b: holdB,
-    slot,
-    mode,
-    name,
-    target_prompt: targetPrompt,
-    target_weight: 2.0,
-  });
-  if (!res.ok) {
-    setStatus("err", res.error || "Failed to expand scenes");
-    return;
-  }
-  if (res.name && !document.getElementById("vec-name").value.trim()) {
-    document.getElementById("vec-name").value = res.name;
-  }
-  const pairRows = (res.rows || []).map(r => ({
-    scene_id: r.scene_id,
-    a: r.a,
-    b: r.b,
-    weight: Number(r.weight ?? 1.0),
-    enabled: true,
-    is_hold: false,
-  }));
-  const holdRows = (res.holds || []).map(h => ({
-    scene_id: h.group || "hold",
-    a: h.a,
-    b: h.b,
-    weight: Number(h.weight ?? 1.0),
-    enabled: true,
-    is_hold: true,
-  }));
-  state.sceneRows = [...pairRows, ...holdRows];
-  renderSceneDiffTable();
-  switchStageTab("scenes");
-  setStatus("ok", `Expanded ${pairRows.length} scene pairs${holdRows.length ? " + " + holdRows.length + " hold pairs" : ""} across canonical scenes (slot: ${res.slot}).`);
-}
-
-function renderSpanPreviewCards(res) {
-  const badge = document.getElementById("parse-badge");
-  const avgBadge = document.getElementById("avg-tokens-badge");
-  const container = document.getElementById("pairs-preview");
-  const tpBox = document.getElementById("test-prompt-box");
-
-  if (!res.ok && (!res.pairs || res.pairs.length === 0)) {
-    badge.className = "badge red";
-    badge.textContent = "Parse Error";
-    container.innerHTML = `<div class="sub" style="color:var(--red);">${escapeHtml(res.error || "No pairs found")}</div>`;
-    return;
-  }
-
-  const allValid = res.pairs.every(p => p.valid);
-  badge.className = "badge " + (allValid ? "green" : "amber");
-  badge.textContent = `${res.pairs.length} pairs (${allValid ? "all valid" : "check warnings"})`;
-
-  const avgDiff = res.avg_tokens ? res.avg_tokens.diff_span : "—";
-  avgBadge.textContent = `diff_span avg: ${avgDiff} tok`;
-
-  if (res.test_prompt) {
-    tpBox.style.display = "block";
-    document.getElementById("test-prompt-text").value = res.test_prompt;
-  } else {
-    tpBox.style.display = "none";
-  }
-
-  container.innerHTML = res.pairs.map(p => `
-    <div class="pair-card ${p.valid ? "valid" : "invalid"}">
-      <div class="pair-header">
-        <span>Pair ${p.index}${p.weight && p.weight !== 1.0 ? ` (wt ${p.weight})` : ""}</span>
-        <span>${p.valid
-          ? `diff_span: <strong>${p.tokens.diff_span}</strong> tok | scene_text: ${p.tokens.scene_text} tok`
-          : `<span style="color:var(--red);">${escapeHtml(p.error)}</span>`
-        }</span>
-      </div>
-      ${p.diff_a ? `<div class="diff-line diff-a">&minus; A: ${escapeHtml(p.diff_a)}</div>` : ""}
-      ${p.diff_b ? `<div class="diff-line diff-b">+ B: ${escapeHtml(p.diff_b)}</div>` : ""}
-    </div>
-  `).join("");
-}
-
-async function runPreview() {
-  const text = document.getElementById("md-input").value;
-  const name = document.getElementById("vec-name").value;
-  const frame = document.getElementById("vec-frame").value;
-  const slot = document.getElementById("vec-slot").value;
-  const mode = document.getElementById("vec-mode").value;
-  if (!text.trim()) return;
-  const res = await apiPost("/api/preview", { text, name, frame, slot, mode });
-  renderSpanPreviewCards(res);
-  previewWordsJLens();
-}
-
-function updateSceneRowCosinesFromBuild(builtList) {
-  if (!builtList || !builtList.length) return;
-  const first = builtList[0];
-  const cosines = first.per_pair_cosine || [];
-  const spans = first.pair_spans || [];
-  let activePairIdx = 0;
-  state.sceneRows.forEach(r => {
-    if (r.enabled && !r.is_hold) {
-      if (activePairIdx < cosines.length) {
-        r.cosine = cosines[activePairIdx];
-      }
-      if (activePairIdx < spans.length) {
-        r.diff_tokens = spans[activePairIdx].pooled_tokens;
-      }
-      activePairIdx += 1;
-    } else {
-      r.cosine = null;
-    }
-  });
-  renderSceneDiffTable();
-}
-
-async function buildFromSceneRows() {
-  if (!state.sceneRows.length) {
-    await expandScenesFromInputs();
-    if (!state.sceneRows.length) return;
-  }
-  const activePairs = state.sceneRows.filter(r => r.enabled && !r.is_hold);
-  const holdPairs = state.sceneRows.filter(r => r.enabled && r.is_hold).map(r => ({
-    group: r.scene_id || "hold",
-    a: r.a,
-    b: r.b,
-    weight: Number(r.weight ?? 1.0),
-  }));
-  if (!activePairs.length) {
-    setStatus("err", "Enable at least one non-hold scene row before building.");
-    return;
-  }
-  const name = document.getElementById("vec-name").value.trim() || "custom_scene_vector";
-  const frame = document.getElementById("vec-frame").value;
-  const mode = document.getElementById("vec-mode").value;
-  const families = document.getElementById("vec-families").value;
-  const pooling = document.getElementById("vec-pooling").value;
-  const overwrite = document.getElementById("vec-overwrite").checked;
-  const no_lora = document.getElementById("vec-nolora").checked;
-  const unit_mean = document.getElementById("unit-mean-chk").checked;
-  const hold_words = document.getElementById("vec-holds").value.trim();
-  const hold_alpha = parseFloat(document.getElementById("hold-alpha-slider").value || "1.0");
-
-  const btn = document.getElementById("btn-build-rows");
-  btn.disabled = true;
-  setStatus("info", `Encoding ${activePairs.length} scene pairs${holdPairs.length ? " + " + holdPairs.length + " hold pairs" : ""} through Qwen3-VL + TokenRefiner...`);
+async function runSculptRecipe() {
   try {
-    const res = await apiPost("/api/build", {
+    const name = document.getElementById('sculpt-name').value.trim();
+    const holdWords = document.getElementById('sculpt-hold-words').value.trim();
+    if (!name) throw new Error('Enter an Output Sculpted Vector Name.');
+    setStatus(`Sculpting ${name}...`, 'busy');
+    const res = await apiPost('/api/sculpt', {
       name,
-      frame,
-      mode,
-      families,
-      pooling,
-      overwrite,
-      no_lora,
-      unit_mean,
-      hold_words,
-      hold_alpha,
-      rows: activePairs,
-      holds: holdPairs,
+      output_name: name,
+      families: APP.families,
+      steps: APP.sculptRows,
+      hold_words: holdWords,
+      overwrite: true
     });
-    if (!res.ok) {
-      setStatus("err", res.error || "Build failed");
-      return;
-    }
-    updateSceneRowCosinesFromBuild(res.built || []);
-    const lines = (res.built || []).map(
-      b => `${b.file} (split_half_cos=${Number(b.split_half_cosine).toFixed(3)}, norm=${Number(b.vector_norm).toFixed(2)}, rec=${(b.recommended_strength_band || []).join("..")})`
-    );
-    setStatus("ok", `Built ${lines.length} vector(s) & cached per-pair states for <1ms CPU Re-Pooling:\n` + lines.join("\n"));
-    await refreshInit();
-    if (res.built && res.built.length) {
-      const builtFile = res.built[0].file.split("/").pop();
-      state.activeVectorFile = builtFile;
-      inspectVectorJLens(builtFile);
-    }
-  } finally {
-    btn.disabled = false;
+    await loadInitData();
+    const files = (res.built || res.saved || []).map(f => `<code>${escapeHtml(typeof f === 'string' ? f : f.file)}</code>`).join(', ');
+    renderBanner('sculpt-status-box', `<strong>Sculpted &amp; saved <code>${escapeHtml(name)}</code> in &lt; 5 ms CPU!</strong><br/>Saved: ${files}`);
+    setStatus(`Sculpted ${name}`, 'ok');
+  } catch (err) {
+    renderBanner('sculpt-status-box', `Sculpt error: ${escapeHtml(err.message)}`, true);
+    setStatus('Sculpt failed', 'err');
   }
 }
 
-async function repoolFromSceneRows() {
-  if (!state.sceneRows.length) {
-    setStatus("err", "No scene rows loaded. Build a 10-pair vector first to populate the <1ms CPU cache.");
-    return;
-  }
-  const activeIndices = [];
-  const holdIndices = [];
-  const weights = [];
-  state.sceneRows.forEach((r, idx) => {
-    weights.push(Number(r.weight ?? 1.0));
-    if (!r.enabled) return;
-    if (r.is_hold) holdIndices.push(idx);
-    else activeIndices.push(idx);
-  });
-  const hold_words = document.getElementById("vec-holds").value.trim();
-  const hold_alpha = parseFloat(document.getElementById("hold-alpha-slider").value || "1.0");
-  const unit_mean = document.getElementById("unit-mean-chk").checked;
-  const overwrite = document.getElementById("vec-overwrite").checked;
+/* ========================================================================= */
+/* SCREEN 6: PROMPT RECEPTOR METER & SEPARATE J-LENS WORD LAB                */
+/* ========================================================================= */
+function fillMeterSamplePrompt() {
+  document.getElementById('meter-prompt-text').value =
+`A medium tracking shot on a 35mm anamorphic lens. A traveler in a weathered wool coat walks along a stone pier under low slate clouds as wind whips across the harbor water.
 
-  const btn = document.getElementById("btn-repool-rows");
-  btn.disabled = true;
-  try {
-    const res = await apiPost("/api/repool", {
-      active_indices: activeIndices,
-      hold_indices: holdIndices,
-      weights,
-      rows: state.sceneRows,
-      hold_words,
-      hold_alpha,
-      unit_mean,
-      overwrite,
-    });
-    if (!res.ok) {
-      setStatus("err", res.error || "Re-pool failed");
-      return;
-    }
-    updateSceneRowCosinesFromBuild(res.built || []);
-    const lines = (res.built || []).map(
-      b => `${b.file} (split_half_cos=${Number(b.split_half_cosine).toFixed(3)}, norm=${Number(b.vector_norm).toFixed(2)}, dirty_reencoded=${b.dirty_reencoded || 0})`
-    );
-    setStatus("ok", `Re-pooled & saved in ${Number(res.elapsed_ms || 0).toFixed(2)} ms:\n` + lines.join("\n"));
-    await refreshInit();
-    if (res.built && res.built.length) {
-      const builtFile = res.built[0].file.split("/").pop();
-      state.activeVectorFile = builtFile;
-      inspectVectorJLens(builtFile);
-    }
-  } finally {
-    btn.disabled = false;
-  }
+[00s-05s] The traveler pulls the collar tight against the gust while waves spray over the seawall.
+
+Soundscape: Howling coastal wind, crashing water spray, and heavy boots on wet stone.`;
 }
 
-document.getElementById("btn-expand-scenes").addEventListener("click", expandScenesFromInputs);
-document.getElementById("btn-build-rows").addEventListener("click", buildFromSceneRows);
-document.getElementById("btn-repool-rows").addEventListener("click", repoolFromSceneRows);
-document.getElementById("btn-add-scene-row").addEventListener("click", () => {
-  state.sceneRows.push({
-    scene_id: `custom_${state.sceneRows.length + 1}`,
-    a: "integrated_multimodal_description: [Shot 1] Baseline scene description.\n\noverall_soundscape: Quiet room tone.\n\nnon_diegetic_music: None.",
-    b: "integrated_multimodal_description: [Shot 1] Steered scene description.\n\noverall_soundscape: Quiet room tone.\n\nnon_diegetic_music: None.",
-    weight: 1.0,
-    enabled: true,
-    is_hold: false,
-  });
-  renderSceneDiffTable();
-});
-
-document.getElementById("btn-promote-scenes").addEventListener("click", async () => {
-  const text = document.getElementById("md-input").value.trim();
-  if (!text) {
-    setStatus("err", "Type words/clauses or paste Markdown in the box first.");
-    return;
-  }
-  if (!text.includes("####") && !text.includes("[[pair]]")) {
-    document.getElementById("exp-pole-b").value = text;
-    await expandScenesFromInputs();
-  } else {
-    const res = await apiPost("/api/preview", {
-      text,
-      name: document.getElementById("vec-name").value.trim(),
-      frame: document.getElementById("vec-frame").value,
-      slot: document.getElementById("vec-slot").value,
-      mode: document.getElementById("vec-mode").value,
-    });
-    renderSpanPreviewCards(res);
-    switchStageTab("scenes");
-  }
-});
-
-document.getElementById("btn-build-media").addEventListener("click", async () => {
-  const image_a = document.getElementById("media-image-a").value.trim();
-  const image_b = document.getElementById("media-image-b").value.trim();
-  const output_name = document.getElementById("vec-name").value.trim() || "media_contrast";
-  const pooling = document.getElementById("media-pooling").value;
-  const short_edge = parseInt(document.getElementById("media-short-edge").value || "448", 10);
-  const scene_prompt = document.getElementById("media-scene-prompt").value.trim();
-  const families = document.getElementById("vec-families").value;
-  const overwrite = document.getElementById("vec-overwrite").checked;
-  const no_lora = document.getElementById("vec-nolora").checked;
-  const hold_words = document.getElementById("vec-holds").value.trim();
-  const hold_alpha = parseFloat(document.getElementById("hold-alpha-slider").value || "1.0");
-
-  if (!image_a || !image_b) {
-    setStatus("err", "Provide both Image A Path and Image B Path.");
-    return;
-  }
-  const btn = document.getElementById("btn-build-media");
-  btn.disabled = true;
-  setStatus("info", `Building media control vector (${image_a} -> ${image_b})...`);
+async function runPromptReceptorMeter() {
   try {
-    const res = await apiPost("/api/build-media", {
-      image_a,
-      image_b,
-      output_name,
-      pooling,
-      short_edge,
-      scene_prompt,
-      families,
-      overwrite,
-      no_lora,
-      hold_words,
-      hold_alpha,
-    });
-    if (!res.ok) {
-      setStatus("err", res.error || "Media build failed");
-      return;
-    }
-    const lines = (res.built || []).map(b => `${b.file} (grid=${b.grid}, norm=${Number(b.vector_norm).toFixed(2)})`);
-    setStatus("ok", "Built media control vector:\n" + lines.join("\n"));
-    await refreshInit();
-  } finally {
-    btn.disabled = false;
-  }
-});
-
-document.getElementById("btn-preview").addEventListener("click", runPreview);
-
-document.getElementById("btn-save-toml").addEventListener("click", async () => {
-  const text = document.getElementById("md-input").value;
-  const name = document.getElementById("vec-name").value;
-  const frame = document.getElementById("vec-frame").value;
-  const slot = document.getElementById("vec-slot").value;
-  const mode = document.getElementById("vec-mode").value;
-  const overwrite = document.getElementById("vec-overwrite").checked;
-  setStatus("info", "Saving .toml...");
-  const res = await apiPost("/api/save-toml", { text, name, frame, slot, mode, overwrite });
-  if (!res.ok) {
-    setStatus("err", res.error || "Failed to save .toml");
-    return;
-  }
-  if (res.name && !document.getElementById("vec-name").value.trim()) {
-    document.getElementById("vec-name").value = res.name;
-  }
-  setStatus("ok", `Saved ${res.toml} (${res.pairs} pairs)`);
-  await refreshInit();
-  await runPreview();
-});
-
-document.getElementById("btn-build-words").addEventListener("click", async () => {
-  const words = document.getElementById("md-input").value.trim() || document.getElementById("exp-pole-b").value.trim();
-  const name = document.getElementById("vec-name").value.trim();
-  const families = document.getElementById("vec-families").value;
-  const overwrite = document.getElementById("vec-overwrite").checked;
-  const against_words = document.getElementById("vec-against").value;
-  const hold_words = document.getElementById("vec-holds").value.trim();
-  const prompt = document.getElementById("vec-prompt").value;
-  const alpha = parseFloat(document.getElementById("hold-alpha-slider").value || "1.0");
-  if (!words || words.includes("####") || words.includes("[[pair]]")) {
-    setStatus("err", "Type a comma-separated word list (e.g. 'underwater, submerged, bubbles') to synthesize a <2ms unigram lexical tint.");
-    return;
-  }
-  const btn = document.getElementById("btn-build-words");
-  btn.disabled = true;
-  setStatus("info", "Synthesizing unigram lexical tint via J-Lens (< 2 ms)...");
-  try {
-    const res = await apiPost("/api/build-words", {
-      words,
-      against_words,
-      hold_words,
-      prompt,
-      name,
-      families,
-      overwrite,
-      alpha,
-    });
-    if (!res.ok) {
-      setStatus("err", res.error || "J-Lens word synthesis failed");
-      return;
-    }
-    if (res.name && !document.getElementById("vec-name").value.trim()) {
-      document.getElementById("vec-name").value = res.name;
-    }
-    const lines = (res.built || []).map(b => {
-      const rStr = (b.readiness || {}).recommended_strength;
-      const rFmt = Array.isArray(rStr) ? rStr.join("..") : (rStr || "1.00..1.35");
-      return `${b.file} (family=${b.family}, basis=${(b.readiness || {}).basis || "unigram_synthesis"}, rec=${rFmt})`;
-    });
-    setStatus("ok", `Synthesized ${lines.length} unigram lexical tint vector(s) in < 2 ms:\n` + lines.join("\n"));
-    if (res.built && res.built.length) {
-      renderJLensReadout(`Synthesized: ${res.name}`, res.built[0].readout, "", res.built[0].prompt_coupling);
-    }
-    await refreshInit();
-  } finally {
-    btn.disabled = false;
-  }
-});
-
-document.getElementById("btn-build").addEventListener("click", async () => {
-  const text = document.getElementById("md-input").value;
-  const name = document.getElementById("vec-name").value;
-  const frame = document.getElementById("vec-frame").value;
-  const slot = document.getElementById("vec-slot").value;
-  const mode = document.getElementById("vec-mode").value;
-  const families = document.getElementById("vec-families").value;
-  const pooling = document.getElementById("vec-pooling").value;
-  const overwrite = document.getElementById("vec-overwrite").checked;
-  const no_lora = document.getElementById("vec-nolora").checked;
-  const unit_mean = document.getElementById("unit-mean-chk").checked;
-  const hold_words = document.getElementById("vec-holds").value.trim();
-  const hold_alpha = parseFloat(document.getElementById("hold-alpha-slider").value || "1.0");
-
-  const btn = document.getElementById("btn-build");
-  btn.disabled = true;
-  setStatus("info", "Building control vector(s) via Qwen3-VL + TokenRefiner...");
-  try {
-    const res = await apiPost("/api/build", {
-      text, name, frame, slot, mode, families, pooling, overwrite, no_lora, unit_mean, hold_words, hold_alpha
-    });
-    if (!res.ok) {
-      setStatus("err", res.error || "Build failed");
-      return;
-    }
-    if (res.name && !document.getElementById("vec-name").value.trim()) {
-      document.getElementById("vec-name").value = res.name;
-    }
-    const lines = (res.built || []).map(
-      b => `${b.file} (split_half_cos=${Number(b.split_half_cosine).toFixed(3)}, norm=${Number(b.vector_norm).toFixed(2)})`
-    );
-    setStatus("ok", `Built ${lines.length} vector(s):\n` + lines.join("\n"));
-    await refreshInit();
-    await runPreview();
-  } finally {
-    btn.disabled = false;
-  }
-});
-
-document.getElementById("btn-add-sculpt-step").addEventListener("click", () => {
-  state.sculptSteps.push({
-    vector: state.vectors.length ? state.vectors[0].file : "",
-    mode: "hold",
-    strength: 1.0,
-  });
-  renderSculptRows();
-});
-
-document.getElementById("btn-sculpt-preview").addEventListener("click", async () => {
-  const validSteps = state.sculptSteps.filter(s => s.vector);
-  if (!validSteps.length) {
-    setStatus("err", "Select at least one vector in the Stage 2B Recipe Composer.");
-    return;
-  }
-  const hold_words = document.getElementById("sculpt-hold-words").value.trim() || document.getElementById("vec-holds").value.trim();
-  const alpha = parseFloat(document.getElementById("hold-alpha-slider").value || "1.0");
-  const prompt = document.getElementById("vec-prompt").value;
-  const res = await apiPost("/api/j-lens", {
-    steps: validSteps,
-    hold_words,
-    alpha,
-    prompt,
-    family: "fl2va",
-  });
-  if (!res.ok) {
-    setStatus("err", res.error || "Recipe preview failed");
-    return;
-  }
-  const rep = res.report || res;
-  const nrm = rep.net_norm != null ? rep.net_norm : (rep.norm_after_holds || 0);
-  renderJLensReadout(
-    `Sculpted Recipe (${validSteps.length} layer${validSteps.length > 1 ? "s" : ""})`,
-    rep.readout,
-    `Net norm: ${Number(nrm).toFixed(2)}${hold_words ? " | hold_words: " + hold_words : ""}`,
-    rep.prompt_coupling
-  );
-});
-
-document.getElementById("btn-sculpt-save").addEventListener("click", async () => {
-  const validSteps = state.sculptSteps.filter(s => s.vector);
-  if (!validSteps.length) {
-    setStatus("err", "Select at least one vector in the Stage 2B Recipe Composer.");
-    return;
-  }
-  const output_name = document.getElementById("sculpt-out-name").value.trim() || document.getElementById("vec-name").value.trim() || "sculpted_recipe";
-  const hold_words = document.getElementById("sculpt-hold-words").value.trim() || document.getElementById("vec-holds").value.trim();
-  const hold_alpha = parseFloat(document.getElementById("hold-alpha-slider").value || "1.0");
-  const families = document.getElementById("vec-families").value;
-  const overwrite = document.getElementById("vec-overwrite").checked;
-  const prompt = document.getElementById("vec-prompt").value;
-
-  const btn = document.getElementById("btn-sculpt-save");
-  btn.disabled = true;
-  setStatus("info", "Saving sculpted recipe vector (.safetensors + .md)...");
-  try {
-    const res = await apiPost("/api/sculpt", {
-      output_name,
-      steps: validSteps,
-      hold_words,
-      hold_alpha,
-      families,
-      overwrite,
-      prompt,
-    });
-    if (!res.ok) {
-      setStatus("err", res.error || "Failed to save sculpted vector");
-      return;
-    }
-    const lines = (res.built || []).map(b => `${b.file} (family=${b.family}, norm=${Number(b.net_norm || 0).toFixed(2)})`);
-    setStatus("ok", `Saved sculpted vector(s) in < 5 ms:\n` + lines.join("\n"));
-    await refreshInit();
-  } finally {
-    btn.disabled = false;
-  }
-});
-
-document.getElementById("btn-run-prompt-meter").addEventListener("click", async () => {
-  const vec = state.activeVectorFile || (state.sculptSteps[0] && state.sculptSteps[0].vector) || (state.vectors[0] && state.vectors[0].file);
-  if (!vec) {
-    setStatus("err", "Select or build a control vector first to run the contextual GPU Token Meter.");
-    return;
-  }
-  const prompt = document.getElementById("vec-prompt").value;
-  const no_lora = document.getElementById("vec-nolora").checked;
-  const btn = document.getElementById("btn-run-prompt-meter");
-  btn.disabled = true;
-  setStatus("info", `Running exact 5376-d Qwen3-VL + TokenRefiner per-token meter on ${prompt}...`);
-  try {
-    const res = await apiPost("/api/prompt-meter", {
+    const vec = document.getElementById('meter-vector-select').value;
+    const prompt = document.getElementById('meter-prompt-text').value.trim();
+    if (!vec || !prompt) throw new Error('Select a Control Vector and enter your H3 prompt.');
+    const fam = APP.families.includes('fl2va') ? 'fl2va' : 'ref2va';
+    setStatus(`Scanning prompt tokens...`, 'busy');
+    const res = await apiPost('/api/prompt-meter', {
       vector: vec,
-      prompt,
-      family: "fl2va",
-      no_lora,
+      family: fam,
+      prompt
     });
-    if (!res.ok) {
-      setStatus("err", res.error || "Contextual prompt meter failed");
-      return;
-    }
-    renderTokenHeatmap(res.tokens || [], "5376-d Contextual GPU Meter");
-    const m = res.meter || {};
-    const mCos = m.cosine != null ? m.cosine : (m.mean_cosine || 0);
-    const p90Cos = m.p90_token_cosine != null ? m.p90_token_cosine : (m.p90_cosine || 0);
-    const zVal = m.projection_units != null ? m.projection_units : (m.z_score || 0);
-    document.getElementById("prompt-meter-summary").textContent =
-      `mean_cos=${Number(mCos).toFixed(3)} | p90_cos=${Number(p90Cos).toFixed(3)} | z=${Number(zVal).toFixed(2)}`;
-    setStatus("ok", `Contextual 5376-d token meter complete on ${vec} (${(res.tokens || []).length} tokens).`);
-  } finally {
-    btn.disabled = false;
+    const card = document.getElementById('meter-results-card');
+    const body = document.getElementById('meter-results-body');
+    card.style.display = 'block';
+
+    const tokens = res.tokens || [];
+    const topAlignedWords = Array.from(new Set(
+      tokens
+        .filter(t => t.in_scene_mask && Math.abs(Number(t.cosine || 0)) >= 0.08)
+        .sort((a, b) => Math.abs(Number(b.cosine || 0)) - Math.abs(Number(a.cosine || 0)))
+        .map(t => String(t.token || t.text || '').trim().replace(/^[^\w]+|[^\w]+$/g, ''))
+        .filter(w => w.length >= 3)
+    )).slice(0, 8);
+    const suggested = (res.suggested_mask_words || topAlignedWords).join(', ');
+    body.innerHTML = `
+      <div style="margin-bottom:14px;">
+        <strong>Top receptor words in your prompt (for <code>MiniMaxH3ApplyControlVectors</code>):</strong>
+        <input type="text" class="mono" readonly value="${escapeHtml(suggested)}" style="margin-top:6px;" onclick="this.select()" />
+      </div>
+      <div class="token-strip">
+        ${tokens.map(t => {
+          const score = Number(t.cosine ?? t.score ?? 0);
+          let bg = 'rgba(255,255,255,0.04)';
+          if (score > 0.08) bg = 'rgba(245, 158, 11, 0.28)';
+          else if (score < -0.08) bg = 'rgba(16, 185, 129, 0.25)';
+          return `<span class="tok-chip" style="background:${bg};" title="cosine: ${score.toFixed(4)}">${escapeHtml(t.token || t.text || '')}</span>`;
+        }).join('')}
+      </div>
+    `;
+    renderBanner('meter-status-box', `Scanned <strong>${tokens.length} contextual tokens</strong> against <code>${escapeHtml(vec)}</code> (${escapeHtml(res.elapsed_ms || '')} ms).`);
+    setStatus('Prompt meter complete', 'ok');
+  } catch (err) {
+    renderBanner('meter-status-box', `Prompt meter error: ${escapeHtml(err.message)}`, true);
+    setStatus('Meter failed', 'err');
   }
-});
-
-document.getElementById("hold-alpha-slider").addEventListener("input", e => {
-  document.getElementById("hold-alpha-val").textContent = Number(e.target.value).toFixed(2);
-});
-document.getElementById("hold-alpha-slider").addEventListener("change", () => {
-  if (state.activeVectorFile) inspectVectorJLens(state.activeVectorFile);
-  else previewWordsJLens();
-});
-document.getElementById("vec-holds").addEventListener("change", () => {
-  const scH = document.getElementById("sculpt-hold-words");
-  if (scH && !scH.value.trim()) scH.value = document.getElementById("vec-holds").value;
-  if (state.activeVectorFile) inspectVectorJLens(state.activeVectorFile);
-  else previewWordsJLens();
-});
-document.getElementById("vec-against").addEventListener("change", previewWordsJLens);
-document.getElementById("vec-prompt").addEventListener("change", () => {
-  if (state.activeVectorFile) inspectVectorJLens(state.activeVectorFile);
-  else previewWordsJLens();
-});
-
-document.getElementById("btn-copy-sysprompt").addEventListener("click", async () => {
-  if (!state.systemPrompt) {
-    setStatus("err", "System prompt not loaded.");
-    return;
-  }
-  try {
-    await navigator.clipboard.writeText(state.systemPrompt);
-    setStatus("ok", "Copied H3 Control Vector LLM System Prompt to clipboard!");
-  } catch (_) {
-    const box = document.getElementById("sysprompt-box");
-    box.select();
-    document.execCommand("copy");
-    setStatus("ok", "Copied system prompt to clipboard.");
-  }
-});
-
-document.getElementById("btn-refresh").addEventListener("click", refreshInit);
-
-document.getElementById("btn-quit").addEventListener("click", async () => {
-  setStatus("info", "Stopping Control Vector Studio server...");
-  try {
-    await apiPost("/api/quit", {});
-    setStatus("ok", "Server stopped cleanly. You can close this browser tab.");
-  } catch (e) {
-    setStatus("ok", "Server stopped.");
-  }
-});
-
-// Synchronized A/B Video Player Controls
-const vLeft = document.getElementById("v-left");
-const vRight = document.getElementById("v-right");
-const leftSel = document.getElementById("clip-left-select");
-const rightSel = document.getElementById("clip-right-select");
-const loopChk = document.getElementById("ab-loop");
-
-function updateVideoSources() {
-  const l = leftSel.value;
-  const r = rightSel.value;
-  if (l) vLeft.src = "/media?rel=" + encodeURIComponent(l);
-  if (r) vRight.src = "/media?rel=" + encodeURIComponent(r);
-  vLeft.loop = loopChk.checked;
-  vRight.loop = loopChk.checked;
 }
 
-leftSel.addEventListener("change", updateVideoSources);
-rightSel.addEventListener("change", updateVideoSources);
-loopChk.addEventListener("change", () => {
-  vLeft.loop = loopChk.checked;
-  vRight.loop = loopChk.checked;
-});
-
-document.getElementById("btn-ab-play").addEventListener("click", () => {
-  if (vLeft.paused) {
-    vRight.currentTime = vLeft.currentTime;
-    vLeft.play();
-    vRight.play();
-  } else {
-    vLeft.pause();
-    vRight.pause();
+async function runJLensInspect() {
+  try {
+    const vec = document.getElementById('jlens-inspect-select').value;
+    if (!vec) throw new Error('Select a vector first.');
+    const fam = APP.families.includes('fl2va') ? 'fl2va' : 'ref2va';
+    const data = await apiPost('/api/j-lens', { vector: vec, family: fam });
+    const ro = data.readout || data.post_refiner || data;
+    const posList = ro.positive_words || ro.top_positive || ro.positive || [];
+    const negList = ro.negative_words || ro.top_negative || ro.negative || [];
+    const pos = posList.slice(0, 12).map(w => `<span class="badge pole-b">${escapeHtml(w.word || w[0])} (${Number(w.gain ?? w.cosine ?? w[1] ?? 0).toFixed(2)})</span>`).join(' ');
+    const neg = negList.slice(0, 12).map(w => `<span class="badge pole-a">${escapeHtml(w.word || w[0])} (${Number(w.gain ?? w.cosine ?? w[1] ?? 0).toFixed(2)})</span>`).join(' ');
+    const rd = data.readiness || ro.readiness || {};
+    const summaryHtml = rd.summary ? `<div style="margin-bottom:10px;font-size:12.5px;color:var(--text-secondary);" class="mono">${escapeHtml(rd.summary)}</div>` : '';
+    document.getElementById('jlens-inspect-output').innerHTML = `
+      ${summaryHtml}
+      <div style="margin-bottom:10px;"><strong>Top Target Pole B Words (+gain):</strong><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;">${pos || 'None'}</div></div>
+      <div><strong>Top Baseline Pole A Words (-gain):</strong><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;">${neg || 'None'}</div></div>
+    `;
+  } catch (err) {
+    document.getElementById('jlens-inspect-output').innerHTML = `<div class="result-banner error">${escapeHtml(err.message)}</div>`;
   }
-});
-
-document.getElementById("btn-ab-restart").addEventListener("click", () => {
-  vLeft.currentTime = 0;
-  vRight.currentTime = 0;
-});
-
-document.getElementById("btn-ab-prev").addEventListener("click", () => {
-  vLeft.pause();
-  vRight.pause();
-  const t = Math.max(0, vLeft.currentTime - 1 / 24);
-  vLeft.currentTime = t;
-  vRight.currentTime = t;
-});
-
-document.getElementById("btn-ab-next").addEventListener("click", () => {
-  vLeft.pause();
-  vRight.pause();
-  const t = vLeft.currentTime + 1 / 24;
-  vLeft.currentTime = t;
-  vRight.currentTime = t;
-});
-
-document.getElementById("btn-ab-swap").addEventListener("click", () => {
-  const tmp = leftSel.value;
-  leftSel.value = rightSel.value;
-  rightSel.value = tmp;
-  updateVideoSources();
-});
-
-async function refreshInit() {
-  const data = await apiGet("/api/init");
-  if (!data.ok) return;
-  state.systemPrompt = data.system_prompt || "";
-  state.tomlFiles = data.toml_files || [];
-  state.vectors = data.vectors || [];
-  state.clips = data.clips || [];
-  state.canonicalFrames = data.canonical_frames || {};
-  document.getElementById("sysprompt-box").value = state.systemPrompt;
-  renderLists();
 }
 
-refreshInit();
+async function runJLensWordSynthesis(saveFile) {
+  try {
+    const name = document.getElementById('jlens-synth-name').value.trim();
+    const posWords = document.getElementById('jlens-words-b').value.trim();
+    const negWords = document.getElementById('jlens-words-a').value.trim();
+    const holdWords = document.getElementById('jlens-words-hold').value.trim();
+    const endpoint = saveFile ? '/api/build-words' : '/api/preview-words';
+    const res = await apiPost(endpoint, {
+      name,
+      save_name: name,
+      families: APP.families,
+      from_words: posWords,
+      against_words: negWords,
+      hold_words: holdWords
+    });
+    if (saveFile) await loadInitData();
+    const ro = res.readout || {};
+    const posList = ro.positive_words || ro.top_positive || [];
+    const topPos = posList.slice(0, 10).map(w => `<span class="badge pole-b">${escapeHtml(w.word || w[0])} (+${Number(w.gain ?? w.cosine ?? 0).toFixed(2)})</span>`).join(' ');
+    document.getElementById('jlens-synth-output').innerHTML = `
+      <div class="result-banner">
+        <strong>${saveFile ? `Saved J-Lens prototype <code>${escapeHtml((res.saved_files || [name]).join(', '))}</code>!` : 'J-Lens Word-Bag Preview:'}</strong>
+        <div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px;">${topPos || 'None'}</div>
+      </div>
+    `;
+  } catch (err) {
+    document.getElementById('jlens-synth-output').innerHTML = `<div class="result-banner error">${escapeHtml(err.message)}</div>`;
+  }
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+  fillMeterSamplePrompt();
+  loadInitData();
+});
 </script>
 </body>
 </html>

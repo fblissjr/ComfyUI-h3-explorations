@@ -63,6 +63,8 @@ SLOT_ALIASES: dict[str, str] = {
     "subject_behavior": "subject_behavior",
     "subject_action": "subject_behavior",
     "subject_action_clause": "subject_behavior",
+    "subject": "subject_behavior",
+    "beat2": "subject_behavior",
     "action": "subject_behavior",
     "behavior": "subject_behavior",
     "gesture": "subject_behavior",
@@ -92,6 +94,7 @@ SLOT_ALIASES: dict[str, str] = {
     # soundscape
     "soundscape": "soundscape",
     "soundscape_clause": "soundscape",
+    "sound": "soundscape",
     "audio": "soundscape",
     "foley": "soundscape",
     "acoustics": "soundscape",

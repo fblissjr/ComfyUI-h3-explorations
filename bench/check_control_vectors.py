@@ -3235,6 +3235,133 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
                 if st_wsave != 200 or not wsave_json.get("ok") or not (build_toml_dir / "inflatable_squeaky_balloon_animals.toml").is_file():
                     errs.append(f"handle_ui_request POST /api/save-toml simple words failed: {wsave_json}")
 
+                # Verify unified JSON schema keys on /api/init, /api/preview, /api/expand-scenes, /api/sculpt, and /api/make-media (base64 data URLs)
+                _, _, body_init2 = bench_cv.handle_ui_request(ui_state, "GET", "/api/init")
+                init2_json = json.loads(body_init2)
+                t_files = init2_json.get("toml_files", [])
+                v_files = init2_json.get("vectors", [])
+                if not t_files or not all({"name", "stem", "file", "pairs", "n_pairs", "holds", "n_holds"} <= set(tf) for tf in t_files):
+                    errs.append(f"GET /api/init toml_files missing unified keys: {t_files[:1]}")
+                if not v_files or not all({"file", "name", "norm", "raw_norm", "split_half", "split_half_cosine", "rec_strength"} <= set(vf) for tf in v_files for vf in [tf]):
+                    errs.append(f"GET /api/init vectors missing unified keys: {v_files[:1]}")
+                first_p = (wprev_json.get("pairs") or [{}])[0]
+                if "diff_a" not in first_p or "diff_b" not in first_p or "diff_span" not in (first_p.get("tokens") or {}):
+                    errs.append(f"POST /api/preview pair missing diff_a/diff_b/tokens.diff_span: {first_p}")
+
+                st_exp, _, body_exp = bench_cv.handle_ui_request(
+                    ui_state,
+                    "POST",
+                    "/api/expand-scenes",
+                    json.dumps(
+                        {
+                            "pole_a": "calm mild afternoon air",
+                            "pole_b": "scorching desert heatwave with shimmering heat haze",
+                            "slot": "auto",
+                            "mode": "t2va",
+                            "name": "scorching_test",
+                        }
+                    ).encode("utf-8"),
+                )
+                exp_json = json.loads(body_exp)
+                if st_exp != 200 or not exp_json.get("ok") or len(exp_json.get("rows", [])) != 10:
+                    errs.append(f"POST /api/expand-scenes failed: {exp_json}")
+
+                # Verify families="fl2va,ref2va" and save_toml=True on /api/build
+                st_fams, _, body_fams = bench_cv.handle_ui_request(
+                    ui_state,
+                    "POST",
+                    "/api/build",
+                    json.dumps(
+                        {
+                            "rows": exp_json.get("rows", []),
+                            "name": "scorching_dual",
+                            "families": "fl2va,ref2va",
+                            "pooling": "diff_span",
+                            "no_lora": True,
+                            "save_toml": True,
+                            "overwrite": True,
+                        }
+                    ).encode("utf-8"),
+                )
+                fams_json = json.loads(body_fams)
+                if (
+                    st_fams != 200
+                    or not fams_json.get("ok")
+                    or len(fams_json.get("built", [])) != 2
+                    or not (build_toml_dir / "scorching_dual.toml").is_file()
+                ):
+                    errs.append(f"POST /api/build with families='fl2va,ref2va' and save_toml=True failed: {fams_json}")
+
+                # Verify /api/sculpt and CLI sculpt --invert
+                st_sc, _, body_sc = bench_cv.handle_ui_request(
+                    ui_state,
+                    "POST",
+                    "/api/sculpt",
+                    json.dumps(
+                        {
+                            "steps": [{"vector": "scorching_dual", "mode": "add", "strength": -1.0}],
+                            "name": "anti_scorching",
+                            "families": "fl2va,ref2va",
+                            "overwrite": True,
+                        }
+                    ).encode("utf-8"),
+                )
+                sc_json = json.loads(body_sc)
+                if st_sc != 200 or not sc_json.get("ok") or len(sc_json.get("built", [])) != 2:
+                    errs.append(f"POST /api/sculpt with families='fl2va,ref2va' failed: {sc_json}")
+
+                # Verify POST /api/make-media with base64 data:image/png;base64,... uploads
+                import base64 as _b64
+                from PIL import Image as _PILImage
+
+                def _make_b64_png(rgb_tuple: tuple[int, int, int]) -> str:
+                    im = _PILImage.new("RGB", (64, 64), color=rgb_tuple)
+                    b_io = io.BytesIO()
+                    im.save(b_io, format="PNG")
+                    return "data:image/png;base64," + _b64.b64encode(b_io.getvalue()).decode("ascii")
+
+                st_mm, _, body_mm = bench_cv.handle_ui_request(
+                    ui_state,
+                    "POST",
+                    "/api/make-media",
+                    json.dumps(
+                        {
+                            "image_a_data": _make_b64_png((40, 60, 80)),
+                            "image_b_data": _make_b64_png((220, 140, 50)),
+                            "name": "b64_media_vec",
+                            "families": "ref2va",
+                            "pooling": "scene_text",
+                            "short_edge": 64,
+                            "no_lora": True,
+                            "overwrite": True,
+                        }
+                    ).encode("utf-8"),
+                )
+                mm_json = json.loads(body_mm)
+                if st_mm != 200 or not mm_json.get("ok") or len(mm_json.get("built", [])) != 1:
+                    errs.append(f"POST /api/make-media with base64 data URLs failed: st={st_mm}, body={mm_json}")
+
+                # Verify /api/generate-pairs-llm provider validation & missing-model refusal
+                st_llm_bad_prov, _, body_llm_bad_prov = bench_cv.handle_ui_request(
+                    ui_state,
+                    "POST",
+                    "/api/generate-pairs-llm",
+                    json.dumps({"provider": "unknown_backend", "model": "some_model", "concept": "scorching"}).encode("utf-8"),
+                )
+                llm_bad_prov_json = json.loads(body_llm_bad_prov)
+                if st_llm_bad_prov != 400 or "unsupported LLM provider" not in llm_bad_prov_json.get("error", ""):
+                    errs.append(f"POST /api/generate-pairs-llm expected 400 on unknown provider: {llm_bad_prov_json}")
+
+                st_llm_no_mod, _, body_llm_no_mod = bench_cv.handle_ui_request(
+                    ui_state,
+                    "POST",
+                    "/api/generate-pairs-llm",
+                    json.dumps({"provider": "transformers", "model": "", "concept": "scorching"}).encode("utf-8"),
+                )
+                llm_no_mod_json = json.loads(body_llm_no_mod)
+                if st_llm_no_mod != 400 or "model path or HuggingFace model ID is required" not in llm_no_mod_json.get("error", ""):
+                    errs.append(f"POST /api/generate-pairs-llm expected 400 on empty model: {llm_no_mod_json}")
+
                 words_vec_dir = tmp / "words_vec_dir"
                 buf_wb_out, buf_wb_err = io.StringIO(), io.StringIO()
                 with contextlib.redirect_stdout(buf_wb_out), contextlib.redirect_stderr(buf_wb_err):
@@ -3247,6 +3374,8 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
                             "fl2va",
                             "--pooling",
                             "diff_span",
+                            "--dit",
+                            ckpt_path.name,
                             "--no-lora",
                             "--out-dir",
                             str(words_vec_dir),
@@ -3380,13 +3509,14 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
                         f"_attach_refiner_lora_branches dual-LoRA chain mismatch: vs_single={dual_vs_single:.3g}, err={dual_branch_err:.3g}"
                     )
 
-                # Test inspect --check-unet compatibility check and --meter
+                # Test inspect --check-dit (and legacy --check-unet alias) compatibility check and --meter
                 buf_ic_out, buf_ic_err = io.StringIO(), io.StringIO()
                 with contextlib.redirect_stdout(buf_ic_out), contextlib.redirect_stderr(buf_ic_err):
-                    rc_ic = bench_cv.main(["inspect", str(v1_path), "--check-unet", ckpt_path.name])
-                if rc_ic != 0 or "compatibility   : ok" not in buf_ic_out.getvalue():
+                    rc_ic = bench_cv.main(["inspect", str(v1_path), "--check-dit", ckpt_path.name])
+                    rc_ic_legacy = bench_cv.main(["inspect", str(v1_path), "--check-unet", ckpt_path.name])
+                if rc_ic != 0 or rc_ic_legacy != 0 or "compatibility   : ok" not in buf_ic_out.getvalue():
                     errs.append(
-                        f"inspect --check-unet compatibility failed: rc={rc_ic}, out={buf_ic_out.getvalue()!r}, err={buf_ic_err.getvalue()!r}"
+                        f"inspect --check-dit/--check-unet compatibility failed: rc={rc_ic}/{rc_ic_legacy}, out={buf_ic_out.getvalue()!r}, err={buf_ic_err.getvalue()!r}"
                     )
 
                 buf_m_out, buf_m_err = io.StringIO(), io.StringIO()

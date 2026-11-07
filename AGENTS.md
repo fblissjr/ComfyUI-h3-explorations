@@ -94,6 +94,7 @@ once; `docs/evidence.md`, "Settled about H3", has the rest.
   activations (`bench/grade_sage_on_capture.py`).
 - **No render that does not decide something.** One clip, one seed, one
   shot is not a result; a repeat and a different shot are two tests.
+- **Modular files and subfolders over monoliths and flat-directory sprawl.** Do not grow multi-thousand-line Python or HTML files that mix unrelated responsibilities (CLI parsing, HTTP servers, UI markup/CSS/JS, math, and grading), and do not dump every new module flat into `bench/` or the repo root. Group multi-part subsystems into their own subfolder package (with separate `.html`, `.css`, and `.js` under `web/` for browser UIs), keep each module focused on a single responsibility so a file fits in one read, and leave thin CLI entrypoints in `bench/` when needed for index and command compatibility.
 - **Checks**: `docs/checks.md` is the standard and the index; add one only
   when something escapes the existing ones, and every tool worth keeping is
   tracked with one, never parked in `internal/` or a scratchpad.
