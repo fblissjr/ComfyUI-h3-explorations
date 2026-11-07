@@ -4355,6 +4355,32 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
             if not torch.allclose(applied_shift, balloon_synth["vector.post_refiner"], atol=1e-4):
                 errs.append("Step-0 _h3_tail_text @prompt_subject vector did not match direct synthesize_from_words(prompt=t2va_noodle_bar.txt)")
 
+        # Verify _compile_words_or_spec_to_pairset and handle_ui_request('/api/expand-scenes') with multi-line target_prompt
+        ui_state_multi = bench_cv.ControlVectorUIState()
+        st_code, _ct, exp_raw = bench_cv.handle_ui_request(
+            ui_state_multi,
+            "POST",
+            "/api/expand-scenes",
+            json.dumps(
+                {
+                    "name": "test_multiline_tp",
+                    "pole_a": "bathed in cool overcast daylight",
+                    "pole_b": "drenched in scorching golden-hour heatwave",
+                    "sound_a": "soft urban breeze",
+                    "sound_b": "dry cicada drone",
+                    "slot": "opening_framing",
+                    "mode": "t2va",
+                    "target_prompt": noodle_txt,
+                    "target_weight": 2.5,
+                }
+            ).encode("utf-8"),
+        )
+        exp_multi = json.loads(exp_raw)
+        if st_code != 200 or not exp_multi.get("ok") or len(exp_multi.get("pairs", ())) != 10:
+            errs.append(f"handle_ui_request('/api/expand-scenes') with multi-line target_prompt failed ({st_code}): {exp_multi}")
+        elif float(exp_multi["pairs"][0].get("weight", 0.0)) != 2.5:
+            errs.append(f"expand_scenes Pair 0 weight expected 2.5, got {exp_multi['pairs'][0].get('weight')}")
+
     return errs
 
 

@@ -418,12 +418,29 @@ def _compile_words_or_spec_to_pairset(
             hdr_lines.append(f"slot: {slot}")
         if mode and not any(ln.startswith("mode:") for ln in lower_lines):
             hdr_lines.append(f"mode: {mode}")
-        if tp_resolved and not any(ln.startswith(("target_prompt:", "scene_prompt:")) for ln in lower_lines):
+        if tp_resolved and "\n" not in tp_resolved and not any(
+            ln.startswith(("target_prompt:", "scene_prompt:")) for ln in lower_lines
+        ):
             hdr_lines.append(f"target_prompt: {tp_resolved}")
             hdr_lines.append(f"target_weight: {float(target_weight)}")
         full_spec = ("\n".join(hdr_lines) + "\n" + raw_text).strip() if hdr_lines else raw_text
+        if tp_resolved and "\n" in tp_resolved and "target_prompt" in parse_sig.parameters:
+            spec_out = pair_compiler.parse_short_contrast_spec(
+                full_spec,
+                target_prompt=tp_resolved,
+                target_weight=float(target_weight),
+            )
+            return spec_out["pair_set"]
         spec_out = pair_compiler.parse_short_contrast_spec(full_spec)
-        return spec_out["pair_set"]
+        ps_out = spec_out["pair_set"]
+        if tp_resolved and "\n" in tp_resolved:
+            ps_out = _inject_target_prompt_into_pairset(
+                ps_out,
+                tp_resolved,
+                target_weight=float(target_weight),
+                slot_hint=slot,
+            )
+        return ps_out
 
     compile_kwargs: dict[str, Any] = {
         "name": name,

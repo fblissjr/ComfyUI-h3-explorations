@@ -32,6 +32,29 @@ sys.path = [p for p in sys.path if Path(p or ".").resolve() not in (REPO_ROOT, B
 sys.path.insert(0, str(BENCH_DIR))
 sys.path.insert(0, str(REPO_ROOT))
 
+# Guard against callers that inserted `bench/` ahead of `REPO_ROOT` on `sys.path`
+# and ran `import control_vectors` (which binds `sys.modules["control_vectors"]`
+# to `bench/control_vectors.py` before `REPO_ROOT/control_vectors.py` is loaded).
+_shadowed_as_root = (
+    __name__ == "control_vectors"
+    and getattr(sys.modules.get("control_vectors"), "__file__", None) == __file__
+)
+if _shadowed_as_root:
+    import importlib.util as _root_ilu
+
+    _this_shadow_mod = sys.modules["control_vectors"]
+    sys.modules["bench.control_vectors"] = _this_shadow_mod
+    _root_spec = _root_ilu.spec_from_file_location(
+        "control_vectors", REPO_ROOT / "control_vectors.py"
+    )
+    assert _root_spec is not None and _root_spec.loader is not None
+    _root_cv_mod = _root_ilu.module_from_spec(_root_spec)
+    sys.modules["control_vectors"] = _root_cv_mod
+    _root_spec.loader.exec_module(_root_cv_mod)
+    for _k, _v in vars(_root_cv_mod).items():
+        if not _k.startswith("__"):
+            globals()[_k] = _v
+
 from bench._lib import bootstrap  # noqa: E402
 
 bootstrap()
@@ -81,6 +104,12 @@ else:
             if isinstance(_gc_obj, types.ModuleType) and getattr(_gc_obj, "__name__", None) == __name__ and getattr(_gc_obj, "__file__", None) == __file__:
                 _gc_obj.__class__ = _ControlVectorsModule
                 break
+
+if _shadowed_as_root:
+    for _k, _v in list(globals().items()):
+        if not _k.startswith("__") and not hasattr(_root_cv_mod, _k):
+            setattr(_root_cv_mod, _k, _v)
+    _root_cv_mod.__class__ = _ControlVectorsModule
 
 
 if __name__ == "__main__":

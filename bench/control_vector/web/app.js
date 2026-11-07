@@ -4,8 +4,8 @@ const APP = {
   tomlPacks: [],
   expandedPairs: [],
   sculptRows: [
-    { vector: 'blizzard', strength: 1.0, mode: 'add' },
-    { vector: 'camera_push_in', strength: 1.0, mode: 'hold' }
+    { vector: 'film_16mm_1974', strength: 1.0, mode: 'add' },
+    { vector: 'chaos_panic', strength: 1.0, mode: 'hold' }
   ],
   mediaDataUrlA: null,
   mediaDataUrlB: null,
@@ -665,7 +665,7 @@ function renderSculptRows() {
 }
 
 function addSculptRow() {
-  const firstVec = APP.vectors.length ? (typeof APP.vectors[0] === 'string' ? APP.vectors[0] : (APP.vectors[0].file || APP.vectors[0].name)) : 'blizzard';
+  const firstVec = APP.vectors.length ? (typeof APP.vectors[0] === 'string' ? APP.vectors[0] : (APP.vectors[0].file || APP.vectors[0].name)) : 'film_16mm_1974';
   APP.sculptRows.push({ vector: firstVec, strength: 0.5, mode: 'add' });
   renderSculptRows();
 }

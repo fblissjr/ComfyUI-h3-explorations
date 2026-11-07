@@ -1525,7 +1525,12 @@ def compile_placebo_pairset(
     )
 
 
-def parse_short_contrast_spec(text: str) -> dict[str, Any]:
+def parse_short_contrast_spec(
+    text: str,
+    *,
+    target_prompt: str | Path | None = None,
+    target_weight: float | None = None,
+) -> dict[str, Any]:
     """Parse a lightweight short-contrast or simple-words spec into compiler kwargs.
 
     Accepts any of:
@@ -1653,8 +1658,16 @@ def parse_short_contrast_spec(text: str) -> dict[str, Any]:
     if mode not in ("t2va", "ref2va"):
         raise ValueError(f"mode must be 't2va' or 'ref2va', got {mode!r}")
     n_pairs = int(header.get("n_pairs", "10"))
-    target_prompt_val = header.get("target_prompt") or None
-    target_weight_val = float(header.get("target_weight", "2.5"))
+    target_prompt_val = (
+        target_prompt
+        if (target_prompt is not None and str(target_prompt).strip())
+        else (header.get("target_prompt") or None)
+    )
+    target_weight_val = (
+        float(target_weight)
+        if target_weight is not None
+        else float(header.get("target_weight", "2.5"))
+    )
     couple_val = header.get("couple_soundscape", "true").strip().lower() not in ("0", "false", "no")
     vary_val = header.get("vary_realizations", "false").strip().lower() in ("1", "true", "yes")
     contrasts_arg: Any = raw_items[0] if (len(raw_items) == 1 and isinstance(raw_items[0], str)) else raw_items
