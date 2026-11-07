@@ -10,6 +10,7 @@ Scenes are ordered by how many graphs carry them, so the defaults that reach the
 |---|---|---|---|---|---|---|
 | [`LONG_T2V_PROMPT`](#long-t2v-prompt) | `t2va_covered_market` | 23 | 290 | 3 | 2 | `<d>` |
 | [`ref2va_role_character_garment_environment`](#ref2va-role-character-garment-environment) | `ref2va_role_character_garment_environment` | 9 | 173 | 1 | 0 | — |
+| [`ref2va_scene_kitchen`](#ref2va-scene-kitchen) | `ref2va_scene_kitchen` | 4 | 563 | 4 | 2 | `<d>`, `<|lyrics_start|>`, `<|caption_start|>`, `<|cutoff|>` |
 | [`I2V_PROMPT`](#i2v-prompt) | `i2va_lighthouse_keyframe` | 3 | 90 | 1 | 0 | — |
 | [`ref2va_image_video_audio_music`](#ref2va-image-video-audio-music) | `ref2va_image_video_audio_music` | 3 | 264 | 1 | 0 | — |
 | [`ref2va_masked_person_motion`](#ref2va-masked-person-motion) | `ref2va_masked_person_motion` | 3 | 292 | 1 | 1 | — |
@@ -19,7 +20,6 @@ Scenes are ordered by how many graphs carry them, so the defaults that reach the
 | [`PIKA_BALCONY_ORBIT_PROMPT`](#pika-balcony-orbit-prompt) | `t2va_pika_balcony_orbit` | 2 | 534 | 1 | 0 | — |
 | [`PIKA_MOTION_TRANSFER_PROMPT`](#pika-motion-transfer-prompt) | `ref2va_pika_motion_transfer` | 2 | 1066 | 1 | 0 | — |
 | [`ref2va_masked_person_swap`](#ref2va-masked-person-swap) | `ref2va_masked_person_swap` | 2 | 233 | 1 | 1 | — |
-| [`ref2va_scene_kitchen`](#ref2va-scene-kitchen) | `ref2va_scene_kitchen` | 2 | 563 | 4 | 2 | `<d>`, `<|lyrics_start|>`, `<|caption_start|>`, `<|cutoff|>` |
 | [`ref2va_video_sound_structure`](#ref2va-video-sound-structure) | `ref2va_video_sound_structure` | 2 | 183 | 1 | 0 | — |
 | [`DIALOGUE_REF2V_PROMPT`](#dialogue-ref2v-prompt) | `ref2va_stairwell_dialogue` | 1 | 640 | 3 | 2 | `<d>` |
 | [`DIALOGUE_T2V_PROMPT`](#dialogue-t2v-prompt) | `t2va_stairwell_dialogue` | 1 | 224 | 3 | 2 | `<d>` |
@@ -126,6 +126,43 @@ The target video is in a cinematic live-action style.
 
 overall_soundscape:
 Natural ambient atmosphere continues throughout the shot.
+
+non_diegetic_music:
+N/A
+```
+
+## ref2va_scene_kitchen
+
+Carried by **4** graph(s). Sections: `subject_definitions`, `summary`, `retention_analysis`, `detailed_description`, `overall_soundscape`, `non_diegetic_music`.
+
+<details><summary>graphs</summary>
+
+- `h3_guide_video_edit_api`
+- `h3_image_ref_plus_text_to_video_pika_control_vector_api`
+- `h3_p_h3_image_guide_edit_api`
+- `h3_ref2v_scene_kitchen_api`
+
+</details>
+
+```text
+subject_definitions:
+<Subject 1> is the main character in <Picture 1>, whose face, hair, and clothing are carried into the target video.
+
+summary:
+[reference generation] The target video places <Subject 1> in a single continuous shot.
+
+retention_analysis:
+<Subject 1> (appears in [Shot 1]): fully_preserved - face, hair, and clothing are retained.
+
+detailed_description:
+The target video is in a cinematic live-action style.
+[Shot 1] Handheld, fast reframing, hard practical light off stainless steel. A medium-wide shot establishes a restaurant line mid-service, four burners lit, steam crossing the lens, a ticket rail loaded above the pass. The ticket closest to camera reads "TABLE 12 - 2 COVERS - FIRE" in narrow black type on white thermal paper. <|caption_start|>TABLE 12 - 2 COVERS - FIRE<|caption_end|> <Subject 1>, with a hard, carrying baritone (S1), works the pass, preserving the face, hair, wardrobe and build established in the reference, slaps the rail and calls down the line: <d>[English] Two on twelve, fire it now.</d> His lips close and he snaps the ticket free with two fingers. The camera tracks right at large amplitude and fast speed past three cooks, one tossing a pan so the flame climbs above the rim, the youngest working the flat top, and a runner waiting at the end of the pass.
+[Shot 2] The shot cuts to a close shot of the young line cook with a light, quick soprano (S2) at the flat top, moving fast, who answers without looking up: <d>[English] Two on twelve, heard.</d> Her lips close, and she sings along under her breath with a radio on the shelf behind her: <|lyrics_start|><d>[English] Keep it moving, keep it hot.</d><|lyrics_end|> Her lips close as she flips two portions in one motion and the flame flares behind her shoulder.
+[Shot 3] The camera pushes in fast with large amplitude on the pass as two plates land side by side, the hands of <Subject 1>, the young cook and the pan-tossing cook entering frame from three directions, the young cook's thumb wiping a rim clean. <Subject 1> (S1) and the young cook (S2), leaning in from the flat top, overlap with no gap between them: <d>[English] Where is my second plate.</d> <d>[English] Behind you, behind you.</d> Both sets of lips close as <Subject 1> spins a plate into position. The camera stays low across the pass so the stainless surfaces, the loaded ticket rail and the lit burners of the reference setting remain continuously visible behind the hands, steam crossing the lens twice without hiding either face.
+[Shot 4] The shot changes to a low shot as the runner lifts both plates and turns for the door, the kitchen receding behind him in a blur of steam. The camera pedestals up with small amplitude at slow speed as he passes, holding the lit burners and the loaded ticket rail of the reference setting across the top of the frame while the ticket printer starts another run behind the pass and the pan-tossing cook sets a pan down hard on the flat top. <Subject 1> (S1) calls after him already reading the next ticket: <d>[English] And tell them the special is</d><|cutoff|>
+
+overall_soundscape:
+A ticket printer chattering in bursts, a metal rail slapped flat, pans ringing on a flat top with sharp oil crackle, a gas burner whumping as it catches, plates set down hard in quick succession, and a thin radio behind everything.
 
 non_diegetic_music:
 N/A
@@ -395,41 +432,6 @@ detailed_description:
 overall_soundscape: Natural ambient atmosphere continues throughout the shot.
 
 non_diegetic_music: N/A
-```
-
-## ref2va_scene_kitchen
-
-Carried by **2** graph(s). Sections: `subject_definitions`, `summary`, `retention_analysis`, `detailed_description`, `overall_soundscape`, `non_diegetic_music`.
-
-<details><summary>graphs</summary>
-
-- `h3_image_ref_plus_text_to_video_pika_control_vector_api`
-- `h3_ref2v_scene_kitchen_api`
-
-</details>
-
-```text
-subject_definitions:
-<Subject 1> is the main character in <Picture 1>, whose face, hair, and clothing are carried into the target video.
-
-summary:
-[reference generation] The target video places <Subject 1> in a single continuous shot.
-
-retention_analysis:
-<Subject 1> (appears in [Shot 1]): fully_preserved - face, hair, and clothing are retained.
-
-detailed_description:
-The target video is in a cinematic live-action style.
-[Shot 1] Handheld, fast reframing, hard practical light off stainless steel. A medium-wide shot establishes a restaurant line mid-service, four burners lit, steam crossing the lens, a ticket rail loaded above the pass. The ticket closest to camera reads "TABLE 12 - 2 COVERS - FIRE" in narrow black type on white thermal paper. <|caption_start|>TABLE 12 - 2 COVERS - FIRE<|caption_end|> <Subject 1>, with a hard, carrying baritone (S1), works the pass, preserving the face, hair, wardrobe and build established in the reference, slaps the rail and calls down the line: <d>[English] Two on twelve, fire it now.</d> His lips close and he snaps the ticket free with two fingers. The camera tracks right at large amplitude and fast speed past three cooks, one tossing a pan so the flame climbs above the rim, the youngest working the flat top, and a runner waiting at the end of the pass.
-[Shot 2] The shot cuts to a close shot of the young line cook with a light, quick soprano (S2) at the flat top, moving fast, who answers without looking up: <d>[English] Two on twelve, heard.</d> Her lips close, and she sings along under her breath with a radio on the shelf behind her: <|lyrics_start|><d>[English] Keep it moving, keep it hot.</d><|lyrics_end|> Her lips close as she flips two portions in one motion and the flame flares behind her shoulder.
-[Shot 3] The camera pushes in fast with large amplitude on the pass as two plates land side by side, the hands of <Subject 1>, the young cook and the pan-tossing cook entering frame from three directions, the young cook's thumb wiping a rim clean. <Subject 1> (S1) and the young cook (S2), leaning in from the flat top, overlap with no gap between them: <d>[English] Where is my second plate.</d> <d>[English] Behind you, behind you.</d> Both sets of lips close as <Subject 1> spins a plate into position. The camera stays low across the pass so the stainless surfaces, the loaded ticket rail and the lit burners of the reference setting remain continuously visible behind the hands, steam crossing the lens twice without hiding either face.
-[Shot 4] The shot changes to a low shot as the runner lifts both plates and turns for the door, the kitchen receding behind him in a blur of steam. The camera pedestals up with small amplitude at slow speed as he passes, holding the lit burners and the loaded ticket rail of the reference setting across the top of the frame while the ticket printer starts another run behind the pass and the pan-tossing cook sets a pan down hard on the flat top. <Subject 1> (S1) calls after him already reading the next ticket: <d>[English] And tell them the special is</d><|cutoff|>
-
-overall_soundscape:
-A ticket printer chattering in bursts, a metal rail slapped flat, pans ringing on a flat top with sharp oil crackle, a gas burner whumping as it catches, plates set down hard in quick succession, and a thin radio behind everything.
-
-non_diegetic_music:
-N/A
 ```
 
 ## ref2va_video_sound_structure

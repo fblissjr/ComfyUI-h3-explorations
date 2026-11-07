@@ -1,12 +1,12 @@
 # H3 as an image gen/edit model
 
-Last updated: 2026-11-07 (reopened `workflows/image/` with 6 PrunaAI `P-H3-Image` single-frame T2I and image-edit workflows using `MiniMaxH3PH3ImageConditioning` and `MiniMaxH3PH3ImagePromptUpsampler` in [`ph3_image_nodes.py`](../ph3_image_nodes.py); no core patch). Previously updated: 2026-08-27, 2026-08-16.
+Last updated: 2026-11-07 (reopened `workflows/image/` with 7 PrunaAI `P-H3-Image` and guide-latent single-frame T2I and image-edit workflows using `MiniMaxH3PH3ImageConditioning` and `MiniMaxH3PH3ImagePromptUpsampler` in [`ph3_image_nodes.py`](../ph3_image_nodes.py) plus `MiniMaxH3GuideLatent` in [`guide_latent.py`](../guide_latent.py); no core patch). Previously updated: 2026-08-27, 2026-08-16.
 
-## Reopened 2026-11-07: PrunaAI `P-H3-Image` (`workflows/image/`)
+## Reopened 2026-11-07: PrunaAI `P-H3-Image` & Guide-Latent Image Edit (`workflows/image/`)
 
-ComfyUI core natively supports `PH3ImageTEModel` (`comfy/text_encoders/minimax.py:172`) and `PH3ImageVAE` (`comfy/ldm/minimax/vae.py:1014`), and this pack provides [`MiniMaxH3PH3ImageConditioning`](../ph3_image_nodes.py) and [`MiniMaxH3PH3ImagePromptUpsampler`](../ph3_image_nodes.py) for 1:1 parity with HuggingFace `diffusers` (`coderef/diffusers/src/diffusers/modular_pipelines/p_h3_image/`) and `MiniMax-H3`. Nothing in this pack patches ComfyUI core (`bench/check_vsa_core_patch.py` remains green; `archive/single_frame.py` stays archived).
+ComfyUI core natively supports `PH3ImageTEModel` (`comfy/text_encoders/minimax.py:172`) and `PH3ImageVAE` (`comfy/ldm/minimax/vae.py:1014`), and this pack provides [`MiniMaxH3PH3ImageConditioning`](../ph3_image_nodes.py), [`MiniMaxH3PH3ImagePromptUpsampler`](../ph3_image_nodes.py), and [`MiniMaxH3GuideLatent`](../guide_latent.py) for 1:1 parity with HuggingFace `diffusers` (`coderef/diffusers/src/diffusers/modular_pipelines/p_h3_image/`) and `MiniMax-H3`. Nothing in this pack patches ComfyUI core (`bench/check_vsa_core_patch.py` remains green; `archive/single_frame.py` stays archived).
 
-`workflows/h3_config.py::GRAPH_DIRS` once again includes `SINGLE_FRAME_DIR = "image"`, and `workflows/build_workflows.py` generates **6 canonical `P-H3-Image` API workflows** into [`workflows/image/`](../workflows/image/):
+`workflows/h3_config.py::GRAPH_DIRS` once again includes `SINGLE_FRAME_DIR = "image"`, and `workflows/build_workflows.py` generates **7 canonical single-frame API workflows** into [`workflows/image/`](../workflows/image/):
 
 | Workflow | Mode & Default Canvas | DiT + LoRA | Text Encoder | Steps & Sigmas |
 |---|---|---|---|---|
@@ -16,6 +16,7 @@ ComfyUI core natively supports `PH3ImageTEModel` (`comfy/text_encoders/minimax.p
 | [`workflows/image/h3_p_h3_image_lora_edit_api.json`](../workflows/image/h3_p_h3_image_lora_edit_api.json) | 1–8 Image Edit (`canvas="auto"`, clamping `image_1` and output canvas to `4..8 MP`, `t=1`) via LoRA on `unet_fl2va` | `minimax_h3_fl2va_pruned_int8_convrot.safetensors` + `h3/p-h3-image_lora_bf16.safetensors` (`MiniMaxH3LoRABranch`, `strength=1.0`) | `p-h3-image_text_encoder_int8_convrot.safetensors` | 8 Euler steps (`PH3_IMAGE_MANUAL_SIGMAS`) |
 | [`workflows/image/h3_probe_p_h3_image_t2i_te32b_api.json`](../workflows/image/h3_probe_p_h3_image_t2i_te32b_api.json) | T2I Teacher-Encoder Probe (`2912x2912`, `t=1`) | `p-h3-image_int8_convrot.safetensors` | Stock `qwen3vl_32b_minimax_h3_int8_convrot.safetensors` (`MiniMaxH3EncoderLoader`) | 8 Euler steps (`PH3_IMAGE_MANUAL_SIGMAS`) |
 | [`workflows/image/h3_probe_p_h3_image_edit_te32b_api.json`](../workflows/image/h3_probe_p_h3_image_edit_te32b_api.json) | Edit Teacher-Encoder Probe (`canvas="auto"`, clamping `image_1` and output canvas to `4..8 MP`, `t=1`) | `p-h3-image_int8_convrot.safetensors` | Stock `qwen3vl_32b_minimax_h3_int8_convrot.safetensors` (`MiniMaxH3EncoderLoader`) | 8 Euler steps (`PH3_IMAGE_MANUAL_SIGMAS`) |
+| [`workflows/image/h3_p_h3_image_guide_edit_api.json`](../workflows/image/h3_p_h3_image_guide_edit_api.json) | Guide-Latent Image Edit (`1152x768`, `length=5` 2-chunk canvas via `MiniMaxH3ReferenceConditioning` + `MiniMaxH3GuideLatent` at `frame_idx=0`, slicing chunk 1 via `ImageFromBatch(batch_index=4, length=1)`) | `minimax_h3_ref2va_pruned_int8_convrot.safetensors` + `h3/minimax_h3_inpainting_object_removal_v1.0_ref2va_fro.safetensors` + `h3/p-h3-image_lora_bf16.safetensors` (`MiniMaxH3LoRABranch`) | Stock `qwen3vl_32b_minimax_h3_int8_convrot.safetensors` (`MiniMaxH3EncoderLoader`) | 8 Euler steps (`PH3_IMAGE_MANUAL_SIGMAS`) |
 
 ### What Was Fixed vs. PrunaAI's Reference ComfyUI Workflows & ComfyUI Core's `PH3ImageConditioning`
 

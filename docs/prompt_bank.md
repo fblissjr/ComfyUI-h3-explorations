@@ -172,7 +172,7 @@
 | [`ref2va_night_porter_refs`](#ref2va-night-porter-refs) | ref2va | 345 | 14.375 | yes | 1 | `h3_probe_refview2_porter_api` | 352 | 2 | 1 | English | Zoom In, Static Shot | N/A | clean |
 | [`ref2va_role_character_environment`](#ref2va-role-character-environment) | ref2va | 345 | 14.375 | yes | 3 | `h3_image_ref_plus_text_to_video_api` | 42 | 1 | 0 | — | Truck Right | N/A | 0 FAIL, 1 WARN (recorded; see the entry) |
 | [`ref2va_role_character_garment_environment`](#ref2va-role-character-garment-environment) | ref2va | 345 | 14.375 | yes | 9 | `h3_probe_capture_ref3_api` | 45 | 1 | 0 | — | Truck Right | N/A | 0 FAIL, 1 WARN (recorded; see the entry) |
-| [`ref2va_scene_kitchen`](#ref2va-scene-kitchen) | ref2va | 345 | 14.375 | yes | 2 | `h3_ref2v_scene_kitchen_api` | 468 | 4 | 2 | English | Push In, Pedestal Up | N/A | clean |
+| [`ref2va_scene_kitchen`](#ref2va-scene-kitchen) | ref2va | 345 | 14.375 | yes | 4 | `h3_ref2v_scene_kitchen_api` | 468 | 4 | 2 | English | Push In, Pedestal Up | N/A | clean |
 | [`ref2va_scene_subway`](#ref2va-scene-subway) | ref2va | 345 | 14.375 | yes | 1 | `h3_ref2v_scene_subway_api` | 434 | 4 | 3 | English |  | N/A | clean |
 | [`ref2va_stairwell_dialogue`](#ref2va-stairwell-dialogue) | ref2va | 345 | 14.375 | yes | 1 | `h3_image_ref_plus_text_to_video_dialogue_api` | 431 | 3 | 2 | English | Shake Slightly | N/A | clean |
 | [`ref2va_stairwell_dialogue_backstage`](#ref2va-stairwell-dialogue-backstage) | ref2va | 345 | 14.375 | yes | 1 | `h3_probe_refview2_stairwell_backstage_api` | 427 | 3 | 2 | English | Shake Slightly | N/A | clean |
@@ -4063,7 +4063,7 @@ N/A
 
 ## ref2va_scene_kitchen
 
-**ref2va, 345 frames, 14.375 s, donor `h3_ref2v_scene_kitchen_api`.** The kitchen stress scene: four shots, the lyrics, caption and cutoff markers together, and a character reference carried through all of them. Ships in: `h3_image_ref_plus_text_to_video_pika_control_vector_api`, `h3_ref2v_scene_kitchen_api`.
+**ref2va, 345 frames, 14.375 s, donor `h3_ref2v_scene_kitchen_api`.** The kitchen stress scene: four shots, the lyrics, caption and cutoff markers together, and a character reference carried through all of them. Ships in: `h3_guide_video_edit_api`, `h3_image_ref_plus_text_to_video_pika_control_vector_api`, `h3_p_h3_image_guide_edit_api`, `h3_ref2v_scene_kitchen_api`.
 
 Derived: camera: Push In, Pedestal Up; speakers: S1, S2; languages: English; cuts: the shot cuts to, the shot changes to; on-screen text: "TABLE 12 - 2 COVERS - FIRE"; task: [reference generation]; labels: <Picture 1>; 468 words in the main field; 3359 characters in all.
 
