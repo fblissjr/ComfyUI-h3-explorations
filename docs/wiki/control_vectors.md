@@ -156,7 +156,7 @@ The Studio UI opens in your browser and is organized into **6 focused task scree
 ## 8. Common Questions (FAQ)
 
 - **Do I have to use pre-canned `prompt_bank/` scenes like the violin busker scene?**
-  **No.** The Studio UI and CLI are designed to build control vectors for **your own** concepts and scenes. In **Studio Screen 2 (Create from Text Pairs)**, you can paste your own target scene prompt as Pair 0 (`target_prompt`), write your own `Pole A -> Pole B` contrast, or edit all 10 Prompt A / Prompt B pairs directly. In **Studio Screen 5 (Test Against Your Prompt)**, you test any vector against your own H3 prompt.
+  **No.** The Studio UI and CLI are designed to build control vectors for **your own** concepts and scenes. In **Studio Screen 2 (`Clause Contrast Builder`)** and **Screen 3 (`Full Pair & LLM Studio`)**, you can paste your own target scene prompt as Pair 0 (`target_prompt`), write your own `Pole A -> Pole B` contrast, or edit all 10 Prompt A / Prompt B pairs directly. In **Studio Screen 6 (`Prompt Receptor Meter & Separate J-Lens Word Lab`)**, you test any vector against your own H3 prompt.
 - **How do I make the opposite of an existing preset (e.g., `"scorching"` vs. `"blizzard"`)?**
   - To **flip** `blizzard` immediately (`< 5 ms` CPU), click **Invert (`-1x`)** in the Studio Library or run `"$PY" bench/control_vectors.py sculpt blizzard --invert --name anti_blizzard` (or set `strength = -1.0` in ComfyUI).
   - To **author a true opposite concept** with its own positive optical signature (shimmering heat haze, sun glare, parched ground), build `"calm mild air -> scorching desert heatwave"` via **Studio Screen 2** or `bench/control_vectors.py build --words ... --name scorching --save-toml`.

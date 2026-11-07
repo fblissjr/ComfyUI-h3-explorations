@@ -15,7 +15,7 @@ Different creative goals require different authoring paths and ComfyUI node sett
 | **2. Changing `<Subject 1>`'s Clothing in `ref2va`** | `build --words` (`opening_framing` / `subject_behavior` slot) with explicit garment nouns in Pole A (`sweater, shirt, jacket, coat`) | `strength = 2.00–2.50`, `mode = "add_norm_matched"`, `mask = "scene_only"`, `start_percent = 0.0`, `end_percent = 0.50`, `ref_vae_end_percent = 1.00` | Naming the garment nouns to subtract in Pole A (`sweater, shirt, jacket`) + steering the early layout window (`0.0..0.50`) at `strength = 2.0–2.5` overrides `<Subject 1>`'s outfit while `ref_vae_end_percent = 1.00` keeps frames `0..1` free of late-step noise. |
 | **3. Weather, Heatwave, or Atmosphere (`t2va` & `ref2va`)** | `build --words` with coupled `soundscape:` clause | `strength = 1.15`, `mode = "add_norm_matched"`, `mask = "scene_only"` | Coupled `description + overall_soundscape` clauses steer both the optical atmosphere (heat haze / blowing snow) and the ambient audio bed while `mask = "scene_only"` leaves `<d>...</d>` spoken dialogue untouched. |
 | **4. Bespoke Multi-Scene Physical / World Transform** | LLM 10-Pair Markdown (`generate-pairs` or external LLM with [`llm_prompting_guide.md`](llm_prompting_guide.md)) | `strength = 1.00–1.25`, `mode = "add_norm_matched"`, `mask = "scene_only"`, `start_percent = 0.00` | Physical/world transforms need scene-specific nouns in each of the 10 pairs and must start at `start_percent = 0.00` because H3 locks 3D layout on steps `0..1`. |
-| **5. Visual Look Transfer from Two Stills (`Image A -> Image B`)** | `make-media` (or Studio **Screen 3**) | `strength = 1.15`, `mode = "add_norm_matched"`, `mask = "scene_only"` | Extracts the post-refiner difference between a baseline still (`Image A`) and a color-graded/stylized still (`Image B`) on an identical 32-px M-RoPE grid. |
+| **5. Visual Look Transfer from Two Stills (`Image A -> Image B`)** | `make-media` (or Studio **Screen 4**) | `strength = 1.15`, `mode = "add_norm_matched"`, `mask = "scene_only"` | Extracts the post-refiner difference between a baseline still (`Image A`) and a color-graded/stylized still (`Image B`) on an identical 32-px M-RoPE grid. |
 | **6. Stacking Multiple Vectors + Holding a Nuisance Axis** | `sculpt` (`< 5 ms` CPU) or chained `MiniMaxH3ApplyControlVectors` nodes | Node 1 (`add_norm_matched`, `1.0`) $\rightarrow$ Node 2 (`add_norm_matched`, `0.8`) $\rightarrow$ Hold (`hold_words` or `mode = "hold"`) | Summing in `float64` with an orthogonal `hold` removes unwanted collateral drift (e.g., preventing `"blizzard"` from putting winter parkas on indoor actors). |
 
 ---
@@ -112,7 +112,7 @@ When you have two reference frames—for example, a flat ungraded frame (`flat_d
   --overwrite
 ```
 
-Or in **Studio Screen 3 (`Create from Reference Images`)**: drag-and-drop **Image A** and **Image B** into the browser dropzones and click **Build Media Control Vector**.
+Or in **Studio Screen 4 (`Reference Image Contrast`)**: drag-and-drop **Image A** and **Image B** into the browser dropzones and click **Extract Multimodal Image Control Vector (GPU)**.
 
 ---
 
