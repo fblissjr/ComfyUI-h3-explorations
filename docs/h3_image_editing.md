@@ -35,7 +35,7 @@ ComfyUI core natively supports `PH3ImageTEModel` (`comfy/text_encoders/minimax.p
    - `h3_p_h3_image_lora_t2i_api.json` and `h3_p_h3_image_lora_edit_api.json` apply `h3/p-h3-image_lora_bf16.safetensors` (`rank=128` across all 50 DiT blocks + `token_refiner`) onto our existing `minimax_h3_fl2va_pruned_int8_convrot.safetensors` via `MiniMaxH3LoRABranch` (full bf16 rank without int8 merge quantization).
    - `h3_probe_p_h3_image_t2i_te32b_api.json` and `h3_probe_p_h3_image_edit_te32b_api.json` wire our stock `qwen3vl_32b_minimax_h3_int8_convrot.safetensors` (`MiniMaxH3EncoderLoader`) directly into `MiniMaxH3PH3ImageConditioning` for same-seed A/B comparison against the 4B student encoder.
 5. **Prompting Documentation**:
-   - Full `P-H3-Image` prompting rules (`p_h3_image_t2i` and `p_h3_image_edit`) and upsampler documentation live in [`docs/prompting/17_p_h3_image_prompting.md`](prompting/17_p_h3_image_prompting.md) and [`docs/wiki/system_prompts/h3_system_prompt.md`](wiki/system_prompts/h3_system_prompt.md).
+   - Full `P-H3-Image` prompting rules (`p_h3_image_t2i` and `p_h3_image_edit`) and upsampler documentation live in [`docs/prompting/17_p_h3_image_prompting.md`](prompting/17_p_h3_image_prompting.md) and [`docs/wiki/system_prompts/h3_p_h3_image_system_prompt.md`](wiki/system_prompts/h3_p_h3_image_system_prompt.md).
 
 ---
 

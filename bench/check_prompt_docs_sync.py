@@ -45,6 +45,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent
 SYSTEM_PROMPTS_DIR = REPO / "docs" / "wiki" / "system_prompts"
 SYSTEM_PROMPT = SYSTEM_PROMPTS_DIR / "h3_system_prompt.md"
+PH3_IMAGE_SYSTEM_PROMPT = SYSTEM_PROMPTS_DIR / "h3_p_h3_image_system_prompt.md"
 CV_SYSTEM_PROMPT = SYSTEM_PROMPTS_DIR / "h3_control_vector_system_prompt.md"
 MANUAL = REPO / "docs" / "prompting.md"
 MANUAL_SHARDS = REPO / "docs" / "prompting"
@@ -294,9 +295,21 @@ CV_RULE_PINS = (
 )
 
 
-def cv_system_prompt_and_portable_absent(cv_text: str) -> int:
-    """Verify `h3_control_vector_system_prompt.md` carries its mandatory authoring
-    pins and that `docs/portable/` remains retired."""
+PH3_IMAGE_RULE_PINS = (
+    "MODE: p_h3_image_t2i",
+    "MODE: p_h3_image_edit",
+    "MINIMAX_EXTRA_TOKENS",
+    "Edit <Picture 1>.",
+    "[keyframe completion]",
+    "<Picture 1>: <|vision_start|>",
+    "MiniMaxH3PH3ImageConditioning",
+    "MiniMaxH3PH3ImagePromptUpsampler",
+)
+
+
+def cv_system_prompt_and_portable_absent(cv_text: str, ph3_image_text: str) -> int:
+    """Verify `h3_control_vector_system_prompt.md` and `h3_p_h3_image_system_prompt.md`
+    carry their mandatory authoring pins and that `docs/portable/` remains retired."""
     bad = 0
     portable_dir = REPO / "docs" / "portable"
     if portable_dir.exists():
@@ -314,6 +327,18 @@ def cv_system_prompt_and_portable_absent(cv_text: str) -> int:
     else:
         print(f"  ok    h3_control_vector_system_prompt.md carries all "
               f"{len(CV_RULE_PINS)} control-vector authoring rule pin(s)")
+
+    missing_ph3 = [
+        pin for pin in PH3_IMAGE_RULE_PINS
+        if flat(pin).lower() not in flat(ph3_image_text).lower()
+    ]
+    if missing_ph3:
+        bad += 1
+        print(f"  FAIL  h3_p_h3_image_system_prompt.md missing pinned rule(s): "
+              f"{', '.join(repr(m) for m in missing_ph3)}")
+    else:
+        print(f"  ok    h3_p_h3_image_system_prompt.md carries all "
+              f"{len(PH3_IMAGE_RULE_PINS)} P-H3-Image authoring rule pin(s)")
     return bad
 
 
@@ -441,7 +466,7 @@ def rule_pins(manual: str, system: str) -> int:
 
 
 def main() -> int:
-    for p in (SYSTEM_PROMPT, CV_SYSTEM_PROMPT, MANUAL, GUIDE):
+    for p in (SYSTEM_PROMPT, PH3_IMAGE_SYSTEM_PROMPT, CV_SYSTEM_PROMPT, MANUAL, GUIDE):
         if not p.exists():
             print(f"FAIL  missing {p.relative_to(REPO)}; this check compares "
                   f"nothing without it and would report a misleading green")
@@ -453,6 +478,7 @@ def main() -> int:
     manual = read_manual()
     guide = GUIDE.read_text(encoding="utf-8")
     system = SYSTEM_PROMPT.read_text(encoding="utf-8")
+    ph3_image_system = PH3_IMAGE_SYSTEM_PROMPT.read_text(encoding="utf-8")
     cv_system = CV_SYSTEM_PROMPT.read_text(encoding="utf-8")
     fails = 0
 
@@ -461,7 +487,7 @@ def main() -> int:
     fails += manual_quotations(manual, guide, system)
     fails += examples_still_grade(manual)
     fails += derived_system_prompts(guide)
-    fails += cv_system_prompt_and_portable_absent(cv_system)
+    fails += cv_system_prompt_and_portable_absent(cv_system, ph3_image_system)
     fails += rule_pins(manual, system)
     fails += audit_covers_catalogue()
 
