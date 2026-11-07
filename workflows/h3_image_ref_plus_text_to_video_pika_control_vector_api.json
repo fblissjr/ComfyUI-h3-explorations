@@ -249,13 +249,15 @@
         "21",
         0
       ],
-      "vector_name": "zero_gravity__ref2va__diff_span__lora_865ee189.safetensors",
-      "strength": 1.0,
-      "mode": "add",
-      "mask": "non_vision",
+      "vector_name": "film_16mm_1974__ref2va__diff_span__lora_865ee189.safetensors",
+      "strength": 1.15,
+      "mode": "add_norm_matched",
+      "mask": "scene_only",
       "start_percent": 0.0,
       "end_percent": 1.0,
-      "allow_recipe_mismatch": false
+      "allow_recipe_mismatch": false,
+      "ref_vae_end_percent": 0.5,
+      "ref_vae_aug": 0.999
     }
   },
   "26": {

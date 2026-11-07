@@ -43,6 +43,7 @@ from .llm_pairs import (
     SUPPORTED_LLM_PROVIDERS,
     _extract_system_prompt_text,
     _generate_pairs_with_llm,
+    _repair_multichange_markdown_pairs,
     _resolve_exl3_library_root,
     cmd_generate_pairs,
 )
@@ -96,6 +97,7 @@ __all__ = [
     "_prompt_token_count",
     "_recommended_strength_text",
     "_rel_l2",
+    "_repair_multichange_markdown_pairs",
     "_repool_cached_build",
     "_resolve_exl3_library_root",
     "_resolve_prompt_text",

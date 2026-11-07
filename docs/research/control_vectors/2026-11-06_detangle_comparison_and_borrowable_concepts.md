@@ -61,7 +61,7 @@ If `alpha < 1.0` is applied at build time, six code sites read or validate the r
 2. `control_vectors.py::_validate_vector_payload` (`control_vectors.py:1587-1595`, guarded by `bench/check_control_vectors.py:1412-1416`): currently refuses with `ValueError("tensor 'vector.post_refiner' is not orthogonal to 'holds.post_refiner'")` whenever `|(holds.post_refiner @ vector.post_refiner).max()| > 1e-4 * max(1.0, v_norm)`. Allowing `alpha < 1.0` at build time requires recording `hold_alpha` in `metadata["pairs"]` and relaxing `_validate_vector_payload` when `hold_alpha < 1.0` (or keeping `vector.post_refiner` unprojected and applying `alpha` at inference time; see Section 3.1).
 3. `control_vectors.py::default_vector_filename` (`control_vectors.py:1598-1631`): currently distinguishes only `apply_holds=True` vs. `apply_holds=False` (`__noholds`).
 4. `control_vectors.py::format_vector_sidecar_md` (`control_vectors.py:1735-1774`): should record `pre_hold_raw_norm` and per-hold cosines $\cos(\mathbf{v}_{\text{raw}}, \mathbf{u}_k)$ so the `.md` sidecar shows how much energy each hold group removed.
-5. Builders in `control_vector_nodes.py::make_control_vector_from_pairs` (`control_vector_nodes.py:814-826`) and `bench/control_vectors.py` (`cmd_make` at `bench/control_vectors.py:356-367`, `cmd_build` at `bench/control_vectors.py:1815-1826`).
+5. Builders in `control_vector_nodes.py::make_control_vector_from_pairs` (`control_vector_nodes.py:814-826`) and `bench/control_vector/` (`cmd_make` at `bench/control_vector/make_cmds.py:85-100`, `cmd_build` at `bench/control_vector/build_cmd.py:130-165`).
 
 ---
 
@@ -92,9 +92,9 @@ Unlike `DeTangle`, which uses external ONNX InsightFace (`buffalo_l` / ArcFace) 
 ### 2.3 Side-by-Side Lockstep Comparison View in `bench/control_vectors.py ui`
 
 - **Source in `DeTangle`**: `DeltaScope` (`coderef/DeTangle/lab/README.md:18-21`).
-- **Current H3 code**: `bench/control_vectors.py::cmd_ui` (`bench/control_vectors.py:2401-2451`), `bench/control_vectors.py::handle_ui_request` (`bench/control_vectors.py:2210-2399`), and `bench/control_vector_ui.html`.
+- **Current H3 code**: `bench/control_vector/ui_server.py::cmd_ui` (`bench/control_vector/ui_server.py:350-401`), `bench/control_vector/ui_server.py::handle_ui_request` (`bench/control_vector/ui_server.py:21-348`), and `bench/control_vector/web/index.html`.
 
-`bench/control_vectors.py::_Handler._dispatch` (`bench/control_vectors.py:2413-2425`) currently serves only UTF-8 JSON/HTML responses and intentionally has no binary `HTTP 206 Partial Content` (`Range`) video streamer or access to `H3_OUTPUT_DIR`. The cleanest, zero-friction way to add a `DeltaScope`-style side-by-side comparison tab to `bench/control_vector_ui.html` is **pure client-side HTML5 file loading** (`<input type="file" accept="video/mp4">` / drag-and-drop bound via `URL.createObjectURL(file)` to two synchronized `<video>` elements with locked `play`, `pause`, `currentTime`, and `±1/24s` frame-step controls). This requires zero backend changes in `bench/control_vectors.py`, supports instant native browser byte-seeking on `blob:` URLs, and never transmits local filesystem paths over HTTP.
+`bench/control_vector/ui_server.py::_Handler._dispatch` (`bench/control_vector/ui_server.py:358-375`) currently serves only UTF-8 JSON/HTML/CSS/JS responses and intentionally has no binary `HTTP 206 Partial Content` (`Range`) video streamer or access to `H3_OUTPUT_DIR`. The cleanest, zero-friction way to add a `DeltaScope`-style side-by-side comparison tab to `bench/control_vector/web/index.html` is **pure client-side HTML5 file loading** (`<input type="file" accept="video/mp4">` / drag-and-drop bound via `URL.createObjectURL(file)` to two synchronized `<video>` elements with locked `play`, `pause`, `currentTime`, and `±1/24s` frame-step controls). This requires zero backend changes in `bench/control_vectors.py`, supports instant native browser byte-seeking on `blob:` URLs, and never transmits local filesystem paths over HTTP.
 
 ---
 

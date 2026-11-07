@@ -26,14 +26,14 @@ All three nodes register under the **`model/conditioning/minimax`** category in 
   - `-1.0` **inverts** the vector (`Prompt B -> Prompt A`, e.g., flipping `blizzard` toward warm/dry air).
   - `0.0` is an exact no-op.
 - **`mode`** (`COMBO`, `control_vectors.py::APPLY_MODES`):
-  - **`add`** *(Default)*: Adds `strength * v` in natural pair-difference units.
-  - **`add_norm_matched`**: Normalizes `v` to `67.5` post-refiner shift norm at `strength = 1.0` across all pooling modes (`diff_span`, `scene_text`, etc.).
+  - **`add_norm_matched`** *(Default)*: Normalizes `v` to `67.5` post-refiner shift norm at `strength = 1.0` across all pooling modes (`diff_span`, `scene_text`, etc.).
+  - **`add`**: Adds `strength * v` in raw mean-pair-difference units.
   - **`hold`**: Treats this vector as a protected direction $\hat{\mathbf{u}}$ and projects out $\text{strength} \cdot (\Delta\mathbf{r} \cdot \hat{\mathbf{u}})\hat{\mathbf{u}}$ from the accumulated additive steering shift without modifying the base prompt.
   - **`project_out`**: Removes $\text{strength} \cdot \frac{\mathbf{r} \cdot \mathbf{v}}{\|\mathbf{v}\|^2}\mathbf{v}$ directly from the prompt token states.
   - **`amplify`**: Adds $\text{strength} \cdot \frac{\mathbf{r} \cdot \mathbf{v}}{\|\mathbf{v}\|^2}\mathbf{v}$ to scale existing alignment in the prompt.
 - **`mask`** (`COMBO`, `control_vector_nodes.py::MASK_MODES`):
-  - **`non_vision`** *(Default)*: Steers all tag-1 text rows (excluding row 0 sink) while leaving tag-0 `<Picture N>` vision rows bitwise untouched so reference identity never drifts.
-  - **`scene_only`**: Steers scene text while leaving `<d>...</d>` dialogue and `(S1)` speaker tags untouched.
+  - **`scene_only`** *(Default)*: Steers scene text while leaving tag-0 `<Picture N>` vision rows, `<d>...</d>` dialogue, `(S1)` speaker tags, `<Picture 1>:` labels, and `<0.0 seconds>` timestamps bitwise untouched.
+  - **`non_vision`**: Steers all tag-1 text rows (excluding row 0 sink) while leaving tag-0 `<Picture N>` vision rows bitwise untouched.
   - **`description_only`**: Steers only scene tokens inside `integrated_multimodal_description:` (`fl2va`) or `detailed_description:` (`ref2va`).
   - **`soundscape_only`**: Steers only scene tokens inside `overall_soundscape:`.
   - **`after_dialogue`**: Steers only scene tokens after the last `</d>`.
@@ -49,8 +49,10 @@ All three nodes register under the **`model/conditioning/minimax`** category in 
   - Refuses a vector whose checkpoint family (`fl2va` vs. `ref2va`) or LoRA recipe differs from the loaded `model` unless set to `True`.
 - **`video_scale` / `audio_scale` / `split_end_percent`** (defaults `1.0`, `1.0`, `1.0`):
   - Stream multipliers applied within `[0.0, split_end_percent)`. At `(1.0, 1.0)` runs a single DiT pass; at `(1.0, 0.0)` steers video while keeping audio unsteered; at `(0.0, 1.0)` steers audio while keeping video unsteered.
-- **`ref_vae_end_percent` / `ref_vae_aug`** (defaults `1.0`, `0.999`):
+- **`ref_vae_end_percent` / `ref_vae_aug`** (defaults `0.5`, `0.999`):
   - For `ref2va` renders: controls the fraction of steps `[0.0, ref_vae_end_percent)` where clean 3D Video VAE reference latents stay active at weight `ref_vae_aug`.
+  - **`ref_vae_end_percent = 0.50`** *(Default)*: Locks `<Subject 1>`'s face, hair, and clothing on steps `0..2`, then gates `cond_video_latents` on steps `3..5` so lighting, color, and film-stock vectors harmonize across the subject.
+  - **`ref_vae_end_percent = 0.00` to `0.17`** (or lowering `ref_vae_aug` to `0.0`–`0.30`): Releases the 3D Video VAE pixel copy-lock on early steps so wardrobe/clothing/material control vectors can replace `<Subject 1>`'s outfit without editing the prompt while Qwen3-VL vision tokens retain facial identity.
 - **`words` / `against_words` / `hold_words` / `hold_alpha`**:
   - Optional inline J-Lens (`< 2 ms` CPU) unigram word inputs and soft-hold word scrubbing (`hold_alpha` in `[0.0, 2.0]`, default `1.0`).
 

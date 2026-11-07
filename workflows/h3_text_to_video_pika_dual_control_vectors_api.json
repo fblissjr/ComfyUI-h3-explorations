@@ -222,8 +222,8 @@
       ],
       "vector_name": "film_16mm_1974__fl2va__diff_span__lora_2a8c2b52.safetensors",
       "strength": 1.0,
-      "mode": "add",
-      "mask": "non_vision",
+      "mode": "add_norm_matched",
+      "mask": "scene_only",
       "start_percent": 0.0,
       "end_percent": 1.0,
       "allow_recipe_mismatch": false
@@ -238,8 +238,8 @@
       ],
       "vector_name": "chaos_panic__fl2va__diff_span__lora_2a8c2b52.safetensors",
       "strength": 1.0,
-      "mode": "add",
-      "mask": "non_vision",
+      "mode": "add_norm_matched",
+      "mask": "scene_only",
       "start_percent": 0.0,
       "end_percent": 1.0,
       "allow_recipe_mismatch": false

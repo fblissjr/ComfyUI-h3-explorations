@@ -69,13 +69,13 @@
 
 4. **Four Conflicting L2-Norm & $\alpha$-Bound Semantics for Hold Projection**:
    Projecting out a hold direction currently has four different norm/bound behaviors across the codebase:
-   - **Path 1 — Build-time `.toml` `[[hold]]` ([`control_vector_nodes.py:867`](../../../control_vector_nodes.py#L867), [`bench/control_vectors.py:461, 2103`](../../../bench/control_vectors.py#L2103))**: `final_vec = cv.project_out(raw_vec, basis)` does **not** restore `raw_vec`'s L2 norm (`head_swell` drops `85.01 -> 77.65`), and [`control_vectors.py::project_out`](../../../control_vectors.py#L1169) restricts `alpha` to `[0.0, 1.0]`.
+   - **Path 1 — Build-time `.toml` `[[hold]]` ([`control_vector_nodes.py:867`](../../../control_vector_nodes.py#L867), [`bench/control_vector/build_cmd.py:130-165`](../../../bench/control_vector/build_cmd.py#L130-L165))**: `final_vec = cv.project_out(raw_vec, basis)` does **not** restore `raw_vec`'s L2 norm (`head_swell` drops `85.01 -> 77.65`), and [`control_vectors.py::project_out`](../../../control_vectors.py#L1169) restricts `alpha` to `[0.0, 1.0]`.
    - **Path 2 — Inference-time chained `mode="hold"` ([`control_vectors.py:2110-2130, 2335`](../../../control_vectors.py#L2110-L2130))**: `_apply_holds_to_shift64` projects the hold out of `total_shift64` and does **not** restore L2 norm, and performs no bounds check on `h_alpha` (nor does `attach_control_vector` clamp `strength * _spec_stream_scale(...)` on `mode="hold"` at [`control_vector_nodes.py:1309, 1322`](../../../control_vector_nodes.py#L1309-L1322)).
    - **Path 3 — `j_lens.py::decode_safetensors` / `decode_recipe` / `save_composed_recipe_vector` ([`j_lens.py:686-689, 761, 1961`](../../../j_lens.py#L686-L689))**: applies `apply_soft_holds(v_pr, hold_tensors_pr, alpha=alpha)` (`alpha in [0.0, 2.0]`) **without** re-normalizing, reporting `norm_after_holds < norm_before_holds`.
-   - **Path 4 — `MiniMaxH3ApplyControlVectors` `hold_words` on `vector_name` ([`control_vector_nodes.py:1633-1641`](../../../control_vector_nodes.py#L1633-L1641)) and `cvman-holistic-workbench`'s `_apply_post_refiner_holds` (`bench/control_vectors.py:259` on `86592f0c`)**: **re-normalizes** the vector back to `orig_nrm` (`vec_held * (orig_nrm / res_nrm)`).
+   - **Path 4 — `MiniMaxH3ApplyControlVectors` `hold_words` on `vector_name` ([`control_vector_nodes.py:1633-1641`](../../../control_vector_nodes.py#L1633-L1641)) and `cvman-holistic-workbench`'s `_apply_post_refiner_holds` (`bench/control_vector/helpers.py:114-142` on `86592f0c`)**: **re-normalizes** the vector back to `orig_nrm` (`vec_held * (orig_nrm / res_nrm)`).
    - **Why this hurts**: A user who inspects a vector with `--hold-words` in `inspect` or `j_lens.py` sees the un-renormalized readout (`norm_after_holds < norm_before_holds`), while `MiniMaxH3ApplyControlVectors` silently rescales `vector_name` back to `orig_nrm` under `mode="add"`—and if over-projection (`alpha > 1.0`) is used, rescaling to `orig_nrm` amplifies the inverted nuisance direction.
 
-5. **`vector.encoder` Ignores Both `[[hold]]` Projections and `--unit-mean` During `make` / `build` ([`control_vector_nodes.py:911-929`](../../../control_vector_nodes.py#L911-L929), [`bench/control_vectors.py:481-495, 2120-2138`](../../../bench/control_vectors.py#L2120-L2138))**:
+5. **`vector.encoder` Ignores Both `[[hold]]` Projections and `--unit-mean` During `make` / `build` ([`control_vector_nodes.py:911-929`](../../../control_vector_nodes.py#L911-L929), [`bench/control_vector/build_cmd.py:160-185`](../../../bench/control_vector/build_cmd.py#L160-L185))**:
    - When `[[hold]]` pairs exist in a `.toml` file, `holds` are projected out of `vector.post_refiner` (`final_vec`), **never** out of `vector.encoder` (`enc_raw_vec`).
    - Likewise, `raw_vec` uses `unit_mean=use_unit_mean`, whereas `enc_raw_vec = cv.mean_difference(enc_a_mat, enc_b_mat, w_vec)` omits `unit_mean`.
    - Downstream, [`j_lens.py::decode_safetensors`](../../../j_lens.py#L703-L725) uses `vector.encoder` to compute `EN(+)`/`EN(-)`, `refiner_transmission = ||J_ref @ v_enc||_2`, `refiner_forward_cosine`, and `wiener_j63_cosine`—comparing an *un-held* `vector.encoder` against a *held* `vector.post_refiner`.
@@ -119,7 +119,7 @@
     - Evicting `_DIFF_MASK_CACHE.pop((tuple(a), first_diff, end_a), None)` (and `b`) in an `else:` branch at `h3_spans.py:713` and passing `other_ids` at the `pooling_mask` call sites (`control_vector_nodes.py`, `bench/control_vectors.py`) eliminates the collision completely.
 
 11. **Remaining Invariant 2 & 3 Seams in `cvman-holistic-workbench` (`86592f0c`)**:
-    - On `cvman-holistic-workbench` (`86592f0c`), `bench/control_vectors.py:173` still has `_inject_target_prompt_into_pairset` (duplicating `h3_pair_compiler.py::compile_words_to_pairset` on `main`) and `bench/control_vectors.py:259` still has `scrubbed = scrubbed * (norm_before / norm_after_raw)` inside `_apply_post_refiner_holds`.
+    - On `cvman-holistic-workbench` (`86592f0c`), `bench/control_vector/helpers.py:66` still has `_inject_target_prompt_into_pairset` (duplicating `h3_pair_compiler.py::compile_words_to_pairset` on `main`) and `bench/control_vector/helpers.py:114` still has `scrubbed = scrubbed * (norm_before / norm_after_raw)` inside `_apply_post_refiner_holds`.
 
 ---
 
@@ -140,9 +140,9 @@
 ## 5. Holistic Resolution Blueprint (Converged Across All Sessions)
 
 1. **Invariant 1 — Twin-Space Symmetry (`vector.encoder` & `vector.post_refiner`)**:
-   - Pass `unit_mean=use_unit_mean` and project out the encoder-space `[[hold]]` basis (`cv.hold_basis` + `cv.project_out`) on `vector.encoder` (`5120`-d) identically to `vector.post_refiner` (`5376`-d) in `control_vector_nodes.py:911-929` and `bench/control_vectors.py:481-495, 2120-2138`.
+   - Pass `unit_mean=use_unit_mean` and project out the encoder-space `[[hold]]` basis (`cv.hold_basis` + `cv.project_out`) on `vector.encoder` (`5120`-d) identically to `vector.post_refiner` (`5376`-d) in `control_vector_nodes.py:911-929` and `bench/control_vector/build_cmd.py:160-185`.
 2. **Invariant 2 — Hold Projection Never Secretly Re-Normalizes; $\alpha \in [0.0, 2.0]$ Everywhere**:
-   - Remove `vec_held * (orig_nrm / res_nrm)` at `control_vector_nodes.py:1641` and in `cvman`'s `_apply_post_refiner_holds` (`bench/control_vectors.py:259`), leaving magnitude standardization exclusively to `mode="add_norm_matched"` (`67.5`).
+   - Remove `vec_held * (orig_nrm / res_nrm)` at `control_vector_nodes.py:1641` and in `cvman`'s `_apply_post_refiner_holds` (`bench/control_vector/helpers.py:114`), leaving magnitude standardization exclusively to `mode="add_norm_matched"` (`67.5`).
    - Unify `alpha` validation to `[0.0, 2.0]` in `control_vectors.py::project_out` (`L1169`) and `control_vectors.py::_apply_holds_to_shift64` (`L2110-2130`), and update `bench/check_control_vectors.py:1840-1844`.
 3. **Invariant 3 — One Compiler Owner (`h3_pair_compiler.py`) & Exact Multi-Span Diff Masks (`h3_spans.py`)**:
    - Delegate all short-spec, `hold:`, `soundscape:`, and `target_prompt` compilation in `bench/control_vectors.py` directly to `h3_pair_compiler.py`.

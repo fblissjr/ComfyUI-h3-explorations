@@ -20,6 +20,7 @@ import j_lens
 import substrate
 from workflows import h3_config
 
+from .llm_pairs import _repair_multichange_markdown_pairs
 from . import helpers as _h
 from .helpers import (
     REPO_ROOT,
@@ -237,7 +238,7 @@ def cmd_build(args: argparse.Namespace) -> int:
         if src_path.suffix.lower() == ".md" or (src_path.is_file() and src_arg.lower().endswith(".md")):
             if not src_path.is_file():
                 raise ValueError(f"markdown file not found: {src_path}")
-            md_text = src_path.read_text(encoding="utf-8")
+            md_text = _repair_multichange_markdown_pairs(src_path.read_text(encoding="utf-8"))
             parsed = cv.parse_markdown_pairs(md_text)
             toml_target_path = (
                 Path(args.toml_out) if getattr(args, "toml_out", None) else cv_nodes.PAIR_BANK_DIR

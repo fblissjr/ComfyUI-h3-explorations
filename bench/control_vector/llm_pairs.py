@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import difflib
 import hashlib
 import os
 from pathlib import Path
@@ -16,6 +17,151 @@ import control_vector_nodes as cv_nodes
 import control_vectors as cv
 
 from .helpers import REPO_ROOT, _display_path
+
+
+def _single_clause_section(sec_a: str, sec_b: str) -> str:
+    """Ensure `sec_b` differs from `sec_a` in at most one contiguous clause."""
+    if sec_a == sec_b:
+        return sec_b
+    try:
+        cv.differing_span(sec_a, sec_b, frame="scene")
+        return sec_b
+    except ValueError:
+        pass
+
+    words_a = sec_a.split()
+    words_b = sec_b.split()
+    if words_a == words_b:
+        return sec_a
+
+    matcher = difflib.SequenceMatcher(None, words_a, words_b, autojunk=False)
+    opcodes = matcher.get_opcodes()
+    clusters: list[list[tuple[str, int, int, int, int]]] = []
+    cur_cluster: list[tuple[str, int, int, int, int]] = []
+    for idx, op in enumerate(opcodes):
+        tag, i1, i2, _j1, _j2 = op
+        if tag != "equal":
+            cur_cluster.append(op)
+        elif cur_cluster:
+            has_more_ne = any(o[0] != "equal" for o in opcodes[idx + 1 :])
+            if has_more_ne and (i2 - i1) < cv.MAX_SHARED_INTERIOR_WORDS:
+                cur_cluster.append(op)
+            else:
+                clusters.append(cur_cluster)
+                cur_cluster = []
+    if cur_cluster:
+        clusters.append(cur_cluster)
+
+    if not clusters:
+        return sec_a
+
+    def _cluster_score(cl: list[tuple[str, int, int, int, int]]) -> tuple[int, int]:
+        a0, a1 = cl[0][1], cl[-1][2]
+        b0, b1 = cl[0][3], cl[-1][4]
+        span_a = " ".join(words_a[a0:a1])
+        span_b = " ".join(words_b[b0:b1])
+        crosses = any(m in span_a or m in span_b for m in cv.SECTION_AND_SHOT_MARKERS)
+        valid_flag = 0 if (not crosses and bool(span_a) and bool(span_b)) else -1
+        return (valid_flag, max(a1 - a0, b1 - b0))
+
+    best = max(clusters, key=_cluster_score)
+    a0, a1 = best[0][1], best[-1][2]
+    b0, b1 = best[0][3], best[-1][4]
+    rebuilt_words = words_a[:a0] + words_b[b0:b1] + words_a[a1:]
+    rebuilt = " ".join(rebuilt_words)
+    try:
+        cv.differing_span(" ".join(words_a), rebuilt, frame="scene")
+        return rebuilt
+    except ValueError:
+        return sec_b
+
+
+def _repair_pair_prompts(a: str, b: str) -> tuple[str, str]:
+    """Repair an LLM-generated `(a, b)` pair if a section contains multiple separate edits."""
+    try:
+        cv.differing_span(a, b, frame="scene")
+        return a, b
+    except ValueError:
+        pass
+
+    blocks_a = [" ".join(blk.split()) for blk in a.strip().split("\n\n") if blk.strip()]
+    blocks_b = [" ".join(blk.split()) for blk in b.strip().split("\n\n") if blk.strip()]
+    if len(blocks_a) != len(blocks_b) or not blocks_a:
+        return a, b
+
+    repaired_b: list[str] = []
+    for ba, bb in zip(blocks_a, blocks_b):
+        if ba == bb:
+            repaired_b.append(ba)
+            continue
+        hdr_a = ba.split(":", 1)[0].strip() if ":" in ba else ""
+        if hdr_a in ("integrated_multimodal_description", "detailed_description", "overall_soundscape"):
+            repaired_b.append(_single_clause_section(ba, bb))
+        else:
+            repaired_b.append(ba)
+
+    cand_a = "\n\n".join(blocks_a)
+    cand_b = "\n\n".join(repaired_b)
+    try:
+        cv.differing_span(cand_a, cand_b, frame="scene")
+        return cand_a, cand_b
+    except ValueError:
+        # If description + soundscape both changed and still failed, keep only the description change.
+        desc_only_b = [
+            (_single_clause_section(ba, bb) if idx == 0 else ba)
+            for idx, (ba, bb) in enumerate(zip(blocks_a, blocks_b))
+        ]
+        cand_b2 = "\n\n".join(desc_only_b)
+        try:
+            cv.differing_span(cand_a, cand_b2, frame="scene")
+            return cand_a, cand_b2
+        except ValueError:
+            return a, b
+
+
+def _repair_multichange_markdown_pairs(md_text: str) -> str:
+    """Normalize any LLM-generated Markdown pairs that contain secondary non-contiguous edits."""
+    try:
+        parsed = cv.parse_markdown_pairs(md_text)
+    except Exception:
+        return md_text
+
+    pairs = parsed.get("pairs") or []
+    if not pairs:
+        return md_text
+
+    any_repaired = False
+    repaired_pairs: list[dict[str, Any]] = []
+    for p in pairs:
+        a_orig, b_orig = p["a"], p["b"]
+        a_new, b_new = _repair_pair_prompts(a_orig, b_orig)
+        if (a_new, b_new) != (a_orig, b_orig):
+            any_repaired = True
+        repaired_pairs.append({**p, "a": a_new, "b": b_new})
+
+    if not any_repaired:
+        return md_text
+
+    out_lines: list[str] = []
+    test_scene = (parsed.get("test_scene_prompt") or "").strip()
+    if test_scene:
+        out_lines.append("### Test Scene Prompt\n")
+        out_lines.append(test_scene + "\n")
+    out_lines.append(f"### Contrastive Pairs (1–{len(repaired_pairs)})\n")
+    for p in repaired_pairs:
+        out_lines.append(f"#### Pair {p['number']}\n")
+        out_lines.append("##### Prompt A (Baseline)")
+        out_lines.append(p["a"].strip() + "\n")
+        out_lines.append("##### Prompt B (Steered)")
+        out_lines.append(p["b"].strip() + "\n")
+    for h in parsed.get("holds") or []:
+        out_lines.append(f"#### Hold {h['number']} ({h['group']})\n")
+        out_lines.append("##### Prompt A (Baseline)")
+        out_lines.append(h["a"].strip() + "\n")
+        out_lines.append("##### Prompt B (Steered)")
+        out_lines.append(h["b"].strip() + "\n")
+    return "\n".join(out_lines).strip()
+
 
 def _extract_system_prompt_text() -> str:
     candidates = [
@@ -304,6 +450,7 @@ def _generate_pairs_with_llm(
             markdown_out = markdown_out[first_nl + 1 :].strip()
         if markdown_out.endswith("```"):
             markdown_out = markdown_out[:-3].strip()
+    markdown_out = _repair_multichange_markdown_pairs(markdown_out)
 
     elapsed_s = round(time.perf_counter() - t0, 2)
     return {

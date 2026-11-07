@@ -355,10 +355,10 @@ DECLARED: dict[tuple[str, str], tuple] = {
                 "node default 'none' "
                 "(2026-11-05, bench/results/2026-11-05_control_vectors_pika_and_ref2va.md)"),
     ("MiniMaxH3ApplyControlVectors", "strength"):
-        ("ARM", "the arm's post-refiner control-vector multiplier in mean-pair-diff "
-                "units (+1.25 on the single t2va diff_span arm, +1.0 on the dual t2va "
-                "and ref2va zero_gravity diff_span arms), against the node default 1.0 "
-                "(2026-11-06, bench/results/2026-11-05_control_vectors_pika_and_ref2va.md)"),
+        ("ARM", "the arm's post-refiner control-vector multiplier in add_norm_matched "
+                "units (+1.15 on the single t2va and ref2va film_16mm_1974 diff_span arms, "
+                "+1.0 on the dual t2va diff_span arm), against the node default 1.0 "
+                "(2026-11-07, bench/results/2026-11-05_control_vectors_pika_and_ref2va.md)"),
 }
 
 #: **There is deliberately no exception table here.** One was written on

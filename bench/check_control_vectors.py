@@ -2373,11 +2373,12 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
             "attach_control_vector refusal on family mismatch",
         )
 
-        # MiniMaxH3ApplyControlVectors.execute chained
+        # MiniMaxH3ApplyControlVectors.execute chained (explicit mode='add' matches expected_shifted)
         (p_node_1,) = cv_nodes.MiniMaxH3ApplyControlVectors.execute(
             model=patcher_with_init,
             vector_name=str(v1_path),
             strength=1.0,
+            mode="add",
             mask="non_vision",
             allow_recipe_mismatch=False,
         )
@@ -2385,6 +2386,7 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
             model=p_node_1,
             vector_name=str(v2_path),
             strength=1.0,
+            mode="add",
             mask="non_vision",
             allow_recipe_mismatch=False,
         )
@@ -3974,8 +3976,8 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
         errs.append(f"BasicGuider model input is {arm['9']['inputs']['model']}, expected ['115', 0]")
     if (
         arm["115"]["inputs"]["strength"] != 0.75
-        or arm["115"]["inputs"]["mask"] != "non_vision"
-        or arm["115"]["inputs"]["mode"] != "add"
+        or arm["115"]["inputs"]["mask"] != "scene_only"
+        or arm["115"]["inputs"]["mode"] != "add_norm_matched"
         or arm["115"]["inputs"]["start_percent"] != 0.0
         or arm["115"]["inputs"]["end_percent"] != 1.0
     ):
@@ -4381,6 +4383,42 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
             errs.append(f"handle_ui_request('/api/expand-scenes') with multi-line target_prompt failed ({st_code}): {exp_multi}")
         elif float(exp_multi["pairs"][0].get("weight", 0.0)) != 2.5:
             errs.append(f"expand_scenes Pair 0 weight expected 2.5, got {exp_multi['pairs'][0].get('weight')}")
+
+        # Verify _repair_multichange_markdown_pairs repairs non-contiguous secondary edits in LLM-generated pairs
+        multi_edit_md = (
+            "### Test Scene Prompt\n\n"
+            "integrated_multimodal_description: [Shot 1] Wide shot of a stone courtyard.\n\n"
+            "overall_soundscape: Soft wind.\n\n"
+            "### Contrastive Pairs (1–1)\n\n"
+            "#### Pair 1\n"
+            "##### Prompt A (Baseline)\n"
+            "integrated_multimodal_description: [Shot 1] Medium shot of a diver descending along a dark reef wall while several small silver fish dart rapidly past the rocky ledge.\n\n"
+            "overall_soundscape: Muffled regulator bubbles.\n\n"
+            "##### Prompt B (Steered)\n"
+            "integrated_multimodal_description: [Shot 1] Medium shot of a diver descending along a glowing bioluminescent cavern wall with neon cyan polyps while several small silver fish dart rapidly past the shimmering ledge.\n\n"
+            "overall_soundscape: Muffled regulator bubbles.\n"
+        )
+        repaired_md = bench_cv._repair_multichange_markdown_pairs(multi_edit_md)
+        repaired_parsed = cv.parse_markdown_pairs(repaired_md)
+        try:
+            a_rep, b_rep = cv.differing_span(
+                repaired_parsed["pairs"][0]["a"],
+                repaired_parsed["pairs"][0]["b"],
+                frame="scene",
+            )
+            if "glowing bioluminescent cavern wall" not in b_rep or "shimmering" in b_rep:
+                errs.append(f"_repair_multichange_markdown_pairs kept wrong clause: {a_rep!r} -> {b_rep!r}")
+        except Exception as exc_rep:
+            errs.append(f"_repair_multichange_markdown_pairs did not produce a valid single-clause pair: {exc_rep}")
+        st_rep_prev, _, body_rep_prev = bench_cv.handle_ui_request(
+            ui_state_multi,
+            "POST",
+            "/api/preview",
+            json.dumps({"text": multi_edit_md, "name": "test_multi_repair"}).encode("utf-8"),
+        )
+        rep_prev_json = json.loads(body_rep_prev)
+        if st_rep_prev != 200 or not rep_prev_json.get("ok") or not (rep_prev_json.get("pairs") or [{}])[0].get("valid"):
+            errs.append(f"POST /api/preview did not auto-repair multi-change LLM markdown pair: {rep_prev_json}")
 
     return errs
 

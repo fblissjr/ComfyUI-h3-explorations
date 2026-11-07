@@ -18,21 +18,35 @@ Because Qwen3-VL causal attention changes every downstream token whenever you ed
 
 ---
 
-## 2. How to Create Your Own Control Vector (Three Ways)
+## 2. Shipped Runtime Defaults (`MiniMaxH3ApplyControlVectors` & Canonical Workflows)
+
+Every `MiniMaxH3ApplyControlVectors` node ([`h3_rules.py:266-288`](../../h3_rules.py#L266-L288), [`control_vector_nodes.py`](../../control_vector_nodes.py)) and the three canonical Pika control-vector workflows ([`workflows/build_workflows.py:4606-4642`](../../workflows/build_workflows.py#L4606-L4642)) ship with these defaults:
+
+| Input / Setting | Shipped Default | Why This Is the Default |
+|---|---|---|
+| **`mode`** | **`add_norm_matched`** | Normalizes the vector to `NORM_MATCHED_TARGET = 67.5` post-refiner shift norm at `strength = 1.0`, so `strength = 1.0–1.25` behaves consistently across `diff_span`, `scene_text`, `from_first_diff`, and J-Lens vectors without manual norm math. |
+| **`mask`** | **`scene_only`** | Steers scene prose while leaving tag-0 `<Picture N>` vision tokens, `<d>[Language] ...</d>` spoken dialogue, `(S1)` speaker tags, `<Picture 1>:` labels, and `<0.0 seconds>` timestamps bitwise untouched. |
+| **`ref_vae_end_percent`** (`ref2va`) | **`0.50`** | On 6-step `ref2va` renders, keeps the 3D Video VAE reference latents (`cond_video_latents`) active on steps `0..2` to lock `<Subject 1>`'s face, hair, and clothing, then gates them on steps `3..5` so lighting/film-stock vectors harmonize across `<Subject 1>`. *(Set to **`0.00`** when overriding `<Subject 1>`'s clothing/wardrobe without editing the prompt; see [Practical Examples & Recipes](control_vectors/examples_and_recipes.md#example-1-changing-subject-1s-clothing-in-ref2va-without-editing-the-prompt)).* |
+| **Canonical `t2va` Workflow** | `film_16mm_1974__fl2va__diff_span__lora_2a8c2b52.safetensors` (`strength = 1.15`) | [`workflows/h3_text_to_video_pika_control_vector_api.json`](../../workflows/h3_text_to_video_pika_control_vector_api.json) (and dual-vector [`workflows/h3_text_to_video_pika_dual_control_vectors_api.json`](../../workflows/h3_text_to_video_pika_dual_control_vectors_api.json) chaining `film_16mm_1974` + `chaos_panic` at `1.0` each). |
+| **Canonical `ref2va` Workflow** | `film_16mm_1974__ref2va__diff_span__lora_865ee189.safetensors` (`strength = 1.15`, `ref_vae_end_percent = 0.50`) | [`workflows/h3_image_ref_plus_text_to_video_pika_control_vector_api.json`](../../workflows/h3_image_ref_plus_text_to_video_pika_control_vector_api.json) on the 4-shot kitchen scene. |
+
+---
+
+## 3. How to Create Your Own Control Vector (Three Ways)
 
 You do **not** need pre-canned scenes from `prompt_bank/` to use control vectors. The Studio UI and CLI are built for authoring **your own** vectors:
 
 ### Way A — From a Short Clause Contrast (`Pole A -> Pole B`) *(Recommended, ~12s)*
 Write the baseline phrase (`Pole A`) and the target phrase (`Pole B`), for example:
-- **Pole A (Baseline)**: `calm mild afternoon air with neutral daylight`
-- **Pole B (Target)**: `scorching desert heatwave with shimmering heat-haze mirages and blinding sun glare`
+- **Pole A (Baseline)**: `bathed in cool overcast daylight with crisp neutral air`
+- **Pole B (Target)**: `drenched in scorching desert heatwave glare with shimmering heat-haze mirages`
 
-The pair compiler ([`h3_pair_compiler.py`](../../h3_pair_compiler.py)) automatically embeds your contrast into **10 diverse, structurally matched 6-part H3 scene templates** (and optionally your own target prompt as Pair 0), runs them through the actual contextual **Qwen3-VL-32B (`layers.49`) + 2-block `TokenRefiner`**, and saves both `fl2va` and `ref2va` `.safetensors` vectors.
+The pair compiler ([`h3_pair_compiler.py`](../../h3_pair_compiler.py)) automatically embeds your contrast into **10 diverse, structurally matched H3 scene templates** (and optionally your own target prompt as Pair 0), runs them through the actual contextual **Qwen3-VL-32B (`layers.49`) + 2-block `TokenRefiner`**, and saves both `fl2va` and `ref2va` `.safetensors` vectors (with default Pika LoRA branches automatically attached unless `--no-lora` is passed).
 
 ### Way B — From Full Custom or LLM-Authored Prompt Pairs (`.md` / `.toml`) *(Highest Precision, ~12s)*
-When you want complete control over all 10 Prompt A / Prompt B scenes (for example, complex multi-clause physical transformations or custom `[[hold]]` pairs):
-1. Copy the canonical system prompt ([`docs/wiki/system_prompts/h3_control_vector_system_prompt.md`](system_prompts/h3_control_vector_system_prompt.md)) into any LLM — or write/edit the 10 Prompt A / Prompt B pairs directly in the **Studio UI → Create from Text Pairs → Full Scene Pairs** editor.
-2. Each pair holds 5 of the 6 H3 prompt sections byte-identical between Prompt A and Prompt B so `pooling = "diff_span"` isolates only your changed clause.
+When you want complete control over all 10 Prompt A / Prompt B scenes (for example, complex multi-clause physical transformations, wardrobe overrides with `[[hold]]` pairs, or custom domain scenes):
+1. Follow **[7. Prompting Generative LLMs for Control Vectors](control_vectors/llm_prompting_guide.md)** (which provides copy-paste input prompt templates for [`docs/wiki/system_prompts/h3_control_vector_system_prompt.md`](system_prompts/h3_control_vector_system_prompt.md)) using either our built-in local LLM generator (`transformers` or `exllamav3` in **Studio Screen 3** / `generate-pairs`) or any external LLM service.
+2. Each pair holds all non-target sections byte-identical between Prompt A and Prompt B so `pooling = "diff_span"` isolates only your changed clause.
 
 ### Way C — From Browser-Uploaded Reference Images (`Image A -> Image B`) *(Visual Look Extraction, ~15s)*
 Upload or drag-and-drop two contrasting reference images directly in the **Studio UI → Create from Reference Images** screen (or pass `--image-a` and `--image-b` to `make-media`):
@@ -42,33 +56,46 @@ Both images are snapped to an identical 32-px M-RoPE vision token grid (`short_e
 
 ---
 
-## 3. Quick Example: Creating `"scorching"` (or Inverting `"blizzard"`)
+## 4. End-to-End Walkthrough Examples (See [Full Examples & Recipes](control_vectors/examples_and_recipes.md))
 
-### Option 1: Author a dedicated `"scorching"` vector (Studio UI or CLI)
+Below are three common end-to-end recipes. For all 6 detailed recipes (including media look transfer, multi-vector sculpting, and `< 2 ms` CPU word synthesis), see **[6. Practical Examples & Recipes](control_vectors/examples_and_recipes.md)**.
+
+### Example A: Changing `<Subject 1>`'s Clothing in `ref2va` Without Editing the Prompt
+To override `<Subject 1>`'s outfit from `<Picture 1>` (for example, shifting everyday indoor/winter attire to summer resort beachwear) while keeping `<Subject 1>`'s face and the kitchen/room scene intact:
 ```bash
 COMFY="$(cd ../.. && pwd)"
 PY="$COMFY/.venv/bin/python"
 
 "$PY" bench/control_vectors.py build \
-  --words "calm clear mild air -> scorching desert heatwave with shimmering heat haze and harsh sun glare; soundscape: quiet outdoor air -> dry desert wind and cicada drone" \
-  --name scorching \
+  --words "opening_framing: dressed in everyday indoor casual layers and street attire -> dressed in sun-drenched summer beachwear and tropical resort swimwear" \
+  --name summer_beachwear \
+  --families ref2va \
+  --overwrite
+```
+In ComfyUI (`MiniMaxH3ApplyControlVectors` on `ref2va`), set:
+- `vector_name = "summer_beachwear__ref2va__diff_span__lora_865ee189.safetensors"`
+- `strength = 1.35`, `mode = "add_norm_matched"`, `mask = "scene_only"`
+- **`ref_vae_end_percent = 0.00`** *(releases the 3D Video VAE pixel copy-lock on `<Picture 1>`'s original clothing from Step 0 while Qwen3-VL vision tokens preserve `<Subject 1>`'s facial identity)*.
+
+### Example B: Coupled Visual + Audio Atmosphere (`scorching_heatwave`)
+```bash
+"$PY" bench/control_vectors.py build \
+  --words "opening_framing: bathed in cool overcast daylight with crisp neutral air -> drenched in scorching desert heatwave glare with shimmering heat-haze mirages; soundscape: quiet mild afternoon air -> dry desert wind and high-pitched cicada heat drone" \
+  --name scorching_heatwave \
+  --families both \
   --save-toml \
   --overwrite
 ```
-This writes:
-- `prompt_bank/control_vectors/scorching.toml` (re-editable 10-pair bank)
-- `models/control_vectors/scorching__fl2va__pika_v2_2__diff_span.safetensors`
-- `models/control_vectors/scorching__ref2va__pika_r2v_v1_1__diff_span.safetensors`
+This writes `prompt_bank/control_vectors/scorching_heatwave.toml` plus both `fl2va` (`__lora_2a8c2b52`) and `ref2va` (`__lora_865ee189`) `.safetensors` files. In ComfyUI, apply at `strength = 1.15, mode = "add_norm_matched", mask = "scene_only"`.
 
-### Option 2: Invert or blend existing vectors in `< 5 ms` (`sculpt`)
-If you want the exact mathematical inverse of `blizzard` (or want to blend `scorching` with `golden_hour` while holding `wardrobe` constant):
+### Example C: Inverting or Combining Vectors in `< 5 ms` on CPU (`sculpt`)
 ```bash
 # Invert blizzard (-1.0x) into a new saved vector:
 "$PY" bench/control_vectors.py sculpt blizzard --invert --name anti_blizzard
 
-# Combine scorching (+1.0) + golden_hour (+0.5) while projecting out wardrobe drift:
-"$PY" bench/control_vectors.py sculpt scorching golden_hour \
-  --modes add,add \
+# Combine scorching_heatwave (+1.0) + golden_hour (+0.5) while scrubbing out winter coat drift:
+"$PY" bench/control_vectors.py sculpt scorching_heatwave golden_hour \
+  --modes add_norm_matched,add_norm_matched \
   --strengths 1.0,0.5 \
   --hold-words "coat, parka, heavy clothing" \
   --name scorching_golden
@@ -76,7 +103,7 @@ If you want the exact mathematical inverse of `blizzard` (or want to blend `scor
 
 ---
 
-## 4. Launching the Control Vector Studio UI
+## 5. Launching the Control Vector Studio UI
 
 ```bash
 COMFY="$(cd ../.. && pwd)"
@@ -85,23 +112,25 @@ COMFY="$(cd ../.. && pwd)"
 
 The Studio UI opens in your browser and is organized into **6 focused task screens** so you only see the controls you need when you need them:
 1. **Vector Library & Quick Actions** — Browse built `.safetensors` and `.toml` banks, inspect quality metrics (`split_half_cosine`, `raw_norm`, recommended strength), or one-click **Invert (`-1x`)** / **Open in Sculpt**.
-2. **Create from Text Pairs** — Build a new vector from a `Pole A -> Pole B` contrast or full multi-line Prompt A / Prompt B pairs (`rows="10"` editors), with live token-diff highlighting and `< 1 ms` CPU pair re-weighting.
-3. **Create from Reference Images** — Drag-and-drop **Image A (Baseline)** and **Image B (Target)** in the browser to build an image-contrast vector.
-4. **Sculpt, Invert & Combine** — Stack, invert, or orthogonalize (`hold`) existing vectors in `< 5 ms` on CPU.
-5. **Test Against Your Prompt (Receptor Meter)** — Paste your own H3 scene prompt to see per-token cosine alignment before rendering.
-6. **J-Lens Word Lab & Diagnostics *(Advanced / Separate Tool)*** — Optional `< 2 ms` CPU unigram word synthesizer (`24,912`-word vocabulary) and lexical decoder (`models/j_lens/j_lens_h3.safetensors`). Kept completely separate from core Qwen3-VL pair building.
+2. **Quick Clause Builder (`Pole A -> Pole B`)** — Build a new vector from a `Pole A -> Pole B` contrast (with optional `soundscape:` and `hold:` clauses and `target_prompt` Pair 0 injection).
+3. **Full Pair & LLM Studio** — Edit all 10 Prompt A / Prompt B pairs side by side, generate pairs with a local LLM (`transformers` or `exllamav3`), or paste Markdown from any external LLM with live token-diff highlighting and `< 1 ms` CPU pair re-pooling.
+4. **Media Contrast (`Image A -> Image B`)** — Drag-and-drop **Image A (Baseline)** and **Image B (Target)** in the browser to build an image-contrast vector.
+5. **Subspace Sculptor (`< 5 ms` CPU)** — Stack, invert, or orthogonalize (`hold`) existing vectors in `< 5 ms` on CPU.
+6. **J-Lens & Receptor Meter** — Paste your own H3 scene prompt to see per-token cosine alignment before rendering, or run `< 2 ms` CPU unigram word synthesis and lexical readouts (`models/j_lens/j_lens_h3.safetensors`).
 
 ---
 
-## 5. Sub-Guides & Reference Index
+## 6. Sub-Guides & Reference Index
 
 | Guide | What It Covers |
 |---|---|
 | **[1. Studio UI Guide](control_vectors/studio_ui_guide.md)** | Screen-by-screen walkthrough of the 6 Studio screens, progressive disclosure, tooltips, and interactive `< 1 ms` pair re-pooling. |
 | **[2. Building Pairs & Vectors](control_vectors/building_pairs_and_vectors.md)** | How pairs are built: `Pole A -> Pole B` template compilation (`h3_pair_compiler.py`), the LLM system prompt (`h3_control_vector_system_prompt.md`), why Qwen3-VL + `TokenRefiner` is used, pooling modes (`diff_span` vs. `scene_text`), and `[[hold]]` de-biasing. |
-| **[3. ComfyUI Nodes & Controls](control_vectors/comfyui_nodes_and_controls.md)** | Using `MiniMaxH3MakeControlVector`, `MiniMaxH3MakeMediaControlVector`, and `MiniMaxH3ApplyControlVectors` in ComfyUI (`strength`, `mode`, `mask`, `start_percent`, `video_scale`, `audio_scale`, `words`). |
+| **[3. ComfyUI Nodes & Controls](control_vectors/comfyui_nodes_and_controls.md)** | Using `MiniMaxH3MakeControlVector`, `MiniMaxH3MakeMediaControlVector`, and `MiniMaxH3ApplyControlVectors` in ComfyUI (`strength`, `mode = "add_norm_matched"`, `mask = "scene_only"`, `ref_vae_end_percent = 0.50`, `video_scale`, `audio_scale`, `words`). |
 | **[4. J-Lens Diagnostics & Word Lab](control_vectors/j_lens_diagnostics_and_word_lab.md)** | How J-Lens (`j_lens.py`) differs from full 10-pair control vectors, when to use `< 2 ms` CPU word synthesis vs. 10-pair Qwen builds, and how to read `assess_steering_readiness` observables (`top1_gain`, `refiner_transmission`, `echo_ratio`) and lexical readouts. |
-| **[5. Preset Catalog & CLI Reference](control_vectors/preset_catalog_and_cli_reference.md)** | Complete CLI command & flag reference (`--dit`, `--words`, `--save-toml`, `make-media`, `sculpt --invert`, `inspect`, `grade`), file naming & JSON metadata contract, and the 32 starter `.toml` banks in `prompt_bank/control_vectors/`. |
+| **[5. Preset Catalog & CLI Reference](control_vectors/preset_catalog_and_cli_reference.md)** | Complete CLI command & flag reference (`--dit`, `--words`, `--save-toml`, `generate-pairs`, `make-media`, `sculpt --invert`, `inspect`, `grade`), file naming & JSON metadata contract, and the starter `.toml` banks in `prompt_bank/control_vectors/`. |
+| **[6. Practical Examples & Recipes](control_vectors/examples_and_recipes.md)** | 6 end-to-end recipes: `ref2va` clothing override (`ref_vae_end_percent = 0.00`), 1974 16mm film stock (`ref_vae_end_percent = 0.50`), coupled visual + soundscape weather, reference-image look transfer, multi-vector sculpting with holds, and `< 2 ms` word synthesis. |
+| **[7. Prompting Generative LLMs for Control Vectors](control_vectors/llm_prompting_guide.md)** | Copy-paste input prompts for local LLMs (`transformers`, `exllamav3`) or external LLM services using [`h3_control_vector_system_prompt.md`](system_prompts/h3_control_vector_system_prompt.md) across atmosphere, wardrobe/material overrides, physics, camera motion, and `--words` specs. |
 
 ---
 

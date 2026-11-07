@@ -20,6 +20,7 @@ import j_lens
 import substrate
 from workflows import h3_config
 
+from .llm_pairs import _repair_multichange_markdown_pairs
 from . import helpers as _h
 from .helpers import (
     REPO_ROOT,
@@ -217,6 +218,7 @@ def _preview_markdown_pairs(
     inferred_slot: str | None = None
     try:
         if _is_markdown_pairs_text(text):
+            text = _repair_multichange_markdown_pairs(text)
             parsed = cv.parse_markdown_pairs(text)
         else:
             spec_hdr = f"slot: {slot}\nmode: {mode}\n" if slot != "auto" or mode != "t2va" else ""

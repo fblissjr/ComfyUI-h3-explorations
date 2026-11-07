@@ -19,6 +19,7 @@ import j_lens
 import substrate
 from workflows import h3_config
 
+from .llm_pairs import _repair_multichange_markdown_pairs
 from . import helpers as _h
 from .helpers import (
     REPO_ROOT,
@@ -608,9 +609,10 @@ def cmd_from_md(args: argparse.Namespace) -> int:
     out_target: str | Path = (
         Path(args.out) if getattr(args, "out", None) else cv_nodes.PAIR_BANK_DIR
     )
-    parsed = cv.parse_markdown_pairs(md_path.read_text(encoding="utf-8"))
+    repaired_md = _repair_multichange_markdown_pairs(md_path.read_text(encoding="utf-8"))
+    parsed = cv.parse_markdown_pairs(repaired_md)
     saved_toml = cv.write_markdown_to_toml(
-        md_path,
+        repaired_md,
         out_target,
         name=getattr(args, "name", None),
         mode=getattr(args, "mode", None),

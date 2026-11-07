@@ -30,6 +30,7 @@ from .llm_pairs import (
     SUPPORTED_LLM_PROVIDERS,
     _extract_system_prompt_text,
     _generate_pairs_with_llm,
+    _repair_multichange_markdown_pairs,
 )
 from .make_cmds import cmd_make_media
 from .sculpt import _compose_and_save_sculpted_vector, _meter_prompt_tokens
@@ -346,6 +347,7 @@ def handle_ui_request(
             elif _is_markdown_pairs_text(text):
                 if not name:
                     return 400, "application/json", json.dumps({"ok": False, "error": "vector name is required"})
+                text = _repair_multichange_markdown_pairs(text)
                 parsed = cv.parse_markdown_pairs(text)
                 tp_out = state.toml_dir / f"{name}_test_prompt.txt" if parsed.get("test_scene_prompt") else None
                 saved_toml = cv.write_markdown_to_toml(
@@ -458,6 +460,7 @@ def handle_ui_request(
             elif _is_markdown_pairs_text(text):
                 if not name:
                     return 400, "application/json", json.dumps({"ok": False, "error": "vector name is required"})
+                text = _repair_multichange_markdown_pairs(text)
                 parsed = cv.parse_markdown_pairs(text)
                 tp_out = state.toml_dir / f"{name}_test_prompt.txt" if parsed.get("test_scene_prompt") else None
                 cand_toml = state.toml_dir / f"{name}.toml"

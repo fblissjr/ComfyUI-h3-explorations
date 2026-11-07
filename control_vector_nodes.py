@@ -1123,6 +1123,8 @@ def _resolve_custom_inference_mask(
     if span_masks is None and sp.prompt and sp.prompt.strip():
         span_masks = _spans.span_masks_from_prompt(sp.prompt, L, tags=tags_2d[0])
     if span_masks is None:
+        if sp.mask == "scene_only":
+            return None
         raise ValueError(
             f"control vector {sp.vector_name!r} uses mask={sp.mask!r}, which requires "
             "conditioning from an H3 conditioning node (_h3_span_masks) or prompt=..."
@@ -2466,12 +2468,13 @@ class MiniMaxH3ApplyControlVectors(io.ComfyNode):
                     default=_APPLY_DEFAULTS["mode"],
                     optional=True,
                     tooltip=(
-                        "'add' (default) adds strength * v; 'add_norm_matched' normalizes v to "
-                        "67.5 post-refiner shift norm at strength=1.0 across all pooling modes; "
-                        "'hold' projects out strength * (delta_r . u_hat) * u_hat from the "
-                        "accumulated additive steering shift without modifying the base prompt; "
-                        "'project_out' removes strength * ((r . v) / ||v||^2) * v from the prompt "
-                        "tokens (E4.4); 'amplify' adds strength * ((r . v) / ||v||^2) * v."
+                        "'add_norm_matched' (default) normalizes v to 67.5 post-refiner shift "
+                        "norm at strength=1.0 across all pooling modes; 'add' adds strength * v "
+                        "in raw mean-pair-difference units; 'hold' projects out strength * "
+                        "(delta_r . u_hat) * u_hat from the accumulated additive steering shift "
+                        "without modifying the base prompt; 'project_out' removes strength * "
+                        "((r . v) / ||v||^2) * v from the prompt tokens (E4.4); 'amplify' adds "
+                        "strength * ((r . v) / ||v||^2) * v."
                     ),
                 ),
                 io.Combo.Input(
@@ -2479,10 +2482,11 @@ class MiniMaxH3ApplyControlVectors(io.ComfyNode):
                     options=list(MASK_MODES),
                     default=_APPLY_DEFAULTS["mask"],
                     tooltip=(
-                        "'non_vision' (default) steers all tag-1 text rows and leaves tag-0 "
-                        "vision rows untouched; 'scene_only' also leaves <d>...</d> dialogue "
-                        "and (S1) speaker tags untouched; 'description_only' steers only scene "
-                        "tokens inside integrated_multimodal_description: (fl2va) or "
+                        "'scene_only' (default) steers scene text while leaving tag-0 vision rows, "
+                        "<d>...</d> dialogue, (S1) speaker tags, <Picture 1>: labels, and "
+                        "<0.0 seconds> timestamps untouched; 'non_vision' steers all tag-1 text "
+                        "rows and leaves tag-0 vision rows untouched; 'description_only' steers "
+                        "only scene tokens inside integrated_multimodal_description: (fl2va) or "
                         "detailed_description: (ref2va); 'soundscape_only' steers only scene "
                         "tokens inside overall_soundscape:; 'after_dialogue' steers only scene "
                         "tokens after the last </d>; 'all_rows' is the unmasked ablation (E2.3)."
@@ -2568,10 +2572,12 @@ class MiniMaxH3ApplyControlVectors(io.ComfyNode):
                     step=0.01,
                     optional=True,
                     tooltip=(
-                        "For ref2va renders: fraction of steps [0.0, ref_vae_end_percent) "
-                        "where clean 3D Video VAE reference latents stay active. On later "
-                        "steps, gates cond_video_latents to unit noise (visual_cond_noise_aug=0.0) "
-                        "while keeping PackedLayout and 3D RoPE cursor 100% invariant."
+                        "For ref2va renders: fraction of steps [0.0, ref_vae_end_percent) where "
+                        "clean 3D Video VAE reference latents stay active (default 0.50 locks "
+                        "<Subject 1> face/hair/clothing on steps 0..2, then gates cond_video_latents "
+                        "on steps 3..5 so lighting/film-stock vectors harmonize across the subject; "
+                        "set 0.00..0.17 when overriding <Subject 1> wardrobe/clothing without "
+                        "editing the prompt while Qwen3-VL vision tokens retain identity)."
                     ),
                 ),
                 io.Float.Input(
@@ -2583,7 +2589,8 @@ class MiniMaxH3ApplyControlVectors(io.ComfyNode):
                     optional=True,
                     tooltip=(
                         "For ref2va renders: signal weight (visual_cond_noise_aug in [0.0, 1.0], "
-                        "default 0.999) for 3D Video VAE reference latents on active steps."
+                        "default 0.999) for 3D Video VAE reference latents on active steps "
+                        "(lower to 0.0..0.30 to soften pixel-level reference clothing lock on active steps)."
                     ),
                 ),
                 io.String.Input(

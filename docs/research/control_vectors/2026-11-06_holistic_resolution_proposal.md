@@ -25,12 +25,12 @@ Hold projection $\mathbf{v}_\perp(\alpha) = (I - \alpha U^\top U)\mathbf{v}$ had
 
 | Path | Code Site | Current $\alpha$ Bounds | Current Post-Hold Norm Behavior |
 |---|---|---|---|
-| **1. Build-time `.toml` `[[hold]]`** | [`control_vector_nodes.py:867`](../../../control_vector_nodes.py#L867), [`bench/control_vectors.py:461, 2103`](../../../bench/control_vectors.py#L2103) | `1.0` (`project_out` caps to `[0.0, 1.0]` at [`control_vectors.py:1169`](../../../control_vectors.py#L1169)) | **Preserves projection norm drop** ($\lVert\mathbf{v}_\perp\rVert_2 \le \lVert\mathbf{v}\rVert_2$; `head_swell` drops `85.01 -> 77.65`) |
+| **1. Build-time `.toml` `[[hold]]`** | [`control_vector_nodes.py:867`](../../../control_vector_nodes.py#L867), [`bench/control_vector/build_cmd.py:130-165`](../../../bench/control_vector/build_cmd.py#L130-L165) | `1.0` (`project_out` caps to `[0.0, 1.0]` at [`control_vectors.py:1169`](../../../control_vectors.py#L1169)) | **Preserves projection norm drop** ($\lVert\mathbf{v}_\perp\rVert_2 \le \lVert\mathbf{v}\rVert_2$; `head_swell` drops `85.01 -> 77.65`) |
 | **2. Runtime chained `mode="hold"`** | [`control_vectors.py:2110-2130, 2335`](../../../control_vectors.py#L2110-L2130) | Unclamped at [`control_vector_nodes.py:1309, 1322`](../../../control_vector_nodes.py#L1309-L1322) and unvalidated in `_apply_holds_to_shift64` | **Preserves projection norm drop** on `total_shift64` |
 | **3. `j_lens.py` / `inspect --hold-words`** | [`j_lens.py:308, 686-689, 761, 1961`](../../../j_lens.py#L686-L689) | `[0.0, 2.0]` | **Preserves projection norm drop** (`norm_after_holds < norm_before_holds`) on `decode_safetensors`, `decode_recipe`, and `save_composed_recipe_vector` |
-| **4. Runtime `hold_words` on `vector_name` & `cvman` `_apply_post_refiner_holds`** | [`control_vector_nodes.py:1633-1641`](../../../control_vector_nodes.py#L1633-L1641), `cvman` `bench/control_vectors.py:259` | `[0.0, 2.0]` | **Silently rescales back to `orig_nrm`** (`vec_held * (orig_nrm / res_nrm)`) |
+| **4. Runtime `hold_words` on `vector_name` & `cvman` `_apply_post_refiner_holds`** | [`control_vector_nodes.py:1633-1641`](../../../control_vector_nodes.py#L1633-L1641), `cvman` `bench/control_vector/helpers.py:114` | `[0.0, 2.0]` | **Silently rescales back to `orig_nrm`** (`vec_held * (orig_nrm / res_nrm)`) |
 
-Furthermore, during `make` and `build`, [`control_vector_nodes.py:911-929`](../../../control_vector_nodes.py#L911-L929) and [`bench/control_vectors.py:481-495, 2120-2138`](../../../bench/control_vectors.py#L2120-L2138) omit `unit_mean=use_unit_mean` and never project `[[hold]]` out of `vector.encoder` (`5120`-d), so [`j_lens.py::decode_safetensors`](../../../j_lens.py#L703-L725) compares an *un-held* `vector.encoder` against a *held* `vector.post_refiner`.
+Furthermore, during `make` and `build`, [`control_vector_nodes.py:911-929`](../../../control_vector_nodes.py#L911-L929) and [`bench/control_vector/build_cmd.py:160-185`](../../../bench/control_vector/build_cmd.py#L160-L185) omit `unit_mean=use_unit_mean` and never project `[[hold]]` out of `vector.encoder` (`5120`-d), so [`j_lens.py::decode_safetensors`](../../../j_lens.py#L703-L725) compares an *un-held* `vector.encoder` against a *held* `vector.post_refiner`.
 
 ### 2.2 The Unified Contract
 1. **Standardize $\alpha \in [0.0, 2.0]$ everywhere**:
@@ -42,7 +42,7 @@ Furthermore, during `make` and `build`, [`control_vector_nodes.py:911-929`](../.
    - In [`control_vectors.py::_apply_holds_to_shift64`](../../../control_vectors.py#L2110-L2130), validate `0.0 <= h_alpha <= 2.0` on every hold tuple.
    - In [`bench/check_control_vectors.py:1840-1844`](../../../bench/check_control_vectors.py#L1840-L1844), test `alpha=1.5` as valid over-projection and `alpha=2.5` as the out-of-range refusal.
 2. **Never silently rescale a pre-built vector back to `orig_nrm` after hold projection**:
-   - In [`control_vector_nodes.py:1626-1641`](../../../control_vector_nodes.py#L1626-L1641) (and `_apply_post_refiner_holds` at `bench/control_vectors.py:259` in `cvman-holistic-workbench`):
+   - In [`control_vector_nodes.py:1626-1641`](../../../control_vector_nodes.py#L1626-L1641) (and `_apply_post_refiner_holds` at `bench/control_vector/helpers.py:114` in `cvman-holistic-workbench`):
      ```python
      vec_held = _jl_mod.apply_soft_holds(
          vec_pr,
@@ -58,7 +58,7 @@ Furthermore, during `make` and `build`, [`control_vector_nodes.py:911-929`](../.
      ```
    - **Why**: Under `mode="add"`, removing a correlated nuisance subspace *should* remove that subspace's energy ($\lVert\mathbf{v}_\perp\rVert_2 < \lVert\mathbf{v}\rVert_2$), matching `inspect --hold-words` and `mode="hold"`. When the user wants constant post-hold shift magnitude (`67.5 * strength`), `mode="add_norm_matched"` ([`control_vectors.py:2216-2219, 2347-2356`](../../../control_vectors.py#L2216-L2219)) **already** rescales `vec_pr` (or the post-hold shift) to `NORM_MATCHED_TARGET = 67.5`.
 3. **Twin-Space Symmetry: Apply `unit_mean` and `[[hold]]` projection to `vector.encoder` (`5120`-d)**:
-   - In [`control_vector_nodes.py:820-935`](../../../control_vector_nodes.py#L820-L935) and [`bench/control_vectors.py:450-500, 2065-2139`](../../../bench/control_vectors.py#L2065-L2139):
+   - In [`control_vector_nodes.py:820-935`](../../../control_vector_nodes.py#L820-L935) and [`bench/control_vector/build_cmd.py:130-190`](../../../bench/control_vector/build_cmd.py#L130-L190):
      - Pass `unit_mean=use_unit_mean` to `cv.mean_difference(enc_a_mat, enc_b_mat, w_vec, unit_mean=use_unit_mean)`.
      - When `holds` are pooled and `not no_holds`, pool `enc_hold_a` and `enc_hold_b` with the same `mask_a_enc` / `mask_b_enc` (row 0 excluded), build `enc_basis = cv.hold_basis(...)`, and compute `enc_final_vec = cv.project_out(enc_raw_vec, enc_basis)` before unit-normalizing `vector.encoder`.
 
@@ -67,7 +67,7 @@ Furthermore, during `make` and `build`, [`control_vector_nodes.py:911-929`](../.
 ## 3. Invariant 3: One Compiler Owner (`h3_pair_compiler.py`) & Collision-Free Multi-Span `differing_token_mask` (`h3_spans.py`)
 
 ### 3.1 Single Compiler Owner
-- Remove `_inject_target_prompt_into_pairset` in `cvman-holistic-workbench` (`bench/control_vectors.py:173`) and route all short-spec expansion, `{props}`/`{surface}` binding, coupled `description + overall_soundscape` pairs, `hold:` groups, and `target_prompt` `Pair 0` (`weight = 2.5`) injection through [`h3_pair_compiler.py::compile_words_to_pairset`](../../../h3_pair_compiler.py#L948-L1050) (`93dbe8d3`).
+- Remove `_inject_target_prompt_into_pairset` in `cvman-holistic-workbench` (`bench/control_vector/helpers.py:66`) and route all short-spec expansion, `{props}`/`{surface}` binding, coupled `description + overall_soundscape` pairs, `hold:` groups, and `target_prompt` `Pair 0` (`weight = 2.5`) injection through [`h3_pair_compiler.py::compile_words_to_pairset`](../../../h3_pair_compiler.py#L948-L1050) (`93dbe8d3`).
 
 ### 3.2 Multi-Span `_DIFF_MASK_CACHE` Single-Span Eviction & `other_ids` Forwarding
 - At [`h3_spans.py:708-713`](../../../h3_spans.py#L708-L713), `differing_token_bounds(a, b)` currently writes to `_DIFF_MASK_CACHE` only when `not bool(mask_a[first_diff:end_a].all())` (multi-span). If a subsequent pair reuses the same `a` with the same outer bounds `(first_diff, end_a)` but is single-span, the stale multi-span entry is not evicted.

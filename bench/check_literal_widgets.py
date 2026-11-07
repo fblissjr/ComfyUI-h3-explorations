@@ -82,6 +82,10 @@ LITERAL_ZERO = {
         "zero start_percent is step 0 of the schedule. The `<= 0.0` test with "
         "`end_percent >= 1.0` short-circuits the step-index lookup when the "
         "active window covers the entire schedule."),
+    ("control_vector_nodes.py", "hold_alpha"): (
+        "zero hold_alpha is zero projection removal (`r' = r - 0 * (r . u_hat) * u_hat = r`). "
+        "The `> 0.0` guard skips loading the J-Lens bundle and computing `apply_soft_holds` "
+        "when the hold projection weight is zero."),
 }
 
 #: Zero selects a different MODE. This is the defect the check exists for, and
