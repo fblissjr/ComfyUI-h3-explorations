@@ -76,13 +76,12 @@
     }
   },
   "13": {
-    "class_type": "SaveImage",
+    "class_type": "PreviewImage",
     "inputs": {
       "images": [
         "11",
         0
-      ],
-      "filename_prefix": "Image/h3_p_h3_image_lora_edit"
+      ]
     }
   },
   "60": {

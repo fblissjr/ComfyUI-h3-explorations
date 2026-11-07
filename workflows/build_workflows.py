@@ -2346,9 +2346,6 @@ def build_ph3_image_api(
         PH3_IMAGE_EDIT_PROMPT if is_edit else PH3_IMAGE_T2I_PROMPT
     )
     resolved_unet = unet or (MODELS["unet_fl2va"] if lora is not None else PH3_IMAGE_UNET)
-    resolved_prefix = out_prefix or (
-        "Image/h3_p_h3_image_edit" if is_edit else "Image/h3_p_h3_image_t2i"
-    )
 
     g: dict[str, Any] = {
         "1": {"class_type": "UNETLoader",
@@ -2366,9 +2363,8 @@ def build_ph3_image_api(
                           "latent_image": ["5", 1]}},
         "11": {"class_type": "VAEDecode",
                "inputs": {"samples": ["10", 0], "vae": ["3", 0]}},
-        "13": {"class_type": "SaveImage",
-               "inputs": {"images": ["11", 0],
-                          "filename_prefix": resolved_prefix}},
+        "13": {"class_type": "PreviewImage",
+               "inputs": {"images": ["11", 0]}},
         "60": {"class_type": "ManualSigmas",
                "inputs": {"sigmas": PH3_IMAGE_MANUAL_SIGMAS}},
     }
