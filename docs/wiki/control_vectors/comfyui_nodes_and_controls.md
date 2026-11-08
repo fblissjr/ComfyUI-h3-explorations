@@ -19,6 +19,8 @@ All three nodes register under the **`model/conditioning/minimax`** category in 
 
 ## 2. `MiniMaxH3ApplyControlVectors` Inputs Explained (`control_vector_nodes.py::MiniMaxH3ApplyControlVectors`)
 
+![Animated explainer of H3 runtime token masks, step windows, and ref2va reference gate](assets/runtime_steering_and_masks.svg)
+
 - **`model`** (`MODEL`): The MiniMax H3 `ModelPatcher` (`fl2va` or `ref2va`). Chain multiple `MiniMaxH3ApplyControlVectors` nodes in series to combine multiple vectors (`add`, `add_norm_matched`, `hold`, `project_out`, `amplify`).
 - **`vector_name`** (`COMBO`): Select any `.safetensors` file under `models/control_vectors/` (or `"none"` when using inline `words`).
 - **`strength`** (`-20.0` to `+20.0`, default `1.0`, step `0.05`):

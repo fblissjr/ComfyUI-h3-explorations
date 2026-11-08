@@ -1,0 +1,183 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 460" width="100%" height="100%" role="img" aria-label="Animated explainer of diff_span token pooling vs full-prompt dilution">
+  <defs>
+    <linearGradient id="bgGrad2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0b0f17"/>
+      <stop offset="100%" stop-color="#111827"/>
+    </linearGradient>
+    <marker id="arrBlue2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 9 5 L 0 9 z" fill="#38bdf8"/>
+    </marker>
+    <marker id="arrAmber2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 9 5 L 0 9 z" fill="#fbbf24"/>
+    </marker>
+    <marker id="arrGreen2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 9 5 L 0 9 z" fill="#34d399"/>
+    </marker>
+  </defs>
+
+  <style>
+    .bg { fill: url(#bgGrad2); rx: 14px; stroke: #1f2937; stroke-width: 1.5; }
+    .panel { fill: #131c2e; stroke: #26354d; stroke-width: 1.2; rx: 10px; }
+    .title { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 16px; font-weight: 700; fill: #f8fafc; }
+    .subtitle { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 11.5px; fill: #94a3b8; }
+    .sec-hdr { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 12px; font-weight: 700; fill: #e2e8f0; }
+    .mono { font-family: "JetBrains Mono", "Fira Code", ui-monospace, SFMono-Regular, monospace; font-size: 10.5px; fill: #e2e8f0; }
+    .mono-sm { font-family: "JetBrains Mono", "Fira Code", ui-monospace, SFMono-Regular, monospace; font-size: 9.5px; fill: #94a3b8; }
+
+    .shared-tok {
+      fill: #1e293b;
+      stroke: #334155;
+      stroke-width: 1;
+      rx: 5px;
+      animation: dimShared 4s ease-in-out infinite;
+    }
+    .shared-txt {
+      font-family: "JetBrains Mono", "Fira Code", ui-monospace, monospace;
+      font-size: 10px;
+      fill: #64748b;
+      animation: dimShared 4s ease-in-out infinite;
+    }
+    .diff-a-tok {
+      fill: #0c4a6e;
+      stroke: #38bdf8;
+      stroke-width: 1.6;
+      rx: 5px;
+      animation: pulseDiffA 4s ease-in-out infinite;
+    }
+    .diff-b-tok {
+      fill: #78350f;
+      stroke: #fbbf24;
+      stroke-width: 1.6;
+      rx: 5px;
+      animation: pulseDiffB 4s ease-in-out infinite;
+    }
+    .flow-dash {
+      stroke-dasharray: 6 5;
+      animation: dashMove 1.6s linear infinite;
+    }
+    .scan-bar {
+      animation: scanSweep 4s ease-in-out infinite;
+    }
+
+    @keyframes dimShared {
+      0%, 20% { opacity: 0.85; }
+      45%, 85% { opacity: 0.28; }
+      100% { opacity: 0.85; }
+    }
+    @keyframes pulseDiffA {
+      0%, 20% { fill-opacity: 0.55; stroke-width: 1.2; }
+      45%, 85% { fill-opacity: 0.95; stroke-width: 2.2; }
+      100% { fill-opacity: 0.55; stroke-width: 1.2; }
+    }
+    @keyframes pulseDiffB {
+      0%, 20% { fill-opacity: 0.55; stroke-width: 1.2; }
+      45%, 85% { fill-opacity: 0.95; stroke-width: 2.2; }
+      100% { fill-opacity: 0.55; stroke-width: 1.2; }
+    }
+    @keyframes dashMove {
+      from { stroke-dashoffset: 22; }
+      to { stroke-dashoffset: 0; }
+    }
+    @keyframes scanSweep {
+      0%, 20% { opacity: 0.2; }
+      50%, 80% { opacity: 1; }
+      100% { opacity: 0.2; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .shared-tok, .shared-txt, .diff-a-tok, .diff-b-tok, .flow-dash, .scan-bar { animation: none; }
+    }
+  </style>
+
+  <!-- Outer Card -->
+  <rect x="4" y="4" width="972" height="452" class="bg"/>
+
+  <!-- Header -->
+  <text x="24" y="32" class="title">Surgical Token Pooling (diff_span) — Why Only the Changed Clause Is Pooled</text>
+  <text x="24" y="50" class="subtitle">In a 220-token H3 prompt, changing one 14-word clause leaves ~93% of tokens identical. diff_span masks out unchanged tokens (weight = 0).</text>
+
+  <!-- Token Sequence Panel -->
+  <rect x="20" y="64" width="940" height="202" class="panel"/>
+  <text x="36" y="86" class="sec-hdr">TOKEN SEQUENCE ALIGNMENT (h3_spans.py::differing_token_mask • SequenceMatcher autojunk=False)</text>
+
+  <!-- Highlight Bracket Over Diff Span -->
+  <rect x="292" y="94" width="388" height="158" rx="8" fill="#10b981" fill-opacity="0.06" stroke="#34d399" stroke-dasharray="4 3" class="scan-bar"/>
+  <text x="304" y="110" class="mono-sm" fill="#34d399" font-weight="700">ACTIVE diff_span WINDOW [first_diff : end_diff] (mask = 1)</text>
+
+  <!-- PROMPT A ROW -->
+  <text x="36" y="142" class="mono" fill="#7dd3fc" font-weight="700">Prompt A_i</text>
+  <text x="36" y="155" class="mono-sm">(Baseline)</text>
+
+  <!-- Shared Prefix A -->
+  <rect x="118" y="124" width="166" height="38" class="shared-tok"/>
+  <text x="128" y="141" class="shared-txt">[Shot 1] A watchmaker</text>
+  <text x="128" y="154" class="shared-txt">at a wooden bench...</text>
+
+  <!-- Diff Span A -->
+  <rect x="300" y="122" width="372" height="42" class="diff-a-tok"/>
+  <text x="312" y="140" class="mono" fill="#e0f2fe" font-weight="700">under crisp overcast afternoon light with</text>
+  <text x="312" y="155" class="mono" fill="#7dd3fc">cool slate shadows and still air</text>
+
+  <!-- Shared Bridge A -->
+  <rect x="680" y="124" width="132" height="38" class="shared-tok"/>
+  <text x="690" y="141" class="shared-txt">adjusts a brass</text>
+  <text x="690" y="154" class="shared-txt">gear with tweezers.</text>
+
+  <!-- Coupled Soundscape A -->
+  <rect x="820" y="122" width="124" height="42" class="diff-a-tok"/>
+  <text x="828" y="139" class="mono-sm" fill="#7dd3fc" font-weight="700">soundscape diff_a:</text>
+  <text x="828" y="154" class="mono-sm" fill="#e0f2fe">quiet room tone</text>
+
+  <!-- PROMPT B ROW -->
+  <text x="36" y="206" class="mono" fill="#fcd34d" font-weight="700">Prompt B_i</text>
+  <text x="36" y="219" class="mono-sm">(Steered)</text>
+
+  <!-- Shared Prefix B -->
+  <rect x="118" y="188" width="166" height="38" class="shared-tok"/>
+  <text x="128" y="205" class="shared-txt">[Shot 1] A watchmaker</text>
+  <text x="128" y="218" class="shared-txt">at a wooden bench...</text>
+
+  <!-- Diff Span B -->
+  <rect x="300" y="186" width="372" height="42" class="diff-b-tok"/>
+  <text x="312" y="204" class="mono" fill="#fef3c7" font-weight="700">in a blistering midday desert heatwave</text>
+  <text x="312" y="219" class="mono" fill="#fbbf24">with rising thermal shimmer and glare</text>
+
+  <!-- Shared Bridge B -->
+  <rect x="680" y="188" width="132" height="38" class="shared-tok"/>
+  <text x="690" y="205" class="shared-txt">adjusts a brass</text>
+  <text x="690" y="218" class="shared-txt">gear with tweezers.</text>
+
+  <!-- Coupled Soundscape B -->
+  <rect x="820" y="186" width="124" height="42" class="diff-b-tok"/>
+  <text x="828" y="203" class="mono-sm" fill="#fcd34d" font-weight="700">soundscape diff_b:</text>
+  <text x="828" y="218" class="mono-sm" fill="#fef3c7">dry cicada buzz</text>
+
+  <!-- Mask Weight Labels -->
+  <text x="142" y="246" class="mono-sm" fill="#64748b">mask = 0 (excluded)</text>
+  <text x="415" y="246" class="mono-sm" fill="#34d399" font-weight="700">mask = 1 (pooled)</text>
+  <text x="692" y="246" class="mono-sm" fill="#64748b">mask = 0 (bridge ≥ 8)</text>
+  <text x="832" y="246" class="mono-sm" fill="#34d399" font-weight="700">mask = 1 (pooled)</text>
+
+  <!-- ===================================================================== -->
+  <!-- BOTTOM PANELS: MATH & WHY TARGET NOUNS MUST NOT OVERLAP               -->
+  <!-- ===================================================================== -->
+  <line x1="486" y1="266" x2="260" y2="294" stroke="#38bdf8" stroke-width="2" class="flow-dash" marker-end="url(#arrBlue2)"/>
+  <line x1="486" y1="266" x2="710" y2="294" stroke="#34d399" stroke-width="2" class="flow-dash" marker-end="url(#arrGreen2)"/>
+
+  <!-- Left Bottom Card: Pair Difference Math -->
+  <rect x="20" y="298" width="460" height="142" class="panel"/>
+  <text x="36" y="320" class="sec-hdr" fill="#7dd3fc">1. PER-PAIR MEAN DIFFERENCE IN FLOAT64 (control_vectors.py)</text>
+  <text x="36" y="344" class="mono" fill="#fde68a">d_i = mean_{t ∈ diff_b}(h_B[t]) - mean_{t ∈ diff_a}(h_A[t])</text>
+  <text x="36" y="366" class="mono-sm" fill="#cbd5e1">• Row 0 attention sink &amp; chat template tokens are always excluded.</text>
+  <text x="36" y="384" class="mono-sm" fill="#cbd5e1">• Supports coupled visual + overall_soundscape edits (min_shared_run = 8).</text>
+  <text x="36" y="402" class="mono-sm" fill="#6ee7b7">• Result: ~2.9× stronger raw signal norm (49..87 vs. 15..25 for scene_text)</text>
+  <text x="36" y="420" class="mono-sm" fill="#6ee7b7">  and crisp pairwise consistency (MPC ≈ 0.65–0.85 across 10 diverse scenes).</text>
+
+  <!-- Right Bottom Card: Anti-Cancellation Rule -->
+  <rect x="500" y="298" width="460" height="142" class="panel"/>
+  <text x="516" y="320" class="sec-hdr" fill="#fcd34d">2. THE B − A ANTI-CANCELLATION RULE (lint_pair_set)</text>
+  <text x="516" y="344" class="mono" fill="#fca5a5">✗ BAD:  Prompt A "no snow"   → Prompt B "heavy snow"   ("snow" cancels!)</text>
+  <text x="516" y="364" class="mono" fill="#6ee7b7">✓ GOOD: Prompt A "mild air"  → Prompt B "heavy snow"   (clean +snow axis)</text>
+  <text x="516" y="386" class="mono-sm" fill="#cbd5e1">• Because extraction subtracts A from B, any target keyword appearing in</text>
+  <text x="516" y="402" class="mono-sm" fill="#cbd5e1">  Prompt A's diff span subtracts its own embedding from Prompt B.</text>
+  <text x="516" y="420" class="mono-sm" fill="#fcd34d">• Keep shared scene props in the identical prefix outside the diff clause.</text>
+</svg>

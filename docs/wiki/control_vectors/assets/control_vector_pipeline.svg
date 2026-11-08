@@ -1,0 +1,193 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 540" width="100%" height="100%" role="img" aria-label="Animated explainer of MiniMax H3 Control Vector extraction and runtime steering">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0b0f17"/>
+      <stop offset="100%" stop-color="#111827"/>
+    </linearGradient>
+    <linearGradient id="poleAGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#1e293b"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </linearGradient>
+    <linearGradient id="poleBGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#451a03"/>
+      <stop offset="100%" stop-color="#78350f"/>
+    </linearGradient>
+    <linearGradient id="vecGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#f59e0b"/>
+      <stop offset="100%" stop-color="#10b981"/>
+    </linearGradient>
+    <marker id="arrowAmber" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 9 5 L 0 9 z" fill="#f59e0b"/>
+    </marker>
+    <marker id="arrowTeal" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 9 5 L 0 9 z" fill="#10b981"/>
+    </marker>
+    <marker id="arrowBlue" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 9 5 L 0 9 z" fill="#38bdf8"/>
+    </marker>
+  </defs>
+
+  <style>
+    .bg { fill: url(#bgGrad); rx: 14px; stroke: #1f2937; stroke-width: 1.5; }
+    .panel { fill: #131c2e; stroke: #26354d; stroke-width: 1.2; rx: 10px; }
+    .panel-right { fill: #111c2d; stroke: #1e3a5f; stroke-width: 1.2; rx: 10px; }
+    .panel-bottom { fill: #161f33; stroke: #312e81; stroke-width: 1.2; rx: 10px; }
+    .title { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 16px; font-weight: 700; fill: #f8fafc; }
+    .subtitle { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 11.5px; fill: #94a3b8; }
+    .sec-hdr { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 12.5px; font-weight: 700; fill: #e2e8f0; letter-spacing: 0.4px; }
+    .label { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 11px; fill: #cbd5e1; }
+    .mono { font-family: "JetBrains Mono", "Fira Code", ui-monospace, SFMono-Regular, monospace; font-size: 10.5px; fill: #e2e8f0; }
+    .mono-sm { font-family: "JetBrains Mono", "Fira Code", ui-monospace, SFMono-Regular, monospace; font-size: 9.5px; fill: #94a3b8; }
+    .badge-a { fill: #0ea5e9; fill-opacity: 0.18; stroke: #38bdf8; stroke-width: 1; rx: 5px; }
+    .badge-b { fill: #f59e0b; fill-opacity: 0.18; stroke: #fbbf24; stroke-width: 1; rx: 5px; }
+    .badge-v { fill: #10b981; fill-opacity: 0.16; stroke: #34d399; stroke-width: 1.4; rx: 7px; }
+
+    /* Flowing signal lines */
+    .flow-line {
+      stroke-dasharray: 6 5;
+      animation: dashFlow 1.8s linear infinite;
+    }
+    .pulse-box {
+      animation: glowPulse 3.2s ease-in-out infinite;
+    }
+    .subject-cancel {
+      animation: fadeCancel 4s ease-in-out infinite;
+    }
+    .signal-lock {
+      animation: lockHighlight 4s ease-in-out infinite;
+    }
+    .steer-wave {
+      animation: steerInject 3.2s ease-in-out infinite;
+    }
+
+    @keyframes dashFlow {
+      from { stroke-dashoffset: 22; }
+      to { stroke-dashoffset: 0; }
+    }
+    @keyframes glowPulse {
+      0%, 100% { stroke-opacity: 0.55; fill-opacity: 0.14; }
+      50% { stroke-opacity: 1; fill-opacity: 0.28; }
+    }
+    @keyframes fadeCancel {
+      0%, 25% { opacity: 0.95; }
+      55%, 85% { opacity: 0.22; }
+      100% { opacity: 0.95; }
+    }
+    @keyframes lockHighlight {
+      0%, 25% { opacity: 0.65; transform: translateX(0px); }
+      55%, 85% { opacity: 1; }
+      100% { opacity: 0.65; }
+    }
+    @keyframes steerInject {
+      0%, 100% { opacity: 0.45; }
+      50% { opacity: 1; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .flow-line, .pulse-box, .subject-cancel, .signal-lock, .steer-wave { animation: none; }
+    }
+  </style>
+
+  <!-- Outer Card -->
+  <rect x="4" y="4" width="972" height="532" class="bg"/>
+
+  <!-- Top Header -->
+  <text x="24" y="32" class="title">MiniMax H3 Control Vectors — How Offline Extraction &amp; Runtime Steering Work</text>
+  <text x="24" y="50" class="subtitle">Extract a 5,376-D concept axis once from 10 contrasting scene pairs, then steer any prompt at fixed sequence length L with zero token bloat.</text>
+
+  <!-- ===================================================================== -->
+  <!-- LEFT PANEL: STEP 1 — OFFLINE EXTRACTION (ONCE PER VECTOR)             -->
+  <!-- ===================================================================== -->
+  <rect x="20" y="64" width="460" height="366" class="panel"/>
+  <text x="36" y="88" class="sec-hdr">1. OFFLINE EXTRACTION (Run Once • ~12s GPU → Saved .safetensors)</text>
+
+  <!-- 10 Pairs Box -->
+  <rect x="36" y="102" width="428" height="106" rx="8" fill="#0f172a" stroke="#334155"/>
+  <text x="48" y="120" class="label" font-weight="600">10 Matched Scene Pairs (Pair i = 1..10: Different Subjects, Same Target Axis)</text>
+
+  <!-- Pole A row -->
+  <rect x="48" y="128" width="404" height="32" class="badge-a"/>
+  <text x="58" y="143" class="mono" fill="#7dd3fc">Prompt A_i (Baseline):</text>
+  <text x="205" y="143" class="mono subject-cancel" fill="#cbd5e1">[Watchmaker / Fencer / ...]</text>
+  <text x="362" y="143" class="mono" fill="#38bdf8">- crisp overcast air</text>
+  <text x="58" y="155" class="mono-sm">Unchanged context cancels out; baseline diff_span clause is subtracted (-A_i)</text>
+
+  <!-- Pole B row -->
+  <rect x="48" y="166" width="404" height="34" class="badge-b"/>
+  <text x="58" y="181" class="mono" fill="#fcd34d">Prompt B_i (Steered):</text>
+  <text x="205" y="181" class="mono subject-cancel" fill="#cbd5e1">[Watchmaker / Fencer / ...]</text>
+  <text x="362" y="181" class="mono signal-lock" fill="#fbbf24">+ scorching heatwave</text>
+  <text x="58" y="194" class="mono-sm">Only the target clause changes; diff_span pools exact changed token positions</text>
+
+  <!-- Flow Arrows down to Qwen3-VL + TokenRefiner -->
+  <line x1="165" y1="208" x2="165" y2="236" stroke="#38bdf8" stroke-width="2" class="flow-line" marker-end="url(#arrowBlue)"/>
+  <line x1="335" y1="208" x2="335" y2="236" stroke="#f59e0b" stroke-width="2" class="flow-line" marker-end="url(#arrowAmber)"/>
+
+  <!-- Encoder + TokenRefiner Box -->
+  <rect x="36" y="240" width="428" height="68" rx="8" fill="#172033" stroke="#475569"/>
+  <text x="52" y="260" class="mono" font-weight="700" fill="#f8fafc">Qwen3-VL-32B (layers.49 • 5,120-D) → condition_proj → 2-Block TokenRefiner</text>
+  <text x="52" y="278" class="mono-sm" fill="#cbd5e1">• Bidirectional self-attention + SiLU gated MLP expands 5,120-D → 5,376-D</text>
+  <text x="52" y="294" class="mono-sm" fill="#94a3b8">• Mean-pools only differing span tokens: d_i = mean_diff_span(h(B_i)) - mean_diff_span(h(A_i))</text>
+
+  <!-- Flow Arrow down to Saved Vector -->
+  <line x1="250" y1="308" x2="250" y2="336" stroke="#10b981" stroke-width="2.2" class="flow-line" marker-end="url(#arrowTeal)"/>
+  <text x="262" y="326" class="mono-sm" fill="#6ee7b7">Average 10 pairs + optional Gram-Schmidt [[hold]] scrub</text>
+
+  <!-- Resulting Vector Box -->
+  <rect x="36" y="340" width="428" height="74" class="badge-v pulse-box"/>
+  <text x="52" y="362" class="mono" font-weight="700" fill="#6ee7b7">Saved Control Vector: vector.post_refiner ∈ R^5376 (.safetensors)</text>
+  <text x="52" y="380" class="mono-sm" fill="#e2e8f0">• Subject noise cancels across 10 rigs (MPC ≥ 0.65, Split-Half ≥ 0.75)</text>
+  <text x="52" y="396" class="mono-sm" fill="#a7f3d0">• Emits matched __fl2va (t2va/i2va) &amp; __ref2va files in one Qwen3-VL pass</text>
+
+  <!-- Bridge Arrow from Left Panel to Right Panel -->
+  <path d="M 464 377 C 492 377, 492 248, 516 248" fill="none" stroke="#10b981" stroke-width="2.5" class="flow-line" marker-end="url(#arrowTeal)"/>
+
+  <!-- ===================================================================== -->
+  <!-- RIGHT PANEL: STEP 2 — RUNTIME STEERING IN COMFYUI (0 EXTRA TOKENS)    -->
+  <!-- ===================================================================== -->
+  <rect x="500" y="64" width="460" height="366" class="panel-right"/>
+  <text x="516" y="88" class="sec-hdr">2. RUNTIME STEERING IN COMFYUI (MiniMaxH3ApplyControlVectors)</text>
+
+  <!-- User Prompt Box -->
+  <rect x="516" y="102" width="428" height="78" rx="8" fill="#0f172a" stroke="#334155"/>
+  <text x="530" y="121" class="label" font-weight="600">Your Clean, Unsteered H3 Scene Prompt (Sequence Length L Unchanged)</text>
+  <rect x="530" y="130" width="88" height="22" rx="4" fill="#1e293b" stroke="#64748b"/>
+  <text x="538" y="145" class="mono-sm" fill="#94a3b8">&lt;Picture 1&gt;</text>
+  <rect x="624" y="130" width="196" height="22" rx="4" fill="#064e3b" stroke="#10b981"/>
+  <text x="634" y="145" class="mono-sm" fill="#a7f3d0">Scene Description &amp; Sound</text>
+  <rect x="826" y="130" width="104" height="22" rx="4" fill="#1e293b" stroke="#64748b"/>
+  <text x="834" y="145" class="mono-sm" fill="#94a3b8">&lt;d&gt;Dialogue&lt;/d&gt;</text>
+  <text x="530" y="168" class="mono-sm">mask="scene_only" steers scene prose while locking &lt;Picture N&gt; vision &amp; &lt;d&gt; speech bitwise</text>
+
+  <!-- Arrow down to Apply Node -->
+  <line x1="730" y1="180" x2="730" y2="208" stroke="#38bdf8" stroke-width="2" class="flow-line" marker-end="url(#arrowBlue)"/>
+
+  <!-- Apply Control Vectors Node Box -->
+  <rect x="516" y="212" width="428" height="92" rx="8" fill="#17253b" stroke="#38bdf8" stroke-width="1.5"/>
+  <text x="532" y="233" class="mono" font-weight="700" fill="#7dd3fc">MiniMaxH3ApplyControlVectors (Post-Refiner Hook on MODEL)</text>
+  <text x="532" y="253" class="mono" fill="#fde68a">r'[t] = r[t] + mask[t] · strength · (67.5 / ||v||) · v</text>
+  <text x="532" y="272" class="mono-sm" fill="#cbd5e1">• mode="add_norm_matched" (67.5 norm target): strength = 1.0–1.25 works out-of-the-box</text>
+  <text x="532" y="289" class="mono-sm" fill="#cbd5e1">• strength = -1.0 flips axis (-v)  |  Chain multiple nodes in float64 (add + hold)</text>
+
+  <!-- Arrow down to 50-Block DiT -->
+  <line x1="730" y1="304" x2="730" y2="334" stroke="#f59e0b" stroke-width="2.2" class="flow-line" marker-end="url(#arrowAmber)"/>
+
+  <!-- 50-Block DiT Box -->
+  <rect x="516" y="338" width="428" height="76" rx="8" fill="#1e1b4b" stroke="#6366f1" class="steer-wave"/>
+  <text x="532" y="360" class="mono" font-weight="700" fill="#c7d2fe">50-Block MiniMax H3 Joint Audio-Video DiT (Pika 6-Step LCM / Base)</text>
+  <text x="532" y="379" class="mono-sm" fill="#e0e7ff">• Step window [start_percent, end_percent] (e.g. 0.0–1.0 full or 0.33–1.0 optical look)</text>
+  <text x="532" y="396" class="mono-sm" fill="#a5b4fc">• ref2va: ref_vae_end_percent = 1.00 keeps 3D Video VAE reference latents clean on all steps</text>
+
+  <!-- ===================================================================== -->
+  <!-- BOTTOM PANEL: CONTEXTUAL CONTROL VECTORS VS. SEPARATE J-LENS ENGINE   -->
+  <!-- ===================================================================== -->
+  <rect x="20" y="444" width="940" height="76" class="panel-bottom"/>
+  <text x="36" y="466" class="sec-hdr" fill="#c4b5fd">TWO COMPLEMENTARY TOOLS — CONTEXTUAL CONTROL VECTORS vs. SEPARATE J-LENS WORD ENGINE (j_lens.py)</text>
+  <text x="36" y="487" class="mono-sm" fill="#e2e8f0">
+    <tspan fill="#34d399" font-weight="700">1. Full 10-Pair / Clause Control Vectors (Screens 2–4):</tspan>
+    Runs full H3 sentences through 32B Qwen3-VL + TokenRefiner (~12s GPU once). Captures multi-clause composition &amp; audio-visual coupling.
+  </text>
+  <text x="36" y="505" class="mono-sm" fill="#e2e8f0">
+    <tspan fill="#fbbf24" font-weight="700">2. Separate J-Lens Unigram Dictionary (Screen 6 • j_lens.py):</tspan>
+    Pre-extracted 24,912-word × 5,376-D linear atlas (&lt; 2 ms CPU, 0 VRAM). Decodes what any vector means in English words &amp; scrubs --hold-words.
+  </text>
+</svg>

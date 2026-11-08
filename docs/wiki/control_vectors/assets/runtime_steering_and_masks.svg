@@ -1,0 +1,176 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 490" width="100%" height="100%" role="img" aria-label="Animated explainer of H3 runtime token masks, step windows, and ref2va reference gate">
+  <defs>
+    <linearGradient id="bgGrad3" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0b0f17"/>
+      <stop offset="100%" stop-color="#111827"/>
+    </linearGradient>
+    <linearGradient id="steerGlow" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#10b981" stop-opacity="0.35"/>
+      <stop offset="100%" stop-color="#059669" stop-opacity="0.12"/>
+    </linearGradient>
+  </defs>
+
+  <style>
+    .bg { fill: url(#bgGrad3); rx: 14px; stroke: #1f2937; stroke-width: 1.5; }
+    .panel { fill: #131c2e; stroke: #26354d; stroke-width: 1.2; rx: 10px; }
+    .title { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 16px; font-weight: 700; fill: #f8fafc; }
+    .subtitle { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 11.5px; fill: #94a3b8; }
+    .sec-hdr { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 12px; font-weight: 700; fill: #e2e8f0; }
+    .mono { font-family: "JetBrains Mono", "Fira Code", ui-monospace, SFMono-Regular, monospace; font-size: 10.5px; fill: #e2e8f0; }
+    .mono-sm { font-family: "JetBrains Mono", "Fira Code", ui-monospace, SFMono-Regular, monospace; font-size: 9.5px; fill: #94a3b8; }
+
+    .locked-cell {
+      fill: #1e293b;
+      stroke: #475569;
+      stroke-width: 1.2;
+      rx: 6px;
+    }
+    .steered-cell {
+      fill: url(#steerGlow);
+      stroke: #34d399;
+      stroke-width: 1.8;
+      rx: 6px;
+      animation: activeSteer 2.8s ease-in-out infinite;
+    }
+    .inject-arrow {
+      stroke-dasharray: 5 4;
+      animation: arrowDrop 1.4s linear infinite;
+    }
+    .step-scan {
+      animation: stepProgress 6s linear infinite;
+    }
+
+    @keyframes activeSteer {
+      0%, 100% { stroke-opacity: 0.55; transform: translateY(0px); }
+      50% { stroke-opacity: 1; transform: translateY(-2px); }
+    }
+    @keyframes arrowDrop {
+      from { stroke-dashoffset: 18; }
+      to { stroke-dashoffset: 0; }
+    }
+    @keyframes stepProgress {
+      0% { transform: translateX(0px); }
+      100% { transform: translateX(395px); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .steered-cell, .inject-arrow, .step-scan { animation: none; }
+    }
+  </style>
+
+  <!-- Outer Card -->
+  <rect x="4" y="4" width="972" height="482" class="bg"/>
+
+  <!-- Header -->
+  <text x="24" y="32" class="title">Runtime Token Masks &amp; Step Windows (MiniMaxH3ApplyControlVectors)</text>
+  <text x="24" y="50" class="subtitle">How mask="scene_only" steers visual/audio prose while keeping &lt;Picture N&gt; identity and &lt;d&gt;...&lt;/d&gt; lip-sync bitwise untouched.</text>
+
+  <!-- ===================================================================== -->
+  <!-- TOP PANEL: SEQUENCE PARTITION & MASK="SCENE_ONLY"                     -->
+  <!-- ===================================================================== -->
+  <rect x="20" y="64" width="940" height="212" class="panel"/>
+  <text x="36" y="86" class="sec-hdr">1. POST-REFINER CONTEXT SEQUENCE [B, L, 5376] PARTITIONED BY h3_spans.py (Default: mask="scene_only")</text>
+
+  <!-- Vector Injection Bar at Top of Sequence -->
+  <rect x="304" y="96" width="636" height="24" rx="5" fill="#064e3b" stroke="#10b981"/>
+  <text x="318" y="112" class="mono" fill="#a7f3d0" font-weight="700">+ Control Vector Shift: Δr = strength · (67.5 / ||v||) · v   (mode="add_norm_matched")</text>
+
+  <!-- Animated Injection Arrows ONLY into Scene Description and Soundscape -->
+  <line x1="470" y1="120" x2="470" y2="146" stroke="#34d399" stroke-width="2.2" class="inject-arrow"/>
+  <line x1="855" y1="120" x2="855" y2="146" stroke="#34d399" stroke-width="2.2" class="inject-arrow"/>
+
+  <!-- Cell 1: Row 0 Sink -->
+  <rect x="36" y="148" width="76" height="74" class="locked-cell"/>
+  <text x="45" y="168" class="mono-sm" fill="#cbd5e1" font-weight="700">Row 0 Sink</text>
+  <text x="45" y="184" class="mono-sm" fill="#64748b">BOS token</text>
+  <text x="45" y="210" class="mono-sm" fill="#f87171" font-weight="700">LOCKED (0)</text>
+
+  <!-- Cell 2: Vision Tokens -->
+  <rect x="120" y="148" width="176" height="74" class="locked-cell"/>
+  <text x="130" y="168" class="mono" fill="#93c5fd" font-weight="700">tag=0 Vision Patch Rows</text>
+  <text x="130" y="184" class="mono-sm" fill="#94a3b8">&lt;|vision_start|&gt;..&lt;Picture N&gt;</text>
+  <text x="130" y="210" class="mono-sm" fill="#f87171" font-weight="700">LOCKED (Bitwise Identical)</text>
+
+  <!-- Cell 3: Scene Description (STEERED) -->
+  <rect x="304" y="148" width="328" height="74" class="steered-cell"/>
+  <text x="316" y="168" class="mono" fill="#6ee7b7" font-weight="700">Scene Description Prose (tag=1 • scene)</text>
+  <text x="316" y="184" class="mono-sm" fill="#d1fae5">integrated_multimodal_description: [Shot 1] ...</text>
+  <text x="316" y="210" class="mono" fill="#34d399" font-weight="700">✓ STEERED (+Δr) • description_only / scene_only</text>
+
+  <!-- Cell 4: Spoken Dialogue & Labels (LOCKED) -->
+  <rect x="640" y="148" width="132" height="74" class="locked-cell"/>
+  <text x="650" y="168" class="mono" fill="#cbd5e1" font-weight="700">(S1) &amp; &lt;d&gt;Speech&lt;/d&gt;</text>
+  <text x="650" y="184" class="mono-sm" fill="#94a3b8">+ &lt;Picture 1&gt;: labels</text>
+  <text x="650" y="210" class="mono-sm" fill="#f87171" font-weight="700">LOCKED (Lip-Sync Safe)</text>
+
+  <!-- Cell 5: Soundscape Prose (STEERED) -->
+  <rect x="780" y="148" width="160" height="74" class="steered-cell"/>
+  <text x="790" y="168" class="mono" fill="#6ee7b7" font-weight="700">Soundscape (scene)</text>
+  <text x="790" y="184" class="mono-sm" fill="#d1fae5">overall_soundscape: ...</text>
+  <text x="790" y="210" class="mono" fill="#34d399" font-weight="700">✓ STEERED (+Δr)</text>
+
+  <!-- Mask Summary Footer -->
+  <text x="36" y="246" class="mono-sm" fill="#cbd5e1">
+    Other mask options:
+    <tspan fill="#7dd3fc" font-weight="700">description_only</tspan> (visual prose only) •
+    <tspan fill="#7dd3fc" font-weight="700">soundscape_only</tspan> (audio prose only) •
+    <tspan fill="#7dd3fc" font-weight="700">after_dialogue</tspan> (post-&lt;/d&gt; beat) •
+    <tspan fill="#7dd3fc" font-weight="700">non_vision</tspan> (all tag=1)
+  </text>
+  <text x="36" y="263" class="mono-sm" fill="#94a3b8">
+    Stream split: set <tspan fill="#fcd34d">video_scale != audio_scale</tspan> to steer video and audio velocities at independent multipliers.
+  </text>
+
+  <!-- ===================================================================== -->
+  <!-- BOTTOM LEFT: DIFFUSION STEP SCHEDULE WINDOWS                          -->
+  <!-- ===================================================================== -->
+  <rect x="20" y="290" width="460" height="178" class="panel"/>
+  <text x="36" y="312" class="sec-hdr" fill="#fcd34d">2. DIFFUSION STEP WINDOWS (start_percent .. end_percent)</text>
+
+  <!-- Timeline Track -->
+  <rect x="36" y="326" width="428" height="20" rx="4" fill="#0f172a" stroke="#334155"/>
+  <text x="42" y="340" class="mono-sm" fill="#94a3b8">Step 0 (0.00)</text>
+  <text x="172" y="340" class="mono-sm" fill="#94a3b8">Step 2 (0.33)</text>
+  <text x="275" y="340" class="mono-sm" fill="#94a3b8">Step 3 (0.50)</text>
+  <text x="392" y="340" class="mono-sm" fill="#94a3b8">Step 6 (1.00)</text>
+  <circle cx="42" cy="336" r="5" fill="#fbbf24" class="step-scan"/>
+
+  <!-- Bar 1: Full Schedule -->
+  <rect x="36" y="356" width="428" height="26" rx="5" fill="#064e3b" stroke="#10b981"/>
+  <text x="46" y="373" class="mono-sm" fill="#ecfdf5" font-weight="700">0.00 → 1.00 (Default): Full-schedule steering (physics, weather, camera, actions)</text>
+
+  <!-- Bar 2: Late Appearance Window -->
+  <rect x="36" y="390" width="142" height="26" rx="5" fill="#1e293b" stroke="#475569"/>
+  <text x="44" y="407" class="mono-sm" fill="#94a3b8">0.00–0.33 Unsteered</text>
+  <rect x="182" y="390" width="282" height="26" rx="5" fill="#78350f" stroke="#fbbf24"/>
+  <text x="192" y="407" class="mono-sm" fill="#fef3c7" font-weight="700">0.33 → 1.00: Film stock / color grade (locks pose)</text>
+
+  <!-- Bar 3: Early Wardrobe / Layout Window -->
+  <rect x="36" y="424" width="214" height="26" rx="5" fill="#1e3a8a" stroke="#38bdf8"/>
+  <text x="46" y="441" class="mono-sm" fill="#e0f2fe" font-weight="700">0.00 → 0.50: ref2va Wardrobe override</text>
+  <rect x="254" y="424" width="210" height="26" rx="5" fill="#1e293b" stroke="#475569"/>
+  <text x="264" y="441" class="mono-sm" fill="#94a3b8">0.50–1.00 Settle fine detail</text>
+
+  <!-- ===================================================================== -->
+  <!-- BOTTOM RIGHT: REF2VA 3D VIDEO VAE GATE (ref_vae_end_percent = 1.00)    -->
+  <!-- ===================================================================== -->
+  <rect x="500" y="290" width="460" height="178" class="panel"/>
+  <text x="516" y="312" class="sec-hdr" fill="#7dd3fc">3. REF2VA 3D VIDEO VAE GATE (ref_vae_end_percent = 1.00 Default)</text>
+
+  <text x="516" y="335" class="mono-sm" fill="#cbd5e1">In ref2va, &lt;Picture 1&gt; enters the DiT through two pathways simultaneously:</text>
+  <rect x="516" y="346" width="428" height="44" rx="6" fill="#0f172a" stroke="#38bdf8"/>
+  <text x="528" y="364" class="mono" fill="#7dd3fc" font-weight="700">• Path A (Qwen Vision tag=0): Protected by mask="scene_only"</text>
+  <text x="528" y="381" class="mono" fill="#6ee7b7" font-weight="700">• Path B (3D Video VAE • 7,360 tokens): Pinned at ref_vae_aug = 0.999</text>
+
+  <text x="516" y="410" class="mono-sm" fill="#e2e8f0">
+    Keeping <tspan fill="#34d399" font-weight="700">ref_vae_end_percent = 1.00</tspan> ensures frames 0 and 1 never inherit
+  </text>
+  <text x="516" y="426" class="mono-sm" fill="#e2e8f0">
+    late-step noise from <tspan fill="#fcd34d">seg_t["ref_img"] = max(t_v, vis_aug)</tspan>.
+  </text>
+  <text x="516" y="448" class="mono-sm" fill="#a7f3d0">
+    To override &lt;Subject 1&gt;'s outfit in ref2va: subtract garment nouns in Pole A,
+  </text>
+  <text x="516" y="462" class="mono-sm" fill="#a7f3d0">
+    apply on 0.00–0.50 at strength = 2.0–2.5, and keep ref_vae_end_percent = 1.00.
+  </text>
+</svg>

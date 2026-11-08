@@ -55,7 +55,9 @@ Regardless of whether your 10 pairs were created via `--words` templates or via 
 
 ## 3. Token Pooling Modes (`pooling`)
 
- Controlled by [`h3_spans.py::pooling_mask`](../../../h3_spans.py):
+![Animated explainer of diff_span surgical token pooling](assets/diff_span_extraction.svg)
+
+Controlled by [`h3_spans.py::pooling_mask`](../../../h3_spans.py):
 
 | Pooling Mode | What Tokens Are Averaged into $\bar{\mathbf{h}}(\text{A}_i), \bar{\mathbf{h}}(\text{B}_i)$ | When to Use |
 |---|---|---|
@@ -66,6 +68,8 @@ Regardless of whether your 10 pairs were created via `--words` templates or via 
 ---
 
 ## 4. Orthogonal Holds (`[[hold]]`, `--hold`, `--hold-words`)
+
+![Animated explainer of Gram-Schmidt orthogonal hold projection, 180-degree inversion, and norm-matched vector blending](assets/sculpt_and_orthogonal_hold.svg)
 
 If a concept direction accidentally pulls in a correlated nuisance attribute (for example, `"blizzard"` pulling indoor scenes outdoors, or `"cyberpunk"` changing acoustic dialogue), you can project out the nuisance subspace:
 - **In `.toml` / `.md` pairs**: Add `[[hold]]` pairs labeled with `group = "environment"` or `group = "wardrobe"`. [`control_vectors.py::hold_basis`](../../../control_vectors.py) computes an orthonormal SVD basis $\mathbf{U}_{\text{hold}}$ and projects it out of $\mathbf{v}$.

@@ -41,7 +41,9 @@ When you inspect a vector in **Studio Screen 6 (J-Lens Word Lab)** or via `"$PY"
 
 ---
 
-## 3. Using J-Lens `< 2 ms` Word Synthesis from the CLI
+## 3. Using J-Lens `< 2 ms` Word Synthesis & `--hold-words` from the CLI
+
+![Animated explainer of Gram-Schmidt orthogonal hold projection, 180-degree inversion, and norm-matched vector blending](assets/sculpt_and_orthogonal_hold.svg)
 
 If `models/j_lens/j_lens_h3.safetensors` is installed, you can synthesize an exploratory vector from 3–6 single words in `< 2 ms` on CPU:
 

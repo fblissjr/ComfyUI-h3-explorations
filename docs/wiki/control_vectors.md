@@ -4,6 +4,13 @@ Activation control vectors steer MiniMax H3 video + audio generation by adding, 
 
 Because Qwen3-VL causal attention changes every downstream token whenever you edit a single word in a prompt, ordinary prompt edits reshuffle camera framing, actor blocking, and lip-sync timing on the same seed. A control vector leaves your prompt tokens untouched and shifts only the semantic concept direction (weather, lighting, film stock, era props, motion energy, or acoustic space) across the tokens you choose.
 
+![Animated explainer of MiniMax H3 Control Vector extraction and runtime steering](control_vectors/assets/control_vector_pipeline.svg)
+
+> **More Animated Visual Explainers (Lightweight Inline SVGs)**:
+> - [Surgical `diff_span` Token Pooling (`B - A`)](control_vectors/assets/diff_span_extraction.svg) — in [`2. Building Pairs & Control Vectors`](control_vectors/building_pairs_and_vectors.md#3-token-pooling-modes-pooling)
+> - [Runtime Token Masks (`scene_only`), Step Windows & `ref2va` 3D VAE Gate](control_vectors/assets/runtime_steering_and_masks.svg) — in [`3. ComfyUI Nodes & Runtime Controls`](control_vectors/comfyui_nodes_and_controls.md#2-minimaxh3applycontrolvectors-inputs-explained-control_vector_nodespyminimaxh3applycontrolvectors)
+> - [Gram-Schmidt Orthogonal `hold`, `< 5 ms` CPU Inversion (`--invert`) & `67.5` Norm Matching](control_vectors/assets/sculpt_and_orthogonal_hold.svg) — in [`2. Building Pairs & Control Vectors`](control_vectors/building_pairs_and_vectors.md#4-orthogonal-holds-hold---hold---hold-words) and [`4. J-Lens Diagnostics & Word Lab`](control_vectors/j_lens_diagnostics_and_word_lab.md)
+
 ---
 
 ## 1. What Control Vectors CAN and CANNOT Do

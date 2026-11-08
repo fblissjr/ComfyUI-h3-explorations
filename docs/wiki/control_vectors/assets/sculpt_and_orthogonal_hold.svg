@@ -1,0 +1,156 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 460" width="100%" height="100%" role="img" aria-label="Animated explainer of Gram-Schmidt orthogonal hold projection, 180-degree inversion, and norm-matched vector blending">
+  <defs>
+    <linearGradient id="bgGrad4" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0b0f17"/>
+      <stop offset="100%" stop-color="#111827"/>
+    </linearGradient>
+    <marker id="mRed" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 9 5 L 0 9 z" fill="#f87171"/>
+    </marker>
+    <marker id="mAmber" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 9 5 L 0 9 z" fill="#fbbf24"/>
+    </marker>
+    <marker id="mGreen" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 9 5 L 0 9 z" fill="#34d399"/>
+    </marker>
+    <marker id="mBlue" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 9 5 L 0 9 z" fill="#38bdf8"/>
+    </marker>
+  </defs>
+
+  <style>
+    .bg { fill: url(#bgGrad4); rx: 14px; stroke: #1f2937; stroke-width: 1.5; }
+    .panel { fill: #131c2e; stroke: #26354d; stroke-width: 1.2; rx: 10px; }
+    .title { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 16px; font-weight: 700; fill: #f8fafc; }
+    .subtitle { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 11.5px; fill: #94a3b8; }
+    .sec-hdr { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 12px; font-weight: 700; fill: #e2e8f0; }
+    .mono { font-family: "JetBrains Mono", "Fira Code", ui-monospace, SFMono-Regular, monospace; font-size: 10.5px; fill: #e2e8f0; }
+    .mono-sm { font-family: "JetBrains Mono", "Fira Code", ui-monospace, SFMono-Regular, monospace; font-size: 9.5px; fill: #94a3b8; }
+
+    .proj-drop {
+      stroke-dasharray: 5 4;
+      animation: dropPulse 3.6s ease-in-out infinite;
+    }
+    .clean-vec {
+      animation: highlightClean 3.6s ease-in-out infinite;
+    }
+    .raw-vec {
+      animation: fadeRaw 3.6s ease-in-out infinite;
+    }
+    .flip-pole {
+      animation: flipPulse 3.6s ease-in-out infinite;
+    }
+
+    @keyframes dropPulse {
+      0%, 20% { opacity: 0.25; stroke-dashoffset: 18; }
+      50%, 80% { opacity: 1; stroke-dashoffset: 0; }
+      100% { opacity: 0.25; stroke-dashoffset: -18; }
+    }
+    @keyframes highlightClean {
+      0%, 20% { opacity: 0.45; }
+      50%, 85% { opacity: 1; }
+      100% { opacity: 0.45; }
+    }
+    @keyframes fadeRaw {
+      0%, 20% { opacity: 1; }
+      50%, 85% { opacity: 0.42; }
+      100% { opacity: 1; }
+    }
+    @keyframes flipPulse {
+      0%, 100% { stroke-opacity: 0.45; }
+      50% { stroke-opacity: 1; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .proj-drop, .clean-vec, .raw-vec, .flip-pole { animation: none; }
+    }
+  </style>
+
+  <!-- Outer Card -->
+  <rect x="4" y="4" width="972" height="452" class="bg"/>
+
+  <!-- Header -->
+  <text x="24" y="32" class="title">Subspace Geometry — Gram-Schmidt Orthogonal Hold &amp; &lt; 5 ms CPU Sculpting</text>
+  <text x="24" y="50" class="subtitle">Project out unwanted correlated drift ([[hold]] / --hold-words) or flip any vector 180° (--invert) in float64 on CPU.</text>
+
+  <!-- ===================================================================== -->
+  <!-- LEFT PANEL: GRAM-SCHMIDT ORTHOGONAL HOLD PROJECTION                   -->
+  <!-- ===================================================================== -->
+  <rect x="20" y="64" width="465" height="374" class="panel"/>
+  <text x="36" y="86" class="sec-hdr" fill="#6ee7b7">1. GRAM-SCHMIDT ORTHOGONAL HOLD ([[hold]], --hold, --hold-words)</text>
+  <text x="36" y="104" class="mono-sm">Example: Keep "summer swimwear" while scrubbing "sandy beach background" drift</text>
+
+  <!-- Coordinate Axes Box -->
+  <rect x="36" y="114" width="432" height="218" rx="8" fill="#0f172a" stroke="#334155"/>
+
+  <!-- Origin at (100, 286) -->
+  <!-- Horizontal Axis: Nuisance / Hold Axis u_hold -->
+  <line x1="80" y1="286" x2="430" y2="286" stroke="#475569" stroke-width="1.2"/>
+  <line x1="100" y1="286" x2="340" y2="286" stroke="#f87171" stroke-width="2.6" marker-end="url(#mRed)"/>
+  <text x="205" y="306" class="mono" fill="#fca5a5" font-weight="700">u_hold (Nuisance Axis: "beach / coat")</text>
+
+  <!-- Vertical Axis: Pure Target Concept v_perp -->
+  <line x1="100" y1="305" x2="100" y2="132" stroke="#475569" stroke-width="1.2"/>
+  <line x1="100" y1="286" x2="100" y2="146" stroke="#34d399" stroke-width="3.2" class="clean-vec" marker-end="url(#mGreen)"/>
+  <text x="112" y="150" class="mono" fill="#6ee7b7" font-weight="700">v_⊥ (Orthogonalized Vector)</text>
+  <text x="112" y="165" class="mono-sm" fill="#a7f3d0">cos(v_⊥, u_hold) = 0.000</text>
+
+  <!-- Right-angle square at origin (100, 286) -->
+  <polyline points="100,272 114,272 114,286" fill="none" stroke="#34d399" stroke-width="1.4"/>
+
+  <!-- Diagonal Raw Vector v_raw from (100, 286) to (300, 146) -->
+  <line x1="100" y1="286" x2="300" y2="146" stroke="#fbbf24" stroke-width="2.6" class="raw-vec" marker-end="url(#mAmber)"/>
+  <text x="242" y="188" class="mono" fill="#fcd34d" font-weight="700">v_raw (Entangled)</text>
+  <text x="242" y="203" class="mono-sm" fill="#fde68a">Target + Nuisance Drift</text>
+
+  <!-- Projection Drop Line from (300, 146) down to (300, 286) and Left to (100, 146) -->
+  <line x1="300" y1="146" x2="300" y2="286" stroke="#f87171" stroke-width="1.5" class="proj-drop"/>
+  <line x1="300" y1="146" x2="106" y2="146" stroke="#34d399" stroke-width="2" class="proj-drop" marker-end="url(#mGreen)"/>
+  <text x="158" y="138" class="mono-sm" fill="#fca5a5">- α · (v_raw · u_hold) u_hold</text>
+
+  <!-- Formula Footer -->
+  <text x="36" y="354" class="mono" fill="#fde68a">v_⊥ = v_raw - α · U_hold (U_hold^T · v_raw)    (SVD Orthonormal Basis in float64)</text>
+  <text x="36" y="374" class="mono-sm" fill="#cbd5e1">• α = 1.0 (Default): Exact orthogonal scrub (0.0 cosine with hold subspace).</text>
+  <text x="36" y="392" class="mono-sm" fill="#cbd5e1">• α ∈ (0, 1): Soft attenuation  |  α ∈ (1, 2]: Over-projection against strong priors.</text>
+  <text x="36" y="410" class="mono-sm" fill="#6ee7b7">• Works at build time ([[hold]]), sculpt time (--hold), or runtime (mode="hold").</text>
+
+  <!-- ===================================================================== -->
+  <!-- RIGHT PANEL: 180-DEGREE INVERSION AND NORM-MATCHED BLENDING (67.5)   -->
+  <!-- ===================================================================== -->
+  <rect x="500" y="64" width="460" height="374" class="panel"/>
+  <text x="516" y="86" class="sec-hdr" fill="#7dd3fc">2. &lt; 5 ms CPU INVERSION (--invert) &amp; NORM-MATCHED BLENDING (67.5)</text>
+  <text x="516" y="104" class="mono-sm">Flip any vector 180° or combine vectors of different raw norms on equal footing</text>
+
+  <!-- Norm Circle Diagram Box -->
+  <rect x="516" y="114" width="428" height="218" rx="8" fill="#0f172a" stroke="#334155"/>
+
+  <!-- Center of circle at (720, 224), Radius = 78 (representing NORM_MATCHED_TARGET = 67.5) -->
+  <circle cx="720" cy="224" r="78" fill="none" stroke="#38bdf8" stroke-width="1.4" stroke-dasharray="5 4"/>
+  <text x="742" y="140" class="mono-sm" fill="#7dd3fc" font-weight="700">Target Norm Circle: ||v|| = 67.5</text>
+
+  <!-- Positive Vector +1.0 * v (Pointing Up-Right to (784, 179)) -->
+  <line x1="720" y1="224" x2="784" y2="179" stroke="#fbbf24" stroke-width="2.8" marker-end="url(#mAmber)"/>
+  <text x="792" y="176" class="mono" fill="#fcd34d" font-weight="700">+1.0 · v (Pole B)</text>
+  <text x="792" y="191" class="mono-sm" fill="#fde68a">e.g. "blizzard"</text>
+
+  <!-- Inverted Vector -1.0 * v (Pointing Down-Left to (656, 269)) -->
+  <line x1="720" y1="224" x2="656" y2="269" stroke="#38bdf8" stroke-width="2.8" class="flip-pole" marker-end="url(#mBlue)"/>
+  <text x="530" y="274" class="mono" fill="#7dd3fc" font-weight="700">-1.0 · v (--invert / Pole A)</text>
+  <text x="530" y="289" class="mono-sm" fill="#bae6fd">e.g. "anti_blizzard" (warm/dry)</text>
+
+  <!-- Second Vector v_2 (Pointing Up-Left to (665, 169)) -->
+  <line x1="720" y1="224" x2="665" y2="169" stroke="#a78bfa" stroke-width="2.2" stroke-dasharray="3 2"/>
+  <text x="532" y="168" class="mono-sm" fill="#c4b5fd">v_2 scaled to 67.5</text>
+
+  <!-- Combined Recipe Vector (Pointing Straight Up to (720, 146)) -->
+  <line x1="720" y1="224" x2="720" y2="146" stroke="#34d399" stroke-width="3" class="clean-vec" marker-end="url(#mGreen)"/>
+  <text x="646" y="138" class="mono" fill="#6ee7b7" font-weight="700">Combined Recipe</text>
+
+  <!-- Center Dot -->
+  <circle cx="720" cy="224" r="3.5" fill="#f8fafc"/>
+
+  <!-- Sculpt Footer -->
+  <text x="516" y="354" class="mono" fill="#fde68a">bench/control_vectors.py sculpt blizzard --invert --name anti_blizzard</text>
+  <text x="516" y="374" class="mono-sm" fill="#cbd5e1">• Inversion negates both vector.post_refiner (5376-D) and vector.encoder (5120-D).</text>
+  <text x="516" y="392" class="mono-sm" fill="#cbd5e1">• add_norm_matched rescales each input vector to 67.5 before applying weights.</text>
+  <text x="516" y="410" class="mono-sm" fill="#6ee7b7">• Saves matched __fl2va &amp; __ref2va .safetensors + J-Lens readout in &lt; 5 ms CPU.</text>
+</svg>
