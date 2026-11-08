@@ -1141,6 +1141,45 @@ def _plain_model_chain(g, *, sage, sol, shift, head_chunks, dense_backend=None):
     return src
 
 
+def _normalize_control_vector_specs(control_vector: Any) -> list[dict[str, Any]]:
+    """Normalize a `control_vector` spec (tuple, dict, or sequence) into node input dicts."""
+    def _one_cv_inputs(spec: Any) -> dict[str, Any]:
+        if isinstance(spec, tuple):
+            if len(spec) != 2 or not isinstance(spec[0], str):
+                raise SystemExit(
+                    f"control_vector tuple must be (vector_name, strength), got {spec!r}"
+                )
+            return dict(
+                CONTROL_VECTOR_DEFAULTS,
+                vector_name=str(spec[0]),
+                strength=float(spec[1]),
+            )
+        if isinstance(spec, dict):
+            allowed_cv_keys = set(CONTROL_VECTOR_DEFAULTS) | set(
+                CONTROL_VECTOR_OPTIONAL_DEFAULTS
+            )
+            unknown = sorted(set(spec) - allowed_cv_keys)
+            if unknown:
+                raise SystemExit(
+                    f"control_vector dict has unknown keys {unknown}; "
+                    f"expected a subset of {sorted(allowed_cv_keys)}"
+                )
+            return dict(CONTROL_VECTOR_DEFAULTS, **spec)
+        raise SystemExit(
+            f"control_vector spec must be a (vector_name, strength) tuple or dict, got {spec!r}"
+        )
+
+    if isinstance(control_vector, list) or (
+        isinstance(control_vector, tuple)
+        and control_vector
+        and isinstance(control_vector[0], (tuple, dict))
+    ):
+        if not control_vector:
+            raise SystemExit("control_vector sequence must not be empty")
+        return [_one_cv_inputs(s) for s in control_vector]
+    return [_one_cv_inputs(control_vector)]
+
+
 def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
               length: int = LENGTH, seed: int = SEED,
               sol: dict | None = None, sol_impl: str = "ours",
@@ -1783,44 +1822,7 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
         # node 115 for the first vector and 125+ for additional chained vectors):
         # wraps DIFFUSION_MODEL before any step cache so computed steps apply
         # the vector(s) and cached steps reuse the cached output.
-        def _one_cv_inputs(spec: Any) -> dict[str, Any]:
-            if isinstance(spec, tuple):
-                if len(spec) != 2 or not isinstance(spec[0], str):
-                    raise SystemExit(
-                        f"control_vector tuple must be (vector_name, strength), got {spec!r}"
-                    )
-                return dict(
-                    CONTROL_VECTOR_DEFAULTS,
-                    vector_name=str(spec[0]),
-                    strength=float(spec[1]),
-                )
-            if isinstance(spec, dict):
-                allowed_cv_keys = set(CONTROL_VECTOR_DEFAULTS) | set(
-                    CONTROL_VECTOR_OPTIONAL_DEFAULTS
-                )
-                unknown = sorted(set(spec) - allowed_cv_keys)
-                if unknown:
-                    raise SystemExit(
-                        f"control_vector dict has unknown keys {unknown}; "
-                        f"expected a subset of {sorted(allowed_cv_keys)}"
-                    )
-                return dict(CONTROL_VECTOR_DEFAULTS, **spec)
-            raise SystemExit(
-                f"control_vector spec must be a (vector_name, strength) tuple or dict, got {spec!r}"
-            )
-
-        if isinstance(control_vector, list) or (
-            isinstance(control_vector, tuple)
-            and control_vector
-            and isinstance(control_vector[0], (tuple, dict))
-        ):
-            if not control_vector:
-                raise SystemExit("control_vector sequence must not be empty")
-            cv_specs = [_one_cv_inputs(s) for s in control_vector]
-        else:
-            cv_specs = [_one_cv_inputs(control_vector)]
-
-        for cv_idx, cv_inputs in enumerate(cv_specs):
+        for cv_idx, cv_inputs in enumerate(_normalize_control_vector_specs(control_vector)):
             cv_nid = "115" if cv_idx == 0 else str(125 + cv_idx - 1)
             g[cv_nid] = {"class_type": CONTROL_VECTOR_NODE,
                          "inputs": {"model": model_src, **cv_inputs}}
@@ -2363,6 +2365,7 @@ def build_ph3_image_api(
     width: int | None = None,
     height: int | None = None,
     seed: int = SEED,
+    control_vector: tuple[str, float] | dict | list | None = None,
     out_prefix: str | None = None,
     single_frame: bool = True,
 ) -> dict:
@@ -2476,6 +2479,12 @@ def build_ph3_image_api(
                "inputs": {"model": model_src,
                           "attention": DENSE_BACKEND_NODE["attention"]}}
     model_src = ["58", 0]
+    if control_vector is not None:
+        for cv_idx, cv_inputs in enumerate(_normalize_control_vector_specs(control_vector)):
+            cv_nid = "115" if cv_idx == 0 else str(125 + cv_idx - 1)
+            g[cv_nid] = {"class_type": CONTROL_VECTOR_NODE,
+                         "inputs": {"model": model_src, **cv_inputs}}
+            model_src = [cv_nid, 0]
     g["9"]["inputs"]["model"] = model_src
     return g
 
@@ -4880,6 +4889,23 @@ def main():
          dict(single_frame=True, teacher_te=True,
               out_prefix="Image/h3_probe_p_h3_image_edit_te32b"),
          "P-H3-Image Edit teacher-encoder probe: our 32B Qwen3-VL encoder in place of the distilled 4B TextConnector encoder"),
+        ("h3_p_h3_image_t2i_control_vector.json", "p-h3-image-t2i-control-vector", "ph3_t2i",
+         PH3_IMAGE_T2I_PROMPT,
+         dict(single_frame=True,
+              control_vector=("film_16mm_1974__fl2va__diff_span__lora_2a8c2b52.safetensors", 1.15),
+              out_prefix="Image/h3_p_h3_image_t2i_control_vector"),
+         "text -> 8 MP single-frame image on PrunaAI P-H3-Image with a post-refiner control vector (film_16mm_1974 fl2va diff_span at +1.15, add_norm_matched, scene_only)"),
+        ("h3_p_h3_image_edit_control_vector.json", "p-h3-image-edit-control-vector", "ph3_edit",
+         PH3_IMAGE_EDIT_PROMPT,
+         dict(single_frame=True,
+              control_vector=dict(
+                  vector_name="film_16mm_1974__fl2va__diff_span__lora_2a8c2b52.safetensors",
+                  strength=1.15,
+                  ref_vae_end_percent=1.0,
+                  ref_vae_aug=0.999,
+              ),
+              out_prefix="Image/h3_p_h3_image_edit_control_vector"),
+         "reference images + text -> edited image at image_1's aspect ratio on PrunaAI P-H3-Image with a post-refiner control vector (film_16mm_1974 fl2va diff_span at +1.15, add_norm_matched, scene_only, ref_vae_end_percent=1.0)"),
         # --- Guide-latent video and single-frame editing (`MiniMaxH3GuideLatent`) ---
         ("h3_guide_video_edit.json", "r2v-guide-edit", "r2v",
          _ref_prompt(images=("character",), scene="kitchen"),

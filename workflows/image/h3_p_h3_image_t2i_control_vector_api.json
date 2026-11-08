@@ -1,0 +1,155 @@
+{
+  "1": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "p-h3-image_int8_convrot.safetensors",
+      "weight_dtype": "default"
+    }
+  },
+  "3": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "p-h3-image_vae_bf16.safetensors"
+    }
+  },
+  "6": {
+    "class_type": "RandomNoise",
+    "inputs": {
+      "noise_seed": 730451892
+    }
+  },
+  "7": {
+    "class_type": "KSamplerSelect",
+    "inputs": {
+      "sampler_name": "euler"
+    }
+  },
+  "9": {
+    "class_type": "BasicGuider",
+    "inputs": {
+      "model": [
+        "115",
+        0
+      ],
+      "conditioning": [
+        "5",
+        0
+      ]
+    }
+  },
+  "10": {
+    "class_type": "SamplerCustomAdvanced",
+    "inputs": {
+      "noise": [
+        "6",
+        0
+      ],
+      "guider": [
+        "9",
+        0
+      ],
+      "sampler": [
+        "7",
+        0
+      ],
+      "sigmas": [
+        "60",
+        0
+      ],
+      "latent_image": [
+        "5",
+        1
+      ]
+    }
+  },
+  "11": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": [
+        "10",
+        0
+      ],
+      "vae": [
+        "3",
+        0
+      ]
+    }
+  },
+  "13": {
+    "class_type": "PreviewImage",
+    "inputs": {
+      "images": [
+        "11",
+        0
+      ]
+    }
+  },
+  "60": {
+    "class_type": "ManualSigmas",
+    "inputs": {
+      "sigmas": "1.0, 0.984753, 0.967905, 0.951688, 0.925372, 0.881923, 0.810083, 0.528718, 0.0"
+    }
+  },
+  "2": {
+    "class_type": "CLIPLoader",
+    "inputs": {
+      "clip_name": "p-h3-image_text_encoder_int8_convrot.safetensors",
+      "type": "minimax",
+      "device": "default"
+    }
+  },
+  "5": {
+    "class_type": "MiniMaxH3PH3ImageConditioning",
+    "inputs": {
+      "clip": [
+        "2",
+        0
+      ],
+      "vae": [
+        "3",
+        0
+      ],
+      "prompt": "A medium three-quarter portrait of an elderly clockmaker seated at a worn walnut workbench inside a sunlit brass-and-oak workshop. He has silver stubble, deep-set hazel eyes behind round wire-rimmed spectacles, and wears a faded indigo linen apron over a rolled-sleeve cream cotton shirt. His weathered fingers hold a brass balance wheel and fine tweezers above an open pocket watch movement surrounded by miniature jeweler's screwdrivers, coiled mainsprings, and a glass bell jar. Warm late-afternoon directional sunlight streams through a paned workshop window on the left, casting crisp specular highlights across the polished gears and soft warm fill across the wood grain, shot on an 85mm prime lens at f/2.8 with shallow depth of field.",
+      "width": 2912,
+      "height": 2912,
+      "canvas": "auto"
+    }
+  },
+  "19": {
+    "class_type": "MiniMaxH3SigmaShift",
+    "inputs": {
+      "model": [
+        "1",
+        0
+      ],
+      "shift_video": 1.0,
+      "shift_audio": 1.0
+    }
+  },
+  "58": {
+    "class_type": "ModelAttentionBackend",
+    "inputs": {
+      "model": [
+        "19",
+        0
+      ],
+      "attention": "comfy kitchen attention"
+    }
+  },
+  "115": {
+    "class_type": "MiniMaxH3ApplyControlVectors",
+    "inputs": {
+      "model": [
+        "58",
+        0
+      ],
+      "vector_name": "film_16mm_1974__fl2va__diff_span__lora_2a8c2b52.safetensors",
+      "strength": 1.15,
+      "mode": "add_norm_matched",
+      "mask": "scene_only",
+      "start_percent": 0.0,
+      "end_percent": 1.0,
+      "allow_recipe_mismatch": false
+    }
+  }
+}

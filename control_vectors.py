@@ -2015,12 +2015,17 @@ def check_vector_compatibility(
         vec_recipe = metadata["recipe"]
         vec_ckpt = vec_recipe.get("checkpoint")
         cur_ckpt = loaded_recipe.get("checkpoint")
+        prov_made_by = str(metadata.get("provenance", {}).get("made_by", ""))
+        jlens_same_family = prov_made_by.startswith("j_lens.") and vec_family == loaded_family
+        ph3_compatible = _is_ph3_image_compatible(
+            vec_recipe, loaded_recipe, vec_family=vec_family, loaded_family=loaded_family
+        )
         if vec_ckpt != cur_ckpt:
             msg = (
                 f"control vector {vec_name!r} recipe checkpoint {vec_ckpt!r} differs "
                 f"from loaded model checkpoint {cur_ckpt!r}"
             )
-            if not allow_recipe_mismatch:
+            if not allow_recipe_mismatch and not jlens_same_family and not ph3_compatible:
                 raise ValueError(
                     f"{msg} (pass allow_recipe_mismatch=True to apply across checkpoints)"
                 )
@@ -2040,9 +2045,12 @@ def check_vector_compatibility(
                 and cur_sig is not None
                 and vec_sig == cur_sig
             )
-            prov_made_by = str(metadata.get("provenance", {}).get("made_by", ""))
-            jlens_same_family = prov_made_by.startswith("j_lens.") and vec_family == cur_family
-            if not allow_recipe_mismatch and not same_pika_family and not jlens_same_family:
+            if (
+                not allow_recipe_mismatch
+                and not same_pika_family
+                and not jlens_same_family
+                and not ph3_compatible
+            ):
                 raise ValueError(
                     f"{msg} (pass allow_recipe_mismatch=True to apply across LoRA sets)"
                 )
@@ -2100,6 +2108,56 @@ def _lora_family_signature(loras: Sequence[Any]) -> list[tuple[str, float, str]]
         refiner_cov = _applied_refiner_coverage(str(item.get("applied", "branch")))
         sig.append((m.group(1), round(float(item.get("strength", 1.0)), 4), refiner_cov))
     return sig
+
+
+def _is_ph3_image_compatible(
+    vec_recipe: Mapping[str, Any],
+    cur_recipe: Mapping[str, Any],
+    *,
+    vec_family: str,
+    loaded_family: str,
+) -> bool:
+    """Whether `cur_recipe` is a PrunaAI P-H3-Image distillation (`p-h3-image_int8_convrot.safetensors`
+    or `p-h3-image_lora_bf16.safetensors` with full refiner coverage) of the same H3 text-path
+    family (`fl2va` or `ref2va`) as `vec_recipe`."""
+    if vec_family != loaded_family or vec_family not in ("fl2va", "ref2va"):
+        return False
+    cur_ckpt = cur_recipe.get("checkpoint")
+    vec_ckpt = vec_recipe.get("checkpoint")
+    cur_ckpt_file = str(cur_ckpt.get("file", "")) if isinstance(cur_ckpt, Mapping) else ""
+    vec_ckpt_file = str(vec_ckpt.get("file", "")) if isinstance(vec_ckpt, Mapping) else ""
+    cur_loras = cur_recipe.get("loras", [])
+    vec_loras = vec_recipe.get("loras", [])
+    if not isinstance(cur_loras, Sequence) or not isinstance(vec_loras, Sequence):
+        return False
+    for seq in (cur_loras, vec_loras):
+        for item in seq:
+            if not isinstance(item, Mapping):
+                return False
+            if _applied_refiner_coverage(str(item.get("applied", "branch"))) != "full_refiner":
+                return False
+    has_ph3_lora = any(
+        str(item.get("file", item.get("name", ""))).endswith("p-h3-image_lora_bf16.safetensors")
+        for item in cur_loras
+    )
+    is_cur_ph3 = (
+        (loaded_family == "fl2va" and cur_ckpt_file == "p-h3-image_int8_convrot.safetensors")
+        or has_ph3_lora
+    )
+    if not is_cur_ph3:
+        return False
+    if vec_family == "fl2va":
+        return vec_ckpt == cur_ckpt or vec_ckpt_file in (
+            "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+            "minimax_h3_fl2va_int8_convrot.safetensors",
+            "minimax_h3_fl2va_bf16.safetensors",
+            "p-h3-image_int8_convrot.safetensors",
+        )
+    return vec_ckpt == cur_ckpt or vec_ckpt_file in (
+        "minimax_h3_ref2va_pruned_int8_convrot.safetensors",
+        "minimax_h3_ref2va_int8_convrot.safetensors",
+        "minimax_h3_ref2va_bf16.safetensors",
+    )
 
 
 APPLY_MODES: tuple[str, ...] = ("add", "add_norm_matched", "hold", "project_out", "amplify")

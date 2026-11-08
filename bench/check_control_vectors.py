@@ -1749,6 +1749,75 @@ def check_vector_io_family_and_compatibility() -> list[str]:
             "compatibility refusal: Pika LoRA applied with modules=mlp only (partial token_refiner)",
         )
 
+        # 4c. Same-family J-Lens synthesized vector (provenance.made_by == "j_lens.words") applied to a
+        # different LoRA set emits an advisory warning (and never raises NameError on cur_family).
+        meta_jlens = {
+            **meta_out,
+            "provenance": {
+                **meta_out.get("provenance", {}),
+                "made_by": "j_lens.words",
+            },
+        }
+        warns_jlens_lora = cv.check_vector_compatibility(
+            meta_jlens, loaded_family="fl2va", loaded_recipe=recipe_lora_b, allow_recipe_mismatch=False
+        )
+        if len(warns_jlens_lora) != 1 or "lora set" not in warns_jlens_lora[0].lower():
+            errs.append(
+                f"expected 1 advisory warning for same-family j_lens.words vector on different LoRA set, got {warns_jlens_lora}"
+            )
+
+        # 4d. Same-family fl2va vector applied to PrunaAI P-H3-Image (standalone p-h3-image_int8_convrot.safetensors
+        # or unet_fl2va + p-h3-image_lora_bf16.safetensors) emits an advisory warning when allow_recipe_mismatch=False,
+        # while a partial P-H3-Image LoRA that excludes token_refiner still refuses.
+        recipe_ph3_standalone = {
+            **recipe_a,
+            "checkpoint": {"file": "p-h3-image_int8_convrot.safetensors", "sha256": "dddd"},
+            "loras": [],
+        }
+        warns_ph3_ckpt = cv.check_vector_compatibility(
+            meta_pika_svd, loaded_family="fl2va", loaded_recipe=recipe_ph3_standalone, allow_recipe_mismatch=False
+        )
+        if not warns_ph3_ckpt or not any("recipe checkpoint" in w.lower() for w in warns_ph3_ckpt):
+            errs.append(
+                f"expected advisory warning when applying fl2va vector to p-h3-image_int8_convrot.safetensors, got {warns_ph3_ckpt}"
+            )
+        recipe_ph3_lora = {
+            **recipe_a,
+            "loras": [
+                {
+                    "file": "p-h3-image_lora_bf16.safetensors",
+                    "sha256": "eeee",
+                    "strength": 1.0,
+                    "applied": "branch:modules=all,blocks=all,window=0-1",
+                }
+            ],
+        }
+        warns_ph3_lora = cv.check_vector_compatibility(
+            meta_pika_svd, loaded_family="fl2va", loaded_recipe=recipe_ph3_lora, allow_recipe_mismatch=False
+        )
+        if len(warns_ph3_lora) != 1 or "lora set" not in warns_ph3_lora[0].lower():
+            errs.append(
+                f"expected 1 advisory warning when applying fl2va vector to p-h3-image_lora_bf16.safetensors, got {warns_ph3_lora}"
+            )
+        recipe_ph3_lora_no_refiner = {
+            **recipe_a,
+            "loras": [
+                {
+                    "file": "p-h3-image_lora_bf16.safetensors",
+                    "sha256": "eeee",
+                    "strength": 1.0,
+                    "applied": "branch:modules=all,blocks=0-24,window=0-1",
+                }
+            ],
+        }
+        errs += _expect_refusal(
+            lambda: cv.check_vector_compatibility(
+                meta_pika_svd, loaded_family="fl2va", loaded_recipe=recipe_ph3_lora_no_refiner, allow_recipe_mismatch=False
+            ),
+            "recipe lora set",
+            "compatibility refusal: p-h3-image_lora_bf16 applied with blocks=0-24 (excluding token_refiner)",
+        )
+
         # 5. Prefix mismatch -> reported in warnings, never refused
         warns_prefix = cv.check_vector_compatibility(
             meta_out,
@@ -4110,6 +4179,23 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
         or dual_arm["125"]["inputs"]["strength"] != 2.2
     ):
         errs.append("build_api with 2-element control_vector list did not chain nodes 115 -> 125 -> BasicGuider (9)")
+
+    ph3_cv_arm = bw.build_ph3_image_api(
+        "ph3_edit",
+        control_vector=dict(
+            vector_name="film_16mm_1974__fl2va__diff_span__lora_2a8c2b52.safetensors",
+            strength=1.15,
+            ref_vae_end_percent=1.0,
+            ref_vae_aug=0.999,
+        ),
+    )
+    if (
+        ph3_cv_arm.get("115", {}).get("class_type") != "MiniMaxH3ApplyControlVectors"
+        or ph3_cv_arm["115"]["inputs"].get("model") != ["58", 0]
+        or ph3_cv_arm["9"]["inputs"].get("model") != ["115", 0]
+        or ph3_cv_arm["115"]["inputs"].get("strength") != 1.15
+    ):
+        errs.append(f"build_ph3_image_api(control_vector=...) did not wire node 115 between 58 and BasicGuider (9): {ph3_cv_arm.get('115')}")
 
     gate_arms = bw.build_control_vector_gate_arms(
         "t2v",

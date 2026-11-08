@@ -199,6 +199,12 @@ def build_parser() -> argparse.ArgumentParser:
     pm.add_argument("--hold-words", dest="hold_words", default="", help="Optional nuisance words to project out on CPU")
     pm.add_argument("--hold-alpha", dest="hold_alpha", type=float, default=1.0, help="Attenuation alpha in [0.0, 2.0] for --hold / --hold-words")
     pm.add_argument("--pooling", choices=cv.VALID_POOLING, default="diff_span")
+    pm.add_argument(
+        "--families",
+        choices=("both", "fl2va", "ref2va", "auto", "fl2va,ref2va", "ref2va,fl2va"),
+        default="both",
+        help="Which H3 model families to build when --out and --dit are omitted (default: 'both' writes fl2va and ref2va)",
+    )
     pm.add_argument("--unit-mean", dest="unit_mean", action="store_true", help="Average unit-normalized pair directions")
     pm.add_argument("--dit", dest="dit", default=None, help="DiT diffusion checkpoint filename")
     pm.add_argument("--unet", dest="dit", default=None, help=argparse.SUPPRESS)

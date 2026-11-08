@@ -187,9 +187,14 @@ def cmd_make(args: argparse.Namespace) -> int:
                 pair_set, tp_arg, target_weight=tp_weight, slot_hint=slot_arg
             )
 
+    auto_fam = "ref2va" if (args.ref_images or pair_set.mode == "ref2va") else "fl2va"
+    req_fams = _resolve_requested_families(
+        getattr(args, "families", "both"), auto_family=auto_fam
+    )
+    primary_fam = auto_fam if auto_fam in req_fams else req_fams[0]
     dit_name = getattr(args, "dit", None) or getattr(args, "unet", None) or (
         h3_config.MODELS["unet_ref2va"]
-        if (args.ref_images or pair_set.mode == "ref2va")
+        if primary_fam == "ref2va"
         else h3_config.MODELS["unet_fl2va"]
     )
     dit_path = Path(_h.folder_paths.get_full_path_or_raise("diffusion_models", dit_name))
@@ -254,6 +259,7 @@ def cmd_make(args: argparse.Namespace) -> int:
     b_pooled_list: list[torch.Tensor] = []
     enc_a_pooled_list: list[torch.Tensor] = []
     enc_b_pooled_list: list[torch.Tensor] = []
+    cached_pair_encs: list[tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]] = []
     weights_list: list[float] = []
     enc_censuses: list[dict[str, float]] = []
     ref_censuses: list[dict[str, float]] = []
@@ -292,6 +298,7 @@ def cmd_make(args: argparse.Namespace) -> int:
             end_diff=end_b,
             other_ids=ids_a,
         )
+        cached_pair_encs.append((enc_a, enc_b, tags_a, tags_b, mask_a, mask_b))
 
         a_pooled_list.append(ref_a.to(dtype=torch.float64)[mask_a].mean(dim=0).to(dtype=torch.float32))
         b_pooled_list.append(ref_b.to(dtype=torch.float64)[mask_b].mean(dim=0).to(dtype=torch.float32))
@@ -348,6 +355,7 @@ def cmd_make(args: argparse.Namespace) -> int:
 
     enc_hold_a_make: list[torch.Tensor] = []
     enc_hold_b_make: list[torch.Tensor] = []
+    cached_hold_encs: list[tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]] = []
     hold_groups: list[str] = []
     hold_weights: list[float] = []
     if not args.no_holds and pair_set.holds:
@@ -379,6 +387,7 @@ def cmd_make(args: argparse.Namespace) -> int:
                 end_diff=h_end_b,
                 other_ids=h_ids_a,
             )
+            cached_hold_encs.append((h_enc_a, h_enc_b, h_mask_a, h_mask_b))
             hold_a_list.append(
                 h_ref_a.to(dtype=torch.float64)[h_mask_a].mean(dim=0).to(dtype=torch.float32)
             )
@@ -501,7 +510,12 @@ def cmd_make(args: argparse.Namespace) -> int:
         "b_side": pair_set.b_side,
         "pair_spans": pair_spans,
     }
-    if resolved_pair_path is None:
+    is_bank_toml_make = (
+        resolved_pair_path is not None
+        and resolved_pair_path.resolve().is_relative_to(cv_nodes.PAIR_BANK_DIR.resolve())
+        and not tp_arg
+    )
+    if not is_bank_toml_make:
         if words_arg:
             pairs_dict_make["words_spec"] = str(words_arg)
         slot_make = str(getattr(args, "slot", "auto") or "auto")
@@ -621,6 +635,161 @@ def cmd_make(args: argparse.Namespace) -> int:
         f"encode_and_refine={t_enc_done - t_ref:.2f}s  total={elapsed:.2f}s"
     )
     print(f"  saved       : {saved.name} ({saved.stat().st_size} bytes, {elapsed:.2f}s)")
+
+    if (
+        not args.out
+        and not getattr(args, "dit", None)
+        and not getattr(args, "unet", None)
+        and not loras
+    ):
+        for sib_fam in req_fams:
+            if sib_fam == family or sib_fam not in ("fl2va", "ref2va"):
+                continue
+            sib_dit_name = (
+                h3_config.MODELS["unet_ref2va"]
+                if sib_fam == "ref2va"
+                else h3_config.MODELS["unet_fl2va"]
+            )
+            try:
+                sib_dit_file = _h.folder_paths.get_full_path("diffusion_models", sib_dit_name)
+            except Exception:
+                sib_dit_file = None
+            if not sib_dit_file or not Path(sib_dit_file).is_file():
+                continue
+            sib_dit_path = Path(sib_dit_file)
+            sib_key = (str(sib_dit_path), str(args.refiner_device), ())
+            if isinstance(ref_cache, dict) and sib_key in ref_cache:
+                sib_ref_run = ref_cache[sib_key]
+            else:
+                sib_ref_run = cv_nodes.build_refiner_runner(
+                    sib_dit_path, device=args.refiner_device, loras=[]
+                )
+                if isinstance(ref_cache, dict):
+                    ref_cache[sib_key] = sib_ref_run
+            sib_recipe = cv_nodes.extract_model_recipe(
+                None,
+                None,
+                dit_path_override=sib_dit_path,
+                encoder_path_override=encoder_path,
+                loras_override=[],
+            )
+            sib_a_list: list[torch.Tensor] = []
+            sib_b_list: list[torch.Tensor] = []
+            sib_ref_cens: list[dict[str, float]] = []
+            for enc_a, enc_b, tags_a, tags_b, mask_a, mask_b in cached_pair_encs:
+                s_ref_a = sib_ref_run(enc_a)
+                s_ref_b = sib_ref_run(enc_b)
+                sib_ref_cens.append(cv.row_norm_census(s_ref_a, tags_a))
+                sib_ref_cens.append(cv.row_norm_census(s_ref_b, tags_b))
+                sib_a_list.append(
+                    s_ref_a.to(dtype=torch.float64)[mask_a].mean(dim=0).to(dtype=torch.float32)
+                )
+                sib_b_list.append(
+                    s_ref_b.to(dtype=torch.float64)[mask_b].mean(dim=0).to(dtype=torch.float32)
+                )
+            sib_a_mat = torch.stack(sib_a_list, dim=0)
+            sib_b_mat = torch.stack(sib_b_list, dim=0)
+            sib_raw_vec = cv.mean_difference(
+                sib_a_mat, sib_b_mat, w_vec, unit_mean=use_unit_mean_make
+            )
+            sib_tensors: dict[str, torch.Tensor] = {}
+            if cached_hold_encs:
+                sib_ha: list[torch.Tensor] = []
+                sib_hb: list[torch.Tensor] = []
+                for h_enc_a, h_enc_b, h_mask_a, h_mask_b in cached_hold_encs:
+                    sh_a = sib_ref_run(h_enc_a)
+                    sh_b = sib_ref_run(h_enc_b)
+                    sib_ha.append(
+                        sh_a.to(dtype=torch.float64)[h_mask_a].mean(dim=0).to(dtype=torch.float32)
+                    )
+                    sib_hb.append(
+                        sh_b.to(dtype=torch.float64)[h_mask_b].mean(dim=0).to(dtype=torch.float32)
+                    )
+                sib_basis = cv.hold_basis(
+                    torch.stack(sib_ha, dim=0),
+                    torch.stack(sib_hb, dim=0),
+                    hold_groups,
+                    torch.tensor(hold_weights, dtype=torch.float32),
+                )
+                sib_final_vec = cv.project_out(sib_raw_vec, sib_basis)
+                sib_tensors["holds.post_refiner"] = sib_basis
+            else:
+                sib_final_vec = sib_raw_vec
+            sib_applied_holds: list[str] = []
+            sib_nb = 0.0
+            sib_na = 0.0
+            if not args.no_holds and (hold_specs_make or hold_words_make):
+                sib_final_vec, sib_applied_holds, sib_nb, sib_na = _apply_post_refiner_holds(
+                    sib_final_vec,
+                    family=sib_fam,
+                    hold_specs=hold_specs_make,
+                    hold_words=hold_words_make,
+                    hold_alpha=hold_alpha_make,
+                    prompt=str(getattr(args, "target_prompt", "") or "") or None,
+                )
+            sib_tensors["vector.post_refiner"] = sib_final_vec
+            if "vector.encoder" in tensors_to_save:
+                sib_tensors["vector.encoder"] = tensors_to_save["vector.encoder"]
+            sib_gen = torch.Generator(device="cpu").manual_seed(int(args.seed))
+            sib_qrep = cv.quality_report(sib_a_mat, sib_b_mat, w_vec, generator=sib_gen)
+            if j_lens.bundle_available():
+                try:
+                    sib_qrep["j_lens_readout"] = j_lens.decode_vector(
+                        sib_final_vec, space="post_refiner", family=sib_fam
+                    )
+                except Exception:
+                    pass
+            sib_raw_norm = float(torch.linalg.vector_norm(sib_final_vec.to(dtype=torch.float64)).item())
+            sib_med_ref = float(sum(c["median_row_norm"] for c in sib_ref_cens) / len(sib_ref_cens))
+            sib_points: dict[str, Any] = {
+                "post_refiner": {
+                    "unit": "mean_pair_difference",
+                    "raw_norm": sib_raw_norm,
+                    "median_row_norm": sib_med_ref,
+                }
+            }
+            if "encoder" in points_meta:
+                sib_points["encoder"] = dict(points_meta["encoder"])
+            sib_prov = {
+                k: v for k, v in metadata["provenance"].items() if k != "applied_holds"
+            }
+            if sib_applied_holds:
+                sib_prov["applied_holds"] = {
+                    "holds": sib_applied_holds,
+                    "alpha": hold_alpha_make,
+                    "norm_before": round(sib_nb, 4),
+                    "norm_after_raw": round(sib_na, 4),
+                }
+            sib_meta = {
+                **metadata,
+                "family": sib_fam,
+                "pairs": {
+                    **pairs_dict_make,
+                    "n_holds": 0
+                    if args.no_holds
+                    else (len(pair_set.holds) + len(sib_applied_holds)),
+                },
+                "recipe": sib_recipe,
+                "points": sib_points,
+                "quality_report": sib_qrep,
+                "provenance": sib_prov,
+            }
+            sib_out = out_dir / cv.default_vector_filename(
+                stem,
+                sib_fam,
+                pooling=args.pooling,
+                prefix=prefix_meta,
+                apply_holds=not bool(args.no_holds),
+                n_holds=len(pair_set.holds),
+                loras=[],
+            )
+            sib_saved = cv.save_vector(
+                sib_out,
+                sib_tensors,
+                sib_meta,
+                overwrite=bool(getattr(args, "overwrite", False)),
+            )
+            print(f"  saved       : {sib_saved.name} ({sib_saved.stat().st_size} bytes, sibling={sib_fam})")
     return 0
 
 
