@@ -342,29 +342,24 @@ def _encode_ph3_image_condition(vae, image_tensor):
     unnormalized seeded posterior sample (`seed=42`) to `torch.float16` before
     normalizing `(latents - latents_mean) / latents_std`. ComfyUI core's
     `PH3ImageVAE.encode` (`comfy/ldm/minimax/vae.py:1022-1029`) omits `.to(torch.float16)`.
-    By temporarily binding `latents_mean=0, latents_std=1` on `vae.first_stage_model`
-    inside a `try ... finally` block during `vae.encode(image_tensor)`, we obtain the
-    exact unnormalized `latents` with zero float32 round-trip ULP drift, round to
-    `torch.float16`, and normalize `(latents - mean) / std` without patching ComfyUI core.
+    Never mutate `fsm.latents_mean` or `fsm.latents_std` around `vae.encode`:
+    `ModelPatcherDynamic.load` (`comfy/model_patcher.py:2114-2120`) snapshots
+    `named_buffers()` into `backup_buffers` on first load and `restore_loaded_backups`
+    (`comfy/model_patcher.py:1939-1940, 1960`) restores them on subsequent
+    `VAEDecode` loads.
     """
     import torch
 
-    fsm = getattr(vae, "first_stage_model", None)
-    mean = getattr(fsm, "latents_mean", None)
-    std = getattr(fsm, "latents_std", None)
-    if fsm is not None and mean is not None and std is not None:
-        try:
-            fsm.latents_mean = torch.zeros_like(mean)
-            fsm.latents_std = torch.ones_like(std)
-            unnorm = vae.encode(image_tensor)
-        finally:
-            fsm.latents_mean = mean
-            fsm.latents_std = std
-        mean_t = mean.view(1, -1, 1, 1, 1).to(device=unnorm.device, dtype=torch.float32)
-        std_t = std.view(1, -1, 1, 1, 1).to(device=unnorm.device, dtype=torch.float32)
-        rounded = unnorm.to(torch.float16).float()
-        return ((rounded - mean_t) / std_t).to(dtype=unnorm.dtype)
     z = vae.encode(image_tensor)
+    fsm = getattr(vae, "first_stage_model", None)
+    mean = getattr(fsm, "latents_mean", None) if fsm is not None else None
+    std = getattr(fsm, "latents_std", None) if fsm is not None else None
+    if isinstance(mean, torch.Tensor) and isinstance(std, torch.Tensor):
+        mean_t = mean.view(1, -1, 1, 1, 1).to(device=z.device, dtype=torch.float32)
+        std_t = std.view(1, -1, 1, 1, 1).to(device=z.device, dtype=torch.float32)
+        unnorm = z.float() * std_t + mean_t
+        rounded = unnorm.to(torch.float16).float()
+        return ((rounded - mean_t) / std_t).to(dtype=z.dtype)
     return z.to(torch.float16).to(dtype=z.dtype)
 
 

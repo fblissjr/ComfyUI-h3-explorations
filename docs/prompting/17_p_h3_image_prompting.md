@@ -73,20 +73,20 @@ Place the man from <Picture 1> onto a stone observation terrace overlooking the 
 
 ---
 
-## 17.4 PrunaAI's `Qwen3.5-9B` Prompt Upsampler (`MiniMaxH3PH3ImagePromptUpsampler`)
+## 17.4 PrunaAI's `Qwen3.5-9B` Prompt Upsampler (`MiniMaxH3PH3ImagePromptUpsampler`, Not Wired in Generated Workflows)
 
-PrunaAI ships an optional `Qwen3.5-9B` VLM rewriter (`p-h3-image_prompt_upsampler`, `9.1 GB` int8 `safetensors` in `<comfy>/models/text_encoders/p-h3-image_prompt_upsampler_int8_convrot.safetensors`, loaded via `CLIPLoader(type="qwen_image")`). In our canonical `workflows/image/` graphs, it is wired at node `25` (**`MiniMaxH3PH3ImagePromptUpsampler`**, `ph3_image_nodes.py`) with **`enabled = False` by default**.
+PrunaAI ships an optional `Qwen3.5-9B` VLM rewriter (`p-h3-image_prompt_upsampler`, `9.1 GB` int8 `safetensors` in `<comfy>/models/text_encoders/p-h3-image_prompt_upsampler_int8_convrot.safetensors`, loaded via `CLIPLoader(type="qwen_image")`). Per owner decision (2026-11-07), **our canonical `workflows/image/` graphs omit the prompt upsampler completely** and wire `prompt` directly on node `5` (**`MiniMaxH3PH3ImageConditioning`**). **`MiniMaxH3PH3ImagePromptUpsampler`** (`ph3_image_nodes.py`, `enabled = False` by default) remains registered in the node pack as a standalone node if ever needed manually.
 
-### Why `enabled = False` Is the Default
+### Why the Generated Workflows Omit the Prompt Upsampler
 
-1. **Zero VRAM / Zero Load Cost When Off**: `MiniMaxH3PH3ImagePromptUpsampler` marks `clip` as `lazy=True` in `define_schema()` and returns `[]` from `check_lazy_status()` when `enabled=False`. ComfyUI never executes node `24` (`CLIPLoader` for `p-h3-image_prompt_upsampler_int8_convrot.safetensors`), saving `9.1 GB` of disk/VRAM load and several seconds of autoregressive LLM generation while passing your authored `prompt` through untouched (`workflows/h3_config.py::Passthrough("prompt")`).
+1. **Zero Upsampler Node Clutter / Zero Load Cost**: Wiring `prompt` directly into node `5` (`MiniMaxH3PH3ImageConditioning`) keeps the graph clean without a second `CLIPLoader` (`9.1 GB` `p-h3-image_prompt_upsampler_int8_convrot.safetensors`) or a pass-through rewriter node. (When `MiniMaxH3PH3ImagePromptUpsampler` is placed manually in a custom graph with `enabled=False`, it also marks `clip` as `lazy=True` in `define_schema()` and returns `[]` from `check_lazy_status()`.)
 2. **Pre-Upsampled Prompts Are Deterministic and Faster**: Following the §17.2 / §17.3 rules (or copying the T2I / Edit system prompt blocks from [`docs/wiki/system_prompts/h3_p_h3_image_system_prompt.md`](../wiki/system_prompts/h3_p_h3_image_system_prompt.md)) produces dense, in-distribution prompts directly without running a second 9B LLM on every seed.
 3. **Suboptimalities Fixed vs. PrunaAI's Reference Workflows**:
    - PrunaAI's T2I workflow wired `ChatTemplate` (a custom node not in ComfyUI core) or core's `TextGenerateLTX2Prompt` (which injects Gemma `<start_of_turn>` tags and LTX-2's video system prompt), and its Edit workflow wired `TextEncodeQwenImageEditPlus` (which accepts at most 3 images, downscales them to `384x384`, injects Qwen-Image-Edit's system prompt, and outputs `CONDITIONING` instead of calling `clip.generate`).
 
-### How `MiniMaxH3PH3ImagePromptUpsampler` Works When `enabled = True`
+### How `MiniMaxH3PH3ImagePromptUpsampler` Works When Placed Manually (`enabled = True`)
 
-When you flip `enabled = True` on node `25` (`MiniMaxH3PH3ImagePromptUpsampler`) to expand a short request:
+If you manually wire `MiniMaxH3PH3ImagePromptUpsampler` and set `enabled = True` to expand a short request:
 
 1. **Exact Upstream ChatML Format (`ph3_image_nodes.py::build_upsampler_chat`)**:
    - **No reference images connected (T2I, `max_new_tokens = 1024`)**: Computes the closest aspect-ratio bucket (`1:1`, `4:3`, `3:4`, `3:2`, `2:3`, `16:9`, `9:16`) from `width` and `height` and formats:

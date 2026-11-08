@@ -371,10 +371,6 @@ DECLARED: dict[tuple[str, str], tuple] = {
                      "the unshifted 8-step sigmas, against the node default 3.0 on "
                      "every video graph; bench/check_distill_settings.py grades both "
                      "populations"),
-    ("MiniMaxH3PH3ImagePromptUpsampler", "max_new_tokens"):
-        ("ARM", "1536 on the P-H3-Image Edit graphs (h3_config.PH3_IMAGE_EDIT_MAX_NEW_TOKENS), "
-                "against the node default 1024 (h3_config.PH3_IMAGE_T2I_MAX_NEW_TOKENS) on the "
-                "T2I graphs"),
     ("MiniMaxH3GuideLatent", "single_frame"):
         ("ARM", "True on h3_p_h3_image_guide_edit, where MiniMaxH3GuideLatent collapses "
                 "the AV latent to 1 frame (t=1) and anchors guide[:1] at frame 0 for "

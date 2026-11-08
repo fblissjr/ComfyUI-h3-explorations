@@ -98,29 +98,6 @@
       "device": "default"
     }
   },
-  "24": {
-    "class_type": "CLIPLoader",
-    "inputs": {
-      "clip_name": "p-h3-image_prompt_upsampler_int8_convrot.safetensors",
-      "type": "qwen_image",
-      "device": "default"
-    }
-  },
-  "25": {
-    "class_type": "MiniMaxH3PH3ImagePromptUpsampler",
-    "inputs": {
-      "prompt": "A medium three-quarter portrait of an elderly clockmaker seated at a worn walnut workbench inside a sunlit brass-and-oak workshop. He has silver stubble, deep-set hazel eyes behind round wire-rimmed spectacles, and wears a faded indigo linen apron over a rolled-sleeve cream cotton shirt. His weathered fingers hold a brass balance wheel and fine tweezers above an open pocket watch movement surrounded by miniature jeweler's screwdrivers, coiled mainsprings, and a glass bell jar. Warm late-afternoon directional sunlight streams through a paned workshop window on the left, casting crisp specular highlights across the polished gears and soft warm fill across the wood grain, shot on an 85mm prime lens at f/2.8 with shallow depth of field.",
-      "enabled": false,
-      "width": 2912,
-      "height": 2912,
-      "max_new_tokens": 1024,
-      "seed": 730451892,
-      "clip": [
-        "24",
-        0
-      ]
-    }
-  },
   "5": {
     "class_type": "MiniMaxH3PH3ImageConditioning",
     "inputs": {
@@ -132,10 +109,7 @@
         "3",
         0
       ],
-      "prompt": [
-        "25",
-        0
-      ],
+      "prompt": "A medium three-quarter portrait of an elderly clockmaker seated at a worn walnut workbench inside a sunlit brass-and-oak workshop. He has silver stubble, deep-set hazel eyes behind round wire-rimmed spectacles, and wears a faded indigo linen apron over a rolled-sleeve cream cotton shirt. His weathered fingers hold a brass balance wheel and fine tweezers above an open pocket watch movement surrounded by miniature jeweler's screwdrivers, coiled mainsprings, and a glass bell jar. Warm late-afternoon directional sunlight streams through a paned workshop window on the left, casting crisp specular highlights across the polished gears and soft warm fill across the wood grain, shot on an 85mm prime lens at f/2.8 with shallow depth of field.",
       "width": 2912,
       "height": 2912,
       "canvas": "auto"

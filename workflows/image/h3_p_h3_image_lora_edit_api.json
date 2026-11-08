@@ -98,14 +98,6 @@
       "device": "default"
     }
   },
-  "24": {
-    "class_type": "CLIPLoader",
-    "inputs": {
-      "clip_name": "p-h3-image_prompt_upsampler_int8_convrot.safetensors",
-      "type": "qwen_image",
-      "device": "default"
-    }
-  },
   "15": {
     "class_type": "LoadImage",
     "inputs": {
@@ -116,29 +108,6 @@
     "class_type": "LoadImage",
     "inputs": {
       "image": "2-mountain_landscape.png"
-    }
-  },
-  "25": {
-    "class_type": "MiniMaxH3PH3ImagePromptUpsampler",
-    "inputs": {
-      "prompt": "Place the man from <Picture 1> onto a stone observation terrace overlooking the alpine mountain peaks and valley from <Picture 2> at golden hour. Keep his exact facial features, expression, and hair from <Picture 1>, dress him in a charcoal wool field jacket over a heather-grey knit sweater, and match the warm low-angle sunset key light and crisp atmospheric perspective of <Picture 2>.",
-      "enabled": false,
-      "width": 2912,
-      "height": 2912,
-      "max_new_tokens": 1536,
-      "seed": 730451892,
-      "clip": [
-        "24",
-        0
-      ],
-      "images.image_1": [
-        "15",
-        0
-      ],
-      "images.image_2": [
-        "16",
-        0
-      ]
     }
   },
   "5": {
@@ -152,10 +121,7 @@
         "3",
         0
       ],
-      "prompt": [
-        "25",
-        0
-      ],
+      "prompt": "Place the man from <Picture 1> onto a stone observation terrace overlooking the alpine mountain peaks and valley from <Picture 2> at golden hour. Keep his exact facial features, expression, and hair from <Picture 1>, dress him in a charcoal wool field jacket over a heather-grey knit sweater, and match the warm low-angle sunset key light and crisp atmospheric perspective of <Picture 2>.",
       "width": 2912,
       "height": 2912,
       "canvas": "auto",

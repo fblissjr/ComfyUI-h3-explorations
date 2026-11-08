@@ -2373,11 +2373,9 @@ def build_ph3_image_api(
       the exact 8-step non-uniform schedule `[1.0, 0.984753, 0.967905, 0.951688,
       0.925372, 0.881923, 0.810083, 0.528718, 0.0]` (`PH3_IMAGE_MANUAL_SIGMAS`)
       rather than `BasicScheduler` with `ModelSamplingSD3`.
-    - Wires `ModelAttentionBackend(attention="comfy_kitchen_int8")` for the single-
+    - Wires `ModelAttentionBackend(attention="comfy kitchen attention")` for the single-
       frame dense attention floor (Sol-Attn is a 3D spatiotemporal video kernel
       and is never wired on `length=1` image graphs).
-    - Includes `MiniMaxH3PH3ImagePromptUpsampler` (node 25) with `enabled=False`
-      by default so the 9.1 GB `Qwen3.5-9B` upsampler is only loaded when opted in.
     - Uses `MiniMaxH3PH3ImageConditioning` (node 5) with `canvas="auto"` and
       `width=2912, height=2912` (`PH3_IMAGE_CANVAS_8MP`) by default so edit workflows
       clamp `image_1` and the output canvas to `[4 MP, 8 MP]` at `image_1`'s aspect
@@ -2399,8 +2397,6 @@ def build_ph3_image_api(
     cond_w = width if width is not None else PH3_IMAGE_CANVAS_8MP["width"]
     cond_h = height if height is not None else PH3_IMAGE_CANVAS_8MP["height"]
     cond_canvas = "explicit" if (width is not None or height is not None) else "auto"
-    upsampler_w = cond_w
-    upsampler_h = cond_h
     resolved_prompt = prompt if prompt is not None else (
         PH3_IMAGE_EDIT_PROMPT if is_edit else PH3_IMAGE_T2I_PROMPT
     )
@@ -2438,26 +2434,10 @@ def build_ph3_image_api(
                              "type": "minimax",
                              "device": "default"}}
 
-    g["24"] = {"class_type": "CLIPLoader",
-               "inputs": {"clip_name": PH3_IMAGE_UPSAMPLER,
-                          "type": "qwen_image",
-                          "device": "default"}}
-    upsampler_inputs: dict[str, Any] = {
-        "prompt": resolved_prompt,
-        "enabled": False,
-        "width": upsampler_w,
-        "height": upsampler_h,
-        "max_new_tokens": (
-            PH3_IMAGE_EDIT_MAX_NEW_TOKENS if is_edit else PH3_IMAGE_T2I_MAX_NEW_TOKENS
-        ),
-        "seed": seed,
-        "clip": ["24", 0],
-    }
-
     cond_inputs: dict[str, Any] = {
         "clip": ["2", 0],
         "vae": ["3", 0],
-        "prompt": ["25", 0],
+        "prompt": resolved_prompt,
         "width": cond_w,
         "height": cond_h,
         "canvas": cond_canvas,
@@ -2475,10 +2455,7 @@ def build_ph3_image_api(
             g[load_id] = {"class_type": "LoadImage",
                           "inputs": {"image": img_name}}
             cond_inputs[f"images.image_{idx}"] = [load_id, 0]
-            upsampler_inputs[f"images.image_{idx}"] = [load_id, 0]
 
-    g["25"] = {"class_type": "MiniMaxH3PH3ImagePromptUpsampler",
-               "inputs": upsampler_inputs}
     g["5"] = {"class_type": "MiniMaxH3PH3ImageConditioning",
               "inputs": cond_inputs}
 
@@ -4878,11 +4855,11 @@ def main():
         ("h3_p_h3_image_t2i.json", "p-h3-image-t2i", "ph3_t2i",
          PH3_IMAGE_T2I_PROMPT,
          dict(single_frame=True, out_prefix="Image/h3_p_h3_image_t2i"),
-         "text -> 8 MP single-frame image on PrunaAI P-H3-Image (8-step custom Euler schedule, 4B distilled TextConnector, single-frame VAE, prompt upsampler wired off by default)"),
+         "text -> 8 MP single-frame image on PrunaAI P-H3-Image (8-step custom Euler schedule, 4B distilled TextConnector, single-frame VAE)"),
         ("h3_p_h3_image_edit.json", "p-h3-image-edit", "ph3_edit",
          PH3_IMAGE_EDIT_PROMPT,
          dict(single_frame=True, out_prefix="Image/h3_p_h3_image_edit"),
-         "reference images + text -> edited image at image_1's aspect ratio on PrunaAI P-H3-Image (dual-stream Qwen3-VL + VAE reference conditioning with <Picture i> indexing, prompt upsampler wired off by default)"),
+         "reference images + text -> edited image at image_1's aspect ratio on PrunaAI P-H3-Image (dual-stream Qwen3-VL + VAE reference conditioning with <Picture i> indexing)"),
         ("h3_p_h3_image_lora_t2i.json", "p-h3-image-lora-t2i", "ph3_t2i",
          PH3_IMAGE_T2I_PROMPT,
          dict(single_frame=True, lora=(PH3_IMAGE_LORA, PH3_IMAGE_STRENGTH),
