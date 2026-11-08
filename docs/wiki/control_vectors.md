@@ -34,12 +34,12 @@ A common question is how a **Control Vector** differs from **J-Lens** ([`j_lens.
 | **What It Is** | A **single `5,376`-dimensional steering direction** (`vector.post_refiner`, plus optional `5,120`-d `vector.encoder`) representing one specific concept shift ($B - A$). | A **pre-computed `24,912 × 5,376` lexical vocabulary atlas + `TokenRefiner` Jacobian** mapping 24,912 single English words into H3's encoder and post-refiner spaces. |
 | **Role in the Pipeline** | **The steering payload applied at render time** by `MiniMaxH3ApplyControlVectors` to shift video and/or audio conditioning tokens inside the DiT. | **The `< 2 ms` CPU diagnostic lens, word scrubber, and fast unigram synthesizer** used to inspect, clean, or quickly approximate control vectors without loading the 32B GPU encoder. |
 | **How It Is Built** | Extracted from **10 full contrasting H3 scene prompts** (`Prompt A` vs. `Prompt B`) or **contrasting `<Picture 1>` reference images** passed through the full **32B Qwen3-VL (`layers.49`) + 2-block bidirectional `TokenRefiner`** (`~12 s` on GPU). | Pre-extracted once offline across 24,912 words in neutral cloze frames. Loaded on CPU in milliseconds with **zero GPU VRAM**. |
-| **Contextual Depth** | **Full multi-clause & cross-modal context**: captures how an entire phrase or coupled visual + `soundscape:` change interacts across realistic 180-token H3 scenes (e.g., how 1974 16mm stock couples halation, grain, and color warmth, or how wardrobe overrides `<Subject 1>`). | **Unigram (single-word) linear superposition**: knows single English words in isolation (`"blizzard"`, `"neon"`, `"parka"`), not multi-sentence grammar or `<Subject 1>` scene structure. |
+| **Contextual Depth** | **Full multi-clause & cross-modal context**: captures how an entire phrase or coupled visual + `soundscape:` change interacts across realistic 180-token H3 scenes (e.g., how 1974 16mm stock couples halation, grain, and color warmth, or how cryogenic flash-freeze couples rime frost with crystalline ice-cracking audio). | **Unigram (single-word) linear superposition**: knows single English words in isolation (`"blizzard"`, `"neon"`, `"cavern"`), not multi-sentence grammar or `<Subject 1>` scene structure. |
 | **What You Use It For** | 1. **Production video/audio steering** in ComfyUI (`t2va`, `fl2va`, `ref2va`).<br>2. **Coupled visual + soundscape steering** (`opening_framing:` + `soundscape:`).<br>3. **Reference-image look transfer** (`make-media`). | 1. **Decoding any Control Vector into English words** (`j_lens (+)` / `j_lens (-)` readout on `inspect` and `.md` sidecars).<br>2. **Pre-render readiness scoring** (`top1_gain`, `refiner_transmission`, `echo_ratio`).<br>3. **Scrubbing unwanted drift (`hold_words`)** on CPU in `< 1 ms`.<br>4. **Instant `< 2 ms` CPU word vectors** (`bench/control_vectors.py words` or the `words` field on `MiniMaxH3ApplyControlVectors`). |
 
 > [!TIP]
 > **Rule of thumb**:
-> - Use a **10-pair Control Vector** (`build` from `.toml`, `.md`, or `--words "Pole A -> Pole B"`) whenever you want the highest-fidelity contextual steer, `<Subject 1>` clothing/material overrides in `ref2va`, or coupled visual + audio `soundscape:` steering.
+> - Use a **10-pair Control Vector** (`build` from `.toml`, `.md`, or `--words "Pole A -> Pole B"`) whenever you want the highest-fidelity contextual steer across film stock, weather/atmosphere, physics/world dynamics, camera rig motion, or coupled visual + audio `soundscape:` steering.
 > - Use **J-Lens** (`inspect`, `--hold-words`, or `words`) to **read out** what any control vector is doing in plain English words, **project out** unwanted nuisance words (`--hold-words "coat, parka"`) in `< 1 ms` on CPU, or **synthesize** a quick zero-GPU vector from 3–5 words when iterating on CPU.
 
 ---
@@ -70,7 +70,7 @@ Write the baseline phrase (`Pole A`) and the target phrase (`Pole B`), for examp
 The pair compiler ([`h3_pair_compiler.py`](../../h3_pair_compiler.py)) automatically embeds your contrast into **10 diverse, structurally matched H3 scene templates** (and optionally your own target prompt as Pair 0), runs them through the actual contextual **Qwen3-VL-32B (`layers.49`) + 2-block `TokenRefiner`**, and saves both `fl2va` and `ref2va` `.safetensors` vectors (with default Pika LoRA branches automatically attached unless `--no-lora` is passed).
 
 ### Way B — From Full Custom or LLM-Authored Prompt Pairs (`.md` / `.toml`) *(Highest Precision, ~12s)*
-When you want complete control over all 10 Prompt A / Prompt B scenes (for example, complex multi-clause physical transformations, wardrobe overrides with `[[hold]]` pairs, or custom domain scenes):
+When you want complete control over all 10 Prompt A / Prompt B scenes (for example, zero-gravity physics, bioluminescent caverns, post-dialogue action triggers, or multi-clause transformations with `[[hold]]` pairs):
 1. Follow **[7. Prompting Generative LLMs for Control Vectors](control_vectors/llm_prompting_guide.md)** (which provides copy-paste input prompt templates for [`docs/wiki/system_prompts/h3_control_vector_system_prompt.md`](system_prompts/h3_control_vector_system_prompt.md)) using either our built-in local LLM generator (`transformers` or `exllamav3` in **Studio Screen 3** / `generate-pairs`) or any external LLM service.
 2. Each pair holds all non-target sections byte-identical between Prompt A and Prompt B so `pooling = "diff_span"` isolates only your changed clause.
 
@@ -82,50 +82,71 @@ Both images are snapped to an identical 32-px M-RoPE vision token grid (`short_e
 
 ---
 
-## 5. End-to-End Walkthrough Examples (See [Full Examples & Recipes](control_vectors/examples_and_recipes.md))
+## 5. What Types of Control Vectors Can You Make & How to Use Them
 
-Below are three common end-to-end recipes. For all 6 detailed recipes (including media look transfer, multi-vector sculpting, and `< 2 ms` CPU word synthesis), see **[6. Practical Examples & Recipes](control_vectors/examples_and_recipes.md)**.
+Different creative concepts act on different token spans, DiT denoising steps, and audio/video streams. The table and cards below show the **8 types of control vectors** you can build, **how each one works under the hood**, **which ComfyUI knobs to set on `MiniMaxH3ApplyControlVectors`**, and **direct links to the full worked example** in **[6. Practical Examples & Recipes](control_vectors/examples_and_recipes.md)**:
 
-### Example A: Changing `<Subject 1>`'s Clothing in `ref2va`
-To override `<Subject 1>`'s outfit from `<Picture 1>` (for example, shifting a sweater/shirt/jacket into summer resort beachwear) while keeping `<Subject 1>`'s face and the scene intact:
-```bash
-COMFY="$(cd ../.. && pwd)"
-PY="$COMFY/.venv/bin/python"
+| Vector Type | What It Steers | Authoring Slot / Method | Key ComfyUI Runtime Settings (`MiniMaxH3ApplyControlVectors`) | Worked Example |
+|---|---|---|---|---|
+| **[Type 1: Film Stock, Lenses & Color Grade](#type-1-film-stock-optical-lenses--color-grade)** | 16mm halation/grain (`film_16mm_1974`), VHS tape bleed (`vhs_1993`), noir chiaroscuro, infrared foliage, bleach bypass | `opening_framing:` (`--words`) or `.toml` bank | `strength = 1.15`, `mask = "scene_only"`, `0.00–1.00` *(or `0.33–1.00` to lock exact baseline pose on steps `0..1`)* | **[Recipe 1 →](control_vectors/examples_and_recipes.md#type-1-film-stock-optical-lenses--color-grade)** |
+| **[Type 2: Coupled Sight + Sound Atmosphere](#type-2-coupled-sight--sound-atmosphere--weather)** | Scorching heatwave + cicadas, blizzard + howling wind, bioluminescent cavern + water drips, underwater caustics | Coupled `opening_framing:` + `; soundscape:` | `strength = 1.15`, `mask = "scene_only"`, `video_scale = 1.0, audio_scale = 1.0` *(or split streams independently)* | **[Recipe 2 →](control_vectors/examples_and_recipes.md#type-2-coupled-sight--sound-atmosphere--weather)** |
+| **[Type 3: Physics, World Rules & `{props}` Transforms](#type-3-physics-world-rules--scene-adaptive-props-transforms)** | Zero-gravity levitation, cryogenic flash-freeze, time-freeze, miniature tilt-shift | `subject_behavior:` with `{props}` / `{surface}` or 10 LLM pairs | `strength = 1.10–1.25`, `start_percent = 0.00`, `mask = "scene_only"` *(or `mask = "after_dialogue"` for post-speech triggers)* | **[Recipe 3 →](control_vectors/examples_and_recipes.md#type-3-physics-world-rules--scene-adaptive-props-transforms)** |
+| **[Type 4: Camera Rig, Motion & Framing Energy](#type-4-camera-rig-motion--framing-energy)** | Frantic handheld camcorder shake, kinetic action energy, slow-motion float, dolly zoom | `camera_motion:` (`--words`) or 10 LLM pairs | `strength = 1.00–1.20`, `start_percent = 0.00`, `mask = "scene_only"`, `audio_scale = 0.0` (visual-only) | **[Recipe 4 →](control_vectors/examples_and_recipes.md#type-4-camera-rig-motion--framing-energy)** |
+| **[Type 5: Vocal Delivery & Acoustic Space](#type-5-vocal-delivery--acoustic-space)** | Whispered or panicked `(S1)` delivery, cathedral reverb, vinyl crackle, muffled underwater audio | `speech_delivery:` or `soundscape:` | `mask = "scene_only"` for vocal delivery; `mask = "soundscape_only"` or `video_scale = 0.0, audio_scale = 1.0` for audio-only | **[Recipe 5 →](control_vectors/examples_and_recipes.md#type-5-vocal-delivery--acoustic-space)** |
+| **[Type 6: Visual Look Transfer from Two Stills](#type-6-visual-look-transfer-from-two-reference-images-make-media)** | Color grade, lighting mood, or texture difference between `Image A` (flat) and `Image B` (graded) | `make-media` / Studio **Screen 4** (`pooling = "scene_text"`) | `strength = 1.10–1.25`, `mode = "add_norm_matched"`, `mask = "scene_only"` | **[Recipe 6 →](control_vectors/examples_and_recipes.md#type-6-visual-look-transfer-from-two-reference-images-make-media)** |
+| **[Type 7: `< 5 ms` CPU Sculpting: Flip, Blend & `hold`](#type-7-instant--5-ms-cpu-sculpting-flipping---invert-blending--orthogonal-hold)** | Flip `blizzard` $\rightarrow$ `anti_blizzard`, stack `neon + kinetic_energy`, scrub out unwanted coat/rain drift | `sculpt --invert`, `--modes`, `--hold-words` (or Studio **Screen 5**) | Outputs a single pre-orthogonally-cleaned `.safetensors` ready for `strength = 1.15` | **[Recipe 7 →](control_vectors/examples_and_recipes.md#type-7-instant--5-ms-cpu-sculpting-flipping---invert-blending--orthogonal-hold)** |
+| **[Type 8: Subject Material, Era Prop, or Attire Overrides](#type-8-subject-material-era-prop-or-attire-overrides-ref2va--t2va)** | Anachronistic props (`1970s rotary phones`), marble/chrome material shifts, or `<Subject 1>` attire overrides in `ref2va` | `opening_framing:` / `subject_behavior:` with concrete baseline nouns in Pole A | `strength = 1.25–2.50`, `start_percent = 0.00, end_percent = 0.50`, `ref_vae_end_percent = 1.00` | **[Recipe 8 →](control_vectors/examples_and_recipes.md#type-8-subject-material-era-prop-or-attire-overrides-ref2va--t2va)** |
 
-"$PY" bench/control_vectors.py build \
-  --words "opening_framing: wearing a heavy knit sweater, buttoned shirt, and long jacket -> dressed in sun-drenched summer beachwear and tropical resort swimwear" \
-  --name summer_beachwear \
-  --families ref2va \
-  --overwrite
-```
-In ComfyUI (`MiniMaxH3ApplyControlVectors` on `ref2va`), set:
-- `vector_name = "summer_beachwear__ref2va__diff_span__lora_865ee189.safetensors"`
-- `strength = 2.00–2.50`, `mode = "add_norm_matched"`, `mask = "scene_only"`, `start_percent = 0.0`, `end_percent = 0.50`
-- Keep `ref_vae_end_percent = 1.00` (`ref_vae_aug = 0.999`) so frames `0` and `1` stay clean, and omit the original clothing article (e.g. `"black sweater"`) from `subject_definitions:` and `retention_analysis:` in the prompt so the text conditioning does not re-assert the original garment.
+---
 
-### Example B: Coupled Visual + Audio Atmosphere (`scorching_heatwave`)
-```bash
-"$PY" bench/control_vectors.py build \
-  --words "opening_framing: bathed in cool overcast daylight with crisp neutral air -> drenched in scorching desert heatwave glare with shimmering heat-haze mirages; soundscape: quiet mild afternoon air -> dry desert wind and high-pitched cicada heat drone" \
-  --name scorching_heatwave \
-  --families both \
-  --save-toml \
-  --overwrite
-```
-This writes `prompt_bank/control_vectors/scorching_heatwave.toml` plus both `fl2va` (`__lora_2a8c2b52`) and `ref2va` (`__lora_865ee189`) `.safetensors` files. In ComfyUI, apply at `strength = 1.15, mode = "add_norm_matched", mask = "scene_only"`.
+### Type 1: Film Stock, Optical Lenses & Color Grade
+- **How it works**: Contrasts a neutral digital baseline (`Pole A`) against a physical lens or emulsion signature (`Pole B`, such as 1974 16mm Kodak Ektachrome halation and grain, 1993 VHS tracking bleed, silver-gelatin noir, or Aerochrome infrared).
+- **How to use it in ComfyUI**:
+  - **Full optical + lighting shift (`0.00–1.00`)**: Keep `start_percent = 0.00, end_percent = 1.00, strength = 1.15` so lighting ratios and halation shape the whole shot.
+  - **Pose-locked optical grade (`0.33–1.00`)**: Set `start_percent = 0.33, end_percent = 1.00` on an 8-step Pika workflow. Steps `0` and `1` run unsteered—locking the exact actor pose, camera framing, and blocking of your baseline seed—and steps `2..7` apply the 16mm grain, halation, and color grade on top.
+- **Full walkthrough & commands**: **[Type 1 in Examples & Recipes →](control_vectors/examples_and_recipes.md#type-1-film-stock-optical-lenses--color-grade)**
 
-### Example C: Inverting or Combining Vectors in `< 5 ms` on CPU (`sculpt`)
-```bash
-# Invert blizzard (-1.0x) into a new saved vector:
-"$PY" bench/control_vectors.py sculpt blizzard --invert --name anti_blizzard
+### Type 2: Coupled Sight + Sound Atmosphere & Weather
+- **How it works**: MiniMax H3 is a joint audio-video DiT whose text conditioning contains both `integrated_multimodal_description:` (visual) and `overall_soundscape:` (audio). When you pass a coupled contrast (`opening_framing: <Pole A> -> <Pole B>; soundscape: <Audio A> -> <Audio B>`), `diff_span` extracts the joint visual + acoustic direction while leaving `<d>[Language] ...</d>` dialogue tokens untouched (`mask = "scene_only"`).
+- **How to use it in ComfyUI**:
+  - **Joint sight + sound (`video_scale = 1.0, audio_scale = 1.0`)**: Shifts both the visual weather (heat haze, blizzard snow, glowing cavern spores) and the ambient audio bed (cicada drone, howling wind, cavern water drips) in one pass.
+  - **Split-stream control**: Set `video_scale = 1.0, audio_scale = 0.0` to steer **only the visuals** while preserving baseline audio, or `video_scale = 0.0, audio_scale = 1.0` to steer **only the soundscape** (triggers a two-pass velocity splice `[out_vid[0], out_aud[1]]`).
+- **Full walkthrough & commands**: **[Type 2 in Examples & Recipes →](control_vectors/examples_and_recipes.md#type-2-coupled-sight--sound-atmosphere--weather)**
 
-# Combine scorching_heatwave (+1.0) + golden_hour (+0.5) while scrubbing out winter coat drift:
-"$PY" bench/control_vectors.py sculpt scorching_heatwave golden_hour \
-  --modes add_norm_matched,add_norm_matched \
-  --strengths 1.0,0.5 \
-  --hold-words "coat, parka, heavy clothing" \
-  --name scorching_golden
-```
+### Type 3: Physics, World Rules & Scene-Adaptive `{props}` Transforms
+- **How it works**: Global physical laws (zero-gravity levitation, cryogenic flash-freeze, sudden time-stop) must act on whatever objects exist in the scene. In `--words`, the `subject_behavior:` and `interpersonal_dynamics:` slots expand scene-adaptive placeholders (`{props}`, `{surface}`, `{poss}`, `{obj}`) across all 10 canonical frames (so kitchen mugs, workshop tools, and desk papers all levitate or freeze), or you can author 10 bespoke pairs with an LLM.
+- **How to use it in ComfyUI**:
+  - **Start at step 0 (`start_percent = 0.00`)**: Because 3D object trajectories are committed during the first 2 denoising steps, physics vectors must be active from `start_percent = 0.00`.
+  - **Post-dialogue trigger (`mask = "after_dialogue"`)**: If your prompt has a character speak a line (`<d>[English] ...</d>`) and then react, setting `mask = "after_dialogue"` restricts the vector to tokens *after* the last `</d>`, keeping the speaking performance calm before the physical effect hits.
+- **Full walkthrough & commands**: **[Type 3 in Examples & Recipes →](control_vectors/examples_and_recipes.md#type-3-physics-world-rules--scene-adaptive-props-transforms)**
+
+### Type 4: Camera Rig, Motion & Framing Energy
+- **How it works**: Targets the `camera_motion:` slot (contrasting locked-off tripod framing against frantic handheld camcorder shake, whip-pans, or slow-motion floating camera drift) while holding lighting, subject wardrobe, and `overall_soundscape:` identical between Prompt A and Prompt B.
+- **How to use it in ComfyUI**: Apply with `start_percent = 0.00, end_percent = 1.00, strength = 1.00–1.20, mask = "scene_only"`. Because camera trajectory is decided in the earliest denoising steps, keep `start_percent = 0.00`.
+- **Full walkthrough & commands**: **[Type 4 in Examples & Recipes →](control_vectors/examples_and_recipes.md#type-4-camera-rig-motion--framing-energy)**
+
+### Type 5: Vocal Delivery & Acoustic Space
+- **How it works**:
+  - **Vocal delivery (`speech_delivery:` slot)**: Contrasts the clause right before `<d>[English] ...</d>` on the 5 speaking canonical frames (e.g., `speaks in a calm measured tone` $\rightarrow$ `whispers in a hushed breathless voice`). Even with `mask = "scene_only"` (which leaves the words inside `<d>...</d>` unperturbed so lip-sync and transcript stay locked), steering the surrounding delivery clause shifts vocal timbre and facial cadence.
+  - **Acoustic environment (`soundscape_only`)**: Contrasts `overall_soundscape:` (e.g., dry room tone $\rightarrow$ vast stone cathedral reverb or vinyl crackle) and applies with `mask = "soundscape_only"`.
+- **Full walkthrough & commands**: **[Type 5 in Examples & Recipes →](control_vectors/examples_and_recipes.md#type-5-vocal-delivery--acoustic-space)**
+
+### Type 6: Visual Look Transfer from Two Reference Images (`make-media`)
+- **How it works**: Instead of writing text pairs, `make-media` (`MiniMaxH3MakeMediaControlVector` / Studio **Screen 4**) takes two still frames (`Image A` baseline vs. `Image B` graded/stylized), snaps both to an identical `32-px` M-RoPE vision grid (`short_edge = 512`), runs them through `Qwen3-VL` + `TokenRefiner` across the 10 `ref2va` canonical frames, and pools the post-refiner shift.
+- **How to use it in ComfyUI**: Apply the resulting `.safetensors` on any `t2va` or `ref2va` workflow at `strength = 1.15, mode = "add_norm_matched", mask = "scene_only"`.
+- **Full walkthrough & commands**: **[Type 6 in Examples & Recipes →](control_vectors/examples_and_recipes.md#type-6-visual-look-transfer-from-two-reference-images-make-media)**
+
+### Type 7: Instant `< 5 ms` CPU Sculpting: Flipping (`--invert`), Blending & Orthogonal `hold`
+- **How it works**: Once you have built a library of vectors, `sculpt` (and Studio **Screen 5**) combines them in `float64` on CPU in `< 5 ms`:
+  - **Flip (`--invert` or `strength = -1.0`)**: Reverses any vector (e.g., `blizzard` $\rightarrow$ `anti_blizzard`).
+  - **Blend (`--modes add_norm_matched,add_norm_matched`)**: Sums multiple concepts on the equal `67.5` norm circle (e.g., `1.0 * scorching_heatwave + 0.5 * golden_hour`).
+  - **Orthogonal `hold` (`--hold` or `--hold-words`)**: Runs Gram-Schmidt projection (`project_out`) to strip unwanted collateral directions (e.g., removing `"coat, parka, heavy clothing"` from `blizzard` so indoor characters keep their normal clothes while snow blows outside).
+- **Full walkthrough & commands**: **[Type 7 in Examples & Recipes →](control_vectors/examples_and_recipes.md#type-7-instant--5-ms-cpu-sculpting-flipping---invert-blending--orthogonal-hold)**
+
+### Type 8: Subject Material, Era Prop, or Attire Overrides (`ref2va` & `t2va`)
+- **How it works**: Replaces concrete object/material/garment nouns named in `Pole A` with target nouns in `Pole B` (for example, replacing modern smartphones/laptops with 1970s brass rotary phones and CRT monitors, or overriding `<Subject 1>`'s outfit in `ref2va`).
+- **How to use it in ComfyUI**: Apply on the early layout window (`start_percent = 0.00, end_percent = 0.50`, `strength = 1.25–2.50`) while keeping `ref_vae_end_percent = 1.00` (`ref_vae_aug = 0.999`) so frames `0` and `1` stay clean.
+- **Full walkthrough & commands**: **[Type 8 in Examples & Recipes →](control_vectors/examples_and_recipes.md#type-8-subject-material-era-prop-or-attire-overrides-ref2va--t2va)**
 
 ---
 
@@ -155,8 +176,8 @@ The Studio UI opens in your browser and is organized into **6 focused task scree
 | **[3. ComfyUI Nodes & Controls](control_vectors/comfyui_nodes_and_controls.md)** | Using `MiniMaxH3MakeControlVector`, `MiniMaxH3MakeMediaControlVector`, and `MiniMaxH3ApplyControlVectors` in ComfyUI (`strength`, `mode = "add_norm_matched"`, `mask = "scene_only"`, `ref_vae_end_percent = 1.00`, `video_scale`, `audio_scale`, `words`). |
 | **[4. J-Lens Diagnostics & Word Lab](control_vectors/j_lens_diagnostics_and_word_lab.md)** | How J-Lens (`j_lens.py`) differs from full 10-pair control vectors, when to use `< 2 ms` CPU word synthesis vs. 10-pair Qwen builds, and how to read `assess_steering_readiness` observables (`top1_gain`, `refiner_transmission`, `echo_ratio`) and lexical readouts. |
 | **[5. Preset Catalog & CLI Reference](control_vectors/preset_catalog_and_cli_reference.md)** | Complete CLI command & flag reference (`--dit`, `--words`, `--save-toml`, `generate-pairs`, `make-media`, `sculpt --invert`, `inspect`, `grade`), file naming & JSON metadata contract, and the starter `.toml` banks in `prompt_bank/control_vectors/`. |
-| **[6. Practical Examples & Recipes](control_vectors/examples_and_recipes.md)** | 6 end-to-end recipes: `ref2va` clothing override, 1974 16mm film stock, coupled visual + soundscape weather, reference-image look transfer, multi-vector sculpting with holds, and `< 2 ms` word synthesis. |
-| **[7. Prompting Generative LLMs for Control Vectors](control_vectors/llm_prompting_guide.md)** | Copy-paste input prompts for local LLMs (`transformers`, `exllamav3`) or external LLM services using [`h3_control_vector_system_prompt.md`](system_prompts/h3_control_vector_system_prompt.md) across atmosphere, wardrobe/material overrides, physics, camera motion, and `--words` specs. |
+| **[6. Practical Examples & Recipes](control_vectors/examples_and_recipes.md)** | 8 end-to-end recipes by vector type: 1974 16mm film stock (full vs. pose-locked `0.33–1.00`), coupled visual + soundscape weather (`scorching_heatwave`), physics & `{props}` flash-freeze/zero-G, handheld camera rig motion, vocal delivery & acoustic space, reference-image look transfer (`make-media`), `< 5 ms` multi-vector sculpting with holds, and era prop / `ref2va` attire overrides. |
+| **[7. Prompting Generative LLMs for Control Vectors](control_vectors/llm_prompting_guide.md)** | Copy-paste input prompts for local LLMs (`transformers`, `exllamav3`) or external LLM services using [`h3_control_vector_system_prompt.md`](system_prompts/h3_control_vector_system_prompt.md) across atmosphere, physics/zero-G, camera motion, `--words` compiler specs, and `ref2va` overrides. |
 
 ---
 

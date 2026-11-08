@@ -69,34 +69,11 @@ Build a 10-Pair Control Vector Set (### Test Scene Prompt + ### Contrastive Pair
 
 ---
 
-### Category B — Wardrobe, Material, or Character Appearance Override (`ref2va`-Ready)
-
-Use this pattern when you want a control vector that changes what a character is wearing or made of—including overriding `<Subject 1>`'s outfit in `ref2va` (applied on `start_percent = 0.0, end_percent = 0.50` at `strength = 2.0–2.5` with `ref_vae_end_percent = 1.00` in ComfyUI).
-
-#### Input Prompt Example B1: Everyday/Winter Attire $\rightarrow$ Tropical Summer Beachwear (`10-Pair Control Vector Set` + `Hold`)
-```text
-Build a 10-Pair Control Vector Set (### Test Scene Prompt + ### Contrastive Pairs (1–10) + ### Hold Pairs).
-
-- Concept / Axis: Subjects dressed in ordinary everyday indoor or cool-weather street clothing such as sweaters, jackets, aprons, or button-down shirts (Pole A) -> Subjects dressed in bright summer beachwear, lightweight linen resort wear, and tropical swimwear (Pole B).
-- Diff Rule: Change ONLY one contiguous wardrobe/attire clause (8–15 words) inside `integrated_multimodal_description:`. Keep `overall_soundscape:` and `non_diegetic_music: N/A` 100% character-for-character identical between Prompt A and Prompt B so the room and environment do not change.
-- Anti-Cancellation Rule: Never mention beachwear, swimwear, bikini, trunks, or summer clothing in Prompt A.
-- Hold Pairs (2 pairs, group `environment`): Add 2 Hold Pairs that contrast an indoor room vs. an outdoor sandy beach while keeping clothing constant, so projecting out `hold(environment)` ensures the wardrobe vector changes only clothing without turning indoor rooms into beaches.
-- Test Scene Prompt (ref2va 6-section format): <Subject 1> from <Picture 1> standing in a modern kitchen preparing iced coffee and saying a short 4-word greeting in English.
-```
-
-#### Why This Input Works So Well
-1. **Broad Pole A (`sweaters, jackets, aprons, or button-down shirts`)**: Ensures the extracted direction $B - A$ replaces *any* everyday clothing rather than requiring the target prompt to mention winter coats.
-2. **Visual-Only Diff (`overall_soundscape:` identical)**: Prevents ocean waves from bleeding into indoor kitchen audio.
-3. **`Hold Pairs (environment)`**: Explicitly tells the LLM to include 2 `#### Hold 1 (environment)` pairs contrasting indoor vs. beach settings so `make_control_vector_from_pairs` orthogonalizes clothing against room background bleed.
-4. **6-Section `ref2va` `Test Scene Prompt` + 3-Section `Contrastive Pairs`**: Matches §1.2 of the system prompt (`Contrastive Pairs` always use 3-section `integrated_multimodal_description:` so one build emits both `fl2va` and `ref2va` vectors, while `Test Scene Prompt` uses 6-section `ref2va`).
-
----
-
-### Category C — Physical Dynamics, Zero Gravity, or Object Behavior (Post-Speech Action Beat)
+### Category B — Physical Dynamics, Zero Gravity, or Object Behavior (Post-Speech Action Beat)
 
 Use this pattern when steering physics, levitation, slow-motion impact, or object transformation.
 
-#### Input Prompt Example C1: Sudden Zero-Gravity Levitation (`10-Pair Control Vector Set`)
+#### Input Prompt Example B1: Sudden Zero-Gravity Levitation (`10-Pair Control Vector Set`)
 ```text
 Build a 10-Pair Control Vector Set (### Test Scene Prompt + ### Contrastive Pairs (1–10)).
 
@@ -108,11 +85,11 @@ Build a 10-Pair Control Vector Set (### Test Scene Prompt + ### Contrastive Pair
 
 ---
 
-### Category D — Camera Motion & Cinematography (`opening_framing` / `camera_motion`)
+### Category C — Camera Motion & Cinematography (`opening_framing` / `camera_motion`)
 
 Use this pattern when isolating a pure camera movement or lens behavior without changing subject action or lighting.
 
-#### Input Prompt Example D1: Aggressive Handheld Camcorder Shake (`10-Pair Control Vector Set`)
+#### Input Prompt Example C1: Aggressive Handheld Camcorder Shake (`10-Pair Control Vector Set`)
 ```text
 Build a 10-Pair Control Vector Set (### Test Scene Prompt + ### Contrastive Pairs (1–10)).
 
@@ -123,11 +100,11 @@ Build a 10-Pair Control Vector Set (### Test Scene Prompt + ### Contrastive Pair
 
 ---
 
-### Category E — Compact `--words` Compiler Spec (`Mode 2` of the System Prompt)
+### Category D — Compact `--words` Compiler Spec (`Mode 2` of the System Prompt)
 
 When you want the LLM to write a compact **Short-Contrast Compiler Spec** for [`h3_pair_compiler.py`](../../../h3_pair_compiler.py) (which expands into 10 canonical scenes in `< 1 ms` on CPU using scene-adaptive placeholders `{props}`, `{surface}`, `{poss}`, `{obj}`) instead of writing 10 full Markdown pairs:
 
-#### Input Prompt Example E1: Asking the LLM for a `--words` Spec
+#### Input Prompt Example D1: Asking the LLM for a `--words` Spec (`Cryogenic Flash-Freeze`)
 ```text
 Write a Short-Contrast Compiler Spec (`build --words` format for `h3_pair_compiler.py`, NOT 10 full Markdown pairs) for a "Cryogenic Flash-Freeze" control vector:
 - Use slot `subject_behavior` with `{props}` and `{surface}` placeholders so each canonical scene's native objects freeze over with creeping blue rime frost and ice crystals.
@@ -148,6 +125,29 @@ You can pass that output line directly to:
   --save-toml \
   --overwrite
 ```
+
+---
+
+### Category E — Subject Material, Era Prop, or Attire Override (`ref2va`-Ready + `Hold`)
+
+Use this pattern when you want a control vector that changes what props/surfaces are made of or what `<Subject 1>` is wearing in `ref2va` (applied on `start_percent = 0.0, end_percent = 0.50` at `strength = 2.0–2.5` with `ref_vae_end_percent = 1.00` in ComfyUI).
+
+#### Input Prompt Example E1: Everyday/Winter Attire $\rightarrow$ Tropical Summer Beachwear (`10-Pair Control Vector Set` + `Hold`)
+```text
+Build a 10-Pair Control Vector Set (### Test Scene Prompt + ### Contrastive Pairs (1–10) + ### Hold Pairs).
+
+- Concept / Axis: Subjects dressed in ordinary everyday indoor or cool-weather street clothing such as sweaters, jackets, aprons, or button-down shirts (Pole A) -> Subjects dressed in bright summer beachwear, lightweight linen resort wear, and tropical swimwear (Pole B).
+- Diff Rule: Change ONLY one contiguous wardrobe/attire clause (8–15 words) inside `integrated_multimodal_description:`. Keep `overall_soundscape:` and `non_diegetic_music: N/A` 100% character-for-character identical between Prompt A and Prompt B so the room and environment do not change.
+- Anti-Cancellation Rule: Never mention beachwear, swimwear, bikini, trunks, or summer clothing in Prompt A.
+- Hold Pairs (2 pairs, group `environment`): Add 2 Hold Pairs that contrast an indoor room vs. an outdoor sandy beach while keeping clothing constant, so projecting out `hold(environment)` ensures the wardrobe vector changes only clothing without turning indoor rooms into beaches.
+- Test Scene Prompt (ref2va 6-section format): <Subject 1> from <Picture 1> standing in a modern kitchen preparing iced coffee and saying a short 4-word greeting in English.
+```
+
+#### Why This Input Works So Well
+1. **Broad Pole A (`sweaters, jackets, aprons, or button-down shirts`)**: Ensures the extracted direction $B - A$ replaces *any* everyday clothing rather than requiring the target prompt to mention winter coats.
+2. **Visual-Only Diff (`overall_soundscape:` identical)**: Prevents ocean waves from bleeding into indoor kitchen audio.
+3. **`Hold Pairs (environment)`**: Explicitly tells the LLM to include 2 `#### Hold 1 (environment)` pairs contrasting indoor vs. beach settings so `make_control_vector_from_pairs` orthogonalizes clothing against room background bleed.
+4. **6-Section `ref2va` `Test Scene Prompt` + 3-Section `Contrastive Pairs`**: Matches §1.2 of the system prompt (`Contrastive Pairs` always use 3-section `integrated_multimodal_description:` so one build emits both `fl2va` and `ref2va` vectors, while `Test Scene Prompt` uses 6-section `ref2va`).
 
 ---
 
