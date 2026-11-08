@@ -37,7 +37,7 @@ Because [`h3_control_vector_system_prompt.md`](../system_prompts/h3_control_vect
 
 To get the best output on the first try, specify **four elements** in your user prompt:
 1. **Output Mode Requested**: State whether you want:
-   - **Mode 1 (Default)**: A full **10-Pair Control Vector Set** (`### Test Scene Prompt` + `### Contrastive Pairs (1–10)` + optional `### Hold Pairs`), or
+   - **Mode 1 (Default)**: A full **10-Pair Control Vector Set** (`### Test Scene Prompt` + `### Contrastive Pairs (1–10)` + optional `### Hold Pairs`, where individual pair headings optionally accept `#### Pair N (weight=2.5)` as parsed by [`control_vectors.py::parse_markdown_pairs`](../../../control_vectors.py#L575-L583)), or
    - **Mode 2**: A compact **Short-Contrast Compiler Spec (`build --words`)** for `h3_pair_compiler.py`.
 2. **Pole A (Baseline State) vs. Pole B (Steered Target State)**:
    - State what `Prompt A` should describe (the ordinary unsteered baseline, **without** mentioning any of `Pole B`'s target nouns so $B - A$ never cancels out) and what `Prompt B` should replace that single clause with.
