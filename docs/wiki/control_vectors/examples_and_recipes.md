@@ -180,7 +180,7 @@ When you have two reference frames—for example, a flat ungraded frame (`flat_d
 "$PY" bench/control_vectors.py make-media \
   --image-a input/flat_daylight.png \
   --image-b input/cyberpunk_neon.png \
-  --output-name neon_grade_from_stills \
+  --name neon_grade_from_stills \
   --families both \
   --pooling scene_text \
   --short-edge 512 \
