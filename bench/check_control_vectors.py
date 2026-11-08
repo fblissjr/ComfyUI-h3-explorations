@@ -1818,6 +1818,84 @@ def check_vector_io_family_and_compatibility() -> list[str]:
             "compatibility refusal: p-h3-image_lora_bf16 applied with blocks=0-24 (excluding token_refiner)",
         )
 
+        # 4e. Same-family video recipe compatibility: base (loras=[]) <-> Pika H3 Flex (fl2va & ref2va)
+        # <-> ref2va Guide Video Edit (pika_ref2va + minimax_h3_vfx_edit_v1.0_r128_ffp.safetensors),
+        # and same-family checkpoint quantization variants (pruned_int8_convrot vs bf16), while
+        # non-unit LoRA strength (0.5) still refuses when allow_recipe_mismatch=False.
+        warns_pika_on_base = cv.check_vector_compatibility(
+            meta_pika_svd, loaded_family="fl2va", loaded_recipe=recipe_a, allow_recipe_mismatch=False
+        )
+        if len(warns_pika_on_base) != 1 or "lora set" not in warns_pika_on_base[0].lower():
+            errs.append(
+                f"expected 1 advisory warning when applying Pika fl2va vector to base fl2va model (loras=[]), got {warns_pika_on_base}"
+            )
+        warns_base_on_pika = cv.check_vector_compatibility(
+            meta_out, loaded_family="fl2va", loaded_recipe=recipe_pika_comfy, allow_recipe_mismatch=False
+        )
+        if len(warns_base_on_pika) != 1 or "lora set" not in warns_base_on_pika[0].lower():
+            errs.append(
+                f"expected 1 advisory warning when applying base fl2va vector (loras=[]) to Pika fl2va model, got {warns_base_on_pika}"
+            )
+        meta_ref2va_pika = {
+            **meta_out,
+            "family": "ref2va",
+            "recipe": {
+                **recipe_a,
+                "checkpoint": {"file": "minimax_h3_ref2va_pruned_int8_convrot.safetensors", "sha256": "r111"},
+                "loras": [
+                    {
+                        "file": "pika_h3_flex_ref2va_svd995_bf16.safetensors",
+                        "sha256": "r222",
+                        "strength": 1.0,
+                        "applied": "branch",
+                    }
+                ],
+            },
+        }
+        recipe_ref2va_guide_edit = {
+            **recipe_a,
+            "checkpoint": {"file": "minimax_h3_ref2va_bf16.safetensors", "sha256": "r333"},
+            "loras": [
+                {
+                    "file": "pika_h3_flex_ref2va_svd995_bf16.safetensors",
+                    "sha256": "r222",
+                    "strength": 1.0,
+                    "applied": "branch:modules=all,blocks=all,window=0-1",
+                },
+                {
+                    "file": "minimax_h3_vfx_edit_v1.0_r128_ffp.safetensors",
+                    "sha256": "r444",
+                    "strength": 1.0,
+                    "applied": "branch:modules=all,blocks=all,window=0-1",
+                },
+            ],
+        }
+        warns_ref2va_guide = cv.check_vector_compatibility(
+            meta_ref2va_pika, loaded_family="ref2va", loaded_recipe=recipe_ref2va_guide_edit, allow_recipe_mismatch=False
+        )
+        if len(warns_ref2va_guide) != 2 or not any("checkpoint" in w.lower() for w in warns_ref2va_guide) or not any("lora set" in w.lower() for w in warns_ref2va_guide):
+            errs.append(
+                f"expected 2 advisory warnings (checkpoint + LoRA set) for ref2va Pika vector on ref2va Guide Video Edit model, got {warns_ref2va_guide}"
+            )
+        recipe_pika_half_strength = {
+            **recipe_a,
+            "loras": [
+                {
+                    "file": "pika_h3_flex_fl2va_svd995_bf16.safetensors",
+                    "sha256": "aaaa",
+                    "strength": 0.5,
+                    "applied": "branch",
+                }
+            ],
+        }
+        errs += _expect_refusal(
+            lambda: cv.check_vector_compatibility(
+                meta_out, loaded_family="fl2va", loaded_recipe=recipe_pika_half_strength, allow_recipe_mismatch=False
+            ),
+            "recipe lora set",
+            "compatibility refusal: non-unit strength (0.5) Pika LoRA vs base model",
+        )
+
         # 5. Prefix mismatch -> reported in warnings, never refused
         warns_prefix = cv.check_vector_compatibility(
             meta_out,
@@ -3369,7 +3447,7 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
                 ):
                     errs.append(f"POST /api/build with families='fl2va,ref2va' and save_toml=True failed: {fams_json}")
 
-                # Verify /api/sculpt and CLI sculpt --invert
+                # Verify /api/sculpt and CLI sculpt --invert (and _resolve_vector_for_family sibling swapping)
                 st_sc, _, body_sc = bench_cv.handle_ui_request(
                     ui_state,
                     "POST",
@@ -3386,6 +3464,24 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
                 sc_json = json.loads(body_sc)
                 if st_sc != 200 or not sc_json.get("ok") or len(sc_json.get("built", [])) != 2:
                     errs.append(f"POST /api/sculpt with families='fl2va,ref2va' failed: {sc_json}")
+                else:
+                    sc_by_fam = {b["family"]: b["file"] for b in sc_json.get("built", [])}
+                    for sc_b in sc_json.get("built", []):
+                        _, sc_m = cv.load_vector(build_vec_dir / sc_b["file"])
+                        if sc_m.get("family") != sc_b.get("family"):
+                            errs.append(f"sculpted vector {sc_b['file']} metadata family {sc_m.get('family')!r} != {sc_b.get('family')!r}")
+                        if sc_b.get("family") not in sc_m.get("recipe", {}).get("checkpoint", {}).get("file", ""):
+                            errs.append(f"sculpted vector {sc_b['file']} stamped wrong family checkpoint in recipe: {sc_m.get('recipe')}")
+                    resolved_ref_sib = bench_cv._resolve_vector_for_family(
+                        sc_by_fam["fl2va"], family="ref2va", extra_dir=build_vec_dir
+                    )
+                    resolved_fl_sib = bench_cv._resolve_vector_for_family(
+                        build_vec_dir / sc_by_fam["ref2va"], family="fl2va", extra_dir=build_vec_dir
+                    )
+                    if resolved_ref_sib.name != sc_by_fam["ref2va"] or resolved_fl_sib.name != sc_by_fam["fl2va"]:
+                        errs.append(
+                            f"_resolve_vector_for_family did not swap sibling files: got {resolved_ref_sib.name!r} and {resolved_fl_sib.name!r}"
+                        )
 
                 # Verify POST /api/make-media with base64 data:image/png;base64,... uploads
                 import base64 as _b64

@@ -2017,7 +2017,7 @@ def check_vector_compatibility(
         cur_ckpt = loaded_recipe.get("checkpoint")
         prov_made_by = str(metadata.get("provenance", {}).get("made_by", ""))
         jlens_same_family = prov_made_by.startswith("j_lens.") and vec_family == loaded_family
-        ph3_compatible = _is_ph3_image_compatible(
+        h3_family_compatible = _is_same_family_h3_recipe_compatible(
             vec_recipe, loaded_recipe, vec_family=vec_family, loaded_family=loaded_family
         )
         if vec_ckpt != cur_ckpt:
@@ -2025,7 +2025,7 @@ def check_vector_compatibility(
                 f"control vector {vec_name!r} recipe checkpoint {vec_ckpt!r} differs "
                 f"from loaded model checkpoint {cur_ckpt!r}"
             )
-            if not allow_recipe_mismatch and not jlens_same_family and not ph3_compatible:
+            if not allow_recipe_mismatch and not jlens_same_family and not h3_family_compatible:
                 raise ValueError(
                     f"{msg} (pass allow_recipe_mismatch=True to apply across checkpoints)"
                 )
@@ -2049,7 +2049,7 @@ def check_vector_compatibility(
                 not allow_recipe_mismatch
                 and not same_pika_family
                 and not jlens_same_family
-                and not ph3_compatible
+                and not h3_family_compatible
             ):
                 raise ValueError(
                     f"{msg} (pass allow_recipe_mismatch=True to apply across LoRA sets)"
@@ -2110,54 +2110,83 @@ def _lora_family_signature(loras: Sequence[Any]) -> list[tuple[str, float, str]]
     return sig
 
 
-def _is_ph3_image_compatible(
+_KNOWN_H3_CHECKPOINTS: dict[str, frozenset[str]] = {
+    "fl2va": frozenset(
+        {
+            "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+            "minimax_h3_fl2va_int8_convrot.safetensors",
+            "minimax_h3_fl2va_bf16.safetensors",
+            "p-h3-image_int8_convrot.safetensors",
+        }
+    ),
+    "ref2va": frozenset(
+        {
+            "minimax_h3_ref2va_pruned_int8_convrot.safetensors",
+            "minimax_h3_ref2va_int8_convrot.safetensors",
+            "minimax_h3_ref2va_bf16.safetensors",
+        }
+    ),
+}
+
+_KNOWN_REF2VA_GUIDE_LORAS: frozenset[str] = frozenset(
+    {
+        "minimax_h3_vfx_edit_v1.0_r128_ffp.safetensors",
+        "minimax_h3_inpainting_v1.0_r128_ffp.safetensors",
+        "minimax_h3_camera_control_v1.0_r128_ffp.safetensors",
+        "minimax_h3_motion_transfer_v1.0_r128_ffp.safetensors",
+    }
+)
+
+
+def _is_known_h3_family_lora(item: Any, family: str) -> bool:
+    if not isinstance(item, Mapping):
+        return False
+    if _applied_refiner_coverage(str(item.get("applied", "branch"))) != "full_refiner":
+        return False
+    if round(float(item.get("strength", 1.0)), 4) != 1.0:
+        return False
+    raw_file = Path(str(item.get("file", item.get("name", "")))).name
+    m = _PIKA_FLEX_VARIANT_RE.match(raw_file)
+    if m is not None and m.group(1) == f"pika_h3_flex_{family}":
+        return True
+    if raw_file == "p-h3-image_lora_bf16.safetensors":
+        return True
+    if family == "ref2va" and raw_file in _KNOWN_REF2VA_GUIDE_LORAS:
+        return True
+    return False
+
+
+def _is_same_family_h3_recipe_compatible(
     vec_recipe: Mapping[str, Any],
     cur_recipe: Mapping[str, Any],
     *,
     vec_family: str,
     loaded_family: str,
 ) -> bool:
-    """Whether `cur_recipe` is a PrunaAI P-H3-Image distillation (`p-h3-image_int8_convrot.safetensors`
-    or `p-h3-image_lora_bf16.safetensors` with full refiner coverage) of the same H3 text-path
-    family (`fl2va` or `ref2va`) as `vec_recipe`."""
+    """Whether `vec_recipe` and `cur_recipe` are standard H3 `fl2va` or `ref2va` checkpoints
+    and full-refiner distillation/task LoRA recipes (base `loras=[]`, Pika H3 Flex, PrunaAI
+    `P-H3-Image`, or `ref2va` Guide Video Edit) of the same H3 text-path family."""
     if vec_family != loaded_family or vec_family not in ("fl2va", "ref2va"):
         return False
     cur_ckpt = cur_recipe.get("checkpoint")
     vec_ckpt = vec_recipe.get("checkpoint")
-    cur_ckpt_file = str(cur_ckpt.get("file", "")) if isinstance(cur_ckpt, Mapping) else ""
-    vec_ckpt_file = str(vec_ckpt.get("file", "")) if isinstance(vec_ckpt, Mapping) else ""
+    cur_ckpt_file = Path(str(cur_ckpt.get("file", ""))).name if isinstance(cur_ckpt, Mapping) else ""
+    vec_ckpt_file = Path(str(vec_ckpt.get("file", ""))).name if isinstance(vec_ckpt, Mapping) else ""
+    known_ckpts = _KNOWN_H3_CHECKPOINTS[vec_family]
+    if vec_ckpt != cur_ckpt and not (vec_ckpt_file in known_ckpts and cur_ckpt_file in known_ckpts):
+        return False
     cur_loras = cur_recipe.get("loras", [])
     vec_loras = vec_recipe.get("loras", [])
     if not isinstance(cur_loras, Sequence) or not isinstance(vec_loras, Sequence):
         return False
-    for seq in (cur_loras, vec_loras):
-        for item in seq:
-            if not isinstance(item, Mapping):
-                return False
-            if _applied_refiner_coverage(str(item.get("applied", "branch"))) != "full_refiner":
-                return False
-    has_ph3_lora = any(
-        str(item.get("file", item.get("name", ""))).endswith("p-h3-image_lora_bf16.safetensors")
-        for item in cur_loras
-    )
-    is_cur_ph3 = (
-        (loaded_family == "fl2va" and cur_ckpt_file == "p-h3-image_int8_convrot.safetensors")
-        or has_ph3_lora
-    )
-    if not is_cur_ph3:
+    if not all(_is_known_h3_family_lora(item, vec_family) for item in vec_loras):
         return False
-    if vec_family == "fl2va":
-        return vec_ckpt == cur_ckpt or vec_ckpt_file in (
-            "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
-            "minimax_h3_fl2va_int8_convrot.safetensors",
-            "minimax_h3_fl2va_bf16.safetensors",
-            "p-h3-image_int8_convrot.safetensors",
-        )
-    return vec_ckpt == cur_ckpt or vec_ckpt_file in (
-        "minimax_h3_ref2va_pruned_int8_convrot.safetensors",
-        "minimax_h3_ref2va_int8_convrot.safetensors",
-        "minimax_h3_ref2va_bf16.safetensors",
-    )
+    if not all(_is_known_h3_family_lora(item, loaded_family) for item in cur_loras):
+        return False
+    return True
+
+
+_is_ph3_image_compatible = _is_same_family_h3_recipe_compatible
 
 
 APPLY_MODES: tuple[str, ...] = ("add", "add_norm_matched", "hold", "project_out", "amplify")

@@ -1250,15 +1250,23 @@ def cmd_rebuild(args: argparse.Namespace) -> int:
         made_by = str(meta0.get("provenance", {}).get("made_by", ""))
         pairs_path = str(meta0.get("pairs", {}).get("path", ""))
         b_side = str(meta0.get("pairs", {}).get("b_side", "")).strip()
+        existing_fams = {str(m.get("family", "")) for _, _, m in items}
+        missing_fams = not req_fams_set.issubset(existing_fams)
         needs_encoder = bool(getattr(args, "include_encoder", True)) and any(
             "vector.encoder" not in t for _, t, _ in items
         )
         if made_by.startswith("j_lens.synthesize_from_words") or pairs_path == "j_lens.synthesize_from_words":
             print(f"\n[{idx}/{len(all_stems)}] Rebuilding J-Lens word vector `{stem}` ...")
-            _rebuild_jlens_words(stem, items, vec_dir, None, all_rows)
-        elif needs_encoder and b_side and not pairs_path.startswith("<media_pairs:") and not made_by.startswith("j_lens.save_composed_recipe_vector"):
+            _rebuild_jlens_words(stem, items, vec_dir, req_fams_str, all_rows)
+        elif (
+            (force_rebuild or needs_encoder or missing_fams)
+            and b_side
+            and not pairs_path.startswith("<media_pairs:")
+            and not made_by.startswith("j_lens.save_composed_recipe_vector")
+            and not made_by.startswith("bench/control_vectors.py::sculpt")
+        ):
             print(f"\n[{idx}/{len(all_stems)}] Rebuilding compiled vector `{stem}` ...")
-            _rebuild_compiled_words(stem, items, vec_dir, None, all_rows)
+            _rebuild_compiled_words(stem, items, vec_dir, req_fams_str, all_rows)
         else:
             print(f"\n[{idx}/{len(all_stems)}] Refreshing sidecar & J-Lens readout for `{stem}` ({len(items)} file(s)) ...")
             _refresh_sidecar_and_jlens(items, all_rows)

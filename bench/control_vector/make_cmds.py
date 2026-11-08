@@ -200,9 +200,28 @@ def cmd_make(args: argparse.Namespace) -> int:
     dit_path = Path(_h.folder_paths.get_full_path_or_raise("diffusion_models", dit_name))
     encoder_name = args.encoder or h3_config.MODELS["clip"]
     encoder_path = Path(_h.folder_paths.get_full_path_or_raise("text_encoders", encoder_name))
-    loras = _parse_lora_specs(args.lora)
 
     family = cv.detect_family(dit_path)
+    explicit_loras = _parse_lora_specs(args.lora)
+
+    def _resolve_make_loras(fam: str) -> list[dict[str, Any]]:
+        if getattr(args, "no_lora", False):
+            return []
+        if explicit_loras:
+            return explicit_loras
+        if getattr(args, "dit", None) or getattr(args, "unet", None):
+            return []
+        default_lora_name = (
+            h3_config.PIKA_REF2VA_SVD995_LORA
+            if fam == "ref2va"
+            else h3_config.PIKA_FL2VA_SVD995_LORA
+        )
+        try:
+            return _parse_lora_specs([f"{default_lora_name}:1.0"])
+        except Exception:
+            return []
+
+    loras = _resolve_make_loras(family)
     recipe = cv_nodes.extract_model_recipe(
         None,
         None,
@@ -442,13 +461,6 @@ def cmd_make(args: argparse.Namespace) -> int:
 
     gen = torch.Generator(device="cpu").manual_seed(int(args.seed))
     q_report = cv.quality_report(a_mat, b_mat, w_vec, generator=gen)
-    if j_lens.bundle_available():
-        try:
-            q_report["j_lens_readout"] = j_lens.decode_vector(
-                final_vec, space="post_refiner", family=family
-            )
-        except Exception:
-            pass
     raw_norm = float(torch.linalg.vector_norm(final_vec.to(dtype=torch.float64)).item())
     median_ref_row_norm = float(sum(c["median_row_norm"] for c in ref_censuses) / len(ref_censuses))
     median_enc_row_norm_ex0 = float(sum(c["median_row_norm_ex_row0"] for c in enc_censuses) / len(enc_censuses))
@@ -589,6 +601,13 @@ def cmd_make(args: argparse.Namespace) -> int:
     if j_lens.bundle_available():
         try:
             jl_make_readout = j_lens.decode_vector(final_vec, space="post_refiner", family=family)
+            if tp_arg:
+                jl_make_readout["prompt_coupling"] = j_lens.analyze_prompt_coupling(
+                    final_vec,
+                    tp_arg,
+                    readout=jl_make_readout,
+                    family=family,
+                )
             q_report["j_lens_readout"] = jl_make_readout
         except Exception:
             jl_make_readout = None
@@ -618,7 +637,7 @@ def cmd_make(args: argparse.Namespace) -> int:
             pooling=args.pooling,
             prefix=prefix_meta,
             apply_holds=not bool(args.no_holds),
-            n_holds=len(pair_set.holds),
+            n_holds=len(pair_set.holds) + len(applied_holds_make),
             loras=loras,
         )
 
@@ -640,7 +659,7 @@ def cmd_make(args: argparse.Namespace) -> int:
         not args.out
         and not getattr(args, "dit", None)
         and not getattr(args, "unet", None)
-        and not loras
+        and not explicit_loras
     ):
         for sib_fam in req_fams:
             if sib_fam == family or sib_fam not in ("fl2va", "ref2va"):
@@ -657,12 +676,17 @@ def cmd_make(args: argparse.Namespace) -> int:
             if not sib_dit_file or not Path(sib_dit_file).is_file():
                 continue
             sib_dit_path = Path(sib_dit_file)
-            sib_key = (str(sib_dit_path), str(args.refiner_device), ())
+            sib_loras = _resolve_make_loras(sib_fam)
+            sib_key = (
+                str(sib_dit_path),
+                str(args.refiner_device),
+                tuple((l["file"], float(l["strength"])) for l in sib_loras),
+            )
             if isinstance(ref_cache, dict) and sib_key in ref_cache:
                 sib_ref_run = ref_cache[sib_key]
             else:
                 sib_ref_run = cv_nodes.build_refiner_runner(
-                    sib_dit_path, device=args.refiner_device, loras=[]
+                    sib_dit_path, device=args.refiner_device, loras=sib_loras
                 )
                 if isinstance(ref_cache, dict):
                     ref_cache[sib_key] = sib_ref_run
@@ -671,7 +695,7 @@ def cmd_make(args: argparse.Namespace) -> int:
                 None,
                 dit_path_override=sib_dit_path,
                 encoder_path_override=encoder_path,
-                loras_override=[],
+                loras_override=sib_loras,
             )
             sib_a_list: list[torch.Tensor] = []
             sib_b_list: list[torch.Tensor] = []
@@ -780,8 +804,8 @@ def cmd_make(args: argparse.Namespace) -> int:
                 pooling=args.pooling,
                 prefix=prefix_meta,
                 apply_holds=not bool(args.no_holds),
-                n_holds=len(pair_set.holds),
-                loras=[],
+                n_holds=len(pair_set.holds) + len(sib_applied_holds),
+                loras=sib_loras,
             )
             sib_saved = cv.save_vector(
                 sib_out,

@@ -75,12 +75,13 @@ def _compose_and_save_sculpted_vector(
             elif mode == "hold":
                 enc_hold_terms.append((ve, strength))
 
+    recipe_for_fam = (
+        base_meta["recipe"]
+        if base_meta is not None and base_meta.get("family") == family and isinstance(base_meta.get("recipe"), dict)
+        else j_lens._DEFAULT_RECIPES.get(family, j_lens._DEFAULT_RECIPES["fl2va"])
+    )
+    loras_meta = recipe_for_fam.get("loras")
     if hasattr(j_lens, "save_composed_recipe_vector") and j_lens.bundle_available():
-        loras_meta = (
-            base_meta.get("recipe", {}).get("loras")
-            if base_meta is not None
-            else j_lens._DEFAULT_RECIPES.get(family, {}).get("loras")
-        )
         fname = cv.default_vector_filename(raw_stem, family, pooling="diff_span", loras=loras_meta)
         out_path = target_dir / fname
         if out_path.exists() and not overwrite:
@@ -93,6 +94,7 @@ def _compose_and_save_sculpted_vector(
             hold_words=hold_words,
             alpha=hold_alpha,
             prompt=prompt,
+            recipe=recipe_for_fam,
         )
         saved_path = saved_res["path"] if isinstance(saved_res, dict) and "path" in saved_res else Path(saved_res)
         _, saved_meta = cv.load_vector(saved_path)
@@ -183,11 +185,7 @@ def _compose_and_save_sculpted_vector(
                 cur_vec, prompt, readout=jl_readout, family=family
             )
 
-    recipe = (
-        base_meta["recipe"]
-        if base_meta and "recipe" in base_meta
-        else j_lens._DEFAULT_RECIPES.get(family, j_lens._DEFAULT_RECIPES["fl2va"])
-    )
+    recipe = recipe_for_fam
     loras_meta = recipe.get("loras")
     spec_str = "|".join(step_labels + hw_labels)
     metadata: dict[str, Any] = {

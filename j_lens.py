@@ -776,7 +776,7 @@ def decode_safetensors(
 def decode_recipe(
     steps: Sequence[Mapping[str, Any]],
     *,
-    family: str = "fl2va",
+    family: str | None = None,
     scale: float = DEFAULT_STEER_SCALE,
     min_logprob: float = DEFAULT_MIN_LOGPROB,
     top_k: int = 8,
@@ -801,14 +801,18 @@ def decode_recipe(
     add_terms_enc: list[torch.Tensor] = []
     hold_steps: list[tuple[str, torch.Tensor, torch.Tensor | None, float]] = []
     step_records: list[dict[str, Any]] = []
+    explicit_family = str(family).strip() if family else None
+    resolved_family = explicit_family or "fl2va"
 
     for item in steps:
         src = item["vector"]
         mode = str(item.get("mode", "add")).strip()
         strength = float(item.get("strength", 1.0))
         vec, name, meta = _load_vector_from_source(src, space="post_refiner")
-        if meta.get("family") and family == "fl2va":
-            family = str(meta["family"])
+        if explicit_family is None and meta.get("family"):
+            resolved_family = str(meta["family"])
+            explicit_family = resolved_family
+        family = resolved_family
         v64 = vec.to(dtype=torch.float64)
         v_norm = float(torch.linalg.vector_norm(v64).item())
 
@@ -1982,6 +1986,7 @@ def save_composed_recipe_vector(
     hold_words: Sequence[str] | str | None = None,
     alpha: float = 1.0,
     prompt: str | os.PathLike | None = None,
+    recipe: Mapping[str, Any] | None = None,
     write_sidecar_md: bool = True,
     bundle: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
@@ -2022,7 +2027,11 @@ def save_composed_recipe_vector(
     )
     recipe_digest = hashlib.sha256(f"{add_desc}|holds={hold_desc}".encode("utf-8")).hexdigest()
     now_utc = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    recipe_meta = _DEFAULT_RECIPES.get(eff_family, _DEFAULT_RECIPES["fl2va"])
+    recipe_meta = (
+        dict(recipe)
+        if isinstance(recipe, Mapping)
+        else _DEFAULT_RECIPES.get(eff_family, _DEFAULT_RECIPES["fl2va"])
+    )
 
     n_add = sum(1 for s in step_list if s.get("mode") in ("add", "add_norm_matched"))
     n_hold = sum(1 for s in step_list if s.get("mode") == "hold") + (1 if hw_list else 0)

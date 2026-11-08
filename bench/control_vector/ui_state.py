@@ -273,12 +273,20 @@ def _preview_markdown_pairs(
 
             m_ds_a = int(
                 h3_spans.pooling_mask(
-                    spans_a, "diff_span", first_diff=min(first_diff, len(ids_a) - 1), end_diff=end_a
+                    spans_a,
+                    "diff_span",
+                    first_diff=min(first_diff, len(ids_a) - 1),
+                    end_diff=end_a,
+                    other_ids=ids_b,
                 ).sum().item()
             )
             m_ds_b = int(
                 h3_spans.pooling_mask(
-                    spans_b, "diff_span", first_diff=min(first_diff, len(ids_b) - 1), end_diff=end_b
+                    spans_b,
+                    "diff_span",
+                    first_diff=min(first_diff, len(ids_b) - 1),
+                    end_diff=end_b,
+                    other_ids=ids_a,
                 ).sum().item()
             )
             m_ffd_a = int(

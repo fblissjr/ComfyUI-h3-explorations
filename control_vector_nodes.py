@@ -1535,6 +1535,7 @@ def resolve_vector_file_path(
     vector_name: str | Path,
     *,
     preferred_family: str | None = None,
+    prefer_lora: bool | None = None,
 ) -> Path:
     raw = str(vector_name).strip()
     if not raw or raw == "none":
@@ -1551,12 +1552,13 @@ def resolve_vector_file_path(
         pooling_hint = "diff_span" if "__diff_span" in found.name else (
             "from_first_diff" if "__from_first_diff" in found.name else None
         )
+        eff_prefer_lora = ("__lora_" in found.name) if prefer_lora is None else bool(prefer_lora)
         sib = _match_sibling_or_stem_in_dir(
             found.parent,
             stem,
             preferred_family,
             preferred_pooling=pooling_hint,
-            prefer_lora="__lora_" in found.name,
+            prefer_lora=eff_prefer_lora,
         )
         if sib is not None and sib.is_file():
             logger.info(
@@ -1590,9 +1592,14 @@ def resolve_vector_file_path(
     # Bare stem resolution (e.g. 'cursed_cctv' -> 'cursed_cctv__fl2va__diff_span__*.safetensors')
     clean_stem = raw[:-len(".safetensors")] if raw.endswith(".safetensors") else raw
     if "__" not in clean_stem and "/" not in clean_stem and "\\" not in clean_stem:
+        eff_prefer = True if prefer_lora is None else bool(prefer_lora)
         for folder in folders:
             matched = _match_sibling_or_stem_in_dir(
-                folder, clean_stem, preferred_family, preferred_pooling="diff_span"
+                folder,
+                clean_stem,
+                preferred_family,
+                preferred_pooling="diff_span",
+                prefer_lora=eff_prefer,
             )
             if matched is not None:
                 return matched
@@ -1702,14 +1709,18 @@ def attach_control_vector(
         )
 
     if raw_name and raw_name != "none":
-        vec_path = resolve_vector_file_path(vector_name, preferred_family=loaded_family)
+        loaded_recipe = extract_model_recipe(model)
+        vec_path = resolve_vector_file_path(
+            vector_name,
+            preferred_family=loaded_family,
+            prefer_lora=bool(loaded_recipe.get("loras")),
+        )
         tensors, metadata = _cv.load_vector(vec_path)
         if "vector.post_refiner" not in tensors:
             raise ValueError(
                 f"control vector {vec_path.name} has no 'vector.post_refiner' tensor"
             )
 
-        loaded_recipe = extract_model_recipe(model)
         # Compare checkpoint + loras (encoder is only known at Make time unless passed)
         recipe_to_check = {
             "checkpoint": loaded_recipe["checkpoint"],

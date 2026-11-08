@@ -461,12 +461,14 @@ def cmd_grade(args: argparse.Namespace) -> int:
                 pooling,
                 first_diff=min(fdiff, len(ia) - 1),
                 end_diff=end_a,
+                other_ids=ib,
             )
             mb = h3_spans.pooling_mask(
                 h3_spans.spans(ib, tb.tolist(), db),
                 pooling,
                 first_diff=min(fdiff, len(ib) - 1),
                 end_diff=end_b,
+                other_ids=ia,
             )
             p_a.append(ra.to(dtype=torch.float64)[ma].mean(dim=0).to(dtype=torch.float32))
             p_b.append(rb.to(dtype=torch.float64)[mb].mean(dim=0).to(dtype=torch.float32))

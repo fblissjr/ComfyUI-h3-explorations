@@ -254,9 +254,32 @@ def _resolve_vector_for_family(
 ) -> Path:
     """Resolve a vector path, filename, or short stem (e.g. 'handheld_urgency') for `family`."""
     cand = Path(str(spec).strip())
-    if cand.is_file():
-        return cand
     fam = "ref2va" if "ref2va" in str(family).lower() else "fl2va"
+    other_fam = "fl2va" if fam == "ref2va" else "ref2va"
+
+    def _maybe_swap_sibling(found: Path) -> Path:
+        tag_other = f"__{other_fam}"
+        if tag_other not in found.name:
+            return found
+        s_stem = found.name.split(tag_other, 1)[0]
+        pooling_hint = (
+            "diff_span"
+            if "__diff_span" in found.name
+            else ("from_first_diff" if "__from_first_diff" in found.name else None)
+        )
+        sib = cv_nodes._match_sibling_or_stem_in_dir(
+            found.parent,
+            s_stem,
+            fam,
+            preferred_pooling=pooling_hint,
+            prefer_lora="__lora_" in found.name,
+        )
+        if sib is not None and sib.is_file():
+            return sib
+        return found
+
+    if cand.is_file():
+        return _maybe_swap_sibling(cand)
     stem = cand.stem.split("__")[0]
     search_dirs: list[Path] = []
     if extra_dir is not None:
@@ -273,11 +296,11 @@ def _resolve_vector_for_family(
             continue
         direct = cv_dir / cand
         if direct.is_file():
-            return direct
+            return _maybe_swap_sibling(direct)
         if not cand.suffix:
             direct_st = cv_dir / f"{cand.name}.safetensors"
             if direct_st.is_file():
-                return direct_st
+                return _maybe_swap_sibling(direct_st)
         for pat in (
             f"{stem}__{fam}__diff_span__*.safetensors",
             f"{stem}__{fam}__*.safetensors",
@@ -286,7 +309,7 @@ def _resolve_vector_for_family(
             hits = sorted(cv_dir.glob(pat))
             if hits:
                 return hits[0]
-    return cv_nodes.resolve_vector_file_path(str(spec).strip())
+    return cv_nodes.resolve_vector_file_path(str(spec).strip(), preferred_family=fam)
 
 
 def _apply_post_refiner_holds(
