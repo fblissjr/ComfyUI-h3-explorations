@@ -144,8 +144,8 @@
 
   <!-- Saved Badge -->
   <rect x="348" y="296" width="224" height="38" rx="8" fill="#f0fdfa" stroke="#99f6e4"/>
-  <text x="362" y="313" class="label" fill="#115e59" font-weight="600">Saved as .safetensors</text>
-  <text x="362" y="327" class="caption" fill="#0f766e">5,376-D post-refiner direction</text>
+  <text x="360" y="313" class="label" fill="#115e59" font-weight="600" font-size="11.5">Saves fl2va + ref2va (.safetensors)</text>
+  <text x="360" y="327" class="caption" fill="#0f766e" font-size="10.5">Covers Video + Image (T2I &amp; Edit)</text>
 
   <!-- Connector 2 -> 3 -->
   <line x1="592" y1="214" x2="620" y2="214" stroke="#0d9488" stroke-width="2" class="flow-connector" marker-end="url(#arrowTeal)"/>
@@ -169,7 +169,7 @@
 
   <!-- Steered Output Scene -->
   <rect x="644" y="252" width="228" height="82" rx="10" class="steer-glow" stroke-width="1.5"/>
-  <text x="660" y="274" class="label" font-weight="600" fill="#1e293b">Steered Video + Audio</text>
+  <text x="660" y="274" class="label" font-weight="600" fill="#1e293b">Steered Video, Audio, or Image</text>
   <text x="660" y="293" class="caption">Same framing, pose &amp; lip-sync,</text>
   <text x="660" y="308" class="caption">now rendered in a <tspan class="pill-txt" fill="#b45309">Heatwave</tspan></text>
   <text x="660" y="324" class="caption" font-size="10.5">(Flip strength to −1.0 for the opposite)</text>
