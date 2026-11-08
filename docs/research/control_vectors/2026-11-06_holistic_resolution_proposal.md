@@ -191,4 +191,4 @@ In [`control_vector_nodes.py:1289-1400`](../../../control_vector_nodes.py#L1289-
 2. **`jlens-holistic-readout` (`0d2ad8a9`)** — **Landed on `main`**:
    - `basis`/`basis_note` in `assess_steering_readiness`, `token_heatmap` in `analyze_prompt_coupling`, `decode_recipe`, `save_composed_recipe_vector`, and `"->"` / `"|||"` split in `synthesize_from_words`.
 3. **`cvman-holistic-workbench` + `dials-holistic-checks` (`4ea73adb`)** — **Landed on `main`**:
-   - Enforced Invariants 1–5 across `control_vector_nodes.py`, `control_vectors.py`, `h3_spans.py`, `h3_pair_compiler.py`, `j_lens.py`, `bench/control_vectors.py`, `bench/control_vector_ui.html`, and `docs/wiki/control_vectors.md`, with `C1`–`C7` green in `bench/check_control_vectors.py` and all worktrees removed.
+   - Enforced Invariants 1–5 across `control_vector_nodes.py`, `control_vectors.py`, `h3_spans.py`, `h3_pair_compiler.py`, `j_lens.py`, `bench/control_vectors.py`, `bench/control_vector_ui.html` (since refactored into `bench/control_vector/web/`), and `docs/wiki/control_vectors.md`, with `C1`–`C7` green in `bench/check_control_vectors.py` and all worktrees removed.

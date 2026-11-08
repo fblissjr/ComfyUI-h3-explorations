@@ -3370,6 +3370,31 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
                 if st_llm_no_mod != 400 or "model path or HuggingFace model ID is required" not in llm_no_mod_json.get("error", ""):
                     errs.append(f"POST /api/generate-pairs-llm expected 400 on empty model: {llm_no_mod_json}")
 
+                # Verify generate-pairs CLI parser supports both positional concept and --concept / --provider / --model / --out-toml
+                gp_pos = bench_cv.build_parser().parse_args(["generate-pairs", "calm -> scorching", "--llm-provider", "exllamav3", "--llm-model", "test_dir"])
+                gp_flag = bench_cv.build_parser().parse_args(
+                    [
+                        "generate-pairs",
+                        "--provider",
+                        "transformers",
+                        "--model",
+                        "test_hf_id",
+                        "--load-in-4bit",
+                        "--concept",
+                        "calm -> scorching",
+                        "--out-toml",
+                        "my_vec.toml",
+                    ]
+                )
+                if gp_pos.concept != "calm -> scorching" or gp_flag.concept_flag != "calm -> scorching" or gp_flag.out_toml != "my_vec.toml":
+                    errs.append(f"generate-pairs parser mismatch: pos={gp_pos}, flag={gp_flag}")
+
+                web_dir = REPO / "bench" / "control_vector" / "web"
+                for web_fname in ("index.html", "app.js"):
+                    web_path = web_dir / web_fname
+                    if web_path.is_file() and "[00s-05s]" in web_path.read_text(encoding="utf-8"):
+                        errs.append(f"{web_fname} must not contain non-H3 '[00s-05s]' timeline brackets")
+
                 words_vec_dir = tmp / "words_vec_dir"
                 buf_wb_out, buf_wb_err = io.StringIO(), io.StringIO()
                 with contextlib.redirect_stdout(buf_wb_out), contextlib.redirect_stderr(buf_wb_err):

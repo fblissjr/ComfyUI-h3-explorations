@@ -34,11 +34,12 @@ Shows your saved `.safetensors` vectors (`models/control_vectors/`) and `.toml` 
   - **Pair Consistency (`MPC`)**: Mean pairwise cosine across your pairs (`>= 0.50` is strong).
   - **Split-Half Stability**: Cosine similarity between two random halves of your pairs (`>= 0.70` means all pairs agree on one clean direction).
   - **Raw Norm (`||v||`) & Recommended Strength**: Shows the vector's natural 1-pair shift magnitude and the suggested `strength` range in ComfyUI (`~1.0` for `diff_span`, or `add_norm_matched` for normalized `67.5`-norm units).
-- **Quick Actions on Any Vector**:
+- **Quick Actions on Any Vector or Pair Pack**:
   - **Invert (`-1x`)** — Opens **Sculpt, Invert & Combine** pre-populated with `strength = -1.0` so you can immediately save the opposite direction (e.g., turning `blizzard` into `anti_blizzard`).
-  - **Combine / Sculpt** — Adds the vector to a multi-vector recipe.
-  - **Test on Prompt** — Sends the vector to **Test Against Your Prompt (Receptor Meter)**.
-  - **Edit Pairs (`.toml`)** — Loads the vector's `.toml` pair bank into **Create from Text Pairs** with full multi-line editors.
+  - **Sculpt** — Adds the vector to a multi-vector recipe on Screen 5.
+  - **Test on Prompt** — Sends the vector to **Prompt Meter & J-Lens Lab** (Contextual Prompt Meter).
+  - **J-Lens Readout** — Opens the **Separate J-Lens Word Lab** sub-tab to inspect the vector's top positive/negative dictionary concepts.
+  - **Edit Pairs in Studio →** (on `.toml` rows) — Loads the `.toml` pair bank into **Full Pair & LLM Studio** with the full multi-line Markdown editor.
 
 ---
 
@@ -47,7 +48,7 @@ Shows your saved `.safetensors` vectors (`models/control_vectors/`) and `.toml` 
 Write a short `Pole A -> Pole B` contrast to compile 10 contextual `Qwen3-VL-32B` + `TokenRefiner` scene pairs in `< 1 ms` on CPU:
 - Enter your **Vector Name** (e.g., `scorching`), **Pole A (Baseline Clause)**, and **Pole B (Target Clause)**.
 - Optional: open **Advanced Options** to add a **Soundscape Contrast (`Sound A -> Sound B`)** or **Hold Constant (`Hold A -> Hold B`)** clause, choose a structural slot (`auto`, `opening_framing`, `subject_behavior`, `interpersonal_dynamics`, `camera_motion`, `speech_delivery`, `soundscape`), or paste your own **Target Scene Prompt (Pair 0)** so Pair 0 is tailored to your exact shot.
-- Click **Expand into 10 Editable Scene Pairs (Screen 3)** to inspect or tweak all 10 full H3 prompts in large multi-line textareas, or click **Compile & Build Vector Now (GPU)** to compile and encode in one step (~12s).
+- Click **Generate 10 Contrast Pairs & Inspect →** to open the **Step 2 — Review & Edit the 10 Expanded Scene Pairs** workbench directly below (with side-by-side `rows="7"` Prompt A / Prompt B textareas, per-pair weights, and **Instant CPU Re-Pool (`< 1 ms`)** via `/api/repool`), or click **Encode & Build Control Vector Now (GPU)** to compile and encode in one step (~12s).
 
 ---
 
@@ -55,12 +56,12 @@ Write a short `Pole A -> Pole B` contrast to compile 10 contextual `Qwen3-VL-32B
 
 Provides full control over all 10 Prompt A / Prompt B scene pairs and integrates directly with local or external generative LLMs:
 1. **Generate 10 Surgical Pairs with a Local LLM (`transformers` or `exllamav3`)**:
-   - Select your local backend (`transformers` or `exllamav3`), model path / HuggingFace ID, and type your concept prompt (see [`7. Prompting Generative LLMs for Control Vectors`](llm_prompting_guide.md)), then click **Generate 10 Pairs with Local LLM**.
+   - Select your local backend (`transformers` or `exllamav3`), model path / HuggingFace ID, and type your concept prompt (see [`7. Prompting Generative LLMs for Control Vectors`](llm_prompting_guide.md)), then click **Generate 10 Pairs with LLM**.
 2. **Import / Paste LLM Markdown (`.md`) or Load Existing `.toml`**:
-   - Click **Copy System Prompt** to copy [`docs/wiki/system_prompts/h3_control_vector_system_prompt.md`](../system_prompts/h3_control_vector_system_prompt.md), paste your LLM's 10-pair Markdown output into the large `rows="14"` editor, and click **Validate & Preview Token Diffs** (which automatically repairs any secondary non-contiguous clause drift).
-3. **Interactive 10-Pair Workbench & `< 1 ms` CPU Re-Pooling**:
-   - Edit each pair's **Prompt A (Baseline)** and **Prompt B (Steered)** side by side in large multi-line textareas (`rows="10"`), adjust per-pair weights, toggle individual pairs on/off, or mark a pair as a `Hold`.
-   - After a build finishes, changing pair weights, disabling an outlier pair, or moving a pair to `Hold` recomputes and saves the `.safetensors` vector in `< 1 ms` on CPU via `/api/repool` without re-running Qwen3-VL.
+   - Click **Copy LLM System Prompt** to copy [`docs/wiki/system_prompts/h3_control_vector_system_prompt.md`](../system_prompts/h3_control_vector_system_prompt.md) (or **Insert Pair Template**), paste your LLM's 10-pair Markdown output into the large `rows="16"` editor, or select any `.toml` pack and click **Load Selected .toml**.
+3. **Validate, Save `.toml`, & Encode on GPU**:
+   - Click **1. Validate & Preview Token Diffs (CPU)** to inspect per-pair token diffs (`n_diff_a` vs. `n_diff_b`) and verify all 3 H3 sections are present.
+   - Click **2. Save to `prompt_bank/control_vectors/<name>.toml`** or **3. Encode & Build Control Vector (GPU)** to save and build both `fl2va` and `ref2va` `.safetensors` vectors.
 
 ---
 

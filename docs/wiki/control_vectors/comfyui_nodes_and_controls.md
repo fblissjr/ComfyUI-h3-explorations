@@ -59,9 +59,9 @@ All three nodes register under the **`model/conditioning/minimax`** category in 
 
 ## 4. `MiniMaxH3MakeControlVector` & `MiniMaxH3MakeMediaControlVector` Inputs
 
-- **`MiniMaxH3MakeControlVector`** (`control_vector_nodes.py:1795`):
+- **`MiniMaxH3MakeControlVector`** (`control_vector_nodes.py:1844`):
   - Inputs: `model`, `clip`, `pair_file` (default `"film_16mm_1974.toml"`), `pooling` (`"diff_span"`, `"from_first_diff"`, `"scene_text"`, `"all_tag1"`), `apply_holds` (`True`), `output_name` (`""`), optional `encoded_references`, `overwrite` (`False`), `words` (`""`), and `slot` (`"auto"`, `"opening_framing"`, `"subject_behavior"`, `"interpersonal_dynamics"`, `"camera_motion"`, `"speech_delivery"`, `"soundscape"`).
   - Outputs: `(vector_name: STRING, report: STRING)`.
-- **`MiniMaxH3MakeMediaControlVector`** (`control_vector_nodes.py:2308`):
+- **`MiniMaxH3MakeMediaControlVector`** (`control_vector_nodes.py:2383`):
   - Inputs: `model`, `clip`, `image_a` (`IMAGE`), `image_b` (`IMAGE`), `output_name` (`"media_contrast"`), `pooling` (`"scene_text"`, `"all_tag1"`, `"vision_tokens"`, `"all_rows"`), `short_edge` (`512`, snapped to `32`), `scene_prompt` (`""`), `overwrite` (`False`).
   - Outputs: `(vector_name: STRING, report: STRING)`.

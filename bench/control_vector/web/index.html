@@ -52,7 +52,7 @@
     </button>
     <button type="button" class="nav-btn" data-screen="screen-pairs" onclick="switchScreen('screen-pairs')">
       <span class="nav-btn-title">3. Full Pair &amp; LLM Studio</span>
-      <span class="nav-btn-sub">Author custom Prompt A / Prompt B pairs or use the Qwen LLM prompt</span>
+      <span class="nav-btn-sub">Author custom Prompt A / Prompt B pairs or generate with a local LLM</span>
     </button>
     <button type="button" class="nav-btn" data-screen="screen-media" onclick="switchScreen('screen-media')">
       <span class="nav-btn-title">4. Reference Image Contrast</span>
@@ -102,7 +102,7 @@
           <div>
             <span class="badge pole-a" style="margin-bottom:10px;">Custom Prompts &bull; LLM Ready</span>
             <h3>Full Prompt Pairs (.md / .toml)</h3>
-            <p>Write or paste your own complete H3 <code>Prompt A</code> / <code>Prompt B</code> pairs, copy the official H3 Control Vector system prompt for Qwen/Claude/ChatGPT, or load and edit any <code>.toml</code> pair pack on disk.</p>
+            <p>Write or paste your own complete H3 <code>Prompt A</code> / <code>Prompt B</code> pairs, generate pairs with a local LLM or copy the H3 Control Vector system prompt, or load and edit any <code>.toml</code> pair pack on disk.</p>
           </div>
           <div class="btn-row">
             <button type="button" class="btn btn-primary" onclick="switchScreen('screen-pairs')">Open Full Pair Studio &rarr;</button>
@@ -232,7 +232,7 @@
               Output Vector Name
               <span class="help-tip" tabindex="0">?
                 <span class="tip-box">
-                  Saves <code>models/control_vectors/&lt;name&gt;__&lt;family&gt;__&lt;lora&gt;__&lt;pooling&gt;.safetensors</code> and optionally <code>prompt_bank/control_vectors/&lt;name&gt;.toml</code>.
+                  Saves <code>models/control_vectors/&lt;name&gt;__&lt;family&gt;__&lt;pooling&gt;[__lora_&lt;sha8&gt;].safetensors</code> and optionally <code>prompt_bank/control_vectors/&lt;name&gt;.toml</code>.
                 </span>
               </span>
             </label>
@@ -293,7 +293,7 @@
                 </span>
               </span>
             </label>
-            <textarea id="clause-pole-a" rows="5" placeholder="Describe the calm or neutral baseline state...">Crisp overcast afternoon light with cool slate shadows, still air, dry pavement, and neutral color balance across every surface.</textarea>
+            <textarea id="clause-pole-a" rows="5" placeholder="Describe the calm or neutral baseline state...">filmed under crisp overcast afternoon light with cool slate shadows, still air, dry pavement, and neutral color balance across every surface</textarea>
           </div>
 
           <div class="field pole-b-box">
@@ -306,7 +306,7 @@
                 </span>
               </span>
             </label>
-            <textarea id="clause-pole-b" rows="5" placeholder="Describe the target atmospheric, camera, or motion state...">Blistering midday desert heatwave under a bleached white sun, rising thermal shimmer warping the horizon, harsh amber glare, and sun-baked dust.</textarea>
+            <textarea id="clause-pole-b" rows="5" placeholder="Describe the target atmospheric, camera, or motion state...">filmed in a blistering midday desert heatwave under a bleached white sun, rising thermal shimmer warping the horizon, harsh amber glare, and sun-baked dust</textarea>
           </div>
         </div>
 
@@ -524,7 +524,7 @@
             Pair Validation &amp; Token-Diff Preview
             <span class="help-tip" tabindex="0">?
               <span class="tip-box">
-                Shows how many tokens differ in each pair (`n_diff_a` vs `n_diff_b`) and whether all 3 H3 sections (Visual Direction, `[00s-05s]` Timeline, and Soundscape) are present.
+                Shows how many tokens differ in each pair (`n_diff_a` vs `n_diff_b`) and whether all 3 H3 sections (<code>integrated_multimodal_description:</code>, <code>overall_soundscape:</code>, and <code>non_diegetic_music:</code>) are present.
               </span>
             </span>
           </h3>
@@ -642,8 +642,8 @@
             <span class="help-tip" tabindex="0">?
               <span class="tip-box">
                 <strong>Operations:</strong><br/>
-                &bull; <code>add</code>: Adds <code>weight * vector</code>.<br/>
-                &bull; <code>add_norm_matched</code>: Scales the vector to match your primary vector's L2 norm before weighting.<br/>
+                &bull; <code>add</code>: Adds <code>weight * vector</code> using the vector's raw L2 norm.<br/>
+                &bull; <code>add_norm_matched</code>: Normalizes the vector to the reference target norm (<code>67.5</code>) before applying <code>weight</code>.<br/>
                 &bull; <code>hold</code>: Gram-Schmidt orthogonalization &mdash; strips any component parallel to this vector so that axis stays untouched.
               </span>
             </span>
@@ -755,7 +755,7 @@
             </h3>
           </div>
           <p style="margin:0;color:var(--text-secondary);font-size:13.5px;">
-            <strong>How J-Lens differs from Full Prompt-Pair Control Vectors:</strong> J-Lens is a pre-computed 24,912-word single-token Jacobian dictionary (<code>j_lens.py</code>). It runs on CPU in <code>&lt; 2 ms</code> with zero GPU pass, making it useful for <strong>diagnostic lexical readouts</strong> (seeing which single words align with a vector) and <strong>fast word-bag prototypes</strong>. Because single words lack multi-clause context and <code>[00s-05s]</code> timeline structure, use Screen 2 or Screen 3 when building production cinematic vectors.
+            <strong>How J-Lens differs from Full Prompt-Pair Control Vectors:</strong> J-Lens is a pre-computed 24,912-word single-token Jacobian dictionary (<code>j_lens.py</code>). It runs on CPU in <code>&lt; 2 ms</code> with zero GPU pass, making it useful for <strong>diagnostic lexical readouts</strong> (seeing which single words align with a vector) and <strong>fast word-bag prototypes</strong>. Because single words lack multi-clause context and 3-section H3 scene structure (<code>integrated_multimodal_description:</code>, <code>overall_soundscape:</code>, <code>non_diegetic_music:</code>), use Screen 2 or Screen 3 when building production cinematic vectors.
           </p>
         </div>
 

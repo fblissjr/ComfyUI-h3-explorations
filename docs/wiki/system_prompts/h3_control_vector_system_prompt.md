@@ -9,7 +9,7 @@
 
 ## 1. Copyable System Prompt
 
-Contains **zero few-shot examples** and **zero fill-in-the-blank templates** so the LLM writes fresh, diverse prose in every pair while passing [`control_vectors.py::differing_span`](../../../control_vectors.py#L140-L243) (`MAX_SHARED_INTERIOR_WORDS = 5` plus coupled `description + overall_soundscape` support), [`h3_spans.py::differing_token_mask`](../../../h3_spans.py#L652-L689) (`min_shared_run = 8`), [`control_vectors.py::lint_pair_set`](../../../control_vectors.py#L859-L970), [`bench/check_prompt_docs_sync.py`](../../../bench/check_prompt_docs_sync.py), and [`bench/check_control_vectors.py`](../../../bench/check_control_vectors.py) verbatim.
+Contains **zero few-shot examples** and **zero fill-in-the-blank templates** so the LLM writes fresh, diverse prose in every pair while passing [`control_vectors.py::differing_span`](../../../control_vectors.py#L149-L271) (`MAX_SHARED_INTERIOR_WORDS = 5` plus coupled `description + overall_soundscape` support), [`h3_spans.py::differing_token_mask`](../../../h3_spans.py#L652-L689) (`min_shared_run = 8`), [`control_vectors.py::lint_pair_set`](../../../control_vectors.py#L861-L974), [`bench/check_prompt_docs_sync.py`](../../../bench/check_prompt_docs_sync.py), and [`bench/check_control_vectors.py`](../../../bench/check_control_vectors.py) verbatim.
 
 ````markdown
 You write natural-language prompts and contrastive control-vector pair sets for the MiniMax H3 joint video-and-audio diffusion model. Depending on what the user asks for, you produce one of:
@@ -152,7 +152,7 @@ non_diegetic_music: ...
 ```
 *(Continue through `#### Pair 10`. If hold pairs are needed to project out a companion nuisance axis, append an optional `### Hold Pairs` section with `#### Hold 1 (group_name)` blocks using the same `##### Prompt A (Baseline)` / `##### Prompt B (Steered)` structure.)*
 
-**Alternative — Short-Contrast Compiler Spec (`--words` / Studio UI Tab 1A)**:
+**Alternative — Short-Contrast Compiler Spec (`--words` / Studio UI Screen 2: Clause Contrast Builder)**:
 Only when the user explicitly asks for a compact `--words` compiler spec instead of 10 full Markdown pairs, output a single spec line (or semicolon-separated multi-clause spec) formatted for `h3_pair_compiler.py`:
 `<slot>: <Pole A baseline clause> -> <Pole B steered clause>; soundscape: <Audio Pole A> -> <Audio Pole B>; hold(<group>): <Nuisance Pole A> -> <Nuisance Pole B>`
 where `<slot>` is one of `opening_framing`, `subject_behavior`, `interpersonal_dynamics`, `camera_motion`, `speech_delivery`, or `soundscape`, and scene-adaptive placeholders `{props}`, `{surface}`, `{poss}`, `{obj}`, `{refl}` may be used so the compiler substitutes each canonical scene's native objects automatically.
@@ -232,19 +232,19 @@ Before spending `~52s` on a DiT render, every `build`, `inspect`, `words`, `scul
 
 ### 2.3 ComfyUI Runtime Steering Variants (`MiniMaxH3ApplyControlVectors`)
 
-Up to four `MiniMaxH3ApplyControlVectors` nodes can be chained in series ahead of `MiniMaxH3Sampler` (`_h3_control_vectors` list on `positive`). Each node supports the following steering axes (defined in [`control_vectors.py`](../../../control_vectors.py), [`h3_spans.py`](../../../h3_spans.py), and [`control_vector_nodes.py`](../../../control_vector_nodes.py)):
+Any number of `MiniMaxH3ApplyControlVectors` nodes can be chained in series on `model: MODEL` ahead of `BasicGuider` / `SamplerCustomAdvanced` (attaching `model_options["transformer_options"]["h3_control_vectors"]` and a `WrappersMP.DIFFUSION_MODEL` wrapper that accumulates multiple vectors in `float64`). Each node supports the following steering axes (defined in [`control_vectors.py`](../../../control_vectors.py), [`h3_spans.py`](../../../h3_spans.py), and [`control_vector_nodes.py`](../../../control_vector_nodes.py)):
 
 1. **Extraction Span Pooling (`POOLING_MODES` in [`h3_spans.py:38-43`](../../../h3_spans.py#L38-L43))**:
-   - **`diff_span` (Default, `raw_norm ≈ 49..87`, typical `scale = 0.8..1.2`)**: Pools only the exact differing token span(s) between `Prompt A` and `Prompt B` via `SequenceMatcher(..., autojunk=False)` (`min_shared_run = 8` for coupled `description + overall_soundscape` edits), eliminating shared-tail dilution (`~2.9x` higher signal norm than `from_first_diff`).
-   - **`from_first_diff` (`raw_norm ≈ 20..28`, typical `scale = 2.0..3.5`)**: Pools from the first differing token through the end of the `tag == 1` text sequence, capturing causal downstream accommodation in later tokens.
-   - **`scene_text` (`raw_norm ≈ 10..25`, typical `scale = 2.5..3.5`)**: Pools all `scene`-category text tokens (`tag == 1` excluding `<Picture/Audio/Video>` labels, `<T.T seconds>` timestamps, `(S1)` speaker tags, and `<d>...</d>` dialogue). Default for `MiniMaxH3MakeMediaControlVector`.
+   - **`diff_span` (Default, `raw_norm ≈ 49..87`, typical `strength = 0.8..1.2`)**: Pools only the exact differing token span(s) between `Prompt A` and `Prompt B` via `SequenceMatcher(..., autojunk=False)` (`min_shared_run = 8` for coupled `description + overall_soundscape` edits), eliminating shared-tail dilution (`~2.9x` higher signal norm than `from_first_diff`).
+   - **`from_first_diff` (`raw_norm ≈ 20..28`, typical `strength = 2.0..3.5`)**: Pools from the first differing token through the end of the `tag == 1` text sequence, capturing causal downstream accommodation in later tokens.
+   - **`scene_text` (`raw_norm ≈ 10..25`, typical `strength = 2.5..3.5`)**: Pools all `scene`-category text tokens (`tag == 1` excluding `<Picture/Audio/Video>` labels, `<T.T seconds>` timestamps, `(S1)` speaker tags, and `<d>...</d>` dialogue). Default for `MiniMaxH3MakeMediaControlVector`.
    - **`all_tag1`**: Pools every `tag == 1` text token including speaker tags and dialogue.
-2. **Application Modes (`APPLY_MODES` in [`control_vectors.py:42`](../../../control_vectors.py#L42))**:
-   - **`add_norm_matched` (Default)**: Rescales `v` to `NORM_MATCHED_TARGET = 67.5` (`v * (67.5 / ||v||)`) before multiplying by `scale`, equalizing strength across `diff_span`, `from_first_diff`, `scene_text`, and `unigram_synthesis` vectors so `scale = 1.0–1.25` produces a consistent perturbation magnitude.
-   - **`add`**: Adds `scale * v` directly using the vector's native `raw_norm`.
-   - **`hold`**: Projects the runtime conditioning tokens (and any earlier vectors in the chain) orthogonally against this vector's direction (`scale = 1.0` = full Gram-Schmidt scrub; `scale > 1.0` = over-subtraction).
+2. **Application Modes (`APPLY_MODES` in [`control_vectors.py:2105`](../../../control_vectors.py#L2105))**:
+   - **`add_norm_matched` (Default)**: Rescales `v` to `NORM_MATCHED_TARGET = 67.5` (`v * (67.5 / ||v||)`) before multiplying by `strength`, equalizing strength across `diff_span`, `from_first_diff`, `scene_text`, and `unigram_synthesis` vectors so `strength = 1.0–1.25` produces a consistent perturbation magnitude.
+   - **`add`**: Adds `strength * v` directly using the vector's native `raw_norm`.
+   - **`hold`**: Projects the runtime conditioning tokens (and any earlier vectors in the chain) orthogonally against this vector's direction (`strength = 1.0` = full Gram-Schmidt scrub; `strength > 1.0` = over-subtraction).
    - **`project_out`**: Removes the component of each masked conditioning row along $\hat{\mathbf{v}}$.
-   - **`amplify`**: Multiplies the existing projection of each masked conditioning row along $\hat{\mathbf{v}}$ by `1 + scale`.
+   - **`amplify`**: Multiplies the existing projection of each masked conditioning row along $\hat{\mathbf{v}}$ by `1 + strength`.
 3. **Inference Row Masks (`INFERENCE_MASK_MODES` in [`h3_spans.py:45-52`](../../../h3_spans.py#L45-L52))**:
    - **`scene_only` (Default)**: Steers `scene` text rows only while leaving `tag == 0` `<|vision_start|>..<|vision_end|>` reference patch rows, `<d>[Language] ...</d>` spoken dialogue, `(S1)` speaker tags, `<Picture 1>:` labels, and `<0.0 seconds>` timestamps bitwise untouched.
    - **`non_vision`**: Steers all `tag == 1` text rows while leaving `tag == 0` `<|vision_start|>..<|vision_end|>` reference patch rows untouched.

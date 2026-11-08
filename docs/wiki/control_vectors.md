@@ -39,7 +39,7 @@ A common question is how a **Control Vector** differs from **J-Lens** ([`j_lens.
 
 ## 3. Shipped Runtime Defaults (`MiniMaxH3ApplyControlVectors` & Canonical Workflows)
 
-Every `MiniMaxH3ApplyControlVectors` node ([`h3_rules.py:266-288`](../../h3_rules.py#L266-L288), [`control_vector_nodes.py`](../../control_vector_nodes.py)) and the three canonical Pika control-vector workflows ([`workflows/build_workflows.py:4606-4642`](../../workflows/build_workflows.py#L4606-L4642)) ship with these defaults:
+Every `MiniMaxH3ApplyControlVectors` node ([`h3_rules.py:266-288`](../../h3_rules.py#L266-L288), [`control_vector_nodes.py`](../../control_vector_nodes.py)) and the three canonical Pika control-vector workflows ([`workflows/build_workflows.py:4821-4855`](../../workflows/build_workflows.py#L4821-L4855)) ship with these defaults:
 
 | Input / Setting | Shipped Default | Why This Is the Default |
 |---|---|---|
@@ -188,7 +188,7 @@ The Studio UI opens in your browser and is organized into **6 focused task scree
 
 ## 10. Code & Research Map
 
-- **Core math & `.safetensors` I/O**: [`control_vectors.py`](../../control_vectors.py) (`NORM_MATCHED_TARGET = 67.5`, `mean_difference`, `hold_basis`, `project_out`, `apply_vector`)
+- **Core math & `.safetensors` I/O**: [`control_vectors.py`](../../control_vectors.py) (`NORM_MATCHED_TARGET = 67.5`, `mean_difference`, `hold_basis`, `project_out`, `apply_post_refiner`)
 - **ComfyUI nodes & runtime hooks**: [`control_vector_nodes.py`](../../control_vector_nodes.py) (`resolve_vector_file_path`, per-stream `[out_vid[0], out_aud[1]]` velocity splice when `video_scale != audio_scale`)
 - **Token-span partitioner**: [`h3_spans.py`](../../h3_spans.py)
 - **Deterministic 10-pair compiler**: [`h3_pair_compiler.py`](../../h3_pair_compiler.py) & [`prompt_bank/control_vectors/canonical_frames.json`](../../prompt_bank/control_vectors/canonical_frames.json)

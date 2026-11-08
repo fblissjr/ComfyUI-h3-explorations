@@ -58,7 +58,7 @@ Use this pattern when steering lighting, weather, underwater/cavern atmosphere, 
 ```text
 Build a 10-Pair Control Vector Set (### Test Scene Prompt + ### Contrastive Pairs (1–10)).
 
-- Concept / Axis: Ordinary sunlit or neutrally lit everyday environments (Pole A) -> Flooded with glowing cyan-and-violet bioluminescent cavern flora, drifting luminous spore particles, andcaustic cyan light ripples (Pole B).
+- Concept / Axis: Ordinary sunlit or neutrally lit everyday environments (Pole A) -> Flooded with glowing cyan-and-violet bioluminescent cavern flora, drifting luminous spore particles, and caustic cyan light ripples (Pole B).
 - Diff Rule: Use a single contiguous clause diff in `integrated_multimodal_description:` (8–16 words) AND a coupled single contiguous clause diff in `overall_soundscape:` (ordinary room/outdoor ambient air -> resonant subterranean cavern water drips and low crystalline hum). Never put words like "cavern", "bioluminescent", "spores", or "cyan" in Prompt A.
 - Test Scene Prompt (t2va): A lone watchmaker at a wooden workbench examining a brass pocket watch and saying a short 4-word line in English. Keep the Test Scene Prompt 100% unsteered.
 ```
@@ -158,6 +158,6 @@ Before clicking **Build Vector** in the Studio UI (or running `bench/control_vec
 | Check | What to Look For | How the Studio / CLI Helps |
 |---|---|---|
 | **1. One Contiguous Clause Per Section** | `Prompt A` and `Prompt B` differ in only one contiguous clause in `integrated_multimodal_description:` (plus optionally one contiguous clause in `overall_soundscape:`). | `bench/control_vector/llm_pairs.py::_repair_multichange_markdown_pairs` automatically repairs secondary non-contiguous edits in a section, and **Validate & Preview Token Diffs** highlights the exact `diff_a -> diff_b` span for all 10 pairs. |
-| **2. Zero Target-Noun Overlap ($B - A$)** | None of the target effect keywords (`cavern`, `frost`, `swimwear`, ` VHS`) appear in `Prompt A`'s diff span. | Check the `-diff_a -> +diff_b` preview badges in **Studio Screen 3** to verify `diff_a` describes only the neutral baseline state. |
+| **2. Zero Target-Noun Overlap ($B - A$)** | None of the target effect keywords (`cavern`, `frost`, `swimwear`, `VHS`) appear in `Prompt A`'s diff span. | Check the `-diff_a -> +diff_b` preview badges in **Studio Screen 3** to verify `diff_a` describes only the neutral baseline state. |
 | **3. `non_diegetic_music: N/A` Identical** | Unscored pairs use `non_diegetic_music: N/A` on both `Prompt A` and `Prompt B`. | Keeps music tokens out of `TokenRefiner` unless you are specifically building a music control vector. |
 | **4. `10/10` Unique Diff Spans** | Each pair `Pair 1..10` uses distinct wording rather than copy-pasting the same clause 10 times. | Averaging 10 distinct phrasings gives high `split_half_cosine` (`>= 0.75`) that generalizes to unseen prompts. |

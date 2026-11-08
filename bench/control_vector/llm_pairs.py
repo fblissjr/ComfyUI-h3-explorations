@@ -512,10 +512,13 @@ def _generate_pairs_with_llm(
 
 
 def cmd_generate_pairs(args: argparse.Namespace) -> int:
+    concept = str(getattr(args, "concept_flag", "") or getattr(args, "concept", "") or "").strip()
+    if not concept:
+        raise ValueError("concept description is required (pass positional concept or --concept)")
     res = _generate_pairs_with_llm(
         provider=args.llm_provider,
         model_spec=args.llm_model,
-        concept_prompt=args.concept,
+        concept_prompt=concept,
         load_in_4bit=not bool(getattr(args, "no_4bit", False)),
         max_new_tokens=int(getattr(args, "max_new_tokens", 3200)),
         temperature=float(getattr(args, "temperature", 0.7)),
@@ -529,7 +532,19 @@ def cmd_generate_pairs(args: argparse.Namespace) -> int:
         print(f"wrote {out_p} ({res['elapsed_s']}s via {res['provider']})")
     else:
         print(md_text)
-    if getattr(args, "save_toml", False) and getattr(args, "name", ""):
+    out_toml = str(getattr(args, "out_toml", "") or "").strip()
+    if out_toml:
+        tp = Path(out_toml)
+        tp.parent.mkdir(parents=True, exist_ok=True)
+        saved = cv.write_markdown_to_toml(
+            md_text,
+            tp.parent,
+            name=tp.stem,
+            overwrite=bool(getattr(args, "overwrite", False)),
+            bank_dir=cv_nodes.PROMPT_BANK_DIR,
+        )
+        print(f"wrote {_display_path(saved)}")
+    elif getattr(args, "save_toml", False) and getattr(args, "name", ""):
         saved = cv.write_markdown_to_toml(
             md_text,
             cv_nodes.PAIR_BANK_DIR,

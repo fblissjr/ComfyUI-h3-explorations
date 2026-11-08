@@ -221,22 +221,22 @@ function fillClauseExample(kind) {
   if (kind === 'scorching') {
     document.getElementById('clause-name').value = 'scorching_heatwave';
     document.getElementById('clause-slot').value = 'opening_framing';
-    document.getElementById('clause-pole-a').value = 'Crisp overcast afternoon light with cool slate shadows, still air, dry pavement, and neutral color balance across every surface.';
-    document.getElementById('clause-pole-b').value = 'Blistering midday desert heatwave under a bleached white sun, rising thermal shimmer warping the horizon, harsh amber glare, and sun-baked dust.';
+    document.getElementById('clause-pole-a').value = 'filmed under crisp overcast afternoon light with cool slate shadows, still air, dry pavement, and neutral color balance across every surface';
+    document.getElementById('clause-pole-b').value = 'filmed in a blistering midday desert heatwave under a bleached white sun, rising thermal shimmer warping the horizon, harsh amber glare, and sun-baked dust';
     document.getElementById('clause-sound-a').value = 'Quiet open-air room tone with gentle distant breeze.';
     document.getElementById('clause-sound-b').value = 'Low parched thermal wind drone, dry cicada buzz, and heat-cracked grit underfoot.';
   } else if (kind === 'noir') {
     document.getElementById('clause-name').value = 'chiaroscuro_noir';
     document.getElementById('clause-slot').value = 'opening_framing';
-    document.getElementById('clause-pole-a').value = 'Soft even commercial fill lighting with balanced midtones, open shadows, and natural daylight color rendition.';
-    document.getElementById('clause-pole-b').value = 'Hard single-source chiaroscuro key light slicing through deep ink-black shadows, sharp Venetian-blind light slashes, and silver rim highlights.';
+    document.getElementById('clause-pole-a').value = 'filmed under soft even commercial fill lighting with balanced midtones, open shadows, and natural daylight color rendition';
+    document.getElementById('clause-pole-b').value = 'filmed under hard single-source chiaroscuro key light slicing through deep ink-black shadows, sharp Venetian-blind light slashes, and silver rim highlights';
     document.getElementById('clause-sound-a').value = '';
     document.getElementById('clause-sound-b').value = '';
   } else if (kind === 'handheld') {
     document.getElementById('clause-name').value = 'urgent_handheld';
     document.getElementById('clause-slot').value = 'camera_motion';
-    document.getElementById('clause-pole-a').value = 'Locked-off tripod composition with level horizon, steady 50mm prime framing, and zero camera shake.';
-    document.getElementById('clause-pole-b').value = 'Urgent shoulder-mounted documentary camera with visceral micro-jitter, reactive reframing, and breathing lens drift.';
+    document.getElementById('clause-pole-a').value = 'holds a locked-off tripod composition with level horizon, steady 50mm prime framing, and zero camera shake';
+    document.getElementById('clause-pole-b').value = 'shakes with urgent shoulder-mounted documentary camera jolt, visceral micro-jitter, reactive reframing, and breathing lens drift';
     document.getElementById('clause-sound-a').value = '';
     document.getElementById('clause-sound-b').value = '';
   }
@@ -410,7 +410,7 @@ function insertPairTemplate() {
   const tpl = `#### Pair 1
 ##### Prompt A
 integrated_multimodal_description:
-[Shot 1] A cinematic medium shot on a 50mm prime lens under crisp overcast afternoon light with cool slate shadows and still air. [00s-05s] An elderly watchmaker sits at a wooden workbench on a covered terrace, adjusting a brass gear with fine tweezers while glancing toward the horizon.
+[Shot 1] A cinematic medium shot on a 50mm prime lens under crisp overcast afternoon light with cool slate shadows and still air. An elderly watchmaker sits at a wooden workbench on a covered terrace, adjusting a brass gear with fine tweezers while glancing toward the horizon.
 
 overall_soundscape:
 Quiet open-air room tone with gentle distant breeze and soft metallic clicks.
@@ -420,7 +420,7 @@ N/A
 
 ##### Prompt B
 integrated_multimodal_description:
-[Shot 1] A cinematic medium shot on a 50mm prime lens under a blistering midday desert heatwave, rising thermal shimmer warping the horizon, and harsh amber glare. [00s-05s] An elderly watchmaker sits at a wooden workbench on a covered terrace, adjusting a brass gear with fine tweezers while glancing toward the horizon.
+[Shot 1] A cinematic medium shot on a 50mm prime lens under a blistering midday desert heatwave, rising thermal shimmer warping the horizon, and harsh amber glare. An elderly watchmaker sits at a wooden workbench on a covered terrace, adjusting a brass gear with fine tweezers while glancing toward the horizon.
 
 overall_soundscape:
 Quiet open-air room tone with gentle distant breeze and soft metallic clicks.
@@ -434,7 +434,7 @@ N/A
 
 async function copySystemPrompt() {
   const promptRef = APP.systemPromptSummary ||
-    'See docs/wiki/system_prompts/h3_control_vector_system_prompt.md — generate 10 matched H3 Prompt A / Prompt B pairs where subject, camera framing, and [00s-05s] timing are held identical inside each pair and only the target attribute varies.';
+    'See docs/wiki/system_prompts/h3_control_vector_system_prompt.md — generate 10 matched H3 Prompt A / Prompt B pairs where subject, camera framing, and scene structure are held identical inside each pair and only the target attribute varies.';
   try {
     await navigator.clipboard.writeText(promptRef);
     renderBanner('pairs-status-box', 'Copied the H3 Control Vector System Prompt instructions to your clipboard. Paste into your LLM, then paste the `#### Pair 1` Markdown output into the editor above.');
@@ -651,8 +651,8 @@ function renderSculptRows() {
         ${optionsHtml}
       </select>
       <select onchange="APP.sculptRows[${idx}].mode = this.value">
-        <option value="add" ${row.mode === 'add' ? 'selected' : ''}>add (weighted sum)</option>
-        <option value="add_norm_matched" ${row.mode === 'add_norm_matched' ? 'selected' : ''}>add_norm_matched (match L2)</option>
+        <option value="add" ${row.mode === 'add' ? 'selected' : ''}>add (raw norm weighted sum)</option>
+        <option value="add_norm_matched" ${row.mode === 'add_norm_matched' ? 'selected' : ''}>add_norm_matched (scale to 67.5 norm)</option>
         <option value="hold" ${row.mode === 'hold' ? 'selected' : ''}>hold (Gram-Schmidt orthogonalize)</option>
       </select>
       <input type="number" step="0.1" value="${row.strength}" onchange="APP.sculptRows[${idx}].strength = parseFloat(this.value || '0')" placeholder="Weight (e.g. 1.0 or -1.0)" />
@@ -704,11 +704,14 @@ async function runSculptRecipe() {
 /* ========================================================================= */
 function fillMeterSamplePrompt() {
   document.getElementById('meter-prompt-text').value =
-`A medium tracking shot on a 35mm anamorphic lens. A traveler in a weathered wool coat walks along a stone pier under low slate clouds as wind whips across the harbor water.
+`integrated_multimodal_description:
+[Shot 1] A medium tracking shot on a 35mm anamorphic lens. A traveler in a weathered wool coat walks along a stone pier under low slate clouds as wind whips across the harbor water, pulling the collar tight against the gust while waves spray over the seawall.
 
-[00s-05s] The traveler pulls the collar tight against the gust while waves spray over the seawall.
+overall_soundscape:
+Howling coastal wind, crashing water spray, and heavy boots on wet stone.
 
-Soundscape: Howling coastal wind, crashing water spray, and heavy boots on wet stone.`;
+non_diegetic_music:
+N/A`;
 }
 
 async function runPromptReceptorMeter() {

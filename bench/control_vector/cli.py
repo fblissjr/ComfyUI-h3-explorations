@@ -394,10 +394,19 @@ def build_parser() -> argparse.ArgumentParser:
     )
     pgen.add_argument(
         "concept",
+        nargs="?",
+        default="",
+        help="Target control-vector concept or 'pole_a -> pole_b' description (or pass --concept)",
+    )
+    pgen.add_argument(
+        "--concept",
+        dest="concept_flag",
+        default="",
         help="Target control-vector concept or 'pole_a -> pole_b' description",
     )
     pgen.add_argument(
         "--llm-provider",
+        "--provider",
         dest="llm_provider",
         choices=SUPPORTED_LLM_PROVIDERS,
         default=os.environ.get("H3_LLM_PROVIDER", "transformers") or "transformers",
@@ -405,6 +414,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     pgen.add_argument(
         "--llm-model",
+        "--model",
         dest="llm_model",
         default=os.environ.get("H3_LLM_MODEL", "") or os.environ.get("H3_EXL3_MODEL_DIR", ""),
         help="Path to local LLM model directory or HuggingFace model ID (default: $H3_LLM_MODEL or $H3_EXL3_MODEL_DIR)",
@@ -416,6 +426,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Optional path to exllamav3 checkout when using --llm-provider exllamav3",
     )
     pgen.add_argument(
+        "--load-in-4bit",
+        dest="load_in_4bit",
+        action="store_true",
+        help="Enable 4-bit BitsAndBytes quantization when loading a transformers model (default: enabled unless --no-4bit is passed)",
+    )
+    pgen.add_argument(
         "--no-4bit",
         dest="no_4bit",
         action="store_true",
@@ -425,6 +441,7 @@ def build_parser() -> argparse.ArgumentParser:
     pgen.add_argument("--temperature", type=float, default=0.7)
     pgen.add_argument("--name", default="", help="Optional stem name to also write <name>.md / <name>.toml")
     pgen.add_argument("--out-md", dest="out_md", default="", help="Optional output .md file path")
+    pgen.add_argument("--out-toml", dest="out_toml", default="", help="Optional output .toml file path")
     pgen.add_argument("--save-toml", dest="save_toml", action="store_true", help="Also parse and save to prompt_bank/control_vectors/<name>.toml")
     pgen.add_argument("--overwrite", action="store_true", help="Overwrite existing output files")
 

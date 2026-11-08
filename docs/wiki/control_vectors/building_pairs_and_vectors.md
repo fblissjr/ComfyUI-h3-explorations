@@ -59,7 +59,7 @@ Regardless of whether your 10 pairs were created via `--words` templates or via 
 
 | Pooling Mode | What Tokens Are Averaged into $\bar{\mathbf{h}}(\text{A}_i), \bar{\mathbf{h}}(\text{B}_i)$ | When to Use |
 |---|---|---|
-| **`diff_span`** *(Default)* | Only the differing token span `[first_diff : end_diff]` between Prompt A and Prompt B (excludingchat template boilerplate and row 0 attention sink). | **Best default for all surgical pairs.** Produces high pair consistency (`MPC ~ 0.65–0.85`) and natural raw norms (`~50–85`) where ComfyUI `strength = 1.0` equals one full pair edit. |
+| **`diff_span`** *(Default)* | Only the differing token span `[first_diff : end_diff]` between Prompt A and Prompt B (excluding chat template boilerplate and row 0 attention sink). | **Best default for all surgical pairs.** Produces high pair consistency (`MPC ~ 0.65–0.85`) and natural raw norms (`~50–85`) where ComfyUI `strength = 1.0` equals one full pair edit. |
 | **`from_first_diff`** | Every scene-text token from `first_diff` to the end of the prompt. | Useful when an early clause edit intentionally re-contextualizes downstream clauses via causal attention. |
 | **`scene_text`** | All user prompt tokens (dilutes a 15-token clause edit across ~220 unchanged tokens). | Required for **Media Control Vectors (`make-media`)** where text is identical and `<Picture 1>` vision tokens re-contextualize the scene text through the bidirectional `TokenRefiner`. |
 
