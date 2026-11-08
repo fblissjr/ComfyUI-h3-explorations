@@ -15,7 +15,7 @@ import control_vectors as cv
 import h3_pair_compiler as pair_compiler
 import j_lens
 
-from .build_cmd import cmd_build
+from .build_cmd import cmd_build, cmd_rebuild
 from .cli import build_parser
 from .helpers import (
     WEB_DIR,
@@ -311,17 +311,27 @@ def handle_ui_request(
     if method == "POST" and clean_path == "/api/save-toml":
         text = str(req.get("text", ""))
         name = str(req.get("name", "")).strip()
+        quality_req = str(req.get("quality") or req.get("axis") or "").strip() or None
         frame = str(req.get("frame", "scene") or "scene")
         slot = str(req.get("slot", "auto") or "auto")
         mode = str(req.get("mode", "t2va") or "t2va")
         overwrite = bool(req.get("overwrite", True))
         rows_in = req.get("rows")
+        holds_in = list(req.get("holds") or [])
+        if not holds_in and str(req.get("hold_b", "") or "").strip():
+            holds_in = [
+                {
+                    "a": str(req.get("hold_a", "") or "").strip(),
+                    "b": str(req.get("hold_b", "") or "").strip(),
+                }
+            ]
         try:
             if isinstance(rows_in, list) and rows_in:
                 ps = _build_pairset_from_ui_rows(
                     rows_in,
-                    holds=req.get("holds"),
+                    holds=holds_in or None,
                     name=name,
+                    quality=quality_req,
                     slot=slot,
                     mode=mode,
                     frame=frame,
@@ -338,7 +348,7 @@ def handle_ui_request(
                     name=name,
                     mode=ps.mode,
                     frame=frame,
-                    quality=ps.quality,
+                    quality=quality_req or ps.quality,
                     a_side=ps.a_side,
                     b_side=ps.b_side,
                     overwrite=overwrite,
@@ -355,13 +365,25 @@ def handle_ui_request(
                     state.toml_dir,
                     name=name,
                     frame=frame,
+                    quality=quality_req,
                     test_prompt_out=tp_out,
                     overwrite=overwrite,
                     bank_dir=cv_nodes.PROMPT_BANK_DIR,
                 )
             else:
+                spec_with_holds = text
+                if holds_in and "hold:" not in spec_with_holds.lower():
+                    hold_lines = [
+                        f"hold: {hr.get('a', '').strip()} ||| {hr['b'].strip()}"
+                        if str(hr.get("a", "")).strip()
+                        else f"hold: {hr['b'].strip()}"
+                        for hr in holds_in
+                        if str(hr.get("b", "")).strip()
+                    ]
+                    if hold_lines:
+                        spec_with_holds = spec_with_holds.rstrip() + "\n" + "\n".join(hold_lines)
                 ps = _compile_words_or_spec_to_pairset(
-                    text,
+                    spec_with_holds,
                     name=name or None,
                     slot=slot,
                     mode=mode,
@@ -378,7 +400,7 @@ def handle_ui_request(
                     name=name,
                     mode=ps.mode,
                     frame=frame,
-                    quality=ps.quality,
+                    quality=quality_req or ps.quality,
                     a_side=ps.a_side,
                     b_side=ps.b_side,
                     overwrite=overwrite,
@@ -408,6 +430,7 @@ def handle_ui_request(
     if method == "POST" and clean_path == "/api/build":
         text = str(req.get("text", "") or req.get("words", "") or "")
         name = str(req.get("name", "") or req.get("output_name", "") or "").strip()
+        quality_req = str(req.get("quality") or req.get("axis") or "").strip() or None
         frame = str(req.get("frame", "scene") or "scene")
         slot = str(req.get("slot", "auto") or "auto")
         mode = str(req.get("mode", "t2va") or "t2va")
@@ -424,8 +447,17 @@ def handle_ui_request(
         target_prompt = str(req.get("target_prompt", "") or "").strip()
         target_weight = float(req.get("target_weight", 2.5))
         rows_in = req.get("rows")
+        holds_in = list(req.get("holds") or [])
+        if not holds_in and str(req.get("hold_b", "") or "").strip():
+            holds_in = [
+                {
+                    "a": str(req.get("hold_a", "") or "").strip(),
+                    "b": str(req.get("hold_b", "") or "").strip(),
+                }
+            ]
         try:
             import contextlib
+            import dataclasses
             import io
 
             saved_toml: Path | None = None
@@ -433,8 +465,9 @@ def handle_ui_request(
             if isinstance(rows_in, list) and rows_in:
                 compiled_ps = _build_pairset_from_ui_rows(
                     rows_in,
-                    holds=req.get("holds"),
+                    holds=holds_in or None,
                     name=name,
+                    quality=quality_req,
                     slot=slot,
                     mode=mode,
                     frame=frame,
@@ -451,7 +484,7 @@ def handle_ui_request(
                         name=name,
                         mode=compiled_ps.mode,
                         frame=frame,
-                        quality=compiled_ps.quality,
+                        quality=quality_req or compiled_ps.quality,
                         a_side=compiled_ps.a_side,
                         b_side=compiled_ps.b_side,
                         overwrite=overwrite,
@@ -468,14 +501,15 @@ def handle_ui_request(
                 if cand_toml.is_file():
                     try:
                         existing_ps = cv.load_pairs(cand_toml, bank_dir=cv_nodes.PROMPT_BANK_DIR)
-                        existing_ab = [(p.a, p.b) for p in existing_ps.pairs]
-                        new_ab = [(p["a"], p["b"]) for p in parsed["pairs"]]
+                        existing_ab = [(round(float(p.weight), 6), p.a, p.b) for p in existing_ps.pairs]
+                        new_ab = [(round(float(p.get("weight", 1.0)), 6), p["a"], p["b"]) for p in parsed["pairs"]]
                         existing_holds = [(h.group, h.a, h.b) for h in existing_ps.holds]
                         new_holds = [(h["group"], h["a"], h["b"]) for h in parsed.get("holds", [])]
                         if (
                             existing_ab == new_ab
                             and existing_holds == new_holds
                             and existing_ps.frame == frame
+                            and (not quality_req or existing_ps.quality == quality_req)
                         ):
                             saved_toml = cand_toml
                             reused_existing = True
@@ -490,19 +524,33 @@ def handle_ui_request(
                         state.toml_dir,
                         name=name,
                         frame=frame,
+                        quality=quality_req,
                         test_prompt_out=tp_out,
                         overwrite=True if overwrite else False,
                         bank_dir=cv_nodes.PROMPT_BANK_DIR,
                     )
             else:
+                spec_with_holds = text
+                if holds_in and "hold:" not in spec_with_holds.lower():
+                    hold_lines = [
+                        f"hold: {hr.get('a', '').strip()} ||| {hr['b'].strip()}"
+                        if str(hr.get("a", "")).strip()
+                        else f"hold: {hr['b'].strip()}"
+                        for hr in holds_in
+                        if str(hr.get("b", "")).strip()
+                    ]
+                    if hold_lines:
+                        spec_with_holds = spec_with_holds.rstrip() + "\n" + "\n".join(hold_lines)
                 compiled_ps = _compile_words_or_spec_to_pairset(
-                    text,
+                    spec_with_holds,
                     name=name or None,
                     slot=slot,
                     mode=mode,
                     target_prompt=target_prompt,
                     target_weight=target_weight,
                 )
+                if quality_req:
+                    compiled_ps = dataclasses.replace(compiled_ps, quality=quality_req)
                 if not name:
                     name = compiled_ps.name
                 if save_toml_req:
@@ -513,7 +561,7 @@ def handle_ui_request(
                         name=name,
                         mode=compiled_ps.mode,
                         frame=frame,
-                        quality=compiled_ps.quality,
+                        quality=quality_req or compiled_ps.quality,
                         a_side=compiled_ps.a_side,
                         b_side=compiled_ps.b_side,
                         overwrite=overwrite,
@@ -540,8 +588,10 @@ def handle_ui_request(
                 argv.extend(["--hold-words", hold_words, "--hold-alpha", str(hold_alpha)])
             for hv in hold_vectors:
                 if str(hv).strip():
-                    argv.extend(["--hold", str(hv).strip()])
-            if target_prompt and saved_toml is not None:
+                    hv_str = str(hv).strip()
+                    hv_cand = state.vec_dir / hv_str
+                    argv.extend(["--hold", str(hv_cand if hv_cand.is_file() else hv_str)])
+            if target_prompt and saved_toml is not None and compiled_ps is None:
                 argv.extend(["--target-prompt", target_prompt, "--target-weight", str(target_weight)])
             if include_encoder:
                 argv.append("--include-encoder")
@@ -818,8 +868,14 @@ def handle_ui_request(
             from_words = str(req.get("from_words") or req.get("words") or req.get("pos_words") or "").strip()
             prompt_req = str(req.get("prompt", "") or "").strip() or None
             if from_words:
-                fam = str(req.get("family", "fl2va") or "fl2va")
                 families_req = str(req.get("families", "") or "").strip().lower()
+                raw_fam = str(req.get("family", "") or "").strip().lower()
+                if raw_fam in ("fl2va", "ref2va"):
+                    fam = raw_fam
+                elif families_req:
+                    fam = _resolve_requested_families(families_req)[0]
+                else:
+                    fam = "fl2va"
                 against_w = str(req.get("against_words", "") or "").strip() or None
                 hold_w = str(req.get("hold_words", "") or "").strip() or None
                 alpha_w = float(req.get("alpha", req.get("hold_alpha", 1.0)))
@@ -966,6 +1022,62 @@ def handle_ui_request(
                 "norm": float(pr_ro.get("norm_after_holds", pr_ro.get("norm_before_holds", 0.0))),
             }
             return 200, "application/json", json.dumps({"ok": True, **rep_out, "report": rep_out})
+        except Exception as exc:
+            return 400, "application/json", json.dumps({"ok": False, "error": str(exc)})
+
+    if method == "POST" and clean_path == "/api/rebuild":
+        try:
+            import contextlib
+            import io
+
+            target_req = str(req.get("target") or req.get("stem") or req.get("name") or "").strip()
+            families_req = str(req.get("families", "both") or "both").strip()
+            pooling_req = str(req.get("pooling", "diff_span") or "diff_span").strip()
+            no_lora = bool(req.get("no_lora", False))
+            unit_mean = bool(req.get("unit_mean", False))
+            include_encoder = bool(req.get("include_encoder", True))
+            argv = [
+                "rebuild",
+                *( [target_req] if target_req else [] ),
+                "--dir",
+                str(state.vec_dir),
+                "--toml-dir",
+                str(state.toml_dir),
+                "--families",
+                families_req,
+                "--pooling",
+                pooling_req,
+            ]
+            if no_lora:
+                argv.append("--no-lora")
+            if unit_mean:
+                argv.append("--unit-mean")
+            if include_encoder:
+                argv.append("--include-encoder")
+            else:
+                argv.append("--no-encoder")
+            r_args = build_parser().parse_args(argv)
+            rows_out_rebuild: list[dict[str, Any]] = []
+            r_args._summary_rows_out = rows_out_rebuild
+            r_args._clip_override = state.get_clip(r_args.encoder, r_args.device)
+            r_args._refiner_cache = state._refiner_cache
+            buf_out = io.StringIO()
+            with contextlib.redirect_stdout(buf_out):
+                cmd_rebuild(r_args)
+            return (
+                200,
+                "application/json",
+                json.dumps(
+                    {
+                        "ok": True,
+                        "rebuilt": rows_out_rebuild,
+                        "built": rows_out_rebuild,
+                        "vectors": _list_ui_vectors(state.vec_dir),
+                        "toml_files": _list_ui_toml_files(state.toml_dir),
+                        "log": buf_out.getvalue(),
+                    }
+                ),
+            )
         except Exception as exc:
             return 400, "application/json", json.dumps({"ok": False, "error": str(exc)})
 

@@ -446,6 +446,7 @@ def cmd_make(args: argparse.Namespace) -> int:
     hold_specs_make = getattr(args, "hold", None)
     hold_words_make = str(getattr(args, "hold_words", "") or "").strip() or None
     hold_alpha_make = float(getattr(args, "hold_alpha", 1.0))
+    extra_hold_dir = Path(args.out).parent if getattr(args, "out", None) else None
     applied_holds_make: list[str] = []
     if not args.no_holds and (hold_specs_make or hold_words_make):
         final_vec, applied_holds_make, norm_bef_make, norm_aft_make = _apply_post_refiner_holds(
@@ -455,6 +456,8 @@ def cmd_make(args: argparse.Namespace) -> int:
             hold_words=hold_words_make,
             hold_alpha=hold_alpha_make,
             prompt=str(getattr(args, "target_prompt", "") or "") or None,
+            extra_basis=tensors_to_save.get("holds.post_refiner"),
+            extra_dir=extra_hold_dir,
         )
 
     tensors_to_save["vector.post_refiner"] = final_vec
@@ -750,6 +753,8 @@ def cmd_make(args: argparse.Namespace) -> int:
                     hold_words=hold_words_make,
                     hold_alpha=hold_alpha_make,
                     prompt=str(getattr(args, "target_prompt", "") or "") or None,
+                    extra_basis=sib_tensors.get("holds.post_refiner"),
+                    extra_dir=out_dir,
                 )
             sib_tensors["vector.post_refiner"] = sib_final_vec
             if "vector.encoder" in tensors_to_save:

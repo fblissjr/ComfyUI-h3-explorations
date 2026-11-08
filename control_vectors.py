@@ -434,6 +434,10 @@ _HOLD_HEADING_RE = re.compile(
     r"^[ \t]*####[ \t]+Hold[ \t]+(\d+)(?:[ \t]*\(([^)\n]+)\))?[^\n]*$",
     flags=re.MULTILINE | re.IGNORECASE,
 )
+_WEIGHT_TAG_RE = re.compile(
+    r"\bweight\s*=\s*([+-]?\d+(?:\.\d+)?)\b",
+    flags=re.IGNORECASE,
+)
 _PROMPT_A_HEADING_RE = re.compile(
     r"^[ \t]*#####[ \t]+Prompt[ \t]+A\b[^\n]*$",
     flags=re.MULTILINE | re.IGNORECASE,
@@ -568,10 +572,13 @@ def parse_markdown_pairs(md_text: str) -> dict[str, Any]:
         if not b_txt:
             raise ValueError(f"Pair {pair_num}: '##### Prompt B' body is empty")
 
+        m_w = _WEIGHT_TAG_RE.search(m_pair.group(0))
+        p_weight = float(m_w.group(1)) if m_w is not None else 1.0
         pairs.append(
             {
                 "index": idx,
                 "number": pair_num,
+                "weight": p_weight,
                 "a": a_txt,
                 "b": b_txt,
             }
@@ -797,6 +804,9 @@ def write_markdown_to_toml(
 
     for idx, p_item in enumerate(pairs):
         lines.append("[[pair]]")
+        p_w = float(p_item.get("weight", 1.0))
+        if round(p_w, 6) != 1.0:
+            lines.append(f"weight = {p_w:g}")
         lines.append(f"a = {_format_toml_multiline(p_item['a'])}")
         lines.append(f"b = {_format_toml_multiline(p_item['b'])}")
         if idx + 1 < len(pairs) or holds:

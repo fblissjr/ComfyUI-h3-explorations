@@ -11,14 +11,44 @@ from workflows import h3_config
 
 from .build_cmd import cmd_build, cmd_rebuild, cmd_words
 from .grading import cmd_grade, cmd_inspect
+from .helpers import _resolve_requested_families
 from .llm_pairs import SUPPORTED_LLM_PROVIDERS, cmd_generate_pairs
 from .make_cmds import cmd_from_md, cmd_make, cmd_make_media
 from .sculpt import cmd_sculpt
 
 CLI_DESCRIPTION = """Build, inspect, meter, and grade MiniMax H3 control vectors."""
 
+CLI_EPILOG = """H3 Model Families (--families):
+  MiniMax H3 has 2 DiT text-path (condition_proj + token_refiner) families:
+    fl2va  : Video T2VA / FL2VA / I2VA  AND  P-H3-Image (both Image T2I and Image Edit)
+    ref2va : Video Ref2VA / Guide Video Edit / Masked V2V
+    both   : (default) Builds both <name>__fl2va__*.safetensors and <name>__ref2va__*.safetensors
+             in a single pass, covering all 4 workflows (Video fl2va, Video ref2va, Image T2I,
+             and Image Edit). At runtime, MiniMaxH3ApplyControlVectors automatically swaps to
+             the matching family sibling when both files exist in models/control_vectors/."""
+
+_FAMILIES_METAVAR = "{both,fl2va,ref2va}"
+_FAMILIES_HELP = (
+    "H3 text-path family to build: 'both' (default: writes fl2va + ref2va, covering Video fl2va, "
+    "Video ref2va, Image T2I, and Image Edit), 'fl2va' (Video T2VA/FL2VA/I2VA + P-H3-Image T2I/Edit; "
+    "aliases: 'image', 't2i', 'image_edit'), or 'ref2va' (Video Ref2VA)"
+)
+
+
+def _validate_families_arg(raw: str) -> str:
+    try:
+        _resolve_requested_families(raw)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(str(exc)) from exc
+    return raw
+
+
 def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(description=CLI_DESCRIPTION)
+    p = argparse.ArgumentParser(
+        description=CLI_DESCRIPTION,
+        epilog=CLI_EPILOG,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     sub = p.add_subparsers(dest="cmd", required=True)
 
     pui = sub.add_parser(
@@ -135,9 +165,10 @@ def build_parser() -> argparse.ArgumentParser:
     )
     pb.add_argument(
         "--families",
-        choices=("both", "fl2va", "ref2va", "auto", "fl2va,ref2va", "ref2va,fl2va"),
+        type=_validate_families_arg,
+        metavar=_FAMILIES_METAVAR,
         default="both",
-        help="Which H3 model families to build vectors for in one pass (default: 'both' builds fl2va and ref2va)",
+        help=_FAMILIES_HELP,
     )
     pb.add_argument(
         "--pooling",
@@ -145,7 +176,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Pooling mode or comma-separated modes (e.g. 'diff_span', 'from_first_diff', 'scene_text', or 'all'; default: 'diff_span')",
     )
     pb.add_argument("--name", default=None, help="Optional vector name / file stem override")
-    pb.add_argument("--output-name", dest="output_name", default="", help="Optional vector stem override")
+    pb.add_argument("--output-name", dest="output_name", default="", help=argparse.SUPPRESS)
     pb.add_argument("--mode", choices=cv.VALID_MODES, default=None, help="Explicit mode override when importing .md or compiling --words")
     pb.add_argument("--frame", choices=cv.VALID_FRAMES, default="scene", help="Pair frame ('scene' or 'bare')")
     pb.add_argument("--quality", default=None, help="Optional vector.quality description override")
@@ -201,9 +232,10 @@ def build_parser() -> argparse.ArgumentParser:
     pm.add_argument("--pooling", choices=cv.VALID_POOLING, default="diff_span")
     pm.add_argument(
         "--families",
-        choices=("both", "fl2va", "ref2va", "auto", "fl2va,ref2va", "ref2va,fl2va"),
+        type=_validate_families_arg,
+        metavar=_FAMILIES_METAVAR,
         default="both",
-        help="Which H3 model families to build when --out and --dit are omitted (default: 'both' writes fl2va and ref2va)",
+        help=_FAMILIES_HELP,
     )
     pm.add_argument("--unit-mean", dest="unit_mean", action="store_true", help="Average unit-normalized pair directions")
     pm.add_argument("--dit", dest="dit", default=None, help="DiT diffusion checkpoint filename")
@@ -216,7 +248,7 @@ def build_parser() -> argparse.ArgumentParser:
     pm.add_argument("--no-holds", action="store_true", help="Do not project out [[hold]] groups")
     pm.add_argument("--include-encoder", dest="include_encoder", action="store_true", default=True, help="Also save vector.encoder (5120-d; default: True)")
     pm.add_argument("--no-encoder", dest="include_encoder", action="store_false", help="Omit vector.encoder (5120-d) from saved .safetensors")
-    pm.add_argument("--output-name", default="", help="Optional vector stem override")
+    pm.add_argument("--name", "--output-name", dest="output_name", default="", help="Optional vector name / file stem override")
     pm.add_argument("--seed", type=int, default=0)
     pm.add_argument("--device", default="default")
     pm.add_argument("--refiner-device", default="cpu")
@@ -229,12 +261,13 @@ def build_parser() -> argparse.ArgumentParser:
     )
     pmm.add_argument("--image-a", required=True, help="Baseline/negative pole image path or data URL (or comma-separated list)")
     pmm.add_argument("--image-b", required=True, help="Positive/steered pole image path or data URL (or comma-separated list)")
-    pmm.add_argument("--output-name", default="media_contrast", help="Output vector stem (default: 'media_contrast')")
+    pmm.add_argument("--name", "--output-name", dest="output_name", default="media_contrast", help="Output vector stem (default: 'media_contrast')")
     pmm.add_argument(
         "--families",
-        choices=("both", "fl2va", "ref2va", "auto", "fl2va,ref2va", "ref2va,fl2va"),
+        type=_validate_families_arg,
+        metavar=_FAMILIES_METAVAR,
         default="ref2va",
-        help="Which H3 model families to build media vectors for (default: 'ref2va')",
+        help="H3 text-path family to build media vectors for ('both', 'fl2va', or 'ref2va'; default: 'ref2va')",
     )
     pmm.add_argument("--pooling", choices=cv.VALID_MEDIA_POOLING, default="scene_text")
     pmm.add_argument("--short-edge", type=int, default=512, help="Target shorter edge in pixels (snapped to 32)")
@@ -279,12 +312,13 @@ def build_parser() -> argparse.ArgumentParser:
     )
     psculpt.add_argument("--prompt", default="", help="Optional target H3 scene prompt for prompt-coupling readout")
     psculpt.add_argument("--name", default=None, help="Output vector stem")
-    psculpt.add_argument("--output-name", dest="output_name", default="", help="Output vector stem override")
+    psculpt.add_argument("--output-name", dest="output_name", default="", help=argparse.SUPPRESS)
     psculpt.add_argument(
         "--families",
-        choices=("both", "fl2va", "ref2va", "auto", "fl2va,ref2va", "ref2va,fl2va"),
+        type=_validate_families_arg,
+        metavar=_FAMILIES_METAVAR,
         default="both",
-        help="Which H3 model families to write (default: 'both' writes fl2va and ref2va)",
+        help=_FAMILIES_HELP,
     )
     psculpt.add_argument("--out-dir", dest="out_dir", default=None, help="Optional output directory")
     psculpt.add_argument("--overwrite", action="store_true", default=True, help="Overwrite existing output files (default: True)")
@@ -386,12 +420,13 @@ def build_parser() -> argparse.ArgumentParser:
         help="Attenuation alpha in [0.0, 2.0] for --hold-words (default: 1.0)",
     )
     pw.add_argument("--name", default=None, help="Optional output vector stem override")
-    pw.add_argument("--output-name", dest="output_name", default="", help="Optional output vector stem override")
+    pw.add_argument("--output-name", dest="output_name", default="", help=argparse.SUPPRESS)
     pw.add_argument(
         "--families",
-        choices=("both", "fl2va", "ref2va", "auto", "fl2va,ref2va", "ref2va,fl2va"),
+        type=_validate_families_arg,
+        metavar=_FAMILIES_METAVAR,
         default="both",
-        help="Which H3 model families to synthesize (default: 'both' writes fl2va and ref2va)",
+        help=_FAMILIES_HELP,
     )
     pw.add_argument("--out-dir", dest="out_dir", default=None, help="Optional output directory for .safetensors files")
 
@@ -482,15 +517,17 @@ def build_parser() -> argparse.ArgumentParser:
     )
     preb.add_argument(
         "--families",
-        choices=("both", "fl2va", "ref2va", "auto", "fl2va,ref2va", "ref2va,fl2va"),
+        type=_validate_families_arg,
+        metavar=_FAMILIES_METAVAR,
         default="both",
-        help="Which H3 model families to rebuild (default: 'both' for bank TOMLs or existing families on disk)",
+        help=_FAMILIES_HELP,
     )
     preb.add_argument(
         "--pooling",
         default="diff_span",
         help="Pooling mode when rebuilding from .toml or compiled pairs (default: 'diff_span')",
     )
+    preb.add_argument("--unit-mean", dest="unit_mean", action="store_true", help="Average unit-normalized pair directions when rebuilding from pairs")
     preb.add_argument("--dit", dest="dit", default=None, help="Explicit DiT diffusion checkpoint filename override")
     preb.add_argument("--unet", dest="dit", default=None, help=argparse.SUPPRESS)
     preb.add_argument("--encoder", default=None, help="Text encoder checkpoint filename")

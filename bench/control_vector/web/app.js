@@ -3,6 +3,7 @@ const APP = {
   vectors: [],
   tomlPacks: [],
   expandedPairs: [],
+  expandedHolds: [],
   sculptRows: [],
   mediaDataUrlA: null,
   mediaDataUrlB: null,
@@ -214,10 +215,32 @@ function prefillJLens(fileOrStem) {
   runJLensInspect();
 }
 
+async function rebuildAllVectors(target = '') {
+  try {
+    setStatus(target ? `Rebuilding ${target}...` : 'Rebuilding / syncing library...', 'busy');
+    renderBanner('lib-status-box', `Running <code>rebuild</code> across <code>models/control_vectors/</code> and <code>prompt_bank/control_vectors/</code>...`);
+    const res = await apiPost('/api/rebuild', {
+      target,
+      families: APP.families
+    });
+    await loadInitData();
+    const nBuilt = (res.rebuilt || res.built || []).length;
+    renderBanner('lib-status-box', `<strong>Library sync complete!</strong> Rebuilt/verified ${nBuilt} vector file(s); ${APP.vectors.length} total vectors in library.`);
+    setStatus(`Synced • ${APP.vectors.length} vectors`, 'ok');
+  } catch (err) {
+    renderBanner('lib-status-box', `Rebuild error: ${escapeHtml(err.message)}`, true);
+    setStatus('Rebuild failed', 'err');
+  }
+}
+
 /* ========================================================================= */
 /* SCREEN 2: CLAUSE CONTRAST BUILDER                                         */
 /* ========================================================================= */
 function fillClauseExample(kind) {
+  APP.expandedPairs = [];
+  APP.expandedHolds = [];
+  const pairsCard = document.getElementById('clause-pairs-card');
+  if (pairsCard) pairsCard.style.display = 'none';
   if (kind === 'scorching') {
     document.getElementById('clause-name').value = 'scorching_heatwave';
     document.getElementById('clause-slot').value = 'opening_framing';
@@ -263,9 +286,17 @@ async function expandClauseScenes() {
       prompt_b: p.b || p.prompt_b || '',
       weight: p.weight ?? 1.0
     }));
+    APP.expandedHolds = (data.holds || []).map((h, idx) => ({
+      index: h.index ?? idx,
+      group: h.group || 'nuisance',
+      weight: h.weight ?? 1.0,
+      a: h.a || '',
+      b: h.b || ''
+    }));
     renderExpandedClausePairs();
     document.getElementById('clause-pairs-card').style.display = 'block';
-    renderBanner('clause-status-box', `Generated <strong>${APP.expandedPairs.length} matched H3 scene pairs</strong>. Review or edit any pair below, or click <strong>Encode &amp; Build Control Vector Now (GPU)</strong>.`);
+    const holdsNote = APP.expandedHolds.length ? ` and <strong>${APP.expandedHolds.length} nuisance hold pair(s)</strong>` : '';
+    renderBanner('clause-status-box', `Generated <strong>${APP.expandedPairs.length} matched H3 scene pairs</strong>${holdsNote}. Review or edit any pair below, or click <strong>Encode &amp; Build Control Vector Now (GPU)</strong>.`);
     setStatus('10 pairs ready', 'ok');
   } catch (err) {
     renderBanner('clause-status-box', `Error expanding scenes: ${escapeHtml(err.message)}`, true);
@@ -303,9 +334,15 @@ function renderExpandedClausePairs() {
 }
 
 function buildMarkdownFromExpandedPairs() {
-  return APP.expandedPairs.map((p, idx) =>
-    `#### Pair ${idx + 1} — ${p.label}\n##### Prompt A (Baseline)\n${p.prompt_a.trim()}\n\n##### Prompt B (Steered)\n${p.prompt_b.trim()}\n`
-  ).join('\n');
+  const pairBlocks = APP.expandedPairs.map((p, idx) => {
+    const wVal = Number(p.weight ?? 1.0);
+    const wSuffix = Math.abs(wVal - 1.0) > 1e-6 ? ` (weight=${wVal})` : '';
+    return `#### Pair ${idx + 1} — ${p.label}${wSuffix}\n##### Prompt A (Baseline)\n${p.prompt_a.trim()}\n\n##### Prompt B (Steered)\n${p.prompt_b.trim()}\n`;
+  });
+  const holdBlocks = (APP.expandedHolds || []).map((h, idx) =>
+    `#### Hold ${idx + 1} (${h.group || 'nuisance'})\n##### Prompt A (Baseline)\n${(h.a || '').trim()}\n\n##### Prompt B (Steered)\n${(h.b || '').trim()}\n`
+  );
+  return pairBlocks.concat(holdBlocks).join('\n');
 }
 
 async function buildFromClauseScreen() {
@@ -320,6 +357,8 @@ async function buildFromClauseScreen() {
 
     const mdText = buildMarkdownFromExpandedPairs();
     const saveToml = document.getElementById('clause-save-toml').checked;
+    const slotVal = document.getElementById('clause-slot').value;
+    const holdTextVal = document.getElementById('clause-hold-text').value.trim();
     const rowsPayload = APP.expandedPairs.map((p, idx) => ({
       index: idx,
       a: p.prompt_a,
@@ -330,9 +369,12 @@ async function buildFromClauseScreen() {
 
     const res = await apiPost('/api/build', {
       name,
+      slot: slotVal,
       families: APP.families,
       text: mdText,
       rows: rowsPayload,
+      holds: APP.expandedHolds,
+      hold_b: holdTextVal,
       save_toml: saveToml,
       overwrite: true
     });

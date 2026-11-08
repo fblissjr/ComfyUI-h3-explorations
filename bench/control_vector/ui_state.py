@@ -230,7 +230,7 @@ def _preview_markdown_pairs(
             parsed = {
                 "mode": ps.mode,
                 "test_scene_prompt": "",
-                "pairs": [{"a": p.a, "b": p.b} for p in ps.pairs],
+                "pairs": [{"a": p.a, "b": p.b, "weight": float(p.weight)} for p in ps.pairs],
                 "holds": [],
             }
     except ValueError as exc:
@@ -381,6 +381,7 @@ def _build_pairset_from_ui_rows(
     *,
     holds: list[dict[str, Any]] | None = None,
     name: str = "",
+    quality: str | None = None,
     slot: str = "auto",
     mode: str = "t2va",
     frame: str = "scene",
@@ -416,23 +417,49 @@ def _build_pairset_from_ui_rows(
                 )
             )
         hold_items: list[cv.HoldItem] = []
+        short_hold_specs: list[dict[str, Any]] = []
         for h_idx, hr in enumerate(holds or ()):
             ha = str(hr.get("a", "")).strip()
             hb = str(hr.get("b", "")).strip()
-            if not ha or not hb:
+            if not hb:
                 continue
-            ha_sp, hb_sp = cv.differing_span(ha, hb, frame=frame, label=f"hold[{h_idx}]")
-            hold_items.append(
-                cv.HoldItem(
-                    index=h_idx,
-                    group=str(hr.get("group", "nuisance") or "nuisance"),
-                    weight=float(hr.get("weight", 1.0)),
-                    a=ha,
-                    b=hb,
-                    a_span=ha_sp,
-                    b_span=hb_sp,
+            is_full_hold = (
+                bool(ha)
+                and (
+                    frame == "bare"
+                    or "integrated_multimodal_description:" in hb
+                    or "detailed_description:" in hb
                 )
             )
+            if is_full_hold:
+                ha_sp, hb_sp = cv.differing_span(ha, hb, frame=frame, label=f"hold[{h_idx}]")
+                hold_items.append(
+                    cv.HoldItem(
+                        index=len(hold_items),
+                        group=str(hr.get("group", "nuisance") or "nuisance"),
+                        weight=float(hr.get("weight", 1.0)),
+                        a=ha,
+                        b=hb,
+                        a_span=ha_sp,
+                        b_span=hb_sp,
+                    )
+                )
+            else:
+                short_hold_specs.append(hr)
+        if short_hold_specs:
+            compiled_short_holds = pair_compiler._compile_hold_items(short_hold_specs, mode=mode)
+            for ch in compiled_short_holds:
+                hold_items.append(
+                    cv.HoldItem(
+                        index=len(hold_items),
+                        group=ch.group,
+                        weight=ch.weight,
+                        a=ch.a,
+                        b=ch.b,
+                        a_span=ch.a_span,
+                        b_span=ch.b_span,
+                    )
+                )
         a_side_val = pair_items[0].a_span[:72]
         b_side_val = pair_items[0].b_span[:72]
         resolved_name = (name or pair_compiler._slugify_name(b_side_val)).strip()
@@ -452,7 +479,7 @@ def _build_pairset_from_ui_rows(
             path=Path(f"<workbench:{resolved_name}>"),
             sha256=digest,
             name=resolved_name,
-            quality=f"{b_side_val} vs. {a_side_val}",
+            quality=str(quality or "").strip() or f"{b_side_val} vs. {a_side_val}",
             a_side=a_side_val,
             b_side=b_side_val,
             mode=mode,
@@ -508,6 +535,7 @@ def _build_pairset_from_ui_rows(
     return pair_compiler.compile_words_to_pairset(
         clauses,
         name=name or None,
+        quality=str(quality or "").strip() or None,
         slot=slot,
         mode=mode,
         n_pairs=min(10, max(1, len(clauses))),
@@ -548,6 +576,23 @@ def _repool_cached_build(
         enc_a_mat: torch.Tensor | None = entry["enc_a_mat"]
         enc_b_mat: torch.Tensor | None = entry["enc_b_mat"]
         n_total = int(a_mat.shape[0])
+        eff_unit_mean = bool(req["unit_mean"]) if "unit_mean" in req else bool(entry.get("unit_mean", False))
+        eff_hold_words = (
+            (str(req.get("hold_words", "") or "").strip() or None)
+            if "hold_words" in req
+            else entry.get("hold_words")
+        )
+        eff_hold_alpha = float(req.get("hold_alpha", entry.get("hold_alpha", 1.0)))
+        eff_hold_vectors = (
+            (req.get("hold_vectors") or [])
+            if "hold_vectors" in req
+            else (entry.get("hold_specs") or [])
+        )
+        eff_prompt_req = (
+            (str(req.get("prompt", "") or "").strip() or None)
+            if "prompt" in req
+            else entry.get("prompt")
+        )
 
         # Check if any row's text was edited; if so, re-encode only that dirty row
         if isinstance(rows_req, list) and len(rows_req) == n_total:
@@ -667,7 +712,7 @@ def _repool_cached_build(
         b_sub = b_mat[active_indices]
         w_sub = torch.tensor([eff_weights[i] for i in active_indices], dtype=torch.float32)
 
-        raw_vec = cv.mean_difference(a_sub, b_sub, w_sub, unit_mean=unit_mean)
+        raw_vec = cv.mean_difference(a_sub, b_sub, w_sub, unit_mean=eff_unit_mean)
         tensors_to_save: dict[str, torch.Tensor] = {}
 
         hold_a = list(entry["hold_a_list"]) + [a_mat[hi] for hi in sorted(hold_idx_set)]
@@ -690,14 +735,16 @@ def _repool_cached_build(
         applied_holds: list[str] = []
         norm_bef = 0.0
         norm_aft = 0.0
-        if hold_vectors or hold_words:
+        if eff_hold_vectors or eff_hold_words:
             final_vec, applied_holds, norm_bef, norm_aft = _apply_post_refiner_holds(
                 final_vec,
                 family=family,
-                hold_specs=hold_vectors,
-                hold_words=hold_words,
-                hold_alpha=hold_alpha,
-                prompt=prompt_req,
+                hold_specs=eff_hold_vectors,
+                hold_words=eff_hold_words,
+                hold_alpha=eff_hold_alpha,
+                prompt=eff_prompt_req,
+                extra_basis=tensors_to_save.get("holds.post_refiner"),
+                extra_dir=state.vec_dir,
             )
 
         tensors_to_save["vector.post_refiner"] = final_vec
@@ -730,7 +777,7 @@ def _repool_cached_build(
                 enc_a_mat[active_indices],
                 enc_b_mat[active_indices],
                 w_sub,
-                unit_mean=unit_mean,
+                unit_mean=eff_unit_mean,
             )
             enc_hold_a = list(entry.get("enc_hold_a_list") or []) + [
                 enc_a_mat[hi] for hi in sorted(hold_idx_set)
@@ -761,10 +808,10 @@ def _repool_cached_build(
         if j_lens.bundle_available():
             try:
                 jl_readout = j_lens.decode_vector(final_vec, space="post_refiner", family=family)
-                if prompt_req:
+                if eff_prompt_req:
                     jl_readout["prompt_coupling"] = j_lens.analyze_prompt_coupling(
                         final_vec,
-                        prompt_req,
+                        eff_prompt_req,
                         readout=jl_readout,
                         family=family,
                     )
@@ -783,6 +830,8 @@ def _repool_cached_build(
             "pair_spans": [entry["pair_spans"][i] for i in active_indices],
         }
         if str(entry["rel_pair_path"]).startswith("<"):
+            pairs_dict_repool["words_spec"] = str(entry.get("words_spec", "") or "")
+            pairs_dict_repool["slot"] = str(entry.get("slot", "auto") or "auto")
             pairs_dict_repool["pairs_ab"] = [
                 {
                     "a": entry["pairs_ab"][i][0],
@@ -791,6 +840,20 @@ def _repool_cached_build(
                 }
                 for i in active_indices
             ]
+            holds_ab_repool = [
+                {"group": h.group, "a": h.a, "b": h.b, "weight": float(h.weight)}
+                for h in pair_set.holds
+            ] + [
+                {
+                    "group": f"pair_{hi}",
+                    "a": entry["pairs_ab"][hi][0],
+                    "b": entry["pairs_ab"][hi][1],
+                    "weight": 1.0,
+                }
+                for hi in sorted(hold_idx_set)
+            ]
+            if holds_ab_repool:
+                pairs_dict_repool["holds_ab"] = holds_ab_repool
         metadata: dict[str, Any] = {
             "format": cv.FORMAT_VERSION,
             "name": entry["stem"],
@@ -815,7 +878,7 @@ def _repool_cached_build(
                     {
                         "applied_holds": {
                             "holds": applied_holds,
-                            "alpha": hold_alpha,
+                            "alpha": eff_hold_alpha,
                             "norm_before": round(norm_bef, 4),
                             "norm_after_raw": round(norm_aft, 4),
                         }

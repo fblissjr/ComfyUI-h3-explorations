@@ -172,12 +172,29 @@ def _load_encoded_references(
     return encoded_refs
 
 
+_FL2VA_FAMILY_ALIASES: frozenset[str] = frozenset(
+    {
+        "fl2va",
+        "t2va",
+        "i2va",
+        "image",
+        "p-h3-image",
+        "p_h3_image",
+        "t2i",
+        "image_t2i",
+        "image-t2i",
+        "image_edit",
+        "image-edit",
+    }
+)
+
+
 def _resolve_requested_families(
     raw: Any,
     *,
     auto_family: str | None = None,
 ) -> list[str]:
-    """Normalize family selector ('both', 'auto', 'fl2va,ref2va', 'fl2va', 'ref2va') into a list of families."""
+    """Normalize family selector ('both', 'fl2va', 'ref2va', 'auto', or aliases like 'image', 't2i', 'image_edit') into a list of families."""
     if isinstance(raw, (list, tuple)):
         items = [str(x).strip().lower() for x in raw if str(x).strip()]
     else:
@@ -197,12 +214,15 @@ def _resolve_requested_families(
             f_auto = auto_family if auto_family in ("fl2va", "ref2va") else "fl2va"
             if f_auto not in out:
                 out.append(f_auto)
-        elif item in ("fl2va", "ref2va"):
-            if item not in out:
-                out.append(item)
+        elif item in _FL2VA_FAMILY_ALIASES:
+            if "fl2va" not in out:
+                out.append("fl2va")
+        elif item == "ref2va":
+            if "ref2va" not in out:
+                out.append("ref2va")
         else:
             raise ValueError(
-                f"unknown family {item!r}; expected 'both', 'fl2va', 'ref2va', or 'fl2va,ref2va'"
+                f"unknown family {item!r}; expected 'both' (fl2va + ref2va), 'fl2va' (Video T2VA/FL2VA/I2VA + Image T2I/Edit), or 'ref2va' (Video Ref2VA)"
             )
     return out or ["fl2va", "ref2va"]
 
@@ -320,6 +340,8 @@ def _apply_post_refiner_holds(
     hold_words: str | None = None,
     hold_alpha: float = 1.0,
     prompt: str | None = None,
+    extra_basis: torch.Tensor | None = None,
+    extra_dir: Path | None = None,
 ) -> tuple[torch.Tensor, list[str], float, float]:
     """Project out optional `--hold` `.safetensors` vectors and/or `--hold-words` via `j_lens.apply_soft_holds`,
     preserving the vector's pre-hold L2 norm so its native pair-difference magnitude and recommended strength band remain calibrated.
@@ -333,7 +355,7 @@ def _apply_post_refiner_holds(
     for h_spec in (hold_specs or ()):
         if not str(h_spec).strip():
             continue
-        h_path = _resolve_vector_for_family(str(h_spec).strip(), family=family)
+        h_path = _resolve_vector_for_family(str(h_spec).strip(), family=family, extra_dir=extra_dir)
         ht, hname, _ = j_lens._load_vector_from_source(h_path, space="post_refiner")
         hold_tensors.append(ht)
         hold_labels.append(hname)
@@ -347,6 +369,8 @@ def _apply_post_refiner_holds(
     if not hold_tensors:
         return final_vec, [], norm_before, norm_before
     scrubbed = j_lens.apply_soft_holds(final_vec, hold_tensors, alpha=a_val)
+    if extra_basis is not None and extra_basis.numel() > 0:
+        scrubbed = cv.project_out(scrubbed, extra_basis)
     norm_after_raw = float(torch.linalg.vector_norm(scrubbed.to(dtype=torch.float64)).item())
     if norm_after_raw <= 1e-6 * max(1.0, norm_before):
         raise ValueError("holds completely cancelled the control vector (residual norm is zero)")
@@ -590,8 +614,9 @@ def _pair_set_to_markdown(toml_path: Path | None, ps: cv.PairSet) -> str:
         chunks.append(f"### Test Scene Prompt\n\n{tp_txt}\n")
     chunks.append(f"### Contrastive Pairs (1–{len(ps.pairs)})\n")
     for idx, item in enumerate(ps.pairs, start=1):
+        w_tag = f" (weight={item.weight:g})" if round(float(item.weight), 6) != 1.0 else ""
         chunks.append(
-            f"#### Pair {idx}\n"
+            f"#### Pair {idx}{w_tag}\n"
             f"##### Prompt A (Baseline)\n{item.a}\n\n"
             f"##### Prompt B (Steered)\n{item.b}\n"
         )

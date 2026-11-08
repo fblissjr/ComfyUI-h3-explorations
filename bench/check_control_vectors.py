@@ -3421,14 +3421,18 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
                 if st_exp != 200 or not exp_json.get("ok") or len(exp_json.get("rows", [])) != 10:
                     errs.append(f"POST /api/expand-scenes failed: {exp_json}")
 
-                # Verify families="fl2va,ref2va" and save_toml=True on /api/build
+                # Verify families="fl2va,ref2va", save_toml=True, custom pair weights, axis quality, and holds on /api/build
+                weighted_rows = [dict(r) for r in exp_json.get("rows", [])]
+                weighted_rows[0]["weight"] = 2.5
                 st_fams, _, body_fams = bench_cv.handle_ui_request(
                     ui_state,
                     "POST",
                     "/api/build",
                     json.dumps(
                         {
-                            "rows": exp_json.get("rows", []),
+                            "rows": weighted_rows,
+                            "hold_b": "wet rain-slicked cobblestones",
+                            "axis": "scorching desert heatwave vs cool afternoon air",
                             "name": "scorching_dual",
                             "families": "fl2va,ref2va",
                             "pooling": "diff_span",
@@ -3446,6 +3450,56 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
                     or not (build_toml_dir / "scorching_dual.toml").is_file()
                 ):
                     errs.append(f"POST /api/build with families='fl2va,ref2va' and save_toml=True failed: {fams_json}")
+                else:
+                    ps_dual = cv.load_pairs(build_toml_dir / "scorching_dual.toml")
+                    if round(ps_dual.pairs[0].weight, 4) != 2.5:
+                        errs.append(f"POST /api/build with save_toml=True dropped pair[0] weight=2.5 in .toml: got {ps_dual.pairs[0].weight}")
+                    if ps_dual.quality != "scorching desert heatwave vs cool afternoon air":
+                        errs.append(f"POST /api/build with axis=... did not save quality in .toml: got {ps_dual.quality!r}")
+                    if len(ps_dual.holds) == 0:
+                        errs.append("POST /api/build with hold_b=... did not compile holds into .toml")
+                    t_dual0, m_dual0 = cv.load_vector(build_vec_dir / fams_json["built"][0]["file"])
+                    if round(float(m_dual0["pairs"]["pair_spans"][0]["weight"]), 4) != 2.5:
+                        errs.append(f"POST /api/build with save_toml=True dropped pair[0] weight=2.5 in built vector: got {m_dual0['pairs']['pair_spans'][0]['weight']}")
+                    if "holds.post_refiner" not in t_dual0:
+                        errs.append("POST /api/build with hold_b=... did not save holds.post_refiner")
+                    # Also verify combining [[hold]] pairs (holds.post_refiner) with hold_vectors preserves orthogonality
+                    st_hold_combo, _, body_hold_combo = bench_cv.handle_ui_request(
+                        ui_state,
+                        "POST",
+                        "/api/build",
+                        json.dumps(
+                            {
+                                "rows": weighted_rows[:2],
+                                "hold_b": "wet rain-slicked cobblestones",
+                                "hold_vectors": [fams_json["built"][0]["file"]],
+                                "name": "scorching_hold_combo",
+                                "families": "fl2va",
+                                "pooling": "diff_span",
+                                "no_lora": True,
+                                "overwrite": True,
+                            }
+                        ).encode("utf-8"),
+                    )
+                    hold_combo_json = json.loads(body_hold_combo)
+                    if st_hold_combo != 200 or not hold_combo_json.get("ok"):
+                        errs.append(f"POST /api/build combining hold_b and hold_vectors failed: {hold_combo_json}")
+                    # Verify POST /api/rebuild route
+                    st_reb_ui, _, body_reb_ui = bench_cv.handle_ui_request(
+                        ui_state,
+                        "POST",
+                        "/api/rebuild",
+                        json.dumps(
+                            {
+                                "target": "scorching_dual",
+                                "families": "fl2va,ref2va",
+                                "no_lora": True,
+                            }
+                        ).encode("utf-8"),
+                    )
+                    reb_ui_json = json.loads(body_reb_ui)
+                    if st_reb_ui != 200 or not reb_ui_json.get("ok") or len(reb_ui_json.get("rebuilt", [])) != 2:
+                        errs.append(f"POST /api/rebuild failed: {reb_ui_json}")
 
                 # Verify /api/sculpt and CLI sculpt --invert (and _resolve_vector_for_family sibling swapping)
                 st_sc, _, body_sc = bench_cv.handle_ui_request(
@@ -3553,6 +3607,14 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
                 )
                 if gp_pos.concept != "calm -> scorching" or gp_flag.concept_flag != "calm -> scorching" or gp_flag.out_toml != "my_vec.toml":
                     errs.append(f"generate-pairs parser mismatch: pos={gp_pos}, flag={gp_flag}")
+
+                # Verify clean --families metavar in --help (no repeating fl2va,ref2va) and image/t2i/image_edit aliases
+                top_help = bench_cv.build_parser().format_help()
+                if "fl2va,ref2va,ref2va,fl2va" in top_help or "H3 Model Families (--families):" not in top_help:
+                    errs.append("CLI top-level help missing H3 Model Families summary or has duplicated --families choices")
+                for img_alias in ("image", "p-h3-image", "t2i", "image_edit"):
+                    if bench_cv._resolve_requested_families(img_alias) != ["fl2va"]:
+                        errs.append(f"_resolve_requested_families({img_alias!r}) did not resolve to ['fl2va']")
 
                 web_dir = REPO / "bench" / "control_vector" / "web"
                 for web_fname in ("index.html", "app.js"):

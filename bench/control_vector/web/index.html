@@ -23,14 +23,16 @@
         <span style="font-size:12.5px;color:var(--text-secondary);font-weight:500;">Target DiT Families</span>
         <span class="help-tip" tabindex="0">?
           <span class="tip-box">
-            <strong>Target DiT Families</strong><br/>
-            <code>fl2va</code> is First/Last-Frame &amp; Text-to-Video. <code>ref2va</code> is Reference-to-Video. Building for <strong>Both</strong> saves matched <code>&lt;name&gt;__fl2va__*.safetensors</code> and <code>&lt;name&gt;__ref2va__*.safetensors</code> files so the vector works in every H3 workflow.
+            <strong>Target DiT Families (2 Total)</strong><br/>
+            &bull; <code>fl2va</code>: <strong>Video T2VA / FL2VA / I2VA</strong> <em>and</em> <strong>P-H3-Image (both Image T2I &amp; Image Edit)</strong>.<br/>
+            &bull; <code>ref2va</code>: <strong>Video Ref2VA / Guide Video Edit / Masked V2V</strong>.<br/>
+            Building for <strong>Both</strong> (default) saves matched <code>&lt;name&gt;__fl2va__*.safetensors</code> and <code>&lt;name&gt;__ref2va__*.safetensors</code> files so the vector works across all 4 workflows (Video <code>fl2va</code>, Video <code>ref2va</code>, Image T2I, and Image Edit).
           </span>
         </span>
         <div class="family-pill-group" id="global-family-group">
-          <button type="button" class="family-pill active" data-fam="fl2va,ref2va" onclick="setGlobalFamily('fl2va,ref2va')">Both (fl2va + ref2va)</button>
-          <button type="button" class="family-pill" data-fam="fl2va" onclick="setGlobalFamily('fl2va')">fl2va only</button>
-          <button type="button" class="family-pill" data-fam="ref2va" onclick="setGlobalFamily('ref2va')">ref2va only</button>
+          <button type="button" class="family-pill active" data-fam="fl2va,ref2va" onclick="setGlobalFamily('fl2va,ref2va')" title="Builds both fl2va (Video FL2VA/T2VA + Image T2I/Edit) and ref2va (Video Ref2VA)">Both (All Video + Image)</button>
+          <button type="button" class="family-pill" data-fam="fl2va" onclick="setGlobalFamily('fl2va')" title="Video T2VA/FL2VA/I2VA + P-H3-Image T2I &amp; Image Edit">fl2va (Video + Image T2I/Edit)</button>
+          <button type="button" class="family-pill" data-fam="ref2va" onclick="setGlobalFamily('ref2va')" title="Video Ref2VA / Guide Video Edit">ref2va (Video Ref2VA)</button>
         </div>
       </div>
       <div id="status-indicator" class="status-pill">Connecting...</div>
@@ -159,9 +161,11 @@
           </h3>
           <div style="display:flex;gap:10px;align-items:center;">
             <input type="text" id="lib-filter-input" placeholder="Filter vectors or .toml packs by name..." style="width:280px;" oninput="renderLibraryTables()" />
+            <button type="button" class="btn btn-sm" onclick="rebuildAllVectors()" title="Rebuild or sync all control vectors across fl2va and ref2va">Rebuild / Sync All</button>
             <button type="button" class="btn btn-sm" onclick="loadInitData()">Refresh Library</button>
           </div>
         </div>
+        <div id="lib-status-box"></div>
 
         <div class="grid-2">
           <div>

@@ -277,8 +277,8 @@ def cmd_build(args: argparse.Namespace) -> int:
                 if not cand_toml.is_file():
                     raise
                 existing_ps = cv.load_pairs(cand_toml, bank_dir=cv_nodes.PROMPT_BANK_DIR)
-                existing_ab = [(p.a, p.b) for p in existing_ps.pairs]
-                new_ab = [(p["a"], p["b"]) for p in parsed["pairs"]]
+                existing_ab = [(round(float(p.weight), 6), p.a, p.b) for p in existing_ps.pairs]
+                new_ab = [(round(float(p.get("weight", 1.0)), 6), p["a"], p["b"]) for p in parsed["pairs"]]
                 existing_holds = [(h.group, h.a, h.b) for h in existing_ps.holds]
                 new_holds = [(h["group"], h["a"], h["b"]) for h in parsed.get("holds", [])]
                 if existing_ab != new_ab or existing_holds != new_holds:
@@ -644,6 +644,8 @@ def cmd_build(args: argparse.Namespace) -> int:
                     hold_words=hold_words_build,
                     hold_alpha=hold_alpha_build,
                     prompt=prompt_build,
+                    extra_basis=tensors_to_save.get("holds.post_refiner"),
+                    extra_dir=out_dir,
                 )
 
             tensors_to_save["vector.post_refiner"] = final_vec
@@ -814,6 +816,13 @@ def cmd_build(args: argparse.Namespace) -> int:
                     "encoder_path": encoder_path,
                     "refiner_device": str(args.refiner_device),
                     "seed": int(args.seed),
+                    "unit_mean": bool(getattr(args, "unit_mean", False)),
+                    "hold_specs": list(hold_specs_build) if hold_specs_build else [],
+                    "hold_words": hold_words_build,
+                    "hold_alpha": hold_alpha_build,
+                    "prompt": prompt_build,
+                    "words_spec": words_arg or str(getattr(args, "_words_spec_saved", "") or ""),
+                    "slot": slot_arg,
                 }
             rec_band = [
                 round(50.0 / max(raw_norm, 1e-6), 2),
