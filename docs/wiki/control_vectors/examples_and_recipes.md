@@ -11,7 +11,7 @@ Every control vector type acts on a specific combination of **token spans** (`ma
 
 | Vector Type | Recommended Authoring Path | Recommended `MiniMaxH3ApplyControlVectors` Settings | Why It Works |
 |---|---|---|---|
-| **[Type 1: Film Stock, Optical Lenses & Color Grade](#type-1-film-stock-optical-lenses--color-grade)** | `build --words` (`opening_framing` slot) or `.toml` bank (`film_16mm_1974`, `vhs_1993`, `noir`) | `strength = 1.15`, `mode = "add_norm_matched"`, `mask = "scene_only"`, `0.00–1.00` *(or `0.33–1.00` to lock exact baseline pose)* | Steers emulsion grain, halation, and color grade across `scene` tokens while keeping `<Picture 1>`'s 3D Video VAE latents clean (`ref_vae_end_percent = 1.00`). |
+| **[Type 1: Film Stock, Optical Lenses & Color Grade](#type-1-film-stock-optical-lenses--color-grade)** | `build --words` (`opening_framing` slot) or `.toml` bank (`film_16mm_1974`, `vhs_1991_camcorder`, `noir`) | `strength = 1.15`, `mode = "add_norm_matched"`, `mask = "scene_only"`, `0.00–1.00` *(or `0.33–1.00` to lock exact baseline pose)* | Steers emulsion grain, halation, and color grade across `scene` tokens while keeping `<Picture 1>`'s 3D Video VAE latents clean (`ref_vae_end_percent = 1.00`). |
 | **[Type 2: Coupled Sight + Sound Atmosphere & Weather](#type-2-coupled-sight--sound-atmosphere--weather)** | `build --words` with coupled `opening_framing:` + `; soundscape:` clauses | `strength = 1.15`, `mode = "add_norm_matched"`, `mask = "scene_only"`, `video_scale = 1.0, audio_scale = 1.0` | Coupled `description + overall_soundscape` clauses steer both optical weather (heat haze, snow, bioluminescence) and ambient audio while `mask = "scene_only"` leaves `<d>...</d>` spoken dialogue untouched. |
 | **[Type 3: Physics, World Rules & Scene-Adaptive `{props}` Transforms](#type-3-physics-world-rules--scene-adaptive-props-transforms)** | `build --words` (`subject_behavior:` with `{props}` / `{surface}`) or 10 LLM pairs | `strength = 1.10–1.25`, `mode = "add_norm_matched"`, `start_percent = 0.00`, `mask = "scene_only"` *(or `mask = "after_dialogue"`)* | Physical/world rules must be active at `start_percent = 0.00` because H3 commits 3D object trajectories on steps `0..1`. |
 | **[Type 4: Camera Rig, Motion & Framing Energy](#type-4-camera-rig-motion--framing-energy)** | `build --words` (`camera_motion:` slot) or 10 LLM pairs | `strength = 1.00–1.20`, `mode = "add_norm_matched"`, `start_percent = 0.00`, `mask = "scene_only"`, `audio_scale = 0.0` | Isolates camera rig dynamics (handheld shake, whip-pans, floating drift) at `start_percent = 0.00` without altering lighting or audio. |
@@ -24,9 +24,9 @@ Every control vector type acts on a specific combination of **token spans** (`ma
 
 ## Type 1: Film Stock, Optical Lenses & Color Grade
 
-The canonical workflows [`workflows/h3_text_to_video_pika_control_vector_api.json`](../../../workflows/h3_text_to_video_pika_control_vector_api.json) and [`workflows/h3_image_ref_plus_text_to_video_pika_control_vector_api.json`](../../../workflows/h3_image_ref_plus_text_to_video_pika_control_vector_api.json) ship pre-configured with `film_16mm_1974`. You can also build your own optical look (such as Aerochrome infrared, bleach-bypass silver retention, or 1993 VHS camcorder tape) in ~12 seconds.
+The canonical workflows [`workflows/h3_text_to_video_pika_control_vector_api.json`](../../../workflows/h3_text_to_video_pika_control_vector_api.json), [`workflows/h3_image_ref_plus_text_to_video_pika_control_vector_api.json`](../../../workflows/h3_image_ref_plus_text_to_video_pika_control_vector_api.json), [`workflows/image/h3_p_h3_image_t2i_control_vector_api.json`](../../../workflows/image/h3_p_h3_image_t2i_control_vector_api.json), and [`workflows/image/h3_p_h3_image_edit_control_vector_api.json`](../../../workflows/image/h3_p_h3_image_edit_control_vector_api.json) ship pre-configured with `film_16mm_1974`. You can also build your own optical look (such as Kodak Aerochrome infrared, bleach-bypass silver retention, or 1993 VHS camcorder tape) in ~12 seconds.
 
-### Option A — Build from a Shipped `.toml` Bank (`film_16mm_1974`, `vhs_1993`, `noir`)
+### Option A — Build from a Shipped `.toml` Bank (`film_16mm_1974`, `vhs_1991_camcorder`, `noir`)
 ```bash
 COMFY="$(cd ../.. && pwd)"
 PY="$COMFY/.venv/bin/python"
@@ -50,7 +50,7 @@ PY="$COMFY/.venv/bin/python"
 
 ### How to Use It in ComfyUI (`MiniMaxH3ApplyControlVectors`)
 - **Full-schedule optical + lighting steer (`start_percent = 0.00, end_percent = 1.00`)**:
-  - `vector_name`: `film_16mm_1974__fl2va__diff_span__lora_2a8c2b52.safetensors` (for `t2va`) or `film_16mm_1974__ref2va__diff_span__lora_865ee189.safetensors` (for `ref2va`)
+  - `vector_name`: `film_16mm_1974__fl2va__diff_span__lora_2a8c2b52.safetensors` (for `t2va`, `fl2va`, and `P-H3-Image` T2I / Edit) or `film_16mm_1974__ref2va__diff_span__lora_865ee189.safetensors` (for `ref2va` video and `P-H3-Image` Guide Edit; [`resolve_vector_file_path`](../../../control_vector_nodes.py#L1535-L1605) auto-swaps `__fl2va__` $\leftrightarrow$ `__ref2va__` and LoRA/base siblings to match the loaded model)
   - `strength = 1.15`, `mode = "add_norm_matched"`, `mask = "scene_only"`, `ref_vae_end_percent = 1.00`
 - **Pose-locked optical grade (`start_percent = 0.33, end_percent = 1.00`)**:
   - On an 8-step Pika workflow, setting `start_percent = 0.33` lets steps `0` and `1` run unsteered—locking the exact actor pose, camera framing, and blocking of your unsteered baseline seed—while steps `2..7` apply the 16mm grain, halation, and color grade on top.

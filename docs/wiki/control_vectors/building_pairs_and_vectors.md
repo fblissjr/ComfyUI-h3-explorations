@@ -48,8 +48,10 @@ Regardless of whether your 10 pairs were created via `--words` templates or via 
    Extracted directly from the target DiT checkpoint (`fl2va` or `ref2va`, plus Pika LoRA deltas when active) via [`control_vector_nodes.py::build_refiner_runner`](../../../control_vector_nodes.py) without loading the 50 DiT transformer blocks (`< 0.3 GB` RAM instead of `24 GB` VRAM).
 
 > [!IMPORTANT]
-> **Why `fl2va` and `ref2va` have separate `.safetensors` files**:
-> `fl2va` (`t2va`/`i2va`) and `ref2va` have different `condition_proj` and `token_refiner` weights (cross-family cosine on identical pairs is only `~0.19`). `bench/control_vectors.py build` encodes your 10 pairs through `Qwen3-VL` **once** and runs both lightweight `TokenRefiner` runners (`--families both`) so you get matched `fl2va` and `ref2va` files in a single pass.
+> **Why `fl2va` and `ref2va` have separate `.safetensors` files — and how same-family video/image compatibility works**:
+> `fl2va` and `ref2va` have different `condition_proj` and `token_refiner` weights (cross-family cosine on identical pairs is only `~0.19`). Both `bench/control_vectors.py build` and `bench/control_vectors.py make` default to `--families both`: they encode your 10 pairs through `Qwen3-VL` **once**, attach the standard Pika `svd995_bf16` LoRA per family (`PIKA_FL2VA_SVD995_LORA` / `PIKA_REF2VA_SVD995_LORA`, unless `--no-lora` is passed), and run both lightweight `TokenRefiner` runners so you get matched `__fl2va__` and `__ref2va__` files in a single pass.
+> - **`fl2va` family vectors (`__fl2va__`)** work across all `fl2va` video checkpoints (`minimax_h3_fl2va_{pruned_int8_convrot,int8_convrot,bf16}.safetensors`, base or with `pika_h3_flex_fl2va_*` LoRAs) **and** PrunaAI `P-H3-Image` single-frame T2I and 1–8 reference image editing (`p-h3-image_int8_convrot.safetensors` standalone or `h3/p-h3-image_lora_bf16.safetensors` on `unet_fl2va`).
+> - **`ref2va` family vectors (`__ref2va__`)** work across all `ref2va` video checkpoints (`minimax_h3_ref2va_{pruned_int8_convrot,int8_convrot,bf16}.safetensors`, base or with `pika_h3_flex_ref2va_*` LoRAs) **and** `ref2va` Guide Video / Single-Frame Guide Edit workflows (`minimax_h3_{vfx_edit,inpainting,camera_control,motion_transfer}_v1.0_r128_ffp.safetensors` and `h3_p_h3_image_guide_edit_api.json`).
 
 ---
 

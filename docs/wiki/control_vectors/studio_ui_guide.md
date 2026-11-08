@@ -29,7 +29,7 @@ The Control Vector Studio is organized around **creating and testing your own co
 ## Screen 1 — Vector Library & Quick Actions
 
 Shows your saved `.safetensors` vectors (`models/control_vectors/`) and `.toml` pair banks (`prompt_bank/control_vectors/`).
-- **Search & Family Filter**: Filter by name, `fl2va`, or `ref2va`.
+- **Search & Family Filter**: Filter by name, `fl2va` (used by `t2va`/`fl2va` video and PrunaAI `P-H3-Image` T2I + 1–8 reference image editing), or `ref2va` (used by `ref2va` video and `h3_p_h3_image_guide_edit_api.json`).
 - **Plain-English Quality Badges**:
   - **Pair Consistency (`MPC`)**: Mean pairwise cosine across your pairs (`>= 0.50` is strong).
   - **Split-Half Stability**: Cosine similarity between two random halves of your pairs (`>= 0.70` means all pairs agree on one clean direction).
@@ -60,7 +60,7 @@ Provides full control over all 10 Prompt A / Prompt B scene pairs and integrates
 2. **Import / Paste LLM Markdown (`.md`) or Load Existing `.toml`**:
    - Click **Copy LLM System Prompt** to copy [`docs/wiki/system_prompts/h3_control_vector_system_prompt.md`](../system_prompts/h3_control_vector_system_prompt.md) (or **Insert Pair Template**), paste your LLM's 10-pair Markdown output into the large `rows="16"` editor, or select any `.toml` pack and click **Load Selected .toml**.
 3. **Validate, Save `.toml`, & Encode on GPU**:
-   - Click **1. Validate & Preview Token Diffs (CPU)** to inspect per-pair token diffs (`n_diff_a` vs. `n_diff_b`) and verify all 3 H3 sections are present.
+   - Click **1. Validate & Preview Token Diffs (CPU)** (`POST /api/preview_pairs`) to inspect per-pair token diffs (`n_diff_a` vs. `n_diff_b`, passing `other_ids` to `h3_spans.pooling_mask` so coupled `description + overall_soundscape` pairs highlight both spans accurately) and verify all 3 H3 sections are present.
    - Click **2. Save to `prompt_bank/control_vectors/<name>.toml`** or **3. Encode & Build Control Vector (GPU)** to save and build both `fl2va` and `ref2va` `.safetensors` vectors.
 
 ---
@@ -69,7 +69,7 @@ Provides full control over all 10 Prompt A / Prompt B scene pairs and integrates
 
 Extracts a control vector directly from two visual reference frames:
 1. Drag-and-drop or click to upload **Image A (Baseline / Subtracted Look)** and **Image B (Target / Added Look)** directly in the browser (sent as base64 data URLs to `/api/make-media`, or provide server paths).
-2. Choose **Output Vector Name**, **Target Families** (`ref2va` or `both`), **Pooling Mode** (`scene_text`, `vision_tokens`, or `all_rows`), and **Resolution (`short_edge`, default `512` px snapped to the 32-px M-RoPE grid)**.
+2. Choose **Output Vector Name**, **Target Families** (`ref2va` default, or `both` to emit both `__ref2va__` and `__fl2va__` siblings for `t2va` and `P-H3-Image`), **Pooling Mode** (`scene_text`, `vision_tokens`, or `all_rows`), and **Resolution (`short_edge`, default `512` px snapped to the 32-px M-RoPE grid)**.
 3. Click **Extract Multimodal Image Control Vector (GPU)** (~15s). Both images are resized to the exact same token grid so `vision_tokens` and `scene_text` pooling remain aligned.
 
 ---
@@ -78,7 +78,7 @@ Extracts a control vector directly from two visual reference frames:
 
 Algebraically combine or invert existing `.safetensors` vectors on CPU without loading Qwen3-VL:
 - **Quick One-Click Inversion**: Pick any source vector and click **Invert (`-1.0x`) & Save Vector** to flip its polarity immediately.
-- **Multi-Vector Sculpt & Gram-Schmidt Hold Recipe**: Add any number of recipe rows with mode `add_norm_matched` (default, normalizes each input vector to `67.5` norm before weighting), `add`, or `hold` (projects out a nuisance vector with soft attenuation $\alpha \in [0, 2]$).
+- **Multi-Vector Sculpt & Gram-Schmidt Hold Recipe**: Add any number of recipe rows with mode `add_norm_matched` (default, normalizes each input vector to `67.5` norm before weighting), `add`, or `hold` (projects out a nuisance vector with soft attenuation $\alpha \in [0, 2]$). When you select an explicit `__fl2va__` or `__ref2va__` filename and write `both` families, `_resolve_vector_for_family` (`bench/control_vector/helpers.py:249-280`) automatically swaps to each family's sibling file and stamps the matching family recipe.
 - Optionally enter comma-separated **Hold Words** (e.g., `parka, snowsuit, coat`) to project out lexical drift on CPU.
 - Click **Compute & Save Sculpted Vector (`< 5 ms` CPU)** to write `fl2va` and `ref2va` `.safetensors` files + `.md` reports in `< 5 ms`.
 

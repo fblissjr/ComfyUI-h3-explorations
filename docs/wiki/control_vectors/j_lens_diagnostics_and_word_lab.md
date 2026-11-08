@@ -36,8 +36,9 @@ When you inspect a vector in **Studio Screen 6 (J-Lens Word Lab)** or via `"$PY"
      - `basis`: `"unigram_synthesis"` (built in `row(M_centered)`, typical `top1_gain = 2.6..5.2`) vs. `"post_refiner"` / `"encoder"` (contextual `Qwen3-VL-32B` pair vectors, typical `top1_gain = 1.0..2.6`).
      - `refiner_transmission`: `||J_ref @ (v_enc / ||v_enc||_2)||_2` when `vector.encoder` (`5120`-d) is present (`None` when only `5376`-d `vector.post_refiner` is present).
      - `echo_ratio` & `off_target_words`: Fraction of top-8 decoded words matching the requested `pos_words`, plus any off-target words that can be scrubbed via `hold_words`.
-3. **Unigram Prompt Coupling (`j_lens.py::analyze_prompt_coupling`)**:
-   - Matches words in your scene prompt against the `24,912`-word bank and returns `{prompt_words_analyzed, top_receptors, mean_top3_abs_cos, max_abs_cos, receptor_note, token_heatmap}`. For exact contextual token-by-token metering through Qwen3-VL, use **Screen 6 Sub-tab A (`POST /api/prompt-meter`)**.
+3. **Unigram Prompt Coupling (`j_lens.py::analyze_prompt_coupling`, `inspect --prompt <scene.txt>`) vs. Contextual GPU Meter (`inspect --meter <prompt_id_or_path>`)**:
+   - `--prompt <scene.txt|inline>` runs `< 1 ms` CPU unigram coupling against the `24,912`-word bank and returns `{prompt_words_analyzed, top_receptors, mean_top3_abs_cos, max_abs_cos, receptor_note, token_heatmap}`.
+   - `--meter <prompt_id_or_path>` (or **Screen 6 Sub-tab A**, `POST /api/prompt-meter`) runs exact contextual token-by-token metering through Qwen3-VL + `TokenRefiner` on GPU (`cv.meter_score`, `bench/control_vector/grading.py:171-225`).
 
 ---
 

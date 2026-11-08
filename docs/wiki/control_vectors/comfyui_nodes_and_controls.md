@@ -21,8 +21,8 @@ All three nodes register under the **`model/conditioning/minimax`** category in 
 
 ![Animated explainer of H3 runtime token masks, step windows, and ref2va reference gate](assets/runtime_steering_and_masks.svg)
 
-- **`model`** (`MODEL`): The MiniMax H3 `ModelPatcher` (`fl2va` or `ref2va`). Chain multiple `MiniMaxH3ApplyControlVectors` nodes in series to combine multiple vectors (`add`, `add_norm_matched`, `hold`, `project_out`, `amplify`).
-- **`vector_name`** (`COMBO`): Select any `.safetensors` file under `models/control_vectors/` (or `"none"` when using inline `words`).
+- **`model`** (`MODEL`): The MiniMax H3 `ModelPatcher` (`fl2va`, `ref2va`, or `P-H3-Image`). Chain multiple `MiniMaxH3ApplyControlVectors` nodes in series to combine multiple vectors (`add`, `add_norm_matched`, `hold`, `project_out`, `amplify`).
+- **`vector_name`** (`COMBO`): Select any `.safetensors` file under `models/control_vectors/` (or `"none"` when using inline `words`). At runtime, [`control_vector_nodes.py::resolve_vector_file_path`](../../../control_vector_nodes.py#L1535-L1605) automatically swaps `__fl2va__` $\leftrightarrow$ `__ref2va__` to match the loaded model's family and checks `prefer_lora=bool(loaded_recipe.get("loras"))` so LoRA workflows prefer `__lora_<sha8>.safetensors` siblings and base no-LoRA workflows prefer base `.safetensors` siblings when both exist on disk.
 - **`strength`** (`-20.0` to `+20.0`, default `1.0`, step `0.05`):
   - `+1.0` applies one mean pair difference (`Prompt A -> Prompt B`) for `mode = "add"`, or `67.5` post-refiner shift norm (`NORM_MATCHED_TARGET`) for `mode = "add_norm_matched"`.
   - `-1.0` **inverts** the vector (`Prompt B -> Prompt A`, e.g., flipping `blizzard` toward warm/dry air).
@@ -34,7 +34,7 @@ All three nodes register under the **`model/conditioning/minimax`** category in 
   - **`project_out`**: Removes $\text{strength} \cdot \frac{\mathbf{r} \cdot \mathbf{v}}{\|\mathbf{v}\|^2}\mathbf{v}$ directly from the prompt token states.
   - **`amplify`**: Adds $\text{strength} \cdot \frac{\mathbf{r} \cdot \mathbf{v}}{\|\mathbf{v}\|^2}\mathbf{v}$ to scale existing alignment in the prompt.
 - **`mask`** (`COMBO`, `control_vector_nodes.py::MASK_MODES`):
-  - **`scene_only`** *(Default)*: Steers scene text while leaving tag-0 `<Picture N>` vision rows, `<d>...</d>` dialogue, `(S1)` speaker tags, `<Picture 1>:` labels, and `<0.0 seconds>` timestamps bitwise untouched.
+  - **`scene_only`** *(Default)*: Steers scene text while leaving tag-0 `<Picture N>` vision rows, `<d>...</d>` dialogue, `(S1)` speaker tags, `<Picture 1>:` labels, and `<0.0 seconds>` timestamps bitwise untouched (including on `MiniMaxH3PH3ImageConditioning` in `workflows/image/h3_p_h3_image_*_control_vector_api.json`).
   - **`non_vision`**: Steers all tag-1 text rows (excluding row 0 sink) while leaving tag-0 `<Picture N>` vision rows bitwise untouched.
   - **`description_only`**: Steers only scene tokens inside `integrated_multimodal_description:` (`fl2va`) or `detailed_description:` (`ref2va`).
   - **`soundscape_only`**: Steers only scene tokens inside `overall_soundscape:`.
@@ -48,7 +48,9 @@ All three nodes register under the **`model/conditioning/minimax`** category in 
 - **`start_percent` / `end_percent`** (`0.0` to `1.0`, default `0.0` to `1.0`):
   - Active schedule window (`step_idx / N_steps`). Setting `start_percent = 0.33, end_percent = 1.0` on a 6-step render lets steps 0–1 lock camera geometry and pose unsteered before injecting the style/weather vector on steps 2–5.
 - **`allow_recipe_mismatch`** (`BOOLEAN`, default `False`):
-  - Refuses a vector whose checkpoint family (`fl2va` vs. `ref2va`) or LoRA recipe differs from the loaded `model` unless set to `True`.
+  - Checked by [`control_vectors.py::check_vector_compatibility`](../../../control_vectors.py#L2015-L2067) and [`_is_same_family_h3_recipe_compatible`](../../../control_vectors.py#L2159-L2186):
+    - When `allow_recipe_mismatch = False` *(default)*: **Hard-refuses (`ValueError`)** cross-family vectors (`fl2va` on `ref2va` or vice versa), unknown checkpoints/LoRAs, non-unit LoRA strengths (`!= 1.0`), or partial-refiner LoRAs. **Allows with an advisory warning** all same-family H3 checkpoints (`minimax_h3_{fl2va,ref2va}_{pruned_int8_convrot,int8_convrot,bf16}.safetensors` and `p-h3-image_int8_convrot.safetensors`) and full-refiner unit-strength (`1.0`) LoRA recipes (base `loras=[]`, `pika_h3_flex_<family>_*`, `p-h3-image_lora_bf16.safetensors`, and `ref2va` Guide Video Edit LoRAs `minimax_h3_{vfx_edit,inpainting,camera_control,motion_transfer}_v1.0_r128_ffp.safetensors`), as well as same-family J-Lens vectors (`made_by="j_lens.*"`).
+    - Set `allow_recipe_mismatch = True` only when intentionally probing custom checkpoints, non-unit LoRA strengths, or cross-family vectors.
 - **`video_scale` / `audio_scale` / `split_end_percent`** (defaults `1.0`, `1.0`, `1.0`):
   - Stream multipliers applied within `[0.0, split_end_percent)`. At `(1.0, 1.0)` runs a single DiT pass; at `(1.0, 0.0)` steers video while keeping audio unsteered; at `(0.0, 1.0)` steers audio while keeping video unsteered.
 - **`ref_vae_end_percent` / `ref_vae_aug`** (defaults `1.0`, `0.999`):
@@ -61,9 +63,9 @@ All three nodes register under the **`model/conditioning/minimax`** category in 
 
 ## 4. `MiniMaxH3MakeControlVector` & `MiniMaxH3MakeMediaControlVector` Inputs
 
-- **`MiniMaxH3MakeControlVector`** (`control_vector_nodes.py:1844`):
+- **`MiniMaxH3MakeControlVector`** (`control_vector_nodes.py:1855`):
   - Inputs: `model`, `clip`, `pair_file` (default `"film_16mm_1974.toml"`), `pooling` (`"diff_span"`, `"from_first_diff"`, `"scene_text"`, `"all_tag1"`), `apply_holds` (`True`), `output_name` (`""`), optional `encoded_references`, `overwrite` (`False`), `words` (`""`), and `slot` (`"auto"`, `"opening_framing"`, `"subject_behavior"`, `"interpersonal_dynamics"`, `"camera_motion"`, `"speech_delivery"`, `"soundscape"`).
   - Outputs: `(vector_name: STRING, report: STRING)`.
-- **`MiniMaxH3MakeMediaControlVector`** (`control_vector_nodes.py:2383`):
+- **`MiniMaxH3MakeMediaControlVector`** (`control_vector_nodes.py:2394`):
   - Inputs: `model`, `clip`, `image_a` (`IMAGE`), `image_b` (`IMAGE`), `output_name` (`"media_contrast"`), `pooling` (`"scene_text"`, `"all_tag1"`, `"vision_tokens"`, `"all_rows"`), `short_edge` (`512`, snapped to `32`), `scene_prompt` (`""`), `overwrite` (`False`).
   - Outputs: `(vector_name: STRING, report: STRING)`.

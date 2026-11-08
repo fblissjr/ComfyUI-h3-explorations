@@ -28,7 +28,7 @@
 
 ## 17.2 Mode 1: Text-to-Image (`p_h3_image_t2i`)
 
-Used by [`workflows/image/h3_p_h3_image_t2i_api.json`](../../workflows/image/h3_p_h3_image_t2i_api.json), [`workflows/image/h3_p_h3_image_lora_t2i_api.json`](../../workflows/image/h3_p_h3_image_lora_t2i_api.json), and [`workflows/image/h3_probe_p_h3_image_t2i_te32b_api.json`](../../workflows/image/h3_probe_p_h3_image_t2i_te32b_api.json).
+Used by [`workflows/image/h3_p_h3_image_t2i_api.json`](../../workflows/image/h3_p_h3_image_t2i_api.json), [`workflows/image/h3_p_h3_image_lora_t2i_api.json`](../../workflows/image/h3_p_h3_image_lora_t2i_api.json), [`workflows/image/h3_probe_p_h3_image_t2i_te32b_api.json`](../../workflows/image/h3_probe_p_h3_image_t2i_te32b_api.json), and [`workflows/image/h3_p_h3_image_t2i_control_vector_api.json`](../../workflows/image/h3_p_h3_image_t2i_control_vector_api.json).
 
 ### Format & Authoring Rules
 
@@ -49,7 +49,7 @@ A medium three-quarter portrait of an elderly clockmaker seated at a worn walnut
 
 ## 17.3 Mode 2: Multi-Reference Image Editing (`p_h3_image_edit`, 1–8 Images)
 
-Used by [`workflows/image/h3_p_h3_image_edit_api.json`](../../workflows/image/h3_p_h3_image_edit_api.json), [`workflows/image/h3_p_h3_image_lora_edit_api.json`](../../workflows/image/h3_p_h3_image_lora_edit_api.json), and [`workflows/image/h3_probe_p_h3_image_edit_te32b_api.json`](../../workflows/image/h3_probe_p_h3_image_edit_te32b_api.json).
+Used by [`workflows/image/h3_p_h3_image_edit_api.json`](../../workflows/image/h3_p_h3_image_edit_api.json), [`workflows/image/h3_p_h3_image_lora_edit_api.json`](../../workflows/image/h3_p_h3_image_lora_edit_api.json), [`workflows/image/h3_probe_p_h3_image_edit_te32b_api.json`](../../workflows/image/h3_probe_p_h3_image_edit_te32b_api.json), and [`workflows/image/h3_p_h3_image_edit_control_vector_api.json`](../../workflows/image/h3_p_h3_image_edit_control_vector_api.json).
 
 ### How `MiniMaxH3PH3ImageConditioning` Wraps the Prompt
 
