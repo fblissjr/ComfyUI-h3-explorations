@@ -248,10 +248,15 @@ def _meter_prompt_tokens(
     vector_arg: str,
     prompt_arg: str,
     pooling: str = "scene_text",
+    family: str | None = None,
 ) -> dict[str, Any]:
     """Run exact `5376`-d contextual `Qwen3-VL` + `TokenRefiner` per-token receptor metering (`cv.meter_score`)."""
     v_cand = state.vec_dir / vector_arg
-    vpath = v_cand if v_cand.is_file() else cv_nodes.resolve_vector_file_path(vector_arg)
+    vpath = (
+        v_cand
+        if v_cand.is_file()
+        else cv_nodes.resolve_vector_file_path(vector_arg, preferred_family=family)
+    )
     tensors, metadata = cv.load_vector(vpath)
     vec = (
         tensors["vector.post_refiner"]
@@ -270,11 +275,18 @@ def _meter_prompt_tokens(
         enc_name = h3_config.MODELS["clip"]
     clip = state.get_clip(enc_name, "default")
 
+    eff_fam = family or metadata.get("family", "fl2va")
     dit_name = metadata.get("recipe", {}).get("checkpoint", {}).get("file") or (
         h3_config.MODELS["unet_ref2va"]
-        if metadata.get("family") == "ref2va"
+        if eff_fam == "ref2va"
         else h3_config.MODELS["unet_fl2va"]
     )
+    if dit_name.startswith("in_memory:"):
+        dit_name = (
+            h3_config.MODELS["unet_ref2va"]
+            if eff_fam == "ref2va"
+            else h3_config.MODELS["unet_fl2va"]
+        )
     dit_path = Path(_h.folder_paths.get_full_path_or_raise("diffusion_models", dit_name))
     enc_path = Path(_h.folder_paths.get_full_path_or_raise("text_encoders", enc_name))
     meter_loras = list(metadata.get("recipe", {}).get("loras", ()))
@@ -295,14 +307,21 @@ def _meter_prompt_tokens(
             loras_override=meter_loras,
         )
         refiner_run = cv_nodes.build_refiner_runner(dit_path, device="cpu", loras=meter_loras)
-        state._refiner_cache[ref_cache_key] = (metadata.get("family", "fl2va"), recipe, refiner_run)
+        state._refiner_cache[ref_cache_key] = (eff_fam, recipe, refiner_run)
 
     t0 = time.perf_counter()
     enc_rows, tags, tids, dec_fn = cv_nodes.encode_prompt_for_vector(clip, text)
     ref_rows = refiner_run(enc_rows)
     sp = h3_spans.spans(tids, tags.tolist(), dec_fn)
-    eff_pooling = pooling if pooling in ("scene_text", "non_vision", "all_rows") else "scene_text"
-    mask = h3_spans.pooling_mask(sp, eff_pooling)
+    if pooling in cv.VALID_POOLING:
+        eff_pooling = pooling if pooling in ("scene_text", "all_tag1") else "scene_text"
+        mask = h3_spans.pooling_mask(sp, eff_pooling)
+    elif pooling in cv_nodes.MASK_MODES:
+        eff_pooling = pooling
+        mask = h3_spans.inference_mask(sp, eff_pooling)
+    else:
+        eff_pooling = "scene_text"
+        mask = h3_spans.pooling_mask(sp, eff_pooling)
     m = cv.meter_score(ref_rows, vec, mask=mask)
 
     v64 = vec.detach().to(dtype=torch.float64).reshape(-1)

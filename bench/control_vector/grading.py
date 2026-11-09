@@ -317,7 +317,7 @@ def _attach_raw_vector(
     vec: torch.Tensor,
     strength: float,
     *,
-    mask: str = "non_vision",
+    mask: str = "scene_only",
     mode: str = "add",
     start_percent: float = 0.0,
     end_percent: float = 1.0,

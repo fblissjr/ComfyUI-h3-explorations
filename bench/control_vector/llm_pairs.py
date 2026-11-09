@@ -104,8 +104,16 @@ def _repair_pair_prompts(a: str, b: str) -> tuple[str, str]:
     except ValueError:
         pass
 
-    blocks_a = [" ".join(blk.split()) for blk in a.strip().split("\n\n") if blk.strip()]
-    blocks_b = [" ".join(blk.split()) for blk in b.strip().split("\n\n") if blk.strip()]
+    blocks_a = [
+        "\n".join(" ".join(ln.split()) for ln in blk.strip().splitlines() if ln.strip())
+        for blk in a.strip().split("\n\n")
+        if blk.strip()
+    ]
+    blocks_b = [
+        "\n".join(" ".join(ln.split()) for ln in blk.strip().splitlines() if ln.strip())
+        for blk in b.strip().split("\n\n")
+        if blk.strip()
+    ]
     if len(blocks_a) != len(blocks_b) or not blocks_a:
         return a, b
 
@@ -134,8 +142,9 @@ def _repair_pair_prompts(a: str, b: str) -> tuple[str, str]:
         # If description + soundscape both changed and still failed, keep only the description change.
         desc_a: list[str] = []
         desc_b: list[str] = []
-        for idx, (ba, bb) in enumerate(zip(blocks_a, blocks_b)):
-            if idx == 0:
+        for ba, bb in zip(blocks_a, blocks_b):
+            hdr_a = ba.split(":", 1)[0].strip() if ":" in ba else ""
+            if hdr_a in ("integrated_multimodal_description", "detailed_description"):
                 na, nb = _single_clause_section_pair(ba, bb)
                 desc_a.append(na)
                 desc_b.append(nb)
@@ -547,7 +556,7 @@ def cmd_generate_pairs(args: argparse.Namespace) -> int:
     elif getattr(args, "save_toml", False) and getattr(args, "name", ""):
         saved = cv.write_markdown_to_toml(
             md_text,
-            cv_nodes.PAIR_BANK_DIR,
+            cv_nodes.USER_PAIR_BANK_DIR,
             name=str(args.name).strip(),
             overwrite=bool(getattr(args, "overwrite", False)),
             bank_dir=cv_nodes.PROMPT_BANK_DIR,
