@@ -11,6 +11,66 @@ Related: [`2026-11-06_j_lens_and_refiner_jacobian.md`](2026-11-06_j_lens_and_ref
 [`../../../bench/results/2026-11-05_control_vectors_pika_and_ref2va.md`](../../../bench/results/2026-11-05_control_vectors_pika_and_ref2va.md),
 [`../../wiki/control_vectors.md`](../../wiki/control_vectors.md).
 
+## 0. Where things stand (read this first)
+
+This page grew by additions through one day: findings, a plan, a reorder, and corrections after a second
+session read it. This section is the consolidated state and wins where an older section differs. Sections 1
+to 16 are the reasoning and the evidence.
+
+### 0.1 Order of work
+
+1. The agreed fixes of 0.4.
+2. The fork: edit guidance and prompt scheduling under Pika, at 141 frames, each across the whole schedule
+   and with the edit switched on after the first steps, beside the plain prompt, the rewritten prompt and a
+   random vector of the same size (sections 11.6 and 15.2).
+3. If the fork goes well, the edit-guidance node (section 11.8). Then the apply node in its agreed shape
+   (0.2), with the aimed mask (section 11.4).
+4. The direction track (section 8).
+5. Pairs last, from the existing files only. The scene pool and the pair-authoring prompt stay parked.
+6. The wiki pages get another pass after steps 1 to 3, since they were rewritten before the code they
+   describe changed.
+
+### 0.2 Agreed by both sessions
+
+- Pair-free methods are tried before any pair work; writing pairs is de-emphasized (section 12).
+- The image graphs default to the 32B encoder, at the owner's word; the 4B encoder is a probe.
+- In-place edits with several clauses are pooled in one pass over all changed spans. The single-clause
+  string check stays for pair files.
+- One apply node on the model wire, with the vector picked by concept name and an optional vector socket.
+  Inputs with no remaining use are dropped.
+- The scene mask becomes a real conditioning key, and a missing mask is a refusal.
+- The bank mean is not subtracted by default. A direction built from neutral pairs that differ only in
+  length is the test for a length effect.
+- Edit guidance gives both passes the same position origin and keeps the two prompts from being batched on
+  the image model.
+- J-Lens is a readout first. Its bundle builder is tracked (done in `7c01c792`).
+- Candidate directions are ranked by what the DiT does with them, not by the refiner alone.
+- The first test runs at 141 frames.
+
+### 0.3 Not settled
+
+| Question | The two readings | What settles it |
+|---|---|---|
+| Do the bank's vectors share a component? | Measured here on the rebuilt vectors: yes, strongly (section 15.3). The second session's last reading was that there is no global bias, from a few near-zero pairs in an older table. | Run the command of section 15.3 on the finished rebuild, then build the neutral-length direction and see how much of the shared part it explains. |
+| Is pooling the unchanged rows worth building? | Proposed here because it matches how a vector is applied. The second session expects a weak signal, since rows before an edit do not move in the encoder. | Both agree to measure it beside the two existing modes in the CPU pass of phase 2. |
+| Do the reference-gate inputs stay? | One reply said remove them, a later one that they unlock late stylization. The record has one arm, which supports the second. | The owner's call when the apply node is rebuilt; a repeat of that arm if it matters. |
+| Can `amplify` on a word's rows stand in for attention emphasis? | Offered as equivalent by the second session. It is not the same operation (section 15.4). | A small test, labelled as a stand-in, if section 11.3 is wanted before an attention hook exists. |
+
+### 0.4 Defects both sessions agree on, to fix
+
+| Defect | Where |
+|---|---|
+| `completely_preserved` taught as a retention marker; the release's closed set is `fully_preserved`, `partially_preserved`, `attribute_transfer`, `weak_reference` | `docs/wiki/system_prompts/h3_control_vector_system_prompt.md` (the example and the list), `docs/wiki/control_vectors/examples_and_recipes.md` (the advice and the worked prompt); all from `7c01c792` |
+| The wiki says holds use `torch.linalg.qr`; the code is a two-pass Gram-Schmidt loop | `docs/wiki/control_vectors/building_pairs_and_vectors.md` against `control_vectors.py::hold_basis` |
+| An image prompt compiles to `frame="raw"`, which the validator rejects | finding 2 |
+| The Pair 0 splice, its silent no-op and its truncation of the pair list | finding 3 |
+| A pole that occurs twice is replaced once in silence; `;` inside prose splits a clause | finding 4 |
+| The span code looks the tokenizer up under one hardcoded name | finding 14; it now matters for the two `te4b` probes |
+| The mask is attached inside a bare `except`, and a missing mask falls back in silence | finding 13 |
+| A single pair reports a consistency of 1.0; the image node repeats one pair over canned scenes | finding 7 |
+| Three canned ref2va scenes in node code | finding 17; section 16 |
+| Three different defaults for the pair generator's output token limit | section 15.5 |
+
 ## 1. The plan in one picture
 
 One data model, one build path and one small apply node. Every method becomes a way of producing pairs or
@@ -597,3 +657,49 @@ Recorded so they are not carried forward:
   files fit the CLI default with little room at the long end; one constant should hold it.
 - The task itself is unchanged: every scene written twice, identical but for one clause. Section 6 stays
   parked under section 12.
+
+## 16. No prompts or prompt fragments in code
+
+The owner's rule: prompt text does not live in code. The pack's generator already works that way: every
+prompt a graph ships with is a `prompt_bank/` entry loaded by id (`workflows/build_workflows.py::_bank_prompt`).
+The control-vector code does not yet.
+
+### 16.1 Where prompt text sits in control-vector code today
+
+Found by walking each file's string literals for H3 prompt markers, leaving out docstrings and help text.
+Counts move as the code moves; the walk is the observable, and 16.3 makes it a tracked check.
+
+- `bench/check_control_vectors.py`: the largest holder. Whole example prompts are written inline in three
+  checks: `check_spans_partition_and_refusals`, `check_pair_file_loader_and_refusals` and
+  `check_runtime_nodes_arm_and_cli`. They are there because each check needs a prompt to feed the tokenizer,
+  the loader or the compiler, and one was typed in each time. They are test inputs, not model behavior, but
+  they are hand-written prose in the vendor format that nothing keeps current.
+- `control_vector_nodes.py::DEFAULT_MEDIA_SCENES`: three canned ref2va scenes that run at build time for the
+  image method, each asserting a person in the picture.
+- `bench/control_vector/grading.py::_build_padding_prompt`: one filler sentence used to pad a prompt to a
+  length.
+- `j_lens.py`: word lists that guess intent from a prompt (`AGAINST_PRESETS`, `_REPLACEMENT_CONCEPT_WORDS`,
+  `_SHORT_WORD_FALLBACKS`, `_SUBJECT_STOPWORDS`, `_PROMPT_RECEPTOR_STOPWORDS`, `_MEDIUM_KEYWORDS`). These are
+  words, not prompts, and the walk for markers does not see them; they are the same habit in another form.
+
+Not in scope here, and left alone: `masked_prompt_text.py` assembles the masked lane's prompt from clauses
+by design, under that lane's own rules, and short format markers in validators (a section header name, a
+tag pattern) are the format, not a prompt.
+
+### 16.2 What replaces each
+
+- Checks take their prompts from `prompt_bank/` by id, the way the generator does, or from fixture files in
+  a folder beside the check. A refusal case is made by altering a bank prompt in code (remove a section,
+  repeat a clause, change whitespace), so the case says what it breaks and no second prompt is typed.
+- The image method takes the caller's own prompt and refuses without one; the canned scenes go.
+- The padding sentence becomes a fixture file the function reads.
+- The J-Lens word lists leave the sampling step. Any that remain for the readout become data files with
+  their provenance beside them.
+
+### 16.3 A check so it does not come back
+
+A tracked `bench/check_no_prompt_literals.py`: the same walk, over the control-vector code files, red on any
+string literal that is prompt-shaped (an H3 section header or tag inside a literal long enough to be a
+sentence), with a short allowlist that gives a reason per entry. This is a hard failure of the kind the
+repo allows a red for: a literal is there or it is not. It is added when 16.2 is done for a file, one file
+at a time, so it is never born red.
