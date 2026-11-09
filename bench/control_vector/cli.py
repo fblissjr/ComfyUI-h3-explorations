@@ -85,23 +85,18 @@ def build_parser() -> argparse.ArgumentParser:
         "source",
         nargs="?",
         default=None,
-        help="Input LLM Markdown (.md) file, pair TOML (.toml) file, or stem under prompt_bank/control_vectors/ (omit when using --words, --placebo, or --all)",
+        help="Input LLM Markdown (.md) file, pair TOML (.toml) file, or stem under data/control_vectors/ or prompt_bank/control_vectors/ (omit when using --words, --from-words, or --all)",
     )
     pb.add_argument(
         "--words",
         default="",
-        help="Simple words, short phrase, or 'pole_a -> pole_b' contrast (supports ';' or newline multi-clause, 'soundscape:', and 'hold:' lines) to compile into 10 canonical H3 scene pairs in memory",
-    )
-    pb.add_argument(
-        "--slot",
-        default="auto",
-        help="Structural H3 slot for --words ('auto', 'opening_framing', 'subject_behavior', 'interpersonal_dynamics', 'camera_motion', 'speech_delivery', 'soundscape')",
+        help="In-place 'pole_a -> pole_b' contrast (supports ';' or newline multi-clause, 'soundscape:', and 'hold:' lines) compiled directly on --target-prompt",
     )
     pb.add_argument(
         "--target-prompt",
         dest="target_prompt",
         default="",
-        help="Optional target H3 scene prompt (bank id, file path, or text) to compile as Pair 0 at --target-weight alongside 9 canonical frames",
+        help="Target H3 scene prompt (bank id, file path, or text) for in-place --words compilation or Pair 0 anchoring",
     )
     pb.add_argument(
         "--target-weight",
@@ -109,11 +104,6 @@ def build_parser() -> argparse.ArgumentParser:
         type=float,
         default=2.5,
         help="Weight for Pair 0 when --target-prompt is passed (default: 2.5)",
-    )
-    pb.add_argument(
-        "--placebo",
-        action="store_true",
-        help="Build a size-matched benign placebo control vector in the same canonical frames",
     )
     pb.add_argument(
         "--all",
@@ -220,11 +210,10 @@ def build_parser() -> argparse.ArgumentParser:
     pfm.add_argument("--test-prompt-out", dest="test_prompt_out", default=None, help="Optional path to write the extracted Test Scene Prompt text")
     pfm.add_argument("--overwrite", action="store_true", help="Overwrite an existing .toml file at the target path")
 
-    pm = sub.add_parser("make", help="Build a control vector from a pair TOML file or --words")
-    pm.add_argument("pairs", nargs="?", default=None, help="Pair TOML file path or stem under prompt_bank/control_vectors/ (omit when using --words)")
-    pm.add_argument("--words", default="", help="Simple words or 'pole_a -> pole_b' contrast to compile into 10 canonical H3 pairs in memory")
-    pm.add_argument("--slot", default="auto", help="Structural H3 slot for --words ('auto' or one of the 6 canonical slots)")
-    pm.add_argument("--target-prompt", dest="target_prompt", default="", help="Optional target H3 scene prompt to compile as Pair 0")
+    pm = sub.add_parser("make", help="Build a control vector from a pair TOML file or in-place --words + --target-prompt")
+    pm.add_argument("pairs", nargs="?", default=None, help="Pair TOML file path or stem under data/control_vectors/ or prompt_bank/control_vectors/ (omit when using --words)")
+    pm.add_argument("--words", default="", help="In-place 'pole_a -> pole_b' contrast compiled directly on --target-prompt")
+    pm.add_argument("--target-prompt", dest="target_prompt", default="", help="Target H3 scene prompt for in-place --words compilation")
     pm.add_argument("--target-weight", dest="target_weight", type=float, default=2.5, help="Weight for Pair 0 when --target-prompt is passed")
     pm.add_argument("--hold", action="append", default=None, help="Optional .safetensors vector(s) to project out")
     pm.add_argument("--hold-words", dest="hold_words", default="", help="Optional nuisance words to project out on CPU")

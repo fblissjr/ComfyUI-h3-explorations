@@ -236,28 +236,38 @@ async function rebuildAllVectors(target = '') {
 /* ========================================================================= */
 /* SCREEN 2: CLAUSE CONTRAST BUILDER                                         */
 /* ========================================================================= */
-function fillClauseExample(kind) {
+function invalidateExpandedClausePairs() {
   APP.expandedPairs = [];
   APP.expandedHolds = [];
+}
+
+function fillClauseExample(kind) {
+  invalidateExpandedClausePairs();
   const pairsCard = document.getElementById('clause-pairs-card');
   if (pairsCard) pairsCard.style.display = 'none';
+  const defaultScene = (
+    "integrated_multimodal_description:\n" +
+    "[Shot 1] In an open desert highway overlook filmed under crisp overcast afternoon light with cool slate shadows, still air, dry pavement, and neutral color balance across every surface, a traveler in a canvas jacket (S1), standing beside a parked roadster in a steady medium shot, says in a calm, even voice, <d>[English] We can cross the valley before sunset.</d> The camera holds a locked-off tripod composition with level horizon, steady 50mm prime framing, and zero camera shake.\n\n" +
+    "overall_soundscape:\n" +
+    "Quiet open-air room tone with gentle distant breeze.\n\n" +
+    "non_diegetic_music:\n" +
+    "N/A"
+  );
+  document.getElementById('clause-scene-prompt').value = defaultScene;
   if (kind === 'scorching') {
     document.getElementById('clause-name').value = 'scorching_heatwave';
-    document.getElementById('clause-slot').value = 'opening_framing';
     document.getElementById('clause-pole-a').value = 'filmed under crisp overcast afternoon light with cool slate shadows, still air, dry pavement, and neutral color balance across every surface';
     document.getElementById('clause-pole-b').value = 'filmed in a blistering midday desert heatwave under a bleached white sun, rising thermal shimmer warping the horizon, harsh amber glare, and sun-baked dust';
     document.getElementById('clause-sound-a').value = 'Quiet open-air room tone with gentle distant breeze.';
     document.getElementById('clause-sound-b').value = 'Low parched thermal wind drone, dry cicada buzz, and heat-cracked grit underfoot.';
   } else if (kind === 'noir') {
     document.getElementById('clause-name').value = 'chiaroscuro_noir';
-    document.getElementById('clause-slot').value = 'opening_framing';
-    document.getElementById('clause-pole-a').value = 'filmed under soft even commercial fill lighting with balanced midtones, open shadows, and natural daylight color rendition';
+    document.getElementById('clause-pole-a').value = 'filmed under crisp overcast afternoon light with cool slate shadows, still air, dry pavement, and neutral color balance across every surface';
     document.getElementById('clause-pole-b').value = 'filmed under hard single-source chiaroscuro key light slicing through deep ink-black shadows, sharp Venetian-blind light slashes, and silver rim highlights';
     document.getElementById('clause-sound-a').value = '';
     document.getElementById('clause-sound-b').value = '';
   } else if (kind === 'handheld') {
     document.getElementById('clause-name').value = 'urgent_handheld';
-    document.getElementById('clause-slot').value = 'camera_motion';
     document.getElementById('clause-pole-a').value = 'holds a locked-off tripod composition with level horizon, steady 50mm prime framing, and zero camera shake';
     document.getElementById('clause-pole-b').value = 'shakes with urgent shoulder-mounted documentary camera jolt, visceral micro-jitter, reactive reframing, and breathing lens drift';
     document.getElementById('clause-sound-a').value = '';
@@ -267,12 +277,15 @@ function fillClauseExample(kind) {
 
 async function expandClauseScenes() {
   try {
-    setStatus('Expanding 10 scene pairs...', 'busy');
+    setStatus('Expanding scene pairs...', 'busy');
+    const modeSelect = document.getElementById('clause-mode');
+    const modeVal = (modeSelect && modeSelect.value) ? modeSelect.value : (APP.families === 'ref2va' ? 'ref2va' : 'auto');
     const payload = {
       name: document.getElementById('clause-name').value.trim(),
       pole_a: document.getElementById('clause-pole-a').value.trim(),
       pole_b: document.getElementById('clause-pole-b').value.trim(),
-      slot: document.getElementById('clause-slot').value,
+      mode: modeVal,
+      families: APP.families,
       sound_a: document.getElementById('clause-sound-a').value.trim(),
       sound_b: document.getElementById('clause-sound-b').value.trim(),
       hold_b: document.getElementById('clause-hold-text').value.trim(),
@@ -281,6 +294,8 @@ async function expandClauseScenes() {
     const data = await apiPost('/api/expand-scenes', payload);
     APP.expandedPairs = (data.pairs || []).map((p, idx) => ({
       index: idx,
+      frame_id: p.frame_id || p.id || `pair_${String(idx + 1).padStart(2, '0')}`,
+      domain: p.domain || p.scene_title || p.label || `Scene Rig #${idx + 1}`,
       label: p.scene_title || p.label || `Scene Rig #${idx + 1}`,
       prompt_a: p.a || p.prompt_a || '',
       prompt_b: p.b || p.prompt_b || '',
@@ -296,8 +311,8 @@ async function expandClauseScenes() {
     renderExpandedClausePairs();
     document.getElementById('clause-pairs-card').style.display = 'block';
     const holdsNote = APP.expandedHolds.length ? ` and <strong>${APP.expandedHolds.length} nuisance hold pair(s)</strong>` : '';
-    renderBanner('clause-status-box', `Generated <strong>${APP.expandedPairs.length} matched H3 scene pairs</strong>${holdsNote}. Review or edit any pair below, or click <strong>Encode &amp; Build Control Vector Now (GPU)</strong>.`);
-    setStatus('10 pairs ready', 'ok');
+    renderBanner('clause-status-box', `Generated <strong>${APP.expandedPairs.length} matched H3 scene pair(s)</strong>${holdsNote}. Review or edit any pair below, or click <strong>Encode &amp; Build Control Vector Now (GPU)</strong>.`);
+    setStatus(`${APP.expandedPairs.length} pair(s) ready`, 'ok');
   } catch (err) {
     renderBanner('clause-status-box', `Error expanding scenes: ${escapeHtml(err.message)}`, true);
     setStatus('Expand failed', 'err');
@@ -357,10 +372,14 @@ async function buildFromClauseScreen() {
 
     const mdText = buildMarkdownFromExpandedPairs();
     const saveToml = document.getElementById('clause-save-toml').checked;
-    const slotVal = document.getElementById('clause-slot').value;
+    const modeSelect = document.getElementById('clause-mode');
+    const modeVal = (modeSelect && modeSelect.value) ? modeSelect.value : (APP.families === 'ref2va' ? 'ref2va' : 'auto');
     const holdTextVal = document.getElementById('clause-hold-text').value.trim();
+    const targetPromptVal = document.getElementById('clause-scene-prompt').value.trim();
     const rowsPayload = APP.expandedPairs.map((p, idx) => ({
       index: idx,
+      frame_id: p.frame_id || `pair_${String(idx + 1).padStart(2, '0')}`,
+      domain: p.domain || p.label || `Scene Rig #${idx + 1}`,
       a: p.prompt_a,
       b: p.prompt_b,
       weight: p.weight,
@@ -369,12 +388,13 @@ async function buildFromClauseScreen() {
 
     const res = await apiPost('/api/build', {
       name,
-      slot: slotVal,
+      mode: modeVal,
       families: APP.families,
       text: mdText,
       rows: rowsPayload,
       holds: APP.expandedHolds,
       hold_b: holdTextVal,
+      target_prompt: targetPromptVal,
       save_toml: saveToml,
       overwrite: true
     });
@@ -761,7 +781,7 @@ async function runPromptReceptorMeter() {
     const vec = document.getElementById('meter-vector-select').value;
     const prompt = document.getElementById('meter-prompt-text').value.trim();
     if (!vec || !prompt) throw new Error('Select a Control Vector and enter your H3 prompt.');
-    const fam = APP.families.includes('fl2va') ? 'fl2va' : 'ref2va';
+    const fam = APP.families === 'ref2va' ? 'ref2va' : 'fl2va';
     setStatus(`Scanning prompt tokens...`, 'busy');
     const res = await apiPost('/api/prompt-meter', {
       vector: vec,
@@ -808,7 +828,7 @@ async function runJLensInspect() {
   try {
     const vec = document.getElementById('jlens-inspect-select').value;
     if (!vec) throw new Error('Select a vector first.');
-    const fam = APP.families.includes('fl2va') ? 'fl2va' : 'ref2va';
+    const fam = APP.families === 'ref2va' ? 'ref2va' : 'fl2va';
     const data = await apiPost('/api/j-lens', { vector: vec, family: fam });
     const ro = data.readout || data.post_refiner || data;
     const posList = ro.positive_words || ro.top_positive || ro.positive || [];
@@ -858,6 +878,21 @@ async function runJLensWordSynthesis(saveFile) {
 }
 
 window.addEventListener('DOMContentLoaded', () => {
+  [
+    'clause-pole-a',
+    'clause-pole-b',
+    'clause-mode',
+    'clause-sound-a',
+    'clause-sound-b',
+    'clause-hold-text',
+    'clause-scene-prompt'
+  ].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.addEventListener('input', invalidateExpandedClausePairs);
+      el.addEventListener('change', invalidateExpandedClausePairs);
+    }
+  });
   fillMeterSamplePrompt();
   loadInitData();
 });

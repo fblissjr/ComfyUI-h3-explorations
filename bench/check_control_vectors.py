@@ -214,8 +214,35 @@ def check_spans_partition_and_refusals(tok: MiniMaxH3Tokenizer) -> list[str]:
     if not bool(im_all.all()):
         errs.append("inference_mask('all_rows') is not all True")
     im_scene = h3_spans.inference_mask(masks, "scene_only")
-    if not torch.equal(im_scene, masks["scene"] & (~masks["vision"])):
-        errs.append("inference_mask('scene_only') does not equal masks['scene'] & ~vision")
+    im_desc_main = h3_spans.inference_mask(masks, "description_only")
+    im_sound_main = h3_spans.inference_mask(masks, "soundscape_only")
+    if not torch.equal(im_scene, im_desc_main | im_sound_main):
+        errs.append("inference_mask('scene_only') on sectioned prompt does not equal description_only | soundscape_only")
+    if not bool((im_scene <= (masks["scene"] & (~masks["vision"]))).all()):
+        errs.append("inference_mask('scene_only') leaked outside masks['scene'] & ~vision")
+    if int(im_scene.sum().item()) >= int(masks["scene"].sum().item()):
+        errs.append("inference_mask('scene_only') did not mask out non-steerable sections/headers/tags on sectioned prompt")
+    im_scene_decoded = "".join(
+        decode([token_ids[k]]) for k in im_scene.nonzero(as_tuple=False).flatten().tolist()
+    )
+    for forbidden_sub in (
+        "subject_definitions",
+        "summary",
+        "retention_analysis",
+        "non_diegetic_music",
+        "detailed_description",
+        "overall_soundscape",
+        "[Shot 1]",
+        "<Subject 1>",
+        "<Picture 1>",
+        "<Video 1>",
+        "<Audio 1>",
+    ):
+        if forbidden_sub in im_scene_decoded:
+            errs.append(f"inference_mask('scene_only') leaked structural/non-steerable substring {forbidden_sub!r}: {im_scene_decoded!r}")
+    for expected_sub in ("standing at the bench", "Quiet room tone"):
+        if expected_sub not in im_scene_decoded:
+            errs.append(f"inference_mask('scene_only') omitted steerable prose {expected_sub!r}: {im_scene_decoded!r}")
     if bool((im_scene & masks["dialogue"]).any()):
         errs.append("inference_mask('scene_only') did not mask out <d>...</d> dialogue rows")
     im_after_dlg = h3_spans.inference_mask(masks, "after_dialogue")
@@ -282,6 +309,26 @@ def check_spans_partition_and_refusals(tok: MiniMaxH3Tokenizer) -> list[str]:
             errs.append("description_only and soundscape_only overlapped on prefixed fl2va prompt")
         if bool((im_desc_pref & sm_prefixed["dialogue"]).any()) or bool((im_desc_pref & sm_prefixed["vision"]).any()):
             errs.append("description_only leaked into dialogue or vision rows")
+
+    # Verify span_masks_from_prompt on a prefixed sectionless P-H3-Image-Edit prompt preserves _h3_steerable_scene_mask:
+    edit_img_prompt = "Edit <Picture 1>. A medium portrait shot of a botanist in a greenhouse at dusk."
+    edit_entries = tok.tokenize_with_weights(edit_img_prompt)["qwen3vl_32b"][0]
+    n_edit_tok = len(edit_entries)
+    edit_prefix_tags = torch.tensor([0, 0, 1] + [1] * n_edit_tok, dtype=torch.long)
+    sm_edit_pref = h3_spans.span_masks_from_prompt(
+        edit_img_prompt,
+        n_edit_tok + 3,
+        tags=edit_prefix_tags,
+        tokenizer=tok,
+    )
+    if sm_edit_pref is None:
+        errs.append("span_masks_from_prompt returned None on prefixed P-H3-Image-Edit prompt")
+    else:
+        im_edit_scene = h3_spans.inference_mask(sm_edit_pref, "scene_only")
+        if int(im_edit_scene.sum().item()) >= int(sm_edit_pref["scene"].sum().item()):
+            errs.append("inference_mask('scene_only') on prefixed P-H3-Image-Edit prompt did not mask out 'Edit <Picture 1>.'")
+        if bool((im_edit_scene & sm_edit_pref["vision"]).any()):
+            errs.append("inference_mask('scene_only') on prefixed P-H3-Image-Edit prompt leaked into vision rows")
 
     # Test description_only on ref2va prompt structure (subject_definitions: + detailed_description: + overall_soundscape:)
     ref2va_sample_prompt = (
@@ -969,43 +1016,126 @@ b = "a busy city street"
             if not any(expected_substr in w for w in lint_warns):
                 errs.append(f"lint_pair_set did not flag {expected_substr!r}; got {lint_warns}")
 
-        # 16. h3_pair_compiler simple-words, short-contrast, and placebo compiler checks
-        bank_data = pair_comp.load_canonical_frames()
-        frames_t2va = bank_data.get("frames", {}).get("t2va", [])
-        frames_ref2va = bank_data.get("frames", {}).get("ref2va", [])
-        if len(frames_t2va) != 10 or len(frames_ref2va) != 10:
-            errs.append(f"load_canonical_frames expected 10 t2va and 10 ref2va frames, got {len(frames_t2va)} and {len(frames_ref2va)}")
-        for w_sample, exp_slot, exp_mode in (
-            ("erratic handheld camera shake", "camera_motion", "t2va"),
-            ("awkward eye-contact avoidance", "subject_behavior", "ref2va"),
-            ("booming operatic bellow", "speech_delivery", "t2va"),
-            ("muffled through-the-wall acoustics", "soundscape", "t2va"),
-            ("weightless zero gravity", "interpersonal_dynamics", "t2va"),
-            ("inflatable squeaky balloon animals", "opening_framing", "t2va"),
-            ("steady locked-off tripod -> erratic handheld camera shake", "camera_motion", "t2va"),
-        ):
-            got_slot = pair_comp.infer_slot_from_words(w_sample)
-            if got_slot != exp_slot:
-                errs.append(f"infer_slot_from_words({w_sample!r}) returned {got_slot!r}, expected {exp_slot!r}")
-            ps_w = pair_comp.compile_words_to_pairset(w_sample, mode=exp_mode)
-            if len(ps_w.pairs) != 10 or ps_w.mode != exp_mode:
-                errs.append(f"compile_words_to_pairset({w_sample!r}) unexpected pairs/mode: len={len(ps_w.pairs)}, mode={ps_w.mode!r}")
-            w_lint = cv.lint_pair_set(ps_w)
-            if w_lint:
-                errs.append(f"compile_words_to_pairset({w_sample!r}) produced lint warnings: {w_lint}")
-            if "->" not in w_sample and "|||" not in w_sample:
-                for p in ps_w.pairs:
-                    if p.b_span.rstrip(".,;:") != w_sample.rstrip(".,;:"):
-                        errs.append(
-                            f"compile_words_to_pairset({w_sample!r}) leaked wrapper tokens into b_span: "
-                            f"got {p.b_span!r}, expected {w_sample!r}"
-                        )
-        if pair_comp.compile_words_to_pairset("steady locked-off tripod -> erratic handheld camera shake").name != "erratic_handheld_camera_shake":
-            errs.append("compile_words_to_pairset('a -> b') did not derive default name from steered pole B")
-        if pair_comp.parse_short_contrast_spec("steady locked-off tripod -> erratic handheld camera shake")["name"] != "erratic_handheld_camera_shake":
-            errs.append("parse_short_contrast_spec('a -> b') did not derive default name from steered pole B")
+        # 16. h3_pair_compiler in-place target_prompt contrast compiler checks (canonical_frames.json retired)
+        if (REPO / "prompt_bank" / "control_vectors" / "canonical_frames.json").exists():
+            errs.append("prompt_bank/control_vectors/canonical_frames.json still exists (must be retired)")
+        for retired_sym in ("load_canonical_frames", "CANONICAL_SLOTS", "_PLACEBO_CONTRASTS", "infer_slot_from_words"):
+            if hasattr(pair_comp, retired_sym):
+                errs.append(f"h3_pair_compiler still defines retired symbol {retired_sym!r}")
 
-        # Coupled description + overall_soundscape differing_span, inline hold:, target_prompt, and {props}/{surface} bindings:
+        mode_target_prompts = {
+            "t2va": (
+                "integrated_multimodal_description:\n"
+                "[Shot 1] In a sunlit workshop, a potter (S1), seated at a spinning wheel, says, <d>[English] Watch the rim form.</d> The camera holds a steady locked-off tripod frame.\n\n"
+                "overall_soundscape:\n"
+                "Quiet room tone with a low wheel hum.\n\n"
+                "non_diegetic_music:\n"
+                "N/A"
+            ),
+            "fl2va": (
+                "How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video; Picture 2 (from Shot 1) aligns with the <last frame> mark of the target video.\n\n"
+                "integrated_multimodal_description:\n"
+                "[Shot 1] In a sunlit workshop, a potter (S1), seated at a spinning wheel, says, <d>[English] Watch the rim form.</d> The camera holds a steady locked-off tripod frame.\n\n"
+                "overall_soundscape:\n"
+                "Quiet room tone with a low wheel hum.\n\n"
+                "non_diegetic_music:\n"
+                "N/A"
+            ),
+            "ref2va": (
+                "subject_definitions:\n"
+                "<Subject 1> is the potter in <Picture 1>: a person.\n\n"
+                "summary:\n"
+                "[reference generation] <Subject 1> shapes clay at a wheel in a sunlit workshop.\n\n"
+                "retention_analysis:\n"
+                "<Subject 1> (appears in [Shot 1]): fully_preserved - retains the visual appearance from <Picture 1>.\n\n"
+                "detailed_description:\n"
+                "The target video is filmed in natural workshop light.\n"
+                "[Shot 1] In a sunlit workshop, <Subject 1> (S1), seated at a spinning wheel, says, <d>[English] Watch the rim form.</d> The camera holds a steady locked-off tripod frame.\n\n"
+                "overall_soundscape:\n"
+                "Quiet room tone with a low wheel hum.\n\n"
+                "non_diegetic_music:\n"
+                "N/A"
+            ),
+            "p_h3_image": (
+                "In a sunlit workshop, a potter sits at a spinning clay wheel framed in a steady locked-off tripod frame with crisp 50mm depth of field."
+            ),
+        }
+        for mode_k, tp_mode in mode_target_prompts.items():
+            ps_m = pair_comp.compile_words_to_pairset(
+                "steady locked-off tripod frame -> erratic handheld camera shake",
+                mode=mode_k,
+                target_prompt=tp_mode,
+            )
+            if len(ps_m.pairs) != 1 or ps_m.mode != mode_k:
+                errs.append(f"compile_words_to_pairset(mode={mode_k!r}) unexpected pairs/mode: len={len(ps_m.pairs)}, mode={ps_m.mode!r}")
+            m_lint = cv.lint_pair_set(ps_m)
+            if m_lint:
+                errs.append(f"compile_words_to_pairset(mode={mode_k!r}) produced lint warnings: {m_lint}")
+        errs += _expect_refusal(
+            lambda: pair_comp.compile_words_to_pairset(
+                "steady locked-off tripod frame -> erratic handheld camera shake; soundscape: quiet room tone -> muffled through-the-wall acoustics",
+                mode="p_h3_image",
+                target_prompt=mode_target_prompts["p_h3_image"],
+            ),
+            "single-frame image generation",
+            "compile_words_to_pairset refusal on soundscape clause in p_h3_image mode",
+        )
+        errs += _expect_refusal(
+            lambda: pair_comp.compile_words_to_pairset("steady locked-off tripod frame -> erratic handheld camera shake"),
+            "target_prompt is required",
+            "compile_words_to_pairset refusal when target_prompt is omitted",
+        )
+        errs += _expect_refusal(
+            lambda: pair_comp.compile_words_to_pairset(
+                "nonexistent clause in prompt -> another clause",
+                target_prompt=mode_target_prompts["t2va"],
+            ),
+            "was found as a substring in target_prompt",
+            "compile_words_to_pairset refusal when neither pole matches target_prompt",
+        )
+        if pair_comp.infer_compile_mode("auto", target_prompt="subject_definitions:\n<Subject 1> is a dog from <Picture 1>: a terrier.\n") != "ref2va":
+            errs.append("infer_compile_mode did not detect ref2va from subject_definitions:")
+        if pair_comp.infer_compile_mode(
+            "auto",
+            target_prompt="How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video.\n\nintegrated_multimodal_description:\n[Shot 1] Wide shot.\n",
+        ) != "fl2va":
+            errs.append("infer_compile_mode did not detect fl2va from official base_en.md Part One header")
+        if pair_comp.infer_compile_mode("auto", target_prompt="A medium portrait shot of a botanist in a greenhouse at dusk.") != "p_h3_image":
+            errs.append("infer_compile_mode did not detect p_h3_image from sectionless image prompt")
+        import control_vector_nodes as cv_nodes
+        for m_idx, media_scene in enumerate(cv_nodes.DEFAULT_MEDIA_SCENES):
+            if (
+                "summary:\n[reference generation]" not in media_scene
+                or ": fully_preserved -" not in media_scene
+                or "<d>[English]" not in media_scene
+                or not media_scene.endswith("non_diegetic_music:\nN/A")
+            ):
+                errs.append(f"DEFAULT_MEDIA_SCENES[{m_idx}] violates vendor_guides/ref_en.md structure: {media_scene!r}")
+        # Direct in-place --target-prompt compilation (both when Pole A is in target_prompt and when Pole B is in target_prompt):
+        inplace_tp = (
+            "integrated_multimodal_description:\n"
+            "[Shot 1] A cinematic medium shot on a 50mm lens. A courier stands on a wet platform under neon lights.\n\n"
+            "overall_soundscape:\n"
+            "Gentle rain and distant traffic.\n\n"
+            "non_diegetic_music:\n"
+            "N/A"
+        )
+        ps_inplace_a = pair_comp.compile_words_to_pairset(
+            "A cinematic medium shot on a 50mm lens. -> A shaky handheld VHS camcorder shot.",
+            target_prompt=inplace_tp,
+        )
+        ps_inplace_b = pair_comp.compile_words_to_pairset(
+            "A shaky handheld VHS camcorder shot. -> A cinematic medium shot on a 50mm lens.",
+            target_prompt=inplace_tp,
+        )
+        if len(ps_inplace_a.pairs) != 1 or len(ps_inplace_b.pairs) != 1:
+            errs.append(f"direct in-place target_prompt compilation expected 1 pair, got {len(ps_inplace_a.pairs)} and {len(ps_inplace_b.pairs)}")
+        if "A shaky handheld VHS camcorder shot." not in ps_inplace_a.pairs[0].b or "A shaky handheld VHS camcorder shot." not in ps_inplace_b.pairs[0].a:
+            errs.append("direct in-place target_prompt compilation did not substitute exact clause in place")
+        if ps_inplace_a.name != "shaky_handheld_vhs_camcorder":
+            errs.append(f"compile_words_to_pairset('a -> b') did not derive default name from steered pole B: got {ps_inplace_a.name!r}")
+
+        # Coupled description + overall_soundscape differing_span and inline hold: compilation on target_prompt:
         coupled_b = base_b.replace(
             "overall_soundscape: The wheel hums with a steady low whir and wet hands slide over clay.",
             "overall_soundscape: A 16mm film projector clatters with optical crackle and warm motor hum.",
@@ -1018,43 +1148,23 @@ b = "a busy city street"
             errs.append(f"differing_section_info returned {c_sec_name!r}, expected 'integrated_multimodal_description+overall_soundscape'")
 
         spec_multi = pair_comp.parse_short_contrast_spec(
-            "normal gravity -> {props} lift off {surface} in zero gravity; "
-            "soundscape: normal room tone -> low weightless magnetic hum; "
-            "hold(camera_shake): steady locked tripod -> erratic handheld shake"
+            "A cinematic medium shot on a 50mm lens. -> A shaky handheld VHS camcorder shot.; "
+            "soundscape: Gentle rain and distant traffic. -> A 16mm film projector clatters with optical crackle.; "
+            "hold(camera_shake): stands on a wet platform -> walks across a wet platform",
+            target_prompt=inplace_tp,
+            target_weight=2.5,
         )
         ps_multi = spec_multi["pair_set"]
-        if len(ps_multi.pairs) != 10 or len(ps_multi.holds) != 2 or ps_multi.holds[0].group != "camera_shake":
+        if len(ps_multi.pairs) != 1 or ps_multi.pairs[0].weight != 2.5 or len(ps_multi.holds) != 1 or ps_multi.holds[0].group != "camera_shake":
             errs.append(f"parse_short_contrast_spec multi-clause/coupled/hold unexpected result: pairs={len(ps_multi.pairs)}, holds={len(ps_multi.holds)}")
-        if any(" | " not in p.b_span for p in ps_multi.pairs):
-            errs.append("parse_short_contrast_spec with coupled soundscape did not produce 'description | soundscape' b_spans")
-        if len({p.b_span for p in ps_multi.pairs}) != 10:
-            errs.append("parse_short_contrast_spec with {props}/{surface} did not produce 10/10 unique b_spans")
+        if " | " not in ps_multi.pairs[0].b_span:
+            errs.append("parse_short_contrast_spec with coupled soundscape did not produce 'description | soundscape' b_span")
         if cv.lint_pair_set(ps_multi):
             errs.append(f"parse_short_contrast_spec multi-clause PairSet failed lint_pair_set: {cv.lint_pair_set(ps_multi)}")
-
-        ps_tprompt = pair_comp.compile_words_to_pairset(
-            "steady locked-off tripod -> erratic handheld camera shake",
-            target_prompt=excl_text,
-            target_weight=2.5,
-            vary_realizations=True,
-        )
-        if len(ps_tprompt.pairs) != 10 or ps_tprompt.pairs[0].weight != 2.5:
-            errs.append(f"compile_words_to_pairset(target_prompt=...) unexpected Pair 0 weight or count: {ps_tprompt.pairs[0]}")
-        if len({p.b_span for p in ps_tprompt.pairs}) != 10:
-            errs.append(f"compile_words_to_pairset(vary_realizations=True) did not produce 10 unique b_spans: {[p.b_span for p in ps_tprompt.pairs]}")
-        for slot_k in pair_comp.CANONICAL_SLOTS:
-            ps_placebo = pair_comp.compile_placebo_pairset(slot=slot_k, mode="t2va")
-            if len(ps_placebo.pairs) != 10 or cv.lint_pair_set([{"a": p.a, "b": p.b} for p in ps_placebo.pairs]):
-                errs.append(f"compile_placebo_pairset(slot={slot_k!r}) failed or produced lint warnings")
         errs += _expect_refusal(
-            lambda: pair_comp.compile_words_to_pairset("   "),
+            lambda: pair_comp.compile_words_to_pairset("   ", target_prompt=inplace_tp),
             "non-empty string",
             "compile_words_to_pairset refusal on empty words",
-        )
-        errs += _expect_refusal(
-            lambda: pair_comp.resolve_slot_name("nonexistent_slot"),
-            "unknown slot",
-            "resolve_slot_name refusal on unknown slot",
         )
     return errs
 
@@ -2893,7 +3003,7 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
                     )
                 if not (tmp / node_out[0]).is_file() or not (tmp / node_out_diff[0]).is_file():
                     errs.append("both scene_text and from_first_diff vector files should coexist in tmp")
-                # Zero-.toml simple-words node execution check
+                # Zero-.toml in-place target_prompt node execution check
                 node_out_words = cv_nodes.MiniMaxH3MakeControlVector.execute(
                     pair_file="",
                     model=patcher_for_make,
@@ -2903,10 +3013,18 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
                     output_name="",
                     overwrite=False,
                     encoded_references=None,
-                    words="erratic handheld camera shake",
-                    slot="auto",
+                    words="steady locked-off tripod -> erratic handheld camera shake",
+                    mode="auto",
+                    target_prompt=(
+                        "integrated_multimodal_description:\n"
+                        "[Shot 1] In a sunlit courtyard, a traveler stands in a steady locked-off tripod frame.\n\n"
+                        "overall_soundscape:\n"
+                        "Quiet outdoor room tone.\n\n"
+                        "non_diegetic_music:\n"
+                        "N/A"
+                    ),
                 )
-                if not node_out_words[0].startswith("erratic_handheld_camera_shake__") or not (tmp / node_out_words[0]).is_file():
+                if not node_out_words[0].startswith("erratic_handheld_shake__") or not (tmp / node_out_words[0]).is_file():
                     errs.append(f"MiniMaxH3MakeControlVector(words=...) failed: {node_out_words[0]!r}")
             finally:
                 if orig_cv_paths is not None:
@@ -3118,518 +3236,32 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
                             f"cmd_build duplicate without --overwrite expected rc=2 and 'already exists', got rc={rc_bld2}, err={buf_bld2_err.getvalue()!r}"
                         )
 
-                # Test Control Vector Studio UI endpoints (handle_ui_request)
-                ui_state = bench_cv.ControlVectorUIState(
-                    toml_dir=build_toml_dir,
-                    vec_dir=build_vec_dir,
-                )
-                st_root, ctype_root, body_root = bench_cv.handle_ui_request(ui_state, "GET", "/", b"")
-                if st_root != 200 or "text/html" not in ctype_root or "MiniMax H3 Control Vector Studio" not in body_root:
-                    errs.append(f"handle_ui_request GET / failed: status={st_root}, ctype={ctype_root!r}")
-                st_css, ctype_css, body_css = bench_cv.handle_ui_request(ui_state, "GET", "/ui/style.css", b"")
-                if st_css != 200 or "text/css" not in ctype_css or "--bg:" not in body_css:
-                    errs.append(f"handle_ui_request GET /ui/style.css failed: status={st_css}, ctype={ctype_css!r}")
-                st_js, ctype_js, body_js = bench_cv.handle_ui_request(ui_state, "GET", "/ui/app.js", b"")
-                if st_js != 200 or "javascript" not in ctype_js or "const APP =" not in body_js:
-                    errs.append(f"handle_ui_request GET /ui/app.js failed: status={st_js}, ctype={ctype_js!r}")
-
-                st_init, _, body_init = bench_cv.handle_ui_request(ui_state, "GET", "/api/init", b"")
-                init_json = json.loads(body_init)
-                sp_doc_exists = (
-                    bench_cv.REPO_ROOT / "docs" / "wiki" / "system_prompts" / "h3_control_vector_system_prompt.md"
-                ).is_file()
-                sp_txt = init_json.get("system_prompt", "")
-                if (
-                    st_init != 200
-                    or not init_json.get("ok")
-                    or not isinstance(sp_txt, str)
-                    or (
-                        sp_doc_exists
-                        and (
-                            not sp_txt.startswith("You write natural-language prompts and contrastive control-vector pair sets for the MiniMax H3 joint video-and-audio diffusion model.")
-                            or not sp_txt.endswith("Use direct, vivid, present-tense physical verbs and concrete nouns.")
-                            or "## 1. Copyable System Prompt" in sp_txt
-                        )
-                    )
-                ):
-                    errs.append(f"handle_ui_request GET /api/init failed: status={st_init}, keys={list(init_json.keys())}")
-                if not any(row.get("file") == "oneshot_build.toml" for row in init_json.get("toml_files", [])):
-                    errs.append(f"handle_ui_request GET /api/init missing oneshot_build.toml: {init_json.get('toml_files')}")
-                if len(init_json.get("vectors", [])) < 2:
-                    errs.append(f"handle_ui_request GET /api/init expected >=2 vectors, got {len(init_json.get('vectors', []))}")
-
-                st_prev, _, body_prev = bench_cv.handle_ui_request(
-                    ui_state,
-                    "POST",
-                    "/api/preview",
-                    json.dumps({"text": build_md_path.read_text(encoding="utf-8"), "name": "oneshot_build"}).encode("utf-8"),
-                )
-                prev_json = json.loads(body_prev)
-                if (
-                    st_prev != 200
-                    or not prev_json.get("ok")
-                    or len(prev_json.get("pairs", [])) != 2
-                    or not all(p.get("valid") for p in prev_json.get("pairs", []))
-                    or (prev_json.get("avg_tokens") or {}).get("diff_span", 0) <= 0
-                ):
-                    errs.append(f"handle_ui_request POST /api/preview valid markdown failed: {prev_json}")
-
-                st_prev_bad, _, body_prev_bad = bench_cv.handle_ui_request(
-                    ui_state,
-                    "POST",
-                    "/api/preview",
-                    json.dumps(
-                        {
-                            "text": (
-                                "#### Pair 1 — Identical prompts\n\n"
-                                "##### Prompt A (Baseline)\n"
-                                "```text\nScene: A quiet courtyard at noon.\n```\n\n"
-                                "##### Prompt B (Steered)\n"
-                                "```text\nScene: A quiet courtyard at noon.\n```\n"
-                            )
-                        }
-                    ).encode("utf-8"),
-                )
-                prev_bad_json = json.loads(body_prev_bad)
-                if (
-                    st_prev_bad != 200
-                    or len(prev_bad_json.get("pairs", [])) != 1
-                    or prev_bad_json["pairs"][0].get("valid") is not False
-                ):
-                    errs.append(f"handle_ui_request POST /api/preview identical pair expected valid=False: {prev_bad_json}")
-
-                st_load, _, body_load = bench_cv.handle_ui_request(
-                    ui_state, "POST", "/api/load-toml", json.dumps({"file": "oneshot_build.toml"}).encode("utf-8")
-                )
-                load_json = json.loads(body_load)
-                if st_load != 200 or not load_json.get("ok") or load_json.get("name") != "oneshot_build":
-                    errs.append(f"handle_ui_request POST /api/load-toml failed: {load_json}")
-
-                st_save, _, body_save = bench_cv.handle_ui_request(
-                    ui_state,
-                    "POST",
-                    "/api/save-toml",
-                    json.dumps(
-                        {
-                            "text": load_json.get("markdown", ""),
-                            "name": "ui_saved_concept",
-                            "frame": "scene",
-                            "overwrite": True,
-                        }
-                    ).encode("utf-8"),
-                )
-                save_json = json.loads(body_save)
-                if st_save != 200 or not save_json.get("ok") or not (build_toml_dir / "ui_saved_concept.toml").is_file():
-                    errs.append(f"handle_ui_request POST /api/save-toml failed: {save_json}")
-
-                st_uibld, _, body_uibld = bench_cv.handle_ui_request(
-                    ui_state,
-                    "POST",
-                    "/api/build",
-                    json.dumps(
-                        {
-                            "text": load_json.get("markdown", ""),
-                            "name": "ui_built_concept",
-                            "frame": "scene",
-                            "families": "fl2va",
-                            "pooling": "diff_span",
-                            "no_lora": True,
-                            "overwrite": False,
-                        }
-                    ).encode("utf-8"),
-                )
-                uibld_json = json.loads(body_uibld)
-                if st_uibld != 200 or not uibld_json.get("ok") or len(uibld_json.get("built", [])) != 1:
-                    errs.append(f"handle_ui_request POST /api/build failed: {uibld_json}")
-                # Duplicate build without overwrite=True must return 400
-                st_uibld_dup, _, body_uibld_dup = bench_cv.handle_ui_request(
-                    ui_state,
-                    "POST",
-                    "/api/build",
-                    json.dumps(
-                        {
-                            "text": load_json.get("markdown", ""),
-                            "name": "ui_built_concept",
-                            "frame": "scene",
-                            "families": "fl2va",
-                            "pooling": "diff_span",
-                            "no_lora": True,
-                            "overwrite": False,
-                        }
-                    ).encode("utf-8"),
-                )
-                uibld_dup_json = json.loads(body_uibld_dup)
-                if st_uibld_dup != 400 or "already exists" not in uibld_dup_json.get("error", ""):
-                    errs.append(f"handle_ui_request POST /api/build duplicate expected 400 'already exists', got {st_uibld_dup}: {uibld_dup_json}")
-
-                # Verify POST /api/build with overwrite=True on a loaded .toml with [[hold]] blocks preserves [[hold]] and quality
-                hold_toml_path = build_toml_dir / "ui_hold_preserved.toml"
-                hold_toml_path.write_text(
-                    (build_toml_dir / "oneshot_build.toml").read_text(encoding="utf-8").replace(
-                        'name = "oneshot_build"', 'name = "ui_hold_preserved"'
-                    )
-                    + '\n[[hold]]\ngroup = "setting"\na = "integrated_multimodal_description: [Shot 1] A baker kneads dough on a wooden table in warm light.\\n\\noverall_soundscape: Soft room tone.\\n\\nnon_diegetic_music: None."\nb = "integrated_multimodal_description: [Shot 1] A baker kneads dough on a marble counter in cool light.\\n\\noverall_soundscape: Soft room tone.\\n\\nnon_diegetic_music: None."\n',
-                    encoding="utf-8",
-                )
-                _, _, body_load_hold = bench_cv.handle_ui_request(
-                    ui_state, "POST", "/api/load-toml", json.dumps({"file": "ui_hold_preserved.toml"}).encode("utf-8")
-                )
-                load_hold_json = json.loads(body_load_hold)
-                st_bld_hold, _, body_bld_hold = bench_cv.handle_ui_request(
-                    ui_state,
-                    "POST",
-                    "/api/build",
-                    json.dumps(
-                        {
-                            "text": load_hold_json.get("markdown", ""),
-                            "name": "ui_hold_preserved",
-                            "frame": "scene",
-                            "families": "fl2va",
-                            "pooling": "diff_span",
-                            "no_lora": True,
-                            "overwrite": True,
-                        }
-                    ).encode("utf-8"),
-                )
-                bld_hold_json = json.loads(body_bld_hold)
-                after_ps = cv.load_pairs(hold_toml_path, bank_dir=cv_nodes.PROMPT_BANK_DIR)
-                if st_bld_hold != 200 or not bld_hold_json.get("ok") or len(after_ps.holds) != 1:
-                    errs.append(
-                        f"handle_ui_request POST /api/build lost [[hold]] blocks on loaded .toml: st={st_bld_hold}, holds={len(after_ps.holds)}"
-                    )
-
-                # Verify editing a [[hold]] block in Markdown when Pair 1..2 are unchanged updates the .toml on disk
-                edited_hold_md = load_hold_json.get("markdown", "").replace(
-                    "#### Hold 1 (setting)", "#### Hold 1 (edited_hold_group)"
-                )
-                st_bld_hold2, _, body_bld_hold2 = bench_cv.handle_ui_request(
-                    ui_state,
-                    "POST",
-                    "/api/build",
-                    json.dumps(
-                        {
-                            "text": edited_hold_md,
-                            "name": "ui_hold_preserved",
-                            "frame": "scene",
-                            "families": "fl2va",
-                            "pooling": "diff_span",
-                            "no_lora": True,
-                            "overwrite": True,
-                        }
-                    ).encode("utf-8"),
-                )
-                after_ps2 = cv.load_pairs(hold_toml_path, bank_dir=cv_nodes.PROMPT_BANK_DIR)
-                if (
-                    st_bld_hold2 != 200
-                    or len(after_ps2.holds) != 1
-                    or after_ps2.holds[0].group != "edited_hold_group"
-                ):
-                    errs.append(
-                        f"handle_ui_request POST /api/build ignored edited Hold block when Pair 1..2 were unchanged: {[h.group for h in after_ps2.holds]}"
-                    )
-                if not ui_state._clips:
-                    errs.append("ControlVectorUIState did not cache _clips across /api/build requests")
-
-                st_quit, _, body_quit = bench_cv.handle_ui_request(ui_state, "POST", "/api/quit", b"{}")
-                quit_json = json.loads(body_quit)
-                if st_quit != 200 or not quit_json.get("ok") or not ui_state.shutdown_requested:
-                    errs.append(f"handle_ui_request POST /api/quit failed: {quit_json}, shutdown={ui_state.shutdown_requested}")
-
-                # Test zero-.toml simple-words preview + build via handle_ui_request and CLI cmd_build (--words and --placebo)
-                st_wprev, _, body_wprev = bench_cv.handle_ui_request(
-                    ui_state,
-                    "POST",
-                    "/api/preview",
-                    json.dumps({"text": "inflatable squeaky balloon animals", "slot": "auto", "mode": "t2va"}).encode("utf-8"),
-                )
-                wprev_json = json.loads(body_wprev)
-                if (
-                    st_wprev != 200
-                    or not wprev_json.get("ok")
-                    or len(wprev_json.get("pairs", [])) != 10
-                    or not all(p.get("valid") for p in wprev_json.get("pairs", []))
-                ):
-                    errs.append(f"handle_ui_request POST /api/preview simple words failed: {wprev_json}")
-
-                st_wbld, _, body_wbld = bench_cv.handle_ui_request(
-                    ui_state,
-                    "POST",
-                    "/api/build",
-                    json.dumps(
-                        {
-                            "text": "inflatable squeaky balloon animals",
-                            "slot": "auto",
-                            "mode": "t2va",
-                            "families": "fl2va",
-                            "pooling": "diff_span",
-                            "no_lora": True,
-                            "overwrite": False,
-                        }
-                    ).encode("utf-8"),
-                )
-                wbld_json = json.loads(body_wbld)
-                if st_wbld != 200 or not wbld_json.get("ok") or len(wbld_json.get("built", [])) != 1:
-                    errs.append(f"handle_ui_request POST /api/build simple words failed: {wbld_json}")
-                if (build_toml_dir / "inflatable_squeaky_balloon_animals.toml").exists():
-                    errs.append("handle_ui_request POST /api/build simple words unexpectedly wrote a .toml file")
-
-                st_wsave, _, body_wsave = bench_cv.handle_ui_request(
-                    ui_state,
-                    "POST",
-                    "/api/save-toml",
-                    json.dumps(
-                        {
-                            "text": "inflatable squeaky balloon animals",
-                            "slot": "auto",
-                            "mode": "t2va",
-                            "overwrite": False,
-                        }
-                    ).encode("utf-8"),
-                )
-                wsave_json = json.loads(body_wsave)
-                if st_wsave != 200 or not wsave_json.get("ok") or not (build_toml_dir / "inflatable_squeaky_balloon_animals.toml").is_file():
-                    errs.append(f"handle_ui_request POST /api/save-toml simple words failed: {wsave_json}")
-
-                # Verify unified JSON schema keys on /api/init, /api/preview, /api/expand-scenes, /api/sculpt, and /api/make-media (base64 data URLs)
-                _, _, body_init2 = bench_cv.handle_ui_request(ui_state, "GET", "/api/init")
-                init2_json = json.loads(body_init2)
-                t_files = init2_json.get("toml_files", [])
-                v_files = init2_json.get("vectors", [])
-                if not t_files or not all({"name", "stem", "file", "pairs", "n_pairs", "holds", "n_holds"} <= set(tf) for tf in t_files):
-                    errs.append(f"GET /api/init toml_files missing unified keys: {t_files[:1]}")
-                if not v_files or not all({"file", "name", "norm", "raw_norm", "split_half", "split_half_cosine", "rec_strength"} <= set(vf) for tf in v_files for vf in [tf]):
-                    errs.append(f"GET /api/init vectors missing unified keys: {v_files[:1]}")
-                first_p = (wprev_json.get("pairs") or [{}])[0]
-                if "diff_a" not in first_p or "diff_b" not in first_p or "diff_span" not in (first_p.get("tokens") or {}):
-                    errs.append(f"POST /api/preview pair missing diff_a/diff_b/tokens.diff_span: {first_p}")
-
-                st_exp, _, body_exp = bench_cv.handle_ui_request(
-                    ui_state,
-                    "POST",
-                    "/api/expand-scenes",
-                    json.dumps(
-                        {
-                            "pole_a": "calm mild afternoon air",
-                            "pole_b": "scorching desert heatwave with shimmering heat haze",
-                            "slot": "auto",
-                            "mode": "t2va",
-                            "name": "scorching_test",
-                        }
-                    ).encode("utf-8"),
-                )
-                exp_json = json.loads(body_exp)
-                if st_exp != 200 or not exp_json.get("ok") or len(exp_json.get("rows", [])) != 10:
-                    errs.append(f"POST /api/expand-scenes failed: {exp_json}")
-
-                # Verify families="fl2va,ref2va", save_toml=True, custom pair weights, axis quality, and holds on /api/build
-                weighted_rows = [dict(r) for r in exp_json.get("rows", [])]
-                weighted_rows[0]["weight"] = 2.5
-                st_fams, _, body_fams = bench_cv.handle_ui_request(
-                    ui_state,
-                    "POST",
-                    "/api/build",
-                    json.dumps(
-                        {
-                            "rows": weighted_rows,
-                            "hold_b": "wet rain-slicked cobblestones",
-                            "axis": "scorching desert heatwave vs cool afternoon air",
-                            "name": "scorching_dual",
-                            "families": "fl2va,ref2va",
-                            "pooling": "diff_span",
-                            "no_lora": True,
-                            "save_toml": True,
-                            "overwrite": True,
-                        }
-                    ).encode("utf-8"),
-                )
-                fams_json = json.loads(body_fams)
-                if (
-                    st_fams != 200
-                    or not fams_json.get("ok")
-                    or len(fams_json.get("built", [])) != 2
-                    or not (build_toml_dir / "scorching_dual.toml").is_file()
-                ):
-                    errs.append(f"POST /api/build with families='fl2va,ref2va' and save_toml=True failed: {fams_json}")
-                else:
-                    ps_dual = cv.load_pairs(build_toml_dir / "scorching_dual.toml")
-                    if round(ps_dual.pairs[0].weight, 4) != 2.5:
-                        errs.append(f"POST /api/build with save_toml=True dropped pair[0] weight=2.5 in .toml: got {ps_dual.pairs[0].weight}")
-                    if ps_dual.quality != "scorching desert heatwave vs cool afternoon air":
-                        errs.append(f"POST /api/build with axis=... did not save quality in .toml: got {ps_dual.quality!r}")
-                    if len(ps_dual.holds) == 0:
-                        errs.append("POST /api/build with hold_b=... did not compile holds into .toml")
-                    t_dual0, m_dual0 = cv.load_vector(build_vec_dir / fams_json["built"][0]["file"])
-                    if round(float(m_dual0["pairs"]["pair_spans"][0]["weight"]), 4) != 2.5:
-                        errs.append(f"POST /api/build with save_toml=True dropped pair[0] weight=2.5 in built vector: got {m_dual0['pairs']['pair_spans'][0]['weight']}")
-                    if "holds.post_refiner" not in t_dual0:
-                        errs.append("POST /api/build with hold_b=... did not save holds.post_refiner")
-                    # Also verify combining [[hold]] pairs (holds.post_refiner) with hold_vectors preserves orthogonality
-                    st_hold_combo, _, body_hold_combo = bench_cv.handle_ui_request(
-                        ui_state,
-                        "POST",
-                        "/api/build",
-                        json.dumps(
-                            {
-                                "rows": weighted_rows[:2],
-                                "hold_b": "wet rain-slicked cobblestones",
-                                "hold_vectors": [fams_json["built"][0]["file"]],
-                                "name": "scorching_hold_combo",
-                                "families": "fl2va",
-                                "pooling": "diff_span",
-                                "no_lora": True,
-                                "overwrite": True,
-                            }
-                        ).encode("utf-8"),
-                    )
-                    hold_combo_json = json.loads(body_hold_combo)
-                    if st_hold_combo != 200 or not hold_combo_json.get("ok"):
-                        errs.append(f"POST /api/build combining hold_b and hold_vectors failed: {hold_combo_json}")
-                    # Verify POST /api/rebuild route
-                    st_reb_ui, _, body_reb_ui = bench_cv.handle_ui_request(
-                        ui_state,
-                        "POST",
-                        "/api/rebuild",
-                        json.dumps(
-                            {
-                                "target": "scorching_dual",
-                                "families": "fl2va,ref2va",
-                                "no_lora": True,
-                            }
-                        ).encode("utf-8"),
-                    )
-                    reb_ui_json = json.loads(body_reb_ui)
-                    if st_reb_ui != 200 or not reb_ui_json.get("ok") or len(reb_ui_json.get("rebuilt", [])) != 2:
-                        errs.append(f"POST /api/rebuild failed: {reb_ui_json}")
-
-                # Verify /api/sculpt and CLI sculpt --invert (and _resolve_vector_for_family sibling swapping)
-                st_sc, _, body_sc = bench_cv.handle_ui_request(
-                    ui_state,
-                    "POST",
-                    "/api/sculpt",
-                    json.dumps(
-                        {
-                            "steps": [{"vector": "scorching_dual", "mode": "add", "strength": -1.0}],
-                            "name": "anti_scorching",
-                            "families": "fl2va,ref2va",
-                            "overwrite": True,
-                        }
-                    ).encode("utf-8"),
-                )
-                sc_json = json.loads(body_sc)
-                if st_sc != 200 or not sc_json.get("ok") or len(sc_json.get("built", [])) != 2:
-                    errs.append(f"POST /api/sculpt with families='fl2va,ref2va' failed: {sc_json}")
-                else:
-                    sc_by_fam = {b["family"]: b["file"] for b in sc_json.get("built", [])}
-                    for sc_b in sc_json.get("built", []):
-                        _, sc_m = cv.load_vector(build_vec_dir / sc_b["file"])
-                        if sc_m.get("family") != sc_b.get("family"):
-                            errs.append(f"sculpted vector {sc_b['file']} metadata family {sc_m.get('family')!r} != {sc_b.get('family')!r}")
-                        if sc_b.get("family") not in sc_m.get("recipe", {}).get("checkpoint", {}).get("file", ""):
-                            errs.append(f"sculpted vector {sc_b['file']} stamped wrong family checkpoint in recipe: {sc_m.get('recipe')}")
-                    resolved_ref_sib = bench_cv._resolve_vector_for_family(
-                        sc_by_fam["fl2va"], family="ref2va", extra_dir=build_vec_dir
-                    )
-                    resolved_fl_sib = bench_cv._resolve_vector_for_family(
-                        build_vec_dir / sc_by_fam["ref2va"], family="fl2va", extra_dir=build_vec_dir
-                    )
-                    if resolved_ref_sib.name != sc_by_fam["ref2va"] or resolved_fl_sib.name != sc_by_fam["fl2va"]:
-                        errs.append(
-                            f"_resolve_vector_for_family did not swap sibling files: got {resolved_ref_sib.name!r} and {resolved_fl_sib.name!r}"
-                        )
-
-                # Verify POST /api/make-media with base64 data:image/png;base64,... uploads
-                import base64 as _b64
-                from PIL import Image as _PILImage
-
-                def _make_b64_png(rgb_tuple: tuple[int, int, int]) -> str:
-                    im = _PILImage.new("RGB", (64, 64), color=rgb_tuple)
-                    b_io = io.BytesIO()
-                    im.save(b_io, format="PNG")
-                    return "data:image/png;base64," + _b64.b64encode(b_io.getvalue()).decode("ascii")
-
-                st_mm, _, body_mm = bench_cv.handle_ui_request(
-                    ui_state,
-                    "POST",
-                    "/api/make-media",
-                    json.dumps(
-                        {
-                            "image_a_data": _make_b64_png((40, 60, 80)),
-                            "image_b_data": _make_b64_png((220, 140, 50)),
-                            "name": "b64_media_vec",
-                            "families": "ref2va",
-                            "pooling": "scene_text",
-                            "short_edge": 64,
-                            "no_lora": True,
-                            "overwrite": True,
-                        }
-                    ).encode("utf-8"),
-                )
-                mm_json = json.loads(body_mm)
-                if st_mm != 200 or not mm_json.get("ok") or len(mm_json.get("built", [])) != 1:
-                    errs.append(f"POST /api/make-media with base64 data URLs failed: st={st_mm}, body={mm_json}")
-
-                # Verify /api/generate-pairs-llm provider validation & missing-model refusal
-                st_llm_bad_prov, _, body_llm_bad_prov = bench_cv.handle_ui_request(
-                    ui_state,
-                    "POST",
-                    "/api/generate-pairs-llm",
-                    json.dumps({"provider": "unknown_backend", "model": "some_model", "concept": "scorching"}).encode("utf-8"),
-                )
-                llm_bad_prov_json = json.loads(body_llm_bad_prov)
-                if st_llm_bad_prov != 400 or "unsupported LLM provider" not in llm_bad_prov_json.get("error", ""):
-                    errs.append(f"POST /api/generate-pairs-llm expected 400 on unknown provider: {llm_bad_prov_json}")
-
-                st_llm_no_mod, _, body_llm_no_mod = bench_cv.handle_ui_request(
-                    ui_state,
-                    "POST",
-                    "/api/generate-pairs-llm",
-                    json.dumps({"provider": "transformers", "model": "", "concept": "scorching"}).encode("utf-8"),
-                )
-                llm_no_mod_json = json.loads(body_llm_no_mod)
-                if st_llm_no_mod != 400 or "model path or HuggingFace model ID is required" not in llm_no_mod_json.get("error", ""):
-                    errs.append(f"POST /api/generate-pairs-llm expected 400 on empty model: {llm_no_mod_json}")
-
-                # Verify generate-pairs CLI parser supports both positional concept and --concept / --provider / --model / --out-toml
-                gp_pos = bench_cv.build_parser().parse_args(["generate-pairs", "calm -> scorching", "--llm-provider", "exllamav3", "--llm-model", "test_dir"])
-                gp_flag = bench_cv.build_parser().parse_args(
-                    [
-                        "generate-pairs",
-                        "--provider",
-                        "transformers",
-                        "--model",
-                        "test_hf_id",
-                        "--load-in-4bit",
-                        "--concept",
-                        "calm -> scorching",
-                        "--out-toml",
-                        "my_vec.toml",
-                    ]
-                )
-                if gp_pos.concept != "calm -> scorching" or gp_flag.concept_flag != "calm -> scorching" or gp_flag.out_toml != "my_vec.toml":
-                    errs.append(f"generate-pairs parser mismatch: pos={gp_pos}, flag={gp_flag}")
-
-                # Verify clean --families metavar in --help (no repeating fl2va,ref2va) and image/t2i/image_edit aliases
-                top_help = bench_cv.build_parser().format_help()
-                if "fl2va,ref2va,ref2va,fl2va" in top_help or "H3 Model Families (--families):" not in top_help:
-                    errs.append("CLI top-level help missing H3 Model Families summary or has duplicated --families choices")
+                # Verify CLI parser and family resolution
                 for img_alias in ("image", "p-h3-image", "t2i", "image_edit"):
                     if bench_cv._resolve_requested_families(img_alias) != ["fl2va"]:
                         errs.append(f"_resolve_requested_families({img_alias!r}) did not resolve to ['fl2va']")
 
-                web_dir = REPO / "bench" / "control_vector" / "web"
-                for web_fname in ("index.html", "app.js"):
-                    web_path = web_dir / web_fname
-                    if web_path.is_file() and "[00s-05s]" in web_path.read_text(encoding="utf-8"):
-                        errs.append(f"{web_fname} must not contain non-H3 '[00s-05s]' timeline brackets")
-
                 words_vec_dir = tmp / "words_vec_dir"
+                tp_two_scenes = (
+                    "integrated_multimodal_description:\n"
+                    "[Shot 1] In a sunlit courtyard, a traveler stands in a steady locked-off tripod frame.\n\n"
+                    "overall_soundscape:\nQuiet outdoor room tone.\n\n"
+                    "non_diegetic_music:\nN/A\n"
+                    "---\n"
+                    "integrated_multimodal_description:\n"
+                    "[Shot 1] Inside a stone hallway, a courier waits in a steady locked-off tripod frame.\n\n"
+                    "overall_soundscape:\nSoft indoor room tone.\n\n"
+                    "non_diegetic_music:\nN/A"
+                )
                 buf_wb_out, buf_wb_err = io.StringIO(), io.StringIO()
                 with contextlib.redirect_stdout(buf_wb_out), contextlib.redirect_stderr(buf_wb_err):
                     rc_wb = bench_cv.main(
                         [
                             "build",
+                            "--target-prompt",
+                            tp_two_scenes,
                             "--words",
-                            "blizzard snowdrift indoors",
+                            "steady locked-off tripod frame -> blizzard snowdrift indoors",
                             "--families",
                             "fl2va",
                             "--pooling",
@@ -3641,35 +3273,18 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
                             str(words_vec_dir),
                         ]
                     )
-                    rc_pb = bench_cv.main(
-                        [
-                            "build",
-                            "--placebo",
-                            "--slot",
-                            "opening_framing",
-                            "--families",
-                            "fl2va",
-                            "--pooling",
-                            "diff_span",
-                            "--no-lora",
-                            "--out-dir",
-                            str(words_vec_dir),
-                        ]
-                    )
-                if rc_wb != 0 or rc_pb != 0:
-                    errs.append(f"cmd_build --words / --placebo failed: rc_wb={rc_wb}, rc_pb={rc_pb}, err={buf_wb_err.getvalue()!r}")
-                elif len(list(words_vec_dir.glob("*.safetensors"))) != 2:
-                    errs.append(f"cmd_build --words / --placebo expected 2 .safetensors files, got {list(words_vec_dir.glob('*.safetensors'))}")
+                if rc_wb != 0:
+                    errs.append(f"cmd_build --target-prompt --words failed: rc_wb={rc_wb}, err={buf_wb_err.getvalue()!r}")
+                elif len(list(words_vec_dir.glob("*.safetensors"))) != 1:
+                    errs.append(f"cmd_build --target-prompt --words expected 1 .safetensors file, got {list(words_vec_dir.glob('*.safetensors'))}")
                 else:
                     # Verify non-TOML compiled --words vector stores pairs_ab/words_spec and rebuilds identically
-                    wb_st = next(
-                        p for p in words_vec_dir.glob("*.safetensors") if "placebo" not in p.name
-                    )
+                    wb_st = next(words_vec_dir.glob("*.safetensors"))
                     wb_stem = wb_st.name.split("__")[0]
                     wb_t_orig, wb_m_orig = cv.load_vector(wb_st)
                     wb_pairs_meta = wb_m_orig.get("pairs") or {}
-                    if not isinstance(wb_pairs_meta.get("pairs_ab"), list) or len(wb_pairs_meta["pairs_ab"]) != 10:
-                        errs.append(f"cmd_build --words did not persist pairs_ab in metadata['pairs']: {wb_pairs_meta.keys()}")
+                    if not isinstance(wb_pairs_meta.get("pairs_ab"), list) or len(wb_pairs_meta["pairs_ab"]) != 2:
+                        errs.append(f"cmd_build --words did not persist 2 pairs_ab in metadata['pairs']: {wb_pairs_meta.keys()}")
                     with contextlib.redirect_stdout(buf_wb_out), contextlib.redirect_stderr(buf_wb_err):
                         rc_reb_wb = bench_cv.main(
                             [
@@ -3692,7 +3307,7 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
                         wb_t_reb, wb_m_reb = cv.load_vector(wb_st)
                         if not torch.allclose(wb_t_orig["vector.post_refiner"], wb_t_reb["vector.post_refiner"], atol=1e-5):
                             errs.append("cmd_rebuild on compiled --words vector did not reproduce identical vector.post_refiner")
-                        if wb_m_reb.get("pairs", {}).get("words_spec") != "blizzard snowdrift indoors":
+                        if wb_m_reb.get("pairs", {}).get("words_spec") != "steady locked-off tripod frame -> blizzard snowdrift indoors":
                             errs.append(f"cmd_rebuild on compiled --words vector lost words_spec: {wb_m_reb.get('pairs', {}).get('words_spec')!r}")
                         # Also verify that mutating pairs_ab[0]['weight'] on disk changes the rebuilt vector (proving pairs_ab reconstruction is used over words_spec recompilation)
                         wb_m_mut = json.loads(json.dumps(wb_m_reb))
@@ -4710,99 +4325,6 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
                 errs.append("Step-0 _h3_tail_text did not re-synthesize @prompt_subject vector from scene prompt")
             if not torch.allclose(applied_shift, balloon_synth["vector.post_refiner"], atol=1e-4):
                 errs.append("Step-0 _h3_tail_text @prompt_subject vector did not match direct synthesize_from_words(prompt=t2va_noodle_bar.txt)")
-
-        # Verify _compile_words_or_spec_to_pairset and handle_ui_request('/api/expand-scenes') with multi-line target_prompt
-        ui_state_multi = bench_cv.ControlVectorUIState()
-        st_code, _ct, exp_raw = bench_cv.handle_ui_request(
-            ui_state_multi,
-            "POST",
-            "/api/expand-scenes",
-            json.dumps(
-                {
-                    "name": "test_multiline_tp",
-                    "pole_a": "bathed in cool overcast daylight",
-                    "pole_b": "drenched in scorching golden-hour heatwave",
-                    "sound_a": "soft urban breeze",
-                    "sound_b": "dry cicada drone",
-                    "slot": "opening_framing",
-                    "mode": "t2va",
-                    "target_prompt": noodle_txt,
-                    "target_weight": 2.5,
-                }
-            ).encode("utf-8"),
-        )
-        exp_multi = json.loads(exp_raw)
-        if st_code != 200 or not exp_multi.get("ok") or len(exp_multi.get("pairs", ())) != 10:
-            errs.append(f"handle_ui_request('/api/expand-scenes') with multi-line target_prompt failed ({st_code}): {exp_multi}")
-        elif float(exp_multi["pairs"][0].get("weight", 0.0)) != 2.5:
-            errs.append(f"expand_scenes Pair 0 weight expected 2.5, got {exp_multi['pairs'][0].get('weight')}")
-
-        # Verify _repair_multichange_markdown_pairs repairs non-contiguous secondary edits in LLM-generated pairs
-        multi_edit_md = (
-            "### Test Scene Prompt\n\n"
-            "integrated_multimodal_description: [Shot 1] Wide shot of a stone courtyard.\n\n"
-            "overall_soundscape: Soft wind.\n\n"
-            "### Contrastive Pairs (1–1)\n\n"
-            "#### Pair 1\n"
-            "##### Prompt A (Baseline)\n"
-            "integrated_multimodal_description: [Shot 1] Medium shot of a diver descending along a dark reef wall while several small silver fish dart rapidly past the rocky ledge.\n\n"
-            "overall_soundscape: Muffled regulator bubbles.\n\n"
-            "##### Prompt B (Steered)\n"
-            "integrated_multimodal_description: [Shot 1] Medium shot of a diver descending along a glowing bioluminescent cavern wall with neon cyan polyps while several small silver fish dart rapidly past the shimmering ledge.\n\n"
-            "overall_soundscape: Muffled regulator bubbles.\n"
-        )
-        repaired_md = bench_cv._repair_multichange_markdown_pairs(multi_edit_md)
-        repaired_parsed = cv.parse_markdown_pairs(repaired_md)
-        try:
-            a_rep, b_rep = cv.differing_span(
-                repaired_parsed["pairs"][0]["a"],
-                repaired_parsed["pairs"][0]["b"],
-                frame="scene",
-            )
-            if "glowing bioluminescent cavern wall" not in b_rep or "shimmering" in b_rep:
-                errs.append(f"_repair_multichange_markdown_pairs kept wrong clause: {a_rep!r} -> {b_rep!r}")
-        except Exception as exc_rep:
-            errs.append(f"_repair_multichange_markdown_pairs did not produce a valid single-clause pair: {exc_rep}")
-        st_rep_prev, _, body_rep_prev = bench_cv.handle_ui_request(
-            ui_state_multi,
-            "POST",
-            "/api/preview",
-            json.dumps({"text": multi_edit_md, "name": "test_multi_repair"}).encode("utf-8"),
-        )
-        rep_prev_json = json.loads(body_rep_prev)
-        if st_rep_prev != 200 or not rep_prev_json.get("ok") or not (rep_prev_json.get("pairs") or [{}])[0].get("valid"):
-            errs.append(f"POST /api/preview did not auto-repair multi-change LLM markdown pair: {rep_prev_json}")
-
-        insert_and_trunc_md = (
-            "#### Pair 1\n"
-            "##### Prompt A (Baseline)\n"
-            "integrated_multimodal_description: [Shot 1] A geologist kneels beside a rock outcrop.\n\n"
-            "overall_soundscape: Wind rustling through dry brush.\n\n"
-            "##### Prompt B (Steered)\n"
-            "integrated_multimodal_description: [Shot 1] A geologist kneels beside a rock outcrop. Suddenly the canyon walls glow with cyan and magenta bioluminescent crystals.\n\n"
-            "overall_soundscape: Wind rustling through dry brush. Now overlaid with a deep resonant thrumming.\n\n"
-            "#### Pair 2\n"
-            "##### Prompt A (Baseline)\n"
-            "integrated_multimodal_description: [Shot 1] A man sits at a desk.\n\n"
-            "overall_soundscape: Keyboard clatter.\n\n"
-            "##### Prompt B (Steered)\n"
-            "integrated_multimodal_description: [Shot 1] A man sits at a desk. The cubicle walls"
-        )
-        rep_ins_md = bench_cv._repair_multichange_markdown_pairs(insert_and_trunc_md)
-        rep_ins_parsed = cv.parse_markdown_pairs(rep_ins_md)
-        if len(rep_ins_parsed["pairs"]) != 1:
-            errs.append(f"_repair_multichange_markdown_pairs did not drop truncated tail pair: got {len(rep_ins_parsed['pairs'])} pairs")
-        else:
-            try:
-                a_ins, b_ins = cv.differing_span(
-                    rep_ins_parsed["pairs"][0]["a"],
-                    rep_ins_parsed["pairs"][0]["b"],
-                    frame="scene",
-                )
-                if not a_ins or "cyan and magenta bioluminescent crystals" not in b_ins:
-                    errs.append(f"pure-insertion LLM pair repair unexpected span: {a_ins!r} -> {b_ins!r}")
-            except Exception as exc_ins:
-                errs.append(f"pure-insertion LLM pair repair did not pass differing_span: {exc_ins}")
 
         # Verify `rebuild` CLI command in both single-vector mode and folder mode (and refusal on unknown stem)
         reb_dir = sib_dir / "rebuild_test_dir"

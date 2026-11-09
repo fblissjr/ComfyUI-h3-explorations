@@ -36,7 +36,7 @@ NAME_RE = re.compile(r"^[a-z0-9_]+$")
 CUSTOM_FAMILY_RE = re.compile(r"^custom:[0-9a-f]{12}$")
 LLM_VECTOR_KEY_RE = re.compile(r"^vector\.llm\.\d+$")
 
-VALID_MODES = ("t2va", "fl2va", "i2va", "l2va", "ref2va")
+VALID_MODES = ("t2va", "fl2va", "i2va", "l2va", "ref2va", "p_h3_image")
 VALID_FRAMES = ("scene", "bare")
 VALID_POOLING = ("scene_text", "all_tag1", "from_first_diff", "diff_span")
 VALID_MEDIA_POOLING = ("scene_text", "all_tag1", "vision_tokens", "all_rows")
@@ -954,6 +954,15 @@ def lint_pair_set(
                 f"Pair {num}: <d> dialogue span is missing a [Language] tag (expected <d>[English] ...</d>)"
             )
 
+        for side_lbl, side_txt in (("a", a_txt), ("b", b_txt)):
+            sp_nums = [int(m) for m in re.findall(r"\(S(\d+)\)", side_txt)]
+            n_dlg = len(re.findall(r"<d>", side_txt))
+            if sp_nums and max(sp_nums) > max(1, n_dlg) and not re.search(r"\(S\d+\s*,\s*S\d+\)", side_txt):
+                warnings.append(
+                    f"Pair {num} ({side_lbl}): assigns speaker ID (S{max(sp_nums)}) when only {n_dlg} <d>...</d> vocalization span(s) exist; silent characters must not carry an (Sn) tag"
+                )
+                break
+
         b_lower = str(b_sp).lower()
         a_lower = str(a_sp).lower()
         for term in _BANNED_FILLER_TERMS:
@@ -1306,6 +1315,15 @@ def quality_report(
     per-pair pooled activations `a` and `b` of shape `[n, d]`."""
     a64, b64, w64 = _check_pair_tensors(a, b, weights)
     diffs = b64 - a64
+    if diffs.shape[0] == 1:
+        norm0 = float(torch.linalg.vector_norm(diffs[0]).item())
+        if norm0 == 0.0:
+            raise ValueError("diffs contains a zero row; pairwise cosine is undefined")
+        return {
+            "mean_pairwise_cosine": 1.0,
+            "split_half_cosine": 1.0,
+            "per_pair_cosine": [1.0],
+        }
     return {
         "mean_pairwise_cosine": mean_pairwise_cosine(diffs, weights=w64),
         "split_half_cosine": split_half_cosine(
@@ -1973,7 +1991,7 @@ def load_vector(path: str | Path) -> tuple[dict[str, torch.Tensor], dict[str, An
     with safe_open(str(p), framework="pt", device="cpu") as sf:
         raw_meta = dict(sf.metadata() or {})
         for k in sf.keys():
-            tensors[k] = sf.get_tensor(k)
+            tensors[k] = sf.get_tensor(k).clone()
 
     metadata: dict[str, Any] = {}
     for k, v in raw_meta.items():

@@ -389,7 +389,8 @@
       "encoded_references",
       "overwrite",
       "words",
-      "slot"
+      "mode",
+      "target_prompt"
     ],
     "node_id": "MiniMaxH3MakeControlVector",
     "outputs": [

@@ -230,13 +230,13 @@
           </div>
         </div>
 
-        <div class="grid-3" style="margin-bottom:16px;">
+        <div class="grid-2" style="margin-bottom:16px;">
           <div class="field">
             <label class="field-label" for="clause-name">
               Output Vector Name
               <span class="help-tip" tabindex="0">?
                 <span class="tip-box">
-                  Saves <code>models/control_vectors/&lt;name&gt;__&lt;family&gt;__&lt;pooling&gt;[__lora_&lt;sha8&gt;].safetensors</code> and optionally <code>prompt_bank/control_vectors/&lt;name&gt;.toml</code>.
+                  Saves <code>models/control_vectors/&lt;name&gt;__&lt;family&gt;__&lt;pooling&gt;[__lora_&lt;sha8&gt;].safetensors</code> and optionally <code>data/control_vectors/&lt;name&gt;.toml</code>.
                 </span>
               </span>
             </label>
@@ -244,114 +244,105 @@
           </div>
 
           <div class="field">
-            <label class="field-label" for="clause-slot">
-              Clause Slot in H3 Prompt
+            <label class="field-label" for="clause-mode">
+              Prompt Structure Mode
               <span class="help-tip" tabindex="0">?
                 <span class="tip-box">
-                  <strong>Where your clause sits inside each canonical H3 prompt:</strong><br/>
-                  &bull; <strong>Auto-detect (`auto`)</strong>: Infers the structural slot from your keywords.<br/>
-                  &bull; <strong>Opening Framing &amp; Look (`opening_framing`)</strong>: Lens, film stock, lighting, and atmosphere.<br/>
-                  &bull; <strong>Subject Behavior (`subject_behavior`)</strong>: Subject motion, posture, and gesture.<br/>
-                  &bull; <strong>Interpersonal / Scene Dynamics (`interpersonal_dynamics`)</strong>: Environment physics and multi-subject dynamics.<br/>
-                  &bull; <strong>Camera Motion (`camera_motion`)</strong>: Dolly, pan, crane, or handheld rig motion.<br/>
-                  &bull; <strong>Speech Delivery (`speech_delivery`)</strong>: Vocal tone and cadence.<br/>
-                  &bull; <strong>Soundscape (`soundscape`)</strong>: Ambient room tone, weather acoustics, and foley.
+                  <strong>Which H3 prompt format to compile into:</strong><br/>
+                  &bull; <strong>Auto-detect (`auto`)</strong>: Infers from your Target Scene Prompt or Target Family pill.<br/>
+                  &bull; <strong>Text-to-Video (`t2va`)</strong>: 3-section H3 prompt (`integrated_multimodal_description:` + `overall_soundscape:` + `non_diegetic_music:`).<br/>
+                  &bull; <strong>Keyframe-to-Video (`fl2va`)</strong>: Part One keyframe alignment (`&lt;Picture 1&gt;`) + Part Two 3-section H3 prompt.<br/>
+                  &bull; <strong>Reference-to-Video (`ref2va`)</strong>: 6-section H3 prompt (`subject_definitions:`, `summary:`, `retention_analysis:`, `detailed_description:`, `overall_soundscape:`, `non_diegetic_music:`).<br/>
+                  &bull; <strong>Image (`p_h3_image`)</strong>: Single-paragraph P-H3-Image prose.
                 </span>
               </span>
             </label>
-            <select id="clause-slot">
-              <option value="auto" selected>Auto-detect Slot from Clause (Recommended)</option>
-              <option value="opening_framing">Opening Framing, Lighting &amp; Look (opening_framing)</option>
-              <option value="subject_behavior">Subject Motion &amp; Behavior (subject_behavior)</option>
-              <option value="interpersonal_dynamics">Environment Physics &amp; Scene Dynamics (interpersonal_dynamics)</option>
-              <option value="camera_motion">Camera Motion &amp; Rig (camera_motion)</option>
-              <option value="speech_delivery">Speech &amp; Vocal Delivery (speech_delivery)</option>
-              <option value="soundscape">Soundscape &amp; Ambience (soundscape)</option>
+            <select id="clause-mode" onchange="invalidateExpandedClausePairs()">
+              <option value="auto" selected>Auto-detect Mode (from Scene Prompt or Family)</option>
+              <option value="t2va">Text-to-Video 3-Section (t2va)</option>
+              <option value="fl2va">First/Last Keyframe 3-Section (fl2va)</option>
+              <option value="ref2va">Reference-to-Video 6-Section (ref2va)</option>
+              <option value="p_h3_image">P-H3-Image Single Paragraph (p_h3_image)</option>
             </select>
-          </div>
-
-          <div class="field">
-            <label class="field-label" for="clause-save-toml">
-              Save Editable .toml Pack
-              <span class="help-tip" tabindex="0">?
-                <span class="tip-box">
-                  When checked, building the vector also writes the 10 expanded Prompt A / Prompt B pairs to <code>prompt_bank/control_vectors/&lt;name&gt;.toml</code> so you can re-open or tweak them later.
-                </span>
-              </span>
-            </label>
-            <label style="display:flex;align-items:center;gap:8px;padding-top:8px;cursor:pointer;">
+            <label style="display:flex;align-items:center;gap:8px;padding-top:8px;cursor:pointer;font-size:12.5px;color:var(--text-secondary);">
               <input type="checkbox" id="clause-save-toml" checked />
-              <span>Save <code>prompt_bank/control_vectors/&lt;name&gt;.toml</code> on build</span>
+              <span>Save <code>data/control_vectors/&lt;name&gt;.toml</code> on build</span>
             </label>
           </div>
+        </div>
+
+        <div class="field" style="margin-bottom:16px;">
+          <label class="field-label" for="clause-scene-prompt">
+            Target H3 Scene Prompt (In-Place Compilation Base)
+            <span class="help-tip" tabindex="0">?
+              <span class="tip-box">
+                Paste your full H3 prompt (`t2va`, `fl2va`, `ref2va`, or `p_h3_image`). Either <strong>Pole A</strong> or <strong>Pole B</strong> below must match an exact substring in this prompt so the contrast is compiled in-place without template dilution.
+              </span>
+            </span>
+          </label>
+          <textarea id="clause-scene-prompt" class="mono" rows="6" placeholder="Paste your full H3 scene prompt here...">integrated_multimodal_description:
+[Shot 1] In an open desert highway overlook filmed under crisp overcast afternoon light with cool slate shadows, still air, dry pavement, and neutral color balance across every surface, a traveler in a canvas jacket (S1), standing beside a parked roadster in a steady medium shot, says in a calm, even voice, <d>[English] We can cross the valley before sunset.</d> The camera holds a locked-off tripod composition with level horizon, steady 50mm prime framing, and zero camera shake.
+
+overall_soundscape:
+Quiet open-air room tone with gentle distant breeze.
+
+non_diegetic_music:
+N/A</textarea>
         </div>
 
         <div class="grid-2" style="margin-bottom:16px;">
           <div class="field pole-a-box">
             <label class="field-label" for="clause-pole-a">
               <span class="badge pole-a">Pole A (Baseline / Subtracted)</span>
-              Baseline Clause
+              Baseline Substring in Target Prompt
               <span class="help-tip" tabindex="0">?
                 <span class="tip-box">
-                  <strong>Pole A is the neutral starting state</strong> that gets subtracted (`Prompt B - Prompt A`). Use rich, concrete sensory prose of roughly the same word count as Pole B.
+                  <strong>Pole A is the baseline substring</strong> (`Prompt B - Prompt A`). Either Pole A or Pole B must match text inside your Target H3 Scene Prompt above.
                 </span>
               </span>
             </label>
-            <textarea id="clause-pole-a" rows="5" placeholder="Describe the calm or neutral baseline state...">filmed under crisp overcast afternoon light with cool slate shadows, still air, dry pavement, and neutral color balance across every surface</textarea>
+            <textarea id="clause-pole-a" rows="4" placeholder="Exact baseline substring from your Target Prompt...">filmed under crisp overcast afternoon light with cool slate shadows, still air, dry pavement, and neutral color balance across every surface</textarea>
           </div>
 
           <div class="field pole-b-box">
             <label class="field-label" for="clause-pole-b">
               <span class="badge pole-b">Pole B (Target / Added)</span>
-              Target Direction Clause
+              Target Replacement Clause
               <span class="help-tip" tabindex="0">?
                 <span class="tip-box">
-                  <strong>Pole B is the state you want positive strength (`+1.0`) to push toward.</strong> At render time, negative strength (`-1.0`) pushes back toward Pole A.
+                  <strong>Pole B replaces Pole A in-place</strong> to form Prompt B (`Prompt B - Prompt A`).
                 </span>
               </span>
             </label>
-            <textarea id="clause-pole-b" rows="5" placeholder="Describe the target atmospheric, camera, or motion state...">filmed in a blistering midday desert heatwave under a bleached white sun, rising thermal shimmer warping the horizon, harsh amber glare, and sun-baked dust</textarea>
+            <textarea id="clause-pole-b" rows="4" placeholder="Target replacement clause...">filmed in a blistering midday desert heatwave under a bleached white sun, rising thermal shimmer warping the horizon, harsh amber glare, and sun-baked dust</textarea>
           </div>
         </div>
 
         <details style="margin-bottom:16px;background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:12px 16px;">
           <summary style="cursor:pointer;font-weight:600;font-size:13.5px;color:var(--text-secondary);">
-            Optional: Synchronized Soundscape Clause, Hold Clause, or Your Own Target Scene (Pair 0)
+            Optional: Synchronized Soundscape Clause or Hold Clause (Orthogonal Anchor)
           </summary>
           <div style="margin-top:14px;">
             <div class="grid-2" style="margin-bottom:14px;">
               <div class="field">
                 <label class="field-label" for="clause-sound-a">Optional Soundscape Pole A (Baseline Audio)</label>
-                <textarea id="clause-sound-a" rows="3" placeholder="Leave blank if your main slot already covers audio or is silent...">Quiet open-air room tone with gentle distant breeze.</textarea>
+                <textarea id="clause-sound-a" rows="3" placeholder="Leave blank if your main clause already covers audio or is silent...">Quiet open-air room tone with gentle distant breeze.</textarea>
               </div>
               <div class="field">
                 <label class="field-label" for="clause-sound-b">Optional Soundscape Pole B (Target Audio)</label>
                 <textarea id="clause-sound-b" rows="3" placeholder="Leave blank if not steering audio...">Low parched thermal wind drone, dry cicada buzz, and heat-cracked grit underfoot.</textarea>
               </div>
             </div>
-            <div class="grid-2">
-              <div class="field">
-                <label class="field-label" for="clause-hold-text">
-                  Optional Hold Clause (Orthogonal Anchor)
-                  <span class="help-tip" tabindex="0">?
-                    <span class="tip-box">
-                      If your target clause accidentally shifts camera framing or subject identity, enter a clause describing what must stay locked; Gram-Schmidt projection removes that drift.
-                    </span>
+            <div class="field">
+              <label class="field-label" for="clause-hold-text">
+                Optional Hold Clause (`pole_a -&gt; pole_b` Orthogonal Anchor)
+                <span class="help-tip" tabindex="0">?
+                  <span class="tip-box">
+                    If your target clause accidentally shifts camera framing or subject identity, enter a `pole_a -&gt; pole_b` clause describing what must stay locked; Gram-Schmidt projection removes that drift.
                   </span>
-                </label>
-                <textarea id="clause-hold-text" rows="3" placeholder="Optional clause to hold constant via Gram-Schmidt..."></textarea>
-              </div>
-              <div class="field">
-                <label class="field-label" for="clause-scene-prompt">
-                  Optional: Your Own Scene Prompt (Replaces Rig #1 / Pair 0)
-                  <span class="help-tip" tabindex="0">?
-                    <span class="tip-box">
-                      Want the vector tailored to your current shot? Paste your own 3-section H3 prompt here and it will become Pair 0 alongside 9 diverse background rigs.
-                    </span>
-                  </span>
-                </label>
-                <textarea id="clause-scene-prompt" class="mono" rows="3" placeholder="Optional: paste your own 3-section H3 prompt here to anchor Pair 0..."></textarea>
-              </div>
+                </span>
+              </label>
+              <textarea id="clause-hold-text" rows="2" placeholder="Optional 'pole_a -> pole_b' clause to hold constant via Gram-Schmidt..."></textarea>
             </div>
           </div>
         </details>

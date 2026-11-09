@@ -72,6 +72,7 @@ _substrate = _repo("substrate")
 REPO_ROOT = Path(__file__).resolve().parent
 COMFY_ROOT = REPO_ROOT.parent.parent
 PAIR_BANK_DIR = REPO_ROOT / "prompt_bank" / "control_vectors"
+USER_PAIR_BANK_DIR = REPO_ROOT / "data" / "control_vectors"
 PROMPT_BANK_DIR = REPO_ROOT / "prompt_bank"
 
 CONTROL_VECTORS_FOLDER = "control_vectors"
@@ -689,12 +690,12 @@ def resolve_pair_file_path(pair_file: str | Path) -> Path:
         raw_toml = f"{raw}.toml"
     else:
         raw_toml = raw
-    for base in (PAIR_BANK_DIR, REPO_ROOT):
+    for base in (USER_PAIR_BANK_DIR, PAIR_BANK_DIR, REPO_ROOT):
         p = base / raw_toml
         if p.is_file():
             return p.resolve()
     raise ValueError(
-        f"pair file {pair_file!r} not found under {PAIR_BANK_DIR}"
+        f"pair file {pair_file!r} not found under {USER_PAIR_BANK_DIR} or {PAIR_BANK_DIR}"
     )
 
 
@@ -714,31 +715,48 @@ def make_control_vector_from_pairs(
     made_by: str = "MiniMaxH3MakeControlVector/1",
     pair_set: _cv.PairSet | None = None,
     words: str = "",
-    slot: str = "auto",
+    mode: str = "auto",
+    target_prompt: str = "",
 ) -> tuple[Path, dict[str, Any]]:
     """Build and save a `.safetensors` control vector from `pair_path`, `pair_set`,
-    or simple `words` / short contrast clauses (zero `.toml` file required),
+    or in-place `words` + `target_prompt` contrast clauses (zero `.toml` file required),
     returning `(saved_path, full_report_dict)`."""
     if pooling not in _cv.VALID_POOLING:
         raise ValueError(f"pooling must be one of {_cv.VALID_POOLING}, got {pooling!r}")
 
+    family = _cv.detect_family(model)
     resolved_pair_path: Path | None = None
     if pair_set is not None:
         pass
     elif isinstance(words, str) and words.strip():
-        compile_mode = "ref2va" if encoded_references is not None else "t2va"
+        explicit_mode = str(mode or "auto").strip().lower()
+        req_mode = (
+            explicit_mode
+            if explicit_mode and explicit_mode != "auto"
+            else (
+                "ref2va"
+                if (encoded_references is not None or "ref2va" in str(family).lower())
+                else ("p_h3_image" if "image" in str(family).lower() else None)
+            )
+        )
+        tp_str = str(target_prompt or "").strip() or None
+        compile_mode = _pair_compiler.infer_compile_mode(
+            req_mode,
+            ref_images=encoded_references,
+            target_prompt=tp_str,
+            words=words.strip(),
+        )
         pair_set = _pair_compiler.compile_words_to_pairset(
             words.strip(),
             name=output_name.strip() or None,
-            slot=slot,
             mode=compile_mode,
+            target_prompt=tp_str,
         )
     else:
         if pair_path is None:
             raise ValueError("either pair_path, pair_set, or words must be provided")
         resolved_pair_path = resolve_pair_file_path(pair_path)
         pair_set = _cv.load_pairs(resolved_pair_path, bank_dir=PROMPT_BANK_DIR)
-    family = _cv.detect_family(model)
     recipe = extract_model_recipe(model, clip)
     refiner_run = build_refiner_runner(model)
 
@@ -1000,8 +1018,6 @@ def make_control_vector_from_pairs(
     if resolved_pair_path is None:
         if isinstance(words, str) and words.strip():
             pairs_dict_node["words_spec"] = words.strip()
-        if slot and slot != "auto":
-            pairs_dict_node["slot"] = str(slot)
         pairs_dict_node["pairs_ab"] = [
             {"a": p.a, "b": p.b, "weight": float(p.weight)}
             for p in pair_set.pairs
@@ -1400,6 +1416,18 @@ def _make_control_vector_wrapper(specs: tuple[_AppliedVectorSpec, ...]):
                     L=L,
                     device=base_ctx.device,
                 )
+                if (
+                    sp.mask == "scene_only"
+                    and custom_mask is None
+                    and (sp.vector_name, "missing_scene_only_mask_warn") not in logged_prompt_couplings
+                ):
+                    logged_prompt_couplings.add((sp.vector_name, "missing_scene_only_mask_warn"))
+                    logger.warning(
+                        "[h3] control vector %r uses mask='scene_only', but conditioning has no _h3_span_masks "
+                        "(wire MiniMaxH3Conditioning, MiniMaxH3ReferenceConditioning, or MiniMaxH3PH3ImageConditioning); "
+                        "falling back to 'non_vision'",
+                        sp.vector_name,
+                    )
                 mask_vision = sp.mask != "all_rows"
                 group_specs: list[_AppliedVectorSpec] = [sp]
                 s0 = _effective_spec_strength(sp, stream_attr)
@@ -1616,7 +1644,7 @@ def attach_control_vector(
     strength: float = 1.0,
     mode: str = "add",
     scale_mode: str = "raw",
-    mask: str = "non_vision",
+    mask: str = "scene_only",
     start_percent: float = 0.0,
     end_percent: float = 1.0,
     allow_recipe_mismatch: bool = False,
@@ -1862,9 +1890,10 @@ class MiniMaxH3MakeControlVector(io.ComfyNode):
             category="model/conditioning/minimax",
             description=(
                 "Measures a contrastive control vector from a pair TOML file under "
-                "prompt_bank/control_vectors/, encoding each pair through the loaded "
-                "Qwen3-VL encoder and the DiT's condition_proj + token_refiner, pooling "
-                "the differing span rows ('diff_span' by default) in float64, projecting out "
+                "data/control_vectors/ or prompt_bank/control_vectors/ (or compiles pairs "
+                "directly from 'words'), encoding each pair through the loaded Qwen3-VL "
+                "encoder and the DiT's condition_proj + token_refiner, pooling the "
+                "differing span rows ('diff_span' by default) in float64, projecting out "
                 "any [[hold]] directions, and saving <name>__<family>.safetensors under "
                 "models/control_vectors/."
             ),
@@ -1875,8 +1904,9 @@ class MiniMaxH3MakeControlVector(io.ComfyNode):
                     "pair_file",
                     default="film_16mm_1974.toml",
                     tooltip=(
-                        "Pair TOML filename under prompt_bank/control_vectors/ "
-                        "(for example 'film_16mm_1974.toml' or 'lettering.toml')."
+                        "Pair TOML filename under data/control_vectors/ or "
+                        "prompt_bank/control_vectors/ (for example 'film_16mm_1974.toml' "
+                        "or 'lettering.toml')."
                     ),
                 ),
                 io.Combo.Input(
@@ -1926,20 +1956,29 @@ class MiniMaxH3MakeControlVector(io.ComfyNode):
                     default="",
                     optional=True,
                     tooltip=(
-                        "Optional simple words, short phrase, or 'pole_a -> pole_b' contrast "
-                        "(for example 'erratic handheld camera shake' or 'awkward eye-contact avoidance'). "
-                        "When non-empty, compiles 10 canonical H3 scene pairs in memory with zero .toml file required."
+                        "Optional in-place 'pole_a -> pole_b' clause contrast(s) "
+                        "(plus optional 'soundscape: ...' and 'hold: ...' clauses) "
+                        "applied directly to 'target_prompt' with zero .toml file required."
                     ),
                 ),
                 io.Combo.Input(
-                    "slot",
-                    options=["auto", *_pair_compiler.CANONICAL_SLOTS],
+                    "mode",
+                    options=["auto", *_pair_compiler.SUPPORTED_FRAME_MODES],
                     default="auto",
                     optional=True,
                     tooltip=(
-                        "Structural H3 slot for compiled words ('auto' infers from the words across "
-                        "opening_framing, subject_behavior, interpersonal_dynamics, camera_motion, "
-                        "speech_delivery, and soundscape)."
+                        "Prompt mode for compiled words ('auto' infers from encoded_references, "
+                        "target_prompt, words, and model family across t2va, fl2va, ref2va, and p_h3_image)."
+                    ),
+                ),
+                io.String.Input(
+                    "target_prompt",
+                    default="",
+                    multiline=True,
+                    optional=True,
+                    tooltip=(
+                        "Target H3 scene prompt when compiling from 'words'. Either pole_a or pole_b "
+                        "in 'words' must match a substring in target_prompt for exact in-place compilation."
                     ),
                 ),
             ],
@@ -1951,9 +1990,21 @@ class MiniMaxH3MakeControlVector(io.ComfyNode):
         )
 
     @classmethod
-    def fingerprint_inputs(cls, pair_file="film_16mm_1974.toml", words="", slot="auto", **kwargs):
+    def fingerprint_inputs(
+        cls,
+        pair_file="film_16mm_1974.toml",
+        words="",
+        mode="auto",
+        target_prompt="",
+        **kwargs,
+    ):
         if isinstance(words, str) and words.strip():
-            return ("words", words.strip(), str(slot))
+            return (
+                "words",
+                words.strip(),
+                str(mode),
+                str(target_prompt or "").strip(),
+            )
         try:
             full = resolve_pair_file_path(pair_file)
             st = os.stat(full)
@@ -1973,7 +2024,8 @@ class MiniMaxH3MakeControlVector(io.ComfyNode):
         encoded_references=None,
         overwrite=False,
         words="",
-        slot="auto",
+        mode="auto",
+        target_prompt="",
     ) -> io.NodeOutput:
         dm = model.get_model_object("diffusion_model")
         if not _is_minimax_h3(dm):
@@ -1989,15 +2041,16 @@ class MiniMaxH3MakeControlVector(io.ComfyNode):
             overwrite=bool(overwrite),
             made_by="MiniMaxH3MakeControlVector/1",
             words=str(words or ""),
-            slot=str(slot or "auto"),
+            mode=str(mode or "auto"),
+            target_prompt=str(target_prompt or ""),
         )
         return io.NodeOutput(out_path.name, json.dumps(report, indent=2, sort_keys=True))
 
 
 DEFAULT_MEDIA_SCENES: tuple[str, ...] = (
-    "detailed_description: [Shot 1] In a neutral studio setting with balanced key lighting, <Subject 1> stands facing the camera in a calm, steady medium shot and says (S1) <d>Everything is ready for the next take.</d> while holding a natural posture.\n\noverall_soundscape: Clean room tone with subtle indoor acoustics.",
-    "detailed_description: [Shot 1] Along a quiet stone courtyard under even daylight, <Subject 1> turns toward the lens in a medium frame and says (S1) <d>Let us look closely at the details here.</d> with composed movement.\n\noverall_soundscape: Soft outdoor ambience and gentle air movement.",
-    "detailed_description: [Shot 1] Inside a warm wooden corridor framed at eye level, <Subject 1> pauses near the center of the frame and says (S1) <d>We can start whenever you give the signal.</d> as the camera holds steady.\n\noverall_soundscape: Quiet interior ambience with soft background room tone.",
+    "subject_definitions:\n<Subject 1> is the person in <Picture 1>: a person.\n\nsummary:\n[reference generation] <Subject 1> speaks to the camera in a neutral studio setting.\n\nretention_analysis:\n<Subject 1> (appears in [Shot 1]): fully_preserved - retains the visual appearance from <Picture 1>.\n\ndetailed_description:\n[Shot 1] In a neutral studio setting with balanced key lighting, <Subject 1> (S1), standing facing the camera in a calm, steady medium shot, says, <d>[English] Everything is ready for the next take.</d> <Subject 1> holds a natural posture.\n\noverall_soundscape:\nClean room tone with subtle indoor acoustics.\n\nnon_diegetic_music:\nN/A",
+    "subject_definitions:\n<Subject 1> is the person in <Picture 1>: a person.\n\nsummary:\n[reference generation] <Subject 1> speaks toward the lens in a stone courtyard.\n\nretention_analysis:\n<Subject 1> (appears in [Shot 1]): fully_preserved - retains the visual appearance from <Picture 1>.\n\ndetailed_description:\n[Shot 1] Along a quiet stone courtyard under even daylight, <Subject 1> (S1), turning toward the lens in a medium frame, says, <d>[English] Let us look closely at the details here.</d> <Subject 1> moves with composed steadiness.\n\noverall_soundscape:\nSoft outdoor ambience and gentle air movement.\n\nnon_diegetic_music:\nN/A",
+    "subject_definitions:\n<Subject 1> is the person in <Picture 1>: a person.\n\nsummary:\n[reference generation] <Subject 1> speaks inside a warm wooden corridor.\n\nretention_analysis:\n<Subject 1> (appears in [Shot 1]): fully_preserved - retains the visual appearance from <Picture 1>.\n\ndetailed_description:\n[Shot 1] Inside a warm wooden corridor framed at eye level, <Subject 1> (S1), pausing near the center of the frame, says, <d>[English] We can start whenever you give the signal.</d> The camera holds steady.\n\noverall_soundscape:\nQuiet interior ambience with soft background room tone.\n\nnon_diegetic_music:\nN/A",
 )
 
 
@@ -2148,13 +2201,8 @@ def make_control_vector_from_media_pairs(
     n_frames = int(matched_a.shape[0])
     custom_prompt = str(scene_prompt or "").strip()
     if custom_prompt:
-        if n_frames == 1:
-            extra_scenes = [s for s in DEFAULT_MEDIA_SCENES if s != custom_prompt][:2]
-            prompts = [custom_prompt, *extra_scenes]
-            frame_indices = [0 for _ in prompts]
-        else:
-            prompts = [custom_prompt for _ in range(n_frames)]
-            frame_indices = list(range(n_frames))
+        prompts = [custom_prompt for _ in range(n_frames)]
+        frame_indices = list(range(n_frames))
     elif n_frames == 1:
         # Evaluate the single image pair across 3 neutral H3 scenes so scene
         # context averages out and split-half / pairwise cosine are well-defined.
@@ -2557,12 +2605,15 @@ class MiniMaxH3ApplyControlVectors(io.ComfyNode):
                     options=list(MASK_MODES),
                     default=_APPLY_DEFAULTS["mask"],
                     tooltip=(
-                        "'scene_only' (default) steers scene text while leaving tag-0 vision rows, "
-                        "<d>...</d> dialogue, (S1) speaker tags, <Picture 1>: labels, and "
-                        "<0.0 seconds> timestamps untouched; 'non_vision' steers all tag-1 text "
-                        "rows and leaves tag-0 vision rows untouched; 'description_only' steers "
-                        "only scene tokens inside integrated_multimodal_description: (fl2va) or "
-                        "detailed_description: (ref2va); 'soundscape_only' steers only scene "
+                        "'scene_only' (default) steers scene prose (integrated_multimodal_description: / "
+                        "detailed_description: and overall_soundscape: on sectioned H3 prompts) while "
+                        "leaving tag-0 vision rows, <d>...</d> dialogue, (S1) speaker tags, "
+                        "<Subject N>/<Picture N>/<Video N>/<Audio N> tags, [Shot N], section headers, "
+                        "subject_definitions:, summary:, retention_analysis:, non_diegetic_music:, "
+                        "Part One keyframe alignment lines, and <0.0 seconds> timestamps untouched; "
+                        "'non_vision' steers all tag-1 text rows and leaves tag-0 vision rows untouched; "
+                        "'description_only' steers only scene tokens inside integrated_multimodal_description: "
+                        "(fl2va/t2va) or detailed_description: (ref2va); 'soundscape_only' steers only scene "
                         "tokens inside overall_soundscape:; 'after_dialogue' steers only scene "
                         "tokens after the last </d>; 'all_rows' is the unmasked ablation (E2.3)."
                     ),

@@ -382,9 +382,9 @@ def _inject_target_prompt_into_pairset(
     target_prompt_arg: str,
     *,
     target_weight: float = 2.5,
-    slot_hint: str = "auto",
+    **_unused_kwargs: Any,
 ) -> cv.PairSet:
-    """Inject a user-supplied target scene prompt as `Pair 0` at `weight = target_weight` alongside `Pairs 1..9`."""
+    """Inject a user-supplied target scene prompt as `Pair 0` at `weight = target_weight` when a `.toml` pair bank is used with `--target-prompt`."""
     raw_tp = str(target_prompt_arg or "").strip()
     if not raw_tp or not pair_set.pairs:
         return pair_set
@@ -396,24 +396,33 @@ def _inject_target_prompt_into_pairset(
     if not tp_text:
         return pair_set
 
-    a_clause = (pair_set.pairs[0].a_span.split(" | ")[0].strip() or pair_set.a_side.strip())
-    b_clause = (pair_set.pairs[0].b_span.split(" | ")[0].strip() or pair_set.b_side.strip())
+    a_parts = [s.strip() for s in pair_set.pairs[0].a_span.split(" | ") if s.strip()]
+    b_parts = [s.strip() for s in pair_set.pairs[0].b_span.split(" | ") if s.strip()]
+    a_clause = a_parts[0] if a_parts else pair_set.a_side.strip()
+    b_clause = b_parts[0] if b_parts else pair_set.b_side.strip()
     if a_clause == b_clause:
         a_clause = pair_set.a_side.split(" | ")[0].strip()
         b_clause = pair_set.b_side.split(" | ")[0].strip()
 
-    marker = "\n\noverall_soundscape:"
-    eff_slot = slot_hint if slot_hint != "auto" else pair_compiler.resolve_slot_name("auto", sample_text=b_clause)
-    if eff_slot == "soundscape" and "overall_soundscape:" in tp_text:
-        tp_a = tp_text.rstrip() + f" {a_clause.rstrip('.')}."
-        tp_b = tp_text.rstrip() + f" {b_clause.rstrip('.')}."
-    elif marker in tp_text:
-        head, tail = tp_text.split(marker, 1)
-        tp_a = head.rstrip() + f" The shot is {a_clause.rstrip('.')}." + marker + tail
-        tp_b = head.rstrip() + f" The shot is {b_clause.rstrip('.')}." + marker + tail
+    if a_clause and a_clause in tp_text:
+        tp_a = tp_text
+        tp_b = tp_text.replace(a_clause, b_clause, 1)
+    elif b_clause and b_clause in tp_text:
+        tp_b = tp_text
+        tp_a = tp_text.replace(b_clause, a_clause, 1)
     else:
-        tp_a = tp_text.rstrip() + f" The shot is {a_clause.rstrip('.')}."
-        tp_b = tp_text.rstrip() + f" The shot is {b_clause.rstrip('.')}."
+        return pair_set
+
+    if len(a_parts) >= 2 and len(b_parts) >= 2 and "overall_soundscape:" in tp_a:
+        sa = a_parts[1]
+        sb = b_parts[1]
+        if sa in tp_a:
+            tp_b = tp_b.replace(sa, sb, 1)
+        elif sb in tp_b:
+            tp_a = tp_a.replace(sb, sa, 1)
+        else:
+            tp_a = pair_compiler._inject_soundscape_into_target(tp_a, f"{sa.rstrip('.')}.")
+            tp_b = pair_compiler._inject_soundscape_into_target(tp_b, f"{sb.rstrip('.')}.")
 
     tp_a_span, tp_b_span = cv.differing_span(tp_a, tp_b, frame=pair_set.frame)
     pair0 = cv.PairItem(
@@ -466,22 +475,15 @@ def _compile_words_or_spec_to_pairset(
     quality: str | None = None,
     a_side: str | None = None,
     b_side: str | None = None,
-    slot: str = "auto",
     mode: str = "t2va",
     target_prompt: str = "",
-    target_weight: float = 2.5,
+    target_weight: float = 1.0,
+    **_unused_kwargs: Any,
 ) -> cv.PairSet:
-    """Compile a `--words` CLI argument or multi-line/semicolon-separated spec into a `PairSet`."""
-    import inspect
-
+    """Compile a `--words` CLI argument or multi-line/semicolon-separated spec in-place on `target_prompt`."""
     raw_text = str(words_arg or "").strip()
     if "\n" not in raw_text and ";" in raw_text:
         raw_text = "\n".join(part.strip() for part in raw_text.split(";") if part.strip())
-
-    has_multi_or_prefix = ("\n" in raw_text) or any(
-        raw_text.lower().startswith(p) or f"\n{p}" in raw_text.lower()
-        for p in ("soundscape:", "audio:", "foley:", "hold:", "holds:", "name:", "slot:", "mode:")
-    )
 
     tp_resolved = ""
     if str(target_prompt or "").strip():
@@ -490,10 +492,11 @@ def _compile_words_or_spec_to_pairset(
         except Exception:
             tp_resolved = str(target_prompt).strip()
 
-    parse_sig = inspect.signature(pair_compiler.parse_short_contrast_spec)
-    compile_sig = inspect.signature(pair_compiler.compile_words_to_pairset)
-
-    if has_multi_or_prefix:
+    has_meta_header = any(
+        raw_text.lower().startswith(p) or f"\n{p}" in raw_text.lower()
+        for p in ("name:", "quality:", "a_side:", "b_side:", "mode:", "target_prompt:", "scene_prompt:")
+    )
+    if has_meta_header:
         hdr_lines: list[str] = []
         lower_lines = [ln.strip().lower() for ln in raw_text.splitlines() if ln.strip()]
         if name and not any(ln.startswith("name:") for ln in lower_lines):
@@ -504,47 +507,26 @@ def _compile_words_or_spec_to_pairset(
             hdr_lines.append(f"a_side: {a_side}")
         if b_side and not any(ln.startswith("b_side:") for ln in lower_lines):
             hdr_lines.append(f"b_side: {b_side}")
-        if slot and slot != "auto" and not any(ln.startswith("slot:") for ln in lower_lines):
-            hdr_lines.append(f"slot: {slot}")
         if mode and not any(ln.startswith("mode:") for ln in lower_lines):
             hdr_lines.append(f"mode: {mode}")
-        if tp_resolved and "\n" not in tp_resolved and not any(
-            ln.startswith(("target_prompt:", "scene_prompt:")) for ln in lower_lines
-        ):
-            hdr_lines.append(f"target_prompt: {tp_resolved}")
-            hdr_lines.append(f"target_weight: {float(target_weight)}")
         full_spec = ("\n".join(hdr_lines) + "\n" + raw_text).strip() if hdr_lines else raw_text
-        if tp_resolved and "\n" in tp_resolved and "target_prompt" in parse_sig.parameters:
-            spec_out = pair_compiler.parse_short_contrast_spec(
-                full_spec,
-                target_prompt=tp_resolved,
-                target_weight=float(target_weight),
-            )
-            return spec_out["pair_set"]
-        spec_out = pair_compiler.parse_short_contrast_spec(full_spec)
-        ps_out = spec_out["pair_set"]
-        if tp_resolved and "\n" in tp_resolved:
-            ps_out = _inject_target_prompt_into_pairset(
-                ps_out,
-                tp_resolved,
-                target_weight=float(target_weight),
-                slot_hint=slot,
-            )
-        return ps_out
+        spec_out = pair_compiler.parse_short_contrast_spec(
+            full_spec,
+            target_prompt=tp_resolved or None,
+            target_weight=float(target_weight),
+        )
+        return spec_out["pair_set"]
 
-    compile_kwargs: dict[str, Any] = {
-        "name": name,
-        "quality": quality,
-        "a_side": a_side,
-        "b_side": b_side,
-        "slot": slot,
-        "mode": mode,
-    }
-    if tp_resolved and "target_prompt" in compile_sig.parameters:
-        compile_kwargs["target_prompt"] = tp_resolved
-        if "target_weight" in compile_sig.parameters:
-            compile_kwargs["target_weight"] = float(target_weight)
-    return pair_compiler.compile_words_to_pairset(raw_text, **compile_kwargs)
+    return pair_compiler.compile_words_to_pairset(
+        raw_text,
+        name=name,
+        quality=quality,
+        a_side=a_side,
+        b_side=b_side,
+        mode=mode,
+        target_prompt=tp_resolved or None,
+        target_weight=float(target_weight),
+    )
 
 
 

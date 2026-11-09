@@ -45,7 +45,7 @@ class ControlVectorUIState:
         default_llm_model: str | None = None,
     ) -> None:
         self.toml_dir: Path = toml_dir or Path(
-            os.environ.get("H3_CV_TOML_DIR", "").strip() or cv_nodes.PAIR_BANK_DIR
+            os.environ.get("H3_CV_TOML_DIR", "").strip() or cv_nodes.USER_PAIR_BANK_DIR
         )
         self.vec_dir: Path = vec_dir or Path(
             os.environ.get("H3_CV_VEC_DIR", "").strip()
@@ -134,29 +134,38 @@ class ControlVectorUIState:
 
 def _list_ui_toml_files(toml_dir: Path) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
-    if not toml_dir.is_dir():
-        return out
-    for p in sorted(toml_dir.glob("*.toml")):
-        try:
-            ps = cv.load_pairs(p, bank_dir=cv_nodes.PROMPT_BANK_DIR)
-            out.append(
-                {
-                    "name": ps.name,
-                    "stem": p.stem,
-                    "file": p.name,
-                    "pairs": len(ps.pairs),
-                    "n_pairs": len(ps.pairs),
-                    "holds": len(ps.holds),
-                    "n_holds": len(ps.holds),
-                    "mode": ps.mode,
-                    "frame": ps.frame,
-                    "quality": ps.quality,
-                    "a_side": ps.a_side,
-                    "b_side": ps.b_side,
-                }
-            )
-        except Exception:
+    seen_stems: set[str] = set()
+    search_dirs = [toml_dir]
+    if toml_dir.resolve() != cv_nodes.PAIR_BANK_DIR.resolve():
+        search_dirs.append(cv_nodes.PAIR_BANK_DIR)
+    for d in search_dirs:
+        if not d.is_dir():
             continue
+        for p in sorted(d.glob("*.toml")):
+            if p.stem in seen_stems:
+                continue
+            try:
+                ps = cv.load_pairs(p, bank_dir=cv_nodes.PROMPT_BANK_DIR)
+                seen_stems.add(p.stem)
+                out.append(
+                    {
+                        "name": ps.name,
+                        "stem": p.stem,
+                        "file": p.name,
+                        "pairs": len(ps.pairs),
+                        "n_pairs": len(ps.pairs),
+                        "holds": len(ps.holds),
+                        "n_holds": len(ps.holds),
+                        "mode": ps.mode,
+                        "frame": ps.frame,
+                        "quality": ps.quality,
+                        "a_side": ps.a_side,
+                        "b_side": ps.b_side,
+                    }
+                )
+            except Exception:
+                continue
+    out.sort(key=lambda r: str(r.get("stem", "")))
     return out
 
 
@@ -210,21 +219,19 @@ def _preview_markdown_pairs(
     *,
     frame: str = "scene",
     name: str = "",
-    slot: str = "auto",
     mode: str = "t2va",
+    **_unused_kwargs: Any,
 ) -> dict[str, Any]:
     if frame not in cv.VALID_FRAMES:
         return {"ok": False, "error": f"frame must be one of {cv.VALID_FRAMES}, got {frame!r}"}
-    inferred_slot: str | None = None
     try:
         if _is_markdown_pairs_text(text):
             text = _repair_multichange_markdown_pairs(text)
             parsed = cv.parse_markdown_pairs(text)
         else:
-            spec_hdr = f"slot: {slot}\nmode: {mode}\n" if slot != "auto" or mode != "t2va" else ""
+            spec_hdr = f"mode: {mode}\n" if mode != "t2va" else ""
             spec = pair_compiler.parse_short_contrast_spec(spec_hdr + text)
             ps = spec["pair_set"]
-            inferred_slot = spec["slot"]
             if not name:
                 name = ps.name
             parsed = {
@@ -366,7 +373,6 @@ def _preview_markdown_pairs(
         "frame": frame,
         "n_pairs": len(pair_rows),
         "n_holds": len(parsed.get("holds", [])),
-        "inferred_slot": inferred_slot,
         "test_scene_prompt": parsed["test_scene_prompt"],
         "test_prompt": parsed["test_scene_prompt"],
         "quality": quality,
@@ -382,20 +388,20 @@ def _build_pairset_from_ui_rows(
     holds: list[dict[str, Any]] | None = None,
     name: str = "",
     quality: str | None = None,
-    slot: str = "auto",
     mode: str = "t2va",
     frame: str = "scene",
     target_prompt: str = "",
-    target_weight: float = 2.5,
+    target_weight: float = 1.0,
+    **_unused_kwargs: Any,
 ) -> cv.PairSet:
-    """Build a `cv.PairSet` from structured 10-Row Scene-Diff Table rows (`rows` + optional `holds`)."""
+    """Build a `cv.PairSet` from structured Scene-Diff Table rows (`rows` + optional `holds`)."""
     active_rows = [r for r in rows if bool(r.get("enabled", True)) and str(r.get("b", "")).strip()]
     if not active_rows:
         raise ValueError("at least one enabled row with a non-empty Pole B is required")
 
     first_b = str(active_rows[0].get("b", "")).strip()
     is_full_scene = (
-        frame == "bare"
+        frame in ("bare", "raw")
         or "integrated_multimodal_description:" in first_b
         or "detailed_description:" in first_b
     )
@@ -417,7 +423,7 @@ def _build_pairset_from_ui_rows(
                 )
             )
         hold_items: list[cv.HoldItem] = []
-        short_hold_specs: list[dict[str, Any]] = []
+        short_hold_specs: list[pair_compiler.HoldClause] = []
         for h_idx, hr in enumerate(holds or ()):
             ha = str(hr.get("a", "")).strip()
             hb = str(hr.get("b", "")).strip()
@@ -426,7 +432,7 @@ def _build_pairset_from_ui_rows(
             is_full_hold = (
                 bool(ha)
                 and (
-                    frame == "bare"
+                    frame in ("bare", "raw")
                     or "integrated_multimodal_description:" in hb
                     or "detailed_description:" in hb
                 )
@@ -445,9 +451,27 @@ def _build_pairset_from_ui_rows(
                     )
                 )
             else:
-                short_hold_specs.append(hr)
+                if not ha and hb:
+                    ha, hb = pair_compiler._split_pole_pair(hb)
+                short_hold_specs.append(
+                    pair_compiler.HoldClause(
+                        a=ha,
+                        b=hb,
+                        group=str(hr.get("group", "nuisance") or "nuisance"),
+                        weight=float(hr.get("weight", 1.0)),
+                    )
+                )
         if short_hold_specs:
-            compiled_short_holds = pair_compiler._compile_hold_items(short_hold_specs, mode=mode)
+            tp_scenes = [p.a for p in pair_items]
+            anchor_clauses = [
+                pair_compiler.ContrastClause(a=pair_items[0].a_span.split(" | ")[0], b=pair_items[0].b_span.split(" | ")[0])
+            ]
+            compiled_short_holds = pair_compiler._compile_hold_items(
+                short_hold_specs,
+                tp_scenes=tp_scenes,
+                anchor_clauses=anchor_clauses,
+                frame=frame,
+            )
             for ch in compiled_short_holds:
                 hold_items.append(
                     cv.HoldItem(
@@ -488,22 +512,23 @@ def _build_pairset_from_ui_rows(
             pairs=tuple(pair_items),
             holds=tuple(hold_items),
         )
-        if str(target_prompt or "").strip():
+        has_tp_row0 = (
+            str(active_rows[0].get("domain", "")).startswith("target_prompt")
+            or str(active_rows[0].get("frame_id", "")).startswith("target_scene")
+        )
+        if str(target_prompt or "").strip() and not has_tp_row0:
             ps = _inject_target_prompt_into_pairset(
-                ps, target_prompt, target_weight=float(target_weight), slot_hint=slot
+                ps, target_prompt, target_weight=float(target_weight)
             )
         return ps
 
     clauses: list[pair_compiler.ContrastClause] = []
     sound_clauses: list[pair_compiler.ContrastClause] = []
     for r in active_rows:
-        r_slot = str(r.get("slot") or slot or "auto")
         clauses.append(
             pair_compiler.ContrastClause(
                 a=str(r.get("a", "")).strip(),
                 b=str(r.get("b", "")).strip(),
-                slot=r_slot if r_slot != "auto" else None,
-                weight=float(r.get("weight", 1.0)),
             )
         )
         sb = str(r.get("sound_b", "") or "").strip()
@@ -513,34 +538,35 @@ def _build_pairset_from_ui_rows(
                 pair_compiler.ContrastClause(
                     a=sa,
                     b=sb,
-                    slot="soundscape",
-                    weight=float(r.get("weight", 1.0)),
+                    is_soundscape=True,
                 )
             )
-    hold_clauses: list[pair_compiler.ContrastClause] = []
+    hold_clauses: list[pair_compiler.HoldClause] = []
     for hr in (holds or ()):
         ha = str(hr.get("a", "") or "").strip()
         hb = str(hr.get("b", "") or "").strip()
         if hb:
+            if not ha:
+                ha, hb = pair_compiler._split_pole_pair(hb)
             hold_clauses.append(
-                pair_compiler.ContrastClause(
+                pair_compiler.HoldClause(
                     a=ha,
                     b=hb,
-                    slot="auto",
                     group=str(hr.get("group", "nuisance") or "nuisance"),
                     weight=float(hr.get("weight", 1.0)),
                 )
             )
     tp_clean = str(target_prompt or "").strip() or None
+    first_c = clauses[0]
+    first_spec = f"{first_c.a} ||| {first_c.b}" if first_c.a else first_c.b
     return pair_compiler.compile_words_to_pairset(
-        clauses,
+        first_spec,
         name=name or None,
         quality=str(quality or "").strip() or None,
-        slot=slot,
         mode=mode,
-        n_pairs=min(10, max(1, len(clauses))),
-        soundscape_contrasts=sound_clauses or None,
-        hold_contrasts=hold_clauses or None,
+        extra_clauses=clauses[1:] or None,
+        soundscape_clauses=sound_clauses or None,
+        holds=hold_clauses or None,
         target_prompt=tp_clean,
         target_weight=float(target_weight),
     )
@@ -831,7 +857,6 @@ def _repool_cached_build(
         }
         if str(entry["rel_pair_path"]).startswith("<"):
             pairs_dict_repool["words_spec"] = str(entry.get("words_spec", "") or "")
-            pairs_dict_repool["slot"] = str(entry.get("slot", "auto") or "auto")
             pairs_dict_repool["pairs_ab"] = [
                 {
                     "a": entry["pairs_ab"][i][0],

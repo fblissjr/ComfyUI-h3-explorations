@@ -152,16 +152,14 @@ def cmd_build(args: argparse.Namespace) -> int:
         return 0
 
     words_arg = str(getattr(args, "words", "") or "").strip()
-    is_placebo = bool(getattr(args, "placebo", False))
     compiled_override: cv.PairSet | None = getattr(args, "_compiled_pair_set", None)
 
     if (
-        not is_placebo
-        and not words_arg
+        not words_arg
         and compiled_override is None
         and (not getattr(args, "source", None) or not str(args.source).strip())
     ):
-        raise ValueError("either a source (.md/.toml/stem), --from-words, --words, --placebo, or --all is required for 'build'")
+        raise ValueError("either a source (.md/.toml/stem), --from-words, --words, or --all is required for 'build'")
 
     raw_poolings = [p.strip() for p in str(args.pooling).split(",") if p.strip()]
     if not raw_poolings:
@@ -183,22 +181,21 @@ def cmd_build(args: argparse.Namespace) -> int:
     resolved_pair_path: Path | None = None
     test_prompt_saved: Path | None = None
     stem_override = (getattr(args, "name", None) or getattr(args, "output_name", None) or "").strip() or None
-    compile_mode = getattr(args, "mode", None) or ("ref2va" if getattr(args, "ref_images", None) else "t2va")
-    slot_arg = str(getattr(args, "slot", "auto") or "auto")
     tp_arg = str(getattr(args, "target_prompt", "") or "").strip()
     tp_weight = float(getattr(args, "target_weight", 2.5))
+    compile_mode = pair_compiler.infer_compile_mode(
+        getattr(args, "mode", None),
+        ref_images=getattr(args, "ref_images", None),
+        target_prompt=tp_arg or None,
+        words=words_arg or None,
+    )
 
     if compiled_override is not None:
         pair_set = compiled_override
         if tp_arg:
             pair_set = _inject_target_prompt_into_pairset(
-                pair_set, tp_arg, target_weight=tp_weight, slot_hint=slot_arg
+                pair_set, tp_arg, target_weight=tp_weight
             )
-    elif is_placebo:
-        pair_set = pair_compiler.compile_placebo_pairset(
-            slot=slot_arg if slot_arg != "auto" else "opening_framing",
-            mode=compile_mode,
-        )
     elif words_arg:
         pair_set = _compile_words_or_spec_to_pairset(
             words_arg,
@@ -206,13 +203,12 @@ def cmd_build(args: argparse.Namespace) -> int:
             quality=getattr(args, "quality", None),
             a_side=getattr(args, "a_side", None),
             b_side=getattr(args, "b_side", None),
-            slot=slot_arg,
             mode=compile_mode,
             target_prompt=tp_arg,
             target_weight=tp_weight,
         )
         toml_out_arg = getattr(args, "toml_out", None) or (
-            cv_nodes.PAIR_BANK_DIR if getattr(args, "save_toml", False) else None
+            cv_nodes.USER_PAIR_BANK_DIR if getattr(args, "save_toml", False) else None
         )
         if toml_out_arg:
             t_out = Path(toml_out_arg)
@@ -241,7 +237,7 @@ def cmd_build(args: argparse.Namespace) -> int:
             md_text = _repair_multichange_markdown_pairs(src_path.read_text(encoding="utf-8"))
             parsed = cv.parse_markdown_pairs(md_text)
             toml_target_path = (
-                Path(args.toml_out) if getattr(args, "toml_out", None) else cv_nodes.PAIR_BANK_DIR
+                Path(args.toml_out) if getattr(args, "toml_out", None) else cv_nodes.USER_PAIR_BANK_DIR
             )
             eff_stem = (
                 stem_override
@@ -295,7 +291,7 @@ def cmd_build(args: argparse.Namespace) -> int:
             pair_set = cv.load_pairs(resolved_pair_path, bank_dir=cv_nodes.PROMPT_BANK_DIR)
         if tp_arg:
             pair_set = _inject_target_prompt_into_pairset(
-                pair_set, tp_arg, target_weight=tp_weight, slot_hint=slot_arg
+                pair_set, tp_arg, target_weight=tp_weight
             )
 
     stem = (getattr(args, "output_name", None) or getattr(args, "name", None) or pair_set.name).strip()
@@ -718,12 +714,10 @@ def cmd_build(args: argparse.Namespace) -> int:
                 "pair_spans": pair_spans,
             }
             if resolved_pair_path is None:
-                if isinstance( words_arg, str) and words_arg.strip():
+                if isinstance(words_arg, str) and words_arg.strip():
                     pairs_dict_build["words_spec"] = str(words_arg).strip()
                 elif isinstance(getattr(args, "_words_spec_saved", None), str) and args._words_spec_saved.strip():
                     pairs_dict_build["words_spec"] = str(args._words_spec_saved).strip()
-                if slot_arg and slot_arg != "auto":
-                    pairs_dict_build["slot"] = slot_arg
                 pairs_dict_build["pairs_ab"] = [
                     {"a": p.a, "b": p.b, "weight": float(p.weight)}
                     for p in pair_set.pairs
@@ -822,7 +816,6 @@ def cmd_build(args: argparse.Namespace) -> int:
                     "hold_alpha": hold_alpha_build,
                     "prompt": prompt_build,
                     "words_spec": words_arg or str(getattr(args, "_words_spec_saved", "") or ""),
-                    "slot": slot_arg,
                 }
             rec_band = [
                 round(50.0 / max(raw_norm, 1e-6), 2),
@@ -940,7 +933,6 @@ def cmd_rebuild(args: argparse.Namespace) -> int:
         sub_args.build_all = False
         sub_args.from_words = ""
         sub_args.words = ""
-        sub_args.placebo = False
         sub_args.source = str(toml_path)
         sub_args.name = None
         sub_args.output_name = ""
@@ -1010,11 +1002,10 @@ def cmd_rebuild(args: argparse.Namespace) -> int:
         else:
             fams = sorted({str(m.get("family", "fl2va")) for _, _, m in items if m.get("family") in ("fl2va", "ref2va")}) or ["fl2va", "ref2va"]
         words_spec_saved = str(pairs_meta.get("words_spec", "")).strip()
-        slot_saved = str(pairs_meta.get("slot", "auto")).strip() or "auto"
         raw_pairs_ab = pairs_meta.get("pairs_ab")
         raw_holds_ab = pairs_meta.get("holds_ab")
         reconstructed_ps: cv.PairSet | None = None
-        if isinstance(raw_pairs_ab, list) and len(raw_pairs_ab) >= 2:
+        if isinstance(raw_pairs_ab, list) and len(raw_pairs_ab) >= 1:
             try:
                 p_items: list[cv.PairItem] = []
                 for idx_p, item_p in enumerate(raw_pairs_ab):
@@ -1056,12 +1047,10 @@ def cmd_rebuild(args: argparse.Namespace) -> int:
         sub_args = argparse.Namespace(**vars(args))
         sub_args.build_all = False
         sub_args.from_words = ""
-        sub_args.placebo = False
         sub_args.source = None
         sub_args.words = "" if reconstructed_ps is not None else words_spec
         sub_args._words_spec_saved = words_spec
         sub_args._compiled_pair_set = reconstructed_ps
-        sub_args.slot = slot_saved
         sub_args.mode = mode_val if mode_val in cv.VALID_MODES else "t2va"
         sub_args.pooling = pooling_val if pooling_val in cv.VALID_POOLING else "diff_span"
         sub_args.quality = str(meta0.get("quality", "")) or None

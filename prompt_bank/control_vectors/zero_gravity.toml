@@ -3,7 +3,7 @@ name = "zero_gravity"
 quality = "weightless zero-gravity levitation of loose tabletop objects against normal downward terrestrial gravity"
 a_side = "loose tabletop objects remaining stationary and resting flat on surfaces under normal gravity"
 b_side = "loose tabletop objects detaching from surfaces and floating weightlessly upward into mid-air as gravity ceases"
-mode = "ref2va"
+mode = "t2va"
 frame = "scene"
 exclude_shots = ["t2va_offpath_tortoise", "ref2va_look_anchor"]
 

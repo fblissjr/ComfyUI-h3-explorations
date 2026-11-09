@@ -71,7 +71,6 @@ def handle_ui_request(
             "vectors": _list_ui_vectors(state.vec_dir),
             "clips": _discover_ui_clips(),
             "j_lens_available": j_lens.bundle_available(),
-            "canonical_frames": pair_compiler.load_canonical_frames(),
             "llm_providers": list(SUPPORTED_LLM_PROVIDERS),
             "default_llm_provider": state.default_llm_provider,
             "default_llm_model": state.default_llm_model,
@@ -115,8 +114,7 @@ def handle_ui_request(
             sound_b = str(req.get("sound_b", "") or "").strip()
             hold_a = str(req.get("hold_a", "") or "").strip()
             hold_b = str(req.get("hold_b", "") or "").strip()
-            slot = str(req.get("slot", "auto") or "auto")
-            mode = str(req.get("mode", "t2va") or "t2va")
+            raw_mode = req.get("mode")
             name = str(req.get("name", "") or "").strip()
             target_prompt = str(req.get("target_prompt", "") or "").strip()
             target_weight = float(req.get("target_weight", 2.5))
@@ -132,22 +130,26 @@ def handle_ui_request(
                     lines.append(f"hold: {hold_a} ||| {hold_b}" if hold_a else f"hold: {hold_b}")
                 spec_text = "\n".join(lines)
 
+            families_req = str(req.get("families", "") or "").strip().lower()
+            raw_mode_str = str(raw_mode or "").strip().lower()
+            eff_mode_req = raw_mode_str if raw_mode_str not in ("", "auto") else ("ref2va" if families_req == "ref2va" and not target_prompt else None)
+            mode = pair_compiler.infer_compile_mode(
+                eff_mode_req,
+                target_prompt=target_prompt or None,
+                words=spec_text,
+            )
+
             ps = _compile_words_or_spec_to_pairset(
                 spec_text,
                 name=name or None,
-                slot=slot,
                 mode=mode,
                 target_prompt=target_prompt,
                 target_weight=target_weight,
             )
-            frames_bank = pair_compiler.load_canonical_frames()["frames"].get(ps.mode, [])
             rows_payload: list[dict[str, Any]] = []
             for idx, p in enumerate(ps.pairs):
-                is_tp = bool(target_prompt) and idx == 0
-                f_idx = (idx - 1) if bool(target_prompt) else idx
-                f_meta = frames_bank[f_idx % len(frames_bank)] if (not is_tp and frames_bank) else {}
-                f_id = "target_scene_prompt" if is_tp else f_meta.get("id", f"scene_{idx + 1:02d}")
-                f_domain = "target_prompt (Pair 0)" if is_tp else f_meta.get("domain", "canonical")
+                f_id = f"target_scene_{idx + 1:02d}" if len(ps.pairs) > 1 else "target_scene_prompt"
+                f_domain = f"target_prompt (Pair {idx})"
                 rows_payload.append(
                     {
                         "index": idx,
@@ -175,7 +177,6 @@ def handle_ui_request(
                 }
                 for h in ps.holds
             ]
-            resolved_slot = pair_compiler.resolve_slot_name(slot, sample_text=ps.b_side)
             return (
                 200,
                 "application/json",
@@ -183,8 +184,6 @@ def handle_ui_request(
                     {
                         "ok": True,
                         "name": ps.name,
-                        "slot": resolved_slot,
-                        "slot_auto_detected": slot == "auto",
                         "mode": ps.mode,
                         "quality": ps.quality,
                         "a_side": ps.a_side,
@@ -209,14 +208,12 @@ def handle_ui_request(
             rows_req = req.get("rows")
             frame_req = str(req.get("frame", "scene") or "scene")
             name_req = str(req.get("name", "") or "").strip()
-            slot_req = str(req.get("slot", "auto") or "auto")
             mode_req = str(req.get("mode", "t2va") or "t2va")
             if isinstance(rows_req, list) and rows_req and not text_req.strip():
                 ps_rows = _build_pairset_from_ui_rows(
                     rows_req,
                     holds=req.get("holds"),
                     name=name_req,
-                    slot=slot_req,
                     mode=mode_req,
                     frame=frame_req,
                     target_prompt=str(req.get("target_prompt", "") or ""),
@@ -230,7 +227,6 @@ def handle_ui_request(
                 text_req,
                 frame=frame_req,
                 name=name_req,
-                slot=slot_req,
                 mode=mode_req,
             )
             return 200, "application/json", json.dumps(res)
@@ -246,18 +242,13 @@ def handle_ui_request(
             tpath = cand if cand.is_file() else cv_nodes.resolve_pair_file_path(fname)
             ps = cv.load_pairs(tpath, bank_dir=cv_nodes.PROMPT_BANK_DIR)
             md_str = _pair_set_to_markdown(tpath, ps)
-            frames_bank = pair_compiler.load_canonical_frames()["frames"].get(ps.mode, [])
             rows_payload = [
                 {
                     "index": idx,
-                    "frame_id": frames_bank[idx % len(frames_bank)]["id"] if frames_bank else f"pair_{idx + 1:02d}",
-                    "scene_id": frames_bank[idx % len(frames_bank)]["id"] if frames_bank else f"pair_{idx + 1:02d}",
-                    "scene_title": (
-                        f"{frames_bank[idx % len(frames_bank)]['id']} ({frames_bank[idx % len(frames_bank)]['domain']})"
-                        if frames_bank
-                        else f"pair_{idx + 1:02d}"
-                    ),
-                    "domain": frames_bank[idx % len(frames_bank)]["domain"] if frames_bank else ps.mode,
+                    "frame_id": f"pair_{idx + 1:02d}",
+                    "scene_id": f"pair_{idx + 1:02d}",
+                    "scene_title": f"pair_{idx + 1:02d} ({ps.mode})",
+                    "domain": ps.mode,
                     "weight": float(p.weight),
                     "enabled": True,
                     "a": p.a,
@@ -313,7 +304,6 @@ def handle_ui_request(
         name = str(req.get("name", "")).strip()
         quality_req = str(req.get("quality") or req.get("axis") or "").strip() or None
         frame = str(req.get("frame", "scene") or "scene")
-        slot = str(req.get("slot", "auto") or "auto")
         mode = str(req.get("mode", "t2va") or "t2va")
         overwrite = bool(req.get("overwrite", True))
         rows_in = req.get("rows")
@@ -332,7 +322,6 @@ def handle_ui_request(
                     holds=holds_in or None,
                     name=name,
                     quality=quality_req,
-                    slot=slot,
                     mode=mode,
                     frame=frame,
                     target_prompt=str(req.get("target_prompt", "") or ""),
@@ -385,7 +374,6 @@ def handle_ui_request(
                 ps = _compile_words_or_spec_to_pairset(
                     spec_with_holds,
                     name=name or None,
-                    slot=slot,
                     mode=mode,
                     target_prompt=str(req.get("target_prompt", "") or ""),
                     target_weight=float(req.get("target_weight", 2.5)),
@@ -432,8 +420,7 @@ def handle_ui_request(
         name = str(req.get("name", "") or req.get("output_name", "") or "").strip()
         quality_req = str(req.get("quality") or req.get("axis") or "").strip() or None
         frame = str(req.get("frame", "scene") or "scene")
-        slot = str(req.get("slot", "auto") or "auto")
-        mode = str(req.get("mode", "t2va") or "t2va")
+        raw_mode = req.get("mode")
         families = str(req.get("families", "both") or "both")
         pooling = str(req.get("pooling", "diff_span") or "diff_span")
         no_lora = bool(req.get("no_lora", False))
@@ -446,6 +433,13 @@ def handle_ui_request(
         hold_vectors = req.get("hold_vectors") or []
         target_prompt = str(req.get("target_prompt", "") or "").strip()
         target_weight = float(req.get("target_weight", 2.5))
+        raw_mode_str = str(raw_mode or "").strip().lower()
+        eff_mode_req = raw_mode_str if raw_mode_str not in ("", "auto") else ("ref2va" if families.strip().lower() == "ref2va" and not target_prompt else None)
+        mode = pair_compiler.infer_compile_mode(
+            eff_mode_req,
+            target_prompt=target_prompt or None,
+            words=text or None,
+        )
         rows_in = req.get("rows")
         holds_in = list(req.get("holds") or [])
         if not holds_in and str(req.get("hold_b", "") or "").strip():
@@ -468,7 +462,6 @@ def handle_ui_request(
                     holds=holds_in or None,
                     name=name,
                     quality=quality_req,
-                    slot=slot,
                     mode=mode,
                     frame=frame,
                     target_prompt=target_prompt,
@@ -544,7 +537,6 @@ def handle_ui_request(
                 compiled_ps = _compile_words_or_spec_to_pairset(
                     spec_with_holds,
                     name=name or None,
-                    slot=slot,
                     mode=mode,
                     target_prompt=target_prompt,
                     target_weight=target_weight,
@@ -763,6 +755,7 @@ def handle_ui_request(
             vec_arg = str(req.get("vector", "") or "").strip()
             prompt_arg = str(req.get("prompt", "") or "").strip()
             pooling_arg = str(req.get("pooling", "scene_text") or "scene_text")
+            family_arg = str(req.get("family", "") or "").strip() or None
             if not vec_arg or not prompt_arg:
                 return 400, "application/json", json.dumps({"ok": False, "error": "both 'vector' and 'prompt' are required"})
             res = _meter_prompt_tokens(
@@ -770,6 +763,7 @@ def handle_ui_request(
                 vector_arg=vec_arg,
                 prompt_arg=prompt_arg,
                 pooling=pooling_arg,
+                family=family_arg,
             )
             return 200, "application/json", json.dumps(res)
         except Exception as exc:

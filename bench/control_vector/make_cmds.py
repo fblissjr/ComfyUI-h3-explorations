@@ -14,6 +14,7 @@ import torch
 
 import control_vector_nodes as cv_nodes
 import control_vectors as cv
+import h3_pair_compiler as pair_compiler
 import h3_spans
 import j_lens
 import substrate
@@ -166,13 +167,16 @@ def cmd_make(args: argparse.Namespace) -> int:
     words_arg = str(getattr(args, "words", "") or "").strip()
     tp_arg = str(getattr(args, "target_prompt", "") or "").strip()
     tp_weight = float(getattr(args, "target_weight", 2.5))
-    slot_arg = str(getattr(args, "slot", "auto") or "auto")
     if words_arg:
-        compile_mode = "ref2va" if getattr(args, "ref_images", None) else "t2va"
+        compile_mode = pair_compiler.infer_compile_mode(
+            getattr(args, "mode", None),
+            ref_images=getattr(args, "ref_images", None),
+            target_prompt=tp_arg or None,
+            words=words_arg,
+        )
         pair_set = _compile_words_or_spec_to_pairset(
             words_arg,
             name=(getattr(args, "output_name", "") or "").strip() or None,
-            slot=slot_arg,
             mode=compile_mode,
             target_prompt=tp_arg,
             target_weight=tp_weight,
@@ -184,7 +188,7 @@ def cmd_make(args: argparse.Namespace) -> int:
         pair_set = cv.load_pairs(resolved_pair_path, bank_dir=cv_nodes.PROMPT_BANK_DIR)
         if tp_arg:
             pair_set = _inject_target_prompt_into_pairset(
-                pair_set, tp_arg, target_weight=tp_weight, slot_hint=slot_arg
+                pair_set, tp_arg, target_weight=tp_weight
             )
 
     auto_fam = "ref2va" if (args.ref_images or pair_set.mode == "ref2va") else "fl2va"
@@ -533,9 +537,6 @@ def cmd_make(args: argparse.Namespace) -> int:
     if not is_bank_toml_make:
         if words_arg:
             pairs_dict_make["words_spec"] = str(words_arg)
-        slot_make = str(getattr(args, "slot", "auto") or "auto")
-        if slot_make != "auto":
-            pairs_dict_make["slot"] = slot_make
         pairs_dict_make["pairs_ab"] = [
             {"a": p.a, "b": p.b, "weight": float(p.weight)}
             for p in pair_set.pairs
@@ -829,7 +830,7 @@ def cmd_from_md(args: argparse.Namespace) -> int:
         raise ValueError(f"markdown file not found: {md_path}")
 
     out_target: str | Path = (
-        Path(args.out) if getattr(args, "out", None) else cv_nodes.PAIR_BANK_DIR
+        Path(args.out) if getattr(args, "out", None) else cv_nodes.USER_PAIR_BANK_DIR
     )
     repaired_md = _repair_multichange_markdown_pairs(md_path.read_text(encoding="utf-8"))
     parsed = cv.parse_markdown_pairs(repaired_md)
