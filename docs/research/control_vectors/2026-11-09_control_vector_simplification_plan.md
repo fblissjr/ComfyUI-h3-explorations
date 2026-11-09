@@ -440,3 +440,39 @@ then go through these:
   the control-vector code.
 
 Where the code has moved, the code is right and this page is corrected or marked as overtaken.
+
+## 14. Settings: the nodes, their defaults and what the graphs pass
+
+Section 11.7 asked whether the custom nodes tolerate two prompts per step. It did not ask whether their
+settings are right. That is a separate pass, done before the first test is queued and again when phase 4
+changes the apply node.
+
+The work uses the pack's own nodes throughout (`MiniMaxH3Conditioning`, `MiniMaxH3ReferenceConditioning`,
+`MiniMaxH3AppendRefImage`, `MiniMaxH3Preflight`, `MiniMaxH3LoRABranch`, `MiniMaxH3Sol`,
+`MiniMaxH3ApplyControlVectors`), never a hand-rolled substitute for one.
+
+For each custom node in a graph the work touches, three things are compared, and any difference is either
+explained or fixed in the generator:
+
+- what the node's `define_schema` gives as the default;
+- what the shared constant says (`h3_rules.py`, `workflows/h3_config.py`);
+- what the generated graph passes, read from the graph as queued (`bench/what_h3_got.py`).
+
+For `MiniMaxH3ApplyControlVectors` the pass reads every input, with what it does and whether its default is
+right for each graph: `strength`, `mode`, `mask`, the step window, `allow_recipe_mismatch`, the audio and
+video scales, the reference gate, and the inline words inputs.
+
+Already seen in the graphs as generated at `856d4ac8`, to settle in that pass:
+
+- The two video control-vector graphs render at `length` 362. The arms in the results record were rendered
+  at 141 frames. Evidence at one length is being shipped at another.
+- The graphs pass `strength` 1.15 where the node default is 1.0; the stacked graph passes 1.0 for each of
+  two vectors, so its combined shift is larger than the single graph's.
+- The ref2va and image-edit graphs pass `ref_vae_end_percent` and `ref_vae_aug` at their default values,
+  which gates nothing.
+- Every graph names a vector file that is not on disk.
+- The image graphs pass no Pika LoRA and use the 4B encoder (finding 15).
+
+The tracked checks that already cover part of this are run first, and their output is read, not just their
+exit code: `bench/check_attention_defaults.py`, `bench/check_control_vectors.py`, and whichever checks
+`docs/checks.md` lists for graph and node settings.
