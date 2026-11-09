@@ -634,6 +634,7 @@ Arm manifests and the like; a manifest's line is its own `what`.
 | [`cli.py`](control_vector/cli.py) | Argument parser and CLI command router for `bench/control_vectors.py`. |
 | [`grading.py`](control_vector/grading.py) | Inspection, prompt metering (`inspect`), and DiT velocity grading (`grade`) for H3 control vectors. |
 | [`helpers.py`](control_vector/helpers.py) | Shared helpers for the MiniMax H3 control vector CLI and UI package. |
+| [`j_lens_builder.py`](control_vector/j_lens_builder.py) | Reproducible builder and verifier for `<ComfyUI>/models/j_lens/j_lens_h3.safetensors` (`h3_j_lens_v1`). |
 | [`llm_pairs.py`](control_vector/llm_pairs.py) | Local LLM pair generation (`transformers` and `exllamav3`) for H3 control vectors. |
 | [`make_cmds.py`](control_vector/make_cmds.py) | CLI commands for `make`, `make-media`, and `from-md` (`import-md`). |
 | [`sculpt.py`](control_vector/sculpt.py) | CPU vector sculpting (`sculpt` / `--invert`) and contextual prompt receptor metering. |

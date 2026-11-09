@@ -15,6 +15,12 @@ Older history lives elsewhere and is not copied here:
   decisions" and forward-plan sections.
 - `bench/results/`: the verdict records, each with its conditions.
 
+## 2026-11-09
+
+- **The `P-H3-Image` graphs default to the 32B encoder; the probes became `te4b`** (owner decision). `workflows/build_workflows.py::build_ph3_image_api` now takes `teacher_te=True` by default, so the six generated `h3_p_h3_image_{t2i,edit,lora_t2i,lora_edit,t2i_control_vector,edit_control_vector}_api.json` graphs wire `MiniMaxH3EncoderLoader` with `qwen3vl_32b_minimax_h3_int8_convrot.safetensors` at node `2` (`h3_p_h3_image_guide_edit_api.json` already did). The two probes were renamed and inverted: `h3_probe_p_h3_image_t2i_te32b_api.json` and `h3_probe_p_h3_image_edit_te32b_api.json` are gone, and [`h3_probe_p_h3_image_t2i_te4b_api.json`](../../workflows/image/h3_probe_p_h3_image_t2i_te4b_api.json) and [`h3_probe_p_h3_image_edit_te4b_api.json`](../../workflows/image/h3_probe_p_h3_image_edit_te4b_api.json) wire the release's distilled 4B encoder (core `CLIPLoader`, `type="minimax"`, `p-h3-image_text_encoder_int8_convrot.safetensors`) for a same-seed comparison.
+  - **Why**: the owner reported better quality from 32B; the image DiT's text path was trained against 32B-style rows that the 4B `TextConnector` only approximates, and the pack's control vectors are built from 32B rows. No figure was measured for this entry.
+  - **What prose claimed and no longer does**: [`p_h3_image.md`](p_h3_image.md), [`../h3_image_editing.md`](../h3_image_editing.md), [`../prompting/17_p_h3_image_prompting.md`](../prompting/17_p_h3_image_prompting.md), [`h3_uses.md`](h3_uses.md), [`references.md`](references.md) and [`index.md`](index.md) said the `P-H3-Image` graphs used the distilled 4B encoder by default, with two 32B `te32b` probes beside them. The entries below keep those names as they stood.
+
 ## 2026-11-07
 
 - **Fixed `PH3ImageVAE` `ModelPatcherDynamic.backup_buffers` poisoning in `ph3_image_nodes.py::_encode_ph3_image_condition` and removed `MiniMaxH3PH3ImagePromptUpsampler` from all generated `workflows/image/` workflows**:

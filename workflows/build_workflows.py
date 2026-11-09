@@ -2360,7 +2360,7 @@ def build_ph3_image_api(
     prompt: str | None = None,
     unet: str | None = None,
     lora: tuple[str, float] | None = None,
-    teacher_te: bool = False,
+    teacher_te: bool = True,
     ref_images: tuple[str, ...] | None = None,
     width: int | None = None,
     height: int | None = None,
@@ -2389,8 +2389,10 @@ def build_ph3_image_api(
     - Supports both the standalone `p-h3-image_int8_convrot.safetensors` DiT and
       the `p-h3-image_lora_bf16.safetensors` adapter on our `unet_fl2va` base
       via `MiniMaxH3LoRABranch`.
-    - Supports both the distilled 4B `CLIPLoader(type="minimax")` (`teacher_te=False`)
-      and our 32B `MiniMaxH3EncoderLoader` (`teacher_te=True`) for A/B probes.
+    - Text encoder: our 32B `MiniMaxH3EncoderLoader` by default (`teacher_te=True`,
+      the owner's word of 2026-11-09; the image DiT was trained on 32B rows, and the
+      control vectors are built from them). `teacher_te=False` wires the distilled 4B
+      `CLIPLoader(type="minimax")`, kept for the two `te4b` probe graphs.
     """
     if task not in ("ph3_t2i", "ph3_edit"):
         raise ValueError(f"unknown P-H3-Image task {task!r}; expected 'ph3_t2i' or 'ph3_edit'")
@@ -4864,7 +4866,7 @@ def main():
         ("h3_p_h3_image_t2i.json", "p-h3-image-t2i", "ph3_t2i",
          PH3_IMAGE_T2I_PROMPT,
          dict(single_frame=True, out_prefix="Image/h3_p_h3_image_t2i"),
-         "text -> 8 MP single-frame image on PrunaAI P-H3-Image (8-step custom Euler schedule, 4B distilled TextConnector, single-frame VAE)"),
+         "text -> 8 MP single-frame image on PrunaAI P-H3-Image (8-step custom Euler schedule, 32B Qwen3-VL encoder, single-frame VAE)"),
         ("h3_p_h3_image_edit.json", "p-h3-image-edit", "ph3_edit",
          PH3_IMAGE_EDIT_PROMPT,
          dict(single_frame=True, out_prefix="Image/h3_p_h3_image_edit"),
@@ -4879,16 +4881,16 @@ def main():
          dict(single_frame=True, lora=(PH3_IMAGE_LORA, PH3_IMAGE_STRENGTH),
               out_prefix="Image/h3_p_h3_image_lora_edit"),
          "reference images + text -> edited image at image_1's aspect ratio applying p-h3-image_lora_bf16 on our unet_fl2va base via MiniMaxH3LoRABranch"),
-        ("h3_probe_p_h3_image_t2i_te32b.json", "p-h3-image-t2i-te32b", "ph3_t2i",
+        ("h3_probe_p_h3_image_t2i_te4b.json", "p-h3-image-t2i-te4b", "ph3_t2i",
          PH3_IMAGE_T2I_PROMPT,
-         dict(single_frame=True, teacher_te=True,
-              out_prefix="Image/h3_probe_p_h3_image_t2i_te32b"),
-         "P-H3-Image T2I teacher-encoder probe: our 32B Qwen3-VL encoder in place of the distilled 4B TextConnector encoder"),
-        ("h3_probe_p_h3_image_edit_te32b.json", "p-h3-image-edit-te32b", "ph3_edit",
+         dict(single_frame=True, teacher_te=False,
+              out_prefix="Image/h3_probe_p_h3_image_t2i_te4b"),
+         "P-H3-Image T2I distilled-encoder probe: the release's 4B TextConnector encoder in place of our default 32B Qwen3-VL encoder"),
+        ("h3_probe_p_h3_image_edit_te4b.json", "p-h3-image-edit-te4b", "ph3_edit",
          PH3_IMAGE_EDIT_PROMPT,
-         dict(single_frame=True, teacher_te=True,
-              out_prefix="Image/h3_probe_p_h3_image_edit_te32b"),
-         "P-H3-Image Edit teacher-encoder probe: our 32B Qwen3-VL encoder in place of the distilled 4B TextConnector encoder"),
+         dict(single_frame=True, teacher_te=False,
+              out_prefix="Image/h3_probe_p_h3_image_edit_te4b"),
+         "P-H3-Image Edit distilled-encoder probe: the release's 4B TextConnector encoder in place of our default 32B Qwen3-VL encoder"),
         ("h3_p_h3_image_t2i_control_vector.json", "p-h3-image-t2i-control-vector", "ph3_t2i",
          PH3_IMAGE_T2I_PROMPT,
          dict(single_frame=True,

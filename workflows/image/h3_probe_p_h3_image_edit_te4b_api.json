@@ -91,10 +91,23 @@
     }
   },
   "2": {
-    "class_type": "MiniMaxH3EncoderLoader",
+    "class_type": "CLIPLoader",
     "inputs": {
-      "encoder_name": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+      "clip_name": "p-h3-image_text_encoder_int8_convrot.safetensors",
+      "type": "minimax",
       "device": "default"
+    }
+  },
+  "15": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "1-man.png"
+    }
+  },
+  "16": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "2-mountain_landscape.png"
     }
   },
   "5": {
@@ -108,10 +121,18 @@
         "3",
         0
       ],
-      "prompt": "A medium three-quarter portrait of an elderly clockmaker seated at a worn walnut workbench inside a sunlit brass-and-oak workshop. He has silver stubble, deep-set hazel eyes behind round wire-rimmed spectacles, and wears a faded indigo linen apron over a rolled-sleeve cream cotton shirt. His weathered fingers hold a brass balance wheel and fine tweezers above an open pocket watch movement surrounded by miniature jeweler's screwdrivers, coiled mainsprings, and a glass bell jar. Warm late-afternoon directional sunlight streams through a paned workshop window on the left, casting crisp specular highlights across the polished gears and soft warm fill across the wood grain, shot on an 85mm prime lens at f/2.8 with shallow depth of field.",
+      "prompt": "Place the man from <Picture 1> onto a stone observation terrace overlooking the alpine mountain peaks and valley from <Picture 2> at golden hour. Keep his exact facial features, expression, and hair from <Picture 1>, dress him in a charcoal wool field jacket over a heather-grey knit sweater, and match the warm low-angle sunset key light and crisp atmospheric perspective of <Picture 2>.",
       "width": 2912,
       "height": 2912,
-      "canvas": "auto"
+      "canvas": "auto",
+      "images.image_1": [
+        "15",
+        0
+      ],
+      "images.image_2": [
+        "16",
+        0
+      ]
     }
   },
   "19": {

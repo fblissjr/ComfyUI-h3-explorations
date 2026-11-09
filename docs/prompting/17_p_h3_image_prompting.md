@@ -10,7 +10,7 @@
 
 1. **Distilled `Qwen3-VL-4B` Text Encoder + 5-Layer `TextConnector` (`p-h3-image_text_encoder_int8_convrot.safetensors`)**:
    - Instead of tapping a single layer (`hidden_states[-2]`, `dim=5120`) from `Qwen3-VL-32B-Instruct`, `PH3ImageTEModel` (`comfy/text_encoders/minimax.py:172-250`) extracts **5 intermediate hidden layers `[13, 19, 25, 31, 36]`** from `Qwen3-VL-4B` (`dim=2560` each), concatenates them along the channel axis (`5 * 2560 = 12800`), standardizes the `12800`-dim vector with learned `input_mean` and `input_std`, projects it in `float32` through a single bias-free linear layer `nn.Linear(12800, 5120, bias=False)` (`TextConnector.proj`, `comfy/text_encoders/minimax.py:110-128`), destandardizes to `output_mean` / `output_std` (`5120`), and replaces token 0 (`BOS`) with a learned `sink_embedding` (`5120`) into H3's `5120`-dim `condition_proj` + `TokenRefiner` space.
-   - **Teacher-encoder compatibility (`h3_probe_p_h3_image_*_te32b_api.json`)**: Because `TextConnector` was distilled to match `Qwen3-VL-32B-Instruct`'s `5120`-dim layer-50 representation before `condition_proj`, the `P-H3-Image` DiT also accepts our stock `qwen3vl_32b_minimax_h3_int8_convrot.safetensors` directly via `MiniMaxH3EncoderLoader`.
+   - **Teacher-encoder compatibility, and our default**: Because `TextConnector` was distilled to match `Qwen3-VL-32B-Instruct`'s `5120`-dim layer-50 representation before `condition_proj`, the `P-H3-Image` DiT also accepts our stock `qwen3vl_32b_minimax_h3_int8_convrot.safetensors` directly via `MiniMaxH3EncoderLoader`. The generated `h3_p_h3_image_*` graphs wire that 32B encoder by default (the owner's choice of 2026-11-09, after reporting better quality from it; the pack's control vectors are built from 32B rows), and the distilled 4B encoder described above is wired only by the two `h3_probe_p_h3_image_*_te4b_api.json` probe graphs for a same-seed comparison.
 2. **Tokenizer Vocabulary (`PH3ImageTokenizer` vs. `MiniMaxH3Tokenizer`)**:
    - `PH3ImageTokenizer` (`comfy/text_encoders/minimax.py:254-258`) uses `Qwen3VLSDTokenizer` directly **without** registering `MINIMAX_EXTRA_TOKENS` (`<d>`, `</d>`, `<|cutoff|>`, `<|lyrics_start|>`, `<|lyrics_end|>`, `<|caption_start|>`, `<|caption_end|>`, token IDs `151669..151675` in `comfy/text_encoders/minimax.py:33-35`).
    - Never use `<d>[Language] ...</d>`, `(S1)`, `overall_soundscape:`, `non_diegetic_music:`, or `[Shot N]` headers in a `P-H3-Image` prompt.
@@ -28,7 +28,7 @@
 
 ## 17.2 Mode 1: Text-to-Image (`p_h3_image_t2i`)
 
-Used by [`workflows/image/h3_p_h3_image_t2i_api.json`](../../workflows/image/h3_p_h3_image_t2i_api.json), [`workflows/image/h3_p_h3_image_lora_t2i_api.json`](../../workflows/image/h3_p_h3_image_lora_t2i_api.json), [`workflows/image/h3_probe_p_h3_image_t2i_te32b_api.json`](../../workflows/image/h3_probe_p_h3_image_t2i_te32b_api.json), and [`workflows/image/h3_p_h3_image_t2i_control_vector_api.json`](../../workflows/image/h3_p_h3_image_t2i_control_vector_api.json).
+Used by [`workflows/image/h3_p_h3_image_t2i_api.json`](../../workflows/image/h3_p_h3_image_t2i_api.json), [`workflows/image/h3_p_h3_image_lora_t2i_api.json`](../../workflows/image/h3_p_h3_image_lora_t2i_api.json), [`workflows/image/h3_probe_p_h3_image_t2i_te4b_api.json`](../../workflows/image/h3_probe_p_h3_image_t2i_te4b_api.json), and [`workflows/image/h3_p_h3_image_t2i_control_vector_api.json`](../../workflows/image/h3_p_h3_image_t2i_control_vector_api.json).
 
 ### Format & Authoring Rules
 
@@ -49,7 +49,7 @@ A medium three-quarter portrait of an elderly clockmaker seated at a worn walnut
 
 ## 17.3 Mode 2: Multi-Reference Image Editing (`p_h3_image_edit`, 1–8 Images)
 
-Used by [`workflows/image/h3_p_h3_image_edit_api.json`](../../workflows/image/h3_p_h3_image_edit_api.json), [`workflows/image/h3_p_h3_image_lora_edit_api.json`](../../workflows/image/h3_p_h3_image_lora_edit_api.json), [`workflows/image/h3_probe_p_h3_image_edit_te32b_api.json`](../../workflows/image/h3_probe_p_h3_image_edit_te32b_api.json), and [`workflows/image/h3_p_h3_image_edit_control_vector_api.json`](../../workflows/image/h3_p_h3_image_edit_control_vector_api.json).
+Used by [`workflows/image/h3_p_h3_image_edit_api.json`](../../workflows/image/h3_p_h3_image_edit_api.json), [`workflows/image/h3_p_h3_image_lora_edit_api.json`](../../workflows/image/h3_p_h3_image_lora_edit_api.json), [`workflows/image/h3_probe_p_h3_image_edit_te4b_api.json`](../../workflows/image/h3_probe_p_h3_image_edit_te4b_api.json), and [`workflows/image/h3_p_h3_image_edit_control_vector_api.json`](../../workflows/image/h3_p_h3_image_edit_control_vector_api.json).
 
 ### How `MiniMaxH3PH3ImageConditioning` Wraps the Prompt
 
