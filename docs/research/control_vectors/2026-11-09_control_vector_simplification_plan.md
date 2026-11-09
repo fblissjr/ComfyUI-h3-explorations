@@ -77,7 +77,8 @@ build path.
 | Words (J-Lens) | a few single words | instant sketches with no encoder load | lowest fidelity; single words only |
 
 Beside these: combining existing vectors (add, invert, hold out), a reference image as a prefix on both poles
-for ref2va, and the J-Lens readout of any vector into words. Section 8 adds a fifth source.
+for ref2va, and the J-Lens readout of any vector into words. Section 8 adds a fifth source, and section 11
+lists ways to steer that use no vector at all.
 
 ## 5. Data model
 
@@ -163,6 +164,9 @@ Gate: checks green, and the list in section 9 verified by a reader who did not b
 
 - Rebuild the bank with the phase 2 defaults.
 - One render round that decides: each arm with a repeat and a second shot, judged by the owner on playback.
+- Two control arms in that round, which the results record does not have: a random vector of the same size
+  as the steered one (how much does any large shift change the shot?), and the prompt simply rewritten (the
+  thing every vector competes with).
 - Then the image comparison: the same vector in the 32B-encoder graph and the 4B-encoder graph (finding 15).
 
 ### Phase 6: write it down, then the UI
@@ -224,3 +228,75 @@ Phase 4 changes a shared node's inputs. Found by grep on `main` at `856d4ac8`; a
 - The formulas in the wiki were not checked line by line beyond what section 3 lists.
 - Later ideas that block nothing: a J-Lens word dictionary built from how rows look when a word is present,
   and steering the picture rows for image-pair vectors.
+
+## 11. Steering without a vector
+
+Added the same day. Everything above works by adding one vector to many text rows, which is a blunt tool.
+The methods here use no vector and no pair bank. None has been tried in this repo: no H3 graph under
+`workflows/` uses a guidance node (`grep -l '"CFGGuider"' workflows/*.json workflows/*/*.json` is empty), so
+each starts with a small test.
+
+### 11.1 Edit guidance: steer with the edited prompt itself
+
+Each step, run the DiT on the prompt and on the edited prompt, and move the prediction from the first toward
+the second by a scale. That is the ordinary guidance formula
+(`<comfy>/comfy/samplers.py::cfg_function`: `uncond_pred + (cond_pred - uncond_pred) * cond_scale`), so core's
+`CFGGuider` (`<comfy>/comfy_extras/nodes_custom_sampler.py`) may do it with no new code: the edited prompt as
+positive, the original as negative, the scale as the dial.
+
+- No pairs and no bank. The one pair is the prompt and its edit, which the in-place method already authors.
+- The model computes what the edit means for this shot at this step, instead of receiving an average taken
+  from other scenes.
+- A scale above 1 exaggerates the edit, a scale between 0 and 1 gives part of it, and swapping the two
+  prompts gives less of it.
+- Cost: two DiT passes per step, the price the audio/video split already pays.
+
+To find out first:
+
+- Whether Pika tolerates it. Pika is a distilled recipe run without guidance, and distilled models often
+  degrade when extrapolated. A small range of scales may be all it takes.
+- Whether core's sampler carries the H3 conditioning (token tags, references, keyframes) on both prompts
+  when their text lengths differ. Not checked.
+
+A refinement from the literature (semantic guidance) keeps only the largest parts of the difference between
+the two predictions, so an edit touches only the regions it is about. That would be new code, and only worth
+it if the plain form works.
+
+### 11.2 Prompt scheduling
+
+Core's `ConditioningSetTimestepRange` (`<comfy>/nodes.py`) lets the original prompt drive the first steps
+and the edited prompt the rest. That is the "lock the pose, then change the look" recipe the wiki describes
+with a vector and a step window, done with two real prompts. It needs no new code. The same question about
+H3 conditioning on both prompts applies.
+
+### 11.3 Emphasis on words already in the prompt
+
+The text rows sit in the same attention as the video and audio rows, so a bias on how strongly everything
+attends to chosen tokens is a per-word dial: more of the fog, less of the neon sign. It needs a hook in the
+attention path. Whether the pack's attention backends (`attention.py`, `sol_attn_h3.py`) can take one was not
+checked.
+
+### 11.4 Aim the vectors we already have
+
+`control_vectors.py::meter_score` already scores which rows of a prompt respond to a vector. Applying the
+shift only to the top-scoring rows, instead of every masked row, makes an existing vector less of a hammer
+with no new data. It would be one more mask mode.
+
+### 11.5 Where each fits
+
+| Tool | Needs | Best at |
+|---|---|---|
+| Edit guidance | a prompt and an edit | precise changes to one shot, with a dial |
+| Prompt scheduling | the same | keeping layout, changing look |
+| Word emphasis | words already present | more or less of something written |
+| Bank vectors | a concept, built once | a reusable look across many shots |
+| Direction catalog (section 8) | nothing | finding controls nobody wrote |
+
+If edit guidance holds up under Pika it could replace the single-prompt vector method, and the bank would be
+kept for reusable looks only.
+
+### 11.6 First test
+
+11.1 and 11.2 need existing nodes only, so they can run before phase 3: one shot, one edited prompt, three
+scales for 11.1 and one switch point for 11.2, each with a repeat, beside the plain prompt and the fully
+rewritten prompt. It decides whether these two join the methods table in section 4.
