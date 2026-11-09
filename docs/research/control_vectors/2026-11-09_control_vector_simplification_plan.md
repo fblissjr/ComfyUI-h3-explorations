@@ -468,12 +468,11 @@ Already seen in the graphs as generated at `856d4ac8`, to settle in that pass:
   is on the video grid but not whole on the audio clock: `h3_rules.on_both_clocks` is false for it. The
   arms in the results record were rendered at 141 frames, which is on both clocks. So the graphs ship at a
   length the evidence was not made at, and one the audio clock does not fit.
-  Settled by the owner on 2026-11-09 for this work: lengths are taken from the ones on both clocks, and the
-  longest used is 345. [`../../masked_v2v/frames_rules.md`](../../masked_v2v/frames_rules.md), sections 0
-  to 2, has why those lengths line up (the latent steps, the 17-frame VAE clips, the window). The first test
-  of section 11.6 runs at 141, the length the earlier arms used, so its clips can be compared with them.
-  Whether the generator's default length for every video graph moves is a separate question for the owner,
-  since that default serves every use of the pack.
+  Nothing is decided about it. [`../../masked_v2v/frames_rules.md`](../../masked_v2v/frames_rules.md),
+  sections 0 to 2, has why the lengths on both clocks line up (the latent steps, the 17-frame VAE clips, the
+  window); the longest of them is 345. Proposed for the first test of section 11.6: 141, the length the
+  earlier arms used, so its clips can be compared with them. The generator's default length serves every use
+  of the pack and is not changed by this plan.
 - The graphs pass `strength` 1.15 where the node default is 1.0; the stacked graph passes 1.0 for each of
   two vectors, so its combined shift is larger than the single graph's.
 - The ref2va and image-edit graphs pass `ref_vae_end_percent` and `ref_vae_aug` at their default values,
