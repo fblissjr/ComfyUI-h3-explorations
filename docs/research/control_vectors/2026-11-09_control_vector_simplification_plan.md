@@ -43,7 +43,8 @@ to 16 are the reasoning and the evidence.
   length is the test for a length effect.
 - Edit guidance gives both passes the same position origin and keeps the two prompts from being batched on
   the image model.
-- J-Lens is a readout first. Its bundle builder is tracked (done in `7c01c792`).
+- J-Lens is a readout first. A builder for the refiner half of its bundle is tracked from `7c01c792`; the
+  lexical half is still copied from the existing file (section 17).
 - Candidate directions are ranked by what the DiT does with them, not by the refiner alone.
 - The first test runs at 141 frames.
 
@@ -703,3 +704,64 @@ string literal that is prompt-shaped (an H3 section header or tag inside a liter
 sentence), with a short allowlist that gives a reason per entry. This is a hard failure of the kind the
 repo allows a red for: a literal is there or it is not. It is added when 16.2 is done for a file, one file
 at a time, so it is never born red.
+
+## 17. J-Lens: the bundle, its builder and the research folder
+
+Read on 2026-11-09 against `7c01c792`. Nothing was run on the GPU. The bundle on disk was not rewritten by
+that commit; its file time is the observable.
+
+### 17.1 The builder is half a builder (corrects 0.2 and finding 10)
+
+`bench/control_vector/j_lens_builder.py::cmd_build_j_lens` recomputes the refiner half of the bundle
+(`Sigma_49_p030`, `J_ref_*`, `J_wiener_*`). The lexical half (`J_49_to_63`, `M_union`, `cloze_base_union`,
+the index tensors and the word list) is copied out of the bundle that is already on disk, and the command
+refuses without one. Its docstring names a `--qwen-64l-model` option for computing that half; no such
+argument exists in the builder or in `bench/control_vector/cli.py`. So the lexical half still cannot be
+made again from tracked code, and finding 10 is open for it.
+
+Other points in the builder:
+
+- By default it writes over the bundle it reads the lexical half from. The only copy of the part that
+  cannot be rebuilt is the file being replaced.
+- If the Pika LoRA spec fails to parse, a bare `except` falls back to no LoRA and the build goes on. With
+  Pika as the default recipe that is a silent change of recipe.
+- The file's metadata carries a format tag, a description and the word list. It does not say which
+  checkpoints, LoRAs, prompts or constants made it.
+- Its sample is the first prompts of `prompt_bank/bank.json` in file order, and the first tokens of each
+  (`--num-prompts`, `--max-tokens`). The research note describes a stratified sample. So a rebuild would not
+  reproduce the bundle on disk, and the covariance is estimated from the openings of prompts, with fewer
+  rows than it has dimensions.
+
+### 17.2 What to change
+
+- Write the lexical half's builder, from the full 64-layer weights, or state plainly that it is not
+  reproducible and keep a second copy of the bundle. Until then the builder writes to a new file and never
+  over its own source.
+- A failed LoRA spec is a refusal.
+- The bundle records its recipe, the ids of its sample prompts, its constants and its build date.
+- The sample becomes whole prompts, more of them, spread over the three formats. This is also the row
+  sample the direction track needs (section 8, D1), so it is made once and shared.
+- The refiner half is rebuilt after the mask and the apply node settle (0.1, step 3). Its Jacobian assumes
+  how much of the attention falls on steered rows, and the narrower `scene_only` mask of `856d4ac8` changes
+  that, most on ref2va prompts.
+- In `j_lens.py`: the word lists leave the sampling step (section 16); `_DEFAULT_RECIPES` repeats file
+  names that `workflows/h3_config.py` holds and should read them from there; `refiner_singular_vectors`
+  recomputes a full decomposition on every call and should keep it; the fitted constants (the covariance
+  exponent, the two negative weights) carry where they came from beside them.
+- J-Lens is not needed for the fork of 0.1, step 2. None of this blocks it.
+
+### 17.3 The research folder `exl3_qwen3vl/`
+
+It holds three kinds of thing:
+
+- Recipes and a calibration builder for converting the full Qwen3-VL-32B to ExLlamaV3 (`*.yaml`,
+  `build_h3_cal_data.py`, `runbook.md`). Nothing changed today affects these. The calibration file and the
+  converted models do not need making again.
+- A labeller and a viewer builder (`label_h3_control_vectors.py`, `build_control_vector_viewer.py`). These
+  are tools kept under `docs/`. `j_lens.py` and the builder lean on the labeller's word map. If the lexical
+  half's builder is written, the word map moves into tracked code beside it.
+- Outputs from the vectors of 2026-11-05: `h3_control_vector_labels.json`, `h3_control_vector_report.md`,
+  `control_vector_viewer.html`. They describe fourteen vectors in encoder space under the older pooling,
+  two of them the retired bare twins. They are a dated record and stay as one. They are not a description
+  of the rebuilt bank, and pages that link them as current should say so. Labels for the rebuilt bank would
+  be a new run, and the CPU readout in `j_lens.py` now covers the lexical part of it.
