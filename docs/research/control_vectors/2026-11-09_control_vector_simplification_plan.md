@@ -4,6 +4,9 @@ A dated record. It proposes; nothing in it is built. It was written from a read 
 (code, the pair files, the wiki pages and one results record) plus CPU-only runs of the pair compiler.
 No GPU build and no render was run for it, and each finding below says how it was checked.
 
+The control-vector code was being changed by another session while this was written, so every finding here
+is a snapshot of `856d4ac8`. Section 13 says what to check again before acting on it.
+
 Related: [`2026-11-06_j_lens_and_refiner_jacobian.md`](2026-11-06_j_lens_and_refiner_jacobian.md),
 [`../../../bench/results/2026-11-05_control_vectors_pika_and_ref2va.md`](../../../bench/results/2026-11-05_control_vectors_pika_and_ref2va.md),
 [`../../wiki/control_vectors.md`](../../wiki/control_vectors.md).
@@ -416,3 +419,24 @@ What the fork in step 2 decides:
 
 Under either outcome the methods table in section 4 loses "concept over a scene pool" as a default, and the
 J-Lens words method stays as the instant, low-fidelity option.
+
+## 13. Before executing: check the snapshot again
+
+Much of the code this plan describes may have changed by the time it is executed. The findings cite
+functions by name and not by line for that reason, but a name can move or go too. Start with
+`git log --oneline 856d4ac8..HEAD -- control_vectors.py control_vector_nodes.py h3_pair_compiler.py h3_spans.py j_lens.py bench/control_vector bench/check_control_vectors.py workflows/build_workflows.py h3_rules.py`,
+then go through these:
+
+- Section 3: confirm each finding against the current code. A finding that no longer holds is struck, with
+  the commit that fixed it, and the phase 1 item that answered it is dropped.
+- Findings 1, 2 and 4 were shown by running the compiler on CPU; run them again and do not read them off
+  this page.
+- Section 9: derive the list of writers and readers again by grep. It is the part most likely to be stale.
+- Section 11.7: the node audit covered the custom nodes in the five control-vector graphs as they were. Any
+  of those nodes changed since gets its read repeated, the control-vector wrapper first.
+- The graphs: confirm the five control-vector graphs still exist under those names, and which vector files
+  they name.
+- Section 12: the order holds whatever changed, since the fork in step 2 depends on Pika and on core, not on
+  the control-vector code.
+
+Where the code has moved, the code is right and this page is corrected or marked as overtaken.
