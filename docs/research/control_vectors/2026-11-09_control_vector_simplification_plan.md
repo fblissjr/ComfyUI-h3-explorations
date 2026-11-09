@@ -167,9 +167,9 @@ Gate: checks green, and the list in section 9 verified by a reader who did not b
 
 - Rebuild the bank with the phase 2 defaults.
 - One render round that decides: each arm with a repeat and a second shot, judged by the owner on playback.
-- Two control arms in that round, which the results record does not have: a random vector of the same size
-  as the steered one (how much does any large shift change the shot?), and the prompt simply rewritten (the
-  thing every vector competes with).
+- Two control arms in that round: a random vector of the same size as the steered one (how much does any
+  large shift change the shot?), which the results record does not have, and the prompt simply rewritten
+  (the thing every vector competes with), which it has for some arms (section 15).
 - Then the image comparison: the same vector in the 32B-encoder graph and the 4B-encoder graph (finding 15).
 
 ### Phase 6: write it down, then the UI
@@ -227,7 +227,8 @@ Phase 4 changes a shared node's inputs. Found by grep on `main` at `856d4ac8`; a
 - Whether the shared component in finding 8 exists; phase 2 measures it.
 - Whether single directions in section 8 will be nameable. The existing table suggests many will not be.
 - The outcome of the bare-frame comparison planned as E2.5 in
-  [`2026-11-04_h3_control_vectors.md`](2026-11-04_h3_control_vectors.md): no result was found.
+  [`2026-11-04_h3_control_vectors.md`](2026-11-04_h3_control_vectors.md): this page first said no result
+  was found. One exists, in a file this read had not opened (section 15).
 - The formulas in the wiki were not checked line by line beyond what section 3 lists.
 - Later ideas that block nothing: a J-Lens word dictionary built from how rows look when a word is present,
   and steering the picture rows for image-pair vectors.
@@ -483,3 +484,116 @@ Already seen in the graphs as generated at `856d4ac8`, to settle in that pass:
 The tracked checks that already cover part of this are run first, and their output is read, not just their
 exit code: `bench/check_attention_defaults.py`, `bench/check_control_vectors.py`, and whichever checks
 `docs/checks.md` lists for graph and node settings.
+
+## 15. Corrections and additions after a second session read this plan
+
+Added the same day. A second session read the plan against the code and the earlier research notes, and
+disagreed with parts of it. Each point below was checked before it was accepted or kept.
+
+### 15.1 Where this plan was wrong or incomplete
+
+- The bare-frame comparison (E2.5) has a result. `exl3_qwen3vl/h3_control_vector_report.md` carries two
+  bare twins beside their scene versions, with their norms and their cosine to each other in its tables.
+  The first read of this plan looked in three files and missed it.
+- The results record does have rewritten-prompt arms: `02_film16mm_edit`, `07_lettering_edit`,
+  `31_ref2va_diner_explicit_pos` and `34_t2va_coffee_explicit_pos` in
+  `bench/results/2026-11-05_control_vectors_pika_and_ref2va.md`. It has no arm with a random vector of the
+  same size; that part stands.
+- `bench/control_vector/grading.py::_build_padding_prompt` is not stray prose (finding 17). It pads the base
+  prompt to the edited prompt's token count so `grade` can separate the effect of the length change from the
+  effect of the edit. Its filler sentence is a fixture and can live in a fixture file; the function stays.
+- Finding 6 said holds are orthogonalized group means; that holds. The orthogonalization is the one in
+  `control_vectors.py::hold_basis` as it stands when the plan is executed.
+
+### 15.2 Changes accepted
+
+- Multi-clause edits (finding 1, phase 1): pool the changed spans of one pair in a single pass, not one
+  pair per clause. `h3_spans.py::differing_token_mask` already masks several separate spans; only the string
+  check in `control_vectors.py::differing_span` refuses them. One pass also lets the edits see each other in
+  the refiner. The check is relaxed only for the in-place path, where the clauses are declared; it keeps
+  guarding pair files against accidental rewrites.
+- The apply node (phase 4): keep one node on the model wire with the vector picked from a list, and add an
+  optional vector socket for nodes that build or combine one. Inputs with no remaining use are dropped. This
+  replaces the load, words and combine split as the default shape.
+- The reference gate (finding 12, phase 4): no new node. The two inputs gate nothing at their defaults. The
+  record's one arm with the gate turned down (`66_ref2va_diner_rubber_hose_refvae0p5`) reports no position
+  jump and the subject's identity kept, with slightly more late stylization, so there is one arm for a use
+  and none against. Whether the inputs stay as advanced inputs or go is decided when phase 4 is built.
+- Edit guidance (sections 11.1, 11.6, 11.8): the first test also runs with the edit switched on after the
+  first steps, not only across the whole schedule, so a clash between two slightly different layouts at the
+  first steps is not mistaken for Pika refusing the extrapolation. `PackedLayout` in
+  `<comfy>/comfy/ldm/minimax/model.py` starts the media rows at the text length, as section 11.7 says; the
+  node should give both passes the same starting position. How it can do that without touching core is not
+  yet checked.
+- The image model and batching (section 11.7, point 5): settled by the second session's read. On an image
+  graph with no references the two prompts' payloads compare equal, so two prompts of equal length are
+  batched and meet the batch refusal. The node must make the two payloads differ.
+- The bank mean (finding 8, phase 2): do not subtract it by default. The pair files are not a balanced
+  sample of concepts, so their mean carries style as well as any length effect. A direction built from
+  neutral pairs that differ only in how many words describe the same scene is the targeted test, and can be
+  held out like any other hold.
+
+### 15.3 Measured on the rebuilt vectors
+
+The second session rebuilt the bank while this plan was being read, so the cross-vector cosines could be
+taken from the vectors on disk, on CPU. Run when the rebuild has finished, from the repo root:
+
+```
+<comfy-venv-python> - <<'PY'
+import glob, os, torch
+from safetensors import safe_open
+V, names = [], []
+for f in sorted(glob.glob("../../models/control_vectors/*__fl2va__diff_span__lora_*.safetensors")):
+    with safe_open(f, "pt") as s:
+        v = s.get_tensor("vector.post_refiner").double()
+    V.append(v / v.norm()); names.append(os.path.basename(f).split("__")[0])
+V = torch.stack(V); G = V @ V.T
+iu = torch.triu_indices(len(V), len(V), 1); off = G[iu[0], iu[1]]
+print(len(V), "vectors; off-diagonal cosine mean, median, share positive:",
+      float(off.mean()), float(off.median()), float((off > 0).double().mean()))
+m = V.mean(0); m = m / m.norm()
+print("cosine with the bank mean, min/median/max:", [float(x) for x in ((V @ m).min(), (V @ m).median(), (V @ m).max())])
+print("chance scale for unrelated directions:", V.shape[1] ** -0.5)
+PY
+```
+
+What it showed on the vectors present at the time (the rebuild was partway through): nearly every pair of
+concepts has a positive cosine, far above the chance scale the last line prints, and every vector leans
+toward the bank's mean direction. Across concepts, how strongly a vector leans that way rises with how much
+longer its steered clause is than its plain one. So the shared component of finding 8 is there in the
+post-refiner vectors the graphs load.
+
+What this cannot tell: the cause. A longer steered clause and a stylized, high-intensity concept go together
+in these files, so the lean may be length, style or both. The earlier table in
+`exl3_qwen3vl/h3_control_vector_report.md`, section 2, was taken in encoder space on fewer vectors and shows
+the same pattern of mostly positive entries with a few pairs near zero. The neutral-length direction of
+section 15.2 is the test that separates the two causes.
+
+### 15.4 Claims that did not hold as cited
+
+Recorded so they are not carried forward:
+
+- That the pooling modes were compared for collateral change. The record compares their norms and shows
+  arms at matched push size (`39_t2va_coffee_head_swell_ffd_s3p5`, `40_ref2va_diner_zero_grav_ffd_s3p5`);
+  no arm pair isolates collateral change by pooling mode. Pooling only the unchanged rows has not been built.
+- That turning the reference gate down was shown to corrupt the first frames. The arm cited above reads the
+  other way.
+- That adding a bias to attention for a word equals `amplify` on that word's rows. `amplify` in
+  `control_vectors.py::apply_post_refiner` scales only the part of a row along the vector. It may serve as a
+  rough stand-in for section 11.3 and would be labelled as one.
+
+### 15.5 The system prompt after the second session's commit
+
+`docs/wiki/system_prompts/h3_control_vector_system_prompt.md` at `7c01c792`:
+
+- It introduces `completely_preserved` as a retention degree and uses it in the ref2va example.
+  `grep -c completely_preserved vendor_guides/ref_en.md` prints zero; the guide's term is `fully_preserved`.
+  A model copies the example, so this teaches a term H3 was not trained on. To be reverted.
+- Its in-place mode asks for clauses separated by semicolons, which the compiler still refuses for two
+  description clauses and splits wrongly inside prose (findings 1 and 4). It comes right when 15.2's first
+  item lands.
+- `bench/control_vector/llm_pairs.py` carries three different defaults for the output token limit (the CLI
+  flag, `_generate_pairs_with_llm`, and the fallback in `cmd_generate_pairs`). Ten pairs from the existing
+  files fit the CLI default with little room at the long end; one constant should hold it.
+- The task itself is unchanged: every scene written twice, identical but for one clause. Section 6 stays
+  parked under section 12.
