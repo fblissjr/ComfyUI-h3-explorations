@@ -256,7 +256,7 @@ To find out first:
 - Whether Pika tolerates it. Pika is a distilled recipe run without guidance, and distilled models often
   degrade when extrapolated. A small range of scales may be all it takes.
 - Whether core's sampler carries the H3 conditioning (token tags, references, keyframes) on both prompts
-  when their text lengths differ. Not checked.
+  when their text lengths differ. Checked by reading after this was first written: it does (section 11.7).
 
 A refinement from the literature (semantic guidance) keeps only the largest parts of the difference between
 the two predictions, so an edit touches only the regions it is about. That would be new code, and only worth
@@ -266,8 +266,8 @@ it if the plain form works.
 
 Core's `ConditioningSetTimestepRange` (`<comfy>/nodes.py`) lets the original prompt drive the first steps
 and the edited prompt the rest. That is the "lock the pose, then change the look" recipe the wiki describes
-with a vector and a step window, done with two real prompts. It needs no new code. The same question about
-H3 conditioning on both prompts applies.
+with a vector and a step window, done with two real prompts. It needs no new code, and section 11.7 found
+nothing in core or in our nodes that blocks it.
 
 ### 11.3 Emphasis on words already in the prompt
 
@@ -301,6 +301,88 @@ kept for reusable looks only.
 scales for 11.1 and one switch point for 11.2, each with a repeat, beside the plain prompt and the fully
 rewritten prompt. It decides whether these two join the methods table in section 4.
 
+The test graphs are hand-wired once through `workflows/build_workflows.py`, on the text-to-video and ref2va
+graphs: the conditioning node twice (original and edited prompt), core's `CFGGuider` in place of
+`BasicGuider` for 11.1, and `ConditioningSetTimestepRange` plus `ConditioningCombine` for 11.2. No control
+vector node is in these graphs, so the test reads edit guidance alone. The image graphs wait on the batching
+question in section 11.7.
+
+### 11.7 What the code checks found
+
+Two reads on 2026-11-09 against `main` at `856d4ac8`, with nothing run on the GPU: core's sampler, and every
+custom node in the five control-vector graphs. No blocker was found for 11.1 or 11.2.
+
+Core:
+
+- Each conditioning gets its own H3 payload. `<comfy>/comfy/samplers.py::encode_model_conds` calls the
+  model's `extra_conds` once per entry, and H3's `extra_conds` (`<comfy>/comfy/model_base.py`) builds the
+  refined text, tags, references and a layout sized to that entry's own text length.
+- Two different prompts run as separate passes. Entries are batched only when their text shapes match and
+  their payloads are equal (`<comfy>/comfy/conds.py`, `CONDRegular.can_concat` and
+  `CONDConstant.can_concat`).
+- Each pass is labelled in `transformer_options["cond_or_uncond"]`.
+- Timestep ranges are handled in `<comfy>/comfy/samplers.py::get_area_and_mult`, with nothing H3-specific.
+- The text length sets where the video and audio rows start in position space, so two prompts of different
+  length place the media rows at different offsets in their two passes. Each prediction is valid for the same
+  latent, but part of their difference comes from the length change and not from the edit.
+
+Our nodes:
+
+- The conditioning nodes build a fresh conditioning per run, with its own tags, mask attribute and
+  references (`conditioning.py`, `reference_conditioning.py`, `ph3_image_nodes.py`).
+- `MiniMaxH3Sol` recomputes the sink boundary and its step gate on every call from that pass's layout
+  (`sol_attn_h3.py`).
+- `MiniMaxH3LoRABranch` and `MiniMaxH3Preflight` hold no state across passes (`lora_branch.py`,
+  `preflight.py`).
+- The control-vector wrapper takes its mask and length from each pass's own payload, and
+  `control_vector_nodes.py::_step_in_window` has no counter that two passes could double-count.
+
+Five things to design around:
+
+1. A control vector steers both passes. The wrapper adds the vector to the original prompt's pass as well as
+   the edited one (`control_vector_nodes.py::_make_control_vector_wrapper`; `cond_or_uncond` is read only
+   for the live prompt text).
+2. "Percent" has two meanings. The control-vector and LoRA windows count steps
+   (`control_vector_nodes.py::_step_in_window`, `lora_branch.py`); `MiniMaxH3Sol` and core's timestep ranges
+   go through `percent_to_sigma` (`<comfy>/comfy/model_sampling.py`), which depends on the sigma shift. The
+   same number on both lands on different steps.
+3. `MiniMaxH3Preflight` sees only the conditioning wired through it, so a second prompt's sequence length
+   goes unreported unless it passes through Preflight too.
+4. The reference graph pays twice: a second run of `MiniMaxH3ReferenceConditioning` repeats the picture
+   encodes.
+5. On the image graphs, two prompts of equal length might be batched together, and H3 refuses a batch above
+   one (`<comfy>/comfy/ldm/minimax/model.py::_forward`). On the video graphs the payload carries a layout
+   object that never compares equal, so the two are never batched. Whether the image graphs build that
+   layout was not confirmed.
+
+Also: with the audio/video split on, guidance means four DiT passes per step. The inline-words path that
+resolves against the prompt subject gets an empty prompt on the original prompt's pass. Not determined:
+whether the mask attribute reaches the wrapper at runtime (finding 13; a current render log without the
+fallback warning confirms it), and the context-window sampling path, which rebuilds the payload.
+
+### 11.8 The edit-guidance node
+
+If the first test shows Pika tolerates the extrapolation, edit guidance goes behind one node of ours, so
+that nobody wires two conditioning nodes into a core guider by hand. What it must do:
+
+- Take one prompt and one edit (`old wording -> new wording`), and build the edited side itself with the
+  same encoder, references and canvas. The two sides cannot differ in anything but the edit.
+- Encode the references once and use them for both sides (point 4 above).
+- Refuse when the old wording is absent or occurs more than once, or when the edit touches dialogue, tags
+  or headers. The in-place compiler has most of these rules.
+- Report the token count of both sides. If the model's layout allows the media rows the same starting
+  position in both passes, do that; whether it does was not checked.
+- Carry strength, a step window and a direction (more of, less of) as its only dials. A strength of 1 is
+  the rewritten prompt exactly. A setting to use the original prompt until a given step covers 11.2.
+- Count the window in steps, the convention the control-vector and LoRA windows use, and convert where core
+  needs a noise level (point 2).
+- Report both sequence lengths the way `MiniMaxH3Preflight` does for one (point 3).
+- Make "control vector on the edited pass only, or on both" an explicit input (point 1).
+- Keep the two prompts from being batched together on the image model (point 5).
+- Write the edit, both token counts and the strength into the render's metadata.
+
+A batch can then sweep strengths or edits over a shot by changing one string and one number.
+
 ## 12. Revised order: pair-free methods first
 
 Added the same day, after the owner said that writing prompt pairs is not where they want to spend time, and
@@ -310,8 +392,10 @@ files as the fallback. This section replaces the ordering in section 7 where the
 
 1. The parts of phase 1 that inference needs: the tokenizer name, and a refusal when the scene mask is
    missing (findings 13 and 14).
-2. The first test of section 11.6: edit guidance and prompt scheduling under Pika. This is the fork.
-3. Phase 4, the small apply node, with the aimed mask of section 11.4. Word emphasis (11.3) if the attention
+2. The first test of section 11.6: edit guidance and prompt scheduling under Pika. This is the fork. The
+   code checks in section 11.7 found nothing that blocks it.
+3. If the fork goes well, the edit-guidance node of section 11.8.
+   Then phase 4, the small apply node, with the aimed mask of section 11.4. Word emphasis (11.3) if the attention
    path can take a hook.
 4. The direction track of section 8. Its cached rows can come from plain prompts in `prompt_bank/`; it does
    not need pairs.
