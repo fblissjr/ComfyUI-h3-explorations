@@ -1,78 +1,137 @@
-# 2. Building Pairs & Control Vectors — How It Works
+# 2. Building Pairs & Control Vectors
 
-**Parent guide**: [`docs/wiki/control_vectors.md`](../control_vectors.md)
-**Source files**: [`h3_pair_compiler.py`](../../../h3_pair_compiler.py), [`control_vectors.py`](../../../control_vectors.py), [`control_vector_nodes.py`](../../../control_vector_nodes.py), [`h3_spans.py`](../../../h3_spans.py), [`docs/wiki/system_prompts/h3_control_vector_system_prompt.md`](../system_prompts/h3_control_vector_system_prompt.md)
+[← Back to Control Vectors Overview](../control_vectors.md)
 
----
-
-## 1. How Are Contrastive Pairs Built?
-
-A control vector is extracted from **8–10 contrasting prompt pairs** $(\text{Prompt A}_i, \text{Prompt B}_i)$ across diverse scenes (interior, exterior, portrait, action, architectural) where **only the target concept changes** between A and B while camera framing, subject identity, blocking, and timing stay identical.
-
-Averaging $\mathbf{d}_i = \bar{\mathbf{h}}(\text{B}_i) - \bar{\mathbf{h}}(\text{A}_i)$ across 10 diverse scenes cancels out scene-specific nouns (faces, rooms, streets) and isolates the pure concept direction $\mathbf{v}$.
-
-There are **two ways** to generate those 10 scene pairs:
-
-### Method 1: Deterministic Clause Compiler (`--words "pole_a -> pole_b"`, `< 1 ms` CPU)
-When you pass `--words "calm mild air -> scorching desert heatwave"` (or use **Clause Contrast** in the Studio UI), **no external LLM is called**. Instead, [`h3_pair_compiler.py`](../../../h3_pair_compiler.py) deterministically slots your `Pole A` and `Pole B` clauses into one of 6 structural H3 prompt slots across 10 diverse scene templates stored in [`prompt_bank/control_vectors/canonical_frames.json`](../../../prompt_bank/control_vectors/canonical_frames.json):
-1. `opening_framing` — camera lens, film stock, lighting, color grade, and atmospheric look.
-2. `subject_behavior` — physical motion, posture, expression, or environmental interaction.
-3. `interpersonal_dynamics` — multi-subject interaction or spatial tension.
-4. `camera_motion` — dolly, pan, crane, handheld, or focal-length dynamics.
-5. `speech_delivery` — vocal tone, cadence, whisper/shout delivery around dialogue.
-6. `soundscape` — ambient room tone, weather acoustics, foley, and score.
-
-If `--slot auto` (default) is used, `resolve_slot_name` inspects your keywords and selects the matching structural slot automatically, keeping the other 5 slots of each template 100% byte-identical between Prompt A and Prompt B.
-
-### Method 2: LLM-Authored Surgical Pairs (`h3_control_vector_system_prompt.md`)
-When a concept requires bespoke physical interaction with each scene's environment (for example, `reverse_entropy` where shattered glass reassembles in one scene and spilled coffee climbs back into a mug in another), deterministic slot insertion is too rigid.
-
-Use [`docs/wiki/system_prompts/h3_control_vector_system_prompt.md`](../system_prompts/h3_control_vector_system_prompt.md) with any capable local or frontier LLM:
-- **Configurable Local Backends (Zero Hardcoded Paths)**:
-  - **ExLlamaV3 (`exllamav3`)**: Users with a quantized `exl3` checkpoint can point `H3_LLM_MODEL` or `H3_EXL3_MODEL_DIR` (or `--llm-model`) and `EXLLAMAV3_ROOT` to their local folders, reusing the `ComboSampler` (`temperature=0.7, top_p=0.8, top_k=20, rep_p=1.05`) infrastructure in [`docs/research/control_vectors/exl3_qwen3vl/label_h3_control_vectors.py`](../../research/control_vectors/exl3_qwen3vl/label_h3_control_vectors.py).
-  - **HuggingFace `transformers` (`transformers`)**: Users without `exllamav3` can load the full unpruned 64-layer `MiniMax-H3/text_encoder` directory or any local/HuggingFace causal or vision-language instruct model via `transformers` (configurable via `H3_LLM_MODEL` or `--llm-model`), with optional 4-bit `BitsAndBytesConfig(load_in_4bit=True)` to fit in `~18 GB` VRAM or `device_map="auto"`.
-  - **Manual Copy/Paste**: Copy the system prompt from **Screen 3** of the UI into any external LLM chat and paste the generated `#### Pair N` markdown or TOML back into the editor.
-- The system prompt instructs the LLM to output a **Test Scene Prompt** plus **10 Contrastive Pairs (`#### Pair 1` .. `#### Pair 10`)** and optional **Hold Pairs (`#### Hold 1 (group)`)**.
-- Each pair obeys the **Single-Clause Surgical Substitution Rule**: 5 of the 6 H3 prompt sections are copied verbatim from Prompt A to Prompt B, and only the target clause changes.
-- Pass the saved `.md` file directly to `"$PY" bench/control_vectors.py build my_concept.md` (or paste it into **Screen 3: Full Pair & LLM Studio** in the Studio UI).
+This guide explains how MiniMax H3 control vectors are constructed, the mathematical objective of each of the **4 creation methods** (`from-prompt`, `from-toml`, `from-words`, `from-images`), how `--ref-images` vision conditioning works, how token-span pooling (`diff_span`) isolates your change, and how orthogonal `hold` projections remove unwanted concept drift.
 
 ---
 
-## 2. Which Model Encodes the Pairs Into a `.safetensors` Vector?
+## 1. Why Control Vectors Are Extracted After `TokenRefiner`
 
-Regardless of whether your 10 pairs were created via `--words` templates or via `h3_control_vector_system_prompt.md`, **building the `.safetensors` vector always uses the exact same MiniMax H3 text conditioning stack**:
+In MiniMax H3 (`fl2va`, `ref2va`, and single-frame `P-H3-Image`), text and reference-image conditioning passes through two stages before entering the 50-block joint audio-video Diffusion Transformer (DiT):
+1. **Stage 1 — Frozen `Qwen3-VL-32B` (`layers.49`, $d_{\text{enc}} = 5120$)**:
+   Encodes any `<Picture N>` vision patches (`tag == 0`) followed by the prompt text (`tag == 1`) under causal self-attention. Because attention is causal (`i >= j`), every text token after a `<Picture N>` vision block or an edited clause changes its `5,120`-d representation.
+2. **Stage 2 — Per-Family `condition_proj` + 2-Block Bidirectional `TokenRefiner` ($d_{\text{post}} = 5376$)**:
+   Projects the `5,120`-d states to `5,376`-d (plus optional Pika / Image-Edit LoRA deltas on `condition_proj` and `token_refiner`) and runs 2 blocks of **bidirectional** self-attention across the sequence.
 
-1. **Stage 1 — Causal Text Encoder (`Qwen3-VL-32B-Instruct` truncated at `layers.49`, `5120`-d)**:
-   Loaded via `MiniMaxH3EncoderLoader` (`h3_config.MODELS["clip"]`). Because Stage 1 is strictly causal (`is_causal = True`), every token before `first_diff` is bitwise identical between Prompt A and Prompt B (`||Delta e|| = 0.0000`).
-2. **Stage 2 — DiT Condition Projection + 2-Block Bidirectional `TokenRefiner` (`5120 -> 5376`-d)**:
-   Extracted directly from the target DiT checkpoint (`fl2va` or `ref2va`, plus Pika LoRA deltas when active) via [`control_vector_nodes.py::build_refiner_runner`](../../../control_vector_nodes.py) without loading the 50 DiT transformer blocks (`< 0.3 GB` RAM instead of `24 GB` VRAM).
-
-> [!IMPORTANT]
-> **2 H3 Text-Path Families (`fl2va` and `ref2va`) $\rightarrow$ All 4 Workflows (Video `fl2va`, Video `ref2va`, Image T2I, and Image Edit)**:
-> MiniMax H3 has only **2 DiT text-path (`condition_proj` + `token_refiner`) families** under the hood ([`control_vectors.py:84-95`](../../../control_vectors.py#L84-L95), [`control_vectors.py:1346-1429`](../../../control_vectors.py#L1346-L1429)), and their weights differ (cross-family cosine on identical pairs is only `~0.19`). Both `bench/control_vectors.py build` and `bench/control_vectors.py make` default to `--families both`: they encode your 10 pairs through `Qwen3-VL` **once**, attach the standard Pika `svd995_bf16` LoRA per family (`PIKA_FL2VA_SVD995_LORA` / `PIKA_REF2VA_SVD995_LORA`, unless `--no-lora` is passed), and run both lightweight `TokenRefiner` runners so you get matched `<name>__fl2va__*.safetensors` and `<name>__ref2va__*.safetensors` files in a single pass:
-> - **`fl2va` family vectors (`__fl2va__`)** cover **3 workflows**: (1) **Video `fl2va` / `t2va` / `i2va`** (`minimax_h3_fl2va_{pruned_int8_convrot,int8_convrot,bf16}.safetensors`, `in_channels = 128`, base or with `pika_h3_flex_fl2va_*` LoRAs), (2) **PrunaAI `P-H3-Image` T2I**, and (3) **PrunaAI `P-H3-Image` 1–8 Reference Image Edit** (`p-h3-image_int8_convrot.safetensors` standalone or `h3/p-h3-image_lora_bf16.safetensors` on `unet_fl2va` — both distilled from the `fl2va` DiT with `in_channels = 128`).
-> - **`ref2va` family vectors (`__ref2va__`)** cover **Video `ref2va` / Guide Video Edit / Masked V2V** (`minimax_h3_ref2va_{pruned_int8_convrot,int8_convrot,bf16}.safetensors`, `in_channels = 256`, base or with `pika_h3_flex_ref2va_*` LoRAs, plus `minimax_h3_{vfx_edit,inpainting,camera_control,motion_transfer}_v1.0_r128_ffp.safetensors` and `h3_p_h3_image_guide_edit_api.json`).
+Every `.safetensors` control vector stores both:
+- **`vector.post_refiner` (`float32[5376]`)**: The primary steering vector injected at runtime right after `token_refiner` (before the 50 DiT blocks), in natural mean-pair-difference units (`raw_norm ≈ 49..87` for `diff_span`, normalized to `NORM_MATCHED_TARGET = 67.5` at runtime under `mode = "add_norm_matched"`).
+- **`vector.encoder` (`float32[5120]`, unit-normalized, `row 0` excluded)**: The pre-refiner direction used by [`j_lens.py`](../../../j_lens.py) for lexical readouts, readiness scoring, and cross-family diagnostics.
 
 ---
 
-## 3. Token Pooling Modes (`pooling`)
+## 2. The Four Creation Methods & Their Mathematical Objectives
 
-![Animated explainer of diff_span surgical token pooling](assets/diff_span_extraction.svg)
+### Method 1: `from-prompt` — In-Place Scene-Paired Contrast (`--target-prompt` + `--words`)
 
-Controlled by [`h3_spans.py::pooling_mask`](../../../h3_spans.py):
+```bash
+COMFY="$(cd ../.. && pwd)"
+PY="$COMFY/.venv/bin/python"
 
-| Pooling Mode | What Tokens Are Averaged into $\bar{\mathbf{h}}(\text{A}_i), \bar{\mathbf{h}}(\text{B}_i)$ | When to Use |
-|---|---|---|
-| **`diff_span`** *(Default)* | Only the differing token span `[first_diff : end_diff]` between Prompt A and Prompt B (excluding chat template boilerplate and row 0 attention sink). | **Best default for all surgical pairs.** Produces high pair consistency (`MPC ~ 0.65–0.85`) and natural raw norms (`~50–85`) where ComfyUI `strength = 1.0` equals one full pair edit. |
-| **`from_first_diff`** | Every scene-text token from `first_diff` to the end of the prompt. | Useful when an early clause edit intentionally re-contextualizes downstream clauses via causal attention. |
-| **`scene_text`** | All user prompt tokens (dilutes a 15-token clause edit across ~220 unchanged tokens). | Required for **Media Control Vectors (`make-media`)** where text is identical and `<Picture 1>` vision tokens re-contextualize the scene text through the bidirectional `TokenRefiner`. |
+"$PY" bench/control_vectors.py from-prompt \
+  --name diner_sitcom \
+  --target-prompt my_diner_ref2va.txt \
+  --ref-images subject1.png \
+  --words "The target video uses a live-action cinematic style with warm natural sunlight. -> The target video uses a brightly lit 1990s multi-camera studio sitcom style with flat three-point stage lighting.; warm, amused voice -> punchy comedic sitcom delivery; soundscape: Atmospheric diner sounds and faint murmurs of distant patrons. -> Warm studio room tone with a live studio audience laughing uproariously after her punchline." \
+  --families ref2va --overwrite
+```
+
+- **How it works ([`h3_pair_compiler.py::compile_words_to_pairset`](../../../h3_pair_compiler.py))**:
+  1. Takes your exact `--target-prompt` $P$ as `Prompt A` ($P_A = P$).
+  2. Substitutes each `pole_a -> pole_b` clause in place inside $P$ to form `Prompt B` ($P_B$). Multi-clause edits separated by `;` or newlines are applied together; `soundscape: pole_a -> pole_b` substitutes directly inside `overall_soundscape:`; and `hold(group): pole_a -> pole_b` compiles an in-place hold pair $(P, P_{\text{hold}})$ on the same target prompt.
+  3. Encodes $(P_A, P_B)$ through `Qwen3-VL` + `TokenRefiner` and pools only the changed token span(s) (`pooling = "diff_span"`).
+- **Mathematical Objective**:
+  $$\mathbf{v}_{\text{post}} = \operatorname{Pool}_{m_B}\!\left(H_{\text{post}}(P_B, I_{\text{ref}})\right) - \operatorname{Pool}_{m_A}\!\left(H_{\text{post}}(P_A, I_{\text{ref}})\right)$$
+  By holding 100% of your scene's surrounding prefix and suffix tokens identical between $P_A$ and $P_B$, `from-prompt` isolates the exact directional shift of the replacement clause **conditioned on your scene's own attention context**—and then applies that shift back onto the unedited prompt $P_A$ at render time without changing token count $L$ or reshuffling seed geometry.
+- **When `--ref-images` Applies**:
+  When your `--target-prompt` is a `ref2va`, `i2va`, or `fl2va` prompt referencing `<Picture 1>` (or `Picture 1` / `Picture 2`), passing `--ref-images img1.png [img2.png ...]` encodes the actual reference images as `tag == 0` vision patch tokens ahead of the `tag == 1` text tokens during extraction. Because `Qwen3-VL` causal attention lets text tokens attend to earlier `<Picture N>` patches and `TokenRefiner` runs bidirectional self-attention across all tokens, $H_{\text{post}}(P_B, I_{\text{ref}}) - H_{\text{post}}(P_A, I_{\text{ref}})$ is conditioned on the real visual appearance of `<Picture 1>`.
+
+---
+
+### Method 2: `from-toml` — Multi-Scene Reusable Library Vector (`10` Stratified Pairs)
+
+```bash
+# Build a single reusable 10-pair library .toml (or .md from the LLM system prompt)
+"$PY" bench/control_vectors.py from-toml prompt_bank/control_vectors/film_16mm_1974.toml --families both --overwrite
+
+# Or build all 32 generalizable library .toml files in prompt_bank/control_vectors/
+"$PY" bench/control_vectors.py from-toml --all --families both --overwrite
+```
+
+- **How it works ([`control_vectors.py::mean_difference`](../../../control_vectors.py))**:
+  Encodes $N = 10$ stratified contrastive scene pairs (`Pair 1`..`Pair 10`: 5 interior / 5 exterior, mixing speaking `(S1)`, silent human, and environment-only shots) where each pair shares the same abstract concept shift ($B - A$) in a completely different setting with zero verbatim span cloning.
+- **Mathematical Objective**:
+  $$\bar{\mathbf{v}}_{\text{post}} = \frac{1}{\sum_{i=1}^N w_i} \sum_{i=1}^N w_i \left(\operatorname{Pool}_{m_{B,i}}(H_{\text{post}}(P_{B,i})) - \operatorname{Pool}_{m_{A,i}}(H_{\text{post}}(P_{A,i}))\right)$$
+  $$\mathbf{v}_{\text{post}} = \left(I - U_{\text{hold}} U_{\text{hold}}^\top\right) \bar{\mathbf{v}}_{\text{post}}$$
+  Averaging across 10 unrelated scenes cancels out scene-specific nouns (mugs, trees, rooms, clothing) and isolates the **expected cross-scene concept direction** $\mathbb{E}_{s \sim \mathcal{S}}[\Delta H(s)]$. The built-in **`split_half_cosine`** diagnostic measures the cosine similarity between the average of odd pairs (`1, 3, 5, 7, 9`) and even pairs (`2, 4, 6, 8, 10`)—high values (`>= 0.70`) confirm that all 10 pairs converge on a single reusable direction.
+
+---
+
+### Method 3: `from-words` — Instant `< 2 ms` CPU Unigram Synthesis via J-Lens
+
+```bash
+"$PY" bench/control_vectors.py from-words "blizzard, snowstorm, frost" \
+  --against-words "sunlight, clear, mild" \
+  --hold-words "coat, parka" \
+  --name fast_blizzard
+```
+
+- **How it works ([`j_lens.py::synthesize_from_words`](../../../j_lens.py))**:
+  Looks up positive words $W_+$ and baseline words $W_-$ in the pre-computed `24,912`-word cloze vocabulary atlas (`M_union` in `models/j_lens/j_lens_h3.safetensors`), subtracts the baseline mean, projects out `--hold-words` in $\mathbb{R}^{5120}$, and transports the unit encoder direction $\hat{\mathbf{v}}_{\text{enc}}$ through the pre-computed `TokenRefiner` Jacobian $J_{\text{ref},\text{family}} \in \mathbb{R}^{5376 \times 5120}$ scaled to `NORM_MATCHED_TARGET = 67.5`:
+  $$\mathbf{v}_{\text{raw}} = \frac{1}{|W_+|}\sum_{w \in W_+} M[w] - \frac{1}{|W_-|}\sum_{w \in W_-} M[w], \quad \mathbf{v}_{\text{post}} = \alpha_{\text{cal}} \cdot J_{\text{ref},\text{family}}\,\hat{\mathbf{v}}_{\text{enc}}$$
+- **When to use it**:
+  Ideal for instant (`< 2 ms`, `0 GB` VRAM) lexical exploration or typing words directly into the `words` field on `MiniMaxH3ApplyControlVectors` in ComfyUI. Because it is a linear bag-of-words superposition without multi-word attention context, upgrade to Method 1 (`from-prompt`) or Method 2 (`from-toml`) when steering complex multi-clause styles, physics, or coupled sight + sound.
+
+---
+
+### Method 4: `from-images` — Visual Look Transfer from Two Reference Stills (`Image A -> Image B`)
+
+```bash
+"$PY" bench/control_vectors.py from-images \
+  --name warm_kodak_grade \
+  --image-a flat_daylight.png \
+  --image-b kodak_2383_grade.png \
+  --pooling scene_text --overwrite
+```
+
+- **How it works ([`control_vector_nodes.py::match_media_pair_geometry`](../../../control_vector_nodes.py))**:
+  1. Center-crops and resizes both `Image A` (baseline look) and `Image B` (target look) to the exact same 32-pixel-aligned `(H, W)` grid (`--short-edge 512`) so `Qwen3-VL` emits the exact same number of `<|image_pad|>` tokens and identical 3D M-RoPE coordinates ($T_{\text{vis},A} = T_{\text{vis},B}$).
+  2. Encodes both images with a shared neutral scene prompt $P_0$ through `Qwen3-VL` + `TokenRefiner`.
+  3. Pools the difference across `pooling = "scene_text"` (default):
+     $$\mathbf{v}_{\text{post}} = \operatorname{Pool}_{\text{scene\_text}}\!\left(H_{\text{post}}(I_B, P_0)\right) - \operatorname{Pool}_{\text{scene\_text}}\!\left(H_{\text{post}}(I_A, P_0)\right)$$
+- **Why `scene_text` is the default pooling mode for `from-images`**:
+  While `Image A` and `Image B` enter as `tag == 0` vision patches, causal self-attention in `Qwen3-VL` and bidirectional self-attention in `TokenRefiner` propagate the visual look of `<Picture 1>` into the downstream `tag == 1` `scene_text` tokens. Pooling `scene_text` extracts the representation shift in the exact subspace that `mask = "scene_only"` steers at runtime.
+
+---
+
+## 3. Token Pooling Modes (`--pooling`)
+
+![Surgical diff_span Token Pooling (B - A)](assets/diff_span_extraction.svg)
+
+When extracting a text-pair control vector (`from-prompt` or `from-toml`), `--pooling` controls which token positions are averaged in `Prompt A` and `Prompt B` ([`h3_spans.py:38-43`](../../../h3_spans.py#L38-L43)):
+
+| Pooling Mode | What Tokens It Pools | Typical `raw_norm` | When to Use |
+|---|---|---|---|
+| **`diff_span` (Default)** | Only the exact differing token span(s) between `Prompt A` and `Prompt B` via `SequenceMatcher(..., autojunk=False)` (`min_shared_run = 8` for multi-clause or coupled `description + overall_soundscape` edits). | `49 .. 87` | **Recommended for all text-pair vectors (`from-prompt` & `from-toml`)**. Eliminates shared-tail dilution (`~2.9x` higher signal norm than `from_first_diff`) and lets you place edits anywhere in the prompt. |
+| **`from_first_diff`** | From the first differing token through the end of the `tag == 1` text sequence. | `20 .. 28` | Captures causal downstream accommodation in later tokens after an early edit. |
+| **`scene_text`** | All `scene`-category text tokens (`tag == 1` excluding `<Picture/Audio/Video>` labels, `<T.T seconds>` timestamps, `(S1)` speaker tags, and `<d>...</d>` dialogue). | `10 .. 25` | **Default for `from-images` (`make-media`)** where the text prompt is identical between `Image A` and `Image B`. |
+| **`all_tag1`** | Every `tag == 1` text token including speaker tags and dialogue. | `10 .. 22` | Whole-sequence diagnostic comparison only. |
 
 ---
 
 ## 4. Orthogonal Holds (`[[hold]]`, `--hold`, `--hold-words`)
 
-![Animated explainer of Gram-Schmidt orthogonal hold projection, 180-degree inversion, and norm-matched vector blending](assets/sculpt_and_orthogonal_hold.svg)
+![Gram-Schmidt Orthogonal hold, < 5 ms CPU Inversion & 67.5 Norm Matching](assets/sculpt_and_orthogonal_hold.svg)
 
-If a concept direction accidentally pulls in a correlated nuisance attribute (for example, `"blizzard"` pulling indoor scenes outdoors, or `"cyberpunk"` changing acoustic dialogue), you can project out the nuisance subspace:
-- **In `.toml` / `.md` pairs**: Add `[[hold]]` pairs labeled with `group = "environment"` or `group = "wardrobe"`. [`control_vectors.py::hold_basis`](../../../control_vectors.py) computes an orthonormal SVD basis $\mathbf{U}_{\text{hold}}$ (`holds.post_refiner`) and projects it out of $\mathbf{v}$ (and Markdown `#### Pair N (weight=2.5)` headings are preserved into `.toml` via [`control_vectors.py::parse_markdown_pairs`](../../../control_vectors.py#L575-L583) and [`write_markdown_to_toml`](../../../control_vectors.py#L807-L809)).
-- **On the CLI or Studio UI**: Pass `--hold <other_vector.safetensors>` or `--hold-words "coat, parka"` with `--hold-alpha 1.0` (soft attenuation $\alpha \in [0, 1]$, or over-projection $\alpha \in (1, 2]$). When both `[[hold]]` pairs (`holds.post_refiner`) and `--hold` / `--hold-words` are used together, [`bench/control_vector/helpers.py::_apply_post_refiner_holds`](../../../bench/control_vector/helpers.py#L335-L377) re-projects `holds.post_refiner` out after applying `j_lens.apply_soft_holds` so the final vector stays strictly orthogonal (`cos = 0.0`) to `holds.post_refiner`.
+A concept contrast often carries unintended collateral associations—for example, `"blizzard"` naturally pulls toward `"heavy winter coat, parka"`, or `"90s sitcom"` might pull toward a specific room prop. You can strip any nuisance subspace in three ways:
+
+1. **In `from-prompt` (`hold:` or `hold(group):` clause)**:
+   ```bash
+   --words "sunlit diner -> blizzard-swept diner; hold(wardrobe): wearing a light t-shirt -> wearing a heavy down parka"
+   ```
+2. **In `.toml` / `.md` pair files (`[[hold]]` blocks or `### Hold Pairs`)**:
+   Group hold pairs by `group = "wardrobe"` or `group = "location"`. [`control_vectors.py::hold_basis`](../../../control_vectors.py) averages each group and runs QR orthonormalization (`torch.linalg.qr`) in `float64` to project $U_{\text{hold}}$ out of $\bar{\mathbf{v}}$.
+3. **On CPU in `< 1 ms` with `--hold-words` (via J-Lens) or `sculpt --hold`**:
+   ```bash
+   "$PY" bench/control_vectors.py sculpt blizzard --hold-words "coat, parka, jacket" --name blizzard_indoor_attire
+   ```

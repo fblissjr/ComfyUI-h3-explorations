@@ -1,4 +1,74 @@
-"""Argument parser and CLI command router for `bench/control_vectors.py`."""
+r"""Argument parser and CLI command router for `bench/control_vectors.py`.
+
+The Four Control Vector Creation Methods & Their Mathematical Objectives
+========================================================================
+MiniMax H3 extracts text conditioning from `Qwen3-VL-32B-Instruct` truncated after
+`layers.49` (`5120`-d), projects it through the DiT's `condition_proj` (`5120 -> 5376`),
+and refines it through the 2-block bidirectional `TokenRefiner` (`5376 -> 5376`)
+before the 50-block audio-video DiT reads it via cross-attention.
+
+Every H3 control vector is a direction $\\mathbf{v}_{\\text{PR}} \\in \\mathbb{R}^{5376}$
+added to the post-refiner token stream inside `MiniMaxH3ApplyControlVectors` during
+DiT denoising. There is no gradient training loop; each creation method computes
+$\\mathbf{v}_{\\text{PR}}$ in closed form under a specific mathematical objective:
+
+1. `from-prompt` (In-Place Target-Prompt Contrast; also `build --target-prompt --words`):
+   - **Mathematical Objective**:
+     $$\\mathbf{v}_{\\text{PR}} = (I - U_{\\text{hold}}^\\top U_{\\text{hold}})\\Big(\\operatorname{pool}\\big(\\operatorname{TokenRefiner}(E(P_B))\\big) - \\operatorname{pool}\\big(\\operatorname{TokenRefiner}(E(P_A))\\big)\\Big)$$
+     where $P_A$ and $P_B$ are your exact target scene prompt (or `---`-separated
+     multi-scene prompts) differing ONLY at the substituted clause(s) `'pole_a -> pole_b'`
+     (plus optional `soundscape: a -> b` and `hold: a -> b`), pooled over the exact
+     differing token span (`diff_span`).
+   - **When `--ref-images` applies**: Pass `--ref-images <img.png>` on `ref2va` shots so
+     `Qwen3-VL` and `TokenRefiner` encode $P_A, P_B$ with the true `<Picture 1>` vision
+     prefix present in causal/bidirectional attention.
+   - **Strengths**: Exact contextual attention and M-RoPE token alignment for your
+     specific shot; zero grammar drift; supports multi-clause `;` edits.
+   - **Weaknesses**: Requires a GPU encoder pass (`~7s`); tailored to the supplied
+     target prompt rather than a reusable multi-scene library vector.
+
+2. `from-toml` / `build` / `make` (Multi-Scene Reusable Pair-Bank Vector):
+   - **Mathematical Objective**:
+     $$\\mathbf{v}_{\\text{PR}} = (I - U_{\\text{hold}}^\\top U_{\\text{hold}}) \\frac{\\sum_{i=1}^N w_i \\big(\\mathbf{r}_{B,i} - \\mathbf{r}_{A,i}\\big)}{\\sum_{i=1}^N w_i}$$
+     averaged in float64 across $N \\approx 10$ diverse H3 scenes (`[[pair]]`) so
+     scene-specific nouns, props, and room geometry cancel out while the shared
+     concept direction survives, with nuisance directions (`[[hold]]`) projected out
+     via SVD (`control_vectors.py::hold_basis`).
+   - **When `--ref-images` applies**: Optional on `ref2va` `.toml` banks when you want
+     the multi-scene expectation conditioned on a specific `<Picture 1>` reference prefix.
+   - **Strengths**: Scene-invariant, reusable library vector with full reliability
+     diagnostics (`mean_pairwise_cosine`, `split_half_cosine`, `per_pair_cosine`).
+   - **Weaknesses**: Requires authoring or LLM-generating (`generate-pairs` / `from-md`)
+     10 valid single-clause pairs and a GPU encoding pass (`~10s` per stem).
+
+3. `from-words` / `words` (Instant `< 2 ms` CPU Unigram Synthesis via J-Lens; also inline `words` on `MiniMaxH3ApplyControlVectors`):
+   - **Mathematical Objective**:
+     $$\\hat{\\mathbf{v}}_{\\text{PR}}^{(f)} = 67.5 \\cdot \\operatorname{normalize}\\left(\\bar{J}_{\\text{ref}}^{(f)} \\Sigma_{49, \\text{filt}}^{0.30} \\Delta\\boldsymbol{\\mu}\\right)$$
+     where $\\Delta\\boldsymbol{\\mu}$ is the difference between positive and negative
+     unit-normalized mean-centered rows of $M_{\\text{valid}} = W_{\\text{head}}[\\text{valid}]\\bar{J}_{49 \\to 63}$,
+     pulled through the spectral-filtered `layers.49` covariance $\\Sigma_{49, \\text{filt}}^{0.30}$
+     and pushed forward through the expected `TokenRefiner` Jacobian $\\bar{J}_{\\text{ref}}^{(f)}$
+     stored in `models/j_lens/j_lens_h3.safetensors` (built via `build-j-lens`).
+   - **When `--ref-images` applies**: Not used (operates purely in precomputed vocabulary/Jacobian space on CPU).
+   - **Strengths**: `< 2 ms` on CPU, `0 GB` VRAM, zero `.toml` or prompt required; runs
+     inline inside `MiniMaxH3ApplyControlVectors` (`words` widget) at inference time.
+   - **Weaknesses**: Commutative bag-of-words approximation (`cos_5376 = 0.46..0.64` vs.
+     10-pair contextual vectors); cannot represent word order, multi-word syntax, or
+     relational trajectories (`A -> B` vs. `B -> A`).
+
+4. `from-images` / `make-media` (Visual `<Picture 1>` Reference-Prefix Contrast):
+   - **Mathematical Objective**:
+     $$\\mathbf{v}_{\\text{PR}} = \\frac{1}{N}\\sum_{i=1}^N \\Big(\\operatorname{pool}\\big(\\operatorname{TokenRefiner}(E(\\text{Pic}_{B,i}, P_0))\\big) - \\operatorname{pool}\\big(\\operatorname{TokenRefiner}(E(\\text{Pic}_{A,i}, P_0))\\big)\\Big)$$
+     where $\\text{Pic}_{A,i}$ and $\\text{Pic}_{B,i}$ are contrasting `<Picture 1>`
+     images resized to identical `32`-px M-RoPE grid dimensions (`match_media_pair_geometry`)
+     and encoded with the exact same neutral `ref2va` scene prompt $P_0$.
+   - **Strengths**: Extracts visual lighting, grade, texture, or material shifts directly
+     from images when words cannot describe the look; default `pooling='scene_text'`
+     captures the cross-attentive imprint that `<Picture 1>` leaves on downstream tag-1
+     scene tokens so the resulting vector steers even text-only prompts at inference.
+   - **Weaknesses**: Requires matched `<Picture 1>` A/B image pairs; composition/pose
+     differences between Image A and Image B will leak unless scrubbed via `--hold` / `--hold-words`.
+"""
 
 from __future__ import annotations
 
@@ -12,13 +82,23 @@ from workflows import h3_config
 from .build_cmd import cmd_build, cmd_rebuild, cmd_words
 from .grading import cmd_grade, cmd_inspect
 from .helpers import _resolve_requested_families
+from .j_lens_builder import cmd_build_j_lens
 from .llm_pairs import SUPPORTED_LLM_PROVIDERS, cmd_generate_pairs
 from .make_cmds import cmd_from_md, cmd_make, cmd_make_media
 from .sculpt import cmd_sculpt
 
 CLI_DESCRIPTION = """Build, inspect, meter, and grade MiniMax H3 control vectors."""
 
-CLI_EPILOG = """H3 Model Families (--families):
+CLI_EPILOG = """Four Control Vector Creation Methods:
+  1. from-prompt               In-place contextual contrast ('pole_a -> pole_b') on your exact --target-prompt (~7s GPU)
+  2. from-toml (alias: build)  Multi-scene reusable vector from a 10-pair .toml file (or --all) (~10s GPU)
+  3. from-words (alias: words) Instant <2 ms CPU synthesis from 3-5 words via J-Lens (0 GB VRAM; also inline in ComfyUI)
+  4. from-images (make-media)  Visual <Picture 1> image-pair contrast (--image-a / --image-b) with 32-px M-RoPE matching
+
+J-Lens Operator Bundle:
+  build-j-lens                 Verify (--verify-only) or rebuild models/j_lens/j_lens_h3.safetensors (h3_j_lens_v1)
+
+H3 Model Families (--families):
   MiniMax H3 has 2 DiT text-path (condition_proj + token_refiner) families:
     fl2va  : Video T2VA / FL2VA / I2VA  AND  P-H3-Image (both Image T2I and Image Edit)
     ref2va : Video Ref2VA / Guide Video Edit / Masked V2V
@@ -61,7 +141,7 @@ def build_parser() -> argparse.ArgumentParser:
     pui.add_argument("--toml-dir", dest="toml_dir", default=None, help="Optional directory override for .toml pair packs")
     pui.add_argument("--vec-dir", dest="vec_dir", default=None, help="Optional directory override for .safetensors control vectors")
     pui.add_argument("--encoder", default=None, help="Optional conditioning encoder filename override")
-    pui.add_argument("--dit", dest="dit", default=None, help="Optional DiT checkpoint filename override")
+    pui.add_argument("--dit", default=None, help="Optional DiT checkpoint filename override")
     pui.add_argument("--device", default=None, help="Optional conditioning encoder device override")
     pui.add_argument(
         "--llm-provider",
@@ -77,9 +157,73 @@ def build_parser() -> argparse.ArgumentParser:
         help="Default generative LLM model directory path or HuggingFace model ID",
     )
 
+    pfp = sub.add_parser(
+        "from-prompt",
+        help="Method 1: Build a scene-specific control vector in-place on --target-prompt from '--words \"pole_a -> pole_b\"'",
+    )
+    pfp.add_argument(
+        "--target-prompt",
+        dest="target_prompt",
+        required=True,
+        help="Target H3 scene prompt (prompt_bank id, file path, or inline text; separate multiple scenes with '---')",
+    )
+    pfp.add_argument(
+        "--words",
+        required=True,
+        help="In-place 'pole_a -> pole_b' contrast (supports ';' or newline multi-clause, 'soundscape: a -> b', and 'hold: a -> b')",
+    )
+    pfp.add_argument(
+        "--target-weight",
+        dest="target_weight",
+        type=float,
+        default=2.5,
+        help="Weight for Pair 0 when multiple '---'-separated target scenes are passed (default: 2.5)",
+    )
+    pfp.add_argument("--hold", action="append", default=None, help="Optional .safetensors vector(s) to project out")
+    pfp.add_argument("--hold-words", dest="hold_words", default="", help="Optional nuisance words to project out on CPU")
+    pfp.add_argument("--hold-alpha", dest="hold_alpha", type=float, default=1.0, help="Attenuation alpha in [0.0, 2.0] for --hold / --hold-words")
+    pfp.add_argument("--prompt", default="", help="Optional prompt override for Token-Wise Prompt Receptor Scanning")
+    pfp.add_argument("--unit-mean", dest="unit_mean", action="store_true", help="Average unit-normalized pair directions")
+    pfp.add_argument(
+        "--families",
+        type=_validate_families_arg,
+        metavar=_FAMILIES_METAVAR,
+        default="both",
+        help=_FAMILIES_HELP,
+    )
+    pfp.add_argument(
+        "--pooling",
+        default="diff_span",
+        help="Pooling mode or comma-separated modes ('diff_span', 'from_first_diff', 'scene_text', or 'all'; default: 'diff_span')",
+    )
+    pfp.add_argument("--name", default=None, help="Optional vector name / file stem override")
+    pfp.add_argument("--output-name", dest="output_name", default="", help=argparse.SUPPRESS)
+    pfp.add_argument("--mode", choices=cv.VALID_MODES, default=None, help="Explicit mode override (auto-detected from --target-prompt if omitted)")
+    pfp.add_argument("--frame", choices=cv.VALID_FRAMES, default="scene", help="Pair frame ('scene' or 'bare')")
+    pfp.add_argument("--quality", default=None, help="Optional vector.quality description override")
+    pfp.add_argument("--a-side", dest="a_side", default=None, help="Optional vector.a_side description override")
+    pfp.add_argument("--b-side", dest="b_side", default=None, help="Optional vector.b_side description override")
+    pfp.add_argument("--save-toml", dest="save_toml", action="store_true", help="Also write the compiled .toml file under data/control_vectors/")
+    pfp.add_argument("--toml-out", dest="toml_out", default=None, help="Optional output path/dir for generated .toml")
+    pfp.add_argument("--dit", dest="dit", default=None, help="Explicit DiT diffusion checkpoint filename override")
+    pfp.add_argument("--unet", dest="dit", default=None, help=argparse.SUPPRESS)
+    pfp.add_argument("--encoder", default=None, help="Text encoder checkpoint filename")
+    pfp.add_argument("--lora", action="append", default=None, help="Explicit LoRA file[:strength] override")
+    pfp.add_argument("--no-lora", dest="no_lora", action="store_true", help="Build for stock 30-step base DiT without Pika LoRAs")
+    pfp.add_argument("--ref-images", default=None, help="Comma-separated reference images for ref2va <Picture 1> prefix")
+    pfp.add_argument("--no-holds", action="store_true", help="Do not project out [[hold]] groups")
+    pfp.add_argument("--include-encoder", dest="include_encoder", action="store_true", default=True, help="Also save vector.encoder (5120-d; default: True)")
+    pfp.add_argument("--no-encoder", dest="include_encoder", action="store_false", help="Omit vector.encoder (5120-d) from saved .safetensors")
+    pfp.add_argument("--seed", type=int, default=0)
+    pfp.add_argument("--device", default="default")
+    pfp.add_argument("--refiner-device", default="cpu")
+    pfp.add_argument("--out-dir", dest="out_dir", default=None, help="Optional output directory for .safetensors files")
+    pfp.add_argument("--overwrite", action="store_true", help="Overwrite existing .toml and .safetensors files")
+
     pb = sub.add_parser(
         "build",
-        help="One-shot end-to-end build: simple words (--words), Markdown (.md), or TOML (.toml) -> fl2va/ref2va .safetensors vectors",
+        aliases=["from-toml"],
+        help="Method 2 (from-toml / build): Build reusable control vector(s) from a .toml/.md pair file (or --all), or in-place --words",
     )
     pb.add_argument(
         "source",
@@ -172,7 +316,7 @@ def build_parser() -> argparse.ArgumentParser:
     pb.add_argument("--quality", default=None, help="Optional vector.quality description override")
     pb.add_argument("--a-side", dest="a_side", default=None, help="Optional vector.a_side description override")
     pb.add_argument("--b-side", dest="b_side", default=None, help="Optional vector.b_side description override")
-    pb.add_argument("--save-toml", dest="save_toml", action="store_true", help="Also write the compiled 10-pair .toml file under prompt_bank/control_vectors/ when using --words")
+    pb.add_argument("--save-toml", dest="save_toml", action="store_true", help="Also write the compiled .toml file under data/control_vectors/ when using --words")
     pb.add_argument("--toml-out", dest="toml_out", default=None, help="Optional output path/dir for generated .toml")
     pb.add_argument("--test-prompt-out", dest="test_prompt_out", default=None, help="Optional output path for extracted Test Scene Prompt")
     pb.add_argument("--dit", dest="dit", default=None, help="Explicit DiT diffusion checkpoint filename override")
@@ -199,7 +343,7 @@ def build_parser() -> argparse.ArgumentParser:
     pfm.add_argument(
         "--out",
         default=None,
-        help="Output .toml file path or output directory (defaults to prompt_bank/control_vectors/<stem>.toml)",
+        help="Output .toml file path or output directory (defaults to data/control_vectors/<stem>.toml)",
     )
     pfm.add_argument("--name", default=None, help="Optional vector name / file stem override")
     pfm.add_argument("--mode", choices=cv.VALID_MODES, default=None, help="Explicit mode override (auto-detected if omitted)")
@@ -246,7 +390,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     pmm = sub.add_parser(
         "make-media",
-        help="Build a control vector from contrasting <Picture 1> image pair(s) with 32-px M-RoPE grid matching",
+        aliases=["from-images"],
+        help="Method 4 (from-images / make-media): Build a control vector from contrasting <Picture 1> image pair(s) with 32-px M-RoPE grid matching",
     )
     pmm.add_argument("--image-a", required=True, help="Baseline/negative pole image path or data URL (or comma-separated list)")
     pmm.add_argument("--image-b", required=True, help="Positive/steered pole image path or data URL (or comma-separated list)")
@@ -378,7 +523,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     pw = sub.add_parser(
         "words",
-        help="Synthesize Ready-to-Render fl2va & ref2va .safetensors vectors directly from 3-5 words in <2 ms on CPU via J-Lens (with Pre-Render Readiness Predictor)",
+        aliases=["from-words"],
+        help="Method 3 (from-words / words): Synthesize Ready-to-Render fl2va & ref2va .safetensors vectors directly from 3-5 words in <2 ms on CPU via J-Lens",
     )
     pw.add_argument(
         "pos_words",
@@ -392,6 +538,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     pw.add_argument(
         "--prompt",
+        "--target-prompt",
+        dest="prompt",
         default="",
         help="Optional target H3 scene prompt file or text for Token-Wise Prompt Receptor Scanning and @prompt_subject extraction",
     )
@@ -473,8 +621,29 @@ def build_parser() -> argparse.ArgumentParser:
     pgen.add_argument("--name", default="", help="Optional stem name to also write <name>.md / <name>.toml")
     pgen.add_argument("--out-md", dest="out_md", default="", help="Optional output .md file path")
     pgen.add_argument("--out-toml", dest="out_toml", default="", help="Optional output .toml file path")
-    pgen.add_argument("--save-toml", dest="save_toml", action="store_true", help="Also parse and save to prompt_bank/control_vectors/<name>.toml")
+    pgen.add_argument("--save-toml", dest="save_toml", action="store_true", help="Also parse and save to data/control_vectors/<name>.toml")
     pgen.add_argument("--overwrite", action="store_true", help="Overwrite existing output files")
+
+    pjl = sub.add_parser(
+        "build-j-lens",
+        help="Verify (--verify-only) or rebuild models/j_lens/j_lens_h3.safetensors (h3_j_lens_v1) from Qwen3-VL layers.49 + TokenRefiner",
+    )
+    pjl.add_argument(
+        "--verify-only",
+        dest="verify_only",
+        action="store_true",
+        help="Verify the existing j_lens_h3.safetensors bundle on CPU without loading GPU models",
+    )
+    pjl.add_argument("--out", default=None, help="Optional output path for j_lens_h3.safetensors")
+    pjl.add_argument("--base-bundle", dest="base_bundle", default=None, help="Existing h3_j_lens_v1 bundle providing upper-Qwen (layers.50..63) tensors")
+    pjl.add_argument("--num-prompts", dest="num_prompts", type=int, default=24, help="Number of prompt_bank calibration prompts (default: 24)")
+    pjl.add_argument("--max-tokens", dest="max_tokens", type=int, default=64, help="Max tokens per calibration prompt (default: 64)")
+    pjl.add_argument("--encoder", default=None, help="Text encoder checkpoint filename")
+    pjl.add_argument("--fl2va-dit", dest="fl2va_dit", default=None, help="fl2va DiT checkpoint filename")
+    pjl.add_argument("--ref2va-dit", dest="ref2va_dit", default=None, help="ref2va DiT checkpoint filename")
+    pjl.add_argument("--no-lora", dest="no_lora", action="store_true", help="Compute TokenRefiner Jacobians without Pika LoRAs")
+    pjl.add_argument("--device", default="default")
+    pjl.add_argument("--refiner-device", dest="refiner_device", default="cpu")
 
     preb = sub.add_parser(
         "rebuild",
@@ -533,7 +702,6 @@ def build_parser() -> argparse.ArgumentParser:
     return p
 
 
-
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -544,25 +712,27 @@ def main(argv: list[str] | None = None) -> int:
             return cmd_ui(args)
         if args.cmd == "generate-pairs":
             return cmd_generate_pairs(args)
-        if args.cmd == "words":
+        if args.cmd in ("words", "from-words"):
             return cmd_words(args)
         if args.cmd == "sculpt":
             return cmd_sculpt(args)
-        if args.cmd == "build":
+        if args.cmd in ("build", "from-toml", "from-prompt"):
             return cmd_build(args)
+        if args.cmd == "build-j-lens":
+            return cmd_build_j_lens(args)
         if args.cmd == "rebuild":
             return cmd_rebuild(args)
         if args.cmd in ("from-md", "import-md"):
             return cmd_from_md(args)
         if args.cmd == "make":
             return cmd_make(args)
-        if args.cmd == "make-media":
+        if args.cmd in ("make-media", "from-images"):
             return cmd_make_media(args)
         if args.cmd == "inspect":
             return cmd_inspect(args)
         if args.cmd == "grade":
             return cmd_grade(args)
-    except (ValueError, FileExistsError) as exc:
+    except (ValueError, FileExistsError, FileNotFoundError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2
     return 0

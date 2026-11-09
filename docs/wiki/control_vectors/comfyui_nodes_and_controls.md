@@ -1,71 +1,43 @@
 # 3. ComfyUI Nodes & Runtime Controls
 
-**Parent guide**: [`docs/wiki/control_vectors.md`](../control_vectors.md)
-**Source files**: [`control_vector_nodes.py`](../../../control_vector_nodes.py), [`control_vectors.py`](../../../control_vectors.py), [`h3_spans.py`](../../../h3_spans.py)
+[← Back to Control Vectors Overview](../control_vectors.md)
+
+This guide covers the three ComfyUI nodes in [`control_vector_nodes.py`](../../../control_vector_nodes.py) (`MiniMaxH3ApplyControlVectors`, `MiniMaxH3MakeControlVector`, and `MiniMaxH3MakeMediaControlVector`) and how each runtime knob interacts with MiniMax H3 video (`t2va`, `fl2va`, `ref2va`) and single-frame `P-H3-Image` (`t2i`, `edit`, `guide_edit`) generation.
 
 ---
 
-## 1. The Three Control Vector Nodes in ComfyUI
+## 1. Node Summary & Placement in the Graph
 
-All three nodes register under the **`model/conditioning/minimax`** category in ComfyUI (`control_vector_nodes.py`):
-
-| Node Class | Purpose | Outputs & Typical Placement |
+| Node (`node_id` / Display Name) | Inputs $\rightarrow$ Outputs | Role in Workflow |
 |---|---|---|
-| **`MiniMaxH3ApplyControlVectors`** | Applies a `.safetensors` control vector (or inline J-Lens `words`) to the refined text conditioning via a `DIFFUSION_MODEL` wrapper on `MODEL` (`ModelPatcher`). Stack multiple vectors by chaining `MiniMaxH3ApplyControlVectors` nodes in series (shifts sum in `float64`). | Outputs `(model: MODEL)`. Place between the DiT/LoRA loader (`MiniMaxH3LoraLoader`) and the sampler (`KSampler` / `SamplerCustom`). |
-| **`MiniMaxH3MakeControlVector`** | Measures and saves `<name>__<family>__*.safetensors` under `models/control_vectors/` from a `pair_file` (`prompt_bank/control_vectors/*.toml`) or inline `words` (`"pole_a -> pole_b"`, compiled across 10 canonical scenes via `h3_pair_compiler.py`). | Outputs `(vector_name: STRING, report: STRING)`. Optional in-graph authoring node (`is_output_node=True`). |
-| **`MiniMaxH3MakeMediaControlVector`** | Measures and saves `<output_name>__<family>__*.safetensors` (`B - A`) under `models/control_vectors/` from contrasting `IMAGE` batches (`image_a` baseline vs. `image_b` positive/steered) resized to an identical 32-px-snapped M-RoPE grid. | Outputs `(vector_name: STRING, report: STRING)`. Connect two `LoadImage` nodes (`image_a`, `image_b`) plus `model` and `clip`. |
+| **`MiniMaxH3ApplyControlVectors`**<br>*MiniMax H3 Apply Control Vectors* | `model: MODEL`, `vector_file` (or inline `words`) $\rightarrow$ `MODEL` | **Runtime Steering Node**: Sits on the `MODEL` wire immediately before `BasicGuider` / `SamplerCustomAdvanced`. Multiple `MiniMaxH3ApplyControlVectors` nodes can be chained in series to stack or orthogonalize (`mode = "hold"`) multiple vectors in `float64`. |
+| **`MiniMaxH3MakeControlVector`**<br>*MiniMax H3 Make Control Vector (Pairs)* | `model: MODEL`, `clip: CLIP`, `pair_file` or `target_prompt` + `words` (+ optional `encoded_references: H3_REF_ENCODED`) $\rightarrow$ `vector_name: STRING, report: STRING` | **In-Graph Pair Builder**: Builds and saves a `.safetensors` control vector inside ComfyUI from either a `.toml` bank (`pair_file`) or an in-place contrast on `target_prompt` (`words`), with optional `encoded_references` vision conditioning. |
+| **`MiniMaxH3MakeMediaControlVector`**<br>*MiniMax H3 Make Media Control Vector (Images/Video)* | `model: MODEL`, `clip: CLIP`, `image_a: IMAGE`, `image_b: IMAGE` $\rightarrow$ `vector_name: STRING, report: STRING` | **In-Graph Image Look Builder**: Extracts and saves a visual look-transfer vector (`Image A -> Image B`) from two reference images inside ComfyUI. |
 
 ---
 
 ## 2. `MiniMaxH3ApplyControlVectors` Inputs Explained (`control_vector_nodes.py::MiniMaxH3ApplyControlVectors`)
 
-![Animated explainer of H3 runtime token masks, step windows, and ref2va reference gate](assets/runtime_steering_and_masks.svg)
+![Runtime Token Masks (scene_only), Step Windows & ref2va 3D VAE Gate](assets/runtime_steering_and_masks.svg)
 
-- **`model`** (`MODEL`): The MiniMax H3 `ModelPatcher` (`fl2va`, `ref2va`, or `P-H3-Image`). Chain multiple `MiniMaxH3ApplyControlVectors` nodes in series to combine multiple vectors (`add`, `add_norm_matched`, `hold`, `project_out`, `amplify`).
-- **`vector_name`** (`COMBO`): Select any `.safetensors` file under `models/control_vectors/` (or `"none"` when using inline `words`). At runtime, [`control_vector_nodes.py::resolve_vector_file_path`](../../../control_vector_nodes.py#L1535-L1605) automatically swaps `__fl2va__` $\leftrightarrow$ `__ref2va__` to match the loaded model's family and checks `prefer_lora=bool(loaded_recipe.get("loras"))` so LoRA workflows prefer `__lora_<sha8>.safetensors` siblings and base no-LoRA workflows prefer base `.safetensors` siblings when both exist on disk.
-- **`strength`** (`-20.0` to `+20.0`, default `1.0`, step `0.05`):
-  - `+1.0` applies one mean pair difference (`Prompt A -> Prompt B`) for `mode = "add"`, or `67.5` post-refiner shift norm (`NORM_MATCHED_TARGET`) for `mode = "add_norm_matched"`.
-  - `-1.0` **inverts** the vector (`Prompt B -> Prompt A`, e.g., flipping `blizzard` toward warm/dry air).
-  - `0.0` is an exact no-op.
-- **`mode`** (`COMBO`, `control_vectors.py::APPLY_MODES`):
-  - **`add_norm_matched`** *(Default)*: Normalizes `v` to `67.5` post-refiner shift norm at `strength = 1.0` across all pooling modes (`diff_span`, `scene_text`, etc.).
-  - **`add`**: Adds `strength * v` in raw mean-pair-difference units.
-  - **`hold`**: Treats this vector as a protected direction $\hat{\mathbf{u}}$ and projects out $\text{strength} \cdot (\Delta\mathbf{r} \cdot \hat{\mathbf{u}})\hat{\mathbf{u}}$ from the accumulated additive steering shift without modifying the base prompt.
-  - **`project_out`**: Removes $\text{strength} \cdot \frac{\mathbf{r} \cdot \mathbf{v}}{\|\mathbf{v}\|^2}\mathbf{v}$ directly from the prompt token states.
-  - **`amplify`**: Adds $\text{strength} \cdot \frac{\mathbf{r} \cdot \mathbf{v}}{\|\mathbf{v}\|^2}\mathbf{v}$ to scale existing alignment in the prompt.
-- **`mask`** (`COMBO`, `control_vector_nodes.py::MASK_MODES`):
-  - **`scene_only`** *(Default)*: Steers scene text while leaving tag-0 `<Picture N>` vision rows, `<d>...</d>` dialogue, `(S1)` speaker tags, `<Picture 1>:` labels, and `<0.0 seconds>` timestamps bitwise untouched (including on `MiniMaxH3PH3ImageConditioning` in `workflows/image/h3_p_h3_image_*_control_vector_api.json`).
-  - **`non_vision`**: Steers all tag-1 text rows (excluding row 0 sink) while leaving tag-0 `<Picture N>` vision rows bitwise untouched.
-  - **`description_only`**: Steers only scene tokens inside `integrated_multimodal_description:` (`fl2va`) or `detailed_description:` (`ref2va`).
-  - **`soundscape_only`**: Steers only scene tokens inside `overall_soundscape:`.
-  - **`after_dialogue`**: Steers only scene tokens after the last `</d>`.
-  - **`all_rows`**: Unmasked ablation across all rows.
+| Input | Default | Options / Range | What It Does |
+|---|---|---|---|
+| **`vector_file`** | `film_16mm_1974__fl2va__diff_span__lora_2a8c2b52.safetensors` | Any `.safetensors` in `models/control_vectors/` or `"none"` | Selects the saved control vector file. [`resolve_vector_file_path`](../../../control_vector_nodes.py) automatically resolves the matching `__fl2va__` or `__ref2va__` and LoRA/base sibling for the connected `model: MODEL`. |
+| **`strength`** | `1.15` (workflows) / `1.0` (schema) | `-10.0 .. 10.0` | Multiplier on the control vector. Under `mode = "add_norm_matched"`, `strength = 1.0` equals a post-refiner shift norm of `67.5`. Negative values (`-1.0`) invert the concept direction. |
+| **`mode`** | **`add_norm_matched`** | `add_norm_matched`, `add`, `hold`, `project_out`, `amplify` | • **`add_norm_matched` (Default)**: Normalizes `v` to `NORM_MATCHED_TARGET = 67.5` before multiplying by `strength`.<br>• **`add`**: Uses the vector's raw unnormalized norm (`raw_norm`).<br>• **`hold`**: Gram-Schmidt orthogonal projection (`v_clean = v - (v · u) u`) that scrubs this vector's direction out of the conditioning tokens and out of any earlier vectors in the chain.<br>• **`project_out`**: Removes each token's component along $\hat{\mathbf{v}}$.<br>• **`amplify`**: Scales each token's existing projection along $\hat{\mathbf{v}}$ by `1 + strength`. |
+| **`mask`** | **`scene_only`** | `scene_only`, `non_vision`, `description_only`, `soundscape_only`, `after_dialogue`, `all_rows` | Controls which token positions receive the vector ([`h3_spans.py`](../../../h3_spans.py)):<br>• **`scene_only` (Default)**: Steers scene prose while leaving `tag == 0` `<Picture N>` vision patches, `<d>[Language] ...</d>` spoken dialogue, `(S1)` speaker tags, `<Picture 1>:` labels, and `<0.0 seconds>` timestamps bitwise untouched.<br>• **`description_only`**: Steers only `integrated_multimodal_description:` / `detailed_description:` (visuals only).<br>• **`soundscape_only`**: Steers only `overall_soundscape:` (ambient audio/foley only).<br>• **`after_dialogue`**: Steers only scene tokens after the final `</d>` dialogue closing tag. |
+| **`start_percent` / `end_percent`** | `0.00` / `1.00` | `0.00 .. 1.00` | Fraction of the denoising step schedule where steering is active:<br>• **`0.00 .. 1.00`**: Full schedule (required for genre, physics, camera rig motion, and layout changes).<br>• **`0.33 .. 1.00`**: Pose-locked optical grade (lets steps `0..1` lock exact baseline framing and pose, then applies film stock/lighting across steps `2..7`).<br>• **`0.00 .. 0.50`**: Early layout window (steers blocking/wardrobe in early steps and lets fine detail settle unsteered). |
+| **`video_scale` / `audio_scale` / `split_end_percent`** | `1.0` / `1.0` / `1.0` | `-5.0 .. 5.0` | Independent multipliers for the video stream vs. audio stream. When `video_scale != audio_scale`, the wrapper runs a dual-conditioning pass during `0.0 .. split_end_percent` and splices `[out_vid[0], out_aud[1]]`. Set `audio_scale = 0.0` for visual-only steering or `video_scale = 0.0` for soundscape-only steering. |
+| **`ref_vae_end_percent` / `ref_vae_aug`** | **`1.00`** / **`0.999`** | `0.00 .. 1.00` / `0.000 .. 1.000` | For `ref2va` and `P-H3-Image` Edit: keeps the 3D Video VAE / `PH3ImageVAE` reference latents (`cond_video_latents` / `minimax_refs`) pinned at `ref_vae_aug = 0.999` through `ref_vae_end_percent = 1.00` so frames `0` and `1` never inherit late-step noise. |
+| **`words` / `against_words` / `hold_words` / `hold_alpha`** | `""` / `"@neutral"` / `""` / `1.0` | Comma-separated words | **Inline `< 2 ms` CPU J-Lens controls**:<br>• If **`words`** is non-empty (and `vector_file = "none"`), synthesizes a Method 3 (`from-words`) control vector on the fly in `< 2 ms` on CPU.<br>• If **`hold_words`** is non-empty alongside a loaded `vector_file`, projects those nuisance words (`"coat, parka"`) out of the loaded vector on CPU before applying it. |
+| **`allow_recipe_mismatch`** | `False` | `False` / `True` | Verifies that the vector's `model_family` (`fl2va` vs `ref2va`) and `token_refiner` weights are compatible with the connected DiT (`fl2va` vectors automatically work with `P-H3-Image` T2I and 1–8 ref Image Edit; `ref2va` vectors automatically work with `ref2va` and `P-H3-Image` Guide Edit). |
 
 ---
 
-## 3. Schedule Window, Stream Split & Inline Word Inputs
+## 3. Using `MiniMaxH3MakeControlVector` Inside ComfyUI
 
-- **`start_percent` / `end_percent`** (`0.0` to `1.0`, default `0.0` to `1.0`):
-  - Active schedule window (`step_idx / N_steps`). Setting `start_percent = 0.33, end_percent = 1.0` on a 6-step render lets steps 0–1 lock camera geometry and pose unsteered before injecting the style/weather vector on steps 2–5.
-- **`allow_recipe_mismatch`** (`BOOLEAN`, default `False`):
-  - Checked by [`control_vectors.py::check_vector_compatibility`](../../../control_vectors.py#L2025-L2077) and [`_is_same_family_h3_recipe_compatible`](../../../control_vectors.py#L2169-L2196):
-    - When `allow_recipe_mismatch = False` *(default)*: **Hard-refuses (`ValueError`)** cross-family vectors (`fl2va` on `ref2va` or vice versa), unknown checkpoints/LoRAs, non-unit LoRA strengths (`!= 1.0`), or partial-refiner LoRAs. **Allows with an advisory warning** all same-family H3 checkpoints (`minimax_h3_{fl2va,ref2va}_{pruned_int8_convrot,int8_convrot,bf16}.safetensors` and `p-h3-image_int8_convrot.safetensors`) and full-refiner unit-strength (`1.0`) LoRA recipes (base `loras=[]`, `pika_h3_flex_<family>_*`, `p-h3-image_lora_bf16.safetensors`, and `ref2va` Guide Video Edit LoRAs `minimax_h3_{vfx_edit,inpainting,camera_control,motion_transfer}_v1.0_r128_ffp.safetensors`), as well as same-family J-Lens vectors (`made_by="j_lens.*"`).
-    - Set `allow_recipe_mismatch = True` only when intentionally probing custom checkpoints, non-unit LoRA strengths, or cross-family vectors.
-- **`video_scale` / `audio_scale` / `split_end_percent`** (defaults `1.0`, `1.0`, `1.0`):
-  - Stream multipliers applied within `[0.0, split_end_percent)`. At `(1.0, 1.0)` runs a single DiT pass; at `(1.0, 0.0)` steers video while keeping audio unsteered; at `(0.0, 1.0)` steers audio while keeping video unsteered.
-- **`ref_vae_end_percent` / `ref_vae_aug`** (defaults `1.0`, `0.999`):
-  - For `ref2va` renders: controls the fraction of steps `[0.0, ref_vae_end_percent)` where clean 3D Video VAE reference latents stay active at weight `ref_vae_aug`.
-  - **`ref_vae_end_percent = 1.00`** *(Default)*: Keeps `cond_video_latents` pinned at `ref_vae_aug = 0.999` across all steps so frames `0` and `1` never inherit late-step noise from `seg_t["ref_img"] = max(t_v, vis_aug)` (`comfy/ldm/minimax/model.py:538-547, 679-683`).
-- **`words` / `against_words` / `hold_words` / `hold_alpha`**:
-  - Optional inline J-Lens (`< 2 ms` CPU) unigram word inputs and soft-hold word scrubbing (`hold_alpha` in `[0.0, 2.0]`, default `1.0`).
-
----
-
-## 4. `MiniMaxH3MakeControlVector` & `MiniMaxH3MakeMediaControlVector` Inputs
-
-- **`MiniMaxH3MakeControlVector`** (`control_vector_nodes.py:1855`):
-  - Inputs: `model`, `clip`, `pair_file` (default `"film_16mm_1974.toml"`), `pooling` (`"diff_span"`, `"from_first_diff"`, `"scene_text"`, `"all_tag1"`), `apply_holds` (`True`), `output_name` (`""`), optional `encoded_references`, `overwrite` (`False`), `words` (`""`), and `slot` (`"auto"`, `"opening_framing"`, `"subject_behavior"`, `"interpersonal_dynamics"`, `"camera_motion"`, `"speech_delivery"`, `"soundscape"`).
-  - Outputs: `(vector_name: STRING, report: STRING)`.
-- **`MiniMaxH3MakeMediaControlVector`** (`control_vector_nodes.py:2394`):
-  - Inputs: `model`, `clip`, `image_a` (`IMAGE`), `image_b` (`IMAGE`), `output_name` (`"media_contrast"`), `pooling` (`"scene_text"`, `"all_tag1"`, `"vision_tokens"`, `"all_rows"`), `short_edge` (`512`, snapped to `32`), `scene_prompt` (`""`), `overwrite` (`False`).
-  - Outputs: `(vector_name: STRING, report: STRING)`.
+`MiniMaxH3MakeControlVector` supports two authoring modes directly inside a ComfyUI graph:
+1. **From a `.toml` Bank (`pair_file != "none"`)**:
+   Select any `.toml` file from `prompt_bank/control_vectors/` in the `pair_file` dropdown.
+2. **In-Place Scene-Paired Contrast (`pair_file = "none"`, `target_prompt` + `words`)**:
+   Paste your scene prompt into `target_prompt` and write your in-place `pole_a -> pole_b` replacement(s) in `words` (e.g., `sunlit diner -> neon-lit cyberpunk diner; soundscape: faint murmurs -> rain and synth hum`). If your scene is `ref2va` or `i2va`, connect `encoded_references: H3_REF_ENCODED` so extraction conditions on the reference image's vision tokens.

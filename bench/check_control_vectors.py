@@ -3241,6 +3241,25 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
                     if bench_cv._resolve_requested_families(img_alias) != ["fl2va"]:
                         errs.append(f"_resolve_requested_families({img_alias!r}) did not resolve to ['fl2va']")
 
+                # Verify explicit CLI method subcommands (from-prompt, from-toml, from-words, from-images, build-j-lens)
+                cli_parser = bench_cv.build_parser()
+                for sub_argv, exp_cmd in (
+                    (["from-prompt", "--target-prompt", "p", "--words", "a -> b"], "from-prompt"),
+                    (["from-toml", "film_16mm_1974"], "from-toml"),
+                    (["from-words", "blizzard, snow"], "from-words"),
+                    (["from-images", "--image-a", "a.png", "--image-b", "b.png"], "from-images"),
+                    (["build-j-lens", "--verify-only"], "build-j-lens"),
+                ):
+                    ns = cli_parser.parse_args(sub_argv)
+                    if ns.cmd != exp_cmd:
+                        errs.append(f"CLI subcommand {sub_argv[0]!r} parsed to {ns.cmd!r}, expected {exp_cmd!r}")
+                if j_lens.bundle_available():
+                    buf_jl_out, buf_jl_err = io.StringIO(), io.StringIO()
+                    with contextlib.redirect_stdout(buf_jl_out), contextlib.redirect_stderr(buf_jl_err):
+                        rc_jl = bench_cv.main(["build-j-lens", "--verify-only"])
+                    if rc_jl != 0:
+                        errs.append(f"build-j-lens --verify-only failed with rc={rc_jl}: {buf_jl_err.getvalue()!r}")
+
                 words_vec_dir = tmp / "words_vec_dir"
                 tp_two_scenes = (
                     "integrated_multimodal_description:\n"
@@ -3257,7 +3276,7 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
                 with contextlib.redirect_stdout(buf_wb_out), contextlib.redirect_stderr(buf_wb_err):
                     rc_wb = bench_cv.main(
                         [
-                            "build",
+                            "from-prompt",
                             "--target-prompt",
                             tp_two_scenes,
                             "--words",

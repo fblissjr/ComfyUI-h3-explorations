@@ -40,6 +40,7 @@ from .helpers import (
     _resolve_requested_families,
     _resolve_vector_for_family,
 )
+from .j_lens_builder import cmd_build_j_lens, verify_j_lens_bundle
 from .llm_pairs import (
     SUPPORTED_LLM_PROVIDERS,
     _extract_system_prompt_text,
@@ -108,6 +109,7 @@ __all__ = [
     "_sigma_shifted",
     "build_parser",
     "cmd_build",
+    "cmd_build_j_lens",
     "cmd_from_md",
     "cmd_generate_pairs",
     "cmd_grade",
@@ -120,4 +122,5 @@ __all__ = [
     "cmd_words",
     "handle_ui_request",
     "main",
+    "verify_j_lens_bundle",
 ]

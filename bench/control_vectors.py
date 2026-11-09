@@ -117,6 +117,7 @@ from bench.control_vector import (  # noqa: E402,F401
     _sigma_shifted,
     build_parser,
     cmd_build,
+    cmd_build_j_lens,
     cmd_from_md,
     cmd_generate_pairs,
     cmd_grade,
@@ -129,6 +130,7 @@ from bench.control_vector import (  # noqa: E402,F401
     cmd_words,
     handle_ui_request,
     main,
+    verify_j_lens_bundle,
 )
 from bench.control_vector import helpers as _helpers  # noqa: E402
 import types  # noqa: E402
