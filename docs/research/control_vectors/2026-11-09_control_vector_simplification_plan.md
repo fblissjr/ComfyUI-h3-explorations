@@ -300,3 +300,35 @@ kept for reusable looks only.
 11.1 and 11.2 need existing nodes only, so they can run before phase 3: one shot, one edited prompt, three
 scales for 11.1 and one switch point for 11.2, each with a repeat, beside the plain prompt and the fully
 rewritten prompt. It decides whether these two join the methods table in section 4.
+
+## 12. Revised order: pair-free methods first
+
+Added the same day, after the owner said that writing prompt pairs is not where they want to spend time, and
+that it should be de-emphasized unless it is the only path that works. It is not the only path, but it is the
+only one with render evidence today, so the order below tests the pair-free methods first and keeps the pair
+files as the fallback. This section replaces the ordering in section 7 where the two differ.
+
+1. The parts of phase 1 that inference needs: the tokenizer name, and a refusal when the scene mask is
+   missing (findings 13 and 14).
+2. The first test of section 11.6: edit guidance and prompt scheduling under Pika. This is the fork.
+3. Phase 4, the small apply node, with the aimed mask of section 11.4. Word emphasis (11.3) if the attention
+   path can take a hook.
+4. The direction track of section 8. Its cached rows can come from plain prompts in `prompt_bank/`; it does
+   not need pairs.
+5. Pairs last, and only as far as needed:
+   - The existing files under `prompt_bank/control_vectors/` are rebuilt as they are, for reusable looks.
+     No new pairs are written.
+   - The rest of phase 1 (findings 1 to 4), phase 2 and phase 3 still apply to that rebuild, in the order
+     section 7 gives.
+   - The scene pool of section 5 and the prompt change of section 6 are parked. They come back only if a
+     reusable look is wanted that no existing file covers and no pair-free method delivers.
+
+What the fork in step 2 decides:
+
+- If edit guidance holds up, the single-prompt vector method is dropped, and "author an edit" means typing
+  `old wording -> new wording` once for the shot at hand.
+- If it does not, the pair files remain the proven method, still without new authoring, and section 8 becomes
+  the main route to new controls.
+
+Under either outcome the methods table in section 4 loses "concept over a scene pool" as a default, and the
+J-Lens words method stays as the instant, low-fidelity option.
