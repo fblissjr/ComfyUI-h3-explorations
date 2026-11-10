@@ -54,8 +54,8 @@
       ],
       "scale": 1.5,
       "first_step": 0,
-      "last_step": 1000,
-      "align_positions": false
+      "align_positions": false,
+      "last_step": 1000
     }
   },
   "10": {

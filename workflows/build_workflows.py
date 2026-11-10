@@ -2371,8 +2371,8 @@ def _wire_edit_guidance(g: dict, prompt: str, spec: dict) -> None:
               "inputs": {"model": guider["inputs"]["model"], "original": guider["inputs"]["conditioning"],
                          "edited": ["131", 0], "scale": float(spec.get("scale", EDIT_GUIDANCE_DEFAULTS["scale"])),
                          "first_step": int(spec.get("first_step", EDIT_GUIDANCE_DEFAULTS["first_step"])),
-                         "last_step": int(spec.get("last_step", EDIT_GUIDANCE_DEFAULTS["last_step"])),
-                         "align_positions": EDIT_GUIDANCE_DEFAULTS["align_positions"]}}
+                         "align_positions": EDIT_GUIDANCE_DEFAULTS["align_positions"],
+                         "last_step": int(spec.get("last_step", EDIT_GUIDANCE_DEFAULTS["last_step"]))}}
 
 
 def build_decode_saved_latent(video_latent: str, audio_latent: str, *,

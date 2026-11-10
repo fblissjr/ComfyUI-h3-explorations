@@ -219,15 +219,15 @@ class MiniMaxH3EditGuider(io.ComfyNode):
                 io.Int.Input("first_step", default=_rules.EDIT_GUIDANCE_DEFAULTS["first_step"], min=0, max=1000,
                              tooltip="The first sampling step that uses the edit. Earlier steps run the original "
                                      "prompt alone, which keeps its framing and pose."),
+                io.Boolean.Input("align_positions", default=_rules.EDIT_GUIDANCE_DEFAULTS["align_positions"],
+                                 optional=True,
+                                 tooltip="Give both prompts the same starting position for the video and audio "
+                                         "rows when their lengths differ. Untested on renders."),
                 io.Int.Input("last_step", default=_rules.EDIT_GUIDANCE_DEFAULTS["last_step"], min=0, max=1000,
                              optional=True,
                              tooltip="The last sampling step that runs 2-pass edit guidance (default 1000 = all steps). "
                                      "Steps after last_step run 1-pass [edited] (scale = 1.0), halving late-step DiT "
                                      "cost while keeping the edited prompt locked under sample_lcm."),
-                io.Boolean.Input("align_positions", default=_rules.EDIT_GUIDANCE_DEFAULTS["align_positions"],
-                                 optional=True,
-                                 tooltip="Give both prompts the same starting position for the video and audio "
-                                         "rows when their lengths differ. Untested on renders."),
             ],
             outputs=[io.Guider.Output()],
         )
@@ -240,8 +240,8 @@ class MiniMaxH3EditGuider(io.ComfyNode):
         edited,
         scale,
         first_step,
-        last_step=_rules.EDIT_GUIDANCE_DEFAULTS["last_step"],
         align_positions=False,
+        last_step=_rules.EDIT_GUIDANCE_DEFAULTS["last_step"],
     ) -> io.NodeOutput:
         len_a, len_b = check_same_but_text(original, edited)
         guider = EditGuider(model)

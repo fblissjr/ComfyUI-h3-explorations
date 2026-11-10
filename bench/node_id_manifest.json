@@ -225,7 +225,8 @@
       "edited",
       "scale",
       "first_step",
-      "align_positions"
+      "align_positions",
+      "last_step"
     ],
     "node_id": "MiniMaxH3EditGuider",
     "outputs": [
