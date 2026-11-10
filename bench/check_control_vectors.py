@@ -1260,6 +1260,22 @@ b = "a busy city street"
             errs.append(
                 f"_select_bank_scenes accepted candidate(s) violating MAX_SHARED_INTERIOR_WORDS=5: got {sel_skip!r}"
             )
+        # Verify infer_compile_mode and compile_words_to_pairset resolve file paths and prompt_bank stems
+        porter_path = REPO / "prompt_bank" / "t2va_night_porter.txt"
+        if pair_comp.infer_compile_mode(None, target_prompt=str(porter_path)) != "t2va":
+            errs.append("infer_compile_mode failed to resolve file path target_prompt to 't2va'")
+        if pair_comp.infer_compile_mode(None, target_prompt="ref2va_woman_blonde_street") != "ref2va":
+            errs.append("infer_compile_mode failed to resolve prompt_bank stem target_prompt to 'ref2va'")
+        ps_from_path = pair_comp.compile_words_to_pairset(
+            "A night porter in scrubs and a fleece -> A NASA astronaut in a bulky white EVA spacesuit",
+            target_prompt=str(porter_path),
+            bank_scenes=2,
+        )
+        if ps_from_path.mode != "t2va" or len(ps_from_path.pairs) != 3:
+            errs.append(
+                f"compile_words_to_pairset with file-path target_prompt + bank_scenes=2 failed: "
+                f"mode={ps_from_path.mode!r}, n_pairs={len(ps_from_path.pairs)}"
+            )
         errs += _expect_refusal(
             lambda: pair_comp.compile_words_to_pairset("   ", target_prompt=inplace_tp),
             "non-empty string",

@@ -1,0 +1,128 @@
+[vector]
+name = "pyro_chain_explosions"
+quality = "violent background pyrotechnic fireball explosions, flying sparks, smoke plumes, and shockwave camera shake against calm undisturbed backgrounds"
+a_side = "calm undisturbed background space under a smooth steady camera mount"
+b_side = "massive orange pyrotechnic fireballs erupting violently behind the subject with showering sparks, billowing black smoke, flying debris, and shockwave camera shake"
+mode = "t2va"
+frame = "scene"
+exclude_shots = ["t2va_offpath_tortoise", "ref2va_look_anchor"]
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Along an industrial concrete loading yard, a mechanic in grease-stained coveralls wipes a steel wrench with a shop rag. Behind him the empty concrete yard sits quiet under overcast daylight while the tripod camera holds a steady medium frame. He produces no vocal sound.
+
+overall_soundscape: Faint wind across concrete pavement and cloth rubbing metal.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Along an industrial concrete loading yard, a mechanic in grease-stained coveralls wipes a steel wrench with a shop rag. Massive orange pyrotechnic fireballs detonate violently across the rear yard, hurling bright showers of sparks, thick black smoke plumes, and airborne debris while concussive shockwaves jolt the handheld lens. He produces no vocal sound.
+
+overall_soundscape: Faint wind across concrete pavement and cloth rubbing metal.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a long fluorescent office corridor, a courier in a tan canvas jacket carries a cardboard parcel toward the elevator doors. Down the hallway rows of closed wooden doors rest undisturbed under smooth gimbal tracking. She (S1) says in a brisk alto, <d>[English] Sign right beside the yellow tab.</d> before closing her lips.
+
+overall_soundscape: Rubber soles stepping along linoleum tile and soft HVAC airflow.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a long fluorescent office corridor, a courier in a tan canvas jacket carries a cardboard parcel toward the elevator doors. Blinding crimson-orange explosions erupt mid-corridor behind her, blasting incandescent ember fountains, churning soot clouds, and splintered ceiling tiles outward as violent blast tremors whip the camera. She (S1) says in a brisk alto, <d>[English] Sign right beside the yellow tab.</d> before closing her lips.
+
+overall_soundscape: Rubber soles stepping along linoleum tile and soft HVAC airflow.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Out on a paved city plaza beside glass storefronts, a commuter in a charcoal trench coat checks her wristwatch near a cast-iron lamp post. Across the pavement parked bicycles and café awnings stand tranquil while a locked-off lens frames her from waist up. She produces no vocal sound.
+
+overall_soundscape: Distant urban traffic murmur and light breeze rustling coat fabric.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Out on a paved city plaza beside glass storefronts, a commuter in a charcoal trench coat checks her wristwatch near a cast-iron lamp post. Chain-reaction pyrotechnic blasts rip across the street behind her, launching towering geysers of roaring flame, cascading golden sparks, and rolling dark smoke as explosive shockwaves rattle the handheld frame. She produces no vocal sound.
+
+overall_soundscape: Distant urban traffic murmur and light breeze rustling coat fabric.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside an underground concrete parking garage, a security guard in a navy bomber jacket holds a flashlight beside painted concrete pillars. Between the pillars parked sedans sit still under overhead fluorescent tubes as the dolly glides smoothly forward. He (S1) speaks in a low baritone, <d>[English] Level three looks completely clear tonight.</d> then presses his lips shut.
+
+overall_soundscape: Echoing boot steps on sealed concrete and low ballast buzz.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside an underground concrete parking garage, a security guard in a navy bomber jacket holds a flashlight beside painted concrete pillars. Ferocious fiery detonations mushroom behind the concrete bays, spraying white-hot magnesium sparks, swirling black smoke billows, and scattering debris while heavy blast concussions shake the handheld camera. He (S1) speaks in a low baritone, <d>[English] Level three looks completely clear tonight.</d> then presses his lips shut.
+
+overall_soundscape: Echoing boot steps on sealed concrete and low ballast buzz.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Out on a coastal container terminal apron, a harbor supervisor in a yellow hard hat reviews a clipboard beside stacked steel containers. Beyond the crane rails stacked cargo boxes rest motionless under grey sky while the camera pans gently left. She (S1) calls out in a clear voice, <d>[English] Move bay seven onto the flatbed.</d> before relaxing her jaw.
+
+overall_soundscape: Crisp sea wind and paper pages fluttering against a clipboard.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Out on a coastal container terminal apron, a harbor supervisor in a yellow hard hat reviews a clipboard beside stacked steel containers. Colossal gasoline-bright fireballs explode among the rear containers, flinging blazing ember arcs, dense oil-black smoke columns, and hurtling fragments as fierce shockwaves buffet the camera. She (S1) calls out in a clear voice, <d>[English] Move bay seven onto the flatbed.</d> before relaxing her jaw.
+
+overall_soundscape: Crisp sea wind and paper pages fluttering against a clipboard.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a stainless-steel restaurant kitchen, a line cook in a black apron plates roasted vegetables onto ceramic dishes along the pass. Along the back wall copper pans hang motionless above tiled counters under a calm static medium shot. He produces no vocal sound.
+
+overall_soundscape: Gentle sizzle from a warm skillet and clink of porcelain plates.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a stainless-steel restaurant kitchen, a line cook in a black apron plates roasted vegetables onto ceramic dishes along the pass. Sudden concussive fireballs burst from the rear range line, spewing blinding orange flames, raining bright sparks, and billowing thick smoke across the ceiling as the blast wave jerks the handheld lens. He produces no vocal sound.
+
+overall_soundscape: Gentle sizzle from a warm skillet and clink of porcelain plates.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Across a dusty desert highway shoulder, a motorist in a faded denim shirt leans against a vintage pickup fender holding a canteen. Behind the truck sagebrush flats stretch peaceful and empty toward distant mesas while the tripod holds level. He (S1) remarks in a dry drawl, <d>[English] Radiator hose held up past the ridge.</d> then closes his mouth.
+
+overall_soundscape: Dry desert breeze sweeping gravel and faint metal tick of a cooling hood.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Across a dusty desert highway shoulder, a motorist in a faded denim shirt leans against a vintage pickup fender holding a canteen. Towering pyrotechnic explosions erupt across the scrubland behind him, blasting mushrooming orange fireballs, arcing ember trails, dirt plumes, and thick black smoke while shockwaves violently jolt the camera. He (S1) remarks in a dry drawl, <d>[English] Radiator hose held up past the ridge.</d> then closes his mouth.
+
+overall_soundscape: Dry desert breeze sweeping gravel and faint metal tick of a cooling hood.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a high-bay warehouse aisle, an inventory clerk in a burgundy fleece vest scans barcode labels along pallet racks. Down the wide aisle shrink-wrapped boxes sit undisturbed on steel shelving under smooth slow push-in framing. She produces no vocal sound.
+
+overall_soundscape: Quiet scanner beep and distant warehouse ventilation drone.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a high-bay warehouse aisle, an inventory clerk in a burgundy fleece vest scans barcode labels along pallet racks. Explosive orange fireballs rip sequentially down the rear shelving bays, hurling fountains of glowing sparks, churning dark smoke, and tumbling cardboard debris as blast pressure shakes the handheld lens. She produces no vocal sound.
+
+overall_soundscape: Quiet scanner beep and distant warehouse ventilation drone.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Out on a brick university quad walkway, a graduate student in an olive parka adjusts a leather messenger strap beside stone steps. Behind him trimmed hedges and brick arches stand serene in afternoon light while the camera holds steady. He (S1) says in an even tenor, <d>[English] Meet me outside the chemistry annex.</d> before stilling his jaw.
+
+overall_soundscape: Crisp autumn leaves skittering softly across brick paving.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Out on a brick university quad walkway, a graduate student in an olive parka adjusts a leather messenger strap beside stone steps. Roaring pyrotechnic blasts detonate across the courtyard behind him, throwing blinding amber fireballs, cascading spark showers, and dense black smoke clouds skyward while shockwave tremors whip the camera. He (S1) says in an even tenor, <d>[English] Meet me outside the chemistry annex.</d> before stilling his jaw.
+
+overall_soundscape: Crisp autumn leaves skittering softly across brick paving.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a tiled subway station mezzanine, a saxophonist in a wool peacoat latches a brass instrument case upon a wooden bench. Along the mezzanine ceramic wall tiles and turnstiles remain tranquil under a smooth static medium shot. She (S1) speaks in a warm alto, <d>[English] Last express train arrives in four minutes.</d> then closes her lips.
+
+overall_soundscape: Brass case latch clicking shut over quiet subterranean room tone.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a tiled subway station mezzanine, a saxophonist in a wool peacoat latches a brass instrument case upon a wooden bench. Blinding orange explosions blast through the rear concourse, unleashing billowing fireballs, violent showers of white-hot sparks, and rolling soot plumes as concussive shockwaves shudder the handheld frame. She (S1) speaks in a warm alto, <d>[English] Last express train arrives in four minutes.</d> then closes her lips.
+
+overall_soundscape: Brass case latch clicking shut over quiet subterranean room tone.
+
+non_diegetic_music: N/A'''

@@ -1,0 +1,128 @@
+[vector]
+name = "balloon_head_inflate"
+quality = "colossal glossy spherical balloon-head inflation against natural human head and facial proportions"
+a_side = "proportioned human skull, relaxed cheeks, and natural head width above the collar"
+b_side = "colossal glossy spherical inflated balloon head swelling three times wider than the shoulders with stretched shiny cheeks"
+mode = "t2va"
+frame = "scene"
+exclude_shots = ["t2va_offpath_tortoise", "ref2va_look_anchor"]
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. In a warm oak-paneled study, an elderly archivist in an emerald knit cardigan, having silver hair combed neatly over narrow temples and relaxed cheekbones, leans above an antique blotter. The camera tracks slowly forward as she (S1) says in a gentle, raspy tone, <d>[English] Check the bottom drawer for the ledger.</d> before closing her lips.
+
+overall_soundscape: Quiet ticking of a wall clock and faint paper rustle across wood.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. In a warm oak-paneled study, an elderly archivist in an emerald knit cardigan, sporting a colossal glossy inflated balloon head swelling three times wider than shoulders with taut shiny cheeks, leans above an antique blotter. The camera tracks slowly forward as she (S1) says in a gentle, raspy tone, <d>[English] Check the bottom drawer for the ledger.</d> before closing her lips.
+
+overall_soundscape: Quiet ticking of a wall clock and faint paper rustle across wood.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Out on a sunlit timber harbor pier, a broad-shouldered dockworker in faded denim overalls, with short curly dark hair and sun-weathered angular jawline, leans beside coiled mooring rope. The camera pans slightly left as he produces no vocal sound and keeps his mouth closed.
+
+overall_soundscape: Harbor breeze over wooden planks, distant gulls, and water lapping against pilings.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Out on a sunlit timber harbor pier, a broad-shouldered dockworker in faded denim overalls, bearing an enormous spherical rubberized balloon cranium distended vastly beyond collar width and glossy stretched cheeks, leans beside coiled mooring rope. The camera pans slightly left as he produces no vocal sound and keeps his mouth closed.
+
+overall_soundscape: Harbor breeze over wooden planks, distant gulls, and water lapping against pilings.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a bright university lecture room, a female professor in a charcoal tweed blazer, with neatly pinned chestnut hair and calm slender temples, stands behind a wooden lectern. The camera pulls back smoothly as she (S1) speaks in a crisp alto voice, <d>[English] Turn immediately to page forty-two.</d> then presses her lips shut.
+
+overall_soundscape: Low ventilation hum and subtle room acoustics inside a quiet hall.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a bright university lecture room, a female professor in a charcoal tweed blazer, crowned by a giant buoyant helium-swollen dome head expanding massively past shoulder span with taut gleaming skin, stands behind a wooden lectern. The camera pulls back smoothly as she (S1) speaks in a crisp alto voice, <d>[English] Turn immediately to page forty-two.</d> then presses her lips shut.
+
+overall_soundscape: Low ventilation hum and subtle room acoustics inside a quiet hall.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. On an open stone courtyard terrace at morning, a young painter in a pigment-stained linen smock, with braided auburn hair and freckled oval cheeks, sits beside a wooden easel. The camera tilts gently as she (S1) remarks in a bright voice, <d>[English] This cobalt glaze needs ten more minutes.</d> before resting her jaw.
+
+overall_soundscape: Morning breeze across flagstones and soft bristle strokes against canvas.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. On an open stone courtyard terrace at morning, a young painter in a pigment-stained linen smock, topped by a mammoth round overinflated balloon skull puffing three times wider than torso frame with glossy tight cheeks, sits beside a wooden easel. The camera tilts gently as she (S1) remarks in a bright voice, <d>[English] This cobalt glaze needs ten more minutes.</d> before resting her jaw.
+
+overall_soundscape: Morning breeze across flagstones and soft bristle strokes against canvas.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Across a sleek glass conference room, a senior executive in a navy wool suit, with close-cropped grey temples and a clean-shaven narrow jaw, rests both palms on polished walnut. The camera pushes in slowly as he produces no vocal sound and holds a calm gaze.
+
+overall_soundscape: Soft air-duct whisper and hushed interior room tone.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Across a sleek glass conference room, a senior executive in a navy wool suit, exhibiting a gargantuan spherical pressurized balloon head bulging wildly beyond collarbone span with taut reflective cheeks, rests both palms on polished walnut. The camera pushes in slowly as he produces no vocal sound and holds a calm gaze.
+
+overall_soundscape: Soft air-duct whisper and hushed interior room tone.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a warm artisan bakery kitchen, a young baker in a flour-dusted white coat, with tucked black curls and relaxed rosy cheeks, stands behind a marble pastry island. The camera holds a steady medium shot as she (S1) says in a clear voice, <d>[English] Fold the butter gently into the dough.</d> then closes her mouth.
+
+overall_soundscape: Steady oven fan whir and faint metallic clink of pastry scrapers.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a warm artisan bakery kitchen, a young baker in a flour-dusted white coat, carrying an oversized globular balloon-inflated cranium swelling dramatically wider than both shoulders with shiny distended skin, stands behind a marble pastry island. The camera holds a steady medium shot as she (S1) says in a clear voice, <d>[English] Fold the butter gently into the dough.</d> then closes her mouth.
+
+overall_soundscape: Steady oven fan whir and faint metallic clink of pastry scrapers.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Out on a terraced botanical greenhouse walkway, a male botanist in a khaki field shirt, with wire-rimmed spectacles and short sandy hair, examines potted ferns along a cedar bench. The camera arcs gently right as he (S1) notes in an even baritone, <d>[English] Notice the spore pattern under these fronds.</d> before settling his jaw.
+
+overall_soundscape: Trickling irrigation water and soft rustle of greenhouse foliage.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Out on a terraced botanical greenhouse walkway, a male botanist in a khaki field shirt, sporting a monstrously swollen spherical balloon head bobbing buoyantly at triple shoulder width with taut gleaming temples, examines potted ferns along a cedar bench. The camera arcs gently right as he (S1) notes in an even baritone, <d>[English] Notice the spore pattern under these fronds.</d> before settling his jaw.
+
+overall_soundscape: Trickling irrigation water and soft rustle of greenhouse foliage.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Along a rain-dampened cobblestone lane at dusk, a courier in an olive waxed jacket, with short dark hair and a narrow stubbled jawline, waits beside a parked bicycle. The camera holds static as he produces no vocal sound and breathes quietly.
+
+overall_soundscape: Distant tire hiss on wet stone and light evening drizzle.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Along a rain-dampened cobblestone lane at dusk, a courier in an olive waxed jacket, bearing a stupendous round helium-puffed balloon skull inflated massively beyond torso breadth with shiny stretched cheeks, waits beside a parked bicycle. The camera holds static as he produces no vocal sound and breathes quietly.
+
+overall_soundscape: Distant tire hiss on wet stone and light evening drizzle.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside an electronics workbench alcove, a technician in a royal-blue ESD coat, with cropped black bangs and slender cheekbones, inspects a brass circuit chassis under a desk lamp. The camera zooms in slowly as he (S1) states in a calm tone, <d>[English] Voltage across the main rail looks clean.</d> then stills his lips.
+
+overall_soundscape: Quiet cooling fan hum and crisp click of probe leads.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside an electronics workbench alcove, a technician in a royal-blue ESD coat, topped by a colossal bulbous inflated balloon head distending three times broader than shoulder line with glossy taut skin, inspects a brass circuit chassis under a desk lamp. The camera zooms in slowly as he (S1) states in a calm tone, <d>[English] Voltage across the main rail looks clean.</d> then stills his lips.
+
+overall_soundscape: Quiet cooling fan hum and crisp click of probe leads.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Behind an analog broadcast console, a late-night host in a brown corduroy waistcoat, with a neat salt-and-pepper beard and relaxed brow, leans toward a suspended studio mic. The camera trucks smoothly right as he (S1) speaks in a warm bass, <d>[English] Welcome back to our midnight jazz hour.</d> before closing his mouth.
+
+overall_soundscape: Damped studio room silence and faint console transformer hum.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Behind an analog broadcast console, a late-night host in a brown corduroy waistcoat, crowned by an immense spherical rubber-gloss balloon cranium puffed wildly past shoulder width with tight shiny cheeks, leans toward a suspended studio mic. The camera trucks smoothly right as he (S1) speaks in a warm bass, <d>[English] Welcome back to our midnight jazz hour.</d> before closing his mouth.
+
+overall_soundscape: Damped studio room silence and faint console transformer hum.
+
+non_diegetic_music: N/A'''

@@ -91,19 +91,50 @@ def normalize_compile_mode(mode: str | None) -> str:
     )
 
 
+def _maybe_resolve_prompt_text(
+    target_prompt: str | Path | None,
+    *,
+    bank_dir: str | Path | None = None,
+) -> str:
+    """Resolve `target_prompt` when it names an existing file or `prompt_bank/<stem>.txt`;
+    otherwise return the inline prompt string unchanged."""
+    if target_prompt is None:
+        return ""
+    tp_s = str(target_prompt).strip()
+    if not tp_s or "\n" in tp_s or len(tp_s) > 512:
+        return tp_s
+    try:
+        cand = Path(tp_s)
+        if cand.is_file():
+            return cand.read_text(encoding="utf-8").strip()
+        resolved_bank = (
+            Path(bank_dir)
+            if bank_dir is not None
+            else (Path(__file__).resolve().parent / "prompt_bank")
+        )
+        bank_cand = resolved_bank / (tp_s if tp_s.endswith(".txt") else f"{tp_s}.txt")
+        if bank_cand.is_file():
+            return bank_cand.read_text(encoding="utf-8").strip()
+    except OSError:
+        pass
+    return tp_s
+
+
 def infer_compile_mode(
     explicit_mode: str | None = None,
     *,
     ref_images: Any | None = None,
-    target_prompt: str | None = None,
+    target_prompt: str | Path | None = None,
     words: str | None = None,
+    bank_dir: str | Path | None = None,
 ) -> str:
     """Infer the H3 prompt mode from `explicit_mode`, `ref_images`, `target_prompt`, or `words`."""
     if explicit_mode is not None and str(explicit_mode).strip().lower() not in ("", "auto"):
         return normalize_compile_mode(explicit_mode)
     if ref_images:
         return "ref2va"
-    for text in (target_prompt, words):
+    resolved_tp = _maybe_resolve_prompt_text(target_prompt, bank_dir=bank_dir)
+    for text in (resolved_tp, words):
         if not text or not str(text).strip():
             continue
         s = str(text)
@@ -123,13 +154,12 @@ def infer_compile_mode(
             return "fl2va"
         if "integrated_multimodal_description:" in s or "overall_soundscape:" in s:
             return "t2va"
-    if target_prompt and str(target_prompt).strip():
-        tp_s = str(target_prompt).strip()
+    if resolved_tp:
         if (
-            "[Shot " not in tp_s
-            and "integrated_multimodal_description:" not in tp_s
-            and "detailed_description:" not in tp_s
-            and "overall_soundscape:" not in tp_s
+            "[Shot " not in resolved_tp
+            and "integrated_multimodal_description:" not in resolved_tp
+            and "detailed_description:" not in resolved_tp
+            and "overall_soundscape:" not in resolved_tp
         ):
             return "p_h3_image"
     return "t2va"
@@ -314,8 +344,12 @@ def _parse_clauses_and_holds(
     return visual_clauses, sound_clauses, hold_clauses
 
 
-def _split_target_prompts(target_prompt: str | None) -> list[str]:
-    tp_clean = str(target_prompt or "").strip()
+def _split_target_prompts(
+    target_prompt: str | Path | None,
+    *,
+    bank_dir: str | Path | None = None,
+) -> list[str]:
+    tp_clean = _maybe_resolve_prompt_text(target_prompt, bank_dir=bank_dir)
     if not tp_clean:
         raise ValueError(
             "target_prompt is required when compiling contrast clauses "
@@ -644,7 +678,7 @@ def compile_short_contrast_pairs(
     """Compile `(pole_a, pole_b)` (plus optional `extra_clauses` and `soundscape_clauses`)
     in-place across the scene prompt(s) in `target_prompt` (plus `bank_scenes` auxiliary prompts)."""
     norm_mode = normalize_compile_mode(mode)
-    primary_scenes = _split_target_prompts(target_prompt)
+    primary_scenes = _split_target_prompts(target_prompt, bank_dir=bank_dir)
 
     main_spec = f"{pole_a} ||| {pole_b}" if str(pole_a or "").strip() else str(pole_b or "").strip()
     vis_clauses, snd_clauses, parsed_holds = _parse_clauses_and_holds(
@@ -725,8 +759,9 @@ def compile_words_to_pairset(
         mode if mode and mode != "auto" else None,
         target_prompt=target_prompt,
         words=raw,
+        bank_dir=bank_dir,
     )
-    primary_scenes = _split_target_prompts(target_prompt)
+    primary_scenes = _split_target_prompts(target_prompt, bank_dir=bank_dir)
     vis_clauses, snd_clauses, parsed_holds = _parse_clauses_and_holds(
         raw,
         extra_clauses=extra_clauses,
@@ -876,6 +911,7 @@ def parse_short_contrast_spec(
         meta.get("mode"),
         target_prompt=eff_tp,
         words="\n".join(body_lines),
+        bank_dir=bank_dir,
     )
     pair_set = compile_words_to_pairset(
         "\n".join(body_lines),

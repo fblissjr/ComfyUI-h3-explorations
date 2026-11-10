@@ -75,15 +75,16 @@ caught by `bench/check_model_files.py`, which needs a running server.
 folder, with no claim per file:
 
 ```text
-auctioneer_rapid_patter   bioluminescent_glow   chaos_panic            claymation_stopmotion
-crystallize_ice           cursed_cctv           cyberpunk_neon_rain    elastic_neck_stretch
-felt_muppet               fever_melt            film_16mm_1974         film_16mm_1974_neutral
-handheld_documentary_zoom head_swell            infomercial_fail       lettering
-magnetic_attraction       miniature_tiltshift   noir                   operatic_bellow
-paper_origami             reverb_cathedral      rubber_hose_1930s      smoke_dissolve
-strobe_club_pulse         thermal_infrared      underwater_submerged   vhs_1991_camcorder
-vocal_strain              wes_anderson_symmetry whisper_asmr           wind_tunnel_gale
-zero_gravity
+auctioneer_rapid_patter   balloon_head_inflate  bioluminescent_glow    chaos_panic
+claymation_stopmotion     crystallize_ice       cursed_cctv            cyberpunk_neon_rain
+elastic_neck_stretch      felt_muppet           fever_melt             film_16mm_1974
+film_16mm_1974_neutral    handheld_documentary_zoom head_swell         infomercial_fail
+lettering                 magnetic_attraction   miniature_tiltshift    molten_lava_golem
+noir                      operatic_bellow       paper_origami          pyro_chain_explosions
+pyro_klaxon_audio         reverb_cathedral      rubber_hose_1930s      smoke_dissolve
+strobe_club_pulse         sunken_coral_reef     thermal_infrared       underwater_submerged
+vhs_1991_camcorder        vocal_strain          wes_anderson_symmetry  whisper_asmr
+wind_tunnel_gale          zero_gravity
 ```
 
 `ls prompt_bank/control_vectors/` is the authority; this list is a copy made on the date above.

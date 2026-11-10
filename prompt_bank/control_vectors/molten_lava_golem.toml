@@ -1,0 +1,128 @@
+[vector]
+name = "molten_lava_golem"
+quality = "cracked volcanic obsidian-and-magma golem anatomy with glowing orange lava veins and incandescent ember eyes against natural human skin and hair"
+a_side = "natural human skin, hair, and everyday cloth garments"
+b_side = "hulking cracked-obsidian volcanic magma golem fissured with glowing orange lava veins, incandescent ember eyes, and rising heat sparks"
+mode = "t2va"
+frame = "scene"
+exclude_shots = ["t2va_offpath_tortoise", "ref2va_look_anchor"]
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. In an oak-paneled study, an elderly woman with silver hair in an emerald knit cardigan leans above an antique desk blotter. The camera tracks slowly forward as she (S1) says in a gentle, raspy tone, <d>[English] Check the bottom drawer for the ledger.</d> before closing her lips.
+
+overall_soundscape: Quiet ticking of a wall clock and faint paper rustle across wood.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. In an oak-paneled study, a hulking cracked-obsidian magma golem fissured by glowing orange lava streams, incandescent ember eyes, and rising volcanic sparks leans above an antique desk blotter. The camera tracks slowly forward as she (S1) says in a gentle, raspy tone, <d>[English] Check the bottom drawer for the ledger.</d> before closing her lips.
+
+overall_soundscape: Quiet ticking of a wall clock and faint paper rustle across wood.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Out on a sunlit timber harbor pier, a broad-shouldered dockworker with curly dark hair in faded denim overalls leans beside coiled mooring rope. The camera pans slightly left as he produces no vocal sound and keeps his mouth closed.
+
+overall_soundscape: Harbor breeze over wooden planks, distant gulls, and water lapping against pilings.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Out on a sunlit timber harbor pier, a towering basalt-armored lava creature veined with searing molten magma cracks, blazing furnace eyes, and drifting cinder ash leans beside coiled mooring rope. The camera pans slightly left as he produces no vocal sound and keeps his mouth closed.
+
+overall_soundscape: Harbor breeze over wooden planks, distant gulls, and water lapping against pilings.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a bright university lecture room, a female professor with chestnut hair in a charcoal tweed blazer stands behind a wooden lectern. The camera pulls back smoothly as she (S1) speaks in a crisp alto voice, <d>[English] Turn immediately to page forty-two.</d> then presses her lips shut.
+
+overall_soundscape: Low ventilation hum and subtle room acoustics inside a quiet hall.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a bright university lecture room, an incandescent volcanic stone golem crusted in black slag plates, pulsing orange magma fissures, and fiery amber eyes stands behind a wooden lectern. The camera pulls back smoothly as she (S1) speaks in a crisp alto voice, <d>[English] Turn immediately to page forty-two.</d> then presses her lips shut.
+
+overall_soundscape: Low ventilation hum and subtle room acoustics inside a quiet hall.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. On an open stone courtyard terrace at morning, a young painter with braided auburn hair in a linen smock sits beside a wooden easel. The camera tilts gently as she (S1) remarks in a bright voice, <d>[English] This cobalt glaze needs ten more minutes.</d> before resting her jaw.
+
+overall_soundscape: Morning breeze across flagstones and soft bristle strokes against canvas.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. On an open stone courtyard terrace at morning, a smoldering obsidian-crusted lava golem radiating bright orange molten crevices, glowing ember sockets, and shimmering heat sparks sits beside a wooden easel. The camera tilts gently as she (S1) remarks in a bright voice, <d>[English] This cobalt glaze needs ten more minutes.</d> before resting her jaw.
+
+overall_soundscape: Morning breeze across flagstones and soft bristle strokes against canvas.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Across a sleek glass conference room, a senior executive with grey temples in a navy wool suit rests both palms on polished walnut. The camera pushes in slowly as he produces no vocal sound and holds a calm gaze.
+
+overall_soundscape: Soft air-duct whisper and hushed interior room tone.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Across a sleek glass conference room, a massive charred-basalt magma colossus split by white-hot flowing lava veins, burning orange eyes, and rising ember flecks rests both palms on polished walnut. The camera pushes in slowly as he produces no vocal sound and holds a calm gaze.
+
+overall_soundscape: Soft air-duct whisper and hushed interior room tone.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a warm artisan bakery kitchen, a young baker with tucked black curls in a white cotton coat stands behind a marble pastry island. The camera holds a steady medium shot as she (S1) says in a clear voice, <d>[English] Fold the butter gently into the dough.</d> then closes her mouth.
+
+overall_soundscape: Steady oven fan whir and faint metallic clink of pastry scrapers.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a warm artisan bakery kitchen, a jagged volcanic rock golem coursing with luminous orange molten magma channels, blazing ember eyes, and swirling ash sparks stands behind a marble pastry island. The camera holds a steady medium shot as she (S1) says in a clear voice, <d>[English] Fold the butter gently into the dough.</d> then closes her mouth.
+
+overall_soundscape: Steady oven fan whir and faint metallic clink of pastry scrapers.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Out on a terraced botanical greenhouse walkway, a male botanist with sandy hair in a khaki field shirt examines potted ferns along a cedar bench. The camera arcs gently right as he (S1) notes in an even baritone, <d>[English] Notice the spore pattern under these fronds.</d> before settling his jaw.
+
+overall_soundscape: Trickling irrigation water and soft rustle of greenhouse foliage.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Out on a terraced botanical greenhouse walkway, a fissured black-obsidian magma golem glowing through molten orange lava cracks, fiery furnace eyes, and rising cinder sparks examines potted ferns along a cedar bench. The camera arcs gently right as he (S1) notes in an even baritone, <d>[English] Notice the spore pattern under these fronds.</d> before settling his jaw.
+
+overall_soundscape: Trickling irrigation water and soft rustle of greenhouse foliage.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Along a rain-dampened cobblestone lane at dusk, a courier with short dark hair in an olive waxed jacket waits beside a parked bicycle. The camera holds static as he produces no vocal sound and breathes quietly.
+
+overall_soundscape: Distant tire hiss on wet stone and light evening drizzle.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Along a rain-dampened cobblestone lane at dusk, a hulking volcanic stone lava brute webbed with incandescent magma fissures, molten amber eyes, and hissing ember sparks waits beside a parked bicycle. The camera holds static as he produces no vocal sound and breathes quietly.
+
+overall_soundscape: Distant tire hiss on wet stone and light evening drizzle.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside an electronics workbench alcove, a technician with cropped black bangs in a blue smock inspects a brass circuit chassis under a desk lamp. The camera zooms in slowly as he (S1) states in a calm tone, <d>[English] Voltage across the main rail looks clean.</d> then stills his lips.
+
+overall_soundscape: Quiet cooling fan hum and crisp click of probe leads.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside an electronics workbench alcove, a craggy obsidian-plated magma golem illuminated by glowing orange lava seams, searing ember eyes, and floating volcanic sparks inspects a brass circuit chassis under a desk lamp. The camera zooms in slowly as he (S1) states in a calm tone, <d>[English] Voltage across the main rail looks clean.</d> then stills his lips.
+
+overall_soundscape: Quiet cooling fan hum and crisp click of probe leads.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Behind an analog broadcast console, a late-night host with a neat beard in a brown corduroy vest leans toward a suspended studio mic. The camera trucks smoothly right as he (S1) speaks in a warm bass, <d>[English] Welcome back to our midnight jazz hour.</d> before closing his mouth.
+
+overall_soundscape: Damped studio room silence and faint console transformer hum.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Behind an analog broadcast console, a broad-shouldered volcanic magma golem fractured by bright molten lava rivers, glowing orange eyes, and drifting cinder embers leans toward a suspended studio mic. The camera trucks smoothly right as he (S1) speaks in a warm bass, <d>[English] Welcome back to our midnight jazz hour.</d> before closing his mouth.
+
+overall_soundscape: Damped studio room silence and faint console transformer hum.
+
+non_diegetic_music: N/A'''
