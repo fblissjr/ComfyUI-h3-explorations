@@ -13,13 +13,68 @@ What it rests on:
 - a survey of perception models released from late 2025 on, with papers' claims kept apart from independent evidence;
 - the 2026-11-10 depth test of MoGe-3 against HyDen MoGe-2 (untracked, under `internal/scratch/images/`).
 
+## Where things stand (2026-11-10)
+
+- **`fun` is closed.** It ended on 2026-10-31 at about 17:30 to 18:00 Central (the owner).
+  - **Its final cut:** `output/Video/fun/day_2026-10-31/fun_0000_6394_joined_2026-10-31T2231Z_from_laid.mp4`.
+  - **Its final state:** the cut's record names the laid list `70ead45b...`, which is `data/fun/laid.jsonl` as it
+    stands.
+  - **Its copies:** the source, `input/fun.mp4`, is back. The 24 fps working copy was rebuilt by its recorded recipe,
+    byte-identical to its record (`data/fun/copies_rebuilt_2026-11-10/README.md`).
+- **`fun2` is next**, in `data/fun_lead2/`.
+  - **The change:** the same footage, with only the lead replaced: a new reference, `img_lead_2.jpg`, face only as
+    before.
+  - **What stays:** `second` and `third` composite exactly as in `fun`'s final laid list.
+  - **Its old start:** everything dated 2026-11-01 Central or later (from 05:00Z in the records' stamps) is `fun2`'s,
+    including work run under the old conditions inside `fun`'s folders.
+
 ## The order, and why
 
-1. **Move the lane's records into one SQLite file.** It changes no picture, and every later step writes into it.
-2. **Turn the forgotten opt-ins on by default in the code.** Small, with no open question.
-3. **Test the `gem/perception-lhf` branch against kept pieces.** Most of the structural simplification is already
-   built there.
-4. **One stage that smooths over time, then one model swap at a time.** This needs step 3's structure to sit on.
+1. **The lane's records in SQLite, first tier.** Import what a person said and decided, plus `fun`'s closing state.
+   The test: the database reproduces the delivery table of `fun`'s final cut, which names laid list `70ead45b...`. It
+   changes no picture.
+2. **Turn the forgotten opt-ins on by default in the code.** Small, with no open question, and in before `fun2`'s
+   first load.
+3. **Set up `fun2` and start its lead loads,** lead-alone shots first (below). Every lead load's masks are compared with
+   the masks `fun`'s kept lead piece on the same frames was made from: same footage and same face-only region, so they
+   should match. That comparison is the baseline steps 4 and 5 are measured against.
+4. **Test the `gem/perception-lhf` branch** on `fun2`'s lead-alone shots against that baseline, before it makes any
+   `fun2` piece. Most of the structural simplification is already built there.
+5. **One stage that smooths over time, then one model swap at a time,** tested the same way. The face/hair split
+   matters here: the lead is face only, so Sapiens2's face class is what draws the lead's region.
+6. **The record's later tiers run alongside:** every file as an artifact (hashed in the background), the recorded
+   links, then the inferred links, labelled. The tools move onto the database one at a time.
+
+**`fun2` does not wait for every tool to move.** It runs on today's tools, which work. The importer re-runs as `fun2`
+writes, until each tool reads and writes the database itself. Waiting for the whole move would hold `fun2` for weeks
+for no picture gained.
+
+## `fun2`: what the lead's loads are
+
+From `fun`'s final laid list, the 47 shots with a laid lead piece fall into three cases:
+
+| case | shots | how `fun2`'s lead is made |
+|---|---|---|
+| the lead alone on the shot | 39 | a fresh load on the working copy, as in `fun` |
+| the lead laid last | 2: 604-1009, 4647-4725 | on the cut that holds `second` and `third`, as in `fun` |
+| the lead laid before another subject | 6: 1010-1038, 1093-1133, 1222-1305, 1306-1418, 1419-1465, 1466-1729 | the lead becomes the **last** pass, made on `fun`'s cut that holds the kept `second` and `third`, with them kept out by their tracks |
+
+- **The rule this departs from:** the third case departs from the standing remake rule, that remaking an earlier pass
+  remakes every pass after it ([`AGENTS.md`](AGENTS.md), "The owner's rules for passes, prep and judging"). The
+  owner's word for `fun2` (2026-11-10: only the lead changes, and `second` and `third` composite as before) overrides
+  it there.
+- **Where it is written:** that goes in `data/fun_lead2/AGENTS.md` before the first load, so no session applies the
+  old rule.
+- **Where to look:** frames where the new lead and a kept piece change the same pixels. The assembler flags them
+  (`two_pieces_change_the_same_pixels`).
+
+**Before the first `fun2` load:**
+- `data/fun_lead2/laid.jsonl` is re-seeded from `fun`'s final list: its `second` and `third` rows, with no lead rows.
+  The current file is a snapshot from an older state.
+- `data/fun_lead2/AGENTS.md` and its one-line `CLAUDE.md` are written (`data/AGENTS.md`: every video, and so every
+  project, has its own).
+- `fun2`'s work of 2026-11-01 onward, run under the old conditions, is listed, not laid. The owner says which of it,
+  if any, stands.
 
 ## 1. The lane's records in SQLite
 
