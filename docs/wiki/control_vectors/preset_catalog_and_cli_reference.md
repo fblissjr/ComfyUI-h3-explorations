@@ -1,64 +1,93 @@
-# 5. Preset Catalog & CLI Reference
+# The command line, the files and the bank
 
-[← Back to Control Vectors Overview](../control_vectors.md)
+last updated: 2026-11-09
 
-This page documents every CLI subcommand in [`bench/control_vectors.py`](../../../bench/control_vectors.py) ([`bench/control_vector/cli.py`](../../../bench/control_vector/cli.py)), the `.safetensors` filename & metadata contract, and the 32 generalizable multi-scene `.toml` banks in `prompt_bank/control_vectors/`.
+[Back to the start page](../control_vectors.md)
 
----
+## The commands
 
-## 1. CLI Subcommands by Creation / Inspection Role
+The tool is `bench/control_vectors.py`. Its own help is the reference, for the commands and for every flag
+of each:
 
-Run all commands with the ComfyUI virtualenv Python (`COMFY="$(cd ../.. && pwd)" && PY="$COMFY/.venv/bin/python"`):
-
-### A. The Four Creation Subcommands
-
-| Subcommand (and Aliases) | Purpose & Key Flags | Example |
-|---|---|---|
-| **`from-prompt`** | **Method 1 — In-Place Scene-Paired Contrast**: Substitutes `pole_a -> pole_b` directly inside `--target-prompt` (with optional `--ref-images` for `<Picture N>` vision conditioning).<br>• `--name <stem>` (required)<br>• `--target-prompt <path_or_text>` (required)<br>• `--words "pole_a -> pole_b; soundscape: a -> b; hold(g): a -> b"` (required)<br>• `--ref-images <img1.png> [...]` (optional)<br>• `--families {both,fl2va,ref2va}` (default `both`)<br>• `--hold-words "w1, w2"` (optional)<br>• `--save-toml [<path>]` (optional) | `"$PY" bench/control_vectors.py from-prompt --name diner_sitcom --target-prompt my_diner.txt --ref-images subject1.png --words "Cinematic. -> A 1990s multi-camera studio sitcom.; warm, amused voice -> punchy sitcom delivery" --families ref2va --overwrite` |
-| **`from-toml`**<br>*(aliases: `build`, `make`)* | **Method 2 — Multi-Scene Reusable Library Vector**: Builds 10-pair `.toml` or `.md` pair files (or all 32 library `.toml` files with `--all`).<br>• `<pairs.toml\|.md>` or `--all`<br>• `--families {both,fl2va,ref2va}` (default `both`)<br>• `--pooling {diff_span,from_first_diff,scene_text,all_tag1}` (default `diff_span`)<br>• `--hold-words "w1, w2"` (optional)<br>• `--no-lora` (build base refiner instead of default Pika LoRA) | `"$PY" bench/control_vectors.py from-toml --all --families both --overwrite` |
-| **`from-words`**<br>*(alias: `words`)* | **Method 3 — Instant `< 2 ms` CPU Unigram Synthesis via J-Lens**: Synthesizes a vector from vocabulary words on CPU with `0 GB` GPU VRAM.<br>• `<words>` (`"blizzard, snowstorm, frost"`)<br>• `--against-words` (`@neutral`, `@prompt_subject`, `@replace_human`, or comma list)<br>• `--hold-words "w1, w2"` (`--hold-alpha 1.0`)<br>• `--target-prompt <path_or_text>` (optional, for `@prompt_subject`)<br>• `--name <stem>` | `"$PY" bench/control_vectors.py from-words "blizzard, snowstorm, frost" --against-words "sunlight, clear, mild" --hold-words "coat, parka" --name fast_blizzard` |
-| **`from-images`**<br>*(alias: `make-media`)* | **Method 4 — Visual Look Transfer (`Image A -> Image B`)**: Extracts the visual difference between two reference stills across `pooling = "scene_text"`.<br>• `--name <stem>` (required)<br>• `--image-a <baseline.png>` & `--image-b <target.png>` (required)<br>• `--short-edge 512` (32-px M-RoPE grid snap)<br>• `--pooling {scene_text,vision_tokens,all_tag1,all_rows}` | `"$PY" bench/control_vectors.py from-images --name look_grade --image-a flat.png --image-b graded.png --overwrite` |
-
-### B. Sculpting, Rebuilding, J-Lens Maintenance & Diagnostics
-
-| Subcommand | Purpose & Key Flags | Example |
-|---|---|---|
-| **`sculpt`** | **`< 5 ms` CPU Subspace Sculptor**: Invert (`--invert`), blend (`--modes`, `--strengths`), or orthogonalize (`--hold`, `--hold-words`) existing vectors on CPU. | `"$PY" bench/control_vectors.py sculpt blizzard --invert --name anti_blizzard` |
-| **`rebuild`** | **Batch or Single-Vector Re-Extraction**: Rebuilds all vectors in `models/control_vectors/` (or a specific folder/stem) from their embedded `metadata["pairs"]` or `.toml` source in a single shared model pass. | `"$PY" bench/control_vectors.py rebuild` |
-| **`build-j-lens`** | **Verify or Rebuild `models/j_lens/j_lens_h3.safetensors`**:<br>• `--verify-only` (`< 50 ms` CPU schema/round-trip check)<br>• `--num-prompts 24` (recompute `Sigma_49_p030`, `J_ref_*`, and `J_wiener_*` from local checkpoints) | `"$PY" bench/control_vectors.py build-j-lens --verify-only` |
-| **`inspect`** | **Inspect Metadata, J-Lens Readouts & Prompt Receptor Coupling**: Prints tensor norms, split-half cosine, `j_lens (+)/(-)`, and optional `--prompt` / `--meter` token coupling. | `"$PY" bench/control_vectors.py inspect film_16mm_1974__fl2va__diff_span__lora_2a8c2b52.safetensors --prompt my_scene.txt` |
-| **`generate-pairs`** / **`from-md`** | **LLM Pair Authoring**: Runs a local LLM (`--llm-provider transformers` or `exllamav3`) with `h3_control_vector_system_prompt.md`, or converts an external LLM `.md` response into `.toml` (`from-md`) or `.safetensors` (`from-toml response.md`). | `"$PY" bench/control_vectors.py from-toml response.md --name custom_concept` |
-| **`grade`** / **`ui`** | Grade activation shifts on captured tensors (`grade`), or start the browser Studio UI (`ui`). | `"$PY" bench/control_vectors.py grade --help` |
-
----
-
-## 2. File Naming & `.safetensors` Metadata Contract
-
-Every built control vector is written to `models/control_vectors/` as:
-```text
-<stem>__<family>__<pooling>[__lora_<sha8>].safetensors
-<stem>__<family>__<pooling>[__lora_<sha8>].md
+```bash
+<comfy-venv-python> bench/control_vectors.py --help
+<comfy-venv-python> bench/control_vectors.py <command> --help
 ```
-- **`<family>`**: `fl2va` (used by `t2va`, `i2va`, `fl2va`, `l2va`, `P-H3-Image` T2I, and 1–8 ref `P-H3-Image` Edit) or `ref2va` (used by `ref2va` and `P-H3-Image` Guide Edit).
-- **`<pooling>`**: `diff_span`, `from_first_diff`, `scene_text`, or `all_tag1`.
-- **`__lora_<sha8>`**: 8-hex digest of the attached `condition_proj` / `token_refiner` LoRA recipe (`2a8c2b52` for default `pika_h3_flex_fl2va_250steps_svd995_bf16.safetensors`, `865ee189` for default `pika_h3_flex_ref2va_300steps_svd995_bf16.safetensors`).
-- **Tensors**: `vector.post_refiner` (`float32[5376]`) and `vector.encoder` (`float32[5120]`).
-- **Header Metadata (`metadata["control_vector"]` JSON)**: Stores `schema_version`, `name`, `description`, `model_family`, `basis` (`"post_refiner"` or `"unigram_synthesis"`), `pooling`, `norm_post_refiner`, `split_half_cosine`, `recommended_strength_add_norm_matched`, `refiner_fingerprint`, `j_lens_readout`, and full `pairs` provenance (`pairs_ab`, `holds_ab`, `words_spec`, `target_prompt`) so `rebuild` is 100% lossless.
 
----
+Run it with the ComfyUI venv's python, never `uv` (`docs/comfy_notes.md`, "Running things"). A build loads
+the text encoder on the card, so run it when no render holds the card.
 
-## 3. The 32 Generalizable Library `.toml` Banks (`prompt_bank/control_vectors/`)
+This table says what each command is for and whether a session ran it on 2026-11-09. A flag table is not
+kept here: the last one drifted from the parser.
 
-`prompt_bank/control_vectors/` tracks 32 generalizable 10-pair `.toml` banks (each containing 10 diverse `Prompt A` / `Prompt B` scenes that work across any subject or setting):
+| Command | For | Run on 2026-11-09 |
+|---|---|---|
+| `build` (also `from-toml`) | A vector from a pair file, or every file in the bank | The bank's vectors on disk were built that day by another session, with this command or `rebuild`; which was not recorded here |
+| `from-prompt` | A vector from your own prompt and `old -> new` clauses, with `--ref-images` for a prompt that names a picture | Yes, once, on a reference picture |
+| `rebuild` | Vectors made again from the pairs recorded in their own files | See `build` |
+| `inspect` | A vector's metadata and its J-Lens words | No |
+| `make` | A vector from a pair file or from a prompt and clauses; an older twin of the two above | No |
+| `make-media` (also `from-images`) | A vector from two pictures | No |
+| `words` (also `from-words`) | A vector from a few words, through J-Lens, on the CPU | No |
+| `sculpt` | A new vector from existing ones: added, held out, inverted | No |
+| `grade` | How far a vector moves activations, against nulls and edits | No. With a reference picture it loads the VAE for its DiT probe, a path that has not been run |
+| `from-md` (also `import-md`) | An LLM's Markdown answer turned into a pair file | No |
+| `generate-pairs` | Pairs written by a local LLM | No. See the LLM page |
+| `build-j-lens` | The J-Lens bundle checked, or half of it rebuilt | No. See the J-Lens page before using it |
+| `ui` | The browser UI | No. Not maintained at present |
 
-| Category | Tracked `.toml` Stems in `prompt_bank/control_vectors/` |
-|---|---|
-| **Film Stock, Optics & Era Formats (8)** | `film_16mm_1974`, `vhs_1991_camcorder`, `noir_chiaroscuro`, `bleach_bypass_grit`, `infrared_aerochrome`, `cyberpunk_neon`, `golden_hour`, `miniature_tilt_shift` |
-| **Atmosphere, Weather & Environments (6)** | `blizzard`, `scorching_heatwave`, `bioluminescent_forest`, `underwater_submerged`, `post_apocalyptic_ruins`, `renaissance_oil` |
-| **Physics, Material & World Rules (6)** | `zero_gravity`, `cryogenic_freeze`, `time_freeze`, `slow_motion_float`, `claymation_stopmotion`, `anime_cel_shaded` |
-| **Camera Rig, Motion & Energy (4)** | `handheld_urgency`, `kinetic_energy`, `chaos_panic`, `dolly_zoom_vertigo` |
-| **Vocal Delivery & Acoustic Space (4)** | `whispered_intimate`, `cathedral_reverb`, `vinyl_crackle_warmth`, `muffled_underwater_audio` |
-| **Anatomical, Prop & Material Transforms (4)** | `era_1970s_props`, `marble_statue_skin`, `puppet_strings_marionette`, `giant_colossus_scale` |
+The plan is to cut this list down to building from a prompt and rebuilding from a file's own record
+([`the plan`](../../research/control_vectors/2026-11-09_control_vector_simplification_plan.md), section 19).
+That has not been done.
 
-> [!NOTE]
-> Scene-specific vectors tailored to a single shot (such as a `from-prompt` genre shift on one specific `ref2va` diner prompt) belong in your local `models/control_vectors/` folder or `--target-prompt` CLI commands rather than git-tracked `prompt_bank/control_vectors/*.toml` files.
+## Other tools
+
+- `bench/control_vector_rows.py`: caches the text rows of the bank's prompts and pair files for study on
+  the CPU; `--ref-image` encodes prompts on top of one picture.
+- `bench/control_vector_pooling.py` and `bench/control_vector_lexicon.py`: the pooling comparison and the
+  comparison of two ways to name a vector in words, both over that cache.
+- `bench/edit_guidance_arms.py`: builds and queues comparison arms on one shot, including an arm that
+  applies a vector (`--vector-arm`).
+
+## The files a build writes
+
+A build writes into the models folder's `control_vectors/`, one file per family:
+
+```text
+<name>__<family>__<pooling>__lora_<hash>.safetensors
+<name>__<family>__<pooling>__lora_<hash>.md
+```
+
+- `<family>` is `fl2va` or `ref2va`.
+- `<hash>` identifies the LoRA recipe the refiner ran under. A build with a reference picture adds a
+  `__ref_<hash>` part before it.
+- The `.safetensors` holds the direction after the refiner and a unit copy before it, with metadata that
+  records the pairs, so `rebuild` needs nothing else.
+- The `.md` beside it is a report for a reader: norms, the recommended strength for each mode, how well the
+  pairs agree, the J-Lens words.
+
+The shipped graphs name vector files by these full names. A name that no longer exists on the server is
+caught by `bench/check_model_files.py`, which needs a running server.
+
+## The bank
+
+`prompt_bank/control_vectors/` holds the pair files the starter vectors are built from. Listed from the
+folder, with no claim per file:
+
+```text
+auctioneer_rapid_patter   bioluminescent_glow   chaos_panic            claymation_stopmotion
+crystallize_ice           cursed_cctv           cyberpunk_neon_rain    elastic_neck_stretch
+felt_muppet               fever_melt            film_16mm_1974         handheld_documentary_zoom
+head_swell                infomercial_fail      lettering              magnetic_attraction
+miniature_tiltshift       noir                  operatic_bellow        paper_origami
+reverb_cathedral          rubber_hose_1930s     smoke_dissolve         strobe_club_pulse
+thermal_infrared          underwater_submerged  vhs_1991_camcorder     vocal_strain
+wes_anderson_symmetry     whisper_asmr          wind_tunnel_gale       zero_gravity
+```
+
+`ls prompt_bank/control_vectors/` is the authority; this list is a copy made on the date above.
+
+The bank is kept as a starter set and is not being grown (owner, 2026-11-09, [`../decisions.md`](../decisions.md)).
+Every file is a text-only prompt with no picture. Which of these vectors do what their names say on a
+render has been looked at for only a few; the record is
+[`../../../bench/results/2026-11-05_control_vectors_pika_and_ref2va.md`](../../../bench/results/2026-11-05_control_vectors_pika_and_ref2va.md).

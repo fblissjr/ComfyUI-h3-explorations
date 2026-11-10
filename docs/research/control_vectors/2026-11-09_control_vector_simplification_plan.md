@@ -1420,3 +1420,20 @@ sweep with the linked prompt turned nothing red that reads prompts, because the 
 prompt linked from a text node (`workflows/prompts.py::_follow`). `bench/check_edit_guidance.py` now holds
 both graphs to the prompt being written once. The edit node's `original` stays a text box so the node also
 works alone.
+
+Both regenerated graphs, with the prompt on the text node, rendered on the server after that commit.
+
+### 26.3 Two prompt checks had gone quiet
+
+An independent read of 26.2's commit found that two checks pass over any prompt that is not a string on its
+carrier, so with the prompt on a text node they stopped reading the two edit-guidance graphs and stayed
+green. 26.2's "nothing turned red" was true and misleading. Both now read a prompt linked from a text node
+or an edit node, and each has a guard that fails by name if such a prompt is skipped
+(`bench/check_prompt_guide_conformance.py`, `bench/check_ref_prompt_labels.py`; `b1570192`).
+
+## 27. The wiki pages, rewritten
+
+Section 18 put the rewrite after the apply-node reshape and the CLI change. The owner asked for it before
+the day closed, so it was done on the code as it stands: the start page and its seven pages, by the rules of
+18.2 except two, which `docs/wiki/decisions.md` records with what the pages used to claim. When the node is
+reshaped and the commands are cut down, the node page and the command page are the two to revisit.

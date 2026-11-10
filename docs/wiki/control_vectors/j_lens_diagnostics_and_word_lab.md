@@ -1,59 +1,66 @@
-# 4. J-Lens Diagnostics, Bundle Builder & Word Lab
+# J-Lens: naming a vector in words
 
-[← Back to Control Vectors Overview](../control_vectors.md)
+last updated: 2026-11-09
 
-[`j_lens.py`](../../../j_lens.py) and [`bench/control_vector/j_lens_builder.py`](../../../bench/control_vector/j_lens_builder.py) provide a **`< 2 ms` CPU diagnostic lens, orthogonal word scrubber, and fast unigram synthesizer** backed by `models/j_lens/j_lens_h3.safetensors`.
+[Back to the start page](../control_vectors.md)
 
----
+J-Lens is a precomputed bundle, `j_lens/j_lens_h3.safetensors` in the models folder, and the code that
+reads it, `j_lens.py`. It is a diagnostic. "The plan" is
+[`../../research/control_vectors/2026-11-09_control_vector_simplification_plan.md`](../../research/control_vectors/2026-11-09_control_vector_simplification_plan.md);
+its section 17 is the reading this page is taken from.
 
-## 1. What Is Inside `models/j_lens/j_lens_h3.safetensors` (`h3_j_lens_v1`)?
+## What it does
 
-The J-Lens bundle (`~643 MB` on disk, loaded on CPU via `j_lens.load_j_lens_bundle()`) contains 11 tensors (`REQUIRED_BUNDLE_TENSORS` in [`bench/control_vector/j_lens_builder.py`](../../../bench/control_vector/j_lens_builder.py)) and a `24,912`-word vocabulary index (`vocab_words_json`):
+- It names a vector in words. A build and `inspect` print the words a vector pushes toward and away from.
+  This is the use that has been checked: on 2026-11-09 its words were compared with a second way of
+  labelling vectors, from cached rows, over the bank (`bench/control_vector_lexicon.py`; the plan, section
+  20). J-Lens named the concepts better overall, the other way caught some it missed, and both are kept.
+- It builds a vector from a few words on the CPU, with no encoder pass (the `words` command, and the
+  `words` input of the apply node). No session has rendered with such a vector on record here. It treats
+  words one at a time, with no sentence around them, so expect less of it than of a vector built from
+  pairs.
+- It takes words out of a vector (`hold_words`). Also not rendered on record here.
+- It prints readiness figures beside the words. The thresholds the earlier version of this page gave for
+  them had no arm behind them and are not repeated.
 
-| Tensor Key | Shape & Dtype | Mathematical Definition & Provenance |
-|---|---|---|
-| **`M_union`** | `(27407, 5120) float16` | Pre-multiplied lexical unembedding rows $W_{\text{head}}[\text{union\_idx}] \bar{J}_{49 \to 63}$ for `27,407` single-token English words (`24,912` valid words indexed by `valid_pos_in_union`). |
-| **`cloze_base_union`** | `(7, 27407) float32` | Unsteered baseline next-token log-probabilities across the 7 syntactic H3 cloze prefixes (`CLOZE_PREFIXES` in [`j_lens.py`](../../../j_lens.py)). |
-| **`J_49_to_63`** | `(5120, 5120) float32` | Expected Jacobian transporting perturbations from `Qwen3-VL layers.49` (`5120`-d) through `layers.50..63` and final `RMSNorm`. |
-| **`Sigma_49_p030`** | `(5120, 5120) float16` | Spectral-filtered fractional covariance $\Sigma_{49,\text{filt}}^{+0.30}$ of non-sink (`tok1+`) activations at `layers.49`, with the top-1 common-mode eigenvalue $\lambda_{\max}$ zeroed out and remaining eigenvalues raised to $p = 0.30$ ([`compute_sigma_49_and_p030`](../../../bench/control_vector/j_lens_builder.py)). |
-| **`J_ref_fl2va`**<br>**`J_ref_ref2va`** | `(5376, 5120) float32` | Analytical expected Jacobians $\bar{J}_{\text{ref}}^{(f)} = \mathbb{E}[\partial \mathbf{r}_{\text{PR}} / \partial \mathbf{h}_{49}]$ across `condition_proj` and the 2-block `TokenRefiner` (including the broadcast attention value path $\beta W_O W_V J_{\text{RMSNorm}_1}$ and SwiGLU FFN $J_{\text{FFN}} J_{\text{RMSNorm}_2}$) in [`compute_refiner_jacobian_and_wiener`](../../../bench/control_vector/j_lens_builder.py). |
-| **`J_wiener_fl2va`**<br>**`J_wiener_ref2va`** | `(5120, 5376) float32` | Closed-form empirical-covariance Wiener inverses $\Sigma_{49} (\bar{J}_{\text{ref}}^{(f)})^\top \left(\bar{J}_{\text{ref}}^{(f)} \Sigma_{49} (\bar{J}_{\text{ref}}^{(f)})^\top + \lambda^2 I_{5376}\right)^{-1}$ ($\gamma = 0.20$ shrinkage, $\lambda_{\text{rel}} = 0.03$), mapping any `5376`-d `vector.post_refiner` back into `5120`-d encoder space for lexical decoding. |
-| **`union_idx`, `valid_idx`, `valid_pos_in_union`** | `int32` index arrays | Tokenizer ID and row lookup tables for the `24,912` valid English vocabulary words (`vocab_words_json` in header metadata). |
+## How it works, in outline
 
----
+The bundle has two halves. One maps a direction in the encoder's space to changes in the likelihood of
+single words, using the encoder's own upper layers and output head. The other maps between the encoder's
+space and the refined space a vector lives in, for each family, so a vector can be carried back to where
+words can be read. The tensors and their shapes are `REQUIRED_BUNDLE_TENSORS` in
+`bench/control_vector/j_lens_builder.py`; the method is in
+[`../../research/control_vectors/2026-11-06_j_lens_and_refiner_jacobian.md`](../../research/control_vectors/2026-11-06_j_lens_and_refiner_jacobian.md),
+a dated record.
 
-## 2. How to Verify or Rebuild `j_lens_h3.safetensors` (`build-j-lens`)
+## Checking the bundle
 
-[`bench/control_vector/j_lens_builder.py`](../../../bench/control_vector/j_lens_builder.py) provides verification and rebuilding under `bench/control_vectors.py build-j-lens`:
-
-1. **Verify Schema, Shapes, Norms & Round-Trip Synthesis (`< 50 ms`, CPU)**:
-   ```bash
-   "$PY" bench/control_vectors.py build-j-lens --verify-only
-   ```
-2. **Rebuild `Sigma_49_p030`, `J_ref_{fl2va,ref2va}`, and `J_wiener_{fl2va,ref2va}` from Local ComfyUI Checkpoints**:
-   Recomputes the empirical `layers.49` covariance $\Sigma_{49,\text{filt}}^{0.30}$ across `--num-prompts` calibration prompts from `prompt_bank/` and the analytical `TokenRefiner` Jacobians + Wiener inverses for both `fl2va` and `ref2va` (preserving upper-Qwen `J_49_to_63`, `M_union`, and `cloze_base_union` from `--base-bundle` or the existing bundle):
-   ```bash
-   "$PY" bench/control_vectors.py build-j-lens --num-prompts 24
-   ```
-
----
-
-## 3. Reading J-Lens Diagnostics (`inspect` & `.md` Sidecars)
-
-Every time you build, sculpt, or inspect a control vector:
 ```bash
-"$PY" bench/control_vectors.py inspect models/control_vectors/film_16mm_1974__fl2va__diff_span__lora_2a8c2b52.safetensors --prompt my_scene.txt
+<comfy-venv-python> bench/control_vectors.py build-j-lens --verify-only
 ```
-`j_lens.py` prints two complementary lexical readouts and four readiness metrics:
 
-1. **`j_lens (+)` and `j_lens (-)` (Log-Odds Shift through `J_wiener` + `J_49_to_63`)**:
-   Projects `vector.post_refiner` (`5376`-d) back into `5120`-d via `J_wiener_{family}`, transports it through `M_union` ($W_{\text{head}} \bar{J}_{49 \to 63}$), and scores the net log-odds gain across all `24,912` English words.
-   - `j_lens (+)` shows the top words pushed **up** by `+1.0 * v`.
-   - `j_lens (-)` shows the top words pushed **up** by `-1.0 * v` (what the vector suppresses or moves away from).
-2. **`cov_49 (+)` and `cov_49 (-)` (Spectral-Filtered Layer-49 Cosine)**:
-   Applies $\Sigma_{49,\text{filt}}^{+0.30}$ (`Sigma_49_p030`) to `vector.encoder` and ranks vocabulary words by layer-49 cosine alignment.
-3. **Readiness Metrics (`assess_steering_readiness`)**:
-   - **`top1_gain` / `top3_mean_gain`**: Projected log-odds shift of the strongest pushed vocabulary words (`>= 0.95` for contextual pair vectors; `>= 2.5` for `from-words` unigram vectors).
-   - **`refiner_transmission` ($\lVert J_{\text{ref}} \hat{\mathbf{v}}_{\text{enc}}\rVert_2$)**: How strongly the 2-block `TokenRefiner` transmits the encoder direction (`>= 0.50` indicates strong survival through the refiner).
-   - **`echo_ratio`**: Fraction of the top-8 decoded words that semantically match your target concept (`[0.0, 1.0]`).
-   - **`off_target_words`**: Unintended companion words appearing in the top-8 readout—pass any unwanted words to `--hold-words "word1, word2"` to scrub them out on CPU in `< 1 ms`.
+## Before rebuilding it: read this
+
+`build-j-lens` without `--verify-only` is half a builder, and using it as it stands can lose the bundle
+(the plan, section 17.1, read against the code on 2026-11-09):
+
+- It recomputes only the half that maps between the two spaces. The word half is copied from the bundle
+  already on disk, and no tracked code can make that half again.
+- By default it writes over the bundle it copies from. That file is the only copy of the half that cannot
+  be rebuilt.
+- If the Pika LoRA spec fails to parse, it goes on without the LoRA and says nothing.
+- The bundle does not record which checkpoints, LoRAs, prompts or constants made it.
+- Its sample is the opening tokens of the first prompts of the bank in file order, so a rebuild would not
+  reproduce the bundle on disk.
+
+Keep a second copy of the bundle before running a rebuild.
+
+## What is decided, and not done
+
+Decided on 2026-11-09: write the real builder for the word half, from the full encoder weights, and check
+it against the bundle on disk. It depends only on the base encoder, not on a family or a LoRA. Then the
+research folder `docs/research/control_vectors/exl3_qwen3vl/` goes, except its report
+([`h3_control_vector_report.md`](../../research/control_vectors/exl3_qwen3vl/h3_control_vector_report.md)),
+with the one piece
+of it the tracked code needs moved into tracked code. The other changes the plan lists for the builder and
+for `j_lens.py` are in its section 17.2. None of this has been started.

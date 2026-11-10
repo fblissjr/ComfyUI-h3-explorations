@@ -1,56 +1,42 @@
-# 7. Prompting Generative LLMs for Control Vectors
+# Asking an LLM to write pairs
 
-[← Back to Control Vectors Overview](../control_vectors.md)
+last updated: 2026-11-09
 
-When you want to author a **reusable 10-pair multi-scene control vector** (`Method 2: from-toml`) or an **in-place scene-paired contrast spec** (`Method 1: from-prompt`) using a local LLM (`transformers` / `exllamav3` via `bench/control_vectors.py generate-pairs`) or an external LLM (Claude, Gemini, ChatGPT), use [`docs/wiki/system_prompts/h3_control_vector_system_prompt.md`](../system_prompts/h3_control_vector_system_prompt.md) as the system prompt and one of the user-prompt templates below.
+[Back to the start page](../control_vectors.md)
 
----
+Writing prompt pairs is not the main road any more. Steering by an edit of your own prompt needs no pairs
+([`../edit_guidance.md`](../edit_guidance.md)), and a vector can be built from your prompt and one
+`old -> new` clause. The bank of pair files is kept as a starter set and is not being grown (owner,
+2026-11-09, [`../decisions.md`](../decisions.md)). This page is for the case where you still want an LLM to
+write a set of pairs.
 
-## 1. Template A — Authoring a Reusable 10-Pair Multi-Scene Vector (`Method 2: from-toml`)
+## The prompt to hand it
 
-Use this template when building a generalizable library vector that works across any prompt:
+[`../system_prompts/h3_control_vector_standalone_system_prompt.md`](../system_prompts/h3_control_vector_standalone_system_prompt.md).
+The whole file is the prompt. It names nothing the LLM cannot know: no product name, none of this repo's
+files or tools. Examples of good and bad answers are beside it in
+[`../system_prompts/h3_control_vector_standalone_system_prompt_examples.md`](../system_prompts/h3_control_vector_standalone_system_prompt_examples.md).
 
-```text
-Write a complete 10-pair MiniMax H3 Control Vector Set (### Test Scene Prompt, ### Contrastive Pairs (1–10), and optional ### Hold Pairs) for the following concept shift:
+What it asks for, briefly, and why:
 
-- Concept name: <e.g., film_noir_rain>
-- Baseline (Pole A): <e.g., crisp neutral daylight or balanced indoor lighting with dry surfaces>
-- Steered target (Pole B): <e.g., high-contrast 1940s silver-gelatin film noir chiaroscuro with Venetian blind shadow bars, wet rain-streaked glass, and cigarette smoke haze>
-- Coupled overall_soundscape shift (optional): <e.g., dry neutral room tone -> steady rain pattering against windowpanes and distant wet tire hiss>
-- Nuisance axes to hold constant (optional ### Hold Pairs): <e.g., hold(wardrobe): keep modern everyday clothing rather than forcing 1940s fedora/trenchcoat attire>
-- Test scene scenario: <e.g., a ref2va scene where <Subject 1> from <Picture 1> sits at a diner booth and says a short line>
-```
+- Each pair changes one clause and nothing else, so the difference between the two sides is the thing being
+  steered.
+- The plain side is specific, not a bare "normal" or "natural", and the two sides are about the same
+  length. Vectors built from a short plain clause against a long steered one share a common component with
+  every other vector built that way.
+- One edit a line.
 
-Once the LLM outputs the fenced Markdown block, save it as `film_noir_rain.md` and run:
-```bash
-COMFY="$(cd ../.. && pwd)"
-"$COMFY/.venv/bin/python" bench/control_vectors.py from-toml film_noir_rain.md --name film_noir_rain --families both --overwrite
-```
-This validates all 10 pairs (`lint_pair_set`, `10/10` unique spans, zero banned rate adverbs) and compiles both `fl2va` and `ref2va` `.safetensors` files (or use `from-md film_noir_rain.md --name film_noir_rain` to convert `.md` to `.toml` on CPU first).
+## Turning the answer into a vector
 
----
+Save the LLM's answer as a `.md` file and build from it; `bench/control_vectors.py build --help` and
+`from-md --help` say how. The loader checks the pairs and refuses a file it cannot use
+(`control_vectors.py::load_pairs`).
 
-## 2. Template B — Authoring an In-Place `from-prompt` Contrast Spec (`Method 1: from-prompt`)
+## What is not wired up
 
-Use this template when you already have a specific scene prompt (`t2va` or `ref2va`) and want the LLM to craft clean, high-leverage in-place `pole_a -> pole_b` substitutions on your exact prompt:
-
-```text
-Given my exact target prompt below, produce an In-Place Target-Prompt Clause-Diff Spec (`--words`) that shifts the scene toward: <e.g., 1990s multi-camera studio sitcom with punchy comedic delivery and a live studio audience laugh track>.
-
-Rules:
-1. Every Pole A before `->` MUST be an exact character-for-character substring of my target prompt.
-2. Never repeat Pole A nouns inside Pole B (prevent B - A noun cancellation) and never use generic rate adverbs (slowly, gradually, begins to).
-3. Separate multiple clause replacements with `; `, and prefix any overall_soundscape replacement with `soundscape: `.
-
-My target prompt:
-<paste your exact t2va or ref2va prompt here>
-```
-
-Then pass the returned `--words` spec directly to `from-prompt`:
-```bash
-"$COMFY/.venv/bin/python" bench/control_vectors.py from-prompt \
-  --name my_scene_steer \
-  --target-prompt my_prompt.txt \
-  --words "<paste spec here>" \
-  --overwrite
-```
+`bench/control_vectors.py generate-pairs`, which runs a local LLM for you, and the browser UI still read
+the older page, [`../system_prompts/h3_control_vector_system_prompt.md`](../system_prompts/h3_control_vector_system_prompt.md),
+not the standalone prompt above (`bench/control_vector/llm_pairs.py::_extract_system_prompt_text`). A check
+pins rules in that older page (`bench/check_prompt_docs_sync.py`). Moving both to the standalone prompt is
+listed in [`the plan`](../../research/control_vectors/2026-11-09_control_vector_simplification_plan.md) and
+has not been done. No session ran `generate-pairs` on 2026-11-09.

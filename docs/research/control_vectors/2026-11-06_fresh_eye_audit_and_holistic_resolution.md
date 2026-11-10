@@ -84,13 +84,13 @@
 
 ### 3.3 Prose-vs-Code Mismatch & Hold Clamping on AV Stream Split (`video_scale`, `audio_scale`)
 
-6. **Per-Stream Conditioning + Velocity Splicing vs. Prose Velocity-Delta Formula ([`control_vector_nodes.py:1282-1400`](../../../control_vector_nodes.py#L1282-L1400) vs. [`docs/wiki/control_vectors.md:113`](../../wiki/control_vectors.md#L113))**:
-   - [`docs/wiki/control_vectors.md:113`](../../wiki/control_vectors.md#L113) and [`docs/research/control_vectors/2026-11-06_mainodes_comparison_and_pika_roadmap.md:118`](2026-11-06_mainodes_comparison_and_pika_roadmap.md#L118) claim that `video_scale` and `audio_scale` blend a single steered pass with an unsteered base pass in velocity space ($\mathbf{u}_t^{\text{base}} + w\Delta\mathbf{u}_t$).
+6. **Per-Stream Conditioning + Velocity Splicing vs. Prose Velocity-Delta Formula ([`control_vector_nodes.py:1282-1400`](../../../control_vector_nodes.py#L1282-L1400) vs. [`docs/wiki/control_vectors.md`](../../wiki/control_vectors.md))**:
+   - [`docs/wiki/control_vectors.md`](../../wiki/control_vectors.md) and [`docs/research/control_vectors/2026-11-06_mainodes_comparison_and_pika_roadmap.md:118`](2026-11-06_mainodes_comparison_and_pika_roadmap.md#L118) claim that `video_scale` and `audio_scale` blend a single steered pass with an unsteered base pass in velocity space ($\mathbf{u}_t^{\text{base}} + w\Delta\mathbf{u}_t$).
    - In reality, [`_build_steered_context`](../../../control_vector_nodes.py#L1289-L1372) constructs per-stream steered conditioning tensors `ctx_video` (scaling each spec by `video_scale`) and `ctx_audio` (scaling each spec by `audio_scale`), executes two DiT passes (`out_vid`, `out_aud`), and splices `[out_vid[0], out_aud[1]]` (`L1382-L1400`).
    - **Why the code's per-stream conditioning + splicing is architecturally superior**: Suppose a user chains Node 1 (`cursed_cctv`, `video_scale=1.0, audio_scale=0.0`), Node 2 (`operatic_bellow`, `video_scale=0.0, audio_scale=1.0`), and Node 3 (`vocal_strain`, `mode="hold", video_scale=0.0, audio_scale=1.0`). Per-stream conditioning + splicing evaluates `ctx_video` (visual style only) and `ctx_audio` (audio style minus vocal strain) on the DiT's nonlinear conditioning manifold in **at most 2 DiT passes total**, whereas a 2-pass `(out_base, out_steered)` velocity blend cannot steer video with Vector A and audio with Vector B without cross-contaminating both vectors in `ctx_steered`.
    - **What needs fixing in code and prose**:
      1. At [`control_vector_nodes.py:1309, 1322`](../../../control_vector_nodes.py#L1309-L1322), `s0 = sp.strength * _spec_stream_scale(sp, stream_attr)` is currently unclamped for `mode="hold"` (and `_apply_holds_to_shift64` at [`control_vectors.py:2110`](../../../control_vectors.py#L2110) has no bounds check). Clamping `s_eff = max(0.0, min(2.0, sp.strength * _spec_stream_scale(sp, stream_attr)))` when `_effective_entry_mode(sp) == "hold"` lets `video_scale=0.0, audio_scale=1.0` cleanly apply an audio-only hold (`alpha_vid=0.0, alpha_aud=1.0`) while guaranteeing a negative stream scale never inverts a hold into an addition.
-     2. Update [`docs/wiki/control_vectors.md:113`](../../wiki/control_vectors.md#L113) so the prose states the per-stream conditioning + output-splice formula accurately.
+     2. Update [`docs/wiki/control_vectors.md`](../../wiki/control_vectors.md) so the prose states the per-stream conditioning + output-splice formula accurately.
 
 ---
 
@@ -106,8 +106,8 @@
    - Checking vowel-restored / truncated roots (`stem[:-1]`, `stem + "e"`, `stem[:-2] + "a"` for `-atic`) in `word_to_idxs` before falling back to prefix expansion fixes `"operatic" -> "opera"`, `"dramatic" -> "drama"`, `"chromatic" -> "chroma"`, etc.
 
 9. **Stale Line-Number Citations in [`docs/wiki/control_vectors.md`](../../wiki/control_vectors.md)**:
-   - [`docs/wiki/control_vectors.md:94`](../../wiki/control_vectors.md#L94) links `resolve_vector_file_path` to `control_vector_nodes.py#L97-L162` (actually at [`control_vector_nodes.py#L1438-L1507`](../../../control_vector_nodes.py#L1438-L1507)).
-   - [`docs/wiki/control_vectors.md:107`](../../wiki/control_vectors.md#L107) cites `control_vectors.py:926` for `NORM_MATCHED_TARGET = 67.5` (actually at [`control_vectors.py#L2107`](../../../control_vectors.py#L2107)).
+   - [`docs/wiki/control_vectors.md`](../../wiki/control_vectors.md) links `resolve_vector_file_path` to `control_vector_nodes.py#L97-L162` (actually at [`control_vector_nodes.py#L1438-L1507`](../../../control_vector_nodes.py#L1438-L1507)).
+   - [`docs/wiki/control_vectors.md`](../../wiki/control_vectors.md) cites `control_vectors.py:926` for `NORM_MATCHED_TARGET = 67.5` (actually at [`control_vectors.py#L2107`](../../../control_vectors.py#L2107)).
 
 ---
 
@@ -150,5 +150,5 @@
 4. **Invariant 4 — Basis-Aware J-Lens Readout, Intra-Word Cloze Weighting, & Stemmer Accuracy (`j_lens.py`)**:
    - Fix `-atic -> -a` / `-e` root stem resolution (`stem[:-1]` and `stem + "e"`) before prefix expansion in `j_lens.py::_resolve_word_indices` (`L1658-1666`), and weight intra-word BPE variants `w_ids` by `piece_weights` (`torch.sigmoid((torch.log_softmax(cloze_base, dim=-1)[:, valid_pos].max(dim=0).values + 11.5) / 2.0)` in `load_j_lens_bundle` at `L211-221`) while keeping `1/N` unit-norm pooling (`F.normalize(w_vec, dim=0)`) across distinct words in `_mean_word_direction` (`L1697-1725`).
 5. **Invariant 5 — Per-Stream Conditioning + Splicing, Clamped Stream Holds, & Node Hygiene (`control_vector_nodes.py`, `control_vectors.py`)**:
-   - Keep 2-pass per-stream conditioning (`ctx_video`, `ctx_audio`) + `[out_vid[0], out_aud[1]]` splicing across all 5 `APPLY_MODES`, clamp `mode="hold"` stream-scaled strength to `[0.0, 2.0]` at `control_vector_nodes.py:1309, 1322`, and update `docs/wiki/control_vectors.md:113`.
+   - Keep 2-pass per-stream conditioning (`ctx_video`, `ctx_audio`) + `[out_vid[0], out_aud[1]]` splicing across all 5 `APPLY_MODES`, clamp `mode="hold"` stream-scaled strength to `[0.0, 2.0]` at `control_vector_nodes.py:1309, 1322`, and update `docs/wiki/control_vectors.md`.
    - Stat `preferred_family in (None, "fl2va", "ref2va")` in `fingerprint_inputs` (`L2547-2576`), log warnings when `@prompt_subject` lacks `_h3_span_masks` (`L1241`) or when both `vector_name != "none"` and `words` are set on one node (`L1600-1730`), and scope Pika-vs-base LoRA warning relaxation in `check_vector_compatibility` (`control_vectors.py:2036-2047`) to `provenance.made_by.startswith("j_lens.")`.

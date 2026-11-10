@@ -148,7 +148,7 @@ In [`control_vector_nodes.py:1289-1400`](../../../control_vector_nodes.py#L1289-
         s0 = max(0.0, min(2.0, s0))
     ```
     (and identically for `sj` at `L1322`). This allows `video_scale=0.0, audio_scale=1.0` on a `mode="hold"` node to scrub a nuisance direction from audio only (`alpha_aud = 1.0, alpha_vid = 0.0`) while guaranteeing a negative stream scale can never invert a hold into an addition.
-- **Documentation alignment**: Update [`docs/wiki/control_vectors.md:113`](../../wiki/control_vectors.md#L113) so the prose states the per-stream conditioning + `[out_vid[0], out_aud[1]]` splice formula accurately.
+- **Documentation alignment**: Update [`docs/wiki/control_vectors.md`](../../wiki/control_vectors.md) so the prose states the per-stream conditioning + `[out_vid[0], out_aud[1]]` splice formula accurately.
 
 ### 5.2 Cross-Family `fingerprint_inputs` ([`control_vector_nodes.py:2614-2628`](../../../control_vector_nodes.py#L2614-L2628))
 - Stat all family-resolved candidates `(None, "fl2va", "ref2va")` in `fingerprint_inputs` (unwrapping when a single file resolves so existing 3-tuple `(path, mtime_ns, size)` callers stay compatible, and returning a tuple of 3-tuples when both `__fl2va__` and `__ref2va__` siblings exist) so rebuilding either family sibling on disk invalidates ComfyUI's execution cache:
