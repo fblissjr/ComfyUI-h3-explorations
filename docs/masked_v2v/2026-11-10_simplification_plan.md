@@ -44,8 +44,27 @@ What it rests on:
   export.
 - **Dependencies:** SQLite is in Python's standard library; DuckDB is not installed in the ComfyUI venv.
 
-**Where it lives.** `data/<video>/lane.sqlite`, on the local disk where `data/` already is. Not on the media share:
-SQLite's locking is not safe on a network filesystem, and the share is CIFS.
+**Where it lives.** One file for the lane, `data/lane.sqlite`, on the local disk where `data/` already is. It is never
+in git (`.gitignore`). Not on the media share: SQLite's locking is not safe on a network filesystem, and the share is
+CIFS. One file rather than one a video, because projects share footage (below).
+
+**Projects share footage: `fun2` is `fun`'s video with another lead.** The record has a project level above the video.
+- **Facts about the footage hang off the video and carry to every project on it:**
+  - the shots and their cuts;
+  - who is on each shot, and the who-is-who seeds;
+  - where a head is hidden, and whose hair is whose;
+  - things detectors take for people;
+  - who sings where;
+  - the video's copies.
+- **Facts about a replacement hang off the project:**
+  - a subject's still, text and recipe;
+  - the loads and renders;
+  - what is laid;
+  - the owner's verdicts on renders.
+- **An answer is classed by what it is about:** the footage (a video fact) or a render (a project fact).
+
+That is the owner's rule of 2026-10-21, that prep is not reused and only the owner's words carry, written into the
+record. A new project on the same footage starts from every footage answer already given, and from nothing derived.
 
 **What goes in, and what stays a file.**
 - **In the database:** every record with relationships.
@@ -70,6 +89,19 @@ replaces the `.before_*` copies and the read-only answer snapshots.
 ### The data model, first draft (agreed in shape with the owner, 2026-11-10)
 
 ```
+project ── video          (fun and fun2 are two projects on one video)
+
+the video's footage facts, shared by its projects:
+video ─┬─ copy (source, working copies)
+       ├─ shot ── appearance, seed, head marks, voice spans, not-people
+
+each project's own records:
+project ─┬─ subject_recipe, subject_text (the lead's still and words differ per project)
+         ├─ preview ── load ── step ── artifact
+         ├─ laid ── cut
+         └─ review_item ── answer about a render
+
+the first draft's detail, unchanged otherwise:
 video ─┬─ copy (working copies, cuts)
        ├─ subject
        ├─ shot ── appearance (who is on it, per a person's word)
@@ -163,7 +195,9 @@ recipe, which says which recipe defaults to change.
    `bench/laid.py`, `bench/delivery_table.py`, `bench/rebuild_delivery.py`, `bench/review_pages.py`,
    `bench/said_on_shot.py`. While a tool moves, it keeps writing the old file too, so nothing that still reads the file
    breaks.
-4. **The next video starts on the database alone.**
+4. **The next project starts on the database alone.** That is `fun2`, the same footage with a new lead reference. It
+   reads `fun`'s footage facts from the record, and `fun`'s kept lead pieces are the comparison for every perception
+   change of steps 3 and 4: same frames, same lead region, only the reference differs.
 
 **A readable dump.** `plan.json` and `shots.json` are read by people as well as tools. A dump to text (per video, per
 table) keeps that, and makes a change reviewable as a diff.
