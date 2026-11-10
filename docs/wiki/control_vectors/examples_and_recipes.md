@@ -42,8 +42,8 @@ behind `Pair 0`'s `--target-weight 2.5`) so single-scene nuisance context averag
 From [`../../../bench/results/2026-11-05_control_vectors_pika_and_ref2va.md`](../../../bench/results/2026-11-05_control_vectors_pika_and_ref2va.md)
 (run under `mask = non_vision` unless noted):
 
-- **Single-vector visual look on `ref2va` (`Arms 17..23`):** Apply `film_16mm_1974` (`mode = add_norm_matched`, `strength = 1.0..1.3`) on `workflows/h3_image_ref_plus_text_to_video_pika_control_vector_api.json` (with `start_percent > 0` in `Arm 23` for late-window entry).
-- **Stacked dual-vector composition & orthogonal holds (`Arms 08..12, 58`):** Chain two `MiniMaxH3ApplyControlVectors` nodes (`workflows/h3_text_to_video_pika_dual_control_vectors_api.json`), or set `mode = hold` on the second node (`Arm 58`: `cursed_cctv` + `hold(chaos_panic)`).
+- **Single-vector visual look on `ref2va` (`Arms 17..24` at `scene_text`, `Arms 48..52, 66` at `diff_span`):** Early `scene_text` runs (`Arms 18, 19, 23` `film_16mm_1974`, `Arm 20` `noir`, `Arms 21..22` `felt_muppet`) ran `mode = add` at `+2.20` (with `start_percent = 0.33` in `Arm 23`, and `mode = project_out` in `Arm 24`); `diff_span` runs (`Arms 48..52, 66`) steer at unit strengths `1.05..1.35` (`workflows/h3_image_ref_plus_text_to_video_pika_control_vector_api.json` ships `mode = add_norm_matched`, `strength = 1.15`).
+- **Stacked dual-vector composition & orthogonal holds (`Arms 37, 38, 45, 47, 58`):** Chain two `MiniMaxH3ApplyControlVectors` nodes (`workflows/h3_text_to_video_pika_dual_control_vectors_api.json` — `Arms 37, 38, 45, 47`), or set `mode = hold` on the second node (`Arm 58`: `cursed_cctv` + `hold(chaos_panic)`).
 - **Section-scoped description or audio masks (`Arms 59..60`):** `mask = soundscape_only` (`Arm 59`) or `mask = description_only` (`Arm 60`).
 - **Zero-`.toml` CPU word synthesis (`< 2 ms` via J-Lens, `Arms 53, 54, 61..65`):**
   ```bash
