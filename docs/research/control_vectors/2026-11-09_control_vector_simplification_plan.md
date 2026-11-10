@@ -1324,3 +1324,33 @@ What did not, and what was done:
   `control_vectors.strength_ranges`, for the default mode.
 - `bench/check_control_vectors.py` now fails if the reference-gate default in `h3_rules` stops matching
   core's `VISUAL_COND_TIMESTEP`.
+
+## 25. One dial, five ways, on a ref2va shot
+
+A render round on the diner shot with its reference picture, two seeds, sixteen renders, all reported
+success. The dial is 1974 16mm film. The arms: the prompt as written; the edited prompt alone; edit guidance
+through `MiniMaxH3EditGuider`; the bank's `film_16mm_1974` vector; and a vector built in place from the
+diner prompt on its picture (`from-prompt --ref-images`, its first run). Both vectors at one strength in the
+node's default mode, on three masks: `scene_only`, `non_vision`, and for the bank vector `all_rows`. Graphs
+and records are under `data/results/2026-11-09_edit_guidance/vector_round/`; the clips are on the share
+under `Video/edit_guidance/` as `diner16*`, stacked per seed in `stacked/diner16_s<seed>_stacked.mp4`.
+
+Not judged by the owner yet. What can be said without a judgement, from `data/results/vector_round_metrics.py`
+(saturation, luma spread and fine detail over each clip, which cannot say whether a clip reads as film) and a
+second session's reading of full-size frames of one seed:
+
+- The subject reads as the same person in every arm, including the two where the vector reaches the anchor
+  sections and the one where it reaches the picture's rows. The likely reason is that the reference also
+  reaches the DiT as VAE latents, which no mask touches; this round does not test that.
+- The edited prompt raises saturation on both seeds and edit guidance raises it further, where the dial
+  asks for faded colour. The vector arms leave saturation near the base. No arm fades the colour.
+- One arm lowers contrast on both seeds: the in-place vector on all text rows.
+- For the bank vector, the three masks differ little on every figure.
+- The in-place vector is closest to the bank's `film_16mm_1974` among the bank's vectors, and carries more
+  of the bank's shared component than that vector does (`data/results/inplace_vs_bank.py`); its pair sets a
+  short plain sentence against a long steered one.
+
+What the round does not settle: which arm looks best, and the mask default. The dial is a subtle one and the
+reference keeps the subject's surface clean. Two follow-ups, not run: the same edit worded without "warm",
+since the edit arms amplify it; and one arm with the reference's VAE road loosened
+(`ref_vae_end_percent`, `ref_vae_aug`).
