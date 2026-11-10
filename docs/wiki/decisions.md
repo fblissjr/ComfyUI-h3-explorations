@@ -24,6 +24,9 @@ Older history lives elsewhere and is not copied here:
   - **What it rests on**: one look at two shots, two seeds each; the arms and records are under the untracked `data/results/2026-11-09_edit_guidance/`, built by `bench/edit_guidance_arms.py`, and the clips are on the share under `Video/edit_guidance/`. Not judged: sound, and the same-length control arms.
   - **What follows**: [`../research/control_vectors/2026-11-09_control_vector_simplification_plan.md`](../research/control_vectors/2026-11-09_control_vector_simplification_plan.md), sections 0.1 (step 3) and 21.
 - **Control vectors: pair-free methods first, and the plan of record** (owner decisions through the day). Writing prompt pairs is de-emphasized; Pika is the default recipe for vectors; a vector built from one prompt is a worked example and not tracked bank content; the Studio UI is left for another day; a system prompt written for an LLM names nothing that model cannot know. The plan above is where each of these is applied.
+- **The pair bank stays as a starter set of dials, for now** (owner decision). Steering by an edit of the prompt is the main road, and a vector is built from the prompt it will be used on; the vectors built from `prompt_bank/control_vectors/` are kept as a small starter set and are not grown.
+  - **The condition on it**: the owner keeps it unless keeping it becomes a burden. A session that finds the bank costing real work (a check it alone holds up, a code path only it needs) says so and it goes.
+  - **Why**: [`../research/control_vectors/2026-11-09_control_vector_simplification_plan.md`](../research/control_vectors/2026-11-09_control_vector_simplification_plan.md), section 23: every pair is a text-only layout with no picture, and a row depends mostly on what precedes it. No render yet compares a vector built in place with one from the bank.
 
 ## 2026-11-07
 
