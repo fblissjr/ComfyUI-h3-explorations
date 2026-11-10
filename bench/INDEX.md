@@ -669,9 +669,10 @@ Arm manifests and the like; a manifest's line is its own `what`.
 | [`cover.py`](lane_db/cover.py) | Hold a record's field paths to mapping.tsv: every path is covered by its longest prefix, or the import is refused. |
 | [`db.py`](lane_db/db.py) | Open the lane's database: foreign keys on, the schema brought up to date, the roots named. |
 | [`export.py`](lane_db/export.py) | Give a project's record files back from the database, in the shapes today's tools read: shots.json, plan.json, cast/cast.jsonl, laid.jsonl and laid.removed.jsonl. |
-| [`importer.py`](lane_db/importer.py) | Build the lane's database from a project's record files, the first tier: what a person said and decided, the laid list, and the cut that closed the project. |
+| [`importer.py`](lane_db/importer.py) | Build the lane's database from the projects' record files, the first tier: what a person said and decided, the laid lists, and the cut that closed a project. |
 | [`mapping.tsv`](lane_db/mapping.tsv) | Where every field of the lane's record files goes in the lane's database (bench/lane_db/migrations/). First tier. |
 | [`migrations/0001_first_tier.sql`](lane_db/migrations/0001_first_tier.sql) | The masked lane's record, first tier: what a person said and decided, and a project's closing state. |
+| [`migrations/0002_lines_of_files_and_kept_pieces.sql`](lane_db/migrations/0002_lines_of_files_and_kept_pieces.sql) | The lane's record, second migration: more than one project, and more than one video, in one file. |
 | [`prove.py`](lane_db/prove.py) | Hold a build of a closed project to what today's tools made from its files: the delivery table of its final cut. |
 
 ### marker_corpus

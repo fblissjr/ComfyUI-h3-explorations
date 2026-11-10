@@ -2,25 +2,30 @@
 
     <comfy venv python> bench/lane_record.py asks
     <comfy venv python> bench/lane_record.py prove --project fun --work SCRATCH_FOLDER
-    <comfy venv python> bench/lane_record.py build --project fun --db SCRATCH.sqlite
-    <comfy venv python> bench/lane_record.py export --project fun --db SCRATCH.sqlite --out FOLDER [--subjects second,third]
+    <comfy venv python> bench/lane_record.py build --db data/lane.sqlite
+    <comfy venv python> bench/lane_record.py compare --project fun2 --db data/lane.sqlite
+    <comfy venv python> bench/lane_record.py export --project fun2 --db data/lane.sqlite --out FOLDER [--subjects second,third]
     <comfy venv python> bench/lane_record.py dump --db SCRATCH.sqlite
 
 **What it buys.** The lane's state is thousands of JSON files that every tool joins its own way. This puts what a
 person said and decided, the laid list and a project's closing cut into typed tables (bench/lane_db/migrations/), with
 a project level above the video: footage facts are shared by the projects on a video, and a replacement's facts are
-one project's. A second project on the same footage then starts from every footage fact, and from the first project's
-laid pieces of the subjects it does not remake (`export --subjects`).
+one project's. A second project on the same footage then starts from every footage fact, and lays the first project's
+standing pieces of the subjects it keeps (`keeps` in data/projects.json) beside its own.
 
 `asks`    the lines of bench/lane_db/mapping.tsv the owner has not ruled on, with the action a scratch build takes.
 `prove`   builds twice into SCRATCH_FOLDER and prints three comparisons (bench/lane_db/prove.py): the two builds, each
           record file against what the database gives back, and the delivery table made from the database's files
           against the table on record for the project's final cut. Exits 1 on any difference. Needs H3_OUTPUT_DIR
           and H3_INPUT_DIR (the table tool checks the laid renders' bytes on the share).
-`build`   one fresh database from the project's files. The lane's own file, data/lane.sqlite, is refused while any
-          mapping line is `ask`; it is written whole to a new file and moved into place, never built in place.
-`export`  shots.json, plan.json, cast/cast.jsonl, laid.jsonl and laid.removed.jsonl from the database. With
-          `--subjects`, the laid list holds only those subjects' standing pieces and no removed list is written.
+`build`   one fresh database of every project of data/projects.json. The lane's own file, data/lane.sqlite, is refused
+          while any mapping line is `ask`; it is written whole to a new file and moved into place, never built in place.
+`compare` each record file in a project's folder against what the database gives back, as figures: which files are
+          equal, and where one is not, what differs. For a project that keeps another's pieces, a laid list that
+          still holds the other's remade pieces differs here. Exits 1 on any difference.
+`export`  shots.json, plan.json, cast/cast.jsonl, laid.jsonl and laid.removed.jsonl from the database. A project's laid
+          list is the pieces it keeps from an earlier project, then its own lines. With `--subjects`, only laid.jsonl
+          is written, holding those subjects' pieces.
 `dump`    every table as text, a row a line.
 
 A build is a pure function of the files: nothing is updated in place, and a changed file means a new build. Tools
@@ -46,8 +51,11 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--project", required=True)
     p.add_argument("--work", required=True, type=Path)
     p = sub.add_parser("build")
+    p.add_argument("--db", required=True, type=Path)
+    p = sub.add_parser("compare")
     p.add_argument("--project", required=True)
     p.add_argument("--db", required=True, type=Path)
+    p.add_argument("--data", type=Path, default=db.REPO / "data", help="the data folder the record files are in (the repo's)")
     p = sub.add_parser("export")
     p.add_argument("--project", required=True)
     p.add_argument("--db", required=True, type=Path)
@@ -74,7 +82,7 @@ def main(argv: list[str] | None = None) -> int:
             if out.is_relative_to(db.REPO) and out != db.THE_RECORD:
                 raise db.Refused(f"{a.db} is inside the repo and is not data/lane.sqlite: build to a scratch path")
             new = out.with_name(out.name + ".new")
-            con, notes = prove.build(new, db.REPO / "data", a.project)
+            con, notes = prove.build(new, db.REPO / "data")
             con.execute("PRAGMA wal_checkpoint(TRUNCATE)")
             con.close()
             os.replace(new, out)
@@ -86,6 +94,13 @@ def main(argv: list[str] | None = None) -> int:
         if a.cmd == "dump":
             sys.stdout.write(db.dump(con))
             return 0
+        if a.cmd == "compare":
+            found = export.differences(con, a.project, a.data)
+            for rel, lines in found.items():
+                print(f"{rel}: {'equal' if not lines else f'{len(lines)} difference(s)'}")
+                for line in lines:
+                    print(f"    {line[:400]}")
+            return 1 if any(found.values()) else 0
         if a.cmd == "export":
             ex = export.Export(con, a.project)
             if a.subjects:

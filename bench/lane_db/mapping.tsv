@@ -26,6 +26,7 @@ projects	footage_records	meta		the folder whose shots, cast and footage answers 
 projects	starts_at	col	project.starts_at
 projects	ends_before	col	project.ends_before
 projects	by	said_by	project.said_by
+projects	keeps	child	project_keeps	the subjects whose standing pieces of an earlier project on the same footage it lays as they stand: from, subjects[], by -> said_by
 projects	final_cut	col	cut.is_final	the rebuild whose cut the owner called final: stamp -> the cut imported, by -> final_said_by
 shots-header	video	col	video.source_name	the video name, checked against video.name
 shots-header	schema	meta

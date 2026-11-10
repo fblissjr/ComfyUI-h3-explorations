@@ -25,11 +25,12 @@ from pathlib import Path
 from . import cover, db, export, importer
 
 
-def build(path: Path, data: Path, project: str) -> tuple:
+def build(path: Path, data: Path) -> tuple:
+    """A fresh database of every project of data/projects.json, and the importer's notes."""
     for p in (path, Path(f"{path}-wal"), Path(f"{path}-shm")):
         p.unlink(missing_ok=True)
     con = db.connect(path, create=True)
-    notes = importer.Import(con, data, project).run()
+    notes = importer.Import(con, data).run()
     return con, notes
 
 
@@ -91,13 +92,13 @@ def prove(project: str, work: Path, data: Path | None = None, python: str = sys.
     data = data or db.REPO / "data"
     work.mkdir(parents=True, exist_ok=True)
     bad = 0
-    con, notes = build(work / "lane_a.sqlite", data, project)
-    con_b, _ = build(work / "lane_b.sqlite", data, project)
+    con, notes = build(work / "lane_a.sqlite", data)
+    con_b, _ = build(work / "lane_b.sqlite", data)
     for note in notes:
         print(f"  note: {note}")
     a, b = db.dump(con), db.dump(con_b)
     rows = sum(1 for line in a.splitlines() if not line.startswith("## "))
-    print(f"1. two builds of data/{export.Export(con, project).p['folder']}: {rows} rows each over {len(db.tables(con)) - 1} tables; {'equal' if a == b else 'DIFFER'}")
+    print(f"1. two builds of every project of data/projects.json: {rows} rows each over {len(db.tables(con)) - 1} tables; {'equal' if a == b else 'DIFFER'}")
     bad += a != b
     print("2. each record file against what the database gives back (raw-only fields left out of the file):")
     for rel, found in export.differences(con, project, data).items():
@@ -119,7 +120,7 @@ def prove(project: str, work: Path, data: Path | None = None, python: str = sys.
         same = f(was_txt) == f(made_txt)
         print(f"     {what:40s} {len(f(was_txt)):4d} {len(f(made_txt)):4d}  {'equal' if same else 'DIFFER'}")
         bad += not same
-    pieces = con.execute("SELECT count(*) FROM cut_piece").fetchone()[0]
+    pieces = con.execute("SELECT count(*) FROM cut_piece p JOIN cut c ON c.id = p.cut_id JOIN project j ON j.id = c.project_id WHERE j.name = ?", (project,)).fetchone()[0]
     print(f"   the cut's {pieces} piece(s) in the database are the table's rows on record, each tied to one standing laid line (the importer refuses otherwise)")
     asks = cover.Mapping().asks()
     if asks:

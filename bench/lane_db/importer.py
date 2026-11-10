@@ -1,5 +1,11 @@
-"""Build the lane's database from a project's record files, the first tier: what a person said and decided, the laid
-list, and the cut that closed the project.
+"""Build the lane's database from the projects' record files, the first tier: what a person said and decided, the laid
+lists, and the cut that closed a project.
+
+Every project of data/projects.json is imported, a video at a time. The first project on a video brings the footage's
+facts (copies, shots, who is on them, seeds, answers, and the footage facts its plan file carries). A later project on
+the same video brings only its own: its plan per subject, its laid lines, the subjects it keeps from the earlier
+project. Its shots file must be the footage's; a footage fact its plan file says differently is named in a note, and
+the first project's stands (the importer does not yet say which of two plan files' footage facts is the later word).
 
 Every record is held to mapping.tsv before anything is written (cover.hold): a field no line covers stops the import.
 Each record goes into import_source verbatim, tied to the row made from it. A build is a pure function of the files:
@@ -47,13 +53,14 @@ def spans(value) -> list[tuple[int, int]]:
 
 
 class Import:
-    def __init__(self, con: sqlite3.Connection, data: Path, project: str, mapping: cover.Mapping | None = None):
-        self.con, self.data, self.name = con, Path(data), project
+    def __init__(self, con: sqlite3.Connection, data: Path, mapping: cover.Mapping | None = None):
+        self.con, self.data = con, Path(data)
         self.map = mapping or cover.Mapping()
         self.notes: list[str] = []
         self.labels: set[str] = set()
         self.subjects: dict[str, int] = {}
         self.files: dict[str, int] = {}
+        self.answer_ids: dict[tuple[str, int], int] = {}
 
     # ---- small writers -------------------------------------------------------------------------------------------
     def ins(self, table: str, **cols) -> int:
@@ -106,10 +113,8 @@ class Import:
             raise Refused(f"{label!r} is not a subject of the video ({', '.join(self.subjects)})")
         return self.subjects[label]
 
-    def project_at(self, at: str | None) -> int:
-        """Whose a dated record is: the project of this video whose time it falls in. An undated one is this project's."""
-        if at is None:
-            return self.project_id
+    def project_at(self, at: str) -> int:
+        """Whose a dated record is: the project of this video whose time it falls in."""
         t = at.replace("Z", "")
         for p in self.projects:
             if (p["starts_at"] is None or p["starts_at"].replace("Z", "") <= t) and (p["ends_before"] is None or t < p["ends_before"].replace("Z", "")):
@@ -117,28 +122,31 @@ class Import:
         raise Refused(f"no project of the video holds the time {at}")
 
     # ---- the projects file ---------------------------------------------------------------------------------------
-    def projects_file(self) -> None:
+    def projects_file(self) -> list[list[dict]]:
+        """Every project of the file as a row, and the projects grouped by video, in the file's order."""
         text, fid = self.read("projects.json", "projects")
         doc = json.loads(text)
         if doc.get("schema") != "h3_projects/1":
             raise Refused(f"data/projects.json is {doc.get('schema')!r}, not h3_projects/1")
         cover.hold(self.map, "projects", [{k: v for k, v in doc.items() if k != "projects"}] + doc["projects"], set())
-        mine = next((p for p in doc["projects"] if p["name"] == self.name), None)
-        if mine is None:
-            raise Refused(f"data/projects.json names no project {self.name!r}")
-        self.entry, self.folder = mine, mine["folder"]
-        shots = json.loads((self.data / mine["footage_records"] / "shots.json").read_text())
-        self.video_id = self.ins("video", name=mine["video"], source_name=shots["video"], frames=shots["source_frames"])
-        self.projects = []
+        videos: dict[str, list[dict]] = {}
         for p in doc["projects"]:
-            if p["video"] != mine["video"]:
-                continue
-            pid = self.ins("project", name=p["name"], video_id=self.video_id, folder=p["folder"], starts_at=p["starts_at"],
-                           ends_before=p["ends_before"], said_by=p["by"])
-            self.projects.append(dict(p, id=pid))
-            self.src(fid, None, p, "project", pid)
-            if p["name"] == self.name:
-                self.project_id = pid
+            videos.setdefault(p["video"], []).append(p)
+        for name, found in videos.items():
+            footage = found[0]["footage_records"]
+            if found[0]["folder"] != footage or any(p["footage_records"] != footage for p in found):
+                raise Refused(f"data/projects.json: the projects on {name!r} do not all read the footage records of the first of them ({footage!r})")
+            shots = json.loads((self.data / footage / "shots.json").read_text())
+            vid = self.ins("video", name=name, source_name=shots["video"], frames=shots["source_frames"])
+            for p in found:
+                p["video_id"] = vid
+                p["id"] = self.ins("project", name=p["name"], video_id=vid, folder=p["folder"], starts_at=p["starts_at"], ends_before=p["ends_before"],
+                                   said_by=p["by"])
+                self.src(fid, None, {k: v for k, v in p.items() if k not in ("id", "video_id")}, "project", p["id"])
+        return list(videos.values())
+
+    def enter(self, p: dict) -> None:
+        self.entry, self.name, self.folder, self.project_id = p, p["name"], p["folder"], p["id"]
 
     # ---- footage: copies, shots, who is on them, seeds -----------------------------------------------------------
     def manifest(self) -> None:
@@ -193,7 +201,6 @@ class Import:
             self.appearances(sid, rec["who"])
             return sid
 
-        orders = []
         for i, rec in enumerate(doc["shots"]):
             sid = self.shot_ids[(rec["first"], rec["last"])] = shot_row(rec, i)
             self.src(fid, i, rec, "shot", sid)
@@ -206,14 +213,29 @@ class Import:
                     if ident not in earlier:
                         earlier[ident] = shot_row(old, None)
                     self.ins("shot_from", shot_id=sid, from_shot_id=earlier[ident], how=how, ord=n)
-            if "order" in rec:
-                orders.append((sid, rec))
-        self.orders = orders
+        self.footage_shots = doc
 
     def shot_orders(self) -> None:
-        for sid, rec in self.orders:
-            for n, label in enumerate(rec["order"]):
-                self.ins("shot_order", project_id=self.project_id, shot_id=sid, subject_id=self.subject(label), ord=n, said_by=rec["order_by"])
+        """Which subject is made first on a shot is the project's. A later project's shots file must be the footage's."""
+        doc = self.footage_shots
+        if self.folder != self.projects[0]["folder"]:
+            path = self.data / self.folder / "shots.json"
+            if not path.is_file():
+                self.notes.append(f"{self.name}: no shots.json in data/{self.folder}; it has no shot orders of its own")
+                return
+            text, fid = self.read(f"{self.folder}/shots.json", "shots")
+            doc = json.loads(text)
+            cover.hold(self.map, "shots-header", [{k: v for k, v in doc.items() if k != "shots"}], self.labels)
+            cover.hold(self.map, "shots", doc["shots"], self.labels)
+            bare = lambda d: [{k: v for k, v in rec.items() if k not in ("order", "order_by")} for rec in d["shots"]]
+            if bare(doc) != bare(self.footage_shots) or {k: v for k, v in doc.items() if k != "shots"} != {k: v for k, v in self.footage_shots.items() if k != "shots"}:
+                raise Refused(f"data/{self.folder}/shots.json is not the footage's shots (data/{self.projects[0]['folder']}/shots.json): a project on the "
+                              "same video reads the footage's shots, and only the order of subjects on a shot is its own")
+            self.src(fid, None, {k: v for k, v in doc.items() if k != "shots"}, "project", self.project_id)
+        for rec in doc["shots"]:
+            for n, label in enumerate(rec.get("order") or []):
+                self.ins("shot_order", project_id=self.project_id, shot_id=self.shot_ids[(rec["first"], rec["last"])], subject_id=self.subject(label),
+                         ord=n, said_by=rec["order_by"])
 
     def cast(self) -> None:
         text, fid = self.read(f"{self.folder}/cast/cast.jsonl", "cast")
@@ -223,13 +245,26 @@ class Import:
             if r["schema"] != "h3_cast/1":
                 raise Refused(f"cast.jsonl:{n}: schema {r['schema']!r}")
             box, size = r.get("box") or [None] * 4, r.get("size") or [None] * 2
-            sid = self.ins("seed", subject_id=self.subject(r["subject"]), line=n, frame=r["frame"], x=box[0], y=box[1], w=box[2], h=box[3],
+            sid = self.ins("seed", subject_id=self.subject(r["subject"]), file_id=fid, line=n, frame=r["frame"], x=box[0], y=box[1], w=box[2], h=box[3],
                            picture_w=size[0], picture_h=size[1], answer=r["answer"], encloses=r.get("encloses"), drawn=r.get("drawn"),
                            from_table=r["table"], said_by=r["by"], at=r["at"])
             self.src(fid, n, r, "seed", sid)
 
     # ---- the plan --------------------------------------------------------------------------------------------------
+    @staticmethod
+    def footage_facts(doc: dict) -> dict:
+        """The footage facts a plan file carries, by where they sit in it."""
+        out = {"text.film": doc["text"]["film"], "aliases": doc.get("aliases"), "not_people": doc.get("not_people")}
+        for label, p in doc["subjects"].items():
+            for key in ("head_marks", "voice", "source_facial_hair", "source_facial_hair_by"):
+                out[f"subjects.{label}.{key}"] = p.get(key)
+        return out
+
     def plan(self) -> None:
+        first = self.folder == self.projects[0]["folder"]
+        if not first and not (self.data / self.folder / "plan.json").is_file():
+            self.notes.append(f"{self.name}: no plan.json in data/{self.folder}; it has no plan in the record")
+            return
         text, fid = self.read(f"{self.folder}/plan.json", "plan")
         doc = json.loads(text)
         header = {k: v for k, v in doc.items() if k != "subjects"}
@@ -238,13 +273,21 @@ class Import:
         video = self.con.execute("SELECT source_name FROM video WHERE id = ?", (self.video_id,)).fetchone()[0]
         if doc["schema"] != "h3_plan/1" or doc["video"] != video:
             raise Refused(f"plan.json: schema {doc['schema']!r}, video {doc['video']!r} (the shots file says {video!r})")
-        self.con.execute("UPDATE video SET film_words = ? WHERE id = ?", (doc["text"]["film"], self.video_id))
         if set(doc["text"]) != {"film"}:
             raise Refused(f"plan.json: text holds {sorted(doc['text'])}, and only `film` has a column")
         self.src(fid, None, header, "project", self.project_id)
+        if first:
+            self.footage_plan = self.footage_facts(doc)
+            self.con.execute("UPDATE video SET film_words = ? WHERE id = ?", (doc["text"]["film"], self.video_id))
+        else:
+            mine = self.footage_facts(doc)
+            other = sorted(k for k in set(mine) | set(self.footage_plan) if mine.get(k) != self.footage_plan.get(k))
+            if other:
+                self.notes.append(f"{self.name}: data/{self.folder}/plan.json says {len(other)} footage fact(s) differently from "
+                                  f"data/{self.projects[0]['folder']}/plan.json, whose word stands in the record: {', '.join(other)}")
         aliases = dict(doc.get("aliases") or {})
         by = aliases.pop("_by", None)
-        for n, (alias, label) in enumerate(aliases.items()):
+        for n, (alias, label) in enumerate(aliases.items() if first else ()):
             self.ins("alias", subject_id=self.subject(label), alias=alias, ord=n, said_by=by)
         prefixes = dict(doc.get("load_prefixes") or {})
         self.con.execute("UPDATE project SET load_prefixes_by = ? WHERE id = ?", (prefixes.pop("_by", None), self.project_id))
@@ -254,7 +297,7 @@ class Import:
         for n, d in enumerate(doc.get("departures") or []):
             self.ins("departure", project_id=self.project_id, subject_id=self.subject(d["subject"]), ord=n, first=d["first"], last=d["last"],
                      note=d["note"], said_by=d["by"])
-        for n, p in enumerate(doc.get("not_people") or []):
+        for n, p in enumerate(doc.get("not_people") or [] if first else []):
             nid = self.ins("not_person", video_id=self.video_id, ord=n, what=p["what"], counts_as_no_one=p.get("counts_as_no_one"), said_by=p["by"])
             for i, (a, b) in enumerate(p["shots"]):
                 self.ins("not_person_span", not_person_id=nid, ord=i, first=a, last=b)
@@ -315,6 +358,8 @@ class Import:
                 for i, name in enumerate(r.get("loads") or []):
                     self.ins("restore_load", restore_rule_id=rid, ord=i, load_name=name)
             # footage facts the plan file carries
+            if not first:
+                continue
             for n, m in enumerate(p.get("head_marks") or []):
                 self.ins("head_mark", subject_id=sub, ord=n, first=m["first"], last=m["last"], mark=m["mark"], said_by=m["by"])
             for n, v in enumerate(p.get("voice") or []):
@@ -336,10 +381,12 @@ class Import:
         return "not classed"
 
     def answers(self) -> None:
-        text, fid = self.read(f"{self.folder}/owner_answers.jsonl", "answers")
+        rel = f"{self.folder}/owner_answers.jsonl"
+        if self.folder != self.projects[0]["folder"] and not (self.data / rel).is_file():
+            return
+        text, fid = self.read(rel, "answers")
         recs = [(n, json.loads(line)) for n, line in enumerate(text.splitlines(), 1) if line.strip()]
         cover.hold(self.map, "answers", [r for _, r in recs], self.labels)
-        self.answer_ids: dict[int, int] = {}
         classed: dict[str, int] = {}
         not_spans: list[int] = []
         names = {self.folder, self.con.execute("SELECT source_name FROM video WHERE id = ?", (self.video_id,)).fetchone()[0]}
@@ -349,8 +396,8 @@ class Import:
             about = self.about(r)
             classed[about] = classed.get(about, 0) + 1
             person, frame = r.get("person"), r.get("source_frame")
-            aid = self.answer_ids[n] = self.ins(
-                "answer", video_id=self.video_id, project_id=self.project_at(r["at"]) if about in ("render", "plan") else None, about=about,
+            aid = self.answer_ids[(f"data/{rel}", n)] = self.ins(
+                "answer", file_id=fid, video_id=self.video_id, project_id=self.project_at(r["at"]) if about in ("render", "plan") else None, about=about,
                 line=n, at=r["at"], who=r["who"], what=r["what"], page_row=r.get("row"), tile=r.get("n"), shot_said=r.get("shot"),
                 subject_id=self.subject(r["subject"]) if r.get("subject") else None, frame=r.get("frame"),
                 source_frame=frame if isinstance(frame, int) else None, source_frame_default=frame == "default",
@@ -376,9 +423,9 @@ class Import:
                     self.ins("answer_part", answer_id=aid, role=role, ord=i, part_class=c)
             self.src(fid, n, r, "answer", aid)
         if not_spans:
-            self.notes.append(f"{len(not_spans)} answer line(s) hold a `frames` that is not a span (a text and a joined number, as the page wrote "
+            self.notes.append(f"data/{rel}: {len(not_spans)} answer line(s) hold a `frames` that is not a span (a text and a joined number, as the page wrote "
                               f"it): kept raw only, on lines {not_spans[0]}-{not_spans[-1]}")
-        self.notes.append("answers by what they are about: " + ", ".join(f"{k} {v}" for k, v in sorted(classed.items())))
+        self.notes.append(f"data/{rel}: answers by what they are about: " + ", ".join(f"{k} {v}" for k, v in sorted(classed.items())))
 
     # ---- the laid list ---------------------------------------------------------------------------------------------
     def load(self, name: str, at: str) -> int:
@@ -394,12 +441,12 @@ class Import:
         if not m:
             raise Refused(f"a cited line {cited!r} is not file:line")
         file, line = m["file"], int(m["line"])
-        answers = file == f"data/{self.folder}/owner_answers.jsonl"
-        if answers and line not in self.answer_ids:
-            raise Refused(f"{cited} is cited, and the answers file has no such line")
-        return file, line, self.answer_ids[line] if answers else None
+        answers = file.endswith("/owner_answers.jsonl")
+        if answers and (file, line) not in self.answer_ids:
+            raise Refused(f"{cited} is cited, and no answers file in the record has that line")
+        return file, line, self.answer_ids[(file, line)] if answers else None
 
-    def laid_row(self, r: dict, where: str, list_line: int | None, removed_line: int | None) -> int:
+    def laid_row(self, r: dict, where: str, fid: int, list_line: int | None, removed_line: int | None) -> int:
         if r["schema"] != "h3_laid/1":
             raise Refused(f"{where}: schema {r['schema']!r}")
         lid = self.ins(
@@ -407,7 +454,8 @@ class Import:
             first=r["first"], last=r["last"], render_location_id=self.place(r["file"], "share_output"), render_artifact_id=self.artifact(r["sha256"]),
             zoomed_artifact_id=self.artifact(r["zoomed_sha256"]) if r.get("zoomed_sha256") else None, added_at=r["added"], added_by=r["added_by"],
             no_rebuild_why=r.get("no_rebuild"), partial_lay_why=r.get("partial_lay_why"), seeded_from=r.get("seeded_from"),
-            owner_before_correction=r.get("owner_was"), owner_corrected_why=r.get("owner_corrected"), list_line=list_line, removed_line=removed_line)
+            owner_before_correction=r.get("owner_was"), owner_corrected_why=r.get("owner_corrected"), file_id=fid, list_line=list_line,
+            removed_line=removed_line)
         history = r.get("history") or []
         states = []
         if history:
@@ -446,28 +494,66 @@ class Import:
                 self.ins("laid_carve_frames", laid_id=lid, carve_ord=i, ord=n, first=a, last=b)
         return lid
 
+    def keeps(self) -> None:
+        keeps = self.entry.get("keeps")
+        if not keeps:
+            return
+        earlier = next((p for p in self.projects if p["name"] == keeps["from"] and p["id"] < self.project_id), None)
+        if earlier is None:
+            raise Refused(f"data/projects.json: {self.name} keeps pieces from {keeps['from']!r}, which is not an earlier project on its video")
+        for label in keeps["subjects"]:
+            self.ins("project_keeps", project_id=self.project_id, from_project_id=earlier["id"], subject_id=self.subject(label), said_by=keeps["by"])
+
+    def not_its_own(self, r: dict) -> str | None:
+        """A line of this project's laid list dated before the project began: `kept` where it is a standing piece the
+        project keeps from the earlier one, as it stands there; else `not kept`. None for a line of its own time."""
+        if self.project_at(r["added"]) >= self.project_id:
+            return None
+        same = self.con.execute(
+            """SELECT l.id FROM project_laid l JOIN load d ON d.id = l.load_id JOIN artifact a ON a.id = l.render_artifact_id
+               JOIN subject s ON s.id = l.subject_id
+               WHERE l.for_project_id = ? AND l.kept_from_another = 1 AND d.name = ? AND a.sha256 = ? AND s.label = ?""",
+            (self.project_id, r["load"], r["sha256"], r["subject"])).fetchall()
+        frames = lambda lid: [[f["first"], f["last"]] for f in self.con.execute("SELECT first, last FROM laid_frames WHERE laid_id = ? ORDER BY ord", (lid,))]
+        return "kept" if any(frames(row["id"]) == [list(x) for x in spans(r["frames"])] for row in same) else "not kept"
+
     def laid(self) -> None:
-        text, fid = self.read(f"{self.folder}/laid.jsonl", "laid")
+        own = self.folder != self.projects[0]["folder"]
+        rel = f"{self.folder}/laid.jsonl"
+        if own and not (self.data / rel).is_file():
+            self.notes.append(f"{self.name}: no laid.jsonl in data/{self.folder}")
+            return
+        text, fid = self.read(rel, "laid")
         self.laid_sha, self.laid_lines = hashlib.sha256(text.encode()).hexdigest(), len(text.splitlines())
         recs = [(n, json.loads(line)) for n, line in enumerate(text.splitlines(), 1) if line.strip()]
         cover.hold(self.map, "laid", [r for _, r in recs], self.labels)
+        seen = {"kept": [], "not kept": []}
         for n, r in recs:
-            self.src(fid, n, r, "laid", self.laid_row(r, f"laid.jsonl:{n}", n, None))
-        text, fid = self.read(f"{self.folder}/laid.removed.jsonl", "laid-removed")
+            other = self.not_its_own(r) if own else None
+            if other:
+                seen[other].append(r)
+                self.src(fid, n, r)                      # verbatim, and no row: the piece is the earlier project's
+                continue
+            self.src(fid, n, r, "laid", self.laid_row(r, f"{rel}:{n}", fid, n, None))
+        if own and (seen["kept"] or seen["not kept"]):
+            kept = self.con.execute("SELECT count(*) FROM project_laid WHERE for_project_id = ? AND kept_from_another = 1", (self.project_id,)).fetchone()[0]
+            by_subject = lambda rows: ", ".join(f"{label} {sum(1 for r in rows if r['subject'] == label)}" for label in sorted({r["subject"] for r in rows}))
+            self.notes.append(f"{self.name}: data/{rel} holds {len(seen['kept'])} line(s) that are pieces it keeps as they stand (of the {kept} it keeps), "
+                              f"and {len(seen['not kept'])} dated before it began that are not ({by_subject(seen['not kept']) or 'none'}): "
+                              "none of these is imported as its own")
+        rel = f"{self.folder}/laid.removed.jsonl"
+        if own and not (self.data / rel).is_file():
+            return
+        text, fid = self.read(rel, "laid-removed")
         recs = [(n, json.loads(line)) for n, line in enumerate(text.splitlines(), 1) if line.strip()]
         cover.hold(self.map, "laid-removed", [r for _, r in recs], self.labels)
         for n, r in recs:
             if r["schema"] != "h3_laid_removed/1":
-                raise Refused(f"laid.removed.jsonl:{n}: schema {r['schema']!r}")
-            lid = self.laid_row(r["removed"], f"laid.removed.jsonl:{n}", None, n)
+                raise Refused(f"{rel}:{n}: schema {r['schema']!r}")
+            lid = self.laid_row(r["removed"], f"{rel}:{n}", fid, None, n)
             self.ins("laid_removal", laid_id=lid, at=r["at"], by_session=r["by_session"], why=r["by"], no_rebuild_why=r.get("no_rebuild"),
                      carved_whole_by=r.get("carved_whole_by"))
             self.src(fid, n, r, "laid", lid)
-        twice = self.con.execute("""SELECT o.relpath, count(DISTINCT l.render_artifact_id) n FROM laid l JOIN location o ON o.id = l.render_location_id
-                                    GROUP BY o.id HAVING n > 1""").fetchall()
-        if twice:
-            self.notes.append(f"{len(twice)} render place(s) are named by laid lines with more than one sha256 (written over in place): "
-                              + ", ".join(t["relpath"] for t in twice[:5]))
 
     # ---- the cut that closed the project ---------------------------------------------------------------------------
     def final_cut(self) -> None:
@@ -520,10 +606,10 @@ class Import:
             if set(row) - {"first", "last", "file", "name", "piece_first", "subject", "region", "restore", "run"}:
                 raise Refused(f"data/{table_rel}: a row holds {sorted(row)}")
             laid = self.con.execute(
-                """SELECT l.id FROM laid_standing l JOIN load d ON d.id = l.load_id JOIN location o ON o.id = l.render_location_id
+                """SELECT l.id FROM project_laid l JOIN load d ON d.id = l.load_id JOIN location o ON o.id = l.render_location_id
                    JOIN subject s ON s.id = l.subject_id JOIN laid_frames f ON f.laid_id = l.id
-                   WHERE d.name = ? AND o.relpath = ? AND s.label = ? AND f.first <= ? AND f.last >= ?""",
-                (row["name"], row["file"], row["subject"], row["first"], row["last"])).fetchall()
+                   WHERE l.for_project_id = ? AND d.name = ? AND o.relpath = ? AND s.label = ? AND f.first <= ? AND f.last >= ?""",
+                (self.project_id, row["name"], row["file"], row["subject"], row["first"], row["last"])).fetchall()
             if len(laid) != 1:
                 raise Refused(f"data/{table_rel}: row {n} ({row['name']} on {row['first']}-{row['last']}) is {len(laid)} standing laid piece(s), where one is meant")
             capture = run = None
@@ -542,20 +628,30 @@ class Import:
     def run(self) -> list[str]:
         commit = subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=REPO, capture_output=True, text=True).stdout.strip() or None
         with self.con:
-            self.projects_file()
-            self.manifest()
-            self.shots()
-            self.shot_orders()
-            self.cast()
-            self.plan()
-            self.answers()
-            self.laid()
-            self.final_cut()
-            self.ins("import_run", at=datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), tool_commit=commit, project=self.name)
+            for projects in self.projects_file():
+                self.projects, self.video_id = projects, projects[0]["video_id"]
+                self.labels, self.subjects = set(), {}
+                self.enter(projects[0])                   # the footage's records are the first project's
+                self.manifest()
+                self.shots()
+                self.cast()
+                for p in projects:
+                    self.enter(p)
+                    self.answers()
+                for p in projects:
+                    self.enter(p)
+                    self.shot_orders()
+                    self.plan()
+                    self.keeps()
+                    self.laid()
+                    self.final_cut()
+                for row in self.con.execute("""SELECT f.name folder, p.name, count(*) n FROM laid l JOIN project p ON p.id = l.project_id
+                                               JOIN import_file i ON i.id = l.file_id JOIN location o ON o.id = i.location_id
+                                               JOIN project f ON o.relpath LIKE f.folder || '/%' WHERE f.id <> p.id AND p.video_id = ? GROUP BY 1, 2""",
+                                            (self.video_id,)).fetchall():
+                    self.notes.append(f"{row['n']} laid line(s) in {row['folder']}'s lists are dated in {row['name']}'s time and are {row['name']}'s")
+            self.ins("import_run", at=datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), tool_commit=commit, project="every project")
         bad = self.con.execute("PRAGMA foreign_key_check").fetchall()
         if bad:
             raise Refused(f"{len(bad)} row(s) point at a row that is not there: {[tuple(b) for b in bad[:5]]}")
-        late = self.con.execute("""SELECT p.name, count(*) n FROM laid l JOIN project p ON p.id = l.project_id WHERE p.name <> ? GROUP BY p.name""", (self.name,)).fetchall()
-        for row in late:
-            self.notes.append(f"{row['n']} laid line(s) in {self.folder}'s list are dated in {row['name']}'s time and are {row['name']}'s")
         return self.notes

@@ -218,14 +218,15 @@ class Export:
               JOIN artifact a ON a.id = l.render_artifact_id LEFT JOIN artifact z ON z.id = l.zoomed_artifact_id """
 
     def laid(self, subjects: list[str] | None = None) -> list[dict]:
-        """The laid list as it stands, in its order. `subjects` keeps only those subjects' pieces: what a project on the
-        same footage starts from when it remakes the others."""
-        rows = _rows(self.con, self.LAID + "WHERE l.project_id = ? AND l.list_line IS NOT NULL ORDER BY l.list_line", self.p["id"])
+        """What the project lays, as a laid list: the pieces it keeps from an earlier project on the footage as they
+        stand, in that project's order, then its own standing lines in theirs. `subjects` keeps only those subjects'."""
+        ids = _rows(self.con, "SELECT id FROM project_laid WHERE for_project_id = ? ORDER BY kept_from_another DESC, file_id, list_line", self.p["id"])
+        rows = [self.con.execute(self.LAID + "WHERE l.id = ?", (r["id"],)).fetchone() for r in ids]
         return [self._laid(l) for l in rows if subjects is None or l["label"] in subjects]
 
     def laid_removed(self) -> list[dict]:
         out = []
-        for l in _rows(self.con, self.LAID + "WHERE l.project_id = ? AND l.removed_line IS NOT NULL ORDER BY l.removed_line", self.p["id"]):
+        for l in _rows(self.con, self.LAID + "WHERE l.project_id = ? AND l.removed_line IS NOT NULL ORDER BY l.file_id, l.removed_line", self.p["id"]):
             r = self.con.execute("SELECT * FROM laid_removal WHERE laid_id = ?", (l["id"],)).fetchone()
             out.append(_put({"schema": "h3_laid_removed/1", "at": r["at"], "by": r["why"], "by_session": r["by_session"], "removed": self._laid(l)},
                             no_rebuild=r["no_rebuild_why"], carved_whole_by=r["carved_whole_by"]))
@@ -267,13 +268,19 @@ def _differ(a, b, path: str, out: list[str]) -> None:
 
 
 def differences(con: sqlite3.Connection, project: str, data: Path, mapping: cover.Mapping | None = None) -> dict[str, list[str]]:
-    """Each record file against what the database gives back, as data, with the raw-only fields taken out of the file."""
+    """Each record file in the project's folder against what the database gives back, as data, with the raw-only fields
+    taken out of the file. For a project that keeps another's pieces, the laid list given back is those pieces and its
+    own lines: a file that still holds the other project's remade pieces differs, and the difference says so."""
     mapping = mapping or cover.Mapping()
     ex = Export(con, project)
     labels = set(ex.labels)
-    out = {}
+    out, read_any = {}, False
     for rel, (source, mine, lines) in ex.files().items():
-        text = (Path(data) / ex.p["folder"] / rel).read_text()
+        path = Path(data) / ex.p["folder"] / rel
+        if not path.is_file():                           # a later project on a video has no cast file of its own, and may have no removed list
+            continue
+        read_any = True
+        text = path.read_text()
         theirs = [json.loads(line) for line in text.splitlines() if line.strip()] if lines else json.loads(text)
         found: list[str] = []
         if source in ("shots", "plan"):
@@ -286,7 +293,28 @@ def differences(con: sqlite3.Connection, project: str, data: Path, mapping: cove
                     found.append(f"{rel}: subjects {list(a)} in the file, {list(b)} from the database")
                 a, b = list(a.values()), list(b.values())
             _differ([cover.without_raw(mapping, source, r, labels) for r in a], b, f"{rel}:{header_key}", found)
+        elif source == "laid":
+            _laid_differ([cover.without_raw(mapping, source, r, labels) for r in theirs], mine, rel, found)
         else:
             _differ([cover.without_raw(mapping, source, r, labels) for r in theirs], mine, rel, found)
         out[rel] = found
+    if not read_any:
+        raise Refused(f"no record file of {project} is under {Path(data) / ex.p['folder']}: nothing was compared")
     return out
+
+
+def _laid_differ(theirs: list[dict], mine: list[dict], rel: str, out: list[str]) -> None:
+    """A laid list against the one given back, piece by piece: a piece is its load, its render's sha256 and its subject."""
+    key = lambda r: (r["load"], r["sha256"], r["subject"])
+    a, b = {key(r): r for r in theirs}, {key(r): r for r in mine}
+    if len(a) != len(theirs) or len(b) != len(mine):
+        return _differ(theirs, mine, rel, out)              # a piece twice in a list: line by line
+    for what, only in (("in the file and not given back", [k for k in a if k not in b]), ("given back and not in the file", [k for k in b if k not in a])):
+        if only:
+            by_subject = ", ".join(f"{label} {sum(1 for k in only if k[2] == label)}" for label in sorted({k[2] for k in only}))
+            out.append(f"{rel}: {len(only)} piece(s) {what} ({by_subject}): {', '.join(k[0] for k in only)}")
+    both = [k for k in a if k in b]
+    for k in both:
+        _differ(a[k], b[k], f"{rel}:{k[0]}", out)
+    if not out and [key(r) for r in theirs] != [key(r) for r in mine]:
+        out.append(f"{rel}: the same pieces, in another order")

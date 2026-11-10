@@ -19,6 +19,14 @@ and that what goes in comes back.
                                   from the state before it is refused
   a_dated_record_is_its_projects  a laid line dated in the second project's time lands in the second project, and is in
                                   neither the first's standing list nor its file given back
+  a_project_keeps_anothers_pieces the second project lays the first's standing pieces of the subject it keeps, then its
+                                  own lines; a line of its file dated before it began is imported as nobody's, and the
+                                  note counts the kept and the not kept; its plan is its own and its footage facts are
+                                  the video's; `compare` names the piece its file holds and the record does not, and
+                                  exits 1
+  a_footage_fact_said_twice       a second project's plan that says a footage fact differently is named in a note, and
+                                  the first project's word stands; a shots file that is not the footage's is refused
+  an_old_file_is_brought_up       a database at the first schema is brought to the newest with every link whole
   subjects_start_a_project        `export --subjects` writes only those subjects' standing pieces
   the_lanes_file_waits            `build` refuses data/lane.sqlite while a mapping line is `ask`, and any other path
                                   inside the repo
@@ -128,12 +136,19 @@ def project() -> dict[str, object]:
                                           entered_by="a session", replaced_at="2026-01-01T01:00:00Z", replaced_by="walk_24p_sound.mov", why="sound")],
                 "voice": {"frames": [0, 39], "frames_are": "its own", "named_at": "2026-01-01T00:00:00Z", "named_by": "a session",
                           "per_frame": "data/walk/voice.csv", "spans": "data/walk/voice.json"}}
-    entry = lambda name, folder, starts, ends: {"name": name, "folder": folder, "video": "walk", "footage_records": "walk", "starts_at": starts,
-                                                "ends_before": ends, "by": "a person"}
+    entry = lambda name, folder, starts, ends, **more: dict({"name": name, "folder": folder, "video": "walk", "footage_records": "walk",
+                                                             "starts_at": starts, "ends_before": ends, "by": "a person"}, **more)
     projects = {"schema": "h3_projects/1", "written_by": "this check",
-                "projects": [entry("walk", "walk", None, "2026-02-01T00:00:00Z"), entry("walk2", "walk_again", "2026-02-01T00:00:00Z", None)]}
+                "projects": [entry("walk", "walk", None, "2026-02-01T00:00:00Z"),
+                             entry("walk2", "walk_again", "2026-02-01T00:00:00Z", None, keeps={"from": "walk", "subjects": ["b"], "by": "a person"})]}
+    # the second project: the same footage, another still for `a`; its laid file holds the first's pieces and one line of its own
+    again = copy.deepcopy(plan)
+    again["subjects"]["a"]["still"] = "stills/a2.png"
+    mine = laid(6, "a", "a_fp_0000b", 0, 9, added="2026-02-03T00:00:00Z", owner="unconfirmed", by="a go to render")
     return {"projects.json": projects, "walk/manifest.json": manifest, "walk/shots.json": shots, "walk/cast/cast.jsonl": cast, "walk/plan.json": plan,
-            "walk/owner_answers.jsonl": answers, "walk/laid.jsonl": lines, "walk/laid.removed.jsonl": removed}
+            "walk/owner_answers.jsonl": answers, "walk/laid.jsonl": lines, "walk/laid.removed.jsonl": removed,
+            "walk_again/shots.json": copy.deepcopy(shots), "walk_again/plan.json": again,
+            "walk_again/laid.jsonl": [copy.deepcopy(lines[0]), copy.deepcopy(lines[1]), copy.deepcopy(lines[2]), mine]}
 
 
 def write(folder: Path, files: dict[str, object]) -> Path:
@@ -147,7 +162,7 @@ def write(folder: Path, files: dict[str, object]) -> Path:
 def built(tmp: Path, files: dict[str, object] | None = None, name: str = "a"):
     data = write(tmp / f"data_{name}", files or project())
     con = db.connect(tmp / f"{name}.sqlite", create=True)
-    return con, data, importer.Import(con, data, "walk")
+    return con, data, importer.Import(con, data)
 
 
 def main_check() -> int:
@@ -214,7 +229,7 @@ def main_check() -> int:
             diff = export.differences(con, "walk", data)
             assert set(diff) == {"shots.json", "plan.json", "cast/cast.jsonl", "laid.jsonl", "laid.removed.jsonl"}, sorted(diff)
             # the fourth laid line is the second project's by its date, and is not in the first's file given back
-            assert diff.pop("laid.jsonl") == ["laid.jsonl: 4 in the file, 3 from the database"], "the laid list did not come back as its first three lines"
+            assert diff.pop("laid.jsonl") == ["laid.jsonl: 1 piece(s) in the file and not given back (a 1): a_fp_0010"], "the laid list did not come back as its first three lines"
             assert not any(diff.values()), diff
             con.execute("SAVEPOINT broken")
             con.execute("UPDATE shot_override SET margin_px = 33")
@@ -249,11 +264,69 @@ def main_check() -> int:
             return refused(imp2.run, "history entry", "did not leave")[:60]
 
         def a_dated_record_is_its_projects():
-            got = [tuple(r) for r in con.execute("SELECT p.name, d.name FROM laid l JOIN project p ON p.id = l.project_id JOIN load d ON d.id = l.load_id WHERE l.list_line = 4")]
+            got = [tuple(r) for r in con.execute("""SELECT p.name, d.name FROM laid l JOIN project p ON p.id = l.project_id JOIN load d ON d.id = l.load_id
+                                                    JOIN import_file i ON i.id = l.file_id JOIN location o ON o.id = i.location_id
+                                                    WHERE l.list_line = 4 AND o.relpath = 'walk/laid.jsonl'""")]
             assert got == [("walk2", "a_fp_0010")], got
             assert any("walk2" in n for n in imp.notes), imp.notes
             assert [r["load"] for r in export.Export(con, "walk").laid()] == ["a_fp_0000", "b_fp_0010", "b_fp_0020"]
-            assert [r["load"] for r in export.Export(con, "walk2").laid()] == ["a_fp_0010"]
+            assert [r["load"] for r in export.Export(con, "walk2").laid(["a"])] == ["a_fp_0010", "a_fp_0000b"]
+
+        def a_project_keeps_anothers_pieces():
+            ex = export.Export(con, "walk2")
+            assert [(r["subject"], r["load"]) for r in ex.laid()] == [("b", "b_fp_0010"), ("b", "b_fp_0020"), ("a", "a_fp_0010"), ("a", "a_fp_0000b")], ex.laid()
+            assert con.execute("SELECT count(*) FROM laid").fetchone()[0] == 6, "a line of the second project's file dated before it began became a row"
+            note = next(n for n in imp.notes if "pieces it keeps" in n)
+            assert "holds 2 line(s) that are pieces it keeps" in note and "1 dated before it began that are not (a 1)" in note, note
+            stills = [r[0] for r in con.execute("SELECT o.relpath FROM subject_plan sp JOIN project p ON p.id = sp.project_id JOIN location o ON o.id = sp.still_location_id WHERE p.name = 'walk2' ORDER BY sp.id")]
+            assert stills == ["stills/a2.png", "b.jpg"], stills
+            counts = [con.execute(q).fetchone()[0] for q in ("SELECT count(*) FROM head_mark", "SELECT count(*) FROM shot WHERE ord IS NOT NULL")]
+            assert counts == [1, 3], f"footage facts were imported twice: {counts}"
+            diff = export.differences(con, "walk2", data)
+            assert diff["shots.json"] == [] and diff["plan.json"] == [], diff
+            assert diff["laid.jsonl"] == ["laid.jsonl: 1 piece(s) in the file and not given back (a 1): a_fp_0000",
+                                          "laid.jsonl: 1 piece(s) given back and not in the file (a 1): a_fp_0010"], diff["laid.jsonl"]
+            con.commit()
+            assert main(["compare", "--project", "walk2", "--db", str(tmp / "a.sqlite"), "--data", str(data)]) == 1, "compare did not exit 1 on a difference"
+            assert main(["compare", "--project", "walk2", "--db", str(tmp / "a.sqlite"), "--data", str(tmp / "nowhere")]) == 1, "compare passed with no file to read"
+
+        def a_footage_fact_said_twice():
+            files = project()
+            files["walk_again/plan.json"]["subjects"]["b"]["head_marks"][0]["last"] = 14
+            con2, _, imp2 = built(tmp, files, "twice")
+            imp2.run()
+            note = next((n for n in imp2.notes if "footage fact" in n), "")
+            assert "subjects.b.head_marks" in note and "data/walk/plan.json" in note, imp2.notes
+            assert [tuple(r) for r in con2.execute("SELECT first, last FROM head_mark")] == [(12, 13)]
+            files = project()
+            files["walk_again/shots.json"]["shots"][0]["last"] = 8
+            _, _, imp3 = built(tmp, files, "shots")
+            return refused(imp3.run, "is not the footage's shots")[:60]
+
+        def an_old_file_is_brought_up():
+            import sqlite3
+            old = sqlite3.connect(tmp / "old.sqlite")
+            old.executescript((db.MIGRATIONS / "0001_first_tier.sql").read_text() + "\nPRAGMA user_version = 1;")
+            old.executescript("""INSERT INTO root VALUES ('data', 'x'); INSERT INTO artifact (id, sha256) VALUES (1, '%s');
+                INSERT INTO location (id, root, relpath) VALUES (1, 'data', 'v/cast.jsonl'), (2, 'data', 'v/owner_answers.jsonl'), (3, 'data', 'v/laid.jsonl');
+                INSERT INTO import_file (id, location_id, artifact_id, source) VALUES (1, 1, 1, 'cast'), (2, 2, 1, 'answers'), (3, 3, 1, 'laid');
+                INSERT INTO video (id, name, source_name, frames) VALUES (1, 'v', 'v.mp4', 9);
+                INSERT INTO project (id, name, video_id, folder, said_by) VALUES (1, 'v', 1, 'v', 'x');
+                INSERT INTO subject (id, video_id, label, ord) VALUES (1, 1, 'a', 0);
+                INSERT INTO seed (subject_id, line, frame, answer, from_table, said_by, at) VALUES (1, 1, 2, 'here', 't', 'x', 'x');
+                INSERT INTO answer (video_id, about, line, at, who, what) VALUES (1, 'footage', 1, 'x', 'owner', 'words');
+                INSERT INTO load (id, project_id, name) VALUES (1, 1, 'l');
+                INSERT INTO laid (id, project_id, subject_id, load_id, first, last, render_location_id, render_artifact_id, added_at, added_by, list_line)
+                  VALUES (1, 1, 1, 1, 0, 9, 3, 1, 'x', 'x', 1);
+                INSERT INTO laid_state (laid_id, ord, owner_status, why, at) VALUES (1, 0, 'kept', 'x', 'x');
+                INSERT INTO laid_frames (laid_id, ord, first, last) VALUES (1, 0, 0, 9);""" % SHA(1))
+            old.commit()
+            old.close()
+            up = db.connect(tmp / "old.sqlite")
+            assert up.execute("PRAGMA user_version").fetchone()[0] == len(db.migrations())
+            got = [tuple(r) for r in up.execute("SELECT l.file_id, s.file_id, a.file_id, (SELECT count(*) FROM laid_standing), (SELECT count(*) FROM project_laid) FROM laid l, seed s, answer a")]
+            assert got == [(3, 1, 2, 1, 1)], got
+            assert not up.execute("PRAGMA foreign_key_check").fetchall()
 
         def subjects_start_a_project():
             con.commit()
@@ -261,22 +334,25 @@ def main_check() -> int:
             assert main(["export", "--project", "walk", "--db", str(tmp / "a.sqlite"), "--out", str(out), "--subjects", "b"]) == 0
             rows = [json.loads(line) for line in (out / "laid.jsonl").read_text().splitlines()]
             assert [(r["subject"], r["load"]) for r in rows] == [("b", "b_fp_0010"), ("b", "b_fp_0020")], rows
+            assert main(["export", "--project", "walk2", "--db", str(tmp / "a.sqlite"), "--out", str(tmp / "seed2"), "--subjects", "b"]) == 0
+            assert (tmp / "seed2" / "laid.jsonl").read_text() == (out / "laid.jsonl").read_text(), "the kept pieces are not the first project's, as they stand"
             assert sorted(p.name for p in out.iterdir()) == ["laid.jsonl"]
             assert main(["export", "--project", "walk", "--db", str(tmp / "a.sqlite"), "--out", str(out), "--subjects", "nobody"]) == 1
 
         def the_lanes_file_waits():
             asks = cover.Mapping().asks()
-            inside = main(["build", "--project", "walk", "--db", str(db.REPO / "bench" / "x.sqlite")])
+            inside = main(["build", "--db", str(db.REPO / "bench" / "x.sqlite")])
             assert inside == 1 and not (db.REPO / "bench" / "x.sqlite").exists()
             if not asks:
                 return "no mapping line is `ask`: only the path inside the repo was tried"
             before = db.THE_RECORD.exists()
-            assert main(["build", "--project", "walk", "--db", str(db.THE_RECORD)]) == 1
+            assert main(["build", "--db", str(db.THE_RECORD)]) == 1
             assert db.THE_RECORD.exists() == before, "data/lane.sqlite was touched"
             return f"{len(asks)} line(s) are `ask`"
 
         for fn in (the_schema_keeps_its_rules, json_only_where_it_is_said, every_mapping_line_is_used, an_unmapped_field_stops_it, a_build_is_a_function,
-                   files_come_back, a_place_is_written_once, history_is_states, a_dated_record_is_its_projects, subjects_start_a_project,
+                   files_come_back, a_place_is_written_once, history_is_states, a_dated_record_is_its_projects, a_project_keeps_anothers_pieces,
+                   a_footage_fact_said_twice, an_old_file_is_brought_up, subjects_start_a_project,
                    the_lanes_file_waits):
             case(fn.__name__, fn)
     return finish()

@@ -18,16 +18,18 @@ built, what it was held to, and what the build found. The plan says why; this sa
   - **`recipe` is the one source** of the crop and mouth forms; `plan.reference` is kept raw only.
   - **Raw only:** the rare fields of the answer lines, `text.not_used`, one laid line's recipe folder, and the
     manifest's `masks`.
-- **`data/lane.sqlite` is built** from `fun`'s files, by `bench/lane_record.py build --project fun --db
+- **`data/lane.sqlite` is built** from every project of `data/projects.json`, by `bench/lane_record.py build --db
   data/lane.sqlite`. It is rebuilt whole when a record file changes; nothing updates it in place yet.
-- **`fun2`'s starting list is one command:** `bench/lane_record.py export --project fun --db DB --out FOLDER
-  --subjects second,third` writes `fun`'s standing laid pieces of those subjects and no lead piece. Nothing has been
-  written into `data/fun_lead2/` by it.
+- **`fun2` is in it as a project** on `fun`'s video ("`fun2` as a project", below).
+- **`fun2`'s starting list is one command:** `bench/lane_record.py export --project fun2 --db data/lane.sqlite --out
+  FOLDER --subjects second,third` writes the pieces `fun2` keeps from `fun`, as they stand, and no lead piece. Nothing
+  has been written into `data/fun_lead2/` by it; that is the owner's go.
 
 ## What the first tier holds
 
-One migration, [`bench/lane_db/migrations/0001_first_tier.sql`](../../bench/lane_db/migrations/0001_first_tier.sql).
-Each table's comment says whether it is a footage fact or a project's.
+Two migrations in [`bench/lane_db/migrations/`](../../bench/lane_db/migrations/): the first tier's tables, then the
+change that lets one file hold more than one project and video (a seed, an answer and a laid line are each a line of a
+named file, and `project_keeps`). Each table's comment says whether it is a footage fact or a project's.
 
 - **The project level:** `project` sits above `video`. Which projects there are, which video each works on, which
   dated records are whose and which cut closed a project are read from a new record, `data/projects.json`, written
@@ -46,6 +48,29 @@ Each table's comment says whether it is a footage fact or a project's.
 **The second tier is the next migration:** previews, loads' settings, steps, what each step read, and `how_known`
 (recorded, inferred, unknown) on each link. The first tier makes no inferred link, so that column has nothing to hold
 yet. The review items, the verdicts file's lines from a terminal, and the job and capture files are not imported.
+
+## `fun2` as a project
+
+A build imports every project of `data/projects.json`, a video at a time. The first project on a video brings the
+footage facts. A later one brings only its own.
+
+- **What `fun2` keeps is the owner's word, recorded once:** `keeps` in `data/projects.json` names `second` and `third`
+  from `fun`. The view `project_laid` is then what a project lays: its own standing lines, and the standing pieces it
+  keeps from the earlier project. No row is copied.
+- **Its plan is its own:** the lead's still, text words and restore differ from `fun`'s, and the lead's strangers
+  keep-out is there. The footage facts in its plan file equal `fun`'s today.
+- **Its shots file must be the footage's.** It is byte for byte `fun`'s; the importer refuses one that is not.
+- **Its laid file is not what the record gives back.** `bench/lane_record.py compare --project fun2 --db
+  data/lane.sqlite` names the pieces: the file still holds `fun`'s lead pieces, which `fun2` does not keep. Every
+  `second` and `third` line of it is a piece `fun2` keeps, exactly as it stands in `fun`. The importer's note prints
+  the counts.
+- **It has lead lines of its own already,** dated 2026-11-01, in its laid file with `owner: kept` and no cited line of
+  the owner's. The record holds them as `fun2`'s standing lines because the file says so. The plan says the work of
+  that day was run under the old conditions and that the owner says which of it stands; nothing here decides that.
+
+**A limit, stated:** where a later project's plan file says a footage fact differently from the first project's (a
+new head mark written while `fun2` is worked, say), the importer names the field in a note and the first project's
+word stands. It does not yet treat the later file as the later word. `compare` shows the same difference.
 
 ## What it was held to
 
@@ -90,7 +115,7 @@ reads are second-tier and are read from their files: the ledger on record, and e
 
 ## What is next
 
-1. `fun2` as a project: its own plan imported, its footage facts checked against `fun`'s rather than imported twice.
+1. Footage facts said in a later project's plan file: the later word superseding the earlier, with history.
 2. The second tier, which brings each load's capture as a place. That is where the moved capture folders are
    answered in the record; how today's tools find them meanwhile is the owner's call (the plan, "Where things stand").
 3. The review items and the verdicts file's lines from a terminal.

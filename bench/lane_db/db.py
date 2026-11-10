@@ -52,17 +52,21 @@ def connect(path: Path | str, create: bool = False) -> sqlite3.Connection:
         raise Refused(f"no database at {path}")
     con = sqlite3.connect(path)
     con.row_factory = sqlite3.Row
-    con.execute("PRAGMA foreign_keys = ON")
-    if not con.execute("PRAGMA foreign_keys").fetchone()[0]:
-        raise Refused("this SQLite does not enforce foreign keys")
     con.execute("PRAGMA journal_mode = WAL")
     have = con.execute("PRAGMA user_version").fetchone()[0]
     todo = [(n, p) for n, p in migrations() if n > have]
     if have > len(migrations()):
         raise Refused(f"{path} is at schema {have}, newer than this code's {len(migrations())}")
+    con.execute("PRAGMA foreign_keys = OFF")              # a migration may make a table again; the links are checked after
     for n, p in todo:
         con.executescript("BEGIN;\n" + p.read_text() + f"\nPRAGMA user_version = {n};\nCOMMIT;")
+    con.execute("PRAGMA foreign_keys = ON")
+    if not con.execute("PRAGMA foreign_keys").fetchone()[0]:
+        raise Refused("this SQLite does not enforce foreign keys")
     if todo:
+        broken = con.execute("PRAGMA foreign_key_check").fetchall()
+        if broken:
+            raise Refused(f"after migrating {path} to schema {todo[-1][0]}, {len(broken)} row(s) point at a row that is not there")
         for name, (what, _) in ROOTS.items():
             con.execute("INSERT OR IGNORE INTO root (name, what) VALUES (?, ?)", (name, what))
         con.commit()
