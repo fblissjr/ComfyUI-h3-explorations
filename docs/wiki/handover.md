@@ -15,9 +15,24 @@ Where this page and a record disagree, the record is right: `git log`, [`decisio
   - Rewrote [`control_vectors.md`](control_vectors.md) and all 7 sub-pages under `docs/wiki/control_vectors/` from the code (`77610090`), and added [`edit_guidance.md`](edit_guidance.md).
 - **PrunaAI `P-H3-Image` Default Encoder (`842a4108`)**:
   - The six generated `workflows/image/h3_p_h3_image_*` graphs (`t2i`, `edit`, `lora_t2i`, `lora_edit`, `t2i_control_vector`, `edit_control_vector`) now default to the 32B `MiniMaxH3EncoderLoader`; the two probe graphs (`h3_probe_p_h3_image_*_te4b_api.json`) hold the 4B `PH3ImageTEModel` + `TextConnector` path.
-- **Standing Masked V2V State (`data/fun/`, unchanged since `2026-10-31T1702Z`)**:
-  - Full-video delivery rebuild `2026-10-31T1702Z` stands (`87` rows in `data/fun/laid.jsonl`, `sha256 b2894f97f43a24fc`, `0` failed proofs in `Video/fun/day_2026-10-31/fun_0000_6394_joined_2026-10-31T1702Z_from_laid.mp4`).
-  - ComfyUI (`:8188`) is running and idle on the updated node schema; worktrees `../../h3_worktrees/agy-laid-carve` (`91ad4237`, unmerged masked-lane `bench/laid.py` build) and `../../h3_worktrees/gem-perception-lhf` (`16b0805c`, unmerged masked-lane perception branch) remain on disk.
+- **Masked V2V (corrected 2026-11-10 by a Claude session at the owner's ask; this block used to name the `1702Z` rebuild as standing, `87` rows, `b2894f97`)**:
+  - **`fun` is closed** (the owner, 2026-11-10: it ended 2026-10-31 at about 17:30 to 18:00 Central). The final cut is
+    `Video/fun/day_2026-10-31/fun_0000_6394_joined_2026-10-31T2231Z_from_laid.mp4`. Its record
+    (`data/fun/2026-10-31_fun_delivery_tables/rebuild_fun_2026-10-31T2231Z.json`) and sidecar name the laid list
+    `70ead45b...`, which is `data/fun/laid.jsonl` as it stands. The `day_2026-10-31` folder holds seven cuts of that day;
+    `2231Z` is the last.
+  - **Copies:** the source `fun.mp4` is back in the input folder. The 24 fps working copy
+    `input/mrpop/fun_0000_6394_24p_sound_in_step.mov` was rebuilt by its recorded recipe, byte-identical to its record
+    (`data/fun/copies_rebuilt_2026-11-10/README.md`). `fun`'s old lead still, `mrpop/fun_main_head.png`, is not on the
+    share.
+  - **`fun2` is next**, in `data/fun_lead2/`: the same footage, only the lead replaced (`img_lead_2.jpg`, face only), with
+    `second` and `third` composited as in `fun`'s final laid list. Everything dated 2026-11-01 Central or later
+    (`>= 2026-11-01T05:00Z`) is `fun2`'s, including work run under the old conditions inside `fun`'s folders. Its rules:
+    `data/fun_lead2/AGENTS.md`.
+  - **The plan**: [`../masked_v2v/2026-11-10_simplification_plan.md`](../masked_v2v/2026-11-10_simplification_plan.md).
+    Step 1, the lane's records in one SQLite file, is the session `mrsql`'s; its drafts are in `internal/scratch/lane_db/`.
+  - Worktrees `../../h3_worktrees/agy-laid-carve` (`91ad4237`, unmerged masked-lane `bench/laid.py` build) and
+    `../../h3_worktrees/gem-perception-lhf` (`16b0805c`, unmerged masked-lane perception branch) remain on disk.
 
 ## What not to assume
 
@@ -27,8 +42,12 @@ Where this page and a record disagree, the record is right: `git log`, [`decisio
   - `workflows/build_workflows.py` validates against `:8188` by default (`--no-validate` skips it). On this machine, `H3_INPUT_DIR` currently lacks the placeholder reference media (`1-man.png`, etc.), so a plain `build_workflows.py` run fails validation with 89 missing-file errors unless `--no-validate` is passed or the placeholders are present.
 - **J-Lens builder overwrites its source bundle, and pair bank / UI status**:
   - `bench/control_vector/j_lens_builder.py` (`build-j-lens`) recomputes only the refiner half, copies the lexical half out of the existing bundle on disk, and overwrites that file by default (§17.1). The 32 `.toml` files in `prompt_bank/control_vectors/` stay as a starter set and are not being grown (`decisions.md`); the browser UI (`bench/control_vectors.py ui`) is not maintained at present (`docs/wiki/control_vectors/studio_ui_guide.md`).
-- **Standing `data/fun/` precautions**:
-  - Do not render hand-patched `second_hfp_1419f`, do not remake kept pieces from `>= 2026-10-28` unless flagged on playback, and do not touch `data/fun/laid.jsonl` row 87 (`lead_fp_6125c`) until the owner decides on `6367–6372`.
+- **`data/fun/` is closed; nothing more is laid there** (2026-11-10). Its laid list is `fun`'s final state. The remake
+  queue in `fun_render_backlog.md` §6 is closed with `fun`, not owed. The items this block used to hold are done or
+  closed: the three-pass remake on `1419–1465` is laid (`second_hfp_1419g`, `lead_fp_1419b`, `third_fp_1419c`), and
+  `lead_fp_6125c` is kept on `6125–6372`.
+- **No database file goes in git** (the owner, 2026-11-10; `.gitignore` ignores `*.sqlite`, `*.db`, `*.duckdb` and their
+  WAL, shm and journal files anywhere).
 
 ## Tomorrow, in order
 
@@ -37,8 +56,14 @@ Where this page and a record disagree, the record is right: `git log`, [`decisio
    - **J-Lens lexical-half builder (§17.2, §20.1)**: Build the lexical half from the full 64-layer weights in the model store, move the word map into tracked code, and make `bench/control_vector/j_lens_builder.py` write to a new path instead of overwriting its source bundle.
    - **Apply-node reshape and CLI cut-down (§9, §15.2, §19, §24, §27)**: Reshape `MiniMaxH3ApplyControlVectors` and simplify `bench/control_vector/cli.py` + merge `build_cmd.py`/`make_cmds.py`, then revisit `comfyui_nodes_and_controls.md` and `preset_catalog_and_cli_reference.md` (§27).
    - **System prompt wiring & pre-existing red checks (§15.5, §26.1)**: Wire `bench/control_vector/llm_pairs.py::_extract_system_prompt_text` to `docs/wiki/system_prompts/h3_control_vector_standalone_system_prompt.md` (with `bench/check_prompt_docs_sync.py`), and fix or triage `check_reference_encode.py`, `check_audio_freeze.py`, and `check_two_shot_load.py`.
-2. **When resuming `data/fun/` masked V2V ([`../masked_v2v/fun_render_backlog.md`](../masked_v2v/fun_render_backlog.md) §6)**:
-   - Land `../../h3_worktrees/agy-laid-carve` (`91ad4237`) before laying the first remake, tighten `valid_owner_word` in `bench/capture_masked_run.py` before signing a hard-flag override, run the 3-pass remake on `1419–1465` (`second_hfp_1419g` on `shot_c_1419i` first), update row 87 (`lead_fp_6125c`, `6125–6372`) once the owner decides on `6367–6372`, and continue the `< 2026-10-28` remake queue.
+2. **Masked V2V: the simplification plan, in its order** ([`../masked_v2v/2026-11-10_simplification_plan.md`](../masked_v2v/2026-11-10_simplification_plan.md), "The order, and why"):
+   - **Step 1, the session `mrsql`:** the lane's records in SQLite, first tier. The test is that the database
+     reproduces the delivery table of `fun`'s final cut (laid list `70ead45b...`). 31 field rulings are owed by the
+     owner first (`internal/scratch/lane_db/mapping.tsv`, the `ask` lines).
+   - **Step 2:** depth and the head track on by default in the code, before `fun2`'s first load.
+   - **Step 3, `fun2`'s set-up:** re-seed `data/fun_lead2/laid.jsonl` from `fun`'s final `second` and `third` rows.
+     Then the lead loads, lead-alone shots first, each load's masks compared with those of `fun`'s kept lead piece on
+     the same frames.
 
 ## Where things are
 
@@ -46,4 +71,4 @@ Where this page and a record disagree, the record is right: `git log`, [`decisio
   1. [`handover.md`](handover.md) (this file), [`next_steps.md`](next_steps.md), and [`decisions.md`](decisions.md) (`2026-11-09`).
   2. [`working_with_the_owner.md`](working_with_the_owner.md) and [`../comfy_notes.md`](../comfy_notes.md).
   3. For steering & edit guidance: [`edit_guidance.md`](edit_guidance.md), [`control_vectors.md`](control_vectors.md), and [`../research/control_vectors/2026-11-09_control_vector_simplification_plan.md`](../research/control_vectors/2026-11-09_control_vector_simplification_plan.md).
-  4. For masked V2V (`data/fun/`): [`../../data/AGENTS.md`](../../data/AGENTS.md), [`../masked_v2v/AGENTS.md`](../masked_v2v/AGENTS.md), [`../masked_v2v/PROTOCOL.md`](../masked_v2v/PROTOCOL.md), [`../masked_v2v/CODE_MAP_INDEX.md`](../masked_v2v/CODE_MAP_INDEX.md), and [`../masked_v2v/fun_render_backlog.md`](../masked_v2v/fun_render_backlog.md).
+  4. For masked V2V (`fun` closed, `fun2` in `data/fun_lead2/`): [`../masked_v2v/2026-11-10_simplification_plan.md`](../masked_v2v/2026-11-10_simplification_plan.md), [`../wiki/masked_v2v.md`](masked_v2v.md) ("The pipeline, end to end"), [`../../data/AGENTS.md`](../../data/AGENTS.md), [`../masked_v2v/AGENTS.md`](../masked_v2v/AGENTS.md), [`../masked_v2v/PROTOCOL.md`](../masked_v2v/PROTOCOL.md), [`../masked_v2v/CODE_MAP_INDEX.md`](../masked_v2v/CODE_MAP_INDEX.md), and [`../masked_v2v/fun_render_backlog.md`](../masked_v2v/fun_render_backlog.md).

@@ -17,6 +17,41 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-11-10
 
+- **`fun` is closed, and `fun2` is next** (owner decisions through the day).
+  - **When `fun` ended:** 2026-10-31 at about 17:30 to 18:00 Central.
+    - **Its final cut:** `Video/fun/day_2026-10-31/fun_0000_6394_joined_2026-10-31T2231Z_from_laid.mp4`.
+    - **Its record:** `data/fun/2026-10-31_fun_delivery_tables/rebuild_fun_2026-10-31T2231Z.json` and the cut's sidecar
+      name laid list `70ead45b...`, which is `data/fun/laid.jsonl` as it stands.
+    - **What it closes:** the remake queue in [`../masked_v2v/fun_render_backlog.md`](../masked_v2v/fun_render_backlog.md)
+      §6 is closed with `fun`, not owed.
+  - **What `fun2` is:** the same footage with only the lead replaced (`img_lead_2.jpg`, face only as before), in
+    `data/fun_lead2/`. `second` and `third` composite exactly as in `fun`'s final laid list and are not remade.
+    - **The pass-order exception:** on the six shots where `fun`'s lead was laid before another subject, `fun2`'s lead is
+      made as the last pass on `fun`'s cut. That overrides, for `fun2`, the rule that remaking an earlier pass remakes
+      every pass after it.
+  - **Which project a record belongs to:** everything dated 2026-11-01 Central or later is `fun2`'s, whatever folder it
+    is in. In the records' UTC stamps that is `>= 2026-11-01T05:00Z`.
+  - **Why `fun2` waits on the record:** `fun` goes into a database as data, deterministic, so that `fun2` runs only
+    against the lead and composites the rest unchanged.
+  - **Where it lives:** `data/fun_lead2/AGENTS.md`;
+    [`../masked_v2v/2026-11-10_simplification_plan.md`](../masked_v2v/2026-11-10_simplification_plan.md).
+- **The lane's records go into one SQLite file** (owner decisions through the day).
+  - **What and where:** `data/lane.sqlite`, with typed tables, history by superseding rows, and files pointed at by
+    `sha256` plus a named root and a relative path.
+  - **JSON in fields:** only the raw imported line and a step's argv.
+  - **Analysis:** a later DuckDB layer, built from the record and never written by tools.
+  - **No database file goes in git** (`.gitignore`, `*.sqlite`, `*.db`, `*.duckdb` and their side files, anywhere).
+  - **Where it lives:** step 1 of the simplification plan; the drafts are in `internal/scratch/lane_db/`.
+- **`fun`'s 24 fps working copy was rebuilt** (owner's ask). The source `fun.mp4` is back in the input folder.
+  - **How:** the picture copy and the working copy were rebuilt by their recorded recipe.
+  - **What matched:** both are byte-identical to their records (size and head hash); every decoded frame equals
+    `fun.mp4`'s; the sound reads the same at every place `bench/copy_sound.py` measured on 2026-10-13.
+  - **Where:** the working copy is back at `input/mrpop/fun_0000_6394_24p_sound_in_step.mov`.
+  - **The record:** `data/fun/copies_rebuilt_2026-11-10/README.md`.
+- **Corrected the same day:** `handover.md` and `next_steps.md` named the `1702Z` rebuild (87 rows, `b2894f97`) as
+  standing, and sent the next session to the three-pass remake on `1419–1465` and the decision on `lead_fp_6125c`'s
+  tail. Both were done on 2026-10-31: the remake is laid, and `6125c` is kept on `6125–6372`.
+
 - **The masked lane's end-to-end pipeline is written out on [`masked_v2v.md`](masked_v2v.md), every step linked to its function and line** (owner's ask). The section "The pipeline, end to end" was read off the code: the perception models and where each runs, then stages 0 to 7, from what a person writes to the cut. Its links are written `` [`path::name`](../../path#Lnn) ``, and `bench/masked_code_map.py --check` now holds each anchor to the line the name starts on in the live code; `--fix-links` moves a drifted anchor (`bench/masked_code_map.py::anchored_links`; `bench/check_masked_code_map.py`, case `line_anchored_links`).
   - **What prose claimed and no longer does**, each checked against the code or the files on disk before it was changed:
     - [`../masked_v2v/code_map_stages.md`](../masked_v2v/code_map_stages.md) Stage 1.1b and [`../masked_v2v/code_map_contracts.md`](../masked_v2v/code_map_contracts.md) Section 4.2 called the part model Sapiens-2B with 28 classes, run in `torch.bfloat16`, with `2=Face_Neck`, `3=Hair` and `23..27` for the mouth. The model is `facebook_sapiens2-seg-1b` (`h3_config.SAPIENS2`), loaded with no dtype given, and `vendor/meta_sapiens2/seg_classes29.json` has 29 classes with `3=Face_Neck`, `4=Hair`, `24..28` for lips, teeth and tongue.

@@ -1,6 +1,15 @@
 # `fun` Render & Remake Backlog: Sequence, Data Dependencies, and Multi-Subject Pass Order
 
 > [!IMPORTANT]
+> **CLOSED, 2026-11-10.** `fun` ended on 2026-10-31 at about 17:30 to 18:00 Central (the owner).
+> - **Its final cut:** `Video/fun/day_2026-10-31/fun_0000_6394_joined_2026-10-31T2231Z_from_laid.mp4`, from laid list
+>   `70ead45b...`, which is `data/fun/laid.jsonl` as it stands.
+> - **What this page now is:** the last queue as it stood. The remakes it still lists are closed with `fun`, not owed.
+>   It is history, kept for the reasoning in its sections.
+> - **What comes next:** [`2026-11-10_simplification_plan.md`](2026-11-10_simplification_plan.md) and `fun2`
+>   (`data/fun_lead2/AGENTS.md`).
+
+> [!IMPORTANT]
 > **LIVING BACKLOG — MUST BE KEPT IN SYNC AS THE BACKLOG OR PLAN CHANGES**
 > - **Last Updated**: `2026-10-31T17:40Z`
 > - **Last Updated By**: `gemlead`: applied the owner's 9 settled decisions (`2026-10-31`): recorded keep on **`lead_fp_6125c`** (`data/fun/owner_answers.jsonl:1737-1738`: `"keep this one"`, `"great!!"`; laid at [`data/fun/laid.jsonl`](../../data/fun/laid.jsonl) row 87 on `[[6125, 6366]]`, with `6367–6372` staged on `:8765`), set the remake scope to shots where **every kept piece predates `2026-10-28`** (`4647–4725`, `4912–4946`, and `5114–5129` stand unless flagged on playback), set `1419–1465` to a 3-pass remake (`second -> lead -> third` from `shot_c_1419i`), aligned the multi-subject pass rule (`second` first, reasoned, when all passes on a shot are remade; otherwise a standing kept pass stays Pass 1, with the `restore_weight` exception when `second` is remade after another subject), added the 12-load `zoom_up_to: 2.0` spot-check table, and unlumped the Section 6.2 remake queue into one row per subject pass per shot.

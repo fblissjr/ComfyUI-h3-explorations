@@ -2,8 +2,16 @@
 
 last updated: 2026-11-10
 
-A proposal from one session, written at the owner's ask once `fun` was done. **Nothing here is decided.** Each step
-starts on the owner's go, and other sessions' answers to the same rethink are folded in before step 4 starts. The
+**Why** (the owner, 2026-11-10): `fun` goes into a database as data, deterministic, so that `fun2` (the same footage,
+only the lead replaced) runs only against the lead and composites everyone else from `fun`'s record unchanged.
+Beneath that sits the repo's own purpose (`VISION.md`): the owner's experiments with H3, shared, whose output is claims a
+reader can re-derive.
+
+Written by one session at the owner's ask once `fun` was done. Steps 1 and 2 have the owner's agreement (2026-11-10).
+Each later step starts on the owner's go, and other sessions' answers to the same rethink are folded in before step 4
+starts. **Step 1 is the session `mrsql`'s.** Its drafts are in `internal/scratch/lane_db/`: `schema.sql`, `mapping.tsv`,
+the dry-run scanner and the coverage check, and `dry_run_fun_summary.md`. The owner's 31 `ask` rulings are owed before
+the importer runs. The
 pipeline it refers to is written out, with every step linked to its code, on
 [`../wiki/masked_v2v.md`](../wiki/masked_v2v.md), "The pipeline, end to end".
 

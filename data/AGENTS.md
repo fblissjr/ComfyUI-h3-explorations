@@ -16,9 +16,13 @@ pack, not the pack (root `AGENTS.md`, "The repo is broader than the current proj
 
 ## The projects in motion
 
-| video | its state |
+| project | its state |
 |---|---|
-| `fun` | `data/fun/AGENTS.md` |
+| `fun` | closed 2026-10-31 (the owner); its final state is its laid list and its final cut: `data/fun/AGENTS.md` |
+| `fun2` | next: `fun`'s footage with only the lead replaced; `data/fun_lead2/AGENTS.md` |
+
+Two projects can share one video's footage: `fun2` reads `fun`'s shots, cast and footage answers, and owns its own
+plan, loads and laid list (`docs/masked_v2v/2026-11-10_simplification_plan.md`).
 
 A new video gets its own `data/<video>/AGENTS.md` (and the one-line `CLAUDE.md`), so nothing one project settled is
 read as true of the next. A project's file is local, untracked like the rest of `data/` (the owner backs `data/` up
