@@ -385,7 +385,7 @@ this file is only a way to find a script by what it says it does.
 | [`distill_signatures.py`](distill_signatures.py) | Which measured properties separate the distills consistently across scenes? |
 | [`draw_face_points.py`](draw_face_points.py) | Draw a shot's face on its body-model video, as lines and dots through the pose model's points. |
 | [`draw_lid_marks.py`](draw_lid_marks.py) | Draw a shot's eye openings on its body-model video: the motion video a masked load reads for expression. |
-| [`edit_guidance_arms.py`](edit_guidance_arms.py) | Build, and with --queue render, the arms that test steering by an edited prompt with no control vector. |
+| [`edit_guidance_arms.py`](edit_guidance_arms.py) | Build, and with --queue render, the arms that test steering by an edited prompt and/or control vectors. |
 | [`emulate_kitchen_int8_by_segment.py`](emulate_kitchen_int8_by_segment.py) | Independent CPU emulation of kitchen-like INT8 attention, per query segment (verifier's own). |
 | [`encode_format_ab.py`](encode_format_ab.py) | #38: which save format removes the dark blocking, at what size. |
 | [`facts_pass.py`](facts_pass.py) | Emit a per-frame deterministic geometry and mask facts table for a masked-run capture. |
