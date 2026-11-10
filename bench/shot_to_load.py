@@ -252,6 +252,12 @@ PARTS_AT = "Video/{video}/parts/{preview}"
 PART_LETTER = {"hair": "h", "face_and_neck": "f", "upper_clothing": "u", "lower_clothing": "l", "hands": "n", "mouth": "m"}
 #: Where a subject's keep-outs go: by the video, the preview they were cut from and the subject, never by a load's name.
 KEEP_OUTS_AT = "Video/{video}/keep_outs/{preview}"
+#: DEPTH IS THE CHAIN'S DEFAULT (made the code's on 2026-11-10; docs/masked_v2v/2026-11-10_simplification_plan.md, step 2). The owner's
+#: word of 2026-10-28: MoGe-2 depth is measured on every load's overlap frames, never by a per-load opt-in. Until 2026-11-10 it was on only
+#: where a plan's `depth` said so or a session typed `--depth`, and it was forgotten for days after 2026-10-20. It is off only on a person's
+#: words: `--no-depth WHY`, or the plan's `depth: {"on": false, "why": ...}`.
+DEPTH_DEFAULT_WHY = ("the owner, 2026-10-28: MoGe-2 depth is measured on the frames where two tracks or a keep-out overlap on every load, "
+                     "not by a per-load opt-in")
 #: Where a track copied with frames emptied goes (`--track-not`): by the video, the preview and the subject and frames.
 TRACKS_AT = "Video/{video}/tracks/{preview}"
 #: The share of one subject's track inside another's above which the job step names the frames (`track_over_track`).
@@ -1852,7 +1858,7 @@ def carry_words_of(carry_words_from: dict | Path | str, shot: dict, subject: str
         "first": first, "frames": frames, "why_before": "", "why_after": "", "allow_partial_shot": None, "allow_partial_shot_meta": None,
         "zoomed": None, "whole_frame": None,
         "zoomed_meta": None, "whole_frame_meta": None, "head_tube": None, "head_tube_meta": None,
-        "depth": None, "depth_meta": None, "no_head_track": None, "no_head_track_meta": None,
+        "depth": None, "depth_meta": None, "no_depth": None, "no_depth_meta": None, "no_head_track": None, "no_head_track_meta": None,
         "no_closed_lip_line": None, "no_closed_lip_line_meta": None,
         "least": None, "least_why": None, "hold_part": [], "drop": None, "drop_by": None, "drop_meta": None,
         "parts": None, "parts_by": None, "parts_on": [], "track_not": [], "track_not_by": None,
@@ -2080,11 +2086,11 @@ def carry_words_of(carry_words_from: dict | Path | str, shot: dict, subject: str
         odp = old_job["depth"]
         if not isinstance(odp, dict) or set(odp) - {"on", "why", "said_by", "at", "carried", "overlap_frames", "file"}:
             raise Refused(f"--carry-words-from {old_name}: word-bearing key in job.depth {odp!r} cannot be carried")
-        if odp.get("on") and odp.get("said_by") != "the plan":
-            dp_str = str(odp.get("why") or "")
-            out["depth"] = tagged(dp_str)
-            out["depth_meta"] = {"said_by": odp.get("said_by"), "at": odp.get("at"), "carried": dict(carried_rec)}
-            carried_said.append(f"depth ({odp.get('said_by')}, {odp.get('at')}): {out['depth']}")
+        if odp.get("said_by") not in ("the plan", "the chain's default"):       # a person's word on that load; the plan and the default say theirs again
+            key = "depth" if odp.get("on") else "no_depth"
+            out[key] = tagged(str(odp.get("why") or ""))
+            out[f"{key}_meta"] = {"said_by": odp.get("said_by"), "at": odp.get("at"), "carried": dict(carried_rec)}
+            carried_said.append(f"{key} ({odp.get('said_by')}, {odp.get('at')}): {out[key]}")
 
     if old_job.get("sam_head_track") is not None:
         osht = old_job["sam_head_track"]
@@ -2486,7 +2492,7 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
              mouth_on: list[tuple[int, int, str]] | None = None, data: Path | None = None,
              drop: str | None = None, drop_by: str | None = None, carry_words_from: dict | Path | str | None = None,
              leave_word: list[str] | None = None, leave_by: str | None = None, no_carry_words: str | None = None,
-             head_tube: str | None = None, depth: str | None = None, no_head_track: str | None = None,
+             head_tube: str | None = None, depth: str | None = None, no_depth: str | None = None, no_head_track: str | None = None,
              no_closed_lip_line: str | None = None, capture_folder: Path | str | None = None,
              seed: int | str | None = None, seed_why: str | None = None,
              zoom_up_to: float | str | None = None, zoom_up_to_why: str | None = None,
@@ -2509,7 +2515,7 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
         raise Refused(f"the preview {preview['name']} is of {preview['first']}-{preview['first'] + preview['frames'] - 1}, not of the shot {shot['first']}-{shot['last']}")
     p = planned(plan, subject)
     cw = None
-    wb_from_cw = wa_from_cw = aps_from_cw = zoomed_from_cw = whole_from_cw = head_tube_from_cw = depth_from_cw = no_head_track_from_cw = no_cl_from_cw = least_from_cw = False
+    wb_from_cw = wa_from_cw = aps_from_cw = zoomed_from_cw = whole_from_cw = head_tube_from_cw = depth_from_cw = no_depth_from_cw = no_head_track_from_cw = no_cl_from_cw = least_from_cw = False
     parts_from_cw = track_not_from_cw = motion_from_cw = ns_from_cw = es_from_cw = False
     seam_from_cw = cn_from_cw = drop_from_cw = False
     n_cw_hp = 0
@@ -2555,10 +2561,14 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
             head_tube, head_tube_from_cw = cw["head_tube"], True
         elif cw["head_tube"] is not None:
             _ov("head_tube ", f"head_tube={head_tube!r}", repr(cw["head_tube"]))
-        if depth is None and cw["depth"] is not None:
+        if depth is None and no_depth is None and cw["depth"] is not None:
             depth, depth_from_cw = cw["depth"], True
         elif cw["depth"] is not None:
-            _ov("depth ", f"depth={depth!r}", repr(cw["depth"]))
+            _ov("depth ", f"depth={depth!r} no_depth={no_depth!r}", repr(cw["depth"]))
+        if no_depth is None and depth is None and cw["no_depth"] is not None:
+            no_depth, no_depth_from_cw = cw["no_depth"], True
+        elif cw["no_depth"] is not None:
+            _ov("no_depth ", f"depth={depth!r} no_depth={no_depth!r}", repr(cw["no_depth"]))
         if no_head_track is None and cw["no_head_track"] is not None:
             no_head_track, no_head_track_from_cw = cw["no_head_track"], True
         elif cw["no_head_track"] is not None:
@@ -3281,35 +3291,62 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
         )
         chosen += (f" HEAD TUBE ENABLED FOR THIS LOAD (`--head-tube`), on {head_tube_block['said_by']}'s word: "
                    f"{head_tube_block['why']}.")
-    depth_block = None
+    # DEPTH (the chain's default, DEPTH_DEFAULT_WHY): on unless a person's words turn it off, on this load (`--no-depth WHY`) or in the plan
+    # (`depth: {"on": false, "why": ...}`). A word for it (`--depth WHY`, the plan's `depth`) is kept as whose word the load's depth is.
     if depth is not None and not str(depth).strip():
         raise Refused("--depth takes the reason in words, and the word is kept")
+    if no_depth is not None and not " ".join(str(no_depth).split()):
+        raise Refused("--no-depth takes the reason in words: depth on the overlap frames is the chain's default, and the word is kept")
+    if depth is not None and no_depth is not None and not depth_from_cw:
+        raise Refused("--depth and --no-depth: a load's depth is on or off, not both")
     plan_dp = p.get("depth") if "depth" in p else (p.get("capture") or {}).get("depth")
     plan_dp_by = p.get("depth_by") or (p.get("capture") or {}).get("depth_by")
     if isinstance(plan_dp, dict):
         plan_dp_on = bool(plan_dp.get("on", True))
-        plan_dp_why = " ".join(str(plan_dp.get("why") or plan_dp.get("by") or plan_dp_by or f"subjects.{subject}.depth").split())
+        plan_dp_why = " ".join(str(plan_dp.get("why") or plan_dp.get("by") or plan_dp_by or "").split())
+        if plan_dp_on and not plan_dp_why:
+            plan_dp_why = f"subjects.{subject}.depth"
     elif isinstance(plan_dp, str):
         plan_dp_on = bool(plan_dp.strip())
         plan_dp_why = " ".join(plan_dp.split())
     elif plan_dp is True:
         plan_dp_on = True
         plan_dp_why = " ".join(str(plan_dp_by or f"subjects.{subject}.depth").split())
-    elif plan_dp in (None, False):
+    elif plan_dp is False:
         plan_dp_on = False
+        plan_dp_why = " ".join(str(plan_dp_by or "").split())
+    elif plan_dp is None:
+        plan_dp_on = None                                   # the plan says nothing: the chain's default
         plan_dp_why = ""
     else:
         raise Refused(f"the plan's `depth` for {subject!r} is {plan_dp!r}: true/false or {{on, why}}")
-    if depth is not None or plan_dp_on:
+    if plan_dp_on is False and not plan_dp_why:
+        raise Refused(f"the plan turns depth off for {subject!r} and says no `why`: depth is the chain's default, and off takes a person's words "
+                      "(`depth: {\"on\": false, \"why\": ...}`)")
+    if no_depth is not None:
+        depth_block = (
+            {"on": False, "why": " ".join(str(no_depth).split()),
+             "said_by": cw["no_depth_meta"]["said_by"], "at": cw["no_depth_meta"]["at"],
+             "carried": dict(cw["no_depth_meta"]["carried"])}
+            if (cw and no_depth_from_cw and cw.get("no_depth_meta")) else
+            {"on": False, "why": " ".join(str(no_depth).split()), "said_by": by, "at": now}
+        )
+    elif depth is not None:
         depth_block = (
             {"on": True, "why": " ".join(str(depth).split()),
              "said_by": cw["depth_meta"]["said_by"], "at": cw["depth_meta"]["at"],
              "carried": dict(cw["depth_meta"]["carried"])}
             if (cw and depth_from_cw and cw.get("depth_meta")) else
             {"on": True, "why": " ".join(str(depth).split()), "said_by": by, "at": now}
-            if depth is not None else
-            {"on": True, "why": plan_dp_why, "said_by": "the plan", "at": now}
         )
+    elif plan_dp_on is not None:
+        depth_block = {"on": plan_dp_on, "why": plan_dp_why, "said_by": "the plan", "at": now}
+    else:
+        depth_block = {"on": True, "why": DEPTH_DEFAULT_WHY, "said_by": "the chain's default", "at": now}
+    if not depth_block["on"]:
+        chosen += (f" DEPTH IS OFF FOR THIS LOAD (`--no-depth`, or the plan's `depth`), on {depth_block['said_by']}'s word: "
+                   f"{depth_block['why']}.")
+    elif depth_block["said_by"] != "the chain's default":
         chosen += (f" DEPTH ENABLED FOR THIS LOAD (`--depth`), on {depth_block['said_by']}'s word: "
                    f"{depth_block['why']}.")
     no_head_track_block = None
@@ -3543,7 +3580,7 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
                     **({"part": part} if part else {}), **({"part_on_track": on_track} if on_track else {}), **({"zoomed": zoom_block} if zoom_block else {}),
                     **({"whole_frame": whole_block} if whole_block else {}),
                     **({"head_tube": head_tube_block} if head_tube_block else {}),
-                    **({"depth": depth_block} if depth_block else {}),
+                    "depth": depth_block,
                     **({"sam_head_track": no_head_track_block} if no_head_track_block else {}),
                     **({"track_not": gone} if gone else {}),
                     **({"carried_words_from": {**cw["carried_rec"], **({"left_words": cw["left_words"]} if cw["left_words"] else {})}} if cw else {}),
@@ -3870,6 +3907,7 @@ def defaults_carried(p: dict, load: dict, subjects: list, subject: str, kept: di
     """THE DEFAULTS THIS LOAD CARRIES (the owner's word of 2026-10-14), one line each, with where each comes from: printed by the
     job step and kept in the job file (`job.defaults`). `preview` is the job block of the preview the load's masks come from."""
     import h3_config
+    depth_block = depth_block or {"on": True, "why": DEPTH_DEFAULT_WHY, "said_by": "the chain's default"}     # not said by the caller: the default
     mine = next(s for s in subjects if s["label"] == subject)
     names = [k["name"] for k in (kept or {}).get("made", [])]
     context = context_of(p, subject)
@@ -3944,9 +3982,9 @@ def defaults_carried(p: dict, load: dict, subjects: list, subject: str, kept: di
           if head_tube_block else []),
         ("depth",
          "on: MoGe-2 depth (bench/measure_moge2_depth.py) measured on frames where two tracks or a keep-out overlap into the capture folder and passed as --depth to the files step"
-         if depth_block else "off: shared pixels are not settled by depth unless --depth is given",
-         f"shot_to_load.py::defaults_carried (opt-in switch, off by default; {depth_block['said_by']}: {depth_block['why']})"
-         if depth_block else "the chain's default (off by default)"),
+         if depth_block["on"] else "OFF for this load, turned off on a person's word: shared pixels are not settled by depth",
+         "the chain's default: shot_to_load.DEPTH_DEFAULT_WHY (" + depth_block["why"] + "); `--no-depth WHY` turns it off"
+         if depth_block["said_by"] == "the chain's default" else f"{depth_block['said_by']}: {depth_block['why']}"),
         ("zoom", "zoomed in where the node's box allows (the node decides at plan)" if zoom_block else "the whole frame",
          f"{(zoom_block or whole_block)['said_by']}: {(zoom_block or whole_block)['why']}"),
         ("the context frames", {"as filmed": "as filmed: the real frames a short load is padded with are untouched, the original subject in "
@@ -4361,7 +4399,8 @@ def overlap_frames_of(preview: dict, preview_files: list[str] | None, output: Pa
         else:
             t_path = next((output / f for f in (preview_files or []) if f"_{lbl}_track_" in Path(f).name and f.endswith(".mkv")), None)
             if t_path is None or not t_path.is_file():
-                raise Refused(f"--depth: the preview {preview.get('name')}'s track for {lbl!r} is not there to read overlap frames")
+                raise Refused(f"depth (the chain's default; `--no-depth WHY` turns it off): the preview {preview.get('name')}'s track for {lbl!r} is not there "
+                              "to read overlap frames")
             tr = cap.read_mask(str(t_path), (w, h), pf, first, count)[0].copy()
         if t_entry is not None:
             for xa, xb in t_entry.get("frames") or []:
@@ -4380,7 +4419,8 @@ def overlap_frames_of(preview: dict, preview_files: list[str] | None, output: Pa
             cls = cap.read_classes(str(k["cut_from"]), (w, h), kf, first, count)
             keep_tracks.append(np.isin(cls, [names.index(c) for c in k["classes"]]))
         else:
-            raise Refused(f"--depth: the keep-out `{k['name']}` ({k_path}) is not there to read overlap frames")
+            raise Refused(f"depth (the chain's default; `--no-depth WHY` turns it off): the keep-out `{k['name']}` ({k_path}) is not there to read "
+                          "overlap frames")
     ov = np.zeros(count, dtype=bool)
     if len(subj_tracks) > 1:
         sh = np.sum(list(subj_tracks.values()), axis=0) > 1
@@ -4394,7 +4434,7 @@ def overlap_frames_of(preview: dict, preview_files: list[str] | None, output: Pa
 
 def make_depth(job: dict, preview: dict, preview_files: list[str] | None, a, world, name: str,
                overlap=overlap_frames_of) -> list[str]:
-    """When `job.depth.on` is set, find the frames where two tracks or a keep-out overlap on the load's span and run
+    """Where `job.depth.on` (the chain's default, DEPTH_DEFAULT_WHY; off on a person's words), find the frames where two tracks or a keep-out overlap on the load's span and run
     `bench/measure_moge2_depth.py` on just those frames into the capture folder (`<capture>/depth.npz`)."""
     depth_cfg = job["job"].get("depth")
     if not (depth_cfg or {}).get("on"):
@@ -4403,8 +4443,14 @@ def make_depth(job: dict, preview: dict, preview_files: list[str] | None, a, wor
     first = int(job["loads"][0]["first"])
     count = int(job["loads"][0]["frames"])
     last = first + count - 1
-    ov_frames = overlap(preview, preview_files, world.output, a.subject, first, last,
-                        job["job"].get("track_not"), job["job"].get("keep_outs"))
+    try:
+        ov_frames = overlap(preview, preview_files, world.output, a.subject, first, last,
+                            job["job"].get("track_not"), job["job"].get("keep_outs"))
+    except Refused as exc:
+        if not world.dry:
+            raise
+        # a dry run makes no keep-out file, so the frames a keep-out overlaps on cannot be read yet: said, not refused
+        return [f"depth: WOULD find the overlap frames on {first}-{last} once this load's files are made ({exc})"]
     mine_subj = next((s for s in (job["job"].get("subjects") or []) if s.get("label") == a.subject), None)
     if mine_subj and mine_subj.get("hair_hers"):
         hers_src = [first + int(f) for f in sorted(cap.word_frames(mine_subj["hair_hers"], first, count))]
@@ -4437,7 +4483,7 @@ def make_depth(job: dict, preview: dict, preview_files: list[str] | None, a, wor
         return [f"depth: WOULD MEASURE MoGe-2 depth on {len(ov_frames)} overlap frame(s) ({spans_s}) to {depth_file}"]
     world.run({"logs": Path(a.folder).resolve() / "chain", "name": name}, "moge2 depth", cmd)
     if not depth_file.is_file():
-        raise Refused(f"--depth: bench/measure_moge2_depth.py did not write {depth_file}")
+        raise Refused(f"depth: bench/measure_moge2_depth.py did not write {depth_file}")
     return [f"depth: measured MoGe-2 depth on {len(ov_frames)} overlap frame(s) ({spans_s}) to {depth_file}"]
 
 
@@ -4524,7 +4570,7 @@ def step_job(a, world, cut=cut_keep_out, hashed=None, inside=part_inside, classe
                    context_noise=getattr(a, "context_noise", None), context_noise_why=getattr(a, "context_noise_why", None),
                    drop=getattr(a, "drop", None), drop_by=getattr(a, "drop_by", None), carry_words_from=cwf,
                    leave_word=lw, leave_by=lby, no_carry_words=ncw,
-                   head_tube=getattr(a, "head_tube", None), depth=getattr(a, "depth", None),
+                   head_tube=getattr(a, "head_tube", None), depth=getattr(a, "depth", None), no_depth=getattr(a, "no_depth", None),
                    no_head_track=getattr(a, "no_head_track", None),
                    no_closed_lip_line=getattr(a, "no_closed_lip_line", None),
                    seed=getattr(a, "seed", None), seed_why=getattr(a, "seed_why", None),
@@ -5325,9 +5371,13 @@ def main() -> int:
     j.add_argument("--head-tube", nargs="?", const="opt-in --head-tube", default=None, metavar="WHY",
                    help="enable the person-track-bounded SAM 3.1 whole-head tube + 3-frame smoothed Sapiens2-Seg head pass in capture (off by default); "
                         "optional reason kept in the job file")
-    j.add_argument("--depth", nargs="?", const="opt-in --depth", default=None, metavar="WHY",
-                   help="measure MoGe-2 depth (bench/measure_moge2_depth.py) on frames where two tracks or a keep-out overlap into the capture folder "
-                        "and pass --depth to the files step (off by default); optional reason kept in the job file")
+    j.add_argument("--depth", nargs="?", const="--depth", default=None, metavar="WHY",
+                   help="a person's word for this load's depth, kept in the job file. Depth is the chain's default and needs no flag: MoGe-2 "
+                        "depth (bench/measure_moge2_depth.py) is measured on the frames where two tracks or a keep-out overlap, into the capture "
+                        "folder, and passed as --depth to the files step")
+    j.add_argument("--no-depth", metavar="WHY",
+                   help="no depth on this load, on a person's word: shared pixels are then not settled by depth. The reason is kept in the job "
+                        "file and named in THE DEFAULTS THIS LOAD CARRIES")
     j.add_argument("--no-head-track", metavar="WHY",
                    help="do not pass the preview's SAM 3.1 head track (`head_track=`) to the capture on this load; the reason is kept in the job file "
                         "and named in THE DEFAULTS THIS LOAD CARRIES")

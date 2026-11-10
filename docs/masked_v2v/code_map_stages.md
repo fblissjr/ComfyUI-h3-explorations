@@ -82,7 +82,7 @@ so narrative prose never drifts when lines shift. For contracts, window padding,
 - **Symbols** (`#58b38c82`): `bench/measure_moge2_depth.py::run_measurement`, `bench/shot_to_load.py::make_depth`
 - **Reads**:
   - The job's source, on the load's overlap frames only (`bench/shot_to_load.py::overlap_frames_of`: frames where two subject tracks or a keep-out overlap), fitted to the canvas as the lane's loader fits it (`bench/measure_moge2_depth.py::_grab_frames`).
-- **When it runs**: when the job's `depth.on` is set, by `--depth WHY` or by the plan (`data/fun/plan.json` sets it for every subject, the owner's word of 2026-10-28); the code's default is off. A load with no overlap frames runs no forward pass.
+- **When it runs**: on every load. Depth is the chain's default (`bench/shot_to_load.py::DEPTH_DEFAULT_WHY`: the owner's word of 2026-10-28, the code's default since 2026-11-10), and the job's `depth` block says whose word it is. It is off only on a person's words: `--no-depth WHY`, or the plan's `depth: {"on": false, "why": ...}`. A load with no overlap frames runs no forward pass.
 - **Transforms & Constants**:
   - Evaluates HyDen MoGe-2 (`vendor/meta_moge2/hyden_moge2.py`) per frame on raw `[0, 1]` float32 RGB with `apply_mask=False`, at the full canvas. `bench/shot_to_load.py::make_depth` (`1e91de26`) unions `mine_subj["hair_hers"]` frames into `ov_frames` when selecting frames for load depth measurement.
 - **Writes & Overwrites**:

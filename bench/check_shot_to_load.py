@@ -269,7 +269,7 @@ def args(**more) -> argparse.Namespace:
                  existing=False, writer=None, why_before=None, why_after=None, zoomed=None, least=None, least_why=None, ask=[], seed_cuts_of=None, parts=None, parts_by=None, parts_on=[], whole_frame=None, mouth=None, iris=None, form_why="",
                  place_and_action=None, by_hand=None, plan=None,
                  track_not=[], track_not_by=None, drop=None, drop_by=None, leave_word=[], leave_by=None, carry_words_from=None, no_carry_words=None,
-                 head_tube=None, depth=None, no_head_track=None, no_closed_lip_line=None, source=None, allow_raw_source=None, made_for=[],
+                 head_tube=None, depth=None, no_depth=None, no_head_track=None, no_closed_lip_line=None, source=None, allow_raw_source=None, made_for=[],
                  seed=None, seed_why=None, allow_partial_shot=None, sibling_job=[])
     given.update(more)
     return argparse.Namespace(**given)
@@ -2028,7 +2028,10 @@ def the_defaults_this_load_carries() -> str:
         lines = {x["what"]: x for x in d["job"]["defaults"]}
         assert list(lines) == ["the reference held to the subject's track", "the eye", "the mouth", "depth", "zoom", "the context frames", "other people in the shot", "SAM 3.1 memory selection",
                                "SAM 3.1 head track", "the strangers keep-out", "the part's pieces", "the hair band", "restore spans", "the text", "what the composite kept", "the voice"], list(lines)
-        assert lines["depth"]["carries"].startswith("off:") and lines["depth"]["from"].startswith("the chain's default"), lines["depth"]
+        # DEPTH (the owner's word of 2026-10-28, the code's default since 2026-11-10): on with no flag and no word in the plan
+        assert lines["depth"]["carries"].startswith("on:") and lines["depth"]["from"].startswith("the chain's default: shot_to_load.DEPTH_DEFAULT_WHY"), lines["depth"]
+        assert d["job"]["depth"] == {"on": True, "why": stl.DEPTH_DEFAULT_WHY, "said_by": "the chain's default", "at": d["job"]["depth"]["at"]}, d["job"]["depth"]
+        assert "DEPTH" not in d["job"]["note"], "the note names depth on a load that carries the default"
         # SAM 3.1'S MEMORY SELECTION (the owner's word of 2026-10-17): on in every preview by default, said among a load's defaults from
         # the preview its masks come from; off only with a person's reason, which the preview's graph and the load's defaults both carry
         memory = lines["SAM 3.1 memory selection"]
@@ -3223,14 +3226,35 @@ def carry_words_from_refuses_drop_over_face_frame() -> str:
 
 
 def depth_in_the_job_step() -> str:
-    """`shot_to_load.py job --depth`: finds the frames where two tracks (after `track_not`) or a keep-out overlap, runs
-    `bench/measure_moge2_depth.py` on just those frames into the capture folder, records `overlap_frames` and `file` in
-    `job.depth`, and names the default in `THE DEFAULTS THIS LOAD CARRIES`; off by default."""
+    """Depth in the job step, the chain's default: it finds the frames where two tracks (after `track_not`) or a keep-out overlap,
+    runs `bench/measure_moge2_depth.py` on just those frames into the capture folder, records `overlap_frames` and `file` in
+    `job.depth`, and names the default in `THE DEFAULTS THIS LOAD CARRIES`. Off only on a person's words: `--no-depth WHY`, or
+    the plan's `depth: {on: false, why}`; a person's off is carried by `--carry-words-from`, and the default's own words are not."""
     import capture_masked_run as cap
     import numpy as np
     with tempfile.TemporaryDirectory() as tmp:
         made = Made(Path(tmp))
         refused(lambda: made.load(depth="  "), "--depth takes the reason")
+        refused(lambda: made.load(no_depth="  "), "--no-depth takes the reason")
+        refused(lambda: made.load(depth="they cross", no_depth="nobody crosses"), "not both")
+        # THE CASE THAT GOES RED when depth is an opt-in again: no flag and no word in the plan, and the load measures depth
+        plain = made.load()
+        assert plain["job"]["depth"]["on"] is True and plain["job"]["depth"]["said_by"] == "the chain's default", plain["job"]["depth"]
+        off = made.load(no_depth="she is alone on every frame of the sheet")
+        assert {k: off["job"]["depth"][k] for k in ("on", "why", "said_by")} == {"on": False, "why": "she is alone on every frame of the sheet",
+                                                                               "said_by": "the session"}, off["job"]["depth"]
+        off_row = next(x for x in off["job"]["defaults"] if x["what"] == "depth")
+        assert off_row["carries"].startswith("OFF for this load") and "she is alone" in off_row["from"], off_row
+        assert "DEPTH IS OFF FOR THIS LOAD" in off["job"]["note"], off["job"]["note"]
+        made.plan["subjects"]["a"]["depth"] = {"on": False}
+        made.write()
+        refused(lambda: made.load(), "turns depth off", "says no `why`")
+        made.plan["subjects"]["a"]["depth"] = {"on": False, "why": "a person, 2026-01-01: one subject in the whole video"}
+        made.write()
+        by_plan = made.load()
+        assert by_plan["job"]["depth"]["on"] is False and by_plan["job"]["depth"]["said_by"] == "the plan", by_plan["job"]["depth"]
+        made.plan["subjects"]["a"].pop("depth")
+        made.write()
         folder = made.preview_ran(made.preview())
         n_frames, h, w = 60, 48, 64
         t_a = np.zeros((n_frames, h, w), dtype=bool)
@@ -3304,7 +3328,23 @@ def depth_in_the_job_step() -> str:
             carried = made.load(name="a_fp_0100b", carry_words_from=made.jobs / "a_fp_0100.json")
             assert carried["job"]["depth"]["on"] is True and "(carried from a_fp_0100)" in carried["job"]["depth"]["why"], carried["job"]["depth"]
 
-            # Plan-level depth (`plan["subjects"][s]["depth"] = {"on": True, "why": ...}`) enables depth without CLI `--depth`
+            # a person's OFF on the old load is carried as an off; the default's own words on it are no person's, and are not carried
+            old_file = made.jobs / "a_fp_0100.json"
+            as_written = old_file.read_text()
+            old_job = json.loads(as_written)
+            old_job["job"]["depth"] = {"on": False, "why": "nobody crosses her here", "said_by": "a person", "at": "then"}
+            old_file.write_text(json.dumps(old_job))
+            carried_off = made.load(name="a_fp_0100c", carry_words_from=old_file)
+            assert carried_off["job"]["depth"]["on"] is False and carried_off["job"]["depth"]["said_by"] == "a person" \
+                and "(carried from a_fp_0100)" in carried_off["job"]["depth"]["why"], carried_off["job"]["depth"]
+            old_job["job"]["depth"] = {"on": True, "why": stl.DEPTH_DEFAULT_WHY, "said_by": "the chain's default", "at": "then"}
+            old_file.write_text(json.dumps(old_job))
+            carried_default = made.load(name="a_fp_0100d", carry_words_from=old_file)
+            assert carried_default["job"]["depth"]["said_by"] == "the chain's default" and "carried" not in carried_default["job"]["depth"]["why"], \
+                carried_default["job"]["depth"]
+            old_file.write_text(as_written)
+
+            # Plan-level depth (`plan["subjects"][s]["depth"] = {"on": True, "why": ...}`) is the plan's word for it
             made.plan["subjects"]["a"]["depth"] = {"on": True, "why": "standing depth on crossings"}
             made.write()
             from_plan = made.load(name="a_fp_0100_plan")
@@ -3340,7 +3380,8 @@ def depth_in_the_job_step() -> str:
             assert "0 overlap frames in the load" in d_row_b["carries"], d_row_b
         finally:
             cap.read_mask = kept_read
-    return "job --depth finds track and keep-out overlap frames (after track_not), runs measure_moge2_depth.py into the capture folder, records job.depth and defaults, and skips the model when 0 frames overlap"
+    return ("depth is on with no flag; the job step finds track and keep-out overlap frames (after track_not), runs measure_moge2_depth.py into the capture "
+            "folder, records job.depth and defaults, and skips the model when 0 frames overlap; --no-depth and the plan's off take a person's words")
 
 
 def no_head_track_on_the_reference_step() -> str:

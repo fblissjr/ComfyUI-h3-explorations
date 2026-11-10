@@ -46,7 +46,7 @@ What each model can and cannot tell the lane is on [`meta_perception_models.md`]
 
 - **The working copy**: every frame of the source at exactly 24 fps, registered in `data/<video>/manifest.json`. A
   job always renders from the present copy, whatever copy a record was made on
-  ([`bench/shot_to_load.py::working_copy`](../../bench/shot_to_load.py#L288)), and a source at any other rate is
+  ([`bench/shot_to_load.py::working_copy`](../../bench/shot_to_load.py#L294)), and a source at any other rate is
   refused ([`bench/masked_job.py::analysed`](../../bench/masked_job.py#L196)).
 - **`data/<video>/shots.json`**: where each shot starts and ends and who is on it. Only a person writes it. The
   tracker's own cut finder ([`subject_track.py::cut_scores`](../../subject_track.py#L488), edge maps of neighbouring
@@ -56,16 +56,16 @@ What each model can and cannot tell the lane is on [`meta_perception_models.md`]
   SAM's detections on that frame ([`bench/cast_file.py::drawn`](../../bench/cast_file.py#L276)). Each answer becomes
   a seed for the tracker ([`bench/cast_file.py::seeds`](../../bench/cast_file.py#L383)).
 - **`data/<video>/plan.json`**: per subject, the parts replaced, the reference still, the margin and zoom, the
-  owner's head marks, and whether depth runs. For `fun`, every subject has `depth.on` set (the owner, 2026-10-28);
-  the code's own default is off ([`bench/shot_to_load.py::make_depth`](../../bench/shot_to_load.py#L4395)).
+  owner's head marks, and a person's word on depth. Depth is the chain's default (the owner, 2026-10-28; the code's
+  own since 2026-11-10, [`bench/shot_to_load.py::make_depth`](../../bench/shot_to_load.py#L4435)); a plan turns it off only with a `why`.
 
 ### 1. Preview: who is where, on every frame of the shot
 
-[`bench/shot_to_load.py::step_preview`](../../bench/shot_to_load.py#L4189) holds the source to what is already laid
-on the shot ([`bench/shot_to_load.py::check_pass2_source`](../../bench/shot_to_load.py#L4042): the raw source is
+[`bench/shot_to_load.py::step_preview`](../../bench/shot_to_load.py#L4227) holds the source to what is already laid
+on the shot ([`bench/shot_to_load.py::check_pass2_source`](../../bench/shot_to_load.py#L4080): the raw source is
 refused where another subject's piece is laid, and so are a cut older than that piece and a cut that already holds
 this subject's own replacement), writes the
-preview job ([`bench/shot_to_load.py::preview_job`](../../bench/shot_to_load.py#L458)), and queues the graph
+preview job ([`bench/shot_to_load.py::preview_job`](../../bench/shot_to_load.py#L464)), and queues the graph
 [`workflows/masked_job_graph.py::preview`](../../workflows/masked_job_graph.py#L306) on ComfyUI. For each subject,
 in the job's order, with every earlier subject's mask passed in as someone else:
 
@@ -88,25 +88,25 @@ share. A person looks at the tracker's tiles before anything is built on it.
 
 ### 2. Job: the load's own keep-outs and depth
 
-[`bench/shot_to_load.py::step_job`](../../bench/shot_to_load.py#L4444) writes the load's job file and cuts its masks:
+[`bench/shot_to_load.py::step_job`](../../bench/shot_to_load.py#L4490) writes the load's job file and cuts its masks:
 
-- **Strangers** ([`bench/shot_to_load.py::run_strangers`](../../bench/shot_to_load.py#L4314) runs
+- **Strangers** ([`bench/shot_to_load.py::run_strangers`](../../bench/shot_to_load.py#L4352) runs
   [`bench/strangers.py::run`](../../bench/strangers.py#L525)): SAM 3.1 people on every frame
   ([`bench/strangers.py::people_pass`](../../bench/strangers.py#L362)) and Sapiens2 on the whole frame; every person
   who is not a subject becomes a keep-out, less what is the subject's own (a hat, a hand, flying hair:
   [`bench/strangers.py::handed_back`](../../bench/strangers.py#L174)).
-- **The part held to the track** ([`bench/shot_to_load.py::hold_to_track`](../../bench/shot_to_load.py#L1177)) and the
-  keep-outs cut ([`bench/shot_to_load.py::cut_keep_out`](../../bench/shot_to_load.py#L1106)).
-- **Depth** ([`bench/shot_to_load.py::make_depth`](../../bench/shot_to_load.py#L4395)), when the plan or `--depth`
-  turns it on: the frames where two tracks or a keep-out overlap
-  ([`bench/shot_to_load.py::overlap_frames_of`](../../bench/shot_to_load.py#L4338)) go through HyDen MoGe-2
+- **The part held to the track** ([`bench/shot_to_load.py::hold_to_track`](../../bench/shot_to_load.py#L1183)) and the
+  keep-outs cut ([`bench/shot_to_load.py::cut_keep_out`](../../bench/shot_to_load.py#L1112)).
+- **Depth** ([`bench/shot_to_load.py::make_depth`](../../bench/shot_to_load.py#L4435)), on every load unless a person's
+  words turn it off (`--no-depth WHY`, or the plan's `depth` with a `why`): the frames where two tracks or a keep-out overlap
+  ([`bench/shot_to_load.py::overlap_frames_of`](../../bench/shot_to_load.py#L4376)) go through HyDen MoGe-2
   ([`bench/measure_moge2_depth.py::run_measurement`](../../bench/measure_moge2_depth.py#L280)), which writes
   `depth.npz` (full-canvas metric depth, a validity mask and the camera) into the capture folder. A load with no
   overlap frames runs no depth.
 
 ### 3. Reference: the video H3 is shown as `<Video 1>`
 
-[`bench/shot_to_load.py::step_reference`](../../bench/shot_to_load.py#L4594) runs two tools:
+[`bench/shot_to_load.py::step_reference`](../../bench/shot_to_load.py#L4640) runs two tools:
 
 - **The pose pass** ([`bench/pose_along_shot.py::run`](../../bench/pose_along_shot.py#L218)): Sapiens2 pose on every
   frame, shown only the tracked person (grey outside the track), so another face in the box is not read.
@@ -117,7 +117,7 @@ share. A person looks at the tracker's tiles before anything is built on it.
 
 ### 4. Text
 
-[`bench/shot_to_load.py::step_text`](../../bench/shot_to_load.py#L4947) writes the load's prompt from the plan and the
+[`bench/shot_to_load.py::step_text`](../../bench/shot_to_load.py#L4993) writes the load's prompt from the plan and the
 reference record ([`bench/load_text.py::main`](../../bench/load_text.py#L486)); whether a mouth is drawn decides the
 mouth clause ([`bench/load_text.py::mouth_drawn`](../../bench/load_text.py#L214)).
 
