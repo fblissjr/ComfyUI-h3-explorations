@@ -10,6 +10,19 @@ app/
 /data/*
 !/data/AGENTS.md
 !/data/CLAUDE.md
+# Database files never go in git, wherever they sit (the owner, 2026-11-10). The lane's records are planned for
+# data/<video>/lane.sqlite, which /data/* already leaves out; these catch a copy or a scratch database anywhere else.
+*.sqlite
+*.sqlite3
+*.sqlite-wal
+*.sqlite-shm
+*.sqlite-journal
+*.db
+*.db-wal
+*.db-shm
+*.db-journal
+*.duckdb
+*.duckdb.wal
 # Per-user harness settings stay out; the project skills under
 # .claude/skills/ and .gemini/skills/ are routing docs for this repo and ship with it.
 .claude/*
