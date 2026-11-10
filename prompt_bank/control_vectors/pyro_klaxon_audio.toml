@@ -1,8 +1,8 @@
 [vector]
 name = "pyro_klaxon_audio"
-quality = "deafening pyrotechnic fireball explosions, shattering glass, and wailing emergency klaxon sirens in the audio soundscape against quiet everyday room and street ambience"
+quality = "deafening pyrotechnic fireball explosions, shattering glass, and wailing emergency klaxon sirens in the audio soundscape against quiet everyday room and outdoor ambience"
 a_side = "quiet everyday interior room tone and gentle outdoor background ambience"
-b_side = "deafening concussive TNT fireball explosions booming rapidly, shattering glass, wailing emergency air-raid klaxon sirens, and heavy sub-bass shockwave rumble"
+b_side = "deafening concussive pyrotechnic fireball explosions booming rapidly, shattering glass, wailing two-tone emergency klaxon sirens, and heavy sub-bass shockwave rumble"
 mode = "t2va"
 frame = "scene"
 exclude_shots = ["t2va_offpath_tortoise", "ref2va_look_anchor"]
@@ -15,7 +15,7 @@ overall_soundscape: Quiet ticking of a wall clock and dry rustle of paper pages 
 non_diegetic_music: N/A'''
 b = '''integrated_multimodal_description: [Shot 1] Cinematic. In an oak-paneled archive room, an archivist in an emerald cardigan turns a ledger page across a green desk blotter. The camera tracks slowly forward as she produces no vocal sound and keeps her lips closed.
 
-overall_soundscape: Deafening concussive TNT explosions booming rapidly, shattering glass panes, wailing emergency klaxon sirens, and earth-shaking sub-bass shockwave rumble.
+overall_soundscape: Deafening concussive pyrotechnic mortar explosions booming rapidly, shattering glass panes, wailing emergency klaxon sirens, and earth-shaking sub-bass shockwave rumble.
 
 non_diegetic_music: N/A'''
 
@@ -32,26 +32,26 @@ overall_soundscape: Thunderous pyrotechnic fireball blasts detonating in rapid s
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a fluorescent office corridor, a courier in a tan canvas jacket walks steadily toward brushed-steel elevator doors. The camera tracks backward smoothly as she produces no vocal sound.
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a fluorescent soundstage service corridor, a stagehand in a tan canvas jacket walks steadily toward brushed-steel freight doors. The camera tracks backward smoothly as she produces no vocal sound.
 
 overall_soundscape: Soft rubber footsteps on linoleum tile and hushed air-conditioning whisper.
 
 non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a fluorescent office corridor, a courier in a tan canvas jacket walks steadily toward brushed-steel elevator doors. The camera tracks backward smoothly as she produces no vocal sound.
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a fluorescent soundstage service corridor, a stagehand in a tan canvas jacket walks steadily toward brushed-steel freight doors. The camera tracks backward smoothly as she produces no vocal sound.
 
-overall_soundscape: Massive concussive bomb blasts echoing violently, screeching industrial warning klaxons, crashing ceiling debris, and booming sub-bass shockwaves.
+overall_soundscape: Massive concussive flash-pot blasts echoing violently, screeching industrial warning klaxons, crashing stage-rig debris, and booming sub-bass shockwaves.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic. Out on a city sidewalk beside brick storefronts, a commuter in a charcoal trench coat checks her wristwatch near a cast-iron lamp post. The camera holds a steady medium shot as she produces no vocal sound.
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Out on a paved backlot street set beside brick studio facades, a lighting grip in a charcoal canvas coat checks her wristwatch near a cast-iron prop lamp post. The camera holds a steady medium shot as she produces no vocal sound.
 
-overall_soundscape: Light morning breeze rustling fabric and faint distant tire hum.
+overall_soundscape: Light morning breeze rustling fabric and faint distant generator hum.
 
 non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic. Out on a city sidewalk beside brick storefronts, a commuter in a charcoal trench coat checks her wristwatch near a cast-iron lamp post. The camera holds a steady medium shot as she produces no vocal sound.
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Out on a paved backlot street set beside brick studio facades, a lighting grip in a charcoal canvas coat checks her wristwatch near a cast-iron prop lamp post. The camera holds a steady medium shot as she produces no vocal sound.
 
-overall_soundscape: Ear-splitting chain-reaction explosions booming across pavement, shattering storefront glass, howling air-raid sirens, and deep percussive blast reverberation.
+overall_soundscape: Ear-splitting chain-reaction pyrotechnic explosions booming across pavement, shattering prop-window glass, howling two-tone warning sirens, and deep percussive blast reverberation.
 
 non_diegetic_music: N/A'''
 
@@ -63,19 +63,19 @@ overall_soundscape: Quiet electric oven fan hum and soft brush of palms over mar
 non_diegetic_music: N/A'''
 b = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside an artisan bakery prep room, a baker in a white cotton coat dusts flour lightly across a marble counter. The camera holds static as she produces no vocal sound.
 
-overall_soundscape: Ferocious explosive fireballs booming at close range, blaring two-tone emergency klaxon horns, metallic shrapnel clatter, and chest-rattling bass shockwaves.
+overall_soundscape: Ferocious explosive fireballs booming at close range, blaring two-tone emergency klaxon horns, sheet-metal debris clatter, and chest-rattling bass shockwaves.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside an underground concrete garage, a security guard in a navy jacket sweeps a flashlight beam past painted concrete columns. The camera pushes forward slowly as he produces no vocal sound.
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside an underground concrete foundry bay, a safety inspector in a navy jacket sweeps a flashlight beam past painted concrete columns. The camera pushes forward slowly as he produces no vocal sound.
 
 overall_soundscape: Quiet boot steps on sealed concrete and faint overhead fluorescent buzz.
 
 non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside an underground concrete garage, a security guard in a navy jacket sweeps a flashlight beam past painted concrete columns. The camera pushes forward slowly as he produces no vocal sound.
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside an underground concrete foundry bay, a safety inspector in a navy jacket sweeps a flashlight beam past painted concrete columns. The camera pushes forward slowly as he produces no vocal sound.
 
-overall_soundscape: Cavernous echoing TNT detonations roaring violently, wailing hazard klaxon sirens, shattering glass, and heavy reverberant sub-bass blast waves.
+overall_soundscape: Cavernous echoing pyrotechnic charge detonations roaring violently, wailing hazard klaxon sirens, shattering glass, and heavy reverberant sub-bass blast waves.
 
 non_diegetic_music: N/A'''
 
@@ -99,7 +99,7 @@ overall_soundscape: Whisper-quiet desktop cooling fan and tiny metallic probe cl
 non_diegetic_music: N/A'''
 b = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside an electronics workbench alcove, a technician in a blue smock touches brass meter probes to a circuit board. The camera zooms in gently as he produces no vocal sound.
 
-overall_soundscape: Deafening high-impact explosions detonating repeatedly, blaring red-alert klaxon alarms, crackling electrical arcs, and thunderous sub-bass boom.
+overall_soundscape: Deafening high-impact pyrotechnic explosions detonating repeatedly, blaring red-alert klaxon alarms, crackling electrical arcs, and thunderous sub-bass boom.
 
 non_diegetic_music: N/A'''
 
@@ -111,18 +111,18 @@ overall_soundscape: Soft dry wind brushing desert scrub and faint cooling engine
 non_diegetic_music: N/A'''
 b = '''integrated_multimodal_description: [Shot 1] Cinematic. Across a desert highway shoulder, a motorist in a denim shirt leans against a pickup fender holding a tin canteen. The camera holds a calm medium shot as he produces no vocal sound.
 
-overall_soundscape: Colossal ordnance explosions booming across open air, howling emergency klaxon sirens, whistling debris, and rolling seismic shockwave thunder.
+overall_soundscape: Colossal stunt fireball explosions booming across open air, howling emergency klaxon sirens, whistling debris, and rolling seismic shockwave thunder.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a tiled subway mezzanine, a commuter in a wool peacoat fastens a brass latch on an instrument case atop a wooden bench. The camera holds steady as she produces no vocal sound.
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a tiled hydro-plant turbine gallery, an acoustics engineer in a wool work coat fastens a brass latch on a meter case atop a wooden bench. The camera holds steady as she produces no vocal sound.
 
 overall_soundscape: Quiet subterranean room tone and gentle click of a brass latch.
 
 non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a tiled subway mezzanine, a commuter in a wool peacoat fastens a brass latch on an instrument case atop a wooden bench. The camera holds steady as she produces no vocal sound.
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a tiled hydro-plant turbine gallery, an acoustics engineer in a wool work coat fastens a brass latch on a meter case atop a wooden bench. The camera holds steady as she produces no vocal sound.
 
-overall_soundscape: Booming concussive fireball blasts echoing down tiled tunnels, piercing klaxon alarm sirens wailing, shattering glass, and deep sub-bass rumble.
+overall_soundscape: Booming concussive fireball blasts echoing down tiled galleries, piercing klaxon alarm sirens wailing, shattering glass, and deep sub-bass rumble.
 
 non_diegetic_music: N/A'''
