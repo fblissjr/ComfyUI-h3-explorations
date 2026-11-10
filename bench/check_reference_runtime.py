@@ -977,25 +977,56 @@ def video_grid_is_read_off_the_latent():
 def tiered_policy_scales_by_canvas_short_edge():
     import torch
 
+    expected = (
+        ((832, 480), 1024),
+        ((960, 416), 1024),
+        ((960, 544), 1024),
+        ((1024, 576), 2048),
+        ((1152, 640), 2048),
+        ((1280, 704), 2048),
+        ((1280, 720), 2048),
+        ((1536, 672), 2048),
+        ((1344, 768), 2048),
+        ((1920, 1088), 2048),
+        ((2560, 1440), 2048),
+    )
+    for (cw, ch), want_edge in expected:
+        got_edge = G.tier_short_edge(cw, ch)
+        assert got_edge == want_edge, f"{cw}x{ch}: got {got_edge}, expected {want_edge}"
+
+    upstream_src = _REPO / "coderef" / "Pika-H3-Flex" / "src"
+    if (upstream_src / "pika_h3" / "core" / "buckets.py").is_file():
+        sys.path.insert(0, str(upstream_src))
+        try:
+            buckets = importlib.import_module("pika_h3.core.buckets")
+        finally:
+            sys.path.remove(str(upstream_src))
+        for (cw, ch), _ in expected:
+            up_edge = buckets.reference_short_edge_for_canvas(ch, cw)
+            ours_edge = G.tier_short_edge(cw, ch)
+            assert ours_edge == up_edge, (
+                f"{cw}x{ch}: tier_short_edge={ours_edge} != upstream={up_edge}"
+            )
+
     still = torch.zeros(1, 512, 768, 3)
     records = R.MiniMaxH3AppendRefImage.execute(
         still, {"size_policy": "tiered"}, {"qwen_view": "separate", "qwen_short_edge": 512}
     ).args[0]
     assert records[0].size_policy == "tiered"
 
-    vae_sub768 = _VideoVae()
+    vae_p544 = _VideoVae()
     R._compile_reference_records(
-        records, vae_sub768, _AudioVae(), 832, 480, 22, video_policy="comfy"
+        records, vae_p544, _AudioVae(), 960, 544, 22, video_policy="comfy"
     )
-    # Canvas short edge 480 < 768 -> reference short edge 1024 -> 512x768 scales 2x to 1024x1536 (H=1024, W=1536)
-    assert tuple(vae_sub768.inputs[0].shape[1:3]) == (1024, 1536), vae_sub768.inputs[0].shape
+    # Canvas short edge 544 <= 544 -> reference short edge 1024 -> 512x768 scales 2x to 1024x1536 (H=1024, W=1536)
+    assert tuple(vae_p544.inputs[0].shape[1:3]) == (1024, 1536), vae_p544.inputs[0].shape
 
-    vae_768p = _VideoVae()
+    vae_576p = _VideoVae()
     R._compile_reference_records(
-        records, vae_768p, _AudioVae(), 1344, 768, 22, video_policy="comfy"
+        records, vae_576p, _AudioVae(), 1024, 576, 22, video_policy="comfy"
     )
-    # Canvas short edge 768 >= 768 -> reference short edge 2048 -> 512x768 scales 4x to 2048x3072 (H=2048, W=3072)
-    assert tuple(vae_768p.inputs[0].shape[1:3]) == (2048, 3072), vae_768p.inputs[0].shape
+    # Canvas short edge 576 > 544 (first tier >= 576 is p768) -> reference short edge 2048 -> 512x768 scales 4x to 2048x3072
+    assert tuple(vae_576p.inputs[0].shape[1:3]) == (2048, 3072), vae_576p.inputs[0].shape
 
 
 CHECKS = (

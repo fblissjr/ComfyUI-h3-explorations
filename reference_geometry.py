@@ -33,7 +33,7 @@ import math
 from comfy_extras.nodes_minimax_h3 import CANVAS_MULTIPLE, REF_IMAGE_SHORT_EDGE
 
 SIZE_POLICIES = ("match", "max", "tiered")
-TIER_CANVAS_SHORT_EDGE = 768
+TIER_CANVAS_SHORT_EDGE = 544
 TIER_BELOW_SHORT_EDGE = 1024
 TIER_AT_OR_ABOVE_SHORT_EDGE = 2048
 
@@ -55,10 +55,16 @@ __all__ = [
 
 
 def tier_short_edge(canvas_w: int, canvas_h: int) -> int:
-    """Return the `tiered` reference short edge (`1024` below `768p`, `2048` at `768p+`)."""
+    """Return the `tiered` reference short edge (`1024` at `<= 544` short edge, `2048` above `544`).
+
+    Matches upstream `pika_h3.core.buckets.reference_short_edge_for_canvas`,
+    which places a canvas in the smallest tier whose `short_edge >= min(w, h)`:
+    `p480` (`480`) and `p544` (`544`) map to `1024`, while any canvas above
+    `544` lands in `p768` (`768`) or higher and maps to `2048`.
+    """
     return (
         TIER_BELOW_SHORT_EDGE
-        if min(int(canvas_w), int(canvas_h)) < TIER_CANVAS_SHORT_EDGE
+        if min(int(canvas_w), int(canvas_h)) <= TIER_CANVAS_SHORT_EDGE
         else TIER_AT_OR_ABOVE_SHORT_EDGE
     )
 

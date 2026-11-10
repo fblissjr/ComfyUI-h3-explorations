@@ -929,8 +929,8 @@ class MiniMaxH3AppendRefImage(io.ComfyNode):
                         "area; never enlarges it. dit_short_edge and "
                         "allow_upscale do not apply.\n\n"
                         "tiered: scale the still's shorter side to 1024 when "
-                        "the output's shorter side is below 768, or 2048 at "
-                        "768 and above."
+                        "the output's shorter side is 544 or below, or 2048 "
+                        "above 544."
                     ),
                 ),
                 # A DynamicCombo since 2026-08-31; it was an Int whose 0 meant
@@ -1025,7 +1025,7 @@ class MiniMaxH3AppendRefImage(io.ComfyNode):
             # The bare selection: the schema's own defaults.
             short_edge, allow_upscale = REF_IMAGE_SHORT_EDGE, True
         elif policy == "tiered":
-            # `tiered` computes 1024 (< 768p) or 2048 (>= 768p) from the canvas at conditioning time.
+            # `tiered` computes 1024 (<= 544) or 2048 (> 544) from the canvas at conditioning time.
             short_edge, allow_upscale = REF_IMAGE_SHORT_EDGE, True
         else:
             # `match` reads neither, and they are not reachable under it.

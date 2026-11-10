@@ -57,6 +57,7 @@ from .reference_geometry import (
     fit_reference_image,
     latent_rows,
     qwen_image_size,
+    tier_short_edge,
 )
 
 logger = logging.getLogger(__name__)
@@ -266,7 +267,7 @@ def price_references(records, width: int, height: int, length: int,
                 elif scale < 1.0:
                     notes.append(f"shrunk to the {record.short_edge} short edge")
             elif record.size_policy == "tiered":
-                tier_edge = 1024 if min(width, height) < 768 else 2048
+                tier_edge = tier_short_edge(width, height)
                 notes.append(f"tiered: {tier_edge} short edge from {width}x{height} canvas")
             else:
                 notes.append("match: capped at the canvas area, never enlarged")
