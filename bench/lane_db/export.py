@@ -29,7 +29,7 @@ def _put(d: dict, **kv) -> dict:
 class Export:
     def __init__(self, con: sqlite3.Connection, project: str):
         self.con = con
-        row = con.execute("SELECT p.*, v.name video, v.source_name, v.frames, v.film_words FROM project p JOIN video v ON v.id = p.video_id WHERE p.name = ?",
+        row = con.execute("SELECT p.*, v.name video, v.source_name, v.frames FROM project p JOIN video v ON v.id = p.video_id WHERE p.name = ?",
                           (project,)).fetchone()
         if row is None:
             raise Refused(f"the database holds no project {project!r}")
@@ -130,7 +130,7 @@ class Export:
                 d["look"] = look
             _put(d, look_by=sp["look_by"])
             voice = [{"first": r["first"], "last": r["last"], "voice": r["voice"], "by": r["said_by"]}
-                     for r in _rows(con, "SELECT * FROM voice_span WHERE subject_id = ? ORDER BY ord", sid)]
+                     for r in _rows(con, "SELECT * FROM voice_span WHERE project_id = ? AND subject_id = ? ORDER BY ord", self.p["id"], sid)]
             if voice:
                 d["voice"] = voice
             _put(d, pieces_by_removed=removed.get("pieces"))
@@ -142,10 +142,10 @@ class Export:
             d["recipe"] = {"margin": sp["margin_px"], "zoom_up_to": sp["zoom_up_to"], "crop": sp["crop"], "open_mouth": sp["open_mouth"],
                            "closed_mouth": sp["closed_mouth"], "by": sp["recipe_by"]}
             marks = [{"first": r["first"], "last": r["last"], "mark": r["mark"], "by": r["said_by"]}
-                     for r in _rows(con, "SELECT * FROM head_mark WHERE subject_id = ? ORDER BY ord", sid)]
+                     for r in _rows(con, "SELECT * FROM head_mark WHERE project_id = ? AND subject_id = ? ORDER BY ord", self.p["id"], sid)]
             if marks:
                 d["head_marks"] = marks
-            hair = con.execute("SELECT * FROM facial_hair WHERE subject_id = ?", (sid,)).fetchone()
+            hair = con.execute("SELECT * FROM facial_hair WHERE project_id = ? AND subject_id = ?", (self.p["id"], sid)).fetchone()
             if hair:
                 d["source_facial_hair"], d["source_facial_hair_by"] = bool(hair["has"]), hair["said_by"]
             overrides = [_put({"first": r["first"], "last": r["last"]}, margin=r["margin_px"], zoom_up_to=r["zoom_up_to"], open_mouth=r["open_mouth"],
@@ -155,8 +155,8 @@ class Export:
                 d["shot_overrides"] = overrides
             subjects[sp["label"]] = d
         aliases = {r["alias"]: r["label"] for r in _rows(con, """SELECT a.alias, s.label FROM alias a JOIN subject s ON s.id = a.subject_id
-                                                                 WHERE s.video_id = ? ORDER BY a.ord""", self.p["video_id"])}
-        by = con.execute("SELECT a.said_by FROM alias a JOIN subject s ON s.id = a.subject_id WHERE s.video_id = ? LIMIT 1", (self.p["video_id"],)).fetchone()
+                                                                 WHERE a.project_id = ? ORDER BY a.ord""", self.p["id"])}
+        by = con.execute("SELECT said_by FROM alias WHERE project_id = ? LIMIT 1", (self.p["id"],)).fetchone()
         if by and by["said_by"]:
             aliases["_by"] = by["said_by"]
         prefixes: dict = {}
@@ -167,7 +167,7 @@ class Export:
                       for r in _rows(con, "SELECT d.*, s.label FROM departure d JOIN subject s ON s.id = d.subject_id WHERE d.project_id = ? ORDER BY d.ord", self.p["id"])]
         not_people = [_put({"what": r["what"], "shots": [[x["first"], x["last"]] for x in _rows(con, "SELECT * FROM not_person_span WHERE not_person_id = ? ORDER BY ord", r["id"])],
                             "by": r["said_by"]}, counts_as_no_one=r["counts_as_no_one"])
-                      for r in _rows(con, "SELECT * FROM not_person WHERE video_id = ? ORDER BY ord", self.p["video_id"])]
+                      for r in _rows(con, "SELECT * FROM not_person WHERE project_id = ? ORDER BY ord", self.p["id"])]
         out = {"schema": "h3_plan/1", "video": self.p["source_name"], "subjects": subjects, "aliases": aliases}
         if prefixes:
             out["load_prefixes"] = prefixes

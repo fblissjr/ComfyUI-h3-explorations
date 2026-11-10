@@ -33,7 +33,7 @@ is in "Where things stand", below, and in [`../wiki/decisions.md`](../wiki/decis
 | 3 | `fun2`'s set-up, then its lead loads | **set-up done, loads not started.** Its laid list is re-seeded, and the owner kept five lead renders of 2026-11-01 |
 | 4 | test `gem/perception-lhf` on `fun2`'s lead-alone shots | not started |
 | 5 | one stage that smooths over time, then one swap at a time | not started |
-| 6 | the record's later tiers | alongside; its own order is below |
+| 6 | the record's later tiers | alongside; footage facts across two plans are done, and the second tier is next (below) |
 
 **What comes next, in this order:**
 
@@ -56,9 +56,9 @@ is in "Where things stand", below, and in [`../wiki/decisions.md`](../wiki/decis
 
 **Alongside, the record (step 6), in `mrsql`'s order:**
 
-1. **Footage facts said in a later project's plan.** Today, where `fun2`'s plan says a footage fact differently from
-   `fun`'s (a new head mark, say), the importer names it in a note and `fun`'s word stands. The later word should
-   supersede, with history. Small, and wanted before `fun2` is worked for long.
+1. **Done (2026-11-10): footage facts said in a later project's plan.** Each plan's word is kept, the latest plan's
+   stands (`head_mark_standing` and the other `*_standing` views), and a difference between two plans is named in the
+   importer's note. A head mark written into `fun2`'s plan now supersedes `fun`'s.
 2. **The second tier:** previews, loads' settings, captures and renders as rows, with what each step read and how
    each link is known. This is where the record holds each capture at the place it is now.
 3. **The review items, and the verdicts file's lines from a terminal.**

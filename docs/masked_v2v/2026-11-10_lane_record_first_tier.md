@@ -27,9 +27,10 @@ built, what it was held to, and what the build found. The plan says why; this sa
 
 ## What the first tier holds
 
-Two migrations in [`bench/lane_db/migrations/`](../../bench/lane_db/migrations/): the first tier's tables, then the
+Three migrations in [`bench/lane_db/migrations/`](../../bench/lane_db/migrations/): the first tier's tables; the
 change that lets one file hold more than one project and video (a seed, an answer and a laid line are each a line of a
-named file, and `project_keeps`). Each table's comment says whether it is a footage fact or a project's.
+named file, and `project_keeps`); and each plan's footage facts kept as that plan's word, with the latest standing.
+Each table's comment says whether it is a footage fact or a project's.
 
 - **The project level:** `project` sits above `video`. Which projects there are, which video each works on, which
   dated records are whose and which cut closed a project are read from a new record, `data/projects.json`, written
@@ -71,9 +72,17 @@ footage facts. A later one brings only its own.
   (`bench/laid.py set-owner`). None has been composited into a cut yet. The owner did not like `lead_fp_2823c` of
   the same day, which is not on the list; those words are taken down too, with no choice recorded.
 
-**A limit, stated:** where a later project's plan file says a footage fact differently from the first project's (a
-new head mark written while `fun2` is worked, say), the importer names the field in a note and the first project's
-word stands. It does not yet treat the later file as the later word. `compare` shows the same difference.
+**Footage facts a plan file carries, and which word stands.** Head marks, voice spans, facial hair, not-people,
+aliases and the film's words are facts about the footage, and today each project's plan file says them.
+- **Each plan's word is kept** under the project whose plan it is, so each plan file comes back from the record as it
+  is.
+- **The latest plan's word stands:** the `*_standing` views (`head_mark_standing` and the rest) give the word of the
+  last project on the video that has a plan. A head mark written into `fun2`'s plan while it is worked supersedes
+  `fun`'s, and `fun`'s rows stay as what stood before.
+- **A difference is named:** where a plan says a footage fact differently from the plan before it, the importer's note
+  lists the fields. `fun`'s and `fun2`'s plans agree on all of them today.
+- **The cost:** the same fact said by two plans is two rows. That is what the two files say; the tools that write
+  footage facts still write them into a project's plan.
 
 ## What it was held to
 
@@ -126,7 +135,8 @@ reads are second-tier and are read from their files: the ledger on record, and e
 
 ## What is next
 
-1. Footage facts said in a later project's plan file: the later word superseding the earlier, with history.
-2. The second tier, which brings each load's capture as a place. That is where the moved capture folders are
-   answered in the record; how today's tools find them meanwhile is the owner's call (the plan, "Where things stand").
-3. The review items and the verdicts file's lines from a terminal.
+1. The second tier, which brings each load's capture as a place. That is where the moved capture folders are
+   answered in the record; for today's tools they are answered by the links at the old names.
+2. The review items and the verdicts file's lines from a terminal.
+3. The tools onto the database, one at a time. A tool that writes a footage fact should then write it once, for the
+   video, and the two-rows cost above goes away.

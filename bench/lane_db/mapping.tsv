@@ -106,7 +106,7 @@ answers	answers	raw		one line holding answers nested inside an answer (the owner
 plan-header	schema	meta
 plan-header	video	meta		checked: the video's source name
 plan-header	written_by	raw
-plan-header	text	col	video.film_words	text.film; footage
+plan-header	text	col	project.film_words	text.film; a footage fact, kept as this project's plan says it (the latest plan's word stands)
 plan-header	aliases	child	alias	footage; _by -> said_by
 plan-header	departures	child	departure
 plan-header	not_people	child	not_person	footage; shots[][] -> not_person_span

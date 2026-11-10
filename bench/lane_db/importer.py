@@ -4,8 +4,9 @@ lists, and the cut that closed a project.
 Every project of data/projects.json is imported, a video at a time. The first project on a video brings the footage's
 facts (copies, shots, who is on them, seeds, answers, and the footage facts its plan file carries). A later project on
 the same video brings only its own: its plan per subject, its laid lines, the subjects it keeps from the earlier
-project. Its shots file must be the footage's; a footage fact its plan file says differently is named in a note, and
-the first project's stands (the importer does not yet say which of two plan files' footage facts is the later word).
+project. Its shots file must be the footage's. The footage facts its plan file carries are kept as that plan's word,
+and the latest plan's word stands (the `*_standing` views); where it differs from the plan before it, a note names
+the fields.
 
 Every record is held to mapping.tsv before anything is written (cover.hold): a field no line covers stops the import.
 Each record goes into import_source verbatim, tied to the row made from it. A build is a pure function of the files:
@@ -276,19 +277,19 @@ class Import:
         if set(doc["text"]) != {"film"}:
             raise Refused(f"plan.json: text holds {sorted(doc['text'])}, and only `film` has a column")
         self.src(fid, None, header, "project", self.project_id)
-        if first:
-            self.footage_plan = self.footage_facts(doc)
-            self.con.execute("UPDATE video SET film_words = ? WHERE id = ?", (doc["text"]["film"], self.video_id))
-        else:
-            mine = self.footage_facts(doc)
-            other = sorted(k for k in set(mine) | set(self.footage_plan) if mine.get(k) != self.footage_plan.get(k))
+        self.con.execute("UPDATE project SET film_words = ? WHERE id = ?", (doc["text"]["film"], self.project_id))
+        mine = self.footage_facts(doc)
+        if not first:
+            before, was = self.footage_plan
+            other = sorted(k for k in set(mine) | set(was) if mine.get(k) != was.get(k))
             if other:
                 self.notes.append(f"{self.name}: data/{self.folder}/plan.json says {len(other)} footage fact(s) differently from "
-                                  f"data/{self.projects[0]['folder']}/plan.json, whose word stands in the record: {', '.join(other)}")
+                                  f"data/{before}/plan.json; the later word stands, and the earlier is kept as {before}'s: {', '.join(other)}")
+        self.footage_plan = (self.folder, mine)
         aliases = dict(doc.get("aliases") or {})
         by = aliases.pop("_by", None)
-        for n, (alias, label) in enumerate(aliases.items() if first else ()):
-            self.ins("alias", subject_id=self.subject(label), alias=alias, ord=n, said_by=by)
+        for n, (alias, label) in enumerate(aliases.items()):
+            self.ins("alias", project_id=self.project_id, subject_id=self.subject(label), alias=alias, ord=n, said_by=by)
         prefixes = dict(doc.get("load_prefixes") or {})
         self.con.execute("UPDATE project SET load_prefixes_by = ? WHERE id = ?", (prefixes.pop("_by", None), self.project_id))
         for label, found in prefixes.items():
@@ -297,8 +298,8 @@ class Import:
         for n, d in enumerate(doc.get("departures") or []):
             self.ins("departure", project_id=self.project_id, subject_id=self.subject(d["subject"]), ord=n, first=d["first"], last=d["last"],
                      note=d["note"], said_by=d["by"])
-        for n, p in enumerate(doc.get("not_people") or [] if first else []):
-            nid = self.ins("not_person", video_id=self.video_id, ord=n, what=p["what"], counts_as_no_one=p.get("counts_as_no_one"), said_by=p["by"])
+        for n, p in enumerate(doc.get("not_people") or []):
+            nid = self.ins("not_person", project_id=self.project_id, video_id=self.video_id, ord=n, what=p["what"], counts_as_no_one=p.get("counts_as_no_one"), said_by=p["by"])
             for i, (a, b) in enumerate(p["shots"]):
                 self.ins("not_person_span", not_person_id=nid, ord=i, first=a, last=b)
         if list(doc["subjects"]) != sorted(self.subjects, key=lambda s: self.subjects[s]):
@@ -357,15 +358,13 @@ class Import:
                     self.ins("restore_class", restore_rule_id=rid, ord=i, part_class=c)
                 for i, name in enumerate(r.get("loads") or []):
                     self.ins("restore_load", restore_rule_id=rid, ord=i, load_name=name)
-            # footage facts the plan file carries
-            if not first:
-                continue
+            # footage facts, as this project's plan says them
             for n, m in enumerate(p.get("head_marks") or []):
-                self.ins("head_mark", subject_id=sub, ord=n, first=m["first"], last=m["last"], mark=m["mark"], said_by=m["by"])
+                self.ins("head_mark", project_id=self.project_id, subject_id=sub, ord=n, first=m["first"], last=m["last"], mark=m["mark"], said_by=m["by"])
             for n, v in enumerate(p.get("voice") or []):
-                self.ins("voice_span", subject_id=sub, ord=n, first=v["first"], last=v["last"], voice=v["voice"], said_by=v["by"])
+                self.ins("voice_span", project_id=self.project_id, subject_id=sub, ord=n, first=v["first"], last=v["last"], voice=v["voice"], said_by=v["by"])
             if "source_facial_hair" in p:
-                self.ins("facial_hair", subject_id=sub, has=p["source_facial_hair"], said_by=p["source_facial_hair_by"])
+                self.ins("facial_hair", project_id=self.project_id, subject_id=sub, has=p["source_facial_hair"], said_by=p["source_facial_hair_by"])
 
     # ---- what the owner said -------------------------------------------------------------------------------------
     def about(self, r: dict) -> str:

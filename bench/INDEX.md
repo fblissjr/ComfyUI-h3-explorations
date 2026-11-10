@@ -673,6 +673,7 @@ Arm manifests and the like; a manifest's line is its own `what`.
 | [`mapping.tsv`](lane_db/mapping.tsv) | Where every field of the lane's record files goes in the lane's database (bench/lane_db/migrations/). First tier. |
 | [`migrations/0001_first_tier.sql`](lane_db/migrations/0001_first_tier.sql) | The masked lane's record, first tier: what a person said and decided, and a project's closing state. |
 | [`migrations/0002_lines_of_files_and_kept_pieces.sql`](lane_db/migrations/0002_lines_of_files_and_kept_pieces.sql) | The lane's record, second migration: more than one project, and more than one video, in one file. |
+| [`migrations/0003_footage_facts_by_plan.sql`](lane_db/migrations/0003_footage_facts_by_plan.sql) | The lane's record, third migration: a footage fact said in a plan file is that plan's word, and the latest stands. |
 | [`prove.py`](lane_db/prove.py) | Hold a build of a closed project to what today's tools made from its files: the delivery table of its final cut. |
 
 ### marker_corpus

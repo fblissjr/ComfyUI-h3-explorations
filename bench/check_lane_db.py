@@ -24,9 +24,12 @@ and that what goes in comes back.
                                   note counts the kept and the not kept; its plan is its own and its footage facts are
                                   the video's; `compare` names the piece its file holds and the record does not, and
                                   exits 1
-  a_footage_fact_said_twice       a second project's plan that says a footage fact differently is named in a note, and
-                                  the first project's word stands; a shots file that is not the footage's is refused
-  an_old_file_is_brought_up       a database at the first schema is brought to the newest with every link whole
+  a_footage_fact_said_twice       each plan's footage facts are kept as that plan's word; where a second project's plan
+                                  says one differently a note names the field, the later word stands (`*_standing`),
+                                  the earlier stays as the first project's, and each plan file still comes back as it
+                                  is; a shots file that is not the footage's is refused
+  an_old_file_is_brought_up       a database at the first schema is brought to the newest with every link whole, its
+                                  footage facts under the video's first project
   subjects_start_a_project        `export --subjects` writes only those subjects' standing pieces
   the_lanes_file_waits            `build` refuses data/lane.sqlite while a mapping line is `ask`, and any other path
                                   inside the repo
@@ -280,8 +283,9 @@ def main_check() -> int:
             assert "holds 2 line(s) that are pieces it keeps" in note and "1 dated before it began that are not (a 1)" in note, note
             stills = [r[0] for r in con.execute("SELECT o.relpath FROM subject_plan sp JOIN project p ON p.id = sp.project_id JOIN location o ON o.id = sp.still_location_id WHERE p.name = 'walk2' ORDER BY sp.id")]
             assert stills == ["stills/a2.png", "b.jpg"], stills
-            counts = [con.execute(q).fetchone()[0] for q in ("SELECT count(*) FROM head_mark", "SELECT count(*) FROM shot WHERE ord IS NOT NULL")]
-            assert counts == [1, 3], f"footage facts were imported twice: {counts}"
+            counts = [con.execute(q).fetchone()[0] for q in ("SELECT count(*) FROM head_mark", "SELECT count(*) FROM head_mark_standing",
+                                                             "SELECT count(*) FROM shot WHERE ord IS NOT NULL")]
+            assert counts == [2, 1, 3], f"each plan's head mark, one standing, and the shots once: {counts}"
             diff = export.differences(con, "walk2", data)
             assert diff["shots.json"] == [] and diff["plan.json"] == [], diff
             assert diff["laid.jsonl"] == ["laid.jsonl: 1 piece(s) in the file and not given back (a 1): a_fp_0000",
@@ -296,8 +300,15 @@ def main_check() -> int:
             con2, _, imp2 = built(tmp, files, "twice")
             imp2.run()
             note = next((n for n in imp2.notes if "footage fact" in n), "")
-            assert "subjects.b.head_marks" in note and "data/walk/plan.json" in note, imp2.notes
-            assert [tuple(r) for r in con2.execute("SELECT first, last FROM head_mark")] == [(12, 13)]
+            assert "subjects.b.head_marks" in note and "data/walk/plan.json" in note and "the later word stands" in note, imp2.notes
+            assert [tuple(r) for r in con2.execute("SELECT p.name, h.first, h.last FROM head_mark h JOIN project p ON p.id = h.project_id ORDER BY h.id")] \
+                == [("walk", 12, 13), ("walk2", 12, 14)]
+            # THE CASE THAT GOES RED when the first plan's word stands over a later one
+            assert [tuple(r) for r in con2.execute("SELECT first, last FROM head_mark_standing")] == [(12, 14)]
+            data2 = tmp / "data_twice"
+            assert export.differences(con2, "walk", data2)["plan.json"] == [] and export.differences(con2, "walk2", data2)["plan.json"] == [], \
+                "a plan file did not come back as it is"
+            assert not any("footage fact" in n for n in imp.notes), "a note of a difference where the two plans agree"
             files = project()
             files["walk_again/shots.json"]["shots"][0]["last"] = 8
             _, _, imp3 = built(tmp, files, "shots")
@@ -310,10 +321,18 @@ def main_check() -> int:
             old.executescript("""INSERT INTO root VALUES ('data', 'x'); INSERT INTO artifact (id, sha256) VALUES (1, '%s');
                 INSERT INTO location (id, root, relpath) VALUES (1, 'data', 'v/cast.jsonl'), (2, 'data', 'v/owner_answers.jsonl'), (3, 'data', 'v/laid.jsonl');
                 INSERT INTO import_file (id, location_id, artifact_id, source) VALUES (1, 1, 1, 'cast'), (2, 2, 1, 'answers'), (3, 3, 1, 'laid');
-                INSERT INTO video (id, name, source_name, frames) VALUES (1, 'v', 'v.mp4', 9);
-                INSERT INTO project (id, name, video_id, folder, said_by) VALUES (1, 'v', 1, 'v', 'x');
+                INSERT INTO video (id, name, source_name, frames, film_words) VALUES (1, 'v', 'v.mp4', 9, 'a film');
+                INSERT INTO project (id, name, video_id, folder, said_by) VALUES (1, 'v', 1, 'v', 'x'), (2, 'v2', 1, 'v_again', 'x');
                 INSERT INTO subject (id, video_id, label, ord) VALUES (1, 1, 'a', 0);
                 INSERT INTO seed (subject_id, line, frame, answer, from_table, said_by, at) VALUES (1, 1, 2, 'here', 't', 'x', 'x');
+                INSERT INTO head_mark (subject_id, ord, first, last, mark, said_by) VALUES (1, 0, 2, 3, 'hidden', 'x');
+                INSERT INTO voice_span (subject_id, ord, first, last, voice, said_by) VALUES (1, 0, 2, 3, 'silent', 'x');
+                INSERT INTO facial_hair (subject_id, has, said_by) VALUES (1, 1, 'x');
+                INSERT INTO alias (subject_id, alias, ord, said_by) VALUES (1, 'old', 0, 'x');
+                INSERT INTO not_person (id, video_id, ord, what, said_by) VALUES (1, 1, 0, 'a poster', 'x');
+                INSERT INTO not_person_span (not_person_id, ord, first, last) VALUES (1, 0, 0, 9);
+                INSERT INTO subject_plan (project_id, subject_id, region, said_by, still_location_id, margin_px, zoom_up_to, crop, open_mouth, closed_mouth,
+                                          recipe_by, depth_on) VALUES (2, 1, 'face', 'x', 1, 16, 4.0, 'head', 'outlined', 'sculpted', 'x', 1);
                 INSERT INTO answer (video_id, about, line, at, who, what) VALUES (1, 'footage', 1, 'x', 'owner', 'words');
                 INSERT INTO load (id, project_id, name) VALUES (1, 1, 'l');
                 INSERT INTO laid (id, project_id, subject_id, load_id, first, last, render_location_id, render_artifact_id, added_at, added_by, list_line)
@@ -327,6 +346,12 @@ def main_check() -> int:
             got = [tuple(r) for r in up.execute("SELECT l.file_id, s.file_id, a.file_id, (SELECT count(*) FROM laid_standing), (SELECT count(*) FROM project_laid) FROM laid l, seed s, answer a")]
             assert got == [(3, 1, 2, 1, 1)], got
             assert not up.execute("PRAGMA foreign_key_check").fetchall()
+            # the old file's one word a video stood for every project: the later project with a plan is given it, so what stood still stands
+            facts = [[r[0] for r in up.execute(f"SELECT project_id FROM {t} ORDER BY 1")] for t in ("head_mark", "voice_span", "facial_hair", "alias", "not_person")]
+            assert facts == [[1, 2]] * 5 and [r[0] for r in up.execute("SELECT film_words FROM project ORDER BY id")] == ["a film", "a film"], facts
+            assert up.execute("SELECT count(*) FROM not_person_span s JOIN not_person n ON n.id = s.not_person_id").fetchone()[0] == 2
+            standing = [up.execute(f"SELECT count(*) FROM {t}_standing").fetchone()[0] for t in ("head_mark", "voice_span", "facial_hair", "alias", "not_person")]
+            assert standing == [1] * 5 and up.execute("SELECT film_words FROM film_words_standing").fetchone()[0] == "a film", standing
 
         def subjects_start_a_project():
             con.commit()
