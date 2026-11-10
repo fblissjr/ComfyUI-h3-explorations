@@ -19,7 +19,7 @@ pack, not the pack (root `AGENTS.md`, "The repo is broader than the current proj
 | project | its state |
 |---|---|
 | `fun` | closed 2026-10-31 (the owner); its final state is its laid list and its final cut: `data/fun/AGENTS.md` |
-| `fun2` | next: `fun`'s footage with only the lead replaced; `data/fun_lead2/AGENTS.md` |
+| `fun2` | in motion: `fun`'s footage with only the lead replaced. Its laid list holds `fun`'s `second` and `third` pieces as they stand and five kept lead pieces; no new load yet. `data/fun_lead2/AGENTS.md`, and the plan's "Next, in order" |
 
 Two projects can share one video's footage: `fun2` reads `fun`'s shots, cast and footage answers, and owns its own
 plan, loads and laid list (`docs/masked_v2v/2026-11-10_simplification_plan.md`).

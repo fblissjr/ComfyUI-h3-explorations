@@ -29,8 +29,15 @@ Where this page and a record disagree, the record is right: `git log`, [`decisio
     `second` and `third` composited as in `fun`'s final laid list. Everything dated 2026-11-01 Central or later
     (`>= 2026-11-01T05:00Z`) is `fun2`'s, including work run under the old conditions inside `fun`'s folders. Its rules:
     `data/fun_lead2/AGENTS.md`.
-  - **The plan**: [`../masked_v2v/2026-11-10_simplification_plan.md`](../masked_v2v/2026-11-10_simplification_plan.md).
-    Step 1, the lane's records in one SQLite file, is the session `mrsql`'s; its drafts are in `internal/scratch/lane_db/`.
+  - **The plan**: [`../masked_v2v/2026-11-10_simplification_plan.md`](../masked_v2v/2026-11-10_simplification_plan.md);
+    its "Next, in order" says where each step stands.
+  - **Done on 2026-11-10** (each in [`decisions.md`](decisions.md) under that date):
+    - **Step 1:** the lane's records are in `data/lane.sqlite`, `fun` and `fun2` as two projects on one video
+      (`bench/lane_record.py`; [`../masked_v2v/2026-11-10_lane_record_first_tier.md`](../masked_v2v/2026-11-10_lane_record_first_tier.md)).
+    - **Step 2:** depth is the code's default in `bench/shot_to_load.py`.
+    - **`fun2`'s set-up:** `data/fun_lead2/laid.jsonl` is re-seeded from the record, and five lead renders of
+      2026-11-01 are the owner's keeps (`data/fun_lead2/owner_answers.jsonl`).
+    - **The capture folders** that moved under `data/fun/` on 2026-11-09 have a link at each old name.
   - Worktrees `../../h3_worktrees/agy-laid-carve` (`91ad4237`, unmerged masked-lane `bench/laid.py` build) and
     `../../h3_worktrees/gem-perception-lhf` (`16b0805c`, unmerged masked-lane perception branch) remain on disk.
 
@@ -57,13 +64,15 @@ Where this page and a record disagree, the record is right: `git log`, [`decisio
    - **Apply-node reshape and CLI cut-down (§9, §15.2, §19, §24, §27)**: Reshape `MiniMaxH3ApplyControlVectors` and simplify `bench/control_vector/cli.py` + merge `build_cmd.py`/`make_cmds.py`, then revisit `comfyui_nodes_and_controls.md` and `preset_catalog_and_cli_reference.md` (§27).
    - **System prompt wiring & pre-existing red checks (§15.5, §26.1)**: Wire `bench/control_vector/llm_pairs.py::_extract_system_prompt_text` to `docs/wiki/system_prompts/h3_control_vector_standalone_system_prompt.md` (with `bench/check_prompt_docs_sync.py`), and fix or triage `check_reference_encode.py`, `check_audio_freeze.py`, and `check_two_shot_load.py`.
 2. **Masked V2V: the simplification plan, in its order** ([`../masked_v2v/2026-11-10_simplification_plan.md`](../masked_v2v/2026-11-10_simplification_plan.md), "The order, and why"):
-   - **Step 1, the session `mrsql`:** the lane's records in SQLite, first tier. The test is that the database
-     reproduces the delivery table of `fun`'s final cut (laid list `70ead45b...`). 31 field rulings are owed by the
-     owner first (`internal/scratch/lane_db/mapping.tsv`, the `ask` lines).
-   - **Step 2:** depth and the head track on by default in the code, before `fun2`'s first load.
-   - **Step 3, `fun2`'s set-up:** re-seed `data/fun_lead2/laid.jsonl` from `fun`'s final `second` and `third` rows.
-     Then the lead loads, lead-alone shots first, each load's masks compared with those of `fun`'s kept lead piece on
-     the same frames.
+   - **Steps 1 and 2 are done** (2026-11-10), and so is `fun2`'s set-up. This item used to list them as ahead, with
+     31 field rulings owed.
+   - **Next:** a `fun2` cut from what already exists (the kept `second` and `third` pieces and the five kept lead
+     renders), on the owner's go: the first end-to-end rebuild for `fun2`, and the first since the links went in.
+   - **Then, the owner's two calls** before a new lead load: the 2026-10-25 context rule, which the code does not
+     enforce, and where a new load's folders go.
+   - **Then step 3's loads,** lead-alone shots first, each load's masks compared with those of `fun`'s kept lead piece
+     on the same frames.
+   - **Alongside:** the record's later tiers (`mrsql`).
 
 ## Where things are
 

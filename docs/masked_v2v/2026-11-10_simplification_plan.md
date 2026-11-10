@@ -21,6 +21,66 @@ What it rests on:
 - a survey of perception models released from late 2025 on, with papers' claims kept apart from independent evidence;
 - the 2026-11-10 depth test of MoGe-3 against HyDen MoGe-2 (untracked, under `internal/scratch/images/`).
 
+## Next, in order (2026-11-10, after steps 1 and 2)
+
+Written by `mrsql` at the owner's ask. It says where each step stands and what comes next. The detail of what was done
+is in "Where things stand", below, and in [`../wiki/decisions.md`](../wiki/decisions.md) under 2026-11-10.
+
+| step | what | where it stands |
+|---|---|---|
+| 1 | the lane's records in SQLite, first tier | **done.** `data/lane.sqlite` holds `fun` and `fun2` ([`2026-11-10_lane_record_first_tier.md`](2026-11-10_lane_record_first_tier.md)) |
+| 2 | forgotten opt-ins on by default | **done.** Depth is the code's default; the other switches were already defaults or stay opt-in |
+| 3 | `fun2`'s set-up, then its lead loads | **set-up done, loads not started.** Its laid list is re-seeded, and the owner kept five lead renders of 2026-11-01 |
+| 4 | test `gem/perception-lhf` on `fun2`'s lead-alone shots | not started |
+| 5 | one stage that smooths over time, then one swap at a time | not started |
+| 6 | the record's later tiers | alongside; its own order is below |
+
+**What comes next, in this order:**
+
+1. **A `fun2` cut from what already exists.** Proposed by `mrsql`; it waits on the owner's go.
+   - **What it is:** one `bench/rebuild_delivery.py --clip` for `fun2`, from the kept `second` and `third` pieces and
+     the owner's five kept lead renders. No new render.
+   - **What it tests:** the whole premise of `fun2`, that only the lead changes and the rest is composited as it
+     stands, which has never been run end to end. It is also the first full rebuild since the links went in at the
+     capture folders' old names; so far only the delivery table has been tried.
+   - **What the owner gets:** the five lead pieces composited for the first time. On 1419-1465 the new lead lies on
+     top of `third_fp_1419c`, so the frames where the two regions meet are the place to look.
+2. **Two rules settled before a new lead load is made.** Both are the owner's calls ("Waiting on the owner").
+   - **The context rule of 2026-10-25,** which the code does not enforce. The built answer goes into the job step
+     the way step 2's did: in a worktree, landed when nothing is rendering.
+   - **Where a new load's folders go.** Today's tools make them at the top of `data/`.
+3. **Step 3's loads:** the lead-alone shots first, each load's masks compared with the masks `fun`'s kept lead piece
+   on the same frames was made from. The shots that already have a kept lead piece owe no load
+   (`data/fun_lead2/AGENTS.md` lists them).
+4. **Steps 4 and 5,** as written below, each on the owner's go.
+
+**Alongside, the record (step 6), in `mrsql`'s order:**
+
+1. **Footage facts said in a later project's plan.** Today, where `fun2`'s plan says a footage fact differently from
+   `fun`'s (a new head mark, say), the importer names it in a note and `fun`'s word stands. The later word should
+   supersede, with history. Small, and wanted before `fun2` is worked for long.
+2. **The second tier:** previews, loads' settings, captures and renders as rows, with what each step read and how
+   each link is known. This is where the record holds each capture at the place it is now.
+3. **The review items, and the verdicts file's lines from a terminal.**
+4. **The tools onto the database, one at a time,** starting with the ones that join records.
+
+**Waiting on the owner:**
+
+- **A go for the `fun2` cut** (item 1 above).
+- **The context rule: extend, or refuse.** `mrsql`'s recommendation is to extend: the job step runs a load cut inside
+  a longer shot to its window's length, masked end to end, and the extra frames are chopped at the lay, as the ruling
+  of 2026-10-25 already says. It would apply to new loads only; the pieces `fun` kept stay. Whether the subject is
+  visible in the padding frames of `fun`'s loads has not been looked at.
+- **Where `fun2`'s new loads go.** Two readings stand, and the owner has not said which:
+  - **`data/fun/`:** the owner's words on 2026-11-10 were that everything should be in `fun`, said of the capture
+    folders, and `fun2`'s loads of 2026-11-01 are already there.
+  - **`data/fun_lead2/`:** each project's loads in its own folder, as "Where things stand" reads it.
+- **Which of 2026-11-01's other lead renders stand,** if any. Five are kept and `lead_fp_2823c` is not liked; the
+  rest of that day's folder under `Video/fun/gemlead2/` is listed, not laid.
+
+**Not assigned:** steps 3 to 5 have no session's name on them. The session that wrote this plan has ended; `mrsql`
+holds the record (steps 1 and 6) and landed step 2.
+
 ## Where things stand (2026-11-10)
 
 - **Step 1's first tier is built** by `mrsql` (`b561376c`): `bench/lane_record.py`, with its check
@@ -83,11 +143,11 @@ What it rests on:
 
 ## The order, and why
 
-1. **The lane's records in SQLite, first tier.** Import what a person said and decided, plus `fun`'s closing state.
+1. **Done: the lane's records in SQLite, first tier.** Import what a person said and decided, plus `fun`'s closing state.
    The test: the database reproduces the delivery table of `fun`'s final cut, which names laid list `70ead45b...`. It
    changes no picture.
-2. **Turn the forgotten opt-ins on by default in the code.** Small, with no open question, and in before `fun2`'s
-   first load.
+2. **Done: turn the forgotten opt-ins on by default in the code.** Small, with no open question, and in before
+   `fun2`'s first load.
 3. **Set up `fun2` and start its lead loads,** lead-alone shots first (below). Every lead load's masks are compared with
    the masks `fun`'s kept lead piece on the same frames was made from: same footage and same face-only region, so they
    should match. That comparison is the baseline steps 4 and 5 are measured against.
