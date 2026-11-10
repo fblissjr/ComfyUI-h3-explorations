@@ -94,13 +94,18 @@ From `fun`'s final laid list, the 47 shots with a laid lead piece fall into thre
 - **Where to look:** frames where the new lead and a kept piece change the same pixels. The assembler flags them
   (`two_pieces_change_the_same_pixels`).
 
-**Before the first `fun2` load:**
-- `data/fun_lead2/laid.jsonl` is re-seeded from `fun`'s final list: its `second` and `third` rows, with no lead rows.
-  The current file is a snapshot from an older state.
-- `data/fun_lead2/AGENTS.md` and its one-line `CLAUDE.md` are written (`data/AGENTS.md`: every video, and so every
-  project, has its own).
-- `fun2`'s work of 2026-11-01 onward, run under the old conditions, is listed, not laid. The owner says which of it,
-  if any, stands.
+**Before the first `fun2` load** (all done on 2026-11-10):
+- **The laid list:** `data/fun_lead2/laid.jsonl` was re-seeded from the lane's database on the owner's go (`mrsql`,
+  `25219d48`). It holds `fun`'s final `second` and `third` pieces as they stand, and `fun2`'s own lead lines.
+- **The project page:** `data/fun_lead2/AGENTS.md` and its one-line `CLAUDE.md` are written.
+- **The 2026-11-01 work:**
+  - **Kept:** five lead renders, kept by the owner (`data/fun_lead2/owner_answers.jsonl` lines 1 to 5):
+    `lead_fp_0294f`, `lead_fp_1156h`, `lead_fp_1419e`, `lead_fp_3909d`, `lead_fp_4053e`. Those five shots (294-414,
+    1156-1188, 1419-1465, 3909-3966, 4053-4126) owe no fresh load. On 4053 the piece covers 4053-4091, as `fun`'s did.
+  - **Not liked:** `lead_fp_2823c` (line 6).
+  - **To watch on 1419-1465:** the kept `lead_fp_1419e` was rendered on the `2026-10-31T2110Z` cut. That cut held
+    `fun`'s kept `second` but not its kept `third_fp_1419c`, laid later. Look where the lead meets the third in
+    `fun2`'s cut.
 
 ## 1. The lane's records in SQLite
 
