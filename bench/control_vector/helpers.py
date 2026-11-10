@@ -485,11 +485,19 @@ def _display_path(p: Path) -> str:
 
 
 def _recommended_strength_text(raw_norm: float) -> str:
-    if raw_norm <= 1e-6:
-        return "1.0"
-    s_lo = max(0.25, round(50.0 / raw_norm, 2))
-    s_hi = max(s_lo + 0.25, round(85.0 / raw_norm, 2))
-    return f"{s_lo:.2f} .. {s_hi:.2f}"
+    """The strength to try, for the node's default mode first.
+
+    Until 2026-11-09 this returned only the range for mode `add`, which depends on the vector's stored
+    length. The node defaults to `add_norm_matched`, which rescales every vector to one length, so that
+    range did not apply to it. Both come from `control_vectors.strength_ranges`.
+    """
+    (m_lo, m_hi), add = cv.strength_ranges(raw_norm)
+    text = f"{m_lo:.2f} .. {m_hi:.2f} (add_norm_matched, the default)"
+    if add is None:
+        return text
+    s_lo = max(0.25, round(add[0], 2))
+    s_hi = max(s_lo + 0.25, round(add[1], 2))
+    return f"{text}; {s_lo:.2f} .. {s_hi:.2f} (add)"
 
 
 

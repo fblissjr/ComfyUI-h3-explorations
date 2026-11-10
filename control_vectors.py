@@ -1944,16 +1944,18 @@ def format_vector_sidecar_md(
             if "vector.post_refiner" in tensors
             else [POST_REFINER_DIM]
         )
-        rec_lo = 50.0 / pr_norm if pr_norm > 1e-9 else 0.0
-        rec_hi = 85.0 / pr_norm if pr_norm > 1e-9 else 0.0
+        (matched_lo, matched_hi), add_range = strength_ranges(pr_norm)
         lines.append(
             f"- **`vector.post_refiner`**: shape=`{pr_shape}`, unit=`{pr.get('unit', 'mean_pair_difference')}`, "
             f"`raw_norm={pr_norm:.6f}`, `median_row_norm={pr_med:.4f}`"
         )
-        if pr_norm > 1e-9:
+        if add_range is not None:
+            window = f"`{NORM_SHIFT_WINDOW[0]:g}..{NORM_SHIFT_WINDOW[1]:g}`"
             lines.append(
-                f"- **Recommended ComfyUI `strength` range** (targeting post-refiner shift norm `50..85`): "
-                f"**`~{rec_lo:.2f} .. {rec_hi:.2f}`**"
+                f"- **Recommended ComfyUI `strength` range** (targeting post-refiner shift norm {window}): "
+                f"**`~{matched_lo:.2f} .. {matched_hi:.2f}`** in mode `add_norm_matched`, the node's default, "
+                f"where every vector is rescaled to one length and this range is the same for all of them; "
+                f"`~{add_range[0]:.2f} .. {add_range[1]:.2f}` in mode `add`, where this vector is used as stored"
             )
 
     if "encoder" in points:
@@ -2323,9 +2325,25 @@ _is_ph3_image_compatible = _is_same_family_h3_recipe_compatible
 
 APPLY_MODES: tuple[str, ...] = ("add", "add_norm_matched", "hold", "project_out", "amplify")
 SCALE_MODES: tuple[str, ...] = ("raw", "norm_matched")
-#: Midpoint of the healthy post-refiner shift norm target window `[50.0, 85.0]`
-#: (`format_vector_sidecar_md`, `bench/results/2026-11-05_control_vectors_pika_and_ref2va.md`).
+#: The post-refiner shift norms a push is meant to land in. **Measured**: the band of `raw_norm` across the
+#: bank's `diff_span` builds (`bench/results/2026-11-05_control_vectors_pika_and_ref2va.md`), rounded.
+NORM_SHIFT_WINDOW: tuple[float, float] = (50.0, 85.0)
+#: Midpoint of `NORM_SHIFT_WINDOW`: the length `add_norm_matched` rescales every vector to.
 NORM_MATCHED_TARGET: float = 67.5
+assert NORM_MATCHED_TARGET == sum(NORM_SHIFT_WINDOW) / 2.0
+
+
+def strength_ranges(raw_norm: float) -> tuple[tuple[float, float], tuple[float, float] | None]:
+    """The strength range that lands a push inside `NORM_SHIFT_WINDOW`, per apply mode.
+
+    Returns `(norm_matched, add)`. Under `add_norm_matched`, the node's default mode, every vector is
+    rescaled to `NORM_MATCHED_TARGET` first, so the range is the same for every vector. Under `add` the
+    vector is used as stored, so the range depends on its own `raw_norm`; it is `None` for a zero vector.
+    """
+    lo, hi = NORM_SHIFT_WINDOW
+    matched = (lo / NORM_MATCHED_TARGET, hi / NORM_MATCHED_TARGET)
+    add = (lo / raw_norm, hi / raw_norm) if raw_norm > 1e-9 else None
+    return matched, add
 
 
 def _apply_holds_to_shift64(

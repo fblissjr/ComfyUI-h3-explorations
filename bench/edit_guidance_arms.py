@@ -17,6 +17,10 @@ With --node-arms it also builds the same test through the pack's own `MiniMaxH3E
     node_late_sX   the guider node from --switch-step; one model pass before it, where late_sX makes two
     node_align_sX  the guider node at scale X with both prompts given one position origin
 
+With --vector-arm LABEL=FILE:STRENGTH it also builds an arm that keeps the original prompt and steers it
+with that control vector on the base graph's own vector node, so a vector and an edit can be compared on
+one shot.
+
 The base graph's control-vector node is removed, so the arms read edit guidance alone. The second prompt is a
 copy of the base graph's own conditioning node with only the text changed, so both sides share the encoder,
 the references and the canvas.
@@ -76,14 +80,22 @@ def _switch_percent(sigmas: list[float], shift: float, step: int) -> float:
     return round(1.0 - t, 4)
 
 
-def _base(path: Path, prompt: str, length: int, seed: int, prefix: str, ref_image: str | None) -> dict:
+def _base(path: Path, prompt: str, length: int, seed: int, prefix: str, ref_image: str | None,
+          vector: tuple[str, float, str | None] | None = None) -> dict:
     g = json.loads(path.read_text(encoding="utf-8"))
     cv_id, cv = _one(g, "MiniMaxH3ApplyControlVectors")
-    for node in g.values():
-        for key, val in node.get("inputs", {}).items():
-            if isinstance(val, list) and val and val[0] == cv_id:
-                node["inputs"][key] = cv["inputs"]["model"]
-    del g[cv_id]
+    if vector is not None:
+        # A vector arm: the base graph's own vector node stays, with this file and strength, and with
+        # this mask when one is named (the graph's own otherwise).
+        cv["inputs"]["vector_name"], cv["inputs"]["strength"], mask = vector
+        if mask:
+            cv["inputs"]["mask"] = mask
+    else:
+        for node in g.values():
+            for key, val in node.get("inputs", {}).items():
+                if isinstance(val, list) and val and val[0] == cv_id:
+                    node["inputs"][key] = cv["inputs"]["model"]
+        del g[cv_id]
     _one(g, CONDITIONING_NODES)[1]["inputs"]["prompt"] = prompt
     _one(g, "MiniMaxH3Resolution")[1]["inputs"]["length"] = length
     _one(g, "RandomNoise")[1]["inputs"]["noise_seed"] = seed
@@ -164,6 +176,15 @@ def _arms(args, prompt: str, edited: str, seed: int) -> tuple[dict[str, dict], d
         arms[f"node_late_s{args.late_scale:g}"] = node(f"node_late_s{args.late_scale:g}", args.late_scale,
                                                          args.switch_step, False)
         arms[f"node_align_s{low:g}"] = node(f"node_align_s{low:g}", low, 0, True)
+
+    for spec in args.vector_arm or []:
+        label, _, rest = spec.partition("=")
+        parts = rest.split(":")
+        if not label or len(parts) not in (2, 3) or not parts[0]:
+            raise SystemExit("--vector-arm must read 'label=vector_file.safetensors:strength' or "
+                             "'label=vector_file.safetensors:strength:mask'")
+        arms[label] = _base(Path(args.base), prompt, args.length, seed, f"{args.prefix}/{args.name}_{label}_s{seed}",
+                            args.ref_image, vector=(parts[0], float(parts[1]), parts[2] if len(parts) == 3 else None))
     return arms, {"sigmas": sigmas, "shift_video": shift, "switch_step": args.switch_step, "switch_percent": p}
 
 
@@ -203,6 +224,9 @@ def main() -> int:
     ap.add_argument("--only", nargs="*", default=None, help="arm names to build; default all")
     ap.add_argument("--node-arms", action="store_true",
                     help="also build the arms that use the pack's MiniMaxH3EditGuider node")
+    ap.add_argument("--vector-arm", action="append", default=None, metavar="LABEL=FILE:STRENGTH[:MASK]",
+                    help="also build an arm with the original prompt and this control vector on the base "
+                         "graph's own vector node, for comparison with the edit arms; repeatable")
     ap.add_argument("--queue", action="store_true")
     ap.add_argument("--host", default="127.0.0.1:8188")
     ap.add_argument("--timeout", type=float, default=1800.0)

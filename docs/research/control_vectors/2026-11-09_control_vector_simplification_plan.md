@@ -1283,3 +1283,29 @@ config names that never existed and unpacked one value from a node that returns 
 sizing the shipped reference graphs carry, and loads the VAE only for a caller that samples. A new check,
 `bench/check_config_names.py`, fails on a config name that does not exist; its first run found a second
 one in `bench/rank_dense_blocks.py`.
+
+## 24. The apply node's defaults, read against what builds the vectors
+
+Each default of `MiniMaxH3ApplyControlVectors` (`h3_rules.CONTROL_VECTOR_DEFAULTS` and
+`CONTROL_VECTOR_OPTIONAL_DEFAULTS`, one copy read by the node and the generator) was read against the build
+tool and the generated graphs.
+
+What lines up: `add_norm_matched` rescales every vector to `control_vectors.NORM_MATCHED_TARGET`, so a
+vector's stored length does not matter and one strength means one push; the reference-gate inputs default
+to core's own value and the node does nothing to that road unless one is lowered; the recipe refusal is
+enforced.
+
+What did not, and what was done:
+
+- The builder's recommended strength was computed for mode `add`, from the vector's stored length, while the
+  node defaults to `add_norm_matched`, for which that range does not apply. Fixed the same day:
+  `control_vectors.strength_ranges` gives both, and the build summary and a vector's sidecar now state the
+  default mode's range first and label the other as mode `add`. The window they share is now a named
+  constant, `control_vectors.NORM_SHIFT_WINDOW`.
+- The generated graphs set strength as a bare number and name vector files by their hashed filenames, both
+  typed into the generator with no reason beside them. Left as it is, on the owner's word: not to be tied
+  into the workflow builder that way; some other approach, another day.
+- `mask` has no reason written beside its default. Which rows a vector should reach is open: section 23.5
+  shows what a picture moves, and a render round on one ref2va shot compares `scene_only`, `non_vision` and
+  `all_rows` (`bench/edit_guidance_arms.py --vector-arm`). With the fixed push per row, a wider mask is
+  also a larger total change at the same strength.
