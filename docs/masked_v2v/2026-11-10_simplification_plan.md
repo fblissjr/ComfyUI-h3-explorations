@@ -37,6 +37,15 @@ is in "Where things stand", below, and in [`../wiki/decisions.md`](../wiki/decis
 
 **What comes next, in this order:**
 
+0. **First, the tools find a project's folders themselves, and the links go** (the owner's yes, 2026-11-10, at the
+   day's close). The owner wants the top of `data/` clean; the dated entries there are the links to `data/fun/`.
+   - **The change:** a tool that follows a recorded `data/<day>_<load>` reads it at `data/<video>/<day>_<load>` where
+     that is where the folder is, and a new load's folders are made in a project's folder, not at the top of `data/`.
+     One resolver, called by every tool that follows a recorded path; load-step tools are built in a worktree.
+   - **The proof, before a link is deleted:** with the links taken away in a scratch view, the delivery table ties
+     every row of `fun`'s final table to its capture's run, and a rebuild runs end to end.
+   - **Then:** the links are deleted (`find data -maxdepth 1 -type l -lname 'fun/2026-*'`).
+   - **Which folder a new `fun2` load goes in** is still the owner's to say ("Waiting on the owner").
 1. **A `fun2` cut from what already exists.** Proposed by `mrsql`; it waits on the owner's go.
    - **What it is:** one `bench/rebuild_delivery.py --clip` for `fun2`, from the kept `second` and `third` pieces and
      the owner's five kept lead renders. No new render.

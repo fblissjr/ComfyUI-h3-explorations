@@ -66,6 +66,9 @@ Where this page and a record disagree, the record is right: `git log`, [`decisio
 2. **Masked V2V: the simplification plan, in its order** ([`../masked_v2v/2026-11-10_simplification_plan.md`](../masked_v2v/2026-11-10_simplification_plan.md), "The order, and why"):
    - **Steps 1 and 2 are done** (2026-11-10), and so is `fun2`'s set-up. This item used to list them as ahead, with
      31 field rulings owed.
+   - **First:** the tools find a project's folders under `data/<video>/` themselves, proved with the links at the
+     old names taken away, and then those links are deleted (the owner's yes, 2026-11-10: the top of `data/` is to be
+     clean). The plan's "Next, in order", item 0.
    - **Next:** a `fun2` cut from what already exists (the kept `second` and `third` pieces and the five kept lead
      renders), on the owner's go: the first end-to-end rebuild for `fun2`, and the first since the links went in.
    - **Then, the owner's two calls** before a new lead load: the 2026-10-25 context rule, which the code does not

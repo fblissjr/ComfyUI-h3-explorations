@@ -85,6 +85,15 @@ Older history lives elsewhere and is not copied here:
   - **To undo:** delete the links (`find data -maxdepth 1 -type l -lname 'fun/2026-*'`).
   - **Still open:** a new load's folders are made at the top of `data/` by today's tools
     (`bench/load_chain.py`), not in a project's folder.
+- **The top of `data/` is to be clean, and the links are temporary** (the owner, in mrsql's terminal, at the day's
+  close).
+  - **The order agreed:** the links stay for now. Next, the tools are taught to find a project's folders under
+    `data/<video>/`, that is proved with the links taken away, and then the links are deleted. Nothing is blocked in
+    between.
+  - **Why not move them:** a link works only at the old name a record cites, so moving the links into a folder would
+    leave them pointing at nothing.
+  - **Where it is planned:** [`../masked_v2v/2026-11-10_simplification_plan.md`](../masked_v2v/2026-11-10_simplification_plan.md),
+    "Next, in order", item 0.
 - **`fun2`'s laid list re-seeded, and its five lead renders kept** (the owner, in mrsql's terminal).
   - **The go:** `data/fun_lead2/laid.jsonl` is written from the lane's database, with a copy of the old list kept
     beside it (`laid.jsonl.before_reseed_2026-11-10T2034Z`). It now holds `fun`'s standing `second` and `third`
