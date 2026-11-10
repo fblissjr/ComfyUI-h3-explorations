@@ -28,18 +28,21 @@ What it rests on:
   - **The record:** the owner ruled the open fields (`b7bf86d7`). `data/lane.sqlite` is built from both projects,
     with `fun2` a project on `fun`'s video (`a5bd98e2`).
   - **`fun2`'s list:** re-seeded from the record on the owner's go (`25219d48`).
-  - **What holds compositing:** the moved-captures choice below.
-- **A blocker for `fun2` on today's tools.** `fun`'s capture and job folders moved under `data/fun/` on 2026-11-09, and
-  the records still name them where they were.
-  - **The job files:** all 614 name their capture as `data/<day>_<load>`, which now resolves only under `data/fun/`.
-  - **The final cut's table:** all 88 rows tie their `run=` to those old paths.
-  - **What reads them:** `bench/load_chain.py` reads the job's `capture` as written and builds job folders at
-    `data/<day>_<name>_job`.
-  - **Why it blocks:** compositing `fun`'s kept `second` and `third` by their own mattes needs those captures. How to
-    resolve it is the owner's call (a path resolver in the tools, links at the old places, or the record's own paths
-    once the tools read the database).
-  - **Its side effect:** `bench/check_doc_links.py` reports 4276 broken pointers, 4266 of them on `data/fun/` lines,
-    most likely from the same move.
+- **The moved captures are answered with links** (the owner's choice, 2026-11-10; `mrsql`, `5c5da3cb`).
+  - **The move:** `fun`'s capture and job folders moved under `data/fun/` on 2026-11-09, while 614 job files and the
+    final cut's 88 table rows still name them at `data/<day>_<load>`.
+  - **The fix:** each old name is now a link to `fun/<day>_<load>`, 1622 in all
+    (`find data -maxdepth 1 -type l -lname 'fun/2026-*'`), none dangling. Everything stays in `data/fun/`, and no
+    record or code changed.
+  - **What `mrsql` checked:** `bench/delivery_table.py` ties every row of the final table to its run again.
+  - **Not yet checked:** `bench/rebuild_delivery.py` end to end, and the load tools.
+- **Still open, the owner's call: where `fun2`'s new loads go.** `bench/load_chain.py` makes a new load's folders at
+  `data/<day>_<name>_job`, at the top of `data/`. The owner wants everything kept in its project folder, so `fun2`'s
+  loads would belong under `data/fun_lead2/`. That is a change to a load-step tool, built in a worktree.
+- **Corrected:** `bench/check_doc_links.py`'s broken pointers are not from the move. The links brought them only from
+  4276 to 4269. Of the rest, 4162 are its no-bare-filenames rule firing inside generated records under `data/fun/`
+  (ledgers, tables), and 102 are malformed links in those same files. This bullet used to say "most likely from the
+  same move".
 - **The lead's strangers keep-out is the plan's word:** `data/fun/plan.json` sets `keep_outs: ["strangers"]` for the
   lead. `fun2`'s plan must keep it, and it is a candidate for the step 2 defaults.
 
