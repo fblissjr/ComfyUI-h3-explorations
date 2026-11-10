@@ -67,6 +67,94 @@ SQLite's locking is not safe on a network filesystem, and the share is CIFS.
 supersedes the old one, with who and why, so "what stands" is a view and "what stood on 2026-10-21" is a query. That
 replaces the `.before_*` copies and the read-only answer snapshots.
 
+### The data model, first draft (agreed in shape with the owner, 2026-11-10)
+
+```
+video ─┬─ copy (working copies, cuts)
+       ├─ subject
+       ├─ shot ── appearance (who is on it, per a person's word)
+       ├─ answer (everything the owner said, on any page)
+       │    ├── seed (who-is-who boxes)
+       │    └── subject_recipe / head_mark (the plan, per subject, with history)
+       ├─ preview ── load ── step ──┬── artifact ── location
+       │                            └── step_input (what a step read)
+       │                     ├── flag, look
+       └─ laid (a kept piece on a shot, superseded, never edited)
+            └── cut ── cut_piece
+                 └── review_item ── answer
+```
+
+**Pointers to the data: content for identity, a named root for location.**
+
+```sql
+artifact(id, sha256 NOT NULL, bytes, media, kind, subject_id,
+         first_source_frame, frames,                 -- frame k of the file is source frame first+k
+         made_by_step_id NOT NULL, written_at)
+location(artifact_id, root, relpath, size, mtime, verified_at, UNIQUE(root, relpath))
+root(name PRIMARY KEY)                                -- 'share_output' | 'share_input' | 'data' | ...
+step_input(step_id, artifact_id, member NULL)         -- member: one key of an .npz, when that is all it read
+```
+
+- **Roots are names**, resolved at run time from what the tools already use (`H3_OUTPUT_DIR`, `H3_INPUT_DIR`, the
+  repo's `data/`). No absolute path is stored.
+- **The `sha256` is the identity.** One artifact can have several locations, and a moved file is a new `location`, not
+  a new artifact.
+- **Write once, enforced.** Registering a different `sha256` at an existing `(root, relpath)` is refused. That is the
+  fault the records found, where a capture written several times in place left its `.npz` and `.mkv` disagreeing
+  ([`code_map_contracts.md`](code_map_contracts.md), Section 2c.2).
+- **Verification is cheap.** It re-hashes only files whose size or mtime changed since `verified_at`, and reports a
+  missing file rather than dropping it.
+- **The frame offset is stated once,** on the artifact. Today each tool works out a file's frame 0 itself.
+
+**No JSON stuffed into fields.**
+1. **Typed columns and child tables.** What anything filters, joins or checks on is a typed column. A list is a child
+   table: an answer's frames are `answer_frame(answer_id, frame)` rows, and a laid piece's frames are range rows.
+2. **The plan gets typed tables, one per concept**, for example:
+
+   ```sql
+   subject_recipe(subject_id, parts, margin_px INTEGER, zoom_up_to REAL,
+                  crop TEXT CHECK (crop IN ('head','face','cranium')), depth_on INTEGER,
+                  valid_from, valid_to, said_by, answer_id)
+   ```
+
+   A new knob is a schema migration. That cost is wanted: every new knob has to say what it covers and what retires
+   it, instead of slipping into a blob and being forgotten.
+3. **SQLite enforces it:**
+   - `STRICT` tables;
+   - `PRAGMA foreign_keys=ON` on every connection, since SQLite leaves foreign keys off by default;
+   - `CHECK` constraints for enumerations;
+   - one numbered migration per schema change (`PRAGMA user_version`).
+4. **JSON in exactly two places, read by nothing:**
+   - `import_source(file, line, raw)`, so every row traces back to the line it came from;
+   - a step's `argv`, the command as it ran.
+
+   A check fails on any `json_extract` in a tool, and on any third JSON column.
+5. **The importer refuses unknown keys.** A mapping file, readable by a person, sends every key of today's files to
+   a column, a child table, or "kept raw only". An unmapped key stops the import. `owner_answers.jsonl` alone carries
+   about 40 optional keys today. The mapping is therefore also the list of every field the lane has grown, with a
+   decision on each, and a field no tool reads is named rather than carried.
+6. **Per-frame figures stay in their files**, behind an artifact row, until the analysis layer below reads them.
+
+### Later: an analysis layer in DuckDB, built from the record
+
+The record is normalized because it takes small concurrent writes, history by supersession, and a provenance graph.
+Analysis wants a star instead, and the lane already makes the facts: the per-frame tables and figures of every capture
+(`find data/fun -name '*.csv' | wc -l`).
+
+**The layer:** a DuckDB file, built from the SQLite record plus those files, never written by a tool, and rebuildable at
+any time.
+- **Facts**, one row each:
+  - a load and source frame;
+  - a render;
+  - an owner verdict.
+- **Dimensions:**
+  - video, shot, subject;
+  - load and recipe, as type-2 rows with valid-from and valid-to;
+  - code version, perception model, date, who.
+
+It is built once there is a question worth it. The first candidate: how many renders a shot took before a keep, by
+recipe, which says which recipe defaults to change.
+
 **How to get there without breaking `fun`.**
 1. **Schema and importer:** write the schema and an importer for `fun`'s existing files.
 2. **Prove it on `fun`:** what the database says must match what the current tools say, for the delivery table, the
