@@ -907,10 +907,9 @@ def _repool_cached_build(
             },
         }
         saved = cv.save_vector(entry["out_path"], tensors_to_save, metadata, overwrite=True)
-        rec_band = [
-            round(50.0 / max(raw_norm, 1e-6), 2),
-            round(85.0 / max(raw_norm, 1e-6), 2),
-        ]
+        # The band for the node's default mode (`add_norm_matched`); the per-vector band for mode `add`
+        # is in `rec_strength`'s text. Both from `control_vectors.strength_ranges`.
+        rec_band = [round(x, 2) for x in cv.strength_ranges(raw_norm)[0]]
         mpc_rep = q_report.get("mean_pairwise_cosine")
         shc_rep = q_report.get("split_half_cosine")
         built_rows.append(

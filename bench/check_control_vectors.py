@@ -3773,6 +3773,18 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
             if not expected_active and got_shift != 0.0:
                 errs.append(f"step {step_i} outside [0.25, 0.75) was steered: got {got_shift}")
 
+        # The reference-gate default is core's own value, so the node leaves that road alone at its
+        # defaults. It is written as a number in `h3_rules`; this is what notices core moving it.
+        import comfy.ldm.minimax.model as _core_model
+        import h3_rules as _h3_rules
+
+        _aug_default = _h3_rules.CONTROL_VECTOR_OPTIONAL_DEFAULTS["ref_vae_aug"]
+        if _aug_default != _core_model.VISUAL_COND_TIMESTEP:
+            errs.append(
+                f"h3_rules ref_vae_aug default {_aug_default} is not core's VISUAL_COND_TIMESTEP "
+                f"{_core_model.VISUAL_COND_TIMESTEP}"
+            )
+
         # Wave 2: video_scale / audio_scale / split_end_percent + ref_vae_end_percent / ref_vae_aug checks
         errs += _expect_refusal(
             lambda: cv_nodes.attach_control_vector(

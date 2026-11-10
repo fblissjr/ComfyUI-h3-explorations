@@ -1309,3 +1309,18 @@ What did not, and what was done:
   shows what a picture moves, and a render round on one ref2va shot compares `scene_only`, `non_vision` and
   `all_rows` (`bench/edit_guidance_arms.py --vector-arm`). With the fixed push per row, a wider mask is
   also a larger total change at the same strength.
+
+### 24.1 Corrections from an independent read of section 24
+
+- Where the graphs' strength came from was found: the single-vector demo graphs were set above the node's
+  default on purpose in `3d69d1bc`, so a first render shows the grade plainly, and
+  `bench/check_widget_deviations.py` declares that input as a deliberate difference from the default. It is
+  still a bare number in the generator; it is not unexplained.
+- A stale vector filename in a graph is caught: `bench/check_model_files.py` checks every `.safetensors`
+  name in every graph against what the running server offers. It needs a live server.
+  `control_vector_nodes.resolve_vector_file_path` also resolves a bare concept name at run time.
+- Two more copies of the old strength arithmetic were found, in `bench/control_vector/build_cmd.py` and
+  `ui_state.py`, writing a numeric band nothing reads. Both now take it from
+  `control_vectors.strength_ranges`, for the default mode.
+- `bench/check_control_vectors.py` now fails if the reference-gate default in `h3_rules` stops matching
+  core's `VISUAL_COND_TIMESTEP`.

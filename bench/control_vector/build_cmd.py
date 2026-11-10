@@ -811,10 +811,9 @@ def cmd_build(args: argparse.Namespace) -> int:
                     "prompt": prompt_build,
                     "words_spec": words_arg or str(getattr(args, "_words_spec_saved", "") or ""),
                 }
-            rec_band = [
-                round(50.0 / max(raw_norm, 1e-6), 2),
-                round(85.0 / max(raw_norm, 1e-6), 2),
-            ]
+            # The band for the node's default mode (`add_norm_matched`); the per-vector band for mode
+            # `add` is in `rec_strength`'s text. Both from `control_vectors.strength_ranges`.
+            rec_band = [round(x, 2) for x in cv.strength_ranges(raw_norm)[0]]
             mpc_raw = q_report.get("mean_pairwise_cosine")
             sh_raw = q_report.get("split_half_cosine")
             summary_rows.append(
