@@ -716,6 +716,7 @@ def write_compiled_toml(
         s = str(val).replace('"""', '\\"\\"\\"')
         return f'"""\n{s}\n"""'
 
+    has_multi_span = any(" | " in p.a_span or " | " in p.b_span for p in ps.pairs)
     lines = [
         f"# Compiled in-place via h3_pair_compiler (mode={ps.mode!r}, n_pairs={len(ps.pairs)})",
         "[vector]",
@@ -726,6 +727,7 @@ def write_compiled_toml(
         f"mode = {_toml_str(ps.mode)}",
         f"frame = {_toml_str(ps.frame)}",
         f"exclude_shots = {json.dumps(list(ps.exclude_shots))}",
+        *([ "allow_multi_span = true" ] if has_multi_span else []),
         "",
     ]
     for p in ps.pairs:

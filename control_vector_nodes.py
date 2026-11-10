@@ -1209,6 +1209,12 @@ def _validate_float_bounds(
     return fval
 
 
+def _effective_entry_mode(sp: _AppliedVectorSpec) -> str:
+    if sp.mode == "add" and sp.scale_mode == "norm_matched":
+        return "add_norm_matched"
+    return sp.mode
+
+
 def _make_control_vector_wrapper(specs: tuple[_AppliedVectorSpec, ...]):
     logged_prefix_notes: set[tuple[str, str]] = set()
     logged_interactions: set[tuple[tuple[str, float, str], ...]] = set()
@@ -1216,11 +1222,6 @@ def _make_control_vector_wrapper(specs: tuple[_AppliedVectorSpec, ...]):
     logged_prompt_couplings: set[tuple[str, str]] = set()
     resolved_prompt_vectors: dict[tuple[str, str], torch.Tensor] = {}
     last_resolved_by_spec: dict[str, torch.Tensor] = {}
-
-    def _effective_entry_mode(sp: _AppliedVectorSpec) -> str:
-        if sp.mode == "add" and sp.scale_mode == "norm_matched":
-            return "add_norm_matched"
-        return sp.mode
 
     def wrapper(executor, x, timestep, context, transformer_options={}, **kwargs):
         if context is None or not specs:
@@ -1445,6 +1446,17 @@ def _make_control_vector_wrapper(specs: tuple[_AppliedVectorSpec, ...]):
                         )
                     )
                     j += 1
+
+                if (
+                    j < n
+                    and _effective_entry_mode(active_specs[j]) == "hold"
+                    and any(em in ("add", "add_norm_matched") for (_v, _s, em) in batch_entries)
+                ):
+                    raise ValueError(
+                        f"mode='hold' on {active_specs[j].vector_name!r} has mask={active_specs[j].mask!r}, "
+                        f"which differs from preceding additive control vector mask={sp.mask!r}; "
+                        "a 'hold' node must use the same mask as the additive node(s) it projects out of"
+                    )
 
                 add_inter_entries: list[tuple[str, torch.Tensor, float]] = []
                 for gsp, (gv, gs_eff, em) in zip(group_specs, batch_entries):
@@ -1689,6 +1701,11 @@ def attach_control_vector(
     hold_clean = str(hold_words or "").strip()
 
     if (not raw_name or raw_name == "none") and not words_clean:
+        if hold_clean:
+            raise ValueError(
+                "hold_words requires vector_name != 'none' or non-empty words; "
+                "cannot apply hold_words when no control vector or inline words are selected"
+            )
         if rvep_f < 1.0 or rva_f < 0.999:
             t_opts = m.model_options.setdefault("transformer_options", {})
             existing_none: tuple[_AppliedVectorSpec, ...] = tuple(t_opts.get(WRAPPER_KEY, ()))
@@ -1863,6 +1880,31 @@ def attach_control_vector(
             synth["readout"].get("pos_summary", ""),
             rd_summary,
         )
+
+    for idx_sp, sp_chk in enumerate(updated):
+        if _effective_entry_mode(sp_chk) == "hold" and float(sp_chk.strength) != 0.0:
+            prior = updated[:idx_sp]
+            has_matching_add = any(
+                _effective_entry_mode(prev) in ("add", "add_norm_matched")
+                and float(prev.strength) != 0.0
+                and (prev.mask, prev.prompt) == (sp_chk.mask, sp_chk.prompt)
+                for prev in prior
+            )
+            if not has_matching_add:
+                prior_add_masks = sorted(
+                    {
+                        prev.mask
+                        for prev in prior
+                        if _effective_entry_mode(prev) in ("add", "add_norm_matched")
+                        and float(prev.strength) != 0.0
+                    }
+                )
+                if prior_add_masks:
+                    raise ValueError(
+                        f"mode='hold' on {sp_chk.vector_name!r} uses mask={sp_chk.mask!r}, which does not match "
+                        f"any preceding additive control vector's mask ({prior_add_masks}); "
+                        "a 'hold' node must share the same mask as the additive node(s) it projects out of"
+                    )
 
     t_opts[WRAPPER_KEY] = updated
     # Replace the wrapper list under WRAPPER_KEY so all stacked specs execute
@@ -2805,6 +2847,11 @@ class MiniMaxH3ApplyControlVectors(io.ComfyNode):
                 return str(exc)
         w_str = str(words or "").strip()
         h_str = str(hold_words or "").strip()
+        if h_str and (not raw or raw == "none") and not w_str:
+            return (
+                "hold_words requires vector_name != 'none' or non-empty words; "
+                "cannot apply hold_words when no control vector or inline words are selected"
+            )
         if w_str or h_str:
             try:
                 ha_val = float(hold_alpha)

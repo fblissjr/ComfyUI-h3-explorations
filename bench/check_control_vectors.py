@@ -410,11 +410,11 @@ def check_spans_partition_and_refusals(tok: MiniMaxH3Tokenizer) -> list[str]:
     if not bool(pm_dlg_diff[dlg_first:dlg_last].all()):
         errs.append("pooling_mask('diff_span') dialogue fallback did not select differing dialogue tokens")
 
-    # Multi-span SequenceMatcher differing_token_mask(default min_shared_run=4) and pooling_mask(mode="diff_span") bridge exclusion:
-    # Construct two edits separated by 5 unchanged scene tokens (>= 4, < 8) so default min_shared_run=4 strips the interior bridge.
+    # Multi-span SequenceMatcher differing_token_mask(default min_shared_run=8) and pooling_mask(mode="diff_span") bridge exclusion:
+    # Construct two edits separated by 9 unchanged scene tokens (>= 8) so default min_shared_run=8 strips the interior bridge.
     if len(scene_indices) >= 18:
         s_i0 = scene_indices[2]
-        s_i1 = s_i0 + 7  # 2 edited tokens + 5 unchanged bridge tokens
+        s_i1 = s_i0 + 11  # 2 edited tokens + 9 unchanged bridge tokens
         ids_b_multi = list(token_ids)
         ids_b_multi[s_i0] = ids_b_multi[s_i0] + 1
         ids_b_multi[s_i0 + 1] = ids_b_multi[s_i0 + 1] + 1
@@ -424,7 +424,7 @@ def check_spans_partition_and_refusals(tok: MiniMaxH3Tokenizer) -> list[str]:
         if not (bool(dm_a[s_i0 : s_i0 + 2].all()) and bool(dm_a[s_i1 : s_i1 + 2].all())):
             errs.append("differing_token_mask did not mark both edited spans as True")
         if bool(dm_a[s_i0 + 2 : s_i1].any()) or bool(dm_b[s_i0 + 2 : s_i1].any()):
-            errs.append("differing_token_mask failed to exclude unchanged interior bridge of 5 tokens (min_shared_run=4)")
+            errs.append("differing_token_mask failed to exclude unchanged interior bridge of 9 tokens (min_shared_run=8)")
         mb_s, mb_ea, _mb_eb = h3_spans.differing_token_bounds(token_ids, ids_b_multi)
         pm_multi = h3_spans.pooling_mask(masks, "diff_span", first_diff=mb_s, end_diff=mb_ea)
         if bool(pm_multi[s_i0 + 2 : s_i1].any()):
@@ -1403,14 +1403,14 @@ def check_math_and_synthetic_statistics() -> list[str]:
         "v and basis must contain only finite values",
         "project_out non-finite basis refusal",
     )
-    # 1-pair quality_report must return None for mean_pairwise_cosine and split_half_cosine
+    # 1-pair quality_report must return None for mean_pairwise_cosine and split_half_cosine and [] for per_pair_cosine
     qr_1pair = cv.quality_report(a[:1], b[:1])
     if (
         qr_1pair["mean_pairwise_cosine"] is not None
         or qr_1pair["split_half_cosine"] is not None
-        or qr_1pair["per_pair_cosine"] != [1.0]
+        or qr_1pair["per_pair_cosine"] != []
     ):
-        errs.append(f"quality_report(n_pairs=1) expected None cosines and [1.0], got {qr_1pair}")
+        errs.append(f"quality_report(n_pairs=1) expected None cosines and [], got {qr_1pair}")
     return errs
 
 
@@ -2728,6 +2728,27 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
             ),
             "missing 'text_token_tags'",
             "wrapper refusal when minimax_payload is missing text_token_tags under mask='non_vision'",
+        )
+        # Refusal when hold_words is passed with vector_name='none' and empty words:
+        errs += _expect_refusal(
+            lambda: cv_nodes.attach_control_vector(
+                patcher_with_init, "none", hold_words="warm, golden"
+            ),
+            "hold_words requires",
+            "attach_control_vector refusal when hold_words is set with no vector_name or words",
+        )
+        val_hold_only = cv_nodes.MiniMaxH3ApplyControlVectors.validate_inputs(
+            vector_name="none", words="", hold_words="warm, golden"
+        )
+        if not isinstance(val_hold_only, str) or "hold_words requires" not in val_hold_only:
+            errs.append(f"validate_inputs did not refuse hold_words alone: {val_hold_only!r}")
+        # Refusal when a mode='hold' node has a different mask than the preceding additive node:
+        errs += _expect_refusal(
+            lambda: cv_nodes.attach_control_vector(
+                p_node_1, str(v2_path), strength=1.0, mode="hold", mask="all_rows"
+            ),
+            "must share the same mask",
+            "attach_control_vector refusal when mode='hold' has a different mask from preceding add node",
         )
 
         # In-memory model.patches (LoraLoaderModelOnly) and object_patches (MiniMaxH3LoRABranch) recipe detection

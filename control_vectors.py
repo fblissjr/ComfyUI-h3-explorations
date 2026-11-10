@@ -52,7 +52,7 @@ DEFAULT_EXCLUDE_SHOTS: tuple[str, ...] = ("t2va_offpath_tortoise", "ref2va_look_
 
 ALLOWED_TOP_KEYS = frozenset({"vector", "pair", "hold"})
 ALLOWED_VECTOR_KEYS = frozenset(
-    {"name", "quality", "a_side", "b_side", "mode", "frame", "exclude_shots"}
+    {"name", "quality", "a_side", "b_side", "mode", "frame", "exclude_shots", "allow_multi_span"}
 )
 ALLOWED_PAIR_KEYS = frozenset({"weight", "a", "b"})
 ALLOWED_HOLD_KEYS = frozenset({"group", "weight", "a", "b"})
@@ -440,7 +440,10 @@ def load_pairs(path: str | Path, *, bank_dir: str | Path | None = None) -> PairS
                     f"{p} {entry_label}: prompt equals or contains excluded shot {shot_id!r}"
                 )
 
-    is_compiled_toml = raw_bytes.lstrip().startswith(b"# Compiled in-place via h3_pair_compiler")
+    allow_multi_span_raw = vec.get("allow_multi_span", False)
+    if not isinstance(allow_multi_span_raw, bool):
+        raise ValueError(f"{p}: vector.allow_multi_span must be a boolean, got {allow_multi_span_raw!r}")
+    is_compiled_toml = bool(allow_multi_span_raw)
     pairs: list[PairItem] = []
     for idx, item in enumerate(raw_pairs):
         lbl = f"pair[{idx}]"
@@ -1416,7 +1419,7 @@ def quality_report(
         return {
             "mean_pairwise_cosine": None,
             "split_half_cosine": None,
-            "per_pair_cosine": [1.0],
+            "per_pair_cosine": [],
         }
     return {
         "mean_pairwise_cosine": mean_pairwise_cosine(diffs, weights=w64),
@@ -1714,11 +1717,11 @@ def _validate_metadata_dict(metadata: Mapping[str, Any]) -> None:
     ppc = qrep["per_pair_cosine"]
     if (
         not isinstance(ppc, list)
-        or not ppc
+        or (not ppc and n_pairs_q >= 2)
         or not all(isinstance(x, (int, float)) and math.isfinite(float(x)) for x in ppc)
     ):
         raise ValueError(
-            "quality_report['per_pair_cosine'] must be a non-empty list of finite floats"
+            "quality_report['per_pair_cosine'] must be a list of finite floats (non-empty when n_pairs >= 2)"
         )
 
     prov = metadata["provenance"]

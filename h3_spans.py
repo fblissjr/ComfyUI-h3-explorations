@@ -736,7 +736,7 @@ def differing_token_mask(
     token_ids_a: Sequence[int] | torch.Tensor,
     token_ids_b: Sequence[int] | torch.Tensor,
     *,
-    min_shared_run: int = 4,
+    min_shared_run: int = 8,
 ) -> tuple[torch.BoolTensor, torch.BoolTensor]:
     """Return `(mask_a, mask_b)` marking differing token positions between `a` and `b`.
 
@@ -787,7 +787,7 @@ def differing_token_bounds(
     a = _flat_int_list(token_ids_a, "token_ids_a")
     b = _flat_int_list(token_ids_b, "token_ids_b")
     first_diff, end_a, end_b = _raw_differing_token_bounds(a, b)
-    mask_a, mask_b = differing_token_mask(a, b, min_shared_run=4)
+    mask_a, mask_b = differing_token_mask(a, b, min_shared_run=8)
     ta = tuple(a)
     tb = tuple(b)
     if not bool(mask_a[first_diff:end_a].all()) or not bool(mask_b[first_diff:end_b].all()):
@@ -839,7 +839,7 @@ def pooling_mask(
         if diff_mask is None and other_ids is not None:
             self_ids = getattr(span_masks["scene"], "_h3_token_ids", None)
             if self_ids is not None:
-                diff_mask, _ = differing_token_mask(self_ids, other_ids, min_shared_run=4)
+                diff_mask, _ = differing_token_mask(self_ids, other_ids, min_shared_run=8)
         if diff_mask is None and first_diff is not None and end_diff is not None:
             self_ids = getattr(span_masks["scene"], "_h3_token_ids", None)
             if isinstance(self_ids, tuple):
