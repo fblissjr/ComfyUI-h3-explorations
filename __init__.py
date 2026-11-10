@@ -17,13 +17,7 @@ _telemetry.install_from_env()
 
 
 def _register_studio_routes() -> None:
-    """Add the image studio's cleanup route when its folder is here.
-
-    `app/` is not tracked, so a fresh clone has none and this does nothing. Where it is present, the
-    studio keeps a session's uploaded pictures and renders in ComfyUI's temp folder and deletes them
-    when the session ends (`app/routes.py::forget`). Only this process can delete them: the server may
-    run with a temp folder no other process can see. A route that fails to load is logged and never
-    stops the pack from loading.
+    """Add the app cleanup route when its folder is here.
     """
     import importlib.util
     import logging
@@ -39,7 +33,7 @@ def _register_studio_routes() -> None:
         module.register()
     except Exception:
         logging.getLogger(__name__).warning(
-            "[h3] the image studio's cleanup route was not loaded from app/routes.py", exc_info=True)
+            "[h3] app's cleanup route was not loaded from app/routes.py", exc_info=True)
 
 
 _register_studio_routes()
