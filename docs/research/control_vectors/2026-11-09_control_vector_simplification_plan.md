@@ -1234,14 +1234,20 @@ copy of the release's code is under `coderef/Pika-H3-Flex/`):
 
 ### 23.4 Two additions: row size across families, and the alignment clip
 
-- 23.1 and 23.3 speak of direction. The same one-off (`data/results/family_no_pika.py`) also prints the
-  relative difference between the two families' refined rows of one prompt, and it is far from small while
-  the rows stay nearly parallel. So "one space" holds for where a vector points. Whether one vector file
-  serves both families at the same strength is not shown.
+- Corrected the same day, on a second session's catch. This item first said the two families' refined rows
+  differ in size, reading the relative difference that `data/results/family_no_pika.py` prints as a
+  difference in length. It is not one. That figure is the distance between two rows of equal length a small
+  angle apart, which is what the cosine already says; the rows' lengths agree across families
+  (`data/results/family_image.py` prints the median row length per refiner, and the second session measured
+  the per-row ratio). The apply node also scales a unit direction by the target row's own length
+  (`control_vector_nodes.py`). So nothing measured here stands against one vector file serving both families
+  at one strength. What is still not shown is how each DiT reads it.
 - The clip with `align_positions` on was read twice. A second session, on playback, read it as keeping the
   rewrite's layout more closely than the unaligned clip. A check here does not confirm that: the mean pixel
   difference from the rewrite is the same for the aligned and the unaligned clip
   (`data/results/align_vs_rewrite.py`), and on two frames of the stack the aligned panel shares its range
   hood, wall fan and shelf with the unaligned panel where the rewrite has none of them. One seed, one shot,
   two stills against a playback reading: it cannot be told from this which is right. `align_positions` stays
-  off by default; a second seed and the diner shot would decide it.
+  off by default; a second seed and the diner shot would decide it. The second session then looked at the
+  same two frames at full size and withdrew its reading: the aligned panel shares the stall's interior with
+  the unaligned one, not with the rewrite.
