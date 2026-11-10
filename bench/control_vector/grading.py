@@ -418,8 +418,12 @@ def cmd_grade(args: argparse.Namespace) -> int:
     encoded_refs = None
     if args.ref_images:
         imgs = [s.strip() for s in args.ref_images.split(",") if s.strip()]
+        # The DiT probe below samples with the references' latents, which
+        # `encode_conditioning_for_vector` copies into the conditioning as `minimax_refs` when they
+        # exist. So the VAE is loaded whenever the probe runs, and skipped with `--no-dit`.
         encoded_refs = _h._load_encoded_references(
-            clip, h3_config.MODELS["video_vae"], imgs
+            clip, h3_config.MODELS["video_vae"], imgs,
+            use_vae=not getattr(args, "no_dit", False),
         )
 
     base_cond, base_enc, base_tags, base_ids, _ = cv_nodes.encode_conditioning_for_vector(

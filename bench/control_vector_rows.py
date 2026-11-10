@@ -12,8 +12,15 @@ Why: the measurements the control-vector plan asks for (a held-out pair score,
 pooling compared three ways, what real prompts vary along, a word-presence
 dictionary, the J-Lens sample) all read the same rows. This makes them once.
 
-What it cannot see: reference pictures. A prompt is encoded as text alone, so
-bank modes that need media are left out by default.
+Reference pictures: by default a prompt is encoded as text alone, so bank modes
+that need media are left out. With `--ref-image` the tool takes only the bank
+prompts that name `<Picture 1>` and no other reference, and encodes each on top
+of that one picture, through the pack's own `MiniMaxH3EncodeReferences` and
+prompt-on-references path (`bench/control_vector/helpers.py::_load_encoded_references`,
+`control_vector_nodes.encode_prompt_for_vector`). `--only-picture-1` takes the
+same prompts as text alone, for the comparison. The picture is a stand-in handed
+in by name: the bank stores no media, so it is not the picture a prompt was
+written for, and what a row owes to a matching picture is not measured.
 
 Output: one `.safetensors` shard per source under `--out`, plus `index.json`
 naming every prompt, its source, its side and its row range, with the recipe,
@@ -28,6 +35,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 import subprocess
 import sys
 import time
@@ -57,10 +65,14 @@ from workflows import h3_config  # noqa: E402
 FORMAT = "h3-text-rows/1"
 
 
-def _sources(pairs_dir: Path, bank_modes: tuple[str, ...]) -> list[dict]:
+_LABEL_RE = re.compile(r"<((?:Picture|Video|Audio) \d+)>")
+
+
+def _sources(pairs_dir: Path | None, bank_modes: tuple[str, ...], picture_1_only: bool = False,
+             tag: str = "") -> list[dict]:
     """Every prompt to encode, as `{source, name, side, text}` in a fixed order."""
     out: list[dict] = []
-    for toml_path in sorted(pairs_dir.glob("*.toml")):
+    for toml_path in sorted(pairs_dir.glob("*.toml")) if pairs_dir is not None else []:
         doc = tomllib.loads(toml_path.read_text(encoding="utf-8"))
         for i, pair in enumerate(doc.get("pair", [])):
             for side in ("a", "b"):
@@ -74,8 +86,10 @@ def _sources(pairs_dir: Path, bank_modes: tuple[str, ...]) -> list[dict]:
             path = REPO_ROOT / "prompt_bank" / f"{entry['id']}.txt"
             if not path.is_file():
                 raise SystemExit(f"bank entry {entry['id']!r} has no file at prompt_bank/{entry['id']}.txt")
-            out.append({"source": f"bank:{entry['mode']}", "name": entry["id"], "side": "",
-                        "text": path.read_text(encoding="utf-8").strip()})
+            text = path.read_text(encoding="utf-8").strip()
+            if picture_1_only and set(_LABEL_RE.findall(text)) != {"Picture 1"}:
+                continue
+            out.append({"source": f"bank:{entry['mode']}{tag}", "name": entry["id"], "side": "", "text": text})
     return out
 
 
@@ -95,6 +109,11 @@ def main() -> int:
     ap.add_argument("--pairs-dir", default=str(REPO_ROOT / "prompt_bank" / "control_vectors"))
     ap.add_argument("--bank-modes", default="t2va",
                     help="comma-separated prompt_bank modes to add as text-only prompts; empty for none")
+    ap.add_argument("--ref-image", default=None,
+                    help="one reference picture (a file, or a name in the input folder): take only the bank "
+                         "prompts that name <Picture 1> alone, and encode each on top of it; no pair files")
+    ap.add_argument("--only-picture-1", action="store_true",
+                    help="take only the bank prompts that name <Picture 1> alone, as text; no pair files")
     ap.add_argument("--limit", type=int, default=None, help="encode only the first N prompts (a smoke run)")
     ap.add_argument("--device", default="default", help="encoder device")
     ap.add_argument("--refiner-device", default="cpu")
@@ -106,7 +125,11 @@ def main() -> int:
     out_dir = Path(args.out).resolve()
     out_dir.mkdir(parents=True, exist_ok=True)
     modes = tuple(m.strip() for m in args.bank_modes.split(",") if m.strip())
-    items = _sources(Path(args.pairs_dir), modes)
+    one_picture = bool(args.ref_image) or args.only_picture_1
+    if one_picture and not modes:
+        raise SystemExit("--ref-image and --only-picture-1 read bank prompts: name their mode with --bank-modes")
+    tag = f"@{Path(args.ref_image).stem}" if args.ref_image else ("@text" if one_picture else "")
+    items = _sources(None if one_picture else Path(args.pairs_dir), modes, picture_1_only=one_picture, tag=tag)
     if args.limit is not None:
         items = items[: args.limit]
     if not items:
@@ -116,6 +139,16 @@ def main() -> int:
     clip = _h._load_clip(encoder_name, device=args.device)
     runners = {}
     recipe = {"encoder": encoder_name}
+    encoded_refs = None
+    if args.ref_image:
+        # A picture that does not resolve is the helper's refusal.
+        # Text rows only: the helper sends the picture to the text encoder and loads no VAE.
+        encoded_refs = _h._load_encoded_references(clip, h3_config.MODELS["video_vae"], [args.ref_image])
+        found = Path(args.ref_image)
+        if not found.is_file():
+            found = Path(folder_paths.get_input_directory()) / args.ref_image
+        recipe["ref_image"] = {"name": Path(args.ref_image).name,
+                               "sha256": hashlib.sha256(found.read_bytes()).hexdigest()}
     for family in ("fl2va", "ref2va"):
         runners[family], recipe[family] = _runner(family, args.refiner_device, args.no_lora)
 
@@ -147,7 +180,8 @@ def main() -> int:
         enc, pr = [], {"fl2va": [], "ref2va": []}
         ids, tags_all, scene, owner = [], [], [], []
         for it in group:
-            enc_rows, tags, token_ids, decode = cv_nodes.encode_prompt_for_vector(clip, it["text"])
+            enc_rows, tags, token_ids, decode = cv_nodes.encode_prompt_for_vector(
+                clip, it["text"], encoded_references=encoded_refs)
             # Built here from the token ids, not read off an attribute of the tags tensor.
             span_masks = h3_spans.spans(token_ids, tags.tolist(), decode)
             scene_mask = h3_spans.inference_mask(span_masks, "scene_only")

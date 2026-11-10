@@ -1251,3 +1251,35 @@ copy of the release's code is under `coderef/Pika-H3-Flex/`):
   off by default; a second seed and the diner shot would decide it. The second session then looked at the
   same two frames at full size and withdrew its reading: the aligned panel shares the stall's interior with
   the unaligned one, not with the rewrite.
+
+### 23.5 What a reference picture does to the text rows
+
+`bench/control_vector_rows.py` gained `--ref-image` and `--only-picture-1`, and three caches were built of
+the bank's ref2va prompts that name one picture and nothing else: as text alone, on one picture, and on a
+second picture, all through the pack's encode-references path. The pictures are stand-ins: the bank stores
+no media, and the pictures its donor graphs name were not in the input folder. The comparison is
+`data/results/picture_effect.py`, a one-off; the caches are under the untracked
+`data/control_vectors/rows_2026-11-09_ref2va/`.
+
+What it prints, for the encoder rows and for the refined rows alike:
+
+- The description and soundscape rows, the ones a `scene_only` vector touches, move little when a picture
+  is put in front of the prompt: they stay close to parallel with their text-only selves, raw and after the
+  mean row is removed.
+- The other text rows (subject definitions, summary, retention, headers) move about twice as far.
+- Which picture it is matters less than whether there is one: the same prompt on the two pictures is closer
+  than either is to the text-only run.
+- The picture's own rows are the same under two different prompts before the refiner, as a left-to-right
+  encoder requires, and nearly the same after it.
+
+What follows, and it tempers section 23: for the rows a vector is applied to, encoding without a picture
+is a small error, not a different space. The case for building a vector with the reference in place is
+weaker than argued above. What this cannot say: these are rows, not the directions pooled from pairs; the
+pictures did not match the prompts; and nothing here is a render.
+
+On the way, the helper behind every `--ref-images` option of the vector CLI
+(`bench/control_vector/helpers.py::_load_encoded_references`) turned out never to have run: it read two
+config names that never existed and unpacked one value from a node that returns two. It is fixed, takes the
+sizing the shipped reference graphs carry, and loads the VAE only for a caller that samples. A new check,
+`bench/check_config_names.py`, fails on a config name that does not exist; its first run found a second
+one in `bench/rank_dense_blocks.py`.

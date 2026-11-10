@@ -131,7 +131,8 @@ def main() -> int:
     import h3_config
     shipped = {
         "SOL_RECOMMENDED_CUDA": h3_config.SOL_RECOMMENDED_CUDA["dense_blocks"],
-        "SOL_PDD_CUDA": h3_config.SOL_PDD_CUDA["dense_blocks"],
+        # `SOL_PDD_CUDA` was listed here until 2026-11-09. The config dropped it when PDD was retired
+        # (`d38650b5`), and this line then failed on every run (`bench/check_config_names.py`).
     }
 
     print(f"Sol (tau {sol['tau']}) against sage (auto), S = {seq}")

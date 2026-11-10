@@ -8,7 +8,7 @@ this file is only a way to find a script by what it says it does.
 
 | group | scripts |
 |---|---|
-| [`check_*`](#check) | 163 |
+| [`check_*`](#check) | 164 |
 | [`measure_*`](#measure) | 36 |
 | [`analyze_*`](#analyze) | 18 |
 | [`grade_*`](#grade) | 19 |
@@ -43,6 +43,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_code_stamp.py`](check_code_stamp.py) | Check code-version stamps (`writer_stamp` / `npz_writer_fields`) and upstream-mtime checks across derived lane writers. |
 | [`check_commit_ready.py`](check_commit_ready.py) | Pre-commit readiness check for explicit commit pathspecs (`C61` item 2d). |
 | [`check_conditioning_behaviour.py`](check_conditioning_behaviour.py) | Does `MiniMaxH3Conditioning` still do the things it exists to do? |
+| [`check_config_names.py`](check_config_names.py) | Check that every `h3_config.NAME` a tracked Python file reads is a name `workflows/h3_config.py` defines. |
 | [`check_contact_sheets.py`](check_contact_sheets.py) | `bench/contact_sheets.py` against a clip made for the purpose: the folder, the names, the tiles, and no second set. |
 | [`check_control_vectors.py`](check_control_vectors.py) | Check the pure math, span masks, pair-file refusals, and vector I/O of H3 control vectors. |
 | [`check_copy_sound.py`](check_copy_sound.py) | A copy's sound against its source's (`bench/copy_sound.py`) on made sound whose answer is known. |

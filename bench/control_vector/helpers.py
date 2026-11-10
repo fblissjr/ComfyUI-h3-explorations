@@ -130,9 +130,17 @@ def _load_encoded_references(
     width: int = 1152,
     height: int = 768,
     length: int = h3_config.LENGTH,
+    use_vae: bool = False,
 ) -> Any:
     """Build `H3EncodedReferences` from `--ref-images` so E2.4 can compare vectors
-    made with and without a ref2va reference prefix."""
+    made with and without a ref2va reference prefix.
+
+    By default each picture is encoded for the text encoder alone and no VAE is loaded. `build`, `make`,
+    `from-prompt` and `bench/control_vector_rows.py` read text rows and never sample, and the video VAE
+    beside the 32B encoder ran a 24 GB card out of memory (seen 2026-11-09). `use_vae=True` is for a caller
+    that samples: `grade` passes it when its DiT probe runs, because `encode_conditioning_for_vector` hands
+    the references' latents to the DiT as `minimax_refs` when they exist. That path has not been run: it
+    may meet the same memory limit."""
     from PIL import Image
     import numpy as np
     import comfy.sd
@@ -141,9 +149,11 @@ def _load_encoded_references(
     ref_cond_mod = cv_nodes._repo("reference_conditioning")
     ref_enc_mod = cv_nodes._repo("reference_encode")
 
-    vae_path = folder_paths.get_full_path_or_raise("vae", vae_name)
-    sd = comfy.utils.load_torch_file(vae_path)
-    vae = comfy.sd.VAE(sd=sd)
+    vae = None
+    if use_vae:
+        vae_path = folder_paths.get_full_path_or_raise("vae", vae_name)
+        sd = comfy.utils.load_torch_file(vae_path)
+        vae = comfy.sd.VAE(sd=sd)
     refs = None
     for img_spec in ref_images:
         img_path = Path(img_spec)
@@ -156,12 +166,16 @@ def _load_encoded_references(
         tensor = torch.from_numpy(arr).unsqueeze(0)
         (refs,) = ref_cond_mod.MiniMaxH3AppendRefImage.execute(
             image=tensor,
-            size_policy={"size_policy": "max", **h3_config.REF_IMAGE_SIZE},
-            qwen_view=dict(h3_config.REF_QWEN_VIEW),
+            # The sizing the shipped video reference graphs carry
+            # (`workflows/build_workflows.py::_append_image_inputs`): the node's own `max`
+            # defaults, and the config's separate text-encoder view.
+            size_policy="max",
+            qwen_view={"qwen_view": "separate", "qwen_short_edge": h3_config.REF_QWEN_SHORT_EDGE},
             references=refs,
-            use_vae=True,
+            use_vae=use_vae,
         )
-    (encoded_refs,) = ref_enc_mod.MiniMaxH3EncodeReferences.execute(
+    # The node returns the encoded references and an empty latent; a sampler takes the latent, this does not.
+    encoded_refs, _latent = ref_enc_mod.MiniMaxH3EncodeReferences.execute(
         clip=clip,
         vae=vae,
         references=refs,
