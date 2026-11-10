@@ -383,13 +383,6 @@ DECLARED: dict[tuple[str, str], tuple] = {
                 "the AV latent to 1 frame (t=1) and anchors guide[:1] at frame 0 for "
                 "single-frame P-H3-Image guide-latent editing, against the node default "
                 "False on video guide-latent graphs (h3_guide_video_edit)"),
-    ("MiniMaxH3Sol", "end_percent"):
-        ("RESOLVED", "h3_config.PIKA_SOL_END_PERCENT (0.95) on the 6-step Pika H3 Flex "
-                     "video graphs via h3_config.SOL_END_PERCENT_BY_STEPS so Step 0 "
-                     "runs dense, Steps 1..4 run sparse, and the terminal sample_lcm "
-                     "Step 5 x0 jump runs dense, against the node default 1.0 on the "
-                     "16-step and 32-step base graphs; bench/check_attention_defaults.py "
-                     "grades both populations through h3_config.sol_for_graph"),
 }
 
 #: **There is deliberately no exception table here.** One was written on

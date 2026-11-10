@@ -4885,20 +4885,20 @@ def main():
         # --- Plain 6-step Pika H3 Flex baseline workflows (2026-11-10) ---
         # Standard t2va, fl2va, and ref2va baselines on PIKA_*_SVD995_LORA via
         # MiniMaxH3LoRABranch, 6 steps on lcm with PIKA_MANUAL_SIGMAS, and
-        # PIKA_SOL_CUDA_DEFAULTS (start_percent=0.2, end_percent=0.95).
+        # SOL_CUDA_DEFAULTS (start_percent=0.2, end_percent=1.0).
         ("h3_text_to_video_pika.json", "t2v-pika", "t2v",
          LONG_T2V_PROMPT,
          dict(lora=(PIKA_FL2VA_SVD995_LORA, PIKA_STRENGTH), lora_branch=True,
               steps=PIKA_STEPS, sampler_name=PIKA_SAMPLER,
               manual_sigmas=PIKA_MANUAL_SIGMAS,
               out_prefix="Video/h3_t2v_pika"),
-         "text -> video + audio on Pika H3 Flex 6-step LCM (SVD995 branch, Sol 0.20..0.95)"),
+         "text -> video + audio on Pika H3 Flex 6-step LCM (SVD995 branch)"),
         ("h3_first_last_frame_pika.json", "fl2v-pika", "i2v", None,
          dict(last_frame=True, out_prefix="Video/h3_fl2v_pika", **FL2V_CANVAS,
               lora=(PIKA_FL2VA_SVD995_LORA, PIKA_STRENGTH), lora_branch=True,
               steps=PIKA_STEPS, sampler_name=PIKA_SAMPLER,
               manual_sigmas=PIKA_MANUAL_SIGMAS),
-         "first frame + last frame + text -> video + audio on Pika H3 Flex 6-step LCM (SVD995 branch, Sol 0.20..0.95)"),
+         "first frame + last frame + text -> video + audio on Pika H3 Flex 6-step LCM (SVD995 branch)"),
         ("h3_image_ref_plus_text_to_video_pika.json", "r2v-pika", "r2v",
          _ref_prompt(images=("character",), scene="kitchen"),
          dict(ref_images=SCENE_REF_IMAGES["kitchen"], ref_image_count=1,
@@ -4906,7 +4906,7 @@ def main():
               steps=PIKA_STEPS, sampler_name=PIKA_SAMPLER,
               manual_sigmas=PIKA_MANUAL_SIGMAS,
               out_prefix="Video/h3_r2v_pika"),
-         "reference image + text -> video + audio on Pika H3 Flex 6-step LCM (SVD995 branch, Sol 0.20..0.95)"),
+         "reference image + text -> video + audio on Pika H3 Flex 6-step LCM (SVD995 branch)"),
 
         # --- Post-refiner control vectors on Pika H3 Flex 6-step LCM (2026-11-06) ---
         # Single-vector t2va, dual-vector chained t2va (nodes 115 + 125 summed in

@@ -204,7 +204,7 @@
       ],
       "tau": 1.0,
       "start_percent": 0.2,
-      "end_percent": 0.95,
+      "end_percent": 1.0,
       "min_tokens": 12288,
       "sink_conditioning": "exact_kv_and_all_rows",
       "verbose": true,
