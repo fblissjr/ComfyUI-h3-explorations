@@ -1080,7 +1080,15 @@ text.
 - `bench/edit_guidance_arms.py --node-arms`: the same test through the node, for comparison with the
   hand-wired arms.
 
-Not done: no render has gone through the node. That needs the node code on `main` and a ComfyUI restart.
+First renders through the node (noodle shot, one seed, after the nodes landed and the server was restarted):
+the node at the lower scale and the node with a late start each reproduce their hand-wired arm frame for
+frame, and the late start renders faster than its hand-wired arm because it makes one pass before the
+switch. The arm with `align_positions` on is a different clip from the unaligned one, by about as much as a
+guided arm differs from its rewrite; whether it is better is a playback question nobody has answered. The
+clips are under the share's `Video/edit_guidance/`, named `noodle_node_*`; the graphs and the record are
+under `data/results/2026-11-09_edit_guidance/node_arms/`.
+
+Written before those renders: no render has gone through the node. That needs the node code on `main` and a ComfyUI restart.
 The first render compares `node_sX` with the hand-wired `guide_sX` at the same seed (they should match),
 `node_late_sX` with `late_sX`, and `node_align_sX` with `node_sX` and with the same-length arms. Also not
 done: the generator's graphs for the two nodes, the choice of whether a control vector steers one pass or
@@ -1134,3 +1142,39 @@ between the two. Nothing in the cache can test that yet. With pictures in the ro
 would: the same prompt's text rows with and without its picture; the same prompt with two different
 pictures; and the picture rows themselves across prompts. They say how much of a text row is the picture's
 doing, which is what decides whether a vector should be built with the reference in place.
+
+### 23.1 The families: different models, nearly one text space
+
+The owner's point: fl2va, ref2va and the image model are separate models, the image one built on fl2va.
+The code agrees on the models. `control_vectors.py::KNOWN_FAMILIES` holds different hashes for the fl2va and
+ref2va text-path tensors, and `workflows/h3_config.py` records that the image checkpoint has fl2va's key set
+with most tensors identical to it.
+
+For the text path, where a vector lives, two measurements made the same day say the two families are close
+to one space under the Pika recipe:
+
+- From the row cache, the same prompt's post-refiner rows under the fl2va refiner and under the ref2va
+  refiner are almost parallel, row for row, before and after each family's mean row is removed.
+- From the vectors on disk, built by the other session's rebuild and not by the cache tool, the fl2va build
+  and the ref2va build of each concept are almost parallel for every concept.
+
+A one-off printed the figures from `bank__t2va` in the cache and from `models/control_vectors/`.
+
+A third check goes to the weights themselves: the nineteen text-path tensors of the two pruned checkpoints,
+compared one by one, are none of them identical and all of them close, differing by a few percent of their
+own size (`data/results/compare_family_refiners.py`, a one-off). ref2va's text path reads as a light
+fine-tune of the same one.
+
+This does not agree with an earlier note, which says the two families have completely different text-path
+weights and that vectors built from the same pairs are nearly orthogonal across them
+([`2026-11-06_mainodes_comparison_and_pika_roadmap.md`](2026-11-06_mainodes_comparison_and_pika_roadmap.md)).
+Where that figure came from was not found. It does not hold for the checkpoints and vectors on disk today.
+
+What it would mean, if it holds up:
+
+- One build per concept could serve both families. The second file, the family in the filename, the sibling
+  swap in the loader and the cross-family refusal would have no reason left.
+- It says nothing about the models that read the rows. The two DiTs differ, so the same vector may still do
+  different things in each. That is a render question, and the earlier arms already show t2va-built vectors
+  acting on ref2va renders.
+- To check before acting: the same comparison without the Pika LoRA, and on the full-precision checkpoints.
