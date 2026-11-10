@@ -348,8 +348,50 @@ def check_generated_index_and_synthetic_controls() -> None:
         assert rc == 0, f"live check_all() failed:\n{buf.getvalue()}"
 
 
+def check_line_anchored_links() -> None:
+    """A `` [`path::name`](href#Lnn) `` link on a wiki page is held to the live AST, and `--fix-links` repairs a moved anchor.
+
+    Breaking `anchored_links` so it no longer compares the anchor with the symbol's start line, resolves the href, or
+    rewrites under `fix` turns this red; so does `check_all` no longer reading `linked_docs`."""
+    import os
+
+    path, sym = "bench/masked_code_map.py", "anchored_links"
+    want = mcm.parse_file_symbols(path)[1][sym][0]
+    md = mcm.generate_index_markdown()
+    with tempfile.TemporaryDirectory(prefix="h3_code_links_test_") as tmp:
+        tdir = Path(tmp)
+        href = os.path.relpath(REPO / path, tdir)
+        page = tdir / "page.md"
+        idx_p = tdir / "CODE_MAP_INDEX.md"
+        idx_p.write_text(md, encoding="utf-8")
+
+        page.write_text(f"- [`{path}::{sym}`]({href}#L{want})\n", encoding="utf-8")
+        problems, seen, _ = mcm.anchored_links(page)
+        assert seen == 1 and not problems, f"a link at the right line was refused: {problems}"
+
+        page.write_text(f"- [`{path}::{sym}`]({href}#L{want + 7})\n", encoding="utf-8")
+        problems, _, _ = mcm.anchored_links(page)
+        assert problems and f"starts on line {want}" in problems[0], f"a moved anchor was not caught: {problems}"
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            rc = mcm.check_all(index_md=idx_p, code_map_docs=(idx_p,), expected_md=md, linked_docs=(page,))
+        assert rc == 1 and "run `bench/masked_code_map.py --fix-links`" in buf.getvalue(), f"check_all passed a moved anchor:\n{buf.getvalue()}"
+
+        problems, _, rewritten = mcm.anchored_links(page, fix=True)
+        assert rewritten == 1 and not problems and f"#L{want})" in page.read_text(), f"--fix-links did not repair: {page.read_text()}"
+
+        page.write_text(f"- [`{path}::{sym}`](elsewhere.py#L{want})\n", encoding="utf-8")
+        problems, _, _ = mcm.anchored_links(page, fix=True)
+        assert problems and "is not" in problems[0], f"a link whose href is another file passed: {problems}"
+
+        page.write_text(f"- [`{path}::no_such_function`]({href}#L1)\n", encoding="utf-8")
+        problems, _, _ = mcm.anchored_links(page)
+        assert problems and "names no function" in problems[0], f"a link to a missing symbol passed: {problems}"
+
+
 def main() -> int:
     case("live_ast_symbols_and_constants", check_live_ast_symbols_and_constants)
+    case("line_anchored_links", check_line_anchored_links)
     case("dependency_and_call_graphs", check_dependency_and_call_graphs)
     case("data_chain_and_step_chain", check_data_chain_and_step_chain)
     case("generated_index_and_synthetic_controls", check_generated_index_and_synthetic_controls)

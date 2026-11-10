@@ -57,6 +57,10 @@ CONTRACTS_MD = REPO / "docs" / "masked_v2v" / "code_map_contracts.md"
 PLAN_MD = REPO / "docs" / "research" / "masking" / "2026-10-26_code_map_and_simplification_plan.md"
 
 CODE_MAP_DOCS = (INDEX_MD, STAGES_MD, CONTRACTS_MD, PLAN_MD)
+#: Pages whose code links carry a line anchor, written `` [`bench/x.py::name`](../../bench/x.py#L123) ``: `--check` holds
+#: each anchor to the line of `name`'s `def` (or assignment) on the live AST, and `--fix-links` rewrites the anchors that
+#: moved. Asked for by the owner, 2026-11-10: the lane's end-to-end page links every step to its function and line.
+LINKED_DOCS = (REPO / "docs" / "wiki" / "masked_v2v.md",)
 
 # Reasoned: `read_file` truncates at 46,080 bytes. Capping every code-map file at
 # 44,000 bytes guarantees that any Gemini/AGY session reads 100% of the file in
@@ -1208,15 +1212,65 @@ def _rel_display(path: Path) -> Path | str:
         return path.name
 
 
+_ANCHOR_LINK_RE = re.compile(
+    r"\[`(?P<path>[A-Za-z0-9_./-]+\.py)::(?P<sym>[A-Za-z0-9_.]+)`\]\((?P<href>[^)\s#]+)#L(?P<line>\d+)\)"
+)
+
+
+def anchored_links(doc: Path, fix: bool = False) -> tuple[list[str], int, int]:
+    """Hold every `` [`path::name`](href#Lnn) `` link in `doc` to the live AST: the href must resolve, from the page's own
+    folder, to `path`; `name` must be a symbol of that file (`parse_file_symbols`); and `nn` must be the line it starts on.
+    With `fix`, an anchor that moved is rewritten in place. Returns `(problems, links_seen, anchors_rewritten)`."""
+    text = doc.read_text(encoding="utf-8")
+    rel_doc = _rel_display(doc)
+    problems: list[str] = []
+    seen = rewritten = 0
+
+    def one(m: re.Match) -> str:
+        nonlocal seen, rewritten
+        seen += 1
+        path, sym, href, line = m.group("path"), m.group("sym"), m.group("href"), int(m.group("line"))
+        if (doc.parent / href).resolve() != (REPO / path).resolve():
+            problems.append(f"{rel_doc}: the link for `{path}::{sym}` points at {href}, which is not {path} from this page's folder")
+            return m.group(0)
+        if not (REPO / path).is_file():
+            problems.append(f"{rel_doc}: `{path}::{sym}` names a file that is not there")
+            return m.group(0)
+        _, syms = parse_file_symbols(path)
+        if sym not in syms:
+            problems.append(f"{rel_doc}: `{path}::{sym}` names no function, class or constant of that file")
+            return m.group(0)
+        want = syms[sym][0]
+        if line == want:
+            return m.group(0)
+        if fix:
+            rewritten += 1
+            return m.group(0)[: m.start("line") - m.start(0)] + str(want) + ")"
+        problems.append(f"{rel_doc}: `{path}::{sym}` links line {line}; it starts on line {want} (run `bench/masked_code_map.py --fix-links`)")
+        return m.group(0)
+
+    new = _ANCHOR_LINK_RE.sub(one, text)
+    if fix and new != text:
+        doc.write_text(new, encoding="utf-8")
+    return problems, seen, rewritten
+
+
 def check_all(
     index_md: Path = INDEX_MD,
     code_map_docs: tuple[Path, ...] = CODE_MAP_DOCS,
     expected_md: str | None = None,
     strict_exact: bool = False,
+    linked_docs: tuple[Path, ...] = LINKED_DOCS,
 ) -> int:
-    """Run symbol-existence, line-span, size, line-length, path-privacy, and (when `strict_exact`) byte-exact index checks."""
+    """Run symbol-existence, line-span, size, line-length, path-privacy, line-anchored link, and (when `strict_exact`)
+    byte-exact index checks. A page of `linked_docs` that is not on disk is skipped (a `bench/break_checks.py` copy)."""
     errs: list[str] = []
     notes: list[str] = []
+    linked_seen: dict[Path, int] = {}
+    for doc in linked_docs:
+        if doc.is_file():
+            problems, linked_seen[doc], _ = anchored_links(doc)
+            errs.extend(problems)
     expected = expected_md if expected_md is not None else generate_index_markdown()
     if not index_md.is_file():
         errs.append(f"{_rel_display(index_md)} does not exist (run `bench/masked_code_map.py --write`)")
@@ -1318,6 +1372,8 @@ def check_all(
         lines = raw.decode("utf-8").splitlines()
         max_l = max((len(l) for l in lines), default=0)
         print(f"  ok    {_rel_display(doc)}: {len(raw):,} bytes, {len(lines)} lines, max line {max_l} chars")
+    for doc, n in linked_seen.items():
+        print(f"  ok    {_rel_display(doc)}: {n} line-anchored code link(s) match the live AST")
     return 0
 
 
@@ -1580,6 +1636,7 @@ def main() -> int:
     ap.add_argument("--status", action="store_true", help="Print when watched code, CODE_MAP_INDEX.md, and narrative docs were last updated and whether any section drifted.")
     ap.add_argument("--check", action="store_true", help="Verify symbol resolution, line-range bounds, file size, line length, and path privacy.")
     ap.add_argument("--check-exact", action="store_true", help="Run --check plus require CODE_MAP_INDEX.md and all narrative section stamps to match live AST.")
+    ap.add_argument("--fix-links", action="store_true", help="Rewrite the line anchors of `path::name` links in docs/wiki/masked_v2v.md (LINKED_DOCS) to where each name starts now.")
     ap.add_argument("--drift", action="store_true", help="Report AST function changes since CODE_MAP_INDEX.md or narrative stamps were written and which narrative stages they affect.")
     ap.add_argument("--drift-since", metavar="GIT_REF", help="Report AST function changes and affected narrative stages since GIT_REF (e.g. HEAD~4 or commit hash).")
     ap.add_argument("--deps", nargs="?", const="", default=None, help="Print bidirectional module dependency graph (optionally filtered by file substring).")
@@ -1595,6 +1652,16 @@ def main() -> int:
             if doc.is_file():
                 doc_digest, n_secs = stamp_narrative_doc(doc, live_cache)
                 print(f"stamped {doc.relative_to(REPO)}: doc_ast=#{doc_digest} across {n_secs} section(s)")
+
+    if args.fix_links:
+        for doc in LINKED_DOCS:
+            if doc.is_file():
+                problems, seen, rewritten = anchored_links(doc, fix=True)
+                print(f"{doc.relative_to(REPO)}: {seen} line-anchored link(s), {rewritten} anchor(s) rewritten")
+                for p in problems:
+                    print(f"  FAIL  {p}")
+                if problems:
+                    return 1
 
     if args.write:
         if INDEX_MD.is_file():
@@ -1651,7 +1718,8 @@ def main() -> int:
     if args.query:
         return query_symbols(args.query)
 
-    if not (args.write or args.stamp_narrative or args.status or args.check or args.check_exact or args.drift or args.drift_since):
+    if not (args.write or args.stamp_narrative or args.status or args.check or args.check_exact or args.drift or args.drift_since
+            or args.fix_links):
         ap.print_help()
     return 0
 

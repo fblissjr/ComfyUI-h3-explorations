@@ -111,12 +111,12 @@ flowchart TD
   - `bench/_lib/frames.py` already provides canonical `probe`, `read_mask`, and `write_mask_video`, but `bench/capture_masked_run.py`, `bench/assemble_delivery.py`, `bench/measure_blocks.py`, and `bench/facts_pass.py` each maintain private `_pack`/`_unpack_mask`/`probe`/`ffprobe` wrappers.
 - **Consolidation Target**: Move `_pack` / `_unpack_mask` into `bench/_lib/frames.py` and route all 5 callers through it (Part `5c`).
 
-### Section 4.2 — Sapiens-2B 28-Class Constants & Head/Hair/Worn Class Sets (6 Copies)
+### Section 4.2 — Sapiens2 29-Class Constants & Head/Hair/Worn Class Sets (6 Copies)
 
 - **Symbols** (`#3396530a`): `sapiens2_parts.py::subject_parts`, `bench/strangers.py::CORE_CLASSES`, `bench/strangers.py::run`, `bench/head_tube_parts.py::sam31_head_tube`, `bench/capture_masked_run.py::her_hair_in_hole`, `bench/facts_pass.py::_resolve_face_hair_classes`, `bench/assemble_delivery.py::class_names`
 - **Duplication Details**:
-  - Sapiens-2B class indices (`2=Face_Neck`, `3=Hair`, `23..27=Mouth/Teeth/Tongue`, `CORE_CLASSES` 18-class body core in `bench/strangers.py`, `worn_classes`) are hardcoded independently in 6 files.
-- **Consolidation Target**: Centralize Sapiens-2B class constants and named frozensets in `bench/_lib/sapiens_classes.py` (Part `5c`).
+  - Sapiens2 class indices (`3=Face_Neck`, `4=Hair`, `24..28=Lips/Teeth/Tongue` in `vendor/meta_sapiens2/seg_classes29.json`; corrected 2026-11-10 from `2`, `3` and `23..27`), `CORE_CLASSES` 18-class body core in `bench/strangers.py`, `worn_classes`) are hardcoded independently in 6 files.
+- **Consolidation Target**: Centralize Sapiens2 class constants and named frozensets in `bench/_lib/sapiens_classes.py` (Part `5c`).
 
 ### Section 4.3 — Window Padding, Held-Context Runway & `17n+5` Math (4 Copies)
 

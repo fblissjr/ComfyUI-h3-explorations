@@ -24,31 +24,45 @@ so narrative prose never drifts when lines shift. For contracts, window padding,
   - Runs SAM 3.1 propagation across the shot to produce boolean person masks `masks` (`(N, H, W)`) and `boxes` (`(N, 4)`).
   - Derives `head_masks`, `head_boxes`, `head_scores`, and `head_from` via `subject_track.py::parse_head_mode`, which defaults to `"per stretch"` (`HEAD_PER_STRETCH`, `head_per_stretch=True` in `follow` and `bench/shot_to_load.py::preview_job` since `6b0ea9a6`; whole-span mode requires explicit `head: span: WHY` / `--head-span WHY`).
 - **Writes & Overwrites**:
-  - `<preview>_<subj>_track.mp4`, `<preview>_<subj>_track.json` (`boxes`, `scores`, `empty_runs`), `<preview>_<subj>_head_track.mp4`, and `<preview>_<subj>_head_track.json`.
+  - On the share, under the save prefixes of `workflows/masked_job_graph.py::prefixes`: `<preview>_<subj>_track_00001.mkv`,
+    `<preview>_<subj>_head_track_00001.mkv`, and the shot table `<preview>_<subj>_shots_00001_shots.json`
+    (`MiniMaxH3SaveShotTable`). (Corrected 2026-11-10: this line named `.mp4` tracks and `_track.json` /
+    `_head_track.json` files, which the preview graph does not write; a capture's `manifest.json` lists the `.mkv` names.)
 - **Audit & Traps**:
   - **Forearm Bridge vs Empty Head Track (`4682-4685`)**: SAM 3.1 person tracking can stay alive on an occluded subject's bare forearm (`y=297-359`) while `head_track` is `0 px` (`4682-4685`, or `4682-4695` on previews built before `6b0ea9a6` when `--head-per-stretch` was off). Downstream `sapiens2_parts.py` crops around the forearm box unless gated by `head_track`.
 
-### Stage 1.1b — Sapiens-2B 28-Class Body-Part Segmentation (`sapiens2_parts.py`)
+### Stage 1.1b — Sapiens2 Seg-1B 29-Class Body-Part Segmentation (`sapiens2_parts.py`)
 
 - **Symbols** (`#4f3942b8`): `sapiens2_parts.py::subject_parts`, `sapiens2_parts.py::MiniMaxH3SubjectParts.execute`
 - **Reads**:
   - Source frames `(N, H, W, 3)` and person track `masks` / `boxes` from Stage 1.1a.
 - **Transforms & Constants**:
-  - Crops a padded bounding box around each tracked person box, resizes to `1024x768`, runs Sapiens-2B (`torch.bfloat16`), and argmaxes 28 classes (`0=background`, `1=Apparel`, `2=Face_Neck`, `3=Hair`, `23=Upper_Lip`, `24=Lower_Lip`, `25=Lower_Teeth`, `26=Upper_Teeth`, `27=Tongue`).
+  - Blanks every pixel further than `ALONE_MARGIN` from the subject's track, crops a padded box round the track widened
+    to the model's portrait shape, and resizes it to the working size the model folder's `preprocessor_config.json` names
+    (768 wide by 1024 high for `facebook_sapiens2-seg-1b`, `h3_config.SAPIENS2`).
+  - Runs Sapiens2 segmentation as `transformers` loads it (`MiniMaxH3Sapiens2Loader.execute` passes no dtype) and takes
+    the highest of 29 classes (`vendor/meta_sapiens2/seg_classes29.json`: `0=Background`, `1=Apparel`, `2=Eyeglass`,
+    `3=Face_Neck`, `4=Hair`, ..., `24=Lower_Lip`, `25=Upper_Lip`, `26=Lower_Teeth`, `27=Upper_Teeth`, `28=Tongue`).
+  - (Corrected 2026-11-10: this stage said Sapiens-2B, `torch.bfloat16`, 28 classes, and `2=Face_Neck`, `3=Hair`,
+    `23..27` for the mouth, none of which the code or the class file holds.)
 - **Writes & Overwrites**:
-  - `<preview>_<subj>_parts.mp4`, `<preview>_<subj>_parts.npz` (`classes` uint8 `(N, H, W)`), and `<preview>_<subj>_parts.json`.
+  - On the share: `<preview>_<subj>_parts_00001.mkv`, `<preview>_<subj>_classes_00001.mkv` and
+    `<preview>_<subj>_held_things_00001.mkv` (`workflows/masked_job_graph.py::prefixes`). The capture later stores the
+    class map as `subjects/<subj>/classes__<preview>.npz`. (Corrected 2026-11-10: this line named `.mp4`, `_parts.npz`
+    and `_parts.json` files the preview does not write.)
 - **Audit & Traps**:
-  - **Occluded Forearm Crop Hallucination (`4682-4685`)**: When a subject's head is behind another person (`head_track == 0 px`) and her person track holds only her forearm (`y=297-359`), cropping `1024x768` around the forearm causes Sapiens-2B to hallucinate `Face_Neck` (`608-2,123 px`) on skin/cloth (suppressed in Stage 2.4 by `head_tube` with `0` face points).
+  - **Occluded Forearm Crop Hallucination (`4682-4685`)**: When a subject's head is behind another person (`head_track == 0 px`) and her person track holds only her forearm (`y=297-359`), cropping `1024x768` around the forearm causes Sapiens2 to hallucinate `Face_Neck` (`608-2,123 px`) on skin/cloth (suppressed in Stage 2.4 by `head_tube` with `0` face points).
 
 ### Stage 1.2 — Whole-Frame Strangers & Unclaimed People Pass (`bench/strangers.py`)
 
 - **Symbols** (`#24b3ce68`): `bench/strangers.py::people_pass`, `bench/strangers.py::sam_people`, `bench/strangers.py::others_of`, `bench/strangers.py::held_others`, `bench/strangers.py::handed_back`, `bench/strangers.py::run`
 - **Reads**:
-  - Source clip `<shot>.mp4`, all tracked subjects' `_track.mp4` and `_parts.npz`, and `<preview>_people.npz` (written by `people_pass` / `sam_people` and unpacked by `people_on` / `others_of`).
+  - Source clip, the subjects' track and part mask videos its preview's record lists (`_track_00001.mkv`, corrected
+    2026-11-10 from `_track.mp4` and `_parts.npz`), and `<preview>_people.npz` (written by `people_pass` / `sam_people` and unpacked by `people_on` / `others_of`).
 - **Transforms & Constants**:
   - `bench/strangers.py::others_of` matches `<preview>_people.npz` detections against tracked subjects and marks unclaimed SAM detections with `o[3] is None`.
-  - `bench/strangers.py::run` runs whole-frame Sapiens-2B (`predict(pic)`) to get `classes[i] = c`, and since `426638a6`
-    unions unclaimed SAM 3.1 detections where Sapiens-2B finds nobody (`det |= m & (c == 0)` for `who is None` in `others[i]`)
+  - `bench/strangers.py::run` runs whole-frame Sapiens2 (`predict(pic)`) to get `classes[i] = c`, and since `426638a6`
+    unions unclaimed SAM 3.1 detections where Sapiens2 finds nobody (`det |= m & (c == 0)` for `who is None` in `others[i]`)
     into both `people[i] = (c > 0) | det` and `core[i] = np.isin(c, core_ids) | det` over the 18 `CORE_CLASSES`
     (`Face_Neck`, `Hair`, `Torso`, arms, clothing, legs, lips/teeth/tongue).
   - Subtracts grown owned subject tracks (`strangers.grown(kept, px)`), holds stranger masks across short dropouts, and runs
@@ -67,13 +81,18 @@ so narrative prose never drifts when lines shift. For contracts, window padding,
 
 - **Symbols** (`#58b38c82`): `bench/measure_moge2_depth.py::run_measurement`, `bench/shot_to_load.py::make_depth`
 - **Reads**:
-  - Source clip `<shot>.mp4`.
+  - The job's source, on the load's overlap frames only (`bench/shot_to_load.py::overlap_frames_of`: frames where two subject tracks or a keep-out overlap), fitted to the canvas as the lane's loader fits it (`bench/measure_moge2_depth.py::_grab_frames`).
+- **When it runs**: when the job's `depth.on` is set, by `--depth WHY` or by the plan (`data/fun/plan.json` sets it for every subject, the owner's word of 2026-10-28); the code's default is off. A load with no overlap frames runs no forward pass.
 - **Transforms & Constants**:
-  - Evaluates MoGe-2 (`vendor/meta_moge2/hyden_moge2.py`) per frame on raw `[0, 1]` float32 RGB and downsamples by `stride=4` to float16 metric depth `(N, H//4, W//4)`. `bench/shot_to_load.py::make_depth` (`1e91de26`) unions `mine_subj["hair_hers"]` frames into `ov_frames` when selecting frames for load depth measurement.
+  - Evaluates HyDen MoGe-2 (`vendor/meta_moge2/hyden_moge2.py`) per frame on raw `[0, 1]` float32 RGB with `apply_mask=False`, at the full canvas. `bench/shot_to_load.py::make_depth` (`1e91de26`) unions `mine_subj["hair_hers"]` frames into `ov_frames` when selecting frames for load depth measurement.
 - **Writes & Overwrites**:
-  - `<preview>_depth.npz` (`depth` float16, `stride=4` plus `bench/_lib/code_stamp.py::npz_writer_fields` provenance) and `<preview>_depth.json`.
+  - Into the capture folder: `depth.npz` (`frames`, `depth` float32 `(N, H, W)` in metres at the canvas, `mask` bool, `intrinsics`, `fov_x_deg`, `fov_y_deg`, `box`, and the `bench/_lib/code_stamp.py::npz_writer_fields` stamp), `record.json`, and `sheet.jpg`.
 - **Audit & Traps**:
-  - Downsampled `stride=4` depth is upsampled in Stage 2.1 (`bench/capture_masked_run.py::read_depth_npz`); thin hair strands against background take background depth unless rescued by Stage 2.4 (`sam31_head_tube`).
+  - `bench/capture_masked_run.py::read_depth_npz` refuses a depth file whose canvas is not the capture's; nothing is resampled.
+  - (Corrected 2026-11-10: this stage said the depth was downsampled by `stride=4` to float16, written as
+    `<preview>_depth.npz` and `<preview>_depth.json`, and upsampled in Stage 2.1. The files under `data/fun/*/depth.npz`
+    hold full-canvas float32 depth, and `read_depth_npz` refuses a size mismatch. The claim that thin hair takes
+    background depth rested on the upsampling and is not carried forward.)
 
 ### Stage 1.4 — 308-Keypoint Whole-Body Pose (`bench/pose_along_shot.py`)
 
@@ -175,7 +194,7 @@ so narrative prose never drifts when lines shift. For contracts, window padding,
   - `<preview>_<subj>_head_track.mp4`, `<preview>_<subj>_parts.npz`, `<preview>_<subj>_pose.npz`, `person_track`, and `head_hidden` marks.
 - **Transforms & Constants**:
   - Builds the whole-head tube `ht_res["tube"]` (`sam31_head_tube`), bridges short tube dips (`<= 6` frames,
-    `bridge_short_tube_dips`, skipping `head_hidden` frames), temporally smooths Sapiens-2B probabilities inside the tube
+    `bridge_short_tube_dips`, skipping `head_hidden` frames), temporally smooths Sapiens2 probabilities inside the tube
     (`smooth_seg_in_tube`), expands attached hair (`_expand_track_with_attached_parts`), fills internal holes
     (`_fill_unclassified_in_head_tube`), and protects facial hair (`face_piece_kept_whole`, `FACIAL_HAIR_CANNOT_SEE`).
   - Since `1e91de26`, `_head_seed_from_person_mask` intersects `own_head_2d & person_mask_2d` (the subject's own Sapiens
@@ -243,7 +262,7 @@ so narrative prose never drifts when lines shift. For contracts, window padding,
   - `hair_pass["head"]` (`ht_res["tube"]`), `<preview>_<subj>_parts.npz`, `<preview>_strangers_classes.npz`, `other` keep-out masks, `head_hidden` / `hair_hers` / `hair_not_hers` marks, and `HAIR_IN_HOLE_CANNOT_SEE`.
 - **Transforms & Constants**:
   - Computes 3 hair-recovery stages around `hole_of_the_load`:
-    - Stage 1: own Sapiens-2B `Hair` connected to `head_tube` inside `hole(f)`.
+    - Stage 1: own Sapiens2 `Hair` connected to `head_tube` inside `hole(f)`.
     - Stage 2: whole-frame hair not on another person (`~taken[k]`, skipping `head_hidden` frames, `b461584e`).
     - Stage 3: remaining hair outside `hole(f)` (`~hole(f) & ~track[f]`, flagging undecided frames).
 - **Writes & Overwrites**:
@@ -368,7 +387,7 @@ so narrative prose never drifts when lines shift. For contracts, window padding,
 ### Stage 5.3 — Worn Layer (Glasses/Jewelry/Apparel) & Plane Compositing (`bench/assemble_delivery.py`)
 
 - **Symbols** (`#b43c56aa`): `bench/assemble_delivery.py::placements_of`, `bench/assemble_delivery.py::worn_layer`, `bench/assemble_delivery.py::lay_plane`, `bench/assemble_delivery.py::laid_over`, `bench/assemble_delivery.py::carry_edge_rows`
-- **Reads**: Source frames, kept render frames (`piece_frames`), 308-keypoint face shifts (`shifts_of`, `moved_by`), and Sapiens-2B `worn_classes`.
+- **Reads**: Source frames, kept render frames (`piece_frames`), 308-keypoint face shifts (`shifts_of`, `moved_by`), and Sapiens2 `worn_classes`.
 - **Transforms & Constants**: Tracks worn items (`placements_of`, `worn_layer`) across face shifts, composites each subject plane (`lay_plane`, `laid_over`), and clamps zoom-box edge rows (`carry_edge_rows`) to prevent border seams.
 
 ### Stage 5.4 — Final MP4 Encoding, Audit & Sidecar (`bench/assemble_delivery.py`, `bench/stack_delivery.py`, `bench/rebuild_delivery.py`)
