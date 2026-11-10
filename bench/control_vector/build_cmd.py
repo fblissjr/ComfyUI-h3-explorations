@@ -30,6 +30,7 @@ from .helpers import (
     _pair_set_to_markdown,
     _parse_lora_specs,
     _recommended_strength_text,
+    _resolve_cli_target_prompt,
     _resolve_requested_families,
 )
 
@@ -180,7 +181,7 @@ def cmd_build(args: argparse.Namespace) -> int:
     resolved_pair_path: Path | None = None
     test_prompt_saved: Path | None = None
     stem_override = (getattr(args, "name", None) or getattr(args, "output_name", None) or "").strip() or None
-    tp_arg = str(getattr(args, "target_prompt", "") or "").strip()
+    tp_arg = _resolve_cli_target_prompt(args)
     tp_weight = float(getattr(args, "target_weight", 2.5))
     compile_mode = pair_compiler.infer_compile_mode(
         getattr(args, "mode", None),
@@ -374,7 +375,7 @@ def cmd_build(args: argparse.Namespace) -> int:
     hold_specs_build = getattr(args, "hold", None)
     hold_words_build = str(getattr(args, "hold_words", "") or "").strip() or None
     hold_alpha_build = float(getattr(args, "hold_alpha", 1.0))
-    prompt_build = str(getattr(args, "prompt", "") or getattr(args, "target_prompt", "") or "").strip() or None
+    prompt_build = str(getattr(args, "prompt", "") or tp_arg or "").strip() or None
 
     for fam_hint, dit_name in family_targets:
         dit_path = Path(_h.folder_paths.get_full_path_or_raise("diffusion_models", dit_name))

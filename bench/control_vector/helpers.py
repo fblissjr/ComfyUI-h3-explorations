@@ -50,6 +50,18 @@ def _resolve_prompt_text(arg: str) -> tuple[str, str]:
     raise ValueError(f"prompt {arg!r} not found as a file or under prompt_bank/")
 
 
+def _resolve_cli_target_prompt(args: Any) -> str:
+    """Resolve `--target-prompt` (literal inline text) or `--target-prompt-file` (file or prompt_bank stem)."""
+    tp_inline = str(getattr(args, "target_prompt", "") or "").strip()
+    tp_file = str(getattr(args, "target_prompt_file", "") or "").strip()
+    if tp_inline and tp_file:
+        raise ValueError("cannot pass both --target-prompt and --target-prompt-file")
+    if tp_file:
+        _, resolved = _resolve_prompt_text(tp_file)
+        return resolved
+    return tp_inline
+
+
 def _free_idle_comfy_vram(min_free_gib: float = 18.0) -> bool:
     """If local ComfyUI (`H3_COMFY_URL` / `COMFY_URL` / `http://127.0.0.1:8188`) is idle
     (`queue_running == []`) and GPU 0 has less than `min_free_gib` GiB free, request `/free`
@@ -407,13 +419,7 @@ def _compile_words_or_spec_to_pairset(
 ) -> cv.PairSet:
     """Compile a `--words` CLI argument or multi-line/semicolon-separated spec in-place on `target_prompt`."""
     raw_text = str(words_arg or "").strip()
-
-    tp_resolved = ""
-    if str(target_prompt or "").strip():
-        try:
-            _, tp_resolved = _resolve_prompt_text(str(target_prompt).strip())
-        except Exception:
-            tp_resolved = str(target_prompt).strip()
+    tp_resolved = str(target_prompt or "").strip()
 
     has_meta_header = any(
         raw_text.lower().startswith(p) or f"\n{p}" in raw_text.lower()

@@ -160,13 +160,20 @@ def build_parser() -> argparse.ArgumentParser:
 
     pfp = sub.add_parser(
         "from-prompt",
-        help="Method 1: Build a scene-specific control vector in-place on --target-prompt from '--words \"pole_a -> pole_b\"'",
+        help="Method 1: Build a scene-specific control vector in-place on --target-prompt / --target-prompt-file from '--words \"pole_a -> pole_b\"'",
     )
-    pfp.add_argument(
+    pfp_tp = pfp.add_mutually_exclusive_group(required=True)
+    pfp_tp.add_argument(
         "--target-prompt",
         dest="target_prompt",
-        required=True,
-        help="Target H3 scene prompt (prompt_bank id, file path, or inline text; separate multiple scenes with '---')",
+        default="",
+        help="Literal inline H3 scene prompt text (separate multiple scenes with '---')",
+    )
+    pfp_tp.add_argument(
+        "--target-prompt-file",
+        dest="target_prompt_file",
+        default="",
+        help="Target H3 scene prompt file path or prompt_bank/<stem>.txt id",
     )
     pfp.add_argument(
         "--words",
@@ -244,11 +251,18 @@ def build_parser() -> argparse.ArgumentParser:
         default="",
         help="In-place 'pole_a -> pole_b' contrast (supports ';' or newline multi-clause, 'soundscape:', and 'hold:' lines) compiled directly on --target-prompt",
     )
-    pb.add_argument(
+    pb_tp = pb.add_mutually_exclusive_group(required=False)
+    pb_tp.add_argument(
         "--target-prompt",
         dest="target_prompt",
         default="",
-        help="Target H3 scene prompt (bank id, file path, or text) for in-place --words compilation",
+        help="Literal inline H3 scene prompt text for in-place --words compilation",
+    )
+    pb_tp.add_argument(
+        "--target-prompt-file",
+        dest="target_prompt_file",
+        default="",
+        help="Target H3 scene prompt file path or prompt_bank/<stem>.txt id for in-place --words compilation",
     )
     pb.add_argument(
         "--target-weight",
@@ -371,8 +385,10 @@ def build_parser() -> argparse.ArgumentParser:
 
     pm = sub.add_parser("make", help="Build a control vector from a pair TOML file or in-place --words + --target-prompt")
     pm.add_argument("pairs", nargs="?", default=None, help="Pair TOML file path or stem under data/control_vectors/ or prompt_bank/control_vectors/ (omit when using --words)")
-    pm.add_argument("--words", default="", help="In-place 'pole_a -> pole_b' contrast compiled directly on --target-prompt")
-    pm.add_argument("--target-prompt", dest="target_prompt", default="", help="Target H3 scene prompt for in-place --words compilation")
+    pm.add_argument("--words", default="", help="In-place 'pole_a -> pole_b' contrast compiled directly on --target-prompt / --target-prompt-file")
+    pm_tp = pm.add_mutually_exclusive_group(required=False)
+    pm_tp.add_argument("--target-prompt", dest="target_prompt", default="", help="Literal inline H3 scene prompt text for in-place --words compilation")
+    pm_tp.add_argument("--target-prompt-file", dest="target_prompt_file", default="", help="Target H3 scene prompt file path or prompt_bank/<stem>.txt id for in-place --words compilation")
     pm.add_argument("--target-weight", dest="target_weight", type=float, default=2.5, help="Weight for Pair 0 when --target-prompt is passed")
     pm.add_argument(
         "--bank-scenes",

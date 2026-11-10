@@ -109,6 +109,7 @@ from bench.control_vector import (  # noqa: E402,F401
     _rel_l2,
     _repair_multichange_markdown_pairs,
     _repool_cached_build,
+    _resolve_cli_target_prompt,
     _resolve_exl3_library_root,
     _resolve_prompt_text,
     _resolve_requested_families,

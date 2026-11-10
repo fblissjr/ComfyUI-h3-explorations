@@ -29,6 +29,7 @@ from .helpers import (
     _display_path,
     _load_image_tensor_list,
     _parse_lora_specs,
+    _resolve_cli_target_prompt,
     _resolve_requested_families,
 )
 
@@ -171,7 +172,7 @@ def cmd_make(args: argparse.Namespace) -> int:
 
     resolved_pair_path: Path | None = None
     words_arg = str(getattr(args, "words", "") or "").strip()
-    tp_arg = str(getattr(args, "target_prompt", "") or "").strip()
+    tp_arg = _resolve_cli_target_prompt(args)
     tp_weight = float(getattr(args, "target_weight", 2.5))
     if words_arg:
         compile_mode = pair_compiler.infer_compile_mode(
@@ -470,7 +471,7 @@ def cmd_make(args: argparse.Namespace) -> int:
             hold_specs=hold_specs_make,
             hold_words=hold_words_make,
             hold_alpha=hold_alpha_make,
-            prompt=str(getattr(args, "target_prompt", "") or "") or None,
+            prompt=tp_arg or None,
             extra_basis=tensors_to_save.get("holds.post_refiner"),
             extra_dir=extra_hold_dir,
         )
@@ -768,7 +769,7 @@ def cmd_make(args: argparse.Namespace) -> int:
                     hold_specs=hold_specs_make,
                     hold_words=hold_words_make,
                     hold_alpha=hold_alpha_make,
-                    prompt=str(getattr(args, "target_prompt", "") or "") or None,
+                    prompt=tp_arg or None,
                     extra_basis=sib_tensors.get("holds.post_refiner"),
                     extra_dir=out_dir,
                 )

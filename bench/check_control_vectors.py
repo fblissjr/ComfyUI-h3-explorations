@@ -1260,22 +1260,24 @@ b = "a busy city street"
             errs.append(
                 f"_select_bank_scenes accepted candidate(s) violating MAX_SHARED_INTERIOR_WORDS=5: got {sel_skip!r}"
             )
-        # Verify infer_compile_mode and compile_words_to_pairset resolve file paths and prompt_bank stems
+        # Verify h3_pair_compiler stays pure prompt text (never reading files from disk),
+        # while CLI --target-prompt-file resolves file paths and prompt_bank stems explicitly (checked in [C7]).
         porter_path = REPO / "prompt_bank" / "t2va_night_porter.txt"
-        if pair_comp.infer_compile_mode(None, target_prompt=str(porter_path)) != "t2va":
-            errs.append("infer_compile_mode failed to resolve file path target_prompt to 't2va'")
-        if pair_comp.infer_compile_mode(None, target_prompt="ref2va_woman_blonde_street") != "ref2va":
-            errs.append("infer_compile_mode failed to resolve prompt_bank stem target_prompt to 'ref2va'")
-        ps_from_path = pair_comp.compile_words_to_pairset(
-            "A night porter in scrubs and a fleece -> A NASA astronaut in a bulky white EVA spacesuit",
-            target_prompt=str(porter_path),
-            bank_scenes=2,
+        errs += _expect_refusal(
+            lambda: pair_comp.compile_words_to_pairset(
+                "A night porter in scrubs and a fleece -> A NASA astronaut in a bulky white EVA spacesuit",
+                target_prompt=str(porter_path),
+            ),
+            "was found as a substring in target_prompt",
+            "compile_words_to_pairset refuses file paths (compiler is pure text)",
         )
-        if ps_from_path.mode != "t2va" or len(ps_from_path.pairs) != 3:
-            errs.append(
-                f"compile_words_to_pairset with file-path target_prompt + bank_scenes=2 failed: "
-                f"mode={ps_from_path.mode!r}, n_pairs={len(ps_from_path.pairs)}"
-            )
+        # Literal --target-prompt matching a file stem in prompt_bank/ stays literal text (no silent file substitution):
+        ps_literal_collision = pair_comp.compile_words_to_pairset(
+            "t2va_night_porter -> bright sunny courtyard",
+            target_prompt="t2va_night_porter",
+        )
+        if ps_literal_collision.pairs[0].a != "t2va_night_porter" or ps_literal_collision.pairs[0].b != "bright sunny courtyard":
+            errs.append(f"literal target_prompt matching prompt_bank stem was altered: {ps_literal_collision.pairs[0]!r}")
         errs += _expect_refusal(
             lambda: pair_comp.compile_words_to_pairset("   ", target_prompt=inplace_tp),
             "non-empty string",
@@ -3464,6 +3466,7 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
                 cli_parser = bench_cv.build_parser()
                 for sub_argv, exp_cmd in (
                     (["from-prompt", "--target-prompt", "p", "--words", "a -> b"], "from-prompt"),
+                    (["from-prompt", "--target-prompt-file", "t2va_night_porter", "--words", "a -> b"], "from-prompt"),
                     (["from-toml", "film_16mm_1974"], "from-toml"),
                     (["from-words", "blizzard, snow"], "from-words"),
                     (["from-images", "--image-a", "a.png", "--image-b", "b.png"], "from-images"),
@@ -3472,6 +3475,30 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
                     ns = cli_parser.parse_args(sub_argv)
                     if ns.cmd != exp_cmd:
                         errs.append(f"CLI subcommand {sub_argv[0]!r} parsed to {ns.cmd!r}, expected {exp_cmd!r}")
+                porter_cli_path = REPO / "prompt_bank" / "t2va_night_porter.txt"
+                ns_tp_file = cli_parser.parse_args(
+                    ["from-prompt", "--target-prompt-file", str(porter_cli_path), "--words", "a -> b"]
+                )
+                resolved_tp_file = bench_cv._resolve_cli_target_prompt(ns_tp_file)
+                if pair_comp.infer_compile_mode(None, target_prompt=resolved_tp_file) != "t2va":
+                    errs.append("infer_compile_mode on resolved --target-prompt-file failed to infer 't2va'")
+                ns_tp_stem = cli_parser.parse_args(
+                    ["from-prompt", "--target-prompt-file", "ref2va_woman_blonde_street", "--words", "a -> b"]
+                )
+                resolved_tp_stem = bench_cv._resolve_cli_target_prompt(ns_tp_stem)
+                if pair_comp.infer_compile_mode(None, target_prompt=resolved_tp_stem) != "ref2va":
+                    errs.append("infer_compile_mode on resolved prompt_bank --target-prompt-file stem failed to infer 'ref2va'")
+                ps_from_path = bench_cv._compile_words_or_spec_to_pairset(
+                    "A night porter in scrubs and a fleece -> A NASA astronaut in a bulky white EVA spacesuit",
+                    mode=pair_comp.infer_compile_mode(None, target_prompt=resolved_tp_file),
+                    target_prompt=resolved_tp_file,
+                    bank_scenes=2,
+                )
+                if ps_from_path.mode != "t2va" or len(ps_from_path.pairs) != 3:
+                    errs.append(
+                        f"CLI --target-prompt-file + bank_scenes=2 failed: "
+                        f"mode={ps_from_path.mode!r}, n_pairs={len(ps_from_path.pairs)}"
+                    )
                 if j_lens.bundle_available():
                     buf_jl_out, buf_jl_err = io.StringIO(), io.StringIO()
                     with contextlib.redirect_stdout(buf_jl_out), contextlib.redirect_stderr(buf_jl_err):
