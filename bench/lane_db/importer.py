@@ -378,7 +378,7 @@ class Import:
             return "footage"
         if "clip" in r or "render" in r or "clip_not_known" in r:
             return "render"
-        return "not classed"
+        return "not classed"                              # answers_on_loads classes more of these once the laid lists are in
 
     def answers(self) -> None:
         rel = f"{self.folder}/owner_answers.jsonl"
@@ -387,14 +387,12 @@ class Import:
         text, fid = self.read(rel, "answers")
         recs = [(n, json.loads(line)) for n, line in enumerate(text.splitlines(), 1) if line.strip()]
         cover.hold(self.map, "answers", [r for _, r in recs], self.labels)
-        classed: dict[str, int] = {}
         not_spans: list[int] = []
-        names = {self.folder, self.con.execute("SELECT source_name FROM video WHERE id = ?", (self.video_id,)).fetchone()[0]}
+        names = {self.folder, *self.con.execute("SELECT name, source_name FROM video WHERE id = ?", (self.video_id,)).fetchone()}
         for n, r in recs:
             if r.get("video", self.folder) not in names:
                 raise Refused(f"owner_answers.jsonl:{n}: video {r['video']!r}, not one of {sorted(names)}")
             about = self.about(r)
-            classed[about] = classed.get(about, 0) + 1
             person, frame = r.get("person"), r.get("source_frame")
             aid = self.answer_ids[(f"data/{rel}", n)] = self.ins(
                 "answer", file_id=fid, video_id=self.video_id, project_id=self.project_at(r["at"]) if about in ("render", "plan") else None, about=about,
@@ -425,7 +423,19 @@ class Import:
         if not_spans:
             self.notes.append(f"data/{rel}: {len(not_spans)} answer line(s) hold a `frames` that is not a span (a text and a joined number, as the page wrote "
                               f"it): kept raw only, on lines {not_spans[0]}-{not_spans[-1]}")
-        self.notes.append(f"data/{rel}: answers by what they are about: " + ", ".join(f"{k} {v}" for k, v in sorted(classed.items())))
+
+    def answers_on_loads(self) -> None:
+        """An owner's answer no other rule classed, whose row is a load's name, is about that load's render."""
+        rows = self.con.execute("""SELECT a.id, a.at FROM answer a WHERE a.video_id = ? AND a.about = 'not classed'
+                                   AND a.page_row IN (SELECT d.name FROM load d JOIN project p ON p.id = d.project_id WHERE p.video_id = ?)""",
+                                (self.video_id, self.video_id)).fetchall()
+        for row in rows:
+            self.con.execute("UPDATE answer SET about = 'render', project_id = ? WHERE id = ?", (self.project_at(row["at"]), row["id"]))
+        for file, in self.con.execute("""SELECT DISTINCT o.relpath FROM answer a JOIN import_file i ON i.id = a.file_id JOIN location o ON o.id = i.location_id
+                                         WHERE a.video_id = ? ORDER BY 1""", (self.video_id,)).fetchall():
+            counts = self.con.execute("""SELECT a.about, count(*) n FROM answer a JOIN import_file i ON i.id = a.file_id JOIN location o ON o.id = i.location_id
+                                         WHERE o.relpath = ? GROUP BY 1 ORDER BY 1""", (file,)).fetchall()
+            self.notes.append(f"data/{file}: answers by what they are about: " + ", ".join(f"{c['about']} {c['n']}" for c in counts))
 
     # ---- the laid list ---------------------------------------------------------------------------------------------
     def load(self, name: str, at: str) -> int:
@@ -645,6 +655,7 @@ class Import:
                     self.keeps()
                     self.laid()
                     self.final_cut()
+                self.answers_on_loads()
                 for row in self.con.execute("""SELECT f.name folder, p.name, count(*) n FROM laid l JOIN project p ON p.id = l.project_id
                                                JOIN import_file i ON i.id = l.file_id JOIN location o ON o.id = i.location_id
                                                JOIN project f ON o.relpath LIKE f.folder || '/%' WHERE f.id <> p.id AND p.video_id = ? GROUP BY 1, 2""",

@@ -60,13 +60,16 @@ footage facts. A later one brings only its own.
 - **Its plan is its own:** the lead's still, text words and restore differ from `fun`'s, and the lead's strangers
   keep-out is there. The footage facts in its plan file equal `fun`'s today.
 - **Its shots file must be the footage's.** It is byte for byte `fun`'s; the importer refuses one that is not.
-- **Its laid file is not what the record gives back.** `bench/lane_record.py compare --project fun2 --db
-  data/lane.sqlite` names the pieces: the file still holds `fun`'s lead pieces, which `fun2` does not keep. Every
-  `second` and `third` line of it is a piece `fun2` keeps, exactly as it stands in `fun`. The importer's note prints
-  the counts.
-- **It has lead lines of its own already,** dated 2026-11-01, in its laid file with `owner: kept` and no cited line of
-  the owner's. The record holds them as `fun2`'s standing lines because the file says so. The plan says the work of
-  that day was run under the old conditions and that the owner says which of it stands; nothing here decides that.
+- **Its laid file was re-seeded from the record on the owner's go (2026-11-10).** Before that it was a snapshot that
+  still held `fun`'s lead pieces, which `fun2` does not keep; every `second` and `third` line of it was already a
+  piece `fun2` keeps, exactly as it stands in `fun`. The file as it was is kept beside it as
+  `laid.jsonl.before_reseed_2026-11-10T2034Z`. `bench/lane_record.py compare --project fun2 --db data/lane.sqlite`
+  now reads equal on all three of its files, and `bench/laid.py verify` finds every render's bytes as laid.
+- **Its own lead lines are the owner's keeps.** Five lead renders of 2026-11-01 were on the list with `owner: kept`
+  and no cited line of the owner's. The owner kept them on 2026-11-10; their lines are in
+  `data/fun_lead2/owner_answers.jsonl`, and each laid line's history shows the reset and the keep
+  (`bench/laid.py set-owner`). None has been composited into a cut yet. The owner did not like `lead_fp_2823c` of
+  the same day, which is not on the list; those words are taken down too, with no choice recorded.
 
 **A limit, stated:** where a later project's plan file says a footage fact differently from the first project's (a
 new head mark written while `fun2` is worked, say), the importer names the field in a note and the first project's
@@ -105,8 +108,8 @@ reads are second-tier and are read from their files: the ledger on record, and e
 - **Some answer lines hold a `frames` that is not a span** (a text and a joined number, as an early page wrote it).
   They are kept raw only; the importer's note names the lines.
 - **Many answers are not classed.** The importer classes an answer as about the footage, a render or the plan by
-  rules a reader can check (`importer.Import.about`), and leaves the rest `not classed` rather than guess. Its note
-  prints the count of each.
+  rules a reader can check (`importer.Import.about`, and `answers_on_loads` for an answer whose row is a load's
+  name), and leaves the rest `not classed` rather than guess. Its note prints the count of each, a file at a time.
 - **The laid list's history is consistent.** Every `history` entry starts from the state the one before it left, and
   each line's `owner`, `by` and `owner_word` are what its last entry left. The importer refuses a list where that
   does not hold.

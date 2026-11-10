@@ -58,6 +58,16 @@ Older history lives elsewhere and is not copied here:
     - The same page's Stage 1.1a and 1.1b named `.mp4` tracks and `_track.json`, `_parts.npz` and `_parts.json` files. The preview writes `.mkv` mask videos under `workflows/masked_job_graph.py::prefixes`, as a capture's `manifest.json` lists them.
     - Its Stage 1.3 said depth was downsampled by `stride=4` to float16, written as `<preview>_depth.npz` and `.json`, and upsampled in the capture. `bench/measure_moge2_depth.py` writes full-canvas float32 `depth.npz`, `record.json` and `sheet.jpg` into the capture folder, and `bench/capture_masked_run.py::read_depth_npz` refuses a size mismatch. That stage now also says when depth runs: by `--depth` or the plan, which sets it for every subject of `fun` (the owner, 2026-10-28), while the code's default is off.
     - [`../masked_v2v/AGENTS.md`](../masked_v2v/AGENTS.md) §3 said that without the cast file the builder could not "auto-identify `lead` vs `second` vs `third` from confirmed reference embeddings". No code reads such an embedding: the cast file's lines are seeds, and without them each tracker takes the largest person (`bench/shot_to_load.py::PICK`) and finds them on other shots by its own likeness score.
+- **`fun2`'s laid list re-seeded, and its five lead renders kept** (the owner, in mrsql's terminal).
+  - **The go:** `data/fun_lead2/laid.jsonl` is written from the lane's database, with a copy of the old list kept
+    beside it (`laid.jsonl.before_reseed_2026-11-10T2034Z`). It now holds `fun`'s standing `second` and `third`
+    pieces as they stand, and `fun2`'s own lead lines; `fun`'s lead pieces are gone from it.
+  - **The keeps:** the five lead renders of 2026-11-01 that were on the list (`lead_fp_0294f`, `lead_fp_1156h`,
+    `lead_fp_1419e`, `lead_fp_3909d`, `lead_fp_4053e`) are the owner's keeps. They had read `kept` with no line of the
+    owner's behind them. None has been composited yet.
+  - **Not liked:** `lead_fp_2823c` of the same day. It was not on the list and stays off it.
+  - **Where it is written:** `data/fun_lead2/owner_answers.jsonl` (lines 1 to 6), the history on each laid line, and
+    `data/fun_lead2/AGENTS.md`.
 - **The lane database's open fields, ruled** (the owner, in mrsql's terminal, on three grouped questions).
   - **Typed:** the fields today's tools read: the plan's `keep_outs` with `keep_outs_by`, `load_prefixes`, a laid
     piece's `owner_looks`, and `carved_whole_by`. The draft had `keep_outs` kept raw only; the lead's
