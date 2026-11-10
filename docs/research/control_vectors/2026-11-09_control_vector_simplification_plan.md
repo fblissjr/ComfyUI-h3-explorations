@@ -119,11 +119,11 @@ concept (tracked) + scene pool (swappable)
 |---|---|---|---|
 | 1 | Two description clauses plus a soundscape clause in one spec are refused; one description clause plus one soundscape clause compiles | `control_vectors.py::differing_span` | run |
 | 2 | An image prompt compiles to `frame="raw"`, which the metadata validator rejects | `h3_pair_compiler.py::compile_words_to_pairset`, `control_vectors.py::VALID_FRAMES`, `_validate_metadata_dict` | compile run; the save refusal was read, not run |
-| 3 | A pair file given with `--target-prompt` gets a spliced "Pair 0", returns unchanged in silence when the clause is absent, and keeps only `pairs[:9]` | `bench/control_vector/helpers.py::_inject_target_prompt_into_pairset` | read |
+| 3 | A pair file given with `--target-prompt` gets a spliced "Pair 0", returns unchanged in silence when the clause is absent, and keeps only `pairs[:9]` | the Pair 0 splice helper in `bench/control_vector/helpers.py`, removed in `3f35901e` | read |
 | 4 | A pole that occurs twice is replaced at its first occurrence only; a `;` inside prose splits the clause; with several scenes the substring must be in every one | `h3_pair_compiler.py::_apply_clause_inplace`, `_split_clause_statements` | run |
 | 5 | Every text method pools only the rows whose wording changed, then adds one vector to every masked row | `h3_spans.py::pooling_mask`, `control_vectors.py::apply_post_refiner` | read |
 | 6 | Holds are one mean difference per group, orthogonalized; the wiki calls it an SVD basis | `control_vectors.py::hold_basis` | read |
-| 7 | One pair reports a consistency of 1.0; the image node repeats one image pair over canned scenes so the score is defined | `control_vectors.py::quality_report`, `control_vector_nodes.py::DEFAULT_MEDIA_SCENES` | read |
+| 7 | One pair reports a consistency of 1.0; the image node repeats one image pair over canned scenes so the score is defined | `control_vectors.py::quality_report`, and the canned scene list in `control_vector_nodes.py`, removed in `3f35901e` | read |
 | 8 | In nearly every pair file the steered clause is longer than the plain one, so vectors may share a component | load each file with `control_vectors.load_pairs` and compare `a_span` and `b_span` lengths | run; the shared component itself is not measured |
 | 9 | J-Lens word directions are the output head times a Jacobian, the direction that makes the encoder predict a word next; its exponent and negative weights were fitted against the bank | `j_lens.py::synthesize_from_words`, section 6.1 of the J-Lens note | read |
 | 10 | No tracked file writes the J-Lens bundle | `git grep -l J_49_to_63` returns readers and docs only | run |
@@ -133,7 +133,7 @@ concept (tracked) + scene pool (swappable)
 | 14 | The span code looks the tokenizer up as `qwen3vl_32b`; the image encoder registers as `qwen3vl_4b`, so the image graphs get no mask | `h3_spans.py::attach_span_masks`, `<comfy>/comfy/text_encoders/minimax.py::PH3ImageTokenizer` | read |
 | 15 | The image graphs apply a vector built from 32B rows under the Pika recipe to rows from the 4B encoder with no Pika LoRA | `workflows/image/h3_p_h3_image_*_control_vector_api.json` | read |
 | 16 | Graphs name a vector by pooling and LoRA hash, and a resolver swaps siblings by filename | `workflows/build_workflows.py` (the `control_vector=` entries), `control_vector_nodes.py::resolve_vector_file_path` | read |
-| 17 | Hardcoded prose remains: three canned ref2va scenes that assert a person, the J-Lens word tables, a filler sentence in grading | `control_vector_nodes.py::DEFAULT_MEDIA_SCENES`, `j_lens.py::AGAINST_PRESETS` and the stopword tables, `bench/control_vector/grading.py::_build_padding_prompt` | read |
+| 17 | Hardcoded prose remains: three canned ref2va scenes that assert a person, the J-Lens word tables, a filler sentence in grading | the canned scene list in `control_vector_nodes.py` (removed in `3f35901e`), `j_lens.py::AGAINST_PRESETS` and the stopword tables, `bench/control_vector/grading.py::_build_padding_prompt` | read |
 | 18 | The generator reads its system prompt out of the wiki page, and that prompt still teaches the retired slot compiler | `bench/control_vector/llm_pairs.py::_extract_system_prompt_text`, [`../../wiki/system_prompts/h3_control_vector_system_prompt.md`](../../wiki/system_prompts/h3_control_vector_system_prompt.md) | read |
 
 What holds and needs no change: all pair files under `prompt_bank/control_vectors/` load, are t2va format, and
@@ -687,7 +687,7 @@ Counts move as the code moves; the walk is the observable, and 16.3 makes it a t
   `check_runtime_nodes_arm_and_cli`. They are there because each check needs a prompt to feed the tokenizer,
   the loader or the compiler, and one was typed in each time. They are test inputs, not model behavior, but
   they are hand-written prose in the vendor format that nothing keeps current.
-- `control_vector_nodes.py::DEFAULT_MEDIA_SCENES`: three canned ref2va scenes that run at build time for the
+- The canned scene list in `control_vector_nodes.py` (removed in `3f35901e`): three canned ref2va scenes that ran at build time for the
   image method, each asserting a person in the picture.
 - `bench/control_vector/grading.py::_build_padding_prompt`: one filler sentence used to pad a prompt to a
   length.
@@ -967,3 +967,93 @@ apply node's reshape (section 15.2).
   on the steps where guidance is on; it only keeps the first steps on one prompt.
 - The post-refiner row length the plan relies on is the one the cache gives, the same as the constant in
   `j_lens.py` (`DEFAULT_POST_REFINER_MEDIAN_ROW_NORM`).
+
+## 21. The fork passed: building the edit-guidance node
+
+The owner looked at the stacked clips of both test shots on 2026-11-09 and passed the fork
+(`docs/wiki/decisions.md`, that date). Step 3 of 0.1 is now the next build.
+
+### 21.1 What the test showed, and what it did not
+
+Seen by the owner on playback: both shots hold together in every arm; on the diner shot the two guided arms
+are brighter than the rest, which the edit asked for. Seen in single frames by a session, not a judgement:
+the guided arms carry the edit further as the scale rises, with more saturated color at the higher scale on
+both shots; the scheduled and late-start arms keep the base shot's framing and take on less of the edit.
+A mean pixel difference from the base and from the rewrite was taken per arm on sampled frames; it says how
+far a picture moved and nothing about how it looks.
+
+Not judged yet: sound in any arm, and the same-length control arms (their stacks are beside the others).
+
+### 21.2 Shape of the build
+
+Two nodes, both small, and no change to core:
+
+- A prompt edit node. It takes a prompt and edit lines (`old wording -> new wording`, one a line) and gives
+  the edited prompt and a short report with both token counts. It reuses the in-place compiler's parsing and
+  its refusals (wording absent, wording that occurs more than once, an edit inside dialogue, a tag or a
+  header), so there is one copy of those rules.
+- An edit guider node. It takes the model, the original conditioning and the edited conditioning, a scale
+  and a first guided step, and gives a guider for `SamplerCustomAdvanced`. It is a subclass of core's
+  `comfy.samplers.CFGGuider` with its own `predict_noise`, the way core's own `Guider_DualCFG` is made
+  (`<comfy>/comfy_extras/nodes_custom_sampler.py`).
+
+For ref2va the references are encoded once by `MiniMaxH3EncodeReferences` and each prompt is laid on them by
+`MiniMaxH3PromptOnReferences` (`reference_encode.py`), which answers the double encode of section 11.7.
+
+What the guider does that the hand-wired test could not:
+
+- Before the first guided step it runs the original prompt alone: one model pass, not two with a zero
+  difference.
+- It counts in steps, read from the schedule in `transformer_options`, the convention the control-vector and
+  LoRA windows use. No conversion to a noise-level percent.
+- It gives both passes one position origin by shifting the media rows of the shorter prompt's layout. The
+  second session read that `PackedLayout.position_ids` is a plain tensor, that `_forward` compares only the
+  layout's signature, and that the rotation frequencies are read from those positions
+  (`<comfy>/comfy/ldm/minimax/model.py`). To be confirmed by a test that compares the positions the two
+  passes actually use.
+- It makes the two payloads differ, so two prompts of equal length are never batched on the image model.
+- It refuses when either conditioning lacks the H3 token tags, or when the two differ in anything but text
+  (canvas, length, references).
+- It writes the scale, the first guided step and both token counts where the render's metadata keeps them.
+
+### 21.3 Open choices, settled when the node is built
+
+- Whether a control vector applies to the edited pass only or to both. Today the wrapper steers every pass
+  (section 20.3). The guider can mark its passes so the wrapper can tell.
+- The scale's range. The test ran 1.5 and 2.5; the higher one adds color beyond the edit. A default near
+  the low end and a range that stops short of the slider extremes the apply node has.
+- What the generator ships: one text-to-video and one ref2va graph using the two nodes, in place of
+  hand-wiring. `bench/edit_guidance_arms.py` then builds its arms from those graphs.
+
+### 21.4 Both ends
+
+New: the two node classes, their registration, `bench/node_id_manifest.json`, the generator entries, a check
+for the guider's arithmetic on synthetic predictions (a scale of 0 gives the original pass, 1 the edited
+pass, and before the first guided step only one pass is made). Read by: `SamplerCustomAdvanced` (core),
+`MiniMaxH3Preflight` if the edited conditioning is passed through one, and the control-vector wrapper, which
+sees two passes a step once the guider is on.
+
+## 22. What has been fixed since this plan was first written
+
+Kept here so sections 3 and 0.4 can stay as they were found. All on `main`.
+
+| Finding or defect | Fixed in | How |
+|---|---|---|
+| 1, several clauses in one in-place edit | `3f35901e`, `229dfae3` | the changed spans are pooled in one pass; pair files keep the single-clause rule unless their `[vector]` table sets `allow_multi_span` |
+| 2, the image frame the validator rejected | `3f35901e` | image prompts compile with the scene frame |
+| 3, the Pair 0 splice and its truncation | `3f35901e` | the helper is removed; a target prompt with a pair file and no words is refused |
+| 4, a pole that occurs twice, `;` inside prose | `3f35901e` | both refused or handled; a pole must occur exactly once |
+| 7, a consistency of 1.0 for one pair; the canned image scenes | `3f35901e`, `229dfae3` | one pair reports no score; the image method requires the caller's prompt |
+| 13, the mask attached inside a bare `except`, falling back in silence | `3f35901e` | the mask travels as a `model_conds` entry and a missing mask is refused; the two older homes for it remain until a render with them removed confirms the route (a full sampler loop on CPU with both deleted has confirmed it) |
+| 14, the tokenizer looked up under one name | `3f35901e` | one helper resolves the 32B and 4B tokenizers |
+| 15, the image graphs on the 4B encoder | `842a4108` | the image graphs default to the 32B encoder |
+| the silent no-LoRA fallback in the build | `3f35901e` | a LoRA that does not resolve is a refusal |
+| the three token-limit defaults | `3f35901e` | one constant |
+| `completely_preserved`, and the hold description | `3f35901e` | corrected in the pages |
+| a hold node with a different mask; `hold_words` alone | `229dfae3` | both refused |
+| the row cache tool reading the mask off a tensor attribute | `797ccd11` | built from the token ids |
+
+Still open from those lists: findings 5, 6, 8 to 12 and 16 to 18 as the later sections treat them, the same
+fallback in `bench/control_vector/j_lens_builder.py`, a hold node with no add node at all (it does nothing,
+with no message), and the compiler's test for several spans, which looks for the joining mark in the span
+text.
