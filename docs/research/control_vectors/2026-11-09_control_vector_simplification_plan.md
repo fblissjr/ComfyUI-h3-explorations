@@ -1178,3 +1178,25 @@ What it would mean, if it holds up:
   different things in each. That is a render question, and the earlier arms already show t2va-built vectors
   acting on ref2va renders.
 - To check before acting: the same comparison without the Pika LoRA, and on the full-precision checkpoints.
+
+### 23.2 A second session's measurements, and a control for one of them
+
+A second session measured where things sit in the bank's prompts by format: the scene description starts
+within the first few text tokens of a t2va prompt, later in a keyframe prompt, and far later in a ref2va
+prompt, after the subject, summary and retention sections; the style sentence sits after `[Shot 1]` in t2va
+and before it in ref2va; and no pair file uses the ref2va layout. Those are counts over `prompt_bank/` and
+they match what this section already says about layout.
+
+It also reported that the same token's centered row differs a good deal between an early and a late
+position. That comparison was rerun here with a control (`data/results/position_control.py`, a one-off over
+`bank__t2va` in the row cache): the same token id, early against late in a different prompt, early against
+early in a different prompt, late against late in a different prompt, and early against late in the same
+prompt. The same-band, different-prompt comparisons already lose much of the similarity, and early against
+late inside one prompt keeps about as much as early against early across prompts. So the drop is mostly the
+surrounding prompt, not the position: the two cannot be separated by an early-against-late comparison alone.
+The limits: early rows in this bank sit in formulaic openings, which flatters the early band, and one
+prompt's two occurrences share their prefix.
+
+The conclusion both sessions reach stands on the layout facts and does not need the position figure: a
+vector pooled from t2va-layout pairs is carried into a prompt whose rows were computed after sections the
+pairs never had, and an edit made in place carries nothing.
