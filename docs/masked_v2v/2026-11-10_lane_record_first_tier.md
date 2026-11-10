@@ -97,6 +97,12 @@ reads are second-tier and are read from their files: the ledger on record, and e
   today's `bench/delivery_table.py` on today's files ties no row to its capture's run. `prove` reads the ledger with
   each capture at its new place and says so in its output. Only the delivery table was tried; any other tool that
   follows a recorded capture path was not.
+  - **Answered with links, on the owner's word (2026-11-10):** the folders stay in `data/fun/`, and a link at each
+    old name `data/<day>_<load>` points at its folder there. On the untouched records, today's
+    `bench/delivery_table.py` then ties every row to its capture's run and gives the final cut's table again, with no
+    path rewritten. `find data -maxdepth 1 -type l -lname 'fun/2026-*'` lists the links; deleting them undoes it.
+  - **Still open:** `bench/load_chain.py` builds a new load's job folder at `data/<day>_<name>_job`, so a new load
+    lands at the top of `data/` and not in a project's folder.
 - **The lead's `keep_outs` is live.** `data/fun/plan.json` holds `keep_outs: ["strangers"]` for the lead, and
   `bench/shot_to_load.py` reads it (`keep_outs_of`, and the strangers hold). The handoff's draft had it kept raw
   only; a plan given back without it would make the lead's loads with no strangers keep-out. It is a child table

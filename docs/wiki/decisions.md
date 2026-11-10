@@ -58,6 +58,17 @@ Older history lives elsewhere and is not copied here:
     - The same page's Stage 1.1a and 1.1b named `.mp4` tracks and `_track.json`, `_parts.npz` and `_parts.json` files. The preview writes `.mkv` mask videos under `workflows/masked_job_graph.py::prefixes`, as a capture's `manifest.json` lists them.
     - Its Stage 1.3 said depth was downsampled by `stride=4` to float16, written as `<preview>_depth.npz` and `.json`, and upsampled in the capture. `bench/measure_moge2_depth.py` writes full-canvas float32 `depth.npz`, `record.json` and `sheet.jpg` into the capture folder, and `bench/capture_masked_run.py::read_depth_npz` refuses a size mismatch. That stage now also says when depth runs: by `--depth` or the plan, which sets it for every subject of `fun` (the owner, 2026-10-28), while the code's default is off.
     - [`../masked_v2v/AGENTS.md`](../masked_v2v/AGENTS.md) §3 said that without the cast file the builder could not "auto-identify `lead` vs `second` vs `third` from confirmed reference embeddings". No code reads such an embedding: the cast file's lines are seeds, and without them each tracker takes the largest person (`bench/shot_to_load.py::PICK`) and finds them on other shots by its own likeness score.
+- **The moved capture folders are answered with links** (the owner, in mrsql's terminal: everything stays in
+  `data/fun/`).
+  - **What was wrong:** the capture and job folders were moved under `data/fun/` on 2026-11-09, and the job files,
+    the ledger and the delivery tables still name them at `data/<day>_<load>`. Today's tools could not find them, which
+    held any `fun2` cut.
+  - **What was done:** nothing moved. A link at each old name points at the folder in `data/fun/`. No code changed.
+  - **Checked:** on the untouched records, `bench/delivery_table.py` ties every row of `fun`'s final table to its
+    capture's run again and gives that table, section for section.
+  - **To undo:** delete the links (`find data -maxdepth 1 -type l -lname 'fun/2026-*'`).
+  - **Still open:** a new load's folders are made at the top of `data/` by today's tools
+    (`bench/load_chain.py`), not in a project's folder.
 - **`fun2`'s laid list re-seeded, and its five lead renders kept** (the owner, in mrsql's terminal).
   - **The go:** `data/fun_lead2/laid.jsonl` is written from the lane's database, with a copy of the old list kept
     beside it (`laid.jsonl.before_reseed_2026-11-10T2034Z`). It now holds `fun`'s standing `second` and `third`

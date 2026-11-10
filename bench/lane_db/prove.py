@@ -10,9 +10,10 @@ What it cannot see: the picture, the renders' bytes beyond what the table tool i
 tier does not hold. Two things the table tool reads are second-tier and are read from their files: the ledger on
 record, and each load's job file (linked beside the database's files, for which cut a piece was made on).
 
-The table on record names each capture as `data/<day>_<load>`. Where that folder is now `data/<project>/<day>_<load>`
-(fun's were moved on 2026-11-09), the ledger is read with the capture at its new place, and the comparison takes the
-table's `run=` with the project's folder left out. Without that, today's tool on today's files ties no row to its run.
+The table on record names each capture as `data/<day>_<load>`. Where no folder is at that name and one is at
+`data/<project>/<day>_<load>` (fun's were moved on 2026-11-09), the ledger is read with the capture at its new place,
+a note says how many, and the comparison takes the table's `run=` with the project's folder left out. Since
+2026-11-10 a link stands at each old name, so the recorded paths resolve and nothing is read elsewhere.
 """
 from __future__ import annotations
 
@@ -38,9 +39,9 @@ def moved(path: str, folder: str) -> str:
     """A recorded repo path, at its place today: `data/<x>` read as `data/<folder>/<x>` where only that is there."""
     rel = Path(path).relative_to(db.REPO) if Path(path).is_absolute() and Path(path).is_relative_to(db.REPO) else Path(path)
     if (db.REPO / rel).exists() or rel.parts[:1] != ("data",):
-        return str(rel)
+        return path                                       # where the record says: nothing to read elsewhere
     there = Path("data", folder, *rel.parts[1:])
-    return str(there) if (db.REPO / there).exists() else str(rel)
+    return str(there) if (db.REPO / there).exists() else path
 
 
 def table_from(con, project: str, work: Path, python: str) -> tuple[dict, list[str], dict, list[str], list[str]]:
