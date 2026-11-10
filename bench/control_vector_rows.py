@@ -147,10 +147,9 @@ def main() -> int:
         enc, pr = [], {"fl2va": [], "ref2va": []}
         ids, tags_all, scene, owner = [], [], [], []
         for it in group:
-            enc_rows, tags, token_ids, _decode = cv_nodes.encode_prompt_for_vector(clip, it["text"])
-            span_masks = getattr(tags, "_h3_span_masks", None)
-            if span_masks is None:
-                raise SystemExit(f"{it['name']}: the encode returned no span masks")
+            enc_rows, tags, token_ids, decode = cv_nodes.encode_prompt_for_vector(clip, it["text"])
+            # Built here from the token ids, not read off an attribute of the tags tensor.
+            span_masks = h3_spans.spans(token_ids, tags.tolist(), decode)
             scene_mask = h3_spans.inference_mask(span_masks, "scene_only")
             n = int(enc_rows.shape[0])
             if not (len(token_ids) == n == int(tags.numel()) == int(scene_mask.numel())):
