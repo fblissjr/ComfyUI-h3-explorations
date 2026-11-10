@@ -124,6 +124,11 @@ def describe(graph: dict) -> dict:
         ct, inputs = node.get("class_type"), node.get("inputs") or {}
         # followed through a link, so a prompt a Masked Prompt node writes is identified too
         t = _follow(inputs.get(_cfg.PROMPT_INPUTS[ct]), graph)[0] if ct in _cfg.PROMPT_INPUTS else None
+        if isinstance(t, str) and _from_edit_node(inputs.get(_cfg.PROMPT_INPUTS[ct]), graph):
+            # An edit-guidance graph has a second carrier whose text is the first's with an edit
+            # applied. The graph's prompt is the one as written; the edited copy is no bank prompt and
+            # must not replace its id and hash (an independent read caught it doing so, 2026-11-09).
+            t = None
         if isinstance(t, str):
             out["prompt_sha256"] = sha256(t.rstrip())
             out["prompt_id"] = identify(t)
@@ -261,6 +266,14 @@ def _assembled(ins: dict, graph: dict) -> str | None:
                           up.get("motion_reference", m.MOTION_NONE) if wired else None)
     except (ValueError, TypeError, AttributeError):
         return None
+
+
+def _from_edit_node(value, graph: dict) -> bool:
+    """True when a prompt input is linked straight from an edit node."""
+    if not (isinstance(value, list) and len(value) == 2):
+        return False
+    source = graph.get(str(value[0]))
+    return isinstance(source, dict) and source.get("class_type") == _cfg.PROMPT_EDIT_NODE
 
 
 def _prompt_edit():

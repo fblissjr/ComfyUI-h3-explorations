@@ -21,6 +21,7 @@ given. Those take renders.
 
 from __future__ import annotations
 
+import json
 import re
 import sys
 from pathlib import Path
@@ -190,6 +191,14 @@ def check_static_reader() -> None:
     text, source = wf_prompts._follow(["130", 0], graph)
     ok("a walker following a prompt linked from an edit node reads the edited text",
        text == eg.apply_edits(prompt, edits)[0] and text != prompt and source is graph["130"])
+    for name in ("h3_text_to_video_pika_edit_guidance_api.json",
+                 "h3_image_ref_plus_text_to_video_pika_edit_guidance_api.json"):
+        shipped = json.loads((REPO_ROOT / "workflows" / name).read_text(encoding="utf-8"))
+        got = wf_prompts.describe(shipped)
+        ok(f"{name}: the graph is described by its prompt as written, not by the edited copy",
+           got["prompt_id"] is not None
+           and got["prompt_sha256"] == wf_prompts.sha256(shipped["5"]["inputs"]["prompt"].rstrip()),
+           f"prompt_id {got['prompt_id']!r}")
     graph["130"]["inputs"]["edits"] = "a brass sundial -> a clock"
     ok("and reads nothing, without raising, where the node would refuse the edit",
        wf_prompts._follow(["130", 0], graph) == (None, None))
