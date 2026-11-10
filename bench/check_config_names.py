@@ -31,6 +31,9 @@ from workflows import h3_config  # noqa: E402
 #: Folders whose Python is not this pack's to keep true. **Reasoned**: `archive/` is retired code kept as
 #: written, `vendor/` is other people's.
 SKIP_PREFIXES = ("archive/", "vendor/")
+#: Untracked folders a walk without git could meet. **Reasoned**: git never lists them, so the walk must
+#: not either.
+UNTRACKED_PREFIXES = ("coderef/", "internal/", "data/", ".git/", ".venv/")
 
 
 def _aliases(tree: ast.AST) -> set[str]:
@@ -56,9 +59,14 @@ def missing_in(source: str) -> list[tuple[int, str]]:
 
 
 def main() -> int:
-    files = subprocess.run(["git", "-C", str(REPO_ROOT), "ls-files", "*.py"], capture_output=True, text=True,
-                           check=True).stdout.split()
-    files = [f for f in files if not f.startswith(SKIP_PREFIXES)]
+    if (REPO_ROOT / ".git").exists():
+        files = subprocess.run(["git", "-C", str(REPO_ROOT), "ls-files", "*.py"], capture_output=True, text=True,
+                               check=True).stdout.split()
+    else:
+        # A copy with no `.git` of its own (`bench/break_checks.py` makes one): git would walk up to another
+        # repo and list nothing, so walk the copy, which holds only what the copy was given.
+        files = sorted(str(p.relative_to(REPO_ROOT)) for p in REPO_ROOT.rglob("*.py"))
+    files = [f for f in files if not f.startswith(SKIP_PREFIXES + UNTRACKED_PREFIXES)]
     bad: list[str] = []
     readers = 0
     for rel in files:
@@ -69,6 +77,9 @@ def main() -> int:
             continue
         readers += 1
         bad += [f"{rel}:{line}: h3_config.{name} is not defined in workflows/h3_config.py" for line, name in found]
+    if readers == 0:
+        # Nothing read is nothing checked: it passed on an empty list inside a copy until 2026-11-09.
+        bad.append("no Python files were checked")
     # The check's own control: a made-up name must be caught.
     if missing_in("from workflows import h3_config\nx = h3_config.NO_SUCH_NAME_EVER\n") != [(2, "NO_SUCH_NAME_EVER")]:
         bad.append("the check did not catch a made-up config name")
