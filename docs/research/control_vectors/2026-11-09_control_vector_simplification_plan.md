@@ -1124,3 +1124,13 @@ What follows for the work:
   rows can be compared by section across the two formats, and so the direction track of section 8 has both.
 - To do in a render round: the same edit placed in the style sentence and in a later clause of the same
   prompt, to see how much position within a prompt changes what guidance does.
+
+The picture rows are part of the same question. In a prompt with pictures, each picture's rows are laid down
+before the prompt text (`<comfy>/comfy/text_encoders/minimax.py`, `MiniMaxH3Tokenizer.tokenize_with_weights`
+adds the reference items and then the text), so within a family they sit in a consistent place and the text
+that follows can attend to them. A text-only prompt has none. The owner's expectation is that these rows are
+consistent from one ref2va video to another and from one fl2va video to another, with a good deal shared
+between the two. Nothing in the cache can test that yet. With pictures in the row cache, three comparisons
+would: the same prompt's text rows with and without its picture; the same prompt with two different
+pictures; and the picture rows themselves across prompts. They say how much of a text row is the picture's
+doing, which is what decides whether a vector should be built with the reference in place.
