@@ -1231,3 +1231,17 @@ copy of the release's code is under `coderef/Pika-H3-Flex/`):
   `workflows/h3_config.py::PIKA_CONTRACT_KNOTS` already inherits. The Comfy-format files it ships are
   `PIKA_FL2VA_LORA` and `PIKA_REF2VA_LORA`; the graphs load the pack's own truncations of them
   (`PIKA_*_SVD995_LORA`). Whether the full files render better was not looked at here.
+
+### 23.4 Two additions: row size across families, and the alignment clip
+
+- 23.1 and 23.3 speak of direction. The same one-off (`data/results/family_no_pika.py`) also prints the
+  relative difference between the two families' refined rows of one prompt, and it is far from small while
+  the rows stay nearly parallel. So "one space" holds for where a vector points. Whether one vector file
+  serves both families at the same strength is not shown.
+- The clip with `align_positions` on was read twice. A second session, on playback, read it as keeping the
+  rewrite's layout more closely than the unaligned clip. A check here does not confirm that: the mean pixel
+  difference from the rewrite is the same for the aligned and the unaligned clip
+  (`data/results/align_vs_rewrite.py`), and on two frames of the stack the aligned panel shares its range
+  hood, wall fan and shelf with the unaligned panel where the rewrite has none of them. One seed, one shot,
+  two stills against a playback reading: it cannot be told from this which is right. `align_positions` stays
+  off by default; a second seed and the diner shot would decide it.
