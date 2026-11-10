@@ -250,9 +250,9 @@ recipe, which says which recipe defaults to change.
    `bench/laid.py`, `bench/delivery_table.py`, `bench/rebuild_delivery.py`, `bench/review_pages.py`,
    `bench/said_on_shot.py`. While a tool moves, it keeps writing the old file too, so nothing that still reads the file
    breaks.
-4. **The next project starts on the database alone.** That is `fun2`, the same footage with a new lead reference. It
-   reads `fun`'s footage facts from the record, and `fun`'s kept lead pieces are the comparison for every perception
-   change of steps 3 and 4: same frames, same lead region, only the reference differs.
+4. **`fun2` runs on today's tools while they move.** The importer re-runs as it writes, and a project after `fun2`
+   starts on the database alone. `fun2` reads `fun`'s footage facts from the record, and `fun`'s kept lead pieces are
+   the comparison for every perception change: same frames, same lead region, only the reference differs.
 
 **A readable dump.** `plan.json` and `shots.json` are read by people as well as tools. A dump to text (per video, per
 table) keeps that, and makes a change reviewable as a diff.
