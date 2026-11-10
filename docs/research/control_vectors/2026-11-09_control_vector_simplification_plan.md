@@ -17,6 +17,10 @@ This page grew by additions through one day: findings, a plan, a reorder, and co
 session read it. This section is the consolidated state and wins where an older section differs. Sections 1
 to 16 are the reasoning and the evidence.
 
+State at the last update of this section: the encoder change and this plan are on `main` at `402c074a`; the
+bank is rebuilt (both families of every pair file, under the Pika recipe); the encode pass of section 17.4 is
+running. The log from `402c074a` to `HEAD` says what moved since.
+
 ### 0.1 Order of work
 
 1. The agreed fixes of 0.4.
@@ -27,8 +31,13 @@ to 16 are the reasoning and the evidence.
    (0.2), with the aimed mask (section 11.4).
 4. The direction track (section 8).
 5. Pairs last, from the existing files only. The scene pool and the pair-authoring prompt stay parked.
-6. The wiki pages get another pass after steps 1 to 3, since they were rewritten before the code they
-   describe changed.
+6. The CLI is cut down to its target shape (section 19) once step 2 has said whether the single-prompt
+   vector method survives, since that decides one of its commands.
+7. The wiki pages are rewritten (section 18) after steps 1 to 6, since they were rewritten before the code
+   they describe changed. Two false statements in them are corrected at once, with step 1.
+8. The Studio UI is left for another day. Nothing here maintains it (section 19.4).
+
+Running beside these, and blocking none of them: the J-Lens decision (section 17.4).
 
 ### 0.2 Agreed by both sessions
 
@@ -52,7 +61,7 @@ to 16 are the reasoning and the evidence.
 
 | Question | The two readings | What settles it |
 |---|---|---|
-| Do the bank's vectors share a component? | Measured here on the rebuilt vectors: yes, strongly (section 15.3). The second session's last reading was that there is no global bias, from a few near-zero pairs in an older table. | Run the command of section 15.3 on the finished rebuild, then build the neutral-length direction and see how much of the shared part it explains. |
+| Why do the bank's vectors share a component? | That they do is now agreed: both sessions ran the command of section 15.3 on the finished rebuild, in both families and in both spaces. Two causes are on the table. The steered clause is longer than the plain one in most files. And the newer files share one kind of plain side (ordinary, natural, realistic), so every vector subtracts much the same thing. | Build the neutral-length direction of section 15.2, and a direction from pairs that vary only the plain side, and see how much of the shared part each explains. |
 | Is pooling the unchanged rows worth building? | Proposed here because it matches how a vector is applied. The second session expects a weak signal, since rows before an edit do not move in the encoder. | Both agree to measure it beside the two existing modes in the CPU pass of phase 2. |
 | Do the reference-gate inputs stay? | One reply said remove them, a later one that they unlock late stylization. The record has one arm, which supports the second. | The owner's call when the apply node is rebuilt; a repeat of that arm if it matters. |
 | Can `amplify` on a word's rows stand in for attention emphasis? | Offered as equivalent by the second session. It is not the same operation (section 15.4). | A small test, labelled as a stand-in, if section 11.3 is wanted before an attention hook exists. |
@@ -71,6 +80,7 @@ to 16 are the reasoning and the evidence.
 | A single pair reports a consistency of 1.0; the image node repeats one pair over canned scenes | finding 7 |
 | Three canned ref2va scenes in node code | finding 17; section 16 |
 | Three different defaults for the pair generator's output token limit | section 15.5 |
+| The build falls back to no LoRA in silence when the default Pika LoRA does not resolve | `bench/control_vector/build_cmd.py` (the `except` after `_parse_lora_specs`), and the same in `bench/control_vector/j_lens_builder.py` |
 
 ## 1. The plan in one picture
 
@@ -765,3 +775,128 @@ It holds three kinds of thing:
   two of them the retired bare twins. They are a dated record and stay as one. They are not a description
   of the rebuilt bank, and pages that link them as current should say so. Labels for the rebuilt bank would
   be a new run, and the CPU readout in `j_lens.py` now covers the lexical part of it.
+
+### 17.4 Deciding the lexical half by one comparison
+
+The owner's word on this: do it the right way, and do not keep an experiment for its own sake.
+
+Rebuilding the lexical half means loading the full 64-layer model and writing again a method no tracked code
+holds, to get a table that still points at "about to say this word" (finding 9). The simpler table is built
+from what H3 sees: for each word, the mean of its rows across real prompts, less the mean of all rows. It
+needs only the shipped 50-layer encoder and the refiners.
+
+Both tables label the rebuilt vectors, and the one that names the concepts better stays:
+
+- If the simple table holds up, the lexical half, the Jacobian to the output layers, the cloze baselines,
+  the fitted exponent and negative weights, and the word map all go, and `exl3_qwen3vl/` goes with them
+  except `h3_control_vector_report.md`, which holds results this plan cites.
+- If it does not, the lexical half gets a real builder from the full weights in the model store, the word
+  map moves into tracked code beside it, and `exl3_qwen3vl/` still goes, apart from the report.
+
+Either way the viewer, its builder and the labels file go: they show fourteen vectors that no longer exist
+in that form.
+
+The rows come from `bench/control_vector_rows.py`: one encode pass over both sides of every pair file and
+the text-only bank prompts, caching each token's encoder row, both families' post-refiner rows, its token
+id, its vision tag and whether `scene_only` covers it, under the untracked `data/`. The same cache feeds the
+pooling comparison and held-out score of phase 2 and the candidates of section 8, so those need no second
+pass.
+
+## 18. The wiki pages: what is rewritten, and by what rules
+
+The pages under `docs/wiki/control_vectors.md`, `docs/wiki/control_vectors/` and
+`docs/wiki/system_prompts/h3_control_vector_system_prompt.md` were rewritten in `7c01c792`, before the fixes,
+the fork and the CLI change. Most of what they say about commands, defaults and methods will be wrong again
+when those land, so they are rewritten once more, after step 6 of 0.1 and not before.
+
+### 18.1 What is corrected now, with step 1
+
+- `completely_preserved` in the system prompt and the examples page (0.4).
+- The hold description that names `torch.linalg.qr` (0.4).
+
+### 18.2 Rules for the rewrite
+
+- A capability is listed only with a link to the arm that showed it. `grep -c "bench/results"` over the
+  current pages shows how few such links there are. What has no arm is listed as untested, in its own table.
+- No figure in prose. A strength, a norm, a timing or a count points at the constant or the command that
+  holds it. The recommended strengths in the current pages are examples of what goes.
+- Code is cited by file and function, never by line.
+- Reference tables are generated, not written. The command and flag tables come from the parser, and the
+  node input tables from each node's `define_schema`, by a small tracked tool with a `--check`, the way
+  `bench/build_index.py` keeps the indexes. A hand-written flag table is a second copy that drifts.
+- Each method's page states what it estimates, what it is good for and its main limit, from section 4 as
+  corrected by sections 15 and 17.
+- The rewrite is done by a reader who did not build the code, and `docs/wiki/decisions.md` records what the
+  pages used to claim.
+
+### 18.3 The pages
+
+| Page today | What happens to it |
+|---|---|
+| `control_vectors.md` (the hub) | Rewritten: what steering is here, the methods in one table with their evidence, and where to start. Its tables of vector types and recommended settings go unless each row has an arm. |
+| `control_vectors/building_pairs_and_vectors.md` | Rewritten around the one build path: where pairs come from, pooling as chosen by phase 2, holds as the code builds them, the shared component and what was done about it. |
+| `control_vectors/preset_catalog_and_cli_reference.md` | The hand-written command table is replaced by the generated one. The list of pair files stays as a list, with no claims per file. |
+| `control_vectors/comfyui_nodes_and_controls.md` | Rewritten for the apply node's final shape, its input table generated. |
+| `control_vectors/examples_and_recipes.md` | Kept only as worked examples that each link an arm. The rest goes. |
+| `control_vectors/j_lens_diagnostics_and_word_lab.md` | Rewritten after section 17.4 decides what J-Lens is. |
+| `control_vectors/llm_prompting_guide.md` and `system_prompts/h3_control_vector_system_prompt.md` | The prompt becomes a data file the page links to (section 6). The guide shrinks to how to run the generator, or goes if pair generation stays parked. |
+| `control_vectors/studio_ui_guide.md` | Not rewritten. One line at its top says the UI is not maintained at present. |
+| a new page | Steering without a vector (section 11), if the fork of 0.1 step 2 goes well: edit guidance and prompt scheduling, with the node of section 11.8. |
+
+The research notes under `docs/research/control_vectors/` are dated records and are not rewritten. Where a
+wiki page presents one of them as current, the page is what changes.
+
+## 19. The CLI: commands, flags and the code behind them
+
+### 19.1 Where it is
+
+`7c01c792` named the creation methods as commands, which was asked for, but by adding to what was there.
+`bench/control_vector/cli.py::build_parser` is the observable: three commands (`from-prompt`, `build` with
+its alias `from-toml`, and `make`) each build a vector from words on a target prompt; `build` also takes
+the flags of the words method; `from-md`, `generate-pairs`, `rebuild` and the aliases sit beside them. Many
+flags are second names for one thing (`--name` and `--output-name`, `--out` and `--out-dir`, `--dit` and
+`--unet`) or belong to code that is going (`--target-weight` for the Pair 0 splice, `--frame`, the test
+prompt output).
+
+### 19.2 The target
+
+One command per thing a person does, each with only its own flags, and one shared group for the recipe:
+
+| Command | Does | Replaces |
+|---|---|---|
+| `from-prompt` | builds from an in-place edit of one prompt | the words flags on `build` and `make`; dropped altogether if edit guidance takes this method's place |
+| `from-pairs` | builds from a pair file, or every pair file | `build`, `from-toml`, `make`, `rebuild`, `from-md` |
+| `from-words` | builds from single words | `words` |
+| `from-images` | builds from image pairs and the caller's prompt | `make-media` |
+| `combine` | adds, inverts or holds out existing vectors | `sculpt` |
+| `inspect`, `grade` | read a vector; measure it against the edit and the nulls | themselves |
+| `rows` | the encode pass of section 17.4 | `bench/control_vector_rows.py` as a command |
+| `lens` | builds or verifies the J-Lens data, in whatever form 17.4 leaves it | `build-j-lens` |
+| `pairs` | has an LLM write the edits for a concept | `generate-pairs`; present but marked parked |
+
+- The recipe group is declared once and shared: families, checkpoint, encoder, LoRA, devices, output
+  folder, name, overwrite. No second names. The old command names are removed, not aliased; this is a
+  tinkering repo and the graphs do not call the CLI.
+- Each command's help says, in a few lines, what the method estimates, what it is good for and its limit.
+  The same text sits in a comment beside the function that does the work, and the wiki's method pages are
+  built from it (18.2), so there is one wording.
+- A flag is kept only if something reads it and a person would set it. The leftovers lens applies: what
+  does each cover, does that still hold, what retires it.
+
+### 19.3 The code behind it
+
+- `bench/control_vector/build_cmd.py` and `bench/control_vector/make_cmds.py` become one build function that
+  takes pairs and a recipe, with each command a thin caller. Today both files hold a copy of the encode,
+  pool and save loop.
+- The silent fallbacks in that loop become refusals (0.4).
+- `bench/check_control_vectors.py` loses the cases for commands that no longer exist and takes its prompts
+  from files (section 16).
+- Writers and readers of anything that changes are listed again by grep before the change lands (section 9
+  is the pattern).
+
+### 19.4 The UI
+
+The Studio UI under `bench/control_vector/` (`ui_server.py`, `ui_state.py`, `web/`) is left for another day.
+It imports functions from the files 19.3 merges. It is not kept working through this, and no dead function
+is kept alive for it: where an import it needs is gone, the `ui` command refuses with one line saying the UI
+is not maintained at present. `studio_ui_guide.md` says the same.
