@@ -185,12 +185,13 @@ def _parse_canvas(spec: str | None) -> tuple[int, int] | None:
 def _resolution_inputs(width: int, height: int, length: int) -> dict:
     wf_dir = str(REPO_ROOT / "workflows")
     comfy_root = str(REPO_ROOT.parent.parent)
-    if comfy_root not in sys.path:
-        sys.path.insert(0, comfy_root)
     if wf_dir not in sys.path:
         sys.path.insert(0, wf_dir)
     from build_workflows import _resolution_widgets  # noqa: E402
 
+    # Ensure ComfyUI's root precedes REPO_ROOT so `import nodes` inside
+    # `comfy_extras.nodes_minimax_h3` resolves to core's `nodes.py`, not this pack's.
+    sys.path[:] = [comfy_root] + [p for p in sys.path if p != comfy_root]
     return _resolution_widgets(width, height, length)
 
 
@@ -326,6 +327,8 @@ def _with_second_prompt(g: dict, edited: str) -> tuple[str, str]:
         if guide_node["inputs"].get("positive") == [cond_id, 0]:
             second_guide = copy.deepcopy(guide_node)
             second_guide["inputs"]["positive"] = ["205", 0]
+            if second_guide["inputs"].get("latent") == [cond_id, 1]:
+                second_guide["inputs"]["latent"] = ["205", 1]
             g["270"] = second_guide
             return guide_id, "270"
     return cond_id, "205"
