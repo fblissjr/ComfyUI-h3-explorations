@@ -30,6 +30,12 @@ artifact.
 - `reference_geometry.py`, `workflows/h3_config.py`, `workflows/build_workflows.py`: a tiered reference short-edge
   policy (`<= 544 -> 1024`, `> 544 -> 2048`, matching upstream Pika buckets) and three plain Pika baseline workflows
   (t2v, fl2va, r2v).
+- `workflows/image/h3_probe_pika_image_guide_edit_api.json`, `prompt_bank/guide_edit/vfx_edit_man_red_jacket.txt`,
+  `workflows/build_workflows.py`, `docs/h3_image_editing.md`: a one-frame guide-latent edit probe on Pika H3 Flex with
+  no reference picture (`MiniMaxH3ReferenceToVideo` + `MiniMaxH3GuideLatent(single_frame=True)` +
+  `GUIDE_VFX_EDIT_FFP_LORA`).
+- `bench/edit_guidance_arms.py`: `--last-step`, multi-clause `;`-separated edits, stacked `--vector-arm` nodes,
+  `--ref-vae-end-percent`, and `fl2va` / `P-H3-Image` task support.
 - `prompt_bank/control_vectors/`: `film_16mm_1974_neutral.toml` and five new 10-pair packs.
 - `docs/masked_v2v/2026-11-10_simplification_plan.md`, `docs/masked_v2v/2026-11-10_lane_record_first_tier.md`,
   `docs/research/`: the plan for the masked lane after `fun` with its "Next, in order", the record of the lane
