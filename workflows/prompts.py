@@ -263,6 +263,21 @@ def _assembled(ins: dict, graph: dict) -> str | None:
         return None
 
 
+def _prompt_edit():
+    """`h3_prompt_edit.py`, loaded by its path once: the edit grammar, which loads no model library. This
+    module cannot import the node package (see `h3_config._h3_rules`)."""
+    import importlib.util
+    import sys as _sys
+    got = _sys.modules.get("_h3_prompt_edit_const")
+    if got is None:
+        spec = importlib.util.spec_from_file_location(
+            "_h3_prompt_edit_const", Path(__file__).resolve().parent.parent / "h3_prompt_edit.py")
+        got = importlib.util.module_from_spec(spec)
+        _sys.modules["_h3_prompt_edit_const"] = got
+        spec.loader.exec_module(got)
+    return got
+
+
 def _follow(value, graph: dict, *, hops: int = 8):
     """Follow a two-item link from a prompt input to the node that supplies it.
     Returns (text, source node dict or None)."""
@@ -279,6 +294,17 @@ def _follow(value, graph: dict, *, hops: int = 8):
         # Lists carries the template as `prompt`; a Masked Prompt node writes it
         if source.get("class_type") == _cfg.MASKED_PROMPT_NODE:
             value = _assembled(ins, graph)
+        elif source.get("class_type") == _cfg.PROMPT_EDIT_NODE:
+            # An edit node hands on its `original` text with its `edits` applied. The same function the
+            # node runs applies them here, so a grader reads what the encoder will. An edit the node would
+            # refuse leaves the text unresolved, which every caller reports.
+            original, _src = _follow(ins.get("original"), graph, hops=hops) \
+                if isinstance(ins.get("original"), list) else (ins.get("original"), None)
+            try:
+                value = _prompt_edit().apply_edits(original, ins.get("edits", ""))[0] \
+                    if isinstance(original, str) else None
+            except ValueError:
+                value = None
         else:
             value = ins.get("value", ins.get("text", ins.get("prompt")))
         hops -= 1

@@ -393,8 +393,11 @@ def speaker_id_rules(main_body: str, guide: str) -> list[tuple[str, str]]:
 
 
 def guide_for(inputs: dict) -> str:
-    """"ref" when the node wires reference labels, else "base"."""
-    return "ref" if ("references" in inputs or
+    """"ref" when the node wires reference labels, else "base".
+
+    `encoded_references` is the prompt half of the two-node reference path
+    (`MiniMaxH3PromptOnReferences`): its references are one link up, and it takes the same format."""
+    return "ref" if ("references" in inputs or "encoded_references" in inputs or
                      any(k.startswith(REF_SOCKET_PREFIXES) for k in inputs)) \
         else "base"
 
@@ -1081,16 +1084,30 @@ def _resolved_prompt(node: dict, graph: dict) -> str | None:
     preflighted even though ComfyUI executes it.
     """
     value = node.get("inputs", {}).get("prompt", "")
-    seen = set()
-    while isinstance(value, list) and len(value) == 2:
-        source_id = str(value[0])
-        if source_id in seen or source_id not in graph:
-            return None
-        seen.add(source_id)
-        source = graph[source_id]
-        inputs = source.get("inputs", {})
-        value = inputs.get("value", inputs.get("text"))
+    if isinstance(value, list):
+        # One follower for every tool: `workflows/prompts.py::_follow` knows a string primitive, a
+        # Masked Prompt node and an edit node (whose text is its `original` with its `edits` applied).
+        # This function kept its own loop until 2026-11-09 and knew only the first.
+        text, _source = prompts._follow(value, graph)
+        return text
     return value if isinstance(value, str) else None
+
+
+def _carrier_inputs(node: dict, graph: dict) -> dict:
+    """The inputs a prompt carrier is priced and graded on.
+
+    The prompt half of the two-node reference path (`MiniMaxH3PromptOnReferences`) has only a prompt and a
+    link: the references, the canvas, the length and the policies are on the encode node one link up. This
+    returns that node's inputs with the carrier's own laid over them, so the rest of this tool reads one
+    shape. A link that does not resolve leaves the carrier's inputs as they are.
+    """
+    ins = node.get("inputs", {}) or {}
+    link = ins.get("encoded_references")
+    if isinstance(link, list) and len(link) == 2:
+        up = graph.get(str(link[0]))
+        if isinstance(up, dict) and isinstance(up.get("inputs"), dict):
+            return {**up["inputs"], **ins}
+    return ins
 
 
 def text_tokens(prompt: str) -> tuple[int, str]:
@@ -1212,7 +1229,7 @@ def _expected_base_alignment(node: dict, graph: dict,
 def grade(node: dict, graph: dict, stem: str = "") -> list[tuple[str, str]]:
     """Mechanical rules only. Every one is decidable from the prompt + sockets."""
     out = []
-    ins = node["inputs"]
+    ins = _carrier_inputs(node, graph)
     prompt = _resolved_prompt(node, graph)
     if prompt is None:
         return [("FAIL", "prompt is linked but its string source could not be resolved")]
@@ -1418,7 +1435,7 @@ def reference_rows_reach_the_dit(inputs: dict) -> bool:
 
 
 def price(node: dict, graph: dict) -> list[str]:
-    ins = node["inputs"]
+    ins = _carrier_inputs(node, graph)
     media_ins, image_policies, typed_references = _reference_media(ins, graph)
     rows_reach_dit = reference_rows_reach_the_dit(ins)
     # Stage two is a property of the conditioner, not of any one reference.
@@ -1656,7 +1673,10 @@ def price(node: dict, graph: dict) -> list[str]:
     lines.extend(audio_reference_notes(
         media_ins, graph, length, typed_boundary=typed_references))
 
-    prompt = ins.get("prompt", "")
+    # Resolved, not read raw: a prompt linked from another node is a two-item list here, and a pattern
+    # run over a list is a crash. An unresolvable link prices as an empty text, and `grade` has already
+    # reported it.
+    prompt = _resolved_prompt(node, graph) or ""
     # The `embedding:name` literal is REPLACED by the embedding's rows, not
     # tokenized alongside them (`comfy/sd1_clip.py` drops the reference and
     # splices the tensor in its place). Counting the raw prompt and then adding

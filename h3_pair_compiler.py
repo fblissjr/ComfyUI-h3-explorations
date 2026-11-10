@@ -33,8 +33,18 @@ except ImportError:
 
 SUPPORTED_FRAME_MODES: tuple[str, ...] = ("t2va", "fl2va", "ref2va", "p_h3_image")
 
-_PAIR_SPLIT_RE = re.compile(r"\s*(?:\|\|\||-->|->|=>|::)\s*")
-_SOUNDSCAPE_PREFIX_RE = re.compile(r"^(?:soundscape|audio|foley|sound)\s*:\s*(.+)$", re.IGNORECASE)
+try:
+    from . import h3_prompt_edit as _pe
+except ImportError:
+    import h3_prompt_edit as _pe
+
+# The clause grammar has one copy, in `h3_prompt_edit.py`, which loads no model library so the static
+# graph walkers can read an edit node's text. These names are kept for the callers here and in
+# `bench/control_vector/ui_state.py`.
+_PAIR_SPLIT_RE = _pe.PAIR_SPLIT_RE
+_SOUNDSCAPE_PREFIX_RE = _pe.SOUNDSCAPE_PREFIX_RE
+_split_pole_pair = _pe.split_pole_pair
+_split_clause_statements = _pe.split_clause_statements
 _HOLD_PREFIX_RE = re.compile(
     r"^(?:hold|holds)(?:\s*\(\s*([a-zA-Z0-9_-]+)\s*\))?\s*:\s*(.+)$",
     re.IGNORECASE,
@@ -154,16 +164,6 @@ def _slugify_name(text: str) -> str:
     return slug or "custom_vector"
 
 
-def _split_pole_pair(raw: str) -> tuple[str, str]:
-    clean = " ".join(str(raw or "").strip().split())
-    if not clean:
-        raise ValueError("contrast clause must be non-empty")
-    parts = _PAIR_SPLIT_RE.split(clean, maxsplit=1)
-    if len(parts) == 2:
-        return parts[0].strip(), parts[1].strip()
-    return "", clean
-
-
 def _inject_soundscape_into_target(tp_text: str, sound_sentence: str) -> str:
     """Replace the `overall_soundscape:` body inside `tp_text` with `sound_sentence`."""
     snd = sound_sentence.strip()
@@ -180,34 +180,6 @@ def _inject_soundscape_into_target(tp_text: str, sound_sentence: str) -> str:
 def _extract_existing_soundscape(tp_text: str) -> str:
     m = re.search(r"overall_soundscape:\s*\n?([^\n]+)", tp_text)
     return m.group(1).strip() if m else ""
-
-
-def _split_clause_statements(raw: str) -> list[str]:
-    text = str(raw or "").strip()
-    if not text:
-        return []
-    lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
-    out: list[str] = []
-    for ln in lines:
-        if ";" in ln and not ln.lower().startswith(
-            ("name:", "quality:", "a_side:", "b_side:", "mode:", "target_prompt:", "scene_prompt:")
-        ):
-            parts = [sub.strip() for sub in ln.split(";") if sub.strip()]
-            n_delims = len(_PAIR_SPLIT_RE.findall(ln))
-            if all(
-                bool(_PAIR_SPLIT_RE.search(p)) or bool(_SOUNDSCAPE_PREFIX_RE.match(p))
-                for p in parts
-            ):
-                out.extend(parts)
-            elif n_delims <= 1:
-                out.append(ln)
-            else:
-                raise ValueError(
-                    "ambiguous ';' inside clause; put each 'pole_a -> pole_b' clause on its own line when prose contains semicolons"
-                )
-        else:
-            out.append(ln)
-    return out
 
 
 def _parse_clauses_and_holds(

@@ -35,6 +35,12 @@ from bench._lib import bootstrap  # noqa: E402
 
 bootstrap()
 
+# CPU, stated before the sampler module loads: otherwise loading it asks the card for its free memory,
+# which fails when a running server already holds the card. This check needs no card.
+import comfy.cli_args  # noqa: E402
+
+comfy.cli_args.args.cpu = True
+
 import comfy.conds  # noqa: E402
 import comfy.samplers  # noqa: E402
 import torch  # noqa: E402
@@ -172,9 +178,27 @@ def check_inputs() -> None:
     refuses("a list of more than one prompt", lambda: eg.check_same_but_text(good + good, good), "single prompt")
 
 
+def check_static_reader() -> None:
+    """A static graph walker reads, from an edit node, the text the node would hand on."""
+    sys.path.insert(0, str(REPO_ROOT / "workflows"))
+    import prompts as wf_prompts  # workflows/prompts.py
+
+    prompt = BANK_PROMPT.read_text(encoding="utf-8").strip()
+    opening = re.search(r"\[Shot 1\] ([^,]+, [^,]+,)", prompt).group(1)
+    edits = f"{opening} -> Stop-motion, clay,"
+    graph = {"130": {"class_type": "MiniMaxH3PromptEdit", "inputs": {"original": prompt, "edits": edits}}}
+    text, source = wf_prompts._follow(["130", 0], graph)
+    ok("a walker following a prompt linked from an edit node reads the edited text",
+       text == eg.apply_edits(prompt, edits)[0] and text != prompt and source is graph["130"])
+    graph["130"]["inputs"]["edits"] = "a brass sundial -> a clock"
+    ok("and reads nothing, without raising, where the node would refuse the edit",
+       wf_prompts._follow(["130", 0], graph) == (None, None))
+
+
 def main() -> int:
     print("edit guidance: the prompt edit, the guider's arithmetic, pass marking and position alignment")
     check_prompt_edit()
+    check_static_reader()
     check_guider_arithmetic()
     check_prepare()
     check_inputs()

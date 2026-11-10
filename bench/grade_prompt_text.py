@@ -77,7 +77,8 @@ def mode_of(node: dict) -> str | None:
     """The mode a conditioner node expresses, by socket presence."""
     cls = node.get("class_type")
     ins = node.get("inputs", {})
-    if cls in ("MiniMaxH3ReferenceConditioning", "MiniMaxH3ReferenceToVideo"):
+    # `MiniMaxH3PromptOnReferences` is the prompt half of the two-node reference path.
+    if cls in ("MiniMaxH3ReferenceConditioning", "MiniMaxH3ReferenceToVideo", "MiniMaxH3PromptOnReferences"):
         return "ref2va"
     if cls not in ("MiniMaxH3Conditioning", "MiniMaxH3ImageToVideo"):
         return None

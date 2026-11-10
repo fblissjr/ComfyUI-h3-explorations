@@ -77,7 +77,9 @@ LORA_KNOBS = {
     "MiniMaxH3LoRABranch": {"modules": "all", "start_percent": 0.0, "end_percent": 1.0},
 }
 
-REF_CONDITIONING = ("MiniMaxH3ReferenceConditioning", "MiniMaxH3ReferenceToVideo")
+REF_CONDITIONING = ("MiniMaxH3ReferenceConditioning", "MiniMaxH3ReferenceToVideo",
+                    # the node that takes the references on the two-node path (`reference_encode.py`)
+                    "MiniMaxH3EncodeReferences")
 FRAME_CONDITIONING = ("MiniMaxH3Conditioning", "MiniMaxH3ImageToVideo")
 
 

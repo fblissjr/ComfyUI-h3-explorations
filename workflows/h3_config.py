@@ -1163,6 +1163,11 @@ CONTROL_VECTOR_NODE = "MiniMaxH3ApplyControlVectors"
 CONTROL_VECTOR_DEFAULTS = dict(_h3_rules().CONTROL_VECTOR_DEFAULTS)
 CONTROL_VECTOR_OPTIONAL_DEFAULTS = dict(_h3_rules().CONTROL_VECTOR_OPTIONAL_DEFAULTS)
 LAYER_NORM_MATCH_NODE = "MiniMaxH3LayerNormMatch"
+#: The node that hands on a prompt with edits applied (`edit_guidance.py`); a prompt linked from it is
+#: resolved by `workflows/prompts.py::_follow` with `h3_prompt_edit.apply_edits`.
+PROMPT_EDIT_NODE = "MiniMaxH3PromptEdit"
+#: `MiniMaxH3EditGuider` schema defaults, read from `h3_rules.py` (their reasons are beside them there).
+EDIT_GUIDANCE_DEFAULTS = dict(_h3_rules().EDIT_GUIDANCE_DEFAULTS)
 
 # ---- Masked video-to-video on the song node ----------------------------------
 #: The segmenter core's SAM3 nodes take from CheckpointLoaderSimple: Meta's
@@ -2304,7 +2309,10 @@ PROMPT_TEMPLATE_CARRIERS: tuple[str, ...] = ("MiniMaxH3AudioFreezeSong",)
 #: The carriers that take the six-section reference format. A carrier in
 #: `REF_FORMAT_WHEN_WIRED` takes it only when its `references` input is wired.
 REF_FORMAT_CARRIERS: tuple[str, ...] = ("MiniMaxH3ReferenceToVideo",
-                                        "MiniMaxH3ReferenceConditioning")
+                                        "MiniMaxH3ReferenceConditioning",
+                                        # The prompt half of the two-node reference path: its
+                                        # references are one link up, and it takes the same format.
+                                        "MiniMaxH3PromptOnReferences")
 REF_FORMAT_WHEN_WIRED: tuple[str, ...] = ("MiniMaxH3AudioFreezeSong",)
 
 #: The carriers that decode their own audio, so a graph with one has an audio track

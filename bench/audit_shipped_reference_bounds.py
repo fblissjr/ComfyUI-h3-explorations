@@ -80,7 +80,11 @@ sys.path.insert(1, str(_REPO))
 # bench graphs; shipped graphs use this repo's typed conditioner. This audit
 # follows both so the local handling does not make the native gap invisible.
 REF_CONSUMERS = ("MiniMaxH3ReferenceToVideo",
-                 "MiniMaxH3ReferenceConditioning")
+                 "MiniMaxH3ReferenceConditioning",
+                 # the node that takes the typed chain on the two-node path (`reference_encode.py`)
+                 "MiniMaxH3EncodeReferences")
+#: The consumers whose references arrive as a typed chain on `references`.
+TYPED_CONSUMERS = ("MiniMaxH3ReferenceConditioning", "MiniMaxH3EncodeReferences")
 REF_INPUT_PREFIX = "ref_images."
 
 from reference_order import ChainError, resolve_chain_entries  # noqa: E402
@@ -269,7 +273,7 @@ def main() -> int:
                 continue
             inputs = node.get("inputs", {})
             image_links = []
-            if node.get("class_type") == "MiniMaxH3ReferenceConditioning":
+            if node.get("class_type") in TYPED_CONSUMERS:
                 terminal = inputs.get("references")
                 if not (isinstance(terminal, list) and len(terminal) == 2):
                     chain_errors.append({"graph": rel,

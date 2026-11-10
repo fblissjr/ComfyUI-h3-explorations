@@ -273,6 +273,17 @@ CONTROL_VECTOR_DEFAULTS = dict(
     allow_recipe_mismatch=False,
 )
 
+#: `MiniMaxH3EditGuider` schema defaults (`edit_guidance.py`). Owned here so the node and
+#: `workflows/h3_config.py` read one copy.
+#: `scale`: **Reasoned**: the owner's 2026-11-09 look found 1.5 a touch stronger than the rewritten prompt
+#: and 2.5 adding color the edit did not ask for. `first_step`: on from the start, as the arms the owner
+#: passed were. `align_positions`: off; one seed on one shot showed no benefit (2026-11-09).
+EDIT_GUIDANCE_DEFAULTS = dict(
+    scale=1.5,
+    first_step=0,
+    align_positions=False,
+)
+
 #: Optional Wave 2 stream-scale, reference-VAE gate, and inline J-Lens word
 #: synthesis defaults on `MiniMaxH3ApplyControlVectors` (`control_vector_nodes.py`).
 CONTROL_VECTOR_OPTIONAL_DEFAULTS = dict(

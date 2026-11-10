@@ -118,6 +118,7 @@ from h3_config import (  # noqa: E402
     PH3_IMAGE_T2I_MAX_NEW_TOKENS, PH3_IMAGE_EDIT_MAX_NEW_TOKENS,
     GUIDE_LATENT_NODE, GUIDE_VFX_EDIT_FFP_LORA, GUIDE_CHARACTER_SWAP_LORA, GUIDE_TASK_LORAS,
     CONTROL_VECTOR_NODE, CONTROL_VECTOR_DEFAULTS, CONTROL_VECTOR_OPTIONAL_DEFAULTS, LAYER_NORM_MATCH_NODE,
+    EDIT_GUIDANCE_DEFAULTS,
     refine_scheduler_ids,
 )
 
@@ -1368,6 +1369,12 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
               # (vector_name, strength) tuple / dict of CONTROL_VECTOR_DEFAULTS
               # overrides, or a list/tuple of such specs.
               control_vector: tuple[str, float] | dict | list | None = None,
+              # Steer with an edited copy of the prompt (`edit_guidance.py`): a dict of
+              # `edits` (the lines `MiniMaxH3PromptEdit` takes), `scale` and `first_step`.
+              # Adds the edit node (130), a second prompt on the same encoder, references
+              # and canvas (131), and puts `MiniMaxH3EditGuider` where `BasicGuider` was (9).
+              # With references, they are encoded once (132) and each prompt goes on top.
+              edit_guidance: dict | None = None,
               # Guide-latent conditioning (`guide_latent.py`) and optional second
               # chained `MiniMaxH3LoRABranch` (`task_lora`, node 72) for Ref2VA
               # control LoRAs (`h3_config.GUIDE_TASK_LORAS`). `guide_video=True`
@@ -2309,7 +2316,57 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
             raise SystemExit("save_latents needs a clip with both decoders (nodes 11 and 12)")
         _save_av(g["11"]["inputs"]["samples"], "", ("101", "102", "103"))
 
+    if edit_guidance is not None:
+        _wire_edit_guidance(g, prompt, edit_guidance)
+
     return g
+
+
+def _edit_guidance_text(name: str) -> str:
+    """The edit lines of one shipped edit-guidance graph: data in `prompt_bank/edit_guidance/`."""
+    return (Path(__file__).resolve().parent.parent / "prompt_bank" / "edit_guidance" / f"{name}.txt").read_text(
+        encoding="utf-8").strip()
+
+
+def _wire_edit_guidance(g: dict, prompt: str, spec: dict) -> None:
+    """Turn a one-prompt graph into an edit-guidance graph, in place.
+
+    Node 5 stays the prompt as written, so every walker that reads a graph's prompt reads what it did.
+    Node 130 makes the edited prompt from the same text; node 131 encodes it exactly as node 5 is encoded;
+    node 9 becomes the edit guider. Preflight (26) goes on reading the original.
+
+    With `MiniMaxH3ReferenceConditioning` at node 5 the references are encoded once: node 132 takes node
+    5's encoder, VAEs, reference chain, canvas and policies, node 5 and node 131 each put a prompt on top,
+    and the empty latent comes from node 132.
+    """
+    unknown = sorted(set(spec) - {"edits", "scale", "first_step"})
+    if unknown or "edits" not in spec:
+        raise SystemExit(f"edit_guidance takes edits, scale and first_step; got {sorted(spec)}")
+    guider = g["9"]
+    if guider["class_type"] != "BasicGuider":
+        raise SystemExit(f"edit_guidance replaces BasicGuider at node 9; this graph has {guider['class_type']}")
+    cond = g["5"]
+    g["130"] = {"class_type": "MiniMaxH3PromptEdit", "inputs": {"original": prompt, "edits": spec["edits"]}}
+    if cond["class_type"] == "MiniMaxH3ReferenceConditioning":
+        g["132"] = {"class_type": "MiniMaxH3EncodeReferences",
+                    "inputs": {k: v for k, v in cond["inputs"].items() if k != "prompt"}}
+        g["5"] = {"class_type": "MiniMaxH3PromptOnReferences",
+                  "inputs": {"encoded_references": ["132", 0], "prompt": prompt}}
+        g["131"] = {"class_type": "MiniMaxH3PromptOnReferences",
+                    "inputs": {"encoded_references": ["132", 0], "prompt": ["130", 0]}}
+        for node in g.values():
+            for key, val in node["inputs"].items():
+                if val == ["5", 1]:
+                    node["inputs"][key] = ["132", 1]
+    elif cond["class_type"] == "MiniMaxH3Conditioning":
+        g["131"] = {"class_type": cond["class_type"], "inputs": dict(cond["inputs"], prompt=["130", 0])}
+    else:
+        raise SystemExit(f"edit_guidance does not know how to add a second prompt to {cond['class_type']}")
+    g["9"] = {"class_type": "MiniMaxH3EditGuider",
+              "inputs": {"model": guider["inputs"]["model"], "original": guider["inputs"]["conditioning"],
+                         "edited": ["131", 0], "scale": float(spec.get("scale", EDIT_GUIDANCE_DEFAULTS["scale"])),
+                         "first_step": int(spec.get("first_step", EDIT_GUIDANCE_DEFAULTS["first_step"])),
+                         "align_positions": EDIT_GUIDANCE_DEFAULTS["align_positions"]}}
 
 
 def build_decode_saved_latent(video_latent: str, audio_latent: str, *,
@@ -4862,6 +4919,26 @@ def main():
               ),
               out_prefix="Video/h3_r2v_pika_control_vector"),
          "reference image + text -> video + audio on Pika H3 Flex 6-step LCM (SVD995 branch) with a post-refiner control vector (film_16mm_1974 diff_span at +1.15, add_norm_matched, scene_only, ref_vae_end_percent=1.0)"),
+        # --- Edit guidance: steer with an edited copy of the prompt, no control vector
+        # (`edit_guidance.py`; the owner passed the hand-wired form on 2026-11-09,
+        # `docs/wiki/decisions.md`). The edit lines are data in `prompt_bank/edit_guidance/`.
+        ("h3_text_to_video_pika_edit_guidance.json", "t2v-pika-edit-guidance", "t2v",
+         LONG_T2V_PROMPT,
+         dict(lora=(PIKA_FL2VA_SVD995_LORA, PIKA_STRENGTH), lora_branch=True,
+              steps=PIKA_STEPS, sampler_name=PIKA_SAMPLER,
+              manual_sigmas=PIKA_MANUAL_SIGMAS,
+              edit_guidance=dict(edits=_edit_guidance_text("t2va_market_claymation")),
+              out_prefix="Video/h3_t2v_pika_edit_guidance"),
+         "text -> video + audio on Pika H3 Flex 6-step LCM (SVD995 branch) steered by an edited copy of the prompt (MiniMaxH3PromptEdit + MiniMaxH3EditGuider at the node's default scale, no control vector)"),
+        ("h3_image_ref_plus_text_to_video_pika_edit_guidance.json", "r2v-pika-edit-guidance", "r2v",
+         _ref_prompt(images=("character",), scene="kitchen"),
+         dict(ref_images=SCENE_REF_IMAGES["kitchen"], ref_image_count=1,
+              lora=(PIKA_REF2VA_SVD995_LORA, PIKA_STRENGTH), lora_branch=True,
+              steps=PIKA_STEPS, sampler_name=PIKA_SAMPLER,
+              manual_sigmas=PIKA_MANUAL_SIGMAS,
+              edit_guidance=dict(edits=_edit_guidance_text("ref2va_kitchen_sitcom")),
+              out_prefix="Video/h3_r2v_pika_edit_guidance"),
+         "reference image + text -> video + audio on Pika H3 Flex 6-step LCM (SVD995 branch) steered by an edited copy of the prompt; the reference is encoded once (MiniMaxH3EncodeReferences) and each prompt goes on top (MiniMaxH3PromptOnReferences)"),
         # --- PrunaAI P-H3-Image single-frame generation & editing (`workflows/image/`) ---
         ("h3_p_h3_image_t2i.json", "p-h3-image-t2i", "ph3_t2i",
          PH3_IMAGE_T2I_PROMPT,

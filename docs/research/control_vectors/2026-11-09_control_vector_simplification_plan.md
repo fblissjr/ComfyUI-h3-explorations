@@ -1354,3 +1354,58 @@ What the round does not settle: which arm looks best, and the mask default. The 
 reference keeps the subject's surface clean. Two follow-ups, not run: the same edit worded without "warm",
 since the edit arms amplify it; and one arm with the reference's VAE road loosened
 (`ref_vae_end_percent`, `ref_vae_aug`).
+
+### 25.1 Why the bank vector did not add warmth
+
+A second session read the bank's pair file for this dial (`prompt_bank/control_vectors/film_16mm_1974.toml`):
+it carries two `[[hold]]` groups, a warm colour cast and soft focus, which the build projects out of the
+vector. The edit text used in the round says "faded warm colour" and has no such hold, so the edited prompt,
+edit guidance and the in-place vector all carry the warmth the bank vector had removed. The pairs' steered
+side also says "vintage film", which fits that session's reading that the bank vector changes the room's
+period dressing more than its colour. Both are readings of the file against the figures, not tests.
+
+## 26. Edit guidance as shipped graphs
+
+The generator gained `edit_guidance=` on a graph's row (`workflows/build_workflows.py::_wire_edit_guidance`)
+and two graphs: text to video, and reference picture plus text. The edit lines are data under
+`prompt_bank/edit_guidance/`. In the reference graph the picture is encoded once
+(`MiniMaxH3EncodeReferences`) and each prompt goes on top (`MiniMaxH3PromptOnReferences`); it is the first
+generated graph to use that pair, and three walkers had to learn that a prompt there has its references one
+link up (`reference_order.plan_for`, `bench/check_prompt_guide_conformance.py::guide_of`,
+`bench/preflight_graph.py::guide_for`) and one constant that it takes the reference format
+(`h3_config.REF_FORMAT_CARRIERS`). The guider's defaults moved to `h3_rules.EDIT_GUIDANCE_DEFAULTS`, one
+copy for the node and the generator. The edit node's text input is named `original`, not `prompt`: the
+conditioning node is what hands a prompt to the encoder and what graders read. The page is
+[`../../wiki/edit_guidance.md`](../../wiki/edit_guidance.md).
+
+Known limits, stated in that page too: the prompt is written twice in each graph, on the first conditioning
+node and on the edit node. The generator's own validation could not pass on the day's server, for a reason
+unrelated to these graphs: many shipped graphs name placeholder media that the server's input folder did not
+hold. The two graphs were written with validation off into a scratch folder, compared with the tracked tree
+(no other graph differs), and queued on the server as the test.
+
+### 26.1 After an independent read of the build, before it was committed
+
+A second session read the worktree and named more readers than section 26 lists. Each was checked and holds:
+
+- `bench/preflight_graph.py` crashed on a prompt linked from the edit node and could not price a prompt on
+  the two-node reference path. It kept its own prompt follower; it now uses `workflows/prompts.py::_follow`,
+  and reads a prompt-on-references node on the inputs of the encode node one link up.
+- For a walker to know what an edit node hands on, the edit grammar had to be callable without loading
+  torch. It is now one module, `h3_prompt_edit.py`, used by the node, by `h3_pair_compiler.py` (whose
+  clause helpers were the same code) and by the static walkers. `control_vectors.py` takes its header
+  pattern from there.
+- `bench/grade_prompt_text.py`, `bench/clip_recipe_coverage.py` and
+  `bench/audit_shipped_reference_bounds.py` each list the reference conditioning classes; each gained the
+  two-node path's class.
+- `bench/check_edit_guidance.py` states CPU before the sampler module loads, and has a case for the static
+  reader.
+
+Seen red by `bench/break_checks.py` after the fixes: the static reader of an edit node, the label check's
+one-link-up lookup, and the conformance check's format rule. Both generated graphs rendered on the server;
+the reference one with a stand-in picture, so that clip is a wiring test.
+
+What stays red in a sweep of this branch and is not from it: `check_audio_freeze`, `check_reference_encode`
+and `check_two_shot_load` are red on `main` as well; `check_doc_links` needs the untracked `data/`, which a
+build worktree lacks; `check_widget_deviations` reads the running server's schema, which is the old node
+code until this lands and the server restarts.

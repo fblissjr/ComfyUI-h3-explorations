@@ -38,70 +38,22 @@ import torch
 from comfy_api.latest import io
 
 try:
-    from . import control_vectors as _cv
-    from . import h3_pair_compiler as _pc
+    from . import h3_prompt_edit as _pe
+    from . import h3_rules as _rules
 except ImportError:  # run from the repo root by a check
-    import control_vectors as _cv
-    import h3_pair_compiler as _pc
+    import h3_prompt_edit as _pe
+    import h3_rules as _rules
 
 logger = logging.getLogger(__name__)
 
-#: Reasoned: the owner's 2026-11-09 look found 1.5 a touch stronger than the rewritten prompt and 2.5
-#: adding color the edit did not ask for.
-DEFAULT_SCALE = 1.5
+#: The node's defaults and their reasons are in `h3_rules.EDIT_GUIDANCE_DEFAULTS`, one copy.
+DEFAULT_SCALE = _rules.EDIT_GUIDANCE_DEFAULTS["scale"]
 MAX_SCALE = 4.0
 PASS_KEY = "h3_edit_pass"
 
-_DIALOGUE_RE = re.compile(r"<d>.*?</d>", re.S)
-_TAG_RE = re.compile(r"<(?:Subject|Picture|Video|Audio)\s+\d+>|\(S\d+(?:,\s*S\d+)*\)|</?d>|<\|[a-z_]+\|>")
-
-
-def _inside_dialogue(text: str, start: int, end: int) -> bool:
-    return any(m.start() < end and start < m.end() for m in _DIALOGUE_RE.finditer(text))
-
-
-def apply_edits(prompt: str, edits: str) -> tuple[str, list[dict[str, Any]]]:
-    """Apply every `old -> new` line of `edits` to `prompt`. Returns the edited prompt and one record a line.
-
-    Refuses, with the line named: a line with no arrow or an empty side; old wording that is absent or
-    occurs more than once; an edit that touches dialogue, a tag, a speaker id, a section header or a shot
-    header; a `soundscape:` line whose old wording is not in the soundscape section."""
-    text = str(prompt or "")
-    if not text.strip():
-        raise ValueError("the prompt is empty")
-    lines = _pc._split_clause_statements(edits)
-    if not lines:
-        raise ValueError("no edit given; write one 'old wording -> new wording' per line")
-    records: list[dict[str, Any]] = []
-    for raw in lines:
-        sound = _pc._SOUNDSCAPE_PREFIX_RE.match(raw)
-        body = sound.group(1) if sound else raw
-        old, new = _pc._split_pole_pair(body)
-        if not old or not new:
-            raise ValueError(f"edit {raw!r}: write it as 'old wording -> new wording'")
-        if old == new:
-            raise ValueError(f"edit {raw!r}: both sides are the same")
-        for side, wording in (("old", old), ("new", new)):
-            if _TAG_RE.search(wording) or _cv.HEADER_TOKEN_RE.search(wording):
-                raise ValueError(f"edit {raw!r}: the {side} wording contains a tag, a speaker id or a header; "
-                                 "edit only the prose around them")
-        count = text.count(old)
-        if count != 1:
-            raise ValueError(f"edit {raw!r}: the old wording occurs {count} time(s) in the prompt; it must "
-                             "occur exactly once (add the words that follow it to make it unique)")
-        at = text.index(old)
-        if _inside_dialogue(text, at, at + len(old)):
-            raise ValueError(f"edit {raw!r}: the old wording is inside <d>...</d>; dialogue is not edited here")
-        if sound:
-            marker = text.find("overall_soundscape:")
-            music = text.find("non_diegetic_music:")
-            if marker < 0 or at < marker or (0 <= music < at):
-                raise ValueError(f"edit {raw!r}: a 'soundscape:' edit must replace wording inside the "
-                                 "overall_soundscape section")
-        text = text[:at] + new + text[at + len(old):]
-        records.append({"old": old, "new": new, "soundscape": bool(sound),
-                        "old_words": len(old.split()), "new_words": len(new.split())})
-    return text, records
+#: The edit grammar and `apply_edits` live in `h3_prompt_edit.py`, which loads no model library, so the
+#: static graph walkers read an edit node's text with the same code this node runs.
+apply_edits = _pe.apply_edits
 
 
 def _one(conditioning: Any, label: str) -> dict:
@@ -214,8 +166,14 @@ class MiniMaxH3PromptEdit(io.ComfyNode):
             description="Apply 'old wording -> new wording' lines to a prompt, refusing anything it cannot "
                         "place exactly. Wire the edited prompt into a second conditioning node.",
             inputs=[
-                io.String.Input("prompt", multiline=True, force_input=True,
-                                tooltip="The prompt as written. Wire the same text the conditioning node gets."),
+                # A box of its own, not a forced link, so a shipped graph can carry the text here and
+                # on the conditioning node. Convert it to an input to feed both from one text node.
+                # Named `original`, as on the guider, and not `prompt`: the conditioning node is what
+                # hands a prompt to the encoder and what every grader reads
+                # (`h3_config.PROMPT_INPUTS`); this is the copy an edit is applied to.
+                io.String.Input("original", multiline=True, default="",
+                                tooltip="The prompt as written: the same text the first conditioning node gets. "
+                                        "If the two differ, the edit is applied to this one."),
                 io.String.Input("edits", multiline=True, default="",
                                 tooltip="One edit a line: old wording -> new wording. The old wording must occur "
                                         "exactly once in the prompt. Start a line with 'soundscape:' to edit the "
@@ -225,8 +183,8 @@ class MiniMaxH3PromptEdit(io.ComfyNode):
         )
 
     @classmethod
-    def execute(cls, prompt, edits) -> io.NodeOutput:
-        edited, records = apply_edits(prompt, edits)
+    def execute(cls, original, edits) -> io.NodeOutput:
+        edited, records = apply_edits(original, edits)
         lines = [f"{'soundscape' if r['soundscape'] else 'description'}: {r['old_words']} word(s) -> "
                  f"{r['new_words']} word(s): {r['old']!r} -> {r['new']!r}" for r in records]
         return io.NodeOutput(edited, "\n".join(lines))
@@ -249,10 +207,11 @@ class MiniMaxH3EditGuider(io.ComfyNode):
                 io.Float.Input("scale", default=DEFAULT_SCALE, min=0.0, max=MAX_SCALE, step=0.05,
                                tooltip="0 is the original prompt, 1 is the edited prompt, above 1 exaggerates "
                                        "the edit. Above about 2.5 the picture gains color the edit did not ask for."),
-                io.Int.Input("first_step", default=0, min=0, max=1000,
+                io.Int.Input("first_step", default=_rules.EDIT_GUIDANCE_DEFAULTS["first_step"], min=0, max=1000,
                              tooltip="The first sampling step that uses the edit. Earlier steps run the original "
                                      "prompt alone, which keeps its framing and pose."),
-                io.Boolean.Input("align_positions", default=False, optional=True,
+                io.Boolean.Input("align_positions", default=_rules.EDIT_GUIDANCE_DEFAULTS["align_positions"],
+                                 optional=True,
                                  tooltip="Give both prompts the same starting position for the video and audio "
                                          "rows when their lengths differ. Untested on renders."),
             ],

@@ -234,6 +234,9 @@ APPEND_KINDS = {
     "MiniMaxH3AppendRefAudio": "audio",
 }
 CHAIN_INPUT = "references"
+#: The input of `MiniMaxH3PromptOnReferences` that links to the node holding the chain
+#: (`reference_encode.py`).
+ENCODED_INPUT = "encoded_references"
 
 
 class ChainError(ValueError):
@@ -260,6 +263,19 @@ def plan_for(inputs, graph=None) -> list:
     than picking. Found by self-audit after codex flagged the fail-loudly
     contract as the thing to probe.
     """
+    # The prompt half of the two-node reference path (`MiniMaxH3PromptOnReferences`) carries no chain
+    # of its own: its references are on the encode node one link up. Read that node's inputs, so a
+    # prompt there is held to the labels its graph wires like any other. A link that does not resolve
+    # to a node is refused, not read as "no references".
+    if ENCODED_INPUT in inputs:
+        link = inputs[ENCODED_INPUT]
+        up = graph.get(str(link[0])) if graph is not None and isinstance(link, list) and len(link) == 2 else None
+        if not isinstance(up, dict) or not isinstance(up.get("inputs"), dict):
+            raise ChainError(
+                f"`{ENCODED_INPUT}` is {link!r} and does not resolve to a node in the graph supplied. The "
+                f"references are on that node; without it there is no plan to read")
+        inputs = up["inputs"]
+
     typed = CHAIN_INPUT in inputs
     sockets = wired_sockets(inputs)
 

@@ -125,7 +125,9 @@ REF_SOCKET_PREFIXES = ("ref_images.", "ref_videos.", "ref_audios.",
 
 
 def guide_of(inputs: dict) -> str:
-    return "ref" if ("references" in inputs or
+    # `encoded_references`: the prompt half of the two-node reference path
+    # (`MiniMaxH3PromptOnReferences`), whose references are one link up.
+    return "ref" if ("references" in inputs or "encoded_references" in inputs or
                      any(k.startswith(REF_SOCKET_PREFIXES) for k in inputs)) \
         else "base"
 

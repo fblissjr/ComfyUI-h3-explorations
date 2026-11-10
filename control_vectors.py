@@ -68,11 +68,10 @@ SECTION_AND_SHOT_MARKERS: tuple[str, ...] = (
     "non_diegetic_music:",
     "[Shot ",
 )
-HEADER_TOKEN_RE = re.compile(
-    r"\b(?:integrated_multimodal_description|subject_definitions|summary|"
-    r"retention_analysis|detailed_description|overall_soundscape|non_diegetic_music):|"
-    r"\[Shot\s+\d+\]"
-)
+try:
+    from .h3_prompt_edit import HEADER_TOKEN_RE
+except ImportError:  # run from the repo root by a check or a tool
+    from h3_prompt_edit import HEADER_TOKEN_RE  # one copy, in the module that loads no model library
 
 #: Measured/reasoned ceiling on consecutive identical words inside a single modified
 #: clause: two poles of one quality or action-predicate clause may share a short

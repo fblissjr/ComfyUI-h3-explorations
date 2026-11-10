@@ -549,7 +549,7 @@
   },
   "MiniMaxH3PromptEdit": {
     "inputs": [
-      "prompt",
+      "original",
       "edits"
     ],
     "node_id": "MiniMaxH3PromptEdit",
