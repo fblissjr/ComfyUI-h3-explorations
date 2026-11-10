@@ -95,10 +95,11 @@ def _by_text() -> dict[str, str]:
         p = BANK / f"{e['id']}.txt"
         if p.is_file():
             out[p.read_text(encoding="utf-8").rstrip()] = e["id"]
-    ph3_dir = BANK / "p_h3_image"
-    if ph3_dir.is_dir():
-        for p in sorted(ph3_dir.glob("*.txt")):
-            out[p.read_text(encoding="utf-8").rstrip()] = f"p_h3_image/{p.stem}"
+    # The folders outside the manifest: prompts in a form that is not one of the house modes
+    # (`P-H3-Image`'s, and a guide edit LoRA's one-sentence form), named by folder and file.
+    for folder in ("p_h3_image", "guide_edit"):
+        for p in sorted((BANK / folder).glob("*.txt")):
+            out[p.read_text(encoding="utf-8").rstrip()] = f"{folder}/{p.stem}"
     return out
 
 

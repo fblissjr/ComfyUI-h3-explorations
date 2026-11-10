@@ -168,18 +168,21 @@ GUIDE_NODES = ("MiniMaxH3AddGuide", "MiniMaxH3GuideLatent")
 # Every run prints what it waived. An exemption nobody sees is an exemption
 # that grows.
 #
-# **Currently empty, and that is a state rather than an oversight.** The only
-# member was `h3_image_probe_format_flat_api`, the same experiment on the image
-# path, and the single-frame lane was parked on 2026-08-27
-# (`docs/h3_image_editing.md`); `h3_ref_video_swap_concise` was retired before
-# it. So every shipped prompt is graded structurally, with nothing waived --
-# which the run prints, because "waived nothing" and "forgot to waive" are the
-# pair this file exists to keep apart.
+# **One member since 2026-11-10.** `h3_probe_pika_image_guide_edit_api` is a
+# one-frame edit through a guide edit LoRA, and its prompt is in the form that
+# LoRA was trained on: one sentence opening with `vfx_edit:`, the edit and then
+# what stays. Sections are not what the LoRA read in training, so grading it
+# for them would ask for a prompt its author says not to write
+# (`docs/h3_image_editing.md`, "A one-frame edit on Pika"). The set was empty
+# from 2026-08-27, when the single-frame lane was parked and
+# `h3_image_probe_format_flat_api` went with it; `h3_ref_video_swap_concise`
+# was retired before that. The run prints what it waived, because "waived
+# nothing" and "forgot to waive" are the pair this file exists to keep apart.
 #
 # An entry naming a graph that no longer ships is rot, not a safe leftover: it
 # waives nothing while reading as coverage. The "every structure probe still
 # ships" case below asserts that, so restoring one and then dropping its graph goes red.
-_STRUCTURE_PROBES: set[str] = set()
+_STRUCTURE_PROBES: set[str] = {"h3_probe_pika_image_guide_edit_api"}
 
 
 def _audio_sections_optional(wf: dict) -> bool:
