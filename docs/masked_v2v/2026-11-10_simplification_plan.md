@@ -43,8 +43,30 @@ What it rests on:
   4276 to 4269. Of the rest, 4162 are its no-bare-filenames rule firing inside generated records under `data/fun/`
   (ledgers, tables), and 102 are malformed links in those same files. This bullet used to say "most likely from the
   same move".
-- **The lead's strangers keep-out is the plan's word:** `data/fun/plan.json` sets `keep_outs: ["strangers"]` for the
-  lead. `fun2`'s plan must keep it, and it is a candidate for the step 2 defaults.
+- **Step 2 is landed** (`mrsql`, on the owner's go; `8d61067f`, docs `c64f47b5`).
+  - **Depth:** the code's default in `bench/shot_to_load.py`. Turning it off takes a person's words (`--no-depth WHY`,
+    or the plan's `depth: {"on": false, "why": ...}`).
+  - **Already defaults:** the head track (`h3_config.SUBJECT_TRACK["track_head"]`) and memory selection.
+  - **Stays opt-in:** the head tube, since no word of the owner's makes it a default.
+- **Corrected: the strangers keep-out is set by the data, not the plan.** `bench/shot_to_load.py::strangers_by_the_data`
+  sets it for every subject from whether anyone else is in the shot. The plan's `keep_outs` decides only where a
+  preview saved no shot table. This bullet used to say the lead's strangers keep-out was the plan's word, and a
+  candidate for the step 2 defaults; it already is a default, by the data.
+- **Open, and the owner's call: the 2026-10-25 context rule is not enforced in code.** The rule says the original
+  subject is never shown unmasked in a window, and that a load cut inside a longer shot runs masked to its window's
+  length.
+  - **What the code does:** a load shorter than its window is padded by `workflows/masked_job_graph.py::window_pad`.
+    Padding frames still inside the shot stay real (`held_context`), and under the default `context_shows: as filmed`
+    nothing is regenerated on them. No check refuses that. `dropped_or_unmasked_face_in_context` covers only frames
+    dropped inside the load.
+  - **How often it happened in `fun`:** 19 loads were padded with real same-shot frames, from 4 to 45 each.
+    - **How it was counted:** `window_pad` and `held_context` run over every load of the job files under `data/fun/`.
+    - **Laid in `fun`'s final cut** (all kept by the owner on playback): `lead_fp_0516f`, `0559`, `0579`, `3098b`,
+      `4227e`, `4310c`, `4774c`, `6125c`.
+    - **Not checked:** whether the subject is visible in those padding frames.
+  - **Why it matters for `fun2`:** its lead loads on those shots meet the same case.
+  - **The choice:** a step 2 default where the job step extends such a load to its window, masked end to end, or
+    refuses it.
 
 - **`fun` is closed.** It ended on 2026-10-31 at about 17:30 to 18:00 Central (the owner).
   - **Its final cut:** `output/Video/fun/day_2026-10-31/fun_0000_6394_joined_2026-10-31T2231Z_from_laid.mp4`.
