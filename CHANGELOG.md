@@ -22,12 +22,14 @@ artifact.
 - `bench/shot_to_load.py job`: `--no-depth WHY`, a person's word turning depth off on one load.
 - `lora_branch.py`, `control_vector_nodes.py`, `control_vectors.py`: unequal 3-band block-diagonal `qkv_proj` LoRA
   packing, chunked linear rows, and advisory strength warnings on same-family H3 LoRAs.
-- `h3_spans.py`, `h3_prompt_edit.py`, `h3_pair_compiler.py`, `bench/control_vector/`: 3-lever section masks
-  (`look_only`, `scene_only`, `description_only`, `soundscape_only`), `--mask` on `grade` and `inspect`, and
+- `h3_spans.py`, `h3_prompt_edit.py`, `h3_pair_compiler.py`, `control_vectors.py`, `bench/control_vector/`: 3-lever
+  section masks (`look_only`, `scene_only`, `description_only`, `soundscape_only`), `pairs.differing_sections` recorded
+  in built `.safetensors` metadata, `--mask` on `grade` and `inspect`, `--target-prompt-file` on the CLI, and
   `--bank-scenes <K>` multi-scene compilation.
-- `edit_guidance.py`, `h3_rules.py`: a `last_step` cutoff on `MiniMaxH3EditGuider`.
+- `edit_guidance.py`, `h3_rules.py`: a `last_step` cutoff appended on `MiniMaxH3EditGuider`.
 - `reference_geometry.py`, `workflows/h3_config.py`, `workflows/build_workflows.py`: a tiered reference short-edge
-  policy, `PIKA_SOL_CUDA_DEFAULTS`, and three plain Pika baseline workflows (t2v, fl2va, r2v).
+  policy (`<= 544 -> 1024`, `> 544 -> 2048`, matching upstream Pika buckets) and three plain Pika baseline workflows
+  (t2v, fl2va, r2v).
 - `prompt_bank/control_vectors/`: `film_16mm_1974_neutral.toml` and five new 10-pair packs.
 - `docs/masked_v2v/2026-11-10_simplification_plan.md`, `docs/masked_v2v/2026-11-10_lane_record_first_tier.md`,
   `docs/research/`: the plan for the masked lane after `fun` with its "Next, in order", the record of the lane
@@ -48,7 +50,9 @@ artifact.
 
 ### Fixed
 
-- `h3_pair_compiler.py`: `--target-prompt <file>` with `--bank-scenes` is no longer taken for the image mode.
+- `h3_pair_compiler.py`, `bench/control_vector/`: keep `h3_pair_compiler` pure prompt text (no silent file substitution
+  when a prompt matches a file stem) and resolve prompt files explicitly via `--target-prompt-file` before mode
+  inference and `--bank-scenes` selection.
 
 ## 0.302.0
 <!-- changelog.d/day-2026-11-09.md -->

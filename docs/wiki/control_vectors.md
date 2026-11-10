@@ -24,7 +24,7 @@ changed wording are averaged on each side, and the difference is the vector
 | Way | What you do | What it needs | Where it stands |
 |---|---|---|---|
 | Edit guidance | Change a few words of your own prompt and turn a scale | Two nodes, no file | The owner passed it on 2026-11-09. Its page is [`edit_guidance.md`](edit_guidance.md) |
-| A bank vector | Load a vector built ahead of time from the pair files in `prompt_bank/control_vectors/` | A built `.safetensors` file | Kept as a starter set and not grown (owner, 2026-11-09). Rendered on text-to-video and reference shots |
+| A bank vector | Load a vector built ahead of time from the pair files in `prompt_bank/control_vectors/` | A built `.safetensors` file | Kept as a starter set (owner, 2026-11-09; five 4-pillar packs added on owner ask, 2026-11-10; see [`decisions.md`](decisions.md)). Rendered on text-to-video and reference shots |
 | An in-place vector | Build a vector from the prompt you are steering, with its reference picture when it has one | One build, a few seconds on the card | Ran for the first time with a picture on 2026-11-09. Not yet judged against the other two |
 
 Start with edit guidance when steering a single shot's wording, and set `last_step` (for example `2` or `3`
@@ -33,7 +33,7 @@ want zero extra DiT passes (1 pass per step) or one reusable dial across many pr
 
 | Dimension | Control vector (`MiniMaxH3ApplyControlVectors`) | Edit guidance (`MiniMaxH3EditGuider`) |
 |---|---|---|
-| Sampling cost (6-step Pika) | **6 DiT passes** (1× per step; zero sampling overhead) | **12 DiT passes** at `0..1000`, or **8–9 passes** (`-25%` to `-33%`) with `last_step = 2` or `3` |
+| Sampling cost (6-step Pika) | **6 DiT passes** (1× per step; zero sampling overhead) | **12 DiT passes** at `0..1000`, or **9–10 passes** (`-25%` to `-17%`) with `last_step = 2` or `3` (`8` passes at `last_step = 1`) |
 | Setup cost | Zero if loading a `.safetensors` bank/saved vector; ~7–8 s once when building with `from-prompt` | Zero offline build; two prompt encodings per run |
 | Section scoping | Built-in **3-lever span masks** (`look_only`, `scene_only`, `description_only`, `soundscape_only`) | Scoped by which prompt section (`summary:`, `soundscape:`, `music:`, or description) `MiniMaxH3PromptEdit` edits |
 | Multi-dial composition | Stackable (`MiniMaxH3ApplyControlVectors` chains in `float64` + orthogonal `hold` mode) | Single baseline-vs-edited prompt pair per guider |

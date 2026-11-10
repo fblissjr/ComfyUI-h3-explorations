@@ -89,7 +89,7 @@ wind_tunnel_gale          zero_gravity
 
 `ls prompt_bank/control_vectors/` is the authority; this list is a copy made on the date above.
 
-The bank is kept as a starter set and is not being grown (owner, 2026-11-09, [`../decisions.md`](../decisions.md)).
+The bank is kept as a starter set (owner, 2026-11-09; five 4-pillar packs added on owner ask, 2026-11-10, [`../decisions.md`](../decisions.md)).
 Every file is a text-only prompt with no picture. Which of these vectors do what their names say on a
 render has been looked at for only a few; the record is
 [`../../../bench/results/2026-11-05_control_vectors_pika_and_ref2va.md`](../../../bench/results/2026-11-05_control_vectors_pika_and_ref2va.md).

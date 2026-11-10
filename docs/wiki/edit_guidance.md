@@ -26,7 +26,8 @@ defaults and their reasons are `h3_rules.EDIT_GUIDANCE_DEFAULTS`.
   prompt, at 1 the edited prompt, above 1 it pushes past the edit. `first_step` runs the original alone
   before that step (`step < first_step`, keeping its framing), and `last_step` (`default = 1000`) hands
   steps `step > last_step` to 1-pass `[edited]` (`scale = 1.0`) so late refinement steps skip the second DiT
-  pass (for example `last_step = 2` or `3` on 6-step Pika cuts sampling from 12 passes to 8–9 passes).
+  pass (for example on 6-step Pika, `last_step = 2` cuts sampling from 12 passes to 9 passes, `last_step = 3`
+  to 10 passes, and `last_step = 1` to 8 passes).
 
 ## The graphs
 

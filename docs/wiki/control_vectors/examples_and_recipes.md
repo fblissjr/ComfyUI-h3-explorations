@@ -25,7 +25,7 @@ variant alongside it, pass `prompt_bank/control_vectors/film_16mm_1974_neutral.t
 
 ```bash
 <python> bench/control_vectors.py from-prompt \
-  --target-prompt my_prompt.txt \
+  --target-prompt-file my_prompt.txt \
   --words "old wording that occurs once in the prompt -> new wording" \
   --bank-scenes 3 \
   --ref-images my_reference.jpg \
@@ -33,21 +33,29 @@ variant alongside it, pass `prompt_bank/control_vectors/film_16mm_1974_neutral.t
 ```
 
 The old wording must occur once in `my_prompt.txt` (or use `summary:`, `soundscape:`, or `music:` section
-prefixes). `--bank-scenes 3` appends 3 deterministic mode-matched scenes from `prompt_bank/*.txt` (weighted
-`1.0` behind `Pair 0`'s `--target-weight 2.5`) so single-scene nuisance context averages out.
+prefixes; pass `--target-prompt "<inline text>"` when supplying literal prompt text instead of a file).
+`--bank-scenes 3` appends 3 deterministic mode-matched scenes from `prompt_bank/*.txt` (weighted `1.0`
+behind `Pair 0`'s `--target-weight 2.5`) so single-scene nuisance context averages out.
 
-## 3. Verified `Arms 01..66` Pika & `ref2va` recipes
+## 3. Verified `Arms 01..66` Pika & `ref2va` recipes (2026-11-05)
 
-From [`../../../bench/results/2026-11-05_control_vectors_pika_and_ref2va.md`](../../../bench/results/2026-11-05_control_vectors_pika_and_ref2va.md):
+From [`../../../bench/results/2026-11-05_control_vectors_pika_and_ref2va.md`](../../../bench/results/2026-11-05_control_vectors_pika_and_ref2va.md)
+(run under `mask = non_vision` unless noted):
 
-- **Single-lever visual look on `ref2va`:** Apply `film_16mm_1974` (`mode = add_norm_matched`, `strength = 1.0..1.3`, `mask = scene_only` or `look_only`) on `workflows/h3_image_ref_plus_text_to_video_pika_control_vector_api.json` (`PIKA_SOL_CUDA_DEFAULTS`: `0.20..0.95` keeps Step 0 and Step 5 dense).
-- **Stacked dual-lever visual + motion/camera:** Chain two `MiniMaxH3ApplyControlVectors` nodes (`workflows/h3_text_to_video_pika_dual_control_vectors_api.json`), e.g. `look_only` on the look vector and `description_only` on the action/motion vector, or use `mode = hold` on the second node to project out an unwanted nuisance direction.
-- **Audio-only steering without touching picture look:** Set `mask = soundscape_only` (steers `overall_soundscape:` and non-`"N/A"` `non_diegetic_music:`, leaving visual sections untouched).
+- **Single-vector visual look on `ref2va` (`Arms 17..23`):** Apply `film_16mm_1974` (`mode = add_norm_matched`, `strength = 1.0..1.3`) on `workflows/h3_image_ref_plus_text_to_video_pika_control_vector_api.json` (with `start_percent > 0` in `Arm 23` for late-window entry).
+- **Stacked dual-vector composition & orthogonal holds (`Arms 08..12, 58`):** Chain two `MiniMaxH3ApplyControlVectors` nodes (`workflows/h3_text_to_video_pika_dual_control_vectors_api.json`), or set `mode = hold` on the second node (`Arm 58`: `cursed_cctv` + `hold(chaos_panic)`).
+- **Section-scoped description or audio masks (`Arms 59..60`):** `mask = soundscape_only` (`Arm 59`) or `mask = description_only` (`Arm 60`).
 - **Zero-`.toml` CPU word synthesis (`< 2 ms` via J-Lens, `Arms 53, 54, 61..65`):**
   ```bash
   <python> bench/control_vectors.py words "blizzard, snowdrift, freezing, snow" --name blizzard_words --families fl2va
   ```
-- **CLI activation & DiT grading under any 3-lever mask:**
+
+### 2026-11-10 3-lever span masks (`h3_spans.py`)
+
+Added on 2026-11-10 (`comfyui_nodes_and_controls.md`; same-seed mask comparison against `non_vision` is open):
+
+- **3-lever masks on `ref2va`:** `look_only` (`subject_definitions:` + `summary:`), `description_only` (`detailed_description:`), `scene_only` (`look_only | description_only`, excluding audio sections), and `soundscape_only` (`overall_soundscape:` + non-`"N/A"` `non_diegetic_music:` + `<Audio N>:` retention lines). On text-only `t2va`, `look_only`, `description_only`, and `scene_only` select the same `integrated_multimodal_description:` prose rows.
+- **CLI activation & DiT grading under any mask:**
   ```bash
   <python> bench/control_vectors.py grade \
     --vector film_16mm_1974 --prompt t2va_covered_market_long \
@@ -76,7 +84,8 @@ It prints both prompts in full and writes the graphs. Add `--queue` to render th
 ## 5. Steer with an edited prompt and no vector (`last_step` fast handoff)
 
 The two generated graphs and the nodes are on [`../edit_guidance.md`](../edit_guidance.md); setting
-`last_step = 2` or `3` on 6-step Pika hands late steps to 1-pass `[edited]` (`8–9` DiT passes vs `12`).
+`last_step = 2` or `3` on 6-step Pika hands late steps to 1-pass `[edited]` (`9–10` DiT passes vs `12`; `8`
+passes at `last_step = 1`).
 
 ## Not rendered in a recorded benchmark arm
 
