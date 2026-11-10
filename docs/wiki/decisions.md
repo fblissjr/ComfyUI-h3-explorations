@@ -17,6 +17,14 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-11-10
 
+- **The shared-tree git rule is back in [`AGENTS.md`](../../AGENTS.md)** (owner decision).
+  - **What led to it:** the file was emptied that morning as a trial (`a3996113`). With no rule on file, main was
+    pushed to both remotes from a session, and a pushed commit was then amended and pushed again by force
+    (`de775a21` became `64ddef49`). No other session's commit was caught in it, and the remotes and local main agree.
+  - **What is restored:** the old file's own wording for the shared tree, up to the sentence on commit messages,
+    with one line added: a session never runs `git push`, to any remote, with or without force.
+  - **What stays out:** the rest of the old file, the rule on building in a worktree while the card runs among it.
+    `git show a3996113^:AGENTS.md` has it.
 - **Control-vector 3-lever span masks, `MiniMaxH3EditGuider.last_step`, 3-band `qkv_proj` LoRA packing, `tiered` reference sizing, five owner-requested 4-pillar pair packs, and review corrections** (`1c46cfc5`, `6c614495`, `029460ab`, `a8171641`, `034e45d0`, `5b18b98a`, `1a05a27c`, `a0844b63`, `b2e86320`):
   - **3-lever span masks (`h3_spans.py`) and `differing_sections` metadata (`control_vectors.py`):** added `look_only` (`subject_definitions:` + `summary:`), `description_only`, `scene_only` (`look_only | description_only`, excluding `overall_soundscape:` and `non_diegetic_music:`), and `soundscape_only` (excluding literal `N/A` and routing `<Audio N>:` retention lines), plus `pairs.differing_sections` recorded in `.safetensors` metadata at build time (`1a05a27c`). Whether the apply node's default `mask` should stay `scene_only`, return to `non_vision`, or derive from `differing_sections` remains open pending the owner's same-seed playback comparison (`handover.md`, `next_steps.md`).
   - **`MiniMaxH3EditGuider.last_step` (`edit_guidance.py`, `h3_rules.py`, `bench/edit_guidance_arms.py`):** added `last_step` (`default = 1000`, appended after `align_positions` in `029460ab` to preserve positional UI widget compatibility) so `step > last_step` hands off to 1-pass `[edited]`, updated `control_vector_nodes.py` so both `[base]` and `[edited]` passes receive control vectors when combined, and extended `bench/edit_guidance_arms.py` (`b2e86320`) for `--node-last-steps`, single-variable `none:0` `ref_vae_end_percent`/`sol_end` controls, chained `+` vectors, `fl2va` keyframes, and `P-H3-Image` stills. Corrected the off-by-one pass counts in [`edit_guidance.md`](edit_guidance.md), [`control_vectors.md`](control_vectors.md), and [`control_vectors/examples_and_recipes.md`](control_vectors/examples_and_recipes.md) (`last_step = 2` is 9 passes on 6-step Pika, `last_step = 3` is 10, `last_step = 1` is 8).

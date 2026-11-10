@@ -135,7 +135,7 @@ with none is a helper the others import.
 | file | what it says |
 |---|---|
 | [`.gitignore`](.gitignore) | (git ignore rules) |
-| [`AGENTS.md`](AGENTS.md) | (empty) |
+| [`AGENTS.md`](AGENTS.md) | ComfyUI-h3-explorations |
 | [`CHANGELOG.md`](CHANGELOG.md) | Changelog |
 | [`CLAUDE.md`](CLAUDE.md) | @AGENTS.md |
 | [`LICENSE`](LICENSE) | MIT License |
