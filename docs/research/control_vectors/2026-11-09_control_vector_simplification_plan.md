@@ -1200,3 +1200,34 @@ prompt's two occurrences share their prefix.
 The conclusion both sessions reach stands on the layout facts and does not need the position figure: a
 vector pooled from t2va-layout pairs is carried into a prompt whose rows were computed after sections the
 pairs never had, and an edit made in place carries nothing.
+
+### 23.3 Without the Pika LoRA, the image model, and what the Pika release says
+
+Two things 23.1 left to check, both run on CPU over cached encoder rows of text-only bank prompts (the
+cache stores them at half precision), with one-offs kept under `data/results/` (`family_no_pika.py`,
+`family_image.py`). A second session ran its own version over a pair file and got the same picture.
+
+- Without the Pika LoRA the two video families' refined rows are as close to each other as they are with
+  it, and each family's rows without the LoRA are almost parallel to its rows with it. The LoRA touches the
+  refiner and barely moves the text space. So the one-space finding does not depend on Pika.
+- The image checkpoint's text path is fl2va's: most of its text-path tensors are identical to fl2va's and
+  the rest differ in the last digits, so its refined rows equal fl2va's and stand as far from ref2va's as
+  fl2va's do. What differs for the image model is upstream of this, when its small encoder and connector
+  stand in for the 32B encoder; the graphs default to 32B since `842a4108`.
+
+Still unchecked: the full-precision checkpoints, and anything about how each DiT reads the rows.
+
+What the Pika release adds (its model card and `comfy/README.md`, in the owner's model store; the pack's
+copy of the release's code is under `coderef/Pika-H3-Flex/`):
+
+- It is one family with two adapters, fl2va and ref2va, each a LoRA over every block including the two
+  refiner blocks. That matches what is measured above: the adapter reaches the text path and changes it
+  little.
+- Its own prompt guide (`coderef/Pika-H3-Flex/docs/prompt-guidance.md`) uses the same sectioned format this
+  pack writes, with `detailed_description` for ref2va. The card's showcase prompts are free prose, but the
+  card says their service preprocessing is unspecified, so they are not evidence that free prose is what the
+  adapter was trained on.
+- Its sampling contract (the knots, the shifts, fresh noise each step) is the one
+  `workflows/h3_config.py::PIKA_CONTRACT_KNOTS` already inherits. The Comfy-format files it ships are
+  `PIKA_FL2VA_LORA` and `PIKA_REF2VA_LORA`; the graphs load the pack's own truncations of them
+  (`PIKA_*_SVD995_LORA`). Whether the full files render better was not looked at here.
