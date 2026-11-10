@@ -539,6 +539,9 @@ def cmd_make(args: argparse.Namespace) -> int:
         "n_holds": 0 if args.no_holds else (len(pair_set.holds) + len(applied_holds_make)),
         "a_side": pair_set.a_side,
         "b_side": pair_set.b_side,
+        "differing_sections": cv.pair_set_differing_sections(
+            pair_set.pairs, frame=pair_set.frame
+        ),
         "pair_spans": pair_spans,
     }
     is_bank_toml_make = (

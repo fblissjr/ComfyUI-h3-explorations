@@ -839,6 +839,7 @@ def _repool_cached_build(
                 jl_readout = None
 
         pair_set = entry["pair_set"]
+        active_pair_items = [pair_set.pairs[i] for i in active_indices]
         pairs_dict_repool: dict[str, Any] = {
             "path": entry["rel_pair_path"],
             "sha256": pair_set.sha256,
@@ -846,6 +847,9 @@ def _repool_cached_build(
             "n_holds": len(hold_a) + len(applied_holds),
             "a_side": pair_set.a_side,
             "b_side": pair_set.b_side,
+            "differing_sections": cv.pair_set_differing_sections(
+                active_pair_items, frame=pair_set.frame
+            ),
             "pair_spans": [entry["pair_spans"][i] for i in active_indices],
         }
         if str(entry["rel_pair_path"]).startswith("<"):

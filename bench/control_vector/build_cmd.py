@@ -651,6 +651,9 @@ def cmd_build(args: argparse.Namespace) -> int:
                 "n_holds": len(cached_holds) + len(applied_holds_build),
                 "a_side": pair_set.a_side,
                 "b_side": pair_set.b_side,
+                "differing_sections": cv.pair_set_differing_sections(
+                    pair_set.pairs, frame=pair_set.frame
+                ),
                 "pair_spans": pair_spans,
             }
             if resolved_pair_path is None:

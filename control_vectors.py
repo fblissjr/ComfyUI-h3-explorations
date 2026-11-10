@@ -588,40 +588,62 @@ def _unwrap_markdown_fence(md_text: str) -> str:
 
 
 def differing_section_info(a: str, b: str, *, frame: str = "scene") -> tuple[int, str]:
-    """Return `(sec_idx, section_name)` for the prompt section where `a` and `b` differ."""
+    """Return `(sec_idx, section_name)` for the prompt section(s) where `a` and `b` differ."""
     if frame == "bare":
         return 0, "bare"
     min_len = min(len(a), len(b))
     c_prefix = 0
     while c_prefix < min_len and a[c_prefix] == b[c_prefix]:
         c_prefix += 1
-    sec_matches = list(_SECTION_ONLY_RE.finditer(a))
-    if not sec_matches:
+    sec_matches_a = list(_SECTION_ONLY_RE.finditer(a))
+    if not sec_matches_a:
         return 0, "text"
     chosen_idx = 0
-    chosen_name = sec_matches[0].group(1)
-    for idx, m in enumerate(sec_matches):
+    chosen_name = sec_matches_a[0].group(1)
+    for idx, m in enumerate(sec_matches_a):
         if m.start() <= c_prefix:
             chosen_idx = idx
             chosen_name = m.group(1)
         else:
             break
-    blocks_a = a.split("\n\n")
-    blocks_b = b.split("\n\n")
-    if len(blocks_a) == len(blocks_b):
-        diff_idxs = [idx_b for idx_b in range(len(blocks_a)) if blocks_a[idx_b] != blocks_b[idx_b]]
-        if len(diff_idxs) >= 2:
-            sec_names: list[str] = []
-            for i_sec in diff_idxs:
-                ba_s = blocks_a[i_sec].lstrip()
-                hdr = next((h for h in SECTION_HEADER_PREFIXES if ba_s.startswith(h)), None)
-                if hdr is None:
-                    sec_names = []
-                    break
-                sec_names.append(hdr[:-1])
-            if len(sec_names) == len(diff_idxs):
-                return chosen_idx, "+".join(sec_names)
+    sec_matches_b = list(_SECTION_ONLY_RE.finditer(b))
+    if (
+        len(sec_matches_a) == len(sec_matches_b)
+        and [m.group(1) for m in sec_matches_a] == [m.group(1) for m in sec_matches_b]
+    ):
+        diff_sec_names: list[str] = []
+        for idx_s, ma in enumerate(sec_matches_a):
+            mb = sec_matches_b[idx_s]
+            end_a = sec_matches_a[idx_s + 1].start() if idx_s + 1 < len(sec_matches_a) else len(a)
+            end_b = sec_matches_b[idx_s + 1].start() if idx_s + 1 < len(sec_matches_b) else len(b)
+            if a[ma.start() : end_a].rstrip() != b[mb.start() : end_b].rstrip():
+                diff_sec_names.append(ma.group(1))
+        if len(diff_sec_names) >= 2:
+            return chosen_idx, "+".join(diff_sec_names)
+        if len(diff_sec_names) == 1:
+            first_name = diff_sec_names[0]
+            first_idx = next(
+                (i for i, m in enumerate(sec_matches_a) if m.group(1) == first_name),
+                chosen_idx,
+            )
+            return first_idx, first_name
     return chosen_idx, chosen_name
+
+
+def pair_set_differing_sections(
+    pairs: Sequence[PairItem],
+    *,
+    frame: str = "scene",
+) -> list[str]:
+    """Return the ordered list of distinct prompt section names modified across `pairs`."""
+    out: list[str] = []
+    for item in pairs:
+        _, sec_str = differing_section_info(item.a, item.b, frame=frame)
+        for part in sec_str.split("+"):
+            clean = part.strip()
+            if clean and clean not in out:
+                out.append(clean)
+    return out
 
 
 def parse_markdown_pairs(md_text: str) -> dict[str, Any]:
@@ -1652,6 +1674,12 @@ def _validate_metadata_dict(metadata: Mapping[str, Any]) -> None:
         raise ValueError(
             "control vector metadata 'pairs' must be a dict with keys {'path', 'sha256', 'n_pairs', 'n_holds'}"
         )
+    if "differing_sections" in pairs:
+        dsecs = pairs["differing_sections"]
+        if not isinstance(dsecs, list) or not all(isinstance(s, str) and s.strip() for s in dsecs):
+            raise ValueError(
+                f"control vector metadata 'pairs.differing_sections' must be a list of non-empty strings, got {dsecs!r}"
+            )
 
     recipe = metadata["recipe"]
     if (

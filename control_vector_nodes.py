@@ -1016,6 +1016,9 @@ def make_control_vector_from_pairs(
         "n_holds": len(pair_set.holds) if apply_holds else 0,
         "a_side": pair_set.a_side,
         "b_side": pair_set.b_side,
+        "differing_sections": _cv.pair_set_differing_sections(
+            pair_set.pairs, frame=pair_set.frame
+        ),
         "pair_spans": pair_spans,
     }
     if resolved_pair_path is None:

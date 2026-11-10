@@ -3543,6 +3543,15 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
                     wb_stem = wb_st.name.split("__")[0]
                     wb_t_orig, wb_m_orig = cv.load_vector(wb_st)
                     wb_pairs_meta = wb_m_orig.get("pairs") or {}
+                    if wb_pairs_meta.get("differing_sections") != ["integrated_multimodal_description"]:
+                        errs.append(
+                            f"saved vector metadata['pairs']['differing_sections'] expected ['integrated_multimodal_description'], got {wb_pairs_meta.get('differing_sections')!r}"
+                        )
+                    reverb_ps = cv.load_pairs(REPO / "prompt_bank" / "control_vectors" / "reverb_cathedral.toml")
+                    if cv.pair_set_differing_sections(reverb_ps.pairs, frame=reverb_ps.frame) != ["overall_soundscape"]:
+                        errs.append(
+                            f"pair_set_differing_sections(reverb_cathedral) expected ['overall_soundscape'], got {cv.pair_set_differing_sections(reverb_ps.pairs, frame=reverb_ps.frame)!r}"
+                        )
                     if not isinstance(wb_pairs_meta.get("pairs_ab"), list) or len(wb_pairs_meta["pairs_ab"]) != 2:
                         errs.append(f"cmd_build --words did not persist 2 pairs_ab in metadata['pairs']: {wb_pairs_meta.keys()}")
                     with contextlib.redirect_stdout(buf_wb_out), contextlib.redirect_stderr(buf_wb_err):
