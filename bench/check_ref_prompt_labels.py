@@ -89,6 +89,7 @@ WORKFLOWS = REPO / "workflows"
 # green run, which is the failure this repo keeps naming.
 sys.path.insert(0, str(REPO / "workflows"))
 sys.path.insert(0, str(REPO))
+import prompts  # noqa: E402  -- workflows/prompts.py: the one follower of a linked prompt
 from h3_config import (  # noqa: E402
     GRAPH_DIRS, REF_FORMAT_CARRIERS, REF_FORMAT_WHEN_WIRED, graph_paths)
 from reference_order import VIDEO_SOURCE_CLASSES  # noqa: E402
@@ -127,6 +128,38 @@ def wired_labels(inputs, graph=None):
     return assign_labels(plan_for(inputs, graph))
 
 
+#: The link sources this check reads a prompt through: a text node, and the edit node.
+LINKED_TEXT_SOURCES = ("PrimitiveStringMultiline", "PrimitiveString", "MiniMaxH3PromptEdit")
+#: Linked prompts that did not resolve, as `graph: why`; a case fails on them.
+UNRESOLVED: list[str] = []
+
+
+def _text_link(value, doc) -> bool:
+    if not (isinstance(value, list) and len(value) == 2):
+        return False
+    source = doc.get(str(value[0]))
+    return isinstance(source, dict) and source.get("class_type") in LINKED_TEXT_SOURCES
+
+
+def _with_resolved_prompt(inputs: dict, doc: dict, name: str) -> dict:
+    """The node's inputs with a prompt linked from a text node or an edit node replaced by its text.
+
+    Every case below reads `inputs["prompt"]` and passes over anything that is not a string. Until
+    2026-11-09 that meant a prompt written on a text node was passed over without a word, and the
+    edit-guidance reference graph was counted in "every ref graph seen" and then read by no case. The
+    text comes from the one follower every tool shares; a link that does not resolve is recorded and
+    fails its own case.
+    """
+    value = inputs.get("prompt")
+    if not _text_link(value, doc):
+        return inputs
+    text = prompts._follow(value, doc)[0]
+    if not isinstance(text, str):
+        UNRESOLVED.append(f"{name}: the prompt linked from node {value[0]} did not resolve to text")
+        return inputs
+    return {**inputs, "prompt": text}
+
+
 def main():
     failures, seen = [], 0
 
@@ -150,10 +183,21 @@ def main():
                         and "references" in (node.get("inputs") or {}))):
                 # the whole doc rides along: an ordered graph's plan lives
                 # in the append chain, not in this node's inputs
-                graphs.append((path.name, node["inputs"], doc))
+                graphs.append((path.name, _with_resolved_prompt(node["inputs"], doc, path.name), doc))
 
     def every_ref_graph_seen():
         assert graphs, f"no shipped graph carries one of {REF_NODES}"
+        assert not UNRESOLVED, "; ".join(UNRESOLVED)
+        # The guard on the reader: a prompt linked from a text node or an edit node must have been
+        # resolved to text by now. If one is still a link, every case below would pass over it.
+        still_linked = sorted({name for name, inputs, doc in graphs if _text_link(inputs.get("prompt"), doc)})
+        assert not still_linked, (
+            f"a prompt linked from a text or edit node was not resolved, so no case reads it: {still_linked}")
+        unread = sorted({name for name, inputs, _doc in graphs if not isinstance(inputs.get("prompt"), str)})
+        # Said, not hidden: a carrier whose prompt is neither written on it nor linked from a text
+        # or edit node (a Masked Prompt node, a filled template) is graded elsewhere.
+        if unread:
+            print(f"        ({len(unread)} graph(s) whose prompt is made by another node are not read here)")
         print(f"        ({len(graphs)} ref graph(s))")
 
     def no_graph_directory_is_invisible():
@@ -357,11 +401,20 @@ def main():
             # the shot workflows retired (2026-09-14).
             declared = expected.get(path.name)
             per_window = list(declared) if isinstance(declared, list) else None
+            # A prompt written on a text node is the graph's prompt as much as one written on the
+            # carrier, and is compared. A prompt an edit node makes is the declared prompt with an
+            # edit applied, on purpose, and is not.
             conditioners = sorted(
-                ((int(nid), node) for nid, node in doc.items()
-                 if isinstance(node, dict)
-                 and isinstance((node.get("inputs") or {}).get("prompt"), str)),
+                ((int(nid), {**node, "inputs": _with_resolved_prompt(node["inputs"], doc, path.name)})
+                 for nid, node in doc.items()
+                 if isinstance(node, dict) and isinstance(node.get("inputs"), dict)
+                 and not prompts._from_edit_node(node["inputs"].get("prompt"), doc)
+                 and node.get("class_type") not in LINKED_TEXT_SOURCES
+                 and (isinstance(node["inputs"].get("prompt"), str)
+                      or _text_link(node["inputs"].get("prompt"), doc))),
                 key=lambda kv: kv[0])
+            conditioners = [(nid, node) for nid, node in conditioners
+                            if isinstance(node["inputs"].get("prompt"), str)]
             if per_window is not None and len(conditioners) != len(per_window):
                 bad.append(f"{path.name}: entry declares {len(per_window)} window "
                            f"prompt(s) but the graph carries {len(conditioners)} "

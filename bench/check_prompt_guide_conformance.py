@@ -102,6 +102,7 @@ BASE_GUIDE = (REPO / "vendor_guides"
 # would still have printed a plausible number. See h3_config.GRAPH_DIRS.
 sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(REPO / "workflows"))
+import prompts  # noqa: E402  -- workflows/prompts.py: the one follower of a linked prompt
 from h3_config import (  # noqa: E402
     AUDIO_DECODING_CARRIERS, PROMPT_INPUTS, REF_FORMAT_CARRIERS, graph_paths,
     resolve_link)
@@ -306,14 +307,87 @@ def ref_prompts() -> dict[str, tuple[str, str]]:
         # the deliberately unstructured probe -- has no section headers at
         # all, so a content match skipped it silently and reported a clean
         # pass over a graph it never read.
-        for node in wf.values():
+        for nid, node in wf.items():
             if node.get("class_type") not in PROMPT_NODES:
                 continue
             ins = node.get("inputs") or {}
             value = ins.get("prompt")
+            if _linked_from_text_or_edit(value, wf):
+                # A prompt written on a text node, or made by an edit node, is read through the link
+                # with the one follower every tool shares. Until 2026-11-09 a prompt that was not
+                # written on the carrier itself was skipped here without a word, so the two
+                # edit-guidance graphs were counted as clean having never been read. One that does not
+                # resolve is kept as an empty text, which fails the section case loudly.
+                value = prompts._follow(value, wf)[0] or ""
             if isinstance(value, str):
-                out[path.stem] = (value, guide_of(ins))
+                # One graph can carry two prompts (the one as written and its edited copy): the
+                # second is keyed with its node so neither replaces the other.
+                key = path.stem if path.stem not in out else f"{path.stem} (node {nid})"
+                out[key] = (value, guide_of(ins))
     return out
+
+
+#: The link sources this check reads a prompt through: a text node, and the edit node. Other linked
+#: prompts (a Masked Prompt node, a filled template) are graded by their own cases.
+LINKED_TEXT_SOURCES = ("PrimitiveStringMultiline", "PrimitiveString", "MiniMaxH3PromptEdit")
+
+
+#: Link sources whose prompts another case or another check grades, and which.
+GRADED_ELSEWHERE = {
+    "MiniMaxH3MaskedPrompt": "a masked-lane text, assembled from plan data; bench/check_masked_prompt.py",
+}
+
+
+def unread_linked_prompts(graph_files) -> list[str]:
+    """Carriers whose prompt is a link this check neither reads nor knows to be graded elsewhere.
+
+    The guard on the reader above: a prompt that is not written on its carrier is read through the link
+    when the link is from a text node or an edit node, and is somebody else's when its source is named in
+    `GRADED_ELSEWHERE`. Anything else would be passed over without a word, which is what happened to the
+    two edit-guidance graphs for one commit on 2026-11-09. So anything else fails here, by name.
+    """
+    bad = []
+    for path in graph_files:
+        if not path.name.endswith("_api.json"):
+            continue
+        wf = json.loads(path.read_text())
+        graded = ref_prompts_of(path, wf)
+        for nid, node in wf.items():
+            if not isinstance(node, dict) or node.get("class_type") not in PROMPT_INPUTS:
+                continue
+            value = (node.get("inputs") or {}).get(PROMPT_INPUTS[node["class_type"]])
+            if not (isinstance(value, list) and len(value) == 2):
+                continue
+            source = wf.get(str(value[0])) or {}
+            cls = source.get("class_type")
+            if cls in GRADED_ELSEWHERE:
+                continue
+            if cls in LINKED_TEXT_SOURCES and nid in graded:
+                continue
+            bad.append(f"{path.stem}: node {nid} ({node['class_type']}) takes its prompt from node "
+                       f"{value[0]} ({cls}), which this check does not read and no entry of "
+                       f"GRADED_ELSEWHERE names")
+    return bad
+
+
+def ref_prompts_of(path, wf: dict) -> set[str]:
+    """The ids of the nodes of one graph whose prompt `ref_prompts` reads as text."""
+    out = set()
+    for nid, node in wf.items():
+        if not isinstance(node, dict) or node.get("class_type") not in PROMPT_NODES:
+            continue
+        value = (node.get("inputs") or {}).get("prompt")
+        if isinstance(value, str) or (_linked_from_text_or_edit(value, wf)
+                                      and isinstance(prompts._follow(value, wf)[0], str)):
+            out.add(nid)
+    return out
+
+
+def _linked_from_text_or_edit(value, wf: dict) -> bool:
+    if not (isinstance(value, list) and len(value) == 2):
+        return False
+    source = wf.get(str(value[0]))
+    return isinstance(source, dict) and source.get("class_type") in LINKED_TEXT_SOURCES
 
 
 #: Classes with a `prompt` string input that are not encoder carriers, and why.
@@ -663,6 +737,8 @@ def main() -> int:
     source_files = sorted(REPO.glob("*.py"))
     ok("every prompt-carrying node is in h3_config.PROMPT_INPUTS",
        carrier_gaps(PROMPT_INPUTS, graph_files, source_files))
+    ok("no prompt reaches a carrier through a link this check cannot read",
+       unread_linked_prompts(graph_files))
     ok("every P-H3-Image single-frame prompt conforms to the P-H3-Image contract",
        ph3_image_prompts_conform(graph_files))
     ok("MiniMaxH3PH3ImageConditioning geometry helpers match diffusers before_encoder.py",
