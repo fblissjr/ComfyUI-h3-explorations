@@ -195,10 +195,17 @@ def check_static_reader() -> None:
                  "h3_image_ref_plus_text_to_video_pika_edit_guidance_api.json"):
         shipped = json.loads((REPO_ROOT / "workflows" / name).read_text(encoding="utf-8"))
         got = wf_prompts.describe(shipped)
+        as_written, text_node = wf_prompts._follow(shipped["5"]["inputs"]["prompt"], shipped)
         ok(f"{name}: the graph is described by its prompt as written, not by the edited copy",
-           got["prompt_id"] is not None
-           and got["prompt_sha256"] == wf_prompts.sha256(shipped["5"]["inputs"]["prompt"].rstrip()),
+           isinstance(as_written, str) and got["prompt_id"] is not None
+           and got["prompt_sha256"] == wf_prompts.sha256(as_written.rstrip()),
            f"prompt_id {got['prompt_id']!r}")
+        edit_nodes = [n for n in shipped.values() if n["class_type"] == "MiniMaxH3PromptEdit"]
+        literals = [k for k, n in shipped.items() for v in n["inputs"].values() if v == as_written]
+        ok(f"{name}: the prompt is written once, on a text node that feeds the conditioning node and the edit node",
+           len(edit_nodes) == 1 and text_node is not None and len(literals) == 1
+           and shipped["5"]["inputs"]["prompt"] == edit_nodes[0]["inputs"]["original"],
+           f"written on node(s) {literals}")
     graph["130"]["inputs"]["edits"] = "a brass sundial -> a clock"
     ok("and reads nothing, without raising, where the node would refuse the edit",
        wf_prompts._follow(["130", 0], graph) == (None, None))

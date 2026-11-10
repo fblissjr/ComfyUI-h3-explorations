@@ -2331,9 +2331,11 @@ def _edit_guidance_text(name: str) -> str:
 def _wire_edit_guidance(g: dict, prompt: str, spec: dict) -> None:
     """Turn a one-prompt graph into an edit-guidance graph, in place.
 
-    Node 5 stays the prompt as written, so every walker that reads a graph's prompt reads what it did.
-    Node 130 makes the edited prompt from the same text; node 131 encodes it exactly as node 5 is encoded;
-    node 9 becomes the edit guider. Preflight (26) goes on reading the original.
+    The prompt is written once, on a text node (133, core's `PrimitiveStringMultiline`). Node 5, still the
+    carrier of the prompt as written, reads it from there, and so does the edit node (130), which makes the
+    edited prompt; node 131 encodes that exactly as node 5 is encoded; node 9 becomes the edit guider.
+    Preflight (26) goes on reading the original. The walkers follow a prompt linked from a text node
+    (`workflows/prompts.py::_follow`), as they do for core's own reference workflow.
 
     With `MiniMaxH3ReferenceConditioning` at node 5 the references are encoded once: node 132 takes node
     5's encoder, VAEs, reference chain, canvas and policies, node 5 and node 131 each put a prompt on top,
@@ -2346,12 +2348,14 @@ def _wire_edit_guidance(g: dict, prompt: str, spec: dict) -> None:
     if guider["class_type"] != "BasicGuider":
         raise SystemExit(f"edit_guidance replaces BasicGuider at node 9; this graph has {guider['class_type']}")
     cond = g["5"]
-    g["130"] = {"class_type": "MiniMaxH3PromptEdit", "inputs": {"original": prompt, "edits": spec["edits"]}}
+    g["133"] = {"class_type": "PrimitiveStringMultiline", "inputs": {"value": prompt}}
+    written = ["133", 0]
+    g["130"] = {"class_type": "MiniMaxH3PromptEdit", "inputs": {"original": written, "edits": spec["edits"]}}
     if cond["class_type"] == "MiniMaxH3ReferenceConditioning":
         g["132"] = {"class_type": "MiniMaxH3EncodeReferences",
                     "inputs": {k: v for k, v in cond["inputs"].items() if k != "prompt"}}
         g["5"] = {"class_type": "MiniMaxH3PromptOnReferences",
-                  "inputs": {"encoded_references": ["132", 0], "prompt": prompt}}
+                  "inputs": {"encoded_references": ["132", 0], "prompt": written}}
         g["131"] = {"class_type": "MiniMaxH3PromptOnReferences",
                     "inputs": {"encoded_references": ["132", 0], "prompt": ["130", 0]}}
         for node in g.values():
@@ -2360,6 +2364,7 @@ def _wire_edit_guidance(g: dict, prompt: str, spec: dict) -> None:
                     node["inputs"][key] = ["132", 1]
     elif cond["class_type"] == "MiniMaxH3Conditioning":
         g["131"] = {"class_type": cond["class_type"], "inputs": dict(cond["inputs"], prompt=["130", 0])}
+        cond["inputs"]["prompt"] = written
     else:
         raise SystemExit(f"edit_guidance does not know how to add a second prompt to {cond['class_type']}")
     g["9"] = {"class_type": "MiniMaxH3EditGuider",

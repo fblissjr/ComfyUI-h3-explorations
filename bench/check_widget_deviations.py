@@ -361,14 +361,11 @@ DECLARED: dict[tuple[str, str], tuple] = {
                 "diff_span arms, +1.0 on the dual t2va diff_span arm), against the node "
                 "default 1.0 "
                 "(2026-11-07, bench/results/2026-11-05_control_vectors_pika_and_ref2va.md)"),
-    ("MiniMaxH3PromptEdit", "original"):
-        ("ARM", "the graph's own prompt, the same text its first conditioning node carries, on "
+    ("MiniMaxH3PromptEdit", "edits"):
+        ("ARM", "the graph's edit lines, data from prompt_bank/edit_guidance/, on "
                 "h3_text_to_video_pika_edit_guidance and "
                 "h3_image_ref_plus_text_to_video_pika_edit_guidance, against the node's empty default "
                 "(2026-11-09, workflows/build_workflows.py::_wire_edit_guidance)"),
-    ("MiniMaxH3PromptEdit", "edits"):
-        ("ARM", "the graph's edit lines, data from prompt_bank/edit_guidance/, on the same two "
-                "graphs, against the node's empty default (2026-11-09)"),
     ("MiniMaxH3SigmaShift", "shift_video"):
         ("RESOLVED", "h3_config.PH3_IMAGE_SHIFT (1.0/1.0) on the 9 P-H3-Image "
                      "single-frame graphs (whose 8-step non-uniform schedule is "

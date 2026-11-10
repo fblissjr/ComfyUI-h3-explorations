@@ -1409,3 +1409,14 @@ What stays red in a sweep of this branch and is not from it: `check_audio_freeze
 and `check_two_shot_load` are red on `main` as well; `check_doc_links` needs the untracked `data/`, which a
 build worktree lacks; `check_widget_deviations` reads the running server's schema, which is the old node
 code until this lands and the server restarts.
+
+### 26.2 The prompt written once
+
+The owner asked why the prompt sat in two places in the edit-guidance graphs. It no longer does: the
+generator writes it on one text node (core's `PrimitiveStringMultiline`, node 133) wired to the first
+conditioning node and to the edit node. The reason given in section 26 for two copies, that the tools
+reading a graph's prompt needed it on the conditioning node itself, was an assumption and was wrong: a full
+sweep with the linked prompt turned nothing red that reads prompts, because the readers already follow a
+prompt linked from a text node (`workflows/prompts.py::_follow`). `bench/check_edit_guidance.py` now holds
+both graphs to the prompt being written once. The edit node's `original` stays a text box so the node also
+works alone.

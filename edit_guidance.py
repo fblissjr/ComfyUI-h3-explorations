@@ -30,7 +30,6 @@ from __future__ import annotations
 
 import copy
 import logging
-import re
 from typing import Any
 
 import comfy.samplers
@@ -166,14 +165,14 @@ class MiniMaxH3PromptEdit(io.ComfyNode):
             description="Apply 'old wording -> new wording' lines to a prompt, refusing anything it cannot "
                         "place exactly. Wire the edited prompt into a second conditioning node.",
             inputs=[
-                # A box of its own, not a forced link, so a shipped graph can carry the text here and
-                # on the conditioning node. Convert it to an input to feed both from one text node.
-                # Named `original`, as on the guider, and not `prompt`: the conditioning node is what
-                # hands a prompt to the encoder and what every grader reads
-                # (`h3_config.PROMPT_INPUTS`); this is the copy an edit is applied to.
+                # The shipped graphs write the prompt once, on a text node wired to this input and to
+                # the first conditioning node (`workflows/build_workflows.py::_wire_edit_guidance`). It
+                # stays a box so the node also works alone. Named `original`, as on the guider, and not
+                # `prompt`: the conditioning node is what hands a prompt to the encoder and what every
+                # grader reads (`h3_config.PROMPT_INPUTS`).
                 io.String.Input("original", multiline=True, default="",
-                                tooltip="The prompt as written: the same text the first conditioning node gets. "
-                                        "If the two differ, the edit is applied to this one."),
+                                tooltip="The prompt as written. Wire it from the same text node that feeds the "
+                                        "first conditioning node, so the two cannot differ."),
                 io.String.Input("edits", multiline=True, default="",
                                 tooltip="One edit a line: old wording -> new wording. The old wording must occur "
                                         "exactly once in the prompt. Start a line with 'soundscape:' to edit the "
