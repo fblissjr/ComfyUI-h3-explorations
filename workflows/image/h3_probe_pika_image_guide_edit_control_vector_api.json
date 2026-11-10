@@ -1,0 +1,256 @@
+{
+  "1": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "minimax_h3_ref2va_pruned_int8_convrot.safetensors",
+      "weight_dtype": "default"
+    }
+  },
+  "2": {
+    "class_type": "MiniMaxH3EncoderLoader",
+    "inputs": {
+      "encoder_name": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+      "device": "default"
+    }
+  },
+  "3": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "p-h3-image_vae_bf16.safetensors"
+    }
+  },
+  "4": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "minimax_h3_audio_vae_fp32.safetensors"
+    }
+  },
+  "6": {
+    "class_type": "RandomNoise",
+    "inputs": {
+      "noise_seed": 730451892
+    }
+  },
+  "7": {
+    "class_type": "KSamplerSelect",
+    "inputs": {
+      "sampler_name": "lcm"
+    }
+  },
+  "9": {
+    "class_type": "BasicGuider",
+    "inputs": {
+      "model": [
+        "115",
+        0
+      ],
+      "conditioning": [
+        "26",
+        0
+      ]
+    }
+  },
+  "10": {
+    "class_type": "SamplerCustomAdvanced",
+    "inputs": {
+      "noise": [
+        "6",
+        0
+      ],
+      "guider": [
+        "9",
+        0
+      ],
+      "sampler": [
+        "7",
+        0
+      ],
+      "sigmas": [
+        "60",
+        0
+      ],
+      "latent_image": [
+        "26",
+        1
+      ]
+    }
+  },
+  "11": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": [
+        "10",
+        0
+      ],
+      "vae": [
+        "3",
+        0
+      ]
+    }
+  },
+  "13": {
+    "class_type": "PreviewImage",
+    "inputs": {
+      "images": [
+        "11",
+        0
+      ]
+    }
+  },
+  "27": {
+    "class_type": "MiniMaxH3Resolution",
+    "inputs": {
+      "shape": "square",
+      "shape.square_resolution": "768x768  1  576 tok/frame  0.33x",
+      "length": 362
+    }
+  },
+  "5": {
+    "class_type": "MiniMaxH3ReferenceToVideo",
+    "inputs": {
+      "clip": [
+        "2",
+        0
+      ],
+      "vae": [
+        "3",
+        0
+      ],
+      "audio_vae": [
+        "4",
+        0
+      ],
+      "prompt": "vfx_edit: Replace the man's clothing with a red leather jacket, while preserving his identity, face, hair, pose, framing, lighting and background.",
+      "width": [
+        "27",
+        0
+      ],
+      "height": [
+        "27",
+        1
+      ],
+      "length": [
+        "27",
+        2
+      ],
+      "ref_image_size": "match"
+    }
+  },
+  "18": {
+    "class_type": "MiniMaxH3LoRABranch",
+    "inputs": {
+      "model": [
+        "1",
+        0
+      ],
+      "lora_name": "h3/pika_h3_flex_ref2va_svd995_bf16.safetensors",
+      "strength": 1.0,
+      "modules": "all",
+      "blocks": "all",
+      "start_percent": 0.0,
+      "end_percent": 1.0
+    }
+  },
+  "72": {
+    "class_type": "MiniMaxH3LoRABranch",
+    "inputs": {
+      "model": [
+        "18",
+        0
+      ],
+      "lora_name": "h3/alissonerdx/minimax_h3_vfx_edit_v1.0_r128_ffp.safetensors",
+      "strength": 1.0,
+      "modules": "all",
+      "blocks": "all",
+      "start_percent": 0.0,
+      "end_percent": 1.0
+    }
+  },
+  "19": {
+    "class_type": "MiniMaxH3SigmaShift",
+    "inputs": {
+      "model": [
+        "72",
+        0
+      ],
+      "shift_video": 12.0,
+      "shift_audio": 3.0
+    }
+  },
+  "58": {
+    "class_type": "ModelAttentionBackend",
+    "inputs": {
+      "model": [
+        "19",
+        0
+      ],
+      "attention": "comfy kitchen attention"
+    }
+  },
+  "115": {
+    "class_type": "MiniMaxH3ApplyControlVectors",
+    "inputs": {
+      "model": [
+        "58",
+        0
+      ],
+      "vector_name": "film_16mm_1974__ref2va__diff_span__lora_865ee189.safetensors",
+      "strength": 1.15,
+      "mode": "add_norm_matched",
+      "mask": "non_vision",
+      "start_percent": 0.0,
+      "end_percent": 1.0,
+      "allow_recipe_mismatch": false,
+      "ref_vae_end_percent": 1.0,
+      "ref_vae_aug": 0.999
+    }
+  },
+  "26": {
+    "class_type": "MiniMaxH3Preflight",
+    "inputs": {
+      "conditioning": [
+        "70",
+        0
+      ],
+      "samples": [
+        "70",
+        1
+      ]
+    }
+  },
+  "60": {
+    "class_type": "ManualSigmas",
+    "inputs": {
+      "sigmas": "1.0, 0.972973, 0.923077, 0.8, 0.571429, 0.333333, 0.0"
+    }
+  },
+  "16": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "1-man.png"
+    }
+  },
+  "70": {
+    "class_type": "MiniMaxH3GuideLatent",
+    "inputs": {
+      "positive": [
+        "5",
+        0
+      ],
+      "vae": [
+        "3",
+        0
+      ],
+      "latent": [
+        "5",
+        1
+      ],
+      "guide": [
+        "16",
+        0
+      ],
+      "frame_idx": 0,
+      "single_frame": true
+    }
+  }
+}

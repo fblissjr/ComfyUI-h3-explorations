@@ -24,12 +24,14 @@ With `--vector-arm LABEL=FILE:STRENGTH[:MASK][+FILE2:STRENGTH2[:MASK2]][,key=val
 that keep the original prompt and configure one or more chained `MiniMaxH3ApplyControlVectors` nodes (inserting
 one before `BasicGuider` when the base graph is a plain Pika baseline such as `h3_first_last_frame_pika_api.json`).
 Supported trailing `key=val` options: `ref_vae_end=F`, `ref_vae_aug=F`, `start=F`, `end=F`, `mode=MODE`,
-`allow_recipe_mismatch=true|false`, and `sol_end=F` (sets `MiniMaxH3Sol.end_percent`). Passing `FILE=none` with
-`STRENGTH=0` and `ref_vae_end=F` builds a single-variable unsteered reference-release control; passing
-`none:0,sol_end=F` builds a same-topology Sol-window control.
+`allow_recipe_mismatch=true|false`, `task_lora_end=F` (sets `MiniMaxH3LoRABranch.end_percent` on node 72), and
+`sol_end=F` (sets `MiniMaxH3Sol.end_percent`). Passing `FILE=none` with `STRENGTH=0` and `ref_vae_end=F` builds a
+single-variable unsteered reference/guide-release control; passing `none:0,sol_end=F` builds a same-topology Sol-window
+control.
 
-Supports `t2va`, `ref2va`, `fl2va` (`--ref-image` + `--ref-image-2`), and single-frame `P-H3-Image` `t2i`/`edit`
-graphs (converting `PreviewImage` to `SaveImage` so stills write under `--prefix`).
+Supports `t2va`, `ref2va`, `fl2va` (`--ref-image` + `--ref-image-2`), `P-H3-Image` `t2i`/`edit`, and Pika guide-latent
+single-frame image edit (`MiniMaxH3ReferenceToVideo` + `MiniMaxH3GuideLatent`, propagating the guide onto the edited
+branch and supporting `--canvas WIDTHxHEIGHT` and `PreviewImage` -> `SaveImage`).
 
 What it cannot see: whether an arm looks right. It writes each arm's graph, prints prompts in full,
 and with --queue returns each render's `/history` entry status. A person watches the clips.
@@ -59,10 +61,15 @@ from h3_prompt_edit import apply_edits  # noqa: E402
 CONDITIONING_NODES = (
     "MiniMaxH3Conditioning",
     "MiniMaxH3ReferenceConditioning",
+    "MiniMaxH3ReferenceToVideo",
     "MiniMaxH3PH3ImageConditioning",
 )
+GUIDE_NODES = (
+    "MiniMaxH3GuideLatent",
+    "MiniMaxH3AddGuide",
+)
 VECTOR_OPT_KEYS = frozenset(
-    {"ref_vae_end", "ref_vae_aug", "start", "end", "mode", "sol_end", "allow_recipe_mismatch"}
+    {"ref_vae_end", "ref_vae_aug", "start", "end", "mode", "sol_end", "task_lora_end", "allow_recipe_mismatch"}
 )
 
 
@@ -166,6 +173,27 @@ def _get_output_prefix(g: dict) -> str:
     raise SystemExit("arm graph has no VHS_VideoCombine or SaveImage output node")
 
 
+def _parse_canvas(spec: str | None) -> tuple[int, int] | None:
+    if not spec:
+        return None
+    w_s, sep, h_s = spec.lower().partition("x")
+    if not sep or not w_s.isdigit() or not h_s.isdigit():
+        raise SystemExit(f"--canvas must be WIDTHxHEIGHT (e.g. 768x1024), got {spec!r}")
+    return int(w_s), int(h_s)
+
+
+def _resolution_inputs(width: int, height: int, length: int) -> dict:
+    wf_dir = str(REPO_ROOT / "workflows")
+    comfy_root = str(REPO_ROOT.parent.parent)
+    if comfy_root not in sys.path:
+        sys.path.insert(0, comfy_root)
+    if wf_dir not in sys.path:
+        sys.path.insert(0, wf_dir)
+    from build_workflows import _resolution_widgets  # noqa: E402
+
+    return _resolution_widgets(width, height, length)
+
+
 def _base(
     path: Path,
     prompt: str,
@@ -174,6 +202,7 @@ def _base(
     prefix: str,
     ref_image: str | None,
     ref_image_2: str | None = None,
+    canvas_wh: tuple[int, int] | None = None,
     vector_chain: list[tuple[str, float, str | None]] | None = None,
     vector_opts: dict[str, str] | None = None,
 ) -> dict:
@@ -181,6 +210,10 @@ def _base(
     opts = vector_opts or {}
     if "sol_end" in opts:
         _one(g, "MiniMaxH3Sol")[1]["inputs"]["end_percent"] = float(opts["sol_end"])
+    if "task_lora_end" in opts:
+        if "72" not in g or g["72"].get("class_type") != "MiniMaxH3LoRABranch":
+            raise SystemExit("task_lora_end requires a task LoRA MiniMaxH3LoRABranch at node 72")
+        g["72"]["inputs"]["end_percent"] = float(opts["task_lora_end"])
 
     needs_cv_node = bool(vector_chain) and not (
         len(vector_chain) == 1
@@ -256,9 +289,18 @@ def _base(
     cond["inputs"]["prompt"] = prompt
     res_hits = _all_of(g, "MiniMaxH3Resolution")
     if res_hits:
-        res_hits[0][1]["inputs"]["length"] = length
-    elif isinstance(cond["inputs"].get("length"), int):
-        cond["inputs"]["length"] = length
+        if canvas_wh is not None:
+            res_hits[0][1]["inputs"] = _resolution_inputs(canvas_wh[0], canvas_wh[1], length)
+        else:
+            res_hits[0][1]["inputs"]["length"] = length
+    else:
+        if isinstance(cond["inputs"].get("length"), int):
+            cond["inputs"]["length"] = length
+        if canvas_wh is not None:
+            cond["inputs"]["width"] = canvas_wh[0]
+            cond["inputs"]["height"] = canvas_wh[1]
+            if "canvas" in cond["inputs"]:
+                cond["inputs"]["canvas"] = "explicit"
 
     _one(g, "RandomNoise")[1]["inputs"]["noise_seed"] = seed
     _set_output_prefix(g, prefix)
@@ -280,6 +322,12 @@ def _with_second_prompt(g: dict, edited: str) -> tuple[str, str]:
     second = copy.deepcopy(cond)
     second["inputs"]["prompt"] = edited
     g["205"] = second
+    for guide_id, guide_node in _all_of(g, GUIDE_NODES):
+        if guide_node["inputs"].get("positive") == [cond_id, 0]:
+            second_guide = copy.deepcopy(guide_node)
+            second_guide["inputs"]["positive"] = ["205", 0]
+            g["270"] = second_guide
+            return guide_id, "270"
     return cond_id, "205"
 
 
@@ -289,6 +337,8 @@ def _ranged(g: dict, at: str, source: str, start: float, end: float) -> None:
 
 
 def _effective_length(g: dict) -> int:
+    if any(n["inputs"].get("single_frame") for _, n in _all_of(g, GUIDE_NODES)):
+        return 1
     res_hits = _all_of(g, "MiniMaxH3Resolution")
     if res_hits:
         return int(res_hits[0][1]["inputs"]["length"])
@@ -299,6 +349,8 @@ def _effective_length(g: dict) -> int:
 
 
 def _arms(args, prompt: str, edited: str | None, seed: int) -> tuple[dict[str, dict], dict]:
+    canvas_wh = _parse_canvas(args.canvas)
+
     def fresh(label: str, text: str = prompt) -> dict:
         return _base(
             Path(args.base),
@@ -308,6 +360,7 @@ def _arms(args, prompt: str, edited: str | None, seed: int) -> tuple[dict[str, d
             f"{args.prefix}/{args.name}_{label}_s{seed}",
             args.ref_image,
             args.ref_image_2,
+            canvas_wh=canvas_wh,
         )
 
     probe = fresh("probe")
@@ -382,6 +435,7 @@ def _arms(args, prompt: str, edited: str | None, seed: int) -> tuple[dict[str, d
             f"{args.prefix}/{args.name}_{label}_s{seed}",
             args.ref_image,
             args.ref_image_2,
+            canvas_wh=canvas_wh,
             vector_chain=chain,
             vector_opts=opts,
         )
@@ -417,6 +471,7 @@ def main() -> int:
     ap.add_argument("--out", required=True, help="folder for the arm graphs and the record, under data/")
     ap.add_argument("--ref-image", default=None, help="first LoadImage input (ref2va ref, fl2va first_frame, or edit image_1)")
     ap.add_argument("--ref-image-2", default=None, help="second LoadImage input (fl2va last_frame or edit image_2)")
+    ap.add_argument("--canvas", default=None, help="optional explicit WIDTHxHEIGHT (e.g. 768x1024)")
     ap.add_argument("--length", type=int, default=141)
     ap.add_argument("--seeds", type=int, nargs="+", required=True)
     ap.add_argument("--scales", type=float, nargs="+", default=[1.5, 2.5])
@@ -450,7 +505,16 @@ def main() -> int:
     edit_record: str | list[str] | None = (
         args.edit[0] if args.edit and len(args.edit) == 1 else args.edit
     )
-    probe_base = _base(Path(args.base), prompt, args.length, args.seeds[0], args.prefix, args.ref_image, args.ref_image_2)
+    probe_base = _base(
+        Path(args.base),
+        prompt,
+        args.length,
+        args.seeds[0],
+        args.prefix,
+        args.ref_image,
+        args.ref_image_2,
+        canvas_wh=_parse_canvas(args.canvas),
+    )
     record = {
         "base": args.base,
         "prompt_file": args.prompt_file,

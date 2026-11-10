@@ -352,15 +352,22 @@ DECLARED: dict[tuple[str, str], tuple] = {
                 "applied by the arm on h3_text_to_video_pika_control_vector, "
                 "h3_text_to_video_pika_dual_control_vectors, "
                 "h3_image_ref_plus_text_to_video_pika_control_vector, "
-                "h3_p_h3_image_t2i_control_vector, and "
-                "h3_p_h3_image_edit_control_vector, against the node default 'none' "
+                "h3_p_h3_image_t2i_control_vector, "
+                "h3_p_h3_image_edit_control_vector, and "
+                "h3_probe_pika_image_guide_edit_control_vector, against the node default 'none' "
                 "(2026-11-05, bench/results/2026-11-05_control_vectors_pika_and_ref2va.md)"),
     ("MiniMaxH3ApplyControlVectors", "strength"):
         ("ARM", "the arm's post-refiner control-vector multiplier in add_norm_matched "
-                "units (+1.15 on the single t2va, ref2va, and P-H3-Image film_16mm_1974 "
-                "diff_span arms, +1.0 on the dual t2va diff_span arm), against the node "
-                "default 1.0 "
+                "units (+1.15 on the single t2va, ref2va, P-H3-Image, and Pika guide-edit "
+                "film_16mm_1974 diff_span arms, +1.0 on the dual t2va diff_span arm), "
+                "against the node default 1.0 "
                 "(2026-11-07, bench/results/2026-11-05_control_vectors_pika_and_ref2va.md)"),
+    ("MiniMaxH3ApplyControlVectors", "mask"):
+        ("ARM", "'non_vision' on `h3_probe_pika_image_guide_edit_control_vector`, "
+                "against the node default 'scene_only': that probe conditions through "
+                "core's `MiniMaxH3ReferenceToVideo` (which attaches no `h3_span_masks`) "
+                "on a one-sentence `vfx_edit:` prompt with no sections, vision blocks, "
+                "or `<d>` speech tags (2026-11-10, docs/h3_image_editing.md)"),
     ("MiniMaxH3PromptEdit", "edits"):
         ("ARM", "the graph's edit lines, data from prompt_bank/edit_guidance/, on "
                 "h3_text_to_video_pika_edit_guidance and "

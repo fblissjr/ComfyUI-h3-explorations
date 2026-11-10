@@ -168,7 +168,8 @@ GUIDE_NODES = ("MiniMaxH3AddGuide", "MiniMaxH3GuideLatent")
 # Every run prints what it waived. An exemption nobody sees is an exemption
 # that grows.
 #
-# **One member since 2026-11-10.** `h3_probe_pika_image_guide_edit_api` is a
+# **Two members since 2026-11-10.** `h3_probe_pika_image_guide_edit_api` (and
+# its `_control_vector` twin) is a
 # one-frame edit through a guide edit LoRA, and its prompt is in the form that
 # LoRA was trained on: one sentence opening with `vfx_edit:`, the edit and then
 # what stays. Sections are not what the LoRA read in training, so grading it
@@ -182,7 +183,10 @@ GUIDE_NODES = ("MiniMaxH3AddGuide", "MiniMaxH3GuideLatent")
 # An entry naming a graph that no longer ships is rot, not a safe leftover: it
 # waives nothing while reading as coverage. The "every structure probe still
 # ships" case below asserts that, so restoring one and then dropping its graph goes red.
-_STRUCTURE_PROBES: set[str] = {"h3_probe_pika_image_guide_edit_api"}
+_STRUCTURE_PROBES: set[str] = {
+    "h3_probe_pika_image_guide_edit_api",
+    "h3_probe_pika_image_guide_edit_control_vector_api",
+}
 
 
 def _audio_sections_optional(wf: dict) -> bool:

@@ -2372,14 +2372,19 @@ def _wire_edit_guidance(g: dict, prompt: str, spec: dict) -> None:
             for key, val in node["inputs"].items():
                 if val == ["5", 1]:
                     node["inputs"][key] = ["132", 1]
-    elif cond["class_type"] == "MiniMaxH3Conditioning":
+    elif cond["class_type"] in ("MiniMaxH3Conditioning", "MiniMaxH3ReferenceToVideo"):
         g["131"] = {"class_type": cond["class_type"], "inputs": dict(cond["inputs"], prompt=["130", 0])}
         cond["inputs"]["prompt"] = written
     else:
         raise SystemExit(f"edit_guidance does not know how to add a second prompt to {cond['class_type']}")
+    edited_src = ["131", 0]
+    if "70" in g and g["70"]["class_type"] in ("MiniMaxH3GuideLatent", "MiniMaxH3AddGuide"):
+        g["134"] = {"class_type": g["70"]["class_type"],
+                    "inputs": dict(g["70"]["inputs"], positive=edited_src)}
+        edited_src = ["134", 0]
     g["9"] = {"class_type": "MiniMaxH3EditGuider",
               "inputs": {"model": guider["inputs"]["model"], "original": guider["inputs"]["conditioning"],
-                         "edited": ["131", 0], "scale": float(spec.get("scale", EDIT_GUIDANCE_DEFAULTS["scale"])),
+                         "edited": edited_src, "scale": float(spec.get("scale", EDIT_GUIDANCE_DEFAULTS["scale"])),
                          "first_step": int(spec.get("first_step", EDIT_GUIDANCE_DEFAULTS["first_step"])),
                          "align_positions": EDIT_GUIDANCE_DEFAULTS["align_positions"],
                          "last_step": int(spec.get("last_step", EDIT_GUIDANCE_DEFAULTS["last_step"]))}}
@@ -5071,6 +5076,24 @@ def main():
               width=768, height=768,
               out_prefix="Image/h3_probe_pika_image_guide_edit"),
          "guide image + text -> single-frame edited image on unet_ref2va + Pika H3 Flex 6-step LCM (SVD995 branch) + guide-latent task LoRA, no reference picture (core's MiniMaxH3ReferenceToVideo, MiniMaxH3GuideLatent(single_frame=True))"),
+        ("h3_probe_pika_image_guide_edit_control_vector.json", "pika-image-guide-edit-control-vector", "r2v",
+         PIKA_STILL_EDIT_PROMPT,
+         dict(ref_images_on=False, native_ref=True,
+              single_frame=True, guide_image=True, guide_file=PLACEHOLDER_IMAGE_A,
+              lora=(PIKA_REF2VA_SVD995_LORA, PIKA_STRENGTH), lora_branch=True,
+              task_lora=(GUIDE_VFX_EDIT_FFP_LORA, 1.0),
+              steps=PIKA_STEPS, sampler_name=PIKA_SAMPLER,
+              manual_sigmas=PIKA_MANUAL_SIGMAS,
+              width=768, height=768,
+              control_vector=dict(
+                  vector_name="film_16mm_1974__ref2va__diff_span__lora_865ee189.safetensors",
+                  strength=1.15,
+                  mask="non_vision",
+                  ref_vae_end_percent=1.0,
+                  ref_vae_aug=0.999,
+              ),
+              out_prefix="Image/h3_probe_pika_image_guide_edit_control_vector"),
+         "guide image + text -> single-frame edited image on unet_ref2va + Pika H3 Flex 6-step LCM (SVD995 branch) + guide-latent task LoRA with a post-refiner control vector (film_16mm_1974 ref2va diff_span at +1.15, add_norm_matched, non_vision, ref_vae_end_percent=1.0)"),
     )
 
     # The 2026-09-26 distill run (owner): `_savelat` probe twins of exactly the

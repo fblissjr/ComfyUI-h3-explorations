@@ -1,6 +1,6 @@
 # H3 as an image gen/edit model
 
-Last updated: 2026-11-10 (added `h3_probe_pika_image_guide_edit_api.json`, a one-frame edit on Pika with no reference picture, and the section on it); 2026-11-09 (the `P-H3-Image` graphs default to the 32B encoder; the two probes now wire the distilled 4B encoder); 2026-11-08 (added `h3_p_h3_image_t2i_control_vector_api.json` and `h3_p_h3_image_edit_control_vector_api.json` bringing `workflows/image/` to 9 workflows); 2026-11-07 (reopened `workflows/image/` with PrunaAI `P-H3-Image` and guide-latent single-frame T2I and image-edit workflows using `MiniMaxH3PH3ImageConditioning` in [`ph3_image_nodes.py`](../ph3_image_nodes.py) plus `MiniMaxH3GuideLatent` in [`guide_latent.py`](../guide_latent.py), with `prompt` wired directly into `MiniMaxH3PH3ImageConditioning` and `ModelAttentionBackend(attention="comfy kitchen attention")`; no core patch). Previously updated: 2026-08-27, 2026-08-16.
+Last updated: 2026-11-10 (added `h3_probe_pika_image_guide_edit_api.json` and `h3_probe_pika_image_guide_edit_control_vector_api.json`, one-frame edits on Pika with no reference picture, guide-branch edit-guidance wiring, and the section on them); 2026-11-09 (the `P-H3-Image` graphs default to the 32B encoder; the two probes now wire the distilled 4B encoder); 2026-11-08 (added `h3_p_h3_image_t2i_control_vector_api.json` and `h3_p_h3_image_edit_control_vector_api.json` bringing `workflows/image/` to 9 workflows); 2026-11-07 (reopened `workflows/image/` with PrunaAI `P-H3-Image` and guide-latent single-frame T2I and image-edit workflows using `MiniMaxH3PH3ImageConditioning` in [`ph3_image_nodes.py`](../ph3_image_nodes.py) plus `MiniMaxH3GuideLatent` in [`guide_latent.py`](../guide_latent.py), with `prompt` wired directly into `MiniMaxH3PH3ImageConditioning` and `ModelAttentionBackend(attention="comfy kitchen attention")`; no core patch). Previously updated: 2026-08-27, 2026-08-16.
 
 ## Reopened 2026-11-07: PrunaAI `P-H3-Image` & Guide-Latent Image Edit (`workflows/image/`)
 
@@ -20,6 +20,7 @@ ComfyUI core natively supports `PH3ImageTEModel` (`comfy/text_encoders/minimax.p
 | [`workflows/image/h3_p_h3_image_edit_control_vector_api.json`](../workflows/image/h3_p_h3_image_edit_control_vector_api.json) | 1–8 Image Edit + Post-Refiner Control Vector (`canvas="auto"`, `t=1`, `film_16mm_1974__fl2va__diff_span__lora_2a8c2b52.safetensors` at `strength=1.15, ref_vae_end_percent=1.0`) | `p-h3-image_int8_convrot.safetensors` + `MiniMaxH3ApplyControlVectors` | `qwen3vl_32b_minimax_h3_int8_convrot.safetensors` (`MiniMaxH3EncoderLoader`) | 8 Euler steps (`PH3_IMAGE_MANUAL_SIGMAS`) |
 | [`workflows/image/h3_p_h3_image_guide_edit_api.json`](../workflows/image/h3_p_h3_image_guide_edit_api.json) | Guide-Latent Image Edit (`1344x768`, `t=1` via `MiniMaxH3ReferenceConditioning` + `MiniMaxH3GuideLatent(single_frame=True)` at `frame_idx=0`) | `minimax_h3_ref2va_pruned_int8_convrot.safetensors` + `h3/p-h3-image_lora_bf16.safetensors` + `h3/alissonerdx/minimax_h3_vfx_edit_v1.0_r128_ffp.safetensors` (`MiniMaxH3LoRABranch`) | `qwen3vl_32b_minimax_h3_int8_convrot.safetensors` (`MiniMaxH3EncoderLoader`) | 8 Euler steps (`PH3_IMAGE_MANUAL_SIGMAS`) |
 | [`workflows/image/h3_probe_pika_image_guide_edit_api.json`](../workflows/image/h3_probe_pika_image_guide_edit_api.json) | One-frame edit on Pika, no reference picture (the picture to edit is the guide: core's `MiniMaxH3ReferenceToVideo` + `MiniMaxH3GuideLatent`, `single_frame=True`; the family's square canvas) | `minimax_h3_ref2va_pruned_int8_convrot.safetensors` + `PIKA_REF2VA_SVD995_LORA` + `GUIDE_VFX_EDIT_FFP_LORA` (`MiniMaxH3LoRABranch`) | `qwen3vl_32b_minimax_h3_int8_convrot.safetensors` (`MiniMaxH3EncoderLoader`) | `PIKA_STEPS` steps on `PIKA_SAMPLER` (`PIKA_MANUAL_SIGMAS`) |
+| [`workflows/image/h3_probe_pika_image_guide_edit_control_vector_api.json`](../workflows/image/h3_probe_pika_image_guide_edit_control_vector_api.json) | One-frame edit on Pika + Post-Refiner Control Vector (`768x768`, `t=1`, `film_16mm_1974__ref2va__diff_span__lora_865ee189.safetensors` at `strength=1.15, mask="non_vision", ref_vae_end_percent=1.0`) | `minimax_h3_ref2va_pruned_int8_convrot.safetensors` + `PIKA_REF2VA_SVD995_LORA` + `GUIDE_VFX_EDIT_FFP_LORA` + `MiniMaxH3ApplyControlVectors` | `qwen3vl_32b_minimax_h3_int8_convrot.safetensors` (`MiniMaxH3EncoderLoader`) | `PIKA_STEPS` steps on `PIKA_SAMPLER` (`PIKA_MANUAL_SIGMAS`) |
 
 ### What Was Fixed vs. PrunaAI's Reference ComfyUI Workflows & ComfyUI Core's `PH3ImageConditioning`
 
@@ -42,15 +43,17 @@ ComfyUI core natively supports `PH3ImageTEModel` (`comfy/text_encoders/minimax.p
 5. **Prompting Documentation**:
    - Full `P-H3-Image` prompting rules (`p_h3_image_t2i` and `p_h3_image_edit`) and upsampler documentation live in [`docs/prompting/17_p_h3_image_prompting.md`](prompting/17_p_h3_image_prompting.md) and [`docs/wiki/system_prompts/h3_p_h3_image_system_prompt.md`](wiki/system_prompts/h3_p_h3_image_system_prompt.md).
 
-### A one-frame edit on Pika (`h3_probe_pika_image_guide_edit_api.json`, 2026-11-10)
+### A one-frame edit on Pika (`h3_probe_pika_image_guide_edit_api.json` and `h3_probe_pika_image_guide_edit_control_vector_api.json`, 2026-11-10)
 
-The one graph in `workflows/image/` that takes nothing from `P-H3-Image` but its image VAE. The picture to edit goes in
+The two graphs in `workflows/image/` that take nothing from `P-H3-Image` but its image VAE. The picture to edit goes in
 as the guide ([`MiniMaxH3GuideLatent`](../guide_latent.py), `single_frame=True`), Pika H3 Flex runs on its own sampler
 and sigmas (`workflows/h3_config.py::PIKA_SAMPLER`, `PIKA_MANUAL_SIGMAS`), and a guide edit LoRA
 (`workflows/h3_config.py::GUIDE_VFX_EDIT_FFP_LORA`) makes the change the prompt asks for. No reference picture is wired,
 so the conditioning node is core's `MiniMaxH3ReferenceToVideo`: `MiniMaxH3ReferenceConditioning` refuses an empty
-reference chain. The row is in [`workflows/build_workflows.py`](../workflows/build_workflows.py) (`native_ref=True`
-with `guide_image=True` and no references).
+reference chain (`h3_probe_pika_image_guide_edit_control_vector_api.json` therefore sets `mask="non_vision"` on
+`MiniMaxH3ApplyControlVectors`, since core's node attaches no `h3_span_masks` and a zero-reference `vfx_edit:` sentence
+carries no vision or `<d>` spans). Both rows are in [`workflows/build_workflows.py`](../workflows/build_workflows.py)
+(`native_ref=True` with `guide_image=True` and no references).
 
 **The prompt is in the edit LoRA's form, not the house sections.** The form is the LoRA author's, from the notes in
 the release the file came from ([Alissonerdx/Minimax-H3-ComfyUI](https://huggingface.co/Alissonerdx/Minimax-H3-ComfyUI),
@@ -58,7 +61,7 @@ its VFX edit page and the prompt template inside its workflow; this repo carries
 prompt opens with `vfx_edit:`, is one English sentence, says the edit first and then what stays, and names
 `<Picture 1>` only when a reference picture is wired. The text is
 [`prompt_bank/guide_edit/vfx_edit_man_red_jacket.txt`](../prompt_bank/guide_edit/vfx_edit_man_red_jacket.txt), and
-`bench/check_prompt_guide_conformance.py::_STRUCTURE_PROBES` waives the section cases for this graph for that reason.
+`bench/check_prompt_guide_conformance.py::_STRUCTURE_PROBES` waives the section cases for both graphs for that reason.
 
 **What was rendered on 2026-11-10.** One seed and two pictures of people, so a first look and not a ranking. The
 renders, the sheets that lay them side by side and the graph each was queued with are on the output share under the
@@ -73,14 +76,22 @@ folder `pika_still_trial` in `Image`.
   the reference took over the one-frame target and the picture to edit was lost; sized to the output (`match`) the
   picture was kept, but the reference's background came across where its head was asked for. The author's notes ask
   for a reference that is one thing cut out on its own, which was not tried.
-- A control vector (`MiniMaxH3ApplyControlVectors`, `mask` `non_vision`) changed the render at the same seed; neither
-  of the two vectors tried gave the look it is named for.
+- A control vector (`MiniMaxH3ApplyControlVectors`, `mask` `non_vision`, `ref_vae_end_percent=1.0`, `ref_vae_aug=0.999`,
+  `GUIDE_VFX_EDIT_FFP_LORA` `end_percent=1.0`) changed the render at the same seed; neither of the two vectors tried
+  gave the look it is named for outside the edited garment. In code (`comfy/model_base.py:2302-2306`,
+  `comfy/ldm/minimax/model.py:375-389, 535-549`), `MiniMaxH3GuideLatent(single_frame=True, frame_idx=0)` places the
+  source still in `payload["cond_video_latents"]` at `cond_t = cursor + 0`, the target frame's own `(t=0, h, w)` RoPE
+  coordinates; `control_vector_nodes.py:1244-1274` already gates `cond_video_latents` when `ref_vae_end_percent < 1.0`
+  or `ref_vae_aug < 0.999`, and `node 72` (`MiniMaxH3LoRABranch`) gates `GUIDE_VFX_EDIT_FFP_LORA` via `end_percent`.
 - The graph as generated was rendered once with a picture of a man in place of the placeholder, which was not on the
   machine: the clothing was replaced and the rest kept.
 
-**Not known.** Whether a cut-out reference makes the reference form work. Edit guidance on a still:
-`workflows/build_workflows.py::_wire_edit_guidance` does not carry the guide to the edited prompt's branch, so that
-pairing is not built. The two older guide graphs (`h3_guide_video_edit_api.json`, `h3_p_h3_image_guide_edit_api.json`)
+**Not known.** Whether a cut-out reference makes the reference form work. Whether releasing `ref_vae_end_percent` (with
+a matched no-vector guide-release control) and/or `GUIDE_VFX_EDIT_FFP_LORA` `end_percent` lets a style control vector
+restyle the whole frame while keeping the named edit. Edit guidance on a still:
+`workflows/build_workflows.py::_wire_edit_guidance` and `bench/edit_guidance_arms.py::_with_second_prompt` now carry
+`MiniMaxH3GuideLatent` / `MiniMaxH3AddGuide` (and `MiniMaxH3ReferenceToVideo`) onto the edited prompt's branch, not yet
+graded on renders. The two older guide graphs (`h3_guide_video_edit_api.json`, `h3_p_h3_image_guide_edit_api.json`)
 carry a house scene prompt with no `vfx_edit:` opening; they are left as they were.
 
 ---
