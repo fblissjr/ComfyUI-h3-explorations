@@ -81,19 +81,63 @@ def _host(t):
     return t
 
 
+def _pack_3band_block_diag(a, b):
+    """Compact a 3-band block-diagonal `b` (`[3 * D, R]`, e.g. fused `qkv_proj`)
+    into `[D, R]` with column counts `(r_0, r_1, r_2)` whenever every column has
+    non-zero entries in at most one `D`-row band (`0:D`, `D:2*D`, `2*D:3*D`).
+
+    Supports both equal-rank full adapters (`r_0 = r_1 = r_2 = 128`) and
+    per-component SVD-truncated adapters (`svd995` / `svd99`, where `r_q`, `r_k`,
+    `r_v` differ per block). Returns `(a, b, None)` unchanged for dense matrices."""
+    if a is None or b is None or b.ndim != 2 or a.ndim != 2:
+        return a, b, None
+    out_dim, rank = b.shape
+    if rank < 1 or out_dim < 3 or (out_dim % 3) != 0 or a.shape[0] != rank:
+        return a, b, None
+    band_dim = out_dim // 3
+    band_nz = (b.reshape(3, band_dim, rank) != 0).any(dim=1)
+    touched = band_nz.sum(dim=0)
+    if not bool((touched <= 1).all()) or not bool((touched > 0).any()):
+        return a, b, None
+    band_of_col = band_nz.to(torch.int64).argmax(dim=0)
+    idx_0 = torch.nonzero(band_of_col == 0, as_tuple=False).flatten()
+    idx_1 = torch.nonzero(band_of_col == 1, as_tuple=False).flatten()
+    idx_2 = torch.nonzero(band_of_col == 2, as_tuple=False).flatten()
+    splits = (int(idx_0.numel()), int(idx_1.numel()), int(idx_2.numel()))
+    perm = torch.cat((idx_0, idx_1, idx_2), dim=0)
+    if not torch.equal(perm, torch.arange(rank, device=perm.device)):
+        a = a.index_select(0, perm)
+    b_packed = torch.cat(
+        (
+            b[0:band_dim].index_select(1, idx_0),
+            b[band_dim : 2 * band_dim].index_select(1, idx_1),
+            b[2 * band_dim : 3 * band_dim].index_select(1, idx_2),
+        ),
+        dim=1,
+    )
+    return a, b_packed, splits
+
+
 class _Branch:
     """One module's low-rank delta, `scale * B (A x) + diff_b`, added into the base output.
 
     Added in place with `addmm_`: the delta never exists as its own
     output-sized tensor. On a 24 GB card under dynamic VRAM an extra
     `[tokens, 21504]` temporary per qkv call is room ComfyUI then evicts
-    weights to find. The matrices live in host RAM and are copied per call.
+    weights to find. When `B` is 3-band block-diagonal (`qkv_proj` fused from
+    `to_q`, `to_k`, `to_v`), only the `[D, R]` diagonal blocks are stored in
+    pinned host RAM (`-66.7%` bytes) and accumulated via three slice `addmm_`
+    calls (`3x` fewer `B` FLOPs). The matrices live in host RAM and are copied
+    once per module call.
     """
 
     def __init__(self, a, b, scale, diff_b, gate=None):
         self.gate = gate
-        self.a = _host(a)
-        self.b = _host(b * scale if (b is not None and scale != 1.0) else b)
+        b_scaled = b * scale if (b is not None and scale != 1.0) else b
+        a_opt, b_opt, splits = _pack_3band_block_diag(a, b_scaled)
+        self.a = _host(a_opt)
+        self.b = _host(b_opt)
+        self._b_splits = splits
         self.diff_b = _host(diff_b)
 
     @staticmethod
@@ -118,7 +162,17 @@ class _Branch:
         flat_out = out.view(-1, out.shape[-1])
         if a is not None:
             flat_x = x.reshape(-1, x.shape[-1]).to(out.dtype)
-            flat_out.addmm_(flat_x @ a.T, b.T)
+            if self._b_splits is None:
+                flat_out.addmm_(flat_x @ a.T, b.T)
+            else:
+                h = flat_x @ a.T
+                d = b.shape[0]
+                c0 = 0
+                for i, r_i in enumerate(self._b_splits):
+                    if r_i:
+                        c1 = c0 + r_i
+                        flat_out[:, i * d : (i + 1) * d].addmm_(h[:, c0:c1], b[:, c0:c1].T)
+                        c0 = c1
         if diff_b is not None:
             flat_out.add_(diff_b)
         return out
@@ -190,15 +244,29 @@ def parse_lora(sd, strength):
     return branches
 
 
+#: Rows per chunk of a linear branch (`qkv_proj`, `out_proj`, `fc1`, `adaln_proj`).
+#: Factors are copied to the device once per module call, while `[chunk, rank]`
+#: intermediates (`32k x 384` bf16 = `24 MB`) stay bounded on `95k+`-token renders.
+LINEAR_CHUNK_ROWS = 32768
+
+
 def _linear_forward(base_forward, branches):
     branch_tuple = (branches,) if isinstance(branches, _Branch) else tuple(branches)
 
     def forward(x):
         out = base_forward(x)
+        active = [br for br in branch_tuple if br.gate is None or br.gate.active]
+        if not active:
+            return out
         if not out.is_contiguous():
             out = out.contiguous()
-        for branch in branch_tuple:
-            out = branch.add_into(x, out)
+        flat_x = x.reshape(-1, x.shape[-1])
+        flat_out = out.view(-1, out.shape[-1])
+        active_factors = [(br, br.device_factors(out)) for br in active]
+        for a in range(0, flat_x.shape[0], LINEAR_CHUNK_ROWS):
+            b = min(a + LINEAR_CHUNK_ROWS, flat_x.shape[0])
+            for br, factors in active_factors:
+                br.add_into(flat_x[a:b], flat_out[a:b], factors)
         return out
 
     forward._h3_lora_linear = (base_forward, branch_tuple)
@@ -312,10 +380,11 @@ def select(branches, modules="all", blocks=None):
 
 
 class _Window:
-    """Whether the branches apply at the current step: a percent window over the
-    sampler's own schedule, the step's index over the schedule's length, as
-    Sol's `start_percent` / `end_percent` read. Updated by a model wrapper each
-    call from `transformer_options`."""
+    """Whether the branches apply at the current step: a step-index fraction
+    `i / (len(sched) - 1)` over the sampler's schedule `sample_sigmas` (unlike
+    `MiniMaxH3Sol`, which maps `start_percent` / `end_percent` through
+    `percent_to_sigma`). Updated by a model wrapper each call from
+    `transformer_options`."""
 
     def __init__(self, start: float, end: float):
         self.start, self.end = float(start), float(end)

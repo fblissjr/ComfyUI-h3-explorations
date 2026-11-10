@@ -1,6 +1,6 @@
 # J-Lens: naming a vector in words
 
-last updated: 2026-11-09
+last updated: 2026-11-10
 
 [Back to the start page](../control_vectors.md)
 
@@ -15,11 +15,15 @@ its section 17 is the reading this page is taken from.
   This is the use that has been checked: on 2026-11-09 its words were compared with a second way of
   labelling vectors, from cached rows, over the bank (`bench/control_vector_lexicon.py`; the plan, section
   20). J-Lens named the concepts better overall, the other way caught some it missed, and both are kept.
-- It builds a vector from a few words on the CPU, with no encoder pass (the `words` command, and the
-  `words` input of the apply node). No session has rendered with such a vector on record here. It treats
-  words one at a time, with no sentence around them, so expect less of it than of a vector built from
-  pairs.
-- It takes words out of a vector (`hold_words`). Also not rendered on record here.
+- It builds a vector from a few words on the CPU in `< 2 ms`, with no encoder pass (the `words` command, and
+  the `words` input of the apply node). Verified across 7 Pika renders (`Arms 53, 54, 61..65` in
+  [`../../../bench/results/2026-11-05_control_vectors_pika_and_ref2va.md`](../../../bench/results/2026-11-05_control_vectors_pika_and_ref2va.md)):
+  strong for surface/atmosphere restyles (`"8-bit, LED, steampunk"`, `"blizzard, snowdrift, freezing, snow"`,
+  `"disco, glitter, dancing"`, `"medieval, knight, armor, castle"`), while single-token lexical bags without
+  sentence context are weaker than full-sentence contrastive pairs on structural/physical actions.
+- It takes words out of a vector (`hold_words`). Covered in `bench/check_control_vectors.py`, though no
+  recorded video arm in `bench/results/` uses `hold_words` directly (cross-vector orthogonalization via
+  chaining a 10-pair vector with `mode = "hold"` was verified in `Arm 58`).
 - It prints readiness figures beside the words. The thresholds the earlier version of this page gave for
   them had no arm behind them and are not repeated.
 
@@ -45,15 +49,12 @@ a dated record.
 (the plan, section 17.1, read against the code on 2026-11-09):
 
 - It recomputes only the half that maps between the two spaces. The word half is copied from the bundle
-  already on disk, and no tracked code can make that half again.
-- By default it writes over the bundle it copies from. That file is the only copy of the half that cannot
-  be rebuilt.
+  already on disk (`--base-bundle` or `--out`), and no tracked code can make that half again.
+- Since 2026-11-10 `build-j-lens` refuses to overwrite an existing bundle file unless `--overwrite` is passed
+  explicitly (or pass `--out <new_path.safetensors> --base-bundle <existing_bundle>` to write a separate file).
 - If the Pika LoRA spec fails to parse, it goes on without the LoRA and says nothing.
 - The bundle does not record which checkpoints, LoRAs, prompts or constants made it.
-- Its sample is the opening tokens of the first prompts of the bank in file order, so a rebuild would not
-  reproduce the bundle on disk.
-
-Keep a second copy of the bundle before running a rebuild.
+- Keep a backup copy of `j_lens_h3.safetensors` before passing `--overwrite`.
 
 ## What is decided, and not done
 

@@ -32,19 +32,35 @@ import math
 
 from comfy_extras.nodes_minimax_h3 import CANVAS_MULTIPLE, REF_IMAGE_SHORT_EDGE
 
-SIZE_POLICIES = ("match", "max")
+SIZE_POLICIES = ("match", "max", "tiered")
+TIER_CANVAS_SHORT_EDGE = 768
+TIER_BELOW_SHORT_EDGE = 1024
+TIER_AT_OR_ABOVE_SHORT_EDGE = 2048
 
 __all__ = [
     "CANVAS_MULTIPLE",
     "REF_IMAGE_SHORT_EDGE",
     "IMAGE_POLICIES",
     "SIZE_POLICIES",
+    "TIER_CANVAS_SHORT_EDGE",
+    "TIER_BELOW_SHORT_EDGE",
+    "TIER_AT_OR_ABOVE_SHORT_EDGE",
+    "tier_short_edge",
     "fit_reference_image",
     "qwen_image_settings",
     "qwen_image_size",
     "latent_rows",
     "snap_to_multiple",
 ]
+
+
+def tier_short_edge(canvas_w: int, canvas_h: int) -> int:
+    """Return the `tiered` reference short edge (`1024` below `768p`, `2048` at `768p+`)."""
+    return (
+        TIER_BELOW_SHORT_EDGE
+        if min(int(canvas_w), int(canvas_h)) < TIER_CANVAS_SHORT_EDGE
+        else TIER_AT_OR_ABOVE_SHORT_EDGE
+    )
 
 
 def snap_to_multiple(value: float, scale: float = 1.0) -> int:
@@ -98,6 +114,14 @@ def fit_reference_image(
         # telling the truth about.
         full = math.sqrt((canvas_w * canvas_h) / (source_w * source_h))
         scale = min(1.0, full)
+    elif size_policy == "tiered":
+        if not canvas_w or not canvas_h:
+            raise ValueError(
+                "size_policy='tiered' chooses a 1024 or 2048 reference short "
+                "edge from the target canvas, so canvas_w and canvas_h are "
+                "required. 'max' is the canvas-independent policy.")
+        edge = tier_short_edge(canvas_w, canvas_h)
+        scale = edge / min(source_w, source_h)
     else:
         if short_edge < CANVAS_MULTIPLE:
             raise ValueError(

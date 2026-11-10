@@ -755,7 +755,7 @@ def handle_ui_request(
         try:
             vec_arg = str(req.get("vector", "") or "").strip()
             prompt_arg = str(req.get("prompt", "") or "").strip()
-            pooling_arg = str(req.get("pooling", "scene_text") or "scene_text")
+            pooling_arg = str(req.get("pooling", "scene_only") or "scene_only")
             family_arg = str(req.get("family", "") or "").strip() or None
             if not vec_arg or not prompt_arg:
                 return 400, "application/json", json.dumps({"ok": False, "error": "both 'vector' and 'prompt' are required"})

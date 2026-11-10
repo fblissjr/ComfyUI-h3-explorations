@@ -39,9 +39,20 @@ LLM_VECTOR_KEY_RE = re.compile(r"^vector\.llm\.\d+$")
 VALID_MODES = ("t2va", "fl2va", "i2va", "l2va", "ref2va", "p_h3_image")
 VALID_FRAMES = ("scene", "bare")
 VALID_POOLING = ("scene_text", "all_tag1", "from_first_diff", "diff_span")
-VALID_MEDIA_POOLING = ("scene_text", "all_tag1", "vision_tokens", "all_rows")
+VALID_MEDIA_POOLING = (
+    "scene_text",
+    "look_only",
+    "description_only",
+    "soundscape_only",
+    "all_tag1",
+    "vision_tokens",
+    "all_rows",
+)
 VALID_ALL_POOLING = (
     "scene_text",
+    "look_only",
+    "description_only",
+    "soundscape_only",
     "all_tag1",
     "from_first_diff",
     "diff_span",
@@ -57,8 +68,7 @@ ALLOWED_VECTOR_KEYS = frozenset(
 ALLOWED_PAIR_KEYS = frozenset({"weight", "a", "b"})
 ALLOWED_HOLD_KEYS = frozenset({"group", "weight", "a", "b"})
 
-# Every H3 prompt section header (base_en.md and ref_en.md) plus the shot-header prefix.
-SECTION_AND_SHOT_MARKERS: tuple[str, ...] = (
+SECTION_HEADER_PREFIXES: tuple[str, ...] = (
     "integrated_multimodal_description:",
     "subject_definitions:",
     "summary:",
@@ -66,8 +76,9 @@ SECTION_AND_SHOT_MARKERS: tuple[str, ...] = (
     "detailed_description:",
     "overall_soundscape:",
     "non_diegetic_music:",
-    "[Shot ",
 )
+# Every H3 prompt section header (base_en.md and ref_en.md) plus the shot-header prefix.
+SECTION_AND_SHOT_MARKERS: tuple[str, ...] = (*SECTION_HEADER_PREFIXES, "[Shot ")
 try:
     from .h3_prompt_edit import HEADER_TOKEN_RE
 except ImportError:  # run from the repo root by a check or a tool
@@ -278,21 +289,32 @@ def differing_span(
             blocks_b = b.split("\n\n")
             if len(blocks_a) == len(blocks_b):
                 diff_idxs = [idx_b for idx_b in range(len(blocks_a)) if blocks_a[idx_b] != blocks_b[idx_b]]
-                if len(diff_idxs) == 2:
-                    i0, i1 = diff_idxs
-                    b0_a = blocks_a[i0].lstrip()
-                    b1_a = blocks_a[i1].lstrip()
-                    if (
-                        b0_a.startswith(("integrated_multimodal_description:", "detailed_description:"))
-                        and b1_a.startswith("overall_soundscape:")
-                    ):
-                        a_d, b_d = differing_span(
-                            blocks_a[i0], blocks_b[i0], frame="scene", label=f"{label} (description)"
+                if len(diff_idxs) >= 2:
+                    matched_hdrs: list[str] = []
+                    for i_sec in diff_idxs:
+                        ba_s = blocks_a[i_sec].lstrip()
+                        bb_s = blocks_b[i_sec].lstrip()
+                        hdr = next(
+                            (h for h in SECTION_HEADER_PREFIXES if ba_s.startswith(h) and bb_s.startswith(h)),
+                            None,
                         )
-                        a_s, b_s = differing_span(
-                            blocks_a[i1], blocks_b[i1], frame="scene", label=f"{label} (soundscape)"
-                        )
-                        return f"{a_d} | {a_s}", f"{b_d} | {b_s}"
+                        if hdr is None:
+                            matched_hdrs = []
+                            break
+                        matched_hdrs.append(hdr[:-1])
+                    if len(matched_hdrs) == len(diff_idxs):
+                        spans_a: list[str] = []
+                        spans_b: list[str] = []
+                        for i_sec, sec_lbl in zip(diff_idxs, matched_hdrs):
+                            sa_i, sb_i = differing_span(
+                                blocks_a[i_sec],
+                                blocks_b[i_sec],
+                                frame="scene",
+                                label=f"{label} ({sec_lbl})",
+                            )
+                            spans_a.append(sa_i)
+                            spans_b.append(sb_i)
+                        return " | ".join(spans_a), " | ".join(spans_b)
         raise ValueError(
             f"{label}: differing span crosses a paragraph break; "
             "scene-frame pairs must change only one contiguous clause within a single section"
@@ -588,14 +610,17 @@ def differing_section_info(a: str, b: str, *, frame: str = "scene") -> tuple[int
     blocks_b = b.split("\n\n")
     if len(blocks_a) == len(blocks_b):
         diff_idxs = [idx_b for idx_b in range(len(blocks_a)) if blocks_a[idx_b] != blocks_b[idx_b]]
-        if len(diff_idxs) == 2:
-            b0_a = blocks_a[diff_idxs[0]].lstrip()
-            b1_a = blocks_a[diff_idxs[1]].lstrip()
-            if (
-                b0_a.startswith(("integrated_multimodal_description:", "detailed_description:"))
-                and b1_a.startswith("overall_soundscape:")
-            ):
-                return chosen_idx, f"{chosen_name}+overall_soundscape"
+        if len(diff_idxs) >= 2:
+            sec_names: list[str] = []
+            for i_sec in diff_idxs:
+                ba_s = blocks_a[i_sec].lstrip()
+                hdr = next((h for h in SECTION_HEADER_PREFIXES if ba_s.startswith(h)), None)
+                if hdr is None:
+                    sec_names = []
+                    break
+                sec_names.append(hdr[:-1])
+            if len(sec_names) == len(diff_idxs):
+                return chosen_idx, "+".join(sec_names)
     return chosen_idx, chosen_name
 
 
@@ -1832,7 +1857,10 @@ def default_vector_filename(
 
 
 _POOLING_DESCRIPTIONS: dict[str, str] = {
-    "scene_text": "all tag-1 scene-text rows (excluding reference labels, timestamps, speaker tags, and <d>...</d> dialogue)",
+    "scene_text": "all steerable visual scene-text rows (excluding reference labels, timestamps, speaker tags, <d>...</d> dialogue, and audio sections on sectioned prompts)",
+    "look_only": "steerable Visual Look rows (summary:, subject_definitions:, and visual retention_analysis: prose; falls back to description_only on 3-field prompts)",
+    "description_only": "steerable Events/Actions prose rows inside detailed_description: / integrated_multimodal_description: (excluding dialogue and structural tags)",
+    "soundscape_only": "steerable Audio prose rows inside overall_soundscape: and non-N/A non_diegetic_music: (plus <Audio N>: retention lines)",
     "from_first_diff": "all tag-1 non-vision rows from the first differing token onward (idx >= first_diff)",
     "diff_span": "only the differing token span [first_diff:end_diff] (stripping both shared prefix and shared suffix tokens)",
     "all_tag1": "all tag-1 non-vision rows across the sequence",
@@ -2229,8 +2257,8 @@ def _applied_refiner_coverage(applied: str) -> str:
     return f"other:{applied_norm}"
 
 
-def _lora_family_signature(loras: Sequence[Any]) -> list[tuple[str, float, str]] | None:
-    sig: list[tuple[str, float, str]] = []
+def _lora_family_signature(loras: Sequence[Any]) -> list[tuple[str, str]] | None:
+    sig: list[tuple[str, str]] = []
     for item in loras:
         if not isinstance(item, Mapping):
             return None
@@ -2238,8 +2266,11 @@ def _lora_family_signature(loras: Sequence[Any]) -> list[tuple[str, float, str]]
         m = _PIKA_FLEX_VARIANT_RE.match(raw_file)
         if m is None:
             return None
+        strength_f = float(item.get("strength", 1.0))
+        if not math.isfinite(strength_f):
+            return None
         refiner_cov = _applied_refiner_coverage(str(item.get("applied", "branch")))
-        sig.append((m.group(1), round(float(item.get("strength", 1.0)), 4), refiner_cov))
+        sig.append((m.group(1), refiner_cov))
     return sig
 
 
@@ -2276,7 +2307,7 @@ def _is_known_h3_family_lora(item: Any, family: str) -> bool:
         return False
     if _applied_refiner_coverage(str(item.get("applied", "branch"))) != "full_refiner":
         return False
-    if round(float(item.get("strength", 1.0)), 4) != 1.0:
+    if not math.isfinite(float(item.get("strength", 1.0))):
         return False
     raw_file = Path(str(item.get("file", item.get("name", "")))).name
     m = _PIKA_FLEX_VARIANT_RE.match(raw_file)

@@ -186,6 +186,7 @@ def cmd_make(args: argparse.Namespace) -> int:
             mode=compile_mode,
             target_prompt=tp_arg,
             target_weight=tp_weight,
+            bank_scenes=int(getattr(args, "bank_scenes", 0) or 0),
         )
     else:
         if not getattr(args, "pairs", None):
@@ -286,30 +287,37 @@ def cmd_make(args: argparse.Namespace) -> int:
     enc_a_pooled_list: list[torch.Tensor] = []
     enc_b_pooled_list: list[torch.Tensor] = []
     cached_pair_encs: list[tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]] = []
-    weights_list: list[float] = []
-    enc_censuses: list[dict[str, float]] = []
     ref_censuses: list[dict[str, float]] = []
     pair_spans: list[dict[str, Any]] = []
 
     print(f"\n--- Pair Spans ({len(pair_set.pairs)} pairs) ---")
-    for idx, item in enumerate(pair_set.pairs):
-        enc_a, tags_a, ids_a, dec_a = cv_nodes.encode_prompt_for_vector(
-            clip, item.a, encoded_references=encoded_refs
-        )
-        enc_b, tags_b, ids_b, dec_b = cv_nodes.encode_prompt_for_vector(
-            clip, item.b, encoded_references=encoded_refs
-        )
+    raw_cached_pairs, raw_cached_holds, enc_censuses, weights_list = _h._encode_pair_set_through_clip(
+        clip,
+        pair_set,
+        encoded_refs=encoded_refs,
+        no_holds=bool(args.no_holds),
+        log_rows=False,
+    )
+    for cp in raw_cached_pairs:
+        idx = cp["idx"]
+        item = cp["item"]
+        enc_a = cp["enc_a"]
+        tags_a = cp["tags_a"]
+        ids_a = cp["ids_a"]
+        spans_a = cp["spans_a"]
+        enc_b = cp["enc_b"]
+        tags_b = cp["tags_b"]
+        ids_b = cp["ids_b"]
+        spans_b = cp["spans_b"]
+        first_diff = cp["first_diff"]
+        end_a = cp["end_a"]
+        end_b = cp["end_b"]
         ref_a = refiner_run(enc_a)
         ref_b = refiner_run(enc_b)
 
-        enc_censuses.append(cv.row_norm_census(enc_a, tags_a))
-        enc_censuses.append(cv.row_norm_census(enc_b, tags_b))
         ref_censuses.append(cv.row_norm_census(ref_a, tags_a))
         ref_censuses.append(cv.row_norm_census(ref_b, tags_b))
 
-        first_diff, end_a, end_b = h3_spans.differing_token_bounds(ids_a, ids_b)
-        spans_a = h3_spans.spans(ids_a, tags_a.tolist(), dec_a)
-        spans_b = h3_spans.spans(ids_b, tags_b.tolist(), dec_b)
         mask_a = h3_spans.pooling_mask(
             spans_a,
             args.pooling,
@@ -341,7 +349,6 @@ def cmd_make(args: argparse.Namespace) -> int:
                 mask_b_enc = mask_b
             enc_a_pooled_list.append(enc_a.to(dtype=torch.float64)[mask_a_enc].mean(dim=0).to(dtype=torch.float32))
             enc_b_pooled_list.append(enc_b.to(dtype=torch.float64)[mask_b_enc].mean(dim=0).to(dtype=torch.float32))
-        weights_list.append(float(item.weight))
         pair_spans.append(
             {
                 "index": idx,
@@ -384,21 +391,22 @@ def cmd_make(args: argparse.Namespace) -> int:
     cached_hold_encs: list[tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]] = []
     hold_groups: list[str] = []
     hold_weights: list[float] = []
-    if not args.no_holds and pair_set.holds:
+    if raw_cached_holds:
         hold_a_list: list[torch.Tensor] = []
         hold_b_list: list[torch.Tensor] = []
-        for h_item in pair_set.holds:
-            h_enc_a, h_tags_a, h_ids_a, h_dec_a = cv_nodes.encode_prompt_for_vector(
-                clip, h_item.a, encoded_references=encoded_refs
-            )
-            h_enc_b, h_tags_b, h_ids_b, h_dec_b = cv_nodes.encode_prompt_for_vector(
-                clip, h_item.b, encoded_references=encoded_refs
-            )
+        for ch in raw_cached_holds:
+            h_item = ch["h_item"]
+            h_enc_a = ch["enc_a"]
+            h_ids_a = ch["ids_a"]
+            h_spans_a = ch["spans_a"]
+            h_enc_b = ch["enc_b"]
+            h_ids_b = ch["ids_b"]
+            h_spans_b = ch["spans_b"]
+            h_diff = ch["first_diff"]
+            h_end_a = ch["end_a"]
+            h_end_b = ch["end_b"]
             h_ref_a = refiner_run(h_enc_a)
             h_ref_b = refiner_run(h_enc_b)
-            h_diff, h_end_a, h_end_b = h3_spans.differing_token_bounds(h_ids_a, h_ids_b)
-            h_spans_a = h3_spans.spans(h_ids_a, h_tags_a.tolist(), h_dec_a)
-            h_spans_b = h3_spans.spans(h_ids_b, h_tags_b.tolist(), h_dec_b)
             h_mask_a = h3_spans.pooling_mask(
                 h_spans_a,
                 args.pooling,

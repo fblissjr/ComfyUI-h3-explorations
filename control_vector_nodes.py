@@ -281,6 +281,10 @@ def extract_model_recipe(
                         if hasattr(obj, attr):
                             hasher.update(attr.encode("utf-8"))
                             _hash_patch_payload(hasher, getattr(obj, attr))
+                    b_splits_val = getattr(obj, "_b_splits", None)
+                    if b_splits_val is not None:
+                        hasher.update(b"_b_splits")
+                        _hash_patch_payload(hasher, b_splits_val)
                     closure = getattr(obj, "__closure__", None)
                     if closure:
                         for cell in closure:
@@ -1299,8 +1303,23 @@ def _make_control_vector_wrapper(specs: tuple[_AppliedVectorSpec, ...]):
             span_masks_top = payload.get("h3_span_masks")
         if span_masks_top is None and tags_raw is not None:
             span_masks_top = getattr(tags_raw, "_h3_span_masks", None)
+        edit_pass = payload.get("h3_edit_pass")
         cond_or_uncond = transformer_options.get("cond_or_uncond")
-        is_pure_uncond = isinstance(cond_or_uncond, (list, tuple)) and 0 not in cond_or_uncond
+        is_pure_uncond = (
+            edit_pass not in ("original", "edited")
+            and isinstance(cond_or_uncond, (list, tuple))
+            and 0 not in cond_or_uncond
+        )
+        if edit_pass in ("original", "edited"):
+            ep_key = (",".join(sp.vector_name for sp in active_specs), str(edit_pass))
+            if ep_key not in logged_prefix_notes:
+                logged_prefix_notes.add(ep_key)
+                logger.info(
+                    "[h3] control vector (%s) running alongside MiniMaxH3EditGuider (%s pass): "
+                    "applying 1x post-refiner shift on both passes so edit_scale amplifies only the prompt edit",
+                    ep_key[0],
+                    edit_pass,
+                )
         live_tail_text = (
             ""
             if is_pure_uncond
@@ -2172,8 +2191,19 @@ def _media_pooling_mask(
     tags_1d: torch.Tensor,
     pooling: str,
 ) -> torch.Tensor:
-    if pooling in ("scene_text", "all_tag1"):
+    if pooling == "scene_text":
+        if bool(getattr(spans_obj["scene"], "_h3_has_sections", False)):
+            m_scene = _spans.inference_mask(spans_obj, "scene_only")
+            if bool(m_scene.any()):
+                return m_scene
         return _spans.pooling_mask(spans_obj, pooling)
+    if pooling == "all_tag1":
+        return _spans.pooling_mask(spans_obj, pooling)
+    if pooling in ("look_only", "description_only", "soundscape_only"):
+        m_sub = _spans.inference_mask(spans_obj, pooling)
+        if not bool(m_sub.any()):
+            raise ValueError(f"media pooling={pooling!r} found zero matching section rows")
+        return m_sub
     if pooling == "vision_tokens":
         m = (tags_1d == 0).to(dtype=torch.bool, device="cpu")
         if not bool(m.any()):
@@ -2494,8 +2524,11 @@ class MiniMaxH3MakeMediaControlVector(io.ComfyNode):
                     optional=True,
                     tooltip=(
                         "Which post-refiner rows to mean-pool per pair side: 'scene_text' "
-                        "(default, tag-1 scene text rows), 'all_tag1', 'vision_tokens' "
-                        "(tag-0 <Picture 1> rows), or 'all_rows'."
+                        "(default, steerable visual scene prose on sectioned H3 prompts), "
+                        "'look_only' (summary: + subject_definitions: + visual retention_analysis:), "
+                        "'description_only' (detailed_description: / integrated_multimodal_description:), "
+                        "'soundscape_only' (overall_soundscape: + non-'N/A' non_diegetic_music:), "
+                        "'all_tag1', 'vision_tokens' (tag-0 <Picture 1> rows), or 'all_rows'."
                     ),
                 ),
                 io.Int.Input(
@@ -2622,17 +2655,22 @@ class MiniMaxH3ApplyControlVectors(io.ComfyNode):
                     options=list(MASK_MODES),
                     default=_APPLY_DEFAULTS["mask"],
                     tooltip=(
-                        "'scene_only' (default) steers scene prose (integrated_multimodal_description: / "
-                        "detailed_description: and overall_soundscape: on sectioned H3 prompts) while "
-                        "leaving tag-0 vision rows, <d>...</d> dialogue, (S1) speaker tags, "
+                        "'scene_only' (default) steers all visual prose (look_only | description_only: "
+                        "subject_definitions:, summary:, visual retention_analysis:, and "
+                        "integrated_multimodal_description: / detailed_description:) while leaving "
+                        "tag-0 vision rows, <d>...</d> dialogue, (S1) speaker tags, "
                         "<Subject N>/<Picture N>/<Video N>/<Audio N> tags, [Shot N], section headers, "
-                        "subject_definitions:, summary:, retention_analysis:, non_diegetic_music:, "
-                        "Part One keyframe alignment lines, and <0.0 seconds> timestamps untouched; "
+                        "overall_soundscape:, non_diegetic_music:, Part One keyframe alignment lines, "
+                        "and <0.0 seconds> timestamps untouched; "
+                        "'look_only' steers only subject_definitions:, summary:, and visual "
+                        "retention_analysis: (falling back to description_only on 3-field t2va/fl2va prompts); "
+                        "'description_only' steers only events/actions prose inside "
+                        "integrated_multimodal_description: (fl2va/t2va) or detailed_description: (ref2va); "
+                        "'soundscape_only' steers overall_soundscape:, non-'N/A' non_diegetic_music:, and "
+                        "<Audio N>: lines in retention_analysis:; "
                         "'non_vision' steers all tag-1 text rows and leaves tag-0 vision rows untouched; "
-                        "'description_only' steers only scene tokens inside integrated_multimodal_description: "
-                        "(fl2va/t2va) or detailed_description: (ref2va); 'soundscape_only' steers only scene "
-                        "tokens inside overall_soundscape:; 'after_dialogue' steers only scene "
-                        "tokens after the last </d>; 'all_rows' is the unmasked ablation (E2.3)."
+                        "'after_dialogue' steers only scene tokens after the last </d>; "
+                        "'all_rows' is the unmasked ablation (E2.3)."
                     ),
                 ),
                 io.Float.Input(

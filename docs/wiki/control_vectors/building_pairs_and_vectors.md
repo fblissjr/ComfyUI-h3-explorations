@@ -1,8 +1,10 @@
 # Building pairs and vectors
 
-last updated: 2026-11-09
+last updated: 2026-11-10
 
 [Back to the start page](../control_vectors.md)
+
+![Diff-span extraction across contrastive pairs](assets/diff_span_extraction.svg)
 
 How a vector is made, from the pairs to the file. "The plan" is
 [`../../research/control_vectors/2026-11-09_control_vector_simplification_plan.md`](../../research/control_vectors/2026-11-09_control_vector_simplification_plan.md).
@@ -29,7 +31,10 @@ A pair is two prompts, A and B, that differ in one clause. There are three sourc
 - Your own prompt. You give the prompt and one or more `old wording -> new wording` clauses, and the pair
   compiler makes A the prompt as written and B the prompt with the clauses applied
   (`h3_pair_compiler.py::compile_words_to_pairset`). The clause grammar is the one edit guidance uses
-  (`h3_prompt_edit.py`): one clause a line, `soundscape:` to aim at the soundscape, `hold:` for a hold.
+  (`h3_prompt_edit.py`): one clause a line (or `;`-separated), `soundscape:` for `overall_soundscape:`,
+  `music:` for `non_diegetic_music:` (including `music: N/A -> <score>`), `summary:` for `summary:`, and
+  `hold:` / `hold(group):` for an orthogonal hold. Passing `--bank-scenes <K>` appends `K` deterministic
+  mode-matched prompts from `prompt_bank/*.txt` to cancel scene-specific nuisance variance.
 - Two pictures. The same neutral prompt is encoded on top of picture A and of picture B, sized so both give
   the same number of rows (`control_vector_nodes.py::match_media_pair_geometry`). No session has run this
   path on 2026-11-09; treat it as untested.
@@ -51,14 +56,17 @@ and consistent direction. The default stayed `diff_span`.
 
 ## Holds: taking a direction out
 
-A hold is a second set of pairs for something you do not want the vector to carry, such as a colour cast
-that comes along with a film look. Each hold group is averaged to a direction, the directions are made
+![Sculpting and orthogonal Gram-Schmidt holds](assets/sculpt_and_orthogonal_hold.svg)
+
+A hold is a second set of pairs for something you do not want the vector to carry, such as soft-focus blur
+or a colour cast. Each hold group is averaged to a direction, the directions are made
 orthonormal (`control_vectors.py::hold_basis`, two-pass Gram-Schmidt), and the vector's component along
 them is removed (`project_out`).
 
-A hold changes what the vector does, and that is easy to forget. The bank's `film_16mm_1974` file holds
-out a warm colour cast, so its vector does not add warmth, while an edit that says "warm" does (the plan,
-section 25.1).
+A hold changes what the vector does, and that is easy to forget. On 2026-11-09 `film_16mm_1974` held out
+`warm_colour_cast`, which scrubbed its warm 1974 celluloid tones (the plan, section 25.1). On 2026-11-10
+that warmth hold was split into `film_16mm_1974_neutral.toml`, so default `film_16mm_1974.toml` preserves
+warm 1974 16mm colour while still holding out `soft_focus`.
 
 ## The component the bank's vectors share
 

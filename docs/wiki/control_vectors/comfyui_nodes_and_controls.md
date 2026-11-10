@@ -1,8 +1,10 @@
 # The control vector nodes
 
-last updated: 2026-11-09
+last updated: 2026-11-10
 
 [Back to the start page](../control_vectors.md)
+
+![Runtime steering and 3-lever span masks](assets/runtime_steering_and_masks.svg)
 
 Four nodes in `control_vector_nodes.py`. Each node's inputs, ranges, defaults and tooltips are its own
 `define_schema`, which is what ComfyUI shows; this page says what each node is for and what to know before
@@ -34,10 +36,21 @@ each input is for:
   own rows already carry along the vector. `control_vectors.py::apply_post_refiner` is the definition.
 - `strength`: the multiplier. A build prints a recommended range for the default mode
   (`control_vectors.strength_ranges`). A negative strength pushes the other way.
-- `mask`: which rows are pushed. `h3_spans.py::inference_mask` defines each choice. The default,
-  `scene_only`, reaches the prose of the description and the soundscape and leaves alone the picture's rows,
-  the subject, summary and retention sections, dialogue, headers and tags. `non_vision` reaches every text
-  row and `all_rows` the picture's rows too.
+- `mask`: which rows are pushed (`h3_spans.py::inference_mask`). On sectioned H3 prompts, the **3-lever
+  section masks** separate Visual Look, Events/Actions, and Audio while always protecting `<Picture N>` /
+  `<Video N>` / `<Audio N>` / `<Subject N>`, `[Shot N]`, `<d>dialogue</d>`, `(S1)` speaker tags, section
+  headers, `ref_en.md` task brackets (`[reference generation]`, etc.), and `retention_analysis:` relationship
+  prefixes (`fully_preserved -`, etc.):
+
+  | Mask mode | Lever | Rows steered |
+  |---|---|---|
+  | `look_only` | **Visual Look** | `subject_definitions:` + `summary:` + visual lines of `retention_analysis:` (excludes `<Audio N>:` retention lines; falls back to `description_only` on 3-field `t2va`/`fl2va` prompts) |
+  | `scene_only` *(default)* | **All Visual Prose** | `look_only \| description_only` — all visual prose across the prompt, excluding `overall_soundscape:` and `non_diegetic_music:` |
+  | `description_only` | **Events / Actions** | `detailed_description:` / `integrated_multimodal_description:` non-dialogue prose only |
+  | `soundscape_only` | **Audio** | `overall_soundscape:` + `non_diegetic_music:` (when its body is not `"N/A"` / `"None"`) + `<Audio N>:` lines in `retention_analysis:` |
+  | `after_dialogue` | Post-speech visual tail | `scene_only` rows strictly after the last `<d>...</d>` dialogue token |
+  | `non_vision` | Every text row | All tag-1 non-vision tokens (including headers, tags, and dialogue) |
+  | `all_rows` | Text + vision | Every row, including tag-0 vision prefix tokens |
 - `start_percent`, `end_percent`: the part of the run in which the vector is on.
 - `video_scale`, `audio_scale`, `split_end_percent`: separate multipliers for the video and audio streams.
 - `ref_vae_end_percent`, `ref_vae_aug`: for a reference shot, how long and how strongly the reference's VAE
@@ -51,10 +64,14 @@ each input is for:
 
 - The push is one size on every row it reaches. A wider mask is therefore a larger total change at the
   same strength, not only a change of where (the plan, section 24).
-- Which mask is right depends on the aim. Keeping a vector off the subject and retention rows leans toward
-  preserving the reference; reaching them leans toward changing the look. One round compared the three on a
-  reference shot and found little difference for a bank vector on the figures taken; the owner has not
-  judged it (the plan, section 25). The default has no measured reason beside it yet.
+- Which mask is right depends on the aim. `scene_only` (`look_only | description_only`) is the default
+  because it steers all visual prose while protecting structural/reference/dialogue tags and excluding
+  `overall_soundscape:` / `non_diegetic_music:` (visual-vs-audio section isolation verified in `Arms 59..60`
+  of [`../../../bench/results/2026-11-05_control_vectors_pika_and_ref2va.md`](../../../bench/results/2026-11-05_control_vectors_pika_and_ref2va.md)).
+  On a `ref2va` shot, keeping a vector off `subject_definitions:` and `retention_analysis:` (`description_only`)
+  leans toward preserving the reference's prose description, while reaching them (`scene_only` or `look_only`)
+  leans toward changing the look; one round compared those on a reference shot and found small metric
+  differences for a bank vector, which the owner has not yet visually judged (the plan, section 25).
 - On a reference shot the subject also reaches the DiT as VAE latents, which no mask touches. In that round
   the subject read as the same person in every arm, including the one that pushed the picture's rows. The
   two `ref_vae_` inputs are the handle on that road and were not varied.
@@ -69,5 +86,6 @@ blocks run (`control_vector_nodes.py`, the wrapper; `control_vectors.py::apply_p
 which rows are which from the span masks the conditioning node attached, and refuses when they are missing.
 Nothing in ComfyUI core is patched.
 
-With edit guidance the model runs twice a step, once per prompt, and a vector applied under it reaches
-both passes. Whether it should reach one or both is not decided.
+With edit guidance (`MiniMaxH3EditGuider`), both `[base]` and `[edited]` carry `h3_edit_pass` metadata on
+`minimax_payload` and are treated as conditioned passes (never misclassified as unconditioned CFG passes)
+across active steps.

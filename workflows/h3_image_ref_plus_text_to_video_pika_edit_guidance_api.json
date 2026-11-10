@@ -54,6 +54,7 @@
       ],
       "scale": 1.5,
       "first_step": 0,
+      "last_step": 1000,
       "align_positions": false
     }
   },
@@ -217,7 +218,7 @@
       ],
       "tau": 1.0,
       "start_percent": 0.2,
-      "end_percent": 1.0,
+      "end_percent": 0.95,
       "min_tokens": 12288,
       "sink_conditioning": "exact_kv_and_all_rows",
       "verbose": true,

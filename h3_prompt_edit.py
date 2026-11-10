@@ -20,6 +20,20 @@ from typing import Any
 PAIR_SPLIT_RE = re.compile(r"\s*(?:\|\|\||-->|->|=>|::)\s*")
 #: A line that aims its edit at the soundscape section.
 SOUNDSCAPE_PREFIX_RE = re.compile(r"^(?:soundscape|audio|foley|sound)\s*:\s*(.+)$", re.IGNORECASE)
+#: A line that aims its edit at the non-diegetic music section.
+MUSIC_PREFIX_RE = re.compile(r"^(?:music|non_diegetic_music|score)\s*:\s*(.+)$", re.IGNORECASE)
+#: A line that aims its edit at the summary section.
+SUMMARY_PREFIX_RE = re.compile(r"^summary\s*:\s*(.+)$", re.IGNORECASE)
+#: Any section-scoped edit prefix (`soundscape:`, `music:`, `summary:`).
+SECTION_EDIT_PREFIX_RE = re.compile(
+    r"^(?:soundscape|audio|foley|sound|music|non_diegetic_music|score|summary)\s*:\s*(.+)$",
+    re.IGNORECASE,
+)
+#: Section header line boundaries for locating a named H3 section body.
+_SECTION_BOUNDARY_RE = re.compile(
+    r"(?:^|\n)[ \t]*(integrated_multimodal_description|subject_definitions|summary|"
+    r"retention_analysis|detailed_description|overall_soundscape|non_diegetic_music):"
+)
 #: A section header or a shot header of the sectioned prompt formats.
 HEADER_TOKEN_RE = re.compile(
     r"\b(?:integrated_multimodal_description|subject_definitions|summary|"
@@ -30,6 +44,31 @@ _DIALOGUE_RE = re.compile(r"<d>.*?</d>", re.S)
 _TAG_RE = re.compile(r"<(?:Subject|Picture|Video|Audio)\s+\d+>|\(S\d+(?:,\s*S\d+)*\)|</?d>|<\|[a-z_]+\|>")
 #: Lines of a pair-authoring block that are metadata, not clauses, so a `;` in them splits nothing.
 _METADATA_PREFIXES = ("name:", "quality:", "a_side:", "b_side:", "mode:", "target_prompt:", "scene_prompt:")
+
+
+def section_span(text: str, section_name: str) -> tuple[int, int] | None:
+    """Return `(body_start, body_end)` strictly after `<section_name>:` up to the next H3 section header."""
+    matches = list(_SECTION_BOUNDARY_RE.finditer(text))
+    for idx, m in enumerate(matches):
+        if m.group(1) == section_name:
+            b0 = m.end()
+            b1 = matches[idx + 1].start() if (idx + 1) < len(matches) else len(text)
+            return b0, b1
+    return None
+
+
+def parse_section_prefix(raw: str) -> tuple[str | None, str | None, str]:
+    """Return `(prefix_label, section_header_name, body)` for `soundscape:`, `music:`, or `summary:`."""
+    m_snd = SOUNDSCAPE_PREFIX_RE.match(raw)
+    if m_snd:
+        return "soundscape:", "overall_soundscape", m_snd.group(1).strip()
+    m_mus = MUSIC_PREFIX_RE.match(raw)
+    if m_mus:
+        return "music:", "non_diegetic_music", m_mus.group(1).strip()
+    m_sum = SUMMARY_PREFIX_RE.match(raw)
+    if m_sum:
+        return "summary:", "summary", m_sum.group(1).strip()
+    return None, None, raw
 
 
 def split_pole_pair(raw: str) -> tuple[str, str]:
@@ -53,7 +92,7 @@ def split_clause_statements(raw: str) -> list[str]:
         if ";" in ln and not ln.lower().startswith(_METADATA_PREFIXES):
             parts = [sub.strip() for sub in ln.split(";") if sub.strip()]
             n_delims = len(PAIR_SPLIT_RE.findall(ln))
-            if all(bool(PAIR_SPLIT_RE.search(p)) or bool(SOUNDSCAPE_PREFIX_RE.match(p)) for p in parts):
+            if all(bool(PAIR_SPLIT_RE.search(p)) or bool(SECTION_EDIT_PREFIX_RE.match(p)) for p in parts):
                 out.extend(parts)
             elif n_delims <= 1:
                 out.append(ln)
@@ -75,7 +114,7 @@ def apply_edits(prompt: str, edits: str) -> tuple[str, list[dict[str, Any]]]:
 
     Refuses, with the line named: a line with no arrow or an empty side; old wording that is absent or
     occurs more than once; an edit that touches dialogue, a tag, a speaker id, a section header or a shot
-    header; a `soundscape:` line whose old wording is not in the soundscape section."""
+    header; a `soundscape:`, `music:`, or `summary:` line whose old wording is not in that section."""
     text = str(prompt or "")
     if not text.strip():
         raise ValueError("the prompt is empty")
@@ -84,8 +123,7 @@ def apply_edits(prompt: str, edits: str) -> tuple[str, list[dict[str, Any]]]:
         raise ValueError("no edit given; write one 'old wording -> new wording' per line")
     records: list[dict[str, Any]] = []
     for raw in lines:
-        sound = SOUNDSCAPE_PREFIX_RE.match(raw)
-        body = sound.group(1) if sound else raw
+        prefix_label, sec_name, body = parse_section_prefix(raw)
         old, new = split_pole_pair(body)
         if not old or not new:
             raise ValueError(f"edit {raw!r}: write it as 'old wording -> new wording'")
@@ -95,20 +133,51 @@ def apply_edits(prompt: str, edits: str) -> tuple[str, list[dict[str, Any]]]:
             if _TAG_RE.search(wording) or HEADER_TOKEN_RE.search(wording):
                 raise ValueError(f"edit {raw!r}: the {side} wording contains a tag, a speaker id or a header; "
                                  "edit only the prose around them")
-        count = text.count(old)
-        if count != 1:
-            raise ValueError(f"edit {raw!r}: the old wording occurs {count} time(s) in the prompt; it must "
-                             "occur exactly once (add the words that follow it to make it unique)")
-        at = text.index(old)
+        if sec_name is not None:
+            span = section_span(text, sec_name)
+            if span is None:
+                if old in text:
+                    raise ValueError(
+                        f"edit {raw!r}: a {prefix_label!r} edit must replace wording inside the {sec_name} section"
+                    )
+                raise ValueError(
+                    f"edit {raw!r}: the prompt has no {sec_name}: section for a {prefix_label!r} edit"
+                )
+            b0, b1 = span
+            sec_body = text[b0:b1]
+            sec_count = sec_body.count(old)
+            if sec_count == 0:
+                if old in text:
+                    raise ValueError(
+                        f"edit {raw!r}: a {prefix_label!r} edit must replace wording inside the {sec_name} section"
+                    )
+                raise ValueError(
+                    f"edit {raw!r}: the old wording occurs 0 time(s) in the prompt; it must "
+                    "occur exactly once (add the words that follow it to make it unique)"
+                )
+            if sec_count > 1:
+                raise ValueError(
+                    f"edit {raw!r}: the old wording occurs {sec_count} time(s) in the {sec_name} section; it must "
+                    "occur exactly once (add the words that follow it to make it unique)"
+                )
+            at = b0 + sec_body.index(old)
+        else:
+            count = text.count(old)
+            if count != 1:
+                raise ValueError(
+                    f"edit {raw!r}: the old wording occurs {count} time(s) in the prompt; it must "
+                    "occur exactly once (add the words that follow it to make it unique)"
+                )
+            at = text.index(old)
         if _inside_dialogue(text, at, at + len(old)):
             raise ValueError(f"edit {raw!r}: the old wording is inside <d>...</d>; dialogue is not edited here")
-        if sound:
-            marker = text.find("overall_soundscape:")
-            music = text.find("non_diegetic_music:")
-            if marker < 0 or at < marker or (0 <= music < at):
-                raise ValueError(f"edit {raw!r}: a 'soundscape:' edit must replace wording inside the "
-                                 "overall_soundscape section")
         text = text[:at] + new + text[at + len(old):]
-        records.append({"old": old, "new": new, "soundscape": bool(sound),
-                        "old_words": len(old.split()), "new_words": len(new.split())})
+        records.append({
+            "old": old,
+            "new": new,
+            "soundscape": sec_name == "overall_soundscape",
+            "section": sec_name,
+            "old_words": len(old.split()),
+            "new_words": len(new.split()),
+        })
     return text, records

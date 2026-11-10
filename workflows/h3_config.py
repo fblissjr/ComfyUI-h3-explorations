@@ -523,7 +523,12 @@ SOL_BASELINE_124F = dict(
 #: changing `steps` by hand leaves `end_percent` stale, and nothing at run time
 #: will say so. `bench/check_attention_defaults.py` catches it for shipped
 #: graphs; a hand-edited one is on the person editing it.
-SOL_END_PERCENT_BY_STEPS = {}  # retired 2026-09-11; was {4: 0.74, 6: 0.83, 8: 0.87}
+#: Keep the terminal Pika H3 Flex 6-step `sample_lcm` step (`sigma=0.333333 -> 0.0`)
+#: dense (`percent_to_sigma(0.95) == 0.387097` at shift 12, so Step 0 at `1.0` runs
+#: dense, Steps 1..4 at `[0.972973, 0.923077, 0.8, 0.571429]` run sparse, and Step 5
+#: at `0.333333` runs dense). Adopted 2026-11-10; was `{}` since 2026-09-11.
+PIKA_SOL_END_PERCENT = 0.95
+SOL_END_PERCENT_BY_STEPS = {6: PIKA_SOL_END_PERCENT}
 
 #: ComfyUI core's own Sol node (`comfy_extras/nodes_sparse_attention.py`,
 #: Comfy-Org/ComfyUI#16072, merged 2026-09-06), for an arm that renders it
@@ -1597,6 +1602,11 @@ PIKA_MANUAL_SIGMAS = ", ".join(
     for k in PIKA_CONTRACT_KNOTS
 )
 assert PIKA_MANUAL_SIGMAS == "1.0, 0.972973, 0.923077, 0.8, 0.571429, 0.333333, 0.0"
+PIKA_SOL_CUDA_DEFAULTS = sol_for_graph(PIKA_STEPS)
+assert (
+    PIKA_SOL_CUDA_DEFAULTS["start_percent"] == 0.2
+    and PIKA_SOL_CUDA_DEFAULTS["end_percent"] == PIKA_SOL_END_PERCENT
+)
 
 #: PrunaAI P-H3-Image 8-step single-frame T2I and multi-image edit distillation
 #: (`PrunaAI/P-H3-Image`, `diffusers` `src/diffusers/modular_pipelines/p_h3_image/`).

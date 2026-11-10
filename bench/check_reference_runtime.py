@@ -974,6 +974,30 @@ def video_grid_is_read_off_the_latent():
         R.adapt_canvas = original_adapt_canvas
 
 
+def tiered_policy_scales_by_canvas_short_edge():
+    import torch
+
+    still = torch.zeros(1, 512, 768, 3)
+    records = R.MiniMaxH3AppendRefImage.execute(
+        still, {"size_policy": "tiered"}, {"qwen_view": "separate", "qwen_short_edge": 512}
+    ).args[0]
+    assert records[0].size_policy == "tiered"
+
+    vae_sub768 = _VideoVae()
+    R._compile_reference_records(
+        records, vae_sub768, _AudioVae(), 832, 480, 22, video_policy="comfy"
+    )
+    # Canvas short edge 480 < 768 -> reference short edge 1024 -> 512x768 scales 2x to 1024x1536 (H=1024, W=1536)
+    assert tuple(vae_sub768.inputs[0].shape[1:3]) == (1024, 1536), vae_sub768.inputs[0].shape
+
+    vae_768p = _VideoVae()
+    R._compile_reference_records(
+        records, vae_768p, _AudioVae(), 1344, 768, 22, video_policy="comfy"
+    )
+    # Canvas short edge 768 >= 768 -> reference short edge 2048 -> 512x768 scales 4x to 2048x3072 (H=2048, W=3072)
+    assert tuple(vae_768p.inputs[0].shape[1:3]) == (2048, 3072), vae_768p.inputs[0].shape
+
+
 CHECKS = (
     append_is_copy_on_add_and_ordered,
     video_metadata_is_owned,
@@ -996,6 +1020,7 @@ CHECKS = (
     a_video_can_turn_its_own_vae_copy_off,
     preflight_reads_the_vae_gate_off_the_graph,
     video_grid_is_read_off_the_latent,
+    tiered_policy_scales_by_canvas_short_edge,
 )
 
 

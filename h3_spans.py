@@ -44,6 +44,7 @@ POOLING_MODES: tuple[str, ...] = (
 
 INFERENCE_MASK_MODES: tuple[str, ...] = (
     "non_vision",
+    "look_only",
     "scene_only",
     "description_only",
     "soundscape_only",
@@ -60,13 +61,28 @@ SECTION_HEADER_RE = re.compile(
     r"integrated_multimodal_description|detailed_description|"
     r"overall_soundscape|non_diegetic_music):"
 )
-STRUCTURAL_TAG_RE = re.compile(
-    r"\[Shot\s+\d+\]|<(?:Subject|Picture|Video|Audio)\s+\d+>|(?:^|\n)[ \t]*Edit\s+<Picture\s+\d+>\."
+_SUMMARY_TASK_TYPES = (
+    r"(?:keyframe completion|reference generation|video editing|"
+    r"video continuation|audio reuse|audio reference)"
 )
+_RETENTION_MODES = (
+    r"(?:fully_preserved|partially_preserved|attribute_transfer|"
+    r"weak_reference|fully_copy|partially_copy|reference)"
+)
+STRUCTURAL_TAG_RE = re.compile(
+    rf"\[[ \t]*{_SUMMARY_TASK_TYPES}(?:[ \t]*\+[ \t]*{_SUMMARY_TASK_TYPES})*[ \t]*\]"
+    rf"|<(?:\bSubject|\bPicture|\bVideo|\bAudio)\s+\d+>(?:\s*\([^)\n]*\))?\s*:\s*{_RETENTION_MODES}\s*-"
+    r"|\[Shot\s+\d+\]|<(?:Subject|Picture|Video|Audio)\s+\d+>|(?:^|\n)[ \t]*Edit\s+<Picture\s+\d+>\."
+)
+AUDIO_RETENTION_LINE_RE = re.compile(r"^[ \t]*<Audio\s+\d+>")
+LOOK_SECTIONS: frozenset[str] = frozenset({"summary", "subject_definitions"})
 DESCRIPTION_SECTIONS: frozenset[str] = frozenset(
     {"integrated_multimodal_description", "detailed_description"}
 )
-SOUNDSCAPE_SECTIONS: frozenset[str] = frozenset({"overall_soundscape"})
+SOUNDSCAPE_SECTIONS: frozenset[str] = frozenset(
+    {"overall_soundscape", "non_diegetic_music"}
+)
+EMPTY_SECTION_BODIES: frozenset[str] = frozenset({"", "n/a", "na", "none"})
 
 
 def unwrap_hf_tokenizer(clip_or_tokenizer: Any) -> Any | None:
@@ -371,19 +387,26 @@ def spans(
         bad = (cover != 1).nonzero(as_tuple=False).flatten().tolist()
         raise RuntimeError(f"span partition is not mutually exclusive at indices {bad}")
 
-    # Attach structural section submasks (`_h3_description_mask`,
-    # `_h3_soundscape_mask`, and `_h3_steerable_scene_mask`) onto `out["scene"]`
-    # so `inference_mask` can select `scene_only` (description + soundscape prose
-    # without section headers, `[Shot N]`, `<Subject N>`/`<Picture N>` tags,
-    # `subject_definitions:`, `summary:`, `retention_analysis:`, `non_diegetic_music:`,
-    # or Part One keyframe alignment lines), `description_only`, or `soundscape_only`
+    # Attach 3-lever structural section submasks (`_h3_look_mask`,
+    # `_h3_description_mask`, `_h3_soundscape_mask`, and `_h3_steerable_scene_mask`)
+    # onto `out["scene"]` so `inference_mask` can select:
+    #   - `look_only` (`subject_definitions:` + `summary:` + visual lines of
+    #     `retention_analysis:`, excluding `ref_en.md` task/retention markers),
+    #   - `scene_only` (`_h3_look_mask | _h3_description_mask`: all visual prose,
+    #     excluding audio sections, `"N/A"`, headers, tags, and Part One alignment),
+    #   - `description_only` (`integrated_multimodal_description:` / `detailed_description:`),
+    #   - `soundscape_only` (`overall_soundscape:` + non-`"N/A"` `non_diegetic_music:`
+    #     + `<Audio N>:` lines inside `retention_analysis:`),
     # while keeping `spans()`'s 6 mutually exclusive `CATEGORIES` unchanged.
+    look_mask = torch.zeros(L, dtype=torch.bool)
     desc_mask = torch.zeros(L, dtype=torch.bool)
     sound_mask = torch.zeros(L, dtype=torch.bool)
     steerable_scene_mask = out["scene"].clone()
     has_sections = False
     tail_text = ""
     prompt_start = last_vision_idx + 1
+    while prompt_start < L and bool(out["label"][prompt_start].item()):
+        prompt_start += 1
     if prompt_start < L:
         tail_pieces: list[str] = []
         tail_char_spans: list[tuple[int, int, int, int, int]] = []
@@ -414,24 +437,44 @@ def spans(
         sec_matches = list(SECTION_HEADER_RE.finditer(tail_text))
         if sec_matches:
             has_sections = True
-            sec_intervals: list[tuple[str, int, int]] = []
+            sec_intervals: list[tuple[str, int, int, list[tuple[int, int]]]] = []
             for s_idx, sm in enumerate(sec_matches):
                 # Start strictly after the section header and colon (`sm.end()`) so header tokens are never steered.
                 s_start = sm.end()
                 s_end = sec_matches[s_idx + 1].start() if (s_idx + 1) < len(sec_matches) else len(tail_text)
-                sec_intervals.append((sm.group(1), s_start, s_end))
+                sec_name = sm.group(1)
+                sec_body = tail_text[s_start:s_end].strip().rstrip(".").strip().lower()
+                if sec_body in EMPTY_SECTION_BODIES:
+                    continue
+                audio_ret_spans: list[tuple[int, int]] = []
+                if sec_name == "retention_analysis":
+                    line_cursor = s_start
+                    for raw_line in tail_text[s_start:s_end].splitlines(keepends=True):
+                        line_end = line_cursor + len(raw_line)
+                        if AUDIO_RETENTION_LINE_RE.match(raw_line):
+                            audio_ret_spans.append((line_cursor, line_end))
+                        line_cursor = line_end
+                sec_intervals.append((sec_name, s_start, s_end, audio_ret_spans))
             for k, c0, _c1, nc0, nc1 in tail_char_spans:
                 if not bool(steerable_scene_mask[k].item()):
                     continue
                 probe_pos = nc0 if nc0 < nc1 else c0
-                for sec_name, s_start, s_end in sec_intervals:
+                for sec_name, s_start, s_end, audio_ret_spans in sec_intervals:
                     if s_start <= probe_pos < s_end:
-                        if sec_name in DESCRIPTION_SECTIONS:
+                        if sec_name in LOOK_SECTIONS:
+                            look_mask[k] = True
+                        elif sec_name == "retention_analysis":
+                            if any(a0 <= probe_pos < a1 for a0, a1 in audio_ret_spans):
+                                sound_mask[k] = True
+                            else:
+                                look_mask[k] = True
+                        elif sec_name in DESCRIPTION_SECTIONS:
                             desc_mask[k] = True
                         elif sec_name in SOUNDSCAPE_SECTIONS:
                             sound_mask[k] = True
                         break
 
+    setattr(out["scene"], "_h3_look_mask", look_mask)
     setattr(out["scene"], "_h3_description_mask", desc_mask)
     setattr(out["scene"], "_h3_soundscape_mask", sound_mask)
     setattr(out["scene"], "_h3_steerable_scene_mask", steerable_scene_mask)
@@ -471,22 +514,27 @@ def inference_mask(
 
     Modes (`INFERENCE_MASK_MODES`):
     - `'non_vision'`: `~span_masks['vision']` (every `tag == 1` text row).
-    - `'scene_only'`: on sectioned H3 video prompts (`t2va`, `fl2va`, `ref2va`),
-      steers only the visual description (`integrated_multimodal_description:` or
-      `detailed_description:`) and `overall_soundscape:` prose tokens (`_h3_description_mask | _h3_soundscape_mask`),
-      leaving vision, reference labels, timestamps, speaker tags `(S1)`, `<d>...</d>`
-      dialogue, section headers, `[Shot N]`, `<Subject N>`/`<Picture N>` tags,
-      `subject_definitions:`, `summary:`, `retention_analysis:`, `non_diegetic_music:`,
-      and Part One keyframe alignment lines untouched. On sectionless prompts (such
-      as `P-H3-Image`), steers all non-tag `scene` tokens (`_h3_steerable_scene_mask`).
-    - `'description_only'`: non-dialogue `scene` prose tokens inside the visual
-      description section (`integrated_multimodal_description:` on `fl2va` or
-      `detailed_description:` on `ref2va`), excluding section headers, `[Shot N]`,
-      and `<Subject N>`/`<Picture N>` tags (falls back to `scene_only` if the prompt
-      has no description section header).
-    - `'soundscape_only'`: `scene` prose tokens inside `overall_soundscape:`,
-      excluding the section header and `non_diegetic_music:` (falls back to
-      `scene_only` if the prompt has no `overall_soundscape:` section header).
+    - `'look_only'`: Visual Look sections (`subject_definitions:`, `summary:`, and
+      visual lines of `retention_analysis:`, excluding `[reference generation]` /
+      `ref_en.md` task brackets, `<Subject N> (...): fully_preserved -` headers,
+      `<Audio N>:` lines, and `"N/A"`). Falls back to `'description_only'` on
+      3-field `t2va` / `fl2va` or sectionless prompts.
+    - `'scene_only'`: all steerable visual prose (`look_only | description_only`)
+      on sectioned H3 video prompts (`t2va`, `fl2va`, `ref2va`), excluding audio
+      sections (`overall_soundscape:`, `non_diegetic_music:`, `<Audio N>:` retention
+      lines), `"N/A"`, vision, reference labels, timestamps, speaker tags `(S1)`,
+      `<d>...</d>` dialogue, section headers, `[Shot N]`, `<Subject N>`/`<Picture N>`
+      tags, and Part One keyframe alignment lines. On sectionless prompts (such as
+      `P-H3-Image`), steers all non-tag `scene` tokens (`_h3_steerable_scene_mask`).
+    - `'description_only'`: non-dialogue `scene` prose tokens inside the Events /
+      Actions visual description section (`integrated_multimodal_description:` on
+      `fl2va`/`t2va` or `detailed_description:` on `ref2va`), excluding section
+      headers, `[Shot N]`, and `<Subject N>`/`<Picture N>` tags (falls back to
+      `scene_only` if the prompt has no description section header).
+    - `'soundscape_only'`: `scene` prose tokens inside `overall_soundscape:` plus
+      non-`"N/A"` `non_diegetic_music:` (and `<Audio N>:` retention lines),
+      excluding section headers and `"N/A"` / `"None"` bodies (falls back to
+      `scene_only` on sectionless prompts).
     - `'after_dialogue'`: `span_masks['scene']` strictly after the last
       `dialogue` token (or all `span_masks['scene']` rows when the prompt has
       no `<d>...</d>` span or no trailing scene tokens after `</d>`).
@@ -499,31 +547,42 @@ def inference_mask(
         return (~span_masks["vision"]).clone()
     if mode == "all_rows":
         return torch.ones_like(span_masks["vision"], dtype=torch.bool)
+    scene_t = span_masks["scene"]
+    has_sections = bool(getattr(scene_t, "_h3_has_sections", False))
+    if mode == "look_only":
+        look_sub = getattr(scene_t, "_h3_look_mask", None)
+        if isinstance(look_sub, torch.Tensor) and look_sub.shape == scene_t.shape and bool(look_sub.any()):
+            return (look_sub.to(device=scene_t.device) & scene_t).clone()
+        return inference_mask(span_masks, "description_only")
     if mode == "scene_only":
-        desc_sub = getattr(span_masks["scene"], "_h3_description_mask", None)
-        sound_sub = getattr(span_masks["scene"], "_h3_soundscape_mask", None)
-        if (
-            isinstance(desc_sub, torch.Tensor)
-            and isinstance(sound_sub, torch.Tensor)
-            and desc_sub.shape == span_masks["scene"].shape
-            and sound_sub.shape == span_masks["scene"].shape
-            and bool((desc_sub | sound_sub).any())
-        ):
-            combined = (desc_sub | sound_sub).to(device=span_masks["scene"].device)
-            return (combined & span_masks["scene"]).clone()
-        steerable = getattr(span_masks["scene"], "_h3_steerable_scene_mask", None)
-        if isinstance(steerable, torch.Tensor) and steerable.shape == span_masks["scene"].shape and bool(steerable.any()):
-            return (steerable.to(device=span_masks["scene"].device) & span_masks["scene"]).clone()
-        return span_masks["scene"].clone()
+        look_sub = getattr(scene_t, "_h3_look_mask", None)
+        desc_sub = getattr(scene_t, "_h3_description_mask", None)
+        combined_vis: torch.Tensor | None = None
+        if isinstance(look_sub, torch.Tensor) and look_sub.shape == scene_t.shape:
+            combined_vis = look_sub
+        if isinstance(desc_sub, torch.Tensor) and desc_sub.shape == scene_t.shape:
+            combined_vis = desc_sub if combined_vis is None else (combined_vis | desc_sub)
+        if combined_vis is not None and bool(combined_vis.any()):
+            return (combined_vis.to(device=scene_t.device) & scene_t).clone()
+        if has_sections and combined_vis is not None:
+            return torch.zeros_like(scene_t, dtype=torch.bool)
+        steerable = getattr(scene_t, "_h3_steerable_scene_mask", None)
+        if isinstance(steerable, torch.Tensor) and steerable.shape == scene_t.shape and bool(steerable.any()):
+            return (steerable.to(device=scene_t.device) & scene_t).clone()
+        return scene_t.clone()
     if mode == "description_only":
-        sub = getattr(span_masks["scene"], "_h3_description_mask", None)
-        if isinstance(sub, torch.Tensor) and sub.shape == span_masks["scene"].shape and bool(sub.any()):
-            return (sub.to(device=span_masks["scene"].device) & span_masks["scene"]).clone()
+        sub = getattr(scene_t, "_h3_description_mask", None)
+        if isinstance(sub, torch.Tensor) and sub.shape == scene_t.shape and bool(sub.any()):
+            return (sub.to(device=scene_t.device) & scene_t).clone()
+        if has_sections and isinstance(sub, torch.Tensor) and sub.shape == scene_t.shape:
+            return torch.zeros_like(scene_t, dtype=torch.bool)
         return inference_mask(span_masks, "scene_only")
     if mode == "soundscape_only":
-        sub = getattr(span_masks["scene"], "_h3_soundscape_mask", None)
-        if isinstance(sub, torch.Tensor) and sub.shape == span_masks["scene"].shape and bool(sub.any()):
-            return (sub.to(device=span_masks["scene"].device) & span_masks["scene"]).clone()
+        sub = getattr(scene_t, "_h3_soundscape_mask", None)
+        if isinstance(sub, torch.Tensor) and sub.shape == scene_t.shape and bool(sub.any()):
+            return (sub.to(device=scene_t.device) & scene_t).clone()
+        if has_sections and isinstance(sub, torch.Tensor) and sub.shape == scene_t.shape:
+            return torch.zeros_like(scene_t, dtype=torch.bool)
         return inference_mask(span_masks, "scene_only")
     if mode == "after_dialogue":
         mask = span_masks["scene"].clone()
@@ -665,6 +724,9 @@ def span_masks_from_prompt(
     prefix_false = torch.zeros(prefix_len, dtype=torch.bool)
 
     scene_cat = torch.cat([prefix_false, prompt_spans["scene"]], dim=0)
+    look_sub = getattr(prompt_spans["scene"], "_h3_look_mask", None)
+    if isinstance(look_sub, torch.Tensor):
+        setattr(scene_cat, "_h3_look_mask", torch.cat([prefix_false, look_sub], dim=0))
     desc_sub = getattr(prompt_spans["scene"], "_h3_description_mask", None)
     if isinstance(desc_sub, torch.Tensor):
         setattr(scene_cat, "_h3_description_mask", torch.cat([prefix_false, desc_sub], dim=0))

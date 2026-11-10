@@ -1,6 +1,6 @@
 # The command line, the files and the bank
 
-last updated: 2026-11-09
+last updated: 2026-11-10
 
 [Back to the start page](../control_vectors.md)
 
@@ -17,24 +17,24 @@ of each:
 Run it with the ComfyUI venv's python, never `uv` (`docs/comfy_notes.md`, "Running things"). A build loads
 the text encoder on the card, so run it when no render holds the card.
 
-This table says what each command is for and whether a session ran it on 2026-11-09. A flag table is not
-kept here: the last one drifted from the parser.
+This table says what each command is for and where its verified record lives. A flag table is not kept
+here: the last one drifted from the parser.
 
-| Command | For | Run on 2026-11-09 |
+| Command | For | Recorded verification |
 |---|---|---|
-| `build` (also `from-toml`) | A vector from a pair file, or every file in the bank | The bank's vectors on disk were built that day by another session, with this command or `rebuild`; which was not recorded here |
-| `from-prompt` | A vector from your own prompt and `old -> new` clauses, with `--ref-images` for a prompt that names a picture | Yes, once, on a reference picture |
-| `rebuild` | Vectors made again from the pairs recorded in their own files | See `build` |
-| `inspect` | A vector's metadata and its J-Lens words | No |
-| `make` | A vector from a pair file or from a prompt and clauses; an older twin of the two above | No |
-| `make-media` (also `from-images`) | A vector from two pictures | No |
-| `words` (also `from-words`) | A vector from a few words, through J-Lens, on the CPU | No |
-| `sculpt` | A new vector from existing ones: added, held out, inverted | No |
-| `grade` | How far a vector moves activations, against nulls and edits | No. With a reference picture it loads the VAE for its DiT probe, a path that has not been run |
-| `from-md` (also `import-md`) | An LLM's Markdown answer turned into a pair file | No |
-| `generate-pairs` | Pairs written by a local LLM | No. See the LLM page |
-| `build-j-lens` | The J-Lens bundle checked, or half of it rebuilt | No. See the J-Lens page before using it |
-| `ui` | The browser UI | No. Not maintained at present |
+| `build` (also `from-toml`) | A vector from a pair file, or every file in the bank | Yes — all shipped `.toml` bank vectors (`Arms 01..52` in [`2026-11-05_control_vectors_pika_and_ref2va.md`](../../../bench/results/2026-11-05_control_vectors_pika_and_ref2va.md), plus `film_16mm_1974` / `film_16mm_1974_neutral` on 2026-11-10) |
+| `from-prompt` | A vector from your own prompt and `old -> new` clauses (plus optional `--bank-scenes <K>` and `--ref-images`) | Yes — tested on a reference picture on 2026-11-09; `--bank-scenes` covered in `bench/check_control_vectors.py` |
+| `rebuild` | Vectors made again from the pairs recorded in their own files | Yes — single-vector and folder modes verified in `bench/check_control_vectors.py` |
+| `inspect` | A vector's metadata, J-Lens words, and token span masks (`--mask`) | Yes — verified across all 3-lever `--mask` modes |
+| `make` | A vector from a pair file or from a prompt and clauses; an older twin of `build` / `from-prompt` | Covered in CLI parser checks; `Arms 55..56` tested compiled `--words` |
+| `make-media` (also `from-images`) | A vector from two pictures | Covered in `bench/check_control_vectors.py`; no rendered video arm on record |
+| `words` (also `from-words`) | A vector from a few words, through J-Lens, on the CPU (`< 2 ms`) | Yes — 7 rendered arms (`Arms 53, 54, 61..65` in [`2026-11-05_control_vectors_pika_and_ref2va.md`](../../../bench/results/2026-11-05_control_vectors_pika_and_ref2va.md)) |
+| `sculpt` | A new vector from existing ones: added, held out, inverted | Covered in `bench/check_control_vectors.py`; runtime `mode="hold"` rendered in `Arm 58` |
+| `grade` | How far a vector moves post-refiner rows and DiT velocities (`--mask`, `--pika`, `--sol`) | Yes — text prompts graded on GPU (`2026-11-05` & `2026-11-10` under `--pika --sol --mask scene_only`); `--ref-images` VAE DiT probe path not yet recorded |
+| `from-md` (also `import-md`) | An LLM's Markdown answer turned into a pair file | Covered in `bench/check_control_vectors.py` |
+| `generate-pairs` | Pairs written by a local LLM | Not run on record; see the LLM page |
+| `build-j-lens` | The J-Lens bundle checked (`--verify-only`), or its refiner half rebuilt (requires `--overwrite` to replace an existing file) | `--verify-only` verified; see the J-Lens page before rebuilding |
+| `ui` | The browser UI | Not maintained at present |
 
 The plan is to cut this list down to building from a prompt and rebuilding from a file's own record
 ([`the plan`](../../research/control_vectors/2026-11-09_control_vector_simplification_plan.md), section 19).
@@ -77,12 +77,13 @@ folder, with no claim per file:
 ```text
 auctioneer_rapid_patter   bioluminescent_glow   chaos_panic            claymation_stopmotion
 crystallize_ice           cursed_cctv           cyberpunk_neon_rain    elastic_neck_stretch
-felt_muppet               fever_melt            film_16mm_1974         handheld_documentary_zoom
-head_swell                infomercial_fail      lettering              magnetic_attraction
-miniature_tiltshift       noir                  operatic_bellow        paper_origami
-reverb_cathedral          rubber_hose_1930s     smoke_dissolve         strobe_club_pulse
-thermal_infrared          underwater_submerged  vhs_1991_camcorder     vocal_strain
-wes_anderson_symmetry     whisper_asmr          wind_tunnel_gale       zero_gravity
+felt_muppet               fever_melt            film_16mm_1974         film_16mm_1974_neutral
+handheld_documentary_zoom head_swell            infomercial_fail       lettering
+magnetic_attraction       miniature_tiltshift   noir                   operatic_bellow
+paper_origami             reverb_cathedral      rubber_hose_1930s      smoke_dissolve
+strobe_club_pulse         thermal_infrared      underwater_submerged   vhs_1991_camcorder
+vocal_strain              wes_anderson_symmetry whisper_asmr           wind_tunnel_gale
+zero_gravity
 ```
 
 `ls prompt_bank/control_vectors/` is the authority; this list is a copy made on the date above.

@@ -161,14 +161,15 @@ def _arms(args, prompt: str, edited: str, seed: int) -> tuple[dict[str, dict], d
     arms["schedule"] = g
 
     if args.node_arms:
-        def node(label: str, scale: float, first_step: int, align: bool) -> dict:
+        def node(label: str, scale: float, first_step: int, align: bool, last_step: int = 1000) -> dict:
             g = fresh(label)
             guider_id, guider = _one(g, "BasicGuider")
             _first, second = _with_second_prompt(g, edited)
             g[guider_id] = {"class_type": "MiniMaxH3EditGuider",
                             "inputs": {"model": guider["inputs"]["model"],
                                        "original": guider["inputs"]["conditioning"], "edited": [second, 0],
-                                       "scale": scale, "first_step": first_step, "align_positions": align}}
+                                       "scale": scale, "first_step": first_step, "last_step": last_step,
+                                       "align_positions": align}}
             return g
 
         low = args.scales[0]

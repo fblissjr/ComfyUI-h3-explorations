@@ -265,6 +265,9 @@ def price_references(records, width: int, height: int, length: int,
                                  f"(x{scale * scale:.1f} rows)")
                 elif scale < 1.0:
                     notes.append(f"shrunk to the {record.short_edge} short edge")
+            elif record.size_policy == "tiered":
+                tier_edge = 1024 if min(width, height) < 768 else 2048
+                notes.append(f"tiered: {tier_edge} short edge from {width}x{height} canvas")
             else:
                 notes.append("match: capped at the canvas area, never enlarged")
             if not separate:

@@ -77,6 +77,7 @@ import os
 import sys
 
 import control_vectors as cv
+import h3_spans
 from workflows import h3_config
 
 from .build_cmd import cmd_build, cmd_rebuild, cmd_words
@@ -177,7 +178,14 @@ def build_parser() -> argparse.ArgumentParser:
         dest="target_weight",
         type=float,
         default=2.5,
-        help="Weight for Pair 0 when multiple '---'-separated target scenes are passed (default: 2.5)",
+        help="Weight for Pair 0 when multiple '---'-separated target scenes or --bank-scenes are passed (default: 2.5)",
+    )
+    pfp.add_argument(
+        "--bank-scenes",
+        dest="bank_scenes",
+        type=int,
+        default=0,
+        help="Optional number of mode-matched prompt_bank scenes to append alongside --target-prompt for multi-scene nuisance cancellation (default: 0)",
     )
     pfp.add_argument("--hold", action="append", default=None, help="Optional .safetensors vector(s) to project out")
     pfp.add_argument("--hold-words", dest="hold_words", default="", help="Optional nuisance words to project out on CPU")
@@ -248,6 +256,13 @@ def build_parser() -> argparse.ArgumentParser:
         type=float,
         default=2.5,
         help="Weight for Pair 0 when --target-prompt is passed (default: 2.5)",
+    )
+    pb.add_argument(
+        "--bank-scenes",
+        dest="bank_scenes",
+        type=int,
+        default=0,
+        help="Optional number of mode-matched prompt_bank scenes to append alongside --target-prompt when compiling --words (default: 0)",
     )
     pb.add_argument(
         "--all",
@@ -359,6 +374,13 @@ def build_parser() -> argparse.ArgumentParser:
     pm.add_argument("--words", default="", help="In-place 'pole_a -> pole_b' contrast compiled directly on --target-prompt")
     pm.add_argument("--target-prompt", dest="target_prompt", default="", help="Target H3 scene prompt for in-place --words compilation")
     pm.add_argument("--target-weight", dest="target_weight", type=float, default=2.5, help="Weight for Pair 0 when --target-prompt is passed")
+    pm.add_argument(
+        "--bank-scenes",
+        dest="bank_scenes",
+        type=int,
+        default=0,
+        help="Optional number of mode-matched prompt_bank scenes to append alongside --target-prompt when compiling --words (default: 0)",
+    )
     pm.add_argument("--hold", action="append", default=None, help="Optional .safetensors vector(s) to project out")
     pm.add_argument("--hold-words", dest="hold_words", default="", help="Optional nuisance words to project out on CPU")
     pm.add_argument("--hold-alpha", dest="hold_alpha", type=float, default=1.0, help="Attenuation alpha in [0.0, 2.0] for --hold / --hold-words")
@@ -490,6 +512,12 @@ def build_parser() -> argparse.ArgumentParser:
     pi.add_argument("--allow-recipe-mismatch", action="store_true")
     pi.add_argument("--meter", action="append", default=None, help="Prompt-bank id or file path to meter")
     pi.add_argument("--meter-look-family", action="store_true", help="Meter t2va_look_anchor and all 8 look siblings (E2.8)")
+    pi.add_argument(
+        "--mask",
+        choices=h3_spans.INFERENCE_MASK_MODES,
+        default=None,
+        help="Optional inference span mask override when metering prompts (e.g. 'scene_only', 'look_only', 'description_only', 'soundscape_only')",
+    )
     pi.add_argument("--device", default="default")
     pi.add_argument("--refiner-device", default="cpu")
 
@@ -498,6 +526,12 @@ def build_parser() -> argparse.ArgumentParser:
     pg.add_argument("--prompt", required=True, help="Base prompt id or path")
     pg.add_argument("--edit-prompt", default=None, help="Edit baseline prompt id or path")
     pg.add_argument("--pairs", default=None, help="Pair TOML file to build flip_null")
+    pg.add_argument(
+        "--mask",
+        choices=h3_spans.INFERENCE_MASK_MODES,
+        default="scene_only",
+        help="Inference span mask applied during context and DiT grading (default: 'scene_only', matching runtime nodes)",
+    )
     pg.add_argument("--strengths", default="0,0.5,1.0,2.0,-1.0")
     pg.add_argument("--probe-steps", default="0,8,15", help="Schedule step indices for DiT forward grading")
     pg.add_argument("--no-dit", action="store_true", help="Run post-refiner context movement only without loading the DiT")
@@ -642,6 +676,7 @@ def build_parser() -> argparse.ArgumentParser:
     pjl.add_argument("--fl2va-dit", dest="fl2va_dit", default=None, help="fl2va DiT checkpoint filename")
     pjl.add_argument("--ref2va-dit", dest="ref2va_dit", default=None, help="ref2va DiT checkpoint filename")
     pjl.add_argument("--no-lora", dest="no_lora", action="store_true", help="Compute TokenRefiner Jacobians without Pika LoRAs")
+    pjl.add_argument("--overwrite", action="store_true", help="Overwrite an existing j_lens_h3.safetensors bundle at --out / default bundle path")
     pjl.add_argument("--device", default="default")
     pjl.add_argument("--refiner-device", dest="refiner_device", default="cpu")
 

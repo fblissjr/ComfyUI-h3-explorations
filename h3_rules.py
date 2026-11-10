@@ -281,6 +281,7 @@ CONTROL_VECTOR_DEFAULTS = dict(
 EDIT_GUIDANCE_DEFAULTS = dict(
     scale=1.5,
     first_step=0,
+    last_step=1000,
     align_positions=False,
 )
 

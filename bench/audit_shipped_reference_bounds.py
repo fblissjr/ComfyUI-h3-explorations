@@ -137,9 +137,9 @@ def _fitted(src_w: int, src_h: int, fit_args: dict | None,
         args = {k: v for k, v in stage.items()
                 if k in ("size_policy", "short_edge", "allow_upscale")}
         policy = args.get("size_policy", "match")
-        if policy == "match" and not canvas:
+        if policy in ("match", "tiered") and not canvas:
             raise _UnpriceableRow(
-                "size_policy='match' sizes from the target canvas and this "
+                f"size_policy={policy!r} sizes from the target canvas and this "
                 "graph's canvas was not statically resolvable")
         w, h = fit_reference_image(
             w, h, size_policy=policy,

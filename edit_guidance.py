@@ -93,14 +93,19 @@ def step_index(model_options: dict, timestep: Any) -> int | None:
 
 
 class EditGuider(comfy.samplers.CFGGuider):
-    """`original + scale * (edited - original)`, one pass before `first_step`."""
+    """`original + scale * (edited - original)`, one pass before `first_step` and one `[edited]` pass after `last_step`."""
 
     def set_conds(self, original, edited):
         self.inner_set_conds({"positive": edited, "negative": original})
 
-    def set_edit(self, scale: float, first_step: int, align_positions: bool):
+    def set_edit(self, scale: float, first_step: int, align_positions: bool, last_step: int = 1000):
+        f_step = int(first_step)
+        l_step = int(last_step)
+        if l_step < f_step:
+            raise ValueError(f"last_step ({l_step}) must be >= first_step ({f_step})")
         self.edit_scale = float(scale)
-        self.first_step = int(first_step)
+        self.first_step = f_step
+        self.last_step = l_step
         self.align_positions = bool(align_positions)
         self._prepared = False
 
@@ -147,9 +152,10 @@ class EditGuider(comfy.samplers.CFGGuider):
         original, edited = self.conds.get("negative"), self.conds.get("positive")
         step = step_index(model_options, timestep)
         before = step is not None and step < self.first_step
+        after = step is not None and step > self.last_step
         if before or self.edit_scale == 0.0:
             return comfy.samplers.calc_cond_batch(self.inner_model, [original], x, timestep, model_options)[0]
-        if self.edit_scale == 1.0:
+        if after or self.edit_scale == 1.0:
             return comfy.samplers.calc_cond_batch(self.inner_model, [edited], x, timestep, model_options)[0]
         out = comfy.samplers.calc_cond_batch(self.inner_model, [original, edited], x, timestep, model_options)
         return out[0] + (out[1] - out[0]) * self.edit_scale
@@ -175,8 +181,9 @@ class MiniMaxH3PromptEdit(io.ComfyNode):
                                         "first conditioning node, so the two cannot differ."),
                 io.String.Input("edits", multiline=True, default="",
                                 tooltip="One edit a line: old wording -> new wording. The old wording must occur "
-                                        "exactly once in the prompt. Start a line with 'soundscape:' to edit the "
-                                        "soundscape section. Dialogue, tags and headers cannot be edited."),
+                                        "exactly once in the prompt (or inside the named section). Start a line with "
+                                        "'soundscape:', 'music:', or 'summary:' to edit that section. Dialogue, tags "
+                                        "and headers cannot be edited."),
             ],
             outputs=[io.String.Output(display_name="edited_prompt"), io.String.Output(display_name="report")],
         )
@@ -184,8 +191,11 @@ class MiniMaxH3PromptEdit(io.ComfyNode):
     @classmethod
     def execute(cls, original, edits) -> io.NodeOutput:
         edited, records = apply_edits(original, edits)
-        lines = [f"{'soundscape' if r['soundscape'] else 'description'}: {r['old_words']} word(s) -> "
-                 f"{r['new_words']} word(s): {r['old']!r} -> {r['new']!r}" for r in records]
+        lines = [
+            f"{'soundscape' if r['soundscape'] else (r.get('section') or 'description')}: "
+            f"{r['old_words']} word(s) -> {r['new_words']} word(s): {r['old']!r} -> {r['new']!r}"
+            for r in records
+        ]
         return io.NodeOutput(edited, "\n".join(lines))
 
 
@@ -209,6 +219,11 @@ class MiniMaxH3EditGuider(io.ComfyNode):
                 io.Int.Input("first_step", default=_rules.EDIT_GUIDANCE_DEFAULTS["first_step"], min=0, max=1000,
                              tooltip="The first sampling step that uses the edit. Earlier steps run the original "
                                      "prompt alone, which keeps its framing and pose."),
+                io.Int.Input("last_step", default=_rules.EDIT_GUIDANCE_DEFAULTS["last_step"], min=0, max=1000,
+                             optional=True,
+                             tooltip="The last sampling step that runs 2-pass edit guidance (default 1000 = all steps). "
+                                     "Steps after last_step run 1-pass [edited] (scale = 1.0), halving late-step DiT "
+                                     "cost while keeping the edited prompt locked under sample_lcm."),
                 io.Boolean.Input("align_positions", default=_rules.EDIT_GUIDANCE_DEFAULTS["align_positions"],
                                  optional=True,
                                  tooltip="Give both prompts the same starting position for the video and audio "
@@ -218,11 +233,26 @@ class MiniMaxH3EditGuider(io.ComfyNode):
         )
 
     @classmethod
-    def execute(cls, model, original, edited, scale, first_step, align_positions=False) -> io.NodeOutput:
+    def execute(
+        cls,
+        model,
+        original,
+        edited,
+        scale,
+        first_step,
+        last_step=_rules.EDIT_GUIDANCE_DEFAULTS["last_step"],
+        align_positions=False,
+    ) -> io.NodeOutput:
         len_a, len_b = check_same_but_text(original, edited)
         guider = EditGuider(model)
         guider.set_conds(original, edited)
-        guider.set_edit(scale, first_step, align_positions)
-        logger.info("[h3] edit guidance: scale %g from step %d; text length %d (original) and %d (edited) tokens",
-                    float(scale), int(first_step), len_a, len_b)
+        guider.set_edit(scale, first_step, align_positions, last_step=last_step)
+        logger.info(
+            "[h3] edit guidance: scale %g across steps %d..%d; text length %d (original) and %d (edited) tokens",
+            float(scale),
+            int(first_step),
+            int(last_step),
+            len_a,
+            len_b,
+        )
         return io.NodeOutput(guider)

@@ -480,10 +480,14 @@ def _reference_media(inputs: dict, graph: dict):
             # that defaulted to core's shrink-only sizing priced an omitted
             # input at a quarter of the rows it gets.
             size_policy = _value("size_policy", "max")
-            allow_upscale = _value("allow_upscale", True, group="size_policy")
-            # Renamed on the node 2026-08-28; the internal dict key below
-            # stays `short_edge` because it is preflight's own.
-            short_edge = _value("dit_short_edge", 2048, group="size_policy")
+            if size_policy in ("match", "tiered") and "size_policy" not in absent:
+                allow_upscale = size_policy == "tiered"
+                short_edge = 2048
+            else:
+                allow_upscale = _value("allow_upscale", True, group="size_policy")
+                # Renamed on the node 2026-08-28; the internal dict key below
+                # stays `short_edge` because it is preflight's own.
+                short_edge = _value("dit_short_edge", 2048, group="size_policy")
             # `qwen_view` is a DynamicCombo since 2026-08-31, replacing a flat
             # `qwen_short_edge` Int whose 0 meant "shared view". Same rename
             # shape as `size_policy` above, and this reader refused to price

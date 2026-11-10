@@ -89,18 +89,28 @@ def check_prompt_edit() -> None:
             lambda: eg.apply_edits(prompt, f"soundscape: {opening} -> Clay,"), "inside the overall_soundscape")
     out, _ = eg.apply_edits(prompt, f"soundscape: {sound} -> A kettle whistles")
     ok("a soundscape edit lands in the soundscape section", "A kettle whistles" in out.split("overall_soundscape:")[1])
+    out_music, _ = eg.apply_edits(prompt, "music: N/A -> A solo cello holds long low notes.")
+    ok("a music: edit replaces N/A inside non_diegetic_music:",
+       "solo cello" in out_music.split("non_diegetic_music:")[1])
+    ref2va_prompt = (REPO_ROOT / "prompt_bank" / "ref2va_look_anchor.txt").read_text(encoding="utf-8").strip()
+    out_sum, _ = eg.apply_edits(ref2va_prompt, "summary: crossing -> striding across")
+    ok("a summary: edit replaces prose strictly inside summary:",
+       "striding across" in out_sum.split("summary:")[1].split("retention_analysis:")[0])
+    refuses("a summary: edit aimed at detailed_description",
+            lambda: eg.apply_edits(ref2va_prompt, "summary: chiaroscuro lighting -> neon lighting"),
+            "inside the summary")
 
 
 class _Patcher:
     model_options: dict = {}
 
 
-def _guider(scale: float, first_step: int = 0, align: bool = False) -> eg.EditGuider:
+def _guider(scale: float, first_step: int = 0, align: bool = False, last_step: int = 1000) -> eg.EditGuider:
     g = eg.EditGuider(_Patcher())
     g.inner_model = None
     g.conds = {"negative": [{"which": "original", "model_conds": {}}],
                "positive": [{"which": "edited", "model_conds": {}}]}
-    g.set_edit(scale, first_step, align)
+    g.set_edit(scale, first_step, align, last_step=last_step)
     return g
 
 
@@ -129,6 +139,13 @@ def check_guider_arithmetic() -> None:
         ok("before first_step only the original runs", run(g, 0) == 1.0 and seen == [["original"]]
            and run(g, 1) == 1.0 and seen == [["original"]])
         ok("from first_step on, both run", run(g, 2) == 5.0 and seen == [["original", "edited"]])
+        g_win = _guider(2.0, first_step=1, last_step=2)
+        ok("windowed guider runs [original] before first_step, 2-pass inside [1..2], and 1-pass [edited] after last_step",
+           run(g_win, 0) == 1.0 and seen == [["original"]]
+           and run(g_win, 1) == 5.0 and seen == [["original", "edited"]]
+           and run(g_win, 2) == 5.0 and seen == [["original", "edited"]]
+           and run(g_win, 3) == 3.0 and seen == [["edited"]])
+        refuses("last_step < first_step", lambda: _guider(1.5, first_step=3, last_step=2), "last_step")
         ok("with no schedule in the options the edit is on from the start",
            float(_guider(2.0, first_step=3).predict_noise(None, sig[:1], {})[0]) == 5.0)
     finally:

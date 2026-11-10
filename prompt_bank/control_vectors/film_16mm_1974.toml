@@ -176,45 +176,6 @@ overall_soundscape: Heavy Atlantic surf crashes against basalt rock beneath a st
 non_diegetic_music: N/A'''
 
 [[hold]]
-group = "warm_colour_cast"
-a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, lit by neutral balanced white daylight with cool-grey stone shadows, a medium shot frames a cobbler in a leather apron stitching a boot sole on a wooden last across the five-second take. Waxed linen thread pulls tight through the welt as hands work steadily. The camera holds a static shot. The cobbler produces no vocal sound.
-
-overall_soundscape: An awl pierces stiff leather and waxed thread pulls taut in a quiet workshop.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, bathed in a strong warm amber colour cast with golden-tinted shadows, a medium shot frames a cobbler in a leather apron stitching a boot sole on a wooden last across the five-second take. Waxed linen thread pulls tight through the welt as hands work steadily. The camera holds a static shot. The cobbler produces no vocal sound.
-
-overall_soundscape: An awl pierces stiff leather and waxed thread pulls taut in a quiet workshop.
-
-non_diegetic_music: N/A'''
-
-[[hold]]
-group = "warm_colour_cast"
-a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, under clean neutral white gallery lighting with accurate colour balance, a medium-close shot frames a violin restorer in a cotton smock brushing dust from a carved maple scroll across the five-second take. Fine bristles sweep along the volute on a felt-lined table. The camera pushes in with small amplitude at slow speed. The restorer produces no vocal sound.
-
-overall_soundscape: Soft brush bristles whisper against dry maple wood over quiet room tone.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, under a warm honey-amber colour cast with golden ochre highlights, a medium-close shot frames a violin restorer in a cotton smock brushing dust from a carved maple scroll across the five-second take. Fine bristles sweep along the volute on a felt-lined table. The camera pushes in with small amplitude at slow speed. The restorer produces no vocal sound.
-
-overall_soundscape: Soft brush bristles whisper against dry maple wood over quiet room tone.
-
-non_diegetic_music: N/A'''
-
-[[hold]]
-group = "warm_colour_cast"
-a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, graded in neutral daylight colour with crisp white highlights, a wide shot frames a stone footbridge arching over a clear millstream beside willow trees across the five-second take. Water eddies around mossy piers as leaves drift downstream. The camera pans right with small amplitude at slow speed. No people are present.
-
-overall_soundscape: Clear stream water burbles over rounded river stones beneath rustling willow leaves.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, graded in a warm amber colour cast with golden-orange highlights, a wide shot frames a stone footbridge arching over a clear millstream beside willow trees across the five-second take. Water eddies around mossy piers as leaves drift downstream. The camera pans right with small amplitude at slow speed. No people are present.
-
-overall_soundscape: Clear stream water burbles over rounded river stones beneath rustling willow leaves.
-
-non_diegetic_music: N/A'''
-
-[[hold]]
 group = "soft_focus"
 a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, rendered in tack-sharp deep focus with crisp edges across every plane, a close-up frames a calligrapher in linen cuffs dipping a brass nib into an inkwell on a walnut desk across the five-second take. Black ink wets the pointed nib before touching cream paper. The camera holds a static shot. The calligrapher produces no vocal sound.
 

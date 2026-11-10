@@ -917,6 +917,7 @@ class MiniMaxH3AppendRefImage(io.ComfyNode):
                             ),
                         ]),
                         io.DynamicCombo.Option("match", []),
+                        io.DynamicCombo.Option("tiered", []),
                     ],
                     tooltip=(
                         "How big the video model's copy of this still is. A "
@@ -926,7 +927,10 @@ class MiniMaxH3AppendRefImage(io.ComfyNode):
                         "is dit_short_edge. The output size is ignored.\n\n"
                         "match: shrink the still to fit the output's pixel "
                         "area; never enlarges it. dit_short_edge and "
-                        "allow_upscale do not apply."
+                        "allow_upscale do not apply.\n\n"
+                        "tiered: scale the still's shorter side to 1024 when "
+                        "the output's shorter side is below 768, or 2048 at "
+                        "768 and above."
                     ),
                 ),
                 # A DynamicCombo since 2026-08-31; it was an Int whose 0 meant
@@ -1019,6 +1023,9 @@ class MiniMaxH3AppendRefImage(io.ComfyNode):
             allow_upscale = bool(size_policy["allow_upscale"])
         elif policy == "max":
             # The bare selection: the schema's own defaults.
+            short_edge, allow_upscale = REF_IMAGE_SHORT_EDGE, True
+        elif policy == "tiered":
+            # `tiered` computes 1024 (< 768p) or 2048 (>= 768p) from the canvas at conditioning time.
             short_edge, allow_upscale = REF_IMAGE_SHORT_EDGE, True
         else:
             # `match` reads neither, and they are not reachable under it.

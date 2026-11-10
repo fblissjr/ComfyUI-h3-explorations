@@ -1,11 +1,13 @@
 # Control vectors for H3: start here
 
-last updated: 2026-11-09
+last updated: 2026-11-10
 
-Rewritten on 2026-11-09 from the code and from that day's measurements. What these pages used to claim and
-no longer do is logged in [`decisions.md`](decisions.md). The working record behind this page is
-[`../research/control_vectors/2026-11-09_control_vector_simplification_plan.md`](../research/control_vectors/2026-11-09_control_vector_simplification_plan.md),
-called "the plan" below.
+![Control vector pipeline overview](control_vectors/assets/control_vector_pipeline.svg)
+
+Rewritten on 2026-11-09 from the code and from that day's measurements, and updated on 2026-11-10 for 3-lever section masking (`look_only`, `scene_only`, `description_only`, `soundscape_only`), `MiniMaxH3EditGuider.last_step`, and `film_16mm_1974` warmth restoration. What these pages used to claim and
+no longer do is logged in [`decisions.md`](decisions.md). The working records behind this page are
+[`../research/control_vectors/2026-11-09_control_vector_simplification_plan.md`](../research/control_vectors/2026-11-09_control_vector_simplification_plan.md)
+("the plan" below) and [`../research/control_vectors/2026-11-10_control_vector_state_history_and_tradeoffs.md`](../research/control_vectors/2026-11-10_control_vector_state_history_and_tradeoffs.md).
 
 ## What a control vector is
 
@@ -25,9 +27,16 @@ changed wording are averaged on each side, and the difference is the vector
 | A bank vector | Load a vector built ahead of time from the pair files in `prompt_bank/control_vectors/` | A built `.safetensors` file | Kept as a starter set and not grown (owner, 2026-11-09). Rendered on text-to-video and reference shots |
 | An in-place vector | Build a vector from the prompt you are steering, with its reference picture when it has one | One build, a few seconds on the card | Ran for the first time with a picture on 2026-11-09. Not yet judged against the other two |
 
-Start with edit guidance. It works inside your prompt's own layout and with its own references, so nothing
-is carried from one kind of prompt to another. Reach for a vector when you want one dial to reuse across
-many prompts without editing each.
+Start with edit guidance when steering a single shot's wording, and set `last_step` (for example `2` or `3`
+on 6-step Pika) to hand late refinement steps back to 1-pass `[edited]`. Reach for a control vector when you
+want zero extra DiT passes (1 pass per step) or one reusable dial across many prompts without editing each:
+
+| Dimension | Control vector (`MiniMaxH3ApplyControlVectors`) | Edit guidance (`MiniMaxH3EditGuider`) |
+|---|---|---|
+| Sampling cost (6-step Pika) | **6 DiT passes** (1× per step; zero sampling overhead) | **12 DiT passes** at `0..1000`, or **8–9 passes** (`-25%` to `-33%`) with `last_step = 2` or `3` |
+| Setup cost | Zero if loading a `.safetensors` bank/saved vector; ~7–8 s once when building with `from-prompt` | Zero offline build; two prompt encodings per run |
+| Section scoping | Built-in **3-lever span masks** (`look_only`, `scene_only`, `description_only`, `soundscape_only`) | Scoped by which prompt section (`summary:`, `soundscape:`, `music:`, or description) `MiniMaxH3PromptEdit` edits |
+| Multi-dial composition | Stackable (`MiniMaxH3ApplyControlVectors` chains in `float64` + orthogonal `hold` mode) | Single baseline-vs-edited prompt pair per guider |
 
 One round on one reference shot compared all three on two seeds (the plan, section 25). It has not been
 judged by the owner, so no way is ranked here.
@@ -38,7 +47,8 @@ Measured on 2026-11-09, each with where to read it in the plan:
 
 - The text space is close to one across the families. The fl2va and ref2va text paths give nearly parallel
   rows for the same prompt, with or without the Pika LoRA, and the image model's text path is fl2va's
-  (sections 23.1 and 23.3). Vectors are still built and named per family.
+  (sections 23.1 and 23.3). Vectors are still built and named per family; dialing `MiniMaxH3LoRABranch.strength`
+  away from `1.0` on a recognized same-family H3 LoRA is allowed with an advisory log note.
 - A reference picture in front of a prompt moves the description and soundscape rows little, and the
   subject, summary and retention rows more (section 23.5).
 - Every pair file is a text-only prompt with no picture (section 23).
@@ -47,8 +57,10 @@ Measured on 2026-11-09, each with where to read it in the plan:
 Not known:
 
 - Whether a vector built in place beats one from the bank on a render.
-- Which rows a vector should reach by default. The node's default reaches the description and soundscape
-  prose only (section 24).
+- Which visual rows a vector should reach by default across every task. Since 2026-11-10, `scene_only`
+  reaches visual prose only (`look_only | description_only`) and leaves `overall_soundscape:` and
+  `non_diegetic_music:` untouched; `look_only`, `description_only`, and `soundscape_only` isolate individual
+  levers (`comfyui_nodes_and_controls.md`).
 - How each DiT reads the same vector. The measurements above are of rows, not of pictures.
 
 ## The pieces

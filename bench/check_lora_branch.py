@@ -563,6 +563,83 @@ def main() -> int:
           ref_br.gate is None and win_obj is not None and seen_inside == [False] and win_obj.active is True,
           f"ref_gate={ref_br.gate}, seen_inside={seen_inside}, active_after={win_obj.active}")
 
+    # 5. Unequal-rank 3-band block-diagonal qkv_proj (matching svd995 / svd99 (r_q, r_k, r_v)
+    #    plus interleaved columns) compacts b from [3*D, R] to [D, R] and equals float32 merge,
+    #    while dense qkv_proj stays unpacked (_b_splits is None).
+    dense_qkv_br = lb.parse_lora(sd, STRENGTH)["blocks.0.attn.qkv_proj"]
+    check("dense qkv_proj stays unpacked (_b_splits is None)",
+          dense_qkv_br._b_splits is None and dense_qkv_br.b.shape == (3 * HIDDEN, RANK),
+          f"shape={tuple(dense_qkv_br.b.shape)}, splits={dense_qkv_br._b_splits}")
+
+    g_bd = torch.Generator().manual_seed(29)
+    sd_bd = copy.deepcopy(sd)
+    # Interleaved columns across bands (band 0: 3 cols, band 1: 1 col, band 2: 2 cols -> R=6)
+    col_bands = (0, 2, 0, 1, 2, 0)
+    r_bd = len(col_bands)
+    for path in targets(dm):
+        if not path.endswith("attn.qkv_proj"):
+            continue
+        k = f"diffusion_model.{path}"
+        w = dm.get_submodule(path).weight
+        d_band = w.shape[0] // 3
+        a_bd = torch.randn(r_bd, w.shape[1], generator=g_bd) * 0.1
+        b_bd = torch.zeros(w.shape[0], r_bd)
+        for c_idx, b_idx in enumerate(col_bands):
+            b_bd[b_idx * d_band : (b_idx + 1) * d_band, c_idx] = (
+                torch.randn(d_band, generator=g_bd) * 0.1
+            )
+        sd_bd[f"{k}.lora_A.weight"] = a_bd
+        sd_bd[f"{k}.lora_B.weight"] = b_bd
+        sd_bd[f"{k}.alpha"] = torch.tensor(float(r_bd))
+
+    ref_bd_dm = copy.deepcopy(dm)
+    with torch.no_grad():
+        for path in targets(dm):
+            mod = ref_bd_dm.get_submodule(path)
+            k = f"diffusion_model.{path}"
+            r_cur = sd_bd[f"{k}.lora_A.weight"].shape[0]
+            alpha_cur = float(sd_bd[f"{k}.alpha"])
+            mod.weight += STRENGTH * alpha_cur / r_cur * (
+                sd_bd[f"{k}.lora_B.weight"] @ sd_bd[f"{k}.lora_A.weight"]
+            )
+            if f"{k}.diff_b" in sd_bd:
+                mod.bias += STRENGTH * sd_bd[f"{k}.diff_b"]
+    ref_bd = run(ref_bd_dm)
+    parsed_bd = lb.parse_lora(sd_bd, STRENGTH)
+    qkv_bd_br = parsed_bd["blocks.0.attn.qkv_proj"]
+    out_bd, _ = branched(dm, sd_bd)
+    check("unequal-rank 3-band block-diagonal qkv_proj compacts b to [D, R] and equals float32 merge",
+          qkv_bd_br._b_splits == (3, 1, 2)
+          and qkv_bd_br.b.shape == (HIDDEN, r_bd)
+          and rel(out_bd, ref_bd) < 1e-5,
+          f"shape={tuple(qkv_bd_br.b.shape)}, splits={qkv_bd_br._b_splits}, rel={rel(out_bd, ref_bd):.3g}")
+
+    # 6. LINEAR_CHUNK_ROWS multi-chunk linear execution copies factors once per module call
+    #    and equals the float32 merge (including packed 3-band qkv_proj).
+    lin_copies = {"n": 0}
+    real_dev_lin = lb._Branch.__dict__["_dev"]
+
+    def counting_lin(t, like):
+        lin_copies["n"] += 1
+        return real_dev_lin.__func__(t, like)
+
+    saved_lin_chunk = lb.LINEAR_CHUNK_ROWS
+    lb._Branch._dev = staticmethod(counting_lin)
+    try:
+        branched(dm, sd_bd)
+        lin_one_chunk = lin_copies["n"]
+        lb.LINEAR_CHUNK_ROWS = 3
+        lin_copies["n"] = 0
+        out_lin_chunked = branched(dm, sd_bd)[0]
+        lin_many_chunks = lin_copies["n"]
+    finally:
+        lb.LINEAR_CHUNK_ROWS = saved_lin_chunk
+        lb._Branch._dev = real_dev_lin
+    check("linear branches copy factors once per module call across row chunks and equal merge",
+          lin_many_chunks == lin_one_chunk and rel(out_lin_chunked, ref_bd) < 1e-5,
+          f"{lin_one_chunk} copies at one chunk, {lin_many_chunks} at LINEAR_CHUNK_ROWS=3, "
+          f"rel={rel(out_lin_chunked, ref_bd):.3g}")
+
     if fails:
         print(f"\n  FAIL  {len(fails)}: {fails}")
         return 1

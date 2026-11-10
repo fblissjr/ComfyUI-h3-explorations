@@ -139,11 +139,13 @@ def cmd_inspect(args: argparse.Namespace) -> int:
         refiner_run = cv_nodes.build_refiner_runner(
             dit_path, device=args.refiner_device, loras=meter_loras
         )
+        mask_override = getattr(args, "mask", None)
         pooling = metadata["measured_under"].get("pooling", "scene_text")
         if pooling in ("from_first_diff", "diff_span"):
             pooling = "scene_text"
 
-        print(f"\n--- Meter Projection along {metadata['name']} (pooling={pooling}) ---")
+        mask_header = f"mask={mask_override}" if mask_override else f"pooling={pooling}"
+        print(f"\n--- Meter Projection along {metadata['name']} ({mask_header}) ---")
         rows: list[tuple[str, float, float, float, int, float, float, list[tuple[str, float]]]] = []
         v64_unit = torch.nn.functional.normalize(vec.detach().to(device="cpu", dtype=torch.float64), dim=-1)
         for target in meter_targets:
@@ -151,7 +153,12 @@ def cmd_inspect(args: argparse.Namespace) -> int:
             enc_rows, tags, tids, dec_fn = cv_nodes.encode_prompt_for_vector(clip, text)
             ref_rows = refiner_run(enc_rows)
             sp = h3_spans.spans(tids, tags.tolist(), dec_fn)
-            mask = h3_spans.pooling_mask(sp, pooling)
+            if mask_override:
+                mask = h3_spans.inference_mask(sp, mask_override)
+            elif pooling in h3_spans.INFERENCE_MASK_MODES:
+                mask = h3_spans.inference_mask(sp, pooling)
+            else:
+                mask = h3_spans.pooling_mask(sp, pooling)
             m = cv.meter_score(ref_rows, vec, mask=mask)
             r64_cpu = ref_rows.detach().to(device="cpu", dtype=torch.float64)
             r64_unit = torch.nn.functional.normalize(r64_cpu, dim=-1)
@@ -322,6 +329,7 @@ def _attach_raw_vector(
     start_percent: float = 0.0,
     end_percent: float = 1.0,
     metadata: dict[str, Any] | None = None,
+    prompt: str = "",
 ) -> Any:
     """Clone `model` with an in-memory `(vec, strength, mask, mode, start_percent, end_percent)` attached via
     `control_vector_nodes._make_control_vector_wrapper` on `WrappersMP.DIFFUSION_MODEL`."""
@@ -338,6 +346,7 @@ def _attach_raw_vector(
         end_percent=float(end_percent),
         metadata=metadata or {"measured_under": {"prefix": "none"}},
         advisories=(),
+        prompt=str(prompt or ""),
     )
     t_opts = m.model_options.setdefault("transformer_options", {})
     t_opts[cv_nodes.WRAPPER_KEY] = (spec,)
@@ -426,12 +435,20 @@ def cmd_grade(args: argparse.Namespace) -> int:
             use_vae=not getattr(args, "no_dit", False),
         )
 
-    base_cond, base_enc, base_tags, base_ids, _ = cv_nodes.encode_conditioning_for_vector(
+    base_cond, base_enc, base_tags, base_ids, base_dec_fn = cv_nodes.encode_conditioning_for_vector(
         clip, prompt_text, encoded_references=encoded_refs
     )
     base_ctx = refiner_run(base_enc)
     base_ctx_b = base_ctx.unsqueeze(0)
     base_tags_b = base_tags.unsqueeze(0)
+    grade_mask = str(getattr(args, "mask", "scene_only") or "scene_only")
+    base_spans = h3_spans.spans(base_ids, base_tags.tolist(), base_dec_fn)
+    base_infer_mask = (
+        None
+        if grade_mask in ("non_vision", "all_rows")
+        else h3_spans.inference_mask(base_spans, grade_mask)
+    )
+    grade_mask_vision = grade_mask != "all_rows"
 
     period_cond, period_enc, period_tags, period_ids, _ = cv_nodes.encode_conditioning_for_vector(
         clip, prompt_text + " .", encoded_references=encoded_refs
@@ -540,6 +557,7 @@ def cmd_grade(args: argparse.Namespace) -> int:
         "L_base": len(base_ids),
         "n_tag1": n_txt,
         "n_vision": n_vis,
+        "mask": grade_mask,
         "vector_raw_norm": raw_norm,
         "arms": {},
     }
@@ -585,7 +603,7 @@ def cmd_grade(args: argparse.Namespace) -> int:
 
     for s in strengths:
         pushed_masked = cv.apply_post_refiner(
-            base_ctx_b, base_tags_b, [(vec, s)], mask_vision=True
+            base_ctx_b, base_tags_b, [(vec, s)], mask_vision=grade_mask_vision, mask=base_infer_mask
         )[0]
         rel_seq = _rel_l2(pushed_masked, base_ctx)
         vis_diff = (
@@ -609,7 +627,7 @@ def cmd_grade(args: argparse.Namespace) -> int:
 
     if flip_dir is not None:
         flip_pushed = cv.apply_post_refiner(
-            base_ctx_b, base_tags_b, [(flip_dir, 1.0)], mask_vision=True
+            base_ctx_b, base_tags_b, [(flip_dir, 1.0)], mask_vision=grade_mask_vision, mask=base_infer_mask
         )[0]
         context_report["arms"]["flip_null"] = {
             "seq_rel_l2": _rel_l2(flip_pushed, base_ctx),
@@ -620,7 +638,7 @@ def cmd_grade(args: argparse.Namespace) -> int:
             f"cos_with_v={_cosine(flip_dir, vec):+.4f}"
         )
     rand_pushed = cv.apply_post_refiner(
-        base_ctx_b, base_tags_b, [(rand_dir, 1.0)], mask_vision=True
+        base_ctx_b, base_tags_b, [(rand_dir, 1.0)], mask_vision=grade_mask_vision, mask=base_infer_mask
     )[0]
     context_report["arms"]["random_null"] = {
         "seq_rel_l2": _rel_l2(rand_pushed, base_ctx),
@@ -636,6 +654,7 @@ def cmd_grade(args: argparse.Namespace) -> int:
         "dit_file": dit_path.name,
         "unet_file": dit_path.name,
         "loras": grade_loras,
+        "mask": grade_mask,
         "core_revision": substrate.git_head(cv_nodes.COMFY_ROOT) or "unknown",
         "pack_commit": substrate.git_head(REPO_ROOT) or "unknown",
         "attention": "sol" if getattr(args, "sol", False) else "stock_dense",
@@ -752,7 +771,7 @@ def cmd_grade(args: argparse.Namespace) -> int:
 
             # Hard check: strength 0.0 hooked reproduces plain base prediction exactly
             m_zero = _attach_raw_vector(
-                base_model, metadata["name"], vec, 0.0, mask="non_vision", metadata=metadata
+                base_model, metadata["name"], vec, 0.0, mask=grade_mask, metadata=metadata, prompt=prompt_text
             )
             _, pred_zero_raw = dit_runner(m_zero, base_cond, step_idx)
             zero_b = _pred_blocks(pred_zero_raw)
@@ -800,7 +819,7 @@ def cmd_grade(args: argparse.Namespace) -> int:
 
             if flip_dir is not None:
                 m_flip = _attach_raw_vector(
-                    base_model, "flip_null", flip_dir, 1.0, mask="non_vision", metadata=metadata
+                    base_model, "flip_null", flip_dir, 1.0, mask=grade_mask, metadata=metadata, prompt=prompt_text
                 )
                 _, pred_flip_raw = dit_runner(m_flip, base_cond, step_idx)
                 flip_b = _pred_blocks(pred_flip_raw)
@@ -813,7 +832,7 @@ def cmd_grade(args: argparse.Namespace) -> int:
                 )
 
             m_rand = _attach_raw_vector(
-                base_model, "random_null", rand_dir, 1.0, mask="non_vision", metadata=metadata
+                base_model, "random_null", rand_dir, 1.0, mask=grade_mask, metadata=metadata, prompt=prompt_text
             )
             _, pred_rand_raw = dit_runner(m_rand, base_cond, step_idx)
             rand_b = _pred_blocks(pred_rand_raw)
@@ -830,7 +849,7 @@ def cmd_grade(args: argparse.Namespace) -> int:
                     step_arms["vector_s0"] = zero_metrics
                     continue
                 m_vec = _attach_raw_vector(
-                    base_model, metadata["name"], vec, s, mask="non_vision", metadata=metadata
+                    base_model, metadata["name"], vec, s, mask=grade_mask, metadata=metadata, prompt=prompt_text
                 )
                 _, pred_vec_raw = dit_runner(m_vec, base_cond, step_idx)
                 vec_b = _pred_blocks(pred_vec_raw)
@@ -844,7 +863,7 @@ def cmd_grade(args: argparse.Namespace) -> int:
                     )
                 if n_vis > 0 or getattr(args, "compare_unmasked", False):
                     m_unmasked = _attach_raw_vector(
-                        base_model, metadata["name"], vec, s, mask="all_rows", metadata=metadata
+                        base_model, metadata["name"], vec, s, mask="all_rows", metadata=metadata, prompt=prompt_text
                     )
                     _, pred_unm_raw = dit_runner(m_unmasked, base_cond, step_idx)
                     unm_b = _pred_blocks(pred_unm_raw)

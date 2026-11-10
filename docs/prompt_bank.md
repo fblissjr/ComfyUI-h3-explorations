@@ -42,7 +42,7 @@
 | [`t2va_clinic_corridor`](#t2va-clinic-corridor) | t2va | 345 | 14.375 | yes | 0 | — | 205 | 3 | 2 | English | Truck Right | N/A | clean |
 | [`t2va_cooking_show_meltdown`](#t2va-cooking-show-meltdown) | t2va | 345 | 14.375 | pinned | 0 | — | 299 | 3 | 1 | English | Zoom In, Push In, Static Shot | scored | clean |
 | [`t2va_courtroom_verdict`](#t2va-courtroom-verdict) | t2va | 345 | 14.375 | pinned | 0 | — | 294 | 3 | 2 | English | Push In, Truck Right, Static Shot | scored | clean |
-| [`t2va_covered_market`](#t2va-covered-market) | t2va | 345 | 14.375 | yes | 24 | — | 249 | 3 | 2 | English | Truck Left, Static Shot | N/A | clean |
+| [`t2va_covered_market`](#t2va-covered-market) | t2va | 345 | 14.375 | yes | 25 | — | 249 | 3 | 2 | English | Truck Left, Static Shot | N/A | clean |
 | [`t2va_crowd_churn_long`](#t2va-crowd-churn-long) | t2va | 345 | 14.375 | yes | 0 | — | 373 | 1 | 0 | — | Shake Strongly | N/A | clean |
 | [`t2va_cyber_hacker_den`](#t2va-cyber-hacker-den) | t2va | 345 | 14.375 | pinned | 0 | — | 306 | 3 | 1 | English | Push In, Truck Right, Static Shot | scored | clean |
 | [`t2va_cyberpunk_music_video`](#t2va-cyberpunk-music-video) | t2va | 345 | 14.375 | pinned | 0 | — | 257 | 3 | 1 | English | Push In, Arc Shot, Tracking Shot | scored | clean |
@@ -127,7 +127,7 @@
 | [`fl2va_balloon`](#fl2va-balloon) | fl2va | 209 | 8.708 | yes | 0 | — | 169 | 1 | 0 | — | Pull Out | N/A | clean |
 | [`fl2va_carousel`](#fl2va-carousel) | fl2va | 311 | 12.958 | yes | 0 | — | 186 | 2 | 1 | English | Truck Right, Tilt Up | scored | clean |
 | [`fl2va_drawbridge`](#fl2va-drawbridge) | fl2va | 362 | 15.083 | pinned | 0 | — | 196 | 1 | 0 | — | Pedestal Down | scored | clean |
-| [`fl2va_interior_converge`](#fl2va-interior-converge) | fl2va | 362 | 15.083 | yes | 1 | — | 87 | 1 | 0 | — | Truck Right | N/A | clean |
+| [`fl2va_interior_converge`](#fl2va-interior-converge) | fl2va | 362 | 15.083 | yes | 2 | — | 87 | 1 | 0 | — | Truck Right | N/A | clean |
 | [`l2va_telescope`](#l2va-telescope) | l2va | 90 | 3.750 | yes | 0 | — | 127 | 1 | 0 | — | Static Shot | N/A | clean |
 | [`l2va_chess_clock`](#l2va-chess-clock) | l2va | 141 | 5.875 | yes | 0 | — | 223 | 1 | 2 | English, Russian | Tilt Down | N/A | clean |
 | [`l2va_kite_festival`](#l2va-kite-festival) | l2va | 226 | 9.417 | yes | 0 | — | 270 | 3 | 1 | English | Zoom Out, Static Shot | scored | clean |
@@ -172,7 +172,7 @@
 | [`ref2va_night_porter_refs`](#ref2va-night-porter-refs) | ref2va | 345 | 14.375 | yes | 1 | `h3_probe_refview2_porter_api` | 352 | 2 | 1 | English | Zoom In, Static Shot | N/A | clean |
 | [`ref2va_role_character_environment`](#ref2va-role-character-environment) | ref2va | 345 | 14.375 | yes | 3 | `h3_image_ref_plus_text_to_video_api` | 42 | 1 | 0 | — | Truck Right | N/A | 0 FAIL, 1 WARN (recorded; see the entry) |
 | [`ref2va_role_character_garment_environment`](#ref2va-role-character-garment-environment) | ref2va | 345 | 14.375 | yes | 9 | `h3_probe_capture_ref3_api` | 45 | 1 | 0 | — | Truck Right | N/A | 0 FAIL, 1 WARN (recorded; see the entry) |
-| [`ref2va_scene_kitchen`](#ref2va-scene-kitchen) | ref2va | 345 | 14.375 | yes | 5 | `h3_ref2v_scene_kitchen_api` | 468 | 4 | 2 | English | Push In, Pedestal Up | N/A | clean |
+| [`ref2va_scene_kitchen`](#ref2va-scene-kitchen) | ref2va | 345 | 14.375 | yes | 6 | `h3_ref2v_scene_kitchen_api` | 468 | 4 | 2 | English | Push In, Pedestal Up | N/A | clean |
 | [`ref2va_scene_subway`](#ref2va-scene-subway) | ref2va | 345 | 14.375 | yes | 1 | `h3_ref2v_scene_subway_api` | 434 | 4 | 3 | English |  | N/A | clean |
 | [`ref2va_stairwell_dialogue`](#ref2va-stairwell-dialogue) | ref2va | 345 | 14.375 | yes | 1 | `h3_image_ref_plus_text_to_video_dialogue_api` | 431 | 3 | 2 | English | Shake Slightly | N/A | clean |
 | [`ref2va_stairwell_dialogue_backstage`](#ref2va-stairwell-dialogue-backstage) | ref2va | 345 | 14.375 | yes | 1 | `h3_probe_refview2_stairwell_backstage_api` | 427 | 3 | 2 | English | Shake Slightly | N/A | clean |
@@ -971,7 +971,7 @@ non_diegetic_music: A brooding orchestral string motif at a slow tempo, driven b
 
 ## t2va_covered_market
 
-**t2va, 345 frames, 14.375 s.** Live-action handheld; covered market aisle; the scene every shipped t2v graph carried until 2026-09-03 and the one every real-activation Sol record came from **Tests:** the busy wide scene every shipped t2v graph carried: many small figures, clutter, handheld motion; the scene most speedups were tuned on until 2026-09-03. Ships in: `h3_candidate_t2v_sol_only_api`, `h3_probe_canvas_portrait_api`, `h3_probe_canvas_ultrawide_api`, `h3_probe_head_chunks_api`, `h3_probe_square_canvas_api`, `h3_probe_t2v_base_euler32_api`, `h3_probe_t2v_base_euler32_savelat_api`, `h3_probe_t2v_base_euler32_x0_api`, `h3_probe_t2v_ck_api`, `h3_probe_t2v_dense_api`, `h3_probe_t2v_exact_tail_api`, `h3_probe_t2v_levers_api`, `h3_probe_t2v_no_dense_tail_api`, `h3_probe_t2v_policy_api`, `h3_probe_t2v_rotate_api`, `h3_probe_t2v_sage_rotate_api`, `h3_probe_t2v_sol_nosage_api`, `h3_text_to_video_api`, `h3_text_to_video_audio_freeze_2windows_api`, `h3_text_to_video_audio_freeze_api`, `h3_text_to_video_pika_control_vector_api`, `h3_text_to_video_pika_dual_control_vectors_api`, `h3_text_to_video_pika_edit_guidance_api`, `h3_text_to_video_savelat_api`.
+**t2va, 345 frames, 14.375 s.** Live-action handheld; covered market aisle; the scene every shipped t2v graph carried until 2026-09-03 and the one every real-activation Sol record came from **Tests:** the busy wide scene every shipped t2v graph carried: many small figures, clutter, handheld motion; the scene most speedups were tuned on until 2026-09-03. Ships in: `h3_candidate_t2v_sol_only_api`, `h3_probe_canvas_portrait_api`, `h3_probe_canvas_ultrawide_api`, `h3_probe_head_chunks_api`, `h3_probe_square_canvas_api`, `h3_probe_t2v_base_euler32_api`, `h3_probe_t2v_base_euler32_savelat_api`, `h3_probe_t2v_base_euler32_x0_api`, `h3_probe_t2v_ck_api`, `h3_probe_t2v_dense_api`, `h3_probe_t2v_exact_tail_api`, `h3_probe_t2v_levers_api`, `h3_probe_t2v_no_dense_tail_api`, `h3_probe_t2v_policy_api`, `h3_probe_t2v_rotate_api`, `h3_probe_t2v_sage_rotate_api`, `h3_probe_t2v_sol_nosage_api`, `h3_text_to_video_api`, `h3_text_to_video_audio_freeze_2windows_api`, `h3_text_to_video_audio_freeze_api`, `h3_text_to_video_pika_api`, `h3_text_to_video_pika_control_vector_api`, `h3_text_to_video_pika_dual_control_vectors_api`, `h3_text_to_video_pika_edit_guidance_api`, `h3_text_to_video_savelat_api`.
 
 Derived: camera: Truck Left, Static Shot; speakers: S1, S2; languages: English; cuts: the shot cuts to; 249 words in the main field; 1641 characters in all.
 
@@ -2635,7 +2635,7 @@ non_diegetic_music: Low sustained brass at a slow tempo, joined by a steady timp
 
 ## fl2va_interior_converge
 
-**fl2va, 362 frames, 15.083 s.** The generator's fl2va default: one continuous shot that starts in the opening frame's exact state and converges on the closing one. Part One is base_en's unbracketed FL2VA sentence, resolved here at 362 frames -- `fl2v_prompt()` re-resolves it for any other length. Ships in: `h3_first_last_frame_to_video_api`.
+**fl2va, 362 frames, 15.083 s.** The generator's fl2va default: one continuous shot that starts in the opening frame's exact state and converges on the closing one. Part One is base_en's unbracketed FL2VA sentence, resolved here at 362 frames -- `fl2v_prompt()` re-resolves it for any other length. Ships in: `h3_first_last_frame_pika_api`, `h3_first_last_frame_to_video_api`.
 
 Derived: camera: Truck Right; 87 words in the main field; 1026 characters in all.
 
@@ -4063,7 +4063,7 @@ N/A
 
 ## ref2va_scene_kitchen
 
-**ref2va, 345 frames, 14.375 s, donor `h3_ref2v_scene_kitchen_api`.** The kitchen stress scene: four shots, the lyrics, caption and cutoff markers together, and a character reference carried through all of them. Ships in: `h3_guide_video_edit_api`, `h3_image_ref_plus_text_to_video_pika_control_vector_api`, `h3_image_ref_plus_text_to_video_pika_edit_guidance_api`, `h3_p_h3_image_guide_edit_api`, `h3_ref2v_scene_kitchen_api`.
+**ref2va, 345 frames, 14.375 s, donor `h3_ref2v_scene_kitchen_api`.** The kitchen stress scene: four shots, the lyrics, caption and cutoff markers together, and a character reference carried through all of them. Ships in: `h3_guide_video_edit_api`, `h3_image_ref_plus_text_to_video_pika_api`, `h3_image_ref_plus_text_to_video_pika_control_vector_api`, `h3_image_ref_plus_text_to_video_pika_edit_guidance_api`, `h3_p_h3_image_guide_edit_api`, `h3_ref2v_scene_kitchen_api`.
 
 Derived: camera: Push In, Pedestal Up; speakers: S1, S2; languages: English; cuts: the shot cuts to, the shot changes to; on-screen text: "TABLE 12 - 2 COVERS - FIRE"; task: [reference generation]; labels: <Picture 1>; 468 words in the main field; 3359 characters in all.
 

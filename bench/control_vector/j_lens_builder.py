@@ -33,9 +33,8 @@ families:
        \left(\bar{J}_{\text{ref}}^{(f)} \Sigma_{49} (\bar{J}_{\text{ref}}^{(f)})^\top + \lambda^2 I_{5376}\right)^{-1}$$
 
 2. **`layers.49` -> `layers.63` -> `lm_head` Lexical Unembedding Operators**
-   (computed from the full 64-layer `Qwen3-VL-32B-Instruct` checkpoint via
-   `--qwen-64l-model`, or preserved from an existing `j_lens_h3.safetensors`
-   bundle when refreshing `TokenRefiner` operators):
+   (preserved from an existing `j_lens_h3.safetensors` bundle via `--base-bundle`
+   when refreshing `TokenRefiner` operators against new DiT checkpoints or Pika LoRAs):
    - `J_49_to_63` (`[5120, 5120]`, float32): Expected Jacobian from `layers.49`
      through `layers.50..63` and final `RMSNorm`.
    - `M_union` (`[27407, 5120]`, float16): Pre-multiplied unembedding rows
@@ -370,6 +369,11 @@ def cmd_build_j_lens(args: argparse.Namespace) -> int:
         print(f"  probe readout (+): {info['probe_readout_pos']}")
         return 0
 
+    if out_path.exists() and not getattr(args, "overwrite", False):
+        raise FileExistsError(
+            f"J-Lens bundle already exists at {out_path} (pass --overwrite to replace it, or --verify-only to inspect it)"
+        )
+
     existing_path = (
         Path(args.base_bundle).resolve()
         if getattr(args, "base_bundle", None)
@@ -401,8 +405,9 @@ def cmd_build_j_lens(args: argparse.Namespace) -> int:
     max_prompts = int(getattr(args, "num_prompts", 24) or 24)
     selected_prompts: list[str] = []
     for entry in bank_entries:
-        p_file = REPO_ROOT / "prompt_bank" / str(entry.get("file", ""))
-        if p_file.is_file():
+        rel_name = str(entry.get("file") or (f"{entry['id']}.txt" if entry.get("id") else ""))
+        p_file = REPO_ROOT / "prompt_bank" / rel_name
+        if rel_name and p_file.is_file():
             selected_prompts.append(p_file.read_text(encoding="utf-8").strip())
         if len(selected_prompts) >= max_prompts:
             break

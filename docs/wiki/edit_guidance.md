@@ -1,6 +1,6 @@
 # Edit guidance: steer a render with an edited copy of its prompt
 
-last updated: 2026-11-09
+last updated: 2026-11-10
 
 You change a few words of your own prompt and turn a scale. No control vector is built or loaded. Each
 sampling step the model is run on the prompt as written and on the edited prompt, and the result is moved
@@ -17,13 +17,16 @@ Both are in `edit_guidance.py`. Their inputs, defaults and tooltips are the node
 defaults and their reasons are `h3_rules.EDIT_GUIDANCE_DEFAULTS`.
 
 - **MiniMax H3 Prompt Edit** takes the prompt and one edit a line, `old wording -> new wording`, and gives
-  the edited prompt. The old wording must occur exactly once. A line that starts `soundscape:` edits the
-  soundscape section. It refuses, in its own words, a line with no arrow, wording that is absent or repeated,
-  wording inside dialogue, and wording that carries a tag or a header.
+  the edited prompt. The old wording must occur exactly once. Lines starting with `soundscape:`, `music:`,
+  or `summary:` scope the edit to `overall_soundscape:`, `non_diegetic_music:`, or `summary:` respectively
+  (including `music: N/A -> <score>`). It refuses, in its own words, a line with no arrow, wording that is
+  absent or repeated, wording inside dialogue, and wording that carries a tag or a header.
 - **MiniMax H3 Edit Guider** goes where `BasicGuider` goes. It takes the model and two conditionings, the
   original and the edited, made with the same encoder, references and canvas. At scale 0 it is the original
   prompt, at 1 the edited prompt, above 1 it pushes past the edit. `first_step` runs the original alone
-  before that step, which keeps its framing.
+  before that step (`step < first_step`, keeping its framing), and `last_step` (`default = 1000`) hands
+  steps `step > last_step` to 1-pass `[edited]` (`scale = 1.0`) so late refinement steps skip the second DiT
+  pass (for example `last_step = 2` or `3` on 6-step Pika cuts sampling from 12 passes to 8–9 passes).
 
 ## The graphs
 

@@ -247,7 +247,7 @@ def _meter_prompt_tokens(
     *,
     vector_arg: str,
     prompt_arg: str,
-    pooling: str = "scene_text",
+    pooling: str = "scene_only",
     family: str | None = None,
 ) -> dict[str, Any]:
     """Run exact `5376`-d contextual `Qwen3-VL` + `TokenRefiner` per-token receptor metering (`cv.meter_score`)."""
@@ -320,8 +320,8 @@ def _meter_prompt_tokens(
         eff_pooling = pooling
         mask = h3_spans.inference_mask(sp, eff_pooling)
     else:
-        eff_pooling = "scene_text"
-        mask = h3_spans.pooling_mask(sp, eff_pooling)
+        eff_pooling = "scene_only"
+        mask = h3_spans.inference_mask(sp, eff_pooling)
     m = cv.meter_score(ref_rows, vec, mask=mask)
 
     v64 = vec.detach().to(dtype=torch.float64).reshape(-1)

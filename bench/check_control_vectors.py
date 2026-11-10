@@ -213,17 +213,23 @@ def check_spans_partition_and_refusals(tok: MiniMaxH3Tokenizer) -> list[str]:
     im_all = h3_spans.inference_mask(masks, "all_rows")
     if not bool(im_all.all()):
         errs.append("inference_mask('all_rows') is not all True")
+    im_look = h3_spans.inference_mask(masks, "look_only")
     im_scene = h3_spans.inference_mask(masks, "scene_only")
     im_desc_main = h3_spans.inference_mask(masks, "description_only")
     im_sound_main = h3_spans.inference_mask(masks, "soundscape_only")
-    if not torch.equal(im_scene, im_desc_main | im_sound_main):
-        errs.append("inference_mask('scene_only') on sectioned prompt does not equal description_only | soundscape_only")
+    if not torch.equal(im_scene, im_look | im_desc_main):
+        errs.append("inference_mask('scene_only') on sectioned prompt does not equal look_only | description_only")
+    if bool((im_look & im_desc_main).any()) or bool((im_look & im_sound_main).any()) or bool((im_desc_main & im_sound_main).any()):
+        errs.append("look_only, description_only, and soundscape_only are not pairwise disjoint on sectioned prompt")
     if not bool((im_scene <= (masks["scene"] & (~masks["vision"]))).all()):
         errs.append("inference_mask('scene_only') leaked outside masks['scene'] & ~vision")
     if int(im_scene.sum().item()) >= int(masks["scene"].sum().item()):
         errs.append("inference_mask('scene_only') did not mask out non-steerable sections/headers/tags on sectioned prompt")
     im_scene_decoded = "".join(
         decode([token_ids[k]]) for k in im_scene.nonzero(as_tuple=False).flatten().tolist()
+    )
+    im_sound_decoded = "".join(
+        decode([token_ids[k]]) for k in im_sound_main.nonzero(as_tuple=False).flatten().tolist()
     )
     for forbidden_sub in (
         "subject_definitions",
@@ -232,6 +238,11 @@ def check_spans_partition_and_refusals(tok: MiniMaxH3Tokenizer) -> list[str]:
         "non_diegetic_music",
         "detailed_description",
         "overall_soundscape",
+        "[reference generation]",
+        "fully_preserved",
+        "Quiet room tone",
+        "room tone retained",
+        "N/A",
         "[Shot 1]",
         "<Subject 1>",
         "<Picture 1>",
@@ -239,10 +250,15 @@ def check_spans_partition_and_refusals(tok: MiniMaxH3Tokenizer) -> list[str]:
         "<Audio 1>",
     ):
         if forbidden_sub in im_scene_decoded:
-            errs.append(f"inference_mask('scene_only') leaked structural/non-steerable substring {forbidden_sub!r}: {im_scene_decoded!r}")
-    for expected_sub in ("standing at the bench", "Quiet room tone"):
+            errs.append(f"inference_mask('scene_only') leaked structural/audio substring {forbidden_sub!r}: {im_scene_decoded!r}")
+    for expected_sub in ("white linen apron", "scarred oak workbench", "kneads dough", "apron retained", "standing at the bench"):
         if expected_sub not in im_scene_decoded:
-            errs.append(f"inference_mask('scene_only') omitted steerable prose {expected_sub!r}: {im_scene_decoded!r}")
+            errs.append(f"inference_mask('scene_only') omitted steerable visual prose {expected_sub!r}: {im_scene_decoded!r}")
+    for expected_snd in ("Quiet room tone", "room tone retained"):
+        if expected_snd not in im_sound_decoded:
+            errs.append(f"inference_mask('soundscape_only') omitted audio prose {expected_snd!r}: {im_sound_decoded!r}")
+    if "N/A" in im_sound_decoded or "<Audio 1>" in im_sound_decoded:
+        errs.append(f"inference_mask('soundscape_only') leaked 'N/A' or '<Audio 1>': {im_sound_decoded!r}")
     if bool((im_scene & masks["dialogue"]).any()):
         errs.append("inference_mask('scene_only') did not mask out <d>...</d> dialogue rows")
     im_after_dlg = h3_spans.inference_mask(masks, "after_dialogue")
@@ -300,10 +316,14 @@ def check_spans_partition_and_refusals(tok: MiniMaxH3Tokenizer) -> list[str]:
     ):
         errs.append(f"span_masks_from_prompt failed on prefixed sequence: {sm_prefixed}")
     else:
+        im_look_pref = h3_spans.inference_mask(sm_prefixed, "look_only")
+        im_scene_pref = h3_spans.inference_mask(sm_prefixed, "scene_only")
         im_desc_pref = h3_spans.inference_mask(sm_prefixed, "description_only")
         im_sound_pref = h3_spans.inference_mask(sm_prefixed, "soundscape_only")
         if not bool(im_desc_pref.any()) or not bool(im_sound_pref.any()):
             errs.append("description_only or soundscape_only empty on prefixed fl2va prompt")
+        if not torch.equal(im_look_pref, im_desc_pref) or not torch.equal(im_scene_pref, im_desc_pref):
+            errs.append("look_only or scene_only did not match description_only on 3-field t2va/fl2va prompt")
         if bool((im_desc_pref & im_sound_pref).any()):
             errs.append("description_only and soundscape_only overlapped on prefixed fl2va prompt")
         if bool((im_desc_pref & sm_prefixed["dialogue"]).any()) or bool((im_desc_pref & sm_prefixed["vision"]).any()):
@@ -348,21 +368,42 @@ def check_spans_partition_and_refusals(tok: MiniMaxH3Tokenizer) -> list[str]:
     ):
         errs.append("attach_span_masks with qwen3vl_4b tokenizer did not set cond[0][1]['h3_span_masks'], model_conds['h3_span_masks'], and tags._h3_span_masks")
 
-    # Test description_only on ref2va prompt structure (subject_definitions: + detailed_description: + overall_soundscape:)
+    # Test 3-lever masks (look_only, scene_only, description_only, soundscape_only) on ref2va prompt structure (including prefixed span_masks_from_prompt)
     ref2va_sample_prompt = (REPO / "prompt_bank" / "ref2va_look_anchor.txt").read_text(encoding="utf-8").strip()
+    r2v_entries = tok.tokenize_with_weights(ref2va_sample_prompt)["qwen3vl_32b"][0]
+    r2v_ids = [int(e[0]) for e in r2v_entries]
     sm_ref2va = h3_spans.span_masks_from_prompt(
         ref2va_sample_prompt,
-        len(tok.tokenize_with_weights(ref2va_sample_prompt)["qwen3vl_32b"][0]),
+        len(r2v_entries),
         tokenizer=tok,
     )
+    im_look_r2v = h3_spans.inference_mask(sm_ref2va, "look_only")
+    im_scene_r2v = h3_spans.inference_mask(sm_ref2va, "scene_only")
     im_desc_r2v = h3_spans.inference_mask(sm_ref2va, "description_only")
     im_sound_r2v = h3_spans.inference_mask(sm_ref2va, "soundscape_only")
-    if not bool(im_desc_r2v.any()) or not bool(im_sound_r2v.any()):
-        errs.append("description_only or soundscape_only empty on ref2va prompt")
-    if bool((im_desc_r2v & im_sound_r2v).any()):
-        errs.append("description_only and soundscape_only overlapped on ref2va prompt")
-    if int(im_desc_r2v.sum().item()) + int(im_sound_r2v.sum().item()) >= int(sm_ref2va["scene"].sum().item()):
-        errs.append("description_only + soundscape_only did not exclude summary/subject_definitions/retention_analysis/non_diegetic_music")
+    if not bool(im_look_r2v.any()) or not bool(im_desc_r2v.any()) or not bool(im_sound_r2v.any()):
+        errs.append("look_only, description_only, or soundscape_only empty on ref2va prompt")
+    if not torch.equal(im_scene_r2v, im_look_r2v | im_desc_r2v):
+        errs.append("scene_only != look_only | description_only on ref2va prompt")
+    if bool((im_look_r2v & im_desc_r2v).any()) or bool((im_scene_r2v & im_sound_r2v).any()):
+        errs.append("look_only, description_only, and soundscape_only overlapped on ref2va prompt")
+    sound_r2v_txt = "".join(decode([r2v_ids[k]]) for k in im_sound_r2v.nonzero(as_tuple=False).flatten().tolist())
+    if "solo cello" not in sound_r2v_txt or "room tone" not in sound_r2v_txt:
+        errs.append(f"soundscape_only did not include both overall_soundscape and non-'N/A' non_diegetic_music on ref2va prompt: {sound_r2v_txt!r}")
+    if int(im_scene_r2v.sum().item()) + int(im_sound_r2v.sum().item()) >= int(sm_ref2va["scene"].sum().item()):
+        errs.append("scene_only + soundscape_only did not exclude section headers / structural tags on ref2va prompt")
+    sm_ref2va_pref = h3_spans.span_masks_from_prompt(
+        ref2va_sample_prompt,
+        len(r2v_entries) + 3,
+        tags=torch.tensor([0, 0, 1] + [1] * len(r2v_entries), dtype=torch.long),
+        tokenizer=tok,
+    )
+    im_look_r2v_pref = h3_spans.inference_mask(sm_ref2va_pref, "look_only")
+    im_scene_r2v_pref = h3_spans.inference_mask(sm_ref2va_pref, "scene_only")
+    if int(im_look_r2v_pref.sum().item()) != int(im_look_r2v.sum().item()) or bool(im_look_r2v_pref[:3].any()):
+        errs.append("span_masks_from_prompt did not prefix-pad _h3_look_mask cleanly on prefixed ref2va prompt")
+    if not torch.equal(im_scene_r2v_pref[3:], im_scene_r2v):
+        errs.append("span_masks_from_prompt prefixed scene_only suffix mismatch on ref2va prompt")
     pm_scene = h3_spans.pooling_mask(masks, "scene_text")
     if not torch.equal(pm_scene, masks["scene"]):
         errs.append("pooling_mask('scene_text') does not equal masks['scene']")
@@ -1154,6 +1195,71 @@ b = "a busy city street"
             errs.append("parse_short_contrast_spec with coupled soundscape did not produce 'description | soundscape' b_span")
         if cv.lint_pair_set(ps_multi):
             errs.append(f"parse_short_contrast_spec multi-clause PairSet failed lint_pair_set: {cv.lint_pair_set(ps_multi)}")
+        # Multi-section summary: + detailed_description: and soundscape: + music: compilation & differing_span:
+        ps_r2v_summary_music = pair_comp.compile_words_to_pairset(
+            "summary: crossings and rain -> neon cyberpunk rain; "
+            "Photorealistic live-action -> Stylized cel-shaded anime; "
+            "soundscape: Steady rain taps against glass -> Heavy storm rain hammers glass; "
+            "music: N/A -> A tense analog synth pulse underscores the scene",
+            target_prompt=diner_ref2va_txt,
+        )
+        if len(ps_r2v_summary_music.pairs) != 1 or ps_r2v_summary_music.pairs[0].b_span.count(" | ") != 3:
+            errs.append(f"4-section summary+desc+soundscape+music compilation unexpected spans: {ps_r2v_summary_music.pairs[0].b_span!r}")
+        _, sec_4way = cv.differing_section_info(ps_r2v_summary_music.pairs[0].a, ps_r2v_summary_music.pairs[0].b, frame="scene")
+        if sec_4way != "summary+detailed_description+overall_soundscape+non_diegetic_music":
+            errs.append(f"differing_section_info 4-way returned {sec_4way!r}")
+        # --bank-scenes <K> multi-scene auxiliary prompt_bank expansion (direct + auxiliary splice + holds):
+        ps_bank_t2va = pair_comp.compile_words_to_pairset(
+            "a medium shot frames a woman -> a shaky handheld VHS camcorder shot frames a woman; hold(camera_shake): walking along a beach -> running along a beach",
+            target_prompt=inplace_tp,
+            target_weight=2.5,
+            bank_scenes=3,
+        )
+        if len(ps_bank_t2va.pairs) != 4 or ps_bank_t2va.pairs[0].weight != 2.5 or ps_bank_t2va.pairs[1].weight != 1.0:
+            errs.append(f"bank_scenes=3 t2va unexpected pairs/weights: len={len(ps_bank_t2va.pairs)}")
+        if len(ps_bank_t2va.holds) != 4:
+            errs.append(f"bank_scenes=3 t2va holds did not expand across all 4 scenes: got {len(ps_bank_t2va.holds)}")
+        if cv.lint_pair_set(ps_bank_t2va):
+            errs.append(f"bank_scenes=3 t2va PairSet produced lint warnings: {cv.lint_pair_set(ps_bank_t2va)}")
+        ps_bank_r2v = pair_comp.compile_words_to_pairset(
+            "Photorealistic live-action -> Stylized cel-shaded anime",
+            target_prompt=diner_ref2va_txt,
+            bank_scenes=2,
+        )
+        if len(ps_bank_r2v.pairs) != 3 or ps_bank_r2v.mode != "ref2va":
+            errs.append(f"bank_scenes=2 ref2va unexpected result: len={len(ps_bank_r2v.pairs)}, mode={ps_bank_r2v.mode!r}")
+        # Verify _select_bank_scenes calls differing_span on both literal (is_direct) and
+        # auxiliary-splice (ok_aux) candidates and rejects >= MAX_SHARED_INTERIOR_WORDS (5):
+        bad_bank_dir = tmp_dir / "bad_bank_scenes"
+        bad_bank_dir.mkdir(parents=True, exist_ok=True)
+        (bad_bank_dir / "t2va_01_direct_bad.txt").write_text(
+            "integrated_multimodal_description: [Shot 1] A red brick lane in crisp bright noon.\n"
+            "overall_soundscape: Quiet street ambience.\n"
+            "non_diegetic_music: N/A\n",
+            encoding="utf-8",
+        )
+        (bad_bank_dir / "t2va_02_splice_bad.txt").write_text(
+            "integrated_multimodal_description: [Shot 1] A harbour pier at dawn.\n"
+            "overall_soundscape: Gentle courtyard breeze.\n"
+            "non_diegetic_music: N/A\n",
+            encoding="utf-8",
+        )
+        sel_skip = pair_comp._select_bank_scenes(
+            mode="t2va",
+            bank_scenes=2,
+            existing_scenes=(),
+            clauses=(
+                pair_comp.ContrastClause(
+                    a="red brick lane in crisp bright noon",
+                    b="blue brick lane in crisp bright dusk",
+                ),
+            ),
+            bank_dir=bad_bank_dir,
+        )
+        if sel_skip != []:
+            errs.append(
+                f"_select_bank_scenes accepted candidate(s) violating MAX_SHARED_INTERIOR_WORDS=5: got {sel_skip!r}"
+            )
         errs += _expect_refusal(
             lambda: pair_comp.compile_words_to_pairset("   ", target_prompt=inplace_tp),
             "non-empty string",
@@ -2037,13 +2143,13 @@ def check_vector_io_family_and_compatibility() -> list[str]:
                 }
             ],
         }
-        errs += _expect_refusal(
-            lambda: cv.check_vector_compatibility(
-                meta_out, loaded_family="fl2va", loaded_recipe=recipe_pika_half_strength, allow_recipe_mismatch=False
-            ),
-            "recipe lora set",
-            "compatibility refusal: non-unit strength (0.5) Pika LoRA vs base model",
+        warns_half_strength = cv.check_vector_compatibility(
+            meta_out, loaded_family="fl2va", loaded_recipe=recipe_pika_half_strength, allow_recipe_mismatch=False
         )
+        if len(warns_half_strength) != 1 or "lora set" not in warns_half_strength[0].lower():
+            errs.append(
+                f"expected 1 advisory warning for non-unit strength (0.5) Pika LoRA vs base model, got {warns_half_strength}"
+            )
 
         # 5. Prefix mismatch -> reported in warnings, never refused
         warns_prefix = cv.check_vector_compatibility(
@@ -3648,6 +3754,34 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
                             errs.append(
                                 f"cmd_grade matched_strength_video={dit_step0['matched_strength_video']} != ed_v/s1_v ({ed_v}/{s1_v})"
                             )
+                        if g_data.get("provenance", {}).get("mask") != "scene_only":
+                            errs.append(f"cmd_grade default provenance.mask expected 'scene_only', got {g_data.get('provenance')}")
+
+                # Also test cmd_grade --mask look_only
+                grade_look_json = tmp / "grade_look_out.json"
+                grade_look_args = bench_cv.build_parser().parse_args(
+                    [
+                        "grade",
+                        "--vector",
+                        str(v1_path),
+                        "--prompt",
+                        str(base_prompt_txt),
+                        "--mask",
+                        "look_only",
+                        "--strengths",
+                        "0,1.0",
+                        "--probe-steps",
+                        "0",
+                        "--out",
+                        str(grade_look_json),
+                    ]
+                )
+                grade_look_args._dit_runner = _mock_dit_runner
+                grade_look_args._base_model = patcher_with_init
+                with contextlib.redirect_stdout(io.StringIO()):
+                    rc_grade_look = bench_cv.cmd_grade(grade_look_args)
+                if rc_grade_look != 0 or not grade_look_json.is_file():
+                    errs.append(f"cmd_grade --mask look_only failed: rc={rc_grade_look}")
 
                 # Verify cmd_grade refuses if strength=0.0 null check fails
                 call_counter = [0]
