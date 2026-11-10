@@ -8,14 +8,14 @@ this file is only a way to find a script by what it says it does.
 
 | group | scripts |
 |---|---|
-| [`check_*`](#check) | 164 |
+| [`check_*`](#check) | 165 |
 | [`measure_*`](#measure) | 36 |
 | [`analyze_*`](#analyze) | 18 |
 | [`grade_*`](#grade) | 19 |
 | [`compare_*`](#compare) | 15 |
 | [`build_*`](#build) | 13 |
 | [`probe_*`](#probe) | 11 |
-| [the rest](#the-rest) | 194 |
+| [the rest](#the-rest) | 195 |
 
 ## check
 
@@ -81,6 +81,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_inventory.py`](check_inventory.py) | Check `bench/inventory.py` on synthetic records (`done`, `partial`, `nothing laid`, `not seen`) and CLI refusals. |
 | [`check_keyframe_canvas.py`](check_keyframe_canvas.py) | Keyframe geometry: does the canvas we hand H3 avoid distorting the keyframe? |
 | [`check_laid.py`](check_laid.py) | `bench/laid.py`'s owner state on a made list: who says a piece is kept, and what a change of that leaves on the line. |
+| [`check_lane_db.py`](check_lane_db.py) | `bench/lane_db/` (the lane's record in SQLite) on a small made-up project: the schema's rules, the importer's refusals, and that what goes in comes back. |
 | [`check_length_ceiling.py`](check_length_ceiling.py) | The longest length anything renders or plans is `h3_rules.MAX_LENGTH`, and no shorter count comes back as a cap. |
 | [`check_literal_widgets.py`](check_literal_widgets.py) | A numeric widget must mean the quantity it names, not a mode. |
 | [`check_load_chain.py`](check_load_chain.py) | The load chain (`bench/load_chain.py`) on a made job: what each step reads, runs and refuses, with no server. |
@@ -407,6 +408,7 @@ this file is only a way to find a script by what it says it does.
 | [`join_panel_verdicts.py`](join_panel_verdicts.py) | Join a scored blind PANEL with its sealed key, and apply the panel's stop rules. |
 | [`join_stretches.py`](join_stretches.py) | Join the windows of several song-node runs over consecutive stretches of one clip into one file. |
 | [`laid.py`](laid.py) | The list of what is laid: one JSON line a piece, the ONLY thing the delivery table reads for what stands. |
+| [`lane_record.py`](lane_record.py) | The masked lane's record in one SQLite file: build it from a project's record files, hold it to them, give files back. |
 | [`latent_path_distance.py`](latent_path_distance.py) | How far saved latents sit from a reference latent, per latent frame. No decode. |
 | [`list_prose_measurements.py`](list_prose_measurements.py) | Inventory the measurements that live in prose, so they can be moved out. |
 | [`load_chain.py`](load_chain.py) | One load of a masked job, a step at a time, read from its job file: first, plan, on-plan, table, render, land, page. |
@@ -657,6 +659,20 @@ Arm manifests and the like; a manifest's line is its own `what`.
 | [`load_text_second_0415l.json`](fixtures/load_text_second_0415l.json) | second_hfp_0415l's inputs to bench/load_text.py and the owner's text of 2026-10-22 for it, which the generator makes again byte for byte (bench/check_load_text.py). Copied 2026-10-22 from data/fun/plan.json (subjects.second and text.film; ... |
 | [`sam3d_body_meta_reference.json`](fixtures/sam3d_body_meta_reference.json) | Meta's SAM 3D Body inference code, float32 on the CPU, on public samples: its answers per box |
 | [`sparse_table_synthetic.json`](fixtures/sparse_table_synthetic.json) | (JSON, an object; it carries no description) |
+
+### lane_db
+
+| file | what it says |
+|---|---|
+| [`__init__.py`](lane_db/__init__.py) | The masked lane's record in one SQLite file: the schema, the importer from today's record files, and the exporter back to their shapes. The plan is docs/masked_v2v/2026-11-10_simplification_plan.md, step 1; the CLI is cli.py. |
+| [`cli.py`](lane_db/cli.py) | The lane's record in one SQLite file: build it from a project's record files, hold it to them, give files back. |
+| [`cover.py`](lane_db/cover.py) | Hold a record's field paths to mapping.tsv: every path is covered by its longest prefix, or the import is refused. |
+| [`db.py`](lane_db/db.py) | Open the lane's database: foreign keys on, the schema brought up to date, the roots named. |
+| [`export.py`](lane_db/export.py) | Give a project's record files back from the database, in the shapes today's tools read: shots.json, plan.json, cast/cast.jsonl, laid.jsonl and laid.removed.jsonl. |
+| [`importer.py`](lane_db/importer.py) | Build the lane's database from a project's record files, the first tier: what a person said and decided, the laid list, and the cut that closed the project. |
+| [`mapping.tsv`](lane_db/mapping.tsv) | Where every field of the lane's record files goes in the lane's database (bench/lane_db/migrations/). First tier. |
+| [`migrations/0001_first_tier.sql`](lane_db/migrations/0001_first_tier.sql) | The masked lane's record, first tier: what a person said and decided, and a project's closing state. |
+| [`prove.py`](lane_db/prove.py) | Hold a build of a closed project to what today's tools made from its files: the delivery table of its final cut. |
 
 ### marker_corpus
 

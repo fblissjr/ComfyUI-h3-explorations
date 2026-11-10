@@ -135,7 +135,7 @@ with none is a helper the others import.
 | file | what it says |
 |---|---|
 | [`.gitignore`](.gitignore) | (git ignore rules) |
-| [`AGENTS.md`](AGENTS.md) | ComfyUI-h3-explorations |
+| [`AGENTS.md`](AGENTS.md) | (empty) |
 | [`CHANGELOG.md`](CHANGELOG.md) | Changelog |
 | [`CLAUDE.md`](CLAUDE.md) | @AGENTS.md |
 | [`LICENSE`](LICENSE) | MIT License |
@@ -153,11 +153,11 @@ with none is a helper the others import.
 | `.gemini/` | 8 | [below](#gemini) |
 | `archive/` | 29 | [below](#archive) |
 | `assets/` | 1 | [below](#assets) |
-| `bench/` | 808 | [`bench/INDEX.md`](bench/INDEX.md) and [`bench/results/INDEX.md`](bench/results/INDEX.md) for the records |
+| `bench/` | 819 | [`bench/INDEX.md`](bench/INDEX.md) and [`bench/results/INDEX.md`](bench/results/INDEX.md) for the records |
 | `changelog.d/` | | [`changelog.d/README.md`](changelog.d/README.md), one file per changelog entry; not listed and not counted |
 | `contact_sheets/` | 2 | [below](#contact_sheets) |
 | `data/` | 2 | [below](#data) |
-| `docs/` | 244 | [`docs/wiki/index.md`](docs/wiki/index.md), the hand-written router |
+| `docs/` | 246 | [`docs/wiki/index.md`](docs/wiki/index.md), the hand-written router |
 | `prompt_bank/` | 213 | [`docs/prompt_bank.md`](docs/prompt_bank.md), the prompt catalogue |
 | `sparse_tables/` | 1 | [below](#sparse_tables) |
 | `standalone/` | 6 | [below](#standalone) |

@@ -4,6 +4,7 @@ Loaded when a session opens a file here; [`docs/AGENTS.md`](../AGENTS.md) and th
 
 - **Start here**:
   - The simplification plan after `fun` (2026-11-10, a proposal, nothing decided): records in one SQLite file, opt-ins as defaults, the `gem/perception-lhf` test, one stage that smooths over time: [`docs/masked_v2v/2026-11-10_simplification_plan.md`](2026-11-10_simplification_plan.md)
+  - The plan's step 1 as built (2026-11-10): the lane's record in SQLite, first tier, what it was held to and what the build found; `bench/lane_record.py`: [`docs/masked_v2v/2026-11-10_lane_record_first_tier.md`](2026-11-10_lane_record_first_tier.md)
   - Daily boundary and active execution order: [`docs/wiki/handover.md`](../wiki/handover.md) ("Tomorrow, in order", "State when closed", "What not to assume", and "Where things are")
   - Live `fun` render & remake backlog, upstream derived-data dependency DAG, cache cutoffs, and multi-subject pass sequences (`2026-10-29`, **keep in sync as backlog or plan changes**): [`docs/masked_v2v/fun_render_backlog.md`](fun_render_backlog.md)
   - Why `second_hfp_0278n` opened the eyes and mouth (the `closed` eye form, the mouth clause on a silent shot, the scan of every job) and the `frame_table.py` restored-frames bug (`2026-10-29`): [`docs/masked_v2v/2026-10-29_findings_0278n_text_and_frame_table.md`](2026-10-29_findings_0278n_text_and_frame_table.md)

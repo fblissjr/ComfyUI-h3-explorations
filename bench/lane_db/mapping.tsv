@@ -1,0 +1,222 @@
+# Where every field of the lane's record files goes in the lane's database (bench/lane_db/migrations/). First tier.
+# Columns: source <TAB> path prefix <TAB> action <TAB> target <TAB> note
+# A field path is covered by the LONGEST prefix that equals it or is followed by '.' or '['. A key that is data is
+# collapsed first: a subject's label to <subject>, a number to <n>, a frame span to <span>. The importer refuses a
+# record with a path no line covers (bench/lane_db/cover.py), so a new field needs a line here before it imports.
+# Actions:
+#   col      a typed column: target is table.column
+#   child    rows of a child table: target is the table
+#   said_by  who said or wrote it: a said_by / by column of the row
+#   history  an earlier state: rows the standing one superseded
+#   artifact a file: a location (root + relative path) and, where the record gives a sha256, an artifact
+#   view     derived from another source: not stored twice
+#   meta     about the file, not the record (schema tags, the video name): checked, not stored
+#   raw      kept only in import_source.raw, verbatim and traceable; no tool reads it
+#   ask      the owner has not ruled: target holds the recommended action, which a scratch build takes; a build of the
+#            lane's own file is refused while any line is `ask`
+# Not in the first tier, and so not here yet: review/items.json, verdicts/verdicts.jsonl (a view of the answers but
+# for its lines from a terminal), picks_against_answers.jsonl, the job and preview files, the capture manifests.
+# source	path	action	target	note
+projects	schema	meta		h3_projects/1
+projects	written_by	raw
+projects	name	col	project.name
+projects	folder	col	project.folder	its records' folder under the data root
+projects	video	col	video.name	the video whose footage it works on
+projects	footage_records	meta		the folder whose shots, cast and footage answers it reads; checked to be a project of the same video
+projects	starts_at	col	project.starts_at
+projects	ends_before	col	project.ends_before
+projects	by	said_by	project.said_by
+projects	final_cut	col	cut.is_final	the rebuild whose cut the owner called final: stamp -> the cut imported, by -> final_said_by
+shots-header	video	col	video.source_name	the video name, checked against video.name
+shots-header	schema	meta
+shots-header	copy	col	copy.name	the working copy the shots were cut on, checked to be a copy of the video
+shots-header	source_frames	col	video.frames
+shots-header	span	meta		checked: 0 .. source_frames-1
+shots-header	subjects	child	subject
+shots-header	written_by	raw		the merge note of 2026-10-13
+shots-header	cuts_from	raw		which earlier shot files each range's cuts came from
+shots	first	col	shot.first
+shots	last	col	shot.last
+shots	scene_score	col	shot.scene_score
+shots	note	col	shot.note
+shots	who	child	appearance	one row per subject on the shot
+shots	who.<subject>.present	col	appearance.present
+shots	who.<subject>.how	col	appearance.how
+shots	who.<subject>.by	said_by	appearance.said_by
+shots	who.<subject>.frames_from	col	appearance.frames_from
+shots	who.<subject>.frames_on	child	appearance_frame	kind 'on'
+shots	who.<subject>.frames_boxed	child	appearance_frame	kind 'boxed'
+shots	who.<subject>.seen_looks	child	seen_look	at, by, entered_by, first, last, is, part, why
+shots	merged_from	history	shot_from	the shots this one was merged from, each a shot with its own who
+shots	split_from	history	shot_from	the shot this one was split from
+shots	moved_from	history	shot_from	the shots whose bounds were moved
+shots	answered_over	history	appearance	who-is-on answers this record replaced: answered_over_at, _by, _ord
+shots	order	child	shot_order	which subject is made first on the shot; the project's
+shots	order_by	said_by	shot_order.said_by
+cast	schema	meta
+cast	subject	col	seed.subject_id
+cast	frame	col	seed.frame
+cast	box	col	seed.x	x, y, w, h
+cast	size	col	seed.picture_w	picture_w, picture_h
+cast	answer	col	seed.answer
+cast	encloses	col	seed.encloses
+cast	drawn	col	seed.drawn
+cast	table	col	seed.from_table
+cast	by	said_by	seed.said_by
+cast	at	col	seed.at
+answers	at	col	answer.at
+answers	who	col	answer.who
+answers	what	col	answer.what
+answers	row	col	answer.page_row
+answers	video	meta		checked: the project's video
+answers	shot	col	answer.shot_said	an index on the old pages, a first frame on later ones: kept as said
+answers	subject	col	answer.subject_id
+answers	frame	col	answer.frame
+answers	source_frame	col	answer.source_frame	"default" sets source_frame_default
+answers	frames	child	answer_frame	role 'about'
+answers	chosen	col	answer.chosen
+answers	words	col	answer.words
+answers	n	col	answer.tile
+answers	person	col	answer.person_tile	a number is a tile (person_tile), a text a label (person_label)
+answers	table	col	answer.table_name
+answers	table_frame	col	answer.table_frame
+answers	clip	artifact	answer.clip_location_id	the clip the answer was given on
+answers	clip_sha256	artifact	answer.clip_artifact_id	the clip's identity
+answers	clip_not_known	col	answer.clip_not_known
+answers	render	artifact	answer.render_location_id	answer.render_artifact_id
+answers	render_sha256	artifact	answer.render_artifact_id	the render's identity
+answers	said_in	col	answer.said_in
+answers	taken_down_by	col	answer.taken_down_by
+answers	relayed_by	col	answer.relayed_by
+answers	relayed_from	col	answer.relayed_from
+answers	corrects	col	answer.corrects
+answers	replace	child	answer_part	role 'replace'
+answers	keep_out	child	answer_part	role 'keep_out'
+answers	leave	child	answer_part	role 'leave'
+answers	bad_frames	child	answer_frame	role 'bad'
+answers	not_said	ask	raw	10 rows: a list of things the owner did not say, kept beside the answer; a role of answer_frame, or raw?
+answers	what_about	ask	raw	5 rows: a column, or raw?
+answers	marked_by	ask	raw	3 rows: who marked frames on a sheet; said_by, or raw?
+answers	sheet	ask	raw	5 rows: the owner sheet an answer was given on; an artifact link, or raw?
+answers	preview	ask	raw	18 rows: the preview the answer is about; a link to preview, or raw?
+answers	note	ask	raw	2 rows: words, or raw?
+answers	source	ask	raw	1 row
+answers	answers	ask	raw	1 row holding answers nested inside an answer
+plan-header	schema	meta
+plan-header	video	meta		checked: the video's source name
+plan-header	written_by	raw
+plan-header	text	col	video.film_words	text.film; footage
+plan-header	aliases	child	alias	footage; _by -> said_by
+plan-header	departures	child	departure
+plan-header	not_people	child	not_person	footage; shots[][] -> not_person_span
+plan-header	load_prefixes	ask	child load_prefix	load-name prefixes per subject, read by bench/shot_coverage.py and bench/render_ledger.py. Recommended: a child table; _by -> project.load_prefixes_by
+plan	by	said_by	subject_plan.said_by
+plan	region	col	subject_plan.region
+plan	still	artifact	subject_plan.still_location_id	a place under the input root; its bytes are not in the record
+plan	parts	child	plan_part
+plan	inputs_by	said_by	subject_plan.inputs_by
+plan	recipe	col	subject_plan	margin -> margin_px, zoom_up_to, crop, open_mouth, closed_mouth, by -> recipe_by
+plan	reference	ask	raw	reference.crop / open_mouth / closed_mouth repeat recipe.*, and the load tool reads recipe first (bench/shot_to_load.py, rec_cfg.get(...) or ref_cfg.get(...)). Recommended: recipe is the one source; the importer refuses a reference that says a form the recipe does not
+plan	reference_by	raw		goes with reference
+plan	depth	col	subject_plan	on -> depth_on, why -> depth_why
+plan	source_facial_hair	col	facial_hair.has	footage
+plan	source_facial_hair_by	said_by	facial_hair.said_by
+plan	text	child	subject_text	who, she, her, looks, looks_by, hair, hair_words, hair_words_by, picture_hair, picture_hair_by, sings
+plan	text.hair_change_removed_by	history	plan_removal	what 'text.hair_change'
+plan	text.not_used	ask	raw	1 subject: words kept but not used by the text step; raw?
+plan	head_marks	child	head_mark	footage
+plan	voice	child	voice_span	footage
+plan	clothing	child	clothing_words	kind 'clothing'
+plan	look	child	look_change	look.change[]
+plan	look.stay_removed_by	history	plan_removal	what 'look.stay'
+plan	look_by	said_by	subject_plan.look_by
+plan	restore	child	restore_rule	classes[] -> restore_class, loads[] -> restore_load
+plan	restore_by	said_by	subject_plan.restore_by
+plan	restore_removed_by	history	plan_removal	what 'restore'
+plan	shot_overrides	child	shot_override
+plan	keep_outs	ask	child plan_keep_out	the lead's plan holds keep_outs: [strangers], and bench/shot_to_load.py reads it (keep_outs_of, and the strangers hold). Recommended: a child table, since a plan given back without it would make the lead's loads with no strangers keep-out
+plan	keep_outs_by	ask	said_by subject_plan.keep_outs_by	goes with keep_outs: the load tool refuses keep_outs without it
+plan	keep_outs_removed_by	history	plan_removal	what 'keep_outs'
+plan	hair_band_removed_by	history	plan_removal	what 'hair_band'
+plan	pieces_by_removed	history	plan_removal	what 'pieces'
+laid	schema	meta
+laid	first	col	laid.first
+laid	last	col	laid.last
+laid	subject	col	laid.subject_id
+laid	load	col	laid.load_id	by name, a load row made where none is
+laid	file	artifact	laid.render_location_id	a place under the output root
+laid	sha256	artifact	laid.render_artifact_id	the render's identity
+laid	zoomed_sha256	artifact	laid.zoomed_artifact_id	laid.zoomed_artifact_id
+laid	frames	child	laid_frames
+laid	owner	col	laid_state.owner_status	the last state
+laid	owner_word	col	laid_state.word_file	file:line -> word_file, word_line, and answer_id where it is the answers file
+laid	by	col	laid_state.why	the last state
+laid	added	col	laid.added_at
+laid	added_by	col	laid.added_by
+laid	no_rebuild	col	laid.no_rebuild_why
+laid	partial_lay_why	col	laid.partial_lay_why
+laid	seeded_from	col	laid.seeded_from
+laid	replaces	child	laid_replaces	a name, a list of names, or names each with "(sha256 ..., laid on ...)"
+laid	history	history	laid_state	each entry is a change of state: the states before and after it
+laid	owner_was	col	laid.owner_before_correction
+laid	owner_corrected	col	laid.owner_corrected_why	5 rows: a correction to owner, as a superseding row
+laid	owner_looks	ask	child laid_look	12 rows: the owner's looks on the piece, in words. Recommended: a child table of the words as they are (they cite a terminal, not an answers line)
+laid	recipe	ask	raw	1 row names a recipes folder
+laid-removed	removed	history	laid	the removed piece, with a laid_removal row
+laid-removed	at	col	laid_removal.at
+laid-removed	by_session	col	laid_removal.by_session
+laid-removed	by	col	laid_removal.why
+laid-removed	no_rebuild	col	laid_removal.no_rebuild_why
+laid-removed	schema	meta
+laid-removed	laid_sha256_before	raw		the hash of laid.jsonl around the change: not needed once rows supersede
+laid-removed	laid_sha256_after	raw
+laid-removed	removed.carved_by	child	laid_carve	frames[][] -> laid_carve_frames
+laid-removed	carved_whole_by	ask	col laid_removal.carved_whole_by	2 rows: the load whose keep carved the whole piece. Recommended: a column (the delivery table prints it)
+manifest	schema	meta
+manifest	version	meta
+manifest	source	child	copy	kind 'source'
+manifest	derived	child	copy	kind 'working'
+manifest	copies_before	history	copy	earlier working copies, with replaced_at / replaced_by / why
+manifest	fingerprint	raw
+manifest	masks	ask	raw	the video's mask settings (an empty list on fun)
+manifest	voice	raw		the voice table's files and who named them: an artifact of the second tier
+cut-record	video	meta		checked: the project's folder
+cut-record	day	raw
+cut-record	stamp	col	cut.stamp
+cut-record	span	col	cut.first	first, last
+cut-record	clip_built	raw
+cut-record	steps	raw
+cut-record	artifacts	raw		the rebuild's files by name; artifacts.clip is the cut's place, artifacts.table_json its table
+cut-record	artifacts.clip	artifact	cut.location_id
+cut-record	artifacts.table_json	view		the table read below (source cut-table)
+cut-record	discovered	raw
+cut-record	logs	raw
+cut-record	snapshot	raw		the answers snapshot: retired by the answers table
+cut-table	made	col	cut.table_made_at_commit	the commit, and the laid list's sha256 and line count, read from the sentence and checked against the list
+cut-table	rows	child	cut_piece	first, last, piece_first, region; file + name -> laid_id; run -> capture_folder, run_name; restore[] -> cut_piece_restore
+cut-table	sources	view		re-derived by the delivery table tool from shots, plan and laid
+cut-table	not_in_the_shot	view
+cut-table	gaps	view
+cut-table	reading	view
+cut-table	held	view
+cut-table	carved_frames	view
+cut-table	original_restored_over_replacement	view
+cut-table	leaves_as_the_original_not_known	view
+cut-table	stale_pieces	view
+cut-table	neither_made_on_the_other	view
+cut-table	source_has_no_record	view
+cut-table	assembly	raw		the commands as printed
+cut-sidecar	schema	meta
+cut-sidecar	video	meta		checked: the cut's place
+cut-sidecar	video_sha256	artifact	cut.artifact_id
+cut-sidecar	video_size	col	artifact.bytes
+cut-sidecar	made_at	col	cut.made_at
+cut-sidecar	made_by	raw
+cut-sidecar	command	col	cut.source_copy_id	the --source it names, by the copy's name; the rest of the command is not stored
+cut-sidecar	cwd	raw
+cut-sidecar	environment	raw
+cut-sidecar	git	raw
+cut-sidecar	tool	raw
+cut-sidecar	inputs	raw		every input with its sha256: step_input rows of the second tier
+cut-sidecar	extra	raw
+cut-sidecar	pieces	view		the table's rows as the assembler read them
