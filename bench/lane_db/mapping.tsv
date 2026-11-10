@@ -13,7 +13,7 @@
 #   meta     about the file, not the record (schema tags, the video name): checked, not stored
 #   raw      kept only in import_source.raw, verbatim and traceable; no tool reads it
 #   ask      the owner has not ruled: target holds the recommended action, which a scratch build takes; a build of the
-#            lane's own file is refused while any line is `ask`
+#            lane's own file is refused while any line is `ask`. None is open: the lines of 2026-11-10 say so in their note.
 # Not in the first tier, and so not here yet: review/items.json, verdicts/verdicts.jsonl (a view of the answers but
 # for its lines from a terminal), picks_against_answers.jsonl, the job and preview files, the capture manifests.
 # source	path	action	target	note
@@ -94,14 +94,14 @@ answers	replace	child	answer_part	role 'replace'
 answers	keep_out	child	answer_part	role 'keep_out'
 answers	leave	child	answer_part	role 'leave'
 answers	bad_frames	child	answer_frame	role 'bad'
-answers	not_said	ask	raw	10 rows: a list of things the owner did not say, kept beside the answer; a role of answer_frame, or raw?
-answers	what_about	ask	raw	5 rows: a column, or raw?
-answers	marked_by	ask	raw	3 rows: who marked frames on a sheet; said_by, or raw?
-answers	sheet	ask	raw	5 rows: the owner sheet an answer was given on; an artifact link, or raw?
-answers	preview	ask	raw	18 rows: the preview the answer is about; a link to preview, or raw?
-answers	note	ask	raw	2 rows: words, or raw?
-answers	source	ask	raw	1 row
-answers	answers	ask	raw	1 row holding answers nested inside an answer
+answers	not_said	raw		a parts answer's list of classes the owner did not say (the owner's ruling, 2026-11-10)
+answers	what_about	raw		what an early who-page choice was about (the owner's ruling, 2026-11-10)
+answers	marked_by	raw		who marked the line at the owner's word (the owner's ruling, 2026-11-10)
+answers	sheet	raw		the owner sheet an answer was given on (the owner's ruling, 2026-11-10)
+answers	preview	raw		the preview a parts answer is about (the owner's ruling, 2026-11-10)
+answers	note	raw		a note on a line kept in place (the owner's ruling, 2026-11-10)
+answers	source	raw		where one line's words were said (the owner's ruling, 2026-11-10)
+answers	answers	raw		one line holding answers nested inside an answer (the owner's ruling, 2026-11-10)
 plan-header	schema	meta
 plan-header	video	meta		checked: the video's source name
 plan-header	written_by	raw
@@ -109,21 +109,21 @@ plan-header	text	col	video.film_words	text.film; footage
 plan-header	aliases	child	alias	footage; _by -> said_by
 plan-header	departures	child	departure
 plan-header	not_people	child	not_person	footage; shots[][] -> not_person_span
-plan-header	load_prefixes	ask	child load_prefix	load-name prefixes per subject, read by bench/shot_coverage.py and bench/render_ledger.py. Recommended: a child table; _by -> project.load_prefixes_by
+plan-header	load_prefixes	child	load_prefix	load-name prefixes per subject, read by bench/shot_coverage.py and bench/render_ledger.py; _by -> project.load_prefixes_by (the owner's ruling, 2026-11-10)
 plan	by	said_by	subject_plan.said_by
 plan	region	col	subject_plan.region
 plan	still	artifact	subject_plan.still_location_id	a place under the input root; its bytes are not in the record
 plan	parts	child	plan_part
 plan	inputs_by	said_by	subject_plan.inputs_by
 plan	recipe	col	subject_plan	margin -> margin_px, zoom_up_to, crop, open_mouth, closed_mouth, by -> recipe_by
-plan	reference	ask	raw	reference.crop / open_mouth / closed_mouth repeat recipe.*, and the load tool reads recipe first (bench/shot_to_load.py, rec_cfg.get(...) or ref_cfg.get(...)). Recommended: recipe is the one source; the importer refuses a reference that says a form the recipe does not
+plan	reference	raw		repeats recipe.*, which is the one source: the load tool reads recipe first (bench/shot_to_load.py), and the importer refuses a reference that says a form the recipe does not (the owner's ruling, 2026-11-10)
 plan	reference_by	raw		goes with reference
 plan	depth	col	subject_plan	on -> depth_on, why -> depth_why
 plan	source_facial_hair	col	facial_hair.has	footage
 plan	source_facial_hair_by	said_by	facial_hair.said_by
 plan	text	child	subject_text	who, she, her, looks, looks_by, hair, hair_words, hair_words_by, picture_hair, picture_hair_by, sings
 plan	text.hair_change_removed_by	history	plan_removal	what 'text.hair_change'
-plan	text.not_used	ask	raw	1 subject: words kept but not used by the text step; raw?
+plan	text.not_used	raw		words the text step does not use (bench/load_text.py) (the owner's ruling, 2026-11-10)
 plan	head_marks	child	head_mark	footage
 plan	voice	child	voice_span	footage
 plan	clothing	child	clothing_words	kind 'clothing'
@@ -134,8 +134,8 @@ plan	restore	child	restore_rule	classes[] -> restore_class, loads[] -> restore_l
 plan	restore_by	said_by	subject_plan.restore_by
 plan	restore_removed_by	history	plan_removal	what 'restore'
 plan	shot_overrides	child	shot_override
-plan	keep_outs	ask	child plan_keep_out	the lead's plan holds keep_outs: [strangers], and bench/shot_to_load.py reads it (keep_outs_of, and the strangers hold). Recommended: a child table, since a plan given back without it would make the lead's loads with no strangers keep-out
-plan	keep_outs_by	ask	said_by subject_plan.keep_outs_by	goes with keep_outs: the load tool refuses keep_outs without it
+plan	keep_outs	child	plan_keep_out	the keep-outs a subject's loads are made with, read by bench/shot_to_load.py (keep_outs_of, and the strangers hold) (the owner's ruling, 2026-11-10)
+plan	keep_outs_by	said_by	subject_plan.keep_outs_by	the load tool refuses keep_outs without it (the owner's ruling, 2026-11-10)
 plan	keep_outs_removed_by	history	plan_removal	what 'keep_outs'
 plan	hair_band_removed_by	history	plan_removal	what 'hair_band'
 plan	pieces_by_removed	history	plan_removal	what 'pieces'
@@ -160,8 +160,8 @@ laid	replaces	child	laid_replaces	a name, a list of names, or names each with "(
 laid	history	history	laid_state	each entry is a change of state: the states before and after it
 laid	owner_was	col	laid.owner_before_correction
 laid	owner_corrected	col	laid.owner_corrected_why	5 rows: a correction to owner, as a superseding row
-laid	owner_looks	ask	child laid_look	12 rows: the owner's looks on the piece, in words. Recommended: a child table of the words as they are (they cite a terminal, not an answers line)
-laid	recipe	ask	raw	1 row names a recipes folder
+laid	owner_looks	child	laid_look	the owner's looks on the piece, in words as they are (the owner's ruling, 2026-11-10)
+laid	recipe	raw		one line names a recipes folder (the owner's ruling, 2026-11-10)
 laid-removed	removed	history	laid	the removed piece, with a laid_removal row
 laid-removed	at	col	laid_removal.at
 laid-removed	by_session	col	laid_removal.by_session
@@ -171,14 +171,14 @@ laid-removed	schema	meta
 laid-removed	laid_sha256_before	raw		the hash of laid.jsonl around the change: not needed once rows supersede
 laid-removed	laid_sha256_after	raw
 laid-removed	removed.carved_by	child	laid_carve	frames[][] -> laid_carve_frames
-laid-removed	carved_whole_by	ask	col laid_removal.carved_whole_by	2 rows: the load whose keep carved the whole piece. Recommended: a column (the delivery table prints it)
+laid-removed	carved_whole_by	col	laid_removal.carved_whole_by	the load whose keep carved the whole piece (the owner's ruling, 2026-11-10)
 manifest	schema	meta
 manifest	version	meta
 manifest	source	child	copy	kind 'source'
 manifest	derived	child	copy	kind 'working'
 manifest	copies_before	history	copy	earlier working copies, with replaced_at / replaced_by / why
 manifest	fingerprint	raw
-manifest	masks	ask	raw	the video's mask settings (an empty list on fun)
+manifest	masks	raw		the video's mask settings (an empty list on fun) (the owner's ruling, 2026-11-10)
 manifest	voice	raw		the voice table's files and who named them: an artifact of the second tier
 cut-record	video	meta		checked: the project's folder
 cut-record	day	raw

@@ -122,6 +122,7 @@ def prove(project: str, work: Path, data: Path | None = None, python: str = sys.
     pieces = con.execute("SELECT count(*) FROM cut_piece").fetchone()[0]
     print(f"   the cut's {pieces} piece(s) in the database are the table's rows on record, each tied to one standing laid line (the importer refuses otherwise)")
     asks = cover.Mapping().asks()
-    print(f"{len(asks)} line(s) of mapping.tsv are `ask`: this build took the recommended action on each")
+    if asks:
+        print(f"{len(asks)} line(s) of mapping.tsv are `ask`: this build took the recommended action on each")
     print(f"the builds, the files and the table are under {work}")
     return 1 if bad else 0

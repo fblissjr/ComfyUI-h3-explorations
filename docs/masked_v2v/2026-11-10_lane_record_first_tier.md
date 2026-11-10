@@ -12,9 +12,14 @@ built, what it was held to, and what the build found. The plan says why; this sa
   [`bench/check_lane_db.py`](../../bench/check_lane_db.py).
 - **Proved on a scratch build of `fun`:** `bench/lane_record.py prove --project fun --work SCRATCH` prints the three
   comparisons below and exits 0.
-- **Not built yet:** `data/lane.sqlite` itself. `build` refuses the lane's own file while a line of
-  [`bench/lane_db/mapping.tsv`](../../bench/lane_db/mapping.tsv) is `ask` (`bench/lane_record.py asks` lists them).
-  The owner has not ruled on them.
+- **The mapping's open fields are ruled** (the owner, 2026-11-10; [`../wiki/decisions.md`](../wiki/decisions.md)):
+  - **Typed**, because today's tools read them: the plan's `keep_outs` with `keep_outs_by`, `load_prefixes`, a laid
+    piece's `owner_looks`, and `carved_whole_by`.
+  - **`recipe` is the one source** of the crop and mouth forms; `plan.reference` is kept raw only.
+  - **Raw only:** the rare fields of the answer lines, `text.not_used`, one laid line's recipe folder, and the
+    manifest's `masks`.
+- **`data/lane.sqlite` is built** from `fun`'s files, by `bench/lane_record.py build --project fun --db
+  data/lane.sqlite`. It is rebuilt whole when a record file changes; nothing updates it in place yet.
 - **`fun2`'s starting list is one command:** `bench/lane_record.py export --project fun --db DB --out FOLDER
   --subjects second,third` writes `fun`'s standing laid pieces of those subjects and no lead piece. Nothing has been
   written into `data/fun_lead2/` by it.
@@ -67,7 +72,7 @@ reads are second-tier and are read from their files: the ledger on record, and e
 - **The lead's `keep_outs` is live.** `data/fun/plan.json` holds `keep_outs: ["strangers"]` for the lead, and
   `bench/shot_to_load.py` reads it (`keep_outs_of`, and the strangers hold). The handoff's draft had it kept raw
   only; a plan given back without it would make the lead's loads with no strangers keep-out. It is a child table
-  here, pending the owner's ruling. `load_prefixes` is the same case: `bench/shot_coverage.py` and
+  here. `load_prefixes` is the same case: `bench/shot_coverage.py` and
   `bench/render_ledger.py` read it.
 - **`plan.reference` adds nothing `recipe` lacks on `fun`.** The load tool reads `recipe` first and `reference` as
   the fallback. The importer keeps `reference` raw and refuses a plan whose `reference` says a form its `recipe` does
@@ -85,6 +90,7 @@ reads are second-tier and are read from their files: the ledger on record, and e
 
 ## What is next
 
-1. The owner's rulings on the `ask` lines, then `build --db data/lane.sqlite`.
-2. `fun2` as a project: its own plan imported, its footage facts checked against `fun`'s rather than imported twice.
-3. The second tier.
+1. `fun2` as a project: its own plan imported, its footage facts checked against `fun`'s rather than imported twice.
+2. The second tier, which brings each load's capture as a place. That is where the moved capture folders are
+   answered in the record; how today's tools find them meanwhile is the owner's call (the plan, "Where things stand").
+3. The review items and the verdicts file's lines from a terminal.
