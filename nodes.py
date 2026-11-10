@@ -68,6 +68,7 @@ from .reference_conditioning import (
     MiniMaxH3ReferenceConditioning,
 )
 from .reference_encode import MiniMaxH3EncodeReferences, MiniMaxH3PromptOnReferences
+from .edit_guidance import MiniMaxH3EditGuider, MiniMaxH3PromptEdit
 from .control_vector_nodes import (
     MiniMaxH3ApplyControlVectors,
     MiniMaxH3LayerNormMatch,
@@ -408,7 +409,10 @@ class H3ExplorationsExtension(ComfyExtension):
                 MiniMaxH3PH3ImageConditioning,
                 # appended 2026-11-07, guide-latent keyframe conditioning for video and
                 # single-frame p-h3-image editing (guide_latent.py)
-                MiniMaxH3GuideLatent]
+                MiniMaxH3GuideLatent,
+                # appended 2026-11-09, steering by an edited copy of the prompt, with no control
+                # vector (edit_guidance.py)
+                MiniMaxH3PromptEdit, MiniMaxH3EditGuider]
 
 
 async def comfy_entrypoint() -> H3ExplorationsExtension:

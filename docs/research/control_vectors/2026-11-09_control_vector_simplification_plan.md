@@ -1057,3 +1057,19 @@ Still open from those lists: findings 5, 6, 8 to 12 and 16 to 18 as the later se
 fallback in `bench/control_vector/j_lens_builder.py`, a hold node with no add node at all (it does nothing,
 with no message), and the compiler's test for several spans, which looks for the joining mark in the span
 text.
+
+### 21.5 Built so far (same day)
+
+- `edit_guidance.py`: `MiniMaxH3PromptEdit` and `MiniMaxH3EditGuider`, registered in `nodes.py` and recorded
+  in `bench/node_id_manifest.json`. `align_positions` is an input and is off by default, because the
+  alignment has not been seen on a render.
+- `bench/check_edit_guidance.py`: the prompt edit's refusals, the guider's arithmetic, the marking of the two
+  passes and the position shift, on CPU with no model.
+- `bench/edit_guidance_arms.py --node-arms`: the same test through the node, for comparison with the
+  hand-wired arms.
+
+Not done: no render has gone through the node. That needs the node code on `main` and a ComfyUI restart.
+The first render compares `node_sX` with the hand-wired `guide_sX` at the same seed (they should match),
+`node_late_sX` with `late_sX`, and `node_align_sX` with `node_sX` and with the same-length arms. Also not
+done: the generator's graphs for the two nodes, the choice of whether a control vector steers one pass or
+both, and the references-encoded-once wiring for ref2va.

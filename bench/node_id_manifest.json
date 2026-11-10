@@ -218,6 +218,20 @@
       "model"
     ]
   },
+  "MiniMaxH3EditGuider": {
+    "inputs": [
+      "model",
+      "original",
+      "edited",
+      "scale",
+      "first_step",
+      "align_positions"
+    ],
+    "node_id": "MiniMaxH3EditGuider",
+    "outputs": [
+      "Output"
+    ]
+  },
   "MiniMaxH3EncodeReferences": {
     "inputs": [
       "clip",
@@ -530,6 +544,17 @@
       "conditioning",
       "samples",
       "sequence_length",
+      "report"
+    ]
+  },
+  "MiniMaxH3PromptEdit": {
+    "inputs": [
+      "prompt",
+      "edits"
+    ],
+    "node_id": "MiniMaxH3PromptEdit",
+    "outputs": [
+      "edited_prompt",
       "report"
     ]
   },

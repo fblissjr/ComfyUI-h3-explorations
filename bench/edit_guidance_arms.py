@@ -11,6 +11,12 @@ What it does: takes one shipped Pika graph as the base, a prompt file and one ed
     late_sX     the same, with the edit switched on only from --switch-step
     schedule    the original prompt until --switch-step, the edited prompt after (no extrapolation)
 
+With --node-arms it also builds the same test through the pack's own `MiniMaxH3EditGuider`:
+
+    node_sX        the guider node at scale X from step 0; it should match guide_sX
+    node_late_sX   the guider node from --switch-step; one model pass before it, where late_sX makes two
+    node_align_sX  the guider node at scale X with both prompts given one position origin
+
 The base graph's control-vector node is removed, so the arms read edit guidance alone. The second prompt is a
 copy of the base graph's own conditioning node with only the text changed, so both sides share the encoder,
 the references and the canvas.
@@ -141,6 +147,23 @@ def _arms(args, prompt: str, edited: str, seed: int) -> tuple[dict[str, dict], d
                 "inputs": {"conditioning_1": ["206", 0], "conditioning_2": ["207", 0]}}
     guider["inputs"]["conditioning"] = ["208", 0]
     arms["schedule"] = g
+
+    if args.node_arms:
+        def node(label: str, scale: float, first_step: int, align: bool) -> dict:
+            g = fresh(label)
+            guider_id, guider = _one(g, "BasicGuider")
+            _first, second = _with_second_prompt(g, edited)
+            g[guider_id] = {"class_type": "MiniMaxH3EditGuider",
+                            "inputs": {"model": guider["inputs"]["model"],
+                                       "original": guider["inputs"]["conditioning"], "edited": [second, 0],
+                                       "scale": scale, "first_step": first_step, "align_positions": align}}
+            return g
+
+        low = args.scales[0]
+        arms[f"node_s{low:g}"] = node(f"node_s{low:g}", low, 0, False)
+        arms[f"node_late_s{args.late_scale:g}"] = node(f"node_late_s{args.late_scale:g}", args.late_scale,
+                                                         args.switch_step, False)
+        arms[f"node_align_s{low:g}"] = node(f"node_align_s{low:g}", low, 0, True)
     return arms, {"sigmas": sigmas, "shift_video": shift, "switch_step": args.switch_step, "switch_percent": p}
 
 
@@ -178,6 +201,8 @@ def main() -> int:
     ap.add_argument("--switch-step", type=int, default=2, help="first step that uses the edited prompt")
     ap.add_argument("--prefix", default="Video/edit_guidance")
     ap.add_argument("--only", nargs="*", default=None, help="arm names to build; default all")
+    ap.add_argument("--node-arms", action="store_true",
+                    help="also build the arms that use the pack's MiniMaxH3EditGuider node")
     ap.add_argument("--queue", action="store_true")
     ap.add_argument("--host", default="127.0.0.1:8188")
     ap.add_argument("--timeout", type=float, default=1800.0)

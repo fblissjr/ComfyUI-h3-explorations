@@ -8,7 +8,7 @@ this file is only a way to find a script by what it says it does.
 
 | group | scripts |
 |---|---|
-| [`check_*`](#check) | 162 |
+| [`check_*`](#check) | 163 |
 | [`measure_*`](#measure) | 36 |
 | [`analyze_*`](#analyze) | 18 |
 | [`grade_*`](#grade) | 19 |
@@ -60,6 +60,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_doc_links.py`](check_doc_links.py) | Fail when a doc points at a file or line that is not there any more. |
 | [`check_draw_face_points.py`](check_draw_face_points.py) | `bench/draw_face_points.py` against a face whose every line is known by construction, read from the VIDEO IT WROTE. |
 | [`check_draw_lid_marks.py`](check_draw_lid_marks.py) | `bench/draw_lid_marks.py` against a face whose eyes are known by construction, read from the VIDEO IT WROTE. |
+| [`check_edit_guidance.py`](check_edit_guidance.py) | Check the edit-guidance nodes: the prompt edit's refusals and the guider's arithmetic. |
 | [`check_exact_blocks.py`](check_exact_blocks.py) | `MiniMaxH3ExactBlocks` rests on a name, so assert the thing the name stands for. |
 | [`check_facts_pass.py`](check_facts_pass.py) | Check ``bench/facts_pass.py`` on synthetic masked-run captures. |
 | [`check_flags_before_render.py`](check_flags_before_render.py) | Check `bench/flags_before_render.py` and `bench/flag_census.py` without the server or the GPU. |
