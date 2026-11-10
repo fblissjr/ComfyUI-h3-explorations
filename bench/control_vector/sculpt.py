@@ -210,8 +210,8 @@ def _compose_and_save_sculpted_vector(
         },
         "points": points_meta,
         "quality_report": {
-            "mean_pairwise_cosine": 1.0,
-            "split_half_cosine": 1.0,
+            "mean_pairwise_cosine": 1.0 if len(add_vecs) >= 2 else None,
+            "split_half_cosine": 1.0 if len(add_vecs) >= 2 else None,
             "per_pair_cosine": [1.0 for _ in add_vecs],
             **({"j_lens_readout": jl_readout} if jl_readout else {}),
         },

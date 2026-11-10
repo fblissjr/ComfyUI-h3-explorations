@@ -83,7 +83,7 @@ from .build_cmd import cmd_build, cmd_rebuild, cmd_words
 from .grading import cmd_grade, cmd_inspect
 from .helpers import _resolve_requested_families
 from .j_lens_builder import cmd_build_j_lens
-from .llm_pairs import SUPPORTED_LLM_PROVIDERS, cmd_generate_pairs
+from .llm_pairs import DEFAULT_LLM_MAX_TOKENS, SUPPORTED_LLM_PROVIDERS, cmd_generate_pairs
 from .make_cmds import cmd_from_md, cmd_make, cmd_make_media
 from .sculpt import cmd_sculpt
 
@@ -240,7 +240,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--target-prompt",
         dest="target_prompt",
         default="",
-        help="Target H3 scene prompt (bank id, file path, or text) for in-place --words compilation or Pair 0 anchoring",
+        help="Target H3 scene prompt (bank id, file path, or text) for in-place --words compilation",
     )
     pb.add_argument(
         "--target-weight",
@@ -405,7 +405,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     pmm.add_argument("--pooling", choices=cv.VALID_MEDIA_POOLING, default="scene_text")
     pmm.add_argument("--short-edge", type=int, default=512, help="Target shorter edge in pixels (snapped to 32)")
-    pmm.add_argument("--scene-prompt", default="", help="Optional neutral H3 ref2va scene prompt")
+    pmm.add_argument("--scene-prompt", default="", help="Required H3 ref2va scene prompt")
     pmm.add_argument("--hold", action="append", default=None, help="Optional .safetensors vector(s) to project out")
     pmm.add_argument("--hold-words", dest="hold_words", default="", help="Optional nuisance words to project out on CPU")
     pmm.add_argument("--hold-alpha", dest="hold_alpha", type=float, default=1.0, help="Attenuation alpha in [0.0, 2.0] for --hold / --hold-words")
@@ -616,7 +616,7 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Disable 4-bit BitsAndBytes quantization when loading a transformers model",
     )
-    pgen.add_argument("--max-new-tokens", dest="max_new_tokens", type=int, default=4800)
+    pgen.add_argument("--max-new-tokens", dest="max_new_tokens", type=int, default=DEFAULT_LLM_MAX_TOKENS)
     pgen.add_argument("--temperature", type=float, default=0.7)
     pgen.add_argument("--name", default="", help="Optional stem name to also write <name>.md / <name>.toml")
     pgen.add_argument("--out-md", dest="out_md", default="", help="Optional output .md file path")

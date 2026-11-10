@@ -69,7 +69,7 @@ summary:
 [reference generation] ...
 
 retention_analysis:
-<Subject 1> (appears in [Shot 1]): completely_preserved - ...
+<Subject 1> (appears in [Shot 1]): fully_preserved - ...
 
 detailed_description:
 The target video uses a ... style with ... [Shot 1] ...
@@ -90,7 +90,7 @@ Follow these exact `vendor_guides/ref_en.md` rules for the six `ref2va` sections
 2. **`summary:`**:
    - Open with one or more square-bracketed task tags from the closed 6-item set, joined by ` + ` when combined: `keyframe completion`, `reference generation`, `video editing`, `video continuation`, `audio reuse`, `audio reference` (e.g., `[reference generation]`, `[reference generation + audio reference]`, `[keyframe completion + reference generation]`), followed by 1–2 sentences summarizing how the references form the target clip. For `[video editing]`, follow the tag immediately with `The target video is an edited version of <Video 1>.`
 3. **`retention_analysis:`** (one line per label defined in `subject_definitions:`, no bullet dashes):
-   - For visual labels (`<Subject N>`, `<Picture N>`, `<Video N>`), include shot scope `(appears in [Shot 1])` or `(appears in [Shot 1, Shot 2])` and one of the visual degrees (`completely_preserved` / `fully_preserved`, `partially_preserved`, `attribute_transfer`, `weak_reference`, followed by ` - ` and a concrete explanation). Use `completely_preserved` (or `fully_preserved`) whenever the subject's identity and appearance from `<Picture N>` are preserved without an explicit attribute modification, and reserve `partially_preserved` only when intentionally keeping one attribute while altering another (e.g., keeping facial identity while replacing wardrobe).
+   - For visual labels (`<Subject N>`, `<Picture N>`, `<Video N>`), include shot scope `(appears in [Shot 1])` or `(appears in [Shot 1, Shot 2])` and one of the four fixed visual degrees (`fully_preserved`, `partially_preserved`, `attribute_transfer`, `weak_reference`, followed by ` - ` and a concrete explanation). Use `fully_preserved` whenever the subject's identity and appearance from `<Picture N>` are preserved without an explicit attribute modification, and reserve `partially_preserved` only when intentionally keeping one attribute while altering another (e.g., keeping facial identity while replacing wardrobe).
    - For audio labels (`<Audio N>`), use no shot-scope parenthetical and one of the four fixed audio degrees: `fully_copy`, `partially_copy`, `reference`, `weak_reference`.
    - **Never write speaker IDs `(S1)` or `(Sx)` inside `retention_analysis:`.**
 4. **`detailed_description:`**:

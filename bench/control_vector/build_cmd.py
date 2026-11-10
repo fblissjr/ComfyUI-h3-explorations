@@ -27,7 +27,6 @@ from .helpers import (
     _apply_post_refiner_holds,
     _compile_words_or_spec_to_pairset,
     _display_path,
-    _inject_target_prompt_into_pairset,
     _pair_set_to_markdown,
     _parse_lora_specs,
     _recommended_strength_text,
@@ -192,10 +191,6 @@ def cmd_build(args: argparse.Namespace) -> int:
 
     if compiled_override is not None:
         pair_set = compiled_override
-        if tp_arg:
-            pair_set = _inject_target_prompt_into_pairset(
-                pair_set, tp_arg, target_weight=tp_weight
-            )
     elif words_arg:
         pair_set = _compile_words_or_spec_to_pairset(
             words_arg,
@@ -290,8 +285,8 @@ def cmd_build(args: argparse.Namespace) -> int:
             resolved_pair_path = cv_nodes.resolve_pair_file_path(src_arg)
             pair_set = cv.load_pairs(resolved_pair_path, bank_dir=cv_nodes.PROMPT_BANK_DIR)
         if tp_arg:
-            pair_set = _inject_target_prompt_into_pairset(
-                pair_set, tp_arg, target_weight=tp_weight
+            raise ValueError(
+                "--target-prompt requires --words (or use 'from-prompt'); .toml/.md pair files are not spliced into --target-prompt"
             )
 
     stem = (getattr(args, "output_name", None) or getattr(args, "name", None) or pair_set.name).strip()
@@ -443,16 +438,15 @@ def cmd_build(args: argparse.Namespace) -> int:
             loras: list[dict[str, Any]] = []
         elif getattr(args, "lora", None):
             loras = _parse_lora_specs(args.lora)
+        elif dit_arg:
+            loras = []
         else:
             default_lora_name = (
                 h3_config.PIKA_REF2VA_SVD995_LORA
                 if (family == "ref2va" or fam_hint == "ref2va")
                 else h3_config.PIKA_FL2VA_SVD995_LORA
             )
-            try:
-                loras = _parse_lora_specs([f"{default_lora_name}:1.0"])
-            except Exception:
-                loras = []
+            loras = _parse_lora_specs([f"{default_lora_name}:1.0"])
 
         ref_cache = getattr(args, "_refiner_cache", None)
         cache_key = (
@@ -821,6 +815,8 @@ def cmd_build(args: argparse.Namespace) -> int:
                 round(50.0 / max(raw_norm, 1e-6), 2),
                 round(85.0 / max(raw_norm, 1e-6), 2),
             ]
+            mpc_raw = q_report.get("mean_pairwise_cosine")
+            sh_raw = q_report.get("split_half_cosine")
             summary_rows.append(
                 {
                     "file": saved.name,
@@ -828,9 +824,9 @@ def cmd_build(args: argparse.Namespace) -> int:
                     "pooling": pool_mode,
                     "raw_norm": raw_norm,
                     "vector_norm": raw_norm,
-                    "mpc": float(q_report["mean_pairwise_cosine"]),
-                    "split_half": float(q_report["split_half_cosine"]),
-                    "split_half_cosine": float(q_report["split_half_cosine"]),
+                    "mpc": float(mpc_raw) if mpc_raw is not None else None,
+                    "split_half": float(sh_raw) if sh_raw is not None else None,
+                    "split_half_cosine": float(sh_raw) if sh_raw is not None else None,
                     "per_pair_cosine": [round(float(x), 4) for x in q_report["per_pair_cosine"]],
                     "pair_spans": pair_spans,
                     "rec_strength": _recommended_strength_text(raw_norm),
@@ -844,10 +840,12 @@ def cmd_build(args: argparse.Namespace) -> int:
     elapsed = time.perf_counter() - t0
     print(f"\n=== Ready to Render in ComfyUI ({len(summary_rows)} vector file(s) built in {elapsed:.2f}s) ===")
     for row in summary_rows:
+        cos_s = f"{row['mpc']:.4f}" if row.get("mpc") is not None else "n/a (1 pair)"
+        sh_s = f"{row['split_half']:.4f}" if row.get("split_half") is not None else "n/a (1 pair)"
         print(
             f"  * {row['file']}\n"
             f"      family={row['family']}  pooling={row['pooling']}  "
-            f"raw_norm={row['raw_norm']:.2f}  cos={row['mpc']:.4f} (split_half={row['split_half']:.4f})  "
+            f"raw_norm={row['raw_norm']:.2f}  cos={cos_s} (split_half={sh_s})  "
             f"recommended strength: {row['rec_strength']}"
         )
         jl_row = row.get("j_lens")
@@ -1012,7 +1010,12 @@ def cmd_rebuild(args: argparse.Namespace) -> int:
                     a_txt = str(item_p["a"])
                     b_txt = str(item_p["b"])
                     w_val = float(item_p.get("weight", 1.0))
-                    a_sp, b_sp = cv.differing_span(a_txt, b_txt, frame=str(measured.get("frame", "scene")))
+                    a_sp, b_sp = cv.differing_span(
+                        a_txt,
+                        b_txt,
+                        frame=str(measured.get("frame", "scene")),
+                        allow_multi_span=True,
+                    )
                     p_items.append(cv.PairItem(index=idx_p, a=a_txt, b=b_txt, weight=w_val, a_span=a_sp, b_span=b_sp))
                 h_items: list[cv.HoldItem] = []
                 if isinstance(raw_holds_ab, list):
@@ -1081,14 +1084,16 @@ def cmd_rebuild(args: argparse.Namespace) -> int:
                     pass
             saved = cv.save_vector(p, tensors, meta, overwrite=True)
             pr_norm = float(meta.get("points", {}).get("post_refiner", {}).get("raw_norm", 0.0))
+            mpc_r = qrep.get("mean_pairwise_cosine")
+            sh_r = qrep.get("split_half_cosine")
             rows_out.append(
                 {
                     "file": saved.name,
                     "family": fam,
                     "pooling": str(meta.get("measured_under", {}).get("pooling", "diff_span")),
                     "raw_norm": pr_norm,
-                    "mpc": float(qrep.get("mean_pairwise_cosine", 1.0)),
-                    "split_half": float(qrep.get("split_half_cosine", 1.0)),
+                    "mpc": float(mpc_r) if mpc_r is not None else None,
+                    "split_half": float(sh_r) if sh_r is not None else None,
                     "rec_strength": _recommended_strength_text(pr_norm),
                     "j_lens": qrep.get("j_lens_readout"),
                 }

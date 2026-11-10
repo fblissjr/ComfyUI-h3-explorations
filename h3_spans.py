@@ -69,6 +69,41 @@ DESCRIPTION_SECTIONS: frozenset[str] = frozenset(
 SOUNDSCAPE_SECTIONS: frozenset[str] = frozenset({"overall_soundscape"})
 
 
+def unwrap_hf_tokenizer(clip_or_tokenizer: Any) -> Any | None:
+    """Extract the inner HuggingFace Qwen3-VL tokenizer from a ComfyUI CLIP
+    wrapper, `MiniMaxH3Tokenizer` (`qwen3vl_32b`), `PH3ImageTokenizer`
+    (`qwen3vl_4b`), or raw tokenizer object."""
+    if clip_or_tokenizer is None:
+        return None
+    if (
+        callable(getattr(clip_or_tokenizer, "decode", None))
+        and callable(getattr(clip_or_tokenizer, "encode", None))
+        and not hasattr(clip_or_tokenizer, "tokenize_with_weights")
+    ):
+        return clip_or_tokenizer
+    tok_root = getattr(clip_or_tokenizer, "tokenizer", clip_or_tokenizer)
+    mm_tok = getattr(tok_root, "minimax", tok_root)
+    clip_attr = getattr(mm_tok, "clip", None)
+    candidates: list[str] = []
+    if isinstance(clip_attr, str) and clip_attr:
+        candidates.append(clip_attr)
+    for name in ("qwen3vl_32b", "qwen3vl_4b", "qwen3vl_2b"):
+        if name not in candidates:
+            candidates.append(name)
+    qwen_tok = mm_tok
+    for name in candidates:
+        sub = getattr(mm_tok, name, None)
+        if sub is not None:
+            qwen_tok = sub
+            break
+    hf_tok = getattr(qwen_tok, "tokenizer", None)
+    if hf_tok is not None:
+        return hf_tok
+    if callable(getattr(qwen_tok, "decode", None)):
+        return qwen_tok
+    return None
+
+
 def verify_tokenizer_constants(tokenizer: Any | None = None) -> dict[str, int]:
     """Assert that `comfy/text_encoders/minimax.py` and the Qwen3-VL tokenizer
     agree on the special token IDs and label trailing-space tokenization."""
@@ -91,13 +126,11 @@ def verify_tokenizer_constants(tokenizer: Any | None = None) -> dict[str, int]:
 
     if tokenizer is None:
         tok = mm.MiniMaxH3Tokenizer()
-        hf_tok = tok.qwen3vl_32b.tokenizer
-    elif hasattr(tokenizer, "qwen3vl_32b"):
-        hf_tok = tokenizer.qwen3vl_32b.tokenizer
-    elif hasattr(tokenizer, "tokenizer"):
-        hf_tok = tokenizer.tokenizer
+        hf_tok = unwrap_hf_tokenizer(tok)
     else:
-        hf_tok = tokenizer
+        hf_tok = unwrap_hf_tokenizer(tokenizer)
+    if hf_tok is None:
+        raise ValueError("tokenizer does not expose the MiniMax Qwen3-VL tokenizer")
 
     expected = {
         "<|vision_start|>": VISION_START,
@@ -518,7 +551,14 @@ def _get_cpu_tokenizer() -> Any:
 
 
 def _extract_batch_entries(tokens: Any) -> list[Any]:
-    batches = tokens.get("qwen3vl_32b", tokens) if isinstance(tokens, dict) else tokens
+    if isinstance(tokens, dict):
+        if not tokens:
+            return []
+        batches = tokens.get("qwen3vl_32b")
+        if batches is None:
+            batches = next(iter(tokens.values()))
+    else:
+        batches = tokens
     if not isinstance(batches, (list, tuple)) or not batches:
         return []
     first = batches[0]
@@ -534,19 +574,22 @@ def attach_span_masks(
     clip: Any,
     tokens: Any,
 ) -> list[Any]:
-    """Attach `_h3_span_masks` onto each conditioning entry's `minimax_token_tags`
-    tensor in-place without modifying its `{0, 1}` integer elements."""
+    """Attach `h3_span_masks` onto each conditioning entry's metadata dict,
+    `model_conds['h3_span_masks'] = CONDConstant(span_masks)` (so ComfyUI core's
+    `convert_cond` -> `get_area_and_mult` -> `cond_cat` passes `h3_span_masks`
+    as a per-prompt keyword argument to the diffusion model wrapper), and
+    `_h3_span_masks` onto its `minimax_token_tags` tensor in-place without
+    modifying its `{0, 1}` integer elements."""
     if not isinstance(conditioning, list) or not conditioning:
         return conditioning
-    tok_root = getattr(clip, "tokenizer", None)
-    mm_tok = getattr(tok_root, "minimax", tok_root)
-    qwen_tok = getattr(mm_tok, "qwen3vl_32b", mm_tok)
-    hf_tok = getattr(qwen_tok, "tokenizer", None)
+    hf_tok = unwrap_hf_tokenizer(clip)
     if hf_tok is None:
         return conditioning
     entries = _extract_batch_entries(tokens)
     if not entries:
         return conditioning
+
+    import comfy.conds
 
     def decode_fn(ids: Sequence[int]) -> str:
         return hf_tok.decode(list(ids), skip_special_tokens=False)
@@ -557,13 +600,14 @@ def attach_span_masks(
         tags_raw = item[1].get("minimax_token_tags")
         if not isinstance(tags_raw, torch.Tensor):
             continue
-        try:
-            tags_1d = tags_raw.detach().to(device="cpu", dtype=torch.long).flatten()
-            token_ids = expand_token_ids(entries, tags_1d)
-            span_masks = spans(token_ids, tags_1d.tolist(), decode_fn)
-            setattr(tags_raw, "_h3_span_masks", span_masks)
-        except Exception:
-            continue
+        tags_1d = tags_raw.detach().to(device="cpu", dtype=torch.long).flatten()
+        token_ids = expand_token_ids(entries, tags_1d)
+        span_masks = spans(token_ids, tags_1d.tolist(), decode_fn)
+        item[1]["h3_span_masks"] = span_masks
+        mc = dict(item[1].get("model_conds") or {})
+        mc["h3_span_masks"] = comfy.conds.CONDConstant(span_masks)
+        item[1]["model_conds"] = mc
+        setattr(tags_raw, "_h3_span_masks", span_masks)
     return conditioning
 
 
@@ -588,9 +632,7 @@ def span_masks_from_prompt(
         raise ValueError(f"total_length must be >= 1, got {total_length}")
 
     tok = tokenizer if tokenizer is not None else _get_cpu_tokenizer()
-    mm_tok = getattr(tok, "minimax", tok)
-    qwen_tok = getattr(mm_tok, "qwen3vl_32b", mm_tok)
-    hf_tok = getattr(qwen_tok, "tokenizer", None)
+    hf_tok = unwrap_hf_tokenizer(tok)
     if hf_tok is None:
         raise ValueError("tokenizer does not expose the MiniMax Qwen3-VL tokenizer")
 
@@ -694,7 +736,7 @@ def differing_token_mask(
     token_ids_a: Sequence[int] | torch.Tensor,
     token_ids_b: Sequence[int] | torch.Tensor,
     *,
-    min_shared_run: int = 8,
+    min_shared_run: int = 4,
 ) -> tuple[torch.BoolTensor, torch.BoolTensor]:
     """Return `(mask_a, mask_b)` marking differing token positions between `a` and `b`.
 
@@ -738,14 +780,14 @@ def differing_token_bounds(
     `[first_diff:end_a]` in `token_ids_a` and `[first_diff:end_b]` in `token_ids_b`.
 
     Also caches multi-span `differing_token_mask` when interior shared runs of
-    `>= 8` tokens exist so `pooling_mask(..., mode='diff_span')` automatically
+    `>= 4` tokens exist so `pooling_mask(..., mode='diff_span')` automatically
     excludes unchanged interior bridge tokens.
 
     Raises `ValueError` if `token_ids_a` and `token_ids_b` are identical."""
     a = _flat_int_list(token_ids_a, "token_ids_a")
     b = _flat_int_list(token_ids_b, "token_ids_b")
     first_diff, end_a, end_b = _raw_differing_token_bounds(a, b)
-    mask_a, mask_b = differing_token_mask(a, b, min_shared_run=8)
+    mask_a, mask_b = differing_token_mask(a, b, min_shared_run=4)
     ta = tuple(a)
     tb = tuple(b)
     if not bool(mask_a[first_diff:end_a].all()) or not bool(mask_b[first_diff:end_b].all()):
@@ -797,7 +839,7 @@ def pooling_mask(
         if diff_mask is None and other_ids is not None:
             self_ids = getattr(span_masks["scene"], "_h3_token_ids", None)
             if self_ids is not None:
-                diff_mask, _ = differing_token_mask(self_ids, other_ids, min_shared_run=8)
+                diff_mask, _ = differing_token_mask(self_ids, other_ids, min_shared_run=4)
         if diff_mask is None and first_diff is not None and end_diff is not None:
             self_ids = getattr(span_masks["scene"], "_h3_token_ids", None)
             if isinstance(self_ids, tuple):

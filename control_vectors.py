@@ -146,14 +146,81 @@ class PairSet:
     holds: tuple[HoldItem, ...]
 
 
-def differing_span(a: str, b: str, *, frame: str = "scene", label: str = "pair") -> tuple[str, str]:
-    """Return the single contiguous differing clause `(a_span, b_span)` between `a` and `b`.
+def _multi_span_section_diffs(
+    sec_a: str,
+    sec_b: str,
+    *,
+    label: str = "pair",
+) -> tuple[list[str], list[str]]:
+    """Extract one or more contiguous differing clauses `(a_spans, b_spans)` inside a single section."""
+    if HEADER_TOKEN_RE.findall(sec_a) != HEADER_TOKEN_RE.findall(sec_b):
+        raise ValueError(
+            f"{label}: differing span modifies a prompt section or [Shot N] header; "
+            "scene-frame pairs must keep all section and shot headers identical"
+        )
+    words_a = sec_a.split()
+    words_b = sec_b.split()
+    if words_a == words_b:
+        raise ValueError(f"{label}: 'a' and 'b' differ only in whitespace")
+
+    matcher = difflib.SequenceMatcher(None, words_a, words_b, autojunk=False)
+    opcodes = matcher.get_opcodes()
+    clusters: list[list[tuple[str, int, int, int, int]]] = []
+    cur: list[tuple[str, int, int, int, int]] = []
+    for idx, op in enumerate(opcodes):
+        tag, i1, i2, _j1, _j2 = op
+        if tag != "equal":
+            cur.append(op)
+        elif cur:
+            has_more_ne = any(o[0] != "equal" for o in opcodes[idx + 1 :])
+            eq_str = " ".join(words_a[i1:i2])
+            has_marker = any(m in eq_str for m in SECTION_AND_SHOT_MARKERS)
+            if has_more_ne and (i2 - i1) < MAX_SHARED_INTERIOR_WORDS and not has_marker:
+                cur.append(op)
+            else:
+                clusters.append(cur)
+                cur = []
+    if cur:
+        clusters.append(cur)
+
+    a_spans: list[str] = []
+    b_spans: list[str] = []
+    for cl in clusters:
+        a0, a1 = cl[0][1], cl[-1][2]
+        b0, b1 = cl[0][3], cl[-1][4]
+        sub_a = " ".join(words_a[a0:a1])
+        sub_b = " ".join(words_b[b0:b1])
+        if not sub_a or not sub_b:
+            raise ValueError(
+                f"{label}: one side of a differing span is empty ({sub_a!r} vs {sub_b!r}); "
+                "both 'a' and 'b' must state an explicit clause"
+            )
+        for boundary in SECTION_AND_SHOT_MARKERS:
+            if boundary in sub_a or boundary in sub_b:
+                raise ValueError(
+                    f"{label}: differing span crosses or modifies section/shot header {boundary!r}; "
+                    "scene-frame pairs must not modify section or shot headers"
+                )
+        a_spans.append(sub_a)
+        b_spans.append(sub_b)
+    return a_spans, b_spans
+
+
+def differing_span(
+    a: str,
+    b: str,
+    *,
+    frame: str = "scene",
+    label: str = "pair",
+    allow_multi_span: bool = False,
+) -> tuple[str, str]:
+    """Return the single contiguous differing clause `(a_span, b_span)` between `a` and `b`
+    (or `" | "`-joined clauses when `allow_multi_span=True` for declared in-place compiler edits).
 
     In `frame == 'scene'`, refuses if `a` and `b` differ only in whitespace, differ
-    outside a single contiguous clause (either by character-level newline/whitespace
-    changes elsewhere or `>= MAX_SHARED_INTERIOR_WORDS` unchanged words between edits),
-    cross a prompt section or `[Shot N]` boundary, or delete/insert without a
-    non-empty clause on both sides."""
+    outside a single contiguous clause (when `allow_multi_span=False`), cross or modify
+    a prompt section or `[Shot N]` boundary, or delete/insert without a non-empty clause
+    on both sides."""
     if not isinstance(a, str) or not isinstance(b, str) or not a.strip() or not b.strip():
         raise ValueError(f"{label}: both 'a' and 'b' must be non-empty strings")
     if a == b:
@@ -166,6 +233,30 @@ def differing_span(a: str, b: str, *, frame: str = "scene", label: str = "pair")
 
     if frame == "bare":
         return a.strip(), b.strip()
+
+    if allow_multi_span:
+        if HEADER_TOKEN_RE.findall(a) != HEADER_TOKEN_RE.findall(b):
+            raise ValueError(
+                f"{label}: differing span modifies a prompt section or [Shot N] header; "
+                "scene-frame pairs must keep all section and shot headers identical"
+            )
+        blocks_a = a.split("\n\n")
+        blocks_b = b.split("\n\n")
+        if len(blocks_a) != len(blocks_b):
+            raise ValueError(
+                f"{label}: 'a' and 'b' have different paragraph counts ({len(blocks_a)} vs {len(blocks_b)})"
+            )
+        all_a_spans: list[str] = []
+        all_b_spans: list[str] = []
+        for idx_b, (ba, bb) in enumerate(zip(blocks_a, blocks_b)):
+            if ba == bb:
+                continue
+            sa, sb = _multi_span_section_diffs(ba, bb, label=f"{label} (section {idx_b})")
+            all_a_spans.extend(sa)
+            all_b_spans.extend(sb)
+        if not all_a_spans:
+            raise ValueError(f"{label}: 'a' and 'b' differ only in whitespace")
+        return " | ".join(all_a_spans), " | ".join(all_b_spans)
 
     # 1. Character-level common prefix and suffix check: ensures no paragraph break,
     #    section/shot boundary, or outside-clause whitespace edits exist.
@@ -349,6 +440,7 @@ def load_pairs(path: str | Path, *, bank_dir: str | Path | None = None) -> PairS
                     f"{p} {entry_label}: prompt equals or contains excluded shot {shot_id!r}"
                 )
 
+    is_compiled_toml = raw_bytes.lstrip().startswith(b"# Compiled in-place via h3_pair_compiler")
     pairs: list[PairItem] = []
     for idx, item in enumerate(raw_pairs):
         lbl = f"pair[{idx}]"
@@ -367,7 +459,9 @@ def load_pairs(path: str | Path, *, bank_dir: str | Path | None = None) -> PairS
             raise ValueError(f"{p} {lbl}: weight must be finite and non-zero, got {w_raw!r}")
         a = item.get("a")
         b = item.get("b")
-        a_span, b_span = differing_span(a, b, frame=frame, label=f"{p} {lbl}")
+        a_span, b_span = differing_span(
+            a, b, frame=frame, label=f"{p} {lbl}", allow_multi_span=is_compiled_toml
+        )
         _check_excluded(a, f"{lbl}.a")
         _check_excluded(b, f"{lbl}.b")
         pairs.append(PairItem(index=idx, weight=w, a=a, b=b, a_span=a_span, b_span=b_span))
@@ -1320,8 +1414,8 @@ def quality_report(
         if norm0 == 0.0:
             raise ValueError("diffs contains a zero row; pairwise cosine is undefined")
         return {
-            "mean_pairwise_cosine": 1.0,
-            "split_half_cosine": 1.0,
+            "mean_pairwise_cosine": None,
+            "split_half_cosine": None,
             "per_pair_cosine": [1.0],
         }
     return {
@@ -1608,10 +1702,15 @@ def _validate_metadata_dict(metadata: Mapping[str, Any]) -> None:
             "control vector metadata 'quality_report' must be a dict with keys "
             "{'mean_pairwise_cosine', 'split_half_cosine', 'per_pair_cosine'}"
         )
+    n_pairs_q = int((metadata.get("pairs") or {}).get("n_pairs", 2))
     for k_float in ("mean_pairwise_cosine", "split_half_cosine"):
         v_f = qrep[k_float]
-        if not isinstance(v_f, (int, float)) or not math.isfinite(float(v_f)):
-            raise ValueError(f"quality_report[{k_float!r}] must be a finite float, got {v_f!r}")
+        if v_f is None and n_pairs_q < 2:
+            continue
+        if isinstance(v_f, bool) or not isinstance(v_f, (int, float)) or not math.isfinite(float(v_f)):
+            raise ValueError(
+                f"quality_report[{k_float!r}] must be a finite float when n_pairs >= 2, got {v_f!r}"
+            )
     ppc = qrep["per_pair_cosine"]
     if (
         not isinstance(ppc, list)
@@ -1873,16 +1972,18 @@ def format_vector_sidecar_md(
         if t_key not in ("vector.post_refiner", "vector.encoder"):
             lines.append(f"- **`{t_key}`**: shape=`{list(t_val.shape)}`, dtype=`{t_val.dtype}`")
 
-    mpc = float(qrep.get("mean_pairwise_cosine", 0.0))
-    shc = float(qrep.get("split_half_cosine", 0.0))
+    mpc_raw = qrep.get("mean_pairwise_cosine")
+    shc_raw = qrep.get("split_half_cosine")
+    mpc_str = f"{float(mpc_raw):.4f}" if mpc_raw is not None else "n/a (1 pair)"
+    shc_str = f"{float(shc_raw):.4f}" if shc_raw is not None else "n/a (1 pair)"
     ppc = [float(x) for x in (qrep.get("per_pair_cosine") or ())]
     ppc_min = min(ppc) if ppc else 0.0
     ppc_max = max(ppc) if ppc else 0.0
     ppc_formatted = ", ".join(f"{x:.4f}" for x in ppc)
     lines.extend(
         [
-            f"- **`mean_pairwise_cosine`**: `{mpc:.4f}`",
-            f"- **`split_half_cosine`**: `{shc:.4f}`",
+            f"- **`mean_pairwise_cosine`**: `{mpc_str}`",
+            f"- **`split_half_cosine`**: `{shc_str}`",
             f"- **`per_pair_cosine`**: min=`{ppc_min:.4f}`, max=`{ppc_max:.4f}` (`[{ppc_formatted}]`)",
         ]
     )

@@ -92,7 +92,6 @@ from bench.control_vector import (  # noqa: E402,F401
     _extract_system_prompt_text,
     _free_idle_comfy_vram,
     _generate_pairs_with_llm,
-    _inject_target_prompt_into_pairset,
     _is_markdown_pairs_text,
     _list_ui_toml_files,
     _list_ui_vectors,

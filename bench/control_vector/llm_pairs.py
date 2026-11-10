@@ -236,6 +236,7 @@ def _extract_system_prompt_text() -> str:
 
 
 SUPPORTED_LLM_PROVIDERS: tuple[str, ...] = ("transformers", "exllamav3")
+DEFAULT_LLM_MAX_TOKENS: int = 4800
 
 
 def _resolve_exl3_library_root(explicit_root: str | None = None) -> Path | None:
@@ -261,7 +262,7 @@ def _generate_pairs_with_llm(
     concept_prompt: str,
     system_prompt: str | None = None,
     load_in_4bit: bool = True,
-    max_new_tokens: int = 4200,
+    max_new_tokens: int = DEFAULT_LLM_MAX_TOKENS,
     temperature: float = 0.7,
     top_p: float = 0.8,
     top_k: int = 20,
@@ -529,7 +530,7 @@ def cmd_generate_pairs(args: argparse.Namespace) -> int:
         model_spec=args.llm_model,
         concept_prompt=concept,
         load_in_4bit=not bool(getattr(args, "no_4bit", False)),
-        max_new_tokens=int(getattr(args, "max_new_tokens", 3200)),
+        max_new_tokens=int(getattr(args, "max_new_tokens", DEFAULT_LLM_MAX_TOKENS)),
         temperature=float(getattr(args, "temperature", 0.7)),
         exl3_root=getattr(args, "exl3_root", None) or None,
     )

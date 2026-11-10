@@ -192,10 +192,19 @@ def _split_clause_statements(raw: str) -> list[str]:
         if ";" in ln and not ln.lower().startswith(
             ("name:", "quality:", "a_side:", "b_side:", "mode:", "target_prompt:", "scene_prompt:")
         ):
-            for sub in ln.split(";"):
-                s = sub.strip()
-                if s:
-                    out.append(s)
+            parts = [sub.strip() for sub in ln.split(";") if sub.strip()]
+            n_delims = len(_PAIR_SPLIT_RE.findall(ln))
+            if all(
+                bool(_PAIR_SPLIT_RE.search(p)) or bool(_SOUNDSCAPE_PREFIX_RE.match(p))
+                for p in parts
+            ):
+                out.extend(parts)
+            elif n_delims <= 1:
+                out.append(ln)
+            else:
+                raise ValueError(
+                    "ambiguous ';' inside clause; put each 'pole_a -> pole_b' clause on its own line when prose contains semicolons"
+                )
         else:
             out.append(ln)
     return out
@@ -337,8 +346,18 @@ def _apply_clause_inplace(tp_a: str, tp_b: str, clause: ContrastClause) -> tuple
                 "(not supported on single-paragraph p_h3_image prompts)"
             )
         if a and a in tp_a:
+            if tp_a.count(a) > 1:
+                raise ValueError(
+                    f"soundscape pole_a {a!r} occurs {tp_a.count(a)} times in target_prompt; "
+                    "include surrounding words so the clause matches a unique substring"
+                )
             return tp_a, tp_b.replace(a, b, 1)
         if a and b in tp_b:
+            if tp_b.count(b) > 1:
+                raise ValueError(
+                    f"soundscape pole_b {b!r} occurs {tp_b.count(b)} times in target_prompt; "
+                    "include surrounding words so the clause matches a unique substring"
+                )
             return tp_a.replace(b, a, 1), tp_b
         if a and b:
             return (
@@ -357,8 +376,18 @@ def _apply_clause_inplace(tp_a: str, tp_b: str, clause: ContrastClause) -> tuple
     if a == b:
         raise ValueError(f"pole_a and pole_b must differ, got {a!r}")
     if a in tp_a:
+        if tp_a.count(a) > 1:
+            raise ValueError(
+                f"pole_a {a!r} occurs {tp_a.count(a)} times in target_prompt; "
+                "include surrounding words so the clause matches a unique substring"
+            )
         return tp_a, tp_b.replace(a, b, 1)
     if b in tp_b:
+        if tp_b.count(b) > 1:
+            raise ValueError(
+                f"pole_b {b!r} occurs {tp_b.count(b)} times in target_prompt; "
+                "include surrounding words so the clause matches a unique substring"
+            )
         return tp_a.replace(b, a, 1), tp_b
     raise ValueError(
         f"neither pole_a ({a!r}) nor pole_b ({b!r}) was found as a substring in target_prompt; "
@@ -463,14 +492,17 @@ def compile_short_contrast_pairs(
     if not all_clauses:
         raise ValueError("at least one contrast clause is required")
 
-    frame_kind = "raw" if norm_mode == "p_h3_image" else "scene"
+    frame_kind = "scene"
+    multi_span_ok = len(all_clauses) > 1
     pairs: list[_cv.PairItem] = []
     for idx, tp in enumerate(tp_scenes):
         tp_a = tp
         tp_b = tp
         for cl in all_clauses:
             tp_a, tp_b = _apply_clause_inplace(tp_a, tp_b, cl)
-        a_span, b_span = _cv.differing_span(tp_a, tp_b, frame=frame_kind)
+        a_span, b_span = _cv.differing_span(
+            tp_a, tp_b, frame=frame_kind, allow_multi_span=multi_span_ok
+        )
         w = float(target_weight) if idx == 0 else 1.0
         pairs.append(
             _cv.PairItem(
@@ -526,14 +558,17 @@ def compile_words_to_pairset(
     if not all_clauses:
         raise ValueError("at least one contrast clause is required")
 
-    frame_kind = "raw" if norm_mode == "p_h3_image" else "scene"
+    frame_kind = "scene"
+    multi_span_ok = len(all_clauses) > 1
     pairs: list[_cv.PairItem] = []
     for idx, tp in enumerate(tp_scenes):
         tp_a = tp
         tp_b = tp
         for cl in all_clauses:
             tp_a, tp_b = _apply_clause_inplace(tp_a, tp_b, cl)
-        a_span, b_span = _cv.differing_span(tp_a, tp_b, frame=frame_kind)
+        a_span, b_span = _cv.differing_span(
+            tp_a, tp_b, frame=frame_kind, allow_multi_span=multi_span_ok
+        )
         w = float(target_weight) if idx == 0 else 1.0
         pairs.append(
             _cv.PairItem(
@@ -662,39 +697,16 @@ def parse_short_contrast_spec(
     }
 
 
-def compile_short_contrast_to_toml(
-    pole_a: str,
-    pole_b: str,
+def write_compiled_toml(
+    ps: _cv.PairSet,
     out_path: str | Path,
     *,
-    name: str | None = None,
-    quality: str | None = None,
-    a_side: str | None = None,
-    b_side: str | None = None,
-    mode: str = "t2va",
-    holds: Sequence[HoldClause | Mapping[str, Any] | tuple[str, ...] | str] | None = None,
-    extra_clauses: Sequence[ContrastClause | tuple[str, str] | str] | None = None,
-    soundscape_clauses: Sequence[ContrastClause | tuple[str, str] | str] | None = None,
-    target_prompt: str | None = None,
-    target_weight: float = 1.0,
-    **_unused_kwargs: Any,
+    overwrite: bool = False,
 ) -> Path:
-    """Compile `(pole_a, pole_b)` in-place on `target_prompt` and write a valid `.toml` pair file."""
-    main_spec = f"{pole_a} ||| {pole_b}" if str(pole_a or "").strip() else str(pole_b or "").strip()
-    ps = compile_words_to_pairset(
-        main_spec,
-        name=name,
-        quality=quality,
-        a_side=a_side,
-        b_side=b_side,
-        mode=mode,
-        holds=holds,
-        extra_clauses=extra_clauses,
-        soundscape_clauses=soundscape_clauses,
-        target_prompt=target_prompt,
-        target_weight=target_weight,
-    )
+    """Write a compiled `PairSet` to a `.toml` pair file with the compiler header."""
     out = Path(out_path)
+    if out.exists() and not overwrite:
+        raise FileExistsError(f"compiled TOML output already exists (pass overwrite=True): {out}")
     out.parent.mkdir(parents=True, exist_ok=True)
 
     def _toml_str(val: str) -> str:
@@ -706,12 +718,14 @@ def compile_short_contrast_to_toml(
 
     lines = [
         f"# Compiled in-place via h3_pair_compiler (mode={ps.mode!r}, n_pairs={len(ps.pairs)})",
+        "[vector]",
         f"name = {_toml_str(ps.name)}",
         f"quality = {_toml_str(ps.quality)}",
         f"a_side = {_toml_str(ps.a_side)}",
         f"b_side = {_toml_str(ps.b_side)}",
         f"mode = {_toml_str(ps.mode)}",
         f"frame = {_toml_str(ps.frame)}",
+        f"exclude_shots = {json.dumps(list(ps.exclude_shots))}",
         "",
     ]
     for p in ps.pairs:
@@ -732,3 +746,39 @@ def compile_short_contrast_to_toml(
 
     out.write_text("\n".join(lines), encoding="utf-8")
     return out
+
+
+def compile_short_contrast_to_toml(
+    pole_a: str,
+    pole_b: str,
+    out_path: str | Path,
+    *,
+    name: str | None = None,
+    quality: str | None = None,
+    a_side: str | None = None,
+    b_side: str | None = None,
+    mode: str = "t2va",
+    holds: Sequence[HoldClause | Mapping[str, Any] | tuple[str, ...] | str] | None = None,
+    extra_clauses: Sequence[ContrastClause | tuple[str, str] | str] | None = None,
+    soundscape_clauses: Sequence[ContrastClause | tuple[str, str] | str] | None = None,
+    target_prompt: str | None = None,
+    target_weight: float = 1.0,
+    overwrite: bool = True,
+    **_unused_kwargs: Any,
+) -> Path:
+    """Compile `(pole_a, pole_b)` in-place on `target_prompt` and write a valid `.toml` pair file."""
+    main_spec = f"{pole_a} ||| {pole_b}" if str(pole_a or "").strip() else str(pole_b or "").strip()
+    ps = compile_words_to_pairset(
+        main_spec,
+        name=name or Path(out_path).stem,
+        quality=quality,
+        a_side=a_side,
+        b_side=b_side,
+        mode=mode,
+        holds=holds,
+        extra_clauses=extra_clauses,
+        soundscape_clauses=soundscape_clauses,
+        target_prompt=target_prompt,
+        target_weight=target_weight,
+    )
+    return write_compiled_toml(ps, out_path, overwrite=overwrite)

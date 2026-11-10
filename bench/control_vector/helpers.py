@@ -377,97 +377,6 @@ def _apply_post_refiner_holds(
     return scrubbed.to(dtype=torch.float32), hold_labels, norm_before, norm_after_raw
 
 
-def _inject_target_prompt_into_pairset(
-    pair_set: cv.PairSet,
-    target_prompt_arg: str,
-    *,
-    target_weight: float = 2.5,
-    **_unused_kwargs: Any,
-) -> cv.PairSet:
-    """Inject a user-supplied target scene prompt as `Pair 0` at `weight = target_weight` when a `.toml` pair bank is used with `--target-prompt`."""
-    raw_tp = str(target_prompt_arg or "").strip()
-    if not raw_tp or not pair_set.pairs:
-        return pair_set
-    try:
-        _, tp_text = _resolve_prompt_text(raw_tp)
-    except Exception:
-        tp_text = raw_tp
-    tp_text = tp_text.strip()
-    if not tp_text:
-        return pair_set
-
-    a_parts = [s.strip() for s in pair_set.pairs[0].a_span.split(" | ") if s.strip()]
-    b_parts = [s.strip() for s in pair_set.pairs[0].b_span.split(" | ") if s.strip()]
-    a_clause = a_parts[0] if a_parts else pair_set.a_side.strip()
-    b_clause = b_parts[0] if b_parts else pair_set.b_side.strip()
-    if a_clause == b_clause:
-        a_clause = pair_set.a_side.split(" | ")[0].strip()
-        b_clause = pair_set.b_side.split(" | ")[0].strip()
-
-    if a_clause and a_clause in tp_text:
-        tp_a = tp_text
-        tp_b = tp_text.replace(a_clause, b_clause, 1)
-    elif b_clause and b_clause in tp_text:
-        tp_b = tp_text
-        tp_a = tp_text.replace(b_clause, a_clause, 1)
-    else:
-        return pair_set
-
-    if len(a_parts) >= 2 and len(b_parts) >= 2 and "overall_soundscape:" in tp_a:
-        sa = a_parts[1]
-        sb = b_parts[1]
-        if sa in tp_a:
-            tp_b = tp_b.replace(sa, sb, 1)
-        elif sb in tp_b:
-            tp_a = tp_a.replace(sb, sa, 1)
-        else:
-            tp_a = pair_compiler._inject_soundscape_into_target(tp_a, f"{sa.rstrip('.')}.")
-            tp_b = pair_compiler._inject_soundscape_into_target(tp_b, f"{sb.rstrip('.')}.")
-
-    tp_a_span, tp_b_span = cv.differing_span(tp_a, tp_b, frame=pair_set.frame)
-    pair0 = cv.PairItem(
-        index=0,
-        weight=float(target_weight),
-        a=tp_a,
-        b=tp_b,
-        a_span=tp_a_span,
-        b_span=tp_b_span,
-    )
-    tail_pairs = tuple(
-        cv.PairItem(
-            index=idx,
-            weight=p.weight,
-            a=p.a,
-            b=p.b,
-            a_span=p.a_span,
-            b_span=p.b_span,
-        )
-        for idx, p in enumerate(pair_set.pairs[:9], start=1)
-    )
-    all_pairs = (pair0, *tail_pairs)
-    digest_payload = json.dumps(
-        {
-            "name": pair_set.name,
-            "mode": pair_set.mode,
-            "pairs": [(p.weight, p.a, p.b) for p in all_pairs],
-        },
-        sort_keys=True,
-    ).encode("utf-8")
-    return cv.PairSet(
-        path=pair_set.path,
-        sha256=hashlib.sha256(digest_payload).hexdigest(),
-        name=pair_set.name,
-        quality=pair_set.quality,
-        a_side=pair_set.a_side,
-        b_side=pair_set.b_side,
-        mode=pair_set.mode,
-        frame=pair_set.frame,
-        exclude_shots=pair_set.exclude_shots,
-        pairs=all_pairs,
-        holds=pair_set.holds,
-    )
-
-
 def _compile_words_or_spec_to_pairset(
     words_arg: str,
     *,
@@ -482,8 +391,6 @@ def _compile_words_or_spec_to_pairset(
 ) -> cv.PairSet:
     """Compile a `--words` CLI argument or multi-line/semicolon-separated spec in-place on `target_prompt`."""
     raw_text = str(words_arg or "").strip()
-    if "\n" not in raw_text and ";" in raw_text:
-        raw_text = "\n".join(part.strip() for part in raw_text.split(";") if part.strip())
 
     tp_resolved = ""
     if str(target_prompt or "").strip():
@@ -496,6 +403,8 @@ def _compile_words_or_spec_to_pairset(
         raw_text.lower().startswith(p) or f"\n{p}" in raw_text.lower()
         for p in ("name:", "quality:", "a_side:", "b_side:", "mode:", "target_prompt:", "scene_prompt:")
     )
+    if has_meta_header and "\n" not in raw_text and ";" in raw_text:
+        raw_text = "\n".join(part.strip() for part in raw_text.split(";") if part.strip())
     if has_meta_header:
         hdr_lines: list[str] = []
         lower_lines = [ln.strip().lower() for ln in raw_text.splitlines() if ln.strip()]

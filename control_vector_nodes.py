@@ -611,10 +611,7 @@ def encode_conditioning_for_vector(
     """Encode `text` through `clip` (or on top of `encoded_references` when provided)
     and return `(conditioning_list, encoder_rows_2d [L, 5120], tags_1d [L], token_ids, decode_fn)`."""
     clean_text = _rules.normalize_prompt(text)
-    tok_root = getattr(clip, "tokenizer", None)
-    mm_tok = getattr(tok_root, "minimax", tok_root)
-    qwen_tok = getattr(mm_tok, "qwen3vl_32b", mm_tok)
-    hf_tok = getattr(qwen_tok, "tokenizer", None)
+    hf_tok = _spans.unwrap_hf_tokenizer(clip)
     if hf_tok is None:
         raise ValueError("clip does not expose the MiniMax Qwen3-VL tokenizer")
 
@@ -644,6 +641,7 @@ def encode_conditioning_for_vector(
         token_ids = _spans.expand_token_ids(entries, tags)
         span_masks = _spans.spans(token_ids, tags.tolist(), decode_fn)
         setattr(tags, "_h3_span_masks", span_masks)
+        cond_list[0][1]["h3_span_masks"] = span_masks
         raw_tags_obj = cond_list[0][1].get("minimax_token_tags")
         if isinstance(raw_tags_obj, torch.Tensor):
             setattr(raw_tags_obj, "_h3_span_masks", span_masks)
@@ -659,6 +657,7 @@ def encode_conditioning_for_vector(
     token_ids = _spans.expand_token_ids(entries, tags)
     span_masks = _spans.spans(token_ids, tags.tolist(), decode_fn)
     setattr(tags, "_h3_span_masks", span_masks)
+    cond_list[0][1]["h3_span_masks"] = span_masks
     raw_tags_obj = cond_list[0][1].get("minimax_token_tags")
     if isinstance(raw_tags_obj, torch.Tensor):
         setattr(raw_tags_obj, "_h3_span_masks", span_masks)
@@ -1174,20 +1173,21 @@ def _resolve_custom_inference_mask(
     payload: Mapping[str, Any],
     L: int,
     device: torch.device,
+    kwarg_span_masks: Any = None,
 ) -> torch.Tensor | None:
     if sp.mask in ("non_vision", "all_rows"):
         return None
-    span_masks = getattr(tags_raw, "_h3_span_masks", None) if tags_raw is not None else None
+    span_masks = kwarg_span_masks
     if span_masks is None:
         span_masks = payload.get("h3_span_masks")
+    if span_masks is None and tags_raw is not None:
+        span_masks = getattr(tags_raw, "_h3_span_masks", None)
     if span_masks is None and sp.prompt and sp.prompt.strip():
         span_masks = _spans.span_masks_from_prompt(sp.prompt, L, tags=tags_2d[0])
     if span_masks is None:
-        if sp.mask == "scene_only":
-            return None
         raise ValueError(
             f"control vector {sp.vector_name!r} uses mask={sp.mask!r}, which requires "
-            "conditioning from an H3 conditioning node (_h3_span_masks) or prompt=..."
+            "conditioning from an H3 conditioning node (h3_span_masks / _h3_span_masks) or prompt=..."
         )
     return _spans.inference_mask(span_masks, sp.mask).to(device=device)
 
@@ -1292,9 +1292,12 @@ def _make_control_vector_wrapper(specs: tuple[_AppliedVectorSpec, ...]):
 
         has_vision = bool((tags == 0).any().item())
         render_prefix_kind = "references_or_keyframes" if has_vision else "none"
-        span_masks_top = getattr(tags_raw, "_h3_span_masks", None) if tags_raw is not None else None
+        kwarg_span_masks = kwargs.get("h3_span_masks")
+        span_masks_top = kwarg_span_masks
         if span_masks_top is None:
             span_masks_top = payload.get("h3_span_masks")
+        if span_masks_top is None and tags_raw is not None:
+            span_masks_top = getattr(tags_raw, "_h3_span_masks", None)
         cond_or_uncond = transformer_options.get("cond_or_uncond")
         is_pure_uncond = isinstance(cond_or_uncond, (list, tuple)) and 0 not in cond_or_uncond
         live_tail_text = (
@@ -1415,19 +1418,8 @@ def _make_control_vector_wrapper(specs: tuple[_AppliedVectorSpec, ...]):
                     payload=payload,
                     L=L,
                     device=base_ctx.device,
+                    kwarg_span_masks=kwarg_span_masks,
                 )
-                if (
-                    sp.mask == "scene_only"
-                    and custom_mask is None
-                    and (sp.vector_name, "missing_scene_only_mask_warn") not in logged_prompt_couplings
-                ):
-                    logged_prompt_couplings.add((sp.vector_name, "missing_scene_only_mask_warn"))
-                    logger.warning(
-                        "[h3] control vector %r uses mask='scene_only', but conditioning has no _h3_span_masks "
-                        "(wire MiniMaxH3Conditioning, MiniMaxH3ReferenceConditioning, or MiniMaxH3PH3ImageConditioning); "
-                        "falling back to 'non_vision'",
-                        sp.vector_name,
-                    )
                 mask_vision = sp.mask != "all_rows"
                 group_specs: list[_AppliedVectorSpec] = [sp]
                 s0 = _effective_spec_strength(sp, stream_attr)
@@ -2047,13 +2039,6 @@ class MiniMaxH3MakeControlVector(io.ComfyNode):
         return io.NodeOutput(out_path.name, json.dumps(report, indent=2, sort_keys=True))
 
 
-DEFAULT_MEDIA_SCENES: tuple[str, ...] = (
-    "subject_definitions:\n<Subject 1> is the person in <Picture 1>: a person.\n\nsummary:\n[reference generation] <Subject 1> speaks to the camera in a neutral studio setting.\n\nretention_analysis:\n<Subject 1> (appears in [Shot 1]): fully_preserved - retains the visual appearance from <Picture 1>.\n\ndetailed_description:\n[Shot 1] In a neutral studio setting with balanced key lighting, <Subject 1> (S1), standing facing the camera in a calm, steady medium shot, says, <d>[English] Everything is ready for the next take.</d> <Subject 1> holds a natural posture.\n\noverall_soundscape:\nClean room tone with subtle indoor acoustics.\n\nnon_diegetic_music:\nN/A",
-    "subject_definitions:\n<Subject 1> is the person in <Picture 1>: a person.\n\nsummary:\n[reference generation] <Subject 1> speaks toward the lens in a stone courtyard.\n\nretention_analysis:\n<Subject 1> (appears in [Shot 1]): fully_preserved - retains the visual appearance from <Picture 1>.\n\ndetailed_description:\n[Shot 1] Along a quiet stone courtyard under even daylight, <Subject 1> (S1), turning toward the lens in a medium frame, says, <d>[English] Let us look closely at the details here.</d> <Subject 1> moves with composed steadiness.\n\noverall_soundscape:\nSoft outdoor ambience and gentle air movement.\n\nnon_diegetic_music:\nN/A",
-    "subject_definitions:\n<Subject 1> is the person in <Picture 1>: a person.\n\nsummary:\n[reference generation] <Subject 1> speaks inside a warm wooden corridor.\n\nretention_analysis:\n<Subject 1> (appears in [Shot 1]): fully_preserved - retains the visual appearance from <Picture 1>.\n\ndetailed_description:\n[Shot 1] Inside a warm wooden corridor framed at eye level, <Subject 1> (S1), pausing near the center of the frame, says, <d>[English] We can start whenever you give the signal.</d> The camera holds steady.\n\noverall_soundscape:\nQuiet interior ambience with soft background room tone.\n\nnon_diegetic_music:\nN/A",
-)
-
-
 def _validate_short_edge(short_edge: Any) -> int:
     se = int(short_edge)
     if se < _rules.CANVAS_MULTIPLE:
@@ -2117,10 +2102,7 @@ def _encode_media_frame_and_prompt(
 ) -> tuple[torch.Tensor, torch.Tensor, list[int], Any]:
     """Encode a single `[1, H, W, 3]` image reference + `text` through `clip`."""
     clean_text = _rules.normalize_prompt(text)
-    tok_root = getattr(clip, "tokenizer", None)
-    mm_tok = getattr(tok_root, "minimax", tok_root)
-    qwen_tok = getattr(mm_tok, "qwen3vl_32b", mm_tok)
-    hf_tok = getattr(qwen_tok, "tokenizer", None)
+    hf_tok = _spans.unwrap_hf_tokenizer(clip)
     if hf_tok is None:
         raise ValueError("clip does not expose the MiniMax Qwen3-VL tokenizer")
 
@@ -2200,20 +2182,13 @@ def make_control_vector_from_media_pairs(
     )
     n_frames = int(matched_a.shape[0])
     custom_prompt = str(scene_prompt or "").strip()
-    if custom_prompt:
-        prompts = [custom_prompt for _ in range(n_frames)]
-        frame_indices = list(range(n_frames))
-    elif n_frames == 1:
-        # Evaluate the single image pair across 3 neutral H3 scenes so scene
-        # context averages out and split-half / pairwise cosine are well-defined.
-        prompts = list(DEFAULT_MEDIA_SCENES)
-        frame_indices = [0 for _ in prompts]
-    else:
-        prompts = [
-            DEFAULT_MEDIA_SCENES[i % len(DEFAULT_MEDIA_SCENES)]
-            for i in range(n_frames)
-        ]
-        frame_indices = list(range(n_frames))
+    if not custom_prompt:
+        raise ValueError(
+            "scene_prompt is required when building a media-contrast control vector; "
+            "provide a scene prompt matching your target setup"
+        )
+    prompts = [custom_prompt for _ in range(n_frames)]
+    frame_indices = list(range(n_frames))
 
     family = _cv.detect_family(model)
     if isinstance(model, (str, Path)):
@@ -2498,8 +2473,8 @@ class MiniMaxH3MakeMediaControlVector(io.ComfyNode):
                     default="",
                     optional=True,
                     tooltip=(
-                        "Optional neutral H3 ref2va scene prompt. When empty, evaluates "
-                        "across canonical neutral H3 ref2va scenes automatically."
+                        "Required H3 ref2va scene prompt used as the text context when "
+                        "encoding image_a and image_b."
                     ),
                 ),
                 io.Boolean.Input(

@@ -272,23 +272,22 @@ def check_spans_partition_and_refusals(tok: MiniMaxH3Tokenizer) -> list[str]:
         "inference_mask unknown mode refusal",
     )
 
-    # Verify span_masks_from_prompt with text-only and with prefix offset
+    # Verify span_masks_from_prompt with text-only and with prefix offset (using bank prompts)
+    noodle_bank_prompt = (REPO / "prompt_bank" / "t2va_noodle_bar.txt").read_text(encoding="utf-8").strip()
     errs += _expect_refusal(
         lambda: h3_spans.span_masks_from_prompt(
-            "integrated_multimodal_description: [Shot 1] Wide shot as (S1) says, <d>[English] Stop right there.</d> The rain falls.\n\noverall_soundscape: Rain.\n\nnon_diegetic_music: N/A",
+            noodle_bank_prompt,
             0,
             tokenizer=tok,
         ),
         "total_length must be >= 1",
         "span_masks_from_prompt total_length=0 refusal",
     )
-    raw_entries = tok.tokenize_with_weights(
-        "integrated_multimodal_description: [Shot 1] Wide shot as (S1) says, <d>[English] Stop right there.</d> The rain falls.\n\noverall_soundscape: Rain.\n\nnon_diegetic_music: N/A"
-    )["qwen3vl_32b"][0]
+    raw_entries = tok.tokenize_with_weights(noodle_bank_prompt)["qwen3vl_32b"][0]
     n_text_tok = len(raw_entries)
     prefix_tags = torch.tensor([0, 0, 1] + [1] * n_text_tok, dtype=torch.long)
     sm_prefixed = h3_spans.span_masks_from_prompt(
-        "integrated_multimodal_description: [Shot 1] Wide shot as (S1) says, <d>[English] Stop right there.</d> The rain falls.\n\noverall_soundscape: Rain.\n\nnon_diegetic_music: N/A",
+        noodle_bank_prompt,
         n_text_tok + 3,
         tags=prefix_tags,
         tokenizer=tok,
@@ -311,7 +310,7 @@ def check_spans_partition_and_refusals(tok: MiniMaxH3Tokenizer) -> list[str]:
             errs.append("description_only leaked into dialogue or vision rows")
 
     # Verify span_masks_from_prompt on a prefixed sectionless P-H3-Image-Edit prompt preserves _h3_steerable_scene_mask:
-    edit_img_prompt = "Edit <Picture 1>. A medium portrait shot of a botanist in a greenhouse at dusk."
+    edit_img_prompt = (REPO / "prompt_bank" / "p_h3_image" / "edit_alpine_terrace.txt").read_text(encoding="utf-8").strip()
     edit_entries = tok.tokenize_with_weights(edit_img_prompt)["qwen3vl_32b"][0]
     n_edit_tok = len(edit_entries)
     edit_prefix_tags = torch.tensor([0, 0, 1] + [1] * n_edit_tok, dtype=torch.long)
@@ -326,19 +325,31 @@ def check_spans_partition_and_refusals(tok: MiniMaxH3Tokenizer) -> list[str]:
     else:
         im_edit_scene = h3_spans.inference_mask(sm_edit_pref, "scene_only")
         if int(im_edit_scene.sum().item()) >= int(sm_edit_pref["scene"].sum().item()):
-            errs.append("inference_mask('scene_only') on prefixed P-H3-Image-Edit prompt did not mask out 'Edit <Picture 1>.'")
+            errs.append("inference_mask('scene_only') on prefixed P-H3-Image-Edit prompt did not mask out '<Picture N>'")
         if bool((im_edit_scene & sm_edit_pref["vision"]).any()):
             errs.append("inference_mask('scene_only') on prefixed P-H3-Image-Edit prompt leaked into vision rows")
 
+    # Verify attach_span_masks works with a 4B-keyed PH3ImageTokenizer wrapper and sets both cond[i][1]['h3_span_masks'] and tags._h3_span_masks:
+    class _Mock4BTokenizer:
+        def __init__(self, base_tok):
+            self.qwen3vl_4b = base_tok.qwen3vl_32b
+
+        def tokenize_with_weights(self, text, return_word_ids=False, **kwargs):
+            return {"qwen3vl_4b": self.qwen3vl_4b.tokenize_with_weights(text, return_word_ids, **kwargs)}
+
+    mock_4b_tok = _Mock4BTokenizer(tok)
+    cond_4b_tags = torch.ones((n_edit_tok,), dtype=torch.long)
+    cond_4b = [[torch.zeros((1, n_edit_tok, 8)), {"minimax_token_tags": cond_4b_tags}]]
+    h3_spans.attach_span_masks(cond_4b, mock_4b_tok, mock_4b_tok.tokenize_with_weights(edit_img_prompt))
+    if (
+        not isinstance(cond_4b[0][1].get("h3_span_masks"), dict)
+        or "h3_span_masks" not in (cond_4b[0][1].get("model_conds") or {})
+        or getattr(cond_4b_tags, "_h3_span_masks", None) is None
+    ):
+        errs.append("attach_span_masks with qwen3vl_4b tokenizer did not set cond[0][1]['h3_span_masks'], model_conds['h3_span_masks'], and tags._h3_span_masks")
+
     # Test description_only on ref2va prompt structure (subject_definitions: + detailed_description: + overall_soundscape:)
-    ref2va_sample_prompt = (
-        "subject_definitions:\n- <Picture 1>: A brass compass.\n\n"
-        "summary: A brass compass sits on a map.\n\n"
-        "retention_analysis:\n- Keep brass compass geometry.\n\n"
-        "detailed_description: [Shot 1] Wide shot of the compass as (S1) says, <d>[English] North is this way.</d> Light glints on the glass.\n\n"
-        "overall_soundscape: Gentle wind over paper.\n\n"
-        "non_diegetic_music: N/A"
-    )
+    ref2va_sample_prompt = (REPO / "prompt_bank" / "ref2va_look_anchor.txt").read_text(encoding="utf-8").strip()
     sm_ref2va = h3_spans.span_masks_from_prompt(
         ref2va_sample_prompt,
         len(tok.tokenize_with_weights(ref2va_sample_prompt)["qwen3vl_32b"][0]),
@@ -399,36 +410,35 @@ def check_spans_partition_and_refusals(tok: MiniMaxH3Tokenizer) -> list[str]:
     if not bool(pm_dlg_diff[dlg_first:dlg_last].all()):
         errs.append("pooling_mask('diff_span') dialogue fallback did not select differing dialogue tokens")
 
-    # Multi-span SequenceMatcher differing_token_mask(min_shared_run=8) and pooling_mask(mode="diff_span") bridge exclusion:
-    # Construct two edits separated by >= 10 unchanged scene tokens so differing_token_mask strips the interior bridge.
+    # Multi-span SequenceMatcher differing_token_mask(default min_shared_run=4) and pooling_mask(mode="diff_span") bridge exclusion:
+    # Construct two edits separated by 5 unchanged scene tokens (>= 4, < 8) so default min_shared_run=4 strips the interior bridge.
     if len(scene_indices) >= 18:
         s_i0 = scene_indices[2]
-        s_i1 = scene_indices[14]
-        if s_i1 - (s_i0 + 2) >= 10:
-            ids_b_multi = list(token_ids)
-            ids_b_multi[s_i0] = ids_b_multi[s_i0] + 1
-            ids_b_multi[s_i0 + 1] = ids_b_multi[s_i0 + 1] + 1
-            ids_b_multi[s_i1] = ids_b_multi[s_i1] + 1
-            ids_b_multi[s_i1 + 1] = ids_b_multi[s_i1 + 1] + 1
-            dm_a, dm_b = h3_spans.differing_token_mask(token_ids, ids_b_multi, min_shared_run=8)
-            if not (bool(dm_a[s_i0 : s_i0 + 2].all()) and bool(dm_a[s_i1 : s_i1 + 2].all())):
-                errs.append("differing_token_mask did not mark both edited spans as True")
-            if bool(dm_a[s_i0 + 2 : s_i1].any()) or bool(dm_b[s_i0 + 2 : s_i1].any()):
-                errs.append("differing_token_mask failed to exclude unchanged interior bridge of >= 8 tokens")
-            mb_s, mb_ea, _mb_eb = h3_spans.differing_token_bounds(token_ids, ids_b_multi)
-            pm_multi = h3_spans.pooling_mask(masks, "diff_span", first_diff=mb_s, end_diff=mb_ea)
-            if bool(pm_multi[s_i0 + 2 : s_i1].any()):
-                errs.append("pooling_mask('diff_span') did not exclude unchanged interior bridge cached by differing_token_bounds")
-            if not (bool(pm_multi[s_i0 : s_i0 + 2].all()) and bool(pm_multi[s_i1 : s_i1 + 2].all())):
-                errs.append("pooling_mask('diff_span') lost edited spans when excluding interior bridge")
-            # Verify single-span pair with identical outer bounds evicts/replaces the cached multi-span mask:
-            ids_b_single_same_bounds = list(token_ids)
-            for idx_k in range(s_i0, s_i1 + 2):
-                ids_b_single_same_bounds[idx_k] = ids_b_single_same_bounds[idx_k] + 1
-            sb_s, sb_ea, _sb_eb = h3_spans.differing_token_bounds(token_ids, ids_b_single_same_bounds)
-            pm_single_after = h3_spans.pooling_mask(masks, "diff_span", first_diff=sb_s, end_diff=sb_ea)
-            if not torch.equal(pm_single_after[sb_s:sb_ea], masks["scene"][sb_s:sb_ea]):
-                errs.append("pooling_mask('diff_span') retained stale multi-span cache after single-span pair with same outer bounds")
+        s_i1 = s_i0 + 7  # 2 edited tokens + 5 unchanged bridge tokens
+        ids_b_multi = list(token_ids)
+        ids_b_multi[s_i0] = ids_b_multi[s_i0] + 1
+        ids_b_multi[s_i0 + 1] = ids_b_multi[s_i0 + 1] + 1
+        ids_b_multi[s_i1] = ids_b_multi[s_i1] + 1
+        ids_b_multi[s_i1 + 1] = ids_b_multi[s_i1 + 1] + 1
+        dm_a, dm_b = h3_spans.differing_token_mask(token_ids, ids_b_multi)
+        if not (bool(dm_a[s_i0 : s_i0 + 2].all()) and bool(dm_a[s_i1 : s_i1 + 2].all())):
+            errs.append("differing_token_mask did not mark both edited spans as True")
+        if bool(dm_a[s_i0 + 2 : s_i1].any()) or bool(dm_b[s_i0 + 2 : s_i1].any()):
+            errs.append("differing_token_mask failed to exclude unchanged interior bridge of 5 tokens (min_shared_run=4)")
+        mb_s, mb_ea, _mb_eb = h3_spans.differing_token_bounds(token_ids, ids_b_multi)
+        pm_multi = h3_spans.pooling_mask(masks, "diff_span", first_diff=mb_s, end_diff=mb_ea)
+        if bool(pm_multi[s_i0 + 2 : s_i1].any()):
+            errs.append("pooling_mask('diff_span') did not exclude unchanged interior bridge cached by differing_token_bounds")
+        if not (bool(pm_multi[s_i0 : s_i0 + 2].all()) and bool(pm_multi[s_i1 : s_i1 + 2].all())):
+            errs.append("pooling_mask('diff_span') lost edited spans when excluding interior bridge")
+        # Verify single-span pair with identical outer bounds evicts/replaces the cached multi-span mask:
+        ids_b_single_same_bounds = list(token_ids)
+        for idx_k in range(s_i0, s_i1 + 2):
+            ids_b_single_same_bounds[idx_k] = ids_b_single_same_bounds[idx_k] + 1
+        sb_s, sb_ea, _sb_eb = h3_spans.differing_token_bounds(token_ids, ids_b_single_same_bounds)
+        pm_single_after = h3_spans.pooling_mask(masks, "diff_span", first_diff=sb_s, end_diff=sb_ea)
+        if not torch.equal(pm_single_after[sb_s:sb_ea], masks["scene"][sb_s:sb_ea]):
+            errs.append("pooling_mask('diff_span') retained stale multi-span cache after single-span pair with same outer bounds")
 
     errs += _expect_refusal(
         lambda: h3_spans.differing_token_mask(token_ids, list(token_ids)),
@@ -549,24 +559,13 @@ def check_pair_file_loader_and_refusals() -> list[str]:
         tmp_dir = Path(tmp)
         bank_dir = tmp_dir / "prompt_bank"
         bank_dir.mkdir()
-        excl_text = (
-            "integrated_multimodal_description: [Shot 1] Live-action, cinematic, a medium-wide shot "
-            "frames a zebra crossing on a quiet city street on an overcast morning across the "
-            "five-second take. An elderly man in his seventies walks slowly across the crossing "
-            "with a large grey tortoise beside his feet.\n\n"
-            "overall_soundscape: A bus engine idles softly.\n\n"
-            "non_diegetic_music: N/A"
-        )
+        excl_text = (REPO / "prompt_bank" / "t2va_offpath_tortoise.txt").read_text(encoding="utf-8").strip()
         (bank_dir / "t2va_offpath_tortoise.txt").write_text(excl_text, encoding="utf-8")
 
-        base_a = (
-            "integrated_multimodal_description: [Shot 1] Live-action, cinematic, shot on a modern "
-            "digital cinema camera with clean neutral colour and crisp detail, a medium shot frames "
-            "a potter shaping a clay bowl on a spinning wheel across the five-second take. Wet clay "
-            "glistens under his hands as the rim rises smoothly. The camera holds a static shot. "
-            "He produces no vocal sound.\n\n"
-            "overall_soundscape: The wheel hums with a steady low whir and wet hands slide over clay.\n\n"
-            "non_diegetic_music: N/A"
+        spec_typical_txt = (REPO / "prompt_bank" / "t2va_spec_typical.txt").read_text(encoding="utf-8").strip()
+        base_a = spec_typical_txt.replace(
+            "Live-action, cinematic,",
+            "Live-action, cinematic, shot on a modern digital cinema camera with clean neutral colour and crisp detail,",
         )
         base_b = base_a.replace(
             "shot on a modern digital cinema camera with clean neutral colour and crisp detail,",
@@ -693,7 +692,8 @@ b = "a busy city street"
         )
         # 4. Multi-span leak (changes quality clause AND camera movement later in the prompt)
         leaked_b = base_b.replace(
-            "The camera holds a static shot.", "The camera pans rapidly to the left."
+            "The camera trucks left with small amplitude at slow speed,",
+            "The camera pans rapidly to the right,",
         )
         errs += _expect_refusal(
             lambda: _write_and_load(
@@ -856,12 +856,7 @@ b = "a busy city street"
         )
 
         # 14. Markdown-to-TOML parser and writer (fenced + raw, auto-mode, auto-sides/quality, and refusals)
-        md_test_scene = (
-            "integrated_multimodal_description: [Shot 1] Live-action. A potter works at a wheel "
-            "as (S1) says, <d>Steady hands.</d> Her lips close calmly.\n\n"
-            "overall_soundscape: Wheel hum.\n\n"
-            "non_diegetic_music: N/A"
-        )
+        md_test_scene = spec_typical_txt
         md_raw = (
             f"### Test Scene Prompt\n\n{md_test_scene}\n\n"
             f"### Contrastive Pairs (1–2)\n\n"
@@ -887,7 +882,7 @@ b = "a busy city street"
 
         ref_md = md_raw.replace(
             "### Test Scene Prompt\n\n",
-            "### Test Scene Prompt\n\nsubject_definitions:\n<Subject 1> is the potter in <Picture 1>.\n\n",
+            "### Test Scene Prompt\n\nsubject_definitions:\n<Subject 1> is the woman in <Picture 1>.\n\n",
         )
         if cv.parse_markdown_pairs(ref_md)["mode"] != "ref2va":
             errs.append("parse_markdown_pairs did not auto-detect ref2va from subject_definitions:")
@@ -974,7 +969,7 @@ b = "a busy city street"
             errs.append(f"lint_pair_set produced unexpected warnings on clean pairs: {clean_lint}")
 
         # Duplicate span, unbracketed <d>, banned rate adverb in b_span, content-noun cancellation, and non-N/A music
-        bad_dlg_a = base_a.replace("He produces no vocal sound.", 'He says, <d>Hello there.</d>')
+        bad_dlg_a = base_a.replace("She produces no vocal sound.", 'She says, <d>Hello there.</d>')
         bad_dlg_b = bad_dlg_a.replace(
             "shot on a modern digital cinema camera with clean neutral colour and crisp detail,",
             "rapidly recorded on 16mm film with a lantern on the bench,",
@@ -989,11 +984,11 @@ b = "a busy city street"
             "shot on a modern digital cinema camera with clean neutral colour and crisp detail,",
             "with a silver lantern gleaming on the stone shelf,",
         )
-        diff_scene_a = base_a.replace("A man stands", "A watchmaker sits").replace(
+        diff_scene_a = base_a.replace("a woman walking along a beach", "a watchmaker seated at a bench").replace(
             "shot on a modern digital cinema camera with clean neutral colour and crisp detail,",
             "filmed under neutral studio lighting,",
         )
-        diff_scene_dup_b = base_a.replace("A man stands", "A watchmaker sits").replace(
+        diff_scene_dup_b = base_a.replace("a woman walking along a beach", "a watchmaker seated at a bench").replace(
             "shot on a modern digital cinema camera with clean neutral colour and crisp detail,",
             "recorded on vintage 16mm celluloid stock with heavy grain and halation,",
         )
@@ -1023,121 +1018,119 @@ b = "a busy city street"
             if hasattr(pair_comp, retired_sym):
                 errs.append(f"h3_pair_compiler still defines retired symbol {retired_sym!r}")
 
+        origami_fl2va_txt = (REPO / "prompt_bank" / "fl2va_origami_crane.txt").read_text(encoding="utf-8").strip()
+        origami_fl2va_na = origami_fl2va_txt.replace(
+            "non_diegetic_music: A music-box figure at a moderate tempo, a bright repeating melody over a plucked bass note, slowing slightly and stopping on the final fold.",
+            "non_diegetic_music: N/A",
+        )
+        diner_ref2va_txt = (REPO / "prompt_bank" / "ref2va_diner_breakup_refs.txt").read_text(encoding="utf-8").strip()
+        diner_ref2va_na = diner_ref2va_txt.replace(
+            "non_diegetic_music:\nA bittersweet, nostalgic slow dance melody at a slow tempo, featuring a warm hollow-body electric jazz guitar, lush upright bass accompaniment, and a muted vibraphone that gently decrescendos to silence.",
+            "non_diegetic_music:\nN/A",
+        )
+        clockmaker_img_txt = (REPO / "prompt_bank" / "p_h3_image" / "t2i_clockmaker.txt").read_text(encoding="utf-8").strip()
         mode_target_prompts = {
-            "t2va": (
-                "integrated_multimodal_description:\n"
-                "[Shot 1] In a sunlit workshop, a potter (S1), seated at a spinning wheel, says, <d>[English] Watch the rim form.</d> The camera holds a steady locked-off tripod frame.\n\n"
-                "overall_soundscape:\n"
-                "Quiet room tone with a low wheel hum.\n\n"
-                "non_diegetic_music:\n"
-                "N/A"
-            ),
-            "fl2va": (
-                "How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video; Picture 2 (from Shot 1) aligns with the <last frame> mark of the target video.\n\n"
-                "integrated_multimodal_description:\n"
-                "[Shot 1] In a sunlit workshop, a potter (S1), seated at a spinning wheel, says, <d>[English] Watch the rim form.</d> The camera holds a steady locked-off tripod frame.\n\n"
-                "overall_soundscape:\n"
-                "Quiet room tone with a low wheel hum.\n\n"
-                "non_diegetic_music:\n"
-                "N/A"
-            ),
-            "ref2va": (
-                "subject_definitions:\n"
-                "<Subject 1> is the potter in <Picture 1>: a person.\n\n"
-                "summary:\n"
-                "[reference generation] <Subject 1> shapes clay at a wheel in a sunlit workshop.\n\n"
-                "retention_analysis:\n"
-                "<Subject 1> (appears in [Shot 1]): fully_preserved - retains the visual appearance from <Picture 1>.\n\n"
-                "detailed_description:\n"
-                "The target video is filmed in natural workshop light.\n"
-                "[Shot 1] In a sunlit workshop, <Subject 1> (S1), seated at a spinning wheel, says, <d>[English] Watch the rim form.</d> The camera holds a steady locked-off tripod frame.\n\n"
-                "overall_soundscape:\n"
-                "Quiet room tone with a low wheel hum.\n\n"
-                "non_diegetic_music:\n"
-                "N/A"
-            ),
-            "p_h3_image": (
-                "In a sunlit workshop, a potter sits at a spinning clay wheel framed in a steady locked-off tripod frame with crisp 50mm depth of field."
-            ),
+            "t2va": (spec_typical_txt, "a woman walking along a beach at sunset -> a traveler trudging across a snowfield at dusk"),
+            "fl2va": (origami_fl2va_na, "an overhead shot straight down onto a pale wooden tabletop -> a low-angle shot across a dark slate tabletop"),
+            "ref2va": (diner_ref2va_na, "Photorealistic live-action, 16:9, cinematic, shallow depth of field -> 1970s 16mm celluloid film with heavy grain and soft halation"),
+            "p_h3_image": (clockmaker_img_txt, "an elderly clockmaker seated at a worn walnut workbench -> a young botanist standing beside a mossy stone bench"),
         }
-        for mode_k, tp_mode in mode_target_prompts.items():
+        for mode_k, (tp_mode, clause_mode) in mode_target_prompts.items():
             ps_m = pair_comp.compile_words_to_pairset(
-                "steady locked-off tripod frame -> erratic handheld camera shake",
+                clause_mode,
                 mode=mode_k,
                 target_prompt=tp_mode,
             )
-            if len(ps_m.pairs) != 1 or ps_m.mode != mode_k:
-                errs.append(f"compile_words_to_pairset(mode={mode_k!r}) unexpected pairs/mode: len={len(ps_m.pairs)}, mode={ps_m.mode!r}")
+            if len(ps_m.pairs) != 1 or ps_m.mode != mode_k or ps_m.frame != "scene":
+                errs.append(
+                    f"compile_words_to_pairset(mode={mode_k!r}) unexpected pairs/mode/frame: len={len(ps_m.pairs)}, mode={ps_m.mode!r}, frame={ps_m.frame!r}"
+                )
             m_lint = cv.lint_pair_set(ps_m)
             if m_lint:
                 errs.append(f"compile_words_to_pairset(mode={mode_k!r}) produced lint warnings: {m_lint}")
         errs += _expect_refusal(
             lambda: pair_comp.compile_words_to_pairset(
-                "steady locked-off tripod frame -> erratic handheld camera shake; soundscape: quiet room tone -> muffled through-the-wall acoustics",
+                "an elderly clockmaker seated at a worn walnut workbench -> an elderly botanist seated at a mossy stone bench; soundscape: quiet room tone -> muffled through-the-wall acoustics",
                 mode="p_h3_image",
-                target_prompt=mode_target_prompts["p_h3_image"],
+                target_prompt=clockmaker_img_txt,
             ),
             "single-frame image generation",
             "compile_words_to_pairset refusal on soundscape clause in p_h3_image mode",
         )
         errs += _expect_refusal(
-            lambda: pair_comp.compile_words_to_pairset("steady locked-off tripod frame -> erratic handheld camera shake"),
+            lambda: pair_comp.compile_words_to_pairset("a woman walking along a beach -> a traveler walking"),
             "target_prompt is required",
             "compile_words_to_pairset refusal when target_prompt is omitted",
         )
         errs += _expect_refusal(
             lambda: pair_comp.compile_words_to_pairset(
                 "nonexistent clause in prompt -> another clause",
-                target_prompt=mode_target_prompts["t2va"],
+                target_prompt=spec_typical_txt,
             ),
             "was found as a substring in target_prompt",
             "compile_words_to_pairset refusal when neither pole matches target_prompt",
         )
-        if pair_comp.infer_compile_mode("auto", target_prompt="subject_definitions:\n<Subject 1> is a dog from <Picture 1>: a terrier.\n") != "ref2va":
+        # Duplicate pole_a refusal when clause appears more than once in target_prompt:
+        errs += _expect_refusal(
+            lambda: pair_comp.compile_words_to_pairset(
+                "<Subject 1> -> <Subject 9>",
+                target_prompt=diner_ref2va_txt,
+            ),
+            "occurs ",
+            "compile_words_to_pairset refusal when pole_a appears multiple times in target_prompt",
+        )
+        # Semicolon inside prose must not split a single clause:
+        ps_semi = pair_comp.compile_words_to_pairset(
+            "a woman walking along a beach at sunset -> a woman walking; then pausing along a beach at sunset",
+            target_prompt=spec_typical_txt,
+        )
+        if len(ps_semi.pairs) != 1 or "walking; then pausing" not in ps_semi.pairs[0].b:
+            errs.append(f"compile_words_to_pairset split semicolon inside prose: {ps_semi.pairs}")
+        # 3-clause Diner ref2va recipe (2 description clauses across detailed_description + 1 soundscape clause) compiles cleanly:
+        ps_diner_3c = pair_comp.compile_words_to_pairset(
+            "Photorealistic live-action, 16:9, cinematic, shallow depth of field -> 2D hand-drawn cel anime with crisp black ink outlines; "
+            "A cup of black coffee sits in front of him -> A glowing hologram sits in front of him; "
+            "soundscape: Steady rain taps against glass somewhere behind the camera -> Stylized anime rain patter with dramatic wind",
+            name="compiled_diner_3c",
+            target_prompt=diner_ref2va_txt,
+        )
+        if len(ps_diner_3c.pairs) != 1 or ps_diner_3c.pairs[0].b_span.count(" | ") != 2:
+            errs.append(f"3-clause Diner ref2va recipe failed multi-span compilation: {ps_diner_3c.pairs[0].b_span!r}")
+        compiled_multi_toml = tmp_dir / "compiled_diner_3c.toml"
+        pair_comp.write_compiled_toml(ps_diner_3c, compiled_multi_toml, overwrite=True)
+        loaded_diner_3c = cv.load_pairs(compiled_multi_toml)
+        if len(loaded_diner_3c.pairs) != 1 or loaded_diner_3c.pairs[0].b_span.count(" | ") != 2:
+            errs.append("load_pairs failed to round-trip compiled multi-span .toml")
+
+        if pair_comp.infer_compile_mode("auto", target_prompt=diner_ref2va_txt) != "ref2va":
             errs.append("infer_compile_mode did not detect ref2va from subject_definitions:")
-        if pair_comp.infer_compile_mode(
-            "auto",
-            target_prompt="How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video.\n\nintegrated_multimodal_description:\n[Shot 1] Wide shot.\n",
-        ) != "fl2va":
+        if pair_comp.infer_compile_mode("auto", target_prompt=origami_fl2va_txt) != "fl2va":
             errs.append("infer_compile_mode did not detect fl2va from official base_en.md Part One header")
-        if pair_comp.infer_compile_mode("auto", target_prompt="A medium portrait shot of a botanist in a greenhouse at dusk.") != "p_h3_image":
+        if pair_comp.infer_compile_mode("auto", target_prompt=clockmaker_img_txt) != "p_h3_image":
             errs.append("infer_compile_mode did not detect p_h3_image from sectionless image prompt")
         import control_vector_nodes as cv_nodes
-        for m_idx, media_scene in enumerate(cv_nodes.DEFAULT_MEDIA_SCENES):
-            if (
-                "summary:\n[reference generation]" not in media_scene
-                or ": fully_preserved -" not in media_scene
-                or "<d>[English]" not in media_scene
-                or not media_scene.endswith("non_diegetic_music:\nN/A")
-            ):
-                errs.append(f"DEFAULT_MEDIA_SCENES[{m_idx}] violates vendor_guides/ref_en.md structure: {media_scene!r}")
+        if hasattr(cv_nodes, "DEFAULT_MEDIA_SCENES"):
+            errs.append("control_vector_nodes still defines DEFAULT_MEDIA_SCENES (must be removed)")
         # Direct in-place --target-prompt compilation (both when Pole A is in target_prompt and when Pole B is in target_prompt):
-        inplace_tp = (
-            "integrated_multimodal_description:\n"
-            "[Shot 1] A cinematic medium shot on a 50mm lens. A courier stands on a wet platform under neon lights.\n\n"
-            "overall_soundscape:\n"
-            "Gentle rain and distant traffic.\n\n"
-            "non_diegetic_music:\n"
-            "N/A"
-        )
+        inplace_tp = spec_typical_txt
         ps_inplace_a = pair_comp.compile_words_to_pairset(
-            "A cinematic medium shot on a 50mm lens. -> A shaky handheld VHS camcorder shot.",
+            "a medium shot frames a woman walking along a beach at sunset -> a shaky handheld VHS camcorder shot frames a woman walking along a beach at sunset",
             target_prompt=inplace_tp,
         )
         ps_inplace_b = pair_comp.compile_words_to_pairset(
-            "A shaky handheld VHS camcorder shot. -> A cinematic medium shot on a 50mm lens.",
+            "a shaky handheld VHS camcorder shot frames a woman walking along a beach at sunset -> a medium shot frames a woman walking along a beach at sunset",
             target_prompt=inplace_tp,
         )
         if len(ps_inplace_a.pairs) != 1 or len(ps_inplace_b.pairs) != 1:
             errs.append(f"direct in-place target_prompt compilation expected 1 pair, got {len(ps_inplace_a.pairs)} and {len(ps_inplace_b.pairs)}")
-        if "A shaky handheld VHS camcorder shot." not in ps_inplace_a.pairs[0].b or "A shaky handheld VHS camcorder shot." not in ps_inplace_b.pairs[0].a:
+        if "a shaky handheld VHS camcorder shot" not in ps_inplace_a.pairs[0].b or "a shaky handheld VHS camcorder shot" not in ps_inplace_b.pairs[0].a:
             errs.append("direct in-place target_prompt compilation did not substitute exact clause in place")
-        if ps_inplace_a.name != "shaky_handheld_vhs_camcorder":
+        if not ps_inplace_a.name.startswith("shaky_handheld_vhs_camcorder"):
             errs.append(f"compile_words_to_pairset('a -> b') did not derive default name from steered pole B: got {ps_inplace_a.name!r}")
 
         # Coupled description + overall_soundscape differing_span and inline hold: compilation on target_prompt:
         coupled_b = base_b.replace(
-            "overall_soundscape: The wheel hums with a steady low whir and wet hands slide over clay.",
+            "overall_soundscape: Gentle waves wash onto the sand and draw back under a soft sea breeze, with the distant cry of gulls.",
             "overall_soundscape: A 16mm film projector clatters with optical crackle and warm motor hum.",
         )
         c_span_a, c_span_b = cv.differing_span(base_a, coupled_b, frame="scene")
@@ -1148,9 +1141,9 @@ b = "a busy city street"
             errs.append(f"differing_section_info returned {c_sec_name!r}, expected 'integrated_multimodal_description+overall_soundscape'")
 
         spec_multi = pair_comp.parse_short_contrast_spec(
-            "A cinematic medium shot on a 50mm lens. -> A shaky handheld VHS camcorder shot.; "
-            "soundscape: Gentle rain and distant traffic. -> A 16mm film projector clatters with optical crackle.; "
-            "hold(camera_shake): stands on a wet platform -> walks across a wet platform",
+            "a medium shot frames a woman -> a shaky handheld VHS camcorder shot frames a woman; "
+            "soundscape: Gentle waves wash onto the sand -> A 16mm film projector clatters with optical crackle; "
+            "hold(camera_shake): walking along a beach -> running along a beach",
             target_prompt=inplace_tp,
             target_weight=2.5,
         )
@@ -1410,6 +1403,14 @@ def check_math_and_synthetic_statistics() -> list[str]:
         "v and basis must contain only finite values",
         "project_out non-finite basis refusal",
     )
+    # 1-pair quality_report must return None for mean_pairwise_cosine and split_half_cosine
+    qr_1pair = cv.quality_report(a[:1], b[:1])
+    if (
+        qr_1pair["mean_pairwise_cosine"] is not None
+        or qr_1pair["split_half_cosine"] is not None
+        or qr_1pair["per_pair_cosine"] != [1.0]
+    ):
+        errs.append(f"quality_report(n_pairs=1) expected None cosines and [1.0], got {qr_1pair}")
     return errs
 
 
@@ -1667,6 +1668,44 @@ def check_vector_io_family_and_compatibility() -> list[str]:
             ),
             "metadata 'family' must be",
             "save_vector refusal: invalid custom family tag",
+        )
+        # 1-pair vector save/load round-trip with None mean_pairwise_cosine and split_half_cosine
+        meta_1pair = {
+            **meta_in,
+            "name": "single_pair_sample",
+            "pairs": {**meta_in["pairs"], "n_pairs": 1, "n_holds": 0},
+            "quality_report": {
+                "mean_pairwise_cosine": None,
+                "split_half_cosine": None,
+                "per_pair_cosine": [1.0],
+            },
+        }
+        vec_1pair_path = tmp_dir / "single_pair_sample__fl2va.safetensors"
+        cv.save_vector(vec_1pair_path, {"vector.post_refiner": v_post}, meta_1pair)
+        _, meta_1pair_out = cv.load_vector(vec_1pair_path)
+        if (
+            meta_1pair_out["quality_report"]["mean_pairwise_cosine"] is not None
+            or meta_1pair_out["quality_report"]["split_half_cosine"] is not None
+        ):
+            errs.append(f"1-pair save/load round-trip lost None cosines: {meta_1pair_out['quality_report']}")
+        if "n/a (1 pair)" not in vec_1pair_path.with_suffix(".md").read_text(encoding="utf-8"):
+            errs.append("1-pair sidecar .md did not format None cosines as 'n/a (1 pair)'")
+        errs += _expect_refusal(
+            lambda: cv.save_vector(
+                tmp_dir / "bad_2pair_none_cos.safetensors",
+                {"vector.post_refiner": v_post},
+                {
+                    **meta_in,
+                    "pairs": {**meta_in["pairs"], "n_pairs": 2, "n_holds": 0},
+                    "quality_report": {
+                        "mean_pairwise_cosine": None,
+                        "split_half_cosine": 0.5,
+                        "per_pair_cosine": [1.0, 1.0],
+                    },
+                },
+            ),
+            "when n_pairs >= 2",
+            "save_vector refusal: None mean_pairwise_cosine when n_pairs >= 2",
         )
 
         # - tensor validation: non-orthonormal holds, unprojected vector vs holds, unknown key, valid llm.<layer>
@@ -2479,8 +2518,12 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
             errs.append("attach_control_vector at strength 0 altered refined context")
 
         # Stacking two attach_control_vector calls accumulates in float64 and preserves tag==0 vision rows
-        p_stack1 = cv_nodes.attach_control_vector(patcher_with_init, v1_path, strength=1.0)
-        p_stack2 = cv_nodes.attach_control_vector(p_stack1, v2_path, strength=1.0)
+        p_stack1 = cv_nodes.attach_control_vector(
+            patcher_with_init, v1_path, strength=1.0, mask="non_vision"
+        )
+        p_stack2 = cv_nodes.attach_control_vector(
+            p_stack1, v2_path, strength=1.0, mask="non_vision"
+        )
         p_stack2.invoke_diffusion_model(
             x_in, t_in, ctx_in, minimax_payload={"text_token_tags": tags}
         )
@@ -2530,6 +2573,31 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
             or torch.equal(dm.last_context[:, [2, 5], :], ctx_in[:, [2, 5], :])
         ):
             errs.append("attach_control_vector(mask='scene_only') did not protect <d>...</d> dialogue rows 3..4 while steering scene rows 2, 5")
+
+        # Verify mask='scene_only' works via explicit minimax_payload['h3_span_masks'] or model_conds kwarg h3_span_masks (even without tags._h3_span_masks)
+        tags_bare = torch.tensor([[0, 0, 1, 1, 1, 1]], dtype=torch.long)
+        p_scene_only.invoke_diffusion_model(
+            x_in,
+            t_in,
+            ctx_in,
+            minimax_payload={"text_token_tags": tags_bare},
+            h3_span_masks=tags_dlg._h3_span_masks,
+        )
+        if (
+            dm.last_context is None
+            or not torch.equal(dm.last_context[:, [0, 1, 3, 4], :], ctx_in[:, [0, 1, 3, 4], :])
+            or torch.equal(dm.last_context[:, [2, 5], :], ctx_in[:, [2, 5], :])
+        ):
+            errs.append("attach_control_vector(mask='scene_only') did not read model_conds kwarg h3_span_masks")
+
+        # Verify mask='scene_only' refuses when neither h3_span_masks/_h3_span_masks nor prompt is present
+        errs += _expect_refusal(
+            lambda: p_scene_only.invoke_diffusion_model(
+                x_in, t_in, ctx_in, minimax_payload={"text_token_tags": tags_bare}
+            ),
+            "uses mask='scene_only', which requires conditioning",
+            "attach_control_vector(mask='scene_only') refusal when span masks and prompt are absent",
+        )
 
         p_after_dlg = cv_nodes.attach_control_vector(
             patcher_with_init, v1_path, strength=1.0, mask="after_dialogue"
@@ -2792,11 +2860,7 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
             errs.append("build_refiner_runner with LoRA patches used unpatched file runner instead of in-memory model")
 
         # Test encode_prompt_for_vector on t2va
-        sample_prompt = (
-            "integrated_multimodal_description: [Shot 1] Wide locked-off shot of a stone courtyard "
-            "recorded with clean neutral modern digital color.\n\n"
-            "overall_soundscape: Soft wind."
-        )
+        sample_prompt = (REPO / "prompt_bank" / "t2va_spec_typical.txt").read_text(encoding="utf-8").strip()
         enc_rows, enc_tags, enc_ids, dec_fn = cv_nodes.encode_prompt_for_vector(
             mock_clip, sample_prompt
         )
@@ -3013,18 +3077,11 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
                     output_name="",
                     overwrite=False,
                     encoded_references=None,
-                    words="steady locked-off tripod -> erratic handheld camera shake",
+                    words="a medium shot frames a woman -> an erratic handheld camera shake frames a woman",
                     mode="auto",
-                    target_prompt=(
-                        "integrated_multimodal_description:\n"
-                        "[Shot 1] In a sunlit courtyard, a traveler stands in a steady locked-off tripod frame.\n\n"
-                        "overall_soundscape:\n"
-                        "Quiet outdoor room tone.\n\n"
-                        "non_diegetic_music:\n"
-                        "N/A"
-                    ),
+                    target_prompt=sample_prompt,
                 )
-                if not node_out_words[0].startswith("erratic_handheld_shake__") or not (tmp / node_out_words[0]).is_file():
+                if not node_out_words[0].startswith("erratic_handheld_shake") or not (tmp / node_out_words[0]).is_file():
                     errs.append(f"MiniMaxH3MakeControlVector(words=...) failed: {node_out_words[0]!r}")
             finally:
                 if orig_cv_paths is not None:
@@ -3043,9 +3100,10 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
             # Test _build_padding_prompt and cmd_grade (with mock _dit_runner)
             edit_prompt_txt = tmp / "unit_edit.txt"
             edit_prompt_txt.write_text(
-                "integrated_multimodal_description: [Shot 1] Wide locked-off shot of a stone courtyard "
-                "recorded on 1974 16mm color reversal film stock with heavy celluloid grain and halation.\n\n"
-                "overall_soundscape: Soft wind.",
+                sample_prompt.replace(
+                    "Live-action, cinematic,",
+                    "Live-action, cinematic, recorded on 1974 16mm color reversal film stock with heavy celluloid grain and halation,",
+                ),
                 encoding="utf-8",
             )
             base_prompt_txt = tmp / "unit_base.txt"
@@ -3107,6 +3165,24 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
                     enc_v_norm = float(torch.linalg.vector_norm(mk_t["vector.encoder"].to(torch.float64)).item())
                     if abs(enc_v_norm - 1.0) > 1e-4:
                         errs.append(f"cmd_make vector.encoder is not unit-normalized: norm={enc_v_norm}")
+
+                # Verify cmd_make refuses when --target-prompt is combined with a .toml file without --words
+                buf_bad_tp_out, buf_bad_tp_err = io.StringIO(), io.StringIO()
+                with contextlib.redirect_stdout(buf_bad_tp_out), contextlib.redirect_stderr(buf_bad_tp_err):
+                    rc_bad_tp = bench_cv.main(
+                        [
+                            "make",
+                            str(pair_toml),
+                            "--target-prompt",
+                            sample_prompt,
+                            "--out",
+                            str(tmp / "bad_splice.safetensors"),
+                        ]
+                    )
+                if rc_bad_tp != 2 or "--target-prompt requires --words" not in buf_bad_tp_err.getvalue():
+                    errs.append(
+                        f"cmd_make with .toml + --target-prompt expected rc=2 refusal, got rc={rc_bad_tp}, err={buf_bad_tp_err.getvalue()!r}"
+                    )
 
                 # Test cmd_make with --lora, default_vector_filename(loras=...), and h3_lora_branches recipe parity
                 mock_lora_path = tmp / "mock_pika_lora.safetensors"
@@ -3261,16 +3337,11 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
                         errs.append(f"build-j-lens --verify-only failed with rc={rc_jl}: {buf_jl_err.getvalue()!r}")
 
                 words_vec_dir = tmp / "words_vec_dir"
+                tortoise_txt = (REPO / "prompt_bank" / "t2va_offpath_tortoise.txt").read_text(encoding="utf-8").strip()
                 tp_two_scenes = (
-                    "integrated_multimodal_description:\n"
-                    "[Shot 1] In a sunlit courtyard, a traveler stands in a steady locked-off tripod frame.\n\n"
-                    "overall_soundscape:\nQuiet outdoor room tone.\n\n"
-                    "non_diegetic_music:\nN/A\n"
-                    "---\n"
-                    "integrated_multimodal_description:\n"
-                    "[Shot 1] Inside a stone hallway, a courier waits in a steady locked-off tripod frame.\n\n"
-                    "overall_soundscape:\nSoft indoor room tone.\n\n"
-                    "non_diegetic_music:\nN/A"
+                    sample_prompt.replace("five-second take", "short take")
+                    + "\n---\n"
+                    + tortoise_txt.replace("five-second take", "short take")
                 )
                 buf_wb_out, buf_wb_err = io.StringIO(), io.StringIO()
                 with contextlib.redirect_stdout(buf_wb_out), contextlib.redirect_stderr(buf_wb_err):
@@ -3280,7 +3351,7 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
                             "--target-prompt",
                             tp_two_scenes,
                             "--words",
-                            "steady locked-off tripod frame -> blizzard snowdrift indoors",
+                            "short take -> blizzard snowdrift indoors",
                             "--families",
                             "fl2va",
                             "--pooling",
@@ -3326,7 +3397,7 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
                         wb_t_reb, wb_m_reb = cv.load_vector(wb_st)
                         if not torch.allclose(wb_t_orig["vector.post_refiner"], wb_t_reb["vector.post_refiner"], atol=1e-5):
                             errs.append("cmd_rebuild on compiled --words vector did not reproduce identical vector.post_refiner")
-                        if wb_m_reb.get("pairs", {}).get("words_spec") != "steady locked-off tripod frame -> blizzard snowdrift indoors":
+                        if wb_m_reb.get("pairs", {}).get("words_spec") != "short take -> blizzard snowdrift indoors":
                             errs.append(f"cmd_rebuild on compiled --words vector lost words_spec: {wb_m_reb.get('pairs', {}).get('words_spec')!r}")
                         # Also verify that mutating pairs_ab[0]['weight'] on disk changes the rebuilt vector (proving pairs_ab reconstruction is used over words_spec recompilation)
                         wb_m_mut = json.loads(json.dumps(wb_m_reb))
@@ -3745,6 +3816,7 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
             patcher_av,
             v1_path,
             strength=1.0,
+            mask="non_vision",
             video_scale=1.0,
             audio_scale=0.0,
             split_end_percent=0.5,
@@ -3873,6 +3945,7 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
                 [str(tmp)],
                 {".safetensors"},
             )
+            media_scene_txt = (REPO / "prompt_bank" / "p_h3_image" / "edit_alpine_terrace.txt").read_text(encoding="utf-8").strip()
             for m_pool in ("scene_text", "vision_tokens", "all_rows"):
                 m_out = cv_nodes.MiniMaxH3MakeMediaControlVector.execute(
                     model=patcher_for_make,
@@ -3882,7 +3955,7 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
                     output_name=f"unit_media_{m_pool}",
                     pooling=m_pool,
                     short_edge=224,
-                    scene_prompt="A medium shot of <Subject 1> standing in a neutral room." if m_pool == "scene_text" else "",
+                    scene_prompt=media_scene_txt,
                     overwrite=True,
                 )
                 m_sf = tmp / m_out[0]
@@ -3903,8 +3976,23 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
                     image_b=img_b_raw,
                     model=patcher_for_make,
                     clip=mock_clip,
+                    output_name="bad_media_empty_scene",
+                    pooling="vision_tokens",
+                    scene_prompt="",
+                    output_dir=tmp,
+                ),
+                "scene_prompt is required",
+                "make_control_vector_from_media_pairs refusal on empty scene_prompt",
+            )
+            errs += _expect_refusal(
+                lambda: cv_nodes.make_control_vector_from_media_pairs(
+                    image_a=img_a_raw,
+                    image_b=img_b_raw,
+                    model=patcher_for_make,
+                    clip=mock_clip,
                     output_name="bad_media_pool",
                     pooling="diff_span",
+                    scene_prompt=media_scene_txt,
                     output_dir=tmp,
                 ),
                 "pooling must be one of",

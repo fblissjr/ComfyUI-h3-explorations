@@ -26,7 +26,6 @@ from .helpers import (
     REPO_ROOT,
     _apply_post_refiner_holds,
     _cosine,
-    _inject_target_prompt_into_pairset,
     _is_markdown_pairs_text,
     _pair_set_to_markdown,
     _recommended_strength_text,
@@ -179,8 +178,10 @@ def _list_ui_vectors(vec_dir: Path) -> list[dict[str, Any]]:
             pr_meta = meta.get("points", {}).get("post_refiner", {})
             raw_norm = float(pr_meta.get("raw_norm", 0.0))
             qr = meta.get("quality_report", {})
-            mpc = float(qr.get("mean_pairwise_cosine", 0.0))
-            shc = float(qr.get("split_half_cosine", 0.0))
+            mpc_raw = qr.get("mean_pairwise_cosine")
+            shc_raw = qr.get("split_half_cosine")
+            mpc = float(mpc_raw) if mpc_raw is not None else None
+            shc = float(shc_raw) if shc_raw is not None else None
             pairs_meta = meta.get("pairs", {})
             loras_list = [
                 str(l.get("file", ""))
@@ -244,7 +245,9 @@ def _preview_markdown_pairs(
         return {"ok": False, "error": str(exc)}
 
     tok = state.get_tokenizer()
-    hf_tok = tok.qwen3vl_32b.tokenizer
+    hf_tok = h3_spans.unwrap_hf_tokenizer(tok)
+    if hf_tok is None:
+        return {"ok": False, "error": "tokenizer does not expose the MiniMax Qwen3-VL tokenizer"}
     decode_fn = lambda ids: hf_tok.decode(list(ids))
 
     pair_rows: list[dict[str, Any]] = []
@@ -512,14 +515,6 @@ def _build_pairset_from_ui_rows(
             pairs=tuple(pair_items),
             holds=tuple(hold_items),
         )
-        has_tp_row0 = (
-            str(active_rows[0].get("domain", "")).startswith("target_prompt")
-            or str(active_rows[0].get("frame_id", "")).startswith("target_scene")
-        )
-        if str(target_prompt or "").strip() and not has_tp_row0:
-            ps = _inject_target_prompt_into_pairset(
-                ps, target_prompt, target_weight=float(target_weight)
-            )
         return ps
 
     clauses: list[pair_compiler.ContrastClause] = []
@@ -687,7 +682,12 @@ def _repool_cached_build(
                         enc_b_mat[idx] = (
                             enc_b.to(dtype=torch.float64)[mb_e].mean(dim=0).to(dtype=torch.float32).cpu()
                         )
-                    a_sp, b_sp = cv.differing_span(new_a, new_b, frame=entry["pair_set"].frame)
+                    a_sp, b_sp = cv.differing_span(
+                        new_a,
+                        new_b,
+                        frame=entry["pair_set"].frame,
+                        allow_multi_span=str(entry.get("rel_pair_path", "")).startswith("<"),
+                    )
                     entry["pair_spans"][idx] = {
                         "index": idx,
                         "weight": float(r_item.get("weight", entry["weights"][idx])),
@@ -775,14 +775,7 @@ def _repool_cached_build(
 
         tensors_to_save["vector.post_refiner"] = final_vec
         gen = torch.Generator(device="cpu").manual_seed(int(entry["seed"]))
-        if len(active_indices) >= 2:
-            q_report = cv.quality_report(a_sub, b_sub, w_sub, generator=gen)
-        else:
-            q_report = {
-                "mean_pairwise_cosine": 1.0,
-                "split_half_cosine": 1.0,
-                "per_pair_cosine": [1.0],
-            }
+        q_report = cv.quality_report(a_sub, b_sub, w_sub, generator=gen)
 
         # Compute per-pair cosine for all n_total rows against final_vec so the UI table shows every row
         all_per_pair_cos: list[float] = []
@@ -918,6 +911,8 @@ def _repool_cached_build(
             round(50.0 / max(raw_norm, 1e-6), 2),
             round(85.0 / max(raw_norm, 1e-6), 2),
         ]
+        mpc_rep = q_report.get("mean_pairwise_cosine")
+        shc_rep = q_report.get("split_half_cosine")
         built_rows.append(
             {
                 "file": saved.name,
@@ -925,9 +920,9 @@ def _repool_cached_build(
                 "pooling": pool_mode,
                 "raw_norm": raw_norm,
                 "vector_norm": raw_norm,
-                "mpc": float(q_report["mean_pairwise_cosine"]),
-                "split_half": float(q_report["split_half_cosine"]),
-                "split_half_cosine": float(q_report["split_half_cosine"]),
+                "mpc": float(mpc_rep) if mpc_rep is not None else None,
+                "split_half": float(shc_rep) if shc_rep is not None else None,
+                "split_half_cosine": float(shc_rep) if shc_rep is not None else None,
                 "per_pair_cosine": all_per_pair_cos,
                 "active_indices": active_indices,
                 "hold_indices": sorted(hold_idx_set),

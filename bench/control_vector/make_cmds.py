@@ -27,7 +27,6 @@ from .helpers import (
     _apply_post_refiner_holds,
     _compile_words_or_spec_to_pairset,
     _display_path,
-    _inject_target_prompt_into_pairset,
     _load_image_tensor_list,
     _parse_lora_specs,
     _resolve_requested_families,
@@ -90,7 +89,7 @@ def cmd_make_media(args: argparse.Namespace) -> int:
             loras_fam: list[dict[str, Any]] = []
         elif loras:
             loras_fam = loras
-        elif getattr(args, "_model_override", None) is not None:
+        elif getattr(args, "_model_override", None) is not None or dit_override:
             loras_fam = []
         else:
             fam_detected = cv.detect_family(dit_path)
@@ -99,10 +98,7 @@ def cmd_make_media(args: argparse.Namespace) -> int:
                 if fam_detected == "ref2va"
                 else h3_config.PIKA_FL2VA_SVD995_LORA
             )
-            try:
-                loras_fam = _parse_lora_specs([f"{default_lora_name}:1.0"])
-            except Exception:
-                loras_fam = []
+            loras_fam = _parse_lora_specs([f"{default_lora_name}:1.0"])
         out_path, report = cv_nodes.make_control_vector_from_media_pairs(
             image_a=batch_a,
             image_b=batch_b,
@@ -150,12 +146,22 @@ def cmd_make_media(args: argparse.Namespace) -> int:
 
         qrep = report["metadata"]["quality_report"]
         pts = report["metadata"]["points"]["post_refiner"]
+        mpc_str = (
+            f"{qrep['mean_pairwise_cosine']:.4f}"
+            if qrep.get("mean_pairwise_cosine") is not None
+            else "n/a (1 pair)"
+        )
+        sh_str = (
+            f"{qrep['split_half_cosine']:.4f}"
+            if qrep.get("split_half_cosine") is not None
+            else "n/a (1 pair)"
+        )
         print(f"=== Media-Contrast Control Vector Saved: {out_path.name} ===")
         print(f"  path            : {out_path}")
         print(f"  qwen_view_size  : {report['qwen_view_size'][0]}x{report['qwen_view_size'][1]} (32-px M-RoPE grid)")
         print(f"  pooling         : {args.pooling}")
         print(f"  raw_norm        : {pts['raw_norm']:.4f}   median_row_norm: {pts['median_row_norm']:.4f}")
-        print(f"  pairwise_cosine : {qrep['mean_pairwise_cosine']:.4f}   split_half: {qrep['split_half_cosine']:.4f}")
+        print(f"  pairwise_cosine : {mpc_str}   split_half: {sh_str}")
     return 0
 
 
@@ -184,12 +190,12 @@ def cmd_make(args: argparse.Namespace) -> int:
     else:
         if not getattr(args, "pairs", None):
             raise ValueError("either a pair TOML file or --words is required for 'make'")
+        if tp_arg:
+            raise ValueError(
+                "--target-prompt requires --words (or use 'from-prompt'); .toml pair banks are not spliced into --target-prompt"
+            )
         resolved_pair_path = cv_nodes.resolve_pair_file_path(args.pairs)
         pair_set = cv.load_pairs(resolved_pair_path, bank_dir=cv_nodes.PROMPT_BANK_DIR)
-        if tp_arg:
-            pair_set = _inject_target_prompt_into_pairset(
-                pair_set, tp_arg, target_weight=tp_weight
-            )
 
     auto_fam = "ref2va" if (args.ref_images or pair_set.mode == "ref2va") else "fl2va"
     req_fams = _resolve_requested_families(
@@ -220,10 +226,7 @@ def cmd_make(args: argparse.Namespace) -> int:
             if fam == "ref2va"
             else h3_config.PIKA_FL2VA_SVD995_LORA
         )
-        try:
-            return _parse_lora_specs([f"{default_lora_name}:1.0"])
-        except Exception:
-            return []
+        return _parse_lora_specs([f"{default_lora_name}:1.0"])
 
     loras = _resolve_make_loras(family)
     recipe = cv_nodes.extract_model_recipe(
@@ -616,10 +619,14 @@ def cmd_make(args: argparse.Namespace) -> int:
         except Exception:
             jl_make_readout = None
 
+    mpc_val = q_report["mean_pairwise_cosine"]
+    sh_val = q_report["split_half_cosine"]
+    mpc_str = f"{mpc_val:.4f}" if mpc_val is not None else "n/a (1 pair)"
+    sh_str = f"{sh_val:.4f}" if sh_val is not None else "n/a (1 pair)"
     print("\n--- Agreement & Norm Statistics ---")
     print(f"  raw_norm             : {raw_norm:.6f}")
-    print(f"  mean_pairwise_cosine : {q_report['mean_pairwise_cosine']:.4f}")
-    print(f"  split_half_cosine    : {q_report['split_half_cosine']:.4f}")
+    print(f"  mean_pairwise_cosine : {mpc_str}")
+    print(f"  split_half_cosine    : {sh_str}")
     print(
         f"  per_pair_cosine      : min={min(q_report['per_pair_cosine']):.4f}  "
         f"max={max(q_report['per_pair_cosine']):.4f}"

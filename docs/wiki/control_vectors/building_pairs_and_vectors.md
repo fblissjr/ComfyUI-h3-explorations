@@ -130,7 +130,7 @@ A concept contrast often carries unintended collateral associations—for exampl
    --words "sunlit diner -> blizzard-swept diner; hold(wardrobe): wearing a light t-shirt -> wearing a heavy down parka"
    ```
 2. **In `.toml` / `.md` pair files (`[[hold]]` blocks or `### Hold Pairs`)**:
-   Group hold pairs by `group = "wardrobe"` or `group = "location"`. [`control_vectors.py::hold_basis`](../../../control_vectors.py) averages each group and runs QR orthonormalization (`torch.linalg.qr`) in `float64` to project $U_{\text{hold}}$ out of $\bar{\mathbf{v}}$.
+   Group hold pairs by `group = "wardrobe"` or `group = "location"`. [`control_vectors.py::hold_basis`](../../../control_vectors.py) averages each group and runs two-pass modified Gram-Schmidt orthonormalization in `float64` to project $U_{\text{hold}}$ out of $\bar{\mathbf{v}}$.
 3. **On CPU in `< 1 ms` with `--hold-words` (via J-Lens) or `sculpt --hold`**:
    ```bash
    "$PY" bench/control_vectors.py sculpt blizzard --hold-words "coat, parka, jacket" --name blizzard_indoor_attire

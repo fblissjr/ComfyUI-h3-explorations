@@ -12,7 +12,7 @@ Suppose you have a single-subject `ref2va` diner scene and want to steer its gen
 
 ### Step 1 — Ensure Your Baseline `ref2va` Prompt Is Strictly Aligned (`vendor_guides/ref_en.md`)
 Before building a `from-prompt` vector, verify these four `vendor_guides/ref_en.md` alignment rules on your baseline `ref2va` prompt:
-1. **`retention_analysis:` degree**: Use `completely_preserved` (or `fully_preserved`) whenever `<Subject 1>`'s face, hair, and identity from `<Picture 1>` are preserved as-is. Reserve `partially_preserved` only when intentionally keeping one attribute while altering another (e.g., keeping facial identity while replacing wardrobe).
+1. **`retention_analysis:` degree**: Use `fully_preserved` (from the closed four-value set `fully_preserved`, `partially_preserved`, `attribute_transfer`, `weak_reference`) whenever `<Subject 1>`'s face, hair, and identity from `<Picture 1>` are preserved as-is. Reserve `partially_preserved` only when intentionally keeping one attribute while altering another (e.g., keeping facial identity while replacing wardrobe).
 2. **Style sentence before `[Shot 1]` in `detailed_description:`**: Open `detailed_description:` with a complete style/lighting sentence before `[Shot 1]` (e.g., `The target video uses a live-action cinematic style with warm natural sunlight. [Shot 1] ...`). Giving the opening style a clean clause also gives `from-prompt` an ideal `pole_a` anchor to replace!
 3. **`[Language]` tag inside `<d>`**: Always write `<d>[English] What are you looking at? You like what you see?</d>`, never bare `<d>...</d>`.
 4. **Clean spelling in `overall_soundscape:`**: Fix typos (`Atmospheric`, not `Atmospheic`) so `soundscape:` substring replacements match cleanly.
@@ -26,7 +26,7 @@ summary:
 [reference generation] <Subject 1> stands inside a diner looking around and speaking to the camera.
 
 retention_analysis:
-<Subject 1> (appears in [Shot 1]): completely_preserved - her face, the long wavy center-parted blonde hair, the light freckles, the blue eyes, and her identity from <Picture 1> are completely preserved.
+<Subject 1> (appears in [Shot 1]): fully_preserved - her face, the long wavy center-parted blonde hair, the light freckles, the blue eyes, and her identity from <Picture 1> are retained.
 
 detailed_description:
 The target video uses a live-action cinematic style with warm natural sunlight. [Shot 1] Inside a sunlit diner, <Subject 1> stands in front of a table. The camera holds a medium shot as <Subject 1> (S1) says with an amused expression in a warm, amused voice, <d>[English] What are you looking at? You like what you see?</d> before settling her lips.
