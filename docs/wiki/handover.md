@@ -17,7 +17,7 @@ Where this page and a record disagree, the record is right: `git log`, [`decisio
   - The six generated `workflows/image/h3_p_h3_image_*` graphs (`t2i`, `edit`, `lora_t2i`, `lora_edit`, `t2i_control_vector`, `edit_control_vector`) now default to the 32B `MiniMaxH3EncoderLoader`; the two probe graphs (`h3_probe_p_h3_image_*_te4b_api.json`) hold the 4B `PH3ImageTEModel` + `TextConnector` path.
 - **Standing Masked V2V State (`data/fun/`, unchanged since `2026-10-31T1702Z`)**:
   - Full-video delivery rebuild `2026-10-31T1702Z` stands (`87` rows in `data/fun/laid.jsonl`, `sha256 b2894f97f43a24fc`, `0` failed proofs in `Video/fun/day_2026-10-31/fun_0000_6394_joined_2026-10-31T1702Z_from_laid.mp4`).
-  - ComfyUI (`:8188`) is running and idle on the updated node schema; worktrees `../../h3_worktrees/claude-ph3-te32b` (`77610090`, clean), `../../h3_worktrees/agy-laid-carve` (`91ad4237`, unmerged masked-lane `bench/laid.py` build), and `../../h3_worktrees/gem-perception-lhf` (`16b0805c`, unmerged masked-lane perception branch) remain on disk.
+  - ComfyUI (`:8188`) is running and idle on the updated node schema; worktrees `../../h3_worktrees/agy-laid-carve` (`91ad4237`, unmerged masked-lane `bench/laid.py` build) and `../../h3_worktrees/gem-perception-lhf` (`16b0805c`, unmerged masked-lane perception branch) remain on disk.
 
 ## What not to assume
 
