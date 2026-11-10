@@ -17,7 +17,7 @@ Where this page and a record disagree, the record is right: `git log`, [`decisio
   - The four shipped `workflows/image/h3_p_h3_image_*` graphs now default to the 32B `MiniMaxH3EncoderLoader`; the two probe graphs (`h3_probe_p_h3_image_*_te4b_api.json`) hold the 4B `PH3ImageTEModel` + `TextConnector` path.
 - **Standing Masked V2V State (`data/fun/`, unchanged since `2026-10-31T1702Z`)**:
   - Full-video delivery rebuild `2026-10-31T1702Z` stands (`87` rows in `data/fun/laid.jsonl`, `sha256 b2894f97f43a24fc`, `0` failed proofs in `Video/fun/day_2026-10-31/fun_0000_6394_joined_2026-10-31T1702Z_from_laid.mp4`).
-  - ComfyUI (`:8188`) is running and idle on the updated node schema; worktrees `../../h3_worktrees/claude-ph3-te32b` (`77610090`, clean) and `../../h3_worktrees/agy-laid-carve` (`328ca0bc`, clean) remain on disk.
+  - ComfyUI (`:8188`) is running and idle on the updated node schema; worktrees `../../h3_worktrees/claude-ph3-te32b` (`77610090`, clean), `../../h3_worktrees/agy-laid-carve` (`91ad4237`, unmerged masked-lane `bench/laid.py` build), and `../../h3_worktrees/gem-perception-lhf` (`16b0805c`, unmerged masked-lane perception branch) remain on disk.
 
 ## What not to assume
 
@@ -36,7 +36,7 @@ Where this page and a record disagree, the record is right: `git log`, [`decisio
    - Wire `bench/control_vector/llm_pairs.py::_extract_system_prompt_text` to the standalone pair-authoring prompt (`docs/wiki/system_prompts/h3_control_vector_standalone_system_prompt.md`) and update `bench/check_prompt_docs_sync.py`.
    - Fix or triage the 3 pre-existing red checks on `main` (`check_reference_encode.py`, `check_audio_freeze.py`, `check_two_shot_load.py`).
 2. **When resuming `data/fun/` masked V2V ([`../masked_v2v/fun_render_backlog.md`](../masked_v2v/fun_render_backlog.md) §6)**:
-   - Land `../../h3_worktrees/agy-laid-carve` (`328ca0bc`, after fixing `_source_holds_other_subject` load-name matching and `replaces` handling) before laying the first remake, and tighten `valid_owner_word` in `bench/capture_masked_run.py` before signing a hard-flag override.
+   - Land `../../h3_worktrees/agy-laid-carve` (`91ad4237`) before laying the first remake, and tighten `valid_owner_word` in `bench/capture_masked_run.py` before signing a hard-flag override.
    - Run the 3-pass remake on `1419–1465` (`second_hfp_1419g` on `shot_c_1419i` first, citing `data/fun/owner_answers.jsonl:1739` on `1419–1423`), update row 87 (`lead_fp_6125c`, `6125–6372`) once the owner decides on `6367–6372`, and continue the `< 2026-10-28` remake queue.
 
 ## Where things are

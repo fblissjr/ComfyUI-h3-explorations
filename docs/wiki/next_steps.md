@@ -17,7 +17,7 @@ Follow [`handover.md`](handover.md) ("Tomorrow, in order") and [`decisions.md`](
    - Wire `bench/control_vector/llm_pairs.py::_extract_system_prompt_text` to [`system_prompts/h3_control_vector_standalone_system_prompt.md`](system_prompts/h3_control_vector_standalone_system_prompt.md) and update `bench/check_prompt_docs_sync.py`.
    - Fix or triage the three pre-existing red checks on `main` (`bench/check_reference_encode.py`, `bench/check_audio_freeze.py`, `bench/check_two_shot_load.py`).
 2. **When resuming `data/fun/` masked V2V ([`../masked_v2v/fun_render_backlog.md`](../masked_v2v/fun_render_backlog.md) §6)**:
-   - Land `../../h3_worktrees/agy-laid-carve` (`328ca0bc`, with `_source_holds_other_subject` load-name matching and `replaces` handling fixed, and `lead_fp_4053c`/`second_hfp_4479g` excluded) before laying the first remake, and tighten `valid_owner_word` in [`bench/capture_masked_run.py`](../../bench/capture_masked_run.py) before signing a hard-flag override.
+   - Land `../../h3_worktrees/agy-laid-carve` (`91ad4237`) before laying the first remake, and tighten `valid_owner_word` in [`bench/capture_masked_run.py`](../../bench/capture_masked_run.py) before signing a hard-flag override.
    - Run the three-pass remake on `1419–1465` (`second` Pass 1 `second_hfp_1419g` on `shot_c_1419i` -> `lead` Pass 2 -> `third` Pass 3), inspect the `1702Z` whole-video stacked cut and `lead_fp_6125c` tail `6367–6372` on `:8765`, and continue the `< 2026-10-28` remake queue.
 
 ## Historical Queues (`2026-09-05` through `2026-10-20`)
