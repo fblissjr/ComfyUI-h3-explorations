@@ -23,6 +23,24 @@ What it rests on:
 
 ## Where things stand (2026-11-10)
 
+- **Step 1's first tier is built** by `mrsql` (`b561376c`): `bench/lane_record.py`, with its check
+  `bench/check_lane_db.py` and its record [`2026-11-10_lane_record_first_tier.md`](2026-11-10_lane_record_first_tier.md).
+  Its proof passes on a scratch build of `fun`. `data/lane.sqlite` is not built until the owner rules the 17 asks of
+  this tier.
+- **A blocker for `fun2` on today's tools.** `fun`'s capture and job folders moved under `data/fun/` on 2026-11-09, and
+  the records still name them where they were.
+  - **The job files:** all 614 name their capture as `data/<day>_<load>`, which now resolves only under `data/fun/`.
+  - **The final cut's table:** all 88 rows tie their `run=` to those old paths.
+  - **What reads them:** `bench/load_chain.py` reads the job's `capture` as written and builds job folders at
+    `data/<day>_<name>_job`.
+  - **Why it blocks:** compositing `fun`'s kept `second` and `third` by their own mattes needs those captures. How to
+    resolve it is the owner's call (a path resolver in the tools, links at the old places, or the record's own paths
+    once the tools read the database).
+  - **Its side effect:** `bench/check_doc_links.py` reports 4276 broken pointers, 4266 of them on `data/fun/` lines,
+    most likely from the same move.
+- **The lead's strangers keep-out is the plan's word:** `data/fun/plan.json` sets `keep_outs: ["strangers"]` for the
+  lead. `fun2`'s plan must keep it, and it is a candidate for the step 2 defaults.
+
 - **`fun` is closed.** It ended on 2026-10-31 at about 17:30 to 18:00 Central (the owner).
   - **Its final cut:** `output/Video/fun/day_2026-10-31/fun_0000_6394_joined_2026-10-31T2231Z_from_laid.mp4`.
   - **Its final state:** the cut's record names the laid list `70ead45b...`, which is `data/fun/laid.jsonl` as it
