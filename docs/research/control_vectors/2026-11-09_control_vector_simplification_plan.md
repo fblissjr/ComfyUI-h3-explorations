@@ -1085,3 +1085,42 @@ The first render compares `node_sX` with the hand-wired `guide_sX` at the same s
 `node_late_sX` with `late_sX`, and `node_align_sX` with `node_sX` and with the same-length arms. Also not
 done: the generator's graphs for the two nodes, the choice of whether a control vector steers one pass or
 both, and the references-encoded-once wiring for ref2va.
+
+## 23. Prompt structure and position
+
+The owner's point (2026-11-09): fl2va and ref2va prompts are each written to a consistent structure, the two
+structures overlap without being the same, and where something sits in a prompt probably matters a great
+deal.
+
+What the row cache can say, and it holds only text-only (t2va-format) prompts: taking every post-refiner
+row of the bank prompts and asking how much of the rows' variance is explained by a label, the section a row
+is in and its position along the prompt each explain a few percent, and which token it is explains about
+half. The mean soundscape row and the mean description row differ by a length that is a small fraction of a
+row's own, and the built vectors are close to orthogonal to that difference. The figures are printed by a
+one-off over `bank__t2va` in the cache; they are not repeated here.
+
+What that does and does not show:
+
+- At the level of the rows the DiT is handed, what a token is matters far more than where it sits. A vector
+  built from description clauses is not mostly a "this is the description section" direction.
+- It says nothing about how the DiT uses structure. The model was trained on these formats, the position of
+  the media rows depends on the text length, and a prompt outside its format is a different input however
+  its rows look one at a time.
+- It says nothing about ref2va. The cache has no ref2va prompt, because those need their reference pictures
+  to be encoded as they are at render time. The comparison of t2va-format and ref2va-format rows that phase 2
+  asked for is still not made.
+
+What follows for the work:
+
+- Edit guidance has an advantage here that vectors do not: the edit is made inside the user's own prompt, in
+  that prompt's own format and at its own position. Nothing is carried across formats.
+- A vector built from t2va-format pairs is applied to a ref2va prompt only on its description and soundscape
+  rows (the `scene_only` mask since `856d4ac8`). The sections ref2va alone has (subject definitions, summary,
+  retention) are left alone, and they have no counterpart in the pairs.
+- Where an edit sits differs by format: the style sentence comes before `[Shot 1]` in a ref2va description
+  and after it in a t2va one. `MiniMaxH3PromptEdit` refuses an edit that touches a header or a tag, and the
+  standalone prompt teaches both layouts; neither knows which clause carries the most weight.
+- To do: extend `bench/control_vector_rows.py` to take ref2va bank prompts with their reference pictures, so
+  rows can be compared by section across the two formats, and so the direction track of section 8 has both.
+- To do in a render round: the same edit placed in the style sentence and in a later clause of the same
+  prompt, to see how much position within a prompt changes what guidance does.
