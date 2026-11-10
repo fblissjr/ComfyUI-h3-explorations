@@ -15,7 +15,7 @@ this file is only a way to find a script by what it says it does.
 | [`compare_*`](#compare) | 15 |
 | [`build_*`](#build) | 13 |
 | [`probe_*`](#probe) | 11 |
-| [the rest](#the-rest) | 193 |
+| [the rest](#the-rest) | 194 |
 
 ## check
 
@@ -360,6 +360,7 @@ this file is only a way to find a script by what it says it does.
 | [`control_blk_cnt_public_api.py`](control_blk_cnt_public_api.py) | One positive and one negative control on `blk_cnt`, through the PUBLIC API. |
 | [`control_time_warp.py`](control_time_warp.py) | Can `bench/analyze_time_warp.py` see a warp at all? A control for its "not a time warp" claim. |
 | [`control_vector_lexicon.py`](control_vector_lexicon.py) | Label each built control vector two ways and print them side by side: by J-Lens, and by a word table made from cached rows. |
+| [`control_vector_pooling.py`](control_vector_pooling.py) | Compare ways of pooling a pair's rows into a direction, from the row cache, with no encoding. |
 | [`control_vector_rows.py`](control_vector_rows.py) | Cache the text rows H3 sees for a set of real prompts, once, for CPU-side study. |
 | [`control_vectors.py`](control_vectors.py) | Build, inspect, meter, and grade MiniMax H3 control vectors. |
 | [`convert_h3_bf16_encoder.py`](convert_h3_bf16_encoder.py) | Adapt a full-depth HF Qwen3-VL-32B text encoder to the ComfyUI H3 encoder. |

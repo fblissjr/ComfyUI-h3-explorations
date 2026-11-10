@@ -143,7 +143,7 @@ exact text copied from the prompt -> replacement text
 soundscape: exact text copied from the soundscape section -> replacement text
 ```
 
-- The text on the left must be copied exactly from the user's prompt and must occur exactly once in it. If a phrase occurs more than once, copy a longer stretch that occurs once.
+- The text on the left must be copied exactly from the user's prompt and must occur exactly once in it. If a phrase occurs more than once, copy a longer stretch that occurs once, by adding the words that follow it. Never make it unique by including a `[Shot N]` tag or a section header.
 - Each edit replaces one clause. Never include a section header, a `[Shot N]` tag, a `<Subject N>` or `<Picture N>` tag, a speaker ID or anything inside `<d>...</d>` on either side.
 - Use a `soundscape:` line only when the quality is also heard. Never edit `non_diegetic_music:`.
 - Keep each replacement about as long as the text it replaces.

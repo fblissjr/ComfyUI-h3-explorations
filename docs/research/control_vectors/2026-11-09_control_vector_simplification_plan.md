@@ -62,7 +62,7 @@ Running beside these, and blocking none of them: the J-Lens decision (section 17
 | Question | The two readings | What settles it |
 |---|---|---|
 | Why do the bank's vectors share a component? | That they do is now agreed: both sessions ran the command of section 15.3 on the finished rebuild, in both families and in both spaces. Two causes are on the table. The steered clause is longer than the plain one in most files. And the newer files share one kind of plain side (ordinary, natural, realistic), so every vector subtracts much the same thing. | Build the neutral-length direction of section 15.2, and a direction from pairs that vary only the plain side, and see how much of the shared part each explains. |
-| Is pooling the unchanged rows worth building? | Proposed here because it matches how a vector is applied. The second session expects a weak signal, since rows before an edit do not move in the encoder. | Both agree to measure it beside the two existing modes in the CPU pass of phase 2. |
+| Does pooling the unchanged rows steer better? | Measured (section 20.2): it is a different direction from the default, much smaller, and consistent from pair to pair. Whether it steers better is not something the rows can say. | One render arm at matched size, when a render round has room. The default does not change on this. |
 | Do the reference-gate inputs stay? | One reply said remove them, a later one that they unlock late stylization. The record has one arm, which supports the second. | The owner's call when the apply node is rebuilt; a repeat of that arm if it matters. |
 | Can `amplify` on a word's rows stand in for attention emphasis? | Offered as equivalent by the second session. It is not the same operation (section 15.4). | A small test, labelled as a stand-in, if section 11.3 is wanted before an attention hook exists. |
 
@@ -80,6 +80,8 @@ Running beside these, and blocking none of them: the J-Lens decision (section 17
 | A single pair reports a consistency of 1.0; the image node repeats one pair over canned scenes | finding 7 |
 | Three canned ref2va scenes in node code | finding 17; section 16 |
 | Three different defaults for the pair generator's output token limit | section 15.5 |
+| A `hold` node whose mask differs from the add node's mask does nothing, with no message | `control_vector_nodes.py::_make_control_vector_wrapper` groups nodes by mask before holds are applied; shown by the option test of section 20.3. To become a refusal |
+| `hold_words` with no vector and no words is accepted by validation and then ignored | `control_vector_nodes.py::attach_control_vector` returns before using them. To become a refusal |
 | The build falls back to no LoRA in silence when the default Pika LoRA does not resolve | `bench/control_vector/build_cmd.py` (the `except` after `_parse_lora_specs`), and the same in `bench/control_vector/j_lens_builder.py` |
 
 ## 1. The plan in one picture
@@ -900,3 +902,68 @@ The Studio UI under `bench/control_vector/` (`ui_server.py`, `ui_state.py`, `web
 It imports functions from the files 19.3 merges. It is not kept working through this, and no dead function
 is kept alive for it: where an import it needs is gone, the `ui` command refuses with one line saying the UI
 is not maintained at present. `studio_ui_guide.md` says the same.
+
+## 20. Outcomes of the first measurements
+
+Added the same day, from the row cache of section 17.4 (every pair file, both sides, and the text-only bank
+prompts). Each figure is printed by the tool named; none is repeated here.
+
+### 20.1 The two label tables: both stay
+
+`bench/control_vector_lexicon.py` printed both labels for every rebuilt vector, with each concept's own pair
+file left out of the rows table.
+
+- J-Lens names the concept in whole words for most of them, including words that never occur in our
+  prompts. It is vague on a few.
+- The rows table is rougher: it returns token pieces, knows only words our prompts contain, and borrows
+  wording from neighboring concepts. It names a few concepts that J-Lens misses.
+- The rows table's minus side reads much the same words across about twenty concepts (holds, maintains,
+  standard, normal, neutral, natural). That is the shared plain side of section 0.3, seen directly.
+
+So section 17.4 resolves to its second branch. The lexical half is worth keeping and gets a real builder
+from the full weights in the model store. It depends only on the base text encoder, not on the recipe, the
+refiner or the mask, so it is built once, and the bundle on disk is there to check the rebuilt tensors
+against. The rows table stays as a second readout and is the labeller section 8 (D3) asks for. The
+`exl3_qwen3vl/` folder goes as section 17.4 says, the word map moving into tracked code with the builder.
+
+### 20.2 Pooling: the default stays
+
+`bench/control_vector_pooling.py` pooled every pair four ways and printed, per way, the held-out score, the
+same score with the other concepts' mean direction projected out, the mean cosine between concepts, and the
+cosine with the vector on disk.
+
+- The cache reproduces the built vectors, so the figures describe the vectors the graphs load.
+- The three existing ways (`diff_span`, `from_first_diff`, `scene_text`) find nearly the same direction and
+  differ mainly in length, which the apply node normalizes. Nothing here argues for changing the default.
+- Pairs within a concept agree with each other, and still agree once the shared part is projected out. Each
+  vector is a concept direction with a shared component on top.
+- The shared component is about the same under every way of pooling. It is a property of the pairs, not of
+  the pooling.
+- Pooling only the unchanged rows gives a different direction, much smaller and consistent from pair to
+  pair.
+
+Phase 2 is answered: `diff_span` stays, and no bank mean is subtracted.
+
+### 20.3 The apply node, option by option
+
+A one-off test drove the wrapper with synthetic rows through every mode, mask, window and stacking path,
+against the phase 1 code (`3f35901e`). Everything behaved as its help text says except the two rows added
+to 0.4. Read but not run: one `strength` serves both the file vector and the inline words when both are
+set; a vector is applied on a pass marked as the negative prompt too; the reference gate takes the lowest
+value across stacked nodes; the `strength` range reaches far beyond a row's own length. These go into the
+apply node's reshape (section 15.2).
+
+### 20.4 Changes to earlier sections
+
+- Section 19.2: `from-prompt` stays whether or not edit guidance works. It costs one model pass a step where
+  guidance costs two, and it works with masks and stacking. Rebuilding a vector from the pairs stored in its
+  own metadata, with no pair file, also stays.
+- Section 11.8: padding the shorter prompt is not a way to give both passes one position origin. Core's
+  attention takes no mask (`<comfy>/comfy/ldm/minimax/model.py`, where `optimized_attention` is called with
+  `mask=None`), and tag 0 marks vision rows, so padded rows would be attended. Edits of equal token count
+  work today; shifting the layout's positions in the wrapper is unchecked.
+- Section 11.6: the test gains arms whose edit has the same token count as the text it replaces, so that a
+  failure cannot be put down to the length change. The late-start arm does not remove the length difference
+  on the steps where guidance is on; it only keeps the first steps on one prompt.
+- The post-refiner row length the plan relies on is the one the cache gives, the same as the constant in
+  `j_lens.py` (`DEFAULT_POST_REFINER_MEDIAN_ROW_NORM`).
