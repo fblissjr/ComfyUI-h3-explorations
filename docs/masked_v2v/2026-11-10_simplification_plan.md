@@ -25,8 +25,10 @@ What it rests on:
 
 - **Step 1's first tier is built** by `mrsql` (`b561376c`): `bench/lane_record.py`, with its check
   `bench/check_lane_db.py` and its record [`2026-11-10_lane_record_first_tier.md`](2026-11-10_lane_record_first_tier.md).
-  Its proof passes on a scratch build of `fun`. `data/lane.sqlite` is not built until the owner rules the 17 asks of
-  this tier.
+  - **The record:** the owner ruled the open fields (`b7bf86d7`). `data/lane.sqlite` is built from both projects,
+    with `fun2` a project on `fun`'s video (`a5bd98e2`).
+  - **`fun2`'s list:** re-seeded from the record on the owner's go (`25219d48`).
+  - **What holds compositing:** the moved-captures choice below.
 - **A blocker for `fun2` on today's tools.** `fun`'s capture and job folders moved under `data/fun/` on 2026-11-09, and
   the records still name them where they were.
   - **The job files:** all 614 name their capture as `data/<day>_<load>`, which now resolves only under `data/fun/`.
