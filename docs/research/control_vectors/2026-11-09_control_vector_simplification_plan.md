@@ -982,7 +982,19 @@ both shots; the scheduled and late-start arms keep the base shot's framing and t
 A mean pixel difference from the base and from the rewrite was taken per arm on sampled frames; it says how
 far a picture moved and nothing about how it looks.
 
-Not judged yet: sound in any arm, and the same-length control arms (their stacks are beside the others).
+Not judged by the owner yet: sound in any arm, and the same-length control arms (their stacks are beside
+the others).
+
+A second session then watched all six stacks and listened to the clips with sound. Its reading, which is a
+reader's and not the owner's: motion is smooth in every guided arm on both seeds, with no smearing or
+flicker; the subject of the diner shot stays the same person in every arm; the spoken lines are clear and in
+sync in every arm, and at the higher scale the diner's sound takes on a studio character, with a faint
+audience reaction after the line; the higher scale adds brightness and saturation beyond the edit on both
+shots; in the same-length stack the guided arms keep the room layout of their own rewrite while the look is
+turned up; and the scheduled and late-start arms keep the base shot, with almost none of the lighting edit
+on the diner and only the two figures changed on the noodle shot. What it suggests for the node, to be
+confirmed by the owner's eye: a working scale somewhere between the two tested, and that giving both prompts
+one position origin (`align_positions`) is worth its first render.
 
 ### 21.2 Shape of the build
 
