@@ -112,7 +112,7 @@ retention_analysis:
 <Subject 1> (appears in [Shot 1]): fully_preserved - her facial features, long wavy center-parted blonde hair, blue eyes, light freckles, and overall identity from <Picture 1> are completely retained.
 
 detailed_description:
-Live-action footage with natural cinematic lighting. [Shot 1] Inside a sunlit diner, <Subject 1> stands in front of a table. The camera holds a medium shot as <Subject 1> (S1) says with an amused expression in a warm, amused voice, <d>[English] What are you looking at? You like what you see?</d> before settling her lips.
+Live-action footage with natural cinematic lighting. [Shot 1] Inside a sunlit diner, <Subject 1> stands in front of a table. The camera holds a medium shot as <Subject 1> (S1) says with an amused expression in a warm, amused voice, <d>[English] Want more pie?</d> before settling her lips.
 
 overall_soundscape:
 Atmospheric diner sounds and faint murmurs of distant patrons.
