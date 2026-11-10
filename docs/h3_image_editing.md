@@ -75,7 +75,9 @@ folder `pika_still_trial` in `Image`.
 - With a reference picture wired, both arms failed. At the generator's default reference size (`size_policy` `max`)
   the reference took over the one-frame target and the picture to edit was lost; sized to the output (`match`) the
   picture was kept, but the reference's background came across where its head was asked for. The author's notes ask
-  for a reference that is one thing cut out on its own, which was not tried.
+  for a reference that is one thing cut out on its own. That was tried later the same day, on one picture and one
+  seed: a head on a plain backdrop as the reference, sized to the output and at the small size the author's own
+  workflow feeds, with a head replacement asked for. The picture came back unchanged in both arms, at both sizes.
 - A control vector (`MiniMaxH3ApplyControlVectors`, `mask` `non_vision`, `ref_vae_end_percent=1.0`, `ref_vae_aug=0.999`,
   `GUIDE_VFX_EDIT_FFP_LORA` `end_percent=1.0`) changed the render at the same seed; neither of the two vectors tried
   gave the look it is named for outside the edited garment. In code (`comfy/model_base.py:2302-2306`,
@@ -86,7 +88,8 @@ folder `pika_still_trial` in `Image`.
 - The graph as generated was rendered once with a picture of a man in place of the placeholder, which was not on the
   machine: the clothing was replaced and the rest kept.
 
-**Not known.** Whether a cut-out reference makes the reference form work. Whether releasing `ref_vae_end_percent` (with
+**Not known.** Whether the reference form can do an edit at one frame at all: it did not in any of the tries above, and
+a garment or an object as the cut-out was not among them. Whether releasing `ref_vae_end_percent` (with
 a matched no-vector guide-release control) and/or `GUIDE_VFX_EDIT_FFP_LORA` `end_percent` lets a style control vector
 restyle the whole frame while keeping the named edit. Edit guidance on a still:
 `workflows/build_workflows.py::_wire_edit_guidance` and `bench/edit_guidance_arms.py::_with_second_prompt` now carry
