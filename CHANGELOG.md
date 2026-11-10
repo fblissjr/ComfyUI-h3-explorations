@@ -14,28 +14,32 @@ artifact.
 
 - `edit_guidance.py`, `h3_prompt_edit.py`, `h3_rules.py` (`EDIT_GUIDANCE_DEFAULTS`), `workflows/build_workflows.py`
   (`edit_guidance=`), `prompt_bank/edit_guidance/`: add `MiniMaxH3PromptEdit` (`original`, `edits`) and
-  `MiniMaxH3EditGuider` (`model`, `original`, `edited`, `negative`, `cfg`, `edit_scale`, `start_percent`,
-  `end_percent`, `edit_stream`, `rescaled`) for two-pass prompt-edit guidance (`p + edit_scale * (p_edit - p)`), along
-  with two generated Pika 6-step workflows (`workflows/h3_text_to_video_pika_edit_guidance_api.json` and
+  `MiniMaxH3EditGuider` (`model`, `original`, `edited`, `scale`, `first_step`, `align_positions`) for two-pass
+  prompt-edit guidance (`original + scale * (edited - original)`), along with two generated Pika 6-step workflows
+  (`workflows/h3_text_to_video_pika_edit_guidance_api.json` and
   `workflows/h3_image_ref_plus_text_to_video_pika_edit_guidance_api.json`, the first shipped graph using
   `MiniMaxH3EncodeReferences` + `MiniMaxH3PromptOnReferences` and a single shared `PrimitiveStringMultiline` prompt
   node), `docs/wiki/edit_guidance.md`, and `bench/check_edit_guidance.py`.
-- `bench/control_vector_rows.py`, `bench/compare_pooling.py`, `bench/compare_ref_labels.py`,
-  `bench/run_edit_guidance_arms.py`, `bench/j_lens_builder.py`: add offline post-`TokenRefiner` row caching (with
-  token-ID `scene_only` masks and `--ref-image` reference-picture support), pooling and reference-label comparison
-  tools, an edit-guidance and control-vector render arm runner, and a dedicated J-Lens diagnostic bundle builder.
+- `bench/control_vector_rows.py`, `bench/control_vector_pooling.py`, `bench/control_vector_lexicon.py`,
+  `bench/edit_guidance_arms.py`: add offline encoder and post-`TokenRefiner` row caching (with token-ID `scene_only`
+  masks and `--ref-image` / `--only-picture-1` reference-picture support), a four-way pooling comparison tool over the
+  row cache, a J-Lens versus row-lexicon label comparison tool, and an edit-guidance, prompt-scheduling, and
+  `--vector-arm` comparison runner.
 
 ### Changed
 
-- `control_vectors.py`, `bench/control_vectors.py`, `h3_spans.py`: retire `prompt_bank/control_vectors/canonical_frames.json`
+- `control_vectors.py`, `bench/control_vectors.py`, `bench/control_vector/cli.py`,
+  `bench/control_vector/j_lens_builder.py`, `h3_spans.py`: retire `prompt_bank/control_vectors/canonical_frames.json`
   and compile `--words` (`old -> new`) contrasts in-place against `target_prompt` (`pooling="diff_span"` default,
-  `min_shared_run=8`, `remove_common_direction=True` across `>= 4` pairs), add explicit CLI creation subcommands
-  (`from-words`, `from-pair`, `from-pairs`, `from-md`, `from-toml`), compute `recommended_strength` for the node's
-  default `add_norm_matched` mode (`round(raw_norm / 67.5, 2)`), and enforce hold-mask / multi-span refusals
+  `min_shared_run=8`, `allow_multi_span` in `[vector]`), add CLI creation subcommands (`from-prompt`, `from-toml`,
+  `from-words`, `from-images`) and `build-j-lens` (recomputing the refiner half of `models/j_lens/j_lens_h3.safetensors`),
+  return both the constant default-mode (`add_norm_matched`) range and the stored-length (`add`) range from
+  `control_vectors.strength_ranges` (`NORM_SHIFT_WINDOW`), and enforce hold-mask / multi-span refusals
   (`check_control_vectors.py`).
-- `workflows/h3_config.py`, `workflows/build_workflows.py`, `workflows/image/h3_p_h3_image_*`: switch the four shipped
-  PrunaAI `P-H3-Image` graphs to the 32B `MiniMaxH3EncoderLoader` by default and move the 4B `PH3ImageTEModel` +
-  `TextConnector` path to `te4b` probe graphs (`check_p_h3_image.py`).
+- `workflows/h3_config.py`, `workflows/build_workflows.py`, `workflows/image/h3_p_h3_image_*`: switch the six generated
+  PrunaAI `P-H3-Image` graphs (`t2i`, `edit`, `lora_t2i`, `lora_edit`, `t2i_control_vector`, `edit_control_vector`) to
+  the 32B `MiniMaxH3EncoderLoader` by default and move the 4B `PH3ImageTEModel` + `TextConnector` path to the two `te4b`
+  probe graphs (`check_p_h3_image.py`).
 - `docs/wiki/control_vectors.md`, `docs/wiki/control_vectors/*.md`,
   `docs/wiki/system_prompts/h3_control_vector_standalone_system_prompt.md`,
   `docs/research/control_vectors/2026-11-09_control_vector_simplification_plan.md`: rewrite the control-vector wiki hub
@@ -46,10 +50,10 @@ artifact.
 
 - `reference_order.py`, `workflows/prompts.py`, `bench/preflight_graph.py`, `bench/check_prompt_guide_conformance.py`,
   `bench/check_ref_prompt_labels.py`, `bench/audit_shipped_reference_bounds.py`, `bench/clip_recipe_coverage.py`,
-  `bench/grade_prompt_text.py`, `bench/check_config_names.py`: follow `MiniMaxH3EncodeReferences`,
-  `MiniMaxH3PromptEdit`, and `PrimitiveStringMultiline` links in graph walkers and static checks, describe
-  edit-guidance graphs by their unedited prompt, refuse loudly if a linked prompt cannot be resolved, and fail
-  `check_config_names.py` if it checks zero files.
+  `bench/grade_prompt_text.py`, `bench/check_config_names.py`, `bench/control_vector/helpers.py`: follow
+  `MiniMaxH3EncodeReferences`, `MiniMaxH3PromptEdit`, and `PrimitiveStringMultiline` links in graph walkers and static
+  checks, describe edit-guidance graphs by their unedited prompt, refuse loudly if a linked prompt cannot be resolved,
+  fix `_load_encoded_references` behind `--ref-images`, and fail `check_config_names.py` if it checks zero files.
 
 ## 0.301.0
 <!-- changelog.d/day-2026-10-30.md -->
