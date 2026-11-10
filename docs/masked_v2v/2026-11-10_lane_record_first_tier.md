@@ -103,10 +103,12 @@ reads are second-tier and are read from their files: the ledger on record, and e
     path rewritten. `find data -maxdepth 1 -type l -lname 'fun/2026-*'` lists the links; deleting them undoes it.
   - **Still open:** `bench/load_chain.py` builds a new load's job folder at `data/<day>_<name>_job`, so a new load
     lands at the top of `data/` and not in a project's folder.
-- **The lead's `keep_outs` is live.** `data/fun/plan.json` holds `keep_outs: ["strangers"]` for the lead, and
-  `bench/shot_to_load.py` reads it (`keep_outs_of`, and the strangers hold). The handoff's draft had it kept raw
-  only; a plan given back without it would make the lead's loads with no strangers keep-out. It is a child table
-  here. `load_prefixes` is the same case: `bench/shot_coverage.py` and
+- **The lead's `keep_outs` is read by the load tool.** `data/fun/plan.json` holds `keep_outs: ["strangers"]` for the
+  lead, and `bench/shot_to_load.py` reads it (`keep_outs_of`, and the strangers hold). The handoff's draft had it
+  kept raw only; it is a child table here. An earlier form of this line said a plan without it would make the lead's
+  loads with no strangers keep-out, which overstated it: the keep-out follows who else is in the shot for every
+  subject (`strangers_by_the_data`), and the plan's key decides only where a preview saved no shot table.
+  `load_prefixes` is the same case: `bench/shot_coverage.py` and
   `bench/render_ledger.py` read it.
 - **`plan.reference` adds nothing `recipe` lacks on `fun`.** The load tool reads `recipe` first and `reference` as
   the fallback. The importer keeps `reference` raw and refuses a plan whose `reference` says a form its `recipe` does

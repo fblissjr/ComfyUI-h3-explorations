@@ -58,6 +58,22 @@ Older history lives elsewhere and is not copied here:
     - The same page's Stage 1.1a and 1.1b named `.mp4` tracks and `_track.json`, `_parts.npz` and `_parts.json` files. The preview writes `.mkv` mask videos under `workflows/masked_job_graph.py::prefixes`, as a capture's `manifest.json` lists them.
     - Its Stage 1.3 said depth was downsampled by `stride=4` to float16, written as `<preview>_depth.npz` and `.json`, and upsampled in the capture. `bench/measure_moge2_depth.py` writes full-canvas float32 `depth.npz`, `record.json` and `sheet.jpg` into the capture folder, and `bench/capture_masked_run.py::read_depth_npz` refuses a size mismatch. That stage now also says when depth runs: by `--depth` or the plan, which sets it for every subject of `fun` (the owner, 2026-10-28), while the code's default is off.
     - [`../masked_v2v/AGENTS.md`](../masked_v2v/AGENTS.md) §3 said that without the cast file the builder could not "auto-identify `lead` vs `second` vs `third` from confirmed reference embeddings". No code reads such an embedding: the cast file's lines are seeds, and without them each tracker takes the largest person (`bench/shot_to_load.py::PICK`) and finds them on other shots by its own likeness score.
+- **Depth is the code's default** (the plan's step 2, on the owner's go in mrsql's terminal).
+  - **The change:** `bench/shot_to_load.py` measures depth on every load's overlap frames with no flag and no word in
+    the plan (`DEPTH_DEFAULT_WHY`, the owner's word of 2026-10-28). Off takes a person's words: `--no-depth WHY`, or
+    the plan's `depth: {"on": false, "why": ...}`.
+  - **What the pages used to say:** [`masked_v2v.md`](masked_v2v.md),
+    [`../masked_v2v/code_map_stages.md`](../masked_v2v/code_map_stages.md) and
+    [`../masked_v2v/upstream_anomaly_and_alignment_checks.md`](../masked_v2v/upstream_anomaly_and_alignment_checks.md)
+    said the code's default was off and depth ran only by `--depth` or the plan.
+  - **What it changes for `fun2`:** nothing on a load: its plan already sets depth on for every subject. It matters
+    for a project whose plan is silent.
+  - **The sweep of the other switches:** the SAM 3.1 head track and memory selection are chain defaults already, and
+    the strangers keep-out already follows who else is in the shot. The head tube stays an opt-in: no word of the
+    owner's makes it a default.
+  - **Not sure yet:** every late load's job file says its context frames are "as filmed", the 2026-10-21 default,
+    while the ruling of 2026-10-25 is that the original subject is never shown unmasked in a window. Whether that
+    line of the job file is only stale wording or what the graph does was not read.
 - **The moved capture folders are answered with links** (the owner, in mrsql's terminal: everything stays in
   `data/fun/`).
   - **What was wrong:** the capture and job folders were moved under `data/fun/` on 2026-11-09, and the job files,
@@ -82,8 +98,12 @@ Older history lives elsewhere and is not copied here:
 - **The lane database's open fields, ruled** (the owner, in mrsql's terminal, on three grouped questions).
   - **Typed:** the fields today's tools read: the plan's `keep_outs` with `keep_outs_by`, `load_prefixes`, a laid
     piece's `owner_looks`, and `carved_whole_by`. The draft had `keep_outs` kept raw only; the lead's
-    `keep_outs: ["strangers"]` is read by `bench/shot_to_load.py`, so a plan given back without it would have made
-    the lead's loads with no strangers keep-out.
+    `keep_outs: ["strangers"]` is read by `bench/shot_to_load.py`.
+    - **Corrected the same day:** this entry said a plan given back without it would have made the lead's loads with
+      no strangers keep-out. That overstated it. The strangers keep-out follows who else is in the shot, for every
+      subject (`bench/shot_to_load.py::strangers_by_the_data`), and the plan's key decides only where a preview saved
+      no shot table. No job file of `fun` written since that rule says the plan's key decided it. The field is still
+      typed, since the tool reads it.
   - **`recipe` is the one source** of a subject's crop and mouth forms. `plan.reference`, which repeats them, is kept
     raw only, and the importer refuses a plan whose `reference` says a form its `recipe` does not.
   - **Raw only:** the rare fields of the answer lines (`not_said`, `what_about`, `marked_by`, `sheet`, `preview`,
