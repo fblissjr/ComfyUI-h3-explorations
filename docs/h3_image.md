@@ -224,8 +224,42 @@ our standalone, English-only system-prompt suite for local thinking LLMs/VLMs
   `aspect_ratio: <same as the picture | W:H>`.
 
 The graphs do not run an expander; they take the finished description. Not
-established here: whether a prompt written to the two H3 video guides works on
-this model, and how much a short plain prompt loses.
+established here: how much a short plain prompt loses.
+
+### Prompts written for H3 video
+
+Tried on 2026-11-11 at the owner's ask: six cases with prompts in the two H3
+video guides' formats, unchanged, each on the int8 workflow and on the bf16
+reference at one seed (`videoprompt_cases` in the renders JSON; side-by-side
+sheets `videoprompt_sheet_*.jpg` beside the renders). What a session saw in
+the stills, for the owner to check:
+
+- **The model takes the format.** Every case gave a coherent picture of the
+  scene the prompt describes. No field name, speaker tag or line of dialogue
+  was drawn as lettering, and the sound and music fields left no visible
+  trace.
+- **`[Shot N]` is read as panels.** A one-location prompt with three shots
+  (the covered market) came out as one frame. Two prompts whose three shots are
+  different framings (a diner, a stairwell) came out as one image divided into
+  panels, one per shot, in the prompt's order.
+- **The reference format works for an edit.** With one picture and the six
+  sections of the reference guide, the woman in the picture stands in the
+  diner the prompt asks for, with her face, hair and freckles. With two
+  pictures and a three-shot script, the result is the same kind of panel
+  layout, the elderly man taken from his picture without his cap.
+- **Words in the prompt outrank the picture where they disagree.** That
+  two-picture prompt describes the woman with dark shoulder-length hair; the
+  picture wired for her is of a woman with long blonde hair, and the render
+  gave her dark hair.
+- **Picture numbering did not decide who was who in that case.** Wired in
+  either order, the two pictures gave nearly the same image: each subject
+  followed its description to the matching picture.
+- **int8 and bf16 agree** in composition on all six, differing in detail as
+  they do elsewhere.
+
+One seed each, so none of this is a rule. It is consistent with the image
+model having been trained on the family's prompt conventions, which is what
+the shared text encoder and design would lead one to expect.
 
 ## Not done
 
