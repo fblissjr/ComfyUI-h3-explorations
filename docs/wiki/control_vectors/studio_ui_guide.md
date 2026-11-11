@@ -53,14 +53,17 @@ or a default.
 
 ## Who may call the server
 
-The run route executes any method, so the server answers only its own page
-(`bench/control_vector/ui_server.py::request_refusal`):
+The run route executes any method, so nothing is served without the session's key
+(`bench/control_vector/ui_server.py::gate`):
 
-- **A POST needs the session token.** The server makes a token at start, the page reads it from `/api/init` and sends
-  it back in a header. A page on another site cannot read it or send that header.
-- **`Host` and `Origin` must be this server.** A request under a DNS name the server was not started with is refused,
-  which is what stops another site from re-pointing its own name at this machine. To serve under a name, start it with
-  `--host <name>`.
+- **The launch link carries the key.** The server makes a token at start and prints a link ending in `?token=...`.
+  Opening it once sets a cookie the page's scripts cannot read, and the token leaves the address bar. Every request
+  after that, the page's own files included, must bring the cookie.
+- **Nothing else gets in.** A page on another site cannot use the cookie (the browser does not send it on that site's
+  requests), and a machine that can merely reach the port is refused everything.
+- **It can sit behind an HTTPS front on the tailnet, as the phone studio does.** Leave it bound to `127.0.0.1` and
+  open the front's address with the same `?token=...`. The server works under whatever name it is reached by.
+  `--token` sets the token, so one link survives a restart.
 - **A method run from the page writes only inside the studio's two folders.** An output path elsewhere is refused
   before the method runs (`bench/control_vector/ui_schema.py::OUTPUT_PATHS`). Use the command line to write elsewhere,
   or start the studio with `--vec-dir` and `--toml-dir`. Paths a method reads are not restricted.

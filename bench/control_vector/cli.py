@@ -139,6 +139,11 @@ def build_parser() -> argparse.ArgumentParser:
     pui.add_argument("--host", default="127.0.0.1", help="Bind address (default: 127.0.0.1)")
     pui.add_argument("--port", type=int, default=0, help="Port (default: 0 picks an unused ephemeral port)")
     pui.add_argument("--no-browser", dest="no_browser", action="store_true", help="Do not auto-open a browser tab")
+    pui.add_argument(
+        "--token",
+        default=None,
+        help="Session token the launch link carries (default: a new random one each start). Set it to keep one link across restarts",
+    )
     pui.add_argument("--toml-dir", dest="toml_dir", default=None, help="Optional directory override for .toml pair packs")
     pui.add_argument("--vec-dir", dest="vec_dir", default=None, help="Optional directory override for .safetensors control vectors")
     pui.add_argument("--encoder", default=None, help="Optional conditioning encoder filename override")

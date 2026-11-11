@@ -48,10 +48,10 @@ export async function apiGet(url) {
 }
 
 export async function apiPost(url, payload) {
-  // The server answers a POST only with the token it gave this page in /api/init.
+  // The session's key is a cookie the launch link set; the browser sends it and no script reads it.
   return readJson(await fetch(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-Studio-Token': studio.init.token || '' },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload || {}),
   }));
 }

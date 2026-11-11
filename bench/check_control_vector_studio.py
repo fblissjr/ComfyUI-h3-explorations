@@ -28,10 +28,12 @@ Claims, i.e. what breaks if a case is deleted:
                            literal list of a method's modes, masks or poolings
   hints name real things   every name in `ui_schema.WIDGETS`, `PRIMARY` and `SERVER_SET` is an
                            argument the parser has
-  only the page may call   a request under a DNS name the server was not bound to, from another
-                           site's `Origin`, or a POST without JSON and the session token, is
-                           refused (`ui_server.request_refusal`); the page sends the token; a
-                           pair file name that is not a plain stem is refused and writes nothing
+  only the page may call   nothing is served without the session cookie, which only the launch link
+                           sets (`ui_server.gate`): not the page, a script, the listing or a run,
+                           from this machine or another; the cookie is `HttpOnly` and
+                           `SameSite=Strict`, no route returns the token and no script handles
+                           it; the page works under any name the server is reached by; a pair
+                           file name that is not a plain stem is refused and writes nothing
   writes stay inside       a method run from the page with an output path outside the studio's
                            two folders is refused before its handler runs, for every argument
                            in `ui_schema.OUTPUT_PATHS`; a path-shaped argument in neither that
@@ -403,27 +405,47 @@ def check_hints_name_real_things() -> None:
 def check_only_the_page_may_call() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         state = _state(Path(tmp))
-        good = {"Host": "127.0.0.1:8791", "Origin": "http://127.0.0.1:8791", "Content-Type": "application/json",
-                "X-Studio-Token": state.session_token}
-        refuse = ui_server.request_refusal
-        assert refuse(state, "POST", good) is None, refuse(state, "POST", good)
-        assert refuse(state, "GET", {"Host": "localhost:8791"}) is None
-        assert refuse(state, "GET", {"Host": "[::1]:8791"}) is None
-        assert refuse(state, "GET", {"Host": "studio.lan:8791"}, bind_host="studio.lan") is None
-        for label, headers in (
-            ("no token", {k: v for k, v in good.items() if k != "X-Studio-Token"}),
-            ("another session's token", {**good, "X-Studio-Token": "x" * 32}),
-            ("another site's Origin", {**good, "Origin": "http://example.com"}),
-            ("a form post", {**good, "Content-Type": "text/plain"}),
-            ("a DNS name pointed at this machine", {**good, "Host": "rebind.example.com:8791", "Origin": "http://rebind.example.com:8791"}),
+        port = 8791
+        cookie = f"{ui_server.cookie_name(port)}={state.session_token}"
+        gate = lambda method, path, headers: ui_server.gate(state, method, path, headers, port=port)  # noqa: E731
+        json_post = {"Host": "127.0.0.1:8791", "Origin": "http://127.0.0.1:8791", "Content-Type": "application/json"}
+
+        # The launch link: the cookie is set where scripts cannot read it, and the token leaves the address.
+        verdict, location, set_cookie = gate("GET", f"/?token={state.session_token}", {"Host": "127.0.0.1:8791"})
+        assert verdict == "enter" and location == "/", (verdict, location)
+        assert set_cookie.startswith(cookie) and "HttpOnly" in set_cookie and "SameSite=Strict" in set_cookie, set_cookie
+        assert gate("GET", f"/?token={state.session_token}&x=1", {})[1] == "/?x=1"
+        assert gate("GET", "/?token=not-this-session", {})[0] == "refuse", "a wrong token in the link was taken"
+        assert gate("POST", f"/api/run?token={state.session_token}", json_post)[0] == "refuse", "a token in a POST's address was taken"
+
+        # With the cookie, the page's own requests pass, under any name the server is reached by.
+        assert gate("GET", "/", {"Host": "127.0.0.1:8791", "Cookie": cookie})[0] == "pass"
+        assert gate("GET", "/ui/app.js", {"Host": "studio.tailnet.example:443", "Cookie": f"other=1; {cookie}"})[0] == "pass"
+        assert gate("POST", "/api/run", {**json_post, "Cookie": cookie})[0] == "pass"
+        https_front = {"Host": "studio.tailnet.example", "Origin": "https://studio.tailnet.example", "Content-Type": "application/json", "Cookie": cookie}
+        assert gate("POST", "/api/run", https_front)[0] == "pass", "the page behind an HTTPS front was refused"
+
+        # Without it, nothing is served: not the page, not a script, not the listing, not a run.
+        for method, path, headers in (
+            ("GET", "/", {"Host": "127.0.0.1:8791"}),
+            ("GET", "/ui/app.js", {"Host": "127.0.0.1:8791"}),
+            ("GET", "/api/init", {"Host": "192.168.1.20:8791"}),
+            ("POST", "/api/run", json_post),
+            ("POST", "/api/run", {**json_post, "Cookie": f"{ui_server.cookie_name(port)}=another-sessions"}),
+            ("POST", "/api/run", {**json_post, "Cookie": f"{ui_server.cookie_name(port + 1)}={state.session_token}"}),
         ):
-            assert refuse(state, "POST", headers), f"a POST with {label} was let through"
-        assert refuse(state, "GET", {"Host": "rebind.example.com:8791"}), "a GET under a foreign DNS name was let through"
-        # The page gets the token from /api/init and sends it back.
+            assert gate(method, path, headers)[0] == "refuse", f"{method} {path} with {sorted(headers)} was let through"
+        # Belt and braces behind the cookie: another site's Origin, and a form post.
+        assert gate("POST", "/api/run", {**json_post, "Cookie": cookie, "Origin": "http://example.com"})[0] == "refuse"
+        assert gate("POST", "/api/run", {**json_post, "Cookie": cookie, "Content-Type": "text/plain"})[0] == "refuse"
+
+        # The token is in the launch link only: no route returns it and no script handles it.
         code, init = _call(state, "GET", "/api/init")
-        assert code == 200 and init["token"] == state.session_token
-        api_js = (WEB_DIR / "api.js").read_text(encoding="utf-8")
-        assert "'X-Studio-Token': studio.init.token" in api_js, "web/api.js does not send the session token"
+        assert code == 200 and state.session_token not in json.dumps(init), "a route returns the session token"
+        for name, text in _page_scripts().items():
+            held = [w for w in ("document.cookie", "X-Studio-Token", "init.token", "session_token", "token=") if w in text]
+            assert not held, f"{name} handles the session's key ({held}); it belongs to the cookie alone"
+
         # A pair file name is a plain stem: nothing is written under any other.
         outside = Path(tmp) / "outside"
         outside.mkdir()
@@ -493,7 +515,7 @@ def main() -> int:
         ("the page calls every route and only routes; its imports and ids resolve", check_page_calls_the_routes),
         ("the page writes no control and no option list of its own", check_page_writes_no_options),
         ("the presentation hints name arguments the parser has", check_hints_name_real_things),
-        ("only the studio's own page may call the server; a pair file name is a plain stem", check_only_the_page_may_call),
+        ("nothing is served without the launch link's cookie; a pair file name is a plain stem", check_only_the_page_may_call),
         ("a method run from the page writes inside the studio's folders or is refused", check_writes_stay_inside),
     )
     failures = []

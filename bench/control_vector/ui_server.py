@@ -14,28 +14,31 @@ arguments with the same parser and calls the same helper its method's handler ca
 `ROUTES` is the whole list. `bench/check_control_vector_studio.py` calls every one with the card
 masked and holds the page's calls to it.
 
-**Who may call it.** The run route executes any CLI method, with the paths that method takes, so
-the server answers only its own page: `request_refusal` turns away a request whose `Host` is a
-DNS name it was not bound to, whose `Origin` is another site, or whose POST lacks the session
-token the page read from `/api/init`. Without that, any web page open in the same browser could
-post a build or a file write to it. And a method run from the page writes only inside the studio's
-vector and pair folders (`ui_schema.OUTPUT_PATHS`, `_refuse_outside_paths`), whatever path the
-request names. Paths a method reads (a prompt file, a pair file, a picture) are not restricted:
-reading the files the person at the page names is what the methods are for.
+**Who may call it.** The run route executes any CLI method, so nothing is served without the
+launch secret. The server makes a token at start and prints a link that carries it; opening the
+link sets a cookie (`HttpOnly`, `SameSite=Strict`) and every request after, the page's files
+included, must bring it back (`gate`). A page on another site cannot: the browser does not send
+a `SameSite=Strict` cookie on its requests, and a name re-pointed at this machine has no cookie
+of ours. A machine that can merely reach the port gets nothing either, which is what lets the
+studio sit behind an HTTPS front on a tailnet the way the phone studio does. A method run from the
+page also writes only inside the studio's vector and pair folders (`ui_schema.OUTPUT_PATHS`,
+`_refuse_outside_paths`). Paths a method reads (a prompt file, a pair file, a picture) are not
+restricted: reading the files the person at the page names is what the methods are for.
 """
 
 from __future__ import annotations
 
 import argparse
 import contextlib
+import hmac
 import io
-import ipaddress
 import json
 from pathlib import Path
 import shlex
 import tempfile
 import threading
 from typing import Any, Callable
+import urllib.parse
 
 import control_vector_nodes as cv_nodes
 import control_vectors as cv
@@ -88,48 +91,56 @@ class RouteError(ValueError):
     """A refusal the page should show as the reason, with HTTP 400."""
 
 
-def _host_name(host_header: str) -> str:
-    host = str(host_header or "").strip()
-    if host.startswith("["):
-        return host[1:].split("]", 1)[0]
-    return host.rsplit(":", 1)[0] if host.count(":") == 1 else host
+def cookie_name(port: int) -> str:
+    """Cookies are shared across ports of one host, so each studio's is named for its port."""
+    return f"h3_cv_studio_{int(port)}"
 
 
-def request_refusal(
-    state: ControlVectorUIState,
-    method: str,
-    headers: Any,
-    *,
-    bind_host: str = "127.0.0.1",
-) -> str | None:
-    """Why this request is not from the studio's own page, or `None` if it is.
+def _cookie_value(headers: Any, name: str) -> str:
+    for part in str(headers.get("Cookie", "") or "").split(";"):
+        key, _, value = part.strip().partition("=")
+        if key == name:
+            return value
+    return ""
 
-    - `Host` must be an address, `localhost`, or the name the server was bound to. A page on
-      another site that re-points its own DNS name at this machine arrives with that name.
-    - `Origin`, when the browser sends one, must be this server.
-    - A POST must be JSON and carry the session token in `X-Studio-Token`. Another site cannot
-      read the token (it is in a response the browser will not show it) and cannot send the
-      header without a preflight this server never answers.
+
+def gate(state: ControlVectorUIState, method: str, raw_path: str, headers: Any, *, port: int) -> tuple[str, str, str]:
+    """Decide what a request gets before any route or file is touched.
+
+    Returns one of:
+      `("pass", "", "")`              the request brought the session cookie
+      `("enter", location, cookie)`   a GET of the launch link: set the cookie, send it to `location`
+      `("refuse", reason, "")`        anything else
+
+    - **The launch link** is a GET with `?token=<the session token>`. It is answered with a
+      redirect to the same path without the token, so the secret does not stay in the address
+      bar, and a `Set-Cookie` the page's scripts cannot read.
+    - **Every other request needs the cookie**, a static file as much as a POST.
+    - **`Origin`, when the browser sends one, must be this server**, and a POST must be JSON.
+      Both are already implied by the cookie's `SameSite=Strict`; they are kept so the refusal
+      does not rest on one browser rule.
     """
+    name = cookie_name(port)
+    parsed = urllib.parse.urlsplit(raw_path)
+    if method == "GET":
+        offered = urllib.parse.parse_qs(parsed.query).get("token", [""])[0]
+        if offered:
+            if not hmac.compare_digest(offered.encode(), state.session_token.encode()):
+                return "refuse", "that link's token is not this session's; use the link the studio printed at start", ""
+            rest = urllib.parse.urlencode([(k, v) for k, v in urllib.parse.parse_qsl(parsed.query) if k != "token"])
+            location = parsed.path + (f"?{rest}" if rest else "")
+            return "enter", location, f"{name}={state.session_token}; Path=/; HttpOnly; SameSite=Strict"
+    if not hmac.compare_digest(_cookie_value(headers, name).encode(), state.session_token.encode()):
+        return "refuse", "open the studio with the link it printed at start (it carries this session's token)", ""
     host_header = str(headers.get("Host", "") or "")
-    name = _host_name(host_header).lower()
-    try:
-        ipaddress.ip_address(name)
-        is_address = True
-    except ValueError:
-        is_address = False
-    if not (is_address or name in ("localhost", str(bind_host).lower())):
-        return f"Host {host_header!r} is not this server (start it with --host <name> to serve under a name)"
     origin = str(headers.get("Origin", "") or "").strip()
     if origin and origin.lower() not in (f"http://{host_header}".lower(), f"https://{host_header}".lower()):
-        return f"Origin {origin!r} is not this server"
+        return "refuse", f"Origin {origin!r} is not this server", ""
     if method == "POST":
         ctype = str(headers.get("Content-Type", "") or "").split(";", 1)[0].strip().lower()
         if ctype != "application/json":
-            return "a POST must be application/json"
-        if str(headers.get("X-Studio-Token", "") or "") != state.session_token:
-            return "missing or wrong session token; reload the studio's page"
-    return None
+            return "refuse", "a POST must be application/json", ""
+    return "pass", "", ""
 
 
 def _listing(state: ControlVectorUIState) -> dict[str, Any]:
@@ -225,7 +236,6 @@ def run_method(state: ControlVectorUIState, method: str, values: dict[str, Any])
 def _r_init(state: ControlVectorUIState, req: dict[str, Any]) -> dict[str, Any]:
     return {
         "ok": True,
-        "token": state.session_token,
         "toml_dir": _display_path(state.toml_dir),
         "vec_dir": _display_path(state.vec_dir),
         "system_prompt": _extract_system_prompt_text(),
@@ -533,6 +543,8 @@ def cmd_ui(args: argparse.Namespace) -> int:
         default_llm_provider=getattr(args, "llm_provider", None),
         default_llm_model=getattr(args, "llm_model", None),
     )
+    if getattr(args, "token", None):
+        state.session_token = str(args.token)
     srv_ref: list[ThreadingHTTPServer] = []
 
     class _Handler(BaseHTTPRequestHandler):
@@ -542,9 +554,13 @@ def cmd_ui(args: argparse.Namespace) -> int:
         def _dispatch(self, method: str) -> None:
             length = int(self.headers.get("Content-Length", "0") or "0")
             body = self.rfile.read(length) if length > 0 else b""
-            refusal = request_refusal(state, method, self.headers, bind_host=str(args.host))
-            if refusal:
-                code, ctype, payload = 403, "application/json", json.dumps({"ok": False, "error": refusal})
+            verdict, detail, cookie = gate(state, method, self.path, self.headers, port=srv_ref[0].server_address[1])
+            extra: list[tuple[str, str]] = []
+            if verdict == "enter":
+                code, ctype, payload = 303, "text/plain; charset=utf-8", ""
+                extra = [("Location", detail), ("Set-Cookie", cookie)]
+            elif verdict == "refuse":
+                code, ctype, payload = 403, "application/json", json.dumps({"ok": False, "error": detail})
             else:
                 code, ctype, payload = handle_ui_request(state, method, self.path, body)
             raw_bytes = payload.encode("utf-8")
@@ -552,6 +568,8 @@ def cmd_ui(args: argparse.Namespace) -> int:
             self.send_header("Content-Type", ctype)
             self.send_header("Content-Length", str(len(raw_bytes)))
             self.send_header("Cache-Control", "no-store")
+            for key, value in extra:
+                self.send_header(key, value)
             self.end_headers()
             self.wfile.write(raw_bytes)
             if state.shutdown_requested and srv_ref:
@@ -566,10 +584,12 @@ def cmd_ui(args: argparse.Namespace) -> int:
     server = ThreadingHTTPServer((str(args.host), int(args.port)), _Handler)
     srv_ref.append(server)
     host, actual_port = server.server_address[:2]
-    url = f"http://{host}:{actual_port}/"
+    url = f"http://{host}:{actual_port}/?token={state.session_token}"
     print("=== MiniMax H3 Control Vector Studio ===")
     print(f"  url   : {url}")
-    print("  note  : Click 'Quit Server' in the browser tab or press Ctrl+C here to exit.")
+    print("  note  : Open that link once per browser; the token in it is this session's key and nothing")
+    print("          is served without it. Behind an HTTPS front, open <front's address>/?token=<the same>.")
+    print("  note  : Click 'Quit server' on the page or press Ctrl+C here to exit.")
     if not getattr(args, "no_browser", False):
         try:
             webbrowser.open(url)
