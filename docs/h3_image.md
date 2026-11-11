@@ -219,6 +219,8 @@ this model, and how much a short plain prompt loses.
 - `bench/check_model_contents.py` is red on the int8 file until its attention
   preference is approved in `bench/results/model_contents_baseline.json`; that
   approval is the owner's.
-- The generator's whole-tree validation is red on graphs whose placeholder
-  input files are no longer in the input folder, so the six graphs here were
-  written from a build into a scratch folder and validated on their own.
+- No control vector made on a video checkpoint is expected to carry over as it
+  is: the vectors live after the token refiner, and this model's text
+  projection and refiner are its own (the same record's parentage rows). One
+  would have to be made on this model; whether the vector nodes run on it has
+  not been tried.
