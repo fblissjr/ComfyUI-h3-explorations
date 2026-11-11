@@ -1173,6 +1173,21 @@ def _step_in_window(
     return True
 
 
+def _stream_time(timestep: Any) -> float | None:
+    """The video stream's time `t_v` at this call, read from the wrapper's `timestep` exactly as core
+    reads it (`comfy/ldm/minimax/model.py::_forward`: the timestep is `sigma * 1000` and
+    `t_v = 1 - sigma`). 0 is noise and 1 is clean. None when there is no timestep to read."""
+    if timestep is None:
+        return None
+    if isinstance(timestep, torch.Tensor):
+        raw = float(timestep.detach().flatten()[0].item())
+    elif isinstance(timestep, (list, tuple)):
+        raw = float(timestep[0])
+    else:
+        raw = float(timestep)
+    return 1.0 - max(raw / 1000.0, 1e-6)
+
+
 def _resolve_custom_inference_mask(
     sp: _AppliedVectorSpec,
     *,
@@ -1438,11 +1453,20 @@ def _make_control_vector_wrapper(specs: tuple[_AppliedVectorSpec, ...]):
                         rel_seq,
                     )
             elif min_ref_aug < 0.999:
-                new_payload["visual_cond_noise_aug"] = float(min_ref_aug)
+                # Core mixes each condition row as `aug` of the picture and the rest noise, and labels
+                # the row `max(t_v, aug)` (`comfy/ldm/minimax/model.py`, `_cond_video_rows` and `seg_t`
+                # in `_forward`). Sent as given, a weight below the stream's time leaves the rows noisier
+                # than their label on the later steps: the model is told noise is picture. Sending
+                # `max(t_v, weight)` keeps the share and the label equal on every step. The picture sits
+                # at the weight until the stream is cleaner than that, and at the stream's own time after.
+                stream_t = _stream_time(timestep)
+                eff_aug = float(min_ref_aug) if stream_t is None else max(float(min_ref_aug), stream_t)
+                new_payload["visual_cond_noise_aug"] = eff_aug
                 if "ref_aug" not in logged_ref_notes:
                     logged_ref_notes.add("ref_aug")
                     logger.info(
-                        "[h3] control vector ref_vae_aug=%.3f applied to cond_video_latents",
+                        "[h3] control vector ref_vae_aug=%.3f: condition rows held at max(weight, stream time), "
+                        "so their noise matches their label on every step",
                         min_ref_aug,
                     )
             call_kwargs["minimax_payload"] = new_payload
@@ -2967,11 +2991,11 @@ class MiniMaxH3ApplyControlVectors(io.ComfyNode):
                     step=0.001,
                     optional=True,
                     tooltip=(
-                        "For ref2va / keyframe / guide-latent renders: clean-signal weight "
-                        "(visual_cond_noise_aug in [0.0, 1.0], default 0.999) for 3D Video VAE "
-                        "conditioning latents on active steps. Core labels these rows at max(t_v, aug), "
-                        "so values below late-step t_v (~0.67 on 6-step Pika) should be paired with "
-                        "ref_vae_end_percent < 1.0 so noisy reference rows release before t_v > aug."
+                        "For renders with a reference, keyframe or guide picture: the picture's share of its "
+                        "condition rows, the rest noise (core's visual_cond_noise_aug; the default is core's, an "
+                        "almost clean picture). Lower gives the model a noisier copy of the picture on the steps "
+                        "where it is held. The rows are never noisier than the frame being made: once the frame is "
+                        "cleaner than this share, the picture follows it."
                     ),
                 ),
                 io.String.Input(

@@ -99,11 +99,14 @@ each input is for:
     (`0.000, 0.1667, 0.3333, 0.500, ...` on 6 steps), `0.16` (`0.01..0.16`) holds step `0` only (`1/6` steps),
     `0.33` (`0.17..0.33`) holds steps `0..1` (`2/6` steps), and `0.50` (`0.34..0.50`) holds steps `0..2`
     (`3/6` steps) before releasing visual VAE rows cleanly.
-  - **Lower `ref_vae_aug`:** Mixes `(1 - aug)` Gaussian noise into `cond_video_latents` on active steps while
-    core labels those rows at `max(t_v, aug)` (`comfy/ldm/minimax/model.py`, `_cond_video_rows` and `seg_t`).
-    When `ref_vae_end_percent = 1.0`, keep `ref_vae_aug` at or above the schedule's final `t_v` (`~0.67` on
-    6-step Pika), or pair lower `ref_vae_aug` values with `ref_vae_end_percent < 1.0` so noisy reference rows
-    release before `t_v` overtakes `ref_vae_aug`.
+  - **Lower `ref_vae_aug`:** gives the model a noisier copy of the picture on the steps where it is held. Core
+    mixes each condition row as that share of the picture and the rest noise, and labels the row with the larger of
+    the share and the stream's own time (`comfy/ldm/minimax/model.py`, `_cond_video_rows` and `seg_t`). The node
+    sends core the larger of the weight and the stream's time, so the share mixed and the label written are equal
+    on every step: the picture sits at the weight until the frame being made is cleaner than that, and follows the
+    frame after (`control_vector_nodes.py::_stream_time`; `bench/check_control_vectors.py` walks a schedule and holds
+    it). It needs no pairing with `ref_vae_end_percent`. What a low weight does to a picture is read on stills in
+    [`docs/h3_image_editing.md`](../../h3_image_editing.md); those were rendered before this change.
 - A `hold` node with nothing before it in the chain has nothing to take a direction out of.
 - The shipped graphs set a strength above the node's default on purpose, so a first render shows the grade
   plainly; `bench/check_widget_deviations.py` declares it.

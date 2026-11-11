@@ -17,6 +17,19 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-11-10
 
+- **`ref_vae_aug` no longer leaves the picture's rows noisier than their label (`control_vector_nodes.py`, `bench/check_control_vectors.py`).**
+  The owner's word after the release fix was looked at on stills: make it work the way it should.
+  - **What changed:** the node sent the weight to core as given; core labels a condition row with the larger of the
+    weight and the stream's time, so below the stream's time the rows carried more noise than the label said. The
+    node now sends the larger of the two.
+  - **What prose claimed and no longer does:** the input's tooltip and
+    [`control_vectors/comfyui_nodes_and_controls.md`](control_vectors/comfyui_nodes_and_controls.md) (`7c8f11a2`)
+    told the reader to keep the weight at or above the schedule's last stream time, or to pair a lower weight with
+    `ref_vae_end_percent` below 1 so the rows were released first. Neither is needed now.
+  - **Not known:** what a low weight is good for. On one still, before this change, 0.30 brought the source's own
+    hair and top back rather than loosening them ([`docs/h3_image_editing.md`](../h3_image_editing.md)); nothing
+    has been rendered on the change.
+
 - **Fixed `ref_vae_end_percent < 1.0` visual-conditioning release (`85aba935`), added runtime steered-row logging (`563d3f76`) and guide-branch `EditGuider` support (`37392f07`, `1819830b`), and updated the control-vector wiki pages**:
   - **Root cause & fix (`control_vector_nodes.py`, `control_vectors.py::resolve_post_refiner_row_mask`, `bench/check_control_vectors.py`, `85aba935`):** When `ref_vae_end_percent < 1.0` passed its step threshold, `_make_control_vector_wrapper` previously set `visual_cond_noise_aug = 0.0` and zeroed `cond_video_latents` while keeping `'ref_img'` / `'cond'` segments in `PackedLayout`. Core's `_cond_video_rows` (`r = aug * r + (1 - aug) * noise`) filled those rows with fixed-seed Gaussian noise while AdaLN labeled them at `max(t_v, 0.0) = t_v`, stamping noise onto frame 0 (`ref2va` and 1-frame stills) and frames 0–1 (`fl2va` and `MiniMaxH3GuideLatent`). The wrapper now slices `'cond'` and `'ref_img'` segments out of a cached shallow copy of `PackedLayout` and clears `cond_video_latents` + visual `refs`/`keyframes` entries while preserving every surviving token's 3D RoPE `position_ids` (`_ref_t_span` cursor shifts, speaker/audio `ref_audio`/`cond_audio` rows, and `EditGuider.align_positions` offsets) and `layout.signature`, keeping `MiniMaxH3Sol` and `SageAttention` on their unmasked fast paths at the shorter sequence length.
   - **What prose claimed and no longer does:** [`control_vectors/comfyui_nodes_and_controls.md`](control_vectors/comfyui_nodes_and_controls.md) previously stated only that `ref_vae_end_percent` and `ref_vae_aug` kept or lowered reference VAE latents and "were not varied," without documenting the row-drop release, pre-`85aba935` noise fault, 6-step quantization (`0.16` = 1 step, `0.33` = 2 steps, `0.50` = 3 steps; corrected from an initial off-by-one `0.17`/`0.34` in `bbfefd90`), the `max(t_v, vis_aug)` late-step constraint on low `ref_vae_aug` (also updated in `control_vector_nodes.py`'s tooltip, which previously suggested `0.0..0.30` unconditionally), or audio-vector / unsectioned `mask` requirements; [`control_vectors.md`](control_vectors.md) also omitted `workflows/image/h3_pika_image_{t2i,edit}_control_vector_api.json` (`0fb989a5`).

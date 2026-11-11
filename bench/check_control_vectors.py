@@ -4060,12 +4060,15 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
         # Step 0 (pct = 0.0 < 0.5): inside split_end_percent and inside ref_vae_end_percent -> 2 calls, ref latents intact
         dm_av.contexts_seen.clear()
         dm_av.payloads_seen.clear()
+        # The weight is read against the stream's time, which core takes from the timestep as
+        # `1 - timestep / 1000` (`comfy/ldm/minimax/model.py::_forward`), so this call passes the
+        # timestep as the sampler does: `sigma * 1000`, with the sigma itself in `sigmas`.
         out_step0 = p_split.invoke_diffusion_model(
             av_x,
-            sched_sigmas[0:1],
+            sched_sigmas[0:1] * 1000.0,
             av_ctx,
             minimax_payload=caller_payload,
-            transformer_options={"sample_sigmas": sched_sigmas},
+            transformer_options={"sample_sigmas": sched_sigmas, "sigmas": sched_sigmas[0:1]},
         )
         if len(dm_av.contexts_seen) != 2:
             errs.append(f"split video_scale=1.0, audio_scale=0.0 at step 0 expected 2 DiT calls, got {len(dm_av.contexts_seen)}")
@@ -4244,6 +4247,50 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
             errs.append(
                 f"strength=0.0 named vector still gated cond_video_latents or modified visual_cond_noise_aug: {dm_av.payloads_seen[0]}"
             )
+
+        # The picture's weight never leaves its rows noisier than their label. Core mixes a condition row
+        # as `aug` of the picture and the rest noise and labels it `max(t_v, aug)`; the wrapper sends
+        # `max(t_v, weight)`, so on every step the share core mixes and the label core writes are equal.
+        from comfy.ldm.minimax.model import VISUAL_COND_TIMESTEP as _core_cond_t
+
+        w_weight = 0.3
+        p_weight = cv_nodes.attach_control_vector(patcher_av, v1_path, strength=1.0, mask="non_vision", ref_vae_aug=w_weight)
+        sent: list[tuple[float, float]] = []
+        for k in range(int(sched_sigmas.numel()) - 1):
+            dm_av.contexts_seen.clear()
+            dm_av.payloads_seen.clear()
+            p_weight.invoke_diffusion_model(
+                av_x,
+                sched_sigmas[k : k + 1] * 1000.0,
+                av_ctx,
+                minimax_payload=caller_payload,
+                transformer_options={"sample_sigmas": sched_sigmas, "sigmas": sched_sigmas[k : k + 1]},
+            )
+            t_v = 1.0 - float(sched_sigmas[k])
+            sent.append((t_v, float(dm_av.payloads_seen[0]["visual_cond_noise_aug"])))
+        for t_v, aug_sent in sent:
+            label = max(t_v, aug_sent)  # core's seg_t for 'cond' and 'ref_img'
+            if abs(aug_sent - max(t_v, w_weight)) > 1e-6 or abs(label - aug_sent) > 1e-6:
+                errs.append(f"ref_vae_aug={w_weight}: at stream time {t_v:.3f} the wrapper sent {aug_sent:.3f}; core would label the rows {label:.3f}")
+        if not any(abs(a - w_weight) < 1e-6 for _t, a in sent) or not any(a > w_weight + 1e-6 for _t, a in sent):
+            errs.append(f"ref_vae_aug={w_weight}: the schedule should hold the weight early and follow the stream late, sent {sent}")
+        if caller_payload["visual_cond_noise_aug"] != 0.999:
+            errs.append("ref_vae_aug mutated the caller's minimax_payload in place")
+        # The default is core's own, and at it the wrapper leaves the payload alone.
+        p_default = cv_nodes.attach_control_vector(patcher_av, v1_path, strength=1.0, mask="non_vision")
+        dm_av.payloads_seen.clear()
+        p_default.invoke_diffusion_model(
+            av_x,
+            sched_sigmas[2:3] * 1000.0,
+            av_ctx,
+            minimax_payload=caller_payload,
+            transformer_options={"sample_sigmas": sched_sigmas, "sigmas": sched_sigmas[2:3]},
+        )
+        if (
+            dm_av.payloads_seen[0].get("visual_cond_noise_aug") != caller_payload["visual_cond_noise_aug"]
+            or cv_nodes._rules.CONTROL_VECTOR_OPTIONAL_DEFAULTS["ref_vae_aug"] != _core_cond_t
+        ):
+            errs.append(f"default ref_vae_aug changed the payload's visual_cond_noise_aug: {dm_av.payloads_seen[0].get('visual_cond_noise_aug')}")
 
         # Wave 2: match_media_pair_geometry, make_control_vector_from_media_pairs, MiniMaxH3MakeMediaControlVector, and CLI make-media
         img_a_raw = torch.rand((2, 90, 160, 3), generator=gen, dtype=torch.float32) * 0.4 + 0.6
