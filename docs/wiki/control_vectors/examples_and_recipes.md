@@ -53,6 +53,40 @@ Every recipe below uses tested settings from our 6-step Pika `t2va` and `ref2va`
 
 ---
 
+## Recipe 3b — Whole-scene costume-and-world overrides, for play (2026-11-11)
+
+The owner asked for fun ones. Eight vectors, each one tight target that changes what people wear and the world with
+it, in the form of the 2026-11-07 whole-scene example: `disco_fever`, `astronaut_crew`, `medieval_feast`,
+`circus_clowns`, `pirate_crew`, `wild_west_saloon`, `arctic_expedition`, and one rebuilt from that example's own
+words. All eight are in the library.
+
+- **How they were built.** A small pair file each: five ordinary scenes, with one clothing clause swapped between a
+  plain outfit and the target (`"suited up in bulky white astronaut spacesuits with glass bubble helmets aboard an
+  orbiting space station"`). The older form, a bare clause that the compiler dropped into stock scenes, no longer
+  runs: `build --words` needs a target prompt that contains one of the two poles.
+- **How they were applied.** `mask = scene_only`, `strength = 2.25`, `end_percent = 0.5` (the first three of six
+  steps), picture held at the defaults, on the diner reference shot with no clothing named in its prompt.
+- **What the frames show** (one seed, three frames a clip; playback is the owner's):
+  - Four moved the room and dressed the subject: a dance floor and sequins, a space-station canteen and a full
+    spacesuit, a chandeliered hall with a gown and crown, and the rebuilt example.
+  - `circus_clowns` gave rainbow wigs and several copies of the subject.
+  - `pirate_crew`, `wild_west_saloon` and `arctic_expedition` barely moved at 2.25. At 3.5 each moved the world
+    (ships and a deck, a weathered roadside shack, a glass cabin with people in parkas) and the other people in it,
+    and left the subject in the clothes of her picture.
+  - The same idea from J-Lens `words` alone, no vector file, moved the world and the other people and left the
+    subject's clothes alone, where the pair-built vector for the same idea dressed her.
+- **Two things to carry forward.**
+  - The order things give way in: the room, then the other people, then the subject. A vector that is not strong
+    enough stops before the subject.
+  - The vector's own word readout said which would take. The four that dressed her decode to their target (the
+    dance, the medieval, the tropical words). `wild_west_saloon` decodes with no western word at all, `pirate_crew`
+    with only `ship`, `arctic_expedition` with a weak `snow`. Read the readout before rendering, and rewrite the
+    target clause when it does not come back.
+- Clips, stacks, the pair files and both scripts: `$H3_OUTPUT_DIR/Video/fun_vectors/` (`stacked/`,
+  `how_it_was_made/`).
+
+---
+
 ## Recipe 4 — Zero-file `< 2 ms` weather shift *without* wardrobe drift (`words` + `hold_words`)
 
 **Use when**: You want an instant environmental transformation (e.g., turning a sunny summer market into a snowstorm) without building a `.safetensors` file, and **without** the DiT's world prior putting winter coats on the characters.
