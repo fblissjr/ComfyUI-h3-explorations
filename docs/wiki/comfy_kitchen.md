@@ -184,6 +184,13 @@ Where the pack uses them: `sol_attn_h3.py` (the `MiniMaxH3Sol` node; `quantizer`
 `rotate`, `make_override` builds the attention override), `sol_observe.py` (reads `blk_cnt`),
 `sparse_table.py` (per-head tables that become a `tau_map`), `sol_chunked_h3.py` (the chunked producer).
 
+**A gap in the pack's chunked node, found by the Gemini session on 2026-11-11 and not fixed.**
+`sol_chunked_h3.py::make_chunked_forward` passes the Sol node's `tau`, dense blocks and sinks to
+`sol_attn_chunked` and nothing else. It never reads the `quantizer` setting, so `rotate` stays off on that
+path even when the Sol node says `rotated`, and it ignores `token_routing`, `tau_table` and `rows` without a
+word. No shipped graph wires `MiniMaxH3SolChunked`, so no render is affected. Before that node is used again
+it should take `rotate` from the setting and refuse the settings the producer cannot honor.
+
 ### Two open upstream fixes, carried since 2026-11-11
 
 Both are open pull requests upstream that no maintainer had reviewed on that day. They are carried because
