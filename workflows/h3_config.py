@@ -1714,6 +1714,10 @@ H3_IMAGE_ASPECT_OF_PICTURE = "same as the picture"
 H3_IMAGE_MEGAPIXELS = 16.0
 H3_IMAGE_MEGAPIXELS_RANGE = (4.0, 20.0)
 H3_IMAGE_SIZE_MULTIPLE = 32
+#: Generic loopback placeholder for `MiniMaxH3ImagePromptExpander` (`h3_image_nodes.py`).
+#: Never a host-specific IP or model id: `heylookitsanllm` model ids are resolved at
+#: runtime from `GET /v1/models`.
+HEYLOOK_DEFAULT_BASE_URL = "http://127.0.0.1:8080"
 
 
 def h3_image_size(megapixels: float, x: float, y: float) -> tuple[int, int]:

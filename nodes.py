@@ -81,7 +81,7 @@ from .ph3_image_nodes import (
     MiniMaxH3PH3ImagePromptUpsampler,
 )
 from .guide_latent import MiniMaxH3GuideLatent
-from .h3_image_nodes import MiniMaxH3ImageSize
+from .h3_image_nodes import MiniMaxH3ImagePromptExpander, MiniMaxH3ImageSize
 from . import h3_capture
 
 from .attention import (
@@ -414,9 +414,10 @@ class H3ExplorationsExtension(ComfyExtension):
                 # appended 2026-11-09, steering by an edited copy of the prompt, with no control
                 # vector (edit_guidance.py)
                 MiniMaxH3PromptEdit, MiniMaxH3EditGuider,
-                # appended 2026-11-11, the picture size for MiniMax-H3-Image from megapixels
-                # and a shape (h3_image_nodes.py)
-                MiniMaxH3ImageSize]
+                # appended 2026-11-11, the picture size and local heylook prompt expander
+                # for MiniMax-H3-Image (h3_image_nodes.py)
+                MiniMaxH3ImageSize,
+                MiniMaxH3ImagePromptExpander]
 
 
 async def comfy_entrypoint() -> H3ExplorationsExtension:

@@ -134,7 +134,7 @@ def sizes() -> None:
            f"{h3_config.H3_IMAGE_ASPECTS} against {enum}")
     sys.path.insert(0, str(REPO))
     try:
-        from h3_image_nodes import resolve_size
+        from h3_image_nodes import MiniMaxH3ImageSize, resolve_size
     except Exception as exc:  # comfy_api not importable outside ComfyUI's tree
         report(False, "the size node imports", repr(exc))
         return
@@ -145,6 +145,10 @@ def sizes() -> None:
         report(False, "no picture is refused")
     except ValueError:
         report(True, "no picture is refused")
+    override_out = tuple(MiniMaxH3ImageSize.execute(16.0, "1:1", picture=None, shape_from_expander="5:3"))
+    fallback_out = tuple(MiniMaxH3ImageSize.execute(16.0, "4:3", picture=None, shape_from_expander=""))
+    report(override_out == h3_config.h3_image_size(16.0, 5, 3) and fallback_out == CARD_SIZES["4:3"],
+           "shape_from_expander overrides shape when set and falls back when empty")
 
 
 def expander_replies() -> None:
@@ -203,6 +207,343 @@ def expander_replies() -> None:
         report(True, f"control: all {len(bad_inputs)} malformed expander replies are refused")
 
 
+def heylook_expander() -> None:
+    import base64
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+    import io as _pyio
+    import threading
+    from PIL import Image
+    import httpx
+
+    sys.path.insert(0, str(REPO))
+    try:
+        from h3_image_nodes import (
+            MiniMaxH3ImagePromptExpander,
+            prepare_heylook_image,
+            prepare_heylook_tensor,
+            stream_heylook_message,
+        )
+    except Exception as exc:
+        report(False, "MiniMaxH3ImagePromptExpander imports", repr(exc))
+        return
+
+    examples = REPO / "vendor_guides" / "h3_image" / "examples"
+    t2i_caption = (examples / "revised_prompt.t2i.txt").read_text(encoding="utf-8").strip()
+    edit_caption = (examples / "revised_prompt.edit.txt").read_text(encoding="utf-8").strip()
+
+    # 1. Client-side image resize: PNG stays PNG across exif_transpose, EXIF orientation
+    #    rotates upright and caps longest edge at 2048, and ComfyUI tensors downscale cleanly.
+    png_buf = _pyio.BytesIO()
+    Image.new("RGB", (2600, 1300), (20, 40, 80)).save(png_buf, format="PNG")
+    png_b64, png_mime = prepare_heylook_image(png_buf.getvalue())
+    with Image.open(_pyio.BytesIO(base64.b64decode(png_b64))) as dec_png:
+        png_ok = png_mime == "image/png" and dec_png.format == "PNG" and dec_png.size == (2048, 1024)
+
+    exif = Image.Exif()
+    exif[0x0112] = 6  # 90 deg CW: 3000x1500 stored -> 1500x3000 upright -> 1024x2048 capped
+    jpg_buf = _pyio.BytesIO()
+    Image.new("RGB", (3000, 1500), (180, 90, 40)).save(jpg_buf, format="JPEG", exif=exif.tobytes())
+    jpg_b64, jpg_mime = prepare_heylook_image(jpg_buf.getvalue())
+    with Image.open(_pyio.BytesIO(base64.b64decode(jpg_b64))) as dec_jpg:
+        jpg_ok = jpg_mime == "image/jpeg" and dec_jpg.size == (1024, 2048)
+
+    tensor_rgb = torch.zeros((1, 2000, 3000, 3), dtype=torch.float32)
+    ten_b64, ten_mime = prepare_heylook_tensor(tensor_rgb, index=1)
+    with Image.open(_pyio.BytesIO(base64.b64decode(ten_b64))) as dec_ten:
+        ten_ok = ten_mime == "image/jpeg" and dec_ten.size == (2048, 1365)
+
+    tensor_rgba = torch.ones((1, 64, 64, 4), dtype=torch.float32)
+    tensor_rgba[:, :, :, 3] = 0.5
+    _, alpha_mime = prepare_heylook_tensor(tensor_rgba, index=2)
+    report(png_ok and jpg_ok and ten_ok and alpha_mime == "image/png",
+           "client-side heylook image resize honours PNG, EXIF, 2048 cap and alpha")
+
+    # 2. Live loopback heylook Messages SSE mock server: runtime discovery, 503 backoff,
+    #    fresh X-Request-ID, block separation, error events, and DELETE cancellation.
+    state: dict = {
+        "seen_request_ids": [],
+        "cancelled_ids": [],
+        "bodies": [],
+        "overload_next": True,
+        "mode": "ok",
+    }
+
+    class _MockHeylook(BaseHTTPRequestHandler):
+        def log_message(self, fmt, *args):
+            return
+
+        def _json(self, code: int, obj: dict, headers: dict | None = None) -> None:
+            raw = json.dumps(obj).encode("utf-8")
+            self.send_response(code)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(raw)))
+            for k, v in (headers or {}).items():
+                self.send_header(k, v)
+            self.end_headers()
+            self.wfile.write(raw)
+
+        def do_GET(self):
+            if state["mode"] == "host403":
+                self._json(403, {"detail": "Host not allowed"})
+                return
+            if self.path == "/v1/models":
+                self._json(200, {
+                    "object": "list",
+                    "data": [
+                        {
+                            "id": "embed-only-local",
+                            "modalities": ["text", "vision"],
+                            "capabilities": ["embedding"],
+                            "engine": {},
+                        },
+                        {
+                            "id": "text-chat-cold",
+                            "modalities": ["text"],
+                            "capabilities": ["chat", "thinking"],
+                            "engine": {
+                                "thinking": {"switch": "enable_thinking", "depth": None, "budget": None},
+                                "decoding": {"request_fields": {"value": ["seed", "temperature"]}},
+                            },
+                        },
+                        {
+                            "id": "text-chat-resident",
+                            "modalities": ["text"],
+                            "capabilities": ["chat", "thinking"],
+                            "engine": {
+                                "thinking": {"switch": "enable_thinking", "depth": None, "budget": None},
+                                "decoding": {"request_fields": {"value": None}},
+                            },
+                        },
+                        {
+                            "id": "vlm-chat-local",
+                            "modalities": ["text", "vision"],
+                            "capabilities": ["chat", "vision", "thinking"],
+                            "engine": {
+                                "thinking": {"switch": "enable_thinking", "depth": None, "budget": None},
+                                "decoding": {"request_fields": {"value": None}},
+                            },
+                        },
+                    ],
+                })
+            elif self.path == "/v1/system/metrics":
+                self._json(200, {"models": {"text-chat-resident": {"active": 0}}})
+            elif self.path == "/v1/presets":
+                self._json(200, {
+                    "presets": [{
+                        "id": "crisp",
+                        "params": {"temperature": 0.8, "enable_thinking": True, "reasoning_effort": "unoffered"},
+                    }],
+                })
+            else:
+                self._json(404, {"detail": "not found"})
+
+        def do_DELETE(self):
+            if self.path.startswith("/v1/requests/"):
+                rid = self.path.rsplit("/", 1)[-1]
+                state["cancelled_ids"].append(rid)
+                self._json(200, {"cancelled": 1, "request_id": rid})
+            else:
+                self._json(404, {"detail": "not found"})
+
+        def do_POST(self):
+            if self.path != "/v1/messages":
+                self._json(404, {"detail": "not found"})
+                return
+            rid = self.headers.get("X-Request-ID") or ""
+            state["seen_request_ids"].append(rid)
+            length = int(self.headers.get("Content-Length") or 0)
+            body = json.loads(self.rfile.read(length).decode("utf-8"))
+            state["bodies"].append(body)
+
+            if state["overload_next"]:
+                state["overload_next"] = False
+                self._json(
+                    503,
+                    {"error": {"code": "model_overloaded", "message": "queue full"}},
+                    headers={"Retry-After": "1", "X-Request-ID": rid},
+                )
+                return
+
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream")
+            self.send_header("X-Request-ID", rid)
+            self.end_headers()
+
+            def emit(ev: str, payload: dict) -> bool:
+                chunk = f"event: {ev}\ndata: {json.dumps(payload)}\n\n".encode("utf-8")
+                try:
+                    self.wfile.write(chunk)
+                    self.wfile.flush()
+                    return True
+                except (BrokenPipeError, ConnectionResetError):
+                    return False
+
+            if not emit("message_start", {"type": "message_start", "message": {"id": "msg_1", "usage": {"input_tokens": 0, "output_tokens": 0}}}):
+                return
+            if not emit("ping", {"type": "ping"}):
+                return
+            if state["mode"] == "inband_error":
+                emit("error", {"type": "error", "error": {"type": "invalid_request_error", "message": "image rejected"}})
+                return
+            if state["mode"] == "truncated_stream":
+                emit("content_block_delta", {"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": "partial"}})
+                return
+
+            is_vlm = body.get("model") == "vlm-chat-local"
+            reply_text = (
+                f"{edit_caption}\n\naspect_ratio: same as the picture"
+                if is_vlm
+                else f"{t2i_caption}\n\naspect_ratio: 4:3"
+            )
+            for ev, obj in (
+                ("heylook_progress", {"type": "heylook_progress", "prefill": {"processed": 128, "total": 128}}),
+                ("content_block_start", {"type": "content_block_start", "index": 0, "content_block": {"type": "thinking", "thinking": ""}}),
+                ("content_block_delta", {"type": "content_block_delta", "index": 0, "delta": {"type": "thinking_delta", "thinking": "plan composition"}}),
+                ("content_block_stop", {"type": "content_block_stop", "index": 0}),
+                ("content_block_start", {"type": "content_block_start", "index": 1, "content_block": {"type": "text", "text": ""}}),
+                ("content_block_delta", {"type": "content_block_delta", "index": 1, "delta": {"type": "text_delta", "text": reply_text}}),
+                ("content_block_stop", {"type": "content_block_stop", "index": 1}),
+                ("message_delta", {
+                    "type": "message_delta",
+                    "delta": {"stop_reason": "end_turn"},
+                    "usage": {"input_tokens": 320, "cache_read_input_tokens": 256, "output_tokens": 180},
+                }),
+                ("message_stop", {
+                    "type": "message_stop",
+                    "performance": {"generation_duration_ms": 900.0, "request_duration_ms": 2500.0},
+                }),
+            ):
+                if not emit(ev, obj):
+                    return
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), _MockHeylook)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    base = f"http://127.0.0.1:{server.server_address[1]}"
+    try:
+        # T2I: survives initial 503, uses fresh X-Request-ID per attempt, picks resident chat model,
+        # separates thinking_delta from text_delta, expands preset safely, and computes throughput from generation_duration_ms (180 / 0.9s = 200.0 tps).
+        t2i_out = tuple(MiniMaxH3ImagePromptExpander.execute(
+            prompt="Overhead rustic farm table feast.",
+            enabled=True,
+            base_url=base,
+            mode="auto",
+            model="",
+            thinking="on",
+            seed=42,
+            preset="crisp",
+        ))
+        ids = state["seen_request_ids"]
+        last_body = state["bodies"][-1]
+        report(
+            t2i_out[0] == t2i_caption
+            and t2i_out[1] == "4:3"
+            and t2i_out[2] == "plan composition"
+            and "model=text-chat-resident" in t2i_out[3]
+            and "tps=200.0" in t2i_out[3]
+            and len(ids) == 2 and ids[0] != ids[1]
+            and "reasoning_effort" not in last_body
+            and "max_tokens" not in last_body,
+            "heylook T2I picks resident chat model, retries 503 with fresh X-Request-ID and separates thinking",
+        )
+
+        # Edit with 2 reference pictures: requires 'vision' capability (selects vlm-chat-local)
+        # and sends ordered <Picture 1> / <Picture 2> blocks on the user turn.
+        img1 = torch.zeros((1, 128, 128, 3), dtype=torch.float32)
+        img2 = torch.ones((1, 128, 128, 3), dtype=torch.float32)
+        edit_out = tuple(MiniMaxH3ImagePromptExpander.execute(
+            prompt="Take off the headphones and have them fist-bump.",
+            enabled=True,
+            base_url=base,
+            mode="auto",
+            model="",
+            images={"image_2": img2, "image_1": img1},
+        ))
+        edit_body = state["bodies"][-1]
+        ucontent = edit_body["messages"][0]["content"]
+        labels = [b["text"] for b in ucontent if b["type"] == "text"]
+        img_blocks = [b for b in ucontent if b["type"] == "image"]
+        report(
+            edit_body["model"] == "vlm-chat-local"
+            and edit_out[0] == edit_caption
+            and edit_out[1] == h3_config.H3_IMAGE_ASPECT_OF_PICTURE
+            and labels == ["<Picture 1>:", "<Picture 2>:", "Take off the headphones and have them fist-bump."]
+            and len(img_blocks) == 2 and all(b["source"]["type"] == "base64" for b in img_blocks),
+            "heylook edit gates on vision capability and preserves <Picture 1..N> order",
+        )
+
+        # Disabled passthrough requires zero server traffic even on an unreachable port.
+        before_calls = len(state["seen_request_ids"])
+        off_out = tuple(MiniMaxH3ImagePromptExpander.execute(
+            prompt=f"<think>offline</think>\n{t2i_caption}\n\naspect_ratio: 16:9",
+            enabled=False,
+            base_url="http://127.0.0.1:1",
+        ))
+        report(
+            off_out[:3] == (t2i_caption, "16:9", "offline") and len(state["seen_request_ids"]) == before_calls,
+            "disabled expander parses offline without touching the network",
+        )
+
+        # Controls: text-only model refused for edit, in-band error refused, truncated stream refused,
+        # 403 Host check diagnosed, and mid-stream interrupt calls DELETE /v1/requests/{id}.
+        controls_ok = True
+        try:
+            MiniMaxH3ImagePromptExpander.execute(
+                prompt="Edit this.", enabled=True, base_url=base, model="text-chat-resident", images={"image_1": img1}
+            )
+            controls_ok = False
+        except ValueError:
+            pass
+
+        state["mode"] = "inband_error"
+        try:
+            MiniMaxH3ImagePromptExpander.execute(prompt="Test.", enabled=True, base_url=base)
+            controls_ok = False
+        except ValueError as exc:
+            controls_ok &= "image rejected" in str(exc)
+
+        state["mode"] = "truncated_stream"
+        try:
+            MiniMaxH3ImagePromptExpander.execute(prompt="Test.", enabled=True, base_url=base)
+            controls_ok = False
+        except RuntimeError as exc:
+            controls_ok &= "message_stop" in str(exc)
+
+        state["mode"] = "host403"
+        try:
+            MiniMaxH3ImagePromptExpander.execute(prompt="Test.", enabled=True, base_url=base)
+            controls_ok = False
+        except PermissionError as exc:
+            controls_ok &= "allowed_hosts" in str(exc)
+
+        state["mode"] = "ok"
+        state["cancelled_ids"].clear()
+        with httpx.Client(trust_env=False) as c:
+            seen_lines = 0
+
+            def _abort_mid_stream() -> None:
+                nonlocal seen_lines
+                seen_lines += 1
+                if seen_lines >= 3:
+                    raise KeyboardInterrupt("user cancelled")
+
+            try:
+                stream_heylook_message(
+                    base,
+                    {"model": "text-chat-resident", "messages": [{"role": "user", "content": "hi"}]},
+                    client=c,
+                    interrupt_check=_abort_mid_stream,
+                )
+                controls_ok = False
+            except KeyboardInterrupt:
+                pass
+        controls_ok &= len(state["cancelled_ids"]) == 1 and state["cancelled_ids"][0] == state["seen_request_ids"][-1]
+        report(bool(controls_ok), "control: capability mismatch, in-band error, truncated stream, 403 and cancel all hold")
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
 def graphs() -> None:
     folder = REPO / "workflows" / "image"
     paths = sorted(folder.glob("h3_image_*_api.json")) + sorted(folder.glob("h3_probe_h3_image_*_api.json"))
@@ -224,6 +565,14 @@ def graphs() -> None:
             ok &= size.get("picture") == pictures[0] and size["shape"] == h3_config.H3_IMAGE_ASPECT_OF_PICTURE
         else:
             ok &= size["shape"] in h3_config.H3_IMAGE_ASPECTS
+        expanders = [(nid, n["inputs"]) for nid, n in g.items() if n["class_type"] == "MiniMaxH3ImagePromptExpander"]
+        if expanders:
+            exp_id, exp_in = expanders[0]
+            ok &= len(expanders) == 1
+            ok &= cond["prompt"] == [exp_id, 0] and size.get("shape_from_expander") == [exp_id, 1]
+            ok &= exp_in.get("base_url") == h3_config.HEYLOOK_DEFAULT_BASE_URL and exp_in.get("model") == ""
+        else:
+            ok &= isinstance(cond["prompt"], str) and bool(cond["prompt"].strip())
         report(bool(ok), f"the shipped graph {path.name}")
 
 
@@ -245,6 +594,7 @@ def main() -> int:
     writer()
     sizes()
     expander_replies()
+    heylook_expander()
     graphs()
     release_grid(args.release)
     print("")

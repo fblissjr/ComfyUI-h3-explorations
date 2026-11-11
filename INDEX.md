@@ -35,7 +35,7 @@ with none is a helper the others import.
 |---|---|---|
 | [`h3_capture.py`](h3_capture.py) |  | Capture real q/k/v from an H3 render, for kernel-divergence work. |
 | [`h3_encoder_loader.py`](h3_encoder_loader.py) | `MiniMaxH3EncoderLoader` | Core's `CLIPLoader` for a MiniMax H3 encoder, plus the guards it does not have. |
-| [`h3_image_nodes.py`](h3_image_nodes.py) | `MiniMaxH3ImageSize` | MiniMax-H3-Image: pick the size of the picture by megapixels and shape (`MiniMaxH3ImageSize`). |
+| [`h3_image_nodes.py`](h3_image_nodes.py) | `MiniMaxH3ImageSize`, `MiniMaxH3ImagePromptExpander` | MiniMax-H3-Image: canvas size (`MiniMaxH3ImageSize`) and local `heylook` prompt expander (`MiniMaxH3ImagePromptExpander`). |
 | [`h3_layout.py`](h3_layout.py) |  | MiniMax-H3's packed layout, read from what core publishes. |
 | [`h3_pair_compiler.py`](h3_pair_compiler.py) |  | In-place target-prompt contrast compiler for MiniMax H3 control vectors. |
 | [`h3_prompt_edit.py`](h3_prompt_edit.py) |  | Apply `old wording -> new wording` edits to an H3 prompt: plain text code, no model libraries. |
@@ -165,7 +165,7 @@ with none is a helper the others import.
 | `vendor/` | 11 | [below](#vendor) |
 | `vendor_config/` | 10 | [below](#vendor_config) |
 | `vendor_guides/` | 21 | [below](#vendor_guides) |
-| `workflows/` | 112 | [`workflows/INDEX.md`](workflows/INDEX.md) |
+| `workflows/` | 113 | [`workflows/INDEX.md`](workflows/INDEX.md) |
 
 ## .claude/
 

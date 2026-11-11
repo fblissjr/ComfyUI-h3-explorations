@@ -42,6 +42,7 @@ Matches the release's [`generation_config.json`](../../../../vendor_guides/h3_im
 
 ---
 
-## Parsing Replies in Code
+## Parsing Replies & ComfyUI Expander Node
 
-[`h3_image_nodes.py::parse_expander_reply`](../../../../h3_image_nodes.py) is the single shared offline parser for expander outputs (used alongside [`resolve_size`](../../../../h3_image_nodes.py)). It strips any unparsed `<think>...</think>` block or code fence and accepts plain captions, trailing `aspect_ratio: <same as the picture | W:H>` lines, and vendor `expanded_caption` JSON objects, returning `(clean_prompt, shape_or_none)`.
+- [`h3_image_nodes.py::MiniMaxH3ImagePromptExpander`](../../../../h3_image_nodes.py) (`MiniMax H3 Image Prompt Expander (heylook)`) loads these prompt files directly (`mode = auto | t2i + aspect_ratio | t2i | t2i_design + aspect_ratio | t2i_design | edit + aspect_ratio | edit | custom`), discovers served `chat` / `vision` models at runtime from `GET /v1/models`, downscales wired `<Picture 1>..<Picture 16>` reference images client-side (`<= 2048 px`), streams `POST /v1/messages`, and wires `(prompt, shape)` into `MiniMaxH3ImageConditioning.prompt` and `MiniMaxH3ImageSize.shape_from_expander` (example workflow: [`workflows/image/h3_image_t2i_heylook_api.json`](../../../../workflows/image/h3_image_t2i_heylook_api.json)).
+- [`h3_image_nodes.py::parse_expander_reply`](../../../../h3_image_nodes.py) is the single shared offline parser for expander outputs (used alongside [`resolve_size`](../../../../h3_image_nodes.py)). It strips any unparsed `<think>...</think>` block or code fence and accepts plain captions, trailing `aspect_ratio: <same as the picture | W:H>` lines, and vendor `expanded_caption` JSON objects, returning `(clean_prompt, shape_or_none)`.

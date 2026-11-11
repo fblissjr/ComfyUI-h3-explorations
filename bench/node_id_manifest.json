@@ -369,11 +369,33 @@
       "latent"
     ]
   },
+  "MiniMaxH3ImagePromptExpander": {
+    "inputs": [
+      "prompt",
+      "enabled",
+      "base_url",
+      "mode",
+      "model",
+      "thinking",
+      "seed",
+      "preset",
+      "custom_system_prompt",
+      "images"
+    ],
+    "node_id": "MiniMaxH3ImagePromptExpander",
+    "outputs": [
+      "prompt",
+      "shape",
+      "thinking",
+      "report"
+    ]
+  },
   "MiniMaxH3ImageSize": {
     "inputs": [
       "megapixels",
       "shape",
-      "picture"
+      "picture",
+      "shape_from_expander"
     ],
     "node_id": "MiniMaxH3ImageSize",
     "outputs": [

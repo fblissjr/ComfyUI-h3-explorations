@@ -107,6 +107,7 @@ In [`workflows/image/`](../workflows/image/), written by
 |---|---|
 | `h3_image_t2i_api.json` | text to image |
 | `h3_image_edit_api.json` | an edit of a picture, at the picture's shape |
+| `h3_image_t2i_heylook_api.json` | short text -> `MiniMax H3 Image Prompt Expander (heylook)` -> text to image |
 
 Four probe graphs rendered the same two cases on the bf16 file, with the same
 INT8 attention and with core's exact attention, so the int8 linears and INT8
@@ -223,8 +224,14 @@ our standalone, English-only system-prompt suite for local thinking LLMs/VLMs
   describes only changed or newly introduced details. The ratio variant appends
   `aspect_ratio: <same as the picture | W:H>`.
 
-The graphs do not run an expander; they take the finished description. Not
-established here: how much a short plain prompt loses.
+The two default graphs (`h3_image_t2i_api.json`, `h3_image_edit_api.json`) take
+a finished description directly. `h3_image_t2i_heylook_api.json` wires
+`MiniMax H3 Image Prompt Expander (heylook)` (`h3_image_nodes.py::MiniMaxH3ImagePromptExpander`)
+ahead of conditioning and `MiniMax H3 Image Size.shape_from_expander`, expanding
+a short request over `POST /v1/messages` on a local or LAN `heylookitsanllm`
+server (`base_url` defaults to `http://127.0.0.1:8080`; model ids are resolved
+at runtime from `GET /v1/models`). Not established here: how much a short plain
+prompt loses without an expander.
 
 ### Prompts written for H3 video
 

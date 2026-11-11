@@ -82,7 +82,7 @@ _OUR_NODES = {
     "MiniMaxH3AudioFreezeSong", "MiniMaxH3PromptList",
     "MiniMaxH3PH3ImagePromptUpsampler", "MiniMaxH3PH3ImageConditioning",
     "MiniMaxH3GuideLatent",
-    "MiniMaxH3ImageSize",
+    "MiniMaxH3ImageSize", "MiniMaxH3ImagePromptExpander",
 }
 
 # Model names, sampler settings, canvas geometry and the SolAttn knobs all
@@ -118,7 +118,7 @@ from h3_config import (  # noqa: E402
     PH3_IMAGE_CANVAS_8MP,
     PH3_IMAGE_T2I_MAX_NEW_TOKENS, PH3_IMAGE_EDIT_MAX_NEW_TOKENS,
     H3_IMAGE_UNET, H3_IMAGE_UNET_BF16, H3_IMAGE_VAE, H3_IMAGE_SAMPLER, H3_IMAGE_MANUAL_SIGMAS,
-    H3_IMAGE_MEGAPIXELS, H3_IMAGE_ASPECT_OF_PICTURE,
+    H3_IMAGE_MEGAPIXELS, H3_IMAGE_ASPECT_OF_PICTURE, HEYLOOK_DEFAULT_BASE_URL,
     GUIDE_LATENT_NODE, GUIDE_CHARACTER_SWAP_LORA, GUIDE_TASK_LORAS,
     CONTROL_VECTOR_NODE, CONTROL_VECTOR_DEFAULTS, CONTROL_VECTOR_OPTIONAL_DEFAULTS, LAYER_NORM_MATCH_NODE,
     EDIT_GUIDANCE_DEFAULTS,
@@ -2622,6 +2622,9 @@ def build_ph3_image_api(
 _H3_IMAGE_EXAMPLES = HERE.parent / "vendor_guides" / "h3_image" / "examples"
 H3_IMAGE_T2I_PROMPT = (_H3_IMAGE_EXAMPLES / "revised_prompt.t2i.txt").read_text(encoding="utf-8").strip()
 H3_IMAGE_EDIT_PROMPT = (_H3_IMAGE_EXAMPLES / "revised_prompt.edit.txt").read_text(encoding="utf-8").strip()
+#: The short one-line requests the vendor's expander turned into the two captions above.
+H3_IMAGE_T2I_INSTRUCTION = (_H3_IMAGE_EXAMPLES / "instruction.t2i.txt").read_text(encoding="utf-8").strip()
+H3_IMAGE_EDIT_INSTRUCTION = (_H3_IMAGE_EXAMPLES / "instruction.edit.txt").read_text(encoding="utf-8").strip()
 #: The release's `examples/reference1.png`, copied into ComfyUI's input folder under this name.
 H3_IMAGE_EDIT_PICTURE = "h3_image_reference1.png"
 #: The shape the vendor's expander chose for the text-to-image case (`revised_size.t2i.txt`).
@@ -2643,6 +2646,7 @@ def build_h3_image_api(
     seed: int | None = None,
     attention: str | None = DENSE_BACKEND_NODE["attention"],
     vae_encoder: str | None = "fp32",
+    heylook: bool = False,
     out_prefix: str | None = None,
     single_frame: bool = True,
 ) -> dict:
@@ -2676,17 +2680,23 @@ def build_h3_image_api(
     `VAEDecode` stays on the loader, decoder untouched. `vae_encoder=None` wires no node. Text to
     image encodes nothing and gets none.
 
-    The prompt is the finished description, used as it is: this model has no chat template and no
-    negative prompt. Writing that description from a short request is the prompt expander's job
-    (`docs/wiki/system_prompts/h3_image/` or `vendor_guides/h3_image/prompt/`);
-    the graph does not run one.
+    The conditioning node takes a finished description: this model has no chat template and no
+    negative prompt. By default (`heylook=False`) the graph carries a finished caption directly;
+    with `heylook=True` it wires `MiniMaxH3ImagePromptExpander` (`h3_image_nodes.py`) ahead of
+    conditioning and `MiniMaxH3ImageSize.shape_from_expander`, expanding a short request against a
+    local or LAN `heylookitsanllm` server using `docs/wiki/system_prompts/h3_image/`.
     """
     if task not in ("h3img_t2i", "h3img_edit"):
         raise ValueError(f"unknown MiniMax-H3-Image task {task!r}; expected 'h3img_t2i' or 'h3img_edit'")
     if not single_frame:
         raise SystemExit("MiniMax-H3-Image renders one picture (single_frame=True)")
     is_edit = task == "h3img_edit"
-    resolved_prompt = prompt if prompt is not None else (H3_IMAGE_EDIT_PROMPT if is_edit else H3_IMAGE_T2I_PROMPT)
+    default_prompt = (
+        (H3_IMAGE_EDIT_INSTRUCTION if is_edit else H3_IMAGE_T2I_INSTRUCTION)
+        if heylook
+        else (H3_IMAGE_EDIT_PROMPT if is_edit else H3_IMAGE_T2I_PROMPT)
+    )
+    resolved_prompt = prompt if prompt is not None else default_prompt
     resolved_shape = shape or (H3_IMAGE_ASPECT_OF_PICTURE if is_edit else H3_IMAGE_T2I_SHAPE)
     resolved_seed = seed if seed is not None else (H3_IMAGE_EDIT_SEED if is_edit else H3_IMAGE_T2I_SEED)
     resolved_prefix = out_prefix or ("Image/h3_image_edit" if is_edit else "Image/h3_image_t2i")
@@ -2724,6 +2734,7 @@ def build_h3_image_api(
         "width": ["4", 0],
         "height": ["4", 1],
     }
+    stills: tuple[str, ...] = ()
     if is_edit:
         stills = ref_images if ref_images is not None else (H3_IMAGE_EDIT_PICTURE,)
         if not 1 <= len(stills) <= len(_REF_IMAGE_NODES):
@@ -2740,6 +2751,23 @@ def build_h3_image_api(
             cond_inputs["vae"] = ["47", 0]
     elif ref_images:
         raise SystemExit("h3img_t2i takes no pictures; an edit is task 'h3img_edit'")
+    if heylook:
+        expander_inputs: dict[str, Any] = {
+            "prompt": resolved_prompt,
+            "enabled": True,
+            "base_url": HEYLOOK_DEFAULT_BASE_URL,
+            "mode": "auto",
+            "model": "",
+            "thinking": "model default",
+            "seed": resolved_seed,
+            "preset": "",
+            "custom_system_prompt": "",
+        }
+        for idx, (load_id, _) in enumerate(zip(_REF_IMAGE_NODES, stills), start=1):
+            expander_inputs[f"images.image_{idx}"] = [load_id, 0]
+        g["14"] = {"class_type": "MiniMaxH3ImagePromptExpander", "inputs": expander_inputs}
+        cond_inputs["prompt"] = ["14", 0]
+        g["4"]["inputs"]["shape_from_expander"] = ["14", 1]
     g["5"] = {"class_type": "MiniMaxH3ImageConditioning", "inputs": cond_inputs}
     if attention is not None:
         g["58"] = {"class_type": "ModelAttentionBackend",
@@ -5335,6 +5363,9 @@ def main():
         ("h3_image_edit.json", "h3-image-edit", "h3img_edit", H3_IMAGE_EDIT_PROMPT,
          dict(single_frame=True, out_prefix="Image/h3_image_edit"),
          "picture + text -> 16 MP edited image at the picture's shape on MiniMax-H3-Image (the picture as <Picture 1>, read at its own size)"),
+        ("h3_image_t2i_heylook.json", "h3-image-t2i-heylook", "h3img_t2i", H3_IMAGE_T2I_INSTRUCTION,
+         dict(single_frame=True, heylook=True, out_prefix="Image/h3_image_t2i_heylook"),
+         "short text -> heylook local prompt expander -> 16 MP image on MiniMax-H3-Image (caption and shape from MiniMaxH3ImagePromptExpander)"),
         # The bf16 arms (the release written whole by `bench/convert_h3_image_dit.py`, with INT8
         # attention and with core's exact attention, for both cases) were rendered on 2026-11-11
         # and their four probe graphs removed the same day with the file, at the owner's word:
