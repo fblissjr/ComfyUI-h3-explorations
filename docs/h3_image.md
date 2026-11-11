@@ -221,6 +221,7 @@ this model, and how much a short plain prompt loses.
   approval is the owner's.
 - No control vector made on a video checkpoint is expected to carry over as it
   is: the vectors live after the token refiner, and this model's text
-  projection and refiner are its own (the same record's parentage rows). One
+  projection and refiner are its own weights (the record, "The same holds
+before the first block"). One
   would have to be made on this model; whether the vector nodes run on it has
   not been tried.

@@ -71,6 +71,15 @@ a property of the weights and a graph can override it.
   summary prints). `cos_delta` is near 0 throughout: the image model's move
   away from fl2va is almost at right angles to the direction ref2va lies in.
 
+- **The same holds before the first block.** The text projection and the two
+  token-refiner blocks, which every prompt's rows pass through first, are as
+  far from both video checkpoints as the blocks are, and the picture's patch
+  projection is far too (`2026-11-11_h3_image_weights_outside_blocks.jsonl`,
+  from the same tool with `--blocks none`). Anything defined on a video
+  checkpoint's refined text rows, a control vector for one, is therefore
+  defined in a space this model does not share, even though the text encoder
+  in front of it is the same file.
+
 Reading, labeled as one: this is what three models trained on from a shared
 starting point look like, with the image model trained much further than
 either video model, and with fl2va having moved less from that start than

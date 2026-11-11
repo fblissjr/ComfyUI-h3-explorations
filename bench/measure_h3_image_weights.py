@@ -9,6 +9,10 @@ or the ref2va video DiT? Per block linear, norm and AdaLN tensor:
 
 - `img_fl`, `img_ref`: relative distance of the image weight from each video
   weight, and `fl_ref`, the two video weights from each other, as the scale.
+- The same three distances for the tensors outside the blocks (`OUTSIDE_BLOCKS`):
+  the text projection and the token refiner a prompt's rows pass through
+  first, and the picture's patch projection. `--blocks none` measures these
+  alone.
 - `alpha` (the four linears): where the image weight projects on the line from
   fl2va to ref2va, `<img - fl, ref - fl> / |ref - fl|^2`. A fine-tune of fl2va
   gives about 0, a fine-tune of ref2va about 1; a model that left both from
@@ -69,6 +73,10 @@ from h3_image import release as rel  # noqa: E402
 LINEARS = ("attn.qkv_proj", "attn.out_proj", "mlp.fc1", "mlp.fc2")
 SMALL = ("norm1.weight", "norm2.weight", "attn.q_norm.weight", "attn.k_norm.weight",
          "adaln_proj.linear.weight", "adaln_proj.linear.bias")
+#: The tensors a prompt's rows pass through before the first block, and the picture's patch projection.
+OUTSIDE_BLOCKS = ("condition_proj.weight", "condition_proj.bias", "video_patch_proj.weight",
+                  *(f"token_refiner.blocks.{b}.{kind}.weight" for b in range(2) for kind in LINEARS),
+                  "token_refiner.final_norm.weight")
 INT8_FORMAT = dict(is_weight=True, per_channel=True, convrot=True, convrot_groupsize=256, stochastic_rounding=0)
 #: reference rows are held at this clean time (`comfy/ldm/minimax/model.py::VISUAL_COND_TIMESTEP`)
 REFERENCE_T = 0.999
@@ -152,7 +160,7 @@ def main() -> int:
     ap.add_argument("--fl2va", type=Path, help="the H3 release's FL2VA/transformer folder")
     ap.add_argument("--ref2va", type=Path, help="the H3 release's Ref2VA/transformer folder")
     ap.add_argument("--int8", type=Path, help="a ComfyUI int8 file of the image model")
-    ap.add_argument("--blocks", default="all", help="'all' or a comma list of block indices")
+    ap.add_argument("--blocks", default="all", help="'all', 'none', or a comma list of block indices")
     ap.add_argument("--out", type=Path, required=True)
     args = ap.parse_args()
     if (args.fl2va is None) != (args.ref2va is None):
@@ -168,7 +176,8 @@ def main() -> int:
     if int8 is not None:
         from comfy_kitchen.tensor import TensorWiseINT8Layout as Int8
     depth = sum(1 for k in img.where if k.endswith(".mlp.fc1.weight") and k.startswith("blocks."))
-    blocks = range(depth) if args.blocks == "all" else [int(b) for b in args.blocks.split(",")]
+    blocks = (range(depth) if args.blocks == "all" else
+              [] if args.blocks == "none" else [int(b) for b in args.blocks.split(",")])
     started = time.time()
 
     with open(args.out, "w") as out:
@@ -211,7 +220,17 @@ def main() -> int:
                     s.close()
             print(f"block {b} ({time.time() - started:.0f}s)", flush=True)
 
-        if int8 is not None and "adaln_t_table" in int8.keys():
+        if fl is not None:
+            # what a prompt passes through before the blocks: the text projection and the token refiner
+            for key in OUTSIDE_BLOCKS:
+                wi, wf, wr = (s.get(key).to(dev).float() for s in (img, fl, rf))
+                write({"key": key, "img_fl": relative(wi, wf), "img_ref": relative(wi, wr),
+                       "fl_ref": relative(wr, wf)})
+            for s in (img, fl, rf):
+                s.close()
+            print(f"outside the blocks ({time.time() - started:.0f}s)", flush=True)
+
+        if int8 is not None and blocks and "adaln_t_table" in int8.keys():
             sigmas = json.loads(int8.metadata()["config"])["transformer"]["pdd_sigmas"]
             used = sorted({1.0 - s for s in sigmas[:-1]} | {REFERENCE_T})
             table = int8.get_tensor("adaln_t_table").to(dev).double()
