@@ -17,14 +17,17 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-11-11
 
-- **A clothing change on a reference shot goes through edit guidance** (the owner, on playback of the 2026-11-11
-  diner arms). `MiniMaxH3EditGuider` toward the subject's line rewritten with the new clothing is the only arm that
-  does what the rewritten prompt does, and it looks good. A control vector on her line changed her clothing only
-  when built from the exact sentence and gave the wrong colour; a general wardrobe vector did not change her. Where
-  a strong vector is used on a subject's line anyway, shorten its window (`end_percent` 0.5 on six steps): on
-  playback that was the only single change that kept the red off her face. The arms are in
-  [`control_vectors/comfyui_nodes_and_controls.md`](control_vectors/comfyui_nodes_and_controls.md).
-- **Environment variables (`$H3_INPUT_DIR` and `$H3_OUTPUT_DIR`, with `$H3_OUTPUT_DIR/Video` for video outputs) in [`AGENTS.md`](../../AGENTS.md)** (owner decision). Added the operative rule to [`AGENTS.md`](../../AGENTS.md) and replaced `<share>`, `"the share's Video/<video>/"`, and bare `Video/` / `input/` paths with `$H3_INPUT_DIR` and `$H3_OUTPUT_DIR/Video` across [`data/AGENTS.md`](../../data/AGENTS.md), [`docs/masked_v2v/AGENTS.md`](../masked_v2v/AGENTS.md), [`contact_sheets/AGENTS.md`](../../contact_sheets/AGENTS.md), and the untracked project `data/*/AGENTS.md` files.
+- **For an exact clothing change on a reference shot, edit guidance; vectors stay in play** (the owner, on playback
+  of the 2026-11-11 diner arms). `MiniMaxH3EditGuider` toward the subject's line rewritten with the new clothing is
+  the only arm that does what the rewritten prompt does, and it looks good. That is not the vector route closed:
+  this is a tinkering repo, and a vector with a shortened window gives usable results some of the time. The
+  owner's example is the 2026-11-07 beach clip (`Video/cv_e2e_verify/03_ref2va_beach_override` on the output share,
+  workflow in its PNG): a whole-scene vector on the same woman and diner, picture held, prompt naming no clothing,
+  which moved the scene to a beach and her into beach clothing (and drew two of her). So what the 2026-11-11 arms
+  show is narrower than "a vector cannot dress her": a vector aimed at her line alone did it only from the exact
+  sentence, and one general wardrobe vector did not. Where a strong vector is used, shorten its window
+  (`end_percent` 0.5 on six steps): on playback that was the only single change that kept the red off her face.
+  The arms are in [`control_vectors/comfyui_nodes_and_controls.md`](control_vectors/comfyui_nodes_and_controls.md).
 - **One pair build, called by the node and the CLI** (the 2026-11-11 studio assessment found three copies; the
   Gemini reviewer asked that the fold stay in process, so the CLI still runs with the server down).
   `control_vectors.py::pool_pair_set` pools each side's rows, takes the mean difference and projects out the pair

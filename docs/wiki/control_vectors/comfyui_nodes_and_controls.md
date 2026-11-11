@@ -108,10 +108,15 @@ each input is for:
     - **Changing her line in words changed her and nothing else**: the prompt with that sentence rewritten, alone
       and under `MiniMaxH3EditGuider`, gave the named clothing with her face, hair and the diner kept. The owner's
       reading on playback (2026-11-11): edit guidance is the only arm that does what the rewritten prompt does, and
-      it looks good. For a clothing change on a reference shot, that is the route.
-    - What this shows, and what it does not. With a reference picture her clothing comes from the picture unless
-      the prompt names it, and the one vector that changed it was the exact difference of a sentence the prompt
-      contained. That is not a rule that a vector must be built in the field it is aimed at (the next item
+      it looks good. For an exact clothing change on a reference shot, that is the route; a vector with a
+      shortened window is still worth playing with.
+    - What this shows, and what it does not. On her line alone, with a reference picture, her clothing stayed the
+      picture's unless the prompt named it, and the one vector that changed it was the exact difference of a
+      sentence the prompt contained. It does not show that a vector cannot dress a subject: the 2026-11-07 clip
+      `Video/cv_e2e_verify/03_ref2va_beach_override` (workflow in its PNG) has a whole-scene vector, picture held and
+      no clothing in the prompt, moving this same shot to a beach with her in beach clothing, and two of her. That
+      vector's file and pair text were not kept. Nor is it a rule that a vector must be built in the field it is
+      aimed at (the next item
       measures the opposite: the field barely changes the direction), and an earlier wording of this note that said
       so was wrong; the Gemini reviewer caught it. A film look did not dress her because it is a film look, not
       because of the field its pairs were written in. The clips, stacked comparisons, frame sheets, graphs and the
