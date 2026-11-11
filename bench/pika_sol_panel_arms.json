@@ -1,0 +1,30 @@
+{
+ "what": "Pika 6-step Sol panel, Pass 1 (2026-11-11), on workflows/h3_text_to_video_pika_api.json (PIKA_FL2VA_SVD995_LORA via MiniMaxH3LoRABranch, 6 steps on lcm with PIKA_MANUAL_SIGMAS, shift_video=12.0, comfy-kitchen 0.2.41+sol.b63d8c7.up.7d6a22a). One prompt-bank scene (t2va_covered_market, 1344x768, 345 frames — patched from the graph's 362 ceiling to match the bank entry's scripted 14.375s duration), one seed (730451892), five arms holding sink_conditioning=exact_kv_and_all_rows, quantizer=rotated, tau=1.0, and token_routing=off fixed: dense (dense_blocks=0-49: all 300 block-calls on comfy-kitchen INT8 dense attention via ModelAttentionBackend, not exact BF16/FP32 SDPA), shipped (start_percent=0.2 -> Step 0 dense, dense_blocks=38-42,49: 80 dense / 220 sparse), s0_b49 (start_percent=0.2 -> Step 0 dense, dense_blocks=49: 55 dense / 245 sparse), s01_b49 (start_percent=0.28 -> Steps 0-1 dense, dense_blocks=49: 104 dense / 196 sparse), and s012_b49 (start_percent=0.55 -> Steps 0-2 dense, dense_blocks=49: 153 dense / 147 sparse).",
+ "why": "The shipped Sol defaults (start_percent=0.2, dense_blocks=38-42,49) were adopted on PDD8 + FlashGen per-block probes where blocks 38-42 spiked under PDD8/FlashGen distillation, and 2026-10-02_sol_dense_blocks_panel.md showed dense_blocks did not fix broken scripted motion on market. On Pika's 6-step schedule (sigmas 1.0, 0.972973, 0.923077, 0.8, 0.571429, 0.333333 at shift 12), start_percent=0.2 (sigma_start=0.979592) runs only Step 0 dense and switches Steps 1-5 to sparse while coarse motion is still forming. Pass 1 tests whether blocks 38-42 buy anything on Pika (shipped vs s0_b49) and whether shifting the dense budget from mid-stack blocks on late steps to whole early steps (s01_b49 at sigma_start=0.968610, s012_b49 at sigma_start=0.907563) preserves scripted crate/coin motion and two-speaker dialogue against the all-dense INT8 reference.",
+ "arms": {
+  "pika_market__dense": "workflows/h3_text_to_video_pika_api.json",
+  "pika_market__shipped": "workflows/h3_text_to_video_pika_api.json",
+  "pika_market__s0_b49": "workflows/h3_text_to_video_pika_api.json",
+  "pika_market__s01_b49": "workflows/h3_text_to_video_pika_api.json",
+  "pika_market__s012_b49": "workflows/h3_text_to_video_pika_api.json"
+ },
+ "patches": [
+  "pika_market__dense:MiniMaxH3Resolution.length=345",
+  "pika_market__dense:MiniMaxH3Sol.dense_blocks=\"0-49\"",
+  "pika_market__shipped:MiniMaxH3Resolution.length=345",
+  "pika_market__s0_b49:MiniMaxH3Resolution.length=345",
+  "pika_market__s0_b49:MiniMaxH3Sol.dense_blocks=\"49\"",
+  "pika_market__s01_b49:MiniMaxH3Resolution.length=345",
+  "pika_market__s01_b49:MiniMaxH3Sol.start_percent=0.28",
+  "pika_market__s01_b49:MiniMaxH3Sol.dense_blocks=\"49\"",
+  "pika_market__s012_b49:MiniMaxH3Resolution.length=345",
+  "pika_market__s012_b49:MiniMaxH3Sol.start_percent=0.55",
+  "pika_market__s012_b49:MiniMaxH3Sol.dense_blocks=\"49\""
+ ],
+ "seeds": {
+  "first": 730451892,
+  "runs": 1,
+  "note": "matches 2026-10-02_sol_dense_blocks_panel.md's first seed; warmup runs pika_market__shipped at seed 730451891 so text encoding and model load stay out of measured rows without hitting ComfyUI's node-output cache"
+ },
+ "run": "run_graph_arms.py --manifest bench/pika_sol_panel_arms.json --runs 1 --seed 730451892 --warmup pika_market__shipped --out data/results/2026-11-11_pika_sol_panel_pass1.jsonl"
+}
