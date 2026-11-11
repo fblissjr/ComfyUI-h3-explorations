@@ -4658,6 +4658,32 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
         or ph3_cv_arm["115"]["inputs"].get("strength") != 1.15
     ):
         errs.append(f"build_ph3_image_api(control_vector=...) did not wire node 115 between 58 and BasicGuider (9): {ph3_cv_arm.get('115')}")
+    if "fields" in ph3_cv_arm["115"]["inputs"]:
+        errs.append("a control_vector spec with no fields wrote a fields input onto node 115")
+
+    # A `fields` selection in a spec: written as the node's multi-select takes it in an API graph
+    # (`{"__value__": [...]}`; a plain list would be read as a link and refused), in prompt order
+    # whatever order it was given in; left off when empty; refused when a field is unknown.
+    cv_spec = dict(vector_name="film_16mm_1974__fl2va__diff_span__lora_2a8c2b52.safetensors", strength=1.15)
+    for given, want in (
+        (["summary", "subject_definitions"], {"__value__": ["subject_definitions", "summary"]}),
+        ("description", {"__value__": ["description"]}),
+        ({"__value__": ["overall_soundscape"]}, {"__value__": ["overall_soundscape"]}),
+        ([], None),
+        (None, None),
+    ):
+        got = bw.build_ph3_image_api("ph3_edit", control_vector=dict(cv_spec, fields=given))["115"]["inputs"].get("fields")
+        if got != want:
+            errs.append(f"control_vector fields={given!r} wrote {got!r} onto node 115, expected {want!r}")
+    arm_fields = bw.build_control_vector_arm("t2v", vector_name="film_16mm_1974__fl2va.safetensors", strength=1.0, fields=["description"])
+    if arm_fields["115"]["inputs"].get("fields") != {"__value__": ["description"]} or arm_fields["115"]["inputs"].get("mask") != "scene_only":
+        errs.append(f"build_control_vector_arm(fields=...) did not write the selection beside the mask: {arm_fields['115']['inputs']}")
+    try:
+        bw.build_ph3_image_api("ph3_edit", control_vector=dict(cv_spec, fields=["wardrobe"]))
+        errs.append("control_vector fields with an unknown field was not refused")
+    except SystemExit as exc:
+        if "unknown prompt field" not in str(exc):
+            errs.append(f"control_vector fields with an unknown field was refused for another reason: {exc}")
 
     gate_arms = bw.build_control_vector_gate_arms(
         "t2v",

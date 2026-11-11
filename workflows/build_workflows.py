@@ -1145,6 +1145,30 @@ def _plain_model_chain(g, *, sage, sol, shift, head_chunks, dense_backend=None):
     return src
 
 
+def _control_vector_fields_input(fields: Any) -> dict[str, list[str]] | None:
+    """A `fields` selection as `MiniMaxH3ApplyControlVectors` takes it in an API graph, or None when
+    nothing is selected (the input is then left off and `mask` applies).
+
+    The node's `fields` is a multi-select. In an API-format graph a multi-select's value is written
+    `{"__value__": [...]}`: a plain two-item list is read as a link to another node and the prompt is
+    refused. The fields are written in prompt order (`h3_spans.PROMPT_FIELDS`), which is the order the
+    node itself names a selection in, so two graphs with the same fields ticked are the same graph."""
+    if fields is None or fields == "" or fields == []:
+        return None
+    if isinstance(fields, dict) and set(fields) == {"__value__"}:
+        fields = fields["__value__"]
+    chosen = [fields] if isinstance(fields, str) else list(fields)
+    if not chosen:
+        return None
+    import h3_spans  # here, not at the top: it loads torch, which no other part of the builder needs
+
+    try:
+        named = h3_spans.fields_mask(chosen)
+    except ValueError as exc:
+        raise SystemExit(f"control_vector fields: {exc}") from exc
+    return {"__value__": named.split(h3_spans.FIELDS_JOIN)}
+
+
 def _normalize_control_vector_specs(control_vector: Any) -> list[dict[str, Any]]:
     """Normalize a `control_vector` spec (tuple, dict, or sequence) into node input dicts."""
     def _one_cv_inputs(spec: Any) -> dict[str, Any]:
@@ -1159,16 +1183,21 @@ def _normalize_control_vector_specs(control_vector: Any) -> list[dict[str, Any]]
                 strength=float(spec[1]),
             )
         if isinstance(spec, dict):
+            # `fields` is the node's multi-select of prompt fields; ticked, it takes the place of `mask`.
             allowed_cv_keys = set(CONTROL_VECTOR_DEFAULTS) | set(
                 CONTROL_VECTOR_OPTIONAL_DEFAULTS
-            )
+            ) | {"fields"}
             unknown = sorted(set(spec) - allowed_cv_keys)
             if unknown:
                 raise SystemExit(
                     f"control_vector dict has unknown keys {unknown}; "
                     f"expected a subset of {sorted(allowed_cv_keys)}"
                 )
-            return dict(CONTROL_VECTOR_DEFAULTS, **spec)
+            inputs = dict(CONTROL_VECTOR_DEFAULTS, **{k: v for k, v in spec.items() if k != "fields"})
+            fields_input = _control_vector_fields_input(spec.get("fields"))
+            if fields_input is not None:
+                inputs["fields"] = fields_input
+            return inputs
         raise SystemExit(
             f"control_vector spec must be a (vector_name, strength) tuple or dict, got {spec!r}"
         )
@@ -2816,7 +2845,7 @@ def build_control_vector_arm(
         "end_percent": float(end_percent),
         "allow_recipe_mismatch": bool(allow_recipe_mismatch),
     }
-    for opt_k in CONTROL_VECTOR_OPTIONAL_DEFAULTS:
+    for opt_k in (*CONTROL_VECTOR_OPTIONAL_DEFAULTS, "fields"):
         if opt_k in extra:
             cv_cfg[opt_k] = extra.pop(opt_k)
     sol_cfg = extra.pop("sol", sol_for_graph(extra.get("steps", SAMPLING["steps"])))
