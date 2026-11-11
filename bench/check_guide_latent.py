@@ -21,7 +21,7 @@ Claims, i.e. what breaks if a case is deleted:
                          with `single_frame=True`, missing `vae`/`audio_vae`, and
                          non-AV latents all raise `ValueError` naming the node
   shipped guide graphs   `workflows/h3_guide_video_edit_api.json` and
-                         `workflows/image/h3_p_h3_image_guide_edit_api.json`
+                         `workflows/image/h3_probe_pika_image_guide_edit_api.json`
                          wire `MiniMaxH3GuideLatent` -> `MiniMaxH3Preflight` and
                          chain two `MiniMaxH3LoRABranch` adapters on `unet_ref2va`
 
@@ -271,13 +271,13 @@ def check_refusals() -> None:
 
 def check_shipped_guide_graphs() -> None:
     vid_path = REPO / "workflows" / "h3_guide_video_edit_api.json"
-    img_path = REPO / "workflows" / "image" / "h3_p_h3_image_guide_edit_api.json"
+    img_path = REPO / "workflows" / "image" / "h3_probe_pika_image_guide_edit_api.json"
     assert vid_path.is_file(), f"missing {vid_path}"
     assert img_path.is_file(), f"missing {img_path}"
 
     for path, want_sf, want_distill_lora in (
         (vid_path, False, cfg.PIKA_REF2VA_SVD995_LORA),
-        (img_path, True, cfg.PH3_IMAGE_LORA),
+        (img_path, True, cfg.PIKA_REF2VA_SVD995_LORA),
     ):
         doc = json.loads(path.read_text(encoding="utf-8"))
         assert doc["1"]["inputs"]["unet_name"] == cfg.MODELS["unet_ref2va"], (

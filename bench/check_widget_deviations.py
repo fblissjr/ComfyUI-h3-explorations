@@ -386,10 +386,11 @@ DECLARED: dict[tuple[str, str], tuple] = {
                      "every video graph; bench/check_distill_settings.py grades both "
                      "populations"),
     ("MiniMaxH3GuideLatent", "single_frame"):
-        ("ARM", "True on h3_p_h3_image_guide_edit, where MiniMaxH3GuideLatent collapses "
-                "the AV latent to 1 frame (t=1) and anchors guide[:1] at frame 0 for "
-                "single-frame P-H3-Image guide-latent editing, against the node default "
-                "False on video guide-latent graphs (h3_guide_video_edit)"),
+        ("ARM", "True on the h3_probe_pika_image_guide_edit graphs, where MiniMaxH3GuideLatent "
+                "collapses the AV latent to 1 frame (t=1) and anchors guide[:1] at frame 0 for "
+                "a one-frame guide-latent edit, against the node default False on video "
+                "guide-latent graphs (h3_guide_video_edit). Until 2026-11-10 the row named "
+                "h3_p_h3_image_guide_edit, retired that day."),
     ("MiniMaxH3Conditioning", "single_frame"):
         ("ARM", "True on h3_pika_image_t2i, a text-to-image still on the fl2va checkpoint: "
                 "the node hands the sampler a one-frame latent (2026-11-10). False, the "

@@ -17,6 +17,13 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-11-10
 
+- **`h3_p_h3_image_guide_edit_api.json` is retired** (owner decision). The one-frame guide edit on the `P-H3-Image`
+  LoRA with a reference picture never made the asked edit in the day's renders, with the reference at the generator's
+  default size, sized to the output, or cut out on a plain backdrop, and its prompt was a video scene with no
+  `vfx_edit:` opening ([`../h3_image_editing.md`](../h3_image_editing.md), "A one-frame edit on Pika"). Its row is gone
+  from `workflows/build_workflows.py`, and `bench/check_guide_latent.py` holds the one-frame case to
+  `h3_probe_pika_image_guide_edit_api.json`. A picture edited from one or more pictures is
+  `h3_p_h3_image_edit_api.json` on `P-H3-Image` and `h3_pika_image_edit_api.json` on Pika.
 - **The shared-tree git rule is back in [`AGENTS.md`](../../AGENTS.md)** (owner decision).
   - **What led to it:** the file was emptied that morning as a trial (`a3996113`). With no rule on file, main was
     pushed to both remotes from a session, and a pushed commit was then amended and pushed again by force

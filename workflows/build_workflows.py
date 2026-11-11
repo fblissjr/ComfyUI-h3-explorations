@@ -5083,17 +5083,6 @@ def main():
               manual_sigmas=PIKA_MANUAL_SIGMAS,
               out_prefix="Video/h3_guide_video_edit"),
          "reference image + guide video + text -> edited video + audio on Pika H3 Flex 6-step LCM (SVD995 branch) + guide-latent task LoRA via MiniMaxH3GuideLatent"),
-        ("h3_p_h3_image_guide_edit.json", "p-h3-image-guide-edit", "r2v",
-         _ref_prompt(images=("character",), scene="kitchen"),
-         dict(ref_images=SCENE_REF_IMAGES["kitchen"], ref_image_count=1,
-              single_frame=True, guide_image=True,
-              lora=(PH3_IMAGE_LORA, PH3_IMAGE_STRENGTH), lora_branch=True,
-              task_lora=(GUIDE_VFX_EDIT_FFP_LORA, 1.0),
-              shift=dict(shift_video=PH3_IMAGE_SHIFT[0], shift_audio=PH3_IMAGE_SHIFT[1]),
-              steps=PH3_IMAGE_STEPS, sampler_name=PH3_IMAGE_SAMPLER,
-              manual_sigmas=PH3_IMAGE_MANUAL_SIGMAS,
-              out_prefix="Image/h3_p_h3_image_guide_edit"),
-         "reference image + guide image + text -> single-frame edited image on unet_ref2va + p-h3-image_lora_bf16 + guide-latent task LoRA via MiniMaxH3GuideLatent(single_frame=True)"),
         # Plain H3 prompting at one frame on Pika (owner, 2026-11-10): a Pika
         # still is prompted as the video is, with no guide node and no
         # third-party LoRA. The one frame is the conditioning node's own
