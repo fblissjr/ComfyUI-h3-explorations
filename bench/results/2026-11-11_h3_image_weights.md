@@ -156,3 +156,10 @@ on disk (`edit_graphs_with_fp32_reference_encode` in the renders JSON):
   references, which is where a quantized model would be expected to show it
   first. The probe graphs in `workflows/image/` are there to ask.
 - Which arm the owner prefers.
+
+## Afterwards, the same day
+
+The bf16 file and the four probe graphs that loaded it were removed at the
+owner's word once the above was recorded. The release it was written from is
+untouched, `bench/convert_h3_image_dit.py` writes the file again, and the
+renders named in the JSON stay in the output folder.

@@ -165,7 +165,7 @@ with none is a helper the others import.
 | `vendor/` | 11 | [below](#vendor) |
 | `vendor_config/` | 10 | [below](#vendor_config) |
 | `vendor_guides/` | 21 | [below](#vendor_guides) |
-| `workflows/` | 116 | [`workflows/INDEX.md`](workflows/INDEX.md) |
+| `workflows/` | 112 | [`workflows/INDEX.md`](workflows/INDEX.md) |
 
 ## .claude/
 

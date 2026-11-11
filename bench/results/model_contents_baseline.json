@@ -166,29 +166,6 @@
         "video_patch_proj": 1
       }
     },
-    "h3_image_unet_bf16": {
-      "mechanism": null,
-      "tensors": 531,
-      "quantized_layers": 0,
-      "configs": {},
-      "unquantized_2d_weights": {
-        "blocks.N.adaln_proj.linear": 50,
-        "blocks.N.attn.out_proj": 50,
-        "blocks.N.attn.qkv_proj": 50,
-        "blocks.N.mlp.fc1": 50,
-        "blocks.N.mlp.fc2": 50,
-        "condition_proj": 1,
-        "final_layer.adaln_proj.linear": 1,
-        "final_layer.video_out": 1,
-        "time_embedder.proj_in": 1,
-        "time_embedder.proj_out": 1,
-        "token_refiner.blocks.N.attn.out_proj": 2,
-        "token_refiner.blocks.N.attn.qkv_proj": 2,
-        "token_refiner.blocks.N.mlp.fc1": 2,
-        "token_refiner.blocks.N.mlp.fc2": 2,
-        "video_patch_proj": 1
-      }
-    },
     "h3_image_vae": {
       "mechanism": null,
       "tensors": 416,
@@ -209,8 +186,8 @@
   },
   "producer": {
     "file": "check_model_contents.py",
-    "sha256": "0b721463bdbd8f613e9f7cdfc4f3405dfadb150ec9919a17a61275c17cb55faf",
-    "repository_commit": "5e9e2db772ae8eb5671089dacbdff82c6810175e",
+    "sha256": "9cacfc10b002ea5c1d8db47819fc8a289bec8ae01b30f9ed80b58a922dcd33c1",
+    "repository_commit": "dd262ffbd3ee46d09bd42b085de455d3fd9d34b5",
     "dirty_against_commit": true
   }
 }

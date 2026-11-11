@@ -5335,29 +5335,11 @@ def main():
         ("h3_image_edit.json", "h3-image-edit", "h3img_edit", H3_IMAGE_EDIT_PROMPT,
          dict(single_frame=True, out_prefix="Image/h3_image_edit"),
          "picture + text -> 16 MP edited image at the picture's shape on MiniMax-H3-Image (the picture as <Picture 1>, read at its own size)"),
-        # The arms that say what the int8 file costs, one change at a time, on
-        # the release written whole in bf16 (`bench/convert_h3_image_dit.py`):
-        # the default graph against `_bf16_int8_attention` is the int8 linears
-        # alone; that against `_bf16` is INT8 attention alone. An edit is the
-        # case to compare by numbers: the vendor's own servers report a
-        # text-to-image picture moving at a fixed seed with any small change,
-        # and an edit holding (`docs/h3_image.md`).
-        ("h3_probe_h3_image_t2i_bf16_int8_attention.json", "h3-image-t2i-bf16-int8-attention", "h3img_t2i",
-         H3_IMAGE_T2I_PROMPT,
-         dict(single_frame=True, unet=H3_IMAGE_UNET_BF16, out_prefix="Image/h3_probe_h3_image_t2i_bf16_int8_attention"),
-         "MiniMax-H3-Image text to image on the bf16 conversion with the default graph's INT8 attention: against the default graph, the int8 linears alone"),
-        ("h3_probe_h3_image_t2i_bf16.json", "h3-image-t2i-bf16", "h3img_t2i",
-         H3_IMAGE_T2I_PROMPT,
-         dict(single_frame=True, unet=H3_IMAGE_UNET_BF16, attention=None, out_prefix="Image/h3_probe_h3_image_t2i_bf16"),
-         "MiniMax-H3-Image text to image on the release written whole in bf16 with core's exact attention (no attention node): nothing quantized or pruned, the reference"),
-        ("h3_probe_h3_image_edit_bf16_int8_attention.json", "h3-image-edit-bf16-int8-attention", "h3img_edit",
-         H3_IMAGE_EDIT_PROMPT,
-         dict(single_frame=True, unet=H3_IMAGE_UNET_BF16, out_prefix="Image/h3_probe_h3_image_edit_bf16_int8_attention"),
-         "MiniMax-H3-Image edit on the bf16 conversion with the default graph's INT8 attention: against the default edit graph, the int8 linears alone"),
-        ("h3_probe_h3_image_edit_bf16.json", "h3-image-edit-bf16", "h3img_edit",
-         H3_IMAGE_EDIT_PROMPT,
-         dict(single_frame=True, unet=H3_IMAGE_UNET_BF16, attention=None, out_prefix="Image/h3_probe_h3_image_edit_bf16"),
-         "MiniMax-H3-Image edit on the release written whole in bf16 with core's exact attention (no attention node): the reference"),
+        # The bf16 arms (the release written whole by `bench/convert_h3_image_dit.py`, with INT8
+        # attention and with core's exact attention, for both cases) were rendered on 2026-11-11
+        # and their four probe graphs removed the same day with the file, at the owner's word:
+        # `bench/results/2026-11-11_h3_image_weights.md` has what they showed. To ask again, write
+        # the file and build `build_h3_image_api(task, unet=H3_IMAGE_UNET_BF16, attention=None)`.
     )
 
     # The 2026-09-26 distill run (owner): `_savelat` probe twins of exactly the

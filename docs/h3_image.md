@@ -58,12 +58,12 @@ actually started from is not something the weights can say.
 | file | what it is | made by |
 |---|---|---|
 | `H3_IMAGE_UNET` | the DiT, int8 linears, pruned AdaLN; the graphs' default | Comfy-Org |
-| `H3_IMAGE_UNET_BF16` | the DiT as released, nothing quantized or pruned | `bench/convert_h3_image_dit.py`, from the release |
+| `H3_IMAGE_UNET_BF16` | the DiT as released, nothing quantized or pruned. Not kept on disk: written, rendered and removed on 2026-11-11 | `bench/convert_h3_image_dit.py` writes it again from the release |
 | `H3_IMAGE_VAE` | the VAE in fp16 | Comfy-Org, a plain cast of the release's |
 | `H3_IMAGE_VAE_FP32` | the VAE as released | the release |
 
-The names are constants in `workflows/h3_config.py`. The two release-derived
-files are links from ComfyUI's model folders into the model store.
+The names are constants in `workflows/h3_config.py`. The files on disk are
+links from ComfyUI's model folders into the model store.
 
 ## Is Comfy-Org's int8 file a faithful copy? Yes
 
@@ -84,8 +84,8 @@ The same record holds the evidence:
   file. That is the pack's own dense kernel (`h3_config.DENSE_BACKEND_NODE`),
   and the default graphs name it. The owner approved the file's request on
   2026-11-11 (`bench/results/model_contents_baseline.json`), and
-  `bench/check_model_contents.py` now fingerprints this file, the bf16
-  conversion and the VAE, so a file replaced under the same name shows.
+  `bench/check_model_contents.py` now fingerprints this file and the VAE, so
+  a file replaced under the same name shows.
 
 So there was nothing to gain from redoing the same conversion. What we did
 write is the opposite end: the release whole in bf16, as the reference the int8
@@ -95,8 +95,8 @@ fine detail, and a session reading crops at full size found no defect in one
 arm that the others lack. That does not rank them, and for text to image a
 pixel comparison cannot: MiniMax's own servers report a text-to-image picture
 moving at a fixed seed with any small numerical change, while an edit holds
-("What the vendor's servers do" below). The bf16 probe graphs exist so the
-question can be asked on an edit, by eye and by numbers.
+("What the vendor's servers do" below). On the edit the arms were compared by
+numbers too, and the record has them.
 
 ## The workflows
 
@@ -107,8 +107,12 @@ In [`workflows/image/`](../workflows/image/), written by
 |---|---|
 | `h3_image_t2i_api.json` | text to image |
 | `h3_image_edit_api.json` | an edit of a picture, at the picture's shape |
-| `h3_probe_h3_image_t2i_bf16_int8_attention_api.json`, `h3_probe_h3_image_edit_bf16_int8_attention_api.json` | the same two cases on the bf16 file with the same INT8 attention: against the default graph, the int8 linears alone |
-| `h3_probe_h3_image_t2i_bf16_api.json`, `h3_probe_h3_image_edit_bf16_api.json` | the same two cases on the bf16 file with core's exact attention: nothing approximated, the reference |
+
+Four probe graphs rendered the same two cases on the bf16 file, with the same
+INT8 attention and with core's exact attention, so the int8 linears and INT8
+attention could each be judged alone. They and the bf16 file were removed on
+2026-11-11 at the owner's word once the comparison was recorded; the builder
+still takes `unet=H3_IMAGE_UNET_BF16` and `attention=None` to make them again.
 
 The chain follows the vendor's diffusers pipeline
 (`coderef/diffusers/src/diffusers/modular_pipelines/minimax_h3_image/`) on
@@ -136,7 +140,7 @@ Comfy-Org's shipped templates in three places:
 
 Attention is the same as the templates': comfy-kitchen's INT8 attention, named
 in the graph. The vendor's pipeline computes exact attention, which is what
-the two `_bf16` probes run.
+the bf16 reference arm ran.
 
 The two default graphs carry the release's own worked cases at the release's
 seeds. Rendered here on 2026-11-11, each gives the composition of the
@@ -144,8 +148,9 @@ corresponding "local" picture on the model card, as a session read the stills:
 the farm table, and the two podcast hosts with the headphones gone and fists
 touching over the sign.
 
-All six graphs were run as they are on disk on 2026-11-11, after the server was
-restarted to load `MiniMax H3 Image Size`.
+Both graphs, and the four bf16 probes while they existed, were run as they
+were on disk on 2026-11-11, after the server was restarted to load
+`MiniMax H3 Image Size`.
 
 ## What the vendor's servers do
 

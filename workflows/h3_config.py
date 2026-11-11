@@ -1683,9 +1683,10 @@ PH3_IMAGE_EDIT_MAX_NEW_TOKENS = 1536
 #:   (`bench/measure_h3_image_weights.py`): its int8 codes are what
 #:   comfy-kitchen's own quantizer gives from the release's weights, and every
 #:   tensor it does not quantize is the release's bytes, the AdaLN table aside.
-#: - `H3_IMAGE_UNET_BF16` is the release written whole by
-#:   `bench/convert_h3_image_dit.py`: nothing quantized, nothing pruned. It is
-#:   the reference arm, three times the int8 file's size.
+#: - `H3_IMAGE_UNET_BF16` is the name of the release written whole by
+#:   `bench/convert_h3_image_dit.py`: nothing quantized, nothing pruned, the
+#:   reference arm. The file was written, rendered and removed on 2026-11-11
+#:   (owner); no graph loads it, and the tool writes it again from the release.
 #: - `H3_IMAGE_VAE` is Comfy-Org's fp16 copy of the release's fp32 VAE, a plain
 #:   cast (same record); `H3_IMAGE_VAE_FP32` is the release's own file.
 #: - The text encoder is H3's, unchanged (`MODELS["clip"]`).
