@@ -77,19 +77,35 @@ each input is for:
     look. Those are narrower than a field.
   - Held by `bench/check_control_vectors.py` (C2): each mask stays inside its own section, no two share a row,
     together they are the three levers, and a selection is the union of its fields.
-  - **Rendered once, 2026-11-11, one seed and one picture, so a first look.** A reference prompt as a one-frame Pika
-    still (the picture held on every step), `film_16mm_1974` and `claymation_stopmotion`, the mask varied and nothing
-    else. Under `subject_definitions`, `summary`, `retention_analysis` and `look_only` the room came out as a
-    different draw and the subject did not change, at the shipped strength and well above it. Under
-    `description_only` at the higher strength her clothing and the room took the vector's look, and `scene_only`
-    went further. So on this shot the vector's effect on the subject came through the description rows, not the
-    subject's own fields, which agrees with the 2026-11-10 note below. The multi-select was not rendered. The
-    renders, three sheets and the graphs are on the output share under `Image/field_mask_trial`.
+  - **In a graph sent through the API, a ticked `fields` value is written `{"__value__": ["description"]}`.** A plain
+    list there is read as a link to another node and refused (ComfyUI `execution.py`). The page wraps it itself.
+  - **Rendered 2026-11-11, one seed and one picture, read from stills and from three frames a clip, so a first
+    look and not a ranking.** A one-frame Pika reference still, then the 2026-11-09 diner reference shot as video
+    (`Video/edit_guidance/diner16_*`), every arm rendered that day.
+    - **A look vector built from description wording did not change the subject on any field.**
+      `film_16mm_1974` (and `claymation_stopmotion` on the still) under `subject_definitions`, `summary`,
+      `retention_analysis`, `look_only` or the multi-select of her fields: the room came out as a different draw and
+      she did not change, at the shipped strength and well above it. Under the description alone, or the whole
+      prompt, the room took the vector's look at the higher strength; on the still her clothing changed too, on the
+      video it did not. The description alone gave about what the whole prompt gave.
+    - **A vector built from her own line, aimed at her own field, changed her and left the room.** Built in place
+      on the shot's prompt with her picture in the sequence, from one change in the sentence of
+      `subject_definitions` that says what she wears. On `subject_definitions` alone at the higher strength her
+      clothing changed (not to the colour the words named, and with a red tint at her eyes) and the diner stayed a
+      diner of the same kind; at the shipped strength nothing changed. The same vector on the description alone
+      left her as she was. On the whole prompt it changed her, the room and the other patrons.
+    - **Changing her line in words changed her and nothing else**: the prompt with that sentence rewritten, alone
+      and under `MiniMaxH3EditGuider`, gave the named clothing with her face, hair and the diner kept.
+    - So where a vector is applied matters, and so does where it was read from: a vector acts on a field when it
+      was built from that field's wording. The clips, three stacked comparisons, frame sheets and the graphs are on
+      the output share under `Video/edit_guidance` (`diner16f_*`, `stacked/`, `diner16f_how_it_was_made/`); the
+      stills are under `Image/field_mask_trial`.
   - **The same wording change gives nearly the same direction whichever field it is made in** (measured 2026-11-11
     on in-place builds of two contrasts, one pair each, the reference family, no picture): close between the subject
     line, the description and a three-field prompt, lower when the change sits in a retention line, and unrelated
-    between the two contrasts. So where a vector is built is not what ties it to a field; the render above says the
-    field it is applied to is what matters. The figures were not kept in a tracked record.
+    between the two contrasts. That is about the direction one wording change gives. It does not make a vector
+    from one kind of change (a film look in the description) do another kind's job (her clothing) when moved to her
+    field, which is what the renders above show. The figures were not kept in a tracked record.
 - `start_percent`, `end_percent`: the part of the run in which the vector is on.
 - `video_scale`, `audio_scale`, `split_end_percent`: separate multipliers for the video and audio streams.
 - `ref_vae_end_percent`, `ref_vae_aug`: for renders carrying 3D Video VAE visual conditioning (`ref2va`
