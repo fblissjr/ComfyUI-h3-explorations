@@ -62,7 +62,8 @@ guide edit LoRA (`workflows/h3_config.py::GUIDE_VFX_EDIT_FFP_LORA`, node `72`) a
 with `vfx_edit:`, that LoRA's trigger. Both are out: the graphs load Pika's LoRA alone
 (`bench/check_guide_latent.py` holds the one-frame graph to that) and the prompt is the same sentence without the
 opening, [`prompt_bank/guide_edit/man_red_jacket.txt`](../prompt_bank/guide_edit/man_red_jacket.txt).
-`h3_guide_video_edit_api.json` was not part of that word and still loads the edit LoRA.
+`h3_guide_video_edit_api.json` lost the edit LoRA the same day, on a second word from the owner; it never had the
+opening, and it has not been rendered without the LoRA.
 
 **The prompt is one plain sentence, not the house sections.** It says the edit first and then what stays, and names
 no `<Picture 1>` because no reference picture is wired. The sentence came from the edit LoRA author's form (the notes
@@ -219,8 +220,8 @@ named edit (the edit LoRA's `end_percent` was the other lever named here until 2
 graphs). Edit guidance on a still:
 `workflows/build_workflows.py::_wire_edit_guidance` and `bench/edit_guidance_arms.py::_with_second_prompt` now carry
 `MiniMaxH3GuideLatent` / `MiniMaxH3AddGuide` (and `MiniMaxH3ReferenceToVideo`) onto the edited prompt's branch, not yet
-graded on renders. `h3_guide_video_edit_api.json` carries a house scene prompt with no `vfx_edit:` opening, still
-loads the edit LoRA, and is left as it was. Whether the one-frame guide edit holds up without the edit LoRA beyond the
+graded on renders. `h3_guide_video_edit_api.json` carries a house scene prompt and a reference picture, and since
+2026-11-11 no edit LoRA: what a guide clip does on Pika with no edit LoRA has not been rendered. Whether the one-frame guide edit holds up without the edit LoRA beyond the
 two pictures above, and on the control vector twin, which was not rendered after the change.
 
 **Retired 2026-11-10, on the owner's word:** `h3_p_h3_image_guide_edit_api.json`, the one-frame guide edit on the

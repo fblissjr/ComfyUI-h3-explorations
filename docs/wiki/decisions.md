@@ -23,7 +23,7 @@ Older history lives elsewhere and is not copied here:
   the prompt is the same sentence without the opening (`prompt_bank/guide_edit/man_red_jacket.txt`, renamed from
   `vfx_edit_man_red_jacket.txt`). Two of the 2026-11-10 arms rendered again without them, same pictures and seed:
   the asked edit landed on both ([`../h3_image_editing.md`](../h3_image_editing.md), "A one-frame edit on Pika").
-  `h3_guide_video_edit_api.json` was not part of the decision and still loads the edit LoRA.
+  `h3_guide_video_edit_api.json` lost the edit LoRA the same day on a second word; it has not been rendered without it.
 
 ## 2026-11-10
 

@@ -116,7 +116,7 @@ from h3_config import (  # noqa: E402
     PH3_IMAGE_STEPS, PH3_IMAGE_SAMPLER, PH3_IMAGE_SHIFT, PH3_IMAGE_MANUAL_SIGMAS,
     PH3_IMAGE_CANVAS_8MP,
     PH3_IMAGE_T2I_MAX_NEW_TOKENS, PH3_IMAGE_EDIT_MAX_NEW_TOKENS,
-    GUIDE_LATENT_NODE, GUIDE_VFX_EDIT_FFP_LORA, GUIDE_CHARACTER_SWAP_LORA, GUIDE_TASK_LORAS,
+    GUIDE_LATENT_NODE, GUIDE_CHARACTER_SWAP_LORA, GUIDE_TASK_LORAS,
     CONTROL_VECTOR_NODE, CONTROL_VECTOR_DEFAULTS, CONTROL_VECTOR_OPTIONAL_DEFAULTS, LAYER_NORM_MATCH_NODE,
     EDIT_GUIDANCE_DEFAULTS,
     refine_scheduler_ids,
@@ -1390,8 +1390,9 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
               # `guide_file` names the picture node 16 loads in place of the
               # placeholder. With `native_ref=True` a guide graph may wire no
               # reference at all: the guide is then the only picture
-              # (`PIKA_STILL_EDIT_PROMPT`). `task_lora` is optional: the two
-              # one-frame guide edits load none (owner, 2026-11-11).
+              # (`PIKA_STILL_EDIT_PROMPT`). `task_lora` is optional, and no
+              # shipped row passes one: the owner took the edit LoRA out of
+              # the guide graphs on 2026-11-11.
               guide_video: bool = False,
               guide_image: bool = False,
               guide_file: str | None = None,
@@ -5079,11 +5080,10 @@ def main():
          dict(ref_images=SCENE_REF_IMAGES["kitchen"], ref_image_count=1,
               guide_video=True,
               lora=(PIKA_REF2VA_SVD995_LORA, PIKA_STRENGTH), lora_branch=True,
-              task_lora=(GUIDE_VFX_EDIT_FFP_LORA, 1.0),
               steps=PIKA_STEPS, sampler_name=PIKA_SAMPLER,
               manual_sigmas=PIKA_MANUAL_SIGMAS,
               out_prefix="Video/h3_guide_video_edit"),
-         "reference image + guide video + text -> edited video + audio on Pika H3 Flex 6-step LCM (SVD995 branch) + guide-latent task LoRA via MiniMaxH3GuideLatent"),
+         "reference image + guide video + text -> edited video + audio on Pika H3 Flex 6-step LCM (SVD995 branch), the clip anchored by MiniMaxH3GuideLatent, no edit LoRA"),
         # Plain H3 prompting at one frame on Pika (owner, 2026-11-10): a Pika
         # still is prompted as the video is, with no guide node and no
         # third-party LoRA. The one frame is the conditioning node's own
