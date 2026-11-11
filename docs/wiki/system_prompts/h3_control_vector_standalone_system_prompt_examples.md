@@ -1,6 +1,6 @@
 # Using the standalone control-vector prompt: examples
 
-Last updated: 2026-11-09.
+Last updated: 2026-11-11.
 
 Examples for [`h3_control_vector_standalone_system_prompt.md`](h3_control_vector_standalone_system_prompt.md):
 what to send it, roughly what comes back, what a good request looks like, and where this approach fits for
@@ -54,14 +54,14 @@ non_diegetic_music: N/A
 
 #### Pair 1
 ##### Prompt A (Baseline)
-integrated_multimodal_description: [Shot 1] Live-action, cinematic, a medium shot frames a narrow bookbinding workshop where two ceiling tubes cast flat white light across the cutting bench and paper stacks. A lone bookbinder in a canvas apron, on-screen, sixties, with a dry, quiet baritone (S1), presses a spine flat with a bone folder and says: <d>[English] Almost square now.</d> He closes his mouth and runs his thumb along the edge. The camera holds a static shot.
+integrated_multimodal_description: [Shot 1] Live-action, cinematic, a medium shot frames a narrow bookbinding workshop where two buzzing ceiling tubes wash the cutting bench in flat white beside the paper stacks. A lone bookbinder in a canvas apron, on-screen, sixties, with a dry, quiet baritone (S1), presses a spine flat with a bone folder and says: <d>[English] Almost square now.</d> He closes his mouth and runs his thumb along the edge. The camera holds a static shot.
 
 overall_soundscape: A bone folder scrapes along board, loose pages shift, and a clock ticks on the far wall.
 
 non_diegetic_music: N/A
 
 ##### Prompt B (Steered)
-integrated_multimodal_description: [Shot 1] Live-action, cinematic, a medium shot frames a narrow bookbinding workshop where three stub candles throw wavering amber light across the cutting bench and paper stacks. A lone bookbinder in a canvas apron, on-screen, sixties, with a dry, quiet baritone (S1), presses a spine flat with a bone folder and says: <d>[English] Almost square now.</d> He closes his mouth and runs his thumb along the edge. The camera holds a static shot.
+integrated_multimodal_description: [Shot 1] Live-action, cinematic, a medium shot frames a narrow bookbinding workshop where three stub candles ring the cutting bench in wavering amber beside the paper stacks. A lone bookbinder in a canvas apron, on-screen, sixties, with a dry, quiet baritone (S1), presses a spine flat with a bone folder and says: <d>[English] Almost square now.</d> He closes his mouth and runs his thumb along the edge. The camera holds a static shot.
 
 overall_soundscape: A bone folder scrapes along board, loose pages shift, and a clock ticks on the far wall.
 
@@ -92,6 +92,12 @@ non_diegetic_music: N/A
 - No candle, flame or wick appears on the plain side.
 - No two pairs share a clause, and the test scene's kitchen, letter and line appear in none of them.
 - The test scene has no candle in it and no sentence insisting the light stays as it is.
+- After the build, read the vector's own word readout (`build` prints it; `inspect` shows it again). If the
+  quality's words do not come back, the pairs did not carry it and a render will not either. On 2026-11-11 the
+  readout told apart the vectors that worked from the ones that did not before any render was looked at.
+- The plain clauses really do differ from pair to pair. On 2026-11-11 eight vectors were built with one plain
+  clause repeated in every pair, and all eight came out carrying that clause's removal as strongly as their own
+  target (`docs/wiki/control_vectors/examples_and_recipes.md`, Recipe 3b).
 
 ## 3. Example: an edit list for a reference prompt
 
@@ -196,15 +202,15 @@ Anything not listed there is untested.
 | Changing the world around the subject: the look, the era, the weather | Good | In the record's ref2va arms the street and the light changed while the person from the picture stayed the same. |
 | Physical effects on things in the scene | Good | The arms with objects lifting and with smoke changed what happened while identity held. |
 | Changing how the subject speaks or moves | Plausible | Delivery changed in the ref2va arms that had speech; fewer arms cover it. |
-| Turning the referenced subject into another material (felt, rubber, clay) | Poor | The reference picture holds the subject's appearance. In the record's arms the scene changed and the subject stayed a photographed person. |
+| Turning the referenced subject into another material (felt, rubber, clay) | Poor with the picture held | The reference picture holds the subject's appearance. In the record's arms the scene changed and the subject stayed a photographed person. Later stills (2026-11-10) changed her too once the picture was released early; see `docs/wiki/control_vectors/comfyui_nodes_and_controls.md`. |
 | Changing the subject's identity, face or hair | Bad | That is what the reference picture is for. Change the picture. |
-| Changing the subject's clothing | Hard | It works against the reference. If you try it, the reference text must not describe the old clothing, and the retention line becomes `partially_preserved`. |
+| Changing the subject's clothing | Mixed; for an exact outfit use edit guidance | From the 2026-11-11 diner arms (one seed each): a whole-scene pair set with one tight target that moves the world dressed the subject to match in four cases of eight; a set of mixed outfits did not; changing the retention line to `partially_preserved` with the clothing named as not retained changed her clothing with no vector at all. An edit list on the subject's own line only works when that line names the old clothing, since the left side must be text that is there. |
 
 ## 7. When not to use this prompt at all
 
 - You have not tried editing the prompt directly. A direct edit is the baseline every other method competes
   with.
 - The quality cannot be seen or heard in a clause: a mood with no visible form, a plot point, a name.
-- You want a strength dial on one shot. The edit list plus the edit-guidance method under test in
-  [`2026-11-09_control_vector_simplification_plan.md`](../../research/control_vectors/2026-11-09_control_vector_simplification_plan.md)
-  (section 11) is the shorter road, if that test goes well.
+- You want a strength dial on one shot, or an exact change to a subject. Edit guidance
+  ([`../edit_guidance.md`](../edit_guidance.md)) is the shorter road: the owner passed it on playback on
+  2026-11-11 for a clothing change on a reference shot.
