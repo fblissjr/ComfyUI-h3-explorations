@@ -1,0 +1,144 @@
+{
+  "1": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "minimax_h3_image_bf16.safetensors",
+      "weight_dtype": "default"
+    }
+  },
+  "2": {
+    "class_type": "MiniMaxH3EncoderLoader",
+    "inputs": {
+      "encoder_name": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+      "device": "default"
+    }
+  },
+  "3": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "minimax_h3_image_vae_fp16.safetensors"
+    }
+  },
+  "4": {
+    "class_type": "MiniMaxH3ImageSize",
+    "inputs": {
+      "megapixels": 16.0,
+      "shape": "same as the picture",
+      "picture": [
+        "15",
+        0
+      ]
+    }
+  },
+  "6": {
+    "class_type": "RandomNoise",
+    "inputs": {
+      "noise_seed": 1234
+    }
+  },
+  "7": {
+    "class_type": "KSamplerSelect",
+    "inputs": {
+      "sampler_name": "euler"
+    }
+  },
+  "9": {
+    "class_type": "BasicGuider",
+    "inputs": {
+      "model": [
+        "1",
+        0
+      ],
+      "conditioning": [
+        "5",
+        0
+      ]
+    }
+  },
+  "10": {
+    "class_type": "SamplerCustomAdvanced",
+    "inputs": {
+      "noise": [
+        "6",
+        0
+      ],
+      "guider": [
+        "9",
+        0
+      ],
+      "sampler": [
+        "7",
+        0
+      ],
+      "sigmas": [
+        "60",
+        0
+      ],
+      "latent_image": [
+        "5",
+        1
+      ]
+    }
+  },
+  "11": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": [
+        "10",
+        0
+      ],
+      "vae": [
+        "3",
+        0
+      ]
+    }
+  },
+  "13": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "images": [
+        "11",
+        0
+      ],
+      "filename_prefix": "Image/h3_probe_h3_image_edit_bf16"
+    }
+  },
+  "60": {
+    "class_type": "ManualSigmas",
+    "inputs": {
+      "sigmas": "1.0, 0.9675236940383911, 0.8875485062599182, 0.75, 0.5327739119529724, 0.23200887441635132, 0.0"
+    }
+  },
+  "15": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "h3_image_reference1.png"
+    }
+  },
+  "5": {
+    "class_type": "MiniMaxH3ImageConditioning",
+    "inputs": {
+      "clip": [
+        "2",
+        0
+      ],
+      "vae": [
+        "3",
+        0
+      ],
+      "prompt": "The man on the left in a dark sweater and wristwatch in <Picture 1> is <Subject 1>. The woman on the right in a beige sweater and hoop earrings in <Picture 1> is <Subject 2>. The pair of black microphones on stands in front of the hosts in <Picture 1> is <Subject 3>. The wooden desk sign with raised lettering reading 'MONEY TALKS' in <Picture 1> is <Subject 4>. The black mug on the left with text reading 'INVEST', 'IN', and 'YOURSELF' on three lines in <Picture 1> is <Subject 5>. The black mug on the right with text reading 'PLAN', 'BUILD', and 'WEALTH' on three lines in <Picture 1> is <Subject 6>. The upper-right overlay text reading 'EP. 47' in <Picture 1> is <Subject 7>. The framed wall poster on the right reading 'COMPOUND', 'CONSISTENCY', and 'CONFIDENCE' on three lines in <Picture 1> is <Subject 8>. The small framed shelf sign in the center background reading 'DISCIPLINE', '>', and 'MOTIVATION' on three lines in <Picture 1> is <Subject 9>. The podcast studio environment, including the wooden desk, shelves, lamps, books, and decor in <Picture 1>, is <Subject 10>. The target image shows <Subject 1> without the over-ear headphones from <Picture 1> and with fuller hair, as <Subject 1> and <Subject 2> lean inward to fist-bump directly above <Subject 4> between <Subject 3>. <Subject 1> is partially preserved; his identity, facial features, expression, dark sweater, and wristwatch remain, while his headphones are removed, his crown hair is filled in, and his posture changes from resting his forearms on the desk to leaning toward <Subject 2> with lifted elbows for a central fist-bump. <Subject 2> is partially preserved; her identity, facial features, expression, hair, earrings, and beige sweater remain, while her posture changes from crossed arms on the desk to leaning toward <Subject 1> with lifted elbows for a central fist-bump. <Subject 3> is fully preserved. <Subject 4> is fully preserved. <Subject 5> is fully preserved. <Subject 6> is fully preserved. <Subject 7> is fully preserved. <Subject 8> is fully preserved. <Subject 9> is fully preserved. <Subject 10> is fully preserved. On <Subject 1>, the headband indentation across the top of his head is gone, replaced by natural, voluminous wavy brown curls that match the texture and warm highlights of his existing hair, leaving his ears and temples completely uncovered where the earcups and cords used to be. Both <Subject 1> and <Subject 2> angle their torsos slightly inward toward the center of the frame. Their elbows are raised clear off the desk surface, bringing their inner forearms up into the space behind <Subject 3> and directly above <Subject 4>. Their hands are clenched into fists with knuckles touching dead center between the two microphones of <Subject 3>, casting soft contact shadows onto each other's knuckles and subtle warm light reflections from the studio lamps across their sleeves and raised arms.",
+      "width": [
+        "4",
+        0
+      ],
+      "height": [
+        "4",
+        1
+      ],
+      "images.image_1": [
+        "15",
+        0
+      ]
+    }
+  }
+}

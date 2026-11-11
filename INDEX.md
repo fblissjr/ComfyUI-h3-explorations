@@ -35,6 +35,7 @@ with none is a helper the others import.
 |---|---|---|
 | [`h3_capture.py`](h3_capture.py) |  | Capture real q/k/v from an H3 render, for kernel-divergence work. |
 | [`h3_encoder_loader.py`](h3_encoder_loader.py) | `MiniMaxH3EncoderLoader` | Core's `CLIPLoader` for a MiniMax H3 encoder, plus the guards it does not have. |
+| [`h3_image_nodes.py`](h3_image_nodes.py) | `MiniMaxH3ImageSize` | MiniMax-H3-Image: pick the size of the picture by megapixels and shape (`MiniMaxH3ImageSize`). |
 | [`h3_layout.py`](h3_layout.py) |  | MiniMax-H3's packed layout, read from what core publishes. |
 | [`h3_pair_compiler.py`](h3_pair_compiler.py) |  | In-place target-prompt contrast compiler for MiniMax H3 control vectors. |
 | [`h3_prompt_edit.py`](h3_prompt_edit.py) |  | Apply `old wording -> new wording` edits to an H3 prompt: plain text code, no model libraries. |
@@ -153,18 +154,18 @@ with none is a helper the others import.
 | `.gemini/` | 8 | [below](#gemini) |
 | `archive/` | 29 | [below](#archive) |
 | `assets/` | 1 | [below](#assets) |
-| `bench/` | 821 | [`bench/INDEX.md`](bench/INDEX.md) and [`bench/results/INDEX.md`](bench/results/INDEX.md) for the records |
+| `bench/` | 827 | [`bench/INDEX.md`](bench/INDEX.md) and [`bench/results/INDEX.md`](bench/results/INDEX.md) for the records |
 | `changelog.d/` | | [`changelog.d/README.md`](changelog.d/README.md), one file per changelog entry; not listed and not counted |
 | `contact_sheets/` | 2 | [below](#contact_sheets) |
 | `data/` | 2 | [below](#data) |
-| `docs/` | 248 | [`docs/wiki/index.md`](docs/wiki/index.md), the hand-written router |
+| `docs/` | 251 | [`docs/wiki/index.md`](docs/wiki/index.md), the hand-written router |
 | `prompt_bank/` | 222 | [`docs/prompt_bank.md`](docs/prompt_bank.md), the prompt catalogue |
 | `sparse_tables/` | 1 | [below](#sparse_tables) |
 | `standalone/` | 6 | [below](#standalone) |
 | `vendor/` | 11 | [below](#vendor) |
 | `vendor_config/` | 10 | [below](#vendor_config) |
-| `vendor_guides/` | 6 | [below](#vendor_guides) |
-| `workflows/` | 110 | [`workflows/INDEX.md`](workflows/INDEX.md) |
+| `vendor_guides/` | 21 | [below](#vendor_guides) |
+| `workflows/` | 116 | [`workflows/INDEX.md`](workflows/INDEX.md) |
 
 ## .claude/
 
@@ -295,5 +296,20 @@ with none is a helper the others import.
 | [`CLAUDE.md`](vendor_guides/CLAUDE.md) | @AGENTS.md |
 | [`README.md`](vendor_guides/README.md) | The vendor's two prompt-writing guides, verbatim |
 | [`base_en.md`](vendor_guides/base_en.md) | Video Prompt Writing Guide (T2VA / I2VA / FL2VA / L2VA) |
+| [`h3_image/LICENSE`](vendor_guides/h3_image/LICENSE) | MiniMax-H3-Image COMMUNITY LICENSE AGREEMENT |
+| [`h3_image/README.md`](vendor_guides/h3_image/README.md) | MiniMax-H3-Image-PE |
+| [`h3_image/examples/instruction.edit.txt`](vendor_guides/h3_image/examples/instruction.edit.txt) | Take the over-ear headphones off the man on the left and fill in his hair where the band flattened it. Have both hosts lean toward each other and fist-bump directly above the "MONEY TALKS" desk sign, knuckles touching, elbows lifted off ... |
+| [`h3_image/examples/instruction.t2i.txt`](vendor_guides/h3_image/examples/instruction.t2i.txt) | A rustic, overhead shot of a farm-to-table feast, showcasing a variety of colorful, seasonal vegetables, artisanal cheeses, and freshly baked bread on a weathered wooden table. |
+| [`h3_image/examples/prompt.edit.txt`](vendor_guides/h3_image/examples/prompt.edit.txt) | The dark, warmly lit podcast studio photograph of two hosts behind a wooden desk in <Picture 1> is <Subject 1>. <Subject 1> is mostly preserved: the large "EP. 47" title in the top right corner, the dark textured wall, the wooden shelves ... |
+| [`h3_image/examples/request.t2i.json`](vendor_guides/h3_image/examples/request.t2i.json) | (JSON, an object; it carries no description) |
+| [`h3_image/examples/revised_prompt.edit.txt`](vendor_guides/h3_image/examples/revised_prompt.edit.txt) | The man on the left in a dark sweater and wristwatch in <Picture 1> is <Subject 1>. The woman on the right in a beige sweater and hoop earrings in <Picture 1> is <Subject 2>. The pair of black microphones on stands in front of the hosts in ... |
+| [`h3_image/examples/revised_prompt.t2i.txt`](vendor_guides/h3_image/examples/revised_prompt.t2i.txt) | The image is an overhead, top-down photograph of a rustic farm-to-table feast spread across a weathered, dark brown wooden table with visible grain, knots, and a worn finish. In the center, a large woven basket holds a freshly baked rustic ... |
+| [`h3_image/examples/revised_size.edit.txt`](vendor_guides/h3_image/examples/revised_size.edit.txt) | 4096x4096 |
+| [`h3_image/examples/revised_size.t2i.txt`](vendor_guides/h3_image/examples/revised_size.t2i.txt) | 4736x3552 |
+| [`h3_image/prompt/edit/task_prompt.txt`](vendor_guides/h3_image/prompt/edit/task_prompt.txt) | You are an expert at enhancing a short image-editing instruction into a rich, vivid, reference-conditioned description of the intended finished target image. |
+| [`h3_image/prompt/manifest.json`](vendor_guides/h3_image/prompt/manifest.json) | (JSON, an object; it carries no description) |
+| [`h3_image/prompt/t2i/request_params.json`](vendor_guides/h3_image/prompt/t2i/request_params.json) | (JSON, an object; it carries no description) |
+| [`h3_image/prompt/t2i/system_prompt.txt`](vendor_guides/h3_image/prompt/t2i/system_prompt.txt) | Reason in the thinking section first. The visible final content must be exactly one JSON object with exactly two keys: expanded_caption and aspect_ratio. Every ASCII double quotation mark used as caption content inside expanded_caption ... |
+| [`h3_image/prompt/t2i/task_prompt.txt`](vendor_guides/h3_image/prompt/t2i/task_prompt.txt) | You are a caption-expansion and canvas-selection model for still-image |
 | [`ref_en.md`](vendor_guides/ref_en.md) | Full-Reference Mode Rewrite Output Format Guide |
 | [`sha256.json`](vendor_guides/sha256.json) | (JSON, an object; it carries no description) |

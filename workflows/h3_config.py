@@ -1674,6 +1674,58 @@ PH3_IMAGE_CANVAS_8MP = dict(width=2912, height=2912)
 PH3_IMAGE_T2I_MAX_NEW_TOKENS = 1024
 PH3_IMAGE_EDIT_MAX_NEW_TOKENS = 1536
 
+#: MiniMax-H3-Image, MiniMax's own still-image model (released 2026-11-11):
+#: text to image and edits of one or more pictures on one checkpoint, six
+#: steps, no guidance. `docs/h3_image.md` is the page; the record of what the
+#: files hold is `bench/results/2026-11-11_h3_image_weights.md`.
+#:
+#: - `H3_IMAGE_UNET` is Comfy-Org's int8 file. **Measured 2026-11-11**
+#:   (`bench/measure_h3_image_weights.py`): its int8 codes are what
+#:   comfy-kitchen's own quantizer gives from the release's weights, and every
+#:   tensor it does not quantize is the release's bytes, the AdaLN table aside.
+#: - `H3_IMAGE_UNET_BF16` is the release written whole by
+#:   `bench/convert_h3_image_dit.py`: nothing quantized, nothing pruned. It is
+#:   the reference arm, three times the int8 file's size.
+#: - `H3_IMAGE_VAE` is Comfy-Org's fp16 copy of the release's fp32 VAE, a plain
+#:   cast (same record); `H3_IMAGE_VAE_FP32` is the release's own file.
+#: - The text encoder is H3's, unchanged (`MODELS["clip"]`).
+#: - `H3_IMAGE_MANUAL_SIGMAS` is **inherited** from the release's
+#:   `pdd_config.json` (the same grid is in both files' metadata). The six
+#:   output heads were distilled one per interval of this grid, so the graphs
+#:   hand it to the sampler as written instead of asking a scheduler for six
+#:   steps: core's `simple` scheduler lands near the grid, not on it.
+#: - `H3_IMAGE_ASPECTS` is **inherited**: the ten ratios the vendor's
+#:   text-to-image prompt may choose
+#:   (`vendor_guides/h3_image/prompt/t2i/request_params.json`).
+#: - `H3_IMAGE_MEGAPIXELS` is **inherited** from the model card: the model
+#:   works from about 4 to 20 megapixels and is best near 16.
+#:   `h3_image_size` is the vendor's rule for turning a ratio into a size
+#:   (`size_for` in the release's `examples/context_ir.py`).
+H3_IMAGE_UNET = "minimax_h3_image_pruned_int8_convrot.safetensors"
+H3_IMAGE_UNET_BF16 = "minimax_h3_image_bf16.safetensors"
+H3_IMAGE_VAE = "minimax_h3_image_vae_fp16.safetensors"
+H3_IMAGE_VAE_FP32 = "minimax_h3_image_vae_fp32.safetensors"
+H3_IMAGE_SAMPLER = "euler"
+H3_IMAGE_MANUAL_SIGMAS = ("1.0, 0.9675236940383911, 0.8875485062599182, 0.75, "
+                          "0.5327739119529724, 0.23200887441635132, 0.0")
+H3_IMAGE_ASPECTS = ("1:1", "5:4", "4:3", "3:2", "16:9", "21:9", "4:5", "3:4", "2:3", "9:16")
+H3_IMAGE_ASPECT_OF_PICTURE = "same as the picture"
+H3_IMAGE_MEGAPIXELS = 16.0
+H3_IMAGE_MEGAPIXELS_RANGE = (4.0, 20.0)
+H3_IMAGE_SIZE_MULTIPLE = 32
+
+
+def h3_image_size(megapixels: float, x: float, y: float) -> tuple[int, int]:
+    """`(width, height)` of about `megapixels` at the ratio `x:y`, both sides a multiple of 32.
+
+    A megapixel is 1024 x 1024 pixels here, as in the vendor's rule, so 16 at
+    1:1 is 4096 x 4096.
+    """
+    area = megapixels * 1024 * 1024
+    m = H3_IMAGE_SIZE_MULTIPLE
+    return (max(m, round((area * x / y) ** 0.5 / m) * m),
+            max(m, round((area * y / x) ** 0.5 / m) * m))
+
 #: Guide-latent conditioning node (`guide_latent.py`) and Ref2VA task/control
 #: LoRAs (`models/loras/h3/alissonerdx/`).
 #:

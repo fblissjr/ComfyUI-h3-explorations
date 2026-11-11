@@ -313,6 +313,15 @@ DECLARED: dict[tuple[str, str], tuple] = {
                   "skipped, which is the only way to see it worked", True),
     # SageChainAssert's five rows went when the node left every generated
     # graph (2026-09-17); a row for a widget no graph carries is stale.
+    ("MiniMaxH3ImageSize", "shape"):
+        ("ARM", "the shape of the picture each MiniMax-H3-Image graph makes, against "
+                "the node default '1:1': 'same as the picture' on the edit graphs, "
+                "where the output takes the shape of the picture being edited "
+                "(`workflows/build_workflows.py::build_h3_image_api`), and '4:3' on "
+                "the text-to-image graphs, the shape the vendor's prompt expander "
+                "chose for the worked case they render "
+                "(`vendor_guides/h3_image/examples/revised_size.t2i.txt`, "
+                "`H3_IMAGE_T2I_SHAPE`). Added 2026-11-11 with the node."),
     ("ModelAttentionBackend", "attention"):
         ("HOUSE", "h3_config.DENSE_BACKEND_NODE: kitchen's int8_attention as the "
                   "dense kernel under Sol, the default chain since 2026-09-15 "

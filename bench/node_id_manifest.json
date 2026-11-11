@@ -368,6 +368,18 @@
       "latent"
     ]
   },
+  "MiniMaxH3ImageSize": {
+    "inputs": [
+      "megapixels",
+      "shape",
+      "picture"
+    ],
+    "node_id": "MiniMaxH3ImageSize",
+    "outputs": [
+      "width",
+      "height"
+    ]
+  },
   "MiniMaxH3LayerNormMatch": {
     "inputs": [
       "conditioning",

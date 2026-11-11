@@ -418,6 +418,7 @@ NOT_CARRIERS = {
     "MiniMaxH3FillPromptLists": "outputs the filled text; the carrier it feeds is the one graded",
     "MiniMaxH3PH3ImagePromptUpsampler": "outputs the P-H3-Image prompt; the MiniMaxH3PH3ImageConditioning carrier it feeds is graded by ph3_image_prompts_conform",
     "MiniMaxH3PH3ImageConditioning": "single-frame P-H3-Image carrier (pure visual prose or <Picture i> edit instructions, graded by ph3_image_prompts_conform rather than the video section guides)",
+    "MiniMaxH3ImageConditioning": "MiniMax-H3-Image carrier: one finished description in the form the vendor's own prompt expander writes (vendor_guides/h3_image/), not the video section guides; the shipped graphs carry the release's two worked examples, read from the vendored files",
     "PH3ImageConditioning": "single-frame P-H3-Image carrier (pure visual prose or <Picture i> edit instructions, graded by ph3_image_prompts_conform rather than the video section guides)",
 }
 

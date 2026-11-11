@@ -82,6 +82,7 @@ _OUR_NODES = {
     "MiniMaxH3AudioFreezeSong", "MiniMaxH3PromptList",
     "MiniMaxH3PH3ImagePromptUpsampler", "MiniMaxH3PH3ImageConditioning",
     "MiniMaxH3GuideLatent",
+    "MiniMaxH3ImageSize",
 }
 
 # Model names, sampler settings, canvas geometry and the SolAttn knobs all
@@ -116,6 +117,8 @@ from h3_config import (  # noqa: E402
     PH3_IMAGE_STEPS, PH3_IMAGE_SAMPLER, PH3_IMAGE_SHIFT, PH3_IMAGE_MANUAL_SIGMAS,
     PH3_IMAGE_CANVAS_8MP,
     PH3_IMAGE_T2I_MAX_NEW_TOKENS, PH3_IMAGE_EDIT_MAX_NEW_TOKENS,
+    H3_IMAGE_UNET, H3_IMAGE_UNET_BF16, H3_IMAGE_VAE, H3_IMAGE_SAMPLER, H3_IMAGE_MANUAL_SIGMAS,
+    H3_IMAGE_MEGAPIXELS, H3_IMAGE_ASPECT_OF_PICTURE,
     GUIDE_LATENT_NODE, GUIDE_CHARACTER_SWAP_LORA, GUIDE_TASK_LORAS,
     CONTROL_VECTOR_NODE, CONTROL_VECTOR_DEFAULTS, CONTROL_VECTOR_OPTIONAL_DEFAULTS, LAYER_NORM_MATCH_NODE,
     EDIT_GUIDANCE_DEFAULTS,
@@ -2608,6 +2611,126 @@ def build_ph3_image_api(
                          "inputs": {"model": model_src, **cv_inputs}}
             model_src = [cv_nid, 0]
     g["9"]["inputs"]["model"] = model_src
+    return g
+
+
+#: MiniMax-H3-Image's two default prompts are the release's own worked cases, read from the
+#: vendor's files rather than retyped (`vendor_guides/h3_image/examples/`): the description
+#: MiniMax's prompt expander made from a one-line request for a farm-table photograph, and the
+#: one it made for an edit of the release's podcast picture. They are the vendor's statement of
+#: what this model is given, which is why they are the defaults and not a house prompt.
+_H3_IMAGE_EXAMPLES = HERE.parent / "vendor_guides" / "h3_image" / "examples"
+H3_IMAGE_T2I_PROMPT = (_H3_IMAGE_EXAMPLES / "revised_prompt.t2i.txt").read_text(encoding="utf-8").strip()
+H3_IMAGE_EDIT_PROMPT = (_H3_IMAGE_EXAMPLES / "revised_prompt.edit.txt").read_text(encoding="utf-8").strip()
+#: The release's `examples/reference1.png`, copied into ComfyUI's input folder under this name.
+H3_IMAGE_EDIT_PICTURE = "h3_image_reference1.png"
+#: The shape the vendor's expander chose for the text-to-image case (`revised_size.t2i.txt`).
+H3_IMAGE_T2I_SHAPE = "4:3"
+#: The seeds the release's own scripts send (`request.t2i.json`, `edit.py`), so a render of a
+#: default graph can be laid beside the picture on the model card.
+H3_IMAGE_T2I_SEED = 42
+H3_IMAGE_EDIT_SEED = 1234
+
+
+def build_h3_image_api(
+    task: str,
+    *,
+    prompt: str | None = None,
+    unet: str = H3_IMAGE_UNET,
+    ref_images: tuple[str, ...] | None = None,
+    megapixels: float = H3_IMAGE_MEGAPIXELS,
+    shape: str | None = None,
+    seed: int | None = None,
+    attention: str | None = DENSE_BACKEND_NODE["attention"],
+    out_prefix: str | None = None,
+    single_frame: bool = True,
+) -> dict:
+    """Build an API-format workflow for MiniMax-H3-Image: text to image, or an edit of one or more pictures.
+
+    The chain is the diffusers pipeline's (`coderef/diffusers/src/diffusers/modular_pipelines/minimax_h3_image/`)
+    on core's nodes, and differs from Comfy-Org's shipped templates in three places:
+
+    - **The sampling grid is given as written** (`ManualSigmas`, `H3_IMAGE_MANUAL_SIGMAS`) to
+      `SamplerCustomAdvanced` under a `BasicGuider`: six Euler steps, no guidance. The templates
+      ask `KSampler` for six `simple` steps, which lands near the grid the output heads were
+      distilled on rather than on it.
+    - **The size is megapixels and a shape** (`MiniMaxH3ImageSize`), 16 megapixels by default as
+      the model card recommends. An edit takes its picture's shape. The templates start at 4.
+    - **A picture being edited reaches the conditioning node untouched.** The edit template
+      resamples it to 4 megapixels first; the model reads a reference at its own size, and core's
+      node already bounds it the way the vendor's pipeline does.
+
+    Attention is the pack's dense kernel, comfy-kitchen's INT8 attention (`ModelAttentionBackend`,
+    `h3_config.DENSE_BACKEND_NODE`), named in the graph so it holds on any file. It is also what
+    Comfy-Org's int8 file asks for by itself, per block. `attention=None` wires no node, which on
+    a file that asks for nothing (the bf16 conversion) is core's exact attention, the vendor
+    pipeline's own.
+
+    The prompt is the finished description, used as it is: this model has no chat template and no
+    negative prompt. Writing that description from a short request is the prompt expander's job
+    (`docs/wiki/system_prompts/h3_image_t2i_system_prompt.md` and `h3_image_edit_system_prompt.md`);
+    the graph does not run one.
+    """
+    if task not in ("h3img_t2i", "h3img_edit"):
+        raise ValueError(f"unknown MiniMax-H3-Image task {task!r}; expected 'h3img_t2i' or 'h3img_edit'")
+    if not single_frame:
+        raise SystemExit("MiniMax-H3-Image renders one picture (single_frame=True)")
+    is_edit = task == "h3img_edit"
+    resolved_prompt = prompt if prompt is not None else (H3_IMAGE_EDIT_PROMPT if is_edit else H3_IMAGE_T2I_PROMPT)
+    resolved_shape = shape or (H3_IMAGE_ASPECT_OF_PICTURE if is_edit else H3_IMAGE_T2I_SHAPE)
+    resolved_seed = seed if seed is not None else (H3_IMAGE_EDIT_SEED if is_edit else H3_IMAGE_T2I_SEED)
+    resolved_prefix = out_prefix or ("Image/h3_image_edit" if is_edit else "Image/h3_image_t2i")
+
+    g: dict[str, Any] = {
+        "1": {"class_type": "UNETLoader",
+              "inputs": {"unet_name": unet, "weight_dtype": "default"}},
+        "2": {"class_type": "MiniMaxH3EncoderLoader",
+              "inputs": {"encoder_name": _require_core_encoder(MODELS["clip"]),
+                         "device": "default"}},
+        "3": {"class_type": "VAELoader",
+              "inputs": {"vae_name": H3_IMAGE_VAE}},
+        "4": {"class_type": "MiniMaxH3ImageSize",
+              "inputs": {"megapixels": megapixels, "shape": resolved_shape}},
+        "6": {"class_type": "RandomNoise", "inputs": {"noise_seed": resolved_seed}},
+        "7": {"class_type": "KSamplerSelect",
+              "inputs": {"sampler_name": H3_IMAGE_SAMPLER}},
+        "9": {"class_type": "BasicGuider",
+              "inputs": {"model": ["1", 0], "conditioning": ["5", 0]}},
+        "10": {"class_type": "SamplerCustomAdvanced",
+               "inputs": {"noise": ["6", 0], "guider": ["9", 0],
+                          "sampler": ["7", 0], "sigmas": ["60", 0],
+                          "latent_image": ["5", 1]}},
+        "11": {"class_type": "VAEDecode",
+               "inputs": {"samples": ["10", 0], "vae": ["3", 0]}},
+        "13": {"class_type": "SaveImage",
+               "inputs": {"images": ["11", 0], "filename_prefix": resolved_prefix}},
+        "60": {"class_type": "ManualSigmas",
+               "inputs": {"sigmas": H3_IMAGE_MANUAL_SIGMAS}},
+    }
+    cond_inputs: dict[str, Any] = {
+        "clip": ["2", 0],
+        "vae": ["3", 0],
+        "prompt": resolved_prompt,
+        "width": ["4", 0],
+        "height": ["4", 1],
+    }
+    if is_edit:
+        stills = ref_images if ref_images is not None else (H3_IMAGE_EDIT_PICTURE,)
+        if not 1 <= len(stills) <= len(_REF_IMAGE_NODES):
+            raise SystemExit(
+                f"build_h3_image_api got {len(stills)} pictures; this builder wires 1..{len(_REF_IMAGE_NODES)}")
+        for idx, (load_id, img_name) in enumerate(zip(_REF_IMAGE_NODES, stills), start=1):
+            g[load_id] = {"class_type": "LoadImage", "inputs": {"image": img_name}}
+            cond_inputs[f"images.image_{idx}"] = [load_id, 0]
+        # the picture being edited gives the output its shape; only its size is read
+        g["4"]["inputs"]["picture"] = [_REF_IMAGE_NODES[0], 0]
+    elif ref_images:
+        raise SystemExit("h3img_t2i takes no pictures; an edit is task 'h3img_edit'")
+    g["5"] = {"class_type": "MiniMaxH3ImageConditioning", "inputs": cond_inputs}
+    if attention is not None:
+        g["58"] = {"class_type": "ModelAttentionBackend",
+                   "inputs": {"model": ["1", 0], "attention": attention}}
+        g["9"]["inputs"]["model"] = ["58", 0]
     return g
 
 
@@ -5166,6 +5289,40 @@ def main():
               ),
               out_prefix="Image/h3_probe_pika_image_guide_edit_control_vector"),
          "guide image + text -> single-frame edited image on unet_ref2va + Pika H3 Flex 6-step LCM (SVD995 branch), no edit LoRA, with a post-refiner control vector (film_16mm_1974 ref2va diff_span at +1.15, add_norm_matched, non_vision, ref_vae_end_percent=1.0)"),
+        # --- MiniMax-H3-Image, MiniMax's own still-image model (2026-11-11) ---
+        # Our own chain, derived from the diffusers pipeline and the release
+        # rather than from Comfy-Org's templates (`build_h3_image_api`). The
+        # two defaults carry the release's worked cases at the release's
+        # seeds, so each can be laid beside its picture on the model card.
+        ("h3_image_t2i.json", "h3-image-t2i", "h3img_t2i", H3_IMAGE_T2I_PROMPT,
+         dict(single_frame=True, out_prefix="Image/h3_image_t2i"),
+         "text -> 16 MP image on MiniMax-H3-Image (int8 file, the six-step grid as written, size from megapixels and a shape)"),
+        ("h3_image_edit.json", "h3-image-edit", "h3img_edit", H3_IMAGE_EDIT_PROMPT,
+         dict(single_frame=True, out_prefix="Image/h3_image_edit"),
+         "picture + text -> 16 MP edited image at the picture's shape on MiniMax-H3-Image (the picture as <Picture 1>, read at its own size)"),
+        # The arms that say what the int8 file costs, one change at a time, on
+        # the release written whole in bf16 (`bench/convert_h3_image_dit.py`):
+        # the default graph against `_bf16_int8_attention` is the int8 linears
+        # alone; that against `_bf16` is INT8 attention alone. An edit is the
+        # case to compare by numbers: the vendor's own servers report a
+        # text-to-image picture moving at a fixed seed with any small change,
+        # and an edit holding (`docs/h3_image.md`).
+        ("h3_probe_h3_image_t2i_bf16_int8_attention.json", "h3-image-t2i-bf16-int8-attention", "h3img_t2i",
+         H3_IMAGE_T2I_PROMPT,
+         dict(single_frame=True, unet=H3_IMAGE_UNET_BF16, out_prefix="Image/h3_probe_h3_image_t2i_bf16_int8_attention"),
+         "MiniMax-H3-Image text to image on the bf16 conversion with the default graph's INT8 attention: against the default graph, the int8 linears alone"),
+        ("h3_probe_h3_image_t2i_bf16.json", "h3-image-t2i-bf16", "h3img_t2i",
+         H3_IMAGE_T2I_PROMPT,
+         dict(single_frame=True, unet=H3_IMAGE_UNET_BF16, attention=None, out_prefix="Image/h3_probe_h3_image_t2i_bf16"),
+         "MiniMax-H3-Image text to image on the release written whole in bf16 with core's exact attention (no attention node): nothing quantized or pruned, the reference"),
+        ("h3_probe_h3_image_edit_bf16_int8_attention.json", "h3-image-edit-bf16-int8-attention", "h3img_edit",
+         H3_IMAGE_EDIT_PROMPT,
+         dict(single_frame=True, unet=H3_IMAGE_UNET_BF16, out_prefix="Image/h3_probe_h3_image_edit_bf16_int8_attention"),
+         "MiniMax-H3-Image edit on the bf16 conversion with the default graph's INT8 attention: against the default edit graph, the int8 linears alone"),
+        ("h3_probe_h3_image_edit_bf16.json", "h3-image-edit-bf16", "h3img_edit",
+         H3_IMAGE_EDIT_PROMPT,
+         dict(single_frame=True, unet=H3_IMAGE_UNET_BF16, attention=None, out_prefix="Image/h3_probe_h3_image_edit_bf16"),
+         "MiniMax-H3-Image edit on the release written whole in bf16 with core's exact attention (no attention node): the reference"),
     )
 
     # The 2026-09-26 distill run (owner): `_savelat` probe twins of exactly the
@@ -5332,6 +5489,8 @@ def main():
             api_extra.setdefault("ref_qwen_short_edge", 0)
         if task in ("ph3_t2i", "ph3_edit"):
             wf = build_ph3_image_api(task, prompt=prompt, **api_extra)
+        elif task in ("h3img_t2i", "h3img_edit"):
+            wf = build_h3_image_api(task, prompt=prompt, **api_extra)
         else:
             wf = build_api(task, sage=sage_on,
                            prompt=prompt,
