@@ -8,14 +8,14 @@ this file is only a way to find a script by what it says it does.
 
 | group | scripts |
 |---|---|
-| [`check_*`](#check) | 165 |
-| [`measure_*`](#measure) | 36 |
+| [`check_*`](#check) | 167 |
+| [`measure_*`](#measure) | 37 |
 | [`analyze_*`](#analyze) | 18 |
 | [`grade_*`](#grade) | 19 |
 | [`compare_*`](#compare) | 15 |
 | [`build_*`](#build) | 13 |
 | [`probe_*`](#probe) | 11 |
-| [the rest](#the-rest) | 195 |
+| [the rest](#the-rest) | 196 |
 
 ## check
 
@@ -45,6 +45,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_conditioning_behaviour.py`](check_conditioning_behaviour.py) | Does `MiniMaxH3Conditioning` still do the things it exists to do? |
 | [`check_config_names.py`](check_config_names.py) | Check that every `h3_config.NAME` a tracked Python file reads is a name `workflows/h3_config.py` defines. |
 | [`check_contact_sheets.py`](check_contact_sheets.py) | `bench/contact_sheets.py` against a clip made for the purpose: the folder, the names, the tiles, and no second set. |
+| [`check_control_vector_studio.py`](check_control_vector_studio.py) | Check that the Control Vector Studio is the CLI: its schema, its run route and its page. |
 | [`check_control_vectors.py`](check_control_vectors.py) | Check the pure math, span masks, pair-file refusals, and vector I/O of H3 control vectors. |
 | [`check_copy_sound.py`](check_copy_sound.py) | A copy's sound against its source's (`bench/copy_sound.py`) on made sound whose answer is known. |
 | [`check_core_sparse_capture.py`](check_core_sparse_capture.py) | `core_sparse_capture.py` records core's sparse path and changes nothing. |
@@ -74,6 +75,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_graph_values.py`](check_graph_values.py) | A static reader must follow a linked widget, or it goes red on a good graph. |
 | [`check_guide_latent.py`](check_guide_latent.py) | Check `MiniMaxH3GuideLatent` (`guide_latent.py`) and the shipped guide-latent graphs. |
 | [`check_h3_encoder_loader.py`](check_h3_encoder_loader.py) | Prove the guarded H3 encoder loader guards what it claims to. |
+| [`check_h3_image.py`](check_h3_image.py) | MiniMax-H3-Image: the release-to-ComfyUI layout, the size rule and the shipped graphs' chain. |
 | [`check_head_reference.py`](check_head_reference.py) | `bench/head_reference.py` against a face whose every line is known by construction, read from the files it wrote. |
 | [`check_head_tube_parts.py`](check_head_tube_parts.py) | Check head_tube_parts: SAM 3.1 head tube gating, temporal seg smoothing, and 39-point face cross-check. |
 | [`check_imports.py`](check_imports.py) | Static AST check over tracked root `*.py` and `bench/*.py` (`C61` item 2a). |
@@ -208,6 +210,7 @@ this file is only a way to find a script by what it says it does.
 | [`measure_encoder_footprint.py`](measure_encoder_footprint.py) | How much VRAM does each H3 conditioning encoder actually need resident? |
 | [`measure_encoder_prefix_reuse.py`](measure_encoder_prefix_reuse.py) | Can the encoder's work on a reference be kept across prompt edits, exactly? |
 | [`measure_encoder_quant_dit.py`](measure_encoder_quant_dit.py) | Does the DiT's prediction move when the encoder is int8_convrot instead of bf16? |
+| [`measure_h3_image_weights.py`](measure_h3_image_weights.py) | What the MiniMax-H3-Image weights are: where they sit beside fl2va and ref2va, and what a ComfyUI int8 file keeps of them. |
 | [`measure_int8_weight_error.py`](measure_int8_weight_error.py) | How much of each linear's weight the shipped int8 convrot file loses, block by block. |
 | [`measure_keyframe_encode_determinism.py`](measure_keyframe_encode_determinism.py) | Is ComfyUI's H3 keyframe VAE encode byte-deterministic on this card? |
 | [`measure_marker_epsilon.py`](measure_marker_epsilon.py) | Does the DiT's prediction change when the seven H3 marker rows change? |
@@ -367,6 +370,7 @@ this file is only a way to find a script by what it says it does.
 | [`control_vector_rows.py`](control_vector_rows.py) | Cache the text rows H3 sees for a set of real prompts, once, for CPU-side study. |
 | [`control_vectors.py`](control_vectors.py) | Build, inspect, meter, and grade MiniMax H3 control vectors. |
 | [`convert_h3_bf16_encoder.py`](convert_h3_bf16_encoder.py) | Adapt a full-depth HF Qwen3-VL-32B text encoder to the ComfyUI H3 encoder. |
+| [`convert_h3_image_dit.py`](convert_h3_image_dit.py) | Write the MiniMax-H3-Image release as one bf16 file ComfyUI loads, nothing approximated. |
 | [`convert_pika_lora.py`](convert_pika_lora.py) | Convert Pika H3 Flex PEFT LoRAs (`fl2va`, `ref2va`) to ComfyUI format. |
 | [`convert_sam3_checkpoint.py`](convert_sam3_checkpoint.py) | Repack Meta's SAM 3 / SAM 3.1 checkpoint as a safetensors file core loads, changing no weight. |
 | [`convert_sam3d_body_checkpoint.py`](convert_sam3d_body_checkpoint.py) | Repack Meta's SAM 3D Body checkpoint and its MHR rig as the one safetensors file core loads, from the originals. |
@@ -646,10 +650,20 @@ Arm manifests and the like; a manifest's line is its own `what`.
 | [`llm_pairs.py`](control_vector/llm_pairs.py) | Local LLM pair generation (`transformers` and `exllamav3`) for H3 control vectors. |
 | [`make_cmds.py`](control_vector/make_cmds.py) | CLI commands for `make`, `make-media`, and `from-md` (`import-md`). |
 | [`sculpt.py`](control_vector/sculpt.py) | CPU vector sculpting (`sculpt` / `--invert`) and contextual prompt receptor metering. |
-| [`ui_server.py`](control_vector/ui_server.py) | HTTP server and `/api/*` request router for the H3 Control Vector UI. |
+| [`ui_schema.py`](control_vector/ui_schema.py) | The studio's description of the CLI: every method and argument, read off the parser. |
+| [`ui_server.py`](control_vector/ui_server.py) | HTTP server and `/api/*` routes for the H3 Control Vector Studio. |
 | [`ui_state.py`](control_vector/ui_state.py) | UI state management, TOML/Markdown preview, and `< 1 ms` CPU cached-build repooling. |
-| [`web/app.js`](control_vector/web/app.js) | const APP = { |
+| [`web/api.js`](control_vector/web/api.js) | The studio's calls to its server, and the little shared state the screens read. |
+| [`web/app.js`](control_vector/web/app.js) | Entry: load the schema and the listing, draw the navigation, mount the screens. |
+| [`web/form.js`](control_vector/web/form.js) | Draws a CLI method's controls from the server's description of it (GET /api/schema). |
 | [`web/index.html`](control_vector/web/index.html) | <!DOCTYPE html> |
+| [`web/readout.js`](control_vector/web/readout.js) | Shared renderers for what the previews return: a J-Lens word readout, and compiled pairs. |
+| [`web/screens/inspect.js`](control_vector/web/screens/inspect.js) | Looking at a saved vector: its word readout, a prompt metered against it, `inspect` and `grade`. |
+| [`web/screens/library.js`](control_vector/web/screens/library.js) | The library: the vectors and pair files on disk, and `rebuild`. |
+| [`web/screens/methods.js`](control_vector/web/screens/methods.js) | Every method the CLI has, each as its own form. Whatever the screens above do not cover is |
+| [`web/screens/pairs.js`](control_vector/web/screens/pairs.js) | Building from prompt pairs: in place on one prompt (`from-prompt`), or from a pair file (`build`). |
+| [`web/screens/sculpt.js`](control_vector/web/screens/sculpt.js) | Composing saved vectors into one (`sculpt`). |
+| [`web/screens/words.js`](control_vector/web/screens/words.js) | A vector from a few words (`words`): read out before saving, then saved. |
 | [`web/style.css`](control_vector/web/style.css) | :root { |
 
 ### fixtures
@@ -659,6 +673,13 @@ Arm manifests and the like; a manifest's line is its own `what`.
 | [`load_text_second_0415l.json`](fixtures/load_text_second_0415l.json) | second_hfp_0415l's inputs to bench/load_text.py and the owner's text of 2026-10-22 for it, which the generator makes again byte for byte (bench/check_load_text.py). Copied 2026-10-22 from data/fun/plan.json (subjects.second and text.film; ... |
 | [`sam3d_body_meta_reference.json`](fixtures/sam3d_body_meta_reference.json) | Meta's SAM 3D Body inference code, float32 on the CPU, on public samples: its answers per box |
 | [`sparse_table_synthetic.json`](fixtures/sparse_table_synthetic.json) | (JSON, an object; it carries no description) |
+
+### h3_image
+
+| file | what it says |
+|---|---|
+| [`__init__.py`](h3_image/__init__.py) | MiniMax-H3-Image: reading the release, and writing it as one file ComfyUI loads. |
+| [`release.py`](h3_image/release.py) | The MiniMax-H3-Image release as tensors, and the three places a ComfyUI file differs from it. |
 
 ### lane_db
 
@@ -698,7 +719,7 @@ Arm manifests and the like; a manifest's line is its own `what`.
 
 ### results
 
-225 tracked files: [`results/INDEX.md`](results/INDEX.md).
+226 tracked files: [`results/INDEX.md`](results/INDEX.md).
 
 ### rubrics
 
