@@ -162,11 +162,18 @@ on disk (`edit_graphs_with_fp32_reference_encode` in the renders JSON):
 Every render named here was made before the server was restarted at 10:49
 Central on 2026-11-11, on comfy-kitchen `0.2.41+sol.b9b85e0.up.cbc44a5`. The
 build installed at that restart rounds a fused activation differently on this
-card (`bench/results/2026-11-11_kitchen_upstream_sync_and_two_fixes.md`), in
-the int8 DiT's MLP and in the int8 text encoder's. Every arm here used the int8
-text encoder, the bf16 arm included, so after the restart no arm reproduces at
-the same seed, and a comparison needs both of its arms on the same side of that
-time. The weight-level half of this record does not depend on the build.
+card (`bench/results/2026-11-11_kitchen_upstream_sync_and_two_fixes.md`), and
+on this model that reaches one place: the int8 DiT's MLP. So after the restart
+an arm on the int8 file does not reproduce at the same seed, and a comparison
+with one needs both of its arms on the same side of that time.
+
+It does not reach the rest. The int8 text encoder every arm used is too wide
+for the fused path (its MLP is wider than the kitchen's
+`_CONVROT_FUSED_MAX_K`), the image VAE is fp16, and a bf16 DiT has no int8
+MLP, so a bf16 arm is the same on both builds. An earlier version of this
+paragraph said the text encoder's conditioning changed too; the session that
+rebuilt the kernel measured that it does not and took it back. The weight-level
+half of this record does not depend on the build.
 
 ## Afterwards, the same day
 
