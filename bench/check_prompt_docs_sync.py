@@ -20,7 +20,10 @@ Only what is DERIVABLE. A document's prose -- the explanations, the layer
 assignments, the "why it works" notes -- is written by a person and cannot be
 diffed against anything. This checks the parts that are quotations:
 
-1. **The two vendor guides** against `vendor_guides/sha256.json`.
+1. **The two vendor guides**, and the MiniMax-H3-Image prompt files under
+   `vendor_guides/h3_image/`, against `vendor_guides/sha256.json`; and the two
+   standalone H3 Image prompts in `docs/wiki/system_prompts/` against the
+   vendor files they copy, byte for byte.
 2. **The three Part One templates** against `BASE_ALIGNMENT`, which
    `preflight_graph` parses out of the vendor guide rather than retyping, and
    against `INDEPENDENT_ALIGNMENT` (transcribed by hand from `base_en.md`).
@@ -170,7 +173,32 @@ def guides_unchanged() -> int:
         print(f"  FAIL  {extra} sits in vendor_guides/ unpinned")
         bad += 1
     if not bad:
-        print("  ok    both vendor guides match their pinned hashes")
+        print(f"  ok    the vendor guides and the {len(recorded) - 2} other pinned vendor files match their hashes")
+    return bad
+
+
+#: The two standalone MiniMax-H3-Image prompts and the vendor file each is a copy of.
+H3_IMAGE_STANDALONE = {
+    "h3_image_t2i_system_prompt.md": "prompt/t2i/task_prompt.txt",
+    "h3_image_edit_system_prompt.md": "prompt/edit/task_prompt.txt",
+}
+
+
+def h3_image_standalone_prompts_are_the_vendor_files() -> int:
+    """Each standalone H3 Image prompt in `docs/wiki/system_prompts/` is its vendor file, byte for byte."""
+    vendor = REPO / "vendor_guides" / "h3_image"
+    bad = 0
+    for name, source in H3_IMAGE_STANDALONE.items():
+        page, origin = SYSTEM_PROMPTS_DIR / name, vendor / source
+        if not page.exists() or not origin.exists():
+            print(f"  FAIL  {name} or its vendor file {source} is missing")
+            bad += 1
+        elif page.read_bytes() != origin.read_bytes():
+            print(f"  FAIL  {name} is not vendor_guides/h3_image/{source} byte for byte. It is the "
+                  f"vendor's prompt and nothing else: copy the file again, do not edit it")
+            bad += 1
+    if not bad:
+        print(f"  ok    the {len(H3_IMAGE_STANDALONE)} standalone H3 Image prompts are the vendor's files, byte for byte")
     return bad
 
 
@@ -515,6 +543,7 @@ def main() -> int:
     fails = 0
 
     fails += guides_unchanged()
+    fails += h3_image_standalone_prompts_are_the_vendor_files()
     fails += parser_agrees_with_hand_reading()
     fails += manual_quotations(manual, guide, system)
     fails += examples_still_grade(manual)

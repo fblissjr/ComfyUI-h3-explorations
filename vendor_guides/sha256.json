@@ -1,4 +1,19 @@
 {
   "base_en.md": "2cfebc096a6e08370f288d468d90b60f7f9bcb938f94bf090816e910e48e75fc",
-  "ref_en.md": "1e574f356716ad55612247ffb7bbccbcdb484ad96599d63c7dca1af186b1fab7"
+  "ref_en.md": "1e574f356716ad55612247ffb7bbccbcdb484ad96599d63c7dca1af186b1fab7",
+  "h3_image/LICENSE": "0ec3bb5e6d9e885fa2aaf15e84689e50fd51f42b53fa24d3a64ed9d8c76d423b",
+  "h3_image/README.md": "b215c9ff2fcc401d34515559cd520f63bfe705df6a9538c9f048e1a6ecaf6e1c",
+  "h3_image/examples/instruction.edit.txt": "6c0bbc13cd8738055d1bafc3905f8ad21c7bfb9df966a9f98ed7aa67e054c25e",
+  "h3_image/examples/instruction.t2i.txt": "89bf10c984a6615540ae771b29ba6f78fcee90121e5d481c99b9883c7d3d6537",
+  "h3_image/examples/prompt.edit.txt": "0ee16b68bbf40172416da46ecd45582e0178a2edfbfe16e2d3e55937c8a4c2a4",
+  "h3_image/examples/request.t2i.json": "8666560c55a0c8b0340eb1b654820c5dbfbab2c4f5b0cf1d6f3953d10e745993",
+  "h3_image/examples/revised_prompt.edit.txt": "0a997eafd7ed76f168feeceaf33914ed3f5abf3feaef1e62399ed536ab694c67",
+  "h3_image/examples/revised_prompt.t2i.txt": "367c3aaf0f694072ce85e17d1a3754ba6352f350c4d7c4d0a88935ce09030483",
+  "h3_image/examples/revised_size.edit.txt": "26b09e7c6f9d09a34816bb1fc23e18c3a91364ad9d620891935b4278425d4e2f",
+  "h3_image/examples/revised_size.t2i.txt": "f5b3bd8f0f9e95eae78cb64183aaecd8c309befc4a879e170dfa099d47111839",
+  "h3_image/prompt/edit/task_prompt.txt": "c5695dbfc07a9e65555cef67d92467c613371cc2039b96f057022246a30a57b2",
+  "h3_image/prompt/manifest.json": "6b0969322669d9713e33148d36c401f73b18939337ea2384d90dc457430b6a5b",
+  "h3_image/prompt/t2i/request_params.json": "dfc608bf0c02dd6ce7463be636aa8b148aef200513fa4c46e653ee2e5affbe3e",
+  "h3_image/prompt/t2i/system_prompt.txt": "818ab3f652ec36b3b489b55c29f072f87e14af703cd11a4f3bff75f423d0beac",
+  "h3_image/prompt/t2i/task_prompt.txt": "890213ad61e143bbd5b7906a802430296e82ca5c61ba16df717dcef5477bbcf4"
 }
