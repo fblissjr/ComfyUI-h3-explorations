@@ -176,7 +176,9 @@ mask argument as accepting `None` under the nanobind version the venv has
 ([`docs/comfy_notes.md`](../comfy_notes.md) has the story).
 
 Upstream status on 2026-11-11: `blk_cnt` is open as Comfy-Org/comfy-kitchen#168 and the binding fix as #256.
-The other three have no open pull request. A ComfyUI update that reinstalls the stock wheel removes all of
+The other three have no open pull request; a rotate-only branch for one, `sol-rotate-pr`, is prepared in the
+clone and not sent
+([`bench/results/2026-11-11_kitchen_upstream_sync_and_two_fixes.md`](../../bench/results/2026-11-11_kitchen_upstream_sync_and_two_fixes.md)). A ComfyUI update that reinstalls the stock wheel removes all of
 them, and `sol_attn_h3.py::_require_kernel` then fails the node before sampling, because the installed
 `sol_attn` no longer accepts an argument the node passes.
 
@@ -184,12 +186,16 @@ Where the pack uses them: `sol_attn_h3.py` (the `MiniMaxH3Sol` node; `quantizer`
 `rotate`, `make_override` builds the attention override), `sol_observe.py` (reads `blk_cnt`),
 `sparse_table.py` (per-head tables that become a `tau_map`), `sol_chunked_h3.py` (the chunked producer).
 
-**A gap in the pack's chunked node, found by the Gemini session on 2026-11-11 and not fixed.**
-`sol_chunked_h3.py::make_chunked_forward` passes the Sol node's `tau`, dense blocks and sinks to
-`sol_attn_chunked` and nothing else. It never reads the `quantizer` setting, so `rotate` stays off on that
-path even when the Sol node says `rotated`, and it ignores `token_routing`, `tau_table` and `rows` without a
-word. No shipped graph wires `MiniMaxH3SolChunked`, so no render is affected. Before that node is used again
-it should take `rotate` from the setting and refuse the settings the producer cannot honor.
+**The pack's chunked node is not usable as it stands** (the Gemini session's reading on 2026-11-11, checked
+against the file; nothing was changed). `sol_chunked_h3.py::make_chunked_forward` passes the Sol node's `tau`,
+dense blocks and sinks to `sol_attn_chunked` and nothing else: it never reads the `quantizer` setting, so
+`rotate` stays off on that path, and it drops `token_routing`, `tau_table` and `rows` without a word. Its hook
+is only consulted when another node has patched the attention forward, which no current graph does, so on a
+graph with core's attention backend node it never runs at all. It keeps the previous step's statistics per
+module, so two passes a step (an edit guider, CFG) would trade each other's. And it turns a kernel error into
+a dense call. No shipped graph wires `MiniMaxH3SolChunked`. Whether to retire it or rebuild it inside the Sol
+node is the owner's to decide; after a build that changes `bench/probe_kitchen_sol_build_parity.py`'s output,
+that probe is the check for the kernel side either way.
 
 ### Two open upstream fixes, carried since 2026-11-11
 

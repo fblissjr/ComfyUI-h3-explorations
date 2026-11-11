@@ -203,6 +203,29 @@ Open on this day, each a fix, none on a path this install runs:
 The performance pull requests (#331, #333 to #336) and the format drafts (#303, #330) were not considered:
 the ask was for fixes.
 
+## A rotate-only branch, prepared for upstream and not sent
+
+`rotate` is the one fork option nearly every Sol graph uses, and upstream Sol has no rotation, so it is what
+keeps the fork a fork. The kitchen clone now has a local branch `sol-rotate-pr`: upstream main at `7d6a22a`
+plus two commits, `63ad5f7` (the option, direct and chunked, eager reference, HIP accepting it and refusing
+True) and `6a24b29` (its tests). It carries no `blk_cnt`, `qk_balance` or `tau_map`, and not the serial
+reference form of the rotation the fork still holds. Nothing was pushed and no pull request was opened.
+
+It was written from upstream's files, not picked from the fork's commits, because those were written on top
+of `qk_balance` and do not separate by cherry-pick. What says it is still the fork's kernel:
+
+- `bench/probe_kitchen_sol_build_parity.py` hashes `sol_attn` and `sol_attn_chunked` outputs over a grid of
+  options. Run on the fork's wheel from before this day, on the installed build, and on a wheel built from
+  `sol-rotate-pr`: no line differs between any two of the three. So with `rotate` on or off the branch
+  computes, on that grid, exactly what the fork does.
+- The fork's `tests/test_sol_attn.py` cases for `rotate`, carried over without the ones that need `qk_balance`:
+  all pass on the branch's build. The whole file passes but `test_topk_ties_over_select`, the same upstream
+  case that fails on the fork.
+
+Not checked: a build of stock upstream beside it (the off path is upstream's text, with the option's branches
+added), any HIP build, and the branch on captured H3 activations (the figures in its commit message are the
+fork's, measured before on the same arithmetic).
+
 ## Going back
 
 Through the script, so the build record beside the venv stays true: make a worktree of the kitchen clone at
