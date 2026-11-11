@@ -245,17 +245,25 @@ the stills, for the owner to check:
 - **The reference format works for an edit.** With one picture and the six
   sections of the reference guide, the woman in the picture stands in the
   diner the prompt asks for, with her face, hair and freckles. With two
-  pictures and a three-shot script, the result is the same kind of panel
-  layout, the elderly man taken from his picture without his cap.
+  pictures and a three-shot script, the result is a grid of four panels, the
+  first shot drawn twice across the top and the two close-ups below, the
+  elderly man taken from his picture without his cap or the mark on his
+  cheek. The same script as text to image gave three panels.
 - **Words in the prompt outrank the picture where they disagree.** That
   two-picture prompt describes the woman with dark shoulder-length hair; the
-  picture wired for her is of a woman with long blonde hair, and the render
-  gave her dark hair.
+  picture wired for her is of a woman with long blonde hair and freckles. The
+  render gave her dark hair, and her face does not read as the picture's
+  either (crops of the picture, the diner edit and the stairwell edit side by
+  side: the diner edit is plainly the same person, the stairwell woman is
+  not). The man, whose description agrees with his picture, kept his face.
 - **Picture numbering did not decide who was who in that case.** Wired in
   either order, the two pictures gave nearly the same image: each subject
   followed its description to the matching picture.
-- **int8 and bf16 agree** in composition on all six, differing in detail as
-  they do elsewhere.
+- **int8 and bf16 agree in layout** on all six. Within it they can differ in
+  more than detail: on the diner prompt both drew two interior panels over a
+  wide exterior, but which of the couple shares the first panel with the cook
+  is swapped between them, and the exterior shows both people on one and the
+  woman alone on the other.
 
 One seed each, so none of this is a rule. It is consistent with the image
 model having been trained on the family's prompt conventions, which is what

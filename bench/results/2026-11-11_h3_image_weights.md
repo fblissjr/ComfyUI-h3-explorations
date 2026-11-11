@@ -157,6 +157,17 @@ on disk (`edit_graphs_with_fp32_reference_encode` in the renders JSON):
   first. The probe graphs in `workflows/image/` are there to ask.
 - Which arm the owner prefers.
 
+## The build these renders belong to
+
+Every render named here was made before the server was restarted at 10:49
+Central on 2026-11-11, on comfy-kitchen `0.2.41+sol.b9b85e0.up.cbc44a5`. The
+build installed at that restart rounds a fused activation differently on this
+card (`bench/results/2026-11-11_kitchen_upstream_sync_and_two_fixes.md`), in
+the int8 DiT's MLP and in the int8 text encoder's. Every arm here used the int8
+text encoder, the bf16 arm included, so after the restart no arm reproduces at
+the same seed, and a comparison needs both of its arms on the same side of that
+time. The weight-level half of this record does not depend on the build.
+
 ## Afterwards, the same day
 
 The bf16 file and the four probe graphs that loaded it were removed at the
