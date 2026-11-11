@@ -50,11 +50,12 @@ From [`../../../bench/results/2026-11-05_control_vectors_pika_and_ref2va.md`](..
   <python> bench/control_vectors.py words "blizzard, snowdrift, freezing, snow" --name blizzard_words --families fl2va
   ```
 
-### 2026-11-10 3-lever span masks (`h3_spans.py`)
+### 2026-11-10 3-lever span masks (`h3_spans.py`) and 37-arm comparison batch
 
-Added on 2026-11-10 (`comfyui_nodes_and_controls.md`; same-seed mask comparison against `non_vision` is open):
+Added and measured on 2026-11-10 (`comfyui_nodes_and_controls.md`; same-seed renders in
+`data/results/2026-11-10_control_vector_comparisons/` wait on owner playback for the final default):
 
-- **3-lever masks on `ref2va`:** `look_only` (`subject_definitions:` + `summary:`), `description_only` (`detailed_description:`), `scene_only` (`look_only | description_only`, excluding audio sections), and `soundscape_only` (`overall_soundscape:` + non-`"N/A"` `non_diegetic_music:` + `<Audio N>:` retention lines). On text-only `t2va`, `look_only`, `description_only`, and `scene_only` select the same `integrated_multimodal_description:` prose rows.
+- **3-lever masks on `ref2va` and `t2va`:** `look_only` (`subject_definitions:` + `summary:`), `description_only` (`detailed_description:`), `scene_only` (`look_only | description_only`, excluding audio sections), and `soundscape_only` (`overall_soundscape:` + non-`"N/A"` `non_diegetic_music:` + `<Audio N>:` retention lines). On text-only `t2va`, `look_only`, `description_only`, and `scene_only` select the same `integrated_multimodal_description:` non-dialogue prose rows; chaining two apply nodes under `description_only` + `soundscape_only` reproduces the 2026-11-09 `scene_only` row set (`151 + 45 = 196` rows on `t2va_porter_lift_dialogue`). Note that every pre-`85aba935` arm rendered with `ref_vae_end_percent < 1.0` carried the `visual_cond_noise_aug = 0.0` frame-0 noise fault fixed in `85aba935`.
 - **CLI activation & DiT grading under any mask:**
   ```bash
   <python> bench/control_vectors.py grade \
@@ -64,9 +65,11 @@ Added on 2026-11-10 (`comfyui_nodes_and_controls.md`; same-seed mask comparison 
 
 ## 4. Compare a vector with an edit on one shot
 
-`bench/edit_guidance_arms.py` takes a shipped graph, a prompt and one edit, and builds a set of renders
-that differ in one thing each: the prompt as written, the edited prompt, edit guidance, and with
-`--vector-arm` the original prompt under a control vector.
+`bench/edit_guidance_arms.py` takes a shipped graph (`t2v`, `r2v`, `fl2va` keyframes, `P-H3-Image` stills, or
+`MiniMaxH3GuideLatent` 1-frame guide edits), a prompt and one edit, and builds a set of renders
+that differ in one thing each: the prompt as written, the edited prompt, edit guidance (`--node-last-steps`),
+and with `--vector-arm` the original prompt under one or more (`+`-chained) control vectors or `none:0`
+single-variable release/Sol controls.
 
 ```bash
 <python> bench/edit_guidance_arms.py \

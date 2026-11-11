@@ -24,10 +24,12 @@ defaults and their reasons are `h3_rules.EDIT_GUIDANCE_DEFAULTS`.
 - **MiniMax H3 Edit Guider** goes where `BasicGuider` goes. It takes the model and two conditionings, the
   original and the edited, made with the same encoder, references and canvas. At scale 0 it is the original
   prompt, at 1 the edited prompt, above 1 it pushes past the edit. `first_step` runs the original alone
-  before that step (`step < first_step`, keeping its framing), and `last_step` (`default = 1000`) hands
-  steps `step > last_step` to 1-pass `[edited]` (`scale = 1.0`) so late refinement steps skip the second DiT
-  pass (for example on 6-step Pika, `last_step = 2` cuts sampling from 12 passes to 9 passes, `last_step = 3`
-  to 10 passes, and `last_step = 1` to 8 passes).
+  before that step (`step < first_step`, keeping its framing), and `last_step` (`default = 1000`, meaning run
+  2 passes on every step regardless of step count) hands steps `step > last_step` to 1-pass `[edited]`
+  (`scale = 1.0`) so late refinement steps skip the second DiT pass. On 6-step Pika (`steps 0..5`), setting
+  `last_step = 2` runs two passes on the structure-forming steps `0..2` and one pass on steps `3..5` (`9`
+  passes instead of `12`, measured at `-22..26%` sampling time in the 2026-11-10 batch; `last_step = 3` is `10`
+  passes, `last_step = 1` is `8` passes).
 
 ## The graphs
 

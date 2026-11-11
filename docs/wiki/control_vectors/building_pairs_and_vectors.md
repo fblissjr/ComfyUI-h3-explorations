@@ -18,7 +18,9 @@ looking both ways. A vector is added to the rows the refiner hands on, before th
 
 A vector file holds that direction as `vector.post_refiner`, at the length the pairs gave it, and a unit
 copy of the same direction before the refiner as `vector.encoder`, which J-Lens reads. The file's metadata
-records the pairs it came from, so a vector can be rebuilt from itself.
+records the pairs it came from and which prompt sections they changed (`pairs.differing_sections`, via
+`control_vectors.py::differing_section_info`), so a vector can be rebuilt from itself and inspected for
+section scope (for example `["overall_soundscape"]` on `reverb_cathedral` and `pyro_klaxon_audio`).
 
 ## Where pairs come from
 

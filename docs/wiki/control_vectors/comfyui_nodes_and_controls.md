@@ -53,9 +53,17 @@ each input is for:
   | `all_rows` | Text + vision | Every row, including tag-0 vision prefix tokens |
 - `start_percent`, `end_percent`: the part of the run in which the vector is on.
 - `video_scale`, `audio_scale`, `split_end_percent`: separate multipliers for the video and audio streams.
-- `ref_vae_end_percent`, `ref_vae_aug`: for a reference shot, how long and how strongly the reference's VAE
-  latents stay in force. The defaults equal core's own value, and the node leaves that road alone unless
-  one is lowered (`bench/check_control_vectors.py` holds the default to core's).
+- `ref_vae_end_percent`, `ref_vae_aug`: for renders carrying 3D Video VAE visual conditioning (`ref2va`
+  reference images, `fl2va` keyframes, `P-H3-Image` edits, or `MiniMaxH3GuideLatent`), how long and how
+  strongly those visual VAE rows stay packed (`bench/check_control_vectors.py` holds the defaults `1.0` and
+  `0.999` to core's). During `[0.0, ref_vae_end_percent)` (`step_idx / n_steps`), `ref_vae_aug` sets
+  `visual_cond_noise_aug` (`aug * clean + (1 - aug) * noise`). Once `step_idx / n_steps >= ref_vae_end_percent`,
+  the wrapper drops `'cond'` and `'ref_img'` segments from `PackedLayout` and clears `cond_video_latents`
+  while preserving every surviving token's 3D RoPE `position_ids` and any speaker/audio reference rows
+  (`ref_audio` / `cond_audio`), keeping `MiniMaxH3Sol` and `SageAttention` on their unmasked fast paths at the
+  shorter sequence length (`control_vector_nodes.py::_drop_visual_cond_from_layout`, fixed on 2026-11-10 in
+  `85aba935`; earlier runs with `ref_vae_end_percent < 1.0` set `visual_cond_noise_aug = 0.0` with zeroed
+  latents, which injected fixed-seed Gaussian noise onto frame 0 or frames 0–1).
 - `words`, `against_words`, `hold_words`, `hold_alpha`: build a vector from words at run time, or take
   words out of a loaded one, through J-Lens. See the J-Lens page for what that can and cannot be trusted
   for.
@@ -69,12 +77,29 @@ each input is for:
   `overall_soundscape:` / `non_diegetic_music:` (visual-vs-audio section isolation verified in `Arms 59..60`
   of [`../../../bench/results/2026-11-05_control_vectors_pika_and_ref2va.md`](../../../bench/results/2026-11-05_control_vectors_pika_and_ref2va.md)).
   On a `ref2va` shot, keeping a vector off `subject_definitions:` and `retention_analysis:` (`description_only`)
-  leans toward preserving the reference's prose description, while reaching them (`scene_only` or `look_only`)
-  leans toward changing the look; one round compared those on a reference shot and found small metric
-  differences for a bank vector, which the owner has not yet visually judged (the plan, section 25).
-- On a reference shot the subject also reaches the DiT as VAE latents, which no mask touches. In that round
-  the subject read as the same person in every arm, including the one that pushed the picture's rows. The
-  two `ref_vae_` inputs are the handle on that road and were not varied.
+  leans toward preserving the reference's prose description, while reaching them (`scene_only`) steers both
+  subject look and action prose; on the 2026-11-10 reference batch (`balloon_head_inflate`), `look_only` alone
+  was overridden by unsteered `detailed_description:` whereas `scene_only` applied the geometry change. Two
+  cases require setting `mask` explicitly:
+  - **Audio-only vectors** (`reverb_cathedral`, `pyro_klaxon_audio`, whose `pairs.differing_sections` is
+    `["overall_soundscape"]`): set `mask = "soundscape_only"`, because `scene_only` excludes audio sections and
+    steers `0` rows on them.
+  - **Unsectioned `vfx_edit:` prompts** (`workflows/image/h3_probe_pika_image_guide_edit_control_vector_api.json`):
+    set `mask = "non_vision"`, because bare edit instructions carry no H3 section headers.
+- **When to adjust `ref_vae_end_percent` and `ref_vae_aug`:** On reference, keyframe, and guide-latent shots,
+  the input image enters through both Qwen3-VL vision tokens and clean 3D Video VAE latents (`cond_video_latents`),
+  which no text `mask` touches:
+  - **Keep defaults (`ref_vae_end_percent = 1.0`, `ref_vae_aug = 0.999`):** Film stock, color grade, lighting,
+    weather, lens mood (`film_16mm_1974`, `noir`, `vhs_1991_camcorder`, `wes_anderson_symmetry`), or audio
+    vectors where face identity, wardrobe, and layout should stay locked across every step.
+  - **Lower `ref_vae_end_percent` (`0.34` or `0.17` on 6-step Pika):** Heavy geometry, material, or world
+    replacements (`claymation_stopmotion`, `felt_muppet`, `paper_origami`, `molten_lava_golem`,
+    `balloon_head_inflate`, `sunken_coral_reef`) where clean VAE latents on late steps pull textures and
+    silhouettes back toward the live-action input. Because `_step_in_window` compares `step_idx / n_steps`
+    (`0.00, 0.167, 0.333, 0.500, ...` on 6 steps), `0.17` holds step `0` only (`1/6` steps) and `0.34` holds
+    steps `0..1` (`2/6` steps) before releasing visual VAE rows cleanly.
+  - **Lower `ref_vae_aug` (`0.30..0.85`):** Mixes controlled Gaussian noise into `cond_video_latents` on active
+    steps to soften fine pixel/fabric texture lock while keeping coarse framing and facial geometry active.
 - A `hold` node with nothing before it in the chain has nothing to take a direction out of.
 - The shipped graphs set a strength above the node's default on purpose, so a first render shows the grade
   plainly; `bench/check_widget_deviations.py` declares it.
@@ -82,9 +107,10 @@ each input is for:
 ## Where the node acts
 
 The node wraps the model so that, at each step it is on, the refined text rows are changed before the main
-blocks run (`control_vector_nodes.py`, the wrapper; `control_vectors.py::apply_post_refiner`). It reads
-which rows are which from the span masks the conditioning node attached, and refuses when they are missing.
-Nothing in ComfyUI core is patched.
+blocks run (`control_vector_nodes.py`, the wrapper; `control_vectors.py::apply_post_refiner` and
+`resolve_post_refiner_row_mask`, which also drives the `[h3] control vector (...) steered X/L context rows`
+log line). It reads which rows are which from the span masks the conditioning node attached, and refuses when
+they are missing. Nothing in ComfyUI core is patched.
 
 With edit guidance (`MiniMaxH3EditGuider`), both `[base]` and `[edited]` carry `h3_edit_pass` metadata on
 `minimax_payload` and are treated as conditioned passes (never misclassified as unconditioned CFG passes)
