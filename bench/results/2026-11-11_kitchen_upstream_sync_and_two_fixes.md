@@ -21,10 +21,21 @@ Neither pull request had a maintainer's review on this day.
 
 ## What a render sees
 
-- **Every INT8 render through H3's `fc2` changes.** `comfy/ldm/minimax/model.py::MLP` calls
-  `linear_input_act(self.fc2, self.fc1(x), "swiglu")`, which on an INT8 file is the path `6f67ef7` changes. The
-  same seed gives a different sample than it did on the build before. A record of INT8 renders made earlier
-  this day is for the earlier build:
+- **Every INT8 ConvRot layer that core calls as `linear_input_act(..., "swiglu")` changes**, wherever the
+  fused quantizer serves its shape. On the files this pack loads that is three places, not one:
+  - the DiT's MLP in every block (`comfy/ldm/minimax/model.py::MLP`, its `fc2`), so the same seed gives a
+    different sample than it did on the build before;
+  - the INT8 video VAE's decoder (`comfy/ldm/minimax/vae.py::FeedForward`), which most shipped graphs load, so
+    the same latent decodes to slightly different pixels;
+  - the INT8 text encoders' MLP (`comfy/text_encoders/llama.py::MLP`), so a conditioning made with an INT8
+    encoder file differs from one made before. A bf16 encoder, and anything extracted with one, is untouched.
+
+  Core's other callers of the same path (Qwen-Image 2.1, FIBO 2, Flux 3, the Wan VSR model, MiniMax Music) change
+  the same way on an INT8 file. *Corrected 2026-11-11: this item named only the DiT's `fc2`; the Gemini session's
+  review of the record found the VAE and the encoders.* What was measured below is the kernel, at the DiT's
+  shape; the VAE's and the encoders' shapes were not probed.
+
+  A record of INT8 renders made earlier this day is for the earlier build:
   [`2026-11-11_h3_image_weights.md`](2026-11-11_h3_image_weights.md), whose render comparisons cannot be taken
   again because their bf16 reference file was deleted. Its weight-level half does not go through this path.
 - **Token routing repeats.** Only with `token_routing` on; the node's default is off.
@@ -148,6 +159,17 @@ the ask was for fixes.
 
 ## Going back
 
-`uv pip install --python <comfy-venv-python> --force-reinstall --no-deps` on the `b9b85e0` wheel in the clone's
-`dist/`, then a restart. The branch is a fast-forward of what `origin/h3-frontier` holds, so the fork's
-history is untouched until the owner pushes.
+Through the script, so the build record beside the venv stays true: make a worktree of the kitchen clone at
+`b9b85e0` outside this repo, run `SRC=<that worktree> bash vendor/rebuild_kernel.sh`, and restart. This route
+was not run on this day; the script's header documents `SRC`.
+
+The shortcut is the `b9b85e0` wheel still in the clone's `dist/`:
+`uv pip install --python <comfy-venv-python> --force-reinstall --no-deps <wheel>`, **run from the kitchen
+clone's folder, never from this repo** (`AGENTS.md`: no `uv` here), then a restart. It leaves
+`comfy_kitchen_build.json` naming the newer build, and `vendor/rebuild_kernel.sh --check` will say the venv and
+the source differ, until the script next builds. *Corrected 2026-11-11: this section gave the shortcut alone,
+without where to run it or what it leaves stale; found by the Gemini session's review.*
+
+Either way `h3-frontier` still holds the three commits. It is a fast-forward of what `origin/h3-frontier`
+holds, so the fork's history is untouched until the owner pushes; to drop the ports for good, revert them on
+the branch.

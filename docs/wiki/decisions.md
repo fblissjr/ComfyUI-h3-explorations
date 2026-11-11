@@ -17,6 +17,16 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-11-11
 
+- **The kitchen build carries ports of two open upstream fixes, and INT8 output changes with it** (the owner
+  asked for the fork to be brought up to upstream and for open fixes that matter on this card). The venv moved from
+  `0.2.41+sol.b9b85e0.up.cbc44a5` to `0.2.41+sol.b63d8c7.up.7d6a22a`, in use from the 10:49 Central restart: fused
+  SwiGLU in the INT8 linear now rounds as the unfused chain does (Comfy-Org/comfy-kitchen#124), and Sol token
+  routing repeats (#242). An INT8 sample, an INT8 VAE decode and an INT8 encoder's conditioning from before that
+  restart do not match ones made after it; a bf16 encoder is untouched
+  ([`../../bench/results/2026-11-11_kitchen_upstream_sync_and_two_fixes.md`](../../bench/results/2026-11-11_kitchen_upstream_sync_and_two_fixes.md),
+  [`comfy_kitchen.md`](comfy_kitchen.md)). **Corrected the same day:** that record and the wiki page first said the
+  change reached only the DiT's `fc2`, and the record's way back named a bare `uv pip install` with no word on where
+  to run it or the build record it leaves stale. Both found by the Gemini session's review.
 - **The Control Vector Studio is rebuilt as the CLI drawn as a page** (owner decision, with the design left to the
   session that built it). It had been "not maintained at present" since 2026-11-09 and described a design the code had
   retired. Its controls now come from the CLI's parser (`bench/control_vector/ui_schema.py`), its buttons run the CLI's

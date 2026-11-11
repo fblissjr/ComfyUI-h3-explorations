@@ -195,9 +195,11 @@ has the before and after, what was not taken, and how to go back;
 
 - **Comfy-Org/comfy-kitchen#124, the CUDA half.** On architectures below sm_90 the row quantizer applied
   `input_act="swiglu"` in fp32, so its INT8 codes differed from quantizing the product computed in the storage
-  dtype; upstream's quantizer for sm_90 and up already rounded. H3's `MLP.forward` takes this path with an INT8
-  file. With the port the fused and unfused paths agree bit for bit. **An INT8 render on a build with the port
-  does not match one made before it at the same seed**, so a record of INT8 renders is for the build it names.
+  dtype; upstream's quantizer for sm_90 and up already rounded. Three kinds of INT8 file this pack loads take
+  this path: the DiT (`comfy/ldm/minimax/model.py::MLP`, every block), the video VAE's decoder
+  (`comfy/ldm/minimax/vae.py::FeedForward`) and the text encoders (`comfy/text_encoders/llama.py::MLP`). With
+  the port the fused and unfused paths agree bit for bit. **An INT8 sample, decode or conditioning on a build
+  with the port does not match one made before it**, so a record of INT8 renders is for the build it names.
   Where: `load_input_act` in `coderef/comfy-kitchen/comfy_kitchen/backends/cuda/ops/int8_linear.cu`.
 - **Comfy-Org/comfy-kitchen#242.** With `token_aug` on, a query group with more candidates than the budget
   kept whichever arrived first, so two identical calls could differ. Such a group is now redone in one pass in
