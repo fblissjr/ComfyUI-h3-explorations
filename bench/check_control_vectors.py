@@ -3877,6 +3877,22 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
                     )
                 if rc_meter != 0 or "Meter Projection" not in buf_m_out.getvalue():
                     errs.append(f"inspect --meter failed: rc={rc_meter}, out={buf_m_out.getvalue()!r}, err={buf_m_err.getvalue()!r}")
+                # With no --mask the meter scores the rows the node steers at its default mask (as grade and the
+                # studio's meter do): the same lines as naming that mask, and not the lines of another mask.
+                def _meter_rows(*extra: str) -> list[str]:
+                    buf = io.StringIO()
+                    with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(io.StringIO()):
+                        bench_cv.main(["inspect", str(v1_path), "--meter", str(base_prompt_txt), "--meter", str(edit_prompt_txt), *extra])
+                    return [ln for ln in buf.getvalue().splitlines() if "units=" in ln]
+
+                import h3_rules as _rules
+
+                rows_default = [ln for ln in buf_m_out.getvalue().splitlines() if "units=" in ln]
+                rows_named = _meter_rows("--mask", _rules.CONTROL_VECTOR_DEFAULTS["mask"])
+                if not rows_default or rows_default != rows_named or "the node default" not in buf_m_out.getvalue():
+                    errs.append(f"inspect --meter with no --mask does not score the node's default rows: {rows_default} vs {rows_named}")
+                if rows_default == _meter_rows("--mask", "all_rows"):
+                    errs.append("inspect --meter gives the same lines for the node's default mask and for all_rows: the case cannot tell them apart")
 
                 # Test cmd_grade with mock DiT runner (including vision tags on rows 0..1 and distinct channel weights)
                 ch_weights = torch.linspace(0.2, 1.8, cv.POST_REFINER_DIM, dtype=torch.float32)

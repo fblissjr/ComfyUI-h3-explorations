@@ -561,7 +561,8 @@ def build_parser() -> argparse.ArgumentParser:
         type=_validate_mask_arg,
         metavar=_MASK_METAVAR,
         default=None,
-        help="Optional inference span mask override when metering prompts (e.g. 'scene_only', 'look_only', 'description_only', 'soundscape_only'). " + _MASK_FIELDS_HELP,
+        help="Which rows --meter scores (e.g. 'scene_only', 'look_only', 'description_only', 'soundscape_only'). Left out: the node's "
+        "default mask, or the section the vector was built on when its pooling names one. " + _MASK_FIELDS_HELP,
     )
     pi.add_argument("--device", default="default")
     pi.add_argument("--refiner-device", default="cpu")

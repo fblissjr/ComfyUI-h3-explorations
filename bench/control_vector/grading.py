@@ -13,6 +13,7 @@ import torch
 
 import control_vector_nodes as cv_nodes
 import control_vectors as cv
+import h3_rules
 import h3_spans
 import j_lens
 import substrate
@@ -139,12 +140,21 @@ def cmd_inspect(args: argparse.Namespace) -> int:
         refiner_run = cv_nodes.build_refiner_runner(
             dit_path, device=args.refiner_device, loras=meter_loras
         )
+        # Which rows the meter scores. With no --mask it is the rows the node steers at its default mask, as
+        # `grade` and the studio's meter do, so the three give the same figure for the same prompt. A vector
+        # built on one section (a mask name recorded as its pooling, as `make-media` does) keeps that section.
+        # Until 2026-11-11 a text-pair vector with no --mask was scored over every non-vision scene row,
+        # headers and the soundscape included, which the node's default leaves alone.
         mask_override = getattr(args, "mask", None)
         pooling = metadata["measured_under"].get("pooling", "scene_text")
-        if pooling in ("from_first_diff", "diff_span"):
-            pooling = "scene_text"
-
-        mask_header = f"mask={mask_override}" if mask_override else f"pooling={pooling}"
+        meter_mask = mask_override or (
+            pooling if pooling in h3_spans.INFERENCE_MASK_MODES else h3_rules.CONTROL_VECTOR_DEFAULTS["mask"]
+        )
+        mask_header = (
+            f"mask={meter_mask}"
+            if mask_override
+            else f"mask={meter_mask}, {'the section the vector was built on' if meter_mask == pooling else 'the node default'}"
+        )
         print(f"\n--- Meter Projection along {metadata['name']} ({mask_header}) ---")
         rows: list[tuple[str, float, float, float, int, float, float, list[tuple[str, float]]]] = []
         v64_unit = torch.nn.functional.normalize(vec.detach().to(device="cpu", dtype=torch.float64), dim=-1)
@@ -153,12 +163,7 @@ def cmd_inspect(args: argparse.Namespace) -> int:
             enc_rows, tags, tids, dec_fn = cv_nodes.encode_prompt_for_vector(clip, text)
             ref_rows = refiner_run(enc_rows)
             sp = h3_spans.spans(tids, tags.tolist(), dec_fn)
-            if mask_override:
-                mask = h3_spans.inference_mask(sp, mask_override)
-            elif pooling in h3_spans.INFERENCE_MASK_MODES:
-                mask = h3_spans.inference_mask(sp, pooling)
-            else:
-                mask = h3_spans.pooling_mask(sp, pooling)
+            mask = h3_spans.inference_mask(sp, meter_mask)
             m = cv.meter_score(ref_rows, vec, mask=mask)
             r64_cpu = ref_rows.detach().to(device="cpu", dtype=torch.float64)
             r64_unit = torch.nn.functional.normalize(r64_cpu, dim=-1)
