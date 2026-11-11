@@ -1,0 +1,30 @@
+{
+ "what": "Pika 6-step Sol panel, Pass 2 t2va second seed (2026-11-11), on workflows/h3_text_to_video_pika_api.json (PIKA_FL2VA_SVD995_LORA via MiniMaxH3LoRABranch, 6 steps on lcm with PIKA_MANUAL_SIGMAS, shift_video=12.0, comfy-kitchen 0.2.41+sol.b63d8c7.up.7d6a22a). Replicates t2va_covered_market (1344x768, 345 frames) at a fresh seed (730451894; warmup at 730451893) across all five Pass 1 arms holding sink_conditioning=exact_kv_and_all_rows, quantizer=rotated, tau=1.0, and token_routing=off fixed: dense (dense_blocks=0-49: all 300 block-calls on comfy-kitchen INT8 dense attention), shipped (start_percent=0.2 -> Step 0 dense, dense_blocks=38-42,49: 80 dense / 220 sparse), s0_b49 (start_percent=0.2 -> Step 0 dense, dense_blocks=49: 55 dense / 245 sparse), s01_b49 (start_percent=0.28 -> Steps 0-1 dense, dense_blocks=49: 104 dense / 196 sparse), and s012_b49 (start_percent=0.55 -> Steps 0-2 dense, dense_blocks=49: 153 dense / 147 sparse).",
+ "why": "On Pass 1 (seed 730451892), the owner scored all five singles 'good' and all four pairs against dense 'can't tell' (data/results/2026-11-11_pika_sol_pass1_verdict.json), making s0_b49 (-12.6s vs shipped) the cheapest candidate default. Re-running all five arms properly blind at seed 730451894 checks whether that outcome replicates across seeds and measures the between-seed dense distance (seed_rel) as the reference scale for decoded L2.",
+ "arms": {
+  "pika_market_s2__dense": "workflows/h3_text_to_video_pika_api.json",
+  "pika_market_s2__shipped": "workflows/h3_text_to_video_pika_api.json",
+  "pika_market_s2__s0_b49": "workflows/h3_text_to_video_pika_api.json",
+  "pika_market_s2__s01_b49": "workflows/h3_text_to_video_pika_api.json",
+  "pika_market_s2__s012_b49": "workflows/h3_text_to_video_pika_api.json"
+ },
+ "patches": [
+  "pika_market_s2__dense:MiniMaxH3Resolution.length=345",
+  "pika_market_s2__dense:MiniMaxH3Sol.dense_blocks=\"0-49\"",
+  "pika_market_s2__shipped:MiniMaxH3Resolution.length=345",
+  "pika_market_s2__s0_b49:MiniMaxH3Resolution.length=345",
+  "pika_market_s2__s0_b49:MiniMaxH3Sol.dense_blocks=\"49\"",
+  "pika_market_s2__s01_b49:MiniMaxH3Resolution.length=345",
+  "pika_market_s2__s01_b49:MiniMaxH3Sol.start_percent=0.28",
+  "pika_market_s2__s01_b49:MiniMaxH3Sol.dense_blocks=\"49\"",
+  "pika_market_s2__s012_b49:MiniMaxH3Resolution.length=345",
+  "pika_market_s2__s012_b49:MiniMaxH3Sol.start_percent=0.55",
+  "pika_market_s2__s012_b49:MiniMaxH3Sol.dense_blocks=\"49\""
+ ],
+ "seeds": {
+  "first": 730451894,
+  "runs": 1,
+  "note": "warmup runs pika_market_s2__shipped at seed 730451893 (never rendered today, so it cannot hit ComfyUI's node-output cache from Pass 1's 730451892 and ensures fl2va UNET is hot in VRAM)"
+ },
+ "run": "run_graph_arms.py --manifest bench/pika_sol_panel_pass2_t2v_arms.json --runs 1 --seed 730451894 --warmup pika_market_s2__shipped --out data/results/2026-11-11_pika_sol_panel_pass2_t2v.jsonl"
+}

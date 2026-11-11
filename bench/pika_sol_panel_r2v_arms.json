@@ -1,0 +1,35 @@
+{
+ "what": "Pika 6-step Sol panel, Pass 2 ref2va (2026-11-11), on workflows/h3_image_ref_plus_text_to_video_pika_api.json (PIKA_REF2VA_SVD995_LORA via MiniMaxH3LoRABranch, 6 steps on lcm with PIKA_MANUAL_SIGMAS, shift_video=12.0, shift_audio=3.0, comfy-kitchen 0.2.41+sol.b63d8c7.up.7d6a22a). Renders ref2va_scene_kitchen (1344x768, 345 frames — patched from 362 to match the bank entry, 4 shots, ticket caption text, two speakers plus lyrics and cutoff) with <Picture 1> = old_man.jpg at 2048px DiT short edge, seed 730451892, across all five Pass 1 arms holding sink_conditioning=exact_kv_and_all_rows, quantizer=rotated, tau=1.0, and token_routing=off fixed: dense (dense_blocks=0-49: all 300 block-calls on comfy-kitchen INT8 dense attention), shipped (start_percent=0.2 -> Step 0 dense, dense_blocks=38-42,49: 80 dense / 220 sparse), s0_b49 (start_percent=0.2 -> Step 0 dense, dense_blocks=49: 55 dense / 245 sparse), s01_b49 (start_percent=0.28 -> Steps 0-1 dense, dense_blocks=49: 104 dense / 196 sparse), and s012_b49 (start_percent=0.55 -> Steps 0-2 dense, dense_blocks=49: 153 dense / 147 sparse).",
+ "why": "On Pass 1 (t2va_covered_market, seed 730451892), the owner scored all five singles 'good' and all four pairs against dense 'can't tell' (data/results/2026-11-11_pika_sol_pass1_verdict.json), making the cheapest arm s0_b49 (-12.6s vs shipped, -122.0s vs dense) the candidate default alongside s01_b49 and s012_b49. Pass 2 tests all five arms properly blind on the ref2va Pika checkpoint/LoRA with 2048px reference tokens under exact_kv_and_all_rows, alongside a second t2va seed (730451894), before changing any repo default.",
+ "arms": {
+  "pika_kitchen_r2v__dense": "workflows/h3_image_ref_plus_text_to_video_pika_api.json",
+  "pika_kitchen_r2v__shipped": "workflows/h3_image_ref_plus_text_to_video_pika_api.json",
+  "pika_kitchen_r2v__s0_b49": "workflows/h3_image_ref_plus_text_to_video_pika_api.json",
+  "pika_kitchen_r2v__s01_b49": "workflows/h3_image_ref_plus_text_to_video_pika_api.json",
+  "pika_kitchen_r2v__s012_b49": "workflows/h3_image_ref_plus_text_to_video_pika_api.json"
+ },
+ "patches": [
+  "pika_kitchen_r2v__dense:MiniMaxH3Resolution.length=345",
+  "pika_kitchen_r2v__dense:LoadImage.image=old_man.jpg",
+  "pika_kitchen_r2v__dense:MiniMaxH3Sol.dense_blocks=\"0-49\"",
+  "pika_kitchen_r2v__shipped:MiniMaxH3Resolution.length=345",
+  "pika_kitchen_r2v__shipped:LoadImage.image=old_man.jpg",
+  "pika_kitchen_r2v__s0_b49:MiniMaxH3Resolution.length=345",
+  "pika_kitchen_r2v__s0_b49:LoadImage.image=old_man.jpg",
+  "pika_kitchen_r2v__s0_b49:MiniMaxH3Sol.dense_blocks=\"49\"",
+  "pika_kitchen_r2v__s01_b49:MiniMaxH3Resolution.length=345",
+  "pika_kitchen_r2v__s01_b49:LoadImage.image=old_man.jpg",
+  "pika_kitchen_r2v__s01_b49:MiniMaxH3Sol.start_percent=0.28",
+  "pika_kitchen_r2v__s01_b49:MiniMaxH3Sol.dense_blocks=\"49\"",
+  "pika_kitchen_r2v__s012_b49:MiniMaxH3Resolution.length=345",
+  "pika_kitchen_r2v__s012_b49:LoadImage.image=old_man.jpg",
+  "pika_kitchen_r2v__s012_b49:MiniMaxH3Sol.start_percent=0.55",
+  "pika_kitchen_r2v__s012_b49:MiniMaxH3Sol.dense_blocks=\"49\""
+ ],
+ "seeds": {
+  "first": 730451892,
+  "runs": 1,
+  "note": "warmup runs pika_kitchen_r2v__shipped at seed 730451891 so ref2va UNET swap, reference encode, and text encode stay out of measured rows"
+ },
+ "run": "run_graph_arms.py --manifest bench/pika_sol_panel_r2v_arms.json --runs 1 --seed 730451892 --warmup pika_kitchen_r2v__shipped --out data/results/2026-11-11_pika_sol_panel_pass2_r2v.jsonl"
+}
