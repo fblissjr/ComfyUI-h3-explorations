@@ -564,3 +564,88 @@
     background: rgba(255, 255, 255, 0.04);
     border: 1px solid transparent;
   }
+
+  /* --- Forms drawn from the CLI's schema (web/form.js) --- */
+  .form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 14px 18px;
+    margin: 14px 0;
+  }
+  .form-grid .field { margin: 0; min-width: 0; }
+  .form-grid .field-wide { grid-column: 1 / -1; }
+  .field-label code,
+  .method-tag,
+  summary code {
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    color: var(--text);
+    background: var(--input-bg);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 1px 6px;
+  }
+  .check-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--text-secondary);
+    padding: 9px 0;
+  }
+  .stack { display: flex; flex-direction: column; gap: 8px; }
+  textarea.list-area { min-height: 64px; }
+  .thumb { display: none; max-width: 100%; max-height: 180px; border-radius: 6px; }
+  details.more-options,
+  details.method-fold {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    margin: 12px 0;
+    background: var(--panel);
+  }
+  details.method-fold { background: transparent; }
+  details.more-options > summary,
+  details.method-fold > summary {
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--text-secondary);
+  }
+  .run-result { margin-top: 4px; }
+  .run-log {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-word;
+    background: var(--input-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+    max-height: 420px;
+    overflow: auto;
+    margin: 10px 0 0;
+  }
+  .command-line {
+    margin-top: 8px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    word-break: break-all;
+  }
+  .table-scroll { overflow-x: auto; margin-top: 12px; }
+  .recipe-row {
+    display: grid;
+    grid-template-columns: minmax(0, 3fr) minmax(0, 1.4fr) minmax(0, 1fr) auto;
+    gap: 8px;
+    align-items: center;
+  }
+  .readout { margin: 6px 0 12px; }
+  .readout-head { font-weight: 600; margin-bottom: 6px; }
+  .readout-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 6px 0; }
+  .span-text { font-size: 12.5px; margin-top: 6px; word-break: break-word; }
+  .tok-chip.tok-toward { background: rgba(245, 158, 11, 0.28); }
+  .tok-chip.tok-away { background: rgba(16, 185, 129, 0.25); }
+
+  /* A wide table scrolls inside its card, not the page. */
+  .workspace { min-width: 0; }
+  .card { min-width: 0; }

@@ -25,7 +25,7 @@ from . import helpers as _h
 from .helpers import (
     REPO_ROOT,
     _apply_post_refiner_holds,
-    _compile_words_or_spec_to_pairset,
+    _compile_pair_set_from_args,
     _display_path,
     _pair_set_to_markdown,
     _parse_lora_specs,
@@ -182,28 +182,11 @@ def cmd_build(args: argparse.Namespace) -> int:
     test_prompt_saved: Path | None = None
     stem_override = (getattr(args, "name", None) or getattr(args, "output_name", None) or "").strip() or None
     tp_arg = _resolve_cli_target_prompt(args)
-    tp_weight = float(getattr(args, "target_weight", 2.5))
-    compile_mode = pair_compiler.infer_compile_mode(
-        getattr(args, "mode", None),
-        ref_images=getattr(args, "ref_images", None),
-        target_prompt=tp_arg or None,
-        words=words_arg or None,
-    )
 
     if compiled_override is not None:
         pair_set = compiled_override
     elif words_arg:
-        pair_set = _compile_words_or_spec_to_pairset(
-            words_arg,
-            name=stem_override,
-            quality=getattr(args, "quality", None),
-            a_side=getattr(args, "a_side", None),
-            b_side=getattr(args, "b_side", None),
-            mode=compile_mode,
-            target_prompt=tp_arg,
-            target_weight=tp_weight,
-            bank_scenes=int(getattr(args, "bank_scenes", 0) or 0),
-        )
+        pair_set = _compile_pair_set_from_args(args)
         toml_out_arg = getattr(args, "toml_out", None) or (
             cv_nodes.USER_PAIR_BANK_DIR if getattr(args, "save_toml", False) else None
         )
@@ -371,7 +354,6 @@ def cmd_build(args: argparse.Namespace) -> int:
     out_dir.mkdir(parents=True, exist_ok=True)
 
     summary_rows: list[dict[str, Any]] = []
-    build_cache_out: dict[str, Any] | None = getattr(args, "_build_cache_out", None)
     hold_specs_build = getattr(args, "hold", None)
     hold_words_build = str(getattr(args, "hold_words", "") or "").strip() or None
     hold_alpha_build = float(getattr(args, "hold_alpha", 1.0))
@@ -721,45 +703,6 @@ def cmd_build(args: argparse.Namespace) -> int:
                 metadata,
                 overwrite=bool(getattr(args, "overwrite", False)),
             )
-            if isinstance(build_cache_out, dict):
-                build_cache_out[f"{family}:{pool_mode}"] = {
-                    "family": family,
-                    "pooling": pool_mode,
-                    "stem": stem,
-                    "out_path": saved,
-                    "a_mat": a_mat.detach().cpu(),
-                    "b_mat": b_mat.detach().cpu(),
-                    "enc_a_mat": enc_a_mat.detach().cpu() if enc_a_mat is not None else None,
-                    "enc_b_mat": enc_b_mat.detach().cpu() if enc_b_mat is not None else None,
-                    "weights": [float(w) for w in weights_list],
-                    "hold_a_list": [t.detach().cpu() for t in hold_a_list],
-                    "hold_b_list": [t.detach().cpu() for t in hold_b_list],
-                    "enc_hold_a_list": [t.detach().cpu() for t in enc_hold_a_list],
-                    "enc_hold_b_list": [t.detach().cpu() for t in enc_hold_b_list],
-                    "hold_groups": list(hold_groups),
-                    "hold_weights": list(hold_weights),
-                    "median_ref_row_norm": median_ref_row_norm,
-                    "median_enc_row_norm_ex0": median_enc_row_norm_ex0,
-                    "pair_spans": list(pair_spans),
-                    "pairs_ab": [(p.a, p.b) for p in pair_set.pairs],
-                    "pair_set": pair_set,
-                    "rel_pair_path": rel_pair_path,
-                    "recipe": recipe,
-                    "loras": loras,
-                    "prefix_meta": prefix_meta,
-                    "measured_mode": measured_mode,
-                    "dit_path": dit_path,
-                    "unet_path": dit_path,
-                    "encoder_path": encoder_path,
-                    "refiner_device": str(args.refiner_device),
-                    "seed": int(args.seed),
-                    "unit_mean": bool(getattr(args, "unit_mean", False)),
-                    "hold_specs": list(hold_specs_build) if hold_specs_build else [],
-                    "hold_words": hold_words_build,
-                    "hold_alpha": hold_alpha_build,
-                    "prompt": prompt_build,
-                    "words_spec": words_arg or str(getattr(args, "_words_spec_saved", "") or ""),
-                }
             # The band for the node's default mode (`add_norm_matched`); the per-vector band for mode
             # `add` is in `rec_strength`'s text. Both from `control_vectors.strength_ranges`.
             rec_band = [round(x, 2) for x in cv.strength_ranges(raw_norm)[0]]

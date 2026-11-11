@@ -521,11 +521,15 @@ def _generate_pairs_with_llm(
 
 
 
-def cmd_generate_pairs(args: argparse.Namespace) -> int:
+def _generate_pairs_from_args(args: argparse.Namespace, *, llm_cache: Any = None) -> dict[str, Any]:
+    """The LLM call `generate-pairs` makes, from a parsed namespace. `cmd_generate_pairs` prints or
+    writes its Markdown; the studio's route hands it to the page's editor. `llm_cache` lets the
+    studio keep a loaded model between calls."""
     concept = str(getattr(args, "concept_flag", "") or getattr(args, "concept", "") or "").strip()
     if not concept:
         raise ValueError("concept description is required (pass positional concept or --concept)")
-    res = _generate_pairs_with_llm(
+    extra = {"llm_cache": llm_cache} if llm_cache is not None else {}
+    return _generate_pairs_with_llm(
         provider=args.llm_provider,
         model_spec=args.llm_model,
         concept_prompt=concept,
@@ -533,7 +537,12 @@ def cmd_generate_pairs(args: argparse.Namespace) -> int:
         max_new_tokens=int(getattr(args, "max_new_tokens", DEFAULT_LLM_MAX_TOKENS)),
         temperature=float(getattr(args, "temperature", 0.7)),
         exl3_root=getattr(args, "exl3_root", None) or None,
+        **extra,
     )
+
+
+def cmd_generate_pairs(args: argparse.Namespace) -> int:
+    res = _generate_pairs_from_args(args)
     md_text = res["markdown"]
     if getattr(args, "out_md", ""):
         out_p = Path(args.out_md)

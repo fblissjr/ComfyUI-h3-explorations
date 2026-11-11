@@ -1,6 +1,6 @@
 # The command line, the files and the bank
 
-last updated: 2026-11-10
+last updated: 2026-11-11
 
 [Back to the start page](../control_vectors.md)
 
@@ -34,7 +34,7 @@ here: the last one drifted from the parser.
 | `from-md` (also `import-md`) | An LLM's Markdown answer turned into a pair file | Covered in `bench/check_control_vectors.py` |
 | `generate-pairs` | Pairs written by a local LLM | Not run on record; see the LLM page |
 | `build-j-lens` | The J-Lens bundle checked (`--verify-only`), or its refiner half rebuilt (requires `--overwrite` to replace an existing file) | `--verify-only` verified; see the J-Lens page before rebuilding |
-| `ui` | The browser UI | Not maintained at present |
+| `ui` | The browser UI | Rebuilt 2026-11-11: every method here as a form ([`studio_ui_guide.md`](studio_ui_guide.md)) |
 
 The plan is to cut this list down to building from a prompt and rebuilding from a file's own record
 ([`the plan`](../../research/control_vectors/2026-11-09_control_vector_simplification_plan.md), section 19).

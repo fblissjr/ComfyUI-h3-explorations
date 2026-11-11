@@ -361,11 +361,10 @@ def _meter_prompt_tokens(
 
 
 
-def cmd_sculpt(args: argparse.Namespace) -> int:
-    """Compose one or more control vectors (`add`, `add_norm_matched`, `hold`) + optional `--hold-words` (`--hold-alpha`)
-    into a Ready-to-Render `.safetensors` + `.md` sidecar on CPU in `< 5 ms`.
-    """
-    t0 = time.perf_counter()
+def _sculpt_steps_from_args(args: argparse.Namespace) -> list[dict[str, Any]]:
+    """The recipe steps `sculpt`'s arguments describe: one per input vector with its mode and
+    strength, `--invert` on the first, then a `hold` step per `--hold`. `cmd_sculpt` saves the
+    recipe; the studio's preview route reads it out without saving."""
     vecs = list(args.vectors or ())
     if not vecs:
         raise ValueError("at least one input vector is required for 'sculpt'")
@@ -389,6 +388,17 @@ def cmd_sculpt(args: argparse.Namespace) -> int:
                     "strength": float(getattr(args, "hold_alpha", 1.0)),
                 }
             )
+    return steps
+
+
+def cmd_sculpt(args: argparse.Namespace) -> int:
+    """Compose one or more control vectors (`add`, `add_norm_matched`, `hold`) + optional `--hold-words` (`--hold-alpha`)
+    into a Ready-to-Render `.safetensors` + `.md` sidecar on CPU in `< 5 ms`.
+    """
+    t0 = time.perf_counter()
+    vecs = list(args.vectors or ())
+    invert_flag = bool(getattr(args, "invert", False))
+    steps = _sculpt_steps_from_args(args)
 
     stem = (getattr(args, "output_name", None) or getattr(args, "name", None) or "").strip()
     if not stem:

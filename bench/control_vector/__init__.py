@@ -54,12 +54,10 @@ from .sculpt import _compose_and_save_sculpted_vector, _meter_prompt_tokens, cmd
 from .ui_server import cmd_ui, handle_ui_request
 from .ui_state import (
     ControlVectorUIState,
-    _build_pairset_from_ui_rows,
     _discover_ui_clips,
     _list_ui_toml_files,
     _list_ui_vectors,
     _preview_markdown_pairs,
-    _repool_cached_build,
 )
 
 __all__ = [
@@ -74,7 +72,6 @@ __all__ = [
     "_attach_raw_vector",
     "_block_metrics",
     "_build_padding_prompt",
-    "_build_pairset_from_ui_rows",
     "_compile_words_or_spec_to_pairset",
     "_compose_and_save_sculpted_vector",
     "_cosine",
@@ -100,7 +97,6 @@ __all__ = [
     "_recommended_strength_text",
     "_rel_l2",
     "_repair_multichange_markdown_pairs",
-    "_repool_cached_build",
     "_resolve_cli_target_prompt",
     "_resolve_exl3_library_root",
     "_resolve_prompt_text",

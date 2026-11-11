@@ -25,7 +25,7 @@ from . import helpers as _h
 from .helpers import (
     REPO_ROOT,
     _apply_post_refiner_holds,
-    _compile_words_or_spec_to_pairset,
+    _compile_pair_set_from_args,
     _display_path,
     _load_image_tensor_list,
     _parse_lora_specs,
@@ -173,22 +173,8 @@ def cmd_make(args: argparse.Namespace) -> int:
     resolved_pair_path: Path | None = None
     words_arg = str(getattr(args, "words", "") or "").strip()
     tp_arg = _resolve_cli_target_prompt(args)
-    tp_weight = float(getattr(args, "target_weight", 2.5))
     if words_arg:
-        compile_mode = pair_compiler.infer_compile_mode(
-            getattr(args, "mode", None),
-            ref_images=getattr(args, "ref_images", None),
-            target_prompt=tp_arg or None,
-            words=words_arg,
-        )
-        pair_set = _compile_words_or_spec_to_pairset(
-            words_arg,
-            name=(getattr(args, "output_name", "") or "").strip() or None,
-            mode=compile_mode,
-            target_prompt=tp_arg,
-            target_weight=tp_weight,
-            bank_scenes=int(getattr(args, "bank_scenes", 0) or 0),
-        )
+        pair_set = _compile_pair_set_from_args(args)
     else:
         if not getattr(args, "pairs", None):
             raise ValueError("either a pair TOML file or --words is required for 'make'")

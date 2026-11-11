@@ -462,6 +462,33 @@ def _compile_words_or_spec_to_pairset(
     )
 
 
+def _compile_pair_set_from_args(args: Any) -> cv.PairSet:
+    """The pair set `--words` compiles to on the target prompt, from a parsed namespace.
+
+    One copy for `build`, `from-prompt`, `make` and the studio's preview route, so what the page
+    shows before a build is what the build encodes."""
+    words_arg = str(getattr(args, "words", "") or "").strip()
+    tp_arg = _resolve_cli_target_prompt(args)
+    compile_mode = pair_compiler.infer_compile_mode(
+        getattr(args, "mode", None),
+        ref_images=getattr(args, "ref_images", None),
+        target_prompt=tp_arg or None,
+        words=words_arg or None,
+    )
+    stem = (getattr(args, "name", None) or getattr(args, "output_name", None) or "").strip() or None
+    return _compile_words_or_spec_to_pairset(
+        words_arg,
+        name=stem,
+        quality=getattr(args, "quality", None),
+        a_side=getattr(args, "a_side", None),
+        b_side=getattr(args, "b_side", None),
+        mode=compile_mode,
+        target_prompt=tp_arg,
+        target_weight=float(getattr(args, "target_weight", 2.5)),
+        bank_scenes=int(getattr(args, "bank_scenes", 0) or 0),
+    )
+
+
 def _encode_pair_set_through_clip(
     clip: Any,
     pair_set: cv.PairSet,

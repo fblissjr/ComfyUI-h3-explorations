@@ -17,6 +17,12 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-11-11
 
+- **The Control Vector Studio is rebuilt as the CLI drawn as a page** (owner decision, with the design left to the
+  session that built it). It had been "not maintained at present" since 2026-11-09 and described a design the code had
+  retired. Its controls now come from the CLI's parser (`bench/control_vector/ui_schema.py`), its buttons run the CLI's
+  handlers through one route, and `bench/check_control_vector_studio.py` holds page, server and parser together. The
+  page's re-pool and in-page pair editing are gone: neither had a command line form
+  ([`control_vectors/studio_ui_guide.md`](control_vectors/studio_ui_guide.md)).
 - **The two one-frame guide edits on Pika load no edit LoRA, and their prompt has no `vfx_edit:` opening** (owner
   decision). `h3_probe_pika_image_guide_edit_api.json` and its `_control_vector` twin chained
   `GUIDE_VFX_EDIT_FFP_LORA` after Pika's LoRA and opened their prompt with that LoRA's trigger; both are out, and

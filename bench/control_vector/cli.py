@@ -753,37 +753,44 @@ def build_parser() -> argparse.ArgumentParser:
     return p
 
 
+def dispatch(args: argparse.Namespace) -> int:
+    """Run the handler for a parsed namespace. The one routing of subcommand to handler: `main`
+    calls it for the command line and the studio's run route (`ui_server.py`) calls it for the page,
+    so a method cannot be wired to one and not the other."""
+    if args.cmd == "ui":
+        from .ui_server import cmd_ui
+
+        return cmd_ui(args)
+    if args.cmd == "generate-pairs":
+        return cmd_generate_pairs(args)
+    if args.cmd in ("words", "from-words"):
+        return cmd_words(args)
+    if args.cmd == "sculpt":
+        return cmd_sculpt(args)
+    if args.cmd in ("build", "from-toml", "from-prompt"):
+        return cmd_build(args)
+    if args.cmd == "build-j-lens":
+        return cmd_build_j_lens(args)
+    if args.cmd == "rebuild":
+        return cmd_rebuild(args)
+    if args.cmd in ("from-md", "import-md"):
+        return cmd_from_md(args)
+    if args.cmd == "make":
+        return cmd_make(args)
+    if args.cmd in ("make-media", "from-images"):
+        return cmd_make_media(args)
+    if args.cmd == "inspect":
+        return cmd_inspect(args)
+    if args.cmd == "grade":
+        return cmd_grade(args)
+    raise ValueError(f"no handler for subcommand {args.cmd!r}")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     try:
-        if args.cmd == "ui":
-            from .ui_server import cmd_ui
-
-            return cmd_ui(args)
-        if args.cmd == "generate-pairs":
-            return cmd_generate_pairs(args)
-        if args.cmd in ("words", "from-words"):
-            return cmd_words(args)
-        if args.cmd == "sculpt":
-            return cmd_sculpt(args)
-        if args.cmd in ("build", "from-toml", "from-prompt"):
-            return cmd_build(args)
-        if args.cmd == "build-j-lens":
-            return cmd_build_j_lens(args)
-        if args.cmd == "rebuild":
-            return cmd_rebuild(args)
-        if args.cmd in ("from-md", "import-md"):
-            return cmd_from_md(args)
-        if args.cmd == "make":
-            return cmd_make(args)
-        if args.cmd in ("make-media", "from-images"):
-            return cmd_make_media(args)
-        if args.cmd == "inspect":
-            return cmd_inspect(args)
-        if args.cmd == "grade":
-            return cmd_grade(args)
+        return int(dispatch(args) or 0)
     except (ValueError, FileExistsError, FileNotFoundError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2
-    return 0

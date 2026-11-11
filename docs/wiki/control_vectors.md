@@ -1,6 +1,6 @@
 # Control vectors for H3: start here
 
-last updated: 2026-11-10
+last updated: 2026-11-11
 
 ![Control vector pipeline overview](control_vectors/assets/control_vector_pipeline.svg)
 
@@ -77,7 +77,7 @@ Not known:
 | Worked examples | The few that a session has run, with their commands | [`examples_and_recipes.md`](control_vectors/examples_and_recipes.md) |
 | J-Lens | The bundle that names a vector in words and builds one from words | [`j_lens_diagnostics_and_word_lab.md`](control_vectors/j_lens_diagnostics_and_word_lab.md) |
 | Asking an LLM for pairs | The prompt to hand it, and where that stands | [`llm_prompting_guide.md`](control_vectors/llm_prompting_guide.md) |
-| The browser UI | Not maintained at present | [`studio_ui_guide.md`](control_vectors/studio_ui_guide.md) |
+| The browser UI | Rebuilt 2026-11-11: the CLI as a page, drawn from the CLI's parser | [`studio_ui_guide.md`](control_vectors/studio_ui_guide.md) |
 
 ## The graphs
 
