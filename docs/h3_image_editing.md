@@ -163,9 +163,14 @@ What was seen, for the owner's eye to judge:
   inputs.** These tries ran before `85aba935`. Until that commit a released picture was not let go: the node zeroed
   its latents and core filled the rows with noise and labeled them with the stream's own time, so the model was
   handed noise as its reference. That commit drops the rows on released steps
-  (`control_vector_nodes.py::_drop_visual_cond_from_layout`). None of the stills below has been rendered again on it.
-  - Released for the second half of the schedule, stray colored objects and streaks appeared, with the vector and
-    without it. Released for the last step or the last two, the picture stayed about as it is held.
+  (`control_vector_nodes.py::_drop_visual_cond_from_layout`). The release stills were rendered again on it after the
+  server's restart, same graphs and seed (`sheet_release_before_and_after_the_fix`): the stray objects and streaks
+  are gone, the held still came out pixel for pixel as before, and the node logs the rows it released. With the
+  release clean, letting the picture go for the second half of the schedule left this picture close to the held
+  one, with the vector and without it. An earlier release was not tried, and the weight stills were not rendered
+  again, since the commit does not touch that input.
+  - Before the commit: released for the second half of the schedule, stray colored objects and streaks appeared,
+    with the vector and without it. Released for the last step or the last two, the picture stayed about as it is held.
   - Weight lowered to 0.30, the source's long hair and black top came back, with the vector and without it; at 0 the
     picture was a third variant. Core mixes the rows with noise at this weight on every step and labels them with
     the larger of the weight and the stream's time (`comfy/ldm/minimax/model.py`, `_cond_video_rows` and `seg_t` in
