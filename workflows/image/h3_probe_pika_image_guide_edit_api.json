@@ -120,7 +120,7 @@
         "4",
         0
       ],
-      "prompt": "vfx_edit: Replace the man's clothing with a red leather jacket, while preserving his identity, face, hair, pose, framing, lighting and background.",
+      "prompt": "Replace the man's clothing with a red leather jacket, while preserving his identity, face, hair, pose, framing, lighting and background.",
       "width": [
         "27",
         0
@@ -151,26 +151,11 @@
       "end_percent": 1.0
     }
   },
-  "72": {
-    "class_type": "MiniMaxH3LoRABranch",
-    "inputs": {
-      "model": [
-        "18",
-        0
-      ],
-      "lora_name": "h3/alissonerdx/minimax_h3_vfx_edit_v1.0_r128_ffp.safetensors",
-      "strength": 1.0,
-      "modules": "all",
-      "blocks": "all",
-      "start_percent": 0.0,
-      "end_percent": 1.0
-    }
-  },
   "19": {
     "class_type": "MiniMaxH3SigmaShift",
     "inputs": {
       "model": [
-        "72",
+        "18",
         0
       ],
       "shift_video": 12.0,

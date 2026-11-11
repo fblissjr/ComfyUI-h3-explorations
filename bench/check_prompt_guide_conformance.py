@@ -169,12 +169,15 @@ GUIDE_NODES = ("MiniMaxH3AddGuide", "MiniMaxH3GuideLatent")
 # that grows.
 #
 # **Two members since 2026-11-10.** `h3_probe_pika_image_guide_edit_api` (and
-# its `_control_vector` twin) is a
-# one-frame edit through a guide edit LoRA, and its prompt is in the form that
-# LoRA was trained on: one sentence opening with `vfx_edit:`, the edit and then
-# what stays. Sections are not what the LoRA read in training, so grading it
-# for them would ask for a prompt its author says not to write
-# (`docs/h3_image_editing.md`, "A one-frame edit on Pika"). The set was empty
+# its `_control_vector` twin) is a one-frame edit of a guide picture, and its
+# prompt is one plain sentence: the edit and then what stays. It was added in
+# the form a guide edit LoRA was trained on, opening with `vfx_edit:`; on
+# 2026-11-11 the owner took the LoRA and the opening out and kept the sentence
+# (`docs/h3_image_editing.md`, "A one-frame edit on Pika"). The waiver now
+# rests on that word, not on a LoRA's training form: whether this graph's
+# prompt should be in the reference guide's sections is not settled: the
+# sentence was rendered without the LoRA that day, the sections were not.
+# The set was empty
 # from 2026-08-27, when the single-frame lane was parked and
 # `h3_image_probe_format_flat_api` went with it; `h3_ref_video_swap_concise`
 # was retired before that. The run prints what it waived, because "waived

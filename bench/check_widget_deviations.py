@@ -366,7 +366,7 @@ DECLARED: dict[tuple[str, str], tuple] = {
         ("ARM", "'non_vision' on `h3_probe_pika_image_guide_edit_control_vector`, "
                 "against the node default 'scene_only': that probe conditions through "
                 "core's `MiniMaxH3ReferenceToVideo` (which attaches no `h3_span_masks`) "
-                "on a one-sentence `vfx_edit:` prompt with no sections, vision blocks, "
+                "on a one-sentence prompt with no sections, vision blocks, "
                 "or `<d>` speech tags (2026-11-10, docs/h3_image_editing.md)"),
     ("MiniMaxH3PromptEdit", "edits"):
         ("ARM", "the graph's edit lines, data from prompt_bank/edit_guidance/, on "

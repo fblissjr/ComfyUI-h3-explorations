@@ -84,7 +84,7 @@ each input is for:
   - **Audio-only vectors** (`reverb_cathedral`, `pyro_klaxon_audio`, whose `pairs.differing_sections` is
     `["overall_soundscape"]`): set `mask = "soundscape_only"`, because `scene_only` excludes audio sections and
     steers `0` rows on them.
-  - **Unsectioned `vfx_edit:` prompts** (`workflows/image/h3_probe_pika_image_guide_edit_control_vector_api.json`):
+  - **Unsectioned one-sentence prompts** (`workflows/image/h3_probe_pika_image_guide_edit_control_vector_api.json`):
     set `mask = "non_vision"`, because bare edit instructions carry no H3 section headers.
 - **When to adjust `ref_vae_end_percent` and `ref_vae_aug`:** On reference, keyframe, and guide-latent shots,
   the input image enters through both Qwen3-VL vision tokens and clean 3D Video VAE latents (`cond_video_latents`),

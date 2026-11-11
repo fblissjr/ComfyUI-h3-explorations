@@ -15,6 +15,16 @@ Older history lives elsewhere and is not copied here:
   decisions" and forward-plan sections.
 - `bench/results/`: the verdict records, each with its conditions.
 
+## 2026-11-11
+
+- **The two one-frame guide edits on Pika load no edit LoRA, and their prompt has no `vfx_edit:` opening** (owner
+  decision). `h3_probe_pika_image_guide_edit_api.json` and its `_control_vector` twin chained
+  `GUIDE_VFX_EDIT_FFP_LORA` after Pika's LoRA and opened their prompt with that LoRA's trigger; both are out, and
+  the prompt is the same sentence without the opening (`prompt_bank/guide_edit/man_red_jacket.txt`, renamed from
+  `vfx_edit_man_red_jacket.txt`). Two of the 2026-11-10 arms rendered again without them, same pictures and seed:
+  the asked edit landed on both ([`../h3_image_editing.md`](../h3_image_editing.md), "A one-frame edit on Pika").
+  `h3_guide_video_edit_api.json` was not part of the decision and still loads the edit LoRA.
+
 ## 2026-11-10
 
 - **`ref_vae_aug` no longer leaves the picture's rows noisier than their label (`control_vector_nodes.py`, `bench/check_control_vectors.py`).**

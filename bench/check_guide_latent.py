@@ -22,8 +22,9 @@ Claims, i.e. what breaks if a case is deleted:
                          non-AV latents all raise `ValueError` naming the node
   shipped guide graphs   `workflows/h3_guide_video_edit_api.json` and
                          `workflows/image/h3_probe_pika_image_guide_edit_api.json`
-                         wire `MiniMaxH3GuideLatent` -> `MiniMaxH3Preflight` and
-                         chain two `MiniMaxH3LoRABranch` adapters on `unet_ref2va`
+                         wire `MiniMaxH3GuideLatent` -> `MiniMaxH3Preflight` on
+                         `unet_ref2va`; the video graph chains a guide task LoRA
+                         after Pika's, the one-frame graph loads Pika's alone
 
 No GPU, no server, no model weights on disk.
 
@@ -275,9 +276,11 @@ def check_shipped_guide_graphs() -> None:
     assert vid_path.is_file(), f"missing {vid_path}"
     assert img_path.is_file(), f"missing {img_path}"
 
-    for path, want_sf, want_distill_lora in (
-        (vid_path, False, cfg.PIKA_REF2VA_SVD995_LORA),
-        (img_path, True, cfg.PIKA_REF2VA_SVD995_LORA),
+    # The one-frame graph loads no guide task LoRA since 2026-11-11 (owner):
+    # the guide node is wired, the edit LoRA is not.
+    for path, want_sf, want_distill_lora, want_task_lora in (
+        (vid_path, False, cfg.PIKA_REF2VA_SVD995_LORA, True),
+        (img_path, True, cfg.PIKA_REF2VA_SVD995_LORA, False),
     ):
         doc = json.loads(path.read_text(encoding="utf-8"))
         assert doc["1"]["inputs"]["unet_name"] == cfg.MODELS["unet_ref2va"], (
@@ -285,8 +288,17 @@ def check_shipped_guide_graphs() -> None:
         )
         assert doc["18"]["class_type"] == cfg.LORA_BRANCH_NODE
         assert doc["18"]["inputs"]["lora_name"] == want_distill_lora
-        assert doc["72"]["class_type"] == cfg.LORA_BRANCH_NODE
-        assert doc["72"]["inputs"]["lora_name"] in cfg.GUIDE_TASK_LORAS
+        if want_task_lora:
+            assert doc["72"]["class_type"] == cfg.LORA_BRANCH_NODE
+            assert doc["72"]["inputs"]["lora_name"] in cfg.GUIDE_TASK_LORAS
+        else:
+            loaded = sorted(
+                n["inputs"]["lora_name"] for n in doc.values()
+                if isinstance(n, dict) and "lora_name" in n.get("inputs", {})
+            )
+            assert loaded == [want_distill_lora], (
+                f"{path.name}: expected Pika's LoRA alone, found {loaded}"
+            )
         assert doc["70"]["class_type"] == cfg.GUIDE_LATENT_NODE
         assert doc["70"]["inputs"]["single_frame"] is want_sf
         assert doc["26"]["class_type"] == "MiniMaxH3Preflight"

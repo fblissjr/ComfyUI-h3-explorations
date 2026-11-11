@@ -1389,8 +1389,9 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
               # the AV latent to 1 frame (`t=1`) for P-H3-Image still editing.
               # `guide_file` names the picture node 16 loads in place of the
               # placeholder. With `native_ref=True` a guide graph may wire no
-              # reference at all: the guide is then the only picture, which
-              # is the edit LoRA's main trained case (`PIKA_STILL_EDIT_PROMPT`).
+              # reference at all: the guide is then the only picture
+              # (`PIKA_STILL_EDIT_PROMPT`). `task_lora` is optional: the two
+              # one-frame guide edits load none (owner, 2026-11-11).
               guide_video: bool = False,
               guide_image: bool = False,
               guide_file: str | None = None,
@@ -2456,12 +2457,12 @@ PH3_IMAGE_T2I_PROMPT = _bank_prompt("p_h3_image/t2i_clockmaker")
 #: Stored in `prompt_bank/p_h3_image/edit_alpine_terrace.txt`.
 PH3_IMAGE_EDIT_PROMPT = _bank_prompt("p_h3_image/edit_alpine_terrace")
 
-#: The one-frame guide edit's prompt, in the form the guide edit LoRA was trained on rather than
-#: the house sections: it opens with `vfx_edit:`, is one sentence, states the edit and then what
-#: stays, and names no `<Picture N>` because the graph wires no reference. The form is the LoRA
-#: author's (their release's `docs/vfx-edit.md`); `docs/h3_image_editing.md` carries our reading.
-#: Stored in `prompt_bank/guide_edit/vfx_edit_man_red_jacket.txt`.
-PIKA_STILL_EDIT_PROMPT = _bank_prompt("guide_edit/vfx_edit_man_red_jacket")
+#: The one-frame guide edit's prompt: one plain sentence that states the edit and then what stays,
+#: naming no `<Picture N>` because the graph wires no reference. Until 2026-11-11 it opened with
+#: `vfx_edit:`, the trigger of the guide edit LoRA the two graphs loaded; the owner took both the
+#: LoRA and the opening out that day (`docs/h3_image_editing.md`).
+#: Stored in `prompt_bank/guide_edit/man_red_jacket.txt`.
+PIKA_STILL_EDIT_PROMPT = _bank_prompt("guide_edit/man_red_jacket")
 
 #: The plain Pika stills' prompts (owner, 2026-11-10): a Pika image is prompted as the video is, in
 #: the vendor guides' structure. Text to image takes `vendor_guides/base_en.md`'s three fields on the
@@ -5134,26 +5135,25 @@ def main():
               out_prefix="Image/h3_pika_image_edit_control_vector"),
          "picture + text -> single-frame edited image on unet_ref2va + Pika H3 Flex 6-step LCM (SVD995 branch) with a post-refiner control vector (film_16mm_1974 ref2va diff_span at +1.15, add_norm_matched, scene_only), the picture as <Picture 1> held on every step"),
         # A one-frame edit on Pika with no reference picture: the picture to
-        # edit is the guide, and the prompt is one sentence in the edit LoRA's
-        # own form. Core's reference node, because ours refuses an empty chain.
-        # Rendered against the P-H3 graphs on 2026-11-10 (`docs/h3_image_editing.md`).
+        # edit is the guide, and the prompt is one plain sentence. No edit LoRA
+        # and no `vfx_edit:` opening since 2026-11-11 (owner); the renders of
+        # 2026-11-10 in `docs/h3_image_editing.md` were made with both.
+        # Core's reference node, because ours refuses an empty chain.
         ("h3_probe_pika_image_guide_edit.json", "pika-image-guide-edit", "r2v",
          PIKA_STILL_EDIT_PROMPT,
          dict(ref_images_on=False, native_ref=True,
               single_frame=True, guide_image=True, guide_file=PLACEHOLDER_IMAGE_A,
               lora=(PIKA_REF2VA_SVD995_LORA, PIKA_STRENGTH), lora_branch=True,
-              task_lora=(GUIDE_VFX_EDIT_FFP_LORA, 1.0),
               steps=PIKA_STEPS, sampler_name=PIKA_SAMPLER,
               manual_sigmas=PIKA_MANUAL_SIGMAS,
               width=768, height=768,
               out_prefix="Image/h3_probe_pika_image_guide_edit"),
-         "guide image + text -> single-frame edited image on unet_ref2va + Pika H3 Flex 6-step LCM (SVD995 branch) + guide-latent task LoRA, no reference picture (core's MiniMaxH3ReferenceToVideo, MiniMaxH3GuideLatent(single_frame=True))"),
+         "guide image + text -> single-frame edited image on unet_ref2va + Pika H3 Flex 6-step LCM (SVD995 branch), no edit LoRA and no reference picture (core's MiniMaxH3ReferenceToVideo, MiniMaxH3GuideLatent(single_frame=True))"),
         ("h3_probe_pika_image_guide_edit_control_vector.json", "pika-image-guide-edit-control-vector", "r2v",
          PIKA_STILL_EDIT_PROMPT,
          dict(ref_images_on=False, native_ref=True,
               single_frame=True, guide_image=True, guide_file=PLACEHOLDER_IMAGE_A,
               lora=(PIKA_REF2VA_SVD995_LORA, PIKA_STRENGTH), lora_branch=True,
-              task_lora=(GUIDE_VFX_EDIT_FFP_LORA, 1.0),
               steps=PIKA_STEPS, sampler_name=PIKA_SAMPLER,
               manual_sigmas=PIKA_MANUAL_SIGMAS,
               width=768, height=768,
@@ -5165,7 +5165,7 @@ def main():
                   ref_vae_aug=0.999,
               ),
               out_prefix="Image/h3_probe_pika_image_guide_edit_control_vector"),
-         "guide image + text -> single-frame edited image on unet_ref2va + Pika H3 Flex 6-step LCM (SVD995 branch) + guide-latent task LoRA with a post-refiner control vector (film_16mm_1974 ref2va diff_span at +1.15, add_norm_matched, non_vision, ref_vae_end_percent=1.0)"),
+         "guide image + text -> single-frame edited image on unet_ref2va + Pika H3 Flex 6-step LCM (SVD995 branch), no edit LoRA, with a post-refiner control vector (film_16mm_1974 ref2va diff_span at +1.15, add_norm_matched, non_vision, ref_vae_end_percent=1.0)"),
     )
 
     # The 2026-09-26 distill run (owner): `_savelat` probe twins of exactly the

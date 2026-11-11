@@ -1,6 +1,6 @@
 # H3 as an image gen/edit model
 
-Last updated: 2026-11-10 (added `h3_pika_image_t2i_control_vector_api.json` and `h3_pika_image_edit_control_vector_api.json`, the two plain Pika stills with a control vector node; retired `h3_p_h3_image_guide_edit_api.json`; added the two plain Pika stills, `h3_pika_image_t2i_api.json` and `h3_pika_image_edit_api.json`, prompted in the vendor guides' structure, and the `single_frame` input on `MiniMaxH3Conditioning` and `MiniMaxH3ReferenceConditioning` that gives them their one frame; added `h3_probe_pika_image_guide_edit_api.json` and `h3_probe_pika_image_guide_edit_control_vector_api.json`, one-frame edits on Pika with no reference picture, guide-branch edit-guidance wiring, and the section on them); 2026-11-09 (the `P-H3-Image` graphs default to the 32B encoder; the two probes now wire the distilled 4B encoder); 2026-11-08 (added `h3_p_h3_image_t2i_control_vector_api.json` and `h3_p_h3_image_edit_control_vector_api.json` bringing `workflows/image/` to 9 workflows); 2026-11-07 (reopened `workflows/image/` with PrunaAI `P-H3-Image` and guide-latent single-frame T2I and image-edit workflows using `MiniMaxH3PH3ImageConditioning` in [`ph3_image_nodes.py`](../ph3_image_nodes.py) plus `MiniMaxH3GuideLatent` in [`guide_latent.py`](../guide_latent.py), with `prompt` wired directly into `MiniMaxH3PH3ImageConditioning` and `ModelAttentionBackend(attention="comfy kitchen attention")`; no core patch). Previously updated: 2026-08-27, 2026-08-16.
+Last updated: 2026-11-11 (the two one-frame guide edits on Pika load no edit LoRA and their prompt has no `vfx_edit:` opening, with two same-seed renders of the change; on 2026-11-10: added `h3_pika_image_t2i_control_vector_api.json` and `h3_pika_image_edit_control_vector_api.json`, the two plain Pika stills with a control vector node; retired `h3_p_h3_image_guide_edit_api.json`; added the two plain Pika stills, `h3_pika_image_t2i_api.json` and `h3_pika_image_edit_api.json`, prompted in the vendor guides' structure, and the `single_frame` input on `MiniMaxH3Conditioning` and `MiniMaxH3ReferenceConditioning` that gives them their one frame; added `h3_probe_pika_image_guide_edit_api.json` and `h3_probe_pika_image_guide_edit_control_vector_api.json`, one-frame edits on Pika with no reference picture, guide-branch edit-guidance wiring, and the section on them); 2026-11-09 (the `P-H3-Image` graphs default to the 32B encoder; the two probes now wire the distilled 4B encoder); 2026-11-08 (added `h3_p_h3_image_t2i_control_vector_api.json` and `h3_p_h3_image_edit_control_vector_api.json` bringing `workflows/image/` to 9 workflows); 2026-11-07 (reopened `workflows/image/` with PrunaAI `P-H3-Image` and guide-latent single-frame T2I and image-edit workflows using `MiniMaxH3PH3ImageConditioning` in [`ph3_image_nodes.py`](../ph3_image_nodes.py) plus `MiniMaxH3GuideLatent` in [`guide_latent.py`](../guide_latent.py), with `prompt` wired directly into `MiniMaxH3PH3ImageConditioning` and `ModelAttentionBackend(attention="comfy kitchen attention")`; no core patch). Previously updated: 2026-08-27, 2026-08-16.
 
 ## Reopened 2026-11-07: PrunaAI `P-H3-Image` & Guide-Latent Image Edit (`workflows/image/`)
 
@@ -22,8 +22,8 @@ ComfyUI core natively supports `PH3ImageTEModel` (`comfy/text_encoders/minimax.p
 | [`workflows/image/h3_pika_image_edit_api.json`](../workflows/image/h3_pika_image_edit_api.json) | A picture edited at one frame on Pika (`MiniMaxH3ReferenceConditioning`, `single_frame=True`; the picture as `<Picture 1>`, sized to the output; the prompt in the reference guide's six sections; no guide node, no edit LoRA) | `minimax_h3_ref2va_pruned_int8_convrot.safetensors` + `PIKA_REF2VA_SVD995_LORA` (`MiniMaxH3LoRABranch`) | `qwen3vl_32b_minimax_h3_int8_convrot.safetensors` (`MiniMaxH3EncoderLoader`) | `PIKA_STEPS` steps on `PIKA_SAMPLER` (`PIKA_MANUAL_SIGMAS`) |
 | [`workflows/image/h3_pika_image_t2i_control_vector_api.json`](../workflows/image/h3_pika_image_t2i_control_vector_api.json) | The text-to-image still above with a control vector node (the vector, strength and mask are node `115`'s inputs in the graph; every section mask runs, since `MiniMaxH3Conditioning` attaches the section map) | `minimax_h3_fl2va_pruned_int8_convrot.safetensors` + `PIKA_FL2VA_SVD995_LORA` (`MiniMaxH3LoRABranch`) + `MiniMaxH3ApplyControlVectors` | `qwen3vl_32b_minimax_h3_int8_convrot.safetensors` (`MiniMaxH3EncoderLoader`) | `PIKA_STEPS` steps on `PIKA_SAMPLER` (`PIKA_MANUAL_SIGMAS`) |
 | [`workflows/image/h3_pika_image_edit_control_vector_api.json`](../workflows/image/h3_pika_image_edit_control_vector_api.json) | The edited still above with a control vector node (the vector, strength and mask are node `115`'s inputs in the graph; the reference inputs stay at the node's defaults, which hold the picture on every step) | `minimax_h3_ref2va_pruned_int8_convrot.safetensors` + `PIKA_REF2VA_SVD995_LORA` (`MiniMaxH3LoRABranch`) + `MiniMaxH3ApplyControlVectors` | `qwen3vl_32b_minimax_h3_int8_convrot.safetensors` (`MiniMaxH3EncoderLoader`) | `PIKA_STEPS` steps on `PIKA_SAMPLER` (`PIKA_MANUAL_SIGMAS`) |
-| [`workflows/image/h3_probe_pika_image_guide_edit_api.json`](../workflows/image/h3_probe_pika_image_guide_edit_api.json) | One-frame edit on Pika, no reference picture (the picture to edit is the guide: core's `MiniMaxH3ReferenceToVideo` + `MiniMaxH3GuideLatent`, `single_frame=True`; the family's square canvas) | `minimax_h3_ref2va_pruned_int8_convrot.safetensors` + `PIKA_REF2VA_SVD995_LORA` + `GUIDE_VFX_EDIT_FFP_LORA` (`MiniMaxH3LoRABranch`) | `qwen3vl_32b_minimax_h3_int8_convrot.safetensors` (`MiniMaxH3EncoderLoader`) | `PIKA_STEPS` steps on `PIKA_SAMPLER` (`PIKA_MANUAL_SIGMAS`) |
-| [`workflows/image/h3_probe_pika_image_guide_edit_control_vector_api.json`](../workflows/image/h3_probe_pika_image_guide_edit_control_vector_api.json) | One-frame edit on Pika + Post-Refiner Control Vector (`768x768`, `t=1`, `film_16mm_1974__ref2va__diff_span__lora_865ee189.safetensors` at `strength=1.15, mask="non_vision", ref_vae_end_percent=1.0`) | `minimax_h3_ref2va_pruned_int8_convrot.safetensors` + `PIKA_REF2VA_SVD995_LORA` + `GUIDE_VFX_EDIT_FFP_LORA` + `MiniMaxH3ApplyControlVectors` | `qwen3vl_32b_minimax_h3_int8_convrot.safetensors` (`MiniMaxH3EncoderLoader`) | `PIKA_STEPS` steps on `PIKA_SAMPLER` (`PIKA_MANUAL_SIGMAS`) |
+| [`workflows/image/h3_probe_pika_image_guide_edit_api.json`](../workflows/image/h3_probe_pika_image_guide_edit_api.json) | One-frame edit on Pika, no reference picture (the picture to edit is the guide: core's `MiniMaxH3ReferenceToVideo` + `MiniMaxH3GuideLatent`, `single_frame=True`; the family's square canvas) | `minimax_h3_ref2va_pruned_int8_convrot.safetensors` + `PIKA_REF2VA_SVD995_LORA` (`MiniMaxH3LoRABranch`; no edit LoRA since 2026-11-11) | `qwen3vl_32b_minimax_h3_int8_convrot.safetensors` (`MiniMaxH3EncoderLoader`) | `PIKA_STEPS` steps on `PIKA_SAMPLER` (`PIKA_MANUAL_SIGMAS`) |
+| [`workflows/image/h3_probe_pika_image_guide_edit_control_vector_api.json`](../workflows/image/h3_probe_pika_image_guide_edit_control_vector_api.json) | One-frame edit on Pika + Post-Refiner Control Vector (`768x768`, `t=1`, `film_16mm_1974__ref2va__diff_span__lora_865ee189.safetensors` at `strength=1.15, mask="non_vision", ref_vae_end_percent=1.0`) | `minimax_h3_ref2va_pruned_int8_convrot.safetensors` + `PIKA_REF2VA_SVD995_LORA` + `MiniMaxH3ApplyControlVectors` (no edit LoRA since 2026-11-11) | `qwen3vl_32b_minimax_h3_int8_convrot.safetensors` (`MiniMaxH3EncoderLoader`) | `PIKA_STEPS` steps on `PIKA_SAMPLER` (`PIKA_MANUAL_SIGMAS`) |
 
 ### What Was Fixed vs. PrunaAI's Reference ComfyUI Workflows & ComfyUI Core's `PH3ImageConditioning`
 
@@ -49,24 +49,46 @@ ComfyUI core natively supports `PH3ImageTEModel` (`comfy/text_encoders/minimax.p
 ### A one-frame edit on Pika (`h3_probe_pika_image_guide_edit_api.json` and `h3_probe_pika_image_guide_edit_control_vector_api.json`, 2026-11-10)
 
 The two graphs in `workflows/image/` that take nothing from `P-H3-Image` but its image VAE. The picture to edit goes in
-as the guide ([`MiniMaxH3GuideLatent`](../guide_latent.py), `single_frame=True`), Pika H3 Flex runs on its own sampler
-and sigmas (`workflows/h3_config.py::PIKA_SAMPLER`, `PIKA_MANUAL_SIGMAS`), and a guide edit LoRA
-(`workflows/h3_config.py::GUIDE_VFX_EDIT_FFP_LORA`) makes the change the prompt asks for. No reference picture is wired,
+as the guide ([`MiniMaxH3GuideLatent`](../guide_latent.py), `single_frame=True`) and Pika H3 Flex runs on its own
+sampler and sigmas (`workflows/h3_config.py::PIKA_SAMPLER`, `PIKA_MANUAL_SIGMAS`). No reference picture is wired,
 so the conditioning node is core's `MiniMaxH3ReferenceToVideo`: `MiniMaxH3ReferenceConditioning` refuses an empty
 reference chain (`h3_probe_pika_image_guide_edit_control_vector_api.json` therefore sets `mask="non_vision"` on
-`MiniMaxH3ApplyControlVectors`, since core's node attaches no `h3_span_masks` and a zero-reference `vfx_edit:` sentence
+`MiniMaxH3ApplyControlVectors`, since core's node attaches no `h3_span_masks` and a zero-reference one-sentence prompt
 carries no vision or `<d>` spans). Both rows are in [`workflows/build_workflows.py`](../workflows/build_workflows.py)
 (`native_ref=True` with `guide_image=True` and no references).
 
-**The prompt is in the edit LoRA's form, not the house sections.** The form is the LoRA author's, from the notes in
-the release the file came from ([Alissonerdx/Minimax-H3-ComfyUI](https://huggingface.co/Alissonerdx/Minimax-H3-ComfyUI),
-its VFX edit page and the prompt template inside its workflow; this repo carries neither). As read on 2026-11-10: the
-prompt opens with `vfx_edit:`, is one English sentence, says the edit first and then what stays, and names
-`<Picture 1>` only when a reference picture is wired. The text is
-[`prompt_bank/guide_edit/vfx_edit_man_red_jacket.txt`](../prompt_bank/guide_edit/vfx_edit_man_red_jacket.txt), and
-`bench/check_prompt_guide_conformance.py::_STRUCTURE_PROBES` waives the section cases for both graphs for that reason.
+**No edit LoRA and no `vfx_edit:` opening since 2026-11-11 (the owner's word).** Until that day both graphs chained a
+guide edit LoRA (`workflows/h3_config.py::GUIDE_VFX_EDIT_FFP_LORA`, node `72`) after Pika's and their prompt opened
+with `vfx_edit:`, that LoRA's trigger. Both are out: the graphs load Pika's LoRA alone
+(`bench/check_guide_latent.py` holds the one-frame graph to that) and the prompt is the same sentence without the
+opening, [`prompt_bank/guide_edit/man_red_jacket.txt`](../prompt_bank/guide_edit/man_red_jacket.txt).
+`h3_guide_video_edit_api.json` was not part of that word and still loads the edit LoRA.
 
-**What was rendered on 2026-11-10.** One seed and two pictures of people, so a first look and not a ranking. The
+**The prompt is one plain sentence, not the house sections.** It says the edit first and then what stays, and names
+no `<Picture 1>` because no reference picture is wired. The sentence came from the edit LoRA author's form (the notes
+in [Alissonerdx/Minimax-H3-ComfyUI](https://huggingface.co/Alissonerdx/Minimax-H3-ComfyUI), its VFX edit page and the
+prompt template inside its workflow; this repo carries neither), which also asks for the `vfx_edit:` opening.
+`bench/check_prompt_guide_conformance.py::_STRUCTURE_PROBES` still waives the section cases for both graphs. Whether
+this graph should be prompted in the reference guide's sections now that no LoRA asks for the sentence has not been
+tried.
+
+**What was rendered on 2026-11-11, without the edit LoRA and the opening.** Two of the 2026-11-10 arms below
+(`c2_man_cap_pika`, `c2_woman_jacket_pika`) queued again with node `72` taken out and `vfx_edit: ` cut from the
+prompt, every other input as it was: the same pictures, seed and sizes. One seed and two pictures, so a first look and
+not a ranking. The base model's reading of a guide with no edit LoRA had not been rendered before this.
+
+- The edit landed on both pictures: the cap is gone with short dark hair in its place, and the sweater is a red
+  leather jacket. Face, hair, pose, framing and background are kept in both.
+- Beside the 2026-11-10 render of the same arm, the jacket differs in kind: zipped to the neck with the edit LoRA,
+  open over a white top with lapels and snaps without it, so more of the picture below the neck is new. On the cap
+  picture the two renders are close.
+- Renders `n1_man_cap_no_edit_lora` and `n1_woman_jacket_no_edit_lora`, the sheets
+  `sheet_guide_edit_without_edit_lora_*` (source, with, without) and the queued graphs are in the same
+  `pika_still_trial` folder.
+
+**What was rendered on 2026-11-10, with the edit LoRA and the `vfx_edit:` opening.** Everything in this list, and the
+vector and release sweeps further down that name the guide edit graphs, was rendered on the graphs as they stood that
+day, with the edit LoRA on node `72`. One seed and two pictures of people, so a first look and not a ranking. The
 renders, the sheets that lay them side by side and the graph each was queued with are on the output share under the
 folder `pika_still_trial` in `Image`.
 
@@ -192,12 +214,14 @@ What was seen, for the owner's eye to judge:
 
 **Not known.** Whether the reference form can do an edit at one frame at all: it did not in any of the tries above, and
 a garment or an object as the cut-out was not among them. Whether releasing `ref_vae_end_percent` (with
-a matched no-vector guide-release control) and/or `GUIDE_VFX_EDIT_FFP_LORA` `end_percent` lets a style control vector
-restyle the whole frame while keeping the named edit. Edit guidance on a still:
+a matched no-vector guide-release control) lets a style control vector restyle the whole frame while keeping the
+named edit (the edit LoRA's `end_percent` was the other lever named here until 2026-11-11, when the LoRA left these
+graphs). Edit guidance on a still:
 `workflows/build_workflows.py::_wire_edit_guidance` and `bench/edit_guidance_arms.py::_with_second_prompt` now carry
 `MiniMaxH3GuideLatent` / `MiniMaxH3AddGuide` (and `MiniMaxH3ReferenceToVideo`) onto the edited prompt's branch, not yet
-graded on renders. `h3_guide_video_edit_api.json` carries a house scene prompt with no `vfx_edit:` opening and is
-left as it was.
+graded on renders. `h3_guide_video_edit_api.json` carries a house scene prompt with no `vfx_edit:` opening, still
+loads the edit LoRA, and is left as it was. Whether the one-frame guide edit holds up without the edit LoRA beyond the
+two pictures above, and on the control vector twin, which was not rendered after the change.
 
 **Retired 2026-11-10, on the owner's word:** `h3_p_h3_image_guide_edit_api.json`, the one-frame guide edit on the
 `P-H3-Image` LoRA with a reference picture. It carried the same house scene prompt, and the form never made the asked

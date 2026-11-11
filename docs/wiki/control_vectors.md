@@ -64,7 +64,7 @@ Not known:
   2026-11-10 (`data/results/2026-11-10_control_vector_comparisons/`) wait on the owner's playback to settle the
   standing default. Two cases already require an explicit `mask` override today: audio-only vectors whose pairs
   edit `overall_soundscape:` (`reverb_cathedral`, `pyro_klaxon_audio`) need `mask = "soundscape_only"`, and
-  unsectioned `vfx_edit:` guide-edit prompts need `mask = "non_vision"`.
+  unsectioned one-sentence guide-edit prompts need `mask = "non_vision"`.
 - How each DiT reads the same vector. The measurements above are of rows, not of pictures.
 
 ## The pieces
