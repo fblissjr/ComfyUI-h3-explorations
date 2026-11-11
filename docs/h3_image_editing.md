@@ -122,6 +122,13 @@ the picture to the output (`ref_size_policy="match"` in the generator), as the r
 rendered on this form. A still's two audio fields read `N/A`, as the image model's upsampler writes them; the base
 guide gives `N/A` for music only.
 
+Each was rendered once as shipped on 2026-11-10, after ComfyUI restarted with the new input: the text-to-image
+graph gave the same picture as the earlier render to the eye, and the edit graph, with a square picture of a man in
+place of the placeholder (which was not on the machine), replaced the clothing and kept the face, pose, framing and
+backdrop. The edit graph's canvas is square. A picture of another shape wants the canvas at its own shape: the same
+form on a square canvas with a portrait picture still made the edit, but recomposed the frame and drew surroundings
+that are not in the picture (`sheet_edit_canvas_shape` and `sheet_shipped_pika_image_graphs` in the same folder).
+
 **Not known.** Whether the reference form can do an edit at one frame at all: it did not in any of the tries above, and
 a garment or an object as the cut-out was not among them. Whether releasing `ref_vae_end_percent` (with
 a matched no-vector guide-release control) and/or `GUIDE_VFX_EDIT_FFP_LORA` `end_percent` lets a style control vector
