@@ -138,20 +138,35 @@ image, which has not been rendered on Pika at the image model's size. The sheets
 `sheet_plain_pika_edit_against_ph3_same_size` and the two `crops_plain_pika_edit_against_ph3_*` in the same folder.
 
 **Control vector inputs on the plain Pika edit, tried once each (2026-11-10).** `MiniMaxH3ApplyControlVectors`
-added to the edit graph, one picture and one seed, on the family's portrait canvas
-(`sheet_knobs_reference_gate_and_words` in the same folder):
+added to the edit graph: one picture, one seed, the family's portrait canvas, the `claymation_stopmotion` vector
+unless said. The sheets are `sheet_knobs_*` in the same folder and every graph is under its `how_it_was_made/graphs/`.
+What was seen, for the owner's eye to judge:
 
-- A vector acts with the picture held. `claymation_stopmotion` with `mask` `scene_only` changed the hair and the
-  jacket's surface and kept the face and background.
-- Releasing the picture early (`ref_vae_end_percent` below 1) did not help. With the same vector, and with no vector
-  at all, it added stray colored objects and streaks to the frame. In the node this input zeroes every condition
-  latent after its window, the reference picture's as well as a guide's (`control_vector_nodes.py`,
-  `_make_control_vector_wrapper`; core puts both in `cond_video_latents`), so on the guide graphs, where the guide
-  is the only copy of the picture, the subject is lost. `ref_vae_aug` was not tried.
-- A vector made from typed `words` (no file) acted on this graph and on the guide edit: the jacket and hair changed.
-  Neither picture took the look the words name.
-- The section masks need the section map our H3 conditioning nodes attach. On the guide graphs, which use core's
-  conditioning node, only `non_vision` and `all_rows` run; any other mask is refused by the node.
+- **Strength.** At 1.5 the hair and the jacket's surface changed and the face and background stayed. At 3.0 the frame
+  became a clay figure and the person and the framing were gone.
+- **Step window.** The vector on the first half of the schedule alone gave about the picture it gives on all of it;
+  on the second half alone the picture stayed close to the edit with no vector. The window counts whole steps
+  (`control_vector_nodes.py::_step_in_window`) and a still's schedule is short (the `ManualSigmas` node of each
+  graph), so the window has only as many positions as the schedule has steps.
+- **Mask.** `scene_only`, `look_only` and `description_only` gave three different pictures; the hair changed only
+  under `scene_only`. The node logs how many rows each mask steered.
+- **Mode.** `amplify` stayed close to the edit with no vector; `project_out` changed the jacket. `hold` does nothing
+  on one vector node: it removes a direction from the shift earlier vector nodes added
+  (`control_vectors.py::_apply_holds_to_shift64`).
+- **Typed `words`, no file.** At 1.5 the jacket and hair changed without the look the words name; at 3.0 a cartoon
+  clay doll replaced the picture. The node logs which words its list matched.
+- **The picture's weight, `ref_vae_aug`.** Lowered to 0.30, the source's long hair and black top came back, with
+  the vector and without it. At 0 the picture was a third variant.
+- **Releasing the picture, `ref_vae_end_percent`.** Released for the second half of the schedule, stray colored
+  objects and streaks appeared, with the vector and without it. Released for the last step or the last two, the
+  picture stayed about as it is held. In the node this input zeroes every condition latent after its window, the
+  reference picture's as well as a guide's (`control_vector_nodes.py::_make_control_vector_wrapper`; core puts both
+  in `cond_video_latents`).
+- **On the guide edit graphs** (`h3_probe_pika_image_guide_edit*`), where the guide is the only copy of the picture:
+  `ref_vae_aug` at 0.30 lost the edit and the person. A section mask is refused there, because those graphs use
+  core's conditioning node and the section masks need the map our H3 conditioning nodes attach. With no reference
+  there are no vision rows, so `non_vision` and `all_rows` steer the same rows (the node's log line shows every row
+  steered).
 
 **Not known.** Whether the reference form can do an edit at one frame at all: it did not in any of the tries above, and
 a garment or an object as the cut-out was not among them. Whether releasing `ref_vae_end_percent` (with
