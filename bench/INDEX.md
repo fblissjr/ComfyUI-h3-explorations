@@ -14,7 +14,7 @@ this file is only a way to find a script by what it says it does.
 | [`grade_*`](#grade) | 19 |
 | [`compare_*`](#compare) | 15 |
 | [`build_*`](#build) | 13 |
-| [`probe_*`](#probe) | 11 |
+| [`probe_*`](#probe) | 12 |
 | [the rest](#the-rest) | 196 |
 
 ## check
@@ -325,6 +325,7 @@ this file is only a way to find a script by what it says it does.
 | [`probe_encoder_rope_kitchen.py`](probe_encoder_rope_kitchen.py) | Did core's move of the text encoder's RoPE onto comfy-kitchen change its numbers? |
 | [`probe_grade_row_selection.py`](probe_grade_row_selection.py) | Does the video-and-audio row selector in `grade_dense_kernels_on_captures.py` select and grade the right rows? |
 | [`probe_int8_lora_requant.py`](probe_int8_lora_requant.py) | How much of a LoRA survives being baked into the int8 convrot checkpoint. |
+| [`probe_kitchen_swiglu_and_token_overflow.py`](probe_kitchen_swiglu_and_token_overflow.py) | Two properties of the installed comfy-kitchen build on this card: fused SwiGLU against the unfused chain, and whether token routing repeats. |
 | [`probe_oracle_gate_scaling.py`](probe_oracle_gate_scaling.py) | What the calibration gate would find at production length, and why chunking will not get it there. |
 | [`probe_pv_skip_on_capture.py`](probe_pv_skip_on_capture.py) | How many (warp, key tile) pairs of dense H3 attention carry a negligible P*V term, and what skipping them costs, on captured q/k/v. |
 | [`probe_ref_rows_16604.py`](probe_ref_rows_16604.py) | Does Comfy-Org/ComfyUI issue 16604 reproduce on this checkout's PackedLayout? |
@@ -719,7 +720,7 @@ Arm manifests and the like; a manifest's line is its own `what`.
 
 ### results
 
-226 tracked files: [`results/INDEX.md`](results/INDEX.md).
+227 tracked files: [`results/INDEX.md`](results/INDEX.md).
 
 ### rubrics
 

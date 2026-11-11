@@ -16,6 +16,7 @@ replaces `docs/evidence.md`, which says what the records established.
 
 | date | lane | record | verdict |
 |---|---|---|---|
+| 2026-11-11 | kitchen | [comfy-kitchen: upstream main merged, and two open upstream fixes carried (2026-11-11)](2026-11-11_kitchen_upstream_sync_and_two_fixes.md) |  |
 | 2026-11-11 | image | [MiniMax-H3-Image: what the weights are, and whether Comfy-Org's int8 file is a faithful copy (2026-11-11)](2026-11-11_h3_image_weights.md) | the int8 file is the public int8 recipe run on the release, code for code; on an edit it renders as close to the bf16 reference as the vendor's own servers render to each other; the image DiT is not a fine-tune of the released fl2va or ref2va |
 | 2026-11-05 | control | [Control vectors on Pika H3 Flex (`t2va` gate, 6 fun vectors, and `ref2va` masking & windows)](2026-11-05_control_vectors_pika_and_ref2va.md) |  |
 

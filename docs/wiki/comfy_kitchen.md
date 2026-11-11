@@ -161,7 +161,8 @@ which is why the attention inputs arrive as one sequence and why two prompts can
 `git -C coderef/comfy-kitchen diff upstream/main...h3-frontier --stat` is every file it touches. Everything
 else in the build is upstream main as of the commit named in the installed version.
 
-All of it is Sol, plus one binding fix. Each option is off by default and the off path is upstream's code.
+It is four Sol options, one binding fix, and ports of two open upstream fixes. Each option is off by default
+and the off path is upstream's code.
 
 | option on `sol_attn` | what it does | where | not available on |
 |---|---|---|---|
@@ -183,6 +184,26 @@ Where the pack uses them: `sol_attn_h3.py` (the `MiniMaxH3Sol` node; `quantizer`
 `rotate`, `make_override` builds the attention override), `sol_observe.py` (reads `blk_cnt`),
 `sparse_table.py` (per-head tables that become a `tau_map`), `sol_chunked_h3.py` (the chunked producer).
 
+### Two open upstream fixes, carried since 2026-11-11
+
+Both are open pull requests upstream that no maintainer had reviewed on that day. They are carried because
+both faults showed on this card, and they are dropped when upstream merges them or fixes the same thing its
+own way (`vendor/rebuild_kernel.sh --check` marks a carried commit that upstream now has).
+[`bench/results/2026-11-11_kitchen_upstream_sync_and_two_fixes.md`](../../bench/results/2026-11-11_kitchen_upstream_sync_and_two_fixes.md)
+has the before and after, what was not taken, and how to go back;
+`bench/probe_kitchen_swiglu_and_token_overflow.py` prints the same figures for whatever build is installed.
+
+- **Comfy-Org/comfy-kitchen#124, the CUDA half.** On architectures below sm_90 the row quantizer applied
+  `input_act="swiglu"` in fp32, so its INT8 codes differed from quantizing the product computed in the storage
+  dtype; upstream's quantizer for sm_90 and up already rounded. H3's `MLP.forward` takes this path with an INT8
+  file. With the port the fused and unfused paths agree bit for bit. **An INT8 render on a build with the port
+  does not match one made before it at the same seed**, so a record of INT8 renders is for the build it names.
+  Where: `load_input_act` in `coderef/comfy-kitchen/comfy_kitchen/backends/cuda/ops/int8_linear.cu`.
+- **Comfy-Org/comfy-kitchen#242.** With `token_aug` on, a query group with more candidates than the budget
+  kept whichever arrived first, so two identical calls could differ. Such a group is now redone in one pass in
+  a fixed order, which costs time in proportion to how many groups overflow. Where:
+  `coderef/comfy-kitchen/comfy_kitchen/backends/cuda/sage_attention/sol_attn_token.cu`.
+
 ### How Sol is laid out, for reading the source
 
 `coderef/comfy-kitchen/comfy_kitchen/backends/cuda/sage_attention/sol_attn.cu` opens with the stage list and
@@ -197,22 +218,6 @@ slots of it.
 | token | `sol_attn_token.cu` | with `token_aug`, picks individual high-scoring tokens outside the routed blocks. |
 | exact | `sol_attn_exact.cu` | walks each routed list with INT8 arithmetic, continuing route's running softmax. |
 | producer | `sol_attn_producer.cu` | the chunked entry: norm, RoPE and quantization chunk by chunk in place of preprocess. |
-
-## Open upstream fixes that reach this card
-
-Read on 2026-11-11 against the installed build named by `bash vendor/rebuild_kernel.sh --check`. Neither is
-merged upstream or in our build on that date; a session reproduced both on this card, and no record of that
-run was kept.
-
-- **Comfy-Org/comfy-kitchen#124.** On architectures below sm_90 the row quantizer applies `input_act="swiglu"`
-  in fp32, so its INT8 codes differ from quantizing the product computed in the storage dtype; the newer
-  quantizer for sm_90 and up already rounds. H3's `MLP.forward` takes this path with an INT8 file. A fused and
-  an unfused run of the same INT8 file therefore differ on this card, and an INT8 render made on a build with
-  the fix will not match one made before it at the same seed. A record of INT8 renders is for the build it
-  names ([`bench/results/2026-11-11_h3_image_weights.md`](../../bench/results/2026-11-11_h3_image_weights.md)
-  is one).
-- **Comfy-Org/comfy-kitchen#242.** With `token_aug` on, a query group whose candidates exceed the budget keeps
-  whichever arrive first, so two identical calls can differ. It matters to any A/B that has token routing on.
 
 ## Code that runs every forward pass
 
