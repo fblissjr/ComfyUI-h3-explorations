@@ -3810,43 +3810,61 @@ def load_object_info(source: str) -> dict:
     return json.loads(Path(source).read_text())
 
 
-# Inputs whose node declares VALIDATE_INPUTS and checks the filesystem instead
-# of the combo list; add one when its node is read, not on the assumption that
-# other loaders behave the same way. `LoadLatent.latent` read 2026-09-26: its
-# `VALIDATE_INPUTS` and `load` both go through `folder_paths`' annotated-path
-# functions (`ComfyUI/nodes.py::LoadLatent`), so `latents/x.latent [output]`
-# resolves in the output directory.
-_ANNOTATED_INPUTS = {("LoadImage", "image"), ("LoadLatent", "latent")}
+#: Inputs that name a file in the server's input or output folder. Their combo
+#: lists are a listing of that folder on the day `/object_info` was read, so
+#: they say what is on one box, not whether a graph is right.
+_FILE_INPUTS = {("LoadImage", "image"), ("LoadAudio", "audio"),
+                ("VHS_LoadVideoFFmpeg", "video"), ("LoadLatent", "latent")}
 
 
-def _annotated_path(class_type: str, name: str, val) -> bool:
-    """True when this input legally takes a path the combo list does not offer.
+def _names_a_file(class_type: str, name: str) -> bool:
+    """True for an input whose value is a file name, which this validator does not hold to a folder listing.
 
-    **This validator was stricter than the server, which is the same defect as
-    being looser -- the direction differs, not the class.** `LoadImage`
-    populates its combo from a NON-RECURSIVE `os.listdir` of the input
-    directory (`ComfyUI/nodes.py`, `LoadImage.INPUT_TYPES`), so a file in a subfolder
-    never appears in `/object_info`. But the node also defines
-    `VALIDATE_INPUTS` -> `folder_paths.exists_annotated_filepath`, and
-    ComfyUI's executor SKIPS its own combo check for any input the node
-    validates itself. So `h3_refs/face_x.png` executes cleanly and this file
-    was rejecting it.
+    **A graph's file inputs are placeholders: which file sits in the input
+    folder is the box's state, not the graph's.** Until 2026-11-11 a bare file
+    name had to be in the server's combo list. That day the owner cleared the
+    old placeholder stills, video and track out of the input folder, and every
+    graph that named one failed validation, so the generator wrote nothing, for
+    any graph, though no graph had changed. The owner suggested taking file inputs
+    out of this check, and that is what this does.
 
-    Verified by reading both, 2026-08-16, not inferred from behaviour:
-    `ComfyUI/nodes.py::LoadImage.VALIDATE_INPUTS` and
-    `ComfyUI/folder_paths.py::exists_annotated_filepath`, which joins the name under
-    the input dir, refuses traversal, and returns `os.path.exists`.
+    The rule before it was already half of this one. `LoadImage` fills its
+    combo from a non-recursive listing of the input folder
+    (`ComfyUI/nodes.py`, `LoadImage.INPUT_TYPES`), so a file in a subfolder
+    never appears in `/object_info`, while the node's own `VALIDATE_INPUTS`
+    (`folder_paths.exists_annotated_filepath`) accepts it and ComfyUI's
+    executor skips its combo check for an input the node validates itself
+    (read 2026-08-16). So a value with a subfolder was let through here from
+    then on; now every value is.
 
-    Membership is still checked for every bare filename -- the escape hatch is
-    only for values carrying a subfolder, which is exactly the case
-    `/object_info` cannot see. A typo in a root-level filename still fails.
-
-    What this does NOT do is confirm the file exists; that needs the server's
-    input directory, which this generator does not have. `bench/smoke_h3.py`
-    submits and would surface a missing reference as a server-side rejection.
+    What is given up: a mistyped file name in a constant no longer fails the
+    build. It fails where a missing file always did, at the server when the
+    graph is queued, and `unlisted_input_files` names every file the server
+    does not list so the build still says so, as a note. The value still has
+    to be a name: a non-empty string (`validate_api`).
     """
-    return (class_type, name) in _ANNOTATED_INPUTS and isinstance(val, str) \
-        and "/" in val
+    return (class_type, name) in _FILE_INPUTS
+
+
+def unlisted_input_files(graph: dict, oi: dict) -> list[str]:
+    """The file names a graph's file inputs carry that the server's listing does not offer.
+
+    A note for the build's last lines, never an error. A name with a subfolder
+    is left out: the listing cannot see into subfolders, so its absence says
+    nothing.
+    """
+    missing = []
+    for node in graph.values():
+        ct = node.get("class_type")
+        spec = oi.get(ct, {}).get("input", {})
+        for name, val in node.get("inputs", {}).items():
+            if not _names_a_file(ct, name) or not isinstance(val, str) or "/" in val:
+                continue
+            entry = spec.get("required", {}).get(name) or spec.get("optional", {}).get(name)
+            opts = _combo_options(entry) if entry else None
+            if opts is not None and val not in opts:
+                missing.append(val)
+    return missing
 
 
 def _combo_options(spec):
@@ -4029,7 +4047,10 @@ def validate_api(graph: dict, oi: dict, label: str) -> list[str]:
                 e(f"node {nid} ({ct}).{name}: {val!r} is not a {want} value")
                 continue
             opts = _combo_options(s)
-            if opts is not None and val not in opts and not _annotated_path(ct, name, val):
+            if _names_a_file(ct, name) and not (isinstance(val, str) and val.strip()):
+                e(f"node {nid} ({ct}).{name}: {val!r} is not a file name")
+                continue
+            if opts is not None and val not in opts and not _names_a_file(ct, name):
                 e(f"node {nid} ({ct}).{name}: {val!r} is not an available option")
                 continue
             meta = s[1] if len(s) > 1 and isinstance(s[1], dict) else {}
@@ -5607,6 +5628,15 @@ def main():
             print("  " + x)
         return 1
     flush()
+    unlisted: dict[str, int] = {}
+    for _t, _p, wf in written:
+        for fname_ in set(unlisted_input_files(wf, oi)):
+            unlisted[fname_] = unlisted.get(fname_, 0) + 1
+    if unlisted:
+        print("\nnote: file inputs the server's input folder does not list (a graph that names one "
+              "is refused by the server until the file is there or the input is changed):")
+        for fname_, count in sorted(unlisted.items(), key=lambda kv: (-kv[1], kv[0])):
+            print(f"  {fname_}: {count} graph(s)")
     note = ("served schema matches this pack's code on disk" if verdict == "matches"
             else details[0])
     print(f"\nvalidated {len(written)} graphs against {args.object_info}: ok "
