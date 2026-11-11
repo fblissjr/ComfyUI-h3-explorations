@@ -100,6 +100,11 @@ each input is for:
       either prompt. On the description alone the room came out differently and she did not change. On the whole
       prompt the room and the patrons took a 1970s look, she kept the top her picture shows, and a red mark
       appeared across her face. Not tried: the whole prompt with the picture released.
+    - **More of the general vector did not do it either.** On the prompt that names her clothing, the in-place
+      vector began to change her between the two strengths either side of the middle of its tried range, and the
+      general one left her as she was at well above that, picture held or released. So the general vector was not
+      merely under-dosed along the direction that works (`render_diner16_clothed_dose.py` beside the clips holds
+      the strengths).
     - **Changing her line in words changed her and nothing else**: the prompt with that sentence rewritten, alone
       and under `MiniMaxH3EditGuider`, gave the named clothing with her face, hair and the diner kept.
     - What this shows, and what it does not. With a reference picture her clothing comes from the picture unless
