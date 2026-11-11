@@ -1,0 +1,21 @@
+subject_definitions:
+<Picture 1> is the source image and composition anchor: a portrait of a man.
+<Subject 1> is the man in <Picture 1>.
+<Subject 2> is the clothing <Subject 1> wears in <Picture 1>.
+
+summary:
+[keyframe completion] The target is a single still frame, an edited version of <Picture 1>, in which <Subject 2> is replaced with a red leather jacket.
+
+retention_analysis:
+<Picture 1> ([Shot 1] edited keyframe): partially_preserved - the framing, lighting and background are kept.
+<Subject 1> (appears in [Shot 1]): partially_preserved - his face, hair, expression and pose are kept.
+<Subject 2> (appears in [Shot 1]): weak_reference - replaced by a red leather jacket.
+
+detailed_description:
+Photographic portrait. [Shot 1] <Subject 1> keeps his original facial features, hair, expression and pose. <Subject 2> is replaced by a fitted red leather jacket with realistic leather texture and natural folds, worn over his shoulders and chest. The background and the lighting remain unchanged. The camera is static and nothing moves; the frame holds this single still image.
+
+overall_soundscape:
+N/A
+
+non_diegetic_music:
+N/A

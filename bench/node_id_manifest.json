@@ -192,7 +192,8 @@
       "length",
       "first_frame",
       "last_frame",
-      "canvas"
+      "canvas",
+      "single_frame"
     ],
     "node_id": "MiniMaxH3Conditioning",
     "outputs": [
@@ -606,7 +607,8 @@
       "height",
       "length",
       "video_policy",
-      "image_policy"
+      "image_policy",
+      "single_frame"
     ],
     "node_id": "MiniMaxH3ReferenceConditioning",
     "outputs": [

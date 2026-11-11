@@ -95,9 +95,10 @@ def _by_text() -> dict[str, str]:
         p = BANK / f"{e['id']}.txt"
         if p.is_file():
             out[p.read_text(encoding="utf-8").rstrip()] = e["id"]
-    # The folders outside the manifest: prompts in a form that is not one of the house modes
-    # (`P-H3-Image`'s, and a guide edit LoRA's one-sentence form), named by folder and file.
-    for folder in ("p_h3_image", "guide_edit"):
+    # The folders outside the manifest, named by folder and file: prompts in a form that is not one
+    # of the house modes (`P-H3-Image`'s, a guide edit LoRA's one sentence), and the Pika stills',
+    # which are in the vendor structure but describe one frame.
+    for folder in ("p_h3_image", "guide_edit", "pika_image"):
         for p in sorted((BANK / folder).glob("*.txt")):
             out[p.read_text(encoding="utf-8").rstrip()] = f"{folder}/{p.stem}"
     return out

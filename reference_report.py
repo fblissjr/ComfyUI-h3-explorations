@@ -192,8 +192,12 @@ def _count_text_tokens(clip, text: str) -> int:
 
 def price_references(records, width: int, height: int, length: int,
                      image_policy: str = "comfy", video_policy: str = "comfy",
-                     clip=None, prompt: str = "") -> SequencePricing:
-    """Price every record the way `_compile_reference_records` will size it."""
+                     clip=None, prompt: str = "",
+                     single_frame: bool = False) -> SequencePricing:
+    """Price every record the way `_compile_reference_records` will size it.
+
+    `single_frame` prices the target as the conditioning node builds it with that input on: one
+    frame, one latent step, and the two audio steps the shared clock gives it."""
     from . import reference_conditioning as rc
     from .reference_order import assign_labels
 
@@ -202,7 +206,7 @@ def price_references(records, width: int, height: int, length: int,
     if video_policy not in rc.VIDEO_POLICIES:
         raise ValueError(f"unknown video_policy {video_policy!r}")
 
-    frame_count, latent_t, audio_t = temporal_shape(length)
+    frame_count, latent_t, audio_t = (1, 1, 2) if single_frame else temporal_shape(length)
     duration = frame_count / FPS
     bounds = _native_encoder_bounds(clip) if clip is not None else (3136, 12845056)
     labels = assign_labels(rc._order_records(records))

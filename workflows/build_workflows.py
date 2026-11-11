@@ -94,7 +94,7 @@ from prompts import text as _bank_prompt  # noqa: E402
 import prompts as _prompts  # noqa: E402
 from h3_config import (  # noqa: E402
     DAILY_DIR, DAILY_GRAPHS, SINGLE_FRAME_DIR,
-    CORE_LOADED_ENCODERS, IMAGE_VAE, DRAFT_VAE,
+    CORE_LOADED_ENCODERS, DRAFT_VAE,
     CANVAS, FPS, LENGTH, LONG_LENGTH, LONG_WINDOW, MODELS,
     SAMPLING, SAGE_NODE, DENSE_BACKEND_NODE, DENSE_CHAINS, DEFAULT_DENSE_CHAIN, SEED, SIGMA_SHIFT, SOL_CORE_NODE, SOL_CORE_DEFAULTS,
     REF_VIDEO_LOADER, REF_QWEN_SHORT_EDGE, SEGMENTER, SUBJECT_TRACK, MASKED_SOURCE,
@@ -533,8 +533,9 @@ def _attention_plan(extra: dict) -> tuple[bool, bool, str | None]:
                       On an armed server the probe's counterfactual becomes
                       stock attention.
 
-    An image (single-frame) arm, a parked lane, carries what the archived
-    image graphs carried: sage alone.
+    An image (single-frame) arm runs dense on the kitchen backend with no Sol
+    and no sage: one frame is far below Sol's token floor. Until 2026-11-10 an
+    image arm without a guide carried sage alone, as the archived graphs did.
     """
     is_image = bool(extra.get("single_frame", False))
     dense = extra.get("dense_attn", False)
@@ -543,9 +544,7 @@ def _attention_plan(extra: dict) -> tuple[bool, bool, str | None]:
         raise SystemExit(f"dense_attn={dense!r} is not one of {_DENSE_ATTN_MODES}")
     if dense_mode is None:
         if is_image:
-            if extra.get("guide_image"):
-                return False, False, "ck"
-            return True, False, None
+            return False, False, "ck"
         dense_mode = DENSE_CHAINS[DEFAULT_DENSE_CHAIN]["dense_attn"]
     if dense_mode in ("sol", "ck", "sage_sol"):
         if is_image:
@@ -661,7 +660,8 @@ def _ref_image_slots(ref_images_on: bool, ref_image_count: int,
     return list(zip(_REF_IMAGE_NODES, files))
 
 
-def _append_image_inputs(load_id: str, chain, ref_upscale: bool, ref_qwen_short_edge: int) -> dict:
+def _append_image_inputs(load_id: str, chain, ref_upscale: bool, ref_qwen_short_edge: int,
+                         size_policy: str = "max") -> dict:
     """API inputs of one `MiniMaxH3AppendRefImage`: its loader, the chain so far, its sizing.
 
     One spelling for every graph that appends a still -- the reference graphs
@@ -681,11 +681,14 @@ def _append_image_inputs(load_id: str, chain, ref_upscale: bool, ref_qwen_short_
     rather than inherit a node default that can move underneath it and
     silently retune a comparison.
     """
-    inputs = {"image": [load_id, 0], "size_policy": "max"}
+    if size_policy not in ("max", "match", "tiered"):
+        raise SystemExit(f"size_policy={size_policy!r} is not one of max, match, tiered")
+    inputs = {"image": [load_id, 0], "size_policy": size_policy}
     if chain is not None:
         inputs["references"] = chain
-    inputs["size_policy.dit_short_edge"] = _ref_short_edge()
-    inputs["size_policy.allow_upscale"] = ref_upscale
+    if size_policy == "max":
+        inputs["size_policy.dit_short_edge"] = _ref_short_edge()
+        inputs["size_policy.allow_upscale"] = ref_upscale
     if ref_qwen_short_edge:
         inputs["qwen_view"] = "separate"
         inputs["qwen_view.qwen_short_edge"] = ref_qwen_short_edge
@@ -1039,26 +1042,23 @@ def _ref_short_edge():
 
 
 def _check_single_frame(single_frame, length, *, guide_image: bool = False):
-    """`single_frame` is a property of the LENGTH; they may not disagree.
+    """A still is `single_frame=True` at a video length; a length of 1 is refused.
 
-    Shared by both builders. Passing one without the other produces a graph
-    that loads the one-frame VAE and renders five frames, or renders one frame
-    and decodes it with the video decoder -- both silent, both wrong, and
-    neither visible until someone looks at the pixels.
-    On `guide_image=True`, `MiniMaxH3GuideLatent(single_frame=True)` collapses
-    the AV latent to 1 frame after `MiniMaxH3ReferenceConditioning`, while
-    `MiniMaxH3Resolution` and `MiniMaxH3ReferenceConditioning` stay on the
-    video temporal grid so stock ComfyUI accepts them without a core shim.
+    The one frame is made inside the graph, by the conditioning node's own
+    `single_frame` input or, on `guide_image=True`, by
+    `MiniMaxH3GuideLatent(single_frame=True)`. `MiniMaxH3Resolution` and the
+    `length` it hands on stay on the video grid, so stock ComfyUI accepts the
+    graph with no core shim. Until 2026-11-10 a still without a guide was
+    `length=1`, which `MiniMaxH3Resolution` refuses on a core whose nodes floor
+    at five frames (`archive/single_frame.py`); that path is gone from here.
     """
-    if guide_image:
-        if not single_frame:
-            raise SystemExit("guide_image=True requires single_frame=True")
-        return
-    if single_frame != is_single_frame(length):
+    if guide_image and not single_frame:
+        raise SystemExit("guide_image=True requires single_frame=True")
+    if is_single_frame(length):
         raise SystemExit(
-            f"single_frame={single_frame} with length={length}: the "
-            f"single-image path is length=1 and nothing else. Set both or "
-            f"neither.")
+            f"length={length}: a still is single_frame=True at a video length. "
+            "The conditioning node's single_frame input (or the guide node) "
+            "makes the one frame; a length of 1 is the parked core-patch path.")
 
 
 def _check_geometry(length, canvas):
@@ -1234,6 +1234,9 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
               ref_video_file: str | None = None,
               ref_images_on: bool = True, ref_image_count: int = 2,
               ref_images: tuple[str, ...] | None = None,
+              # `MiniMaxH3AppendRefImage`'s size policy for every still: `max` (the node's
+              # default), `match` (never larger than the output) or `tiered`.
+              ref_size_policy: str = "max",
               ref_audio: bool = False,
               split_at: int | None = None,
               split_base_last: bool = True,
@@ -1462,8 +1465,7 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
         # own README says it regresses multi-frame reconstruction -- so this
         # swap must never be reachable from a graph that renders a clip.
         "3": {"class_type": "VAELoader",
-              "inputs": {"vae_name": (PH3_IMAGE_VAE if (single_frame and guide_image)
-                                      else IMAGE_VAE if single_frame
+              "inputs": {"vae_name": (PH3_IMAGE_VAE if single_frame
                                       else MODELS["video_vae"])}},
         "4": {"class_type": "VAELoader", "inputs": {"vae_name": MODELS["audio_vae"]}},
         "6": {"class_type": "RandomNoise", "inputs": {"noise_seed": seed}},
@@ -1594,6 +1596,12 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
                                  "length": ["27", 2],
                                  "video_policy": ref_video_policy,
                                  "image_policy": ref_image_policy}}
+        if single_frame and not guide_image:
+            if native_ref:
+                raise SystemExit(
+                    "a still on core's reference node needs a guide (guide_image=True): "
+                    "core's node has no single_frame input and floors at five frames")
+            g["5"]["inputs"]["single_frame"] = True
         # No fit node. `MiniMaxH3AppendRefImage` carries `allow_upscale` and
         # `short_edge` itself and the conditioner performs ONE resize with the
         # canvas in scope, so the loader wires straight to the append. Before
@@ -1615,7 +1623,8 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
             append_id = next(append_ids)
             g[append_id] = {"class_type": "MiniMaxH3AppendRefImage",
                             "inputs": _append_image_inputs(load_id, chain, ref_upscale,
-                                                           ref_qwen_short_edge)}
+                                                           ref_qwen_short_edge,
+                                                           size_policy=ref_size_policy)}
             chain = [append_id, 0]
         if ref_video:
             # There is NO fit node on this path, deliberately. The image path
@@ -1719,6 +1728,12 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
             inputs |= {"width": ["27", 0], "height": ["27", 1],
                        "length": ["27", 2], "canvas": "explicit"}
         g["5"] = {"class_type": "MiniMaxH3Conditioning", "inputs": inputs}
+        if single_frame and not guide_image:
+            if task == "i2v":
+                raise SystemExit(
+                    "single_frame is text to image on MiniMaxH3Conditioning: with one "
+                    "frame a keyframe would be the whole picture")
+            g["5"]["inputs"]["single_frame"] = True
 
     model_src = ["1", 0]
     if lora is not None:
@@ -2326,7 +2341,17 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
             raise SystemExit("save_latents needs a clip with both decoders (nodes 11 and 12)")
         _save_av(g["11"]["inputs"]["samples"], "", ("101", "102", "103"))
 
+    if single_frame and not any(v == ["4", 0] for n in g.values() for v in n["inputs"].values()):
+        # On a text-to-image still the audio decoder was the audio VAE loader's
+        # only reader, so the loader goes with it rather than sit unconsumed.
+        # Checked here, once every node that could read it has been built.
+        del g["4"]
+
     if edit_guidance is not None:
+        if ref and single_frame and not guide_image:
+            raise SystemExit(
+                "edit_guidance on a reference still is not built: its two-node reference path "
+                "(MiniMaxH3EncodeReferences) has no single_frame input")
         _wire_edit_guidance(g, prompt, edit_guidance)
 
     return g
@@ -2437,6 +2462,14 @@ PH3_IMAGE_EDIT_PROMPT = _bank_prompt("p_h3_image/edit_alpine_terrace")
 #: author's (their release's `docs/vfx-edit.md`); `docs/h3_image_editing.md` carries our reading.
 #: Stored in `prompt_bank/guide_edit/vfx_edit_man_red_jacket.txt`.
 PIKA_STILL_EDIT_PROMPT = _bank_prompt("guide_edit/vfx_edit_man_red_jacket")
+
+#: The plain Pika stills' prompts (owner, 2026-11-10): a Pika image is prompted as the video is, in
+#: the vendor guides' structure. Text to image takes `vendor_guides/base_en.md`'s three fields on the
+#: fl2va checkpoint; an edit takes `vendor_guides/ref_en.md`'s six sections on ref2va, with the
+#: picture as `<Picture 1>` and `[keyframe completion]`, the guide's task type for an edited frame.
+#: Stored in `prompt_bank/pika_image/`.
+PIKA_IMAGE_T2I_PROMPT = _bank_prompt("pika_image/t2i_clockmaker")
+PIKA_IMAGE_EDIT_PROMPT = _bank_prompt("pika_image/edit_man_red_jacket")
 
 
 def build_ph3_image_api(
@@ -5061,6 +5094,29 @@ def main():
               manual_sigmas=PH3_IMAGE_MANUAL_SIGMAS,
               out_prefix="Image/h3_p_h3_image_guide_edit"),
          "reference image + guide image + text -> single-frame edited image on unet_ref2va + p-h3-image_lora_bf16 + guide-latent task LoRA via MiniMaxH3GuideLatent(single_frame=True)"),
+        # Plain H3 prompting at one frame on Pika (owner, 2026-11-10): a Pika
+        # still is prompted as the video is, with no guide node and no
+        # third-party LoRA. The one frame is the conditioning node's own
+        # `single_frame` input. Rendered that day (`docs/h3_image_editing.md`).
+        ("h3_pika_image_t2i.json", "pika-image-t2i", "t2v",
+         PIKA_IMAGE_T2I_PROMPT,
+         dict(single_frame=True,
+              lora=(PIKA_FL2VA_SVD995_LORA, PIKA_STRENGTH), lora_branch=True,
+              steps=PIKA_STEPS, sampler_name=PIKA_SAMPLER,
+              manual_sigmas=PIKA_MANUAL_SIGMAS,
+              width=768, height=768,
+              out_prefix="Image/h3_pika_image_t2i"),
+         "text -> single-frame image on unet_fl2va + Pika H3 Flex 6-step LCM (SVD995 branch), the prompt in the base guide's three fields (MiniMaxH3Conditioning, single_frame)"),
+        ("h3_pika_image_edit.json", "pika-image-edit", "r2v",
+         PIKA_IMAGE_EDIT_PROMPT,
+         dict(ref_images=(PLACEHOLDER_IMAGE_A,), ref_image_count=1,
+              ref_size_policy="match", single_frame=True,
+              lora=(PIKA_REF2VA_SVD995_LORA, PIKA_STRENGTH), lora_branch=True,
+              steps=PIKA_STEPS, sampler_name=PIKA_SAMPLER,
+              manual_sigmas=PIKA_MANUAL_SIGMAS,
+              width=768, height=768,
+              out_prefix="Image/h3_pika_image_edit"),
+         "picture + text -> single-frame edited image on unet_ref2va + Pika H3 Flex 6-step LCM (SVD995 branch), the picture as <Picture 1> sized to the output and the prompt in the reference guide's six sections (MiniMaxH3ReferenceConditioning, single_frame)"),
         # A one-frame edit on Pika with no reference picture: the picture to
         # edit is the guide, and the prompt is one sentence in the edit LoRA's
         # own form. Core's reference node, because ours refuses an empty chain.

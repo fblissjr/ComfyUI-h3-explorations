@@ -271,7 +271,7 @@ def parse_guide(text: str):
 
 
 def graphs_with_guide() -> set:
-    """Graph stems that wire a keyframe-guide node.
+    """Graph stems that wire a keyframe-guide node, or edit their own reference at one frame.
 
     Read per graph rather than assumed globally: the point of the case is that
     a prompt may claim `keyframe completion` only when its own graph can
@@ -281,9 +281,22 @@ def graphs_with_guide() -> set:
     out = set()
     for path in graph_paths(WORKFLOWS, "*_api.json"):
         wf = json.loads(path.read_text())
-        if any(n.get("class_type") in GUIDE_NODES for n in wf.values()):
+        if any(n.get("class_type") in GUIDE_NODES for n in wf.values()) or _edits_its_reference(wf):
             out.add(path.stem)
     return out
+
+
+def _edits_its_reference(wf: dict) -> bool:
+    """A reference conditioning node with `single_frame` on.
+
+    The graph renders one frame, and that frame is the reference picture with the prompt's change
+    made: the vendor guide's `edited keyframe`, which is a `keyframe completion` (ref_en section 3).
+    No guide node pins the picture, so this is held to what was rendered rather than to a mechanism:
+    on 2026-11-10 that form kept the picture's framing and made the edit
+    (`docs/h3_image_editing.md`, "Plain H3 prompting at one frame").
+    """
+    return any(isinstance(n, dict) and n.get("class_type") == "MiniMaxH3ReferenceConditioning"
+               and (n.get("inputs") or {}).get("single_frame") is True for n in wf.values())
 
 
 def graphs_without_audio() -> set:

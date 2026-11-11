@@ -1029,6 +1029,62 @@ def tiered_policy_scales_by_canvas_short_edge():
     assert tuple(vae_576p.inputs[0].shape[1:3]) == (2048, 3072), vae_576p.inputs[0].shape
 
 
+def single_frame_is_one_frame_and_refuses_what_cannot_land():
+    """`single_frame` on the two conditioning nodes: a one-frame latent, and what cannot land on it refused.
+
+    A still has one latent step and the two audio steps the shared clock gives it, whatever `length`
+    says. A reference video or audio has no duration to land in on it, and a keyframe would be the
+    whole picture, so each is refused in the node's own words rather than rendered as something else.
+    The report prices the same one frame. With the input off the same call is the video latent, which
+    is what shows the input is the thing that makes the frame.
+    """
+    import torch
+    C = importlib.import_module(f"{_REPO.name}.conditioning")
+    report = importlib.import_module(f"{_REPO.name}.reference_report")
+    still = (R.RuntimeImageReference(_frames(1, 64, 64), "match"),)
+
+    def ref_node(references, **kwargs):
+        return R.MiniMaxH3ReferenceConditioning.execute(
+            clip=_Clip(), vae=_VideoVae(), audio_vae=_AudioVae(), references=references,
+            prompt="edit <Picture 1>", width=96, height=64, length=124, **kwargs)
+
+    conditioning, latent = ref_node(still, single_frame=True).args
+    video, audio = latent["samples"].tensors
+    assert tuple(video.shape) == (1, 24, 1, 4, 6), tuple(video.shape)
+    assert tuple(audio.shape) == (1, 32, 2, 2), tuple(audio.shape)
+    assert [block["kind"] for block in conditioning[0][1]["minimax_refs"]] == ["image"]
+    assert ref_node(still).args[1]["samples"].tensors[0].shape[2] > 1
+
+    for moving in (R.RuntimeAudioReference(_audio(seconds=1.0, channels=1)),
+                   R.RuntimeVideoReference(_frames(22, 32, 32), 24.0, None)):
+        try:
+            ref_node(still + (moving,), single_frame=True)
+        except ValueError as exc:
+            assert "still references only" in str(exc), exc
+        else:
+            raise AssertionError(f"{type(moving).__name__} reached a one-frame target")
+
+    priced = report.price_references(still, 96, 64, 124, single_frame=True)
+    assert (priced.frames, priced.latent_t) == (1, 1), (priced.frames, priced.latent_t)
+    assert report.price_references(still, 96, 64, 124).latent_t > 1
+
+    def text_node(**kwargs):
+        return C.MiniMaxH3Conditioning.execute(
+            clip=_Clip(), vae=_VideoVae(), prompt="a still", width=96, height=64, length=124,
+            canvas="explicit", **kwargs)
+
+    video, audio = text_node(single_frame=True).args[1]["samples"].tensors
+    assert tuple(video.shape) == (1, 24, 1, 4, 6), tuple(video.shape)
+    assert tuple(audio.shape) == (1, 32, 2, 2), tuple(audio.shape)
+    assert text_node().args[1]["samples"].tensors[0].shape[2] > 1
+    try:
+        text_node(single_frame=True, first_frame=torch.zeros(1, 64, 96, 3))
+    except ValueError as exc:
+        assert "single_frame is text to image" in str(exc), exc
+    else:
+        raise AssertionError("a keyframe reached a one-frame text-to-image latent")
+
+
 CHECKS = (
     append_is_copy_on_add_and_ordered,
     video_metadata_is_owned,
@@ -1052,6 +1108,7 @@ CHECKS = (
     preflight_reads_the_vae_gate_off_the_graph,
     video_grid_is_read_off_the_latent,
     tiered_policy_scales_by_canvas_short_edge,
+    single_frame_is_one_frame_and_refuses_what_cannot_land,
 )
 
 

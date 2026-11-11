@@ -57,7 +57,7 @@ import logging
 
 from comfy_api.latest import io
 import node_helpers
-from comfy_extras.nodes_minimax_h3 import _empty_av_latent
+from comfy_extras.nodes_minimax_h3 import _av_latent, _empty_av_latent
 
 from .h3_rules import normalize_prompt
 from .h3_spans import attach_span_masks
@@ -102,6 +102,13 @@ class MiniMaxH3Conditioning(io.ComfyNode):
                             "keyframe, as the release does, and width/height "
                             "are ignored. explicit uses width/height and "
                             "cover-crops the anchor to fit."),
+                io.Boolean.Input(
+                    "single_frame", default=False, optional=True,
+                    tooltip="On: the latent is one frame, a still image, and "
+                            "length is not used. Text to image only: a first "
+                            "or last frame cannot be wired with it, because "
+                            "with one frame the keyframe would be the whole "
+                            "picture."),
             ],
             outputs=[io.Conditioning.Output(display_name="positive"),
                      io.Latent.Output()],
@@ -110,7 +117,7 @@ class MiniMaxH3Conditioning(io.ComfyNode):
     @classmethod
     def execute(cls, clip, vae, prompt, width=1344, height=768, length=124,
                 first_frame=None, last_frame=None,
-                canvas="from_keyframe") -> io.NodeOutput:
+                canvas="from_keyframe", single_frame=False) -> io.NodeOutput:
         # Refused rather than padded. Core emits token 151643 for an empty
         # entry list and renders against it; both vendor runtimes reject the
         # request. Checked before any model work so the failure is cheap.
@@ -120,6 +127,13 @@ class MiniMaxH3Conditioning(io.ComfyNode):
                 "conditions on a pad token when the prompt is empty and "
                 "renders anyway; LightX2V and sglang both refuse the request, "
                 "and so does this."
+            )
+
+        if single_frame and (first_frame is not None or last_frame is not None):
+            raise ValueError(
+                "MiniMaxH3Conditioning: single_frame is text to image. With one "
+                "frame a first or last frame would be the whole picture; unwire "
+                "the keyframe, or turn single_frame off."
             )
 
         images, keyframes = [], []
@@ -137,7 +151,13 @@ class MiniMaxH3Conditioning(io.ComfyNode):
                     first_frame=first_frame, last_frame=last_frame,
                     mode=mode, width=width, height=height, length=length))
 
-        latent, frame_count = _empty_av_latent(width, height, length)
+        if single_frame:
+            # One frame, with the two audio steps the shared clock gives it.
+            # Core's own empty latent cannot be asked for this: its
+            # `temporal_shape` floors every length at five frames.
+            latent, frame_count = _av_latent(width, height, 1, 2), 1
+        else:
+            latent, frame_count = _empty_av_latent(width, height, length)
 
         if first_out is not None or last_out is not None:
             # Presentation order is first then last, and only the frames

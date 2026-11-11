@@ -41,6 +41,7 @@ from comfy_extras.nodes_minimax_h3 import (
     CANVAS_MULTIPLE,
     FPS,
     REF_IMAGE_SHORT_EDGE,
+    _av_latent,
     _empty_av_latent,
     _encode_ref_audio,
     _resize,
@@ -1221,6 +1222,15 @@ class MiniMaxH3ReferenceConditioning(io.ComfyNode):
                     "image_policy", options=list(IMAGE_POLICIES),
                     default="comfy", optional=True, tooltip=IMAGE_POLICY_TOOLTIP,
                 ),
+                io.Boolean.Input(
+                    "single_frame", default=False, optional=True,
+                    tooltip=(
+                        "On: the latent is one frame, a still image, and "
+                        "length is not used. Still references only: a "
+                        "reference video or audio has no duration to land in "
+                        "on a one-frame target."
+                    ),
+                ),
             ],
             outputs=[
                 io.Conditioning.Output(display_name="positive"),
@@ -1233,6 +1243,7 @@ class MiniMaxH3ReferenceConditioning(io.ComfyNode):
         cls, clip, references, prompt, width=1344,
         height=768, length=124, video_policy="comfy",
         image_policy="comfy", vae=None, audio_vae=None,
+        single_frame=False,
     ):
         records = _reference_tuple(references)
         if not records:
@@ -1244,7 +1255,20 @@ class MiniMaxH3ReferenceConditioning(io.ComfyNode):
                 "MiniMaxH3ReferenceConditioning needs a prompt; empty prompts "
                 "condition on a pad token in core and are refused here"
             )
-        latent, frame_count = _empty_av_latent(width, height, length)
+        if single_frame:
+            if any(not isinstance(r, RuntimeImageReference) for r in records):
+                raise ValueError(
+                    "MiniMaxH3ReferenceConditioning: single_frame takes still "
+                    "references only. A reference video or audio has no "
+                    "duration to land in on a one-frame target; remove it, or "
+                    "turn single_frame off."
+                )
+            # One frame, with the two audio steps the shared clock gives it.
+            # Core's own empty latent cannot be asked for this: its
+            # `temporal_shape` floors every length at five frames.
+            latent, frame_count = _av_latent(width, height, 1, 2), 1
+        else:
+            latent, frame_count = _empty_av_latent(width, height, length)
         ref_items, ref_blocks = _compile_reference_records(
             records, vae, audio_vae, width, height, frame_count,
             video_policy=video_policy, image_policy=image_policy,
@@ -1280,7 +1304,8 @@ class MiniMaxH3ReferenceConditioning(io.ComfyNode):
             from .reference_report import format_report, price_references
             preview = format_report(price_references(
                 records, width, height, length, image_policy=image_policy,
-                video_policy=video_policy, clip=clip, prompt=prompt))
+                video_policy=video_policy, clip=clip, prompt=prompt,
+                single_frame=single_frame))
         except Exception as exc:  # pragma: no cover - reporting must not gate
             logger.warning("[h3] reference report skipped: %s", exc)
         return io.NodeOutput(conditioning, latent,

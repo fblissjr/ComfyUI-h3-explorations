@@ -390,6 +390,20 @@ DECLARED: dict[tuple[str, str], tuple] = {
                 "the AV latent to 1 frame (t=1) and anchors guide[:1] at frame 0 for "
                 "single-frame P-H3-Image guide-latent editing, against the node default "
                 "False on video guide-latent graphs (h3_guide_video_edit)"),
+    ("MiniMaxH3Conditioning", "single_frame"):
+        ("ARM", "True on h3_pika_image_t2i, a text-to-image still on the fl2va checkpoint: "
+                "the node hands the sampler a one-frame latent (2026-11-10). False, the "
+                "node default, on every video graph."),
+    ("MiniMaxH3ReferenceConditioning", "single_frame"):
+        ("ARM", "True on h3_pika_image_edit, a still edited from its reference picture on "
+                "the ref2va checkpoint: the node hands the sampler a one-frame latent "
+                "(2026-11-10). False, the node default, on every video graph."),
+    ("MiniMaxH3AppendRefImage", "size_policy"):
+        ("ARM", "'match' on h3_pika_image_edit, against the node default 'max' "
+                "(2026-11-10): the picture is sized to the output it is edited into. "
+                "That is the size the render that showed the edit landing used; 'max' "
+                "was not rendered on this graph (docs/h3_image_editing.md). The "
+                "generator passes ref_size_policy='match' for it."),
 }
 
 #: **There is deliberately no exception table here.** One was written on
