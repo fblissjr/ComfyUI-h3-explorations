@@ -2762,6 +2762,15 @@ def build_h3_image_api(
             "seed": resolved_seed,
             "preset": "",
             "custom_system_prompt": "",
+            "sampler_mode": "heylook / preset default",
+            "temperature": 0.7,
+            "top_p": 0.95,
+            "top_k": 20,
+            "min_p": 0.0,
+            "max_tokens": 4096,
+            "repetition_penalty": 1.0,
+            "presence_penalty": 0.0,
+            "reasoning_effort": "",
         }
         for idx, (load_id, _) in enumerate(zip(_REF_IMAGE_NODES, stills), start=1):
             expander_inputs[f"images.image_{idx}"] = [load_id, 0]

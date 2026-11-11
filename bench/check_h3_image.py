@@ -219,6 +219,7 @@ def heylook_expander() -> None:
     try:
         from h3_image_nodes import (
             MiniMaxH3ImagePromptExpander,
+            build_expander_catalog,
             prepare_heylook_image,
             prepare_heylook_tensor,
             stream_heylook_message,
@@ -450,20 +451,46 @@ def heylook_expander() -> None:
             "heylook T2I picks resident chat model, retries 503 with fresh X-Request-ID and separates thinking",
         )
 
-        # mode='custom' with blank custom_system_prompt inherits the preset's system_prompt (matched by name or id).
+        # mode='heylook preset + aspect_ratio', editable custom_system_prompt overrides, custom sampler settings, and UI catalog route.
         MiniMaxH3ImagePromptExpander.execute(
             prompt="Overhead rustic farm table feast.",
             enabled=True,
             base_url=base,
-            mode="custom",
+            mode="heylook preset + aspect_ratio",
             custom_system_prompt="",
             preset="crisp_preset",
         )
-        preset_sys_body = state["bodies"][-1]
+        preset_ar_body = state["bodies"][-1]
+        MiniMaxH3ImagePromptExpander.execute(
+            prompt="Overhead rustic farm table feast.",
+            enabled=True,
+            base_url=base,
+            mode="t2i + aspect_ratio",
+            custom_system_prompt="USER EDITED SYSTEM PROMPT",
+            sampler_mode="custom",
+            temperature=1.15,
+            top_p=0.9,
+            top_k=40,
+            min_p=0.05,
+            max_tokens=2048,
+            repetition_penalty=1.08,
+            presence_penalty=0.1,
+        )
+        custom_sampler_body = state["bodies"][-1]
+        catalog = build_expander_catalog(base)
         report(
-            preset_sys_body.get("system") == "PRESET SYSTEM PROMPT"
-            and preset_sys_body.get("temperature") == 0.8,
-            "mode='custom' with blank custom_system_prompt forwards the heylook preset's system_prompt",
+            preset_ar_body.get("system", "").startswith("PRESET SYSTEM PROMPT")
+            and "aspect_ratio:" in preset_ar_body.get("system", "")
+            and custom_sampler_body.get("system") == "USER EDITED SYSTEM PROMPT"
+            and custom_sampler_body.get("temperature") == 1.15
+            and custom_sampler_body.get("top_p") == 0.9
+            and custom_sampler_body.get("top_k") == 40
+            and custom_sampler_body.get("max_tokens") == 2048
+            and len(catalog["local_prompts"]) == 6
+            and catalog["heylook"]["reachable"] is True
+            and catalog["heylook"]["resident_models"] == ["text-chat-resident"]
+            and [p["name"] for p in catalog["heylook"]["presets"]] == ["crisp_preset"],
+            "heylook preset + aspect_ratio, editable system_prompt override, custom sampler fields and UI catalog hold",
         )
 
         # Edit with 2 reference pictures: requires 'vision' capability (selects vlm-chat-local)
@@ -513,6 +540,14 @@ def heylook_expander() -> None:
             controls_ok = False
         except ValueError:
             pass
+
+        try:
+            MiniMaxH3ImagePromptExpander.execute(
+                prompt="Test.", enabled=True, base_url=base, mode="heylook preset", preset="", custom_system_prompt=""
+            )
+            controls_ok = False
+        except ValueError as exc:
+            controls_ok &= "crisp_preset" in str(exc)
 
         state["mode"] = "inband_error"
         try:

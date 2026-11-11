@@ -165,6 +165,7 @@ with none is a helper the others import.
 | `vendor/` | 11 | [below](#vendor) |
 | `vendor_config/` | 10 | [below](#vendor_config) |
 | `vendor_guides/` | 21 | [below](#vendor_guides) |
+| `web/` | 1 | [below](#web) |
 | `workflows/` | 113 | [`workflows/INDEX.md`](workflows/INDEX.md) |
 
 ## .claude/
@@ -313,3 +314,9 @@ with none is a helper the others import.
 | [`h3_image/prompt/t2i/task_prompt.txt`](vendor_guides/h3_image/prompt/t2i/task_prompt.txt) | You are a caption-expansion and canvas-selection model for still-image |
 | [`ref_en.md`](vendor_guides/ref_en.md) | Full-Reference Mode Rewrite Output Format Guide |
 | [`sha256.json`](vendor_guides/sha256.json) | (JSON, an object; it carries no description) |
+
+## web/
+
+| file | what it says |
+|---|---|
+| [`h3_image_heylook.js`](web/h3_image_heylook.js) | import { app } from "../../scripts/app.js"; |

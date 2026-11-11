@@ -240,8 +240,48 @@ EXPANDER_PROMPT_FILES: dict[str, str] = {
     "edit + aspect_ratio": "edit_aspect_ratio_system_prompt.md",
     "edit": "edit_system_prompt.md",
 }
-EXPANDER_MODES: tuple[str, ...] = ("auto", *EXPANDER_PROMPT_FILES.keys(), "custom")
+EXPANDER_MODES: tuple[str, ...] = (
+    "auto",
+    "heylook preset",
+    "heylook preset + aspect_ratio",
+    *EXPANDER_PROMPT_FILES.keys(),
+    "custom",
+)
 THINKING_MODES: tuple[str, ...] = ("model default", "on", "off")
+SAMPLER_MODES: tuple[str, ...] = ("heylook / preset default", "custom")
+
+ASPECT_RATIO_FOOTER_T2I = (
+    "Output contract:\n"
+    "Output ONLY the single continuous English caption paragraph (with no internal line breaks), "
+    "followed by one blank line and the exact final line `aspect_ratio: <ALLOWED_RATIO>` chosen from "
+    "`1:1`, `5:4`, `4:3`, `3:2`, `16:9`, `21:9`, `4:5`, `3:4`, `2:3`, or `9:16`:\n\n"
+    "<single continuous English paragraph>\n\n"
+    "aspect_ratio: 4:3\n\n"
+    "Do not output JSON, markdown fences, headings, or any other text before or after those lines."
+)
+ASPECT_RATIO_FOOTER_EDIT = (
+    "Output contract:\n"
+    "Output ONLY the single continuous English edit paragraph (with no internal line breaks), "
+    "followed by one blank line and the exact final line `aspect_ratio: <same as the picture | W:H>` "
+    "(use `same as the picture` whenever the edit keeps the base picture's canvas shape, or a reduced "
+    "integer `W:H` such as `16:9`, `4:3`, `1:1`, or `9:16` when the edit crops or changes the canvas shape):\n\n"
+    "<single continuous English paragraph>\n\n"
+    "aspect_ratio: same as the picture\n\n"
+    "Do not output JSON, markdown fences, headings, or any other text before or after those lines."
+)
+
+
+def _read_local_prompt(name: str) -> str:
+    return (_SYSTEM_PROMPTS_DIR / EXPANDER_PROMPT_FILES[name]).read_text(encoding="utf-8").strip()
+
+
+def append_aspect_ratio_footer(system_prompt: str, *, has_images: bool) -> str:
+    """Append the `aspect_ratio:` output contract to a prose-only system prompt if not already present."""
+    base_text = (system_prompt or "").strip()
+    if "aspect_ratio:" in base_text.lower():
+        return base_text
+    footer = ASPECT_RATIO_FOOTER_EDIT if has_images else ASPECT_RATIO_FOOTER_T2I
+    return f"{base_text}\n\n{footer}" if base_text else footer
 
 
 class HeylookOverloadedError(RuntimeError):
@@ -300,29 +340,43 @@ def resolve_expander_system_prompt(
     custom_system_prompt: str = "",
     has_preset: bool = False,
 ) -> tuple[str, str]:
-    """Return `(resolved_mode, system_prompt_text)` for `MiniMaxH3ImagePromptExpander`."""
+    """Return `(resolved_mode, system_prompt_text)` for `MiniMaxH3ImagePromptExpander`.
+
+    Whenever `custom_system_prompt` is non-empty (either populated by the UI from a local mode or
+    `heylook` preset, or edited directly by the user), that exact text wins as the system prompt.
+    """
     if mode not in EXPANDER_MODES:
         raise ValueError(f"unknown expander mode {mode!r}; expected one of {list(EXPANDER_MODES)}")
     effective = ("edit + aspect_ratio" if has_images else "t2i + aspect_ratio") if mode == "auto" else mode
-    if effective == "custom":
-        sys_text = (custom_system_prompt or "").strip()
-        if not sys_text and not has_preset:
-            raise ValueError(
-                "mode is 'custom', but custom_system_prompt is empty (and no heylook preset is set)"
-            )
-        return effective, sys_text
     if effective.startswith("edit") and not has_images:
         raise ValueError(
             f"mode {effective!r} requires at least one reference picture wired into 'images' "
-            "(or choose 'auto' / a 't2i*' mode for text-to-image)"
+            "(or choose 'auto', 'heylook preset*', or a 't2i*' mode for text-to-image)"
         )
     if effective.startswith("t2i") and has_images:
         raise ValueError(
             f"mode {effective!r} is text-to-image only, but reference pictures are wired into 'images'; "
-            "choose 'auto', 'edit + aspect_ratio', 'edit', or 'custom'"
+            "choose 'auto', 'heylook preset*', 'edit + aspect_ratio', 'edit', or 'custom'"
         )
-    path = _SYSTEM_PROMPTS_DIR / EXPANDER_PROMPT_FILES[effective]
-    return effective, path.read_text(encoding="utf-8").strip()
+
+    override_text = (custom_system_prompt or "").strip()
+    if override_text:
+        if mode == "auto":
+            if has_images and override_text == _read_local_prompt("t2i + aspect_ratio"):
+                return effective, _read_local_prompt("edit + aspect_ratio")
+            if not has_images and override_text == _read_local_prompt("edit + aspect_ratio"):
+                return effective, _read_local_prompt("t2i + aspect_ratio")
+        return effective, override_text
+
+    if effective in ("heylook preset", "heylook preset + aspect_ratio"):
+        return effective, ""
+    if effective == "custom":
+        if not has_preset:
+            raise ValueError(
+                "mode is 'custom', but custom_system_prompt is empty (and no heylook preset is set)"
+            )
+        return effective, ""
+    return effective, _read_local_prompt(effective)
 
 
 def prepare_heylook_image(path_or_bytes: bytes | str | Path) -> tuple[str, str]:
@@ -481,18 +535,32 @@ def discover_heylook_model(
     return next((row for row in fit if row["id"] in resident), fit[0])
 
 
-def expand_heylook_preset(client: httpx.Client, base: str, preset_id: str, model_row: dict) -> dict:
+def expand_heylook_preset(
+    client: httpx.Client,
+    base: str,
+    preset_id: str,
+    model_row: dict,
+) -> dict:
     """Expand a `/v1/presets` entry client-side with capability & depth filtering."""
     r = client.get(f"{base}/v1/presets", headers={"Accept": "application/json"}, timeout=10.0)
     if r.status_code >= 400:
         raise _http_error(r, base, "/v1/presets")
-    presets = r.json().get("presets") or []
-    preset = next((p for p in presets if p.get("id") == preset_id), None)
+    presets = [p for p in (r.json().get("presets") or []) if isinstance(p, dict)]
+    avail = [p.get("name") or p.get("id") for p in presets if p.get("name") or p.get("id")]
+
+    wanted = (preset_id or "").strip()
+    if not wanted:
+        raise ValueError(
+            f"'preset' is blank; choose a preset from {base}/v1/presets: {avail}"
+        )
+    preset = next((p for p in presets if p.get("id") == wanted), None)
     if preset is None:
-        preset = next((p for p in presets if p.get("name") == preset_id), None)
+        preset = next((p for p in presets if p.get("name") == wanted), None)
     if preset is None:
-        avail = [p.get("id") for p in presets if isinstance(p, dict) and p.get("id")]
-        raise ValueError(f"heylook preset {preset_id!r} not found at {base}/v1/presets; available: {avail}")
+        lowered = wanted.lower()
+        preset = next((p for p in presets if str(p.get("name") or "").lower() == lowered), None)
+    if preset is None:
+        raise ValueError(f"heylook preset {wanted!r} not found at {base}/v1/presets; available: {avail}")
 
     params = dict(preset.get("params") or {})
     body: dict = {}
@@ -531,10 +599,15 @@ def build_heylook_request_body(
     thinking: str = "model default",
     request_seed: int | None = None,
     preset_fields: dict | None = None,
+    sampler_mode: str = "heylook / preset default",
+    sampler_overrides: dict | None = None,
+    reasoning_effort_override: str = "",
 ) -> dict:
     """Assemble a capability-gated `POST /v1/messages` request body."""
     if thinking not in THINKING_MODES:
         raise ValueError(f"unknown thinking setting {thinking!r}; expected one of {list(THINKING_MODES)}")
+    if sampler_mode not in SAMPLER_MODES:
+        raise ValueError(f"unknown sampler_mode {sampler_mode!r}; expected one of {list(SAMPLER_MODES)}")
 
     caps = set(model_row.get("capabilities") or [])
     engine = model_row.get("engine") or {}
@@ -545,7 +618,25 @@ def build_heylook_request_body(
     if system_prompt:
         body["system"] = system_prompt
 
+    if sampler_mode == "custom" and sampler_overrides:
+        body.update(sampler_overrides)
+
     thinking_meta = engine.get("thinking") or {}
+    depth = thinking_meta.get("depth") or {}
+    eff = (reasoning_effort_override or "").strip() if sampler_mode == "custom" else ""
+    if eff:
+        if (
+            depth.get("unknown") == "verbatim"
+            or eff in (depth.get("values") or [])
+            or eff in (depth.get("aliases") or {})
+        ):
+            body["reasoning_effort"] = eff
+        elif depth.get("values"):
+            raise ValueError(
+                f"model {model_row['id']!r} does not offer reasoning_effort={eff!r}; "
+                f"valid depth values: {depth.get('values')}"
+            )
+
     has_switch = "thinking" in caps or bool(thinking_meta.get("switch"))
     if thinking in ("on", "off"):
         want_on = thinking == "on"
@@ -556,7 +647,7 @@ def build_heylook_request_body(
             else:
                 body["thinking"] = want_on
         elif not want_on:
-            off_words = (thinking_meta.get("depth") or {}).get("off") or []
+            off_words = depth.get("off") or []
             if off_words:
                 body["reasoning_effort"] = off_words[0]
             body.pop("thinking", None)
@@ -814,10 +905,12 @@ class MiniMaxH3ImagePromptExpander(io.ComfyNode):
                     options=list(EXPANDER_MODES),
                     default="auto",
                     tooltip=(
-                        "Which standalone system prompt from docs/wiki/system_prompts/h3_image/ to use. "
-                        "'auto' picks 't2i + aspect_ratio' when no pictures are wired and "
-                        "'edit + aspect_ratio' when pictures are wired; 't2i_design*' is for posters, "
-                        "typography, infographics, and UI boards."
+                        "System prompt source: 'auto' picks repo 't2i + aspect_ratio' (no pictures) or "
+                        "'edit + aspect_ratio' (with pictures); 'heylook preset' and "
+                        "'heylook preset + aspect_ratio' pull the preset's system_prompt from "
+                        "GET /v1/presets on the heylook server; the named t2i*/edit* modes use "
+                        "docs/wiki/system_prompts/h3_image/*.md. Selecting a mode or preset in the UI "
+                        "populates the editable system_prompt box below."
                     ),
                 ),
                 io.String.Input(
@@ -849,21 +942,20 @@ class MiniMaxH3ImagePromptExpander(io.ComfyNode):
                 io.String.Input(
                     "preset",
                     default="",
-                    advanced=True,
                     tooltip=(
-                        "Optional preset id or name from GET /v1/presets on the heylook server "
-                        "(applies sampler/thinking params; when mode is 'custom' and "
-                        "custom_system_prompt is blank, also uses the preset's system_prompt)."
+                        "Optional preset name or id from GET /v1/presets on the heylook server. "
+                        "Selecting a preset in the UI populates system_prompt and sampler fields below "
+                        "for manual adjustment."
                     ),
                 ),
                 io.String.Input(
                     "custom_system_prompt",
                     multiline=True,
                     default="",
-                    advanced=True,
                     tooltip=(
-                        "System prompt used when mode is 'custom' (leave blank with 'preset' set "
-                        "to use the preset's own system_prompt)."
+                        "Editable system prompt sent as top-level 'system' on POST /v1/messages when "
+                        "non-empty (auto-populated in the UI when you pick a mode or heylook preset). "
+                        "Leave blank to resolve dynamically from 'mode' / 'preset'."
                     ),
                 ),
                 io.Autogrow.Input(
@@ -878,6 +970,81 @@ class MiniMaxH3ImagePromptExpander(io.ComfyNode):
                         "Optional reference pictures for editing (<Picture 1>..<Picture 16>). "
                         "Downscaled client-side to <= 2048 px on the longest edge for the vision LLM; "
                         "wire the full-size LoadImage outputs into MiniMax H3 Image Conditioning as usual."
+                    ),
+                ),
+                # Appended after 'images' to preserve existing positional widget/socket slots (docs/comfy_notes.md).
+                io.Combo.Input(
+                    "sampler_mode",
+                    options=list(SAMPLER_MODES),
+                    default="heylook / preset default",
+                    tooltip=(
+                        "'heylook / preset default' omits sampler overrides so heylook's publisher/model "
+                        "cascade (or 'preset') decides. 'custom' sends the editable sampler fields below "
+                        "(auto-populated in the UI from the selected model/preset)."
+                    ),
+                ),
+                io.Float.Input(
+                    "temperature",
+                    default=0.7,
+                    min=0.0,
+                    max=2.0,
+                    step=0.05,
+                    tooltip="Sampling temperature sent when sampler_mode is 'custom' (0.0 .. 2.0).",
+                ),
+                io.Float.Input(
+                    "top_p",
+                    default=0.95,
+                    min=0.0,
+                    max=1.0,
+                    step=0.01,
+                    tooltip="Nucleus sampling cutoff sent when sampler_mode is 'custom' (0.0 .. 1.0).",
+                ),
+                io.Int.Input(
+                    "top_k",
+                    default=20,
+                    min=0,
+                    max=1000,
+                    step=1,
+                    tooltip="Top-k cutoff sent when sampler_mode is 'custom' (0 = disabled in heylook).",
+                ),
+                io.Float.Input(
+                    "min_p",
+                    default=0.0,
+                    min=0.0,
+                    max=1.0,
+                    step=0.01,
+                    tooltip="Min-p cutoff sent when sampler_mode is 'custom' (0.0 .. 1.0).",
+                ),
+                io.Int.Input(
+                    "max_tokens",
+                    default=4096,
+                    min=1,
+                    max=131072,
+                    step=64,
+                    tooltip="Maximum output tokens (thinking + caption) sent when sampler_mode is 'custom'.",
+                ),
+                io.Float.Input(
+                    "repetition_penalty",
+                    default=1.0,
+                    min=0.1,
+                    max=2.0,
+                    step=0.01,
+                    tooltip="Repetition penalty sent when sampler_mode is 'custom' (1.0 = neutral).",
+                ),
+                io.Float.Input(
+                    "presence_penalty",
+                    default=0.0,
+                    min=0.0,
+                    max=2.0,
+                    step=0.01,
+                    tooltip="Presence penalty sent when sampler_mode is 'custom' (0.0 .. 2.0).",
+                ),
+                io.String.Input(
+                    "reasoning_effort",
+                    default="",
+                    tooltip=(
+                        "Optional model-specific reasoning depth word (from engine.thinking.depth.values) "
+                        "sent when sampler_mode is 'custom'. Leave blank for template default."
                     ),
                 ),
             ],
@@ -914,6 +1081,15 @@ class MiniMaxH3ImagePromptExpander(io.ComfyNode):
         preset: str = "",
         custom_system_prompt: str = "",
         images: io.Autogrow.Type = None,
+        sampler_mode: str = "heylook / preset default",
+        temperature: float = 0.7,
+        top_p: float = 0.95,
+        top_k: int = 20,
+        min_p: float = 0.0,
+        max_tokens: int = 4096,
+        repetition_penalty: float = 1.0,
+        presence_penalty: float = 0.0,
+        reasoning_effort: str = "",
     ) -> io.NodeOutput:
         if not enabled:
             raw = (prompt or "").strip()
@@ -936,11 +1112,12 @@ class MiniMaxH3ImagePromptExpander(io.ComfyNode):
 
         preset_name = (preset or "").strip()
         has_images = len(raw_images) > 0
+        uses_server_preset = mode in ("heylook preset", "heylook preset + aspect_ratio")
         resolved_mode, sys_prompt = resolve_expander_system_prompt(
             mode,
             has_images=has_images,
             custom_system_prompt=custom_system_prompt,
-            has_preset=bool(preset_name),
+            has_preset=bool(preset_name) or uses_server_preset,
         )
         prepared_images = [
             prepare_heylook_tensor(t, index=i) for i, t in enumerate(raw_images, start=1)
@@ -952,7 +1129,31 @@ class MiniMaxH3ImagePromptExpander(io.ComfyNode):
             model_row = discover_heylook_model(client, base, model, need=need_caps)
             preset_fields = (
                 expand_heylook_preset(client, base, preset_name, model_row)
-                if preset_name
+                if (preset_name or (uses_server_preset and not sys_prompt))
+                else None
+            )
+            if not sys_prompt and preset_fields:
+                preset_sys = (preset_fields.get("system") or "").strip()
+                if uses_server_preset and not preset_sys:
+                    raise ValueError(
+                        f"mode is {mode!r}, but the resolved heylook preset has an empty system_prompt"
+                    )
+                if resolved_mode == "heylook preset + aspect_ratio" and preset_sys:
+                    sys_prompt = append_aspect_ratio_footer(preset_sys, has_images=has_images)
+                else:
+                    sys_prompt = preset_sys
+
+            sampler_overrides = (
+                {
+                    "temperature": float(temperature),
+                    "top_p": float(top_p),
+                    "top_k": int(top_k),
+                    "min_p": float(min_p),
+                    "max_tokens": int(max_tokens),
+                    "repetition_penalty": float(repetition_penalty),
+                    "presence_penalty": float(presence_penalty),
+                }
+                if sampler_mode == "custom"
                 else None
             )
             body = build_heylook_request_body(
@@ -963,6 +1164,9 @@ class MiniMaxH3ImagePromptExpander(io.ComfyNode):
                 thinking=thinking,
                 request_seed=int(seed) & 0x7FFFFFFF,
                 preset_fields=preset_fields,
+                sampler_mode=sampler_mode,
+                sampler_overrides=sampler_overrides,
+                reasoning_effort_override=reasoning_effort,
             )
             res = with_heylook_backoff(
                 lambda: stream_heylook_message(
@@ -984,3 +1188,98 @@ class MiniMaxH3ImagePromptExpander(io.ComfyNode):
 
         report_str = format_heylook_report(res, resolved_mode=resolved_mode, shape=ratio)
         return io.NodeOutput(clean_prompt, ratio or "", think_trace, report_str)
+
+
+def build_expander_catalog(base_url: str = "") -> dict:
+    """Return local system prompts plus best-effort live `heylook` models & presets for UI autofill."""
+    local_prompts = {name: _read_local_prompt(name) for name in EXPANDER_PROMPT_FILES}
+    heylook_info: dict = {
+        "base_url": "",
+        "reachable": False,
+        "error": None,
+        "resident_models": [],
+        "models": [],
+        "presets": [],
+    }
+    raw_url = (base_url or "").strip()
+    if raw_url:
+        try:
+            base = normalize_heylook_base_url(raw_url)
+            heylook_info["base_url"] = base
+            with httpx.Client(trust_env=False, timeout=httpx.Timeout(3.0, connect=2.0)) as client:
+                mr = client.get(f"{base}/v1/models", headers={"Accept": "application/json"})
+                if mr.status_code >= 400:
+                    raise _http_error(mr, base, "/v1/models")
+                rows = [
+                    r for r in (mr.json().get("data") or [])
+                    if isinstance(r, dict) and r.get("id") and "chat" in (r.get("capabilities") or [])
+                ]
+                heylook_info["models"] = [
+                    {
+                        "id": r["id"],
+                        "provider": r.get("provider") or "",
+                        "capabilities": list(r.get("capabilities") or []),
+                        "thinking_default": r.get("thinking_default"),
+                        "sampler_defaults": dict(r.get("sampler_defaults") or {}),
+                        "depth_values": list(
+                            (((r.get("engine") or {}).get("thinking") or {}).get("depth") or {}).get("values")
+                            or []
+                        ),
+                    }
+                    for r in rows
+                ]
+                try:
+                    sr = client.get(f"{base}/v1/system/metrics", headers={"Accept": "application/json"})
+                    if sr.status_code == 200:
+                        mmap = sr.json().get("models")
+                        if isinstance(mmap, dict):
+                            heylook_info["resident_models"] = list(mmap.keys())
+                except Exception:
+                    pass
+                try:
+                    pr = client.get(f"{base}/v1/presets", headers={"Accept": "application/json"})
+                    if pr.status_code == 200:
+                        heylook_info["presets"] = [
+                            {
+                                "id": p.get("id") or "",
+                                "name": p.get("name") or p.get("id") or "",
+                                "system_prompt": p.get("system_prompt") or "",
+                                "params": dict(p.get("params") or {}),
+                            }
+                            for p in (pr.json().get("presets") or [])
+                            if isinstance(p, dict) and (p.get("name") or p.get("id"))
+                        ]
+                except Exception:
+                    pass
+                heylook_info["reachable"] = True
+        except Exception as exc:
+            heylook_info["error"] = f"{type(exc).__name__}: {exc}"
+
+    return {
+        "local_prompts": local_prompts,
+        "aspect_ratio_footers": {
+            "t2i": ASPECT_RATIO_FOOTER_T2I,
+            "edit": ASPECT_RATIO_FOOTER_EDIT,
+        },
+        "heylook": heylook_info,
+    }
+
+
+def register_expander_routes() -> None:
+    """Register `GET /h3_image/expander_catalog` on ComfyUI's `PromptServer` when running inside ComfyUI."""
+    try:
+        import asyncio
+        from aiohttp import web
+        from server import PromptServer
+    except Exception:
+        return
+    instance = getattr(PromptServer, "instance", None)
+    if instance is None:
+        return
+
+    async def expander_catalog(request: web.Request) -> web.Response:
+        base_url = request.query.get("base_url", "")
+        payload = await asyncio.to_thread(build_expander_catalog, base_url)
+        return web.json_response(payload)
+
+    instance.routes.get("/h3_image/expander_catalog")(expander_catalog)
