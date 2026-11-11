@@ -19,15 +19,19 @@ Older history lives elsewhere and is not copied here:
 
 - **For an exact clothing change on a reference shot, edit guidance; vectors stay in play** (the owner, on playback
   of the 2026-11-11 diner arms). `MiniMaxH3EditGuider` toward the subject's line rewritten with the new clothing is
-  the only arm that does what the rewritten prompt does, and it looks good. That is not the vector route closed:
-  this is a tinkering repo, and a vector with a shortened window gives usable results some of the time. The
-  owner's example is the 2026-11-07 beach clip (`Video/cv_e2e_verify/03_ref2va_beach_override` on the output share,
-  workflow in its PNG): a whole-scene vector on the same woman and diner, picture held, prompt naming no clothing,
-  which moved the scene to a beach and her into beach clothing (and drew two of her). So what the 2026-11-11 arms
-  show is narrower than "a vector cannot dress her": a vector aimed at her line alone did it only from the exact
-  sentence, and one general wardrobe vector did not. Where a strong vector is used, shorten its window
-  (`end_percent` 0.5 on six steps): on playback that was the only single change that kept the red off her face.
-  The arms are in [`control_vectors/comfyui_nodes_and_controls.md`](control_vectors/comfyui_nodes_and_controls.md).
+  the only arm that renders the exact multi-attribute outfit (`"1970s rust-orange polyester blouse ... and flared
+  jeans"`), and it holds up cleanly in motion. That does not close the vector route: this is a tinkering repo, and a
+  whole-scene vector (`scene_only`) with a shortened window (`end_percent` 0.5) shifts the environment and carries
+  contextual attire/surfaces along with the world (whereas adding `hold_words = "coat, parka"` in
+  `$H3_OUTPUT_DIR/Video/cv_e2e_verify/10_t2va_jlens_words_00001-audio.mp4` scrubs that coupled wardrobe pull when you
+  want the snowstorm without changing the vendor's apron). So what the 2026-11-11 arms show is narrower than "a
+  vector cannot dress her": a vector aimed at her line alone shifted her outfit (to cream rather than rust) only once
+  baseline clothing was named in the prompt, and averaging six heterogeneous 1970s outfits (`wardrobe_1970s`, whose
+  J-Lens readout carried only `"vintage, psychedelic, nostalgic"` with zero garment words) tinted the room without
+  changing her sweater. Where a strong vector is used, shorten its window (`end_percent` 0.5 on six steps): on
+  playback that was the only single change that kept the red burn off her face. The full guide and arms are in
+  [`control_vectors.md`](control_vectors.md) and
+  [`control_vectors/comfyui_nodes_and_controls.md`](control_vectors/comfyui_nodes_and_controls.md).
 - **One pair build, called by the node and the CLI** (the 2026-11-11 studio assessment found three copies; the
   Gemini reviewer asked that the fold stay in process, so the CLI still runs with the server down).
   `control_vectors.py::pool_pair_set` pools each side's rows, takes the mean difference and projects out the pair

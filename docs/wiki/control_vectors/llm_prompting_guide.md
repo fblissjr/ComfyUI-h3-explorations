@@ -1,42 +1,58 @@
-# Asking an LLM to write pairs
+# Authoring Contrastive Pairs with an LLM
 
-last updated: 2026-11-09
+Last updated: 2026-11-11.
 
-[Back to the start page](../control_vectors.md)
+You can author a validated 6–10 pair `.toml` control-vector pack with any frontier chat LLM (copy-paste workflow) or with a local GPU LLM via `bench/control_vectors.py generate-pairs`.
 
-Writing prompt pairs is not the main road any more. Steering by an edit of your own prompt needs no pairs
-([`../edit_guidance.md`](../edit_guidance.md)), and a vector can be built from your prompt and one
-`old -> new` clause. The bank of pair files is kept as a starter set and is not being grown (owner,
-2026-11-09, [`../decisions.md`](../decisions.md)). This page is for the case where you still want an LLM to
-write a set of pairs.
+---
 
-## The prompt to hand it
+## 1. The two canonical system prompts
 
-[`../system_prompts/h3_control_vector_standalone_system_prompt.md`](../system_prompts/h3_control_vector_standalone_system_prompt.md).
-The whole file is the prompt. It names nothing the LLM cannot know: no product name, none of this repo's
-files or tools. Examples of good and bad answers are beside it in
-[`../system_prompts/h3_control_vector_standalone_system_prompt_examples.md`](../system_prompts/h3_control_vector_standalone_system_prompt_examples.md).
+| Prompt file | When to use | Output format |
+|---|---|---|
+| [`docs/wiki/system_prompts/h3_control_vector_standalone_system_prompt.md`](../system_prompts/h3_control_vector_standalone_system_prompt.md) | **Copy-paste into any external chat UI** (Claude, Gemini, ChatGPT, or a local Heylook/OpenWebUI tab) with zero repo context needed | Self-contained Markdown (`### Test Scene Prompt`, `#### Pair 1..10`, optional `#### Hold 1..K`) ready for `bench/control_vectors.py from-md` or `build <file.md>` |
+| [`docs/wiki/system_prompts/h3_control_vector_system_prompt.md`](../system_prompts/h3_control_vector_system_prompt.md) | Loaded automatically by `bench/control_vectors.py generate-pairs` (and documented with architecture links) | Same validated Markdown contract |
 
-What it asks for, briefly, and why:
+---
 
-- Each pair changes one clause and nothing else, so the difference between the two sides is the thing being
-  steered.
-- The plain side is specific, not a bare "normal" or "natural", and the two sides are about the same
-  length. Vectors built from a short plain clause against a long steered one share a common component with
-  every other vector built that way.
-- One edit a line.
+## 2. Five rules that decide whether LLM-authored pairs work or fail
 
-## Turning the answer into a vector
+Every rule below comes directly from measured failure modes in our 2026-11-05..2026-11-11 builds:
 
-Save the LLM's answer as a `.md` file and build from it; `bench/control_vectors.py build --help` and
-`from-md --help` say how. The loader checks the pairs and refuses a file it cannot use
-(`control_vectors.py::load_pairs`).
+1. **One coherent physical/optical/acoustic mechanism across all pairs—never a grab-bag of different nouns**:
+   - *Good*: Every pair in `claymation_stopmotion` turns a different scene (kitchen, street, workshop, harbor) into hand-sculpted plasticine clay with thumbprints and 12-fps stepped motion. Scene nouns cancel; plasticine physics reinforces.
+   - *Bad (`wardrobe_1970s`, 2026-11-11)*: Pair 1 targets a mustard blouse, Pair 2 bell-bottoms, Pair 3 a suede vest, Pair 4 a plaid jacket, Pair 5 a floral wrap dress. Averaging them cancels every garment noun into abstract `"vintage, psychedelic, nostalgic"` mood words that tint lighting and never change a character's clothes. (For an exact outfit on a character, skip pair building and use [`MiniMaxH3EditGuider`](../edit_guidance.md).)
+2. **Identical surrounding prose and shared grammatical lead-in (`diff_span` discipline)**:
+   - Outside the single contrasting clause (and `overall_soundscape:` when audio is coupled), **every word, punctuation mark, `<d>...</d>` dialogue line, `(S1)` tag, and header must be byte-for-byte identical** between Pole A and Pole B.
+   - Keep the lead-in words (`"illuminated by "`, `"captured on "`) identical on both sides so `first_diff` lands directly on the contrasting content words rather than averaging wrapper words.
+3. **Concrete Pole A baselines + matched word counts (avoiding length bias)**:
+   - Never write negated baselines (`"no explosions"`, `"not claymation"`—negations still activate the negated noun in `Qwen3-VL`) and avoid bare 2-word Pole A against a 25-word Pole B.
+   - Write a concrete, ordinary Pole A of roughly matching clause length (`10–18` words -> `10–22` words) so `B - A` measures the concept rather than sentence length.
+4. **Stratify across diverse subjects, interiors/exteriors, and lighting**:
+   - Vary setting, gender/object, framing, and baseline color palette across the 6–10 pairs so accidental scene correlates average toward zero.
+5. **Add a `#### Hold` group whenever your concept has an obvious unwanted twin**:
+   - If you ask for 1970s 16mm grain without warm sepia tint, add a `Hold` group contrasting neutral daylight balance against warm amber tungsten cast (`film_16mm_1974_neutral`).
+   - If you ask for surveillance grit without panicked movement, add a `Hold` group contrasting calm pedestrians against frantic running crowds.
 
-## What is not wired up
+---
 
-`bench/control_vectors.py generate-pairs`, which runs a local LLM for you, and the browser UI still read
-the older page, [`../system_prompts/h3_control_vector_system_prompt.md`](../system_prompts/h3_control_vector_system_prompt.md),
-not the standalone prompt above (`bench/control_vector/llm_pairs.py::_extract_system_prompt_text`). A check
-pins rules in that older page (`bench/check_prompt_docs_sync.py`). Moving both to the standalone prompt is
-listed in [`the plan`](../../research/control_vectors/2026-11-09_control_vector_simplification_plan.md) and
-has not been done. No session ran `generate-pairs` on 2026-11-09.
+## 3. Converting and building an LLM Markdown file
+
+Save the LLM's Markdown reply to `data/control_vectors/my_concept.md`, then validate and convert it to `.toml` (CPU, `< 1s`):
+
+```bash
+CUDA_VISIBLE_DEVICES= /path/to/comfy-venv/bin/python bench/control_vectors.py from-md \
+  data/control_vectors/my_concept.md \
+  --out data/control_vectors/my_concept.toml \
+  --test-prompt-out data/control_vectors/my_concept_test.txt
+```
+
+`from-md` (`control_vectors.write_markdown_to_toml`) validates every pair through `load_pairs`—checking H3 section structure, protected tags/dialogue parity, and non-empty `diff_span`—before writing `.toml`.
+
+Then build both `fl2va` and `ref2va` `.safetensors` vectors and inspect the J-Lens top words printed at the end of the build:
+
+```bash
+/path/to/comfy-venv/bin/python bench/control_vectors.py build \
+  data/control_vectors/my_concept.toml --families both
+```
+*(You can also pass `data/control_vectors/my_concept.md` directly to `bench/control_vectors.py build` with `--save-toml`.)*

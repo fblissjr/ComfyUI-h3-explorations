@@ -1,98 +1,68 @@
-# The command line, the files and the bank
+# Preset Catalog, File Contract, and CLI Reference
 
-last updated: 2026-11-11
+Last updated: 2026-11-11.
 
-[Back to the start page](../control_vectors.md)
+All command-line operations live in [`bench/control_vectors.py`](../../../bench/control_vectors.py) (with implementation modules under `bench/control_vector/`). Always invoke it with the ComfyUI virtualenv Python directly—never `uv run`.
 
-## The commands
+---
 
-The tool is `bench/control_vectors.py`. Its own help is the reference, for the commands and for every flag
-of each:
+## 1. CLI subcommands (`bench/control_vectors.py`)
 
-```bash
-<comfy-venv-python> bench/control_vectors.py --help
-<comfy-venv-python> bench/control_vectors.py <command> --help
-```
-
-Figures of how the tool is layered, what a build does to the data, and what each command reads and writes are in
-[`studio_ui_guide.md`](studio_ui_guide.md), under "The CLI the page stands on".
-
-Run it with the ComfyUI venv's python, never `uv` (`docs/comfy_notes.md`, "Running things"). A build loads
-the text encoder on the card, so run it when no render holds the card.
-
-This table says what each command is for and where its verified record lives. A flag table is not kept
-here: the last one drifted from the parser.
-
-| Command | For | Recorded verification |
+| Subcommand (aliases) | GPU? | Purpose & key flags |
 |---|---|---|
-| `build` (also `from-toml`) | A vector from a pair file, or every file in the bank | Yes — all shipped `.toml` bank vectors (`Arms 01..52` in [`2026-11-05_control_vectors_pika_and_ref2va.md`](../../../bench/results/2026-11-05_control_vectors_pika_and_ref2va.md), plus `film_16mm_1974` / `film_16mm_1974_neutral` on 2026-11-10) |
-| `from-prompt` | A vector from your own prompt and `old -> new` clauses (plus optional `--bank-scenes <K>` and `--ref-images`) | Yes — tested on a reference picture on 2026-11-09; `--bank-scenes` covered in `bench/check_control_vectors.py` |
-| `rebuild` | Vectors made again from the pairs recorded in their own files | Yes — single-vector and folder modes verified in `bench/check_control_vectors.py` |
-| `inspect` | A vector's metadata, J-Lens words, and token span masks (`--mask`) | Yes — verified across all 3-lever `--mask` modes |
-| `make` | A vector from a pair file or from a prompt and clauses; an older twin of `build` / `from-prompt` | Covered in CLI parser checks; `Arms 55..56` tested compiled `--words` |
-| `make-media` (also `from-images`) | A vector from two pictures | Covered in `bench/check_control_vectors.py`; no rendered video arm on record |
-| `words` (also `from-words`) | A vector from a few words, through J-Lens, on the CPU (`< 2 ms`) | Yes — 7 rendered arms (`Arms 53, 54, 61..65` in [`2026-11-05_control_vectors_pika_and_ref2va.md`](../../../bench/results/2026-11-05_control_vectors_pika_and_ref2va.md)) |
-| `sculpt` | A new vector from existing ones: added, held out, inverted | Covered in `bench/check_control_vectors.py`; runtime `mode="hold"` rendered in `Arm 58` |
-| `grade` | How far a vector moves post-refiner rows and DiT velocities (`--mask`, `--pika`, `--sol`) | Yes — text prompts graded on GPU (`2026-11-05` & `2026-11-10` under `--pika --sol --mask scene_only`); `--ref-images` VAE DiT probe path not yet recorded |
-| `from-md` (also `import-md`) | An LLM's Markdown answer turned into a pair file | Covered in `bench/check_control_vectors.py` |
-| `generate-pairs` | Pairs written by a local LLM | Not run on record; see the LLM page |
-| `build-j-lens` | The J-Lens bundle checked (`--verify-only`), or its refiner half rebuilt (requires `--overwrite` to replace an existing file) | `--verify-only` verified; see the J-Lens page before rebuilding |
-| `ui` | The browser UI | Rebuilt 2026-11-11: every method here as a form ([`studio_ui_guide.md`](studio_ui_guide.md)) |
+| `ui` | On demand | Launch the local Control Vector Studio web app (`--host 127.0.0.1`, `--port 0`, `--token`, `--no-browser`, `--vec-dir`, `--toml-dir`). See [`studio_ui_guide.md`](studio_ui_guide.md). |
+| `build` (`from-toml`) | Yes (for `.toml`/`.md`/`--words`); CPU for `--from-words` | Build reusable `fl2va` and/or `ref2va` `.safetensors` + `.md` cards from a `.toml` or LLM `.md` file, `--all` across `prompt_bank/control_vectors/`, or `--words "pole_a -> pole_b"`. Key flags: `--families {both,fl2va,ref2va}`, `--pooling diff_span`, `--ref-images`, `--hold`, `--hold-words`, `--hold-alpha`, `--no-holds`, `--no-lora`, `--overwrite`. |
+| `from-prompt` | Yes | Build an in-place scene vector from `--target-prompt` / `--target-prompt-file` + `--words "pole_a -> pole_b"`, optionally adding `--bank-scenes N` nuisance-canceling scenes from `prompt_bank/`. |
+| `make` | Yes | Low-level single/dual-family pair builder sharing `encode_pair_set` + `pool_pair_set` with `build` and `MiniMaxH3MakeControlVector`. |
+| `make-media` (`from-images`) | Yes | Build a vector from contrasting `<Picture 1>` images (`--image-a`, `--image-b`, `--scene-prompt`, `--short-edge 512`, `--pooling scene_text`). |
+| `words` (`from-words`) | **No (`< 2 ms` CPU)** | Synthesize `fl2va` + `ref2va` `.safetensors` vectors from single-token English words (`pos_words`, `--against-words`, `--hold-words`, `--hold-alpha`, `--prompt`). |
+| `sculpt` | **No (`< 5 ms` CPU)** | Compose existing `.safetensors` vectors (`--modes add,add_norm_matched,hold`, `--strengths`, `--invert`, `--hold`, `--hold-words`, `--hold-alpha`) into a new `.safetensors` file. |
+| `inspect` | **No (`< 15 ms` CPU)**; GPU only with `--meter` | Print provenance, norms, J-Lens top `+`/`-` words, readiness recommendation, and optional `--prompt` receptor scan. `--meter <prompt>` measures live post-refiner shift against the prompt's row median (defaults to `--mask scene_only`, matching `MiniMaxH3ApplyControlVectors` as of `f8cdd538`). |
+| `grade` | Yes (`--no-dit` skips DiT) | Numerical pre-render evaluation across `--strengths` in `--mode` (default `add_norm_matched`, matching the node as of `1a216404`) and `--mask` (default `scene_only`, supporting single fields and `field_a+field_b`), reporting context cosine/norm and DiT velocity shifts vs. `perm_null` and `flip_null`. |
+| `from-md` (`import-md`) | **No (CPU)** | Parse and validate an LLM Markdown response (`### Test Scene Prompt` + `#### Pair 1..N` + optional `#### Hold`) into `data/control_vectors/<stem>.toml` (`--out`, `--test-prompt-out`). |
+| `generate-pairs` | Yes (LLM) | Run a local `transformers` (4-bit default) or `exllamav3` LLM with [`h3_control_vector_system_prompt.md`](../system_prompts/h3_control_vector_system_prompt.md) to author a 10-pair `.md` / `.toml` pack from a concept string. |
+| `rebuild` | Yes | Rebuild one stem (`--vector <stem>`) or every `.safetensors` vector in `models/control_vectors/` from `prompt_bank/control_vectors/` (`--families both`, `--force`). |
+| `build-j-lens` | `--verify-only` is CPU; full build is GPU | Verify (`--verify-only`) or recalibrate `models/j_lens/j_lens_h3.safetensors` (`--base-bundle`, `--num-prompts 24`, `--max-tokens 64`). |
 
-The plan is to cut this list down to building from a prompt and rebuilding from a file's own record
-([`the plan`](../../research/control_vectors/2026-11-09_control_vector_simplification_plan.md), section 19).
-That has not been done.
+---
 
-## Other tools
+## 2. `.safetensors` filename and metadata contract
 
-- `bench/control_vector_rows.py`: caches the text rows of the bank's prompts and pair files for study on
-  the CPU; `--ref-image` encodes prompts on top of one picture.
-- `bench/control_vector_pooling.py` and `bench/control_vector_lexicon.py`: the pooling comparison and the
-  comparison of two ways to name a vector in words, both over that cache.
-- `bench/edit_guidance_arms.py`: builds and queues comparison arms on one shot, including an arm that
-  applies a vector (`--vector-arm`).
-
-## The files a build writes
-
-A build writes into the models folder's `control_vectors/`, one file per family:
+Built vectors live in `<ComfyUI>/models/control_vectors/` alongside a human-readable `<same_stem>.md` J-Lens report card:
 
 ```text
-<name>__<family>__<pooling>__lora_<hash>.safetensors
-<name>__<family>__<pooling>__lora_<hash>.md
+<name>__<family>__<pooling>[__lora_<8hex>].safetensors
 ```
+Example: `film_16mm_1974_neutral__ref2va__diff_span__lora_865ee189.safetensors`.
 
-- `<family>` is `fl2va` or `ref2va`.
-- `<hash>` identifies the LoRA recipe the refiner ran under. A build with a reference picture adds a
-  `__ref_<hash>` part before it.
-- The `.safetensors` holds the direction after the refiner and a unit copy before it, with metadata that
-  records the pairs, so `rebuild` needs nothing else.
-- The `.md` beside it is a report for a reader: norms, the recommended strength for each mode, how well the
-  pairs agree, the J-Lens words.
+### Tensors stored inside each `.safetensors` file
+- `vector.post_refiner` (`float32 [5376]`): raw mean `B - A` post-refiner direction (after any `[[hold]]` / `hold_words` projection). Applied at runtime by `MiniMaxH3ApplyControlVectors`.
+- `vector.encoder` (`float32 [5120]`, optional, included by default): unit-norm `layers.49` direction (token `0` excluded).
+- `holds.post_refiner` (`float32 [K, 5376]`, when `[[hold]]` groups exist): orthonormal Gram-Schmidt hold basis.
 
-The shipped graphs name vector files by these full names. A name that no longer exists on the server is
-caught by `bench/check_model_files.py`, which needs a running server.
+### JSON `__metadata__["h3_control_vector"]` (`format_version = 1`)
+Validated on every load by [`control_vectors.py::load_control_vector`](../../../control_vectors.py):
+- `model_family` (`"fl2va"` or `"ref2va"`), `dit_checkpoint`, `encoder_checkpoint`, `loras` (list of `{name, hash, strength_model}`), `pooling`, `raw_norm`, `recommended_mode`, `recommended_strength`.
+- `pairs` (count, `pair_ids`, `hold_names`, per-pair `pooled_tokens` on A and B produced by `control_vectors.pairs_record`).
+- `j_lens` (top `+`/`-` word gains, `refiner_transmission`, `off_target_words`).
 
-## The bank
+---
 
-`prompt_bank/control_vectors/` holds the pair files the starter vectors are built from. Listed from the
-folder, with no claim per file:
+## 3. Starter bank (`prompt_bank/control_vectors/*.toml`, 38 packs)
 
-```text
-auctioneer_rapid_patter   balloon_head_inflate  bioluminescent_glow    chaos_panic
-claymation_stopmotion     crystallize_ice       cursed_cctv            cyberpunk_neon_rain
-elastic_neck_stretch      felt_muppet           fever_melt             film_16mm_1974
-film_16mm_1974_neutral    handheld_documentary_zoom head_swell         infomercial_fail
-lettering                 magnetic_attraction   miniature_tiltshift    molten_lava_golem
-noir                      operatic_bellow       paper_origami          pyro_chain_explosions
-pyro_klaxon_audio         reverb_cathedral      rubber_hose_1930s      smoke_dissolve
-strobe_club_pulse         sunken_coral_reef     thermal_infrared       underwater_submerged
-vhs_1991_camcorder        vocal_strain          wes_anderson_symmetry  whisper_asmr
-wind_tunnel_gale          zero_gravity
+Every `.toml` file below is checked by `bench/check_control_vectors.py` and builds cleanly for both `fl2va` and `ref2va`:
+
+| Category | Pack stems (`prompt_bank/control_vectors/<stem>.toml`) | Recommended runtime `mask` & notes |
+|---|---|---|
+| **Film stocks, cameras & optical looks** (8) | `film_16mm_1974`, `film_16mm_1974_neutral` *(holds `warm_colour_cast`)*, `noir`, `vhs_1991_camcorder`, `cursed_cctv`, `thermal_infrared`, `miniature_tiltshift`, `wes_anderson_symmetry` | `scene_only` for whole shot; `description_only` on `ref2va` to grade the room while keeping `<Subject 1>` clean. |
+| **Lighting, atmosphere & world environments** (6) | `cyberpunk_neon_rain`, `bioluminescent_glow`, `strobe_club_pulse`, `underwater_submerged`, `sunken_coral_reef`, `lettering` | `scene_only`, `strength = 1.0..1.75`. |
+| **Stop-motion, animation & material replacement** (6) | `claymation_stopmotion`, `felt_muppet`, `paper_origami`, `rubber_hose_1930s`, `crystallize_ice`, `molten_lava_golem` | `scene_only`, `strength = 1.5..2.25`, `end_percent = 0.50`; on `ref2va` set `ref_vae_end_percent = 0.16..0.33` so live-action `<Picture 1>` VAE latents release silhouette/skin. |
+| **Body morphs & surreal physics** (8) | `balloon_head_inflate`, `head_swell`, `elastic_neck_stretch`, `fever_melt`, `smoke_dissolve`, `zero_gravity`, `magnetic_attraction`, `wind_tunnel_gale` | `scene_only`, `end_percent = 0.50` at high strength (`>= 2.0`); lower `ref_vae_end_percent` on `ref2va` for geometry morphs. |
+| **Action, pyrotechnics & physical comedy** (3) | `pyro_chain_explosions`, `chaos_panic`, `infomercial_fail` | `scene_only` (carries coupled foley when `overall_soundscape:` differs in pairs; tune `video_scale` / `audio_scale` if needed). `chaos_panic` also works great as a `mode = "hold"` scrubber! |
+| **Camera rig movement** (1) | `handheld_documentary_zoom` | `scene_only` or `description_only`, `strength = 0.75..1.5`. |
+| **Acoustic space & vocal delivery** (6) | `reverb_cathedral`, `pyro_klaxon_audio`, `whisper_asmr`, `operatic_bellow`, `vocal_strain`, `auctioneer_rapid_patter` | **`mask = "soundscape_only"`** (mandatory so `overall_soundscape:` rows are targeted instead of visual prose). |
+
+Offline invariant suite (runs on CPU with `CUDA_VISIBLE_DEVICES=`):
+```bash
+CUDA_VISIBLE_DEVICES= /path/to/comfy-venv/bin/python bench/check_control_vectors.py
 ```
-
-`ls prompt_bank/control_vectors/` is the authority; this list is a copy made on the date above.
-
-The bank is kept as a starter set (owner, 2026-11-09; five 4-pillar packs added on owner ask, 2026-11-10, [`../decisions.md`](../decisions.md)).
-Every file is a text-only prompt with no picture. Which of these vectors do what their names say on a
-render has been looked at for only a few; the record is
-[`../../../bench/results/2026-11-05_control_vectors_pika_and_ref2va.md`](../../../bench/results/2026-11-05_control_vectors_pika_and_ref2va.md).

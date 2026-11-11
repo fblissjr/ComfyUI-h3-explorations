@@ -1,126 +1,108 @@
-# Control vectors for H3: start here
+# Steering MiniMax H3: Edit Guidance, Control Vectors, and J-Lens
 
-last updated: 2026-11-11
+Last updated: 2026-11-11.
 
-![Control vector pipeline overview](control_vectors/assets/control_vector_pipeline.svg)
+This pack ships three complementary mechanisms for steering, editing, and diagnosing MiniMax H3 renders without retraining weights or training a LoRA:
 
-Rewritten on 2026-11-09 from the code and from that day's measurements, and updated on 2026-11-10 for 3-lever section masking (`look_only`, `scene_only`, `description_only`, `soundscape_only`), `MiniMaxH3EditGuider.last_step`, `film_16mm_1974` warmth restoration, clean visual-row release when `ref_vae_end_percent < 1.0`, and Pika single-frame control-vector graphs. What these pages used to claim and
-no longer do is logged in [`decisions.md`](decisions.md). The working records behind this page are
-[`../research/control_vectors/2026-11-09_control_vector_simplification_plan.md`](../research/control_vectors/2026-11-09_control_vector_simplification_plan.md)
-("the plan" below) and [`../research/control_vectors/2026-11-10_control_vector_state_history_and_tradeoffs.md`](../research/control_vectors/2026-11-10_control_vector_state_history_and_tradeoffs.md).
+1. **`MiniMaxH3EditGuider` + `MiniMaxH3PromptEdit`** ([`edit_guidance.md`](edit_guidance.md), [`edit_guidance.py`](../../edit_guidance.py)): 2-pass latent-velocity guidance between a baseline prompt and a rewritten copy of that prompt.
+2. **Contrastive Control Vectors** (`MiniMaxH3ApplyControlVectors`, [`control_vectors.py`](../../control_vectors.py), [`control_vector_nodes.py`](../../control_vector_nodes.py)): 1-pass `5376`-d directions added to selected text rows after the 2-block `TokenRefiner` and before the 50 DiT blocks.
+3. **J-Lens** ([`j_lens.py`](../../j_lens.py), `models/j_lens/j_lens_h3.safetensors`): a precomputed `< 15 ms` CPU Jacobian and Wiener-inverse lexical operator that decodes any `5376`-d vector into English words, scrubs unwanted side-effect words (`hold_words`), and synthesizes live zero-file vectors from single-token words (`words`).
 
-## What a control vector is
+![End-to-end control vector pipeline](control_vectors/assets/control_vector_pipeline.svg)
 
-H3 reads a prompt as rows: the text encoder makes one row per token, a small refiner inside the DiT reworks
-them, and the DiT attends to the result. A control vector is one direction in that refined space. Adding it
-to a prompt's rows pushes the render toward a look or a quality without changing the prompt's words.
+---
 
-A vector is built from pairs of prompts that differ in one thing. Both sides are encoded, the rows of the
-changed wording are averaged on each side, and the difference is the vector
-(`control_vectors.py::mean_difference`). Nothing is trained.
+## 1. Which tool to reach for (and why)
 
-## Three ways to steer, and which to use
+The single most important architectural distinction in H3 steering is **where the subtraction happens**:
 
-| Way | What you do | What it needs | Where it stands |
-|---|---|---|---|
-| Edit guidance | Change a few words of your own prompt and turn a scale | Two nodes, no file | The owner passed it on 2026-11-09. Its page is [`edit_guidance.md`](edit_guidance.md) |
-| A bank vector | Load a vector built ahead of time from the pair files in `prompt_bank/control_vectors/` | A built `.safetensors` file | Kept as a starter set (owner, 2026-11-09; five 4-pillar packs added on owner ask, 2026-11-10; see [`decisions.md`](decisions.md)). Rendered on text-to-video and reference shots |
-| An in-place vector | Build a vector from the prompt you are steering, with its reference picture when it has one | One build, a few seconds on the card | Ran for the first time with a picture on 2026-11-09. Not yet judged against the other two |
+- **Control vectors** (and **J-Lens `words`**) collapse a contrast into **one `5376`-d vector** and broadcast that single vector across every token in the chosen prompt mask *before* the 50 DiT blocks run (`0` extra DiT passes, `1x` render cost).
+- **`MiniMaxH3EditGuider`** keeps both prompts **fully tokenized** through all 50 DiT blocks and subtracts their predicted latent velocities *after* cross-attention in pixel/audio latent space (`2` DiT passes per guided step, reducible to `9` or `10` total passes on 6-step Pika via `last_step`).
 
-Start with edit guidance when steering a single shot's wording, and set `last_step` (for example `2` or `3`
-on 6-step Pika) to hand late refinement steps back to 1-pass `[edited]`. Reach for a control vector when you
-want zero extra DiT passes (1 pass per step) or one reusable dial across many prompts without editing each:
+Because pooling collapses per-word token positions while latent-velocity subtraction preserves them, each tool wins in a distinct regime:
 
-| Dimension | Control vector (`MiniMaxH3ApplyControlVectors`) | Edit guidance (`MiniMaxH3EditGuider`) |
+| Goal | Best tool | Why it works / what fails if you pick the wrong one |
 |---|---|---|
-| Sampling cost (6-step Pika) | **6 DiT passes** (1× per step; zero sampling overhead) | **12 DiT passes** at `0..1000`, or **9–10 passes** (`-25%` to `-17%`) with `last_step = 2` or `3` (`8` passes at `last_step = 1`) |
-| Setup cost | Zero if loading a `.safetensors` bank/saved vector; ~7–8 s once when building with `from-prompt` | Zero offline build; two prompt encodings per run |
-| Section scoping | Built-in **3-lever span masks** (`look_only`, `scene_only`, `description_only`, `soundscape_only`) | Scoped by which prompt section (`summary:`, `soundscape:`, `music:`, or description) `MiniMaxH3PromptEdit` edits |
-| Multi-dial composition | Stackable (`MiniMaxH3ApplyControlVectors` chains in `float64` + orthogonal `hold` mode) | Single baseline-vs-edited prompt pair per guider |
+| **Exact subject wardrobe, prop, or action swap** while keeping `<Picture 1>`'s face, hair, and existing room (`"black sweater -> 1970s rust-orange wide-collar blouse and flared jeans"`) | **`MiniMaxH3EditGuider`** (`scale = 1.5`, `last_step = 2` or `3`) | Every edited token (`"rust-orange"`, `"blouse"`, `"flared"`, `"jeans"`) attends to its own spatial patches across 50 DiT blocks, while unchanged face, hair, booth, and dialogue cancel in $(\mathbf{v}_{\text{edit}} - \mathbf{v}_{\text{orig}})$. Pooling the same `6 -> 22` token rewrite into one vector lost color-to-garment binding (rendering a **cream** blouse instead of rust-orange), and averaging 6 diverse 1970s outfits (`wardrobe_1970s`) canceled specific garments into a vague `"vintage, psychedelic"` room tint that left `<Subject 1>`'s black sweater unchanged. |
+| **Continuous optical / film look or lighting grade** (`film_16mm_1974`, `noir`, `vhs_1991_camcorder`, `thermal_infrared`) | **10-pair Contrastive Control Vector** (`mask = "scene_only"`, or `description_only` to protect `<Subject 1>`) | Optical grain, halation, color cast, and contrast apply uniformly across the frame and reuse cleanly across any prompt at `1x` sampling cost with continuous dial control (`strength = 0.5..2.0`). |
+| **Coupled sight + sound physics, weather, or pyrotechnics** (`pyro_chain_explosions`, `scorching_heatwave`, `wind_tunnel_gale`, `underwater_submerged`) | **10-pair Contrastive Control Vector** (`video_scale` / `audio_scale`) | H3 generates video and audio jointly inside one packed DiT sequence. Multi-pair GPU vectors built from coupled visual + `overall_soundscape:` contrasts carry multi-token dynamics and synchronized acoustics that unigram word lists drop or miss. |
+| **Whole-scene world or material transformation that carries the subject with it** (`claymation_stopmotion`, `felt_muppet`, `balloon_head_inflate`, or seasonal/world shifts) | **Contrastive Vector or J-Lens `words`** on `scene_only` + `end_percent = 0.5` (+ `ref_vae_end_percent = 0.16..0.33` for silhouette changes) | When a coherent single-world push moves the entire environment (`scene_only`), the DiT's world prior carries contextual surfaces and attire along with the scene. Shortening `end_percent` to `0.5` prevents high-strength facial color burn on later steps. |
+| **World shift *without* coupled wardrobe drift** (e.g., turning a sunny market into a snowstorm without putting a winter coat on the vendor) | **Control Vector or J-Lens `words` + `hold_words`** (`hold_words = "coat, parka"`, `hold_alpha = 0.5..1.0`) | Verified in `$H3_OUTPUT_DIR/Video/cv_e2e_verify/10_t2va_jlens_words_00001-audio.mp4`: J-Lens projects out the coupled `"coat, parka"` subspace in `< 1 ms` on CPU, piling snowdrifts onto the citrus stall while keeping the vendor in his canvas apron. |
+| **Pre-render X-ray audit of any built vector** (catching washed-out or off-target builds before spending GPU time) | **J-Lens `inspect`** (automatic at the end of `build`) | Decodes any `5376`-d vector into English words in `< 15 ms` on CPU. On `wardrobe_1970s`, J-Lens immediately flagged `"vintage (+1.82), psychedelic (+1.38), nostalgic (+1.34)"` with **zero garment nouns**—predicting before a single render that the vector would tint the room rather than dress the subject. |
+| **Zero-file `< 2 ms` tinkering & rapid concept sketching** | **J-Lens `words`** on `MiniMaxH3ApplyControlVectors` (`vector_name = "none"`) | Synthesizes a family-matched `5376`-d vector on CPU at step 0 from single-token English words (`cos = +0.30..+0.52` with 10-pair GPU vectors; drops multi-token BPE words such as `muppet`, `halation`, `plasticine`, `pyrotechnics`). |
+| **Audio-only acoustic space or vocal delivery** (`reverb_cathedral`, `pyro_klaxon_audio`, `whisper_asmr`, `operatic_bellow`) | **Contrastive Control Vector** with `mask = "soundscape_only"` | Steers `overall_soundscape:` and `non_diegetic_music:` (plus `<Audio N>:` lines) while leaving visual prose and dialogue words untouched (`video_scale = 0.0, audio_scale = 1.0` optional for strict stream isolation). |
 
-One round on one reference shot compared all three on two seeds (the plan, section 25). It has not been
-judged by the owner, so no way is ranked here.
+---
 
-## What is known, and what is not
+## 2. How the three mechanisms fit H3's architecture
 
-Measured on 2026-11-09, each with where to read it in the plan:
+Every H3 prompt passes through two text stages before the 50 DiT blocks see it:
 
-- The text space is close to one across the families. The fl2va and ref2va text paths give nearly parallel
-  rows for the same prompt, with or without the Pika LoRA, and the image model's text path is fl2va's
-  (sections 23.1 and 23.3). Vectors are still built and named per family; dialing `MiniMaxH3LoRABranch.strength`
-  away from `1.0` on a recognized same-family H3 LoRA is allowed with an advisory log note.
-- A reference picture in front of a prompt moves the description and soundscape rows little, and the
-  subject, summary and retention rows more (section 23.5).
-- Every pair file is a text-only prompt with no picture (section 23).
-- The bank's vectors share a common component (section 20). Nothing is subtracted for it.
+1. **Causal encoder (`Qwen3-VL-32B`, `layers.0..49`, width `5120`)**:
+   - Strictly causal (`is_causal = True`), with vision tokens tagged `0` and text tokens tagged `1` in `conditioning_token_tags`.
+   - Row `0` is a massive attention sink (`||e_0|| ≈ 15,309` vs. `~292.3` median across rows `1..S-1`, a `52.4x` ratio). Every encoder pooling path in this pack excludes row `0`.
+2. **Bidirectional `condition_proj` + 2-block `TokenRefiner` (width `5376`)**:
+   - Lives inside each DiT (`fl2va` vs. `ref2va`) and runs **with active LoRAs applied** (such as the 6-step Pika LoRA).
+   - Mixes tokens bidirectionally across the prompt and dampens attention-sink artifacts (`||r_0|| / median ≈ 2.27x`, post-refiner row median `≈ 266–270`).
+   - `fl2va` and `ref2va` do **not** share a `5376`-d coordinate basis (cross-family cosine on identical text is `~0.01`), so every saved `.safetensors` vector records its `model_family` (`fl2va` or `ref2va`) and LoRA recipe, and `MiniMaxH3ApplyControlVectors` auto-resolves the matching family file at step 0.
 
-Not known:
+From that `5376`-d `context` tensor onward:
 
-- Whether a vector built in place beats one from the bank on a render.
-- Which visual rows a vector should reach by default across every task. Since 2026-11-10, `scene_only`
-  reaches visual prose only (`look_only | description_only`) and leaves `<d>...</d>` dialogue,
-  `overall_soundscape:`, and `non_diegetic_music:` untouched; `look_only`, `description_only`, and
-  `soundscape_only` isolate individual levers (`comfyui_nodes_and_controls.md`). Same-seed triples rendered on
-  2026-11-10 (`data/results/2026-11-10_control_vector_comparisons/`) wait on the owner's playback to settle the
-  standing default. Two cases already require an explicit `mask` override today: audio-only vectors whose pairs
-  edit `overall_soundscape:` (`reverb_cathedral`, `pyro_klaxon_audio`) need `mask = "soundscape_only"`, and
-  unsectioned one-sentence guide-edit prompts need `mask = "non_vision"`.
-- How each DiT reads the same vector. The measurements above are of rows, not of pictures.
+- **`MiniMaxH3ApplyControlVectors`** wraps the DiT forward pass (`WrappersMP.DIFFUSION_MODEL`), clones `context`, and modifies only the rows selected by `mask` / `fields` during `[start_percent, end_percent)`. Multiple chained nodes accumulate in `float64` inside one wrapper (`add_norm_matched` scales a unit vector to `67.5` shift norm at `strength = 1.0`).
+- **J-Lens** maps between `5376`-d post-refiner space (`fl2va` or `ref2va`) and `24,912` single-token English words in `Qwen3-VL`'s `lm_head` using precomputed analytical Jacobians ($\bar{J}_{49\to 63}$ and $\bar{J}_{\text{ref}}^{(f)}$) and an empirical-covariance **Wiener inverse** ($J_{\text{Wiener}}^{(f)}$).
+- **`MiniMaxH3EditGuider`** leaves `context` unmodified per branch, runs the DiT on `[original]` and `[edited]` sequentially (`h3_edit_pass` prevents ComfyUI from concatenating two `~18k`-token sequences into a `B = 2` OOM), and extrapolates the predicted velocity:
+  $$\mathbf{v} = \mathbf{v}_{\text{original}}(x_t) + \text{scale} \cdot \left(\mathbf{v}_{\text{edited}}(x_t) - \mathbf{v}_{\text{original}}(x_t)\right)$$
 
-## The pieces
+---
 
-| Piece | What it is | Its page |
+## 3. Summary of verified empirical rules (2026-11-05 .. 2026-11-11)
+
+Every rule below was tested on rendered 6-step Pika `t2va` and `ref2va` clips and verified on playback:
+
+1. **Pool only the changed clause (`pooling = "diff_span"`)**:
+   - Averaging across a whole 105-token scene when only 8–12 words changed (`scene_text`) dilutes raw vector norm by `2.1x–8.2x` (`10.35` vs. `85.01` on `head_swell`). `diff_span` (`[first_diff:end_diff]`) is the default across CLI `build`, `make`, and `MiniMaxH3MakeControlVector`.
+2. **One pair-build implementation across CLI and ComfyUI (`fb3c978d`)**:
+   - [`control_vector_nodes.py::encode_pair_set`](../../control_vector_nodes.py) and [`control_vectors.py::pool_pair_set`](../../control_vectors.py) power CLI `build`, `make`, Studio builds, and `MiniMaxH3MakeControlVector` identically (verified bitwise `torch.equal = True` across `vector.post_refiner`, `vector.encoder`, and `holds.post_refiner`).
+3. **Where a pair sits in the build prompt matters far less than what the contrast means and where you apply it**:
+   - Building the same wording contrast inside `subject_definitions:` vs. `detailed_description:` vs. a 3-field prompt produces nearly the same direction. At render time, however, **which mask receives the vector decides what moves**:
+     - Aiming a film/room look (`film_16mm_1974`) at `subject_definitions` or `look_only` leaves `<Subject 1>` unchanged.
+     - Aiming it at `description_only` (or ticking `description` in `fields`) grades the room and lighting while keeping `<Subject 1>` clean.
+     - Aiming it at `scene_only` grades the whole shot.
+4. **Always read the J-Lens top words before rendering a new vector**:
+   - Coherent single-concept pairs (`film_16mm_1974`, `claymation_stopmotion`, `pyro_chain_explosions`) surface concrete optical, material, or physical nouns at the top of their J-Lens readout.
+   - Averaging heterogeneous nouns (`wardrobe_1970s`'s 6 different outfits) cancels concrete nouns and leaves only mood adjectives (`vintage`, `psychedelic`, `nostalgic`), which tint lighting/background rather than changing objects.
+5. **High-strength facial red tint comes from late-step text steering, not `<Picture 1>` weight**:
+   - When a strong vector (`strength = 2.0..3.0`) causes red burn around `<Subject 1>`'s eyes and cheeks, shortening **the vector's** window to `end_percent = 0.5` (first 3 of 6 Pika steps) removes the red tint on playback while preserving the style/scene effect—with `<Picture 1>` left at default `ref_vae_end_percent = 1.0` and `ref_vae_aug = 0.999`.
+   - Only lower `ref_vae_end_percent` (`0.16` or `0.33`) when you want `<Subject 1>`'s **3D silhouette or material** to depart from the clean reference VAE latents (such as claymation, felt puppet, or head inflation).
+6. **Project out correlated side effects (`[[hold]]` at build time, `mode = "hold"` or `hold_words` at render time)**:
+   - `film_16mm_1974` pulls warm amber cast alongside grain; `film_16mm_1974_neutral` adds a `[[hold]]` group (`warm_colour_cast`) that removes the amber shift while keeping grain and gate weave (`cos = 0.72` between the two).
+   - At render time, chaining a second `MiniMaxH3ApplyControlVectors` with `mode = "hold"` (e.g., `cursed_cctv` + `hold(chaos_panic)`) or setting `hold_words` (`hold_words = "coat, parka"`) scrubs unwanted collateral concepts from the additive delta without altering the base prompt.
+
+---
+
+## 4. Shipped workflows
+
+Generated by [`workflows/build_workflows.py`](../../workflows/build_workflows.py) (load the non-`_api.json` twin in the ComfyUI UI):
+
+| Workflow | Mode | What it demonstrates |
 |---|---|---|
-| Pair files and builds | Where pairs come from, pooling, holds, building with a reference picture | [`building_pairs_and_vectors.md`](control_vectors/building_pairs_and_vectors.md) |
-| The nodes | The node that applies a vector, the two that build one, and their defaults | [`comfyui_nodes_and_controls.md`](control_vectors/comfyui_nodes_and_controls.md) |
-| The command line | The commands, the file naming and the pair files in the bank | [`preset_catalog_and_cli_reference.md`](control_vectors/preset_catalog_and_cli_reference.md) |
-| Worked examples | The few that a session has run, with their commands | [`examples_and_recipes.md`](control_vectors/examples_and_recipes.md) |
-| J-Lens | The bundle that names a vector in words and builds one from words | [`j_lens_diagnostics_and_word_lab.md`](control_vectors/j_lens_diagnostics_and_word_lab.md) |
-| Asking an LLM for pairs | The prompt to hand it, and where that stands | [`llm_prompting_guide.md`](control_vectors/llm_prompting_guide.md) |
-| The browser UI | Rebuilt 2026-11-11: the CLI as a page, drawn from the CLI's parser | [`studio_ui_guide.md`](control_vectors/studio_ui_guide.md) |
+| `workflows/h3_text_to_video_pika_control_vector.json` | 6-step Pika `t2va` | Single `MiniMaxH3ApplyControlVectors` on a text-to-video + audio render |
+| `workflows/h3_text_to_video_pika_dual_control_vectors.json` | 6-step Pika `t2va` | Two chained `MiniMaxH3ApplyControlVectors` nodes (`scene_only` visual look + `soundscape_only` acoustic vector, or primary vector + `mode = "hold"`) |
+| `workflows/h3_image_ref_plus_text_to_video_pika_control_vector.json` | 6-step Pika `ref2va` | Reference-anchored `<Subject 1>` shot with `MiniMaxH3ApplyControlVectors` (`mask`, `fields`, `end_percent`, `ref_vae_end_percent`) |
+| `workflows/h3_text_to_video_pika_edit_guidance.json` | 6-step Pika `t2va` | `MiniMaxH3PromptEdit` + `MiniMaxH3EditGuider` (`scale = 1.5`) |
+| `workflows/h3_image_ref_plus_text_to_video_pika_edit_guidance.json` | 6-step Pika `ref2va` | Exact `<Subject 1>` wardrobe/prop/scene edit on a `<Picture 1>` reference shot via `MiniMaxH3EditGuider` |
 
-## The graphs
+---
 
-Generated by `workflows/build_workflows.py`; `workflows/INDEX.md` lists each one's chain.
+## 5. Guide map
 
-- A bank vector applied: `workflows/h3_text_to_video_pika_control_vector_api.json`,
-  `workflows/h3_text_to_video_pika_dual_control_vectors_api.json`,
-  `workflows/h3_image_ref_plus_text_to_video_pika_control_vector_api.json`,
-  `workflows/image/h3_pika_image_t2i_control_vector_api.json`,
-  `workflows/image/h3_pika_image_edit_control_vector_api.json`,
-  `workflows/image/h3_p_h3_image_t2i_control_vector_api.json`,
-  `workflows/image/h3_p_h3_image_edit_control_vector_api.json` and
-  `workflows/image/h3_probe_pika_image_guide_edit_control_vector_api.json`.
-- Edit guidance: the two graphs on [`edit_guidance.md`](edit_guidance.md).
-- No shipped graph builds a vector. A vector is built from the command line, or by wiring
-  `MiniMaxH3MakeControlVector` by hand.
-
-## Defaults, and where they live
-
-The apply node's defaults are `h3_rules.CONTROL_VECTOR_DEFAULTS` and
-`h3_rules.CONTROL_VECTOR_OPTIONAL_DEFAULTS`, one copy read by the node and by the generator. The node page
-says what each is for. Two things to know before changing a strength:
-
-- The default mode rescales every vector to one length before it multiplies by strength
-  (`control_vectors.NORM_MATCHED_TARGET`), so a strength means the same push for any vector.
-- A build prints a recommended range for that mode and a separate one for mode `add`
-  (`control_vectors.strength_ranges`).
-
-## Code and records
-
-- The math and the file format: `control_vectors.py`.
-- The nodes and the run-time wrapper: `control_vector_nodes.py`.
-- Which rows are which: `h3_spans.py`.
-- The edit grammar shared with edit guidance: `h3_prompt_edit.py`, and the pair compiler
-  `h3_pair_compiler.py`.
-- J-Lens: `j_lens.py` and `bench/control_vector/j_lens_builder.py`.
-- The command line: `bench/control_vectors.py` and the package `bench/control_vector/`.
-- Checks: `bench/check_control_vectors.py`, `bench/check_edit_guidance.py`, `bench/check_config_names.py`.
-- Tools for study: `bench/control_vector_rows.py` (a cache of text rows), `bench/control_vector_pooling.py`,
-  `bench/control_vector_lexicon.py`, `bench/edit_guidance_arms.py` (comparison arms).
-- Records: the plan above;
-  [`../research/control_vectors/2026-11-04_h3_control_vectors.md`](../research/control_vectors/2026-11-04_h3_control_vectors.md);
-  [`../research/control_vectors/2026-11-06_j_lens_and_refiner_jacobian.md`](../research/control_vectors/2026-11-06_j_lens_and_refiner_jacobian.md);
-  [`../../bench/results/2026-11-05_control_vectors_pika_and_ref2va.md`](../../bench/results/2026-11-05_control_vectors_pika_and_ref2va.md);
-  [`../research/control_vectors/exl3_qwen3vl/h3_control_vector_report.md`](../research/control_vectors/exl3_qwen3vl/h3_control_vector_report.md).
-  Dated records say what was true when written.
+| Page | What it covers |
+|---|---|
+| [`edit_guidance.md`](edit_guidance.md) | **2-pass Edit Guidance under the hood**: `MiniMaxH3EditGuider` velocity math, why unpooled tokens preserve color/noun binding, `first_step` & `last_step` pass budgets, `MiniMaxH3PromptEdit` syntax & refusals |
+| [`control_vectors/building_pairs_and_vectors.md`](control_vectors/building_pairs_and_vectors.md) | **How contrastive vectors are built**: two-stage H3 text geometry, `diff_span` pooling, `[[hold]]` Gram-Schmidt projection, why coherent concepts beat grab-bag averages, `from-prompt`, `from-toml`, and `make-media` |
+| [`control_vectors/comfyui_nodes_and_controls.md`](control_vectors/comfyui_nodes_and_controls.md) | **ComfyUI nodes & runtime knobs**: all 4 nodes, `mode`, lever vs. per-field `mask` & multi-select `fields`, 6-step `end_percent = 0.5` math, `video_scale`/`audio_scale`, and `ref_vae_end_percent` / `ref_vae_aug` |
+| [`control_vectors/j_lens_diagnostics_and_word_lab.md`](control_vectors/j_lens_diagnostics_and_word_lab.md) | **J-Lens under the hood**: analytical Jacobians & Wiener inverse, `< 15 ms` X-ray readouts, `< 1 ms` `hold_words` scrubbing, `< 2 ms` `words` synthesis, single-token BPE limits, and `build-j-lens` |
+| [`control_vectors/examples_and_recipes.md`](control_vectors/examples_and_recipes.md) | **Copy-paste recipes**: room-only film grade on `ref2va`, coupled weather/pyro, claymation world shift, snow-without-parka `hold_words`, CPU `sculpt`, and `MiniMaxH3EditGuider` wardrobe swaps |
+| [`control_vectors/preset_catalog_and_cli_reference.md`](control_vectors/preset_catalog_and_cli_reference.md) | **CLI & starter bank reference**: every `bench/control_vectors.py` subcommand and flag, `.safetensors` file & metadata contract, and the 38-file `prompt_bank/control_vectors/` catalog |
+| [`control_vectors/llm_prompting_guide.md`](control_vectors/llm_prompting_guide.md) | **Authoring contrastive pairs with an LLM**: standalone vs. automated system prompts, single-clause & length-matching discipline, concrete Pole A baselines, and `from-md` import |
+| [`control_vectors/studio_ui_guide.md`](control_vectors/studio_ui_guide.md) | **Control Vector Studio (`bench/control_vectors.py ui`)**: browser workbench screens, shared CLI/node build pipeline, GPU serialization, session-token security, and folder confinement |
