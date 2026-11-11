@@ -84,7 +84,7 @@ Drop-in replacement for `BasicGuider` on `SamplerCustomAdvanced` ([`edit_guidanc
   - `MiniMaxH3EncodeReferences` encodes `<Picture 1>` **once** and feeds **both** `MiniMaxH3ReferenceTextEncode` nodes (`original` and `edited`), so vision tokens are computed once and match bit-for-bit.
   - `original` keeps the diner `ref2va` prompt as written.
   - `edited` appends `<Subject 1>`'s target outfit to her `subject_definitions:` / `detailed_description:` prose (`"wearing a 1970s rust-orange polyester blouse with a wide pointed collar and high-waisted flared jeans"`).
-  - `MiniMaxH3EditGuider`: `scale = 1.5`, `first_step = 0`, `last_step = 2` (or `1000` for full 6-step 2-pass).
+  - `MiniMaxH3EditGuider`: `scale = 1.5`, `first_step = 0`, and the default `last_step` (every step in two passes), as read from the clip's own workflow. A shorter `last_step` was not rendered for this case.
 - **Verified playback result** (`$H3_OUTPUT_DIR/Video/edit_guidance/stacked/diner16f_edit_guidance_style_vs_subject_s730451892_stacked.mp4`):
   - `<Subject 1>` wears the exact rust-orange wide-collar blouse and high-waisted flared jeans in motion, while her face, hair, spoken line, and diner booth stay faithful to `<Picture 1>` and the baseline shot.
   - Note: on `ref2va`, keep `ref_vae_end_percent = 1.0` (default) when changing clothes on the same person—the clean `<Picture 1>` reference latents sit at their own reference time slot (`t = text_len`), so `EditGuider` cleanly overrides her outfit on generated video frames while preserving her facial identity.

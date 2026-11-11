@@ -21,10 +21,10 @@ Older history lives elsewhere and is not copied here:
   of the 2026-11-11 diner arms). `MiniMaxH3EditGuider` toward the subject's line rewritten with the new clothing is
   the only arm that renders the exact multi-attribute outfit (`"1970s rust-orange polyester blouse ... and flared
   jeans"`), and it holds up cleanly in motion. That does not close the vector route: this is a tinkering repo, and a
-  whole-scene vector (`scene_only`) with a shortened window (`end_percent` 0.5) shifts the environment and carries
-  contextual attire/surfaces along with the world (whereas adding `hold_words = "coat, parka"` in
-  `$H3_OUTPUT_DIR/Video/cv_e2e_verify/10_t2va_jlens_words_00001-audio.mp4` scrubs that coupled wardrobe pull when you
-  want the snowstorm without changing the vendor's apron). So what the 2026-11-11 arms show is narrower than "a
+  whole-scene vector (`scene_only`) with a shortened window (`end_percent` 0.5) can shift the environment and carry
+  what people wear along with it. The owner's example is an earlier whole-scene clip of this same shot, picture held
+  and no clothing in the prompt, among the 2026-11-07 clips in `$H3_OUTPUT_DIR/Video/cv_e2e_verify` (workflow in its
+  PNG). So what the 2026-11-11 arms show is narrower than "a
   vector cannot dress her": a vector aimed at her line alone shifted her outfit (to cream rather than rust) only once
   baseline clothing was named in the prompt, and averaging six heterogeneous 1970s outfits (`wardrobe_1970s`, whose
   J-Lens readout carried only `"vintage, psychedelic, nostalgic"` with zero garment words) tinted the room without

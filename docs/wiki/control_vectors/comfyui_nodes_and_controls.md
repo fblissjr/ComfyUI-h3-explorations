@@ -88,9 +88,10 @@ On **6-step Pika** (`step_idx = 0, 1, 2, 3, 4, 5`; ratios `0.000, 0.167, 0.333, 
 | `1.00` *(default)* | `0, 1, 2, 3, 4, 5` | 6 of 6 | Full schedule; clean at moderate strengths (`0.75 .. 1.5`) |
 
 ### Verified 2026-11-11 finding: red facial tint at high strength
-On `$H3_OUTPUT_DIR/Video/edit_guidance/stacked/diner16f_subject_vector_one_input_lowered_at_a_time_s730451892_stacked.mp4`, pushing a vector on `<Subject 1>`'s line to `strength = 2.5` across all 6 steps (`end_percent = 1.0`) caused a reddish color burn around her eyes and cheeks. Testing one knob at a time proved:
-- Lowering `ref_vae_end_percent` alone (`0.5`) or lowering `ref_vae_aug` alone (`0.5`) **kept the red tint** on her face while loosening her likeness.
-- Lowering **the vector's `end_percent` to `0.5`** (stopping the vector after step `2`, while keeping `<Picture 1>` at `ref_vae_end_percent = 1.0, ref_vae_aug = 0.999`) **completely removed the red eye/cheek tint** while keeping the clothing/scene change.
+On `$H3_OUTPUT_DIR/Video/edit_guidance/stacked/diner16f_subject_vector_one_input_lowered_at_a_time_s730451892_stacked.mp4`, pushing a vector on `<Subject 1>`'s line to `strength = 2.5` across all 6 steps (`end_percent = 1.0`) caused a reddish color burn around her eyes and cheeks. One seed, one picture, one input lowered at a time (the arms are `render_diner16_subject_release.py` in `$H3_OUTPUT_DIR/Video/edit_guidance/diner16f_how_it_was_made/`):
+- Lowering `ref_vae_end_percent` alone (to `0.34`, a three-step hold) or lowering `ref_vae_aug` alone (to `0.7`) **kept the red tint** on her face. With the weight lowered the room came out as a different draw.
+- Lowering **the vector's `end_percent` to `0.5`** (stopping the vector after step `2`, while keeping `<Picture 1>` at `ref_vae_end_percent = 1.0, ref_vae_aug = 0.999`) **removed the red eye/cheek tint** while keeping the clothing change. The owner read the same on playback.
+- Releasing the picture was neither what allowed the clothing change nor needed for it: the clothing changed with the picture held, and where it did not change (a prompt that names no clothing) no release made it change.
 
 ---
 
