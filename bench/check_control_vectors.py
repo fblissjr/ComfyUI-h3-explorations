@@ -406,6 +406,56 @@ def check_spans_partition_and_refusals(tok: MiniMaxH3Tokenizer) -> list[str]:
         errs.append("span_masks_from_prompt did not prefix-pad _h3_look_mask cleanly on prefixed ref2va prompt")
     if not torch.equal(im_scene_r2v_pref[3:], im_scene_r2v):
         errs.append("span_masks_from_prompt prefixed scene_only suffix mismatch on ref2va prompt")
+    # Field masks (`h3_spans.FIELD_MASK_MODES`): one prompt field each, by its header's name.
+    r2v_txt = lambda m: "".join(decode([r2v_ids[k]]) for k in m.nonzero(as_tuple=False).flatten().tolist())  # noqa: E731
+    fm = {name: h3_spans.inference_mask(sm_ref2va, name) for name in h3_spans.FIELD_MASK_MODES}
+    if set(h3_spans.FIELD_MASK_MODES) - set(h3_spans.INFERENCE_MASK_MODES):
+        errs.append("FIELD_MASK_MODES are not all in INFERENCE_MASK_MODES")
+    if any(not bool(m.any()) for m in fm.values()):
+        errs.append(f"a field mask is empty on the ref2va prompt: { {n: int(m.sum()) for n, m in fm.items()} }")
+    every_field = list(fm.values()) + [im_desc_r2v]
+    if any(bool((a & b).any()) for i, a in enumerate(every_field) for b in every_field[i + 1:]):
+        errs.append("two field masks share a row on the ref2va prompt")
+    union_fields = torch.zeros_like(im_desc_r2v)
+    for m in every_field:
+        union_fields = union_fields | m
+    if not torch.equal(union_fields, im_look_r2v | im_desc_r2v | im_sound_r2v):
+        errs.append("the field masks together are not look_only | description_only | soundscape_only on the ref2va prompt")
+    if not torch.equal(im_look_r2v & ~fm["retention_analysis"], fm["subject_definitions"] | fm["summary"]):
+        errs.append("look_only outside retention_analysis is not subject_definitions | summary")
+    if not torch.equal(im_sound_r2v & ~fm["retention_analysis"], fm["overall_soundscape"] | fm["non_diegetic_music"]):
+        errs.append("soundscape_only outside retention_analysis is not overall_soundscape | non_diegetic_music")
+    # Each field mask lies inside its own section of the text and reaches no other section's body.
+    r2v_sections = [(m.group(1), m.end()) for m in h3_spans.SECTION_HEADER_RE.finditer(ref2va_sample_prompt)]
+    r2v_bodies = {
+        name: ref2va_sample_prompt[start:(r2v_sections[i + 1][1] if i + 1 < len(r2v_sections) else len(ref2va_sample_prompt))]
+        for i, (name, start) in enumerate(r2v_sections)
+    }
+    for name, m in fm.items():
+        words = [w for w in r2v_txt(m).split() if len(w) >= 6]
+        stray = [w for w in words if w not in r2v_bodies.get(name, "")]
+        if not words or stray:
+            errs.append(f"field mask {name!r} selected text outside its own section: {stray[:4]!r} (of {len(words)} long words)")
+    if "solo cello" not in r2v_txt(fm["non_diegetic_music"]) or "room tone" in r2v_txt(fm["non_diegetic_music"]):
+        errs.append(f"non_diegetic_music mask is not the music field alone: {r2v_txt(fm['non_diegetic_music'])!r}")
+    if "room tone" not in r2v_txt(fm["overall_soundscape"]) or "solo cello" in r2v_txt(fm["overall_soundscape"]):
+        errs.append(f"overall_soundscape mask is not the soundscape field alone: {r2v_txt(fm['overall_soundscape'])!r}")
+    for marker in ("fully_preserved", "partially_preserved", "<Subject", "[reference generation]", "subject_definitions:"):
+        if any(marker in r2v_txt(m) for m in fm.values()):
+            errs.append(f"a field mask selected the structural marker {marker!r}")
+    # Carried across a picture prefix, like the lever masks.
+    fm_pref = {name: h3_spans.inference_mask(sm_ref2va_pref, name) for name in h3_spans.FIELD_MASK_MODES}
+    if any(bool(fm_pref[n][:3].any()) or not torch.equal(fm_pref[n][3:], fm[n]) for n in fm):
+        errs.append("span_masks_from_prompt did not carry the field masks across a prefix")
+    # A field the prompt does not have selects nothing, with no fallback to another field (3-field prompt).
+    if sm_prefixed is not None:
+        for name in ("subject_definitions", "summary", "retention_analysis"):
+            if bool(h3_spans.inference_mask(sm_prefixed, name).any()):
+                errs.append(f"field mask {name!r} selected rows on a 3-field prompt that has no such field")
+        if not bool(h3_spans.inference_mask(sm_prefixed, "overall_soundscape").any()):
+            errs.append("field mask 'overall_soundscape' is empty on a 3-field prompt that has a soundscape")
+        if bool((h3_spans.inference_mask(sm_prefixed, "overall_soundscape") & h3_spans.inference_mask(sm_prefixed, "description_only")).any()):
+            errs.append("field mask 'overall_soundscape' overlaps description_only on the 3-field prompt")
     pm_scene = h3_spans.pooling_mask(masks, "scene_text")
     if not torch.equal(pm_scene, masks["scene"]):
         errs.append("pooling_mask('scene_text') does not equal masks['scene']")

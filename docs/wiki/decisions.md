@@ -17,6 +17,13 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-11-11
 
+- **A control vector can be aimed at any one field of the prompt** (owner: "it would be nice if we could have a
+  control vector that could target any part of that prompt structure"). `MiniMaxH3ApplyControlVectors.mask`, and
+  `--mask` on the CLI's `inspect` and `grade`, take a field's own header name: `subject_definitions`, `summary`,
+  `retention_analysis`, `overall_soundscape`, `non_diegetic_music` (`h3_spans.py::FIELD_MASK_MODES`); the description
+  field already had `description_only`. A missing or `N/A` field steers nothing and never falls back. The lever masks
+  are unchanged. Not rendered yet; the node list on a running server shows them after its next restart
+  ([`control_vectors/comfyui_nodes_and_controls.md`](control_vectors/comfyui_nodes_and_controls.md)).
 - **The kitchen build carries ports of two open upstream fixes, and INT8 output changes with it** (the owner
   asked for the fork to be brought up to upstream and for open fixes that matter on this card). The venv moved from
   `0.2.41+sol.b9b85e0.up.cbc44a5` to `0.2.41+sol.b63d8c7.up.7d6a22a`, in use from the 10:49 Central restart: fused

@@ -42,6 +42,20 @@ POOLING_MODES: tuple[str, ...] = (
     "diff_span",
 )
 
+#: Masks that select one prompt field by its own header name, so a vector can be aimed at any single
+#: part of the prompt structure (owner, 2026-11-11). The description field is the one field that had
+#: its own mask already (`description_only`, for `detailed_description:` or
+#: `integrated_multimodal_description:`), so with these five every field has one. A field the prompt
+#: does not have, or one whose body is `N/A`, selects no rows: these never fall back to another
+#: field. Two fields at once is two chained nodes.
+FIELD_MASK_MODES: tuple[str, ...] = (
+    "subject_definitions",
+    "summary",
+    "retention_analysis",
+    "overall_soundscape",
+    "non_diegetic_music",
+)
+
 INFERENCE_MASK_MODES: tuple[str, ...] = (
     "non_vision",
     "look_only",
@@ -50,6 +64,7 @@ INFERENCE_MASK_MODES: tuple[str, ...] = (
     "soundscape_only",
     "after_dialogue",
     "all_rows",
+    *FIELD_MASK_MODES,
 )
 
 LABEL_RE = re.compile(r"<(?:Picture|Video|Audio) \d+>: ")
@@ -401,6 +416,9 @@ def spans(
     look_mask = torch.zeros(L, dtype=torch.bool)
     desc_mask = torch.zeros(L, dtype=torch.bool)
     sound_mask = torch.zeros(L, dtype=torch.bool)
+    # One mask per section header found, keyed by the header's own name, for `FIELD_MASK_MODES`.
+    # The three lever masks above are unions of these (`retention_analysis` split by line).
+    section_masks: dict[str, torch.Tensor] = {}
     steerable_scene_mask = out["scene"].clone()
     has_sections = False
     tail_text = ""
@@ -461,6 +479,9 @@ def spans(
                 probe_pos = nc0 if nc0 < nc1 else c0
                 for sec_name, s_start, s_end, audio_ret_spans in sec_intervals:
                     if s_start <= probe_pos < s_end:
+                        if sec_name not in section_masks:
+                            section_masks[sec_name] = torch.zeros(L, dtype=torch.bool)
+                        section_masks[sec_name][k] = True
                         if sec_name in LOOK_SECTIONS:
                             look_mask[k] = True
                         elif sec_name == "retention_analysis":
@@ -477,6 +498,7 @@ def spans(
     setattr(out["scene"], "_h3_look_mask", look_mask)
     setattr(out["scene"], "_h3_description_mask", desc_mask)
     setattr(out["scene"], "_h3_soundscape_mask", sound_mask)
+    setattr(out["scene"], "_h3_section_masks", section_masks)
     setattr(out["scene"], "_h3_steerable_scene_mask", steerable_scene_mask)
     setattr(out["scene"], "_h3_has_sections", has_sections)
     setattr(out["scene"], "_h3_tail_text", tail_text)
@@ -538,7 +560,13 @@ def inference_mask(
     - `'after_dialogue'`: `span_masks['scene']` strictly after the last
       `dialogue` token (or all `span_masks['scene']` rows when the prompt has
       no `<d>...</d>` span or no trailing scene tokens after `</d>`).
-    - `'all_rows'`: all `L` rows (`vision` and `tag == 1`)."""
+    - `'all_rows'`: all `L` rows (`vision` and `tag == 1`).
+    - a field's own name (`FIELD_MASK_MODES`: `'subject_definitions'`, `'summary'`,
+      `'retention_analysis'`, `'overall_soundscape'`, `'non_diegetic_music'`): the steerable prose
+      tokens inside that one section, under the same exclusions as the lever masks (headers, tags,
+      task and retention markers, dialogue). `'retention_analysis'` takes every line of the section,
+      its `<Audio N>:` lines too. No rows when the prompt has no such section or its body is `N/A`;
+      there is no fallback to another field."""
     if not isinstance(span_masks, dict) or "vision" not in span_masks or "scene" not in span_masks:
         raise ValueError("span_masks must contain 'vision' and 'scene' keys")
     if mode not in INFERENCE_MASK_MODES:
@@ -549,6 +577,12 @@ def inference_mask(
         return torch.ones_like(span_masks["vision"], dtype=torch.bool)
     scene_t = span_masks["scene"]
     has_sections = bool(getattr(scene_t, "_h3_has_sections", False))
+    if mode in FIELD_MASK_MODES:
+        by_section = getattr(scene_t, "_h3_section_masks", None)
+        field_sub = by_section.get(mode) if isinstance(by_section, dict) else None
+        if isinstance(field_sub, torch.Tensor) and field_sub.shape == scene_t.shape:
+            return (field_sub.to(device=scene_t.device) & scene_t).clone()
+        return torch.zeros_like(scene_t, dtype=torch.bool)
     if mode == "look_only":
         look_sub = getattr(scene_t, "_h3_look_mask", None)
         if isinstance(look_sub, torch.Tensor) and look_sub.shape == scene_t.shape and bool(look_sub.any()):
@@ -733,6 +767,13 @@ def span_masks_from_prompt(
     sound_sub = getattr(prompt_spans["scene"], "_h3_soundscape_mask", None)
     if isinstance(sound_sub, torch.Tensor):
         setattr(scene_cat, "_h3_soundscape_mask", torch.cat([prefix_false, sound_sub], dim=0))
+    sections_sub = getattr(prompt_spans["scene"], "_h3_section_masks", None)
+    if isinstance(sections_sub, dict):
+        setattr(
+            scene_cat,
+            "_h3_section_masks",
+            {name: torch.cat([prefix_false, sub], dim=0) for name, sub in sections_sub.items()},
+        )
     steerable_sub = getattr(prompt_spans["scene"], "_h3_steerable_scene_mask", None)
     if isinstance(steerable_sub, torch.Tensor):
         setattr(scene_cat, "_h3_steerable_scene_mask", torch.cat([prefix_false, steerable_sub], dim=0))

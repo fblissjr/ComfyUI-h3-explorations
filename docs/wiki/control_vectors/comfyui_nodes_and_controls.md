@@ -1,6 +1,6 @@
 # The control vector nodes
 
-last updated: 2026-11-10
+last updated: 2026-11-11
 
 [Back to the start page](../control_vectors.md)
 
@@ -51,6 +51,28 @@ each input is for:
   | `after_dialogue` | Post-speech visual tail | `scene_only` rows strictly after the last `<d>...</d>` dialogue token |
   | `non_vision` | Every text row | All tag-1 non-vision tokens (including headers, tags, and dialogue) |
   | `all_rows` | Text + vision | Every row, including tag-0 vision prefix tokens |
+
+  **One field at a time** (owner, 2026-11-11: a vector should be able to target any part of the prompt
+  structure). A field's own header name is a mask for that field's prose alone, under the same protections as
+  the lever masks (`h3_spans.py::FIELD_MASK_MODES`):
+
+  | Mask mode | Rows steered |
+  |---|---|
+  | `subject_definitions` | The prose of every `<Subject N>` / `<Picture N>` definition line |
+  | `summary` | The summary sentence, without its task bracket |
+  | `retention_analysis` | The prose of every retention line, its `<Audio N>:` lines too |
+  | `description_only` | `detailed_description:` or `integrated_multimodal_description:` (the lever mask above is already one field) |
+  | `overall_soundscape` | The soundscape field alone |
+  | `non_diegetic_music` | The music field alone |
+
+  - A field the prompt does not have, or one that reads `N/A`, steers no rows, and the node's log says the vector had
+    no effect. These masks never fall back to another field, where `look_only` does on a three-field prompt.
+  - Two fields at once is two of this node chained with the same vector. The lever masks are the common unions:
+    `look_only` is `subject_definitions` + `summary` + the visual retention lines.
+  - Not possible yet: one subject and not another, or the phrases inside the description that restate a subject's
+    look. Those are narrower than a field.
+  - Held by `bench/check_control_vectors.py` (C2): each mask stays inside its own section, no two share a row, and
+    together they are the three levers. No render has been made with them.
 - `start_percent`, `end_percent`: the part of the run in which the vector is on.
 - `video_scale`, `audio_scale`, `split_end_percent`: separate multipliers for the video and audio streams.
 - `ref_vae_end_percent`, `ref_vae_aug`: for renders carrying 3D Video VAE visual conditioning (`ref2va`

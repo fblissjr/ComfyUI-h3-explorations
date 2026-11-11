@@ -1721,14 +1721,23 @@ def _make_control_vector_wrapper(specs: tuple[_AppliedVectorSpec, ...]):
                                 mask=custom_mask,
                                 mask_vision=mask_vision,
                             )
+                            n_steered = int(eff_rm[0].sum().item())
                             logger.info(
                                 "[h3] control vector (%s) steered %d/%d context rows (mask=%s%s)",
                                 ",".join(gsp.vector_name for gsp in group_specs),
-                                int(eff_rm[0].sum().item()),
+                                n_steered,
                                 L,
                                 sp.mask,
                                 f", {edit_pass} pass" if edit_pass in ("original", "edited") else "",
                             )
+                            if n_steered == 0 and sp.mask in _spans.FIELD_MASK_MODES:
+                                logger.warning(
+                                    "[h3] control vector (%s) has no effect: mask=%s selects the prose of the "
+                                    "%s: field, and this prompt has no such field or it reads N/A",
+                                    ",".join(gsp.vector_name for gsp in group_specs),
+                                    sp.mask,
+                                    sp.mask,
+                                )
                     cur_ctx = _cv.apply_post_refiner(
                         cur_ctx,
                         tags,
@@ -2894,7 +2903,12 @@ class MiniMaxH3ApplyControlVectors(io.ComfyNode):
                         "<Audio N>: lines in retention_analysis:; "
                         "'non_vision' steers all tag-1 text rows and leaves tag-0 vision rows untouched; "
                         "'after_dialogue' steers only scene tokens after the last </d>; "
-                        "'all_rows' is the unmasked ablation (E2.3)."
+                        "'all_rows' is the unmasked ablation (E2.3). "
+                        "A field's own name steers the prose of that one field and nothing else: "
+                        "'subject_definitions', 'summary', 'retention_analysis', 'overall_soundscape', "
+                        "'non_diegetic_music' (the description field is 'description_only'). A field the "
+                        "prompt does not have, or one that reads N/A, steers no rows and the log says so. "
+                        "To steer two fields, chain two of this node with the same vector."
                     ),
                 ),
                 io.Float.Input(
