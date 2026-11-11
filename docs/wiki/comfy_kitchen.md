@@ -224,6 +224,23 @@ slots of it.
 | exact | `sol_attn_exact.cu` | walks each routed list with INT8 arithmetic, continuing route's running softmax. |
 | producer | `sol_attn_producer.cu` | the chunked entry: norm, RoPE and quantization chunk by chunk in place of preprocess. |
 
+## Rotation and RoPE: what is done for you, and what your code must keep
+
+Three different things here are called a rotation, and two are called RoPE. Each is handled for you as long as
+your code stays on the ordinary path, and each has a place where custom code has to carry it. The table came
+from the Gemini session's review on 2026-11-11 and every row was checked against the source named in it.
+
+| mechanism | done for you | your code must handle it when |
+|---|---|---|
+| **The q and k rotation inside attention** (a Hadamard rotation before INT8, so one loud channel cannot set a row's scale) | always on in kitchen's dense INT8 attention (`coderef/comfy-kitchen/comfy_kitchen/sage_attention.py::int8_attention`); on in Sol through the node's `quantizer`, whose default is `sol_attn_h3.py::SOL_QUANTIZER_DEFAULT`. A guider, a hook or a LoRA branch never sees it | you call `comfy_kitchen.sol_attn` yourself (pass `rotate`), or write a new attention entry |
+| **ConvRot, the rotation stored in INT8 weights** (input columns rotated in groups of 256) | any call through `operations.Linear` or `comfy.ops.linear_input_act`; the activation is rotated to match inside the kernel (`convrot64_quantize_row` in `coderef/comfy-kitchen/comfy_kitchen/backends/cuda/ops/int8_linear.cu`). `lora_branch.py` adds its low-rank term on the unrotated input and output, so it needs nothing | you read INT8 weights off disk. The stored codes are in rotated space, so `codes * scale` is not the weight: dequantize through the `QuantizedTensor`, or compare something the rotation preserves such as row norms (`bench/measure_h3_image_weights.py` does both) |
+| **The DiT's RoPE** (split-half, over part of each head's channels) | any node that leaves the packed positions and `Attention.forward` alone | (1) **you change how many text rows there are.** The media rows' first coordinate starts after the text, so a different text length moves every media row: `edit_guidance.py::EditGuider._prepare` shifts the shorter prompt's media rows under `align_positions`, and `control_vector_nodes.py::_drop_visual_cond_from_layout` keeps slices of the original `position_ids` and never recounts from zero. (2) **you replace the attention forward.** Apply the same fused op with the width read from the table, `rot_dim = rope_freqs.shape[-3] * 2`, never a typed number: `frozen_video_cache.py::_qkv_rope` is the pattern. `sol_attn_chunked` takes `rope_freqs` and applies it itself |
+| **The text encoder's M-RoPE** (vision tokens get grid coordinates, and the text after them starts where the grid ends) | the ordinary conditioning nodes | you encode in pieces or build pairs. `reference_encode.py::_positions` asks core for the positions of a slice given every vision block before it, and `control_vector_nodes.py::match_media_pair_geometry` holds both sides of a pair to one grid so their positions are identical |
+
+A change to kitchen needs a second look at this table only if it touches `rms_rope.cu`, `sol_layout.cuh` or
+`quant_qk_int8.cu`; a change to core needs one if it touches `comfy/ldm/minimax/model.py::Attention` or
+`PackedLayout`.
+
 ## Code that runs every forward pass
 
 The edit guider is the worked case. `edit_guidance.py::EditGuider.predict_noise` asks core for two
