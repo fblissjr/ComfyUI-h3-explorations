@@ -3879,6 +3879,37 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
                             )
                         if g_data.get("provenance", {}).get("mask") != "scene_only":
                             errs.append(f"cmd_grade default provenance.mask expected 'scene_only', got {g_data.get('provenance')}")
+                        # grade's default mode is the node's (add_norm_matched). In it the nulls keep their own
+                        # length against the vector's (flip_null is the sign-flipped mean: its length IS the
+                        # test), and the matched strength is in the mode's unit. Held against the same grade in
+                        # `add`: the flip arm moves the context by the same share of the vector's move in both.
+                        cm = g_data["context_movement"]
+                        add_json = tmp / "grade_add_out.json"
+                        add_args = bench_cv.build_parser().parse_args(
+                            ["grade", "--vector", str(v1_path), "--prompt", str(base_prompt_txt), "--edit-prompt",
+                             str(edit_prompt_txt), "--pairs", str(pair_toml), "--strengths", "0,1.0", "--probe-steps", "0",
+                             "--mode", "add", "--out", str(add_json)]
+                        )
+                        add_args._dit_runner = _mock_dit_runner
+                        add_args._base_model = patcher_with_init
+                        with contextlib.redirect_stdout(io.StringIO()):
+                            rc_add = bench_cv.cmd_grade(add_args)
+                        cm_add = json.loads(add_json.read_text(encoding="utf-8"))["context_movement"] if rc_add == 0 else None
+                        if cm.get("mode") != "add_norm_matched" or cm_add is None or cm_add.get("mode") != "add":
+                            errs.append(f"cmd_grade modes: default {cm.get('mode')!r}, --mode add rc={rc_add}")
+                        else:
+                            share = cm["arms"]["flip_null"]["seq_rel_l2"] / cm["arms"]["vector_s1"]["seq_rel_l2"]
+                            share_add = cm_add["arms"]["flip_null"]["seq_rel_l2"] / cm_add["arms"]["vector_s1"]["seq_rel_l2"]
+                            ratio = cm["arms"]["flip_null"]["norm_ratio_to_v"]
+                            if abs(share - share_add) > 1e-3 * max(share_add, 1e-9) or abs(share - ratio) > 1e-3 * max(ratio, 1e-9):
+                                errs.append(
+                                    f"cmd_grade flip_null lost its length under add_norm_matched: moved {share:.6f} of the "
+                                    f"vector's move, {share_add:.6f} in add, norm ratio {ratio:.6f}"
+                                )
+                            ms = cm["arms"]["edit_prompt"]["context_matched_strength"] * cv.NORM_MATCHED_TARGET
+                            ms_add = cm_add["arms"]["edit_prompt"]["context_matched_strength"] * cm_add["vector_raw_norm"]
+                            if cm["norm_per_unit_strength"] != cv.NORM_MATCHED_TARGET or abs(ms - ms_add) > 1e-6 * max(ms_add, 1e-9):
+                                errs.append(f"cmd_grade context_matched_strength is not in the mode's unit: {ms} vs {ms_add}")
 
                 # Also test cmd_grade --mask look_only
                 grade_look_json = tmp / "grade_look_out.json"

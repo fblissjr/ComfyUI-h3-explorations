@@ -447,6 +447,12 @@ def cmd_grade(args: argparse.Namespace) -> int:
     grade_mode = str(getattr(args, "mode", None) or "add")
     if grade_mode not in cv.APPLY_MODES:
         raise ValueError(f"mode must be one of {cv.APPLY_MODES}, got {grade_mode!r}")
+    # The length one unit of strength adds in this mode, and how the two nulls are applied. In
+    # `add_norm_matched` the vector is rescaled to `NORM_MATCHED_TARGET`; a null handed to that mode would be
+    # rescaled to the same length, which erases what flip_null measures (its length against the vector's).
+    # So the nulls take the vector's own factor and go in as `add`.
+    norm_matched = grade_mode == "add_norm_matched"
+    null_mode = "add" if norm_matched else grade_mode
     base_spans = h3_spans.spans(base_ids, base_tags.tolist(), base_dec_fn)
     base_infer_mask = (
         None
@@ -463,6 +469,11 @@ def cmd_grade(args: argparse.Namespace) -> int:
     raw_norm = float(torch.linalg.vector_norm(vec.to(dtype=torch.float64)).item())
     gen_rand = torch.Generator(device="cpu").manual_seed(int(args.seed))
     rand_dir = cv.random_null(raw_norm, int(vec.shape[0]), generator=gen_rand)
+    if raw_norm <= 0.0:
+        raise ValueError("control vector has zero norm; nothing to grade")
+    unit_norm = cv.NORM_MATCHED_TARGET if norm_matched else raw_norm
+    null_scale = cv.NORM_MATCHED_TARGET / raw_norm if norm_matched else 1.0
+    rand_apply = rand_dir * null_scale
     flip_dir: torch.Tensor | None = None
     if args.pairs:
         pair_set = cv.load_pairs(
@@ -565,6 +576,7 @@ def cmd_grade(args: argparse.Namespace) -> int:
         "mask": grade_mask,
         "mode": grade_mode,
         "vector_raw_norm": raw_norm,
+        "norm_per_unit_strength": unit_norm,
         "arms": {},
     }
 
@@ -572,7 +584,7 @@ def cmd_grade(args: argparse.Namespace) -> int:
         edit_tag1_mean = edit_ctx.to(dtype=torch.float64)[edit_tags != 0].mean(dim=0)
         edit_delta = edit_tag1_mean - base_tag1_mean
         edit_move = float(torch.linalg.vector_norm(edit_delta).item()) / base_tag1_norm
-        ctx_matched_s = float(torch.linalg.vector_norm(edit_delta).item()) / raw_norm
+        ctx_matched_s = float(torch.linalg.vector_norm(edit_delta).item()) / unit_norm
         context_report["L_edit"] = len(edit_ids)
         context_report["arms"]["edit_prompt"] = {
             "tag1_mean_rel_l2": edit_move,
@@ -633,10 +645,11 @@ def cmd_grade(args: argparse.Namespace) -> int:
 
     if flip_dir is not None:
         flip_pushed = cv.apply_post_refiner(
-            base_ctx_b, base_tags_b, [(flip_dir, 1.0)], mask_vision=grade_mask_vision, mask=base_infer_mask, mode=grade_mode
+            base_ctx_b, base_tags_b, [(flip_dir * null_scale, 1.0)], mask_vision=grade_mask_vision, mask=base_infer_mask, mode=null_mode
         )[0]
         context_report["arms"]["flip_null"] = {
             "seq_rel_l2": _rel_l2(flip_pushed, base_ctx),
+            "norm_ratio_to_v": float(torch.linalg.vector_norm(flip_dir.to(dtype=torch.float64)).item()) / raw_norm,
             "cos_with_v": _cosine(flip_dir, vec),
         }
         print(
@@ -644,7 +657,7 @@ def cmd_grade(args: argparse.Namespace) -> int:
             f"cos_with_v={_cosine(flip_dir, vec):+.4f}"
         )
     rand_pushed = cv.apply_post_refiner(
-        base_ctx_b, base_tags_b, [(rand_dir, 1.0)], mask_vision=grade_mask_vision, mask=base_infer_mask, mode=grade_mode
+        base_ctx_b, base_tags_b, [(rand_apply, 1.0)], mask_vision=grade_mask_vision, mask=base_infer_mask, mode=null_mode
     )[0]
     context_report["arms"]["random_null"] = {
         "seq_rel_l2": _rel_l2(rand_pushed, base_ctx),
@@ -826,7 +839,7 @@ def cmd_grade(args: argparse.Namespace) -> int:
 
             if flip_dir is not None:
                 m_flip = _attach_raw_vector(
-                    base_model, "flip_null", flip_dir, 1.0, mask=grade_mask, mode=grade_mode, metadata=metadata, prompt=prompt_text
+                    base_model, "flip_null", flip_dir * null_scale, 1.0, mask=grade_mask, mode=null_mode, metadata=metadata, prompt=prompt_text
                 )
                 _, pred_flip_raw = dit_runner(m_flip, base_cond, step_idx)
                 flip_b = _pred_blocks(pred_flip_raw)
@@ -839,7 +852,7 @@ def cmd_grade(args: argparse.Namespace) -> int:
                 )
 
             m_rand = _attach_raw_vector(
-                base_model, "random_null", rand_dir, 1.0, mask=grade_mask, mode=grade_mode, metadata=metadata, prompt=prompt_text
+                base_model, "random_null", rand_apply, 1.0, mask=grade_mask, mode=null_mode, metadata=metadata, prompt=prompt_text
             )
             _, pred_rand_raw = dit_runner(m_rand, base_cond, step_idx)
             rand_b = _pred_blocks(pred_rand_raw)

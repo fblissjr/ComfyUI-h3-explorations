@@ -22,7 +22,10 @@ Older history lives elsewhere and is not copied here:
   `MiniMaxH3ApplyControlVectors` and every shipped graph default to `add_norm_matched`: a `--strengths` value was in a
   different unit from a graph's strength. It now has `--mode`, defaulting to the node's
   (`h3_rules.py::CONTROL_VECTOR_DEFAULTS`). A grade report made before this is in `add`; pass `--mode add` to
-  reproduce one. New reports carry the mode in their provenance.
+  reproduce one. New reports carry the mode in their provenance. The first version of the change handed the two
+  nulls to the same mode, which rescaled `flip_null` to the vector's length and erased what it measures, and left
+  the context's matched strength in `add` units; the Gemini reviewer caught both the same day. The nulls now take
+  the vector's own factor and the matched strength the mode's unit (`norm_per_unit_strength` in the report).
 - **A control vector can be aimed at any one field of the prompt** (owner: "it would be nice if we could have a
   control vector that could target any part of that prompt structure"). `MiniMaxH3ApplyControlVectors.mask`, and
   `--mask` on the CLI's `inspect` and `grade`, take a field's own header name: `subject_definitions`, `summary`,
