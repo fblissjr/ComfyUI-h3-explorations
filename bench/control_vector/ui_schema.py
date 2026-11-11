@@ -72,6 +72,8 @@ WIDGETS: dict[str, str] = {
     "hold": "vectors",
     "source": "pairfile",
     "pairs": "pairfile",
+    # A named mask, or one or more prompt fields ticked: the node's `mask` and `fields` in one control.
+    "mask": "mask",
 }
 
 #: `{method: [dest, ...]}`: the arguments shown above "More options", in this order. A method not
@@ -199,6 +201,8 @@ def method_schema() -> dict[str, Any]:
         "node": {
             "apply_modes": list(cv.APPLY_MODES),
             "mask_modes": list(h3_spans.INFERENCE_MASK_MODES),
+            "prompt_fields": list(h3_spans.PROMPT_FIELDS),
+            "fields_join": h3_spans.FIELDS_JOIN,
             "defaults": dict(h3_rules.CONTROL_VECTOR_DEFAULTS),
         },
     }

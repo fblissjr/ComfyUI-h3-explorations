@@ -1,7 +1,7 @@
 // Looking at a saved vector: its word readout, a prompt metered against it, `inspect` and `grade`.
 
 import { studio, onListing, apiPost, h, setStatus } from '../api.js';
-import { methodCard, resultPanel } from '../form.js';
+import { maskControl, methodCard, resultPanel } from '../form.js';
 import { readoutView } from '../readout.js';
 
 function vectorPicker() {
@@ -46,14 +46,13 @@ export function mount(root, nav) {
   // --- prompt meter -------------------------------------------------------------------------
   const meterVec = vectorPicker();
   const meterPrompt = h('textarea', { class: 'mono', rows: '8', placeholder: 'the prompt you are about to render' });
-  // The node's masks and the node's default, from the schema: the meter scores the rows the
-  // node would steer.
-  const meterMask = h('select', {}, studio.node.mask_modes.map((m) => h('option', { value: m }, m)));
-  meterMask.value = studio.node.defaults.mask;
+  // The node's masks, fields and default, from the schema: the meter scores the rows the node
+  // would steer, a selection of fields included.
+  const meterMask = maskControl({ initial: studio.node.defaults.mask });
   const meterPanel = resultPanel();
   const meterBtn = h('button', { type: 'button', class: 'btn btn-primary' }, 'Meter the prompt');
   guarded(meterBtn, meterPanel, 'Metering (loads the encoder)...', async () => {
-    const res = await apiPost('/api/prompt-meter', { vector: meterVec.value, prompt: meterPrompt.value, mask: meterMask.value });
+    const res = await apiPost('/api/prompt-meter', { vector: meterVec.value, prompt: meterPrompt.value, mask: meterMask.get() });
     const tokens = res.tokens || [];
     meterPanel.note(
       h('div', { class: 'field-hint' }, `${tokens.length} token(s), mask ${res.pooling}. Amber leans toward the vector, green away; hover for the cosine.`),
@@ -78,7 +77,7 @@ export function mount(root, nav) {
       h('p', { class: 'field-hint' }, 'Each token of a prompt scored against the vector, over the rows the chosen mask steers.'),
       h('div', { class: 'form-grid' },
         h('div', { class: 'field' }, h('label', { class: 'field-label' }, 'vector'), meterVec),
-        h('div', { class: 'field' }, h('label', { class: 'field-label' }, 'mask'), meterMask),
+        h('div', { class: 'field field-wide' }, h('label', { class: 'field-label' }, 'mask'), meterMask.el),
         h('div', { class: 'field field-wide' }, h('label', { class: 'field-label' }, 'prompt'), meterPrompt)),
       h('div', { class: 'btn-row' }, meterBtn),
       meterPanel.el),

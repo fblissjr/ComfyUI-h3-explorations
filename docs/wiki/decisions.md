@@ -17,6 +17,12 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-11-11
 
+- **`grade` applies a vector the way a graph does** (found in the 2026-11-11 studio assessment, confirmed by the
+  Gemini reviewer the same day). `bench/control_vectors.py grade` never passed a mode, so it applied in `add` while
+  `MiniMaxH3ApplyControlVectors` and every shipped graph default to `add_norm_matched`: a `--strengths` value was in a
+  different unit from a graph's strength. It now has `--mode`, defaulting to the node's
+  (`h3_rules.py::CONTROL_VECTOR_DEFAULTS`). A grade report made before this is in `add`; pass `--mode add` to
+  reproduce one. New reports carry the mode in their provenance.
 - **A control vector can be aimed at any one field of the prompt** (owner: "it would be nice if we could have a
   control vector that could target any part of that prompt structure"). `MiniMaxH3ApplyControlVectors.mask`, and
   `--mask` on the CLI's `inspect` and `grade`, take a field's own header name: `subject_definitions`, `summary`,

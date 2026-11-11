@@ -77,6 +77,7 @@ import os
 import sys
 
 import control_vectors as cv
+import h3_rules
 import h3_spans
 from workflows import h3_config
 
@@ -571,6 +572,14 @@ def build_parser() -> argparse.ArgumentParser:
         metavar=_MASK_METAVAR,
         default="scene_only",
         help="Inference span mask applied during context and DiT grading (default: 'scene_only', matching runtime nodes). " + _MASK_FIELDS_HELP,
+    )
+    pg.add_argument(
+        "--mode",
+        choices=cv.APPLY_MODES,
+        default=h3_rules.CONTROL_VECTOR_DEFAULTS["mode"],
+        help="How the vector is applied while grading, as MiniMaxH3ApplyControlVectors.mode (default: the node's own, so "
+        "--strengths are in the unit a graph's strength is in). Until 2026-11-11 grade always applied in 'add'; pass "
+        "--mode add to reproduce an earlier report",
     )
     pg.add_argument("--strengths", default="0,0.5,1.0,2.0,-1.0")
     pg.add_argument("--probe-steps", default="0,8,15", help="Schedule step indices for DiT forward grading")

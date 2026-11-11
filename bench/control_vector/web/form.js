@@ -29,9 +29,46 @@ function datalist(optionsOf) {
 const vectorNames = () => studio.vectors.map((v) => v.file);
 const pairFileNames = () => studio.tomlFiles.map((t) => t.stem);
 
+/**
+ * Which prompt rows to act on: a named mask, or one or more prompt fields ticked. It is the node's
+ * `mask` and `fields` inputs in one control, and gives the CLI's `--mask` value (a name, or the
+ * ticked fields joined as the server says to join them). Both lists come from the schema.
+ */
+export function maskControl({ initial = null, allowUnset = false } = {}) {
+  const sel = h('select', {},
+    allowUnset ? h('option', { value: '' }, '(not set)') : null,
+    studio.node.mask_modes.map((m) => h('option', { value: m }, m)));
+  const boxes = studio.node.prompt_fields.map((field) => {
+    const box = h('input', { type: 'checkbox', value: field });
+    return { field, box, el: h('label', { class: 'check-chip' }, box, ` ${field}`) };
+  });
+  const ticked = () => boxes.filter((b) => b.box.checked).map((b) => b.field);
+  const sync = () => { sel.disabled = ticked().length > 0; };
+  boxes.forEach((b) => b.box.addEventListener('change', sync));
+  const set = (value) => {
+    const parts = String(value ?? '').split(studio.node.fields_join).filter(Boolean);
+    const isSelection = parts.length > 0 && parts.every((p) => studio.node.prompt_fields.includes(p))
+      && !studio.node.mask_modes.includes(String(value));
+    boxes.forEach((b) => { b.box.checked = isSelection && parts.includes(b.field); });
+    if (!isSelection) sel.value = value ?? '';
+    sync();
+  };
+  set(initial);
+  return {
+    el: h('div', { class: 'stack mask-control' }, sel,
+      h('div', { class: 'field-hint' }, 'or tick one or more fields to act on exactly those:'),
+      h('div', { class: 'check-chips' }, boxes.map((b) => b.el))),
+    get: () => (ticked().length ? ticked().join(studio.node.fields_join) : (sel.value || undefined)),
+    set,
+  };
+}
+
 // One control per argument kind. Each returns {el, get(), set(value)}; get() returns undefined
 // when the control is empty, which leaves the argument off and the parser's default in place.
 function control(arg) {
+  if (arg.widget === 'mask') {
+    return maskControl({ initial: arg.default, allowUnset: arg.default === null || arg.default === undefined });
+  }
   if (arg.kind === 'bool') {
     const box = h('input', { type: 'checkbox', disabled: arg.fixed });
     box.checked = Boolean(arg.default);

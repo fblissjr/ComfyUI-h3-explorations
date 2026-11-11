@@ -182,6 +182,17 @@ def check_schema_is_the_parser() -> None:
     assert not gaps, "; ".join(gaps[:6])
     assert schema["node"]["apply_modes"] == list(cv.APPLY_MODES)
     assert schema["node"]["mask_modes"] == list(h3_spans.INFERENCE_MASK_MODES)
+    assert schema["node"]["prompt_fields"] == list(h3_spans.PROMPT_FIELDS)
+    # Where the CLI stands in for the node, it takes the node's default and the node's kind of control:
+    # grade applies in the node's mode, and a mask is a named mask or ticked fields on both methods.
+    by_dest = {m: {a["dest"]: a for a in schema["methods"][m]["args"]} for m in ("grade", "inspect")}
+    assert by_dest["grade"]["mode"]["default"] == schema["node"]["defaults"]["mode"], by_dest["grade"]["mode"]["default"]
+    assert by_dest["grade"]["mode"]["choices"] == list(cv.APPLY_MODES)
+    assert by_dest["grade"]["mask"]["default"] == schema["node"]["defaults"]["mask"]
+    assert by_dest["grade"]["mask"]["widget"] == by_dest["inspect"]["mask"]["widget"] == "mask"
+    form_js = (WEB_DIR / "form.js").read_text(encoding="utf-8")
+    assert "arg.widget === 'mask'" in form_js and "studio.node.prompt_fields" in form_js, "web/form.js draws no field picker for a mask"
+    assert "maskControl(" in (WEB_DIR / "screens" / "inspect.js").read_text(encoding="utf-8"), "the prompt meter's mask is not the shared mask control"
     # Control: the comparison can fail. Drop one argument from one method and it must say so.
     broken = json.loads(json.dumps(schema, default=str))
     dropped = broken["methods"]["from-prompt"]["args"].pop()

@@ -173,5 +173,10 @@ a sculpt save, a pairs preview and a pair file save, a word readout), and one `f
 the prompt meter and `generate-pairs`.
 
 The page shows the CLI as it is, so the CLI's own gaps show too: `from-prompt --frame` has no effect, `--mode l2va` is
-offered and refused, `--ref-role` and `generate-pairs --load-in-4bit` are read by nothing, and `grade` applies in mode
-`add` where the node's default is `add_norm_matched`. Those are the CLI's to fix.
+offered and refused, and `--ref-role` and `generate-pairs --load-in-4bit` are read by nothing. Those are the CLI's to
+fix. One was fixed on 2026-11-11: `grade` has a `--mode` that defaults to the node's (`add_norm_matched`), where it used
+to apply in `add` whatever a graph ran.
+
+A mask on the page is one control, a named mask or prompt fields ticked, on `inspect`, `grade` and the prompt meter
+(`bench/control_vector/web/form.js`, `maskControl`). It is the node's `mask` and `fields` inputs together and gives
+the CLI's `--mask` value.

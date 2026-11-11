@@ -442,6 +442,11 @@ def cmd_grade(args: argparse.Namespace) -> int:
     base_ctx_b = base_ctx.unsqueeze(0)
     base_tags_b = base_tags.unsqueeze(0)
     grade_mask = str(getattr(args, "mask", "scene_only") or "scene_only")
+    # The mode a graph would apply in. `add` is the fallback for a namespace built without the flag
+    # (the reports made before 2026-11-11 were all in `add`).
+    grade_mode = str(getattr(args, "mode", None) or "add")
+    if grade_mode not in cv.APPLY_MODES:
+        raise ValueError(f"mode must be one of {cv.APPLY_MODES}, got {grade_mode!r}")
     base_spans = h3_spans.spans(base_ids, base_tags.tolist(), base_dec_fn)
     base_infer_mask = (
         None
@@ -558,6 +563,7 @@ def cmd_grade(args: argparse.Namespace) -> int:
         "n_tag1": n_txt,
         "n_vision": n_vis,
         "mask": grade_mask,
+        "mode": grade_mode,
         "vector_raw_norm": raw_norm,
         "arms": {},
     }
@@ -603,7 +609,7 @@ def cmd_grade(args: argparse.Namespace) -> int:
 
     for s in strengths:
         pushed_masked = cv.apply_post_refiner(
-            base_ctx_b, base_tags_b, [(vec, s)], mask_vision=grade_mask_vision, mask=base_infer_mask
+            base_ctx_b, base_tags_b, [(vec, s)], mask_vision=grade_mask_vision, mask=base_infer_mask, mode=grade_mode
         )[0]
         rel_seq = _rel_l2(pushed_masked, base_ctx)
         vis_diff = (
@@ -615,7 +621,7 @@ def cmd_grade(args: argparse.Namespace) -> int:
         msg = f"  vector s={s:+6.2f}  : seq_rel_l2={rel_seq:.6f}  vis_max_diff={vis_diff:.2e}"
         if n_vis > 0:
             pushed_unmasked = cv.apply_post_refiner(
-                base_ctx_b, base_tags_b, [(vec, s)], mask_vision=False
+                base_ctx_b, base_tags_b, [(vec, s)], mask_vision=False, mode=grade_mode
             )[0]
             unmasked_vis_rel = _rel_l2(
                 pushed_unmasked[base_tags == 0], base_ctx[base_tags == 0]
@@ -627,7 +633,7 @@ def cmd_grade(args: argparse.Namespace) -> int:
 
     if flip_dir is not None:
         flip_pushed = cv.apply_post_refiner(
-            base_ctx_b, base_tags_b, [(flip_dir, 1.0)], mask_vision=grade_mask_vision, mask=base_infer_mask
+            base_ctx_b, base_tags_b, [(flip_dir, 1.0)], mask_vision=grade_mask_vision, mask=base_infer_mask, mode=grade_mode
         )[0]
         context_report["arms"]["flip_null"] = {
             "seq_rel_l2": _rel_l2(flip_pushed, base_ctx),
@@ -638,7 +644,7 @@ def cmd_grade(args: argparse.Namespace) -> int:
             f"cos_with_v={_cosine(flip_dir, vec):+.4f}"
         )
     rand_pushed = cv.apply_post_refiner(
-        base_ctx_b, base_tags_b, [(rand_dir, 1.0)], mask_vision=grade_mask_vision, mask=base_infer_mask
+        base_ctx_b, base_tags_b, [(rand_dir, 1.0)], mask_vision=grade_mask_vision, mask=base_infer_mask, mode=grade_mode
     )[0]
     context_report["arms"]["random_null"] = {
         "seq_rel_l2": _rel_l2(rand_pushed, base_ctx),
@@ -655,6 +661,7 @@ def cmd_grade(args: argparse.Namespace) -> int:
         "unet_file": dit_path.name,
         "loras": grade_loras,
         "mask": grade_mask,
+        "mode": grade_mode,
         "core_revision": substrate.git_head(cv_nodes.COMFY_ROOT) or "unknown",
         "pack_commit": substrate.git_head(REPO_ROOT) or "unknown",
         "attention": "sol" if getattr(args, "sol", False) else "stock_dense",
@@ -771,7 +778,7 @@ def cmd_grade(args: argparse.Namespace) -> int:
 
             # Hard check: strength 0.0 hooked reproduces plain base prediction exactly
             m_zero = _attach_raw_vector(
-                base_model, metadata["name"], vec, 0.0, mask=grade_mask, metadata=metadata, prompt=prompt_text
+                base_model, metadata["name"], vec, 0.0, mask=grade_mask, mode=grade_mode, metadata=metadata, prompt=prompt_text
             )
             _, pred_zero_raw = dit_runner(m_zero, base_cond, step_idx)
             zero_b = _pred_blocks(pred_zero_raw)
@@ -819,7 +826,7 @@ def cmd_grade(args: argparse.Namespace) -> int:
 
             if flip_dir is not None:
                 m_flip = _attach_raw_vector(
-                    base_model, "flip_null", flip_dir, 1.0, mask=grade_mask, metadata=metadata, prompt=prompt_text
+                    base_model, "flip_null", flip_dir, 1.0, mask=grade_mask, mode=grade_mode, metadata=metadata, prompt=prompt_text
                 )
                 _, pred_flip_raw = dit_runner(m_flip, base_cond, step_idx)
                 flip_b = _pred_blocks(pred_flip_raw)
@@ -832,7 +839,7 @@ def cmd_grade(args: argparse.Namespace) -> int:
                 )
 
             m_rand = _attach_raw_vector(
-                base_model, "random_null", rand_dir, 1.0, mask=grade_mask, metadata=metadata, prompt=prompt_text
+                base_model, "random_null", rand_dir, 1.0, mask=grade_mask, mode=grade_mode, metadata=metadata, prompt=prompt_text
             )
             _, pred_rand_raw = dit_runner(m_rand, base_cond, step_idx)
             rand_b = _pred_blocks(pred_rand_raw)
@@ -849,7 +856,7 @@ def cmd_grade(args: argparse.Namespace) -> int:
                     step_arms["vector_s0"] = zero_metrics
                     continue
                 m_vec = _attach_raw_vector(
-                    base_model, metadata["name"], vec, s, mask=grade_mask, metadata=metadata, prompt=prompt_text
+                    base_model, metadata["name"], vec, s, mask=grade_mask, mode=grade_mode, metadata=metadata, prompt=prompt_text
                 )
                 _, pred_vec_raw = dit_runner(m_vec, base_cond, step_idx)
                 vec_b = _pred_blocks(pred_vec_raw)
@@ -863,7 +870,7 @@ def cmd_grade(args: argparse.Namespace) -> int:
                     )
                 if n_vis > 0 or getattr(args, "compare_unmasked", False):
                     m_unmasked = _attach_raw_vector(
-                        base_model, metadata["name"], vec, s, mask="all_rows", metadata=metadata, prompt=prompt_text
+                        base_model, metadata["name"], vec, s, mask="all_rows", mode=grade_mode, metadata=metadata, prompt=prompt_text
                     )
                     _, pred_unm_raw = dit_runner(m_unmasked, base_cond, step_idx)
                     unm_b = _pred_blocks(pred_unm_raw)

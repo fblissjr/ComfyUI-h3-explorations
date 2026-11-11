@@ -6,7 +6,7 @@
 export const studio = {
   init: {},
   methods: {},
-  node: { apply_modes: [], mask_modes: [], defaults: {} },
+  node: { apply_modes: [], mask_modes: [], prompt_fields: [], fields_join: '+', defaults: {} },
   vectors: [],
   tomlFiles: [],
 };
