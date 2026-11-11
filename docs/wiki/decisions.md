@@ -17,6 +17,13 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-11-11
 
+- **A clothing change on a reference shot goes through edit guidance** (the owner, on playback of the 2026-11-11
+  diner arms). `MiniMaxH3EditGuider` toward the subject's line rewritten with the new clothing is the only arm that
+  does what the rewritten prompt does, and it looks good. A control vector on her line changed her clothing only
+  when built from the exact sentence and gave the wrong colour; a general wardrobe vector did not change her. Where
+  a strong vector is used on a subject's line anyway, shorten its window (`end_percent` 0.5 on six steps): on
+  playback that was the only single change that kept the red off her face. The arms are in
+  [`control_vectors/comfyui_nodes_and_controls.md`](control_vectors/comfyui_nodes_and_controls.md).
 - **Environment variables (`$H3_INPUT_DIR` and `$H3_OUTPUT_DIR`, with `$H3_OUTPUT_DIR/Video` for video outputs) in [`AGENTS.md`](../../AGENTS.md)** (owner decision). Added the operative rule to [`AGENTS.md`](../../AGENTS.md) and replaced `<share>`, `"the share's Video/<video>/"`, and bare `Video/` / `input/` paths with `$H3_INPUT_DIR` and `$H3_OUTPUT_DIR/Video` across [`data/AGENTS.md`](../../data/AGENTS.md), [`docs/masked_v2v/AGENTS.md`](../masked_v2v/AGENTS.md), [`contact_sheets/AGENTS.md`](../../contact_sheets/AGENTS.md), and the untracked project `data/*/AGENTS.md` files.
 - **One pair build, called by the node and the CLI** (the 2026-11-11 studio assessment found three copies; the
   Gemini reviewer asked that the fold stay in process, so the CLI still runs with the server down).

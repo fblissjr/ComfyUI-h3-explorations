@@ -106,7 +106,9 @@ each input is for:
       merely under-dosed along the direction that works (`render_diner16_clothed_dose.py` beside the clips holds
       the strengths).
     - **Changing her line in words changed her and nothing else**: the prompt with that sentence rewritten, alone
-      and under `MiniMaxH3EditGuider`, gave the named clothing with her face, hair and the diner kept.
+      and under `MiniMaxH3EditGuider`, gave the named clothing with her face, hair and the diner kept. The owner's
+      reading on playback (2026-11-11): edit guidance is the only arm that does what the rewritten prompt does, and
+      it looks good. For a clothing change on a reference shot, that is the route.
     - What this shows, and what it does not. With a reference picture her clothing comes from the picture unless
       the prompt names it, and the one vector that changed it was the exact difference of a sentence the prompt
       contained. That is not a rule that a vector must be built in the field it is aimed at (the next item
@@ -186,6 +188,8 @@ each input is for:
     - **The vector's `end_percent` removed a face artifact.** With the in-place clothing vector on for every step
       her clothing changed and a red tint appeared at her eyes. On for the first three or four of the six steps,
       the clothing changed the same way and the tint was gone.
+      The owner's reading on playback agrees: of the arms with one input lowered, only the shortened vector
+      window avoids the red on her face.
     - **Releasing the picture was not what allowed the change, and did not allow it where it failed.** On the
       prompt that carries the sentence the vector was built from, the clothing changed with the picture held at the
       defaults, with only the hold or only the weight lowered, and with the picture held two steps at a lower weight
