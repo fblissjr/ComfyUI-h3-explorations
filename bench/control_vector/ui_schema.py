@@ -8,6 +8,8 @@ choices and their defaults: nothing here, in the server or on the page repeats o
 Two things live here that the parser cannot say, and neither is an option or a default:
 
 - `SERVER_SET`: where the studio writes. The page never shows these arguments.
+- `OUTPUT_PATHS`: the arguments that name a file or folder a method writes. The page shows them,
+  and the server takes one only inside the studio's own two folders.
 - `WIDGETS` and `PRIMARY`: how a control is drawn (a text area, a picture drop, a vector picker)
   and which controls sit above "More options". `bench/check_control_vector_studio.py` holds every
   name in them to an argument the parser really has.
@@ -39,6 +41,21 @@ SERVER_SET: dict[str, dict[str, str]] = {
     "words": {"out_dir": "vec_dir"},
     "sculpt": {"out_dir": "vec_dir"},
     "rebuild": {"vec_dir": "vec_dir", "toml_dir": "toml_dir"},
+}
+
+#: `{method: (dest, ...)}`: arguments that name where a method writes. From the page a value is
+#: taken only if it lies inside the studio's vector folder or pair folder (`ui_server.run_method`);
+#: to write anywhere else, use the command line or start the studio with `--vec-dir`/`--toml-dir`.
+#: `bench/check_control_vector_studio.py` fails on a path-shaped argument that is in neither this
+#: table nor `SERVER_SET`.
+OUTPUT_PATHS: dict[str, tuple[str, ...]] = {
+    "from-prompt": ("toml_out",),
+    "build": ("toml_out", "test_prompt_out"),
+    "from-md": ("out", "test_prompt_out"),
+    "make": ("out",),
+    "grade": ("out",),
+    "generate-pairs": ("out_md", "out_toml"),
+    "build-j-lens": ("out",),
 }
 
 #: `{dest: widget}`: how the page draws an argument, wherever a method has it. Presentation only.

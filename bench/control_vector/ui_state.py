@@ -7,6 +7,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import secrets
 import time
 from typing import Any
 
@@ -76,6 +77,8 @@ class ControlVectorUIState:
         self._refiner_cache: dict[Any, Any] = {}
         self._llm_cache: dict[tuple[str, str, bool], Any] = {}
         self.shutdown_requested: bool = False
+        #: Sent to the page in `/api/init` and required back on every POST (`ui_server.request_refusal`).
+        self.session_token: str = secrets.token_urlsafe(24)
 
     def get_tokenizer(self) -> Any:
         if self._tokenizer is None:

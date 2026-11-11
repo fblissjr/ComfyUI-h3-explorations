@@ -28,6 +28,14 @@ Claims, i.e. what breaks if a case is deleted:
                            literal list of a method's modes, masks or poolings
   hints name real things   every name in `ui_schema.WIDGETS`, `PRIMARY` and `SERVER_SET` is an
                            argument the parser has
+  only the page may call   a request under a DNS name the server was not bound to, from another
+                           site's `Origin`, or a POST without JSON and the session token, is
+                           refused (`ui_server.request_refusal`); the page sends the token; a
+                           pair file name that is not a plain stem is refused and writes nothing
+  writes stay inside       a method run from the page with an output path outside the studio's
+                           two folders is refused before its handler runs, for every argument
+                           in `ui_schema.OUTPUT_PATHS`; a path-shaped argument in neither that
+                           table nor `SERVER_SET` goes red
 
 Not covered: a build on the card through the page, and the page in a browser. The words and
 sculpt cases need the J-Lens bundle and two library vectors on disk; without them those cases
@@ -392,6 +400,89 @@ def check_hints_name_real_things() -> None:
             assert not missing, f"{table_name}[{method!r}] names {missing}, which {method} does not have"
 
 
+def check_only_the_page_may_call() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        state = _state(Path(tmp))
+        good = {"Host": "127.0.0.1:8791", "Origin": "http://127.0.0.1:8791", "Content-Type": "application/json",
+                "X-Studio-Token": state.session_token}
+        refuse = ui_server.request_refusal
+        assert refuse(state, "POST", good) is None, refuse(state, "POST", good)
+        assert refuse(state, "GET", {"Host": "localhost:8791"}) is None
+        assert refuse(state, "GET", {"Host": "[::1]:8791"}) is None
+        assert refuse(state, "GET", {"Host": "studio.lan:8791"}, bind_host="studio.lan") is None
+        for label, headers in (
+            ("no token", {k: v for k, v in good.items() if k != "X-Studio-Token"}),
+            ("another session's token", {**good, "X-Studio-Token": "x" * 32}),
+            ("another site's Origin", {**good, "Origin": "http://example.com"}),
+            ("a form post", {**good, "Content-Type": "text/plain"}),
+            ("a DNS name pointed at this machine", {**good, "Host": "rebind.example.com:8791", "Origin": "http://rebind.example.com:8791"}),
+        ):
+            assert refuse(state, "POST", headers), f"a POST with {label} was let through"
+        assert refuse(state, "GET", {"Host": "rebind.example.com:8791"}), "a GET under a foreign DNS name was let through"
+        # The page gets the token from /api/init and sends it back.
+        code, init = _call(state, "GET", "/api/init")
+        assert code == 200 and init["token"] == state.session_token
+        api_js = (WEB_DIR / "api.js").read_text(encoding="utf-8")
+        assert "'X-Studio-Token': studio.init.token" in api_js, "web/api.js does not send the session token"
+        # A pair file name is a plain stem: nothing is written under any other.
+        outside = Path(tmp) / "outside"
+        outside.mkdir()
+        before = sorted(p.name for p in Path(tmp).rglob("*"))
+        for name in ("../outside/x", "/abs", "a/b", "UPPER", "dot.name"):
+            code, res = _call(state, "POST", "/api/save-toml", {"text": "#### Pair 1\n", "args": {"name": name}})
+            assert code == 400 and "must match" in res["error"], f"name {name!r}: {code} {res.get('error')}"
+        assert sorted(p.name for p in Path(tmp).rglob("*")) == before, "a refused name still wrote a file"
+
+
+#: What each method needs beside the output path under test, to get past its parser.
+_MINIMAL: dict[str, dict] = {
+    "from-prompt": {"target_prompt": SCENE, "words": WORDS},
+    "build": {"source": "film_16mm_1974"},
+    "from-md": {"md_path": "pairs.md"},
+    "make": {"pairs": "film_16mm_1974"},
+    "grade": {"vector": "v", "prompt": "p"},
+    "generate-pairs": {"concept": "warm to cold"},
+    "build-j-lens": {},
+}
+
+
+def check_writes_stay_inside() -> None:
+    # Every argument whose name says "a place to write" is classified.
+    shaped = re.compile(r"(^|_)out($|_)|_dir$")
+    for method, dests in _parser_args().items():
+        if method in ui_schema.SKIP_METHODS:
+            continue
+        known = set(ui_schema.SERVER_SET.get(method, {})) | set(ui_schema.OUTPUT_PATHS.get(method, ()))
+        loose = sorted(d for d in dests if shaped.search(d) and d not in known)
+        assert not loose, f"{method}: {loose} look like output paths and are in neither OUTPUT_PATHS nor SERVER_SET"
+    for method, dests in ui_schema.OUTPUT_PATHS.items():
+        missing = sorted(d for d in dests if d not in _parser_args()[method])
+        assert not missing, f"OUTPUT_PATHS[{method!r}] names {missing}, which {method} does not have"
+
+    seen: list[argparse.Namespace] = []
+    real = cli.dispatch
+    cli.dispatch = lambda ns: seen.append(ns) or 0  # type: ignore[assignment]
+    try:
+        with tempfile.TemporaryDirectory() as tmp:
+            state = _state(Path(tmp))
+            elsewhere = Path(tmp) / "elsewhere" / "x.toml"
+            for method, dests in ui_schema.OUTPUT_PATHS.items():
+                for dest in dests:
+                    for bad in (str(elsewhere), str(state.toml_dir / ".." / "elsewhere" / "x.toml"), "relative/x.toml"):
+                        seen.clear()
+                        code, res = _call(state, "POST", "/api/run", {"method": method, "args": {**_MINIMAL[method], dest: bad}})
+                        assert code == 400 and "must be inside" in res["error"], f"{method} {dest}={bad!r}: {code} {res.get('error')}"
+                        assert not seen, f"{method} {dest}={bad!r}: the handler ran"
+                    seen.clear()
+                    inside = str(state.toml_dir / "x.toml")
+                    code, res = _call(state, "POST", "/api/run", {"method": method, "args": {**_MINIMAL[method], dest: inside}})
+                    assert code == 200 and len(seen) == 1 and getattr(seen[0], dest) == inside, f"{method} {dest} inside: {code} {res.get('error')}"
+            code, res = _call(state, "POST", "/api/save-toml", {"text": "#### Pair 1\n", "args": {"name": "x", "out": str(elsewhere)}})
+            assert code == 400 and "must be inside" in res["error"], res
+    finally:
+        cli.dispatch = real  # type: ignore[assignment]
+
+
 def main() -> int:
     cases = (
         ("the schema is the parser: every method and argument, its default and choices", check_schema_is_the_parser),
@@ -402,6 +493,8 @@ def main() -> int:
         ("the page calls every route and only routes; its imports and ids resolve", check_page_calls_the_routes),
         ("the page writes no control and no option list of its own", check_page_writes_no_options),
         ("the presentation hints name arguments the parser has", check_hints_name_real_things),
+        ("only the studio's own page may call the server; a pair file name is a plain stem", check_only_the_page_may_call),
+        ("a method run from the page writes inside the studio's folders or is refused", check_writes_stay_inside),
     )
     failures = []
     print("Control Vector Studio: the page against the CLI")

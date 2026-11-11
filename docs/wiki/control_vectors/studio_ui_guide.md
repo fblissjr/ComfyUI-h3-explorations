@@ -51,6 +51,20 @@ Two things the page decides that the parser does not: which folder the studio wr
 the vector and pair folders given at launch), and how a control is drawn (`WIDGETS`, `PRIMARY`). Neither is an option
 or a default.
 
+## Who may call the server
+
+The run route executes any method, so the server answers only its own page
+(`bench/control_vector/ui_server.py::request_refusal`):
+
+- **A POST needs the session token.** The server makes a token at start, the page reads it from `/api/init` and sends
+  it back in a header. A page on another site cannot read it or send that header.
+- **`Host` and `Origin` must be this server.** A request under a DNS name the server was not started with is refused,
+  which is what stops another site from re-pointing its own name at this machine. To serve under a name, start it with
+  `--host <name>`.
+- **A method run from the page writes only inside the studio's two folders.** An output path elsewhere is refused
+  before the method runs (`bench/control_vector/ui_schema.py::OUTPUT_PATHS`). Use the command line to write elsewhere,
+  or start the studio with `--vec-dir` and `--toml-dir`. Paths a method reads are not restricted.
+
 ## What changed for someone who used the old page
 
 - **Edited pairs go through a pair file.** The old page let pairs be edited in the page and built from memory. Now

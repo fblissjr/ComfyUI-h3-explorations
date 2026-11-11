@@ -48,9 +48,10 @@ export async function apiGet(url) {
 }
 
 export async function apiPost(url, payload) {
+  // The server answers a POST only with the token it gave this page in /api/init.
   return readJson(await fetch(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'X-Studio-Token': studio.init.token || '' },
     body: JSON.stringify(payload || {}),
   }));
 }

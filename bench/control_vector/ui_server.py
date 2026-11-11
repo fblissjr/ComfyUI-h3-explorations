@@ -13,6 +13,15 @@ arguments with the same parser and calls the same helper its method's handler ca
 
 `ROUTES` is the whole list. `bench/check_control_vector_studio.py` calls every one with the card
 masked and holds the page's calls to it.
+
+**Who may call it.** The run route executes any CLI method, with the paths that method takes, so
+the server answers only its own page: `request_refusal` turns away a request whose `Host` is a
+DNS name it was not bound to, whose `Origin` is another site, or whose POST lacks the session
+token the page read from `/api/init`. Without that, any web page open in the same browser could
+post a build or a file write to it. And a method run from the page writes only inside the studio's
+vector and pair folders (`ui_schema.OUTPUT_PATHS`, `_refuse_outside_paths`), whatever path the
+request names. Paths a method reads (a prompt file, a pair file, a picture) are not restricted:
+reading the files the person at the page names is what the methods are for.
 """
 
 from __future__ import annotations
@@ -20,6 +29,7 @@ from __future__ import annotations
 import argparse
 import contextlib
 import io
+import ipaddress
 import json
 from pathlib import Path
 import shlex
@@ -47,7 +57,7 @@ from .llm_pairs import (
     _generate_pairs_from_args,
 )
 from .sculpt import _meter_prompt_tokens, _sculpt_steps_from_args
-from .ui_schema import SERVER_SET, argv_for, method_schema, parse_request
+from .ui_schema import OUTPUT_PATHS, SERVER_SET, argv_for, method_schema, parse_request
 from .ui_state import (
     ControlVectorUIState,
     _discover_ui_clips,
@@ -78,6 +88,50 @@ class RouteError(ValueError):
     """A refusal the page should show as the reason, with HTTP 400."""
 
 
+def _host_name(host_header: str) -> str:
+    host = str(host_header or "").strip()
+    if host.startswith("["):
+        return host[1:].split("]", 1)[0]
+    return host.rsplit(":", 1)[0] if host.count(":") == 1 else host
+
+
+def request_refusal(
+    state: ControlVectorUIState,
+    method: str,
+    headers: Any,
+    *,
+    bind_host: str = "127.0.0.1",
+) -> str | None:
+    """Why this request is not from the studio's own page, or `None` if it is.
+
+    - `Host` must be an address, `localhost`, or the name the server was bound to. A page on
+      another site that re-points its own DNS name at this machine arrives with that name.
+    - `Origin`, when the browser sends one, must be this server.
+    - A POST must be JSON and carry the session token in `X-Studio-Token`. Another site cannot
+      read the token (it is in a response the browser will not show it) and cannot send the
+      header without a preflight this server never answers.
+    """
+    host_header = str(headers.get("Host", "") or "")
+    name = _host_name(host_header).lower()
+    try:
+        ipaddress.ip_address(name)
+        is_address = True
+    except ValueError:
+        is_address = False
+    if not (is_address or name in ("localhost", str(bind_host).lower())):
+        return f"Host {host_header!r} is not this server (start it with --host <name> to serve under a name)"
+    origin = str(headers.get("Origin", "") or "").strip()
+    if origin and origin.lower() not in (f"http://{host_header}".lower(), f"https://{host_header}".lower()):
+        return f"Origin {origin!r} is not this server"
+    if method == "POST":
+        ctype = str(headers.get("Content-Type", "") or "").split(";", 1)[0].strip().lower()
+        if ctype != "application/json":
+            return "a POST must be application/json"
+        if str(headers.get("X-Studio-Token", "") or "") != state.session_token:
+            return "missing or wrong session token; reload the studio's page"
+    return None
+
+
 def _listing(state: ControlVectorUIState) -> dict[str, Any]:
     return {
         "vectors": _list_ui_vectors(state.vec_dir),
@@ -99,6 +153,21 @@ def _request_args(req: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(args, dict):
         raise RouteError("'args' must be an object of {argument: value}")
     return args
+
+
+def _refuse_outside_paths(state: ControlVectorUIState, method: str, ns: argparse.Namespace) -> None:
+    """A method run from the page writes inside the studio's two folders, or not at all."""
+    roots = [state.vec_dir.resolve(), state.toml_dir.resolve()]
+    for dest in OUTPUT_PATHS.get(method, ()):
+        raw = getattr(ns, dest, None)
+        if not raw or not str(raw).strip():
+            continue
+        target = Path(str(raw)).expanduser().resolve()
+        if not any(target == root or root in target.parents for root in roots):
+            raise RouteError(
+                f"{method}: {dest} must be inside the studio's vector folder ({roots[0]}) or pair folder "
+                f"({roots[1]}); got {str(raw)!r}. Use the command line to write elsewhere."
+            )
 
 
 def _apply_server_set(state: ControlVectorUIState, method: str, ns: argparse.Namespace) -> None:
@@ -124,6 +193,7 @@ def run_method(state: ControlVectorUIState, method: str, values: dict[str, Any])
     """Parse `values` as `method`'s command line and run the CLI's handler for it."""
     ns = parse_request(method, values)
     command = _command_line(method, values)
+    _refuse_outside_paths(state, method, ns)
     _apply_server_set(state, method, ns)
     rows_out: list[dict[str, Any]] = []
     ns._summary_rows_out = rows_out
@@ -155,6 +225,7 @@ def run_method(state: ControlVectorUIState, method: str, values: dict[str, Any])
 def _r_init(state: ControlVectorUIState, req: dict[str, Any]) -> dict[str, Any]:
     return {
         "ok": True,
+        "token": state.session_token,
         "toml_dir": _display_path(state.toml_dir),
         "vec_dir": _display_path(state.vec_dir),
         "system_prompt": _extract_system_prompt_text(),
@@ -253,10 +324,15 @@ def _r_save_toml(state: ControlVectorUIState, req: dict[str, Any]) -> dict[str, 
     name = str(values.get("name", "") or "").strip()
     if not name:
         raise RouteError("a name is required to save a pair file")
+    if not cv.NAME_RE.match(name):
+        # The name becomes a file name here and in from-md; nothing but a plain stem is taken.
+        raise RouteError(f"the name must match [a-z0-9_]+, got {name!r}")
     if "md_path" in values:
         raise RouteError("from-md here reads the editor's text; 'md_path' cannot be sent")
     with tempfile.TemporaryDirectory(prefix="h3_cv_studio_") as tmp:
-        md_path = Path(tmp) / f"{name}.md"
+        md_path = (Path(tmp) / f"{name}.md").resolve()
+        if md_path.parent != Path(tmp).resolve():
+            raise RouteError(f"the name {name!r} does not stay inside the working folder")
         md_path.write_text(text, encoding="utf-8")
         res = run_method(state, "from-md", {**values, "md_path": str(md_path)})
     out_arg = str(values.get("out", "") or "").strip()
@@ -466,7 +542,11 @@ def cmd_ui(args: argparse.Namespace) -> int:
         def _dispatch(self, method: str) -> None:
             length = int(self.headers.get("Content-Length", "0") or "0")
             body = self.rfile.read(length) if length > 0 else b""
-            code, ctype, payload = handle_ui_request(state, method, self.path, body)
+            refusal = request_refusal(state, method, self.headers, bind_host=str(args.host))
+            if refusal:
+                code, ctype, payload = 403, "application/json", json.dumps({"ok": False, "error": refusal})
+            else:
+                code, ctype, payload = handle_ui_request(state, method, self.path, body)
             raw_bytes = payload.encode("utf-8")
             self.send_response(code)
             self.send_header("Content-Type", ctype)
