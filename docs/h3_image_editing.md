@@ -114,7 +114,9 @@ of its conditioning, because no H3 conditioning node could hand the sampler one 
 **The two graphs that ship from it.** `h3_pika_image_t2i_api.json` and `h3_pika_image_edit_api.json`, the plain
 Pika stills. Each has a twin with a control vector node, `h3_pika_image_t2i_control_vector_api.json` and
 `h3_pika_image_edit_control_vector_api.json`; both rendered as shipped beside the plain graphs
-(`sheet_vector_twins_as_shipped` in the trial folder). `MiniMaxH3Conditioning` and `MiniMaxH3ReferenceConditioning` take a `single_frame` input: on, the node
+(`sheet_vector_twins_as_shipped` in the trial folder). The phone studio drives both, and the guide twin, with the vector's
+mask, mode, step window and typed words set on its tab; four such renders went through its own API the same day
+(`sheet_through_the_studio_vector_controls`). `MiniMaxH3Conditioning` and `MiniMaxH3ReferenceConditioning` take a `single_frame` input: on, the node
 hands the sampler one frame and `length` is not used, so `MiniMaxH3Resolution` stays on the video grid and nothing
 in core is patched. It is text to image on the first node (a keyframe is refused with it) and still references only
 on the second. The prompts are `prompt_bank/pika_image/t2i_clockmaker.txt`, the three fields of
@@ -167,15 +169,21 @@ What was seen, for the owner's eye to judge:
   server's restart, same graphs and seed (`sheet_release_before_and_after_the_fix`): the stray objects and streaks
   are gone, the held still came out pixel for pixel as before, and the node logs the rows it released. With the
   release clean, letting the picture go for the second half of the schedule left this picture close to the held
-  one, with the vector and without it. An earlier release was not tried, and the weight stills were not rendered
-  again, since the commit does not touch that input.
+  one, with the vector and without it. Then the hold was swept (`sheet_release_sweep_how_many_steps_the_picture_is_held`):
+  the picture held for none, one, two, three or all of the steps, with no vector and with `claymation_stopmotion`,
+  `balloon_head_inflate` and `sunken_coral_reef`. Every still came out clean, the one that never held the picture
+  included, and the person stayed recognizable in all of them: the picture's vision rows in the text carry her, the
+  held copy carries fine texture (the hair's frizz went smooth once it was let go). An earlier release changed the
+  hair and the jacket's cut a little; it did not make the reef or the swollen head appear at these strengths.
   - Before the commit: released for the second half of the schedule, stray colored objects and streaks appeared,
     with the vector and without it. Released for the last step or the last two, the picture stayed about as it is held.
   - Weight lowered to 0.30, the source's long hair and black top came back, with the vector and without it; at 0 the
     picture was a third variant. Core mixes the rows with noise at this weight on every step and labels them with
     the larger of the weight and the stream's time (`comfy/ldm/minimax/model.py`, `_cond_video_rows` and `seg_t` in
-    `_forward`), so on the later steps of a low weight the rows are noisier than their label says. Read, not run;
-    `85aba935` changes the release and leaves this input as it was.
+    `_forward`), so on the later steps of a low weight the rows are noisier than their label says. Read, not run.
+    `dd054d6b` then changed the input: the node sends core the larger of the weight and the stream's time, so the
+    rows' noise matches their label on every step (`control_vector_nodes.py::_stream_time`, held by a case in
+    `bench/check_control_vectors.py`). No still has been rendered on that commit; these are its same-seed before.
 - **On the guide edit graphs** (`h3_probe_pika_image_guide_edit*`), where the guide is the only copy of the picture:
   `ref_vae_aug` at 0.30 lost the edit and the person. A section mask is refused there, because those graphs use
   core's conditioning node and the section masks need the map our H3 conditioning nodes attach. With no reference
