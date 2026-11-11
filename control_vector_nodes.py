@@ -21,6 +21,7 @@ Nothing here patches ComfyUI core.
 
 from __future__ import annotations
 
+import copy
 import dataclasses
 import hashlib
 import importlib
@@ -1222,6 +1223,118 @@ def _effective_entry_mode(sp: _AppliedVectorSpec) -> str:
     return sp.mode
 
 
+def _has_visual_cond(payload: Mapping[str, Any]) -> bool:
+    if payload.get("cond_video_latents"):
+        return True
+    for r in payload.get("refs") or ():
+        if isinstance(r, Mapping) and (
+            "latent" in r
+            or r.get("kind") in ("image", "video", "video_audio")
+            or r.get("type") == "image"
+        ):
+            return True
+    for kf in payload.get("keyframes") or ():
+        if isinstance(kf, Mapping) and kf.get("latent") is not None:
+            return True
+    return False
+
+
+def _strip_visual_cond_entries(
+    keyframes: Any, refs: Any
+) -> tuple[list[dict[str, Any]] | None, list[dict[str, Any]] | None]:
+    kept_kf: list[dict[str, Any]] = []
+    for kf in keyframes or ():
+        if isinstance(kf, Mapping) and kf.get("audio_latent") is not None:
+            kept_kf.append({k: v for k, v in kf.items() if k != "latent"})
+
+    kept_refs: list[dict[str, Any]] = []
+    for blk in refs or ():
+        if not isinstance(blk, Mapping):
+            continue
+        kind = blk.get("kind")
+        if kind == "audio":
+            kept_refs.append(dict(blk))
+        elif (
+            kind == "video_audio"
+            and int(blk.get("ref_audio_t", 0) or 0) > 0
+            and blk.get("audio_latent") is not None
+        ):
+            audio_only = {
+                k: v
+                for k, v in blk.items()
+                if k not in ("latent", "latent_t", "latent_h", "latent_w")
+            }
+            audio_only["kind"] = "audio"
+            kept_refs.append(audio_only)
+
+    return (kept_kf or None), (kept_refs or None)
+
+
+def _drop_visual_cond_from_layout(orig_layout: Any) -> tuple[Any, int]:
+    """Slice `'cond'` and `'ref_img'` segments out of a `PackedLayout` while preserving
+    every surviving token's 3D RoPE `position_ids` (including `_ref_t_span` cursor shifts
+    and `EditGuider.align_positions` offsets) and `layout.signature`."""
+    if not (
+        hasattr(orig_layout, "segments")
+        and hasattr(orig_layout, "position_ids")
+        and hasattr(orig_layout, "signature")
+    ):
+        return orig_layout, 0
+
+    dropped_rows = sum(
+        int(b) - int(a)
+        for a, b, kind in orig_layout.segments
+        if kind in ("cond", "ref_img")
+    )
+    if dropped_rows == 0:
+        return orig_layout, 0
+
+    kept_pos: list[torch.Tensor] = []
+    new_segments: list[tuple[int, int, str]] = []
+    new_img_pos: list[torch.Tensor] = []
+    new_img_update: list[torch.Tensor] = []
+    new_audio_pos: list[torch.Tensor] = []
+    new_audio_update: list[torch.Tensor] = []
+    off = 0
+    for a, b, kind in orig_layout.segments:
+        if kind in ("cond", "ref_img"):
+            continue
+        n = int(b) - int(a)
+        kept_pos.append(orig_layout.position_ids[int(a) : int(b)])
+        new_segments.append((off, off + n, str(kind)))
+        if kind == "video":
+            new_img_pos.append(torch.arange(off, off + n))
+            new_img_update.append(torch.ones(n, dtype=torch.bool))
+        elif kind in ("cond_audio", "ref_audio"):
+            new_audio_pos.append(torch.arange(off, off + n))
+            new_audio_update.append(torch.zeros(n, dtype=torch.bool))
+        elif kind == "audio":
+            new_audio_pos.append(torch.arange(off, off + n))
+            new_audio_update.append(torch.ones(n, dtype=torch.bool))
+        off += n
+
+    released = copy.copy(orig_layout)
+    released.seq_len = off
+    released.position_ids = torch.cat(kept_pos, dim=0)
+    released.img_pos = (
+        torch.cat(new_img_pos) if new_img_pos else torch.empty(0, dtype=torch.long)
+    )
+    released.img_update = (
+        torch.cat(new_img_update) if new_img_update else torch.empty(0, dtype=torch.bool)
+    )
+    released.audio_pos = (
+        torch.cat(new_audio_pos) if new_audio_pos else torch.empty(0, dtype=torch.long)
+    )
+    released.audio_update = (
+        torch.cat(new_audio_update)
+        if new_audio_update
+        else torch.empty(0, dtype=torch.bool)
+    )
+    released.signature = orig_layout.signature
+    released.segments = new_segments
+    return released, dropped_rows
+
+
 def _make_control_vector_wrapper(specs: tuple[_AppliedVectorSpec, ...]):
     logged_prefix_notes: set[tuple[str, str]] = set()
     logged_interactions: set[tuple[tuple[str, float, str], ...]] = set()
@@ -1230,6 +1343,11 @@ def _make_control_vector_wrapper(specs: tuple[_AppliedVectorSpec, ...]):
     logged_steered_rows: set[tuple[int, str, int, int, str]] = set()
     resolved_prompt_vectors: dict[tuple[str, str], torch.Tensor] = {}
     last_resolved_by_spec: dict[str, torch.Tensor] = {}
+    # Keyed by id(orig_layout) with a strong ref to orig_layout in the value so
+    # released PackedLayouts are built once per run (~0 us overhead on later steps).
+    released_layout_cache: dict[
+        int, tuple[Any, Any, int, list[dict[str, Any]] | None, list[dict[str, Any]] | None]
+    ] = {}
 
     def wrapper(executor, x, timestep, context, transformer_options={}, **kwargs):
         if context is None or not specs:
@@ -1242,26 +1360,82 @@ def _make_control_vector_wrapper(specs: tuple[_AppliedVectorSpec, ...]):
         ]
         min_ref_end = min((sp.ref_vae_end_percent for sp in ref_specs), default=1.0)
         min_ref_aug = min((sp.ref_vae_aug for sp in ref_specs), default=0.999)
-        if (min_ref_end < 1.0 or min_ref_aug < 0.999) and (
-            payload.get("cond_video_latents") or payload.get("refs")
-        ):
+        if (min_ref_end < 1.0 or min_ref_aug < 0.999) and _has_visual_cond(payload):
             ref_active = _step_in_window(transformer_options, timestep, 0.0, min_ref_end)
             new_payload = dict(payload)
             if not ref_active:
-                # Gate clean 3D Video VAE reference latents while keeping payload['refs']
-                # and payload['layout'] untouched so PackedLayout.seq_len and the 3D RoPE
-                # temporal coordinate origin cursor = float(text_len) + sum(_ref_t_span(blk))
-                # stay 100% invariant across all sampling steps (comfy/ldm/minimax/model.py:371-458).
-                new_payload["visual_cond_noise_aug"] = 0.0
-                if new_payload.get("cond_video_latents"):
-                    new_payload["cond_video_latents"] = [
-                        torch.zeros_like(z) for z in new_payload["cond_video_latents"]
-                    ]
+                orig_layout = payload.get("layout")
+                target_sig: tuple[int, int, int, int, int] | None = None
+                if (
+                    isinstance(x, (list, tuple))
+                    and len(x) >= 2
+                    and torch.is_tensor(x[0])
+                    and x[0].ndim == 5
+                    and torch.is_tensor(x[1])
+                    and x[1].ndim >= 1
+                ):
+                    target_sig = (
+                        int(context.shape[1]),
+                        int(x[0].shape[2]),
+                        (int(x[0].shape[3]) + 1) // 2 * 2,
+                        (int(x[0].shape[4]) + 1) // 2 * 2,
+                        int(x[1].shape[-1]),
+                    )
+                if target_sig is not None and (
+                    orig_layout is None
+                    or getattr(orig_layout, "signature", None) != target_sig
+                ):
+                    from comfy.ldm.minimax.model import PackedLayout
+
+                    orig_layout = PackedLayout(
+                        *target_sig,
+                        keyframes=payload.get("keyframes"),
+                        refs=payload.get("refs"),
+                    )
+
+                cache_entry = (
+                    released_layout_cache.get(id(orig_layout))
+                    if orig_layout is not None
+                    else None
+                )
+                if cache_entry is not None and cache_entry[0] is orig_layout:
+                    _, released_layout, dropped_rows, kept_kf, kept_refs = cache_entry
+                else:
+                    released_layout, dropped_rows = _drop_visual_cond_from_layout(orig_layout)
+                    kept_kf, kept_refs = _strip_visual_cond_entries(
+                        payload.get("keyframes"), payload.get("refs")
+                    )
+                    if orig_layout is not None and len(released_layout_cache) < 32:
+                        released_layout_cache[id(orig_layout)] = (
+                            orig_layout,
+                            released_layout,
+                            dropped_rows,
+                            kept_kf,
+                            kept_refs,
+                        )
+
+                new_payload["cond_video_latents"] = []
+                if kept_kf is not None:
+                    new_payload["keyframes"] = kept_kf
+                else:
+                    new_payload.pop("keyframes", None)
+                if kept_refs is not None:
+                    new_payload["refs"] = kept_refs
+                else:
+                    new_payload.pop("refs", None)
+                if orig_layout is not None:
+                    new_payload["layout"] = released_layout
+
                 if "ref_gated" not in logged_ref_notes:
                     logged_ref_notes.add("ref_gated")
+                    orig_seq = getattr(orig_layout, "seq_len", None)
+                    rel_seq = getattr(released_layout, "seq_len", None)
                     logger.info(
-                        "[h3] control vector ref_vae_end_percent=%.2f: gated cond_video_latents (visual_cond_noise_aug=0.0, PackedLayout RoPE cursor preserved)",
+                        "[h3] control vector ref_vae_end_percent=%.2f: released %d visual cond rows (PackedLayout seq_len %s -> %s, 3D RoPE positions preserved)",
                         min_ref_end,
+                        dropped_rows,
+                        orig_seq,
+                        rel_seq,
                     )
             elif min_ref_aug < 0.999:
                 new_payload["visual_cond_noise_aug"] = float(min_ref_aug)
@@ -1515,25 +1689,18 @@ def _make_control_vector_wrapper(specs: tuple[_AppliedVectorSpec, ...]):
                         row_key = (i, sp.mask, L, int(has_vision), str(edit_pass or ""))
                         if row_key not in logged_steered_rows:
                             logged_steered_rows.add(row_key)
-                            base_rm = (
-                                (tags[0] != 0)
-                                if mask_vision
-                                else torch.ones((L,), dtype=torch.bool, device=tags.device)
-                            )
-                            eff_rm = (
-                                base_rm
-                                if custom_mask is None
-                                else (
-                                    (custom_mask[0] if custom_mask.ndim == 2 else custom_mask).to(
-                                        device=tags.device, dtype=torch.bool
-                                    )
-                                    & base_rm
-                                )
+                            eff_rm = _cv.resolve_post_refiner_row_mask(
+                                tags,
+                                batch_size=cur_ctx.shape[0],
+                                seq_len=L,
+                                device=cur_ctx.device,
+                                mask=custom_mask,
+                                mask_vision=mask_vision,
                             )
                             logger.info(
                                 "[h3] control vector (%s) steered %d/%d context rows (mask=%s%s)",
                                 ",".join(gsp.vector_name for gsp in group_specs),
-                                int(eff_rm.sum().item()),
+                                int(eff_rm[0].sum().item()),
                                 L,
                                 sp.mask,
                                 f", {edit_pass} pass" if edit_pass in ("original", "edited") else "",
@@ -2786,10 +2953,10 @@ class MiniMaxH3ApplyControlVectors(io.ComfyNode):
                     step=0.01,
                     optional=True,
                     tooltip=(
-                        "For ref2va renders: fraction of steps [0.0, ref_vae_end_percent) where "
-                        "clean 3D Video VAE reference latents stay active (default 1.00 keeps "
-                        "cond_video_latents pinned at ref_vae_aug=0.999 across all steps so "
-                        "frames 0 and 1 never inherit late-step noise from seg_t['ref_img'] = max(t_v, vis_aug))."
+                        "For ref2va / keyframe / guide-latent renders: fraction of steps [0.0, ref_vae_end_percent) "
+                        "where clean 3D Video VAE conditioning rows ('ref_img' / 'cond') stay packed in the DiT "
+                        "sequence (default 1.00 keeps them active on every step; lower values drop visual cond rows "
+                        "on later steps while preserving 3D RoPE positions and any speaker/audio references)."
                     ),
                 ),
                 io.Float.Input(

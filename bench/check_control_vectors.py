@@ -4077,7 +4077,7 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
         ):
             errs.append(f"ref_vae_end_percent at step 0 (inside window) did not preserve cond_video_latents or set ref_vae_aug: {dm_av.payloads_seen[0]}")
 
-        # Step 2 (pct = 0.5 >= 0.5): outside split_end_percent and outside ref_vae_end_percent -> 1 call, cond_video_latents zeroed, refs/layout untouched
+        # Step 2 (pct = 0.5 >= 0.5): outside split_end_percent and outside ref_vae_end_percent -> 1 call, visual cond latents/refs dropped, aug untouched
         dm_av.contexts_seen.clear()
         dm_av.payloads_seen.clear()
         out_step2 = p_split.invoke_diffusion_model(
@@ -4090,14 +4090,133 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
         if len(dm_av.contexts_seen) != 1:
             errs.append(f"outside split_end_percent at step 2 expected 1 DiT call, got {len(dm_av.contexts_seen)}")
         if (
-            float(dm_av.payloads_seen[0]["visual_cond_noise_aug"]) != 0.0
-            or float(dm_av.payloads_seen[0]["cond_video_latents"][0].abs().sum().item()) != 0.0
-            or dm_av.payloads_seen[0]["refs"] is not sentinel_refs
+            float(dm_av.payloads_seen[0]["visual_cond_noise_aug"]) != 0.999
+            or dm_av.payloads_seen[0]["cond_video_latents"] != []
+            or "refs" in dm_av.payloads_seen[0]
             or dm_av.payloads_seen[0]["layout"] is not sentinel_layout
         ):
-            errs.append(f"ref_vae_end_percent at step 2 (outside window) did not zero cond_video_latents while preserving refs/layout: {dm_av.payloads_seen[0]}")
-        if float(caller_payload["cond_video_latents"][0].abs().sum().item()) == 0.0 or caller_payload["visual_cond_noise_aug"] != 0.999:
+            errs.append(f"ref_vae_end_percent at step 2 (outside window) did not drop visual cond latents/refs cleanly: {dm_av.payloads_seen[0]}")
+        if (
+            float(caller_payload["cond_video_latents"][0].abs().sum().item()) == 0.0
+            or caller_payload["visual_cond_noise_aug"] != 0.999
+            or caller_payload.get("refs") is not sentinel_refs
+        ):
             errs.append("ref_vae_end_percent mutated caller's minimax_payload dict in place")
+
+        # Real MiniMaxH3Model + PackedLayout equivalence & RoPE-preservation check:
+        # Option A (dropping 'ref_img'/'cond' rows while preserving surviving 3D RoPE position_ids)
+        # must match Option B (full packed sequence with -inf attention mask on 'ref_img'/'cond' K/V columns)
+        # to fp32 precision, preserve audio/speaker refs ('ref_audio'/'cond_audio') and EditGuider offsets,
+        # and publish a layout whose seq_len matches tokens for MiniMaxH3Sol.
+        with torch.no_grad():
+            from comfy.ldm.minimax.model import MiniMaxH3Model, PackedLayout
+            import comfy.ops
+            import torch.nn.functional as F
+
+            h3_layout_mod = cv_nodes._repo("h3_layout")
+            sol_attn_mod = cv_nodes._repo("sol_attn_h3")
+            mini_dit = MiniMaxH3Model(
+                hidden_size=256,
+                num_layers=2,
+                token_refiner_num_layers=1,
+                num_attention_heads=2,
+                attention_head_dim=128,
+                ffn_hidden_size=512,
+                latents_dim=8,
+                audio_latents_dim=8,
+                text_dim=128,
+                timestep_input_dim=64,
+                time_embed_hidden_size=128,
+                time_embed_dim=128,
+                dtype=torch.float32,
+                device="cpu",
+                operations=comfy.ops.manual_cast,
+            ).requires_grad_(False)
+            mini_dit.rope.inv_freq.copy_(torch.exp(-torch.arange(16, dtype=torch.float32) * 0.2))
+            for p_param in mini_dit.parameters():
+                p_param.copy_(torch.randn(p_param.shape, generator=gen, dtype=p_param.dtype) * 0.05)
+
+            mini_x = [
+                torch.randn((1, 8, 2, 4, 4), generator=gen, dtype=torch.float32),
+                torch.randn((1, 8, 2, 3), generator=gen, dtype=torch.float32),
+            ]
+            mini_ctx = torch.randn((1, 6, 256), generator=gen, dtype=torch.float32)
+            mini_tags = torch.tensor([[0, 0, 1, 1, 1, 1]], dtype=torch.long)
+            mini_ref_img = torch.randn((1, 8, 1, 4, 4), generator=gen, dtype=torch.float32)
+            mini_ref_aud = torch.randn((1, 8, 2, 2), generator=gen, dtype=torch.float32)
+            mini_refs = [
+                {"kind": "image", "latent_h": 4, "latent_w": 4, "latent": mini_ref_img},
+                {"kind": "audio", "ref_audio_t": 2, "audio_latent": mini_ref_aud},
+            ]
+            mini_layout = PackedLayout(6, 2, 4, 4, 3, refs=mini_refs)
+            # Simulate EditGuider.align_positions shift (+3.0 on non-text rows) to ensure wrapper preserves it
+            mini_layout.position_ids = mini_layout.position_ids.clone()
+            mini_layout.position_ids[6:, 0] += 3.0
+            mini_payload = {
+                "cond_video_latents": [mini_ref_img],
+                "cond_audio_latents": [mini_ref_aud],
+                "refs": mini_refs,
+                "layout": mini_layout,
+                "text_token_tags": mini_tags,
+            }
+
+            ref_img_a, ref_img_b, _ = next(s for s in mini_layout.segments if s[2] == "ref_img")
+            mini_mask = torch.zeros((1, 1, mini_layout.seq_len, mini_layout.seq_len), dtype=torch.float32)
+            mini_mask[:, :, :, ref_img_a:ref_img_b] = float("-inf")
+
+            def _masked_opt_attn(func, q, k, v, heads, mask=None, attn_precision=None, skip_reshape=False, skip_output_reshape=False, **kw):
+                qt, kt, vt = q.take(), k.take(), v.take()
+                out_m = F.scaled_dot_product_attention(qt, kt, vt, attn_mask=mini_mask)
+                return out_m if skip_output_reshape else out_m.transpose(1, 2).reshape(qt.shape[0], -1, heads * qt.shape[-1])
+
+            _masked_opt_attn.container_function = lambda q, k, v, heads, **kw: _masked_opt_attn(None, q, k, v, heads, **kw)
+            out_opt_b = mini_dit._forward(
+                mini_x,
+                torch.tensor([250.0]),
+                mini_ctx,
+                {"optimized_attention_override": _masked_opt_attn},
+                minimax_payload=dict(mini_payload),
+            )
+
+            mini_spec = cv_nodes._AppliedVectorSpec(
+                vector_name="none",
+                vector=torch.zeros(256),
+                strength=0.0,
+                mode="add",
+                mask="scene_only",
+                start_percent=0.0,
+                end_percent=1.0,
+                metadata={},
+                advisories=(),
+                ref_vae_end_percent=0.5,
+            )
+            mini_wrap = cv_nodes._make_control_vector_wrapper((mini_spec,))
+            mini_topts: dict[str, Any] = {
+                "sample_sigmas": sched_sigmas,
+                "sigmas": sched_sigmas[2:3],
+            }
+            out_opt_a = mini_wrap(
+                mini_dit._forward,
+                mini_x,
+                torch.tensor([250.0]),
+                mini_ctx,
+                mini_topts,
+                minimax_payload=mini_payload,
+            )
+            rel_layout = mini_topts.get("minimax_h3_layout")
+            v_err = float((out_opt_a[0] - out_opt_b[0]).abs().max().item())
+            a_err = float((out_opt_a[1] - out_opt_b[1]).abs().max().item())
+            if v_err > 1e-5 or a_err > 1e-5:
+                errs.append(
+                    f"Option A (released PackedLayout row drop) diverged from Option B (dense -inf mask): video_err={v_err:.3e}, audio_err={a_err:.3e}"
+                )
+            if rel_layout is None or [s[2] for s in rel_layout.segments] != ["text", "ref_audio", "audio", "video"]:
+                errs.append(f"released PackedLayout failed to drop ref_img while preserving ref_audio: {getattr(rel_layout, 'segments', None)}")
+            else:
+                sol_segs = h3_layout_mod.segments(mini_topts, rel_layout.seq_len)
+                sink_kv, _, _ = sol_attn_mod.row_plan(sol_segs, rel_layout.seq_len, "exact_kv", None)
+                if sol_segs is None or sink_kv == (0, 0):
+                    errs.append(f"released PackedLayout did not satisfy h3_layout / MiniMaxH3Sol row_plan: segs={sol_segs}, sink={sink_kv}")
         if cv_nodes._rules.CONTROL_VECTOR_OPTIONAL_DEFAULTS["ref_vae_end_percent"] != 1.0:
             errs.append(
                 f"CONTROL_VECTOR_OPTIONAL_DEFAULTS['ref_vae_end_percent'] must be 1.0, got {cv_nodes._rules.CONTROL_VECTOR_OPTIONAL_DEFAULTS['ref_vae_end_percent']}"

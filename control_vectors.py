@@ -2504,6 +2504,47 @@ def vector_interactions(
     }
 
 
+def resolve_post_refiner_row_mask(
+    tags: torch.Tensor,
+    *,
+    batch_size: int,
+    seq_len: int,
+    device: torch.device,
+    mask: torch.Tensor | None = None,
+    mask_vision: bool = True,
+) -> torch.Tensor:
+    """Return the `[B, L]` boolean row mask of context tokens steered by `apply_post_refiner`."""
+    if tags.ndim == 1:
+        tag_2d = tags.unsqueeze(0).expand(batch_size, -1)
+    elif tags.ndim == 2:
+        tag_2d = tags
+    else:
+        raise ValueError(f"tags must be 1D [L] or 2D [B, L], got shape {tuple(tags.shape)}")
+    if tag_2d.shape != (batch_size, seq_len):
+        raise ValueError(
+            f"tags shape {tuple(tag_2d.shape)} does not match context batch/length {(batch_size, seq_len)}"
+        )
+
+    base_mask = (
+        (tag_2d != 0).to(device=device)
+        if mask_vision
+        else torch.ones((batch_size, seq_len), dtype=torch.bool, device=device)
+    )
+    if mask is None:
+        return base_mask
+    if mask.ndim == 1:
+        row_mask = mask.to(device=device, dtype=torch.bool).unsqueeze(0).expand(batch_size, -1)
+    elif mask.ndim == 2:
+        row_mask = mask.to(device=device, dtype=torch.bool)
+    else:
+        raise ValueError(f"mask must be 1D [L] or 2D [B, L], got shape {tuple(mask.shape)}")
+    if row_mask.shape != (batch_size, seq_len):
+        raise ValueError(
+            f"mask shape {tuple(row_mask.shape)} does not match context batch/length {(batch_size, seq_len)}"
+        )
+    return row_mask & base_mask
+
+
 def apply_post_refiner(
     context: torch.Tensor,
     tags: torch.Tensor,
@@ -2552,37 +2593,14 @@ def apply_post_refiner(
             f"context must have shape [B, L, {POST_REFINER_DIM}], got {tuple(context.shape)}"
         )
     B, L, D = context.shape
-
-    if tags.ndim == 1:
-        tag_2d = tags.unsqueeze(0).expand(B, -1)
-    elif tags.ndim == 2:
-        tag_2d = tags
-    else:
-        raise ValueError(f"tags must be 1D [L] or 2D [B, L], got shape {tuple(tags.shape)}")
-    if tag_2d.shape != (B, L):
-        raise ValueError(
-            f"tags shape {tuple(tag_2d.shape)} does not match context batch/length {(B, L)}"
-        )
-
-    base_mask = (
-        (tag_2d != 0).to(device=context.device)
-        if mask_vision
-        else torch.ones((B, L), dtype=torch.bool, device=context.device)
+    row_mask = resolve_post_refiner_row_mask(
+        tags,
+        batch_size=B,
+        seq_len=L,
+        device=context.device,
+        mask=mask,
+        mask_vision=mask_vision,
     )
-    if mask is None:
-        row_mask = base_mask
-    else:
-        if mask.ndim == 1:
-            row_mask = mask.to(device=context.device, dtype=torch.bool).unsqueeze(0).expand(B, -1)
-        elif mask.ndim == 2:
-            row_mask = mask.to(device=context.device, dtype=torch.bool)
-        else:
-            raise ValueError(f"mask must be 1D [L] or 2D [B, L], got shape {tuple(mask.shape)}")
-        if row_mask.shape != (B, L):
-            raise ValueError(
-                f"mask shape {tuple(row_mask.shape)} does not match context batch/length {(B, L)}"
-            )
-        row_mask = row_mask & base_mask
 
     active: list[tuple[torch.Tensor, float, str]] = []
     for entry in vectors:
