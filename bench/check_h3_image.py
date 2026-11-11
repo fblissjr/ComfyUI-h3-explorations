@@ -331,6 +331,8 @@ def heylook_expander() -> None:
                 self._json(200, {
                     "presets": [{
                         "id": "crisp",
+                        "name": "crisp_preset",
+                        "system_prompt": "PRESET SYSTEM PROMPT",
                         "params": {"temperature": 0.8, "enable_thinking": True, "reasoning_effort": "unoffered"},
                     }],
                 })
@@ -442,9 +444,26 @@ def heylook_expander() -> None:
             and "model=text-chat-resident" in t2i_out[3]
             and "tps=200.0" in t2i_out[3]
             and len(ids) == 2 and ids[0] != ids[1]
+            and last_body.get("system") != "PRESET SYSTEM PROMPT"
             and "reasoning_effort" not in last_body
             and "max_tokens" not in last_body,
             "heylook T2I picks resident chat model, retries 503 with fresh X-Request-ID and separates thinking",
+        )
+
+        # mode='custom' with blank custom_system_prompt inherits the preset's system_prompt (matched by name or id).
+        MiniMaxH3ImagePromptExpander.execute(
+            prompt="Overhead rustic farm table feast.",
+            enabled=True,
+            base_url=base,
+            mode="custom",
+            custom_system_prompt="",
+            preset="crisp_preset",
+        )
+        preset_sys_body = state["bodies"][-1]
+        report(
+            preset_sys_body.get("system") == "PRESET SYSTEM PROMPT"
+            and preset_sys_body.get("temperature") == 0.8,
+            "mode='custom' with blank custom_system_prompt forwards the heylook preset's system_prompt",
         )
 
         # Edit with 2 reference pictures: requires 'vision' capability (selects vlm-chat-local)

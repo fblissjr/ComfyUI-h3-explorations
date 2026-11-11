@@ -298,6 +298,7 @@ def resolve_expander_system_prompt(
     *,
     has_images: bool,
     custom_system_prompt: str = "",
+    has_preset: bool = False,
 ) -> tuple[str, str]:
     """Return `(resolved_mode, system_prompt_text)` for `MiniMaxH3ImagePromptExpander`."""
     if mode not in EXPANDER_MODES:
@@ -305,8 +306,10 @@ def resolve_expander_system_prompt(
     effective = ("edit + aspect_ratio" if has_images else "t2i + aspect_ratio") if mode == "auto" else mode
     if effective == "custom":
         sys_text = (custom_system_prompt or "").strip()
-        if not sys_text:
-            raise ValueError("mode is 'custom', but custom_system_prompt is empty")
+        if not sys_text and not has_preset:
+            raise ValueError(
+                "mode is 'custom', but custom_system_prompt is empty (and no heylook preset is set)"
+            )
         return effective, sys_text
     if effective.startswith("edit") and not has_images:
         raise ValueError(
@@ -849,7 +852,8 @@ class MiniMaxH3ImagePromptExpander(io.ComfyNode):
                     advanced=True,
                     tooltip=(
                         "Optional preset id or name from GET /v1/presets on the heylook server "
-                        "(for custom temperature, max_tokens, thinking budget, or reasoning_effort)."
+                        "(applies sampler/thinking params; when mode is 'custom' and "
+                        "custom_system_prompt is blank, also uses the preset's system_prompt)."
                     ),
                 ),
                 io.String.Input(
@@ -857,7 +861,10 @@ class MiniMaxH3ImagePromptExpander(io.ComfyNode):
                     multiline=True,
                     default="",
                     advanced=True,
-                    tooltip="System prompt used when mode is 'custom'.",
+                    tooltip=(
+                        "System prompt used when mode is 'custom' (leave blank with 'preset' set "
+                        "to use the preset's own system_prompt)."
+                    ),
                 ),
                 io.Autogrow.Input(
                     "images",
@@ -927,9 +934,13 @@ class MiniMaxH3ImagePromptExpander(io.ComfyNode):
                 f"MiniMaxH3ImagePromptExpander takes at most {MAX_H3_IMAGE_REFS} images, got {len(raw_images)}"
             )
 
+        preset_name = (preset or "").strip()
         has_images = len(raw_images) > 0
         resolved_mode, sys_prompt = resolve_expander_system_prompt(
-            mode, has_images=has_images, custom_system_prompt=custom_system_prompt
+            mode,
+            has_images=has_images,
+            custom_system_prompt=custom_system_prompt,
+            has_preset=bool(preset_name),
         )
         prepared_images = [
             prepare_heylook_tensor(t, index=i) for i, t in enumerate(raw_images, start=1)
@@ -939,7 +950,6 @@ class MiniMaxH3ImagePromptExpander(io.ComfyNode):
 
         with httpx.Client(trust_env=False, timeout=httpx.Timeout(None, connect=10.0)) as client:
             model_row = discover_heylook_model(client, base, model, need=need_caps)
-            preset_name = (preset or "").strip()
             preset_fields = (
                 expand_heylook_preset(client, base, preset_name, model_row)
                 if preset_name
