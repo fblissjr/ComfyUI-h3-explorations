@@ -171,7 +171,10 @@ and the off path is upstream's code.
 | `rotate` | rotates every q and k row by one fixed orthogonal matrix before INT8 quantization, so no single channel or token sets the row's scale. The transform `int8_attention` already applies. Composes with `qk_balance`. | `sage_attention/sol_layout.cuh`, used by preprocess, the producer and the token stage | HIP |
 | `tau_map` | a routing threshold per head and query block in place of the one `tau`. | `sage_attention/sol_attn_preprocess.cu` | HIP, `sol_attn_chunked`, with `topk_ratio` |
 
-`sol_attn_chunked` takes `blk_cnt` and `rotate` as keyword-only arguments. The binding fix marks an optional
+`sol_attn_chunked` takes `blk_cnt` and `rotate` as keyword-only arguments. Top-k routing (`topk_ratio`) with
+`rotate` took its threshold in the wrong space until `a0cc191` on 2026-11-11; the installed build predates
+that commit until the next rebuild, and nothing in the pack passes `topk_ratio`
+([`bench/results/2026-11-11_kitchen_upstream_sync_and_two_fixes.md`](../../bench/results/2026-11-11_kitchen_upstream_sync_and_two_fixes.md)). The binding fix marks an optional
 mask argument as accepting `None` under the nanobind version the venv has
 ([`docs/comfy_notes.md`](../comfy_notes.md) has the story).
 

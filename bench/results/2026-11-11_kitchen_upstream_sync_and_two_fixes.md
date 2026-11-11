@@ -226,6 +226,34 @@ Not checked: a build of stock upstream beside it (the off path is upstream's tex
 added), any HIP build, and the branch on captured H3 activations (the figures in its commit message are the
 fork's, measured before on the same arithmetic).
 
+### A fault the parity check could not see: top-k under `rotate`
+
+Found by the Gemini session reviewing the branch, the same day. Top-k routing selects by a threshold the
+Python layer computes as a copy of the route kernel's int8 scores. Under `rotate` the kernel scores rotated
+centroids against rotated pooled keys, and neither caller of that copy rotated: the direct path quantized
+unrotated block means, and the chunked path dotted the workspace's already rotated centroid bytes with
+unrotated key sums. The fork has carried this since `rotate` went in. The parity grid passed because all
+three builds shared it, and the branch's tests did not pass `topk_ratio` with `rotate`.
+
+Reproduced on this card with a loud K channel (4096 tokens, 4 heads, `topk_ratio=0.2`, relative L2):
+
+| | direct vs eager | chunked vs eager | chunked vs direct |
+|---|---|---|---|
+| `rotate` off | 0.1614 | 0.1615 | 0.0130 |
+| `rotate` on, as it was | 0.1963 | 0.5900 | 0.5798 |
+| `rotate` on, fixed | 0.0987 | 0.0854 | 0.0514 |
+
+The fix is Python only, in `comfy_kitchen/backends/cuda/__init__.py`: `87303a2` on `sol-rotate-pr` and
+`a0cc191` on `h3-frontier`, each with a test that fails without it. After it, the parity grid differs from
+the installed build on exactly the direct top-k cases with `rotate` on and on nothing else, and the patched
+fork and the patched branch agree on every line. The probe's chunked grid now has a top-k case.
+
+**No render here is affected and the venv was not rebuilt for it.** `MiniMaxH3Sol` always passes
+`topk_ratio=0`; only a direct call with top-k and `rotate` together reaches the fault. So the installed build
+is still `b63d8c7` and the source is one Python commit ahead, which `vendor/rebuild_kernel.sh --check` states;
+the next rebuild takes it. Not addressed: the same copy of the kernel's scores does not follow `qk_balance`
+either, which changes only how the scores are quantized, not the space they are in.
+
 ## Going back
 
 Through the script, so the build record beside the venv stays true: make a worktree of the kitchen clone at

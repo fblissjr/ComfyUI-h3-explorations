@@ -16,7 +16,10 @@ fork option, so it runs on any build that has `rotate`.
 
 What it cannot see: anything off the grid, in particular `qk_balance`,
 `tau_map` and `blk_cnt`, and inputs where a token list overflows (random
-inputs do not). It says two builds agree; it does not say either is right.
+inputs do not). It says two builds agree; it does not say either is right:
+on 2026-11-11 the fork and a branch cut from it agreed on every line while
+both took the top-k threshold in the wrong space under `rotate`
+(`bench/results/2026-11-11_kitchen_upstream_sync_and_two_fixes.md`).
 
 Needs the GPU and no server. To run a build that is not the installed one,
 unpack its wheel somewhere and put that folder first on `PYTHONPATH`.
@@ -62,7 +65,8 @@ for seed, t, h, rot in ((23, 4096, 4, 96), (5, 3137, 2, 64)):
     kw_ = torch.randn(128, device="cuda", dtype=torch.bfloat16, generator=g)
     chunks = list(qkvp.split(1024))
     for rotate in (False, True):
-        for name, kw in (("tau1", dict(tau=1.0)), ("all", dict(tau=-1e9)), ("tok64", dict(tau=1.0, token_aug=64))):
+        for name, kw in (("tau1", dict(tau=1.0)), ("all", dict(tau=-1e9)), ("tok64", dict(tau=1.0, token_aug=64)),
+                         ("topk", dict(topk_ratio=0.2))):
             extra = dict(rotate=True) if rotate else {}
             out, km, vs = cb.sol_attn_chunked(chunks, t, h, freqs, (qw, kw_), **kw, **extra)
             out2, _, _ = cb.sol_attn_chunked(chunks, t, h, freqs, (qw, kw_), kmean=km, vscale=vs, **kw, **extra)
