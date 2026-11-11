@@ -1,0 +1,104 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-16 -16 1032 572" width="100%" role="img" aria-label="The studio&#x27;s page talks to a server that is the CLI&#x27;s own Python process. Runs go through the CLI&#x27;s parser and dispatch; previews use the parser and the handlers&#x27; helpers; reads call the library directly.">
+<title>The studio&#x27;s page talks to a server that is the CLI&#x27;s own Python process. Runs go through the CLI&#x27;s parser and dispatch; previews use the parser and the handlers&#x27; helpers; reads call the library directly.</title>
+<style>
+  .bg { fill: #ffffff; }
+  .b { fill: #ffffff; stroke: #c5ccd8; stroke-width: 1.2; }
+  .b.acc { fill: #e3f1f6; stroke: #0b6e8f; }
+  .b.gpu { fill: #fbeedd; stroke: #a2590a; }
+  .proc { fill: #eef1f5; stroke: #c5ccd8; stroke-width: 1.2; stroke-dasharray: 5 4; }
+  .band { fill: #eef1f5; stroke: #c5ccd8; stroke-width: 1.2; }
+  .band.acc { stroke: #0b6e8f; }
+  .band.file { fill: #f1f3f7; }
+  .life { stroke: #c5ccd8; stroke-width: 1.2; stroke-dasharray: 3 4; }
+  .a { fill: none; stroke: #445063; stroke-width: 1.4; }
+  .a.acc { stroke: #0b6e8f; stroke-width: 1.8; }
+  .a.dash { stroke-dasharray: 6 4; }
+  .ah-n { fill: #445063; } .ah-acc { fill: #0b6e8f; }
+  text { font-family: "IBM Plex Sans", "Segoe UI", "Helvetica Neue", Arial, sans-serif; fill: #17202b; }
+  text.t, text.lt { font-size: 12.5px; } text.tb { font-size: 13px; font-weight: 600; }
+  text.m, text.mb, text.lm { font-family: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; font-size: 11.5px; }
+  text.mb { font-weight: 600; } text.lm { fill: #445063; }
+  text.s { font-size: 11.5px; fill: #5f6b7c; }
+  text.h { font-family: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace; font-size: 10.5px; letter-spacing: 0.08em; fill: #5f6b7c; }
+  text.al { font-size: 11.5px; fill: #445063; }
+  text.al, text.lt, text.lm { paint-order: stroke; stroke: #ffffff; stroke-width: 4px; stroke-linejoin: round; }
+</style>
+<defs><marker id="f4-e-n" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-n"/></marker><marker id="f4-s-n" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-n"/></marker><marker id="f4-e-acc" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-acc"/></marker><marker id="f4-s-acc" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-acc"/></marker></defs>
+<rect x="-16" y="-16" width="1032" height="572" class="bg"/>
+<rect x="20" y="30" width="212" height="400" rx="6" class="proc"/>
+<text x="34" y="52" text-anchor="start" class="h">BROWSER</text>
+<rect x="32" y="66" width="188" height="44" rx="6" class="b"/>
+<text x="126.0" y="84.0" text-anchor="middle" class="mb">index.html</text>
+<text x="126.0" y="100.0" text-anchor="middle" class="s">a shell with no controls</text>
+<rect x="32" y="120" width="188" height="44" rx="6" class="b"/>
+<text x="126.0" y="138.0" text-anchor="middle" class="mb">form.js</text>
+<text x="126.0" y="154.0" text-anchor="middle" class="s">draws forms from the schema</text>
+<rect x="32" y="174" width="188" height="44" rx="6" class="b"/>
+<text x="126.0" y="192.0" text-anchor="middle" class="mb">screens/*.js</text>
+<text x="126.0" y="208.0" text-anchor="middle" class="s">one module per screen</text>
+<text x="34" y="250" text-anchor="start" class="s">It holds only what you typed:</text>
+<text x="34" y="268" text-anchor="start" class="s">form values, the editor&#x27;s text,</text>
+<text x="34" y="286" text-anchor="start" class="s">pictures as data URLs.</text>
+<text x="34" y="322" text-anchor="start" class="s">It keeps no list of methods,</text>
+<text x="34" y="340" text-anchor="start" class="s">arguments, choices or defaults.</text>
+<rect x="290" y="30" width="690" height="400" rx="6" class="proc"/>
+<text x="304" y="52" text-anchor="start" class="h">STUDIO SERVER</text>
+<text x="966" y="52" text-anchor="end" class="m">bench/control_vector/ui_server.py, inside the CLI&#x27;s process</text>
+<rect x="304" y="66" width="96" height="348" rx="6" class="b"/>
+<text x="352.0" y="188.0" text-anchor="middle" class="mb">gate()</text>
+<text x="352.0" y="204.0" text-anchor="middle" class="s"></text>
+<text x="352.0" y="220.0" text-anchor="middle" class="s">session</text>
+<text x="352.0" y="236.0" text-anchor="middle" class="s">cookie</text>
+<text x="352.0" y="252.0" text-anchor="middle" class="s"></text>
+<text x="352.0" y="268.0" text-anchor="middle" class="s">Origin</text>
+<text x="352.0" y="284.0" text-anchor="middle" class="s"></text>
+<text x="352.0" y="300.0" text-anchor="middle" class="s">JSON</text>
+<polyline points="234,150 302,150" class="a" marker-end="url(#f4-e-n)"/>
+<text x="268" y="124" text-anchor="middle" class="al">request</text>
+<text x="268" y="137" text-anchor="middle" class="al">+ cookie</text>
+<polyline points="302,330 234,330" class="a" marker-end="url(#f4-e-n)"/>
+<text x="268" y="322" text-anchor="middle" class="al">JSON</text>
+<rect x="430" y="66" width="536" height="112" rx="6" class="band"/>
+<text x="442" y="86" text-anchor="start" class="h">READ</text>
+<text x="442" y="104" text-anchor="start" class="s">/api/schema  /api/init  /api/load-toml  /api/preview  /api/j-lens  /api/prompt-meter</text>
+<polyline points="402,142 428,142" class="a" marker-end="url(#f4-e-n)"/>
+<rect x="442" y="120" width="245" height="44" rx="6" class="b"/>
+<text x="564.5" y="146.0" text-anchor="middle" class="t">library functions, called directly</text>
+<polyline points="688,142 700,142" class="a" marker-end="url(#f4-e-n)"/>
+<rect x="702" y="120" width="250" height="44" rx="6" class="b"/>
+<text x="827.0" y="146.0" text-anchor="middle" class="s">lists · pair file · readout · meter</text>
+<rect x="430" y="184" width="536" height="112" rx="6" class="band"/>
+<text x="442" y="204" text-anchor="start" class="h">PREVIEW</text>
+<text x="442" y="222" text-anchor="start" class="s">/api/compile  /api/preview-words  /api/preview-recipe  /api/generate-pairs-llm</text>
+<polyline points="402,260 428,260" class="a" marker-end="url(#f4-e-n)"/>
+<rect x="442" y="238" width="150" height="44" rx="6" class="b"/>
+<text x="517.0" y="264.0" text-anchor="middle" class="t">the CLI&#x27;s parser</text>
+<polyline points="593,260 605,260" class="a" marker-end="url(#f4-e-n)"/>
+<rect x="607" y="238" width="205" height="44" rx="6" class="b"/>
+<text x="709.5" y="264.0" text-anchor="middle" class="t">the helper its handler calls</text>
+<polyline points="813,260 825,260" class="a" marker-end="url(#f4-e-n)"/>
+<rect x="827" y="238" width="125" height="44" rx="6" class="b"/>
+<text x="889.5" y="264.0" text-anchor="middle" class="t">nothing saved</text>
+<rect x="430" y="302" width="536" height="112" rx="6" class="band acc"/>
+<text x="442" y="322" text-anchor="start" class="h">RUN</text>
+<text x="442" y="340" text-anchor="start" class="s">/api/run  /api/save-toml</text>
+<polyline points="402,378 428,378" class="a acc" marker-end="url(#f4-e-acc)"/>
+<rect x="442" y="356" width="105" height="44" rx="6" class="b acc"/>
+<text x="494.5" y="382.0" text-anchor="middle" class="m">argv_for()</text>
+<polyline points="548,378 560,378" class="a acc" marker-end="url(#f4-e-acc)"/>
+<rect x="562" y="356" width="130" height="44" rx="6" class="b acc"/>
+<text x="627.0" y="382.0" text-anchor="middle" class="t">the CLI&#x27;s parser</text>
+<polyline points="693,378 705,378" class="a acc" marker-end="url(#f4-e-acc)"/>
+<rect x="707" y="356" width="125" height="44" rx="6" class="b acc"/>
+<text x="769.5" y="382.0" text-anchor="middle" class="m">cli.dispatch()</text>
+<polyline points="833,378 845,378" class="a acc" marker-end="url(#f4-e-acc)"/>
+<rect x="847" y="356" width="105" height="44" rx="6" class="b acc"/>
+<text x="899.5" y="382.0" text-anchor="middle" class="t">the handler</text>
+<rect x="702" y="470" width="264" height="48" rx="6" class="b acc"/>
+<text x="834.0" y="490.0" text-anchor="middle" class="tb">vector folder · pair folder</text>
+<text x="834.0" y="506.0" text-anchor="middle" class="s">the only places a run from the page writes</text>
+<polyline points="900,400 900,468" class="a acc" marker-end="url(#f4-e-acc)"/>
+<text x="890" y="452" text-anchor="end" class="al">files</text>
+<text x="304" y="492" text-anchor="start" class="s">The run lane is the same four steps a terminal command takes.</text>
+<text x="304" y="510" text-anchor="start" class="s">The other two lanes never reach dispatch and never write a vector.</text>
+</svg>

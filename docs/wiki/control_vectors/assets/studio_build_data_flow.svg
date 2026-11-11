@@ -1,0 +1,92 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-16 -16 1072 502" width="100%" role="img" aria-label="A build turns prompt pairs into encoder rows, refines them, pools the rows that differ, averages the difference over the pairs, removes held directions, and saves one vector file per family.">
+<title>A build turns prompt pairs into encoder rows, refines them, pools the rows that differ, averages the difference over the pairs, removes held directions, and saves one vector file per family.</title>
+<style>
+  .bg { fill: #ffffff; }
+  .b { fill: #ffffff; stroke: #c5ccd8; stroke-width: 1.2; }
+  .b.acc { fill: #e3f1f6; stroke: #0b6e8f; }
+  .b.gpu { fill: #fbeedd; stroke: #a2590a; }
+  .proc { fill: #eef1f5; stroke: #c5ccd8; stroke-width: 1.2; stroke-dasharray: 5 4; }
+  .band { fill: #eef1f5; stroke: #c5ccd8; stroke-width: 1.2; }
+  .band.acc { stroke: #0b6e8f; }
+  .band.file { fill: #f1f3f7; }
+  .life { stroke: #c5ccd8; stroke-width: 1.2; stroke-dasharray: 3 4; }
+  .a { fill: none; stroke: #445063; stroke-width: 1.4; }
+  .a.acc { stroke: #0b6e8f; stroke-width: 1.8; }
+  .a.dash { stroke-dasharray: 6 4; }
+  .ah-n { fill: #445063; } .ah-acc { fill: #0b6e8f; }
+  text { font-family: "IBM Plex Sans", "Segoe UI", "Helvetica Neue", Arial, sans-serif; fill: #17202b; }
+  text.t, text.lt { font-size: 12.5px; } text.tb { font-size: 13px; font-weight: 600; }
+  text.m, text.mb, text.lm { font-family: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; font-size: 11.5px; }
+  text.mb { font-weight: 600; } text.lm { fill: #445063; }
+  text.s { font-size: 11.5px; fill: #5f6b7c; }
+  text.h { font-family: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace; font-size: 10.5px; letter-spacing: 0.08em; fill: #5f6b7c; }
+  text.al { font-size: 11.5px; fill: #445063; }
+  text.al, text.lt, text.lm { paint-order: stroke; stroke: #ffffff; stroke-width: 4px; stroke-linejoin: round; }
+</style>
+<defs><marker id="f2-e-n" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-n"/></marker><marker id="f2-s-n" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-n"/></marker><marker id="f2-e-acc" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-acc"/></marker><marker id="f2-s-acc" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-acc"/></marker></defs>
+<rect x="-16" y="-16" width="1072" height="502" class="bg"/>
+<rect x="20.0" y="44" width="200" height="84" rx="6" class="b"/>
+<text x="120.0" y="66.0" text-anchor="middle" class="tb">Pair source</text>
+<text x="120.0" y="82.0" text-anchor="middle" class="s">a .toml pair file</text>
+<text x="120.0" y="98.0" text-anchor="middle" class="s">Markdown pairs (.md)</text>
+<text x="120.0" y="114.0" text-anchor="middle" class="s">--words on a target prompt</text>
+<rect x="286.67" y="44" width="200" height="84" rx="6" class="b"/>
+<text x="386.67" y="66.0" text-anchor="middle" class="tb">Pair set</text>
+<text x="386.67" y="82.0" text-anchor="middle" class="s">N × (prompt A, prompt B)</text>
+<text x="386.67" y="98.0" text-anchor="middle" class="s">a weight per pair</text>
+<text x="386.67" y="114.0" text-anchor="middle" class="s">optional [[hold]] pairs</text>
+<rect x="553.34" y="44" width="200" height="84" rx="6" class="b gpu"/>
+<text x="653.34" y="66.0" text-anchor="middle" class="tb">Qwen3-VL encoder</text>
+<text x="653.34" y="82.0" text-anchor="middle" class="s">one ENCODER_DIM row per token</text>
+<text x="653.34" y="98.0" text-anchor="middle" class="s">--ref-images adds picture rows</text>
+<text x="653.34" y="114.0" text-anchor="middle" class="s">runs on the card</text>
+<rect x="820.01" y="44" width="200" height="84" rx="6" class="b"/>
+<text x="920.01" y="66.0" text-anchor="middle" class="tb">The DiT&#x27;s text path</text>
+<text x="920.01" y="82.0" text-anchor="middle" class="s">condition_proj + token_refiner</text>
+<text x="920.01" y="98.0" text-anchor="middle" class="s">with the family&#x27;s LoRA</text>
+<text x="920.01" y="114.0" text-anchor="middle" class="s">CPU by default</text>
+<polyline points="222.0,86 284.67,86" class="a acc" marker-end="url(#f2-e-acc)"/>
+<text x="253.0" y="76" text-anchor="middle" class="al">pairs</text>
+<polyline points="488.67,86 551.34,86" class="a acc" marker-end="url(#f2-e-acc)"/>
+<text x="519.6700000000001" y="76" text-anchor="middle" class="al">text</text>
+<polyline points="755.34,86 818.01,86" class="a acc" marker-end="url(#f2-e-acc)"/>
+<text x="786.34" y="76" text-anchor="middle" class="al">rows</text>
+<polyline points="920,128 920,172 104,172 104,214" class="a acc" marker-end="url(#f2-e-acc)"/>
+<text x="520" y="164" text-anchor="middle" class="al">POST_REFINER_DIM rows, the space the DiT reads the prompt in</text>
+<text x="520" y="196" text-anchor="middle" class="s">from here on, once per family (fl2va, ref2va) and once per pooling</text>
+<rect x="20" y="216" width="168" height="84" rx="6" class="b"/>
+<text x="104.0" y="238.0" text-anchor="middle" class="tb">Pool</text>
+<text x="104.0" y="254.0" text-anchor="middle" class="s">mean of the rows over</text>
+<text x="104.0" y="270.0" text-anchor="middle" class="s">the span that differs</text>
+<text x="104.0" y="286.0" text-anchor="middle" class="s">one row for A, one for B</text>
+<rect x="228" y="216" width="168" height="84" rx="6" class="b"/>
+<text x="312.0" y="238.0" text-anchor="middle" class="tb">Mean difference</text>
+<text x="312.0" y="254.0" text-anchor="middle" class="s">Σ w · (B − A) / Σ w</text>
+<text x="312.0" y="270.0" text-anchor="middle" class="s">over the pairs, in float64</text>
+<text x="312.0" y="286.0" text-anchor="middle" class="s">one vector</text>
+<rect x="436" y="216" width="168" height="84" rx="6" class="b"/>
+<text x="520.0" y="238.0" text-anchor="middle" class="tb">Remove holds</text>
+<text x="520.0" y="254.0" text-anchor="middle" class="s">[[hold]] pairs</text>
+<text x="520.0" y="270.0" text-anchor="middle" class="s">--hold vectors</text>
+<text x="520.0" y="286.0" text-anchor="middle" class="s">--hold-words</text>
+<rect x="644" y="216" width="168" height="84" rx="6" class="b"/>
+<text x="728.0" y="238.0" text-anchor="middle" class="tb">Measure</text>
+<text x="728.0" y="254.0" text-anchor="middle" class="s">pairwise cosine</text>
+<text x="728.0" y="270.0" text-anchor="middle" class="s">split-half cosine</text>
+<text x="728.0" y="286.0" text-anchor="middle" class="s">J-Lens word readout</text>
+<rect x="852" y="216" width="168" height="84" rx="6" class="b acc"/>
+<text x="936.0" y="238.0" text-anchor="middle" class="tb">Save</text>
+<text x="936.0" y="254.0" text-anchor="middle" class="s">name__family__pooling</text>
+<text x="936.0" y="270.0" text-anchor="middle" class="s">__lora_hash.safetensors</text>
+<text x="936.0" y="286.0" text-anchor="middle" class="s">and a .md sidecar</text>
+<polyline points="190,258 226,258" class="a acc" marker-end="url(#f2-e-acc)"/>
+<polyline points="398,258 434,258" class="a acc" marker-end="url(#f2-e-acc)"/>
+<polyline points="606,258 642,258" class="a acc" marker-end="url(#f2-e-acc)"/>
+<polyline points="814,258 850,258" class="a acc" marker-end="url(#f2-e-acc)"/>
+<rect x="20" y="372" width="1000" height="78" rx="6" class="proc"/>
+<text x="36" y="394" text-anchor="start" class="h">LATER, IN A GRAPH</text>
+<text x="36" y="418" text-anchor="start" class="t">MiniMaxH3ApplyControlVectors reads the file and, on each sampling step in its window, adds</text>
+<text x="36" y="436" text-anchor="start" class="t">strength × vector to the refined prompt rows its mask selects. The prompt&#x27;s words are untouched.</text>
+<polyline points="936,300 936,370" class="a acc" marker-end="url(#f2-e-acc)"/>
+<text x="926" y="340" text-anchor="end" class="al">read by the node</text>
+</svg>

@@ -1,0 +1,126 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-16 -16 1032 672" width="100%" role="img" aria-label="The CLI&#x27;s handlers and ComfyUI&#x27;s nodes are two processes that call one shared library, which runs the models through ComfyUI&#x27;s core code and reads the same files.">
+<title>The CLI&#x27;s handlers and ComfyUI&#x27;s nodes are two processes that call one shared library, which runs the models through ComfyUI&#x27;s core code and reads the same files.</title>
+<style>
+  .bg { fill: #ffffff; }
+  .b { fill: #ffffff; stroke: #c5ccd8; stroke-width: 1.2; }
+  .b.acc { fill: #e3f1f6; stroke: #0b6e8f; }
+  .b.gpu { fill: #fbeedd; stroke: #a2590a; }
+  .proc { fill: #eef1f5; stroke: #c5ccd8; stroke-width: 1.2; stroke-dasharray: 5 4; }
+  .band { fill: #eef1f5; stroke: #c5ccd8; stroke-width: 1.2; }
+  .band.acc { stroke: #0b6e8f; }
+  .band.file { fill: #f1f3f7; }
+  .life { stroke: #c5ccd8; stroke-width: 1.2; stroke-dasharray: 3 4; }
+  .a { fill: none; stroke: #445063; stroke-width: 1.4; }
+  .a.acc { stroke: #0b6e8f; stroke-width: 1.8; }
+  .a.dash { stroke-dasharray: 6 4; }
+  .ah-n { fill: #445063; } .ah-acc { fill: #0b6e8f; }
+  text { font-family: "IBM Plex Sans", "Segoe UI", "Helvetica Neue", Arial, sans-serif; fill: #17202b; }
+  text.t, text.lt { font-size: 12.5px; } text.tb { font-size: 13px; font-weight: 600; }
+  text.m, text.mb, text.lm { font-family: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; font-size: 11.5px; }
+  text.mb { font-weight: 600; } text.lm { fill: #445063; }
+  text.s { font-size: 11.5px; fill: #5f6b7c; }
+  text.h { font-family: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace; font-size: 10.5px; letter-spacing: 0.08em; fill: #5f6b7c; }
+  text.al { font-size: 11.5px; fill: #445063; }
+  text.al, text.lt, text.lm { paint-order: stroke; stroke: #ffffff; stroke-width: 4px; stroke-linejoin: round; }
+</style>
+<defs><marker id="f1-e-n" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-n"/></marker><marker id="f1-s-n" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-n"/></marker><marker id="f1-e-acc" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-acc"/></marker><marker id="f1-s-acc" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-acc"/></marker></defs>
+<rect x="-16" y="-16" width="1032" height="672" class="bg"/>
+<rect x="20" y="30" width="600" height="268" rx="6" class="proc"/>
+<text x="36" y="52" text-anchor="start" class="h">ONE PYTHON PROCESS PER COMMAND</text>
+<text x="604" y="52" text-anchor="end" class="m">bench/control_vectors.py &lt;method&gt;</text>
+<rect x="40" y="64" width="560" height="40" rx="6" class="b acc"/>
+<text x="320.0" y="88.0" text-anchor="middle" class="m">bench/control_vector/cli.py     build_parser()  then  dispatch()</text>
+<rect x="40" y="132" width="274" height="44" rx="6" class="b"/>
+<text x="177.0" y="150.0" text-anchor="middle" class="mb">build_cmd.py</text>
+<text x="177.0" y="166.0" text-anchor="middle" class="s">build · from-prompt · words · rebuild</text>
+<rect x="326" y="132" width="274" height="44" rx="6" class="b"/>
+<text x="463.0" y="150.0" text-anchor="middle" class="mb">grading.py</text>
+<text x="463.0" y="166.0" text-anchor="middle" class="s">inspect · grade</text>
+<rect x="40" y="184" width="274" height="44" rx="6" class="b"/>
+<text x="177.0" y="202.0" text-anchor="middle" class="mb">make_cmds.py</text>
+<text x="177.0" y="218.0" text-anchor="middle" class="s">make · make-media · from-md</text>
+<rect x="326" y="184" width="274" height="44" rx="6" class="b"/>
+<text x="463.0" y="202.0" text-anchor="middle" class="mb">llm_pairs.py</text>
+<text x="463.0" y="218.0" text-anchor="middle" class="s">generate-pairs</text>
+<rect x="40" y="236" width="274" height="44" rx="6" class="b"/>
+<text x="177.0" y="254.0" text-anchor="middle" class="mb">sculpt.py</text>
+<text x="177.0" y="270.0" text-anchor="middle" class="s">sculpt</text>
+<rect x="326" y="236" width="274" height="44" rx="6" class="b"/>
+<text x="463.0" y="254.0" text-anchor="middle" class="mb">j_lens_builder.py</text>
+<text x="463.0" y="270.0" text-anchor="middle" class="s">build-j-lens</text>
+<polyline points="320,104 320,130" class="a" marker-end="url(#f1-e-n)"/>
+<text x="330" y="121" text-anchor="start" class="al">routes to a handler</text>
+<rect x="700" y="30" width="280" height="268" rx="6" class="proc"/>
+<text x="716" y="52" text-anchor="start" class="h">COMFYUI SERVER PROCESS</text>
+<rect x="716" y="64" width="248" height="40" rx="6" class="b"/>
+<text x="840.0" y="88.0" text-anchor="middle" class="t">a queued graph runs nodes</text>
+<rect x="716" y="132" width="248" height="44" rx="6" class="b"/>
+<text x="840.0" y="150.0" text-anchor="middle" class="mb">MiniMaxH3MakeControlVector</text>
+<text x="840.0" y="166.0" text-anchor="middle" class="s">builds from a pair file or words</text>
+<rect x="716" y="184" width="248" height="44" rx="6" class="b"/>
+<text x="840.0" y="202.0" text-anchor="middle" class="mb">MiniMaxH3MakeMediaControlVector</text>
+<text x="840.0" y="218.0" text-anchor="middle" class="s">builds from two pictures</text>
+<rect x="716" y="236" width="248" height="44" rx="6" class="b acc"/>
+<text x="840.0" y="254.0" text-anchor="middle" class="mb">MiniMaxH3ApplyControlVectors</text>
+<text x="840.0" y="270.0" text-anchor="middle" class="s">adds a vector while sampling</text>
+<polyline points="840,104 840,130" class="a" marker-end="url(#f1-e-n)"/>
+<polyline points="622,84 698,84" class="a dash" marker-end="url(#f1-e-n)"/>
+<text x="660" y="58" text-anchor="middle" class="al">may ask it</text>
+<text x="660" y="71" text-anchor="middle" class="al">to unload</text>
+<rect x="20" y="340" width="960" height="86" rx="6" class="band"/>
+<text x="36" y="361" text-anchor="start" class="h">THE PACK&#x27;S LIBRARY, IMPORTED BY BOTH</text>
+<rect x="30" y="372" width="180" height="44" rx="6" class="b"/>
+<text x="120.0" y="390.0" text-anchor="middle" class="mb">control_vectors.py</text>
+<text x="120.0" y="406.0" text-anchor="middle" class="s">the math · the file format</text>
+<rect x="220" y="372" width="180" height="44" rx="6" class="b"/>
+<text x="310.0" y="390.0" text-anchor="middle" class="mb">control_vector_nodes.py</text>
+<text x="310.0" y="406.0" text-anchor="middle" class="s">encode · refiner · recipes</text>
+<rect x="410" y="372" width="180" height="44" rx="6" class="b"/>
+<text x="500.0" y="390.0" text-anchor="middle" class="mb">h3_pair_compiler.py</text>
+<text x="500.0" y="406.0" text-anchor="middle" class="s">words into prompt pairs</text>
+<rect x="600" y="372" width="180" height="44" rx="6" class="b"/>
+<text x="690.0" y="390.0" text-anchor="middle" class="mb">h3_spans.py</text>
+<text x="690.0" y="406.0" text-anchor="middle" class="s">sections · row masks</text>
+<rect x="790" y="372" width="180" height="44" rx="6" class="b"/>
+<text x="880.0" y="390.0" text-anchor="middle" class="mb">j_lens.py</text>
+<text x="880.0" y="406.0" text-anchor="middle" class="s">word readout · synthesis</text>
+<polyline points="320,298 320,338" class="a" marker-end="url(#f1-e-n)"/>
+<text x="330" y="322" text-anchor="start" class="al">calls</text>
+<polyline points="840,298 840,338" class="a" marker-end="url(#f1-e-n)"/>
+<text x="850" y="322" text-anchor="start" class="al">calls</text>
+<rect x="20" y="468" width="960" height="66" rx="6" class="band"/>
+<text x="36" y="489" text-anchor="start" class="h">COMFYUI CORE, USED AS A LIBRARY</text>
+<rect x="290" y="478" width="222" height="46" rx="6" class="b"/>
+<text x="401.0" y="497.0" text-anchor="middle" class="m">comfy/text_encoders/minimax.py</text>
+<text x="401.0" y="513.0" text-anchor="middle" class="s">the Qwen3-VL encoder and tokenizer</text>
+<rect x="522" y="478" width="222" height="46" rx="6" class="b"/>
+<text x="633.0" y="497.0" text-anchor="middle" class="m">comfy/ldm/minimax/model.py</text>
+<text x="633.0" y="513.0" text-anchor="middle" class="s">the DiT, with its text path</text>
+<rect x="754" y="478" width="222" height="46" rx="6" class="b"/>
+<text x="865.0" y="497.0" text-anchor="middle" class="t">folder_paths, model management</text>
+<text x="865.0" y="513.0" text-anchor="middle" class="s">where models are, which device</text>
+<polyline points="500,426 500,466" class="a" marker-end="url(#f1-e-n)"/>
+<text x="510" y="451" text-anchor="start" class="al">loads and runs the models through</text>
+<rect x="20" y="562" width="960" height="62" rx="6" class="band file"/>
+<text x="36" y="583" text-anchor="start" class="h">FILES</text>
+<rect x="96" y="570" width="112" height="46" rx="6" class="b"/>
+<text x="152.0" y="589.0" text-anchor="middle" class="m">text_encoders/</text>
+<text x="152.0" y="605.0" text-anchor="middle" class="s">Qwen3-VL</text>
+<rect x="218" y="570" width="134" height="46" rx="6" class="b"/>
+<text x="285.0" y="589.0" text-anchor="middle" class="m">diffusion_models/</text>
+<text x="285.0" y="605.0" text-anchor="middle" class="s">fl2va · ref2va</text>
+<rect x="362" y="570" width="78" height="46" rx="6" class="b"/>
+<text x="401.0" y="589.0" text-anchor="middle" class="m">loras/</text>
+<text x="401.0" y="605.0" text-anchor="middle" class="s">Pika</text>
+<rect x="450" y="570" width="78" height="46" rx="6" class="b"/>
+<text x="489.0" y="589.0" text-anchor="middle" class="m">j_lens/</text>
+<text x="489.0" y="605.0" text-anchor="middle" class="s">bundle</text>
+<rect x="538" y="570" width="208" height="46" rx="6" class="b"/>
+<text x="642.0" y="589.0" text-anchor="middle" class="m">prompt_bank/control_vectors/</text>
+<text x="642.0" y="605.0" text-anchor="middle" class="s">pair files (.toml)</text>
+<rect x="756" y="570" width="190" height="46" rx="6" class="b acc"/>
+<text x="851.0" y="589.0" text-anchor="middle" class="m">models/control_vectors/</text>
+<text x="851.0" y="605.0" text-anchor="middle" class="s">vectors (.safetensors)</text>
+<polyline points="500,534 500,560" class="a" marker-end="url(#f1-e-n)"/>
+<text x="510" y="551" text-anchor="start" class="al">reads</text>
+</svg>

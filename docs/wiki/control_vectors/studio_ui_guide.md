@@ -15,6 +15,56 @@ It starts with:
 <comfy-venv-python> bench/control_vectors.py ui
 ```
 
+## The CLI the page stands on
+
+The page is a second way to reach the CLI's handlers, so the CLI comes first. The five figures on this page were drawn
+from the code on 2026-11-11 (`dd262ffb`).
+
+### The layers
+
+![The CLI process and the ComfyUI server process call one shared library](assets/studio_cli_layers.svg)
+
+A command starts its own Python process. The parser in `bench/control_vector/cli.py` picks a method, `dispatch()` calls
+its handler, and the handler calls the pack's library. ComfyUI's nodes call that same library from inside the server.
+Neither side has model code of its own: both run the Qwen3-VL encoder and the DiT's text path through ComfyUI core.
+
+The CLI does not need the server running. If the card is short on memory and an idle server answers, the CLI asks it to
+unload first (`bench/control_vector/helpers.py::_free_idle_comfy_vram`); that is the only message between them.
+
+### What a build does to the data
+
+![Prompt pairs become encoder rows, refined rows, a pooled difference, and a saved vector file](assets/studio_build_data_flow.svg)
+
+Every pair-based method follows this path. The prompts in a pair differ in one thing. Both are encoded, both are
+refined the way the DiT refines a prompt, and the rows of the wording that changed are averaged on each side. The
+vector is the difference, averaged over the pairs. Nothing is trained.
+
+The row sizes are the constants `ENCODER_DIM` and `POST_REFINER_DIM` in `control_vectors.py`. A file is tied to the
+checkpoint and LoRA it was refined with: that recipe is in its metadata and in the hash in its name. The figure shows
+what a pair build does; it does not show that the CLI holds two copies of it (`build` and `make`) and the node a third.
+
+### Every method: what it reads, does and writes
+
+![Five methods write vector files into one folder, and four things read them back](assets/studio_methods_and_vector_folder.svg)
+
+Five methods make vectors. The rest read them, prepare pair files, or maintain the library. A file made by any of the
+five is the same kind of file, so the node, `inspect` and `grade` do not care which method made it.
+
+| Method | Reads | Does | Writes | Runs on |
+|---|---|---|---|---|
+| `from-prompt` | one prompt (text or file), --words "a -> b", optional reference pictures | compile pairs in place; encode, refine, pool, save | vector files; a .toml with --save-toml | card |
+| `build / from-toml` | a pair file (.toml or .md), or --words, --from-words, --all | the same build, over every pair in the file | vector files; a .toml when given Markdown | card |
+| `make` | a pair file or --words | a second copy of the pair build | one vector file | card |
+| `make-media / from-images` | picture A, picture B, a scene prompt | encode each picture with the prompt; pool; difference | vector files | card |
+| `words / from-words` | a few words | J-Lens synthesis from its bundle | vector files | CPU |
+| `sculpt` | saved vectors, a mode and strength for each | add, norm-match, or hold out; compose | a new vector file | CPU |
+| `rebuild` | the vector folder and the pair folder | re-runs build for whatever is stale | vector files, refreshed | card when stale |
+| `inspect` | a vector; optional prompts to meter | recipe and compatibility check; prompt meter | a printed report | CPU; card to meter |
+| `grade` | a vector and a prompt | moves the prompt's rows and compares with nulls; optional DiT passes | a JSON report | card |
+| `generate-pairs` | a concept | a local LLM with the pair-writing system prompt | Markdown pairs; optional .md and .toml | the LLM's |
+| `from-md / import-md` | Markdown pairs | validates each pair and its differing span | a .toml pair file | CPU |
+| `build-j-lens` | the encoder and both DiTs | builds or verifies the J-Lens bundle | models/j_lens/ bundle | card; CPU to verify |
+
 ## How it stays in step with the CLI
 
 - **The page asks the server what the CLI takes.** `GET /api/schema` is the parser walked
@@ -34,6 +84,42 @@ It starts with:
 [`bench/check_control_vector_studio.py`](../../../bench/check_control_vector_studio.py) holds all of that with the card
 masked: the schema against the parser, a page request against a command line for every method, every route, and the
 page's scripts against the routes. It fails if a form control or a list of modes is written into the page by hand.
+
+## What the page talks to
+
+The page talks only to its own server. That server is the CLI's code in a long-lived process, and its routes fall into
+three lanes. Only the first reaches a CLI handler, and only the first writes a file.
+
+![The studio's server: a gate, then read, preview and run lanes](assets/studio_server_lanes.svg)
+
+- **Run.** Builds and saves go through the CLI's parser and `dispatch()`, the same steps a terminal command takes.
+- **Preview.** The same parser reads the arguments, then the route calls the helper the method's handler calls and
+  returns the result without saving.
+- **Read.** The schema, the listings, a pair file, a word readout and the prompt meter call the library directly. No
+  CLI method has the same shape as these; `inspect` prints a similar meter, but not per token.
+
+| Route | Lane | The page sends | The server returns | Written to disk |
+|---|---|---|---|---|
+| `POST /api/run` | run | a method name and {argument: value} | the command line it stood for, exit code, printed log, rows for what was built, fresh listings | whatever the method writes, inside the two folders |
+| `POST /api/save-toml` | run | the editor's Markdown, and from-md's arguments | the same as a run, plus the saved file's path | one .toml in the pair folder |
+| `POST /api/compile` | preview | from-prompt's arguments | the compiled pairs, the sections that differ, the pairs as Markdown | nothing |
+| `POST /api/preview-words` | preview | words' arguments | per family: matched words, the word readout, a suggested strength | nothing |
+| `POST /api/preview-recipe` | preview | sculpt's arguments | the recipe's steps and its word readout per family | nothing |
+| `POST /api/generate-pairs-llm` | preview | generate-pairs' arguments | Markdown pairs for the editor | nothing |
+| `GET /api/schema` | read | nothing | every method and argument from the parser; the node's modes, masks and defaults | nothing |
+| `GET /api/init` | read | nothing | the vectors and pair files on disk, the folders, LLM defaults | nothing |
+| `POST /api/load-toml` | read | a pair file's name | its pairs, as rows and as Markdown | nothing |
+| `POST /api/preview` | read | Markdown pairs | pair count, mode, lint warnings | nothing |
+| `POST /api/j-lens` | read | a vector's name | the words it leans toward and away from | nothing |
+| `POST /api/prompt-meter` | read | a vector, a prompt, a mask | a score for each token of the prompt | nothing |
+
+### One click, traced
+
+![A Build click from the page, through the gate, the run route, the CLI's parser and dispatch, to the files and back](assets/studio_one_click_traced.svg)
+
+A Build on the Pairs screen, from the click to the files. The run route adds three things a terminal does not: it
+refuses an output path outside the studio's two folders, it sets the output folder, and it hands the handler an encoder
+that is already loaded, so a second build in one session does not load it again.
 
 ## The screens
 

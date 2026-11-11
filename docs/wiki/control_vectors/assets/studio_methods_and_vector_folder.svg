@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-16 -16 1032 404" width="100%" role="img" aria-label="Five methods write vector files into one folder; the node, inspect, grade and rebuild read them back.">
+<title>Five methods write vector files into one folder; the node, inspect, grade and rebuild read them back.</title>
+<style>
+  .bg { fill: #ffffff; }
+  .b { fill: #ffffff; stroke: #c5ccd8; stroke-width: 1.2; }
+  .b.acc { fill: #e3f1f6; stroke: #0b6e8f; }
+  .b.gpu { fill: #fbeedd; stroke: #a2590a; }
+  .proc { fill: #eef1f5; stroke: #c5ccd8; stroke-width: 1.2; stroke-dasharray: 5 4; }
+  .band { fill: #eef1f5; stroke: #c5ccd8; stroke-width: 1.2; }
+  .band.acc { stroke: #0b6e8f; }
+  .band.file { fill: #f1f3f7; }
+  .life { stroke: #c5ccd8; stroke-width: 1.2; stroke-dasharray: 3 4; }
+  .a { fill: none; stroke: #445063; stroke-width: 1.4; }
+  .a.acc { stroke: #0b6e8f; stroke-width: 1.8; }
+  .a.dash { stroke-dasharray: 6 4; }
+  .ah-n { fill: #445063; } .ah-acc { fill: #0b6e8f; }
+  text { font-family: "IBM Plex Sans", "Segoe UI", "Helvetica Neue", Arial, sans-serif; fill: #17202b; }
+  text.t, text.lt { font-size: 12.5px; } text.tb { font-size: 13px; font-weight: 600; }
+  text.m, text.mb, text.lm { font-family: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; font-size: 11.5px; }
+  text.mb { font-weight: 600; } text.lm { fill: #445063; }
+  text.s { font-size: 11.5px; fill: #5f6b7c; }
+  text.h { font-family: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace; font-size: 10.5px; letter-spacing: 0.08em; fill: #5f6b7c; }
+  text.al { font-size: 11.5px; fill: #445063; }
+  text.al, text.lt, text.lm { paint-order: stroke; stroke: #ffffff; stroke-width: 4px; stroke-linejoin: round; }
+</style>
+<defs><marker id="f3-e-n" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-n"/></marker><marker id="f3-s-n" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-n"/></marker><marker id="f3-e-acc" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-acc"/></marker><marker id="f3-s-acc" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-acc"/></marker></defs>
+<rect x="-16" y="-16" width="1032" height="404" class="bg"/>
+<rect x="20" y="30" width="260" height="48" rx="6" class="b gpu"/>
+<text x="150.0" y="50.0" text-anchor="middle" class="mb">from-prompt</text>
+<text x="150.0" y="66.0" text-anchor="middle" class="s">one prompt, changed in place</text>
+<polyline points="282,54 398,150" class="a acc" marker-end="url(#f3-e-acc)"/>
+<text x="340" y="44" text-anchor="middle" class="al">writes</text>
+<rect x="20" y="92" width="260" height="48" rx="6" class="b gpu"/>
+<text x="150.0" y="112.0" text-anchor="middle" class="mb">build</text>
+<text x="150.0" y="128.0" text-anchor="middle" class="s">a pair file</text>
+<polyline points="282,116 398,164" class="a acc" marker-end="url(#f3-e-acc)"/>
+<rect x="20" y="154" width="260" height="48" rx="6" class="b gpu"/>
+<text x="150.0" y="174.0" text-anchor="middle" class="mb">make-media</text>
+<text x="150.0" y="190.0" text-anchor="middle" class="s">two pictures and one prompt</text>
+<polyline points="282,178 398,178" class="a acc" marker-end="url(#f3-e-acc)"/>
+<rect x="20" y="216" width="260" height="48" rx="6" class="b"/>
+<text x="150.0" y="236.0" text-anchor="middle" class="mb">words</text>
+<text x="150.0" y="252.0" text-anchor="middle" class="s">a few words, by J-Lens</text>
+<polyline points="282,240 398,192" class="a acc" marker-end="url(#f3-e-acc)"/>
+<rect x="20" y="278" width="260" height="48" rx="6" class="b"/>
+<text x="150.0" y="298.0" text-anchor="middle" class="mb">sculpt</text>
+<text x="150.0" y="314.0" text-anchor="middle" class="s">saved vectors, combined</text>
+<polyline points="282,302 398,206" class="a acc" marker-end="url(#f3-e-acc)" marker-start="url(#f3-s-acc)"/>
+<text x="340" y="322" text-anchor="middle" class="al">reads and writes</text>
+<rect x="400" y="110" width="220" height="140" rx="6" class="b acc"/>
+<text x="510.0" y="144.0" text-anchor="middle" class="mb">models/control_vectors/</text>
+<text x="510.0" y="160.0" text-anchor="middle" class="s">one file per family</text>
+<text x="510.0" y="176.0" text-anchor="middle" class="m">vector.post_refiner</text>
+<text x="510.0" y="192.0" text-anchor="middle" class="m">vector.encoder</text>
+<text x="510.0" y="208.0" text-anchor="middle" class="m">holds.post_refiner</text>
+<text x="510.0" y="224.0" text-anchor="middle" class="s">recipe · pairs · quality</text>
+<rect x="720" y="46" width="260" height="48" rx="6" class="b acc"/>
+<text x="850.0" y="66.0" text-anchor="middle" class="mb">MiniMaxH3ApplyControlVectors</text>
+<text x="850.0" y="82.0" text-anchor="middle" class="s">steers a render</text>
+<polyline points="622,152 718,70" class="a" marker-end="url(#f3-e-n)"/>
+<text x="672" y="58" text-anchor="middle" class="al">reads</text>
+<rect x="720" y="116" width="260" height="48" rx="6" class="b"/>
+<text x="850.0" y="136.0" text-anchor="middle" class="mb">inspect</text>
+<text x="850.0" y="152.0" text-anchor="middle" class="s">recipe check · prompt meter, printed</text>
+<polyline points="622,170 718,140" class="a" marker-end="url(#f3-e-n)"/>
+<rect x="720" y="186" width="260" height="48" rx="6" class="b gpu"/>
+<text x="850.0" y="206.0" text-anchor="middle" class="mb">grade</text>
+<text x="850.0" y="222.0" text-anchor="middle" class="s">movement against nulls, as JSON</text>
+<polyline points="622,188 718,210" class="a" marker-end="url(#f3-e-n)"/>
+<rect x="720" y="256" width="260" height="48" rx="6" class="b gpu"/>
+<text x="850.0" y="276.0" text-anchor="middle" class="mb">rebuild</text>
+<text x="850.0" y="292.0" text-anchor="middle" class="s">re-encodes what is stale</text>
+<polyline points="622,206 718,280" class="a" marker-end="url(#f3-e-n)" marker-start="url(#f3-s-n)"/>
+<text x="610" y="276" text-anchor="start" class="al">reads and rewrites</text>
+<rect x="20" y="344" width="14" height="14" rx="3" class="b gpu"/>
+<text x="42" y="356" text-anchor="start" class="s">needs the card (the encoder, and for grade the DiT)</text>
+</svg>

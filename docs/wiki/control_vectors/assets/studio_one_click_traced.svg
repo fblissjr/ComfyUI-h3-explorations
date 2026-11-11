@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-16 -16 1032 632" width="100%" role="img" aria-label="One Build click: the page posts a method and its arguments, the gate checks the cookie, the run route writes the command line, the CLI&#x27;s parser reads it, dispatch calls the build handler, and the result returns as JSON.">
+<title>One Build click: the page posts a method and its arguments, the gate checks the cookie, the run route writes the command line, the CLI&#x27;s parser reads it, dispatch calls the build handler, and the result returns as JSON.</title>
+<style>
+  .bg { fill: #ffffff; }
+  .b { fill: #ffffff; stroke: #c5ccd8; stroke-width: 1.2; }
+  .b.acc { fill: #e3f1f6; stroke: #0b6e8f; }
+  .b.gpu { fill: #fbeedd; stroke: #a2590a; }
+  .proc { fill: #eef1f5; stroke: #c5ccd8; stroke-width: 1.2; stroke-dasharray: 5 4; }
+  .band { fill: #eef1f5; stroke: #c5ccd8; stroke-width: 1.2; }
+  .band.acc { stroke: #0b6e8f; }
+  .band.file { fill: #f1f3f7; }
+  .life { stroke: #c5ccd8; stroke-width: 1.2; stroke-dasharray: 3 4; }
+  .a { fill: none; stroke: #445063; stroke-width: 1.4; }
+  .a.acc { stroke: #0b6e8f; stroke-width: 1.8; }
+  .a.dash { stroke-dasharray: 6 4; }
+  .ah-n { fill: #445063; } .ah-acc { fill: #0b6e8f; }
+  text { font-family: "IBM Plex Sans", "Segoe UI", "Helvetica Neue", Arial, sans-serif; fill: #17202b; }
+  text.t, text.lt { font-size: 12.5px; } text.tb { font-size: 13px; font-weight: 600; }
+  text.m, text.mb, text.lm { font-family: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; font-size: 11.5px; }
+  text.mb { font-weight: 600; } text.lm { fill: #445063; }
+  text.s { font-size: 11.5px; fill: #5f6b7c; }
+  text.h { font-family: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace; font-size: 10.5px; letter-spacing: 0.08em; fill: #5f6b7c; }
+  text.al { font-size: 11.5px; fill: #445063; }
+  text.al, text.lt, text.lm { paint-order: stroke; stroke: #ffffff; stroke-width: 4px; stroke-linejoin: round; }
+</style>
+<defs><marker id="f5-e-n" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-n"/></marker><marker id="f5-s-n" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-n"/></marker><marker id="f5-e-acc" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-acc"/></marker><marker id="f5-s-acc" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-acc"/></marker></defs>
+<rect x="-16" y="-16" width="1032" height="632" class="bg"/>
+<rect x="25.0" y="16" width="110" height="34" rx="6" class="b"/>
+<text x="80.0" y="37.0" text-anchor="middle" class="mb">Page</text>
+<line x1="80" y1="50" x2="80" y2="580" class="life"/>
+<rect x="185.0" y="16" width="110" height="34" rx="6" class="b"/>
+<text x="240.0" y="37.0" text-anchor="middle" class="mb">gate()</text>
+<line x1="240" y1="50" x2="240" y2="580" class="life"/>
+<rect x="355.0" y="16" width="110" height="34" rx="6" class="b"/>
+<text x="410.0" y="37.0" text-anchor="middle" class="mb">run route</text>
+<line x1="410" y1="50" x2="410" y2="580" class="life"/>
+<rect x="525.0" y="16" width="110" height="34" rx="6" class="b acc"/>
+<text x="580.0" y="37.0" text-anchor="middle" class="mb">CLI parser</text>
+<line x1="580" y1="50" x2="580" y2="580" class="life"/>
+<rect x="682.0" y="16" width="156" height="34" rx="6" class="b acc"/>
+<text x="760.0" y="37.0" text-anchor="middle" class="mb">dispatch → cmd_build</text>
+<line x1="760" y1="50" x2="760" y2="580" class="life"/>
+<rect x="875.0" y="16" width="110" height="34" rx="6" class="b"/>
+<text x="930.0" y="37.0" text-anchor="middle" class="mb">disk</text>
+<line x1="930" y1="50" x2="930" y2="580" class="life"/>
+<polyline points="80,96 240,96" class="a" marker-end="url(#f5-e-n)"/>
+<text x="90" y="88" text-anchor="start" class="lt">POST /api/run, with the cookie</text>
+<text x="90" y="112" text-anchor="start" class="lm">{&quot;method&quot;: &quot;from-prompt&quot;, &quot;args&quot;: {&quot;target_prompt&quot;: …, &quot;words&quot;: …, &quot;name&quot;: …, &quot;families&quot;: &quot;fl2va&quot;}}</text>
+<polyline points="240,162 410,162" class="a" marker-end="url(#f5-e-n)"/>
+<text x="250" y="154" text-anchor="start" class="lt">cookie, Origin and JSON hold</text>
+<polyline points="410,224 580,224" class="a acc" marker-end="url(#f5-e-acc)"/>
+<text x="420" y="216" text-anchor="start" class="lt">argv_for() writes the command line</text>
+<text x="420" y="240" text-anchor="start" class="lm">from-prompt --target-prompt=… --words=… --name=… --families=fl2va</text>
+<polyline points="580,290 410,290" class="a acc dash" marker-end="url(#f5-e-acc)"/>
+<text x="420" y="282" text-anchor="start" class="lt">a namespace: every other argument at the CLI&#x27;s own default</text>
+<rect x="290" y="318" width="450" height="54" rx="6" class="b"/>
+<text x="302" y="340" text-anchor="start" class="t">refuse an output path outside the studio&#x27;s folders;</text>
+<text x="302" y="358" text-anchor="start" class="t">set --out-dir to the vector folder; hand over the loaded encoder</text>
+<polyline points="410,416 760,416" class="a acc" marker-end="url(#f5-e-acc)"/>
+<text x="420" y="408" text-anchor="start" class="lt">cli.dispatch(namespace), the call main() makes</text>
+<polyline points="760,468 930,468" class="a acc" marker-end="url(#f5-e-acc)"/>
+<text x="920" y="460" text-anchor="end" class="lt">writes</text>
+<text x="920" y="484" text-anchor="end" class="lm">&lt;name&gt;__fl2va__diff_span__lora_&lt;hash&gt;.safetensors + .md</text>
+<polyline points="760,540 80,540" class="a dash" marker-end="url(#f5-e-n)"/>
+<text x="90" y="532" text-anchor="start" class="lt">what the handler printed, and what it built</text>
+<text x="90" y="556" text-anchor="start" class="lm">{&quot;ok&quot;, &quot;command&quot;, &quot;rc&quot;, &quot;log&quot;, &quot;built&quot;: [...], &quot;vectors&quot;: [...], &quot;toml_files&quot;: [...]}</text>
+</svg>
