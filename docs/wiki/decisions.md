@@ -23,6 +23,9 @@ Older history lives elsewhere and is not copied here:
     (`de775a21` became `64ddef49`). No other session's commit was caught in it, and the remotes and local main agree.
   - **What is restored:** the old file's own wording for the shared tree, up to the sentence on commit messages,
     with one line added: a session never runs `git push`, to any remote, with or without force.
+  - **Also restored, later the same day** (owner decision): the old file's rule against running `uv` in this repo,
+    word for word. Nothing went wrong to prompt it. `uv` has emptied the ComfyUI venv before, and with the file
+    empty the rule was only in [`../comfy_notes.md`](../comfy_notes.md), which a session reads when sent there.
   - **What stays out:** the rest of the old file, the rule on building in a worktree while the card runs among it.
     `git show a3996113^:AGENTS.md` has it.
 - **Control-vector 3-lever span masks, `MiniMaxH3EditGuider.last_step`, 3-band `qkv_proj` LoRA packing, `tiered` reference sizing, five owner-requested 4-pillar pair packs, and review corrections** (`1c46cfc5`, `6c614495`, `029460ab`, `a8171641`, `034e45d0`, `5b18b98a`, `1a05a27c`, `a0844b63`, `b2e86320`):
