@@ -88,6 +88,26 @@ folder `pika_still_trial` in `Image`.
 - The graph as generated was rendered once with a picture of a man in place of the placeholder, which was not on the
   machine: the clothing was replaced and the rest kept.
 
+**Plain H3 prompting at one frame, with no guide and no edit LoRA (later the same day).** The owner's direction,
+2026-11-10: Pika is a distill of the video model and was not trained on prose or on the edit LoRA's sentence, so a
+Pika still is prompted as the video is, in the vendor guides' structure (`vendor_guides/base_en.md` on the fl2va
+checkpoint, `vendor_guides/ref_en.md` on ref2va). One seed each:
+
+- Text to image on the fl2va checkpoint with the Pika fl2va LoRA and `MiniMaxH3Conditioning`: a clean picture of the
+  prompt's scene, with the prompt as one paragraph and with the same paragraph inside the base guide's three fields.
+  The two differ in composition; neither failed.
+- An edit on the ref2va checkpoint with the Pika ref2va LoRA and `MiniMaxH3ReferenceConditioning`: the picture as
+  `<Picture 1>`, sized to the output, a six-section prompt, no guide node and no edit LoRA. The edit landed and the
+  rest of the picture was kept. This is the reference-only shape of the 2026-08 graphs below, on Pika. The reference
+  recipe that failed above is a different graph: a guide, the edit LoRA and a reference together.
+- The same forms on `P-H3-Image`: both rendered the scene for text to image, and the six-section prompt did the edit.
+  The image model's own upsampler (`MiniMaxH3PH3ImagePromptUpsampler`), run once for each, wrote one paragraph for
+  text to image and the six-section brief for the edit.
+
+No node hands the H3 conditioning nodes a one-frame latent, so these renders took theirs from the second output of
+`MiniMaxH3PH3ImageConditioning` and used none of its conditioning; a shipped graph would need its own. The sheets
+are `sheet_h3_forms_t2i` and `sheet_h3_forms_edit` in the same folder on the output share.
+
 **Not known.** Whether the reference form can do an edit at one frame at all: it did not in any of the tries above, and
 a garment or an object as the cut-out was not among them. Whether releasing `ref_vae_end_percent` (with
 a matched no-vector guide-release control) and/or `GUIDE_VFX_EDIT_FFP_LORA` `end_percent` lets a style control vector
