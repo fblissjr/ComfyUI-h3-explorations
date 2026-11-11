@@ -5106,6 +5106,33 @@ def main():
               width=768, height=768,
               out_prefix="Image/h3_pika_image_edit"),
          "picture + text -> single-frame edited image on unet_ref2va + Pika H3 Flex 6-step LCM (SVD995 branch), the picture as <Picture 1> sized to the output and the prompt in the reference guide's six sections (MiniMaxH3ReferenceConditioning, single_frame)"),
+        # The two plain Pika stills with a control vector node, so a vector can
+        # be given to the edit form that needs no guide and no third-party
+        # LoRA. Our conditioning nodes attach the section map, so every mask
+        # runs here; the guide graphs below take `non_vision` alone. The
+        # reference inputs stay at the node's defaults, which never release
+        # the picture. Tried on stills 2026-11-10 (`docs/h3_image_editing.md`).
+        ("h3_pika_image_t2i_control_vector.json", "pika-image-t2i-control-vector", "t2v",
+         PIKA_IMAGE_T2I_PROMPT,
+         dict(single_frame=True,
+              lora=(PIKA_FL2VA_SVD995_LORA, PIKA_STRENGTH), lora_branch=True,
+              steps=PIKA_STEPS, sampler_name=PIKA_SAMPLER,
+              manual_sigmas=PIKA_MANUAL_SIGMAS,
+              width=768, height=768,
+              control_vector=("film_16mm_1974__fl2va__diff_span__lora_2a8c2b52.safetensors", 1.15),
+              out_prefix="Image/h3_pika_image_t2i_control_vector"),
+         "text -> single-frame image on unet_fl2va + Pika H3 Flex 6-step LCM (SVD995 branch) with a post-refiner control vector (film_16mm_1974 fl2va diff_span at +1.15, add_norm_matched, scene_only)"),
+        ("h3_pika_image_edit_control_vector.json", "pika-image-edit-control-vector", "r2v",
+         PIKA_IMAGE_EDIT_PROMPT,
+         dict(ref_images=(PLACEHOLDER_IMAGE_A,), ref_image_count=1,
+              ref_size_policy="match", single_frame=True,
+              lora=(PIKA_REF2VA_SVD995_LORA, PIKA_STRENGTH), lora_branch=True,
+              steps=PIKA_STEPS, sampler_name=PIKA_SAMPLER,
+              manual_sigmas=PIKA_MANUAL_SIGMAS,
+              width=768, height=768,
+              control_vector=("film_16mm_1974__ref2va__diff_span__lora_865ee189.safetensors", 1.15),
+              out_prefix="Image/h3_pika_image_edit_control_vector"),
+         "picture + text -> single-frame edited image on unet_ref2va + Pika H3 Flex 6-step LCM (SVD995 branch) with a post-refiner control vector (film_16mm_1974 ref2va diff_span at +1.15, add_norm_matched, scene_only), the picture as <Picture 1> held on every step"),
         # A one-frame edit on Pika with no reference picture: the picture to
         # edit is the guide, and the prompt is one sentence in the edit LoRA's
         # own form. Core's reference node, because ours refuses an empty chain.

@@ -1,6 +1,6 @@
 # H3 as an image gen/edit model
 
-Last updated: 2026-11-10 (retired `h3_p_h3_image_guide_edit_api.json`; added the two plain Pika stills, `h3_pika_image_t2i_api.json` and `h3_pika_image_edit_api.json`, prompted in the vendor guides' structure, and the `single_frame` input on `MiniMaxH3Conditioning` and `MiniMaxH3ReferenceConditioning` that gives them their one frame; added `h3_probe_pika_image_guide_edit_api.json` and `h3_probe_pika_image_guide_edit_control_vector_api.json`, one-frame edits on Pika with no reference picture, guide-branch edit-guidance wiring, and the section on them); 2026-11-09 (the `P-H3-Image` graphs default to the 32B encoder; the two probes now wire the distilled 4B encoder); 2026-11-08 (added `h3_p_h3_image_t2i_control_vector_api.json` and `h3_p_h3_image_edit_control_vector_api.json` bringing `workflows/image/` to 9 workflows); 2026-11-07 (reopened `workflows/image/` with PrunaAI `P-H3-Image` and guide-latent single-frame T2I and image-edit workflows using `MiniMaxH3PH3ImageConditioning` in [`ph3_image_nodes.py`](../ph3_image_nodes.py) plus `MiniMaxH3GuideLatent` in [`guide_latent.py`](../guide_latent.py), with `prompt` wired directly into `MiniMaxH3PH3ImageConditioning` and `ModelAttentionBackend(attention="comfy kitchen attention")`; no core patch). Previously updated: 2026-08-27, 2026-08-16.
+Last updated: 2026-11-10 (added `h3_pika_image_t2i_control_vector_api.json` and `h3_pika_image_edit_control_vector_api.json`, the two plain Pika stills with a control vector node; retired `h3_p_h3_image_guide_edit_api.json`; added the two plain Pika stills, `h3_pika_image_t2i_api.json` and `h3_pika_image_edit_api.json`, prompted in the vendor guides' structure, and the `single_frame` input on `MiniMaxH3Conditioning` and `MiniMaxH3ReferenceConditioning` that gives them their one frame; added `h3_probe_pika_image_guide_edit_api.json` and `h3_probe_pika_image_guide_edit_control_vector_api.json`, one-frame edits on Pika with no reference picture, guide-branch edit-guidance wiring, and the section on them); 2026-11-09 (the `P-H3-Image` graphs default to the 32B encoder; the two probes now wire the distilled 4B encoder); 2026-11-08 (added `h3_p_h3_image_t2i_control_vector_api.json` and `h3_p_h3_image_edit_control_vector_api.json` bringing `workflows/image/` to 9 workflows); 2026-11-07 (reopened `workflows/image/` with PrunaAI `P-H3-Image` and guide-latent single-frame T2I and image-edit workflows using `MiniMaxH3PH3ImageConditioning` in [`ph3_image_nodes.py`](../ph3_image_nodes.py) plus `MiniMaxH3GuideLatent` in [`guide_latent.py`](../guide_latent.py), with `prompt` wired directly into `MiniMaxH3PH3ImageConditioning` and `ModelAttentionBackend(attention="comfy kitchen attention")`; no core patch). Previously updated: 2026-08-27, 2026-08-16.
 
 ## Reopened 2026-11-07: PrunaAI `P-H3-Image` & Guide-Latent Image Edit (`workflows/image/`)
 
@@ -20,6 +20,8 @@ ComfyUI core natively supports `PH3ImageTEModel` (`comfy/text_encoders/minimax.p
 | [`workflows/image/h3_p_h3_image_edit_control_vector_api.json`](../workflows/image/h3_p_h3_image_edit_control_vector_api.json) | 1–8 Image Edit + Post-Refiner Control Vector (`canvas="auto"`, `t=1`, `film_16mm_1974__fl2va__diff_span__lora_2a8c2b52.safetensors` at `strength=1.15, ref_vae_end_percent=1.0`) | `p-h3-image_int8_convrot.safetensors` + `MiniMaxH3ApplyControlVectors` | `qwen3vl_32b_minimax_h3_int8_convrot.safetensors` (`MiniMaxH3EncoderLoader`) | 8 Euler steps (`PH3_IMAGE_MANUAL_SIGMAS`) |
 | [`workflows/image/h3_pika_image_t2i_api.json`](../workflows/image/h3_pika_image_t2i_api.json) | Text to image on Pika, one frame (`MiniMaxH3Conditioning`, `single_frame=True`; the prompt in the base guide's three fields; the family's square canvas) | `minimax_h3_fl2va_pruned_int8_convrot.safetensors` + `PIKA_FL2VA_SVD995_LORA` (`MiniMaxH3LoRABranch`) | `qwen3vl_32b_minimax_h3_int8_convrot.safetensors` (`MiniMaxH3EncoderLoader`) | `PIKA_STEPS` steps on `PIKA_SAMPLER` (`PIKA_MANUAL_SIGMAS`) |
 | [`workflows/image/h3_pika_image_edit_api.json`](../workflows/image/h3_pika_image_edit_api.json) | A picture edited at one frame on Pika (`MiniMaxH3ReferenceConditioning`, `single_frame=True`; the picture as `<Picture 1>`, sized to the output; the prompt in the reference guide's six sections; no guide node, no edit LoRA) | `minimax_h3_ref2va_pruned_int8_convrot.safetensors` + `PIKA_REF2VA_SVD995_LORA` (`MiniMaxH3LoRABranch`) | `qwen3vl_32b_minimax_h3_int8_convrot.safetensors` (`MiniMaxH3EncoderLoader`) | `PIKA_STEPS` steps on `PIKA_SAMPLER` (`PIKA_MANUAL_SIGMAS`) |
+| [`workflows/image/h3_pika_image_t2i_control_vector_api.json`](../workflows/image/h3_pika_image_t2i_control_vector_api.json) | The text-to-image still above with a control vector node (the vector, strength and mask are node `115`'s inputs in the graph; every section mask runs, since `MiniMaxH3Conditioning` attaches the section map) | `minimax_h3_fl2va_pruned_int8_convrot.safetensors` + `PIKA_FL2VA_SVD995_LORA` (`MiniMaxH3LoRABranch`) + `MiniMaxH3ApplyControlVectors` | `qwen3vl_32b_minimax_h3_int8_convrot.safetensors` (`MiniMaxH3EncoderLoader`) | `PIKA_STEPS` steps on `PIKA_SAMPLER` (`PIKA_MANUAL_SIGMAS`) |
+| [`workflows/image/h3_pika_image_edit_control_vector_api.json`](../workflows/image/h3_pika_image_edit_control_vector_api.json) | The edited still above with a control vector node (the vector, strength and mask are node `115`'s inputs in the graph; the reference inputs stay at the node's defaults, which hold the picture on every step) | `minimax_h3_ref2va_pruned_int8_convrot.safetensors` + `PIKA_REF2VA_SVD995_LORA` (`MiniMaxH3LoRABranch`) + `MiniMaxH3ApplyControlVectors` | `qwen3vl_32b_minimax_h3_int8_convrot.safetensors` (`MiniMaxH3EncoderLoader`) | `PIKA_STEPS` steps on `PIKA_SAMPLER` (`PIKA_MANUAL_SIGMAS`) |
 | [`workflows/image/h3_probe_pika_image_guide_edit_api.json`](../workflows/image/h3_probe_pika_image_guide_edit_api.json) | One-frame edit on Pika, no reference picture (the picture to edit is the guide: core's `MiniMaxH3ReferenceToVideo` + `MiniMaxH3GuideLatent`, `single_frame=True`; the family's square canvas) | `minimax_h3_ref2va_pruned_int8_convrot.safetensors` + `PIKA_REF2VA_SVD995_LORA` + `GUIDE_VFX_EDIT_FFP_LORA` (`MiniMaxH3LoRABranch`) | `qwen3vl_32b_minimax_h3_int8_convrot.safetensors` (`MiniMaxH3EncoderLoader`) | `PIKA_STEPS` steps on `PIKA_SAMPLER` (`PIKA_MANUAL_SIGMAS`) |
 | [`workflows/image/h3_probe_pika_image_guide_edit_control_vector_api.json`](../workflows/image/h3_probe_pika_image_guide_edit_control_vector_api.json) | One-frame edit on Pika + Post-Refiner Control Vector (`768x768`, `t=1`, `film_16mm_1974__ref2va__diff_span__lora_865ee189.safetensors` at `strength=1.15, mask="non_vision", ref_vae_end_percent=1.0`) | `minimax_h3_ref2va_pruned_int8_convrot.safetensors` + `PIKA_REF2VA_SVD995_LORA` + `GUIDE_VFX_EDIT_FFP_LORA` + `MiniMaxH3ApplyControlVectors` | `qwen3vl_32b_minimax_h3_int8_convrot.safetensors` (`MiniMaxH3EncoderLoader`) | `PIKA_STEPS` steps on `PIKA_SAMPLER` (`PIKA_MANUAL_SIGMAS`) |
 
@@ -110,7 +112,9 @@ of its conditioning, because no H3 conditioning node could hand the sampler one 
 `sheet_h3_forms_t2i` and `sheet_h3_forms_edit` in the same folder on the output share.
 
 **The two graphs that ship from it.** `h3_pika_image_t2i_api.json` and `h3_pika_image_edit_api.json`, the plain
-Pika stills. `MiniMaxH3Conditioning` and `MiniMaxH3ReferenceConditioning` take a `single_frame` input: on, the node
+Pika stills. Each has a twin with a control vector node, `h3_pika_image_t2i_control_vector_api.json` and
+`h3_pika_image_edit_control_vector_api.json`; both rendered as shipped beside the plain graphs
+(`sheet_vector_twins_as_shipped` in the trial folder). `MiniMaxH3Conditioning` and `MiniMaxH3ReferenceConditioning` take a `single_frame` input: on, the node
 hands the sampler one frame and `length` is not used, so `MiniMaxH3Resolution` stays on the video grid and nothing
 in core is patched. It is text to image on the first node (a keyframe is refused with it) and still references only
 on the second. The prompts are `prompt_bank/pika_image/t2i_clockmaker.txt`, the three fields of
@@ -155,13 +159,18 @@ What was seen, for the owner's eye to judge:
   (`control_vectors.py::_apply_holds_to_shift64`).
 - **Typed `words`, no file.** At 1.5 the jacket and hair changed without the look the words name; at 3.0 a cartoon
   clay doll replaced the picture. The node logs which words its list matched.
-- **The picture's weight, `ref_vae_aug`.** Lowered to 0.30, the source's long hair and black top came back, with
-  the vector and without it. At 0 the picture was a third variant.
-- **Releasing the picture, `ref_vae_end_percent`.** Released for the second half of the schedule, stray colored
-  objects and streaks appeared, with the vector and without it. Released for the last step or the last two, the
-  picture stayed about as it is held. In the node this input zeroes every condition latent after its window, the
-  reference picture's as well as a guide's (`control_vector_nodes.py::_make_control_vector_wrapper`; core puts both
-  in `cond_video_latents`).
+- **The picture's weight and its release (`ref_vae_aug`, `ref_vae_end_percent`): read these as the fault, not the
+  inputs.** These tries ran before `85aba935`. Until that commit a released picture was not let go: the node zeroed
+  its latents and core filled the rows with noise and labeled them with the stream's own time, so the model was
+  handed noise as its reference. That commit drops the rows on released steps
+  (`control_vector_nodes.py::_drop_visual_cond_from_layout`). None of the stills below has been rendered again on it.
+  - Released for the second half of the schedule, stray colored objects and streaks appeared, with the vector and
+    without it. Released for the last step or the last two, the picture stayed about as it is held.
+  - Weight lowered to 0.30, the source's long hair and black top came back, with the vector and without it; at 0 the
+    picture was a third variant. Core mixes the rows with noise at this weight on every step and labels them with
+    the larger of the weight and the stream's time (`comfy/ldm/minimax/model.py`, `_cond_video_rows` and `seg_t` in
+    `_forward`), so on the later steps of a low weight the rows are noisier than their label says. Read, not run;
+    `85aba935` changes the release and leaves this input as it was.
 - **On the guide edit graphs** (`h3_probe_pika_image_guide_edit*`), where the guide is the only copy of the picture:
   `ref_vae_aug` at 0.30 lost the edit and the person. A section mask is refused there, because those graphs use
   core's conditioning node and the section masks need the map our H3 conditioning nodes attach. With no reference
