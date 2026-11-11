@@ -1227,6 +1227,7 @@ def _make_control_vector_wrapper(specs: tuple[_AppliedVectorSpec, ...]):
     logged_interactions: set[tuple[tuple[str, float, str], ...]] = set()
     logged_ref_notes: set[str] = set()
     logged_prompt_couplings: set[tuple[str, str]] = set()
+    logged_steered_rows: set[tuple[int, str, int, int, str]] = set()
     resolved_prompt_vectors: dict[tuple[str, str], torch.Tensor] = {}
     last_resolved_by_spec: dict[str, torch.Tensor] = {}
 
@@ -1510,6 +1511,33 @@ def _make_control_vector_wrapper(specs: tuple[_AppliedVectorSpec, ...]):
                         )
 
                 if any(s_eff != 0.0 for (_v, s_eff, _m) in batch_entries):
+                    if not is_pure_uncond:
+                        row_key = (i, sp.mask, L, int(has_vision), str(edit_pass or ""))
+                        if row_key not in logged_steered_rows:
+                            logged_steered_rows.add(row_key)
+                            base_rm = (
+                                (tags[0] != 0)
+                                if mask_vision
+                                else torch.ones((L,), dtype=torch.bool, device=tags.device)
+                            )
+                            eff_rm = (
+                                base_rm
+                                if custom_mask is None
+                                else (
+                                    (custom_mask[0] if custom_mask.ndim == 2 else custom_mask).to(
+                                        device=tags.device, dtype=torch.bool
+                                    )
+                                    & base_rm
+                                )
+                            )
+                            logger.info(
+                                "[h3] control vector (%s) steered %d/%d context rows (mask=%s%s)",
+                                ",".join(gsp.vector_name for gsp in group_specs),
+                                int(eff_rm.sum().item()),
+                                L,
+                                sp.mask,
+                                f", {edit_pass} pass" if edit_pass in ("original", "edited") else "",
+                            )
                     cur_ctx = _cv.apply_post_refiner(
                         cur_ctx,
                         tags,
@@ -1590,6 +1618,7 @@ def resolve_vector_file_path(
     *,
     preferred_family: str | None = None,
     prefer_lora: bool | None = None,
+    log_swap: bool = True,
 ) -> Path:
     raw = str(vector_name).strip()
     if not raw or raw == "none":
@@ -1615,12 +1644,13 @@ def resolve_vector_file_path(
             prefer_lora=eff_prefer_lora,
         )
         if sib is not None and sib.is_file():
-            logger.info(
-                "[h3] auto-resolved sibling control vector %s -> %s for loaded family=%s",
-                found.name,
-                sib.name,
-                preferred_family,
-            )
+            if log_swap:
+                logger.info(
+                    "[h3] auto-resolved sibling control vector %s -> %s for loaded family=%s",
+                    found.name,
+                    sib.name,
+                    preferred_family,
+                )
             return sib
         return found
 
@@ -2836,7 +2866,9 @@ class MiniMaxH3ApplyControlVectors(io.ComfyNode):
             resolved_stats: list[tuple[str, int, int]] = []
             for pref_fam in (None, "fl2va", "ref2va"):
                 try:
-                    full = resolve_vector_file_path(raw, preferred_family=pref_fam)
+                    full = resolve_vector_file_path(
+                        raw, preferred_family=pref_fam, log_swap=False
+                    )
                     st = os.stat(full)
                     entry = (str(full), st.st_mtime_ns, st.st_size)
                     if entry not in resolved_stats:

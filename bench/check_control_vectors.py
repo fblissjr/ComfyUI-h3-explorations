@@ -42,6 +42,8 @@ Claims, i.e. what breaks if a case is deleted:
 
 from __future__ import annotations
 
+import dataclasses
+import logging
 import math
 import sys
 import tempfile
@@ -4530,6 +4532,65 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
         matched_stem = cv_nodes._match_sibling_or_stem_in_dir(sib_dir, "test_sib", "fl2va", "diff_span")
         if matched_stem is None or matched_stem.name != lora_fl.name:
             errs.append(f"_match_sibling_or_stem_in_dir bare stem picked {matched_stem}, expected {lora_fl.name}")
+        # 4. fingerprint_inputs hashes both siblings without emitting false auto-resolved swap logs
+        log_records: list[str] = []
+
+        class _ListHandler(logging.Handler):
+            def emit(self, record: logging.LogRecord) -> None:
+                log_records.append(record.getMessage())
+
+        lh = _ListHandler(level=logging.INFO)
+        cv_nodes.logger.addHandler(lh)
+        prev_lvl = cv_nodes.logger.level
+        cv_nodes.logger.setLevel(logging.INFO)
+        try:
+            fp_val = cv_nodes.MiniMaxH3ApplyControlVectors.fingerprint_inputs(vector_name=str(lora_fl))
+            if not isinstance(fp_val, tuple) or len(fp_val) != 2:
+                errs.append(f"fingerprint_inputs expected 2-sibling stat tuple, got {fp_val!r}")
+            if any("auto-resolved sibling control vector" in m for m in log_records):
+                errs.append(f"fingerprint_inputs emitted false swap log: {log_records}")
+            log_records.clear()
+            _ = cv_nodes.resolve_vector_file_path(lora_fl, preferred_family="ref2va")
+            if not any("auto-resolved sibling control vector" in m for m in log_records):
+                errs.append("resolve_vector_file_path(log_swap=True) did not log sibling swap")
+
+            # 5. Chained description_only + soundscape_only logs exact steered row counts once per spec
+            log_records.clear()
+            porter_txt = (REPO / "prompt_bank" / "t2va_night_porter.txt").read_text(encoding="utf-8").strip()
+            porter_spans = h3_spans.span_masks_from_prompt(porter_txt, 241)
+            porter_tags = torch.ones((1, 241), dtype=torch.long)
+            spec_desc = cv_nodes._AppliedVectorSpec(
+                vector_name="pyro_test",
+                vector=torch.ones((cv.POST_REFINER_DIM,), dtype=torch.float32),
+                strength=1.4,
+                mode="add_norm_matched",
+                mask="description_only",
+                start_percent=0.0,
+                end_percent=1.0,
+                metadata={"family": "fl2va", "measured_under": {"prefix": "none"}},
+                advisories=(),
+            )
+            spec_snd = dataclasses.replace(spec_desc, mask="soundscape_only")
+            wrap_fn = cv_nodes._make_control_vector_wrapper((spec_desc, spec_snd))
+            ctx_in = torch.zeros((1, 241, cv.POST_REFINER_DIM), dtype=torch.float32)
+            for _step_i in range(3):
+                _ = wrap_fn(
+                    lambda x, ts, ctx, topts, **kw: ctx,
+                    None,
+                    torch.tensor([0.9]),
+                    ctx_in,
+                    {},
+                    minimax_payload={"text_token_tags": porter_tags, "h3_span_masks": porter_spans},
+                )
+            steered_msgs = [m for m in log_records if "steered " in m and "context rows" in m]
+            if steered_msgs != [
+                "[h3] control vector (pyro_test) steered 151/241 context rows (mask=description_only)",
+                "[h3] control vector (pyro_test) steered 45/241 context rows (mask=soundscape_only)",
+            ]:
+                errs.append(f"unexpected steered-row log lines across 3 steps: {steered_msgs!r}")
+        finally:
+            cv_nodes.logger.removeHandler(lh)
+            cv_nodes.logger.setLevel(prev_lvl)
 
     # Verify inline words on MiniMaxH3ApplyControlVectors when bundle is available
     if j_lens.bundle_available():
