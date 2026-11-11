@@ -2642,6 +2642,7 @@ def build_h3_image_api(
     shape: str | None = None,
     seed: int | None = None,
     attention: str | None = DENSE_BACKEND_NODE["attention"],
+    vae_encoder: str | None = "fp32",
     out_prefix: str | None = None,
     single_frame: bool = True,
 ) -> dict:
@@ -2665,6 +2666,15 @@ def build_h3_image_api(
     Comfy-Org's int8 file asks for by itself, per block. `attention=None` wires no node, which on
     a file that asks for nothing (the bf16 conversion) is core's exact attention, the vendor
     pipeline's own.
+
+    An edit encodes its pictures with the VAE's encoder in fp32 (`MiniMaxH3VAEPrecision`,
+    `vae_encoder`), the owner's decision of 2026-11-11: MiniMax's own server runs that encode on fp32
+    weights and decodes in half precision (`coderef/sglang`, `minimax_h3/keyframe_encoding.py`),
+    which ComfyUI's one dtype per VAE cannot express. The encoder is promoted in place from the
+    fp16 file; rounding the release's fp32 encoder weights to fp16 loses nothing that matters
+    (`docs/h3_image.md`), so no second VAE file is loaded. Only the conditioning node is rebound;
+    `VAEDecode` stays on the loader, decoder untouched. `vae_encoder=None` wires no node. Text to
+    image encodes nothing and gets none.
 
     The prompt is the finished description, used as it is: this model has no chat template and no
     negative prompt. Writing that description from a short request is the prompt expander's job
@@ -2724,6 +2734,10 @@ def build_h3_image_api(
             cond_inputs[f"images.image_{idx}"] = [load_id, 0]
         # the picture being edited gives the output its shape; only its size is read
         g["4"]["inputs"]["picture"] = [_REF_IMAGE_NODES[0], 0]
+        if vae_encoder:
+            g["47"] = {"class_type": "MiniMaxH3VAEPrecision",
+                       "inputs": {"vae": ["3", 0], "encoder": vae_encoder, "decoder": "unchanged"}}
+            cond_inputs["vae"] = ["47", 0]
     elif ref_images:
         raise SystemExit("h3img_t2i takes no pictures; an edit is task 'h3img_edit'")
     g["5"] = {"class_type": "MiniMaxH3ImageConditioning", "inputs": cond_inputs}

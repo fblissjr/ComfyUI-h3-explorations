@@ -133,6 +133,21 @@ After the server was restarted to load the size node, the six graphs in
   one to expect: they are in the range those pages give for text to image
   between any two runs.
 
+## The picture being edited, encoded in fp32
+
+At the owner's word the three edit graphs now promote the VAE's encoder to fp32
+for the reference (`MiniMaxH3VAEPrecision`), as MiniMax's server does. Run as
+on disk (`edit_graphs_with_fp32_reference_encode` in the renders JSON):
+
+- It runs on the image VAE, decoder untouched.
+- Each graph's render moves, against its own fp16-encode render, by about as
+  much as the arms differ from each other. The three-arm comparison with fp32
+  encode on every arm reads the same as before.
+- Rounding the release's fp32 encoder weights to fp16 changes them by a
+  relative amount far below anything else measured here (a one-off script that
+  day, over every encoder tensor), so the encoder promoted from the fp16 file
+  is the release's encoder for this purpose.
+
 ## What this does not show
 
 - Anything about output error inside the model. No activation was captured.

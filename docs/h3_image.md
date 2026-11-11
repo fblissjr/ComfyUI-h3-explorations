@@ -167,8 +167,16 @@ pipeline on everything the chain above takes from it. What they add:
 - **Precision.** sglang runs the DiT in bf16 with its fp32 islands kept,
   encodes references with the VAE's fp32 weights and decodes in bf16
   (`coderef/sglang/python/sglang/multimodal_gen/configs/pipeline_configs/minimax_h3_image.py`).
-  The graphs here load the fp16 VAE for both. `H3_IMAGE_VAE_FP32` is linked
-  for an arm that encodes in fp32; none is built.
+  The edit graphs here do the same since 2026-11-11 (the owner's decision):
+  `MiniMaxH3VAEPrecision` promotes the encoder to fp32 for the picture being
+  edited and leaves the decoder in half precision. The encoder is promoted
+  from the fp16 file, because rounding the release's fp32 encoder weights to
+  fp16 loses nothing that matters (compared tensor by tensor that day), so the
+  fp32 VAE file is not loaded. On the release's edit case the change moves the
+  render about as much as the int8 file does against bf16
+  (`edit_graphs_with_fp32_reference_encode` in the renders JSON), which is to
+  say within the spread the vendor's servers show between their own layouts.
+  It is the vendor's way of encoding; nothing here shows it looks better.
 - **On the four small points where core differs from the diffusers pipeline,
   the two servers side with the pipeline**: the reference's posterior sample
   and its noise come from the request's seed, the sampled latent is rounded to
@@ -217,8 +225,9 @@ this model, and how much a short plain prompt loses.
 - Edits with more than one picture have not been rendered here. The builder
   wires up to six; the card says the model takes sixteen.
 - No LoRA, control vector or edit guidance has been tried on this model.
-- The fp32 VAE has not been used: not for encoding a reference, as sglang
-  does, nor compared with the fp16 one by eye.
+- The release's fp32 VAE file (`H3_IMAGE_VAE_FP32`) is linked and not loaded
+  by any graph. Nobody has compared an fp32-encoded edit with an fp16-encoded
+  one by eye.
 - No control vector made on a video checkpoint is expected to carry over as it
   is: the vectors live after the token refiner, and this model's text
   projection and refiner are its own weights (the record, "The same holds
