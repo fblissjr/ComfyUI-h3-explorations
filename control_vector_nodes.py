@@ -2048,6 +2048,17 @@ def attach_control_vector(
                         and float(prev.strength) != 0.0
                     }
                 )
+                if not prior_add_masks:
+                    # A hold takes its direction out of what earlier nodes in the chain add. With nothing
+                    # added before it there is nothing to take it out of: the render is unchanged, and the
+                    # step-0 line still counts the rows it "steered". Said here so it is not a silent no-op.
+                    logger.warning(
+                        "[h3] control vector %r is in mode 'hold' with no additive control vector before it in "
+                        "the chain: it changes nothing. A hold removes its direction from what earlier nodes add; "
+                        "to take a direction out of the prompt itself use mode 'project_out', or hold_words on "
+                        "the node that adds.",
+                        sp_chk.vector_name,
+                    )
                 if prior_add_masks:
                     raise ValueError(
                         f"mode='hold' on {sp_chk.vector_name!r} uses mask={sp_chk.mask!r}, which does not match "
@@ -2851,9 +2862,11 @@ class MiniMaxH3ApplyControlVectors(io.ComfyNode):
                     step=0.05,
                     optional=True,
                     tooltip=(
-                        "Stream multiplier applied to the video output velocity within "
-                        "[0.0, split_end_percent). At (1.0, 1.0) runs a single DiT pass; "
-                        "at (1.0, 0.0) steers video while keeping audio unsteered."
+                        "Multiplies this vector's strength for the pass that makes the video. "
+                        "When video_scale and audio_scale differ, every step inside "
+                        "[0.0, split_end_percent) runs the model twice, once per stream, so those steps "
+                        "take twice as long. Equal values are one pass and only scale the strength. "
+                        "(1.0, 0.0) steers the video and leaves the audio unsteered."
                     ),
                 ),
                 io.Float.Input(
@@ -2864,9 +2877,9 @@ class MiniMaxH3ApplyControlVectors(io.ComfyNode):
                     step=0.05,
                     optional=True,
                     tooltip=(
-                        "Stream multiplier applied to the audio output velocity within "
-                        "[0.0, split_end_percent). At (0.0, 1.0) steers audio while "
-                        "keeping video unsteered."
+                        "Multiplies this vector's strength for the pass that makes the audio. "
+                        "Differs from video_scale: two model passes on every step inside "
+                        "[0.0, split_end_percent). (0.0, 1.0) steers the audio and leaves the video unsteered."
                     ),
                 ),
                 io.Float.Input(
@@ -2877,8 +2890,10 @@ class MiniMaxH3ApplyControlVectors(io.ComfyNode):
                     step=0.01,
                     optional=True,
                     tooltip=(
-                        "End of the step window [0.0, split_end_percent) where decoupled "
-                        "video_scale != audio_scale runs."
+                        "End of the step window [0.0, split_end_percent) in which video_scale and "
+                        "audio_scale apply. After it, one pass steers both streams at the plain strength: "
+                        "a stream scaled to 0 IS steered from then on. Leave at 1.0 to keep a stream "
+                        "unsteered for the whole run; lower it only to stop paying for two passes."
                     ),
                 ),
                 io.Float.Input(
@@ -2892,7 +2907,9 @@ class MiniMaxH3ApplyControlVectors(io.ComfyNode):
                         "For ref2va / keyframe / guide-latent renders: fraction of steps [0.0, ref_vae_end_percent) "
                         "where clean 3D Video VAE conditioning rows ('ref_img' / 'cond') stay packed in the DiT "
                         "sequence (default 1.00 keeps them active on every step; lower values drop visual cond rows "
-                        "on later steps while preserving 3D RoPE positions and any speaker/audio references)."
+                        "on later steps while preserving 3D RoPE positions and any speaker/audio references). "
+                        "It is a setting of the picture, not of this vector: across a chain of these nodes the "
+                        "lowest value wins on every step, whatever each node's own step window."
                     ),
                 ),
                 io.Float.Input(
@@ -2907,7 +2924,8 @@ class MiniMaxH3ApplyControlVectors(io.ComfyNode):
                         "condition rows, the rest noise (core's visual_cond_noise_aug; the default is core's, an "
                         "almost clean picture). Lower gives the model a noisier copy of the picture on the steps "
                         "where it is held. The rows are never noisier than the frame being made: once the frame is "
-                        "cleaner than this share, the picture follows it."
+                        "cleaner than this share, the picture follows it. Across a chain of these nodes the lowest "
+                        "value wins on every step."
                     ),
                 ),
                 io.String.Input(

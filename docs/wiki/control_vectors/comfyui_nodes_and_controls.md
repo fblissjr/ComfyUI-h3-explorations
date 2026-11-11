@@ -99,7 +99,10 @@ On `$H3_OUTPUT_DIR/Video/edit_guidance/stacked/diner16f_subject_vector_one_input
 
 ### Stream multipliers (`video_scale`, `audio_scale`, `split_end_percent`)
 - At default `(video_scale = 1.0, audio_scale = 1.0)`, the node runs **1 DiT pass per step**.
-- When `(video_scale, audio_scale) != (1.0, 1.0)` inside `[0.0, split_end_percent)`, the wrapper runs an unsteered base pass alongside the steered pass and scales the video and audio velocity deltas independently (`(1.0, 0.0)` = visual-only with untouched audio, verified in `Arm 60` at `split_end_percent = 0.34`; `(0.0, 1.5)` = boosted acoustic effect with untouched video).
+- The two scales multiply the vector's **strength**, one for the pass that makes the video and one for the pass that makes the audio; they do not scale the model's output. When they differ, every step inside `[0.0, split_end_percent)` runs the model **twice** (the video is taken from one pass and the audio from the other), so those steps take twice as long. Equal values are one pass and only scale the strength (`control_vector_nodes.py`, `_effective_spec_strength` and the wrapper's `need_split`). `(1.0, 0.0)` = visual-only with untouched audio (`Arm 60` ran it at `split_end_percent = 0.34`); `(0.0, 1.5)` = a stronger acoustic effect with untouched video.
+- **After `split_end_percent` both streams are steered at the plain strength.** A stream scaled to `0` is steered from that step on, so `split_end_percent` below `1.0` does not keep a stream unsteered for the whole run; it only ends the two-pass cost early.
+- `mode = "hold"` on a node with no additive vector before it in the chain changes nothing (it has nothing to take its direction out of); the node now logs that.
+- `ref_vae_end_percent` and `ref_vae_aug` are settings of the picture, not of one vector: across a chain the lowest value wins on every step, whatever each node's own window.
 
 ### Reference & keyframe VAE release (`ref_vae_end_percent`, `ref_vae_aug`)
 On `ref2va`, `fl2va`, and guide-latent graphs, clean 3D Video VAE latents (`ref_img` / `cond`) are packed directly into the DiT token sequence alongside noisy video/audio tokens:
