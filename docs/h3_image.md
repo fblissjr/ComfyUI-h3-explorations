@@ -82,7 +82,10 @@ The same record holds the evidence:
 - **It also carries a request for INT8 attention** in every block: on a graph
   with no attention node, core runs comfy-kitchen's INT8 attention on this
   file. That is the pack's own dense kernel (`h3_config.DENSE_BACKEND_NODE`),
-  and the default graphs name it.
+  and the default graphs name it. The owner approved the file's request on
+  2026-11-11 (`bench/results/model_contents_baseline.json`), and
+  `bench/check_model_contents.py` now fingerprints this file, the bf16
+  conversion and the VAE, so a file replaced under the same name shows.
 
 So there was nothing to gain from redoing the same conversion. What we did
 write is the opposite end: the release whole in bf16, as the reference the int8
@@ -216,9 +219,6 @@ this model, and how much a short plain prompt loses.
 - No LoRA, control vector or edit guidance has been tried on this model.
 - The fp32 VAE has not been used: not for encoding a reference, as sglang
   does, nor compared with the fp16 one by eye.
-- `bench/check_model_contents.py` is red on the int8 file until its attention
-  preference is approved in `bench/results/model_contents_baseline.json`; that
-  approval is the owner's.
 - No control vector made on a video checkpoint is expected to carry over as it
   is: the vectors live after the token refiner, and this model's text
   projection and refiner are its own weights (the record, "The same holds

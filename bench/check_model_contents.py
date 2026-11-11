@@ -17,7 +17,8 @@ name, for one comparison. This reads every model the repo names.
 
 ## What it asserts
 
-For each model in `h3_config.MODELS` plus `IMAGE_VAE`: the quantization
+For each model in `h3_config.MODELS` plus `IMAGE_VAE` and the three MiniMax-H3-Image
+files (`H3_IMAGE_UNET`, `H3_IMAGE_UNET_BF16`, `H3_IMAGE_VAE`): the quantization
 fingerprint recorded in `bench/results/model_contents_baseline.json` still
 describes the file on disk. The fingerprint is the set of distinct configs, how
 many layers hold each, which module roles those are, and how many 2-D weights
@@ -178,6 +179,11 @@ def wanted(models_root: Path) -> dict[str, Path]:
     import h3_config
     names = dict(h3_config.MODELS)
     names["image_vae"] = h3_config.IMAGE_VAE
+    # MiniMax-H3-Image's files are constants of their own, outside MODELS (2026-11-11): the int8
+    # DiT and its VAE as Comfy-Org ship them, and the bf16 file written here from the release
+    names["h3_image_unet"] = h3_config.H3_IMAGE_UNET
+    names["h3_image_unet_bf16"] = h3_config.H3_IMAGE_UNET_BF16
+    names["h3_image_vae"] = h3_config.H3_IMAGE_VAE
     found = {}
     for key, name in names.items():
         for sub in ("diffusion_models", "text_encoders", "vae"):

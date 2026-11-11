@@ -138,13 +138,79 @@
         "decoder.transformer_blocks.N.ff.w2": 36,
         "decoder.x_embedder": 1
       }
+    },
+    "h3_image_unet": {
+      "mechanism": "comfy_quant",
+      "tensors": 978,
+      "quantized_layers": 200,
+      "configs": {
+        "{\"convrot\": true, \"convrot_groupsize\": 256, \"format\": \"int8_tensorwise\"}": {
+          "layers": 200,
+          "roles": {
+            "blocks.N.attn.out_proj": 50,
+            "blocks.N.attn.qkv_proj": 50,
+            "blocks.N.mlp.fc1": 50,
+            "blocks.N.mlp.fc2": 50
+          }
+        }
+      },
+      "unquantized_2d_weights": {
+        "blocks.N.adaln_proj.linear": 50,
+        "condition_proj": 1,
+        "final_layer.adaln_proj.linear": 1,
+        "final_layer.video_out": 1,
+        "token_refiner.blocks.N.attn.out_proj": 2,
+        "token_refiner.blocks.N.attn.qkv_proj": 2,
+        "token_refiner.blocks.N.mlp.fc1": 2,
+        "token_refiner.blocks.N.mlp.fc2": 2,
+        "video_patch_proj": 1
+      }
+    },
+    "h3_image_unet_bf16": {
+      "mechanism": null,
+      "tensors": 531,
+      "quantized_layers": 0,
+      "configs": {},
+      "unquantized_2d_weights": {
+        "blocks.N.adaln_proj.linear": 50,
+        "blocks.N.attn.out_proj": 50,
+        "blocks.N.attn.qkv_proj": 50,
+        "blocks.N.mlp.fc1": 50,
+        "blocks.N.mlp.fc2": 50,
+        "condition_proj": 1,
+        "final_layer.adaln_proj.linear": 1,
+        "final_layer.video_out": 1,
+        "time_embedder.proj_in": 1,
+        "time_embedder.proj_out": 1,
+        "token_refiner.blocks.N.attn.out_proj": 2,
+        "token_refiner.blocks.N.attn.qkv_proj": 2,
+        "token_refiner.blocks.N.mlp.fc1": 2,
+        "token_refiner.blocks.N.mlp.fc2": 2,
+        "video_patch_proj": 1
+      }
+    },
+    "h3_image_vae": {
+      "mechanism": null,
+      "tensors": 416,
+      "quantized_layers": 0,
+      "configs": {},
+      "unquantized_2d_weights": {
+        "decoder.proj_out": 1,
+        "decoder.transformer_blocks.N.attn.to_out": 24,
+        "decoder.transformer_blocks.N.attn.to_qkv": 24,
+        "decoder.transformer_blocks.N.ff.w1": 24,
+        "decoder.transformer_blocks.N.ff.w2": 24,
+        "decoder.x_embedder": 1
+      }
     }
   },
-  "attention_preference_approved": {},
+  "attention_preference_approved": {
+    "minimax_h3_image_pruned_int8_convrot.safetensors": "owner, 2026-11-11: approved. Every block asks for comfy_kitchen_int8, which is the pack's own dense kernel (h3_config.DENSE_BACKEND_NODE), and each graph that loads this file names its attention in a ModelAttentionBackend node, so the file's request never decides a render by itself. Its weights are the public int8 recipe run on the release (bench/results/2026-11-11_h3_image_weights.md)."
+  },
   "producer": {
     "file": "check_model_contents.py",
-    "sha256": "32e559d923d8243d8618100f0368ef7b3f2e76c8e825b0dd0bb8cbd0934b2d0d",
-    "repository_commit": "2c5a9e4eb1a192da02efeeedfab3c8fba2128583",
-    "dirty_against_commit": false
+    "sha256": "0b721463bdbd8f613e9f7cdfc4f3405dfadb150ec9919a17a61275c17cb55faf",
+    "repository_commit": "5e9e2db772ae8eb5671089dacbdff82c6810175e",
+    "dirty_against_commit": true
   }
 }
