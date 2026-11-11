@@ -162,6 +162,21 @@ each input is for:
     frame after (`control_vector_nodes.py::_stream_time`; `bench/check_control_vectors.py` walks a schedule and holds
     it). It needs no pairing with `ref_vae_end_percent`. What a low weight does to a picture is read on stills in
     [`docs/h3_image_editing.md`](../../h3_image_editing.md); those were rendered before this change.
+  - **A clothing change on a reference video, rendered 2026-11-11** (one seed, one picture, three frames a clip and a
+    full-size face crop; the 2026-11-09 diner shot, a vector built from the subject's own line on
+    `subject_definitions` alone, at a strength above the shipped one). The owner's expectation was that the picture's
+    hold, the picture's weight and the vector's own `end_percent` all need to come down.
+    - **The vector's `end_percent` is the one that mattered here.** With the vector on for every step her clothing
+      changed and a red tint appeared at her eyes. With `end_percent = 0.5` (the vector on for the first three of
+      the six steps) the clothing changed the same way and the tint was gone.
+    - **Lowering the picture's hold or its weight alone did not change the outcome.** With `ref_vae_end_percent = 0.34`
+      or `ref_vae_aug = 0.7` and the vector on every step, the clothing changed and the tint stayed. The clothing had
+      already changed with the picture held at the defaults, so on this shot the picture was not what stopped it.
+    - **With all three lowered the result was the clean one**, and at the shipped strength nothing changed, lowered
+      or not. With no vector and the picture released she stayed as in the picture.
+    - Not tried: a one-step hold, a lower weight, or the one-frame still, where the picture is sized to the output
+      and may pin more. The clips and two stacks are on the output share under `Video/edit_guidance`
+      (`diner16f_release_*`, `stacked/diner16f_subject_vector_*`).
 - A `hold` node with nothing before it in the chain has nothing to take a direction out of.
 - The shipped graphs set a strength above the node's default on purpose, so a first render shows the grade
   plainly; `bench/check_widget_deviations.py` declares it.
