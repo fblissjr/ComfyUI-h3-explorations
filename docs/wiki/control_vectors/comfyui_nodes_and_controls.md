@@ -92,14 +92,18 @@ each input is for:
   - **Keep defaults (`ref_vae_end_percent = 1.0`, `ref_vae_aug = 0.999`):** Film stock, color grade, lighting,
     weather, lens mood (`film_16mm_1974`, `noir`, `vhs_1991_camcorder`, `wes_anderson_symmetry`), or audio
     vectors where face identity, wardrobe, and layout should stay locked across every step.
-  - **Lower `ref_vae_end_percent` (`0.34` or `0.17` on 6-step Pika):** Heavy geometry, material, or world
+  - **Lower `ref_vae_end_percent` (`0.33` or `0.16` on 6-step Pika):** Heavy geometry, material, or world
     replacements (`claymation_stopmotion`, `felt_muppet`, `paper_origami`, `molten_lava_golem`,
     `balloon_head_inflate`, `sunken_coral_reef`) where clean VAE latents on late steps pull textures and
-    silhouettes back toward the live-action input. Because `_step_in_window` compares `step_idx / n_steps`
-    (`0.00, 0.167, 0.333, 0.500, ...` on 6 steps), `0.17` holds step `0` only (`1/6` steps) and `0.34` holds
-    steps `0..1` (`2/6` steps) before releasing visual VAE rows cleanly.
-  - **Lower `ref_vae_aug` (`0.30..0.85`):** Mixes controlled Gaussian noise into `cond_video_latents` on active
-    steps to soften fine pixel/fabric texture lock while keeping coarse framing and facial geometry active.
+    silhouettes back toward the live-action input. Because `_step_in_window` tests `step_idx / n_steps < end_percent`
+    (`0.000, 0.1667, 0.3333, 0.500, ...` on 6 steps), `0.16` (`0.01..0.16`) holds step `0` only (`1/6` steps),
+    `0.33` (`0.17..0.33`) holds steps `0..1` (`2/6` steps), and `0.50` (`0.34..0.50`) holds steps `0..2`
+    (`3/6` steps) before releasing visual VAE rows cleanly.
+  - **Lower `ref_vae_aug`:** Mixes `(1 - aug)` Gaussian noise into `cond_video_latents` on active steps while
+    core labels those rows at `max(t_v, aug)` (`comfy/ldm/minimax/model.py`, `_cond_video_rows` and `seg_t`).
+    When `ref_vae_end_percent = 1.0`, keep `ref_vae_aug` at or above the schedule's final `t_v` (`~0.67` on
+    6-step Pika), or pair lower `ref_vae_aug` values with `ref_vae_end_percent < 1.0` so noisy reference rows
+    release before `t_v` overtakes `ref_vae_aug`.
 - A `hold` node with nothing before it in the chain has nothing to take a direction out of.
 - The shipped graphs set a strength above the node's default on purpose, so a first render shows the grade
   plainly; `bench/check_widget_deviations.py` declares it.

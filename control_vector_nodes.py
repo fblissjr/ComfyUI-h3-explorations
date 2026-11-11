@@ -2967,9 +2967,11 @@ class MiniMaxH3ApplyControlVectors(io.ComfyNode):
                     step=0.001,
                     optional=True,
                     tooltip=(
-                        "For ref2va renders: signal weight (visual_cond_noise_aug in [0.0, 1.0], "
-                        "default 0.999) for 3D Video VAE reference latents on active steps "
-                        "(lower to 0.0..0.30 to soften pixel-level reference clothing lock on active steps)."
+                        "For ref2va / keyframe / guide-latent renders: clean-signal weight "
+                        "(visual_cond_noise_aug in [0.0, 1.0], default 0.999) for 3D Video VAE "
+                        "conditioning latents on active steps. Core labels these rows at max(t_v, aug), "
+                        "so values below late-step t_v (~0.67 on 6-step Pika) should be paired with "
+                        "ref_vae_end_percent < 1.0 so noisy reference rows release before t_v > aug."
                     ),
                 ),
                 io.String.Input(
