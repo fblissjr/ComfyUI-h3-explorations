@@ -83,6 +83,10 @@ try:
     from .h3_prompt_edit import HEADER_TOKEN_RE
 except ImportError:  # run from the repo root by a check or a tool
     from h3_prompt_edit import HEADER_TOKEN_RE  # one copy, in the module that loads no model library
+try:
+    from . import h3_spans as _h3_spans
+except ImportError:  # run from the repo root by a check or a tool
+    import h3_spans as _h3_spans
 
 #: Measured/reasoned ceiling on consecutive identical words inside a single modified
 #: clause: two poles of one quality or action-predicate clause may share a short
@@ -1163,6 +1167,195 @@ def _check_pair_tensors(
         if not bool(torch.isfinite(w64).all()) or bool((w64 == 0).any()):
             raise ValueError("weights must be finite and non-zero")
     return a64, b64, w64
+
+
+@dataclass(frozen=True)
+class PooledPairSet:
+    """What `pool_pair_set` makes of one encoded pair set at one pooling: the pooled rows, the direction
+    before and after the pair file's own holds, and the per-pair record that goes into the metadata."""
+
+    a_mat: torch.Tensor
+    b_mat: torch.Tensor
+    w_vec: torch.Tensor
+    raw_vec: torch.Tensor
+    vector: torch.Tensor
+    hold_basis: torch.Tensor | None
+    pair_spans: list[dict[str, Any]]
+    enc_raw_vec: torch.Tensor | None
+    n_holds: int
+
+
+def _pool_rows(rows: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
+    """The mean of the masked rows, summed in float64 and returned in float32."""
+    return rows.to(dtype=torch.float64)[mask].mean(dim=0).to(dtype=torch.float32)
+
+
+def _encoder_rows_mask(mask: torch.Tensor) -> torch.Tensor:
+    """The pooling mask for the encoder's own rows: row 0 left out (its norm is far above the rest),
+    unless that leaves nothing."""
+    out = mask.clone()
+    if out.numel() > 0:
+        out[0] = False
+    return out if bool(out.any()) else mask
+
+
+def _pair_pooling_masks(enc: Mapping[str, Any], pooling: str) -> tuple[torch.Tensor, torch.Tensor]:
+    first_diff, ids_a, ids_b = enc["first_diff"], enc["ids_a"], enc["ids_b"]
+    mask_a = _h3_spans.pooling_mask(
+        enc["spans_a"], pooling, first_diff=min(first_diff, len(ids_a) - 1), end_diff=enc["end_a"], other_ids=ids_b
+    )
+    mask_b = _h3_spans.pooling_mask(
+        enc["spans_b"], pooling, first_diff=min(first_diff, len(ids_b) - 1), end_diff=enc["end_b"], other_ids=ids_a
+    )
+    return mask_a, mask_b
+
+
+def pool_pair_set(
+    encoded_pairs: Sequence[Mapping[str, Any]],
+    refined_pairs: Sequence[tuple[torch.Tensor, torch.Tensor]],
+    encoded_holds: Sequence[Mapping[str, Any]] = (),
+    refined_holds: Sequence[tuple[torch.Tensor, torch.Tensor]] = (),
+    *,
+    pooling: str,
+    unit_mean: bool = False,
+    include_encoder: bool = True,
+) -> PooledPairSet:
+    """The one pair build: pooled rows, mean difference and the pair file's holds, for the node
+    `MiniMaxH3MakeControlVector` and for `bench/control_vectors.py` (`build`, `from-prompt`, `rebuild`, `make`).
+
+    `encoded_pairs` and `encoded_holds` are what `control_vector_nodes.encode_pair_set` returns (the
+    encoder's rows, tags, ids, spans and differing-token bounds of each side); `refined_*` are the same
+    rows after `condition_proj + token_refiner`, in the same order. The encoder-space direction is
+    returned before it is normalised (`encoder_point` does that), and None when not asked for. Extra
+    holds named at build time (`--hold`, `--hold-words`) are the caller's to apply to `vector`."""
+    if pooling not in VALID_POOLING:
+        raise ValueError(f"pooling must be one of {VALID_POOLING}, got {pooling!r}")
+    if len(encoded_pairs) != len(refined_pairs) or len(encoded_holds) != len(refined_holds):
+        raise ValueError("pool_pair_set: the encoded and refined lists differ in length")
+    if not encoded_pairs:
+        raise ValueError("pool_pair_set: no pairs")
+
+    a_rows: list[torch.Tensor] = []
+    b_rows: list[torch.Tensor] = []
+    enc_a_rows: list[torch.Tensor] = []
+    enc_b_rows: list[torch.Tensor] = []
+    weights: list[float] = []
+    pair_spans: list[dict[str, Any]] = []
+    for enc, (ref_a, ref_b) in zip(encoded_pairs, refined_pairs):
+        item = enc["item"]
+        mask_a, mask_b = _pair_pooling_masks(enc, pooling)
+        a_rows.append(_pool_rows(ref_a, mask_a))
+        b_rows.append(_pool_rows(ref_b, mask_b))
+        if include_encoder:
+            enc_a_rows.append(_pool_rows(enc["enc_a"], _encoder_rows_mask(mask_a)))
+            enc_b_rows.append(_pool_rows(enc["enc_b"], _encoder_rows_mask(mask_b)))
+        weights.append(float(item.weight))
+        pair_spans.append(
+            {
+                "index": int(enc["idx"]),
+                "weight": float(item.weight),
+                "first_diff": int(enc["first_diff"]),
+                "end_a": int(enc["end_a"]),
+                "end_b": int(enc["end_b"]),
+                "a_span": item.a_span,
+                "b_span": item.b_span,
+                "len_a": int(len(enc["ids_a"])),
+                "len_b": int(len(enc["ids_b"])),
+                "pooled_rows_a": int(mask_a.sum().item()),
+                "pooled_rows_b": int(mask_b.sum().item()),
+                "pooled_tokens": int(mask_b.sum().item()),
+            }
+        )
+
+    a_mat = torch.stack(a_rows, dim=0)
+    b_mat = torch.stack(b_rows, dim=0)
+    w_vec = torch.tensor(weights, dtype=torch.float32)
+    raw_vec = mean_difference(a_mat, b_mat, w_vec, unit_mean=unit_mean)
+
+    basis: torch.Tensor | None = None
+    enc_basis: torch.Tensor | None = None
+    if encoded_holds:
+        hold_a: list[torch.Tensor] = []
+        hold_b: list[torch.Tensor] = []
+        enc_hold_a: list[torch.Tensor] = []
+        enc_hold_b: list[torch.Tensor] = []
+        groups: list[str] = []
+        hold_weights: list[float] = []
+        for enc, (ref_a, ref_b) in zip(encoded_holds, refined_holds):
+            mask_a, mask_b = _pair_pooling_masks(enc, pooling)
+            hold_a.append(_pool_rows(ref_a, mask_a))
+            hold_b.append(_pool_rows(ref_b, mask_b))
+            if include_encoder:
+                enc_hold_a.append(_pool_rows(enc["enc_a"], _encoder_rows_mask(mask_a)))
+                enc_hold_b.append(_pool_rows(enc["enc_b"], _encoder_rows_mask(mask_b)))
+            groups.append(enc["h_item"].group)
+            hold_weights.append(float(enc["h_item"].weight))
+        hw = torch.tensor(hold_weights, dtype=torch.float32)
+        basis = hold_basis(torch.stack(hold_a, dim=0), torch.stack(hold_b, dim=0), groups, hw)
+        if include_encoder:
+            enc_basis = hold_basis(torch.stack(enc_hold_a, dim=0), torch.stack(enc_hold_b, dim=0), groups, hw)
+    vector = project_out(raw_vec, basis) if basis is not None else raw_vec
+
+    enc_raw_vec: torch.Tensor | None = None
+    if include_encoder:
+        enc_raw_vec = mean_difference(
+            torch.stack(enc_a_rows, dim=0), torch.stack(enc_b_rows, dim=0), w_vec, unit_mean=unit_mean
+        )
+        if enc_basis is not None:
+            enc_raw_vec = project_out(enc_raw_vec, enc_basis)
+    return PooledPairSet(
+        a_mat=a_mat,
+        b_mat=b_mat,
+        w_vec=w_vec,
+        raw_vec=raw_vec,
+        vector=vector,
+        hold_basis=basis,
+        pair_spans=pair_spans,
+        enc_raw_vec=enc_raw_vec,
+        n_holds=len(encoded_holds),
+    )
+
+
+def encoder_point(enc_raw_vec: torch.Tensor) -> tuple[torch.Tensor | None, float]:
+    """`vector.encoder` as saved (unit length) and the norm it had. None when the direction is zero."""
+    norm = float(torch.linalg.vector_norm(enc_raw_vec.to(dtype=torch.float64)).item())
+    if norm <= 1e-12:
+        return None, norm
+    return (enc_raw_vec.to(dtype=torch.float64) / norm).to(dtype=torch.float32), norm
+
+
+def pairs_record(
+    pair_set: "PairSet",
+    *,
+    path: str,
+    pair_spans: list[dict[str, Any]],
+    n_holds: int,
+    inline: bool,
+    words_spec: str | None = None,
+    inline_holds: bool = True,
+) -> dict[str, Any]:
+    """The `pairs` block of a built vector's metadata. `inline` is a build with no pair file behind it
+    (in-place words, or a pair set handed over in memory): the pair texts are then stored so the vector
+    can be rebuilt, with the holds too when `inline_holds`."""
+    out: dict[str, Any] = {
+        "path": path,
+        "sha256": pair_set.sha256,
+        "n_pairs": len(pair_set.pairs),
+        "n_holds": int(n_holds),
+        "a_side": pair_set.a_side,
+        "b_side": pair_set.b_side,
+        "differing_sections": pair_set_differing_sections(pair_set.pairs, frame=pair_set.frame),
+        "pair_spans": pair_spans,
+    }
+    if inline:
+        if isinstance(words_spec, str) and words_spec.strip():
+            out["words_spec"] = words_spec.strip()
+        out["pairs_ab"] = [{"a": p.a, "b": p.b, "weight": float(p.weight)} for p in pair_set.pairs]
+        if inline_holds and pair_set.holds:
+            out["holds_ab"] = [
+                {"group": h.group, "a": h.a, "b": h.b, "weight": float(h.weight)} for h in pair_set.holds
+            ]
+    return out
 
 
 def mean_difference(

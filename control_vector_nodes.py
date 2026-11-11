@@ -703,6 +703,75 @@ def resolve_pair_file_path(pair_file: str | Path) -> Path:
     )
 
 
+def encode_pair_set(
+    clip: Any,
+    pair_set: _cv.PairSet,
+    *,
+    encoded_references: Any | None = None,
+    with_holds: bool = True,
+    on_pair: Any | None = None,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, float]]]:
+    """Encode every pair, then every hold, of `pair_set` through `clip` (Qwen3-VL `layers.49`) in one
+    pass, so the encoder stays resident while it works. Returns `(encoded_pairs, encoded_holds,
+    encoder_row_censuses)`; each encoded entry carries both sides' rows, tags, ids and spans and the
+    differing-token bounds, which is what `control_vectors.pool_pair_set` reads. The node and
+    `bench/control_vectors.py` both build from this. `on_pair(entry)` is called after each pair."""
+    encoded_pairs: list[dict[str, Any]] = []
+    enc_censuses: list[dict[str, float]] = []
+    for idx, item in enumerate(pair_set.pairs):
+        enc_a, tags_a, ids_a, dec_a = encode_prompt_for_vector(clip, item.a, encoded_references=encoded_references)
+        enc_b, tags_b, ids_b, dec_b = encode_prompt_for_vector(clip, item.b, encoded_references=encoded_references)
+        enc_censuses.append(_cv.row_norm_census(enc_a, tags_a))
+        enc_censuses.append(_cv.row_norm_census(enc_b, tags_b))
+        first_diff, end_a, end_b = _spans.differing_token_bounds(ids_a, ids_b)
+        entry = {
+            "idx": idx,
+            "item": item,
+            "enc_a": enc_a,
+            "tags_a": tags_a,
+            "ids_a": ids_a,
+            "spans_a": _spans.spans(ids_a, tags_a.tolist(), dec_a),
+            "enc_b": enc_b,
+            "tags_b": tags_b,
+            "ids_b": ids_b,
+            "spans_b": _spans.spans(ids_b, tags_b.tolist(), dec_b),
+            "first_diff": first_diff,
+            "end_a": end_a,
+            "end_b": end_b,
+        }
+        encoded_pairs.append(entry)
+        if on_pair is not None:
+            on_pair(entry)
+
+    encoded_holds: list[dict[str, Any]] = []
+    if with_holds and pair_set.holds:
+        for h_item in pair_set.holds:
+            h_enc_a, h_tags_a, h_ids_a, h_dec_a = encode_prompt_for_vector(
+                clip, h_item.a, encoded_references=encoded_references
+            )
+            h_enc_b, h_tags_b, h_ids_b, h_dec_b = encode_prompt_for_vector(
+                clip, h_item.b, encoded_references=encoded_references
+            )
+            h_diff, h_end_a, h_end_b = _spans.differing_token_bounds(h_ids_a, h_ids_b)
+            encoded_holds.append(
+                {
+                    "h_item": h_item,
+                    "enc_a": h_enc_a,
+                    "tags_a": h_tags_a,
+                    "ids_a": h_ids_a,
+                    "spans_a": _spans.spans(h_ids_a, h_tags_a.tolist(), h_dec_a),
+                    "enc_b": h_enc_b,
+                    "tags_b": h_tags_b,
+                    "ids_b": h_ids_b,
+                    "spans_b": _spans.spans(h_ids_b, h_tags_b.tolist(), h_dec_b),
+                    "first_diff": h_diff,
+                    "end_a": h_end_a,
+                    "end_b": h_end_b,
+                }
+            )
+    return encoded_pairs, encoded_holds, enc_censuses
+
+
 def make_control_vector_from_pairs(
     *,
     pair_path: str | Path | None = None,
@@ -764,179 +833,37 @@ def make_control_vector_from_pairs(
     recipe = extract_model_recipe(model, clip)
     refiner_run = build_refiner_runner(model)
 
-    a_pooled_list: list[torch.Tensor] = []
-    b_pooled_list: list[torch.Tensor] = []
-    enc_a_pooled_list: list[torch.Tensor] = []
-    enc_b_pooled_list: list[torch.Tensor] = []
-    weights_list: list[float] = []
-    enc_censuses: list[dict[str, float]] = []
+    # Encode every pair and hold through `clip` first, then refine them all: `clip` and `model`
+    # (`ModelPatcher`) do not swap in and out of VRAM on every pair inside ComfyUI.
+    encoded_pairs, encoded_holds, enc_censuses = encode_pair_set(
+        clip, pair_set, encoded_references=encoded_references, with_holds=apply_holds
+    )
+    refined_pairs: list[tuple[torch.Tensor, torch.Tensor]] = []
     ref_censuses: list[dict[str, float]] = []
-    pair_spans: list[dict[str, Any]] = []
+    for enc in encoded_pairs:
+        ref_a = refiner_run(enc["enc_a"])
+        ref_b = refiner_run(enc["enc_b"])
+        refined_pairs.append((ref_a, ref_b))
+        ref_censuses.append(_cv.row_norm_census(ref_a, enc["tags_a"]))
+        ref_censuses.append(_cv.row_norm_census(ref_b, enc["tags_b"]))
+    refined_holds = [(refiner_run(h["enc_a"]), refiner_run(h["enc_b"])) for h in encoded_holds]
 
-    # Pass 1: Encode all contrastive pairs and hold pairs through `clip` while
-    # `clip` stays resident on the GPU so `clip` and `model` (`ModelPatcher`) do
-    # not swap in and out of VRAM on every pair inside ComfyUI.
-    encoded_pairs: list[tuple[int, Any, torch.Tensor, torch.Tensor, list[int], Any, torch.Tensor, torch.Tensor, list[int], Any]] = []
-    for idx, item in enumerate(pair_set.pairs):
-        enc_a, tags_a, ids_a, dec_a = encode_prompt_for_vector(
-            clip, item.a, encoded_references=encoded_references
-        )
-        enc_b, tags_b, ids_b, dec_b = encode_prompt_for_vector(
-            clip, item.b, encoded_references=encoded_references
-        )
-        encoded_pairs.append(
-            (idx, item, enc_a, tags_a, ids_a, dec_a, enc_b, tags_b, ids_b, dec_b)
-        )
-
-    encoded_holds: list[tuple[Any, torch.Tensor, torch.Tensor, list[int], Any, torch.Tensor, torch.Tensor, list[int], Any]] = []
-    if apply_holds and pair_set.holds:
-        for h_item in pair_set.holds:
-            h_enc_a, h_tags_a, h_ids_a, h_dec_a = encode_prompt_for_vector(
-                clip, h_item.a, encoded_references=encoded_references
-            )
-            h_enc_b, h_tags_b, h_ids_b, h_dec_b = encode_prompt_for_vector(
-                clip, h_item.b, encoded_references=encoded_references
-            )
-            encoded_holds.append(
-                (h_item, h_enc_a, h_tags_a, h_ids_a, h_dec_a, h_enc_b, h_tags_b, h_ids_b, h_dec_b)
-            )
-
-    # Pass 2: Run `condition_proj + token_refiner` across all cached encoder outputs.
-    for idx, item, enc_a, tags_a, ids_a, dec_a, enc_b, tags_b, ids_b, dec_b in encoded_pairs:
-        ref_a = refiner_run(enc_a)
-        ref_b = refiner_run(enc_b)
-
-        enc_censuses.append(_cv.row_norm_census(enc_a, tags_a))
-        enc_censuses.append(_cv.row_norm_census(enc_b, tags_b))
-        ref_censuses.append(_cv.row_norm_census(ref_a, tags_a))
-        ref_censuses.append(_cv.row_norm_census(ref_b, tags_b))
-
-        first_diff, end_a, end_b = _spans.differing_token_bounds(ids_a, ids_b)
-        spans_a = _spans.spans(ids_a, tags_a.tolist(), dec_a)
-        spans_b = _spans.spans(ids_b, tags_b.tolist(), dec_b)
-        mask_a = _spans.pooling_mask(
-            spans_a,
-            pooling,
-            first_diff=min(first_diff, len(ids_a) - 1),
-            end_diff=end_a,
-            other_ids=ids_b,
-        )
-        mask_b = _spans.pooling_mask(
-            spans_b,
-            pooling,
-            first_diff=min(first_diff, len(ids_b) - 1),
-            end_diff=end_b,
-            other_ids=ids_a,
-        )
-
-        pool_a = ref_a.to(dtype=torch.float64)[mask_a].mean(dim=0).to(dtype=torch.float32)
-        pool_b = ref_b.to(dtype=torch.float64)[mask_b].mean(dim=0).to(dtype=torch.float32)
-        a_pooled_list.append(pool_a)
-        b_pooled_list.append(pool_b)
-        if include_encoder:
-            mask_a_enc = mask_a.clone()
-            mask_b_enc = mask_b.clone()
-            if mask_a_enc.numel() > 0:
-                mask_a_enc[0] = False
-            if mask_b_enc.numel() > 0:
-                mask_b_enc[0] = False
-            if not bool(mask_a_enc.any()):
-                mask_a_enc = mask_a
-            if not bool(mask_b_enc.any()):
-                mask_b_enc = mask_b
-            enc_a_pooled_list.append(
-                enc_a.to(dtype=torch.float64)[mask_a_enc].mean(dim=0).to(dtype=torch.float32)
-            )
-            enc_b_pooled_list.append(
-                enc_b.to(dtype=torch.float64)[mask_b_enc].mean(dim=0).to(dtype=torch.float32)
-            )
-        weights_list.append(float(item.weight))
-        pair_spans.append(
-            {
-                "index": idx,
-                "weight": float(item.weight),
-                "first_diff": int(first_diff),
-                "end_a": int(end_a),
-                "end_b": int(end_b),
-                "a_span": item.a_span,
-                "b_span": item.b_span,
-                "len_a": int(enc_a.shape[0]),
-                "len_b": int(enc_b.shape[0]),
-                "pooled_rows_a": int(mask_a.sum().item()),
-                "pooled_rows_b": int(mask_b.sum().item()),
-            }
-        )
-
-    a_mat = torch.stack(a_pooled_list, dim=0)
-    b_mat = torch.stack(b_pooled_list, dim=0)
-    w_vec = torch.tensor(weights_list, dtype=torch.float32)
-
-    raw_vec = _cv.mean_difference(a_mat, b_mat, w_vec, unit_mean=unit_mean)
+    # The one pair build, shared with `bench/control_vectors.py` (`control_vectors.pool_pair_set`).
+    pooled = _cv.pool_pair_set(
+        encoded_pairs,
+        refined_pairs,
+        encoded_holds,
+        refined_holds,
+        pooling=pooling,
+        unit_mean=unit_mean,
+        include_encoder=include_encoder,
+    )
+    a_mat, b_mat, w_vec = pooled.a_mat, pooled.b_mat, pooled.w_vec
+    pair_spans = pooled.pair_spans
+    final_vec = pooled.vector
     tensors_to_save: dict[str, torch.Tensor] = {}
-
-    enc_hold_a_list: list[torch.Tensor] = []
-    enc_hold_b_list: list[torch.Tensor] = []
-    hold_groups: list[str] = []
-    hold_weights: list[float] = []
-    if encoded_holds:
-        hold_a_list: list[torch.Tensor] = []
-        hold_b_list: list[torch.Tensor] = []
-        for h_item, h_enc_a, h_tags_a, h_ids_a, h_dec_a, h_enc_b, h_tags_b, h_ids_b, h_dec_b in encoded_holds:
-            h_ref_a = refiner_run(h_enc_a)
-            h_ref_b = refiner_run(h_enc_b)
-            h_diff, h_end_a, h_end_b = _spans.differing_token_bounds(h_ids_a, h_ids_b)
-            h_spans_a = _spans.spans(h_ids_a, h_tags_a.tolist(), h_dec_a)
-            h_spans_b = _spans.spans(h_ids_b, h_tags_b.tolist(), h_dec_b)
-            h_mask_a = _spans.pooling_mask(
-                h_spans_a,
-                pooling,
-                first_diff=min(h_diff, len(h_ids_a) - 1),
-                end_diff=h_end_a,
-                other_ids=h_ids_b,
-            )
-            h_mask_b = _spans.pooling_mask(
-                h_spans_b,
-                pooling,
-                first_diff=min(h_diff, len(h_ids_b) - 1),
-                end_diff=h_end_b,
-                other_ids=h_ids_a,
-            )
-            hold_a_list.append(
-                h_ref_a.to(dtype=torch.float64)[h_mask_a].mean(dim=0).to(dtype=torch.float32)
-            )
-            hold_b_list.append(
-                h_ref_b.to(dtype=torch.float64)[h_mask_b].mean(dim=0).to(dtype=torch.float32)
-            )
-            if include_encoder:
-                hma_e = h_mask_a.clone()
-                hmb_e = h_mask_b.clone()
-                if hma_e.numel() > 0:
-                    hma_e[0] = False
-                if hmb_e.numel() > 0:
-                    hmb_e[0] = False
-                if not bool(hma_e.any()):
-                    hma_e = h_mask_a
-                if not bool(hmb_e.any()):
-                    hmb_e = h_mask_b
-                enc_hold_a_list.append(
-                    h_enc_a.to(dtype=torch.float64)[hma_e].mean(dim=0).to(dtype=torch.float32)
-                )
-                enc_hold_b_list.append(
-                    h_enc_b.to(dtype=torch.float64)[hmb_e].mean(dim=0).to(dtype=torch.float32)
-                )
-            hold_groups.append(h_item.group)
-            hold_weights.append(float(h_item.weight))
-        basis = _cv.hold_basis(
-            torch.stack(hold_a_list, dim=0),
-            torch.stack(hold_b_list, dim=0),
-            hold_groups,
-            torch.tensor(hold_weights, dtype=torch.float32),
-        )
-        final_vec = _cv.project_out(raw_vec, basis)
-        tensors_to_save["holds.post_refiner"] = basis
-    else:
-        final_vec = raw_vec
-
+    if pooled.hold_basis is not None:
+        tensors_to_save["holds.post_refiner"] = pooled.hold_basis
     tensors_to_save["vector.post_refiner"] = final_vec
 
     gen = torch.Generator(device="cpu").manual_seed(0)
@@ -983,25 +910,9 @@ def make_control_vector_from_pairs(
             "median_row_norm": median_ref_row_norm,
         }
     }
-    if include_encoder:
-        enc_a_mat = torch.stack(enc_a_pooled_list, dim=0)
-        enc_b_mat = torch.stack(enc_b_pooled_list, dim=0)
-        enc_raw_vec = _cv.mean_difference(enc_a_mat, enc_b_mat, w_vec, unit_mean=unit_mean)
-        if enc_hold_a_list:
-            enc_basis = _cv.hold_basis(
-                torch.stack(enc_hold_a_list, dim=0),
-                torch.stack(enc_hold_b_list, dim=0),
-                hold_groups,
-                torch.tensor(hold_weights, dtype=torch.float32),
-            )
-            enc_raw_vec = _cv.project_out(enc_raw_vec, enc_basis)
-        enc_raw_norm = float(
-            torch.linalg.vector_norm(enc_raw_vec.to(dtype=torch.float64)).item()
-        )
-        if enc_raw_norm > 1e-12:
-            enc_vec = (enc_raw_vec.to(dtype=torch.float64) / enc_raw_norm).to(
-                dtype=torch.float32
-            )
+    if include_encoder and pooled.enc_raw_vec is not None:
+        enc_vec, enc_raw_norm = _cv.encoder_point(pooled.enc_raw_vec)
+        if enc_vec is not None:
             tensors_to_save["vector.encoder"] = enc_vec
             points_meta["encoder"] = {
                 "unit": "median_row_norm",
@@ -1010,30 +921,15 @@ def make_control_vector_from_pairs(
                 "row0_excluded": True,
             }
 
-    pairs_dict_node: dict[str, Any] = {
-        "path": rel_pair_path,
-        "sha256": pair_set.sha256,
-        "n_pairs": len(pair_set.pairs),
-        "n_holds": len(pair_set.holds) if apply_holds else 0,
-        "a_side": pair_set.a_side,
-        "b_side": pair_set.b_side,
-        "differing_sections": _cv.pair_set_differing_sections(
-            pair_set.pairs, frame=pair_set.frame
-        ),
-        "pair_spans": pair_spans,
-    }
-    if resolved_pair_path is None:
-        if isinstance(words, str) and words.strip():
-            pairs_dict_node["words_spec"] = words.strip()
-        pairs_dict_node["pairs_ab"] = [
-            {"a": p.a, "b": p.b, "weight": float(p.weight)}
-            for p in pair_set.pairs
-        ]
-        if apply_holds and pair_set.holds:
-            pairs_dict_node["holds_ab"] = [
-                {"group": h.group, "a": h.a, "b": h.b, "weight": float(h.weight)}
-                for h in pair_set.holds
-            ]
+    pairs_dict_node = _cv.pairs_record(
+        pair_set,
+        path=rel_pair_path,
+        pair_spans=pair_spans,
+        n_holds=len(pair_set.holds) if apply_holds else 0,
+        inline=resolved_pair_path is None,
+        words_spec=words if isinstance(words, str) else None,
+        inline_holds=apply_holds,
+    )
 
     metadata: dict[str, Any] = {
         "format": _cv.FORMAT_VERSION,

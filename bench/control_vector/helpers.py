@@ -497,75 +497,25 @@ def _encode_pair_set_through_clip(
     no_holds: bool = False,
     log_rows: bool = False,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, float]], list[float]]:
-    """Shared single-pass Qwen3-VL `layers.49` pair and hold encoder for `build` and `make`."""
-    cached_pairs: list[dict[str, Any]] = []
-    enc_censuses: list[dict[str, float]] = []
-    weights_list: list[float] = []
-    for idx, item in enumerate(pair_set.pairs):
-        enc_a, tags_a, ids_a, dec_a = cv_nodes.encode_prompt_for_vector(
-            clip, item.a, encoded_references=encoded_refs
-        )
-        enc_b, tags_b, ids_b, dec_b = cv_nodes.encode_prompt_for_vector(
-            clip, item.b, encoded_references=encoded_refs
-        )
-        enc_censuses.append(cv.row_norm_census(enc_a, tags_a))
-        enc_censuses.append(cv.row_norm_census(enc_b, tags_b))
-        first_diff, end_a, end_b = h3_spans.differing_token_bounds(ids_a, ids_b)
-        spans_a = h3_spans.spans(ids_a, tags_a.tolist(), dec_a)
-        spans_b = h3_spans.spans(ids_b, tags_b.tolist(), dec_b)
-        cached_pairs.append(
-            {
-                "idx": idx,
-                "item": item,
-                "enc_a": enc_a,
-                "tags_a": tags_a,
-                "ids_a": ids_a,
-                "spans_a": spans_a,
-                "enc_b": enc_b,
-                "tags_b": tags_b,
-                "ids_b": ids_b,
-                "spans_b": spans_b,
-                "first_diff": first_diff,
-                "end_a": end_a,
-                "end_b": end_b,
-            }
-        )
-        weights_list.append(float(item.weight))
-        if log_rows:
-            print(
-                f"  [{idx:02d}] w={item.weight:.2f} diff_toks=[{first_diff}:{end_a}/{end_b}] "
-                f"L_a={len(ids_a):3d} L_b={len(ids_b):3d} | "
-                f"-{item.a_span[:42]!r} -> +{item.b_span[:42]!r}"
-            )
+    """The pair and hold encode for `build` and `make`: `control_vector_nodes.encode_pair_set`, the same
+    call the node makes, with the per-pair line `build` prints and the weights as a list."""
 
-    cached_holds: list[dict[str, Any]] = []
-    if not no_holds and pair_set.holds:
-        for h_item in pair_set.holds:
-            h_enc_a, h_tags_a, h_ids_a, h_dec_a = cv_nodes.encode_prompt_for_vector(
-                clip, h_item.a, encoded_references=encoded_refs
-            )
-            h_enc_b, h_tags_b, h_ids_b, h_dec_b = cv_nodes.encode_prompt_for_vector(
-                clip, h_item.b, encoded_references=encoded_refs
-            )
-            h_diff, h_end_a, h_end_b = h3_spans.differing_token_bounds(h_ids_a, h_ids_b)
-            cached_holds.append(
-                {
-                    "h_item": h_item,
-                    "enc_a": h_enc_a,
-                    "tags_a": h_tags_a,
-                    "ids_a": h_ids_a,
-                    "spans_a": h3_spans.spans(h_ids_a, h_tags_a.tolist(), h_dec_a),
-                    "enc_b": h_enc_b,
-                    "tags_b": h_tags_b,
-                    "ids_b": h_ids_b,
-                    "spans_b": h3_spans.spans(h_ids_b, h_tags_b.tolist(), h_dec_b),
-                    "first_diff": h_diff,
-                    "end_a": h_end_a,
-                    "end_b": h_end_b,
-                }
-            )
-    return cached_pairs, cached_holds, enc_censuses, weights_list
+    def _log(cp: dict[str, Any]) -> None:
+        item = cp["item"]
+        print(
+            f"  [{cp['idx']:02d}] w={item.weight:.2f} diff_toks=[{cp['first_diff']}:{cp['end_a']}/{cp['end_b']}] "
+            f"L_a={len(cp['ids_a']):3d} L_b={len(cp['ids_b']):3d} | "
+            f"-{item.a_span[:42]!r} -> +{item.b_span[:42]!r}"
+        )
 
+    cached_pairs, cached_holds, enc_censuses = cv_nodes.encode_pair_set(
+        clip,
+        pair_set,
+        encoded_references=encoded_refs,
+        with_holds=not no_holds,
+        on_pair=_log if log_rows else None,
+    )
+    return cached_pairs, cached_holds, enc_censuses, [float(p.weight) for p in pair_set.pairs]
 
 
 def _rel_l2(a: torch.Tensor, b: torch.Tensor) -> float:

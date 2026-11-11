@@ -17,6 +17,16 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-11-11
 
+- **One pair build, called by the node and the CLI** (the 2026-11-11 studio assessment found three copies; the
+  Gemini reviewer asked that the fold stay in process, so the CLI still runs with the server down).
+  `control_vectors.py::pool_pair_set` pools each side's rows, takes the mean difference and projects out the pair
+  file's holds, for the post-refiner direction and the encoder's; `control_vector_nodes.py::encode_pair_set` is the
+  one encode. `MiniMaxH3MakeControlVector`, `build` (so `from-prompt`, `from-toml`, `rebuild` and the studio) and
+  `make` (its second-family build too) call both. Each caller keeps what is its own: how it loads the models, extra
+  holds named at build time, the J-Lens readout and its report. The `pairs` block of the metadata is one function
+  too (`pairs_record`); a node-built vector now records `pooled_tokens` per pair as the CLI's always did. Not
+  folded: the picture-pair build (`MiniMaxH3MakeMediaControlVector`, `make-media`), which pools different rows.
+  `bench/check_control_vectors.py` holds the function to rows pooled by hand and fails if a caller pools on its own.
 - **`grade` applies a vector the way a graph does** (found in the 2026-11-11 studio assessment, confirmed by the
   Gemini reviewer the same day). `bench/control_vectors.py grade` never passed a mode, so it applied in `add` while
   `MiniMaxH3ApplyControlVectors` and every shipped graph default to `add_norm_matched`: a `--strengths` value was in a

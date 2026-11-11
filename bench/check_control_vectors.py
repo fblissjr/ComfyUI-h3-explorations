@@ -1606,6 +1606,85 @@ def check_math_and_synthetic_statistics() -> list[str]:
         or qr_1pair["per_pair_cosine"] != []
     ):
         errs.append(f"quality_report(n_pairs=1) expected None cosines and [], got {qr_1pair}")
+
+    # The one pair build (`cv.pool_pair_set`), which the node and bench/control_vectors.py's build and make
+    # all call. On synthetic rows: each side pooled over its mask in float64, the encoder's rows pooled
+    # without row 0 unless nothing else is left, the pair file's holds projected out of both directions,
+    # and the per-pair record. Then the callers themselves: none may pool on its own again.
+    def _entry(idx: int, first_diff: int, rows: int, seed: int, weight: float = 1.0) -> dict:
+        g = torch.Generator().manual_seed(seed)
+        none = torch.zeros(rows, dtype=torch.bool)
+        sp = {k: none.clone() for k in ("vision", "label", "timestamp", "dialogue", "speaker")}
+        sp["scene"] = torch.ones(rows, dtype=torch.bool)
+        item = SimpleNamespace(weight=weight, a_span="a", b_span="b", group="g")
+        return {
+            "idx": idx, "item": item, "h_item": item, "first_diff": first_diff, "end_a": rows, "end_b": rows,
+            "enc_a": torch.randn(rows, 6, generator=g), "enc_b": torch.randn(rows, 6, generator=g),
+            "ids_a": list(range(rows)), "ids_b": list(range(rows)), "tags_a": torch.ones(rows), "tags_b": torch.ones(rows),
+            "spans_a": sp, "spans_b": sp,
+            "ref": (torch.randn(rows, 8, generator=g), torch.randn(rows, 8, generator=g)),
+        }
+
+    def _m(rows_t: torch.Tensor, start: int) -> torch.Tensor:
+        return rows_t.to(dtype=torch.float64)[start:].mean(dim=0).to(dtype=torch.float32)
+
+    e0, e1, eh = _entry(0, 0, 5, 11), _entry(1, 2, 6, 12, weight=2.0), _entry(0, 1, 4, 13)
+    pooled = cv.pool_pair_set(
+        [e0, e1], [e0["ref"], e1["ref"]], [eh], [eh["ref"]], pooling="from_first_diff", include_encoder=True
+    )
+    want_a = torch.stack([_m(e0["ref"][0], 0), _m(e1["ref"][0], 2)])
+    want_b = torch.stack([_m(e0["ref"][1], 0), _m(e1["ref"][1], 2)])
+    want_w = torch.tensor([1.0, 2.0])
+    want_raw = cv.mean_difference(want_a, want_b, want_w)
+    want_basis = cv.hold_basis(_m(eh["ref"][0], 1)[None], _m(eh["ref"][1], 1)[None], ["g"], torch.tensor([1.0]))
+    # the encoder's rows: row 0 left out where the mask reaches it (first_diff 0), unchanged where it does not
+    want_enc_raw = cv.mean_difference(
+        torch.stack([_m(e0["enc_a"], 1), _m(e1["enc_a"], 2)]), torch.stack([_m(e0["enc_b"], 1), _m(e1["enc_b"], 2)]), want_w
+    )
+    want_enc = cv.project_out(
+        want_enc_raw, cv.hold_basis(_m(eh["enc_a"], 1)[None], _m(eh["enc_b"], 1)[None], ["g"], torch.tensor([1.0]))
+    )
+    for label, got, want in (
+        ("a_mat", pooled.a_mat, want_a), ("b_mat", pooled.b_mat, want_b), ("raw_vec", pooled.raw_vec, want_raw),
+        ("hold_basis", pooled.hold_basis, want_basis), ("vector", pooled.vector, cv.project_out(want_raw, want_basis)),
+        ("enc_raw_vec", pooled.enc_raw_vec, want_enc),
+    ):
+        if got is None or not torch.equal(got, want):
+            errs.append(f"pool_pair_set {label} differs from the rows pooled by hand")
+    if torch.equal(pooled.vector, pooled.raw_vec):
+        errs.append("pool_pair_set left the pair file's hold in the vector")
+    sp1 = pooled.pair_spans[1]
+    if (sp1["index"], sp1["weight"], sp1["first_diff"], sp1["pooled_rows_a"], sp1["pooled_tokens"], sp1["len_a"]) != (1, 2.0, 2, 4, 4, 6):
+        errs.append(f"pool_pair_set pair record is wrong: {sp1}")
+    no_holds = cv.pool_pair_set([e0, e1], [e0["ref"], e1["ref"]], pooling="from_first_diff", include_encoder=False)
+    if no_holds.hold_basis is not None or no_holds.enc_raw_vec is not None or not torch.equal(no_holds.vector, want_raw):
+        errs.append("pool_pair_set without holds or the encoder point returned a basis, an encoder direction or a changed vector")
+    unit, norm = cv.encoder_point(pooled.enc_raw_vec)
+    if unit is None or abs(float(torch.linalg.vector_norm(unit.double())) - 1.0) > 1e-6 or norm <= 0.0:
+        errs.append(f"encoder_point is not unit length: norm {norm}")
+    if cv.encoder_point(torch.zeros(6))[0] is not None:
+        errs.append("encoder_point returned a vector for a zero direction")
+    errs += _expect_refusal(
+        lambda: cv.pool_pair_set([e0], [e0["ref"], e1["ref"]], pooling="from_first_diff"),
+        "differ in length", "pool_pair_set mismatched lists refusal",
+    )
+    import inspect
+
+    import control_vector_nodes as _cvn
+
+    node_src = inspect.getsource(_cvn.make_control_vector_from_pairs)
+    for label, src in (
+        ("control_vector_nodes.make_control_vector_from_pairs", node_src),
+        ("bench/control_vector/build_cmd.py", (REPO / "bench" / "control_vector" / "build_cmd.py").read_text(encoding="utf-8")),
+        ("bench/control_vector/make_cmds.py", (REPO / "bench" / "control_vector" / "make_cmds.py").read_text(encoding="utf-8")),
+    ):
+        if "pool_pair_set(" not in src:
+            errs.append(f"{label} does not build through control_vectors.pool_pair_set")
+        for own in ("pooling_mask(", "mean_difference(", "hold_basis("):
+            if own in src:
+                errs.append(f"{label} pools or averages on its own again ({own.rstrip('(')}): the pair build is one function")
+    if "encode_pair_set(" not in node_src or "encode_pair_set(" not in (REPO / "bench" / "control_vector" / "helpers.py").read_text(encoding="utf-8"):
+        errs.append("the node or the CLI no longer encodes a pair set through control_vector_nodes.encode_pair_set")
     return errs
 
 

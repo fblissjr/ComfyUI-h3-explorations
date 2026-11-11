@@ -417,139 +417,23 @@ def cmd_build(args: argparse.Namespace) -> int:
             refined_holds.append((refiner_run(ch["enc_a"]), refiner_run(ch["enc_b"])))
 
         for pool_mode in poolings:
-            a_pooled_list: list[torch.Tensor] = []
-            b_pooled_list: list[torch.Tensor] = []
-            enc_a_pooled_list: list[torch.Tensor] = []
-            enc_b_pooled_list: list[torch.Tensor] = []
-            pair_spans: list[dict[str, Any]] = []
-
-            for cp, (ref_a, ref_b) in zip(cached_pairs, refined_pairs):
-                first_diff = cp["first_diff"]
-                end_a = cp["end_a"]
-                end_b = cp["end_b"]
-                ids_a = cp["ids_a"]
-                ids_b = cp["ids_b"]
-                item = cp["item"]
-                mask_a = h3_spans.pooling_mask(
-                    cp["spans_a"],
-                    pool_mode,
-                    first_diff=min(first_diff, len(ids_a) - 1),
-                    end_diff=end_a,
-                    other_ids=ids_b,
-                )
-                mask_b = h3_spans.pooling_mask(
-                    cp["spans_b"],
-                    pool_mode,
-                    first_diff=min(first_diff, len(ids_b) - 1),
-                    end_diff=end_b,
-                    other_ids=ids_a,
-                )
-                a_pooled_list.append(
-                    ref_a.to(dtype=torch.float64)[mask_a].mean(dim=0).to(dtype=torch.float32)
-                )
-                b_pooled_list.append(
-                    ref_b.to(dtype=torch.float64)[mask_b].mean(dim=0).to(dtype=torch.float32)
-                )
-                if getattr(args, "include_encoder", True):
-                    mask_a_enc = mask_a.clone()
-                    mask_b_enc = mask_b.clone()
-                    if mask_a_enc.numel() > 0:
-                        mask_a_enc[0] = False
-                    if mask_b_enc.numel() > 0:
-                        mask_b_enc[0] = False
-                    if not bool(mask_a_enc.any()):
-                        mask_a_enc = mask_a
-                    if not bool(mask_b_enc.any()):
-                        mask_b_enc = mask_b
-                    enc_a_pooled_list.append(
-                        cp["enc_a"].to(dtype=torch.float64)[mask_a_enc].mean(dim=0).to(dtype=torch.float32)
-                    )
-                    enc_b_pooled_list.append(
-                        cp["enc_b"].to(dtype=torch.float64)[mask_b_enc].mean(dim=0).to(dtype=torch.float32)
-                    )
-                pair_spans.append(
-                    {
-                        "index": int(cp["idx"]),
-                        "weight": float(item.weight),
-                        "first_diff": int(first_diff),
-                        "end_a": int(end_a),
-                        "end_b": int(end_b),
-                        "a_span": item.a_span,
-                        "b_span": item.b_span,
-                        "len_a": int(len(ids_a)),
-                        "len_b": int(len(ids_b)),
-                        "pooled_rows_a": int(mask_a.sum().item()),
-                        "pooled_rows_b": int(mask_b.sum().item()),
-                        "pooled_tokens": int(mask_b.sum().item()),
-                    }
-                )
-
-            a_mat = torch.stack(a_pooled_list, dim=0)
-            b_mat = torch.stack(b_pooled_list, dim=0)
+            # The one pair build, shared with the node (`control_vectors.pool_pair_set`).
             use_unit_mean = bool(getattr(args, "unit_mean", False))
-            raw_vec = cv.mean_difference(a_mat, b_mat, w_vec, unit_mean=use_unit_mean)
+            pooled = cv.pool_pair_set(
+                cached_pairs,
+                refined_pairs,
+                cached_holds,
+                refined_holds,
+                pooling=pool_mode,
+                unit_mean=use_unit_mean,
+                include_encoder=bool(getattr(args, "include_encoder", True)),
+            )
+            a_mat, b_mat = pooled.a_mat, pooled.b_mat
+            pair_spans = pooled.pair_spans
+            final_vec = pooled.vector
             tensors_to_save: dict[str, torch.Tensor] = {}
-
-            hold_a_list: list[torch.Tensor] = []
-            hold_b_list: list[torch.Tensor] = []
-            enc_hold_a_list: list[torch.Tensor] = []
-            enc_hold_b_list: list[torch.Tensor] = []
-            hold_groups: list[str] = []
-            hold_weights: list[float] = []
-            if cached_holds:
-                for ch, (h_ref_a, h_ref_b) in zip(cached_holds, refined_holds):
-                    h_diff = ch["first_diff"]
-                    h_ids_a = ch["ids_a"]
-                    h_ids_b = ch["ids_b"]
-                    h_mask_a = h3_spans.pooling_mask(
-                        ch["spans_a"],
-                        pool_mode,
-                        first_diff=min(h_diff, len(h_ids_a) - 1),
-                        end_diff=ch["end_a"],
-                        other_ids=h_ids_b,
-                    )
-                    h_mask_b = h3_spans.pooling_mask(
-                        ch["spans_b"],
-                        pool_mode,
-                        first_diff=min(h_diff, len(h_ids_b) - 1),
-                        end_diff=ch["end_b"],
-                        other_ids=h_ids_a,
-                    )
-                    hold_a_list.append(
-                        h_ref_a.to(dtype=torch.float64)[h_mask_a].mean(dim=0).to(dtype=torch.float32)
-                    )
-                    hold_b_list.append(
-                        h_ref_b.to(dtype=torch.float64)[h_mask_b].mean(dim=0).to(dtype=torch.float32)
-                    )
-                    if getattr(args, "include_encoder", True):
-                        hma_e = h_mask_a.clone()
-                        hmb_e = h_mask_b.clone()
-                        if hma_e.numel() > 0:
-                            hma_e[0] = False
-                        if hmb_e.numel() > 0:
-                            hmb_e[0] = False
-                        if not bool(hma_e.any()):
-                            hma_e = h_mask_a
-                        if not bool(hmb_e.any()):
-                            hmb_e = h_mask_b
-                        enc_hold_a_list.append(
-                            ch["enc_a"].to(dtype=torch.float64)[hma_e].mean(dim=0).to(dtype=torch.float32)
-                        )
-                        enc_hold_b_list.append(
-                            ch["enc_b"].to(dtype=torch.float64)[hmb_e].mean(dim=0).to(dtype=torch.float32)
-                        )
-                    hold_groups.append(ch["h_item"].group)
-                    hold_weights.append(float(ch["h_item"].weight))
-                basis = cv.hold_basis(
-                    torch.stack(hold_a_list, dim=0),
-                    torch.stack(hold_b_list, dim=0),
-                    hold_groups,
-                    torch.tensor(hold_weights, dtype=torch.float32),
-                )
-                final_vec = cv.project_out(raw_vec, basis)
-                tensors_to_save["holds.post_refiner"] = basis
-            else:
-                final_vec = raw_vec
+            if pooled.hold_basis is not None:
+                tensors_to_save["holds.post_refiner"] = pooled.hold_basis
 
             applied_holds_build: list[str] = []
             norm_bef_build = 0.0
@@ -578,28 +462,10 @@ def cmd_build(args: argparse.Namespace) -> int:
                     "median_row_norm": median_ref_row_norm,
                 }
             }
-            enc_a_mat: torch.Tensor | None = None
-            enc_b_mat: torch.Tensor | None = None
-            if getattr(args, "include_encoder", True):
-                enc_a_mat = torch.stack(enc_a_pooled_list, dim=0)
-                enc_b_mat = torch.stack(enc_b_pooled_list, dim=0)
-                enc_raw_vec = cv.mean_difference(enc_a_mat, enc_b_mat, w_vec, unit_mean=use_unit_mean)
-                if enc_hold_a_list:
-                    enc_basis = cv.hold_basis(
-                        torch.stack(enc_hold_a_list, dim=0),
-                        torch.stack(enc_hold_b_list, dim=0),
-                        hold_groups,
-                        torch.tensor(hold_weights, dtype=torch.float32),
-                    )
-                    enc_raw_vec = cv.project_out(enc_raw_vec, enc_basis)
-                enc_raw_norm = float(
-                    torch.linalg.vector_norm(enc_raw_vec.to(dtype=torch.float64)).item()
-                )
-                if enc_raw_norm <= 1e-12:
+            if pooled.enc_raw_vec is not None:
+                enc_vec, enc_raw_norm = cv.encoder_point(pooled.enc_raw_vec)
+                if enc_vec is None:
                     raise ValueError("vector.encoder has zero norm")
-                enc_vec = (enc_raw_vec.to(dtype=torch.float64) / enc_raw_norm).to(
-                    dtype=torch.float32
-                )
                 tensors_to_save["vector.encoder"] = enc_vec
                 points_meta["encoder"] = {
                     "unit": "median_row_norm",
@@ -626,32 +492,19 @@ def cmd_build(args: argparse.Namespace) -> int:
                     jl_build_readout = None
 
             measured_mode = "ref2va" if encoded_refs is not None else pair_set.mode
-            pairs_dict_build: dict[str, Any] = {
-                "path": rel_pair_path,
-                "sha256": pair_set.sha256,
-                "n_pairs": len(pair_set.pairs),
-                "n_holds": len(cached_holds) + len(applied_holds_build),
-                "a_side": pair_set.a_side,
-                "b_side": pair_set.b_side,
-                "differing_sections": cv.pair_set_differing_sections(
-                    pair_set.pairs, frame=pair_set.frame
+            saved_words = getattr(args, "_words_spec_saved", None)
+            pairs_dict_build = cv.pairs_record(
+                pair_set,
+                path=rel_pair_path,
+                pair_spans=pair_spans,
+                n_holds=len(cached_holds) + len(applied_holds_build),
+                inline=resolved_pair_path is None,
+                words_spec=(
+                    str(words_arg)
+                    if isinstance(words_arg, str) and words_arg.strip()
+                    else (saved_words if isinstance(saved_words, str) else None)
                 ),
-                "pair_spans": pair_spans,
-            }
-            if resolved_pair_path is None:
-                if isinstance(words_arg, str) and words_arg.strip():
-                    pairs_dict_build["words_spec"] = str(words_arg).strip()
-                elif isinstance(getattr(args, "_words_spec_saved", None), str) and args._words_spec_saved.strip():
-                    pairs_dict_build["words_spec"] = str(args._words_spec_saved).strip()
-                pairs_dict_build["pairs_ab"] = [
-                    {"a": p.a, "b": p.b, "weight": float(p.weight)}
-                    for p in pair_set.pairs
-                ]
-                if pair_set.holds:
-                    pairs_dict_build["holds_ab"] = [
-                        {"group": h.group, "a": h.a, "b": h.b, "weight": float(h.weight)}
-                        for h in pair_set.holds
-                    ]
+            )
             metadata: dict[str, Any] = {
                 "format": cv.FORMAT_VERSION,
                 "name": stem,
