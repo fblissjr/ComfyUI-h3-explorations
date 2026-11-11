@@ -21,6 +21,15 @@ rebuild is the comparison. It draws no conclusion.
           token routing, and at the sizes where dense attention fits, the
           relative error against it.
 
+  widths  which activated row widths the fused quantizer serves at all. The
+          CUDA backend folds the activation into the quantizer only for a
+          width up to `_CONVROT_FUSED_MAX_K` that is a multiple of 256 and
+          fits shared memory; any other width gets the activation applied
+          first, in torch, on every build. Printed per width: outputs
+          differing between fused and chain, and a hash of the fused output,
+          so two builds' lines for one width can be compared by eye. The
+          widths are those of the INT8 files this pack loads (`WIDTHS`).
+
 What it cannot see: a render. The inputs are synthetic, so the share of query
 groups that overflow on real H3 activations, and with it the real cost of the
 retry pass, is not measured here. Times are the best of a few calls on a card
@@ -96,6 +105,33 @@ for dtype in (torch.bfloat16, torch.float16):
         print(f"  {str(dtype):15s} M={m:6d}: outputs differing {neq}/{ref.numel()}, fused call {ms:.2f} ms")
         del h, w, ref, got
         torch.cuda.empty_cache()
+
+# ---- which widths the fused quantizer serves -------------------------------
+import hashlib  # noqa: E402
+
+#: activated row width (the linear's in-features) -> the layer in core that has it
+WIDTHS = {
+    14336: "H3 DiT MLP fc2 (comfy/ldm/minimax/model.py::MLP)",
+    8192: "H3 video VAE decoder FeedForward w2 (comfy/ldm/minimax/vae.py::FeedForward)",
+    9728: "Qwen3-VL 4B encoder MLP down_proj (comfy/text_encoders/llama.py::MLP)",
+    6144: "Qwen3.5 9B upsampler MLP down_proj",
+    25600: "Qwen3-VL 32B encoder MLP down_proj",
+}
+print("\n[widths] bfloat16, int8_linear fused vs chain, and a hash of the fused output; fused limit",
+      getattr(cb, "_CONVROT_FUSED_MAX_K", "?"))
+for k, where in WIDTHS.items():
+    for m in (512, 4096):
+        g = torch.Generator(device="cuda").manual_seed(k + m)
+        h = (torch.randn(m, 2 * k, device="cuda", generator=g) * 2.0).to(torch.bfloat16)
+        w = torch.randint(-127, 127, (256, k), dtype=torch.int8, device="cuda", generator=g)
+        ws = torch.tensor(0.01, dtype=torch.float32, device="cuda")
+        gate, up = h.chunk(2, dim=-1)
+        ref = ck.int8_linear((F.silu(gate) * up).contiguous(), w, ws, None, torch.bfloat16, convrot=True, convrot_groupsize=G)
+        got = ck.int8_linear(h, w, ws, None, torch.bfloat16, convrot=True, convrot_groupsize=G, input_act="swiglu")
+        digest = hashlib.sha256(got.view(torch.int16).cpu().numpy().tobytes()).hexdigest()[:12]
+        print(f"  K={k:6d} M={m:5d}: outputs differing {(ref != got).sum().item():8d}/{ref.numel()}, fused output {digest} | {where}")
+        del h, w, ref, got
+    torch.cuda.empty_cache()
 
 # ---- token routing ------------------------------------------------------------
 HD = 128

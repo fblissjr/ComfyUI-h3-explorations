@@ -21,19 +21,27 @@ Neither pull request had a maintainer's review on this day.
 
 ## What a render sees
 
-- **Every INT8 ConvRot layer that core calls as `linear_input_act(..., "swiglu")` changes**, wherever the
-  fused quantizer serves its shape. On the files this pack loads that is three places, not one:
-  - the DiT's MLP in every block (`comfy/ldm/minimax/model.py::MLP`, its `fc2`), so the same seed gives a
-    different sample than it did on the build before;
-  - the INT8 video VAE's decoder (`comfy/ldm/minimax/vae.py::FeedForward`), which most shipped graphs load, so
-    the same latent decodes to slightly different pixels;
-  - the INT8 text encoders' MLP (`comfy/text_encoders/llama.py::MLP`), so a conditioning made with an INT8
-    encoder file differs from one made before. A bf16 encoder, and anything extracted with one, is untouched.
+- **An INT8 ConvRot layer that core calls as `linear_input_act(..., "swiglu")` changes when its activated width
+  is one the fused quantizer serves**: a multiple of 256, no wider than `_CONVROT_FUSED_MAX_K` in
+  `coderef/comfy-kitchen/comfy_kitchen/backends/cuda/__init__.py`, and fitting shared memory. A wider layer has
+  its activation applied in torch first, on every build, and is the same before and after. By file:
 
-  Core's other callers of the same path (Qwen-Image 2.1, FIBO 2, Flux 3, the Wan VSR model, MiniMax Music) change
-  the same way on an INT8 file. *Corrected 2026-11-11: this item named only the DiT's `fc2`; the Gemini session's
-  review of the record found the VAE and the encoders.* What was measured below is the kernel, at the DiT's
-  shape; the VAE's and the encoders' shapes were not probed.
+  | file | layer | changes |
+  |---|---|---|
+  | the INT8 DiTs | `comfy/ldm/minimax/model.py::MLP`, `fc2`, every block | yes: the same seed gives a different sample |
+  | the INT8 video VAE | `comfy/ldm/minimax/vae.py::FeedForward` in the decoder | yes: the same latent decodes to slightly different pixels |
+  | the P-H3-Image INT8 text encoder (Qwen3-VL 4B) and prompt upsampler (Qwen3.5 9B) | `comfy/text_encoders/llama.py::MLP` | yes: their output differs |
+  | **the INT8 32B encoder**, which most shipped graphs load | the same `MLP`, too wide for the fused path | **no**: its conditioning is bit for bit what it was |
+
+  The table is the "widths" output below. For the 32B encoder it agrees with what the Pika image workflow
+  session saw on the server: a control vector built by `MiniMaxH3MakeControlVector` through the INT8 32B encoder
+  before the restart and again after it came out equal under `torch.equal`. A bf16 encoder never took this path.
+  Core's other callers (Qwen-Image 2.1, FIBO 2, Flux 3, the Wan VSR model, MiniMax Music) follow the same width
+  rule on an INT8 file.
+
+  *Corrected twice on 2026-11-11. This item first named only the DiT's `fc2`; the Gemini session's review found
+  the VAE and the encoders. The first correction then said every INT8 encoder changes, which is wrong for the
+  32B encoder: the Pika image workflow session's result did not fit it, and the width rule is why.*
 
   A record of INT8 renders made earlier this day is for the earlier build:
   [`2026-11-11_h3_image_weights.md`](2026-11-11_h3_image_weights.md), whose render comparisons cannot be taken
@@ -111,6 +119,44 @@ has tokOverflow slot: True
   random   T= 16384 H=  8 aug=256:  0/12 repeats differ (max 0.00e+00),     0.75 ms (no tokens     0.51 ms), error vs dense 0.7868 (no tokens 0.7902)
   random   T= 36445 H= 56 aug= 64:  0/12 repeats differ (max 0.00e+00),    10.77 ms (no tokens     6.28 ms)
   random   T= 36445 H= 56 aug=256:  0/12 repeats differ (max 0.00e+00),    11.34 ms (no tokens     6.28 ms)
+```
+
+Which layer widths the fused quantizer serves, the probe's "widths" section, added after the first run. A
+hash that differs between the two builds is a layer whose output changed; `--small` here only because the
+server was holding most of the card.
+
+Before, from the `b9b85e0` wheel unpacked beside the venv's build:
+
+```
+build: 0.2.41+sol.b9b85e0.up.cbc44a5 | torch 2.15.0+cu134 | NVIDIA GeForce RTX 4090 | small
+[widths] bfloat16, int8_linear fused vs chain, and a hash of the fused output; fused limit 16384
+  K= 14336 M=  512: outputs differing   104648/131072, fused output f8e96e0ad837 | H3 DiT MLP fc2 (comfy/ldm/minimax/model.py::MLP)
+  K= 14336 M= 4096: outputs differing   837634/1048576, fused output 4892c8fedd8b | H3 DiT MLP fc2 (comfy/ldm/minimax/model.py::MLP)
+  K=  8192 M=  512: outputs differing   103954/131072, fused output 55cadb9b7f50 | H3 video VAE decoder FeedForward w2 (comfy/ldm/minimax/vae.py::FeedForward)
+  K=  8192 M= 4096: outputs differing   833333/1048576, fused output b308669cddde | H3 video VAE decoder FeedForward w2 (comfy/ldm/minimax/vae.py::FeedForward)
+  K=  9728 M=  512: outputs differing   104463/131072, fused output f8f1d87f4fde | Qwen3-VL 4B encoder MLP down_proj (comfy/text_encoders/llama.py::MLP)
+  K=  9728 M= 4096: outputs differing   834762/1048576, fused output 9d7e721f0e2f | Qwen3-VL 4B encoder MLP down_proj (comfy/text_encoders/llama.py::MLP)
+  K=  6144 M=  512: outputs differing   104103/131072, fused output a33285b4e292 | Qwen3.5 9B upsampler MLP down_proj
+  K=  6144 M= 4096: outputs differing   832919/1048576, fused output 778079f9e1e1 | Qwen3.5 9B upsampler MLP down_proj
+  K= 25600 M=  512: outputs differing        0/131072, fused output 4c352ada256f | Qwen3-VL 32B encoder MLP down_proj
+  K= 25600 M= 4096: outputs differing        0/1048576, fused output 9ee39467e734 | Qwen3-VL 32B encoder MLP down_proj
+```
+
+After, the installed build:
+
+```
+build: 0.2.41+sol.b63d8c7.up.7d6a22a | torch 2.15.0+cu134 | NVIDIA GeForce RTX 4090 | small
+[widths] bfloat16, int8_linear fused vs chain, and a hash of the fused output; fused limit 16384
+  K= 14336 M=  512: outputs differing        0/131072, fused output f6374a2f6f20 | H3 DiT MLP fc2 (comfy/ldm/minimax/model.py::MLP)
+  K= 14336 M= 4096: outputs differing        0/1048576, fused output 17e5cba1d3b3 | H3 DiT MLP fc2 (comfy/ldm/minimax/model.py::MLP)
+  K=  8192 M=  512: outputs differing        0/131072, fused output 5f3372643f10 | H3 video VAE decoder FeedForward w2 (comfy/ldm/minimax/vae.py::FeedForward)
+  K=  8192 M= 4096: outputs differing        0/1048576, fused output 36adbc5bc72e | H3 video VAE decoder FeedForward w2 (comfy/ldm/minimax/vae.py::FeedForward)
+  K=  9728 M=  512: outputs differing        0/131072, fused output dffb8be8e7df | Qwen3-VL 4B encoder MLP down_proj (comfy/text_encoders/llama.py::MLP)
+  K=  9728 M= 4096: outputs differing        0/1048576, fused output 06866cb58fa5 | Qwen3-VL 4B encoder MLP down_proj (comfy/text_encoders/llama.py::MLP)
+  K=  6144 M=  512: outputs differing        0/131072, fused output 28802fd70020 | Qwen3.5 9B upsampler MLP down_proj
+  K=  6144 M= 4096: outputs differing        0/1048576, fused output 0900017edd31 | Qwen3.5 9B upsampler MLP down_proj
+  K= 25600 M=  512: outputs differing        0/131072, fused output 4c352ada256f | Qwen3-VL 32B encoder MLP down_proj
+  K= 25600 M= 4096: outputs differing        0/1048576, fused output 9ee39467e734 | Qwen3-VL 32B encoder MLP down_proj
 ```
 
 Read as data:
