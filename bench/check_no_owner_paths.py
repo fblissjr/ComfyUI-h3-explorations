@@ -51,7 +51,8 @@ WINDOWS_HOME = re.compile(
     rb"[A-Za-z]:\\" + b"Users" + rb"\\" + USERNAME + rb"\\",
     re.IGNORECASE,
 )
-PATTERNS = (POSIX_HOME, MAC_HOME, WINDOWS_HOME)
+MOUNT_SHARE = re.compile(b"/" + b"mnt" + rb"/" + b"hub" + rb"(?:/|\b)")
+PATTERNS = (POSIX_HOME, MAC_HOME, WINDOWS_HOME, MOUNT_SHARE)
 
 
 def git_files(root: Path) -> list[Path] | None:
