@@ -443,6 +443,23 @@ def check_spans_partition_and_refusals(tok: MiniMaxH3Tokenizer) -> list[str]:
     for marker in ("fully_preserved", "partially_preserved", "<Subject", "[reference generation]", "subject_definitions:"):
         if any(marker in r2v_txt(m) for m in fm.values()):
             errs.append(f"a field mask selected the structural marker {marker!r}")
+    # A selection of fields (`h3_spans.fields_mask`, the node's `fields` input) is the union of its fields.
+    sel_name = h3_spans.fields_mask(["summary", "subject_definitions"])
+    if sel_name != "subject_definitions+summary":
+        errs.append(f"fields_mask did not put a selection in prompt order: {sel_name!r}")
+    if not torch.equal(h3_spans.inference_mask(sm_ref2va, sel_name), fm["subject_definitions"] | fm["summary"]):
+        errs.append("a two-field selection is not the union of its two field masks")
+    if not torch.equal(h3_spans.inference_mask(sm_ref2va, "description"), im_desc_r2v):
+        errs.append("the 'description' field is not the description section on the ref2va prompt")
+    if not torch.equal(h3_spans.inference_mask(sm_ref2va, h3_spans.fields_mask(h3_spans.PROMPT_FIELDS)), union_fields):
+        errs.append("every field selected is not the union of all field masks")
+    if h3_spans.split_fields_mask("scene_only") is not None or h3_spans.split_fields_mask("summary+summary") is not None:
+        errs.append("split_fields_mask took a lever mask or a repeated field for a field selection")
+    if not h3_spans.is_inference_mask("summary+description") or h3_spans.is_inference_mask("summary+scene_only"):
+        errs.append("is_inference_mask is wrong about a field selection or a field joined to a lever mask")
+    errs += _expect_refusal(lambda: h3_spans.fields_mask([]), "no prompt field selected", "fields_mask empty selection refusal")
+    errs += _expect_refusal(lambda: h3_spans.fields_mask(["summary", "plot"]), "unknown prompt field", "fields_mask unknown field refusal")
+    errs += _expect_refusal(lambda: h3_spans.inference_mask(sm_ref2va, "summary+plot"), "unknown inference mask mode", "inference_mask unknown selection refusal")
     # Carried across a picture prefix, like the lever masks.
     fm_pref = {name: h3_spans.inference_mask(sm_ref2va_pref, name) for name in h3_spans.FIELD_MASK_MODES}
     if any(bool(fm_pref[n][:3].any()) or not torch.equal(fm_pref[n][3:], fm[n]) for n in fm):
@@ -456,6 +473,8 @@ def check_spans_partition_and_refusals(tok: MiniMaxH3Tokenizer) -> list[str]:
             errs.append("field mask 'overall_soundscape' is empty on a 3-field prompt that has a soundscape")
         if bool((h3_spans.inference_mask(sm_prefixed, "overall_soundscape") & h3_spans.inference_mask(sm_prefixed, "description_only")).any()):
             errs.append("field mask 'overall_soundscape' overlaps description_only on the 3-field prompt")
+        if not torch.equal(h3_spans.inference_mask(sm_prefixed, "description"), h3_spans.inference_mask(sm_prefixed, "description_only")):
+            errs.append("the 'description' field is not integrated_multimodal_description on the 3-field prompt")
     pm_scene = h3_spans.pooling_mask(masks, "scene_text")
     if not torch.equal(pm_scene, masks["scene"]):
         errs.append("pooling_mask('scene_text') does not equal masks['scene']")

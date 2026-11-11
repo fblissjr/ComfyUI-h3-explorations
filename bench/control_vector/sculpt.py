@@ -316,7 +316,7 @@ def _meter_prompt_tokens(
     if pooling in cv.VALID_POOLING:
         eff_pooling = pooling if pooling in ("scene_text", "all_tag1") else "scene_text"
         mask = h3_spans.pooling_mask(sp, eff_pooling)
-    elif pooling in cv_nodes.MASK_MODES:
+    elif h3_spans.is_inference_mask(pooling):
         eff_pooling = pooling
         mask = h3_spans.inference_mask(sp, eff_pooling)
     else:

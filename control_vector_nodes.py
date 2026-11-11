@@ -1730,12 +1730,11 @@ def _make_control_vector_wrapper(specs: tuple[_AppliedVectorSpec, ...]):
                                 sp.mask,
                                 f", {edit_pass} pass" if edit_pass in ("original", "edited") else "",
                             )
-                            if n_steered == 0 and sp.mask in _spans.FIELD_MASK_MODES:
+                            if n_steered == 0 and _spans.split_fields_mask(sp.mask) is not None:
                                 logger.warning(
                                     "[h3] control vector (%s) has no effect: mask=%s selects the prose of the "
-                                    "%s: field, and this prompt has no such field or it reads N/A",
+                                    "named field(s), and this prompt has none of them or they read N/A",
                                     ",".join(gsp.vector_name for gsp in group_specs),
-                                    sp.mask,
                                     sp.mask,
                                 )
                     cur_ctx = _cv.apply_post_refiner(
@@ -1928,8 +1927,10 @@ def attach_control_vector(
         raise ValueError(f"mode must be one of {_cv.APPLY_MODES}, got {mode!r}")
     if scale_mode not in _cv.SCALE_MODES:
         raise ValueError(f"scale_mode must be one of {_cv.SCALE_MODES}, got {scale_mode!r}")
-    if mask not in MASK_MODES:
-        raise ValueError(f"mask must be one of {MASK_MODES}, got {mask!r}")
+    if not _spans.is_inference_mask(mask):
+        raise ValueError(
+            f"mask must be one of {MASK_MODES} or prompt fields joined by '+' ({_spans.PROMPT_FIELDS}), got {mask!r}"
+        )
     if not math.isfinite(float(strength)):
         raise ValueError(f"strength must be finite, got {strength!r}")
     sp_f = float(start_percent)
@@ -2908,7 +2909,8 @@ class MiniMaxH3ApplyControlVectors(io.ComfyNode):
                         "'subject_definitions', 'summary', 'retention_analysis', 'overall_soundscape', "
                         "'non_diegetic_music' (the description field is 'description_only'). A field the "
                         "prompt does not have, or one that reads N/A, steers no rows and the log says so. "
-                        "To steer two fields, chain two of this node with the same vector."
+                        "To steer several fields at once, tick them in 'fields' below; that takes the place of "
+                        "this choice."
                     ),
                 ),
                 io.Float.Input(
@@ -3051,6 +3053,20 @@ class MiniMaxH3ApplyControlVectors(io.ComfyNode):
                         "Attenuation strength alpha in [0.0, 2.0] for 'hold_words' (default 1.0)."
                     ),
                 ),
+                io.MultiCombo.Input(
+                    "fields",
+                    options=list(_spans.PROMPT_FIELDS),
+                    default=[],
+                    optional=True,
+                    tooltip=(
+                        "Tick one or more fields of the prompt to steer exactly those and nothing else: "
+                        "'subject_definitions', 'summary', 'retention_analysis', 'description' "
+                        "(detailed_description: or integrated_multimodal_description:, whichever the prompt has), "
+                        "'overall_soundscape', 'non_diegetic_music'. With any field ticked, 'mask' above is not "
+                        "used. With none ticked, 'mask' decides. A ticked field the prompt does not have, or one "
+                        "that reads N/A, adds no rows."
+                    ),
+                ),
             ],
             outputs=[io.Model.Output(display_name="model")],
         )
@@ -3125,6 +3141,12 @@ class MiniMaxH3ApplyControlVectors(io.ComfyNode):
                 resolve_vector_file_path(raw)
             except Exception as exc:
                 return str(exc)
+        picked = kwargs.get("fields")
+        if picked:
+            try:
+                _spans.fields_mask(picked if isinstance(picked, (list, tuple)) else [picked])
+            except ValueError as exc:
+                return str(exc)
         w_str = str(words or "").strip()
         h_str = str(hold_words or "").strip()
         if h_str and (not raw or raw == "none") and not w_str:
@@ -3175,7 +3197,11 @@ class MiniMaxH3ApplyControlVectors(io.ComfyNode):
         against_words=_APPLY_DEFAULTS["against_words"],
         hold_words=_APPLY_DEFAULTS["hold_words"],
         hold_alpha=_APPLY_DEFAULTS["hold_alpha"],
+        fields=None,
     ) -> io.NodeOutput:
+        # Ticked fields take the place of `mask`: the selection is itself a mask name (`a+b`).
+        if fields:
+            mask = _spans.fields_mask(fields if isinstance(fields, (list, tuple)) else [fields])
         m = attach_control_vector(
             model,
             vector_name,

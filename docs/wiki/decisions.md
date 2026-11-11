@@ -22,7 +22,10 @@ Older history lives elsewhere and is not copied here:
   `--mask` on the CLI's `inspect` and `grade`, take a field's own header name: `subject_definitions`, `summary`,
   `retention_analysis`, `overall_soundscape`, `non_diegetic_music` (`h3_spans.py::FIELD_MASK_MODES`); the description
   field already had `description_only`. A missing or `N/A` field steers nothing and never falls back. The lever masks
-  are unchanged. Not rendered yet; the node list on a running server shows them after its next restart
+  are unchanged. The node also takes several fields at once through a `fields` multi-select, which takes the place of
+  `mask` when any is ticked (owner, the same day: "if our node has the ability to select one or many fields to target
+  i think thatd be cool"); on the CLI that is `--mask a+b`. A first render the same day found the subject unchanged
+  under the subject's own fields and changed through the description
   ([`control_vectors/comfyui_nodes_and_controls.md`](control_vectors/comfyui_nodes_and_controls.md)).
 - **The kitchen build carries ports of two open upstream fixes, and INT8 output changes with it** (the owner
   asked for the fork to be brought up to upstream and for open fixes that matter on this card). The venv moved from

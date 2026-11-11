@@ -67,12 +67,29 @@ each input is for:
 
   - A field the prompt does not have, or one that reads `N/A`, steers no rows, and the node's log says the vector had
     no effect. These masks never fall back to another field, where `look_only` does on a three-field prompt.
-  - Two fields at once is two of this node chained with the same vector. The lever masks are the common unions:
-    `look_only` is `subject_definitions` + `summary` + the visual retention lines.
+  - **Several fields at once: the `fields` input** (owner, 2026-11-11). It is a multi-select of the six fields
+    (`h3_spans.py::PROMPT_FIELDS`; `description` is whichever description section the prompt has). With any field
+    ticked, the node steers exactly the ticked fields and `mask` is not used; with none ticked, `mask` decides. The
+    same selection on the CLI is `--mask subject_definitions+summary` on `inspect` and `grade`
+    (`h3_spans.py::fields_mask`). The lever masks stay as the common unions: `look_only` is `subject_definitions` +
+    `summary` + the visual retention lines.
   - Not possible yet: one subject and not another, or the phrases inside the description that restate a subject's
     look. Those are narrower than a field.
-  - Held by `bench/check_control_vectors.py` (C2): each mask stays inside its own section, no two share a row, and
-    together they are the three levers. No render has been made with them.
+  - Held by `bench/check_control_vectors.py` (C2): each mask stays inside its own section, no two share a row,
+    together they are the three levers, and a selection is the union of its fields.
+  - **Rendered once, 2026-11-11, one seed and one picture, so a first look.** A reference prompt as a one-frame Pika
+    still (the picture held on every step), `film_16mm_1974` and `claymation_stopmotion`, the mask varied and nothing
+    else. Under `subject_definitions`, `summary`, `retention_analysis` and `look_only` the room came out as a
+    different draw and the subject did not change, at the shipped strength and well above it. Under
+    `description_only` at the higher strength her clothing and the room took the vector's look, and `scene_only`
+    went further. So on this shot the vector's effect on the subject came through the description rows, not the
+    subject's own fields, which agrees with the 2026-11-10 note below. The multi-select was not rendered. The
+    renders, three sheets and the graphs are on the output share under `Image/field_mask_trial`.
+  - **The same wording change gives nearly the same direction whichever field it is made in** (measured 2026-11-11
+    on in-place builds of two contrasts, one pair each, the reference family, no picture): close between the subject
+    line, the description and a three-field prompt, lower when the change sits in a retention line, and unrelated
+    between the two contrasts. So where a vector is built is not what ties it to a field; the render above says the
+    field it is applied to is what matters. The figures were not kept in a tracked record.
 - `start_percent`, `end_percent`: the part of the run in which the vector is on.
 - `video_scale`, `audio_scale`, `split_end_percent`: separate multipliers for the video and audio streams.
 - `ref_vae_end_percent`, `ref_vae_aug`: for renders carrying 3D Video VAE visual conditioning (`ref2va`

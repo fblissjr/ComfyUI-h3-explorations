@@ -53,7 +53,8 @@
       "words",
       "against_words",
       "hold_words",
-      "hold_alpha"
+      "hold_alpha",
+      "fields"
     ],
     "node_id": "MiniMaxH3ApplyControlVectors",
     "outputs": [

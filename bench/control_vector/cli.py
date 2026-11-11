@@ -124,6 +124,23 @@ def _validate_families_arg(raw: str) -> str:
     return raw
 
 
+_MASK_METAVAR = "{" + ",".join(h3_spans.INFERENCE_MASK_MODES) + "}"
+_MASK_FIELDS_HELP = (
+    "Or one or more prompt fields joined by '+', steering exactly those: "
+    + ", ".join(h3_spans.PROMPT_FIELDS)
+    + " (the node's 'fields' input)"
+)
+
+
+def _validate_mask_arg(raw: str) -> str:
+    if not h3_spans.is_inference_mask(raw):
+        raise argparse.ArgumentTypeError(
+            f"invalid mask {raw!r}: choose from {', '.join(h3_spans.INFERENCE_MASK_MODES)}, "
+            f"or prompt fields joined by '+' ({', '.join(h3_spans.PROMPT_FIELDS)})"
+        )
+    return raw
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         description=CLI_DESCRIPTION,
@@ -535,9 +552,10 @@ def build_parser() -> argparse.ArgumentParser:
     pi.add_argument("--meter-look-family", action="store_true", help="Meter t2va_look_anchor and all 8 look siblings (E2.8)")
     pi.add_argument(
         "--mask",
-        choices=h3_spans.INFERENCE_MASK_MODES,
+        type=_validate_mask_arg,
+        metavar=_MASK_METAVAR,
         default=None,
-        help="Optional inference span mask override when metering prompts (e.g. 'scene_only', 'look_only', 'description_only', 'soundscape_only')",
+        help="Optional inference span mask override when metering prompts (e.g. 'scene_only', 'look_only', 'description_only', 'soundscape_only'). " + _MASK_FIELDS_HELP,
     )
     pi.add_argument("--device", default="default")
     pi.add_argument("--refiner-device", default="cpu")
@@ -549,9 +567,10 @@ def build_parser() -> argparse.ArgumentParser:
     pg.add_argument("--pairs", default=None, help="Pair TOML file to build flip_null")
     pg.add_argument(
         "--mask",
-        choices=h3_spans.INFERENCE_MASK_MODES,
+        type=_validate_mask_arg,
+        metavar=_MASK_METAVAR,
         default="scene_only",
-        help="Inference span mask applied during context and DiT grading (default: 'scene_only', matching runtime nodes)",
+        help="Inference span mask applied during context and DiT grading (default: 'scene_only', matching runtime nodes). " + _MASK_FIELDS_HELP,
     )
     pg.add_argument("--strengths", default="0,0.5,1.0,2.0,-1.0")
     pg.add_argument("--probe-steps", default="0,8,15", help="Schedule step indices for DiT forward grading")

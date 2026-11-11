@@ -43,6 +43,7 @@ import urllib.parse
 import control_vector_nodes as cv_nodes
 import control_vectors as cv
 import h3_rules
+import h3_spans
 import j_lens
 
 from . import cli as _cli
@@ -429,8 +430,11 @@ def _r_prompt_meter(state: ControlVectorUIState, req: dict[str, Any]) -> dict[st
     if not vec_arg or not prompt_arg:
         raise RouteError("both 'vector' and 'prompt' are required")
     mask = str(req.get("mask", "") or "").strip() or str(h3_rules.CONTROL_VECTOR_DEFAULTS["mask"])
-    if mask not in cv_nodes.MASK_MODES:
-        raise RouteError(f"mask must be one of {tuple(cv_nodes.MASK_MODES)}, got {mask!r}")
+    if not h3_spans.is_inference_mask(mask):
+        raise RouteError(
+            f"mask must be one of {tuple(cv_nodes.MASK_MODES)} or prompt fields joined by '+' "
+            f"({tuple(h3_spans.PROMPT_FIELDS)}), got {mask!r}"
+        )
     with _RUN_LOCK:
         return _meter_prompt_tokens(
             state,

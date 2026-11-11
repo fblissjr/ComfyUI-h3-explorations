@@ -56,6 +56,19 @@ FIELD_MASK_MODES: tuple[str, ...] = (
     "non_diegetic_music",
 )
 
+#: The fields of an H3 prompt in prompt order, as `MiniMaxH3ApplyControlVectors.fields` lists them.
+#: `description` is `detailed_description:` or `integrated_multimodal_description:`, whichever the
+#: prompt has. A selection of one or more is written `a+b` (`fields_mask`) and is itself a mask.
+PROMPT_FIELDS: tuple[str, ...] = (
+    "subject_definitions",
+    "summary",
+    "retention_analysis",
+    "description",
+    "overall_soundscape",
+    "non_diegetic_music",
+)
+FIELDS_JOIN = "+"
+
 INFERENCE_MASK_MODES: tuple[str, ...] = (
     "non_vision",
     "look_only",
@@ -98,6 +111,32 @@ SOUNDSCAPE_SECTIONS: frozenset[str] = frozenset(
     {"overall_soundscape", "non_diegetic_music"}
 )
 EMPTY_SECTION_BODIES: frozenset[str] = frozenset({"", "n/a", "na", "none"})
+
+
+def fields_mask(fields: Sequence[str]) -> str:
+    """The mask name for a selection of prompt fields: the chosen `PROMPT_FIELDS`, in prompt order,
+    joined by `+` (`"subject_definitions+summary"`). Raises on an empty selection or an unknown field."""
+    chosen = [str(f).strip() for f in (fields or ()) if str(f).strip()]
+    unknown = sorted(set(chosen) - set(PROMPT_FIELDS))
+    if unknown:
+        raise ValueError(f"unknown prompt field(s) {unknown}; expected any of {PROMPT_FIELDS}")
+    if not chosen:
+        raise ValueError(f"no prompt field selected; expected one or more of {PROMPT_FIELDS}")
+    return FIELDS_JOIN.join(f for f in PROMPT_FIELDS if f in chosen)
+
+
+def split_fields_mask(mode: str) -> tuple[str, ...] | None:
+    """The fields a mask name selects, or `None` when it is not a field selection. `"summary"` and
+    `"summary+description"` are selections; `"scene_only"` is not."""
+    parts = [p.strip() for p in str(mode or "").split(FIELDS_JOIN)]
+    if not parts or any(p not in PROMPT_FIELDS for p in parts) or len(set(parts)) != len(parts):
+        return None
+    return tuple(f for f in PROMPT_FIELDS if f in parts)
+
+
+def is_inference_mask(mode: str) -> bool:
+    """True for a name in `INFERENCE_MASK_MODES` and for any selection of `PROMPT_FIELDS`."""
+    return mode in INFERENCE_MASK_MODES or split_fields_mask(mode) is not None
 
 
 def unwrap_hf_tokenizer(clip_or_tokenizer: Any) -> Any | None:
@@ -566,23 +605,34 @@ def inference_mask(
       tokens inside that one section, under the same exclusions as the lever masks (headers, tags,
       task and retention markers, dialogue). `'retention_analysis'` takes every line of the section,
       its `<Audio N>:` lines too. No rows when the prompt has no such section or its body is `N/A`;
-      there is no fallback to another field."""
+      there is no fallback to another field.
+    - a selection of `PROMPT_FIELDS` joined by `+` (`fields_mask`): the union of those fields' rows,
+      each as above. `description` is the description section the prompt has, with no fallback."""
     if not isinstance(span_masks, dict) or "vision" not in span_masks or "scene" not in span_masks:
         raise ValueError("span_masks must contain 'vision' and 'scene' keys")
-    if mode not in INFERENCE_MASK_MODES:
-        raise ValueError(f"unknown inference mask mode {mode!r}; expected one of {INFERENCE_MASK_MODES}")
+    selection = split_fields_mask(mode)
+    if mode not in INFERENCE_MASK_MODES and selection is None:
+        raise ValueError(
+            f"unknown inference mask mode {mode!r}; expected one of {INFERENCE_MASK_MODES} "
+            f"or prompt fields joined by {FIELDS_JOIN!r} ({PROMPT_FIELDS})"
+        )
+    if selection is not None:
+        scene_sel = span_masks["scene"]
+        by_section = getattr(scene_sel, "_h3_section_masks", None)
+        rows = torch.zeros_like(scene_sel, dtype=torch.bool)
+        for field in selection:
+            headers = ("detailed_description", "integrated_multimodal_description") if field == "description" else (field,)
+            for header in headers:
+                sub = by_section.get(header) if isinstance(by_section, dict) else None
+                if isinstance(sub, torch.Tensor) and sub.shape == scene_sel.shape:
+                    rows = rows | sub.to(device=scene_sel.device)
+        return (rows & scene_sel).clone()
     if mode == "non_vision":
         return (~span_masks["vision"]).clone()
     if mode == "all_rows":
         return torch.ones_like(span_masks["vision"], dtype=torch.bool)
     scene_t = span_masks["scene"]
     has_sections = bool(getattr(scene_t, "_h3_has_sections", False))
-    if mode in FIELD_MASK_MODES:
-        by_section = getattr(scene_t, "_h3_section_masks", None)
-        field_sub = by_section.get(mode) if isinstance(by_section, dict) else None
-        if isinstance(field_sub, torch.Tensor) and field_sub.shape == scene_t.shape:
-            return (field_sub.to(device=scene_t.device) & scene_t).clone()
-        return torch.zeros_like(scene_t, dtype=torch.bool)
     if mode == "look_only":
         look_sub = getattr(scene_t, "_h3_look_mask", None)
         if isinstance(look_sub, torch.Tensor) and look_sub.shape == scene_t.shape and bool(look_sub.any()):
