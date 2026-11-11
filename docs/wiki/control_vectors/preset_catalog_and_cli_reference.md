@@ -7,13 +7,15 @@ last updated: 2026-11-11
 ## The commands
 
 The tool is `bench/control_vectors.py`. Its own help is the reference, for the commands and for every flag
-of each: Figures of how the tool is layered, what a build does to the data, and what each command reads and writes are
-in [`studio_ui_guide.md`](studio_ui_guide.md), "The CLI the page stands on".
+of each:
 
 ```bash
 <comfy-venv-python> bench/control_vectors.py --help
 <comfy-venv-python> bench/control_vectors.py <command> --help
 ```
+
+Figures of how the tool is layered, what a build does to the data, and what each command reads and writes are in
+[`studio_ui_guide.md`](studio_ui_guide.md), under "The CLI the page stands on".
 
 Run it with the ComfyUI venv's python, never `uv` (`docs/comfy_notes.md`, "Running things"). A build loads
 the text encoder on the card, so run it when no render holds the card.
