@@ -77,6 +77,7 @@ import os
 import sys
 
 import control_vectors as cv
+import h3_pair_compiler
 import h3_rules
 import h3_spans
 from workflows import h3_config
@@ -165,7 +166,6 @@ def build_parser() -> argparse.ArgumentParser:
     pui.add_argument("--toml-dir", dest="toml_dir", default=None, help="Optional directory override for .toml pair packs")
     pui.add_argument("--vec-dir", dest="vec_dir", default=None, help="Optional directory override for .safetensors control vectors")
     pui.add_argument("--encoder", default=None, help="Optional conditioning encoder filename override")
-    pui.add_argument("--dit", default=None, help="Optional DiT checkpoint filename override")
     pui.add_argument("--device", default=None, help="Optional conditioning encoder device override")
     pui.add_argument(
         "--llm-provider",
@@ -236,8 +236,14 @@ def build_parser() -> argparse.ArgumentParser:
     )
     pfp.add_argument("--name", default=None, help="Optional vector name / file stem override")
     pfp.add_argument("--output-name", dest="output_name", default="", help=argparse.SUPPRESS)
-    pfp.add_argument("--mode", choices=cv.VALID_MODES, default=None, help="Explicit mode override (auto-detected from --target-prompt if omitted)")
-    pfp.add_argument("--frame", choices=cv.VALID_FRAMES, default="scene", help="Pair frame ('scene' or 'bare')")
+    # The modes the in-place compiler takes (`h3_pair_compiler.SUPPORTED_FRAME_MODES`), and `i2va`, which it
+    # compiles as `fl2va`. `l2va` is a mode a pair file may carry; the compiler refuses it, so it is not offered.
+    pfp.add_argument(
+        "--mode",
+        choices=(*h3_pair_compiler.SUPPORTED_FRAME_MODES, "i2va"),
+        default=None,
+        help="Explicit mode override (auto-detected from --target-prompt if omitted; 'i2va' compiles as 'fl2va')",
+    )
     pfp.add_argument("--quality", default=None, help="Optional vector.quality description override")
     pfp.add_argument("--a-side", dest="a_side", default=None, help="Optional vector.a_side description override")
     pfp.add_argument("--b-side", dest="b_side", default=None, help="Optional vector.b_side description override")
@@ -438,7 +444,6 @@ def build_parser() -> argparse.ArgumentParser:
     pm.add_argument("--lora", action="append", default=None, help="Explicit LoRA file[:strength] override (default: standard Pika H3 Flex LoRA per family)")
     pm.add_argument("--no-lora", dest="no_lora", action="store_true", help="Build for stock 30-step base DiT without Pika LoRAs")
     pm.add_argument("--ref-images", default=None, help="Comma-separated reference images for ref2va prefix")
-    pm.add_argument("--ref-role", default="subject", help="Role for first reference image")
     pm.add_argument("--no-holds", action="store_true", help="Do not project out [[hold]] groups")
     pm.add_argument("--include-encoder", dest="include_encoder", action="store_true", default=True, help="Also save vector.encoder (5120-d; default: True)")
     pm.add_argument("--no-encoder", dest="include_encoder", action="store_false", help="Omit vector.encoder (5120-d) from saved .safetensors")
@@ -598,7 +603,6 @@ def build_parser() -> argparse.ArgumentParser:
     pg.add_argument("--manual-sigmas", default=None, help="Comma-separated manual sigmas override")
     pg.add_argument("--pika", action="store_true", help="Use Pika H3 Flex 6-step manual sigmas and default probe steps 0,2,5")
     pg.add_argument("--ref-images", default=None)
-    pg.add_argument("--ref-role", default="subject")
     pg.add_argument("--seed", type=int, default=0)
     pg.add_argument("--device", default="default")
     pg.add_argument("--refiner-device", default="cpu")
@@ -688,16 +692,10 @@ def build_parser() -> argparse.ArgumentParser:
         help="Optional path to exllamav3 checkout when using --llm-provider exllamav3",
     )
     pgen.add_argument(
-        "--load-in-4bit",
-        dest="load_in_4bit",
-        action="store_true",
-        help="Enable 4-bit BitsAndBytes quantization when loading a transformers model (default: enabled unless --no-4bit is passed)",
-    )
-    pgen.add_argument(
         "--no-4bit",
         dest="no_4bit",
         action="store_true",
-        help="Disable 4-bit BitsAndBytes quantization when loading a transformers model",
+        help="Load a transformers model without 4-bit BitsAndBytes quantization (4-bit is on by default)",
     )
     pgen.add_argument("--max-new-tokens", dest="max_new_tokens", type=int, default=DEFAULT_LLM_MAX_TOKENS)
     pgen.add_argument("--temperature", type=float, default=0.7)

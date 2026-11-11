@@ -39,7 +39,6 @@ class ControlVectorUIState:
         toml_dir: Path | None = None,
         vec_dir: Path | None = None,
         default_encoder: str | None = None,
-        default_dit: str | None = None,
         default_device: str | None = None,
         default_llm_provider: str | None = None,
         default_llm_model: str | None = None,
@@ -55,9 +54,6 @@ class ControlVectorUIState:
             default_encoder
             or os.environ.get("H3_ENCODER", "").strip()
             or h3_config.MODELS["clip"]
-        )
-        self.default_dit: str | None = (
-            default_dit or os.environ.get("H3_DIT", "").strip() or None
         )
         self.default_device: str = (
             default_device or os.environ.get("H3_DEVICE", "").strip() or "default"

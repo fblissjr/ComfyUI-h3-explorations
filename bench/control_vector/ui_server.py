@@ -542,7 +542,6 @@ def cmd_ui(args: argparse.Namespace) -> int:
         toml_dir=toml_dir_override,
         vec_dir=vec_dir_override,
         default_encoder=getattr(args, "encoder", None),
-        default_dit=getattr(args, "dit", None),
         default_device=getattr(args, "device", None),
         default_llm_provider=getattr(args, "llm_provider", None),
         default_llm_model=getattr(args, "llm_model", None),

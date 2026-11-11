@@ -172,10 +172,10 @@ a sculpt save, a pairs preview and a pair file save, a word readout), and one `f
 `/api/run`. Not run through the page on the card: `build` from a pair file, `make-media`, `rebuild`, `inspect`, `grade`,
 the prompt meter and `generate-pairs`.
 
-The page shows the CLI as it is, so the CLI's own gaps show too: `from-prompt --frame` has no effect, `--mode l2va` is
-offered and refused, and `--ref-role` and `generate-pairs --load-in-4bit` are read by nothing. Those are the CLI's to
-fix. One was fixed on 2026-11-11: `grade` has a `--mode` that defaults to the node's (`add_norm_matched`), where it used
-to apply in `add` whatever a graph ran.
+The page shows the CLI as it is, so a flag that does nothing shows as a control that does nothing. The ones the
+2026-11-11 assessment found were removed that day: `from-prompt --frame`, `from-prompt --mode l2va`, `--ref-role` on
+`make` and `grade`, `generate-pairs --load-in-4bit` and `ui --dit`. The same day `grade` gained a `--mode` that
+defaults to the node's (`add_norm_matched`), where it used to apply in `add` whatever a graph ran.
 
 A mask on the page is one control, a named mask or prompt fields ticked, on `inspect`, `grade` and the prompt meter
 (`bench/control_vector/web/form.js`, `maskControl`). It is the node's `mask` and `fields` inputs together and gives
