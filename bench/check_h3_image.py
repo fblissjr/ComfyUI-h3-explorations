@@ -19,6 +19,11 @@ No model file and no card. What each case defends, i.e. what breaks if it is del
   the vendor's `request_params.json`, read from the vendored file.
 - `a picture gives its own shape` and `no picture is refused` -- `resolve_size` on
   'same as the picture'.
+- `expander replies parse plain prose, trailing aspect_ratio, thinking blocks and vendor JSON` --
+  `parse_expander_reply` on the release's worked captions (`revised_prompt.{t2i,edit}.txt`), an
+  arbitrary edit ratio composed with `resolve_size`, `'same as the picture'` / `'adaptive'`,
+  `<think>...</think>` and code fences, and vendor `expanded_caption` JSON. Controls: unclosed
+  `<think>`, bad ratio strings, broken JSON and empty captions are refused.
 - `the shipped graphs` -- each `workflows/image/h3_image*_api.json` and its probes hands the
   sampler the grid in `H3_IMAGE_MANUAL_SIGMAS` through `ManualSigmas`, has no negative prompt or
   scheduler node, and an edit wires its picture into both the conditioning node and the size node
@@ -142,6 +147,62 @@ def sizes() -> None:
         report(True, "no picture is refused")
 
 
+def expander_replies() -> None:
+    sys.path.insert(0, str(REPO))
+    try:
+        from h3_image_nodes import parse_expander_reply, resolve_size
+    except Exception as exc:
+        report(False, "parse_expander_reply imports", repr(exc))
+        return
+    examples = REPO / "vendor_guides" / "h3_image" / "examples"
+    t2i = (examples / "revised_prompt.t2i.txt").read_text(encoding="utf-8").strip()
+    edit = (examples / "revised_prompt.edit.txt").read_text(encoding="utf-8").strip()
+
+    report(parse_expander_reply(t2i) == (t2i, None), "plain expander prose returns (prompt, None)")
+
+    got_prompt, got_ratio = parse_expander_reply(f"<think>\nlock 4:3 first\n</think>\n\n{t2i}\n\naspect_ratio: 4:3\n")
+    report(got_prompt == t2i and got_ratio == "4:3"
+           and resolve_size(16.0, got_ratio, None) == CARD_SIZES["4:3"],
+           "trailing aspect_ratio strips <think> and resolves to the card's size")
+
+    arb_prompt, arb_ratio = parse_expander_reply(f"{edit}\n\naspect_ratio: 5:3")
+    report(arb_prompt == edit and arb_ratio == "5:3"
+           and resolve_size(16.0, arb_ratio, None) == h3_config.h3_image_size(16.0, 5, 3),
+           "an arbitrary edit W:H ratio parses and resolves through resolve_size")
+
+    same_a = parse_expander_reply(f"prefilled reasoning\n</think>\n{edit}\n\naspect_ratio: same as the picture")
+    same_b = parse_expander_reply(f"```text\n{edit}\n\ntarget_aspect_ratio: adaptive\n```")
+    report(same_a == (edit, h3_config.H3_IMAGE_ASPECT_OF_PICTURE)
+           and same_b == (edit, h3_config.H3_IMAGE_ASPECT_OF_PICTURE),
+           "edit 'same as the picture' and 'adaptive' normalize to H3_IMAGE_ASPECT_OF_PICTURE")
+
+    vendor_t2i = json.dumps({"expanded_caption": t2i, "aspect_ratio": "4:3"})
+    vendor_edit = "```json\n" + json.dumps({"expanded_caption": edit, "target_aspect_ratio": "1:1"}) + "\n```"
+    report(parse_expander_reply(vendor_t2i) == (t2i, "4:3")
+           and parse_expander_reply(vendor_edit) == (edit, "1:1"),
+           "vendor expanded_caption JSON replies parse for both T2I and edit")
+
+    bad_inputs = (
+        ("unclosed <think>", f"<think>cut off mid-thought\n{t2i}"),
+        ("zero in ratio", f"{t2i}\n\naspect_ratio: 0:3"),
+        ("non-numeric ratio", f"{t2i}\n\naspect_ratio: landscape"),
+        ("wrong JSON schema", '{"prompt": "wrong key"}'),
+        ("truncated JSON", '{"expanded_caption": "unterminated'),
+        ("ratio line with no caption", "aspect_ratio: 4:3"),
+        ("empty post-think reply", "<think>done</think>\n\n"),
+    )
+    refused_all = True
+    for label, raw in bad_inputs:
+        try:
+            parse_expander_reply(raw)
+            refused_all = False
+            report(False, f"control: malformed expander reply ({label}) is refused")
+        except ValueError:
+            pass
+    if refused_all:
+        report(True, f"control: all {len(bad_inputs)} malformed expander replies are refused")
+
+
 def graphs() -> None:
     folder = REPO / "workflows" / "image"
     paths = sorted(folder.glob("h3_image_*_api.json")) + sorted(folder.glob("h3_probe_h3_image_*_api.json"))
@@ -183,6 +244,7 @@ def main() -> int:
     stacked_heads()
     writer()
     sizes()
+    expander_replies()
     graphs()
     release_grid(args.release)
     print("")

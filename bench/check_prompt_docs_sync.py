@@ -21,9 +21,9 @@ assignments, the "why it works" notes -- is written by a person and cannot be
 diffed against anything. This checks the parts that are quotations:
 
 1. **The two vendor guides**, and the MiniMax-H3-Image prompt files under
-   `vendor_guides/h3_image/`, against `vendor_guides/sha256.json`; and the two
-   standalone H3 Image prompts in `docs/wiki/system_prompts/` against the
-   vendor files they copy, byte for byte.
+   `vendor_guides/h3_image/`, against `vendor_guides/sha256.json`; and the six
+   standalone MiniMax-H3-Image prompts in `docs/wiki/system_prompts/h3_image/`
+   against their structural pins, `H3_IMAGE_ASPECTS`, and zero-lore rules.
 2. **The three Part One templates** against `BASE_ALIGNMENT`, which
    `preflight_graph` parses out of the vendor guide rather than retyping, and
    against `INDEPENDENT_ALIGNMENT` (transcribed by hand from `base_en.md`).
@@ -177,28 +177,135 @@ def guides_unchanged() -> int:
     return bad
 
 
-#: The two standalone MiniMax-H3-Image prompts and the vendor file each is a copy of.
-H3_IMAGE_STANDALONE = {
-    "h3_image_t2i_system_prompt.md": "prompt/t2i/task_prompt.txt",
-    "h3_image_edit_system_prompt.md": "prompt/edit/task_prompt.txt",
-}
+#: Retired top-level vendor prompt copies (replaced by `docs/wiki/system_prompts/h3_image/`).
+H3_IMAGE_RETIRED_TOP_LEVEL = (
+    "h3_image_t2i_system_prompt.md",
+    "h3_image_edit_system_prompt.md",
+)
+
+H3_IMAGE_SUITE_DIR = SYSTEM_PROMPTS_DIR / "h3_image"
+H3_IMAGE_T2I_PINS = (
+    "camera-relative orientation",
+    "front-facing",
+    "back-facing",
+    "single frozen phase of motion",
+    'double quotes (`"..."`)',
+    "single continuous English caption paragraph",
+)
+H3_IMAGE_DESIGN_PINS = (
+    "Pre-solve all content, math, formulas",
+    "reading order",
+    "zero vague fillers",
+    "non-crossing",
+    "shared object inventory",
+    'double quotes (`"..."`)',
+)
+H3_IMAGE_EDIT_PINS = (
+    "<Picture 1>",
+    "<Subject 1>",
+    "The target image",
+    "<Subject N> is fully preserved.",
+    "<Subject N> is partially preserved;",
+    "<Subject N> supplies the",
+    "<Subject N> serves as a weak",
+    "single quotes `'...'",
+    "BARE `<Subject N>` tokens only",
+)
+H3_IMAGE_SUITE_SPECS = (
+    ("t2i_system_prompt.md", False, H3_IMAGE_T2I_PINS),
+    ("t2i_aspect_ratio_system_prompt.md", True, H3_IMAGE_T2I_PINS),
+    ("t2i_design_system_prompt.md", False, H3_IMAGE_DESIGN_PINS),
+    ("t2i_design_aspect_ratio_system_prompt.md", True, H3_IMAGE_DESIGN_PINS),
+    ("edit_system_prompt.md", False, H3_IMAGE_EDIT_PINS),
+    ("edit_aspect_ratio_system_prompt.md", True, H3_IMAGE_EDIT_PINS),
+)
+H3_IMAGE_FORBIDDEN_SUBSTRINGS = (
+    "```",
+    "qwen",
+    "minimax",
+    "p-h3-image",
+    "sglang",
+    "vllm",
+    "comfyui",
+    "safetensors",
+    "heylookitsanllm",
+    "expanded_caption",
+    "target_aspect_ratio",
+    "docs/",
+    "bench/",
+    "workflows/",
+    "vendor_guides/",
+    "http://",
+    "https://",
+)
 
 
-def h3_image_standalone_prompts_are_the_vendor_files() -> int:
-    """Each standalone H3 Image prompt in `docs/wiki/system_prompts/` is its vendor file, byte for byte."""
-    vendor = REPO / "vendor_guides" / "h3_image"
+def h3_image_system_prompts() -> int:
+    """Verify the standalone `docs/wiki/system_prompts/h3_image/` suite and retirement of the top-level vendor duplicates."""
+    sys.path.insert(0, str(REPO / "workflows"))
+    import h3_config
+
     bad = 0
-    for name, source in H3_IMAGE_STANDALONE.items():
-        page, origin = SYSTEM_PROMPTS_DIR / name, vendor / source
-        if not page.exists() or not origin.exists():
-            print(f"  FAIL  {name} or its vendor file {source} is missing")
+    for retired in H3_IMAGE_RETIRED_TOP_LEVEL:
+        if (SYSTEM_PROMPTS_DIR / retired).exists():
             bad += 1
-        elif page.read_bytes() != origin.read_bytes():
-            print(f"  FAIL  {name} is not vendor_guides/h3_image/{source} byte for byte. It is the "
-                  f"vendor's prompt and nothing else: copy the file again, do not edit it")
-            bad += 1
+            print(f"  FAIL  {retired} still exists in docs/wiki/system_prompts/; "
+                  f"vendor files live in vendor_guides/h3_image/prompt/ and standalone prompts live in h3_image/")
     if not bad:
-        print(f"  ok    the {len(H3_IMAGE_STANDALONE)} standalone H3 Image prompts are the vendor's files, byte for byte")
+        print("  ok    retired duplicate vendor prompt copies in docs/wiki/system_prompts/ remain absent")
+
+    readme = H3_IMAGE_SUITE_DIR / "README.md"
+    if not readme.exists():
+        print("  FAIL  docs/wiki/system_prompts/h3_image/README.md is missing")
+        return bad + 1
+
+    expected_names = {"README.md", *(name for name, _, _ in H3_IMAGE_SUITE_SPECS)}
+    actual_names = {p.name for p in H3_IMAGE_SUITE_DIR.glob("*.md")}
+    unexpected = sorted(actual_names - expected_names)
+    if unexpected:
+        bad += 1
+        print(f"  FAIL  unexpected .md file(s) in docs/wiki/system_prompts/h3_image/ without check coverage: "
+              f"{', '.join(unexpected)}")
+
+    cjk_re = re.compile(r"[\u3400-\u9fff\uf900-\ufaff]")
+    for name, has_ratio, pins in H3_IMAGE_SUITE_SPECS:
+        path = H3_IMAGE_SUITE_DIR / name
+        if not path.exists():
+            bad += 1
+            print(f"  FAIL  missing docs/wiki/system_prompts/h3_image/{name}")
+            continue
+        raw = path.read_text(encoding="utf-8")
+        norm = flat(raw)
+        low = norm.lower()
+
+        leaks = [tok for tok in H3_IMAGE_FORBIDDEN_SUBSTRINGS if tok in low]
+        if cjk_re.search(raw):
+            leaks.append("<CJK characters>")
+        miss = [pin for pin in pins if flat(pin).lower() not in low]
+
+        ratio_err = None
+        if has_ratio:
+            if "aspect_ratio:" not in raw:
+                ratio_err = "missing 'aspect_ratio:' output line"
+            else:
+                missing_ratios = [r for r in h3_config.H3_IMAGE_ASPECTS if r not in raw]
+                if missing_ratios:
+                    ratio_err = f"missing H3_IMAGE_ASPECTS ratio(s): {', '.join(missing_ratios)}"
+                elif name.startswith("edit_") and h3_config.H3_IMAGE_ASPECT_OF_PICTURE not in raw:
+                    ratio_err = f"missing {h3_config.H3_IMAGE_ASPECT_OF_PICTURE!r}"
+        elif "aspect_ratio:" in low:
+            ratio_err = "plain prompt variant must not emit 'aspect_ratio:'"
+
+        if leaks or miss or ratio_err:
+            bad += 1
+            if leaks:
+                print(f"  FAIL  h3_image/{name} contains forbidden lore/fences/paths: {', '.join(repr(x) for x in leaks)}")
+            if miss:
+                print(f"  FAIL  h3_image/{name} missing pinned rule(s): {', '.join(repr(x) for x in miss)}")
+            if ratio_err:
+                print(f"  FAIL  h3_image/{name}: {ratio_err}")
+        else:
+            print(f"  ok    h3_image/{name} carries all {len(pins)} rule pin(s), ratio contract, and zero lore/fences")
     return bad
 
 
@@ -543,7 +650,7 @@ def main() -> int:
     fails = 0
 
     fails += guides_unchanged()
-    fails += h3_image_standalone_prompts_are_the_vendor_files()
+    fails += h3_image_system_prompts()
     fails += parser_agrees_with_hand_reading()
     fails += manual_quotations(manual, guide, system)
     fails += examples_still_grade(manual)

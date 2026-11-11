@@ -69,9 +69,8 @@ byte for byte, with the release's `LICENSE` whole beside them.
   scripts send.
 
 `sha256.json` pins every file, and `bench/check_prompt_docs_sync.py` verifies
-them and verifies that the two standalone copies in
-[`docs/wiki/system_prompts/`](../docs/wiki/system_prompts/README.md)
-(`h3_image_t2i_system_prompt.md`, `h3_image_edit_system_prompt.md`) are the two
-task prompts here, byte for byte. The same rule as above holds: never edit them.
+them. The same rule as above holds: never edit them. Standalone English-only
+system prompts derived from them for local LLMs/VLMs live in
+[`docs/wiki/system_prompts/h3_image/`](../docs/wiki/system_prompts/h3_image/README.md).
 Whether the two video guides above also describe how to prompt this model is
 not established; these files are the vendor's own statement for it.

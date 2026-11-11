@@ -2678,7 +2678,7 @@ def build_h3_image_api(
 
     The prompt is the finished description, used as it is: this model has no chat template and no
     negative prompt. Writing that description from a short request is the prompt expander's job
-    (`docs/wiki/system_prompts/h3_image_t2i_system_prompt.md` and `h3_image_edit_system_prompt.md`);
+    (`docs/wiki/system_prompts/h3_image/` or `vendor_guides/h3_image/prompt/`);
     the graph does not run one.
     """
     if task not in ("h3img_t2i", "h3img_edit"):

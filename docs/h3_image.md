@@ -206,20 +206,22 @@ pipeline on everything the chain above takes from it. What they add:
 
 The model is given one long, literal English description, used as it is.
 MiniMax write that description with a language model, and published the
-instructions they give it. They are in
-[`wiki/system_prompts/`](wiki/system_prompts/README.md) as two standalone
-files, each the vendor's text and nothing else
-(`h3_image_t2i_system_prompt.md`, `h3_image_edit_system_prompt.md`); that
-folder's README says how the vendor sends each and what is done with the
-reply.
-[`../vendor_guides/h3_image/`](../vendor_guides/h3_image/) holds every prompt
-file of the release and its worked examples.
+instructions they give it in [`../vendor_guides/h3_image/`](../vendor_guides/h3_image/)
+alongside the release's worked examples.
+[`wiki/system_prompts/h3_image/`](wiki/system_prompts/h3_image/README.md) holds
+our standalone, English-only system-prompt suite for local thinking LLMs/VLMs
+(general scenes vs. design/typography/infographics for T2I, and `1–16`
+`<Picture N>` edits, each available as plain prose or with a trailing
+`aspect_ratio:` line parsed by `h3_image_nodes.py::parse_expander_reply`).
 
 - **Text to image**: the description opens with what the image is and walks the
-  frame. The expander also chooses the shape.
-- **An edit**: the description names what it keeps from each picture as
-  `<Subject N>`, says what the target image shows, says for each subject
-  whether it is kept, and then describes only what changes.
+  frame (`"double-quoted"` visible text). The ratio variant appends
+  `aspect_ratio: <10 presets>`.
+- **An edit**: one continuous 3-part paragraph (`'single-quoted'` visible text)
+  that binds independent source elements as `<Subject N>`, states what the
+  target image shows and how each `<Subject N>` is preserved or transferred, and
+  describes only changed or newly introduced details. The ratio variant appends
+  `aspect_ratio: <same as the picture | W:H>`.
 
 The graphs do not run an expander; they take the finished description. Not
 established here: whether a prompt written to the two H3 video guides works on
