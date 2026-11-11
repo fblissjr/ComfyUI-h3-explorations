@@ -128,6 +128,15 @@ backdrop. The edit graph's canvas is square. A picture of another shape wants th
 form on a square canvas with a portrait picture still made the edit, but recomposed the frame and drew surroundings
 that are not in the picture (`sheet_edit_canvas_shape` and `sheet_shipped_pika_image_graphs` in the same folder).
 
+**Beside the `P-H3-Image` edit at the same size (2026-11-10).** The edit graph at the picture's own size, with the
+six-section brief the image model's upsampler wrote, made the edit and kept the picture, with no breakup. Next to
+the `P-H3-Image` edit of the same picture, prompt and size, both kept the face's freckles and skin texture close to
+the source; the jackets differ in design. The owner looked at the three renders that day (the `P-H3-Image` edit,
+and the Pika edit at that size and at the family's) and could not pick between them. One picture and one seed, so
+this says the Pika edit is not visibly behind on that picture, and nothing about speed, other pictures, or text to
+image, which has not been rendered on Pika at the image model's size. The sheets are
+`sheet_plain_pika_edit_against_ph3_same_size` and the two `crops_plain_pika_edit_against_ph3_*` in the same folder.
+
 **Not known.** Whether the reference form can do an edit at one frame at all: it did not in any of the tries above, and
 a garment or an object as the cut-out was not among them. Whether releasing `ref_vae_end_percent` (with
 a matched no-vector guide-release control) and/or `GUIDE_VFX_EDIT_FFP_LORA` `end_percent` lets a style control vector
