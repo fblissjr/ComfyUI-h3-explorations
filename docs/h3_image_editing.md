@@ -137,6 +137,22 @@ this says the Pika edit is not visibly behind on that picture, and nothing about
 image, which has not been rendered on Pika at the image model's size. The sheets are
 `sheet_plain_pika_edit_against_ph3_same_size` and the two `crops_plain_pika_edit_against_ph3_*` in the same folder.
 
+**Control vector inputs on the plain Pika edit, tried once each (2026-11-10).** `MiniMaxH3ApplyControlVectors`
+added to the edit graph, one picture and one seed, on the family's portrait canvas
+(`sheet_knobs_reference_gate_and_words` in the same folder):
+
+- A vector acts with the picture held. `claymation_stopmotion` with `mask` `scene_only` changed the hair and the
+  jacket's surface and kept the face and background.
+- Releasing the picture early (`ref_vae_end_percent` below 1) did not help. With the same vector, and with no vector
+  at all, it added stray colored objects and streaks to the frame. In the node this input zeroes every condition
+  latent after its window, the reference picture's as well as a guide's (`control_vector_nodes.py`,
+  `_make_control_vector_wrapper`; core puts both in `cond_video_latents`), so on the guide graphs, where the guide
+  is the only copy of the picture, the subject is lost. `ref_vae_aug` was not tried.
+- A vector made from typed `words` (no file) acted on this graph and on the guide edit: the jacket and hair changed.
+  Neither picture took the look the words name.
+- The section masks need the section map our H3 conditioning nodes attach. On the guide graphs, which use core's
+  conditioning node, only `non_vision` and `all_rows` run; any other mask is refused by the node.
+
 **Not known.** Whether the reference form can do an edit at one frame at all: it did not in any of the tries above, and
 a garment or an object as the cut-out was not among them. Whether releasing `ref_vae_end_percent` (with
 a matched no-vector guide-release control) and/or `GUIDE_VFX_EDIT_FFP_LORA` `end_percent` lets a style control vector
