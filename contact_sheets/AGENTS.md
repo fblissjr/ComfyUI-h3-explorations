@@ -23,7 +23,7 @@ and they are kept. (Owner, 2026-10-10.)
 - **Nowhere else.** Sheets of an input video are made by
   `bench/contact_sheets.py`, into this folder, and the tool takes no other
   place to write. Not a scratch folder, not `internal/`, not `data/`, not
-  the media share.
+  `$H3_INPUT_DIR` or `$H3_OUTPUT_DIR`.
 
 **Why one set.** So that every session reads the same frames by the same
 numbers. Six stills sampled by one session at its own spacing cannot be

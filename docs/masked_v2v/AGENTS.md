@@ -152,7 +152,7 @@ The owner's words of 2026-10-21, each with its reasons in [`docs/wiki/decisions.
 
 - **When to run it**: after `load_chain.py on-plan` (before every render) and immediately when debugging any failed or suspect render ([`docs/masked_v2v/2026-10-25_pass_contamination_and_mask_step_forensics.md`](2026-10-25_pass_contamination_and_mask_step_forensics.md)):
   ```bash
-  CUDA_VISIBLE_DEVICES= H3_INPUT_DIR=<share>/input H3_OUTPUT_DIR=<share>/output \
+  CUDA_VISIBLE_DEVICES= H3_INPUT_DIR="$H3_INPUT_DIR" H3_OUTPUT_DIR="$H3_OUTPUT_DIR" \
     <comfy-venv>/bin/python bench/inspect_mask_steps.py \
     --capture data/<day>_<load> --problems-only --strips /tmp/<load>_strips.jpg
   ```

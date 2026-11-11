@@ -100,7 +100,7 @@ so a builder's worktree has them.
 What stands in a video, where each piece came from and the gaps are the render ledger, the delivery table and the gap
 check, made by one command, `bench/rebuild_delivery.py --video <video> --clip`, once for each batch of landings or
 laid changes (`docs/masked_v2v/PROTOCOL.md` 5.3: each `bench/laid.py` write of the batch takes `--no-rebuild WHY`); it
-also makes the owner's two pages, `Video/<video>/TO_REVIEW.html` and `PROVENANCE.html` on the share (and syncs them
+also makes the owner's two pages, `$H3_OUTPUT_DIR/Video/<video>/TO_REVIEW.html` and `PROVENANCE.html` (and syncs them
 into `data/<video>/poc/` when present), and takes the snapshot of the answers file. A session reads the files; the
 owner reads the pages; nothing is typed twice. A piece the table does not lay is not in the video. The session that
 holds the card keeps them.
@@ -117,7 +117,7 @@ holds the card keeps them.
 | the interactive review queue ("1. Look at these next" with verdict buttons and frame note box on `data/<video>/poc/index.html`, served on port `8765`) | `data/<video>/review/items.json` (with media symlinks in `data/<video>/review/media/`), updated on every candidate clip (`bench/load_chain.py page`) so the owner can save verdicts and frame notes directly to `data/<video>/owner_answers.jsonl` |
 | the owner's verdicts on renders | `data/<video>/verdicts/verdicts.jsonl` |
 | a reader's pre-`page` reading of a landed render (2026-10-28 rule) | `<capture>/looks/<load>.reading.md`, written between `land` and `page` by a reader who did not make the load (no verdict and no hold; `docs/masked_v2v/PROTOCOL.md` §5.1); legacy post-owner readings live in `data/<day>_<load>/playback_reading_<reader>.md` |
-| videos | the share's `Video/<video>/`, never under `data/` |
+| videos | `$H3_OUTPUT_DIR/Video/<video>/`, never under `data/` |
 
 ## Handing a render over
 

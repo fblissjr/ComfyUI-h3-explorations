@@ -17,6 +17,7 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-11-11
 
+- **Environment variables (`$H3_INPUT_DIR` and `$H3_OUTPUT_DIR`, with `$H3_OUTPUT_DIR/Video` for video outputs) in [`AGENTS.md`](../../AGENTS.md)** (owner decision). Added the operative rule to [`AGENTS.md`](../../AGENTS.md) and replaced `<share>`, `"the share's Video/<video>/"`, and bare `Video/` / `input/` paths with `$H3_INPUT_DIR` and `$H3_OUTPUT_DIR/Video` across [`data/AGENTS.md`](../../data/AGENTS.md), [`docs/masked_v2v/AGENTS.md`](../masked_v2v/AGENTS.md), [`contact_sheets/AGENTS.md`](../../contact_sheets/AGENTS.md), and the untracked project `data/*/AGENTS.md` files.
 - **One pair build, called by the node and the CLI** (the 2026-11-11 studio assessment found three copies; the
   Gemini reviewer asked that the fold stay in process, so the CLI still runs with the server down).
   `control_vectors.py::pool_pair_set` pools each side's rows, takes the mean difference and projects out the pair
