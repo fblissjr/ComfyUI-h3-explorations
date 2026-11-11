@@ -88,24 +88,36 @@ each input is for:
       she did not change, at the shipped strength and well above it. Under the description alone, or the whole
       prompt, the room took the vector's look at the higher strength; on the still her clothing changed too, on the
       video it did not. The description alone gave about what the whole prompt gave.
-    - **A vector built from her own line, aimed at her own field, changed her and left the room.** Built in place
-      on the shot's prompt with her picture in the sequence, from one change in the sentence of
-      `subject_definitions` that says what she wears. On `subject_definitions` alone at the higher strength her
-      clothing changed (not to the colour the words named, and with a red tint at her eyes) and the diner stayed a
-      diner of the same kind; at the shipped strength nothing changed. The same vector on the description alone
-      left her as she was. On the whole prompt it changed her, the room and the other patrons.
+    - **A vector built from her own line changed her only on the prompt that carried that line.** Built in place
+      with her picture in the sequence, from one change in a sentence of `subject_definitions` saying what she wears
+      (a sentence added to the shot's prompt for the build). On that prompt, on `subject_definitions` alone at the
+      higher strength, her clothing changed (not to the colour the words named) and the diner stayed a diner of the
+      same kind; at the shipped strength nothing changed; on the description alone she stayed as she was; on the
+      whole prompt she, the room and the other patrons changed. On the shot's own prompt, which names no clothing,
+      the same vector on her field changed nothing at any strength tried, with the picture held or released.
+    - **A general wardrobe vector did not change her on any field.** `wardrobe_1970s`, six pairs with no picture and
+      no diner wording (kept beside the clips, not in the bank). On `subject_definitions` it changed nothing on
+      either prompt. On the description alone the room came out differently and she did not change. On the whole
+      prompt the room and the patrons took a 1970s look, she kept the top her picture shows, and a red mark
+      appeared across her face. Not tried: the whole prompt with the picture released.
     - **Changing her line in words changed her and nothing else**: the prompt with that sentence rewritten, alone
       and under `MiniMaxH3EditGuider`, gave the named clothing with her face, hair and the diner kept.
-    - So where a vector is applied matters, and so does where it was read from: a vector acts on a field when it
-      was built from that field's wording. The clips, three stacked comparisons, frame sheets and the graphs are on
-      the output share under `Video/edit_guidance` (`diner16f_*`, `stacked/`, `diner16f_how_it_was_made/`); the
-      stills are under `Image/field_mask_trial`.
+    - What this shows, and what it does not. With a reference picture her clothing comes from the picture unless
+      the prompt names it, and the one vector that changed it was the exact difference of a sentence the prompt
+      contained. That is not a rule that a vector must be built in the field it is aimed at (the next item
+      measures the opposite: the field barely changes the direction), and an earlier wording of this note that said
+      so was wrong; the Gemini reviewer caught it. A film look did not dress her because it is a film look, not
+      because of the field its pairs were written in. The clips, stacked comparisons, frame sheets, graphs and the
+      pair file are on the output share under `Video/edit_guidance` (`diner16f_*`, `diner16g_*`, `stacked/`, the
+      two `how_it_was_made` folders); the stills are under `Image/field_mask_trial`.
   - **The same wording change gives nearly the same direction whichever field it is made in** (measured 2026-11-11
     on in-place builds of two contrasts, one pair each, the reference family, no picture): close between the subject
     line, the description and a three-field prompt, lower when the change sits in a retention line, and unrelated
     between the two contrasts. That is about the direction one wording change gives. It does not make a vector
     from one kind of change (a film look in the description) do another kind's job (her clothing) when moved to her
-    field, which is what the renders above show. The figures were not kept in a tracked record.
+    field. Two different wordings of the same kind of change are less alike than one wording in two fields: the
+    in-place clothing vector and the general wardrobe vector above sit well apart. The figures were not kept in a
+    tracked record.
 - `start_percent`, `end_percent`: the part of the run in which the vector is on.
 - `video_scale`, `audio_scale`, `split_end_percent`: separate multipliers for the video and audio streams.
 - `ref_vae_end_percent`, `ref_vae_aug`: for renders carrying 3D Video VAE visual conditioning (`ref2va`
@@ -162,21 +174,28 @@ each input is for:
     frame after (`control_vector_nodes.py::_stream_time`; `bench/check_control_vectors.py` walks a schedule and holds
     it). It needs no pairing with `ref_vae_end_percent`. What a low weight does to a picture is read on stills in
     [`docs/h3_image_editing.md`](../../h3_image_editing.md); those were rendered before this change.
-  - **A clothing change on a reference video, rendered 2026-11-11** (one seed, one picture, three frames a clip and a
-    full-size face crop; the 2026-11-09 diner shot, a vector built from the subject's own line on
-    `subject_definitions` alone, at a strength above the shipped one). The owner's expectation was that the picture's
-    hold, the picture's weight and the vector's own `end_percent` all need to come down.
-    - **The vector's `end_percent` is the one that mattered here.** With the vector on for every step her clothing
-      changed and a red tint appeared at her eyes. With `end_percent = 0.5` (the vector on for the first three of
-      the six steps) the clothing changed the same way and the tint was gone.
-    - **Lowering the picture's hold or its weight alone did not change the outcome.** With `ref_vae_end_percent = 0.34`
-      or `ref_vae_aug = 0.7` and the vector on every step, the clothing changed and the tint stayed. The clothing had
-      already changed with the picture held at the defaults, so on this shot the picture was not what stopped it.
-    - **With all three lowered the result was the clean one**, and at the shipped strength nothing changed, lowered
-      or not. With no vector and the picture released she stayed as in the picture.
-    - Not tried: a one-step hold, a lower weight, or the one-frame still, where the picture is sized to the output
-      and may pin more. The clips and two stacks are on the output share under `Video/edit_guidance`
-      (`diner16f_release_*`, `stacked/diner16f_subject_vector_*`).
+  - **A clothing change on a reference video, rendered 2026-11-11** (one seed, one picture, three frames a clip and
+    full-size face crops; the 2026-11-09 diner shot, vectors on `subject_definitions` alone, mostly at a strength
+    above the shipped one). The owner's expectation was that the picture's hold, the picture's weight and the
+    vector's own `end_percent` all need to come down. What these arms show for this shot:
+    - **The vector's `end_percent` removed a face artifact.** With the in-place clothing vector on for every step
+      her clothing changed and a red tint appeared at her eyes. On for the first three or four of the six steps,
+      the clothing changed the same way and the tint was gone.
+    - **Releasing the picture was not what allowed the change, and did not allow it where it failed.** On the
+      prompt that carries the sentence the vector was built from, the clothing changed with the picture held at the
+      defaults, with only the hold or only the weight lowered, and with the picture held two steps at a lower weight
+      and the vector on for two more. On the shot's own prompt, which names no clothing, it did not change under
+      any of those. The arms with the picture released framed her closer and drew a different room than the held
+      ones.
+    - **The first batch's "all three lowered" arms did not stagger anything.** Its `ref_vae_end_percent = 0.34` is a
+      three-step hold by the rule above (step 2 of 6 is below 0.34), the same three steps its `end_percent = 0.5`
+      kept the vector on, so the picture and the vector left together. The Gemini reviewer caught this. By the same
+      rule `end_percent = 0.66` is four steps and `0.67` is five.
+    - At the shipped strength nothing changed in any arm. With no vector and the picture released she stayed as in
+      the picture.
+    - Not tried: the one-frame still, where the picture is sized to the output and may pin more, and a second seed
+      or picture. The clips and stacks are on the output share under `Video/edit_guidance` (`diner16f_release_*`,
+      `diner16g_*`, `stacked/`).
 - A `hold` node with nothing before it in the chain has nothing to take a direction out of.
 - The shipped graphs set a strength above the node's default on purpose, so a first render shows the grade
   plainly; `bench/check_widget_deviations.py` declares it.
