@@ -1,4 +1,4 @@
-# Control-vector readouts scored blind: J-Lens words and the rows table, three runs and a repeat pass (2026-11-12)
+# Control-vector readouts scored blind: J-Lens words and the rows table, old bundle and rebuilt (2026-11-12)
 
 lane: control
 
@@ -19,7 +19,8 @@ The three runs share one set of readouts and differ only in the options. Random 
 (sections 1 to 5). Each vector's nearest concepts gave room but leaked the target to a judge with no readout
 (section 6). One shared list per group of near concepts keeps the room and closes the leak (section 7); that
 is the form to carry forward. It is now a tracked tool, `bench/control_vector_readout_score.py`, and section 8
-is a second pass of judges over the third run's items, scored with it.
+is a second pass of judges over the third run's items, scored with it. Sections 1 to 8 read the J-Lens
+bundle as it stood before it was rebuilt that day; section 9 scores the rebuilt one.
 
 ## 1. What was run
 
@@ -346,6 +347,66 @@ by other work: it is larger and carries a new modification time
   was, so the difference is in the bundle's tensors. That is read from the diff, not tested.
 
 `data/control_vectors/readout_score_2026-11-12_rebuilt_bundle/` holds packets built by the tool from the
-rebuilt bundle, with the same nine groups. They have not been judged. Judging them would say whether the
-rebuild changed how well the words name the vectors.
+rebuilt bundle, with the same nine groups. Section 9 is their judging.
+
+## 9. The rebuilt bundle
+
+Run at the owner's word, with the tracked tool end to end.
+
+### 9.1 What was run
+
+- **Packets.** `bench/control_vector_readout_score.py packets` at `c7c2b11b`, with the rows cache and the
+  rebuilt bundle; `key.json` in `data/control_vectors/readout_score_2026-11-12_rebuilt_bundle/` records the
+  bundle's size and modification time and every readout. The bundle on disk was checked to be that file
+  before the judges were started.
+- **Same groups.** The nine groups are the third run's, member for member.
+- **New draws.** The tool drew its own option orders and packets, so no item here is an item of sections 7
+  and 8, even where the readout is the same.
+- **A control inside the run.** The rows-table readouts did not change with the rebuild (section 8.4), so
+  the `rows` counts here against sections 7 and 8 show how far a count moves from new draws alone.
+- **Judges.** Seven new Sonnet subagents, one packet each, one pass.
+
+### 9.2 Counts
+
+Options only: 7 of 45.
+
+| Reader | Bundle | `real`: target | `real`: cannot tell | `real`: another option | `twin`: target | `shuffle`: target |
+|---|---|---:|---:|---:|---:|---:|
+| `jlens` | old, pass 1 | 33 | 9 | 3 | 0 | 7 |
+| `jlens` | old, pass 2 | 33 | 8 | 4 | 0 | 6 |
+| `jlens` | rebuilt | 33 | 10 | 2 | 1 | 8 |
+| `rows` | (same readouts) pass 1 | 23 | 13 | 9 | 0 | 9 |
+| `rows` | (same readouts) pass 2 | 22 | 12 | 11 | 0 | 6 |
+| `rows` | (same readouts) new draws | 25 | 13 | 7 | 0 | 9 |
+
+Which vectors, `real` items, against both passes of section 8:
+
+| Reader | Not named before, named now | Named before, not named now | Not named in any of the three |
+|---|---|---|---|
+| `jlens` | `elastic_neck_stretch`, `film_16mm_1974`, `infomercial_fail`, `strobe_club_pulse` | `fever_melt`, `molten_lava_golem`, `thermal_infrared`, `whisper_asmr` | `bioluminescent_glow`, `claymation_stopmotion`, `cursed_cctv`, `pyro_chain_explosions`, `pyro_klaxon_audio`, `summer_beachwear`, `wes_anderson_symmetry`, `wind_tunnel_gale` |
+| `rows` | `circus_clowns`, `molten_lava_golem`, `summer_beachwear` | none | nineteen; `results.json` in the two run folders lists them |
+
+The `jlens` items that went to another option: `claymation_stopmotion` to `rubber_hose_1930s` and
+`cursed_cctv` to `vhs_1991_camcorder`, both as before. `film_16mm_1974` is named: "tape" is no longer among
+its top words. The one `twin` item that went to the target was `handheld_documentary_zoom`, where the random
+direction's words happened to include "documentary".
+
+### 9.3 What this run cannot see
+
+Sections 4, 6.5 and 7.5 still hold. One more:
+
+- **Why the words moved.** The old bundle is not on disk to compare tensor by tensor, so this run can say
+  what the rebuilt bundle's words do, not what in the rebuild changed them.
+
+### 9.4 Readings, not findings
+
+- The rebuilt bundle's words name as many vectors as the old bundle's did. Which vectors changed: four
+  gained and four lost.
+- New draws alone moved the `rows` count by three vectors with no change in the readouts, all in one
+  direction. Against that, four each way is not much. This run does not show the rebuild helping or hurting.
+- Two things follow for later use. A comparison of two readers belongs inside one run, where they share the
+  option draws, as the tool builds it. And a count from one run against a count from another carries a
+  wobble of a few vectors.
+- Eight vectors were named by neither bundle in any pass. They are the firmest cases of words that cannot
+  tell a concept from its neighbors.
 

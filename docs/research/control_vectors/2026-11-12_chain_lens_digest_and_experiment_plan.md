@@ -537,7 +537,8 @@ share one GPU session with the full 64-layer weights.
 
 ## 13. After experiment 1: what changes in the plan
 
-Added the same day, after three runs of experiment 1 and a repeat pass. The counts are in
+Added the same day, after three runs of experiment 1, a repeat pass and a run on the rebuilt J-Lens bundle.
+The counts are in
 [`../../../bench/results/2026-11-12_control_vector_readout_blind_score.md`](../../../bench/results/2026-11-12_control_vector_readout_blind_score.md);
 nothing here restates them.
 
@@ -553,13 +554,18 @@ nothing here restates them.
   second set of judges over the same items agreed with the first almost item for item on the readouts
   themselves (the record, section 8), so the harness can tell two readers apart when they differ by more
   than a vector or two. Still one judge model; a second model has not been tried.
-- **The J-Lens bundle changed under the experiment.** It was rebuilt in place on the same day, and the J-Lens
-  words for every vector moved with it (the record, section 8.4). The counts in the record describe the
-  bundle as it was. Scoring the rebuilt bundle is now the harness's first job, ahead of experiment 2: the
-  packets are built and wait for judges. Any later comparison of readers has to name the bundle it read.
-- **The test set for a better reader is named.** Ten vectors were named in neither of the two harder runs
-  (the record, section 7.4), and most of the misses sit in two tight groups: old video with cartoon looks,
-  and loud chaotic energy.
+- **The J-Lens bundle changed under the experiment, and the rebuilt one scores the same.** It was rebuilt in
+  place on the same day, and the J-Lens words for every vector moved with it (the record, section 8.4). The
+  rebuilt bundle was then scored with the tool (the record, section 9): its words name as many vectors as
+  the old bundle's, with a few vectors changing sides in each direction, which is about what new option
+  draws do by themselves. Nothing in the plan depends on which of the two bundles is read. Any later
+  comparison of readers has to name the bundle it read, and belongs inside one run.
+- **A count from one run against a count from another carries a wobble of a few vectors.** The rows-table
+  readouts did not change between runs and their count still moved (the record, section 9.4). Two readers
+  are compared inside one run, where they share the option draws.
+- **The test set for a better reader is named.** Eight vectors were named by neither bundle in any pass
+  (the record, section 9.2), and most of them sit in two tight groups: old video with cartoon looks, and
+  loud chaotic energy.
 - **Experiment 1 scores the vector and the reader together.** Several misses are between vectors that
   overlap, where a faithful reader would also be unsure. So the same harness has a second use that was not
   in the plan: checking whether a vector is distinct from its neighbors, and whether a hold makes it so,
@@ -567,7 +573,7 @@ nothing here restates them.
   changing a readout in just this way; the harness would turn that into a count.
 - **Experiments 3 and 5 keep their place, with a narrower target.** The J-Lens words separate most vectors
   from their neighbors and fail on a few groups. Those groups are where a multi-token or more specific
-  readout has something to add, and the ten vectors above are the test set for both experiments.
+  readout has something to add, and the eight vectors above are the test set for both experiments.
 - **Experiment 3 has a sharper measure.** The rows table's weakness against near concepts is picking the
   neighbor on the neighbor's own words. Whitening is aimed at shared directions, so its test is whether those
   wrong picks fall, not whether more vectors are named.
@@ -576,8 +582,8 @@ nothing here restates them.
   as nearly the same concept reads alike and yet is far apart as vectors (the record, section 6.6), which
   is the kind of case experiment 2's split would explain.
 - **Experiments 4 and 6 are unchanged.**
-- **The order now.** Score the rebuilt bundle with experiment 1's tool; experiment 2; experiment 3;
-  experiments 4 and 5 in one GPU session; experiment 6.
+- **The order now.** Experiment 2; experiment 3; experiments 4 and 5 in one GPU session; experiment 6.
+  Experiment 1's tool scores experiments 3 and 5 when they produce a reader.
 - **A later step for experiment 1.** A naming score can saturate. The version that does not is the post's
   steer-and-match test (section 6), a judge matching a readout to one of several renders. It costs renders,
   so it follows experiment 2.
