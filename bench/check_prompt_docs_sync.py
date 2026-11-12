@@ -49,6 +49,7 @@ REPO = Path(__file__).resolve().parent.parent
 SYSTEM_PROMPTS_DIR = REPO / "docs" / "wiki" / "system_prompts"
 SYSTEM_PROMPT = SYSTEM_PROMPTS_DIR / "h3_system_prompt.md"
 PH3_IMAGE_SYSTEM_PROMPT = SYSTEM_PROMPTS_DIR / "h3_p_h3_image_system_prompt.md"
+GENERAL_IMAGE_EDIT_SYSTEM_PROMPT = SYSTEM_PROMPTS_DIR / "general_image_edit_system_prompt.md"
 CV_SYSTEM_PROMPT = SYSTEM_PROMPTS_DIR / "h3_control_vector_system_prompt.md"
 MANUAL = REPO / "docs" / "prompting.md"
 MANUAL_SHARDS = REPO / "docs" / "prompting"
@@ -307,6 +308,67 @@ def h3_image_system_prompts() -> int:
         else:
             print(f"  ok    h3_image/{name} carries all {len(pins)} rule pin(s), ratio contract, and zero lore/fences")
     return bad
+
+
+GENERAL_IMAGE_EDIT_PINS = (
+    "subject_definitions:",
+    "summary:",
+    "retention_analysis:",
+    "detailed_description:",
+    "<Picture 1>",
+    "<Subject 1>",
+    "[keyframe completion]",
+    "[reference generation]",
+    "[keyframe completion + reference generation]",
+    "fully_preserved",
+    "partially_preserved",
+    "attribute_transfer",
+    "weak_reference",
+    "[Shot 1]",
+    'double quotes (`"..."`)',
+)
+GENERAL_IMAGE_EDIT_FORBIDDEN = (
+    *H3_IMAGE_FORBIDDEN_SUBSTRINGS,
+    "pika",
+    "pruna",
+    "textconnector",
+    "overall_soundscape",
+    "non_diegetic_music",
+    "<audio",
+    "<video",
+    "video editing",
+    "video continuation",
+    "audio reuse",
+    "audio reference",
+    "fully_copy",
+    "partially_copy",
+    "<d>",
+    "</d>",
+    "<|cutoff|>",
+    "(s1)",
+)
+
+
+def general_image_edit_system_prompt(text: str) -> int:
+    """Verify `docs/wiki/system_prompts/general_image_edit_system_prompt.md` carries the
+    4-section visual `ref2va` schema pins and zero audio/video schema tokens, outer fences,
+    repo paths, or internal model lore."""
+    low = flat(text).lower()
+    miss = [pin for pin in GENERAL_IMAGE_EDIT_PINS if flat(pin).lower() not in low]
+    leaks = [tok for tok in GENERAL_IMAGE_EDIT_FORBIDDEN if tok in low]
+    if re.search(r"[\u3400-\u9fff\uf900-\ufaff]", text):
+        leaks.append("<CJK characters>")
+    if miss or leaks:
+        if miss:
+            print(f"  FAIL  general_image_edit_system_prompt.md missing pinned rule(s): "
+                  f"{', '.join(repr(x) for x in miss)}")
+        if leaks:
+            print(f"  FAIL  general_image_edit_system_prompt.md contains forbidden audio/video/lore/fences: "
+                  f"{', '.join(repr(x) for x in leaks)}")
+        return 1
+    print(f"  ok    general_image_edit_system_prompt.md carries all "
+          f"{len(GENERAL_IMAGE_EDIT_PINS)} visual ref2va pin(s) and zero audio/video/lore/fences")
+    return 0
 
 
 def manual_quotations(manual: str, guide: str, system: str) -> int:
@@ -633,7 +695,7 @@ def rule_pins(manual: str, system: str) -> int:
 
 
 def main() -> int:
-    for p in (SYSTEM_PROMPT, PH3_IMAGE_SYSTEM_PROMPT, CV_SYSTEM_PROMPT, MANUAL, GUIDE):
+    for p in (SYSTEM_PROMPT, PH3_IMAGE_SYSTEM_PROMPT, GENERAL_IMAGE_EDIT_SYSTEM_PROMPT, CV_SYSTEM_PROMPT, MANUAL, GUIDE):
         if not p.exists():
             print(f"FAIL  missing {p.relative_to(REPO)}; this check compares "
                   f"nothing without it and would report a misleading green")
@@ -646,11 +708,13 @@ def main() -> int:
     guide = GUIDE.read_text(encoding="utf-8")
     system = SYSTEM_PROMPT.read_text(encoding="utf-8")
     ph3_image_system = PH3_IMAGE_SYSTEM_PROMPT.read_text(encoding="utf-8")
+    general_image_edit_system = GENERAL_IMAGE_EDIT_SYSTEM_PROMPT.read_text(encoding="utf-8")
     cv_system = CV_SYSTEM_PROMPT.read_text(encoding="utf-8")
     fails = 0
 
     fails += guides_unchanged()
     fails += h3_image_system_prompts()
+    fails += general_image_edit_system_prompt(general_image_edit_system)
     fails += parser_agrees_with_hand_reading()
     fails += manual_quotations(manual, guide, system)
     fails += examples_still_grade(manual)

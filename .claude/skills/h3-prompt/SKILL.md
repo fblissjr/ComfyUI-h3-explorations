@@ -1,7 +1,7 @@
 ---
 name: h3-prompt
 description: Route any work on an H3 prompt in this repo -- "write a prompt", "edit this prompt", "improve this scene", "adapt it", "convert this t2v prompt to ref2va", "why did this render badly", "is this prompt correct", "what should the speaker tags be" -- to the file that owns each answer, and to the command that verifies the result. Points at them; restates nothing that could drift.
-reviewed: e891dd75
+reviewed: 441d46ba
 ---
 
 # Working on an H3 prompt
@@ -49,6 +49,7 @@ what can.
 
 **Handing the rules to an LLM or someone outside this repo.**
 `docs/wiki/system_prompts/h3_system_prompt.md` (general video+audio scene prompts),
+`docs/wiki/system_prompts/general_image_edit_system_prompt.md` (cross-model 4-section `ref2va`-minus-audio still-image editing prompts for open-weights VLMs),
 `docs/wiki/system_prompts/h3_image/README.md` (standalone MiniMax-H3-Image T2I, design/typography T2I, and 1–16 reference editing prompts),
 `docs/wiki/system_prompts/h3_p_h3_image_system_prompt.md` (P-H3-Image single-frame T2I and 1–8 reference image editing prompts), and
 `docs/wiki/system_prompts/h3_control_vector_system_prompt.md` (control-vector
