@@ -300,7 +300,7 @@ run, not about what the clips show.
 - **Keep trial vectors out of the bank's folder under plain names.** The eight sit in
   `<comfy>/models/control_vectors/` beside the bank and look like any other vector in the node's list. They
   are untested and several are weak. A prefix that marks them as trials, or removing them once the clips
-  were made, would have been better. Whether to keep, rename or remove them is the owner's.
+  were made, would have been better. The owner has since decided to keep them (section 12).
 
 ### 10.2 The renders
 
@@ -405,4 +405,44 @@ Its suggestions, with what this record's session would add:
 - **If the edit has a soundscape clause, the vector arm needs a target that reaches the soundscape rows**,
   or the two arms differ on sound for a reason that is not the method.
 - **Two seeds**, as section 10.2 says.
+
+### 11.5 A later, longer review from the same session
+
+It then reviewed the whole of `exp2`, `exp3` and `exp4` against the scripts and passed that on too. Most of it
+repeats sections 11.1 to 11.4 at more length. Three points are new, and each was checked here:
+
+- **The candle. Does not hold as stated.** It reads the shared-direction clips as lighting a candle the
+  prompt calls unlit, and builds on that. `prompt_bank/t2va_offpath_tortoise.txt` says "a single lit white
+  birthday candle ... its small flame flickering", and has since it was added. So the prompt asks for a
+  small flame; the unsteered clips show little or none, and many steered clips show a large one. That the
+  shared direction turns the flame into a torch stands as something seen. That it overrides the prompt does
+  not: on this detail the steered clips are closer to the prompt than the unsteered ones (section 8.1).
+- **The parts in the first three-way split were each given the whole vector's length. Holds, and was
+  stated.** A part that is a small share of its vector was therefore pushed several times harder than it
+  is inside the vector. That was the design, to compare directions, and
+  [`../../../bench/results/2026-11-12_control_vector_word_share.md`](../../../bench/results/2026-11-12_control_vector_word_share.md)
+  section 6.5 names it as a limit. It adds, fairly, that `head_swell` is a close-up vector tried on a wide
+  shot.
+- **Building in place on the target prompt removes most of the shared part.** It built two vectors with the
+  tortoise prompt as target, from edits that replace the conflicting words, and reports a much lower cosine
+  with this batch's shared direction and readout words on the concept. Not checked here; the figures are
+  its own. If they hold, the batch's shared part was the build, as section 3.2 could not say.
+
+It then ran a ladder of ten renders on that design, in `exp5/` beside the others. Its results are its own to
+record.
+
+## 12. The vectors are kept
+
+The owner's decision, 2026-11-12: keep the eight, where the other vectors are. Some did better than others;
+all are worth keeping. What was added so that they stand like the others:
+
+- **A pair file each**, `data/control_vectors/<name>.toml`, beside the other generated pair files. Each was
+  written from the exact pairs recorded in its vector file's metadata and loads with
+  `control_vectors.py::load_pairs` (`write_pair_files.py` in the run folder).
+- **The `ref2va` file and its card**, built from that pair file with `MiniMaxH3MakeControlVector` on the
+  shipped Pika `ref2va` control-vector graph's loaders, in one queue item (`build_ref2va_siblings.py`). Pair
+  agreement on the `ref2va` cards is within a hundredth of each vector's `fl2va` figure in section 3.
+
+They remain what section 10.1 says they are: built from lopsided pairs on scenes with looks of their own,
+tried at one setting. Their names do not mark that. This record does.
 

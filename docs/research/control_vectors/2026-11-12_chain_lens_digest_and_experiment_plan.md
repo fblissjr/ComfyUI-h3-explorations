@@ -782,10 +782,28 @@ renders. It is the form of the blind score that cannot saturate, and it needs cl
 
 ### 15.5 What is waiting on the owner
 
-- **The eight trial vectors** in `<comfy>/models/control_vectors/`: keep, rename or remove.
+- ~~The eight trial vectors: keep, rename or remove.~~ Decided the same day: keep them, where the others
+  are. They now have pair files and `ref2va` files like the rest
+  ([`2026-11-12_new_vectors_three_ways.md`](2026-11-12_new_vectors_three_ways.md), section 12).
 - **The film stack from the first three-way split**
   (`$H3_OUTPUT_DIR/Video/cv_word_share_2026-11-12/exp2_film_16mm_1974_stacked.mp4`): whether the row for the
   direction its words name shows what the whole-vector row shows, and the row for the rest does not.
-- **The three-ways clips.** The owner's reading so far is that edit guidance worked better than the vectors.
-  Whether it also did better than the plain rewrite beside it has not been said.
+- **The three-ways clips.** The owner's reading is that edit guidance worked better than the vectors. A
+  second session, on playback, found it not meaningfully better than the plain rewrite beside it at the
+  settings used (the same note, section 11.1).
+
+### 15.6 The owner's reading of the tools
+
+Given on 2026-11-12, after the clips: a control vector is the blunt tool and edit guidance the subtle one,
+and a change of style or look is where edit guidance shines.
+
+- **What on record agrees.** A vector is one direction over every steered row and brings its batch's shared
+  part with it; edit guidance has a scale that goes below 1 and a first step that can hold the original
+  take.
+- **What on record does not yet show it.** The wiki's hub page still sends a continuous look or film grade to
+  a vector. And the three-ways batch left the words each style concept contradicts in the prompt, so no
+  method changed a style there. A ladder another session ran afterwards, with those words replaced, is the
+  first test of it.
+- **What it changes here.** Item 4 of section 15.3 should try a look as well as a world, and the hub page's
+  table of which tool to reach for should be reread against the ladder's clips.
 
