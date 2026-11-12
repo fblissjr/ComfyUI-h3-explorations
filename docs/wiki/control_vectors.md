@@ -1,12 +1,18 @@
 # Steering MiniMax H3: Edit Guidance, Control Vectors, and J-Lens
 
-Last updated: 2026-11-11.
+Last updated: 2026-11-12.
 
-This pack ships three complementary mechanisms for steering, editing, and diagnosing MiniMax H3 renders without retraining weights or training a LoRA:
+This pack ships two ways to steer a MiniMax H3 render without retraining weights or training a LoRA, and one tool for reading and sketching the vectors the second way uses:
 
 1. **`MiniMaxH3EditGuider` + `MiniMaxH3PromptEdit`** ([`edit_guidance.md`](edit_guidance.md), [`edit_guidance.py`](../../edit_guidance.py)): 2-pass latent-velocity guidance between a baseline prompt and a rewritten copy of that prompt.
 2. **Contrastive Control Vectors** (`MiniMaxH3Steer`, `MiniMaxH3LoadControlVector`, `MiniMaxH3ReleaseReferences`, and legacy `MiniMaxH3ApplyControlVectors`; [`control_vectors.py`](../../control_vectors.py), [`control_vector_nodes.py`](../../control_vector_nodes.py)): 1-pass `5376`-d directions added to selected text rows after the 2-block `TokenRefiner` and before the 50 DiT blocks.
-3. **J-Lens** (`MiniMaxH3WordVector`, [`j_lens.py`](../../j_lens.py), `models/j_lens/j_lens_h3.safetensors`): a precomputed `< 15 ms` CPU Jacobian and Wiener-inverse lexical operator that decodes any `5376`-d vector into English words, scrubs unwanted side-effect words (`hold_words`), and synthesizes live zero-file vectors from single-token words (`words`).
+3. **J-Lens, the word readout** (`MiniMaxH3WordVector`, [`j_lens.py`](../../j_lens.py), `models/j_lens/j_lens_h3.safetensors`): not a third way to steer. It is a precomputed `< 15 ms` CPU Jacobian and Wiener-inverse lexical operator that decodes any `5376`-d vector into English words and scrubs unwanted side-effect words (`hold_words`). Run backward it synthesizes a quick zero-file control vector from single-token words (`words`), which `MiniMaxH3Steer` then applies like any other.
+
+**Start here** if you are new to these, or are explaining them to someone else:
+
+- [`control_vectors/which_tool_and_what_to_call_it.md`](control_vectors/which_tool_and_what_to_call_it.md): the three side by side, and what to call the word readout in public.
+- [`control_vectors/how_the_word_readout_works.md`](control_vectors/how_the_word_readout_works.md): the word readout step by step, in plain words, on one vector.
+- [`control_vectors/worked_examples.md`](control_vectors/worked_examples.md): five questions people run into, each with what to run and the record behind it.
 
 ![End-to-end control vector pipeline](control_vectors/assets/control_vector_pipeline.svg)
 

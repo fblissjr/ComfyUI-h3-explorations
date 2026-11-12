@@ -1,6 +1,8 @@
 # J-Lens: CPU X-Ray Diagnostics, Side-Effect Scrubbing, and Live Word Lab
 
-Last updated: 2026-11-11.
+Last updated: 2026-11-12.
+
+> **What to call it.** "J-Lens" is this repo's name for it. In anything written for other people, call it "a Jacobian-lens word readout for H3 control vectors, adapted from Anthropic's Jacobian lens (J-lens)": "the word readout" when it reads or scrubs, "a word vector" when it builds. Why, and what can be claimed for it, is in [`which_tool_and_what_to_call_it.md`](which_tool_and_what_to_call_it.md). A plain-words walk through the mechanism is in [`how_the_word_readout_works.md`](how_the_word_readout_works.md).
 
 [`j_lens.py`](../../../j_lens.py) (backed by `models/j_lens/j_lens_h3.safetensors`, derivation in [`../../research/control_vectors/2026-11-06_j_lens_and_refiner_jacobian.md`](../../research/control_vectors/2026-11-06_j_lens_and_refiner_jacobian.md)) translates directly between H3's `5376`-d post-refiner space (`fl2va` and `ref2va`) and `24,912` single-token English words on **CPU in `< 15 ms`** (`0 GB` VRAM).
 

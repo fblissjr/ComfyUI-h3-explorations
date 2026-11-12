@@ -17,6 +17,26 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-11-12
 
+- **The J-Lens is described as a word readout, not as a third way to steer** (owner decision, at the owner's
+  request for this positioning in the wiki). The pack has two steering tools, control vectors and edit guidance.
+  The J-Lens reads a vector as words, scrubs words out of one, and run backward builds a quick vector that
+  `MiniMaxH3Steer` applies like any other. In anything written for other people it is called "a Jacobian-lens word
+  readout for H3 control vectors, adapted from Anthropic's Jacobian lens (J-lens)", never the bare name, because the
+  published method reads a language model's hidden states and ours reads steering directions in a text encoder
+  whose upper layers never run in the video pipeline.
+  - **What prose claimed and no longer does**: [`control_vectors.md`](control_vectors.md) opened by listing
+    "three complementary mechanisms for steering, editing, and diagnosing" with the J-Lens as the third. It now
+    opens with two ways to steer and one tool for reading and sketching vectors. The rest of that page, its
+    section headings included, is as it was.
+  - **Where it lives now**:
+    [`control_vectors/which_tool_and_what_to_call_it.md`](control_vectors/which_tool_and_what_to_call_it.md) (the
+    comparison, the naming and what can be claimed with a source),
+    [`control_vectors/how_the_word_readout_works.md`](control_vectors/how_the_word_readout_works.md) (the mechanism
+    in plain words) and [`control_vectors/worked_examples.md`](control_vectors/worked_examples.md) (five worked
+    questions). [`control_vectors/j_lens_diagnostics_and_word_lab.md`](control_vectors/j_lens_diagnostics_and_word_lab.md)
+    gains a note on the name near its top, and [`index.md`](index.md)'s row lists the three pages.
+  - **What the claims rest on**: [`../../bench/results/2026-11-12_control_vector_readout_blind_score.md`](../../bench/results/2026-11-12_control_vector_readout_blind_score.md)
+    and [`../../bench/results/2026-11-12_control_vector_word_share.md`](../../bench/results/2026-11-12_control_vector_word_share.md).
 - **Fix `MiniMaxH3ImageConditioning` `0`-based Autogrow edit wiring, switch `MiniMax-H3-Image` default VAE to `PH3_IMAGE_VAE` (owner decision), and add `h3_image_edit_heylook_api.json` (`5f180b87`).**
   - **Default VAE (`workflows/build_workflows.py::build_h3_image_api`)**: Switched `vae` default from `H3_IMAGE_VAE` (`minimax-h3-image_vae_fp16.safetensors`, 24-layer, 16-head `dim=1024` ViT decoder) to `PH3_IMAGE_VAE` (`p-h3-image_vae_bf16.safetensors`, 36-layer, 32-head `dim=2048` ViT decoder; `vae=H3_IMAGE_VAE` kept as an explicit override). All 118 encoder + `quant_conv` weights in `PH3_IMAGE_VAE` are bit-for-bit identical (`max_diff = 0`) in unrounded fp32 to `H3_IMAGE_VAE_FP32`, with identical `LATENTS_MEAN`/`LATENTS_STD` and `H3ImageVAE.encode` (`IMAGE_ENCODE_SEED = 42`), leaving reference latents and the 6-step DiT trajectory unchanged while raising ground-truth reconstruction PSNR on `reference1.png` (`1024x1024`) from `29.91 dB` (fp16 or fp32: `69.27 dB` between the two) to `31.47 dB` (`+1.56 dB`) and eliminating orange/green shadow stipple on live `MiniMax-H3-Image` DiT latents ([`../h3_image.md`](../h3_image.md)).
   - **Autogrow edit wiring & `heylook` edit graph (`workflows/build_workflows.py`, [`../../workflows/image/h3_image_edit_heylook_api.json`](../../workflows/image/h3_image_edit_heylook_api.json))**: Core's `MiniMaxH3ImageConditioning` (`comfy_extras/nodes_minimax_h3.py:729-730`) declares `io.Autogrow.TemplatePrefix(prefix="image_", min=0, max=100)` (`0`-indexed `images.image_0..N-1`), whereas `MiniMaxH3ImagePromptExpander` (`h3_image_nodes.py`) uses `1`-indexed `TemplateNames` (`images.image_1..N`). Previously `build_h3_image_api` wrote `images.image_1` onto `MiniMaxH3ImageConditioning`, which worked over direct `/prompt` HTTP posts (`_image_refs` sorts by trailing integer) but caused ComfyUI's browser UI to drop the link on load and silently run T2I with zero references. Fixed `cond_inputs` to `images.image_0..N-1` while keeping `expander_inputs` `1`-indexed, and shipped `h3_image_edit_heylook_api.json`.
