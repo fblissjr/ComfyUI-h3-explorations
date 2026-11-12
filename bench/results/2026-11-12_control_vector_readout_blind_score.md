@@ -1,4 +1,4 @@
-# Control-vector readouts scored blind: J-Lens words and the rows table, two runs (2026-11-12)
+# Control-vector readouts scored blind: J-Lens words and the rows table, three runs (2026-11-12)
 
 lane: control
 
@@ -9,10 +9,16 @@ The first run of experiment 1 of
 (section 11). A judge that sees only a vector's readout picks that vector's concept out of five. The judging
 format and the controls are WorkspaceBench's (the same page, section 8.1).
 
-Both runs are throwaways. Their scripts have no check and live beside their outputs in the untracked folders
-`data/control_vectors/readout_score_2026-11-12/` (sections 1 to 5) and
-`data/control_vectors/readout_score_2026-11-12_nearest/` (section 6): `build_packets.py` and `score.py` in
+All three runs are throwaways. Their scripts have no check and live beside their outputs in the untracked
+folders `data/control_vectors/readout_score_2026-11-12/` (sections 1 to 5),
+`data/control_vectors/readout_score_2026-11-12_nearest/` (section 6) and
+`data/control_vectors/readout_score_2026-11-12_groups/` (section 7): `build_packets.py` and `score.py` in
 each. The counts below are what `score.py` printed; `results.json` in each folder holds them.
+
+The three runs share one set of readouts and differ only in the options. Random options were too easy
+(sections 1 to 5). Each vector's nearest concepts gave room but leaked the target to a judge with no readout
+(section 6). One shared list per group of near concepts keeps the room and closes the leak (section 7); that
+is the form to carry forward.
 
 ## 1. What was run
 
@@ -197,3 +203,86 @@ Everything in section 4 still holds, and one thing more:
   each other, yet the second is only the fifth-nearest vector to the first. The words the two share are a
   small part of each vector.
 
+## 7. Third run: one shared option list per group of near concepts
+
+Run the same day, at the owner's word, as the repair section 6.3 describes.
+
+### 7.1 What changed
+
+- **Readouts.** Again copied word for word from the first run.
+- **Vectors.** `film_16mm_1974_neutral` is left out as a variant of `film_16mm_1974`, which leaves a count
+  that divides by five.
+- **Groups.** Groups of five by a greedy rule on the cosine of `vector.post_refiner`: the closest unassigned
+  pair seeds a group, and the unassigned vector with the highest mean cosine to the group joins until it
+  holds five. `key.json` in the run folder lists the groups with their mean and lowest cosine. The rule
+  makes the early groups tight and leaves the last ones with what remains.
+- **Options.** Every member of a group is judged against the same five `quality` lines, in an order drawn
+  per item. Each line is the target for exactly one member.
+- **`shuffle`.** The readout of the nearest vector outside the group.
+
+### 7.2 Counts
+
+Options only, no readout: the target was picked for 9 of 45 vectors, one in each group. The judge reported
+picking the same line each time a list came back, which is what the design allows: that can be right for one
+member only.
+
+| Reader | Vectors | `real`: target | `real`: cannot tell | `real`: another option | `twin`: target | `shuffle`: target |
+|---|---:|---:|---:|---:|---:|---:|
+| `jlens` | 45 | 33 | 9 | 3 | 0 | 7 |
+| `rows` | 45 | 23 | 13 | 9 | 0 | 9 |
+
+The two readers on the same vector, `real` items: both named it for 19, `jlens` only for 14, `rows` only for
+4, neither for 8.
+
+By group, `real` items that went to the target, of five:
+
+| Group (mean cosine in `key.json`) | Members | `jlens` | `rows` |
+|---|---|---:|---:|
+| 0, tight | `pirate_crew`, `wild_west_saloon`, `medieval_feast`, `circus_clowns`, `disco_fever` | 5 | 3 |
+| 1, tight | `film_16mm_1974`, `vhs_1991_camcorder`, `cursed_cctv`, `rubber_hose_1930s`, `claymation_stopmotion` | 2 | 1 |
+| 2, tight | `chaos_panic`, `pyro_chain_explosions`, `wind_tunnel_gale`, `vocal_strain`, `pyro_klaxon_audio` | 2 | 2 |
+| 3, tight | `bioluminescent_glow`, `crystallize_ice`, `magnetic_attraction`, `cyberpunk_neon_rain`, `underwater_submerged` | 4 | 1 |
+| 4 | `arctic_expedition`, `astronaut_crew`, `summer_beachwear`, `molten_lava_golem`, `sunken_coral_reef` | 4 | 3 |
+| 5 | `fever_melt`, `smoke_dissolve`, `strobe_club_pulse`, `infomercial_fail`, `handheld_documentary_zoom` | 3 | 3 |
+| 6 | `felt_muppet`, `miniature_tiltshift`, `paper_origami`, `elastic_neck_stretch`, `thermal_infrared` | 4 | 2 |
+| 7, loose | `auctioneer_rapid_patter`, `operatic_bellow`, `whisper_asmr`, `wes_anderson_symmetry`, `balloon_head_inflate` | 4 | 3 |
+| 8, loose | `head_swell`, `zero_gravity`, `reverb_cathedral`, `lettering`, `noir` | 5 | 5 |
+
+### 7.3 Where the misses went
+
+- `jlens`, another option (three, all in group 1): `film_16mm_1974` and `cursed_cctv` to `vhs_1991_camcorder`,
+  `claymation_stopmotion` to `rubber_hose_1930s`. In group 2 its three misses are all "cannot tell".
+- `rows`, another option (nine): the same three, plus `vhs_1991_camcorder` to `cursed_cctv`,
+  `bioluminescent_glow` to `crystallize_ice`, `underwater_submerged` to `bioluminescent_glow`, `chaos_panic`
+  and `vocal_strain` to `wind_tunnel_gale`, and `wild_west_saloon` to `medieval_feast`.
+- `shuffle` items that went to the target are near concepts that fell in different groups. With `jlens`:
+  `underwater_submerged` and `sunken_coral_reef` each for the other, `operatic_bellow` for
+  `reverb_cathedral`, `felt_muppet` for `rubber_hose_1930s`, `miniature_tiltshift` for
+  `wes_anderson_symmetry`, `pyro_chain_explosions` for `molten_lava_golem`, `auctioneer_rapid_patter` for
+  `strobe_club_pulse`.
+
+### 7.4 Across the three runs
+
+The same `jlens` readout named 29 vectors in all three runs. Ten were named in neither of the two harder
+runs: `bioluminescent_glow`, `claymation_stopmotion`, `cursed_cctv`, `elastic_neck_stretch`,
+`film_16mm_1974`, `pyro_chain_explosions`, `pyro_klaxon_audio`, `summer_beachwear`, `wes_anderson_symmetry`,
+`wind_tunnel_gale`.
+
+### 7.5 What the third run cannot see
+
+Sections 4 and 6.5 still hold. Two more:
+
+- **A judge sees a list more than once in a packet.** Each packet holds one item per vector, so a group's
+  list comes back five times, with different words and in a different order. The judges were told that this
+  says nothing about any one item. The twin items, where the right answer is "cannot tell", make "each line
+  is used once" a poor rule to follow; nothing measured whether a judge tried it.
+- **How much the counts would move on a repeat.** Every item was judged once.
+
+### 7.6 Readings, not findings
+
+- This form does what the first two did not: a guesser with no readout lands on chance by construction, and
+  the `jlens` words leave twelve vectors of room.
+- The misses are concentrated. Two tight groups, old video with cartoon looks and loud chaotic energy, hold
+  six of the twelve `jlens` misses. Where the vectors have little to do with each other the words name all
+  of them.
+- The `shuffle` control now reads as a count of near concepts whose readouts pass for each other.

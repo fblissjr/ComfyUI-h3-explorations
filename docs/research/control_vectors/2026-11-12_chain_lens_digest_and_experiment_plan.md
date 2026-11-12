@@ -423,7 +423,7 @@ share one GPU session with the full 64-layer weights.
 - **Decides.** Gives each reader a pass rate on our own vectors and becomes the yardstick for experiments 3
   and 5. Today the comparison in plan section 20.1 is a person reading two columns.
 - **Cannot see.** Whether the render shows the concept. It scores naming, not effect.
-- **Two runs, 2026-11-12.** Recorded in
+- **Three runs, 2026-11-12.** Recorded in
   [`../../../bench/results/2026-11-12_control_vector_readout_blind_score.md`](../../../bench/results/2026-11-12_control_vector_readout_blind_score.md).
   Section 13 says what they change in this plan.
 
@@ -535,23 +535,32 @@ share one GPU session with the full 64-layer weights.
 
 ## 13. After experiment 1: what changes in the plan
 
-Added the same day, after two runs of experiment 1. The counts are in
+Added the same day, after three runs of experiment 1. The counts are in
 [`../../../bench/results/2026-11-12_control_vector_readout_blind_score.md`](../../../bench/results/2026-11-12_control_vector_readout_blind_score.md);
 nothing here restates them.
 
-- **Experiment 1 is not finished.** Against random options both readers named most vectors, which left too
-  little room to rank a better reader. Against each vector's nearest concepts there is room, but those
-  option lists leak: a judge with no readout picked the target far above chance, because the target is the
-  one option the others were all chosen to resemble. The next version gives every member of a group of near
-  concepts the same list (the record, section 6.3). The random-direction twin held in both runs and stays.
+- **Experiment 1 has a form to carry forward.** Against random options both readers named most vectors,
+  which left too little room to rank a better reader. Against each vector's nearest concepts there was room,
+  but those option lists leaked: a judge with no readout picked the target far above chance, because the
+  target is the one option the others were all chosen to resemble. The third run gives every member of a
+  group of near concepts the same list. A judge with no readout then lands on chance by construction, and
+  the J-Lens words still leave room (the record, section 7). The random-direction twin held in all three
+  runs and stays.
+- **What experiment 1 still lacks.** It has run only as throwaway scripts in an untracked folder, with one
+  judge model and one pass per item. Before experiments 3 and 5 are scored with it, it needs to be a tracked
+  tool with a check (`bench/AGENTS.md`), and it needs a repeat pass to show how far the counts move by
+  themselves.
+- **The test set for a better reader is named.** Ten vectors were named in neither of the two harder runs
+  (the record, section 7.4), and most of the misses sit in two tight groups: old video with cartoon looks,
+  and loud chaotic energy.
 - **Experiment 1 scores the vector and the reader together.** Several misses are between vectors that
   overlap, where a faithful reader would also be unsure. So the same harness has a second use that was not
   in the plan: checking whether a vector is distinct from its neighbors, and whether a hold makes it so,
   before any render. Section 5.3 of `2026-11-06_j_lens_and_refiner_jacobian.md` shows a cross-vector hold
   changing a readout in just this way; the harness would turn that into a count.
 - **Experiments 3 and 5 keep their place, with a narrower target.** The J-Lens words separate most vectors
-  from their neighbors and fail on a few groups (the record, section 6.6). Those groups are where a
-  multi-token or more specific readout has something to add, and they are the test set for both experiments.
+  from their neighbors and fail on a few groups. Those groups are where a multi-token or more specific
+  readout has something to add, and the ten vectors above are the test set for both experiments.
 - **Experiment 3 has a sharper measure.** The rows table's weakness against near concepts is picking the
   neighbor on the neighbor's own words. Whitening is aimed at shared directions, so its test is whether those
   wrong picks fall, not whether more vectors are named.
@@ -560,6 +569,8 @@ nothing here restates them.
   as nearly the same concept reads alike and yet is far apart as vectors (the record, section 6.6), which
   is the kind of case experiment 2's split would explain.
 - **Experiments 4 and 6 are unchanged.**
+- **The order now.** Experiment 1 as a tracked tool with a repeat pass; experiment 2; experiment 3;
+  experiments 4 and 5 in one GPU session; experiment 6.
 - **A later step for experiment 1.** A naming score can saturate. The version that does not is the post's
   steer-and-match test (section 6), a judge matching a readout to one of several renders. It costs renders,
   so it follows experiment 2.
