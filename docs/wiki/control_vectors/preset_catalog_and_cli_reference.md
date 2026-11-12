@@ -40,11 +40,12 @@ Example: `film_16mm_1974_neutral__ref2va__diff_span__lora_865ee189.safetensors` 
 - `vector.encoder` (`float32 [5120]`, optional, included by default): unit-norm `layers.49` direction (token `0` excluded).
 - `holds.post_refiner` (`float32 [K, 5376]`, when `[[hold]]` groups exist): orthonormal Gram-Schmidt hold basis.
 
-### JSON `__metadata__["h3_control_vector"]` (`format_version = 1`)
-Validated on every load by [`control_vectors.py::load_control_vector`](../../../control_vectors.py):
-- `model_family` (`"fl2va"` or `"ref2va"`), `dit_checkpoint`, `encoder_checkpoint`, `loras` (list of `{name, hash, strength_model}`), `pooling`, `raw_norm`, `recommended_mode`, `recommended_strength`.
-- `pairs` (`n_pairs`, `pair_ids`, `hold_names`, per-pair `pooled_tokens` on A and B produced by `control_vectors.pairs_record`).
-- `j_lens` (top `+`/`-` word gains, `b_side_alignment`, `refiner_transmission`, `off_target_words`).
+### Top-level JSON `.safetensors` metadata (`format = "h3-control-vector/1"`)
+Validated on every load by [`control_vectors.py::load_vector`](../../../control_vectors.py):
+- `format` (`"h3-control-vector/1"`), `name`, `quality`, `family` (`"fl2va"`, `"ref2va"`, `"fasth3"`, or `"custom:<12 hex chars>"`).
+- `recipe` (`{checkpoint, loras, encoder}`), `measured_under` (`{mode, frame, prefix, pooling}`), `points` (`post_refiner: {unit: "mean_pair_difference", raw_norm, median_row_norm}`, plus `encoder` when saved).
+- `pairs` (`{path, sha256, n_pairs, n_holds}`, plus `differing_sections`, `a_side`, `b_side`, and per-pair `pooled_tokens` produced by `control_vectors.pairs_record`).
+- `quality_report` (`{mean_pairwise_cosine, split_half_cosine, per_pair_cosine}`), `provenance` (`{core_revision, pack_commit, created_utc, made_by}`), and optional `j_lens` (top `+`/`-` word gains, `b_side_alignment`, `refiner_transmission`, `off_target_words`).
 
 ---
 

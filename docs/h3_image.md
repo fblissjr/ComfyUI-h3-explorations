@@ -280,13 +280,24 @@ the shared text encoder and design would lead one to expect.
 
 - Edits with more than one picture have not been rendered here. The builder
   wires up to six; the card says the model takes sixteen.
-- No LoRA, control vector or edit guidance has been tried on this model.
+- No LoRA, control vector or edit guidance has been rendered on this model yet.
 - The release's fp32 VAE file (`H3_IMAGE_VAE_FP32`) is linked and not loaded
   by any graph. Nobody has compared an fp32-encoded edit with an fp16-encoded
   one by eye.
-- No control vector made on a video checkpoint is expected to carry over as it
-  is: the vectors live after the token refiner, and this model's text
-  projection and refiner are its own weights (the record, "The same holds
-before the first block"). One
-  would have to be made on this model; whether the vector nodes run on it has
-  not been tried.
+- **Control vector & reference-release wrapper support (`02a20fe3`, 2026-11-11):**
+  No saved `.safetensors` vector built on a video checkpoint carries over as it
+  is: `minimax_h3_image_pruned_int8_convrot.safetensors` has its own
+  `condition_proj` and `token_refiner` weights (`detect_family` returns
+  `custom:f11a659b5f9b`, `rel_l2 = 0.3165` against both `fl2va` and `ref2va`;
+  see the record, "The same holds before the first block"), so
+  `check_vector_compatibility` refuses `fl2va`/`ref2va` vector files unless
+  `allow_recipe_mismatch=True`. In code (`control_vector_nodes.py`, guarded by
+  `bench/check_control_vectors.py`), the diffusion wrapper now handles
+  `MiniMaxH3ImageModel`'s 1-stream 5D `x` tensor (`target_sig` fallback with
+  `audio_t = 0`, 2-stream `visual_cond_noise_aug` check, `has_audio_stream` gate
+  on `need_split`, and explicit refusal of `clean_level < 0.999` because core's
+  `MiniMaxH3ImageModel._forward` hardcodes `seg_t["ref_img"] >= 0.999`).
+  `MiniMaxH3ReleaseReferences(end_percent < 1.0, clean_level=0.999)` and a
+  same-family vector (or `MiniMaxH3WordVector`, noting J-Lens is calibrated on
+  `fl2va`/`ref2va` rather than `MiniMax-H3-Image`'s refiner) attach cleanly in
+  the wrapper; none has been rendered by eye yet.

@@ -12,9 +12,14 @@ For **discrete, multi-attribute edits to a subject, garment, prop, or action** (
 
 `EditGuider` ([`edit_guidance.py:95-162`](../../edit_guidance.py#L95-L162)) subclasses ComfyUI's `CFGGuider` (`comfy.samplers.CFGGuider`), replacing the standard `(uncond, cond)` classifier-free guidance pair with `(original, edited)`:
 
-1. **Identical non-text conditioning check (`check_same_but_text`)**:
+1. **Identical non-text conditioning check (`check_same_but_text`) & `1x` media encoding (`02a20fe3`)**:
    - Before sampling starts, [`check_same_but_text`](../../edit_guidance.py#L72-L79) verifies that both single-entry conditioning lists carry `minimax_token_tags` and match on reference and keyframe counts (`minimax_refs`, `minimax_keyframes`).
    - If you accidentally wire non-H3 conditioning or mismatched references/keyframes into the two branches, `MiniMaxH3EditGuider` refuses immediately rather than producing silent spatial drift.
+   - Heavy vision and VAE conditioning work executes **once per run**, never twice:
+     - **Reference video & single-frame reference edits**: [`MiniMaxH3EncodeReferences`](../../reference_encode.py#L441-L558) (with `single_frame=True` for Pika still edits) encodes Qwen3-VL vision spans and reference VAE latents once on node `132` and feeds two lightweight [`MiniMaxH3PromptOnReferences`](../../reference_encode.py) text passes (`5` for `original` and `131` for `edited`, reusing the vision KV cache).
+     - **Guide-latent video & single-frame edits**: [`MiniMaxH3GuideLatent`](../../guide_latent.py#L142-L312) accepts an optional `edited_positive` conditioning input and emits `edited_positive` on output slot `2` (`outputs = [positive, latent, edited_positive]`), encoding the guide image/video/mask/audio latents once and attaching identical `minimax_keyframes` to both branches.
+     - **Preflight peak pricing**: [`MiniMaxH3Preflight`](../../preflight.py#L120-L155) accepts an optional `edited_conditioning` input (`"26".edited_conditioning`), pricing peak `max(seq_orig, seq_edit)` and reporting both branches' prompt and packed sequence lengths.
+     - *(Single-frame `P-H3-Image` uses fast 1-frame `seed=42` deterministic reference encoding on two `MiniMaxH3PH3ImageConditioning` nodes without an intermediate split node; official `MiniMax-H3-Image` uses 6 per-step output heads distilled without CFG and has not been tested with Edit Guidance.)*
 2. **Sequential DiT execution without `B = 2` OOM (`h3_edit_pass`)**:
    - A packed 121-frame H3 audio+video sequence is `~18,000` tokens long. If ComfyUI concatenated `original` and `edited` into a `B = 2` batch (`~36,000` tokens), attention memory would spike and OOM.
    - `_prepare` tags the two `minimax_payload` dicts with `h3_edit_pass = "original"` and `h3_edit_pass = "edited"` ([`edit_guidance.py:112-131`](../../edit_guidance.py#L112-L131)). ComfyUI's batch splitter sees unequal keys and runs two clean `B = 1` DiT forward passes sequentially on the identical noisy latent $x_t$.
