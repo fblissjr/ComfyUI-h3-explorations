@@ -24,7 +24,9 @@ For the repo's own J-Lens, start at
 [`../../wiki/control_vectors/j_lens_diagnostics_and_word_lab.md`](../../wiki/control_vectors/j_lens_diagnostics_and_word_lab.md)
 and [`2026-11-06_j_lens_and_refiner_jacobian.md`](2026-11-06_j_lens_and_refiner_jacobian.md).
 
-**Owner's decision, 2026-11-12:** start with experiment 1 (section 11).
+**The current plan is section 15.** Sections 11 and 13 are how it was reached, and are kept as they were
+written. Owner's decisions, 2026-11-12: start with experiment 1; and, at the end of the day, rewrite the plan
+as one current list.
 
 ---
 
@@ -401,7 +403,7 @@ One caution on the plan's own records: section 17.4 of the simplification plan r
 that form. Experiments 4 and 5 below need the full 64-layer weights, the same thing the open lexical-half
 builder needs, so they belong with that builder and not with a revival of the old labeller.
 
-## 11. Experiments
+## 11. Experiments, as first proposed (history; the current plan is section 15)
 
 Ordered by what they decide per unit of cost. The first three need no GPU and no render. Experiments 4 and 5
 share one GPU session with the full 64-layer weights.
@@ -539,7 +541,7 @@ share one GPU session with the full 64-layer weights.
 - Model names are given as the posts write them.
 - The digest was first published as a private page; this file is the record.
 
-## 13. After experiment 1: what changes in the plan
+## 13. After experiment 1: what changes in the plan (history; the current plan is section 15)
 
 Added the same day, after three runs of experiment 1, a repeat pass, a run on the rebuilt J-Lens bundle and
 the CPU half of experiment 2. Experiment 1's counts are in
@@ -629,7 +631,7 @@ the chain lens offers the steering and J-Lens work here.
 - **Do not render a vector that has not been seen to work on that kind of shot.** `head_swell` was picked
   for experiment 2 with the risk named in advance, and three of eight renders told nothing.
 - **Rewrite the plan as one current plan when it changes.** Section 13 was amended after each result and
-  now reads as a history. Sections 11 and 13 should be folded into one list of what is next.
+  now reads as a history. Sections 11 and 13 are now folded into one list of what is next, section 15.
 - **Trim the reading notes before they are shared more widely.** The four files under
   `2026-11-12_chain_lens_refs/` were written by subagents and not checked line by line. They are labelled
   so, and they are long. A shorter page of only what this plan uses would be easier to stand behind.
@@ -660,4 +662,121 @@ the chain lens offers the steering and J-Lens work here.
 
 The same question for the batch of new vectors and its renders is section 10 of
 [`2026-11-12_new_vectors_three_ways.md`](2026-11-12_new_vectors_three_ways.md).
+
+## 15. The current plan
+
+Written at the end of 2026-11-12, at the owner's word. It replaces the order in section 11 and the amendments
+in section 13. Each item says what it is, what it costs, and what it decides. The records behind each
+statement are linked where they are used; no figure is repeated here.
+
+### 15.1 Where the first six stand
+
+| First proposed (section 11) | Now | Why |
+|---|---|---|
+| 1. Score the readouts blind | Done, and kept as a tool: `bench/control_vector_readout_score.py` | It works, with one shared option list per group of near concepts. It still wants a second judge model. [`../../../bench/results/2026-11-12_control_vector_readout_blind_score.md`](../../../bench/results/2026-11-12_control_vector_readout_blind_score.md) |
+| 2. Split a vector into a word part and a remainder | Removed as written; replaced | The sparse word split fits a random direction as well as a vector. The split that means something is into the shared direction, the direction a vector's own words name, and the rest. [`../../../bench/results/2026-11-12_control_vector_word_share.md`](../../../bench/results/2026-11-12_control_vector_word_share.md) |
+| 3. Whitened whole-word rows table | Kept; now first | CPU only, and the nearest route to the multi-token readout the chain lens post is about |
+| 4. CPU lens against the real upper layers | Kept; no longer a step of its own | The bundle was rebuilt, every readout moved and the score did not, so a trust figure per readout matters less. It rides along with item 5 below |
+| 5. Chain readout through the upper layers | Kept | It is the port of the post's idea. Its ceiling is modest: the words already name most vectors |
+| 6. Swap a concept in lens coordinates | Demoted | A rewrite and edit guidance already swap a noun. Its one edge is a single pass that can be reused, and it needs node changes |
+
+### 15.2 What the first list missed
+
+All six were about reading a vector. The day's largest findings were about making and applying one:
+
+- **How a vector is built.** The current bare-phrase build sets a long concept phrase against a few neutral
+  words, the same few every time. Its vectors share more with each other than the older bank's do, and
+  most of a first batch fell below the build card's own healthy range for pair agreement.
+  [`2026-11-12_new_vectors_three_ways.md`](2026-11-12_new_vectors_three_ways.md), section 3.
+- **What settings a vector is applied with.** Every vector rendered that day had one try at the node's
+  defaults. A weak clip cannot yet be put down to the vector or to its settings. The same note, section 4.
+- **The shared direction.** Part of every vector belongs to no concept. It renders as something by itself.
+  Whether it is a harmless part of a vector or the source of stray side effects is not known.
+
+### 15.3 The order
+
+**1. A whitened, whole-word rows table.** (Section 11, experiment 3.)
+
+- **Cost.** CPU, on the existing row cache, plus one judged run.
+- **What it is.** The template-lens arithmetic on the rows table: center and whiten, and pool each word or
+  phrase over its whole token span (section 9.3).
+- **Scored with.** `bench/control_vector_readout_score.py`, in one run beside the J-Lens words, so both
+  readers share the option draws.
+- **Decides.** Whether a multi-token readout is available on CPU now. The measure is whether the rows
+  table's picks of a neighbor fall, and whether any of the eight vectors no bundle's words could name are
+  named (the blind-score record, section 9.2).
+
+**2. Does a hold make a vector distinct from its neighbors?**
+
+- **Cost.** CPU, plus one judged run. It can share item 1's run.
+- **What it is.** The scoring tool's second use (section 13): score a vector's readout before and after its
+  nearest neighbors are held out of it. The old-video group is the first case.
+- **Decides.** Whether a miss in the blind score is the vector overlapping its neighbor, and whether a hold
+  mends it, before any render.
+
+**3. A working setting.**
+
+- **Cost.** Ten renders, being made by another session as a ladder in which each neighboring pair of clips
+  changes one thing: the settings a vector is applied with, how the vector was built, vector against
+  rewrite, rewrite against edit guidance, and edit guidance with and without holding the original take.
+- **Decides.** The strength, target and window the items below use, and how much of the gap between a
+  vector and a rewrite is settings. Items 4 and 6 wait for it.
+
+**4. A fairer way to build a vector.**
+
+- **Cost.** A few builds on the server, a judged run, and a handful of renders at item 3's setting.
+- **What it is.** Two concepts, each built three ways: the current bare-phrase build; a plain side written
+  for the concept and about as long as the concept side; and the same over more scenes. Read each card in
+  full before rendering.
+- **Decides.** How new vectors should be built. The measures are pair agreement, how much the vectors share,
+  the blind score, and then the clips.
+
+**5. A chain readout through the encoder's own upper layers, with the lens checked against them.** (Section
+11, experiments 5 and 4.)
+
+- **Cost.** One GPU session with the full 64-layer weights, when the card is free of the server. No render.
+- **What it is.** Short chains grown from a vector's top words by the real `layers.50..63`, each token
+  chosen for what it gains over the unsteered state, with the plausibility filter (sections 9.6 and 11). In
+  the same session, the correlation between the CPU lens's predicted shift and the real one (section 9.5),
+  which is also the acceptance test for rebuilding the bundle's word half.
+- **Scored with.** The tool, in one run beside the J-Lens words and item 1's reader.
+- **Decides.** Whether the middle point between words and long rollouts earns a place. If item 1 already
+  names most of the eight, this matters less.
+
+**6. The three-way split again, on vectors that are known to work.**
+
+- **Cost.** About ten renders at item 3's setting, at two seeds.
+- **What it is.** The whole vector, the direction its own words name, the rest and the shared direction,
+  for two vectors with a verified render on record, and one clip of a known-good vector with the shared
+  direction held out.
+- **Decides.** Whether the part the words name carries a vector's effect, which the first try suggested for
+  one vector from stills alone, and what is lost when the shared direction is taken out.
+
+**7. A swap in lens coordinates.** (Section 11, experiment 6.) Only at the owner's word. Its pre-check on
+cached rows is still the first step.
+
+**Later.** The post's steer-and-match test (section 6): a judge matching a readout to one of several
+renders. It is the form of the blind score that cannot saturate, and it needs clips from items 4 and 6.
+
+### 15.4 Rules the day taught, for every item
+
+- **A control beside every measurement, and the cheapest control first.** One no-readout judge before a
+  full judged run.
+- **Show that a measure means something here before planning around it.** A random direction and an
+  unrelated contrast go through the same measure first.
+- **Find a working setting on one vector before running a batch.**
+- **Two seeds for anything that will be argued from, and a second judge model for the blind score.**
+- **Compare two readers inside one run, and name the bundle a readout was read with.**
+- **Change one thing between neighboring arms.**
+- **Trial vectors carry a name that marks them as trials.**
+- **A rendered rewrite beside every edit-guidance clip.**
+
+### 15.5 What is waiting on the owner
+
+- **The eight trial vectors** in `<comfy>/models/control_vectors/`: keep, rename or remove.
+- **The film stack from the first three-way split**
+  (`$H3_OUTPUT_DIR/Video/cv_word_share_2026-11-12/exp2_film_16mm_1974_stacked.mp4`): whether the row for the
+  direction its words name shows what the whole-vector row shows, and the row for the rest does not.
+- **The three-ways clips.** The owner's reading so far is that edit guidance worked better than the vectors.
+  Whether it also did better than the plain rewrite beside it has not been said.
 
