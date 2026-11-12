@@ -59,7 +59,7 @@ actually started from is not something the weights can say.
 |---|---|---|
 | `H3_IMAGE_UNET` | the DiT, int8 linears, pruned AdaLN; the graphs' default | Comfy-Org |
 | `H3_IMAGE_UNET_BF16` | the DiT as released, nothing quantized or pruned. Not kept on disk: written, rendered and removed on 2026-11-11 | `bench/convert_h3_image_dit.py` writes it again from the release |
-| `PH3_IMAGE_VAE` | H3 encoder (unrounded fp32) + 36-layer 32-head (`dim=2048`) still-image decoder; the graphs' default since 2026-11-12 | PrunaAI (`P-H3-Image`) |
+| `PH3_IMAGE_VAE` | H3 encoder (stored fp32 in file; cast to fp16 by `comfy/sd.py` on load, `max_abs_diff = 2.98e-8`, then promoted in place by `MiniMaxH3VAEPrecision`) + 36-layer 32-head (`dim=2048`) still-image decoder; the graphs' default since 2026-11-12 | PrunaAI (`P-H3-Image`) |
 | `H3_IMAGE_VAE` | the release's VAE in fp16 (16-head `dim=1024` decoder) | Comfy-Org, a plain cast of the release's |
 | `H3_IMAGE_VAE_FP32` | the release's VAE as released | the release |
 
@@ -123,19 +123,31 @@ core's nodes. Core's conditioning node was read against that pipeline and
 agrees with it on what matters: the sequence layout, the picture labels, the
 level references are held at, the reference sizes for the VAE and for the text
 encoder, and a sampled rather than mean VAE encoding of each reference. Three
-small things differ and were left alone: core draws the reference noise from a
-fixed seed where the pipeline uses the request's, rounds an in-bounds
-reference to a multiple of 32 where the pipeline crops it, and skips the
+small things differ and were left alone: `H3ImageVAE.encode` draws each
+reference's VAE posterior sample from fixed `IMAGE_ENCODE_SEED = 42` where the
+pipeline uses the request's seed (`MiniMaxH3._cond_video_rows` still seeds the
+`0.001` DiT reference noise from the sampler seed), core rounds an in-bounds
+reference to a multiple of 32 where the pipeline crops it, and core skips the
 pipeline's rounding of reference latents to fp16. The chain differs from
 Comfy-Org's shipped templates in four places:
 
 1. **The six-step grid is handed to the sampler as written.** The templates
-   ask a scheduler for six steps, which lands near the grid the output heads
-   were distilled on rather than on it. The heads are one per step of this
-   grid under plain Euler; no other sampler, step count or grid is valid.
+   ask `BasicScheduler(simple, 6)` over `MiniMaxH3ImageModelSampling`'s
+   1,000-entry discrete table; because `6` does not divide `1,000`, `simple`
+   drifts off `pdd_config.json`'s knots by up to `8.69e-4` (`sgm_uniform` by
+   `2.09e-3`, `beta` by `0.104`), whereas `ManualSigmas` (`H3_IMAGE_MANUAL_SIGMAS`)
+   lands with `0.0` float32 error. The heads are one per step of this grid under
+   plain Euler; no other sampler, step count or grid is valid.
 2. **The size is megapixels and a shape** (`MiniMax H3 Image Size`,
-   [`h3_image_nodes.py`](../h3_image_nodes.py)), at the card's best size by
-   default. The templates start at the bottom of the working range.
+   [`h3_image_nodes.py`](../h3_image_nodes.py)), at the card's best size (`16.0`
+   megapixels) by default. Requests below `4.0` megapixels (`enforce_4mp_floor=True`
+   default) follow MiniMax's `sglang` (`image_canvas.py`) and `vllm-omni`
+   (`pipeline_minimax_h3_image.py`) servers: the DiT samples on the vendor's
+   `4.0`-megapixel canvas floor (`width`, `height`), and `MiniMax H3 Image Downscale`
+   (`MiniMaxH3ImageDownscale`, wired between `VAEDecode` and `SaveImage`) resizes
+   the decoded pixels to `(target_width, target_height)` with 8-bit PIL Lanczos
+   (passing `>= 4.0`-megapixel outputs through untouched). The templates start at
+   the bottom of the working range without a floor guard.
 3. **A picture being edited reaches the model untouched.** The edit template
    resamples it first. The vendor's pipeline keeps a reference's own pixels
    whenever its short side is within bounds, and core's node already does the
@@ -196,17 +208,25 @@ pipeline on everything the chain above takes from it. What they add:
   (`coderef/sglang/python/sglang/multimodal_gen/configs/pipeline_configs/minimax_h3_image.py`).
   The edit graphs here do the same since 2026-11-11 (the owner's decision):
   `MiniMaxH3VAEPrecision` promotes the encoder to fp32 for the picture being
-  edited and leaves the decoder in half precision. The encoder is promoted
-  from the fp16 file, because rounding the release's fp32 encoder weights to
-  fp16 loses nothing that matters (compared tensor by tensor that day), so the
-  fp32 VAE file is not loaded. On the release's edit case the change moves the
+  edited and leaves the decoder in half precision (clearing ComfyUI's cached
+  `VAE.size` so `model_management` sees the promoted footprint). Although
+  `PH3_IMAGE_VAE` (`p-h3-image_vae_bf16.safetensors`) stores its 118 encoder +
+  `quant_conv` tensors in fp32 on disk (`max_diff = 0` against `H3_IMAGE_VAE_FP32`),
+  `comfy/sd.py` casts the entire loaded `PH3ImageVAE` `state_dict` to `vae_dtype`
+  (`fp16`) during `VAE.__init__` (`max_abs_diff = 2.98e-8` across all 118 encoder
+  tensors); `MiniMaxH3VAEPrecision(encoder="fp32")` therefore provides **FP32
+  Conv3d/GroupNorm activation accumulation** without loading a second VAE file.
+  On the release's edit case the change moves the
   render about as much as the int8 file does against bf16
   (`edit_graphs_with_fp32_reference_encode` in the renders JSON), which is to
   say within the spread the vendor's servers show between their own layouts.
   It is the vendor's way of encoding; nothing here shows it looks better.
-- **On the four small points where core differs from the diffusers pipeline,
-  the two servers side with the pipeline**: the reference's posterior sample
-  and its noise come from the request's seed, the sampled latent is rounded to
+- **On the small points where core differs from the diffusers pipeline,
+  the two servers side with the pipeline**: the reference's VAE posterior sample
+  comes from the request's seed (`H3ImageVAE.encode` uses fixed `seed=42` while
+  `MiniMaxH3._cond_video_rows` seeds the `0.001` reference noise from the
+  sampler seed, differing only in RNG stream advancement across multiple
+  references), the sampled latent is rounded to
   fp16, and an in-bounds reference is cropped rather than resized. sglang and
   diffusers draw those in a different order from each other, so there is no
   single bit-exact edit to match; the differences are in the noise a
@@ -300,28 +320,41 @@ One seed each, so none of this is a rule. It is consistent with the image
 model having been trained on the family's prompt conventions, which is what
 the shared text encoder and design would lead one to expect.
 
-## Not done
+## Optional add-on nodes & remaining items
 
-- Edits with more than one picture have not been rendered here. The builder
-  wires up to six; the card says the model takes sixteen.
-- No LoRA, control vector or edit guidance has been rendered on this model yet.
-- The release's fp32 VAE file (`H3_IMAGE_VAE_FP32`) is linked and not loaded
-  by any graph. Nobody has compared an fp32-encoded edit with an fp16-encoded
-  one by eye.
-- **Control vector & reference-release wrapper support (`02a20fe3`, 2026-11-11):**
-  No saved `.safetensors` vector built on a video checkpoint carries over as it
-  is: `minimax_h3_image_pruned_int8_convrot.safetensors` has its own
-  `condition_proj` and `token_refiner` weights (`detect_family` returns
-  `custom:f11a659b5f9b`, `rel_l2 = 0.3165` against both `fl2va` and `ref2va`;
-  see the record, "The same holds before the first block"), so
-  `check_vector_compatibility` refuses `fl2va`/`ref2va` vector files unless
-  `allow_recipe_mismatch=True`. In code (`control_vector_nodes.py`, guarded by
-  `bench/check_control_vectors.py`), the diffusion wrapper now handles
-  `MiniMaxH3ImageModel`'s 1-stream 5D `x` tensor (`target_sig` fallback with
-  `audio_t = 0`, 2-stream `visual_cond_noise_aug` check, `has_audio_stream` gate
-  on `need_split`, and explicit refusal of `clean_level < 0.999` because core's
-  `MiniMaxH3ImageModel._forward` hardcodes `seg_t["ref_img"] >= 0.999`).
-  `MiniMaxH3ReleaseReferences(end_percent < 1.0, clean_level=0.999)` and a
-  same-family vector (or `MiniMaxH3WordVector`, noting J-Lens is calibrated on
-  `fl2va`/`ref2va` rather than `MiniMax-H3-Image`'s refiner) attach cleanly in
-  the wrapper; none has been rendered by eye yet.
+Everything below is strictly optional and is **not** wired into the four default
+`h3_image_*_api.json` workflows:
+
+- **1–16 reference pictures & split KV-prefix reference nodes (`reference_encode.py`):**
+  `build_h3_image_api` now supports up to `16` reference pictures (`_H3_IMAGE_REF_NODES`,
+  matching the model card). For multi-prompt iteration or `MiniMaxH3EditGuider` runs,
+  experimental `MiniMaxH3EncodeImageReferences` and `MiniMaxH3PromptOnImageReferences`
+  split reference encoding from prompt continuation: `MiniMaxH3EncodeImageReferences`
+  caches the Qwen3-VL causal KV prefix and 1-stream `[1, 24, 1, H//16, W//16]`
+  reference latents while exposing `qwen_short_edge` (`1024`), `vae_min_short_edge`
+  (`1024`), `vae_max_short_edge` (`2048` default, configurable up to `8192` for
+  ultra-sharp 4K edits), `in_bounds_align` (`"resize_32"` vs vendor `"crop_32"`),
+  and `use_vae` (`True` vs encoder-only `False`).
+- **Exact LoRA branch loading (`lora_branch.py::MiniMaxH3LoRABranch`):**
+  `MiniMaxH3LoRABranch` supports `MiniMaxH3ImageModel` (`1`-stream, pruned `t_dim=8`
+  AdaLN, `pdd_steps=6` `576`-row `final_layer.video_out`), cleanly skips audio-only
+  keys and `2688`-column video `adaln_proj.linear` keys when `t_dim=8`, adds
+  `modules="attention + mlp"` for spatial/style video LoRAs whose AdaLN modulation
+  is pruned, and supports `576`-row PDD-6 `final_layer.video_out` LoRAs.
+- **Control vectors, J-Lens & reference release (`control_vectors.py`, `j_lens.py`, `control_vector_nodes.py`):**
+  `MiniMax-H3-Image` is registered as first-class family `"h3_image"`
+  (`KNOWN_FAMILIES` hash `("0c92b9024acc", "6f9a10f4d0ed", "036c13e58478")`),
+  `h3_spans.py` classifies core's pre-vision `"Picture N: "` labels as `label`
+  without catching post-vision caption prose, `models/j_lens/j_lens_h3.safetensors`
+  carries calibrated `J_ref_h3_image` and `J_wiener_h3_image` operators for
+  zero-VRAM `MiniMaxH3WordVector` / `MiniMaxH3Steer`, existing `fl2va`/`ref2va`
+  `.safetensors` vectors with `vector.encoder` auto-project into `h3_image`
+  post-refiner space, and `MiniMaxH3Steer` (`scene_only` / `description`) steers
+  post-vision caption tokens even when core's `MiniMaxH3ImageConditioning` (no
+  `h3_span_masks`) is wired. `MiniMaxH3ReleaseReferences` (`end_percent < 1.0`,
+  `clean_level=0.999`) also works on 1-stream 5D `MiniMaxH3ImageModel`.
+- **Not yet rendered by eye:** Multi-picture (`> 2`) edits, transferred video
+  LoRAs (`modules="attention + mlp"`), and `h3_image` control vectors / word
+  vectors have been verified numerically on GPU/CPU but have not yet been
+  compared visually across multi-seed sheets; the release's standalone fp32 VAE
+  file (`H3_IMAGE_VAE_FP32`) remains unreferenced by default graphs.
