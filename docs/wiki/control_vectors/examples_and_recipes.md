@@ -6,16 +6,16 @@ Every recipe below uses tested settings from our 6-step Pika `t2va` and `ref2va`
 
 ---
 
-## Recipe 1 — Exact `<Subject 1>` clothing or prop swap on `ref2va` (`MiniMaxH3EditGuider`)
+## Recipe 1 — Multi-garment `<Subject 1>` outfit swap on `ref2va` (`MiniMaxH3PromptEdit` + `BasicGuider` or `MiniMaxH3EditGuider`)
 
-**Use when**: You have a `<Picture 1>` reference portrait and want `<Subject 1>` in a **specific new outfit** (exact color, collar, cut, fabric) while keeping her face, hair, voice, and the room around her.
+**Use when**: You have a `<Picture 1>` reference portrait and want `<Subject 1>` in a **specific multi-piece outfit** (exact color, collar, cut, fabric per garment) while keeping her face, hair, voice, and the room around her. *(Try `MiniMaxH3PromptEdit` with `release_subject_attire = True` on normal `1x` `BasicGuider` first—on `s730451892` a `1x` rewrite already swaps the outfit cleanly; switch to `MiniMaxH3EditGuider` when you want `scale > 1.0`, `0 < scale < 1.0`, or `first_step = 1` framing lock.)*
 
 - **API Workflow**: `workflows/h3_image_ref_plus_text_to_video_pika_edit_guidance_api.json`
-- **`MiniMaxH3PromptEdit` `edits` & `release_subject_attire`** (feeding the second `MiniMaxH3PromptOnReferences` node):
+- **`MiniMaxH3PromptEdit` `edits` & `release_subject_attire`** (feeding `MiniMaxH3PromptOnReferences`; match plain words next to `<Picture 1>`, never `<Picture 1>` itself):
   - `release_subject_attire = True` *(rewrites `<Subject 1>`'s `retention_analysis:` line from `fully_preserved` to `partially_preserved` with clothing unlocked; also works with `edits = ""` upstream of a single-pass `MiniMaxH3Steer` render)*
   - `edits`:
     ```text
-    subject_definitions: from <Picture 1>. -> from <Picture 1>, wearing a 1970s rust-orange polyester blouse with a wide pointed collar and high-waisted flared jeans.
+    subject_definitions: light freckles across her nose and cheeks. -> light freckles across her nose and cheeks. She wears a 1970s rust-orange polyester blouse with a wide pointed collar and high-waisted flared jeans in the target video.
     ```
 - **`MiniMaxH3EditGuider` settings**:
   - `scale = 1.5`
