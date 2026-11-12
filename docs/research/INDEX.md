@@ -116,3 +116,4 @@ For the active index of code, `.toml` pair files, LLM authoring, and readout too
 | [`sglang_h3_pipeline.md`](sglang_h3_pipeline.md) | sglang's MiniMax-H3 pipeline, end to end |
 | [`smoothquant_for_attention_qk.md`](smoothquant_for_attention_qk.md) | SmoothQuant's trick, pointed at attention's q and k |
 | [`technique_transfer.md`](technique_transfer.md) | What transfers from LLM and ViT serving to H3, and what does not |
+| [`2026-11-12_guide_signal_full_length_bars.md`](2026-11-12_guide_signal_full_length_bars.md) | 2026-11-12: a drawn on/off signal given as a full-length guide video on the text-to-video graph. The picture comes back as the signal itself; the unguided sound lands on the signal's windows and moves when they are moved. Three arms, one prompt, one seed |
