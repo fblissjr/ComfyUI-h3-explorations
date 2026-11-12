@@ -25,9 +25,10 @@ Every rule below comes directly from measured failure modes in our 2026-11-05..2
 2. **Identical surrounding prose and shared grammatical lead-in (`diff_span` discipline)**:
    - Outside the single contrasting clause (and `overall_soundscape:` when audio is coupled), **every word, punctuation mark, `<d>...</d>` dialogue line, `(S1)` tag, and header must be byte-for-byte identical** between Pole A and Pole B.
    - Keep the lead-in words (`"illuminated by "`, `"captured on "`) identical on both sides so `first_diff` lands directly on the contrasting content words rather than averaging wrapper words.
-3. **Concrete Pole A baselines + matched word counts (avoiding length bias)**:
+3. **Concrete, rotated Pole A baselines + matched word counts (avoiding length bias & Pole-A cancellation)**:
    - Never write negated baselines (`"no explosions"`, `"not claymation"`—negations still activate the negated noun in `Qwen3-VL`) and avoid bare 2-word Pole A against a 25-word Pole B.
    - Write a concrete, ordinary Pole A of roughly matching clause length (`10–18` words -> `10–22` words) so `B - A` measures the concept rather than sentence length.
+   - **Never repeat one baseline garment across Pole A when steering attire/costumes** (`pirate_crew` / `wild_west_saloon` / `arctic_expedition` lesson, 2026-11-11): repeating `"casual wool sweater and shirt"` across pairs bakes `-shirt` / `-wearing` into `(-)` and cancels overlapping attire features on Pole B. Vary Pole A baselines across pairs (or use `from-prompt --bank-scenes 5 --words "<target clause>"` / `a1 | a2 | a3 -> b` in [`h3_pair_compiler.py`](../../../h3_pair_compiler.py)).
 4. **Stratify across diverse subjects, interiors/exteriors, and lighting**:
    - Vary setting, gender/object, framing, and baseline color palette across the 6–10 pairs so accidental scene correlates average toward zero.
 5. **Add a `#### Hold` group whenever your concept has an obvious unwanted twin**:
@@ -49,7 +50,7 @@ CUDA_VISIBLE_DEVICES= /path/to/comfy-venv/bin/python bench/control_vectors.py fr
 
 `from-md` (`control_vectors.write_markdown_to_toml`) validates every pair through `load_pairs`—checking H3 section structure, protected tags/dialogue parity, and non-empty `diff_span`—before writing `.toml`.
 
-Then build both `fl2va` and `ref2va` `.safetensors` vectors and inspect the J-Lens top words printed at the end of the build:
+Then build both `fl2va` and `ref2va` `.safetensors` vectors and check the J-Lens top words + automatic `b_side` alignment audit (`j_lens.check_b_side_alignment`) printed at the end of the build:
 
 ```bash
 /path/to/comfy-venv/bin/python bench/control_vectors.py build \

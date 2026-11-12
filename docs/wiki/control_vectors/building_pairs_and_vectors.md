@@ -60,7 +60,7 @@ When pairs average **mutually incompatible concrete targets** under an umbrella 
   4. If you *do* steer attire with a control vector on `ref2va`, make it a **single coherent world/costume archetype** applied on `scene_only` with `end_percent = 0.5`, and unlock `<Subject 1>`'s `retention_analysis:` contract cleanly via `MiniMaxH3PromptEdit(release_subject_attire=True)` (`retention_analysis:` is kept unsteered by default under `scene_only` so high strength never corrupts `partially_preserved`).
 
 ### Build-field invariance
-We also tested building the exact same clothing contrast inside `subject_definitions:` vs. `detailed_description:` vs. a 3-field `t2va` prompt (`2026-11-11`). All three produced nearly collinear directions (`diff_span` pools only the differing clause). **What a vector steers is determined by what the words mean and which runtime `mask` / `fields` you apply it to—not which prompt header held the clause during `build`.**
+We also tested building the exact same clothing contrast inside `subject_definitions:` vs. `detailed_description:` vs. a 3-field `t2va` prompt (`2026-11-11`). All three produced nearly collinear directions (`diff_span` pools only the differing clause). **What a vector steers is determined by what the words mean and which runtime `target` (`mask`) or `fields` you apply it to—not which prompt header held the clause during `build`.**
 
 ---
 
@@ -84,7 +84,7 @@ You can remove nuisance directions at **three** places:
    `pool_pair_set` averages each named `[[hold]]` group, builds an orthonormal Gram-Schmidt basis (`holds.post_refiner`), and projects it out of `vector.post_refiner`. Compare `film_16mm_1974` vs. `film_16mm_1974_neutral` (`cos = 0.72`: grain and gate weave stay, amber cast disappears).
 2. **At CLI build / sculpt time (`--hold <vec.safetensors>` or `--hold-words "amber, sepia"`)**:
    Projects out an existing `.safetensors` vector or J-Lens word subspace (`--hold-alpha 0.0..2.0`, where `1.0` is exact orthogonal projection) before saving.
-3. **At render time** (`mode = "hold"` on a second `MiniMaxH3ApplyControlVectors`, or `hold_words` on the node itself): non-destructively scrubs the direction from the accumulated steering shift without altering the base prompt.
+3. **At render time** (wiring `MiniMaxH3LoadControlVector` or `MiniMaxH3WordVector` into `MiniMaxH3Steer.hold_vector`, or setting `hold_words` directly on `MiniMaxH3Steer`): non-destructively scrubs the direction from the accumulated steering shift without altering the base prompt.
 
 ---
 

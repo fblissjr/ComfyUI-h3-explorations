@@ -26,7 +26,7 @@ Last updated: 2026-11-11.
 
 | Node | Inputs -> Outputs | Role |
 |---|---|---|
-| **`MiniMaxH3ApplyControlVectors`** | `MODEL -> MODEL` | Kept with all 18 original inputs in exact positional order so saved clip PNGs, shipped `*_control_vector_api.json` workflows, `workflows/build_workflows.py`, and the phone app run unchanged while hiding the 18-widget monolith from ComfyUI's search menu. |
+| **`MiniMaxH3ApplyControlVectors`** | `MODEL -> MODEL` | Kept with all 18 original inputs in exact positional order (`is_deprecated = True`) so older saved clip PNGs and historical API graphs still load and execute unchanged while hiding the 18-widget monolith from ComfyUI's search menu. All shipped `*_control_vector_api.json` workflows and `workflows/build_workflows.py` now wire `MiniMaxH3Steer` and `MiniMaxH3ReleaseReferences` (`74f0b0bf`). |
 
 ---
 
@@ -85,7 +85,7 @@ On the 6-field diner `ref2va` shot (`s730451892`), we swept `film_16mm_1974` and
 
 ## 4. Step windows (`start_percent`, `end_percent`) and fixing high-strength face tint
 
-`MiniMaxH3ApplyControlVectors` checks step progress using the exact same half-open test as `MiniMaxH3Sol`:
+`MiniMaxH3Steer` (and `MiniMaxH3ReleaseReferences` / legacy `MiniMaxH3ApplyControlVectors`) checks step progress using the exact same half-open test as `MiniMaxH3Sol`:
 $$\text{start\_percent} \le \frac{\text{step\_idx}}{N_{\text{steps}}} < \text{end\_percent}$$
 
 On **6-step Pika** (`step_idx = 0, 1, 2, 3, 4, 5`; ratios `0.000, 0.167, 0.333, 0.500, 0.667, 0.833`):

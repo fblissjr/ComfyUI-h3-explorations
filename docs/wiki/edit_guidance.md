@@ -10,14 +10,14 @@ For **discrete, multi-attribute edits to a subject, garment, prop, or action** (
 
 ## 1. How `MiniMaxH3EditGuider` works under the hood
 
-`EditGuider` ([`edit_guidance.py:132-167`](../../edit_guidance.py#L132-L167)) subclasses ComfyUI's `CFGGuider` (`comfy.samplers.CFGGuider`), replacing the standard `(uncond, cond)` classifier-free guidance pair with `(original, edited)`:
+`EditGuider` ([`edit_guidance.py:95-162`](../../edit_guidance.py#L95-L162)) subclasses ComfyUI's `CFGGuider` (`comfy.samplers.CFGGuider`), replacing the standard `(uncond, cond)` classifier-free guidance pair with `(original, edited)`:
 
 1. **Identical non-text conditioning check (`check_same_but_text`)**:
-   - Before sampling starts, [`check_same_but_text`](../../edit_guidance.py#L43-L79) verifies that both conditioning lists carry `conditioning_token_tags`, contain the exact same number of tag-`0` vision rows (`<Picture N>` / `<Video N>`), and match on every auxiliary conditioning entry (`reference_latents`, `guide_latents`, audio references, canvas layout).
-   - If you accidentally wire different reference images or canvases into the two branches, `MiniMaxH3EditGuider` refuses immediately rather than producing silent spatial drift.
+   - Before sampling starts, [`check_same_but_text`](../../edit_guidance.py#L72-L79) verifies that both single-entry conditioning lists carry `minimax_token_tags` and match on reference and keyframe counts (`minimax_refs`, `minimax_keyframes`).
+   - If you accidentally wire non-H3 conditioning or mismatched references/keyframes into the two branches, `MiniMaxH3EditGuider` refuses immediately rather than producing silent spatial drift.
 2. **Sequential DiT execution without `B = 2` OOM (`h3_edit_pass`)**:
    - A packed 121-frame H3 audio+video sequence is `~18,000` tokens long. If ComfyUI concatenated `original` and `edited` into a `B = 2` batch (`~36,000` tokens), attention memory would spike and OOM.
-   - `set_conds` tags the two conditioning dicts with `h3_edit_pass = "original"` and `h3_edit_pass = "edited"` ([`edit_guidance.py:114-121`](../../edit_guidance.py#L114-L121)). ComfyUI's batch splitter sees unequal keys and runs two clean `B = 1` DiT forward passes sequentially on the identical noisy latent $x_t$.
+   - `_prepare` tags the two `minimax_payload` dicts with `h3_edit_pass = "original"` and `h3_edit_pass = "edited"` ([`edit_guidance.py:112-131`](../../edit_guidance.py#L112-L131)). ComfyUI's batch splitter sees unequal keys and runs two clean `B = 1` DiT forward passes sequentially on the identical noisy latent $x_t$.
 3. **Latent-velocity extrapolation (`predict_noise`)**:
    - At sampling step index `step` (`0`-based):
      - **Before `first_step` (`step < first_step`) or when `scale == 0.0`**: runs **1 pass** (`[original]`). Early high-sigma steps lock the baseline shot's camera framing, room layout, and `<Subject 1>` pose.
@@ -47,7 +47,7 @@ Applies deterministic, validated `old -> new` text replacements (and tag-safe `r
   - `edits` (`STRING`, multiline): one `old -> new` rule or `release_attire` directive per line (`#` lines and blank lines are ignored).
   - `release_subject_attire` (`BOOLEAN`, optional, default `False`): one-click tag-safe unlock for `<Subject 1>` on `ref2va` prompts. Rewrites `<Subject 1>`'s line in `retention_analysis:` from `fully_preserved` to `partially_preserved`, strips contradictory `, and clothing` list items when present, and appends `; clothing is not retained and follows the setting of the scene.` without touching `<Subject N>` / `<Picture N>` tags (`h3_prompt_edit.py:220-278`). Works equally for `MiniMaxH3EditGuider` or as a single-conditioning preprocessor upstream of `MiniMaxH3Steer`!
 - **Outputs**:
-  - `edited_prompt` (`STRING`): wire to a text-encode node (either the second encode node for `MiniMaxH3EditGuider`, or your single `MiniMaxH3ReferenceTextEncode` node when unlocking attire for a control vector).
+  - `edited_prompt` (`STRING`): wire to a conditioning node (either the second `MiniMaxH3PromptOnReferences` / `MiniMaxH3Conditioning` node for `MiniMaxH3EditGuider`, or your single `MiniMaxH3ReferenceConditioning` / `MiniMaxH3PromptOnReferences` node when unlocking attire upstream of `MiniMaxH3Steer`).
   - `report` (`STRING`): per-line summary showing which section matched and word counts (`old_words -> new_words`).
 - **Scoping prefixes & directives**:
   - Unprefixed `old -> new`: searches outside `overall_soundscape:` and `non_diegetic_music:`.
@@ -62,18 +62,18 @@ Applies deterministic, validated `old -> new` text replacements (and tag-safe `r
   - Refuses if `old` does not appear or appears **more than once** in the scoped span (add a neighbor word to disambiguate).
   - Refuses if an `old -> new` edit touches protected H3 structure: `<d>...</d>` dialogue, `(S1)` speaker tags, `<Subject N>` / `<Picture N>` / `<Video N>` / `<Audio N>` references, `[Shot N]` markers, `<0.0 seconds>` timestamps, or section headers.
 
-> **When baseline prose does not name the attribute yet**: On `ref2va` prompts, `subject_definitions:` often anchors `<Subject 1>` via `<Picture 1>` without describing her current sweater. You can either match the end of her `<Subject 1>` definition line in `MiniMaxH3PromptEdit` (`from <Picture 1>. -> from <Picture 1>, wearing a 1970s rust-orange polyester blouse with a wide pointed collar and high-waisted flared jeans.`) or pass a dedicated edited prompt string directly into the second `MiniMaxH3ReferenceTextEncode` node.
+> **When baseline prose does not name the attribute yet**: On `ref2va` prompts, `subject_definitions:` often anchors `<Subject 1>` via `<Picture 1>` without describing her current sweater. You can either match the end of her `<Subject 1>` definition line in `MiniMaxH3PromptEdit` (`subject_definitions: from <Picture 1>. -> from <Picture 1>, wearing a 1970s rust-orange polyester blouse with a wide pointed collar and high-waisted flared jeans.`) or pass a dedicated edited prompt string directly into the second `MiniMaxH3PromptOnReferences` node.
 
 ### `MiniMaxH3EditGuider` (`sampling/custom_sampling/guiders`)
 
-Drop-in replacement for `BasicGuider` on `SamplerCustomAdvanced` ([`edit_guidance.py:202-251`](../../edit_guidance.py#L202-L251); defaults in [`h3_rules.py:281-286`](../../h3_rules.py#L281-L286)).
+Drop-in replacement for `BasicGuider` on `SamplerCustomAdvanced` ([`edit_guidance.py:215-271`](../../edit_guidance.py#L215-L271); defaults in [`h3_rules.py:281-286`](../../h3_rules.py#L281-L286)).
 
 | Input | Default | Range | Effect & empirical guidance |
 |---|---|---|---|
 | `model` | — | `MODEL` | Loaded H3 / Pika DiT model |
 | `original` | — | `CONDITIONING` | Encoded baseline prompt |
 | `edited` | — | `CONDITIONING` | Encoded edited prompt (must share encoder, references, and canvas with `original`) |
-| `scale` | `1.5` | `0.0 .. 5.0` | `0.0` = `original` (`1` pass/step); `1.0` = `edited` (`1` pass/step); `1.5` (default) cleanly locks in wardrobe/material edits more decisively than `scale = 1.0` alone; above `~2.5`, unrequested color saturation creeps into skin and highlights |
+| `scale` | `1.5` | `0.0 .. 4.0` | `0.0` = `original` (`1` pass/step); `1.0` = `edited` (`1` pass/step); `1.5` (default) cleanly locks in wardrobe/material edits more decisively than `scale = 1.0` alone; above `~2.5`, unrequested color saturation creeps into skin and highlights |
 | `first_step` | `0` | `0 .. 1000` | `0`-based first step where 2-pass guidance turns on. `0` lets the edit shape silhouette/garment geometry from step 0; setting `first_step = 1` on 6-step Pika locks step-0 camera framing and body pose from `original` before applying the edit on steps `1..last_step` |
 | `last_step` | `1000` | `0 .. 1000` | `0`-based last step that runs 2-pass extrapolation. Steps `> last_step` run **1-pass `[edited]`** (`scale = 1.0`). On 6-step Pika (`steps 0..5`), setting `last_step = 2` runs 2-pass on steps `0, 1, 2` and 1-pass `[edited]` on steps `3, 4, 5` (**9 DiT passes** instead of 12—`1.5x` baseline instead of `2.0x`) while keeping the edit locked in |
 | `align_positions` | `False` | `BOOLEAN` | Pads the shorter prompt's text span in 3D RoPE cursor space so audio/video tokens start at identical RoPE indices when `len(original) != len(edited)`. Leave `False` unless testing large length deltas (one-shot check on 2026-11-09 showed no benefit on short edits) |
@@ -86,7 +86,7 @@ Drop-in replacement for `BasicGuider` on `SamplerCustomAdvanced` ([`edit_guidanc
 
 - **Workflow**: `workflows/h3_image_ref_plus_text_to_video_pika_edit_guidance_api.json`
 - **Setup**:
-  - `MiniMaxH3EncodeReferences` encodes `<Picture 1>` **once** and feeds **both** `MiniMaxH3ReferenceTextEncode` nodes (`original` and `edited`), so vision tokens are computed once and match bit-for-bit.
+  - `MiniMaxH3EncodeReferences` encodes `<Picture 1>` **once** and feeds **both** `MiniMaxH3PromptOnReferences` nodes (`original` and `edited`), so vision tokens and reference VAE latents are computed once and match bit-for-bit.
   - `original` keeps the diner `ref2va` prompt as written.
   - `edited` appends `<Subject 1>`'s target outfit to her `subject_definitions:` / `detailed_description:` prose (`"wearing a 1970s rust-orange polyester blouse with a wide pointed collar and high-waisted flared jeans"`).
   - `MiniMaxH3EditGuider`: `scale = 1.5`, `first_step = 0`, and the default `last_step` (every step in two passes), as read from the clip's own workflow. A shorter `last_step` was not rendered for this case.

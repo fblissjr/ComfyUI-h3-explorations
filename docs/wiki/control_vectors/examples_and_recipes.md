@@ -11,10 +11,12 @@ Every recipe below uses tested settings from our 6-step Pika `t2va` and `ref2va`
 **Use when**: You have a `<Picture 1>` reference portrait and want `<Subject 1>` in a **specific new outfit** (exact color, collar, cut, fabric) while keeping her face, hair, voice, and the room around her.
 
 - **API Workflow**: `workflows/h3_image_ref_plus_text_to_video_pika_edit_guidance_api.json`
-- **`MiniMaxH3PromptEdit` `edits`** (or second `MiniMaxH3ReferenceTextEncode`):
-  ```text
-  subject_definitions: from <Picture 1>. -> from <Picture 1>, wearing a 1970s rust-orange polyester blouse with a wide pointed collar and high-waisted flared jeans.
-  ```
+- **`MiniMaxH3PromptEdit` `edits` & `release_subject_attire`** (feeding the second `MiniMaxH3PromptOnReferences` node):
+  - `release_subject_attire = True` *(rewrites `<Subject 1>`'s `retention_analysis:` line from `fully_preserved` to `partially_preserved` with clothing unlocked; also works with `edits = ""` upstream of a single-pass `MiniMaxH3Steer` render)*
+  - `edits`:
+    ```text
+    subject_definitions: from <Picture 1>. -> from <Picture 1>, wearing a 1970s rust-orange polyester blouse with a wide pointed collar and high-waisted flared jeans.
+    ```
 - **`MiniMaxH3EditGuider` settings**:
   - `scale = 1.5`
   - `first_step = 0`
@@ -121,7 +123,7 @@ words. All eight are in the library.
 
 ## Recipe 6 — `< 5 ms` CPU `sculpt` into a single Ready-to-Render `.safetensors` file
 
-Bake a multi-vector recipe plus `hold_words` into a standalone `.safetensors` file on CPU (`0` GPU usage) so any single-node workflow can select it from `vector_name`:
+Bake a multi-vector recipe plus `hold_words` into a standalone `.safetensors` file on CPU (`0` GPU usage) so `MiniMaxH3Steer` (or `MiniMaxH3LoadControlVector`) can select its bare stem (`calm_cursed_cctv`) directly from `vector`:
 
 ```bash
 CUDA_VISIBLE_DEVICES= /path/to/comfy-venv/bin/python bench/control_vectors.py sculpt \

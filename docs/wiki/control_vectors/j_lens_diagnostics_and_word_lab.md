@@ -26,7 +26,7 @@ J-Lens bridges both gaps analytically:
 ## 2. The three high-leverage jobs J-Lens wins at
 
 ### A. Pre-render X-ray audit (`inspect` and automatic build readouts)
-Every `build`, `from-prompt`, `make-media`, `words`, and `sculpt` command automatically runs `j_lens.decode_vector` and prints the top `+` and `-` English words (and writes them into `<vector>.md`):
+Every `build`, `from-prompt`, `make-media`, `words`, and `sculpt` command automatically runs `j_lens.decode_vector` (plus `j_lens.check_b_side_alignment` on pair builds, warning immediately if target/attire words in `b_side` fail to appear in `(+)` or Pole-A baseline words dominate `(-)`) and prints the top `+` and `-` English words into `<vector>.md`:
 ```bash
 CUDA_VISIBLE_DEVICES= /path/to/comfy-venv/bin/python bench/control_vectors.py inspect \
   film_16mm_1974__ref2va__diff_span__lora_865ee189.safetensors \
@@ -41,18 +41,14 @@ CUDA_VISIBLE_DEVICES= /path/to/comfy-venv/bin/python bench/control_vectors.py in
 Projects single-token nuisance words out of **any** `.safetensors` vector or live `words` vector in `< 1 ms` on CPU (`hold_alpha` in `[0.0, 2.0]`, default `1.0`):
 - **Verified render (`$H3_OUTPUT_DIR/Video/cv_e2e_verify/10_t2va_jlens_words_00001-audio.mp4`)**:
   - Goal: turn a sunny outdoor citrus market (`prompt_bank/04_t2va_market.txt`) into a freezing snowstorm **without** putting a winter parka over the vendor's canvas apron.
-  - Settings on `MiniMaxH3ApplyControlVectors`:
-    - `vector_name = "none"`
-    - `words = "blizzard, snowdrift, freezing, snow, frost"`
-    - `against_words = "warm, sunny, indoor, summer"`
-    - `hold_words = "coat, parka"`
-    - `hold_alpha = 0.5`
-    - `strength = 1.65`, `mode = "add_norm_matched"`, `mask = "scene_only"`
+  - Settings (`MiniMaxH3WordVector` -> `MiniMaxH3Steer`; originally verified via inline `words` on legacy `ApplyControlVectors`):
+    - `MiniMaxH3WordVector`: `words = "blizzard, snowdrift, freezing, snow, frost"`, `against_words = "warm, sunny, indoor, summer"`, `hold_words = "coat, parka"`, `hold_alpha = 0.5`
+    - `MiniMaxH3Steer` (`custom_vector` wired from `MiniMaxH3WordVector`): `vector = "none"`, `strength = 1.65`, `mode = "add_norm_matched"`, `target = "scene_only"`
   - Result: snowdrifts cover the crates, awning, and cobblestones and snowflakes blow across the stall, while the vendor remains in his dark-green canvas apron and rolled sleeves instead of growing a parka.
 - **Checking for hitchhiking words**: J-Lens's own `readiness.off_target_words` flags unexpected high-gain words that ride along with a word list so you can add them straight into `hold_words`.
 
-### C. Zero-file `< 2 ms` live Word Lab (`words` on node or CLI)
-Type comma-separated single-token English words straight into `MiniMaxH3ApplyControlVectors.words` (with `vector_name = "none"`), or save a reusable `.safetensors` pair on CPU via:
+### C. Zero-file `< 2 ms` live Word Lab (`MiniMaxH3WordVector` or CLI `words`)
+Wire `MiniMaxH3WordVector` (`words`, `against_words`, `hold_words`) into `MiniMaxH3Steer.custom_vector` (with `vector = "none"`), or save a reusable `.safetensors` pair on CPU via:
 ```bash
 CUDA_VISIBLE_DEVICES= /path/to/comfy-venv/bin/python bench/control_vectors.py words \
   "blizzard, snowdrift, freezing, snow, frost" \
