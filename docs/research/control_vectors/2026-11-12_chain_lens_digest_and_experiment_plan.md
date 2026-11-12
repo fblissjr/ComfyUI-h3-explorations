@@ -446,6 +446,10 @@ share one GPU session with the full 64-layer weights.
 - **Why it is open.** In a language model the word-readable part steered far better than the full vector
   (section 9.1). The chain lens post found evidence the other way for its head: re-injecting only the
   verbalizable part hurt (section 7). A DiT could go either way.
+- **CPU half, 2026-11-12.** Recorded in
+  [`../../../bench/results/2026-11-12_control_vector_word_share.md`](../../../bench/results/2026-11-12_control_vector_word_share.md).
+  The split as described above does not measure what it was meant to, and the render is re-specified in
+  section 13.
 
 ### Experiment 3: whiten the rows table and merge it into whole words
 
@@ -537,8 +541,8 @@ share one GPU session with the full 64-layer weights.
 
 ## 13. After experiment 1: what changes in the plan
 
-Added the same day, after three runs of experiment 1, a repeat pass and a run on the rebuilt J-Lens bundle.
-The counts are in
+Added the same day, after three runs of experiment 1, a repeat pass, a run on the rebuilt J-Lens bundle and
+the CPU half of experiment 2. Experiment 1's counts are in
 [`../../../bench/results/2026-11-12_control_vector_readout_blind_score.md`](../../../bench/results/2026-11-12_control_vector_readout_blind_score.md);
 nothing here restates them.
 
@@ -581,8 +585,20 @@ nothing here restates them.
   question is whether the part the words name is the part the DiT responds to. One pair of vectors written
   as nearly the same concept reads alike and yet is far apart as vectors (the record, section 6.6), which
   is the kind of case experiment 2's split would explain.
+- **Experiment 2's split was the wrong question, and the render half changes.** A sparse mix of word
+  directions fits a random direction as well as it fits a control vector, so its share says nothing about
+  words (the word-share record, section 2). What does belong to one vector is the direction its own readout
+  names: a Word Lab vector made from a vector's eight-and-eight words points at that vector far more than at
+  any other (the same record, section 3). The render half is now four arms per vector at matched norm, same
+  prompt and seed: the whole vector, the direction its own words name, the remainder, and the direction all
+  bank vectors share.
+- **The bank vectors share a direction.** A typical vector has about a third of its energy along the mean
+  of all of them (the same record, section 3.1): every pair file sets its concept against something plain.
+  The fourth arm above asks what that shared part does by itself. If it does something visible, every bank
+  vector is doing that too, and it is a candidate for a standing hold.
 - **Experiments 4 and 6 are unchanged.**
-- **The order now.** Experiment 2; experiment 3; experiments 4 and 5 in one GPU session; experiment 6.
+- **The order now.** Experiment 2's render half as re-specified; experiment 3; experiments 4 and 5 in one
+  GPU session; experiment 6.
   Experiment 1's tool scores experiments 3 and 5 when they produce a reader.
 - **A later step for experiment 1.** A naming score can saturate. The version that does not is the post's
   steer-and-match test (section 6), a judge matching a readout to one of several renders. It costs renders,
