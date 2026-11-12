@@ -1305,6 +1305,9 @@ def _parse_control_vector_entries(
                     (
                         float(RELEASE_REFERENCES_DEFAULTS["end_percent"]),
                         float(RELEASE_REFERENCES_DEFAULTS["clean_level"]),
+                        float(RELEASE_REFERENCES_DEFAULTS["audio_end_percent"]),
+                        float(RELEASE_REFERENCES_DEFAULTS["audio_clean_level"]),
+                        False,
                     )
                 )
             elif isinstance(rel_spec, dict):
@@ -1318,6 +1321,9 @@ def _parse_control_vector_entries(
                     (
                         float(rel_spec.get("end_percent", RELEASE_REFERENCES_DEFAULTS["end_percent"])),
                         float(rel_spec.get("clean_level", RELEASE_REFERENCES_DEFAULTS["clean_level"])),
+                        float(rel_spec.get("audio_end_percent", RELEASE_REFERENCES_DEFAULTS["audio_end_percent"])),
+                        float(rel_spec.get("audio_clean_level", RELEASE_REFERENCES_DEFAULTS["audio_clean_level"])),
+                        bool("audio_end_percent" in rel_spec or "audio_clean_level" in rel_spec),
                     )
                 )
             elif "ref_vae_end_percent" in spec or "ref_vae_aug" in spec:
@@ -1325,6 +1331,9 @@ def _parse_control_vector_entries(
                     (
                         float(spec.get("ref_vae_end_percent", RELEASE_REFERENCES_DEFAULTS["end_percent"])),
                         float(spec.get("ref_vae_aug", RELEASE_REFERENCES_DEFAULTS["clean_level"])),
+                        float(RELEASE_REFERENCES_DEFAULTS["audio_end_percent"]),
+                        float(RELEASE_REFERENCES_DEFAULTS["audio_clean_level"]),
+                        False,
                     )
                 )
 
@@ -1370,10 +1379,16 @@ def _parse_control_vector_entries(
 
     release_inputs: dict[str, float] | None = None
     if release_candidates:
+        min_aep = min(aep for _ep, _cl, aep, _acl, _ex in release_candidates)
+        min_acl = min(acl for _ep, _cl, _aep, acl, _ex in release_candidates)
+        explicit_aud = any(ex for _ep, _cl, _aep, _acl, ex in release_candidates)
         release_inputs = {
-            "end_percent": min(ep for ep, _cl in release_candidates),
-            "clean_level": min(cl for _ep, cl in release_candidates),
+            "end_percent": min(ep for ep, _cl, _aep, _acl, _ex in release_candidates),
+            "clean_level": min(cl for _ep, cl, _aep, _acl, _ex in release_candidates),
         }
+        if explicit_aud or min_aep < 1.0 or min_acl < 1.0:
+            release_inputs["audio_end_percent"] = min_aep
+            release_inputs["audio_clean_level"] = min_acl
     return entries, release_inputs
 
 

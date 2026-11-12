@@ -73,12 +73,19 @@ def _count(value: Any) -> int:
 
 
 def check_same_but_text(original: Any, edited: Any) -> tuple[int, int]:
-    """Refuse unless the two conditionings differ in text only. Returns their text lengths in tokens."""
+    """Refuse unless the two conditionings carry H3 token tags and share `minimax_refs`.
+
+    `minimax_keyframes` may differ so `MiniMaxH3GuideLatent` can anchor visual or audio
+    guide islands on `edited` alone against an unguided `original` pass (`EditGuider._prepare`
+    marks `PASS_KEY` on both payloads so the two passes build their own `PackedLayout`).
+    Returns `(len_original, len_edited)` in text tokens.
+    """
     a, b = _one(original, "original"), _one(edited, "edited")
-    for key in ("minimax_refs", "minimax_keyframes"):
-        if _count(a.get(key)) != _count(b.get(key)):
-            raise ValueError(f"the original and edited conditioning differ in {key}; both must be made with "
-                             "the same references and keyframes")
+    if _count(a.get("minimax_refs")) != _count(b.get("minimax_refs")):
+        raise ValueError(
+            "the original and edited conditioning differ in minimax_refs; both must be made with "
+            "the same references"
+        )
     return int(original[0][0].shape[1]), int(edited[0][0].shape[1])
 
 
@@ -96,10 +103,23 @@ def step_index(model_options: dict, timestep: Any) -> int | None:
 
 
 class EditGuider(comfy.samplers.CFGGuider):
-    """Per-stream `original + scale * (edited - original)`, one pass before `first_step` and one `[edited]` pass after `last_step`."""
+    """Per-stream `original + scale * (edited - original)`, one pass before `first_step` and one `[edited]` pass after `last_step` (or `[original]` when `original` and `edited` share identical text and `edited` alone carries guides)."""
 
     def set_conds(self, original, edited):
         self.inner_set_conds({"positive": edited, "negative": original})
+        same_text = (
+            isinstance(original, list)
+            and len(original) == 1
+            and isinstance(edited, list)
+            and len(edited) == 1
+            and torch.is_tensor(original[0][0])
+            and torch.is_tensor(edited[0][0])
+            and original[0][0].shape == edited[0][0].shape
+            and bool(torch.equal(original[0][0], edited[0][0]))
+        )
+        kf_orig = _count(original[0][1].get("minimax_keyframes")) if same_text else 0
+        kf_edit = _count(edited[0][1].get("minimax_keyframes")) if same_text else 0
+        self._release_to_original_after = bool(same_text and kf_orig == 0 and kf_edit > 0)
 
     def set_edit(
         self,
@@ -178,7 +198,7 @@ class EditGuider(comfy.samplers.CFGGuider):
         step = step_index(model_options, timestep)
         before = step is not None and step < self.first_step
         after = step is not None and step > self.last_step
-        if before:
+        if before or (after and getattr(self, "_release_to_original_after", False)):
             eff_v, eff_a = 0.0, 0.0
         elif after:
             eff_v = 0.0 if self.edit_scale == 0.0 else 1.0
@@ -302,6 +322,8 @@ class MiniMaxH3EditGuider(io.ComfyNode):
         audio_scale=DEFAULT_AUDIO_SCALE,
     ) -> io.NodeOutput:
         len_a, len_b = check_same_but_text(original, edited)
+        kf_a = _count(original[0][1].get("minimax_keyframes"))
+        kf_b = _count(edited[0][1].get("minimax_keyframes"))
         guider = EditGuider(model)
         guider.set_conds(original, edited)
         guider.set_edit(
@@ -312,9 +334,10 @@ class MiniMaxH3EditGuider(io.ComfyNode):
             streams=streams,
             audio_scale=audio_scale,
         )
+        kf_note = f"; keyframes {kf_a} (original) and {kf_b} (edited)" if (kf_a or kf_b) else ""
         logger.info(
             "[h3] edit guidance: streams=%s (video=%g, audio=%g) across steps %d..%d; "
-            "text length %d (original) and %d (edited) tokens",
+            "text length %d (original) and %d (edited) tokens%s",
             streams,
             guider.edit_scale,
             guider.edit_audio_scale,
@@ -322,5 +345,6 @@ class MiniMaxH3EditGuider(io.ComfyNode):
             int(last_step),
             len_a,
             len_b,
+            kf_note,
         )
         return io.NodeOutput(guider)

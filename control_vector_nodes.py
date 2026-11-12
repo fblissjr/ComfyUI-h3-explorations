@@ -1143,6 +1143,8 @@ class _AppliedVectorSpec:
     split_end_percent: float = 1.0
     ref_vae_end_percent: float = 1.0
     ref_vae_aug: float = 0.999
+    audio_cond_end_percent: float = 1.0
+    audio_cond_aug: float = 1.0
 
 
 def _step_in_window(
@@ -1176,6 +1178,8 @@ def _step_in_window(
                 if isinstance(cur, (list, tuple))
                 else cur
             )
+            if cur is timestep and cur_val > 1.0 and float(sched_t.max().item()) <= 1.0001:
+                cur_val /= 1000.0
             n_steps = int(sched_t.numel()) - 1
             step_idx = int((sched_t[:n_steps] - cur_val).abs().argmin().item())
             frac = step_idx / n_steps
@@ -1188,6 +1192,8 @@ def _step_in_window(
             if isinstance(cur, (list, tuple))
             else cur
         )
+        if cur is timestep and 1.0 < cur_val <= 1000.0:
+            cur_val /= 1000.0
         if 0.0 <= cur_val <= 1.0:
             frac = 1.0 - cur_val
             return bool(start_percent <= frac < end_percent)
@@ -1207,6 +1213,35 @@ def _stream_time(timestep: Any) -> float | None:
     else:
         raw = float(timestep)
     return 1.0 - max(raw / 1000.0, 1e-6)
+
+
+def _audio_stream_time(
+    timestep: Any,
+    transformer_options: Mapping[str, Any] | None = None,
+    *,
+    default_shift_video: float = 12.0,
+    default_shift_audio: float = 3.0,
+) -> float | None:
+    """The audio stream's time `t_a` at this call (`comfy/ldm/minimax/model.py::_forward`:
+    `t_a = 1 - time_shift_sigma(sigma_v, shift_v, shift_a)`), so `max(audio_clean_level, t_a)`
+    matches core's `seg_t['cond_audio'] = max(t_a, aud_aug)` label on every step."""
+    if timestep is None:
+        return None
+    if isinstance(timestep, torch.Tensor):
+        raw = float(timestep.detach().flatten()[0].item())
+    elif isinstance(timestep, (list, tuple)):
+        raw = float(timestep[0])
+    else:
+        raw = float(timestep)
+    sigma_v = max(raw / 1000.0, 1e-6)
+    t_opts = transformer_options or {}
+    shift_v = float(t_opts.get("minimax_h3_sigma_shift_video", default_shift_video))
+    shift_a = float(t_opts.get("minimax_h3_sigma_shift_audio", default_shift_audio))
+    denom_from = shift_v + sigma_v * (1.0 - shift_v)
+    base = sigma_v / denom_from if denom_from != 0.0 else sigma_v
+    denom_to = 1.0 + (shift_a - 1.0) * base
+    sigma_a = (shift_a * base / denom_to) if denom_to != 0.0 else base
+    return 1.0 - sigma_a
 
 
 def _resolve_custom_inference_mask(
@@ -1297,15 +1332,60 @@ def _has_visual_cond(payload: Mapping[str, Any]) -> bool:
     return False
 
 
-def _strip_visual_cond_entries(
-    keyframes: Any, refs: Any
+def _keyframe_audio_count(keyframes: Any) -> int:
+    return sum(
+        1
+        for kf in (keyframes or ())
+        if isinstance(kf, Mapping) and kf.get("audio_latent") is not None
+    )
+
+
+def _has_guide_audio_cond(payload: Mapping[str, Any]) -> bool:
+    if _keyframe_audio_count(payload.get("keyframes")) > 0:
+        return True
+    layout = payload.get("layout")
+    if hasattr(layout, "segments"):
+        return any(kind == "cond_audio" for _a, _b, kind in layout.segments)
+    return False
+
+
+def _has_any_audio_cond(payload: Mapping[str, Any]) -> bool:
+    if payload.get("cond_audio_latents") or _has_guide_audio_cond(payload):
+        return True
+    for r in payload.get("refs") or ():
+        if isinstance(r, Mapping) and (
+            r.get("audio_latent") is not None or r.get("kind") in ("audio", "video_audio")
+        ):
+            return True
+    return False
+
+
+def _strip_cond_entries(
+    keyframes: Any,
+    refs: Any,
+    *,
+    drop_visual: bool,
+    drop_guide_audio: bool,
 ) -> tuple[list[dict[str, Any]] | None, list[dict[str, Any]] | None]:
     kept_kf: list[dict[str, Any]] = []
     for kf in keyframes or ():
-        if isinstance(kf, Mapping) and kf.get("audio_latent") is not None:
-            kept_kf.append({k: v for k, v in kf.items() if k != "latent"})
+        if not isinstance(kf, Mapping):
+            continue
+        has_vis = (not drop_visual) and (kf.get("latent") is not None)
+        has_aud = (not drop_guide_audio) and (kf.get("audio_latent") is not None)
+        if has_vis or has_aud:
+            entry = dict(kf)
+            if drop_visual:
+                entry.pop("latent", None)
+            if drop_guide_audio:
+                entry.pop("audio_latent", None)
+            kept_kf.append(entry)
 
-    kept_refs: list[dict[str, Any]] = []
+    if not drop_visual:
+        kept_refs = [dict(blk) for blk in (refs or ()) if isinstance(blk, Mapping)]
+        return (kept_kf or None), (kept_refs or None)
+
+    kept_refs = []
     for blk in refs or ():
         if not isinstance(blk, Mapping):
             continue
@@ -1328,24 +1408,41 @@ def _strip_visual_cond_entries(
     return (kept_kf or None), (kept_refs or None)
 
 
-def _drop_visual_cond_from_layout(orig_layout: Any) -> tuple[Any, int]:
-    """Slice `'cond'` and `'ref_img'` segments out of a `PackedLayout` while preserving
-    every surviving token's 3D RoPE `position_ids` (including `_ref_t_span` cursor shifts
-    and `EditGuider.align_positions` offsets) and `layout.signature`."""
+def _strip_visual_cond_entries(
+    keyframes: Any, refs: Any
+) -> tuple[list[dict[str, Any]] | None, list[dict[str, Any]] | None]:
+    return _strip_cond_entries(keyframes, refs, drop_visual=True, drop_guide_audio=False)
+
+
+def _drop_cond_from_layout(
+    orig_layout: Any,
+    *,
+    drop_visual: bool,
+    drop_guide_audio: bool,
+) -> tuple[Any, int, int]:
+    """Slice visual (`'cond'`, `'ref_img'`) and/or guide-audio (`'cond_audio'`) segments out
+    of a `PackedLayout` while preserving `'ref_audio'` (`<Audio N>` speaker references),
+    every surviving token's 3D RoPE `position_ids` (including `_ref_t_span` cursor shifts and
+    `EditGuider.align_positions` offsets), and `layout.signature`."""
     if not (
         hasattr(orig_layout, "segments")
         and hasattr(orig_layout, "position_ids")
         and hasattr(orig_layout, "signature")
     ):
-        return orig_layout, 0
+        return orig_layout, 0, 0
 
-    dropped_rows = sum(
+    dropped_vis = sum(
         int(b) - int(a)
         for a, b, kind in orig_layout.segments
-        if kind in ("cond", "ref_img")
+        if drop_visual and kind in ("cond", "ref_img")
     )
-    if dropped_rows == 0:
-        return orig_layout, 0
+    dropped_aud = sum(
+        int(b) - int(a)
+        for a, b, kind in orig_layout.segments
+        if drop_guide_audio and kind == "cond_audio"
+    )
+    if dropped_vis == 0 and dropped_aud == 0:
+        return orig_layout, 0, 0
 
     kept_pos: list[torch.Tensor] = []
     new_segments: list[tuple[int, int, str]] = []
@@ -1355,12 +1452,17 @@ def _drop_visual_cond_from_layout(orig_layout: Any) -> tuple[Any, int]:
     new_audio_update: list[torch.Tensor] = []
     off = 0
     for a, b, kind in orig_layout.segments:
-        if kind in ("cond", "ref_img"):
+        if drop_visual and kind in ("cond", "ref_img"):
+            continue
+        if drop_guide_audio and kind == "cond_audio":
             continue
         n = int(b) - int(a)
         kept_pos.append(orig_layout.position_ids[int(a) : int(b)])
         new_segments.append((off, off + n, str(kind)))
-        if kind == "video":
+        if kind in ("cond", "ref_img"):
+            new_img_pos.append(torch.arange(off, off + n))
+            new_img_update.append(torch.zeros(n, dtype=torch.bool))
+        elif kind == "video":
             new_img_pos.append(torch.arange(off, off + n))
             new_img_update.append(torch.ones(n, dtype=torch.bool))
         elif kind in ("cond_audio", "ref_audio"):
@@ -1390,11 +1492,25 @@ def _drop_visual_cond_from_layout(orig_layout: Any) -> tuple[Any, int]:
     )
     released.signature = orig_layout.signature
     released.segments = new_segments
-    return released, dropped_rows
+    return released, dropped_vis, dropped_aud
+
+
+def _drop_visual_cond_from_layout(orig_layout: Any) -> tuple[Any, int]:
+    """Slice `'cond'` and `'ref_img'` segments out of a `PackedLayout` while preserving
+    every surviving token's 3D RoPE `position_ids` (including `_ref_t_span` cursor shifts
+    and `EditGuider.align_positions` offsets) and `layout.signature`."""
+    released, dropped_vis, _dropped_aud = _drop_cond_from_layout(
+        orig_layout, drop_visual=True, drop_guide_audio=False
+    )
+    return released, dropped_vis
 
 
 def _make_control_vector_wrapper(
-    specs: tuple[_AppliedVectorSpec, ...], *, is_h3_image: bool = False
+    specs: tuple[_AppliedVectorSpec, ...],
+    *,
+    is_h3_image: bool = False,
+    default_shift_video: float = 12.0,
+    default_shift_audio: float = 3.0,
 ):
     logged_prefix_notes: set[tuple[str, str]] = set()
     logged_interactions: set[tuple[tuple[str, float, str], ...]] = set()
@@ -1403,10 +1519,11 @@ def _make_control_vector_wrapper(
     logged_steered_rows: set[tuple[int, str, int, int, str]] = set()
     resolved_prompt_vectors: dict[tuple[str, str], torch.Tensor] = {}
     last_resolved_by_spec: dict[str, torch.Tensor] = {}
-    # Keyed by id(orig_layout) with a strong ref to orig_layout in the value so
-    # released PackedLayouts are built once per run (~0 us overhead on later steps).
+    # Keyed by (id(orig_layout), drop_vis, drop_aud) with a strong ref to orig_layout
+    # in the value so staggered visual/audio releases cache both layouts (~0 us on later steps).
     released_layout_cache: dict[
-        int, tuple[Any, Any, int, list[dict[str, Any]] | None, list[dict[str, Any]] | None]
+        tuple[int, bool, bool],
+        tuple[Any, Any, int, int, list[dict[str, Any]] | None, list[dict[str, Any]] | None],
     ] = {}
 
     def wrapper(executor, x, timestep, context, transformer_options={}, **kwargs):
@@ -1420,15 +1537,36 @@ def _make_control_vector_wrapper(
         ]
         min_ref_end = min((sp.ref_vae_end_percent for sp in ref_specs), default=1.0)
         min_ref_aug = min((sp.ref_vae_aug for sp in ref_specs), default=0.999)
-        if (min_ref_end < 1.0 or min_ref_aug < 0.999) and _has_visual_cond(payload):
-            ref_active = _step_in_window(transformer_options, timestep, 0.0, min_ref_end)
+        min_aud_end = min((sp.audio_cond_end_percent for sp in ref_specs), default=1.0)
+        min_aud_aug = min((sp.audio_cond_aug for sp in ref_specs), default=1.0)
+
+        is_av_x = isinstance(x, (list, tuple)) and len(x) >= 2
+        has_vis_cond = _has_visual_cond(payload) if (min_ref_end < 1.0 or min_ref_aug < 0.999) else False
+        has_guide_aud = _has_guide_audio_cond(payload) if min_aud_end < 1.0 else False
+        has_any_aud = _has_any_audio_cond(payload) if min_aud_aug < 1.0 else False
+
+        vis_active = (
+            _step_in_window(transformer_options, timestep, 0.0, min_ref_end)
+            if (has_vis_cond and min_ref_end < 1.0)
+            else True
+        )
+        aud_active = (
+            _step_in_window(transformer_options, timestep, 0.0, min_aud_end)
+            if (has_guide_aud and min_aud_end < 1.0)
+            else True
+        )
+        drop_vis = bool(has_vis_cond and not vis_active)
+        drop_aud = bool(has_guide_aud and not aud_active)
+        want_vis_aug = bool(has_vis_cond and not drop_vis and min_ref_aug < 0.999 and is_av_x)
+        want_aud_aug = bool(has_any_aud and min_aud_aug < 1.0 and is_av_x)
+
+        if drop_vis or drop_aud or want_vis_aug or want_aud_aug:
             new_payload = dict(payload)
-            if not ref_active:
+            if drop_vis or drop_aud:
                 orig_layout = payload.get("layout")
                 target_sig: tuple[int, int, int, int, int] | None = None
                 if (
-                    isinstance(x, (list, tuple))
-                    and len(x) >= 2
+                    is_av_x
                     and torch.is_tensor(x[0])
                     and x[0].ndim == 5
                     and torch.is_tensor(x[1])
@@ -1461,28 +1599,50 @@ def _make_control_vector_wrapper(
                         refs=payload.get("refs"),
                     )
 
+                cache_key = (id(orig_layout), drop_vis, drop_aud) if orig_layout is not None else None
                 cache_entry = (
-                    released_layout_cache.get(id(orig_layout))
-                    if orig_layout is not None
+                    released_layout_cache.get(cache_key)
+                    if cache_key is not None
                     else None
                 )
                 if cache_entry is not None and cache_entry[0] is orig_layout:
-                    _, released_layout, dropped_rows, kept_kf, kept_refs = cache_entry
+                    _, released_layout, dropped_vis_rows, dropped_aud_rows, kept_kf, kept_refs = cache_entry
                 else:
-                    released_layout, dropped_rows = _drop_visual_cond_from_layout(orig_layout)
-                    kept_kf, kept_refs = _strip_visual_cond_entries(
-                        payload.get("keyframes"), payload.get("refs")
+                    released_layout, dropped_vis_rows, dropped_aud_rows = _drop_cond_from_layout(
+                        orig_layout,
+                        drop_visual=drop_vis,
+                        drop_guide_audio=drop_aud,
                     )
-                    if orig_layout is not None and len(released_layout_cache) < 32:
-                        released_layout_cache[id(orig_layout)] = (
+                    kept_kf, kept_refs = _strip_cond_entries(
+                        payload.get("keyframes"),
+                        payload.get("refs"),
+                        drop_visual=drop_vis,
+                        drop_guide_audio=drop_aud,
+                    )
+                    if cache_key is not None and len(released_layout_cache) < 32:
+                        released_layout_cache[cache_key] = (
                             orig_layout,
                             released_layout,
-                            dropped_rows,
+                            dropped_vis_rows,
+                            dropped_aud_rows,
                             kept_kf,
                             kept_refs,
                         )
 
-                new_payload["cond_video_latents"] = []
+                if drop_vis:
+                    new_payload["cond_video_latents"] = []
+                if drop_aud:
+                    n_drop_aud = _keyframe_audio_count(payload.get("keyframes"))
+                    if n_drop_aud == 0 and orig_layout is not None:
+                        n_drop_aud = sum(
+                            1
+                            for _a, _b, k in getattr(orig_layout, "segments", ())
+                            if k == "cond_audio"
+                        )
+                    orig_aud_lats = list(payload.get("cond_audio_latents") or ())
+                    new_payload["cond_audio_latents"] = (
+                        orig_aud_lats[n_drop_aud:] if n_drop_aud > 0 else []
+                    )
                 if kept_kf is not None:
                     new_payload["keyframes"] = kept_kf
                 else:
@@ -1494,18 +1654,30 @@ def _make_control_vector_wrapper(
                 if orig_layout is not None:
                     new_payload["layout"] = released_layout
 
-                if "ref_gated" not in logged_ref_notes:
+                if drop_vis and "ref_gated" not in logged_ref_notes:
                     logged_ref_notes.add("ref_gated")
                     orig_seq = getattr(orig_layout, "seq_len", None)
                     rel_seq = getattr(released_layout, "seq_len", None)
                     logger.info(
                         "[h3] control vector ref_vae_end_percent=%.2f: released %d visual cond rows (PackedLayout seq_len %s -> %s, 3D RoPE positions preserved)",
                         min_ref_end,
-                        dropped_rows,
+                        dropped_vis_rows,
                         orig_seq,
                         rel_seq,
                     )
-            elif min_ref_aug < 0.999 and isinstance(x, (list, tuple)) and len(x) >= 2:
+                if drop_aud and "aud_gated" not in logged_ref_notes:
+                    logged_ref_notes.add("aud_gated")
+                    orig_seq = getattr(orig_layout, "seq_len", None)
+                    rel_seq = getattr(released_layout, "seq_len", None)
+                    logger.info(
+                        "[h3] control vector audio_end_percent=%.2f: released %d guide-audio cond rows (PackedLayout seq_len %s -> %s, ref_audio & 3D RoPE preserved)",
+                        min_aud_end,
+                        dropped_aud_rows,
+                        orig_seq,
+                        rel_seq,
+                    )
+
+            if want_vis_aug:
                 # Core mixes each condition row as `aug` of the picture and the rest noise, and labels
                 # the row `max(t_v, aug)` (`comfy/ldm/minimax/model.py`, `_cond_video_rows` and `seg_t`
                 # in `_forward`). Sent as given, a weight below the stream's time leaves the rows noisier
@@ -1522,6 +1694,24 @@ def _make_control_vector_wrapper(
                         "so their noise matches their label on every step",
                         min_ref_aug,
                     )
+
+            if want_aud_aug and _has_any_audio_cond(new_payload):
+                aud_t = _audio_stream_time(
+                    timestep,
+                    transformer_options,
+                    default_shift_video=default_shift_video,
+                    default_shift_audio=default_shift_audio,
+                )
+                eff_aud_aug = float(min_aud_aug) if aud_t is None else max(float(min_aud_aug), aud_t)
+                new_payload["audio_cond_noise_aug"] = eff_aud_aug
+                if "aud_aug" not in logged_ref_notes:
+                    logged_ref_notes.add("aud_aug")
+                    logger.info(
+                        "[h3] control vector audio_clean_level=%.3f: audio condition rows held at max(weight, audio stream time), "
+                        "so their noise matches their shifted label on every step",
+                        min_aud_aug,
+                    )
+
             call_kwargs["minimax_payload"] = new_payload
             payload = new_payload
 
@@ -1999,6 +2189,8 @@ def attach_control_vector(
     split_end_percent: float = 1.0,
     ref_vae_end_percent: float = 1.0,
     ref_vae_aug: float = 0.999,
+    audio_cond_end_percent: float = 1.0,
+    audio_cond_aug: float = 1.0,
     words: str = "",
     against_words: str = "",
     hold_words: str = "",
@@ -2034,13 +2226,22 @@ def attach_control_vector(
     sep_f = _validate_float_bounds("split_end_percent", split_end_percent, lo=0.0, hi=1.0)
     rvep_f = _validate_float_bounds("ref_vae_end_percent", ref_vae_end_percent, lo=0.0, hi=1.0)
     rva_f = _validate_float_bounds("ref_vae_aug", ref_vae_aug, lo=0.0, hi=1.0)
+    acep_f = _validate_float_bounds("audio_cond_end_percent", audio_cond_end_percent, lo=0.0, hi=1.0)
+    aca_f = _validate_float_bounds("audio_cond_aug", audio_cond_aug, lo=0.0, hi=1.0)
     if rva_f < 0.999 and _is_minimax_h3_image(dm):
         raise ValueError(
             "MiniMax-H3-Image hardcodes reference AdaLN timestep labels to 0.999 in ComfyUI core, "
             "so clean_level / ref_vae_aug < 0.999 would inject noise without updating the timestep "
             "label; use end_percent to release references and keep clean_level at 0.999"
         )
+    if (acep_f < 1.0 or aca_f < 1.0) and _is_minimax_h3_image(dm):
+        raise ValueError(
+            "MiniMax-H3-Image has no audio stream, so audio_end_percent < 1.0 and "
+            "audio_clean_level < 1.0 cannot be applied; keep both at 1.0"
+        )
     ha_f = _validate_float_bounds("hold_alpha", hold_alpha, lo=0.0, hi=2.0)
+    def_shift_v = float(getattr(dm, "sigma_shift_video", 12.0))
+    def_shift_a = float(getattr(dm, "sigma_shift_audio", 3.0))
 
     m = model.clone()
     raw_name = str(vector_name).strip()
@@ -2054,7 +2255,7 @@ def attach_control_vector(
                 "hold_words requires vector_name != 'none' or non-empty words; "
                 "cannot apply hold_words when no control vector or inline words are selected"
             )
-        if rvep_f < 1.0 or rva_f < 0.999:
+        if rvep_f < 1.0 or rva_f < 0.999 or acep_f < 1.0 or aca_f < 1.0:
             t_opts = m.model_options.setdefault("transformer_options", {})
             existing_none: tuple[_AppliedVectorSpec, ...] = tuple(t_opts.get(WRAPPER_KEY, ()))
             ref_spec = _AppliedVectorSpec(
@@ -2074,12 +2275,19 @@ def attach_control_vector(
                 split_end_percent=sep_f,
                 ref_vae_end_percent=rvep_f,
                 ref_vae_aug=rva_f,
+                audio_cond_end_percent=acep_f,
+                audio_cond_aug=aca_f,
             )
             updated_none = existing_none + (ref_spec,)
             t_opts[WRAPPER_KEY] = updated_none
             wrappers = m.wrappers.setdefault(WrappersMP.DIFFUSION_MODEL, {})
             wrappers[WRAPPER_KEY] = [
-                _make_control_vector_wrapper(updated_none, is_h3_image=_is_minimax_h3_image(dm))
+                _make_control_vector_wrapper(
+                    updated_none,
+                    is_h3_image=_is_minimax_h3_image(dm),
+                    default_shift_video=def_shift_v,
+                    default_shift_audio=def_shift_a,
+                )
             ]
         return m
 
@@ -2186,6 +2394,8 @@ def attach_control_vector(
             split_end_percent=sep_f,
             ref_vae_end_percent=rvep_f,
             ref_vae_aug=rva_f,
+            audio_cond_end_percent=acep_f,
+            audio_cond_aug=aca_f,
         )
         updated = updated + (new_spec,)
         logger.info(
@@ -2245,6 +2455,8 @@ def attach_control_vector(
             split_end_percent=sep_f,
             ref_vae_end_percent=rvep_f,
             ref_vae_aug=rva_f,
+            audio_cond_end_percent=acep_f,
+            audio_cond_aug=aca_f,
         )
         updated = updated + (w_spec,)
         rd_summary = (synth.get("readiness") or {}).get("summary", "")
@@ -2299,7 +2511,12 @@ def attach_control_vector(
     # in one float64 accumulation pass per DiT step.
     wrappers = m.wrappers.setdefault(WrappersMP.DIFFUSION_MODEL, {})
     wrappers[WRAPPER_KEY] = [
-        _make_control_vector_wrapper(updated, is_h3_image=_is_minimax_h3_image(dm))
+        _make_control_vector_wrapper(
+            updated,
+            is_h3_image=_is_minimax_h3_image(dm),
+            default_shift_video=def_shift_v,
+            default_shift_audio=def_shift_a,
+        )
     ]
     return m
 
@@ -4130,8 +4347,9 @@ class MiniMaxH3ReleaseReferences(io.ComfyNode):
             category="model/conditioning/minimax",
             description=(
                 "Controls when and how cleanly visual reference, keyframe, or guide-latent "
-                "conditioning rows ('ref_img' / 'cond') hold the render. Independent of control "
-                "vectors: works on plain prompts, MiniMaxH3EditGuider, and MiniMaxH3Steer alike."
+                "conditioning rows ('ref_img' / 'cond') and timeline audio-guide islands "
+                "('cond_audio') hold the render. Independent of control vectors: works on "
+                "plain prompts, MiniMaxH3EditGuider, and MiniMaxH3Steer alike."
             ),
             inputs=[
                 io.Model.Input("model"),
@@ -4166,6 +4384,39 @@ class MiniMaxH3ReleaseReferences(io.ComfyNode):
                         "clean_level win."
                     ),
                 ),
+                io.Float.Input(
+                    "audio_end_percent",
+                    default=1.0,
+                    min=0.0,
+                    max=1.0,
+                    step=0.01,
+                    optional=True,
+                    tooltip=(
+                        "Fraction of steps [0.0, audio_end_percent) where timeline audio-guide rows "
+                        "('cond_audio' from MiniMaxH3GuideLatent) remain packed in the DiT sequence "
+                        "(default 1.00 keeps them on every step; <Audio N> speaker/reference rows "
+                        "'ref_audio' are always preserved). Lowering to 0.50 on 6-step Pika LCM "
+                        "releases short foley islands after step 2 (before shift_audio=3.0 reaches "
+                        "sigma_a=0.50) so they lock visual timing without muting inter-event ambience."
+                    ),
+                ),
+                io.Float.Input(
+                    "audio_clean_level",
+                    default=1.0,
+                    min=0.0,
+                    max=1.0,
+                    step=0.001,
+                    optional=True,
+                    tooltip=(
+                        "Cleanliness share of audio conditioning rows on the steps where they are held "
+                        "(core's audio_cond_noise_aug; default 1.0 matches AUDIO_COND_TIMESTEP). "
+                        "Lower values mix noise into audio condition rows, clamped at "
+                        "max(audio_clean_level, audio_stream_time) under shift_video/shift_audio so "
+                        "rows are never noisier than their seg_t['cond_audio'] label. Core applies "
+                        "audio_cond_noise_aug to both guide cond_audio and <Audio N> ref_audio rows, "
+                        "so leave at 1.0 when keeping speaker voice references clean."
+                    ),
+                ),
             ],
             outputs=[io.Model.Output(display_name="model")],
         )
@@ -4175,11 +4426,15 @@ class MiniMaxH3ReleaseReferences(io.ComfyNode):
         cls,
         end_percent=1.0,
         clean_level=0.999,
+        audio_end_percent=1.0,
+        audio_clean_level=1.0,
         **kwargs,
     ) -> bool | str:
         try:
             _validate_float_bounds("end_percent", end_percent, lo=0.0, hi=1.0)
             _validate_float_bounds("clean_level", clean_level, lo=0.0, hi=1.0)
+            _validate_float_bounds("audio_end_percent", audio_end_percent, lo=0.0, hi=1.0)
+            _validate_float_bounds("audio_clean_level", audio_clean_level, lo=0.0, hi=1.0)
         except Exception as exc:
             return str(exc)
         return True
@@ -4190,17 +4445,23 @@ class MiniMaxH3ReleaseReferences(io.ComfyNode):
         model,
         end_percent=1.0,
         clean_level=0.999,
+        audio_end_percent=1.0,
+        audio_clean_level=1.0,
     ) -> io.NodeOutput:
         dm = model.get_model_object("diffusion_model")
         if not _is_minimax_h3(dm):
             raise ValueError("MiniMaxH3ReleaseReferences requires a MiniMax H3 diffusion model")
         ep_f = _validate_float_bounds("end_percent", end_percent, lo=0.0, hi=1.0)
         cl_f = _validate_float_bounds("clean_level", clean_level, lo=0.0, hi=1.0)
+        aep_f = _validate_float_bounds("audio_end_percent", audio_end_percent, lo=0.0, hi=1.0)
+        acl_f = _validate_float_bounds("audio_clean_level", audio_clean_level, lo=0.0, hi=1.0)
         m = attach_control_vector(
             model,
             "none",
             ref_vae_end_percent=ep_f,
             ref_vae_aug=cl_f,
+            audio_cond_end_percent=aep_f,
+            audio_cond_aug=acl_f,
         )
         return io.NodeOutput(m)
 

@@ -11,7 +11,7 @@ What it checks, with no model and no card:
 - The guider marks the two passes' payloads so they differ, and with `align_positions` moves the shorter
   prompt's media rows to the longer prompt's origin, leaving the text rows and the layout's signature alone.
 - `edit_guidance.check_same_but_text` refuses conditioning with no token tags and a pair that differs in
-  references.
+  `minimax_refs`, while allowing differing `minimax_keyframes` (unguided `original` vs guided `edited`).
 
 What it cannot see: what a render looks like, or whether the aligned positions are what the model should be
 given. Those take renders.
@@ -198,6 +198,11 @@ def check_guider_arithmetic() -> None:
            run_av(g_ind, 0) == (1.0, 10.0) and seen == [["original"]]
            and run_av(g_ind, 1) == (4.7, 20.0) and seen == [["original", "edited"]]
            and run_av(g_ind, 3) == (3.0, 20.0) and seen == [["edited"]])
+        g_kf_vo = _guider(1.6, first_step=0, last_step=2, streams="video_only")
+        g_kf_vo._release_to_original_after = True
+        ok("pure guide-differential (identical text, 0 vs K keyframes) hands over to 1-pass [original] after last_step even under streams='video_only'",
+           run_av(g_kf_vo, 1) == (4.2, 10.0) and seen == [["original", "edited"]]
+           and run_av(g_kf_vo, 3) == (1.0, 10.0) and seen == [["original"]])
         ok("NestedTensor streams='independent' with scale=1.0, audio_scale=1.0 short-circuits to 1-pass [edited]",
            run_av(_guider(1.0, streams="independent", audio_scale=1.0)) == (3.0, 20.0) and seen == [["edited"]])
         ok("single-stream tensor with streams='audio_only' short-circuits to 1-pass [original]",
@@ -245,7 +250,10 @@ def check_inputs() -> None:
     tags = torch.ones(5)
     good = [[torch.zeros(1, 5, 4), {"minimax_token_tags": tags}]]
     longer = [[torch.zeros(1, 7, 4), {"minimax_token_tags": torch.ones(7)}]]
+    guided_edit = [[torch.zeros(1, 5, 4), {"minimax_token_tags": tags, "minimax_keyframes": [{"resolved_frame_index": 24}]}]]
     ok("two text-only conditionings pass and report their lengths", eg.check_same_but_text(good, longer) == (5, 7))
+    ok("a pair that differs in minimax_keyframes (unguided original vs guided edited) passes",
+       eg.check_same_but_text(good, guided_edit) == (5, 5))
     refuses("conditioning with no token tags",
             lambda: eg.check_same_but_text([[torch.zeros(1, 5, 4), {}]], good), "no H3 token tags")
     refuses("a pair that differs in references",

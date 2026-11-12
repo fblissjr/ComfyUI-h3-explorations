@@ -324,9 +324,13 @@ STEER_DEFAULTS = dict(
 )
 
 #: `MiniMaxH3ReleaseReferences` schema defaults (`control_vector_nodes.py`).
+#: `clean_level` matches `VISUAL_COND_TIMESTEP = 0.999` and `audio_clean_level` matches
+#: `AUDIO_COND_TIMESTEP = 1.0` in `comfy/ldm/minimax/model.py:34-35`.
 RELEASE_REFERENCES_DEFAULTS = dict(
     end_percent=1.0,
     clean_level=0.999,
+    audio_end_percent=1.0,
+    audio_clean_level=1.0,
 )
 
 #: `MiniMaxH3WordVector` schema defaults (`control_vector_nodes.py`).

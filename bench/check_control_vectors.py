@@ -4849,6 +4849,81 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
             )
             if len(dm_av.payloads_seen[0].get("cond_video_latents", [])) != 0:
                 errs.append(f"MiniMaxH3ReleaseReferences late step did not drop cond_video_latents: {dm_av.payloads_seen[0]}")
+
+            # MiniMaxH3ReleaseReferences audio-guide release + shifted audio_clean_level (preserving ref_audio)
+            from comfy.ldm.minimax.model import PackedLayout
+            kf_aud_lat = torch.ones((1, 32, 2, 4), dtype=torch.float32) * 2.0
+            ref_aud_lat = torch.ones((1, 32, 2, 6), dtype=torch.float32) * 3.0
+            aud_kf_list = [{"resolved_frame_index": 0, "audio_latent": kf_aud_lat}]
+            aud_ref_list = [{"kind": "audio", "ref_audio_t": 6, "audio_latent": ref_aud_lat}]
+            aud_layout = PackedLayout(
+                int(av_ctx.shape[1]),
+                2,
+                4,
+                4,
+                8,
+                keyframes=aud_kf_list,
+                refs=aud_ref_list,
+            )
+            aud_caller_payload = {
+                "keyframes": aud_kf_list,
+                "refs": aud_ref_list,
+                "cond_audio_latents": [kf_aud_lat, ref_aud_lat],
+                "layout": aud_layout,
+                "minimax_token_tags": torch.ones((1, int(av_ctx.shape[1])), dtype=torch.long),
+            }
+            (p_rel_aud,) = cv_nodes.MiniMaxH3ReleaseReferences.execute(
+                model=patcher_av,
+                end_percent=1.0,
+                clean_level=0.999,
+                audio_end_percent=0.5,
+                audio_clean_level=0.40,
+            )
+            # Early step (step 0, sigma_v=1.0 -> sigma_a=1.0 -> t_a=0.0): max(0.40, 0.0) = 0.40, both audio latents held
+            dm_av.payloads_seen.clear()
+            p_rel_aud.invoke_diffusion_model(
+                av_x,
+                torch.tensor([1000.0]),
+                av_ctx,
+                minimax_payload=aud_caller_payload,
+                transformer_options={"sample_sigmas": sched_sigmas, "sigmas": sched_sigmas[0:1]},
+            )
+            p0_aud = dm_av.payloads_seen[0]
+            if abs(float(p0_aud.get("audio_cond_noise_aug", -1.0)) - 0.40) > 1e-6 or len(p0_aud.get("cond_audio_latents", ())) != 2:
+                errs.append(f"MiniMaxH3ReleaseReferences step 0 audio_clean_level failed: {p0_aud}")
+            # Step 1 at sigma_v=0.80 -> under shift_v=12, shift_a=3, sigma_a=0.50 -> t_a=0.50 -> max(0.40, 0.50) = 0.50
+            dm_av.payloads_seen.clear()
+            p_rel_aud.invoke_diffusion_model(
+                av_x,
+                torch.tensor([800.0]),
+                av_ctx,
+                minimax_payload=aud_caller_payload,
+                transformer_options={"sample_sigmas": sched_sigmas, "sigmas": sched_sigmas[1:2]},
+            )
+            p1_aud = dm_av.payloads_seen[0]
+            if abs(float(p1_aud.get("audio_cond_noise_aug", -1.0)) - 0.50) > 1e-6:
+                errs.append(f"MiniMaxH3ReleaseReferences shifted audio_stream_time clamp expected 0.50 at sigma_v=0.80, got {p1_aud.get('audio_cond_noise_aug')}")
+            # Late step (step 3, pct=0.75 >= 0.50): cond_audio dropped (seq_len reduced by 8), ref_audio preserved!
+            dm_av.payloads_seen.clear()
+            p_rel_aud.invoke_diffusion_model(
+                av_x,
+                sched_sigmas[3:4] * 1000.0,
+                av_ctx,
+                minimax_payload=aud_caller_payload,
+                transformer_options={"sample_sigmas": sched_sigmas, "sigmas": sched_sigmas[3:4]},
+            )
+            p3_aud = dm_av.payloads_seen[0]
+            rel_aud_lats = p3_aud.get("cond_audio_latents", [])
+            rel_aud_kinds = [k for _a, _b, k in p3_aud["layout"].segments]
+            if (
+                len(rel_aud_lats) != 1
+                or not torch.equal(rel_aud_lats[0], ref_aud_lat)
+                or "cond_audio" in rel_aud_kinds
+                or "ref_audio" not in rel_aud_kinds
+                or p3_aud["layout"].seq_len != aud_layout.seq_len - 8
+                or "keyframes" in p3_aud
+            ):
+                errs.append(f"MiniMaxH3ReleaseReferences late step did not drop cond_audio cleanly while preserving ref_audio: kinds={rel_aud_kinds}, lats={len(rel_aud_lats)}")
         finally:
             if orig_cv_paths_comp is not None:
                 cv_nodes.folder_paths.folder_names_and_paths[
@@ -5660,6 +5735,14 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
                 except ValueError as exc:
                     if "0.999" not in str(exc):
                         errs.append(f"unexpected MiniMaxH3ImageModel clean_level refusal: {exc}")
+                try:
+                    cv_nodes.MiniMaxH3ReleaseReferences.execute(
+                        img_patcher, end_percent=0.5, clean_level=0.999, audio_end_percent=0.5
+                    )
+                    errs.append("MiniMaxH3ReleaseReferences failed to refuse audio_end_percent < 1.0 on MiniMaxH3ImageModel")
+                except ValueError as exc:
+                    if "audio_end_percent" not in str(exc):
+                        errs.append(f"unexpected MiniMaxH3ImageModel audio_end_percent refusal: {exc}")
 
                 img_rel = cv_nodes.MiniMaxH3ReleaseReferences.execute(
                     img_patcher, end_percent=0.5, clean_level=0.999
