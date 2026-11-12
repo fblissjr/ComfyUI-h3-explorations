@@ -2626,7 +2626,11 @@ def _wire_edit_guidance(g: dict, prompt: str, spec: dict) -> None:
 
     With `MiniMaxH3ReferenceConditioning` at node 5 the references are encoded once: node 132 takes node
     5's encoder, VAEs, reference chain, canvas and policies, node 5 and node 131 each put a prompt on top,
-    and the empty latent comes from node 132.
+    and the empty latent comes from node 132. Likewise, when `MiniMaxH3ImageConditioning` at node 5 carries
+    `images.image_0..N-1` (`h3_image_edit`), node 132 becomes `MiniMaxH3EncodeImageReferences` (`canvas="explicit"`,
+    remapping `0`-based `images.image_0..N-1` onto `1`-based `images.image_1..N`), nodes 5 and 131 become
+    `MiniMaxH3PromptOnImageReferences`, and consumers of `[5, 1]` read `[132, 1]`; when `MiniMaxH3ImageConditioning`
+    has no pictures (`h3_image_t2i`), node 5 is duplicated onto node 131 with the edited prompt.
     """
     unknown = sorted(
         set(spec)
@@ -2644,8 +2648,11 @@ def _wire_edit_guidance(g: dict, prompt: str, spec: dict) -> None:
     if guider["class_type"] != "BasicGuider":
         raise SystemExit(f"edit_guidance replaces BasicGuider at node 9; this graph has {guider['class_type']}")
     cond = g["5"]
-    g["133"] = {"class_type": "PrimitiveStringMultiline", "inputs": {"value": prompt}}
-    written = ["133", 0]
+    if isinstance(cond["inputs"].get("prompt"), list):
+        written = list(cond["inputs"]["prompt"])
+    else:
+        g["133"] = {"class_type": "PrimitiveStringMultiline", "inputs": {"value": prompt}}
+        written = ["133", 0]
     g["130"] = {
         "class_type": "MiniMaxH3PromptEdit",
         "inputs": {
@@ -2665,7 +2672,32 @@ def _wire_edit_guidance(g: dict, prompt: str, spec: dict) -> None:
             for key, val in node["inputs"].items():
                 if val == ["5", 1]:
                     node["inputs"][key] = ["132", 1]
-    elif cond["class_type"] in ("MiniMaxH3Conditioning", "MiniMaxH3ReferenceToVideo"):
+    elif cond["class_type"] == "MiniMaxH3ImageConditioning":
+        img_keys = sorted(
+            (k for k in cond["inputs"] if k.startswith("images.")),
+            key=lambda k: int(k.rsplit("_", 1)[-1]),
+        )
+        if img_keys:
+            enc_inputs: dict[str, Any] = {
+                k: v for k, v in cond["inputs"].items()
+                if k != "prompt" and not k.startswith("images.")
+            }
+            enc_inputs["canvas"] = "explicit"
+            for idx, k in enumerate(img_keys, start=1):
+                enc_inputs[f"images.image_{idx}"] = cond["inputs"][k]
+            g["132"] = {"class_type": "MiniMaxH3EncodeImageReferences", "inputs": enc_inputs}
+            g["5"] = {"class_type": "MiniMaxH3PromptOnImageReferences",
+                      "inputs": {"encoded_references": ["132", 0], "prompt": written}}
+            g["131"] = {"class_type": "MiniMaxH3PromptOnImageReferences",
+                        "inputs": {"encoded_references": ["132", 0], "prompt": ["130", 0]}}
+            for node in g.values():
+                for key, val in node["inputs"].items():
+                    if val == ["5", 1]:
+                        node["inputs"][key] = ["132", 1]
+        else:
+            g["131"] = {"class_type": cond["class_type"], "inputs": dict(cond["inputs"], prompt=["130", 0])}
+            cond["inputs"]["prompt"] = written
+    elif cond["class_type"] in ("MiniMaxH3Conditioning", "MiniMaxH3ReferenceToVideo", "MiniMaxH3PH3ImageConditioning"):
         g["131"] = {"class_type": cond["class_type"], "inputs": dict(cond["inputs"], prompt=["130", 0])}
         cond["inputs"]["prompt"] = written
     else:
@@ -2922,6 +2954,8 @@ def build_h3_image_api(
     heylook: bool = False,
     out_prefix: str | None = None,
     single_frame: bool = True,
+    control_vector: dict | Sequence[dict] | None = None,
+    edit_guidance: dict | None = None,
 ) -> dict:
     """Build an API-format workflow for MiniMax-H3-Image: text to image, or an edit of one or more pictures.
 
@@ -3066,10 +3100,16 @@ def build_h3_image_api(
         cond_inputs["prompt"] = ["14", 0]
         g["4"]["inputs"]["shape_from_expander"] = ["14", 1]
     g["5"] = {"class_type": "MiniMaxH3ImageConditioning", "inputs": cond_inputs}
+    model_src: list[Any] = ["1", 0]
     if attention is not None:
         g["58"] = {"class_type": "ModelAttentionBackend",
-                   "inputs": {"model": ["1", 0], "attention": attention}}
-        g["9"]["inputs"]["model"] = ["58", 0]
+                   "inputs": {"model": model_src, "attention": attention}}
+        model_src = ["58", 0]
+    if control_vector is not None:
+        model_src = _wire_control_vectors(g, model_src, control_vector)
+    g["9"]["inputs"]["model"] = model_src
+    if edit_guidance is not None:
+        _wire_edit_guidance(g, resolved_prompt, edit_guidance)
     return g
 
 

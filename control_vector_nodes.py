@@ -1969,7 +1969,7 @@ def _project_encoder_vector_to_h3_image(v_enc_scaled: torch.Tensor, dm: Any) -> 
         dev = w_param.device if isinstance(w_param, torch.Tensor) else torch.device("cpu")
         dt = w_param.dtype if isinstance(w_param, torch.Tensor) else torch.float32
         with torch.no_grad():
-            half = (0.5 * v32).view(1, 1, -1).to(device=dev, dtype=dt)
+            half = (0.5 * v32).view(1, -1).to(device=dev, dtype=dt)
             r_pos = ref_mod(proj_mod(half)).detach().to(device="cpu", dtype=torch.float32).flatten()
             r_neg = ref_mod(proj_mod(-half)).detach().to(device="cpu", dtype=torch.float32).flatten()
             return (r_pos - r_neg).contiguous()

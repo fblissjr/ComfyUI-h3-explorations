@@ -334,7 +334,12 @@ Everything below is strictly optional and is **not** wired into the four default
   reference latents while exposing `qwen_short_edge` (`1024`), `vae_min_short_edge`
   (`1024`), `vae_max_short_edge` (`2048` default, configurable up to `8192` for
   ultra-sharp 4K edits), `in_bounds_align` (`"resize_32"` vs vendor `"crop_32"`),
-  and `use_vae` (`True` vs encoder-only `False`).
+  and `use_vae` (`True` vs encoder-only `False`). When `edit_guidance` is wired onto
+  an `h3_image_edit` graph (`workflows/build_workflows.py::_wire_edit_guidance` and Studio),
+  `MiniMaxH3ImageConditioning` at node `5` automatically splits into `1x`
+  `MiniMaxH3EncodeImageReferences(canvas="explicit")` (`132`) feeding `2x`
+  `MiniMaxH3PromptOnImageReferences` (`5`, `131`), encoding vision and FP32 VAE
+  reference latents once across both edit-guidance branches.
 - **Exact LoRA branch loading (`lora_branch.py::MiniMaxH3LoRABranch`):**
   `MiniMaxH3LoRABranch` supports `MiniMaxH3ImageModel` (`1`-stream, pruned `t_dim=8`
   AdaLN, `pdd_steps=6` `576`-row `final_layer.video_out`), cleanly skips audio-only

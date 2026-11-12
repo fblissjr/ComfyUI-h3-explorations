@@ -5744,6 +5744,35 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
                             "MiniMaxH3ImageModel scene_only fallback failed to steer post-vision caption rows"
                         )
 
+                # TokenRefiner fallback in `_project_encoder_vector_to_h3_image` (when j_lens bundle is absent)
+                # must pass unbatched 2D `(s, d)` tensors matching upstream `comfy/ldm/minimax/model.py::Attention.forward`.
+                class _Strict2DRefinerDM:
+                    def __init__(self) -> None:
+                        self.condition_proj = torch.nn.Linear(cv.ENCODER_DIM, cv.POST_REFINER_DIM, bias=False)
+                        torch.nn.init.eye_(self.condition_proj.weight[:cv.ENCODER_DIM, :cv.ENCODER_DIM])
+                        self.seen_ndims: list[int] = []
+
+                    def token_refiner(self, x: torch.Tensor) -> torch.Tensor:
+                        self.seen_ndims.append(x.ndim)
+                        if x.ndim != 2:
+                            raise RuntimeError(f"TokenRefiner expected 2D (s, d), got {tuple(x.shape)}")
+                        return x
+
+                strict_dm = _Strict2DRefinerDM()
+                orig_bundle_avail = cv_nodes._j_lens.bundle_available
+                cv_nodes._j_lens.bundle_available = lambda: False
+                try:
+                    proj_fb = cv_nodes._project_encoder_vector_to_h3_image(
+                        torch.ones(cv.ENCODER_DIM, dtype=torch.float32),
+                        strict_dm,
+                    )
+                finally:
+                    cv_nodes._j_lens.bundle_available = orig_bundle_avail
+                if strict_dm.seen_ndims != [2, 2] or proj_fb.shape != (cv.POST_REFINER_DIM,):
+                    errs.append(
+                        f"_project_encoder_vector_to_h3_image TokenRefiner fallback failed: ndims={strict_dm.seen_ndims}, shape={tuple(proj_fb.shape)}"
+                    )
+
     return errs
 
 

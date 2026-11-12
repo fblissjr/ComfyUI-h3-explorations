@@ -696,6 +696,39 @@ def graphs() -> None:
     )
     report(bool(ok16), "build_h3_image_api wires up to 16 reference pictures (0-based conditioning, 1-based expander)")
 
+    g_edit_eg = bw.build_h3_image_api(
+        "h3img_edit",
+        prompt="Edit <Picture 1> through <Picture 16> under warm tungsten light.",
+        ref_images=tuple(f"img_{i}.png" for i in range(16)),
+        edit_guidance={"edits": "warm tungsten -> cool overcast"},
+    )
+    g_t2i_eg = bw.build_h3_image_api(
+        "h3img_t2i",
+        prompt="A brass compass resting on an oak workbench.",
+        edit_guidance={"edits": "brass compass -> silver compass"},
+    )
+    ok_eg = (
+        g_edit_eg.get("132", {}).get("class_type") == "MiniMaxH3EncodeImageReferences"
+        and g_edit_eg["132"]["inputs"].get("canvas") == "explicit"
+        and [k for k in g_edit_eg["132"]["inputs"] if k.startswith("images.")]
+        == [f"images.image_{i}" for i in range(1, 17)]
+        and g_edit_eg["5"]["class_type"] == "MiniMaxH3PromptOnImageReferences"
+        and g_edit_eg["131"]["class_type"] == "MiniMaxH3PromptOnImageReferences"
+        and g_edit_eg["5"]["inputs"] == {"encoded_references": ["132", 0], "prompt": ["133", 0]}
+        and g_edit_eg["131"]["inputs"] == {"encoded_references": ["132", 0], "prompt": ["130", 0]}
+        and g_edit_eg["10"]["inputs"]["latent_image"] == ["132", 1]
+        and g_edit_eg["9"]["class_type"] == "MiniMaxH3EditGuider"
+        and "132" not in g_t2i_eg
+        and g_t2i_eg["5"]["class_type"] == "MiniMaxH3ImageConditioning"
+        and g_t2i_eg["131"]["class_type"] == "MiniMaxH3ImageConditioning"
+        and g_t2i_eg["5"]["inputs"]["prompt"] == ["133", 0]
+        and g_t2i_eg["131"]["inputs"]["prompt"] == ["130", 0]
+    )
+    report(
+        bool(ok_eg),
+        "_wire_edit_guidance splits h3_image_edit into 1x MiniMaxH3EncodeImageReferences(canvas='explicit') + 2x MiniMaxH3PromptOnImageReferences",
+    )
+
 
 def release_grid(folder: Path | None) -> None:
     if folder is None:
