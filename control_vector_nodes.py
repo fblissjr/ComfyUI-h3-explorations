@@ -3416,7 +3416,7 @@ class MiniMaxH3LoadControlVector(io.ComfyNode):
                     default="none",
                     tooltip=(
                         "Saved control vector stem under models/control_vectors/ (for example "
-                        "'film_16mm_1974' or 'disco_fever'). Select a stem other than 'none'."
+                        "'film_16mm_1974' or 'noir'). Select a stem other than 'none'."
                     ),
                 ),
                 io.String.Input(

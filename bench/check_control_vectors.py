@@ -1357,7 +1357,7 @@ b = "a busy city street"
             errs.append(f"literal target_prompt matching prompt_bank stem was altered: {ps_literal_collision.pairs[0]!r}")
         # Multi-baseline Pole-A rotation ('a1 | a2 | a3 -> b') across auxiliary bank_scenes:
         ps_rot = pair_comp.compile_words_to_pairset(
-            "in a cotton tee and denim | in a linen sundress | in a fleece pullover -> dressed in pirate tricorn hats, striped shirts, and long weathered coats on a tall sailing ship",
+            "balanced overcast daylight | soft interior window fill | even fluorescent office illumination -> low-key tungsten chiaroscuro lighting with deep shadows and amber practical lamps",
             bank_scenes=3,
         )
         rot_a_spans = [p.a_span for p in ps_rot.pairs]
@@ -1367,7 +1367,7 @@ b = "a busy city street"
             errs.append(f"rotated Pole-A PairSet produced lint warnings: {cv.lint_pair_set(ps_rot)}")
         # Target-only bank_scenes=5 build with no target_prompt and no '->' rotates DEFAULT_AUX_BASELINES cleanly:
         ps_target_only = pair_comp.compile_words_to_pairset(
-            "dressed in pirate tricorn hats, striped shirts, and long weathered coats on the deck of a tall sailing ship",
+            "low-key tungsten chiaroscuro lighting with deep shadows and amber practical lamps",
             bank_scenes=5,
         )
         to_a_spans = [p.a_span for p in ps_target_only.pairs]
@@ -1375,29 +1375,39 @@ b = "a busy city street"
             errs.append(f"target-only bank_scenes=5 expected 5 distinct DEFAULT_AUX_BASELINES a_spans, got {to_a_spans!r}")
         if cv.lint_pair_set(ps_target_only):
             errs.append(f"target-only bank_scenes=5 PairSet produced lint warnings: {cv.lint_pair_set(ps_target_only)}")
-        # J-Lens check_b_side_alignment catches attire cancellation and passes clean attire survival:
+        # J-Lens check_b_side_alignment catches Pole-A cancellation/washout and passes clean target survival:
         import j_lens as _jl_chk
 
         aln_canceled = _jl_chk.check_b_side_alignment(
             {
-                "positive_words": [{"word": "ship", "gain": 1.45}, {"word": "primitive", "gain": 1.14}],
-                "negative_words": [{"word": "wearing", "gain": 0.94}, {"word": "shirt", "gain": 1.25}],
+                "positive_words": [{"word": "harbor", "gain": 1.45}, {"word": "distant", "gain": 1.14}],
+                "negative_words": [{"word": "sodium", "gain": 1.25}, {"word": "lantern", "gain": 0.98}],
             },
-            "dressed in pirate tricorn hats, striped shirts, and long weathered coats on a tall sailing ship",
-            a_side="wearing a heavy knit sweater, buttoned shirt, and long jacket",
+            "dense sea fog with amber lantern beams and wet timber pilings along a dark harbor",
+            a_side="clear evening air with sodium streetlamps and dry asphalt",
         )
-        if not aln_canceled["warning"] or "0 attire words" not in aln_canceled["warning"]:
-            errs.append(f"check_b_side_alignment missed attire cancellation warning: {aln_canceled!r}")
+        if not aln_canceled["warning"] or "1/" not in aln_canceled["warning"]:
+            errs.append(f"check_b_side_alignment missed partial Pole-A cancellation warning: {aln_canceled!r}")
+        aln_washout = _jl_chk.check_b_side_alignment(
+            {
+                "positive_words": [{"word": "abstract", "gain": 1.32}, {"word": "moody", "gain": 1.11}],
+                "negative_words": [{"word": "bright", "gain": 1.05}],
+            },
+            "hand-cranked 16mm celluloid grain with gate weave and halation",
+            a_side="clean digital sensor capture",
+        )
+        if not aln_washout["warning"] or "0/" not in aln_washout["warning"]:
+            errs.append(f"check_b_side_alignment missed zero-coverage washout warning: {aln_washout!r}")
         aln_clean = _jl_chk.check_b_side_alignment(
             {
-                "positive_words": [{"word": "gown", "gain": 1.72}, {"word": "crown", "gain": 1.58}, {"word": "medieval", "gain": 1.48}],
-                "negative_words": [{"word": "modern", "gain": 1.05}],
+                "positive_words": [{"word": "tungsten", "gain": 1.72}, {"word": "shadows", "gain": 1.58}, {"word": "amber", "gain": 1.48}],
+                "negative_words": [{"word": "daylight", "gain": 1.05}],
             },
-            "robed in royal velvet gowns and gold crowns at a candlelit medieval castle feast",
-            a_side="rotated everyday scene/attire baselines",
+            "low-key tungsten chiaroscuro lighting with deep shadows and amber practical lamps",
+            a_side="rotated neutral scene baselines",
         )
         if aln_clean["warning"]:
-            errs.append(f"check_b_side_alignment emitted false warning on surviving attire words: {aln_clean!r}")
+            errs.append(f"check_b_side_alignment emitted false warning on surviving target words: {aln_clean!r}")
         errs += _expect_refusal(
             lambda: pair_comp.compile_words_to_pairset("   ", target_prompt=inplace_tp),
             "non-empty string",
@@ -3452,16 +3462,16 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
                     clip=mock_clip,
                     pooling="diff_span",
                     apply_holds=True,
-                    output_name="pirate_bank_unit",
+                    output_name="tungsten_bank_unit",
                     overwrite=False,
                     encoded_references=None,
-                    words="dressed in pirate tricorn hats, striped shirts, and long weathered coats on a tall sailing ship",
+                    words="low-key tungsten chiaroscuro lighting with deep shadows and amber practical lamps",
                     mode="t2va",
                     target_prompt="",
                 )
                 rep_bank_only = json.loads(node_out_bank_only[1])
                 if (
-                    not node_out_bank_only[0].startswith("pirate_bank_unit__")
+                    not node_out_bank_only[0].startswith("tungsten_bank_unit__")
                     or rep_bank_only["metadata"]["pairs"]["n_pairs"] != 5
                     or len(rep_bank_only["pair_spans"]) != 5
                 ):

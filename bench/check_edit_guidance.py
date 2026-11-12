@@ -113,12 +113,12 @@ def check_prompt_edit() -> None:
        and "<Subject 2> (appears in [Shot 1]): fully_preserved" in ret_music)
     out_sec_all, _ = eg.apply_edits(
         street_ref2va,
-        "subject_definitions: a black chunky ribbed knit sweater -> a tailored rust-orange silk blouse\n"
-        "retention_analysis: the black chunky knit sweater -> the tailored rust-orange silk blouse\n"
-        "description: a black chunky knit sweater -> a tailored rust-orange silk blouse",
+        "subject_definitions: a black chunky ribbed knit sweater -> an olive canvas field coat\n"
+        "retention_analysis: the black chunky knit sweater -> the olive canvas field coat\n"
+        "description: a black chunky knit sweater -> an olive canvas field coat",
     )
     ok("subject_definitions:, retention_analysis:, and description: prefixes scope edits cleanly to each section",
-       out_sec_all.count("tailored rust-orange silk blouse") == 3)
+       out_sec_all.count("olive canvas field coat") == 3)
     refuses("release_subject_attire=True on a t2va prompt with no retention_analysis:",
             lambda: eg.apply_edits(prompt, "", release_subject_attire=True),
             "retention_analysis:")

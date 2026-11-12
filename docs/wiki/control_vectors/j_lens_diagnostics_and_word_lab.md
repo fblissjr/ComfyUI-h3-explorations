@@ -26,7 +26,7 @@ J-Lens bridges both gaps analytically:
 ## 2. The three high-leverage jobs J-Lens wins at
 
 ### A. Pre-render X-ray audit (`inspect` and automatic build readouts)
-Every `build`, `from-prompt`, `make-media`, `words`, and `sculpt` command automatically runs `j_lens.decode_vector` (plus `j_lens.check_b_side_alignment` on pair builds, warning immediately if target/attire words in `b_side` fail to appear in `(+)` or Pole-A baseline words dominate `(-)`) and prints the top `+` and `-` English words into `<vector>.md`:
+Every `build`, `from-prompt`, `make-media`, `words`, and `sculpt` command automatically runs `j_lens.decode_vector` (plus `j_lens.check_b_side_alignment` on pair builds, warning immediately if `b_side` target words drop out of `(+)` or Pole-A baseline words dominate `(-)`) and prints the top `+` and `-` English words into `<vector>.md`:
 ```bash
 CUDA_VISIBLE_DEVICES= /path/to/comfy-venv/bin/python bench/control_vectors.py inspect \
   film_16mm_1974__ref2va__diff_span__lora_865ee189.safetensors \

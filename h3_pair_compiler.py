@@ -52,18 +52,18 @@ _HOLD_PREFIX_RE = re.compile(
     re.IGNORECASE,
 )
 
-#: Diverse everyday visual/attire Pole-A baselines rotated across `bank_scenes` when a visual
+#: Diverse neutral visual Pole-A baselines rotated across `bank_scenes` when a visual
 #: contrast omits Pole A (`"target concept"` or `"-> target concept"` with `bank_scenes > 0`).
-#: Each baseline uses disjoint clothing/setting nouns so `mean(A)` averages to a neutral everyday
-#: centroid instead of subtracting one specific garment (`-shirt -jacket`) or canceling coats/vests.
+#: Each baseline uses disjoint unstylized framing phrases so `mean(A)` averages to a neutral
+#: everyday centroid without injecting domain-specific nouns into `(-)`.
 DEFAULT_AUX_BASELINES: tuple[str, ...] = (
-    "Everyday contemporary realism in casual cotton knitwear",
-    "Ordinary daytime setting in a tailored linen outfit",
-    "Plain indoor room in light fleece loungewear",
-    "Naturalistic street-level view in relaxed denim attire",
-    "Unstylized candid footage in simple woven workwear",
-    "Neutral quotidian atmosphere in plain jersey apparel",
-    "Matter-of-fact documentary framing in khaki canvas clothing",
+    "Everyday contemporary realism",
+    "Ordinary natural-light setting",
+    "Unstylized candid footage",
+    "Plain matter-of-fact framing",
+    "Neutral quotidian atmosphere",
+    "Standard eye-level observation",
+    "Direct unembellished realism",
 )
 
 
@@ -894,7 +894,7 @@ def compile_words_to_pairset(
             resolved_eff_sec = _pe.resolve_section_name(tp_scenes[0], eff_sec)
             a_parts.append(_extract_existing_section(tp_scenes[0], resolved_eff_sec) or f"baseline {resolved_eff_sec}")
         elif not cl.a:
-            a_parts.append("rotated everyday scene/attire baselines")
+            a_parts.append("rotated neutral scene baselines")
         else:
             a_parts.append(cl.a)
         b_parts.append(cl.b)

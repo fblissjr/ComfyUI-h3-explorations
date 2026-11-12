@@ -587,36 +587,20 @@ def assess_steering_readiness(
 
 _B_SIDE_STOPLIST: frozenset[str] = frozenset({
     "about", "above", "aboard", "across", "after", "against", "along", "amid", "among",
-    "around", "behind", "below", "beneath", "beside", "between", "beyond", "camera",
-    "dressed", "during", "every", "first", "frame", "framed", "frames", "from", "front",
-    "having", "holding", "inside", "into", "large", "light", "lined", "long", "medium",
-    "moving", "near", "onto", "other", "outside", "over", "people", "person", "robed",
-    "scene", "seated", "setting", "short", "shot", "small", "standing", "style", "suited",
-    "table", "tall", "their", "them", "there", "these", "they", "this", "through", "toward",
-    "trimmed", "under", "upon", "using", "video", "walking", "wearing", "where", "which",
-    "while", "wide", "with", "within", "without", "woman", "world", "bundled",
+    "and", "are", "around", "baseline", "baselines", "behind", "below", "beneath", "beside",
+    "between", "beyond", "but", "camera", "can", "close", "did", "dressed", "during", "every",
+    "everyday", "first", "five", "for", "frame", "framed", "frames", "friends", "from", "front",
+    "full", "group", "had", "has", "having", "her", "him", "his", "holding", "how", "inside",
+    "into", "its", "large", "length", "let", "light", "lined", "long", "man", "may", "medium",
+    "men", "moving", "near", "neutral", "new", "non", "nor", "not", "now", "off", "old", "one",
+    "onto", "ordinary", "other", "our", "out", "outside", "over", "own", "people", "per",
+    "person", "plain", "put", "rotated", "say", "scene", "seated", "second", "seconds", "see",
+    "set", "setting", "she", "short", "shot", "sit", "small", "standing", "style", "take",
+    "tall", "ten", "the", "their", "them", "there", "these", "they", "this", "through", "too",
+    "top", "toward", "trimmed", "two", "under", "upon", "use", "using", "via", "video",
+    "waiting", "walking", "was", "way", "wearing", "where", "which", "while", "who", "why",
+    "wide", "with", "within", "without", "woman", "world", "yet", "you",
 })
-
-_GARMENT_WORD_STEMS: tuple[str, ...] = (
-    "apron", "armor", "armour", "attire", "blouse", "boot", "cape", "cardigan", "chap",
-    "cloak", "cloth", "coat", "collar", "corset", "costume", "crown", "denim", "dress",
-    "fabric", "fleece", "garment", "glove", "goggle", "gown", "hat", "hats", "helmet",
-    "hood", "hoodie", "jacket", "jean", "jersey", "jumpsuit", "kimono", "knit", "leather",
-    "linen", "outfit", "overcoat", "pant", "parka", "pullover", "robe", "sandal", "scarf",
-    "sequin", "shirt", "shoe", "shorts", "silk", "skirt", "sleeve", "sneaker", "spacesuit",
-    "suit", "sweater", "tiara", "trouser", "tunic", "tuxedo", "uniform", "velvet", "vest",
-    "wardrobe", "wear", "wearing", "worn", "wig", "wigs", "wool",
-)
-
-
-def _matches_garment_stem(word: str) -> bool:
-    w = word.lower()
-    if w in ("hat", "hats", "wig", "wigs", "cap", "caps", "fur", "tie", "ties"):
-        return True
-    return any(
-        w == st or (len(st) >= 4 and (w.startswith(st) or w.endswith(st)))
-        for st in _GARMENT_WORD_STEMS
-    )
 
 
 def _stem_matches_any(word: str, candidates: Sequence[str]) -> bool:
@@ -627,7 +611,6 @@ def _stem_matches_any(word: str, candidates: Sequence[str]) -> bool:
             return True
         if len(w) >= 4 and len(cl) >= 4 and (w.startswith(cl[:4]) or cl.startswith(w[:4])):
             return True
-        # Compound nouns such as 'spacesuits' -> 'suit', 'jumpsuits' -> 'suit'
         if len(cl) >= 4 and cl in w:
             return True
     return False
@@ -640,45 +623,53 @@ def check_b_side_alignment(
     a_side: str = "",
     bundle: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Check whether `b_side`'s target concepts and attire nouns survived into J-Lens `(+)`
+    """Check whether `b_side`'s target content concepts survived into J-Lens `(+)`
     after `B - A` pair pooling (`< 0.2 ms` on CPU).
 
-    Flags two concrete pair-build failure modes before spending GPU render time:
-    1. Garment cancellation (`b_side` names explicit clothing/headwear, 0 attire words appear
-       in `positive_words`, and/or `negative_words` subtracts clothing words from Pole A).
-    2. Total concept washout (`0` of `b_side`'s target words or close `M_centered` neighbors
-       appear in `positive_words`)."""
-    a_tokens = set(re.findall(r"[a-z]{3,}", str(a_side or "").lower()))
+    Flags general contrastive-pair failure modes across any domain before GPU render time:
+    1. Total concept washout (`0` of `b_side`'s target words or close `M_centered` neighbors
+       appear in `positive_words`).
+    2. Severe Pole-A cancellation (`< 20%` of multi-word `b_side` concepts survive while
+       `a_side` shares stems with `b_side` or Pole-A content words appear in `negative_words`).
+    3. Target inversion (`b_side` target words appear in `negative_words`)."""
+    raw_a_tokens = re.findall(r"[a-z]{3,}", str(a_side or "").lower())
     raw_b_tokens = re.findall(r"[a-z]{3,}", str(b_side or "").lower())
-    target_words: list[str] = []
+
+    a_words: list[str] = []
+    for tok in raw_a_tokens:
+        if tok in _B_SIDE_STOPLIST or tok in a_words:
+            continue
+        a_words.append(tok)
+
+    b_words: list[str] = []
     for tok in raw_b_tokens:
-        if tok in a_tokens or tok in _B_SIDE_STOPLIST:
+        if tok in _B_SIDE_STOPLIST or tok in b_words:
             continue
-        if len(tok) < 4 and tok not in ("hat", "hats", "wig", "wigs", "cap", "caps", "fur", "tie"):
-            continue
-        if tok not in target_words:
-            target_words.append(tok)
+        b_words.append(tok)
+
+    a_set = set(a_words)
+    shared_ab = [bw for bw in b_words if _stem_matches_any(bw, a_words)]
+    target_words = [bw for bw in b_words if bw not in a_set] or list(b_words)
 
     pos_words = [str(x["word"]).lower() for x in (readout.get("positive_words") or ())]
     neg_words = [str(x["word"]).lower() for x in (readout.get("negative_words") or ())]
 
     matched_target = [tw for tw in target_words if _stem_matches_any(tw, pos_words)]
+    unmatched_target = [tw for tw in target_words if tw not in matched_target]
     inverted_target = [tw for tw in target_words if _stem_matches_any(tw, neg_words) and tw not in matched_target]
+    subtracted_a = [aw for aw in a_words if _stem_matches_any(aw, neg_words) and not _stem_matches_any(aw, pos_words)]
 
-    b_garments = [tw for tw in target_words if _matches_garment_stem(tw)]
-    pos_garments = [pw for pw in pos_words if _matches_garment_stem(pw)]
-    neg_garments = [nw for nw in neg_words if _matches_garment_stem(nw)]
-    matched_b_garments = [gw for gw in b_garments if _stem_matches_any(gw, pos_words)]
+    coverage = round(len(matched_target) / len(target_words), 3) if target_words else 1.0
 
     max_sem_cos: float | None = None
-    if target_words and pos_words and not matched_target:
+    if unmatched_target and pos_words and coverage < 0.25:
         try:
             b = dict(bundle) if bundle is not None else (load_j_lens_bundle() if bundle_available() else {})
             w2i = b.get("word_to_idxs")
             m_c = b.get("M_centered")
             if w2i is not None and m_c is not None:
                 t_vecs: list[torch.Tensor] = []
-                for tw in target_words:
+                for tw in unmatched_target:
                     for cand in (tw, tw.rstrip("s"), *_SHORT_WORD_FALLBACKS.get(tw, ())):
                         ids, _, _ = _resolve_word_indices([cand], w2i)
                         if ids:
@@ -698,31 +689,36 @@ def check_b_side_alignment(
             max_sem_cos = None
 
     warnings: list[str] = []
-    if b_garments and not matched_b_garments and not pos_garments:
-        neg_note = f" while J-Lens (-) subtracts {neg_garments}" if neg_garments else ""
-        warnings.append(
-            f"b_side names attire {b_garments[:5]} with 0 attire words in J-Lens (+) top readout "
-            f"{pos_words[:6]}{neg_note}; Pole A likely canceled the clothing axis "
-            f"(rotate diverse Pole-A outfits via 'a1 | a2 | a3 -> b' or '--bank-scenes 5', or use Edit Guider for exact wardrobe)."
-        )
-    elif target_words and not matched_target and (max_sem_cos is None or max_sem_cos < 0.25):
+    if target_words and not matched_target and (max_sem_cos is None or max_sem_cos < 0.25):
+        neg_note = f" while J-Lens (-) subtracts Pole-A words {subtracted_a[:5]}" if subtracted_a else ""
         warnings.append(
             f"0/{len(target_words)} b_side target words ({target_words[:6]}) appear in J-Lens (+) top readout "
-            f"{pos_words[:6]}; check for Pole-A noun cancellation or overly broad diff spans."
+            f"{pos_words[:6]}{neg_note}; check for Pole-A noun cancellation or overly broad diff spans."
+        )
+    elif (
+        len(target_words) >= 4
+        and coverage < 0.20
+        and (shared_ab or subtracted_a)
+        and (max_sem_cos is None or max_sem_cos < 0.35)
+    ):
+        overlap_note = f" (shared Pole-A/B stems: {shared_ab[:4]})" if shared_ab else ""
+        neg_note = f" while J-Lens (-) subtracts Pole-A words {subtracted_a[:5]}" if subtracted_a else ""
+        warnings.append(
+            f"only {len(matched_target)}/{len(target_words)} b_side target words ({matched_target}) survived into "
+            f"J-Lens (+) top readout {pos_words[:6]}{overlap_note}{neg_note}; fixed Pole-A nouns may be canceling "
+            f"part of the target concept (rotate diverse Pole-A baselines via 'a1 | a2 | a3 -> b' or '--bank-scenes 5')."
         )
     if inverted_target:
         warnings.append(
             f"b_side word(s) {inverted_target} appear in J-Lens (-) negative readout {neg_words[:6]} (inverted by Pole A)."
         )
 
-    coverage = round(len(matched_target) / len(target_words), 3) if target_words else 1.0
     return {
         "target_words": target_words,
         "matched_pos": matched_target,
         "inverted_neg": inverted_target,
-        "b_side_garment_words": b_garments,
-        "pos_garment_words": pos_garments,
-        "neg_garment_words": neg_garments,
+        "shared_pole_words": shared_ab,
+        "subtracted_a_words": subtracted_a,
         "coverage": coverage,
         "max_semantic_cosine": max_sem_cos,
         "warnings": warnings,
