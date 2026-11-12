@@ -648,6 +648,38 @@ def check_spans_partition_and_refusals(tok: MiniMaxH3Tokenizer) -> list[str]:
     if tail_label_str != "<Picture 1>: ":
         errs.append(f"tail `<Picture 2>: ` in prose was misclassified as label: {tail_label_str!r}")
 
+    # Verify bare `Picture 1: ` (without angle brackets, emitted by core's MiniMaxH3ImageConditioning)
+    # is classified as `label` ONLY when immediately preceding `<|vision_start|>`, while `Picture 2: `
+    # in post-vision caption prose stays in `scene`.
+    bare_pieces = [
+        "Picture ",
+        "1",
+        ":",
+        " ",
+        "<|vision_start|>",
+        "<|image_pad|>",
+        "<|vision_end|>",
+        "Picture ",
+        "2",
+        ":",
+        " ",
+        "bright ",
+        "sunlight.",
+    ]
+    bare_ids = list(range(len(bare_pieces)))
+    bare_tags = [1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 1, 1]
+    bare_masks = h3_spans.spans(
+        bare_ids, bare_tags, lambda s_ids: "".join(bare_pieces[i] for i in s_ids)
+    )
+    if bare_masks["label"].nonzero(as_tuple=False).flatten().tolist() != [0, 1, 2, 3]:
+        errs.append(
+            f"bare `Picture 1: ` pre-vision vs post-vision `Picture 2: ` label indices wrong: {bare_masks['label'].tolist()}"
+        )
+    if bare_masks["scene"].nonzero(as_tuple=False).flatten().tolist() != [7, 8, 9, 10, 11, 12]:
+        errs.append(
+            f"post-vision `Picture 2: bright sunlight.` was not kept wholly in scene: {bare_masks['scene'].tolist()}"
+        )
+
     # Verify before_vision lone-space boundary check (`<Picture 1>: Word` where `" Word"` is a single token,
     # not a lone `" "` token) and before_vision timestamp end-of-segment check (`<0.5 seconds> extra` before vision).
     bv_pieces = [
@@ -1803,8 +1835,10 @@ def check_vector_io_family_and_compatibility() -> list[str]:
             != "ref2va"
             or cv.family_from_tensor_hashes(("d6b17a52eb10", "2d8bca2b367d", "cf10a56a1137"))
             != "fasth3"
+            or cv.family_from_tensor_hashes(("0c92b9024acc", "6f9a10f4d0ed", "036c13e58478"))
+            != "h3_image"
         ):
-            errs.append("KNOWN_FAMILIES table did not map measured hashes to fl2va/ref2va/fasth3")
+            errs.append("KNOWN_FAMILIES table did not map measured hashes to fl2va/ref2va/fasth3/h3_image")
 
         digest = cv.safetensors_recipe_digest(ckpt_path, extra_tensor_keys=cv.FAMILY_TENSOR_KEYS)
         if len(digest) != 64:
@@ -5669,6 +5703,45 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
                     if getattr(rel_pay.get("layout"), "seq_len", None) != 6 + 16:
                         errs.append(
                             f"5D MiniMaxH3ImageModel released layout seq_len={getattr(rel_pay.get('layout'), 'seq_len', None)} != 22"
+                        )
+
+                # MiniMaxH3ImageModel without h3_span_masks (core MiniMaxH3ImageConditioning):
+                # 1) mask='scene_only' steers ONLY post-vision caption rows (leaving pre-vision label & vision untouched)
+                # 2) cross-family fl2va vector with vector.encoder auto-projects into h3_image post-refiner space
+                orig_detect_family = cv.detect_family
+                cv.detect_family = lambda _m: "h3_image"
+                try:
+                    img_xfamily = cv_nodes.attach_control_vector(
+                        img_patcher,
+                        reb_st_file,
+                        strength=1.0,
+                        mask="scene_only",
+                        video_scale=1.0,
+                        audio_scale=0.0,
+                        allow_recipe_mismatch=False,
+                    )
+                finally:
+                    cv.detect_family = orig_detect_family
+                ctx_h3img = torch.zeros((1, 6, cv.POST_REFINER_DIM), dtype=torch.float32)
+                # rows 0..1: pre-vision `Picture 1: ` (tag=1), rows 2..3: vision (tag=0), rows 4..5: caption (tag=1)
+                tags_h3img = torch.tensor([[1, 1, 0, 0, 1, 1]], dtype=torch.long)
+                img_dm.last_context = None
+                img_xfamily.invoke_diffusion_model(
+                    x_5d,
+                    torch.tensor([200.0]),
+                    ctx_h3img,
+                    minimax_payload={"text_token_tags": tags_h3img},
+                )
+                if img_dm.last_context is None:
+                    errs.append("MiniMaxH3ImageModel cross-family scene_only run did not populate last_context")
+                else:
+                    if not torch.equal(img_dm.last_context[:, :4, :], ctx_h3img[:, :4, :]):
+                        errs.append(
+                            "MiniMaxH3ImageModel scene_only fallback modified pre-vision label or vision rows"
+                        )
+                    if torch.equal(img_dm.last_context[:, 4:, :], ctx_h3img[:, 4:, :]):
+                        errs.append(
+                            "MiniMaxH3ImageModel scene_only fallback failed to steer post-vision caption rows"
                         )
 
     return errs

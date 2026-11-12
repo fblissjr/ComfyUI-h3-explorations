@@ -101,11 +101,12 @@ FAMILY_TENSOR_KEYS: tuple[str, str, str] = (
     "token_refiner.final_norm.weight",
 )
 
-# Measured across all 7 local H3 diffusion checkpoints on disk (BF16 tensor sha256[:12]).
+# Measured across local H3 diffusion checkpoints on disk (BF16 tensor sha256[:12]).
 KNOWN_FAMILIES: dict[tuple[str, str, str], str] = {
     ("af3c58d7f2ad", "701e0673282f", "cf10a56a1137"): "fl2va",
     ("7c5485465531", "529e19c04005", "6ca615e4e3f8"): "ref2va",
     ("d6b17a52eb10", "2d8bca2b367d", "cf10a56a1137"): "fasth3",
+    ("0c92b9024acc", "6f9a10f4d0ed", "036c13e58478"): "h3_image",
 }
 
 REQUIRED_METADATA_KEYS: tuple[str, ...] = (
@@ -1855,10 +1856,10 @@ def _validate_metadata_dict(metadata: Mapping[str, Any]) -> None:
 
     family = metadata["family"]
     if not isinstance(family, str) or (
-        family not in ("fl2va", "ref2va", "fasth3") and not CUSTOM_FAMILY_RE.match(family)
+        family not in ("fl2va", "ref2va", "fasth3", "h3_image") and not CUSTOM_FAMILY_RE.match(family)
     ):
         raise ValueError(
-            f"control vector metadata 'family' must be 'fl2va', 'ref2va', 'fasth3', "
+            f"control vector metadata 'family' must be 'fl2va', 'ref2va', 'fasth3', 'h3_image', "
             f"or 'custom:<12 hex chars>', got {family!r}"
         )
 
@@ -2511,6 +2512,12 @@ _KNOWN_H3_CHECKPOINTS: dict[str, frozenset[str]] = {
             "minimax_h3_ref2va_bf16.safetensors",
         }
     ),
+    "h3_image": frozenset(
+        {
+            "minimax_h3_image_pruned_int8_convrot.safetensors",
+            "minimax_h3_image_bf16.safetensors",
+        }
+    ),
 }
 
 _KNOWN_REF2VA_GUIDE_LORAS: frozenset[str] = frozenset(
@@ -2551,7 +2558,7 @@ def _is_same_family_h3_recipe_compatible(
     """Whether `vec_recipe` and `cur_recipe` are standard H3 `fl2va` or `ref2va` checkpoints
     and full-refiner distillation/task LoRA recipes (base `loras=[]`, Pika H3 Flex, PrunaAI
     `P-H3-Image`, or `ref2va` Guide Video Edit) of the same H3 text-path family."""
-    if vec_family != loaded_family or vec_family not in ("fl2va", "ref2va"):
+    if vec_family != loaded_family or vec_family not in ("fl2va", "ref2va", "h3_image"):
         return False
     cur_ckpt = cur_recipe.get("checkpoint")
     vec_ckpt = vec_recipe.get("checkpoint")

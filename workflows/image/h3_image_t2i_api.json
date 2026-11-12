@@ -89,11 +89,28 @@
       ]
     }
   },
+  "12": {
+    "class_type": "MiniMaxH3ImageDownscale",
+    "inputs": {
+      "images": [
+        "11",
+        0
+      ],
+      "target_width": [
+        "4",
+        2
+      ],
+      "target_height": [
+        "4",
+        3
+      ]
+    }
+  },
   "13": {
     "class_type": "SaveImage",
     "inputs": {
       "images": [
-        "11",
+        "12",
         0
       ],
       "filename_prefix": "Image/h3_image_t2i"

@@ -235,6 +235,25 @@
       "Output"
     ]
   },
+  "MiniMaxH3EncodeImageReferences": {
+    "inputs": [
+      "clip",
+      "vae",
+      "width",
+      "height",
+      "images",
+      "qwen_short_edge",
+      "vae_min_short_edge",
+      "vae_max_short_edge",
+      "in_bounds_align",
+      "use_vae"
+    ],
+    "node_id": "MiniMaxH3EncodeImageReferences",
+    "outputs": [
+      "encoded references",
+      "Output"
+    ]
+  },
   "MiniMaxH3EncodeReferences": {
     "inputs": [
       "clip",
@@ -372,6 +391,17 @@
       "edited_positive"
     ]
   },
+  "MiniMaxH3ImageDownscale": {
+    "inputs": [
+      "images",
+      "target_width",
+      "target_height"
+    ],
+    "node_id": "MiniMaxH3ImageDownscale",
+    "outputs": [
+      "images"
+    ]
+  },
   "MiniMaxH3ImagePromptExpander": {
     "inputs": [
       "prompt",
@@ -407,12 +437,15 @@
       "megapixels",
       "shape",
       "picture",
-      "shape_from_expander"
+      "shape_from_expander",
+      "enforce_4mp_floor"
     ],
     "node_id": "MiniMaxH3ImageSize",
     "outputs": [
       "width",
-      "height"
+      "height",
+      "target_width",
+      "target_height"
     ]
   },
   "MiniMaxH3LayerNormMatch": {
@@ -634,6 +667,16 @@
     "node_id": "MiniMaxH3PromptList",
     "outputs": [
       "lists"
+    ]
+  },
+  "MiniMaxH3PromptOnImageReferences": {
+    "inputs": [
+      "encoded_references",
+      "prompt"
+    ],
+    "node_id": "MiniMaxH3PromptOnImageReferences",
+    "outputs": [
+      "positive"
     ]
   },
   "MiniMaxH3PromptOnReferences": {

@@ -133,6 +133,12 @@ class _Branch:
 
     def __init__(self, a, b, scale, diff_b, gate=None):
         self.gate = gate
+        self.in_dim = int(a.shape[1]) if a is not None else None
+        b_out = int(b.shape[0]) if b is not None else None
+        db_out = int(diff_b.shape[0]) if diff_b is not None else None
+        if b_out is not None and db_out is not None and b_out != db_out:
+            raise ValueError(f"lora_B out_features ({b_out}) != diff_b length ({db_out})")
+        self.out_dim = b_out if b_out is not None else db_out
         b_scaled = b * scale if (b is not None and scale != 1.0) else b
         a_opt, b_opt, splits = _pack_3band_block_diag(a, b_scaled)
         self.a = _host(a_opt)
@@ -181,6 +187,23 @@ class _Branch:
 _SUFFIXES = _A + _B + (".alpha", ".diff_b")
 
 
+_AUDIO_STREAM_MODULES = {
+    "audio_patch_proj": "diffusion_model.audio_patch_proj.weight",
+    "lora_unet_audio_patch_proj": "diffusion_model.audio_patch_proj.weight",
+    "final_layer.audio_out": "diffusion_model.final_layer.audio_out.weight",
+    "lora_unet_final_layer_audio_out": "diffusion_model.final_layer.audio_out.weight",
+}
+
+
+def _is_audio_stream_path(path: str) -> bool:
+    return (
+        path == "audio_patch_proj"
+        or path.startswith("audio_patch_proj.")
+        or path == "final_layer.audio_out"
+        or path.startswith("final_layer.audio_out.")
+    )
+
+
 def native_keys(sd, model):
     """`sd` with every key core's loader can place renamed under `diffusion_model.`.
 
@@ -190,11 +213,18 @@ def native_keys(sd, model):
     bare module path. A key whose name is in that table is renamed to the
     weight's module path, keeping its suffix; one already under
     `diffusion_model.` passes through; anything else is left as it is, for
-    `parse_lora` to refuse. A file that is all native costs nothing.
+    `parse_lora` to refuse. On 1-stream audio-free models (`MiniMaxH3ImageModel`),
+    known 2-stream audio module aliases are also recognized so `install()` can
+    skip them cleanly instead of failing as unknown keys. A file that is all
+    native costs nothing.
     """
     if all(k.startswith(PREFIX) for k in sd):
         return sd
     key_map = comfy.lora.model_lora_keys_unet(model.model, {})
+    dm = getattr(model.model, "diffusion_model", None)
+    if dm is not None and getattr(dm, "audio_patch_proj", None) is None:
+        for alias, target in _AUDIO_STREAM_MODULES.items():
+            key_map.setdefault(alias, target)
     out = {}
     for key, t in sd.items():
         new = key
@@ -203,8 +233,9 @@ def native_keys(sd, model):
                 if not key.endswith(suf):
                     continue
                 target = key_map.get(key[:-len(suf)])
-                if isinstance(target, str) and target.startswith(PREFIX) and target.endswith(".weight"):
-                    new = target[:-len(".weight")] + suf
+                target_key = target[0] if isinstance(target, tuple) and target else target
+                if isinstance(target_key, str) and target_key.startswith(PREFIX) and target_key.endswith(".weight"):
+                    new = target_key[:-len(".weight")] + suf
                 break
         if new in out:
             raise ValueError(f"LoRA key {key} names the same tensor as another key in the file ({new})")
@@ -325,6 +356,7 @@ MODULE_CHOICES = {
     "adaln only": lambda p: "adaln_proj" in p,
     "attention only": lambda p: ".attn." in p,
     "mlp only": lambda p: ".mlp." in p,
+    "attention + mlp": lambda p: ".attn." in p or ".mlp." in p,
 }
 
 
@@ -418,15 +450,135 @@ def attach(model, branches):
     return m
 
 
+def _check_branch_shape(path: str, branch: _Branch, mod, *, pdd_steps: int = 1) -> None:
+    w_out, w_in = int(mod.weight.shape[0]), int(mod.weight.shape[1])
+    out_mismatch = branch.out_dim is not None and branch.out_dim != w_out
+    in_mismatch = branch.in_dim is not None and branch.in_dim != w_in
+    if not out_mismatch and not in_mismatch:
+        return
+    if path in ("final_layer.video_out", "final_layer.audio_out") and pdd_steps > 1:
+        raise ValueError(
+            f"{path} has stacked PDD heads of shape ({w_out}, {w_in}) (pdd_steps={pdd_steps}), "
+            f"while the LoRA branch has ({branch.out_dim}, {branch.in_dim}); "
+            f"exclude 'final_layer' (e.g. blocks='0-49,refiner') or use modules='attention + mlp'"
+        )
+    if "adaln_proj" in path and in_mismatch:
+        raise ValueError(
+            f"{path}: LoRA expects in_features={branch.in_dim}, but loaded model has "
+            f"({w_out}, {w_in}) (pruned t_dim={w_in}); set modules='no adaln' or 'attention + mlp'"
+        )
+    raise ValueError(
+        f"{path}: LoRA shape ({branch.out_dim}, {branch.in_dim}) does not match "
+        f"model weight ({w_out}, {w_in})"
+    )
+
+
+def _pdd_head_delta(h, branches, grid, start, stop, out_base):
+    active = [br for br in branches if br.gate is None or br.gate.active]
+    if not active:
+        return out_base
+    if not out_base.is_contiguous():
+        out_base = out_base.contiguous()
+    pdd_steps = len(grid) - 1
+    dim = out_base.shape[-1]
+    flat_h = h.reshape(-1, h.shape[-1])
+    delta = torch.zeros(flat_h.shape[0], pdd_steps * dim, dtype=out_base.dtype, device=out_base.device)
+    active_factors = [(br, br.device_factors(delta)) for br in active]
+    for a in range(0, flat_h.shape[0], LINEAR_CHUNK_ROWS):
+        b = min(a + LINEAR_CHUNK_ROWS, flat_h.shape[0])
+        for br, factors in active_factors:
+            br.add_into(flat_h[a:b], delta[a:b], factors)
+    drows = delta.view(flat_h.shape[0], pdd_steps, dim)
+    dt = [grid[k] - grid[k + 1] for k in range(start, stop)]
+    w = torch.tensor(dt, dtype=out_base.dtype, device=out_base.device) / sum(dt)
+    first = max(start, 1)
+    combined = drows[:, 0, :]
+    if first < stop:
+        combined = combined + torch.einsum("k,nkd->nd", w[first - start:], drows[:, first:stop, :])
+    out_base.view(-1, dim).add_(combined)
+    return out_base
+
+
+def _pdd_final_layer_forward(final_layer, video_branches, audio_branches):
+    """`FinalLayer.forward` when `pdd_steps > 1`, where `_pdd_head` reads
+    `head.weight` directly without calling `head.forward`."""
+    v_tuple = tuple(video_branches)
+    a_tuple = tuple(audio_branches)
+
+    def forward(x, t_emb, video_seg, audio_seg, sigma, sample_sigmas, grids):
+        shift, scale = final_layer.adaln_proj(t_emb)
+        n = final_layer.pdd_steps
+        if sample_sigmas is None:
+            raise ValueError("MiniMax H3 PDD heads need the sampler's sigma schedule")
+        i = int((sample_sigmas - sigma).abs().argmin())
+        sigma_next = sample_sigmas[min(i + 1, sample_sigmas.shape[0] - 1)]
+        start, stop = (
+            min(range(n + 1), key=lambda k: abs(grids[0][k] - float(s)))
+            for s in (sigma, sigma_next)
+        )
+        start = min(start, n - 1)
+        stop = max(stop, start + 1)
+        out = []
+        for head, seg, grid, h_branches in zip(
+            (final_layer.video_out, final_layer.audio_out),
+            (video_seg, audio_seg),
+            grids,
+            (v_tuple, a_tuple),
+        ):
+            h = final_layer._modulate(x, shift, scale, seg)
+            base_out = mm_h3._pdd_head(head, h, grid, start, stop)
+            if h_branches:
+                base_out = _pdd_head_delta(h, h_branches, grid, start, stop, base_out)
+            out.append(base_out)
+        return out
+
+    forward._h3_lora_final_pdd = (final_layer, v_tuple, a_tuple)
+    return forward
+
+
 def install(m, branches):
     """Install every branch on the ModelPatcher `m` itself, as object patches.
 
     `attach` is this on a clone. Chained `MiniMaxH3LoRABranch` calls accumulate
     immutable branch tuples on `m.object_patches` while refusing any foreign
     non-`lora_branch` forward patch."""
+    dm = m.get_model_object("diffusion_model")
+    has_audio = (
+        getattr(dm, "audio_patch_proj", None) is not None
+        or getattr(getattr(dm, "final_layer", None), "audio_out", None) is not None
+    )
+    skipped_audio = []
+    if not has_audio:
+        filtered = {}
+        for path, branch in branches.items():
+            if _is_audio_stream_path(path):
+                skipped_audio.append(path)
+            else:
+                filtered[path] = branch
+        if skipped_audio:
+            log.info(
+                "[h3] LoRA branch: skipped %d audio stream module(s) on audio-free model (%s)",
+                len(skipped_audio),
+                ", ".join(skipped_audio),
+            )
+        if not filtered and branches:
+            raise ValueError(
+                f"LoRA targets only audio stream modules ({skipped_audio}), "
+                f"which this audio-free model lacks"
+            )
+        branches = filtered
+
+    final_layer = getattr(dm, "final_layer", None)
+    pdd_steps = int(getattr(final_layer, "pdd_steps", 1)) if final_layer is not None else 1
+
     taken = []
     patches = {}
     fc2 = {p for p in branches if p.endswith("mlp.fc2")}
+    pdd_heads = (
+        {p for p in branches if p in ("final_layer.video_out", "final_layer.audio_out")}
+        if pdd_steps > 1
+        else set()
+    )
     for path, branch in branches.items():
         if path in fc2:
             continue
@@ -436,6 +588,9 @@ def install(m, branches):
         if getattr(getattr(mod, "weight", None), "ndim", 0) != 2:
             raise ValueError(f"{path} is a {type(mod).__name__} with no 2-D weight; this "
                              f"node only branches linear modules and MLP.fc2")
+        _check_branch_shape(path, branch, mod, pdd_steps=pdd_steps)
+        if path in pdd_heads:
+            continue
         # The ORIGINAL forward, through `get_model_object` on the `.forward` key,
         # which reads the backup the clones of one checkpoint share. `mod.forward`
         # is whatever is applied right now: another model's branch, if it is
@@ -452,7 +607,27 @@ def install(m, branches):
                 patches[key] = _linear_forward(base_fwd, (*prev_branches, branch))
         else:
             patches[key] = _linear_forward(m.get_model_object(key), (branch,))
+    if pdd_heads:
+        fl_key = f"{PREFIX}final_layer.forward"
+        new_v = (branches["final_layer.video_out"],) if "final_layer.video_out" in pdd_heads else ()
+        new_a = (branches["final_layer.audio_out"],) if "final_layer.audio_out" in pdd_heads else ()
+        if fl_key in m.object_patches:
+            existing_fl = m.object_patches[fl_key]
+            chain_fl = getattr(existing_fl, "_h3_lora_final_pdd", None)
+            if chain_fl is None:
+                taken.append(fl_key)
+            else:
+                _, prev_v, prev_a = chain_fl
+                patches[fl_key] = _pdd_final_layer_forward(
+                    final_layer, (*prev_v, *new_v), (*prev_a, *new_a)
+                )
+        else:
+            patches[fl_key] = _pdd_final_layer_forward(final_layer, new_v, new_a)
     for path in fc2:
+        fc2_mod = m.get_model_object(PREFIX + path)
+        if getattr(getattr(fc2_mod, "weight", None), "ndim", 0) != 2:
+            raise ValueError(f"{path} is a {type(fc2_mod).__name__} with no 2-D weight")
+        _check_branch_shape(path, branches[path], fc2_mod, pdd_steps=pdd_steps)
         parent = path[:-len(".fc2")]
         mlp = m.get_model_object(PREFIX + parent)
         fc1_key = f"{PREFIX}{parent}.fc1.forward"
@@ -507,8 +682,8 @@ class MiniMaxH3LoRABranch(io.ComfyNode):
                                tooltip="ComfyUI's LoRA strength: the delta is strength * alpha / rank * B A."),
                 io.Combo.Input("modules", options=list(MODULE_CHOICES), default="all", optional=True,
                                tooltip="Which of the LoRA's modules apply: all, everything but the "
-                                       "timestep modulation (adaln), adaln alone, attention alone, or "
-                                       "the MLP alone."),
+                                       "timestep modulation (adaln), adaln alone, attention alone, "
+                                       "the MLP alone, or attention + mlp."),
                 io.String.Input("blocks", default="all", optional=True,
                                 tooltip="'all', or DiT block indices/ranges such as '0-24,40' and/or "
                                         "'refiner', 'final_layer'. A numeric list keeps only those DiT "

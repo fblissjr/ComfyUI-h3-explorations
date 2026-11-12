@@ -82,7 +82,8 @@ _OUR_NODES = {
     "MiniMaxH3AudioFreezeSong", "MiniMaxH3PromptList",
     "MiniMaxH3PH3ImagePromptUpsampler", "MiniMaxH3PH3ImageConditioning",
     "MiniMaxH3GuideLatent",
-    "MiniMaxH3ImageSize", "MiniMaxH3ImagePromptExpander",
+    "MiniMaxH3ImageSize", "MiniMaxH3ImageDownscale", "MiniMaxH3ImagePromptExpander",
+    "MiniMaxH3EncodeImageReferences", "MiniMaxH3PromptOnImageReferences",
 }
 
 # Model names, sampler settings, canvas geometry and the SolAttn knobs all
@@ -424,6 +425,10 @@ PLACEHOLDER_IMAGE_B = "2-mountain_landscape.png"
 # node. Each slot also reserved the next id for a `MiniMaxH3ReferenceFit`
 # (24, 25, 35, 37, 39, 46), retired in 0.173.0 and no longer emitted.
 _REF_IMAGE_NODES = ("15", "16", "34", "36", "38", "45")
+# MiniMax-H3-Image accepts up to 16 reference stills (`MiniMaxH3ImagePromptExpander` /
+# `MiniMaxH3EncodeImageReferences`); keep `_REF_IMAGE_NODES` at 6 so video `ref2va` and Studio's
+# 6-slot tray contract stay unchanged, and allocate 201-210 for slots 7-16.
+_H3_IMAGE_REF_NODES = _REF_IMAGE_NODES + tuple(str(i) for i in range(201, 211))
 
 # Typed reference append nodes, in presentation order. The six image slots
 # above plus one video and one standalone audio reference can consume all
@@ -2913,7 +2918,9 @@ def build_h3_image_api(
       ask `KSampler` for six `simple` steps, which lands near the grid the output heads were
       distilled on rather than on it.
     - **The size is megapixels and a shape** (`MiniMaxH3ImageSize`), 16 megapixels by default as
-      the model card recommends. An edit takes its picture's shape. The templates start at 4.
+      the model card recommends. An edit takes its picture's shape. Requests below 4.0 megapixels
+      sample on the vendor's 4.0-megapixel DiT canvas floor (`width`, `height`) and Lanczos-downscale
+      after `VAEDecode` via `MiniMaxH3ImageDownscale` (`target_width`, `target_height`).
     - **A picture being edited reaches the conditioning node untouched.** The edit template
       resamples it to 4 megapixels first; the model reads a reference at its own size, and core's
       node already bounds it the way the vendor's pipeline does. Note that core's
@@ -2937,12 +2944,12 @@ def build_h3_image_api(
     An edit encodes its pictures with the VAE's encoder in fp32 (`MiniMaxH3VAEPrecision`,
     `vae_encoder`), the owner's decision of 2026-11-11: MiniMax's own server runs that encode on fp32
     weights and decodes in half precision (`coderef/sglang`, `minimax_h3/keyframe_encoding.py`),
-    which ComfyUI's one dtype per VAE cannot express. The encoder is promoted in place from the
-    loaded VAE file (`PH3_IMAGE_VAE` carries the unrounded fp32 encoder weights; rounding the
-    release's fp32 encoder weights to fp16 in `H3_IMAGE_VAE` also loses nothing that matters,
-    `docs/h3_image.md`), so no second VAE file is loaded. Only the conditioning node is rebound;
-    `VAEDecode` stays on the loader, decoder untouched. `vae_encoder=None` wires no node. Text to
-    image encodes nothing and gets none.
+    which ComfyUI's one dtype per VAE cannot express. `comfy/sd.py` casts the loaded VAE to `fp16` on
+    load (`max_abs_diff = 2.98e-8` across all 118 encoder tensors), and `MiniMaxH3VAEPrecision` promotes
+    the encoder in place to `fp32` for FP32 Conv3d/GroupNorm activation accumulation without loading a
+    second VAE file (`docs/h3_image.md`). Only the conditioning node is rebound; `VAEDecode` stays on
+    the loader, decoder untouched. `vae_encoder=None` wires no node. Text to image encodes nothing and
+    gets none.
 
     The conditioning node takes a finished description: this model has no chat template and no
     negative prompt. By default (`heylook=False`) the graph carries a finished caption directly;
@@ -2986,8 +2993,10 @@ def build_h3_image_api(
                           "latent_image": ["5", 1]}},
         "11": {"class_type": "VAEDecode",
                "inputs": {"samples": ["10", 0], "vae": ["3", 0]}},
+        "12": {"class_type": "MiniMaxH3ImageDownscale",
+               "inputs": {"images": ["11", 0], "target_width": ["4", 2], "target_height": ["4", 3]}},
         "13": {"class_type": "SaveImage",
-               "inputs": {"images": ["11", 0], "filename_prefix": resolved_prefix}},
+               "inputs": {"images": ["12", 0], "filename_prefix": resolved_prefix}},
         "60": {"class_type": "ManualSigmas",
                "inputs": {"sigmas": H3_IMAGE_MANUAL_SIGMAS}},
     }
@@ -3001,14 +3010,14 @@ def build_h3_image_api(
     stills: tuple[str, ...] = ()
     if is_edit:
         stills = ref_images if ref_images is not None else (H3_IMAGE_EDIT_PICTURE,)
-        if not 1 <= len(stills) <= len(_REF_IMAGE_NODES):
+        if not 1 <= len(stills) <= len(_H3_IMAGE_REF_NODES):
             raise SystemExit(
-                f"build_h3_image_api got {len(stills)} pictures; this builder wires 1..{len(_REF_IMAGE_NODES)}")
-        for idx, (load_id, img_name) in enumerate(zip(_REF_IMAGE_NODES, stills)):
+                f"build_h3_image_api got {len(stills)} pictures; this builder wires 1..{len(_H3_IMAGE_REF_NODES)}")
+        for idx, (load_id, img_name) in enumerate(zip(_H3_IMAGE_REF_NODES, stills)):
             g[load_id] = {"class_type": "LoadImage", "inputs": {"image": img_name}}
             cond_inputs[f"images.image_{idx}"] = [load_id, 0]
         # the picture being edited gives the output its shape; only its size is read
-        g["4"]["inputs"]["picture"] = [_REF_IMAGE_NODES[0], 0]
+        g["4"]["inputs"]["picture"] = [_H3_IMAGE_REF_NODES[0], 0]
         if vae_encoder:
             g["47"] = {"class_type": "MiniMaxH3VAEPrecision",
                        "inputs": {"vae": ["3", 0], "encoder": vae_encoder, "decoder": "unchanged"}}
@@ -3036,7 +3045,7 @@ def build_h3_image_api(
             "presence_penalty": 0.0,
             "reasoning_effort": "",
         }
-        for idx, (load_id, _) in enumerate(zip(_REF_IMAGE_NODES, stills), start=1):
+        for idx, (load_id, _) in enumerate(zip(_H3_IMAGE_REF_NODES, stills), start=1):
             expander_inputs[f"images.image_{idx}"] = [load_id, 0]
         g["14"] = {"class_type": "MiniMaxH3ImagePromptExpander", "inputs": expander_inputs}
         cond_inputs["prompt"] = ["14", 0]

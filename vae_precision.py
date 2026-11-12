@@ -115,12 +115,13 @@ class MiniMaxH3VAEPrecision(io.ComfyNode):
             display_name="MiniMax H3 VAE Precision (encode/decode split)",
             category="MiniMaxH3/experimental",
             description=(
-                "Set the H3 video VAE's encoder and decoder precision "
-                "independently. The released pipeline keeps this VAE in fp32 "
-                "and decodes under fp16, which ComfyUI's single --fp32-vae "
+                "Set the H3 video or image VAE's encoder and decoder precision "
+                "independently. The released pipelines run reference encoding in "
+                "fp32 and decode under fp16, which ComfyUI's single --fp32-vae "
                 "flag cannot express. The encoder is ~7% of the weights, so "
-                "fp32 encode is cheap; fp32 decode is not, and is not what "
-                "the release does."
+                "fp32 encode is cheap; fp32 decode is not, and on "
+                "MiniMaxH3ImageVAE fp16 decode already measures 52.26 dB PSNR "
+                "against fp32 (vs 44.14 dB in bf16)."
             ),
             inputs=[
                 io.Vae.Input("vae"),
@@ -189,6 +190,13 @@ class MiniMaxH3VAEPrecision(io.ComfyNode):
             model.decoder.to(DTYPES[decoder])
             if hasattr(model, "post_quant_conv"):
                 model.post_quant_conv.to(DTYPES[decoder])
+        if encoder != "unchanged" or decoder != "unchanged":
+            # comfy/sd.py::VAE.get_sd_size caches `self.size` on first call and
+            # copies `n.size = self.size` on clone. Promoting the encoder to
+            # fp32 adds ~0.34 GiB on the shared module; clearing both caches
+            # makes model_management recompute the live footprint.
+            vae.size = None
+            out.size = None
 
         enc_dtype = _module_dtype(model.encoder)
         dec_dtype = _module_dtype(model.decoder)

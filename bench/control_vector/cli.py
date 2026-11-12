@@ -723,6 +723,7 @@ def build_parser() -> argparse.ArgumentParser:
     pjl.add_argument("--encoder", default=None, help="Text encoder checkpoint filename")
     pjl.add_argument("--fl2va-dit", dest="fl2va_dit", default=None, help="fl2va DiT checkpoint filename")
     pjl.add_argument("--ref2va-dit", dest="ref2va_dit", default=None, help="ref2va DiT checkpoint filename")
+    pjl.add_argument("--h3-image-dit", dest="h3_image_dit", default=None, help="MiniMax-H3-Image DiT checkpoint filename")
     pjl.add_argument("--no-lora", dest="no_lora", action="store_true", help="Compute TokenRefiner Jacobians without Pika LoRAs")
     pjl.add_argument("--overwrite", action="store_true", help="Overwrite an existing j_lens_h3.safetensors bundle at --out / default bundle path")
     pjl.add_argument("--device", default="default")

@@ -67,7 +67,12 @@ from .reference_conditioning import (
     MiniMaxH3AppendRefVideo,
     MiniMaxH3ReferenceConditioning,
 )
-from .reference_encode import MiniMaxH3EncodeReferences, MiniMaxH3PromptOnReferences
+from .reference_encode import (
+    MiniMaxH3EncodeImageReferences,
+    MiniMaxH3EncodeReferences,
+    MiniMaxH3PromptOnImageReferences,
+    MiniMaxH3PromptOnReferences,
+)
 from .edit_guidance import MiniMaxH3EditGuider, MiniMaxH3PromptEdit
 from .control_vector_nodes import (
     MiniMaxH3ApplyControlVectors,
@@ -85,7 +90,11 @@ from .ph3_image_nodes import (
     MiniMaxH3PH3ImagePromptUpsampler,
 )
 from .guide_latent import MiniMaxH3GuideLatent
-from .h3_image_nodes import MiniMaxH3ImagePromptExpander, MiniMaxH3ImageSize
+from .h3_image_nodes import (
+    MiniMaxH3ImageDownscale,
+    MiniMaxH3ImagePromptExpander,
+    MiniMaxH3ImageSize,
+)
 from . import h3_capture
 
 from .attention import (
@@ -427,7 +436,12 @@ class H3ExplorationsExtension(ComfyExtension):
                 MiniMaxH3LoadControlVector,
                 MiniMaxH3WordVector,
                 MiniMaxH3Steer,
-                MiniMaxH3ReleaseReferences]
+                MiniMaxH3ReleaseReferences,
+                # appended 2026-11-12, sub-4MP Lanczos post-decode downscale and split reference
+                # encoding for MiniMax-H3-Image (h3_image_nodes.py, reference_encode.py)
+                MiniMaxH3ImageDownscale,
+                MiniMaxH3EncodeImageReferences,
+                MiniMaxH3PromptOnImageReferences]
 
 
 async def comfy_entrypoint() -> H3ExplorationsExtension:

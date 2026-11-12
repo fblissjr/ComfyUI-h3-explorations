@@ -136,7 +136,7 @@ def _extract_vector_stem_and_family(filename: str) -> tuple[str | None, str | No
     norm = filename.replace("\\", "/")
     if "/" in norm:
         return None, None
-    for fam in ("fl2va", "ref2va", "fasth3"):
+    for fam in ("fl2va", "ref2va", "fasth3", "h3_image"):
         tag = f"__{fam}"
         if tag in norm:
             cand = norm.split(tag, 1)[0]
@@ -1218,6 +1218,7 @@ def _resolve_custom_inference_mask(
     L: int,
     device: torch.device,
     kwarg_span_masks: Any = None,
+    is_h3_image: bool = False,
 ) -> torch.Tensor | None:
     if sp.mask in ("non_vision", "all_rows"):
         return None
@@ -1228,6 +1229,27 @@ def _resolve_custom_inference_mask(
         span_masks = getattr(tags_raw, "_h3_span_masks", None)
     if span_masks is None and sp.prompt and sp.prompt.strip():
         span_masks = _spans.span_masks_from_prompt(sp.prompt, L, tags=tags_2d[0])
+    if span_masks is None and is_h3_image:
+        # Core's `MiniMaxH3ImageConditioning` emits plain `minimax_token_tags` without
+        # `h3_span_masks`, and `MiniMax-H3-Image` prompts are single-frame visual prose
+        # captions (`Picture k: <|vision_start|>...<|vision_end|>` + visual description,
+        # with no audio or dialogue sections). Steer the post-vision caption rows directly.
+        row_tags = tags_2d[0]
+        vis_idxs = (row_tags == 0).nonzero(as_tuple=False).flatten()
+        if vis_idxs.numel() > 0:
+            last_vis = int(vis_idxs[-1].item())
+            caption_rows = torch.arange(L, device=device) > last_vis
+        else:
+            caption_rows = (row_tags != 0).to(device=device)
+        sel = _spans.split_fields_mask(sp.mask)
+        if sel is not None:
+            if any(f in ("description", "summary", "subject_definitions") for f in sel):
+                return caption_rows
+            return torch.zeros((L,), dtype=torch.bool, device=device)
+        if sp.mask in ("scene_only", "description_only", "look_only", "after_dialogue"):
+            return caption_rows
+        if sp.mask == "soundscape_only":
+            return torch.zeros((L,), dtype=torch.bool, device=device)
     if span_masks is None:
         raise ValueError(
             f"control vector {sp.vector_name!r} uses mask={sp.mask!r}, which requires "
@@ -1371,7 +1393,9 @@ def _drop_visual_cond_from_layout(orig_layout: Any) -> tuple[Any, int]:
     return released, dropped_rows
 
 
-def _make_control_vector_wrapper(specs: tuple[_AppliedVectorSpec, ...]):
+def _make_control_vector_wrapper(
+    specs: tuple[_AppliedVectorSpec, ...], *, is_h3_image: bool = False
+):
     logged_prefix_notes: set[tuple[str, str]] = set()
     logged_interactions: set[tuple[tuple[str, float, str], ...]] = set()
     logged_ref_notes: set[str] = set()
@@ -1670,6 +1694,7 @@ def _make_control_vector_wrapper(specs: tuple[_AppliedVectorSpec, ...]):
                     L=L,
                     device=base_ctx.device,
                     kwarg_span_masks=kwarg_span_masks,
+                    is_h3_image=is_h3_image,
                 )
                 mask_vision = sp.mask != "all_rows"
                 group_specs: list[_AppliedVectorSpec] = [sp]
@@ -1821,8 +1846,8 @@ def _match_sibling_or_stem_in_dir(
         return None
     fams = (
         [preferred_family]
-        if preferred_family in ("fl2va", "ref2va", "fasth3")
-        else ["fl2va", "ref2va", "fasth3"]
+        if preferred_family in ("fl2va", "ref2va", "fasth3", "h3_image")
+        else ["fl2va", "ref2va", "fasth3", "h3_image"]
     )
     sort_key = lambda p: (0 if ("__lora_" in p.name) == prefer_lora else 1, p.name)
     for fam in fams:
@@ -1854,12 +1879,19 @@ def resolve_vector_file_path(
         raise ValueError("vector_name is 'none'")
 
     def _maybe_swap_family_sibling(found: Path) -> Path:
-        if preferred_family not in ("fl2va", "ref2va"):
+        if preferred_family not in ("fl2va", "ref2va", "h3_image"):
             return found
-        other_fam = "fl2va" if preferred_family == "ref2va" else "ref2va"
+        other_fam = next(
+            (
+                fam
+                for fam in ("fl2va", "ref2va", "h3_image")
+                if fam != preferred_family and f"__{fam}" in found.name
+            ),
+            None,
+        )
+        if other_fam is None:
+            return found
         tag_other = f"__{other_fam}"
-        if tag_other not in found.name:
-            return found
         stem = found.name.split(tag_other, 1)[0]
         pooling_hint = "diff_span" if "__diff_span" in found.name else (
             "from_first_diff" if "__from_first_diff" in found.name else None
@@ -1920,6 +1952,32 @@ def resolve_vector_file_path(
 
     raise ValueError(
         f"control vector file {vector_name!r} not found in models/{CONTROL_VECTORS_FOLDER}/"
+    )
+
+
+def _project_encoder_vector_to_h3_image(v_enc_scaled: torch.Tensor, dm: Any) -> torch.Tensor:
+    """Project a `5120`-d scaled `vector.encoder` direction into `5376`-d `h3_image` post-refiner space."""
+    v32 = v_enc_scaled.detach().to(device="cpu", dtype=torch.float32).flatten()
+    if _j_lens.bundle_available():
+        b = _j_lens.load_j_lens_bundle()
+        if "J_ref_h3_image" in b:
+            return (b["J_ref_h3_image"] @ v32).to(dtype=torch.float32).contiguous()
+    proj_mod = getattr(dm, "condition_proj", None)
+    ref_mod = getattr(dm, "token_refiner", None)
+    if callable(proj_mod) and callable(ref_mod):
+        w_param = getattr(proj_mod, "weight", None)
+        dev = w_param.device if isinstance(w_param, torch.Tensor) else torch.device("cpu")
+        dt = w_param.dtype if isinstance(w_param, torch.Tensor) else torch.float32
+        with torch.no_grad():
+            half = (0.5 * v32).view(1, 1, -1).to(device=dev, dtype=dt)
+            r_pos = ref_mod(proj_mod(half)).detach().to(device="cpu", dtype=torch.float32).flatten()
+            r_neg = ref_mod(proj_mod(-half)).detach().to(device="cpu", dtype=torch.float32).flatten()
+            return (r_pos - r_neg).contiguous()
+    w_proj = getattr(proj_mod, "weight", None)
+    if isinstance(w_proj, torch.Tensor):
+        return (w_proj.detach().to(device="cpu", dtype=torch.float32) @ v32).contiguous()
+    raise ValueError(
+        "cannot project vector.encoder to 'h3_image': neither J_ref_h3_image nor condition_proj is available"
     )
 
 
@@ -2020,7 +2078,9 @@ def attach_control_vector(
             updated_none = existing_none + (ref_spec,)
             t_opts[WRAPPER_KEY] = updated_none
             wrappers = m.wrappers.setdefault(WrappersMP.DIFFUSION_MODEL, {})
-            wrappers[WRAPPER_KEY] = [_make_control_vector_wrapper(updated_none)]
+            wrappers[WRAPPER_KEY] = [
+                _make_control_vector_wrapper(updated_none, is_h3_image=_is_minimax_h3_image(dm))
+            ]
         return m
 
     loaded_family = _cv.detect_family(model)
@@ -2048,25 +2108,52 @@ def attach_control_vector(
                 f"control vector {vec_path.name} has no 'vector.post_refiner' tensor"
             )
 
-        # Compare checkpoint + loras (encoder is only known at Make time unless passed)
-        recipe_to_check = {
-            "checkpoint": loaded_recipe["checkpoint"],
-            "loras": loaded_recipe["loras"],
-            "encoder": metadata["recipe"].get("encoder", loaded_recipe["encoder"]),
-        }
-        advisories = _cv.check_vector_compatibility(
-            metadata,
-            loaded_family=loaded_family,
-            loaded_recipe=recipe_to_check,
-            loaded_prefix=loaded_prefix,
-            allow_recipe_mismatch=allow_recipe_mismatch,
-        )
-        for msg in advisories:
-            logger.warning("[h3] %s", msg)
+        vec_family = str(metadata.get("family", ""))
+        if (
+            loaded_family == "h3_image"
+            and vec_family in ("fl2va", "ref2va", "fasth3")
+            and "vector.encoder" in tensors
+        ):
+            _cv._validate_metadata_dict(metadata)
+            v_enc = tensors["vector.encoder"].detach().to(device="cpu", dtype=torch.float32).flatten()
+            v_enc_nrm = float(torch.linalg.vector_norm(v_enc.to(dtype=torch.float64)).item())
+            if v_enc_nrm <= 1e-12:
+                raise ValueError(f"control vector {vec_path.name} has zero 'vector.encoder' norm")
+            u_enc = v_enc / v_enc_nrm
+            pts_enc = (metadata.get("points") or {}).get("encoder")
+            enc_raw_norm = (
+                float(pts_enc["raw_norm"])
+                if isinstance(pts_enc, Mapping) and float(pts_enc.get("raw_norm", 0.0) or 0.0) > 1e-9
+                else float(_cv.NORM_MATCHED_TARGET)
+            )
+            vec_pr = _project_encoder_vector_to_h3_image(u_enc * enc_raw_norm, dm)
+            proj_msg = (
+                f"projected {vec_path.name} (family={vec_family!r}) from 5120-d vector.encoder "
+                f"(raw_norm={enc_raw_norm:.2f}) into 5376-d 'h3_image' post-refiner space "
+                f"(||v_pr||={float(torch.linalg.vector_norm(vec_pr.to(dtype=torch.float64)).item()):.2f})"
+            )
+            advisories = [proj_msg]
+            logger.info("[h3] %s", proj_msg)
+        else:
+            # Compare checkpoint + loras (encoder is only known at Make time unless passed)
+            recipe_to_check = {
+                "checkpoint": loaded_recipe["checkpoint"],
+                "loras": loaded_recipe["loras"],
+                "encoder": metadata["recipe"].get("encoder", loaded_recipe["encoder"]),
+            }
+            advisories = _cv.check_vector_compatibility(
+                metadata,
+                loaded_family=loaded_family,
+                loaded_recipe=recipe_to_check,
+                loaded_prefix=loaded_prefix,
+                allow_recipe_mismatch=allow_recipe_mismatch,
+            )
+            for msg in advisories:
+                logger.warning("[h3] %s", msg)
+            vec_pr = tensors["vector.post_refiner"]
 
-        vec_pr = tensors["vector.post_refiner"]
         if hold_clean and ha_f > 0.0:
-            synth_fam = "ref2va" if "ref2va" in str(loaded_family).lower() else "fl2va"
+            synth_fam = _j_lens._canonical_synth_family(str(loaded_family))
             hold_synth = _j_lens.synthesize_from_words(
                 hold_clean,
                 family=synth_fam,
@@ -2117,7 +2204,7 @@ def attach_control_vector(
         )
 
     if words_clean:
-        synth_fam = "ref2va" if "ref2va" in str(loaded_family).lower() else "fl2va"
+        synth_fam = _j_lens._canonical_synth_family(str(loaded_family))
         prompt_str = str(prompt or "").strip()
         is_prompt_against = against_clean.lower().lstrip("@") in ("prompt", "prompt_subject")
         synth = _j_lens.synthesize_from_words(
@@ -2211,7 +2298,9 @@ def attach_control_vector(
     # Replace the wrapper list under WRAPPER_KEY so all stacked specs execute
     # in one float64 accumulation pass per DiT step.
     wrappers = m.wrappers.setdefault(WrappersMP.DIFFUSION_MODEL, {})
-    wrappers[WRAPPER_KEY] = [_make_control_vector_wrapper(updated)]
+    wrappers[WRAPPER_KEY] = [
+        _make_control_vector_wrapper(updated, is_h3_image=_is_minimax_h3_image(dm))
+    ]
     return m
 
 

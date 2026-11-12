@@ -134,7 +134,12 @@ def sizes() -> None:
            f"{h3_config.H3_IMAGE_ASPECTS} against {enum}")
     sys.path.insert(0, str(REPO))
     try:
-        from h3_image_nodes import MiniMaxH3ImageSize, resolve_size
+        from h3_image_nodes import (
+            MiniMaxH3ImageDownscale,
+            MiniMaxH3ImageSize,
+            resolve_canvas_and_target_size,
+            resolve_size,
+        )
     except Exception as exc:  # comfy_api not importable outside ComfyUI's tree
         report(False, "the size node imports", repr(exc))
         return
@@ -145,10 +150,35 @@ def sizes() -> None:
         report(False, "no picture is refused")
     except ValueError:
         report(True, "no picture is refused")
+    override_size = h3_config.h3_image_size(16.0, 5, 3)
     override_out = tuple(MiniMaxH3ImageSize.execute(16.0, "1:1", picture=None, shape_from_expander="5:3"))
     fallback_out = tuple(MiniMaxH3ImageSize.execute(16.0, "4:3", picture=None, shape_from_expander=""))
-    report(override_out == h3_config.h3_image_size(16.0, 5, 3) and fallback_out == CARD_SIZES["4:3"],
-           "shape_from_expander overrides shape when set and falls back when empty")
+    report(
+        override_out == (*override_size, *override_size)
+        and fallback_out == (*CARD_SIZES["4:3"], *CARD_SIZES["4:3"]),
+        "shape_from_expander overrides shape when set and falls back when empty",
+    )
+    report(
+        resolve_canvas_and_target_size(1.0, "1:1", None, enforce_4mp_floor=True) == (2048, 2048, 1024, 1024)
+        and tuple(MiniMaxH3ImageSize.execute(1.0, "1:1")) == (2048, 2048, 1024, 1024)
+        and tuple(MiniMaxH3ImageSize.execute(1.0, "1:1", enforce_4mp_floor=False)) == (1024, 1024, 1024, 1024),
+        "sub-4MP requests lift DiT canvas to the vendor's 4.0-MP floor while keeping target_width/target_height",
+    )
+    gen = torch.Generator().manual_seed(42)
+    img_in = torch.rand((1, 128, 128, 3), generator=gen, dtype=torch.float32)
+    same_out = MiniMaxH3ImageDownscale.execute(img_in, 128, 128)[0]
+    zero_out = MiniMaxH3ImageDownscale.execute(img_in, 0, 0)[0]
+    down_out = MiniMaxH3ImageDownscale.execute(img_in, 64, 64)[0]
+    from PIL import Image
+    import numpy as np
+    u8 = (img_in[0] * 255.0).clamp(0.0, 255.0).to(torch.uint8).numpy()
+    pil_ref = torch.from_numpy(
+        np.asarray(Image.fromarray(u8).resize((64, 64), resample=Image.Resampling.LANCZOS), dtype=np.float32) / 255.0
+    ).unsqueeze(0)
+    report(
+        same_out is img_in and zero_out is img_in and torch.equal(down_out, pil_ref),
+        "MiniMaxH3ImageDownscale passes matching sizes untouched and matches 8-bit PIL Lanczos when downscaling",
+    )
 
 
 def expander_replies() -> None:
@@ -627,7 +657,39 @@ def graphs() -> None:
             ok &= exp_in.get("base_url") == h3_config.HEYLOOK_DEFAULT_BASE_URL and exp_in.get("model") == ""
         else:
             ok &= isinstance(cond["prompt"], str) and bool(cond["prompt"].strip())
+        vaedec = [(nid, n["inputs"]) for nid, n in g.items() if n["class_type"] == "VAEDecode"]
+        down = [(nid, n["inputs"]) for nid, n in g.items() if n["class_type"] == "MiniMaxH3ImageDownscale"]
+        save = [n["inputs"] for n in g.values() if n["class_type"] == "SaveImage"]
+        size_ids = [nid for nid, n in g.items() if n["class_type"] == "MiniMaxH3ImageSize"]
+        ok &= len(vaedec) == 1 and len(down) == 1 and len(save) == 1 and len(size_ids) == 1
+        if vaedec and down and save and size_ids:
+            vd_id, _ = vaedec[0]
+            dn_id, dn_in = down[0]
+            sz_id = size_ids[0]
+            ok &= (
+                dn_in.get("images") == [vd_id, 0]
+                and dn_in.get("target_width") == [sz_id, 2]
+                and dn_in.get("target_height") == [sz_id, 3]
+                and save[0].get("images") == [dn_id, 0]
+            )
         report(bool(ok), f"the shipped graph {path.name}")
+
+    import build_workflows as bw
+    g16 = bw.build_h3_image_api(
+        "h3img_edit",
+        prompt="Edit <Picture 1> through <Picture 16>.",
+        ref_images=tuple(f"img_{i}.png" for i in range(16)),
+        heylook=True,
+    )
+    c16 = next(n["inputs"] for n in g16.values() if n["class_type"] == "MiniMaxH3ImageConditioning")
+    e16 = next(n["inputs"] for n in g16.values() if n["class_type"] == "MiniMaxH3ImagePromptExpander")
+    loads16 = [nid for nid, n in g16.items() if n["class_type"] == "LoadImage"]
+    ok16 = (
+        len(loads16) == 16
+        and [k for k in c16 if k.startswith("images.")] == [f"images.image_{i}" for i in range(16)]
+        and [k for k in e16 if k.startswith("images.")] == [f"images.image_{i}" for i in range(1, 17)]
+    )
+    report(bool(ok16), "build_h3_image_api wires up to 16 reference pictures (0-based conditioning, 1-based expander)")
 
 
 def release_grid(folder: Path | None) -> None:

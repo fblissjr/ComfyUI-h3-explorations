@@ -35,7 +35,7 @@ with none is a helper the others import.
 |---|---|---|
 | [`h3_capture.py`](h3_capture.py) |  | Capture real q/k/v from an H3 render, for kernel-divergence work. |
 | [`h3_encoder_loader.py`](h3_encoder_loader.py) | `MiniMaxH3EncoderLoader` | Core's `CLIPLoader` for a MiniMax H3 encoder, plus the guards it does not have. |
-| [`h3_image_nodes.py`](h3_image_nodes.py) | `MiniMaxH3ImageSize`, `MiniMaxH3ImagePromptExpander` | MiniMax-H3-Image: canvas size (`MiniMaxH3ImageSize`) and local `heylook` prompt expander (`MiniMaxH3ImagePromptExpander`). |
+| [`h3_image_nodes.py`](h3_image_nodes.py) | `MiniMaxH3ImageSize`, `MiniMaxH3ImagePromptExpander`, `MiniMaxH3ImageDownscale` | MiniMax-H3-Image: canvas size (`MiniMaxH3ImageSize`) and local `heylook` prompt expander (`MiniMaxH3ImagePromptExpander`). |
 | [`h3_layout.py`](h3_layout.py) |  | MiniMax-H3's packed layout, read from what core publishes. |
 | [`h3_pair_compiler.py`](h3_pair_compiler.py) |  | In-place target-prompt contrast compiler for MiniMax H3 control vectors. |
 | [`h3_prompt_edit.py`](h3_prompt_edit.py) |  | Apply `old wording -> new wording` edits to an H3 prompt: plain text code, no model libraries. |
@@ -63,7 +63,7 @@ with none is a helper the others import.
 | module | nodes it defines | what it says it does |
 |---|---|---|
 | [`reference_conditioning.py`](reference_conditioning.py) | `MiniMaxH3AppendRefImage`, `MiniMaxH3AppendRefVideo`, `MiniMaxH3AppendRefAudio`, `MiniMaxH3ReferenceConditioning` | Typed, ordered reference conditioning for MiniMax H3. |
-| [`reference_encode.py`](reference_encode.py) | `MiniMaxH3EncodeReferences`, `MiniMaxH3PromptOnReferences` | Encode an H3 reference list once, and write prompts on top of it. |
+| [`reference_encode.py`](reference_encode.py) | `MiniMaxH3EncodeReferences`, `MiniMaxH3PromptOnReferences`, `MiniMaxH3EncodeImageReferences`, `MiniMaxH3PromptOnImageReferences` | Encode an H3 reference list once, and write prompts on top of it. |
 | [`reference_geometry.py`](reference_geometry.py) |  | The one implementation of H3 reference-image sizing. |
 | [`reference_noise.py`](reference_noise.py) | `MiniMaxH3ReferenceNoise` | Set how clean the model is shown its picture and video references. |
 | [`reference_order.py`](reference_order.py) |  | The ordered-reference model, and the one place labels are assigned. |

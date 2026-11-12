@@ -640,6 +640,142 @@ def main() -> int:
           f"{lin_one_chunk} copies at one chunk, {lin_many_chunks} at LINEAR_CHUNK_ROWS=3, "
           f"rel={rel(out_lin_chunked, ref_bd):.3g}")
 
+    # 7. 1-stream MiniMaxH3ImageModel (audio_latents_dim=None, pruned t_dim=8, pdd_steps=6):
+    #    - 2-stream audio branches (including Kohya aliases) skip cleanly without error;
+    #    - "attention + mlp" keeps only .attn. and .mlp. modules;
+    #    - unpruned adaln_proj.linear (in_features=64 vs 8) fails fast with a clear ValueError;
+    #    - non-PDD single-head final_layer.video_out (out_features=96 vs 576) fails fast;
+    #    - PDD-bank final_layer.video_out (out_features=576) patches final_layer.forward and
+    #      equals the float32 merge across PDD intervals.
+    pdd_sigmas = [1.0, 0.967523694, 0.887548506, 0.75, 0.532773912, 0.232008874, 0.0]
+
+    class _ImgConfig:
+        unet_config = {"pdd_steps": 6}
+
+    class _ImgBase(torch.nn.Module):
+        model_config = _ImgConfig()
+
+        def __init__(self, img_dm):
+            super().__init__()
+            self.diffusion_model = img_dm
+
+    def _build_img(ops, init=True):
+        torch.manual_seed(7)
+        img_dm = mm_h3.MiniMaxH3ImageModel(
+            pdd_sigmas=pdd_sigmas, pdd_steps=6, latents_dim=24, patch_size=(1, 2, 2),
+            hidden_size=HIDDEN, num_layers=2, token_refiner_num_layers=2, num_attention_heads=2,
+            attention_head_dim=128, ffn_hidden_size=384, text_dim=TEXT_DIM, timestep_input_dim=32,
+            time_embed_hidden_size=64, time_embed_dim=8, dtype=torch.float32, device="cpu",
+            operations=ops)
+        if not init:
+            return img_dm
+        with torch.no_grad():
+            for name, p in img_dm.named_parameters():
+                p.fill_(1.0) if "norm" in name else p.normal_(0.0, 0.05)
+            img_dm.adaln_t_table = torch.nn.Parameter(torch.randn(1000, 8) * 0.05, requires_grad=False)
+            n = img_dm.rope.inv_freq.numel()
+            img_dm.rope.inv_freq.copy_(1.0 / (10000.0 ** (torch.arange(n, dtype=torch.float32) / n)))
+        img_dm.requires_grad_(False)
+        return img_dm
+
+    src_img = _build_img(comfy.ops.manual_cast, init=True)
+    dm_img = _build_img(OPS, init=False)
+    dm_img.adaln_t_table = torch.nn.Parameter(torch.empty(1000, 8), requires_grad=False)
+    missing_img, unexp_img = dm_img.load_state_dict(src_img.state_dict(), strict=False)
+    assert not unexp_img, unexp_img
+    dm_img.requires_grad_(False)
+
+    g_img = torch.Generator().manual_seed(41)
+    img_x = torch.randn(1, 24, 1, 4, 4, generator=g_img)
+    img_ctx = torch.randn(1, TEXT_LEN, TEXT_DIM, generator=g_img)
+    img_sched = torch.tensor(pdd_sigmas, dtype=torch.float32)
+
+    def run_img(m_dm, step_idx=2):
+        sig = img_sched[step_idx]
+        return m_dm(
+            img_x.clone(),
+            (sig * 1000.0).reshape(1),
+            img_ctx.clone(),
+            transformer_options={"sample_sigmas": img_sched.clone()},
+        )
+
+    # Build a synthetic 2-stream + PDD-6 LoRA targeting attn, mlp, pruned adaln (8),
+    # PDD-6 final_layer.video_out (576, HIDDEN), AND Kohya 2-stream audio modules.
+    sd_img = {}
+    img_paths = [p for p in targets(dm_img)] + ["final_layer.video_out"]
+    for path in img_paths:
+        w = dm_img.get_submodule(path).weight
+        k = f"diffusion_model.{path}"
+        sd_img[f"{k}.lora_A.weight"] = torch.randn(RANK, w.shape[1], generator=g_img) * 0.1
+        sd_img[f"{k}.lora_B.weight"] = torch.randn(w.shape[0], RANK, generator=g_img) * 0.1
+        sd_img[f"{k}.alpha"] = torch.tensor(ALPHA)
+        if "adaln_proj" in path or path == "final_layer.video_out":
+            sd_img[f"{k}.diff_b"] = torch.randn(w.shape[0], generator=g_img) * 0.05
+
+    sd_img_with_audio = copy.deepcopy(sd_img)
+    sd_img_with_audio["lora_unet_audio_patch_proj.lora_down.weight"] = torch.randn(RANK, 32, generator=g_img)
+    sd_img_with_audio["lora_unet_audio_patch_proj.lora_up.weight"] = torch.randn(HIDDEN, RANK, generator=g_img)
+    sd_img_with_audio["lora_unet_final_layer_audio_out.lora_down.weight"] = torch.randn(RANK, HIDDEN, generator=g_img)
+    sd_img_with_audio["lora_unet_final_layer_audio_out.lora_up.weight"] = torch.randn(32, RANK, generator=g_img)
+
+    ref_img_dm = copy.deepcopy(dm_img)
+    with torch.no_grad():
+        for path in img_paths:
+            mod = ref_img_dm.get_submodule(path)
+            k = f"diffusion_model.{path}"
+            mod.weight += STRENGTH * ALPHA / RANK * (sd_img[f"{k}.lora_B.weight"] @ sd_img[f"{k}.lora_A.weight"])
+            if f"{k}.diff_b" in sd_img:
+                mod.bias += STRENGTH * sd_img[f"{k}.diff_b"]
+    ref_img_out_s0 = run_img(ref_img_dm, step_idx=0)
+    ref_img_out_s3 = run_img(ref_img_dm, step_idx=3)
+
+    img_patcher = comfy.model_patcher.ModelPatcher(_ImgBase(dm_img), "cpu", "cpu")
+    img_native = lb.native_keys(sd_img_with_audio, img_patcher)
+    img_branches = lb.parse_lora(img_native, STRENGTH)
+    img_patched = lb.attach(img_patcher, img_branches)
+    img_patched.patch_model()
+    try:
+        br_img_out_s0 = run_img(dm_img, step_idx=0)
+        br_img_out_s3 = run_img(dm_img, step_idx=3)
+    finally:
+        img_patched.unpatch_model()
+    check(
+        "1-stream MiniMaxH3ImageModel skips 2-stream audio keys and PDD-6 final_layer matches float32 merge",
+        rel(br_img_out_s0, ref_img_out_s0) < 1e-5 and rel(br_img_out_s3, ref_img_out_s3) < 1e-5,
+        f"step0 rel={rel(br_img_out_s0, ref_img_out_s0):.3g}, step3 rel={rel(br_img_out_s3, ref_img_out_s3):.3g}",
+    )
+
+    kept_am = lb.select(img_branches, modules="attention + mlp")
+    check(
+        "modules='attention + mlp' keeps only .attn. and .mlp. modules",
+        bool(kept_am) and all(".attn." in p or ".mlp." in p for p in kept_am),
+        f"kept={len(kept_am)} paths",
+    )
+
+    bad_adaln = {
+        "blocks.0.adaln_proj.linear": lb._Branch(
+            torch.randn(RANK, 2688), torch.randn(dm_img.blocks[0].adaln_proj.linear.weight.shape[0], RANK), 1.0, None
+        )
+    }
+    refused_adaln = False
+    try:
+        lb.attach(img_patcher, bad_adaln)
+    except ValueError as exc:
+        refused_adaln = "no adaln" in str(exc) and "attention + mlp" in str(exc)
+    check("unpruned adaln_proj.linear fails fast at install() with modules guidance", refused_adaln)
+
+    bad_pdd_head = {
+        "final_layer.video_out": lb._Branch(
+            torch.randn(RANK, HIDDEN), torch.randn(96, RANK), 1.0, None
+        )
+    }
+    refused_pdd_head = False
+    try:
+        lb.attach(img_patcher, bad_pdd_head)
+    except ValueError as exc:
+        refused_pdd_head = "pdd_steps=6" in str(exc) and "final_layer" in str(exc)
+    check("single-head final_layer.video_out on pdd_steps=6 fails fast at install()", refused_pdd_head)
+
     if fails:
         print(f"\n  FAIL  {len(fails)}: {fails}")
         return 1

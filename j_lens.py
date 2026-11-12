@@ -161,6 +161,17 @@ _DEFAULT_RECIPES: dict[str, dict[str, Any]] = {
             }
         ],
     },
+    "h3_image": {
+        "checkpoint": {
+            "file": "minimax_h3_image_pruned_int8_convrot.safetensors",
+            "sha256": "7fe10961d0805bc75b283ee6c7b2de4390159d90dd738025ec1e4584412df162",
+        },
+        "encoder": {
+            "file": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+            "sha256": "782eae85cd74cefa1578d8234613af9e612711e313ff7d9997f1bbeb3cf3c2ed",
+        },
+        "loras": [],
+    },
 }
 
 _BUNDLE_CACHE: dict[Path, dict[str, Any]] = {}
@@ -237,8 +248,44 @@ def load_j_lens_bundle(bundle_path: str | os.PathLike | None = None) -> dict[str
             "J_wiener_ref2va": f.get_tensor("J_wiener_ref2va").to(dtype=torch.float32),
             "J_wiener_fl2va": f.get_tensor("J_wiener_fl2va").to(dtype=torch.float32),
         }
+        bundle_keys = set(f.keys())
+        if "J_ref_h3_image" in bundle_keys:
+            bundle["J_ref_h3_image"] = f.get_tensor("J_ref_h3_image").to(dtype=torch.float32)
+        if "J_wiener_h3_image" in bundle_keys:
+            bundle["J_wiener_h3_image"] = f.get_tensor("J_wiener_h3_image").to(dtype=torch.float32)
     _BUNDLE_CACHE[path] = bundle
     return bundle
+
+
+def _canonical_synth_family(family: str) -> str:
+    fam_l = str(family or "").lower()
+    if "h3_image" in fam_l:
+        return "h3_image"
+    if "ref2va" in fam_l:
+        return "ref2va"
+    return "fl2va"
+
+
+def _select_j_ref(bundle: Mapping[str, Any], family: str) -> torch.Tensor:
+    fam_l = str(family or "").lower()
+    if "h3_image" in fam_l:
+        if "J_ref_h3_image" in bundle:
+            return bundle["J_ref_h3_image"]
+        return bundle["J_ref_ref2va"]
+    if "ref2va" in fam_l:
+        return bundle["J_ref_ref2va"]
+    return bundle["J_ref_fl2va"]
+
+
+def _select_j_wiener(bundle: Mapping[str, Any], family: str) -> torch.Tensor:
+    fam_l = str(family or "").lower()
+    if "h3_image" in fam_l:
+        if "J_wiener_h3_image" in bundle:
+            return bundle["J_wiener_h3_image"]
+        return bundle["J_wiener_ref2va"]
+    if "ref2va" in fam_l:
+        return bundle["J_wiener_ref2va"]
+    return bundle["J_wiener_fl2va"]
 
 
 def orthogonal_hold_basis(
@@ -362,7 +409,7 @@ def decode_vector(
 
     b = dict(bundle) if bundle is not None else load_j_lens_bundle()
     if space == "post_refiner":
-        j_wiener = b["J_wiener_ref2va"] if "ref2va" in str(family).lower() else b["J_wiener_fl2va"]
+        j_wiener = _select_j_wiener(b, family)
         v_49 = j_wiener @ v_eff
     else:
         v_49 = v_eff
@@ -471,7 +518,7 @@ def assess_steering_readiness(
         else 0.0
     )
 
-    j_ref = b["J_ref_ref2va"] if "ref2va" in str(family).lower() else b["J_ref_fl2va"]
+    j_ref = _select_j_ref(b, family)
 
     ref_trans: float | None = None
     if v_enc is not None:
@@ -740,7 +787,7 @@ def _resolve_vector_path(source: str | os.PathLike, family: str = "fl2va") -> Pa
             return cand_st
     if cv_dir.is_dir():
         stem = path.stem.split("__")[0]
-        fam = "ref2va" if "ref2va" in str(family).lower() else "fl2va"
+        fam = _canonical_synth_family(family)
         for pat in (
             f"{stem}__{fam}__diff_span__*.safetensors",
             f"{stem}__{fam}__*.safetensors",
@@ -808,7 +855,7 @@ def decode_safetensors(
                 pass
     hw_list = _parse_word_list(hold_words)
     if hw_list:
-        synth_fam = "ref2va" if "ref2va" in family.lower() else "fl2va"
+        synth_fam = _canonical_synth_family(family)
         hw_synth = synthesize_from_words(hw_list, family=synth_fam, bundle=b)
         hold_tensors_pr.append(hw_synth["vector.post_refiner"])
         hold_tensors_enc.append(hw_synth["vector.encoder"])
@@ -854,8 +901,8 @@ def decode_safetensors(
                 top_k=top_k,
                 bundle=b,
             )
-            j_ref = b["J_ref_ref2va"] if "ref2va" in family.lower() else b["J_ref_fl2va"]
-            j_w = b["J_wiener_ref2va"] if "ref2va" in family.lower() else b["J_wiener_fl2va"]
+            j_ref = _select_j_ref(b, family)
+            j_w = _select_j_wiener(b, family)
             j_63 = b["J_49_to_63"]
             fwd_cos = float(F.cosine_similarity((j_ref @ v_enc).unsqueeze(0), v_pr.unsqueeze(0)).item())
             w_cos_63 = float(
@@ -964,7 +1011,7 @@ def decode_recipe(
             except Exception:
                 v_enc_step = None
         if v_enc_step is None:
-            j_w = b["J_wiener_ref2va"] if "ref2va" in str(family).lower() else b["J_wiener_fl2va"]
+            j_w = _select_j_wiener(b, family)
             w_rec = j_w @ vec.to(dtype=torch.float32)
             if float(torch.linalg.vector_norm(w_rec).item()) > 1e-12:
                 v_enc_step = F.normalize(w_rec, dim=0)
@@ -990,7 +1037,7 @@ def decode_recipe(
 
     hw_list = _parse_word_list(hold_words)
     if hw_list and a_val > 0.0:
-        synth_fam = "ref2va" if "ref2va" in str(family).lower() else "fl2va"
+        synth_fam = _canonical_synth_family(family)
         hw_synth = synthesize_from_words(hw_list, family=synth_fam, bundle=b)
         hold_steps.append(
             (
@@ -1094,7 +1141,7 @@ def decode_recipe(
     }
     if return_tensors:
         if cur_enc is None:
-            j_w = b["J_wiener_ref2va"] if "ref2va" in str(family).lower() else b["J_wiener_fl2va"]
+            j_w = _select_j_wiener(b, family)
             cur_enc = F.normalize(j_w @ cur_vec, dim=0)
         out_rec["vector.post_refiner"] = cur_vec
         out_rec["vector.encoder"] = cur_enc
@@ -1111,7 +1158,7 @@ def refiner_singular_vectors(
 ) -> list[dict[str, Any]]:
     """Decode the top `top_n` unsupervised left singular vectors of `J_ref`."""
     b = dict(bundle) if bundle is not None else load_j_lens_bundle()
-    j_ref = b["J_ref_ref2va"] if "ref2va" in str(family).lower() else b["J_ref_fl2va"]
+    j_ref = _select_j_ref(b, family)
     u_mat, s_vec, _ = torch.linalg.svd(j_ref.to(dtype=torch.float32), full_matrices=False)
     results: list[dict[str, Any]] = []
     for idx in range(min(int(top_n), u_mat.shape[1])):
@@ -1942,7 +1989,7 @@ def synthesize_from_words(
     m_centered = b["M_centered"]
     p_weights = b.get("piece_weights")
     s_p030 = b["Sigma_49_p030"]
-    j_ref = b["J_ref_ref2va"] if "ref2va" in str(family).lower() else b["J_ref_fl2va"]
+    j_ref = _select_j_ref(b, family)
 
     mu_pos, pos_ids, pos_matched, pos_unmatched = _mean_word_direction(pos_list, w2i, m_centered, p_weights)
     if not pos_ids:

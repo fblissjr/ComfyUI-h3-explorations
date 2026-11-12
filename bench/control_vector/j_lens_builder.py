@@ -85,6 +85,11 @@ REQUIRED_BUNDLE_TENSORS: dict[str, tuple[tuple[int, ...], torch.dtype]] = {
     "valid_pos_in_union": ((24912,), torch.int32),
 }
 
+OPTIONAL_BUNDLE_TENSORS: dict[str, tuple[tuple[int, ...], torch.dtype]] = {
+    "J_ref_h3_image": ((5376, 5120), torch.float32),
+    "J_wiener_h3_image": ((5120, 5376), torch.float32),
+}
+
 
 def verify_j_lens_bundle(bundle_path: str | Path | None = None) -> dict[str, Any]:
     """Verify that `j_lens_h3.safetensors` exists, matches the `h3_j_lens_v1`
@@ -112,7 +117,11 @@ def verify_j_lens_bundle(bundle_path: str | Path | None = None) -> dict[str, Any
             raise ValueError(f"{path.name} is missing required tensor(s): {missing}")
 
         tensor_summary: dict[str, dict[str, Any]] = {}
-        for k, (exp_shape, exp_dtype) in REQUIRED_BUNDLE_TENSORS.items():
+        expected_specs = dict(REQUIRED_BUNDLE_TENSORS)
+        for opt_k, opt_spec in OPTIONAL_BUNDLE_TENSORS.items():
+            if opt_k in keys:
+                expected_specs[opt_k] = opt_spec
+        for k, (exp_shape, exp_dtype) in expected_specs.items():
             t = f.get_tensor(k)
             if k in ("M_union", "cloze_base_union", "union_idx", "valid_idx", "valid_pos_in_union"):
                 if t.ndim != len(exp_shape):
@@ -133,6 +142,10 @@ def verify_j_lens_bundle(bundle_path: str | Path | None = None) -> dict[str, Any
     v_pr = synth["vector.post_refiner"]
     if tuple(v_pr.shape) != (cv.POST_REFINER_DIM,):
         raise ValueError(f"synthesize_from_words returned unexpected shape {tuple(v_pr.shape)}")
+    if "J_ref_h3_image" in loaded_bundle:
+        synth_img = j_lens.synthesize_from_words("blizzard, snowdrift, freezing", family="h3_image", bundle=loaded_bundle)
+        if tuple(synth_img["vector.post_refiner"].shape) != (cv.POST_REFINER_DIM,):
+            raise ValueError(f"synthesize_from_words(family='h3_image') returned unexpected shape {tuple(synth_img['vector.post_refiner'].shape)}")
 
     return {
         "path": str(path),
@@ -243,18 +256,18 @@ def compute_refiner_jacobian_and_wiener(
     with torch.no_grad():
         for h_seq in h49_sequences:
             h_in = h_seq.to(device=device, dtype=dtype)
-            if h_in.ndim == 2:
-                h_in = h_in.unsqueeze(0)
-            if h_in.shape[1] <= 1:
+            if h_in.ndim == 3:
+                h_in = h_in.squeeze(0)
+            if h_in.shape[0] <= 1:
                 continue
             x = proj(h_in)
-            x0_tok1_list.append(x[0, 1:, :].detach().cpu())
+            x0_tok1_list.append(x[1:, :].detach().cpu())
             for b_idx, blk in enumerate(ref.blocks):
-                block_inputs[b_idx].append(x[0, 1:, :].detach().cpu())
+                block_inputs[b_idx].append(x[1:, :].detach().cpu())
                 x_attn = x + blk.attn(blk.norm1(x))
-                post_attn_inputs[b_idx].append(x_attn[0, 1:, :].detach().cpu())
+                post_attn_inputs[b_idx].append(x_attn[1:, :].detach().cpu())
                 x = x_attn + blk.mlp(blk.norm2(x_attn))
-            final_inputs.append(x[0, 1:, :].detach().cpu())
+            final_inputs.append(x[1:, :].detach().cpu())
 
     # Linear condition_proj weight [5376, 5120]
     j_cur = proj.weight.detach().to(device=device, dtype=torch.float32).clone()
@@ -466,6 +479,18 @@ def cmd_build_j_lens(args: argparse.Namespace) -> int:
         "J_wiener_fl2va": j_wiener_fl2va.contiguous(),
         "J_wiener_ref2va": j_wiener_ref2va.contiguous(),
     }
+    h3_img_name = getattr(args, "h3_image_dit", None) or h3_config.H3_IMAGE_UNET
+    h3_img_full = _h.folder_paths.get_full_path("diffusion_models", h3_img_name)
+    if h3_img_full and Path(h3_img_full).is_file():
+        j_ref_h3_image, j_wiener_h3_image = compute_refiner_jacobian_and_wiener(
+            h49_sequences, sigma_49, dit_path=Path(h3_img_full), loras=[], device=ref_dev
+        )
+        out_tensors["J_ref_h3_image"] = j_ref_h3_image.contiguous()
+        out_tensors["J_wiener_h3_image"] = j_wiener_h3_image.contiguous()
+    elif getattr(args, "h3_image_dit", None):
+        raise FileNotFoundError(
+            f"MiniMax-H3-Image DiT checkpoint {h3_img_name!r} not found under diffusion_models/"
+        )
     out_meta = {
         "format": "h3_j_lens_v1",
         "description": base_meta.get(

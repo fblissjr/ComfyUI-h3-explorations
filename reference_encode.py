@@ -127,6 +127,7 @@ class EncodedReferences:
     patches: Any
     labels: list[str] | None = None
     report: list[str] = field(default_factory=list)
+    picture_label: str | None = None        # None -> minimax_ref_items; "Picture %d: " -> H3-Image images=...
 
     @property
     def length(self) -> int:
@@ -208,7 +209,17 @@ def span_groups(ref_items):
     return groups
 
 
-def span_entries(clip, ref_items, groups=None):
+def _tokenize_refs(clip, ref_items, text: str = "", *, picture_label: str | None = None):
+    if picture_label is not None:
+        return clip.tokenize(
+            text,
+            images=[it["data"] for it in ref_items],
+            picture_label=picture_label,
+        )
+    return clip.tokenize(text, minimax_ref_items=ref_items)
+
+
+def span_entries(clip, ref_items, groups=None, *, picture_label: str | None = None):
     """The tokenizer's entries for the reference list, one list per span.
 
     Core appends each reference's label and vision blocks in order and numbers
@@ -219,7 +230,9 @@ def span_entries(clip, ref_items, groups=None):
     groups = span_groups(ref_items) if groups is None else groups
     cuts, entries = [0], []
     for group in groups:
-        entries = clip.tokenize("", minimax_ref_items=ref_items[:group[-1] + 1])[name][0]
+        entries = _tokenize_refs(
+            clip, ref_items[:group[-1] + 1], "", picture_label=picture_label
+        )[name][0]
         cuts.append(len(entries))
     return [entries[a:b] for a, b in zip(cuts, cuts[1:])]
 
@@ -361,7 +374,7 @@ def _described(ref_items, labels):
     return out
 
 
-def encode_references(clip, ref_items, labels=None) -> EncodedReferences:
+def encode_references(clip, ref_items, labels=None, *, picture_label: str | None = None) -> EncodedReferences:
     """Each reference's span, encoded now, each continued on the ones before it.
     `labels` are the prompt's names for the items, in order, for the report."""
     reason = unsupported(clip)
@@ -372,11 +385,11 @@ def encode_references(clip, ref_items, labels=None) -> EncodedReferences:
     te, sdclip, lm = _parts(clip)
     patches = clip.patcher.patches_uuid
     groups = span_groups(ref_items)
-    per_reference = span_entries(clip, ref_items, groups)
+    per_reference = span_entries(clip, ref_items, groups, picture_label=picture_label)
     described = _described(ref_items, labels)
     names = [" and ".join(described[i] for i in group) for group in groups]
     spans, report = [], []
-    with _Loaded(clip, clip.tokenize("", minimax_ref_items=ref_items)) as device:
+    with _Loaded(clip, _tokenize_refs(clip, ref_items, "", picture_label=picture_label)) as device:
         start, images = 0, []
         for i, entries in enumerate(per_reference):
             t0 = time.perf_counter()
@@ -393,7 +406,8 @@ def encode_references(clip, ref_items, labels=None) -> EncodedReferences:
         logger.info("[h3-ref] %s", line)
     return EncodedReferences(spans=list(spans), ref_blocks=[], ref_items=list(ref_items),
                              clip=clip, patches=patches,
-                             labels=list(labels) if labels else None, report=report)
+                             labels=list(labels) if labels else None, report=report,
+                             picture_label=picture_label)
 
 
 def condition_prompt(encoded: EncodedReferences, text: str):
@@ -409,7 +423,9 @@ def condition_prompt(encoded: EncodedReferences, text: str):
         # it, new patches). They hold what they were made from, so make them
         # again; `encode_references` refuses what cannot be split.
         logger.info("[h3-ref] the encoder changed since these references were encoded; encoding them again")
-        fresh = encode_references(clip, encoded.ref_items, encoded.labels)
+        fresh = encode_references(
+            clip, encoded.ref_items, encoded.labels, picture_label=encoded.picture_label
+        )
         fresh.ref_blocks = encoded.ref_blocks
         encoded = fresh
     te, sdclip, lm = _parts(clip)
@@ -431,7 +447,12 @@ def condition_prompt(encoded: EncodedReferences, text: str):
     out_cond = [[cond, extra]]
     try:
         from .h3_spans import attach_span_masks
-        full_tokens = clip.tokenize(text, minimax_ref_items=getattr(encoded, "ref_items", None))
+        full_tokens = _tokenize_refs(
+            clip,
+            getattr(encoded, "ref_items", None) or [],
+            text,
+            picture_label=getattr(encoded, "picture_label", None),
+        )
         attach_span_masks(out_cond, clip, full_tokens)
     except Exception:
         pass
@@ -556,4 +577,273 @@ class MiniMaxH3PromptOnReferences(io.ComfyNode):
         logger.info("[h3-ref] prompt on %d kept reference span(s), %d tokens ahead of it: %.1f s",
                     len(encoded_references.spans), encoded_references.length,
                     time.perf_counter() - t0)
+        return io.NodeOutput(conditioning)
+
+
+H3_IMAGE_PICTURE_LABEL = "Picture %d: "
+H3_IMAGE_MAX_REFS = 16
+H3_IMAGE_DEFAULT_SIZE = 2048
+H3_IMAGE_QWEN_SHORT_EDGE = 1024
+H3_IMAGE_VAE_MIN_SHORT_EDGE = 1024
+H3_IMAGE_VAE_MAX_SHORT_EDGE = 2048
+H3_IMAGE_ALIGN_CHOICES = ("resize_32", "crop_32")
+
+
+def _h3_image_ref_size(width: int, height: int, low: int, high: int, *, in_bounds_align: str, crop_grid_32: bool) -> tuple[int, int]:
+    short = min(width, height)
+    if in_bounds_align == "crop_32" and low <= short <= high:
+        if crop_grid_32:
+            return max(32, (width // 32) * 32), max(32, (height // 32) * 32)
+        return width, height
+    scale = min(max(short, low), high) / short
+    return (
+        max(32, round(width * scale / 32) * 32),
+        max(32, round(height * scale / 32) * 32),
+    )
+
+
+def _prepare_h3_image_ref(
+    image: torch.Tensor,
+    low: int,
+    high: int,
+    *,
+    in_bounds_align: str = "resize_32",
+    crop_grid_32: bool = False,
+) -> torch.Tensor:
+    import comfy.utils
+
+    img = image[:1, ..., :3]
+    h, w = int(img.shape[1]), int(img.shape[2])
+    short = min(w, h)
+    if in_bounds_align == "crop_32" and low <= short <= high:
+        if crop_grid_32:
+            cw, ch = max(32, (w // 32) * 32), max(32, (h // 32) * 32)
+            return img[:, :ch, :cw, :]
+        return img
+    tw, th = _h3_image_ref_size(w, h, low, high, in_bounds_align=in_bounds_align, crop_grid_32=crop_grid_32)
+    if (w, h) == (tw, th):
+        return img
+    return comfy.utils.common_upscale(img.movedim(-1, 1), tw, th, "lanczos", "disabled").movedim(1, -1)
+
+
+class MiniMaxH3EncodeImageReferences(io.ComfyNode):
+    @classmethod
+    def define_schema(cls):
+        return io.Schema(
+            node_id="MiniMaxH3EncodeImageReferences",
+            display_name="MiniMax H3 Encode Image References",
+            category="MiniMaxH3/references",
+            is_experimental=True,
+            description=(
+                "Encode <Picture 1..16> once for MiniMax-H3-Image (using 'Picture N: ' "
+                "labels and 1-stream posterior-sampled image VAE latents), separately "
+                "from the prompt, and output an empty 1-frame image latent. Wire into "
+                "MiniMax H3 Prompt On Image References (or two copies for MiniMax H3 "
+                "Edit Guider) so prompt edits reuse the Qwen3-VL prefix and FP32 VAE "
+                "latents without re-encoding pictures."
+            ),
+            inputs=[
+                io.Clip.Input("clip", tooltip=CLIP_TOOLTIP),
+                io.Vae.Input(
+                    "vae",
+                    optional=True,
+                    tooltip=(
+                        "MiniMax-H3-Image or P-H3-Image VAE (fp32 encoder via "
+                        "MiniMaxH3VAEPrecision recommended). When wired and use_vae=True, "
+                        "each picture is anchored as a DiT reference latent."
+                    ),
+                ),
+                io.Int.Input(
+                    "width",
+                    default=0,
+                    min=0,
+                    max=16384,
+                    step=32,
+                    tooltip="Target canvas width (0 uses image_1's VAE-bounded width, or 2048).",
+                ),
+                io.Int.Input(
+                    "height",
+                    default=0,
+                    min=0,
+                    max=16384,
+                    step=32,
+                    tooltip="Target canvas height (0 uses image_1's VAE-bounded height, or 2048).",
+                ),
+                io.Autogrow.Input(
+                    "images",
+                    optional=True,
+                    template=io.Autogrow.TemplateNames(
+                        io.Image.Input(
+                            "image",
+                            tooltip="Reference picture, <Picture n> in the prompt; image_1 is the picture to edit.",
+                        ),
+                        names=[f"image_{i}" for i in range(1, H3_IMAGE_MAX_REFS + 1)],
+                        min=1,
+                    ),
+                ),
+                io.Int.Input(
+                    "qwen_short_edge",
+                    default=H3_IMAGE_QWEN_SHORT_EDGE,
+                    min=256,
+                    max=4096,
+                    step=32,
+                    optional=True,
+                    tooltip="Short edge in pixels handed to Qwen3-VL (vendor default 1024).",
+                ),
+                io.Int.Input(
+                    "vae_min_short_edge",
+                    default=H3_IMAGE_VAE_MIN_SHORT_EDGE,
+                    min=256,
+                    max=4096,
+                    step=32,
+                    optional=True,
+                    tooltip="Minimum short edge in pixels handed to the image VAE encoder (vendor default 1024; smaller pictures upscale).",
+                ),
+                io.Int.Input(
+                    "vae_max_short_edge",
+                    default=H3_IMAGE_VAE_MAX_SHORT_EDGE,
+                    min=256,
+                    max=8192,
+                    step=32,
+                    optional=True,
+                    tooltip="Maximum short edge in pixels handed to the image VAE encoder (vendor default 2048; raise to 4096 to match 16 MP patch density).",
+                ),
+                io.Combo.Input(
+                    "in_bounds_align",
+                    options=list(H3_IMAGE_ALIGN_CHOICES),
+                    default="resize_32",
+                    optional=True,
+                    tooltip=(
+                        "How in-bounds non-32-aligned pictures are aligned: 'resize_32' rounds to 32 "
+                        "via Lanczos (ComfyUI core parity); 'crop_32' keeps interior pixels unresized "
+                        "and trims bottom/right to 32 (vLLM-Omni / release parity)."
+                    ),
+                ),
+                io.Boolean.Input(
+                    "use_vae",
+                    default=True,
+                    optional=True,
+                    tooltip="Encode pictures into DiT reference latents (minimax_refs). Turn off for Qwen-only visual conditioning.",
+                ),
+            ],
+            outputs=[
+                H3EncodedReferences.Output(display_name="encoded references"),
+                io.Latent.Output(),
+            ],
+        )
+
+    @classmethod
+    def execute(
+        cls,
+        clip,
+        vae=None,
+        width=0,
+        height=0,
+        images=None,
+        qwen_short_edge=H3_IMAGE_QWEN_SHORT_EDGE,
+        vae_min_short_edge=H3_IMAGE_VAE_MIN_SHORT_EDGE,
+        vae_max_short_edge=H3_IMAGE_VAE_MAX_SHORT_EDGE,
+        in_bounds_align="resize_32",
+        use_vae=True,
+    ):
+        import comfy.model_management as mm
+
+        if vae_min_short_edge > vae_max_short_edge:
+            raise ValueError(
+                f"vae_min_short_edge ({vae_min_short_edge}) must not exceed vae_max_short_edge ({vae_max_short_edge})"
+            )
+        if in_bounds_align not in H3_IMAGE_ALIGN_CHOICES:
+            raise ValueError(f"in_bounds_align must be one of {H3_IMAGE_ALIGN_CHOICES}, got {in_bounds_align!r}")
+        names = sorted(images or {}, key=lambda name: int(name.rsplit("_", 1)[-1]))
+        raw_images = [images[name][:1] for name in names if images[name] is not None]
+        if not raw_images:
+            raise ValueError("MiniMaxH3EncodeImageReferences needs at least one reference picture")
+        if len(raw_images) > H3_IMAGE_MAX_REFS:
+            raise ValueError(
+                f"MiniMaxH3EncodeImageReferences takes at most {H3_IMAGE_MAX_REFS} pictures, got {len(raw_images)}"
+            )
+
+        vision_images = []
+        refs = []
+        for img in raw_images:
+            v_img = _prepare_h3_image_ref(
+                img, qwen_short_edge, qwen_short_edge, in_bounds_align=in_bounds_align, crop_grid_32=False
+            )
+            vision_images.append(v_img)
+            if use_vae and vae is not None:
+                z_img = _prepare_h3_image_ref(
+                    img, vae_min_short_edge, vae_max_short_edge, in_bounds_align=in_bounds_align, crop_grid_32=True
+                )
+                z = vae.encode(z_img)
+                refs.append({"kind": "image", "latent_h": z.shape[-2], "latent_w": z.shape[-1], "latent": z})
+
+        ref_items = [{"type": "image", "data": v_img} for v_img in vision_images]
+        labels = [f"<Picture {i + 1}>" for i in range(len(vision_images))]
+        encoded = encode_references(
+            clip, ref_items, labels=labels, picture_label=H3_IMAGE_PICTURE_LABEL
+        )
+        encoded.ref_blocks = refs
+
+        if not (width and height):
+            first_w, first_h = int(raw_images[0].shape[2]), int(raw_images[0].shape[1])
+            def_w, def_h = _h3_image_ref_size(
+                first_w,
+                first_h,
+                vae_min_short_edge,
+                vae_max_short_edge,
+                in_bounds_align=in_bounds_align,
+                crop_grid_32=True,
+            )
+            width = int(width or def_w or H3_IMAGE_DEFAULT_SIZE)
+            height = int(height or def_h or H3_IMAGE_DEFAULT_SIZE)
+        latent = torch.zeros([1, 24, 1, int(height) // 16, int(width) // 16], device=mm.intermediate_device())
+        return io.NodeOutput(encoded, {"samples": latent}, ui=ui.PreviewText("\n".join(encoded.report)))
+
+
+class MiniMaxH3PromptOnImageReferences(io.ComfyNode):
+    @classmethod
+    def define_schema(cls):
+        return io.Schema(
+            node_id="MiniMaxH3PromptOnImageReferences",
+            display_name="MiniMax H3 Prompt On Image References",
+            category="MiniMaxH3/references",
+            is_experimental=True,
+            description=(
+                "Encode a MiniMax-H3-Image caption on top of kept reference spans from "
+                "MiniMax H3 Encode Image References, using the same text encoder and "
+                "attaching minimax_refs and h3_span_masks."
+            ),
+            inputs=[
+                H3EncodedReferences.Input(
+                    "encoded_references",
+                    tooltip="From MiniMax H3 Encode Image References.",
+                ),
+                io.String.Input(
+                    "prompt",
+                    multiline=True,
+                    dynamic_prompts=True,
+                    tooltip="Finished MiniMax-H3-Image edit description referencing <Picture 1>, <Picture 2>, ...",
+                ),
+            ],
+            outputs=[io.Conditioning.Output(display_name="positive")],
+        )
+
+    @classmethod
+    def execute(cls, encoded_references, prompt):
+        if not isinstance(encoded_references, EncodedReferences):
+            raise TypeError("encoded_references must come from MiniMax H3 Encode Image References")
+        if not prompt or not prompt.strip():
+            raise ValueError("MiniMaxH3PromptOnImageReferences needs a non-empty prompt")
+        t0 = time.perf_counter()
+        conditioning = condition_prompt(encoded_references, normalize_prompt(prompt))
+        if encoded_references.ref_blocks:
+            conditioning = node_helpers.conditioning_set_values(
+                conditioning, {"minimax_refs": encoded_references.ref_blocks}
+            )
+        logger.info(
+            "[h3-ref] image prompt on %d kept picture span(s), %d tokens ahead of it: %.1f s",
+            len(encoded_references.spans),
+            encoded_references.length,
+            time.perf_counter() - t0,
+        )
         return io.NodeOutput(conditioning)

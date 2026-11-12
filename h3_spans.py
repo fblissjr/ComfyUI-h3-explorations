@@ -80,7 +80,7 @@ INFERENCE_MASK_MODES: tuple[str, ...] = (
     *FIELD_MASK_MODES,
 )
 
-LABEL_RE = re.compile(r"<(?:Picture|Video|Audio) \d+>: ")
+LABEL_RE = re.compile(r"(?:<(?:Picture|Video|Audio) \d+>|Picture \d+): ")
 AUDIO_LABEL_PREFIX_RE = re.compile(r"^(?:<Audio \d+>: )+")
 TIMESTAMP_RE = re.compile(r"<\d+(?:\.\d+)? seconds>")
 SPEAKER_RE = re.compile(r"\(S\d+(?:,\s*S\d+)*\)")
@@ -218,7 +218,7 @@ def verify_tokenizer_constants(tokenizer: Any | None = None) -> dict[str, int]:
             )
         observed[token_str] = expected_id
 
-    for label_str in ("<Picture 1>: ", "<Video 1>: ", "<Audio 1>: "):
+    for label_str in ("<Picture 1>: ", "<Video 1>: ", "<Audio 1>: ", "Picture 1: "):
         label_ids = hf_tok.encode(label_str, add_special_tokens=False)
         if not label_ids or hf_tok.decode([label_ids[-1]]) != " ":
             raise ValueError(
@@ -395,7 +395,9 @@ def spans(
 
         if before_vision:
             for m in LABEL_RE.finditer(seg_text):
-                if m.end() in char_ends_with_lone_space:
+                if m.end() in char_ends_with_lone_space and (
+                    not m.group(0).startswith("Picture ") or m.end() == len(seg_text)
+                ):
                     matches.append(("label", m.start(), m.end()))
             for m in TIMESTAMP_RE.finditer(seg_text):
                 if m.end() == len(seg_text):

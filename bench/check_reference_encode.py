@@ -70,12 +70,15 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
 
-#: sha256 of the source of the core functions `_lm_pass` copies or leans on,
-#: read at ComfyUI e9027f2b on 2026-10-03, the day the copy was held to core's
-#: output on the shipped encoder (bench/results/2026-10-03_encoder_prefix_reuse.json).
+#: sha256 of the source of the core functions `_lm_pass` copies or leans on.
+#: Re-read and verified on 2026-11-12 after upstream ComfyUI added
+#: `CombinedLinear` in `Llama2_.forward` and `FixedKVState` speculative-decode
+#: branches in `Attention.forward` (inactive when `fixed_kv == False`); held to
+#: core's output on the shipped 32B Qwen3-VL encoder (`ref_rows_max_rel_diff =
+#: 1.87e-6`, `prompt_rows_max_rel_diff = 3.99e-7`, `tags_equal = True`).
 PINNED = {
-    "Llama2_.forward": "164b0ad348cb0544",
-    "Attention.forward": "e05700e116d6a4ce",
+    "Llama2_.forward": "e7d053b537d0e53d",
+    "Attention.forward": "44cf4bc54bc750b9",
     "TransformerBlock.forward": "71b138c2606ad2a3",
 }
 
@@ -267,6 +270,21 @@ def main() -> int:
     in_types = [getattr(i, "io_type", None) or getattr(i, "get_io_type", lambda: None)() for i in b.inputs]
     check("the prompt node takes the encode node's output type",
           out_type is not None and out_type in in_types, f"{out_type}")
+
+    print("\nthe two H3-Image reference nodes:")
+    check("both H3-Image reference nodes are in the pack's node list",
+          re.search(r"MiniMaxH3EncodeImageReferences,\s+MiniMaxH3PromptOnImageReferences[,\]]", source, re.M) is not None)
+    ia, ib = enc.MiniMaxH3EncodeImageReferences.define_schema(), enc.MiniMaxH3PromptOnImageReferences.define_schema()
+    check("both H3-Image reference nodes are marked experimental", bool(ia.is_experimental and ib.is_experimental))
+    i_out_type = ia.outputs[0].io_type if hasattr(ia.outputs[0], "io_type") else getattr(ia.outputs[0], "get_io_type", lambda: None)()
+    i_in_types = [getattr(i, "io_type", None) or getattr(i, "get_io_type", lambda: None)() for i in ib.inputs]
+    check("MiniMaxH3PromptOnImageReferences takes MiniMaxH3EncodeImageReferences's output type",
+          i_out_type is not None and i_out_type in i_in_types, f"{i_out_type}")
+    ia_inputs = {i.id: i for i in ia.inputs}
+    check("MiniMaxH3EncodeImageReferences exposes qwen/vae short-edge bounds (up to 8192), in_bounds_align, and use_vae",
+          {"qwen_short_edge", "vae_min_short_edge", "vae_max_short_edge", "in_bounds_align", "use_vae"} <= set(ia_inputs)
+          and getattr(ia_inputs["vae_max_short_edge"], "max", None) == 8192
+          and list(getattr(ia_inputs["in_bounds_align"], "options", ())) == ["resize_32", "crop_32"])
 
     print()
     if failures:

@@ -1729,6 +1729,7 @@ H3_IMAGE_ASPECTS = ("1:1", "5:4", "4:3", "3:2", "16:9", "21:9", "4:5", "3:4", "2
 H3_IMAGE_ASPECT_OF_PICTURE = "same as the picture"
 H3_IMAGE_MEGAPIXELS = 16.0
 H3_IMAGE_MEGAPIXELS_RANGE = (4.0, 20.0)
+H3_IMAGE_MIN_GENERATION_MEGAPIXELS = 4.0
 H3_IMAGE_SIZE_MULTIPLE = 32
 #: Generic loopback placeholder for `MiniMaxH3ImagePromptExpander` (`h3_image_nodes.py`).
 #: Never a host-specific IP or model id: `heylookitsanllm` model ids are resolved at
@@ -2527,6 +2528,10 @@ OUTPUT_SOURCES: dict = {
     # (the shipped default), slot 0 returns `prompt` untouched; slot 1 is the
     # `<think>` trace (empty when disabled, generated at run time when enabled).
     "MiniMaxH3PH3ImagePromptUpsampler": (Passthrough("prompt"), None),
+    # `h3_image_nodes.MiniMaxH3ImageSize`: all four outputs (width, height,
+    # target_width, target_height) are computed in `execute` from megapixels
+    # and the chosen or expander-supplied aspect ratio.
+    "MiniMaxH3ImageSize": (None,) * 4,
 }
 
 
