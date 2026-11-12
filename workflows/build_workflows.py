@@ -124,7 +124,7 @@ from h3_config import (  # noqa: E402
     CONTROL_VECTOR_NODE, CONTROL_VECTOR_DEFAULTS, CONTROL_VECTOR_OPTIONAL_DEFAULTS, LAYER_NORM_MATCH_NODE,
     STEER_NODE, STEER_DEFAULTS, RELEASE_REFERENCES_NODE, RELEASE_REFERENCES_DEFAULTS,
     WORD_VECTOR_NODE, WORD_VECTOR_DEFAULTS, LOAD_CONTROL_VECTOR_NODE,
-    EDIT_GUIDANCE_DEFAULTS,
+    EDIT_GUIDANCE_STREAMS, EDIT_GUIDANCE_DEFAULTS,
     refine_scheduler_ids,
 )
 
@@ -2628,11 +2628,18 @@ def _wire_edit_guidance(g: dict, prompt: str, spec: dict) -> None:
     5's encoder, VAEs, reference chain, canvas and policies, node 5 and node 131 each put a prompt on top,
     and the empty latent comes from node 132.
     """
-    unknown = sorted(set(spec) - {"edits", "scale", "first_step", "last_step", "release_subject_attire"})
+    unknown = sorted(
+        set(spec)
+        - {"edits", "scale", "first_step", "last_step", "streams", "audio_scale", "release_subject_attire"}
+    )
     if unknown or "edits" not in spec:
         raise SystemExit(
-            f"edit_guidance takes edits, scale, first_step, last_step and release_subject_attire; got {sorted(spec)}"
+            "edit_guidance takes edits, scale, first_step, last_step, streams, audio_scale and "
+            f"release_subject_attire; got {sorted(spec)}"
         )
+    streams = str(spec.get("streams", EDIT_GUIDANCE_DEFAULTS["streams"]))
+    if streams not in EDIT_GUIDANCE_STREAMS:
+        raise SystemExit(f"edit_guidance streams must be one of {EDIT_GUIDANCE_STREAMS}; got {streams!r}")
     guider = g["9"]
     if guider["class_type"] != "BasicGuider":
         raise SystemExit(f"edit_guidance replaces BasicGuider at node 9; this graph has {guider['class_type']}")
@@ -2673,12 +2680,20 @@ def _wire_edit_guidance(g: dict, prompt: str, spec: dict) -> None:
         edited_src = ["134", 0]
     if "26" in g and g["26"]["class_type"] == "MiniMaxH3Preflight":
         g["26"]["inputs"]["edited_conditioning"] = edited_src
-    g["9"] = {"class_type": "MiniMaxH3EditGuider",
-              "inputs": {"model": guider["inputs"]["model"], "original": guider["inputs"]["conditioning"],
-                         "edited": edited_src, "scale": float(spec.get("scale", EDIT_GUIDANCE_DEFAULTS["scale"])),
-                         "first_step": int(spec.get("first_step", EDIT_GUIDANCE_DEFAULTS["first_step"])),
-                         "align_positions": EDIT_GUIDANCE_DEFAULTS["align_positions"],
-                         "last_step": int(spec.get("last_step", EDIT_GUIDANCE_DEFAULTS["last_step"]))}}
+    g["9"] = {
+        "class_type": "MiniMaxH3EditGuider",
+        "inputs": {
+            "model": guider["inputs"]["model"],
+            "original": guider["inputs"]["conditioning"],
+            "edited": edited_src,
+            "scale": float(spec.get("scale", EDIT_GUIDANCE_DEFAULTS["scale"])),
+            "first_step": int(spec.get("first_step", EDIT_GUIDANCE_DEFAULTS["first_step"])),
+            "align_positions": EDIT_GUIDANCE_DEFAULTS["align_positions"],
+            "last_step": int(spec.get("last_step", EDIT_GUIDANCE_DEFAULTS["last_step"])),
+            "streams": streams,
+            "audio_scale": float(spec.get("audio_scale", EDIT_GUIDANCE_DEFAULTS["audio_scale"])),
+        },
+    }
 
 
 def build_decode_saved_latent(video_latent: str, audio_latent: str, *,

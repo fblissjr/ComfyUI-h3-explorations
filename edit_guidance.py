@@ -32,6 +32,7 @@ import copy
 import logging
 from typing import Any
 
+import comfy.nested_tensor
 import comfy.samplers
 import torch
 from comfy_api.latest import io
@@ -47,6 +48,8 @@ logger = logging.getLogger(__name__)
 
 #: The node's defaults and their reasons are in `h3_rules.EDIT_GUIDANCE_DEFAULTS`, one copy.
 DEFAULT_SCALE = _rules.EDIT_GUIDANCE_DEFAULTS["scale"]
+DEFAULT_AUDIO_SCALE = _rules.EDIT_GUIDANCE_DEFAULTS["audio_scale"]
+EDIT_GUIDANCE_STREAMS = tuple(_rules.EDIT_GUIDANCE_STREAMS)
 MAX_SCALE = 4.0
 PASS_KEY = "h3_edit_pass"
 
@@ -93,17 +96,39 @@ def step_index(model_options: dict, timestep: Any) -> int | None:
 
 
 class EditGuider(comfy.samplers.CFGGuider):
-    """`original + scale * (edited - original)`, one pass before `first_step` and one `[edited]` pass after `last_step`."""
+    """Per-stream `original + scale * (edited - original)`, one pass before `first_step` and one `[edited]` pass after `last_step`."""
 
     def set_conds(self, original, edited):
         self.inner_set_conds({"positive": edited, "negative": original})
 
-    def set_edit(self, scale: float, first_step: int, align_positions: bool, last_step: int = 1000):
+    def set_edit(
+        self,
+        scale: float,
+        first_step: int,
+        align_positions: bool,
+        last_step: int = 1000,
+        streams: str = "both",
+        audio_scale: float = 1.0,
+    ):
         f_step = int(first_step)
         l_step = int(last_step)
         if l_step < f_step:
             raise ValueError(f"last_step ({l_step}) must be >= first_step ({f_step})")
-        self.edit_scale = float(scale)
+        if streams not in EDIT_GUIDANCE_STREAMS:
+            raise ValueError(f"streams must be one of {EDIT_GUIDANCE_STREAMS}; got {streams!r}")
+        if streams == "both":
+            self.edit_scale = float(scale)
+            self.edit_audio_scale = float(scale)
+        elif streams == "audio_only":
+            self.edit_scale = 0.0
+            self.edit_audio_scale = float(scale)
+        elif streams == "video_only":
+            self.edit_scale = float(scale)
+            self.edit_audio_scale = 0.0
+        else:  # "independent"
+            self.edit_scale = float(scale)
+            self.edit_audio_scale = float(audio_scale)
+        self.streams = streams
         self.first_step = f_step
         self.last_step = l_step
         self.align_positions = bool(align_positions)
@@ -153,12 +178,28 @@ class EditGuider(comfy.samplers.CFGGuider):
         step = step_index(model_options, timestep)
         before = step is not None and step < self.first_step
         after = step is not None and step > self.last_step
-        if before or self.edit_scale == 0.0:
+        if before:
+            eff_v, eff_a = 0.0, 0.0
+        elif after:
+            eff_v = 0.0 if self.edit_scale == 0.0 else 1.0
+            eff_a = 0.0 if self.edit_audio_scale == 0.0 else 1.0
+        else:
+            eff_v, eff_a = self.edit_scale, self.edit_audio_scale
+        has_audio = bool(getattr(x, "is_nested", False)) and len(x.unbind()) == 2
+        if not has_audio:
+            eff_a = eff_v
+        if eff_v == 0.0 and eff_a == 0.0:
             return comfy.samplers.calc_cond_batch(self.inner_model, [original], x, timestep, model_options)[0]
-        if after or self.edit_scale == 1.0:
+        if eff_v == 1.0 and eff_a == 1.0:
             return comfy.samplers.calc_cond_batch(self.inner_model, [edited], x, timestep, model_options)[0]
         out = comfy.samplers.calc_cond_batch(self.inner_model, [original, edited], x, timestep, model_options)
-        return out[0] + (out[1] - out[0]) * self.edit_scale
+        if eff_v != eff_a and getattr(out[0], "is_nested", False) and len(out[0].unbind()) == 2:
+            v0, a0 = out[0].unbind()
+            v1, a1 = out[1].unbind()
+            v_out = v0 if eff_v == 0.0 else (v1 if eff_v == 1.0 else v0 + (v1 - v0) * eff_v)
+            a_out = a0 if eff_a == 0.0 else (a1 if eff_a == 1.0 else a0 + (a1 - a0) * eff_a)
+            return comfy.nested_tensor.NestedTensor((v_out, a_out))
+        return out[0] + (out[1] - out[0]) * eff_v
 
 
 class MiniMaxH3PromptEdit(io.ComfyNode):
@@ -220,7 +261,8 @@ class MiniMaxH3EditGuider(io.ComfyNode):
             display_name="MiniMax H3 Edit Guider",
             category="sampling/custom_sampling/guiders",
             description="Steer with an edited copy of the prompt: each step, move the prediction from the "
-                        "original prompt toward the edited one by a scale. Use in place of BasicGuider.",
+                        "original prompt toward the edited one by a scale (on both streams, video only, audio "
+                        "only, or independent video and audio scales). Use in place of BasicGuider.",
             inputs=[
                 io.Model.Input("model"),
                 io.Conditioning.Input("original", tooltip="Conditioning of the prompt as written."),
@@ -233,14 +275,27 @@ class MiniMaxH3EditGuider(io.ComfyNode):
                              tooltip="The first sampling step that uses the edit. Earlier steps run the original "
                                      "prompt alone, which keeps its framing and pose."),
                 io.Boolean.Input("align_positions", default=_rules.EDIT_GUIDANCE_DEFAULTS["align_positions"],
-                                 optional=True,
+                                 optional=True, advanced=True,
                                  tooltip="Give both prompts the same starting position for the video and audio "
                                          "rows when their lengths differ. Untested on renders."),
                 io.Int.Input("last_step", default=_rules.EDIT_GUIDANCE_DEFAULTS["last_step"], min=0, max=1000,
                              optional=True,
                              tooltip="The last sampling step that runs 2-pass edit guidance (default 1000 = all steps). "
-                                     "Steps after last_step run 1-pass [edited] (scale = 1.0), halving late-step DiT "
-                                     "cost while keeping the edited prompt locked under sample_lcm."),
+                                     "Steps after last_step run 1-pass [edited] (scale = 1.0) on active streams while "
+                                     "keeping any 0-locked stream on [original], halving late-step DiT cost."),
+                # APPENDED 2026-11-12: stream targeting and independent audio scale (0 extra DiT passes).
+                io.Combo.Input("streams", options=list(EDIT_GUIDANCE_STREAMS),
+                               default=_rules.EDIT_GUIDANCE_DEFAULTS["streams"], optional=True,
+                               tooltip="Which latent streams receive edit guidance: 'both' steers video and audio "
+                                       "at scale; 'audio_only' locks video to original (0.0) and steers audio at "
+                                       "scale; 'video_only' steers video at scale and locks audio to original (0.0); "
+                                       "'independent' steers video at scale and audio at audio_scale."),
+                io.Float.Input("audio_scale", default=DEFAULT_AUDIO_SCALE, min=0.0, max=MAX_SCALE, step=0.05,
+                               optional=True,
+                               tooltip="Audio edit scale when streams = 'independent' (ignored in other modes). "
+                                       "Keep at 1.0 when pushing visual scale >= 1.65 to adopt edited audio without "
+                                       "> 0 dBFS transient clipping, or raise above 1.0 to punch a quiet visual scene's "
+                                       "soundscape edit."),
             ],
             outputs=[io.Guider.Output()],
         )
@@ -255,14 +310,26 @@ class MiniMaxH3EditGuider(io.ComfyNode):
         first_step,
         align_positions=False,
         last_step=_rules.EDIT_GUIDANCE_DEFAULTS["last_step"],
+        streams=_rules.EDIT_GUIDANCE_DEFAULTS["streams"],
+        audio_scale=DEFAULT_AUDIO_SCALE,
     ) -> io.NodeOutput:
         len_a, len_b = check_same_but_text(original, edited)
         guider = EditGuider(model)
         guider.set_conds(original, edited)
-        guider.set_edit(scale, first_step, align_positions, last_step=last_step)
+        guider.set_edit(
+            scale,
+            first_step,
+            align_positions,
+            last_step=last_step,
+            streams=streams,
+            audio_scale=audio_scale,
+        )
         logger.info(
-            "[h3] edit guidance: scale %g across steps %d..%d; text length %d (original) and %d (edited) tokens",
-            float(scale),
+            "[h3] edit guidance: streams=%s (video=%g, audio=%g) across steps %d..%d; "
+            "text length %d (original) and %d (edited) tokens",
+            streams,
+            guider.edit_scale,
+            guider.edit_audio_scale,
             int(first_step),
             int(last_step),
             len_a,

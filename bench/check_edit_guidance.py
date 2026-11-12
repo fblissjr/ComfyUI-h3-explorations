@@ -43,6 +43,7 @@ import comfy.cli_args  # noqa: E402
 comfy.cli_args.args.cpu = True
 
 import comfy.conds  # noqa: E402
+import comfy.nested_tensor  # noqa: E402
 import comfy.samplers  # noqa: E402
 import torch  # noqa: E402
 
@@ -135,12 +136,19 @@ class _Patcher:
     model_options: dict = {}
 
 
-def _guider(scale: float, first_step: int = 0, align: bool = False, last_step: int = 1000) -> eg.EditGuider:
+def _guider(
+    scale: float,
+    first_step: int = 0,
+    align: bool = False,
+    last_step: int = 1000,
+    streams: str = "both",
+    audio_scale: float = 1.0,
+) -> eg.EditGuider:
     g = eg.EditGuider(_Patcher())
     g.inner_model = None
     g.conds = {"negative": [{"which": "original", "model_conds": {}}],
                "positive": [{"which": "edited", "model_conds": {}}]}
-    g.set_edit(scale, first_step, align, last_step=last_step)
+    g.set_edit(scale, first_step, align, last_step=last_step, streams=streams, audio_scale=audio_scale)
     return g
 
 
@@ -150,6 +158,14 @@ def check_guider_arithmetic() -> None:
 
     def fake(model, conds, x, timestep, model_options):
         seen.append([c[0]["which"] for c in conds])
+        if getattr(x, "is_nested", False):
+            out = []
+            for c in conds:
+                if c[0]["which"] == "original":
+                    out.append(comfy.nested_tensor.NestedTensor((torch.full((2,), 1.0), torch.full((3,), 10.0))))
+                else:
+                    out.append(comfy.nested_tensor.NestedTensor((torch.full((2,), 3.0), torch.full((3,), 20.0))))
+            return out
         return [torch.full((2,), 1.0 if c[0]["which"] == "original" else 3.0) for c in conds]
 
     comfy.samplers.calc_cond_batch = fake
@@ -160,6 +176,13 @@ def check_guider_arithmetic() -> None:
         def run(g, step=0):
             seen.clear()
             return float(g.predict_noise(None, sig[step:step + 1], opts)[0])
+
+        def run_av(g, step=0):
+            seen.clear()
+            x_av = comfy.nested_tensor.NestedTensor((torch.zeros((2,)), torch.zeros((3,))))
+            res = g.predict_noise(x_av, sig[step:step + 1], opts)
+            v, a = res.unbind()
+            return round(float(v[0]), 5), round(float(a[0]), 5)
 
         ok("scale 0 is the original pass, alone", run(_guider(0.0)) == 1.0 and seen == [["original"]])
         ok("scale 1 is the edited pass, alone", run(_guider(1.0)) == 3.0 and seen == [["edited"]])
@@ -175,7 +198,29 @@ def check_guider_arithmetic() -> None:
            and run(g_win, 1) == 5.0 and seen == [["original", "edited"]]
            and run(g_win, 2) == 5.0 and seen == [["original", "edited"]]
            and run(g_win, 3) == 3.0 and seen == [["edited"]])
+        ok("NestedTensor streams='both' steers video and audio identically in 2 passes",
+           run_av(_guider(1.5, streams="both")) == (4.0, 25.0) and seen == [["original", "edited"]])
+        g_ao = _guider(1.8, first_step=1, last_step=2, streams="audio_only")
+        ok("NestedTensor streams='audio_only' locks video to original across all steps and steers audio only",
+           run_av(g_ao, 0) == (1.0, 10.0) and seen == [["original"]]
+           and run_av(g_ao, 1) == (1.0, 28.0) and seen == [["original", "edited"]]
+           and run_av(g_ao, 3) == (1.0, 20.0) and seen == [["original", "edited"]])
+        g_vo = _guider(1.8, first_step=1, last_step=2, streams="video_only")
+        ok("NestedTensor streams='video_only' steers video and locks audio to original across all steps",
+           run_av(g_vo, 0) == (1.0, 10.0) and seen == [["original"]]
+           and run_av(g_vo, 1) == (4.6, 10.0) and seen == [["original", "edited"]]
+           and run_av(g_vo, 3) == (3.0, 10.0) and seen == [["original", "edited"]])
+        g_ind = _guider(1.85, first_step=1, last_step=2, streams="independent", audio_scale=1.0)
+        ok("NestedTensor streams='independent' (scale=1.85, audio_scale=1.0) caps audio at edited in 2 passes and drops to 1-pass [edited] after last_step",
+           run_av(g_ind, 0) == (1.0, 10.0) and seen == [["original"]]
+           and run_av(g_ind, 1) == (4.7, 20.0) and seen == [["original", "edited"]]
+           and run_av(g_ind, 3) == (3.0, 20.0) and seen == [["edited"]])
+        ok("NestedTensor streams='independent' with scale=1.0, audio_scale=1.0 short-circuits to 1-pass [edited]",
+           run_av(_guider(1.0, streams="independent", audio_scale=1.0)) == (3.0, 20.0) and seen == [["edited"]])
+        ok("single-stream tensor with streams='audio_only' short-circuits to 1-pass [original]",
+           run(_guider(1.8, streams="audio_only")) == 1.0 and seen == [["original"]])
         refuses("last_step < first_step", lambda: _guider(1.5, first_step=3, last_step=2), "last_step")
+        refuses("unknown streams mode", lambda: _guider(1.5, streams="bogus"), "streams")
         ok("with no schedule in the options the edit is on from the start",
            float(_guider(2.0, first_step=3).predict_noise(None, sig[:1], {})[0]) == 5.0)
     finally:
@@ -325,15 +370,17 @@ def check_static_reader() -> None:
         manual_sigmas=cfg.PIKA_MANUAL_SIGMAS,
         width=768,
         height=768,
-        edit_guidance={"edits": "evening -> twilight"},
+        edit_guidance={"edits": "evening -> twilight", "streams": "independent", "scale": 1.85, "audio_scale": 1.0},
     )
-    ok("guide-image edit guidance uses MiniMaxH3Conditioning, 1x MiniMaxH3GuideLatent.edited_positive (slot 2), no node 134, and Preflight.edited_conditioning",
+    ok("guide-image edit guidance uses MiniMaxH3Conditioning, 1x MiniMaxH3GuideLatent.edited_positive (slot 2), no node 134, Preflight.edited_conditioning, and streams/audio_scale",
        guide_eg["5"]["class_type"] == "MiniMaxH3Conditioning"
        and "4" not in guide_eg
        and "134" not in guide_eg
        and guide_eg["70"]["inputs"].get("edited_positive") == ["131", 0]
        and guide_eg["26"]["inputs"].get("edited_conditioning") == ["70", 2]
-       and guide_eg["9"]["inputs"].get("edited") == ["70", 2])
+       and guide_eg["9"]["inputs"].get("edited") == ["70", 2]
+       and guide_eg["9"]["inputs"].get("streams") == "independent"
+       and guide_eg["9"]["inputs"].get("audio_scale") == 1.0)
 
 
 def main() -> int:

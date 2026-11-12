@@ -1182,7 +1182,8 @@ LAYER_NORM_MATCH_NODE = "MiniMaxH3LayerNormMatch"
 #: The node that hands on a prompt with edits applied (`edit_guidance.py`); a prompt linked from it is
 #: resolved by `workflows/prompts.py::_follow` with `h3_prompt_edit.apply_edits`.
 PROMPT_EDIT_NODE = "MiniMaxH3PromptEdit"
-#: `MiniMaxH3EditGuider` schema defaults, read from `h3_rules.py` (their reasons are beside them there).
+#: `MiniMaxH3EditGuider` stream choices and schema defaults, read from `h3_rules.py`.
+EDIT_GUIDANCE_STREAMS = tuple(_h3_rules().EDIT_GUIDANCE_STREAMS)
 EDIT_GUIDANCE_DEFAULTS = dict(_h3_rules().EDIT_GUIDANCE_DEFAULTS)
 
 # ---- Masked video-to-video on the song node ----------------------------------

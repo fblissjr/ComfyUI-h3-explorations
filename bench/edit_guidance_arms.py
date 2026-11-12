@@ -419,7 +419,9 @@ def _arms(args, prompt: str, edited: str | None, seed: int) -> tuple[dict[str, d
                                 "inputs": {"model": guider["inputs"]["model"],
                                            "original": guider["inputs"]["conditioning"], "edited": second_link,
                                            "scale": scale, "first_step": first_step, "last_step": last_step,
-                                           "align_positions": align}}
+                                           "align_positions": align,
+                                           "streams": args.node_streams,
+                                           "audio_scale": args.node_audio_scale}}
                 return g
 
             low = args.scales[0]
@@ -490,6 +492,11 @@ def main() -> int:
                     help="also build the arms that use the pack's MiniMaxH3EditGuider node")
     ap.add_argument("--node-last-steps", type=int, nargs="+", default=[1000],
                     help="last_step value(s) for MiniMaxH3EditGuider node arms (e.g. --node-last-steps 1000 2)")
+    ap.add_argument("--node-streams", default="both",
+                    choices=["both", "audio_only", "video_only", "independent"],
+                    help="streams mode for MiniMaxH3EditGuider node arms")
+    ap.add_argument("--node-audio-scale", type=float, default=1.0,
+                    help="audio_scale for MiniMaxH3EditGuider node arms when --node-streams=independent")
     ap.add_argument("--vector-arm", action="append", default=None,
                     metavar="LABEL=FILE:STRENGTH[:MASK][+FILE2:...][,key=val,...]",
                     help="build an arm keeping the original prompt with control vector(s) and optional "

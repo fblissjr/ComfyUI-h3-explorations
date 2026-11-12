@@ -55,7 +55,9 @@
       "scale": 1.5,
       "first_step": 0,
       "align_positions": false,
-      "last_step": 1000
+      "last_step": 1000,
+      "streams": "both",
+      "audio_scale": 1.0
     }
   },
   "10": {

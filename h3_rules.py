@@ -273,16 +273,25 @@ CONTROL_VECTOR_DEFAULTS = dict(
     allow_recipe_mismatch=False,
 )
 
+#: Valid `streams` choices on `MiniMaxH3EditGuider` (`edit_guidance.py`).
+EDIT_GUIDANCE_STREAMS = ("both", "audio_only", "video_only", "independent")
+
 #: `MiniMaxH3EditGuider` schema defaults (`edit_guidance.py`). Owned here so the node and
 #: `workflows/h3_config.py` read one copy.
 #: `scale`: **Reasoned**: the owner's 2026-11-09 look found 1.5 a touch stronger than the rewritten prompt
 #: and 2.5 adding color the edit did not ask for. `first_step`: on from the start, as the arms the owner
 #: passed were. `align_positions`: off; one seed on one shot showed no benefit (2026-11-09).
+#: `streams`: `"both"` steers video and audio at `scale`; `"audio_only"` holds video at `0.0` (original) and
+#: steers audio at `scale`; `"video_only"` steers video at `scale` and holds audio at `0.0` (original);
+#: `"independent"` steers video at `scale` and audio at `audio_scale` (`1.0` = edited prompt without CFG
+#: overshoot, avoiding > 0 dBFS audio peaks when `scale >= 1.65`).
 EDIT_GUIDANCE_DEFAULTS = dict(
     scale=1.5,
     first_step=0,
     last_step=1000,
     align_positions=False,
+    streams="both",
+    audio_scale=1.0,
 )
 
 #: Optional Wave 2 stream-scale, reference-VAE gate, and inline J-Lens word

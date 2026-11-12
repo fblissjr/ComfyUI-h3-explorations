@@ -1335,20 +1335,21 @@ def register_expander_routes() -> None:
     instance.routes.get("/h3_image/expander_catalog")(expander_catalog)
 
 
-def downscale_h3_image_output(images, target_width: int, target_height: int):
+def downscale_h3_image_output(images, target_width: int, target_height: int, enabled: bool = True):
     """Resize decoded `[B, H, W, C]` images in `[0, 1]` to `(target_width, target_height)` via 8-bit PIL Lanczos.
 
     Matches `coderef/sglang` (`minimax_h3_resize_image_output`) and `coderef/vllm-omni`
-    (`pipeline_minimax_h3_image.py`): when `(W, H) == (target_width, target_height)` or
-    either target dimension is `<= 0`, returns `images` untouched (zero-copy passthrough
-    at `>= 4.0` MP). Otherwise quantizes to `uint8` (`(x * 255).clamp(0, 255).to(uint8)`),
-    resizes with `Image.Resampling.LANCZOS`, and returns `uint8 / 255.0`.
+    (`pipeline_minimax_h3_image.py`): when `enabled` is False or `(W, H) == (target_width, target_height)`,
+    returns `images` untouched (zero-copy passthrough at `>= 4.0` MP). Otherwise quantizes to `uint8`
+    (`(x * 255).clamp(0, 255).to(uint8)`), resizes with `Image.Resampling.LANCZOS`, and returns `uint8 / 255.0`.
     """
     import torch
 
-    tw, th = int(target_width or 0), int(target_height or 0)
-    if images is None or tw <= 0 or th <= 0:
+    if not enabled or images is None:
         return images
+    tw, th = int(target_width), int(target_height)
+    if min(tw, th) < 1:
+        raise ValueError(f"target_width and target_height must be >= 1; got ({tw}, {th})")
     cur_h, cur_w = int(images.shape[1]), int(images.shape[2])
     if (cur_w, cur_h) == (tw, th):
         return images
@@ -1374,17 +1375,21 @@ class MiniMaxH3ImageDownscale(io.ComfyNode):
             description=(
                 "Post-decode 8-bit PIL Lanczos resize for sub-4MP MiniMax-H3-Image requests "
                 "(matching SGLang and vLLM-Omni). Zero-copy passthrough whenever target_width "
-                "and target_height match the decoded canvas (all >= 4.0 MP renders) or are 0."
+                "and target_height match the decoded canvas (all >= 4.0 MP renders) or enabled is False."
             ),
             inputs=[
                 io.Image.Input("images"),
                 io.Int.Input(
-                    "target_width", default=0, min=0, max=16384, step=1,
-                    tooltip="Target output width from MiniMax H3 Image Size (0 or matching width passes through untouched).",
+                    "target_width", default=2048, min=1, max=16384, step=1,
+                    tooltip="Target output width from MiniMax H3 Image Size (matching width passes through untouched).",
                 ),
                 io.Int.Input(
-                    "target_height", default=0, min=0, max=16384, step=1,
-                    tooltip="Target output height from MiniMax H3 Image Size (0 or matching height passes through untouched).",
+                    "target_height", default=2048, min=1, max=16384, step=1,
+                    tooltip="Target output height from MiniMax H3 Image Size (matching height passes through untouched).",
+                ),
+                io.Boolean.Input(
+                    "enabled", default=True, optional=True,
+                    tooltip="When False, passes decoded images through untouched without resizing.",
                 ),
             ],
             outputs=[
@@ -1393,5 +1398,5 @@ class MiniMaxH3ImageDownscale(io.ComfyNode):
         )
 
     @classmethod
-    def execute(cls, images, target_width=0, target_height=0) -> io.NodeOutput:
-        return io.NodeOutput(downscale_h3_image_output(images, target_width, target_height))
+    def execute(cls, images, target_width=2048, target_height=2048, enabled=True) -> io.NodeOutput:
+        return io.NodeOutput(downscale_h3_image_output(images, target_width, target_height, enabled=bool(enabled)))

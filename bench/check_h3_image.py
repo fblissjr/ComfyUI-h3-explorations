@@ -167,8 +167,13 @@ def sizes() -> None:
     gen = torch.Generator().manual_seed(42)
     img_in = torch.rand((1, 128, 128, 3), generator=gen, dtype=torch.float32)
     same_out = MiniMaxH3ImageDownscale.execute(img_in, 128, 128)[0]
-    zero_out = MiniMaxH3ImageDownscale.execute(img_in, 0, 0)[0]
+    disabled_out = MiniMaxH3ImageDownscale.execute(img_in, 64, 64, enabled=False)[0]
     down_out = MiniMaxH3ImageDownscale.execute(img_in, 64, 64)[0]
+    refused_zero = False
+    try:
+        MiniMaxH3ImageDownscale.execute(img_in, 0, 0)
+    except ValueError:
+        refused_zero = True
     from PIL import Image
     import numpy as np
     u8 = (img_in[0] * 255.0).clamp(0.0, 255.0).to(torch.uint8).numpy()
@@ -176,8 +181,8 @@ def sizes() -> None:
         np.asarray(Image.fromarray(u8).resize((64, 64), resample=Image.Resampling.LANCZOS), dtype=np.float32) / 255.0
     ).unsqueeze(0)
     report(
-        same_out is img_in and zero_out is img_in and torch.equal(down_out, pil_ref),
-        "MiniMaxH3ImageDownscale passes matching sizes untouched and matches 8-bit PIL Lanczos when downscaling",
+        same_out is img_in and disabled_out is img_in and refused_zero and torch.equal(down_out, pil_ref),
+        "MiniMaxH3ImageDownscale passes matching/disabled sizes untouched, refuses <=0, and matches 8-bit PIL Lanczos",
     )
 
 

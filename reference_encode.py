@@ -655,19 +655,19 @@ class MiniMaxH3EncodeImageReferences(io.ComfyNode):
                 ),
                 io.Int.Input(
                     "width",
-                    default=0,
-                    min=0,
+                    default=H3_IMAGE_DEFAULT_SIZE,
+                    min=32,
                     max=16384,
                     step=32,
-                    tooltip="Target canvas width (0 uses image_1's VAE-bounded width, or 2048).",
+                    tooltip="Target canvas width in pixels when canvas = 'explicit' (ignored when canvas = 'from_image_1').",
                 ),
                 io.Int.Input(
                     "height",
-                    default=0,
-                    min=0,
+                    default=H3_IMAGE_DEFAULT_SIZE,
+                    min=32,
                     max=16384,
                     step=32,
-                    tooltip="Target canvas height (0 uses image_1's VAE-bounded height, or 2048).",
+                    tooltip="Target canvas height in pixels when canvas = 'explicit' (ignored when canvas = 'from_image_1').",
                 ),
                 io.Autogrow.Input(
                     "images",
@@ -725,6 +725,16 @@ class MiniMaxH3EncodeImageReferences(io.ComfyNode):
                     optional=True,
                     tooltip="Encode pictures into DiT reference latents (minimax_refs). Turn off for Qwen-only visual conditioning.",
                 ),
+                io.Combo.Input(
+                    "canvas",
+                    options=["from_image_1", "explicit"],
+                    default="from_image_1",
+                    optional=True,
+                    tooltip=(
+                        "'from_image_1' derives the empty latent canvas from image_1's VAE-bounded dimensions; "
+                        "'explicit' uses width and height directly."
+                    ),
+                ),
             ],
             outputs=[
                 H3EncodedReferences.Output(display_name="encoded references"),
@@ -737,14 +747,15 @@ class MiniMaxH3EncodeImageReferences(io.ComfyNode):
         cls,
         clip,
         vae=None,
-        width=0,
-        height=0,
+        width=H3_IMAGE_DEFAULT_SIZE,
+        height=H3_IMAGE_DEFAULT_SIZE,
         images=None,
         qwen_short_edge=H3_IMAGE_QWEN_SHORT_EDGE,
         vae_min_short_edge=H3_IMAGE_VAE_MIN_SHORT_EDGE,
         vae_max_short_edge=H3_IMAGE_VAE_MAX_SHORT_EDGE,
         in_bounds_align="resize_32",
         use_vae=True,
+        canvas="from_image_1",
     ):
         import comfy.model_management as mm
 
@@ -754,6 +765,8 @@ class MiniMaxH3EncodeImageReferences(io.ComfyNode):
             )
         if in_bounds_align not in H3_IMAGE_ALIGN_CHOICES:
             raise ValueError(f"in_bounds_align must be one of {H3_IMAGE_ALIGN_CHOICES}, got {in_bounds_align!r}")
+        if canvas not in ("from_image_1", "explicit"):
+            raise ValueError(f"canvas must be 'from_image_1' or 'explicit', got {canvas!r}")
         names = sorted(images or {}, key=lambda name: int(name.rsplit("_", 1)[-1]))
         raw_images = [images[name][:1] for name in names if images[name] is not None]
         if not raw_images:
@@ -784,9 +797,9 @@ class MiniMaxH3EncodeImageReferences(io.ComfyNode):
         )
         encoded.ref_blocks = refs
 
-        if not (width and height):
+        if canvas == "from_image_1":
             first_w, first_h = int(raw_images[0].shape[2]), int(raw_images[0].shape[1])
-            def_w, def_h = _h3_image_ref_size(
+            out_w, out_h = _h3_image_ref_size(
                 first_w,
                 first_h,
                 vae_min_short_edge,
@@ -794,9 +807,11 @@ class MiniMaxH3EncodeImageReferences(io.ComfyNode):
                 in_bounds_align=in_bounds_align,
                 crop_grid_32=True,
             )
-            width = int(width or def_w or H3_IMAGE_DEFAULT_SIZE)
-            height = int(height or def_h or H3_IMAGE_DEFAULT_SIZE)
-        latent = torch.zeros([1, 24, 1, int(height) // 16, int(width) // 16], device=mm.intermediate_device())
+        else:
+            out_w, out_h = int(width), int(height)
+            if min(out_w, out_h) < 32:
+                raise ValueError(f"explicit width and height must be >= 32; got ({out_w}, {out_h})")
+        latent = torch.zeros([1, 24, 1, out_h // 16, out_w // 16], device=mm.intermediate_device())
         return io.NodeOutput(encoded, {"samples": latent}, ui=ui.PreviewText("\n".join(encoded.report)))
 
 
