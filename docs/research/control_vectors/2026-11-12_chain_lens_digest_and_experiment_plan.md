@@ -423,6 +423,11 @@ share one GPU session with the full 64-layer weights.
 - **Decides.** Gives each reader a pass rate on our own vectors and becomes the yardstick for experiments 3
   and 5. Today the comparison in plan section 20.1 is a person reading two columns.
 - **Cannot see.** Whether the render shows the concept. It scores naming, not effect.
+- **First run, 2026-11-12.** Recorded in
+  [`../../../bench/results/2026-11-12_control_vector_readout_blind_score.md`](../../../bench/results/2026-11-12_control_vector_readout_blind_score.md).
+  Both readers named most vectors and the controls behaved, but with random distractors the J-Lens words leave
+  too little room for a better reader to show. The option lists need the nearest concepts as distractors
+  before this is a yardstick.
 
 ### Experiment 2: how much of each vector can the words see?
 
