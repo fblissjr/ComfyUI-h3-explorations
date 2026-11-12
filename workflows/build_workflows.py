@@ -1171,14 +1171,22 @@ def _control_vector_fields_input(fields: Any) -> dict[str, list[str]] | None:
     return {"__value__": named.split(h3_spans.FIELDS_JOIN)}
 
 
-def _canonical_vector_stem(name: str) -> str:
-    """Collapse `<stem>__(fl2va|ref2va)*.safetensors` filenames to bare `<stem>` for `MiniMaxH3Steer`."""
+def _canonical_vector_stem(name: str, *, cv_dir: Path | None = None) -> str:
+    """Collapse `<stem>__(fl2va|ref2va)*.safetensors` filenames to bare `<stem>` for `MiniMaxH3Steer`,
+    unless multiple `<stem>__<family>*.safetensors` variants exist on disk for that `(stem, family)`."""
     raw = str(name or "").strip()
     if not raw or raw == "none":
         return "none"
     for fam_tag in ("__fl2va", "__ref2va"):
         if fam_tag in raw:
-            return raw.split(fam_tag, 1)[0]
+            stem = raw.split(fam_tag, 1)[0]
+            if raw.lower().endswith(".safetensors"):
+                d = cv_dir if cv_dir is not None else (HERE.parents[2] / "models" / "control_vectors")
+                if (d / raw).is_file():
+                    siblings = [p.name for p in d.glob(f"{stem}{fam_tag}*.safetensors") if p.is_file()]
+                    if len(siblings) > 1:
+                        return raw
+            return stem
     return raw
 
 
@@ -4328,7 +4336,25 @@ def validate_api(graph: dict, oi: dict, label: str) -> list[str]:
             # The value's type, as the input's widget holds it. The executor
             # casts a `True` into an INT without a word, so only this refuses
             # it. As lenient as the UI validator it replaces: a FLOAT takes an int.
+            meta = s[1] if len(s) > 1 and isinstance(s[1], dict) else {}
             want = s[0] if isinstance(s[0], str) else "COMBO"
+            opts = _combo_options(s)
+            if want == "COMBO" and meta.get("multiselect"):
+                # ComfyUI's API executor (`execution.py`) wraps MultiSelect list widgets in
+                # `{"__value__": [...]}` because bare `[src, slot]` lists represent node links.
+                if not (
+                    isinstance(val, dict)
+                    and set(val) == {"__value__"}
+                    and isinstance(val["__value__"], list)
+                    and all(isinstance(v, (str, int, float, bool)) for v in val["__value__"])
+                ):
+                    e(f"node {nid} ({ct}).{name}: {val!r} is not a multiselect COMBO {{\"__value__\": [...]}} value")
+                    continue
+                if opts is not None:
+                    bad_items = [v for v in val["__value__"] if v not in opts]
+                    if bad_items:
+                        e(f"node {nid} ({ct}).{name}: {bad_items!r} not in available options")
+                continue
             fits = {"BOOLEAN": isinstance(val, bool),
                     "INT": isinstance(val, int) and not isinstance(val, bool),
                     "FLOAT": isinstance(val, (int, float)) and not isinstance(val, bool),
@@ -4337,14 +4363,12 @@ def validate_api(graph: dict, oi: dict, label: str) -> list[str]:
             if not fits:
                 e(f"node {nid} ({ct}).{name}: {val!r} is not a {want} value")
                 continue
-            opts = _combo_options(s)
             if _names_a_file(ct, name) and not (isinstance(val, str) and val.strip()):
                 e(f"node {nid} ({ct}).{name}: {val!r} is not a file name")
                 continue
             if opts is not None and val not in opts and not _names_a_file(ct, name):
                 e(f"node {nid} ({ct}).{name}: {val!r} is not an available option")
                 continue
-            meta = s[1] if len(s) > 1 and isinstance(s[1], dict) else {}
             if s[0] in ("INT", "FLOAT") and isinstance(val, (int, float)):
                 if "min" in meta and val < meta["min"]:
                     e(f"node {nid} ({ct}).{name}: {val} below min {meta['min']}")

@@ -39,12 +39,12 @@ RELEASE_ATTIRE_RE = re.compile(
     r"^(?:release_attire|unlock_attire|release_clothing)(?:\s*:\s*(.+))?$",
     re.IGNORECASE,
 )
-#: Any section-scoped edit prefix or attire-release directive.
+#: Any section-scoped edit prefix (`<section>: ...`) or attire-release directive (`release_attire[: ...]`).
 SECTION_EDIT_PREFIX_RE = re.compile(
-    r"^(?:soundscape|audio|foley|sound|music|non_diegetic_music|score|summary|"
+    r"^(?:(?:soundscape|audio|foley|sound|music|non_diegetic_music|score|summary|"
     r"subject_definitions|subjects|retention_analysis|retention|"
-    r"description|detailed_description|integrated_multimodal_description|"
-    r"release_attire|unlock_attire|release_clothing)\s*(?::\s*(.+))?$",
+    r"description|detailed_description|integrated_multimodal_description)\s*:\s*(.+)|"
+    r"(?:release_attire|unlock_attire|release_clothing)(?:\s*:\s*(.+))?)$",
     re.IGNORECASE,
 )
 #: Section header line boundaries for locating a named H3 section body.

@@ -5533,6 +5533,60 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
                 if rc_reb_missing != 2:
                     errs.append(f"CLI rebuild on nonexistent stem expected exit code 2, got {rc_reb_missing}")
 
+                # Multi-variant `(stem, family)` preservation in `_canonical_vector_stem` + `validate_api` multiselect `__value__`
+                mv_dir = reb_dir / "mv_cv"
+                mv_dir.mkdir()
+                f_single = "solo__fl2va__diff_span.safetensors"
+                f_var_a = "multi__fl2va__diff_span.safetensors"
+                f_var_b = "multi__fl2va__scene_text.safetensors"
+                for fn in (f_single, f_var_a, f_var_b):
+                    (mv_dir / fn).write_bytes(b"")
+                if bw._canonical_vector_stem(f_single, cv_dir=mv_dir) != "solo":
+                    errs.append("single-variant safetensors filename did not collapse to bare stem 'solo'")
+                if bw._canonical_vector_stem(f_var_b, cv_dir=mv_dir) != f_var_b:
+                    errs.append(f"multi-variant safetensors filename {f_var_b!r} was stripped instead of preserved")
+                fake_oi = {
+                    "MiniMaxH3Steer": {
+                        "input": {
+                            "required": {"vector": [["none", "solo"], {}], "strength": ["FLOAT", {}]},
+                            "optional": {
+                                "fields": [
+                                    "COMBO",
+                                    {
+                                        "multiselect": True,
+                                        "options": ["summary", "description"],
+                                    },
+                                ]
+                            },
+                        },
+                        "output": ["MODEL"],
+                    }
+                }
+                good_ms_graph = {
+                    "115": {
+                        "class_type": "MiniMaxH3Steer",
+                        "inputs": {
+                            "vector": "solo",
+                            "strength": 1.0,
+                            "fields": {"__value__": ["summary", "description"]},
+                        },
+                    }
+                }
+                if bw.validate_api(good_ms_graph, fake_oi, "ms_good"):
+                    errs.append(f"validate_api rejected valid multiselect fields: {bw.validate_api(good_ms_graph, fake_oi, 'ms_good')}")
+                bad_ms_graph = {
+                    "115": {
+                        "class_type": "MiniMaxH3Steer",
+                        "inputs": {
+                            "vector": "solo",
+                            "strength": 1.0,
+                            "fields": {"__value__": ["not_a_field"]},
+                        },
+                    }
+                }
+                if not bw.validate_api(bad_ms_graph, fake_oi, "ms_bad"):
+                    errs.append("validate_api accepted invalid multiselect field 'not_a_field'")
+
     return errs
 
 

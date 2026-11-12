@@ -125,6 +125,10 @@ def check_prompt_edit() -> None:
     refuses("release_attire naming a nonexistent <Subject 9>",
             lambda: eg.apply_edits(street_ref2va, "release_attire: <Subject 9>"),
             "<Subject 9> was not found")
+    semi_prompt = "integrated_multimodal_description:\n[Shot 1] Ambient sound; old radio hum fills the hallway.\noverall_soundscape:\nLow radio hum.\nnon_diegetic_music:\nN/A"
+    out_semi, _ = eg.apply_edits(semi_prompt, "sound; old radio hum -> quiet room")
+    ok("prose old-wording starting with 'sound;' is kept intact as a single edit rather than split as a section prefix",
+       "Ambient quiet room fills the hallway." in out_semi)
 
 
 class _Patcher:
