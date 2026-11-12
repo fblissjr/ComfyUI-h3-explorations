@@ -5587,6 +5587,80 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
                 if not bw.validate_api(bad_ms_graph, fake_oi, "ms_bad"):
                     errs.append("validate_api accepted invalid multiselect field 'not_a_field'")
 
+                # MiniMaxH3ImageModel (5D x, no audio stream):
+                # 1) refuses clean_level < 0.999 on MiniMaxH3ReleaseReferences
+                # 2) releases visual cond rows on 5D x when end_percent < 1.0
+                # 3) runs executor 1x (never 2x) when streams="video_only" on 5D x
+                from comfy.ldm.minimax.model import MiniMaxH3ImageModel
+
+                class _FakeImageDM(MiniMaxH3ImageModel):
+                    def __init__(self):
+                        torch.nn.Module.__init__(self)
+                        self.condition_proj = dm.condition_proj
+                        self.token_refiner = dm.token_refiner
+                        self.last_context = None
+                        self.calls_5d: list[dict] = []
+
+                    def run_step(self, x, timestep, context, transformer_options={}, **kwargs):
+                        self.last_context = context.clone()
+                        self.calls_5d.append(dict(kwargs))
+                        return x
+
+                img_dm = _FakeImageDM()
+                img_patcher = _MockPatcher(img_dm, ckpt_path)
+                try:
+                    cv_nodes.MiniMaxH3ReleaseReferences.execute(
+                        img_patcher, end_percent=0.5, clean_level=0.8
+                    )
+                    errs.append("MiniMaxH3ReleaseReferences failed to refuse clean_level < 0.999 on MiniMaxH3ImageModel")
+                except ValueError as exc:
+                    if "0.999" not in str(exc):
+                        errs.append(f"unexpected MiniMaxH3ImageModel clean_level refusal: {exc}")
+
+                img_rel = cv_nodes.MiniMaxH3ReleaseReferences.execute(
+                    img_patcher, end_percent=0.5, clean_level=0.999
+                ).args[0]
+                img_vec_path = cv.save_vector(
+                    reb_dir / "img5d_test.safetensors",
+                    {"vector.post_refiner": v_dir1},
+                    {**meta1, "name": "img5d_test"},
+                )
+                img_steered = cv_nodes.attach_control_vector(
+                    img_rel,
+                    img_vec_path,
+                    strength=1.0,
+                    mask="non_vision",
+                    video_scale=1.0,
+                    audio_scale=0.0,
+                    allow_recipe_mismatch=True,
+                )
+
+                x_5d = torch.zeros((1, 24, 1, 8, 8), dtype=torch.float32)
+                ctx_5d = torch.ones((1, 6, cv.POST_REFINER_DIM), dtype=torch.float32)
+                tags_5d = torch.ones((1, 6), dtype=torch.long)
+                ref_lat = torch.zeros((1, 24, 1, 8, 8), dtype=torch.float32)
+                img_steered.invoke_diffusion_model(
+                    x_5d,
+                    torch.tensor([200.0]),
+                    ctx_5d,
+                    {"sample_sigmas": torch.tensor([1.0, 0.5, 0.2, 0.0]), "sigmas": torch.tensor([0.2])},
+                    minimax_payload={
+                        "refs": [{"kind": "image", "latent_t": 1, "latent_h": 8, "latent_w": 8, "latent": ref_lat}],
+                        "cond_video_latents": [ref_lat],
+                        "text_token_tags": tags_5d,
+                    },
+                )
+                if len(img_dm.calls_5d) != 1:
+                    errs.append(f"5D MiniMaxH3ImageModel ran executor {len(img_dm.calls_5d)} times under streams='video_only' (expected 1)")
+                else:
+                    rel_pay = img_dm.calls_5d[0]["minimax_payload"]
+                    if rel_pay.get("cond_video_latents") != [] or rel_pay.get("refs") is not None:
+                        errs.append(f"5D MiniMaxH3ImageModel did not strip visual cond at step >= end_percent: {rel_pay}")
+                    if getattr(rel_pay.get("layout"), "seq_len", None) != 6 + 16:
+                        errs.append(
+                            f"5D MiniMaxH3ImageModel released layout seq_len={getattr(rel_pay.get('layout'), 'seq_len', None)} != 22"
+                        )
+
     return errs
 
 

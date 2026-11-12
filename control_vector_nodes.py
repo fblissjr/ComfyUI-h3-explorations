@@ -178,6 +178,14 @@ def _is_minimax_h3(diffusion_model: Any) -> bool:
     return isinstance(diffusion_model, MiniMaxH3Model)
 
 
+def _is_minimax_h3_image(diffusion_model: Any) -> bool:
+    try:
+        from comfy.ldm.minimax.model import MiniMaxH3ImageModel
+    except ImportError:
+        return False
+    return isinstance(diffusion_model, MiniMaxH3ImageModel)
+
+
 def _patcher_checkpoint_path(patcher: Any) -> Path | None:
     init = getattr(patcher, "cached_patcher_init", None)
     if isinstance(init, tuple) and len(init) >= 2 and isinstance(init[1], tuple) and len(init[1]) >= 1:
@@ -1409,6 +1417,14 @@ def _make_control_vector_wrapper(specs: tuple[_AppliedVectorSpec, ...]):
                         (int(x[0].shape[4]) + 1) // 2 * 2,
                         int(x[1].shape[-1]),
                     )
+                elif torch.is_tensor(x) and x.ndim == 5:
+                    target_sig = (
+                        int(context.shape[1]),
+                        int(x.shape[2]),
+                        (int(x.shape[3]) + 1) // 2 * 2,
+                        (int(x.shape[4]) + 1) // 2 * 2,
+                        0,
+                    )
                 if target_sig is not None and (
                     orig_layout is None
                     or getattr(orig_layout, "signature", None) != target_sig
@@ -1465,7 +1481,7 @@ def _make_control_vector_wrapper(specs: tuple[_AppliedVectorSpec, ...]):
                         orig_seq,
                         rel_seq,
                     )
-            elif min_ref_aug < 0.999:
+            elif min_ref_aug < 0.999 and isinstance(x, (list, tuple)) and len(x) >= 2:
                 # Core mixes each condition row as `aug` of the picture and the rest noise, and labels
                 # the row `max(t_v, aug)` (`comfy/ldm/minimax/model.py`, `_cond_video_rows` and `seg_t`
                 # in `_forward`). Sent as given, a weight below the stream's time leaves the rows noisier
@@ -1761,7 +1777,8 @@ def _make_control_vector_wrapper(specs: tuple[_AppliedVectorSpec, ...]):
                 i = j
             return cur_ctx
 
-        need_split = any(
+        has_audio_stream = isinstance(x, (list, tuple)) and len(x) >= 2
+        need_split = has_audio_stream and any(
             _spec_stream_scale(sp, "video_scale") != _spec_stream_scale(sp, "audio_scale")
             for sp in active_specs
         )
@@ -1959,6 +1976,12 @@ def attach_control_vector(
     sep_f = _validate_float_bounds("split_end_percent", split_end_percent, lo=0.0, hi=1.0)
     rvep_f = _validate_float_bounds("ref_vae_end_percent", ref_vae_end_percent, lo=0.0, hi=1.0)
     rva_f = _validate_float_bounds("ref_vae_aug", ref_vae_aug, lo=0.0, hi=1.0)
+    if rva_f < 0.999 and _is_minimax_h3_image(dm):
+        raise ValueError(
+            "MiniMax-H3-Image hardcodes reference AdaLN timestep labels to 0.999 in ComfyUI core, "
+            "so clean_level / ref_vae_aug < 0.999 would inject noise without updating the timestep "
+            "label; use end_percent to release references and keep clean_level at 0.999"
+        )
     ha_f = _validate_float_bounds("hold_alpha", hold_alpha, lo=0.0, hi=2.0)
 
     m = model.clone()

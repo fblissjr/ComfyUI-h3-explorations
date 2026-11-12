@@ -267,6 +267,74 @@ def check_static_reader() -> None:
     ok("static walker resolves MiniMaxH3PromptEdit with release_subject_attire=True and empty edits",
        isinstance(rel_text, str) and "partially_preserved" in rel_text and "clothing is not retained" in rel_text)
 
+    import importlib
+    import importlib.util
+    import nodes as _comfy_nodes  # load ComfyUI core's `nodes` before `build_workflows` puts REPO_ROOT at sys.path[0]
+    del _comfy_nodes
+    import build_workflows as bw  # workflows/build_workflows.py
+    import h3_config as cfg  # workflows/h3_config.py
+
+    if "h3x" not in sys.modules:
+        _spec = importlib.util.spec_from_file_location(
+            "h3x", REPO_ROOT / "__init__.py", submodule_search_locations=[str(REPO_ROOT)]
+        )
+        _mod = importlib.util.module_from_spec(_spec)
+        sys.modules["h3x"] = _mod
+        _spec.loader.exec_module(_mod)
+    rc_ = importlib.import_module("h3x.reference_conditioning")
+    re_ = importlib.import_module("h3x.reference_encode")
+
+    sf_ref_eg = bw.build_api(
+        "r2v",
+        prompt=bw.PIKA_IMAGE_EDIT_PROMPT,
+        ref_images=(bw.PLACEHOLDER_IMAGE_A,),
+        ref_image_count=1,
+        ref_size_policy="match",
+        single_frame=True,
+        lora=(cfg.PIKA_REF2VA_SVD995_LORA, cfg.PIKA_STRENGTH),
+        lora_branch=True,
+        steps=cfg.PIKA_STEPS,
+        sampler_name=cfg.PIKA_SAMPLER,
+        manual_sigmas=cfg.PIKA_MANUAL_SIGMAS,
+        width=768,
+        height=768,
+        edit_guidance={"edits": "summary: portrait -> close portrait"},
+    )
+    ok("single-frame r2v edit guidance splits into 1x MiniMaxH3EncodeReferences(single_frame=True) + 2x PromptOnReferences + Preflight.edited_conditioning",
+       sf_ref_eg["132"]["class_type"] == "MiniMaxH3EncodeReferences"
+       and sf_ref_eg["132"]["inputs"].get("single_frame") is True
+       and sf_ref_eg["5"]["class_type"] == "MiniMaxH3PromptOnReferences"
+       and sf_ref_eg["131"]["class_type"] == "MiniMaxH3PromptOnReferences"
+       and sf_ref_eg["26"]["inputs"].get("edited_conditioning") == ["131", 0])
+    vid_rec = rc_.RuntimeVideoReference(frames=torch.zeros((5, 64, 64, 3)), loaded_fps=24.0, soundtrack=None)
+    refuses("MiniMaxH3EncodeReferences(single_frame=True) with a video reference",
+            lambda: re_.MiniMaxH3EncodeReferences.execute(None, (vid_rec,), width=64, height=64, single_frame=True),
+            "still references only")
+
+    guide_eg = bw.build_api(
+        "r2v",
+        prompt=bw.PIKA_STILL_EDIT_PROMPT,
+        ref_images_on=False,
+        single_frame=True,
+        guide_image=True,
+        guide_file=bw.PLACEHOLDER_IMAGE_A,
+        lora=(cfg.PIKA_REF2VA_SVD995_LORA, cfg.PIKA_STRENGTH),
+        lora_branch=True,
+        steps=cfg.PIKA_STEPS,
+        sampler_name=cfg.PIKA_SAMPLER,
+        manual_sigmas=cfg.PIKA_MANUAL_SIGMAS,
+        width=768,
+        height=768,
+        edit_guidance={"edits": "evening -> twilight"},
+    )
+    ok("guide-image edit guidance uses MiniMaxH3Conditioning, 1x MiniMaxH3GuideLatent.edited_positive (slot 2), no node 134, and Preflight.edited_conditioning",
+       guide_eg["5"]["class_type"] == "MiniMaxH3Conditioning"
+       and "4" not in guide_eg
+       and "134" not in guide_eg
+       and guide_eg["70"]["inputs"].get("edited_positive") == ["131", 0]
+       and guide_eg["26"]["inputs"].get("edited_conditioning") == ["70", 2]
+       and guide_eg["9"]["inputs"].get("edited") == ["70", 2])
+
 
 def main() -> int:
     print("edit guidance: the prompt edit, the guider's arithmetic, pass marking and position alignment")

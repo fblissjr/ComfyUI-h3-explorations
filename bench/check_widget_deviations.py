@@ -380,12 +380,10 @@ DECLARED: dict[tuple[str, str], tuple] = {
         ("ARM", "task-specific prompt-row targets against the node default 'scene_only': "
                 "'description_only' on h3_image_ref_plus_text_to_video_pika_control_vector and "
                 "h3_pika_image_edit_control_vector so film_16mm_1974 grades the room/lighting "
-                "while leaving <Subject 1>'s <Picture 1> definition clean; "
+                "while leaving <Subject 1>'s <Picture 1> definition clean; and "
                 "'soundscape_only' on node 125 of h3_text_to_video_pika_dual_control_vectors so "
-                "reverb_cathedral steers overall_soundscape independently of the visual prose; and "
-                "'non_vision' on h3_probe_pika_image_guide_edit_control_vector because core's "
-                "MiniMaxH3ReferenceToVideo attaches no h3_span_masks on its one-sentence prompt "
-                "(2026-11-11, docs/wiki/control_vectors.md, docs/h3_image_editing.md)"),
+                "reverb_cathedral steers overall_soundscape independently of the visual prose "
+                "(2026-11-11, docs/wiki/control_vectors.md)"),
     ("MiniMaxH3PromptEdit", "edits"):
         ("ARM", "the graph's edit lines, data from prompt_bank/edit_guidance/, on "
                 "h3_text_to_video_pika_edit_guidance and "
@@ -410,9 +408,10 @@ DECLARED: dict[tuple[str, str], tuple] = {
                 "guide-latent graphs (h3_guide_video_edit). Until 2026-11-10 the row named "
                 "h3_p_h3_image_guide_edit, retired that day."),
     ("MiniMaxH3Conditioning", "single_frame"):
-        ("ARM", "True on h3_pika_image_t2i, a text-to-image still on the fl2va checkpoint: "
-                "the node hands the sampler a one-frame latent (2026-11-10). False, the "
-                "node default, on every video graph."),
+        ("ARM", "True on h3_pika_image_t2i and h3_probe_pika_image_guide_edit (and their "
+                "_control_vector twins), single-frame stills on fl2va/ref2va: "
+                "the node hands the sampler (or guide node) a one-frame latent (2026-11-11). "
+                "False, the node default, on every video graph."),
     ("MiniMaxH3ReferenceConditioning", "single_frame"):
         ("ARM", "True on h3_pika_image_edit, a still edited from its reference picture on "
                 "the ref2va checkpoint: the node hands the sampler a one-frame latent "

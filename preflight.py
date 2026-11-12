@@ -134,6 +134,15 @@ class MiniMaxH3Preflight(io.ComfyNode):
             inputs=[
                 io.Conditioning.Input("conditioning"),
                 io.Latent.Input("samples"),
+                io.Conditioning.Input(
+                    "edited_conditioning",
+                    optional=True,
+                    tooltip=(
+                        "Optional edited-prompt conditioning from an Edit Guidance branch. "
+                        "When wired, Preflight prices the peak sequence length across both "
+                        "branches and reports both prompt text lengths."
+                    ),
+                ),
             ],
             outputs=[
                 io.Conditioning.Output(display_name="conditioning"),
@@ -145,7 +154,7 @@ class MiniMaxH3Preflight(io.ComfyNode):
         )
 
     @classmethod
-    def execute(cls, conditioning, samples) -> io.NodeOutput:
+    def execute(cls, conditioning, samples, edited_conditioning=None) -> io.NodeOutput:
         from comfy.ldm.minimax.model import PackedLayout
         from comfy_extras.nodes_minimax_h3 import adapt_canvas
 
@@ -183,10 +192,28 @@ class MiniMaxH3Preflight(io.ComfyNode):
                 refs=d.get("minimax_refs"),
             )
 
-        active_cond, active_cd, layout = max(
+        orig_cond, orig_cd, orig_layout = max(
             ((c, d, _make_layout(c, d)) for c, d in conditioning),
             key=lambda entry: entry[2].seq_len,
         )
+        edit_summary: tuple[int, int, int, int] | None = None
+        if edited_conditioning:
+            edit_cond, edit_cd, edit_layout = max(
+                ((c, d, _make_layout(c, d)) for c, d in edited_conditioning),
+                key=lambda entry: entry[2].seq_len,
+            )
+            edit_summary = (
+                int(orig_layout.seq_len),
+                int(orig_cond.shape[1]),
+                int(edit_layout.seq_len),
+                int(edit_cond.shape[1]),
+            )
+            if edit_layout.seq_len > orig_layout.seq_len:
+                active_cond, active_cd, layout = edit_cond, edit_cd, edit_layout
+            else:
+                active_cond, active_cd, layout = orig_cond, orig_cd, orig_layout
+        else:
+            active_cond, active_cd, layout = orig_cond, orig_cd, orig_layout
 
         by_kind: dict[str, int] = {}
         for a, b, kind in layout.segments:
@@ -308,6 +335,12 @@ class MiniMaxH3Preflight(io.ComfyNode):
         if frames:
             lines.append(f"{describe_length(frames)}  {latent_t} latent frames")
         lines.append(f"sequence length {total:,}")
+        if edit_summary is not None:
+            orig_seq, orig_txt, edit_seq, edit_txt = edit_summary
+            lines.append(
+                f"  edit guidance: original {orig_seq:,} ({orig_txt:,} text) | "
+                f"edited {edit_seq:,} ({edit_txt:,} text)"
+            )
         ref_details_printed = False
         for kind, n in sorted(by_kind.items(), key=lambda kv: -kv[1]):
             lines.append(f"  {label.get(kind, kind):<15}{n:>8,}  "

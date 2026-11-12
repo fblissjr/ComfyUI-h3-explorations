@@ -22,7 +22,7 @@ For **discrete, multi-attribute edits to a subject, garment, prop, or action** (
    - At sampling step index `step` (`0`-based):
      - **Before `first_step` (`step < first_step`) or when `scale == 0.0`**: runs **1 pass** (`[original]`). Early high-sigma steps lock the baseline shot's camera framing, room layout, and `<Subject 1>` pose.
      - **After `last_step` (`step > last_step`) or when `scale == 1.0`**: runs **1 pass** (`[edited]`). Once composition and garment structure are established, late refinement steps follow `[edited]` at `1x` cost.
-     - **Inside `[first_step, last_step]` with `scale != 0, 1`**: runs **2 passes** (`[original]` and `[edited]`) on the same $x_t$ and combines their predicted velocities via `comfy.samplers.cfg_function`:
+     - **Inside `[first_step, last_step]` with `scale != 0, 1`**: runs **2 passes** (`[original]` and `[edited]`) on the same $x_t$ and extrapolates their predicted velocities directly (`out[0] + (out[1] - out[0]) * self.edit_scale`):
        $$\mathbf{v}(x_t) = \mathbf{v}_{\text{original}}(x_t) + \text{scale} \cdot \left(\mathbf{v}_{\text{edited}}(x_t) - \mathbf{v}_{\text{original}}(x_t)\right)$$
 
 ### Why velocity subtraction succeeds where pooled control vectors smear
@@ -44,13 +44,13 @@ Applies deterministic, validated `old -> new` text replacements (and tag-safe `r
 
 - **Inputs**:
   - `original` (`STRING`): the baseline H3 scene prompt.
-  - `edits` (`STRING`, multiline): one `old -> new` rule or `release_attire` directive per line (`#` lines and blank lines are ignored).
+  - `edits` (`STRING`, multiline): one `old -> new` rule or `release_attire` directive per line (or `;`-separated on one line; blank lines are ignored).
   - `release_subject_attire` (`BOOLEAN`, optional, default `False`): one-click tag-safe unlock for `<Subject 1>` on `ref2va` prompts. Rewrites `<Subject 1>`'s line in `retention_analysis:` from `fully_preserved` to `partially_preserved`, strips contradictory `, and clothing` list items when present, and appends `; clothing is not retained and follows the setting of the scene.` without touching `<Subject N>` / `<Picture N>` tags (`h3_prompt_edit.py:220-278`). Works equally for `MiniMaxH3EditGuider` or as a single-conditioning preprocessor upstream of `MiniMaxH3Steer`!
 - **Outputs**:
   - `edited_prompt` (`STRING`): wire to a conditioning node (either the second `MiniMaxH3PromptOnReferences` / `MiniMaxH3Conditioning` node for `MiniMaxH3EditGuider`, or your single `MiniMaxH3ReferenceConditioning` / `MiniMaxH3PromptOnReferences` node when unlocking attire upstream of `MiniMaxH3Steer`).
   - `report` (`STRING`): per-line summary showing which section matched and word counts (`old_words -> new_words`).
 - **Scoping prefixes & directives**:
-  - Unprefixed `old -> new`: searches outside `overall_soundscape:` and `non_diegetic_music:`.
+  - Unprefixed `old -> new`: searches the full prompt text (must match uniquely across the entire prompt).
   - `subject_definitions: old -> new` (alias `subjects:`): searches only inside `subject_definitions:`.
   - `summary: old -> new`: searches only inside `summary:`.
   - `retention_analysis: old -> new` (alias `retention:`): searches only inside `retention_analysis:`.
@@ -60,7 +60,7 @@ Applies deterministic, validated `old -> new` text replacements (and tag-safe `r
   - `release_attire: <Subject N>` (aliases `unlock_attire:`, `release_clothing:`; supports comma-separated subjects or `release_attire: all`): unlocks reference clothing in `retention_analysis:` for any `<Subject N>` (not just `<Subject 1>`).
 - **Built-in safety refusals** ([`h3_prompt_edit.py:281-379`](../../h3_prompt_edit.py#L281-L379)):
   - Refuses if `old` does not appear or appears **more than once** in the scoped span (add a neighbor word to disambiguate).
-  - Refuses if an `old -> new` edit touches protected H3 structure: `<d>...</d>` dialogue, `(S1)` speaker tags, `<Subject N>` / `<Picture N>` / `<Video N>` / `<Audio N>` references, `[Shot N]` markers, `<0.0 seconds>` timestamps, or section headers.
+  - Refuses if an `old -> new` edit touches protected H3 structure: `<d>...</d>` dialogue, `(S1)` speaker tags, `<Subject N>` / `<Picture N>` / `<Video N>` / `<Audio N>` references, `<|...|>` special tokens, `[Shot N]` markers, or section headers.
 
 > **When baseline prose does not name the attribute yet**: On `ref2va` prompts, `subject_definitions:` often anchors `<Subject 1>` via `<Picture 1>` without describing her current sweater. You can either match the end of her `<Subject 1>` definition line in `MiniMaxH3PromptEdit` (`subject_definitions: from <Picture 1>. -> from <Picture 1>, wearing a 1970s rust-orange polyester blouse with a wide pointed collar and high-waisted flared jeans.`) or pass a dedicated edited prompt string directly into the second `MiniMaxH3PromptOnReferences` node.
 

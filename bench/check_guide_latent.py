@@ -165,7 +165,8 @@ def check_execute_video_and_single_frame() -> None:
         audio=audio,
         audio_vae=audio_vae,
     )
-    cond_vid, lat_vid = out_vid.args
+    cond_vid, lat_vid, edited_vid = out_vid.args
+    assert edited_vid is None
     assert lat_vid is latent_124
     refs_vid = cond_vid[0][1]["minimax_refs"]
     assert len(refs_vid) == 1
@@ -194,8 +195,9 @@ def check_execute_video_and_single_frame() -> None:
     pf_vid = MiniMaxH3Preflight.execute(conditioning=cond_vid, samples=lat_vid)
     assert "keyframes" in pf_vid.args[3] and "Ref 1 (image)" in pf_vid.args[3]
 
-    # 2. Single-frame mode (collapses 124-frame latent to t=1, audio_t=2)
+    # 2. Single-frame mode (collapses 124-frame latent to t=1, audio_t=2) + shared 1x edited_positive
     guide_img = torch.full((1, 256, 256, 3), 0.75)
+    pos_edited = [[torch.zeros((1, 24, 5376)), dict(pos[0][1])]]
     out_sf = MiniMaxH3GuideLatent.execute(
         positive=pos,
         latent=latent_124,
@@ -203,17 +205,21 @@ def check_execute_video_and_single_frame() -> None:
         single_frame=True,
         vae=vae,
         guide=guide_img,
+        edited_positive=pos_edited,
     )
-    cond_sf, lat_sf = out_sf.args
+    cond_sf, lat_sf, cond_sf_edit = out_sf.args
+    assert cond_sf_edit is not None
     v_sf, a_sf = lat_sf["samples"].tensors
     assert v_sf.shape == (1, 24, 1, 12, 20)
     assert a_sf.shape == (1, 32, 2, 2)
     refs_sf = cond_sf[0][1]["minimax_refs"]
     assert len(refs_sf) == 1
     kfs_sf = cond_sf[0][1]["minimax_keyframes"]
-    assert len(kfs_sf) == 1
+    kfs_sf_edit = cond_sf_edit[0][1]["minimax_keyframes"]
+    assert len(kfs_sf) == 1 and len(kfs_sf_edit) == 1
     assert kfs_sf[0]["resolved_frame_index"] == 0
     assert kfs_sf[0]["latent"].shape == (1, 24, 1, 12, 20)
+    assert kfs_sf[0]["latent"] is kfs_sf_edit[0]["latent"], "expected 1x shared guide VAE latent"
 
     layout_sf = PackedLayout(
         16,
@@ -228,7 +234,11 @@ def check_execute_video_and_single_frame() -> None:
     ref_rows_sf = sum(b - a for a, b, k in layout_sf.segments if k == "ref_img")
     assert cond_rows_sf == (12 // 2) * (20 // 2)
     assert ref_rows_sf == (12 // 2) * (20 // 2)
-    pf_sf = MiniMaxH3Preflight.execute(conditioning=cond_sf, samples=lat_sf)
+    pf_sf = MiniMaxH3Preflight.execute(
+        conditioning=cond_sf, samples=lat_sf, edited_conditioning=cond_sf_edit
+    )
+    assert pf_sf.args[2] == layout_sf.seq_len + (24 - 16)
+    assert "edit guidance: original" in pf_sf.args[3]
     assert "1 frame" in pf_sf.args[3] and "keyframes" in pf_sf.args[3] and "Ref 1 (image)" in pf_sf.args[3]
 
 

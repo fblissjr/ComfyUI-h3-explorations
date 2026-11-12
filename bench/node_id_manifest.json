@@ -245,7 +245,8 @@
       "height",
       "length",
       "video_policy",
-      "image_policy"
+      "image_policy",
+      "single_frame"
     ],
     "node_id": "MiniMaxH3EncodeReferences",
     "outputs": [
@@ -361,12 +362,14 @@
       "single_frame",
       "mask",
       "audio",
-      "audio_vae"
+      "audio_vae",
+      "edited_positive"
     ],
     "node_id": "MiniMaxH3GuideLatent",
     "outputs": [
       "positive",
-      "latent"
+      "latent",
+      "edited_positive"
     ]
   },
   "MiniMaxH3ImagePromptExpander": {
@@ -597,7 +600,8 @@
   "MiniMaxH3Preflight": {
     "inputs": [
       "conditioning",
-      "samples"
+      "samples",
+      "edited_conditioning"
     ],
     "node_id": "MiniMaxH3Preflight",
     "outputs": [

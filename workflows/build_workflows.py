@@ -1793,11 +1793,11 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
     if ref:
         slots = _ref_image_slots(ref_images_on, ref_image_count, ref_images)
         n_refs = len(slots) + int(ref_video) + int(ref_audio)
-        # A guide graph on core's node may carry no reference: the guide is the
-        # picture being edited, and core's `MiniMaxH3ReferenceToVideo` takes
-        # zero reference sockets. Our typed conditioner refuses an empty
-        # chain (`reference_conditioning.py`), so this is `native_ref` only.
-        guide_only = native_ref and (guide_video or guide_image)
+        # A guide graph on `unet_ref2va` may carry no reference: the guide is
+        # the picture/clip being edited, so node 5 conditions on the prompt
+        # alone via `MiniMaxH3Conditioning` (or core's `MiniMaxH3ReferenceToVideo`
+        # when `native_ref=True`).
+        guide_only = bool(guide_video or guide_image)
         if not n_refs and not guide_only:
             raise SystemExit("r2v graph has no references to condition on")
         if n_refs > len(_REF_APPEND_NODES):
@@ -1832,6 +1832,13 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
                                  **{f"ref_images.ref_image_{i}": [load_id, 0]
                                     for i, (load_id, _name)
                                     in enumerate(slots)}}}
+        elif not n_refs:
+            g["5"] = {"class_type": "MiniMaxH3Conditioning",
+                      "inputs": {"clip": ["2", 0], "vae": vae_enc,
+                                 "prompt": prompt,
+                                 "width": ["27", 0], "height": ["27", 1],
+                                 "length": ["27", 2], "canvas": "explicit",
+                                 **({"single_frame": True} if single_frame else {})}}
         else:
             g["5"] = {"class_type": "MiniMaxH3ReferenceConditioning",
                       "inputs": {"clip": ["2", 0], **cond_vaes,
@@ -1921,7 +1928,7 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
             g[append_id] = {"class_type": "MiniMaxH3AppendRefAudio",
                             "inputs": append_inputs}
             chain = [append_id, 0]
-        if not native_ref and chain != [terminal_ref, 0]:
+        if not native_ref and n_refs and chain != [terminal_ref, 0]:
             raise AssertionError(
                 f"typed reference chain ended at {chain}, expected "
                 f"{[terminal_ref, 0]}")
@@ -2592,10 +2599,6 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
         del g["4"]
 
     if edit_guidance is not None:
-        if ref and single_frame and not guide_image:
-            raise SystemExit(
-                "edit_guidance on a reference still is not built: its two-node reference path "
-                "(MiniMaxH3EncodeReferences) has no single_frame input")
         _wire_edit_guidance(g, prompt, edit_guidance)
 
     return g
@@ -2656,10 +2659,15 @@ def _wire_edit_guidance(g: dict, prompt: str, spec: dict) -> None:
     else:
         raise SystemExit(f"edit_guidance does not know how to add a second prompt to {cond['class_type']}")
     edited_src = ["131", 0]
-    if "70" in g and g["70"]["class_type"] in ("MiniMaxH3GuideLatent", "MiniMaxH3AddGuide"):
+    if "70" in g and g["70"]["class_type"] == "MiniMaxH3GuideLatent":
+        g["70"]["inputs"]["edited_positive"] = edited_src
+        edited_src = ["70", 2]
+    elif "70" in g and g["70"]["class_type"] == "MiniMaxH3AddGuide":
         g["134"] = {"class_type": g["70"]["class_type"],
                     "inputs": dict(g["70"]["inputs"], positive=edited_src)}
         edited_src = ["134", 0]
+    if "26" in g and g["26"]["class_type"] == "MiniMaxH3Preflight":
+        g["26"]["inputs"]["edited_conditioning"] = edited_src
     g["9"] = {"class_type": "MiniMaxH3EditGuider",
               "inputs": {"model": guider["inputs"]["model"], "original": guider["inputs"]["conditioning"],
                          "edited": edited_src, "scale": float(spec.get("scale", EDIT_GUIDANCE_DEFAULTS["scale"])),
@@ -5617,20 +5625,21 @@ def main():
         # edit is the guide, and the prompt is one plain sentence. No edit LoRA
         # and no `vfx_edit:` opening since 2026-11-11 (owner); the renders of
         # 2026-11-10 in `docs/h3_image_editing.md` were made with both.
-        # Core's reference node, because ours refuses an empty chain.
+        # Node 5 is our `MiniMaxH3Conditioning(single_frame=True)` (0 references,
+        # native `h3_span_masks`, no unused audio VAE loader).
         ("h3_probe_pika_image_guide_edit.json", "pika-image-guide-edit", "r2v",
          PIKA_STILL_EDIT_PROMPT,
-         dict(ref_images_on=False, native_ref=True,
+         dict(ref_images_on=False,
               single_frame=True, guide_image=True, guide_file=PLACEHOLDER_IMAGE_A,
               lora=(PIKA_REF2VA_SVD995_LORA, PIKA_STRENGTH), lora_branch=True,
               steps=PIKA_STEPS, sampler_name=PIKA_SAMPLER,
               manual_sigmas=PIKA_MANUAL_SIGMAS,
               width=768, height=768,
               out_prefix="Image/h3_probe_pika_image_guide_edit"),
-         "guide image + text -> single-frame edited image on unet_ref2va + Pika H3 Flex 6-step LCM (SVD995 branch), no edit LoRA and no reference picture (core's MiniMaxH3ReferenceToVideo, MiniMaxH3GuideLatent(single_frame=True))"),
+         "guide image + text -> single-frame edited image on unet_ref2va + Pika H3 Flex 6-step LCM (SVD995 branch), no edit LoRA and no reference picture (MiniMaxH3Conditioning(single_frame=True), MiniMaxH3GuideLatent(single_frame=True))"),
         ("h3_probe_pika_image_guide_edit_control_vector.json", "pika-image-guide-edit-control-vector", "r2v",
          PIKA_STILL_EDIT_PROMPT,
-         dict(ref_images_on=False, native_ref=True,
+         dict(ref_images_on=False,
               single_frame=True, guide_image=True, guide_file=PLACEHOLDER_IMAGE_A,
               lora=(PIKA_REF2VA_SVD995_LORA, PIKA_STRENGTH), lora_branch=True,
               steps=PIKA_STEPS, sampler_name=PIKA_SAMPLER,
@@ -5639,11 +5648,11 @@ def main():
               control_vector=dict(
                   vector="film_16mm_1974",
                   strength=1.15,
-                  target="non_vision",
+                  target="scene_only",
                   release_references=True,
               ),
               out_prefix="Image/h3_probe_pika_image_guide_edit_control_vector"),
-         "guide image + text -> single-frame edited image on unet_ref2va + Pika H3 Flex 6-step LCM (SVD995 branch), no edit LoRA, with MiniMaxH3Steer (film_16mm_1974 at +1.15, add_norm_matched, target=non_vision) and MiniMaxH3ReleaseReferences"),
+         "guide image + text -> single-frame edited image on unet_ref2va + Pika H3 Flex 6-step LCM (SVD995 branch), no edit LoRA, with MiniMaxH3Steer (film_16mm_1974 at +1.15, add_norm_matched, target=scene_only) and MiniMaxH3ReleaseReferences"),
         # --- MiniMax-H3-Image, MiniMax's own still-image model (2026-11-11) ---
         # Our own chain, derived from the diffusers pipeline and the release
         # rather than from Comfy-Org's templates (`build_h3_image_api`). The

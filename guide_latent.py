@@ -207,10 +207,20 @@ class MiniMaxH3GuideLatent(io.ComfyNode):
                     optional=True,
                     tooltip="Audio VAE, required when `audio` is connected.",
                 ),
+                io.Conditioning.Input(
+                    "edited_positive",
+                    optional=True,
+                    tooltip=(
+                        "Optional second prompt conditioning for Edit Guidance. When wired, "
+                        "the guide image/video/mask/audio latents are encoded once and attached "
+                        "to both `positive` (slot 0) and `edited_positive` (slot 2)."
+                    ),
+                ),
             ],
             outputs=[
                 io.Conditioning.Output(display_name="positive"),
                 io.Latent.Output(display_name="latent"),
+                io.Conditioning.Output(display_name="edited_positive"),
             ],
         )
 
@@ -226,6 +236,7 @@ class MiniMaxH3GuideLatent(io.ComfyNode):
         mask=None,
         audio=None,
         audio_vae=None,
+        edited_positive=None,
     ) -> io.NodeOutput:
         video, audio_tensor = _validate_av_latent(latent)
         if mask is not None and guide is None:
@@ -293,20 +304,27 @@ class MiniMaxH3GuideLatent(io.ComfyNode):
                 audio_latent = audio_latent[..., :max_rt].clone()
             keyframe["audio_latent"] = audio_latent
 
-        keyframes = list(positive[0][1].get("minimax_keyframes", []))
-        keyframes.append(keyframe)
-
+        added_keyframes: list[dict] = [keyframe]
         if mask is not None:
             mask_rgb = mask_to_rgb(mask, guide_frames)
             mask_resized = _resize(mask_rgb, width, height, "center")
-            keyframes.append(
+            added_keyframes.append(
                 {
                     "resolved_frame_index": resolved_frame_index,
                     "latent": vae.encode(mask_resized),
                 }
             )
 
+        keyframes = list(positive[0][1].get("minimax_keyframes", [])) + added_keyframes
         out_positive = node_helpers.conditioning_set_values(
             positive, {"minimax_keyframes": keyframes}
         )
-        return io.NodeOutput(out_positive, out_latent)
+        out_edited = None
+        if edited_positive is not None:
+            edited_keyframes = (
+                list(edited_positive[0][1].get("minimax_keyframes", [])) + added_keyframes
+            )
+            out_edited = node_helpers.conditioning_set_values(
+                edited_positive, {"minimax_keyframes": edited_keyframes}
+            )
+        return io.NodeOutput(out_positive, out_latent, out_edited)

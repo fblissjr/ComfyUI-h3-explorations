@@ -70,7 +70,7 @@ from typing import Any
 import node_helpers
 import torch
 from comfy_api.latest import io, ui
-from comfy_extras.nodes_minimax_h3 import _empty_av_latent
+from comfy_extras.nodes_minimax_h3 import _av_latent, _empty_av_latent
 
 from .h3_rules import normalize_prompt
 from .reference_conditioning import (
@@ -87,6 +87,7 @@ from .reference_conditioning import (
     VIDEO_VAE_TOOLTIP,
     WIDTH_TOOLTIP,
     H3References,
+    RuntimeImageReference,
     _compile_reference_records,
     _order_records,
     _reference_tuple,
@@ -468,6 +469,15 @@ class MiniMaxH3EncodeReferences(io.ComfyNode):
                                optional=True, tooltip=VIDEO_POLICY_TOOLTIP),
                 io.Combo.Input("image_policy", options=list(IMAGE_POLICIES), default="comfy",
                                optional=True, tooltip=IMAGE_POLICY_TOOLTIP),
+                io.Boolean.Input(
+                    "single_frame", default=False, optional=True,
+                    tooltip=(
+                        "On: the latent is one frame, a still image, and "
+                        "length is not used. Still references only: a "
+                        "reference video or audio has no duration to land in "
+                        "on a one-frame target."
+                    ),
+                ),
             ],
             outputs=[
                 H3EncodedReferences.Output(display_name="encoded references"),
@@ -477,11 +487,22 @@ class MiniMaxH3EncodeReferences(io.ComfyNode):
 
     @classmethod
     def execute(cls, clip, references, width=1344, height=768, length=124,
-                video_policy="comfy", image_policy="comfy", vae=None, audio_vae=None):
+                video_policy="comfy", image_policy="comfy", vae=None, audio_vae=None,
+                single_frame=False):
         records = _reference_tuple(references)
         if not records:
             raise ValueError("MiniMaxH3EncodeReferences needs at least one appended reference")
-        latent, frame_count = _empty_av_latent(width, height, length)
+        if single_frame:
+            if any(not isinstance(r, RuntimeImageReference) for r in records):
+                raise ValueError(
+                    "MiniMaxH3EncodeReferences: single_frame takes still "
+                    "references only. A reference video or audio has no "
+                    "duration to land in on a one-frame target; remove it, or "
+                    "turn single_frame off."
+                )
+            latent, frame_count = _av_latent(width, height, 1, 2), 1
+        else:
+            latent, frame_count = _empty_av_latent(width, height, length)
         ref_items, ref_blocks = _compile_reference_records(
             records, vae, audio_vae, width, height, frame_count,
             video_policy=video_policy, image_policy=image_policy)

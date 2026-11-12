@@ -298,8 +298,12 @@ def _edits_its_reference(wf: dict) -> bool:
     on 2026-11-10 that form kept the picture's framing and made the edit
     (`docs/h3_image_editing.md`, "Plain H3 prompting at one frame").
     """
-    return any(isinstance(n, dict) and n.get("class_type") == "MiniMaxH3ReferenceConditioning"
-               and (n.get("inputs") or {}).get("single_frame") is True for n in wf.values())
+    return any(
+        isinstance(n, dict)
+        and n.get("class_type") in ("MiniMaxH3ReferenceConditioning", "MiniMaxH3EncodeReferences")
+        and (n.get("inputs") or {}).get("single_frame") is True
+        for n in wf.values()
+    )
 
 
 def graphs_without_audio() -> set:

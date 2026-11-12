@@ -319,25 +319,28 @@ def _base(
     return g
 
 
-def _with_second_prompt(g: dict, edited: str) -> tuple[str, str]:
+def _with_second_prompt(g: dict, edited: str) -> tuple[list, list]:
     cond_id, cond = _one(g, CONDITIONING_NODES)
     second = copy.deepcopy(cond)
     second["inputs"]["prompt"] = edited
     g["205"] = second
     for guide_id, guide_node in _all_of(g, GUIDE_NODES):
         if guide_node["inputs"].get("positive") == [cond_id, 0]:
+            if guide_node["class_type"] == "MiniMaxH3GuideLatent":
+                guide_node["inputs"]["edited_positive"] = ["205", 0]
+                return [guide_id, 0], [guide_id, 2]
             second_guide = copy.deepcopy(guide_node)
             second_guide["inputs"]["positive"] = ["205", 0]
             if second_guide["inputs"].get("latent") == [cond_id, 1]:
                 second_guide["inputs"]["latent"] = ["205", 1]
             g["270"] = second_guide
-            return guide_id, "270"
-    return cond_id, "205"
+            return [guide_id, 0], ["270", 0]
+    return [cond_id, 0], ["205", 0]
 
 
-def _ranged(g: dict, at: str, source: str, start: float, end: float) -> None:
+def _ranged(g: dict, at: str, source: list, start: float, end: float) -> None:
     g[at] = {"class_type": "ConditioningSetTimestepRange",
-             "inputs": {"conditioning": [source, 0], "start": start, "end": end}}
+             "inputs": {"conditioning": source, "start": start, "end": end}}
 
 
 def _effective_length(g: dict) -> int:
@@ -380,16 +383,16 @@ def _arms(args, prompt: str, edited: str | None, seed: int) -> tuple[dict[str, d
         def guided(label: str, scale: float, late: bool) -> dict:
             g = fresh(label)
             guider_id, guider = _one(g, "BasicGuider")
-            first, second = _with_second_prompt(g, edited)
-            positive = second
+            first_link, second_link = _with_second_prompt(g, edited)
+            positive_link = second_link
             if late:
-                _ranged(g, "206", first, 0.0, p)
-                _ranged(g, "207", second, p, 1.0)
+                _ranged(g, "206", first_link, 0.0, p)
+                _ranged(g, "207", second_link, p, 1.0)
                 g["208"] = {"class_type": "ConditioningCombine",
                             "inputs": {"conditioning_1": ["206", 0], "conditioning_2": ["207", 0]}}
-                positive = "208"
+                positive_link = ["208", 0]
             g[guider_id] = {"class_type": "CFGGuider",
-                            "inputs": {"model": guider["inputs"]["model"], "positive": [positive, 0],
+                            "inputs": {"model": guider["inputs"]["model"], "positive": positive_link,
                                        "negative": guider["inputs"]["conditioning"], "cfg": scale}}
             return g
 
@@ -399,9 +402,9 @@ def _arms(args, prompt: str, edited: str | None, seed: int) -> tuple[dict[str, d
 
         g = fresh("schedule")
         guider_id, guider = _one(g, "BasicGuider")
-        first, second = _with_second_prompt(g, edited)
-        _ranged(g, "206", first, 0.0, p)
-        _ranged(g, "207", second, p, 1.0)
+        first_link, second_link = _with_second_prompt(g, edited)
+        _ranged(g, "206", first_link, 0.0, p)
+        _ranged(g, "207", second_link, p, 1.0)
         g["208"] = {"class_type": "ConditioningCombine",
                     "inputs": {"conditioning_1": ["206", 0], "conditioning_2": ["207", 0]}}
         guider["inputs"]["conditioning"] = ["208", 0]
@@ -411,10 +414,10 @@ def _arms(args, prompt: str, edited: str | None, seed: int) -> tuple[dict[str, d
             def node(label: str, scale: float, first_step: int, align: bool, last_step: int = 1000) -> dict:
                 g = fresh(label)
                 guider_id, guider = _one(g, "BasicGuider")
-                _first, second = _with_second_prompt(g, edited)
+                _first_link, second_link = _with_second_prompt(g, edited)
                 g[guider_id] = {"class_type": "MiniMaxH3EditGuider",
                                 "inputs": {"model": guider["inputs"]["model"],
-                                           "original": guider["inputs"]["conditioning"], "edited": [second, 0],
+                                           "original": guider["inputs"]["conditioning"], "edited": second_link,
                                            "scale": scale, "first_step": first_step, "last_step": last_step,
                                            "align_positions": align}}
                 return g
