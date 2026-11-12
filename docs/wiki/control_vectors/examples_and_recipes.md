@@ -63,8 +63,7 @@ words. All eight are in the library.
 
 - **How they were built.** A small pair file each: five ordinary scenes, with one clothing clause swapped between a
   plain outfit and the target (`"suited up in bulky white astronaut spacesuits with glass bubble helmets aboard an
-  orbiting space station"`). The older form, a bare clause that the compiler dropped into stock scenes, no longer
-  runs: `build --words` needs a target prompt that contains one of the two poles.
+  orbiting space station"`). *(Follow-up tooling fixes landed right after this batch: `from-prompt --bank-scenes 5 --words "<target clause>"` and blank-`target_prompt` `MiniMaxH3MakeControlVector` now compile target-only vectors across rotated `DEFAULT_AUX_BASELINES` so a single Pole-A shirt/sweater does not cancel Pole-B attire; `j_lens.check_b_side_alignment` warns at build time whenever `0` attire words survive into `(+)`; `scene_only` now leaves `retention_analysis:` unsteered by default; and `MiniMaxH3PromptEdit.release_subject_attire` unlocks `<Subject 1>`'s `partially_preserved` clothing contract in one toggle.)*
 - **How they were applied.** `mask = scene_only`, `strength = 2.25`, `end_percent = 0.5` (the first three of six
   steps), picture held at the defaults, on the diner reference shot with no clothing named in its prompt.
 - **What the frames show** (one seed, three frames a clip; playback is the owner's):

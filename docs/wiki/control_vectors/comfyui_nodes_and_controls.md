@@ -59,17 +59,18 @@ You can choose which prose sections receive the vector using either the **`targe
 
 | `target` (`mask`) | Prose sections steered | Notes & fallback behavior |
 |---|---|---|
-| `scene_only` *(default)* | All visual prose (`look_only \| description_only`: `subject_definitions:`, `summary:`, visual `retention_analysis:`, and `integrated_multimodal_description:` / `detailed_description:`) | Leaves audio sections (`overall_soundscape:`, `non_diegetic_music:`), dialogue, tags, and vision rows untouched. |
+| `scene_only` *(default)* | All visual scene prose (`look_only \| description_only`: `subject_definitions:`, `summary:`, and `integrated_multimodal_description:` / `detailed_description:`) | Leaves `retention_analysis:` preservation contracts, audio sections (`overall_soundscape:`, `non_diegetic_music:`), dialogue, tags, and vision rows untouched by default so high-strength vectors never scramble `fully_preserved` / `partially_preserved` instructions. |
 | `description_only` | Action & environment prose inside `detailed_description:` (`ref2va`) or `integrated_multimodal_description:` (`t2va`/`fl2va`) | **Best choice on `ref2va` when grading the room/lighting (`film_16mm_1974`, `noir`) while keeping `<Subject 1>` untouched.** |
-| `look_only` | `subject_definitions:`, `summary:`, and visual lines of `retention_analysis:` | Falls back to `description_only` on 3-field `t2va`/`fl2va` prompts that lack `ref2va` headers. |
+| `look_only` | `subject_definitions:` and `summary:` | Leaves `retention_analysis:` preservation contracts unsteered; falls back to `description_only` on 3-field `t2va`/`fl2va` prompts that lack `ref2va` headers. |
 | `soundscape_only` | `overall_soundscape:`, non-`N/A` `non_diegetic_music:`, and `<Audio N>:` lines | **Mandatory for audio/vocal vectors** (`reverb_cathedral`, `pyro_klaxon_audio`, `operatic_bellow`, `whisper_asmr`); under `scene_only`, `0` audio rows would be steered! |
 | `after_dialogue` | Visual prose rows occurring after the final `</d>` | Useful when spoken lines sit early and you only want late reaction beats steered. |
-| `non_vision` | Every tag-`1` text row (including headers/dialogue), excluding tag-`0` vision rows | **Required for unsectioned 1-line prompts** (where structured header masks match `0` rows). |
+| `non_vision` | Every tag-`1` text row (including headers/dialogue/`retention_analysis:`), excluding tag-`0` vision rows | **Required for unsectioned 1-line prompts** (where structured header masks match `0` rows). |
 | `all_rows` *(legacy `Apply` / CLI only)* | Every row in `context`, including tag-`0` vision tokens | Diagnostic ablation only; steering vision rows degrades `<Picture 1>` likeness (omitted from `MiniMaxH3Steer.target`). |
 
 ### B. Exact single-field and multi-field targeting (`fields` multi-select)
 
 - **One or more fields via `fields` (`io.MultiCombo` on `MiniMaxH3Steer` and legacy `Apply`)**: tick any combination of `subject_definitions`, `summary`, `retention_analysis`, `description`, `overall_soundscape`, `non_diegetic_music`.
+  - Note that `retention_analysis` is **excluded** from the default preset levers (`scene_only`, `look_only`, `soundscape_only`) so preservation markers stay clean, but ticking `retention_analysis` in `fields` explicitly steers it whenever you want to test it directly.
   - When **any** item in `fields` is ticked, it overrides `target` / `mask` (`fields_mask(["description", "overall_soundscape"])` -> `"description+overall_soundscape"`) and logs the active field mask. Unlike `look_only`, ticked fields **never fall back**: if the prompt lacks that header or its value is `N/A`, `0` rows are added for that field and ComfyUI logs a warning if the total is `0`.
   - In raw ComfyUI `_api.json` workflows, `io.MultiCombo` serializes as `{"__value__": ["description", "overall_soundscape"]}` (and on the CLI `inspect` / `grade`, pass `--mask description_only+overall_soundscape` or a single field name such as `--mask subject_definitions`).
   - *(Legacy note: `MiniMaxH3ApplyControlVectors.mask` still retains the five single-field strings `subject_definitions`, `summary`, `retention_analysis`, `overall_soundscape`, `non_diegetic_music` for older graphs; `MiniMaxH3Steer` removes that duplication so `target` holds only the 6 preset levers and `fields` holds individual prompt fields.)*

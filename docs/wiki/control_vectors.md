@@ -68,13 +68,15 @@ Every rule below was tested on rendered 6-step Pika `t2va` and `ref2va` clips an
      - Aiming a film/room look (`film_16mm_1974`) at `subject_definitions` or `look_only` leaves `<Subject 1>` unchanged.
      - Aiming it at `description_only` (or ticking `description` in `fields`) grades the room and lighting while keeping `<Subject 1>` clean.
      - Aiming it at `scene_only` grades the whole shot.
-4. **Always read the J-Lens top words before rendering a new vector**:
+4. **Always read the J-Lens top words—and heed build-time `b_side` alignment warnings—before rendering a new vector**:
    - Coherent single-concept pairs (`film_16mm_1974`, `claymation_stopmotion`, `pyro_chain_explosions`) surface concrete optical, material, or physical nouns at the top of their J-Lens readout.
-   - Averaging heterogeneous nouns (`wardrobe_1970s`'s 6 different outfits) cancels concrete nouns and leaves only mood adjectives (`vintage`, `psychedelic`, `nostalgic`), which tint lighting/background rather than changing objects.
-5. **High-strength facial red tint comes from late-step text steering, not `<Picture 1>` weight**:
+   - Averaging heterogeneous nouns (`wardrobe_1970s`'s 6 different outfits) or repeating one Pole-A shirt/sweater across all pairs (`pirate_crew`, `wild_west_saloon`, `arctic_expedition`) cancels target attire words. CLI `build` / `make` and `MiniMaxH3MakeControlVector` now run [`j_lens.py::check_b_side_alignment`](../../j_lens.py) automatically at save time to warn whenever target/attire words drop out of `(+)`, and [`h3_pair_compiler.py`](../../h3_pair_compiler.py) supports rotated Pole-A baselines (`a1 | a2 | a3 -> b` or target-only `--bank-scenes 5`).
+5. **Default `retention_analysis:` protection + tag-safe `release_subject_attire` on `ref2va`**:
+   - Default lever masks (`scene_only`, `look_only`, `soundscape_only` in [`h3_spans.py`](../../h3_spans.py)) leave `retention_analysis:` preservation contracts unsteered so high-strength vectors (`strength = 2.25..3.5`) never scramble `fully_preserved` / `partially_preserved` instructions (tick `retention_analysis` in `fields` only when you explicitly want to steer it). To unlock `<Subject 1>`'s outfit cleanly for a vector or edit without hand-editing tags, toggle `release_subject_attire = True` on `MiniMaxH3PromptEdit`.
+6. **High-strength facial red tint comes from late-step text steering, not `<Picture 1>` weight**:
    - When a strong vector (`strength = 2.0..3.0`) causes red burn around `<Subject 1>`'s eyes and cheeks, shortening **the vector's** window to `end_percent = 0.5` (first 3 of 6 Pika steps) removes the red tint on playback while preserving the style/scene effect—with `<Picture 1>` left at default `ref_vae_end_percent = 1.0` and `ref_vae_aug = 0.999`.
    - Only lower `ref_vae_end_percent` (`0.16` or `0.33`) when you want `<Subject 1>`'s **3D silhouette or material** to depart from the clean reference VAE latents (such as claymation, felt puppet, or head inflation).
-6. **Project out correlated side effects (`[[hold]]` at build time, `mode = "hold"` or `hold_words` at render time)**:
+7. **Project out correlated side effects (`[[hold]]` at build time, `mode = "hold"` or `hold_words` at render time)**:
    - `film_16mm_1974` pulls warm amber cast alongside grain; `film_16mm_1974_neutral` adds a `[[hold]]` group (`warm_colour_cast`) that removes the amber shift while keeping grain and gate weave (`cos = 0.72` between the two).
    - At render time, wiring `MiniMaxH3LoadControlVector` (or `MiniMaxH3WordVector`) into `MiniMaxH3Steer.hold_vector` (e.g., `cursed_cctv` + `hold_vector = chaos_panic`), or setting `hold_words` (`hold_words = "coat, parka"`), scrubs unwanted collateral concepts from the additive delta without altering the base prompt.
 

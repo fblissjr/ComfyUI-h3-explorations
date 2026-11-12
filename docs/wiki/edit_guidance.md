@@ -40,22 +40,27 @@ In `MiniMaxH3EditGuider`, **nothing is pooled**:
 
 ### `MiniMaxH3PromptEdit` (`conditioning/minimax`)
 
-Applies deterministic, validated `old -> new` text replacements to an H3 prompt string so `original` and `edited` stay identical everywhere else ([`edit_guidance.py:170-199`](../../edit_guidance.py#L170-L199)).
+Applies deterministic, validated `old -> new` text replacements (and tag-safe `ref2va` attire unlocks) to an H3 prompt string so `original` and `edited` stay identical everywhere else ([`edit_guidance.py:164-213`](../../edit_guidance.py#L164-L213), [`h3_prompt_edit.py`](../../h3_prompt_edit.py)).
 
 - **Inputs**:
   - `original` (`STRING`): the baseline H3 scene prompt.
-  - `edits` (`STRING`, multiline): one `old -> new` rule per line (`#` lines and blank lines are ignored).
+  - `edits` (`STRING`, multiline): one `old -> new` rule or `release_attire` directive per line (`#` lines and blank lines are ignored).
+  - `release_subject_attire` (`BOOLEAN`, optional, default `False`): one-click tag-safe unlock for `<Subject 1>` on `ref2va` prompts. Rewrites `<Subject 1>`'s line in `retention_analysis:` from `fully_preserved` to `partially_preserved`, strips contradictory `, and clothing` list items when present, and appends `; clothing is not retained and follows the setting of the scene.` without touching `<Subject N>` / `<Picture N>` tags (`h3_prompt_edit.py:220-278`). Works equally for `MiniMaxH3EditGuider` or as a single-conditioning preprocessor upstream of `MiniMaxH3Steer`!
 - **Outputs**:
-  - `edited_prompt` (`STRING`): wire to a second text-encode node sharing the same `clip` (and same `encoded_references` on `ref2va`).
+  - `edited_prompt` (`STRING`): wire to a text-encode node (either the second encode node for `MiniMaxH3EditGuider`, or your single `MiniMaxH3ReferenceTextEncode` node when unlocking attire for a control vector).
   - `report` (`STRING`): per-line summary showing which section matched and word counts (`old_words -> new_words`).
-- **Scoping prefixes**:
+- **Scoping prefixes & directives**:
   - Unprefixed `old -> new`: searches outside `overall_soundscape:` and `non_diegetic_music:`.
-  - `soundscape: old -> new`: searches only inside `overall_soundscape:`.
-  - `music: old -> new`: searches only inside `non_diegetic_music:`.
-  - `<header_name>: old -> new` (e.g., `subject_definitions: ...` or `summary: ...`): searches only inside that named H3 section (`summary`, `retention_analysis`, `subject_definitions`, `integrated_multimodal_description`, `detailed_description`).
-- **Built-in safety refusals** ([`edit_guidance.py:17-40`](../../edit_guidance.py#L17-L40)):
+  - `subject_definitions: old -> new` (alias `subjects:`): searches only inside `subject_definitions:`.
+  - `summary: old -> new`: searches only inside `summary:`.
+  - `retention_analysis: old -> new` (alias `retention:`): searches only inside `retention_analysis:`.
+  - `description: old -> new` (aliases `detailed_description:`, `integrated_multimodal_description:`): searches only inside the main visual description section.
+  - `soundscape: old -> new` (aliases `audio:`, `foley:`, `sound:`): searches only inside `overall_soundscape:`.
+  - `music: old -> new` (aliases `non_diegetic_music:`, `score:`): searches only inside `non_diegetic_music:`.
+  - `release_attire: <Subject N>` (aliases `unlock_attire:`, `release_clothing:`; supports comma-separated subjects or `release_attire: all`): unlocks reference clothing in `retention_analysis:` for any `<Subject N>` (not just `<Subject 1>`).
+- **Built-in safety refusals** ([`h3_prompt_edit.py:281-379`](../../h3_prompt_edit.py#L281-L379)):
   - Refuses if `old` does not appear or appears **more than once** in the scoped span (add a neighbor word to disambiguate).
-  - Refuses if an edit touches protected H3 structure: `<d>...</d>` dialogue, `(S1)` speaker tags, `<Subject N>` / `<Picture N>` / `<Video N>` / `<Audio N>` references, `[Shot N]` markers, `<0.0 seconds>` timestamps, or section headers.
+  - Refuses if an `old -> new` edit touches protected H3 structure: `<d>...</d>` dialogue, `(S1)` speaker tags, `<Subject N>` / `<Picture N>` / `<Video N>` / `<Audio N>` references, `[Shot N]` markers, `<0.0 seconds>` timestamps, or section headers.
 
 > **When baseline prose does not name the attribute yet**: On `ref2va` prompts, `subject_definitions:` often anchors `<Subject 1>` via `<Picture 1>` without describing her current sweater. You can either match the end of her `<Subject 1>` definition line in `MiniMaxH3PromptEdit` (`from <Picture 1>. -> from <Picture 1>, wearing a 1970s rust-orange polyester blouse with a wide pointed collar and high-waisted flared jeans.`) or pass a dedicated edited prompt string directly into the second `MiniMaxH3ReferenceTextEncode` node.
 

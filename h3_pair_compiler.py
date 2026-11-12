@@ -52,6 +52,60 @@ _HOLD_PREFIX_RE = re.compile(
     re.IGNORECASE,
 )
 
+#: Diverse everyday visual/attire Pole-A baselines rotated across `bank_scenes` when a visual
+#: contrast omits Pole A (`"target concept"` or `"-> target concept"` with `bank_scenes > 0`).
+#: Each baseline uses disjoint clothing/setting nouns so `mean(A)` averages to a neutral everyday
+#: centroid instead of subtracting one specific garment (`-shirt -jacket`) or canceling coats/vests.
+DEFAULT_AUX_BASELINES: tuple[str, ...] = (
+    "Everyday contemporary realism in casual cotton knitwear",
+    "Ordinary daytime setting in a tailored linen outfit",
+    "Plain indoor room in light fleece loungewear",
+    "Naturalistic street-level view in relaxed denim attire",
+    "Unstylized candid footage in simple woven workwear",
+    "Neutral quotidian atmosphere in plain jersey apparel",
+    "Matter-of-fact documentary framing in khaki canvas clothing",
+)
+
+
+def _split_pole_a_variants(a_raw: str) -> tuple[str, ...]:
+    """Split `'a_1 | a_2 | ...'` Pole-A variants (single `|`, distinct from `|||` pole separator)."""
+    s = str(a_raw or "").strip()
+    if not s:
+        return ()
+    parts = tuple(p.strip() for p in s.split("|") if p.strip())
+    return parts
+
+
+def _content_stems(text: str) -> tuple[set[str], set[str]]:
+    words = {
+        w
+        for w in re.findall(r"[a-z]{4,}", str(text or "").lower())
+        if w not in _cv._CANCEL_STOPLIST
+    }
+    stems = {w[:5] for w in words if len(w) >= 5}
+    return words, stems
+
+
+def _pick_rotated_pole_a(
+    variants: Sequence[str],
+    b_text: str,
+    aux_idx: int,
+) -> str:
+    """Select the Pole-A baseline for auxiliary scene `aux_idx`, rotating across `variants`
+    while skipping any variant whose content words/stems collide with `b_text`."""
+    pool = tuple(v.strip() for v in variants if str(v or "").strip())
+    if not pool:
+        pool = DEFAULT_AUX_BASELINES
+    b_words, b_stems = _content_stems(b_text)
+    clean = [
+        v
+        for v in pool
+        if not (_content_stems(v)[0] & b_words)
+        and not (_content_stems(v)[1] & b_stems)
+    ]
+    active = clean if clean else list(pool)
+    return active[int(aux_idx) % len(active)]
+
 
 @dataclass(frozen=True)
 class ContrastClause:
@@ -231,9 +285,9 @@ def _parse_clauses_and_holds(
                 )
             )
             continue
-        if sec_name == "summary":
+        if sec_name is not None:
             sa, sb = _split_pole_pair(body)
-            visual_clauses.append(ContrastClause(a=sa, b=sb, is_soundscape=False, section="summary"))
+            visual_clauses.append(ContrastClause(a=sa, b=sb, is_soundscape=False, section=sec_name))
             continue
 
         ca, cb = _split_pole_pair(stmt)
@@ -314,12 +368,14 @@ def _parse_clauses_and_holds(
     return visual_clauses, sound_clauses, hold_clauses
 
 
-def _split_target_prompts(target_prompt: str | None) -> list[str]:
+def _split_target_prompts(target_prompt: str | None, *, allow_empty: bool = False) -> list[str]:
     tp_clean = str(target_prompt or "").strip()
     if not tp_clean:
+        if allow_empty:
+            return []
         raise ValueError(
             "target_prompt is required when compiling contrast clauses "
-            "(pass --target-prompt <prompt>, --target-prompt-file <path>, --pairs <file.toml>, or use inline J-Lens words on MiniMaxH3ApplyControlVectors)"
+            "(pass --target-prompt <prompt>, --target-prompt-file <path>, --bank-scenes <K>, --pairs <file.toml>, or use inline J-Lens words on MiniMaxH3WordVector)"
         )
     parts = [
         blk.strip()
@@ -330,10 +386,12 @@ def _split_target_prompts(target_prompt: str | None) -> list[str]:
 
 
 def _apply_clause_inplace(tp_a: str, tp_b: str, clause: ContrastClause) -> tuple[str, str]:
-    a = clause.a.strip()
+    a_variants = _split_pole_a_variants(clause.a)
+    a = a_variants[0] if a_variants else ""
     b = clause.b.strip()
-    sec_name = clause.section or ("overall_soundscape" if clause.is_soundscape else None)
-    if sec_name is not None:
+    raw_sec = clause.section or ("overall_soundscape" if clause.is_soundscape else None)
+    if raw_sec is not None:
+        sec_name = _pe.resolve_section_name(tp_a, raw_sec)
         sec_span_a = _pe.section_span(tp_a, sec_name)
         sec_span_b = _pe.section_span(tp_b, sec_name)
         if sec_span_a is None or sec_span_b is None:
@@ -345,13 +403,14 @@ def _apply_clause_inplace(tp_a: str, tp_b: str, clause: ContrastClause) -> tuple
         s0_b, s1_b = sec_span_b
         sub_a = tp_a[s0_a:s1_a]
         sub_b = tp_b[s0_b:s1_b]
-        if a and a in sub_a:
-            if sub_a.count(a) > 1:
-                raise ValueError(
-                    f"{sec_name} pole_a {a!r} occurs {sub_a.count(a)} times in {sec_name}:; "
-                    "include surrounding words so the clause matches a unique substring"
-                )
-            return tp_a, tp_b[:s0_b] + sub_b.replace(a, b, 1) + tp_b[s1_b:]
+        for av in a_variants:
+            if av and av in sub_a:
+                if sub_a.count(av) > 1:
+                    raise ValueError(
+                        f"{sec_name} pole_a {av!r} occurs {sub_a.count(av)} times in {sec_name}:; "
+                        "include surrounding words so the clause matches a unique substring"
+                    )
+                return tp_a, tp_b[:s0_b] + sub_b.replace(av, b, 1) + tp_b[s1_b:]
         if a and b in sub_b:
             if sub_b.count(b) > 1:
                 raise ValueError(
@@ -371,17 +430,21 @@ def _apply_clause_inplace(tp_a: str, tp_b: str, clause: ContrastClause) -> tuple
     if not a or not b:
         raise ValueError(
             f"in-place compilation requires an explicit 'pole_a -> pole_b' contrast "
-            f"(got {b!r} without '->'); either pole_a or pole_b must match a substring in target_prompt"
+            f"(got {b!r} without '->'); either pole_a or pole_b must match a substring in target_prompt "
+            f"(or pass bank_scenes > 0 to compile across prompt_bank scenes)"
         )
-    if a == b:
+    if a == b and len(a_variants) == 1:
         raise ValueError(f"pole_a and pole_b must differ, got {a!r}")
-    if a in tp_a:
-        if tp_a.count(a) > 1:
-            raise ValueError(
-                f"pole_a {a!r} occurs {tp_a.count(a)} times in target_prompt; "
-                "include surrounding words so the clause matches a unique substring"
-            )
-        return tp_a, tp_b.replace(a, b, 1)
+    for av in a_variants:
+        if av == b:
+            raise ValueError(f"pole_a variant and pole_b must differ, got {av!r}")
+        if av in tp_a:
+            if tp_a.count(av) > 1:
+                raise ValueError(
+                    f"pole_a {av!r} occurs {tp_a.count(av)} times in target_prompt; "
+                    "include surrounding words so the clause matches a unique substring"
+                )
+            return tp_a, tp_b.replace(av, b, 1)
     if b in tp_b:
         if tp_b.count(b) > 1:
             raise ValueError(
@@ -390,7 +453,7 @@ def _apply_clause_inplace(tp_a: str, tp_b: str, clause: ContrastClause) -> tuple
             )
         return tp_a.replace(b, a, 1), tp_b
     raise ValueError(
-        f"neither pole_a ({a!r}) nor pole_b ({b!r}) was found as a substring in target_prompt; "
+        f"neither pole_a ({clause.a.strip()!r}) nor pole_b ({b!r}) was found as a substring in target_prompt; "
         "in-place compilation requires pole_a or pole_b to match text inside target_prompt"
     )
 
@@ -430,16 +493,22 @@ def _apply_clause_on_scene(
     clause: ContrastClause,
     *,
     is_aux_scene: bool = False,
+    aux_idx: int = 0,
 ) -> tuple[str, str]:
+    a_variants = _split_pole_a_variants(clause.a)
+    sec_name = clause.section or ("overall_soundscape" if clause.is_soundscape else None)
+    # When multiple Pole-A baselines (`a1 | a2 | ...`) or an empty Pole-A (`DEFAULT_AUX_BASELINES`)
+    # are supplied on an auxiliary bank scene with no section prefix, rotate baselines across scenes
+    # unless one of the explicit variants matches literally in `tp_a`.
     try:
         return _apply_clause_inplace(tp_a, tp_b, clause)
     except ValueError:
         if not is_aux_scene:
             raise
-        sec_name = clause.section or ("overall_soundscape" if clause.is_soundscape else None)
         if sec_name is not None:
             raise
-        return _splice_aux_visual_clause(tp_a, tp_b, clause.a, clause.b)
+        chosen_a = _pick_rotated_pole_a(a_variants, clause.b, aux_idx)
+        return _splice_aux_visual_clause(tp_a, tp_b, chosen_a, clause.b)
 
 
 def _select_bank_scenes(
@@ -453,7 +522,7 @@ def _select_bank_scenes(
 ) -> list[str]:
     """Deterministically select up to `bank_scenes` mode-matched prompts from `prompt_bank/*.txt`
     (preferring literal clause matches before auxiliary opening-anchor splices) so single-prompt
-    builds cancel scene-specific nuisance variance across real H3 prompts."""
+    or target-only builds cancel scene-specific and Pole-A nuisance variance across real H3 prompts."""
     k = int(bank_scenes)
     if k <= 0:
         return []
@@ -477,7 +546,7 @@ def _select_bank_scenes(
     )
     seen_norm = {" ".join(s.split()) for s in existing_scenes}
     direct_hits: list[str] = []
-    splice_hits: list[str] = []
+    remaining_candidates: list[str] = []
     multi_span_ok = len(clauses) > 1
 
     for p in sorted(resolved_dir.glob("*.txt")):
@@ -496,7 +565,7 @@ def _select_bank_scenes(
         if not txt or norm_txt in seen_norm:
             continue
 
-        # Check whether every clause matches literally AND passes differing_span (+ holds)
+        # Pass 1: check whether every clause matches literally AND passes differing_span (+ holds)
         is_direct = True
         cur_a, cur_b = txt, txt
         try:
@@ -519,31 +588,39 @@ def _select_bank_scenes(
             if len(direct_hits) >= k:
                 break
             continue
+        remaining_candidates.append(txt)
 
-        # Otherwise verify auxiliary splicing produces a clean differing_span (+ holds)
-        ok_aux = True
-        aux_a, aux_b = txt, txt
-        try:
-            for cl in clauses:
-                aux_a, aux_b = _apply_clause_on_scene(aux_a, aux_b, cl, is_aux_scene=True)
-            _cv.differing_span(aux_a, aux_b, frame="scene", allow_multi_span=multi_span_ok)
-            if holds:
-                _compile_hold_items(
-                    holds,
-                    tp_scenes=(txt,),
-                    anchor_clauses=clauses,
-                    frame="scene",
-                    primary_scene_count=0,
-                )
-        except ValueError:
-            ok_aux = False
-        if ok_aux:
-            seen_norm.add(norm_txt)
-            splice_hits.append(txt)
-
-    chosen = direct_hits[:k]
+    chosen = list(direct_hits[:k])
     if len(chosen) < k:
-        chosen.extend(splice_hits[: k - len(chosen)])
+        for txt in remaining_candidates:
+            norm_txt = " ".join(txt.split())
+            if norm_txt in seen_norm:
+                continue
+            cand_aux_idx = len(chosen)
+            ok_aux = True
+            aux_a, aux_b = txt, txt
+            try:
+                for cl in clauses:
+                    aux_a, aux_b = _apply_clause_on_scene(
+                        aux_a, aux_b, cl, is_aux_scene=True, aux_idx=cand_aux_idx
+                    )
+                _cv.differing_span(aux_a, aux_b, frame="scene", allow_multi_span=multi_span_ok)
+                if holds:
+                    _compile_hold_items(
+                        holds,
+                        tp_scenes=(txt,),
+                        anchor_clauses=clauses,
+                        frame="scene",
+                        primary_scene_count=0,
+                        aux_offset=cand_aux_idx,
+                    )
+            except ValueError:
+                ok_aux = False
+            if ok_aux:
+                seen_norm.add(norm_txt)
+                chosen.append(txt)
+                if len(chosen) >= k:
+                    break
     return chosen
 
 
@@ -554,6 +631,7 @@ def _compile_hold_items(
     anchor_clauses: Sequence[ContrastClause],
     frame: str = "scene",
     primary_scene_count: int | None = None,
+    aux_offset: int = 0,
 ) -> tuple[_cv.HoldItem, ...]:
     if not holds:
         return ()
@@ -566,9 +644,11 @@ def _compile_hold_items(
         hb = hc.b.strip()
         if not hb:
             continue
-        h_sec = hc.section or ("overall_soundscape" if hc.is_soundscape else None)
+        raw_h_sec = hc.section or ("overall_soundscape" if hc.is_soundscape else None)
         for tp_idx, tp in enumerate(tp_scenes):
             is_aux = tp_idx >= n_primary
+            aux_i = int(aux_offset) + max(0, tp_idx - n_primary)
+            h_sec = _pe.resolve_section_name(tp, raw_h_sec) if raw_h_sec is not None else None
             sec_span = _pe.section_span(tp, h_sec) if h_sec is not None else None
             if h_sec is not None and sec_span is not None:
                 hs0, hs1 = sec_span
@@ -592,10 +672,12 @@ def _compile_hold_items(
                 h_tp_a = tp.replace(hb, ha, 1)
                 h_tp_b = tp
             elif anchor is not None and not anchor.is_soundscape and anchor.section is None:
-                base_sub = anchor.a if anchor.a in tp else (anchor.b if anchor.b in tp else "")
+                anchor_a_vars = _split_pole_a_variants(anchor.a)
+                matched_anchor_a = next((av for av in anchor_a_vars if av in tp), "")
+                base_sub = matched_anchor_a or (anchor.b if anchor.b in tp else "")
                 if not base_sub:
                     if is_aux:
-                        eff_ha = ha if ha else anchor.a
+                        eff_ha = ha if ha else _pick_rotated_pole_a(anchor_a_vars, hb, aux_i)
                         h_tp_a, h_tp_b = _splice_aux_visual_clause(tp, tp, eff_ha, hb)
                     else:
                         raise ValueError(
@@ -607,6 +689,9 @@ def _compile_hold_items(
                     h_tp_b = tp.replace(base_sub, hb, 1)
             elif is_aux and ha:
                 h_tp_a, h_tp_b = _splice_aux_visual_clause(tp, tp, ha, hb)
+            elif is_aux:
+                eff_ha = _pick_rotated_pole_a((), hb, aux_i)
+                h_tp_a, h_tp_b = _splice_aux_visual_clause(tp, tp, eff_ha, hb)
             else:
                 raise ValueError(
                     f"hold clause {ha!r} -> {hb!r} not found in target_prompt; "
@@ -644,7 +729,7 @@ def compile_short_contrast_pairs(
     """Compile `(pole_a, pole_b)` (plus optional `extra_clauses` and `soundscape_clauses`)
     in-place across the scene prompt(s) in `target_prompt` (plus `bank_scenes` auxiliary prompts)."""
     norm_mode = normalize_compile_mode(mode)
-    primary_scenes = _split_target_prompts(target_prompt)
+    primary_scenes = _split_target_prompts(target_prompt, allow_empty=int(bank_scenes) > 0)
 
     main_spec = f"{pole_a} ||| {pole_b}" if str(pole_a or "").strip() else str(pole_b or "").strip()
     vis_clauses, snd_clauses, parsed_holds = _parse_clauses_and_holds(
@@ -670,6 +755,10 @@ def compile_short_contrast_pairs(
         bank_dir=bank_dir,
     )
     tp_scenes = [*primary_scenes, *aux_scenes]
+    if not tp_scenes:
+        raise ValueError(
+            f"no mode={norm_mode!r} scenes matched in prompt_bank/ for clauses {[c.b for c in all_clauses]!r}"
+        )
     n_primary = len(primary_scenes)
 
     frame_kind = "scene"
@@ -679,12 +768,13 @@ def compile_short_contrast_pairs(
         tp_a = tp
         tp_b = tp
         is_aux = idx >= n_primary
+        aux_i = max(0, idx - n_primary)
         for cl in all_clauses:
-            tp_a, tp_b = _apply_clause_on_scene(tp_a, tp_b, cl, is_aux_scene=is_aux)
+            tp_a, tp_b = _apply_clause_on_scene(tp_a, tp_b, cl, is_aux_scene=is_aux, aux_idx=aux_i)
         a_span, b_span = _cv.differing_span(
             tp_a, tp_b, frame=frame_kind, allow_multi_span=multi_span_ok
         )
-        w = float(target_weight) if idx == 0 else 1.0
+        w = float(target_weight) if (idx == 0 and n_primary > 0) else 1.0
         pairs.append(
             _cv.PairItem(
                 index=idx,
@@ -715,8 +805,9 @@ def compile_words_to_pairset(
     bank_dir: str | Path | None = None,
     **_unused_kwargs: Any,
 ) -> _cv.PairSet:
-    """Compile a contrast specification (`'pole_a -> pole_b'`, semicolon/newline
-    multi-clause spec, `soundscape:`, `music:`, `summary:`, and `hold:`) in-place on `target_prompt`."""
+    """Compile a contrast specification (`'pole_a -> pole_b'`, `'a1 | a2 -> pole_b'`,
+    target-only `bank_scenes > 0` concept, semicolon/newline multi-clause spec,
+    section prefixes, and `hold:`) in-place on `target_prompt` and/or `prompt_bank/` scenes."""
     raw = str(words or "").strip()
     if not raw:
         raise ValueError("words must be a non-empty string")
@@ -726,7 +817,7 @@ def compile_words_to_pairset(
         target_prompt=target_prompt,
         words=raw,
     )
-    primary_scenes = _split_target_prompts(target_prompt)
+    primary_scenes = _split_target_prompts(target_prompt, allow_empty=int(bank_scenes) > 0)
     vis_clauses, snd_clauses, parsed_holds = _parse_clauses_and_holds(
         raw,
         extra_clauses=extra_clauses,
@@ -751,6 +842,10 @@ def compile_words_to_pairset(
         bank_dir=bank_dir,
     )
     tp_scenes = [*primary_scenes, *aux_scenes]
+    if not tp_scenes:
+        raise ValueError(
+            f"no mode={norm_mode!r} scenes matched in prompt_bank/ for clauses {[c.b for c in all_clauses]!r}"
+        )
     n_primary = len(primary_scenes)
 
     frame_kind = "scene"
@@ -760,12 +855,13 @@ def compile_words_to_pairset(
         tp_a = tp
         tp_b = tp
         is_aux = idx >= n_primary
+        aux_i = max(0, idx - n_primary)
         for cl in all_clauses:
-            tp_a, tp_b = _apply_clause_on_scene(tp_a, tp_b, cl, is_aux_scene=is_aux)
+            tp_a, tp_b = _apply_clause_on_scene(tp_a, tp_b, cl, is_aux_scene=is_aux, aux_idx=aux_i)
         a_span, b_span = _cv.differing_span(
             tp_a, tp_b, frame=frame_kind, allow_multi_span=multi_span_ok
         )
-        w = float(target_weight) if idx == 0 else 1.0
+        w = float(target_weight) if (idx == 0 and n_primary > 0) else 1.0
         pairs.append(
             _cv.PairItem(
                 index=idx,
@@ -795,7 +891,10 @@ def compile_words_to_pairset(
     for cl in all_clauses:
         eff_sec = cl.section or ("overall_soundscape" if cl.is_soundscape else None)
         if eff_sec is not None and not cl.a:
-            a_parts.append(_extract_existing_section(tp_scenes[0], eff_sec) or f"baseline {eff_sec}")
+            resolved_eff_sec = _pe.resolve_section_name(tp_scenes[0], eff_sec)
+            a_parts.append(_extract_existing_section(tp_scenes[0], resolved_eff_sec) or f"baseline {resolved_eff_sec}")
+        elif not cl.a:
+            a_parts.append("rotated everyday scene/attire baselines")
         else:
             a_parts.append(cl.a)
         b_parts.append(cl.b)

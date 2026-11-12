@@ -875,18 +875,52 @@ def make_control_vector_from_pairs(
             )
         )
         tp_str = str(target_prompt or "").strip() or None
+        raw_words = words.strip()
         compile_mode = _pair_compiler.infer_compile_mode(
             req_mode,
             ref_images=encoded_references,
             target_prompt=tp_str,
-            words=words.strip(),
+            words=raw_words,
         )
-        pair_set = _pair_compiler.compile_words_to_pairset(
-            words.strip(),
-            name=output_name.strip() or None,
-            mode=compile_mode,
-            target_prompt=tp_str,
+        has_spec_header = any(
+            raw_words.lower().startswith(p) or f"\n{p}" in raw_words.lower()
+            for p in (
+                "name:",
+                "quality:",
+                "a_side:",
+                "b_side:",
+                "mode:",
+                "target_prompt:",
+                "scene_prompt:",
+                "target_weight:",
+                "bank_scenes:",
+            )
         )
+        default_bs = 5 if (tp_str is None and compile_mode != "p_h3_image") else 0
+        if has_spec_header:
+            spec_body = (
+                f"name: {output_name.strip()}\n{raw_words}"
+                if (output_name.strip() and "name:" not in raw_words.lower())
+                else raw_words
+            )
+            if req_mode and "mode:" not in raw_words.lower():
+                spec_body = f"mode: {compile_mode}\n{spec_body}"
+            spec_res = _pair_compiler.parse_short_contrast_spec(
+                spec_body,
+                target_prompt=tp_str,
+                bank_scenes=default_bs,
+                bank_dir=PROMPT_BANK_DIR,
+            )
+            pair_set = spec_res["pair_set"]
+        else:
+            pair_set = _pair_compiler.compile_words_to_pairset(
+                raw_words,
+                name=output_name.strip() or None,
+                mode=compile_mode,
+                target_prompt=tp_str,
+                bank_scenes=default_bs,
+                bank_dir=PROMPT_BANK_DIR,
+            )
     else:
         if pair_path is None:
             raise ValueError("either pair_path, pair_set, or words must be provided")
@@ -932,9 +966,30 @@ def make_control_vector_from_pairs(
     q_report = _cv.quality_report(a_mat, b_mat, w_vec, generator=gen)
     if _j_lens is not None and _j_lens.bundle_available():
         try:
-            q_report["j_lens_readout"] = _j_lens.decode_vector(
-                final_vec, space="post_refiner", family=family
+            jl_readout = _j_lens.decode_vector(
+                final_vec, space="post_refiner", family=family, top_k=12
             )
+            jl_align = _j_lens.check_b_side_alignment(
+                jl_readout,
+                pair_set.b_side,
+                a_side=pair_set.a_side,
+            )
+            jl_readout["b_side_alignment"] = jl_align
+            q_report["j_lens_readout"] = jl_readout
+            logger.info(
+                "[h3] built control vector %r (%s): j_lens (+) %s | (-) %s",
+                output_name.strip() or pair_set.name,
+                family,
+                jl_readout.get("pos_summary", ""),
+                jl_readout.get("neg_summary", ""),
+            )
+            if jl_align.get("warning"):
+                logger.warning(
+                    "[h3] control vector %r (%s) J-Lens b_side check: %s",
+                    output_name.strip() or pair_set.name,
+                    family,
+                    jl_align["warning"],
+                )
         except Exception:
             pass
     raw_norm = float(torch.linalg.vector_norm(final_vec.to(dtype=torch.float64)).item())
@@ -2213,9 +2268,9 @@ class MiniMaxH3MakeControlVector(io.ComfyNode):
                     default="",
                     optional=True,
                     tooltip=(
-                        "Optional in-place 'pole_a -> pole_b' clause contrast(s) "
-                        "(plus optional 'soundscape: ...' and 'hold: ...' clauses) "
-                        "applied directly to 'target_prompt' with zero .toml file required."
+                        "Optional in-place 'pole_a -> pole_b' or rotated 'a1 | a2 | a3 -> pole_b' "
+                        "contrast(s) (or a bare target concept when target_prompt is blank, which "
+                        "compiles across 5 rotated prompt_bank scenes) with zero .toml file required."
                     ),
                 ),
                 io.Combo.Input(
@@ -2234,8 +2289,9 @@ class MiniMaxH3MakeControlVector(io.ComfyNode):
                     multiline=True,
                     optional=True,
                     tooltip=(
-                        "Target H3 scene prompt when compiling from 'words'. Either pole_a or pole_b "
-                        "in 'words' must match a substring in target_prompt for exact in-place compilation."
+                        "Optional target H3 scene prompt when compiling from 'words'. When provided, "
+                        "pole_a or pole_b must match a substring in target_prompt; when left blank on "
+                        "a video mode, compiles across 5 prompt_bank scenes with rotated Pole-A baselines."
                     ),
                 ),
             ],
@@ -2598,8 +2654,16 @@ def make_control_vector_from_media_pairs(
     q_report = _cv.quality_report(a_mat, b_mat, w_vec, generator=gen)
     if _j_lens is not None and _j_lens.bundle_available():
         try:
-            q_report["j_lens_readout"] = _j_lens.decode_vector(
-                final_vec, space="post_refiner", family=family
+            jl_media_readout = _j_lens.decode_vector(
+                final_vec, space="post_refiner", family=family, top_k=12
+            )
+            q_report["j_lens_readout"] = jl_media_readout
+            logger.info(
+                "[h3] built media control vector %r (%s): j_lens (+) %s | (-) %s",
+                stem,
+                family,
+                jl_media_readout.get("pos_summary", ""),
+                jl_media_readout.get("neg_summary", ""),
             )
         except Exception:
             pass
@@ -2882,12 +2946,12 @@ class MiniMaxH3ApplyControlVectors(io.ComfyNode):
                         "<Subject N>/<Picture N>/<Video N>/<Audio N> tags, [Shot N], section headers, "
                         "overall_soundscape:, non_diegetic_music:, Part One keyframe alignment lines, "
                         "and <0.0 seconds> timestamps untouched; "
-                        "'look_only' steers only subject_definitions:, summary:, and visual "
-                        "retention_analysis: (falling back to description_only on 3-field t2va/fl2va prompts); "
+                        "'look_only' steers only subject_definitions: and summary: (leaving "
+                        "retention_analysis: preservation contracts unsteered, and falling back to "
+                        "description_only on 3-field t2va/fl2va prompts); "
                         "'description_only' steers only events/actions prose inside "
                         "integrated_multimodal_description: (fl2va/t2va) or detailed_description: (ref2va); "
-                        "'soundscape_only' steers overall_soundscape:, non-'N/A' non_diegetic_music:, and "
-                        "<Audio N>: lines in retention_analysis:; "
+                        "'soundscape_only' steers overall_soundscape: and non-'N/A' non_diegetic_music:; "
                         "'non_vision' steers all tag-1 text rows and leaves tag-0 vision rows untouched; "
                         "'after_dialogue' steers only scene tokens after the last </d>; "
                         "'all_rows' is the unmasked ablation (E2.3). "
@@ -3641,11 +3705,11 @@ class MiniMaxH3Steer(io.ComfyNode):
                     optional=True,
                     tooltip=(
                         "Preset prompt rows to steer when 'fields' below has none ticked: "
-                        "'scene_only' (default: all visual prose while leaving tag-0 vision, "
+                        "'scene_only' (default: all visual prose in subject_definitions, summary, and "
+                        "description while leaving tag-0 vision, retention_analysis contracts, "
                         "<d> dialogue, soundscape, and music untouched), 'description_only' "
-                        "(events/actions prose), 'look_only' (subject_definitions + summary + "
-                        "visual retention_analysis), 'soundscape_only', 'after_dialogue', or "
-                        "'non_vision' (all text rows)."
+                        "(events/actions prose), 'look_only' (subject_definitions + summary), "
+                        "'soundscape_only', 'after_dialogue', or 'non_vision' (all text rows)."
                     ),
                 ),
                 io.MultiCombo.Input(

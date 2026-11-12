@@ -452,7 +452,14 @@ def cmd_make(args: argparse.Namespace) -> int:
     jl_make_readout: dict[str, Any] | None = None
     if j_lens.bundle_available():
         try:
-            jl_make_readout = j_lens.decode_vector(final_vec, space="post_refiner", family=family)
+            jl_make_readout = j_lens.decode_vector(
+                final_vec, space="post_refiner", family=family, top_k=12
+            )
+            jl_make_readout["b_side_alignment"] = j_lens.check_b_side_alignment(
+                jl_make_readout,
+                pair_set.b_side,
+                a_side=pair_set.a_side,
+            )
             if tp_arg:
                 jl_make_readout["prompt_coupling"] = j_lens.analyze_prompt_coupling(
                     final_vec,
@@ -479,6 +486,9 @@ def cmd_make(args: argparse.Namespace) -> int:
     if jl_make_readout is not None:
         print(f"  j_lens (+)           : {jl_make_readout['pos_summary']}")
         print(f"  j_lens (-)           : {jl_make_readout['neg_summary']}")
+        b_aln_make = jl_make_readout.get("b_side_alignment") or {}
+        if b_aln_make.get("warning"):
+            print(f"  WARNING              : {b_aln_make['warning']}")
 
     if args.out:
         out_path = Path(args.out)

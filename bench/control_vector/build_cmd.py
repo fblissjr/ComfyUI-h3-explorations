@@ -478,7 +478,12 @@ def cmd_build(args: argparse.Namespace) -> int:
             if j_lens.bundle_available():
                 try:
                     jl_build_readout = j_lens.decode_vector(
-                        final_vec, space="post_refiner", family=family
+                        final_vec, space="post_refiner", family=family, top_k=12
+                    )
+                    jl_build_readout["b_side_alignment"] = j_lens.check_b_side_alignment(
+                        jl_build_readout,
+                        pair_set.b_side,
+                        a_side=pair_set.a_side,
                     )
                     if prompt_build:
                         jl_build_readout["prompt_coupling"] = j_lens.analyze_prompt_coupling(
@@ -596,6 +601,9 @@ def cmd_build(args: argparse.Namespace) -> int:
         if isinstance(jl_row, dict) and jl_row.get("pos_summary"):
             print(f"      j_lens (+): {jl_row['pos_summary']}")
             print(f"      j_lens (-): {jl_row['neg_summary']}")
+            b_aln = jl_row.get("b_side_alignment") or {}
+            if b_aln.get("warning"):
+                print(f"      WARNING   : {b_aln['warning']}")
     if test_prompt_saved is not None:
         print(f"\n  Test Scene Prompt saved to: {_display_path(test_prompt_saved)}")
     return 0

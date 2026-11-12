@@ -242,6 +242,7 @@ def check_spans_partition_and_refusals(tok: MiniMaxH3Tokenizer) -> list[str]:
         "overall_soundscape",
         "[reference generation]",
         "fully_preserved",
+        "apron retained",
         "Quiet room tone",
         "room tone retained",
         "N/A",
@@ -252,15 +253,18 @@ def check_spans_partition_and_refusals(tok: MiniMaxH3Tokenizer) -> list[str]:
         "<Audio 1>",
     ):
         if forbidden_sub in im_scene_decoded:
-            errs.append(f"inference_mask('scene_only') leaked structural/audio substring {forbidden_sub!r}: {im_scene_decoded!r}")
-    for expected_sub in ("white linen apron", "scarred oak workbench", "kneads dough", "apron retained", "standing at the bench"):
+            errs.append(f"inference_mask('scene_only') leaked structural/retention/audio substring {forbidden_sub!r}: {im_scene_decoded!r}")
+    for expected_sub in ("white linen apron", "scarred oak workbench", "kneads dough", "standing at the bench"):
         if expected_sub not in im_scene_decoded:
             errs.append(f"inference_mask('scene_only') omitted steerable visual prose {expected_sub!r}: {im_scene_decoded!r}")
-    for expected_snd in ("Quiet room tone", "room tone retained"):
-        if expected_snd not in im_sound_decoded:
-            errs.append(f"inference_mask('soundscape_only') omitted audio prose {expected_snd!r}: {im_sound_decoded!r}")
-    if "N/A" in im_sound_decoded or "<Audio 1>" in im_sound_decoded:
-        errs.append(f"inference_mask('soundscape_only') leaked 'N/A' or '<Audio 1>': {im_sound_decoded!r}")
+    if "Quiet room tone" not in im_sound_decoded:
+        errs.append(f"inference_mask('soundscape_only') omitted audio prose 'Quiet room tone': {im_sound_decoded!r}")
+    if "N/A" in im_sound_decoded or "<Audio 1>" in im_sound_decoded or "room tone retained" in im_sound_decoded:
+        errs.append(f"inference_mask('soundscape_only') leaked 'N/A', '<Audio 1>', or retention_analysis prose: {im_sound_decoded!r}")
+    im_ret_explicit = h3_spans.inference_mask(masks, "retention_analysis")
+    im_ret_decoded = "".join(decode([token_ids[k]]) for k in im_ret_explicit.nonzero(as_tuple=False).flatten().tolist())
+    if "apron retained" not in im_ret_decoded or "room tone retained" not in im_ret_decoded:
+        errs.append(f"inference_mask('retention_analysis') omitted explicit retention prose: {im_ret_decoded!r}")
     if bool((im_scene & masks["dialogue"]).any()):
         errs.append("inference_mask('scene_only') did not mask out <d>...</d> dialogue rows")
     im_after_dlg = h3_spans.inference_mask(masks, "after_dialogue")
@@ -419,12 +423,14 @@ def check_spans_partition_and_refusals(tok: MiniMaxH3Tokenizer) -> list[str]:
     union_fields = torch.zeros_like(im_desc_r2v)
     for m in every_field:
         union_fields = union_fields | m
-    if not torch.equal(union_fields, im_look_r2v | im_desc_r2v | im_sound_r2v):
-        errs.append("the field masks together are not look_only | description_only | soundscape_only on the ref2va prompt")
-    if not torch.equal(im_look_r2v & ~fm["retention_analysis"], fm["subject_definitions"] | fm["summary"]):
-        errs.append("look_only outside retention_analysis is not subject_definitions | summary")
-    if not torch.equal(im_sound_r2v & ~fm["retention_analysis"], fm["overall_soundscape"] | fm["non_diegetic_music"]):
-        errs.append("soundscape_only outside retention_analysis is not overall_soundscape | non_diegetic_music")
+    if not torch.equal(union_fields, im_look_r2v | im_desc_r2v | im_sound_r2v | fm["retention_analysis"]):
+        errs.append("the field masks together are not look_only | description_only | soundscape_only | retention_analysis on the ref2va prompt")
+    if bool((im_look_r2v & fm["retention_analysis"]).any()) or bool((im_sound_r2v & fm["retention_analysis"]).any()):
+        errs.append("look_only or soundscape_only leaked into retention_analysis on the ref2va prompt")
+    if not torch.equal(im_look_r2v, fm["subject_definitions"] | fm["summary"]):
+        errs.append("look_only is not subject_definitions | summary")
+    if not torch.equal(im_sound_r2v, fm["overall_soundscape"] | fm["non_diegetic_music"]):
+        errs.append("soundscape_only is not overall_soundscape | non_diegetic_music")
     # Each field mask lies inside its own section of the text and reaches no other section's body.
     r2v_sections = [(m.group(1), m.end()) for m in h3_spans.SECTION_HEADER_RE.finditer(ref2va_sample_prompt)]
     r2v_bodies = {
@@ -1349,6 +1355,49 @@ b = "a busy city street"
         )
         if ps_literal_collision.pairs[0].a != "t2va_night_porter" or ps_literal_collision.pairs[0].b != "bright sunny courtyard":
             errs.append(f"literal target_prompt matching prompt_bank stem was altered: {ps_literal_collision.pairs[0]!r}")
+        # Multi-baseline Pole-A rotation ('a1 | a2 | a3 -> b') across auxiliary bank_scenes:
+        ps_rot = pair_comp.compile_words_to_pairset(
+            "in a cotton tee and denim | in a linen sundress | in a fleece pullover -> dressed in pirate tricorn hats, striped shirts, and long weathered coats on a tall sailing ship",
+            bank_scenes=3,
+        )
+        rot_a_spans = [p.a_span for p in ps_rot.pairs]
+        if len(ps_rot.pairs) != 3 or len(set(rot_a_spans)) != 3 or any(p.weight != 1.0 for p in ps_rot.pairs):
+            errs.append(f"rotated Pole-A bank_scenes=3 expected 3 distinct weight=1.0 a_spans, got {rot_a_spans!r}")
+        if cv.lint_pair_set(ps_rot):
+            errs.append(f"rotated Pole-A PairSet produced lint warnings: {cv.lint_pair_set(ps_rot)}")
+        # Target-only bank_scenes=5 build with no target_prompt and no '->' rotates DEFAULT_AUX_BASELINES cleanly:
+        ps_target_only = pair_comp.compile_words_to_pairset(
+            "dressed in pirate tricorn hats, striped shirts, and long weathered coats on the deck of a tall sailing ship",
+            bank_scenes=5,
+        )
+        to_a_spans = [p.a_span for p in ps_target_only.pairs]
+        if len(ps_target_only.pairs) != 5 or len(set(to_a_spans)) != 5:
+            errs.append(f"target-only bank_scenes=5 expected 5 distinct DEFAULT_AUX_BASELINES a_spans, got {to_a_spans!r}")
+        if cv.lint_pair_set(ps_target_only):
+            errs.append(f"target-only bank_scenes=5 PairSet produced lint warnings: {cv.lint_pair_set(ps_target_only)}")
+        # J-Lens check_b_side_alignment catches attire cancellation and passes clean attire survival:
+        import j_lens as _jl_chk
+
+        aln_canceled = _jl_chk.check_b_side_alignment(
+            {
+                "positive_words": [{"word": "ship", "gain": 1.45}, {"word": "primitive", "gain": 1.14}],
+                "negative_words": [{"word": "wearing", "gain": 0.94}, {"word": "shirt", "gain": 1.25}],
+            },
+            "dressed in pirate tricorn hats, striped shirts, and long weathered coats on a tall sailing ship",
+            a_side="wearing a heavy knit sweater, buttoned shirt, and long jacket",
+        )
+        if not aln_canceled["warning"] or "0 attire words" not in aln_canceled["warning"]:
+            errs.append(f"check_b_side_alignment missed attire cancellation warning: {aln_canceled!r}")
+        aln_clean = _jl_chk.check_b_side_alignment(
+            {
+                "positive_words": [{"word": "gown", "gain": 1.72}, {"word": "crown", "gain": 1.58}, {"word": "medieval", "gain": 1.48}],
+                "negative_words": [{"word": "modern", "gain": 1.05}],
+            },
+            "robed in royal velvet gowns and gold crowns at a candlelit medieval castle feast",
+            a_side="rotated everyday scene/attire baselines",
+        )
+        if aln_clean["warning"]:
+            errs.append(f"check_b_side_alignment emitted false warning on surviving attire words: {aln_clean!r}")
         errs += _expect_refusal(
             lambda: pair_comp.compile_words_to_pairset("   ", target_prompt=inplace_tp),
             "non-empty string",
@@ -3396,6 +3445,27 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
                 )
                 if not node_out_words[0].startswith("erratic_handheld_shake") or not (tmp / node_out_words[0]).is_file():
                     errs.append(f"MiniMaxH3MakeControlVector(words=...) failed: {node_out_words[0]!r}")
+                # Zero-target_prompt node execution check (compiles across 5 rotated prompt_bank scenes)
+                node_out_bank_only = cv_nodes.MiniMaxH3MakeControlVector.execute(
+                    pair_file="",
+                    model=patcher_for_make,
+                    clip=mock_clip,
+                    pooling="diff_span",
+                    apply_holds=True,
+                    output_name="pirate_bank_unit",
+                    overwrite=False,
+                    encoded_references=None,
+                    words="dressed in pirate tricorn hats, striped shirts, and long weathered coats on a tall sailing ship",
+                    mode="t2va",
+                    target_prompt="",
+                )
+                rep_bank_only = json.loads(node_out_bank_only[1])
+                if (
+                    not node_out_bank_only[0].startswith("pirate_bank_unit__")
+                    or rep_bank_only["metadata"]["pairs"]["n_pairs"] != 5
+                    or len(rep_bank_only["pair_spans"]) != 5
+                ):
+                    errs.append(f"MiniMaxH3MakeControlVector(words=..., target_prompt='') expected 5 bank pairs, got {rep_bank_only['metadata']['pairs']}")
             finally:
                 if orig_cv_paths is not None:
                     cv_nodes.folder_paths.folder_names_and_paths[

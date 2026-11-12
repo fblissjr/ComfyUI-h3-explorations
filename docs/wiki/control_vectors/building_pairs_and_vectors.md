@@ -54,9 +54,10 @@ When pairs average **mutually incompatible concrete targets** under an umbrella 
 - On playback, applying `wardrobe_1970s` to the diner shot tinted background patrons and lighting toward 1970s warmth (`scene_only`, `s = 2.5`) and left `<Subject 1>`'s black sweater completely unchanged even at `strength = 4.0`.
 - Even a single-outfit vector built from `<Subject 1>`'s exact rewrite (`"plain black knit sweater and blue jeans -> 1970s rust-orange polyester blouse ... and flared jeans"`, `6 -> 22` tokens) lost color-to-garment binding when pooled into one vector (rendering a **cream** blouse at `s >= 2.0`, and only when baseline clothing was explicitly written into the prompt).
 - **Rule of thumb**:
-  1. Check the **J-Lens top `+`/`-` words** printed at the end of every `build`. If your target concrete words aren't in the top readout, the pairs canceled out—do not waste a render.
-  2. For **exact multi-attribute clothing/prop swaps on a subject**, use [`MiniMaxH3EditGuider`](../edit_guidance.md) instead of pooling a vector.
-  3. If you *do* steer attire with a control vector, make it a **single coherent world/material archetype** (e.g., winter snow gear, claymation, felt puppet) applied on `scene_only` with `end_percent = 0.5`.
+  1. Check the **J-Lens top `+`/`-` words** printed at the end of every `build` / `make` / `MiniMaxH3MakeControlVector` run. [`j_lens.py::check_b_side_alignment`](../../../j_lens.py) automatically audits the built vector's top-24 `(+)` words against your `b_side` target words (and warns immediately when `b_side` names garments/attire yet `0` attire words survive into `(+)` or Pole-A baseline clothes dominate `(-)`). If the warning fires, rewrite the contrast or rotate Pole-A baselines before rendering.
+  2. **Rotate Pole-A baselines (`a1 | a2 | a3 -> b` or target-only `--bank-scenes N`)**: Repeating one specific garment on Pole A across all 5 pairs (e.g., `"casual wool sweater and shirt"`) bakes `-shirt` / `-wearing` into the subtracted baseline and cancels overlapping attire features on Pole B (`pirate_crew`, `wild_west_saloon`, `arctic_expedition`). Rotating disjoint Pole-A baselines cancels Pole-A garment specifics while keeping Pole B coherent.
+  3. For **exact multi-attribute clothing/prop swaps on a subject**, use [`MiniMaxH3EditGuider`](../edit_guidance.md) instead of pooling a vector.
+  4. If you *do* steer attire with a control vector on `ref2va`, make it a **single coherent world/costume archetype** applied on `scene_only` with `end_percent = 0.5`, and unlock `<Subject 1>`'s `retention_analysis:` contract cleanly via `MiniMaxH3PromptEdit(release_subject_attire=True)` (`retention_analysis:` is kept unsteered by default under `scene_only` so high strength never corrupts `partially_preserved`).
 
 ### Build-field invariance
 We also tested building the exact same clothing contrast inside `subject_definitions:` vs. `detailed_description:` vs. a 3-field `t2va` prompt (`2026-11-11`). All three produced nearly collinear directions (`diff_span` pools only the differing clause). **What a vector steers is determined by what the words mean and which runtime `mask` / `fields` you apply it to—not which prompt header held the clause during `build`.**
@@ -89,16 +90,24 @@ You can remove nuisance directions at **three** places:
 
 ## 5. The four ways to build a `.safetensors` vector
 
-### Method 1 — `from-prompt` (fast in-place contrast on 1 target scene + optional bank scenes)
-Compiles `"pole_a -> pole_b"` directly inside `--target-prompt-file` (plus `--bank-scenes N` nuisance-canceling scenes from `prompt_bank/`, default `3` when available):
+### Method 1 — `from-prompt` and `MiniMaxH3MakeControlVector` (in-place target contrast or rotated bank-only build)
+Compiles `"pole_a -> pole_b"` inside `--target-prompt-file` (plus `--bank-scenes N` nuisance-canceling scenes from `prompt_bank/`), **or** compiles a reusable multi-scene vector directly from `prompt_bank/` with **no `--target-prompt`** when `--bank-scenes N` (`N > 0`) is set:
 ```bash
+# A. Shot-specific contrast anchored to a target prompt (+ auxiliary bank scenes):
 /path/to/comfy-venv/bin/python bench/control_vectors.py from-prompt \
   --target-prompt-file prompt_bank/06_t2va_kettle.txt \
   --words "natural warm morning kitchen light -> harsh flickering green fluorescent tube light" \
   --hold-words "horror, panic" \
   --name fluorescent_kitchen
+
+# B. Target-only multi-scene build across 5 rotated Pole-A baselines (no --target-prompt needed):
+/path/to/comfy-venv/bin/python bench/control_vectors.py from-prompt \
+  --bank-scenes 5 \
+  --words "dressed in tricorn hats, linen tunics, and weathered coats aboard a wooden tall ship" \
+  --name pirate_tall_ship
 ```
-- Either `pole_a` or `pole_b` must match a literal substring in `--target-prompt` (if `pole_b` is already in the prompt, it becomes Pole B and `pole_a` becomes the baseline).
+- **Target-prompt mode**: when `--target-prompt` / `--target-prompt-file` is provided, either `pole_a` or `pole_b` must match a literal substring in `--target-prompt`.
+- **Multi-baseline Pole-A rotation (`a1 | a2 | a3 -> b` or bare `pole_b`)**: in [`h3_pair_compiler.py`](../../../h3_pair_compiler.py), separating Pole-A variants with `|` rotates them across auxiliary `prompt_bank/` scenes (automatically skipping any Pole-A variant that shares `>=4`-char content words or `>=5`-char stems with `pole_b`). When `words` omits `->` in a bank-only build (`--bank-scenes 5`, or `MiniMaxH3MakeControlVector` with `target_prompt` left blank), the compiler automatically rotates its 7 built-in `DEFAULT_AUX_BASELINES` so no single baseline shirt/sweater contaminates `(-)`.
 - Separate multiple simultaneous clause swaps with `;` or newlines; prefix acoustic swaps with `soundscape: old -> new` and hold clauses with `hold: neutral -> nuisance`.
 
 ### Method 2 — `build` / `from-toml` (reusable 6–10 pair library vector)

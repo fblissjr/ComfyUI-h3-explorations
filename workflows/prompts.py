@@ -316,8 +316,11 @@ def _follow(value, graph: dict, *, hops: int = 8):
             original, _src = _follow(ins.get("original"), graph, hops=hops) \
                 if isinstance(ins.get("original"), list) else (ins.get("original"), None)
             try:
-                value = _prompt_edit().apply_edits(original, ins.get("edits", ""))[0] \
-                    if isinstance(original, str) else None
+                value = _prompt_edit().apply_edits(
+                    original,
+                    ins.get("edits", ""),
+                    release_subject_attire=bool(ins.get("release_subject_attire", False)),
+                )[0] if isinstance(original, str) else None
             except ValueError:
                 value = None
         else:

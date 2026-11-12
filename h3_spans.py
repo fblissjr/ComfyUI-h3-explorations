@@ -444,19 +444,20 @@ def spans(
     # Attach 3-lever structural section submasks (`_h3_look_mask`,
     # `_h3_description_mask`, `_h3_soundscape_mask`, and `_h3_steerable_scene_mask`)
     # onto `out["scene"]` so `inference_mask` can select:
-    #   - `look_only` (`subject_definitions:` + `summary:` + visual lines of
-    #     `retention_analysis:`, excluding `ref_en.md` task/retention markers),
+    #   - `look_only` (`subject_definitions:` + `summary:`, excluding `ref_en.md`
+    #     task brackets and `retention_analysis:` preservation contracts),
     #   - `scene_only` (`_h3_look_mask | _h3_description_mask`: all visual prose,
-    #     excluding audio sections, `"N/A"`, headers, tags, and Part One alignment),
+    #     excluding `retention_analysis:`, audio sections, `"N/A"`, headers, tags,
+    #     and Part One alignment),
     #   - `description_only` (`integrated_multimodal_description:` / `detailed_description:`),
-    #   - `soundscape_only` (`overall_soundscape:` + non-`"N/A"` `non_diegetic_music:`
-    #     + `<Audio N>:` lines inside `retention_analysis:`),
+    #   - `soundscape_only` (`overall_soundscape:` + non-`"N/A"` `non_diegetic_music:`),
     # while keeping `spans()`'s 6 mutually exclusive `CATEGORIES` unchanged.
     look_mask = torch.zeros(L, dtype=torch.bool)
     desc_mask = torch.zeros(L, dtype=torch.bool)
     sound_mask = torch.zeros(L, dtype=torch.bool)
     # One mask per section header found, keyed by the header's own name, for `FIELD_MASK_MODES`.
-    # The three lever masks above are unions of these (`retention_analysis` split by line).
+    # `retention_analysis` is recorded here for explicit field selection (`fields = ["retention_analysis"]`)
+    # and deliberately excluded from the default lever masks so steering never scrambles preservation contracts.
     section_masks: dict[str, torch.Tensor] = {}
     steerable_scene_mask = out["scene"].clone()
     has_sections = False
@@ -494,7 +495,7 @@ def spans(
         sec_matches = list(SECTION_HEADER_RE.finditer(tail_text))
         if sec_matches:
             has_sections = True
-            sec_intervals: list[tuple[str, int, int, list[tuple[int, int]]]] = []
+            sec_intervals: list[tuple[str, int, int]] = []
             for s_idx, sm in enumerate(sec_matches):
                 # Start strictly after the section header and colon (`sm.end()`) so header tokens are never steered.
                 s_start = sm.end()
@@ -503,31 +504,18 @@ def spans(
                 sec_body = tail_text[s_start:s_end].strip().rstrip(".").strip().lower()
                 if sec_body in EMPTY_SECTION_BODIES:
                     continue
-                audio_ret_spans: list[tuple[int, int]] = []
-                if sec_name == "retention_analysis":
-                    line_cursor = s_start
-                    for raw_line in tail_text[s_start:s_end].splitlines(keepends=True):
-                        line_end = line_cursor + len(raw_line)
-                        if AUDIO_RETENTION_LINE_RE.match(raw_line):
-                            audio_ret_spans.append((line_cursor, line_end))
-                        line_cursor = line_end
-                sec_intervals.append((sec_name, s_start, s_end, audio_ret_spans))
+                sec_intervals.append((sec_name, s_start, s_end))
             for k, c0, _c1, nc0, nc1 in tail_char_spans:
                 if not bool(steerable_scene_mask[k].item()):
                     continue
                 probe_pos = nc0 if nc0 < nc1 else c0
-                for sec_name, s_start, s_end, audio_ret_spans in sec_intervals:
+                for sec_name, s_start, s_end in sec_intervals:
                     if s_start <= probe_pos < s_end:
                         if sec_name not in section_masks:
                             section_masks[sec_name] = torch.zeros(L, dtype=torch.bool)
                         section_masks[sec_name][k] = True
                         if sec_name in LOOK_SECTIONS:
                             look_mask[k] = True
-                        elif sec_name == "retention_analysis":
-                            if any(a0 <= probe_pos < a1 for a0, a1 in audio_ret_spans):
-                                sound_mask[k] = True
-                            else:
-                                look_mask[k] = True
                         elif sec_name in DESCRIPTION_SECTIONS:
                             desc_mask[k] = True
                         elif sec_name in SOUNDSCAPE_SECTIONS:
@@ -575,27 +563,27 @@ def inference_mask(
 
     Modes (`INFERENCE_MASK_MODES`):
     - `'non_vision'`: `~span_masks['vision']` (every `tag == 1` text row).
-    - `'look_only'`: Visual Look sections (`subject_definitions:`, `summary:`, and
-      visual lines of `retention_analysis:`, excluding `[reference generation]` /
-      `ref_en.md` task brackets, `<Subject N> (...): fully_preserved -` headers,
-      `<Audio N>:` lines, and `"N/A"`). Falls back to `'description_only'` on
+    - `'look_only'`: Visual Look sections (`subject_definitions:` and `summary:`,
+      excluding `[reference generation]` / `ref_en.md` task brackets, `retention_analysis:`
+      preservation contracts, and `"N/A"`). Falls back to `'description_only'` on
       3-field `t2va` / `fl2va` or sectionless prompts.
     - `'scene_only'`: all steerable visual prose (`look_only | description_only`)
-      on sectioned H3 video prompts (`t2va`, `fl2va`, `ref2va`), excluding audio
-      sections (`overall_soundscape:`, `non_diegetic_music:`, `<Audio N>:` retention
-      lines), `"N/A"`, vision, reference labels, timestamps, speaker tags `(S1)`,
-      `<d>...</d>` dialogue, section headers, `[Shot N]`, `<Subject N>`/`<Picture N>`
-      tags, and Part One keyframe alignment lines. On sectionless prompts (such as
-      `P-H3-Image`), steers all non-tag `scene` tokens (`_h3_steerable_scene_mask`).
+      on sectioned H3 video prompts (`t2va`, `fl2va`, `ref2va`), excluding
+      `retention_analysis:` preservation contracts, audio sections
+      (`overall_soundscape:`, `non_diegetic_music:`), `"N/A"`, vision, reference
+      labels, timestamps, speaker tags `(S1)`, `<d>...</d>` dialogue, section headers,
+      `[Shot N]`, `<Subject N>`/`<Picture N>` tags, and Part One keyframe alignment
+      lines. On sectionless prompts (such as `P-H3-Image`), steers all non-tag `scene`
+      tokens (`_h3_steerable_scene_mask`).
     - `'description_only'`: non-dialogue `scene` prose tokens inside the Events /
       Actions visual description section (`integrated_multimodal_description:` on
       `fl2va`/`t2va` or `detailed_description:` on `ref2va`), excluding section
       headers, `[Shot N]`, and `<Subject N>`/`<Picture N>` tags (falls back to
       `scene_only` if the prompt has no description section header).
     - `'soundscape_only'`: `scene` prose tokens inside `overall_soundscape:` plus
-      non-`"N/A"` `non_diegetic_music:` (and `<Audio N>:` retention lines),
-      excluding section headers and `"N/A"` / `"None"` bodies (falls back to
-      `scene_only` on sectionless prompts).
+      non-`"N/A"` `non_diegetic_music:`, excluding `retention_analysis:`, section
+      headers, and `"N/A"` / `"None"` bodies (falls back to `scene_only` on
+      sectionless prompts).
     - `'after_dialogue'`: `span_masks['scene']` strictly after the last
       `dialogue` token (or all `span_masks['scene']` rows when the prompt has
       no `<d>...</d>` span or no trailing scene tokens after `</d>`).

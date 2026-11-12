@@ -610,7 +610,8 @@
   "MiniMaxH3PromptEdit": {
     "inputs": [
       "original",
-      "edits"
+      "edits",
+      "release_subject_attire"
     ],
     "node_id": "MiniMaxH3PromptEdit",
     "outputs": [

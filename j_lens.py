@@ -585,6 +585,151 @@ def assess_steering_readiness(
     }
 
 
+_B_SIDE_STOPLIST: frozenset[str] = frozenset({
+    "about", "above", "aboard", "across", "after", "against", "along", "amid", "among",
+    "around", "behind", "below", "beneath", "beside", "between", "beyond", "camera",
+    "dressed", "during", "every", "first", "frame", "framed", "frames", "from", "front",
+    "having", "holding", "inside", "into", "large", "light", "lined", "long", "medium",
+    "moving", "near", "onto", "other", "outside", "over", "people", "person", "robed",
+    "scene", "seated", "setting", "short", "shot", "small", "standing", "style", "suited",
+    "table", "tall", "their", "them", "there", "these", "they", "this", "through", "toward",
+    "trimmed", "under", "upon", "using", "video", "walking", "wearing", "where", "which",
+    "while", "wide", "with", "within", "without", "woman", "world", "bundled",
+})
+
+_GARMENT_WORD_STEMS: tuple[str, ...] = (
+    "apron", "armor", "armour", "attire", "blouse", "boot", "cape", "cardigan", "chap",
+    "cloak", "cloth", "coat", "collar", "corset", "costume", "crown", "denim", "dress",
+    "fabric", "fleece", "garment", "glove", "goggle", "gown", "hat", "hats", "helmet",
+    "hood", "hoodie", "jacket", "jean", "jersey", "jumpsuit", "kimono", "knit", "leather",
+    "linen", "outfit", "overcoat", "pant", "parka", "pullover", "robe", "sandal", "scarf",
+    "sequin", "shirt", "shoe", "shorts", "silk", "skirt", "sleeve", "sneaker", "spacesuit",
+    "suit", "sweater", "tiara", "trouser", "tunic", "tuxedo", "uniform", "velvet", "vest",
+    "wardrobe", "wear", "wearing", "worn", "wig", "wigs", "wool",
+)
+
+
+def _matches_garment_stem(word: str) -> bool:
+    w = word.lower()
+    if w in ("hat", "hats", "wig", "wigs", "cap", "caps", "fur", "tie", "ties"):
+        return True
+    return any(
+        w == st or (len(st) >= 4 and (w.startswith(st) or w.endswith(st)))
+        for st in _GARMENT_WORD_STEMS
+    )
+
+
+def _stem_matches_any(word: str, candidates: Sequence[str]) -> bool:
+    w = word.lower()
+    for c in candidates:
+        cl = c.lower()
+        if w == cl:
+            return True
+        if len(w) >= 4 and len(cl) >= 4 and (w.startswith(cl[:4]) or cl.startswith(w[:4])):
+            return True
+        # Compound nouns such as 'spacesuits' -> 'suit', 'jumpsuits' -> 'suit'
+        if len(cl) >= 4 and cl in w:
+            return True
+    return False
+
+
+def check_b_side_alignment(
+    readout: Mapping[str, Any],
+    b_side: str,
+    *,
+    a_side: str = "",
+    bundle: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Check whether `b_side`'s target concepts and attire nouns survived into J-Lens `(+)`
+    after `B - A` pair pooling (`< 0.2 ms` on CPU).
+
+    Flags two concrete pair-build failure modes before spending GPU render time:
+    1. Garment cancellation (`b_side` names explicit clothing/headwear, 0 attire words appear
+       in `positive_words`, and/or `negative_words` subtracts clothing words from Pole A).
+    2. Total concept washout (`0` of `b_side`'s target words or close `M_centered` neighbors
+       appear in `positive_words`)."""
+    a_tokens = set(re.findall(r"[a-z]{3,}", str(a_side or "").lower()))
+    raw_b_tokens = re.findall(r"[a-z]{3,}", str(b_side or "").lower())
+    target_words: list[str] = []
+    for tok in raw_b_tokens:
+        if tok in a_tokens or tok in _B_SIDE_STOPLIST:
+            continue
+        if len(tok) < 4 and tok not in ("hat", "hats", "wig", "wigs", "cap", "caps", "fur", "tie"):
+            continue
+        if tok not in target_words:
+            target_words.append(tok)
+
+    pos_words = [str(x["word"]).lower() for x in (readout.get("positive_words") or ())]
+    neg_words = [str(x["word"]).lower() for x in (readout.get("negative_words") or ())]
+
+    matched_target = [tw for tw in target_words if _stem_matches_any(tw, pos_words)]
+    inverted_target = [tw for tw in target_words if _stem_matches_any(tw, neg_words) and tw not in matched_target]
+
+    b_garments = [tw for tw in target_words if _matches_garment_stem(tw)]
+    pos_garments = [pw for pw in pos_words if _matches_garment_stem(pw)]
+    neg_garments = [nw for nw in neg_words if _matches_garment_stem(nw)]
+    matched_b_garments = [gw for gw in b_garments if _stem_matches_any(gw, pos_words)]
+
+    max_sem_cos: float | None = None
+    if target_words and pos_words and not matched_target:
+        try:
+            b = dict(bundle) if bundle is not None else (load_j_lens_bundle() if bundle_available() else {})
+            w2i = b.get("word_to_idxs")
+            m_c = b.get("M_centered")
+            if w2i is not None and m_c is not None:
+                t_vecs: list[torch.Tensor] = []
+                for tw in target_words:
+                    for cand in (tw, tw.rstrip("s"), *_SHORT_WORD_FALLBACKS.get(tw, ())):
+                        ids, _, _ = _resolve_word_indices([cand], w2i)
+                        if ids:
+                            t_vecs.append(F.normalize(m_c[ids].mean(dim=0), dim=0))
+                            break
+                p_vecs: list[torch.Tensor] = []
+                for pw in pos_words[:8]:
+                    ids, _, _ = _resolve_word_indices([pw], w2i)
+                    if ids:
+                        p_vecs.append(F.normalize(m_c[ids].mean(dim=0), dim=0))
+                if t_vecs and p_vecs:
+                    max_sem_cos = round(
+                        max(float(torch.dot(tv, pv).item()) for tv in t_vecs for pv in p_vecs),
+                        3,
+                    )
+        except Exception:
+            max_sem_cos = None
+
+    warnings: list[str] = []
+    if b_garments and not matched_b_garments and not pos_garments:
+        neg_note = f" while J-Lens (-) subtracts {neg_garments}" if neg_garments else ""
+        warnings.append(
+            f"b_side names attire {b_garments[:5]} with 0 attire words in J-Lens (+) top readout "
+            f"{pos_words[:6]}{neg_note}; Pole A likely canceled the clothing axis "
+            f"(rotate diverse Pole-A outfits via 'a1 | a2 | a3 -> b' or '--bank-scenes 5', or use Edit Guider for exact wardrobe)."
+        )
+    elif target_words and not matched_target and (max_sem_cos is None or max_sem_cos < 0.25):
+        warnings.append(
+            f"0/{len(target_words)} b_side target words ({target_words[:6]}) appear in J-Lens (+) top readout "
+            f"{pos_words[:6]}; check for Pole-A noun cancellation or overly broad diff spans."
+        )
+    if inverted_target:
+        warnings.append(
+            f"b_side word(s) {inverted_target} appear in J-Lens (-) negative readout {neg_words[:6]} (inverted by Pole A)."
+        )
+
+    coverage = round(len(matched_target) / len(target_words), 3) if target_words else 1.0
+    return {
+        "target_words": target_words,
+        "matched_pos": matched_target,
+        "inverted_neg": inverted_target,
+        "b_side_garment_words": b_garments,
+        "pos_garment_words": pos_garments,
+        "neg_garment_words": neg_garments,
+        "coverage": coverage,
+        "max_semantic_cosine": max_sem_cos,
+        "warnings": warnings,
+        "warning": " ".join(warnings),
+    }
+
+
 def _resolve_vector_path(source: str | os.PathLike, family: str = "fl2va") -> Path:
     path = Path(source)
     if path.is_file():
