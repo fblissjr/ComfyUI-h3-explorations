@@ -45,21 +45,18 @@ def _tokenizer(path: str):
     return AutoTokenizer.from_pretrained(path)
 
 
-def main() -> int:
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--rows", required=True, help="a folder written by bench/control_vector_rows.py")
-    ap.add_argument("--vectors", default=str(REPO_ROOT.parent.parent / "models" / "control_vectors"))
-    ap.add_argument("--family", default="fl2va", choices=("fl2va", "ref2va"))
-    ap.add_argument("--tokenizer", required=True, help="folder of the Qwen3-VL tokenizer files")
-    ap.add_argument("--min-prompts", type=int, default=3, help="a token must occur in at least this many prompts")
-    ap.add_argument("--top", type=int, default=8)
-    ap.add_argument("--only", default="", help="comma-separated concept names; default all")
-    args = ap.parse_args()
+def load_rows_reader(rows_dir, family: str, tokenizer_dir, min_prompts: int = 3):
+    """The rows table as a reader: `read(vec, concept, top)` gives the top tokens toward and away from `vec`.
 
-    rows_dir = Path(args.rows)
+    `concept` names the pair file to leave out of the table (`pairs:<concept>` in the cache), so a vector is
+    never labelled from the rows it was made of. Returns `(read, info)`; `info` says what the table was built
+    from, and `info["sources"]` is the set of sources in the cache. Shared with
+    `bench/control_vector_readout_score.py`, so the two tools cannot drift apart.
+    """
+    rows_dir = Path(rows_dir)
     index = json.loads((rows_dir / "index.json").read_text(encoding="utf-8"))
-    tok = _tokenizer(args.tokenizer)
-    key = f"pr_{args.family}"
+    tok = _tokenizer(str(tokenizer_dir))
+    key = f"pr_{family}"
 
     # Per source: for each token id, the sum of its scene rows, how many rows, and in how many prompts.
     per_source: dict[str, dict] = {}
@@ -96,34 +93,56 @@ def main() -> int:
             prompts.index_add_(0, at, s["prompts"])
             total += s["total"]
             n += s["n"]
-        ok = prompts >= args.min_prompts
+        ok = prompts >= min_prompts
         centered = sums[ok] / counts[ok, None] - total / n
         return all_ids[ok], torch.nn.functional.normalize(centered, dim=1)
 
     def piece(token_id: int) -> str:
         return tok.decode([token_id]).strip() or repr(tok.decode([token_id]))
 
+    def read(vec, concept: str, top: int):
+        ids, tab = table(f"pairs:{concept}")
+        score = tab @ torch.nn.functional.normalize(vec, dim=0)
+        up = [piece(int(ids[i])) for i in torch.topk(score, top).indices.tolist()]
+        down = [piece(int(ids[i])) for i in torch.topk(-score, top).indices.tolist()]
+        return up, down
+
+    info = {"sources": set(per_source), "n_sources": len(index["shards"]), "built": index["built"],
+            "commit": index["commit"], "n_tokens": len(all_ids), "min_prompts": min_prompts}
+    return read, info
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--rows", required=True, help="a folder written by bench/control_vector_rows.py")
+    ap.add_argument("--vectors", default=str(REPO_ROOT.parent.parent / "models" / "control_vectors"))
+    ap.add_argument("--family", default="fl2va", choices=("fl2va", "ref2va"))
+    ap.add_argument("--tokenizer", required=True, help="folder of the Qwen3-VL tokenizer files")
+    ap.add_argument("--min-prompts", type=int, default=3, help="a token must occur in at least this many prompts")
+    ap.add_argument("--top", type=int, default=8)
+    ap.add_argument("--only", default="", help="comma-separated concept names; default all")
+    args = ap.parse_args()
+
+    read, info = load_rows_reader(args.rows, args.family, args.tokenizer, args.min_prompts)
+
     only = {x.strip() for x in args.only.split(",") if x.strip()}
     files = sorted(glob.glob(os.path.join(args.vectors, f"*__{args.family}__diff_span__lora_*.safetensors")))
-    print(f"rows: {len(index['shards'])} source(s), built {index['built']} at {index['commit']}; "
-          f"{len(all_ids)} distinct scene tokens; family {args.family}; a token needs {args.min_prompts}+ prompts")
+    print(f"rows: {info['n_sources']} source(s), built {info['built']} at {info['commit']}; "
+          f"{info['n_tokens']} distinct scene tokens; family {args.family}; a token needs {args.min_prompts}+ prompts")
     for path in files:
         name = os.path.basename(path).split("__")[0]
         if only and name not in only:
             continue
         with safe_open(path, "pt") as f:
             vec = f.get_tensor("vector.post_refiner").float()
-        ids, tab = table(f"pairs:{name}")
-        score = tab @ torch.nn.functional.normalize(vec, dim=0)
-        up = [piece(int(ids[i])) for i in torch.topk(score, args.top).indices.tolist()]
-        down = [piece(int(ids[i])) for i in torch.topk(-score, args.top).indices.tolist()]
+        up, down = read(vec, name, args.top)
         try:
-            read = j_lens.decode_vector(vec, space="post_refiner", family=args.family, top_k=args.top)
-            jl_up = [w["word"] for w in read["positive_words"]]
-            jl_down = [w["word"] for w in read["negative_words"]]
+            jl = j_lens.decode_vector(vec, space="post_refiner", family=args.family, top_k=args.top)
+            jl_up = [w["word"] for w in jl["positive_words"]]
+            jl_down = [w["word"] for w in jl["negative_words"]]
         except Exception as exc:  # the bundle is optional; say so and go on
             jl_up, jl_down = [f"(j_lens unavailable: {exc})"], []
-        held = "its own pair file left out" if f"pairs:{name}" in per_source else "no pair file of this name in the rows"
+        held = "its own pair file left out" if f"pairs:{name}" in info["sources"] else "no pair file of this name in the rows"
         print(f"\n{name}  ({held})")
         print(f"  rows table  +: {', '.join(up)}")
         print(f"  rows table  -: {', '.join(down)}")

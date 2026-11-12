@@ -284,6 +284,7 @@ Full per-check history, 2026-08-23 amendments, and `"claims block"` notes are sh
 | `check_masked_code_map.py` | that bench/masked_code_map.py... ([detail](checks/index_15.md)) | no CUDA | no |
 | `check_control_vectors.py` | that h3_spans.py, control_vectors.py, control_vector_nodes.py, build_workflows.py, and bench/control_vectors.py... ([detail](checks/index_15.md)) | no CUDA | yes |
 | `check_control_vector_studio.py` | that the Control Vector Studio is the CLI drawn as a page: its schema is the parser, a page request parses to the command line's namespace, its run route calls the CLI's dispatch, and the page writes no option list of its own... ([detail](checks/index_15.md)) | no CUDA | yes |
+| `check_control_vector_readout_score.py` | that bench/control_vector_readout_score.py builds blind judge packets that leak nothing (one option list per group of near concepts) and counts answers as it says... ([detail](checks/index_15.md)) | no CUDA | yes |
 | `check_guide_latent.py` | that MiniMaxH3GuideLatent replaces ReferenceToVideo + AddGuide for Ref2VA guide-latent workflows... ([detail](checks/index_15.md)) | no CUDA | yes |
 | `check_edit_guidance.py` | that edit_guidance.py places a prompt edit exactly and refuses what it cannot place, and that the edit guider computes original + scale * (edited - original)... ([detail](checks/index_15.md)) | no CUDA | yes |
 | `check_config_names.py` | that every h3_config name a tracked Python file reads is one workflows/h3_config.py defines... ([detail](checks/index_15.md)) | no CUDA | yes |

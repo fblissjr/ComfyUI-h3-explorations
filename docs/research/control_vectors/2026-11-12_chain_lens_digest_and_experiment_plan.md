@@ -409,6 +409,8 @@ share one GPU session with the full 64-layer weights.
 ### Experiment 1: score the readouts we already have, blind
 
 - **Cost.** CPU, plus a text-only LLM judge.
+- **Tool.** `bench/control_vector_readout_score.py` (added after the runs below; its docstring is the
+  account of the design that was kept).
 - **Question.** Given only a vector's readout, can a judge pick that vector's intended concept out of five?
 - **Build from.** WorkspaceBench's judging format on the built vectors. Readers: `j_lens.decode_vector` words
   and the rows table from `bench/control_vector_lexicon.py`. Options: the target's description, four other
@@ -535,7 +537,7 @@ share one GPU session with the full 64-layer weights.
 
 ## 13. After experiment 1: what changes in the plan
 
-Added the same day, after three runs of experiment 1. The counts are in
+Added the same day, after three runs of experiment 1 and a repeat pass. The counts are in
 [`../../../bench/results/2026-11-12_control_vector_readout_blind_score.md`](../../../bench/results/2026-11-12_control_vector_readout_blind_score.md);
 nothing here restates them.
 
@@ -546,10 +548,15 @@ nothing here restates them.
   group of near concepts the same list. A judge with no readout then lands on chance by construction, and
   the J-Lens words still leave room (the record, section 7). The random-direction twin held in all three
   runs and stays.
-- **What experiment 1 still lacks.** It has run only as throwaway scripts in an untracked folder, with one
-  judge model and one pass per item. Before experiments 3 and 5 are scored with it, it needs to be a tracked
-  tool with a check (`bench/AGENTS.md`), and it needs a repeat pass to show how far the counts move by
-  themselves.
+- **Experiment 1 is a tracked tool.** `bench/control_vector_readout_score.py` builds the packets and counts
+  the answers, and `bench/check_control_vector_readout_score.py` holds it to its design with no model. A
+  second set of judges over the same items agreed with the first almost item for item on the readouts
+  themselves (the record, section 8), so the harness can tell two readers apart when they differ by more
+  than a vector or two. Still one judge model; a second model has not been tried.
+- **The J-Lens bundle changed under the experiment.** It was rebuilt in place on the same day, and the J-Lens
+  words for every vector moved with it (the record, section 8.4). The counts in the record describe the
+  bundle as it was. Scoring the rebuilt bundle is now the harness's first job, ahead of experiment 2: the
+  packets are built and wait for judges. Any later comparison of readers has to name the bundle it read.
 - **The test set for a better reader is named.** Ten vectors were named in neither of the two harder runs
   (the record, section 7.4), and most of the misses sit in two tight groups: old video with cartoon looks,
   and loud chaotic energy.
@@ -569,7 +576,7 @@ nothing here restates them.
   as nearly the same concept reads alike and yet is far apart as vectors (the record, section 6.6), which
   is the kind of case experiment 2's split would explain.
 - **Experiments 4 and 6 are unchanged.**
-- **The order now.** Experiment 1 as a tracked tool with a repeat pass; experiment 2; experiment 3;
+- **The order now.** Score the rebuilt bundle with experiment 1's tool; experiment 2; experiment 3;
   experiments 4 and 5 in one GPU session; experiment 6.
 - **A later step for experiment 1.** A naming score can saturate. The version that does not is the post's
   steer-and-match test (section 6), a judge matching a readout to one of several renders. It costs renders,

@@ -8,14 +8,14 @@ this file is only a way to find a script by what it says it does.
 
 | group | scripts |
 |---|---|
-| [`check_*`](#check) | 167 |
+| [`check_*`](#check) | 168 |
 | [`measure_*`](#measure) | 37 |
 | [`analyze_*`](#analyze) | 18 |
 | [`grade_*`](#grade) | 19 |
 | [`compare_*`](#compare) | 15 |
 | [`build_*`](#build) | 13 |
 | [`probe_*`](#probe) | 13 |
-| [the rest](#the-rest) | 196 |
+| [the rest](#the-rest) | 197 |
 
 ## check
 
@@ -45,6 +45,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_conditioning_behaviour.py`](check_conditioning_behaviour.py) | Does `MiniMaxH3Conditioning` still do the things it exists to do? |
 | [`check_config_names.py`](check_config_names.py) | Check that every `h3_config.NAME` a tracked Python file reads is a name `workflows/h3_config.py` defines. |
 | [`check_contact_sheets.py`](check_contact_sheets.py) | `bench/contact_sheets.py` against a clip made for the purpose: the folder, the names, the tiles, and no second set. |
+| [`check_control_vector_readout_score.py`](check_control_vector_readout_score.py) | Check that `bench/control_vector_readout_score.py` builds blind judge packets that leak nothing and counts answers as it says. |
 | [`check_control_vector_studio.py`](check_control_vector_studio.py) | Check that the Control Vector Studio is the CLI: its schema, its run route and its page. |
 | [`check_control_vectors.py`](check_control_vectors.py) | Check the pure math, span masks, pair-file refusals, and vector I/O of H3 control vectors. |
 | [`check_copy_sound.py`](check_copy_sound.py) | A copy's sound against its source's (`bench/copy_sound.py`) on made sound whose answer is known. |
@@ -369,6 +370,7 @@ this file is only a way to find a script by what it says it does.
 | [`control_time_warp.py`](control_time_warp.py) | Can `bench/analyze_time_warp.py` see a warp at all? A control for its "not a time warp" claim. |
 | [`control_vector_lexicon.py`](control_vector_lexicon.py) | Label each built control vector two ways and print them side by side: by J-Lens, and by a word table made from cached rows. |
 | [`control_vector_pooling.py`](control_vector_pooling.py) | Compare ways of pooling a pair's rows into a direction, from the row cache, with no encoding. |
+| [`control_vector_readout_score.py`](control_vector_readout_score.py) | Score control-vector readouts blind: can a judge who sees only a readout pick the vector's concept? |
 | [`control_vector_rows.py`](control_vector_rows.py) | Cache the text rows H3 sees for a set of real prompts, once, for CPU-side study. |
 | [`control_vectors.py`](control_vectors.py) | Build, inspect, meter, and grade MiniMax H3 control vectors. |
 | [`convert_h3_bf16_encoder.py`](convert_h3_bf16_encoder.py) | Adapt a full-depth HF Qwen3-VL-32B text encoder to the ComfyUI H3 encoder. |

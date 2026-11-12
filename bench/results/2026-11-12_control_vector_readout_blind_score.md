@@ -1,4 +1,4 @@
-# Control-vector readouts scored blind: J-Lens words and the rows table, three runs (2026-11-12)
+# Control-vector readouts scored blind: J-Lens words and the rows table, three runs and a repeat pass (2026-11-12)
 
 lane: control
 
@@ -18,7 +18,8 @@ each. The counts below are what `score.py` printed; `results.json` in each folde
 The three runs share one set of readouts and differ only in the options. Random options were too easy
 (sections 1 to 5). Each vector's nearest concepts gave room but leaked the target to a judge with no readout
 (section 6). One shared list per group of near concepts keeps the room and closes the leak (section 7); that
-is the form to carry forward.
+is the form to carry forward. It is now a tracked tool, `bench/control_vector_readout_score.py`, and section 8
+is a second pass of judges over the third run's items, scored with it.
 
 ## 1. What was run
 
@@ -286,3 +287,65 @@ Sections 4 and 6.5 still hold. Two more:
   six of the twelve `jlens` misses. Where the vectors have little to do with each other the words name all
   of them.
 - The `shuffle` control now reads as a count of near concepts whose readouts pass for each other.
+
+## 8. Repeat pass, and the tracked tool
+
+The third run's form is now `bench/control_vector_readout_score.py`, with
+`bench/check_control_vector_readout_score.py`. The rows-table arithmetic the throwaway scripts had copied is
+shared instead: `bench/control_vector_lexicon.py::load_rows_reader`.
+
+### 8.1 What was run
+
+- **The same items, judged again.** The third run's seven packets were given to seven new Sonnet subagents
+  with the same instructions. Nothing was rebuilt.
+- **Scored with the tool.** The third run's folder was put into the tool's layout (`packets/`,
+  `answers/pass1/`, `answers/pass2/`), and `bench/control_vector_readout_score.py score` read both passes.
+  Its counts for the first pass are section 7.2's.
+
+### 8.2 Counts
+
+| Reader | Pass | `real`: target | `real`: cannot tell | `real`: another option | `twin`: target | `shuffle`: target |
+|---|---|---:|---:|---:|---:|---:|
+| `jlens` | 1 | 33 | 9 | 3 | 0 | 7 |
+| `jlens` | 2 | 33 | 8 | 4 | 0 | 6 |
+| `rows` | 1 | 23 | 13 | 9 | 0 | 9 |
+| `rows` | 2 | 22 | 12 | 11 | 0 | 6 |
+
+Options only: 9 of 45 in the first pass, 7 of 45 in the second. The second judge spread its picks so that
+each line of a list was used once, where the first picked the same line every time.
+
+The same item in both passes, of 45:
+
+| Reader and item | Same pick | Target in both | Target in one | Target in neither |
+|---|---:|---:|---:|---:|
+| `jlens`, `real` | 44 | 33 | 0 | 12 |
+| `rows`, `real` | 43 | 22 | 1 | 22 |
+| `jlens`, `twin` | 41 | | | |
+| `rows`, `twin` | 42 | | | |
+| `jlens`, `shuffle` | 40 | | | |
+| `rows`, `shuffle` | 37 | | | |
+
+### 8.3 Readings, not findings
+
+- On `real` items two sets of judges agree almost item for item, so a difference of several vectors between
+  two readers is more than the judges' own wobble. This is one judge model twice, not two models.
+- The `shuffle` items move more between passes than the `real` ones. They are the near-neighbor cases, where
+  "cannot tell" and a pick are both defensible.
+
+### 8.4 The bundle these runs read no longer exists on disk
+
+Every `jlens` readout in this record came from `<comfy>/models/j_lens/j_lens_h3.safetensors` as it stood
+when the first run was built (the file dated 2026-11-06). The file was rebuilt in place later the same day
+by other work: it is larger and carries a new modification time
+(`ls -l <comfy>/models/j_lens/`). The J-Lens words for the same vectors have changed with it:
+
+- No vector's eight-and-eight `jlens` readout is word for word what the first run recorded. The first plus
+  word is the same for most vectors, and about five of the eight plus words are shared for a typical one.
+- The rows-table readouts are unchanged for every vector, so the vectors themselves did not move.
+- The working-tree change to `j_lens.py` at that time only adds a family and leaves the `fl2va` path as it
+  was, so the difference is in the bundle's tensors. That is read from the diff, not tested.
+
+`data/control_vectors/readout_score_2026-11-12_rebuilt_bundle/` holds packets built by the tool from the
+rebuilt bundle, with the same nine groups. They have not been judged. Judging them would say whether the
+rebuild changed how well the words name the vectors.
+
