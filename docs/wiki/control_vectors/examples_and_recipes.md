@@ -8,13 +8,13 @@ Every recipe below uses tested settings from our 6-step Pika `t2va` and `ref2va`
 
 ## Recipe 1 — Multi-garment `<Subject 1>` outfit swap on `ref2va` (`MiniMaxH3PromptEdit` + `BasicGuider` or `MiniMaxH3EditGuider`)
 
-**Use when**: You have a `<Picture 1>` reference portrait and want `<Subject 1>` in a **specific multi-piece outfit** (exact color, collar, cut, fabric per garment) while keeping her face, hair, voice, and the room around her. *(Try `MiniMaxH3PromptEdit` with `release_subject_attire = True` on normal `1x` `BasicGuider` first—on `s730451892` a `1x` rewrite already swaps the outfit cleanly; switch to `MiniMaxH3EditGuider` when you want `scale > 1.0`, `0 < scale < 1.0`, or `first_step = 1` framing lock.)*
+**Use when**: You have a `<Picture 1>` reference portrait and want `<Subject 1>` in a **specific multi-piece outfit** (exact color, collar, cut, fabric per garment) while keeping her face, hair, voice, and the room around her. *(Try a plain `1x` prompt edit with `BasicGuider` first—on `s730451892` a `1x` rewrite already swaps the outfit cleanly once `retention_analysis:` marks clothing as `partially_preserved`; switch to `MiniMaxH3EditGuider` when you want `scale > 1.0`, `0 < scale < 1.0`, or `first_step = 1` framing lock.)*
 
 - **API Workflow**: `workflows/h3_image_ref_plus_text_to_video_pika_edit_guidance_api.json`
-- **`MiniMaxH3PromptEdit` `edits` & `release_subject_attire`** (feeding `MiniMaxH3PromptOnReferences`; match plain words next to `<Picture 1>`, never `<Picture 1>` itself):
-  - `release_subject_attire = True` *(rewrites `<Subject 1>`'s `retention_analysis:` line from `fully_preserved` to `partially_preserved` with clothing unlocked; also works with `edits = ""` upstream of a single-pass `MiniMaxH3Steer` render)*
+- **`MiniMaxH3PromptEdit` `edits`** (feeding `MiniMaxH3PromptOnReferences`; match plain words next to `<Picture 1>`, never `<Picture 1>` itself):
   - `edits`:
     ```text
+    retention_analysis: fully_preserved - Her face, hair, and clothing stay consistent -> partially_preserved - Her face and hair stay consistent; clothing changes
     subject_definitions: light freckles across her nose and cheeks. -> light freckles across her nose and cheeks. She wears a 1970s rust-orange polyester blouse with a wide pointed collar and high-waisted flared jeans in the target video.
     ```
 - **`MiniMaxH3EditGuider` settings**:
@@ -65,7 +65,7 @@ words. All eight are in the library.
 
 - **How they were built.** A small pair file each: five ordinary scenes, with one clothing clause swapped between a
   plain outfit and the target (`"suited up in bulky white astronaut spacesuits with glass bubble helmets aboard an
-  orbiting space station"`). *(Follow-up fixes landed later the same day: `from-prompt --bank-scenes 5 --words "<target clause>"` and blank-`target_prompt` `MiniMaxH3MakeControlVector` compile target-only vectors across rotated neutral `DEFAULT_AUX_BASELINES`; `j_lens.check_b_side_alignment` warns at build time whenever `b_side` target words drop out of `(+)` or Pole-A nouns cancel them; `scene_only` leaves `retention_analysis:` unsteered by default; `MiniMaxH3PromptEdit.release_subject_attire` unlocks `<Subject 1>`'s `partially_preserved` clothing contract in one toggle; and all eight `data/control_vectors/*.toml` packs were rebuilt with rotated Pole-A outfits and single-setting pairs.)*
+  orbiting space station"`). *(Follow-up fixes landed later the same day: `from-prompt --bank-scenes 5 --words "<target clause>"` and blank-`target_prompt` `MiniMaxH3MakeControlVector` compile target-only vectors across rotated neutral `DEFAULT_AUX_BASELINES`; `j_lens.check_b_side_alignment` warns at build time whenever `b_side` target words drop out of `(+)` or Pole-A nouns cancel them; `scene_only` leaves `retention_analysis:` unsteered by default; and all eight `data/control_vectors/*.toml` packs were rebuilt with rotated Pole-A outfits and single-setting pairs.)*
 - **How they were applied.** `mask = scene_only`, `strength = 2.25`, `end_percent = 0.5` (the first three of six
   steps), picture held at the defaults, on the diner reference shot with no clothing named in its prompt.
 - **What the frames show** (one seed, three frames a clip; playback is the owner's):

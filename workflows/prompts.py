@@ -319,7 +319,6 @@ def _follow(value, graph: dict, *, hops: int = 8):
                 value = _prompt_edit().apply_edits(
                     original,
                     ins.get("edits", ""),
-                    release_subject_attire=bool(ins.get("release_subject_attire", False)),
                 )[0] if isinstance(original, str) else None
             except ValueError:
                 value = None

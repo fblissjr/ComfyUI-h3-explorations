@@ -101,17 +101,6 @@ def check_prompt_edit() -> None:
             lambda: eg.apply_edits(ref2va_prompt, "summary: chiaroscuro lighting -> neon lighting"),
             "inside the summary")
     street_ref2va = (REPO_ROOT / "prompt_bank" / "ref2va_woman_blonde_street.txt").read_text(encoding="utf-8").strip()
-    out_rel_toggle, recs_rel = eg.apply_edits(street_ref2va, "", release_subject_attire=True)
-    ret_block = out_rel_toggle.split("retention_analysis:")[1].split("detailed_description:")[0]
-    ok("release_subject_attire=True flips <Subject 1> to partially_preserved and releases clothing with zero edits line",
-       "partially_preserved" in ret_block and "fully_preserved" not in ret_block
-       and "clothing is not retained" in ret_block and len(recs_rel) == 1)
-    music_ref2va = (REPO_ROOT / "prompt_bank" / "ref2va_image_audio_music.txt").read_text(encoding="utf-8").strip()
-    out_rel_dir, _ = eg.apply_edits(music_ref2va, "release_attire: <Subject 1>")
-    ret_music = out_rel_dir.split("retention_analysis:")[1].split("detailed_description:")[0]
-    ok("release_attire strips ', and clothing' cleanly so retention_analysis never contradicts itself",
-       "face and hair are retained; clothing is not retained" in ret_music
-       and "<Subject 2> (appears in [Shot 1]): fully_preserved" in ret_music)
     out_sec_all, _ = eg.apply_edits(
         street_ref2va,
         "subject_definitions: a black chunky ribbed knit sweater -> an olive canvas field coat\n"
@@ -120,12 +109,6 @@ def check_prompt_edit() -> None:
     )
     ok("subject_definitions:, retention_analysis:, and description: prefixes scope edits cleanly to each section",
        out_sec_all.count("olive canvas field coat") == 3)
-    refuses("release_subject_attire=True on a t2va prompt with no retention_analysis:",
-            lambda: eg.apply_edits(prompt, "", release_subject_attire=True),
-            "retention_analysis:")
-    refuses("release_attire naming a nonexistent <Subject 9>",
-            lambda: eg.apply_edits(street_ref2va, "release_attire: <Subject 9>"),
-            "<Subject 9> was not found")
     semi_prompt = "integrated_multimodal_description:\n[Shot 1] Ambient sound; old radio hum fills the hallway.\noverall_soundscape:\nLow radio hum.\nnon_diegetic_music:\nN/A"
     out_semi, _ = eg.apply_edits(semi_prompt, "sound; old radio hum -> quiet room")
     ok("prose old-wording starting with 'sound;' is kept intact as a single edit rather than split as a section prefix",
@@ -302,15 +285,18 @@ def check_static_reader() -> None:
     ok("and reads nothing, without raising, where the node would refuse the edit",
        wf_prompts._follow(["130", 0], graph) == (None, None))
     street_ref2va = (REPO_ROOT / "prompt_bank" / "ref2va_woman_blonde_street.txt").read_text(encoding="utf-8").strip()
-    rel_graph = {
+    sec_graph = {
         "130": {
             "class_type": "MiniMaxH3PromptEdit",
-            "inputs": {"original": street_ref2va, "edits": "", "release_subject_attire": True},
+            "inputs": {
+                "original": street_ref2va,
+                "edits": "retention_analysis: fully_preserved -> partially_preserved",
+            },
         }
     }
-    rel_text, _ = wf_prompts._follow(["130", 0], rel_graph)
-    ok("static walker resolves MiniMaxH3PromptEdit with release_subject_attire=True and empty edits",
-       isinstance(rel_text, str) and "partially_preserved" in rel_text and "clothing is not retained" in rel_text)
+    sec_text, _ = wf_prompts._follow(["130", 0], sec_graph)
+    ok("static walker resolves MiniMaxH3PromptEdit with retention_analysis: section edit",
+       isinstance(sec_text, str) and "partially_preserved" in sec_text)
 
     import importlib
     import importlib.util

@@ -2634,12 +2634,12 @@ def _wire_edit_guidance(g: dict, prompt: str, spec: dict) -> None:
     """
     unknown = sorted(
         set(spec)
-        - {"edits", "scale", "first_step", "last_step", "streams", "audio_scale", "release_subject_attire"}
+        - {"edits", "scale", "first_step", "last_step", "streams", "audio_scale"}
     )
     if unknown or "edits" not in spec:
         raise SystemExit(
-            "edit_guidance takes edits, scale, first_step, last_step, streams, audio_scale and "
-            f"release_subject_attire; got {sorted(spec)}"
+            "edit_guidance takes edits, scale, first_step, last_step, streams and audio_scale; "
+            f"got {sorted(spec)}"
         )
     streams = str(spec.get("streams", EDIT_GUIDANCE_DEFAULTS["streams"]))
     if streams not in EDIT_GUIDANCE_STREAMS:
@@ -2658,7 +2658,6 @@ def _wire_edit_guidance(g: dict, prompt: str, spec: dict) -> None:
         "inputs": {
             "original": written,
             "edits": spec["edits"],
-            "release_subject_attire": bool(spec.get("release_subject_attire", False)),
         },
     }
     if cond["class_type"] == "MiniMaxH3ReferenceConditioning":
@@ -5561,7 +5560,6 @@ def main():
               manual_sigmas=PIKA_MANUAL_SIGMAS,
               edit_guidance=dict(
                   edits=_edit_guidance_text("t2va_market_claymation"),
-                  release_subject_attire=False,
               ),
               out_prefix="Video/h3_t2v_pika_edit_guidance"),
          "text -> video + audio on Pika H3 Flex 6-step LCM (SVD995 branch) steered by an edited copy of the prompt (MiniMaxH3PromptEdit + MiniMaxH3EditGuider at the node's default scale, no control vector)"),
@@ -5573,7 +5571,6 @@ def main():
               manual_sigmas=PIKA_MANUAL_SIGMAS,
               edit_guidance=dict(
                   edits=_edit_guidance_text("ref2va_kitchen_sitcom"),
-                  release_subject_attire=False,
               ),
               out_prefix="Video/h3_r2v_pika_edit_guidance"),
          "reference image + text -> video + audio on Pika H3 Flex 6-step LCM (SVD995 branch) steered by an edited copy of the prompt; the reference is encoded once (MiniMaxH3EncodeReferences) and each prompt goes on top (MiniMaxH3PromptOnReferences)"),

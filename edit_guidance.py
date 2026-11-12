@@ -224,27 +224,15 @@ class MiniMaxH3PromptEdit(io.ComfyNode):
                                 tooltip="One edit a line: old wording -> new wording. The old wording must occur "
                                         "exactly once in the prompt (or inside the named section). Start a line with "
                                         "'subject_definitions:', 'summary:', 'retention_analysis:', 'description:', "
-                                        "'soundscape:', or 'music:' to edit that section, or write "
-                                        "'release_attire: <Subject N>' to unlock reference clothing. Dialogue, tags "
-                                        "and headers cannot be edited inside 'old -> new'."),
-                # APPENDED 2026-11-11: tag-safe 1-toggle unlock for <Subject 1>'s retention_analysis line.
-                io.Boolean.Input("release_subject_attire", default=False, optional=True,
-                                 tooltip="When True on a ref2va prompt, rewrites <Subject 1>'s retention_analysis "
-                                         "line from 'fully_preserved' to 'partially_preserved' with clothing "
-                                         "released so control vectors or prompt edits can dress <Subject 1> without "
-                                         "fighting the text preservation contract. Use 'release_attire: <Subject 2>' "
-                                         "in edits for additional subjects."),
+                                        "'soundscape:', or 'music:' to edit that section. Dialogue, tags and headers "
+                                        "cannot be edited inside 'old -> new'."),
             ],
             outputs=[io.String.Output(display_name="edited_prompt"), io.String.Output(display_name="report")],
         )
 
     @classmethod
-    def execute(cls, original, edits, release_subject_attire=False) -> io.NodeOutput:
-        edited, records = apply_edits(
-            original,
-            edits,
-            release_subject_attire=bool(release_subject_attire),
-        )
+    def execute(cls, original, edits) -> io.NodeOutput:
+        edited, records = apply_edits(original, edits)
         lines = [
             f"{'soundscape' if r['soundscape'] else (r.get('section') or 'description')}: "
             f"{r['old_words']} word(s) -> {r['new_words']} word(s): {r['old']!r} -> {r['new']!r}"

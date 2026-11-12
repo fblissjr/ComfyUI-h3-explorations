@@ -14,12 +14,12 @@ At each guided denoising step, the model evaluates the in-progress video and aud
 
 **Rule of thumb: if simply editing the prompt gives you the shot you want, do not use Edit Guidance.**
 
-On H3 Pika, normal `1x` prompt edits (with `BasicGuider`) already handle most straightforward changes from step `0`—including swapping a `<Picture 1>` character's outfit, taking off a reference hat, or changing hairstyle once `retention_analysis:` unlocks that trait (`release_subject_attire = True`). Always try a plain prompt edit first so you don't pay `1.5x–2x` render time for free work.
+On H3 Pika, normal `1x` prompt edits (with `BasicGuider`) already handle most straightforward changes from step `0`—including swapping a `<Picture 1>` character's outfit, taking off a reference hat, or changing hairstyle once `retention_analysis:` marks that trait as `partially_preserved`. Always try a plain prompt edit first so you don't pay `1.5x–2x` render time for free work.
 
 ### Pick the right tool for the job
 
 1. **Plain Prompt Edit (`BasicGuider`, `1x` render speed)**
-   - Use for fresh shots, standard wardrobe/hat/hair swaps on `ref2va` (`release_subject_attire = True`), and edits where visuals and audio move together from step `0`.
+   - Use for fresh shots, standard wardrobe/hat/hair swaps on `ref2va` (updating `retention_analysis:` to `partially_preserved`), and edits where visuals and audio move together from step `0`.
    - *Tip*: You can still wire **`MiniMax H3 Prompt Edit`** into `BasicGuider` at `1x` speed whenever you want safe `old -> new` text replacements that refuse to touch `<d>...</d>` dialogue or `<Picture 1>` tags.
 
 2. **[Control Vectors](control_vectors.md) (`MiniMax H3 Steer`, `1x` speed by default)**
@@ -50,7 +50,7 @@ Open either ready-to-run workflow:
 You only touch three places:
 
 1. **The Prompt text box** (`PrimitiveStringMultiline`): Write your base prompt once here. It feeds both the original branch and `MiniMax H3 Prompt Edit` so they never fall out of sync.
-2. **`MiniMax H3 Prompt Edit`**: Write one `old wording -> new wording` line per edit (and enable `release_subject_attire` if unlocking `<Subject 1>`'s clothes on `ref2va`).
+2. **`MiniMax H3 Prompt Edit`**: Write one `old wording -> new wording` line per edit (use `retention_analysis: old -> new` if you also need to relax a `ref2va` preservation clause).
 3. **`MiniMax H3 Edit Guider`** (replaces `BasicGuider` on `SamplerCustomAdvanced`): Set `scale`, `first_step`, `last_step`, and—when steering video and audio differently—`streams` and `audio_scale`.
 
 ---
@@ -77,8 +77,7 @@ You only touch three places:
   - `music: old -> new` (aliases `score:`, `non_diegetic_music:`)
   - `subject_definitions: old -> new` (alias `subjects:`)
   - `summary: old -> new`
-  - `retention_analysis: old -> new` (alias `retention:`)
-- **Unlocking reference clothing (`release_subject_attire`)**: Set `release_subject_attire = True` (or add `release_attire: <Subject 2>` / `release_attire: all` in `edits`) to rewrite `fully_preserved` to `partially_preserved` with clothing unlocked.
+  - `retention_analysis: old -> new` (alias `retention:` — e.g. `retention_analysis: fully_preserved - face, hair, and clothing are retained -> partially_preserved - face and hair are retained; clothing changes`)
 - **Protected tags**: `old -> new` intentionally refuses to edit `<d>...</d>` spoken dialogue, `(S1)` speaker markers, `<Subject 1>` / `<Picture 1>` tags, `[Shot 1]` headers, or section titles. Match the plain words *adjacent* to tags instead:
   ```text
   subject_definitions: shoulder-length blonde hair -> shoulder-length blonde hair, wearing a dark navy wool blazer
