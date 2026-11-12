@@ -20,14 +20,15 @@ With --node-arms it also builds the same test through the pack's own `MiniMaxH3E
     node_align_sX        the guider node at scale X with both prompts given one position origin
     node_align_sX_lastK  the aligned guider node stopping after step K
 
-With `--vector-arm LABEL=FILE:STRENGTH[:MASK][+FILE2:STRENGTH2[:MASK2]][,key=val,...]` it also builds arms
-that keep the original prompt and configure one or more chained `MiniMaxH3ApplyControlVectors` nodes (inserting
-one before `BasicGuider` when the base graph is a plain Pika baseline such as `h3_first_last_frame_pika_api.json`).
+With `--vector-arm LABEL=STEM_OR_FILE:STRENGTH[:TARGET][+STEM2:STRENGTH2[:TARGET2]][,key=val,...]` it also builds arms
+that keep the original prompt and configure one or more chained `MiniMaxH3Steer` nodes plus an optional
+`MiniMaxH3ReleaseReferences` node (inserting them before `BasicGuider` even when the base graph is a plain Pika
+baseline such as `h3_first_last_frame_pika_api.json`).
 Supported trailing `key=val` options: `ref_vae_end=F`, `ref_vae_aug=F`, `start=F`, `end=F`, `mode=MODE`,
 `allow_recipe_mismatch=true|false`, `task_lora_end=F` (sets `MiniMaxH3LoRABranch.end_percent` on node 72), and
-`sol_end=F` (sets `MiniMaxH3Sol.end_percent`). Passing `FILE=none` with `STRENGTH=0` and `ref_vae_end=F` builds a
-single-variable unsteered reference/guide-release control; passing `none:0,sol_end=F` builds a same-topology Sol-window
-control.
+`sol_end=F` (sets `MiniMaxH3Sol.end_percent`). Passing `STEM=none` with `STRENGTH=0` and `ref_vae_end=F` builds a
+single-variable unsteered `MiniMaxH3ReleaseReferences` control; passing `none:0,sol_end=F` builds a same-topology
+Sol-window control.
 
 Supports `t2va`, `ref2va`, `fl2va` (`--ref-image` + `--ref-image-2`), `P-H3-Image` `t2i`/`edit`, and Pika guide-latent
 single-frame image edit (`MiniMaxH3ReferenceToVideo` + `MiniMaxH3GuideLatent`, propagating the guide onto the edited
@@ -47,6 +48,7 @@ import argparse
 import copy
 import json
 import math
+import re
 import sys
 import time
 import urllib.request
@@ -57,6 +59,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from h3_prompt_edit import apply_edits  # noqa: E402
+from h3_spans import PROMPT_FIELDS  # noqa: E402
 
 CONDITIONING_NODES = (
     "MiniMaxH3Conditioning",
@@ -216,75 +219,73 @@ def _base(
             raise SystemExit("task_lora_end requires a task LoRA MiniMaxH3LoRABranch at node 72")
         g["72"]["inputs"]["end_percent"] = float(opts["task_lora_end"])
 
-    needs_cv_node = bool(vector_chain) and not (
+    for old_id, old_node in _all_of(
+        g, ("MiniMaxH3Steer", "MiniMaxH3ReleaseReferences", "MiniMaxH3ApplyControlVectors")
+    ):
+        _rewire_consumers(g, old_id, old_node["inputs"]["model"])
+        del g[old_id]
+    for helper_id, _ in _all_of(g, ("MiniMaxH3WordVector", "MiniMaxH3LoadControlVector")):
+        del g[helper_id]
+
+    def _stem(raw: str) -> str:
+        s = re.sub(r"\.safetensors$", "", raw.strip())
+        if s in ("", "none"):
+            return "none"
+        for marker in ("__fl2va", "__ref2va"):
+            idx = s.find(marker)
+            if idx > 0:
+                return s[:idx]
+        return s
+
+    has_steer = bool(vector_chain) and not (
         len(vector_chain) == 1
-        and vector_chain[0][0] == "none"
+        and _stem(vector_chain[0][0]) == "none"
         and vector_chain[0][1] == 0.0
-        and "ref_vae_end" not in opts
-        and "ref_vae_aug" not in opts
     )
-    cv_hits = _all_of(g, "MiniMaxH3ApplyControlVectors")
-    if needs_cv_node:
-        assert vector_chain is not None
-        if cv_hits:
-            cv_id, cv = cv_hits[0]
-        else:
-            guider_id, guider = _one(g, "BasicGuider")
-            cv_id = "115"
-            cv = {
-                "class_type": "MiniMaxH3ApplyControlVectors",
+    has_release = "ref_vae_end" in opts or "ref_vae_aug" in opts
+
+    if has_steer or has_release:
+        _guider_id, guider = _one(g, "BasicGuider")
+        tail_ref = list(guider["inputs"]["model"])
+
+        if has_steer:
+            assert vector_chain is not None
+            for step_i, (v_name, v_strength, v_mask) in enumerate(vector_chain):
+                node_id = "115" if step_i == 0 else str(214 + step_i)
+                steer_inputs: dict = {
+                    "model": tail_ref,
+                    "vector": _stem(v_name),
+                    "strength": v_strength,
+                    "mode": opts.get("mode", "add_norm_matched"),
+                    "target": "scene_only",
+                    "start_percent": float(opts.get("start", 0.0)),
+                    "end_percent": float(opts.get("end", 1.0)),
+                    "streams": "both",
+                    "hold_words": "",
+                    "hold_alpha": 1.0,
+                    "allow_recipe_mismatch": opts.get("allow_recipe_mismatch", "false").lower()
+                    in ("1", "true", "yes"),
+                }
+                if v_mask:
+                    if v_mask in PROMPT_FIELDS:
+                        steer_inputs["fields"] = {"__value__": [v_mask]}
+                    else:
+                        steer_inputs["target"] = "description_only" if v_mask == "description" else v_mask
+                g[node_id] = {"class_type": "MiniMaxH3Steer", "inputs": steer_inputs}
+                tail_ref = [node_id, 0]
+
+        if has_release:
+            g["135"] = {
+                "class_type": "MiniMaxH3ReleaseReferences",
                 "inputs": {
-                    "model": list(guider["inputs"]["model"]),
-                    "vector_name": "none",
-                    "strength": 1.0,
-                    "mode": "add_norm_matched",
-                    "mask": "scene_only",
-                    "start_percent": 0.0,
-                    "end_percent": 1.0,
-                    "allow_recipe_mismatch": False,
-                    "ref_vae_end_percent": 1.0,
-                    "ref_vae_aug": 0.999,
+                    "model": tail_ref,
+                    "end_percent": float(opts.get("ref_vae_end", 1.0)),
+                    "clean_level": float(opts.get("ref_vae_aug", 0.999)),
                 },
             }
-            g[cv_id] = cv
-            guider["inputs"]["model"] = [cv_id, 0]
+            tail_ref = ["135", 0]
 
-        v_name, v_strength, v_mask = vector_chain[0]
-        cv["inputs"]["vector_name"] = v_name
-        cv["inputs"]["strength"] = v_strength
-        if v_mask:
-            cv["inputs"]["mask"] = v_mask
-        if "mode" in opts:
-            cv["inputs"]["mode"] = opts["mode"]
-        if "start" in opts:
-            cv["inputs"]["start_percent"] = float(opts["start"])
-        if "end" in opts:
-            cv["inputs"]["end_percent"] = float(opts["end"])
-        if "ref_vae_end" in opts:
-            cv["inputs"]["ref_vae_end_percent"] = float(opts["ref_vae_end"])
-            cv["inputs"].setdefault("ref_vae_aug", 0.999)
-        if "ref_vae_aug" in opts:
-            cv["inputs"]["ref_vae_aug"] = float(opts["ref_vae_aug"])
-        if "allow_recipe_mismatch" in opts:
-            cv["inputs"]["allow_recipe_mismatch"] = opts["allow_recipe_mismatch"].lower() in ("1", "true", "yes")
-
-        tail_id = cv_id
-        for idx, (extra_name, extra_strength, extra_mask) in enumerate(vector_chain[1:], start=215):
-            next_id = str(idx)
-            chained = copy.deepcopy(cv)
-            chained["inputs"]["model"] = [tail_id, 0]
-            chained["inputs"]["vector_name"] = extra_name
-            chained["inputs"]["strength"] = extra_strength
-            if extra_mask:
-                chained["inputs"]["mask"] = extra_mask
-            chained["inputs"]["ref_vae_end_percent"] = 1.0
-            g[next_id] = chained
-            _rewire_consumers(g, tail_id, [next_id, 0], skip_ids={next_id})
-            tail_id = next_id
-    elif cv_hits:
-        cv_id, cv = cv_hits[0]
-        _rewire_consumers(g, cv_id, cv["inputs"]["model"])
-        del g[cv_id]
+        guider["inputs"]["model"] = tail_ref
 
     _cond_id, cond = _one(g, CONDITIONING_NODES)
     cond["inputs"]["prompt"] = prompt

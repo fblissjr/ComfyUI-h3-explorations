@@ -286,7 +286,7 @@ EDIT_GUIDANCE_DEFAULTS = dict(
 )
 
 #: Optional Wave 2 stream-scale, reference-VAE gate, and inline J-Lens word
-#: synthesis defaults on `MiniMaxH3ApplyControlVectors` (`control_vector_nodes.py`).
+#: synthesis defaults on legacy `MiniMaxH3ApplyControlVectors` (`control_vector_nodes.py`).
 CONTROL_VECTOR_OPTIONAL_DEFAULTS = dict(
     video_scale=1.0,
     audio_scale=1.0,
@@ -298,4 +298,34 @@ CONTROL_VECTOR_OPTIONAL_DEFAULTS = dict(
     hold_words="",
     hold_alpha=1.0,
 )
+
+#: `MiniMaxH3Steer` schema defaults (`control_vector_nodes.py`). Owned here so
+#: `workflows/h3_config.py` and `workflows/build_workflows.py` read one copy.
+STEER_DEFAULTS = dict(
+    vector="none",
+    strength=1.0,
+    mode="add_norm_matched",
+    target="scene_only",
+    start_percent=0.0,
+    end_percent=1.0,
+    streams="both",
+    hold_words="",
+    hold_alpha=1.0,
+    allow_recipe_mismatch=False,
+)
+
+#: `MiniMaxH3ReleaseReferences` schema defaults (`control_vector_nodes.py`).
+RELEASE_REFERENCES_DEFAULTS = dict(
+    end_percent=1.0,
+    clean_level=0.999,
+)
+
+#: `MiniMaxH3WordVector` schema defaults (`control_vector_nodes.py`).
+WORD_VECTOR_DEFAULTS = dict(
+    words="",
+    against_words="",
+    hold_words="",
+    hold_alpha=1.0,
+)
+
 

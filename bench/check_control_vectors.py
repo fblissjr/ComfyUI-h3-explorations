@@ -4916,6 +4916,24 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
     arm = bw.build_control_vector_arm(
         "t2v", vector_name="film_16mm_1974__fl2va.safetensors", strength=0.75
     )
+    arm_words_only = bw.build_api(
+        "t2v",
+        control_vector=dict(
+            words="neon, rain",
+            against_words="daylight",
+            strength=1.5,
+        ),
+    )
+    if (
+        arm_words_only.get("115", {}).get("class_type") != "MiniMaxH3Steer"
+        or arm_words_only["115"]["inputs"].get("vector") != "none"
+        or arm_words_only["115"]["inputs"].get("custom_vector") != ["136", 0]
+        or "125" in arm_words_only
+        or arm_words_only.get("136", {}).get("class_type") != "MiniMaxH3WordVector"
+        or arm_words_only["9"]["inputs"].get("model") != ["115", 0]
+    ):
+        errs.append(f"build_api(words-only) did not wire single node 115 + WordVector 136: {arm_words_only.get('115')}")
+
     arm_wave2 = bw.build_api(
         "t2v",
         control_vector=dict(
@@ -4923,29 +4941,51 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
             strength=1.5,
             video_scale=1.0,
             audio_scale=0.0,
-            split_end_percent=0.75,
             ref_vae_end_percent=0.5,
             ref_vae_aug=0.95,
+            words="neon, rain",
+            against_words="daylight",
+            hold_vector="chaos_panic",
         ),
     )
     if (
-        arm_wave2["115"]["inputs"].get("video_scale") != 1.0
-        or arm_wave2["115"]["inputs"].get("audio_scale") != 0.0
-        or arm_wave2["115"]["inputs"].get("split_end_percent") != 0.75
-        or arm_wave2["115"]["inputs"].get("ref_vae_end_percent") != 0.5
-        or arm_wave2["115"]["inputs"].get("ref_vae_aug") != 0.95
+        arm_wave2.get("115", {}).get("class_type") != "MiniMaxH3Steer"
+        or arm_wave2["115"]["inputs"].get("streams") != "video_only"
+        or arm_wave2["115"]["inputs"].get("vector") != "film_16mm_1974"
+        or "custom_vector" in arm_wave2["115"]["inputs"]
+        or arm_wave2["115"]["inputs"].get("hold_vector") != ["140", 0]
+        or arm_wave2.get("125", {}).get("class_type") != "MiniMaxH3Steer"
+        or arm_wave2["125"]["inputs"].get("model") != ["115", 0]
+        or arm_wave2["125"]["inputs"].get("vector") != "none"
+        or arm_wave2["125"]["inputs"].get("custom_vector") != ["136", 0]
+        or arm_wave2["125"]["inputs"].get("hold_vector") != ["140", 0]
+        or arm_wave2.get("136", {}).get("class_type") != "MiniMaxH3WordVector"
+        or arm_wave2["136"]["inputs"].get("words") != "neon, rain"
+        or arm_wave2["136"]["inputs"].get("against_words") != "daylight"
+        or arm_wave2.get("140", {}).get("class_type") != "MiniMaxH3LoadControlVector"
+        or arm_wave2["140"]["inputs"].get("vector") != "chaos_panic"
+        or arm_wave2.get("135", {}).get("class_type") != "MiniMaxH3ReleaseReferences"
+        or arm_wave2["135"]["inputs"].get("model") != ["125", 0]
+        or arm_wave2["135"]["inputs"].get("end_percent") != 0.5
+        or arm_wave2["135"]["inputs"].get("clean_level") != 0.95
+        or arm_wave2["9"]["inputs"].get("model") != ["135", 0]
     ):
-        errs.append(f"build_api did not pass Wave 2 optional control_vector keys: {arm_wave2['115']['inputs']}")
-    if "115" not in arm or arm["115"]["class_type"] != "MiniMaxH3ApplyControlVectors":
-        errs.append("build_control_vector_arm did not emit node 115 MiniMaxH3ApplyControlVectors")
+        errs.append(
+            f"build_api(vector+words) did not split 115 -> 125 + WordVector 136 + LoadControlVector 140 + ReleaseReferences 135: "
+            f"115={arm_wave2.get('115')}, 125={arm_wave2.get('125')}, 135={arm_wave2.get('135')}, 136={arm_wave2.get('136')}, 140={arm_wave2.get('140')}"
+        )
+    if "115" not in arm or arm["115"]["class_type"] != "MiniMaxH3Steer":
+        errs.append("build_control_vector_arm did not emit node 115 MiniMaxH3Steer")
     if arm["9"]["inputs"]["model"] != ["115", 0]:
         errs.append(f"BasicGuider model input is {arm['9']['inputs']['model']}, expected ['115', 0]")
     if (
-        arm["115"]["inputs"]["strength"] != 0.75
-        or arm["115"]["inputs"]["mask"] != "scene_only"
+        arm["115"]["inputs"]["vector"] != "film_16mm_1974"
+        or arm["115"]["inputs"]["strength"] != 0.75
+        or arm["115"]["inputs"]["target"] != "scene_only"
         or arm["115"]["inputs"]["mode"] != "add_norm_matched"
         or arm["115"]["inputs"]["start_percent"] != 0.0
         or arm["115"]["inputs"]["end_percent"] != 1.0
+        or arm["115"]["inputs"]["streams"] != "both"
     ):
         errs.append(f"unexpected node 115 inputs: {arm['115']['inputs']}")
     if "MiniMaxH3SageAttention" in {n["class_type"] for n in arm.values()}:
@@ -4959,8 +4999,10 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
         ],
     )
     if (
-        dual_arm.get("115", {}).get("class_type") != "MiniMaxH3ApplyControlVectors"
-        or dual_arm.get("125", {}).get("class_type") != "MiniMaxH3ApplyControlVectors"
+        dual_arm.get("115", {}).get("class_type") != "MiniMaxH3Steer"
+        or dual_arm.get("125", {}).get("class_type") != "MiniMaxH3Steer"
+        or dual_arm["115"]["inputs"]["vector"] != "film_16mm_1974"
+        or dual_arm["125"]["inputs"]["vector"] != "chaos_panic"
         or dual_arm["125"]["inputs"]["model"] != ["115", 0]
         or dual_arm["9"]["inputs"]["model"] != ["125", 0]
         or dual_arm["115"]["inputs"]["strength"] != 1.8
@@ -4978,19 +5020,22 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
         ),
     )
     if (
-        ph3_cv_arm.get("115", {}).get("class_type") != "MiniMaxH3ApplyControlVectors"
+        ph3_cv_arm.get("115", {}).get("class_type") != "MiniMaxH3Steer"
+        or ph3_cv_arm["115"]["inputs"].get("vector") != "film_16mm_1974"
         or ph3_cv_arm["115"]["inputs"].get("model") != ["58", 0]
-        or ph3_cv_arm["9"]["inputs"].get("model") != ["115", 0]
+        or ph3_cv_arm.get("135", {}).get("class_type") != "MiniMaxH3ReleaseReferences"
+        or ph3_cv_arm["135"]["inputs"].get("model") != ["115", 0]
+        or ph3_cv_arm["9"]["inputs"].get("model") != ["135", 0]
         or ph3_cv_arm["115"]["inputs"].get("strength") != 1.15
     ):
-        errs.append(f"build_ph3_image_api(control_vector=...) did not wire node 115 between 58 and BasicGuider (9): {ph3_cv_arm.get('115')}")
+        errs.append(f"build_ph3_image_api(control_vector=...) did not wire 58 -> 115 -> 135 -> BasicGuider (9): {ph3_cv_arm.get('115')}")
     if "fields" in ph3_cv_arm["115"]["inputs"]:
         errs.append("a control_vector spec with no fields wrote a fields input onto node 115")
 
     # A `fields` selection in a spec: written as the node's multi-select takes it in an API graph
     # (`{"__value__": [...]}`; a plain list would be read as a link and refused), in prompt order
     # whatever order it was given in; left off when empty; refused when a field is unknown.
-    cv_spec = dict(vector_name="film_16mm_1974__fl2va__diff_span__lora_2a8c2b52.safetensors", strength=1.15)
+    cv_spec = dict(vector="film_16mm_1974", strength=1.15)
     for given, want in (
         (["summary", "subject_definitions"], {"__value__": ["subject_definitions", "summary"]}),
         ("description", {"__value__": ["description"]}),
@@ -5002,8 +5047,8 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
         if got != want:
             errs.append(f"control_vector fields={given!r} wrote {got!r} onto node 115, expected {want!r}")
     arm_fields = bw.build_control_vector_arm("t2v", vector_name="film_16mm_1974__fl2va.safetensors", strength=1.0, fields=["description"])
-    if arm_fields["115"]["inputs"].get("fields") != {"__value__": ["description"]} or arm_fields["115"]["inputs"].get("mask") != "scene_only":
-        errs.append(f"build_control_vector_arm(fields=...) did not write the selection beside the mask: {arm_fields['115']['inputs']}")
+    if arm_fields["115"]["inputs"].get("fields") != {"__value__": ["description"]} or arm_fields["115"]["inputs"].get("target") != "scene_only":
+        errs.append(f"build_control_vector_arm(fields=...) did not write the selection beside target: {arm_fields['115']['inputs']}")
     try:
         bw.build_ph3_image_api("ph3_edit", control_vector=dict(cv_spec, fields=["wardrobe"]))
         errs.append("control_vector fields with an unknown field was not refused")

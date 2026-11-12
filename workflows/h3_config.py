@@ -1163,9 +1163,19 @@ AUDIO_REFINE = dict(steps=6, sampler="euler", scheduler="simple", denoise=0.5,
 FROZEN_VIDEO_CACHE = dict(precision="int4", refresh=False, refresh_every=2, verify=False, halo=0)
 FROZEN_VIDEO_CACHE_NODE = "MiniMaxH3FrozenVideoCache"
 
-#: `MiniMaxH3ApplyControlVectors` and `MiniMaxH3LayerNormMatch` node ids and schema defaults
-#: (`control_vector_nodes.py`, `h3_rules.py`, `docs/research/control_vectors/2026-11-04_h3_control_vectors.md`).
-CONTROL_VECTOR_NODE = "MiniMaxH3ApplyControlVectors"
+#: Composable control-vector nodes (`MiniMaxH3Steer`, `MiniMaxH3ReleaseReferences`,
+#: `MiniMaxH3WordVector`, `MiniMaxH3LoadControlVector`), legacy `MiniMaxH3ApplyControlVectors`,
+#: and `MiniMaxH3LayerNormMatch` node ids and schema defaults
+#: (`control_vector_nodes.py`, `h3_rules.py`, `docs/wiki/control_vectors.md`).
+CONTROL_VECTOR_NODE = "MiniMaxH3Steer"
+STEER_NODE = "MiniMaxH3Steer"
+STEER_DEFAULTS = dict(_h3_rules().STEER_DEFAULTS)
+RELEASE_REFERENCES_NODE = "MiniMaxH3ReleaseReferences"
+RELEASE_REFERENCES_DEFAULTS = dict(_h3_rules().RELEASE_REFERENCES_DEFAULTS)
+WORD_VECTOR_NODE = "MiniMaxH3WordVector"
+WORD_VECTOR_DEFAULTS = dict(_h3_rules().WORD_VECTOR_DEFAULTS)
+LOAD_CONTROL_VECTOR_NODE = "MiniMaxH3LoadControlVector"
+LEGACY_CONTROL_VECTOR_NODE = "MiniMaxH3ApplyControlVectors"
 CONTROL_VECTOR_DEFAULTS = dict(_h3_rules().CONTROL_VECTOR_DEFAULTS)
 CONTROL_VECTOR_OPTIONAL_DEFAULTS = dict(_h3_rules().CONTROL_VECTOR_OPTIONAL_DEFAULTS)
 LAYER_NORM_MATCH_NODE = "MiniMaxH3LayerNormMatch"

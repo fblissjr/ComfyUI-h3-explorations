@@ -121,6 +121,8 @@ from h3_config import (  # noqa: E402
     H3_IMAGE_MEGAPIXELS, H3_IMAGE_ASPECT_OF_PICTURE, HEYLOOK_DEFAULT_BASE_URL,
     GUIDE_LATENT_NODE, GUIDE_CHARACTER_SWAP_LORA, GUIDE_TASK_LORAS,
     CONTROL_VECTOR_NODE, CONTROL_VECTOR_DEFAULTS, CONTROL_VECTOR_OPTIONAL_DEFAULTS, LAYER_NORM_MATCH_NODE,
+    STEER_NODE, STEER_DEFAULTS, RELEASE_REFERENCES_NODE, RELEASE_REFERENCES_DEFAULTS,
+    WORD_VECTOR_NODE, WORD_VECTOR_DEFAULTS, LOAD_CONTROL_VECTOR_NODE,
     EDIT_GUIDANCE_DEFAULTS,
     refine_scheduler_ids,
 )
@@ -1146,8 +1148,8 @@ def _plain_model_chain(g, *, sage, sol, shift, head_chunks, dense_backend=None):
 
 
 def _control_vector_fields_input(fields: Any) -> dict[str, list[str]] | None:
-    """A `fields` selection as `MiniMaxH3ApplyControlVectors` takes it in an API graph, or None when
-    nothing is selected (the input is then left off and `mask` applies).
+    """A `fields` selection as `MiniMaxH3Steer` takes it in an API graph, or None when
+    nothing is selected (the input is then left off and `target` applies).
 
     The node's `fields` is a multi-select. In an API-format graph a multi-select's value is written
     `{"__value__": [...]}`: a plain two-item list is read as a link to another node and the prompt is
@@ -1169,39 +1171,178 @@ def _control_vector_fields_input(fields: Any) -> dict[str, list[str]] | None:
     return {"__value__": named.split(h3_spans.FIELDS_JOIN)}
 
 
-def _normalize_control_vector_specs(control_vector: Any) -> list[dict[str, Any]]:
-    """Normalize a `control_vector` spec (tuple, dict, or sequence) into node input dicts."""
-    def _one_cv_inputs(spec: Any) -> dict[str, Any]:
+def _canonical_vector_stem(name: str) -> str:
+    """Collapse `<stem>__(fl2va|ref2va)*.safetensors` filenames to bare `<stem>` for `MiniMaxH3Steer`."""
+    raw = str(name or "").strip()
+    if not raw or raw == "none":
+        return "none"
+    for fam_tag in ("__fl2va", "__ref2va"):
+        if fam_tag in raw:
+            return raw.split(fam_tag, 1)[0]
+    return raw
+
+
+_LEGACY_SINGLE_FIELD_MASKS = frozenset({
+    "subject_definitions",
+    "summary",
+    "retention_analysis",
+    "overall_soundscape",
+    "non_diegetic_music",
+})
+
+
+def _parse_control_vector_entries(
+    control_vector: Any,
+) -> tuple[list[dict[str, Any]], dict[str, float] | None]:
+    """Parse `control_vector` into per-node `MiniMaxH3Steer` bundles + optional `MiniMaxH3ReleaseReferences` inputs."""
+    allowed_keys = (
+        set(STEER_DEFAULTS)
+        | set(CONTROL_VECTOR_DEFAULTS)
+        | set(CONTROL_VECTOR_OPTIONAL_DEFAULTS)
+        | {"fields", "release_references", "hold_vector"}
+    )
+    release_candidates: list[tuple[float, float]] = []
+
+    def _entries_for(spec: Any) -> list[dict[str, Any]]:
         if isinstance(spec, tuple):
             if len(spec) != 2 or not isinstance(spec[0], str):
                 raise SystemExit(
-                    f"control_vector tuple must be (vector_name, strength), got {spec!r}"
+                    f"control_vector tuple must be (vector, strength), got {spec!r}"
                 )
-            return dict(
-                CONTROL_VECTOR_DEFAULTS,
-                vector_name=str(spec[0]),
-                strength=float(spec[1]),
-            )
+            return [
+                {
+                    "steer_inputs": dict(
+                        STEER_DEFAULTS,
+                        vector=_canonical_vector_stem(spec[0]),
+                        strength=float(spec[1]),
+                    ),
+                    "word_inputs": None,
+                    "hold_vector_stem": None,
+                }
+            ]
         if isinstance(spec, dict):
-            # `fields` is the node's multi-select of prompt fields; ticked, it takes the place of `mask`.
-            allowed_cv_keys = set(CONTROL_VECTOR_DEFAULTS) | set(
-                CONTROL_VECTOR_OPTIONAL_DEFAULTS
-            ) | {"fields"}
-            unknown = sorted(set(spec) - allowed_cv_keys)
+            unknown = sorted(set(spec) - allowed_keys)
             if unknown:
                 raise SystemExit(
                     f"control_vector dict has unknown keys {unknown}; "
-                    f"expected a subset of {sorted(allowed_cv_keys)}"
+                    f"expected a subset of {sorted(allowed_keys)}"
                 )
-            inputs = dict(CONTROL_VECTOR_DEFAULTS, **{k: v for k, v in spec.items() if k != "fields"})
-            fields_input = _control_vector_fields_input(spec.get("fields"))
+            raw_vec = spec.get("vector", spec.get("vector_name", STEER_DEFAULTS["vector"]))
+            canon_vec = _canonical_vector_stem(str(raw_vec))
+            raw_target = str(spec.get("target", spec.get("mask", STEER_DEFAULTS["target"]))).strip()
+            raw_fields = spec.get("fields")
+            if raw_target in _LEGACY_SINGLE_FIELD_MASKS and not raw_fields:
+                raw_fields = [raw_target]
+                raw_target = STEER_DEFAULTS["target"]
+            elif raw_target == "description" and not raw_fields:
+                raw_fields = ["description"]
+                raw_target = STEER_DEFAULTS["target"]
+
+            if "streams" in spec:
+                streams = str(spec["streams"]).strip()
+            elif "video_scale" in spec or "audio_scale" in spec:
+                vs = float(spec.get("video_scale", 1.0))
+                as_ = float(spec.get("audio_scale", 1.0))
+                if vs != 0.0 and as_ == 0.0:
+                    streams = "video_only"
+                elif vs == 0.0 and as_ != 0.0:
+                    streams = "audio_only"
+                else:
+                    streams = "both"
+            else:
+                streams = STEER_DEFAULTS["streams"]
+
+            steer_inputs: dict[str, Any] = {
+                "vector": canon_vec,
+                "strength": float(spec.get("strength", STEER_DEFAULTS["strength"])),
+                "mode": str(spec.get("mode", STEER_DEFAULTS["mode"])),
+                "target": raw_target,
+                "start_percent": float(spec.get("start_percent", STEER_DEFAULTS["start_percent"])),
+                "end_percent": float(spec.get("end_percent", STEER_DEFAULTS["end_percent"])),
+                "streams": streams,
+                "hold_words": str(spec.get("hold_words", STEER_DEFAULTS["hold_words"])),
+                "hold_alpha": float(spec.get("hold_alpha", STEER_DEFAULTS["hold_alpha"])),
+                "allow_recipe_mismatch": bool(
+                    spec.get("allow_recipe_mismatch", STEER_DEFAULTS["allow_recipe_mismatch"])
+                ),
+            }
+            fields_input = _control_vector_fields_input(raw_fields)
             if fields_input is not None:
-                inputs["fields"] = fields_input
-            return inputs
+                steer_inputs["fields"] = fields_input
+
+            words_text = str(spec.get("words") or "").strip()
+            word_inputs: dict[str, Any] | None = None
+            if words_text:
+                word_inputs = dict(
+                    WORD_VECTOR_DEFAULTS,
+                    words=words_text,
+                    against_words=str(spec.get("against_words") or "").strip(),
+                )
+
+            hold_vec_raw = str(spec.get("hold_vector") or "").strip()
+            hold_vec_stem = (
+                _canonical_vector_stem(hold_vec_raw)
+                if hold_vec_raw and hold_vec_raw.lower() != "none"
+                else None
+            )
+
+            rel_spec = spec.get("release_references")
+            if rel_spec is True:
+                release_candidates.append(
+                    (
+                        float(RELEASE_REFERENCES_DEFAULTS["end_percent"]),
+                        float(RELEASE_REFERENCES_DEFAULTS["clean_level"]),
+                    )
+                )
+            elif isinstance(rel_spec, dict):
+                bad_rel = sorted(set(rel_spec) - set(RELEASE_REFERENCES_DEFAULTS))
+                if bad_rel:
+                    raise SystemExit(
+                        f"release_references dict has unknown keys {bad_rel}; "
+                        f"expected {sorted(RELEASE_REFERENCES_DEFAULTS)}"
+                    )
+                release_candidates.append(
+                    (
+                        float(rel_spec.get("end_percent", RELEASE_REFERENCES_DEFAULTS["end_percent"])),
+                        float(rel_spec.get("clean_level", RELEASE_REFERENCES_DEFAULTS["clean_level"])),
+                    )
+                )
+            elif "ref_vae_end_percent" in spec or "ref_vae_aug" in spec:
+                release_candidates.append(
+                    (
+                        float(spec.get("ref_vae_end_percent", RELEASE_REFERENCES_DEFAULTS["end_percent"])),
+                        float(spec.get("ref_vae_aug", RELEASE_REFERENCES_DEFAULTS["clean_level"])),
+                    )
+                )
+
+            # `MiniMaxH3Steer` refuses both `vector != 'none'` and `custom_vector` on one node so
+            # leftover dropdown selections never stack by accident. When a single dict carries both a
+            # saved vector and `words`, split it into two chained `MiniMaxH3Steer` entries (`115` -> `125`).
+            if canon_vec != "none" and word_inputs is not None:
+                return [
+                    {
+                        "steer_inputs": dict(steer_inputs, vector=canon_vec),
+                        "word_inputs": None,
+                        "hold_vector_stem": hold_vec_stem,
+                    },
+                    {
+                        "steer_inputs": dict(steer_inputs, vector="none"),
+                        "word_inputs": word_inputs,
+                        "hold_vector_stem": hold_vec_stem,
+                    },
+                ]
+            return [
+                {
+                    "steer_inputs": steer_inputs,
+                    "word_inputs": word_inputs,
+                    "hold_vector_stem": hold_vec_stem,
+                }
+            ]
         raise SystemExit(
-            f"control_vector spec must be a (vector_name, strength) tuple or dict, got {spec!r}"
+            f"control_vector spec must be a (vector, strength) tuple or dict, got {spec!r}"
         )
 
+    entries: list[dict[str, Any]] = []
     if isinstance(control_vector, list) or (
         isinstance(control_vector, tuple)
         and control_vector
@@ -1209,8 +1350,72 @@ def _normalize_control_vector_specs(control_vector: Any) -> list[dict[str, Any]]
     ):
         if not control_vector:
             raise SystemExit("control_vector sequence must not be empty")
-        return [_one_cv_inputs(s) for s in control_vector]
-    return [_one_cv_inputs(control_vector)]
+        for s in control_vector:
+            entries.extend(_entries_for(s))
+    else:
+        entries.extend(_entries_for(control_vector))
+
+    release_inputs: dict[str, float] | None = None
+    if release_candidates:
+        release_inputs = {
+            "end_percent": min(ep for ep, _cl in release_candidates),
+            "clean_level": min(cl for _ep, cl in release_candidates),
+        }
+    return entries, release_inputs
+
+
+def _normalize_control_vector_specs(control_vector: Any) -> list[dict[str, Any]]:
+    """Normalize a `control_vector` spec (tuple, dict, or sequence) into `MiniMaxH3Steer` input dicts."""
+    entries, _release = _parse_control_vector_entries(control_vector)
+    return [dict(e["steer_inputs"]) for e in entries]
+
+
+def _wire_control_vectors(g: dict[str, Any], model_src: list[Any], control_vector: Any) -> list[Any]:
+    """Wire `MiniMaxH3Steer` (`"115"`, `"125"`+) plus optional `MiniMaxH3WordVector` (`"136"`+),
+    `MiniMaxH3LoadControlVector` (`"140"`+), and `MiniMaxH3ReleaseReferences` (`"135"`) onto `model_src`."""
+    entries, release_inputs = _parse_control_vector_entries(control_vector)
+    word_seq = 0
+    hold_seq = 0
+    hold_nids: dict[str, str] = {}
+    for cv_idx, entry in enumerate(entries):
+        cv_nid = "115" if cv_idx == 0 else str(125 + cv_idx - 1)
+        steer_in = dict(entry["steer_inputs"])
+        if entry["word_inputs"] is not None:
+            word_nid = str(136 + word_seq)
+            word_seq += 1
+            g[word_nid] = {
+                "class_type": WORD_VECTOR_NODE,
+                "inputs": dict(entry["word_inputs"]),
+            }
+            steer_in["custom_vector"] = [word_nid, 0]
+        hold_stem = entry["hold_vector_stem"]
+        if hold_stem is not None:
+            hold_nid = hold_nids.get(hold_stem)
+            if hold_nid is None:
+                hold_nid = str(140 + hold_seq)
+                hold_seq += 1
+                hold_nids[hold_stem] = hold_nid
+                g[hold_nid] = {
+                    "class_type": LOAD_CONTROL_VECTOR_NODE,
+                    "inputs": {
+                        "vector": hold_stem,
+                        "hold_words": "",
+                        "hold_alpha": 1.0,
+                    },
+                }
+            steer_in["hold_vector"] = [hold_nid, 0]
+        g[cv_nid] = {
+            "class_type": STEER_NODE,
+            "inputs": {"model": model_src, **steer_in},
+        }
+        model_src = [cv_nid, 0]
+    if release_inputs is not None:
+        g["135"] = {
+            "class_type": RELEASE_REFERENCES_NODE,
+            "inputs": {"model": model_src, **release_inputs},
+        }
+        model_src = ["135", 0]
+    return model_src
 
 
 def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
@@ -1884,15 +2089,12 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
         model_src = ["51", 0]
 
     if control_vector is not None:
-        # Post-refiner control-vector injection (MiniMaxH3ApplyControlVectors,
-        # node 115 for the first vector and 125+ for additional chained vectors):
-        # wraps DIFFUSION_MODEL before any step cache so computed steps apply
-        # the vector(s) and cached steps reuse the cached output.
-        for cv_idx, cv_inputs in enumerate(_normalize_control_vector_specs(control_vector)):
-            cv_nid = "115" if cv_idx == 0 else str(125 + cv_idx - 1)
-            g[cv_nid] = {"class_type": CONTROL_VECTOR_NODE,
-                         "inputs": {"model": model_src, **cv_inputs}}
-            model_src = [cv_nid, 0]
+        # Post-refiner control-vector steering (MiniMaxH3Steer at node 115 and
+        # 125+ for chained vectors, plus MiniMaxH3ReleaseReferences at 135 when
+        # reference hold/release is configured): wraps DIFFUSION_MODEL before any
+        # step cache so computed steps apply the vector(s) and cached steps reuse
+        # the cached output.
+        model_src = _wire_control_vectors(g, model_src, control_vector)
 
     if cache is not None:
         # Step caching, after the attention nodes: the cache is a
@@ -2410,16 +2612,25 @@ def _wire_edit_guidance(g: dict, prompt: str, spec: dict) -> None:
     5's encoder, VAEs, reference chain, canvas and policies, node 5 and node 131 each put a prompt on top,
     and the empty latent comes from node 132.
     """
-    unknown = sorted(set(spec) - {"edits", "scale", "first_step", "last_step"})
+    unknown = sorted(set(spec) - {"edits", "scale", "first_step", "last_step", "release_subject_attire"})
     if unknown or "edits" not in spec:
-        raise SystemExit(f"edit_guidance takes edits, scale, first_step and last_step; got {sorted(spec)}")
+        raise SystemExit(
+            f"edit_guidance takes edits, scale, first_step, last_step and release_subject_attire; got {sorted(spec)}"
+        )
     guider = g["9"]
     if guider["class_type"] != "BasicGuider":
         raise SystemExit(f"edit_guidance replaces BasicGuider at node 9; this graph has {guider['class_type']}")
     cond = g["5"]
     g["133"] = {"class_type": "PrimitiveStringMultiline", "inputs": {"value": prompt}}
     written = ["133", 0]
-    g["130"] = {"class_type": "MiniMaxH3PromptEdit", "inputs": {"original": written, "edits": spec["edits"]}}
+    g["130"] = {
+        "class_type": "MiniMaxH3PromptEdit",
+        "inputs": {
+            "original": written,
+            "edits": spec["edits"],
+            "release_subject_attire": bool(spec.get("release_subject_attire", False)),
+        },
+    }
     if cond["class_type"] == "MiniMaxH3ReferenceConditioning":
         g["132"] = {"class_type": "MiniMaxH3EncodeReferences",
                     "inputs": {k: v for k, v in cond["inputs"].items() if k != "prompt"}}
@@ -2634,11 +2845,7 @@ def build_ph3_image_api(
                           "attention": DENSE_BACKEND_NODE["attention"]}}
     model_src = ["58", 0]
     if control_vector is not None:
-        for cv_idx, cv_inputs in enumerate(_normalize_control_vector_specs(control_vector)):
-            cv_nid = "115" if cv_idx == 0 else str(125 + cv_idx - 1)
-            g[cv_nid] = {"class_type": CONTROL_VECTOR_NODE,
-                         "inputs": {"model": model_src, **cv_inputs}}
-            model_src = [cv_nid, 0]
+        model_src = _wire_control_vectors(g, model_src, control_vector)
     g["9"]["inputs"]["model"] = model_src
     return g
 
@@ -2817,12 +3024,15 @@ def build_h3_image_api(
 def build_control_vector_arm(
     task: str = "t2v",
     *,
-    vector_name: str = "film_16mm_1974__fl2va.safetensors",
+    vector: str | None = None,
+    vector_name: str = "film_16mm_1974",
     strength: float = 0.0,
-    mask: str = CONTROL_VECTOR_DEFAULTS["mask"],
-    mode: str = CONTROL_VECTOR_DEFAULTS["mode"],
+    target: str | None = None,
+    mask: str = STEER_DEFAULTS["target"],
+    mode: str = STEER_DEFAULTS["mode"],
     start_percent: float = 0.0,
     end_percent: float = 1.0,
+    streams: str = STEER_DEFAULTS["streams"],
     allow_recipe_mismatch: bool = False,
     prompt: str | None = None,
     length: int = LENGTH,
@@ -2834,18 +3044,19 @@ def build_control_vector_arm(
 
     By default this uses the paper's §3.1 common setup ("stock attention plus
     Sol as generated, no LoRA, the base step count") and wires
-    `MiniMaxH3ApplyControlVectors` at node `"115"` on the model chain.
+    `MiniMaxH3Steer` at node `"115"` on the model chain.
     """
     cv_cfg = {
-        "vector_name": vector_name,
+        "vector": vector if vector is not None else vector_name,
         "strength": float(strength),
-        "mask": mask,
+        "target": target if target is not None else mask,
         "mode": mode,
         "start_percent": float(start_percent),
         "end_percent": float(end_percent),
+        "streams": streams,
         "allow_recipe_mismatch": bool(allow_recipe_mismatch),
     }
-    for opt_k in (*CONTROL_VECTOR_OPTIONAL_DEFAULTS, "fields"):
+    for opt_k in (*CONTROL_VECTOR_OPTIONAL_DEFAULTS, "fields", "release_references", "hold_vector"):
         if opt_k in extra:
             cv_cfg[opt_k] = extra.pop(opt_k)
     sol_cfg = extra.pop("sol", sol_for_graph(extra.get("steps", SAMPLING["steps"])))
@@ -5191,33 +5402,33 @@ def main():
 
         # --- Post-refiner control vectors on Pika H3 Flex 6-step LCM (2026-11-06) ---
         # Single-vector t2va, dual-vector chained t2va (nodes 115 + 125 summed in
-        # float64 inside the DIFFUSION_MODEL wrapper), and single-vector ref2va
-        # with vision rows (tag 0), <d>...</d> dialogue, (S1) speaker tags, and
-        # <Picture 1>: labels masked bitwise untouched (mask='scene_only',
-        # mode='add_norm_matched') and 3D Video VAE reference latents pinned at
-        # ref_vae_end_percent=1.0 (ref_vae_aug=0.999) on ref2va.
-        # Uses PIKA_*_SVD995_LORA via MiniMaxH3LoRABranch and diff_span-pooled
-        # control vectors (__diff_span__lora_2a8c2b52 / __diff_span__lora_865ee189)
-        # (bench/results/2026-11-05_control_vectors_pika_and_ref2va.md).
+        # float64 inside one DIFFUSION_MODEL wrapper pass), and single-vector ref2va,
+        # using MiniMaxH3Steer (bare stem auto-resolved to the loaded checkpoint's
+        # fl2va/ref2va + LoRA sibling) and MiniMaxH3ReleaseReferences (node 135)
+        # where reference or guide VAE latents are present (`docs/wiki/control_vectors.md`).
         ("h3_text_to_video_pika_control_vector.json", "t2v-pika-control-vector", "t2v",
          LONG_T2V_PROMPT,
          dict(lora=(PIKA_FL2VA_SVD995_LORA, PIKA_STRENGTH), lora_branch=True,
               steps=PIKA_STEPS, sampler_name=PIKA_SAMPLER,
               manual_sigmas=PIKA_MANUAL_SIGMAS,
-              control_vector=("film_16mm_1974__fl2va__diff_span__lora_2a8c2b52.safetensors", 1.15),
+              control_vector=dict(
+                  vector="film_16mm_1974",
+                  strength=1.15,
+                  target="scene_only",
+              ),
               out_prefix="Video/h3_t2v_pika_control_vector"),
-         "text -> video + audio on Pika H3 Flex 6-step LCM (SVD995 branch) with one post-refiner control vector (film_16mm_1974 diff_span at +1.15, add_norm_matched, scene_only)"),
+         "text -> video + audio on Pika H3 Flex 6-step LCM (SVD995 branch) with MiniMaxH3Steer (film_16mm_1974 at +1.15, add_norm_matched, target=scene_only)"),
         ("h3_text_to_video_pika_dual_control_vectors.json", "t2v-pika-dual-control-vectors", "t2v",
          LONG_T2V_PROMPT,
          dict(lora=(PIKA_FL2VA_SVD995_LORA, PIKA_STRENGTH), lora_branch=True,
               steps=PIKA_STEPS, sampler_name=PIKA_SAMPLER,
               manual_sigmas=PIKA_MANUAL_SIGMAS,
               control_vector=[
-                  ("film_16mm_1974__fl2va__diff_span__lora_2a8c2b52.safetensors", 1.0),
-                  ("chaos_panic__fl2va__diff_span__lora_2a8c2b52.safetensors", 1.0),
+                  dict(vector="film_16mm_1974", strength=1.15, target="scene_only"),
+                  dict(vector="reverb_cathedral", strength=1.25, target="soundscape_only"),
               ],
               out_prefix="Video/h3_t2v_pika_dual_control_vectors"),
-         "text -> video + audio on Pika H3 Flex 6-step LCM (SVD995 branch) chaining two post-refiner control vectors in series (film_16mm_1974 diff_span at +1.0 + chaos_panic diff_span at +1.0, add_norm_matched, scene_only)"),
+         "text -> video + audio on Pika H3 Flex 6-step LCM (SVD995 branch) chaining two MiniMaxH3Steer nodes in series (film_16mm_1974 at +1.15 on scene_only + reverb_cathedral at +1.25 on soundscape_only)"),
         ("h3_image_ref_plus_text_to_video_pika_control_vector.json", "r2v-pika-control-vector", "r2v",
          _ref_prompt(images=("character",), scene="kitchen"),
          dict(ref_images=SCENE_REF_IMAGES["kitchen"], ref_image_count=1,
@@ -5225,13 +5436,13 @@ def main():
               steps=PIKA_STEPS, sampler_name=PIKA_SAMPLER,
               manual_sigmas=PIKA_MANUAL_SIGMAS,
               control_vector=dict(
-                  vector_name="film_16mm_1974__ref2va__diff_span__lora_865ee189.safetensors",
+                  vector="film_16mm_1974",
                   strength=1.15,
-                  ref_vae_end_percent=1.0,
-                  ref_vae_aug=0.999,
+                  target="description_only",
+                  release_references=True,
               ),
               out_prefix="Video/h3_r2v_pika_control_vector"),
-         "reference image + text -> video + audio on Pika H3 Flex 6-step LCM (SVD995 branch) with a post-refiner control vector (film_16mm_1974 diff_span at +1.15, add_norm_matched, scene_only, ref_vae_end_percent=1.0)"),
+         "reference image + text -> video + audio on Pika H3 Flex 6-step LCM (SVD995 branch) with MiniMaxH3Steer (film_16mm_1974 at +1.15, target=description_only so the kitchen grades to 16mm while <Subject 1> stays clean) and MiniMaxH3ReleaseReferences"),
         # --- Edit guidance: steer with an edited copy of the prompt, no control vector
         # (`edit_guidance.py`; the owner passed the hand-wired form on 2026-11-09,
         # `docs/wiki/decisions.md`). The edit lines are data in `prompt_bank/edit_guidance/`.
@@ -5240,7 +5451,10 @@ def main():
          dict(lora=(PIKA_FL2VA_SVD995_LORA, PIKA_STRENGTH), lora_branch=True,
               steps=PIKA_STEPS, sampler_name=PIKA_SAMPLER,
               manual_sigmas=PIKA_MANUAL_SIGMAS,
-              edit_guidance=dict(edits=_edit_guidance_text("t2va_market_claymation")),
+              edit_guidance=dict(
+                  edits=_edit_guidance_text("t2va_market_claymation"),
+                  release_subject_attire=False,
+              ),
               out_prefix="Video/h3_t2v_pika_edit_guidance"),
          "text -> video + audio on Pika H3 Flex 6-step LCM (SVD995 branch) steered by an edited copy of the prompt (MiniMaxH3PromptEdit + MiniMaxH3EditGuider at the node's default scale, no control vector)"),
         ("h3_image_ref_plus_text_to_video_pika_edit_guidance.json", "r2v-pika-edit-guidance", "r2v",
@@ -5249,7 +5463,10 @@ def main():
               lora=(PIKA_REF2VA_SVD995_LORA, PIKA_STRENGTH), lora_branch=True,
               steps=PIKA_STEPS, sampler_name=PIKA_SAMPLER,
               manual_sigmas=PIKA_MANUAL_SIGMAS,
-              edit_guidance=dict(edits=_edit_guidance_text("ref2va_kitchen_sitcom")),
+              edit_guidance=dict(
+                  edits=_edit_guidance_text("ref2va_kitchen_sitcom"),
+                  release_subject_attire=False,
+              ),
               out_prefix="Video/h3_r2v_pika_edit_guidance"),
          "reference image + text -> video + audio on Pika H3 Flex 6-step LCM (SVD995 branch) steered by an edited copy of the prompt; the reference is encoded once (MiniMaxH3EncodeReferences) and each prompt goes on top (MiniMaxH3PromptOnReferences)"),
         # --- PrunaAI P-H3-Image single-frame generation & editing (`workflows/image/`) ---
@@ -5284,20 +5501,24 @@ def main():
         ("h3_p_h3_image_t2i_control_vector.json", "p-h3-image-t2i-control-vector", "ph3_t2i",
          PH3_IMAGE_T2I_PROMPT,
          dict(single_frame=True,
-              control_vector=("film_16mm_1974__fl2va__diff_span__lora_2a8c2b52.safetensors", 1.15),
+              control_vector=dict(
+                  vector="film_16mm_1974",
+                  strength=1.15,
+                  target="scene_only",
+              ),
               out_prefix="Image/h3_p_h3_image_t2i_control_vector"),
-         "text -> 8 MP single-frame image on PrunaAI P-H3-Image with a post-refiner control vector (film_16mm_1974 fl2va diff_span at +1.15, add_norm_matched, scene_only)"),
+         "text -> 8 MP single-frame image on PrunaAI P-H3-Image with MiniMaxH3Steer (film_16mm_1974 at +1.15, add_norm_matched, target=scene_only)"),
         ("h3_p_h3_image_edit_control_vector.json", "p-h3-image-edit-control-vector", "ph3_edit",
          PH3_IMAGE_EDIT_PROMPT,
          dict(single_frame=True,
               control_vector=dict(
-                  vector_name="film_16mm_1974__fl2va__diff_span__lora_2a8c2b52.safetensors",
+                  vector="film_16mm_1974",
                   strength=1.15,
-                  ref_vae_end_percent=1.0,
-                  ref_vae_aug=0.999,
+                  target="scene_only",
+                  release_references=True,
               ),
               out_prefix="Image/h3_p_h3_image_edit_control_vector"),
-         "reference images + text -> edited image at image_1's aspect ratio on PrunaAI P-H3-Image with a post-refiner control vector (film_16mm_1974 fl2va diff_span at +1.15, add_norm_matched, scene_only, ref_vae_end_percent=1.0)"),
+         "reference images + text -> edited image at image_1's aspect ratio on PrunaAI P-H3-Image with MiniMaxH3Steer (film_16mm_1974 at +1.15, add_norm_matched, target=scene_only) and MiniMaxH3ReleaseReferences"),
         # --- Guide-latent video and single-frame editing (`MiniMaxH3GuideLatent`) ---
         ("h3_guide_video_edit.json", "r2v-guide-edit", "r2v",
          _ref_prompt(images=("character",), scene="kitchen"),
@@ -5331,12 +5552,13 @@ def main():
               width=768, height=768,
               out_prefix="Image/h3_pika_image_edit"),
          "picture + text -> single-frame edited image on unet_ref2va + Pika H3 Flex 6-step LCM (SVD995 branch), the picture as <Picture 1> sized to the output and the prompt in the reference guide's six sections (MiniMaxH3ReferenceConditioning, single_frame)"),
-        # The two plain Pika stills with a control vector node, so a vector can
+        # The two plain Pika stills with MiniMaxH3Steer, so a vector can
         # be given to the edit form that needs no guide and no third-party
-        # LoRA. Our conditioning nodes attach the section map, so every mask
-        # runs here; the guide graphs below take `non_vision` alone. The
-        # reference inputs stay at the node's defaults, which never release
-        # the picture. Tried on stills 2026-11-10 (`docs/h3_image_editing.md`).
+        # LoRA. Our conditioning nodes attach the section map, so every target
+        # runs here (`description_only` on the edit still so <Subject 1> keeps
+        # its <Picture 1> likeness); the guide graph below takes `non_vision`.
+        # MiniMaxH3ReleaseReferences stays at its defaults on the edit still,
+        # which never release the picture unless lowered (`docs/h3_image_editing.md`).
         ("h3_pika_image_t2i_control_vector.json", "pika-image-t2i-control-vector", "t2v",
          PIKA_IMAGE_T2I_PROMPT,
          dict(single_frame=True,
@@ -5344,9 +5566,13 @@ def main():
               steps=PIKA_STEPS, sampler_name=PIKA_SAMPLER,
               manual_sigmas=PIKA_MANUAL_SIGMAS,
               width=768, height=768,
-              control_vector=("film_16mm_1974__fl2va__diff_span__lora_2a8c2b52.safetensors", 1.15),
+              control_vector=dict(
+                  vector="film_16mm_1974",
+                  strength=1.15,
+                  target="scene_only",
+              ),
               out_prefix="Image/h3_pika_image_t2i_control_vector"),
-         "text -> single-frame image on unet_fl2va + Pika H3 Flex 6-step LCM (SVD995 branch) with a post-refiner control vector (film_16mm_1974 fl2va diff_span at +1.15, add_norm_matched, scene_only)"),
+         "text -> single-frame image on unet_fl2va + Pika H3 Flex 6-step LCM (SVD995 branch) with MiniMaxH3Steer (film_16mm_1974 at +1.15, add_norm_matched, target=scene_only)"),
         ("h3_pika_image_edit_control_vector.json", "pika-image-edit-control-vector", "r2v",
          PIKA_IMAGE_EDIT_PROMPT,
          dict(ref_images=(PLACEHOLDER_IMAGE_A,), ref_image_count=1,
@@ -5355,9 +5581,14 @@ def main():
               steps=PIKA_STEPS, sampler_name=PIKA_SAMPLER,
               manual_sigmas=PIKA_MANUAL_SIGMAS,
               width=768, height=768,
-              control_vector=("film_16mm_1974__ref2va__diff_span__lora_865ee189.safetensors", 1.15),
+              control_vector=dict(
+                  vector="film_16mm_1974",
+                  strength=1.15,
+                  target="description_only",
+                  release_references=True,
+              ),
               out_prefix="Image/h3_pika_image_edit_control_vector"),
-         "picture + text -> single-frame edited image on unet_ref2va + Pika H3 Flex 6-step LCM (SVD995 branch) with a post-refiner control vector (film_16mm_1974 ref2va diff_span at +1.15, add_norm_matched, scene_only), the picture as <Picture 1> held on every step"),
+         "picture + text -> single-frame edited image on unet_ref2va + Pika H3 Flex 6-step LCM (SVD995 branch) with MiniMaxH3Steer (film_16mm_1974 at +1.15, add_norm_matched, target=description_only) and MiniMaxH3ReleaseReferences"),
         # A one-frame edit on Pika with no reference picture: the picture to
         # edit is the guide, and the prompt is one plain sentence. No edit LoRA
         # and no `vfx_edit:` opening since 2026-11-11 (owner); the renders of
@@ -5382,14 +5613,13 @@ def main():
               manual_sigmas=PIKA_MANUAL_SIGMAS,
               width=768, height=768,
               control_vector=dict(
-                  vector_name="film_16mm_1974__ref2va__diff_span__lora_865ee189.safetensors",
+                  vector="film_16mm_1974",
                   strength=1.15,
-                  mask="non_vision",
-                  ref_vae_end_percent=1.0,
-                  ref_vae_aug=0.999,
+                  target="non_vision",
+                  release_references=True,
               ),
               out_prefix="Image/h3_probe_pika_image_guide_edit_control_vector"),
-         "guide image + text -> single-frame edited image on unet_ref2va + Pika H3 Flex 6-step LCM (SVD995 branch), no edit LoRA, with a post-refiner control vector (film_16mm_1974 ref2va diff_span at +1.15, add_norm_matched, non_vision, ref_vae_end_percent=1.0)"),
+         "guide image + text -> single-frame edited image on unet_ref2va + Pika H3 Flex 6-step LCM (SVD995 branch), no edit LoRA, with MiniMaxH3Steer (film_16mm_1974 at +1.15, add_norm_matched, target=non_vision) and MiniMaxH3ReleaseReferences"),
         # --- MiniMax-H3-Image, MiniMax's own still-image model (2026-11-11) ---
         # Our own chain, derived from the diffusers pipeline and the release
         # rather than from Comfy-Org's templates (`build_h3_image_api`). The

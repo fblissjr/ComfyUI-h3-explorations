@@ -356,27 +356,36 @@ DECLARED: dict[tuple[str, str], tuple] = {
     ("MiniMaxH3ExactBlocks", "blocks"):
         ("ARM", "'45,48,49' on h3_probe_t2v_exact_tail and h3_probe_t2v_policy, "
                 "the bf16 ceiling at the three lopsided blocks (2026-09-15)"),
-    ("MiniMaxH3ApplyControlVectors", "vector_name"):
-        ("ARM", "the post-refiner control vector file (<name>__<family>.safetensors) "
-                "applied by the arm on h3_text_to_video_pika_control_vector, "
+    ("MiniMaxH3Steer", "vector"):
+        ("ARM", "the bare post-refiner control-vector stem ('film_16mm_1974', plus "
+                "'reverb_cathedral' on the second chained node of "
+                "h3_text_to_video_pika_dual_control_vectors, auto-resolved at run time to the "
+                "loaded fl2va/ref2va + LoRA sibling) applied on "
+                "h3_text_to_video_pika_control_vector, "
                 "h3_text_to_video_pika_dual_control_vectors, "
                 "h3_image_ref_plus_text_to_video_pika_control_vector, "
                 "h3_p_h3_image_t2i_control_vector, "
-                "h3_p_h3_image_edit_control_vector, and "
+                "h3_p_h3_image_edit_control_vector, "
+                "h3_pika_image_t2i_control_vector, "
+                "h3_pika_image_edit_control_vector, and "
                 "h3_probe_pika_image_guide_edit_control_vector, against the node default 'none' "
-                "(2026-11-05, bench/results/2026-11-05_control_vectors_pika_and_ref2va.md)"),
-    ("MiniMaxH3ApplyControlVectors", "strength"):
+                "(2026-11-11, docs/wiki/control_vectors.md)"),
+    ("MiniMaxH3Steer", "strength"):
         ("ARM", "the arm's post-refiner control-vector multiplier in add_norm_matched "
-                "units (+1.15 on the single t2va, ref2va, P-H3-Image, and Pika guide-edit "
-                "film_16mm_1974 diff_span arms, +1.0 on the dual t2va diff_span arm), "
-                "against the node default 1.0 "
-                "(2026-11-07, bench/results/2026-11-05_control_vectors_pika_and_ref2va.md)"),
-    ("MiniMaxH3ApplyControlVectors", "mask"):
-        ("ARM", "'non_vision' on `h3_probe_pika_image_guide_edit_control_vector`, "
-                "against the node default 'scene_only': that probe conditions through "
-                "core's `MiniMaxH3ReferenceToVideo` (which attaches no `h3_span_masks`) "
-                "on a one-sentence prompt with no sections, vision blocks, "
-                "or `<d>` speech tags (2026-11-10, docs/h3_image_editing.md)"),
+                "units (+1.15 on film_16mm_1974 across the t2va, dual t2va, ref2va, P-H3-Image, "
+                "Pika image, and Pika guide-edit arms, and +1.25 on reverb_cathedral on the "
+                "second node of h3_text_to_video_pika_dual_control_vectors), "
+                "against the node default 1.0 (2026-11-11, docs/wiki/control_vectors.md)"),
+    ("MiniMaxH3Steer", "target"):
+        ("ARM", "task-specific prompt-row targets against the node default 'scene_only': "
+                "'description_only' on h3_image_ref_plus_text_to_video_pika_control_vector and "
+                "h3_pika_image_edit_control_vector so film_16mm_1974 grades the room/lighting "
+                "while leaving <Subject 1>'s <Picture 1> definition clean; "
+                "'soundscape_only' on node 125 of h3_text_to_video_pika_dual_control_vectors so "
+                "reverb_cathedral steers overall_soundscape independently of the visual prose; and "
+                "'non_vision' on h3_probe_pika_image_guide_edit_control_vector because core's "
+                "MiniMaxH3ReferenceToVideo attaches no h3_span_masks on its one-sentence prompt "
+                "(2026-11-11, docs/wiki/control_vectors.md, docs/h3_image_editing.md)"),
     ("MiniMaxH3PromptEdit", "edits"):
         ("ARM", "the graph's edit lines, data from prompt_bank/edit_guidance/, on "
                 "h3_text_to_video_pika_edit_guidance and "

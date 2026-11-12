@@ -214,34 +214,40 @@
     }
   },
   "115": {
-    "class_type": "MiniMaxH3ApplyControlVectors",
+    "class_type": "MiniMaxH3Steer",
     "inputs": {
       "model": [
         "21",
         0
       ],
-      "vector_name": "film_16mm_1974__fl2va__diff_span__lora_2a8c2b52.safetensors",
-      "strength": 1.0,
+      "vector": "film_16mm_1974",
+      "strength": 1.15,
       "mode": "add_norm_matched",
-      "mask": "scene_only",
+      "target": "scene_only",
       "start_percent": 0.0,
       "end_percent": 1.0,
+      "streams": "both",
+      "hold_words": "",
+      "hold_alpha": 1.0,
       "allow_recipe_mismatch": false
     }
   },
   "125": {
-    "class_type": "MiniMaxH3ApplyControlVectors",
+    "class_type": "MiniMaxH3Steer",
     "inputs": {
       "model": [
         "115",
         0
       ],
-      "vector_name": "chaos_panic__fl2va__diff_span__lora_2a8c2b52.safetensors",
-      "strength": 1.0,
+      "vector": "reverb_cathedral",
+      "strength": 1.25,
       "mode": "add_norm_matched",
-      "mask": "scene_only",
+      "target": "soundscape_only",
       "start_percent": 0.0,
       "end_percent": 1.0,
+      "streams": "both",
+      "hold_words": "",
+      "hold_alpha": 1.0,
       "allow_recipe_mismatch": false
     }
   },

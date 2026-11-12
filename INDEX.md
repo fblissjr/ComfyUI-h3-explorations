@@ -26,7 +26,7 @@ with none is a helper the others import.
 
 | module | nodes it defines | what it says it does |
 |---|---|---|
-| [`control_vector_nodes.py`](control_vector_nodes.py) | `MiniMaxH3MakeControlVector`, `MiniMaxH3MakeMediaControlVector`, `MiniMaxH3ApplyControlVectors`, `MiniMaxH3LayerNormMatch` | ComfyUI nodes for making and applying MiniMax H3 contrastive control vectors. |
+| [`control_vector_nodes.py`](control_vector_nodes.py) | `MiniMaxH3MakeControlVector`, `MiniMaxH3MakeMediaControlVector`, `MiniMaxH3ApplyControlVectors`, `MiniMaxH3LoadControlVector`, `MiniMaxH3WordVector`, `MiniMaxH3Steer`, `MiniMaxH3ReleaseReferences`, `MiniMaxH3LayerNormMatch` | ComfyUI nodes for making and applying MiniMax H3 contrastive control vectors. |
 | [`control_vectors.py`](control_vectors.py) |  | Pure-PyTorch math, pair-file reader, and `.safetensors` I/O for H3 control vectors. |
 
 ### h3_*
@@ -158,7 +158,7 @@ with none is a helper the others import.
 | `changelog.d/` | | [`changelog.d/README.md`](changelog.d/README.md), one file per changelog entry; not listed and not counted |
 | `contact_sheets/` | 2 | [below](#contact_sheets) |
 | `data/` | 2 | [below](#data) |
-| `docs/` | 262 | [`docs/wiki/index.md`](docs/wiki/index.md), the hand-written router |
+| `docs/` | 263 | [`docs/wiki/index.md`](docs/wiki/index.md), the hand-written router |
 | `prompt_bank/` | 222 | [`docs/prompt_bank.md`](docs/prompt_bank.md), the prompt catalogue |
 | `sparse_tables/` | 1 | [below](#sparse_tables) |
 | `standalone/` | 6 | [below](#standalone) |
