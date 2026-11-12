@@ -161,17 +161,21 @@ SOL_DENSE_RIDGE_SHIELD = SOL_DENSE_OPTION_C
 #: Historical 2026-09-25 tail default (from unrotated INT8 K-norm outliers):
 SOL_DENSE_HISTORICAL_TAIL = "45,48,49"
 
-#: Active default for Sol dense_blocks: SOL_DENSE_OPTION_C ("38,39,40,41,42,49").
-#: Adopted 2026-10-02 on local probe error, which the re-read showed was
-#: mostly blocks leaving the measured set
-#: (`bench/results/2026-10-02_sol_campaign_reanalysis.md`); KEPT the same
-#: night by owner decision because the output-level panel found the
-#: dense_blocks choice does not move the owner's verdict, and Option C is the
-#: list `SOL_SINK_DEFAULT` was judged with
-#: (`bench/results/2026-10-02_sol_dense_blocks_panel.md`). Measured, then
-#: decided. `workflows/h3_config.py::SOL_DENSE_TAIL` carries the same value,
-#: and `bench/check_attention_defaults.py` holds the two together.
-SOL_DENSE_TAIL = SOL_DENSE_OPTION_C
+#: Terminal block only: block 49 feeds `final_layer.video_out` and carries the
+#: sharpest lopsided K-norm quantization sensitivity (`docs/h3_block49_quant_error.md`).
+SOL_DENSE_TERMINAL = "49"
+
+#: Active default for Sol dense_blocks: SOL_DENSE_TERMINAL ("49").
+#: Adopted 2026-11-11 (owner decision, measured across 3 cells / 15 clips /
+#: 12 blind pairs on 6-step Pika `t2va` and `ref2va`,
+#: `bench/results/2026-11-11_sol_pika_panel.md`): keeping blocks 38..42 dense
+#: (`SOL_DENSE_OPTION_C`, shipped 2026-10-02 to 2026-11-11 from local probe
+#: spikes on the retired PDD8/FlashGen lane) added 10–13 s per 345-frame render
+#: without reducing distance to dense or moving any blind verdict, matching the
+#: 2026-10-02 output-level panel (`bench/results/2026-10-02_sol_dense_blocks_panel.md`).
+#: `workflows/h3_config.py::SOL_DENSE_TAIL` carries the same value, and
+#: `bench/check_attention_defaults.py` holds the two together.
+SOL_DENSE_TAIL = SOL_DENSE_TERMINAL
 #: The node's `sink_conditioning` default. `exact_kv_and_all_rows` since
 #: 2026-10-02 (owner decision, measured): on the output-level panel it was the
 #: one Sol setting the owner rated fine on the dialogue scene, where every
@@ -1319,9 +1323,9 @@ class MiniMaxH3Sol(io.ComfyNode):
                 io.String.Input("dense_blocks", default=SOL_DENSE_TAIL,
                                 tooltip="Blocks kept off Sol, e.g. '0-2,32'; negative indices "
                                         "count from the end. They run on the dense fallback. "
-                                        f"Default '{SOL_DENSE_TAIL}' (Option C / Full Ridge Shield): shields the entire middle "
-                                        "routing-error plateau (38, 39, 40, 41, 42) and terminal block (49). "
-                                        f"Option B is '{SOL_DENSE_OPTION_B}'; Option A is '{SOL_DENSE_OPTION_A}'."),
+                                        f"Default '{SOL_DENSE_TAIL}': terminal block 49 (feeds final_layer.video_out). "
+                                        f"Middle-plateau presets remain available as '{SOL_DENSE_OPTION_C}' (Option C), "
+                                        f"'{SOL_DENSE_OPTION_B}' (Option B), and '{SOL_DENSE_OPTION_A}' (Option A)."),
                 io.Combo.Input("sink_conditioning", options=list(SINK_CONDITIONING_MODES),
                                default=SOL_SINK_DEFAULT,
                                tooltip="How the packed conditioning rows (text, references, "

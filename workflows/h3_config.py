@@ -569,14 +569,18 @@ SOL_DENSE_RIDGE_SHIELD = SOL_DENSE_OPTION_C
 #: Historical 2026-09-25 tail default (from unrotated INT8 K-norm outliers):
 SOL_DENSE_HISTORICAL_TAIL = "45,48,49"
 
-#: The Sol node's `dense_blocks` default, SOL_DENSE_OPTION_C. Adopted
-#: 2026-10-02 on local probe error and kept the same night by owner decision:
-#: the output-level panel found the dense_blocks choice does not move the
-#: verdict, and C is the list SOL_SINK_DEFAULT was judged with
-#: (`bench/results/2026-10-02_sol_dense_blocks_panel.md`). Mirrors
+#: Terminal block only: block 49 feeds `final_layer.video_out`.
+SOL_DENSE_TERMINAL = "49"
+
+#: The Sol node's `dense_blocks` default, SOL_DENSE_TERMINAL ("49"). Adopted
+#: 2026-11-11 by owner decision after the 3-cell 6-step Pika `t2va` + `ref2va`
+#: blind panel (`bench/results/2026-11-11_sol_pika_panel.md`) confirmed that
+#: blocks 38..42 (`SOL_DENSE_OPTION_C`, shipped 2026-10-02 to 2026-11-11) cost
+#: 10–13 s per 345-frame render with zero distance or playback benefit, matching
+#: `bench/results/2026-10-02_sol_dense_blocks_panel.md`. Mirrors
 #: `sol_attn_h3.py::SOL_DENSE_TAIL`; `bench/check_attention_defaults.py`
 #: holds the two together.
-SOL_DENSE_TAIL = SOL_DENSE_OPTION_C
+SOL_DENSE_TAIL = SOL_DENSE_TERMINAL
 
 #: The Sol node's `sink_conditioning` default; mirrors
 #: `sol_attn_h3.py::SOL_SINK_DEFAULT`, whose comment carries the evidence
@@ -690,13 +694,15 @@ SOL_RECOMMENDED_CUDA = dict(
     # route capture deliberately runs with this empty so blocks 0-2 and 32 are
     # observable instead of bypassed.
     #
-    # **Updated 2026-10-02 (Option C / Full Ridge Shield adoption)**: Under quantizer="rotated"
-    # (Hadamard rotation), block 48 error dropped to 7.14% and 45 to 9.55%,
-    # while middle blocks 38–43 spike to ~25% error. dense_blocks adopts Option C
-    # ("38,39,40,41,42,49") via SOL_DENSE_TAIL, shielding the full middle plateau
-    # (38, 39, 40, 41, 42) plus terminal block 49 (feeds final_layer.video_out),
-    # dropping peak network error below 18% (17.73%) even under high sparsity tau=1.3.
-    # Option B is SOL_DENSE_OPTION_B; Option A is SOL_DENSE_OPTION_A. `docs/wiki/decisions.md`.
+    # **Updated 2026-11-11 (`SOL_DENSE_TAIL = "49"`, owner decision)**: Under
+    # `quantizer="rotated"` (Hadamard rotation), block 48 error dropped to 7.14%
+    # and 45 to 9.55%. Option C ("38,39,40,41,42,49") shipped from 2026-10-02 to
+    # 2026-11-11 for middle-block routing spikes on the retired PDD8/FlashGen lane,
+    # where the 2026-10-02 blind panel already found `dense_blocks` did not move
+    # verdicts. Across 3 cells / 12 pairs on 6-step Pika `t2va` + `ref2va`
+    # (`bench/results/2026-11-11_sol_pika_panel.md`), keeping only terminal block 49
+    # (`final_layer.video_out`) dense saved 10–13 s per 345-frame render at the
+    # same distance to dense and zero blind losses. `docs/wiki/decisions.md`.
     dense_blocks=SOL_DENSE_TAIL,
     # `quantizer` "balanced" = qk_balance on, rotate off, the shipped state
     # until 2026-09-27; "rotated" since (below).
