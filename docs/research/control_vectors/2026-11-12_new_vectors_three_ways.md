@@ -55,7 +55,7 @@ The phrases were written for this run. They are not from the pair bank.
   Flex LoRA at strength 1.0. Each file's `recipe` metadata names the checkpoint, encoder and LoRA with hashes.
 - **The five scenes**, the same for every concept:
   `t2va_appalachian_folk_cabin`, `t2va_arena_rock_video`, `t2va_box_office`, `t2va_cable_car`,
-  `t2va_cafe_kids`.
+  `t2va_cafe_kids`. They are not plain scenes: section 11.3 says what their own openings carry.
 - **The pair made from each scene.** Both sides are the whole scene prompt with one short phrase put at the
   opening of its first shot. Side B gets the concept phrase. Side A gets one of the compiler's neutral
   phrases, a different one per scene (`h3_pair_compiler.py::DEFAULT_AUX_BASELINES`).
@@ -332,4 +332,77 @@ run, not about what the clips show.
 
 The same question for the day as a whole is section 14 of
 [`2026-11-12_chain_lens_digest_and_experiment_plan.md`](2026-11-12_chain_lens_digest_and_experiment_plan.md).
+
+## 11. A second session's cross-check, on playback and sound
+
+Another session watched and listened to the single clips of `exp2`, `exp3` and `exp4` in full, beside an
+edit-guidance showcase it had rendered the same day, and passed its notes on through the owner. They cover
+what sections 8 and 9 said this record could not see. Each point below says what was checked here afterwards
+and how it came out.
+
+### 11.1 Rewrite against edit guidance
+
+- **Its reading.** On playback the rewrite and edit guidance are close to the same clip. Edit guidance adds
+  a little density (snow, ferns). Against the vectors at their default settings both are clearly ahead;
+  against each other, not meaningfully. On `knitted_wool_world` edit guidance patterns the shell and thickens
+  the cardigan, which it puts down to the prompt already saying "green knitted cardigan".
+- **Checked here.** The prompt does say that. The rest agrees with section 8.2's stills. Not checked
+  further: this record's session cannot watch playback.
+- **Where it found edit guidance does separate from a rewrite**, in its own renders: a later `first_step`
+  with an early `last_step`, which holds the original take; a `scale` above the default when the picture
+  mutes a new soundscape; and a `scale` under 1 for a partial change. None of those was in `exp4`
+  (section 10.2). [`../../wiki/edit_guidance.md`](../../wiki/edit_guidance.md) has its clips.
+
+### 11.2 Sound, which the stacks do not carry
+
+- **Its reading.** For `heavy_blizzard` and `ankle_deep_flood` the rewrite and edit-guidance clips are much
+  quieter than the unsteered clip, with no wind or water added: the prompt's soundscape section still
+  describes a dry street, and the edit touched only the picture. For `tv_1950s_broadcast` the picture stayed
+  in color but the sound gained broadcast hiss.
+- **Checked here, holds.** `ffmpeg`'s `volumedetect` on the single clips: the two blizzard clips and the two
+  flood clips are quieter than the unsteered clip by roughly the amount it gave, and above 2.5 kHz the two
+  TV clips are louder than the unsteered clip by roughly the amount it gave. The absolute levels differ from
+  its figures, as two ways of measuring loudness will. What the sound is cannot be checked from levels.
+- **Also seen in the same check.** The vector clips for the blizzard and the flood are quieter than the
+  unsteered clip too, though `scene_only` leaves the soundscape rows unsteered.
+
+So an edit that changes the weather in the picture and says nothing in `overall_soundscape:` changes the
+sound anyway, and not toward the weather. A fair comparison of any of the three methods on such a concept
+has to edit, or steer, the soundscape too.
+
+### 11.3 Two things mixed into the vectors
+
+- **"Live-action, cinematic" blocked the concepts that change the medium, in every method.** It counts four:
+  the three in section 8.2 and `knitted_wool_world`, where on playback the bus, street and buildings stay
+  live-action. "On an overcast morning" likewise stays in the prompt after the blizzard and golden-hour
+  phrases. This is the clash section 5 names; its cost was larger than that section allowed.
+- **The five bank scenes bring their own looks.** **Checked here, holds:** `t2va_box_office` opens "Vintage
+  film, 16mm grain with warm faded colour", `t2va_cable_car` opens "2D-animated, flat cel shading" above "a
+  snowed valley", `t2va_cafe_kids` has "golden hour" in its opening, and `t2va_arena_rock_video` opens as a
+  1980s music video with haze. So a pair reads "Unstylized candid footage, Vintage film, 16mm grain..."
+  against the concept phrase in front of the same words. Three of the eight concepts (the TV broadcast,
+  golden hour, the blizzard) meet a scene that already says something close to them.
+- **Its account of the shared part.** It puts the batch's large shared direction down to those openings
+  together with the lopsided phrases, and notes that this is why so many steered clips turn the candle into
+  a torch. **Cannot tell from here:** the openings are on both sides of every pair, so they should mostly
+  cancel, and nothing run separates their effect from the lopsided phrases'. Both belong on the list of
+  things a fairer build removes.
+
+### 11.4 What follows for a next test
+
+Its suggestions, with what this record's session would add:
+
+- **A higher strength on these files also multiplies their shared part.** So a strength sweep on the
+  current `heavy_blizzard` cannot by itself say the vector was under-driven. An arm with the batch's shared
+  direction held out of the vector, at the same strengths, would separate the two.
+- **Build one vector in place and edit without the clash.** A vector made with the tortoise prompt as its
+  target, from an edit that replaces the conflicting words ("on an overcast morning" for the blizzard,
+  "Live-action, cinematic" for a medium) and includes a soundscape clause, beside edit guidance on the same
+  edit with a later `first_step`. Each tool is then used as it is meant to be. One caution: a vector built
+  from one pair on its own target prompt is close to that rewrite stored as a direction. It tests whether a
+  vector can carry the edit at all, not whether it carries it to another prompt, which is what a vector is
+  for.
+- **If the edit has a soundscape clause, the vector arm needs a target that reaches the soundscape rows**,
+  or the two arms differ on sound for a reason that is not the method.
+- **Two seeds**, as section 10.2 says.
 

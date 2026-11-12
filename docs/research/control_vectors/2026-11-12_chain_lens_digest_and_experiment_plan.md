@@ -728,6 +728,11 @@ All six were about reading a vector. The day's largest findings were about makin
 - **What it is.** Two concepts, each built three ways: the current bare-phrase build; a plain side written
   for the concept and about as long as the concept side; and the same over more scenes. Read each card in
   full before rendering.
+- **Three things a second session's cross-check added**
+  ([`2026-11-12_new_vectors_three_ways.md`](2026-11-12_new_vectors_three_ways.md), section 11): use scenes
+  that do not open with a look of their own, since the five the first batch used do; replace the words a
+  concept contradicts instead of putting the phrase in front of them; and give a weather or world concept a
+  soundscape clause, because changing only the picture changed the sound anyway.
 - **Decides.** How new vectors should be built. The measures are pair agreement, how much the vectors share,
   the blind score, and then the clips.
 
@@ -770,6 +775,10 @@ renders. It is the form of the blind score that cannot saturate, and it needs cl
 - **Change one thing between neighboring arms.**
 - **Trial vectors carry a name that marks them as trials.**
 - **A rendered rewrite beside every edit-guidance clip.**
+- **Listen as well as look.** A stack with no sound hid that the weather edits made the clips quieter
+  without adding the weather.
+- **A higher strength multiplies whatever else is in the vector.** Hold the shared direction out before
+  reading a strength sweep.
 
 ### 15.5 What is waiting on the owner
 
