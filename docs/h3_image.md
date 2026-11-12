@@ -1,6 +1,6 @@
 # MiniMax-H3-Image: MiniMax's own still-image model
 
-Last updated: 2026-11-11, the day it was released and first run here.
+Last updated: 2026-11-12.
 
 MiniMax-H3-Image makes a picture from text, or edits one or more pictures, on
 one checkpoint, in six steps with no guidance. It is a different model from
@@ -59,8 +59,9 @@ actually started from is not something the weights can say.
 |---|---|---|
 | `H3_IMAGE_UNET` | the DiT, int8 linears, pruned AdaLN; the graphs' default | Comfy-Org |
 | `H3_IMAGE_UNET_BF16` | the DiT as released, nothing quantized or pruned. Not kept on disk: written, rendered and removed on 2026-11-11 | `bench/convert_h3_image_dit.py` writes it again from the release |
-| `H3_IMAGE_VAE` | the VAE in fp16 | Comfy-Org, a plain cast of the release's |
-| `H3_IMAGE_VAE_FP32` | the VAE as released | the release |
+| `PH3_IMAGE_VAE` | H3 encoder (unrounded fp32) + 36-layer 32-head (`dim=2048`) still-image decoder; the graphs' default since 2026-11-12 | PrunaAI (`P-H3-Image`) |
+| `H3_IMAGE_VAE` | the release's VAE in fp16 (16-head `dim=1024` decoder) | Comfy-Org, a plain cast of the release's |
+| `H3_IMAGE_VAE_FP32` | the release's VAE as released | the release |
 
 The names are constants in `workflows/h3_config.py`. The files on disk are
 links from ComfyUI's model folders into the model store.
@@ -108,6 +109,7 @@ In [`workflows/image/`](../workflows/image/), written by
 | `h3_image_t2i_api.json` | text to image |
 | `h3_image_edit_api.json` | an edit of a picture, at the picture's shape |
 | `h3_image_t2i_heylook_api.json` | short text -> `MiniMax H3 Image Prompt Expander (heylook)` -> text to image |
+| `h3_image_edit_heylook_api.json` | picture + short edit instruction -> `MiniMax H3 Image Prompt Expander (heylook)` -> edited image |
 
 Four probe graphs rendered the same two cases on the bf16 file, with the same
 INT8 attention and with core's exact attention, so the int8 linears and INT8
@@ -125,7 +127,7 @@ small things differ and were left alone: core draws the reference noise from a
 fixed seed where the pipeline uses the request's, rounds an in-bounds
 reference to a multiple of 32 where the pipeline crops it, and skips the
 pipeline's rounding of reference latents to fp16. The chain differs from
-Comfy-Org's shipped templates in three places:
+Comfy-Org's shipped templates in four places:
 
 1. **The six-step grid is handed to the sampler as written.** The templates
    ask a scheduler for six steps, which lands near the grid the output heads
@@ -137,7 +139,26 @@ Comfy-Org's shipped templates in three places:
 3. **A picture being edited reaches the model untouched.** The edit template
    resamples it first. The vendor's pipeline keeps a reference's own pixels
    whenever its short side is within bounds, and core's node already does the
-   bounding.
+   bounding. Note that core's `MiniMaxH3ImageConditioning` declares
+   `io.Autogrow.TemplatePrefix(prefix="image_")` (`0`-indexed `images.image_0..N-1`
+   in API JSON; `1`-indexed `images.image_1` works over direct `/prompt` HTTP
+   posts because `_image_refs` sorts by trailing integer, but ComfyUI's browser
+   frontend drops `images.image_1` when opening the API JSON and silently runs
+   text-to-image with zero references; fixed 2026-11-12).
+4. **The default VAE (`PH3_IMAGE_VAE`, `p-h3-image_vae_bf16.safetensors`) pairs
+   the identical H3 encoder with P-H3-Image's larger 36-layer, 32-head
+   (`dim=2048`) still-image decoder** (2026-11-12). All 118 encoder +
+   `quant_conv` tensors in `PH3_IMAGE_VAE` are bit-for-bit identical (`max_diff = 0`)
+   to `H3_IMAGE_VAE_FP32`, with identical `LATENTS_MEAN`/`LATENTS_STD` and the
+   same `H3ImageVAE.encode` posterior sample (`IMAGE_ENCODE_SEED = 42`), so
+   reference latents and the 6-step DiT trajectory are unchanged. On decode,
+   the release's lightweight 24-layer, 16-head (`dim=1024`) `MiniMaxH3ImageVAE`
+   exhibits orange/green shadow stipple and fine-lettering breakup (`29.91 dB`
+   PSNR on `reference1.png` at `1024x1024`, whether fp16 or fp32: `69.27 dB`
+   between the two), whereas `PH3ImageVAE` decodes the exact same latent at
+   `31.47 dB` (`+1.56 dB`) and cleanly removes the dark-shadow grain on live
+   `MiniMax-H3-Image` DiT latents (`build_h3_image_api(..., vae=H3_IMAGE_VAE)`
+   keeps the release decoder available).
 
 Attention is the same as the templates': comfy-kitchen's INT8 attention, named
 in the graph. The vendor's pipeline computes exact attention, which is what
@@ -225,13 +246,16 @@ our standalone, English-only system-prompt suite for local thinking LLMs/VLMs
   `aspect_ratio: <same as the picture | W:H>`.
 
 The two default graphs (`h3_image_t2i_api.json`, `h3_image_edit_api.json`) take
-a finished description directly. `h3_image_t2i_heylook_api.json` wires
-`MiniMax H3 Image Prompt Expander (heylook)` (`h3_image_nodes.py::MiniMaxH3ImagePromptExpander`)
-ahead of conditioning and `MiniMax H3 Image Size.shape_from_expander`, expanding
-a short request over `POST /v1/messages` on a local or LAN `heylookitsanllm`
-server (`base_url` defaults to `http://127.0.0.1:8080`; model ids are resolved
-at runtime from `GET /v1/models`). Not established here: how much a short plain
-prompt loses without an expander.
+a finished description directly. `h3_image_t2i_heylook_api.json` and
+`h3_image_edit_heylook_api.json` wire `MiniMax H3 Image Prompt Expander (heylook)`
+(`h3_image_nodes.py::MiniMaxH3ImagePromptExpander`) ahead of conditioning and
+`MiniMax H3 Image Size.shape_from_expander`, expanding a short request or
+`1..16`-picture edit instruction over `POST /v1/messages` on a local or LAN
+`heylookitsanllm` server (`base_url` defaults to `http://127.0.0.1:8080`; model
+ids are resolved at runtime from `GET /v1/models`, gating on `vision` when
+pictures are wired). Do not feed `general_image_edit_system_prompt.md` (`[Shot 1]`
+4-section schema) to `MiniMax-H3-Image`: `[Shot N]` splits the canvas into panels
+and unanchored attributes override `<Picture 1>`.
 
 ### Prompts written for H3 video
 

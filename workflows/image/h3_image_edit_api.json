@@ -16,7 +16,7 @@
   "3": {
     "class_type": "VAELoader",
     "inputs": {
-      "vae_name": "minimax_h3_image_vae_fp16.safetensors"
+      "vae_name": "p-h3-image_vae_bf16.safetensors"
     }
   },
   "4": {
@@ -146,7 +146,7 @@
         "4",
         1
       ],
-      "images.image_1": [
+      "images.image_0": [
         "15",
         0
       ]

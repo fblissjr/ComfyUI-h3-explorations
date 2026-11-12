@@ -1,0 +1,199 @@
+{
+  "1": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "minimax_h3_image_pruned_int8_convrot.safetensors",
+      "weight_dtype": "default"
+    }
+  },
+  "2": {
+    "class_type": "MiniMaxH3EncoderLoader",
+    "inputs": {
+      "encoder_name": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+      "device": "default"
+    }
+  },
+  "3": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "p-h3-image_vae_bf16.safetensors"
+    }
+  },
+  "4": {
+    "class_type": "MiniMaxH3ImageSize",
+    "inputs": {
+      "megapixels": 16.0,
+      "shape": "same as the picture",
+      "picture": [
+        "15",
+        0
+      ],
+      "shape_from_expander": [
+        "14",
+        1
+      ]
+    }
+  },
+  "6": {
+    "class_type": "RandomNoise",
+    "inputs": {
+      "noise_seed": 1234
+    }
+  },
+  "7": {
+    "class_type": "KSamplerSelect",
+    "inputs": {
+      "sampler_name": "euler"
+    }
+  },
+  "9": {
+    "class_type": "BasicGuider",
+    "inputs": {
+      "model": [
+        "58",
+        0
+      ],
+      "conditioning": [
+        "5",
+        0
+      ]
+    }
+  },
+  "10": {
+    "class_type": "SamplerCustomAdvanced",
+    "inputs": {
+      "noise": [
+        "6",
+        0
+      ],
+      "guider": [
+        "9",
+        0
+      ],
+      "sampler": [
+        "7",
+        0
+      ],
+      "sigmas": [
+        "60",
+        0
+      ],
+      "latent_image": [
+        "5",
+        1
+      ]
+    }
+  },
+  "11": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": [
+        "10",
+        0
+      ],
+      "vae": [
+        "3",
+        0
+      ]
+    }
+  },
+  "13": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "images": [
+        "11",
+        0
+      ],
+      "filename_prefix": "Image/h3_image_edit_heylook"
+    }
+  },
+  "60": {
+    "class_type": "ManualSigmas",
+    "inputs": {
+      "sigmas": "1.0, 0.9675236940383911, 0.8875485062599182, 0.75, 0.5327739119529724, 0.23200887441635132, 0.0"
+    }
+  },
+  "15": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "h3_image_reference1.png"
+    }
+  },
+  "47": {
+    "class_type": "MiniMaxH3VAEPrecision",
+    "inputs": {
+      "vae": [
+        "3",
+        0
+      ],
+      "encoder": "fp32",
+      "decoder": "unchanged"
+    }
+  },
+  "14": {
+    "class_type": "MiniMaxH3ImagePromptExpander",
+    "inputs": {
+      "prompt": "Take the over-ear headphones off the man on the left and fill in his hair where the band flattened it. Have both hosts lean toward each other and fist-bump directly above the \"MONEY TALKS\" desk sign, knuckles touching, elbows lifted off the desk, so the bump sits dead centre between the two microphones.",
+      "enabled": true,
+      "base_url": "http://127.0.0.1:8080",
+      "mode": "auto",
+      "model": "",
+      "thinking": "model default",
+      "seed": 1234,
+      "preset": "",
+      "custom_system_prompt": "",
+      "sampler_mode": "heylook / preset default",
+      "temperature": 0.7,
+      "top_p": 0.95,
+      "top_k": 20,
+      "min_p": 0.0,
+      "max_tokens": 4096,
+      "repetition_penalty": 1.0,
+      "presence_penalty": 0.0,
+      "reasoning_effort": "",
+      "images.image_1": [
+        "15",
+        0
+      ]
+    }
+  },
+  "5": {
+    "class_type": "MiniMaxH3ImageConditioning",
+    "inputs": {
+      "clip": [
+        "2",
+        0
+      ],
+      "vae": [
+        "47",
+        0
+      ],
+      "prompt": [
+        "14",
+        0
+      ],
+      "width": [
+        "4",
+        0
+      ],
+      "height": [
+        "4",
+        1
+      ],
+      "images.image_0": [
+        "15",
+        0
+      ]
+    }
+  },
+  "58": {
+    "class_type": "ModelAttentionBackend",
+    "inputs": {
+      "model": [
+        "1",
+        0
+      ],
+      "attention": "comfy kitchen attention"
+    }
+  }
+}

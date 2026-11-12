@@ -2892,6 +2892,7 @@ def build_h3_image_api(
     *,
     prompt: str | None = None,
     unet: str = H3_IMAGE_UNET,
+    vae: str = PH3_IMAGE_VAE,
     ref_images: tuple[str, ...] | None = None,
     megapixels: float = H3_IMAGE_MEGAPIXELS,
     shape: str | None = None,
@@ -2905,7 +2906,7 @@ def build_h3_image_api(
     """Build an API-format workflow for MiniMax-H3-Image: text to image, or an edit of one or more pictures.
 
     The chain is the diffusers pipeline's (`coderef/diffusers/src/diffusers/modular_pipelines/minimax_h3_image/`)
-    on core's nodes, and differs from Comfy-Org's shipped templates in three places:
+    on core's nodes, and differs from Comfy-Org's shipped templates in four places:
 
     - **The sampling grid is given as written** (`ManualSigmas`, `H3_IMAGE_MANUAL_SIGMAS`) to
       `SamplerCustomAdvanced` under a `BasicGuider`: six Euler steps, no guidance. The templates
@@ -2915,7 +2916,17 @@ def build_h3_image_api(
       the model card recommends. An edit takes its picture's shape. The templates start at 4.
     - **A picture being edited reaches the conditioning node untouched.** The edit template
       resamples it to 4 megapixels first; the model reads a reference at its own size, and core's
-      node already bounds it the way the vendor's pipeline does.
+      node already bounds it the way the vendor's pipeline does. Note that core's
+      `MiniMaxH3ImageConditioning` declares `io.Autogrow.TemplatePrefix(prefix="image_")`
+      (0-indexed `images.image_0..N-1`), whereas `MiniMaxH3ImagePromptExpander` declares
+      `io.Autogrow.TemplateNames` (1-indexed `images.image_1..N`).
+    - **The default VAE (`PH3_IMAGE_VAE`) pairs the identical H3 encoder with P-H3-Image's larger
+      36-layer, 32-head (`dim=2048`) still-image decoder.** Both `PH3ImageVAE` and
+      `MiniMaxH3ImageVAE` inherit `H3ImageVAE.encode` with bit-for-bit identical fp32 encoder +
+      `quant_conv` weights and identical `LATENTS_MEAN`/`LATENTS_STD`, so reference latents and the
+      DiT trajectory are unchanged, while the 32-head decoder removes the release 16-head
+      (`dim=1024`) decoder's shadow chroma stipple (`+1.56 dB` PSNR on `reference1.png`). Pass
+      `vae=H3_IMAGE_VAE` for the release's own decoder.
 
     Attention is the pack's dense kernel, comfy-kitchen's INT8 attention (`ModelAttentionBackend`,
     `h3_config.DENSE_BACKEND_NODE`), named in the graph so it holds on any file. It is also what
@@ -2927,8 +2938,9 @@ def build_h3_image_api(
     `vae_encoder`), the owner's decision of 2026-11-11: MiniMax's own server runs that encode on fp32
     weights and decodes in half precision (`coderef/sglang`, `minimax_h3/keyframe_encoding.py`),
     which ComfyUI's one dtype per VAE cannot express. The encoder is promoted in place from the
-    fp16 file; rounding the release's fp32 encoder weights to fp16 loses nothing that matters
-    (`docs/h3_image.md`), so no second VAE file is loaded. Only the conditioning node is rebound;
+    loaded VAE file (`PH3_IMAGE_VAE` carries the unrounded fp32 encoder weights; rounding the
+    release's fp32 encoder weights to fp16 in `H3_IMAGE_VAE` also loses nothing that matters,
+    `docs/h3_image.md`), so no second VAE file is loaded. Only the conditioning node is rebound;
     `VAEDecode` stays on the loader, decoder untouched. `vae_encoder=None` wires no node. Text to
     image encodes nothing and gets none.
 
@@ -2960,7 +2972,7 @@ def build_h3_image_api(
               "inputs": {"encoder_name": _require_core_encoder(MODELS["clip"]),
                          "device": "default"}},
         "3": {"class_type": "VAELoader",
-              "inputs": {"vae_name": H3_IMAGE_VAE}},
+              "inputs": {"vae_name": vae}},
         "4": {"class_type": "MiniMaxH3ImageSize",
               "inputs": {"megapixels": megapixels, "shape": resolved_shape}},
         "6": {"class_type": "RandomNoise", "inputs": {"noise_seed": resolved_seed}},
@@ -2992,7 +3004,7 @@ def build_h3_image_api(
         if not 1 <= len(stills) <= len(_REF_IMAGE_NODES):
             raise SystemExit(
                 f"build_h3_image_api got {len(stills)} pictures; this builder wires 1..{len(_REF_IMAGE_NODES)}")
-        for idx, (load_id, img_name) in enumerate(zip(_REF_IMAGE_NODES, stills), start=1):
+        for idx, (load_id, img_name) in enumerate(zip(_REF_IMAGE_NODES, stills)):
             g[load_id] = {"class_type": "LoadImage", "inputs": {"image": img_name}}
             cond_inputs[f"images.image_{idx}"] = [load_id, 0]
         # the picture being edited gives the output its shape; only its size is read
@@ -5667,6 +5679,9 @@ def main():
         ("h3_image_t2i_heylook.json", "h3-image-t2i-heylook", "h3img_t2i", H3_IMAGE_T2I_INSTRUCTION,
          dict(single_frame=True, heylook=True, out_prefix="Image/h3_image_t2i_heylook"),
          "short text -> heylook local prompt expander -> 16 MP image on MiniMax-H3-Image (caption and shape from MiniMaxH3ImagePromptExpander)"),
+        ("h3_image_edit_heylook.json", "h3-image-edit-heylook", "h3img_edit", H3_IMAGE_EDIT_INSTRUCTION,
+         dict(single_frame=True, heylook=True, out_prefix="Image/h3_image_edit_heylook"),
+         "picture + short edit instruction -> heylook local VLM prompt expander -> 16 MP edited image on MiniMax-H3-Image (caption and shape from MiniMaxH3ImagePromptExpander)"),
         # The bf16 arms (the release written whole by `bench/convert_h3_image_dit.py`, with INT8
         # attention and with core's exact attention, for both cases) were rendered on 2026-11-11
         # and their four probe graphs removed the same day with the file, at the owner's word:
