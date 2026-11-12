@@ -597,8 +597,13 @@ nothing here restates them.
   The fourth arm above asks what that shared part does by itself. If it does something visible, every bank
   vector is doing that too, and it is a candidate for a standing hold.
 - **Experiments 4 and 6 are unchanged.**
-- **The order now.** Experiment 2's render half as re-specified; experiment 3; experiments 4 and 5 in one
-  GPU session; experiment 6.
+- **Experiment 2's renders are made and wait for the owner's eye.** Eight clips on one prompt and seed, as
+  two stacked files (the word-share record, section 6). Stills suggest where to look: the film vector's
+  named direction and its whole vector both show an older bus where the rest does not, the shared direction
+  changes the scene by itself, and `head_swell` may not have done its own job at this strength, which would
+  leave its parts unreadable. None of that is a judgement until the clips are watched.
+- **The order now.** The owner's reading of experiment 2's clips; then experiment 3; experiments 4 and 5 in
+  one GPU session; experiment 6.
   Experiment 1's tool scores experiments 3 and 5 when they produce a reader.
 - **A later step for experiment 1.** A naming score can saturate. The version that does not is the post's
   steer-and-match test (section 6), a judge matching a readout to one of several renders. It costs renders,

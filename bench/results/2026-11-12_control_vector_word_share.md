@@ -1,4 +1,4 @@
-# How much of a control vector do its words point at? Experiment 2, CPU half (2026-11-12)
+# How much of a control vector do its words point at? Experiment 2 (2026-11-12)
 
 lane: control
 
@@ -12,7 +12,8 @@ narrower thing that does separate a vector from the rest.
 
 Both cuts are throwaways. Their scripts have no check and live beside their outputs in the untracked
 `data/control_vectors/word_share_2026-11-12/` (`word_share.py` with `word_share.json`, `own_words.py` with
-`own_words.json`). The figures below are what those scripts wrote. Nothing was rendered.
+`own_words.json`). The figures below are what those scripts wrote. Sections 1 to 5 are the CPU half; section 6
+is the render half, eight short clips made the same day and waiting for the owner's eye.
 
 ## 1. What was read
 
@@ -128,3 +129,78 @@ do; what the words do not do is tell them from a neighbor.
 - That makes the render half a different experiment from the one planned: four arms per vector (the whole
   vector, the named direction, the remainder, and the shared direction alone), not two parts of a
   matching-pursuit split.
+
+## 6. The render half
+
+Rendered at the owner's word. Eight clips, one prompt, one seed. No clip has been judged: section 6.4 lists
+what to look at, from two stills of each, and is not a reading of what the clips show in motion or sound.
+
+### 6.1 The parts
+
+For a test vector `v` (post-refiner), three unit directions that are at right angles to each other:
+
+- **shared**: the mean of the other bank vectors' unit vectors, with both test vectors and
+  `film_16mm_1974_neutral` left out of the mean.
+- **named**: the Word Lab vector of `v`'s own eight-and-eight J-Lens words, with its component along
+  `shared` removed.
+- **rest**: `v` with its components along `shared` and `named` removed.
+
+Share of each vector's energy (`part_vectors.json` in the run folder, written by `make_part_vectors.py`):
+
+| Vector | shared | named | rest |
+|---|---:|---:|---:|
+| `film_16mm_1974` | 0.16 | 0.30 | 0.54 |
+| `head_swell` | 0.19 | 0.15 | 0.66 |
+
+Each part was written as an ordinary control-vector file with the test vector's own metadata, used for the
+renders and then removed from `<comfy>/models/control_vectors/`. `make_part_vectors.py` rebuilds them.
+
+### 6.2 What was rendered
+
+- **Tool.** `bench/edit_guidance_arms.py` with `--vector-arm`, on
+  `workflows/h3_text_to_video_pika_control_vector_api.json` (the shipped Pika `t2va` control-vector graph,
+  nothing else changed). The arm graphs and `exp2_record.json` are in
+  `data/control_vectors/word_share_2026-11-12/renders/`.
+- **Prompt.** `prompt_bank/t2va_offpath_tortoise.txt`, read in full before queueing: one shot, an elderly man
+  walking a tortoise across a zebra crossing past a waiting bus, no speech.
+- **Length and seed.** The bank's own frame count for that prompt (`prompt_bank/bank.json`), the graph's
+  seed; both are in each arm graph.
+- **Arms.** `base` with no vector; for each test vector `whole`, `named` and `rest`; and `shared` once.
+  Every steered arm is one `MiniMaxH3Steer` at the graph's shipped strength, in `add_norm_matched` and
+  `scene_only`. That mode rescales every vector to one length, so the arms compare directions, not sizes.
+- **Server.** ComfyUI as the owner had just restarted it; every arm returned `success`.
+- **Repo commit:** `aa3c8df7`.
+
+### 6.3 Where the clips are
+
+Under `$H3_OUTPUT_DIR/Video/cv_word_share_2026-11-12/`:
+
+- `exp2_film_16mm_1974_stacked.mp4`: five rows, top to bottom `base`, whole, named, rest, `shared`.
+- `exp2_head_swell_stacked.mp4`: the same five rows for `head_swell`.
+- `exp2/`: the eight single clips with their sound. The stacks carry no sound
+  (`bench/stack_labeled_clips.py`).
+
+### 6.4 What to look at
+
+From frames 30 and 90 of each clip. A list of where to look, not a judgement.
+
+- **The bus, in the film stack.** In the whole-vector row and in the named row the bus in those two stills is
+  an older model with a radiator grille; in the `base`, rest and `shared` rows it is a modern one. Whether
+  the picture also carries grain, fade or a colour cast in any row is for playback.
+- **The man's head, in the head stack.** In those two stills his head looks the same size in every row,
+  the whole-vector row included. If playback agrees, `head_swell` at this strength did not do its own job
+  on this prompt, and its named and rest rows cannot be read for which part carries it.
+- **The `shared` row.** In its stills the man has a white beard, the tortoise is larger and harnessed, the
+  candle flame is large, and there is a flare beside the bus. Some of these also show in the `head_swell`
+  rows (the harness, the larger flame).
+- **Every steered row against `base`.** The street and the framing differ from `base` in all of them, the
+  rest rows included.
+- **Sound.** Not looked at here at all. The singles have it.
+
+### 6.5 What the render half cannot see
+
+- **More than one prompt, one seed and one strength.** A different seed alone changes a street.
+- **Whether a part's effect at matched length says what it does at its own length.** Inside the whole
+  vector the parts are not equally long (section 6.1); here each was given the whole vector's length.
+- **`head_swell`'s parts, if its whole vector did nothing.** See section 6.4.
+
