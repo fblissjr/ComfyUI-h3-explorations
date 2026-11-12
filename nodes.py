@@ -72,8 +72,12 @@ from .edit_guidance import MiniMaxH3EditGuider, MiniMaxH3PromptEdit
 from .control_vector_nodes import (
     MiniMaxH3ApplyControlVectors,
     MiniMaxH3LayerNormMatch,
+    MiniMaxH3LoadControlVector,
     MiniMaxH3MakeControlVector,
     MiniMaxH3MakeMediaControlVector,
+    MiniMaxH3ReleaseReferences,
+    MiniMaxH3Steer,
+    MiniMaxH3WordVector,
 )
 from .prompt_lists import MiniMaxH3FillPromptLists, MiniMaxH3PromptList, register_wildcards_folder
 from .ph3_image_nodes import (
@@ -417,7 +421,13 @@ class H3ExplorationsExtension(ComfyExtension):
                 # appended 2026-11-11, the picture size and local heylook prompt expander
                 # for MiniMax-H3-Image (h3_image_nodes.py)
                 MiniMaxH3ImageSize,
-                MiniMaxH3ImagePromptExpander]
+                MiniMaxH3ImagePromptExpander,
+                # appended 2026-11-11, composable control-vector and reference-release
+                # nodes replacing the deprecated ApplyControlVectors monolith (control_vector_nodes.py)
+                MiniMaxH3LoadControlVector,
+                MiniMaxH3WordVector,
+                MiniMaxH3Steer,
+                MiniMaxH3ReleaseReferences]
 
 
 async def comfy_entrypoint() -> H3ExplorationsExtension:

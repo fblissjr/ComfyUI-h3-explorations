@@ -438,6 +438,18 @@
       "model"
     ]
   },
+  "MiniMaxH3LoadControlVector": {
+    "inputs": [
+      "vector",
+      "hold_words",
+      "hold_alpha",
+      "hold_vector"
+    ],
+    "node_id": "MiniMaxH3LoadControlVector",
+    "outputs": [
+      "control_vector"
+    ]
+  },
   "MiniMaxH3MakeControlVector": {
     "inputs": [
       "model",
@@ -455,7 +467,8 @@
     "node_id": "MiniMaxH3MakeControlVector",
     "outputs": [
       "vector_name",
-      "report"
+      "report",
+      "control_vector"
     ]
   },
   "MiniMaxH3MakeMediaControlVector": {
@@ -473,7 +486,8 @@
     "node_id": "MiniMaxH3MakeMediaControlVector",
     "outputs": [
       "vector_name",
-      "report"
+      "report",
+      "control_vector"
     ]
   },
   "MiniMaxH3MaskedPrompt": {
@@ -670,6 +684,17 @@
       "Output"
     ]
   },
+  "MiniMaxH3ReleaseReferences": {
+    "inputs": [
+      "model",
+      "end_percent",
+      "clean_level"
+    ],
+    "node_id": "MiniMaxH3ReleaseReferences",
+    "outputs": [
+      "model"
+    ]
+  },
   "MiniMaxH3Resolution": {
     "inputs": [
       "shape",
@@ -784,6 +809,28 @@
       "Output"
     ]
   },
+  "MiniMaxH3Steer": {
+    "inputs": [
+      "model",
+      "vector",
+      "strength",
+      "mode",
+      "target",
+      "fields",
+      "start_percent",
+      "end_percent",
+      "streams",
+      "hold_words",
+      "hold_alpha",
+      "allow_recipe_mismatch",
+      "custom_vector",
+      "hold_vector"
+    ],
+    "node_id": "MiniMaxH3Steer",
+    "outputs": [
+      "model"
+    ]
+  },
   "MiniMaxH3StepX0Observer": {
     "inputs": [
       "model",
@@ -873,6 +920,19 @@
     "node_id": "MiniMaxH3VAEPrecision",
     "outputs": [
       "Output"
+    ]
+  },
+  "MiniMaxH3WordVector": {
+    "inputs": [
+      "words",
+      "against_words",
+      "hold_words",
+      "hold_alpha",
+      "hold_vector"
+    ],
+    "node_id": "MiniMaxH3WordVector",
+    "outputs": [
+      "control_vector"
     ]
   }
 }

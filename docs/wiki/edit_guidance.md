@@ -79,7 +79,7 @@ Drop-in replacement for `BasicGuider` on `SamplerCustomAdvanced` ([`edit_guidanc
 
 ### Example A — Exact `<Subject 1>` clothing swap on `ref2va` (verified winner, 2026-11-11)
 
-- **Workflow**: `workflows/h3_image_ref_plus_text_to_video_pika_edit_guidance.json`
+- **Workflow**: `workflows/h3_image_ref_plus_text_to_video_pika_edit_guidance_api.json`
 - **Setup**:
   - `MiniMaxH3EncodeReferences` encodes `<Picture 1>` **once** and feeds **both** `MiniMaxH3ReferenceTextEncode` nodes (`original` and `edited`), so vision tokens are computed once and match bit-for-bit.
   - `original` keeps the diner `ref2va` prompt as written.
@@ -87,11 +87,11 @@ Drop-in replacement for `BasicGuider` on `SamplerCustomAdvanced` ([`edit_guidanc
   - `MiniMaxH3EditGuider`: `scale = 1.5`, `first_step = 0`, and the default `last_step` (every step in two passes), as read from the clip's own workflow. A shorter `last_step` was not rendered for this case.
 - **Verified playback result** (`$H3_OUTPUT_DIR/Video/edit_guidance/stacked/diner16f_edit_guidance_style_vs_subject_s730451892_stacked.mp4`):
   - `<Subject 1>` wears the exact rust-orange wide-collar blouse and high-waisted flared jeans in motion, while her face, hair, spoken line, and diner booth stay faithful to `<Picture 1>` and the baseline shot.
-  - Note: on `ref2va`, keep `ref_vae_end_percent = 1.0` (default) when changing clothes on the same person—the clean `<Picture 1>` reference latents sit at their own reference time slot (`t = text_len`), so `EditGuider` cleanly overrides her outfit on generated video frames while preserving her facial identity.
+  - Note: on `ref2va`, keep reference release at its default (`end_percent = 1.0` on `MiniMaxH3ReleaseReferences`) when changing clothes on the same person—the clean `<Picture 1>` reference latents sit at their own reference time slot (`t = text_len`), so `EditGuider` cleanly overrides her outfit on generated video frames while preserving her facial identity.
 
 ### Example B — Coupled lighting + acoustic edit on `t2va`
 
-- **Workflow**: `workflows/h3_text_to_video_pika_edit_guidance.json`
+- **Workflow**: `workflows/h3_text_to_video_pika_edit_guidance_api.json`
 - **`MiniMaxH3PromptEdit` `edits`**:
   ```text
   warm tungsten pendant lamps -> flickering red emergency strobes and drifting white steam
@@ -103,7 +103,7 @@ Drop-in replacement for `BasicGuider` on `SamplerCustomAdvanced` ([`edit_guidanc
 
 ## 4. Combining Edit Guidance with Control Vectors
 
-`MiniMaxH3EditGuider` (a `GUIDER` on `SamplerCustomAdvanced`) and `MiniMaxH3ApplyControlVectors` (a `MODEL` wrapper upstream of the guider) compose cleanly on the same graph—for example, using `MiniMaxH3EditGuider` to put `<Subject 1>` in a specific outfit while applying `film_16mm_1974` (`mask = "description_only"`, `strength = 1.0`) on the `MODEL` line to give the room 1974 16mm celluloid grain.
+`MiniMaxH3EditGuider` (a `GUIDER` on `SamplerCustomAdvanced`) and `MiniMaxH3Steer` / `MiniMaxH3ReleaseReferences` (or legacy `MiniMaxH3ApplyControlVectors` on the `MODEL` line upstream of the guider) compose cleanly on the same graph—for example, using `MiniMaxH3EditGuider` to put `<Subject 1>` in a specific outfit while applying `film_16mm_1974` (`target = "description_only"`, `strength = 1.0`) on `MiniMaxH3Steer` to give the room 1974 16mm celluloid grain.
 
 Verification script for edit-guidance invariants and graph wiring:
 ```bash

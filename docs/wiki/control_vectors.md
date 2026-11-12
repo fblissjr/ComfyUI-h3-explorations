@@ -5,8 +5,8 @@ Last updated: 2026-11-11.
 This pack ships three complementary mechanisms for steering, editing, and diagnosing MiniMax H3 renders without retraining weights or training a LoRA:
 
 1. **`MiniMaxH3EditGuider` + `MiniMaxH3PromptEdit`** ([`edit_guidance.md`](edit_guidance.md), [`edit_guidance.py`](../../edit_guidance.py)): 2-pass latent-velocity guidance between a baseline prompt and a rewritten copy of that prompt.
-2. **Contrastive Control Vectors** (`MiniMaxH3ApplyControlVectors`, [`control_vectors.py`](../../control_vectors.py), [`control_vector_nodes.py`](../../control_vector_nodes.py)): 1-pass `5376`-d directions added to selected text rows after the 2-block `TokenRefiner` and before the 50 DiT blocks.
-3. **J-Lens** ([`j_lens.py`](../../j_lens.py), `models/j_lens/j_lens_h3.safetensors`): a precomputed `< 15 ms` CPU Jacobian and Wiener-inverse lexical operator that decodes any `5376`-d vector into English words, scrubs unwanted side-effect words (`hold_words`), and synthesizes live zero-file vectors from single-token words (`words`).
+2. **Contrastive Control Vectors** (`MiniMaxH3Steer`, `MiniMaxH3LoadControlVector`, `MiniMaxH3ReleaseReferences`, and legacy `MiniMaxH3ApplyControlVectors`; [`control_vectors.py`](../../control_vectors.py), [`control_vector_nodes.py`](../../control_vector_nodes.py)): 1-pass `5376`-d directions added to selected text rows after the 2-block `TokenRefiner` and before the 50 DiT blocks.
+3. **J-Lens** (`MiniMaxH3WordVector`, [`j_lens.py`](../../j_lens.py), `models/j_lens/j_lens_h3.safetensors`): a precomputed `< 15 ms` CPU Jacobian and Wiener-inverse lexical operator that decodes any `5376`-d vector into English words, scrubs unwanted side-effect words (`hold_words`), and synthesizes live zero-file vectors from single-token words (`words`).
 
 ![End-to-end control vector pipeline](control_vectors/assets/control_vector_pipeline.svg)
 
@@ -29,8 +29,8 @@ Because pooling collapses per-word token positions while latent-velocity subtrac
 | **Whole-scene world or material transformation that carries the subject with it** (`claymation_stopmotion`, `felt_muppet`, `balloon_head_inflate`, or seasonal/world shifts) | **Contrastive Vector or J-Lens `words`** on `scene_only` + `end_percent = 0.5` (+ `ref_vae_end_percent = 0.16..0.33` for silhouette changes) | When a coherent single-world push moves the entire environment (`scene_only`), the DiT's world prior carries contextual surfaces and attire along with the scene. Shortening `end_percent` to `0.5` prevents high-strength facial color burn on later steps. |
 | **World shift *without* coupled wardrobe drift** (e.g., turning a sunny market into a snowstorm without putting a winter coat on the vendor) | **Control Vector or J-Lens `words` + `hold_words`** (`hold_words = "coat, parka"`, `hold_alpha = 0.5..1.0`) | Used in `$H3_OUTPUT_DIR/Video/cv_e2e_verify/10_t2va_jlens_words_00001-audio.mp4`: J-Lens projects the `"coat, parka"` direction out of the word vector in `< 1 ms` on CPU, and the clip has snowdrifts on the citrus stall with the vendor still in his canvas apron. No arm without the hold was rendered, so how much of that the hold did is not measured. |
 | **Pre-render X-ray audit of any built vector** (catching washed-out or off-target builds before spending GPU time) | **J-Lens `inspect`** (automatic at the end of `build`) | Decodes any `5376`-d vector into English words in `< 15 ms` on CPU. On `wardrobe_1970s` the build's own readout was `"vintage, retro, nostalgia, nostalgic, decades, psychedelic"` with **zero garment nouns**. Nobody read it before rendering; read first, it would have said the vector carries an era and not clothing, which is what the renders then showed. |
-| **Zero-file `< 2 ms` tinkering & rapid concept sketching** | **J-Lens `words`** on `MiniMaxH3ApplyControlVectors` (`vector_name = "none"`) | Synthesizes a family-matched `5376`-d vector on CPU at step 0 from single-token English words (`cos = +0.30..+0.52` with 10-pair GPU vectors; drops multi-token BPE words such as `muppet`, `halation`, `plasticine`, `pyrotechnics`). |
-| **Audio-only acoustic space or vocal delivery** (`reverb_cathedral`, `pyro_klaxon_audio`, `whisper_asmr`, `operatic_bellow`) | **Contrastive Control Vector** with `mask = "soundscape_only"` | Steers `overall_soundscape:` and `non_diegetic_music:` (plus `<Audio N>:` lines) while leaving visual prose and dialogue words untouched (`video_scale = 0.0, audio_scale = 1.0` optional for strict stream isolation). |
+| **Zero-file `< 2 ms` tinkering & rapid concept sketching** | **`MiniMaxH3WordVector` -> `MiniMaxH3Steer`** (or `words` on legacy `MiniMaxH3ApplyControlVectors`) | Synthesizes a family-matched `5376`-d vector on CPU at step 0 from single-token English words (`cos = +0.30..+0.52` with 10-pair GPU vectors; drops multi-token BPE words such as `muppet`, `halation`, `plasticine`, `pyrotechnics`). |
+| **Audio-only acoustic space or vocal delivery** (`reverb_cathedral`, `pyro_klaxon_audio`, `whisper_asmr`, `operatic_bellow`) | **Contrastive Control Vector** with `target = "soundscape_only"` (`streams = "audio_only"` optional) | Steers `overall_soundscape:` and `non_diegetic_music:` (plus `<Audio N>:` lines) while leaving visual prose and dialogue words untouched (`streams = "audio_only"` on `MiniMaxH3Steer` keeps video unsteered across all steps). |
 
 ---
 
@@ -48,7 +48,7 @@ Every H3 prompt passes through two text stages before the 50 DiT blocks see it:
 
 From that `5376`-d `context` tensor onward:
 
-- **`MiniMaxH3ApplyControlVectors`** wraps the DiT forward pass (`WrappersMP.DIFFUSION_MODEL`), clones `context`, and modifies only the rows selected by `mask` / `fields` during `[start_percent, end_percent)`. Multiple chained nodes accumulate in `float64` inside one wrapper (`add_norm_matched` scales a unit vector to `67.5` shift norm at `strength = 1.0`).
+- **`MiniMaxH3Steer`** (and legacy `MiniMaxH3ApplyControlVectors`) wraps the DiT forward pass (`WrappersMP.DIFFUSION_MODEL`), clones `context`, and modifies only the rows selected by `target` / `mask` / `fields` during `[start_percent, end_percent)`. Multiple chained nodes accumulate in `float64` inside one wrapper (`add_norm_matched` scales a unit vector to `67.5` shift norm at `strength = 1.0`).
 - **J-Lens** maps between `5376`-d post-refiner space (`fl2va` or `ref2va`) and `24,912` single-token English words in `Qwen3-VL`'s `lm_head` using precomputed analytical Jacobians ($\bar{J}_{49\to 63}$ and $\bar{J}_{\text{ref}}^{(f)}$) and an empirical-covariance **Wiener inverse** ($J_{\text{Wiener}}^{(f)}$).
 - **`MiniMaxH3EditGuider`** leaves `context` unmodified per branch, runs the DiT on `[original]` and `[edited]` sequentially (`h3_edit_pass` prevents ComfyUI from concatenating two `~18k`-token sequences into a `B = 2` OOM), and extrapolates the predicted velocity:
   $$\mathbf{v} = \mathbf{v}_{\text{original}}(x_t) + \text{scale} \cdot \left(\mathbf{v}_{\text{edited}}(x_t) - \mathbf{v}_{\text{original}}(x_t)\right)$$
@@ -76,21 +76,21 @@ Every rule below was tested on rendered 6-step Pika `t2va` and `ref2va` clips an
    - Only lower `ref_vae_end_percent` (`0.16` or `0.33`) when you want `<Subject 1>`'s **3D silhouette or material** to depart from the clean reference VAE latents (such as claymation, felt puppet, or head inflation).
 6. **Project out correlated side effects (`[[hold]]` at build time, `mode = "hold"` or `hold_words` at render time)**:
    - `film_16mm_1974` pulls warm amber cast alongside grain; `film_16mm_1974_neutral` adds a `[[hold]]` group (`warm_colour_cast`) that removes the amber shift while keeping grain and gate weave (`cos = 0.72` between the two).
-   - At render time, chaining a second `MiniMaxH3ApplyControlVectors` with `mode = "hold"` (e.g., `cursed_cctv` + `hold(chaos_panic)`) or setting `hold_words` (`hold_words = "coat, parka"`) scrubs unwanted collateral concepts from the additive delta without altering the base prompt.
+   - At render time, wiring `MiniMaxH3LoadControlVector` (or `MiniMaxH3WordVector`) into `MiniMaxH3Steer.hold_vector` (e.g., `cursed_cctv` + `hold_vector = chaos_panic`), or setting `hold_words` (`hold_words = "coat, parka"`), scrubs unwanted collateral concepts from the additive delta without altering the base prompt.
 
 ---
 
-## 4. Shipped workflows
+## 4. Shipped API workflows
 
-Generated by [`workflows/build_workflows.py`](../../workflows/build_workflows.py) (load the non-`_api.json` twin in the ComfyUI UI):
+Generated by [`workflows/build_workflows.py`](../../workflows/build_workflows.py) (shipped API graphs wire `MiniMaxH3ApplyControlVectors` for stable node IDs; for new ComfyUI canvas graphs, use `MiniMaxH3Steer`, `MiniMaxH3WordVector`, `MiniMaxH3LoadControlVector`, and `MiniMaxH3ReleaseReferences`):
 
 | Workflow | Mode | What it demonstrates |
 |---|---|---|
-| `workflows/h3_text_to_video_pika_control_vector.json` | 6-step Pika `t2va` | Single `MiniMaxH3ApplyControlVectors` on a text-to-video + audio render |
-| `workflows/h3_text_to_video_pika_dual_control_vectors.json` | 6-step Pika `t2va` | Two chained `MiniMaxH3ApplyControlVectors` nodes (`scene_only` visual look + `soundscape_only` acoustic vector, or primary vector + `mode = "hold"`) |
-| `workflows/h3_image_ref_plus_text_to_video_pika_control_vector.json` | 6-step Pika `ref2va` | Reference-anchored `<Subject 1>` shot with `MiniMaxH3ApplyControlVectors` (`mask`, `fields`, `end_percent`, `ref_vae_end_percent`) |
-| `workflows/h3_text_to_video_pika_edit_guidance.json` | 6-step Pika `t2va` | `MiniMaxH3PromptEdit` + `MiniMaxH3EditGuider` (`scale = 1.5`) |
-| `workflows/h3_image_ref_plus_text_to_video_pika_edit_guidance.json` | 6-step Pika `ref2va` | Exact `<Subject 1>` wardrobe/prop/scene edit on a `<Picture 1>` reference shot via `MiniMaxH3EditGuider` |
+| `workflows/h3_text_to_video_pika_control_vector_api.json` | 6-step Pika `t2va` | Single control vector on a text-to-video + audio render |
+| `workflows/h3_text_to_video_pika_dual_control_vectors_api.json` | 6-step Pika `t2va` | Two chained control vectors (`scene_only` visual look + `soundscape_only` acoustic vector, or primary vector + `mode = "hold"`) |
+| `workflows/h3_image_ref_plus_text_to_video_pika_control_vector_api.json` | 6-step Pika `ref2va` | Reference-anchored `<Subject 1>` shot with control vector (`mask`, `fields`, `end_percent`, `ref_vae_end_percent`) |
+| `workflows/h3_text_to_video_pika_edit_guidance_api.json` | 6-step Pika `t2va` | `MiniMaxH3PromptEdit` + `MiniMaxH3EditGuider` (`scale = 1.5`) |
+| `workflows/h3_image_ref_plus_text_to_video_pika_edit_guidance_api.json` | 6-step Pika `ref2va` | Exact `<Subject 1>` wardrobe/prop/scene edit on a `<Picture 1>` reference shot via `MiniMaxH3EditGuider` |
 
 ---
 
@@ -100,7 +100,7 @@ Generated by [`workflows/build_workflows.py`](../../workflows/build_workflows.py
 |---|---|
 | [`edit_guidance.md`](edit_guidance.md) | **2-pass Edit Guidance under the hood**: `MiniMaxH3EditGuider` velocity math, why unpooled tokens preserve color/noun binding, `first_step` & `last_step` pass budgets, `MiniMaxH3PromptEdit` syntax & refusals |
 | [`control_vectors/building_pairs_and_vectors.md`](control_vectors/building_pairs_and_vectors.md) | **How contrastive vectors are built**: two-stage H3 text geometry, `diff_span` pooling, `[[hold]]` Gram-Schmidt projection, why coherent concepts beat grab-bag averages, `from-prompt`, `from-toml`, and `make-media` |
-| [`control_vectors/comfyui_nodes_and_controls.md`](control_vectors/comfyui_nodes_and_controls.md) | **ComfyUI nodes & runtime knobs**: all 4 nodes, `mode`, lever vs. per-field `mask` & multi-select `fields`, 6-step `end_percent = 0.5` math, `video_scale`/`audio_scale`, and `ref_vae_end_percent` / `ref_vae_aug` |
+| [`control_vectors/comfyui_nodes_and_controls.md`](control_vectors/comfyui_nodes_and_controls.md) | **ComfyUI nodes & runtime knobs**: `MiniMaxH3Steer`, `MiniMaxH3WordVector`, `MiniMaxH3LoadControlVector`, `MiniMaxH3ReleaseReferences` (+ legacy `ApplyControlVectors`), lever `target` vs. `fields`, 6-step `end_percent = 0.5` math, `streams`, and reference release |
 | [`control_vectors/j_lens_diagnostics_and_word_lab.md`](control_vectors/j_lens_diagnostics_and_word_lab.md) | **J-Lens under the hood**: analytical Jacobians & Wiener inverse, `< 15 ms` X-ray readouts, `< 1 ms` `hold_words` scrubbing, `< 2 ms` `words` synthesis, single-token BPE limits, and `build-j-lens` |
 | [`control_vectors/examples_and_recipes.md`](control_vectors/examples_and_recipes.md) | **Copy-paste recipes**: room-only film grade on `ref2va`, coupled weather/pyro, claymation world shift, snow-without-parka `hold_words`, CPU `sculpt`, and `MiniMaxH3EditGuider` wardrobe swaps |
 | [`control_vectors/preset_catalog_and_cli_reference.md`](control_vectors/preset_catalog_and_cli_reference.md) | **CLI & starter bank reference**: every `bench/control_vectors.py` subcommand and flag, `.safetensors` file & metadata contract, and the 38-file `prompt_bank/control_vectors/` catalog |

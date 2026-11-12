@@ -2580,12 +2580,30 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
         (cv_nodes.MiniMaxH3MakeMediaControlVector, "MiniMaxH3MakeMediaControlVector"),
         (cv_nodes.MiniMaxH3ApplyControlVectors, "MiniMaxH3ApplyControlVectors"),
         (cv_nodes.MiniMaxH3LayerNormMatch, "MiniMaxH3LayerNormMatch"),
+        (cv_nodes.MiniMaxH3LoadControlVector, "MiniMaxH3LoadControlVector"),
+        (cv_nodes.MiniMaxH3WordVector, "MiniMaxH3WordVector"),
+        (cv_nodes.MiniMaxH3Steer, "MiniMaxH3Steer"),
+        (cv_nodes.MiniMaxH3ReleaseReferences, "MiniMaxH3ReleaseReferences"),
     ):
         schema = cls.define_schema()
         if schema.node_id != expected_id:
             errs.append(f"schema.node_id={schema.node_id!r}, expected {expected_id!r}")
         if expected_id not in nodes_src or expected_id not in manifest_data:
             errs.append(f"{expected_id} missing from nodes.py or bench/node_id_manifest.json")
+    apply_schema = cv_nodes.MiniMaxH3ApplyControlVectors.define_schema()
+    if not apply_schema.is_deprecated or len(apply_schema.inputs) != 18:
+        errs.append(
+            f"MiniMaxH3ApplyControlVectors must be is_deprecated=True with 18 preserved inputs, "
+            f"got is_deprecated={apply_schema.is_deprecated!r}, len(inputs)={len(apply_schema.inputs)}"
+        )
+    for new_cls in (
+        cv_nodes.MiniMaxH3LoadControlVector,
+        cv_nodes.MiniMaxH3WordVector,
+        cv_nodes.MiniMaxH3Steer,
+        cv_nodes.MiniMaxH3ReleaseReferences,
+    ):
+        if new_cls.define_schema().is_deprecated:
+            errs.append(f"{new_cls.define_schema().node_id} should not be marked deprecated")
 
     # 2. Shipped prompt_bank/control_vectors/*.toml validation (when present)
     cv_bank_dir = REPO / "prompt_bank" / "control_vectors"
@@ -3391,6 +3409,8 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
                 errs.append(f"MiniMaxH3MakeControlVector.execute returned unexpected output: {node_out[0]!r}")
             if not (tmp / node_out[0]).is_file():
                 errs.append(f"MiniMaxH3MakeControlVector.execute did not write to redirected folder: {node_out[0]!r}")
+            if not isinstance(node_out[2], cv_nodes.H3VectorSpec) or node_out[2].vector_name != node_out[0]:
+                errs.append(f"MiniMaxH3MakeControlVector slot 2 expected H3VectorSpec({node_out[0]!r}), got {node_out[2]!r}")
 
             # Test _build_padding_prompt and cmd_grade (with mock _dit_runner)
             edit_prompt_txt = tmp / "unit_edit.txt"
@@ -4487,6 +4507,240 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
         ):
             errs.append(f"default ref_vae_aug changed the payload's visual_cond_noise_aug: {dm_av.payloads_seen[0].get('visual_cond_noise_aug')}")
 
+        # Composable node suite: MiniMaxH3LoadControlVector, MiniMaxH3WordVector,
+        # MiniMaxH3Steer, MiniMaxH3ReleaseReferences, and stem deduplication
+        orig_cv_paths_comp = cv_nodes.folder_paths.folder_names_and_paths.get(
+            cv_nodes.CONTROL_VECTORS_FOLDER
+        )
+        try:
+            stem_dir = tmp / "stem_lib"
+            stem_dir.mkdir(exist_ok=True)
+            cv.save_vector(
+                stem_dir / "pair_demo__fl2va__diff_span.safetensors",
+                {"vector.post_refiner": v_dir1},
+                meta1,
+            )
+            cv.save_vector(
+                stem_dir / "pair_demo__ref2va__diff_span.safetensors",
+                {"vector.post_refiner": v_dir1},
+                {**meta1, "family": "ref2va"},
+            )
+            cv.save_vector(
+                stem_dir / "ref_only_demo__ref2va__diff_span.safetensors",
+                {"vector.post_refiner": v_dir2},
+                {**meta2, "family": "ref2va"},
+            )
+            cv_nodes.folder_paths.folder_names_and_paths[cv_nodes.CONTROL_VECTORS_FOLDER] = (
+                [str(stem_dir)],
+                {".safetensors"},
+            )
+            stem_opts = cv_nodes._vector_stem_options(include_none=True)
+            if stem_opts != ["none", "pair_demo", "ref_only_demo"]:
+                errs.append(f"unexpected _vector_stem_options deduplication: {stem_opts!r}")
+            # Single-family bare stem resolves to existing ref2va file so family mismatch is reported clearly
+            errs += _expect_refusal(
+                lambda: cv_nodes.MiniMaxH3Steer.execute(
+                    model=patcher_with_init, vector="ref_only_demo", strength=1.0
+                ),
+                "cannot apply to loaded model of family",
+                "MiniMaxH3Steer bare stem family mismatch refusal on single-family vector",
+            )
+            # Standalone + chained MiniMaxH3Steer bitwise equivalence with MiniMaxH3ApplyControlVectors
+            (p_steer_1,) = cv_nodes.MiniMaxH3Steer.execute(
+                model=patcher_with_init,
+                vector="pair_demo",
+                strength=1.0,
+                mode="add",
+                target="non_vision",
+            )
+            (loaded_v2_spec,) = cv_nodes.MiniMaxH3LoadControlVector.execute(
+                vector=str(v2_path)
+            )
+            (p_steer_2,) = cv_nodes.MiniMaxH3Steer.execute(
+                model=p_steer_1,
+                vector="none",
+                strength=1.0,
+                mode="add",
+                target="non_vision",
+                custom_vector=loaded_v2_spec,
+            )
+            p_steer_2.invoke_diffusion_model(
+                x_in, t_in, ctx_in, minimax_payload={"text_token_tags": tags}
+            )
+            if dm.last_context is None or not torch.equal(dm.last_context, expected_shifted):
+                errs.append("chained MiniMaxH3Steer did not match MiniMaxH3ApplyControlVectors bitwise")
+
+            # Hold wire bitwise equivalence: Steer(vector='pair_demo', hold_vector=loaded_v2_spec)
+            # vs ApplyControlVectors(v1, add) -> ApplyControlVectors(v2, hold)
+            (p_steer_hold,) = cv_nodes.MiniMaxH3Steer.execute(
+                model=patcher_with_init,
+                vector="pair_demo",
+                strength=1.25,
+                mode="add_norm_matched",
+                target="non_vision",
+                hold_alpha=0.85,
+                hold_vector=loaded_v2_spec,
+            )
+            p_steer_hold.invoke_diffusion_model(
+                x_in, t_in, ctx_in, minimax_payload={"text_token_tags": tags}
+            )
+            ctx_from_steer_hold = dm.last_context.clone()
+            (p_leg_add,) = cv_nodes.MiniMaxH3ApplyControlVectors.execute(
+                model=patcher_with_init,
+                vector_name=str(v1_path),
+                strength=1.25,
+                mode="add_norm_matched",
+                mask="non_vision",
+            )
+            (p_leg_hold,) = cv_nodes.MiniMaxH3ApplyControlVectors.execute(
+                model=p_leg_add,
+                vector_name=str(v2_path),
+                strength=0.85,
+                mode="hold",
+                mask="non_vision",
+            )
+            p_leg_hold.invoke_diffusion_model(
+                x_in, t_in, ctx_in, minimax_payload={"text_token_tags": tags}
+            )
+            if not torch.equal(ctx_from_steer_hold, dm.last_context):
+                errs.append("MiniMaxH3Steer(hold_vector=...) did not match 2-node mode='hold' bitwise")
+
+            # Muted Steer (strength=0.0) with hold_vector after a Steer on a different target must be a clean no-op
+            (p_sound,) = cv_nodes.MiniMaxH3Steer.execute(
+                model=patcher_with_init,
+                vector="pair_demo",
+                strength=1.0,
+                target="non_vision",
+            )
+            (p_muted_second,) = cv_nodes.MiniMaxH3Steer.execute(
+                model=p_sound,
+                vector="pair_demo",
+                strength=0.0,
+                target="scene_only",
+                hold_vector=loaded_v2_spec,
+            )
+            if p_muted_second is p_sound:
+                errs.append("MiniMaxH3Steer(strength=0.0) must still return a cloned model")
+
+            # Refusals on MiniMaxH3Steer, MiniMaxH3LoadControlVector, MiniMaxH3WordVector
+            errs += _expect_refusal(
+                lambda: cv_nodes.MiniMaxH3Steer.execute(
+                    model=patcher_with_init,
+                    vector="pair_demo",
+                    custom_vector=loaded_v2_spec,
+                ),
+                "received both custom_vector and vector=",
+                "MiniMaxH3Steer refusal when both custom_vector and vector != 'none' are passed",
+            )
+            errs += _expect_refusal(
+                lambda: cv_nodes.MiniMaxH3Steer.execute(
+                    model=patcher_with_init,
+                    vector="pair_demo",
+                    mode="project_out",
+                    hold_vector=loaded_v2_spec,
+                ),
+                "hold_vector only applies to additive modes",
+                "MiniMaxH3Steer refusal when hold_vector is wired with mode='project_out'",
+            )
+            errs += _expect_refusal(
+                lambda: cv_nodes.MiniMaxH3LoadControlVector.execute(vector="none"),
+                "requires selecting a control vector",
+                "MiniMaxH3LoadControlVector refusal on vector='none'",
+            )
+            errs += _expect_refusal(
+                lambda: cv_nodes.MiniMaxH3WordVector.execute(words="   "),
+                "requires non-empty 'words'",
+                "MiniMaxH3WordVector refusal on empty words",
+            )
+            if cv_nodes._j_lens.bundle_available():
+                (w_spec,) = cv_nodes.MiniMaxH3WordVector.execute(
+                    words="snow, blizzard",
+                    hold_words="dark",
+                    hold_alpha=0.75,
+                )
+                (p_w_steer,) = cv_nodes.MiniMaxH3Steer.execute(
+                    model=patcher_with_init,
+                    vector="none",
+                    strength=1.5,
+                    target="non_vision",
+                    custom_vector=w_spec,
+                )
+                p_w_steer.invoke_diffusion_model(
+                    x_in, t_in, ctx_in, minimax_payload={"text_token_tags": tags}
+                )
+                ctx_w_steer = dm.last_context.clone()
+                (p_w_leg,) = cv_nodes.MiniMaxH3ApplyControlVectors.execute(
+                    model=patcher_with_init,
+                    vector_name="none",
+                    strength=1.5,
+                    mask="non_vision",
+                    words="snow, blizzard",
+                    hold_words="dark",
+                    hold_alpha=0.75,
+                )
+                p_w_leg.invoke_diffusion_model(
+                    x_in, t_in, ctx_in, minimax_payload={"text_token_tags": tags}
+                )
+                if not torch.equal(ctx_w_steer, dm.last_context):
+                    errs.append("MiniMaxH3WordVector -> MiniMaxH3Steer did not match inline words bitwise")
+
+            # Stream isolation on MiniMaxH3Steer: 'video_only' keeps audio unsteered even on late steps
+            (p_vid_only,) = cv_nodes.MiniMaxH3Steer.execute(
+                model=patcher_av,
+                vector="pair_demo",
+                strength=1.0,
+                mode="add",
+                target="non_vision",
+                streams="video_only",
+            )
+            dm_av.contexts_seen.clear()
+            out_vo = p_vid_only.invoke_diffusion_model(
+                av_x,
+                sched_sigmas[3:4],
+                av_ctx,
+                minimax_payload=caller_payload,
+                transformer_options={"sample_sigmas": sched_sigmas},
+            )
+            if (
+                len(dm_av.contexts_seen) != 2
+                or torch.equal(dm_av.contexts_seen[0], av_ctx)
+                or not torch.equal(dm_av.contexts_seen[1], av_ctx)
+                or float(out_vo[1].abs().sum().item()) != 0.0
+            ):
+                errs.append(f"MiniMaxH3Steer(streams='video_only') failed late-step audio isolation: calls={len(dm_av.contexts_seen)}, out={out_vo}")
+
+            # MiniMaxH3ReleaseReferences standalone (no control vector)
+            (p_rel_ref,) = cv_nodes.MiniMaxH3ReleaseReferences.execute(
+                model=patcher_av,
+                end_percent=0.5,
+                clean_level=0.65,
+            )
+            dm_av.payloads_seen.clear()
+            p_rel_ref.invoke_diffusion_model(
+                av_x,
+                sched_sigmas[0:1] * 1000.0,
+                av_ctx,
+                minimax_payload=caller_payload,
+                transformer_options={"sample_sigmas": sched_sigmas, "sigmas": sched_sigmas[0:1]},
+            )
+            if abs(float(dm_av.payloads_seen[0]["visual_cond_noise_aug"]) - 0.65) > 1e-6:
+                errs.append(f"MiniMaxH3ReleaseReferences early step expected visual_cond_noise_aug=0.65, got {dm_av.payloads_seen[0]['visual_cond_noise_aug']}")
+            dm_av.payloads_seen.clear()
+            p_rel_ref.invoke_diffusion_model(
+                av_x,
+                sched_sigmas[3:4] * 1000.0,
+                av_ctx,
+                minimax_payload=caller_payload,
+                transformer_options={"sample_sigmas": sched_sigmas, "sigmas": sched_sigmas[3:4]},
+            )
+            if len(dm_av.payloads_seen[0].get("cond_video_latents", [])) != 0:
+                errs.append(f"MiniMaxH3ReleaseReferences late step did not drop cond_video_latents: {dm_av.payloads_seen[0]}")
+        finally:
+            if orig_cv_paths_comp is not None:
+                cv_nodes.folder_paths.folder_names_and_paths[
+                    cv_nodes.CONTROL_VECTORS_FOLDER
+                ] = orig_cv_paths_comp
+
         # Wave 2: match_media_pair_geometry, make_control_vector_from_media_pairs, MiniMaxH3MakeMediaControlVector, and CLI make-media
         img_a_raw = torch.rand((2, 90, 160, 3), generator=gen, dtype=torch.float32) * 0.4 + 0.6
         img_b_raw = torch.rand((2, 140, 100, 3), generator=gen, dtype=torch.float32) * 0.4
@@ -4541,6 +4795,8 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
                     overwrite=True,
                 )
                 m_sf = tmp / m_out[0]
+                if not isinstance(m_out[2], cv_nodes.H3VectorSpec) or m_out[2].vector_name != m_out[0]:
+                    errs.append(f"MiniMaxH3MakeMediaControlVector slot 2 expected H3VectorSpec({m_out[0]!r}), got {m_out[2]!r}")
                 if not m_sf.is_file() or not m_sf.with_suffix(".md").is_file():
                     errs.append(f"MiniMaxH3MakeMediaControlVector({m_pool}) did not write .safetensors and .md")
                 else:

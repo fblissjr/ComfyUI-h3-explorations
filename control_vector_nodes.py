@@ -79,10 +79,34 @@ PROMPT_BANK_DIR = REPO_ROOT / "prompt_bank"
 CONTROL_VECTORS_FOLDER = "control_vectors"
 WRAPPER_KEY = "h3_control_vectors"
 MASK_MODES = _spans.INFERENCE_MASK_MODES
+STEER_MODES: tuple[str, ...] = ("add_norm_matched", "add", "project_out")
+STEER_TARGETS: tuple[str, ...] = (
+    "scene_only",
+    "description_only",
+    "look_only",
+    "soundscape_only",
+    "after_dialogue",
+    "non_vision",
+)
+STEER_STREAMS: tuple[str, ...] = ("both", "video_only", "audio_only")
+H3ControlVector = io.Custom("MINIMAX_H3_CONTROL_VECTOR")
 _APPLY_DEFAULTS = {
     **_rules.CONTROL_VECTOR_DEFAULTS,
     **_rules.CONTROL_VECTOR_OPTIONAL_DEFAULTS,
 }
+
+
+@dataclasses.dataclass(frozen=True)
+class H3VectorSpec:
+    """Lazy, family-agnostic vector specification carried over `MINIMAX_H3_CONTROL_VECTOR` wires."""
+
+    kind: str  # "file" or "words"
+    vector_name: str = "none"
+    words: str = ""
+    against_words: str = ""
+    hold_words: str = ""
+    hold_alpha: float = 1.0
+    holds: tuple[tuple[H3VectorSpec, float], ...] = ()
 
 
 def register_control_vectors_folder() -> None:
@@ -106,6 +130,44 @@ def _vector_combo_options() -> list[str]:
         if f.endswith(".safetensors") and not f.replace("\\", "/").startswith("j_lens/")
     )
     return ["none", *files]
+
+
+def _extract_vector_stem_and_family(filename: str) -> tuple[str | None, str | None]:
+    norm = filename.replace("\\", "/")
+    if "/" in norm:
+        return None, None
+    for fam in ("fl2va", "ref2va", "fasth3"):
+        tag = f"__{fam}"
+        if tag in norm:
+            cand = norm.split(tag, 1)[0]
+            if cand and "__" not in cand:
+                return cand, fam
+    return None, None
+
+
+def _vector_stem_options(*, include_none: bool = True) -> list[str]:
+    """Return deduplicated bare vector stems for `MiniMaxH3Steer` / `MiniMaxH3LoadControlVector`.
+
+    Standard `<stem>__<family>__<pooling>[__lora_<hash>].safetensors` files collapse to `<stem>`
+    so every concept appears once and resolves to the loaded checkpoint's family + LoRA sibling
+    at run time. Any custom `.safetensors` file without a `__<family>` tag (or any `(stem, family)`
+    group with multiple distinct pooling/recipe files on disk) also keeps its full filename selectable.
+    """
+    raw_files = [f for f in _vector_combo_options() if f != "none"]
+    by_stem_fam: dict[tuple[str, str], list[str]] = {}
+    entries: set[str] = set()
+    for fname in raw_files:
+        stem, fam = _extract_vector_stem_and_family(fname)
+        if stem is not None and fam is not None:
+            entries.add(stem)
+            by_stem_fam.setdefault((stem, fam), []).append(fname)
+        else:
+            entries.add(fname)
+    for (_stem, _fam), fnames in by_stem_fam.items():
+        if len(fnames) > 1:
+            entries.update(fnames)
+    ordered = sorted(entries)
+    return ["none", *ordered] if include_none else (ordered or ["none"])
 
 
 def _is_minimax_h3(diffusion_model: Any) -> bool:
@@ -1772,16 +1834,17 @@ def resolve_vector_file_path(
     clean_stem = raw[:-len(".safetensors")] if raw.endswith(".safetensors") else raw
     if "__" not in clean_stem and "/" not in clean_stem and "\\" not in clean_stem:
         eff_prefer = True if prefer_lora is None else bool(prefer_lora)
-        for folder in folders:
-            matched = _match_sibling_or_stem_in_dir(
-                folder,
-                clean_stem,
-                preferred_family,
-                preferred_pooling="diff_span",
-                prefer_lora=eff_prefer,
-            )
-            if matched is not None:
-                return matched
+        for fam_try in ((preferred_family, None) if preferred_family is not None else (None,)):
+            for folder in folders:
+                matched = _match_sibling_or_stem_in_dir(
+                    folder,
+                    clean_stem,
+                    fam_try,
+                    preferred_pooling="diff_span",
+                    prefer_lora=eff_prefer,
+                )
+                if matched is not None:
+                    return matched
 
     raise ValueError(
         f"control vector file {vector_name!r} not found in models/{CONTROL_VECTORS_FOLDER}/"
@@ -2100,7 +2163,7 @@ class MiniMaxH3MakeControlVector(io.ComfyNode):
                     tooltip=(
                         "Pair TOML filename under data/control_vectors/ or "
                         "prompt_bank/control_vectors/ (for example 'film_16mm_1974.toml' "
-                        "or 'lettering.toml')."
+                        "or 'lettering.toml'). Ignored when 'words' below is non-empty."
                     ),
                 ),
                 io.Combo.Input(
@@ -2179,6 +2242,8 @@ class MiniMaxH3MakeControlVector(io.ComfyNode):
             outputs=[
                 io.String.Output(display_name="vector_name"),
                 io.String.Output(display_name="report"),
+                # APPENDED 2026-11-11: typed wire into MiniMaxH3Steer.custom_vector / hold_vector.
+                H3ControlVector.Output(display_name="control_vector"),
             ],
             is_output_node=True,
         )
@@ -2238,7 +2303,11 @@ class MiniMaxH3MakeControlVector(io.ComfyNode):
             mode=str(mode or "auto"),
             target_prompt=str(target_prompt or ""),
         )
-        return io.NodeOutput(out_path.name, json.dumps(report, indent=2, sort_keys=True))
+        return io.NodeOutput(
+            out_path.name,
+            json.dumps(report, indent=2, sort_keys=True),
+            H3VectorSpec(kind="file", vector_name=out_path.name),
+        )
 
 
 def _validate_short_edge(short_edge: Any) -> int:
@@ -2703,6 +2772,8 @@ class MiniMaxH3MakeMediaControlVector(io.ComfyNode):
             outputs=[
                 io.String.Output(display_name="vector_name"),
                 io.String.Output(display_name="report"),
+                # APPENDED 2026-11-11: typed wire into MiniMaxH3Steer.custom_vector / hold_vector.
+                H3ControlVector.Output(display_name="control_vector"),
             ],
             is_output_node=True,
         )
@@ -2735,7 +2806,11 @@ class MiniMaxH3MakeMediaControlVector(io.ComfyNode):
             overwrite=bool(overwrite),
             made_by="MiniMaxH3MakeMediaControlVector/1",
         )
-        return io.NodeOutput(out_path.name, json.dumps(report, indent=2, sort_keys=True))
+        return io.NodeOutput(
+            out_path.name,
+            json.dumps(report, indent=2, sort_keys=True),
+            H3VectorSpec(kind="file", vector_name=out_path.name),
+        )
 
 
 class MiniMaxH3ApplyControlVectors(io.ComfyNode):
@@ -2744,8 +2819,12 @@ class MiniMaxH3ApplyControlVectors(io.ComfyNode):
         return io.Schema(
             node_id="MiniMaxH3ApplyControlVectors",
             display_name="MiniMax H3 Apply Control Vectors",
-            category="model/conditioning/minimax",
+            category="model/conditioning/minimax/legacy",
+            is_deprecated=True,
             description=(
+                "Legacy all-in-one control vector node (kept for saved graphs and API workflows; "
+                "for new canvas builds use MiniMaxH3Steer, MiniMaxH3WordVector, "
+                "MiniMaxH3LoadControlVector, and MiniMaxH3ReleaseReferences). "
                 "Applies a post-refiner control vector (<name>__<family>.safetensors under "
                 "models/control_vectors/) to the refined text conditioning via a "
                 "DIFFUSION_MODEL wrapper. Leaves vision rows (tag 0) bitwise untouched by "
@@ -3111,7 +3190,7 @@ class MiniMaxH3ApplyControlVectors(io.ComfyNode):
         against_words=_APPLY_DEFAULTS["against_words"],
         hold_words=_APPLY_DEFAULTS["hold_words"],
         hold_alpha=_APPLY_DEFAULTS["hold_alpha"],
-        fields=None,
+        fields=[],  # noqa: B006 — read-only default matching io.MultiCombo schema default []
     ) -> io.NodeOutput:
         # Ticked fields take the place of `mask`: the selection is itself a mask name (`a+b`).
         if fields:
@@ -3134,6 +3213,818 @@ class MiniMaxH3ApplyControlVectors(io.ComfyNode):
             against_words=str(against_words or ""),
             hold_words=str(hold_words or ""),
             hold_alpha=float(hold_alpha),
+        )
+        return io.NodeOutput(m)
+
+
+def _vector_file_fingerprint(raw_name: str) -> Any:
+    raw = str(raw_name or "").strip()
+    if not raw or raw == "none":
+        return "none"
+    resolved_stats: list[tuple[str, int, int]] = []
+    for pref_fam in (None, "fl2va", "ref2va"):
+        try:
+            full = resolve_vector_file_path(raw, preferred_family=pref_fam, log_swap=False)
+            st = os.stat(full)
+            entry = (str(full), st.st_mtime_ns, st.st_size)
+            if entry not in resolved_stats:
+                resolved_stats.append(entry)
+        except Exception:
+            continue
+    if len(resolved_stats) == 1:
+        return resolved_stats[0]
+    return tuple(resolved_stats) if resolved_stats else raw
+
+
+def _flatten_hold_specs(
+    upstream_holds: Sequence[tuple[H3VectorSpec, float]],
+    extra_hold: H3VectorSpec | None,
+    extra_alpha: float,
+) -> list[tuple[H3VectorSpec, float]]:
+    out: list[tuple[H3VectorSpec, float]] = []
+
+    def _visit(spec: H3VectorSpec, alpha: float) -> None:
+        base_spec = dataclasses.replace(spec, holds=())
+        out.append((base_spec, float(alpha)))
+        for sub_spec, sub_alpha in spec.holds:
+            _visit(sub_spec, float(sub_alpha))
+
+    for h_spec, h_alpha in upstream_holds:
+        _visit(h_spec, float(h_alpha))
+    if extra_hold is not None:
+        _visit(extra_hold, float(extra_alpha))
+    return out
+
+
+def _attach_h3_vector_spec(
+    model: Any,
+    spec: H3VectorSpec,
+    *,
+    strength: float,
+    mode: str,
+    mask: str,
+    start_percent: float,
+    end_percent: float,
+    allow_recipe_mismatch: bool,
+    video_scale: float,
+    audio_scale: float,
+    hold_words_override: str | None = None,
+    hold_alpha_override: float | None = None,
+) -> Any:
+    eff_hold_words = spec.hold_words if hold_words_override is None else hold_words_override
+    eff_hold_alpha = spec.hold_alpha if hold_alpha_override is None else hold_alpha_override
+    if spec.kind == "file":
+        return attach_control_vector(
+            model,
+            spec.vector_name,
+            strength=float(strength),
+            mode=mode,
+            mask=mask,
+            start_percent=float(start_percent),
+            end_percent=float(end_percent),
+            allow_recipe_mismatch=bool(allow_recipe_mismatch),
+            video_scale=float(video_scale),
+            audio_scale=float(audio_scale),
+            split_end_percent=1.0,
+            hold_words=str(eff_hold_words or ""),
+            hold_alpha=float(eff_hold_alpha),
+        )
+    if spec.kind == "words":
+        return attach_control_vector(
+            model,
+            "none",
+            strength=float(strength),
+            mode=mode,
+            mask=mask,
+            start_percent=float(start_percent),
+            end_percent=float(end_percent),
+            allow_recipe_mismatch=bool(allow_recipe_mismatch),
+            video_scale=float(video_scale),
+            audio_scale=float(audio_scale),
+            split_end_percent=1.0,
+            words=str(spec.words or ""),
+            against_words=str(spec.against_words or ""),
+            hold_words=str(eff_hold_words or ""),
+            hold_alpha=float(eff_hold_alpha),
+        )
+    raise ValueError(f"unsupported H3VectorSpec.kind={spec.kind!r}")
+
+
+class MiniMaxH3LoadControlVector(io.ComfyNode):
+    @classmethod
+    def define_schema(cls):
+        return io.Schema(
+            node_id="MiniMaxH3LoadControlVector",
+            display_name="MiniMax H3 Load Control Vector",
+            category="model/conditioning/minimax",
+            description=(
+                "Loads a saved control vector stem from models/control_vectors/ as a family-agnostic "
+                "handle for MiniMaxH3Steer (custom_vector or hold_vector). Family (fl2va / ref2va) "
+                "and LoRA sibling resolution happen automatically when wired to the model in MiniMaxH3Steer."
+            ),
+            inputs=[
+                io.Combo.Input(
+                    "vector",
+                    options=_vector_stem_options(include_none=True),
+                    default="none",
+                    tooltip=(
+                        "Saved control vector stem under models/control_vectors/ (for example "
+                        "'film_16mm_1974' or 'disco_fever'). Select a stem other than 'none'."
+                    ),
+                ),
+                io.String.Input(
+                    "hold_words",
+                    default="",
+                    optional=True,
+                    tooltip=(
+                        "Optional comma-separated single-token nuisance words to project out of "
+                        "this vector on CPU (<2 ms) via J-Lens."
+                    ),
+                ),
+                io.Float.Input(
+                    "hold_alpha",
+                    default=1.0,
+                    min=0.0,
+                    max=2.0,
+                    step=0.05,
+                    optional=True,
+                    tooltip=(
+                        "Projection attenuation weight in [0.0, 2.0] for hold_words and any wired "
+                        "hold_vector (default 1.0)."
+                    ),
+                ),
+                H3ControlVector.Input(
+                    "hold_vector",
+                    optional=True,
+                    tooltip=(
+                        "Optional control vector or word vector to project out alongside this vector "
+                        "when applied in MiniMaxH3Steer."
+                    ),
+                ),
+            ],
+            outputs=[H3ControlVector.Output(display_name="control_vector")],
+        )
+
+    @classmethod
+    def fingerprint_inputs(
+        cls,
+        vector="none",
+        hold_words="",
+        hold_alpha=1.0,
+        **kwargs,
+    ):
+        vec_fp = _vector_file_fingerprint(str(vector or ""))
+        h_str = str(hold_words or "").strip()
+        if not h_str:
+            return vec_fp
+        return (vec_fp, h_str, float(hold_alpha))
+
+    @classmethod
+    def validate_inputs(
+        cls,
+        vector="none",
+        hold_words="",
+        hold_alpha=1.0,
+        **kwargs,
+    ) -> bool | str:
+        raw = str(vector or "").strip()
+        if not raw or raw == "none":
+            return "MiniMaxH3LoadControlVector requires selecting a control vector (got 'none')"
+        try:
+            resolve_vector_file_path(raw, log_swap=False)
+            ha_val = _validate_float_bounds("hold_alpha", hold_alpha, lo=0.0, hi=2.0)
+            h_str = str(hold_words or "").strip()
+            if h_str and _j_lens.bundle_available():
+                _j_lens.synthesize_from_words(h_str, family="fl2va")
+            _ = ha_val
+        except Exception as exc:
+            return str(exc)
+        return True
+
+    @classmethod
+    def execute(
+        cls,
+        vector="none",
+        hold_words="",
+        hold_alpha=1.0,
+        hold_vector=None,
+    ) -> io.NodeOutput:
+        raw = str(vector or "").strip()
+        if not raw or raw == "none":
+            raise ValueError(
+                "MiniMaxH3LoadControlVector requires selecting a control vector (got 'none')"
+            )
+        resolve_vector_file_path(raw, log_swap=False)
+        ha_f = _validate_float_bounds("hold_alpha", hold_alpha, lo=0.0, hi=2.0)
+        h_str = str(hold_words or "").strip()
+        if h_str and _j_lens.bundle_available():
+            _j_lens.synthesize_from_words(h_str, family="fl2va")
+        if hold_vector is not None and not isinstance(hold_vector, H3VectorSpec):
+            raise ValueError(
+                f"hold_vector must be an H3VectorSpec, got {type(hold_vector).__name__}"
+            )
+        holds = ((hold_vector, ha_f),) if hold_vector is not None else ()
+        return io.NodeOutput(
+            H3VectorSpec(
+                kind="file",
+                vector_name=raw,
+                hold_words=h_str,
+                hold_alpha=ha_f,
+                holds=holds,
+            )
+        )
+
+
+class MiniMaxH3WordVector(io.ComfyNode):
+    @classmethod
+    def define_schema(cls):
+        return io.Schema(
+            node_id="MiniMaxH3WordVector",
+            display_name="MiniMax H3 Word Vector (J-Lens)",
+            category="model/conditioning/minimax",
+            description=(
+                "Synthesizes a post-refiner steering direction in <2 ms on CPU from single-token "
+                "concept words via J-Lens, with zero .safetensors build required. Wire into "
+                "MiniMaxH3Steer.custom_vector to steer, or MiniMaxH3Steer.hold_vector to protect "
+                "a concept while another vector pushes."
+            ),
+            inputs=[
+                io.String.Input(
+                    "words",
+                    default="",
+                    tooltip=(
+                        "Comma-separated positive single-token words (for example "
+                        "'blizzard, snowdrift, freezing, snow' or 'cyberpunk, neon'). "
+                        "Auto-matches the loaded model family (fl2va / ref2va) inside MiniMaxH3Steer."
+                    ),
+                ),
+                io.String.Input(
+                    "against_words",
+                    default="",
+                    optional=True,
+                    tooltip=(
+                        "Optional negative words to subtract. Leave empty for neutral baseline, "
+                        "pass '@prompt_subject' (or '@prompt') to auto-extract and subtract the "
+                        "live prompt's medium and subject on Step 0, or pass '@replace_human'."
+                    ),
+                ),
+                io.String.Input(
+                    "hold_words",
+                    default="",
+                    optional=True,
+                    tooltip=(
+                        "Optional comma-separated nuisance words to project out of the synthesized "
+                        "direction on CPU (<2 ms)."
+                    ),
+                ),
+                io.Float.Input(
+                    "hold_alpha",
+                    default=1.0,
+                    min=0.0,
+                    max=2.0,
+                    step=0.05,
+                    optional=True,
+                    tooltip=(
+                        "Projection attenuation weight in [0.0, 2.0] for hold_words and any wired "
+                        "hold_vector (default 1.0)."
+                    ),
+                ),
+                H3ControlVector.Input(
+                    "hold_vector",
+                    optional=True,
+                    tooltip=(
+                        "Optional control vector or word vector to project out alongside this word "
+                        "vector when applied in MiniMaxH3Steer."
+                    ),
+                ),
+            ],
+            outputs=[H3ControlVector.Output(display_name="control_vector")],
+        )
+
+    @classmethod
+    def fingerprint_inputs(
+        cls,
+        words="",
+        against_words="",
+        hold_words="",
+        hold_alpha=1.0,
+        **kwargs,
+    ):
+        return (
+            "words",
+            str(words or "").strip(),
+            str(against_words or "").strip(),
+            str(hold_words or "").strip(),
+            float(hold_alpha),
+        )
+
+    @classmethod
+    def validate_inputs(
+        cls,
+        words="",
+        against_words="",
+        hold_words="",
+        hold_alpha=1.0,
+        **kwargs,
+    ) -> bool | str:
+        w_str = str(words or "").strip()
+        if not w_str:
+            return "MiniMaxH3WordVector requires non-empty 'words'"
+        try:
+            ha_val = _validate_float_bounds("hold_alpha", hold_alpha, lo=0.0, hi=2.0)
+            if _j_lens.bundle_available():
+                _j_lens.synthesize_from_words(
+                    w_str,
+                    str(against_words or "").strip() or None,
+                    family="fl2va",
+                    hold_words=str(hold_words or "").strip() or None,
+                    alpha=ha_val,
+                )
+        except Exception as exc:
+            return str(exc)
+        return True
+
+    @classmethod
+    def execute(
+        cls,
+        words="",
+        against_words="",
+        hold_words="",
+        hold_alpha=1.0,
+        hold_vector=None,
+    ) -> io.NodeOutput:
+        w_str = str(words or "").strip()
+        if not w_str:
+            raise ValueError("MiniMaxH3WordVector requires non-empty 'words'")
+        a_str = str(against_words or "").strip()
+        h_str = str(hold_words or "").strip()
+        ha_f = _validate_float_bounds("hold_alpha", hold_alpha, lo=0.0, hi=2.0)
+        if _j_lens.bundle_available():
+            _j_lens.synthesize_from_words(
+                w_str,
+                a_str or None,
+                family="fl2va",
+                hold_words=h_str or None,
+                alpha=ha_f,
+            )
+        if hold_vector is not None and not isinstance(hold_vector, H3VectorSpec):
+            raise ValueError(
+                f"hold_vector must be an H3VectorSpec, got {type(hold_vector).__name__}"
+            )
+        holds = ((hold_vector, ha_f),) if hold_vector is not None else ()
+        return io.NodeOutput(
+            H3VectorSpec(
+                kind="words",
+                words=w_str,
+                against_words=a_str,
+                hold_words=h_str,
+                hold_alpha=ha_f,
+                holds=holds,
+            )
+        )
+
+
+class MiniMaxH3Steer(io.ComfyNode):
+    @classmethod
+    def define_schema(cls):
+        return io.Schema(
+            node_id="MiniMaxH3Steer",
+            display_name="MiniMax H3 Steer",
+            category="model/conditioning/minimax",
+            description=(
+                "Steers a MiniMax H3 model's refined prompt conditioning using a saved control "
+                "vector stem (or a wired custom_vector from MiniMaxH3WordVector / "
+                "MiniMaxH3LoadControlVector / MiniMaxH3MakeControlVector). Leaves tag-0 vision "
+                "tokens untouched and keeps sequence length L unchanged. Chain multiple "
+                "MiniMaxH3Steer nodes to stack vectors in float64."
+            ),
+            inputs=[
+                io.Model.Input("model"),
+                io.Combo.Input(
+                    "vector",
+                    options=_vector_stem_options(include_none=True),
+                    default="none",
+                    tooltip=(
+                        "Saved control vector stem under models/control_vectors/ (auto-resolves "
+                        "fl2va / ref2va family and LoRA sibling at run time), or 'none' when "
+                        "wiring custom_vector."
+                    ),
+                ),
+                io.Float.Input(
+                    "strength",
+                    default=1.0,
+                    min=-5.0,
+                    max=5.0,
+                    step=0.05,
+                    tooltip=(
+                        "Steering multiplier (1.0 = 67.5 post-refiner shift norm in 'add_norm_matched', "
+                        "one mean-pair-difference in 'add', or full projection removal from prompt rows "
+                        "in 'project_out'; 0.0 is an exact no-op)."
+                    ),
+                ),
+                io.Combo.Input(
+                    "mode",
+                    options=list(STEER_MODES),
+                    default="add_norm_matched",
+                    optional=True,
+                    tooltip=(
+                        "'add_norm_matched' (default) normalizes every vector to 67.5 post-refiner "
+                        "shift norm at strength=1.0 across all pooling modes; 'add' uses raw "
+                        "mean-pair-difference units; 'project_out' removes strength * ((r . v) / ||v||^2) * v "
+                        "from the base prompt rows."
+                    ),
+                ),
+                io.Combo.Input(
+                    "target",
+                    options=list(STEER_TARGETS),
+                    default="scene_only",
+                    optional=True,
+                    tooltip=(
+                        "Preset prompt rows to steer when 'fields' below has none ticked: "
+                        "'scene_only' (default: all visual prose while leaving tag-0 vision, "
+                        "<d> dialogue, soundscape, and music untouched), 'description_only' "
+                        "(events/actions prose), 'look_only' (subject_definitions + summary + "
+                        "visual retention_analysis), 'soundscape_only', 'after_dialogue', or "
+                        "'non_vision' (all text rows)."
+                    ),
+                ),
+                io.MultiCombo.Input(
+                    "fields",
+                    options=list(_spans.PROMPT_FIELDS),
+                    default=[],
+                    optional=True,
+                    tooltip=(
+                        "Tick one or more prompt fields ('subject_definitions', 'summary', "
+                        "'retention_analysis', 'description', 'overall_soundscape', "
+                        "'non_diegetic_music') to steer exactly those fields and override 'target' above."
+                    ),
+                ),
+                io.Float.Input(
+                    "start_percent",
+                    default=0.0,
+                    min=0.0,
+                    max=1.0,
+                    step=0.01,
+                    optional=True,
+                    tooltip=(
+                        "Start of the active step window [start_percent, end_percent) as step_idx / N_steps."
+                    ),
+                ),
+                io.Float.Input(
+                    "end_percent",
+                    default=1.0,
+                    min=0.0,
+                    max=1.0,
+                    step=0.01,
+                    optional=True,
+                    tooltip=(
+                        "End of the active step window [start_percent, end_percent) as step_idx / N_steps."
+                    ),
+                ),
+                io.Combo.Input(
+                    "streams",
+                    options=list(STEER_STREAMS),
+                    default="both",
+                    optional=True,
+                    tooltip=(
+                        "Which generated stream(s) receive this steer: 'both' (default, single DiT pass "
+                        "per step), 'video_only' (steers video and keeps audio unsteered across all active "
+                        "steps; runs 2 DiT passes per active step), or 'audio_only' (steers audio and keeps "
+                        "video unsteered; runs 2 DiT passes per active step)."
+                    ),
+                ),
+                io.String.Input(
+                    "hold_words",
+                    default="",
+                    optional=True,
+                    tooltip=(
+                        "Optional comma-separated single-token nuisance words to project out of this "
+                        "steer on CPU (<2 ms) via J-Lens."
+                    ),
+                ),
+                io.Float.Input(
+                    "hold_alpha",
+                    default=1.0,
+                    min=0.0,
+                    max=2.0,
+                    step=0.05,
+                    optional=True,
+                    tooltip=(
+                        "Projection attenuation weight in [0.0, 2.0] for hold_words and any wired "
+                        "hold_vector (default 1.0)."
+                    ),
+                ),
+                io.Boolean.Input(
+                    "allow_recipe_mismatch",
+                    default=False,
+                    optional=True,
+                    tooltip=(
+                        "When False (default), refuses a saved vector whose checkpoint or LoRA recipe "
+                        "differs from the loaded model's; when True, logs the difference and applies."
+                    ),
+                ),
+                H3ControlVector.Input(
+                    "custom_vector",
+                    optional=True,
+                    tooltip=(
+                        "Optional vector wire from MiniMaxH3WordVector, MiniMaxH3LoadControlVector, "
+                        "MiniMaxH3MakeControlVector, or MiniMaxH3MakeMediaControlVector. Leave 'vector' "
+                        "at 'none' when wired."
+                    ),
+                ),
+                H3ControlVector.Input(
+                    "hold_vector",
+                    optional=True,
+                    tooltip=(
+                        "Optional control vector or word vector whose direction is projected out of the "
+                        "accumulated additive steering shift on the same target rows (leaving the base "
+                        "prompt untouched)."
+                    ),
+                ),
+            ],
+            outputs=[io.Model.Output(display_name="model")],
+        )
+
+    @classmethod
+    def fingerprint_inputs(
+        cls,
+        vector="none",
+        hold_words="",
+        hold_alpha=1.0,
+        **kwargs,
+    ):
+        vec_fp = _vector_file_fingerprint(str(vector or ""))
+        h_str = str(hold_words or "").strip()
+        if not h_str:
+            return vec_fp
+        return (vec_fp, h_str, float(hold_alpha))
+
+    @classmethod
+    def validate_inputs(
+        cls,
+        vector="none",
+        strength=1.0,
+        mode="add_norm_matched",
+        target="scene_only",
+        fields=[],  # noqa: B006
+        start_percent=0.0,
+        end_percent=1.0,
+        streams="both",
+        hold_words="",
+        hold_alpha=1.0,
+        **kwargs,
+    ) -> bool | str:
+        raw = str(vector or "").strip()
+        if raw and raw != "none":
+            try:
+                resolve_vector_file_path(raw, log_swap=False)
+            except Exception as exc:
+                return str(exc)
+        if mode not in STEER_MODES:
+            return f"mode must be one of {STEER_MODES}, got {mode!r}"
+        if streams not in STEER_STREAMS:
+            return f"streams must be one of {STEER_STREAMS}, got {streams!r}"
+        if fields:
+            try:
+                _spans.fields_mask(fields if isinstance(fields, (list, tuple)) else [fields])
+            except ValueError as exc:
+                return str(exc)
+        elif target not in STEER_TARGETS:
+            return f"target must be one of {STEER_TARGETS}, got {target!r}"
+        try:
+            if not math.isfinite(float(strength)):
+                return f"strength must be finite, got {strength!r}"
+            sp_f = _validate_float_bounds("start_percent", start_percent, lo=0.0, hi=1.0)
+            ep_f = _validate_float_bounds("end_percent", end_percent, lo=0.0, hi=1.0)
+            if sp_f > ep_f:
+                return (
+                    f"start_percent and end_percent must satisfy start_percent <= end_percent, "
+                    f"got start_percent={start_percent!r}, end_percent={end_percent!r}"
+                )
+            ha_f = _validate_float_bounds("hold_alpha", hold_alpha, lo=0.0, hi=2.0)
+            h_str = str(hold_words or "").strip()
+            if h_str and _j_lens.bundle_available():
+                _j_lens.synthesize_from_words(h_str, family="fl2va")
+            _ = ha_f
+        except Exception as exc:
+            return str(exc)
+        return True
+
+    @classmethod
+    def execute(
+        cls,
+        model,
+        vector="none",
+        strength=1.0,
+        mode="add_norm_matched",
+        target="scene_only",
+        fields=[],  # noqa: B006 — read-only default matching io.MultiCombo schema default []
+        start_percent=0.0,
+        end_percent=1.0,
+        streams="both",
+        hold_words="",
+        hold_alpha=1.0,
+        allow_recipe_mismatch=False,
+        custom_vector=None,
+        hold_vector=None,
+    ) -> io.NodeOutput:
+        dm = model.get_model_object("diffusion_model")
+        if not _is_minimax_h3(dm):
+            raise ValueError("MiniMaxH3Steer requires a MiniMax H3 diffusion model")
+        if mode not in STEER_MODES:
+            raise ValueError(f"mode must be one of {STEER_MODES}, got {mode!r}")
+        if streams not in STEER_STREAMS:
+            raise ValueError(f"streams must be one of {STEER_STREAMS}, got {streams!r}")
+        if fields:
+            eff_mask = _spans.fields_mask(fields if isinstance(fields, (list, tuple)) else [fields])
+            logger.info(
+                "[h3] MiniMaxH3Steer: using ticked fields -> mask=%s (overriding target=%r)",
+                eff_mask,
+                target,
+            )
+        else:
+            if target not in STEER_TARGETS:
+                raise ValueError(f"target must be one of {STEER_TARGETS}, got {target!r}")
+            eff_mask = target
+
+        s_val = float(strength)
+        if not math.isfinite(s_val):
+            raise ValueError(f"strength must be finite, got {strength!r}")
+        sp_f = _validate_float_bounds("start_percent", start_percent, lo=0.0, hi=1.0)
+        ep_f = _validate_float_bounds("end_percent", end_percent, lo=0.0, hi=1.0)
+        if sp_f > ep_f:
+            raise ValueError(
+                f"start_percent and end_percent must satisfy 0.0 <= start_percent <= end_percent <= 1.0, "
+                f"got start_percent={start_percent!r}, end_percent={end_percent!r}"
+            )
+        ha_f = _validate_float_bounds("hold_alpha", hold_alpha, lo=0.0, hi=2.0)
+        node_hold_words = str(hold_words or "").strip()
+
+        if hold_vector is not None and not isinstance(hold_vector, H3VectorSpec):
+            raise ValueError(
+                f"hold_vector must be an H3VectorSpec, got {type(hold_vector).__name__}"
+            )
+
+        raw_vec = str(vector or "").strip()
+        if custom_vector is not None:
+            if not isinstance(custom_vector, H3VectorSpec):
+                raise ValueError(
+                    f"custom_vector must be an H3VectorSpec, got {type(custom_vector).__name__}"
+                )
+            if raw_vec and raw_vec != "none":
+                raise ValueError(
+                    f"MiniMaxH3Steer received both custom_vector and vector={raw_vec!r}; "
+                    "set vector='none' when wiring custom_vector, or chain a second "
+                    "MiniMaxH3Steer node to stack two vectors"
+                )
+            primary_spec = custom_vector
+        else:
+            if not raw_vec or raw_vec == "none":
+                if node_hold_words or hold_vector is not None:
+                    raise ValueError(
+                        "MiniMaxH3Steer: hold_words and hold_vector require vector != 'none' "
+                        "or a wired custom_vector"
+                    )
+                return io.NodeOutput(model.clone())
+            primary_spec = H3VectorSpec(kind="file", vector_name=raw_vec)
+
+        wired_holds = _flatten_hold_specs(primary_spec.holds, hold_vector, ha_f)
+        eff_hold_words = primary_spec.hold_words
+        eff_hold_alpha = primary_spec.hold_alpha
+        if node_hold_words:
+            if not primary_spec.hold_words:
+                eff_hold_words = node_hold_words
+                eff_hold_alpha = ha_f
+            elif abs(float(primary_spec.hold_alpha) - ha_f) <= 1e-9 or mode == "project_out":
+                eff_hold_words = f"{primary_spec.hold_words}, {node_hold_words}"
+            else:
+                wired_holds.append((H3VectorSpec(kind="words", words=node_hold_words), ha_f))
+
+        if mode == "project_out" and wired_holds:
+            raise ValueError(
+                "MiniMaxH3Steer: hold_vector only applies to additive modes "
+                "('add_norm_matched' or 'add'), not mode='project_out' "
+                "(use hold_words to orthogonalize the vector before removing it from the prompt)"
+            )
+
+        if streams == "video_only":
+            v_scale, a_scale = 1.0, 0.0
+        elif streams == "audio_only":
+            v_scale, a_scale = 0.0, 1.0
+        else:
+            v_scale, a_scale = 1.0, 1.0
+
+        m = _attach_h3_vector_spec(
+            model,
+            primary_spec,
+            strength=s_val,
+            mode=mode,
+            mask=eff_mask,
+            start_percent=sp_f,
+            end_percent=ep_f,
+            allow_recipe_mismatch=bool(allow_recipe_mismatch),
+            video_scale=v_scale,
+            audio_scale=a_scale,
+            hold_words_override=eff_hold_words,
+            hold_alpha_override=eff_hold_alpha,
+        )
+        for h_spec, h_alpha in wired_holds:
+            eff_h_strength = 0.0 if s_val == 0.0 else float(h_alpha)
+            m = _attach_h3_vector_spec(
+                m,
+                h_spec,
+                strength=eff_h_strength,
+                mode="hold",
+                mask=eff_mask,
+                start_percent=sp_f,
+                end_percent=ep_f,
+                allow_recipe_mismatch=bool(allow_recipe_mismatch),
+                video_scale=v_scale,
+                audio_scale=a_scale,
+            )
+        return io.NodeOutput(m)
+
+
+class MiniMaxH3ReleaseReferences(io.ComfyNode):
+    @classmethod
+    def define_schema(cls):
+        return io.Schema(
+            node_id="MiniMaxH3ReleaseReferences",
+            display_name="MiniMax H3 Release References",
+            category="model/conditioning/minimax",
+            description=(
+                "Controls when and how cleanly visual reference, keyframe, or guide-latent "
+                "conditioning rows ('ref_img' / 'cond') hold the render. Independent of control "
+                "vectors: works on plain prompts, MiniMaxH3EditGuider, and MiniMaxH3Steer alike."
+            ),
+            inputs=[
+                io.Model.Input("model"),
+                io.Float.Input(
+                    "end_percent",
+                    default=1.0,
+                    min=0.0,
+                    max=1.0,
+                    step=0.01,
+                    tooltip=(
+                        "Fraction of steps [0.0, end_percent) where clean 3D Video VAE visual "
+                        "conditioning rows ('ref_img' / 'cond') remain packed in the DiT sequence "
+                        "(default 1.00 keeps them on every step). Lowering to 0.35-0.50 lets early "
+                        "steps lock identity and composition from <Picture 1> while freeing later "
+                        "steps to change wardrobe, props, or environment without dropping speaker/audio "
+                        "references or shifting 3D RoPE."
+                    ),
+                ),
+                io.Float.Input(
+                    "clean_level",
+                    default=0.999,
+                    min=0.0,
+                    max=1.0,
+                    step=0.001,
+                    optional=True,
+                    tooltip=(
+                        "Cleanliness share of the reference picture on the steps where it is held "
+                        "(core's visual_cond_noise_aug; default 0.999 is an almost clean picture). "
+                        "Lower values mix noise into the visual condition rows, clamped at "
+                        "max(clean_level, stream_time) so condition rows are never noisier than "
+                        "their timestep label. Across chained nodes, the lowest end_percent and "
+                        "clean_level win."
+                    ),
+                ),
+            ],
+            outputs=[io.Model.Output(display_name="model")],
+        )
+
+    @classmethod
+    def validate_inputs(
+        cls,
+        end_percent=1.0,
+        clean_level=0.999,
+        **kwargs,
+    ) -> bool | str:
+        try:
+            _validate_float_bounds("end_percent", end_percent, lo=0.0, hi=1.0)
+            _validate_float_bounds("clean_level", clean_level, lo=0.0, hi=1.0)
+        except Exception as exc:
+            return str(exc)
+        return True
+
+    @classmethod
+    def execute(
+        cls,
+        model,
+        end_percent=1.0,
+        clean_level=0.999,
+    ) -> io.NodeOutput:
+        dm = model.get_model_object("diffusion_model")
+        if not _is_minimax_h3(dm):
+            raise ValueError("MiniMaxH3ReleaseReferences requires a MiniMax H3 diffusion model")
+        ep_f = _validate_float_bounds("end_percent", end_percent, lo=0.0, hi=1.0)
+        cl_f = _validate_float_bounds("clean_level", clean_level, lo=0.0, hi=1.0)
+        m = attach_control_vector(
+            model,
+            "none",
+            ref_vae_end_percent=ep_f,
+            ref_vae_aug=cl_f,
         )
         return io.NodeOutput(m)
 
