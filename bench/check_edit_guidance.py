@@ -149,6 +149,14 @@ def check_guider_arithmetic() -> None:
                 else:
                     out.append(comfy.nested_tensor.NestedTensor((torch.full((2,), 3.0), torch.full((3,), 20.0))))
             return out
+        lshapes = getattr(model, "latent_shapes", None)
+        if lshapes is not None and len(lshapes) >= 2:
+            out = []
+            for c in conds:
+                v_val, a_val = (1.0, 10.0) if c[0]["which"] == "original" else (3.0, 20.0)
+                packed, _ = comfy.utils.pack_latents([torch.full(lshapes[0], v_val), torch.full(lshapes[1], a_val)])
+                out.append(packed)
+            return out
         return [torch.full((2,), 1.0 if c[0]["which"] == "original" else 3.0) for c in conds]
 
     comfy.samplers.calc_cond_batch = fake
@@ -203,6 +211,25 @@ def check_guider_arithmetic() -> None:
         ok("pure guide-differential (identical text, 0 vs K keyframes) hands over to 1-pass [original] after last_step even under streams='video_only'",
            run_av(g_kf_vo, 1) == (4.2, 10.0) and seen == [["original", "edited"]]
            and run_av(g_kf_vo, 3) == (1.0, 10.0) and seen == [["original"]])
+
+        class _PackedInnerModel:
+            latent_shapes = [torch.Size([1, 24, 2, 4, 4]), torch.Size([1, 32, 2, 5])]
+
+        def run_packed_av(g, step=0):
+            seen.clear()
+            g.inner_model = _PackedInnerModel()
+            x_packed, lshapes = comfy.utils.pack_latents([torch.zeros(l) for l in _PackedInnerModel.latent_shapes])
+            res = g.predict_noise(x_packed, sig[step:step + 1], opts)
+            v, a = comfy.utils.unpack_latents(res, lshapes)
+            return round(float(v.flatten()[0]), 5), round(float(a.flatten()[0]), 5)
+
+        g_p_vo = _guider(1.6, first_step=0, last_step=2, streams="video_only")
+        g_p_ao = _guider(1.8, first_step=0, last_step=2, streams="audio_only")
+        g_p_ind = _guider(1.85, first_step=0, last_step=2, streams="independent", audio_scale=1.0)
+        ok("packed CFGGuider.sample latents (inner_model.latent_shapes) isolate video_only, audio_only, and independent",
+           run_packed_av(g_p_vo, 1) == (4.2, 10.0) and seen == [["original", "edited"]]
+           and run_packed_av(g_p_ao, 1) == (1.0, 28.0) and seen == [["original", "edited"]]
+           and run_packed_av(g_p_ind, 1) == (4.7, 20.0) and seen == [["original", "edited"]])
         ok("NestedTensor streams='independent' with scale=1.0, audio_scale=1.0 short-circuits to 1-pass [edited]",
            run_av(_guider(1.0, streams="independent", audio_scale=1.0)) == (3.0, 20.0) and seen == [["edited"]])
         ok("single-stream tensor with streams='audio_only' short-circuits to 1-pass [original]",

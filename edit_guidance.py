@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import copy
 import logging
+import math
 from typing import Any
 
 import comfy.nested_tensor
@@ -205,7 +206,14 @@ class EditGuider(comfy.samplers.CFGGuider):
             eff_a = 0.0 if self.edit_audio_scale == 0.0 else 1.0
         else:
             eff_v, eff_a = self.edit_scale, self.edit_audio_scale
-        has_audio = bool(getattr(x, "is_nested", False)) and len(x.unbind()) == 2
+        is_nested = bool(getattr(x, "is_nested", False)) and len(x.unbind()) == 2
+        latent_shapes = getattr(self.inner_model, "latent_shapes", None)
+        packed_split = (
+            math.prod(latent_shapes[0][1:])
+            if (not is_nested and latent_shapes is not None and len(latent_shapes) >= 2)
+            else None
+        )
+        has_audio = is_nested or (packed_split is not None)
         if not has_audio:
             eff_a = eff_v
         if eff_v == 0.0 and eff_a == 0.0:
@@ -219,6 +227,12 @@ class EditGuider(comfy.samplers.CFGGuider):
             v_out = v0 if eff_v == 0.0 else (v1 if eff_v == 1.0 else v0 + (v1 - v0) * eff_v)
             a_out = a0 if eff_a == 0.0 else (a1 if eff_a == 1.0 else a0 + (a1 - a0) * eff_a)
             return comfy.nested_tensor.NestedTensor((v_out, a_out))
+        if eff_v != eff_a and packed_split is not None and torch.is_tensor(out[0]) and out[0].shape[-1] > packed_split:
+            v0, a0 = out[0][..., :packed_split], out[0][..., packed_split:]
+            v1, a1 = out[1][..., :packed_split], out[1][..., packed_split:]
+            v_out = v0 if eff_v == 0.0 else (v1 if eff_v == 1.0 else v0 + (v1 - v0) * eff_v)
+            a_out = a0 if eff_a == 0.0 else (a1 if eff_a == 1.0 else a0 + (a1 - a0) * eff_a)
+            return torch.cat((v_out, a_out), dim=-1)
         return out[0] + (out[1] - out[0]) * eff_v
 
 
