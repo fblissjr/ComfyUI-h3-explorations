@@ -423,11 +423,9 @@ share one GPU session with the full 64-layer weights.
 - **Decides.** Gives each reader a pass rate on our own vectors and becomes the yardstick for experiments 3
   and 5. Today the comparison in plan section 20.1 is a person reading two columns.
 - **Cannot see.** Whether the render shows the concept. It scores naming, not effect.
-- **First run, 2026-11-12.** Recorded in
+- **Two runs, 2026-11-12.** Recorded in
   [`../../../bench/results/2026-11-12_control_vector_readout_blind_score.md`](../../../bench/results/2026-11-12_control_vector_readout_blind_score.md).
-  Both readers named most vectors and the controls behaved, but with random distractors the J-Lens words leave
-  too little room for a better reader to show. The option lists need the nearest concepts as distractors
-  before this is a yardstick.
+  Section 13 says what they change in this plan.
 
 ### Experiment 2: how much of each vector can the words see?
 
@@ -534,3 +532,34 @@ share one GPU session with the full 64-layer weights.
   could not read.
 - Model names are given as the posts write them.
 - The digest was first published as a private page; this file is the record.
+
+## 13. After experiment 1: what changes in the plan
+
+Added the same day, after two runs of experiment 1. The counts are in
+[`../../../bench/results/2026-11-12_control_vector_readout_blind_score.md`](../../../bench/results/2026-11-12_control_vector_readout_blind_score.md);
+nothing here restates them.
+
+- **Experiment 1 is not finished.** Against random options both readers named most vectors, which left too
+  little room to rank a better reader. Against each vector's nearest concepts there is room, but those
+  option lists leak: a judge with no readout picked the target far above chance, because the target is the
+  one option the others were all chosen to resemble. The next version gives every member of a group of near
+  concepts the same list (the record, section 6.3). The random-direction twin held in both runs and stays.
+- **Experiment 1 scores the vector and the reader together.** Several misses are between vectors that
+  overlap, where a faithful reader would also be unsure. So the same harness has a second use that was not
+  in the plan: checking whether a vector is distinct from its neighbors, and whether a hold makes it so,
+  before any render. Section 5.3 of `2026-11-06_j_lens_and_refiner_jacobian.md` shows a cross-vector hold
+  changing a readout in just this way; the harness would turn that into a count.
+- **Experiments 3 and 5 keep their place, with a narrower target.** The J-Lens words separate most vectors
+  from their neighbors and fail on a few groups (the record, section 6.6). Those groups are where a
+  multi-token or more specific readout has something to add, and they are the test set for both experiments.
+- **Experiment 3 has a sharper measure.** The rows table's weakness against near concepts is picking the
+  neighbor on the neighbor's own words. Whitening is aimed at shared directions, so its test is whether those
+  wrong picks fall, not whether more vectors are named.
+- **Experiment 2 moves to second place, ahead of experiment 3.** Naming mostly works, so the larger open
+  question is whether the part the words name is the part the DiT responds to. One pair of vectors written
+  as nearly the same concept reads alike and yet is far apart as vectors (the record, section 6.6), which
+  is the kind of case experiment 2's split would explain.
+- **Experiments 4 and 6 are unchanged.**
+- **A later step for experiment 1.** A naming score can saturate. The version that does not is the post's
+  steer-and-match test (section 6), a judge matching a readout to one of several renders. It costs renders,
+  so it follows experiment 2.

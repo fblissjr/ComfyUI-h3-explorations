@@ -1,4 +1,4 @@
-# Control-vector readouts scored blind: J-Lens words and the rows table, first run (2026-11-12)
+# Control-vector readouts scored blind: J-Lens words and the rows table, two runs (2026-11-12)
 
 lane: control
 
@@ -9,9 +9,10 @@ The first run of experiment 1 of
 (section 11). A judge that sees only a vector's readout picks that vector's concept out of five. The judging
 format and the controls are WorkspaceBench's (the same page, section 8.1).
 
-This run is a throwaway. Its two scripts have no check and live beside their outputs in the untracked folder
-`data/control_vectors/readout_score_2026-11-12/` (`build_packets.py`, `score.py`). The counts below are what
-`score.py` printed; `results.json` in that folder holds them.
+Both runs are throwaways. Their scripts have no check and live beside their outputs in the untracked folders
+`data/control_vectors/readout_score_2026-11-12/` (sections 1 to 5) and
+`data/control_vectors/readout_score_2026-11-12_nearest/` (section 6): `build_packets.py` and `score.py` in
+each. The counts below are what `score.py` printed; `results.json` in each folder holds them.
 
 ## 1. What was run
 
@@ -112,3 +113,87 @@ shuffle (`operatic_bellow`'s readout judged as `pyro_klaxon_audio`, on "roar" an
   case experiments 3 and 5 of the plan are aimed at.
 - Before this harness can rank a new reader against `jlens`, the option lists need to be harder: the nearest
   concepts by vector cosine as distractors, the way the benchmark uses same-category distractors.
+
+## 6. Second run: the nearest concepts as options
+
+Run the same day, at the owner's word, to give a better reader room to show.
+
+### 6.1 What changed
+
+- **Readouts.** None were recomputed. Every word list was copied from the first run's packets, so the two
+  runs differ only in the options and in the `shuffle` source.
+- **Options.** The target's `quality` line and those of its four nearest other vectors, by cosine of
+  `vector.post_refiner`. `key.json` in the run folder records each cosine.
+- **`shuffle`.** The readout of the fifth-nearest vector: the nearest concept that is not among the options.
+- **Judges.** As before, with new packets. Every packet came back complete.
+
+### 6.2 Counts
+
+Options only, no readout: the target was picked for 23 of 46 vectors.
+
+| Reader | Vectors | `real`: target | `real`: cannot tell | `real`: another option | `twin`: target | `shuffle`: target |
+|---|---:|---:|---:|---:|---:|---:|
+| `jlens` | 46 | 31 | 12 | 3 | 0 | 2 |
+| `rows` | 46 | 21 | 9 | 16 | 0 | 3 |
+
+On `twin` items the judges answered "cannot tell" for 45 of 46 with each reader. The two readers on the same
+vector, `real` items: both named it for 17, `jlens` only for 14, `rows` only for 4, neither for 11.
+
+### 6.3 The option lists leak the target
+
+A judge given the options and nothing else picked the target for half the vectors, where a uniform pick
+expects about 9 of 46. The benchmark's leakage standard (the plan page, section 8.1) asks that such a guesser
+stay close to uniform, so this option design fails it. The judge reported leaning on which options looked
+like near-duplicates of each other: the target is the one option the other four were all chosen to resemble.
+
+The readout judges did not use this. With a random direction's words in front of them they picked the
+target for no vector. So the `real` counts above are not inflated by the leak, but a harness that ever forces
+a pick would be.
+
+The repair is to give every member of a group the same list: groups of mutually near concepts, one option
+list per group, each member the target once. A list then says nothing about which member is asked for.
+
+### 6.4 Where the misses went
+
+`jlens`, another option (three vectors, all to `vhs_1991_camcorder`):
+
+| Vector | Words quoted for the pick |
+|---|---|
+| `cursed_cctv` | corrupted, outdated, unstable, shaky |
+| `film_16mm_1974` | tape |
+| `film_16mm_1974_neutral` | amateur, shaky |
+
+`jlens`, cannot tell (twelve): `auctioneer_rapid_patter`, `bioluminescent_glow`, `claymation_stopmotion`,
+`elastic_neck_stretch`, `felt_muppet`, `pyro_chain_explosions`, `pyro_klaxon_audio`, `summer_beachwear`,
+`underwater_submerged`, `wes_anderson_symmetry`, `wind_tunnel_gale`, `zero_gravity`.
+
+`rows`, another option (sixteen). Eight went to the nearest distractor. The picks were made on words that
+belong to the neighbor: `underwater_submerged` was read as `bioluminescent_glow` from the pieces "bi",
+"olum", "ines", "cent"; `cursed_cctv` and both film vectors as `vhs_1991_camcorder` from "HS", "-video",
+"tape", "cassette"; `claymation_stopmotion`, `felt_muppet` and `wes_anderson_symmetry` as `rubber_hose_1930s`
+from "cartoon", "pie", "ose".
+
+`shuffle` items that went to the target: `balloon_head_inflate`'s readout was taken for `head_swell` with
+both readers; `operatic_bellow`'s for `pyro_klaxon_audio` (`jlens`); `handheld_documentary_zoom`'s for
+`chaos_panic` and `auctioneer_rapid_patter`'s for `wind_tunnel_gale` (`rows`).
+
+### 6.5 What the second run cannot see
+
+Everything in section 4 still holds, and one thing more:
+
+- **Whether a miss is the reader's or the vector's.** The film and VHS vectors have a high cosine with each
+  other (`key.json`), and `2026-11-06_j_lens_and_refiner_jacobian.md` section 5.2 already records the 16mm
+  direction mixing in tape. A reader that reports a vector faithfully will confuse two vectors that overlap.
+  This harness scores the vector and the reader together.
+
+### 6.6 Readings, not findings
+
+- With near concepts as options the `jlens` words leave fifteen vectors unnamed, so there is room for a
+  better reader. The misses fall in a few groups: old video (16mm, VHS, CCTV), puppet and cartoon looks,
+  loud chaotic energy, and underwater or glowing scenes.
+- The rows table does not just say less than `jlens` here; it says the neighbor's words. That is the
+  borrowing the simplification plan's section 20.1 describes, counted.
+- `head_swell` and `balloon_head_inflate` are written as nearly the same concept and their readouts pass for
+  each other, yet the second is only the fifth-nearest vector to the first. The words the two share are a
+  small part of each vector.
+
