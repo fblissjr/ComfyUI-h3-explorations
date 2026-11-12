@@ -608,3 +608,56 @@ nothing here restates them.
 - **A later step for experiment 1.** A naming score can saturate. The version that does not is the post's
   steer-and-match test (section 6), a judge matching a readout to one of several renders. It costs renders,
   so it follows experiment 2.
+
+## 14. What would be done differently, knowing this
+
+Written at the end of the day this page covers. What the work was for is at the top of this page: to see what
+the chain lens offers the steering and J-Lens work here.
+
+### 14.1 What would change
+
+- **Build the thing the post is about sooner.** No multi-token readout was built. After experiment 1 named
+  the vectors the words cannot tell apart, the next step should have been experiment 3, which needs only the
+  CPU. Experiment 2 was ranked ahead of it and the day followed that thread, then the shared direction, then
+  a batch of new vectors. Each step was reasonable and together they left the original question open.
+- **Run the cheapest control first.** Experiment 1's second option design leaked the answer to a judge with
+  no readout. That was found after seven judges had run. One no-readout judge first would have caught it.
+- **Check that a paper's measure means something here before planning renders around it.** Experiment 2's
+  split came straight from the J-lens paper and was written into the plan with a render attached. Its
+  baselines, run before any render, showed it fits a random direction as well as a real vector. The
+  baselines should have been part of the plan's wording, not a rescue.
+- **Do not render a vector that has not been seen to work on that kind of shot.** `head_swell` was picked
+  for experiment 2 with the risk named in advance, and three of eight renders told nothing.
+- **Rewrite the plan as one current plan when it changes.** Section 13 was amended after each result and
+  now reads as a history. Sections 11 and 13 should be folded into one list of what is next.
+- **Trim the reading notes before they are shared more widely.** The four files under
+  `2026-11-12_chain_lens_refs/` were written by subagents and not checked line by line. They are labelled
+  so, and they are long. A shorter page of only what this plan uses would be easier to stand behind.
+- **One judge model and one seed sit under most of what was measured.** A second judge model for
+  experiment 1, and a second seed for any render that will be argued from, were both cheap and neither was
+  done.
+
+### 14.2 What would stay
+
+- Reading the sources whole and checking the machine before believing a route was open. The safetensors
+  headers settled that the H3 encoder has no MTP head (section 10).
+- A control beside every measurement. Three times it stopped a wrong conclusion: options that were too easy,
+  options that leaked, and a split that fit anything.
+- Throwaway scripts first, a tracked tool with a check only once the design had held
+  (`bench/control_vector_readout_score.py`).
+- Records that say what they cannot see.
+
+### 14.3 What the day changed for the original question
+
+- The chain lens cannot run on H3 as published, and the route that can is known: the encoder's own upper
+  layers, in the full weights (experiment 5).
+- There is now a way to tell whether a new reader is better, and a named set of vectors to try it on
+  (section 13).
+- A third to a half of every vector is a direction its whole batch shares, more under the current build
+  method than under the older one
+  ([`2026-11-12_new_vectors_three_ways.md`](2026-11-12_new_vectors_three_ways.md), section 3.2). Any readout
+  that names "the vector" is partly naming that, and any new reader has to be judged with it in mind.
+
+The same question for the batch of new vectors and its renders is section 10 of
+[`2026-11-12_new_vectors_three_ways.md`](2026-11-12_new_vectors_three_ways.md).
+

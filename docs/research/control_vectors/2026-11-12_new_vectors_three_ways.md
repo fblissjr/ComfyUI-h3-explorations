@@ -279,3 +279,57 @@ In each `exp4_<name>_three_ways_stacked.mp4`, rows two to four are the vector, t
 - **Sound.** Not looked at.
 - **Anything about these vectors on `ref2va`.** Only the `fl2va` files were built.
 - **What the J-Lens words would have been on the older bundle.**
+
+## 10. What would be done differently, knowing this
+
+Written the same day, after the clips were made and before most were judged. It is about how this batch was
+run, not about what the clips show.
+
+### 10.1 The vectors
+
+- **Read the whole build card before rendering, not only the words.** Each card prints how well a vector's
+  pairs agree and the range it calls healthy. Five of the eight were below that range (section 3). Only the
+  readout words were read first, and they looked right. A vector whose pairs disagree should be rebuilt or
+  set aside before a render is spent on it.
+- **Look at how the build method makes its contrast before using it.** A bare phrase compiles into pairs
+  with a few neutral words on one side and a long phrase on the other, against the same few neutral phrases
+  every time (section 3). That is where the batch's large shared part comes from (section 3.2). It was found
+  after the vectors were built. A real plain side, written for each concept and about as long as the concept
+  side ("clear dry weather with bare pavements" against the blizzard), over more scenes than five, would
+  have been a fairer build.
+- **Keep trial vectors out of the bank's folder under plain names.** The eight sit in
+  `<comfy>/models/control_vectors/` beside the bank and look like any other vector in the node's list. They
+  are untested and several are weak. A prefix that marks them as trials, or removing them once the clips
+  were made, would have been better. Whether to keep, rename or remove them is the owner's.
+
+### 10.2 The renders
+
+- **Find a working setting on one vector before running eight.** Every vector got one try at the node's
+  defaults (section 4). The wiki's own recipes use a higher strength and a shorter window for a change of
+  world. One vector taken through strength, target and window first would have shown what setting to use, or
+  that none works. Eight concepts at one setting taught less than two concepts at five settings would have.
+- **Give edit guidance the arm that tests what it is for.** It was run with `first_step = 0`, where it and a
+  plain rewrite do nearly the same thing, and their stills look alike (section 8.2). The arm that holds the
+  original take, `first_step = 1`, was left out, so the comparison says "words in the prompt beat this
+  vector" and says little about edit guidance itself.
+- **Change one thing between neighboring arms.** Vector against rewrite differs in the method, in where the
+  concept comes from (five other scenes against this scene), and in settings that were never matched. A
+  ladder in which each step changes one of those is the design the second lead proposed afterwards, and it
+  is the better one.
+- **Fit the edit to the concept.** For the three style concepts the phrase was added in front of
+  "Live-action, cinematic", which contradicts it, and no method showed the concept (section 8.2). The clash
+  was kept for a like-for-like comparison with the vectors' pairs, which had it too. The better answer was to
+  fix it in both: replace that clause for a style concept, in the pairs and in the edit.
+- **Use more than one seed for anything that will be argued from.** A guess that the tortoise's harness
+  came and went with the seed was made from one seed and was wrong on three (section 8.1).
+
+### 10.3 What held up
+
+- Rendering the plain rewrite beside edit guidance. Without it the edit-guidance clips would have been read
+  as showing what edit guidance adds.
+- Keeping the prompt, seed, length and graph fixed across every batch, so any clip stacks against any other.
+- Writing down every input each clip was made with, and what the stills cannot say.
+
+The same question for the day as a whole is section 14 of
+[`2026-11-12_chain_lens_digest_and_experiment_plan.md`](2026-11-12_chain_lens_digest_and_experiment_plan.md).
+
