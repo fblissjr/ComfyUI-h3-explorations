@@ -70,8 +70,10 @@ import logging
 from comfy_api.latest import io
 
 try:
+    from .guide_latent import validate_audio_keyframe_spans
     from .h3_rules import describe_length
 except ImportError:  # pragma: no cover
+    from guide_latent import validate_audio_keyframe_spans  # type: ignore[no-redef]
     from h3_rules import describe_length  # type: ignore[no-redef]
 
 logger = logging.getLogger(__name__)
@@ -186,9 +188,11 @@ class MiniMaxH3Preflight(io.ComfyNode):
         # only because a render was already queued; a static check would
         # not have found it, because the break is in a call into upstream.
         def _make_layout(c, d):
+            kfs = d.get("minimax_keyframes")
+            validate_audio_keyframe_spans(kfs, caller="MiniMaxH3Preflight")
             return PackedLayout(
                 c.shape[1], latent_t, lat_h, lat_w, audio_t,
-                keyframes=d.get("minimax_keyframes"),
+                keyframes=kfs,
                 refs=d.get("minimax_refs"),
             )
 

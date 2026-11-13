@@ -5743,6 +5743,14 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
                 except ValueError as exc:
                     if "audio_end_percent" not in str(exc):
                         errs.append(f"unexpected MiniMaxH3ImageModel audio_end_percent refusal: {exc}")
+                try:
+                    cv_nodes.MiniMaxH3ReleaseReferences.execute(
+                        img_patcher, end_percent=1.0, clean_level=0.999, video_end_percent=0.5
+                    )
+                    errs.append("MiniMaxH3ReleaseReferences failed to refuse video_end_percent < 1.0 on MiniMaxH3ImageModel")
+                except ValueError as exc:
+                    if "video_end_percent" not in str(exc):
+                        errs.append(f"unexpected MiniMaxH3ImageModel video_end_percent refusal: {exc}")
 
                 img_rel = cv_nodes.MiniMaxH3ReleaseReferences.execute(
                     img_patcher, end_percent=0.5, clean_level=0.999
@@ -5855,6 +5863,126 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
                     errs.append(
                         f"_project_encoder_vector_to_h3_image TokenRefiner fallback failed: ndims={strict_dm.seen_ndims}, shape={tuple(proj_fb.shape)}"
                     )
+
+                # Selective `<Video N>` release (`video_end_percent=0.50` while `end_percent=1.0`):
+                # Keeps `<Picture N>` (`kind="image"`), visual `cond` keyframes, `<Audio N>`, and
+                # `<Video+Audio N>`'s `ref_audio` active while dropping only `<Video N>` / `<Video+Audio N>`
+                # `ref_img` segments and their exact `cond_video_latents` entries without shifting 3D RoPE.
+                from comfy.ldm.minimax.model import PackedLayout
+
+                class _CaptureAVDM(dm.__class__):
+                    def __init__(self):
+                        torch.nn.Module.__init__(self)
+                        self.condition_proj = dm.condition_proj
+                        self.token_refiner = dm.token_refiner
+                        self.seen_payloads: list[dict] = []
+
+                    def run_step(self, x, timestep, context, transformer_options={}, **kwargs):
+                        self.seen_payloads.append(dict(kwargs.get("minimax_payload") or {}))
+                        return x
+
+                cap_dm = _CaptureAVDM()
+                cap_patcher = _MockPatcher(cap_dm, ckpt_path)
+                vid_rel_patcher = cv_nodes.MiniMaxH3ReleaseReferences.execute(
+                    cap_patcher,
+                    end_percent=1.0,
+                    clean_level=0.999,
+                    audio_end_percent=0.50,
+                    audio_clean_level=1.0,
+                    video_end_percent=0.50,
+                ).args[0]
+
+                kf_vis_lat = torch.full((1, 24, 1, 4, 4), 11.0)
+                kf_aud_lat = torch.full((1, 32, 2, 6), 12.0)
+                pic1_lat = torch.full((1, 24, 1, 4, 4), 21.0)
+                vid1_lat = torch.full((1, 24, 3, 4, 4), 31.0)
+                va2_lat = torch.full((1, 24, 2, 4, 4), 41.0)
+                va2_aud = torch.full((1, 32, 2, 5), 42.0)
+                aud1_lat = torch.full((1, 32, 2, 4), 51.0)
+                pic2_lat = torch.full((1, 24, 1, 4, 4), 61.0)
+
+                mixed_kfs = [
+                    {"resolved_frame_index": 0, "latent": kf_vis_lat},
+                    {"resolved_frame_index": 12, "audio_latent": kf_aud_lat},
+                ]
+                mixed_refs = [
+                    {"kind": "image", "latent_t": 1, "latent_h": 4, "latent_w": 4, "latent": pic1_lat},
+                    {"kind": "audio", "ref_audio_t": 4, "audio_latent": aud1_lat},
+                    {"kind": "video", "latent_t": 3, "latent_h": 4, "latent_w": 4, "ref_audio_t": 0, "latent": vid1_lat},
+                    {
+                        "kind": "video_audio",
+                        "latent_t": 2,
+                        "latent_h": 4,
+                        "latent_w": 4,
+                        "ref_audio_t": 5,
+                        "latent": va2_lat,
+                        "audio_latent": va2_aud,
+                    },
+                    {"kind": "image", "latent_t": 1, "latent_h": 4, "latent_w": 4, "latent": pic2_lat},
+                ]
+                orig_lay = PackedLayout(6, 4, 4, 4, 10, keyframes=mixed_kfs, refs=mixed_refs)
+                base_mixed_payload = {
+                    "keyframes": mixed_kfs,
+                    "refs": mixed_refs,
+                    "cond_video_latents": [kf_vis_lat, pic1_lat, vid1_lat, va2_lat, pic2_lat],
+                    "cond_audio_latents": [kf_aud_lat, aud1_lat, va2_aud],
+                    "layout": orig_lay,
+                    "text_token_tags": torch.ones((1, 6), dtype=torch.long),
+                }
+                x_av_vid = torch.zeros((1, 24, 4, 4, 4), dtype=torch.float32)
+                x_av_aud = torch.zeros((1, 32, 2, 10), dtype=torch.float32)
+                ctx_av = torch.ones((1, 6, cv.POST_REFINER_DIM), dtype=torch.float32)
+                sched6 = torch.tensor([1.0, 0.97, 0.92, 0.80, 0.57, 0.33, 0.0], dtype=torch.float32)
+
+                # Step 1 (frac = 1/6 < 0.50): nothing released
+                vid_rel_patcher.invoke_diffusion_model(
+                    [x_av_vid, x_av_aud],
+                    torch.tensor([970.0]),
+                    ctx_av,
+                    {"sample_sigmas": sched6, "sigmas": torch.tensor([0.97])},
+                    minimax_payload=base_mixed_payload,
+                )
+                # Step 3 (frac = 3/6 = 0.50 >= 0.50): <Video 1>, <Video+Audio 2> ref_img, and cond_audio dropped; <Picture 1/2> + cond + ref_audio kept!
+                vid_rel_patcher.invoke_diffusion_model(
+                    [x_av_vid, x_av_aud],
+                    torch.tensor([800.0]),
+                    ctx_av,
+                    {"sample_sigmas": sched6, "sigmas": torch.tensor([0.80])},
+                    minimax_payload=base_mixed_payload,
+                )
+                if len(cap_dm.seen_payloads) != 2:
+                    errs.append(f"expected 2 captured AV payloads, got {len(cap_dm.seen_payloads)}")
+                else:
+                    p_early, p_late = cap_dm.seen_payloads
+                    if len(p_early.get("cond_video_latents") or ()) != 5:
+                        errs.append(f"step 1 unexpectedly altered cond_video_latents len={len(p_early.get('cond_video_latents') or ())}")
+                    late_vlats = p_late.get("cond_video_latents") or []
+                    if len(late_vlats) != 3 or not (
+                        late_vlats[0] is kf_vis_lat and late_vlats[1] is pic1_lat and late_vlats[2] is pic2_lat
+                    ):
+                        errs.append(f"step 3 selective video_end_percent sliced wrong cond_video_latents: {[float(t.flatten()[0]) for t in late_vlats]}")
+                    late_alats = p_late.get("cond_audio_latents") or []
+                    if len(late_alats) != 2 or not (late_alats[0] is aud1_lat and late_alats[1] is va2_aud):
+                        errs.append(f"step 3 selective release sliced wrong cond_audio_latents: {[float(t.flatten()[0]) for t in late_alats]}")
+                    late_refs = p_late.get("refs") or []
+                    if [r.get("kind") for r in late_refs] != ["image", "audio", "audio", "image"]:
+                        errs.append(f"step 3 kept_refs kinds mismatch: {[r.get('kind') for r in late_refs]}")
+                    late_lay = p_late.get("layout")
+                    # Dropped rows: cond_audio (6*2=12) + vid1 ref_img (3*4=12) + va2 ref_img (2*4=8) = 32 rows
+                    if getattr(late_lay, "seq_len", None) != orig_lay.seq_len - 32:
+                        errs.append(
+                            f"step 3 selective layout seq_len={getattr(late_lay, 'seq_len', None)} != expected {orig_lay.seq_len - 32}"
+                        )
+                    if getattr(late_lay, "signature", None) != orig_lay.signature:
+                        errs.append("step 3 selective layout changed signature")
+                    # Target video segment is last in both layouts and MUST keep identical 3D RoPE position_ids
+                    orig_vid_seg = orig_lay.segments[-1]
+                    late_vid_seg = late_lay.segments[-1]
+                    if not torch.equal(
+                        orig_lay.position_ids[orig_vid_seg[0] : orig_vid_seg[1]],
+                        late_lay.position_ids[late_vid_seg[0] : late_vid_seg[1]],
+                    ):
+                        errs.append("step 3 video_end_percent shifted target video 3D RoPE position_ids")
 
     return errs
 

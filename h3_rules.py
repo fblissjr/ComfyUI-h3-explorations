@@ -331,6 +331,7 @@ RELEASE_REFERENCES_DEFAULTS = dict(
     clean_level=0.999,
     audio_end_percent=1.0,
     audio_clean_level=1.0,
+    video_end_percent=1.0,
 )
 
 #: `MiniMaxH3WordVector` schema defaults (`control_vector_nodes.py`).

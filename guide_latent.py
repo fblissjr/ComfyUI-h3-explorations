@@ -131,6 +131,43 @@ def _validate_av_latent(latent: dict) -> tuple[torch.Tensor, torch.Tensor]:
     return samples.tensors[0], samples.tensors[1]
 
 
+def validate_audio_keyframe_spans(
+    keyframes: list[dict] | tuple[dict, ...] | None,
+    *,
+    caller: str = "MiniMaxH3GuideLatent",
+) -> None:
+    """Refuse overlapping 1D Audio VAE RoPE spans across `minimax_keyframes`.
+
+    In `comfy/ldm/minimax/model.py::PackedLayout`, each audio-bearing keyframe places
+    `rt = audio_latent.shape[-1]` tokens along `[start_t, start_t + rt)` relative to
+    the post-reference cursor, where `start_t = FRAME_RESCALE * resolved_frame_index`.
+    Overlapping intervals assign duplicate 1D temporal RoPE positions to two separate
+    `cond_audio` islands.
+    """
+    spans: list[tuple[int, float, float, int]] = []
+    for kf in keyframes or ():
+        if not isinstance(kf, dict):
+            continue
+        aud = kf.get("audio_latent")
+        if aud is None or not hasattr(aud, "shape"):
+            continue
+        rt = int(aud.shape[-1])
+        if rt <= 0:
+            continue
+        f_idx = int(kf["resolved_frame_index"])
+        t0 = float(FRAME_RESCALE) * f_idx
+        t1 = t0 + float(rt)
+        for prev_f, prev_t0, prev_t1, prev_rt in spans:
+            if max(prev_t0, t0) < min(prev_t1, t1) - 1e-6:
+                raise ValueError(
+                    f"{caller}: overlapping audio guide islands in 1D Audio VAE RoPE — "
+                    f"frame_idx={prev_f} ({prev_rt} tok, t_a=[{prev_t0:.2f}, {prev_t1:.2f})) "
+                    f"collides with frame_idx={f_idx} ({rt} tok, t_a=[{t0:.2f}, {t1:.2f})); "
+                    f"merge close cues into one audio island or space them by >= {math.ceil(prev_rt / FRAME_RESCALE)} frames"
+                )
+        spans.append((f_idx, t0, t1, rt))
+
+
 class MiniMaxH3GuideLatent(io.ComfyNode):
     """Attach a guide video/image (and optional mask or audio) to `minimax_keyframes`."""
 
@@ -316,6 +353,7 @@ class MiniMaxH3GuideLatent(io.ComfyNode):
             )
 
         keyframes = list(positive[0][1].get("minimax_keyframes", [])) + added_keyframes
+        validate_audio_keyframe_spans(keyframes, caller="MiniMaxH3GuideLatent")
         out_positive = node_helpers.conditioning_set_values(
             positive, {"minimax_keyframes": keyframes}
         )
@@ -324,6 +362,7 @@ class MiniMaxH3GuideLatent(io.ComfyNode):
             edited_keyframes = (
                 list(edited_positive[0][1].get("minimax_keyframes", [])) + added_keyframes
             )
+            validate_audio_keyframe_spans(edited_keyframes, caller="MiniMaxH3GuideLatent")
             out_edited = node_helpers.conditioning_set_values(
                 edited_positive, {"minimax_keyframes": edited_keyframes}
             )

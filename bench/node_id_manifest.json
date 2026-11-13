@@ -741,7 +741,8 @@
       "end_percent",
       "clean_level",
       "audio_end_percent",
-      "audio_clean_level"
+      "audio_clean_level",
+      "video_end_percent"
     ],
     "node_id": "MiniMaxH3ReleaseReferences",
     "outputs": [

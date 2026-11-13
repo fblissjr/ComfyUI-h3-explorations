@@ -283,6 +283,50 @@ def check_refusals() -> None:
         "expects a MiniMax H3 AV latent",
     )
 
+    # Overlapping 1D Audio VAE RoPE spans across chained audio keyframes must raise ValueError
+    # in both MiniMaxH3GuideLatent.execute and MiniMaxH3Preflight.execute, whereas touching
+    # non-overlapping spans pass cleanly.
+    avae = _DummyAudioVAE()
+    lat124 = _av_latent(320, 192, 29, 207)  # 124 frames, 207 audio tokens
+    # 0.25s = 8000 samples @ 32kHz -> 10 tokens ([40.0, 50.0) at frame_idx=24)
+    aud_10tok = {"waveform": torch.zeros((1, 2, 8000)), "sample_rate": 32000}
+    # 0.20s = 6400 samples @ 32kHz -> 8 tokens ([50.0, 58.0) at frame_idx=30, [95.0, 103.0) at frame_idx=57)
+    aud_8tok = {"waveform": torch.zeros((1, 2, 6400)), "sample_rate": 32000}
+
+    p1 = MiniMaxH3GuideLatent.execute(
+        positive=pos, latent=lat124, frame_idx=24, audio=aud_10tok, audio_vae=avae
+    )
+    # Exact back-to-back boundary: [40.0, 50.0) followed by frame_idx=30 -> [50.0, 58.0) passes
+    p2_ok = MiniMaxH3GuideLatent.execute(
+        positive=p1.args[0], latent=p1.args[1], frame_idx=30, audio=aud_8tok, audio_vae=avae
+    )
+    MiniMaxH3Preflight.execute(conditioning=p2_ok.args[0], samples=p2_ok.args[1])
+
+    # Colliding island: frame_idx=54 (8 tok -> [90.0, 98.0)) + frame_idx=57 (8 tok -> [95.0, 103.0))
+    p54 = MiniMaxH3GuideLatent.execute(
+        positive=pos, latent=lat124, frame_idx=54, audio=aud_8tok, audio_vae=avae
+    )
+    _assert_refuses(
+        lambda: MiniMaxH3GuideLatent.execute(
+            positive=p54.args[0], latent=p54.args[1], frame_idx=57, audio=aud_8tok, audio_vae=avae
+        ),
+        "overlapping audio guide islands",
+    )
+    bad_cond = [[
+        pos[0][0],
+        {
+            **pos[0][1],
+            "minimax_keyframes": [
+                {"resolved_frame_index": 54, "audio_latent": torch.ones((1, 32, 2, 8))},
+                {"resolved_frame_index": 57, "audio_latent": torch.ones((1, 32, 2, 8))},
+            ],
+        },
+    ]]
+    _assert_refuses(
+        lambda: MiniMaxH3Preflight.execute(conditioning=bad_cond, samples=lat124),
+        "overlapping audio guide islands",
+    )
+
 
 def check_shipped_guide_graphs() -> None:
     vid_path = REPO / "workflows" / "h3_guide_video_edit_api.json"
