@@ -93,7 +93,7 @@ Full per-check history, 2026-08-23 amendments, and `"claims block"` notes are sh
 | [`docs/wiki/ops/checks/index_12.md`](checks/index_12.md) | `check_assemble_delivery.py` .. `check_sweep_loads.py` (8 rows) |
 | [`docs/wiki/ops/checks/index_13.md`](checks/index_13.md) | `check_plate_restore.py` .. `check_dit_prefix_attention.py` (26 rows) |
 | [`docs/wiki/ops/checks/index_14.md`](checks/index_14.md) | `measure_dit_prefix_attention.py` .. `build_prompt_bank.py` (23 rows) |
-| [`docs/wiki/ops/checks/index_15.md`](checks/index_15.md) | `masked_code_map.py` .. `smoke_h3.py` (9 rows) |
+| [`docs/wiki/ops/checks/index_15.md`](checks/index_15.md) | `masked_code_map.py` .. `smoke_h3.py` (14 rows) |
 
 | check | defends | needs | claims block |
 |---|---|---|---|
@@ -290,6 +290,7 @@ Full per-check history, 2026-08-23 amendments, and `"claims block"` notes are sh
 | `check_config_names.py` | that every h3_config name a tracked Python file reads is one workflows/h3_config.py defines... ([detail](checks/index_15.md)) | no CUDA | yes |
 | `check_lane_db.py` | that bench/lane_db/, the lane's record in SQLite, keeps its schema's rules, refuses a field no mapping line covers, and gives back the files it was built from... ([detail](checks/index_15.md)) | no CUDA | no |
 | `check_sound_and_sprite_nodes.py` | that MiniMaxH3SoundCues merges close cues onto non-overlapping 40 Hz RoPE spans over a -28 dBFS floor and MiniMaxH3AppendSpriteTrajectory decouples (x, y) from facing polarity without upscaling 384x224... ([detail](checks/index_15.md)) | no CUDA | yes |
+| `check_image_studio.py` | that the standalone H3-Image Studio (`app/test_app.py`) passes all 24 offline Tier 1 contract, security, workflow-parity, and `execution.validate_prompt` checks against live pack schemas ([detail](checks/index_15.md)) | `app/test_app.py`, no CUDA | yes |
 | `replay_cranium_references.py` | 3-way replay of all cranium references ([detail](checks/index_15.md)) | no CUDA | no |
 | `preflight_graph.py` | not a gate ([detail](checks/index_15.md)) | no CUDA | no |
 | `smoke_h3.py` | the H3 chain composes and runs... ([detail](checks/index_15.md)) | live ComfyUI... | no |

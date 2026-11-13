@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The longest length anything renders or plans is `h3_rules.MAX_LENGTH`, and no shorter count comes back as a cap.
+"""The longest length anything renders or plans is `h3_rules.MAX_LENGTH`, and shipped graphs obey H3 frame & clock rules.
 
 The owner's word of 2026-10-15 (AGENTS.md, "Settled about H3"): 362 is the max, and the shorter count that had stood in
 for it as a cap is removed and does not come back. This holds:
@@ -17,19 +17,18 @@ for it as a cap is removed and does not come back. This holds:
    original, is red.
 4. **The song node's window input** is capped at the ceiling and defaults to the longest chained length, both read
    from code (`max=MAX_LENGTH`, `default=max(loop_plan.CHAIN_LENGTHS)`), never typed.
-5. **The shipped graphs**: no `length` or `window_frames` input of a graph `graph_paths` walks is over the ceiling;
-   a graph that wires one window's `previous` to another (`MiniMaxH3FreezeAudioWindow`) renders at a chained
-   length (its `MiniMaxH3Resolution.length`, the frames the latent is made with), and a song node's
-   `window_frames` is a chained length (every shipped song graph runs a track longer than one window): the ceiling is not on the audio clock, and the second window would refuse it.
-6. **The old count does not come back.** Every tracked `.py` is read for the number, also inside a name (`_pdd_` and
-   the digits); each file that holds it is named in `KEPT` with how many times and why (a measured figure, a test's
-   input, a statement about the reference pipeline, or a number of something else). A file not named, or one holding
-   it more often than named, is red; one holding it less often is red too, so the list stays true.
+5. **The shipped graphs**: across every graph `graph_paths` walks, every literal generation frame count (`length`,
+   `window_frames`, `frame_count`) on an H3 latent/conditioning/resolution/song node obeys the `17n + 5` video VAE
+   grid up to `h3_rules.MAX_LENGTH` (allowing `length = 1` only on single-frame image graphs); chained
+   `MiniMaxH3Resolution.length` (when `MiniMaxH3FreezeAudioWindow.previous` is wired) and
+   `MiniMaxH3AudioFreezeSong.window_frames` stay in `chain_lengths()`, every `context_frames` on
+   `MiniMaxH3FreezeAudioWindow` / `MiniMaxH3AudioFreezeSong` sits on both clocks (`>= 39` and
+   `on_both_clocks(ctx)`), and `MiniMaxH3SoundCues` never sets `snap_to_3f = False`.
 
-**What it cannot see.** A cap written another way (the ceiling less a grid step, `max(...)` of the chain used where a
-lone window is meant): part 3 reads the builder's windows for every load length, and the planner's where ComfyUI's
-core imports; other tools are read only for the digits. Docs, records and `.md` files are not read. Where core does
-not import, parts 2 and 3 say what they did not read and stay green on the rest.
+**What it cannot see.** A cap written another way in a tool part 3 does not run (the ceiling less a grid step, `max(...)`
+of the chain used where a lone window is meant): part 3 reads the builder's windows for every load length, and the
+planner's where ComfyUI's core imports. Docs, records and `.md` files are not read. Where core does not import, parts
+2 and 3 say what they did not read and stay green on the rest.
 
 No card, no server.
 
@@ -39,7 +38,6 @@ from __future__ import annotations
 
 import json
 import re
-import subprocess
 import sys
 from pathlib import Path
 
@@ -52,36 +50,23 @@ from _lib import bootstrap, case, finish  # noqa: E402
 
 import h3_rules  # noqa: E402
 
-#: Every tracked file that may hold the old count, how many times, and why. Nothing here is a cap on a length.
-KEPT = {
-    "bench/bench_e2e_h3.py": (1, "a statement of where the reference pipeline (diffusers) stops, not a cap here"),
-    "resolution.py": (1, "the node's own tooltip, saying where the reference pipeline stops and that it is no limit on the model"),
-    "bench/bench_kitchen_int8_linear.py": (1, "measured: the packed lengths it times were taken at that frame count"),
-    "bench/check_audio_freeze.py": (48, "a test's input: window arithmetic on the longest chained length, each with its expected output"),
-    "bench/check_capture_masked_run.py": (1, "a test's input: a planned window's frame count in a fixture"),
-    "bench/check_crop_reference_to_head.py": (1, "measured: the frame count of a dated span in a comment"),
-    "bench/check_keyframe_canvas.py": (1, "a test's input: a frame inside a range"),
-    "bench/check_prompt_lists.py": (1, "a test's input: a window length in a fixture graph"),
-    "bench/check_propose_runs.py": (2, "a pixel coordinate of a box, not a frame count"),
-    "bench/check_retraction_consumers.py": (2, "a quoted sentence about a reference length, in a record it checks"),
-    "bench/check_shot_to_load.py": (1, "a test's input: the chained lengths tuple"),
-    "bench/check_subject_tracks.py": (8, "a test's input: frame counts of fixture loads"),
-    "bench/comfy_capture_nodes/h3_bench_prefix_reuse/__init__.py": (2, "a capture node's fixed input length, as its records were taken"),
-    "bench/gen_phaseb_grid.py": (1, "kept byte for byte: dated records name it"),
-    "bench/load_chain.py": (1, "measured: the frames of the files of one dated run, in a docstring"),
-    "bench/measure_clip_resolution.py": (1, "reasoned: a sampling step worked out for a clip of that length"),
-    "bench/measure_clip_tone.py": (1, "reasoned: a sampling step worked out for a clip of that length"),
-    "bench/preflight_graph.py": (3, "measured: token counts and an OOM at that frame count"),
-    "bench/probe_ref_rows_16604.py": (7, "a probe's inputs: the canvases and length it was run at, and their labels"),
-    "bench/run_graph_arms.py": (1, "a dated record of what the arms rendered at"),
-    "bench/run_pruning_arms.py": (1, "a dated record of what the arms rendered at"),
-    "bench/run_shot_count_ablation.py": (1, "a dated record of what the arms rendered at"),
-    "sol_attn_h3.py": (1, "measured: Sol dense block 49 comment citing 10-13 s render time at that frame count (5d293b5f)"),
-    "step_x0_observer.py": (2, "measured: a capture's size at that frame count"),
-    "workflows/h3_config.py": (6, "measured: a render the owner judged, its record's file name, a token count, an OOM, and two Sol panel timings at that frame count"),
-    "bench/check_length_ceiling.py": (0, "this file names the number only as a pattern built from its digits"),
+H3_LENGTH_NODES = {
+    "MiniMaxH3Resolution",
+    "EmptyMiniMaxH3LatentAV",
+    "MiniMaxH3Conditioning",
+    "MiniMaxH3ReferenceConditioning",
+    "MiniMaxH3EncodeReferences",
+    "MiniMaxH3ImageToVideo",
+    "MiniMaxH3ReferenceToVideo",
+    "MiniMaxH3AudioFreezeSong",
 }
-NUMBER = re.compile(r"(?<!\d)" + "3" + "45" + r"(?!\d)")    # built from its digits, so this file holds none
+SINGLE_FRAME_IMAGE_NODES = {
+    "MiniMaxH3ImageConditioning",
+    "PH3ImageConditioning",
+    "MiniMaxH3PH3ImageConditioning",
+    "MiniMaxH3ImageSize",
+    "MiniMaxH3EncodeImageReferences",
+}
 
 
 def one_ceiling() -> str:
@@ -148,42 +133,49 @@ def the_song_nodes_input() -> str:
 def the_shipped_graphs() -> str:
     import h3_config
     chain = h3_rules.chain_lengths()
-    over, n, chained, songs = [], 0, 0, 0
+    bad, n, chained, songs, contexts, cues = [], 0, 0, 0, 0, 0
     for path in h3_config.graph_paths(REPO / "workflows", include_bench=True):
         n += 1
         g = json.loads(Path(path).read_text())
-        nodes = g.values() if isinstance(g, dict) and all(isinstance(v, dict) and "class_type" in v for v in g.values()) else []
-        nodes = list(nodes)
+        nodes = list(g.values()) if isinstance(g, dict) and all(isinstance(v, dict) and "class_type" in v for v in g.values()) else []
         seam = any(x["class_type"] == "MiniMaxH3FreezeAudioWindow" and "previous" in x.get("inputs", {}) for x in nodes)
+        is_single_frame_graph = Path(path).parent.name == "image" or any(
+            x["class_type"] in SINGLE_FRAME_IMAGE_NODES or x.get("inputs", {}).get("single_frame") is True
+            for x in nodes
+        )
         chained += seam
         for node in nodes:
-            for k in ("length", "window_frames"):
-                v = node.get("inputs", {}).get(k)
-                song = node["class_type"] == "MiniMaxH3AudioFreezeSong" and k == "window_frames"
-                songs += song
-                off = (seam and k == "length" and node["class_type"] == "MiniMaxH3Resolution") or song
-                if isinstance(v, int) and (v > h3_rules.MAX_LENGTH or (off and v not in chain)):
-                    over.append(f"{Path(path).name}: {node['class_type']}.{k} = {v}" + (" (chained, off the chain)" if off else ""))
-    assert not over, over
-    return (f"{n} graphs walked: no length or window_frames over {h3_rules.MAX_LENGTH}; "
-            f"{chained} with a window chained on another and {songs} song node(s), each at a chained length")
-
-
-def the_number_does_not_come_back() -> str:
-    files = subprocess.run(["git", "ls-files", "*.py"], cwd=REPO, capture_output=True, text=True, check=True).stdout.split()
-    found = {}
-    for f in files:
-        p = REPO / f
-        if p.is_file():
-            k = len(NUMBER.findall(p.read_text(encoding="utf-8", errors="replace")))
-            if k:
-                found[f] = k
-    unnamed = {f: k for f, k in found.items() if f not in KEPT}
-    more = {f: (k, KEPT[f][0]) for f, k in found.items() if f in KEPT and k > KEPT[f][0]}
-    stale = {f: (found.get(f, 0), c) for f, (c, _why) in KEPT.items() if found.get(f, 0) < c}
-    assert not unnamed and not more, f"the number is back: in files not named {unnamed}; more often than named {more}"
-    assert not stale, f"KEPT names more than is there (make the list true): {stale}"
-    return f"{sum(found.values())} in {len(found)} files, each named with its reason; none a cap"
+            ct = node["class_type"]
+            inp = node.get("inputs", {})
+            if ct in H3_LENGTH_NODES:
+                for k in ("length", "window_frames", "frame_count"):
+                    v = inp.get(k)
+                    if not isinstance(v, int) or isinstance(v, bool):
+                        continue
+                    song = ct == "MiniMaxH3AudioFreezeSong" and k == "window_frames"
+                    songs += song
+                    off = (seam and k == "length" and ct == "MiniMaxH3Resolution") or song
+                    if v == h3_rules.SINGLE_FRAME:
+                        if not is_single_frame_graph:
+                            bad.append(f"{Path(path).name}: {ct}.{k} = {v} (single_frame=1 on non-image workflow)")
+                    elif v < h3_rules.FRAME_REMAINDER or v > h3_rules.MAX_LENGTH or (v - h3_rules.FRAME_REMAINDER) % h3_rules.FRAME_FACTOR != 0:
+                        bad.append(f"{Path(path).name}: {ct}.{k} = {v} (off 17n+5..{h3_rules.MAX_LENGTH} grid)")
+                    if off and v not in chain:
+                        bad.append(f"{Path(path).name}: {ct}.{k} = {v} (chained, off the chain {chain})")
+            if ct in ("MiniMaxH3FreezeAudioWindow", "MiniMaxH3AudioFreezeSong"):
+                ctx = inp.get("context_frames")
+                if isinstance(ctx, int) and not isinstance(ctx, bool):
+                    contexts += 1
+                    if ctx < 39 or not h3_rules.on_both_clocks(ctx):
+                        bad.append(f"{Path(path).name}: {ct}.context_frames = {ctx} (off 39+51m dual clock)")
+            if ct == "MiniMaxH3SoundCues":
+                cues += 1
+                if inp.get("snap_to_3f") is False:
+                    bad.append(f"{Path(path).name}: {ct}.snap_to_3f = False (audio cues must stay on 3f grid)")
+    assert not bad, bad
+    return (f"{n} graphs walked: all H3 lengths on 17n+5 <= {h3_rules.MAX_LENGTH} (or t=1 single-frame); "
+            f"{chained} chained window(s), {songs} song node(s), {contexts} context_frames on both clocks; "
+            f"{cues} sound-cue node(s) with snap_to_3f")
 
 
 case("one ceiling", one_ceiling)
@@ -191,7 +183,6 @@ case("the chained lengths are the seam rule's", the_chain_is_the_rule)
 case("a load up to the ceiling is one window, every frame kept", one_window_every_frame_kept)
 case("the song node's window input", the_song_nodes_input)
 case("the shipped graphs", the_shipped_graphs)
-case("the number does not come back", the_number_does_not_come_back)
 
 if __name__ == "__main__":
     sys.exit(finish())

@@ -692,9 +692,7 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
         continue_from = str(continue_from or "").strip()
         if continue_from:
             loop_resume.check_window_latent(continue_from)      # here, so a preview's plan refuses a wrong file too
-        pad_before = int(source.get("pad_before", 0)) if source is not None and n_windows == 1 and not continue_from else 0
-        pad_after = int(source.get("pad_after", 0)) if source is not None and n_windows == 1 and not continue_from else 0
-        head = context_frames if continue_from else pad_before
+        pad_before, pad_after, head = loop_plan.song_head_and_padding(context_frames, continue_from, source, n_windows)
         total = loop_plan.frames_covered([w.frames for w in windows], context_frames)
         # context frames across a cut are held copies of the shot's edge frame (`video_mask.hold_context`); the model
         # hears silence under them, as it heard under frames held past a track's end before 2026-10-21. The track

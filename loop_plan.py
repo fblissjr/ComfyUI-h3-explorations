@@ -51,6 +51,7 @@ from __future__ import annotations
 
 import math
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass
 
 from comfy.ldm.minimax.model import FRAME_PER_TOKEN
@@ -332,6 +333,27 @@ def frames_kept(covered: int, track_seconds: float) -> int:
     track, on a whole frame (`loop_output.join_and_mux` says why not in the join).
     """
     return min(int(covered), track_frames(track_seconds))
+
+
+def song_head_and_padding(
+    context_frames: int,
+    continue_from: str,
+    source: Mapping[str, object] | None,
+    n_windows: int,
+) -> tuple[int, int, int]:
+    """(pad_before, pad_after, head) for MiniMaxH3AudioFreezeSong.
+
+    Single-window cold runs honour `source['pad_before']` and `source['pad_after']`
+    (held context frames around a short masked cut); `continue_from` or multi-window
+    runs ignore source padding, and `head` is `context_frames` when continuing else
+    `pad_before`.
+    """
+    cf = str(continue_from or "").strip()
+    single_cold = source is not None and int(n_windows) == 1 and not cf
+    pad_before = int(source.get("pad_before", 0)) if single_cold else 0
+    pad_after = int(source.get("pad_after", 0)) if single_cold else 0
+    head = int(context_frames) if cf else pad_before
+    return pad_before, pad_after, head
 
 
 def frames_written(lengths: list[int], context_frames: int, kept: int, head: int = 0) -> list[int]:

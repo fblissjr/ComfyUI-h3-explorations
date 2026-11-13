@@ -8,7 +8,7 @@ this file is only a way to find a script by what it says it does.
 
 | group | scripts |
 |---|---|
-| [`check_*`](#check) | 169 |
+| [`check_*`](#check) | 170 |
 | [`measure_*`](#measure) | 37 |
 | [`analyze_*`](#analyze) | 18 |
 | [`grade_*`](#grade) | 19 |
@@ -79,13 +79,14 @@ this file is only a way to find a script by what it says it does.
 | [`check_h3_image.py`](check_h3_image.py) | MiniMax-H3-Image: the release-to-ComfyUI layout, the size rule and the shipped graphs' chain. |
 | [`check_head_reference.py`](check_head_reference.py) | `bench/head_reference.py` against a face whose every line is known by construction, read from the files it wrote. |
 | [`check_head_tube_parts.py`](check_head_tube_parts.py) | Check head_tube_parts: SAM 3.1 head tube gating, temporal seg smoothing, and 39-point face cross-check. |
+| [`check_image_studio.py`](check_image_studio.py) | Run the standalone H3-Image Studio Tier 1 offline suite (`app/test_app.py`) under `--cpu`. |
 | [`check_imports.py`](check_imports.py) | Static AST check over tracked root `*.py` and `bench/*.py` (`C61` item 2a). |
 | [`check_inspect_mask_steps.py`](check_inspect_mask_steps.py) | Deterministic check for `bench/inspect_mask_steps.py` across all eight forensic categories `[0]`–`[7]`, multi-window `(1, 4, 4, 4, 4)` cadence, face-only vs. hair+face subjects, sub-span offsets, and `--strips` rendering. |
 | [`check_inventory.py`](check_inventory.py) | Check `bench/inventory.py` on synthetic records (`done`, `partial`, `nothing laid`, `not seen`) and CLI refusals. |
 | [`check_keyframe_canvas.py`](check_keyframe_canvas.py) | Keyframe geometry: does the canvas we hand H3 avoid distorting the keyframe? |
 | [`check_laid.py`](check_laid.py) | `bench/laid.py`'s owner state on a made list: who says a piece is kept, and what a change of that leaves on the line. |
 | [`check_lane_db.py`](check_lane_db.py) | `bench/lane_db/` (the lane's record in SQLite) on a small made-up project: the schema's rules, the importer's refusals, and that what goes in comes back. |
-| [`check_length_ceiling.py`](check_length_ceiling.py) | The longest length anything renders or plans is `h3_rules.MAX_LENGTH`, and no shorter count comes back as a cap. |
+| [`check_length_ceiling.py`](check_length_ceiling.py) | The longest length anything renders or plans is `h3_rules.MAX_LENGTH`, and shipped graphs obey H3 frame & clock rules. |
 | [`check_literal_widgets.py`](check_literal_widgets.py) | A numeric widget must mean the quantity it names, not a mode. |
 | [`check_load_chain.py`](check_load_chain.py) | The load chain (`bench/load_chain.py`) on a made job: what each step reads, runs and refuses, with no server. |
 | [`check_load_text.py`](check_load_text.py) | The generated text of a load (`bench/load_text.py`) against the owner's text and the kept loads' own texts, and what it refuses. |

@@ -830,10 +830,20 @@ def check_continue(problems, song_source):
                     _fail(problems, f"continue: stretches {one} then {two}: the second writes from span frame {first_new}, "
                                     f"the first ends at {sum(wrote_one)}; it writes {sum(wrote_two)} of {covered_two - ctx}")
                     break
+    for args, want, label in (
+        ((39, "", None, 1), (0, 0, 0), "cold unpadded"),
+        ((39, "win.safetensors", None, 2), (0, 0, 39), "continue_from sets head to context_frames"),
+        ((90, "win.safetensors", {"pad_before": 12, "pad_after": 8}, 1), (0, 0, 90), "continue_from overrides source padding"),
+        ((39, "", {"pad_before": 12, "pad_after": 8}, 1), (12, 8, 12), "1-window cold padded source"),
+        ((39, "", {"pad_before": 12, "pad_after": 8}, 2), (0, 0, 0), "multi-window ignores source padding"),
+    ):
+        got = lp.song_head_and_padding(*args)
+        if got != want:
+            _fail(problems, f"continue: song_head_and_padding{args} ({label}) returned {got}, want {want}")
     # the node's side, from its source (the stored window it continues is read by `check_resume`'s cases)
     for text, what in (("prev = loop_resume.load_window_latent(continue_from) if continue_from else None", "seed its first window from the continued latent"),
                        ("heard = waveform[..., int(round(head / FPS * rate)):]", "start its file's audio on its first new frame"),
-                       ("head = context_frames if continue_from else pad_before", "count the context as not written")):
+                       ("pad_before, pad_after, head = loop_plan.song_head_and_padding(context_frames, continue_from, source, n_windows)", "derive head and padding via loop_plan.song_head_and_padding")):
         if text not in song_source:
             _fail(problems, f"continue: the song node does not {what}")
 
