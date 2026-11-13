@@ -78,8 +78,8 @@ Start at [`control_vectors.md`](control_vectors.md) and [`edit_guidance.md`](edi
 
 | Page | Owning Code | What It Owns |
 | :--- | :--- | :--- |
-| [`attention/SOLATTN.md`](attention/SOLATTN.md) | `sol_attn_h3.py`, `sol_chunked_h3.py` | `MiniMaxH3Sol` (`SOL_DENSE_TAIL = "49"` default since `2026-11-11`), sink conditioning, capture/DuckDB analysis |
-| [`attention/comfy_kitchen.md`](attention/comfy_kitchen.md) | `sol_attn_h3.py`, `sol_chunked_h3.py` | Upstream `comfy-kitchen` vs. local fork (`#124`, `#242`), rotation/RoPE handoffs, open wheel rebuild & chunked `quantizer` notes |
+| [`attention/SOLATTN.md`](attention/SOLATTN.md) | `sol_attn_h3.py` | `MiniMaxH3Sol` (`SOL_DENSE_TAIL = "49"` default since `2026-11-11`), sink conditioning, capture/DuckDB analysis (`MiniMaxH3SolChunked` archived `2026-11-13`) |
+| [`attention/comfy_kitchen.md`](attention/comfy_kitchen.md) | `sol_attn_h3.py` | Upstream `comfy-kitchen` vs. local fork (`#124`, `#242`), rotation/RoPE handoffs, open wheel rebuild & retired `MiniMaxH3SolChunked` notes |
 | [`attention/h3_quant_policy.md`](attention/h3_quant_policy.md) | `channel_balance.py`, `exact_blocks.py`, `attention.py` | INT8/FP8 quantization policy, SmoothQuant Q/K channel fold, exact-block bypass |
 | [`attention/h3_block49_quant_error.md`](attention/h3_block49_quant_error.md) | `attention.py`, `sol_attn_h3.py` | Block 49 int8 K-outlier mechanics & why rotated attention (`qk_rotate`) / dense terminal block 49 eliminates vertical-stripe artifacts |
 | [`attention/sol_upstream.md`](attention/sol_upstream.md) | `sol_attn_h3.py` | Upstream Sol integration notes & kernel alignment |

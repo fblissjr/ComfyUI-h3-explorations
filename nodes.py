@@ -59,7 +59,6 @@ from .preflight import MiniMaxH3Preflight
 from .provenance import MiniMaxH3ProvenanceStamp
 from .resolution import MiniMaxH3Resolution
 from .sol_attn_h3 import MiniMaxH3Sol
-from .sol_chunked_h3 import MiniMaxH3SolChunked
 from .vae_precision import MiniMaxH3VAEPrecision
 from .reference_conditioning import (
     MiniMaxH3AppendRefAudio,
@@ -346,7 +345,8 @@ class H3ExplorationsExtension(ComfyExtension):
                 MiniMaxH3ExactBlocks,
                 # MiniMaxH3SolAttn sat here until 2026-09-27; replaced by MiniMaxH3Sol
                 # (appended below). Removal, unlike insertion, moves nothing that follows.
-                MiniMaxH3SolChunked,
+                # MiniMaxH3SolChunked sat here until 2026-11-13 (retired to
+                # archive/sol_chunked_h3.py; no shipped graph ever wired it).
                 MiniMaxH3FreezeAudio, MiniMaxH3FreezeAudioWindow,
                 MiniMaxH3EncodeTrack,
                 MiniMaxH3AudioAttentionGain, MiniMaxH3AudioFreezeSong,

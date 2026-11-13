@@ -131,7 +131,7 @@ Full per-check history, 2026-08-23 amendments, and `"claims block"` notes are sh
 | `check_sol_kernel.py` | that the installed comfy_kitchen... ([detail](checks/index_02.md)) | - | yes |
 | `check_literal_widgets.py` | that a numeric node input means the... ([detail](checks/index_02.md)) | - | no |
 | `check_widget_deviations.py` | that every shipped widget value... ([detail](checks/index_02.md)) | a live... | no |
-| `check_sol_chunked.py` | that the chunked-producer forward... ([detail](checks/index_02.md)) | CUDA | no |
+| `archive/bench/check_sol_chunked.py` | ARCHIVED 2026-11-13 (`MiniMaxH3SolChunked` retired to `archive/sol_chunked_h3.py`): that the chunked-producer forward... ([detail](checks/index_02.md)) | CUDA | no |
 | `check_sol_node_equivalence.py` | that sol_attn_h3.py, the fork taken... ([detail](checks/index_02.md)) | CUDA | no (kernel cases); yes (sink cases, OOM control) |
 | ~~`build_sidecar_node.py`~~ | **RETIRED 2026-11-06 with the PDD lane.** with --check, that the Hub bundle... ([detail](checks/index_02.md)) | no CUDA | no |
 | ~~`build_sidecar_examples.py`~~ | **RETIRED 2026-11-06 with the PDD lane.** with --check, that the example... ([detail](checks/index_02.md)) | no CUDA | no |
@@ -574,5 +574,14 @@ WHY: the early E2.3 bare-frame twin of lettering.toml, retired 2026-11-06
 
 PATH: lettering_bare.toml
 WHY: same file, linked by relative path in historical research docs
+
+PATH: sol_chunked_h3.py
+WHY: MiniMaxH3SolChunked module retired 2026-11-13 to archive/sol_chunked_h3.py
+
+PATH: bench/check_sol_chunked.py
+WHY: check retired 2026-11-13 to archive/bench/check_sol_chunked.py
+
+PATH: check_sol_chunked.py
+WHY: same file, linked by relative filename in historical docs
 
 ```

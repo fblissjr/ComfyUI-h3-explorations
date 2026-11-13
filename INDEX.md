@@ -76,7 +76,6 @@ with none is a helper the others import.
 | [`sol_attn_h3.py`](sol_attn_h3.py) | `MiniMaxH3Sol` | Sol-Attn for MiniMax-H3, on comfy-kitchen's CUDA kernel: `MiniMaxH3Sol`. |
 | [`sol_block_probe.py`](sol_block_probe.py) |  | The Sol-versus-fallback probe: per-block, per-head, per-segment error of Sol's output against the shipped fallback on identical q/k/v, recorded as summaries, no tensors, on a live render. |
 | [`sol_call_timer.py`](sol_call_timer.py) |  | Device time of every attention call the Sol override handles, inside a real render. |
-| [`sol_chunked_h3.py`](sol_chunked_h3.py) | `MiniMaxH3SolChunked` | Sol-Attn's chunked producer as H3's attention forward: Q, K, V never built. |
 | [`sol_observe.py`](sol_observe.py) |  | Record what the live Sol-Attn override actually did, one row per call. |
 | [`sol_tau_sweep.py`](sol_tau_sweep.py) |  | The tau sweep: Sol at every tau of a grid against the fallback, on the same q/k/v, per head and per segment, inside a live render. The calibration instrument behind `sparse_tables/` (`bench/calibrate_sparse_table.py`). |
 
@@ -154,9 +153,9 @@ with none is a helper the others import.
 |---|---|---|
 | `.claude/` | 1 | [below](#claude) |
 | `.gemini/` | 8 | [below](#gemini) |
-| `archive/` | 29 | [below](#archive) |
+| `archive/` | 31 | (none) |
 | `assets/` | 1 | [below](#assets) |
-| `bench/` | 852 | [`bench/INDEX.md`](bench/INDEX.md) and [`bench/results/INDEX.md`](bench/results/INDEX.md) for the records |
+| `bench/` | 851 | [`bench/INDEX.md`](bench/INDEX.md) and [`bench/results/INDEX.md`](bench/results/INDEX.md) for the records |
 | `changelog.d/` | | [`changelog.d/README.md`](changelog.d/README.md), one file per changelog entry; not listed and not counted |
 | `contact_sheets/` | 2 | [below](#contact_sheets) |
 | `data/` | 2 | [below](#data) |
@@ -188,40 +187,6 @@ with none is a helper the others import.
 | [`skills/video-understanding/references/video_agentic.md`](.gemini/skills/video-understanding/references/video_agentic.md) | Path 2B: Opt-In Agentic Video Understanding & Multi-Video Mixing |
 | [`skills/video-understanding/references/video_static_and_slicing.md`](.gemini/skills/video-understanding/references/video_static_and_slicing.md) | Path 2A: Static Video Processing, Frame-Span Slicing, and File Input Methods |
 | [`skills/video-understanding/scripts/gemini_media.py`](.gemini/skills/video-understanding/scripts/gemini_media.py) | Deterministic CLI helper for `.gemini/skills/video-understanding/`. |
-
-## archive/
-
-| file | what it says |
-|---|---|
-| [`AGENTS.md`](archive/AGENTS.md) | archive/: retired code, kept for the record |
-| [`CLAUDE.md`](archive/CLAUDE.md) | @AGENTS.md |
-| [`bench/bench_image_edit_refs.py`](archive/bench/bench_image_edit_refs.py) | What a single-frame edit can hold: reference count, sizing, and canvas. |
-| [`bench/check_single_frame.py`](archive/bench/check_single_frame.py) | Check the single-frame shim changes `length=1` and provably nothing else. |
-| [`bench/sam3_parity_ladder.py`](archive/bench/sam3_parity_ladder.py) | Its question (is core's SAM 3.1 the model Meta released) was answered on 2026-10-07 (`bench/results/2026-10-07_sam3_core_against_meta.md`); the copy it compared against was removed 2026-10-17 (r17_05); upstream is in `coderef/sam3`. |
-| [`frozen_cache_masked/README.md`](archive/frozen_cache_masked/README.md) | The frozen-row cache's masked-window use, retired 2026-10-06, restored 2026-10-07 |
-| [`frozen_cache_masked/check_frozen_video_cache.py`](archive/frozen_cache_masked/check_frozen_video_cache.py) | `MiniMaxH3FrozenVideoCache` on a tiny H3 model: which path each call takes, and what it computes. |
-| [`frozen_cache_masked/dense_options_fix_2026-10-07.diff`](archive/frozen_cache_masked/dense_options_fix_2026-10-07.diff) | 477a478,501 |
-| [`frozen_cache_masked/frozen_video_cache.py`](archive/frozen_cache_masked/frozen_video_cache.py) | Cache the frozen rows of an H3 sampling run, so its steps run on the live rows only. |
-| [`frozen_cache_masked/h3_probe_v2v_masked_song_ref2va_motion_cache_api.json`](archive/frozen_cache_masked/h3_probe_v2v_masked_song_ref2va_motion_cache_api.json) | 20 nodes; checkpoint `minimax_h3_ref2va_pruned_int8_convrot.safetensors`; pack nodes AppendRefImage, AudioFreezeSong, EncoderLoader, FrozenVideoCache, MaskedPrompt, MaskedSource, Resolution, SigmaShift, Sol, SubjectTrack |
-| [`single_frame.py`](archive/single_frame.py) | TEMPORARY. Lifts ComfyUI's 5-frame floor on the stock H3 nodes, in memory. |
-| [`workflows/image/h3_image_composite.json`](archive/workflows/image/h3_image_composite.json) | ComfyUI editor graph, 26 nodes |
-| [`workflows/image/h3_image_composite_api.json`](archive/workflows/image/h3_image_composite_api.json) | 21 nodes; checkpoint `minimax_h3_ref2va_pruned_int8_convrot.safetensors`; pack nodes AWQEncoderLoader, AppendRefImage, Preflight, ReferenceConditioning, Resolution, SageAttention, SigmaShift |
-| [`workflows/image/h3_image_edit.json`](archive/workflows/image/h3_image_edit.json) | ComfyUI editor graph, 24 nodes |
-| [`workflows/image/h3_image_edit_api.json`](archive/workflows/image/h3_image_edit_api.json) | 19 nodes; checkpoint `minimax_h3_ref2va_pruned_int8_convrot.safetensors`; pack nodes AWQEncoderLoader, AppendRefImage, Preflight, ReferenceConditioning, Resolution, SageAttention, SigmaShift |
-| [`workflows/image/h3_image_multiperson.json`](archive/workflows/image/h3_image_multiperson.json) | ComfyUI editor graph, 28 nodes |
-| [`workflows/image/h3_image_multiperson_api.json`](archive/workflows/image/h3_image_multiperson_api.json) | 23 nodes; checkpoint `minimax_h3_ref2va_pruned_int8_convrot.safetensors`; pack nodes AWQEncoderLoader, AppendRefImage, Preflight, ReferenceConditioning, Resolution, SageAttention, SigmaShift |
-| [`workflows/image/h3_image_probe_format_av.json`](archive/workflows/image/h3_image_probe_format_av.json) | ComfyUI editor graph, 26 nodes |
-| [`workflows/image/h3_image_probe_format_av_api.json`](archive/workflows/image/h3_image_probe_format_av_api.json) | 21 nodes; checkpoint `minimax_h3_ref2va_pruned_int8_convrot.safetensors`; pack nodes AWQEncoderLoader, AppendRefImage, Preflight, ReferenceConditioning, Resolution, SageAttention, SigmaShift |
-| [`workflows/image/h3_image_probe_format_flat.json`](archive/workflows/image/h3_image_probe_format_flat.json) | ComfyUI editor graph, 26 nodes |
-| [`workflows/image/h3_image_probe_format_flat_api.json`](archive/workflows/image/h3_image_probe_format_flat_api.json) | 21 nodes; checkpoint `minimax_h3_ref2va_pruned_int8_convrot.safetensors`; pack nodes AWQEncoderLoader, AppendRefImage, Preflight, ReferenceConditioning, Resolution, SageAttention, SigmaShift |
-| [`workflows/image/h3_image_recolor.json`](archive/workflows/image/h3_image_recolor.json) | ComfyUI editor graph, 24 nodes |
-| [`workflows/image/h3_image_recolor_api.json`](archive/workflows/image/h3_image_recolor_api.json) | 19 nodes; checkpoint `minimax_h3_ref2va_pruned_int8_convrot.safetensors`; pack nodes AWQEncoderLoader, AppendRefImage, Preflight, ReferenceConditioning, Resolution, SageAttention, SigmaShift |
-| [`workflows/image/h3_image_sheet.json`](archive/workflows/image/h3_image_sheet.json) | ComfyUI editor graph, 24 nodes |
-| [`workflows/image/h3_image_sheet_api.json`](archive/workflows/image/h3_image_sheet_api.json) | 19 nodes; checkpoint `minimax_h3_ref2va_pruned_int8_convrot.safetensors`; pack nodes AWQEncoderLoader, AppendRefImage, Preflight, ReferenceConditioning, Resolution, SageAttention, SigmaShift |
-| [`workflows/image/h3_image_style.json`](archive/workflows/image/h3_image_style.json) | ComfyUI editor graph, 26 nodes |
-| [`workflows/image/h3_image_style_api.json`](archive/workflows/image/h3_image_style_api.json) | 21 nodes; checkpoint `minimax_h3_ref2va_pruned_int8_convrot.safetensors`; pack nodes AWQEncoderLoader, AppendRefImage, Preflight, ReferenceConditioning, Resolution, SageAttention, SigmaShift |
-| [`workflows/image/h3_image_swap.json`](archive/workflows/image/h3_image_swap.json) | ComfyUI editor graph, 28 nodes |
-| [`workflows/image/h3_image_swap_api.json`](archive/workflows/image/h3_image_swap_api.json) | 23 nodes; checkpoint `minimax_h3_ref2va_pruned_int8_convrot.safetensors`; pack nodes AWQEncoderLoader, AppendRefImage, Preflight, ReferenceConditioning, Resolution, SageAttention, SigmaShift |
 
 ## assets/
 

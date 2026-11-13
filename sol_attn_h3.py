@@ -32,8 +32,9 @@ by `_require_kernel`), not from a version string.
 
 `sol_attn_chunked`, the second entry, is out of reach from an attention
 override: it consumes chunks of the fused `qkv_proj` output and applies rope
-and RMSNorm itself, and by the time an override is called both have run. Its
-memory saving is `MiniMaxH3SolChunked`'s subject (`sol_chunked_h3.py`).
+and RMSNorm itself, and by the time an override is called both have run. The
+retired `MiniMaxH3SolChunked` prototype (`archive/sol_chunked_h3.py`) explored
+that producer path until 2026-11-13.
 
 Requires comfy_kitchen with `sol_attn` (bf16 or fp16, head_dim 128, sm_80+).
 Calls this node declines (dense_blocks, outside the sigma window, short calls,

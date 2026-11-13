@@ -42,7 +42,7 @@ Before picking a `length`, canvas size, mask node, keyframe/sound-cue frame inde
 
 ## 3. Pack Node Map: What We Built & Which Stock/Core Nodes They Replace
 
-All **65 registered node IDs** in [`nodes.py`](nodes.py) (`bench/node_id_manifest.json`), grouped by pipeline stage.
+All **64 registered node IDs** in [`nodes.py`](nodes.py) (`bench/node_id_manifest.json`), grouped by pipeline stage.
 
 ### A. Encoders, Loaders, LoRAs, Attention, & Precision
 
@@ -53,7 +53,7 @@ All **65 registered node IDs** in [`nodes.py`](nodes.py) (`bench/node_id_manifes
 | `MiniMaxH3OverlayLoader` | **Extends `UNETLoader`** | Applies sparse per-piece research checkpoint overlays (`.h3overlay.safetensors`) onto a loaded base H3 checkpoint | [`overlay_loader.py`](overlay_loader.py) |
 | `MiniMaxH3VAEPrecision` | **Wraps `VAELoader` output** | Separates VAE encoder dtype (`fp32`) from decoder dtype (`fp16`/`bf16`), resetting `VAE.size` so `--fp32-vae` decode slowdown is avoided | [`vae_precision.py`](vae_precision.py), [`docs/wiki/image/h3_image.md`](docs/wiki/image/h3_image.md) |
 | `MiniMaxH3SageAttention` | **Replaces KJNodes `PathchSageAttentionKJ`** | Direct NHD packed self-attention forward with early QKV free, rotated `qk_rotate` (`auto`) eliminating block-49 int8 K-outlier error, and `int64`-safe indexing past `99,864` tokens | [`nodes.py`](nodes.py), [`attention.py`](attention.py), [`docs/wiki/attention/h3_block49_quant_error.md`](docs/wiki/attention/h3_block49_quant_error.md) |
-| `MiniMaxH3Sol`, `MiniMaxH3SolChunked` | **New / replaces vendored Sol** | `comfy-kitchen` Sol sparse attention with H3 conditioning sinks (`dense_blocks="49"` default) plus chunked fused-QKV producer saving full QKV allocation | [`sol_attn_h3.py`](sol_attn_h3.py), [`sol_chunked_h3.py`](sol_chunked_h3.py), [`docs/wiki/attention/SOLATTN.md`](docs/wiki/attention/SOLATTN.md) |
+| `MiniMaxH3Sol` | **New / replaces vendored Sol** | `comfy-kitchen` Sol sparse attention with H3 conditioning sinks (`dense_blocks="49"` default; `MiniMaxH3SolChunked` retired `2026-11-13` to [`archive/sol_chunked_h3.py`](archive/sol_chunked_h3.py)) | [`sol_attn_h3.py`](sol_attn_h3.py), [`docs/wiki/attention/SOLATTN.md`](docs/wiki/attention/SOLATTN.md) |
 | `MiniMaxH3ChannelBalance`, `MiniMaxH3ExactBlocks` | **New precision controls** | Opt-in SmoothQuant Q/K channel fold (shared with `ComfyUI-H3-Quant`) and per-block exact SDPA/flash bypass for sensitive blocks | [`channel_balance.py`](channel_balance.py), [`exact_blocks.py`](exact_blocks.py), [`docs/wiki/attention/h3_quant_policy.md`](docs/wiki/attention/h3_quant_policy.md) |
 
 ### B. Video Conditioning, References, Guides, & Single-Frame Image

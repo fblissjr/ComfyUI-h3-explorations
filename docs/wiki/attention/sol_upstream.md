@@ -527,8 +527,9 @@ checkout is at `3c80da7f`; `git reflog` in it dates each pull):
   wired under it would run its tower through Sol. Nothing here wires one.
 - **16404** (supersedes the closed 16378): keeps one INT8 QKV cast alive
   across core's chunked producer when VBAR falls back to temporary casts;
-  measured on AMD. Our `MiniMaxH3SolChunked` projects per chunk the same way
-  (`sol_chunked_h3.py::make_chunked_forward`), and no shipped graph uses it.
+  measured on AMD. Our retired `MiniMaxH3SolChunked` prototype projected per chunk
+  the same way (`archive/sol_chunked_h3.py::make_chunked_forward`, archived
+  2026-11-13), and no shipped graph used it.
   kijai's reply on 16378 disputes its chunk-size claim on CUDA.
 - **16245**: a per-model `disable_comfy_compiler` key in `transformer_options`
   for H3. If it merges, it is the per-graph alternative to a node refusing
@@ -1283,8 +1284,8 @@ still `21003fa`, and there is no tag after `v0.2.33`.
   where the fork's chunked `blk_cnt` sits as a positional parameter, and its
   AST test requires the positional parameters to end at `token_aug`. On a
   rebase onto a tag that contains it, `blk_cnt` moves behind the `*`; the one
-  caller here that passes it already does so by keyword (the
-  `sol_attn_chunked` call in `sol_chunked_h3.py`).
+  caller here that passed it already did so by keyword (the
+  `sol_attn_chunked` call in retired `archive/sol_chunked_h3.py`).
 - **PR 168 carries only the two `sol_attn` commits.** The chunked `blk_cnt`
   commit stays a fork delta even if 168 merges.
 - **PR 172** (issue 136) moves the Triton INT8 GEMM's output offsets to

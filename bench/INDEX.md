@@ -8,7 +8,7 @@ this file is only a way to find a script by what it says it does.
 
 | group | scripts |
 |---|---|
-| [`check_*`](#check) | 170 |
+| [`check_*`](#check) | 169 |
 | [`measure_*`](#measure) | 37 |
 | [`analyze_*`](#analyze) | 18 |
 | [`grade_*`](#grade) | 19 |
@@ -162,7 +162,6 @@ this file is only a way to find a script by what it says it does.
 | [`check_sidecar.py`](check_sidecar.py) | `bench/sidecar.py` on made files: each case is a way a video's sidecar could say less than is known, or be trusted for a video it was not written for. |
 | [`check_skill_routes.py`](check_skill_routes.py) | Fail when a skill routes an agent to a path that does not exist. |
 | [`check_smoke_h3.py`](check_smoke_h3.py) | The smoke's readings (`bench/smoke_h3.py`) held to the code they read and to the graphs it submits. |
-| [`check_sol_chunked.py`](check_sol_chunked.py) | Grade the chunked-producer forward before it is given a render. |
 | [`check_sol_kernel.py`](check_sol_kernel.py) | Check the installed `comfy_kitchen` still carries the Sol-Attn CUDA kernel. |
 | [`check_sol_node_equivalence.py`](check_sol_node_equivalence.py) | Grade our Sol node's DISPATCH against the algorithm's own eager reference. |
 | [`check_sol_observe.py`](check_sol_observe.py) | Grade the Sol route observer before it is given a render. |

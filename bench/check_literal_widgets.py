@@ -117,13 +117,6 @@ SENTINELS = {
 #: cannot type zero in the first place. Nothing is selected, so nothing is owed;
 #: the entry exists because the proxy cannot tell a refusal from a branch.
 REFUSED_ZERO = {
-    ("sol_chunked_h3.py", "chunk_rows"): (
-        "zero is refused by a raising guard in `make_chunked_forward` "
-        "(`chunk_rows % 64 or chunk_rows <= 0` raises ValueError) and the "
-        "widget's min is 64, step 64, so no branch is selected: the widget "
-        "means only rows per chunk. The author's reason for the guard: the "
-        "producer requires 64-aligned chunk starts because its blocks are 64 "
-        "rows. Red on this check from caa81ef (2026-09-01) until named here."),
     ("control_vector_nodes.py", "target_median_row_norm"): (
         "zero is refused by `target_norm <= 0.0` raising ValueError in "
         "`match_conditioning_row_norm` when `reference_conditioning` is not "

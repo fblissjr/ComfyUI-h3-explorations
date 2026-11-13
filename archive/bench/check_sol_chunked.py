@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Grade the chunked-producer forward before it is given a render.
+"""ARCHIVED 2026-11-13: Retired check for archived `MiniMaxH3SolChunked`. Grade the chunked-producer forward before it is given a render.
 
 The node's claim is a memory lever with the direct path's numerics: feed Sol
 from chunks of the projection so Q, K, V are never built, applying the same

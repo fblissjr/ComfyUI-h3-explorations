@@ -72,7 +72,7 @@ Row kinds, all carrying `schema`:
             block, shape, selection, sinks, the route actually taken, the
             allocator's high-water mark so far (`peak_alloc_bytes`), and for
             a Sol route the density summaries and the raw pointer. A
-            `sol_chunked` route is the chunked producer (`sol_chunked_h3.py`)
+            `sol_chunked` route is the retired chunked producer (`archive/sol_chunked_h3.py`)
             taking the call through Sol's gate delegate; it carries counts
             from its own launch like a `sol` row.
   error     the observer's own failure, written before it raises.

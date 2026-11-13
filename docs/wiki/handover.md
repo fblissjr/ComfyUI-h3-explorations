@@ -23,14 +23,14 @@ Where this page and code/verdicts disagree, the code and `bench/results/` record
    - Unified `MiniMax-H3-Image` (`4.0 MP` floor, `MiniMaxH3ImageDownscale`, `PH3_IMAGE_VAE` default, `heylook` SSE prompt expander, split KV-prefix ref cache `MiniMaxH3EncodeImageReferences` / `MiniMaxH3PromptOnImageReferences`, 1-stream `MiniMaxH3LoRABranch`) across [`../../h3_image_nodes.py`](../../h3_image_nodes.py) and `workflows/image/*`. Phone UI lives in `app/` (`app/AGENTS.md` / [`../../app/README.md`](../../app/README.md)).
 
 5. **`comfy-kitchen` & `MiniMaxH3Sol` (`2026-11-11`)**:
-   - `SOL_DENSE_TAIL` updated to `"49"` after the blind 6-step Pika Sol panel (`5d293b5f`, [`../../bench/results/2026-11-11_sol_pika_panel.md`](../../bench/results/2026-11-11_sol_pika_panel.md)). Open item: [`../../sol_chunked_h3.py`](../../sol_chunked_h3.py) still omits `quantizer` forwarding, and `comfy-kitchen` wheel awaits rebuild for the rotated `top-k` fix (`e0b1c0ae`, [`attention/comfy_kitchen.md`](attention/comfy_kitchen.md)).
+   - `SOL_DENSE_TAIL` updated to `"49"` after the blind 6-step Pika Sol panel (`5d293b5f`, [`../../bench/results/2026-11-11_sol_pika_panel.md`](../../bench/results/2026-11-11_sol_pika_panel.md)). [`../../archive/sol_chunked_h3.py`](../../archive/sol_chunked_h3.py) (`MiniMaxH3SolChunked`) was retired `2026-11-13` (unused by any shipped graph, closing the chunked `quantizer` gap); the `comfy-kitchen` wheel still awaits rebuild for the rotated `top-k` fix (`e0b1c0ae`, [`attention/comfy_kitchen.md`](attention/comfy_kitchen.md)).
 
 6. **Masked V2V & `bench/lane_db` (`2026-11-10`, Parked `'fun'`)**:
    - `'fun'` shot-by-shot rendering is **closed/parked**. Reusable perception/mask/plate nodes and SQLite Tier-1 `bench/lane_db/` (`migrations/0001..0003`, `importer.py`, `prove.py`, [`../../bench/check_lane_db.py`](../../bench/check_lane_db.py)) remain intact under [`masked_v2v/2026-11-10_simplification_plan.md`](masked_v2v/2026-11-10_simplification_plan.md).
 
 ## Reading Order
 
-1. [`../../AGENTS.md`](../../AGENTS.md) — rules, H3 frame/clock invariants, and 65-node pack replacement map.
+1. [`../../AGENTS.md`](../../AGENTS.md) — rules, H3 frame/clock invariants, and 64-node pack replacement map.
 2. [`index.md`](index.md) — master LLM Wiki router (`docs/wiki/`).
 3. [`projects/2026-11-13_repo_audit_and_atlas/index.md`](projects/2026-11-13_repo_audit_and_atlas/index.md) — full audit of what was built, verified renders, code-vs-prose gaps, and prioritized unfinished ideas.
 4. [`next_steps.md`](next_steps.md) & [`decisions.md`](decisions.md) — active next queue and recent decisions.

@@ -187,18 +187,16 @@ them, and `sol_attn_h3.py::_require_kernel` then fails the node before sampling,
 
 Where the pack uses them: `sol_attn_h3.py` (the `MiniMaxH3Sol` node; `quantizer` selects `qk_balance` and
 `rotate`, `make_override` builds the attention override), `sol_observe.py` (reads `blk_cnt`),
-`sparse_table.py` (per-head tables that become a `tau_map`), `sol_chunked_h3.py` (the chunked producer).
+`sparse_table.py` (per-head tables that become a `tau_map`); `MiniMaxH3SolChunked` (`archive/sol_chunked_h3.py`) was retired on 2026-11-13.
 
-**The pack's chunked node is not usable as it stands** (the Gemini session's reading on 2026-11-11, checked
-against the file; nothing was changed). `sol_chunked_h3.py::make_chunked_forward` passes the Sol node's `tau`,
-dense blocks and sinks to `sol_attn_chunked` and nothing else: it never reads the `quantizer` setting, so
-`rotate` stays off on that path, and it drops `token_routing`, `tau_table` and `rows` without a word. Its hook
-is only consulted when another node has patched the attention forward, which no current graph does, so on a
-graph with core's attention backend node it never runs at all. It keeps the previous step's statistics per
-module, so two passes a step (an edit guider, CFG) would trade each other's. And it turns a kernel error into
-a dense call. No shipped graph wires `MiniMaxH3SolChunked`. Whether to retire it or rebuild it inside the Sol
-node is the owner's to decide; after a build that changes `bench/probe_kitchen_sol_build_parity.py`'s output,
-that probe is the check for the kernel side either way.
+**Retired (`2026-11-13`): `MiniMaxH3SolChunked` (`archive/sol_chunked_h3.py`) was archived rather than rebuilt.** On 2026-11-11 a code check established that its `make_chunked_forward` passed the Sol node's `tau`,
+dense blocks and sinks to `sol_attn_chunked` and nothing else: it never read the `quantizer` setting (leaving
+`rotate` off on that path), dropped `token_routing`, `tau_table` and `rows` without a word, only ran when
+another node had patched the attention forward (absent in all current graphs), kept previous-step statistics per
+module (so two passes per step in `EditGuider` or CFG would trade each other's), and turned a kernel error into
+a dense call. No shipped graph ever wired `MiniMaxH3SolChunked`, so retiring it closes the `quantizer` gap
+without new code; after a `comfy-kitchen` build that changes `bench/probe_kitchen_sol_build_parity.py`'s output,
+that probe remains the check for the kernel side.
 
 ### Two open upstream fixes, carried since 2026-11-11
 

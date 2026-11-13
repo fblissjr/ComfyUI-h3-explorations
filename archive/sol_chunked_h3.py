@@ -1,4 +1,4 @@
-"""Sol-Attn's chunked producer as H3's attention forward: Q, K, V never built.
+"""ARCHIVED 2026-11-13: Retired `MiniMaxH3SolChunked` (no shipped graph ever wired it; lacked `quantizer`/`rotate`, `token_routing`, `tau_table`, and `rows`). Sol-Attn's chunked producer as H3's attention forward: Q, K, V never built.
 
 ## What this is
 
