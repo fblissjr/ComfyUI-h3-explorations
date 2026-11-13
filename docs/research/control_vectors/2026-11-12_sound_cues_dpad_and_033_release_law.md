@@ -8,9 +8,9 @@ Two timeline conditioning nodes and one selective release rule address this insi
 - **[`MiniMaxH3AppendSpriteTrajectory`](../../../sprite_trajectory.py)** cuts the subject out of `<Picture 1>` in memory and renders a compact `384x224` 2D kinematic reference clip (`<Video 1>`) from plain-text `(x, y, face)` waypoints and parabolic `hop` arcs, decoupling travel direction from body orientation.
 - **[`MiniMaxH3ReleaseReferences`](../../../control_vector_nodes.py)** drops those synthetic `<Video N>` and `cond_audio` tokens at **`0.33`** (`2` of `6` Pika steps, corresponding to unshifted flow-matching midpoint **`b = 0.50`**) while keeping `<Picture 1>` at **`end_percent = 1.0`** across all `6` steps so subject identity stays locked while H3 articulates legs, shadows, and natural street foley on steps `2..5`.
 
- Companion records:
-- Raw experiment script, graphs, and per-arm metrics: `data/ref_signal_2026-11-12/`
-- Chronological lab notebook (`exp1_sound` and `exp2_dpad` initial runs): [`docs/research/2026-11-12_guide_sound_islands_and_kinematic_dpad.md`](../2026-11-12_guide_sound_islands_and_kinematic_dpad.md)
+Companion records:
+- Raw experiment scripts, graphs, and per-arm metrics: `data/guide_sound_2026-11-12/` and `data/ref_signal_2026-11-12/`
+- Chronological lab notebook (`exp1`, `exp2`, and `exp2_dpad` initial runs): [`docs/research/2026-11-12_guide_sound_islands_and_kinematic_dpad.md`](../2026-11-12_guide_sound_islands_and_kinematic_dpad.md)
 - Node reference & wiki routers: [`docs/wiki/control_vectors/comfyui_nodes_and_controls.md`](../../wiki/control_vectors/comfyui_nodes_and_controls.md), [`docs/wiki/edit_guidance.md`](../../wiki/edit_guidance.md), [`docs/wiki/h3_uses.md`](../../wiki/h3_uses.md)
 
 ---
@@ -19,23 +19,22 @@ Two timeline conditioning nodes and one selective release rule address this insi
 
 Suppose you have a single still image (`$H3_INPUT_DIR/ref_signal/tortoise_pic1.png`, wired as `<Picture 1>`) showing a grey tortoise with a lit white birthday candle standing upright on top of its shell, and you want a `124`-frame (`5.17s` at `24 fps`, `1344x768`) shot on an overcast city crosswalk where the tortoise:
 
-1. Starts on the left-center stripes facing right (`f00`),
-2. Walks forward to the right half of the road (`f00..f44`),
-3. Leaps upward into the air and lands cleanly around `f51..f54` (`~2.15..2.25s`) with the candle still lit,
-4. Pauses briefly (`f54..f66`), and
-5. Walks **backward** from right to left (`f66..f112`) **while keeping its head and shell facing right**.
+1. Starts on the left side of the stripes facing right (`f00`),
+2. Walks forward to the right half of the road (`f00..f48`),
+3. Leaps upward into the air (`f44..f54`) and lands cleanly around `f51..f54` (`~2.15..2.25s`) with the candle still lit, and
+4. Walks **backward** from right to left (`f48..f92`, then holds steady `f92..f123`) **while keeping its head and shell facing right**.
 
-### What happens without timeline anchors
-- **Prompt alone (`exp2_dpad` Arm 1, `unet_ref2va`, `seed = 104`):** The tortoise walks steadily right (`cx: 451 -> 888 px`), executes the mid-shot hop, and then stays near `cx = 865..888 px` through `f120` (`0 px` of backward travel). In H3's training prior, a right-facing quadruped continues right or stops.
-- **Holding a 2D cutout video across all 6 steps (`exp2_dpad` Arm 3, `video_end_percent = 1.0`):** The tortoise follows the rightward walk, jumps, and reverses `-353 px` leftward while still facing right (`cx: 416 -> 843 -> 490 px`), keeping the candle lit—but its jump peaks `7` frames late (`f56` vs `f49`) and its legs stay frozen in `<Picture 1>`'s static standing pose across `f68..f92`, gliding backward like a rigid cutout.
+### What happens without selective release
+- **Text or non-spatial `<Video 1>` signals (`exp1_ref`, `unet_ref2va`, `seed = 730451892`):** Because Qwen3-VL text tokens carry no frame clock and stationary `<Video 1>` brightness flashes carry zero optical flow, the tortoise ignores requested `[20, 56, 92]` vs `[32, 68, 104]` timing and stays on H3's default forward-walking prior.
+- **Holding a 2D cutout video across all 6 steps (`exp2_dpad` `dpad_mid_reverse`, `video_end_percent = 1.0`, `seed = 730451892`):** Under one identical direction-neutral prompt, `<Video 1>` drives `+420 px` rightward walks (`dpad_right_earlyhop`, apex `f36`), `-444 px` facing-left walks (`dpad_left_latehop`, apex `f85`), and on `dpad_mid_reverse` walks right (`cx: 377 -> 690 px`), jumps, and reverses **`-392 px`** leftward (`690 -> 298 px`) while still facing right with the candle lit—but its jump peaks `7` frames late (`f56` vs `f49`) and its legs stay frozen in `<Picture 1>`'s static standing pose across `f68..f92`, gliding backward like a rigid cutout.
 
 ### What happens in the shipped hybrid workflow
 **[workflows/h3_image_ref_dpad_sound_pika_api.json](../../../workflows/h3_image_ref_dpad_sound_pika_api.json)** combines `<Picture 1>`, `MiniMaxH3AppendSpriteTrajectory` (`<Video 1>`), a touchdown `hop` cue at `f54` in `MiniMaxH3SoundCues`, `MiniMaxH3ReleaseReferences(end_percent=1.0, video_end_percent=0.33, audio_end_percent=0.60)`, and `MiniMaxH3EditGuider(streams="video_only", scale=1.6, last_step=3)`.
 
-Measured on the matched seed (`Gate 2b`, `seed = 104`, `1344x768x124`):
-- **Forward walk + timed jump:** Walks right (`cx: 392 -> 754 px`), lifts off on time, peaks at **`f51`** (`5` frames closer to the sprite's `f49` apex than the video-only run), and lands at `f54..f55`.
-- **Facing-right backward walk with articulated legs:** Reverses **`-350 px`** from `cx = 816 px` (`f64`) back to `cx = 466 px` (`f112`) while keeping head and shell pointed `+x` (`head_dx = +100..+119 px`), and executes **three alternating backward leg-stride cycles** across `f72..f92` (`f72, f80, f88` swing vs `f76, f84, f92` plant) instead of sliding as a frozen cutout.
-- **Identity and audio:** The upright birthday candle stays lit across `f000..f120`, and the final soundtrack has zero correlation with the synthetic `f54` cue (`r = -0.0196`) over a natural `-33.4 dBFS` street-ambience floor.
+Measured on `seed = 730451892` (`1344x768x124`, both on `Gate 2b` and on the cold-start render of the shipped zero-file graph `h3_r2v_dpad_sound_pika_00001-audio.mp4`):
+- **Forward walk + timed jump:** Walks right (`cx: 374 -> 665 px` on `Gate 2b`; `402 -> 718 px` on the shipped zero-file graph), lifts off on time, and reaches jump apex at **`f51`** (`5` frames closer to the sprite's `f49` apex than `video_end_percent = 1.0`'s `f56`).
+- **Facing-right backward walk with articulated legs:** Reverses **`-378 px`** (`665 -> 287 px` on `Gate 2b`) / **`-434 px`** (`718 -> 284 px` on the shipped zero-file graph) while keeping head and shell pointed `+x`, and executes **three alternating backward leg-stride cycles** across `f68..f92` instead of sliding as a frozen cutout.
+- **Identity and audio:** The upright birthday candle stays lit across `f000..f123`, and the final soundtrack has zero correlation with the synthetic `f54` cue (`r = -0.0196` on `Gate 2b`, `r = +0.0238` on the shipped zero-file graph) over a natural `-40..-43 dBFS` street-ambience median floor.
 
 ### Companion text-to-video example (timed beats without a reference image)
 When you only need frame-accurate event timing in text-to-video (`unet_fl2va`, no `<Picture 1>` or `<Video 1>`), **[workflows/h3_text_to_video_pika_sound_guide_api.json](../../../workflows/h3_text_to_video_pika_sound_guide_api.json)** (or `MiniMaxH3SoundCues` with `24: hop`, `54: snap`, `57: slam`, `96: hop`) locks all `3/3` tortoise hops (`f24`, `f56..57`, `f96`) and the mid-clip red-leash snap while keeping natural street foley (`r = -0.1578` with `BasicGuider` + `audio_end_percent = 0.33` at `60.3s`, or `r = -0.0086` with `EditGuider(streams="video_only")` + `audio_end_percent = 0.60`).
@@ -63,22 +62,20 @@ Use this when your prompt already describes the scene and motion, and you want i
    - If you prefer stronger early visual pull on subtle cues and accept `10` DiT passes instead of `6` (`~85s` vs `~55s`), use `MiniMaxH3EditGuider(scale=1.6, last_step=3, streams="video_only")` with `original` wired to `MiniMaxH3Conditioning.positive` (no sound cues) and `edited` wired to `MiniMaxH3Preflight` (with sound cues), setting `audio_end_percent = 0.60`.
 
 ### Recipe B — Subject still + 2D trajectory + timed sound cues (`unet_ref2va`)
-Load **[workflows/h3_image_ref_dpad_sound_pika_api.json](../../../workflows/h3_image_ref_dpad_sound_pika_api.json)** (or build the LiteGraph UI workflow via `python workflows/build_workflows.py`):
+Submit **[workflows/h3_image_ref_dpad_sound_pika_api.json](../../../workflows/h3_image_ref_dpad_sound_pika_api.json)** via the ComfyUI API (or regenerate all API graphs via `python workflows/build_workflows.py`):
 
 1. **Load your subject image (`LoadImage` -> `MiniMaxH3AppendRefImage`):** This becomes `<Picture 1>`. If the subject sits on a clean or separable margin, no mask is required; if the background is cluttered or touches the image border, wire a `MASK` into `MiniMaxH3AppendSpriteTrajectory.mask`.
 2. **Script the 2D path in `MiniMaxH3AppendSpriteTrajectory`:**
-   - Wire `references` from `MiniMaxH3AppendRefImage` and `image` from `LoadImage`. This appends `<Video 1>` to the typed reference chain.
-   - Write keyframes in normalized canvas coordinates (`x` in `0..1` left-to-right, `y` in `0..1` top-to-bottom foot contact, `face=right|left|auto`, optional `scale=` and `hop start..end: lift=...`):
+   - Wire `references` from `MiniMaxH3AppendRefImage` (`50`), `image` from `LoadImage` (`15`), and `length` from `MiniMaxH3Resolution` (`27`). This appends `<Video 1>` to the typed reference chain (`canvas_width = 384`, `canvas_height = 224`, `sprite_scale = 0.31`).
+   - Write keyframes in normalized canvas coordinates (`x` in `0..1` left-to-right sprite center, `y` in `0..1` top-to-bottom sprite center, `face=right|left|auto` or `flip=false|true`, optional `scale=` and `hop start..end: lift=...`):
      ```text
-     0: x=0.31, y=0.69, face=right, scale=1.0
-     44: x=0.63, y=0.69, face=right
-     hop 44..54: lift=0.14
-     54: x=0.69, y=0.69, face=right
-     66: x=0.69, y=0.69, face=right
-     112: x=0.33, y=0.69, face=right
-     123: x=0.33, y=0.69, face=right
+     0: x=0.20, y=0.70, face=right
+     48: x=0.64, y=0.70, face=right
+     92: x=0.26, y=0.70, face=right
+     123: x=0.26, y=0.70, face=right
+     hop 44..54: lift=0.29
      ```
-   - `source_facing` tells the node which way the subject already faces inside `<Picture 1>` (`right` or `left`), so `face=right` keeps that orientation even while `x` decreases from `0.69` to `0.33`.
+   - `face=right` (`flip=false`) keeps `<Picture 1>`'s native unflipped orientation even while `x` decreases from `0.64` to `0.26`; `face=left` (`flip=true`) mirrors the cutout horizontally, and `face=auto` flips automatically whenever `dx < 0`.
    - Connect `preview_frames` (`IMAGE` slot `1`) to `PreviewImage` or `VHS_VideoCombine` if you want to inspect the `384x224` sprite plate before sampling.
 3. **Anchor impact timing in `MiniMaxH3SoundCues`:**
    - Place the audio cue at the **landing / contact** frame (`54: hop` for `hop 44..54`), not the liftoff frame (`44`).
@@ -96,7 +93,7 @@ In [`workflows/h3_image_ref_dpad_sound_pika_api.json`](../../../workflows/h3_ima
 
 | Node in graph | Role | What it sends into H3 | Active steps (`6`-step Pika) |
 |---|---|---|---|
-| `LoadImage` + `MiniMaxH3AppendRefImage` (`34 -> 50`) | Identity anchor (`<Picture 1>`) | Full-detail Qwen3-VL vision tokens + 3D VAE `ref_img` latents of the subject | Steps `0..5` (`end_percent = 1.0`, all `6` steps) |
+| `LoadImage` + `MiniMaxH3AppendRefImage` (`15 -> 50`) | Identity anchor (`<Picture 1>`) | Full-detail Qwen3-VL vision tokens + 3D VAE `ref_img` latents of the subject | Steps `0..5` (`end_percent = 1.0`, all `6` steps) |
 | `MiniMaxH3AppendSpriteTrajectory` (`51`) | Coarse spatial & facing guide (`<Video 1>`) | `384x224` cutout trajectory clip (`+3,108` `ref_img` DiT rows + `504` Qwen tokens at `allow_upscale=False`, no audio) | Steps `0..1` (`video_end_percent = 0.33`, dropped at step `2`) |
 | `MiniMaxH3ReferenceConditioning` (`5`) | Joint text + reference compiler | Encodes the 6-section `ref2va` prompt alongside `<Picture 1>` and `<Video 1>`, plus the empty `1344x768x124` AV target latent | Text active steps `0..5` |
 | `MiniMaxH3SoundCues` (`70`) | Frame-accurate acoustic beat sheet | Synthesizes `32 kHz` stereo cue islands + `-28 dBFS` rumble floor, Audio-VAE encodes them once, and attaches `minimax_keyframes` (`cond_audio`) | Steps `0..3` (`audio_end_percent = 0.60` under `EditGuider video_only`, or `0..1` at `0.33` under `BasicGuider`) |
@@ -122,26 +119,26 @@ Joint video-and-audio diffusion in MiniMax H3 processes video tokens, audio toke
 
 ## 5. What doesn't work, what's still hacky, and what could be better
 
-Every failure mode below was observed in the `2026-11-12` runs (`data/ref_signal_2026-11-12/`) and shapes the current defaults and caveats:
+Every failure mode below was observed in the `2026-11-12` runs (`data/guide_sound_2026-11-12/` and `data/ref_signal_2026-11-12/`) and shapes the current defaults and caveats:
 
-1. **Holding synthetic `.wav` islands to `1.0` bleeds clicks and mutes room tone if the `.wav` has digital-zero tails.**
-   - In `exp1_sound` Arm 2 (`audio_end_percent = 1.0`, zero-floor `.wav` islands), synthetic bursts leaked into the output audio (`r = +0.16..+0.23`), and inter-event street ambience dropped by **`~20 dB`** (`-52.9 dBFS` vs `-33.0 dBFS` baseline) because `-94 dBFS` digital-zero tails taught the Audio DiT that the room floor was silent.
-   - `MiniMaxH3SoundCues` works around the muting by mixing a deterministic `-28 dBFS` low-passed rumble floor into every island (`floor_dbfs = -28.0`), restoring `-33..-35 dBFS` inter-event ambience. That floor is still a synthetic brown-noise approximation rather than scene-adaptive room tone.
+1. **Zero-floor `.wav` islands mute inter-event room tone by `~53 dB`.**
+   - In `exp1` `thuds_a_rel` (`audio_end_percent = 0.60`, pure `100 Hz` sine islands decaying to `0.0`), the tortoise landed all `3/3` hops on `[24, 60, 96]`, **but median street ambience collapsed from `-38.06 dBFS` (`hop_clean`) to `-90.90 dBFS`** (`-64.16 dBFS` on `thuds_b_rel`) because mathematical-zero `.wav` tails taught the Audio DiT that the room floor between impacts was digital silence.
+   - `MiniMaxH3SoundCues` works around the muting by mixing a deterministic `-28 dBFS` low-passed rumble floor into every island (`floor_dbfs = -28.0`), restoring `-30.8..-35.6 dBFS` inter-event ambience (`exp2` `yank_a_rel` / `Gate 1`). That floor is still a synthetic brown-noise approximation rather than scene-adaptive room tone.
 
-2. **`BasicGuider` still leaks synthetic audio at `audio_end_percent = 0.50` or `0.60`—it needs `0.33`.**
-   - In `exp1_sound` Arm 3 (`BasicGuider` at `audio_end_percent = 0.60`, `4/6` steps), `cond_audio` stayed active through step `3` (`sigma_a = 0.50`), baking the synthetic waveform into `sample_lcm`'s running audio trajectory (`r = +0.20..+0.26`).
-   - Dropping `audio_end_percent` to **`0.33`** (`Gate 1`, `2/6` steps) eliminated the bleed under `BasicGuider` (`r = -0.1578` stereo / `-0.0078` mono) while keeping all `3/3` hops at `1x` cost (`6` passes). If you want `cond_audio` held through step `2` or `3` (`0.50..0.60`) for extra visual contrast, you must pair it with `MiniMaxH3EditGuider(streams="video_only")` so the audio stream never receives the `cond_audio` pass.
+2. **`BasicGuider` copies synthetic audio directly into the output at `audio_end_percent = 0.60`—it needs `0.33`.**
+   - In `exp2` `yank_a_rel` (`BasicGuider` at `audio_end_percent = 0.60`, `4/6` steps, `-28 dBFS` floor), `cond_audio` stayed active through step `3` (`sigma_a = 0.50`), copying the synthetic `.wav` directly into `sample_lcm`'s running audio trajectory (**`r = +0.8586`**, `+0.8199` on `yank_b_rel`).
+   - Dropping `audio_end_percent` to **`0.33`** (`Gate 1`, `2/6` steps) eliminated the bleed under `BasicGuider` (`r = -0.1578` stereo / `-0.0078` mono) while keeping all `3/3` hops at `1x` cost (`6` passes). If you want `cond_audio` held through step `2` or `3` (`0.50..0.60`) for extra visual contrast, you must pair it with `MiniMaxH3EditGuider(streams="video_only")` so the audio stream never receives the `cond_audio` pass (`r = -0.0812` on `yank_a_vidonly_fixed_s1.6`, `-0.0086` on `h3_text_to_video_pika_sound_guide_api.json`).
 
 3. **`video_end_percent = 1.0` and `0.50` both freeze leg articulation on 2D sprite cutouts.**
-   - Holding `<Video 1>` across all `6` steps (`exp2_dpad` Arm 3, `vep = 1.0`) caused a `+7`-frame jump apex lag (`f56` vs `f49`) and froze the tortoise's legs into `<Picture 1>`'s static standing silhouette across the backward walk (`f68..f92`).
-   - Releasing `<Video 1>` at `0.50` (`Gate 2`, `3/6` steps, `sigma_v = 0.80`, `b = 0.25`) fixed the jump lag (`f51..f52`) and kept the `-383 px` backpedal, **but `f72..f92` legs remained mostly frozen** because `75%` of base flow time (`b: 1.00 -> 0.25`) had already elapsed under the static cutout. Only releasing at **`0.33`** (`Gate 2b`, `b = 0.50`) freed leg articulation. There is a real tradeoff here: releasing earlier than `0.33` (e.g., `0.17`, `1` step) risks losing late-clip trajectory reversals (`f66..f112`), whereas `>= 0.50` freezes limbs.
+   - Holding `<Video 1>` across all `6` steps (`exp2_dpad` `dpad_mid_reverse`, `vep = 1.0`) caused a `+7`-frame jump apex lag (`f56` vs `f49`) and froze the tortoise's legs into `<Picture 1>`'s static standing silhouette across the backward walk (`f68..f92`, `-392 px` glide).
+   - Releasing `<Video 1>` at `0.50` (`Gate 2`, `3/6` steps, `sigma_v = 0.80`, `b = 0.25`) fixed the jump lag (`f51..f52`) and kept the `-418 px` backpedal, **but `f72..f92` legs remained mostly frozen** because `75%` of base flow time (`b: 1.00 -> 0.25`) had already elapsed under the static cutout. Only releasing at **`0.33`** (`Gate 2b` and shipped `h3_image_ref_dpad_sound_pika_api.json`, `b = 0.50`) freed leg articulation across `f68..f92`. There is a real tradeoff here: releasing earlier than `0.33` (e.g., `0.17`, `1` step) risks losing late-clip trajectory reversals (`f48..f92`), whereas `>= 0.50` freezes limbs.
 
 4. **Auto-cutout (`GrabCut`) is a border-seeded heuristic, not semantic segmentation.**
    - When no `mask` is wired, `MiniMaxH3AppendSpriteTrajectory` seeds OpenCV `GrabCut` from a `6%` border strip plus an upper-center bright-feature guard (which keeps tall thin attachments like the white birthday candle from being pruned).
    - That works cleanly when `<Picture 1>` frames a centered subject inside a distinct margin, and fails when the subject fills the frame edge-to-edge or shares color histograms with a busy background. For complex studio or crowd stills, wire an explicit `MASK` (such as SAM 3) into `MiniMaxH3AppendSpriteTrajectory.mask`.
 
-5. **The sprite trajectory is flat 2D affine paste-and-flip—no 3D yaw, foreshortening, or limb cycle.**
-   - `MiniMaxH3AppendSpriteTrajectory` translates, scales, and horizontally mirrors a single RGBA cutout over a flat two-tone grey horizon (`0.52` sky / `0.44` ground) with a soft dark ellipse shadow. It cannot represent a smooth `90°` camera-facing turn (`z`-axis rotation), depth occlusion behind scene props, or quadruped gait phase on its own; it relies entirely on H3 hallucinating 3D volume and gait after step `1`.
+5. **The sprite trajectory is flat 2D affine paste-and-flip—no 3D yaw, foreshortening, limb cycle, or source-facing detector.**
+   - `MiniMaxH3AppendSpriteTrajectory` translates, scales, and horizontally mirrors a single RGBA cutout over a flat two-tone grey horizon (`0.52` sky / `0.44` ground) with a soft dark ellipse shadow. `face=right` (`flip=false`) always keeps `<Picture 1>`'s native unflipped orientation and `face=left` (`flip=true`) mirrors it horizontally (so if `<Picture 1>` faces left natively, use `flip=false` / `flip=true` explicitly—there is no automatic facing detector). It cannot represent a smooth `90°` camera-facing turn (`z`-axis rotation), depth occlusion behind scene props, or quadruped gait phase on its own; it relies entirely on H3 hallucinating 3D volume and gait after step `1`.
 
 6. **Sound cues anchor touchdown/impact, not liftoff.**
    - In a preliminary check, placing `hop` at `frame_idx = 48` (mid-flight of `hop 44..54`) pulled the acoustic transient ahead of the visual landing. Percussive cues correspond to physical contact (`54` touchdown for `hop 44..54`), so the user still has to align audio cue frames with the **end** of an aerial arc rather than its start.
@@ -150,7 +147,7 @@ Every failure mode below was observed in the `2026-11-12` runs (`data/ref_signal
    - Because `FRAME_RESCALE = 5/3` (`40 Hz` audio tokens / `24 fps` video frames), only multiples of `3` video frames map to exact integer audio tokens (`5/3 * 3k = 5k`). With `snap_to_3f = True`, frame `56` snaps to `57` (`±1` frame = `±41.7 ms`). Furthermore, two cues within `< 5` frames (`~200 ms`) have overlapping waveform tails and are merged into a single `cond_audio` island anchored at the earlier frame so their 1D RoPE coordinates never collide.
 
 8. **Authoring trajectories in multiline text is still manual.**
-   - Typing normalized `x=0.31, y=0.69, face=right` lines is deterministic, git-diffable, and needs zero external files, but guessing screen-space `x`/`y` coordinates against a background street described only in text still takes iteration compared to dragging a path over a preview frame.
+   - Typing normalized `x=0.20, y=0.70, face=right` lines is deterministic, git-diffable, and needs zero external files, but guessing screen-space center `(x, y)` coordinates against a background street described only in text still takes iteration compared to dragging a path over a preview frame.
 
 ---
 
@@ -217,23 +214,25 @@ $$\hat{\epsilon}_{\text{video}} = \epsilon_{\text{orig, video}} + s \cdot \bigl(
 
 on steps `0..last_step - 1` (`0..2` for `last_step = 3`, `2` passes/step $\times 3 + 1$ pass/step $\times 3 = 10$ DiT passes total), feeding the clean `orig` prediction to the audio stream so `cond_audio` steers video motion without entering the audio trajectory.
 
-### 7.4 Summary of measured runs (`1344x768x124`, `24 fps`)
+### 7.4 Summary of measured runs (`1344x768x124`, `24 fps`, `seed = 730451892`)
 
-#### Audio beat-sheet runs (`unet_fl2va` + Pika `fl2va`, `seed = 102`, target hops `[24, 57, 96]`)
+#### Audio beat-sheet runs (`unet_fl2va` + Pika `fl2va`, target cues `[24, 54->57, 96]`)
 
-| Arm | Guider & passes | `audio_end_percent` | Cue floor | Detected hops (frames) | Audio `r` vs `.wav` | Inter-event ambience | Wall time |
+| Arm | Guider & passes | `audio_end_percent` | Cue floor | Acoustic/visual hops (frames) | Audio `r` vs `.wav` | Outside-event median | Wall time |
 |---|---|---:|---:|---|---:|---:|---:|
-| `exp1` Arm 1 (text only) | `BasicGuider` (`6`) | n/a | n/a | `[23, 55]` (`2/3`, missed `f96`) | `-0.0568` | `-32.98 dBFS` | `~54s` |
-| `exp1` Arm 2 (unreleased `.wav`) | `BasicGuider` (`6`) | `1.00` | `-94 dBFS` | `[23, 57, 96]` (`3/3`) | `+0.1636` *(bleed)* | `-52.90 dBFS` *(muted)* | `~54s` |
-| `exp1` Arm 3 (`0.60` `BasicGuider`) | `BasicGuider` (`6`) | `0.60` | `-94 dBFS` | `[24, 57, 96]` (`3/3`) | `+0.2036` *(bleed)* | `-32.04 dBFS` | `~54s` |
-| `exp1` Arm 5 (shipped `fl2va` `EditGuider`) | `EditGuider video_only 1.6` (`10`) | `0.60` | `-28 dBFS` | `[24, 56/57, 96]` (`3/3`) | **`-0.0086`** | **`-35.58 dBFS`** | `83.9s` |
+| `exp1` `hop_clean` / `exp2` `yank_clean` | `BasicGuider` (`6`) | n/a | n/a | `1/3` (`f26..29` or `f61`, drifts) | `-0.0114` | `-38.06` / `-33.74 dBFS` | `63.0s` |
+| `exp1` `thuds_a_rel` (`[24, 60, 96]`) | `BasicGuider` (`6`) | `0.60` | `0.0` (`-94 dBFS`) | `[24, 60, 96]` (`3/3`) | n/a *(sine)* | **`-90.90 dBFS`** *(muted)* | `~54s` |
+| `exp2` `yank_a_rel` (`0.60` `BasicGuider`) | `BasicGuider` (`6`) | `0.60` | `-28 dBFS` | `[24, 54..57, 96]` (`3/3`) | **`+0.8586`** *(bleed)* | `-33.37 dBFS` | `54.0s` |
+| `exp2` `yank_a_vidonly_fixed` / shipped `fl2va` | `EditGuider video_only 1.6` (`10`) | `0.60` | `-28 dBFS` | `[24, 56/57, 96]` (`3/3`) | **`-0.0812` / `-0.0086`** | **`-30.82` / `-35.58 dBFS`** | `83.9..90.2s` |
 | **`Gate 1` (`BasicGuider` `0.33`)** | **`BasicGuider` (`6`, `1x`)** | **`0.33`** | **`-28 dBFS`** | **`[24, 56/57, 96]` (`3/3`)** | **`-0.1578` (`-0.0078` mono)** | **`-35.36 dBFS`** | **`60.3s`** |
 
-#### Hybrid `<Picture 1>` + 2D sprite `<Video 1>` + sound cue runs (`unet_ref2va` + Pika `ref2va`, `seed = 104`)
+#### Hybrid `<Picture 1>` + 2D sprite `<Video 1>` + sound cue runs (`unet_ref2va` + Pika `ref2va`)
 
-| Arm | Guider & passes | `end` / `video_end` / `audio_end` | Jump apex frame (sprite `f49`) | `cx` trajectory (`f00 -> peak -> f112`) | Backward travel (`f64..f112`) | Facing `+x` & candle lit | `f72..f92` leg motion | Audio `r` vs `.wav` |
+| Arm | Guider & passes | `end` / `video_end` / `audio_end` | Jump apex frame (sprite `f49`) | `cx` trajectory (`start -> peak -> end`) | Net displacement | Facing & candle | `f68..f92` leg motion | Audio `r` vs cue |
 |---|---|---|---:|---|---:|---|---|---:|
-| `exp2` Arm 1 (`<Picture 1>` + text only) | `BasicGuider` (`6`) | `1.0 / — / —` | `f50` | `451 -> 888 -> 888 px` | **`0 px`** *(fails reversal)* | `+x`, lit | stands still | n/a |
-| `exp2` Arm 3 (`dpad_mid_reverse` held) | `BasicGuider` (`6`) | `1.0 / 1.00 / —` | `f56` (`+7f` lag) | `416 -> 843 -> 490 px` | `-353 px` | `+x`, 100% lit | **frozen cutout glide** | n/a |
-| `Gate 2` (hybrid `vep = 0.50` + `hop@f54`) | `EditGuider video_only 1.6` (`10`) | `1.0 / 0.50 / 0.60` | `f51..52` (`+2..3f`) | `390 -> 825 -> 442 px` | `-383 px` | `+x`, 100% lit | mostly frozen | `-0.0230` |
-| **`Gate 2b` (shipped hybrid `vep = 0.33`)** | **`EditGuider video_only 1.6` (`10`)** | **`1.0 / 0.33 / 0.60`** | **`f51` (`+2f`)** | **`392 -> 816 -> 466 px`** | **`-350 px`** | **`+x`, 100% lit** | **`3` alternating backward stride cycles** | **`-0.0196`** |
+| `exp2_dpad` `dpad_right_earlyhop` (`f36` hop) | `BasicGuider` (`6`) | `1.0 / 1.00 / —` | `f36` (`0f` vs `f36`) | `417 -> 837 px` (`+x`) | `+420 px` right | `+x`, 100% lit | forward walk | n/a |
+| `exp2_dpad` `dpad_left_latehop` (`f84` hop) | `BasicGuider` (`6`) | `1.0 / 1.00 / —` | `f85` (`+1f` vs `f84`) | `832 -> 388 px` (`-x`) | `-444 px` left | `-x` (flipped), lit | forward walk left | n/a |
+| `exp2_dpad` `dpad_mid_reverse` (`vep = 1.0`) | `BasicGuider` (`6`) | `1.0 / 1.00 / —` | `f56` (`+7f` lag) | `377 -> 690 -> 298 px` | `-392 px` backpedal | `+x`, 100% lit | **frozen cutout glide** | n/a |
+| `Gate 2` (hybrid `vep = 0.50` + `hop@f54`) | `EditGuider video_only 1.6` (`10`) | `1.0 / 0.50 / 0.60` | `f51..52` (`+2..3f`) | `372 -> 681 -> 263 px` | `-418 px` backpedal | `+x`, 100% lit | mostly frozen | `+0.0168` |
+| **`Gate 2b` (hybrid `vep = 0.33` + `.wav@f54`)** | **`EditGuider video_only 1.6` (`10`)** | **`1.0 / 0.33 / 0.60`** | **`f51` (`+2f`)** | **`374 -> 665 -> 287 px`** | **`-378 px` backpedal** | **`+x`, 100% lit** | **`3` alternating backward stride cycles** | **`-0.0196`** |
+| **Shipped zero-file `h3_image_ref_dpad_sound_pika_api.json`** | **`EditGuider video_only 1.6` (`10`)** | **`1.0 / 0.33 / 0.60`** | **`f51` (`+2f`)** | **`402 -> 718 -> 284 px`** | **`-434 px` backpedal** | **`+x`, 100% lit** | **alternating backward leg strides (`f68..f92`)** | **`+0.0238`** |

@@ -160,15 +160,13 @@ Compare how strongly a vector shifts `context` and step-0 DiT velocity on your e
 
 - **API Workflow**: [`workflows/h3_image_ref_dpad_sound_pika_api.json`](../../../workflows/h3_image_ref_dpad_sound_pika_api.json) (full guide and limits: [`2026-11-12_sound_cues_dpad_and_033_release_law.md`](../../research/control_vectors/2026-11-12_sound_cues_dpad_and_033_release_law.md))
 - **`MiniMaxH3AppendRefImage`** (`<Picture 1>`): `size_policy = "max"`, `allow_upscale = True`, `qwen_view = "separate"`
-- **`MiniMaxH3AppendSpriteTrajectory`** (`<Video 1>`, `source_facing = "right"`, `width = 384`, `height = 224`, `length = 124`):
+- **`MiniMaxH3AppendSpriteTrajectory`** (`<Video 1>`, `canvas_width = 384`, `canvas_height = 224`, `sprite_scale = 0.31`, `length = 124`):
   ```text
-  0: x=0.31, y=0.69, face=right, scale=1.0
-  44: x=0.63, y=0.69, face=right
-  hop 44..54: lift=0.14
-  54: x=0.69, y=0.69, face=right
-  66: x=0.69, y=0.69, face=right
-  112: x=0.33, y=0.69, face=right
-  123: x=0.33, y=0.69, face=right
+  0: x=0.20, y=0.70, face=right
+  48: x=0.64, y=0.70, face=right
+  92: x=0.26, y=0.70, face=right
+  123: x=0.26, y=0.70, face=right
+  hop 44..54: lift=0.29
   ```
 - **`MiniMaxH3SoundCues`** (`snap_to_3f = True`, `floor_dbfs = -28.0`):
   ```text
