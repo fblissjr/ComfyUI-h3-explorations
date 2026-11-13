@@ -186,12 +186,11 @@ H3_IMAGE_RETIRED_TOP_LEVEL = (
 
 H3_IMAGE_SUITE_DIR = SYSTEM_PROMPTS_DIR / "h3_image"
 H3_IMAGE_T2I_PINS = (
-    "camera-relative orientation",
-    "front-facing",
-    "back-facing",
-    "single frozen phase of motion",
+    "visual scene and photography prompt-expansion specialist",
+    "45–90 words",
     'double quotes (`"..."`)',
-    "single continuous English caption paragraph",
+    "[Shot 1]",
+    "single continuous",
 )
 H3_IMAGE_DESIGN_PINS = (
     "Pre-solve all content, math, formulas",
@@ -203,14 +202,17 @@ H3_IMAGE_DESIGN_PINS = (
 )
 H3_IMAGE_EDIT_PINS = (
     "<Picture 1>",
-    "<Subject 1>",
-    "The target image",
-    "<Subject N> is fully preserved.",
-    "<Subject N> is partially preserved;",
-    "<Subject N> supplies the",
-    "<Subject N> serves as a weak",
-    "single quotes `'...'",
-    "BARE `<Subject N>` tokens only",
+    "<Picture 2>",
+    'double quotes (`"..."`)',
+    "unchanged",
+    "[Shot 1]",
+    "single continuous",
+)
+H3_IMAGE_EDIT_FORBIDDEN_SUBSTRINGS = (
+    "<subject 1>",
+    "<subject n>",
+    "is fully preserved",
+    "'single quotes'",
 )
 H3_IMAGE_SUITE_SPECS = (
     ("t2i_system_prompt.md", False, H3_IMAGE_T2I_PINS),
@@ -280,6 +282,8 @@ def h3_image_system_prompts() -> int:
         low = norm.lower()
 
         leaks = [tok for tok in H3_IMAGE_FORBIDDEN_SUBSTRINGS if tok in low]
+        if name.startswith("edit_"):
+            leaks.extend(tok for tok in H3_IMAGE_EDIT_FORBIDDEN_SUBSTRINGS if tok in low)
         if cjk_re.search(raw):
             leaks.append("<CJK characters>")
         miss = [pin for pin in pins if flat(pin).lower() not in low]

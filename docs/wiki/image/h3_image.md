@@ -256,13 +256,13 @@ our standalone, English-only system-prompt suite for local thinking LLMs/VLMs
 `<Picture N>` edits, each available as plain prose or with a trailing
 `aspect_ratio:` line parsed by `h3_image_nodes.py::parse_expander_reply`).
 
-- **Text to image**: the description opens with what the image is and walks the
-  frame (`"double-quoted"` visible text). The ratio variant appends
-  `aspect_ratio: <10 presets>`.
-- **An edit**: one continuous 3-part paragraph (`'single-quoted'` visible text)
-  that binds independent source elements as `<Subject N>`, states what the
-  target image shows and how each `<Subject N>` is preserved or transferred, and
-  describes only changed or newly introduced details. The ratio variant appends
+- **Text to image**: concise, length-proportional framing and scene prose
+  (around `45–90` words for focused requests; `"double-quoted"` visible text
+  when requested). The ratio variant appends `aspect_ratio: <10 presets>`.
+- **An edit**: one continuous 3-beat natural paragraph (`"double-quoted"` visible
+  text) anchoring attached images as `<Picture 1>`, `<Picture 2>`, ..., stating
+  what remains unchanged, what changes or transfers, and how the finished target
+  image looks without synthetic `<Subject N>` tags. The ratio variant appends
   `aspect_ratio: <same as the picture | W:H>`.
 
 The two default graphs (`h3_image_t2i_api.json`, `h3_image_edit_api.json`) take
