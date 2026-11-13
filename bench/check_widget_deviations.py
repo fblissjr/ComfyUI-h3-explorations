@@ -86,7 +86,7 @@ import h3_config  # noqa: E402
 #: reason like "it is the prompt". Kept explicit -- an input added here stops
 #: being graded, so it is a judgement and reads as one.
 IDENTITY = {
-    "filename_prefix", "prompt", "text", "image", "video", "latent", "audio_prompt",
+    "filename_prefix", "prompt", "text", "image", "video", "audio", "latent", "audio_prompt",
     "unet_name", "lora_name", "vae_name", "clip_name", "type",
     "seed", "noise_seed", "value",
 }
@@ -422,6 +422,36 @@ DECLARED: dict[tuple[str, str], tuple] = {
                 "That is the size the render that showed the edit landing used; 'max' "
                 "was not rendered on this graph (docs/h3_image_editing.md). The "
                 "generator passes ref_size_policy='match' for it."),
+    ("MiniMaxH3GuideLatent", "frame_idx"):
+        ("ARM", "24, 54, and 96 across the three chained audio-guide islands on "
+                "h3_text_to_video_pika_sound_guide (h3_config.SOUND_GUIDE_ISLANDS), "
+                "against the node default 0 on the frame-0 visual guide graphs "
+                "(2026-11-12, docs/research/2026-11-12_guide_sound_islands_and_kinematic_dpad.md)."),
+    ("MiniMaxH3ReleaseReferences", "audio_end_percent"):
+        ("ARM", "0.60 (h3_config.SOUND_GUIDE_AUDIO_RELEASE_END) on "
+                "h3_text_to_video_pika_sound_guide, against the node default 1.0: "
+                "releases the timeline cond_audio islands after step 3 (frac < 0.60 "
+                "on 6-step Pika LCM) so steps 4..5 run 1-pass [original] cleanly "
+                "(2026-11-12, docs/research/2026-11-12_guide_sound_islands_and_kinematic_dpad.md)."),
+    ("MiniMaxH3EditGuider", "scale"):
+        ("ARM", "1.6 (h3_config.SOUND_GUIDE_EDIT_GUIDANCE['scale']) on "
+                "h3_text_to_video_pika_sound_guide so the 0-vs-3 cond_audio differential "
+                "locks both free hops and the mid-air leash-yank truncation cleanly, "
+                "against the node default 1.5 on the prompt-edit graphs (2026-11-12)."),
+    ("MiniMaxH3EditGuider", "last_step"):
+        ("ARM", "3 (h3_config.SOUND_GUIDE_EDIT_GUIDANCE['last_step']) on "
+                "h3_text_to_video_pika_sound_guide, matching audio_end_percent = 0.60 "
+                "on 6-step Pika LCM (steps 0..3 run 2-pass guidance; steps 4..5 run "
+                "1-pass [original] for 10 total DiT calls instead of 12), against the "
+                "node default 1000 on the prompt-edit graphs (2026-11-12)."),
+    ("MiniMaxH3EditGuider", "streams"):
+        ("ARM", "'video_only' (h3_config.SOUND_GUIDE_EDIT_GUIDANCE['streams']) on "
+                "h3_text_to_video_pika_sound_guide, against the node default 'both': "
+                "extrapolates the cond_audio timing delta into x_video while pinning "
+                "x_audio strictly to the unguided [original] prediction, eliminating "
+                "synthetic .wav bleed (r = +0.86 -> -0.08) and -94 dBFS inter-island "
+                "silence while H3 synthesizes native foley via x_video -> x_audio "
+                "(2026-11-12, docs/wiki/edit_guidance.md)."),
 }
 
 #: **There is deliberately no exception table here.** One was written on

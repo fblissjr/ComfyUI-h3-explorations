@@ -24,7 +24,11 @@ Claims, i.e. what breaks if a case is deleted:
                          `workflows/image/h3_probe_pika_image_guide_edit_api.json`
                          wire `MiniMaxH3GuideLatent` -> `MiniMaxH3Preflight` on
                          `unet_ref2va` and load Pika's LoRA alone, no guide
-                         task LoRA
+                         task LoRA; `workflows/h3_text_to_video_pika_sound_guide_api.json`
+                         wires 3 chained `MiniMaxH3GuideLatent` audio islands
+                         (`[24, 54, 96]`) + `MiniMaxH3ReleaseReferences` (`0.60`) +
+                         `MiniMaxH3EditGuider` (`streams='video_only'`, `scale=1.6`,
+                         `last_step=3`) on 1x `MiniMaxH3Conditioning` (`unet_fl2va`)
 
 No GPU, no server, no model weights on disk.
 
@@ -310,6 +314,35 @@ def check_shipped_guide_graphs() -> None:
         assert doc["26"]["class_type"] == "MiniMaxH3Preflight"
         assert doc["26"]["inputs"]["conditioning"] == ["70", 0]
         assert doc["26"]["inputs"]["samples"] == ["70", 1]
+
+    snd_path = REPO / "workflows" / "h3_text_to_video_pika_sound_guide_api.json"
+    assert snd_path.is_file(), f"missing {snd_path}"
+    snd = json.loads(snd_path.read_text(encoding="utf-8"))
+    assert snd["1"]["inputs"]["unet_name"] == cfg.MODELS["unet_fl2va"]
+    assert snd["18"]["inputs"]["lora_name"] == cfg.PIKA_FL2VA_SVD995_LORA
+    cond_nodes = [k for k, v in snd.items() if isinstance(v, dict) and v.get("class_type") == "MiniMaxH3Conditioning"]
+    assert cond_nodes == ["5"], f"expected single 1x MiniMaxH3Conditioning ('5'), got {cond_nodes}"
+    assert snd["145"] == {"class_type": "LoadAudio", "inputs": {"audio": cfg.SOUND_GUIDE_HOP_AUDIO}}
+    assert snd["146"] == {"class_type": "LoadAudio", "inputs": {"audio": cfg.SOUND_GUIDE_YANK_AUDIO}}
+    frames = [snd[nid]["inputs"]["frame_idx"] for nid in ("70", "150", "151")]
+    assert frames == [24, 54, 96], f"expected sound islands [24, 54, 96], got {frames}"
+    assert snd["70"]["inputs"]["positive"] == ["5", 0] and snd["70"]["inputs"]["audio"] == ["145", 0]
+    assert snd["150"]["inputs"]["positive"] == ["70", 0] and snd["150"]["inputs"]["audio"] == ["146", 0]
+    assert snd["151"]["inputs"]["positive"] == ["150", 0] and snd["151"]["inputs"]["audio"] == ["145", 0]
+    assert snd["135"]["class_type"] == "MiniMaxH3ReleaseReferences"
+    assert snd["135"]["inputs"]["audio_end_percent"] == cfg.SOUND_GUIDE_AUDIO_RELEASE_END
+    assert snd["26"]["inputs"] == {
+        "conditioning": ["5", 0],
+        "samples": ["151", 1],
+        "edited_conditioning": ["151", 0],
+    }
+    assert snd["9"]["class_type"] == "MiniMaxH3EditGuider"
+    assert snd["9"]["inputs"]["model"] == ["135", 0]
+    assert snd["9"]["inputs"]["original"] == ["26", 0]
+    assert snd["9"]["inputs"]["edited"] == ["151", 0]
+    assert snd["9"]["inputs"]["scale"] == 1.6
+    assert snd["9"]["inputs"]["last_step"] == 3
+    assert snd["9"]["inputs"]["streams"] == "video_only"
 
 
 def main() -> int:

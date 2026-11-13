@@ -1,0 +1,343 @@
+{
+  "1": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+      "weight_dtype": "default"
+    }
+  },
+  "2": {
+    "class_type": "MiniMaxH3EncoderLoader",
+    "inputs": {
+      "encoder_name": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+      "device": "default"
+    }
+  },
+  "3": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "minimax_h3_video_vae_int8_convrot.safetensors"
+    }
+  },
+  "4": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "minimax_h3_audio_vae_fp32.safetensors"
+    }
+  },
+  "6": {
+    "class_type": "RandomNoise",
+    "inputs": {
+      "noise_seed": 730451892
+    }
+  },
+  "7": {
+    "class_type": "KSamplerSelect",
+    "inputs": {
+      "sampler_name": "lcm"
+    }
+  },
+  "9": {
+    "class_type": "MiniMaxH3EditGuider",
+    "inputs": {
+      "model": [
+        "135",
+        0
+      ],
+      "original": [
+        "26",
+        0
+      ],
+      "edited": [
+        "151",
+        0
+      ],
+      "scale": 1.6,
+      "first_step": 0,
+      "align_positions": false,
+      "last_step": 3,
+      "streams": "video_only",
+      "audio_scale": 1.0
+    }
+  },
+  "10": {
+    "class_type": "SamplerCustomAdvanced",
+    "inputs": {
+      "noise": [
+        "6",
+        0
+      ],
+      "guider": [
+        "9",
+        0
+      ],
+      "sampler": [
+        "7",
+        0
+      ],
+      "sigmas": [
+        "60",
+        0
+      ],
+      "latent_image": [
+        "26",
+        1
+      ]
+    }
+  },
+  "11": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": [
+        "10",
+        0
+      ],
+      "vae": [
+        "3",
+        0
+      ]
+    }
+  },
+  "12": {
+    "class_type": "VAEDecodeAudio",
+    "inputs": {
+      "samples": [
+        "10",
+        0
+      ],
+      "vae": [
+        "4",
+        0
+      ]
+    }
+  },
+  "13": {
+    "class_type": "VHS_VideoCombine",
+    "inputs": {
+      "images": [
+        "11",
+        0
+      ],
+      "audio": [
+        "12",
+        0
+      ],
+      "frame_rate": 24.0,
+      "loop_count": 0,
+      "filename_prefix": "Video/h3_t2v_pika_sound_guide",
+      "format": "video/h264-mp4",
+      "pix_fmt": "yuv420p",
+      "crf": 19,
+      "save_metadata": true,
+      "trim_to_audio": false,
+      "pingpong": false,
+      "save_output": true
+    }
+  },
+  "27": {
+    "class_type": "MiniMaxH3Resolution",
+    "inputs": {
+      "shape": "wide",
+      "shape.wide_resolution": "1344x768  7/4  1008 tok/frame  1.00x",
+      "length": 124
+    }
+  },
+  "5": {
+    "class_type": "MiniMaxH3Conditioning",
+    "inputs": {
+      "clip": [
+        "2",
+        0
+      ],
+      "vae": [
+        "3",
+        0
+      ],
+      "prompt": "integrated_multimodal_description: [Shot 1] Live-action, cinematic, a medium-wide shot frames a zebra crossing on a quiet city street on an overcast morning across the five-second take. An elderly man in his seventies, in a green knitted cardigan and a brown flat cap, walks slowly across the crossing from the left of frame toward the right, holding a red leather leash in his right hand. The leash is clipped to a harness on a large grey tortoise that hops energetically beside his feet: first springing high into a free hop with all four feet clear off the asphalt, then leaping a second time until his right hand jerks the red leather leash taut mid-air and yanks the tortoise sharply back down onto the road, before springing high into a third free hop, and a single lit white birthday candle stands upright on the top of its shell, its small flame flickering. A red double-decker bus waits at the stop line on the right of frame with its engine idling, and its driver watches them through the windscreen. Halfway across, the man lifts his cap to the driver with his left hand and puts it back on. He and the tortoise are the only figures on the crossing. The camera trucks right with small amplitude at slow speed, keeping the man and the tortoise in frame. He produces no vocal sound.\n\noverall_soundscape: The bus engine idles with a low diesel rumble, the crossing signal beeps at a steady pace, the tortoise's claws scrape on the asphalt, its free hops land with heavy muffled thuds, and on its second leap the leather leash snaps taut with a brisk tug followed immediately by a sharp slammed-down shell thud, with light traffic in the distance.\n\nnon_diegetic_music: N/A",
+      "width": [
+        "27",
+        0
+      ],
+      "height": [
+        "27",
+        1
+      ],
+      "length": [
+        "27",
+        2
+      ],
+      "canvas": "explicit"
+    }
+  },
+  "18": {
+    "class_type": "MiniMaxH3LoRABranch",
+    "inputs": {
+      "model": [
+        "1",
+        0
+      ],
+      "lora_name": "h3/pika_h3_flex_fl2va_svd995_bf16.safetensors",
+      "strength": 1.0,
+      "modules": "all",
+      "blocks": "all",
+      "start_percent": 0.0,
+      "end_percent": 1.0
+    }
+  },
+  "19": {
+    "class_type": "MiniMaxH3SigmaShift",
+    "inputs": {
+      "model": [
+        "18",
+        0
+      ],
+      "shift_video": 12.0,
+      "shift_audio": 3.0
+    }
+  },
+  "58": {
+    "class_type": "ModelAttentionBackend",
+    "inputs": {
+      "model": [
+        "19",
+        0
+      ],
+      "attention": "comfy kitchen attention"
+    }
+  },
+  "21": {
+    "class_type": "MiniMaxH3Sol",
+    "inputs": {
+      "model": [
+        "58",
+        0
+      ],
+      "tau": 1.0,
+      "start_percent": 0.2,
+      "end_percent": 1.0,
+      "min_tokens": 12288,
+      "sink_conditioning": "exact_kv_and_all_rows",
+      "verbose": true,
+      "dense_blocks": "49",
+      "quantizer": "rotated",
+      "token_routing": "off"
+    }
+  },
+  "135": {
+    "class_type": "MiniMaxH3ReleaseReferences",
+    "inputs": {
+      "model": [
+        "21",
+        0
+      ],
+      "end_percent": 1.0,
+      "clean_level": 0.999,
+      "audio_end_percent": 0.6,
+      "audio_clean_level": 1.0
+    }
+  },
+  "26": {
+    "class_type": "MiniMaxH3Preflight",
+    "inputs": {
+      "conditioning": [
+        "5",
+        0
+      ],
+      "samples": [
+        "151",
+        1
+      ],
+      "edited_conditioning": [
+        "151",
+        0
+      ]
+    }
+  },
+  "60": {
+    "class_type": "ManualSigmas",
+    "inputs": {
+      "sigmas": "1.0, 0.972973, 0.923077, 0.8, 0.571429, 0.333333, 0.0"
+    }
+  },
+  "145": {
+    "class_type": "LoadAudio",
+    "inputs": {
+      "audio": "h3_guide_hop_200ms.wav"
+    }
+  },
+  "70": {
+    "class_type": "MiniMaxH3GuideLatent",
+    "inputs": {
+      "positive": [
+        "5",
+        0
+      ],
+      "latent": [
+        "5",
+        1
+      ],
+      "frame_idx": 24,
+      "single_frame": false,
+      "audio": [
+        "145",
+        0
+      ],
+      "audio_vae": [
+        "4",
+        0
+      ]
+    }
+  },
+  "146": {
+    "class_type": "LoadAudio",
+    "inputs": {
+      "audio": "h3_guide_yank_slam_300ms.wav"
+    }
+  },
+  "150": {
+    "class_type": "MiniMaxH3GuideLatent",
+    "inputs": {
+      "positive": [
+        "70",
+        0
+      ],
+      "latent": [
+        "70",
+        1
+      ],
+      "frame_idx": 54,
+      "single_frame": false,
+      "audio": [
+        "146",
+        0
+      ],
+      "audio_vae": [
+        "4",
+        0
+      ]
+    }
+  },
+  "151": {
+    "class_type": "MiniMaxH3GuideLatent",
+    "inputs": {
+      "positive": [
+        "150",
+        0
+      ],
+      "latent": [
+        "150",
+        1
+      ],
+      "frame_idx": 96,
+      "single_frame": false,
+      "audio": [
+        "145",
+        0
+      ],
+      "audio_vae": [
+        "4",
+        0
+      ]
+    }
+  }
+}

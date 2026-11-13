@@ -1762,6 +1762,32 @@ def h3_image_size(megapixels: float, x: float, y: float) -> tuple[int, int]:
 #: Chained after `PIKA_REF2VA_SVD995_LORA` (video) or `PH3_IMAGE_LORA`
 #: (single-frame still edit on `unet_ref2va`) via a second `MiniMaxH3LoRABranch`.
 GUIDE_LATENT_NODE = "MiniMaxH3GuideLatent"
+#: Timeline short-sound (`cond_audio`) islands for `h3_text_to_video_pika_sound_guide_api.json`,
+#: synthesized into `$H3_INPUT_DIR` by `bench/make_sound_guide_wavs.py` (`docs/research/2026-11-12_guide_sound_islands_and_kinematic_dpad.md`).
+#: Measured 2026-11-12 (`exp2`, `seed = 730451892`, `124` frames on `PIKA_FL2VA_SVD995_LORA`):
+#: - Exact integer 40 Hz Audio VAE RoPE positions (`frame_idx * 5 / 3 = [40, 90, 160]`), baking the
+#:   mid-air leather snap (`t = 0 ms`) + slammed shell impact (`t = +125 ms`, `+3` frames -> `f57`) into
+#:   one `300 ms` (`12`-token) `.wav` so two islands never share duplicate RoPE positions.
+#: - `audio_end_percent = 0.60` holds `'cond_audio'` across steps `0..3` (`frac <= 0.50 < 0.60`) and
+#:   releases it on steps `4..5`; paired with `0`-vs-`3` keyframe-differential
+#:   `MiniMaxH3EditGuider(scale=1.6, first_step=0, last_step=3, streams="video_only")` (`10` DiT calls),
+#:   this steers exact video jump/yank timestamps while isolating `x_audio` from synthetic `.wav` bleed
+#:   (`r = -0.0812` vs `+0.8414`) so H3's joint AV blocks synthesize organic landing foley at `[24, 57, 96]`.
+SOUND_GUIDE_HOP_AUDIO = "h3_guide_hop_200ms.wav"
+SOUND_GUIDE_YANK_AUDIO = "h3_guide_yank_slam_300ms.wav"
+SOUND_GUIDE_ISLANDS: tuple[tuple[int, str], ...] = (
+    (24, SOUND_GUIDE_HOP_AUDIO),
+    (54, SOUND_GUIDE_YANK_AUDIO),
+    (96, SOUND_GUIDE_HOP_AUDIO),
+)
+SOUND_GUIDE_AUDIO_RELEASE_END = 0.60
+SOUND_GUIDE_EDIT_GUIDANCE = dict(
+    scale=1.6,
+    first_step=0,
+    last_step=3,
+    streams="video_only",
+    keyframe_differential=True,
+)
 GUIDE_VFX_EDIT_FFP_LORA = "h3/alissonerdx/minimax_h3_vfx_edit_v1.0_r128_ffp.safetensors"
 GUIDE_VFX_EDIT_LORA = "h3/alissonerdx/minimax_h3_vfx_edit_v1.0_r128.safetensors"
 GUIDE_CHARACTER_SWAP_LORA = "h3/alissonerdx/minimax_h3_character_swap_v1.1_ref2va_fro.safetensors"

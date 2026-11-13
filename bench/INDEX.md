@@ -15,7 +15,7 @@ this file is only a way to find a script by what it says it does.
 | [`compare_*`](#compare) | 15 |
 | [`build_*`](#build) | 13 |
 | [`probe_*`](#probe) | 13 |
-| [the rest](#the-rest) | 197 |
+| [the rest](#the-rest) | 198 |
 
 ## check
 
@@ -424,6 +424,7 @@ this file is only a way to find a script by what it says it does.
 | [`look_carry.py`](look_carry.py) | Whether a load made again can rest on the look an earlier capture of it had: track, part, region and reference video. |
 | [`look_rooms.py`](look_rooms.py) | A subject's look, declared once in the plan, made into the region a load regenerates; and the plan-time check that reads the node's own plan back against it. |
 | [`make_attention_defaults_json.py`](make_attention_defaults_json.py) | Emit `2026-08-18_attention_defaults.json` from the raw arm results. |
+| [`make_sound_guide_wavs.py`](make_sound_guide_wavs.py) | Synthesize the two 32 kHz PCM `.wav` timeline sound-guide islands for `h3_text_to_video_pika_sound_guide_api.json`. |
 | [`map_attention_mass_on_capture.py`](map_attention_mass_on_capture.py) | Where does exact attention mass go, per head? Segment masses, per-latent-frame mass and the heaviest keys, on a capture. |
 | [`map_cube_schedule.py`](map_cube_schedule.py) | Map sglang's cube-sparse keep-ratio schedule onto the sigma grid our graphs sample. |
 | [`map_partition_delta.py`](map_partition_delta.py) | What differs between the release's FL2VA and Ref2VA weights, tensor by tensor. |

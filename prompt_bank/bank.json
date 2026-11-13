@@ -1309,6 +1309,14 @@
       "donor": "h3_image_ref_plus_text_to_video_api",
       "brief": "Prompt-edit baseline for the control-vector gate (lettering negation on ref2va_look_anchor): ref2va_look_anchor with explicit house-style negation of labels, stamps, and text across every jar, clamp, apron, wall, and wooden surface, inside ref 5.2's 350-500 word budget.",
       "tests": "Control-vector gate (§3.3) prompt-edit baseline on ref2va against ref2va_look_anchor steered negatively by lettering: whether negative steering keeps workshop surfaces unlabelled without altering reference preservation."
+    },
+    {
+      "id": "t2va_offpath_tortoise_sound_guide",
+      "mode": "t2va",
+      "frames": 124,
+      "donor": null,
+      "brief": "Multi-actor sound-island choreography on the off-path zebra crossing: two free tortoise hops flanking a mid-air taut-leather leash yank + slammed shell impact, paired with chained MiniMaxH3GuideLatent audio islands at [24, 54, 96], MiniMaxH3ReleaseReferences(audio_end_percent=0.60), and 0-vs-3 keyframe-differential MiniMaxH3EditGuider(streams='video_only', scale=1.6, last_step=3).",
+      "tests": "Timeline short-sound (cond_audio) island timing and joint-AV coupling (2026-11-12): steers exact video jump/yank timestamps via video_only keyframe-differential velocity while keeping x_audio 100% un-clamped on original so H3 synthesizes native diegetic landing impacts over continuous street ambience."
     }
   ]
 }

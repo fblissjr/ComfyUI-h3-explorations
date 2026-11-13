@@ -121,6 +121,7 @@ from h3_config import (  # noqa: E402
     H3_IMAGE_UNET, H3_IMAGE_UNET_BF16, H3_IMAGE_VAE, H3_IMAGE_SAMPLER, H3_IMAGE_MANUAL_SIGMAS,
     H3_IMAGE_MEGAPIXELS, H3_IMAGE_ASPECT_OF_PICTURE, HEYLOOK_DEFAULT_BASE_URL,
     GUIDE_LATENT_NODE, GUIDE_CHARACTER_SWAP_LORA, GUIDE_TASK_LORAS,
+    SOUND_GUIDE_ISLANDS, SOUND_GUIDE_AUDIO_RELEASE_END, SOUND_GUIDE_EDIT_GUIDANCE,
     CONTROL_VECTOR_NODE, CONTROL_VECTOR_DEFAULTS, CONTROL_VECTOR_OPTIONAL_DEFAULTS, LAYER_NORM_MATCH_NODE,
     STEER_NODE, STEER_DEFAULTS, RELEASE_REFERENCES_NODE, RELEASE_REFERENCES_DEFAULTS,
     WORD_VECTOR_NODE, WORD_VECTOR_DEFAULTS, LOAD_CONTROL_VECTOR_NODE,
@@ -290,6 +291,7 @@ def sol_api_inputs(sol):
 # rules item by item and was a second copy of the manual.
 
 LONG_T2V_PROMPT = _bank_prompt("t2va_covered_market")
+SOUND_GUIDE_T2V_PROMPT = _bank_prompt("t2va_offpath_tortoise_sound_guide")
 # The bench pair's scene (see the bench block near the end of main).
 BENCH_T2V_PROMPT = _bank_prompt("t2va_frontier_standoff")
 
@@ -1661,6 +1663,8 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
               guide_video: bool = False,
               guide_image: bool = False,
               guide_file: str | None = None,
+              guide_audio: tuple[tuple[int, str], ...] | None = None,
+              release_references: bool | dict | None = None,
               task_lora: tuple[str, float] | None = None,
               out_prefix: str | None = None, **canvas) -> dict:
     """API-format graph, submittable as {"prompt": <this>} to POST /prompt.
@@ -2129,7 +2133,35 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
         # reference hold/release is configured): wraps DIFFUSION_MODEL before any
         # step cache so computed steps apply the vector(s) and cached steps reuse
         # the cached output.
+        if release_references is not None:
+            raise SystemExit("pass release_references inside control_vector when both are set")
         model_src = _wire_control_vectors(g, model_src, control_vector)
+    elif release_references is not None and release_references is not False:
+        if release_references is True:
+            rel_in = {
+                "end_percent": float(RELEASE_REFERENCES_DEFAULTS["end_percent"]),
+                "clean_level": float(RELEASE_REFERENCES_DEFAULTS["clean_level"]),
+            }
+        elif isinstance(release_references, dict):
+            bad_rel = sorted(set(release_references) - set(RELEASE_REFERENCES_DEFAULTS))
+            if bad_rel:
+                raise SystemExit(
+                    f"release_references dict has unknown keys {bad_rel}; "
+                    f"expected {sorted(RELEASE_REFERENCES_DEFAULTS)}"
+                )
+            rel_in = {
+                "end_percent": float(release_references.get("end_percent", RELEASE_REFERENCES_DEFAULTS["end_percent"])),
+                "clean_level": float(release_references.get("clean_level", RELEASE_REFERENCES_DEFAULTS["clean_level"])),
+            }
+            aep = float(release_references.get("audio_end_percent", RELEASE_REFERENCES_DEFAULTS["audio_end_percent"]))
+            acl = float(release_references.get("audio_clean_level", RELEASE_REFERENCES_DEFAULTS["audio_clean_level"]))
+            if "audio_end_percent" in release_references or "audio_clean_level" in release_references or aep < 1.0 or acl < 1.0:
+                rel_in["audio_end_percent"] = aep
+                rel_in["audio_clean_level"] = acl
+        else:
+            raise SystemExit(f"release_references must be bool or dict, got {release_references!r}")
+        g["135"] = {"class_type": RELEASE_REFERENCES_NODE, "inputs": {"model": model_src, **rel_in}}
+        model_src = ["135", 0]
 
     if cache is not None:
         # Step caching, after the attention nodes: the cache is a
@@ -2291,11 +2323,11 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
     elif freeze_guide:
         raise SystemExit("freeze_guide needs freeze_audio")
 
-    if guide_video or guide_image:
-        if guide_video and guide_image:
-            raise SystemExit("guide_video and guide_image are mutually exclusive")
+    if guide_video or guide_image or guide_audio:
+        if sum(bool(x) for x in (guide_video, guide_image, guide_audio)) > 1:
+            raise SystemExit("guide_video, guide_image and guide_audio are mutually exclusive")
         if freeze_guide or freeze_song:
-            raise SystemExit("guide_video/guide_image do not compose with freeze_guide or freeze_song")
+            raise SystemExit("guide_video/guide_image/guide_audio do not compose with freeze_guide or freeze_song")
         if guide_video:
             g["71"] = {"class_type": REF_VIDEO_LOADER,
                        "inputs": {"video": PLACEHOLDER_VIDEO_SILENT,
@@ -2307,7 +2339,9 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
                        "inputs": {"positive": ["5", 0], "vae": vae_enc,
                                   "latent": ["5", 1], "guide": ["71", 0],
                                   "frame_idx": 0, "single_frame": False}}
-        else:
+            g["26"]["inputs"]["conditioning"] = ["70", 0]
+            g["26"]["inputs"]["samples"] = ["70", 1]
+        elif guide_image:
             if "16" in g:
                 raise SystemExit("guide_image uses LoadImage slot 16; pass ref_image_count=1")
             g["16"] = {"class_type": "LoadImage",
@@ -2316,8 +2350,41 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
                        "inputs": {"positive": ["5", 0], "vae": vae_enc,
                                   "latent": ["5", 1], "guide": ["16", 0],
                                   "frame_idx": 0, "single_frame": True}}
-        g["26"]["inputs"]["conditioning"] = ["70", 0]
-        g["26"]["inputs"]["samples"] = ["70", 1]
+            g["26"]["inputs"]["conditioning"] = ["70", 0]
+            g["26"]["inputs"]["samples"] = ["70", 1]
+        else:
+            if single_frame:
+                raise SystemExit("guide_audio requires single_frame=False")
+            assert guide_audio
+            if len(guide_audio) > 11:
+                raise SystemExit(f"at most 11 guide_audio islands (ids 70 and 150-159); got {len(guide_audio)}")
+            audio_loader_nids: dict[str, str] = {}
+            cur_cond: list[Any] = ["5", 0]
+            cur_lat: list[Any] = ["5", 1]
+            for idx, (f_idx, aud_name) in enumerate(guide_audio):
+                load_nid = audio_loader_nids.get(aud_name)
+                if load_nid is None:
+                    if len(audio_loader_nids) >= 5:
+                        raise SystemExit("at most 5 distinct guide_audio files (LoadAudio ids 145-149)")
+                    load_nid = str(145 + len(audio_loader_nids))
+                    audio_loader_nids[aud_name] = load_nid
+                    g[load_nid] = {"class_type": "LoadAudio", "inputs": {"audio": aud_name}}
+                guide_nid = "70" if idx == 0 else str(150 + idx - 1)
+                g[guide_nid] = {
+                    "class_type": GUIDE_LATENT_NODE,
+                    "inputs": {
+                        "positive": cur_cond,
+                        "latent": cur_lat,
+                        "frame_idx": int(f_idx),
+                        "single_frame": False,
+                        "audio": [load_nid, 0],
+                        "audio_vae": ["4", 0],
+                    },
+                }
+                cur_cond = [guide_nid, 0]
+                cur_lat = [guide_nid, 1]
+            g["26"]["inputs"]["conditioning"] = cur_cond
+            g["26"]["inputs"]["samples"] = cur_lat
 
     if freeze_windows:
         if freeze_audio or single_frame or split_at or stamp:
@@ -2649,12 +2716,13 @@ def _wire_edit_guidance(g: dict, prompt: str, spec: dict) -> None:
     """
     unknown = sorted(
         set(spec)
-        - {"edits", "scale", "first_step", "last_step", "streams", "audio_scale"}
+        - {"edits", "scale", "first_step", "last_step", "streams", "audio_scale", "keyframe_differential"}
     )
-    if unknown or "edits" not in spec:
+    kf_diff = bool(spec.get("keyframe_differential", False))
+    if unknown or (not kf_diff and "edits" not in spec) or (kf_diff and "edits" in spec):
         raise SystemExit(
-            "edit_guidance takes edits, scale, first_step, last_step, streams and audio_scale; "
-            f"got {sorted(spec)}"
+            "edit_guidance takes (edits | keyframe_differential=True) plus scale, first_step, "
+            f"last_step, streams and audio_scale; got {sorted(spec)}"
         )
     streams = str(spec.get("streams", EDIT_GUIDANCE_DEFAULTS["streams"]))
     if streams not in EDIT_GUIDANCE_STREAMS:
@@ -2662,6 +2730,29 @@ def _wire_edit_guidance(g: dict, prompt: str, spec: dict) -> None:
     guider = g["9"]
     if guider["class_type"] != "BasicGuider":
         raise SystemExit(f"edit_guidance replaces BasicGuider at node 9; this graph has {guider['class_type']}")
+    if kf_diff:
+        if "70" not in g or g["70"]["class_type"] != GUIDE_LATENT_NODE or "26" not in g:
+            raise SystemExit("keyframe_differential edit_guidance requires a MiniMaxH3GuideLatent chain")
+        edited_src = list(g["26"]["inputs"]["conditioning"])
+        if edited_src == ["5", 0]:
+            raise SystemExit("keyframe_differential edit_guidance expected node 26 conditioning to carry guides")
+        g["26"]["inputs"]["conditioning"] = ["5", 0]
+        g["26"]["inputs"]["edited_conditioning"] = edited_src
+        g["9"] = {
+            "class_type": "MiniMaxH3EditGuider",
+            "inputs": {
+                "model": guider["inputs"]["model"],
+                "original": ["26", 0],
+                "edited": edited_src,
+                "scale": float(spec.get("scale", EDIT_GUIDANCE_DEFAULTS["scale"])),
+                "first_step": int(spec.get("first_step", EDIT_GUIDANCE_DEFAULTS["first_step"])),
+                "align_positions": EDIT_GUIDANCE_DEFAULTS["align_positions"],
+                "last_step": int(spec.get("last_step", EDIT_GUIDANCE_DEFAULTS["last_step"])),
+                "streams": streams,
+                "audio_scale": float(spec.get("audio_scale", EDIT_GUIDANCE_DEFAULTS["audio_scale"])),
+            },
+        }
+        return
     cond = g["5"]
     if isinstance(cond["inputs"].get("prompt"), list):
         written = list(cond["inputs"]["prompt"])
@@ -5649,6 +5740,17 @@ def main():
               manual_sigmas=PIKA_MANUAL_SIGMAS,
               out_prefix="Video/h3_guide_video_edit"),
          "reference image + guide video + text -> edited video + audio on Pika H3 Flex 6-step LCM (SVD995 branch), the clip anchored by MiniMaxH3GuideLatent, no edit LoRA"),
+        ("h3_text_to_video_pika_sound_guide.json", "t2v-pika-sound-guide", "t2v",
+         SOUND_GUIDE_T2V_PROMPT,
+         dict(length=124,
+              lora=(PIKA_FL2VA_SVD995_LORA, PIKA_STRENGTH), lora_branch=True,
+              steps=PIKA_STEPS, sampler_name=PIKA_SAMPLER,
+              manual_sigmas=PIKA_MANUAL_SIGMAS,
+              guide_audio=SOUND_GUIDE_ISLANDS,
+              release_references=dict(audio_end_percent=SOUND_GUIDE_AUDIO_RELEASE_END),
+              edit_guidance=SOUND_GUIDE_EDIT_GUIDANCE,
+              out_prefix="Video/h3_t2v_pika_sound_guide"),
+         "text + timeline short-sound islands -> video + native foley on Pika H3 Flex 6-step LCM (SVD995 branch): 3 MiniMaxH3GuideLatent cond_audio islands at [24, 54, 96] + MiniMaxH3ReleaseReferences(audio_end_percent=0.6) + 0-vs-3 keyframe-differential MiniMaxH3EditGuider(streams=video_only, scale=1.6, last_step=3)"),
         # Plain H3 prompting at one frame on Pika (owner, 2026-11-10): a Pika
         # still is prompted as the video is, with no guide node and no
         # third-party LoRA. The one frame is the conditioning node's own

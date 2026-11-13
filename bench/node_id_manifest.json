@@ -739,7 +739,9 @@
     "inputs": [
       "model",
       "end_percent",
-      "clean_level"
+      "clean_level",
+      "audio_end_percent",
+      "audio_clean_level"
     ],
     "node_id": "MiniMaxH3ReleaseReferences",
     "outputs": [
