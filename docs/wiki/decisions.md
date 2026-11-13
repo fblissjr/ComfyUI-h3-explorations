@@ -15,6 +15,10 @@ Older history lives elsewhere and is not copied here:
   decisions" and forward-plan sections.
 - `bench/results/`: the verdict records, each with its conditions.
 
+## 2026-11-13
+
+- **Generalize H3 frame/clock rules and rebuild root `AGENTS.md`.** Promoted repo-wide MiniMax H3 temporal, VAE (`1 + 4k` / `17n + 5`), dual-clock (`40 Hz` vs `24 fps`, `39 + 51m` audio-seam alignment), keyframe/`3`-frame sound-cue, negative-RoPE reference (`2 fps` Qwen3-VL pairs, `0.33` step release), `length = 1` single-frame image, and `int32` fused-QKV spatial canvas rules into [`../h3_frame_rules.md`](../h3_frame_rules.md), cross-linking [`../masked_v2v/frames_rules.md`](../masked_v2v/frames_rules.md) to it while leaving `masked_v2v` `§0`–`§8` lane rules intact. Rebuilt root [`../../AGENTS.md`](../../AGENTS.md) (after the `2026-11-10` `a3996113` trial) with operative rules, pre-render H3 invariants, and the full 65-node pack replacement/capability map.
+
 ## 2026-11-12
 
 - **Wire `1x` `MiniMaxH3EncodeImageReferences` under edit guidance on `h3_image_edit`, expose cross-family `vector.encoder` control vectors on `h3_image` in Studio, and fix the 2D `(s, d)` `TokenRefiner` fallback in `_project_encoder_vector_to_h3_image` (`workflows/build_workflows.py`, `control_vector_nodes.py`, [`../h3_image.md`](../h3_image.md)).**
