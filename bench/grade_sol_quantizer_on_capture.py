@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Sol's four quantizers on captured cells, every head: error against fp32 dense.
 
-Written for the Sol redesign (2026-09-27, `docs/research/2026-09-27_sol_node_redesign.md`).
+Written for the Sol redesign (2026-09-27, `docs/wiki/archive/2026-09-27_sol_node_redesign.md`).
 Test 1 showed `quantizer` balanced and plain render differently in every mode,
 and `bench/measure_qk_balance_gate_on_capture.py` showed why: the balance
 gate opens on some heads of every captured block, not only on the blocks the

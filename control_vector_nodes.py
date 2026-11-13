@@ -7,7 +7,7 @@ pass), runs the DiT's `condition_proj` and 2-block `token_refiner`, pools the
 selected span rows (`scene_text` by default), computes the float64 contrastive
 direction, projects out any holds, and writes
 `<ComfyUI models dir>/control_vectors/<name>__<family>.safetensors` with its
-recipe, family, and quality report (`docs/research/control_vectors/2026-11-04_h3_control_vectors.md`).
+recipe, family, and quality report (`docs/wiki/research/control_vectors/2026-11-04_h3_control_vectors.md`).
 
 `MiniMaxH3ApplyControlVectors` attaches a `WrappersMP.DIFFUSION_MODEL` wrapper on
 a cloned `ModelPatcher` that accumulates `strength * vector` across stacked

@@ -5,7 +5,7 @@
 # docs cite it by name, and because ARMING_KEYS documents what to look for.
 #
 # Restart ComfyUI by hand instead -- the way it was done before this script
-# existed (docs/comfy_notes.md, "Restart by the process that owns port 8188"):
+# existed (docs/wiki/ops/comfy_notes.md, "Restart by the process that owns port 8188"):
 #
 #   PID=$(ss -ltnp | grep ':8188' | grep -oP 'pid=\K[0-9]+' | head -1)
 #   tr '\0' '\n' < /proc/$PID/environ | grep '^H3_'    # ARMED? it is somebody's
@@ -21,7 +21,7 @@
 #
 # Kill the PORT OWNER, never `pgrep | head -1`: start.sh runs under a uv
 # wrapper, and killing the wrapper leaves the old server on the port.
-echo "bench/restart_comfy.sh is DISABLED (it hangs); restart ComfyUI by hand -- see the header of this file or docs/comfy_notes.md" >&2
+echo "bench/restart_comfy.sh is DISABLED (it hangs); restart ComfyUI by hand -- see the header of this file or docs/wiki/ops/comfy_notes.md" >&2
 exit 2
 
 # ---- original script, commented out in full below this line ----------------
@@ -110,7 +110,7 @@ exit 2
 # # the change.** Adding the env gate protects the capture from firing by
 # # accident; adding it here protects the capture from being disarmed by someone
 # # who cannot see it. Grep for the key in the module that reads it, not in the
-# # docs that describe it -- `docs/research/pdd/tier1_gate.md` item 2 asked for
+# # docs that describe it -- `docs/wiki/research/pdd/tier1_gate.md` item 2 asked for
 # # exactly this and it still had not been done.
 # ARMING_KEYS="H3_CAPTURE H3_PDD_OBSERVE H3_QUANT_OBSERVE H3_SOL_OBSERVE"
 #

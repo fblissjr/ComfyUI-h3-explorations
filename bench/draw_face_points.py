@@ -223,7 +223,7 @@ OPEN_MOUTH_FORMS = ("inner outline", "capped", "outlined", "outlined over the li
 #: 2026-10-23) but cut, as every mark is, to the head's silhouette, and not drawn on a frame where none of it is left; the body model's
 #: lips painted flat exactly inside the outer outline (`lips_paint_out`), the meeting line
 #: drawn with no dark edge as the closed parting line is (`CLOSED_MOUTHS`). Why on the class map's lips: a closed lip line drawn from the
-#: pose model's points alone sat 8-12 px above the grey head's lips and made her lips hang open (0278d/e/h; docs/masked_v2v/PROTOCOL.md,
+#: pose model's points alone sat 8-12 px above the grey head's lips and made her lips hang open (0278d/e/h; docs/wiki/masked_v2v/PROTOCOL.md,
 #: case study 3). A frame whose class map holds no lips takes its nearest neighbour's, as the open form's does. Under "outlined" every
 #: drawn mouth, open or closed, also takes the source's bend (`MOUTH_BEND`); the open frames are otherwise drawn in their own form as
 #: without it. Whether it holds her mouth as the source's is a render's to decide.

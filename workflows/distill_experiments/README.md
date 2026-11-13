@@ -24,14 +24,14 @@ base-model instrumentation `h3_text_to_video_savelat`,
 the decode graph below.
 
 **The FlashGen and FastH3 graphs were retired on 2026-11-04**, with every
-step switch that had either as a pass (`docs/roadmap.md`, "Closed lanes"; the
+step switch that had either as a pass (`docs/wiki/ops/roadmap.md`, "Closed lanes"; the
 list is in `docs/wiki/decisions.md`, 2026-11-04). The owner's 2026-09-27
 review of them, and what each held, is in
 [`bench/results/2026-09-27_evening_takeaways.md`](../../bench/results/2026-09-27_evening_takeaways.md)
 and the render dataset's findings; the graphs are in git before that commit.
 
 **Every PDD probe and twin here was retired on 2026-11-04**, when the owner
-retired PDD from primary use and kept five core graphs (`docs/roadmap.md`,
+retired PDD from primary use and kept five core graphs (`docs/wiki/ops/roadmap.md`,
 "Closed lanes"; the list is in `docs/wiki/decisions.md`, 2026-11-04): the PDD
 `_savelat` and `_x0` twins, the 16- and 32-step schedule tests, the audio
 refine probe, the merge, sage, dense and baked ladder rungs, the PDD8-then-base

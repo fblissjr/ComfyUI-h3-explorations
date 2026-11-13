@@ -7114,7 +7114,7 @@ def with_the_voice(level: np.ndarray, series: np.ndarray) -> dict:
 
 
 #: A mouth is "open for the shot" on the frames in the top quarter of the source's own openings over the shot.
-#: Reasoned, not measured: the ledger's entry (`docs/wiki/state_signals.md`, "A mouth open with no voice")
+#: Reasoned, not measured: the ledger's entry (`docs/wiki/masked_v2v/state_signals.md`, "A mouth open with no voice")
 #: asks for the top share; a quarter is the first try.
 OPEN_SHARE = 0.25
 #: A run of open frames is one at least this long. Inherited: the same entry's "a dozen frames or longer".

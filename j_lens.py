@@ -6,7 +6,7 @@ composite multi-vector recipes with `mode = "hold"`, or unsupervised
 `TokenRefiner` singular vectors) and any `5120`-d encoder direction
 (`vector.encoder`) into natural-language English words on CPU (`~15 ms`) using
 the precomputed operator bundle at `<ComfyUI>/models/j_lens/j_lens_h3.safetensors`
-(`docs/research/control_vectors/2026-11-06_j_lens_and_refiner_jacobian.md`).
+(`docs/wiki/research/control_vectors/2026-11-06_j_lens_and_refiner_jacobian.md`).
 
 Nothing here imports ComfyUI core or touches the GPU.
 """
@@ -36,7 +36,7 @@ REPO_ROOT = Path(__file__).resolve().parent
 COMFY_ROOT = REPO_ROOT.parent.parent
 DEFAULT_BUNDLE_REL = Path("models") / "j_lens" / "j_lens_h3.safetensors"
 
-# Reasoned and measured starting constants from docs/research/control_vectors/2026-11-06_j_lens_and_refiner_jacobian.md:
+# Reasoned and measured starting constants from docs/wiki/research/control_vectors/2026-11-06_j_lens_and_refiner_jacobian.md:
 # - DEFAULT_STEER_SCALE = 90.0 (~0.31 * median_tok1+_row_norm 292.3 at layers.49)
 # - DEFAULT_MIN_LOGPROB = -11.5 (syntactic cloze admissibility threshold from label_h3_control_vectors.py:718)
 # - NORM_MATCHED_TARGET = 67.5 (post-refiner norm target from control_vectors.py:2024)

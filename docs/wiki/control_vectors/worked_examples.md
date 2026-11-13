@@ -77,12 +77,12 @@ judges named it; `cursed_cctv` was still taken for VHS.
 sections 6.4, 7.3 and 9.2.
 
 A hold can pull two such vectors apart. Section 5.3 of
-[`../../research/control_vectors/2026-11-06_j_lens_and_refiner_jacobian.md`](../../research/control_vectors/2026-11-06_j_lens_and_refiner_jacobian.md)
+[`../../research/control_vectors/2026-11-06_j_lens_and_refiner_jacobian.md`](../research/control_vectors/2026-11-06_j_lens_and_refiner_jacobian.md)
 shows `cursed_cctv`'s words changing once two neighbors were held out of it.
 
 **What it does not show.** Whether a hold makes a vector score better against its neighbors. That use of the
 scoring tool is planned and not yet run:
-[`../../research/control_vectors/2026-11-12_chain_lens_digest_and_experiment_plan.md`](../../research/control_vectors/2026-11-12_chain_lens_digest_and_experiment_plan.md),
+[`../../research/control_vectors/2026-11-12_chain_lens_digest_and_experiment_plan.md`](../research/control_vectors/2026-11-12_chain_lens_digest_and_experiment_plan.md),
 section 13.
 
 ---
@@ -126,7 +126,7 @@ start.
 
 **What the record shows.** On 2026-11-09 a vector could not turn a black mug yellow, at any strength tried,
 and could not stop a scripted action. Edit guidance did both.
-[`../../research/control_vectors/2026-11-10_control_vector_state_history_and_tradeoffs.md`](../../research/control_vectors/2026-11-10_control_vector_state_history_and_tradeoffs.md),
+[`../../research/control_vectors/2026-11-10_control_vector_state_history_and_tradeoffs.md`](../research/control_vectors/2026-11-10_control_vector_state_history_and_tradeoffs.md),
 section 1. The owner's reading of the 2026-11-11 clothing clips says the same for an exact outfit, and also
 says a whole-scene vector can still carry clothing along with a change of world:
 [`../decisions.md`](../decisions.md), 2026-11-11.
@@ -137,4 +137,4 @@ another prompt. When the question is instead **exact frame timing** (landing hop
 or **off-prior 2D trajectories** (a `<Picture 1>` subject stopping mid-shot and walking backward while keeping its
 original facing), neither text tool owns frame coordinates—reach for [`MiniMaxH3SoundCues`](../../../sound_cues.py),
 [`MiniMaxH3AppendSpriteTrajectory`](../../../sprite_trajectory.py), and `0.33` selective release in
-[`../../research/control_vectors/2026-11-12_sound_cues_dpad_and_033_release_law.md`](../../research/control_vectors/2026-11-12_sound_cues_dpad_and_033_release_law.md).
+[`../../research/control_vectors/2026-11-12_sound_cues_dpad_and_033_release_law.md`](../research/control_vectors/2026-11-12_sound_cues_dpad_and_033_release_law.md).

@@ -14,9 +14,9 @@ Companion reference to [`../SKILL.md`](../SKILL.md).
 
 ---
 
-## 1. Where Audio & Speaker Transcription Fits in `docs/masked_v2v/`
+## 1. Where Audio & Speaker Transcription Fits in `docs/wiki/masked_v2v/`
 
-In [`docs/masked_v2v/AGENTS.md`](../../../../docs/masked_v2v/AGENTS.md) §7 and [`docs/masked_v2v/reference_and_prompt_rules.md`](../../../../docs/masked_v2v/reference_and_prompt_rules.md):
+In [`docs/wiki/masked_v2v/AGENTS.md`](../../../../docs/wiki/masked_v2v/AGENTS.md) §7 and [`docs/wiki/masked_v2v/reference_and_prompt_rules.md`](../../../../docs/wiki/masked_v2v/reference_and_prompt_rules.md):
 - The unified `<Subject 2>` prompt ([`bench/load_text.py`](../../../../bench/load_text.py)) includes `MOUTH_CLAUSE` only when `mouth_drawn_open` is true, and uses `TRANSFERRED_DRAWN_NO_MOUTH` / `FOLLOWS_DRAWN_NO_MOUTH` when `mouth_drawn` is false on every frame.
 - [`bench/voice_spans.py`](../../../../bench/voice_spans.py) and `open_frames` track when a vocal stem is active, and its docstring (`L27–30`) explicitly notes what it **cannot see**: which on-screen subject is singing when multiple people are in the shot.
 - Using `scripts/gemini_media.py transcribe-spans` converts `MM:SS(.mmm)` transcript segments directly into `24.0 fps` `[start_frame, end_frame]` spans (`shot_first + round(t_seconds * 24.0)`).

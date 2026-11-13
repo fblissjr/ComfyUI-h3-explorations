@@ -11,7 +11,7 @@ at random per pair) and gives the exact two-sided binomial probability of a
 split at least that uneven if slot did not matter.
 
 Why: the small-panel arithmetic in
-`docs/research/2026-09-19_evaluation_one_judge.md` (section 0.4 and 3.3) needs
+`docs/wiki/archive/2026-09-19_evaluation_one_judge.md` (section 0.4 and 3.3) needs
 the judge's tie rate, which decides how often a five-scene rule passes a
 judge who is guessing. These are contests between different arms, not decoys:
 a tie here mixes the judge's habit with arms that really are alike, so the

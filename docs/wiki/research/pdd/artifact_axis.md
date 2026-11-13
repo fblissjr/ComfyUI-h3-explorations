@@ -1,0 +1,387 @@
+# What actually makes a distilled clip fall apart
+
+One evening, 2026-08-28, three sessions, four accounts registered and **three
+of them dead by the end of it**. The one still standing was the owner's, stated
+before anyone measured anything.
+
+Written the night the arms were queued and before any of them rendered.
+**Section 6 is pre-registered and section 7 is what to do with the results.**
+If you are reading this after they landed, score section 6 before forming a
+view — the whole point of writing it down was that we kept fooling ourselves.
+
+[`audio_under_pdd.md`](audio_under_pdd.md) is the audio side of the same night
+and is separate. [`../../eval_comparison.md`](../../ops/eval_comparison.md) owns the
+process rule this produced.
+
+---
+
+## 0. WHAT YOU ARE LOOKING AT — read this first
+
+All clips land in the output `Video/` folder. VHS writes two files per render:
+`NAME_00001.mp4` is video only and `NAME_00001-audio.mp4` is the same video
+with the audio muxed in. **Watch the `-audio` one.**
+
+### Already rendered, waiting on your eye
+
+| file starts with | what it tests | what to look for |
+|---|---|---|
+| `shotablation_shots23_` | **the third ablation point.** Two shots, the crate lift plus the wide walk-away | Simply: is it good like the other two? Three-for-three means two setups always hold and the split is clean |
+| `h3_r2v_scene_subway_` | markers — sung vs spoken in one clip, a truncated last line, on-screen sign | Do the wrapped lines actually **sing**? Does the last line run out mid-sentence? The platform sign already reads correctly |
+| `h3_r2v_scene_kitchen_` | same, second scene | Same three. **Caveat: two of its four prompted cuts did not happen**, so shots 3 and 4 are not where the prompt put them |
+
+### Queued tonight, six of mine, in queue order
+
+| file starts with | tests | if it looks GOOD | if it looks BAD |
+|---|---|---|---|
+| `h3_t2v_rail_long_` | **the big one.** One 15 s take, rail dolly across a boxy house, nothing else moves. Long and densely detailed | **Length, detail and delta are all cleared at once** — only your predictability reading survives | Delta was right and three of our accounts were wrong for nothing |
+| `h3_t2v_churn_long_` | same length, same one-shot, but handheld with flashing LEDs and a crowd | Predictability is not the axis either — back to the drawing board | Confirms the pair: same delta, opposite structure, opposite result |
+| `h3_t2v_aisle_short_` | hardware aisle, normal-length prompt | — | — |
+| `h3_t2v_aisle_long_` | **same scene, more detail asked for.** Same shots, cuts, dialogue, camera | Long being fine supports "length is not the problem" | Long being worse means demand matters after all |
+| `h3_t2v_sortline_short_` | recycling sort line, normal length | — | — |
+| `h3_t2v_sortline_long_` | same, elaborated | Two scenes agreeing is a result; one is an anecdote | — |
+
+> **CORRECTION, measured after all eleven clips landed and after the pre-registration
+> above was written.** The rail row rests on "a full-frame translation is the
+> highest delta in the repo". **It is the lowest.** Measured through
+> `bench/score_shot_ablation.py`, `rail_long` is delta **0.0062** and detail
+> **0.0360** — the lowest of all eleven clips rendered this night, on both axes.
+> `churn_long` is **0.0486**, roughly eight times it.
+>
+> Two consequences, and the first kills the row's headline:
+>
+> 1. **A clean rail clip does NOT clear delta.** Delta's prediction for a
+>    low-delta clip is that it looks fine, so rail coming back clean is exactly
+>    what delta expects and refutes nothing. The "clears three questions at once"
+>    claim above does not hold. It was true of the clip as *described*; it is not
+>    true of the clip as *rendered*.
+> 2. **The rail/churn pair confounds the axis it was built to isolate.** Churn is
+>    both less predictable AND eight times the delta, so if churn looks worse,
+>    predictability and delta each explain it and the pair cannot separate them.
+>
+> **What the pair can still do**, and it is not nothing: both are one 15 s take
+> with no cuts, so if either looks clean that speaks to shot count and to length,
+> which is what the market ablation could not hold fixed. Read them for that.
+>
+> The prediction is left standing as written above rather than edited, because a
+> pre-registration that gets quietly corrected after the fact is worth nothing.
+> This is the fourth account to fail tonight and the first to fail on its premise
+> rather than its conclusion.
+
+**Watch the rail one first.** It is the only clip that can settle three
+questions at once, and ghosting on a flat concrete wall with square windows is
+impossible to miss or to argue about.
+
+**One warning on the four aisle/sortline clips.** They are all three setups in
+fifteen seconds, which is the regime you identified as broken. If all four look
+bad, that is probably the floor rather than an answer about prompt length —
+the PDD session's 241-frame arms are the ones that tell us which. So do not
+read "both look bad" as "length does not matter".
+
+### The PDD session's arms
+
+**Watch these two before the four aisle/sortline clips**, because they decide
+whether those four can be read at all.
+
+| file starts with | tests | if it looks GOOD | if it looks BAD |
+|---|---|---|---|
+| `shotablation_shots13_241f_` | **the duration control.** The exact two shots you already called great, re-rendered on a 10 s canvas so each shot gets ~5 s again instead of ~7.5 s | **Total content demanded is the variable.** The fix is to write fewer setups per clip, and a 15 s clip can hold two but not three | **Per-shot duration is the variable.** ~5 s is not enough to resolve a setup no matter how few there are, and the fix is to give each shot more time — a three-shot clip would be fine at 22 s |
+| `shotablation_shots12_241f_` | same control, the other pair. Lands **last** of everything, since my runner posts one arm at a time | Both agreeing is the result | One bad and one good means neither account is clean and something else is running it |
+
+**If a clip is missing in the morning, re-queue it — that is not a finding.**
+This canvas OOMs when models are still resident rather than from anything about
+the arm, and a crash in the sampler cannot write a partial file, so a missing
+clip is a missing clip and never a corrupted one.
+
+**One thing to check before trusting these two against the earlier arms.** They
+were posted directly rather than through the sequential runner, so unlike the
+362-frame arms they did NOT get a full model unload between them. Whether that
+can change a render is answered by the audio session's reload arm, which lands
+in `bench/results/2026-08-28_reload_invariance.json`. **If that says the
+pipeline is NOT bit-identical across an unload, come back here** — these two
+arms, and any comparison spanning an unload in any lane, need re-reading. If it
+says identical, there is nothing to do and this paragraph can go.
+
+Why this matters more than it sounds: dropping a shot changed **two** things at
+once, not one. Total demanded content went down, and the surviving shots got
+longer. Every observation from tonight fits both, and they imply opposite fixes.
+These two arms are the only thing queued that separates them.
+
+### Already judged, for reference
+
+| file starts with | what it was | your verdict |
+|---|---|---|
+| `shotablation_shots13_` | establishing + wide walk-away, 2 shots, 15 s | great |
+| `shotablation_shots12_` | establishing + crate lift, 2 shots, 15 s | great, and you noted the box did not ghost |
+
+That second one killed a third account: the crate lift was the action you had
+named as the failure point across several renders, and it rendered clean here.
+So that shot is not sufficient to cause it.
+
+### The audio session — YOUR EAR IS THE INSTRUMENT HERE
+
+**Before reading ANY audio number in this repo:** audio relative L2 saturates at
+sqrt(2) for a one-frame shift — measured 1.418, against video's 0.181 at the same
+shift. It has no gradation for phase at all, so across arms it is mostly
+reporting ENERGY, not fidelity. Nothing should be scored as audio quality on it.
+Measured by the audio session this night.
+
+Everything under `carryprobe/`, all 1152x768, 362 frames, seed 730451892, the
+market prompt. Video PNGs sit beside each as `<arm>_v_*.png`. **These are the
+rows where their measurements cannot decide and yours can**, which is not true
+of anything else in this file. Their words, not paraphrased:
+
+**The pair their ear question rests on — listen to this first.**
+
+`carryprobe/opt4_mean_a_*.flac` against `carryprobe/opt4_start_a_*.flac`, with
+`carryprobe/opt4_off_a_*.flac` as the stock path. Tests whether re-applying
+ComfyUI's audio change-of-variable at the block's AVERAGE sigma instead of its
+start fixes the audio. Same partition, same heads, same schedule, same seed,
+same weights — only the transform's evaluation point differs.
+
+> Listen for: this is exactly his "tin can that gets progressively higher
+> frequency toward the end". The uncorrected arm's spectral centroid nearly
+> doubles across the clip; the corrected one barely moves. So listen to the LAST
+> few seconds of each, not the first. The corrected arm should sound fuller and
+> should stop climbing in pitch. FALSIFIED if it sounds no different, or if it
+> is merely louder without the end-of-clip rise going away — my numbers cannot
+> separate "louder" from "less tilted" and his ear can.
+
+**The same pair at the partition that actually ships.**
+
+`carryprobe/u4_mean_a_*.flac` against `carryprobe/u4_start_a_*.flac`. Predicted
+much smaller, because its widest block is 8 against opt4's 28.
+
+> Listen for: probably nothing. My measured difference here is INSIDE seed noise
+> and I withdrew it. If he can hear a difference, that is more interesting than
+> the measurement, because it would mean the energy metric is the wrong
+> instrument rather than the effect being absent.
+
+**Four seeds, nothing else changed** — `carryprobe/u4_off_s730451892`,
+`_s111222333`, `_s424242424`, `_s987654321`. The spread here is what killed the
+row above; they had assumed it was small and it is several times the effect.
+
+> Listen for: whether these four sound like four takes of the same thing or like
+> meaningfully different quality. If they sound equivalent while measuring far
+> apart, the energy metric is not tracking what he hears, and that is the single
+> most useful thing he could tell me tomorrow.
+
+**Landing overnight, and a plain yes/no.** `carryprobe/u8_mean` and `u8_start`
+are a third dose point on a legal partition. `carryprobe/u4_off_reload` is a
+re-render of seed 111222333 across the full model unload that this session's OOM
+caused: if it reproduces its pre-unload value exactly, the pipeline is
+bit-identical across a reload, the seed spread is real, and their withdrawal of
+the `u4` result stands. If not, the withdrawal is itself withdrawn.
+
+**Caveat on every row above:** the base graph's prompt was rewritten in `b62e95d`
+at 15:25, so none of these compare to anything rendered before that. Within this
+set they are all mutually comparable.
+
+**One free experiment sitting inside the four `aisle`/`sortline` arms, registered
+here as an EXPECTED NULL rather than an open question.** Those pairs hold
+dialogue exactly constant while visual description varies 1.6-1.7x, which makes
+them a ready-made test of whether text-segment length reaches AUDIO at all. In
+the arms priced this night text was a fraction of a percent of the packed
+sequence, so a 1.6x change in a 0.3% share is a very small lever and a null is
+the prediction. **Writing it down as expected is what makes a null a result
+instead of a disappointment.** It needs no GPU — audio energy and spectral
+trajectory across the pairs is a tomorrow task, and the audio session offered to
+run it.
+
+### The order things will actually land in
+
+Everything serialises on one card. Read off the live queue, so this is what was
+posted rather than what anyone intended:
+
+    running   Video/shotablation_shots13_241f     duration control, arm 1
+    then      Video/h3_t2v_rail_long              WATCH THIS FIRST
+    then      Video/h3_t2v_churn_long             its pair
+    then      Video/h3_t2v_aisle_short
+    then      Video/h3_t2v_aisle_long
+    then      Video/h3_t2v_sortline_short
+    then      Video/h3_t2v_sortline_long
+    then      carryprobe/u8_mean_v                audio session
+    last      Video/shotablation_shots12_241f     duration control, arm 2
+
+The audio session's first probe, `carryprobe/u8_start_v`, had already finished
+when this was written; `u8_mean_v` is its pair.
+
+**Watch `rail_long` before anything else, whatever order they finish in.** It
+is the only clip that can settle three questions at once, and it is the
+cheapest thing here to judge — ghosting on a flat concrete wall with square
+windows needs no second clip to compare against and no scoring, you either see
+the wall warp or you do not.
+
+**Both duration-control arms are queued**, which matters: with only one, a bad
+result could be noise. With both, a split verdict is informative. They sit at
+opposite ends of the queue because the second was posted directly rather than
+through a runner, so `shots12_241f` finishing last is expected, not a failure.
+
+Each 362-frame render takes roughly five minutes, the 241-frame ones less, so
+the whole queue is around forty. Three arms OOMed on this shape today, all
+recovered on a retry. If something is missing in the morning that is the likely
+reason and it just needs re-queueing — it is not a result.
+
+### One thing this whole file cannot give you
+
+**None of tonight is a scored comparison.** One observer, one seed per arm,
+free-text verdicts, no blinding — this is not
+[`../../eval_comparison.md`](../../ops/eval_comparison.md) section 3. It is enough
+to kill accounts, which is what it did, and not enough to establish one.
+
+---
+
+## 1. The observation
+
+Distilled arms ghost and smear — a lifted crate bends, faces melt mid-clip,
+fruit on a stall loses its edges — and the dialogue scenes at 4 steps look
+fine. The question was why, and whether "looks fine at 4 steps" was ever a
+statement about distillation rather than about the scenes it was said on.
+
+## 2. Account 1 — DELTA. Dead.
+
+**Claim.** Severity tracks frame-to-frame change, measured at +0.676
+within-clip, coarse partition against fine, cuts masked.
+
+**How it died.** Twice, and the second time is the interesting one.
+
+Across shots it was already backwards: in the market clip the owner names the
+shot he finds worst, and it carries **0.23x the delta** of the shot he calls
+nearly clean. The camera is locked there, so frame-differencing reads a quiet
+shot where the eye reads a busy one.
+
+Then the shot ablation. `shots12` has the **highest** delta of the three arms —
+above the bad clip — and is fine. An account that predicts severity from delta
+has to call it the worst.
+
+**The +0.676 is not retracted.** It is within-clip and frame-level, and it can
+hold while delta fails as an across-clip account. What is retired is using
+delta to choose or judge a scene.
+
+**The completed set, measured.** `shots23` landed after the accounts above
+died, and is unjudged:
+
+| arm | delta | detail | verdict |
+|---|---|---|---|
+| 3-shot original | 0.0149 | 0.0635 | **bad** |
+| `shots12` | 0.0209 | 0.0580 | great |
+| `shots13` | 0.0122 | 0.0640 | great |
+| `shots23` | 0.0165 | 0.0622 | **unjudged** |
+
+Delta spans the two-shot arms in both directions around the bad clip, which is
+the shape of a variable that is not doing the work.
+
+**A label came off it too.** "Motion" was a gloss; the quantity is
+mean |frame[n] − frame[n−1]|, which a cut, a light switching on and a whip pan
+all score high on with nothing moving. `bench/measure_clip_delta.py`.
+
+## 3. Account 2 — DETAIL DEMANDED. Dead on the arm that tested it.
+
+**Claim.** What matters is the fine structure the prompt asks to be resolved —
+a wide market shot gives each orange one or two latent cells where a closeup
+gives a face hundreds. Demand is a cause and is readable from the prompt;
+detail measured on the render is a result, and is ambiguous, because ghosted
+fruit reads as low detail.
+
+**How it died.** The demand ordering read off the market prompt makes `shots12`
+the lowest-demand arm, so predicted best. It was judged worse than `shots13`.
+Then both two-shot arms came back good, so the ordering explains nothing at
+all.
+
+**Not fully buried.** The `aisle` and `sortline` pairs in section 6 vary demand
+at fixed shot count, which no shot swap can do. If long is not worse than short
+in either scene, demand is finished rather than one arm down.
+
+## 4. Account 3 — THE CRATE LIFT. Dead within the hour it was proposed.
+
+**Claim.** The failure is attached to one action, not to any aggregate — the
+owner had named the lifted crate as the break point repeatedly, across renders,
+before any of this analysis. `shots12` contains it and `shots13` does not.
+
+**How it died.** `shots12` contains the crate lift and **the box did not
+ghost** — the owner said so unprompted. The same action, from the same prompt
+text, ghosts in the three-shot clip and holds in the two-shot one. So the
+action is not sufficient, and something about its surroundings is doing the
+work.
+
+That is also the cleanest within-scene control the night produced, and it
+arrived by accident.
+
+## 5. What survives — the owner's, in two parts
+
+**Part one, stated before any measurement:** *"too much shit in one scene? so
+you make the stuff gigantic and it loses its shit."* Three setups in fifteen
+seconds breaks; two does not, whichever two.
+
+**Part two, stated after both two-shot arms came back clean, and it is the
+sharper half:** *"i bet even long prompts are fine. so long as you dont
+introduce like 5 unique shots and tons of shit changes everywhere like lights
+flashing different led colors every second of every shot from different places
+and people moving around or a handheld camera fight scene where the model cant
+easily predict what comes next like it could say... a tracking shot of a boxy
+house going from left to right across. steady and not changing position at all,
+just moving left to right like its on a rail."*
+
+**The axis is how hard the next frame is to predict, not how much it changes.**
+That single distinction is what all three dead accounts missed, and it is why
+the rail example is worth a render on its own: a rail move translating the
+whole frame is near-maximal delta and near-zero uncertainty. Everything is
+where it was, shifted.
+
+## 6. Queued, and what each one can kill — PRE-REGISTERED
+
+Six arms, all t2v, 1344x768, 362 frames, PDD 4-step, euler, sage and Sol on,
+matching the market PDD configuration. Queued 2026-08-28, none rendered at
+time of writing.
+
+**The predictability pair. One shot each, no cuts, both long** — so shot count,
+duration and length are all held and only predictability varies.
+
+| arm | what it is | delta says | owner's reading says |
+|---|---|---|---|
+| `rail_long` | rail dolly across a boxy house, **nothing else moves** | worst | **clean** |
+| `churn_long` | handheld night market, independently flashing LEDs, crowd, steam | — | breaks |
+
+**`rail_long` is the load-bearing arm of the night.** It is long, densely
+detailed and the highest-delta thing in this repo. **Clean → length, detail
+demand and delta are exonerated in one render and only predictability
+survives.** Ghosting on a rigid concrete facade is unmissable, so it needs no
+scoring finesse.
+
+**The demand pairs. Two scenes, fixed shot count**, holding subjects, actions,
+camera moves, dialogue and cut times exactly, varying only elaboration.
+
+| arms | demand says | length-of-conditioning says |
+|---|---|---|
+| `aisle_short` / `aisle_long` | long worse, on the elaborated surfaces | no consistent direction |
+| `sortline_short` / `sortline_long` | same, in both scenes | — |
+
+**A confound to know before reading a null from these**, raised by the PDD
+session: all four are three setups at about five seconds each, which is the
+regime part one identifies as broken. If the real axis is per-shot duration
+rather than total content, both short and long come back bad and that reads as
+"no length effect" when it is a floor. The 241-frame arms from the PDD lane
+land first and say which regime these are in. **Do not interpret a null here
+until those have landed.**
+
+## 7. The two mistakes that killed our accounts, in general form
+
+Worth more than any of the findings, because both were made twice in one
+evening by different people.
+
+**Scoring a subset of a set that is still rendering.** Delta looked *confirmed*
+by exactly the arm that refutes it, because two arms of three had landed. The
+crate-lift account died the same way, on a comparison proposed while a third
+arm was queued. The fix is not more caution about which account to believe; it
+is not scoring until the set is complete.
+
+**Ablating by removal moves everything at once.** Dropping a shot removes its
+delta, its demanded content, its specific action, and lengthens every surviving
+shot. Four variables, one manipulation, and the design cannot separate them by
+construction. Every account in sections 2 to 4 was fitted to a comparison that
+could not distinguish them.
+
+**And the record of who was right.** Three registered accounts died tonight,
+all three from the sessions, none from the owner. His was stated first, in
+plain language, from watching the clips, and has survived every arm so far.
+That is not a compliment; it is a note about where the hypotheses should come
+from next time.

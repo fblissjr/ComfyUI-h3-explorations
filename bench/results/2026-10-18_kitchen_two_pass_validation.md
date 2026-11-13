@@ -12,7 +12,7 @@ scene's check, not a recipe.** Only the three points under "Always true" hold ev
 ## The scene, and why it needed two passes
 
 The kitchen, source frames 604-1009: the mom (`second`) at the table and the lead walking behind her. Each person is
-replaced in a pass of their own (two or more subjects in one pass is a closed lane, `docs/roadmap.md`). The mom's pass,
+replaced in a pass of their own (two or more subjects in one pass is a closed lane, `docs/wiki/ops/roadmap.md`). The mom's pass,
 `second_hfp_0604h`, was kept and laid on 2026-10-18 (`bench/results/2026-10-18_second_hfp_0604h_recipe.md`); the lead's,
 `lead_fp_0606`, was kept and laid the same day. Both had been rendered against the original video, so where the lead
 passes behind the mom (about 755-775) the lead's chin was generated beside the original mom's dark hair, and when the
@@ -27,7 +27,7 @@ was not kept: an open mouth from the old drawing, and hard square edges round he
 1. **The cut was 23.976 fps.** The original `fun.mp4` is 23.976 fps; every job renders from a 24 fps every-frame copy,
    and every kept piece did. But `bench/rebuild_delivery.py` took the original before the copy when it made the joined
    cut, so the cut, and the stacks and review clips made from it, were written at 23.976
-   (`docs/research/postmortems/2026-10-18_24fps_joined_cut.md`, with both leads' words).
+   (`docs/wiki/research/postmortems/2026-10-18_24fps_joined_cut.md`, with both leads' words).
 2. **So the second pass loaded one frame early.** The job loader forces no rate (`h3_config.MASKED_JOB_FORCE_RATE`) and
    turns a frame into a time assuming 24 fps (`workflows/masked_job_graph.py::seek`); from about frame 600 a 23.976 file
    starts a frame early. `lead_fp_0751` loaded frames 750-784 of the cut against masks and a reference on 751-785, so

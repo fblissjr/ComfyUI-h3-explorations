@@ -10,7 +10,7 @@ bounds or a block index reads them here.
 facts by monkeypatching `PackedLayout.__init__` process-wide and replacing
 `model._forward` and `model.rope_freqs` (the Morton machinery), and by hooking
 every block to publish `sol_block`. Core publishes both now, so the patching
-went with Morton (`docs/research/2026-09-27_sol_node_redesign.md`).
+went with Morton (`docs/wiki/archive/2026-09-27_sol_node_redesign.md`).
 
 **The one rule: a published value belongs to a call only when the call is as
 long as the layout.** Core sets the layout before the two token-refiner calls

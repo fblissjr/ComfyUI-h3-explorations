@@ -8,7 +8,7 @@ parabolic `hop` arcs with independent facing/orientation polarity, and appends
 the resulting clip directly to `H3References` in memory as `<Video N>` without
 writing temporary `.mp4` files to disk or wiring `VHS_LoadVideo`.
 
-Why this exists (`docs/research/control_vectors/2026-11-12_sound_cues_dpad_and_033_release_law.md`):
+Why this exists (`docs/wiki/research/control_vectors/2026-11-12_sound_cues_dpad_and_033_release_law.md`):
 - On `unet_ref2va`, a moving 2D cutout of `<Picture 1>` acts as a **continuous
   frame-exact kinematic D-pad**: horizontal `cx(t)` reversal transfers cleanly
   (`r = +0.97`), explicit sprite orientation (`face=right` while moving `-x` vs

@@ -103,7 +103,7 @@ it says nothing about whether the lids were seen. The sheet:
 `data/2026-10-11_sapiens2_pose_consecutive/leadcanvas_1575_eyes_by_rank_sheet.jpg`.*
 
 *The same evening, the verdict on that run as trial 1 of
-`docs/wiki/meta_perception_models.md`, "The trials", by a session that
+`docs/wiki/masked_v2v/meta_perception_models.md`, "The trials", by a session that
 did not run it and looked at every one of the 155 frames before reading
 the paragraph above (the figures are the opening over the distance from
 glabella to chin):*

@@ -158,7 +158,7 @@ Compare how strongly a vector shifts `context` and step-0 DiT velocity on your e
 
 **Use when**: You want a `<Picture 1>` character or creature to follow an explicit 2D screen path (including mid-shot stops, jumps on specific frames, or walking backward while keeping its head facing forward) without rendering external `.mp4` or `.wav` helper files and without freezing its legs into a rigid cutout.
 
-- **API Workflow**: [`workflows/h3_image_ref_dpad_sound_pika_api.json`](../../../workflows/h3_image_ref_dpad_sound_pika_api.json) (full guide and limits: [`2026-11-12_sound_cues_dpad_and_033_release_law.md`](../../research/control_vectors/2026-11-12_sound_cues_dpad_and_033_release_law.md))
+- **API Workflow**: [`workflows/h3_image_ref_dpad_sound_pika_api.json`](../../../workflows/h3_image_ref_dpad_sound_pika_api.json) (full guide and limits: [`2026-11-12_sound_cues_dpad_and_033_release_law.md`](../research/control_vectors/2026-11-12_sound_cues_dpad_and_033_release_law.md))
 - **`MiniMaxH3AppendRefImage`** (`<Picture 1>`): `size_policy = "max"`, `allow_upscale = True`, `qwen_view = "separate"`
 - **`MiniMaxH3AppendSpriteTrajectory`** (`<Video 1>`, `canvas_width = 384`, `canvas_height = 224`, `sprite_scale = 0.31`, `length = 124`):
   ```text

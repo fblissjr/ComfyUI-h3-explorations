@@ -21,7 +21,7 @@ and `score_session.py` joins it. Its record is the base of this one: the same
 `pairs.by_pair[*].verdict` that `bench/tally_judge_verdicts.py` reads. What
 this adds is the `panel` block: contests by scene and kind, and the rules.
 
-## The rules, in order (`docs/research/2026-09-19_evaluation_one_judge.md`, section 0.3)
+## The rules, in order (`docs/wiki/archive/2026-09-19_evaluation_one_judge.md`, section 0.3)
 
 1. Validity. The identical pair drew a winner, or the low anchor was not
    caught (the judge did not prefer the unaltered side): the session is VOID
@@ -205,7 +205,7 @@ def panel_block(record: dict, keydoc: dict, annotations: dict, reference: str, a
                                   "at_double_below": detection_bound(2 * n)},
         "conclusion": conclusion,
         "why": why,
-        "rules": "docs/research/2026-09-19_evaluation_one_judge.md, section 0.3",
+        "rules": "docs/wiki/archive/2026-09-19_evaluation_one_judge.md, section 0.3",
     }
 
 

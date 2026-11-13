@@ -20,7 +20,7 @@ shape.
   frequent of the two tie answers, and "can't tell" the rarer. The rate varies
   a lot between sessions (the JSON has each).
 - **For the small-panel arithmetic** in
-  `docs/research/2026-09-19_evaluation_one_judge.md` section 0.4: at this tie
+  `docs/wiki/archive/2026-09-19_evaluation_one_judge.md` section 0.4: at this tie
   rate, the review's five-scene rule sits at the upper end of the
   false-pass probabilities that file computes for a judge who is guessing.
   So a five-scene verdict needs the decoy pair to be read, which is what that

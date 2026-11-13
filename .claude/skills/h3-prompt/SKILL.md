@@ -12,31 +12,31 @@ Name sections, not rules: a rule restated here is a second place to edit.
 
 ## The one authority
 
-`docs/prompting.md` is the master router and source of truth for every mode (`§1`–`§5.7`), routing to its modular `< 30 KB` leaf files under `docs/prompting/` for `§5.8`–`§17`. Its opening tables say where everything else lives. Its section
+`docs/wiki/prompting/prompting.md` is the master router and source of truth for every mode (`§1`–`§5.7`), routing to its modular `< 30 KB` leaf files under `docs/wiki/prompting/` for `§5.8`–`§17`. Its opening tables say where everything else lives. Its section
 "Four layers, and every rule says which one it is" defines how binding each
 rule is; carry the layer whenever you quote a rule.
 
 ## By what you are doing
 
-**Writing a new one.** For a single-frame P-H3-Image T2I or 1..8-reference image edit prompt (`workflows/image/h3_*p_h3_image*_api.json`), use `docs/prompting/17_p_h3_image_prompting.md` (single-frame prose with no `[Shot N]` / `<d>` / audio headers for T2I; `<Picture N>` single-paragraph `Edit <Picture 1>. ... Keep ...` prose or 6-section `[keyframe completion]` brief for edits). For video, fix the frame count first: a prompt is only correct at a
-duration (`docs/prompting.md` section 3.3 and `docs/prompting/10_worked_examples.md`). Then `docs/prompting.md` section 2 for the
+**Writing a new one.** For a single-frame P-H3-Image T2I or 1..8-reference image edit prompt (`workflows/image/h3_*p_h3_image*_api.json`), use `docs/wiki/prompting/17_p_h3_image_prompting.md` (single-frame prose with no `[Shot N]` / `<d>` / audio headers for T2I; `<Picture N>` single-paragraph `Edit <Picture 1>. ... Keep ...` prose or 6-section `[keyframe completion]` brief for edits). For video, fix the frame count first: a prompt is only correct at a
+duration (`docs/wiki/prompting/prompting.md` section 3.3 and `docs/wiki/prompting/10_worked_examples.md`). Then `docs/wiki/prompting/prompting.md` section 2 for the
 structure of the mode, section 3.1 for shot headers, section 4 for camera,
-section 5 for speakers and dialogue (`docs/prompting/06_singing_text_markers_and_audio.md` for singing, fitting dialogue to the shot, on-screen text, markers, and the audio fields), and `docs/prompting/09_references_ref2va.md` when it has
-references. `docs/prompting/16_specificity.md` is what to pin and what to leave to the model, with a
-reading pass to run before rendering. `docs/prompting/10_worked_examples.md` has graded worked examples to
+section 5 for speakers and dialogue (`docs/wiki/prompting/06_singing_text_markers_and_audio.md` for singing, fitting dialogue to the shot, on-screen text, markers, and the audio fields), and `docs/wiki/prompting/09_references_ref2va.md` when it has
+references. `docs/wiki/prompting/16_specificity.md` is what to pin and what to leave to the model, with a
+reading pass to run before rendering. `docs/wiki/prompting/10_worked_examples.md` has graded worked examples to
 copy the shape of.
 
 **Editing or improving a shipped one.** The text lives in `prompt_bank/`;
-`docs/prompt_bank.md` says which graphs render each entry and how the generator
+`docs/wiki/prompting/prompt_bank.md` says which graphs render each entry and how the generator
 loads one by id. A composed ref2va entry also has source fragments in
 `workflows/build_workflows.py` (`REF_SCENE_SHOTS`, `_composed_from_bank`), which
 the build checks against the bank file. Read the entry's verdict in
-`docs/prompt_audit.md`, which also says whether a matched pair carries it. Edit
+`docs/wiki/prompting/prompt_audit.md`, which also says whether a matched pair carries it. Edit
 the bank file, never a `workflows/*.json`, then rebuild the bank doc and the
 graphs.
 
-**Converting between modes.** `docs/prompting.md` section 2 for the target mode's structure,
-`docs/prompting/11_rule_matrix_and_gaps.md` (section 12) for where the guides are silent or disagree, and `docs/prompting/14_sources_and_internals.md` (section 14.3) for where
+**Converting between modes.** `docs/wiki/prompting/prompting.md` section 2 for the target mode's structure,
+`docs/wiki/prompting/11_rule_matrix_and_gaps.md` (section 12) for where the guides are silent or disagree, and `docs/wiki/prompting/14_sources_and_internals.md` (section 14.3) for where
 our shipped prompts diverged and what happened to each. Do not pattern-match a
 fix across the base and reference formats; section 12 owns the boundary.
 
@@ -44,7 +44,7 @@ fix across the base and reference formats; section 12 owns the boundary.
 grades loose text; `python bench/preflight_graph.py` grades a prompt already in a graph
 and prices the sequence; `python bench/diff_prompt_corpus.py` reports where our
 prompts diverge from vendor practice. Each docstring is its contract. None of
-them can see whether a prompt pinned what the scene turns on; `docs/prompting/16_specificity.md` (section 16.4) says
+them can see whether a prompt pinned what the scene turns on; `docs/wiki/prompting/16_specificity.md` (section 16.4) says
 what can.
 
 **Handing the rules to an LLM or someone outside this repo.**
@@ -63,7 +63,7 @@ contrastive prompt pairs).
 - A node that carries a prompt belongs in `h3_config.PROMPT_INPUTS`, the one
   list graders read; `bench/check_prompt_guide_conformance.py` fails on one that
   is not there.
-- A rendered clip cannot A/B a prompt change: `docs/eval_comparison.md`
+- A rendered clip cannot A/B a prompt change: `docs/wiki/ops/eval_comparison.md`
   owns what a perceptual claim needs.
 - Cite the observable, never a sentence that describes it (`AGENTS.md`).
 

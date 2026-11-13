@@ -130,11 +130,11 @@ Being corrected in the same pass as this record; see `docs/wiki/decisions.md`.
 - **`vsa_attention.py`:** its docstring and refusal texts ("cannot run", "core
   has no gate_compress", "unreachable"); "Nothing has been rendered"; "the
   only other implementation"; its tooltip's "0.90 sparsity".
-- **`docs/research/vsa/vsa_node.md`:** its "core is stock, no
+- **`docs/wiki/research/vsa/vsa_node.md`:** its "core is stock, no
   gate_compress" passages.
 - **`bench/check_vsa_core_patch.py`:** its "applied from PR #15958 DRAFT"
   message. The support is now in stock core.
-- **`docs/SOLATTN.md`:**
+- **`docs/wiki/attention/SOLATTN.md`:**
   - the dense-layers row, with its columns swapped;
   - "ship empty as of 2026-09-02";
   - qk_balance described as off, or as a declared deviation;
@@ -150,5 +150,5 @@ Being corrected in the same pass as this record; see `docs/wiki/decisions.md`.
   backend node.
 - **`workflows/h3_config.py:846-849`:** `SOL_CUDA_DEFAULTS` is called "untouched", but
   it pins qk_balance True.
-- **`docs/sol_upstream.md`:** line citations drifted by one, and the V-scale
+- **`docs/wiki/attention/sol_upstream.md`:** line citations drifted by one, and the V-scale
   margin is not mentioned.

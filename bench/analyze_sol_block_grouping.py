@@ -81,7 +81,7 @@ measure. Output error on the same captures is
 The token-ordering axis (raster against the node's Morton `3d`) and the
 `--cross-check` that ranked the two orderings by missed mass against output
 error were removed on 2026-09-27 with Morton itself
-(docs/research/2026-09-27_sol_node_redesign.md). The 2026-09-19 record was
+(docs/wiki/archive/2026-09-27_sol_node_redesign.md). The 2026-09-19 record was
 measured with both orderings; its data file keys cells `<ordering>_b<size>`,
 and its measurement fingerprint belongs to the code before that date, so
 `--summarize` here refuses it by design.
@@ -235,7 +235,7 @@ VERDICT_ARMS = [
     "**The token stage that already exists reproduces this pack's own grade of it,",
     "from an independent emulation.** At equal cost `token_aug` is a large win on",
     "DiT block 0 and a loss on block 49, which is the shape",
-    "`docs/research/2026-09-04_sol_token_aug_grade.md` recorded on the kernel. The",
+    "`docs/wiki/archive/2026-09-04_sol_token_aug_grade.md` recorded on the kernel. The",
     "emulation adds the mechanism: most of the win is not the admitted tokens but",
     "the per-token tail the kernel builds from the candidates that miss the cut,",
     "which replaces one block-pooled term per unrouted block with one term per",

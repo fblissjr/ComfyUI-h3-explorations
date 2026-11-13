@@ -4,7 +4,7 @@
 decoded about 46 dB from its base arm's
 (`2026-09-25_distill_audio_s1.md`). Was that the refine pass, or the first
 pass? It matters beyond the refine graphs: route 4 of
-`docs/research/2026-09-26_distill_routing.md` rests on frozen rows coming
+`docs/wiki/archive/2026-09-26_distill_routing.md` rests on frozen rows coming
 back exact.
 
 **How.** One execution of `h3_probe_t2v_pdd8_audio_refine_savelat` (label

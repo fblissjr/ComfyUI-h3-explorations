@@ -607,7 +607,7 @@ def the_mouth_clause_by_the_open_mouth() -> str:
 def the_mouth_words_where_the_drawing_opens_one() -> str:
     """The owner's go of 2026-10-22, after second_hfp_0278l: its drawing opened no mouth (closed-lip line, `open_frames` []) and its text
     said her mouth opens and closes; she spoke, lifted her head and looked at the camera, where 0278f, the same drawing with no mouth words,
-    kept her lips closed on all 16 frames (docs/masked_v2v/PROTOCOL.md, case study 3). The mouth is named only where the drawing opens one,
+    kept her lips closed on all 16 frames (docs/wiki/masked_v2v/PROTOCOL.md, case study 3). The mouth is named only where the drawing opens one,
     in every line that would name it: `<Subject 2>`'s sentence, its retention line and [Shot 1]."""
     def made(open_frames=None, voiced=(), **mouth):
         cl = {"why": "t", "closed_frames": [[1730, 1754]], "open_mouth": "outlined", **({} if open_frames is None else {"open_frames": open_frames})}

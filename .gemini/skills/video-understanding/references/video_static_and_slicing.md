@@ -65,7 +65,7 @@ gemini-api files delete "$FILE_ID"
 
 ## 4. Server-Side Shot-Window Slicing (`start_offset` / `end_offset` at `24.0 fps`)
 
-Every working copy and delivery cut in `docs/masked_v2v/` is locked to exact `24.0 fps` ([`h3_rules.py::FPS`](../../../../h3_rules.py), `24`). Instead of running `ffmpeg` and uploading a separate file for each shot when inspecting a large working copy or master cut (`*_joined_*_from_laid.mp4`), upload the video **once** and slice any `[first..last]` frame span on the server using `start_offset` and `end_offset` (in seconds):
+Every working copy and delivery cut in `docs/wiki/masked_v2v/` is locked to exact `24.0 fps` ([`h3_rules.py::FPS`](../../../../h3_rules.py), `24`). Instead of running `ffmpeg` and uploading a separate file for each shot when inspecting a large working copy or master cut (`*_joined_*_from_laid.mp4`), upload the video **once** and slice any `[first..last]` frame span on the server using `start_offset` and `end_offset` (in seconds):
 
 $$\text{start\_offset} = \frac{\text{first}}{24.0}, \qquad \text{end\_offset} = \frac{\text{last} + 1}{24.0}$$
 

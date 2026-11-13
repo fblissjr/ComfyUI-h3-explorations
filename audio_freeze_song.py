@@ -1,6 +1,6 @@
 """Drop a song and a prompt; the windows come from the track.
 
-`docs/h3_audio_freeze.md` section 4 step 6, the loop: the LTX pack's
+`docs/wiki/core/h3_audio_freeze.md` section 4 step 6, the loop: the LTX pack's
 music-video mode on H3. One prompt, one track, and the node plans the windows
 from the track's length, runs them one after another inside itself, writes
 each window's new frames to a file as it goes, and joins the files with the
@@ -40,7 +40,7 @@ stored window never loaded the encoder; that reuse is removed, below.)
 with every window's prompt through `MiniMaxH3ReferenceConditioning`'s own
 execute, so the stills are fitted, VAE-encoded and labelled exactly as on the
 reference graphs. The prompt then follows the reference prompt format
-(`docs/prompting.md` section 2.2). The fl2va checkpoint takes references
+(`docs/wiki/prompting/prompting.md` section 2.2). The fl2va checkpoint takes references
 (owner, 2026-09-14).
 
 **A source video** (`source`, a Masked Source node; owner, 2026-10-04) turns

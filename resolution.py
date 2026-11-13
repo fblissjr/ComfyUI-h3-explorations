@@ -219,7 +219,7 @@ class MiniMaxH3Resolution(io.ComfyNode):
                         "1 is the single exception to the grid: it renders ONE "
                         "frame, needs the single-image H3 VAE to decode, and "
                         "none of the duration rules above apply to it. The "
-                        "single-frame path is PARKED (docs/h3_image_editing.md) "
+                        "single-frame path is PARKED (docs/wiki/image/h3_image_editing.md) "
                         "-- stock ComfyUI floors these nodes at 5 frames and "
                         "this node refuses rather than degrade."
                     )),

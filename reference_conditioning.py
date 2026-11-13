@@ -92,7 +92,7 @@ class RuntimeImageReference:
     # is what every serving implementation does and the node default since
     # 2026-09-13. N scales the SOURCE so its shorter side reaches N, for the
     # conditioner alone; the VAE view is unchanged.
-    # `docs/h3_conditioning_end_to_end.md` section 1b is why the two branches
+    # `docs/wiki/core/h3_conditioning_end_to_end.md` section 1b is why the two branches
     # need not share a geometry.
     qwen_short_edge: int = 0
     # False: this still reaches the model through the text encoder only. No
@@ -264,7 +264,7 @@ def _encode_ref_audio_aligned(audio_vae, audio):
     crop (`comfy/sd.py::vae_encode_crop_pixels`) narrows the SAMPLE axis to a
     multiple of `spacial_compression_encode()` and takes the remainder off both
     ends, so the leading samples go and a soundtrack drifts early against its
-    own frames: gap 16 in `docs/comfyui_vendor_gaps.md`, measured by
+    own frames: gap 16 in `docs/wiki/archive/comfyui_vendor_gaps.md`, measured by
     `bench/audit_ref_audio_crop.py`.
 
     The release pads the end instead. Its audio VAE's `preprocess`
@@ -552,7 +552,7 @@ def _reference_views(image, source_w, source_h, role_w, role_h, record,
     stage-one tensor unclamped, and the encoder is shown a second view of the
     source at an N short edge, with the stage-two bounds pre-applied to that
     view alone under `release`. Section 1b of
-    `docs/h3_conditioning_end_to_end.md` is why nothing indexes a Qwen token
+    `docs/wiki/core/h3_conditioning_end_to_end.md` is why nothing indexes a Qwen token
     against a latent patch, so this breaks no contract; what it changes is a
     quality question the blind comparison owns.
     """
@@ -908,7 +908,7 @@ class MiniMaxH3AppendRefImage(io.ComfyNode):
                                 # sglang's `max` mode. Whether
                                 # upscaling helps identity is the
                                 # reference-view ablation's question
-                                # (docs/h3_references.md).
+                                # (docs/wiki/core/h3_references.md).
                                 "allow_upscale", default=True,
                                 tooltip=(
                                     "On (default): a still smaller than "

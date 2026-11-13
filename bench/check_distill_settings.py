@@ -16,7 +16,7 @@ Claims, i.e. what breaks if a case is deleted:
                         population is empty: a walk that matches no file
                         grades nothing, and nothing reads as a pass
   no retired turbo      a graph loading any lightx2v or other turbo LoRA
-                        fails: that lane is closed (`docs/roadmap.md`,
+                        fails: that lane is closed (`docs/wiki/ops/roadmap.md`,
                         "Closed lanes", 2026-09-26). Its vendor-row grading
                         (the `LEGAL` table, `UNATTESTED`, `OWNER_RECIPE`) went
                         with it and is in git
@@ -32,7 +32,7 @@ Claims, i.e. what breaks if a case is deleted:
                         contract sampling and VSA; the step switches through
                         either) is in git
   no retired PDD        a graph loading a PDD LoRA or `MiniMaxH3PDDLoRA` fails
-                        the same way: retired 2026-11-06 (`docs/roadmap.md`,
+                        the same way: retired 2026-11-06 (`docs/wiki/ops/roadmap.md`,
                         "Closed lanes"). Its 32-point grid, manual-knot, and
                         `nfe` contract grading went with it and is in git
 
@@ -131,13 +131,13 @@ def classify_ph3_image(doc, found: Found) -> bool:
 
 
 def is_pdmd(lora_name):
-    """Any PDMD LoRA, a retired lane since 2026-10-05 (`docs/roadmap.md`,
+    """Any PDMD LoRA, a retired lane since 2026-10-05 (`docs/wiki/ops/roadmap.md`,
     "Closed lanes"): pdmd2026's files and kijai's resizes of them."""
     return "pdmd" in lora_name.lower()
 
 
 def is_flashgen(lora_name):
-    """Any FlashGen LoRA, a retired lane since 2026-11-04 (`docs/roadmap.md`,
+    """Any FlashGen LoRA, a retired lane since 2026-11-04 (`docs/wiki/ops/roadmap.md`,
     "Closed lanes"): kijai's resize and our rank-64 conversions alike match
     on the word."""
     return "flashgen" in lora_name.lower()
@@ -248,21 +248,21 @@ def main():
             retired = [l for l in found.loras if is_turbo(l)]
             assert not retired, (
                 f"{path.name}: loads {retired}. Turbo LoRAs are a closed lane "
-                f"(docs/roadmap.md, 'Closed lanes', 2026-09-26)")
+                f"(docs/wiki/ops/roadmap.md, 'Closed lanes', 2026-09-26)")
             retired = [l for l in found.loras if is_pdmd(l)]
             assert not retired, (
                 f"{path.name}: loads {retired}. PDMD is a retired lane "
-                f"(docs/roadmap.md, 'Closed lanes', 2026-10-05)")
+                f"(docs/wiki/ops/roadmap.md, 'Closed lanes', 2026-10-05)")
             retired = [l for l in found.loras if is_flashgen(l)] + fasth3_models(doc)
             assert not retired, (
                 f"{path.name}: loads {retired}. FlashGen and FastH3 are a retired "
-                f"lane (docs/roadmap.md, 'Closed lanes', 2026-11-04)")
+                f"lane (docs/wiki/ops/roadmap.md, 'Closed lanes', 2026-11-04)")
             pdd_nodes = [n["class_type"] for n in doc.values()
                          if isinstance(n, dict) and n.get("class_type") == "MiniMaxH3PDDLoRA"]
             retired = [l for l in found.loras if classify_pdd(l)] + pdd_nodes
             assert not retired, (
                 f"{path.name}: loads {retired}. PDD is a retired lane "
-                f"(docs/roadmap.md, 'Closed lanes', 2026-11-06)")
+                f"(docs/wiki/ops/roadmap.md, 'Closed lanes', 2026-11-06)")
             task_loras = [l for l in found.loras if l in cfg.GUIDE_TASK_LORAS]
             distill_loras = [l for l in found.loras if l not in cfg.GUIDE_TASK_LORAS]
             if task_loras:

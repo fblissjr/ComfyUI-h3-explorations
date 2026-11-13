@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Generate and check the masked-lane AST jump index and stage-symbol drift map.
 
-    <python> bench/masked_code_map.py --write            # rewrite docs/masked_v2v/CODE_MAP_INDEX.md
+    <python> bench/masked_code_map.py --write            # rewrite docs/wiki/masked_v2v/CODE_MAP_INDEX.md
     <python> bench/masked_code_map.py --stamp-narrative  # stamp per-section AST digests into narrative docs
     <python> bench/masked_code_map.py --status           # print freshness & last-updated commits across code & docs
     <python> bench/masked_code_map.py --check            # exit 1 on missing symbol, size/line cap, or path leak
@@ -23,11 +23,11 @@ numbers drifted on every commit.
 This tool splits mechanical line-number / `cannot_see` indexing from narrative
 stage documentation:
 1. It parses the declared git-tracked masked-lane Python modules with `ast` (no
-   torch, no ComfyUI, no GPU, <0.1s) and writes `docs/masked_v2v/CODE_MAP_INDEX.md`
+   torch, no ComfyUI, no GPU, <0.1s) and writes `docs/wiki/masked_v2v/CODE_MAP_INDEX.md`
    with exact `StartLine-EndLine` coordinates and an 8-char AST body digest per
    symbol, plus live-extracted `cannot_see` constants.
-2. It cross-checks every `- **Symbols**:` citation in `docs/masked_v2v/code_map_stages.md`
-   and `docs/masked_v2v/code_map_contracts.md` against the live AST, and in
+2. It cross-checks every `- **Symbols**:` citation in `docs/wiki/masked_v2v/code_map_stages.md`
+   and `docs/wiki/masked_v2v/code_map_contracts.md` against the live AST, and in
    `--drift` mode reports the exact `### Stage` / `### Section` blocks whose
    underlying Python function bodies changed since `CODE_MAP_INDEX.md` was last
    written.
@@ -51,10 +51,10 @@ from pathlib import Path
 BENCH = Path(__file__).resolve().parent
 REPO = BENCH.parent
 
-INDEX_MD = REPO / "docs" / "masked_v2v" / "CODE_MAP_INDEX.md"
-STAGES_MD = REPO / "docs" / "masked_v2v" / "code_map_stages.md"
-CONTRACTS_MD = REPO / "docs" / "masked_v2v" / "code_map_contracts.md"
-PLAN_MD = REPO / "docs" / "research" / "masking" / "2026-10-26_code_map_and_simplification_plan.md"
+INDEX_MD = REPO / "docs" / "wiki" / "masked_v2v" / "CODE_MAP_INDEX.md"
+STAGES_MD = REPO / "docs" / "wiki" / "masked_v2v" / "code_map_stages.md"
+CONTRACTS_MD = REPO / "docs" / "wiki" / "masked_v2v" / "code_map_contracts.md"
+PLAN_MD = REPO / "docs" / "wiki" / "research" / "masking" / "2026-10-26_code_map_and_simplification_plan.md"
 
 CODE_MAP_DOCS = (INDEX_MD, STAGES_MD, CONTRACTS_MD, PLAN_MD)
 #: Pages whose code links carry a line anchor, written `` [`bench/x.py::name`](../../bench/x.py#L123) ``: `--check` holds
@@ -759,15 +759,15 @@ def compute_step_chain() -> list[tuple[str, str, str, int, int, str, list[str]]]
 
 
 def generate_index_markdown() -> str:
-    """Build the full text of `docs/masked_v2v/CODE_MAP_INDEX.md`."""
+    """Build the full text of `docs/wiki/masked_v2v/CODE_MAP_INDEX.md`."""
     lines: list[str] = [
         "# Masked V2V Code Map — AST Jump Index & `cannot_see` Boundaries",
         "",
         f"<!-- {MARKER}. Do not edit by hand; run `bench/masked_code_map.py --write`. -->",
         "",
-        "Companion to [`docs/research/masking/2026-10-26_code_map_and_simplification_plan.md`](../research/masking/2026-10-26_code_map_and_simplification_plan.md),",
-        "[`docs/masked_v2v/code_map_stages.md`](code_map_stages.md) (Part 1), and",
-        "[`docs/masked_v2v/code_map_contracts.md`](code_map_contracts.md) (Parts 2 & 4).",
+        "Companion to [`docs/wiki/research/masking/2026-10-26_code_map_and_simplification_plan.md`](../research/masking/2026-10-26_code_map_and_simplification_plan.md),",
+        "[`docs/wiki/masked_v2v/code_map_stages.md`](code_map_stages.md) (Part 1), and",
+        "[`docs/wiki/masked_v2v/code_map_contracts.md`](code_map_contracts.md) (Parts 2 & 4).",
         "",
         "## How a Dedicated Gemini / AGY Session Refreshes the Code Map (Anti-Drift Runbook)",
         "",
@@ -780,7 +780,7 @@ def generate_index_markdown() -> str:
         "   `### Stage` / `### Section` block (`< 15` short bullet lines), and run `$H3_PYTHON bench/masked_code_map.py --stamp-narrative`.",
         "3. **Regenerate Jump Index & Run Gate Checks**:",
         "   Run `$H3_PYTHON bench/masked_code_map.py --write --check-exact`",
-        "   followed by `$H3_PYTHON bench/check_doc_links.py docs/masked_v2v/CODE_MAP_INDEX.md docs/masked_v2v/code_map_stages.md docs/masked_v2v/code_map_contracts.md docs/research/masking/2026-10-26_code_map_and_simplification_plan.md`.",
+        "   followed by `$H3_PYTHON bench/check_doc_links.py docs/wiki/masked_v2v/CODE_MAP_INDEX.md docs/wiki/masked_v2v/code_map_stages.md docs/wiki/masked_v2v/code_map_contracts.md docs/wiki/research/masking/2026-10-26_code_map_and_simplification_plan.md`.",
         "",
         "---",
         "",
@@ -1155,7 +1155,7 @@ def compute_narrative_drift(
 
 
 def compute_drift(since_ref: str | None = None) -> tuple[list[str], list[str]]:
-    """Return `(symbol_drift_lines, narrative_section_lines)` comparing disk vs `CODE_MAP_INDEX.md` (or `<since_ref>:docs/masked_v2v/CODE_MAP_INDEX.md`)."""
+    """Return `(symbol_drift_lines, narrative_section_lines)` comparing disk vs `CODE_MAP_INDEX.md` (or `<since_ref>:docs/wiki/masked_v2v/CODE_MAP_INDEX.md`)."""
     if since_ref:
         rel_idx = INDEX_MD.relative_to(REPO).as_posix()
         proc = subprocess.run(
@@ -1555,7 +1555,7 @@ def query_status() -> int:
     else:
         print("  Working tree:      clean (0 uncommitted watched .py files)")
 
-    print("\n=== 2. Mechanical AST Jump Index (docs/masked_v2v/CODE_MAP_INDEX.md) ===")
+    print("\n=== 2. Mechanical AST Jump Index (docs/wiki/masked_v2v/CODE_MAP_INDEX.md) ===")
     idx_rel = INDEX_MD.relative_to(REPO).as_posix()
     _, idx_last = _git_last_commit([idx_rel])
     expected_idx = generate_index_markdown()
@@ -1621,17 +1621,17 @@ def query_status() -> int:
 def main() -> int:
     epilog = (
         "Code-map files managed & verified by this tool:\n"
-        "  1. docs/masked_v2v/CODE_MAP_INDEX.md                                  (auto-generated AST jump index, constants, dep/step chains; updated by --write)\n"
-        "  2. docs/masked_v2v/code_map_stages.md                                 (Part 1: Stage 1.1a..5.4 state mutations; stamped by --stamp-narrative)\n"
-        "  3. docs/masked_v2v/code_map_contracts.md                              (Parts 2 & 4: cross-process contracts, 17n+5 math, overwrites, duplicates; stamped by --stamp-narrative)\n"
-        "  4. docs/research/masking/2026-10-26_code_map_and_simplification_plan.md (Router, traps, commit ledger, Part 5 builds; stamped by --stamp-narrative)\n"
+        "  1. docs/wiki/masked_v2v/CODE_MAP_INDEX.md                                  (auto-generated AST jump index, constants, dep/step chains; updated by --write)\n"
+        "  2. docs/wiki/masked_v2v/code_map_stages.md                                 (Part 1: Stage 1.1a..5.4 state mutations; stamped by --stamp-narrative)\n"
+        "  3. docs/wiki/masked_v2v/code_map_contracts.md                              (Parts 2 & 4: cross-process contracts, 17n+5 math, overwrites, duplicates; stamped by --stamp-narrative)\n"
+        "  4. docs/wiki/research/masking/2026-10-26_code_map_and_simplification_plan.md (Router, traps, commit ledger, Part 5 builds; stamped by --stamp-narrative)\n"
     )
     ap = argparse.ArgumentParser(
         description=__doc__.splitlines()[0],
         epilog=epilog,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    ap.add_argument("--write", action="store_true", help="Write docs/masked_v2v/CODE_MAP_INDEX.md from live AST (printing any narrative stage drift first).")
+    ap.add_argument("--write", action="store_true", help="Write docs/wiki/masked_v2v/CODE_MAP_INDEX.md from live AST (printing any narrative stage drift first).")
     ap.add_argument("--stamp-narrative", action="store_true", help="Stamp per-section and per-doc AST digests into code_map_stages.md, code_map_contracts.md, and 2026-10-26_code_map_and_simplification_plan.md after reviewing prose.")
     ap.add_argument("--status", action="store_true", help="Print when watched code, CODE_MAP_INDEX.md, and narrative docs were last updated and whether any section drifted.")
     ap.add_argument("--check", action="store_true", help="Verify symbol resolution, line-range bounds, file size, line length, and path privacy.")
@@ -1699,7 +1699,7 @@ def main() -> int:
         ref_label = f"{args.drift_since}:{INDEX_MD.relative_to(REPO)}" if args.drift_since else str(INDEX_MD.relative_to(REPO))
         sym_lines, sec_lines = compute_drift(since_ref=args.drift_since)
         if not sym_lines and not sec_lines:
-            print(f"0 drifted symbols or narrative stamps since {ref_label}; all narrative stage/contract blocks in docs/masked_v2v/ are current.")
+            print(f"0 drifted symbols or narrative stamps since {ref_label}; all narrative stage/contract blocks in docs/wiki/masked_v2v/ are current.")
         else:
             if sym_lines:
                 print(f"{len(sym_lines)} symbol(s) changed AST body since {ref_label}:")

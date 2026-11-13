@@ -94,7 +94,7 @@ def fit_reference_image(
     sglang's default `diffusers` mode, which scale the short edge to its
     target up or down. vllm-omni keeps a still at its own size (since its
     #8253) unless a caller passes a canvas area to shrink it to.
-    `docs/h3_references.md` owns what that costs. Under
+    `docs/wiki/core/h3_references.md` owns what that costs. Under
     `match` the flag is ignored -- see the branch below for why.
     """
     if size_policy not in SIZE_POLICIES:

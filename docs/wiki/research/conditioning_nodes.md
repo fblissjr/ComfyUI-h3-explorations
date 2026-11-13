@@ -1,0 +1,286 @@
+# Conditioning against the release: what was built, and what was not
+
+last updated: 2026-08-25
+
+Two defects were found by reading the published release beside the code that
+consumes it ([`official_weights_metadata.md`](official_weights_metadata.md)).
+This records what was done about each, and — the part worth more — what was
+deliberately *not* done and why, so nobody rebuilds the discarded option.
+
+Source for the path itself: a full node-by-node trace of
+`workflows/h3_text_to_video_turbo_4step_768p.json` against
+`workflows/h3_image_ref_plus_text_to_video.json`, done 2026-08-21. **The first
+of those was removed on 2026-08-31** (its stem claimed four steps while it ran
+six); the trace stands, and `workflows/h3_probe_turbo_768p_owner.json` is the
+surviving graph on that LoRA.
+
+---
+
+## The plan changed after the trace, and this is the change
+
+The first sketch was **two replacement conditioning nodes**, one non-reference
+and one reference, reimplementing what core does but correctly. The trace
+refuted that shape. Two findings did it:
+
+1. **`MiniMaxH3ReferenceToVideo` carries at least five load-bearing contracts
+   that exist only in code comments** (listed below). A reimplementation drops
+   one silently, and none of them raises when broken.
+2. **Neither defect actually requires replacing that node.** The tokenizer one
+   is fixed at the CLIP, one node upstream and one-tenth the surface. The pixel
+   one does not bind on any graph this repo ships.
+
+So the built thing is smaller than the sketch on purpose: fix the defect at the
+narrowest seam that reaches it, and instrument the one that is not currently
+reachable rather than patching speculatively.
+
+That conclusion still governs the two defects above; it does **not** mean this
+repo never needs a reference conditioner. A typed one was later built for a
+different reason: make order, soundtrack ownership, loader metadata, and audio
+normalization explicit. Native core's contracts remain tested, and its gaps
+remain recorded. The local node handles selected gaps for this repo; it does
+not turn them into native ComfyUI fixes.
+
+---
+
+## Defect 1: the seven special tokens. Fixed natively; local shim retired.
+
+**Native ComfyUI status:** fixed by merged PR 15808, present in this installed
+checkout as commit `924743af`. Core's H3 tokenizer now registers all seven
+tokens itself. That is the resolution of the ComfyUI/vendor gap.
+
+**This repo's handling:** the fallback has been removed from both the FL2VA and
+Ref2VA conditioners, and since **2026-08-27** so has the `vendor_tokens` schema
+slot itself. It had been kept optional, advanced and ignored at its original
+position because saved UI graphs store widget values positionally;
+`MiniMaxH3VendorTokens` was registered as a deprecated pass-through for the
+same loadability reason. Both are gone, and `vendor_tokens.py` with them --
+owner decision, trading compatibility with externally saved graphs for schemas
+that carry nothing dead.
+
+ComfyUI commit `924743af` or newer is therefore the minimum runtime contract
+for correct H3 marker tokenization. The native-token arm in
+`bench/check_conditioning_behaviour.py` fails if that contract is absent.
+
+**What this does not establish**, and the node's own docstring repeats it:
+whether the embedding rows for these ids carry trained values, and what the
+markers are for. The release lists them and documents neither.
+
+## Defect 2: processor policy. Detected, with opt-in local handling.
+
+The native conditioner leaves `min_pixels` / `max_pixels` on a shared helper's
+signature defaults where the release declares separate image and video
+processor policies; the table and executed boundaries are owned by
+[`h3_references.md`](../core/h3_references.md). Stock ComfyUI applies its common
+defaults to a still or to each two-frame video block. The release video maximum
+is instead clip-wide over the sampled reference.
+
+**The effect is role-dependent.** Legal FL2VA canvases stay inside both
+still-image bounds, so their geometry is unchanged between stock and release;
+under the W4 loader they are capped like any other still, see below. Most ordinary Ref2VA
+stills also lie in the overlap, while tiny and extreme-aspect stills can cross
+the floor or ceiling. The video duration-aware difference is bounded: it begins
+at 311+ target frames for canvas-sized inputs, while it cannot engage inside
+the legal H3 range for the measured 960x544 input.
+
+**Selectable locally since 2026-08-24, without a monkeypatch.**
+`MiniMaxH3ReferenceConditioning.image_policy` selects which declared bounds
+apply and pre-applies them before the VAE, so the helper's defaults stop being
+the only answer. It is off by default (`comfy`) for still images, so the
+stock-image sentence above still describes graphs that retain that selection;
+what changed is that the other two answers are now reachable, and that under
+the AWQ adapter the binding ceiling is the artifact's 301,056 rather than the
+helper's signature default.
+
+Video is locally handled on every shipped reference graph but the `release`
+probe arm through `video_policy=encoder`: the VAE view remains no-upscale
+while the loaded encoder's duration-aware Qwen policy runs. Both `encoder`
+stages bind to the CLIP the node was handed: the loader stamps its artifact's
+declaration and `encoder_contract_from_clip` reads it back; a CLIP that
+declares nothing resolves to the native path, once, logged. Until 2026-08-25
+they read the W4 snapshot whichever CLIP was loaded; enforced by the `encoder_policy_binds_to_the_loaded_clip` case that `bench/check_reference_runtime.py` carried until 2026-09-13, removed with the `encoder` policy and its red mutations M7/M8.
+`release` applies both vendor video stages; `comfy` remains the stock control.
+
+The current compressed-tensors W4 still-image ceiling is not the native defect
+described above. It is the selected artifact's own deployed processor contract,
+and it routinely binds reference stills. The measured layer-49 policy benchmark
+rejects changing that already-calibrated artifact's config as a repair; v2 is
+instead calibrated and served against its declared role-aware policy.
+
+The trace also priced the two halves differently, which is why they are not
+treated the same:
+
+- **The floor is reachable from a node.** It only fires when the image is under
+  the threshold, so pre-conforming the tensor makes the helper a no-op. That is
+  `reference_fit.py`'s composition pattern one stage later. It costs forking the
+  one-image-two-towers identity, at one extra resample.
+- **The ceiling is not.** The clamp is on the helper's *output*, so no input can
+  beat it — passing a larger image just gets it shrunk. It needs a scoped
+  rebind, and the mechanism has two aspects nobody has verified: whether an
+  already-loaded text encoder re-applies object patches, and whether an instance
+  attribute holding an unbound function satisfies the call site.
+
+**What was built instead:** `bench/preflight_graph.py` now warns, statically,
+when a reference will cross either bound — naming which side would do what.
+ComfyUI's values are read out of its source rather than restated, so the warning
+goes stale loudly. When the source cannot be read it says the comparison was not
+made rather than printing nothing.
+
+That converts "should we write a monkeypatch?" from a guess into an observation:
+build it the first time a graph trips the warning.
+
+---
+
+## The five contracts a replacement node would have had to reproduce
+
+Recorded here because they are load-bearing, they fail silently, and every one
+of them lives only in a code comment — `CLAUDE.md`'s "a requirement is not a
+control" case, five times over.
+
+**Five of the seven gained a control on 2026-08-22**, after standing
+unenforced through two postmortems: `bench/check_reference_contracts.py`
+asserts contracts 1, 2 and 3 plus both smaller ones against core's own
+behaviour, driving the node with stub VAEs to the point where its two
+reference lists are complete. Shown red by pairing soundtracks positionally in
+core and confirmed green on restore.
+
+**Contracts 4 and 5 gained controls later the same day**, closing the last two.
+Both were held open by an assumption about where they could be asserted --
+contract 4 is `model_base.py`'s job rather than this node's, and contract 5 was
+recorded as needing a loaded encoder. Neither is true: `extra_conds` runs on a
+stub whose only supplied attributes are `concat_keys` and `model_config`, and
+`CLIP.encode_from_tokens` runs over a stub text encoder returning the same
+3-tuple `MiniMaxH3ClipModel.encode_token_weights` returns. **The blocker was
+where to point the harness, not what it would cost.**
+
+Both are shown red in a red harness (removed 2026-09-11), which
+mutates the real functions in memory rather than on disk -- the install is
+shared with a running render server. Three mutations, each phrased in the
+contract's own terms: the concat order reversed, the `return_dict` merge
+removed, and the tag copy deleted. A mutation whose anchor no longer matches
+**refuses** instead of reporting a red, which is not hypothetical -- the first
+run of that harness errored on a recompiled `super()` losing its `__class__`
+cell, and the spine correctly scored it ERRORED rather than counting it.
+
+1. **`ref_items` and `ref_blocks` are not the same length**
+   (`comfy_extras/nodes_minimax_h3.py:290-342`).** A video with a
+   soundtrack appends two entries to the presentation list and one to the DiT
+   payload. Index-aligning them mislabels every reference after the first
+   sounded video.
+2. **The soundtrack pairs by socket-name suffix**
+   (`comfy_extras/nodes_minimax_h3.py:313`), not by position:
+   `ref_video_audio_N` belongs to `ref_video_N` through a string join. A
+   mis-numbered socket silently pairs the wrong track.
+3. **The `<Audio j>` counter is shared** across video soundtracks and standalone
+   audio in one sequence, and standalone audio comes last. A prompt that says
+   `<Audio 1>` means something different depending on whether a video soundtrack
+   is wired.
+4. **Keyframe latents precede reference latents** in the flat conditioning
+   lists, established by statement order in `extra_conds` and nowhere else.
+5. **`minimax_token_tags` reaches conditioning only through the
+   `return_dict=True` path** (`comfy/sd.py:412-416`).** Nothing raises if it is missing; the DiT just tags
+   every row as text.
+
+Plus two smaller ones with the same property: the vision sentinels must flank
+each block or two rows per block get tagged as text, and prompt weighting must
+stay disabled or a CLIP-style blend is applied to a hidden state this model
+never saw weighted.
+
+---
+
+## Controlled since 2026-08-22
+
+The four defects this node exists to fix are asserted by
+`bench/check_conditioning_behaviour.py`, against core's
+`MiniMaxH3ImageToVideo` as the reference rather than against remembered
+numbers. Both kinds of failure are covered: breaking something core got right
+(the AGREE arms) and quietly ceasing to fix what it was built for (the DIFFER
+arms). The second is the one nothing would otherwise notice, because the node
+keeps running and the graphs keep rendering.
+
+Shown red twice and independently: deleting the empty-prompt refusal reddens
+only that arm, forcing `fit_to_canvas` reddens only the last-frame arm.
+
+## Typed reference surface: built and migrated
+
+The runtime replacement was added on 2026-08-23, after the acceptance suite
+and ordered resolver had stopped changing under adversarial review:
+
+- `MiniMaxH3AppendRefImage`, `MiniMaxH3AppendRefVideo`, and
+  `MiniMaxH3AppendRefAudio` build one copy-on-append
+  `MINIMAX_H3_REFERENCES` tuple;
+- a video record owns its frames, the same loader's `VHS_VIDEOINFO`, and its
+  optional soundtrack;
+- `MiniMaxH3ReferenceConditioning` walks the tuple once to build Qwen's
+  `ref_items` and the DiT's `minimax_refs` blocks;
+- that boundary derives the source clock from `loaded_fps`, normalizes video
+  to 24 fps, duplicates mono to stereo, and caps audio at aligned
+  `frame_count / 24`;
+- reference geometry defaults to Comfy-compatible and no-upscale. The later
+  video policies are separate from the ordering migration: `encoder` is the
+  shipped hybrid default, while full `release` geometry remains opt-in.
+
+`bench/check_reference_runtime.py` controls the runtime boundary with stub
+VAEs and no CUDA; a red harness (removed 2026-09-11) makes ignored fps,
+skipped audio normalization, foreign metadata, reversed order, and a release
+policy that reuses the VAE frames for Qwen go red. A sixth mutation makes the
+`encoder` policy read the release snapshot; it goes red even though the two
+checked-in configs agree today, proving that the artifact snapshot remains the
+authority if they diverge later.
+`bench/check_typed_reference_consumers.py` proves label discovery and preflight
+read the same validated chain.
+
+**Live acceptance and workflow migration are green as of 2026-08-23.** All 39
+shipped reference API graphs now use the typed conditioner; across UI, API, and
+the stamped bench copy that is 79 typed files and no shipped core socket node.
+The generator preserves the old image → sounded video → standalone-audio order
+so existing prompts retain their ordinals, while hand-built typed chains may
+use list order directly. Explicit audio trims were removed because the compiler
+owns the aligned-duration cap.
+
+The all-media acceptance graph passed the live schema and rendered at 1024x768,
+39 frames, and 10 steps in 84.51 seconds. The first attempt found that VHS
+returns a lazy `Mapping` rather than core's concrete audio dict; that boundary
+was fixed and added to the CPU runtime check before the successful rerun. The
+server logged `presentation=['<Picture 1>', '<Picture 2>', '<Audio 1>',
+'<Video 1>', '<Audio 2>']`, 21,283 packed rows, Sage routing, Sol sparse
+execution, with all twenty tokens supplied by native ComfyUI.
+
+**Release reference-video preparation remains an opt-in local policy.** The
+generated `encoder` default preserves the cheaper native no-upscale VAE path
+but runs the raw 2 fps Qwen samples through the custom encoder's source-config,
+duration-aware processor. `comfy` is the unchanged native preprocessing
+control. `release` additionally puts the full-rate clip on the release canvas
+for the VAE. The policy stages remain named together rather than exposed as
+independent low-level toggles: upscale without the matching Qwen policy would
+overshoot the release's row budget after its long-duration boundary.
+`check_reference_runtime.py` pins the raw 31-versus-padded-32 grid and the
+two-view compiler path; the red harness detects collapsing them or reading the
+release snapshot under the encoder policy.
+
+The live release-policy smoke rendered at 1024x768, 39 frames, and 10 steps in
+92.73 seconds. Its 960x544 source reached the VAE at 1344x768, Qwen received
+four raw samples, and the packed sequence was 23,892 rows with Sage and Sol
+sparse execution. This proves the local runtime path, not a native ComfyUI fix
+and not a quality benefit. The long-duration resize is covered on CPU because
+exercising its activation boundary in a full render is needlessly expensive.
+
+Core's node is retained as a research subject and compatibility surface, not as
+the shipped graph authority. Its still-open sizing, rate, duration, and mono
+gaps stay documented as native gaps even where this repo's typed boundary
+handles them.
+
+The acceptance list above remains relevant: **since 2026-08-22 every item is
+guarded by an assertion** in `bench/check_reference_contracts.py`, with
+contracts 4 and 5 shown red in a red harness (removed 2026-09-11).
+This section said "not done" until the runtime existed; preserving that history
+matters because the controls, not implementation enthusiasm, were the blocker.
+
+**Read the acceptance criteria as two lists, not one.** Some of these are
+behaviour a replacement must PRESERVE — a sounded video making two Qwen items
+but one DiT block, the shared `<Audio j>` ordinal with a soundtrack
+immediately before its video, the vision sentinels, weighting stayed disabled.
+Others are behaviour a typed surface would INTENTIONALLY replace: pairing a
+soundtrack by socket-name suffix becomes ownership by the video record, and
+"standalone audio always comes last" becomes ordered-list position. A test
+suite that asserts AGREE on all seven would reject the replacement for doing
+its job, so the intentional ones have to be asserted as DIFFER.

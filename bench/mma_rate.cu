@@ -3,7 +3,7 @@
 //
 // NOT a check and not part of any check. It needs `nvcc`, which nothing else
 // in bench/ does, and it asserts nothing -- it prints five numbers. It is here
-// because `docs/open_experiments.md` #17 quotes its output, and a number in a
+// because `docs/wiki/ops/open_experiments.md` #17 quotes its output, and a number in a
 // doc with no reproduction path is the failure this repo keeps naming.
 //
 //     nvcc -O3 -arch=sm_89 -o /tmp/mma_rate bench/mma_rate.cu && /tmp/mma_rate

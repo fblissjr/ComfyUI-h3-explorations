@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """The audio-freeze node's contract, and the two ways a graph can silently unfreeze.
 
-`docs/h3_audio_freeze.md` is the lane; `audio_freeze.py` is the node. Three
+`docs/wiki/core/h3_audio_freeze.md` is the lane; `audio_freeze.py` is the node. Three
 things here, each a way the freeze could look present and not be:
 
 1. **The slice is on the grid and exact.** `slice_window` must return exactly
@@ -833,7 +833,7 @@ def check_continue(problems, song_source):
     # the node's side, from its source (the stored window it continues is read by `check_resume`'s cases)
     for text, what in (("prev = loop_resume.load_window_latent(continue_from) if continue_from else None", "seed its first window from the continued latent"),
                        ("heard = waveform[..., int(round(head / FPS * rate)):]", "start its file's audio on its first new frame"),
-                       ("head = context_frames if continue_from else 0", "count the context as not written")):
+                       ("head = context_frames if continue_from else pad_before", "count the context as not written")):
         if text not in song_source:
             _fail(problems, f"continue: the song node does not {what}")
 

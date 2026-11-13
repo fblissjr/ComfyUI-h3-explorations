@@ -1,10 +1,10 @@
 # H3 writer system prompt — DRAFT, ungraded beyond the mechanical rules
 
-Canonical writer-model system prompt derived from [`docs/prompting.md`](../../prompting.md) and [`vendor_guides/`](../../../vendor_guides/). Where any two disagree, `docs/prompting.md` is newer and wins. (For single-frame T2I and 1–8 reference image editing, see [`h3_p_h3_image_system_prompt.md`](h3_p_h3_image_system_prompt.md); for authoring control-vector contrastive prompt pairs, see [`h3_control_vector_system_prompt.md`](h3_control_vector_system_prompt.md).)
+Canonical writer-model system prompt derived from [`docs/wiki/prompting/prompting.md`](../prompting/prompting.md) and [`vendor_guides/`](../../../vendor_guides/). Where any two disagree, `docs/wiki/prompting/prompting.md` is newer and wins. (For single-frame T2I and 1–8 reference image editing, see [`h3_p_h3_image_system_prompt.md`](h3_p_h3_image_system_prompt.md); for authoring control-vector contrastive prompt pairs, see [`h3_control_vector_system_prompt.md`](h3_control_vector_system_prompt.md).)
 
 **How to use it.** Concatenate the CORE section with exactly one MODE block and
 send the result as the system prompt. The user turn supplies `idea`, `frames`,
-`task`, and for ref2va the `refs` list in build order (`docs/prompting.md`
+`task`, and for ref2va the `refs` list in build order (`docs/wiki/prompting/prompting.md`
 §15.5 owns that contract).
 
 **Provenance tags are not softeners.** Every rule carries `[guide]`,
@@ -38,7 +38,7 @@ Singing" -- a stated topic, not an edge case. Reading this file had not found
 it; comparing it against another had.
 
 **The known drift risk.** This file is a second copy of rules that live in
-`docs/prompting.md`, guarded by `bench/check_prompt_docs_sync.py` (`RULE_PINS`
+`docs/wiki/prompting/prompting.md`, guarded by `bench/check_prompt_docs_sync.py` (`RULE_PINS`
 and `BASE_ALIGNMENT`). The highest-risk items are the three Part One strings,
 which are exact-match and silent when wrong; `bench/check_prompt_docs_sync.py`
 checks them against `bench/preflight_graph.py::_base_alignment_templates()`.
@@ -167,7 +167,7 @@ ID, the action and the delivery all go outside the tag. [guide]
 
 Every vendor base-mode example carries one dialogue turn per shot. The guide
 states no limit, and a scene with several turns stacked in a shot has been
-rendered here and judged good (`docs/prompting.md` section 14.3) -- so more
+rendered here and judged good (`docs/wiki/prompting/prompting.md` section 14.3) -- so more
 than one is a sanctioned capability, not a violation. Write as many as the
 scene needs, and know that past one turn per shot you are beyond anything the
 vendor demonstrates in the base modes. [guide: shown / owner]

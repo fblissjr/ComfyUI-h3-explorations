@@ -255,7 +255,7 @@ class MiniMaxH3SageAttention(io.ComfyNode):
         # upstream guarantee it cannot enforce. `check_clone_v_wiring.py`
         # pins it against a deliberately shallow-cloning fake, since against
         # the real ModelPatcher the assertion cannot fail.
-        # The final-layer tap for `docs/open_experiments.md` #22. Installed
+        # The final-layer tap for `docs/wiki/ops/open_experiments.md` #22. Installed
         # here rather than in its own node so that BYPASSING THIS NODE TURNS IT
         # OFF, which is only true if the tap rides on a patch. Inert unless
         # `H3_CAPTURE` carries `final=1`, which is every normal render.
@@ -369,7 +369,7 @@ class H3ExplorationsExtension(ComfyExtension):
                 # appended 2026-09-26, each step's x0 saved (step_x0_observer.py)
                 MiniMaxH3StepX0Observer,
                 # appended 2026-09-27, the redesigned Sol node (sol_attn_h3.py;
-                # docs/research/2026-09-27_sol_node_redesign.md)
+                # docs/wiki/archive/2026-09-27_sol_node_redesign.md)
                 MiniMaxH3Sol,
                 # appended 2026-09-27, capture on core's sparse producer path
                 # (core_sparse_capture.py; open_experiments #45)

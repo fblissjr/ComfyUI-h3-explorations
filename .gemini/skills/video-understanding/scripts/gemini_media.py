@@ -2,7 +2,7 @@
 """Deterministic CLI helper for `.gemini/skills/video-understanding/`.
 
 Enforces the Native-First (`agy`) Gate and wraps `gemini-api` (using its
-built-in credential store) for five multimodal workflows in `docs/masked_v2v/`:
+built-in credential store) for five multimodal workflows in `docs/wiki/masked_v2v/`:
 
 1. `boxes`: 2D bounding-box (`box_2d` `[ymin, xmin, ymax, xmax]` in `0..1000`)
    and polygon segmentation (`mask` `[[x, y], ...]` in `0..1000`) grounding,

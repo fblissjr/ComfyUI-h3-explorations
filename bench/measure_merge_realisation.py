@@ -2,7 +2,7 @@
 """How much of a LoRA delta actually lands when it is merged into int8.
 
 **Written to refute a claim this repo made on 2026-08-31 and had already
-committed.** `docs/research/quant_levers.md` said that because stochastic
+committed.** `docs/wiki/research/quant_levers.md` said that because stochastic
 rounding carries exactly 2x the MSE of round-to-nearest -- measured, 1.4142150
 on RMS over 200 modules against sqrt(2) = 1.4142136 -- switching the merge path
 to deterministic rounding was "arithmetic, not a hypothesis" and needed no
@@ -54,7 +54,7 @@ merging". This file measures the quantity the other metric is blind to.
                      reasons**, and only this column shows the second one.
 
 Stored weights only, like everything in this lane. Nothing here says either
-arm is visible in a render, and `docs/open_experiments.md` #23 is the runtime
+arm is visible in a render, and `docs/wiki/ops/open_experiments.md` #23 is the runtime
 question. CPU only, no server.
 
     <comfy-venv-python> bench/measure_merge_realisation.py \\
@@ -202,7 +202,7 @@ def main() -> int:
                           "produces -- the RNG stream differs"),
         "is_not": ("a runtime or perceptual measurement. Stored weights only, "
                    "and int8_convrot is W8A8, so this sees one of two "
-                   "roundings. docs/open_experiments.md #23"),
+                   "roundings. docs/wiki/ops/open_experiments.md #23"),
         "shape": {"rows": len(rows), "expected": expected},
         "summary": summary,
         "modules": rows,

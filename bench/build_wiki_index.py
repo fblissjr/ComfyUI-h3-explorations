@@ -43,35 +43,41 @@ ROUTER_MAX_BYTES = 45_000
 ACTIVE_ROUTERS = (
     "AGENTS.md",
     "data/AGENTS.md",
-    "docs/comfy_notes.md",
-    "docs/wiki/handover.md",
-    "docs/wiki/working_with_the_owner.md",
+    "docs/AGENTS.md",
     "docs/wiki/index.md",
-    "docs/wiki/decisions.md",
-    "docs/wiki/masked_v2v.md",
+    "docs/wiki/handover.md",
     "docs/wiki/next_steps.md",
-    "docs/masked_v2v/AGENTS.md",
-    "docs/masked_v2v/PROTOCOL.md",
-    "docs/masked_v2v/reference_and_prompt_rules.md",
-    "docs/masked_v2v/chain_trace_and_remakes.md",
-    "docs/checks.md",
-    "docs/prompting.md",
-    "docs/evidence.md",
-    "docs/roadmap.md",
-    "docs/research/INDEX.md",
+    "docs/wiki/decisions.md",
+    "docs/wiki/working_with_the_owner.md",
+    "docs/wiki/masked_v2v.md",
+    "docs/wiki/ops/comfy_notes.md",
+    "docs/wiki/ops/checks.md",
+    "docs/wiki/ops/evidence.md",
+    "docs/wiki/ops/roadmap.md",
+    "docs/wiki/prompting/prompting.md",
+    "docs/wiki/masked_v2v/AGENTS.md",
+    "docs/wiki/masked_v2v/PROTOCOL.md",
+    "docs/wiki/masked_v2v/reference_and_prompt_rules.md",
+    "docs/wiki/masked_v2v/chain_trace_and_remakes.md",
+    "docs/wiki/research/INDEX.md",
+    "docs/wiki/projects/AGENTS.md",
+    "docs/wiki/projects/index.md",
+    "docs/wiki/archive/INDEX.md",
 )
 
 
 def starting_files() -> list[Path]:
-    return [REPO / "CLAUDE.md", *sorted(WIKI.glob("*.md"))]
+    return [REPO / "AGENTS.md", REPO / "CLAUDE.md", REPO / "docs" / "AGENTS.md", *sorted(WIKI.glob("*.md"))]
 
 
 def docs_on_disk() -> list[str]:
     found = []
     for p in sorted((REPO / "docs").rglob("*.md")):
         rel = p.relative_to(REPO).as_posix()
-        if rel.startswith("docs/wiki/"):
-            continue  # the wiki describes the docs, not itself
+        if p.name == "CLAUDE.md" or rel in ("docs/AGENTS.md", "docs/README.md", "docs/wiki/index.md"):
+            continue
+        if rel.startswith("docs/wiki/archive/") and rel != "docs/wiki/archive/INDEX.md":
+            continue  # frozen historical docs; archive/INDEX.md routes to them
         found.append(rel)
     return found
 
@@ -139,17 +145,19 @@ def main() -> int:
             print(f"FAIL  {required.relative_to(REPO)} not found")
             return 2
     unrouted = unreachable(docs_on_disk())
-    print(f"ok    walked links from CLAUDE.md and {len(starting_files()) - 1} wiki page(s)")
+    print(f"ok    walked links from AGENTS.md/CLAUDE.md/docs/AGENTS.md and {len(starting_files()) - 3} wiki root page(s)")
     print(f"      unreachable       {len(unrouted)} doc(s) no link reaches")
     for entry in collapse(unrouted):
         print(f"        {entry}")
     oversized = []
     missing_routers = []
     checked_paths = list(ACTIVE_ROUTERS)
-    for shard_dir in ("docs/checks", "docs/prompting", "docs/wiki/decisions"):
+    for shard_dir in ("docs/wiki/ops/checks", "docs/wiki/prompting", "docs/wiki/decisions"):
         d = REPO / shard_dir
         if d.is_dir():
             for sp in sorted(d.glob("*.md")):
+                if sp.name in ("prompting.md", "prompt_bank.md", "prompt_catalogue.md"):
+                    continue
                 checked_paths.append(sp.relative_to(REPO).as_posix())
     for rel in checked_paths:
         p = REPO / rel

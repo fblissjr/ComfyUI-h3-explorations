@@ -133,7 +133,7 @@ On `ref2va`, `fl2va`, and guide-latent graphs, clean 3D Video VAE latents (`ref_
 
 ## 6. Timeline choreography nodes (`MiniMaxH3SoundCues` & `MiniMaxH3AppendSpriteTrajectory`)
 
-Full walkthrough, failure modes, and RoPE/sigma math: **[`docs/research/control_vectors/2026-11-12_sound_cues_dpad_and_033_release_law.md`](../../research/control_vectors/2026-11-12_sound_cues_dpad_and_033_release_law.md)**.
+Full walkthrough, failure modes, and RoPE/sigma math: **[`docs/wiki/research/control_vectors/2026-11-12_sound_cues_dpad_and_033_release_law.md`](../research/control_vectors/2026-11-12_sound_cues_dpad_and_033_release_law.md)**.
 
 - **[`MiniMaxH3SoundCues`](../../../sound_cues.py)** (`(CONDITIONING, LATENT, CONDITIONING)` + `PreviewText`):
   - Synthesizes `32 kHz` stereo percussive cue islands (`hop`/`thud`, `snap`/`yank`, `slam`/`impact`, `yank_slam`, `step`, `click`, optional `@gain`, `#` comments, frame or `s` timestamps) over a `-28 dBFS` low-frequency room floor (`floor_dbfs = -28.0`, preventing the `~53 dB` inter-event ambience collapse to `-90.90 dBFS` caused by `0.0` digital-zero `.wav` tails).

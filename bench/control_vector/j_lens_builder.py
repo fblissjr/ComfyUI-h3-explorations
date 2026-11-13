@@ -45,7 +45,7 @@ families:
      `valid_pos_in_union` (`[24912]`, int32), and `vocab_words_json` (`24,912`
      space-prefixed English words).
 
-See `docs/research/control_vectors/2026-11-06_j_lens_and_refiner_jacobian.md` for
+See `docs/wiki/research/control_vectors/2026-11-06_j_lens_and_refiner_jacobian.md` for
 full derivations and empirical benchmarks.
 """
 
@@ -190,7 +190,7 @@ def compute_refiner_jacobian_and_wiener(
 ) -> tuple[torch.Tensor, torch.Tensor]:
     """Compute `(J_ref, J_wiener)` for an H3 `TokenRefiner` checkpoint + optional LoRA.
 
-    Implements §2.2 and §3.2 of `docs/research/control_vectors/2026-11-06_j_lens_and_refiner_jacobian.md`:
+    Implements §2.2 and §3.2 of `docs/wiki/research/control_vectors/2026-11-06_j_lens_and_refiner_jacobian.md`:
     - Forward passes each `H_49` sequence (`[1, S, 5120]`, keeping token 0 in attention)
       through `condition_proj` and the 2 `TokenRefiner` blocks while accumulating
       analytical Jacobians over non-sink tokens `[:, 1:, :]`.

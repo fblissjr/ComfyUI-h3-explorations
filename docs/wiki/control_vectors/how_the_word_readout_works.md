@@ -8,7 +8,7 @@ sits beside control vectors and edit guidance, see
 [`which_tool_and_what_to_call_it.md`](which_tool_and_what_to_call_it.md).
 
 This page follows one vector, `film_16mm_1974`, through the readout. The math is in
-[`../../research/control_vectors/2026-11-06_j_lens_and_refiner_jacobian.md`](../../research/control_vectors/2026-11-06_j_lens_and_refiner_jacobian.md)
+[`../../research/control_vectors/2026-11-06_j_lens_and_refiner_jacobian.md`](../research/control_vectors/2026-11-06_j_lens_and_refiner_jacobian.md)
 and is not repeated here.
 
 ---
@@ -44,7 +44,7 @@ H3's text encoder is a language model with its top cut off. H3 takes the encoder
 and hands it to the video model. The layers above that point, and the head that turns a state into words, are
 not in the shipped encoder file at all. [`../control_vectors.md`](../control_vectors.md) section 2 describes
 the two text stages, and section 10 of
-[`../../research/control_vectors/2026-11-12_chain_lens_digest_and_experiment_plan.md`](../../research/control_vectors/2026-11-12_chain_lens_digest_and_experiment_plan.md)
+[`../../research/control_vectors/2026-11-12_chain_lens_digest_and_experiment_plan.md`](../research/control_vectors/2026-11-12_chain_lens_digest_and_experiment_plan.md)
 has the command that shows which encoder files carry a head.
 
 So there is nothing in the running pipeline that can say what a state means in words.

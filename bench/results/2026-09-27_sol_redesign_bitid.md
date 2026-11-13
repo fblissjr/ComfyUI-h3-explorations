@@ -1,7 +1,7 @@
 # The Sol redesign is output-neutral: bit-identical latents (2026-09-27)
 
 Test 0 of the Sol node redesign
-(`docs/research/2026-09-27_sol_node_redesign.md`).
+(`docs/wiki/archive/2026-09-27_sol_node_redesign.md`).
 
 ## What ran
 

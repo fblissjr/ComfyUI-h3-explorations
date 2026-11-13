@@ -37,7 +37,7 @@ Where each lives in the code:
 - A vector made by the word readout **is** a control vector. It goes through the same Steer node. The readout
   is a second way to make one, from a word list in place of prompt pairs.
 - Edit guidance uses no vector and no readout. It is a different mechanism with a different cost.
-- Neither a control vector nor edit guidance on text alone can pin an impact to an exact frame number or make a `<Picture 1>` subject reverse direction mid-shot while keeping its original facing: text tokens carry no frame coordinates. For timed beats and 2D `(x, y, face)` paths, use [`MiniMaxH3SoundCues`](../../../sound_cues.py) and [`MiniMaxH3AppendSpriteTrajectory`](../../../sprite_trajectory.py) with `0.33` selective release on `MiniMaxH3ReleaseReferences` ([guide](../../research/control_vectors/2026-11-12_sound_cues_dpad_and_033_release_law.md)).
+- Neither a control vector nor edit guidance on text alone can pin an impact to an exact frame number or make a `<Picture 1>` subject reverse direction mid-shot while keeping its original facing: text tokens carry no frame coordinates. For timed beats and 2D `(x, y, face)` paths, use [`MiniMaxH3SoundCues`](../../../sound_cues.py) and [`MiniMaxH3AppendSpriteTrajectory`](../../../sprite_trajectory.py) with `0.33` selective release on `MiniMaxH3ReleaseReferences` ([guide](../research/control_vectors/2026-11-12_sound_cues_dpad_and_033_release_law.md)).
 - So the choice on prompt-level steering is between two tools. The word readout is what you use to look at a
   vector, clean it, or make a quick one.
 
@@ -49,7 +49,7 @@ Inside the repo it is "J-Lens". In anything written for other people, do not use
 
 "J-lens" is the name of a published method from Anthropic, with properties its authors tested. The reading
 notes are in
-[`../../research/control_vectors/2026-11-12_chain_lens_refs/jlens_workspace_paper.md`](../../research/control_vectors/2026-11-12_chain_lens_refs/jlens_workspace_paper.md).
+[`../../research/control_vectors/2026-11-12_chain_lens_refs/jlens_workspace_paper.md`](../research/control_vectors/2026-11-12_chain_lens_refs/jlens_workspace_paper.md).
 Ours shares its core idea and differs in ways that matter to a reader who knows the paper:
 
 - **It reads steering directions.** The published lens reads a language model's hidden states to see what the
@@ -59,10 +59,10 @@ Ours shares its core idea and differs in ways that matter to a reader who knows 
 - **It adds two steps of its own.** One carries a vector back through the token refiner. The other scores
   words against a few fill-in-the-blank prompts.
 - **It was fitted on far less data than the published recipe.** Compare section 2 of
-  [`../../research/control_vectors/2026-11-06_j_lens_and_refiner_jacobian.md`](../../research/control_vectors/2026-11-06_j_lens_and_refiner_jacobian.md)
+  [`../../research/control_vectors/2026-11-06_j_lens_and_refiner_jacobian.md`](../research/control_vectors/2026-11-06_j_lens_and_refiner_jacobian.md)
   with section 1 of the reading notes above.
 - **The code that fitted its word half is not in the repo.** Section 17 of
-  [`../../research/control_vectors/2026-11-09_control_vector_simplification_plan.md`](../../research/control_vectors/2026-11-09_control_vector_simplification_plan.md)
+  [`../../research/control_vectors/2026-11-09_control_vector_simplification_plan.md`](../research/control_vectors/2026-11-09_control_vector_simplification_plan.md)
   records that, and rebuilding it is an open item.
 
 ### Wording to use

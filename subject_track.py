@@ -276,7 +276,7 @@ shot table record what was cut.
 computes, per frame, a score that its object is there, and its node returns
 one number for the whole object. The score was seen falling before a loss
 and was neither read nor saved
-(`docs/research/postmortems/2026-10-04_feature_lotsofpeopledance-end-to-end.md`,
+(`docs/wiki/research/postmortems/2026-10-04_feature_lotsofpeopledance-end-to-end.md`,
 item 4). Here the tracker object's step is wrapped for the length of one
 track call, and each frame's score goes into the shot table under its shot.
 Nothing reads it yet: whether it warns of a loss is a test still to run. A

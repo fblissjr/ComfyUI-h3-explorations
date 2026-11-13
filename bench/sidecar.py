@@ -473,7 +473,7 @@ def write(video, command: list[str] | None = None, inputs: dict | None = None, e
            "made_at": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
            "made_by": made_by or os.environ.get(SESSION_KEY) or "not said (no --by and no H3_SESSION)",
            "command": " ".join(shlex.quote(str(c)) for c in command), "cwd": os.getcwd(),
-           # stills, inputs and the output folder are read through these keys (docs/comfy_notes.md): every H3_ key the command ran with
+           # stills, inputs and the output folder are read through these keys (docs/wiki/ops/comfy_notes.md): every H3_ key the command ran with
            "environment": {k: v for k, v in sorted(os.environ.items()) if k.startswith("H3_")}, "git": git_state(),
            "tool": ({"path": str(tool), "sha256": sha256_of(tool)} if tool.is_file() else
                     {"path": str(tool), "sha256": None, "why": f"not a file at {tool} (the command's script, taken relative to the cwd {os.getcwd()})"})

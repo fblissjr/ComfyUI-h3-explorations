@@ -6,7 +6,7 @@ reviewed: 82753cd8
 
 # Masked V2V Upstream & Pre-Render Diagnostic Skill
 
-Passing an automated preflight gate (`0 likely to fail`) is necessary but not sufficient. Whenever working on masked V2V loads, apply the general diagnostic principles below and consult [`docs/masked_v2v/upstream_anomaly_and_alignment_checks.md`](../../../docs/masked_v2v/upstream_anomaly_and_alignment_checks.md) and [`docs/masked_v2v/chain_trace_and_remakes.md`](../../../docs/masked_v2v/chain_trace_and_remakes.md) §1 for the stage-by-stage reprocessing DAG.
+Passing an automated preflight gate (`0 likely to fail`) is necessary but not sufficient. Whenever working on masked V2V loads, apply the general diagnostic principles below and consult [`docs/wiki/masked_v2v/upstream_anomaly_and_alignment_checks.md`](../../../docs/wiki/masked_v2v/upstream_anomaly_and_alignment_checks.md) and [`docs/wiki/masked_v2v/chain_trace_and_remakes.md`](../../../docs/wiki/masked_v2v/chain_trace_and_remakes.md) §1 for the stage-by-stage reprocessing DAG.
 
 ## Core Diagnostic Habits (Always Apply)
 

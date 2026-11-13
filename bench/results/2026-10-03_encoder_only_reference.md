@@ -2,7 +2,7 @@
 
 The owner asked what happens when a reference is encoded "with just the
 vision tower and not the vae". The conditioning node already allows it (leave
-`vae` unwired: `docs/h3_references.md`, "Encoder-only references"), so this is
+`vae` unwired: `docs/wiki/core/h3_references.md`, "Encoder-only references"), so this is
 one render of the shipped graph that way, beside the shipped render at the
 same seed.
 
@@ -67,7 +67,7 @@ three shots the prompt scripts:
 - **One scene, one still, one seed.** No face in close-up, no second
   reference, no product with fine detail.
 - **Not the vendor's path.** sglang gives the still to both the encoder and
-  the VAE (`docs/research/sglang_h3_pipeline.md`, "Reference stills").
+  the VAE (`docs/wiki/research/sglang_h3_pipeline.md`, "Reference stills").
 - Nothing about a reference video or audio.
 
 So it is a lead, and no default moved. What followed: `use_vae` on

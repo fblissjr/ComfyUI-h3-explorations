@@ -14,7 +14,7 @@ listed in several pairs is transcribed once.
 
 The evaluation sweep found one audio check with a high reported agreement
 with people on speech content: transcription error against the scripted line
-(`docs/research/2026-09-19_evaluation_one_judge.md`, item 3). Nothing else in
+(`docs/wiki/archive/2026-09-19_evaluation_one_judge.md`, item 3). Nothing else in
 this pack measures whether the words came out. It is also the one audio
 metric that needs no reference render: the prompt is the reference, so it
 reads on a pair of two takes as well as on one take.

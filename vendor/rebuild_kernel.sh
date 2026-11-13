@@ -220,7 +220,7 @@ NEWEST="$(git tag -l 'v[0-9]*' --sort=-version:refname | head -1)"
 # `+sol.<sha>` version, so two builds with one version could differ; and it
 # would modify the gitlinks the clean-tree check below reads.
 #
-# Top-level only, as docs/SOLATTN.md's manual recipe does: the build reads
+# Top-level only, as docs/wiki/attention/SOLATTN.md's manual recipe does: the build reads
 # nothing under flash-attention's own submodules (its csrc/cutlass, and
 # csrc/composable_kernel, which is ROCm). This is the one change to the source
 # checkout the script keeps, because a submodule off its pin is not a state
@@ -376,7 +376,7 @@ uv pip install --python "$PY" --force-reinstall --no-deps "${WHL[0]}"
 
 # The build record: ONE file beside the venv saying which build is installed
 # and where its source is, written at the only moment both are known (owner's
-# ask, 2026-09-03). It is read by a person and cited by docs/SOLATTN.md and
+# ask, 2026-09-03). It is read by a person and cited by docs/wiki/attention/SOLATTN.md and
 # docs/sol_upstream.md. A stock reinstall replaces the wheel but not this
 # file, so a record whose version differs from the installed one means
 # something reinstalled comfy-kitchen after this script ran. Until 2026-09-11

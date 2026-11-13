@@ -153,7 +153,7 @@ edge (`motion_short_edge_2`), and the song node shows it to the model as the
 next video reference after the first: `<Video 2>` when the reference chain
 holds no video of its own. It is for a load whose text gives each reference
 a subject of its own, the way the vendor guide writes several references
-(`docs/prompting.md`, section 9): a body for the movement and a closer view
+(`docs/wiki/prompting/prompting.md`, section 9): a body for the movement and a closer view
 of a face, say. It is cut window by window as the first is (`wired_motion`),
 and `motion_vae` is one switch for both. A second video with no first is
 refused. No render had been made with it when this was written.
@@ -373,7 +373,7 @@ MOTIONS = (MOTION_NONE, MOTION_SUBJECT, MOTION_ZOOM, MOTION_FRAME, MOTION_WIRED)
 #: the region stays open and the model draws the new subject standing still there. Until 2026-10-10 the held
 #: frames had an empty mask (a plate: the source's last frame with the ORIGINAL subject in it, shown clean
 #: for the rest of the window), and for a day an input `held_tail` chose between the two. Measured that day
-#: on three loads of one clip, one seed each (`docs/wiki/window_context.md`): under the plate a short load
+#: on three loads of one clip, one seed each (`docs/wiki/masked_v2v/window_context.md`): under the plate a short load
 #: drew the still's person on its first frames and the original on its last; with the region held open the
 #: fall at the end was gone on every one, and the owner read the result as swapped on playback. The plate
 #: and the input were removed the same day (`docs/wiki/decisions.md`). A held frame past the TRACK's end is
@@ -406,7 +406,7 @@ RENDER_REGIONS = (RENDER_WHOLE, RENDER_ZOOM_REPLACED)
 #: beside the shot; the owner's verdicts of 2026-10-22). `face covered`: the subject's region is held open on them,
 #: the shot's first frame's mask over the frames before and its last frame's over the frames after (`pad_context`),
 #: grown by the margin as on every frame, so the original's face is not in the frozen context. Reasoned from the beard
-#: rule (`docs/masked_v2v/AGENTS.md` §2: 3-4 frames of unmasked beard in a window pull the beard onto the new face)
+#: rule (`docs/wiki/masked_v2v/AGENTS.md` §2: 3-4 frames of unmasked beard in a window pull the beard onto the new face)
 #: and from the held tail above (a region held open on frames past the shot is the node's measured choice there);
 #: not yet rendered when written. The keep-outs (`keep`, `others`) stay empty on those frames in both forms: `keep`
 #: holds the source's own pixels inside the region and would show the face there, and an `others` held from the edge
@@ -499,7 +499,7 @@ MOTION_BOX_ROOM = 32
 #: Shorter side of that reference, in pixels. Reasoned, 2026-10-05: core never
 #: enlarges a reference video, so this sets its pixel area; with the VAE copy
 #: on, a 384 short edge costs a quarter of the 768 canvas's rows
-#: (`docs/h3_references.md`, "Budget by pixel area"). Encoder-only, it sets
+#: (`docs/wiki/core/h3_references.md`, "Budget by pixel area"). Encoder-only, it sets
 #: how much the text encoder sees of the subject at two frames per second.
 MOTION_SHORT_EDGE = 384
 #: The lazy inputs core is asked for through `check_lazy_status`: the mask always, the segmenter and its text

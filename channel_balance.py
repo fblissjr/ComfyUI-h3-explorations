@@ -11,7 +11,7 @@ about three bits. The block's attention is also the peakiest in the model
 (a handful of effective keys per query on its worst heads), so a small
 relative error in K becomes a large logit error and the softmax flips.
 Measured: sage's INT8 error at block 49 is ~5x block 0's, and K's rounding is
-almost all of it. `docs/h3_block49_quant_error.md` has the
+almost all of it. `docs/wiki/attention/h3_block49_quant_error.md` has the
 anatomy; the sage fork's `CHANGELOG.md` (workload intel, "MiniMax H3, block
 49") has the tables.
 
@@ -41,7 +41,7 @@ call, and reaches only the sage steps until Sol's quantizer gets the same.
 ## Off by default, and an experiment
 
 `balance="off"` adds no patch. The other two modes are an EXPERIMENT under
-`docs/SOLATTN.md`'s decision standard, not a shipped default: the sage-side
+`docs/wiki/attention/SOLATTN.md`'s decision standard, not a shipped default: the sage-side
 gain is measured on captures, the Sol-side gain is
 `bench/grade_channel_balance.py`'s to establish, and nothing here is
 perceptual. Which blocks are lopsided is a property of the released weights:

@@ -13,7 +13,7 @@ holds but belongs somewhere else).
 these are the only attribution a shipped default has -- `h3_config.py`
 points at the record precisely so the number is not copied into the
 comment. Removing one of those turns a measured value into an inherited
-one, which is the failure `docs/SOLATTN.md` audits.
+one, which is the failure `docs/wiki/attention/SOLATTN.md` audits.
 
 Citations: 354, across 89 files. Pointing at an archived record: 55.
 
@@ -267,7 +267,7 @@ Prose a reader acts on today: node and config comments, the working docs, and sc
 | 4 | `2026-08-18_routing_density.json` | `results/` | """Per-head routed density across the capture grid: where the routing structure is. 'data/results/2026-08-18_routing_density.json' established that the per-block and per-step axes are flat -- 28-30% kernel density at tau 1.3 everywhere but block 0 -- so a tau schedule along either axis has nothing to exploit. It named |  |
 | 75 | `2026-08-19_routing_density_per_head.json` | `results/` | -capture $H3_CAPTURE_ROOT/2026-08-18_ref3_362f_1024x768_ref2va \\ -canvas 1024x768 --length 362 --heads 0 \\ -out data/results/2026-08-19_routing_density_per_head.json No GPU and no server. Needs the capture and an installed 'comfy_kitchen' |  |
 
-## `docs/SOLATTN.md`
+## `docs/wiki/attention/SOLATTN.md`
 
 | line | record | lives in | claim | Verdict |
 |---|---|---|---|---|
@@ -284,7 +284,7 @@ Prose a reader acts on today: node and config comments, the working docs, and sc
 | 1717 | `2026-08-19_sol_error_per_head.json` | `results/` | A matched pair exists and had not been read against itself: 'data/results/2026-08-19_sol_error_per_head.json' (tau 1.3) and '..._per_head_tau1.0.json' (tau 1.0), **same capture, same fourteen (block, step) pairs**, decomposed against an oracle by |  |
 | 1756 | `2026-08-19_sol_error_control.json` | `results/` | ## The trap in the control file '2026-08-19_sol_error_control.json' carries 'tau: 1.3' in its metadata and its 'rows' is **EMPTY**. Its 'controls' hold the DENSE limit ('tau=-1e9') and the SPARSE limit ('tau=26') — the bounds, not a tau arm |  |
 
-## `docs/bench_plan.md`
+## `docs/wiki/archive/bench_plan.md`
 
 | line | record | lives in | claim | Verdict |
 |---|---|---|---|---|
@@ -292,7 +292,7 @@ Prose a reader acts on today: node and config comments, the working docs, and sc
 | 839 | `2026-08-21_marker_arm_audio_spectrum.json` | `results/` | *What was measured.** 'bench/grade_arm_audio_spectrum.py', record at 'data/results/2026-08-21_marker_arm_audio_spectrum.json'. Six seeds an arm, band energy fractions and brightness on the decoded audio, loudness normalised first. **The within-arm spread across seeds is the control** |  |
 | 951 | `2026-08-28_pdd_partition_fidelity_362.json` | `results/` | ## Scored, 2026-08-28. Three of four refuted. 'data/results/2026-08-28_pdd_partition_fidelity_362.json'. # \| prediction \| outcome \| |  |
 
-## `docs/checks.md`
+## `docs/wiki/ops/checks.md`
 
 | line | record | lives in | claim | Verdict |
 |---|---|---|---|---|
@@ -302,7 +302,7 @@ Prose a reader acts on today: node and config comments, the working docs, and sc
 | 196 | `2026-08-25_v2_calibration_set_review.md` | `results/` | 'check_marker_corpus.py' \| that the compiled marker evaluation corpus in 'bench/marker_corpus/' satisfies the assertions 'canonical/owner_authored_marker_corpus.md' names. **Most of its arms cannot fail while the compiler is correct, and running them anyway is the point**: 'compile_marker_corpus.py' derives every arm from one serialization, so semantic arm drift is unrepresentable rather than mere |  |
 | 196 | `2026-08-25_v2_split_near_duplicate_adjudication.json` | `results/` | 'check_marker_corpus.py' \| that the compiled marker evaluation corpus in 'bench/marker_corpus/' satisfies the assertions 'canonical/owner_authored_marker_corpus.md' names. **Most of its arms cannot fail while the compiler is correct, and running them anyway is the point**: 'compile_marker_corpus.py' derives every arm from one serialization, so semantic arm drift is unrepresentable rather than mere |  |
 
-## `docs/comfyui_vendor_gaps.md`
+## `docs/wiki/archive/comfyui_vendor_gaps.md`
 
 | line | record | lives in | claim | Verdict |
 |---|---|---|---|---|
@@ -319,14 +319,14 @@ Prose a reader acts on today: node and config comments, the working docs, and sc
 | 986 | `2026-08-29_ref_audio_channels.json` | `results/` | what \| where \| ---\|---\| What core does with 1, 2 and 6 channels, measured on the real VAE \| 'bench/audit_ref_audio_channels.py', record \| Reports it on a real graph's real media \| 'bench/preflight_graph.py' \| Typed boundary that refuses >2 channels \| 'reference_conditioning.py', controlled by 'bench/check_reference_runtime.py' \| |  |
 | 1007 | `2026-08-21_vae_encoder_precision.json` | `results/` | ---\|---\| Grades the encoder at the call, not at a rendered clip \| 'bench/grade_vae_encoder_precision.py' \| Record \| 'data/results/2026-08-21_vae_encoder_precision.json' \| The two probe arms \| 'workflows/h3_probe_ref_vae_encoder_fp16_api.json', 'workflows/h3_probe_ref_vae_encoder_fp32_api.json' \| |  |
 
-## `docs/custom_node_gaps.md`
+## `docs/wiki/core/custom_node_gaps.md`
 
 | line | record | lives in | claim | Verdict |
 |---|---|---|---|---|
 | 290 | `2026-08-21_vae_encoder_precision.json` | `results/` | 'h3_probe_ref_vae_encoder_fp32*' against the matched '..._fp16*' control, and 'comfyui_vendor_gaps.md' already names the pair. And the knob is already answered: 'data/results/2026-08-21_vae_encoder_precision.json' holds the graded comparison, which 'bench/grade_vae_encoder_precision.py' opens by explaining had to be a graded one — encoder precision is a numerical knob, |  |
 | 451 | `2026-08-21_vae_encoder_precision.json` | `results/` | generator comments. 2. **Decide the shipped VAE default against the result we already have.** Not a measurement — 'data/results/2026-08-21_vae_encoder_precision.json' graded it on 2026-08-21 and the probe arms exist. The open part is whether the canonical graphs should follow it, which is a decision. |  |
 
-## `docs/evidence.md`
+## `docs/wiki/ops/evidence.md`
 
 | line | record | lives in | claim | Verdict |
 |---|---|---|---|---|
@@ -344,15 +344,15 @@ Prose a reader acts on today: node and config comments, the working docs, and sc
 | 154 | `2026-08-21_quant_delta_fl2va.json` | `results/` | 'fp8_scaled'.** Measured 2026-08-21 against the release itself ('bench/analyze_quant_delta.py'; records 'data/results/2026-08-21_quant_delta_fl2va.json' and its ref2va twin): median relative delta per block linear 0.0091 against 0.0265, on both checkpoints, cosine 0.9999 against 0.9996. fp8's error is |  |
 | 388 | `2026-08-29_sol_kernel_merge_equivalence.json` | `results/` | 'tail', 'block_len' and 'coarse_gate' added. Measured against the branch build on a matched arm with two controls ('data/results/2026-08-29_sol_kernel_merge_equivalence.json'): the non-Sol baseline is bit-identical across the swap and the Sol arm differs by *rel L2 7.67e-05** on video, nothing on audio. So every Sol figure above |  |
 | 413 | `2026-08-20_adaln_pruning_residual.json` | `results/` | *What "pruned" is, and what it costs -- measured 2026-08-20 against the unpruned 'int8_convrot' files** ('data/results/2026-08-20_adaln_pruning_residual.json', 'bench/analyze_adaln_pruning.py'). The unpruned DiT carries a timestep MLP and a full-width AdaLN projection per block ('[96768, 2688]'; the projections are |  |
-| 431 | `2026-08-21_pruning_sensitivity.json` | `results/` | ref2va-specific mechanism this repo had found with a concrete test, is refuted. *And the sensitivity to it, measured 2026-08-21** ('data/results/2026-08-21_pruning_sensitivity.json', 'bench/grade_pruning_sensitivity.py', 'docs/open_experiments.md' #22). A perturbation of that size still moves the network output by **5.6-9.4%** |  |
+| 431 | `2026-08-21_pruning_sensitivity.json` | `results/` | ref2va-specific mechanism this repo had found with a concrete test, is refuted. *And the sensitivity to it, measured 2026-08-21** ('data/results/2026-08-21_pruning_sensitivity.json', 'bench/grade_pruning_sensitivity.py', 'docs/wiki/ops/open_experiments.md' #22). A perturbation of that size still moves the network output by **5.6-9.4%** |  |
 
-## `docs/h3_conditioning_end_to_end.md`
+## `docs/wiki/core/h3_conditioning_end_to_end.md`
 
 | line | record | lives in | claim | Verdict |
 |---|---|---|---|---|
 | 262 | `2026-08-29_qwen_view_under_snapshot.json` | `results/` | only v1's ceiling is low enough to bite ('h3_references.md''s regime table, and '../data/results/2026-08-29_qwen_view_under_snapshot.json'). Stage ONE and 'qwen_short_edge' now decide what Qwen sees. The old sentence survives only for a calibration lane: if anyone quantizes against layer-49 |  |
 
-## `docs/h3_pdd.md`
+## `docs/wiki/archive/h3_pdd.md`
 
 | line | record | lives in | claim | Verdict |
 |---|---|---|---|---|
@@ -369,14 +369,14 @@ Prose a reader acts on today: node and config comments, the working docs, and sc
 | 1938 | `2026-08-31_pdd_quant_interaction_all_blocks.json` | `results/` | *Measured over all 200 modules 2026-08-31, and it settles whether to target.** 'bench/measure_pdd_quant_interaction.py' over all 50 blocks ('data/results/2026-08-31_pdd_quant_interaction_all_blocks.json'), aggregated by 'bench/analyze_pdd_unmerge_curve.py' (record). The mean |  |
 | 1940 | `2026-08-31_pdd_unmerge_recovery.json` | `results/` | ('data/results/2026-08-31_pdd_quant_interaction_all_blocks.json'), aggregated by 'bench/analyze_pdd_unmerge_curve.py' (record). The mean holds: 0.009362 merged-free against 0.010452 at strength 1.0, **1.1164x**, against the 7-block sample's 1.1234x; the correlation with '\|\|BA\|\|/\|\|W\|\|' is |  |
 
-## `docs/h3_ref2v_distillation.md`
+## `docs/wiki/archive/h3_ref2v_distillation.md`
 
 | line | record | lives in | claim | Verdict |
 |---|---|---|---|---|
 | 147 | `2026-08-20_adaln_pruning_residual.json` | `results/` | 'minimax_h3_ref2va_pruned_*'. Their weights differ everywhere, down to the timestep embedder (10.6% relative on 'e(t)', measured 2026-08-20 on the unpruned files, 'data/results/2026-08-20_adaln_pruning_residual.json'). The 8-step turbo LoRA's own metadata names its base: 'base_model: Comfy-Org/MiniMax-H3 minimax_h3_fl2va_bf16.safetensors'. |  |
 | 176 | `2026-08-20_dit_internals.json` | `results/` | final layer differs ~3% overall and ~12% in its time-varying part -- the largest adaln item, and the same order as the linears. 'data/results/2026-08-20_dit_internals.json'.) The turbo LoRAs touch 208 modules, all of them 'attn.qkv_proj', 'attn.out_proj', 'mlp.fc1' and 'mlp.fc2' in the 50 blocks plus the 2 token-refiner blocks. They do not touch |  |
 
-## `docs/h3_references.md`
+## `docs/wiki/core/h3_references.md`
 
 | line | record | lives in | claim | Verdict |
 |---|---|---|---|---|
@@ -384,14 +384,14 @@ Prose a reader acts on today: node and config comments, the working docs, and sc
 | 823 | `2026-08-29_qwen_view_under_snapshot.json` | `results/` | swap between v2 and the shipped INT8 changes the weights and not the reference view**, which makes it a clean single variable for a matched-seed comparison. 'data/results/2026-08-29_qwen_view_under_snapshot.json' is the record; its generator swept only the two AWQ snapshots until that date and omitted the regime every shipped graph actually runs, which is how the claim survived. |  |
 | 1291 | `2026-08-29_ref_audio_channels.json` | `results/` | mono reference "does not render — it raises", and it was wrong.** Measured against the real audio VAE on CPU ('../data/results/2026-08-29_ref_audio_channels.json', '../bench/audit_ref_audio_channels.py'): a '[1,1,32000]' mono waveform encodes to '[1,32,2,40]', producing exactly the |  |
 
-## `docs/hardware.md`
+## `docs/wiki/ops/hardware.md`
 
 | line | record | lives in | claim | Verdict |
 |---|---|---|---|---|
 | 87 | `2026-08-18_phase0_instrument.json` | `results/` | to conclude that PCIe therefore carries continuous traffic through the whole sampling loop. Measured 2026-08-18 and it does not, at the one configuration measured:** 'data/results/2026-08-18_phase0_instrument.json' recorded ~20 MB/s of PCIe receive during sampling at 1024x768 with three references, with power pegged at the 450 W limit and core clocks pulled ~24% under their maximum. |  |
 | 132 | `2026-08-20_power_limit_pair_verdict.json` | `results/` | Nsight Compute on a single Sol-Attn kernel, or a paired render at two power limits on one graph and seed. ~~Neither has been run.~~ **The power pair was run on 2026-08-20** ('bench/results/2026-08-20_power_limit_pair_verdict.json'): on a 4-step 768p turbo render the 330 W cap costs 5.8% of sampler time against a 12.5% core-clock delta, power pegged at both limits. Partly core-clock-bound; |  |
 
-## `docs/open_experiments.md`
+## `docs/wiki/ops/open_experiments.md`
 
 | line | record | lives in | claim | Verdict |
 |---|---|---|---|---|
@@ -401,20 +401,20 @@ Prose a reader acts on today: node and config comments, the working docs, and sc
 | 1543 | `2026-08-20_adaln_pruning_residual.json` | `results/` | *Tests:** whether the rank-8 AdaLN pruning, which perturbs the modulation output identically on both checkpoints ('data/results/2026-08-20_adaln_pruning_residual.json': same size, same per-parameter and per-timestep shape, ratio 0.97-1.01), moves the *network output* by a different amount on ref2va than on fl2va. |  |
 | 1688 | `2026-08-30_capture_inventory.json` | `results/` | kind) at 1344x768, one or two '(block, step)' pairs. At 98k x 7168 in bf16 that is ~1.4 GB per pair, a third of what the existing qkv captures cost. Every capture inventoried in '2026-08-30_capture_inventory.json' was deleted the day it was written, so this needs a fresh render, and 'bench/restart_comfy.sh''s arming rule applies to the server that runs it. |  |
 
-## `docs/research/h3_dit_implementations.md`
+## `docs/wiki/research/h3_dit_implementations.md`
 
 | line | record | lives in | claim | Verdict |
 |---|---|---|---|---|
 | 259 | `2026-08-29_market_scene_arms.json` | `results/` | *Partially priced 2026-08-29.** A three-arm record on one scene ('../../data/results/2026-08-29_market_scene_arms.json') includes a pair differing **only** in 'sampler_name', 'dpmpp_2m_sde_gpu' against 'euler', at a fixed seed with PDD-emitted sigmas. Both met the brief. |  |
 | 933 | `2026-08-29_int8_convrot_headroom.json` | `results/` | modules with the release's fp32 islands preserved."* Three defects in one sentence. It carried an ENCODER record ('data/results/2026-08-29_int8_convrot_headroom.json', subject 'qwen3vl_32b_minimax_h3_int8_convrot.safetensors') to a DiT conclusion, which is the two-models crossing 'CLAUDE.md' names. §7 establishes none of what is |  |
 
-## `docs/research/h3_partition_distance.md`
+## `docs/wiki/research/h3_partition_distance.md`
 
 | line | record | lives in | claim | Verdict |
 |---|---|---|---|---|
 | 13 | `2026-08-29_h3_partition_distance.json` | `results/` | '../../bench/compare_h3_partitions.py' into '../../data/results/2026-08-29_h3_partition_distance.json': relative Frobenius distance and cosine, in float64, over every shared unquantized tensor. Quantized payloads are skipped and reported as skipped — |  |
 
-## `docs/research/official_weights_metadata.md`
+## `docs/wiki/research/official_weights_metadata.md`
 
 | line | record | lives in | claim | Verdict |
 |---|---|---|---|---|
@@ -423,19 +423,19 @@ Prose a reader acts on today: node and config comments, the working docs, and sc
 | 157 | `2026-08-21_h3_marker_token_states.json` | `results/` | *What the encoder does with it, measured 2026-08-21** by 'bench/grade_h3_marker_tokens.py', record at 'data/results/2026-08-21_h3_marker_token_states.json'. Three arms per prompt on the same weights -- markers routed to their real ids, markers as the BPE fragments ComfyUI emits, and markers deleted -- compared over the token spans |  |
 | 214 | `2026-08-21_h3_tokenizer_markers.json` | `results/` | *Measured 2026-08-21** by 'bench/compare_h3_tokenizers.py', whose record is 'data/results/2026-08-21_h3_tokenizer_markers.json'. Both tokenizers loaded through 'AutoTokenizer', the release from 'coderef/MiniMax-H3/tokenizer/' (byte-identical to the copy beside |  |
 
-## `docs/research/pdd/2026-08-27_handoff.md`
+## `docs/wiki/research/pdd/2026-08-27_handoff.md`
 
 | line | record | lives in | claim | Verdict |
 |---|---|---|---|---|
 | 61 | `2026-08-27_pdd_adaln_cross_partition.json` | `results/` | *Do not compare that 0.05 against the 0.0078 in '2026-08-27_pdd_adaln_cross_partition.json'.** 0.05 and 0.01835 are weight-space Frobenius distances; 0.0078 is the OUTPUT error of the adaln modulation over the time grid. Different denominators. The |  |
 
-## `docs/research/pdd/2026-08-28_audio_plan.md`
+## `docs/wiki/research/pdd/2026-08-28_audio_plan.md`
 
 | line | record | lives in | claim | Verdict |
 |---|---|---|---|---|
 | 36 | `2026-08-28_pdd_partition_fidelity_362.json` | `results/` | width. Monotone across uniform widths, 0.1425 at L=1 to 1.5408 at L=16, about 10.8x. Consistent. It measures the transform, NOT a render error. 'data/results/2026-08-28_pdd_partition_fidelity_362.json' — four arms at 362 frames. Video flat across a 7x range of block width, audio monotone, ratio 1.58 to 1.90. |  |
 
-## `docs/research/pdd/2026-08-28_handoff.md`
+## `docs/wiki/research/pdd/2026-08-28_handoff.md`
 
 | line | record | lives in | claim | Verdict |
 |---|---|---|---|---|
@@ -445,13 +445,13 @@ Prose a reader acts on today: node and config comments, the working docs, and sc
 | 530 | `2026-08-28_pdd_partition_fidelity_362.json` | `results/` | **RE-RUN AT 362 FRAMES, 2026-08-28, AND THE ORDERING INVERTED.** 'data/results/2026-08-28_pdd_partition_fidelity_362.json', on the 'fast' tier (1152x768) with Sol active and the rewritten market prompt: |  |
 | 582 | `2026-08-28_pdd_conversion_reproducibility.json` | `results/` | (2.7 / 5.0 / 12.3 / 80.0 %). It just does not follow that rebalancing helps. ## 4.3 Conversion reproducibility — 'data/results/2026-08-28_pdd_conversion_reproducibility.json' Both partitions re-converted from identical inputs: **all 730 tensors |  |
 
-## `docs/research/pdd/2026-08-29_market_scene_arms.md`
+## `docs/wiki/research/pdd/2026-08-29_market_scene_arms.md`
 
 | line | record | lives in | claim | Verdict |
 |---|---|---|---|---|
 | 12 | `2026-08-29_market_scene_arms.json` | `results/` | The machine-readable record is '../../../data/results/2026-08-29_market_scene_arms.json'; this file is the reasoning. Both were derived with 'bench/diff_render_graphs.py', from the graph ComfyUI embedded in each render |  |
 
-## `docs/research/pdd/2026-08-30_handoff.md`
+## `docs/wiki/research/pdd/2026-08-30_handoff.md`
 
 | line | record | lives in | claim | Verdict |
 |---|---|---|---|---|
@@ -460,30 +460,30 @@ Prose a reader acts on today: node and config comments, the working docs, and sc
 | 55 | `2026-08-30_pdd_observe_1344x768_345f.json` | `results/` | 'bench/check_pdd_unmerged.py' \| the merged/un-merged identity in float64, four deliberate violations \| 'bench/record_capture_inventory.py' \| what a capture held, so it can be deleted \| '2026-08-30_pdd_observe_1344x768_345f.json' \| the first clean capture \| *'mlp.fc2' is deliberately NOT un-mergeable.** Its forward is never called on |  |
 | 77 | `2026-08-29_block_propagation.json` | `results/` | **It is not where strength MATTERS.** It measures where the delta is large at the block*, not how much reaches the output. '2026-08-29_block_propagation.json' shows those run opposite with depth. So b7 > b0 here cannot be read as b7 mattering more. **The 1.21x sigma figure is confounded and is withdrawn as a schedule |  |
 
-## `docs/research/pdd/audio_under_pdd.md`
+## `docs/wiki/research/pdd/audio_under_pdd.md`
 
 | line | record | lives in | claim | Verdict |
 |---|---|---|---|---|
 | 552 | `2026-08-28_pdd_partition_fidelity_362.json` | `results/` | # 2. The evidence, such as it is 'data/results/2026-08-28_pdd_partition_fidelity_362.json', 362 frames, 1152x768, one seed: |  |
 
-## `docs/research/pdd/depth_and_axes.md`
+## `docs/wiki/research/pdd/depth_and_axes.md`
 
 | line | record | lives in | claim | Verdict |
 |---|---|---|---|---|
 | 17 | `2026-08-30_pdd_block_magnitude.json` | `results/` | *Per-block quantisation sensitivity is not a variable.** int8-vs-bf16 stored-weight error spans **1.086x** across the 50 blocks ('data/results/2026-08-30_pdd_block_magnitude.json'). There is no sensitive block. What spread exists is by module KIND — 'attn.out_proj' runs 1.18x 'qkv_proj' — not by depth. |  |
-| 24 | `2026-08-30_pdd_quant_interaction.json` | `results/` | tracks the LoRA rather than the base.** 0.00942 -> 0.01058 at strength 1.0, correlating 0.78 with the module's own '\|\|BA\|\|/\|\|W\|\|' ('bench/results/2026-08-30_pdd_quant_interaction.json'). So a strength schedule keyed to quantisation would turn PDD down exactly where PDD is doing the most work. **That plan is dead**; 'docs/h3_pdd.md' carries the reasoning |  |
+| 24 | `2026-08-30_pdd_quant_interaction.json` | `results/` | tracks the LoRA rather than the base.** 0.00942 -> 0.01058 at strength 1.0, correlating 0.78 with the module's own '\|\|BA\|\|/\|\|W\|\|' ('bench/results/2026-08-30_pdd_quant_interaction.json'). So a strength schedule keyed to quantisation would turn PDD down exactly where PDD is doing the most work. **That plan is dead**; 'docs/wiki/archive/h3_pdd.md' carries the reasoning |  |
 | 47 | `2026-08-29_block_propagation.json` | `results/` | 48-49 \| **lowest**, 0.0110 at b48 \| 0.191 \| **spike, b49 0.0173** \| 0.325 \| Sources, in column order: '2026-08-29_block_propagation.json', '2026-08-29_dense_block_ranking.json', '2026-08-30_pdd_block_magnitude.json', '2026-08-29_h3_partition_distance.json'. |  |
 | 48 | `2026-08-29_dense_block_ranking.json` | `results/` | Sources, in column order: '2026-08-29_block_propagation.json', '2026-08-29_dense_block_ranking.json', '2026-08-30_pdd_block_magnitude.json', '2026-08-29_h3_partition_distance.json'. |  |
 | 48 | `2026-08-30_pdd_block_magnitude.json` | `results/` | Sources, in column order: '2026-08-29_block_propagation.json', '2026-08-29_dense_block_ranking.json', '2026-08-30_pdd_block_magnitude.json', '2026-08-29_h3_partition_distance.json'. |  |
 | 49 | `2026-08-29_h3_partition_distance.json` | `results/` | Sources, in column order: '2026-08-29_block_propagation.json', '2026-08-29_dense_block_ranking.json', '2026-08-30_pdd_block_magnitude.json', '2026-08-29_h3_partition_distance.json'. *Read across, and the disagreement is the finding.** |  |
 
-## `docs/research/pdd/queued_arms.md`
+## `docs/wiki/research/pdd/queued_arms.md`
 
 | line | record | lives in | claim | Verdict |
 |---|---|---|---|---|
 | 78 | `2026-08-27_qwen_view_under_snapshot.json` | `results/` | it was prepared at: 512, 1024 and 2048 all arrive as 264 merged tokens at 16:9, 266 at 4:3, and only square moves at all ('data/results/2026-08-27_qwen_view_under_snapshot.json'). Under v2's bounds the same knob spans 448 to 7,296. |  |
 
-## `docs/research/quant_levers.md`
+## `docs/wiki/research/quant_levers.md`
 
 | line | record | lives in | claim | Verdict |
 |---|---|---|---|---|
@@ -492,7 +492,7 @@ Prose a reader acts on today: node and config comments, the working docs, and sc
 | 106 | `2026-08-31_merge_realisation.json` | `results/` | Measured, 'bench/measure_merge_realisation.py' → 'bench/results/2026-08-31_merge_realisation.json', 20 modules across blocks 0/12/25/37/49. 'realised_along_d' is '<Q(W+d) − Q(W), d> / <d, d>' — the fraction of the delta that actually landed: |  |
 | 164 | `2026-08-28_quant_hotspots_ref2va.json` | `results/` | *out_proj's excess is now explained.** 'data/results/2026-08-28_quant_hotspots_ref2va.json' listed under 'not_measured': *"why the INT8 scheme treats out_proj worse. Outlier structure the rotation does not spread is the obvious candidate and is untested."* It is |  |
 
-## `docs/research/sglang_comparison.md`
+## `docs/wiki/research/sglang_comparison.md`
 
 | line | record | lives in | claim | Verdict |
 |---|---|---|---|---|
@@ -501,26 +501,26 @@ Prose a reader acts on today: node and config comments, the working docs, and sc
 | 305 | `2026-08-21_quant_delta_fl2va.json` | `results/` | the wrong row. 2. **The gap is uniform across module kinds, so it is not qkv-specific.** 'data/results/2026-08-21_quant_delta_fl2va.json': 'fp8_vs_bf16' reads the same for 'attn.qkv_proj' as for 'attn.out_proj', 'mlp.fc1' and 'mlp.fc2'. A layout defect confined to the fused qkv weight |  |
 | 398 | `2026-08-21_vae_encoder_precision.json` | `results/` | 'bench/grade_vae_encoder_precision.py' grades the encoder at the call rather than at a rendered clip, and 'data/results/2026-08-21_vae_encoder_precision.json' records fp16 bit-identical to itself against fp32 moving the latent, with bf16 as the far control. What stays open is whether that delta is *visible*, |  |
 
-## `docs/research/technique_transfer.md`
+## `docs/wiki/research/technique_transfer.md`
 
 | line | record | lives in | claim | Verdict |
 |---|---|---|---|---|
 | 22 | `2026-08-18_phase0_instrument.json` | `results/` | Where the time goes, MEASURED at one configuration ('data/results/2026-08-18_phase0_instrument.json', 1024x768 with three references): sampling was 87% of the render at 100% SM occupancy and pegged power; load staging and everything else was the rest. The conditioning node |  |
 
-## `docs/research/vsa/fastvideo_vsa_checkpoint.md`
+## `docs/wiki/research/vsa/fastvideo_vsa_checkpoint.md`
 
 | line | record | lives in | claim | Verdict |
 |---|---|---|---|---|
 | 13 | `2026-08-30_fastvideo_vsa_checkpoint.json` | `results/` | '../../../bench/analyze_vsa_checkpoint.py' into '../../../data/results/2026-08-30_fastvideo_vsa_checkpoint.json', except the load behaviour in section 5, which was produced by executing this install's own detection and module construction against the checkpoint header. |  |
 
-## `docs/research/vsa/vsa_node.md`
+## `docs/wiki/research/vsa/vsa_node.md`
 
 | line | record | lives in | claim | Verdict |
 |---|---|---|---|---|
 | 149 | `2026-08-30_vsa_first_render.json` | `results/` | # The first render, 2026-08-30 Record: 'data/results/2026-08-30_vsa_first_render.json'. Arms are 'workflows/h3_probe_vsa.json' and 'workflows/h3_probe_vsa_dense.json', matched at seed 730451892, 4 steps, 768x768, 124 frames, 22,121 packed rows. |  |
 | 210 | `2026-08-30_vsa_length_scaling.json` | `results/` | # Length scaling, 2026-08-30 Record: 'data/results/2026-08-30_vsa_length_scaling.json'. Same two arms, same seed and sampler, 768x768, at 124 frames and again at 362. |  |
 
-## `docs/roadmap.md`
+## `docs/wiki/ops/roadmap.md`
 
 | line | record | lives in | claim | Verdict |
 |---|---|---|---|---|
@@ -543,7 +543,7 @@ Prose a reader acts on today: node and config comments, the working docs, and sc
 | 662 | `2026-08-19_head_granularity_arms.json` | `results/` | 'bench/price_head_arms.py' puts every per-head arm and the global tau on one currency, routed density spent per fraction of error removed ('data/results/2026-08-19_head_granularity_arms.json'). A per-head dense escape list ties the global tau at three heads and loses at five and eight, because per-head error is only about 2.6x concentrated: the worst 5 of 56 heads carry |  |
 | 693 | `2026-08-18_erode_recipe_arms.jsonl` | `results/` | **Rendered 2026-08-18** as the NVLabs recipe transplant: 'data/results/2026-08-18_erode_recipe_arms.jsonl', about +2% on the sampler at 16 steps on the all-refs workload. Not re-priced at 4 steps. |  |
 
-## `docs/sustainability.md`
+## `docs/wiki/archive/sustainability.md`
 
 | line | record | lives in | claim | Verdict |
 |---|---|---|---|---|
@@ -640,7 +640,7 @@ Changelog entries, closed-lane write-ups and postmortems. These describe what wa
 | 3481 | `2026-08-25_awq_recipe_boundary.json` | `results/` | modifier fields and AWQ's smooth-to-balance resolution into a report. **'bench/probe_awq_recipe_boundary.py'** and *'data/results/2026-08-25_awq_recipe_boundary.json'**: the candidate driven through the pinned session's own 'initialize' path -- the call 'oneshot' makes, not a reimplementation of config application -- against the |  |
 | 4700 | `2026-08-21_shipped_reference_bounds.json` | `results/` | input is priced end to end -- real file size, the real 'MiniMaxH3ReferenceFit' with that graph's own arguments, the real 'process_qwen2vl_images' -- and nothing is resized ('data/results/2026-08-21_shipped_reference_bounds.json'). Two synthetic arms must trip or the run is rejected, because the expected answer is an empty list and so is the answer a broken detector gives. |  |
 | 4835 | `2026-08-21_marker_arms.jsonl` | `results/` | set. The script cannot see which prompt made a clip; a reader can. **Twelve-clip marker batch**, 'data/results/2026-08-21_marker_arms.jsonl' and the spectral record beside it. Routing '<d>' to its real token id **measurably changes the audio the model produces**: stock carries about 2.1x the 4-16 kHz energy and the |  |
-| 5123 | `2026-08-21_pruning_sensitivity.json` | `results/` | **'docs/open_experiments.md' #22 is measured and refuted** ('bench/run_pruning_arms.py', 'bench/grade_pruning_sensitivity.py', 'data/results/2026-08-21_pruning_sensitivity.json'). Eleven fixed-input first-step forwards. ref2va is no more sensitive to the AdaLN pruning than fl2va -- it moves slightly less, in the opposite direction to the hypothesis. |  |
+| 5123 | `2026-08-21_pruning_sensitivity.json` | `results/` | **'docs/wiki/ops/open_experiments.md' #22 is measured and refuted** ('bench/run_pruning_arms.py', 'bench/grade_pruning_sensitivity.py', 'data/results/2026-08-21_pruning_sensitivity.json'). Eleven fixed-input first-step forwards. ref2va is no more sensitive to the AdaLN pruning than fl2va -- it moves slightly less, in the opposite direction to the hypothesis. |  |
 | 5203 | `2026-08-20_adaln_pruning_residual.json` | `results/` | **'bench/analyze_adaln_pruning.py' and its record 'data/results/2026-08-20_adaln_pruning_residual.json'**: what the Comfy-Org "pruned" checkpoints remove and what it costs, measured against the unpruned 'int8_convrot' files. The pruning is the rank-8 SVD of the mean-centred |  |
 | 5272 | `2026-08-20_sla_router_gate.json` | `archive/archive/sla_router/` | LightX2V ships (no linear branch; none in the LoRA file). 'bench/grade_sla_router_on_capture.py' gates it on the clean-fl2va capture against the float64 row reference ('bench/results/2026-08-20_sla_router_gate.json'): at sparsity 0 the kernel lands at rel-L2 0.0005-0.0017, inside the sage band by ~10x; a zeroed lut and a row-permuted lut both go red on every cell. The |  |
 | 5296 | `2026-08-20_power_limit_pair.jsonl` | `results/` | ## Records 'bench/results/2026-08-20_power_limit_pair.jsonl' and '_verdict.json' -- the first 330-vs-450 W pair ever run here, on the 4-step 768p turbo graph with disjoint seed bases: 134.1 s against 126.8 s sampler, a 5.8% cost against a |  |
@@ -654,16 +654,16 @@ Changelog entries, closed-lane write-ups and postmortems. These describe what wa
 | 5346 | `2026-08-20_sla_arms.jsonl` | `results/` | on this reference-heavy input, one capture each. 'data/results/2026-08-20_sla_arms.jsonl': the 768p v1.0 graph and its SLA probe, one render each, 133.6 s and 133.5 s sampler, both on-brief at 2, 7 and 12 s. The SLA LoRA runs under Sol-Attn; nothing finer is claimed. |  |
 | 5366 | `2026-08-20_dit_internals.json` | `results/` | 'bench/analyze_checkpoint_delta.py' now compares the modulation output over the whole time grid, in float64, and reports the stored coefficients only under 'basis_dependent'. 'data/results/2026-08-20_dit_internals.json': per block, the whole modulation differs 1.4-4.7% (tracking the bias, which is 90-95% of its norm), the time-varying part 5-9% with cosine |  |
 | 5389 | `2026-08-20_head_magnitudes.json` | `results/` | q/k/v on CPU and joins per-head magnitude statistics to the 2026-08-19 per-head error record, refusing a record from a different capture or a head-prefix record. 'data/results/2026-08-20_head_magnitudes.json', on the 2026-08-17 (fl2va + ref LoRA) and 2026-08-18 (ref2va) captures at step 3: block 49's per-head K rms spans ~2.2 to ~32 where blocks 24 and |  |
-| 5427 | `2026-08-19_oracle_gate_scaling.json` | `results/` | 'docs/roadmap.md' and the one open limit named in 'bench/analyze_sol_error.py''s own docstrings. 'bench/probe_oracle_gate_scaling.py' and 'data/results/2026-08-19_oracle_gate_scaling.json' priced it and found two things. |  |
+| 5427 | `2026-08-19_oracle_gate_scaling.json` | `results/` | 'docs/wiki/ops/roadmap.md' and the one open limit named in 'bench/analyze_sol_error.py''s own docstrings. 'bench/probe_oracle_gate_scaling.py' and 'data/results/2026-08-19_oracle_gate_scaling.json' priced it and found two things. |  |
 | 5456 | `2026-08-19_sol_error_per_head_tau1.0.json` | `results/` | predict its damage. This prices what that is worth by putting every per-head arm and the global tau on one currency -- routed density spent per fraction of error removed. Records: 'data/results/2026-08-19_sol_error_per_head_tau1.0.json' (the second operating point) and 'data/results/2026-08-19_head_granularity_arms.json'. |  |
 | 5458 | `2026-08-19_head_granularity_arms.json` | `results/` | error removed. Records: 'data/results/2026-08-19_sol_error_per_head_tau1.0.json' (the second operating point) and 'data/results/2026-08-19_head_granularity_arms.json'. Nothing beats moving tau. A per-head dense escape list ties the global tau at |  |
 | 5485 | `2026-08-19_sol_error_per_head.json` | `results/` | docstring had asked for and which the 2026-08-18 review found being done by hand out of terminal scrollback. Run at every head over the post-ref2va capture, it produces 'data/results/2026-08-19_sol_error_per_head.json'; the join against the density record produces 'data/results/2026-08-19_density_error_join.json'. |  |
 | 5487 | `2026-08-19_density_error_join.json` | `results/` | capture, it produces 'data/results/2026-08-19_sol_error_per_head.json'; the join against the density record produces 'data/results/2026-08-19_density_error_join.json'. The join asks the question that decides whether a per-head tau is worth |  |
 | 5497 | `2026-08-19_sol_error_control.json` | `results/` | mismatch, tau mismatch) each go red on a deliberate violation. **'data/results/2026-08-19_sol_error_control.json'** -- the '--control' arm, run for the first time since it was written. At the dense limit the apparatus reports sparsity error 7.7e-05, so it has no floor of its own on that side and |  |
 | 5529 | `2026-08-19_routing_density_per_head.json` | `results/` | differently. **'data/results/2026-08-19_routing_density_per_head.json'** -- every head, all seven captured blocks, both captured steps, tau 1.0 and 1.3, on the first capture taken after the ref2va-direct switch. Supersedes nothing: the |  |
-| 5649 | `2026-08-18_attention_defaults.json` | `results/` | this repo no longer ships. With Sol on, sage runs only the steps outside the sigma window, so fp16 was paid for on every step and delivering on a minority. Measured in 'bench/results/2026-08-18_attention_defaults.json'; reasoning and the reversal condition in 'workflows/h3_config.py'::'SAGE_NODE'; 'docs/evidence.md' corrected in place, since the row there asserted the |  |
+| 5649 | `2026-08-18_attention_defaults.json` | `results/` | this repo no longer ships. With Sol on, sage runs only the steps outside the sigma window, so fp16 was paid for on every step and delivering on a minority. Measured in 'bench/results/2026-08-18_attention_defaults.json'; reasoning and the reversal condition in 'workflows/h3_config.py'::'SAGE_NODE'; 'docs/wiki/ops/evidence.md' corrected in place, since the row there asserted the |  |
 | 5677 | `2026-08-18_attention_defaults.json` | `results/` | **'bench/results/', and the convention that a measurement is a data file the prose links to.** '2026-08-18_attention_defaults.json' is six arms over sage mode against Sol reachability, generated by 'make_attention_defaults_json.py' rather than typed, carrying its own |  |
-| 5694 | `2026-08-18_sage_accuracy_on_capture.json` | `results/` | 'h3_capture.py''s own docstring recorded as never having happened, and the one 'docs/evidence.md' named as what would restore an accuracy figure. Result: 'data/results/2026-08-18_sage_accuracy_on_capture.json', and the corresponding row in 'docs/evidence.md' moves from withdrawn to restored. The measured advantage is smaller than the withdrawn synthetic figure — the |  |
+| 5694 | `2026-08-18_sage_accuracy_on_capture.json` | `results/` | 'h3_capture.py''s own docstring recorded as never having happened, and the one 'docs/wiki/ops/evidence.md' named as what would restore an accuracy figure. Result: 'data/results/2026-08-18_sage_accuracy_on_capture.json', and the corresponding row in 'docs/wiki/ops/evidence.md' moves from withdrawn to restored. The measured advantage is smaller than the withdrawn synthetic figure — the |  |
 
 ## `docs/research/qwen3-vl-special-tokens-post-training/2026-08-26_point_handoff.md`
 

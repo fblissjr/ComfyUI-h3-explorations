@@ -1,6 +1,6 @@
 """Pure-PyTorch math, pair-file reader, and `.safetensors` I/O for H3 control vectors.
 
-Implements the specification in `docs/research/control_vectors/2026-11-04_h3_control_vectors.md`:
+Implements the specification in `docs/wiki/research/control_vectors/2026-11-04_h3_control_vectors.md`:
 - `load_pairs(path)`: parses and validates `prompt_bank/control_vectors/<name>.toml`,
   extracting and verifying the single contiguous differing clause per pair.
 - `mean_difference`, `flip_null`, `random_null`, `hold_basis`, `project_out`,

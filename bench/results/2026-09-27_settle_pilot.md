@@ -1,6 +1,6 @@
 # #43 pilot: does a frame settle later where the picture changes more? (2026-09-27)
 
-`docs/open_experiments.md` #43, the premise under the owner's motion-adaptive
+`docs/wiki/ops/open_experiments.md` #43, the premise under the owner's motion-adaptive
 schedule. CPU only, on two renders that already existed: `subway_chase` at seed
 730451892 and 345 frames, on PDD8 (8 steps) and on the base on Euler at 32
 steps (PDD's teacher path, sharing PDD8's starting noise).

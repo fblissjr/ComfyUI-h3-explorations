@@ -134,7 +134,7 @@ A restore of any other class, or of another subject's, is given back at the film
 WHAT IT CANNOT SEE: a head turned or tipped in depth (a flat shift does not turn the glasses with it), a thing held in
 the hands where they are not given back (it follows the face, not the hands), the top of the render's head, which a hat
 placed by the ears does not read, and **whether H3 already rendered the accessory inside the piece's own mp4** (see the
-three regimes in `docs/masked_v2v/delivery_table_and_restore_architecture.md` §1.3: `restore=<self>.<Class>` is ONLY for
+three regimes in `docs/wiki/masked_v2v/delivery_table_and_restore_architecture.md` §1.3: `restore=<self>.<Class>` is ONLY for
 Regime 2 where H3 omitted an accessory inside the mask, such as `lead_fp_3909b`'s glasses or `lead_fp_0168c`'s hat; NEVER
 use it when H3 already generated/kept the accessory in the render, such as `lead_fp_3967c`, `lead_fp_2823b`, or `lead_fp_3098b`,
 where `restore=` pastes a second shifted copy from the source plate and causes double rims/hooks; and NEVER for accessories
@@ -3487,7 +3487,7 @@ def add_check_to_sidecar(args, result) -> str:
 
 def main():
     epilog = (
-        "WHEN TO USE / NOT USE `restore=` ON A TABLE ROW (docs/masked_v2v/delivery_table_and_restore_architecture.md):\n"
+        "WHEN TO USE / NOT USE `restore=` ON A TABLE ROW (docs/wiki/masked_v2v/delivery_table_and_restore_architecture.md):\n"
         "  1. Cross-subject protection (`restore=<other>` or `restore=<other>:whole`):\n"
         "     Prevents a row's region from overwriting another tracked subject in the same shot.\n"
         "  2. Self-accessory give-back (`restore=<self>.<Class>[@head][:filmed]`):\n"

@@ -18,7 +18,7 @@ building the page. The page itself is built by
 `bench/render_postmortem_html.py`, which imports `postmortem_figures()`.
 
 The `morton` entry point and the Morton block maps it drew were removed on
-2026-09-27 with Morton itself (docs/research/2026-09-27_sol_node_redesign.md).
+2026-09-27 with Morton itself (docs/wiki/archive/2026-09-27_sol_node_redesign.md).
 
 CPU only, and nothing but the standard library.
 """

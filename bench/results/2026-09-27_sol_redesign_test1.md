@@ -1,7 +1,7 @@
 # `qk_balance` is not inert behind the dense tail (2026-09-27)
 
 Test 1 of the Sol node redesign
-(`docs/research/2026-09-27_sol_node_redesign.md`). The question: does
+(`docs/wiki/archive/2026-09-27_sol_node_redesign.md`). The question: does
 `MiniMaxH3Sol`'s `quantizer` balanced (the old `qk_balance=True`, shipped
 everywhere) change output once `dense_blocks` 45,48,49 sends the blocks it
 was built for off Sol? The audit had inferred it does not
@@ -70,7 +70,7 @@ The per-cell counts are in the JSON.
 
 The earlier record did not support the audit's inference either:
 
-- The block-49 page's table (`docs/h3_block49_quant_error.md`, "What it
+- The block-49 page's table (`docs/wiki/attention/h3_block49_quant_error.md`, "What it
   measured") moves blocks 0 and 40 at the default gate.
 - `2026-09-15_channel_balance_kernel_b0_s15.json` has a `kernel` row that
   differs from its `plain` row.

@@ -76,8 +76,9 @@ KEPT = {
     "bench/run_graph_arms.py": (1, "a dated record of what the arms rendered at"),
     "bench/run_pruning_arms.py": (1, "a dated record of what the arms rendered at"),
     "bench/run_shot_count_ablation.py": (1, "a dated record of what the arms rendered at"),
+    "sol_attn_h3.py": (1, "measured: Sol dense block 49 comment citing 10-13 s render time at that frame count (5d293b5f)"),
     "step_x0_observer.py": (2, "measured: a capture's size at that frame count"),
-    "workflows/h3_config.py": (4, "measured: a render the owner judged and its record's file name, and a token count and an OOM, at that frame count"),
+    "workflows/h3_config.py": (6, "measured: a render the owner judged, its record's file name, a token count, an OOM, and two Sol panel timings at that frame count"),
     "bench/check_length_ceiling.py": (0, "this file names the number only as a pattern built from its digits"),
 }
 NUMBER = re.compile(r"(?<!\d)" + "3" + "45" + r"(?!\d)")    # built from its digits, so this file holds none

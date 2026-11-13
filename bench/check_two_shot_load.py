@@ -175,7 +175,7 @@ class Made:
         self.plan_file.write_text(json.dumps(self.plan))
         self.source = str(root / "input" / "copy.mov")
         self.previews = {first: self.preview_ran(first, last) for first, last in (SHOT_A, SHOT_B)}
-        self.a = self.load(SHOT_A, "a_fp_0106", first=A_FIRST, frames=SHOT_A[1] - A_FIRST + 1, why="so that the cut is on a latent step's edge")
+        self.a = self.load(SHOT_A, "a_fp_0106", first=A_FIRST, frames=SHOT_A[1] - A_FIRST + 1, why="so that the cut is on a latent step's edge", allow_partial_shot="two-shot boundary seam check")
         self.b = self.load(SHOT_B, "a_fp_0140")
 
     def read(self):

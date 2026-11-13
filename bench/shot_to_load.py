@@ -252,7 +252,7 @@ PARTS_AT = "Video/{video}/parts/{preview}"
 PART_LETTER = {"hair": "h", "face_and_neck": "f", "upper_clothing": "u", "lower_clothing": "l", "hands": "n", "mouth": "m"}
 #: Where a subject's keep-outs go: by the video, the preview they were cut from and the subject, never by a load's name.
 KEEP_OUTS_AT = "Video/{video}/keep_outs/{preview}"
-#: DEPTH IS THE CHAIN'S DEFAULT (made the code's on 2026-11-10; docs/masked_v2v/2026-11-10_simplification_plan.md, step 2). The owner's
+#: DEPTH IS THE CHAIN'S DEFAULT (made the code's on 2026-11-10; docs/wiki/masked_v2v/2026-11-10_simplification_plan.md, step 2). The owner's
 #: word of 2026-10-28: MoGe-2 depth is measured on every load's overlap frames, never by a per-load opt-in. Until 2026-11-10 it was on only
 #: where a plan's `depth` said so or a session typed `--depth`, and it was forgotten for days after 2026-10-20. It is off only on a person's
 #: words: `--no-depth WHY`, or the plan's `depth: {"on": false, "why": ...}`.
@@ -712,7 +712,7 @@ def context_noise_of(n: int, noise: float | None, why: str | None, by: str, now:
     """THE NOISE A LOAD'S LATER WINDOWS ARE SHOWN THEIR KEPT FRAMES AT (the lead's ruling of 2026-10-15, per load): `--context-noise X
     --context-noise-why WHY`, for a load longer than one window. By default its later windows see the frames they keep from the window
     before clean (the song node's `audio_freeze.CONTEXT_NOISE`), and on one stretch of the kitchen a continuation shown them clean did not
-    follow its motion video through a turn where one at 0.8 did (`docs/wiki/window_context.md`, "Results, dated", 2026-10-10, the records
+    follow its motion video through a turn where one at 0.8 did (`docs/wiki/masked_v2v/window_context.md`, "Results, dated", 2026-10-10, the records
     `data/2026-10-10_fun_pose/kitchen_cn_*`). Per load, not a default,
     until a render of a load of several windows says more: its cost is a seam that may show. (the defaults row, or None when not given)."""
     import h3_config
@@ -3759,7 +3759,7 @@ def context_of(p: dict, subject: str) -> dict:
     scenario), from the plan's `subjects.<s>.context` with `context_by`: `as filmed` (the default, and the key left out) or
     `face covered` (`masked_job_graph.CONTEXT_SHOWS`; the node's `video_mask.CONTEXT_SHOWS` has the rule). The real frames a
     short load is padded with show the original subject unmasked under the first, and the subject's region held open under
-    the second, for a subject whose original feature must not be in the window (the beard rule, docs/masked_v2v/AGENTS.md
+    the second, for a subject whose original feature must not be in the window (the beard rule, docs/wiki/masked_v2v/AGENTS.md
     §2). Returns {"value", "said_by", "why"}; refused: a value that is neither, or one with no `context_by`."""
     import masked_job_graph
     if "context" not in p:
@@ -3777,7 +3777,7 @@ def context_of(p: dict, subject: str) -> dict:
 def source_facial_hair_of(p: dict, subject: str, held: list[str]) -> dict:
     """THE SOURCE'S FACIAL HAIR (2026-10-23), from the plan's `subjects.<s>.source_facial_hair` with `source_facial_hair_by`: the
     source actor shows facial hair the replacement does not have, so the capture's head tube gives back the piece of the part joined
-    to the face that it cuts at the jaw (`head_tube_parts.face_piece_kept_whole`; the beard rule, docs/masked_v2v/AGENTS.md §2: on
+    to the face that it cuts at the jaw (`head_tube_parts.face_piece_kept_whole`; the beard rule, docs/wiki/masked_v2v/AGENTS.md §2: on
     third_fp_5011b the tube cut 986-1607 px a frame of the goatee the preview's part held). `held` is the load's parts. Returns the
     subject's job keys (`facial_hair: keep`, `facial_hair_by`) or {}; refused: a value that is not true or false, a value with no
     `_by` or a `_by` with no value, and `true` on a load whose parts are not face_and_neck without hair (built and measured on a

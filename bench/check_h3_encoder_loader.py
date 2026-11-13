@@ -38,7 +38,7 @@ COMFY = REPO.parent.parent
 
 # ComfyUI's root ahead of the repo's PARENT, and the repo itself never on the
 # path: this repo has its own `nodes.py`, so a bare `import nodes` inside
-# `comfy_extras` finds ours and dies on a relative import. `docs/comfy_notes.md`
+# `comfy_extras` finds ours and dies on a relative import. `docs/wiki/ops/comfy_notes.md`
 # carries the trap; the repo's modules are reached as a package instead.
 sys.path.insert(0, str(REPO.parent))
 sys.path.insert(0, str(COMFY))
@@ -150,7 +150,7 @@ def token_ids_refuse_a_malformed_declaration():
     ids = loader.expected_special_token_ids(tokens)
     markers = vendor_config.h3_markers()
     # The seven H3 markers are the tail run, and the DiT was trained on these
-    # exact ids; `docs/research/official_weights_metadata.md` owns why.
+    # exact ids; `docs/wiki/research/official_weights_metadata.md` owns why.
     assert [ids[token] for token in markers] == list(range(151669, 151676)), ids
     for bad, label in (([], "empty"), (tokens[:19] + [tokens[0]], "duplicate")):
         try:
@@ -288,7 +288,7 @@ def _core_clip_loader():
     """Core's own `CLIPLoader`, imported from ComfyUI's `nodes.py` by path.
 
     By path under its own name, because this repo has a `nodes.py` too
-    (`docs/comfy_notes.md`, the `import nodes` trap).
+    (`docs/wiki/ops/comfy_notes.md`, the `import nodes` trap).
     """
     import importlib.util
 

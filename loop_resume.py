@@ -1,6 +1,6 @@
 """The files a frozen-audio loop leaves beside its windows, and a window's stored latent.
 
-`docs/h3_audio_freeze.md` owns the lane; `audio_freeze_song.py` is the node
+`docs/wiki/core/h3_audio_freeze.md` owns the lane; `audio_freeze_song.py` is the node
 that uses this. Imports nothing from the pack, so
 `bench/check_audio_freeze.py` exercises it without the node.
 

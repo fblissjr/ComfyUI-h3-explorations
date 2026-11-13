@@ -528,7 +528,7 @@ arm here with no layout consequence at all.
 **The token stage that already exists reproduces this pack's own grade of it,
 from an independent emulation.** At equal cost `token_aug` is a large win on
 DiT block 0 and a loss on block 49, which is the shape
-`docs/research/2026-09-04_sol_token_aug_grade.md` recorded on the kernel. The
+`docs/wiki/archive/2026-09-04_sol_token_aug_grade.md` recorded on the kernel. The
 emulation adds the mechanism: most of the win is not the admitted tokens but
 the per-token tail the kernel builds from the candidates that miss the cut,
 which replaces one block-pooled term per unrouted block with one term per

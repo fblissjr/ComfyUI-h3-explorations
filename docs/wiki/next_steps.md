@@ -1,29 +1,24 @@
-# Next steps
+# Next Steps
 
-**A written router page, not generated. It says what to do next and where the reasoning lives; it restates none of it.** Kept short on purpose: when it disagrees with [`handover.md`](handover.md) or [`../roadmap.md`](../roadmap.md), those files are right.
+**Short router to active queues (`2026-11-13`).** Full code-backed context across all 8 tracks lives in [`projects/2026-11-13_repo_audit_and_atlas/index.md`](projects/2026-11-13_repo_audit_and_atlas/index.md); current state sits in [`handover.md`](handover.md).
 
-## Starting a day: read [`handover.md`](handover.md) first
+## Active Queues by Priority
 
-- **Daily boundary & active execution order (`2026-11-09`)**: [`handover.md`](handover.md) ("State when closed", "What not to assume", "Tomorrow, in order", and "Where things are").
-- **Repo-level roadmap & open/closed lanes**: [`../roadmap.md`](../roadmap.md).
-- **Active decisions log (`2026-10-23` through `2026-11-09` + date router)**: [`decisions.md`](decisions.md).
-- **Steering & edit-guidance docs and plan**: [`edit_guidance.md`](edit_guidance.md), [`control_vectors.md`](control_vectors.md), and [`../research/control_vectors/2026-11-09_control_vector_simplification_plan.md`](../research/control_vectors/2026-11-09_control_vector_simplification_plan.md).
-- **Masked lane operative rules, live backlog, protocol, & code map**: [`../masked_v2v/AGENTS.md`](../masked_v2v/AGENTS.md), [`../masked_v2v/fun_render_backlog.md`](../masked_v2v/fun_render_backlog.md), [`../masked_v2v/PROTOCOL.md`](../masked_v2v/PROTOCOL.md), [`../masked_v2v/CODE_MAP_INDEX.md`](../masked_v2v/CODE_MAP_INDEX.md), and [`../masked_v2v/2026-10-25_pass_contamination_and_mask_step_forensics.md`](../masked_v2v/2026-10-25_pass_contamination_and_mask_step_forensics.md).
+1. **Steering, `EditGuider`, & Interactive Controls (Low-Hanging / High-Leverage)**:
+   - Add per-frame temporal envelopes & spatial token masks to `MiniMaxH3EditGuider` (`~40` lines in [`../../edit_guidance.py`](../../edit_guidance.py); [`research/control_vectors/2026-11-12_exp5_ladder_and_temporal_guide_synthesis.md`](research/control_vectors/2026-11-12_exp5_ladder_and_temporal_guide_synthesis.md)).
+   - Build a local drag-and-drop canvas UI over [`../../sprite_trajectory.py`](../../sprite_trajectory.py) + [`../../sound_cues.py`](../../sound_cues.py) (reusing Studio patterns from `bench/control_vector/ui_server.py`) and test 2-subject chained trajectories + SAM 3 cutout masks ([`research/control_vectors/2026-11-12_sound_cues_dpad_and_033_release_law.md`](research/control_vectors/2026-11-12_sound_cues_dpad_and_033_release_law.md)).
+2. **Control Vector Readouts & Clean Pair Hygiene ([`research/control_vectors/2026-11-12_chain_lens_digest_and_experiment_plan.md`](research/control_vectors/2026-11-12_chain_lens_digest_and_experiment_plan.md) §15)**:
+   - **CPU Items 1 & 2**: Build whitened whole-word rows table (`layers.49` / template-lens pooling) + score `project_out` neighbor separation blind with [`../../bench/control_vector_readout_score.py`](../../bench/control_vector_readout_score.py).
+   - **Build Hygiene (Item 4 / `exp5`)**: Replace short generic Pole-A prompts (`cos = 0.72` "anti-mundane" shared direction) with length-matched, contradiction-free Pole-A + foley pairs and test holding the batch shared direction out.
+   - **GPU Item 5**: Grow short contrastive chains through real `layers.50..63` and verify CPU J-Lens correlation.
+3. **`MiniMaxH3SolChunked` & `comfy-kitchen` Wheel Rebuild ([`attention/comfy_kitchen.md`](attention/comfy_kitchen.md))**:
+   - Forward `quantizer` in [`../../sol_chunked_h3.py`](../../sol_chunked_h3.py) and rebuild the `comfy-kitchen` wheel so the rotated `top-k` threshold fix (`e0b1c0ae`) runs in installed wheels.
+4. **Audio Freeze & Multimodal Reference Release (`0.33`)**:
+   - Run the high-signal unrendered `audio_freeze` experiments ([`core/h3_audio_freeze.md`](core/h3_audio_freeze.md): stem freeze + full mix mux, `0.25` loose audio mask, `MiniMaxH3AudioRefineMask` + `MiniMaxH3FrozenVideoCache`), and evaluate multimodal `0.33..0.50` release on grey-plate motion refs ([`research/control_vectors/2026-11-12_sound_cues_dpad_and_033_release_law.md`](research/control_vectors/2026-11-12_sound_cues_dpad_and_033_release_law.md)).
+5. **Codebase Modularization & Masked V2V / `lane_db` (`'fun'` Parked)**:
+   - `'fun'` shot-by-shot rendering is **closed/parked**. When ready to resume masked V2V (`'fun2'`), follow [`masked_v2v/2026-11-10_simplification_plan.md`](masked_v2v/2026-11-10_simplification_plan.md) (`lane_db` DuckDB layer + `perception-lhf` A/B).
+   - Plan internal module grouping for the 75 root `.py` files and 511 `bench/` scripts in a dedicated refactor lane without touching registered `node_id` schemas ([`projects/2026-11-13_repo_audit_and_atlas/index.md`](projects/2026-11-13_repo_audit_and_atlas/index.md)).
 
-## Current Order (`2026-11-09`; the masked lane's item is of `2026-11-10`)
-
-Follow [`handover.md`](handover.md) ("Tomorrow, in order") and [`decisions.md`](decisions.md) (`2026-11-09`):
-1. **Open steering / control-vector items ([`../research/control_vectors/2026-11-09_control_vector_simplification_plan.md`](../research/control_vectors/2026-11-09_control_vector_simplification_plan.md) §17, §19, §24, §25, §26, §27)**:
-   - **Owner look at the two vector-round stacked clips (§25)**: `Video/edit_guidance/stacked/diner16_s<seed>_stacked.mp4` (`data/results/2026-11-09_edit_guidance/vector_round/`), which decides the `mask` default and whether in-place vectors (`from-prompt`) are worth keeping alongside edit guidance.
-   - **J-Lens lexical-half builder (§17.2, §20.1)**: Build the lexical half from the full 64-layer weights in the model store, move the word map into tracked code, and stop `bench/control_vector/j_lens_builder.py` from overwriting its own source bundle.
-   - **Apply-node reshape and CLI cut-down (§9, §15.2, §19, §24, §27)**: Reshape `MiniMaxH3ApplyControlVectors` and cut down `bench/control_vector/cli.py`, then revisit `comfyui_nodes_and_controls.md` and `preset_catalog_and_cli_reference.md`.
-   - **System prompt wiring & pre-existing red checks (§15.5, §26.1)**: Wire `bench/control_vector/llm_pairs.py::_extract_system_prompt_text` to [`system_prompts/h3_control_vector_standalone_system_prompt.md`](system_prompts/h3_control_vector_standalone_system_prompt.md) (with `bench/check_prompt_docs_sync.py`), and fix or triage `bench/check_reference_encode.py`, `bench/check_audio_freeze.py`, and `bench/check_two_shot_load.py`.
-2. **Masked V2V: the project `fun` is closed and `fun2` is in motion, in the order of [`../masked_v2v/2026-11-10_simplification_plan.md`](../masked_v2v/2026-11-10_simplification_plan.md)** (updated 2026-11-10; the masked lane is one use of the pack, and a project is one set of replacements on a video: `fun` and `fun2` share one video's footage):
-   - **Done on 2026-11-10:** the plan's step 1 (the lane's records in `data/lane.sqlite`, both projects) and step 2 (depth on by default in the load tool). `fun2`'s laid list is re-seeded and five of its lead renders are the owner's keeps.
-   - **Next:** the plan's "Next, in order": a `fun2` cut from what already exists, then two rules of the owner's to settle (the 2026-10-25 context rule, and where a new load's folders go), then `fun2`'s lead loads. The record's later tiers run alongside.
-   - **Waiting on the owner:** the same section's list.
-   - **Corrected 2026-11-10:** this item used to send the next session to resume `fun`'s remake queue and the three-pass remake on `1419–1465`, which was laid on 2026-10-31; and then to say step 1 was still ahead.
-
-## Historical Queues (`2026-09-05` through `2026-10-20`)
+## Historical Queues
 
 - **Archived chronological queues (`2026-09-05` through `2026-10-20`)**: [`archive/2026-10-20_next_steps_history.md`](archive/2026-10-20_next_steps_history.md).

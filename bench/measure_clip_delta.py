@@ -12,7 +12,7 @@ just... massive delta changes", and delta is what is measured.
 Exists because of a 2026-08-28 finding that is about the CORPUS, not about any
 prompt: artifact severity under PDD tracks inter-frame delta (+0.676), so a scene with no
 high-delta frames cannot discriminate a delta-dependent defect however
-carefully it is scored or however blind the scoring. `docs/eval_comparison.md`
+carefully it is scored or however blind the scoring. `docs/wiki/ops/eval_comparison.md`
 carries the process rule; this is the instrument that says which regime a clip is in.
 
 **Report only. It grades nothing and has no threshold**, because what counts as
@@ -36,7 +36,7 @@ but a scene with many cuts would need them removed first.
 `--json` also writes each clip's per-frame delta series (frame n to n+1) and
 the times ffmpeg's scene score marks as cuts, so a delta spike can be set
 against a cut (added 2026-09-26 for the distill-routing mask question,
-`docs/research/2026-09-26_distill_routing.md`).
+`docs/wiki/archive/2026-09-26_distill_routing.md`).
 """
 
 from __future__ import annotations

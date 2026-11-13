@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """The ordered-reference resolver against the socket resolver it replaces.
 
-Run it with the ComfyUI venv python (`docs/comfy_notes.md`). **It imports
+Run it with the ComfyUI venv python (`docs/wiki/ops/comfy_notes.md`). **It imports
 ComfyUI** -- core is the oracle, so it must -- with stub VAEs and a patched
 tokenizer. No CUDA, no model, no server.
 
 **Two verdicts, not one, and conflating them would reject a correct
-replacement.** `docs/research/conditioning_nodes.md` splits the acceptance
+replacement.** `docs/wiki/research/conditioning_nodes.md` splits the acceptance
 criteria into behaviour a replacement must PRESERVE and behaviour it
 intentionally REPLACES. A suite asserting AGREE on all of it would fail the
 new model for doing its job, so:

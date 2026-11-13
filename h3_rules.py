@@ -135,7 +135,7 @@ def chain_lengths(ceiling: int = MAX_LENGTH) -> tuple[int, ...]:
 # not one bolted on here -- which is why these predicates stay correct with the
 # lane parked. What is parked is the pack's shim over core's 5-frame FLOOR
 # (`archive/single_frame.py`, 2026-08-27) and the graphs that needed it; the
-# arithmetic below is core's and is unaffected. See `docs/h3_image_editing.md`.
+# arithmetic below is core's and is unaffected. See `docs/wiki/image/h3_image_editing.md`.
 #
 # **Every duration rule below is about VIDEO and none of them applies to it.**
 # A single frame is 0.042s, so a naive reading of the 5-15s window calls it
@@ -260,7 +260,7 @@ def normalize_prompt(prompt: str) -> str:
 
 
 #: `MiniMaxH3ApplyControlVectors` schema defaults (`control_vector_nodes.py`,
-#: `docs/research/control_vectors/2026-11-04_h3_control_vectors.md`).
+#: `docs/wiki/research/control_vectors/2026-11-04_h3_control_vectors.md`).
 #: Owned here so `control_vector_nodes.py` and `workflows/h3_config.py` read
 #: one copy (`workflows/AGENTS.md`).
 CONTROL_VECTOR_DEFAULTS = dict(

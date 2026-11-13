@@ -19,7 +19,7 @@ energy into four channels, on every checkpoint checked
 so on those blocks the loud channels set the scale and the rest keep a
 couple of levels. Block 49 also reads the prompt most sharply, and on our
 clips that showed as morphs and garbled text
-([mechanism and evidence](https://github.com/fblissjr/ComfyUI-h3-explorations/blob/main/docs/h3_block49_quant_error.md)).
+([mechanism and evidence](https://github.com/fblissjr/ComfyUI-h3-explorations/blob/main/docs/wiki/attention/h3_block49_quant_error.md)).
 
 Check the weights fact on your own checkpoint, no GPU needed:
 
@@ -29,7 +29,7 @@ Check the weights fact on your own checkpoint, no GPU needed:
 
 Not the video: the same captured q, k, v through the INT8 kernel and through
 fp32 attention, outputs subtracted, divided by the size of the exact output
-([how the captures and grades work](https://github.com/fblissjr/ComfyUI-h3-explorations/blob/main/docs/h3_block49_quant_error.md#what-error-means-on-this-page)).
+([how the captures and grades work](https://github.com/fblissjr/ComfyUI-h3-explorations/blob/main/docs/wiki/attention/h3_block49_quant_error.md#what-error-means-on-this-page)).
 On block 49, first 8 heads: Sol 0.027, SageAttention fp8++ 0.049, and
 kitchen's dense `int8_attention` 0.017 because it rotates q/k before
 rounding and does not have this problem
@@ -38,7 +38,7 @@ The weights fold in this node takes about 13 percent off Sol's term
 ([grade](https://github.com/fblissjr/ComfyUI-h3-explorations/blob/main/data/results/2026-09-14_channel_balance_b49_s15.json));
 per-head factors and a Hadamard rotation inside the kernels do two to four
 times that and are headed upstream as comfy-kitchen PRs
-([policy and status](https://github.com/fblissjr/ComfyUI-h3-explorations/blob/main/docs/h3_quant_policy.md)).
+([policy and status](https://github.com/fblissjr/ComfyUI-h3-explorations/blob/main/docs/wiki/attention/h3_quant_policy.md)).
 
 ## What ships here
 
@@ -66,6 +66,6 @@ One machine, one capture set, unblinded viewers; fp8 attention unmeasured;
 the fold is not the ceiling (bf16 on the three blocks still looked a little
 better); nothing here concerns the quantized linears. The full list, with
 what would settle each item, is in the
-[open questions](https://github.com/fblissjr/ComfyUI-h3-explorations/blob/main/docs/h3_block49_quant_error.md#7-what-this-does-not-establish);
+[open questions](https://github.com/fblissjr/ComfyUI-h3-explorations/blob/main/docs/wiki/attention/h3_block49_quant_error.md#7-what-this-does-not-establish);
 prior art (this is SmoothQuant's migration aimed at attention) is
-[here](https://github.com/fblissjr/ComfyUI-h3-explorations/blob/main/docs/research/smoothquant_for_attention_qk.md).
+[here](https://github.com/fblissjr/ComfyUI-h3-explorations/blob/main/docs/wiki/research/smoothquant_for_attention_qk.md).

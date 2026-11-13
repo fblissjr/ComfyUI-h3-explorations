@@ -10,7 +10,7 @@ a `lane:` or `verdict:` line near its top overrides the one and fills
 the other, and an empty verdict cell means the record has no such
 line, not that it reached none. The `.json` and `.jsonl` files beside
 the records are their data and are counted, not listed. Nothing here
-replaces `docs/evidence.md`, which says what the records established.
+replaces `docs/wiki/ops/evidence.md`, which says what the records established.
 
 ## 2026-11
 

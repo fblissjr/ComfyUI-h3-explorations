@@ -2,7 +2,7 @@
 """Two properties of the installed comfy-kitchen build on this card: fused SwiGLU against the unfused chain, and whether token routing repeats.
 
 Written for the day the fork took ports of two open upstream fixes
-(Comfy-Org/comfy-kitchen#124 and #242; `docs/wiki/comfy_kitchen.md`, section
+(Comfy-Org/comfy-kitchen#124 and #242; `docs/wiki/attention/comfy_kitchen.md`, section
 "What the fork adds to upstream"). It prints figures for whichever build the
 interpreter imports and names that build, so the same run before and after a
 rebuild is the comparison. It draws no conclusion.

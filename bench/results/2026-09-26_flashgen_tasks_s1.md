@@ -3,7 +3,7 @@
 **A first look, not a verdict.** One render per task at seed 730451892, on each
 graph's own default prompt and references. The rows are
 `2026-09-26_flashgen_tasks_s1.jsonl`. FlashGen was trained for T2VA on FL2VA,
-and vllm-omni refuses it elsewhere (`docs/research/2026-09-26_flashgen.md`).
+and vllm-omni refuses it elsewhere (`docs/wiki/archive/2026-09-26_flashgen.md`).
 Both graphs run the shipped t2v settings: rank 64 applied at the call, its own
 sigmas on Euler, and the repo's attention default.
 

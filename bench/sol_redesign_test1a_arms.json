@@ -1,5 +1,5 @@
 {
-  "what": "Sol redesign test 1, session A (docs/research/2026-09-27_sol_node_redesign.md): quantizer balanced (the shipped default, qk_balance on) against plain on i2va and ref2va PDD8 graphs, plus t2v plain against test 0's balanced slapstick latent. One render per arm; each arm differs from the one before in graph or quantizer, so no cache hit.",
+  "what": "Sol redesign test 1, session A (docs/wiki/archive/2026-09-27_sol_node_redesign.md): quantizer balanced (the shipped default, qk_balance on) against plain on i2va and ref2va PDD8 graphs, plus t2v plain against test 0's balanced slapstick latent. One render per arm; each arm differs from the one before in graph or quantizer, so no cache hit.",
   "why": "qk_balance's gate is recorded as opening on blocks 45/48/49 only, which the shipped dense_blocks sends off Sol. If balanced and plain are bit-identical in every mode, qk_balance is inert in the shipped graphs. Session B (after a restart) repeats the balanced i2va/ref2va arms for cross-process determinism, which a difference needs before it can be read as an effect.",
   "arms": {
     "i2va_balanced": "workflows/h3_first_frame_to_video_pdd_api.json",

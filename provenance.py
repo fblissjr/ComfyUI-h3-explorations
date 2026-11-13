@@ -160,7 +160,7 @@ SOL_CLOSURE_KEYS = (
     # (None when rows follow `sink_conditioning`).
     "tau_table", "row_segments",
     # 2026-09-27: `tau_profile`, `topk_ratio` and `tail` left with
-    # MiniMaxH3SolAttn (docs/research/2026-09-27_sol_node_redesign.md); the
+    # MiniMaxH3SolAttn (docs/wiki/archive/2026-09-27_sol_node_redesign.md); the
     # node runs tau selection with the tail on, always.
 )
 

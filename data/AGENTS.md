@@ -9,10 +9,10 @@ pack, not the pack (root `AGENTS.md`, "The repo is broader than the current proj
 |---|---|
 | where a project stands today | `docs/wiki/handover.md`, then the project's own `data/<video>/AGENTS.md` |
 | what is in the cut and what gaps remain | `data/<video>/laid.jsonl`; the table, gap check and cut the newest finished rebuild names, and how to tell they are current ("Where the lane's state lives", below); `bench/shot_coverage.py` |
-| the day-to-day commands (ComfyUI, one load, the review server, the rebuild, the close) | `docs/masked_v2v/PROTOCOL.md`, `docs/wiki/runbook.md` |
-| the pipeline end to end, and the lane's rules | `docs/masked_v2v/AGENTS.md`, `docs/masked_v2v/PROTOCOL.md`, `docs/masked_v2v/CODE_MAP_INDEX.md` (run `<python> bench/masked_code_map.py --help`), `docs/wiki/masked_v2v_pipeline.md`, `docs/wiki/masked_v2v.md` |
-| when to restart ComfyUI (`:8188`), and what a change to code, a prompt, a reference or a pass-1 cut forces | [`docs/masked_v2v/AGENTS.md`](../docs/masked_v2v/AGENTS.md) §8 and [`docs/masked_v2v/chain_trace_and_remakes.md`](../docs/masked_v2v/chain_trace_and_remakes.md) (the one copy) |
-| after a batch of landings or laid changes | `bench/laid.py` with `--no-rebuild WHY` on each write, then one `bench/rebuild_delivery.py --video <video> --clip`; a look at one shot takes that span alone ([`docs/masked_v2v/PROTOCOL.md`](../docs/masked_v2v/PROTOCOL.md) 5.3) |
+| the day-to-day commands (ComfyUI, one load, the review server, the rebuild, the close) | `docs/wiki/masked_v2v/PROTOCOL.md`, `docs/wiki/runbook.md` |
+| the pipeline end to end, and the lane's rules | `docs/wiki/masked_v2v/AGENTS.md`, `docs/wiki/masked_v2v/PROTOCOL.md`, `docs/wiki/masked_v2v/CODE_MAP_INDEX.md` (run `<python> bench/masked_code_map.py --help`), `docs/wiki/masked_v2v/masked_v2v_pipeline.md`, `docs/wiki/masked_v2v.md` |
+| when to restart ComfyUI (`:8188`), and what a change to code, a prompt, a reference or a pass-1 cut forces | [`docs/wiki/masked_v2v/AGENTS.md`](../docs/wiki/masked_v2v/AGENTS.md) §8 and [`docs/wiki/masked_v2v/chain_trace_and_remakes.md`](../docs/wiki/masked_v2v/chain_trace_and_remakes.md) (the one copy) |
+| after a batch of landings or laid changes | `bench/laid.py` with `--no-rebuild WHY` on each write, then one `bench/rebuild_delivery.py --video <video> --clip`; a look at one shot takes that span alone ([`docs/wiki/masked_v2v/PROTOCOL.md`](../docs/wiki/masked_v2v/PROTOCOL.md) 5.3) |
 
 ## The projects in motion
 
@@ -22,7 +22,7 @@ pack, not the pack (root `AGENTS.md`, "The repo is broader than the current proj
 | `fun2` | in motion: `fun`'s footage with only the lead replaced. Its laid list holds `fun`'s `second` and `third` pieces as they stand and five kept lead pieces; no new load yet. `data/fun_lead2/AGENTS.md`, and the plan's "Next, in order" |
 
 Two projects can share one video's footage: `fun2` reads `fun`'s shots, cast and footage answers, and owns its own
-plan, loads and laid list (`docs/masked_v2v/2026-11-10_simplification_plan.md`).
+plan, loads and laid list (`docs/wiki/masked_v2v/2026-11-10_simplification_plan.md`).
 
 A new video gets its own `data/<video>/AGENTS.md` (and the one-line `CLAUDE.md`), so nothing one project settled is
 read as true of the next. A project's file is local, untracked like the rest of `data/` (the owner backs `data/` up
@@ -31,12 +31,12 @@ so a builder's worktree has them.
 
 ## How the lane works, end to end
 
-- The operative rules, execution protocol, and code map: [`docs/masked_v2v/AGENTS.md`](../docs/masked_v2v/AGENTS.md),
-  [`docs/masked_v2v/PROTOCOL.md`](../docs/masked_v2v/PROTOCOL.md),
-  [`docs/masked_v2v/reference_and_prompt_rules.md`](../docs/masked_v2v/reference_and_prompt_rules.md),
-  [`docs/masked_v2v/chain_trace_and_remakes.md`](../docs/masked_v2v/chain_trace_and_remakes.md), and
-  [`docs/masked_v2v/CODE_MAP_INDEX.md`](../docs/masked_v2v/CODE_MAP_INDEX.md). Router pages:
-  [`docs/wiki/masked_v2v_pipeline.md`](../docs/wiki/masked_v2v_pipeline.md),
+- The operative rules, execution protocol, and code map: [`docs/wiki/masked_v2v/AGENTS.md`](../docs/wiki/masked_v2v/AGENTS.md),
+  [`docs/wiki/masked_v2v/PROTOCOL.md`](../docs/wiki/masked_v2v/PROTOCOL.md),
+  [`docs/wiki/masked_v2v/reference_and_prompt_rules.md`](../docs/wiki/masked_v2v/reference_and_prompt_rules.md),
+  [`docs/wiki/masked_v2v/chain_trace_and_remakes.md`](../docs/wiki/masked_v2v/chain_trace_and_remakes.md), and
+  [`docs/wiki/masked_v2v/CODE_MAP_INDEX.md`](../docs/wiki/masked_v2v/CODE_MAP_INDEX.md). Router pages:
+  [`docs/wiki/masked_v2v/masked_v2v_pipeline.md`](../docs/wiki/masked_v2v/masked_v2v_pipeline.md),
   [`docs/wiki/masked_v2v.md`](../docs/wiki/masked_v2v.md), and [`docs/wiki/runbook.md`](../docs/wiki/runbook.md).
 
 ## Settled for the masked lane
@@ -78,7 +78,7 @@ so a builder's worktree has them.
   kept out by its own track on that preview, as another subject is on any shot. `preview` requires `--source` with no
   silent default, takes `--for` (the replacement it is made for) where anything is laid on the shot, and
   `bench/shot_to_load.py::check_pass2_source` refuses the raw source where another replacement is laid
-  ([`docs/masked_v2v/AGENTS.md`](../docs/masked_v2v/AGENTS.md) §1).
+  ([`docs/wiki/masked_v2v/AGENTS.md`](../docs/wiki/masked_v2v/AGENTS.md) §1).
 - Never `--drop` frames mid-window when the original actor's face or beard is still in the picture
   (`bench/capture_masked_run.py::dropped_or_unmasked_face_in_context`): H3 attention runs over the full `17n + 5`
   window (`5n + 2` latent steps) regardless of `tokens_sum == 0`, so mid-window drops save zero compute and expose the
@@ -88,18 +88,18 @@ so a builder's worktree has them.
   carries, on those frames, so her hair stays in (`bench/capture_masked_run.py::grade_holds`). The node grows the region
   from that part, so its margin may still cover some of the face. A face-only part is emptied on those frames (so on a
   face-only subject where the face or beard still shows on a side turn, keep the mask open and use `--no-draw-face-on`
-  when only `<Video 1>`'s 2D face lines are wrong; [`docs/masked_v2v/AGENTS.md`](../docs/masked_v2v/AGENTS.md) §2).
+  when only `<Video 1>`'s 2D face lines are wrong; [`docs/wiki/masked_v2v/AGENTS.md`](../docs/wiki/masked_v2v/AGENTS.md) §2).
 - Every laid piece is laid by its own matte under one compositing law (`bench/assemble_delivery.py::lay_plane`,
   2026-10-17). A matte is reconstructed from the render's own inputs, never today's defaults
   (`bench/recomposite_piece.py --save-own-matte`).
-- **What a change forces, and when to restart ComfyUI**: [`docs/masked_v2v/AGENTS.md`](../docs/masked_v2v/AGENTS.md)
+- **What a change forces, and when to restart ComfyUI**: [`docs/wiki/masked_v2v/AGENTS.md`](../docs/wiki/masked_v2v/AGENTS.md)
   §8, the one copy. The default remake is a fresh preview and every stage after it (the owner, 2026-10-21).
 
 ## One ledger, made new on every landing
 
 What stands in a video, where each piece came from and the gaps are the render ledger, the delivery table and the gap
 check, made by one command, `bench/rebuild_delivery.py --video <video> --clip`, once for each batch of landings or
-laid changes (`docs/masked_v2v/PROTOCOL.md` 5.3: each `bench/laid.py` write of the batch takes `--no-rebuild WHY`); it
+laid changes (`docs/wiki/masked_v2v/PROTOCOL.md` 5.3: each `bench/laid.py` write of the batch takes `--no-rebuild WHY`); it
 also makes the owner's two pages, `$H3_OUTPUT_DIR/Video/<video>/TO_REVIEW.html` and `PROVENANCE.html` (and syncs them
 into `data/<video>/poc/` when present), and takes the snapshot of the answers file. A session reads the files; the
 owner reads the pages; nothing is typed twice. A piece the table does not lay is not in the video. The session that
@@ -116,7 +116,7 @@ holds the card keeps them.
 | every answer the owner gave on the local pages, raw | `data/<video>/owner_answers.jsonl`: append-only, cited by line, never edited |
 | the interactive review queue ("1. Look at these next" with verdict buttons and frame note box on `data/<video>/poc/index.html`, served on port `8765`) | `data/<video>/review/items.json` (with media symlinks in `data/<video>/review/media/`), updated on every candidate clip (`bench/load_chain.py page`) so the owner can save verdicts and frame notes directly to `data/<video>/owner_answers.jsonl` |
 | the owner's verdicts on renders | `data/<video>/verdicts/verdicts.jsonl` |
-| a reader's pre-`page` reading of a landed render (2026-10-28 rule) | `<capture>/looks/<load>.reading.md`, written between `land` and `page` by a reader who did not make the load (no verdict and no hold; `docs/masked_v2v/PROTOCOL.md` §5.1); legacy post-owner readings live in `data/<day>_<load>/playback_reading_<reader>.md` |
+| a reader's pre-`page` reading of a landed render (2026-10-28 rule) | `<capture>/looks/<load>.reading.md`, written between `land` and `page` by a reader who did not make the load (no verdict and no hold; `docs/wiki/masked_v2v/PROTOCOL.md` §5.1); legacy post-owner readings live in `data/<day>_<load>/playback_reading_<reader>.md` |
 | videos | `$H3_OUTPUT_DIR/Video/<video>/`, never under `data/` |
 
 ## Handing a render over
@@ -129,7 +129,7 @@ holds the card keeps them.
 - A clip on the review page is whole, or has its gaps counted right above the player from the gap check on its own
   frames (per person, per kind, frames and spans); a clip with gaps and no such line is not shown
   (`docs/wiki/working_with_the_owner.md`, the owner of 2026-10-17).
-- **Pre-`page` reading (`<capture>/looks/<load>.reading.md`, the owner's word of 2026-10-28 and 2026-10-29, `docs/wiki/decisions.md`)**: Every landed render is read between `land` and `page` by a session or subagent that did not make the load (`docs/masked_v2v/PROTOCOL.md` §5.1; `.gemini/skills/video-understanding/SKILL.md`, "Who reads a landed render"): it reads the `.1fps.<first>-<last>.mp4` strip, the `24 fps` clip, `_sheet.jpg`, and the measured shift inside `parts_held`, and writes `<capture>/looks/<load>.reading.md` with frame numbers, what it cannot see, and the figures, with **no verdict and no hold**.
+- **Pre-`page` reading (`<capture>/looks/<load>.reading.md`, the owner's word of 2026-10-28 and 2026-10-29, `docs/wiki/decisions.md`)**: Every landed render is read between `land` and `page` by a session or subagent that did not make the load (`docs/wiki/masked_v2v/PROTOCOL.md` §5.1; `.gemini/skills/video-understanding/SKILL.md`, "Who reads a landed render"): it reads the `.1fps.<first>-<last>.mp4` strip, the `24 fps` clip, `_sheet.jpg`, and the measured shift inside `parts_held`, and writes `<capture>/looks/<load>.reading.md` with frame numbers, what it cannot see, and the figures, with **no verdict and no hold**.
 - For legacy post-owner playback readings (`data/<day>_<load>/playback_reading_<reader>.md`), each reading starts at the top
   (before the first `---` or `##` body heading; or per clip under `### <clip>`) with a four-field card:
   - `Sees`: `frames: what` (frame numbers and what is seen on playback)

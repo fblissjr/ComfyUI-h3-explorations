@@ -2,7 +2,7 @@
 """Check `bench/masked_code_map.py` AST symbol extraction, dependency/call/data/step chains, and code-map gates.
 
 Runs without CUDA, model weights, or server, and works both in the full repository
-(where `docs/masked_v2v/CODE_MAP_INDEX.md` is on disk) and inside `bench/break_checks.py`
+(where `docs/wiki/masked_v2v/CODE_MAP_INDEX.md` is on disk) and inside `bench/break_checks.py`
 temporary copies (where `docs/` is omitted by `LEFT_OUT`).
 """
 from __future__ import annotations

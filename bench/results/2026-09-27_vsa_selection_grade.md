@@ -1,6 +1,6 @@
 # #45: core's kitchen VSA against a FastVideo-exact reference, on captured FastH3 attention (2026-09-27)
 
-`docs/open_experiments.md` #45 asks whether part of FastH3's over-polish is the
+`docs/wiki/ops/open_experiments.md` #45 asks whether part of FastH3's over-polish is the
 kitchen's VSA rather than FastH3's training. Core's VSA departs from FastVideo
 three ways (`2026-09-27_attention_parity.md`):
 - it keeps `round(0.2n)` video tiles where FastVideo keeps `ceil`;

@@ -3,7 +3,7 @@
 
 ## What was uncontrolled, and what this replaces
 
-`docs/checks.md`'s standing audit carried this row: *"Sol-Attn is on by default
+`docs/wiki/ops/checks.md`'s standing audit carried this row: *"Sol-Attn is on by default
 in every shipped video workflow"* — enforced by **one graph, by accident**.
 `check_bench_matches_shipped.py` compared the bench harness against
 `h3_probe_sol_on_api.json` (retired 2026-09-14), so stripping Sol from that one
@@ -29,7 +29,7 @@ shape this repo keeps finding after the fact.
 
 ## Reachability, not presence
 
-`docs/evidence.md` records a capture provenance field that asked whether a Sol
+`docs/wiki/ops/evidence.md` records a capture provenance field that asked whether a Sol
 node **existed** when the question was whether it **ran**, and reported the
 situation backwards. ComfyUI seeds execution from output nodes and walks
 backwards, so a node nothing consumes never executes. An ACTIVE
@@ -48,7 +48,7 @@ is the list and counting them here would be a second copy that goes stale the
 next time one is added, which is what happened when the PDD arms landed. A
 hand-written list of
 exempt filenames is the shape that goes stale silently, which is the objection
-`docs/checks.md` raised against this check existing at all. So:
+`docs/wiki/ops/checks.md` raised against this check existing at all. So:
 
   * the single-frame class is taken from `h3_config.GRAPH_DIRS`, not from
     filenames — it is whatever the generator routes to a subdirectory. That
@@ -127,7 +127,7 @@ DEVIATIONS = {
                              "A/B that h3_config asks for; the deviating value "
                              "IS its subject"),
     "h3_probe_t2v_policy": (("mode",),
-                            "block-49 policy graph (2026-09-15, docs/h3_quant_policy.md "
+                            "block-49 policy graph (2026-09-15, docs/wiki/attention/h3_quant_policy.md "
                             "Tier 0/1), kept on the sage chain while its pair is scored: "
                             "sage in 'fp8++ balanced' plus the balance node and exact "
                             "tail blocks; the mode IS the arm"),
@@ -152,7 +152,7 @@ DEVIATIONS = {
                                  "the sage chain with every lever plus Sol rotate (2026-09-15 "
                                  "night); the mode and the quantizer ARE the arm"),
     "h3_probe_t2v_levers": (("mode",),
-                            "block-49 Tier 1 witness (2026-09-15, docs/h3_quant_policy.md), "
+                            "block-49 Tier 1 witness (2026-09-15, docs/wiki/attention/h3_quant_policy.md), "
                             "kept on the sage chain while its pair is scored: every free "
                             "lever on and no exact blocks; the mode IS the arm"),
 }
@@ -181,7 +181,7 @@ def _dense_tail_constants_agree() -> list[str]:
 
 SOL_EXEMPT_STEMS = {
     **{stem: "Pika H3 Flex Step 2 showcase reproduction "
-             "(docs/research/2026-11-04_pika_h3_flex_plan.md): dense attention "
+             "(docs/wiki/research/2026-11-04_pika_h3_flex_plan.md): dense attention "
              "on the kitchen backend with Sol off so attention sparsity does "
              "not confound the 6-step LCM LoRA and branch-versus-merge check"
        for stem in ("h3_probe_r2v_pika_motion_transfer_6step",
@@ -526,7 +526,7 @@ def main() -> int:
              f"{sorted(img_dirs)}" if img_dirs else
              "EMPTY -- h3_config.GRAPH_DIRS routes no graph to a "
              "subdirectory, so nothing is exempted on single-frame grounds "
-             "(the lane is parked; docs/h3_image_editing.md)"))
+             "(the lane is parked; docs/wiki/image/h3_image_editing.md)"))
     print(f"  no DiT, so no attention to grade: {', '.join(no_dit) or 'none'}")
     print(f"  out of scope: workflows/bench/*_stamped_api.json are the dense "
           f"baselines and are outside graph_paths()")

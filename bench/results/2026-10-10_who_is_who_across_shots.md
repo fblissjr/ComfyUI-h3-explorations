@@ -510,7 +510,7 @@ list everybody on the frame, with a mark on whoever another tracker
 holds, so that every table's looks are complete; today only the first
 tracker's are. The design's casting pass, which looks at every shot with
 no subject and no `others`, is that by construction
-(`docs/wiki/who_is_who.md`, section 5). Until one of them exists, most
+(`docs/wiki/masked_v2v/who_is_who.md`, section 5). Until one of them exists, most
 shots of a load with several trackers have one complete look.
 
 **Seen on the tiles and in no table** (the lead session's reading): after

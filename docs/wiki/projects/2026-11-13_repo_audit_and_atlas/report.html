@@ -1,0 +1,1623 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>H3 Repo Audit &amp; Portfolio Atlas (2026-11-13)</title>
+<style>
+  :root {
+    --bg: #0c0e14;
+    --bg-elev: #141824;
+    --bg-card: #191f2e;
+    --border: #262f45;
+    --text: #e6ebf5;
+    --muted: #98a4bd;
+    --accent: #6ea8fe;
+    --accent-soft: rgba(110,168,254,0.14);
+    --green: #4ade80;
+    --amber: #fbbf24;
+    --red: #f87171;
+    --purple: #c084fc;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, sans-serif;
+  }
+  [data-theme="light"] {
+    --bg: #f6f8fc;
+    --bg-elev: #ffffff;
+    --bg-card: #ffffff;
+    --border: #dce2ef;
+    --text: #161b26;
+    --muted: #5a647a;
+    --accent: #2563eb;
+    --accent-soft: rgba(37,99,235,0.10);
+    --green: #15803d;
+    --amber: #b45309;
+    --red: #b91c1c;
+    --purple: #7e22ce;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: var(--sans); background: var(--bg); color: var(--text);
+    line-height: 1.5; font-size: 14px;
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code {
+    font-family: var(--mono); font-size: 12px; background: var(--accent-soft);
+    padding: 1px 5px; border-radius: 4px; word-break: break-word;
+  }
+  .wrap { max-width: 1280px; margin: 0 auto; padding: 24px 20px 64px; }
+  header {
+    display: flex; flex-wrap: wrap; gap: 16px; align-items: center; justify-content: space-between;
+    padding-bottom: 18px; border-bottom: 1px solid var(--border); margin-bottom: 22px;
+  }
+  .title h1 { margin: 0 0 4px; font-size: 22px; letter-spacing: -0.02em; }
+  .title .sub { color: var(--muted); font-size: 13px; }
+  .toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .search {
+    background: var(--bg-elev); color: var(--text); border: 1px solid var(--border);
+    border-radius: 8px; padding: 8px 12px; min-width: 260px; font-size: 13px;
+  }
+  .btn {
+    background: var(--bg-elev); color: var(--text); border: 1px solid var(--border);
+    border-radius: 8px; padding: 7px 12px; cursor: pointer; font-size: 13px; font-weight: 500;
+  }
+  .btn:hover { border-color: var(--accent); }
+  .kpis {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(175px, 1fr));
+    gap: 12px; margin-bottom: 22px;
+  }
+  .kpi {
+    background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px;
+  }
+  .kpi .val { font-size: 24px; font-weight: 700; letter-spacing: -0.02em; }
+  .kpi .lbl { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 18px; }
+  .tab {
+    background: var(--bg-elev); border: 1px solid var(--border); color: var(--muted);
+    padding: 7px 14px; border-radius: 999px; cursor: pointer; font-size: 13px; font-weight: 600;
+  }
+  .tab.active { background: var(--accent-soft); border-color: var(--accent); color: var(--text); }
+  .filters { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; align-items: center; }
+  .pill {
+    padding: 4px 10px; border-radius: 999px; border: 1px solid var(--border);
+    font-size: 12px; cursor: pointer; background: var(--bg-elev); color: var(--muted);
+  }
+  .pill.active { border-color: var(--accent); color: var(--text); background: var(--accent-soft); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 14px; }
+  .card {
+    background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: 16px;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .card-head { display: flex; justify-content: space-between; gap: 8px; align-items: flex-start; }
+  .card h3 { margin: 0; font-size: 15px; line-height: 1.35; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px;
+    font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; white-space: nowrap;
+  }
+  .b-active, .b-shipped { background: rgba(74,222,128,0.14); color: var(--green); }
+  .b-crit { background: rgba(248,113,113,0.16); color: var(--red); }
+  .b-high, .b-open { background: rgba(251,191,36,0.16); color: var(--amber); }
+  .b-med, .b-queued { background: rgba(110,168,254,0.16); color: var(--accent); }
+  .b-parked { background: rgba(148,163,184,0.18); color: var(--muted); }
+  .b-repaired { background: rgba(192,132,252,0.16); color: var(--purple); }
+  .meta { font-size: 12px; color: var(--muted); }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip {
+    font-family: var(--mono); font-size: 11px; background: var(--bg-elev);
+    border: 1px solid var(--border); padding: 2px 7px; border-radius: 6px;
+  }
+  table { width: 100%; border-collapse: collapse; background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); background: var(--bg-elev); }
+  tr:last-child td { border-bottom: none; }
+  .copy-btn {
+    border: 1px solid var(--border); background: var(--bg-elev); color: var(--muted);
+    border-radius: 6px; padding: 2px 7px; font-size: 11px; cursor: pointer; margin-left: 6px;
+  }
+  .copy-btn:hover { color: var(--text); border-color: var(--accent); }
+  .bar-row { display: grid; grid-template-columns: 240px 1fr 110px; gap: 10px; align-items: center; margin: 7px 0; }
+  .bar-track { height: 10px; background: var(--bg-elev); border-radius: 999px; overflow: hidden; border: 1px solid var(--border); }
+  .bar-fill { height: 100%; background: var(--accent); }
+  details { border-top: 1px solid var(--border); padding-top: 8px; }
+  summary { cursor: pointer; font-weight: 600; font-size: 12px; color: var(--accent); }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="title">
+      <h1>H3 Research Repository Audit &amp; Portfolio Atlas</h1>
+      <div class="sub" id="subtitle">Loading embedded ledger...</div>
+    </div>
+    <div class="toolbar">
+      <input class="search" id="searchBox" type="search" placeholder="Filter nodes, sessions, commits, ideas..." />
+      <button class="btn" id="themeBtn" type="button">Light / Dark</button>
+    </div>
+  </header>
+
+  <section class="kpis" id="kpis"></section>
+
+  <nav class="tabs" id="tabs">
+    <button class="tab active" data-tab="ideas">Top 14 Unfinished &amp; Forgotten</button>
+    <button class="tab" data-tab="tracks">8 Project Tracks</button>
+    <button class="tab" data-tab="discrepancies">Code vs Prose Ledger</button>
+    <button class="tab" data-tab="renders">Nov 10–12 Renders</button>
+    <button class="tab" data-tab="sessions">Session Archaeology</button>
+    <button class="tab" data-tab="reorg">Code Reorg Blueprint</button>
+  </nav>
+
+  <main id="panel"></main>
+</div>
+
+<script id="atlas-ledger" type="application/json">{
+  "schema_version": "1.0",
+  "generated_on": "2026-11-13",
+  "codebase_metrics": {
+    "head_commit_at_audit": "7630c8ff",
+    "registered_nodes": 65,
+    "workflow_graphs": 108,
+    "commits_since_2026_11_04": 352,
+    "commits_since_2026_11_09": 215,
+    "root_python": {
+      "files": 75,
+      "lines": 48227,
+      "top_largest": [
+        {
+          "path": "control_vector_nodes.py",
+          "lines": 4698
+        },
+        {
+          "path": "control_vectors.py",
+          "lines": 3024
+        },
+        {
+          "path": "subject_track.py",
+          "lines": 3005
+        },
+        {
+          "path": "video_mask.py",
+          "lines": 2993
+        },
+        {
+          "path": "j_lens.py",
+          "lines": 2521
+        },
+        {
+          "path": "sol_attn_h3.py",
+          "lines": 1417
+        },
+        {
+          "path": "h3_image_nodes.py",
+          "lines": 1402
+        },
+        {
+          "path": "reference_conditioning.py",
+          "lines": 1316
+        },
+        {
+          "path": "audio_freeze_song.py",
+          "lines": 1151
+        },
+        {
+          "path": "h3_pair_compiler.py",
+          "lines": 1093
+        },
+        {
+          "path": "h3_spans.py",
+          "lines": 1017
+        },
+        {
+          "path": "body_pose.py",
+          "lines": 979
+        }
+      ]
+    },
+    "bench_python": {
+      "total_files": 511,
+      "total_lines": 243584,
+      "top_level_check_scripts": 169,
+      "by_location": {
+        "bench/_lib/": {
+          "files": 8,
+          "lines": 1640
+        },
+        "bench/comfy_capture_nodes/": {
+          "files": 2,
+          "lines": 407
+        },
+        "bench/control_vector/": {
+          "files": 12,
+          "lines": 7094
+        },
+        "bench/h3_image/": {
+          "files": 2,
+          "lines": 157
+        },
+        "bench/lane_db/": {
+          "files": 7,
+          "lines": 1424
+        },
+        "bench/*.py (flat top-level)": {
+          "files": 480,
+          "lines": 232862
+        }
+      },
+      "top_largest": [
+        {
+          "path": "bench/capture_masked_run.py",
+          "lines": 8618
+        },
+        {
+          "path": "bench/check_control_vectors.py",
+          "lines": 6056
+        },
+        {
+          "path": "bench/shot_to_load.py",
+          "lines": 5436
+        },
+        {
+          "path": "bench/check_shot_to_load.py",
+          "lines": 4448
+        },
+        {
+          "path": "bench/check_capture_masked_run.py",
+          "lines": 4422
+        },
+        {
+          "path": "bench/assemble_delivery.py",
+          "lines": 3659
+        },
+        {
+          "path": "bench/check_video_mask.py",
+          "lines": 3307
+        },
+        {
+          "path": "bench/check_subject_track.py",
+          "lines": 3048
+        },
+        {
+          "path": "bench/laid.py",
+          "lines": 2857
+        },
+        {
+          "path": "bench/review_pages.py",
+          "lines": 2855
+        },
+        {
+          "path": "bench/analyze_sol_block_grouping.py",
+          "lines": 2485
+        },
+        {
+          "path": "bench/check_assemble_delivery.py",
+          "lines": 2434
+        }
+      ]
+    },
+    "docs_wiki": {
+      "total_files": 288,
+      "migration_moved_files": 206,
+      "migration_kept_in_place": 71,
+      "decision_shards_created": 6,
+      "active_subfolders": [
+        "archive",
+        "attention",
+        "control_vectors",
+        "core",
+        "decisions",
+        "image",
+        "masked_v2v",
+        "ops",
+        "projects",
+        "research",
+        "system_prompts"
+      ]
+    }
+  },
+  "tracks": [
+    {
+      "id": "control_vectors_and_jlens",
+      "name": "Control Vectors, J-Lens, & Chain Lens Readouts",
+      "status": "active",
+      "summary": "Built post-refiner contrastive control vector pipeline (`diff_span`, `project_out` holds, field-named section masks, dual fl2va/ref2va/P-H3-Image family support), J-Lens word synthesis & readout, Control Vector Studio (`bench/control_vector/`), and blind 5-way readout scoring (`33/45` named against group-matched distractors vs `7/45` options-only). Nov 12 `exp2`–`exp5` ladder revealed `cos = 0.72` 'anti-mundane' Pole-A baseline contamination in bare-phrase builds and established Control Vectors as 1x broadcast aesthetic dials complementary to EditGuider.",
+      "nodes": [
+        "MiniMaxH3Steer",
+        "MiniMaxH3LoadControlVector",
+        "MiniMaxH3WordVector",
+        "MiniMaxH3MakeControlVector",
+        "MiniMaxH3MakeMediaControlVector",
+        "MiniMaxH3LayerNormMatch",
+        "MiniMaxH3ReleaseReferences",
+        "MiniMaxH3ApplyControlVectors"
+      ],
+      "key_files": [
+        "control_vector_nodes.py",
+        "control_vectors.py",
+        "j_lens.py",
+        "h3_pair_compiler.py",
+        "h3_spans.py",
+        "bench/control_vector/ui_server.py",
+        "bench/control_vector_readout_score.py"
+      ],
+      "key_commits": [
+        "441d46ba",
+        "67d1d705",
+        "7de41e14",
+        "dd262ffb",
+        "71270747",
+        "e92313d7",
+        "fc151158",
+        "fedcdff1",
+        "82695f77"
+      ],
+      "workflows": [
+        "workflows/h3_text_to_video_pika_control_vector_api.json",
+        "workflows/h3_image_ref_plus_text_to_video_pika_control_vector_api.json"
+      ],
+      "wiki_owners": [
+        "docs/wiki/control_vectors.md",
+        "docs/wiki/control_vectors/comfyui_nodes_and_controls.md",
+        "docs/wiki/research/control_vectors/2026-11-12_chain_lens_digest_and_experiment_plan.md",
+        "docs/wiki/research/control_vectors/2026-11-12_exp5_ladder_and_temporal_guide_synthesis.md"
+      ],
+      "renders": [
+        "$H3_OUTPUT_DIR/Video/cv_word_share_2026-11-12/exp2/",
+        "$H3_OUTPUT_DIR/Video/cv_word_share_2026-11-12/exp3/",
+        "$H3_OUTPUT_DIR/Video/fun_vectors/",
+        "$H3_OUTPUT_DIR/Video/2026-11-10_cv_comparisons/",
+        "$H3_OUTPUT_DIR/Image/field_mask_trial/"
+      ]
+    },
+    {
+      "id": "edit_guidance",
+      "name": "Edit Guidance (`MiniMaxH3PromptEdit` & `MiniMaxH3EditGuider`)",
+      "status": "active",
+      "summary": "Vector-free differential velocity guidance (`v0 + scale * (v1 - v0)`) with clause-safe `MiniMaxH3PromptEdit`, `first_step`/`last_step` scheduling (`first_step=1` locks building/actor anatomy at 1.5x compute), per-stream targeting (`both`, `video_only`, `audio_only`, `independent` + `audio_scale`), and `e0a5bb35` packed `[B, 1, C_flat]` AV latent splitting inside `CFGGuider.sample`. Next high-leverage step: spatiotemporal `MASK` `[T, H, W]` socket.",
+      "nodes": [
+        "MiniMaxH3PromptEdit",
+        "MiniMaxH3EditGuider"
+      ],
+      "key_files": [
+        "edit_guidance.py",
+        "h3_prompt_edit.py",
+        "bench/edit_guidance_arms.py"
+      ],
+      "key_commits": [
+        "029460ab",
+        "02a20fe3",
+        "a5be1214",
+        "8ec93b22",
+        "f56d55e8",
+        "d19ba65c",
+        "e0a5bb35"
+      ],
+      "workflows": [
+        "workflows/h3_text_to_video_pika_edit_guidance_api.json",
+        "workflows/h3_image_edit_guide_pika_api.json"
+      ],
+      "wiki_owners": [
+        "docs/wiki/edit_guidance.md",
+        "docs/wiki/research/control_vectors/2026-11-12_exp5_ladder_and_temporal_guide_synthesis.md"
+      ],
+      "renders": [
+        "$H3_OUTPUT_DIR/Video/edit_guidance_showcase/",
+        "$H3_OUTPUT_DIR/Video/edit_guidance/"
+      ]
+    },
+    {
+      "id": "timeline_sound_cues_and_sprite_dpad",
+      "name": "Timeline Sound Cues (`cond_audio`) & 2D Sprite D-Pad (`<Video 1>`)",
+      "status": "active",
+      "summary": "Zero-file procedural choreography: `MiniMaxH3SoundCues` synthesizes 3-frame (`125 ms`) Audio VAE-aligned transient islands over a `-28 dBFS` rumble floor (`cond_audio` avoids visual canvas bar overwrite), and `MiniMaxH3AppendSpriteTrajectory` renders an in-memory `384x224` cutout trajectory (`face=right|left|auto` + hop arcs). Paired with `MiniMaxH3ReleaseReferences(video_end_percent=0.33, audio_end_percent=0.33..0.60)`, H3 lands hops on `f51..54` and articulates backward walking legs cleanly.",
+      "nodes": [
+        "MiniMaxH3SoundCues",
+        "MiniMaxH3AppendSpriteTrajectory",
+        "MiniMaxH3GuideLatent",
+        "MiniMaxH3ReleaseReferences"
+      ],
+      "key_files": [
+        "sound_cues.py",
+        "sprite_trajectory.py",
+        "guide_latent.py",
+        "control_vector_nodes.py"
+      ],
+      "key_commits": [
+        "d19ba65c",
+        "e0a5bb35",
+        "0fbac0a3",
+        "66f016e9",
+        "1af989e0",
+        "5407673f",
+        "50410244"
+      ],
+      "workflows": [
+        "workflows/h3_image_ref_dpad_sound_pika_api.json",
+        "workflows/h3_text_to_video_pika_sound_guide_api.json"
+      ],
+      "wiki_owners": [
+        "docs/wiki/research/control_vectors/2026-11-12_sound_cues_dpad_and_033_release_law.md",
+        "docs/wiki/research/2026-11-12_guide_sound_islands_and_kinematic_dpad.md",
+        "docs/wiki/research/2026-11-12_guide_signal_full_length_bars.md"
+      ],
+      "renders": [
+        "$H3_OUTPUT_DIR/Video/h3_r2v_dpad_sound_pika_00001-audio.mp4",
+        "$H3_OUTPUT_DIR/Video/h3_t2v_pika_sound_guide_00001-audio.mp4",
+        "$H3_OUTPUT_DIR/Video/guide_sound_2026-11-12/",
+        "$H3_OUTPUT_DIR/Video/ref_signal_2026-11-12/exp2_dpad/",
+        "$H3_OUTPUT_DIR/Video/guide_signal_2026-11-12/exp1/"
+      ]
+    },
+    {
+      "id": "image_generation_and_editing",
+      "name": "Single-Frame Image (`MiniMax-H3-Image`, `P-H3-Image`, Pika Stills)",
+      "status": "shipped",
+      "summary": "Full single-frame stack: `P-H3-Image` (`[4 MP, 8 MP]` clamp, `fp16` `seed=42` rounding, `Qwen3.5-9B` upsampler), `MiniMax-H3-Image` (`4.0 MP` floor + `PH3_IMAGE_VAE` default + local `heylook` prompt expander + split 1x KV-prefix ref caching), weight-level proof that Comfy-Org's int8 checkpoint matches `comfy-kitchen` code-for-code and is a separate fine-tune from `fl2va`/`ref2va`, plus verified 1-frame `t=1` Pika T2I/edit still support.",
+      "nodes": [
+        "MiniMaxH3PH3ImageConditioning",
+        "MiniMaxH3PH3ImagePromptUpsampler",
+        "MiniMaxH3ImageSize",
+        "MiniMaxH3ImageDownscale",
+        "MiniMaxH3ImagePromptExpander",
+        "MiniMaxH3EncodeImageReferences",
+        "MiniMaxH3PromptOnImageReferences",
+        "MiniMaxH3Conditioning"
+      ],
+      "key_files": [
+        "ph3_image_nodes.py",
+        "h3_image_nodes.py",
+        "reference_encode.py",
+        "bench/measure_h3_image_weights.py",
+        "bench/convert_h3_image_dit.py"
+      ],
+      "key_commits": [
+        "7969f177",
+        "9e0b02ff",
+        "0f6de9db",
+        "8553494a",
+        "5f180b87",
+        "38b44cfe",
+        "b490d9d6",
+        "4c663d20"
+      ],
+      "workflows": [
+        "workflows/image/h3_image_t2i_api.json",
+        "workflows/image/h3_image_edit_api.json",
+        "workflows/image/p_h3_image_t2i_api.json",
+        "workflows/image/p_h3_image_edit_api.json"
+      ],
+      "wiki_owners": [
+        "docs/wiki/image/h3_image.md",
+        "docs/wiki/image/p_h3_image.md",
+        "docs/wiki/image/h3_image_editing.md",
+        "bench/results/2026-11-11_h3_image_weights.md"
+      ],
+      "renders": [
+        "$H3_OUTPUT_DIR/Image/h3_image_probe/",
+        "$H3_OUTPUT_DIR/Image/pika_still_trial/"
+      ]
+    },
+    {
+      "id": "attention_sol_and_precision",
+      "name": "Sol Sparse Attention, Quantization, & Precision Controls",
+      "status": "active",
+      "summary": "Confirmed via 3-cell 15-clip Pass 1 + blind Pass 2 panel (`bench/results/2026-11-11_sol_pika_panel.md`) that `SOL_DENSE_TAIL = \"49\"` matches or beats `dense` on blind 24-fps playback while saving `10.1–12.6 s` over blocks `38..42,49`. Upstream `comfy-kitchen` SwiGLU sync verified (`db830229`, `3199e060`). Open technical debt: `MiniMaxH3SolChunked` (`sol_chunked_h3.py:158`) still omits `quantizer` forwarding to `_ck_cuda.sol_attn_chunked`.",
+      "nodes": [
+        "MiniMaxH3Sol",
+        "MiniMaxH3SolChunked",
+        "MiniMaxH3SageAttention",
+        "MiniMaxH3ChannelBalance",
+        "MiniMaxH3ExactBlocks",
+        "MiniMaxH3VAEPrecision"
+      ],
+      "key_files": [
+        "sol_attn_h3.py",
+        "sol_chunked_h3.py",
+        "attention.py",
+        "channel_balance.py",
+        "exact_blocks.py",
+        "vae_precision.py"
+      ],
+      "key_commits": [
+        "96acc713",
+        "5d293b5f",
+        "db830229",
+        "3199e060",
+        "4ef3a44c"
+      ],
+      "workflows": [
+        "workflows/h3_text_to_video_pika_api.json",
+        "workflows/h3_image_ref_plus_text_to_video_pika_api.json"
+      ],
+      "wiki_owners": [
+        "docs/wiki/attention/SOLATTN.md",
+        "docs/wiki/attention/h3_quant_policy.md",
+        "docs/wiki/ops/comfy_kitchen.md",
+        "bench/results/2026-11-11_sol_pika_panel.md"
+      ],
+      "renders": [
+        "$H3_OUTPUT_DIR/Video/h3_t2v_pika_pika_market__s0_b49_00001-audio.mp4",
+        "$H3_OUTPUT_DIR/Video/h3_r2v_pika_pika_kitchen_r2v__s0_b49_00001-audio.mp4"
+      ]
+    },
+    {
+      "id": "core_conditioning_rules_and_prompts",
+      "name": "Core Conditioning, Universal Frame/Clock Laws, & LLM-Wiki Reorganization",
+      "status": "active",
+      "summary": "Generalized the `17n+5`, `40 Hz` vs `24 fps` dual-clock `39+51m` alignment, `NestedTensor(video, audio)` mask, `int32` `99,864`-token cap, and `length=1` image rules into `docs/wiki/core/h3_frame_rules.md` and root `AGENTS.md` (`7630c8ff`). On `2026-11-13`, reorganized all `docs/` under `docs/wiki/`, sharded `decisions.md`, and established `docs/wiki/projects/`.",
+      "nodes": [
+        "MiniMaxH3EncoderLoader",
+        "MiniMaxH3LoRABranch",
+        "MiniMaxH3OverlayLoader",
+        "MiniMaxH3Conditioning",
+        "MiniMaxH3AppendRefImage",
+        "MiniMaxH3AppendRefVideo",
+        "MiniMaxH3AppendRefAudio",
+        "MiniMaxH3ReferenceConditioning",
+        "MiniMaxH3EncodeReferences",
+        "MiniMaxH3PromptOnReferences",
+        "MiniMaxH3ReferenceNoise",
+        "MiniMaxH3Resolution",
+        "MiniMaxH3Preflight",
+        "MiniMaxH3PromptList",
+        "MiniMaxH3FillPromptLists",
+        "MiniMaxH3ProvenanceStamp"
+      ],
+      "key_files": [
+        "h3_rules.py",
+        "conditioning.py",
+        "reference_conditioning.py",
+        "reference_encode.py",
+        "resolution.py",
+        "preflight.py",
+        "nodes.py"
+      ],
+      "key_commits": [
+        "7630c8ff",
+        "50410244",
+        "68d49ea6"
+      ],
+      "workflows": [
+        "workflows/build_workflows.py",
+        "workflows/h3_config.py"
+      ],
+      "wiki_owners": [
+        "AGENTS.md",
+        "docs/wiki/index.md",
+        "docs/wiki/core/h3_frame_rules.md",
+        "docs/wiki/prompting/prompting.md"
+      ],
+      "renders": []
+    },
+    {
+      "id": "audio_freeze_and_song_loops",
+      "name": "Audio Freeze, Chained Song Loops, & AudioRefineMask",
+      "status": "queued_experiments",
+      "summary": "Full node suite built and verified statically (`check_audio_freeze.py`: 0 failures across 104 graphs; `MiniMaxH3RestorePlate` exists at `plate_restore.py`). Several empirical tests remain unrendered: stereo music+vocal stem separation / 0.25 release schedule and 2nd-pass `MiniMaxH3AudioRefineMask` + `MiniMaxH3FrozenVideoCache`.",
+      "nodes": [
+        "MiniMaxH3FreezeAudio",
+        "MiniMaxH3FreezeAudioWindow",
+        "MiniMaxH3EncodeTrack",
+        "MiniMaxH3AudioAttentionGain",
+        "MiniMaxH3AudioFreezeSong",
+        "MiniMaxH3AudioRefineMask",
+        "MiniMaxH3FrozenVideoCache"
+      ],
+      "key_files": [
+        "audio_freeze.py",
+        "audio_freeze_song.py",
+        "audio_refine.py",
+        "frozen_video_cache.py",
+        "loop_plan.py",
+        "plate_restore.py"
+      ],
+      "key_commits": [],
+      "workflows": [
+        "workflows/audio_freeze_song_pika_api.json"
+      ],
+      "wiki_owners": [
+        "docs/wiki/core/h3_audio_freeze.md",
+        "docs/wiki/ops/open_experiments.md"
+      ],
+      "renders": []
+    },
+    {
+      "id": "masked_v2v_pipeline_and_lane_db",
+      "name": "Masked V2V Pipeline & `lane_db` SQLite/DuckDB Archive ('fun' Parked)",
+      "status": "parked_closed",
+      "summary": "The `'fun'` music-video shot campaign is **explicitly closed/parked** as requested (`b5f7c4d6`). Its reusable tracking, Sapiens2, SAM-3D-Body, plate-restore, and mask modules remain active infrastructure. Ahead of any future `'fun2'` project, Nov 10 landed `bench/lane_db/` (SQLite Tier-1 migrations `0001`–`0003`, importer, exporter, prover, CLI), `shot_to_load` depth default (`8d61067f`), and the capture-folder decoupling plan (`645bfc32`).",
+      "nodes": [
+        "MiniMaxH3SAM31Corrections",
+        "MiniMaxH3SubjectTrack",
+        "MiniMaxH3SaveShotTable",
+        "MiniMaxH3SubjectBoxes",
+        "MiniMaxH3Sapiens2Loader",
+        "MiniMaxH3SubjectParts",
+        "MiniMaxH3BodyModelLoader",
+        "MiniMaxH3BodyPose",
+        "MiniMaxH3BodyMeshVideo",
+        "MiniMaxH3SAM3DBodyViTHLoader",
+        "MiniMaxH3MaskedSource",
+        "MiniMaxH3RestorePlate",
+        "MiniMaxH3MaskedPrompt",
+        "MiniMaxH3DenoiseMaskProbe",
+        "MiniMaxH3StepX0Observer",
+        "MiniMaxH3CoreSparseCapture"
+      ],
+      "key_files": [
+        "video_mask.py",
+        "subject_track.py",
+        "sapiens2_parts.py",
+        "body_pose.py",
+        "plate_restore.py",
+        "bench/lane_db/db.py",
+        "bench/lane_db/cli.py",
+        "bench/shot_to_load.py"
+      ],
+      "key_commits": [
+        "b5f7c4d6",
+        "b561376c",
+        "b7bf86d7",
+        "a5bd98e2",
+        "25219d48",
+        "b64b67c8",
+        "8d61067f",
+        "645bfc32"
+      ],
+      "workflows": [],
+      "wiki_owners": [
+        "docs/wiki/masked_v2v.md",
+        "docs/wiki/masked_v2v/AGENTS.md",
+        "docs/wiki/masked_v2v/code_map.md"
+      ],
+      "renders": []
+    }
+  ],
+  "unfinished_and_forgotten_ideas": [
+    {
+      "rank": 1,
+      "id": "edit_guider_spatiotemporal_mask",
+      "title": "Spatiotemporal `[T, H, W]` `MASK` & Curve Modulation on `MiniMaxH3EditGuider`",
+      "track": "edit_guidance",
+      "status": "ready_to_build",
+      "leverage": "Critical",
+      "effort": "S (~40 lines)",
+      "code_anchors": [
+        "edit_guidance.py:196",
+        "edit_guidance.py:278",
+        "h3_rules.py:1"
+      ],
+      "source_sessions": [
+        "3b57a539-ea15-49ad-9a6b-0937b55f7201",
+        "a9f31858-98e5-48c2-9c9b-7fc45d2b83f2"
+      ],
+      "why_it_dropped": "Priority #1 in the Nov 12 `exp5` synthesis, paused when the day ended after validating sound cues + sprite D-pad.",
+      "next_action": "Append an optional `MASK` (`[T, H, W]`) input to `MiniMaxH3EditGuider`, mean-pool temporally over `(1, 4, 4, 4, 4)` buckets using `MiniMaxH3._latent_pixel_starts` + spatial box/SAM weights, and test regional object swaps and 2-channel temporal pulses through `last_step=4`."
+    },
+    {
+      "rank": 2,
+      "id": "interactive_dpad_sound_ui",
+      "title": "Interactive Canvas/Web UI for 2D Sprite Trajectory D-Pad & Sound Cues",
+      "track": "timeline_sound_cues_and_sprite_dpad",
+      "status": "unbuilt",
+      "leverage": "High",
+      "effort": "M",
+      "code_anchors": [
+        "sprite_trajectory.py:492",
+        "sound_cues.py:337",
+        "sprite_trajectory.py:70"
+      ],
+      "source_sessions": [
+        "3b57a539-ea15-49ad-9a6b-0937b55f7201",
+        "a9f31858-98e5-48c2-9c9b-7fc45d2b83f2",
+        "346a1e5c-945d-402d-babd-ff90bc3fd6b0"
+      ],
+      "why_it_dropped": "Nodes were shipped (`5407673f`) with text keyframe syntax (`0: x=0.2, y=0.7`) and wireframe `preview_frames`, leaving the click-and-drag visual timeline / D-pad editor unbuilt.",
+      "next_action": "Expose a lightweight HTML/Canvas waypoint + beat-lane editor (or mobile `app/` widget) that reads a `<Picture 1>` cutout bounds preview and outputs exact `waypoints` + `cues` strings."
+    },
+    {
+      "rank": 3,
+      "id": "two_subject_dpad_and_sam3_cutout",
+      "title": "2-Subject Sprite D-Pad (`<Video 1>` + `<Video 2>`), SAM-3 Cutouts, & Combined `ref2va` Ablation",
+      "track": "timeline_sound_cues_and_sprite_dpad",
+      "status": "partially_tested",
+      "leverage": "High",
+      "effort": "S–M",
+      "code_anchors": [
+        "sprite_trajectory.py:492",
+        "sam31_corrections.py:1",
+        "sound_cues.py:337"
+      ],
+      "source_sessions": [
+        "3b57a539-ea15-49ad-9a6b-0937b55f7201",
+        "a9f31858-98e5-48c2-9c9b-7fc45d2b83f2"
+      ],
+      "why_it_dropped": "Only single-subject GrabCut sprite (`exp2_dpad`) + 1 landing cue (`f54`) ran live; 2-actor collisions, SAM-3 border-touching cutouts, and a controlled `<Video 1>` + multi-cue ablation remain untested.",
+      "next_action": "Wire `MiniMaxH3SubjectTrack` mask extraction into `MiniMaxH3AppendSpriteTrajectory.mask` and test chaining two trajectories (`<Video 1>`, `<Video 2>`) with a matched compound collision `MiniMaxH3SoundCues` island."
+    },
+    {
+      "rank": 4,
+      "id": "whitened_word_table_and_neighbor_holds",
+      "title": "Whitened Whole-Word J-Lens Table & Neighbor-Hold Contrastive Verification",
+      "track": "control_vectors_and_jlens",
+      "status": "planned_not_run",
+      "leverage": "High",
+      "effort": "S (CPU + 4h GPU)",
+      "code_anchors": [
+        "j_lens.py:351",
+        "bench/control_vector_readout_score.py:119",
+        "docs/wiki/research/control_vectors/2026-11-12_chain_lens_digest_and_experiment_plan.md:1"
+      ],
+      "source_sessions": [
+        "ad7e5777-90ff-4c55-9941-9cbe5ddfa1ba",
+        "346a1e5c-945d-402d-babd-ff90bc3fd6b0"
+      ],
+      "why_it_dropped": "Blind readout scoring showed 8/45 bank vectors could not be separated from nearest neighbors due to missing multi-token/compound terms and shared direction noise (`§15` exps 3 & 5 of the Chain Lens plan).",
+      "next_action": "Build whitened `W_V = W_T @ Sigma^{-1/2}` multi-token concept table (exp 3) and test projecting out top-4 neighbor vectors (`bioluminescent_glow - cyber_neon`, `claymation - rubber_hose`) via `project_out` holds."
+    },
+    {
+      "rank": 5,
+      "id": "pole_a_cos072_hygiene",
+      "title": "Fix `DEFAULT_AUX_BASELINES` Length/Domain Imbalance (`cos = 0.72` Shared Bias)",
+      "track": "control_vectors_and_jlens",
+      "status": "diagnosed_unfixed",
+      "leverage": "High",
+      "effort": "XS",
+      "code_anchors": [
+        "h3_pair_compiler.py:59",
+        "h3_pair_compiler.py:716",
+        "control_vector_nodes.py:2628"
+      ],
+      "source_sessions": [
+        "a9f31858-98e5-48c2-9c9b-7fc45d2b83f2",
+        "3b57a539-ea15-49ad-9a6b-0937b55f7201"
+      ],
+      "why_it_dropped": "Diagnosed in `exp3`/`exp5`: short abstract Pole-A baselines (`'Everyday contemporary realism,'`) dumped `~52%` of squared norm into an 'anti-mundane' direction; owners kept the 8 Nov 12 vectors without rewriting `h3_pair_compiler.py`.",
+      "next_action": "Replace short meta-phrases in `DEFAULT_AUX_BASELINES` with matched-length concrete plain scenes and expose an optional `project_out_bank_mean` toggle at compile time."
+    },
+    {
+      "rank": 6,
+      "id": "cv_studio_3way_unification_and_bugs",
+      "title": "Control Vector Studio 3-Way Builder Unification, Thin-Wrapper CLI, & Open Studio UI Bugs",
+      "track": "control_vectors_and_jlens",
+      "status": "open_refactor",
+      "leverage": "High",
+      "effort": "M",
+      "code_anchors": [
+        "control_vector_nodes.py:2628",
+        "bench/control_vector/ui_server.py:95",
+        "bench/control_vector/make_cmds.py:1"
+      ],
+      "source_sessions": [
+        "4ebaab8d-2d37-4d20-94c2-03838a60e4bd",
+        "f77c2cfa-3a6f-4837-aa24-bfed8a7efc97"
+      ],
+      "why_it_dropped": "Cookie-auth/path security landed (`dd262ffb`, `71270747`) and mobile `app/` bugs got fixed in `bc76d3f1`, while `4ebaab8d`'s deeper 3-way unification (merging duplicated node/`cmd_build`/`cmd_make` builders, thin-wrapper CLI, and Studio Bank/Gallery prompt-target bugs) stalled.",
+      "next_action": "Route `cmd_build` and `cmd_make` through one shared compiler helper used by `MiniMaxH3MakeControlVector`, and fix Studio `ui_server`/web Bank & Gallery target-panel routing."
+    },
+    {
+      "rank": 7,
+      "id": "multimodal_diff_editguider_masked_v2v",
+      "title": "Multimodal Differential `EditGuider` (`plain_cut` vs `drawn_cut`) & Event-Gated Facial Envelopes",
+      "track": "masked_v2v_pipeline_and_lane_db",
+      "status": "ready_to_prototype",
+      "leverage": "High",
+      "effort": "M",
+      "code_anchors": [
+        "edit_guidance.py:76",
+        "edit_guidance.py:278",
+        "plate_restore.py:1"
+      ],
+      "source_sessions": [
+        "3b57a539-ea15-49ad-9a6b-0937b55f7201",
+        "a9f31858-98e5-48c2-9c9b-7fc45d2b83f2"
+      ],
+      "why_it_dropped": "Identified while connecting `NKD` temporal keyframes to `masked_v2v`: `v_edit(drawn_cut) - v_orig(plain_cut)` cancels shared grey-clay head mesh artifacts while isolating pure gaze/blink/lip velocity, and 1D lip-gap envelopes stop resting-frame chin drift.",
+      "next_action": "Test segment-aware RoPE shift (`layout.segments`) in `edit_guidance.py` + `bench/head_reference.py` plain-vs-drawn cut differential render on a single test clip (without reopening `'fun'` shot backlog)."
+    },
+    {
+      "rank": 8,
+      "id": "sol_chunked_quantizer_gap",
+      "title": "Forward `quantizer` in `MiniMaxH3SolChunked` & Rebuild `comfy-kitchen` Wheel",
+      "track": "attention_sol_and_precision",
+      "status": "known_bug_gap",
+      "leverage": "Medium-High",
+      "effort": "S",
+      "code_anchors": [
+        "sol_chunked_h3.py:158",
+        "sol_attn_h3.py:166",
+        "docs/wiki/ops/comfy_kitchen.md:1"
+      ],
+      "source_sessions": [
+        "a8949cba-635c-4638-bdb9-e9e0053e49a6",
+        "23d096c4-8be3-440b-b749-b6c0b1271f27"
+      ],
+      "why_it_dropped": "Commit `4ef3a44c` documented in `comfy_kitchen.md` that `sol_chunked_h3.py:158-161` never passes `quantizer` into `_ck_cuda.sol_attn_chunked`, then focus shifted to `SOL_DENSE_TAIL=\"49\"` panel runs.",
+      "next_action": "Verify whether `h3-frontier` `comfy-kitchen` accepts `quantizer=` in `sol_attn_chunked`, wire it in `sol_chunked_h3.py:158`, and re-test chunked vs non-chunked parity."
+    },
+    {
+      "rank": 9,
+      "id": "upper_layer_chain_readout_qwen3vl",
+      "title": "Upper-Layer Chain Readout (`layers.50..63` + `lm_head`) on Qwen3-VL-32B",
+      "track": "control_vectors_and_jlens",
+      "status": "planned_not_run",
+      "leverage": "Medium-High",
+      "effort": "M (GPU pass)",
+      "code_anchors": [
+        "j_lens.py:1896",
+        "docs/wiki/research/control_vectors/2026-11-12_chain_lens_digest_and_experiment_plan.md:1"
+      ],
+      "source_sessions": [
+        "ad7e5777-90ff-4c55-9941-9cbe5ddfa1ba",
+        "346a1e5c-945d-402d-babd-ff90bc3fd6b0"
+      ],
+      "why_it_dropped": "Experiment 6 of the Chain Lens plan (`2026-11-12`); deferred behind blind scoring (`exp1`), word share (`exp2`), and `exp5` render comparisons.",
+      "next_action": "Run `bench/control_vector_chain_readout` prototype comparing linear `J_ref @ Sigma` step-in against passing steered `layers.49` hidden states forward through `layers.50..63` and `lm_head` on the 8 missed bank vectors."
+    },
+    {
+      "rank": 10,
+      "id": "mobile_app_queue_trim_and_edit_from_render",
+      "title": "Mobile Studio (`app/`): `/queue` + `/history` Payload Privacy Trim & 'Edit From Render' Button",
+      "track": "image_generation_and_editing",
+      "status": "designed_unimplemented",
+      "leverage": "Medium",
+      "effort": "S",
+      "code_anchors": [
+        "workflows/h3_config.py:1658",
+        "docs/wiki/image/h3_image.md:1"
+      ],
+      "source_sessions": [
+        "c5132fe6-d287-43d3-ae35-2d695ae389d6",
+        "53392f0e-498d-4883-a1e0-341b308c55a5",
+        "dbff657c-5ff0-4da1-aac2-b001448f5fb8"
+      ],
+      "why_it_dropped": "Designed during the `pika` (`c5132fe6`) and `53392f0e` sessions; paused after `bc76d3f1` fixed P1 mobile layout & tab-routing bugs in standalone `app/`.",
+      "next_action": "In the standalone `app/` repo, strip raw prompt/workflow payloads from unowned `/queue` and `/history` responses and add an 'Edit guidance from finished render' action reusing seed + image."
+    },
+    {
+      "rank": 11,
+      "id": "audio_freeze_unrendered_queue",
+      "title": "Unrendered `audio_freeze` Stem/0.25-Release & `AudioRefineMask` + `FrozenVideoCache` Tests",
+      "track": "audio_freeze_and_song_loops",
+      "status": "queued_unrendered",
+      "leverage": "Medium",
+      "effort": "S (GPU run)",
+      "code_anchors": [
+        "audio_freeze_song.py:502",
+        "audio_refine.py:32",
+        "frozen_video_cache.py:914"
+      ],
+      "source_sessions": [
+        "79a5bba6-b1ff-4ce0-bd01-29e45394c0ce"
+      ],
+      "why_it_dropped": "All nodes exist and pass static graph checks (`check_audio_freeze.py`), but GPU test renders were repeatedly displaced by Pika, Image, Control Vector, and D-Pad campaigns.",
+      "next_action": "Queue one controlled Pika song-loop test comparing `release=0.25` vs `1.0`, separated stems, and 2nd-pass `MiniMaxH3AudioRefineMask` + `MiniMaxH3FrozenVideoCache` speed/quality."
+    },
+    {
+      "rank": 12,
+      "id": "lane_db_duckdb_and_perception_lhf",
+      "title": "`lane_db` Tier-2/3 Provenance, DuckDB Analytical Views, & `perception-lhf` for Future `'fun2'`",
+      "track": "masked_v2v_pipeline_and_lane_db",
+      "status": "foundation_landed",
+      "leverage": "Medium",
+      "effort": "M",
+      "code_anchors": [
+        "bench/lane_db/db.py:48",
+        "bench/lane_db/cli.py:46",
+        "bench/lane_db/prove.py:1"
+      ],
+      "source_sessions": [
+        "553f263b-8aa1-4e52-b6d8-d0e05a1b06cc",
+        "683575dd-3326-4ca8-9d26-e6a5eae4c310"
+      ],
+      "why_it_dropped": "SQLite Tier-1 schema (`0001`–`0003`) and `prove.py` landed on `2026-11-10` (`b561376c..645bfc32`), then `'fun'` was parked and focus moved to Pika/Image/CV.",
+      "next_action": "When kicking off `'fun2'`, complete capture-folder self-discovery (`645bfc32` steps 1–3), layer read-only DuckDB analytical views on `lane.sqlite`, and wire owner verdict feedback (`perception-lhf`)."
+    },
+    {
+      "rank": 13,
+      "id": "cross_project_agent_bus",
+      "title": "Cross-Session / Multi-Harness Agent Bus (`Claude` <-> `agy`) & Shared Transcript Indexer",
+      "track": "core_conditioning_rules_and_prompts",
+      "status": "meta_tooling",
+      "leverage": "Medium",
+      "effort": "S–M",
+      "code_anchors": [
+        "docs/wiki/projects/AGENTS.md:1",
+        "bench/build_wiki_index.py:1"
+      ],
+      "source_sessions": [
+        "3b57a539-ea15-49ad-9a6b-0937b55f7201",
+        "a9f31858-98e5-48c2-9c9b-7fc45d2b83f2",
+        "96cfdfe1-4681-4286-9025-4363d217257c"
+      ],
+      "why_it_dropped": "Noticeable friction in Nov 10–12 sessions: the owner repeatedly copy-pasted findings between Claude Code tabs and Antigravity sessions (`step 527`, `step 604`, `step 907`, `step 1425`) causing cross-talk and duplicate work.",
+      "next_action": "Expose a read-only digest bridge (extending `ccutils` DuckDB + `agy` transcript JSONL scanner) into `docs/wiki/projects/` ledgers so any agent starts with verified cross-harness state."
+    },
+    {
+      "rank": 14,
+      "id": "phase2_code_package_reorg",
+      "title": "Phase-2 Internal Package Grouping for `75` Root `.py` (`48.2k` LOC) & `480` Flat `bench/*.py` (`232.9k` LOC)",
+      "track": "core_conditioning_rules_and_prompts",
+      "status": "blueprinted",
+      "leverage": "High (Maintainability)",
+      "effort": "L (Staged PRs)",
+      "code_anchors": [
+        "bench/check_node_ids.py:1",
+        "control_vector_nodes.py:1",
+        "bench/INDEX.md:1"
+      ],
+      "source_sessions": [
+        "79a5bba6-b1ff-4ce0-bd01-29e45394c0ce",
+        "4ebaab8d-2d37-4d20-94c2-03838a60e4bd"
+      ],
+      "why_it_dropped": "Rapid multi-session shipping left `75` flat modules at repo root (`48,227` lines) and `480` flat scripts at top-level `bench/` (`232,862` lines, including `169` `check_*.py`), while Phase-1 focused cleanly on `docs/wiki/` first.",
+      "next_action": "Follow `reorg_blueprint.phase_2`: move internal node implementations under `h3_pack/<domain>/` while keeping `nodes.py` order and top-level re-export shims intact (`check_node_ids.py`), and group flat `bench/*.py` into `bench/{checks,eval,ops,sol,masked_v2v}/`."
+    }
+  ],
+  "code_vs_prose_discrepancies": [
+    {
+      "id": "disc_full_length_bar_guide",
+      "status": "open_memo_nuance",
+      "area": "Temporal Visual Guides",
+      "claim_in_prose": "`docs/wiki/research/control_vectors/2026-11-12_exp5_ladder_and_temporal_guide_synthesis.md:170` writes that feeding drawn HUD bars as a full-clip `cond` visual guide paints literal bars *'unless released early in the step schedule'*.",
+      "ground_truth_in_code": "`docs/wiki/research/2026-11-12_guide_signal_full_length_bars.md:5-8` actually tested both held AND early-released full-length bar guides (`bars_a_rel`, `bars_b_rel`) and verified the picture STILL comes back as literal bars — because `comfy/ldm/minimax/model.py:34,608,754` pins `minimax_keyframes` `cond` via `video_patch_proj` at `VISUAL_COND_TIMESTEP = 0.999`. `NKD_v153`/`NKD_v173` overlaid HUD strips post-render and used short `until`-released localized keyframes (`cond_audio` / image).",
+      "resolution": "Recorded in truth ledger; prefer localized `MiniMaxH3SoundCues` (`cond_audio`) or short cutout `<Video 1>` + `0.33` release over full-frame visual `cond` bars."
+    },
+    {
+      "id": "disc_sol_chunked_quantizer",
+      "status": "open_code_gap",
+      "area": "Attention / SolChunked",
+      "claim_in_prose": "`MiniMaxH3SolChunked` exposes a `quantizer` widget parallel to `MiniMaxH3Sol`.",
+      "ground_truth_in_code": "`sol_chunked_h3.py:158-161` calls `_ck_cuda.sol_attn_chunked(...)` without forwarding any `quantizer` argument (already logged via commit `4ef3a44c` in `docs/wiki/ops/comfy_kitchen.md`).",
+      "resolution": "Tracked as Priority #8 in `unfinished_and_forgotten_ideas`."
+    },
+    {
+      "id": "disc_audio_freeze_plate_restore",
+      "status": "repaired_2026_11_13",
+      "area": "Audio Freeze / Plate Restore",
+      "claim_in_prose": "`docs/wiki/core/h3_audio_freeze.md:290` previously claimed no pack node restored clean plates between two samplers.",
+      "ground_truth_in_code": "`plate_restore.py` (`MiniMaxH3RestorePlate`) implements clean plate restoration between two samplers.",
+      "resolution": "Fixed `docs/wiki/core/h3_audio_freeze.md:290` (`../../../plate_restore.py`) and updated link depth."
+    },
+    {
+      "id": "disc_check_doc_links_two_files",
+      "status": "repaired_2026_11_13",
+      "area": "Bench Checks",
+      "claim_in_prose": "Pre-existing failures in `bench/check_audio_freeze.py:836` (`docs/wiki/core/h3_audio_freeze.md` line check), `bench/check_two_shot_load.py:178` (stale `spliced.mp4` doc assert), `docs/wiki/research/sglang_comparison.md:512`, `docs/wiki/research/sglang_h3_pipeline.md:545`, `docs/wiki/research/sglang_h3_pipeline.md:637`, and `docs/wiki/masked_v2v/fun_render_backlog.md:304`.",
+      "ground_truth_in_code": "Verified actual targets and line ranges on disk (`audio_freeze_song.py`, `bench/shot_to_load.py`, `comfy/...`).",
+      "resolution": "All repaired during Step 2 of the `2026-11-13` reorg."
+    },
+    {
+      "id": "disc_router_bloat_and_decisions_size",
+      "status": "repaired_2026_11_13",
+      "area": "Wiki Routers",
+      "claim_in_prose": "`docs/wiki/decisions.md` (`~204 KB`) and `docs/wiki/index.md` (`~50.5 KB`) exceeded `ROUTER_MAX_BYTES = 45,000` (`read_file` 46,080 B limit) and generated `prompt_bank.md`/`prompt_catalogue.md` tripped `build_wiki_index.py`.",
+      "ground_truth_in_code": "Sharded `2026-10-24`–`2026-11-10` into 6 `<= 40 KB` files under `docs/wiki/decisions/`, slimmed `docs/wiki/index.md` to `~17 KB`, and updated `bench/build_wiki_index.py:159` to exclude non-router generated catalogs.",
+      "resolution": "All `70/70` active routers now satisfy `<= 45,000 B`."
+    },
+    {
+      "id": "disc_cv_mode_selection_exp5",
+      "status": "repaired_2026_11_13",
+      "area": "Control Vectors vs EditGuider",
+      "claim_in_prose": "Earlier notes treated Control Vectors and `MiniMaxH3EditGuider` interchangeably on localized scene/optical shifts.",
+      "ground_truth_in_code": "`exp2`–`exp5` + `fedcdff1` established distinct strengths: Control Vectors excel as `1x` broadcast world/style/medium dials (`cos=0.72` Pole-A caveat on single-phrase builds), while `MiniMaxH3EditGuider(first_step=1)` preserves anatomy and handles subtle continuous or split-stream edits (`1.5x`).",
+      "resolution": "Synced across `docs/wiki/control_vectors.md:33` and `docs/wiki/edit_guidance.md:51`."
+    }
+  ],
+  "render_catalogue": [
+    {
+      "batch": "Shipped Zero-File Sound Cues + 2D Sprite D-Pad Smoke",
+      "date": "2026-11-12",
+      "track": "timeline_sound_cues_and_sprite_dpad",
+      "dir": "$H3_OUTPUT_DIR/Video/",
+      "highlights": [
+        "$H3_OUTPUT_DIR/Video/h3_r2v_dpad_sound_pika_00001-audio.mp4",
+        "$H3_OUTPUT_DIR/Video/h3_t2v_pika_sound_guide_00001-audio.mp4"
+      ],
+      "finding": "Cold-start zero-file graphs: `f51` hop apex, `-434 px` facing-right backward walk with 3 leg cycles, organic foley (`r=+0.0238`)."
+    },
+    {
+      "batch": "Sound Islands & Leash-Yank Multi-Actor Choreography",
+      "date": "2026-11-12",
+      "track": "timeline_sound_cues_and_sprite_dpad",
+      "dir": "$H3_OUTPUT_DIR/Video/guide_sound_2026-11-12/",
+      "highlights": [
+        "$H3_OUTPUT_DIR/Video/guide_sound_2026-11-12/exp1/stack_5arms.mp4",
+        "$H3_OUTPUT_DIR/Video/guide_sound_2026-11-12/exp2/yank_a_vidonly_fixed_s1.6_00001-audio.mp4",
+        "$H3_OUTPUT_DIR/Video/guide_sound_2026-11-12/exp3_gates/gate2b_hybrid_vep033_f54_00001-audio.mp4"
+      ],
+      "finding": "`e0a5bb35` packed-tensor `streams=\"video_only\"` fix eliminated `.wav` bleed (`r=-0.0812` vs `+0.8414`) while slamming Hop 2 at `f54..57`."
+    },
+    {
+      "batch": "2D Kinematic D-Pad (`<Picture 1> + <Video 1>`)",
+      "date": "2026-11-12",
+      "track": "timeline_sound_cues_and_sprite_dpad",
+      "dir": "$H3_OUTPUT_DIR/Video/ref_signal_2026-11-12/",
+      "highlights": [
+        "$H3_OUTPUT_DIR/Video/ref_signal_2026-11-12/exp2_dpad/stack_3arms_dpad.mp4",
+        "$H3_OUTPUT_DIR/Video/ref_signal_2026-11-12/exp2_dpad/dpad_mid_reverse_00001-audio.mp4",
+        "$H3_OUTPUT_DIR/Video/ref_signal_2026-11-12/exp2_dpad/dpad_left_latehop_00001-audio.mp4"
+      ],
+      "finding": "4-way trajectory D-pad (`+420 px` right, `-444 px` left, `-392 px` backward facing right) with zero backdrop bleed (`124/124` tracked)."
+    },
+    {
+      "batch": "Control Vector Word Share & `exp2`–`exp5` Ladder",
+      "date": "2026-11-12",
+      "track": "control_vectors_and_jlens",
+      "dir": "$H3_OUTPUT_DIR/Video/cv_word_share_2026-11-12/",
+      "highlights": [
+        "$H3_OUTPUT_DIR/Video/cv_word_share_2026-11-12/exp2_film_16mm_1974_stacked.mp4",
+        "$H3_OUTPUT_DIR/Video/cv_word_share_2026-11-12/exp2_head_swell_stacked.mp4",
+        "$H3_OUTPUT_DIR/Video/cv_word_share_2026-11-12/exp3/exp3_heavy_blizzard_s730451892_00001-audio.mp4"
+      ],
+      "finding": "Wait-on-owner-eye 8-clip J-Lens split (`shared`/`named`/`rest`) + 11 `exp3` single-phrase builds isolating the `cos=0.72` Pole-A shift."
+    },
+    {
+      "batch": "Edit Guidance 3-Way Showcase & Diner Fun Vectors",
+      "date": "2026-11-11..12",
+      "track": "edit_guidance",
+      "dir": "$H3_OUTPUT_DIR/Video/edit_guidance_showcase/",
+      "highlights": [
+        "$H3_OUTPUT_DIR/Video/edit_guidance_showcase/exp1_hat_off_guide_s2.2_s20261112_00001-audio.mp4",
+        "$H3_OUTPUT_DIR/Video/edit_guidance_showcase/exp2_noir_to_color_guide_s2.0_s20261112_00001-audio.mp4",
+        "$H3_OUTPUT_DIR/Video/fun_vectors/diner_arctic_expedition_scene_s2.25_00001-audio.mp4"
+      ],
+      "finding": "20 showcase clips (`edit_guidance_showcase`, 60 files incl. png/mp4) + 20 diner concept renders (`fun_vectors`) + 316 files in `Video/edit_guidance/`."
+    },
+    {
+      "batch": "6-Step Pika Sol `SOL_DENSE_TAIL=\"49\"` Panel (15 measured clips)",
+      "date": "2026-11-11",
+      "track": "attention_sol_and_precision",
+      "dir": "$H3_OUTPUT_DIR/Video/",
+      "highlights": [
+        "$H3_OUTPUT_DIR/Video/h3_t2v_pika_pika_market__s0_b49_00001-audio.mp4",
+        "$H3_OUTPUT_DIR/Video/h3_t2v_pika_pika_market_s2__s0_b49_00001-audio.mp4",
+        "$H3_OUTPUT_DIR/Video/h3_r2v_pika_pika_kitchen_r2v__s0_b49_00001-audio.mp4"
+      ],
+      "finding": "Blind Pass 2 proved `s0_b49` (`55/300` dense calls) ties or beats `dense` while saving `10.1–12.6 s` per 345-frame render."
+    },
+    {
+      "batch": "MiniMax-H3-Image Int8/BF16 Probes & Pika Still / Field Mask Trials",
+      "date": "2026-11-10..11",
+      "track": "image_generation_and_editing",
+      "dir": "$H3_OUTPUT_DIR/Image/",
+      "highlights": [
+        "$H3_OUTPUT_DIR/Image/h3_image_probe/shipped_h3_image_t2i_00001_.png",
+        "$H3_OUTPUT_DIR/Image/h3_image_probe/shipped_h3_image_edit_00001_.png",
+        "$H3_OUTPUT_DIR/Image/field_mask_trial/clay_s200_look_only_00001_.png",
+        "$H3_OUTPUT_DIR/Image/pika_still_trial/a4_after_fix_clay_released_last_two_steps_00001_.png",
+        "$H3_OUTPUT_DIR/Image/2026-11-10_cv_comparisons/clockmaker_t2i_node_s1.5_last2_s20261110_00001_.png"
+      ],
+      "finding": "29 probe stills in `h3_image_probe`, 135 files in `pika_still_trial`, 22 in `field_mask_trial`, and 15 in `Image/2026-11-10_cv_comparisons`."
+    }
+  ],
+  "sessions_audited": {
+    "agy_sessions_count": 16,
+    "claude_root_sessions_nov10_13_count": 11,
+    "claude_subagent_transcripts_nov10_13_count": 51,
+    "claude_duckdb_total_rows_nov04_13": 78,
+    "agy_sessions": [
+      {
+        "id": "038d5751-c0f0-48d6-8949-7bfdf518d9ca",
+        "last_mod": "2026-11-12 16:06",
+        "topic": "Read-only investigation of ComfyUI core, KJNodes, & sister `coderef/` checkouts"
+      },
+      {
+        "id": "085b1d47-6da2-4c0b-b84d-e56b7d630858",
+        "last_mod": "2026-11-10 21:58",
+        "topic": "Standalone `app/` Control Vectors, Edit Guidance, ref holds, and prompt-edit validation"
+      },
+      {
+        "id": "346a1e5c-945d-402d-babd-ff90bc3fd6b0",
+        "last_mod": "2026-11-12 21:09",
+        "topic": "Qwen3-VL-32B MTP viability, `exp2` sound-guide verification, & shipped zero-file smoke review"
+      },
+      {
+        "id": "3b57a539-ea15-49ad-9a6b-0937b55f7201",
+        "last_mod": "2026-11-12 21:07",
+        "topic": "CLI/Repo coordination: `MiniMax-H3-Image` sigma/edit debug, sound cues + 2D D-pad shipping (`5407673f`, `50410244`)"
+      },
+      {
+        "id": "4ce14591-be23-4753-a957-882b070156fb",
+        "last_mod": "2026-11-10 20:54",
+        "topic": "Control vector over-correction audit, `3-lever` simplification research doc, & Pika LoRA check"
+      },
+      {
+        "id": "6be563e0-384e-42a6-935e-d1a1204c3a1a",
+        "last_mod": "2026-11-10 20:31",
+        "topic": "Upstream `coderef/` / Pika inference parity audit & ref sizing grid review"
+      },
+      {
+        "id": "79a5bba6-b1ff-4ce0-bd01-29e45394c0ce",
+        "last_mod": "2026-11-13 12:38",
+        "topic": "Generalizing `masked_v2v` frame/clock rules into `docs/wiki/core/h3_frame_rules.md` + `AGENTS.md` & check audit"
+      },
+      {
+        "id": "817eb49c-cd04-48b1-97c2-54042445f32c",
+        "last_mod": "2026-11-11 18:41",
+        "topic": "Standalone 4-section `general_image_edit` system prompt for Pika / `P-H3` / `MiniMax-H3-Image`"
+      },
+      {
+        "id": "8b2ac311-5fc0-4243-aa8c-329073f3f6e0",
+        "last_mod": "2026-11-11 16:03",
+        "topic": "Sanitizing `AGENTS.md` & repo rules to use `$H3_INPUT_DIR` / `$H3_OUTPUT_DIR` instead of share paths"
+      },
+      {
+        "id": "96cfdfe1-4681-4286-9025-4363d217257c",
+        "last_mod": "2026-11-12 16:13",
+        "topic": "Sibling `MiniMax-H3-Image` & NKD mechanism deep dive + cross-session technical handoff"
+      },
+      {
+        "id": "a8949cba-635c-4638-bdb9-e9e0053e49a6",
+        "last_mod": "2026-11-11 21:28",
+        "topic": "`comfy-kitchen` upstream SwiGLU sync verification & `MiniMax-H3-Image` weight impact"
+      },
+      {
+        "id": "a9f31858-98e5-48c2-9c9b-7fc45d2b83f2",
+        "last_mod": "2026-11-12 21:07",
+        "topic": "Main `edit_guidance` / `exp5` ladder synthesis, `e0a5bb35` packed-tensor fix, & live shipped render verification"
+      },
+      {
+        "id": "d1c5e289-a887-4a6f-b3a6-c7af8a96388c",
+        "last_mod": "2026-11-12 20:27",
+        "topic": "Standalone `app/` headless Chrome CDP + Tier-1 policy verification"
+      },
+      {
+        "id": "e8a0480a-ee52-4a2a-b330-5f5825e5186a",
+        "last_mod": "2026-11-12 12:44",
+        "topic": "Plain-English TL;DR contrasting Edit Guidance vs Control Vectors vs plain prompting"
+      },
+      {
+        "id": "f7546c90-462f-4cf0-8004-e6689739bd8c",
+        "last_mod": "2026-11-11 17:59",
+        "topic": "Vendor `MiniMax-H3-Image` prompt-expansion scripts & standalone LLM prompt parser"
+      },
+      {
+        "id": "f77c2cfa-3a6f-4837-aa24-bfed8a7efc97",
+        "last_mod": "2026-11-12 16:26",
+        "topic": "Reviewing Claude's Control Vector CLI/Studio commits & aligning on 3-way steering design"
+      }
+    ],
+    "claude_root_sessions": [
+      {
+        "id": "683575dd-3326-4ca8-9d26-e6a5eae4c310",
+        "title": "(untitled)",
+        "window": "2026-11-10 14:22..22:00",
+        "topic": "`shot_to_load` depth default (`8d61067f`), masked-V2V `fun` wrap-up & `mrsql` handoff"
+      },
+      {
+        "id": "553f263b-8aa1-4e52-b6d8-d0e05a1b06cc",
+        "title": "mrsql",
+        "window": "2026-11-10 19:25..22:33",
+        "topic": "SQLite Tier-1 `bench/lane_db` (`b561376c..25219d48`) & capture-folder decoupling plan (`645bfc32`)"
+      },
+      {
+        "id": "f12ef614-d5b3-44a0-9a52-f0866eac297a",
+        "title": "toml",
+        "window": "2026-11-10 22:00..11-11 01:45",
+        "topic": "3-lever control-vector spans, `differing_sections`, `EditGuider last_step`, & ref release semantics"
+      },
+      {
+        "id": "dbff657c-5ff0-4da1-aac2-b001448f5fb8",
+        "title": "mobile",
+        "window": "2026-11-10 22:21..11-11 02:34",
+        "topic": "Syncing standalone gitignored `app/` UI with updated node schemas & workflows"
+      },
+      {
+        "id": "c5132fe6-d287-43d3-ae35-2d695ae389d6",
+        "title": "pika",
+        "window": "2026-11-10 22:31..11-11 02:38",
+        "topic": "Pika `t=1` still edits, cut-out ref negative result (`8c474867`), 32B encoder default, & `/queue`+`/history` trim design"
+      },
+      {
+        "id": "4ebaab8d-2d37-4d20-94c2-03838a60e4bd",
+        "title": "cv",
+        "window": "2026-11-11 14:10..11-12 00:29",
+        "topic": "Control Vector Studio HTTP cookie auth/isolation (`dd262ffb`, `71270747`), UI bug triage, & 3-way builder unification plan"
+      },
+      {
+        "id": "95219d12-a8da-4fca-a3fd-d52d9f1b401c",
+        "title": "(untitled)",
+        "window": "2026-11-11 14:29..17:43",
+        "topic": "`MiniMax-H3-Image` weight audit (`measure_h3_image_weights.py`), int8 code-for-code proof, & SwiGLU check"
+      },
+      {
+        "id": "23d096c4-8be3-440b-b749-b6c0b1271f27",
+        "title": "(untitled)",
+        "window": "2026-11-11 15:57..22:33",
+        "topic": "6-step Pika `MiniMaxH3Sol` Pass 1 + blind Pass 2 panel & `SOL_DENSE_TAIL=\"49\"` (`5d293b5f`, `96acc713`)"
+      },
+      {
+        "id": "53392f0e-498d-4883-a1e0-341b308c55a5",
+        "title": "(untitled)",
+        "window": "2026-11-11 19:29..20:02",
+        "topic": "Debunking external `Semantic-Bridge` node (pulls toward average plain caption fixed point) & `EditGuider` placement"
+      },
+      {
+        "id": "bc76d3f1-37d8-4cd0-8ec4-9cc7cb6be112",
+        "title": "mobileapp",
+        "window": "2026-11-11 23:16..11-12 00:29",
+        "topic": "Fixing wrong-workflow, settings restore, upload text, tab bar, touch target, & `dvh` bugs in `app/`"
+      },
+      {
+        "id": "ad7e5777-90ff-4c55-9941-9cbe5ddfa1ba",
+        "title": "(untitled)",
+        "window": "2026-11-12 16:30..22:34",
+        "topic": "Blind J-Lens readout scoring (`bench/control_vector_readout_score.py`, `51` subagents overall), `word_share`, & bars guide record (`bf580202`)"
+      }
+    ]
+  },
+  "reorg_blueprint": {
+    "phase_1_completed": {
+      "scope": "docs/",
+      "summary": "Moved `206` files under `docs/wiki/{research,archive}/`, sharded `decisions.md` into `decisions/*.md` (`<= 42 KB`), created `docs/wiki/projects/` and `docs/README.md`, rebuilt `docs/wiki/index.md` (`< 20 KB`), fixed `bench/` path generators/checks, left `docs/wiki/system_prompts/**` untouched."
+    },
+    "phase_2_proposed": {
+      "scope": "root/*.py (75 files, 48.2k LOC) and bench/*.py (480 flat files, 232.9k LOC)",
+      "hard_invariants": [
+        "NEVER rename any of the 65 registered `node_id` values (`bench/node_id_manifest.json`) or reorder `get_node_list` / input-output sockets.",
+        "Keep thin top-level compatibility shims (or `__init__.py` imports) for any external ComfyUI graph or benchmark script importing root modules during transition.",
+        "Execute only in dedicated small PRs gated by `check_node_ids.py`, `check_literal_widgets.py`, `check_audio_freeze.py`, and `run_checks.py`."
+      ],
+      "root_package_plan": {
+        "target": "h3_pack/",
+        "keep_at_root": [
+          "__init__.py",
+          "nodes.py",
+          "h3_rules.py"
+        ],
+        "groups": [
+          {
+            "pkg": "h3_pack/loaders/",
+            "modules": [
+              "h3_encoder_loader.py",
+              "lora_branch.py",
+              "overlay_loader.py",
+              "vae_precision.py"
+            ]
+          },
+          {
+            "pkg": "h3_pack/attention/",
+            "modules": [
+              "attention.py",
+              "sol_attn_h3.py",
+              "sol_chunked_h3.py",
+              "channel_balance.py",
+              "exact_blocks.py"
+            ]
+          },
+          {
+            "pkg": "h3_pack/conditioning/",
+            "modules": [
+              "conditioning.py",
+              "reference_conditioning.py",
+              "reference_encode.py",
+              "reference_noise.py",
+              "guide_latent.py",
+              "resolution.py",
+              "preflight.py"
+            ]
+          },
+          {
+            "pkg": "h3_pack/steering/",
+            "modules": [
+              "control_vector_nodes.py (4,698L split into nodes vs math)",
+              "control_vectors.py",
+              "j_lens.py",
+              "h3_pair_compiler.py",
+              "h3_spans.py",
+              "prompt_lists.py"
+            ]
+          },
+          {
+            "pkg": "h3_pack/guidance_and_motion/",
+            "modules": [
+              "edit_guidance.py",
+              "h3_prompt_edit.py",
+              "sound_cues.py",
+              "sprite_trajectory.py"
+            ]
+          },
+          {
+            "pkg": "h3_pack/image/",
+            "modules": [
+              "h3_image_nodes.py",
+              "ph3_image_nodes.py"
+            ]
+          },
+          {
+            "pkg": "h3_pack/audio/",
+            "modules": [
+              "audio_freeze.py",
+              "audio_freeze_song.py",
+              "audio_refine.py",
+              "frozen_video_cache.py",
+              "loop_plan.py"
+            ]
+          },
+          {
+            "pkg": "h3_pack/masked_v2v/",
+            "modules": [
+              "sam31_corrections.py",
+              "subject_track.py",
+              "shot_table.py",
+              "subject_boxes.py",
+              "sapiens2_parts.py",
+              "body_pose.py",
+              "sam3d_body_vith.py",
+              "video_mask.py",
+              "plate_restore.py",
+              "masked_prompt.py"
+            ]
+          },
+          {
+            "pkg": "h3_pack/probes/",
+            "modules": [
+              "provenance.py",
+              "denoise_mask_probe.py",
+              "step_x0_observer.py",
+              "core_sparse_capture.py"
+            ]
+          }
+        ]
+      },
+      "bench_package_plan": {
+        "already_modular": [
+          "bench/_lib/",
+          "bench/comfy_capture_nodes/",
+          "bench/control_vector/",
+          "bench/h3_image/",
+          "bench/lane_db/"
+        ],
+        "proposed_subdirs": [
+          {
+            "dir": "bench/checks/",
+            "goal": "House all `169` top-level `check_*.py` suites, retaining `bench/run_checks.py` as runner entrypoint."
+          },
+          {
+            "dir": "bench/eval/",
+            "goal": "Consolidate grading, blind scoring, `edit_guidance_arms.py`, `control_vector_readout_score.py`, `score_session.py`."
+          },
+          {
+            "dir": "bench/masked_v2v/",
+            "goal": "Quarantine `'fun'`-era capture/shot/assembly monoliths (`capture_masked_run.py` 8.6kL, `shot_to_load.py` 5.4kL, `assemble_delivery.py` 3.7kL) alongside `bench/lane_db/`."
+          },
+          {
+            "dir": "bench/ops/",
+            "goal": "Repo hygiene & generator scripts (`build_index.py`, `build_wiki_index.py`, `check_commit_ready.py`, `build_prompt_*`)."
+          }
+        ]
+      }
+    }
+  }
+}</script>
+<script>
+(() => {
+  const data = JSON.parse(document.getElementById("atlas-ledger").textContent);
+  const m = data.codebase_metrics;
+  let activeTab = "ideas";
+  let trackFilter = "all";
+  let query = "";
+
+  document.getElementById("subtitle").innerHTML =
+    `Generated <code>${data.generated_on}</code> · HEAD <code>${m.head_commit_at_audit}</code> · Data source: <code>ledger.json</code> · 'fun' shot backlog parked/excluded`;
+
+  const kpiRows = [
+    [m.registered_nodes, "Registered H3 Node IDs"],
+    [m.workflow_graphs, "Shipped Workflow JSONs"],
+    [m.root_python.files, `Root .py (${m.root_python.lines.toLocaleString()} LOC)`],
+    [m.bench_python.total_files, `Bench .py (${m.bench_python.total_lines.toLocaleString()} LOC)`],
+    [m.commits_since_2026_11_04, `Commits Since Nov 4 (${m.commits_since_2026_11_09} since Nov 9)`],
+    [data.sessions_audited.agy_sessions_count + data.sessions_audited.claude_root_sessions_nov10_13_count,
+     `Root Sessions (${data.sessions_audited.agy_sessions_count} agy + ${data.sessions_audited.claude_root_sessions_nov10_13_count} Claude + ${data.sessions_audited.claude_subagent_transcripts_nov10_13_count} subagents)`],
+  ];
+  document.getElementById("kpis").innerHTML = kpiRows.map(([v, l]) =>
+    `<div class="kpi"><div class="val">${v}</div><div class="lbl">${l}</div></div>`
+  ).join("");
+
+  const esc = (s) => String(s)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  const matchQ = (obj) => !query || JSON.stringify(obj).toLowerCase().includes(query);
+
+  function levBadge(lev) {
+    if (/Critical/i.test(lev)) return "b-crit";
+    if (/High/i.test(lev)) return "b-high";
+    return "b-med";
+  }
+
+  function statusBadge(st) {
+    if (st === "active" || st === "shipped") return "b-active";
+    if (st === "parked_closed") return "b-parked";
+    if (st.startsWith("open")) return "b-open";
+    if (st.startsWith("repaired")) return "b-repaired";
+    return "b-queued";
+  }
+
+  function copyPath(txt, btn) {
+    navigator.clipboard?.writeText(txt).then(() => {
+      const prev = btn.textContent;
+      btn.textContent = "Copied";
+      setTimeout(() => btn.textContent = prev, 1000);
+    });
+  }
+  window.__atlasCopy = copyPath;
+
+  function renderIdeas() {
+    const tracks = ["all", ...new Set(data.unfinished_and_forgotten_ideas.map(i => i.track))];
+    const filterHtml = `<div class="filters">
+      <span class="meta">Track filter:</span>
+      ${tracks.map(t => `<button class="pill ${trackFilter === t ? "active" : ""}" data-track="${t}">${esc(t)}</button>`).join("")}
+    </div>`;
+    const items = data.unfinished_and_forgotten_ideas.filter(i =>
+      (trackFilter === "all" || i.track === trackFilter) && matchQ(i)
+    );
+    return filterHtml + `<div class="grid">` + items.map(i => `
+      <article class="card">
+        <div class="card-head">
+          <h3>#${i.rank}. ${esc(i.title)}</h3>
+          <span class="badge ${levBadge(i.leverage)}">${esc(i.leverage)}</span>
+        </div>
+        <div class="meta">Track: <code>${esc(i.track)}</code> · Effort: <code>${esc(i.effort)}</code> · Status: <code>${esc(i.status)}</code></div>
+        <div><strong>Why it dropped:</strong> ${esc(i.why_it_dropped)}</div>
+        <div><strong>Next step:</strong> ${esc(i.next_action)}</div>
+        <div class="chips">
+          ${i.code_anchors.map(a => `<span class="chip">${esc(a)}</span>`).join("")}
+          ${i.source_sessions.map(s => `<span class="chip">${esc(s.slice(0,8))}</span>`).join("")}
+        </div>
+      </article>
+    `).join("") + `</div>`;
+  }
+
+  function renderTracks() {
+    const items = data.tracks.filter(matchQ);
+    return `<div class="grid">` + items.map(t => `
+      <article class="card">
+        <div class="card-head">
+          <h3>${esc(t.name)}</h3>
+          <span class="badge ${statusBadge(t.status)}">${esc(t.status)}</span>
+        </div>
+        <div>${esc(t.summary)}</div>
+        <div class="chips">${t.nodes.map(n => `<span class="chip">${esc(n)}</span>`).join("")}</div>
+        <details>
+          <summary>Files (${t.key_files.length}), Commits (${t.key_commits.length}), Workflows (${t.workflows.length}), Wiki (${t.wiki_owners.length})</summary>
+          <p class="meta"><strong>Key files:</strong> ${t.key_files.map(f => `<code>${esc(f)}</code>`).join(" ")}</p>
+          ${t.key_commits.length ? `<p class="meta"><strong>Commits:</strong> ${t.key_commits.map(c => `<code>${esc(c)}</code>`).join(" ")}</p>` : ""}
+          ${t.workflows.length ? `<p class="meta"><strong>Workflows:</strong> ${t.workflows.map(w => `<code>${esc(w)}</code>`).join(" ")}</p>` : ""}
+          <p class="meta"><strong>Wiki:</strong> ${t.wiki_owners.map(w => `<code>${esc(w)}</code>`).join(" ")}</p>
+          ${t.renders.length ? `<p class="meta"><strong>Renders:</strong> ${t.renders.map(r => `<code>${esc(r)}</code>`).join(" ")}</p>` : ""}
+        </details>
+      </article>
+    `).join("") + `</div>`;
+  }
+
+  function renderDiscrepancies() {
+    const items = data.code_vs_prose_discrepancies.filter(matchQ);
+    return `<table><thead><tr><th>Status</th><th>Area</th><th>Prose Claim</th><th>Code / Ground Truth</th><th>Resolution</th></tr></thead><tbody>` +
+      items.map(d => `<tr>
+        <td><span class="badge ${statusBadge(d.status)}">${esc(d.status)}</span></td>
+        <td><strong>${esc(d.area)}</strong></td>
+        <td>${esc(d.claim_in_prose)}</td>
+        <td>${esc(d.ground_truth_in_code)}</td>
+        <td>${esc(d.resolution)}</td>
+      </tr>`).join("") + `</tbody></table>`;
+  }
+
+  function renderCatalogue() {
+    const items = data.render_catalogue.filter(matchQ);
+    return `<div class="grid">` + items.map(r => `
+      <article class="card">
+        <div class="card-head">
+          <h3>${esc(r.batch)}</h3>
+          <span class="badge b-active">${esc(r.date)}</span>
+        </div>
+        <div class="meta">Base folder: <code>${esc(r.dir)}</code></div>
+        <div>${esc(r.finding)}</div>
+        <div>${r.highlights.map(h => `
+          <div style="margin:4px 0;"><code>${esc(h)}</code>
+          <button class="copy-btn" type="button" onclick="window.__atlasCopy('${esc(h)}', this)">Copy</button></div>
+        `).join("")}</div>
+      </article>
+    `).join("") + `</div>`;
+  }
+
+  function renderSessions() {
+    const sa = data.sessions_audited;
+    const agy = sa.agy_sessions.filter(matchQ);
+    const cl = sa.claude_root_sessions.filter(matchQ);
+    return `
+      <h3>Antigravity (<code>agy</code>) Sessions Audited (${agy.length}/${sa.agy_sessions_count})</h3>
+      <table><thead><tr><th>Session ID</th><th>Last Modified</th><th>Scope / Findings</th></tr></thead><tbody>
+        ${agy.map(s => `<tr><td><code>${esc(s.id)}</code></td><td>${esc(s.last_mod)}</td><td>${esc(s.topic)}</td></tr>`).join("")}
+      </tbody></table>
+      <h3 style="margin-top:24px;">Claude Code Root Sessions Nov 10–13 (${cl.length}/${sa.claude_root_sessions_nov10_13_count} + ${sa.claude_subagent_transcripts_nov10_13_count} subagents)</h3>
+      <table><thead><tr><th>Session ID</th><th>Title</th><th>Window</th><th>Scope / Outcome</th></tr></thead><tbody>
+        ${cl.map(s => `<tr><td><code>${esc(s.id)}</code></td><td>${esc(s.title)}</td><td>${esc(s.window)}</td><td>${esc(s.topic)}</td></tr>`).join("")}
+      </tbody></table>`;
+  }
+
+  function renderReorg() {
+    const rb = data.reorg_blueprint;
+    const locEntries = Object.entries(m.bench_python.by_location);
+    const maxLoc = Math.max(...locEntries.map(([,v]) => v.lines));
+    const bars = locEntries.map(([name, v]) => `
+      <div class="bar-row">
+        <code>${esc(name)}</code>
+        <div class="bar-track"><div class="bar-fill" style="width:${Math.max(2, Math.round(v.lines*100/maxLoc))}%"></div></div>
+        <span class="meta">${v.files} .py · ${v.lines.toLocaleString()}L</span>
+      </div>
+    `).join("");
+    return `
+      <div class="grid">
+        <article class="card">
+          <h3>Phase 1: <code>docs/wiki/</code> Consolidation (Completed)</h3>
+          <div>${esc(rb.phase_1_completed.summary)}</div>
+        </article>
+        <article class="card">
+          <h3>Phase 2 Hard Invariants</h3>
+          <ul>${rb.phase_2_proposed.hard_invariants.map(x => `<li>${esc(x)}</li>`).join("")}</ul>
+        </article>
+      </div>
+      <article class="card" style="margin-top:14px;">
+        <h3>Bench Python Distribution (Total: ${m.bench_python.total_files} files, ${m.bench_python.total_lines.toLocaleString()} LOC)</h3>
+        ${bars}
+      </article>
+      <div class="grid" style="margin-top:14px;">
+        <article class="card">
+          <h3>Proposed Root Layout -> <code>${esc(rb.phase_2_proposed.root_package_plan.target)}</code></h3>
+          <div class="meta">Keep at root: ${rb.phase_2_proposed.root_package_plan.keep_at_root.map(k => `<code>${esc(k)}</code>`).join(" ")}</div>
+          ${rb.phase_2_proposed.root_package_plan.groups.map(g => `
+            <div><code>${esc(g.pkg)}</code> -> ${g.modules.map(mod => `<code>${esc(mod)}</code>`).join(" ")}</div>
+          `).join("")}
+        </article>
+        <article class="card">
+          <h3>Proposed <code>bench/</code> Subpackage Grouping</h3>
+          ${rb.phase_2_proposed.bench_package_plan.proposed_subdirs.map(d => `
+            <div><code>${esc(d.dir)}</code> — ${esc(d.goal)}</div>
+          `).join("")}
+        </article>
+      </div>`;
+  }
+
+  function render() {
+    const panel = document.getElementById("panel");
+    if (activeTab === "ideas") panel.innerHTML = renderIdeas();
+    else if (activeTab === "tracks") panel.innerHTML = renderTracks();
+    else if (activeTab === "discrepancies") panel.innerHTML = renderDiscrepancies();
+    else if (activeTab === "renders") panel.innerHTML = renderCatalogue();
+    else if (activeTab === "sessions") panel.innerHTML = renderSessions();
+    else if (activeTab === "reorg") panel.innerHTML = renderReorg();
+
+    panel.querySelectorAll(".pill[data-track]").forEach(btn => {
+      btn.addEventListener("click", () => { trackFilter = btn.dataset.track; render(); });
+    });
+  }
+
+  document.getElementById("tabs").addEventListener("click", (e) => {
+    const b = e.target.closest(".tab");
+    if (!b) return;
+    document.querySelectorAll(".tab").forEach(x => x.classList.remove("active"));
+    b.classList.add("active");
+    activeTab = b.dataset.tab;
+    render();
+  });
+
+  document.getElementById("searchBox").addEventListener("input", (e) => {
+    query = e.target.value.trim().toLowerCase();
+    render();
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "/" && document.activeElement.tagName !== "INPUT") {
+      e.preventDefault();
+      document.getElementById("searchBox").focus();
+    }
+  });
+  document.getElementById("themeBtn").addEventListener("click", () => {
+    const root = document.documentElement;
+    root.dataset.theme = root.dataset.theme === "dark" ? "light" : "dark";
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>

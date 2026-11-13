@@ -36,7 +36,7 @@ attention call against exact attention on the same inputs, not the error the
 trajectory accumulates over fifty blocks and twelve Sol steps.
 
 The token-ordering axis (raster against Morton `3d`) was removed on 2026-09-27
-with Morton itself (docs/research/2026-09-27_sol_node_redesign.md); records
+with Morton itself (docs/wiki/archive/2026-09-27_sol_node_redesign.md); records
 written before then carry one row per ordering under each cell. A capture
 taken before then must have been taken with reordering OFF.
 """

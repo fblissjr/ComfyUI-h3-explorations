@@ -436,7 +436,7 @@ def main() -> int:
     parser.add_argument("--exclude-dirs", type=str, nargs="*", default=[],
                         help="Skip files whose path contains any of these substrings")
     parser.add_argument("--db", type=str, default="data/sparse/sol_analysis.duckdb", help="DuckDB file")
-    parser.add_argument("--out", type=str, default="docs/research/sparse/sol_duckdb_dashboard.html",
+    parser.add_argument("--out", type=str, default="docs/wiki/research/sparse/sol_duckdb_dashboard.html",
                         help="Dashboard HTML output")
     parser.add_argument("--query", type=str, help="Run one SQL query against the existing database and exit")
     args = parser.parse_args()

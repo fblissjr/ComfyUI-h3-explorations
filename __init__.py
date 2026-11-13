@@ -12,7 +12,7 @@ from .h3_image_nodes import register_expander_routes as _register_expander_route
 _register_control_vectors_folder()
 _register_expander_routes()
 
-# Inert unless the server starts with H3_TELEMETRY set (docs/pipeline_telemetry.md).
+# Inert unless the server starts with H3_TELEMETRY set (docs/wiki/ops/pipeline_telemetry.md).
 # It observes through core's cache-provider API and a logging handler; it
 # patches nothing.
 _telemetry.install_from_env()
@@ -44,7 +44,7 @@ _register_studio_routes()
 # the last thing in this pack that modified ComfyUI core. Nothing here patches
 # core now, at import or otherwise; model changes go through ModelPatcher's own
 # `add_object_patch`. See `archive/single_frame.py` for what it was and
-# `docs/h3_image_editing.md` for why the path it served is parked.
+# `docs/wiki/image/h3_image_editing.md` for why the path it served is parked.
 
 WEB_DIRECTORY = "./web"
 

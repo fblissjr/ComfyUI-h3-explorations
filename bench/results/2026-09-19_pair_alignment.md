@@ -13,7 +13,7 @@ A reference metric against another render (PSNR, SSIM, LPIPS, ColorVideoVDP,
 an audio band grid) measures what a knob did only when the two clips are the
 same take. When the knob moved the sample into another performance, the same
 number measures the difference between performances
-(`docs/research/2026-09-19_evaluation_one_judge.md`, item 2). The lead's
+(`docs/wiki/archive/2026-09-19_evaluation_one_judge.md`, item 2). The lead's
 dense-against-default panel needs to know, per contest, which regime it is in.
 
 ## What was compared

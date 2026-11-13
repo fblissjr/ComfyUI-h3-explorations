@@ -18,7 +18,7 @@ fallback kernel is worst at.
 
 **This node is a knob, not a recommendation.** No shipped graph wires it, and
 what it buys end to end has not been measured here -- only what it removes at
-the call. See `docs/SOLATTN.md`.
+the call. See `docs/wiki/attention/SOLATTN.md`.
 
 ## What "exact" means, precisely
 

@@ -1,7 +1,7 @@
 # Sol's quantizer and the dense tail, graded on PDD8 captures (2026-09-27)
 
 Test 2 of the Sol node redesign
-(`docs/research/2026-09-27_sol_node_redesign.md`). It follows test 1
+(`docs/wiki/archive/2026-09-27_sol_node_redesign.md`). It follows test 1
 (`2026-09-27_sol_redesign_test1.md`). That test found `quantizer` changes
 every render, and gave a provisional grade on 2026-09-19 base-model
 captures. This record grades what ships.

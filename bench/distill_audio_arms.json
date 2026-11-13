@@ -32,7 +32,7 @@
  ],
  "seeds": {
   "first": 730451892,
-  "note": "the ladder's seed. Every arm here shares canvas and length, so a matched seed matches the audio noise too (docs/eval_comparison.md, 'What a matched seed does not match'). The refine arms' second pass reuses the graph seed."
+  "note": "the ladder's seed. Every arm here shares canvas and length, so a matched seed matches the audio noise too (docs/wiki/ops/eval_comparison.md, 'What a matched seed does not match'). The refine arms' second pass reuses the graph seed."
  },
  "pairs_that_are_controlled": {
   "pdd8 vs pdd8_refine": "identical first pass (same graph, seed, prompt); only the refine pass differs, so video should be bit-identical and the pair judges AUDIO",

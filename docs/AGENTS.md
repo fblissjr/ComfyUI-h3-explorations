@@ -1,11 +1,10 @@
-# docs/: what the repo knows, in prose
+# `docs/`: LLM-Wiki-First Documentation
 
-Loaded when a session opens a file here; the root `AGENTS.md` still governs.
+Loaded when a session opens a file here; root [`../AGENTS.md`](../AGENTS.md) still governs.
 
-- **`wiki/index.md` is the router**: find the page that owns a fact there before writing one.
-- **Prose is a cache.** Where a page and the code disagree, the code is right: correct the page and log what it used to
-  claim in `wiki/decisions.md`. A figure in prose points at the command or constant that holds it.
-- **`research/` holds dated records** (a day's study, a postmortem): what was true then, not current guidance.
-- **`checks.md` is the standard for checks** and their index.
-- **Written for the owner**: plain American English, relative paths only, no quotes of the owner's passing remarks
-  (`wiki/working_with_the_owner.md`, "Writing").
+- **[`wiki/index.md`](wiki/index.md) is the master router** for the LLM wiki (`docs/wiki/`), which is the single documentation surface of the repository (`core/`, `image/`, `attention/`, `prompting/`, `control_vectors/`, `system_prompts/`, `masked_v2v/`, `ops/`, `projects/`, `research/`, `decisions/`, `archive/`).
+- **Prose is a cache of the code.** Where prose disagrees with `.py` modules on disk, verify against the code (`file:line` / symbol / constant), fix the page, and log the change in [`wiki/decisions.md`](wiki/decisions.md).
+- **[`wiki/projects/`](wiki/projects/index.md)** holds structured multi-format project atlases (`index.md`, `ledger.json`, `report.html`) built for both human reading and machine/agent querying.
+- **[`wiki/research/`](wiki/research/INDEX.md)** holds dated studies, campaign logs, and postmortems (what was observed on a date, not current rules).
+- **[`wiki/archive/`](wiki/archive/INDEX.md)** holds frozen/superseded notes left unmodified for provenance.
+- **[`wiki/ops/checks.md`](wiki/ops/checks.md)** defines the check standard and inventory; [`wiki/working_with_the_owner.md`](wiki/working_with_the_owner.md) governs style and path privacy (plain American English, repo-relative paths and `$H3_*` env vars only; never owner/mount paths or quotes of passing remarks).

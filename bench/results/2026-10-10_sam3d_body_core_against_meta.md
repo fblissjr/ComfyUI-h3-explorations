@@ -11,7 +11,7 @@ models on trust (core's SAM 3 port had three departures found on
 The lead asked for the same comparison here: core's whole prediction
 against Meta's on the same frames, the camera each used, and whether hand
 refinement ran on each side. The reading of the two code paths that came
-first is [`docs/wiki/meta_perception_models.md`](../../docs/wiki/meta_perception_models.md),
+first is [`docs/wiki/masked_v2v/meta_perception_models.md`](../../docs/wiki/masked_v2v/meta_perception_models.md),
 "Core's port against Meta's inference"; this record is the run that page
 said was missing.
 

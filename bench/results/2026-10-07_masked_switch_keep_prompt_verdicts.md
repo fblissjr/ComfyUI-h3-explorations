@@ -156,7 +156,7 @@ Same window. The node's assembled text replaced by a typed prompt in the
 guide's fields: the subject's features stated in the definition, the
 retention line and the first shot; no "that person"; no "untouched"; the role
 said once without mouth choreography; shot headers without times, by the
-house rule (`docs/prompting.md`, 3.1). Stock and rewrite on the graph's seed
+house rule (`docs/wiki/prompting/prompting.md`, 3.1). Stock and rewrite on the graph's seed
 and on a second seed.
 
 **The owner:** the rewrite is better than stock on both seeds (movement and

@@ -1,5 +1,5 @@
 -- The masked lane's record, first tier: what a person said and decided, and a project's closing state.
--- One file for the lane (data/lane.sqlite, never in git). The plan: docs/masked_v2v/2026-11-10_simplification_plan.md, step 1.
+-- One file for the lane (data/lane.sqlite, never in git). The plan: docs/wiki/masked_v2v/2026-11-10_simplification_plan.md, step 1.
 --
 -- Rules every table here keeps:
 --   * STRICT tables, typed columns, a list as a child table (its place in the list is `ord`).

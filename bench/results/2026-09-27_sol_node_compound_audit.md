@@ -193,7 +193,7 @@ behind the §5.1 bug.
      dense fallback: kitchen int8, with its own rotation.
    - `qk_balance`'s gate is recorded as opening on exactly those blocks:
      "no per-block list: blocks 45, 48 and 49 open on their own"
-     (`docs/h3_block49_quant_error.md:543`). Blocks 0, 32 and 40 measured
+     (`docs/wiki/attention/h3_block49_quant_error.md:543`). Blocks 0, 32 and 40 measured
      below the gate (`2026-09-15_channel_balance_kernel_b{0,32}_s15.json`).
    - **So with the shipped dense tail, shipped `qk_balance=True` is probably
      a no-op.** This is inferred, not measured: blocks 1-44, 46 and 47 were
@@ -359,7 +359,7 @@ is an H3-specific lever added later.
 | Difference | Reason | Kind |
 |---|---|---|
 | tau 1.0 vs 1.3 | Owner, 2026-08-20, from kijai's remark that 1.0 is max quality (`workflows/h3_config.py` (lines 213-253 as of 2026-09-27, before the redesign)). sglang, Sana and LongMedia's upper bound also use 1.0 (§9), so the adopt-upstream rule does not decide it. | reasoned, not measured |
-| token routing off vs 256 everywhere | `docs/research/2026-09-04_sol_token_aug_grade.md`: better on 4 captured blocks, worse on 49. | measured |
+| token routing off vs 256 everywhere | `docs/wiki/archive/2026-09-04_sol_token_aug_grade.md`: better on 4 captured blocks, worse on 49. | measured |
 | dense tail 45/48/49 | Owner, 2026-09-25. Kitchen dense int8 beats Sol's routed error on block 49 (`2026-09-15_ck_int8_attention_block49.json`). | measured on a capture; the render is unscored |
 | `qk_balance` on | Owner, 2026-09-15, together with the kitchen floor. Lower block-49 error, neutral on blocks 0 and 32. | measured on captures |
 | direct entry vs chunked | An override receives Q/K/V after `qkv_proj` and RoPE, so the chunked saving is already spent (`sol_attn_h3.py` (lines 80-86 as of 2026-09-27; the file was restructured 2026-09-27)). | structural |

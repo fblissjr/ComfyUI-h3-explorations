@@ -38,7 +38,7 @@ both rather than computing its own expected values:
 DiffSynth is a third implementation of the same rule
 (`coderef/DiffSynth-Studio/diffsynth/diffusion/flow_match.py::set_timesteps_minimax_h3`
 builds `linspace(1, 0, N+1)[:-1]`, which is `q_i`), at a different shift. The
-rule is not in dispute; only the constant is. See `docs/comfyui_vendor_gaps.md`.
+rule is not in dispute; only the constant is. See `docs/wiki/archive/comfyui_vendor_gaps.md`.
 
 **Why exactness rather than a tolerance.** `simple` reads the model's discrete
 1,000-entry sigma table at truncated indices, so it reproduces the closed form

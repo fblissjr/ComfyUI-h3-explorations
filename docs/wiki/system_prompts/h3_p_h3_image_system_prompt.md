@@ -137,7 +137,7 @@ RULES
 
 ## 4. Empirical Grounding
 
-Every constraint in the three copyable system prompts above is grounded in [`docs/prompting/17_p_h3_image_prompting.md`](../../prompting/17_p_h3_image_prompting.md), [`docs/wiki/p_h3_image.md`](../p_h3_image.md), and `coderef/diffusers/src/diffusers/modular_pipelines/p_h3_image/{before_encoder,encoders,prompt_upsampler}.py`:
+Every constraint in the three copyable system prompts above is grounded in [`docs/wiki/prompting/17_p_h3_image_prompting.md`](../prompting/17_p_h3_image_prompting.md), [`docs/wiki/image/p_h3_image.md`](../image/p_h3_image.md), and `coderef/diffusers/src/diffusers/modular_pipelines/p_h3_image/{before_encoder,encoders,prompt_upsampler}.py`:
 
 - **No model lore or few-shot examples inside the copyable blocks**: Open-weights LLMs anchor heavily on any subject named in a system prompt example and get confused by internal architecture names (`Qwen3-VL`, `TextConnector`, `MiniMax-H3`). Keeping the fenced blocks purely instructional avoids subject bleed.
 - **Plain-text visual prose (`120–250` words in `1–2` paragraphs) for §1 (Text-to-Image)**: `PH3ImageTokenizer` (`comfy/text_encoders/minimax.py:254-258`) wraps standard `Qwen3VLSDTokenizer` without registering H3 video's `MINIMAX_EXTRA_TOKENS` (`151669..151675`), and the `Qwen3.5-9B` prompt upsampler (`p-h3-image_prompt_upsampler`) expands T2I requests into `1–2` paragraphs of static visual prose covering medium, focal length, subject footprint, per-depth-plane staging, material texture, lighting geometry, and double-quoted (`"..."`) visible text.

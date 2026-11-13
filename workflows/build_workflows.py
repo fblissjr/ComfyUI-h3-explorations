@@ -28,7 +28,7 @@ Validation is static -- nothing is submitted and no model loads. Building does
 import ComfyUI core, which opens a CUDA context when a card is visible; while
 another process renders, run it as `CUDA_VISIBLE_DEVICES= <comfy-venv-python>
 build_workflows.py` and core takes its CPU path (`_core_cpu_when_no_card`,
-`docs/checks.md` "While a render is on the card").
+`docs/wiki/ops/checks.md` "While a render is on the card").
 
 **Generation is byte-deterministic, and checking that the shipped graphs are
 current costs about twelve seconds and needs no server:**
@@ -43,7 +43,7 @@ graph until it is rebuilt") had been enforced by remembering to run it.
 The file COUNT is deliberately not quoted here. The first version said 157,
 which is neither the 156 at the top level nor the 159 including `bench/`, and
 no reader's next action changes on the number -- the command's own output is
-the answer. The rule (`docs/prose_measurements.md`): substitute a different plausible
+the answer. The rule (`docs/wiki/ops/prose_measurements.md`): substitute a different plausible
 value, and if nothing changes, the number is decorative.
 
 Deliberately NOT a check in `bench/`. The state it catches -- generator edited,
@@ -195,7 +195,7 @@ def _retimed_from_bank(prompt_id: str, alignment, length: int) -> str:
 # pack (`SolAttnPatch`) until 2026-08-14, the vendored upstream CUDA node
 # (`SolAttnMiniMax`), ours (`MiniMaxH3SolAttn`) from 2026-08-30, and
 # `MiniMaxH3Sol` from the redesign (2026-09-27,
-# `docs/research/2026-09-27_sol_node_redesign.md`). A new node id rather than
+# `docs/wiki/archive/2026-09-27_sol_node_redesign.md`). A new node id rather than
 # an edit, because editor-saved graphs match `widgets_values` by position;
 # `MiniMaxH3SolAttn` is deleted once every graph here is regenerated.
 SOL_NODE = "MiniMaxH3Sol"
@@ -240,7 +240,7 @@ def sol_api_inputs(sol):
 
 # Prompts for the long presets (362 frames, 15.083s). A 15s request needs a
 # shot timeline, not one continuous beat -- numbered shots (the guide's format
-# puts a time on every later shot header; the house writes none, `docs/prompting.md`
+# puts a time on every later shot header; the house writes none, `docs/wiki/prompting/prompting.md`
 # section 3.1), and a 15s request against a 6s prompt leaves the model twelve
 # seconds it was never told about.
 #
@@ -285,10 +285,10 @@ def sol_api_inputs(sol):
 # `t2va_covered_market` is the long preset's scene. An earlier text of it broke
 # the guide's camera vocabulary and its identity-at-first-appearance rule and
 # graded GREEN, because nothing then checked them; the rules, and which
-# readings of the guide are NOT rules, are `docs/prompting.md` sections 4, 5.2
+# readings of the guide are NOT rules, are `docs/wiki/prompting/prompting.md` sections 4, 5.2
 # and 8, and the escape that led to `bench/check_camera_vocabulary.py` is the
-# row in `docs/checks.md`. The owner disqualified that text as a SAMPLE on
-# 2026-08-27 (`docs/research/pdd/queued_arms.md`): a render of it is evidence
+# row in `docs/wiki/ops/checks.md`. The owner disqualified that text as a SAMPLE on
+# 2026-08-27 (`docs/wiki/research/pdd/queued_arms.md`): a render of it is evidence
 # about that text only, and clips of this scene rendered before 2026-08-28 are
 # not matched-seed comparable with later ones. This block used to restate the
 # rules item by item and was a second copy of the manual.
@@ -306,7 +306,7 @@ T2V_REHEARSAL_PROMPT = _bank_prompt("t2va_rehearsal_room")
 # On-screen text and a line truncated by the end of the clip. `<|cutoff|>` sits
 # directly against the closing `</d>` with no full stop between -- a full stop
 # before it is dragged into `.<` by BPE on an unpatched tokenizer, so the
-# spacing is load-bearing (`docs/comfyui_vendor_gaps.md`).
+# spacing is load-bearing (`docs/wiki/archive/comfyui_vendor_gaps.md`).
 T2V_CLINIC_PROMPT = _bank_prompt("t2va_clinic_corridor")
 
 
@@ -607,7 +607,7 @@ def _is_distill_experiment(fname: str, extra: dict) -> bool:
     `distill_experiment=True`. The shipped distill graphs
     (`h3_text_to_video_pdd`, the PDD ref and fl2v graphs) stay at the root.
     The FlashGen and FastH3 graphs this also matched were retired on
-    2026-11-04 (`docs/roadmap.md`, "Closed lanes"). The owner, 2026-09-27: "you and fastdude's modified/new
+    2026-11-04 (`docs/wiki/ops/roadmap.md`, "Closed lanes"). The owner, 2026-09-27: "you and fastdude's modified/new
     workflows can go into a new subfolder called distill_experiments".
     """
     stem = fname.removesuffix(".json")
@@ -823,7 +823,7 @@ def _l2v_alignment(seconds: float) -> str:
 #:
 #: `<Picture 1>` is cited INSIDE the `<Subject 1>` definition and gets no
 #: standalone entry, per ref 2.2: the image defines a character, it is not a
-#: keyframe or composition anchor. `docs/prompting.md` 9.3 calls this the
+#: keyframe or composition anchor. `docs/wiki/prompting/prompting.md` 9.3 calls this the
 #: single most-violated ref2va rule in this repo's shipped prompts.
 #:
 #: Camera motion is base 4.3 vocabulary, the same repair the t2v version got in
@@ -915,7 +915,7 @@ def _core_cpu_when_no_card():
     Importing `comfy_extras.nodes_minimax_h3` pulls `comfy.model_management`,
     which picks a torch device at import and raises "No CUDA GPUs are
     available" when `CUDA_VISIBLE_DEVICES=` hides the card. Masking is how this
-    script runs while another process renders (`docs/checks.md`, "While a
+    script runs while another process renders (`docs/wiki/ops/checks.md`, "While a
     render is on the card"; on 2026-09-04 the context creation failed against
     a busy card). The switch lived inside `_ref_short_edge` alone until
     2026-09-14, but `_resolution_widgets` reaches core first, through
@@ -1030,7 +1030,7 @@ def _ref_short_edge():
     # at position 0: the repo root is already there (`sys.path.insert` near
     # the top), and `nodes_minimax_h3` does a bare `import nodes` that finds
     # THIS PACK's `nodes.py` if the repo wins. That is the `import nodes`
-    # trap in `docs/comfy_notes.md`.
+    # trap in `docs/wiki/ops/comfy_notes.md`.
     #
     # **Found by marker, not by counting `..`.** It was `HERE.parent.parent
     # .parent` until 2026-09-03, which is the ComfyUI root only when the pack
@@ -1480,7 +1480,7 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
               steps: int | None = None, shift: dict | None = None,
               sampler_name: str | None = None, scheduler_name: str | None = None,
               head_chunks: int | None = None,
-              # Block-49 probes (docs/h3_block49_quant_error.md, 2026-09-15).
+              # Block-49 probes (docs/wiki/attention/h3_block49_quant_error.md, 2026-09-15).
               # sage_mode overrides SAGE_NODE's mode ("fp8++ balanced" turns
               # on the fork's qk_balance); channel_balance is
               # MiniMaxH3ChannelBalance's combo value, placed before the
@@ -1534,7 +1534,7 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
               # for the A/B against our conditioner; stills only, API only.
               ref_latents: bool = True,
               native_ref: bool = False,
-              # The audio-freeze lane (docs/h3_audio_freeze.md): a known track
+              # The audio-freeze lane (docs/wiki/core/h3_audio_freeze.md): a known track
               # written into the target audio rows and frozen with a nested
               # noise_mask, between the preflight and the sampler. The muxer
               # takes the node's own slice of the track; the audio decoder is
@@ -1544,9 +1544,9 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
               freeze_mask: float = 0.0, freeze_track: str = PLACEHOLDER_AUDIO,
               # The loop's first seam, API only: two windows of the track,
               # the second taking the first's sampled latent as frozen
-              # context (docs/h3_audio_freeze.md section 4 step 6).
+              # context (docs/wiki/core/h3_audio_freeze.md section 4 step 6).
               freeze_windows: int = 0, freeze_context: int = 39,
-              # Guide audio on top of the freeze (docs/h3_audio_freeze.md
+              # Guide audio on top of the freeze (docs/wiki/core/h3_audio_freeze.md
               # idea 6 as the fl2va-base hybrid): core's MiniMaxH3AddGuide
               # anchors the same track as conditioning rows at frame 0, so
               # the track sits in the sequence twice, frozen in register and
@@ -1628,7 +1628,7 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
               # of the 2026-09-26 distill run. Never on a shipped graph (every
               # render would write ~40 MB). Nodes 101-103.
               save_latents: bool = False,
-              # The frozen-row test (docs/research/2026-09-26_distill_routing.md,
+              # The frozen-row test (docs/wiki/archive/2026-09-26_distill_routing.md,
               # "The frozen-row test"): on an audio_refine graph, observe the
               # denoise mask the refine pass uses (MiniMaxH3DenoiseMaskProbe)
               # and save pass 1's latent and the refine pass's denoised output
@@ -1639,7 +1639,7 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
               # PDD's primary use on 2026-11-04; its routes are in git.
               # Save every step's x0 prediction (MiniMaxH3StepX0Observer, node
               # 113) on the main pass's model, for finding the step where a
-              # moving person first appears twice (docs/h3_distills.md). About
+              # moving person first appears twice (docs/wiki/core/h3_distills.md). About
               # 40 MB a step: probe twins only.
               probe_step_x0: bool = False,
               # Capture on core's sparse producer path (MiniMaxH3CoreSparseCapture,
@@ -2075,7 +2075,7 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
         # ModelPatcher, and keeping that clone upstream of both attention
         # nodes avoids inserting it between the two that have to compose.
         # The load-bearing ordering constraint is sage-then-Sol (see
-        # docs/SOLATTN.md's Ordering section). A LoRA in front of both is
+        # docs/wiki/attention/SOLATTN.md's Ordering section). A LoRA in front of both is
         # orthogonal to it and does not belong in that constraint.
         # Node id 18; 20/21/22 are already spoken for.
         # The turbo pack's loader is not a drop-in for LoraLoaderModelOnly and
@@ -2952,7 +2952,7 @@ def build_decode_saved_latent(video_latent: str, audio_latent: str, *,
 
 #: Canonical P-H3-Image single-frame T2I prompt: pure visual prose, 80-150 words,
 #: zero H3 video section headers, zero `<d>` speech tags, zero `[Shot N]` markers,
-#: zero camera movement verbs, and zero soundscape cues (`docs/prompting/17_p_h3_image_prompting.md`).
+#: zero camera movement verbs, and zero soundscape cues (`docs/wiki/prompting/17_p_h3_image_prompting.md`).
 #: Stored in `prompt_bank/p_h3_image/t2i_clockmaker.txt` (`prompt_bank/AGENTS.md`:
 #: prompt text is data, never a literal in code).
 PH3_IMAGE_T2I_PROMPT = _bank_prompt("p_h3_image/t2i_clockmaker")
@@ -2966,7 +2966,7 @@ PH3_IMAGE_EDIT_PROMPT = _bank_prompt("p_h3_image/edit_alpine_terrace")
 #: The one-frame guide edit's prompt: one plain sentence that states the edit and then what stays,
 #: naming no `<Picture N>` because the graph wires no reference. Until 2026-11-11 it opened with
 #: `vfx_edit:`, the trigger of the guide edit LoRA the two graphs loaded; the owner took both the
-#: LoRA and the opening out that day (`docs/h3_image_editing.md`).
+#: LoRA and the opening out that day (`docs/wiki/image/h3_image_editing.md`).
 #: Stored in `prompt_bank/guide_edit/man_red_jacket.txt`.
 PIKA_STILL_EDIT_PROMPT = _bank_prompt("guide_edit/man_red_jacket")
 
@@ -3190,7 +3190,7 @@ def build_h3_image_api(
     which ComfyUI's one dtype per VAE cannot express. `comfy/sd.py` casts the loaded VAE to `fp16` on
     load (`max_abs_diff = 2.98e-8` across all 118 encoder tensors), and `MiniMaxH3VAEPrecision` promotes
     the encoder in place to `fp32` for FP32 Conv3d/GroupNorm activation accumulation without loading a
-    second VAE file (`docs/h3_image.md`). Only the conditioning node is rebound; `VAEDecode` stays on
+    second VAE file (`docs/wiki/image/h3_image.md`). Only the conditioning node is rebound; `VAEDecode` stays on
     the loader, decoder untouched. `vae_encoder=None` wires no node. Text to image encodes nothing and
     gets none.
 
@@ -3558,7 +3558,7 @@ AUDIO_ROLES = ("music", "voice", "copy")
 # **Do not put a specific attribute in a generic template.** The environment
 # line said "architecture, palette, and lighting" until 2026-08-16, on every
 # image-reference arm, for whatever image happened to be wired. Measured that
-# day (docs/prompt_length_experiment.md): against a mountain-lake reference
+# day (docs/wiki/archive/prompt_length_experiment.md): against a mountain-lake reference
 # with no buildings in it, the arm whose detailed_description was silent about
 # the environment rendered the man inside a timber veranda with a chalet beside
 # it -- the word had nothing to contradict it, so it built one. The arm whose
@@ -3578,7 +3578,7 @@ AUDIO_ROLES = ("music", "voice", "copy")
 #: already paid for that: the environment template claimed "architecture" for
 #: whatever image happened to be there, and a mountain-lake reference with no
 #: buildings produced a timber veranda and a chalet (`1fa5607`,
-#: `docs/prompt_length_experiment.md`). The graph author picked the file and is
+#: `docs/wiki/archive/prompt_length_experiment.md`). The graph author picked the file and is
 #: the only one who knows what is in it, so the role travels with the graph.
 #:
 #: Markers follow guide 4.1. `attribute_transfer` is for a characteristic moved
@@ -4687,7 +4687,7 @@ def validate_api(graph: dict, oi: dict, label: str) -> list[str]:
                 e(f"refine pass: scheduler {sid} and guider {gid} read MODEL from "
                   f"different sources {pair}")
             refine_ids.add(gid)
-    # A step-switch second pass (docs/research/2026-09-26_distill_routing.md;
+    # A step-switch second pass (docs/wiki/archive/2026-09-26_distill_routing.md;
     # the generator's route was retired on 2026-11-04, and the exemption stays
     # for a graph built by hand) is also a second sampler on its own model by design. Recognised by structure, not by name, so the
     # exemption stays narrow: no added noise (DisableNoise), its own
@@ -4787,7 +4787,7 @@ def main():
     GRAPHS: tuple[tuple[str, str, str, str | None, dict[str, Any], str], ...] = (
         ("h3_text_to_video.json", "t2v", "t2v", LONG_T2V_PROMPT, {},
          "text -> video + audio"),
-        # The audio-freeze lane's first graph (docs/h3_audio_freeze.md,
+        # The audio-freeze lane's first graph (docs/wiki/core/h3_audio_freeze.md,
         # section 4 step 1). One node between the preflight and the sampler
         # is the whole difference from the graph above, plus the muxer
         # taking the node's own slice of the track in place of the audio
@@ -4816,7 +4816,7 @@ def main():
         # The PDD8 song graphs (the whole song, with a reference still, and with
         # prompt lists on the song's sections) and the PDD8 masked render graphs
         # (the whole subject and a part), with their daily copies, were retired
-        # with PDD's primary use on 2026-11-04 (`docs/roadmap.md`, "Closed
+        # with PDD's primary use on 2026-11-04 (`docs/wiki/ops/roadmap.md`, "Closed
         # lanes"); they are in git. Since 2026-10-10 every job load is built from
         # `h3_config.MASKED_JOB_BASE_GRAPH`, the ref2va upper-body row below. The
         # candidate PDD8 freeze with the audio attention gain went the same day.
@@ -5016,7 +5016,7 @@ def main():
         # trajectory that diverged, and only valid for the arm that took it.
         #
         # 362 frames at 1024x768 with native reference sizes is roughly 97k
-        # tokens: above the ~60k floor `docs/SOLATTN.md` warns about, and well
+        # tokens: above the ~60k floor `docs/wiki/attention/SOLATTN.md` warns about, and well
         # under the 182,092 that OOMed this card. All three numbers come from
         # REF_VIDEO_BUDGET, so they move with the other reference arms.
         ("h3_probe_capture_ref3.json", "probe-capture-ref3", "r2v",
@@ -5099,7 +5099,7 @@ def main():
         # widget patches in `bench/refview2_arms.json`, applied by
         # `run_graph_arms.py --manifest`, so five graphs carry thirty arms.
         # Shipped defaults otherwise: Sol on, sage on, the base step count,
-        # no PDD. `docs/h3_references.md` is why the two copies of a still
+        # no PDD. `docs/wiki/core/h3_references.md` is why the two copies of a still
         # need not share a geometry and what each arm asks.
         *[
             (f"h3_probe_refview2_{tag}.json", f"r2v-refview2-{tag}", "r2v",
@@ -5279,7 +5279,7 @@ def main():
         # attention is quadratic and dominates. That price is for replication;
         # it is not the configuration to render production clips in.
         #
-        # Trained on transformer_ref itself, so docs/h3_ref2v_distillation.md's
+        # Trained on transformer_ref itself, so docs/wiki/archive/h3_ref2v_distillation.md's
         # Fact B -- an fl2v distill aimed at the wrong weights -- does not
         # apply to this one. Facts A and C do not follow from that and are
         # untouched.
@@ -5340,11 +5340,11 @@ def main():
         # `<|lyrics_end|>` appeared in this generator and in zero shipped
         # graphs. Wiring them is what makes the marker path reachable at all.
         #
-        # They close a second gap at the same time: `docs/prompting.md` 9.10
+        # They close a second gap at the same time: `docs/wiki/prompting/prompting.md` 9.10
         # records the guide's 350-500 word budget for a generation
         # `detailed_description`, and these are written inside it (the current
         # counts are `bench/build_prompt_bank.py`'s, not a number here). They have
-        # since been rendered, and `docs/scene_arm_renders.md` reads those renders;
+        # since been rendered, and `docs/wiki/archive/scene_arm_renders.md` reads those renders;
         # the marker coverage is a property of the TEXT and not a claim about what
         # the model does with it.
         *[
@@ -5378,7 +5378,7 @@ def main():
         # last shot needs it.
         # On LONG_LENGTH like everything else (the owner, 2026-10-15: the
         # ceiling is the max). Their shot headers carry no times
-        # (`docs/prompting.md` section 3.1), and the final shot's direction,
+        # (`docs/wiki/prompting/prompting.md` section 3.1), and the final shot's direction,
         # "holds still until the final frame", names no duration.
         ("h3_text_to_video_dialogue.json", "t2v-dialogue", "t2v",
          DIALOGUE_T2V_PROMPT,
@@ -5394,7 +5394,7 @@ def main():
         # at 4 steps via PDD), was retired with PDD's primary use on 2026-11-04.
 
         # The PDD graphs were retired with the PDD lane on 2026-11-04 and
-        # 2026-11-06 (`docs/roadmap.md`, "Closed lanes").
+        # 2026-11-06 (`docs/wiki/ops/roadmap.md`, "Closed lanes").
 
         # INVERTED TWICE with the default. 2026-08-28 the default went off
         # and this arm turned upscaling on; 2026-09-13 the default went back
@@ -5467,7 +5467,7 @@ def main():
         # (data/results/2026-09-10_sol_core_ab_outputs.json). `sol_impl="core"`
         # stays for the next such arm, core's node over the backend node.
 
-        # **Block-49 probes, 2026-09-15** (docs/h3_block49_quant_error.md).
+        # **Block-49 probes, 2026-09-15** (docs/wiki/attention/h3_block49_quant_error.md).
         # Same prompt and seed as the shipped t2v graph, so they form
         # same-seed pairs against it. `exact_tail` runs blocks 45, 48 and 49
         # on ComfyUI's own bf16 attention: the ceiling of what any fix at
@@ -5505,7 +5505,7 @@ def main():
               out_prefix="Video/h3_probe_t2v_no_dense_tail"),
          "text -> video + audio, the default chain with blocks 45/48/49 back on Sol (the pre-2026-09-25 default)"),
         # Tier 2 witness (2026-09-15 night): the default chain with Sol's
-        # Hadamard rotation on (docs/h3_quant_policy.md). Same seed as every
+        # Hadamard rotation on (docs/wiki/attention/h3_quant_policy.md). Same seed as every
         # other market arm today, so it sits beside h3_text_to_video (the
         # default, rotate off) and h3_probe_t2v_no_dense_tail.
         # Fully dense control (2026-09-15 night): neither Sol nor any INT8
@@ -5552,7 +5552,7 @@ def main():
         # **Candidates on trial, 2026-09-05.** The owner asked for canonical
         # graphs carrying the settings the lane currently thinks are its
         # leaders, to render their own prompts on. The evidence stands as
-        # docs/roadmap.md (forward plan 2026-09-04) records it: the shipped
+        # docs/wiki/ops/roadmap.md (forward plan 2026-09-04) records it: the shipped
         # h3_text_to_video (sage + Sol) is the leader with a verdict behind
         # it; each candidate below is a configuration blinded but not yet
         # judged, and its note says what it costs and what would settle it.
@@ -5565,7 +5565,7 @@ def main():
 
         # The PDD8 candidates (Sol on two steps, the baked checkpoint, the audio
         # freeze on it with and without guide rows) were retired with PDD's primary
-        # use on 2026-11-04 (`docs/roadmap.md`, "Closed lanes"); they are in git.
+        # use on 2026-11-04 (`docs/wiki/ops/roadmap.md`, "Closed lanes"); they are in git.
 
         # Sol-Attn ON at full reference load: images + a reference video + its
         # soundtrack + standalone audio. This is the heaviest sink the model
@@ -5626,14 +5626,14 @@ def main():
         # `archive/workflows/image/` and the shim they need is
         # `archive/single_frame.py`. Their builder, `_image_graphs()`, left this
         # file with the UI half on 2026-09-14, so restoring the lane starts
-        # from the archive and git history. See `docs/h3_image_editing.md`.
+        # from the archive and git history. See `docs/wiki/image/h3_image_editing.md`.
 
         ("h3_probe_head_chunks.json", "t2v-chunk4", "t2v", LONG_T2V_PROMPT,
          dict(head_chunks=4, dense_attn="sage_sol", out_prefix="Video/h3_probe_chunk4"),
          "the same render with the heads in 4 groups"),
 
         # --- Pika H3 Flex 6-step LCM showcase reproduction (2026-11-04) -----
-        # Step 1–2 of docs/research/2026-11-04_pika_h3_flex_plan.md: Pika's
+        # Step 1–2 of docs/wiki/research/2026-11-04_pika_h3_flex_plan.md: Pika's
         # motion-transfer (ref2va, 243 frames) and balcony-orbit (t2va on fl2va,
         # 328 frames) showcases at Pika's contract (6 steps, lcm, shift-12
         # manual sigmas "1.0, 0.972973, 0.923077, 0.8, 0.571429, 0.333333, 0.0"),
@@ -5859,7 +5859,7 @@ def main():
         # Plain H3 prompting at one frame on Pika (owner, 2026-11-10): a Pika
         # still is prompted as the video is, with no guide node and no
         # third-party LoRA. The one frame is the conditioning node's own
-        # `single_frame` input. Rendered that day (`docs/h3_image_editing.md`).
+        # `single_frame` input. Rendered that day (`docs/wiki/image/h3_image_editing.md`).
         ("h3_pika_image_t2i.json", "pika-image-t2i", "t2v",
          PIKA_IMAGE_T2I_PROMPT,
          dict(single_frame=True,
@@ -5885,7 +5885,7 @@ def main():
         # runs here (`description_only` on the edit still so <Subject 1> keeps
         # its <Picture 1> likeness); the guide graph below takes `non_vision`.
         # MiniMaxH3ReleaseReferences stays at its defaults on the edit still,
-        # which never release the picture unless lowered (`docs/h3_image_editing.md`).
+        # which never release the picture unless lowered (`docs/wiki/image/h3_image_editing.md`).
         ("h3_pika_image_t2i_control_vector.json", "pika-image-t2i-control-vector", "t2v",
          PIKA_IMAGE_T2I_PROMPT,
          dict(single_frame=True,
@@ -5919,7 +5919,7 @@ def main():
         # A one-frame edit on Pika with no reference picture: the picture to
         # edit is the guide, and the prompt is one plain sentence. No edit LoRA
         # and no `vfx_edit:` opening since 2026-11-11 (owner); the renders of
-        # 2026-11-10 in `docs/h3_image_editing.md` were made with both.
+        # 2026-11-10 in `docs/wiki/image/h3_image_editing.md` were made with both.
         # Node 5 is our `MiniMaxH3Conditioning(single_frame=True)` (0 references,
         # native `h3_span_masks`, no unused audio VAE loader).
         ("h3_probe_pika_image_guide_edit.json", "pika-image-guide-edit", "r2v",
@@ -5981,11 +5981,11 @@ def main():
     # graphs, the refine probe's, and the PDD8 finisher grid's), the PDD
     # schedule tests at 16 and 32 steps, and the PDD8-then-base step switches
     # (open_experiments #37) went the same day with PDD's primary use
-    # (`docs/roadmap.md`, "Closed lanes"). They are in git.
+    # (`docs/wiki/ops/roadmap.md`, "Closed lanes"). They are in git.
     _SAVELAT_OF = ("h3_text_to_video",)
     _by_name = {e[0]: e for e in GRAPHS}
     # The base on Euler over PDD's own 32-point grid, the path its heads were
-    # distilled from (docs/h3_distills.md, "Tests that would move this
+    # distilled from (docs/wiki/core/h3_distills.md, "Tests that would move this
     # section", 2026-09-26).
     _euler32_tests = (
         ("h3_probe_t2v_base_euler32.json", "t2v-base-euler32", "t2v", LONG_T2V_PROMPT,

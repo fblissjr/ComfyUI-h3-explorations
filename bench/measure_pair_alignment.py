@@ -15,8 +15,8 @@ render means something only when the two clips are the same take: the same
 figures in the same places, differing by what the knob did to them. When the
 knob moved the sample into a different take, the same numbers measure the
 distance between two performances, and a better arm can score worse
-(`docs/research/2026-09-19_evaluation_one_judge.md`, item 2;
-`docs/research/2026-09-19_where_approximation_is_tolerated.md`, section 1.1).
+(`docs/wiki/archive/2026-09-19_evaluation_one_judge.md`, item 2;
+`docs/wiki/archive/2026-09-19_where_approximation_is_tolerated.md`, section 1.1).
 This says which regime a pair is in, so a reader knows whether any reference
 metric logged beside a verdict can be read at all.
 

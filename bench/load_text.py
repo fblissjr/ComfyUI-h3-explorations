@@ -165,7 +165,7 @@ FOLLOWS_DRAWN = ("{she} follows the movements of the head and the facial express
 #: the mouth on no frame (`mouth_drawn_open`), and draws no closed one under the plan's `closed_mouth` (`mouth_drawn_closed`, 2026-10-23),
 #: names no mouth here. On 0278l the drawing had no open mouth and the text said her mouth opens
 #: and closes; she spoke, lifted her head and looked at the camera, where 0278f, with the same no-mouth drawing and no mouth words, kept her
-#: lips closed on all 16 frames (docs/masked_v2v/PROTOCOL.md, case study 3); the gate's text_names_a_voice_where_there_is_none flagged it.
+#: lips closed on all 16 frames (docs/wiki/masked_v2v/PROTOCOL.md, case study 3); the gate's text_names_a_voice_where_there_is_none flagged it.
 TRANSFERRED_DRAWN_NO_MOUTH = "the movements of the head, the facial expressions and where the eyes look"
 FOLLOWS_DRAWN_NO_MOUTH = ("{she} follows the movements of the head and the facial expressions of the figure, {her} eyes looking where its eyes "
                           "look.")

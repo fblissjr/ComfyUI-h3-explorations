@@ -1,7 +1,7 @@
 """Log the denoise mask each masked sampling step actually uses, and change nothing.
 
 Written 2026-09-26 for the frozen-row question in
-`docs/research/2026-09-26_distill_routing.md`: the audio-refine pass freezes the
+`docs/wiki/archive/2026-09-26_distill_routing.md`: the audio-refine pass freezes the
 video at mask 0, yet its video decoded about 46 dB from the base arm's
 (`bench/results/2026-09-25_distill_audio_s1.md`). One of the checks is
 whether the mask reaches the sampler's inpaint step as exactly 0.

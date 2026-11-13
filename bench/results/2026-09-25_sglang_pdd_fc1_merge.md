@@ -10,7 +10,7 @@ wrong rows, and the merged MLP misses the adapter's intended output. The error
 is the same order as the adapter's whole effect on that MLP.
 
 This is the probable defect the upstream survey recorded by reading
-(`docs/research/sglang_comparison.md`, "Seventh read"); this record measures
+(`docs/wiki/research/sglang_comparison.md`, "Seventh read"); this record measures
 it. Whether to report it upstream is the owner's call.
 
 ## What was compared
@@ -87,7 +87,7 @@ from the vendor's files:
   needs sglang, which does not run on this card. The fc2, attention and AdaLN
   merges are not affected.
 - It is not a statement about this pack. Our converter swaps
-  (`docs/h3_pdd.md`, the `bench/convert_pdd_lora.py` section), and the
+  (`docs/wiki/archive/h3_pdd.md`, the `bench/convert_pdd_lora.py` section), and the
   in-repo bake inherits that.
 
 ## Reproduce

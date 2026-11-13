@@ -40,7 +40,7 @@ measurement, and it is not valid at a length the capture was not taken at.
 
 **Raster ordering only.** The ordering question was `analyze_routing.py`'s,
 and it left that tool on 2026-09-27 with Morton itself
-(docs/research/2026-09-27_sol_node_redesign.md). The aggregate rows this emits
+(docs/wiki/archive/2026-09-27_sol_node_redesign.md). The aggregate rows this emits
 are directly comparable to that tool's density row on the same capture, head
 set and tau, which is how the reuse is verified -- see `--verify`.
 

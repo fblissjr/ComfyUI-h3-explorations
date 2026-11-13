@@ -105,8 +105,8 @@ IDENTITY = {
 #:
 #: **Both rows that were UNRECORDED at first turned out to be recorded, in
 #: files the author had not searched** -- `head_chunks` in
-#: `docs/h3_geometry_and_nodes.md` and a timing table in `h3_config.py`,
-#: `video_policy` in `docs/h3_references.md`. So treat an UNRECORDED row as a
+#: `docs/wiki/core/h3_geometry_and_nodes.md` and a timing table in `h3_config.py`,
+#: `video_policy` in `docs/wiki/core/h3_references.md`. So treat an UNRECORDED row as a
 #: prompt to look harder before treating it as a gap in the repo; twice out of
 #: twice it was a gap in the search.
 #: **Why HOUSE rows pin a value and the others do not.** Grading "is this
@@ -200,7 +200,7 @@ DECLARED: dict[tuple[str, str], tuple] = {
                 "decode drops its frozen context frames (the generator's "
                 "`freeze_context`, wired to MiniMaxH3FreezeAudioWindow."
                 "context_frames on the same graph) so the join carries new "
-                "frames only. docs/h3_audio_freeze.md section 4 step 6."),
+                "frames only. docs/wiki/core/h3_audio_freeze.md section 4 step 6."),
     ("ImageFromBatch", "length"):
         ("ARM", "the window's frames minus its frozen context, the companion "
                 "of batch_index above; both derive from the same two generator "
@@ -217,13 +217,13 @@ DECLARED: dict[tuple[str, str], tuple] = {
     ("MiniMaxH3Resolution", "shape"):
         ("ARM", "the arm's aspect: 'wide' on 41, 'standard' on 27, and one "
                 "each of tall/ultrawide/square/custom. The node's first option "
-                "is 'ultrawide'. docs/h3_resolutions.md owns the list."),
+                "is 'ultrawide'. docs/wiki/core/h3_resolutions.md owns the list."),
     ("MiniMaxH3Resolution", "shape.wide_resolution"):
         ("ARM", "1344x768 in 39 graphs -- a trained canvas, and what anything "
                 "informing a shipped decision is measured at -- against "
                 "1152x768 on two cheaper probe arms. Classified HOUSE first; "
                 "the pinned-value rule caught that it takes two values. "
-                "docs/h3_resolutions.md owns the list. NOTE: this is why a "
+                "docs/wiki/core/h3_resolutions.md owns the list. NOTE: this is why a "
                 "graph moved off 1344x768 does NOT go red here and is what anything informing "
                   "a shipped decision is measured at; the node's first option "
                 "."),
@@ -289,7 +289,7 @@ DECLARED: dict[tuple[str, str], tuple] = {
     ("MiniMaxH3SageAttention", "head_chunks"):
         ("ARM", "4 on h3_probe_head_chunks, the one graph that exists to "
                   "exercise head chunking. It is a MEASURED group count, not "
-                  "a guess: docs/h3_geometry_and_nodes.md records ~3227 MiB "
+                  "a guess: docs/wiki/core/h3_geometry_and_nodes.md records ~3227 MiB "
                   "saved at 4 groups, and workflows/h3_config.py's table has the "
                 "head4/ffn1 row at 396.5s / 13475 MiB / -3227 / 0.998x -- the "
                   "saving is real and the speed cost is nil. NOT House: 76 "
@@ -298,7 +298,7 @@ DECLARED: dict[tuple[str, str], tuple] = {
     ("MiniMaxH3ReferenceConditioning", "video_policy"):
         ("ARM", "'release' on the probe graphs -- h3_probe_release_video_policy "
                 "and the refview probes -- against the node default 'comfy' "
-                "everywhere else. docs/h3_references.md: 'release' handles "
+                "everywhere else. docs/wiki/core/h3_references.md: 'release' handles "
                 "the vendor's own video sizing locally AND enables the coupled "
                 "Qwen stage, while 'comfy' is what core does and pre-applies "
                 "nothing, which is why generated graphs leave it. The probes "
@@ -334,7 +334,7 @@ DECLARED: dict[tuple[str, str], tuple] = {
                 "h3_probe_t2v_rotate (the Tier 2 witness) and "
                 "h3_probe_t2v_sage_rotate (the sage chain with every lever), Sol's "
                 "Hadamard rotation of q/k before INT8 (2026-09-15, "
-                "docs/h3_quant_policy.md). The node default 'rotated' "
+                "docs/wiki/attention/h3_quant_policy.md). The node default 'rotated' "
                 "(sol_attn_h3.SOL_QUANTIZER_DEFAULT) everywhere else. Replaced the "
                 "qk_balance and rotate rows with the 2026-09-27 node redesign; "
                 "the per-graph value is graded by "
@@ -352,7 +352,7 @@ DECLARED: dict[tuple[str, str], tuple] = {
     ("MiniMaxH3ChannelBalance", "balance"):
         ("ARM", "'loud blocks (from weights)' on h3_probe_t2v_levers and "
                 "h3_probe_t2v_policy, the weights fold on the lopsided blocks "
-                "(2026-09-15, docs/h3_block49_quant_error.md)"),
+                "(2026-09-15, docs/wiki/attention/h3_block49_quant_error.md)"),
     ("MiniMaxH3ExactBlocks", "blocks"):
         ("ARM", "'45,48,49' on h3_probe_t2v_exact_tail and h3_probe_t2v_policy, "
                 "the bf16 ceiling at the three lopsided blocks (2026-09-15)"),
@@ -420,20 +420,20 @@ DECLARED: dict[tuple[str, str], tuple] = {
         ("ARM", "'match' on h3_pika_image_edit, against the node default 'max' "
                 "(2026-11-10): the picture is sized to the output it is edited into. "
                 "That is the size the render that showed the edit landing used; 'max' "
-                "was not rendered on this graph (docs/h3_image_editing.md). The "
+                "was not rendered on this graph (docs/wiki/image/h3_image_editing.md). The "
                 "generator passes ref_size_policy='match' for it."),
     ("MiniMaxH3GuideLatent", "frame_idx"):
         ("ARM", "24, 54, and 96 across the three chained audio-guide islands on "
                 "h3_text_to_video_pika_sound_guide (h3_config.SOUND_GUIDE_ISLANDS), "
                 "against the node default 0 on the frame-0 visual guide graphs "
-                "(2026-11-12, docs/research/2026-11-12_guide_sound_islands_and_kinematic_dpad.md)."),
+                "(2026-11-12, docs/wiki/research/2026-11-12_guide_sound_islands_and_kinematic_dpad.md)."),
     ("MiniMaxH3ReleaseReferences", "audio_end_percent"):
         ("ARM", "0.60 (h3_config.SOUND_GUIDE_AUDIO_RELEASE_END) on "
                 "h3_text_to_video_pika_sound_guide and h3_image_ref_dpad_sound_pika, "
                 "against the node default 1.0: releases the timeline cond_audio islands "
                 "after step 3 (frac < 0.60 on 6-step Pika LCM) so steps 4..5 run 1-pass "
                 "[original] cleanly (2026-11-12, "
-                "docs/research/control_vectors/2026-11-12_sound_cues_dpad_and_033_release_law.md)."),
+                "docs/wiki/research/control_vectors/2026-11-12_sound_cues_dpad_and_033_release_law.md)."),
     ("MiniMaxH3ReleaseReferences", "video_end_percent"):
         ("ARM", "0.33 (h3_config.DPAD_VIDEO_RELEASE_END) on h3_image_ref_dpad_sound_pika, "
                 "against the node default 1.0: releases the synthetic 2D cutout <Video 1> "

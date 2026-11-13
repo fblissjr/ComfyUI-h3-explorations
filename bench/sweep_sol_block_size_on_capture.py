@@ -19,7 +19,7 @@ cost. A configuration is better only where its curve lies BELOW another's: if
 
 The token-ordering axis (raster against Morton `3d`, which asked whether a
 reorder already buys the granularity) was removed on 2026-09-27 with Morton
-itself (docs/research/2026-09-27_sol_node_redesign.md). Records written before
+itself (docs/wiki/archive/2026-09-27_sol_node_redesign.md). Records written before
 then key their curves `<ordering>_b<size>`; `--summarize` still reads them.
 
 The arithmetic is the algorithm in fp32, NOT the CUDA kernel: this pack's

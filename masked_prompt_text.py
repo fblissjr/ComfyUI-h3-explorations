@@ -306,7 +306,7 @@ def assemble(subject: str = SUBJECT_PERSON, voice: str = VOICE_MAIN, picture_giv
 
     `subject` is who the still shows, in the user's words; it sits in the
     subject's definition, and the pronouns follow it (`pronouns`). The text
-    outranks the picture where the two disagree (`docs/prompting.md`,
+    outranks the picture where the two disagree (`docs/wiki/prompting/prompting.md`,
     "Silence is not neutral"), so words that match the still hold a look the
     render drifts from and words that do not match override it. `replace`
     and `motion_reference` are the Masked Source's own values, or None when

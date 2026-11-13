@@ -1,6 +1,6 @@
 # MiniMax-H3-Image Standalone System Prompts (`docs/wiki/system_prompts/h3_image/`)
 
-Self-contained, English-only system prompts for expanding short requests into finished **MiniMax-H3-Image** captions (`workflows/image/h3_image_{t2i,edit}_api.json` and `h3_image_{t2i,edit}_heylook_api.json`, documented in [`docs/h3_image.md`](../../../h3_image.md)).
+Self-contained, English-only system prompts for expanding short requests into finished **MiniMax-H3-Image** captions (`workflows/image/h3_image_{t2i,edit}_api.json` and `h3_image_{t2i,edit}_heylook_api.json`, documented in [`docs/wiki/image/h3_image.md`](../../image/h3_image.md)).
 
 Every prompt file in this folder is **pure standalone prompt text**—no outer markdown fences, no repo paths, no internal model lore, and no external cloud API assumptions—ready to paste as the system prompt in a local thinking LLM/VLM (such as `heylookitsanllm`).
 

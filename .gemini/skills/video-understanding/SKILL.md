@@ -50,7 +50,7 @@ Inside the Antigravity (`agy`) harness, **never invoke `gemini-api` or upload lo
 - **The reader did not make the load.** A session or subagent other than the maker reads it, as the pre-render look already requires (`bench/capture_masked_run.py looked`). Independent, not blind: the reader knows the load name and may read the maker's expectation; it does not take the maker's word for what the frames show.
 - **What it reads** (Path 1 below, native tools only): the landed `.1fps.<first>-<last>.mp4` strip frame by frame, the `24 fps` clip for cadence and audio, the reference `_sheet.jpg`, and the measured shift of the replaced part inside `parts_held` against the source frames and the kept loads (per-frame luma and `B-R`, local `$PY`).
 - **What it hands back**: a short reading beside the capture (`<capture>/looks/<load>.reading.md`): what it sees, with frame numbers; what it cannot see; the figures with what they were measured on. No verdict and no hold (the owner's eye on playback accepts a piece; `docs/wiki/working_with_the_owner.md`, "Judging").
-- **The lead reads the reading, not the video.** A strip is tens of frames in the lead's context; a reading is twenty lines. The reading's words go on the review card beside the clip, and only then does `load_chain.py page` run (`docs/masked_v2v/PROTOCOL.md` 5.1; never `land && page` in one command).
+- **The lead reads the reading, not the video.** A strip is tens of frames in the lead's context; a reading is twenty lines. The reading's words go on the review card beside the clip, and only then does `load_chain.py page` run (`docs/wiki/masked_v2v/PROTOCOL.md` 5.1; never `land && page` in one command).
 
 ---
 

@@ -1022,7 +1022,7 @@ class MiniMaxH3ImagePromptExpander(io.ComfyNode):
                         "wire the full-size LoadImage outputs into MiniMax H3 Image Conditioning as usual."
                     ),
                 ),
-                # Appended after 'images' to preserve existing positional widget/socket slots (docs/comfy_notes.md).
+                # Appended after 'images' to preserve existing positional widget/socket slots (docs/wiki/ops/comfy_notes.md).
                 io.Combo.Input(
                     "sampler_mode",
                     options=list(SAMPLER_MODES),

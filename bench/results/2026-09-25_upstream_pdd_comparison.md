@@ -2,7 +2,7 @@
 
 The numeric half of the 2026-09-25 PDD survey. The comparison and what it
 means for decisions live in
-`docs/research/pdd/2026-09-25_upstream_pdd_comparison.md`. Every
+`docs/wiki/research/pdd/2026-09-25_upstream_pdd_comparison.md`. Every
 implementation below is reimplemented from its source in a probe under
 `bench/`, and none is imported. All three probes are CPU-only; run them with
 `CUDA_VISIBLE_DEVICES=""` in the ComfyUI venv.

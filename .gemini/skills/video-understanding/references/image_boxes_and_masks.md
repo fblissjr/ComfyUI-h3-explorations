@@ -12,7 +12,7 @@ Companion reference to [`../SKILL.md`](../SKILL.md).
 
 ---
 
-## 1. Where Gemini Image Grounding Fits in `docs/masked_v2v/`
+## 1. Where Gemini Image Grounding Fits in `docs/wiki/masked_v2v/`
 
 Our local perception models (`SAM 3.1` in `subject_track.py` / `bench/strangers.py` and `Sapiens-2B` in `sapiens2_parts.py`) run on the GPU (`:8188`). Using Gemini's native object detection (`box_2d`) and polygon segmentation (`mask`) via `gemini-api` provides a **zero-VRAM, off-card perception layer** while ComfyUI holds the card:
 

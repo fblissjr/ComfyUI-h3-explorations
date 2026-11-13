@@ -18,7 +18,7 @@ nothing pre-applied) and `release` (the release's own processor declaration,
 read through `vendor_config`). The cases here hold them apart on one input,
 which is the only way a selector that quietly collapses to one branch goes
 red. A third policy, `encoder`, bound to a contract the AWQ adapter stamped on
-its CLIP; that lane closed on 2026-09-13 (`docs/roadmap.md` "Closed lanes")
+its CLIP; that lane closed on 2026-09-13 (`docs/wiki/ops/roadmap.md` "Closed lanes")
 and its arms left with it. The guarded loader `h3_encoder_loader.py` still
 records core's bounds, and the static preflight prices against them.
 """

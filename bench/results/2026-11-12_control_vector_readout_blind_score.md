@@ -5,7 +5,7 @@ lane: control
 Date: 2026-11-12
 
 The first run of experiment 1 of
-[`docs/research/control_vectors/2026-11-12_chain_lens_digest_and_experiment_plan.md`](../../docs/research/control_vectors/2026-11-12_chain_lens_digest_and_experiment_plan.md)
+[`docs/wiki/research/control_vectors/2026-11-12_chain_lens_digest_and_experiment_plan.md`](../../docs/wiki/research/control_vectors/2026-11-12_chain_lens_digest_and_experiment_plan.md)
 (section 11). A judge that sees only a vector's readout picks that vector's concept out of five. The judging
 format and the controls are WorkspaceBench's (the same page, section 8.1).
 

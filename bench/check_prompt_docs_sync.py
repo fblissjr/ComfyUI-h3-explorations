@@ -4,7 +4,7 @@
 ## Renamed 2026-09-01, and updated 2026-11-06 (`docs/wiki/system_prompts/`)
 
 This was `check_portable_standard.py` and guarded only the published extract.
-That was **backwards**: the extract was checked and `docs/prompting.md` -- the
+That was **backwards**: the extract was checked and `docs/wiki/prompting/prompting.md` -- the
 document the extract is derived FROM, and the one this repo calls its single
 source of truth -- was guarded by nothing. Deliberately corrupting the manual's
 FL2VA Part One template and its camera vocabulary was caught by no check in the
@@ -29,12 +29,12 @@ diffed against anything. This checks the parts that are quotations:
    against `INDEPENDENT_ALIGNMENT` (transcribed by hand from `base_en.md`).
 3. **The camera motion vocabulary** in the manual and `h3_system_prompt.md`
    against the guide's own 4.3 table.
-4. **Every worked example** in `docs/prompting.md` section 10 re-graded through
+4. **Every worked example** in `docs/wiki/prompting/prompting.md` section 10 re-graded through
    `preflight_graph.grade` at the duration its heading names.
 5. **System prompts in `docs/wiki/system_prompts/`** against `BASE_ALIGNMENT`
    and `RULE_PINS`.
-6. **Every scene in `docs/prompt_catalogue.md`** resolving to a verdict in
-   `docs/prompt_audit.md`.
+6. **Every scene in `docs/wiki/prompting/prompt_catalogue.md`** resolving to a verdict in
+   `docs/wiki/prompting/prompt_audit.md`.
 7. **Quoted guide sentences** against the guide text.
 """
 
@@ -51,16 +51,16 @@ SYSTEM_PROMPT = SYSTEM_PROMPTS_DIR / "h3_system_prompt.md"
 PH3_IMAGE_SYSTEM_PROMPT = SYSTEM_PROMPTS_DIR / "h3_p_h3_image_system_prompt.md"
 GENERAL_IMAGE_EDIT_SYSTEM_PROMPT = SYSTEM_PROMPTS_DIR / "general_image_edit_system_prompt.md"
 CV_SYSTEM_PROMPT = SYSTEM_PROMPTS_DIR / "h3_control_vector_system_prompt.md"
-MANUAL = REPO / "docs" / "prompting.md"
-MANUAL_SHARDS = REPO / "docs" / "prompting"
+MANUAL = REPO / "docs" / "wiki" / "prompting" / "prompting.md"
+MANUAL_SHARDS = REPO / "docs" / "wiki" / "prompting"
 GUIDE = REPO / "vendor_guides" / "base_en.md"
 
 
 def read_manual() -> str:
-    """Read docs/prompting.md and its modular section shards in section order."""
+    """Read docs/wiki/prompting/prompting.md and its modular section shards in section order."""
     parts = [MANUAL.read_text(encoding="utf-8")]
     if MANUAL_SHARDS.is_dir():
-        for shard in sorted(MANUAL_SHARDS.glob("*.md")):
+        for shard in sorted(MANUAL_SHARDS.glob("[0-9][0-9]_*.md")):
             parts.append(shard.read_text(encoding="utf-8"))
     return "\n\n".join(parts)
 
@@ -428,7 +428,7 @@ def examples_still_grade(manual: str) -> int:
     section = section_10_slice(manual)
     if section is None:
         print("  FAIL  section 10 ('## 10. Worked examples' .. '## 11.') missing "
-              "from manual / docs/prompting/ shards")
+              "from manual / docs/wiki/prompting/ shards")
         return 1
     mode = cur = None
     rows = []
@@ -603,8 +603,8 @@ def derived_system_prompts(guide: str) -> int:
 
 def audit_covers_catalogue() -> int:
     """Every generated scene name must resolve to a hand-written verdict."""
-    cat = REPO / "docs" / "prompt_catalogue.md"
-    aud = REPO / "docs" / "prompt_audit.md"
+    cat = REPO / "docs" / "wiki" / "prompting" / "prompt_catalogue.md"
+    aud = REPO / "docs" / "wiki" / "prompting" / "prompt_audit.md"
     if not (cat.exists() and aud.exists()):
         print("  FAIL  catalogue or audit missing; coverage cannot be checked")
         return 1
@@ -700,9 +700,9 @@ def main() -> int:
             print(f"FAIL  missing {p.relative_to(REPO)}; this check compares "
                   f"nothing without it and would report a misleading green")
             return 2
-    if not MANUAL_SHARDS.is_dir() or not list(MANUAL_SHARDS.glob("*.md")):
+    if not MANUAL_SHARDS.is_dir() or not list(MANUAL_SHARDS.glob("[0-9][0-9]_*.md")):
         print(f"FAIL  missing or empty {MANUAL_SHARDS.relative_to(REPO)}/; "
-              f"sections 5.8-16 live in modular shards under docs/prompting/")
+              f"sections 5.8-16 live in modular shards under docs/wiki/prompting/")
         return 2
     manual = read_manual()
     guide = GUIDE.read_text(encoding="utf-8")

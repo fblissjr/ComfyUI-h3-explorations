@@ -5,7 +5,7 @@ non-overlapping island through the Audio VAE (`_encode_ref_audio`), and attaches
 them to `minimax_keyframes` (`cond_audio`) on `positive` conditioning without
 writing `.wav` files to disk or chaining `LoadAudio` + `MiniMaxH3GuideLatent`.
 
-Physics enforced automatically (`docs/research/control_vectors/2026-11-12_sound_cues_dpad_and_033_release_law.md`):
+Physics enforced automatically (`docs/wiki/research/control_vectors/2026-11-12_sound_cues_dpad_and_033_release_law.md`):
 
 1. **Exact integer 40 Hz Audio VAE RoPE positions (`snap_to_3f=True`):**
    `PackedLayout` places each audio island at `cond_t = cursor + (5/3) * frame_idx`.

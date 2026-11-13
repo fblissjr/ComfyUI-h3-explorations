@@ -1,6 +1,6 @@
 """Sol-Attn for MiniMax-H3, on comfy-kitchen's CUDA kernel: `MiniMaxH3Sol`.
 
-**Redesigned 2026-09-27.** `docs/research/2026-09-27_sol_node_redesign.md` is
+**Redesigned 2026-09-27.** `docs/wiki/archive/2026-09-27_sol_node_redesign.md` is
 the plan and the reasons, and `bench/results/2026-09-27_sol_node_compound_audit.md`
 the evidence. It replaced `MiniMaxH3SolAttn` (a fork of the vendored upstream
 node, 2026-08-30), which is deleted together with the code only it reached:
@@ -117,7 +117,7 @@ def parse_token_aug_profile(spec, count):
     capture, token routing lowered Sol's error against exact attention on four
     of five captured blocks at every step and RAISED it on block 49 at every
     step, so the one configuration measured to be wrong is the one a global
-    switch would express. `docs/research/2026-09-04_sol_token_aug_grade.md`
+    switch would express. `docs/wiki/archive/2026-09-04_sol_token_aug_grade.md`
     owns the numbers.
 
     The budget was measured inert across 64/128/256 in both accuracy and
@@ -162,7 +162,7 @@ SOL_DENSE_RIDGE_SHIELD = SOL_DENSE_OPTION_C
 SOL_DENSE_HISTORICAL_TAIL = "45,48,49"
 
 #: Terminal block only: block 49 feeds `final_layer.video_out` and carries the
-#: sharpest lopsided K-norm quantization sensitivity (`docs/h3_block49_quant_error.md`).
+#: sharpest lopsided K-norm quantization sensitivity (`docs/wiki/attention/h3_block49_quant_error.md`).
 SOL_DENSE_TERMINAL = "49"
 
 #: Active default for Sol dense_blocks: SOL_DENSE_TERMINAL ("49").
@@ -189,7 +189,7 @@ SOL_SINK_DEFAULT = "exact_kv_and_all_rows"
 #: `parse_token_aug_profile` says why 64.
 TOKEN_ROUTING_BUDGET = 64
 # The four captured blocks where the grade improved; block 49 is the fifth
-# and the one it hurt (docs/research/2026-09-04_sol_token_aug_grade.md).
+# and the one it hurt (docs/wiki/archive/2026-09-04_sol_token_aug_grade.md).
 TOKEN_ROUTING_MEASURED_BLOCKS = (0, 24, 32, 40)
 TOKEN_ROUTING_TAIL = 5
 
@@ -400,12 +400,12 @@ def _sink_blocks(transformer_options, tokens, mode):
                              two ranges differ by the text rows alone; on a
                              ref2v graph with a video reference the difference
                              is the reference's rows, which can be most of the
-                             conditioning. Priced in docs/SOLATTN.md, the
+                             conditioning. Priced in docs/wiki/attention/SOLATTN.md, the
                              recomputed sink-share table
 
     `exact_kv_and_rows` falls back to the all-rows range when the layout did
     not publish an audio span, which is a guard against an upstream layout
-    change, not dead code (docs/SOLATTN.md, the sink section). Pure: no
+    change, not dead code (docs/wiki/attention/SOLATTN.md, the sink section). Pure: no
     tensor, no kernel, graded on CPU by bench/check_sol_node_equivalence.py.
     """
     return sink_ranges(_h3layout.span(transformer_options, "video", tokens),
@@ -568,7 +568,7 @@ def make_override(tau=1.0, min_tokens=12288,
 
     The block index and segment bounds come from what core publishes
     (`h3_layout`); a kernel error raises rather than rendering dense
-    (`docs/research/2026-09-27_sol_node_redesign.md`).
+    (`docs/wiki/archive/2026-09-27_sol_node_redesign.md`).
 
     ``previous`` chains any override already installed on the model: every path
     that declines hands off to it first, falling through to ``func`` only if
@@ -1001,7 +1001,7 @@ def _install_compose_hooks(model, attn_attr):
 # ---------------------------------------------------------------------------
 # MiniMaxH3Sol: the redesigned node (2026-09-27)
 # ---------------------------------------------------------------------------
-# docs/research/2026-09-27_sol_node_redesign.md is the plan and the reasons;
+# docs/wiki/archive/2026-09-27_sol_node_redesign.md is the plan and the reasons;
 # bench/results/2026-09-27_sol_node_compound_audit.md is the evidence. What
 # differs from MiniMaxH3SolAttn, which it replaced and which was deleted with
 # the code only it reached:

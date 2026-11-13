@@ -483,7 +483,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--tau", type=float, default=1.0, help="Sol threshold tau")
     parser.add_argument("--token-aug", type=int, default=64, help="Token augmentation budget")
-    parser.add_argument("--out", type=str, default="docs/research/sparse/token_routing_comparison.html", help="HTML report output path (relative to repo root)")
+    parser.add_argument("--out", type=str, default="docs/wiki/research/sparse/token_routing_comparison.html", help="HTML report output path (relative to repo root)")
     args = parser.parse_args()
 
     print(f"[visualize_token_routing] Generating synthetic attention simulation (tau={args.tau}, token_aug={args.token_aug})...")

@@ -173,7 +173,7 @@ GUIDE_NODES = ("MiniMaxH3AddGuide", "MiniMaxH3GuideLatent")
 # prompt is one plain sentence: the edit and then what stays. It was added in
 # the form a guide edit LoRA was trained on, opening with `vfx_edit:`; on
 # 2026-11-11 the owner took the LoRA and the opening out and kept the sentence
-# (`docs/h3_image_editing.md`, "A one-frame edit on Pika"). The waiver now
+# (`docs/wiki/image/h3_image_editing.md`, "A one-frame edit on Pika"). The waiver now
 # rests on that word, not on a LoRA's training form: whether this graph's
 # prompt should be in the reference guide's sections is not settled: the
 # sentence was rendered without the LoRA that day, the sections were not.
@@ -296,7 +296,7 @@ def _edits_its_reference(wf: dict) -> bool:
     made: the vendor guide's `edited keyframe`, which is a `keyframe completion` (ref_en section 3).
     No guide node pins the picture, so this is held to what was rendered rather than to a mechanism:
     on 2026-11-10 that form kept the picture's framing and made the edit
-    (`docs/h3_image_editing.md`, "Plain H3 prompting at one frame").
+    (`docs/wiki/image/h3_image_editing.md`, "Plain H3 prompting at one frame").
     """
     return any(
         isinstance(n, dict)
@@ -431,7 +431,7 @@ NOT_CARRIERS = {
 
 def ph3_image_prompts_conform(graph_files) -> list[str]:
     """Grade every shipped `MiniMaxH3PH3ImageConditioning` / `PH3ImageConditioning`
-    graph against the P-H3-Image prompt contract (`docs/prompting/17_p_h3_image_prompting.md`
+    graph against the P-H3-Image prompt contract (`docs/wiki/prompting/17_p_h3_image_prompting.md`
     and `ph3_image_nodes.py::MiniMaxH3PH3ImageConditioning`).
 
     - T2I (no `images.image_*` sockets wired): must be non-empty single-frame

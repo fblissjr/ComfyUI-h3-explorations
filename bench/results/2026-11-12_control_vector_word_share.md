@@ -5,7 +5,7 @@ lane: control
 Date: 2026-11-12
 
 The CPU half of experiment 2 of
-[`docs/research/control_vectors/2026-11-12_chain_lens_digest_and_experiment_plan.md`](../../docs/research/control_vectors/2026-11-12_chain_lens_digest_and_experiment_plan.md)
+[`docs/wiki/research/control_vectors/2026-11-12_chain_lens_digest_and_experiment_plan.md`](../../docs/wiki/research/control_vectors/2026-11-12_chain_lens_digest_and_experiment_plan.md)
 (section 11). The plan asked what share of a control vector is a sparse mix of word directions. The first cut
 answered that as asked, and its own baselines show the answer says nothing about words. A second cut asks a
 narrower thing that does separate a vector from the rest.
@@ -85,7 +85,7 @@ from exactly those words (`j_lens.py::synthesize_from_words`), and take the cosi
 - As a share of the vector's energy, the direction its own words name is the cosine squared: about a third
   for a typical vector, between about a sixth and a half across the bank (`own_words.json`, `per_vector`).
 - This reproduces, on today's bundle, the figure in
-  `docs/research/control_vectors/2026-11-06_j_lens_and_refiner_jacobian.md` section 6.1, and adds what that
+  `docs/wiki/research/control_vectors/2026-11-06_j_lens_and_refiner_jacobian.md` section 6.1, and adds what that
   section did not have: the same words against other vectors.
 
 ### 3.1 The built vectors share a direction
@@ -98,7 +98,7 @@ from exactly those words (`j_lens.py::synthesize_from_words`), and take the cosi
   0.46) and another vector's words do not (median about zero, 95th percentile 0.24).
 
 This is the "shared plain side" of
-`docs/research/control_vectors/2026-11-09_control_vector_simplification_plan.md` section 20.1, seen in the
+`docs/wiki/research/control_vectors/2026-11-09_control_vector_simplification_plan.md` section 20.1, seen in the
 vectors themselves: every pair file sets its concept against something plain, so every vector carries
 "away from plain".
 

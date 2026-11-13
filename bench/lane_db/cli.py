@@ -29,7 +29,7 @@ standing pieces of the subjects it keeps (`keeps` in data/projects.json) beside 
 `dump`    every table as text, a row a line.
 
 A build is a pure function of the files: nothing is updated in place, and a changed file means a new build. Tools
-that write the database themselves come one at a time, later (docs/masked_v2v/2026-11-10_simplification_plan.md).
+that write the database themselves come one at a time, later (docs/wiki/masked_v2v/2026-11-10_simplification_plan.md).
 It reads no picture and hashes no render: what a record says a file's sha256 was is kept on the row that says it.
 """
 from __future__ import annotations
