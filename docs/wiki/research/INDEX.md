@@ -61,6 +61,7 @@ For active nodes and recipes, start at [`../control_vectors.md`](../control_vect
 
 | Document | Topic |
 |---|---|
+| [`2026-11-13_e_means_clustering_assessment.md`](2026-11-13_e_means_clustering_assessment.md) | Evaluation of Meta FAIR `e-means` (`arXiv:2611.09501v1`) for H3/Sol-Attn and offline pipelines (**declined** for live attention; revisit only at `N >= 10^7`) |
 | [`sparse/2026-10-02_sol_sparse_attention_hyperparameter_campaign.md`](sparse/2026-10-02_sol_sparse_attention_hyperparameter_campaign.md) | Sol-Attn sparse-attention hyperparameter campaign & empirical optimization report |
 | [`sparse/sol_capture_and_optimization_guide.md`](sparse/sol_capture_and_optimization_guide.md) | End-to-end guide: Sol-Attn data capture & hyperparameter optimization |
 | [`sparse/sol_dense_blocks_reanalysis.md`](sparse/sol_dense_blocks_reanalysis.md) | Sol-Attn dense-blocks reanalysis & 5-test experimental plan |

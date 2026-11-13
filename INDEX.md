@@ -160,7 +160,7 @@ with none is a helper the others import.
 | `changelog.d/` | | [`changelog.d/README.md`](changelog.d/README.md), one file per changelog entry; not listed and not counted |
 | `contact_sheets/` | 2 | [below](#contact_sheets) |
 | `data/` | 2 | [below](#data) |
-| `docs/` | 291 | [`docs/wiki/index.md`](docs/wiki/index.md), the hand-written router |
+| `docs/` | 292 | [`docs/wiki/index.md`](docs/wiki/index.md), the hand-written router |
 | `prompt_bank/` | 224 | [`docs/wiki/prompting/prompt_bank.md`](docs/wiki/prompting/prompt_bank.md), the prompt catalogue |
 | `sparse_tables/` | 1 | [below](#sparse_tables) |
 | `standalone/` | 6 | [below](#standalone) |
