@@ -118,14 +118,19 @@ untracked but present when this was written, and a `git ls-files` corpus would
 have reported every citation into it as missing -- a red on correct, brand-new
 work.
 
-**Paths under `coderef/` are advisory.** Those are gitignored symlinks to
-sister checkouts. A machine that has not cloned diffusers is not broken, so an
-unresolvable `coderef/` citation warns and does not fail.
+**Paths under `coderef/`, `data/`, and absent `app/` checkouts are advisory.**
+`coderef/` holds gitignored symlinks to sister checkouts, `data/` holds local run
+directories, and `app/` is optional (`app/` is advisory only when `app/` is
+absent on disk). A machine that has not cloned diffusers or `app/` is not
+broken, so an unresolvable citation into those trees warns and does not fail.
 
-Takes paths on the command line; with none, it discovers the corpus by walking
-the repo rather than globbing a directory somebody remembered. A link checker
-that can only see the directories its author anticipated has the same hole that
-let `workflows/image/` go ungoverned by two prompt checks until 2026-08-16.
+Takes paths on the command line; with none under `.git`, `iter_corpus()`
+enumerates every non-gitignored `.md` via `git ls-files --cached --others
+--exclude-standard -- '*.md'` (falling back to `REPO.rglob("*.md")` in
+`.git`-less copies such as `bench/break_checks.py`) rather than globbing a
+fixed directory list. A link checker that can only see the directories its
+author anticipated has the same hole that let `workflows/image/` go ungoverned
+by two prompt checks until 2026-08-16.
 
 Needs no ComfyUI, no CUDA, no model. Runs in well under a second.
 """
@@ -210,7 +215,7 @@ def iter_corpus(argv):
             continue
         if rel.parts[0] == ".gemini" and rel.parts[1:2] != ("skills",):
             continue
-        if rel.parts[0] == "data" and rel.name not in ("AGENTS.md", "CLAUDE.md"):
+        if rel.parts[0] == "data" and rel.parts not in (("data", "AGENTS.md"), ("data", "CLAUDE.md")):
             continue
         if rel.parts[0] == CHANGELOG_FRAGMENTS and rel.name != "README.md":
             continue
@@ -272,6 +277,15 @@ def resolve(cited):
     return hits
 
 
+def _advisory_absent(rel_path: str) -> bool:
+    """Return True when a missing target lives in an optional/untracked tree."""
+    if rel_path.startswith(("coderef/", "data/")):
+        return True
+    if rel_path.startswith("app/"):
+        return not (REPO / "app").is_dir()
+    return False
+
+
 def main():
     argv = [a for a in sys.argv[1:] if not a.startswith("-")]
     absent = parse_ledger(LEDGER.read_text(encoding="utf-8"))
@@ -330,7 +344,7 @@ def main():
             rel_t = (base / target).resolve().relative_to(REPO).as_posix()
         except (ValueError, OSError):
             rel_t = ""
-        if rel_t.startswith(("coderef/", "data/", "app/")):
+        if _advisory_absent(rel_t):
             continue
         if Path(target).name in absent:
             continue
@@ -356,7 +370,7 @@ def main():
             bare.append((src, n, cited))
             continue
         if not hits:
-            if cited.startswith(("coderef/", "data/", "app/")):
+            if _advisory_absent(cited):
                 coderef_missing.append((src, n, cited))
             else:
                 unresolved.append((src, n, cited))
@@ -381,7 +395,7 @@ def main():
             bare.append((src, n, cited))
             continue
         if not hits:
-            (coderef_missing if cited.startswith(("coderef/", "data/", "app/")) else unresolved
+            (coderef_missing if _advisory_absent(cited) else unresolved
              ).append((src, n, cited))
             continue
         if len(hits) > 1:

@@ -224,7 +224,7 @@ Each entry gives `symbol (Lstart-Lend, #digest)` extracted directly from the fil
   - `video_mask.py::MiniMaxH3MaskedSource.execute` (`L2629-L2911`, `#648adda5`)
   - `video_mask.py::_settle_mask` (`L2914-L2993`, `#56aa7eca`)
 
-### 3.5 `audio_freeze_song.py` (1,151 lines)
+### 3.5 `audio_freeze_song.py` (1,149 lines)
 
 - **Output MP4 & JSON writers**:
   - `audio_freeze_song.py::_write_pieces_mp4` (`L163-L188`, `#330423e9`)
@@ -240,7 +240,7 @@ Each entry gives `symbol (Lstart-Lend, #digest)` extracted directly from the fil
   - `audio_freeze_song.py::reference_costs` (`L461-L499`, `#7304f17c`)
 - **`MiniMaxH3AudioFreezeSong` Node (`74`)**:
   - `audio_freeze_song.py::MiniMaxH3AudioFreezeSong.define_schema` (`L504-L641`, `#828c1a54`)
-  - `audio_freeze_song.py::MiniMaxH3AudioFreezeSong.execute` (`L653-L1151`, `#5ca0d652`)
+  - `audio_freeze_song.py::MiniMaxH3AudioFreezeSong.execute` (`L653-L1149`, `#fb95095a`)
 
 ### 3.6 `bench/assemble_delivery.py` (3,659 lines)
 
@@ -322,8 +322,8 @@ Each entry gives `symbol (Lstart-Lend, #digest)` extracted directly from the fil
 - **`bench/facts_pass.py`** (1,235 lines): `_load_head_track` (`L280-L362`, `#86603e99`), `compute_facts` (`L768-L1075`, `#ad30ebe5`),
   `main` (`L1209-L1231`, `#d096af05`)
 - **`bench/measure_blocks.py`** (1,010 lines): `measure_luma_blocks` (`L515-L863`, `#b9def397`), `run_cli` (`L905-L1006`, `#5bc20386`)
-- **`loop_plan.py`** (513 lines): `segment_lengths` (`L214-L250`, `#3ea15269`), `plan_windows` (`L253-L283`, `#dc71a068`),
-  `frames_kept` (`L324-L334`, `#f83f6e63`), `frames_written` (`L337-L365`, `#c8fd0b54`), `plan_song` (`L419-L430`, `#138fc7b2`)
+- **`loop_plan.py`** (535 lines): `segment_lengths` (`L215-L251`, `#3ea15269`), `plan_windows` (`L254-L284`, `#dc71a068`),
+  `frames_kept` (`L325-L335`, `#f83f6e63`), `frames_written` (`L359-L387`, `#c8fd0b54`), `plan_song` (`L441-L452`, `#138fc7b2`)
 - **`h3_rules.py`** (377 lines): `on_both_clocks` (`L117-L120`, `#46887dd4`), `chain_lengths` (`L123-L129`, `#c4694462`),
   `snap_length` (`L160-L182`, `#536ad208`)
 - **`subject_track.py`** (3,005 lines): `signature` (`L603-L613`, `#cced131e`), `auto_match` (`L663-L672`, `#4bce4711`),

@@ -3,7 +3,7 @@
 Research hub, custom ComfyUI nodes ([`nodes.py`](nodes.py)), generated API workflows ([`workflows/build_workflows.py`](workflows/build_workflows.py), [`workflows/h3_config.py`](workflows/h3_config.py)), graded prompt bank ([`docs/wiki/prompting/prompt_bank.md`](docs/wiki/prompting/prompt_bank.md), [`docs/wiki/prompting/prompting.md`](docs/wiki/prompting/prompting.md)), and verification tools ([`bench/INDEX.md`](bench/INDEX.md)) for **MiniMax H3** joint audio-video and single-frame image generation (`MiniMax-H3`, Pika H3 Flex, `MiniMax-H3-Image`, `P-H3-Image`, `audio_freeze`, `masked_v2v`, control vectors, edit guidance).
 
 - **Do not trust prose; cite the observable** ([`VISION.md`](VISION.md), [`docs/wiki/ops/prose_measurements.md`](docs/wiki/ops/prose_measurements.md), [`docs/wiki/ops/evidence.md`](docs/wiki/ops/evidence.md)). When documentation and code disagree, verify against the `.py` files on disk, act on the code, and log corrections in [`docs/wiki/decisions.md`](docs/wiki/decisions.md).
-- **Subfolder guides**: [`docs/AGENTS.md`](docs/AGENTS.md), [`docs/wiki/masked_v2v/AGENTS.md`](docs/wiki/masked_v2v/AGENTS.md), and untracked local `data/AGENTS.md` govern their own subtrees alongside this file.
+- **Subfolder guides**: [`docs/AGENTS.md`](docs/AGENTS.md), [`docs/wiki/masked_v2v/AGENTS.md`](docs/wiki/masked_v2v/AGENTS.md), and [`data/AGENTS.md`](data/AGENTS.md) (plus untracked per-video `data/<video>/AGENTS.md` files) govern their own subtrees alongside this file.
 
 ---
 
