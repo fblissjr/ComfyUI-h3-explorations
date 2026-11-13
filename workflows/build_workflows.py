@@ -82,6 +82,7 @@ _OUR_NODES = {
     "MiniMaxH3AudioFreezeSong", "MiniMaxH3PromptList",
     "MiniMaxH3PH3ImagePromptUpsampler", "MiniMaxH3PH3ImageConditioning",
     "MiniMaxH3GuideLatent",
+    "MiniMaxH3SoundCues", "MiniMaxH3AppendSpriteTrajectory",
     "MiniMaxH3ImageSize", "MiniMaxH3ImageDownscale", "MiniMaxH3ImagePromptExpander",
     "MiniMaxH3EncodeImageReferences", "MiniMaxH3PromptOnImageReferences",
 }
@@ -122,6 +123,8 @@ from h3_config import (  # noqa: E402
     H3_IMAGE_MEGAPIXELS, H3_IMAGE_ASPECT_OF_PICTURE, HEYLOOK_DEFAULT_BASE_URL,
     GUIDE_LATENT_NODE, GUIDE_CHARACTER_SWAP_LORA, GUIDE_TASK_LORAS,
     SOUND_GUIDE_ISLANDS, SOUND_GUIDE_AUDIO_RELEASE_END, SOUND_GUIDE_EDIT_GUIDANCE,
+    SOUND_CUES_NODE, SOUND_CUES_DEFAULTS, SPRITE_TRAJECTORY_NODE, SPRITE_TRAJECTORY_DEFAULTS,
+    DPAD_SOUND_REF_IMAGES, DPAD_SOUND_CUES, DPAD_VIDEO_RELEASE_END,
     CONTROL_VECTOR_NODE, CONTROL_VECTOR_DEFAULTS, CONTROL_VECTOR_OPTIONAL_DEFAULTS, LAYER_NORM_MATCH_NODE,
     STEER_NODE, STEER_DEFAULTS, RELEASE_REFERENCES_NODE, RELEASE_REFERENCES_DEFAULTS,
     WORD_VECTOR_NODE, WORD_VECTOR_DEFAULTS, LOAD_CONTROL_VECTOR_NODE,
@@ -292,6 +295,7 @@ def sol_api_inputs(sol):
 
 LONG_T2V_PROMPT = _bank_prompt("t2va_covered_market")
 SOUND_GUIDE_T2V_PROMPT = _bank_prompt("t2va_offpath_tortoise_sound_guide")
+DPAD_SOUND_REF2V_PROMPT = _bank_prompt("ref2va_dpad_tortoise_sound_cues")
 # The bench pair's scene (see the bench block near the end of main).
 BENCH_T2V_PROMPT = _bank_prompt("t2va_frontier_standoff")
 
@@ -1309,6 +1313,8 @@ def _parse_control_vector_entries(
                         float(RELEASE_REFERENCES_DEFAULTS["clean_level"]),
                         float(RELEASE_REFERENCES_DEFAULTS["audio_end_percent"]),
                         float(RELEASE_REFERENCES_DEFAULTS["audio_clean_level"]),
+                        float(RELEASE_REFERENCES_DEFAULTS["video_end_percent"]),
+                        False,
                         False,
                     )
                 )
@@ -1325,7 +1331,9 @@ def _parse_control_vector_entries(
                         float(rel_spec.get("clean_level", RELEASE_REFERENCES_DEFAULTS["clean_level"])),
                         float(rel_spec.get("audio_end_percent", RELEASE_REFERENCES_DEFAULTS["audio_end_percent"])),
                         float(rel_spec.get("audio_clean_level", RELEASE_REFERENCES_DEFAULTS["audio_clean_level"])),
+                        float(rel_spec.get("video_end_percent", RELEASE_REFERENCES_DEFAULTS["video_end_percent"])),
                         bool("audio_end_percent" in rel_spec or "audio_clean_level" in rel_spec),
+                        bool("video_end_percent" in rel_spec),
                     )
                 )
             elif "ref_vae_end_percent" in spec or "ref_vae_aug" in spec:
@@ -1335,6 +1343,8 @@ def _parse_control_vector_entries(
                         float(spec.get("ref_vae_aug", RELEASE_REFERENCES_DEFAULTS["clean_level"])),
                         float(RELEASE_REFERENCES_DEFAULTS["audio_end_percent"]),
                         float(RELEASE_REFERENCES_DEFAULTS["audio_clean_level"]),
+                        float(RELEASE_REFERENCES_DEFAULTS["video_end_percent"]),
+                        False,
                         False,
                     )
                 )
@@ -1381,16 +1391,20 @@ def _parse_control_vector_entries(
 
     release_inputs: dict[str, float] | None = None
     if release_candidates:
-        min_aep = min(aep for _ep, _cl, aep, _acl, _ex in release_candidates)
-        min_acl = min(acl for _ep, _cl, _aep, acl, _ex in release_candidates)
-        explicit_aud = any(ex for _ep, _cl, _aep, _acl, ex in release_candidates)
+        min_aep = min(aep for _ep, _cl, aep, _acl, _vep, _ex, _vex in release_candidates)
+        min_acl = min(acl for _ep, _cl, _aep, acl, _vep, _ex, _vex in release_candidates)
+        min_vep = min(vep for _ep, _cl, _aep, _acl, vep, _ex, _vex in release_candidates)
+        explicit_aud = any(ex for _ep, _cl, _aep, _acl, _vep, ex, _vex in release_candidates)
+        explicit_vid = any(vex for _ep, _cl, _aep, _acl, _vep, _ex, vex in release_candidates)
         release_inputs = {
-            "end_percent": min(ep for ep, _cl, _aep, _acl, _ex in release_candidates),
-            "clean_level": min(cl for _ep, cl, _aep, _acl, _ex in release_candidates),
+            "end_percent": min(ep for ep, _cl, _aep, _acl, _vep, _ex, _vex in release_candidates),
+            "clean_level": min(cl for _ep, cl, _aep, _acl, _vep, _ex, _vex in release_candidates),
         }
         if explicit_aud or min_aep < 1.0 or min_acl < 1.0:
             release_inputs["audio_end_percent"] = min_aep
             release_inputs["audio_clean_level"] = min_acl
+        if explicit_vid or min_vep < 1.0:
+            release_inputs["video_end_percent"] = min_vep
     return entries, release_inputs
 
 
@@ -1664,6 +1678,8 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
               guide_image: bool = False,
               guide_file: str | None = None,
               guide_audio: tuple[tuple[int, str], ...] | None = None,
+              sound_cues: str | dict | None = None,
+              sprite_trajectory: bool | str | dict | None = None,
               release_references: bool | dict | None = None,
               task_lora: tuple[str, float] | None = None,
               out_prefix: str | None = None, **canvas) -> dict:
@@ -1816,7 +1832,10 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
 
     if ref:
         slots = _ref_image_slots(ref_images_on, ref_image_count, ref_images)
-        n_refs = len(slots) + int(ref_video) + int(ref_audio)
+        has_sprite = sprite_trajectory is not None and sprite_trajectory is not False
+        if has_sprite and ref_video:
+            raise SystemExit("ref_video and sprite_trajectory are mutually exclusive in make_graph")
+        n_refs = len(slots) + int(ref_video) + int(has_sprite) + int(ref_audio)
         # A guide graph on `unet_ref2va` may carry no reference: the guide is
         # the picture/clip being edited, so node 5 conditions on the prompt
         # alone via `MiniMaxH3Conditioning` (or core's `MiniMaxH3ReferenceToVideo`
@@ -1834,7 +1853,7 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
         # None, and a `null` literal is what it rejects.
         cond_vaes = ({"vae": vae_enc, "audio_vae": ["4", 0]}
                      if ref_latents else {})
-        if native_ref and (ref_video or ref_audio):
+        if native_ref and (ref_video or has_sprite or ref_audio):
             raise SystemExit(
                 "native_ref emits core's still sockets only; wire a video or "
                 "audio reference through the typed chain")
@@ -1938,6 +1957,41 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
                 append_inputs["references"] = chain
             g[append_id] = {"class_type": "MiniMaxH3AppendRefVideo",
                             "inputs": append_inputs}
+            chain = [append_id, 0]
+        if has_sprite:
+            if not slots:
+                raise SystemExit("sprite_trajectory requires at least one reference image slot (<Picture 1>)")
+            sprite_cfg = dict(SPRITE_TRAJECTORY_DEFAULTS)
+            if isinstance(sprite_trajectory, str):
+                sprite_cfg["keyframes"] = sprite_trajectory
+            elif isinstance(sprite_trajectory, dict):
+                bad_sp = sorted(set(sprite_trajectory) - set(SPRITE_TRAJECTORY_DEFAULTS))
+                if bad_sp:
+                    raise SystemExit(
+                        f"sprite_trajectory dict has unknown keys {bad_sp}; "
+                        f"expected {sorted(SPRITE_TRAJECTORY_DEFAULTS)}"
+                    )
+                sprite_cfg.update(sprite_trajectory)
+            elif sprite_trajectory is not True:
+                raise SystemExit(
+                    f"sprite_trajectory must be bool, keyframes str, or dict; got {sprite_trajectory!r}"
+                )
+            append_id = next(append_ids)
+            sprite_inputs: dict[str, Any] = {
+                "image": [slots[0][0], 0],
+                "length": ["27", 2],
+                "keyframes": str(sprite_cfg["keyframes"]),
+                "canvas_width": int(sprite_cfg["canvas_width"]),
+                "canvas_height": int(sprite_cfg["canvas_height"]),
+                "sprite_scale": float(sprite_cfg["sprite_scale"]),
+                "use_vae": bool(sprite_cfg["use_vae"]),
+            }
+            if chain is not None:
+                sprite_inputs["references"] = chain
+            g[append_id] = {
+                "class_type": SPRITE_TRAJECTORY_NODE,
+                "inputs": sprite_inputs,
+            }
             chain = [append_id, 0]
         if ref_audio:
             # Standalone audio is appended after visual references, matching
@@ -2155,9 +2209,12 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
             }
             aep = float(release_references.get("audio_end_percent", RELEASE_REFERENCES_DEFAULTS["audio_end_percent"]))
             acl = float(release_references.get("audio_clean_level", RELEASE_REFERENCES_DEFAULTS["audio_clean_level"]))
+            vep = float(release_references.get("video_end_percent", RELEASE_REFERENCES_DEFAULTS["video_end_percent"]))
             if "audio_end_percent" in release_references or "audio_clean_level" in release_references or aep < 1.0 or acl < 1.0:
                 rel_in["audio_end_percent"] = aep
                 rel_in["audio_clean_level"] = acl
+            if "video_end_percent" in release_references or vep < 1.0:
+                rel_in["video_end_percent"] = vep
         else:
             raise SystemExit(f"release_references must be bool or dict, got {release_references!r}")
         g["135"] = {"class_type": RELEASE_REFERENCES_NODE, "inputs": {"model": model_src, **rel_in}}
@@ -2323,11 +2380,11 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
     elif freeze_guide:
         raise SystemExit("freeze_guide needs freeze_audio")
 
-    if guide_video or guide_image or guide_audio:
-        if sum(bool(x) for x in (guide_video, guide_image, guide_audio)) > 1:
-            raise SystemExit("guide_video, guide_image and guide_audio are mutually exclusive")
+    if guide_video or guide_image or guide_audio or sound_cues:
+        if sum(bool(x) for x in (guide_video, guide_image, guide_audio, sound_cues)) > 1:
+            raise SystemExit("guide_video, guide_image, guide_audio and sound_cues are mutually exclusive")
         if freeze_guide or freeze_song:
-            raise SystemExit("guide_video/guide_image/guide_audio do not compose with freeze_guide or freeze_song")
+            raise SystemExit("guide_video/guide_image/guide_audio/sound_cues do not compose with freeze_guide or freeze_song")
         if guide_video:
             g["71"] = {"class_type": REF_VIDEO_LOADER,
                        "inputs": {"video": PLACEHOLDER_VIDEO_SILENT,
@@ -2350,6 +2407,36 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
                        "inputs": {"positive": ["5", 0], "vae": vae_enc,
                                   "latent": ["5", 1], "guide": ["16", 0],
                                   "frame_idx": 0, "single_frame": True}}
+            g["26"]["inputs"]["conditioning"] = ["70", 0]
+            g["26"]["inputs"]["samples"] = ["70", 1]
+        elif sound_cues:
+            if single_frame:
+                raise SystemExit("sound_cues requires single_frame=False")
+            sc_cfg = dict(SOUND_CUES_DEFAULTS)
+            if isinstance(sound_cues, str):
+                sc_cfg["cues"] = sound_cues
+            elif isinstance(sound_cues, dict):
+                bad_sc = sorted(set(sound_cues) - set(SOUND_CUES_DEFAULTS))
+                if bad_sc:
+                    raise SystemExit(
+                        f"sound_cues dict has unknown keys {bad_sc}; "
+                        f"expected {sorted(SOUND_CUES_DEFAULTS)}"
+                    )
+                sc_cfg.update(sound_cues)
+            else:
+                raise SystemExit(f"sound_cues must be cues str or dict; got {sound_cues!r}")
+            g["70"] = {
+                "class_type": SOUND_CUES_NODE,
+                "inputs": {
+                    "positive": ["5", 0],
+                    "latent": ["5", 1],
+                    "audio_vae": ["4", 0],
+                    "cues": str(sc_cfg["cues"]),
+                    "snap_to_3f": bool(sc_cfg["snap_to_3f"]),
+                    "floor_dbfs": float(sc_cfg["floor_dbfs"]),
+                    "seed": int(sc_cfg["seed"]),
+                },
+            }
             g["26"]["inputs"]["conditioning"] = ["70", 0]
             g["26"]["inputs"]["samples"] = ["70", 1]
         else:
@@ -2731,8 +2818,8 @@ def _wire_edit_guidance(g: dict, prompt: str, spec: dict) -> None:
     if guider["class_type"] != "BasicGuider":
         raise SystemExit(f"edit_guidance replaces BasicGuider at node 9; this graph has {guider['class_type']}")
     if kf_diff:
-        if "70" not in g or g["70"]["class_type"] != GUIDE_LATENT_NODE or "26" not in g:
-            raise SystemExit("keyframe_differential edit_guidance requires a MiniMaxH3GuideLatent chain")
+        if "70" not in g or g["70"]["class_type"] not in (GUIDE_LATENT_NODE, SOUND_CUES_NODE) or "26" not in g:
+            raise SystemExit("keyframe_differential edit_guidance requires a MiniMaxH3GuideLatent or MiniMaxH3SoundCues chain")
         edited_src = list(g["26"]["inputs"]["conditioning"])
         if edited_src == ["5", 0]:
             raise SystemExit("keyframe_differential edit_guidance expected node 26 conditioning to carry guides")
@@ -2808,9 +2895,11 @@ def _wire_edit_guidance(g: dict, prompt: str, spec: dict) -> None:
     else:
         raise SystemExit(f"edit_guidance does not know how to add a second prompt to {cond['class_type']}")
     edited_src = ["131", 0]
-    if "70" in g and g["70"]["class_type"] == "MiniMaxH3GuideLatent":
-        g["70"]["inputs"]["edited_positive"] = edited_src
-        edited_src = ["70", 2]
+    if "70" in g and g["70"]["class_type"] in (GUIDE_LATENT_NODE, SOUND_CUES_NODE):
+        for gnid in ("70", *(str(i) for i in range(150, 160))):
+            if gnid in g and g[gnid]["class_type"] in (GUIDE_LATENT_NODE, SOUND_CUES_NODE):
+                g[gnid]["inputs"]["edited_positive"] = edited_src
+                edited_src = [gnid, 2]
     elif "70" in g and g["70"]["class_type"] == "MiniMaxH3AddGuide":
         g["134"] = {"class_type": g["70"]["class_type"],
                     "inputs": dict(g["70"]["inputs"], positive=edited_src)}
@@ -5751,6 +5840,22 @@ def main():
               edit_guidance=SOUND_GUIDE_EDIT_GUIDANCE,
               out_prefix="Video/h3_t2v_pika_sound_guide"),
          "text + timeline short-sound islands -> video + native foley on Pika H3 Flex 6-step LCM (SVD995 branch): 3 MiniMaxH3GuideLatent cond_audio islands at [24, 54, 96] + MiniMaxH3ReleaseReferences(audio_end_percent=0.6) + 0-vs-3 keyframe-differential MiniMaxH3EditGuider(streams=video_only, scale=1.6, last_step=3)"),
+        ("h3_image_ref_dpad_sound_pika.json", "r2v-pika-dpad-sound", "r2v",
+         DPAD_SOUND_REF2V_PROMPT,
+         dict(length=124,
+              ref_images=DPAD_SOUND_REF_IMAGES, ref_image_count=1,
+              sprite_trajectory=True,
+              sound_cues=DPAD_SOUND_CUES,
+              lora=(PIKA_REF2VA_SVD995_LORA, PIKA_STRENGTH), lora_branch=True,
+              steps=PIKA_STEPS, sampler_name=PIKA_SAMPLER,
+              manual_sigmas=PIKA_MANUAL_SIGMAS,
+              release_references=dict(
+                  video_end_percent=DPAD_VIDEO_RELEASE_END,
+                  audio_end_percent=SOUND_GUIDE_AUDIO_RELEASE_END,
+              ),
+              edit_guidance=SOUND_GUIDE_EDIT_GUIDANCE,
+              out_prefix="Video/h3_r2v_dpad_sound_pika"),
+         "reference image + zero-file 2D sprite kinematic D-pad + touchdown sound cue -> video + native foley on Pika H3 Flex 6-step LCM (SVD995 branch): <Picture 1> held at end_percent=1.0, <Video 1> from MiniMaxH3AppendSpriteTrajectory released at video_end_percent=0.33 (b=0.50 flow midpoint) to unlock articulated backward leg strides, and MiniMaxH3SoundCues('54: hop') + MiniMaxH3EditGuider(streams=video_only, scale=1.6, last_step=3)"),
         # Plain H3 prompting at one frame on Pika (owner, 2026-11-10): a Pika
         # still is prompted as the video is, with no guide node and no
         # third-party LoRA. The one frame is the conditioning node's own

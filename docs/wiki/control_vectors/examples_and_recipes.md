@@ -151,3 +151,28 @@ Compare how strongly a vector shifts `context` and step-0 DiT velocity on your e
   --pika --probe-steps 2 \
   --out data/control_vectors/grade_diner_16mm.json
 ```
+
+---
+
+## Recipe 8 — Zero-file 2D Sprite Trajectory + Sound Cues with `0.33` Release (`ref2va`)
+
+**Use when**: You want a `<Picture 1>` character or creature to follow an explicit 2D screen path (including mid-shot stops, jumps on specific frames, or walking backward while keeping its head facing forward) without rendering external `.mp4` or `.wav` helper files and without freezing its legs into a rigid cutout.
+
+- **API Workflow**: [`workflows/h3_image_ref_dpad_sound_pika_api.json`](../../../workflows/h3_image_ref_dpad_sound_pika_api.json) (full guide and limits: [`2026-11-12_sound_cues_dpad_and_033_release_law.md`](../../research/control_vectors/2026-11-12_sound_cues_dpad_and_033_release_law.md))
+- **`MiniMaxH3AppendRefImage`** (`<Picture 1>`): `size_policy = "max"`, `allow_upscale = True`, `qwen_view = "separate"`
+- **`MiniMaxH3AppendSpriteTrajectory`** (`<Video 1>`, `source_facing = "right"`, `width = 384`, `height = 224`, `length = 124`):
+  ```text
+  0: x=0.31, y=0.69, face=right, scale=1.0
+  44: x=0.63, y=0.69, face=right
+  hop 44..54: lift=0.14
+  54: x=0.69, y=0.69, face=right
+  66: x=0.69, y=0.69, face=right
+  112: x=0.33, y=0.69, face=right
+  123: x=0.33, y=0.69, face=right
+  ```
+- **`MiniMaxH3SoundCues`** (`snap_to_3f = True`, `floor_dbfs = -28.0`):
+  ```text
+  54: hop
+  ```
+- **`MiniMaxH3ReleaseReferences`**: `end_percent = 1.0`, **`video_end_percent = 0.33`** (drops static `<Video 1>` cutout at unshifted flow midpoint `b = 0.50` so legs stride across steps `2..5`), `audio_end_percent = 0.60`
+- **`MiniMaxH3EditGuider`**: `scale = 1.6`, `first_step = 0`, `last_step = 3`, `streams = "video_only"` *(or use `BasicGuider` at `1x` 6-pass cost with `audio_end_percent = 0.33`)*

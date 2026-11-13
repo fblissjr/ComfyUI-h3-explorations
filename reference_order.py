@@ -231,6 +231,7 @@ def plan_blocks(records) -> list[str]:
 APPEND_KINDS = {
     "MiniMaxH3AppendRefImage": "image",
     "MiniMaxH3AppendRefVideo": "video",
+    "MiniMaxH3AppendSpriteTrajectory": "video",
     "MiniMaxH3AppendRefAudio": "audio",
 }
 CHAIN_INPUT = "references"
@@ -404,7 +405,10 @@ def resolve_chain_entries(graph: dict, node_id: str) -> list[tuple[str, dict, st
     # caller cannot accept a chain that label assignment would refuse.
     for nid, node, kind in ordered:
         if kind == "video":
-            _assert_video_ownership(nid, node.get("inputs", {}), graph)
+            if node.get("class_type") == "MiniMaxH3AppendSpriteTrajectory":
+                _assert_sprite_trajectory_inputs(nid, node.get("inputs", {}), graph)
+            else:
+                _assert_video_ownership(nid, node.get("inputs", {}), graph)
     return ordered
 
 
@@ -438,6 +442,12 @@ def resolve_chain(graph: dict, node_id: str) -> list:
             records.append(ImageRef(name=str(nid)))
         elif kind == "audio":
             records.append(AudioRef(name=str(nid)))
+        elif node.get("class_type") == "MiniMaxH3AppendSpriteTrajectory":
+            _assert_sprite_trajectory_inputs(nid, ins, graph)
+            records.append(VideoRef(
+                name=str(nid),
+                has_soundtrack=False,
+                soundtrack_origin=None))
         else:
             origin = _assert_video_ownership(nid, ins, graph)
             records.append(VideoRef(
@@ -672,3 +682,27 @@ def _assert_video_ownership(nid, ins, graph) -> str | None:
     if not resolved:
         return "unresolved"
     return "owned" if origins == {str(frames[0])} else "foreign"
+
+
+def _assert_sprite_trajectory_inputs(nid, ins, graph) -> None:
+    """Validate that `MiniMaxH3AppendSpriteTrajectory` wires a valid `image` link."""
+    img = ins.get("image")
+    if img is None:
+        raise ChainError(f"sprite trajectory append node {nid!r} wires no image")
+    if not (isinstance(img, list) and len(img) == 2):
+        raise ChainError(
+            f"sprite trajectory append node {nid!r} has an image input that "
+            f"is not a [node_id, slot] link: {img!r}"
+        )
+    slot = _exact_slot(img[1])
+    if slot is None or slot < 0:
+        raise ChainError(
+            f"sprite trajectory append node {nid!r} takes image from output "
+            f"{img[1]!r} of node {img[0]!r}, which is not a real non-negative integer slot"
+        )
+    if str(img[0]) not in graph:
+        raise ChainError(
+            f"sprite trajectory append node {nid!r} names image source node "
+            f"{img[0]!r}, which is not in the graph"
+        )
+

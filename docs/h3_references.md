@@ -437,6 +437,7 @@ are. Measured against a live render, 1344x768:
 | image at `match` | ~1,008 |
 | image, 1024x1024 source, **upscaled** to 2048 | 4,096 |
 | image, 1280x720 source, **upscaled** to 2048 | 7,296 |
+| video, 384x224 sprite trajectory (`MiniMaxH3AppendSpriteTrajectory`, `allow_upscale=False`), 124 frames | 3,108 (+ 504 Qwen rows) |
 | video, 960x544 source, 124 frames | 18,870 |
 | video, 960x544 source, 345 frames | **52,020** |
 

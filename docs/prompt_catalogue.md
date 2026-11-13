@@ -8,9 +8,9 @@ Scenes are ordered by how many graphs carry them, so the defaults that reach the
 
 | scene | bank id | graphs | words | shots | speakers | markers |
 |---|---|---|---|---|---|---|
-| [`LONG_T2V_PROMPT`](#long-t2v-prompt) | `t2va_covered_market` | 23 | 290 | 3 | 2 | `<d>` |
+| [`LONG_T2V_PROMPT`](#long-t2v-prompt) | `t2va_covered_market` | 25 | 290 | 3 | 2 | `<d>` |
 | [`ref2va_role_character_garment_environment`](#ref2va-role-character-garment-environment) | `ref2va_role_character_garment_environment` | 9 | 173 | 1 | 0 | — |
-| [`ref2va_scene_kitchen`](#ref2va-scene-kitchen) | `ref2va_scene_kitchen` | 4 | 563 | 4 | 2 | `<d>`, `<|lyrics_start|>`, `<|caption_start|>`, `<|cutoff|>` |
+| [`ref2va_scene_kitchen`](#ref2va-scene-kitchen) | `ref2va_scene_kitchen` | 5 | 563 | 4 | 2 | `<d>`, `<|lyrics_start|>`, `<|caption_start|>`, `<|cutoff|>` |
 | [`I2V_PROMPT`](#i2v-prompt) | `i2va_lighthouse_keyframe` | 3 | 90 | 1 | 0 | — |
 | [`ref2va_image_video_audio_music`](#ref2va-image-video-audio-music) | `ref2va_image_video_audio_music` | 3 | 264 | 1 | 0 | — |
 | [`ref2va_masked_person_motion`](#ref2va-masked-person-motion) | `ref2va_masked_person_motion` | 3 | 292 | 1 | 1 | — |
@@ -18,14 +18,21 @@ Scenes are ordered by how many graphs carry them, so the defaults that reach the
 | [`ref2va_role_character_environment`](#ref2va-role-character-environment) | `ref2va_role_character_environment` | 3 | 135 | 1 | 0 | — |
 | [`BENCH_T2V_PROMPT`](#bench-t2v-prompt) | `t2va_frontier_standoff` | 2 | 385 | 3 | 2 | `<d>` |
 | [`PIKA_BALCONY_ORBIT_PROMPT`](#pika-balcony-orbit-prompt) | `t2va_pika_balcony_orbit` | 2 | 534 | 1 | 0 | — |
+| [`PIKA_IMAGE_EDIT_PROMPT`](#pika-image-edit-prompt) | `pika_image/edit_man_red_jacket` | 2 | 171 | 1 | 0 | — |
+| [`PIKA_IMAGE_T2I_PROMPT`](#pika-image-t2i-prompt) | `pika_image/t2i_clockmaker` | 2 | 121 | 1 | 0 | — |
 | [`PIKA_MOTION_TRANSFER_PROMPT`](#pika-motion-transfer-prompt) | `ref2va_pika_motion_transfer` | 2 | 1066 | 1 | 0 | — |
+| [`PIKA_STILL_EDIT_PROMPT`](#pika-still-edit-prompt) | `guide_edit/man_red_jacket` | 2 | 20 | 0 | 0 | — |
+| [`fl2va_interior_converge`](#fl2va-interior-converge) | `fl2va_interior_converge` | 2 | 159 | 1 | 0 | — |
 | [`ref2va_masked_person_swap`](#ref2va-masked-person-swap) | `ref2va_masked_person_swap` | 2 | 233 | 1 | 1 | — |
 | [`ref2va_video_sound_structure`](#ref2va-video-sound-structure) | `ref2va_video_sound_structure` | 2 | 183 | 1 | 0 | — |
 | [`DIALOGUE_REF2V_PROMPT`](#dialogue-ref2v-prompt) | `ref2va_stairwell_dialogue` | 1 | 640 | 3 | 2 | `<d>` |
 | [`DIALOGUE_T2V_PROMPT`](#dialogue-t2v-prompt) | `t2va_stairwell_dialogue` | 1 | 224 | 3 | 2 | `<d>` |
+| [`DPAD_SOUND_REF2V_PROMPT`](#dpad-sound-ref2v-prompt) | `ref2va_dpad_tortoise_sound_cues` | 1 | 616 | 1 | 0 | — |
 | [`MARKET_REF2V_PROMPT`](#market-ref2v-prompt) | `ref2va_market_stallholder` | 1 | 598 | 3 | 2 | `<d>` |
 | [`R2V_PROMPT`](#r2v-prompt) | `ref2va_image_ref_default` | 1 | 576 | 1 | 0 | — |
-| [`fl2va_interior_converge`](#fl2va-interior-converge) | `fl2va_interior_converge` | 1 | 159 | 1 | 0 | — |
+| [`SOUND_GUIDE_T2V_PROMPT`](#sound-guide-t2v-prompt) | `t2va_offpath_tortoise_sound_guide` | 1 | 291 | 1 | 0 | — |
+| [`derived:h3_image_ref_plus_text_to_video_pika_edit_guidance`](#derivedh3-image-ref-plus-text-to-video-pika-edit-guidance) | — (composed) | 1 | 571 | 4 | 2 | `<d>`, `<|lyrics_start|>`, `<|caption_start|>`, `<|cutoff|>` |
+| [`derived:h3_text_to_video_pika_edit_guidance`](#derivedh3-text-to-video-pika-edit-guidance) | — (composed) | 1 | 294 | 3 | 2 | `<d>` |
 | [`l2va_interior_converge`](#l2va-interior-converge) | `l2va_interior_converge` | 1 | 137 | 1 | 0 | — |
 | [`ref2va_diner_breakup_refs`](#ref2va-diner-breakup-refs) | `ref2va_diner_breakup_refs` | 1 | 915 | 3 | 2 | `<d>` |
 | [`ref2va_image_audio_music`](#ref2va-image-audio-music) | `ref2va_image_audio_music` | 1 | 184 | 1 | 0 | — |
@@ -48,7 +55,7 @@ Scenes are ordered by how many graphs carry them, so the defaults that reach the
 
 ## LONG_T2V_PROMPT
 
-Carried by **23** graph(s). Sections: `integrated_multimodal_description`, `overall_soundscape`, `non_diegetic_music`.
+Carried by **25** graph(s). Sections: `integrated_multimodal_description`, `overall_soundscape`, `non_diegetic_music`.
 
 <details><summary>graphs</summary>
 
@@ -72,8 +79,10 @@ Carried by **23** graph(s). Sections: `integrated_multimodal_description`, `over
 - `h3_text_to_video_api`
 - `h3_text_to_video_audio_freeze_2windows_api`
 - `h3_text_to_video_audio_freeze_api`
+- `h3_text_to_video_pika_api`
 - `h3_text_to_video_pika_control_vector_api`
 - `h3_text_to_video_pika_dual_control_vectors_api`
+- `h3_text_to_video_pika_edit_guidance_api`
 - `h3_text_to_video_savelat_api`
 
 </details>
@@ -133,13 +142,14 @@ N/A
 
 ## ref2va_scene_kitchen
 
-Carried by **4** graph(s). Sections: `subject_definitions`, `summary`, `retention_analysis`, `detailed_description`, `overall_soundscape`, `non_diegetic_music`.
+Carried by **5** graph(s). Sections: `subject_definitions`, `summary`, `retention_analysis`, `detailed_description`, `overall_soundscape`, `non_diegetic_music`.
 
 <details><summary>graphs</summary>
 
 - `h3_guide_video_edit_api`
+- `h3_image_ref_plus_text_to_video_pika_api`
 - `h3_image_ref_plus_text_to_video_pika_control_vector_api`
-- `h3_p_h3_image_guide_edit_api`
+- `h3_image_ref_plus_text_to_video_pika_edit_guidance_api`
 - `h3_ref2v_scene_kitchen_api`
 
 </details>
@@ -369,6 +379,60 @@ overall_soundscape: Light wind gusts past the corner of the building over a dist
 non_diegetic_music: N/A
 ```
 
+## PIKA_IMAGE_EDIT_PROMPT
+
+Carried by **2** graph(s). Sections: `subject_definitions`, `summary`, `retention_analysis`, `detailed_description`, `overall_soundscape`, `non_diegetic_music`.
+
+<details><summary>graphs</summary>
+
+- `h3_pika_image_edit_api`
+- `h3_pika_image_edit_control_vector_api`
+
+</details>
+
+```text
+subject_definitions:
+<Picture 1> is the source image and composition anchor: a portrait of a man.
+<Subject 1> is the man in <Picture 1>.
+<Subject 2> is the clothing <Subject 1> wears in <Picture 1>.
+
+summary:
+[keyframe completion] The target is a single still frame, an edited version of <Picture 1>, in which <Subject 2> is replaced with a red leather jacket.
+
+retention_analysis:
+<Picture 1> ([Shot 1] edited keyframe): partially_preserved - the framing, lighting and background are kept.
+<Subject 1> (appears in [Shot 1]): partially_preserved - his face, hair, expression and pose are kept.
+<Subject 2> (appears in [Shot 1]): weak_reference - replaced by a red leather jacket.
+
+detailed_description:
+Photographic portrait. [Shot 1] <Subject 1> keeps his original facial features, hair, expression and pose. <Subject 2> is replaced by a fitted red leather jacket with realistic leather texture and natural folds, worn over his shoulders and chest. The background and the lighting remain unchanged. The camera is static and nothing moves; the frame holds this single still image.
+
+overall_soundscape:
+N/A
+
+non_diegetic_music:
+N/A
+```
+
+## PIKA_IMAGE_T2I_PROMPT
+
+Carried by **2** graph(s). Sections: none.
+
+<details><summary>graphs</summary>
+
+- `h3_pika_image_t2i_api`
+- `h3_pika_image_t2i_control_vector_api`
+
+</details>
+
+```text
+integrated_multimodal_description: [Shot 1] A medium three-quarter portrait of an elderly clockmaker seated at a worn walnut workbench inside a sunlit brass-and-oak workshop. He has silver stubble, deep-set hazel eyes behind round wire-rimmed spectacles, and wears a faded indigo linen apron over a rolled-sleeve cream cotton shirt. His weathered fingers hold a brass balance wheel and fine tweezers above an open pocket watch movement surrounded by miniature jeweler's screwdrivers, coiled mainsprings, and a glass bell jar. Warm late-afternoon directional sunlight streams through a paned workshop window on the left, casting crisp specular highlights across the polished gears and soft warm fill across the wood grain, shot on an 85mm prime lens at f/2.8 with shallow depth of field.
+
+overall_soundscape: N/A
+
+non_diegetic_music: N/A
+```
+
 ## PIKA_MOTION_TRANSFER_PROMPT
 
 Carried by **2** graph(s). Sections: `subject_definitions`, `summary`, `retention_analysis`, `detailed_description`.
@@ -401,6 +465,42 @@ The target video is in a vintage pop-art fashion-illustration style with crisp b
 [Shot 1] A wide full-body shot establishes <Subject 2>, the vintage record shop, with its blue-grey wooden floorboards in the near foreground giving way to the terracotta-red and cream checkerboard tile floor, the mustard-yellow counter on the left where a record spins on the lavender-purple turntable beneath a hanging trailing ivy pot, the tall wooden shelves and angled browsing bins on the right filled with colorful LP sleeves, and the storefront window in the center background under its purple-and-cream striped awning framing a sunlit street and parked pastel-pink coupe outside. Only one person appears in the scene. Across the 10.125-second real-time take, the camera holds a static shot matching the framing of <Video 1>, with no cuts, no pan, and no zoom, while an original upbeat 1960s soul groove with a lively electric bassline, crisp snare backbeat, warm Hammond organ chords, and punchy horn stabs plays diegetically from the turntable on the left counter. <Subject 1>, Desmond, the slender young Black man in his double-breasted mustard-yellow suit over a pastel-pink turtleneck, round tortoiseshell eyeglasses, thin mustache, tall black flat-top haircut, terracotta-orange socks, and slate-grey penny loafers, begins slightly left of center on the checkerboard floor in the opening beat of <Subject 3>: he leans his torso back in a playful mid-step kick with his left leg lifted behind him, his left arm flung right, and his right hand holding his black vinyl LP record with its pastel-pink center label high above his right shoulder in place of the reference dancer's fern. He lands on the tiles and drops smoothly into a low, wide-kneed crouch facing slightly right of center, bringing the vinyl record down to shoulder height beside him while sweeping his left forearm across his chest. Rising immediately from the crouch, <Subject 1> flings his left arm straight out horizontally, lifts the vinyl record high overhead in his right hand like a dance partner, and launches into five rapid, continuous full-circle spins in place across the checkerboard tiles, pivoting cleanly on the balls of his grey loafers as the skirts of his mustard suit jacket flare outward with each revolution. On the final turn, <Subject 1> brakes smoothly to face the camera squarely at center-left with his loafers planted hip-width apart on the tiles, his left arm stretched wide, his right arm holding the vinyl record aloft above his right shoulder, and his jacket settling back against his waist. Holding both arms spread wide with the vinyl record still raised overhead, <Subject 1> hinges forward from the waist into a small, deadpan theatrical bow, tipping his flat-top head and tortoiseshell glasses toward the floor until the final frame; he keeps his mouth closed throughout and produces no vocal sound.
 
 overall_soundscape: Polished leather loafer soles tap, pivot, and squeak crisply against the terracotta checkerboard tiles in time with each kick, spin, and planted stop. The mustard suit jacket rustles briskly as it flares through the turns, accompanied by a soft, continuous vinyl record crackle from the turntable on the counter.
+
+non_diegetic_music: N/A
+```
+
+## PIKA_STILL_EDIT_PROMPT
+
+Carried by **2** graph(s). Sections: none.
+
+<details><summary>graphs</summary>
+
+- `h3_probe_pika_image_guide_edit_api`
+- `h3_probe_pika_image_guide_edit_control_vector_api`
+
+</details>
+
+```text
+Replace the man's clothing with a red leather jacket, while preserving his identity, face, hair, pose, framing, lighting and background.
+```
+
+## fl2va_interior_converge
+
+Carried by **2** graph(s). Sections: none.
+
+<details><summary>graphs</summary>
+
+- `h3_first_last_frame_pika_api`
+- `h3_first_last_frame_to_video_api`
+
+</details>
+
+```text
+How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video; Picture 2 (from Shot 1) aligns with the 15.08-second mark of the target video.
+
+integrated_multimodal_description: [Shot 1] Live-action, cinematic, one continuous shot that begins in the exact state of the opening frame and ends in the exact state of the closing frame. The subject holds the opening position, framing, lighting and colors, then moves steadily through the space while the camera trucks right with small amplitude at slow speed. Wardrobe, palette and the surrounding scene stay continuous throughout, and the subject's pose, placement and the camera's position, angle and framing converge on the closing composition, reaching it only at the final frame.
+
+overall_soundscape: Quiet room tone with a low ambient hum continues throughout, joined by soft physical sounds from the subject's movement and a single settling sound as the motion comes to rest.
 
 non_diegetic_music: N/A
 ```
@@ -526,6 +626,39 @@ overall_soundscape: Close handheld room tone in a hard concrete stairwell with a
 non_diegetic_music: N/A
 ```
 
+## DPAD_SOUND_REF2V_PROMPT
+
+Carried by **1** graph(s). Sections: `subject_definitions`, `summary`, `retention_analysis`, `detailed_description`, `overall_soundscape`, `non_diegetic_music`.
+
+<details><summary>graphs</summary>
+
+- `h3_image_ref_dpad_sound_pika_api`
+
+</details>
+
+```text
+subject_definitions:
+<Subject 1> is the large grey tortoise with a single lit white birthday candle standing upright at the crown of its domed scuted shell, whose appearance comes from <Picture 1> and whose horizontal path across the road, directional changes, and upward hops come from <Video 1>.
+<Video 1> is the source of the movement trajectory, travel direction, and vertical hop timing transferred to <Subject 1>; its plain flat grey background is not reused.
+
+summary:
+[reference generation] In a single continuous static shot on an overcast city street, <Subject 1> crosses a painted zebra crossing in front of an idling red double-decker bus while following the exact horizontal direction, reversals, and upward leaps of <Video 1>.
+
+retention_analysis:
+<Subject 1> (appears in [Shot 1]): fully_preserved - the patterned grey scuted shell, scaly legs, head, and upright lit white birthday candle with its flickering flame are retained from <Picture 1>.
+<Video 1> (motion source): attribute_transfer - only the horizontal direction of travel across the frame, any mid-course stop or backward reversal, and the exact timing of upward leaps are transferred to <Subject 1>; the plain grey backdrop is never shown in the target video.
+
+detailed_description:
+The target video is in a naturalistic, cinematic live-action style with soft diffused overcast morning daylight, grounded street-level textures, and shallow depth of field in the far background.
+[Shot 1] A low street-level medium-wide shot frames a painted white-striped zebra crossing spanning a quiet urban road on a cool overcast morning across the five-second take, with damp dark asphalt in the foreground, pale weathered stone kerbs, classic pale-brick townhouses lined with black wrought-iron railings along the pavement, and bare winter trees receding softly into the misty city distance. Behind the crisp painted white stop line in the middle ground, a bright red double-decker city bus waits stationary with its warm circular headlamps glowing and its diesel engine idling smoothly while the uniformed driver in a white shirt and tie watches the crossing calmly through the broad glass windscreen. Out on the zebra crossing in the foreground, <Subject 1>, preserving the large domed patterned grey shell, sturdy scaly legs, outstretched neck, and upright lit white birthday candle established in the reference, moves across the damp asphalt stripes following the exact horizontal path, travel direction, speed, and vertical leaps taken from <Video 1>. Wherever <Video 1> advances steadily across the frame, <Subject 1> strides purposefully across the painted white stripes in that same horizontal direction with its curved claws gripping the wet tarmac and its tiny yellow candle flame flickering gently in the cool morning air without going out; if <Video 1> halts mid-crossing and pulls back in the opposite horizontal direction, <Subject 1> checks its forward momentum and moves back across the road surface along that exact reversed path; and at the exact moment <Video 1> springs upward off the ground, <Subject 1> launches energetically straight up into the air with all four feet completely clear above the asphalt before dropping back down onto all four legs with a solid, steady landing. No human pedestrians walk on the crossing, and no vocal sound is produced anywhere in the scene. The camera holds a static shot at low road level throughout the entire five-second duration, keeping the full width of the zebra crossing, <Subject 1>, and the front of the idling double-decker bus framed steadily together.
+
+overall_soundscape:
+The waiting double-decker bus engine idles with a steady low diesel rumble, a pedestrian crossing signal ticks softly in the background, and the tortoise's claws scrape rhythmically against the damp asphalt, punctuated by a heavy muffled footfall and shell thud on the road when it lands from a hop, with faint city traffic in the distance.
+
+non_diegetic_music:
+N/A
+```
+
 ## MARKET_REF2V_PROMPT
 
 Carried by **1** graph(s). Sections: `subject_definitions`, `summary`, `retention_analysis`, `detailed_description`, `overall_soundscape`, `non_diegetic_music`.
@@ -592,24 +725,76 @@ non_diegetic_music:
 N/A
 ```
 
-## fl2va_interior_converge
+## SOUND_GUIDE_T2V_PROMPT
 
 Carried by **1** graph(s). Sections: none.
 
 <details><summary>graphs</summary>
 
-- `h3_first_last_frame_to_video_api`
+- `h3_text_to_video_pika_sound_guide_api`
 
 </details>
 
 ```text
-How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video; Picture 2 (from Shot 1) aligns with the 15.08-second mark of the target video.
+integrated_multimodal_description: [Shot 1] Live-action, cinematic, a medium-wide shot frames a zebra crossing on a quiet city street on an overcast morning across the five-second take. An elderly man in his seventies, in a green knitted cardigan and a brown flat cap, walks slowly across the crossing from the left of frame toward the right, holding a red leather leash in his right hand. The leash is clipped to a harness on a large grey tortoise that hops energetically beside his feet: first springing high into a free hop with all four feet clear off the asphalt, then leaping a second time until his right hand jerks the red leather leash taut mid-air and yanks the tortoise sharply back down onto the road, before springing high into a third free hop, and a single lit white birthday candle stands upright on the top of its shell, its small flame flickering. A red double-decker bus waits at the stop line on the right of frame with its engine idling, and its driver watches them through the windscreen. Halfway across, the man lifts his cap to the driver with his left hand and puts it back on. He and the tortoise are the only figures on the crossing. The camera trucks right with small amplitude at slow speed, keeping the man and the tortoise in frame. He produces no vocal sound.
 
-integrated_multimodal_description: [Shot 1] Live-action, cinematic, one continuous shot that begins in the exact state of the opening frame and ends in the exact state of the closing frame. The subject holds the opening position, framing, lighting and colors, then moves steadily through the space while the camera trucks right with small amplitude at slow speed. Wardrobe, palette and the surrounding scene stay continuous throughout, and the subject's pose, placement and the camera's position, angle and framing converge on the closing composition, reaching it only at the final frame.
-
-overall_soundscape: Quiet room tone with a low ambient hum continues throughout, joined by soft physical sounds from the subject's movement and a single settling sound as the motion comes to rest.
+overall_soundscape: The bus engine idles with a low diesel rumble, the crossing signal beeps at a steady pace, the tortoise's claws scrape on the asphalt, its free hops land with heavy muffled thuds, and on its second leap the leather leash snaps taut with a brisk tug followed immediately by a sharp slammed-down shell thud, with light traffic in the distance.
 
 non_diegetic_music: N/A
+```
+
+## derived:h3_image_ref_plus_text_to_video_pika_edit_guidance
+
+Carried by **1** graph(s). Sections: `subject_definitions`, `summary`, `retention_analysis`, `detailed_description`, `overall_soundscape`, `non_diegetic_music`.
+
+<details><summary>graphs</summary>
+
+- `h3_image_ref_plus_text_to_video_pika_edit_guidance_api`
+
+</details>
+
+```text
+subject_definitions:
+<Subject 1> is the main character in <Picture 1>, whose face, hair, and clothing are carried into the target video.
+
+summary:
+[reference generation] The target video places <Subject 1> in a single continuous shot.
+
+retention_analysis:
+<Subject 1> (appears in [Shot 1]): fully_preserved - face, hair, and clothing are retained.
+
+detailed_description:
+The target video is multi-camera 1990s broadcast television sitcom footage lit with flat high-key three-point stage lighting.
+[Shot 1] Handheld, fast reframing, hard practical light off stainless steel. A medium-wide shot establishes a restaurant line mid-service, four burners lit, steam crossing the lens, a ticket rail loaded above the pass. The ticket closest to camera reads "TABLE 12 - 2 COVERS - FIRE" in narrow black type on white thermal paper. <|caption_start|>TABLE 12 - 2 COVERS - FIRE<|caption_end|> <Subject 1>, with a hard, carrying baritone (S1), works the pass, preserving the face, hair, wardrobe and build established in the reference, slaps the rail and calls down the line: <d>[English] Two on twelve, fire it now.</d> His lips close and he snaps the ticket free with two fingers. The camera tracks right at large amplitude and fast speed past three cooks, one tossing a pan so the flame climbs above the rim, the youngest working the flat top, and a runner waiting at the end of the pass.
+[Shot 2] The shot cuts to a close shot of the young line cook with a light, quick soprano (S2) at the flat top, moving fast, who answers without looking up: <d>[English] Two on twelve, heard.</d> Her lips close, and she sings along under her breath with a radio on the shelf behind her: <|lyrics_start|><d>[English] Keep it moving, keep it hot.</d><|lyrics_end|> Her lips close as she flips two portions in one motion and the flame flares behind her shoulder.
+[Shot 3] The camera pushes in fast with large amplitude on the pass as two plates land side by side, the hands of <Subject 1>, the young cook and the pan-tossing cook entering frame from three directions, the young cook's thumb wiping a rim clean. <Subject 1> (S1) and the young cook (S2), leaning in from the flat top, overlap with no gap between them: <d>[English] Where is my second plate.</d> <d>[English] Behind you, behind you.</d> Both sets of lips close as <Subject 1> spins a plate into position. The camera stays low across the pass so the stainless surfaces, the loaded ticket rail and the lit burners of the reference setting remain continuously visible behind the hands, steam crossing the lens twice without hiding either face.
+[Shot 4] The shot changes to a low shot as the runner lifts both plates and turns for the door, the kitchen receding behind him in a blur of steam. The camera pedestals up with small amplitude at slow speed as he passes, holding the lit burners and the loaded ticket rail of the reference setting across the top of the frame while the ticket printer starts another run behind the pass and the pan-tossing cook sets a pan down hard on the flat top. <Subject 1> (S1) calls after him already reading the next ticket: <d>[English] And tell them the special is</d><|cutoff|>
+
+overall_soundscape:
+A ticket printer chattering in bursts, a metal rail slapped flat, pans ringing on a flat top with sharp oil crackle, a gas burner whumping as it catches, plates set down hard in quick succession, and a thin radio behind everything.
+
+non_diegetic_music:
+N/A
+```
+
+## derived:h3_text_to_video_pika_edit_guidance
+
+Carried by **1** graph(s). Sections: `integrated_multimodal_description`, `overall_soundscape`, `non_diegetic_music`.
+
+<details><summary>graphs</summary>
+
+- `h3_text_to_video_pika_edit_guidance_api`
+
+</details>
+
+```text
+integrated_multimodal_description:
+[Shot 1] Claymation stop-motion with fingerprinted plasticine surfaces, handheld, shallow depth of field. A medium-wide shot frames a covered market aisle in late morning, crates of citrus stacked along a wooden stall front, dust turning slowly in a shaft of light from the roof vents and a hanging brass scale swaying gently at the edge of frame. A stallholder in her fifties with a warm, gravelly alto (S1) sets a crate on the counter, wipes both palms down her apron, and says: <d>[English] Last of the good ones. After this it is all imports.</d> Her lips close and she pushes the crate forward with the heel of her hand. The camera trucks left as a young porter, a lean man in his twenties with a quick, bright tenor (S2), steps into frame behind her shoulder. [Shot 2] The shot cuts to a close shot over the porter's shoulder as he squats, takes the crate at its corners, and lifts it to his chest. The porter (S2) answers: <d>[English] Then I will take two.</d> His lips close and he shifts the weight onto his hip, and with his free hand he drops coins one after another into a metal tin on the counter. [Shot 3] The camera holds a static shot, wide on the aisle, as he takes a second crate from the stall front and carries both away between the stalls, shoppers stepping aside around him, while the stallholder turns back and stacks fruit into a pyramid with both hands, her lips closed.
+overall_soundscape:
+Loose crowd murmur under a high roof, wooden crates knocking hollow as they stack, coins dropping one by one into a metal tin, boot steps on swept concrete, and the dry crackle of paper bags shaken open.
+
+non_diegetic_music:
+N/A
 ```
 
 ## l2va_interior_converge

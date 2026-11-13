@@ -545,10 +545,13 @@ def _reference_media(inputs: dict, graph: dict):
                             if not isinstance(append_inputs.get("use_vae"), list) else True),
             }
         elif kind == "video":
-            media[f"ref_videos.ref_video_{index}"] = append_inputs.get("frames")
-            soundtrack = append_inputs.get("soundtrack")
-            if soundtrack is not None:
-                media[f"ref_video_audios.ref_video_audio_{index}"] = soundtrack
+            if append.get("class_type") == "MiniMaxH3AppendSpriteTrajectory":
+                media[f"ref_videos.ref_video_{index}"] = [str(_nid), 1]
+            else:
+                media[f"ref_videos.ref_video_{index}"] = append_inputs.get("frames")
+                soundtrack = append_inputs.get("soundtrack")
+                if soundtrack is not None:
+                    media[f"ref_video_audios.ref_video_audio_{index}"] = soundtrack
         else:
             media[f"ref_audios.ref_audio_{index}"] = append_inputs.get("audio")
     return media, image_policies, True
@@ -896,9 +899,21 @@ def reference_video_report(
             continue
         label = key.split(".")[-1]
         src = graph[str(val[0])] if isinstance(val, list) else None
-        name = (src or {}).get("inputs", {}).get("video")
-        path = resolve_image(name) if isinstance(name, str) else None
-        dims = video_probe(path) if path else None
+        is_sprite = (src or {}).get("class_type") == "MiniMaxH3AppendSpriteTrajectory"
+        if is_sprite:
+            s_ins = src.get("inputs", {})
+            cw_raw = s_ins.get("canvas_width", 384)
+            ch_raw = s_ins.get("canvas_height", 224)
+            dims = (
+                (max(128, (int(cw_raw) // 32) * 32), max(128, (int(ch_raw) // 32) * 32))
+                if not isinstance(cw_raw, list) and not isinstance(ch_raw, list)
+                else None
+            )
+            name = f"<MiniMaxH3AppendSpriteTrajectory node {val[0]}>"
+        else:
+            name = (src or {}).get("inputs", {}).get("video")
+            path = resolve_image(name) if isinstance(name, str) else None
+            dims = video_probe(path) if path else None
         if dims is None:
             out.append(f"  {label}: source {name!r} not resolved on this box, "
                        f"so neither tower's geometry was calculated")
@@ -909,7 +924,7 @@ def reference_video_report(
         comfy_vae = (cw, ch)
         if w * h < cw * ch:                       # gap 6: never upscales
             comfy_vae = (max(32, round(w / 32) * 32), max(32, round(h / 32) * 32))
-        rel_vae = (cw, ch)
+        rel_vae = comfy_vae if is_sprite else (cw, ch)
 
         n = length if isinstance(length, int) else 0
         while n % 17 != 5 and n > 5:

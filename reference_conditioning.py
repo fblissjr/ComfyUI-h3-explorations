@@ -116,6 +116,10 @@ class RuntimeVideoReference:
     # masked lane's encoder-only motion reference (`docs/research/masking/
     # 2026-10-05_mryellow.md`, section 7).
     use_vae: bool = True
+    # False on synthetic low-cost canvases (`MiniMaxH3AppendSpriteTrajectory`),
+    # so `video_policy="release"` never enlarges a 384x224 kinematic guide 11.7x
+    # to 1312x768 (`3,108` -> `36,408` VAE rows).
+    allow_upscale: bool = True
 
 
 @dataclass(frozen=True)
@@ -686,7 +690,7 @@ def _compile_reference_records(
             )
             _, source_h, source_w = _image_shape(frames, f"reference video {index + 1}")
             canvas_w, canvas_h = adapt_canvas(source_w, source_h)
-            if (video_policy == "comfy"
+            if ((video_policy == "comfy" or not getattr(record, "allow_upscale", True))
                     and source_w * source_h < canvas_w * canvas_h):
                 # Core never upscales a reference video.
                 canvas_w = max(

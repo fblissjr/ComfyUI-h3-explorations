@@ -1,6 +1,6 @@
 # Prompt audit: what follows the guides, and what to do about it
 
-last updated: 2026-10-04
+last updated: 2026-11-12
 
 The judgement half of [`prompt_catalogue.md`](prompt_catalogue.md), which is
 generated and states no opinion. This one is written by hand, keyed to the scene
@@ -210,6 +210,18 @@ none of the six has rendered as it now stands.*
 |---|---|---|---|
 | `PIKA_MOTION_TRANSFER_PROMPT` | ref2va | **keep** | the Pika H3 Flex `motion-transfer` showcase prompt (`prompt_bank/ref2va_pika_motion_transfer.txt`, 243 frames): grades clean (`0 FAIL, 0 WARN`) and passed the owner's Step 2 playback check on both `r2v_branch` seeds (`730451892`, `730451893`) and `r2v_merge` seed 1 (`wiki/decisions.md`, 2026-11-04) |
 | `PIKA_BALCONY_ORBIT_PROMPT` | t2va | **keep** | the Pika H3 Flex `balcony-orbit` showcase prompt (`prompt_bank/t2va_pika_balcony_orbit.txt`, 328 frames): grades clean (`0 FAIL, 0 WARN`) and passed the owner's Step 2 playback check on camera path across both `t2v_branch` seeds and `t2v_merge` seed 1; the bottom figure reads as an older man rather than the requested older woman in both Pika's showcase clip and our renders (`wiki/decisions.md`, 2026-11-04) |
+
+### Verdicts added 2026-11-12, edit guidance, Pika single-frame stills, sound cues and 2D sprite trajectory
+
+| scene | mode | verdict | why |
+|---|---|---|---|
+| `derived:h3_text_to_video_pika_edit_guidance` | t2va | **keep** | `LONG_T2V_PROMPT` with the shipped `MiniMaxH3PromptEdit` claymation/plasticine clause swap on `[Shot 1]`; grades clean (`0 FAIL, 0 WARN`) and demonstrates `MiniMaxH3EditGuider` on 6-step Pika (`wiki/edit_guidance.md`) |
+| `derived:h3_image_ref_plus_text_to_video_pika_edit_guidance` | ref2va | **keep** | `ref2va_scene_kitchen` with `MiniMaxH3PromptEdit` on `h3_image_ref_plus_text_to_video_pika_edit_guidance`; inside ref §5.2's word band and grades clean (`0 FAIL, 0 WARN`) |
+| `PIKA_IMAGE_T2I_PROMPT` | t2i (`fl2va` `single_frame=True`) | **keep** | single-frame clockmaker portrait (`image/h3_pika_image_t2i*`) with `overall_soundscape: N/A` and `non_diegetic_music: N/A`; grades clean on `single_frame=True` (`h3_image_editing.md`) |
+| `PIKA_IMAGE_EDIT_PROMPT` | ref2va (`single_frame=True`) | **keep** | 6-section `[keyframe completion]` garment-swap brief (`image/h3_pika_image_edit*`) replacing `<Subject 2>` with a red leather jacket while holding `<Picture 1>` framing and `<Subject 1>` identity; grades clean |
+| `PIKA_STILL_EDIT_PROMPT` | guide edit (`single_frame=True`) | **keep** | concise single-sentence instruction on the `MiniMaxH3GuideLatent(single_frame=True)` probe (`image/h3_probe_pika_image_guide_edit*`); exempted as a single-frame guide-edit probe by `preflight_graph.py` |
+| `SOUND_GUIDE_T2V_PROMPT` | t2va | **keep** | `prompt_bank/t2va_offpath_tortoise_sound_guide.txt` (`h3_text_to_video_pika_sound_guide`, 124 frames): grades clean (`0 FAIL, 0 WARN`) and verified on 1:1 pixels + audio across `exp1_sound` Arm 5 and `Gate 1` (`3/3` hops at `f24`, `f56..57`, `f96`, connected red-leash Hop-2 pull, `r = -0.0086` / `-0.1578`) |
+| `DPAD_SOUND_REF2V_PROMPT` | ref2va | **keep** | `prompt_bank/ref2va_dpad_tortoise_sound_cues.txt` (`h3_image_ref_dpad_sound_pika`, 124 frames): exact prompt rendered across `exp2_dpad`, `Gate 2`, and `Gate 2b` (`-350 px` facing-right backpedal, `3` alternating backward stride cycles at `video_end_percent = 0.33`, `0 FAIL` in `preflight_graph.py`; carries two negative `<Video 1>` grey-backdrop clauses kept verbatim to preserve matched-seed comparability with `Gate 2b` `seed = 104`, `research/control_vectors/2026-11-12_sound_cues_dpad_and_033_release_law.md`) |
 
 ### Misalignments: one closed, one withdrawn, one open
 

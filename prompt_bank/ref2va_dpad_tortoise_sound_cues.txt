@@ -1,0 +1,20 @@
+subject_definitions:
+<Subject 1> is the large grey tortoise with a single lit white birthday candle standing upright at the crown of its domed scuted shell, whose appearance comes from <Picture 1> and whose horizontal path across the road, directional changes, and upward hops come from <Video 1>.
+<Video 1> is the source of the movement trajectory, travel direction, and vertical hop timing transferred to <Subject 1>; its plain flat grey background is not reused.
+
+summary:
+[reference generation] In a single continuous static shot on an overcast city street, <Subject 1> crosses a painted zebra crossing in front of an idling red double-decker bus while following the exact horizontal direction, reversals, and upward leaps of <Video 1>.
+
+retention_analysis:
+<Subject 1> (appears in [Shot 1]): fully_preserved - the patterned grey scuted shell, scaly legs, head, and upright lit white birthday candle with its flickering flame are retained from <Picture 1>.
+<Video 1> (motion source): attribute_transfer - only the horizontal direction of travel across the frame, any mid-course stop or backward reversal, and the exact timing of upward leaps are transferred to <Subject 1>; the plain grey backdrop is never shown in the target video.
+
+detailed_description:
+The target video is in a naturalistic, cinematic live-action style with soft diffused overcast morning daylight, grounded street-level textures, and shallow depth of field in the far background.
+[Shot 1] A low street-level medium-wide shot frames a painted white-striped zebra crossing spanning a quiet urban road on a cool overcast morning across the five-second take, with damp dark asphalt in the foreground, pale weathered stone kerbs, classic pale-brick townhouses lined with black wrought-iron railings along the pavement, and bare winter trees receding softly into the misty city distance. Behind the crisp painted white stop line in the middle ground, a bright red double-decker city bus waits stationary with its warm circular headlamps glowing and its diesel engine idling smoothly while the uniformed driver in a white shirt and tie watches the crossing calmly through the broad glass windscreen. Out on the zebra crossing in the foreground, <Subject 1>, preserving the large domed patterned grey shell, sturdy scaly legs, outstretched neck, and upright lit white birthday candle established in the reference, moves across the damp asphalt stripes following the exact horizontal path, travel direction, speed, and vertical leaps taken from <Video 1>. Wherever <Video 1> advances steadily across the frame, <Subject 1> strides purposefully across the painted white stripes in that same horizontal direction with its curved claws gripping the wet tarmac and its tiny yellow candle flame flickering gently in the cool morning air without going out; if <Video 1> halts mid-crossing and pulls back in the opposite horizontal direction, <Subject 1> checks its forward momentum and moves back across the road surface along that exact reversed path; and at the exact moment <Video 1> springs upward off the ground, <Subject 1> launches energetically straight up into the air with all four feet completely clear above the asphalt before dropping back down onto all four legs with a solid, steady landing. No human pedestrians walk on the crossing, and no vocal sound is produced anywhere in the scene. The camera holds a static shot at low road level throughout the entire five-second duration, keeping the full width of the zebra crossing, <Subject 1>, and the front of the idling double-decker bus framed steadily together.
+
+overall_soundscape:
+The waiting double-decker bus engine idles with a steady low diesel rumble, a pedestrian crossing signal ticks softly in the background, and the tortoise's claws scrape rhythmically against the damp asphalt, punctuated by a heavy muffled footfall and shell thud on the road when it lands from a hop, with faint city traffic in the distance.
+
+non_diegetic_music:
+N/A

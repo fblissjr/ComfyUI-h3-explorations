@@ -37,7 +37,8 @@ Where each lives in the code:
 - A vector made by the word readout **is** a control vector. It goes through the same Steer node. The readout
   is a second way to make one, from a word list in place of prompt pairs.
 - Edit guidance uses no vector and no readout. It is a different mechanism with a different cost.
-- So the choice a person faces is between two steering tools. The word readout is what you use to look at a
+- Neither a control vector nor edit guidance on text alone can pin an impact to an exact frame number or make a `<Picture 1>` subject reverse direction mid-shot while keeping its original facing: text tokens carry no frame coordinates. For timed beats and 2D `(x, y, face)` paths, use [`MiniMaxH3SoundCues`](../../../sound_cues.py) and [`MiniMaxH3AppendSpriteTrajectory`](../../../sprite_trajectory.py) with `0.33` selective release on `MiniMaxH3ReleaseReferences` ([guide](../../research/control_vectors/2026-11-12_sound_cues_dpad_and_033_release_law.md)).
+- So the choice on prompt-level steering is between two tools. The word readout is what you use to look at a
   vector, clean it, or make a quick one.
 
 ---

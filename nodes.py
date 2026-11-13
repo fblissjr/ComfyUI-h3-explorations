@@ -95,6 +95,8 @@ from .h3_image_nodes import (
     MiniMaxH3ImagePromptExpander,
     MiniMaxH3ImageSize,
 )
+from .sound_cues import MiniMaxH3SoundCues
+from .sprite_trajectory import MiniMaxH3AppendSpriteTrajectory
 from . import h3_capture
 
 from .attention import (
@@ -441,7 +443,11 @@ class H3ExplorationsExtension(ComfyExtension):
                 # encoding for MiniMax-H3-Image (h3_image_nodes.py, reference_encode.py)
                 MiniMaxH3ImageDownscale,
                 MiniMaxH3EncodeImageReferences,
-                MiniMaxH3PromptOnImageReferences]
+                MiniMaxH3PromptOnImageReferences,
+                # appended 2026-11-12, zero-file procedural sound-island cues and 2D sprite
+                # kinematic D-pad trajectory references (sound_cues.py, sprite_trajectory.py)
+                MiniMaxH3SoundCues,
+                MiniMaxH3AppendSpriteTrajectory]
 
 
 async def comfy_entrypoint() -> H3ExplorationsExtension:

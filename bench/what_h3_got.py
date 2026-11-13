@@ -392,7 +392,10 @@ def read(job_folder: Path, load: str, stage: str = "render", *, inputs: Path | N
     songs = [nid for nid, n in g.items() if n["class_type"] == SONG]
     if len(sources) != 1 or len(songs) != 1:
         raise SystemExit(f"{graph_file.name} holds {len(sources)} Masked Source and {len(songs)} song nodes; a load has one of each")
-    appended = [nid for nid, n in g.items() if n["class_type"] == "MiniMaxH3AppendRefVideo"]
+    appended = [
+        nid for nid, n in g.items()
+        if n["class_type"] in ("MiniMaxH3AppendRefVideo", "MiniMaxH3AppendSpriteTrajectory")
+    ]
     if appended:
         raise SystemExit(f"{graph_file.name} appends a reference video (node {', '.join(appended)}): the node's <Video k> labels then "
                          "count it, and this reading labels by the Masked Source's inputs alone. Not read")

@@ -429,27 +429,40 @@ DECLARED: dict[tuple[str, str], tuple] = {
                 "(2026-11-12, docs/research/2026-11-12_guide_sound_islands_and_kinematic_dpad.md)."),
     ("MiniMaxH3ReleaseReferences", "audio_end_percent"):
         ("ARM", "0.60 (h3_config.SOUND_GUIDE_AUDIO_RELEASE_END) on "
-                "h3_text_to_video_pika_sound_guide, against the node default 1.0: "
-                "releases the timeline cond_audio islands after step 3 (frac < 0.60 "
-                "on 6-step Pika LCM) so steps 4..5 run 1-pass [original] cleanly "
-                "(2026-11-12, docs/research/2026-11-12_guide_sound_islands_and_kinematic_dpad.md)."),
+                "h3_text_to_video_pika_sound_guide and h3_image_ref_dpad_sound_pika, "
+                "against the node default 1.0: releases the timeline cond_audio islands "
+                "after step 3 (frac < 0.60 on 6-step Pika LCM) so steps 4..5 run 1-pass "
+                "[original] cleanly (2026-11-12, "
+                "docs/research/control_vectors/2026-11-12_sound_cues_dpad_and_033_release_law.md)."),
+    ("MiniMaxH3ReleaseReferences", "video_end_percent"):
+        ("ARM", "0.33 (h3_config.DPAD_VIDEO_RELEASE_END) on h3_image_ref_dpad_sound_pika, "
+                "against the node default 1.0: releases the synthetic 2D cutout <Video 1> "
+                "from MiniMaxH3AppendSpriteTrajectory after step 1 (the exact b = 0.50 "
+                "base flow-time midpoint, sigma_v = 0.9231) while holding <Picture 1> at "
+                "end_percent = 1.0 across all 6 steps, unlocking articulated backward leg "
+                "strides on steps 2..5 instead of a static cutout glide (2026-11-12)."),
+    ("MiniMaxH3SoundCues", "cues"):
+        ("ARM", "'54: hop' (h3_config.DPAD_SOUND_CUES) on h3_image_ref_dpad_sound_pika, "
+                "anchoring a single 200 ms touchdown hop cue at frame 54 to match the "
+                "sprite trajectory's hop 44..54 landing, against the node default 3-event "
+                "beat sheet ('24: hop\\n54: snap\\n57: slam\\n96: hop') (2026-11-12)."),
     ("MiniMaxH3EditGuider", "scale"):
         ("ARM", "1.6 (h3_config.SOUND_GUIDE_EDIT_GUIDANCE['scale']) on "
-                "h3_text_to_video_pika_sound_guide so the 0-vs-3 cond_audio differential "
-                "locks both free hops and the mid-air leash-yank truncation cleanly, "
+                "h3_text_to_video_pika_sound_guide and h3_image_ref_dpad_sound_pika "
+                "so the cond_audio keyframe differential locks exact jump/yank timestamps, "
                 "against the node default 1.5 on the prompt-edit graphs (2026-11-12)."),
     ("MiniMaxH3EditGuider", "last_step"):
         ("ARM", "3 (h3_config.SOUND_GUIDE_EDIT_GUIDANCE['last_step']) on "
-                "h3_text_to_video_pika_sound_guide, matching audio_end_percent = 0.60 "
-                "on 6-step Pika LCM (steps 0..3 run 2-pass guidance; steps 4..5 run "
-                "1-pass [original] for 10 total DiT calls instead of 12), against the "
-                "node default 1000 on the prompt-edit graphs (2026-11-12)."),
+                "h3_text_to_video_pika_sound_guide and h3_image_ref_dpad_sound_pika, "
+                "matching audio_end_percent = 0.60 on 6-step Pika LCM (steps 0..3 run "
+                "2-pass guidance; steps 4..5 run 1-pass [original] for 10 total DiT calls "
+                "instead of 12), against the node default 1000 on the prompt-edit graphs (2026-11-12)."),
     ("MiniMaxH3EditGuider", "streams"):
         ("ARM", "'video_only' (h3_config.SOUND_GUIDE_EDIT_GUIDANCE['streams']) on "
-                "h3_text_to_video_pika_sound_guide, against the node default 'both': "
-                "extrapolates the cond_audio timing delta into x_video while pinning "
-                "x_audio strictly to the unguided [original] prediction, eliminating "
-                "synthetic .wav bleed (r = +0.86 -> -0.08) and -94 dBFS inter-island "
+                "h3_text_to_video_pika_sound_guide and h3_image_ref_dpad_sound_pika, "
+                "against the node default 'both': extrapolates the cond_audio timing delta "
+                "into x_video while pinning x_audio strictly to the unguided [original] "
+                "prediction, eliminating synthetic .wav bleed and -94 dBFS inter-island "
                 "silence while H3 synthesizes native foley via x_video -> x_audio "
                 "(2026-11-12, docs/wiki/edit_guidance.md)."),
 }

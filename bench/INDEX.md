@@ -8,7 +8,7 @@ this file is only a way to find a script by what it says it does.
 
 | group | scripts |
 |---|---|
-| [`check_*`](#check) | 168 |
+| [`check_*`](#check) | 169 |
 | [`measure_*`](#measure) | 37 |
 | [`analyze_*`](#analyze) | 18 |
 | [`grade_*`](#grade) | 19 |
@@ -166,6 +166,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_sol_node_equivalence.py`](check_sol_node_equivalence.py) | Grade our Sol node's DISPATCH against the algorithm's own eager reference. |
 | [`check_sol_observe.py`](check_sol_observe.py) | Grade the Sol route observer before it is given a render. |
 | [`check_solattn_correctness.py`](check_solattn_correctness.py) | Check Sol-Attn's CUDA kernel against the algorithm's own eager reference. |
+| [`check_sound_and_sprite_nodes.py`](check_sound_and_sprite_nodes.py) | Unit and graph checks for `MiniMaxH3SoundCues` and `MiniMaxH3AppendSpriteTrajectory`. |
 | [`check_speaker_id_control.py`](check_speaker_id_control.py) | Red control for `bench/preflight_graph.py::speaker_id_rules`. |
 | [`check_stack_delivery.py`](check_stack_delivery.py) | The stacked delivery clip (`bench/stack_delivery.py`) on a clip and pieces whose every frame is known by construction. |
 | [`check_stack_rows.py`](check_stack_rows.py) | `bench/stack_rows.py` on made videos: every row on the source frame it says, laid where its picture came from. |

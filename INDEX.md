@@ -124,7 +124,9 @@ with none is a helper the others import.
 | [`sam3d_body_vith.py`](sam3d_body_vith.py) | `MiniMaxH3SAM3DBodyViTHLoader` | SAM 3D Body's ViT-H release behind core's heads, predictor and renderers. |
 | [`sapiens2_parts.py`](sapiens2_parts.py) | `MiniMaxH3Sapiens2Loader`, `MiniMaxH3SubjectParts` | Body parts and a soft matte on one tracked person, from Sapiens2. |
 | [`shot_table.py`](shot_table.py) | `MiniMaxH3SaveShotTable` | A clip's shots as a table a person can review once: who was found in each, who was taken, and why. |
+| [`sound_cues.py`](sound_cues.py) | `MiniMaxH3SoundCues` | Zero-file procedural sound-island conditioning (`MiniMaxH3SoundCues`). |
 | [`sparse_table.py`](sparse_table.py) |  | Per-head tau tables for the sparse attention node: the format, the loader, the refusals. |
+| [`sprite_trajectory.py`](sprite_trajectory.py) | `MiniMaxH3AppendSpriteTrajectory` | Zero-file 2D kinematic cutout trajectory reference (`MiniMaxH3AppendSpriteTrajectory`). |
 | [`step_x0_observer.py`](step_x0_observer.py) | `MiniMaxH3StepX0Observer` | Save each sampling step's x0 prediction to disk, and change nothing. |
 | [`substrate.py`](substrate.py) |  | What produced a number: the substrate block, and nothing else. |
 | [`vae_precision.py`](vae_precision.py) | `MiniMaxH3VAEPrecision` | Split the H3 video VAE's encode precision from its decode precision. |
@@ -154,19 +156,19 @@ with none is a helper the others import.
 | `.gemini/` | 8 | [below](#gemini) |
 | `archive/` | 29 | [below](#archive) |
 | `assets/` | 1 | [below](#assets) |
-| `bench/` | 850 | [`bench/INDEX.md`](bench/INDEX.md) and [`bench/results/INDEX.md`](bench/results/INDEX.md) for the records |
+| `bench/` | 851 | [`bench/INDEX.md`](bench/INDEX.md) and [`bench/results/INDEX.md`](bench/results/INDEX.md) for the records |
 | `changelog.d/` | | [`changelog.d/README.md`](changelog.d/README.md), one file per changelog entry; not listed and not counted |
 | `contact_sheets/` | 2 | [below](#contact_sheets) |
 | `data/` | 2 | [below](#data) |
-| `docs/` | 275 | [`docs/wiki/index.md`](docs/wiki/index.md), the hand-written router |
-| `prompt_bank/` | 223 | [`docs/prompt_bank.md`](docs/prompt_bank.md), the prompt catalogue |
+| `docs/` | 276 | [`docs/wiki/index.md`](docs/wiki/index.md), the hand-written router |
+| `prompt_bank/` | 224 | [`docs/prompt_bank.md`](docs/prompt_bank.md), the prompt catalogue |
 | `sparse_tables/` | 1 | [below](#sparse_tables) |
 | `standalone/` | 6 | [below](#standalone) |
 | `vendor/` | 11 | [below](#vendor) |
 | `vendor_config/` | 10 | [below](#vendor_config) |
 | `vendor_guides/` | 21 | [below](#vendor_guides) |
 | `web/` | 1 | [below](#web) |
-| `workflows/` | 115 | [`workflows/INDEX.md`](workflows/INDEX.md) |
+| `workflows/` | 116 | [`workflows/INDEX.md`](workflows/INDEX.md) |
 
 ## .claude/
 

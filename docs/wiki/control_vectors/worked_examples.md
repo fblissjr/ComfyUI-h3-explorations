@@ -133,4 +133,8 @@ says a whole-scene vector can still carry clothing along with a change of world:
 
 **What it does not show.** That vectors never move an object. The cost is the other side of the choice: edit
 guidance runs the model a second time on every guided step, and the result cannot be saved and reused on
-another prompt.
+another prompt. When the question is instead **exact frame timing** (landing hops or impacts on specific frames)
+or **off-prior 2D trajectories** (a `<Picture 1>` subject stopping mid-shot and walking backward while keeping its
+original facing), neither text tool owns frame coordinates—reach for [`MiniMaxH3SoundCues`](../../../sound_cues.py),
+[`MiniMaxH3AppendSpriteTrajectory`](../../../sprite_trajectory.py), and `0.33` selective release in
+[`../../research/control_vectors/2026-11-12_sound_cues_dpad_and_033_release_law.md`](../../research/control_vectors/2026-11-12_sound_cues_dpad_and_033_release_law.md).

@@ -300,10 +300,15 @@ def price_references(records, width: int, height: int, length: int,
             _, sh, sw = rc._image_shape(frames, f"reference video {index + 1}")
             cw, ch = adapt_canvas(sw, sh)
             notes = []
-            if video_policy == "comfy" and sw * sh < cw * ch:
+            no_upscale = (video_policy == "comfy" or not getattr(record, "allow_upscale", True))
+            if no_upscale and sw * sh < cw * ch:
                 cw = max(CANVAS_MULTIPLE, round(sw / CANVAS_MULTIPLE) * CANVAS_MULTIPLE)
                 ch = max(CANVAS_MULTIPLE, round(sh / CANVAS_MULTIPLE) * CANVAS_MULTIPLE)
-                notes.append("comfy: a video under the canvas is not enlarged")
+                notes.append(
+                    "sprite trajectory: kept at its explicit canvas without upscaling"
+                    if not getattr(record, "allow_upscale", True)
+                    else "comfy: a video under the canvas is not enlarged"
+                )
             elif (cw, ch) != (sw, sh):
                 notes.append(f"{video_policy}: fitted to the release canvas rule")
             lt = video_latent_t(n)

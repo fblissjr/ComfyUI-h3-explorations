@@ -35,6 +35,24 @@
       "references"
     ]
   },
+  "MiniMaxH3AppendSpriteTrajectory": {
+    "inputs": [
+      "image",
+      "length",
+      "keyframes",
+      "mask",
+      "canvas_width",
+      "canvas_height",
+      "sprite_scale",
+      "references",
+      "use_vae"
+    ],
+    "node_id": "MiniMaxH3AppendSpriteTrajectory",
+    "outputs": [
+      "references",
+      "preview_frames"
+    ]
+  },
   "MiniMaxH3ApplyControlVectors": {
     "inputs": [
       "model",
@@ -861,6 +879,24 @@
     "node_id": "MiniMaxH3SolChunked",
     "outputs": [
       "Output"
+    ]
+  },
+  "MiniMaxH3SoundCues": {
+    "inputs": [
+      "positive",
+      "latent",
+      "audio_vae",
+      "cues",
+      "snap_to_3f",
+      "floor_dbfs",
+      "seed",
+      "edited_positive"
+    ],
+    "node_id": "MiniMaxH3SoundCues",
+    "outputs": [
+      "positive",
+      "latent",
+      "edited_positive"
     ]
   },
   "MiniMaxH3Steer": {

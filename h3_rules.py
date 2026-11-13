@@ -342,4 +342,36 @@ WORD_VECTOR_DEFAULTS = dict(
     hold_alpha=1.0,
 )
 
+#: `MiniMaxH3SoundCues` schema defaults (`sound_cues.py`).
+#: Default beat sheet matches `h3_text_to_video_pika_sound_guide_api.json`
+#: (`24: hop`, compound `54: snap` + `57: slam` auto-merged into one 13-token
+#: buffer so 1D Audio VAE RoPE spans never overlap, and `96: hop`, over a
+#: `-28.0 dBFS` ambient rumble floor).
+SOUND_CUES_DEFAULTS = dict(
+    cues="24: hop\n54: snap\n57: slam\n96: hop",
+    snap_to_3f=True,
+    floor_dbfs=-28.0,
+    seed=20261112,
+)
+
+#: `MiniMaxH3AppendSpriteTrajectory` schema defaults (`sprite_trajectory.py`).
+#: Default trajectory reproduces the `dpad_mid_reverse` backpedal + mid-crossing
+#: hop (`0 -> 48` forward `+x`, `hop 44..54` upward arc landing at `f54`, and
+#: `48 -> 92` facing-right `-x` backpedal at `384x224`, `124` frames).
+SPRITE_TRAJECTORY_DEFAULTS = dict(
+    length=124,
+    keyframes=(
+        "0: x=0.20, y=0.70, face=right\n"
+        "48: x=0.64, y=0.70, face=right\n"
+        "92: x=0.26, y=0.70, face=right\n"
+        "123: x=0.26, y=0.70, face=right\n"
+        "hop 44..54: lift=0.29"
+    ),
+    canvas_width=384,
+    canvas_height=224,
+    sprite_scale=0.31,
+    use_vae=True,
+)
+
+
 

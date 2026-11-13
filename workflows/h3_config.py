@@ -1788,6 +1788,23 @@ SOUND_GUIDE_EDIT_GUIDANCE = dict(
     streams="video_only",
     keyframe_differential=True,
 )
+#: Zero-file procedural sound-island node (`sound_cues.py`) and 2D cutout kinematic
+#: D-pad trajectory append node (`sprite_trajectory.py`), plus the hybrid `ref2va`
+#: recipe (`h3_image_ref_dpad_sound_pika_api.json`, Gate 2b 2026-11-12;
+#: `docs/research/control_vectors/2026-11-12_sound_cues_dpad_and_033_release_law.md`):
+#: `<Picture 1>` stays active across all 6 Pika LCM steps (`end_percent = 1.0`),
+#: `<Video 1>` (`MiniMaxH3AppendSpriteTrajectory` at `384x224`) releases at the
+#: `b = 0.50` flow-time midpoint (`video_end_percent = 0.33`, after step 1) so steps
+#: `2..5` synthesize articulated backward leg strides instead of a static cutout glide,
+#: and `MiniMaxH3SoundCues(cues="54: hop")` + `SOUND_GUIDE_EDIT_GUIDANCE` locks
+#: touchdown at frame 54 without synthetic `.wav` bleed.
+SOUND_CUES_NODE = "MiniMaxH3SoundCues"
+SOUND_CUES_DEFAULTS = dict(_h3_rules().SOUND_CUES_DEFAULTS)
+SPRITE_TRAJECTORY_NODE = "MiniMaxH3AppendSpriteTrajectory"
+SPRITE_TRAJECTORY_DEFAULTS = dict(_h3_rules().SPRITE_TRAJECTORY_DEFAULTS)
+DPAD_SOUND_REF_IMAGES = ("ref_signal/tortoise_pic1.png",)
+DPAD_SOUND_CUES = "54: hop"
+DPAD_VIDEO_RELEASE_END = 0.33
 GUIDE_VFX_EDIT_FFP_LORA = "h3/alissonerdx/minimax_h3_vfx_edit_v1.0_r128_ffp.safetensors"
 GUIDE_VFX_EDIT_LORA = "h3/alissonerdx/minimax_h3_vfx_edit_v1.0_r128.safetensors"
 GUIDE_CHARACTER_SWAP_LORA = "h3/alissonerdx/minimax_h3_character_swap_v1.1_ref2va_fro.safetensors"

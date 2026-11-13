@@ -1317,6 +1317,14 @@
       "donor": null,
       "brief": "Multi-actor sound-island choreography on the off-path zebra crossing: two free tortoise hops flanking a mid-air taut-leather leash yank + slammed shell impact, paired with chained MiniMaxH3GuideLatent audio islands at [24, 54, 96], MiniMaxH3ReleaseReferences(audio_end_percent=0.60), and 0-vs-3 keyframe-differential MiniMaxH3EditGuider(streams='video_only', scale=1.6, last_step=3).",
       "tests": "Timeline short-sound (cond_audio) island timing and joint-AV coupling (2026-11-12): steers exact video jump/yank timestamps via video_only keyframe-differential velocity while keeping x_audio 100% un-clamped on original so H3 synthesizes native diegetic landing impacts over continuous street ambience."
+    },
+    {
+      "id": "ref2va_dpad_tortoise_sound_cues",
+      "mode": "ref2va",
+      "frames": 124,
+      "donor": "h3_image_ref_dpad_sound_pika_api",
+      "brief": "Hybrid zero-file 2D sprite kinematic D-pad + touchdown sound cue on the off-path zebra crossing: <Picture 1> supplies the candle-bearing tortoise (held across all 6 steps at end_percent=1.0), <Video 1> from MiniMaxH3AppendSpriteTrajectory supplies forward advance + mid-crossing hop + facing-right backward backpedal (released at video_end_percent=0.33 after step 1 to unlock articulated backward leg strides), and MiniMaxH3SoundCues ('54: hop') + MiniMaxH3EditGuider(streams='video_only', scale=1.6, last_step=3) snaps landing impact to frame 54 without synthetic .wav bleed.",
+      "tests": "Selective video_end_percent=0.33 release on unet_ref2va + zero-file MiniMaxH3AppendSpriteTrajectory + MiniMaxH3SoundCues (2026-11-12): cuts <Video 1> jump apex lag by 5 frames (f56 -> f51) and unlocks 3 alternating backward leg stride cycles across f68..92 while retaining <Picture 1> identity and lit candle 100%."
     }
   ]
 }
