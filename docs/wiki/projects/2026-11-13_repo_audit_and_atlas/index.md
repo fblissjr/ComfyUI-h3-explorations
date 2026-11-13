@@ -112,4 +112,4 @@ Phase 1 (`docs/wiki/`) is complete. Phase 2 tackles the `74` root `.py` modules 
 
 ## Post-Audit Updates (2026-11-13 PM)
 
-- Active follow-up queues after this audit snapshot (Path A `MiniMaxH3SolChunked` retirement landed; parked Path B `EditGuider` mask spec, Path C `h3_pair_compiler.py` notes, immediate sprite/video-edit follow-up tests, standing evaluation rules, and the unreproduced shipped-graph sprite `cx` footnote) are tracked in [`../../next_steps.md`](../../next_steps.md).
+- Active follow-up queues after this audit snapshot (Path A `MiniMaxH3SolChunked` retirement landed; parked Path B `EditGuider` mask spec, Path C `h3_pair_compiler.py` notes, immediate sprite/sound-cue follow-up tests, standing evaluation rules, and the unreproduced shipped-graph sprite `cx` footnote) are tracked in [`../../next_steps.md`](../../next_steps.md).
