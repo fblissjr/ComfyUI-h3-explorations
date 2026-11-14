@@ -1678,6 +1678,13 @@ PH3_IMAGE_CLIPLOADER_ENCODERS = frozenset({
 })
 PH3_IMAGE_VAE = "p-h3-image_vae_bf16.safetensors"
 PH3_IMAGE_VAE_INT8 = "p-h3-image_vae_int8_convrot.safetensors"
+#: The VAE every image graph loads (MiniMax-H3-Image, P-H3-Image, Pika one-frame): P-H3's, with its decoder in
+#: int8 ConvRot. **Owner decision 2026-11-14.** Its encoder and `quant_conv` are the bf16 file's, unchanged; on
+#: twelve real MiniMax-H3-Image latents it decodes within 47-53 dB of the bf16 file, and the shipped edit graph
+#: (with `MiniMaxH3VAEPrecision`'s fp32 encoder) renders within 57.8 dB of it, for 2.2 GB less to load
+#: (`bench/results/2026-11-14_h3_image_vae_tiles.md` Table 7, `docs/wiki/research/image/2026-11-14_h3_image_vae_inspection.md`
+#: section 13). `PH3_IMAGE_VAE` stays for an explicit bf16 decode.
+IMAGE_GRAPH_VAE = PH3_IMAGE_VAE_INT8
 PH3_IMAGE_STEPS = 8
 PH3_IMAGE_SAMPLER = "euler"
 PH3_IMAGE_SHIFT = (1.0, 1.0)

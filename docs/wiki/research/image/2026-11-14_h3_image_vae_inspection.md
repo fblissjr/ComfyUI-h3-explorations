@@ -285,7 +285,8 @@ RTX 4090; and `cfg_scale` / `negative_prompt` exposed though the checkpoint is g
 `MiniMaxH3VAEPrecision` (encoder fp32, decoder unchanged) rendered cleanly, matching the bf16 VAE's render of the
 same graph and seed at 57.8 dB (`$H3_OUTPUT_DIR/Image/size_test_2026-11-14/smoke_int8_vae/` against
 `smoke_after_change/`). Gemini found the two files' 120 encoder and `quant_conv` tensors identical; only the decoder
-is quantized.
+is quantized. The P-H3-Image and Pika one-frame t2i graphs, rendered with each file on one seed, match at 56.8 and
+55.4 dB. **Adopted by the owner the same day for every image graph** (`h3_config.IMAGE_GRAPH_VAE`).
 
 ## Pointers
 

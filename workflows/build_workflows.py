@@ -115,7 +115,7 @@ from h3_config import (  # noqa: E402
     PIKA_STRENGTH, PIKA_STEPS, PIKA_SAMPLER,
     PIKA_MANUAL_SIGMAS, PIKA_MOTION_TRANSFER_IMAGES, PIKA_MOTION_TRANSFER_VIDEO,
     PH3_IMAGE_UNET, PH3_IMAGE_LORA, PH3_IMAGE_STRENGTH,
-    PH3_IMAGE_TE, PH3_IMAGE_UPSAMPLER, PH3_IMAGE_VAE,
+    PH3_IMAGE_TE, PH3_IMAGE_UPSAMPLER, IMAGE_GRAPH_VAE,
     PH3_IMAGE_STEPS, PH3_IMAGE_SAMPLER, PH3_IMAGE_SHIFT, PH3_IMAGE_MANUAL_SIGMAS,
     PH3_IMAGE_CANVAS_8MP,
     PH3_IMAGE_T2I_MAX_NEW_TOKENS, PH3_IMAGE_EDIT_MAX_NEW_TOKENS,
@@ -1752,7 +1752,7 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
         # own README says it regresses multi-frame reconstruction -- so this
         # swap must never be reachable from a graph that renders a clip.
         "3": {"class_type": "VAELoader",
-              "inputs": {"vae_name": (PH3_IMAGE_VAE if single_frame
+              "inputs": {"vae_name": (IMAGE_GRAPH_VAE if single_frame
                                       else MODELS["video_vae"])}},
         "4": {"class_type": "VAELoader", "inputs": {"vae_name": MODELS["audio_vae"]}},
         "6": {"class_type": "RandomNoise", "inputs": {"noise_seed": seed}},
@@ -3055,7 +3055,7 @@ def build_ph3_image_api(
         "1": {"class_type": "UNETLoader",
               "inputs": {"unet_name": resolved_unet, "weight_dtype": "default"}},
         "3": {"class_type": "VAELoader",
-              "inputs": {"vae_name": PH3_IMAGE_VAE}},
+              "inputs": {"vae_name": IMAGE_GRAPH_VAE}},
         "6": {"class_type": "RandomNoise", "inputs": {"noise_seed": seed}},
         "7": {"class_type": "KSamplerSelect",
               "inputs": {"sampler_name": PH3_IMAGE_SAMPLER}},
@@ -3157,7 +3157,7 @@ def build_h3_image_api(
     *,
     prompt: str | None = None,
     unet: str = H3_IMAGE_UNET,
-    vae: str = PH3_IMAGE_VAE,
+    vae: str = IMAGE_GRAPH_VAE,
     encoder: str = H3_IMAGE_ENCODER,
     ref_images: tuple[str, ...] | None = None,
     megapixels: float = H3_IMAGE_DELIVER_MEGAPIXELS,
@@ -3196,7 +3196,7 @@ def build_h3_image_api(
       "Edit references, point by point"). Text to image keeps core's node. Core's node names its
       pictures from 0 (`images.image_0..N-1`); this pack's nodes and `MiniMaxH3ImagePromptExpander`
       name them from 1.
-    - **The default VAE (`PH3_IMAGE_VAE`) pairs the identical H3 encoder with P-H3-Image's larger
+    - **The default VAE (`IMAGE_GRAPH_VAE`, P-H3's with an int8 decoder) pairs the identical H3 encoder with P-H3-Image's larger
       36-layer, 32-head (`dim=2048`) still-image decoder.** Both `PH3ImageVAE` and
       `MiniMaxH3ImageVAE` inherit `H3ImageVAE.encode` with bit-for-bit identical fp32 encoder +
       `quant_conv` weights and identical `LATENTS_MEAN`/`LATENTS_STD`, so reference latents and the

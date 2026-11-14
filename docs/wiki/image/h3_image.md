@@ -64,7 +64,8 @@ actually started from is not something the weights can say.
 | `H3_IMAGE_UNET` | the DiT, int8 linears, pruned AdaLN; the graphs' default | Comfy-Org |
 | `H3_IMAGE_UNET_BF16` | the DiT as released, nothing quantized or pruned. Not kept on disk: written, rendered and removed on 2026-11-11 | `bench/convert_h3_image_dit.py` writes it again from the release |
 | `H3_IMAGE_ENCODER` | the H3 text encoder in bf16, nothing quantized, cut after the layer H3 reads; the graphs' default since 2026-11-13. Larger than the card, so core places part of it off the card | `bench/convert_h3_bf16_encoder.py`, from the release |
-| `PH3_IMAGE_VAE` | H3 encoder (stored fp32 in file; cast to fp16 by `comfy/sd.py` on load, `max_abs_diff = 2.98e-8`, then promoted in place by `MiniMaxH3VAEPrecision`) + 36-layer 32-head (`dim=2048`) still-image decoder; the graphs' default since 2026-11-12 | PrunaAI (`P-H3-Image`) |
+| `PH3_IMAGE_VAE` | H3 encoder (stored fp32 in file; cast to fp16 by `comfy/sd.py` on load, `max_abs_diff = 2.98e-8`, then promoted in place by `MiniMaxH3VAEPrecision`) + 36-layer 32-head (`dim=2048`) still-image decoder; the graphs' default from 2026-11-12 to 2026-11-14, then its int8 copy | PrunaAI (`P-H3-Image`) |
+| `IMAGE_GRAPH_VAE` (= `PH3_IMAGE_VAE_INT8`) | the same VAE with its decoder in int8 ConvRot; encoder and `quant_conv` unchanged. Every image graph's VAE since 2026-11-14 (owner): decodes the same as bf16 on real latents and in live renders of all three image families, 2.2 GB smaller | PrunaAI (`P-H3-Image`) |
 | `H3_IMAGE_VAE` | the release's VAE in fp16 (16-head `dim=1024` decoder) | Comfy-Org, a plain cast of the release's |
 | `H3_IMAGE_VAE_FP32` | the release's VAE as released | the release |
 
@@ -169,7 +170,7 @@ Comfy-Org's shipped templates in four places:
    posts because `_image_refs` sorts by trailing integer, but ComfyUI's browser
    frontend drops `images.image_1` when opening the API JSON and silently runs
    text-to-image with zero references; fixed 2026-11-12).
-4. **The default VAE (`PH3_IMAGE_VAE`, `p-h3-image_vae_bf16.safetensors`) pairs
+4. **The default VAE (`PH3_IMAGE_VAE`, `p-h3-image_vae_bf16.safetensors`; since 2026-11-14 its int8 copy, `IMAGE_GRAPH_VAE`) pairs
    the identical H3 encoder with P-H3-Image's larger 36-layer, 32-head
    (`dim=2048`) still-image decoder** (2026-11-12). All 118 encoder +
    `quant_conv` tensors in `PH3_IMAGE_VAE` are bit-for-bit identical (`max_diff = 0`)
