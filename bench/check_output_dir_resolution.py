@@ -73,6 +73,9 @@ def _fallback_must_earn_its_use() -> list[str]:
     spec.loader.exec_module(cfg)
     out = []
     keep = os.environ.pop("H3_OUTPUT_DIR", None)
+    # this machine's h3.env would fill the unset variable (workflows/h3_env.py); an empty file stands in
+    keep_env_file = os.environ.get("H3_ENV_FILE")
+    os.environ["H3_ENV_FILE"] = os.devnull
     try:
         with tempfile.TemporaryDirectory() as d:
             # Point the FALLBACK at a stock-shaped directory: present, holding
@@ -115,6 +118,10 @@ def _fallback_must_earn_its_use() -> list[str]:
         os.environ.pop("H3_OUTPUT_DIR", None)
         if keep is not None:
             os.environ["H3_OUTPUT_DIR"] = keep
+        if keep_env_file is None:
+            os.environ.pop("H3_ENV_FILE", None)
+        else:
+            os.environ["H3_ENV_FILE"] = keep_env_file
     return out
 
 

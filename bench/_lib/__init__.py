@@ -56,6 +56,19 @@ COMFY = next((p for p in REPO.parents if (p / "comfy").is_dir()), REPO.parents[1
 
 EXIT_OK, EXIT_FAIL, EXIT_NOT_GRADED = 0, 1, 2
 
+# This machine's locations from the gitignored h3.env, where the environment lacks them
+# (`workflows/h3_env.py`); an exported variable always wins.
+def _load_h3_env(env_module: Path) -> None:
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("h3_env", env_module)
+    if spec is not None and spec.loader is not None:
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        module.load()
+
+
+_load_h3_env(REPO / "workflows" / "h3_env.py")
+
 
 # ------------------------------------------------------------------ bootstrap
 

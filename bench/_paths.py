@@ -54,6 +54,19 @@ from pathlib import Path
 
 _REPO = Path(__file__).resolve().parents[1]
 
+# This machine's locations from the gitignored h3.env, where the environment lacks them
+# (`workflows/h3_env.py`); an exported variable always wins.
+def _load_h3_env(env_module: Path) -> None:
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("h3_env", env_module)
+    if spec is not None and spec.loader is not None:
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        module.load()
+
+
+_load_h3_env(_REPO / "workflows" / "h3_env.py")
+
 # inherited: start.sh passes `--port 8188` and docs/wiki/ops/comfy_notes.md finds the
 # server by that port's owner. Not measured, not reasoned.
 COMFY_PORT = 8188

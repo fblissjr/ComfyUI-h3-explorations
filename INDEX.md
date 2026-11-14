@@ -144,6 +144,7 @@ with none is a helper the others import.
 | [`README.md`](README.md) | ComfyUI-h3-explorations |
 | [`VISION.md`](VISION.md) | What this repo holds itself to |
 | [`body_marks.json`](body_marks.json) | which marked part each vertex of the body rig belongs to, at rest |
+| [`h3.env.example`](h3.env.example) | This machine's locations, for bench/ tools, the workflow builder and shells. |
 | [`pyproject.toml`](pyproject.toml) | (TOML) |
 | [`uv.lock`](uv.lock) | (lock file) |
 
@@ -155,7 +156,7 @@ with none is a helper the others import.
 | `.gemini/` | 8 | [below](#gemini) |
 | `archive/` | 31 | (none) |
 | `assets/` | 1 | [below](#assets) |
-| `bench/` | 855 | [`bench/INDEX.md`](bench/INDEX.md) and [`bench/results/INDEX.md`](bench/results/INDEX.md) for the records |
+| `bench/` | 857 | [`bench/INDEX.md`](bench/INDEX.md) and [`bench/results/INDEX.md`](bench/results/INDEX.md) for the records |
 | `changelog.d/` | | [`changelog.d/README.md`](changelog.d/README.md), one file per changelog entry; not listed and not counted |
 | `contact_sheets/` | 2 | [below](#contact_sheets) |
 | `data/` | 2 | [below](#data) |
@@ -167,7 +168,7 @@ with none is a helper the others import.
 | `vendor_config/` | 10 | [below](#vendor_config) |
 | `vendor_guides/` | 21 | [below](#vendor_guides) |
 | `web/` | 1 | [below](#web) |
-| `workflows/` | 116 | [`workflows/INDEX.md`](workflows/INDEX.md) |
+| `workflows/` | 117 | [`workflows/INDEX.md`](workflows/INDEX.md) |
 
 ## .claude/
 

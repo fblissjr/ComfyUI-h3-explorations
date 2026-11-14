@@ -93,7 +93,7 @@ Full per-check history, 2026-08-23 amendments, and `"claims block"` notes are sh
 | [`docs/wiki/ops/checks/index_12.md`](checks/index_12.md) | `check_assemble_delivery.py` .. `check_sweep_loads.py` (8 rows) |
 | [`docs/wiki/ops/checks/index_13.md`](checks/index_13.md) | `check_plate_restore.py` .. `check_dit_prefix_attention.py` (26 rows) |
 | [`docs/wiki/ops/checks/index_14.md`](checks/index_14.md) | `measure_dit_prefix_attention.py` .. `build_prompt_bank.py` (23 rows) |
-| [`docs/wiki/ops/checks/index_15.md`](checks/index_15.md) | `masked_code_map.py` .. `check_h3_image_vae_convert.py` (15 rows) |
+| [`docs/wiki/ops/checks/index_15.md`](checks/index_15.md) | `masked_code_map.py` .. `check_h3_env.py` (16 rows) |
 
 | check | defends | needs | claims block |
 |---|---|---|---|
@@ -295,6 +295,7 @@ Full per-check history, 2026-08-23 amendments, and `"claims block"` notes are sh
 | `preflight_graph.py` | not a gate ([detail](checks/index_15.md)) | no CUDA | no |
 | `smoke_h3.py` | the H3 chain composes and runs... ([detail](checks/index_15.md)) | live ComfyUI... | no |
 | `check_h3_image_vae_convert.py` | bench/convert_h3_image_vae_from_diffusers.py writes a diffusers MiniMax-H3-Image VAE in core's layout ([detail](checks/index_15.md)) | no CUDA | no |
+| `check_h3_env.py` | this machine's locations stay in the gitignored h3.env; the template, loader and writer ([detail](checks/index_15.md)) | git | no |
 
 ## What is deliberately not checked
 

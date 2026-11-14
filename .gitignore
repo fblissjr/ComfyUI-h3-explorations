@@ -64,3 +64,6 @@ contact_sheets/*
 # 2026-10-17: and the one-line CLAUDE.md that imports it, so Claude sessions load it too.
 !contact_sheets/CLAUDE.md
 Video/
+
+# This machine's locations (absolute paths); h3.env.example is the tracked list of keys (2026-11-14).
+/h3.env

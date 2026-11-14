@@ -1,6 +1,6 @@
 # Notes on building custom nodes and workflows inside ComfyUI
 
-Last updated: 2026-10-28.
+Last updated: 2026-11-14 (this machine's values in the gitignored `h3.env`); 2026-10-28.
 
 ## Running things
 
@@ -19,7 +19,13 @@ A folder that is this machine's is an environment key, never a literal path in a
 - **The ComfyUI server (`:8188`) and its nodes ignore `H3_OUTPUT_DIR` and `H3_INPUT_DIR`.** Nodes (`audio_freeze_song.py`, `video_mask.py`, VHS loaders and savers) resolve paths through ComfyUI's `folder_paths.get_output_directory()` and `folder_paths.get_input_directory()`, which are set **only** by the `--output-directory` and `--input-directory` CLI flags inside `<comfy>/start.sh`. Starting bare `main.py` with environment variables alone writes renders to `<comfy>/output`, where no `bench/` tool looks. Always start the server via `<comfy>/start.sh`.
 - **`bench/` tools cannot read `--output-directory` or `--input-directory` back from the HTTP API.** They read `H3_OUTPUT_DIR`, `H3_INPUT_DIR`, and `H3_MODEL_STORE` from the environment. Running a `bench/` tool without those variables set in its process environment (or passing a relative `--output` path) either refuses or writes to the wrong folder.
 
-**Discovering and exporting the environment from repo-relative paths (zero private paths):**
+**This machine's values: the gitignored `h3.env` (2026-11-14).** The keys above, with `H3_COMFY_OUTPUT` and `H3_COMFY_INPUT` (`bench/_paths.py`'s names for the same two folders), live in `h3.env` at the repo root. Git ignores it; the tracked `h3.env.example` lists every key, what it is, and the optional ones, with no values. Write or refresh it with `<comfy>/.venv/bin/python bench/write_h3_env.py` (it discovers the values by the recipe below and keeps any line it did not write). `workflows/h3_env.py::load` copies its keys into the environment wherever they are unset; `workflows/h3_config.py::output_dir`, `bench/_paths.py` and `bench/_lib` call it, so most tools need no exports. A shell takes it with:
+
+    set -a; . ./h3.env; set +a
+
+An exported variable always wins over the file. `H3_ENV_FILE` names another file instead (a check that needs the variables unset points it at an empty file). The file holds locations only: switches such as `H3_CAPTURE` never go in it (`bench/check_h3_env.py`).
+
+**Discovering and exporting the environment from repo-relative paths (zero private paths), the recipe `bench/write_h3_env.py` follows:**
 Because this repo sits at `<comfy>/custom_nodes/ComfyUI-h3-explorations`, `<comfy>` is `../..` from the main repo root, `<comfy>/start.sh` holds `--output-directory` and `--input-directory`, and `<comfy>/models/sapiens2/` links to the local model store. Define them at the top of a command without hardcoding any machine path:
 
     COMFY="$(cd ../.. && pwd)"

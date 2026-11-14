@@ -2169,6 +2169,14 @@ def output_dir() -> Path:
     to before it.
     """
     import os
+    import importlib.util
+    # this machine's h3.env (gitignored) fills H3_OUTPUT_DIR when the environment lacks it; read here,
+    # on call, rather than at import, so a process that only imports the constants is untouched
+    spec = importlib.util.spec_from_file_location("h3_env", Path(__file__).with_name("h3_env.py"))
+    if spec is not None and spec.loader is not None:
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        module.load()
     named = os.environ.get("H3_OUTPUT_DIR")
     out = Path(named) if named else COMFY_ROOT / "output"
     if not out.is_dir():
