@@ -13,6 +13,13 @@
 - **Numbers:** [`bench/results/2026-11-14_h3_image_vae_tiles.md`](../../../../bench/results/2026-11-14_h3_image_vae_tiles.md).
   This page carries directions and pointers only.
 
+**Where the images are.** Every image this page names is on the share, never in `data/`:
+encoded-picture crops and zooms (`crops_*`, `crops_video_*`, `zoom3x_*`) in
+`$H3_OUTPUT_DIR/Image/vae_compare_2026-11-14/comparisons/encoded_pictures/`; crops of the two real renders
+(`render_*`) in `.../comparisons/real_renders/`; latent-bank images (`view_*`, `sheet_*`, `crop1x_*`, `overview_*`,
+`phone_*` and `phone_key.txt`) in `.../comparisons/latent_bank/`. `data/h3_image_vae_2026-11-14/` keeps only scripts,
+JSON, logs and prompts (images moved out 2026-11-14, the owner).
+
 ---
 
 ## 1. The weights and the files
@@ -110,7 +117,7 @@ decode node is needed for this.
 ## 6. The three decoders on one latent
 
 Same encoder, same latent, three decoders (record, Tables 1 and 4; crops and 3x zooms in
-`data/h3_image_vae_2026-11-14/`):
+`$H3_OUTPUT_DIR/Image/vae_compare_2026-11-14/comparisons/encoded_pictures/`):
 
 - **P-H3's decoder** is closer to the picture on all four test pictures and carries less fine luma energy than the
   picture: smoother. The **release decoder** keeps about the picture's fine-detail energy but places it worse. On the

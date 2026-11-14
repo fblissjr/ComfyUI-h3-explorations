@@ -24,9 +24,11 @@ here) and its latent decoded by each decoder named, through core's own classes, 
 
     CUDA_VISIBLE_DEVICES= <comfy venv python> bench/probe_h3_image_vae_tiles.py \
         --release <MiniMax-H3-Image folder> --out data/h3_image_vae_<date> \
+        --media "$H3_OUTPUT_DIR/Image/vae_compare_<date>/comparisons/encoded_pictures" \
         --vae release=<file> --vae p-h3=<file> [--vae hdr=<file>] [--cuda]
 
-Writes `results.json` and, per picture, stacked crops (`crops_<picture>.png`) to `--out`. Reads
+Writes `results.json` to `--out` and, per picture, stacked crops (`crops_<picture>.png`) to `--media`
+(default `--out`). Images belong in the output folder, not `data/` (the owner, 2026-11-14). Reads
 nothing over the network; needs a card only with `--cuda`. Cannot see: how a DiT's latents (rather than an encoded
 picture's) decode, or anything about the eye's judgement of the result.
 """
@@ -257,12 +259,15 @@ def crops(pic, outs, name, out_dir):
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--release", type=Path, required=True)
-    ap.add_argument("--out", type=Path, required=True)
+    ap.add_argument("--out", type=Path, required=True, help="results.json goes here (data/<name>)")
+    ap.add_argument("--media", type=Path, help="crop images go here (default --out; use $H3_OUTPUT_DIR/Image/<name>)")
     ap.add_argument("--vae", action="append", required=True, help="name=file; the first is the release decoder")
     ap.add_argument("--pictures", nargs="*", help="limit to these picture names")
     ap.add_argument("--cuda", action="store_true", help="run on the card")
     args = ap.parse_args()
     args.out.mkdir(parents=True, exist_ok=True)
+    media = args.media or args.out
+    media.mkdir(parents=True, exist_ok=True)
     torch.set_grad_enabled(False)
     ref = diffusers_stitch()
     dev = torch.device("cuda" if args.cuda else "cpu")
@@ -314,7 +319,7 @@ def main() -> int:
                 torch.cuda.empty_cache()
             print(f"  {pname} {name}: {json.dumps(geo['256/64'])}", flush=True)
         order = [k for k in shown if k.endswith("256/64")] + [k for k in shown if k.endswith("untiled")]
-        rec["crops"] = crops(pic, {k: shown[k] for k in order}, pname, args.out)
+        rec["crops"] = crops(pic, {k: shown[k] for k in order}, pname, media)
         rec["seconds"] = round(time.time() - t0, 1)
         results["pictures"][pname] = rec
         (args.out / "results.json").write_text(json.dumps(results, indent=1))

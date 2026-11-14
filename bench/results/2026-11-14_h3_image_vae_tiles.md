@@ -28,9 +28,16 @@ CUDA_VISIBLE_DEVICES=0 <comfy venv python> bench/probe_h3_image_vae_tiles.py --c
   share the encoder bit for bit (`h3_image.md` item 4 for `p-h3`; the converter's `--base` report for `hdr`).
 - **Encoding.** Each picture encoded once by `release`'s encoder through `H3ImageVAE.encode` (core's fixed-seed
   posterior sample), so every decoder decodes the same latent.
-- **Outputs**, untracked: `data/h3_image_vae_2026-11-14/results.json` (everything below),
+- **Outputs:** `data/h3_image_vae_2026-11-14/results.json` (everything below, untracked); on the share,
   `crops_<picture>.png` (darkest and most detailed 256 px window; columns: picture, release, p-h3, hdr at 256/64,
-  release untiled), `zoom3x_dark_{reference1,station}.png` (3x of the darkest window's centre, first four columns).
+  release untiled) and `zoom3x_dark_{reference1,station}.png` (3x of the darkest window's centre, first four columns).
+
+**Where the images are.** Every image this record names is on the share, never in `data/`:
+encoded-picture crops and zooms (`crops_*`, `crops_video_*`, `zoom3x_*`) in
+`$H3_OUTPUT_DIR/Image/vae_compare_2026-11-14/comparisons/encoded_pictures/`; crops of the two real renders
+(`render_*`) in `.../comparisons/real_renders/`; latent-bank images (`view_*`, `sheet_*`, `crop1x_*`, `overview_*`,
+`phone_*` and `phone_key.txt`) in `.../comparisons/latent_bank/`. `data/h3_image_vae_2026-11-14/` keeps only scripts,
+JSON, logs and prompts (images moved out 2026-11-14, the owner).
 
 What the columns mean (`bench/probe_h3_image_vae_tiles.py` docstring): **luma detail kept** is the high-pass
 (picture minus a 5x5 box blur) energy of the decode's luma over the picture's; above 1 means the decode carries more
