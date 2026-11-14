@@ -65,6 +65,7 @@ if str(_HERE / "workflows") not in sys.path:
 from h3_config import (  # noqa: E402
     H3_IMAGE_ASPECT_OF_PICTURE,
     H3_IMAGE_ASPECTS,
+    H3_IMAGE_DELIVER_MEGAPIXELS,
     H3_IMAGE_MEGAPIXELS,
     H3_IMAGE_MEGAPIXELS_RANGE,
     H3_IMAGE_MIN_GENERATION_MEGAPIXELS,
@@ -93,19 +94,31 @@ def resolve_canvas_and_target_size(
     picture_size: tuple[int, int] | None,
     *,
     enforce_4mp_floor: bool = True,
+    generate_megapixels: float | None = None,
 ) -> tuple[int, int, int, int]:
     """`(canvas_width, canvas_height, target_width, target_height)`.
+
+    The target is `megapixels` at the shape. The canvas the DiT generates on is the largest of `megapixels`,
+    `generate_megapixels` (when given) and, with `enforce_4mp_floor`, 4.0 MP, at the target's shape and on the
+    32 px grid; `MiniMaxH3ImageDownscale` shrinks the decode from canvas to target. The canvas is never smaller
+    than the target, so nothing is upscaled. `generate_megapixels=None` keeps the behaviour from before it existed.
 
     Matches `coderef/sglang` (`minimax_h3_image_generation_canvas`) and
     `coderef/vllm-omni` (`pipeline_minimax_h3_image.py`): when `megapixels < 4.0`
     and `enforce_4mp_floor` is enabled, the DiT generates on a 4.0 MP (`2048x2048`
     area) canvas of the same aspect ratio and `MiniMaxH3ImageDownscale` resizes
     the decoded image to `(target_width, target_height)` via 8-bit PIL Lanczos.
-    At `megapixels >= 4.0`, canvas and target dimensions are identical.
+    Without `generate_megapixels`, at `megapixels >= 4.0` canvas and target dimensions are identical.
     """
     target_w, target_h = resolve_size(megapixels, shape, picture_size)
-    if enforce_4mp_floor and megapixels < H3_IMAGE_MIN_GENERATION_MEGAPIXELS:
-        min_area = H3_IMAGE_MIN_GENERATION_MEGAPIXELS * 1024 * 1024
+    sizes = [float(megapixels)]
+    if enforce_4mp_floor:
+        sizes.append(H3_IMAGE_MIN_GENERATION_MEGAPIXELS)
+    if generate_megapixels is not None:
+        sizes.append(float(generate_megapixels))
+    canvas_mp = max(sizes)
+    if canvas_mp > megapixels:
+        min_area = canvas_mp * 1024 * 1024
         scale = max(1.0, (min_area / (target_w * target_h)) ** 0.5)
         m = H3_IMAGE_SIZE_MULTIPLE
         canvas_w = max(m, int(round(target_w * scale / m)) * m)
@@ -211,17 +224,18 @@ class MiniMaxH3ImageSize(io.ComfyNode):
             display_name="MiniMax H3 Image Size",
             category="model/conditioning/minimax",
             description=(
-                "Canvas and target output size for MiniMax H3 Image from megapixels and a shape. "
-                "Wire width and height into MiniMax H3 Image Conditioning, and target_width / "
-                "target_height into MiniMax H3 Image Downscale for < 4 MP Lanczos downscale."
+                "Generation canvas and delivered size for MiniMax H3 Image. The DiT generates at "
+                "generate_megapixels (the model is best near 16) and you get back megapixels: wire width and "
+                "height into the conditioning node, and target_width / target_height into MiniMax H3 Image "
+                "Downscale, which shrinks the decode with Lanczos. The canvas is never below megapixels."
             ),
             inputs=[
                 io.Float.Input(
-                    "megapixels", default=H3_IMAGE_MEGAPIXELS, min=0.25, max=24.0, step=0.25,
+                    "megapixels", default=H3_IMAGE_DELIVER_MEGAPIXELS, min=0.25, max=24.0, step=0.25,
                     tooltip=(
-                        f"Requested output size in megapixels (1024x1024 units). The DiT is tuned for "
-                        f"{low:g}..{high:g} MP (best near {H3_IMAGE_MEGAPIXELS:g}); below {low:g} MP, "
-                        "enforce_4mp_floor generates at 4 MP and downscales cleanly via Lanczos.")),
+                        "Size of the picture you get back, in megapixels (1024x1024 units). The picture is "
+                        "generated at generate_megapixels and shrunk to this with Lanczos; set it as high as "
+                        "generate_megapixels to keep the full size.")),
                 io.Combo.Input(
                     "shape", options=[*H3_IMAGE_ASPECTS, H3_IMAGE_ASPECT_OF_PICTURE], default="1:1",
                     tooltip=(
@@ -244,6 +258,13 @@ class MiniMaxH3ImageSize(io.ComfyNode):
                         "Match SGLang and vLLM-Omni: when megapixels < 4.0, keep the DiT generation "
                         "canvas (width, height) at >= 4.0 MP so fine detail holds together, and emit "
                         "the requested dimensions on (target_width, target_height) for Lanczos downscale.")),
+                io.Float.Input(
+                    "generate_megapixels", default=H3_IMAGE_MEGAPIXELS, min=0.25, max=24.0, step=0.25,
+                    optional=True,
+                    tooltip=(
+                        f"Size the model generates at, in megapixels. It works from {low:g} to {high:g} and is "
+                        f"best near {H3_IMAGE_MEGAPIXELS:g}; generating big and shrinking to megapixels keeps "
+                        "detail and fewer mistakes in small text. Never below megapixels.")),
             ],
             outputs=[
                 io.Int.Output(display_name="width"),
@@ -261,6 +282,7 @@ class MiniMaxH3ImageSize(io.ComfyNode):
         picture=None,
         shape_from_expander=None,
         enforce_4mp_floor=True,
+        generate_megapixels=H3_IMAGE_MEGAPIXELS,
     ) -> io.NodeOutput:
         picture_size = None if picture is None else (int(picture.shape[2]), int(picture.shape[1]))
         chosen_shape = (
@@ -273,6 +295,7 @@ class MiniMaxH3ImageSize(io.ComfyNode):
             chosen_shape,
             picture_size,
             enforce_4mp_floor=bool(enforce_4mp_floor),
+            generate_megapixels=generate_megapixels,
         )
         return io.NodeOutput(width, height, target_width, target_height)
 
@@ -1373,9 +1396,9 @@ class MiniMaxH3ImageDownscale(io.ComfyNode):
             display_name="MiniMax H3 Image Downscale",
             category="model/conditioning/minimax",
             description=(
-                "Post-decode 8-bit PIL Lanczos resize for sub-4MP MiniMax-H3-Image requests "
-                "(matching SGLang and vLLM-Omni). Zero-copy passthrough whenever target_width "
-                "and target_height match the decoded canvas (all >= 4.0 MP renders) or enabled is False."
+                "Post-decode 8-bit PIL Lanczos resize from the generation canvas to the delivered size "
+                "(MiniMax H3 Image Size's target_width / target_height; the same resize SGLang and vLLM-Omni "
+                "apply below 4 MP). Zero-copy passthrough when the two match or enabled is False."
             ),
             inputs=[
                 io.Image.Input("images"),

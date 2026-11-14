@@ -461,7 +461,8 @@
       "shape",
       "picture",
       "shape_from_expander",
-      "enforce_4mp_floor"
+      "enforce_4mp_floor",
+      "generate_megapixels"
     ],
     "node_id": "MiniMaxH3ImageSize",
     "outputs": [

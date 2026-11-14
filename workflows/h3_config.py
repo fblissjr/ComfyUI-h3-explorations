@@ -1752,6 +1752,14 @@ H3_IMAGE_MANUAL_SIGMAS = ("1.0, 0.9675236940383911, 0.8875485062599182, 0.75, "
 H3_IMAGE_ASPECTS = ("1:1", "5:4", "4:3", "3:2", "16:9", "21:9", "4:5", "3:4", "2:3", "9:16")
 H3_IMAGE_ASPECT_OF_PICTURE = "same as the picture"
 H3_IMAGE_MEGAPIXELS = 16.0
+#: The size a MiniMax-H3-Image graph DELIVERS: the DiT generates at `H3_IMAGE_MEGAPIXELS` and the decode is
+#: shrunk to this with Lanczos (`MiniMaxH3ImageSize.generate_megapixels` / `megapixels`,
+#: `MiniMaxH3ImageDownscale`). **Owner decision 2026-11-14**, on a test of 14 cases (6 t2i, 8 edits) generated at
+#: 16 MP and shrunk against generated at the delivered size (`data/size_test_2026-11-14/`,
+#: `docs/wiki/research/image/2026-11-14_h3_image_generate_big_deliver_small.md`): no difference at phone width,
+#: clearly better from 16 MP on a desktop, fewer content slips (misspelled plaques, an extra object), at the time a
+#: 16 MP render already took and a quarter of its PNG size.
+H3_IMAGE_DELIVER_MEGAPIXELS = 4.0
 H3_IMAGE_MEGAPIXELS_RANGE = (4.0, 20.0)
 H3_IMAGE_MIN_GENERATION_MEGAPIXELS = 4.0
 H3_IMAGE_SIZE_MULTIPLE = 32

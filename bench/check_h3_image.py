@@ -19,6 +19,11 @@ No model file and no card. What each case defends, i.e. what breaks if it is del
   the vendor's `request_params.json`, read from the vendored file.
 - `a picture gives its own shape` and `no picture is refused` -- `resolve_size` on
   'same as the picture'.
+- `generate_megapixels sets the canvas above the delivered size, never below it, keeping the shape` --
+  `MiniMaxH3ImageSize`: 16 generated for 4 delivered gives a 4x canvas; a generation size below the
+  delivered size does not shrink the canvas (no upscaling); the node unset generates at
+  `H3_IMAGE_MEGAPIXELS` while the bare function unset keeps the old canvas; at 4:3 the canvas keeps the
+  target's shape; the 4.0 MP floor still holds.
 - `expander replies parse plain prose, trailing aspect_ratio, thinking blocks and vendor JSON` --
   `parse_expander_reply` on the release's worked captions (`revised_prompt.{t2i,edit}.txt`), an
   arbitrary edit ratio composed with `resolve_size`, `'same as the picture'` / `'adaptive'`,
@@ -27,7 +32,8 @@ No model file and no card. What each case defends, i.e. what breaks if it is del
 - `the shipped graphs` -- each `workflows/image/h3_image*_api.json` and its probes hands the
   sampler the grid in `H3_IMAGE_MANUAL_SIGMAS` through `ManualSigmas`, has no negative prompt or
   scheduler node, and an edit wires its picture into both the conditioning node and the size node
-  with nothing between the loader and either.
+  with nothing between the loader and either; each size node generates at `H3_IMAGE_MEGAPIXELS` and
+  delivers `H3_IMAGE_DELIVER_MEGAPIXELS`.
 
 `--release <MiniMax-H3-Image folder>` adds: the grid constant equals the release's
 `pdd_config.json`. Without it that comparison is reported as skipped, not passed.
@@ -160,9 +166,26 @@ def sizes() -> None:
     )
     report(
         resolve_canvas_and_target_size(1.0, "1:1", None, enforce_4mp_floor=True) == (2048, 2048, 1024, 1024)
-        and tuple(MiniMaxH3ImageSize.execute(1.0, "1:1")) == (2048, 2048, 1024, 1024)
-        and tuple(MiniMaxH3ImageSize.execute(1.0, "1:1", enforce_4mp_floor=False)) == (1024, 1024, 1024, 1024),
+        and tuple(MiniMaxH3ImageSize.execute(1.0, "1:1", generate_megapixels=1.0)) == (2048, 2048, 1024, 1024)
+        and tuple(MiniMaxH3ImageSize.execute(1.0, "1:1", enforce_4mp_floor=False, generate_megapixels=1.0))
+        == (1024, 1024, 1024, 1024),
         "sub-4MP requests lift DiT canvas to the vendor's 4.0-MP floor while keeping target_width/target_height",
+    )
+    # generate big, deliver small (owner decision 2026-11-14): the canvas is the largest of megapixels,
+    # generate_megapixels and the floor, at the target's shape, so the shrink never stretches or upscales
+    big = tuple(MiniMaxH3ImageSize.execute(4.0, "1:1", generate_megapixels=16.0))
+    no_up = tuple(MiniMaxH3ImageSize.execute(8.0, "1:1", generate_megapixels=4.0))
+    unset = tuple(MiniMaxH3ImageSize.execute(4.0, "1:1"))
+    old = resolve_canvas_and_target_size(4.0, "1:1", None)
+    t43 = tuple(MiniMaxH3ImageSize.execute(4.0, "4:3", generate_megapixels=16.0))
+    report(
+        big == (4096, 4096, 2048, 2048)
+        and no_up[:2] == no_up[2:] == h3_config.h3_image_size(8.0, 1, 1)
+        and old == (2048, 2048, 2048, 2048) and unset == big
+        and abs(t43[0] / t43[1] - t43[2] / t43[3]) < 0.01 and t43[0] * t43[1] > 3.9 * t43[2] * t43[3]
+        and tuple(MiniMaxH3ImageSize.execute(1.0, "1:1", generate_megapixels=2.0)) == (2048, 2048, 1024, 1024),
+        "generate_megapixels sets the canvas above the delivered size, never below it, keeping the shape",
+        f"16->4 {big}, 4 under 8 {no_up}, node unset {unset}, function unset {old}, 4:3 {t43}",
     )
     gen = torch.Generator().manual_seed(42)
     img_in = torch.rand((1, 128, 128, 3), generator=gen, dtype=torch.float32)
@@ -657,6 +680,8 @@ def graphs() -> None:
         sized, cond = (core[0], core[0]) if core else (encode[0], prompts[0])
         size = next(n for n in g.values() if n["class_type"] == "MiniMaxH3ImageSize")["inputs"]
         ok &= isinstance(sized["width"], list) and isinstance(sized["height"], list)
+        ok &= (size.get("megapixels") == h3_config.H3_IMAGE_DELIVER_MEGAPIXELS
+               and size.get("generate_megapixels") == h3_config.H3_IMAGE_MEGAPIXELS)
         pictures = [v for k, v in sized.items() if k.startswith("images.")]
         if pictures:
             ok &= all(g[src[0]]["class_type"] == "LoadImage" for src in pictures)

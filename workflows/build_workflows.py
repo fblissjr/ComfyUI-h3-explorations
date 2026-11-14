@@ -120,7 +120,7 @@ from h3_config import (  # noqa: E402
     PH3_IMAGE_CANVAS_8MP,
     PH3_IMAGE_T2I_MAX_NEW_TOKENS, PH3_IMAGE_EDIT_MAX_NEW_TOKENS,
     H3_IMAGE_UNET, H3_IMAGE_UNET_BF16, H3_IMAGE_ENCODER, H3_IMAGE_REFERENCES, H3_IMAGE_VAE, H3_IMAGE_SAMPLER, H3_IMAGE_MANUAL_SIGMAS,
-    H3_IMAGE_MEGAPIXELS, H3_IMAGE_ASPECT_OF_PICTURE, HEYLOOK_DEFAULT_BASE_URL,
+    H3_IMAGE_MEGAPIXELS, H3_IMAGE_DELIVER_MEGAPIXELS, H3_IMAGE_ASPECT_OF_PICTURE, HEYLOOK_DEFAULT_BASE_URL,
     GUIDE_LATENT_NODE, GUIDE_CHARACTER_SWAP_LORA, GUIDE_TASK_LORAS,
     SOUND_GUIDE_ISLANDS, SOUND_GUIDE_AUDIO_RELEASE_END, SOUND_GUIDE_EDIT_GUIDANCE,
     SOUND_CUES_NODE, SOUND_CUES_DEFAULTS, SPRITE_TRAJECTORY_NODE, SPRITE_TRAJECTORY_DEFAULTS,
@@ -3160,7 +3160,8 @@ def build_h3_image_api(
     vae: str = PH3_IMAGE_VAE,
     encoder: str = H3_IMAGE_ENCODER,
     ref_images: tuple[str, ...] | None = None,
-    megapixels: float = H3_IMAGE_MEGAPIXELS,
+    megapixels: float = H3_IMAGE_DELIVER_MEGAPIXELS,
+    generate_megapixels: float = H3_IMAGE_MEGAPIXELS,
     shape: str | None = None,
     seed: int | None = None,
     attention: str | None = DENSE_BACKEND_NODE["attention"],
@@ -3180,10 +3181,11 @@ def build_h3_image_api(
       `SamplerCustomAdvanced` under a `BasicGuider`: six Euler steps, no guidance. The templates
       ask `KSampler` for six `simple` steps, which lands near the grid the output heads were
       distilled on rather than on it.
-    - **The size is megapixels and a shape** (`MiniMaxH3ImageSize`), 16 megapixels by default as
-      the model card recommends. An edit takes its picture's shape. Requests below 4.0 megapixels
-      sample on the vendor's 4.0-megapixel DiT canvas floor (`width`, `height`) and Lanczos-downscale
-      after `VAEDecode` via `MiniMaxH3ImageDownscale` (`target_width`, `target_height`).
+    - **The size is megapixels and a shape** (`MiniMaxH3ImageSize`): the DiT generates at
+      `generate_megapixels` (16 by default, where the model card says it is best) and the graph delivers
+      `megapixels` (4 by default, `H3_IMAGE_DELIVER_MEGAPIXELS`, owner decision 2026-11-14), shrunk after `VAEDecode`
+      by `MiniMaxH3ImageDownscale` with Lanczos. An edit takes its picture's shape. The vendor's 4.0
+      megapixel generation floor still applies.
     - **A picture being edited reaches the conditioning nodes untouched, and they are this
       pack's.** The edit template resamples it to 4 megapixels first; the model reads a reference
       at its own size. An edit's pictures go through `MiniMaxH3EncodeImageReferences` (node 132)
@@ -3248,7 +3250,8 @@ def build_h3_image_api(
         "3": {"class_type": "VAELoader",
               "inputs": {"vae_name": vae}},
         "4": {"class_type": "MiniMaxH3ImageSize",
-              "inputs": {"megapixels": megapixels, "shape": resolved_shape}},
+              "inputs": {"megapixels": megapixels, "shape": resolved_shape,
+                         "generate_megapixels": generate_megapixels}},
         "6": {"class_type": "RandomNoise", "inputs": {"noise_seed": resolved_seed}},
         "7": {"class_type": "KSamplerSelect",
               "inputs": {"sampler_name": H3_IMAGE_SAMPLER}},

@@ -102,6 +102,7 @@ For the active MiniMax-H3-Image and P-H3-Image setup, start at [`../image/h3_ima
 
 | Document | Topic |
 |---|---|
+| [`image/2026-11-14_h3_image_generate_big_deliver_small.md`](image/2026-11-14_h3_image_generate_big_deliver_small.md) | Generate at 16 MP and shrink, against generate at the delivered size: 14 cases, phone and desktop, content slips, time and file size; the decision to deliver 4 MP from a 16 MP canvas |
 | [`image/2026-11-14_h3_image_vae_inspection.md`](image/2026-11-14_h3_image_vae_inspection.md) | The MiniMax-H3-Image VAE: weights, config, Comfy-Org's fp16 file and core's decoder checked against diffusers, vllm-omni and sglang (nothing wrong found); tile stitching and geometry; release vs. P-H3 vs. HDR vs. the H3 video decoder and its `t1` fine-tune on encoded pictures and on real renders; no decode node beats what ships |
 
 ## Core H3, Pika, Conditioning, & Upstream Stack Studies

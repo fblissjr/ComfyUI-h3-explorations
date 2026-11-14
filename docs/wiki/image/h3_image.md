@@ -1,6 +1,6 @@
 # MiniMax-H3-Image: MiniMax's own still-image model
 
-Last updated: 2026-11-14 (item 4 points at the release VAE inspection); 2026-11-13 (the edit graphs use the pack's reference nodes with the servers' crop and draw; the graphs load the bf16 text encoder; "Edit references, point by point" added under "What the vendor's servers do"); 2026-11-12.
+Last updated: 2026-11-14 (generate at 16 MP, deliver 4 MP, item 2; item 4 points at the release VAE inspection); 2026-11-13 (the edit graphs use the pack's reference nodes with the servers' crop and draw; the graphs load the bf16 text encoder; "Edit references, point by point" added under "What the vendor's servers do"); 2026-11-12.
 
 MiniMax-H3-Image makes a picture from text, or edits one or more pictures, on
 one checkpoint, in six steps with no guidance. It is a different model from
@@ -144,8 +144,12 @@ Comfy-Org's shipped templates in four places:
    lands with `0.0` float32 error. The heads are one per step of this grid under
    plain Euler; no other sampler, step count or grid is valid.
 2. **The size is megapixels and a shape** (`MiniMax H3 Image Size`,
-   [`h3_image_nodes.py`](../../../h3_image_nodes.py)), at the card's best size (`16.0`
-   megapixels) by default. Requests below `4.0` megapixels (`enforce_4mp_floor=True`
+   [`h3_image_nodes.py`](../../../h3_image_nodes.py)). **The DiT generates at the card's best size
+   (`generate_megapixels`, `H3_IMAGE_MEGAPIXELS`) and the graph delivers `megapixels`
+   (`H3_IMAGE_DELIVER_MEGAPIXELS`, 4 MP), shrunk after `VAEDecode` by `MiniMaxH3ImageDownscale` with
+   Lanczos** (owner decision 2026-11-14:
+   [`../research/image/2026-11-14_h3_image_generate_big_deliver_small.md`](../research/image/2026-11-14_h3_image_generate_big_deliver_small.md)).
+   The canvas is never below the delivered size. Requests below `4.0` megapixels (`enforce_4mp_floor=True`
    default) follow MiniMax's `sglang` (`image_canvas.py`) and `vllm-omni`
    (`pipeline_minimax_h3_image.py`) servers: the DiT samples on the vendor's
    `4.0`-megapixel canvas floor (`width`, `height`), and `MiniMax H3 Image Downscale`
@@ -346,7 +350,7 @@ owns.
 stays best aligned with its reference when the reference is given at the
 canvas's pixel size and that same size is requested
 (`coderef/vllm-omni/recipes/MiniMaxAI/MiniMax-H3-Image-H200.md`). The edit
-graphs here do not do that: the output is `H3_IMAGE_MEGAPIXELS` at the
+graphs here do not do that: the generation canvas is `H3_IMAGE_MEGAPIXELS` at the
 picture's shape, while the model's copy of the picture is capped at
 `IMAGE_REF_VAE_MAX_SHORT_EDGE`, so the output is several times the
 reference's area. Whether that mismatch is behind edits that change a
