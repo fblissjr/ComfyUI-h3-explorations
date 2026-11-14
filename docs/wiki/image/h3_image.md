@@ -1,6 +1,6 @@
 # MiniMax-H3-Image: MiniMax's own still-image model
 
-Last updated: 2026-11-13 ("Edit references, point by point" added under "What the vendor's servers do"); 2026-11-12.
+Last updated: 2026-11-13 (the graphs load the bf16 text encoder; "Edit references, point by point" added under "What the vendor's servers do"); 2026-11-12.
 
 MiniMax-H3-Image makes a picture from text, or edits one or more pictures, on
 one checkpoint, in six steps with no guidance. It is a different model from
@@ -20,7 +20,11 @@ download, not kept in this repo.
 - **The text encoder is H3's, unchanged.** The release's shards carry the same
   hub hashes as the H3 release's, and its tokenizer and processor files are
   byte for byte the same (checked 2026-11-11 by comparing the two downloads).
-  The graphs load the encoder the video graphs load.
+  The graphs load it unquantized since 2026-11-13 (the owner's decision):
+  `H3_IMAGE_ENCODER`, the release's bf16 weights cut after the layer H3 reads,
+  where the video graphs load the int8 file. What is on record about the int8
+  file is H3 video's ([`../decisions/2026-09-25_to_2026-09-29.md`](../decisions/2026-09-25_to_2026-09-29.md)):
+  its error sits mostly on picture tokens. Nothing has measured it on this model.
 - **The VAE is its own file.** Its encoder weights are the H3 video VAE's
   (equal to fp16 rounding on every encoder tensor compared, 2026-11-11); its
   decoder is a smaller single-picture decoder with different shapes. The video
@@ -59,6 +63,7 @@ actually started from is not something the weights can say.
 |---|---|---|
 | `H3_IMAGE_UNET` | the DiT, int8 linears, pruned AdaLN; the graphs' default | Comfy-Org |
 | `H3_IMAGE_UNET_BF16` | the DiT as released, nothing quantized or pruned. Not kept on disk: written, rendered and removed on 2026-11-11 | `bench/convert_h3_image_dit.py` writes it again from the release |
+| `H3_IMAGE_ENCODER` | the H3 text encoder in bf16, nothing quantized, cut after the layer H3 reads; the graphs' default since 2026-11-13. Larger than the card, so core places part of it off the card | `bench/convert_h3_bf16_encoder.py`, from the release |
 | `PH3_IMAGE_VAE` | H3 encoder (stored fp32 in file; cast to fp16 by `comfy/sd.py` on load, `max_abs_diff = 2.98e-8`, then promoted in place by `MiniMaxH3VAEPrecision`) + 36-layer 32-head (`dim=2048`) still-image decoder; the graphs' default since 2026-11-12 | PrunaAI (`P-H3-Image`) |
 | `H3_IMAGE_VAE` | the release's VAE in fp16 (16-head `dim=1024` decoder) | Comfy-Org, a plain cast of the release's |
 | `H3_IMAGE_VAE_FP32` | the release's VAE as released | the release |

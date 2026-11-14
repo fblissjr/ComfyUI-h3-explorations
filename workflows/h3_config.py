@@ -70,6 +70,12 @@ def _h3_rules():
 #: (`docs/wiki/ops/roadmap.md` "Closed lanes", `docs/wiki/decisions.md`). Their records
 #: under `bench/results/` and `docs/wiki/research/` stand as history.
 ENCODER_INT8 = "qwen3vl_32b_minimax_h3_int8_convrot.safetensors"
+#: The release's encoder in bf16, cut after the layer H3 reads
+#: (`bench/convert_h3_bf16_encoder.py`): nothing quantized. Core's `CLIPLoader`
+#: opens it as it opens the int8 file. The MiniMax-H3-Image graphs load it
+#: (`H3_IMAGE_ENCODER`); it is larger than the card, so core places part of it
+#: off the card.
+ENCODER_BF16 = "qwen3vl_32b_minimax_h3_bf16_pruned.safetensors"
 
 MODELS = dict(
     unet_fl2va="minimax_h3_fl2va_pruned_int8_convrot.safetensors",
@@ -134,6 +140,7 @@ VIDEO_VAE_FP16 = "minimax_h3_video_vae_fp16.safetensors"
 #: file its loader cannot open.
 CORE_LOADED_ENCODERS = frozenset({
     ENCODER_INT8,
+    ENCODER_BF16,
     "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
 })
 
@@ -1706,7 +1713,14 @@ PH3_IMAGE_EDIT_MAX_NEW_TOKENS = 1536
 #:   (owner); no graph loads it, and the tool writes it again from the release.
 #: - `H3_IMAGE_VAE` is Comfy-Org's fp16 copy of the release's fp32 VAE, a plain
 #:   cast (same record); `H3_IMAGE_VAE_FP32` is the release's own file.
-#: - The text encoder is H3's, unchanged (`MODELS["clip"]`).
+#: - The text encoder is H3's, unchanged. **Owner decision 2026-11-13:** these
+#:   graphs load it unquantized (`H3_IMAGE_ENCODER`, the bf16 file) where the
+#:   video graphs load the int8 one (`MODELS["clip"]`). What is on record is
+#:   H3 video's: the int8 file's error sits mostly on picture tokens, and on
+#:   the int8 video DiT it moved the prediction no more than matched noise
+#:   (`docs/wiki/decisions/2026-09-25_to_2026-09-29.md`,
+#:   `docs/wiki/ops/open_experiments.md` item 47). Nothing has measured it on
+#:   this model.
 #: - `H3_IMAGE_MANUAL_SIGMAS` is **inherited** from the release's
 #:   `pdd_config.json` (the same grid is in both files' metadata). The six
 #:   output heads were distilled one per interval of this grid, so the graphs
@@ -1721,6 +1735,7 @@ PH3_IMAGE_EDIT_MAX_NEW_TOKENS = 1536
 #:   (`size_for` in the release's `examples/context_ir.py`).
 H3_IMAGE_UNET = "minimax_h3_image_pruned_int8_convrot.safetensors"
 H3_IMAGE_UNET_BF16 = "minimax_h3_image_bf16.safetensors"
+H3_IMAGE_ENCODER = ENCODER_BF16
 H3_IMAGE_VAE = "minimax_h3_image_vae_fp16.safetensors"
 H3_IMAGE_VAE_FP32 = "minimax_h3_image_vae_fp32.safetensors"
 H3_IMAGE_SAMPLER = "euler"
