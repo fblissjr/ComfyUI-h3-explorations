@@ -5,6 +5,7 @@
 ## Active Queues by Priority
 
 1. **Steering, `EditGuider`, & Interactive Controls (Parked Specs + Immediate Zero-Code Tests)**:
+   - **Embedded image gen/edit in video workflows (Phases 0–4 plan, awaiting go-ahead)**: [`research/image/2026-11-14_embedded_image_in_video_plan.md`](research/image/2026-11-14_embedded_image_in_video_plan.md) — Phase 0 uses existing nodes with an explicit `image_vae` / `video_vae` split; Phase 1 adds `guide_end_percent` to [`MiniMaxH3ReleaseReferences`](../../control_vector_nodes.py) (`0 < resolved_frame_index < total_frames - 1`); Phases 2–4 add scout-edit-fork workflows, `MiniMaxH3MaskedSource` diff masks, and `MiniMaxH3FreezeAudioWindow` anti-burnout loops.
    - **Zero-code follow-up renders (ready on existing graphs)**:
      - Test the **shipped sprite + sound-cue graph (`h3_image_ref_dpad_sound_pika_api.json`) on a second scene and subject** (current evidence is all on the tortoise street-crossing scene), plus a 2-arm `"no vocal sound"` prompt-phrasing check before changing `hop` DSP.
      - Keep the **shipped 6-step Pika schedule** (`check_distill_grid.py` contract, calmer stride pacing vs. 5-step foot-skate, and keeping sigma knot `0.972973` / audio `0.90` to avoid `..893` squeaks). If touching [`../../sound_cues.py`](../../sound_cues.py) later, test rolling `hop`'s `90.0..900.0` Hz scrape upper cutoff (`sound_cues.py:136`) down to ~`300..350` Hz to reduce quadruped-jump bark hallucinations (`..892` `"ARF!"` on `"no vocal sound"` prompts).
