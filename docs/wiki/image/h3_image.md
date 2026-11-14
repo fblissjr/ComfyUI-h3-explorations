@@ -180,8 +180,8 @@ Comfy-Org's shipped templates in four places:
    `MiniMax-H3-Image` DiT latents (`build_h3_image_api(..., vae=H3_IMAGE_VAE)`
    keeps the release decoder available).
    The release decoder itself was inspected on 2026-11-14 (weights, config, Comfy-Org's file, core's decode against
-   diffusers, vllm-omni and sglang) and nothing was found wrong; the gap is the decoder, and small-text breakup is
-   shared by every decoder of the same latent
+   diffusers, vllm-omni and sglang) and nothing was found wrong; the gap is the decoder. Averaging decodes, the H3
+   video decoder and its `t1` fine-tune (which smears real DiT output) do not beat what ships
    ([`../research/image/2026-11-14_h3_image_vae_inspection.md`](../research/image/2026-11-14_h3_image_vae_inspection.md)).
 
 Attention is the same as the templates': comfy-kitchen's INT8 attention, named

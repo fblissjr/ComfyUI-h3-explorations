@@ -167,7 +167,8 @@ Both live beside their outputs in the untracked `data/h3_image_vae_2026-11-14/`,
   energy but places it worse. On the zooms, `release` shows pinpoint speckle on `reference1`'s dark wall and a dotted
   orange pattern on `station`'s bench rail that `p-h3` does not.
 - **Small lettering breaks the same way under all three decoders** (`crops_text_panel.png`, the "TRUE"/"FALSE"
-  table). A failure shared by three decoders of one latent is in the latent, not the decoder.
+  table). A failure shared by three decoders of one latent is in the latent, not the decoder. *Does not hold:
+  section 7.*
 - **`hdr`** carries fine luma energy at or above the picture's on all four, more than `release` on three, at lower PSNR
   than `release` on all four; its shadow chroma grain is above `release`'s on `text_panel` and `station` and below it
   on the other two. Its model card's reconstruction table points the same way on PSNR and detail.
@@ -180,3 +181,64 @@ Both live beside their outputs in the untracked `data/h3_image_vae_2026-11-14/`,
 - Four pictures, three of them JPEG montage crops whose own compression artifacts sit in the reference.
 - Decode precision. Everything ran float32; the shipped graphs and both servers decode at lower precision
   (`h3_image.md` item 4 records fp16 and fp32 decoding alike for `release`).
+
+## 6. Follow-ups the same day: averaging, the video decoder, and real renders
+
+### 6.1 Averaging decodes (throwaway `data/h3_image_vae_2026-11-14/ensemble_probe.py`, log beside it)
+
+CPU float32, `reference1`, `release` only; stopped there because the answer was plain. The mean of decodes made
+with the tile grid shifted by 128 px (two or four grids) scored the same PSNR as one decode, so the decoder's error
+does not depend on where the grid sits and averaging cannot cancel it. The mirrored-latent arm scored far lower,
+but the test was wrong: a mirrored latent is not the latent of a mirrored picture (the encoder's filters are not
+mirror-symmetric), so that arm says nothing about the decoder.
+
+### 6.2 The video decoder and its fine-tune on encoded pictures (throwaway `video_decoder_probe.py`, `video_decoder_results.json`, `video_decoder_probe.log`, `crops_video_<picture>.png`)
+
+Same pictures, same latents and same metrics as Tables 1 and 2, on the card in float32. `video_clip` is core's still
+path for the stock video VAE (`minimax_h3_video_vae_fp16.safetensors`: the latent decoded as a clip of copies, one
+frame kept); `video_direct_k` is that decoder fed the one latent alone, keeping output frame `k` (untrained surgery);
+`t1` is `minimax_h3_t1_image_vae_step1597.safetensors` (`workflows/h3_config.py::IMAGE_VAE`). Cells: PSNR dB / luma
+detail kept / shadow chroma grain.
+
+### Table 6. Video-decoder arms against the image decoders, encoded pictures
+
+| picture | release | p-h3 | t1 | video_clip | video_direct_0 | video_direct_3 | video_direct_mean |
+|---|---|---|---|---|---|---|---|
+| `reference1` | 29.91 / 1.06 / 1.98 | 31.47 / 0.79 / 1.05 | 32.57 / 0.69 / 0.85 | 29.84 / 0.82 / 0.59 | 20.54 / 0.29 / 0.72 | 21.05 / 0.33 / 0.66 | 20.64 / 0.28 / 0.66 |
+| `text_panel` | 25.45 / 0.98 / 2.31 | 26.16 / 0.88 / 3.10 | 26.64 / 0.77 / 1.55 | 24.65 / 0.69 / 1.15 | 16.48 / 0.17 / 0.81 | 16.90 / 0.24 / 0.80 | 16.61 / 0.18 / 0.71 |
+| `dark_portrait` | 32.83 / 1.03 / 1.27 | 34.22 / 0.70 / 1.38 | 35.16 / 0.58 / 0.53 | 32.93 / 0.68 / 0.71 | 25.03 / 0.25 / 0.88 | 25.24 / 0.29 / 0.82 | 24.98 / 0.24 / 0.78 |
+| `station` | 24.23 / 1.09 / 1.19 | 25.50 / 0.76 / 1.27 | 26.33 / 0.63 / 0.81 | 24.57 / 0.79 / 0.79 | 16.24 / 0.29 / 0.63 | 16.77 / 0.34 / 0.65 | 16.34 / 0.29 / 0.58 |
+
+Weights (`vae_stats.py`'s method, run inline): every image VAE's encoder equals the video VAE's (bitwise or equal
+after fp16 rounding on all 118 tensors; `t1` bitwise). P-H3's decoder has the video decoder's shapes except a
+one-frame `proj_out`, and its weights sit close to the video decoder's: a fine-tune of it. The `release` decoder's
+weights match no slice of the video decoder's better than random vectors do: trained on its own.
+
+### 6.3 Real renders: one DiT sample, four decoders
+
+The shipped `workflows/image/h3_image_t2i_api.json` (seed 42, 4736x3552) and `h3_image_edit_api.json` (seed 1234,
+`h3_image_reference1.png`, 4096x4096), each queued four times on ComfyUI with only a decode-only `VAELoader` feeding
+`VAEDecode` changed (references still encoded through the graph's P-H3 VAE, so sampling ran once per graph and was
+cached), saved from `VAEDecode` at full resolution before the downscale: `$H3_OUTPUT_DIR/Image/vae_compare_2026-11-14/`.
+Decoders: `minimax_h3_image_vae_fp16` (release, as shipped), `p-h3-image_vae_bf16`, `minimax_h3_t1_image_vae_step1597`,
+`minimax_h3_video_vae_fp16`. Crops (`render_compare.py`, columns release, p-h3, t1, video):
+`render_t2i_{dark,detail}{,_x2}.png`, `render_edit_{dark,detail,sign}{,_x2}.png`,
+`render_edit_{mug_left,shelf_sign,poster,dark_wall,hands_watch}.png`.
+
+What the crops show (a session's look, listed for the owner's eye, not a verdict):
+
+- **`t1` smears DiT output.** On the bread and the dark wood grain it turns texture painterly and wavy; on encoded
+  pictures it scored best. A sampled latent is not an encoded one, and `t1` was tuned on encoded ones.
+- **`release` and `video`** look alike: crisp, with a fine speckle over texture. **`p-h3`** is a little softer and
+  cleaner.
+- **Lettering at this size is legible under all four** (mugs, shelf sign); the edit's text is large at 16 MP.
+
+## 7. Readings corrected by section 6
+
+- Section 4's "small lettering breaks the same way under all three decoders ... in the latent, not the decoder" does
+  not hold: on encoded pictures `t1` keeps the `text_panel` lettering clearly more legible than `release` and `p-h3`
+  (`crops_video_text_panel.png`; `hdr` breaks it like `release` in `crops_text_panel.png`), so the decoder carries
+  much of it. (On the real renders at 16 MP the text was
+  large enough that no decoder broke it.)
+- The encoded-picture ranking does not carry over to DiT latents (`t1` first on Table 6, worst on the renders), so
+  Tables 1 to 6 rank decoders on encoded pictures only.

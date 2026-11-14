@@ -6,8 +6,9 @@
   or ComfyUI's implementation?
 - **Answer:** nothing found wrong in any of the four. ComfyUI runs the release decoder the way the release's own
   servers do. What looks bad is the decoder itself, a small ViT that decodes one 256 px tile at a time; P-H3's larger
-  decoder, on the same latent, is closer to the picture. Small lettering breaks under every decoder tried, so that part
-  is in the latent, not the decoder.
+  decoder, on the same latent, is closer to the picture. Follow-ups the same day (section 8) tried the H3 video
+  decoder, its single-frame fine-tune `t1`, averaging, and real renders: nothing beats what the graphs ship, and no
+  decode node is worth making.
 - **Numbers:** [`bench/results/2026-11-14_h3_image_vae_tiles.md`](../../../../bench/results/2026-11-14_h3_image_vae_tiles.md).
   This page carries directions and pointers only.
 
@@ -116,8 +117,9 @@ Same encoder, same latent, three decoders (record, Tables 1 and 4; crops and 3x 
   That matches the shadow stipple recorded in `h3_image.md` item 4. The shadow colour-grain ratio favours P-H3 on
   one picture only, so the stipple is not simply "more colour energy in shadows" and the ratio is a weak instrument
   for it.
-- **Small lettering breaks the same way under all three decoders** (`crops_text_panel.png`). Swapping decoders
-  cannot fix that; it is in the latent the encoder makes from the picture, or that the DiT samples.
+- **Small lettering breaks the same way under these three decoders** (`crops_text_panel.png`). *Corrected the same
+  day (section 8): a different decoder, `t1`, keeps much of it on encoded pictures, so the decoder carries much of
+  the lettering, not only the latent.*
 - **The HDR fine-tune** (`minimax_h3_image_hdr_vae_{fp32,fp16}.safetensors`, converted the same day by
   `bench/convert_h3_image_vae_from_diffusers.py`, commit `e78f6925`) shares the release encoder bit for bit and
   fine-tunes only `post_quant_conv` and the decoder. It carries more fine detail than the release decoder on three of the four pictures,
@@ -131,14 +133,36 @@ Same encoder, same latent, three decoders (record, Tables 1 and 4; crops and 3x 
   latents (release, P-H3, HDR), which needs a render.
 - **Which stitching reads better.** Core's choice trades a hair of PSNR for no seam step at crossings; the eye has
   not judged it. Leave it unless a seam is seen.
-- **The lettering.** If the owner wants small text to hold, the place to look is the latent (encoder or DiT), not the
-  decoder.
 - vllm-omni's and diffusers' issue trackers.
+
+## 8. Follow-ups: averaging, the video decoder, and real renders
+
+Record section 6. In short:
+
+- **Averaging decodes does not help.** Decodes made with the tile grid shifted, averaged, score the same as one: the
+  decoder's error does not depend on where the tiles sit. (A mirrored-latent arm was a wrong test, since a mirrored
+  latent is not a mirrored picture's latent.)
+- **All H3 VAEs share one encoder and one latent space.** P-H3's decoder is a fine-tune of the H3 video decoder with a
+  one-frame output; the release image decoder is a separate, smaller model, not cut from the video decoder.
+- **The video decoder.** Used as core uses it for a still (the latent decoded as a clip of copies), it decodes
+  MiniMax-H3-Image latents about as well as the release decoder. Fed one latent directly with no retraining (the
+  "surgery"), it is far worse, which is why `t1` exists.
+- **`t1`** (`workflows/h3_config.py::IMAGE_VAE`, the community single-frame fine-tune of the video decoder that the
+  H3 video model's one-frame path ships) ranks first on encoded pictures, with clearly more legible small text, and
+  **smears real DiT output** (bread and wood grain turn painterly). Encoded-picture rankings do not predict DiT
+  latents; only renders do.
+- **On real renders** (the shipped text-to-image and edit graphs, sampled once, decoded four ways, full resolution
+  in `$H3_OUTPUT_DIR/Image/vae_compare_2026-11-14/`): `release` and the video decoder look alike, crisp with a fine
+  speckle; `p-h3` is a little softer and cleaner; `t1` smears. Lettering at 16 MP was legible under all four.
+
+What would actually move the decode is a decoder trained on what the DiT samples, not on encoded pictures. That is
+training, not a node.
 
 ## Pointers
 
 | what | where |
 |---|---|
+| the follow-up probes and render crops | `data/h3_image_vae_2026-11-14/` (`ensemble_probe.py`, `video_decoder_probe.py`, `render_compare.py`, `render_*.png`) |
 | the numbers, conditions and readings | [`bench/results/2026-11-14_h3_image_vae_tiles.md`](../../../../bench/results/2026-11-14_h3_image_vae_tiles.md) |
 | the probe that made them | [`bench/probe_h3_image_vae_tiles.py`](../../../../bench/probe_h3_image_vae_tiles.py) |
 | the diffusers-to-ComfyUI converter and its check | [`bench/convert_h3_image_vae_from_diffusers.py`](../../../../bench/convert_h3_image_vae_from_diffusers.py), [`bench/check_h3_image_vae_convert.py`](../../../../bench/check_h3_image_vae_convert.py) |
