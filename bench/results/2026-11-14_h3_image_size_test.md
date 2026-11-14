@@ -94,3 +94,13 @@ None is a quality choice; MiniMax's card, examples and prompt expander all aim a
 - One seed per case; t2i layouts differ between arms, so a t2i preference mixes size with composition.
 - Content errors were counted on two edits; the direction (fewer slips when generated big) rests on those two.
 - Phone and desktop judgements are the owner's; the desktop one is unblinded.
+
+## 8. After the change, live
+
+After the owner restarted ComfyUI and the studio: `workflows/build_workflows.py` validated all 108 graphs against the
+live server and changed none of them (the committed graphs were already the live schema's), and
+`bench/check_widget_deviations.py` passed against it. The shipped `h3_image_t2i_api.json` and `h3_image_edit_api.json`,
+unchanged but for their save folder (`$H3_OUTPUT_DIR/Image/size_test_2026-11-14/smoke_after_change/`), rendered:
+t2i 2368x1760 (4:3 at 4 MP), 7.8 MB, 43.3 s including model loads; edit 2048x2048 (the picture's shape at 4 MP),
+5.2 MB, 39.8 s. Times in line with generating at 16 MP (section 2), sizes the delivered default. The studio app's
+own update for the new input is app commit fd7505d (its session).
