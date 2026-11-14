@@ -140,7 +140,7 @@ Same encoder, same latent, three decoders (record, Tables 1 and 4; crops and 3x 
   latents rank the decoders differently, and P-H3 stays first.*
 - **Which stitching reads better.** Core's choice trades a hair of PSNR for no seam step at crossings. *Still open;
   leave it unless a seam is seen.*
-- **vllm-omni's and diffusers' issue trackers.** *Still not searched.*
+- **vllm-omni's and diffusers' issue trackers.** *Searched the same day: section 13.*
 
 ## 8. Follow-ups: averaging, the video decoder, and real renders
 
@@ -251,6 +251,41 @@ for the card). LoRA or an 8-bit optimizer would fit.
 5. Smaller, open: which stitching reads better at crossings (only if a seam is seen); vllm-omni's and diffusers'
    issue trackers; one name for the output folder (`H3_OUTPUT_DIR` and `H3_COMFY_OUTPUT` name the same folder, as do
    `H3_INPUT_DIR` and `H3_COMFY_INPUT`; `h3.env` sets both for now).
+
+## 13. Upstream trackers and DiffSynth-Studio (later the same day)
+
+**No tracker reports the image VAE's look.** vllm-project/vllm-omni and huggingface/diffusers were searched (titles,
+bodies) for MiniMax-H3-Image with VAE, decode, size, artifacts and quality, as sglang's had been (section 3). What
+touches this study:
+
+- **diffusers #14410 (open):** a user objects that diffusers' port swaps the halves of the VAE's gated
+  feed-forward (`[gate; up]` to `[up; gate]`) so both layouts now circulate on the Hub with nothing marking which.
+  diffusers' reply: the reorder lets H3 reuse its shared SwiGLU code. `bench/convert_h3_image_vae_from_diffusers.py`
+  assumes the diffusers layout (its check proves the round trip against diffusers' own converter); a file in the
+  other layout would show as large changes against the base in its `--base` report.
+- **vllm-omni #10059, #10106, #9161:** a lighter decode-only video VAE, including the 26-layer LightVAE, offered for
+  video latency and memory. Section 9 found the 26-block decoder smears real image renders; nothing upstream claims
+  it for stills.
+- **vllm-omni #10245 (merged):** a single RTX 4090 MiniMax-H3-Image recipe with layerwise offload; a deployment
+  report, stated not to be a quality comparison.
+- **The edit "auto" size quirk** (`bench/results/2026-11-14_h3_image_size_test.md` section 6) has no issue or PR.
+
+**DiffSynth-Studio** (modelscope, at its tip `28638042`, 2026-11-12) added MiniMax-H3-Image in five commits on
+2026-11-11 and 2026-11-12 (`6ccfd64d` support, `c84af152` LoRA layers, `3cc1b7b0` pruned models, `55fdfb23` docs,
+`28638042` Comfy-pruned). Its image VAE (`diffsynth/models/minimax_h3_image_vae.py`) decodes as the other three
+references and core do: ImageNet pixels, four register tokens and a zero token, 2D rope, LayerNorm before the output
+layer, 256 px tiles with 64 px overlap. Its pipeline (`diffsynth/pipelines/minimax_h3_image.py`) defaults to
+2048x2048 with the 4 MP floor and a Lanczos shrink, quantizing to 8 bits by truncation first, as the release and
+ComfyUI's save do; its examples generate at 4096x4096. New beside the others: training scripts (LoRA and full)
+that train only the DiT (`--trainable_models "dit"`, the VAE offloaded), so no one here trains an image decoder
+either; "EntroPack", an AdaLN-pruned, mixed-low-bit DiT with its own `vae_int8`, documented as its route for one
+RTX 4090; and `cfg_scale` / `negative_prompt` exposed though the checkpoint is guidance-distilled.
+
+**The int8 P-H3 VAE in the edit graph, live:** the shipped edit graph with `p-h3-image_vae_int8_convrot` and its
+`MiniMaxH3VAEPrecision` (encoder fp32, decoder unchanged) rendered cleanly, matching the bf16 VAE's render of the
+same graph and seed at 57.8 dB (`$H3_OUTPUT_DIR/Image/size_test_2026-11-14/smoke_int8_vae/` against
+`smoke_after_change/`). Gemini found the two files' 120 encoder and `quant_conv` tensors identical; only the decoder
+is quantized.
 
 ## Pointers
 
