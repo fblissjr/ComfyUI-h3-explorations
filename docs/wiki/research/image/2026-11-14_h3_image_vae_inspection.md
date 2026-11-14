@@ -179,8 +179,8 @@ candidate:
   softer and cleaner.**
 - **Splitting the work** (P-H3's coarse layers plus the video decoder's fine detail) **disappears at viewing size**,
   for two decodes' cost.
-- **Stock against P-H3** differs less once the picture is shrunk to screen size. Whether the difference is visible
-  where the owner looks (a phone, a preview window, the studio app) is the question of the `phone_*.jpg` files.
+- **Stock against P-H3** differs less once the picture is shrunk to screen size. At an iPhone's screen width the owner
+  saw no difference on any of the four `phone_*.jpg` files (2026-11-14).
 
 ### A rule this left
 
@@ -234,12 +234,13 @@ for the card). LoRA or an 8-bit optimizer would fit.
 | P-H3 + `t1` merges, two shares, two ways to run | twelve latents | whole-picture brightness shift | section 9; record Table 8 |
 | P-H3 low-pass + video high-pass | twelve latents | gain gone at viewing size, two decodes | section 9; record Table 7 |
 | int8 P-H3 | twelve latents | same as bf16 | section 9; record Table 7 |
-| stock against P-H3 at phone size | four latents | waiting on the owner's eye | `phone_*.jpg` |
+| stock against P-H3 at phone size | four latents | the owner saw no difference (2026-11-14) | `phone_*.jpg` |
 
 ## 12. Next steps
 
-1. **The owner's eye on the four phone files.** If stock and P-H3 cannot be told apart at phone and preview sizes,
-   the decoder question stops mattering for how pictures are viewed.
+1. ~~The owner's eye on the four phone files.~~ **Answered 2026-11-14: the owner could not tell stock from P-H3 at
+   an iPhone's screen width** on any of the four. The decoder matters only zoomed in or at full size, where P-H3 is
+   cleaner; P-H3 stays the default.
 2. **Whether the graphs default to the int8 P-H3 VAE** (`workflows/h3_config.py::PH3_IMAGE_VAE_INT8`). It decodes the
    same and is smaller, so less of the DiT moves off the card for the decode. Before switching, confirm that
    `MiniMaxH3VAEPrecision`'s fp32 encoder promotion on the edit graphs works on the int8 file.

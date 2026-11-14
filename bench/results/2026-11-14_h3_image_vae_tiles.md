@@ -328,8 +328,8 @@ Readings:
 - **`ph3LP+vidHP` is within 39 to 53 dB of `p-h3` once shrunk to 1600 px**: the detail it adds from `video` is gone at
   viewing size, for two decodes' cost.
 - **`stock` against `p-h3`** differs less once shrunk than at full size on every latent; the two are closest on
-  smooth pictures and furthest apart on fine texture (Table 7). Whether that difference is visible at the owner's viewing sizes is the phone files'
-  question.
+  smooth pictures and furthest apart on fine texture (Table 7). At an iPhone's screen width the owner saw no
+  difference on any of the four `phone_*.jpg` files (A was `stock`, B `p-h3`; the owner, 2026-11-14).
 
 ## 9. Corrections and credits
 
