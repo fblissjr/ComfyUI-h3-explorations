@@ -34,9 +34,11 @@ import math
 from collections.abc import Mapping
 from typing import Any
 
+from comfy.ldm.minimax.model import FRAME_PER_TOKEN
 import comfy.nested_tensor
 import comfy.samplers
 import torch
+import torch.nn.functional as F
 from comfy_api.latest import io
 
 try:
@@ -129,8 +131,92 @@ def _keyframes_extend_prefix(orig_kfs: Any, edit_kfs: Any) -> bool:
     return True
 
 
+def _normalize_edit_mask(mask: torch.Tensor) -> torch.Tensor:
+    """Validate and normalize an incoming ComfyUI MASK to CPU float32 `[T, H, W]` in `[0, 1]`."""
+    if not torch.is_tensor(mask):
+        raise ValueError(f"MiniMaxH3EditGuider: mask must be a Tensor, got {type(mask).__name__}")
+    if mask.ndim == 2:
+        m = mask.unsqueeze(0)
+    elif mask.ndim == 3:
+        m = mask
+    elif mask.ndim == 4 and mask.shape[1] == 1:
+        m = mask[:, 0]
+    elif mask.ndim == 4 and mask.shape[3] == 1:
+        m = mask[..., 0]
+    else:
+        raise ValueError(
+            f"MiniMaxH3EditGuider: mask must have shape [H, W], [T, H, W], [T, 1, H, W], or [T, H, W, 1], "
+            f"got {tuple(mask.shape)}"
+        )
+    if m.numel() == 0 or any(int(d) < 1 for d in m.shape):
+        raise ValueError(f"MiniMaxH3EditGuider: mask is empty ({tuple(mask.shape)})")
+    if not bool(torch.isfinite(m).all()):
+        raise ValueError("MiniMaxH3EditGuider: mask contains NaN or Inf values")
+    m = m.detach().to(dtype=torch.float32, device="cpu").clamp(0.0, 1.0)
+    if not bool((m > 0.0).any()):
+        raise ValueError(
+            "MiniMaxH3EditGuider: mask is all zero (1 applies the edit, 0 keeps the original; "
+            "check LoadImage alpha, SAM detections, or wire InvertMask upstream)"
+        )
+    return m
+
+
+def _fit_crop_hw(m: torch.Tensor, target_h: int, target_w: int) -> torch.Tensor:
+    """Center-crop `[T, H, W]` onto `(target_h, target_w)` aspect ratio matching `video_mask._fit_crop`."""
+    in_h, in_w = int(m.shape[-2]), int(m.shape[-1])
+    if in_h < 1 or in_w < 1 or target_h < 1 or target_w < 1:
+        raise ValueError(
+            f"MiniMaxH3EditGuider: invalid mask/target dims {(in_h, in_w)} -> {(target_h, target_w)}"
+        )
+    if in_w * target_h == in_h * target_w:
+        return m
+    old_aspect = in_w / in_h
+    new_aspect = target_w / target_h
+    if old_aspect > new_aspect:
+        x = max(0, round((in_w - in_w * (new_aspect / old_aspect)) / 2))
+        if 0 < 2 * x < in_w:
+            return m[..., :, x:in_w - x]
+    elif old_aspect < new_aspect:
+        y = max(0, round((in_h - in_h * (old_aspect / new_aspect)) / 2))
+        if 0 < 2 * y < in_h:
+            return m[..., y:in_h - y, :]
+    return m
+
+
+def _pool_spatial_continuous(m: torch.Tensor, target_h: int, target_w: int) -> torch.Tensor:
+    """Aspect-fit crop and resample `[T, H, W]` to `(target_h, target_w)` keeping continuous `[0, 1]` values."""
+    m = _fit_crop_hw(m, target_h, target_w)
+    in_h, in_w = int(m.shape[-2]), int(m.shape[-1])
+    if (in_h, in_w) == (target_h, target_w):
+        return m
+    downscale = in_h >= target_h and in_w >= target_w
+    chunk_size = 48
+    chunks = []
+    for start in range(0, int(m.shape[0]), chunk_size):
+        chunk = m[start:start + chunk_size].unsqueeze(1)
+        if downscale:
+            out = F.adaptive_max_pool2d(chunk, (target_h, target_w))
+        else:
+            out = F.interpolate(chunk, size=(target_h, target_w), mode="bilinear", align_corners=False).clamp(0.0, 1.0)
+        chunks.append(out.squeeze(1))
+    return chunks[0] if len(chunks) == 1 else torch.cat(chunks, dim=0)
+
+
+def _pool_causal_temporal(m: torch.Tensor, runs: list[int]) -> torch.Tensor:
+    """Causal `[1, 4, 4, 4, 4]` max-pooling along dim 0 into `[len(runs), ...]`."""
+    steps = []
+    pos = 0
+    for run in runs:
+        steps.append(m[pos:pos + run].amax(dim=0))
+        pos += run
+    return torch.stack(steps, dim=0)
+
+
 class EditGuider(comfy.samplers.CFGGuider):
     """Per-stream `original + scale * (edited - original)`, one pass before `first_step` and one `[edited]` pass after `last_step` (or `[original]` when `original` and `edited` share identical text and `edited` appends extra guide keyframes onto `original`)."""
+
+    _mask: torch.Tensor | None = None
+    _mask_cache: dict[tuple[Any, ...], tuple[torch.Tensor | None, torch.Tensor | None]] | None = None
 
     def set_conds(self, original, edited):
         self.inner_set_conds({"positive": edited, "negative": original})
@@ -160,6 +246,7 @@ class EditGuider(comfy.samplers.CFGGuider):
         last_step: int = 1000,
         streams: str = "both",
         audio_scale: float = 1.0,
+        mask: torch.Tensor | None = None,
     ):
         f_step = int(first_step)
         l_step = int(last_step)
@@ -183,7 +270,67 @@ class EditGuider(comfy.samplers.CFGGuider):
         self.first_step = f_step
         self.last_step = l_step
         self.align_positions = bool(align_positions)
+        self._mask = None if mask is None else _normalize_edit_mask(mask)
+        self._mask_cache = {}
         self._prepared = False
+
+    def _prepare_masks_for_step(
+        self,
+        video_shape: tuple[int, ...],
+        audio_shape: tuple[int, ...] | None,
+        device: torch.device,
+        dtype: torch.dtype,
+    ) -> tuple[torch.Tensor | None, torch.Tensor | None]:
+        raw = getattr(self, "_mask", None)
+        if raw is None:
+            return (None, None)
+        v_key = tuple(int(d) for d in video_shape)
+        a_key = None if audio_shape is None else tuple(int(d) for d in audio_shape)
+        cache_key = (v_key, a_key, device, dtype)
+        cache = getattr(self, "_mask_cache", None)
+        if cache is not None and cache_key in cache:
+            return cache[cache_key]
+        if len(v_key) != 5:
+            raise ValueError(f"MiniMaxH3EditGuider: expected 5D video latent shape, got {v_key}")
+        _, _, t_lat, h_lat, w_lat = v_key
+        runs = [1] if t_lat == 1 else [FRAME_PER_TOKEN[k % len(FRAME_PER_TOKEN)] for k in range(t_lat)]
+        f_expected = sum(runs)
+        t_in, h_in, w_in = int(raw.shape[0]), int(raw.shape[1]), int(raw.shape[2])
+        if t_in not in (1, f_expected):
+            raise ValueError(
+                f"MiniMaxH3EditGuider: mask has {t_in} frame(s), expected 1 or {f_expected} "
+                f"for {t_lat} video latent step(s)"
+            )
+        if h_in == 1 and w_in == 1:
+            if t_in == 1:
+                v_m = raw.reshape(1, 1, 1, 1, 1).expand(1, 1, t_lat, 1, 1).contiguous().to(device=device, dtype=dtype)
+                a_m = None if a_key is None else raw.reshape((1,) * len(a_key)).to(device=device, dtype=dtype)
+            else:
+                v_m = _pool_causal_temporal(raw, runs).reshape(1, 1, t_lat, 1, 1).to(device=device, dtype=dtype)
+                if a_key is None:
+                    a_m = None
+                else:
+                    t_aud = int(a_key[-1])
+                    a_1d = F.interpolate(raw.reshape(1, 1, t_in), size=t_aud, mode="linear", align_corners=False)
+                    a_m = a_1d.reshape((1,) * (len(a_key) - 1) + (t_aud,)).to(device=device, dtype=dtype)
+        else:
+            a_m = None
+            pooled = _pool_spatial_continuous(raw, h_lat, w_lat)
+            if t_in == 1:
+                v_m = (
+                    pooled.reshape(1, 1, 1, h_lat, w_lat)
+                    .expand(1, 1, t_lat, h_lat, w_lat)
+                    .contiguous()
+                    .to(device=device, dtype=dtype)
+                )
+            else:
+                v_m = _pool_causal_temporal(pooled, runs).reshape(1, 1, t_lat, h_lat, w_lat).to(device=device, dtype=dtype)
+        result = (v_m, a_m)
+        if cache is None:
+            cache = {}
+            self._mask_cache = cache
+        cache[cache_key] = result
+        return result
 
     def _prepare(self) -> None:
         """Mark each pass, so the two are never batched together and a wrapper can tell them apart, and
@@ -246,23 +393,80 @@ class EditGuider(comfy.samplers.CFGGuider):
         has_audio = is_nested or (packed_split is not None)
         if not has_audio:
             eff_a = eff_v
+        has_mask = getattr(self, "_mask", None) is not None
         if eff_v == 0.0 and eff_a == 0.0:
             return comfy.samplers.calc_cond_batch(self.inner_model, [original], x, timestep, model_options)[0]
-        if eff_v == 1.0 and eff_a == 1.0:
+        if eff_v == 1.0 and eff_a == 1.0 and not has_mask:
             return comfy.samplers.calc_cond_batch(self.inner_model, [edited], x, timestep, model_options)[0]
         out = comfy.samplers.calc_cond_batch(self.inner_model, [original, edited], x, timestep, model_options)
-        if eff_v != eff_a and getattr(out[0], "is_nested", False) and len(out[0].unbind()) == 2:
+        if (eff_v != eff_a or has_mask) and getattr(out[0], "is_nested", False) and len(out[0].unbind()) == 2:
             v0, a0 = out[0].unbind()
             v1, a1 = out[1].unbind()
-            v_out = v0 if eff_v == 0.0 else (v1 if eff_v == 1.0 else v0 + (v1 - v0) * eff_v)
-            a_out = a0 if eff_a == 0.0 else (a1 if eff_a == 1.0 else a0 + (a1 - a0) * eff_a)
+            v_m, a_m = (
+                self._prepare_masks_for_step(tuple(v0.shape), tuple(a0.shape), v0.device, v0.dtype)
+                if has_mask
+                else (None, None)
+            )
+            if eff_v == 0.0:
+                v_out = v0
+            elif v_m is None:
+                v_out = v1 if eff_v == 1.0 else v0 + (v1 - v0) * eff_v
+            else:
+                v_out = v0 + (v1 - v0) * (eff_v * v_m)
+            if eff_a == 0.0:
+                a_out = a0
+            elif a_m is None:
+                a_out = a1 if eff_a == 1.0 else a0 + (a1 - a0) * eff_a
+            else:
+                a_out = a0 + (a1 - a0) * (eff_a * a_m)
             return comfy.nested_tensor.NestedTensor((v_out, a_out))
-        if eff_v != eff_a and packed_split is not None and torch.is_tensor(out[0]) and out[0].shape[-1] > packed_split:
+        if (
+            (eff_v != eff_a or has_mask)
+            and packed_split is not None
+            and torch.is_tensor(out[0])
+            and out[0].shape[-1] > packed_split
+        ):
             v0, a0 = out[0][..., :packed_split], out[0][..., packed_split:]
             v1, a1 = out[1][..., :packed_split], out[1][..., packed_split:]
-            v_out = v0 if eff_v == 0.0 else (v1 if eff_v == 1.0 else v0 + (v1 - v0) * eff_v)
-            a_out = a0 if eff_a == 0.0 else (a1 if eff_a == 1.0 else a0 + (a1 - a0) * eff_a)
+            v_m, a_m = (
+                self._prepare_masks_for_step(
+                    (int(v0.shape[0]), *latent_shapes[0][1:]),
+                    tuple(int(d) for d in latent_shapes[1]),
+                    out[0].device,
+                    out[0].dtype,
+                )
+                if has_mask
+                else (None, None)
+            )
+            if eff_v == 0.0:
+                v_out = v0
+            elif v_m is None:
+                v_out = v1 if eff_v == 1.0 else v0 + (v1 - v0) * eff_v
+            else:
+                v_shape_5d = (int(v0.shape[0]), *latent_shapes[0][1:])
+                v0_5d = v0.reshape(v_shape_5d)
+                v1_5d = v1.reshape(v_shape_5d)
+                v_out = (v0_5d + (v1_5d - v0_5d) * (eff_v * v_m)).reshape(v0.shape)
+            if eff_a == 0.0:
+                a_out = a0
+            elif a_m is None:
+                a_out = a1 if eff_a == 1.0 else a0 + (a1 - a0) * eff_a
+            else:
+                a_shape_nd = (int(a0.shape[0]), *latent_shapes[1][1:])
+                a0_nd = a0.reshape(a_shape_nd)
+                a1_nd = a1.reshape(a_shape_nd)
+                a_out = (a0_nd + (a1_nd - a0_nd) * (eff_a * a_m)).reshape(a0.shape)
             return torch.cat((v_out, a_out), dim=-1)
+        if has_mask:
+            if not (torch.is_tensor(out[0]) and out[0].ndim == 5):
+                raise ValueError(
+                    "MiniMaxH3EditGuider: masked edit requires a 5D video tensor or AV latent, "
+                    f"got {tuple(getattr(out[0], 'shape', ()))}"
+                )
+            if eff_v == 0.0:
+                return out[0]
+            v_m, _ = self._prepare_masks_for_step(tuple(out[0].shape), None, out[0].device, out[0].dtype)
+            return out[0] + (out[1] - out[0]) * (eff_v * v_m)
         return out[0] + (out[1] - out[0]) * eff_v
 
 
@@ -333,8 +537,10 @@ class MiniMaxH3EditGuider(io.ComfyNode):
                 io.Int.Input("last_step", default=_rules.EDIT_GUIDANCE_DEFAULTS["last_step"], min=0, max=1000,
                              optional=True,
                              tooltip="The last sampling step that runs 2-pass edit guidance (default 1000 = all steps). "
-                                     "Steps after last_step run 1-pass [edited] (scale = 1.0) on active streams while "
-                                     "keeping any 0-locked stream on [original], halving late-step DiT cost."),
+                                     "Steps after last_step run 1-pass [edited] (scale = 1.0) on active streams when "
+                                     "unmasked; when prompts differ and a mask is attached (or a stream is 0-locked), "
+                                     "steps after last_step run 2 passes so unmasked pixels (or the 0-locked stream) "
+                                     "stay on [original], while same-text keyframe extensions release to 1-pass [original]."),
                 # APPENDED 2026-11-12: stream targeting and independent audio scale (0 extra DiT passes).
                 io.Combo.Input("streams", options=list(EDIT_GUIDANCE_STREAMS),
                                default=_rules.EDIT_GUIDANCE_DEFAULTS["streams"], optional=True,
@@ -348,6 +554,17 @@ class MiniMaxH3EditGuider(io.ComfyNode):
                                        "Keep at 1.0 when pushing visual scale >= 1.65 to adopt edited audio without "
                                        "> 0 dBFS transient clipping, or raise above 1.0 to punch a quiet visual scene's "
                                        "soundscape edit."),
+                # APPENDED 2026-11-14: optional spatial/temporal edit mask (link-only).
+                io.Mask.Input(
+                    "mask",
+                    optional=True,
+                    tooltip="Optional regional or temporal edit weight in [0, 1]: 1 applies the edit at scale, "
+                            "0 keeps the original prediction (wire InvertMask upstream to protect a tracked subject, "
+                            "and GrowMask before InvertMask to add a motion margin). Accepts [H, W] or [1, H, W] "
+                            "(broadcast across frames), [F, H, W] matching the render's frame count (max-pooled over "
+                            "causal [1, 4, 4, 4, 4] video steps), or [F, 1, 1] temporal envelopes. Spatial masks "
+                            "affect video only and leave audio on its stream scale; an all-zero mask is refused.",
+                ),
             ],
             outputs=[io.Guider.Output()],
         )
@@ -364,6 +581,7 @@ class MiniMaxH3EditGuider(io.ComfyNode):
         last_step=_rules.EDIT_GUIDANCE_DEFAULTS["last_step"],
         streams=_rules.EDIT_GUIDANCE_DEFAULTS["streams"],
         audio_scale=DEFAULT_AUDIO_SCALE,
+        mask=None,
     ) -> io.NodeOutput:
         len_a, len_b = check_same_but_text(original, edited)
         kf_a = _count(original[0][1].get("minimax_keyframes"))
@@ -377,11 +595,13 @@ class MiniMaxH3EditGuider(io.ComfyNode):
             last_step=last_step,
             streams=streams,
             audio_scale=audio_scale,
+            mask=mask,
         )
         kf_note = f"; keyframes {kf_a} (original) and {kf_b} (edited)" if (kf_a or kf_b) else ""
+        mask_note = f"; mask={tuple(mask.shape)}" if mask is not None else ""
         logger.info(
             "[h3] edit guidance: streams=%s (video=%g, audio=%g) across steps %d..%d; "
-            "text length %d (original) and %d (edited) tokens%s",
+            "text length %d (original) and %d (edited) tokens%s%s",
             streams,
             guider.edit_scale,
             guider.edit_audio_scale,
@@ -390,5 +610,6 @@ class MiniMaxH3EditGuider(io.ComfyNode):
             len_a,
             len_b,
             kf_note,
+            mask_note,
         )
         return io.NodeOutput(guider)

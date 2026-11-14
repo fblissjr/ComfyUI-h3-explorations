@@ -248,7 +248,8 @@
       "align_positions",
       "last_step",
       "streams",
-      "audio_scale"
+      "audio_scale",
+      "mask"
     ],
     "node_id": "MiniMaxH3EditGuider",
     "outputs": [

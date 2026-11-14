@@ -21,9 +21,11 @@ given. Those take renders.
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import re
 import sys
+import types
 from pathlib import Path
 
 BENCH_DIR = Path(__file__).resolve().parent
@@ -129,12 +131,13 @@ def _guider(
     last_step: int = 1000,
     streams: str = "both",
     audio_scale: float = 1.0,
+    mask: torch.Tensor | None = None,
 ) -> eg.EditGuider:
     g = eg.EditGuider(_Patcher())
     g.inner_model = None
     g.conds = {"negative": [{"which": "original", "model_conds": {}}],
                "positive": [{"which": "edited", "model_conds": {}}]}
-    g.set_edit(scale, first_step, align, last_step=last_step, streams=streams, audio_scale=audio_scale)
+    g.set_edit(scale, first_step, align, last_step=last_step, streams=streams, audio_scale=audio_scale, mask=mask)
     return g
 
 
@@ -434,11 +437,210 @@ def check_static_reader() -> None:
        and guide_eg["9"]["inputs"].get("audio_scale") == 1.0)
 
 
+def check_guider_mask() -> None:
+    seen: list[list[str]] = []
+    real = comfy.samplers.calc_cond_batch
+
+    class _PackedAVModel:
+        latent_shapes = [torch.Size([1, 24, 7, 4, 4]), torch.Size([1, 32, 2, 37])]
+
+    class _Image5DModel:
+        latent_shapes = [torch.Size([1, 24, 1, 4, 4])]
+
+    def fake(model, conds, x, timestep, model_options):
+        seen.append([c[0]["which"] for c in conds])
+        if getattr(x, "is_nested", False):
+            v_in, a_in = x.unbind()
+            out = []
+            for c in conds:
+                v_val, a_val = (1.0, 10.0) if c[0]["which"] == "original" else (3.0, 20.0)
+                out.append(comfy.nested_tensor.NestedTensor((torch.full(v_in.shape, v_val), torch.full(a_in.shape, a_val))))
+            return out
+        lshapes = getattr(model, "latent_shapes", None)
+        if lshapes is not None and len(lshapes) >= 2:
+            out = []
+            for c in conds:
+                v_val, a_val = (1.0, 10.0) if c[0]["which"] == "original" else (3.0, 20.0)
+                packed, _ = comfy.utils.pack_latents([torch.full(lshapes[0], v_val), torch.full(lshapes[1], a_val)])
+                out.append(packed)
+            return out
+        return [torch.full(x.shape, 1.0 if c[0]["which"] == "original" else 3.0) for c in conds]
+
+    def approx(a: float, b: float, tol: float = 1e-4) -> bool:
+        return abs(a - b) <= tol
+
+    # High-res 64x64 spatial mask downsampled via adaptive_max_pool2d to 4x4:
+    # top-left = 0.0 (protected), top-right = 0.5 (feathered), bottom = 1.0 (full edit).
+    spatial_64 = torch.zeros((1, 64, 64), dtype=torch.float32)
+    spatial_64[:, :32, 32:] = 0.5
+    spatial_64[:, 32:, :] = 1.0
+
+    sig = torch.tensor([1.0, 0.9, 0.8, 0.5, 0.0])
+    opts = {"transformer_options": {"sample_sigmas": sig}}
+
+    comfy.samplers.calc_cond_batch = fake
+    try:
+        # 1a. NestedTensor spatial mask
+        seen.clear()
+        g_nest = _guider(1.8, mask=spatial_64)
+        x_nest = comfy.nested_tensor.NestedTensor((torch.zeros((1, 24, 7, 4, 4)), torch.zeros((1, 32, 2, 37))))
+        v_n, a_n = g_nest.predict_noise(x_nest, sig[0:1], opts).unbind()
+        ok("NestedTensor spatial mask preserves 0.0/0.5/1.0 video weights and leaves audio unmasked at scalar 1.8",
+           seen == [["original", "edited"]]
+           and bool((v_n[:, :, :, :2, :2] == 1.0).all())
+           and approx(float(v_n[0, 0, 0, 0, 2]), 2.8)
+           and approx(float(v_n[0, 0, -1, 3, 3]), 4.6)
+           and approx(float(a_n.min()), 28.0) and approx(float(a_n.max()), 28.0))
+
+        # 1b. Live packed_split 3D AV path (exercises C=24 reshape, not broken pack_latents)
+        seen.clear()
+        g_pack = _guider(1.8, mask=spatial_64)
+        g_pack.inner_model = _PackedAVModel()
+        x_p, lshapes = comfy.utils.pack_latents([torch.zeros(s) for s in _PackedAVModel.latent_shapes])
+        res_p = g_pack.predict_noise(x_p, sig[0:1], opts)
+        v_p, a_p = comfy.utils.unpack_latents(res_p, lshapes)
+        ok("packed_split 3D spatial mask reshapes to latent_shapes[0] cleanly and leaves audio scalar",
+           seen == [["original", "edited"]]
+           and v_p.shape == _PackedAVModel.latent_shapes[0]
+           and a_p.shape == _PackedAVModel.latent_shapes[1]
+           and bool((v_p[:, :, :, :2, :2] == 1.0).all())
+           and bool(torch.allclose(v_p[:, :, :, :2, 2:], torch.full_like(v_p[:, :, :, :2, 2:], 2.8)))
+           and bool(torch.allclose(v_p[:, :, :, 2:, :], torch.full_like(v_p[:, :, :, 2:, :], 4.6)))
+           and bool(torch.allclose(a_p, torch.full_like(a_p, 28.0))))
+
+        # 1c. Plain 5D unpacked tensor (MiniMax-H3-Image)
+        seen.clear()
+        g_img = _guider(1.8, mask=spatial_64)
+        g_img.inner_model = _Image5DModel()
+        v_img = g_img.predict_noise(torch.zeros((1, 24, 1, 4, 4)), sig[0:1], opts)
+        ok("plain 5D image tensor spatial mask keeps continuous weights on T_lat=1",
+           seen == [["original", "edited"]]
+           and v_img.shape == (1, 24, 1, 4, 4)
+           and bool((v_img[:, :, :, :2, :2] == 1.0).all())
+           and approx(float(v_img[0, 0, 0, 0, 2]), 2.8)
+           and approx(float(v_img[0, 0, 0, 3, 3]), 4.6))
+
+        # 2. Pass counts and step boundaries with mask
+        seen.clear()
+        g_one = _guider(1.0, mask=spatial_64)
+        g_one.inner_model = _PackedAVModel()
+        v_one, a_one = comfy.utils.unpack_latents(g_one.predict_noise(x_p, sig[0:1], opts), lshapes)
+        ok("scale=1.0 with mask runs 2 passes and protects m=0 at original",
+           seen == [["original", "edited"]]
+           and bool((v_one[:, :, :, :2, :2] == 1.0).all())
+           and bool(torch.allclose(v_one[:, :, :, 2:, :], torch.full_like(v_one[:, :, :, 2:, :], 3.0)))
+           and bool(torch.allclose(a_one, torch.full_like(a_one, 20.0))))
+
+        g_win = _guider(1.8, first_step=1, last_step=2, mask=spatial_64)
+        g_win.inner_model = _PackedAVModel()
+        seen.clear()
+        v_b, a_b = comfy.utils.unpack_latents(g_win.predict_noise(x_p, sig[0:1], opts), lshapes)
+        s_b = list(seen)
+        seen.clear()
+        v_a, a_a = comfy.utils.unpack_latents(g_win.predict_noise(x_p, sig[3:4], opts), lshapes)
+        s_a = list(seen)
+        ok("step < first_step runs 1-pass [original] and step > last_step (same_text=False) runs 2 passes pinning m=0 to [original]",
+           s_b == [["original"]] and bool((v_b == 1.0).all()) and bool((a_b == 10.0).all())
+           and s_a == [["original", "edited"]]
+           and bool((v_a[:, :, :, :2, :2] == 1.0).all())
+           and bool(torch.allclose(v_a[:, :, :, 2:, :], torch.full_like(v_a[:, :, :, 2:, :], 3.0)))
+           and bool(torch.allclose(a_a, torch.full_like(a_a, 20.0))))
+
+        g_rel = _guider(1.8, first_step=0, last_step=2, mask=spatial_64)
+        g_rel._release_to_original_after = True
+        g_rel.inner_model = _PackedAVModel()
+        seen.clear()
+        v_r, a_r = comfy.utils.unpack_latents(g_rel.predict_noise(x_p, sig[3:4], opts), lshapes)
+        ok("_release_to_original_after=True with mask drops to 1-pass [original] after last_step",
+           seen == [["original"]] and bool((v_r == 1.0).all()) and bool((a_r == 10.0).all()))
+
+        # 3. 2D [H, W] vs [1, H, W] broadcast and causal [1, 4, 4, 4, 4] pooling on 22 frames (T_lat = 7)
+        m_2d = spatial_64[0]
+        g_2d = _guider(1.8, mask=m_2d)
+        g_2d.inner_model = _PackedAVModel()
+        v_2d, _ = comfy.utils.unpack_latents(g_2d.predict_noise(x_p, sig[0:1], opts), lshapes)
+        ok("2D [H, W] mask broadcasts identically to [1, H, W] across all 7 latent steps",
+           bool(torch.allclose(v_2d, v_p)))
+
+        for hit_frame, expected_t_lat in ((0, 0), (3, 1), (17, 5)):
+            m_kf = torch.zeros((22, 4, 4), dtype=torch.float32)
+            m_kf[hit_frame] = 1.0
+            g_kf = _guider(1.8, mask=m_kf)
+            g_kf.inner_model = _PackedAVModel()
+            v_kf, _ = comfy.utils.unpack_latents(g_kf.predict_noise(x_p, sig[0:1], opts), lshapes)
+            other_steps = [t for t in range(7) if t != expected_t_lat]
+            ok(f"[22, 4, 4] causal max-pool maps frame {hit_frame} exclusively to latent step t_lat={expected_t_lat}",
+               bool(torch.allclose(v_kf[:, :, expected_t_lat], torch.full_like(v_kf[:, :, expected_t_lat], 4.6)))
+               and bool((v_kf[:, :, other_steps] == 1.0).all()))
+
+        # 4. [22, 1, 1] temporal envelope modulates both video and audio
+        env = torch.full((22, 1, 1), 0.25, dtype=torch.float32)
+        env[5:] = 1.0
+        g_env = _guider(2.0, mask=env)
+        g_env.inner_model = _PackedAVModel()
+        v_e, a_e = comfy.utils.unpack_latents(g_env.predict_noise(x_p, sig[0:1], opts), lshapes)
+        ok("[22, 1, 1] temporal envelope modulates video causally (1.0 + 0.5*2.0 vs 5.0) and audio continuously",
+           approx(float(v_e[0, 0, 0, 0, 0]), 2.0)
+           and approx(float(v_e[0, 0, 1, 0, 0]), 2.0)
+           and approx(float(v_e[0, 0, 2, 0, 0]), 5.0)
+           and approx(float(a_e[0, 0, 0, 0]), 15.0)
+           and approx(float(a_e[0, 0, 0, -1]), 30.0))
+
+        # Refusal on mismatched frame count
+        g_bad_t = _guider(1.5, mask=torch.ones((10, 4, 4)))
+        g_bad_t.inner_model = _PackedAVModel()
+        refuses("wrong frame count ([10, 4, 4] on 22-frame T_lat=7)",
+                lambda: g_bad_t.predict_noise(x_p, sig[0:1], opts), "expected 1 or 22")
+    finally:
+        comfy.samplers.calc_cond_batch = real
+
+    # 5. Normalization refusals
+    refuses("all-zero LoadImage dummy mask", lambda: _guider(1.5, mask=torch.zeros((1, 64, 64))), "all zero")
+    refuses("empty [0, 16, 16] mask", lambda: _guider(1.5, mask=torch.zeros((0, 16, 16))), "empty")
+    bad_nan = torch.ones((1, 4, 4))
+    bad_nan[0, 0, 0] = float("nan")
+    refuses("NaN mask", lambda: _guider(1.5, mask=bad_nan), "NaN or Inf")
+    bad_inf = torch.ones((1, 4, 4))
+    bad_inf[0, 0, 0] = float("inf")
+    refuses("Inf mask", lambda: _guider(1.5, mask=bad_inf), "NaN or Inf")
+    refuses("unsupported rank [1, 3, 16, 16]", lambda: _guider(1.5, mask=torch.ones((1, 3, 16, 16))), "must have shape")
+
+    # 6. Package-imported video_mask parity (center crop + causal run_lengths)
+    pkg = types.ModuleType("_h3pack")
+    pkg.__path__ = [str(REPO_ROOT)]
+    sys.modules.setdefault("_h3pack", pkg)
+    vm = sys.modules.get("_h3pack.video_mask")
+    if vm is None:
+        spec = importlib.util.spec_from_file_location("_h3pack.video_mask", REPO_ROOT / "video_mask.py")
+        assert spec is not None and spec.loader is not None
+        vm = importlib.util.module_from_spec(spec)
+        sys.modules["_h3pack.video_mask"] = vm
+        spec.loader.exec_module(vm)
+    aspect_ok = True
+    for (w, h), (tw, th) in (((1280, 720), (42, 24)), ((720, 1280), (42, 24)),
+                              ((1000, 1000), (42, 24)), ((1344, 768), (24, 42))):
+        x0, y0 = vm._fit_crop(w, h, tw, th)
+        cropped = eg._fit_crop_hw(torch.ones((1, h, w)), th, tw)
+        if tuple(cropped.shape[-2:]) != (h - 2 * y0, w - 2 * x0):
+            aspect_ok = False
+    runs_ok = all(
+        ([1] if t_lat == 1 else [eg.FRAME_PER_TOKEN[k % 5] for k in range(t_lat)]) == list(vm.run_lengths(t_lat))
+        for t_lat in (1, 2, 7, 27, 37)
+    )
+    ok("edit_guidance center-crop and FRAME_PER_TOKEN runs match _h3pack.video_mask", aspect_ok and runs_ok)
+
+    # 7. Schema socket order preservation
+    schema = eg.MiniMaxH3EditGuider.define_schema()
+    ok("MiniMaxH3EditGuider appends optional mask strictly last (index 9)",
+       schema.inputs[-1].id == "mask" and schema.inputs[-1].optional is True and len(schema.inputs) == 10)
+
+
 def main() -> int:
     print("edit guidance: the prompt edit, the guider's arithmetic, pass marking and position alignment")
     check_prompt_edit()
     check_static_reader()
     check_guider_arithmetic()
+    check_guider_mask()
     check_prepare()
     check_inputs()
     if failures:
