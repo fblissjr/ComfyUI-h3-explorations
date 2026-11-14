@@ -118,6 +118,9 @@ def check_prompt_edit() -> None:
 class _Patcher:
     model_options: dict = {}
 
+    def is_dynamic(self) -> bool:
+        return False
+
 
 def _guider(
     scale: float,
@@ -211,6 +214,33 @@ def check_guider_arithmetic() -> None:
         ok("pure guide-differential (identical text, 0 vs K keyframes) hands over to 1-pass [original] after last_step even under streams='video_only'",
            run_av(g_kf_vo, 1) == (4.2, 10.0) and seen == [["original", "edited"]]
            and run_av(g_kf_vo, 3) == (1.0, 10.0) and seen == [["original"]])
+
+        # Real EditGuider.set_conds prefix keyframe detection:
+        # Identical text tokens + edited appending a mid-clip keyframe onto [first, last]
+        # sets _release_to_original_after=True; mismatched prefix keyframes set False.
+        tags_eq = torch.ones((1, 5), dtype=torch.long)
+        toks_eq = torch.zeros((1, 5, 4), dtype=torch.float32)
+        kf_first = {"resolved_frame_index": 0, "latent": torch.ones((1, 24, 1, 2, 2))}
+        kf_last = {"resolved_frame_index": 89, "latent": torch.full((1, 24, 1, 2, 2), 2.0)}
+        kf_mid = {"resolved_frame_index": 34, "latent": torch.full((1, 24, 1, 2, 2), 3.0)}
+        cond_orig_fl = [[toks_eq, {"minimax_token_tags": tags_eq, "minimax_keyframes": [kf_first, kf_last]}]]
+        cond_edit_flm = [[toks_eq.clone(), {"minimax_token_tags": tags_eq, "minimax_keyframes": [dict(kf_first), dict(kf_last), kf_mid]}]]
+        g_pfx = eg.EditGuider(_Patcher())
+        g_pfx.inner_model = None
+        g_pfx.set_conds(cond_orig_fl, cond_edit_flm)
+        g_pfx.set_edit(1.5, 0, False, last_step=2, streams="video_only")
+        g_pfx_rel_flag = bool(g_pfx._release_to_original_after)
+        # Swap to mock cond markers to verify 1-pass [original] after last_step
+        g_pfx.conds = {"negative": [{"which": "original", "model_conds": {}}], "positive": [{"which": "edited", "model_conds": {}}]}
+        ok("EditGuider.set_conds enables _release_to_original_after when edited appends mid-clip guides onto identical [first, last] keyframes",
+           g_pfx_rel_flag
+           and run_av(g_pfx, 1) == (4.0, 10.0) and seen == [["original", "edited"]]
+           and run_av(g_pfx, 3) == (1.0, 10.0) and seen == [["original"]])
+        cond_edit_mismatch = [[toks_eq.clone(), {"minimax_token_tags": tags_eq, "minimax_keyframes": [{"resolved_frame_index": 0, "latent": kf_mid["latent"]}, kf_last, kf_mid]}]]
+        g_mismatch = eg.EditGuider(_Patcher())
+        g_mismatch.set_conds(cond_orig_fl, cond_edit_mismatch)
+        ok("EditGuider.set_conds disables _release_to_original_after when prefix keyframes differ in latent values",
+           not g_mismatch._release_to_original_after)
 
         class _PackedInnerModel:
             latent_shapes = [torch.Size([1, 24, 2, 4, 4]), torch.Size([1, 32, 2, 5])]

@@ -31,6 +31,7 @@ from __future__ import annotations
 import copy
 import logging
 import math
+from collections.abc import Mapping
 from typing import Any
 
 import comfy.nested_tensor
@@ -103,8 +104,33 @@ def step_index(model_options: dict, timestep: Any) -> int | None:
     return int((sched_t[:-1] - cur).abs().argmin())
 
 
+def _same_opt_tensor(a: Any, b: Any) -> bool:
+    if a is b:
+        return True
+    if a is None or b is None:
+        return False
+    return bool(torch.is_tensor(a) and torch.is_tensor(b) and a.shape == b.shape and torch.equal(a, b))
+
+
+def _keyframes_extend_prefix(orig_kfs: Any, edit_kfs: Any) -> bool:
+    orig_seq = list(orig_kfs) if isinstance(orig_kfs, (list, tuple)) else ([] if orig_kfs is None else [orig_kfs])
+    edit_seq = list(edit_kfs) if isinstance(edit_kfs, (list, tuple)) else ([] if edit_kfs is None else [edit_kfs])
+    if len(edit_seq) <= len(orig_seq):
+        return False
+    for ko, ke in zip(orig_seq, edit_seq):
+        if not (isinstance(ko, Mapping) and isinstance(ke, Mapping)):
+            return False
+        if ko.get("resolved_frame_index") != ke.get("resolved_frame_index"):
+            return False
+        if not _same_opt_tensor(ko.get("latent"), ke.get("latent")):
+            return False
+        if not _same_opt_tensor(ko.get("audio_latent"), ke.get("audio_latent")):
+            return False
+    return True
+
+
 class EditGuider(comfy.samplers.CFGGuider):
-    """Per-stream `original + scale * (edited - original)`, one pass before `first_step` and one `[edited]` pass after `last_step` (or `[original]` when `original` and `edited` share identical text and `edited` alone carries guides)."""
+    """Per-stream `original + scale * (edited - original)`, one pass before `first_step` and one `[edited]` pass after `last_step` (or `[original]` when `original` and `edited` share identical text and `edited` appends extra guide keyframes onto `original`)."""
 
     def set_conds(self, original, edited):
         self.inner_set_conds({"positive": edited, "negative": original})
@@ -118,9 +144,13 @@ class EditGuider(comfy.samplers.CFGGuider):
             and original[0][0].shape == edited[0][0].shape
             and bool(torch.equal(original[0][0], edited[0][0]))
         )
-        kf_orig = _count(original[0][1].get("minimax_keyframes")) if same_text else 0
-        kf_edit = _count(edited[0][1].get("minimax_keyframes")) if same_text else 0
-        self._release_to_original_after = bool(same_text and kf_orig == 0 and kf_edit > 0)
+        self._release_to_original_after = bool(
+            same_text
+            and _keyframes_extend_prefix(
+                original[0][1].get("minimax_keyframes"),
+                edited[0][1].get("minimax_keyframes"),
+            )
+        )
 
     def set_edit(
         self,

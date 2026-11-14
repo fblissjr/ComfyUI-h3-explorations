@@ -1,6 +1,6 @@
 # Embedded Image Generation & Editing in H3 Video Workflows — Plan (Phases 0–4)
 
-Status: **Proposed design & build plan (2026-11-14)** — awaiting owner go-ahead before Phase 1–3 code or shipped-workflow edits ([`../../working_with_the_owner.md`](../../working_with_the_owner.md)). Every node contract, branch condition, and file path below was cross-checked directly against the current `.py` implementations, `workflows/`, and ComfyUI core (`comfy/ldm/minimax/`, `comfy/sd.py`, `comfy/model_base.py`) at HEAD `7b7e185a`.
+Status: **Phase 0B ready (verified at HEAD `95aa4447`) · Phase 1 implemented (`2026-11-14`)** — see [`../../working_with_the_owner.md`](../../working_with_the_owner.md). Every node contract, branch condition, and file path below was cross-checked directly against the `.py` implementations, generated [`../../image/workflows_matrix.md`](../../image/workflows_matrix.md) (`95aa4447`), and ComfyUI core (`comfy/ldm/minimax/`, `comfy/sd.py`, `comfy/model_base.py`).
 
 ---
 
@@ -11,7 +11,7 @@ H3's single-frame image models and H3's AV video pipelines live in the same late
 - **Shared `Qwen3-VL-32B` bf16 text/vision encoder across video and image:** Since `7b7e185a`, [`workflows/h3_config.py`](../../../../workflows/h3_config.py) (`MODELS["clip"] = ENCODER_BF16`) wires `qwen3vl_32b_minimax_h3_bf16_pruned.safetensors` across 105 of 108 shipped workflows (every video and image graph except the decode-only graph and the two `te4b` P-H3 probes). Combining image and video stages in one ComfyUI graph shares **one** loaded `MiniMaxH3EncoderLoader` instance in memory with zero encoder reload.
 - **Three natural image-stage tiers inside video graphs:**
   1. **Tier 1 — Pika `single_frame=True` (`t = 1`) on the active `fl2va` / `ref2va` video DiT (zero DiT swap):** [`MiniMaxH3Conditioning`](../../../../conditioning.py), [`MiniMaxH3EncodeReferences`](../../../../reference_encode.py) + [`MiniMaxH3PromptOnReferences`](../../../../reference_encode.py), and [`MiniMaxH3GuideLatent`](../../../../guide_latent.py) (`single_frame=True`) reuse the loaded video DiT + Pika LoRA directly (`shift_video=12.0, shift_audio=3.0` on `t = 1`; see [`../../image/h3_image_editing.md`](../../image/h3_image_editing.md)).
-  2. **Tier 2 — PrunaAI `P-H3-Image` (`PH3_IMAGE_LORA` or merged `p-h3-image_int8_convrot.safetensors`):** Ranked LoRA (`rank=128` across all 50 DiT blocks + `token_refiner`, [`lora_branch.py`](../../../../lora_branch.py)) over `fl2va` using the 8-step `ManualSigmas` distillation grid (`PH3_IMAGE_MANUAL_SIGMAS`, `PH3_IMAGE_SHIFT`), [`MiniMaxH3PH3ImageConditioning`](../../../../ph3_image_nodes.py) (`[4 MP, 8 MP]` canvas/`image_1` clamp, `[1 MP, 8 MP]` secondary refs, decoupled `canvas='explicit'`, `seed=42` encoding, 8-image cap), and [`MiniMaxH3PH3ImagePromptUpsampler`](../../../../ph3_image_nodes.py). Teacher-compatible with the shared 32B [`MiniMaxH3EncoderLoader`](../../../../h3_encoder_loader.py) ([`../../image/p_h3_image.md`](../../image/p_h3_image.md)).
+  2. **Tier 2 — PrunaAI `P-H3-Image` (`PH3_IMAGE_LORA` or merged `p-h3-image_int8_convrot.safetensors`):** Ranked LoRA (`rank=128` across all 50 DiT blocks + `token_refiner`, [`lora_branch.py`](../../../../lora_branch.py)) over `fl2va` using the 8-step `ManualSigmas` distillation grid (`PH3_IMAGE_MANUAL_SIGMAS`, `PH3_IMAGE_SHIFT`), generating at `8 MP` via [`MiniMaxH3ImageSize`](../../../../h3_image_nodes.py) (`shape="1:1"` on T2I / `"same as the picture"` on Edits, `a61f8db7`) -> [`MiniMaxH3PH3ImageConditioning`](../../../../ph3_image_nodes.py) (`[4 MP, 8 MP]` canvas/`image_1` clamp, `[1 MP, 8 MP]` secondary refs, decoupled `canvas='explicit'`, `seed=42` encoding, 8-image cap) -> [`MiniMaxH3ImageDownscale`](../../../../h3_image_nodes.py) delivering `4 MP` Lanczos (`bb914951`), plus [`MiniMaxH3PH3ImagePromptUpsampler`](../../../../ph3_image_nodes.py). Teacher-compatible with the shared 32B [`MiniMaxH3EncoderLoader`](../../../../h3_encoder_loader.py) ([`../../image/p_h3_image.md`](../../image/p_h3_image.md), [`../../image/workflows_matrix.md`](../../image/workflows_matrix.md)).
   3. **Tier 3 — Standalone `MiniMax-H3-Image` (`minimax_h3_image_pruned_int8_convrot.safetensors`):** Separate DiT load when flagship still quality / 16-ref identity fidelity justifies a model swap, using [`MiniMaxH3ImageSize`](../../../../h3_image_nodes.py) (`4.0 MP` floor, e.g. `16 MP` generate -> `4 MP` deliver via [`MiniMaxH3ImageDownscale`](../../../../h3_image_nodes.py)), [`MiniMaxH3ImagePromptExpander`](../../../../h3_image_nodes.py), and [`MiniMaxH3EncodeImageReferences`](../../../../reference_encode.py) + [`MiniMaxH3PromptOnImageReferences`](../../../../reference_encode.py) (16-still KV-prefix cache; [`../../image/h3_image.md`](../../image/h3_image.md)).
 
 ### Core Mechanical Laws Governing Any Embedded Image <-> Video Graph
@@ -33,7 +33,7 @@ Phase 0 requires **zero custom-node code changes** — it enforces VAE/condition
 - **Combined-graph rule:**
   - Wire **`image_vae`** (`IMAGE_GRAPH_VAE`, optionally paired with [`MiniMaxH3VAEPrecision`](../../../../vae_precision.py) for `fp32` encoder separation; noting `comfy/sd.py:1090, 1170-1186` load-time `working_dtypes`) strictly to the `t = 1` image stage's `VAEEncode` / `VAEDecode`.
   - Wire **`video_vae`** (`MODELS["video_vae"]` / `VIDEO_VAE_FP16`) strictly to `MiniMaxH3Conditioning`, `MiniMaxH3EncodeReferences`, `MiniMaxH3GuideLatent`, and final video `VAEDecode`.
-  - Resize decoded `IMAGE` stills to trained-family `32`-px video dimensions via [`MiniMaxH3Resolution`](../../../../resolution.py) (`1344x768` cap) and budget tokens via [`MiniMaxH3Preflight`](../../../../preflight.py) (`<= 99,864` packed tokens for signed `int32` QKV safety).
+  - Resize decoded `IMAGE` stills (including Pika `single_frame=True` edit graphs) with [`MiniMaxH3Resolution`](../../../../resolution.py) (`shape="same as the picture"`, `picture=...`, appended in `a61f8db7`; `1344x768` trained-family cap) and budget tokens via [`MiniMaxH3Preflight`](../../../../preflight.py) (`<= 99,864` packed tokens for signed `int32` QKV safety).
 
 ### Phase 0B — Immediate Embedded-Image Workflows (Existing Nodes Only)
 
@@ -50,15 +50,18 @@ Phase 0 requires **zero custom-node code changes** — it enforces VAE/condition
 
 ---
 
-## 3. Phase 1 — Temporary Mid-Clip Steering (`guide_end_percent`)
+## 3. Phase 1 — Temporary Mid-Clip Steering (`guide_end_percent`) — **Implemented (offline tests passing)**
 
 ### Problem Statement
 
-Using an in-graph edited frame at mid-clip `frame_idx = 17m` with [`MiniMaxH3GuideLatent`](../../../../guide_latent.py) normally pins pixels tightly all the way to step 0, causing trajectory freezes or hard "snap-through" motion when a still doesn't match moving dynamics — and blocks [`EditGuider`](../../../../edit_guidance.py) original-branch matching whenever `orig` lacks that keyframe (`edit_guidance.py:121-123` requires `same_text and kf_orig == 0` in `_release_to_original_after`).
+Using an in-graph edited frame at mid-clip `frame_idx = 17m` with [`MiniMaxH3GuideLatent`](../../../../guide_latent.py) previously pinned pixels tightly all the way to step 0, causing trajectory freezes or hard "snap-through" motion when a still didn't match moving dynamics — and blocked [`EditGuider`](../../../../edit_guidance.py) original-branch matching whenever `orig` already carried `first_frame` / `last_frame` keyframes (`edit_guidance.py:121-123` previously required `same_text and kf_orig == 0` in `_release_to_original_after`).
 
 ### Deliverable
 
-Extend [`MiniMaxH3ReleaseReferences`](../../../../control_vector_nodes.py) (`control_vector_nodes.py:1320-1715, 4445-4610`) with **`guide_end_percent`** (plus matching `EditGuider` release support), allowing mid-clip `17m` `GuideLatent` guides (`0 < resolved_frame_index < total_frames - 1`) to steer coarse motion and composition early in denoising (`0.0 -> guide_end_percent`) and drop out of `PackedLayout` for clean late-step dynamics and boundary blending.
+Implemented in [`control_vector_nodes.py`](../../../../control_vector_nodes.py) and [`edit_guidance.py`](../../../../edit_guidance.py):
+
+- Appended optional **`guide_end_percent`** (`default=1.0`, `MiniMaxH3ImageModel` refusal when `< 1.0`) to [`MiniMaxH3ReleaseReferences`](../../../../control_vector_nodes.py), allowing mid-clip `17m` `GuideLatent` guides (`0 < resolved_frame_index < total_frames - 1`) to steer coarse motion and composition early in denoising (`0.0 -> min(end_percent, guide_end_percent)`) and drop out of `PackedLayout` for clean late-step dynamics and boundary blending while preserving `first_frame` (`0`), `last_frame` (`total_frames - 1`), `<Picture N>` / `<Video N>` refs (or slicing both simultaneously when `video_end_percent` is also lowered), and timeline `cond_audio` islands.
+- Generalized [`EditGuider.set_conds`](../../../../edit_guidance.py) (`_keyframes_extend_prefix`) so `same_text` conditionings where `edited` appends extra keyframes onto `original`'s identical prefix keyframes (including `i2va`/`fl2va` bookends) also set `_release_to_original_after = True` and hand back to 1-pass `[original]` after `last_step`.
 
 ### Five Mandatory Implementation Guards (`control_vector_nodes.py:1381-1715`)
 

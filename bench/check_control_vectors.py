@@ -5751,6 +5751,17 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
                 except ValueError as exc:
                     if "video_end_percent" not in str(exc):
                         errs.append(f"unexpected MiniMaxH3ImageModel video_end_percent refusal: {exc}")
+                try:
+                    cv_nodes.MiniMaxH3ReleaseReferences.execute(
+                        img_patcher, end_percent=1.0, clean_level=0.999, guide_end_percent=0.5
+                    )
+                    errs.append("MiniMaxH3ReleaseReferences failed to refuse guide_end_percent < 1.0 on MiniMaxH3ImageModel")
+                except ValueError as exc:
+                    if "guide_end_percent" not in str(exc):
+                        errs.append(f"unexpected MiniMaxH3ImageModel guide_end_percent refusal: {exc}")
+                v_bad_guide = cv_nodes.MiniMaxH3ReleaseReferences.validate_inputs(guide_end_percent=1.5)
+                if not isinstance(v_bad_guide, str) or "guide_end_percent" not in v_bad_guide:
+                    errs.append(f"MiniMaxH3ReleaseReferences.validate_inputs failed on out-of-range guide_end_percent: {v_bad_guide!r}")
 
                 img_rel = cv_nodes.MiniMaxH3ReleaseReferences.execute(
                     img_patcher, end_percent=0.5, clean_level=0.999
@@ -5983,6 +5994,148 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
                         late_lay.position_ids[late_vid_seg[0] : late_vid_seg[1]],
                     ):
                         errs.append("step 3 video_end_percent shifted target video 3D RoPE position_ids")
+
+                # Phase 1: Mid-clip `guide_end_percent` release (90 frames => latent_t = 27).
+                # Preserves first_frame (0), last_frame (89), audio-only keyframes (15),
+                # and <Picture 1>/<Video 1> refs while dropping paired guide + mask mid-clip
+                # entries (34) after guide_end_percent, isolating released_layout_cache on
+                # drop_guide, and handling simultaneous video_end_percent + guide_end_percent.
+                cap_guide_dm = _CaptureAVDM()
+                cap_guide_patcher = _MockPatcher(cap_guide_dm, ckpt_path)
+                g_only_patcher = cv_nodes.MiniMaxH3ReleaseReferences.execute(
+                    cap_guide_patcher,
+                    end_percent=1.0,
+                    clean_level=0.999,
+                    audio_end_percent=1.0,
+                    audio_clean_level=1.0,
+                    video_end_percent=1.0,
+                    guide_end_percent=0.50,
+                ).args[0]
+                g_and_v_patcher = cv_nodes.MiniMaxH3ReleaseReferences.execute(
+                    cap_guide_patcher,
+                    end_percent=1.0,
+                    clean_level=0.999,
+                    audio_end_percent=1.0,
+                    audio_clean_level=1.0,
+                    video_end_percent=0.50,
+                    guide_end_percent=0.50,
+                ).args[0]
+
+                kf_first_lat = torch.full((1, 24, 1, 4, 4), 101.0)
+                kf_aud90_lat = torch.full((1, 32, 2, 5), 102.0)
+                kf_mid_lat = torch.full((1, 24, 1, 4, 4), 103.0)
+                kf_mask_lat = torch.full((1, 24, 1, 4, 4), 104.0)
+                kf_last_lat = torch.full((1, 24, 1, 4, 4), 105.0)
+                pic90_lat = torch.full((1, 24, 1, 4, 4), 201.0)
+                vid90_lat = torch.full((1, 24, 2, 4, 4), 202.0)
+
+                kfs_90 = [
+                    {"resolved_frame_index": 0, "latent": kf_first_lat},
+                    {"resolved_frame_index": 15, "audio_latent": kf_aud90_lat},
+                    {"resolved_frame_index": 34, "latent": kf_mid_lat},
+                    {"resolved_frame_index": 34, "latent": kf_mask_lat},
+                    {"resolved_frame_index": 89, "latent": kf_last_lat},
+                ]
+                refs_90 = [
+                    {"kind": "image", "latent_t": 1, "latent_h": 4, "latent_w": 4, "latent": pic90_lat},
+                    {"kind": "video", "latent_t": 2, "latent_h": 4, "latent_w": 4, "ref_audio_t": 0, "latent": vid90_lat},
+                ]
+                lay_90 = PackedLayout(6, 27, 4, 4, 150, keyframes=kfs_90, refs=refs_90)
+                payload_90 = {
+                    "keyframes": kfs_90,
+                    "refs": refs_90,
+                    "cond_video_latents": [kf_first_lat, kf_mid_lat, kf_mask_lat, kf_last_lat, pic90_lat, vid90_lat],
+                    "cond_audio_latents": [kf_aud90_lat],
+                    "layout": lay_90,
+                    "text_token_tags": torch.ones((1, 6), dtype=torch.long),
+                }
+                x90_vid = torch.zeros((1, 24, 27, 4, 4), dtype=torch.float32)
+                x90_aud = torch.zeros((1, 32, 2, 150), dtype=torch.float32)
+
+                # Step 0 (early): nothing dropped
+                g_only_patcher.invoke_diffusion_model(
+                    [x90_vid, x90_aud],
+                    torch.tensor([1000.0]),
+                    ctx_av,
+                    {"sample_sigmas": sched6, "sigmas": torch.tensor([1.0])},
+                    minimax_payload=payload_90,
+                )
+                # Step 4 (late): only mid-clip guide + mask (frame 34) dropped; endpoints, audio keyframe & all refs survive
+                g_only_patcher.invoke_diffusion_model(
+                    [x90_vid, x90_aud],
+                    torch.tensor([570.0]),
+                    ctx_av,
+                    {"sample_sigmas": sched6, "sigmas": torch.tensor([0.57])},
+                    minimax_payload=payload_90,
+                )
+                # Step 5 (late repeat): hits 5-tuple released_layout_cache for identical drop_guide layout
+                g_only_patcher.invoke_diffusion_model(
+                    [x90_vid, x90_aud],
+                    torch.tensor([330.0]),
+                    ctx_av,
+                    {"sample_sigmas": sched6, "sigmas": torch.tensor([0.33])},
+                    minimax_payload=payload_90,
+                )
+                # Simultaneous guide_end_percent + video_end_percent at step 4
+                g_and_v_patcher.invoke_diffusion_model(
+                    [x90_vid, x90_aud],
+                    torch.tensor([570.0]),
+                    ctx_av,
+                    {"sample_sigmas": sched6, "sigmas": torch.tensor([0.57])},
+                    minimax_payload=payload_90,
+                )
+                if len(cap_guide_dm.seen_payloads) != 4:
+                    errs.append(f"expected 4 captured guide_end_percent payloads, got {len(cap_guide_dm.seen_payloads)}")
+                else:
+                    pg_early, pg_late1, pg_late2, pg_both = cap_guide_dm.seen_payloads
+                    if len(pg_early.get("cond_video_latents") or ()) != 6:
+                        errs.append(f"guide_end_percent early step altered cond_video_latents: {len(pg_early.get('cond_video_latents') or ())}")
+                    g_vlats = pg_late1.get("cond_video_latents") or []
+                    if g_vlats != [kf_first_lat, kf_last_lat, pic90_lat, vid90_lat]:
+                        errs.append(f"guide_end_percent late step sliced wrong cond_video_latents: {[float(t.flatten()[0]) for t in g_vlats]}")
+                    g_kfs = pg_late1.get("keyframes") or []
+                    if [int(k["resolved_frame_index"]) for k in g_kfs] != [0, 15, 89]:
+                        errs.append(f"guide_end_percent late step kept wrong keyframe indices: {g_kfs}")
+                    g_lay = pg_late1.get("layout")
+                    # Dropped 2 mid-clip cond segments * (1 * 4 rows each) = 8 rows
+                    if getattr(g_lay, "seq_len", None) != lay_90.seq_len - 8:
+                        errs.append(f"guide_end_percent seq_len={getattr(g_lay, 'seq_len', None)} != {lay_90.seq_len - 8}")
+                    if sum(1 for _a, _b, k in g_lay.segments if k == "cond") != 2:
+                        errs.append(f"expected 2 surviving endpoint cond segments (first+last), got {g_lay.segments}")
+                    if pg_late2.get("layout") is not g_lay:
+                        errs.append("guide_end_percent late step repeat did not hit released_layout_cache")
+                    # Preserve 3D RoPE position_ids on final target video & audio segments
+                    if not torch.equal(
+                        lay_90.position_ids[lay_90.segments[-1][0] : lay_90.segments[-1][1]],
+                        g_lay.position_ids[g_lay.segments[-1][0] : g_lay.segments[-1][1]],
+                    ) or not torch.equal(
+                        lay_90.position_ids[lay_90.segments[-2][0] : lay_90.segments[-2][1]],
+                        g_lay.position_ids[g_lay.segments[-2][0] : g_lay.segments[-2][1]],
+                    ):
+                        errs.append("guide_end_percent shifted target video/audio 3D RoPE position_ids")
+                    # Simultaneous guide_end_percent + video_end_percent keeps [first_frame, last_frame, Picture 1]
+                    b_vlats = pg_both.get("cond_video_latents") or []
+                    if b_vlats != [kf_first_lat, kf_last_lat, pic90_lat] or [r.get("kind") for r in (pg_both.get("refs") or ())] != ["image"]:
+                        errs.append(f"simultaneous guide+video release failed: vlats={len(b_vlats)}, refs={pg_both.get('refs')}")
+                    # Paired single-frame endpoint guard: total_frames=1 keyframe at idx=0 never drops
+                    sf_kfs = [{"resolved_frame_index": 0, "latent": kf_first_lat}]
+                    sf_lay = PackedLayout(6, 1, 4, 4, 2, keyframes=sf_kfs)
+                    sf_payload = {
+                        "keyframes": sf_kfs,
+                        "cond_video_latents": [kf_first_lat],
+                        "layout": sf_lay,
+                        "text_token_tags": torch.ones((1, 6), dtype=torch.long),
+                    }
+                    cap_guide_dm.seen_payloads.clear()
+                    g_only_patcher.invoke_diffusion_model(
+                        [torch.zeros((1, 24, 1, 4, 4)), torch.zeros((1, 32, 2, 2))],
+                        torch.tensor([570.0]),
+                        ctx_av,
+                        {"sample_sigmas": sched6, "sigmas": torch.tensor([0.57])},
+                        minimax_payload=sf_payload,
+                    )
+                    if len(cap_guide_dm.seen_payloads[0].get("cond_video_latents") or ()) != 1:
+                        errs.append("guide_end_percent unexpectedly dropped t=1 single-frame keyframe")
 
     return errs
 
