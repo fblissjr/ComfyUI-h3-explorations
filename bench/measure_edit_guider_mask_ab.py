@@ -5,7 +5,7 @@ Runs (or validates via `--dry-run`) the matched-seed tortoise blizzard test:
   1. `scout_base`      -- unedited Pika render (`BasicGuider`, `seed=730451892`, `length=124`)
   2. `sam_mask`        -- single-shot `SAM3_VideoTrack` + `SAM3_TrackToMask` on `scout_base`
                           (`+`-delimited phrases unioned via `MaskComposite(operation="add")`)
-  3. `eg_unmasked`     -- `MiniMaxH3EditGuider` heavy_blizzard (`first_step=1, last_step=3, scale=1.85`)
+  3. `eg_unmasked`     -- `MiniMaxH3EditGuider` heavy_blizzard (`first_step=2, last_step=3, scale=1.85`)
   4. `eg_mask_tight`   -- `InvertMask(tight_mask)` on `MiniMaxH3EditGuider.mask`
   5. `eg_mask_grow24`  -- `GrowMask(24) -> MaskToImage -> ImageBlur(12, sigma) -> ImageToMask -> InvertMask`
 
@@ -20,6 +20,7 @@ import argparse
 import copy
 import json
 import math
+import re
 import subprocess
 import sys
 import time
@@ -49,7 +50,7 @@ import h3_rules  # noqa: E402
 import preflight_graph  # noqa: E402
 from _lib import comfy_client, frames  # noqa: E402
 
-RUN_TAG = "edit_guider_mask_ab_2026-11-14"
+RUN_TAG = "edit_guider_mask_ab_fs2"
 BASE_WORKFLOW = _REPO_ROOT / "workflows" / "h3_text_to_video_pika_edit_guidance_api.json"
 PROMPT_FILE = _REPO_ROOT / "prompt_bank" / "t2va_offpath_tortoise.txt"
 
@@ -58,17 +59,18 @@ DEFAULT_WIDTH = 1344
 DEFAULT_HEIGHT = 768
 DEFAULT_SEED = 730451892
 DEFAULT_SCALE = 1.85
-DEFAULT_FIRST_STEP = 1
+DEFAULT_FIRST_STEP = 2
 DEFAULT_LAST_STEP = 3
 DEFAULT_STREAMS = "independent"
 DEFAULT_AUDIO_SCALE = 1.0
-# ImageBlur (`nodes_post_processing.py:74-78`) builds its Gaussian kernel over normalized [-1, 1]
-# coordinates rather than pixels; sigma=0.45 gives a clean Gaussian taper (6.0 acts nearly like a box filter).
+# ImageBlur (`comfy_extras/nodes_post_processing.py:74-78`) builds its Gaussian kernel over normalized
+# [-1, 1] coordinates rather than pixels; sigma=0.45 gives a Gaussian taper (6.0 acts nearly like a box).
 DEFAULT_BLUR_SIGMA = 0.45
 DEFAULT_SAM_PROMPT = "tortoise+candle"
+DEFAULT_SAM_THRESHOLD = 0.45
 
 DEFAULT_EDITS = "\n".join([
-    "on a quiet city street on an overcast morning -> on a wind-lashed city street in a heavy blizzard with thick snow piled on every surface and swirling flakes",
+    "on a quiet city street on an overcast morning -> on a wind-lashed city street in a heavy blizzard with thick snow piled on every surface, including the tortoise's shell, and swirling flakes",
     "soundscape: the tortoise's claws scrape softly on the asphalt, with light traffic in the distance -> freezing gale wind howls across deep snowdrifts as thick snow crunches softly underfoot",
 ])
 
@@ -150,6 +152,18 @@ def build_scout_graph(
     return g
 
 
+def _split_sam_phrases(sam_prompt: str) -> list[str]:
+    phrases = [p.strip() for p in str(sam_prompt).split("+") if p.strip()]
+    if not phrases:
+        raise ValueError(f"sam_prompt must name at least one target phrase, got {sam_prompt!r}")
+    return phrases
+
+
+def _phrase_slug(idx: int, phrase: str) -> str:
+    slug = re.sub(r"[^a-z0-9]+", "_", phrase.lower()).strip("_")
+    return slug or f"p{idx}"
+
+
 def build_sam_mask_graph(
     *,
     scout_video_path: str = f"$H3_OUTPUT_DIR/Video/{RUN_TAG}/scout_base.mp4",
@@ -158,14 +172,12 @@ def build_sam_mask_graph(
     length: int = DEFAULT_LENGTH,
     sam_prompt: str = DEFAULT_SAM_PROMPT,
     run_tag: str = RUN_TAG,
-    detection_threshold: float = 0.45,
+    detection_threshold: float = DEFAULT_SAM_THRESHOLD,
     max_objects: int = 4,
     detect_interval: int = 12,
 ) -> dict[str, Any]:
     """Single-shot `SAM3_VideoTrack` + `SAM3_TrackToMask` lossless FFV1 mask extractor (supports `+`-unioned phrases)."""
-    phrases = [p.strip() for p in str(sam_prompt).split("+") if p.strip()]
-    if not phrases:
-        raise ValueError(f"sam_prompt must name at least one target phrase, got {sam_prompt!r}")
+    phrases = _split_sam_phrases(sam_prompt)
 
     graph: dict[str, Any] = {
         "1": {
@@ -213,6 +225,7 @@ def build_sam_mask_graph(
         },
     }
     mask_out_id = "6"
+    phrase_mask_sources: list[tuple[int, str, str]] = [(0, phrases[0], "6")]
     for idx, phrase in enumerate(phrases[1:], start=1):
         clip_id = f"4_{idx}"
         track_id = f"5_{idx}"
@@ -247,7 +260,25 @@ def build_sam_mask_graph(
                 "operation": "add",
             },
         }
+        phrase_mask_sources.append((idx, phrase, to_mask_id))
         mask_out_id = union_id
+
+    if len(phrase_mask_sources) > 1:
+        for p_idx, phrase, src_mask_id in phrase_mask_sources:
+            slug = _phrase_slug(p_idx, phrase)
+            graph[f"7_p{p_idx}"] = {
+                "class_type": "MaskToImage",
+                "inputs": {"mask": [src_mask_id, 0]},
+            }
+            graph[f"8_p{p_idx}"] = {
+                "class_type": "VHS_VideoCombine",
+                "inputs": {
+                    "images": [f"7_p{p_idx}", 0],
+                    "frame_rate": 24.0,
+                    "filename_prefix": f"Video/{run_tag}/sam_phrase_{p_idx}_{slug}",
+                    **h3_config.MASKED_JOB_LOSSLESS,
+                },
+            }
 
     graph["7"] = {
         "class_type": "MaskToImage",
@@ -352,6 +383,7 @@ def build_all_graphs(
     streams = str(getattr(args, "streams", DEFAULT_STREAMS) or DEFAULT_STREAMS)
     audio_scale = float(getattr(args, "audio_scale", DEFAULT_AUDIO_SCALE))
     blur_sigma = float(getattr(args, "blur_sigma", DEFAULT_BLUR_SIGMA))
+    sam_threshold = float(getattr(args, "sam_threshold", DEFAULT_SAM_THRESHOLD))
     scout_src = scout_video_path or f"$H3_OUTPUT_DIR/Video/{run_tag}/scout_base.mp4"
     mask_src = mask_video_path or f"$H3_OUTPUT_DIR/Video/{run_tag}/tortoise_mask_tight.mkv"
 
@@ -375,6 +407,7 @@ def build_all_graphs(
             length=args.length,
             sam_prompt=args.sam_prompt,
             run_tag=run_tag,
+            detection_threshold=sam_threshold,
         ),
         "eg_unmasked": build_edit_guider_graph(
             arm="eg_unmasked",
@@ -454,10 +487,12 @@ def verify_dry_run(args: argparse.Namespace) -> int:
         raise AssertionError(f"preflight_graph FAIL on resolved edited prompt: {edited_fails}")
 
     assert graphs["sam_mask"]["1"]["class_type"] == h3_config.MASKED_JOB_LOADER
-    phrases = [p.strip() for p in str(args.sam_prompt).split("+") if p.strip()]
+    phrases = _split_sam_phrases(args.sam_prompt)
     if len(phrases) > 1:
         assert graphs["sam_mask"]["7"]["inputs"]["mask"] == [f"6_u{len(phrases) - 1}", 0]
         assert graphs["sam_mask"][f"6_u{len(phrases) - 1}"]["class_type"] == "MaskComposite"
+        for p_idx in range(len(phrases)):
+            assert graphs["sam_mask"][f"8_p{p_idx}"]["class_type"] == "VHS_VideoCombine"
     assert graphs["eg_mask_tight"]["200"]["class_type"] == h3_config.MASKED_JOB_LOADER
     assert graphs["eg_mask_tight"]["9"]["inputs"]["mask"] == ["202", 0]
     assert graphs["eg_mask_tight"]["202"]["class_type"] == "InvertMask"
@@ -477,19 +512,28 @@ def verify_dry_run(args: argparse.Namespace) -> int:
     return 0
 
 
-def _pick_saved_video(history_entry: dict[str, Any], out_root: Path, *, expected_ext: str, prefer_audio: bool) -> Path:
+def _pick_saved_video(
+    history_entry: dict[str, Any],
+    out_root: Path,
+    *,
+    expected_ext: str,
+    prefer_audio: bool,
+    file_prefix: str | None = None,
+) -> Path:
     items = comfy_client.collect_saved_files(history_entry)
     candidates: list[Path] = []
     for item in items:
         fn = str(item.get("filename") or "")
         if not fn.endswith(expected_ext):
             continue
+        if file_prefix is not None and not (fn.startswith(f"{file_prefix}_") or fn == f"{file_prefix}{expected_ext}"):
+            continue
         sub = str(item.get("subfolder") or "")
         path = (out_root / sub / fn) if sub else (out_root / fn)
         if path.is_file():
             candidates.append(path)
     if not candidates:
-        raise RuntimeError(f"No *{expected_ext} saved output found in history outputs={items!r}")
+        raise RuntimeError(f"No *{expected_ext} saved output matching prefix={file_prefix!r} in history outputs={items!r}")
     if prefer_audio:
         audio_hits = [p for p in candidates if p.stem.endswith("-audio")]
         if audio_hits:
@@ -587,6 +631,101 @@ def _compute_region_metrics(scout_rgb: np.ndarray, arm_rgb: np.ndarray, tight_ma
         "outside_margin_mae": round(outside_sum / outside_px, 3) if outside_px else float("nan"),
         "inside_pixels": inside_px,
         "outside_pixels": outside_px,
+    }
+
+
+def _histogram_p95(hist: np.ndarray) -> float:
+    total = int(hist.sum())
+    if total == 0:
+        return float("nan")
+    target = 0.95 * (total - 1)
+    cdf = np.cumsum(hist)
+    return float(int(np.searchsorted(cdf - 1, target, side="left")))
+
+
+def _dark_centroid(frame_rgb: np.ndarray, region_mask: np.ndarray) -> tuple[float, float] | None:
+    luma = (
+        0.299 * frame_rgb[..., 0].astype(np.float32)
+        + 0.587 * frame_rgb[..., 1].astype(np.float32)
+        + 0.114 * frame_rgb[..., 2].astype(np.float32)
+    )
+    ys, xs = np.nonzero((luma < 85.0) & region_mask)
+    if xs.size == 0:
+        return None
+    return float(xs.mean()), float(ys.mean())
+
+
+def _compute_holdback_and_pose_metrics(
+    scout_rgb: np.ndarray,
+    unmasked_rgb: np.ndarray,
+    arm_rgb: np.ndarray,
+    tight_mask_u8: np.ndarray,
+) -> dict[str, float]:
+    """Measure within-run hold-back (`vs eg_unmasked`), frost, annulus snow, and `vs scout_base` stride shift."""
+    erode_k = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (15, 15))
+    dil49_k = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (49, 49))
+    dil65_k = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (65, 65))
+
+    core_px = rim_px = ann_px = out_px = fg_px = 0
+    core_luma_sum = 0.0
+    core_frost_cnt = rim_frost_cnt = ann_snow_cnt = out_snow_cnt = 0
+    core_mae_unm_sum = core_mae_sct_sum = inside_mae_unm_sum = 0.0
+    core_hist = np.zeros(256, dtype=np.int64)
+    centroid_shifts: list[float] = []
+
+    for f_idx in range(arm_rgb.shape[0]):
+        fg_u8 = (tight_mask_u8[f_idx] >= 128).astype(np.uint8)
+        fg = fg_u8 > 0
+        core = cv2.erode(fg_u8, erode_k) > 0
+        rim = fg & (~core)
+        dil49 = cv2.dilate(fg_u8, dil49_k) > 0
+        ann24 = dil49 & (~fg)
+        out49 = ~dil49
+        dil65 = cv2.dilate(fg_u8, dil65_k) > 0
+
+        arm_f = arm_rgb[f_idx].astype(np.float32)
+        luma = 0.299 * arm_f[..., 0] + 0.587 * arm_f[..., 1] + 0.114 * arm_f[..., 2]
+        diff_unm = np.abs(arm_f - unmasked_rgb[f_idx].astype(np.float32)).mean(axis=-1)
+        diff_sct = np.abs(arm_f - scout_rgb[f_idx].astype(np.float32)).mean(axis=-1)
+
+        if np.any(fg):
+            fg_px += int(fg.sum())
+            inside_mae_unm_sum += float(diff_unm[fg].sum())
+        if np.any(core):
+            core_vals = luma[core]
+            core_px += int(core_vals.size)
+            core_luma_sum += float(core_vals.sum())
+            core_frost_cnt += int((core_vals >= 185.0).sum())
+            core_mae_unm_sum += float(diff_unm[core].sum())
+            core_mae_sct_sum += float(diff_sct[core].sum())
+            core_hist += np.bincount(np.clip(np.rint(core_vals), 0, 255).astype(np.uint8), minlength=256)
+        if np.any(rim):
+            rim_px += int(rim.sum())
+            rim_frost_cnt += int((luma[rim] >= 185.0).sum())
+        if np.any(ann24):
+            ann_px += int(ann24.sum())
+            ann_snow_cnt += int((luma[ann24] >= 185.0).sum())
+        if np.any(out49):
+            out_px += int(out49.sum())
+            out_snow_cnt += int((luma[out49] >= 185.0).sum())
+
+        c_sct = _dark_centroid(scout_rgb[f_idx], dil65)
+        c_arm = _dark_centroid(arm_rgb[f_idx], dil65)
+        if c_sct is not None and c_arm is not None:
+            centroid_shifts.append(math.hypot(c_arm[0] - c_sct[0], c_arm[1] - c_sct[1]))
+
+    return {
+        "inside_mae_vs_unmasked": round(inside_mae_unm_sum / fg_px, 3) if fg_px else float("nan"),
+        "eroded_core_mae_vs_unmasked": round(core_mae_unm_sum / core_px, 3) if core_px else float("nan"),
+        "eroded_core_mae_vs_scout": round(core_mae_sct_sum / core_px, 3) if core_px else float("nan"),
+        "eroded_core_luma_mean": round(core_luma_sum / core_px, 2) if core_px else float("nan"),
+        "eroded_core_luma_p95": _histogram_p95(core_hist),
+        "eroded_core_frost_185_pct": round(core_frost_cnt / core_px * 100.0, 3) if core_px else float("nan"),
+        "tight_rim_frost_185_pct": round(rim_frost_cnt / rim_px * 100.0, 3) if rim_px else float("nan"),
+        "annulus_24px_snow_185_pct": round(ann_snow_cnt / ann_px * 100.0, 3) if ann_px else float("nan"),
+        "outside_49px_snow_185_pct": round(out_snow_cnt / out_px * 100.0, 3) if out_px else float("nan"),
+        "dark_centroid_shift_mean_px": round(float(np.mean(centroid_shifts)), 2) if centroid_shifts else float("nan"),
+        "dark_centroid_shift_max_px": round(float(np.max(centroid_shifts)), 2) if centroid_shifts else float("nan"),
     }
 
 
@@ -710,6 +849,84 @@ def _find_existing_output(out_dir: Path, prefix: str, *, expected_ext: str, pref
     return hits[-1] if hits else None
 
 
+def _expand_output_path(raw: str, out_root: Path) -> Path:
+    root_str = str(out_root).rstrip("/")
+    return Path(raw.replace("$H3_OUTPUT_DIR", root_str))
+
+
+def _load_json_dict(path: Path) -> dict[str, Any]:
+    if not path.is_file():
+        return {}
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+
+def _canonical_graph_for_resume(graph: dict[str, Any], out_root: Path, run_tag: str) -> str:
+    scrubbed = _scrub_paths(copy.deepcopy(graph), out_root)
+    return json.dumps(scrubbed, sort_keys=True).replace(f"Video/{run_tag}/", "Video/<RUN_TAG>/")
+
+
+def _mask_f0_bbox(mask_f0: np.ndarray) -> list[int] | None:
+    ys, xs = np.nonzero(mask_f0 >= 128)
+    if xs.size == 0 or ys.size == 0:
+        return None
+    return [int(xs.min()), int(ys.min()), int(xs.max()), int(ys.max())]
+
+
+def _verify_sam_phrases(
+    out_dir: Path,
+    phrases: list[str],
+    size: tuple[int, int],
+    length: int,
+    sam_threshold: float,
+) -> list[dict[str, Any]]:
+    """Verify every `+`-split SAM phrase mask is non-empty on frame 0 and spatially plausible."""
+    if len(phrases) <= 1:
+        return []
+    stats: list[dict[str, Any]] = []
+    bboxes: dict[str, list[int]] = {}
+    for p_idx, phrase in enumerate(phrases):
+        prefix = f"sam_phrase_{p_idx}_{_phrase_slug(p_idx, phrase)}"
+        p_path = _find_existing_output(out_dir, prefix, expected_ext=".mkv", prefer_audio=False)
+        if p_path is None:
+            raise RuntimeError(
+                f"Missing per-phrase SAM3 mask output {prefix}_*.mkv in {out_dir}; cannot verify frame 0 for {phrase!r}"
+            )
+        p_mask = _load_gray_frames(p_path, size, length)
+        f0_px = int((p_mask[0] >= 128).sum())
+        nz_frames = int(np.sum(np.max(p_mask, axis=(1, 2)) >= 128))
+        area_pct = round(float((p_mask >= 128).mean() * 100.0), 3)
+        bbox = _mask_f0_bbox(p_mask[0])
+        if f0_px == 0 or nz_frames == 0 or bbox is None:
+            raise RuntimeError(
+                f"SAM3 phrase {phrase!r} returned an empty mask on frame 0 "
+                f"(frame0={f0_px} px, nonzero_frames={nz_frames}/{length}, threshold={sam_threshold}); "
+                f"aborting before EditGuider arms"
+            )
+        bboxes[phrase.lower()] = bbox
+        stats.append({
+            "phrase": phrase,
+            "file": str(p_path),
+            "frame0_pixels": f0_px,
+            "frame0_bbox": bbox,
+            "nonzero_frames": nz_frames,
+            "mean_area_pct": area_pct,
+        })
+
+    if "tortoise" in bboxes and "candle" in bboxes:
+        tx0, ty0, tx1, _ = bboxes["tortoise"]
+        cx0, cy0, cx1, _ = bboxes["candle"]
+        if cx0 > tx1 or cx1 < tx0 or cy0 >= ty0:
+            raise RuntimeError(
+                f"SAM3 'candle' frame-0 mask bbox {bboxes['candle']} does not sit above/over "
+                f"'tortoise' bbox {bboxes['tortoise']}; aborting before EditGuider arms"
+            )
+    return stats
+
+
 def run_live_ab(args: argparse.Namespace) -> int:
     """Submit missing graphs sequentially to live `:8188`, analyze, and stack review strips."""
     if not comfy_client.has_input("MiniMaxH3EditGuider", "mask", base_url=args.url):
@@ -727,11 +944,90 @@ def run_live_ab(args: argparse.Namespace) -> int:
     out_dir = out_root / "Video" / run_tag
     prov_dir = out_root / "provenance"
     data_dir = _REPO_ROOT / "data" / run_tag
+    if not args.resume and ((data_dir / "ab_summary.json").exists() or (data_dir / "prompts.json").exists()):
+        raise RuntimeError(
+            f"data/{run_tag}/ already contains run records; choose a fresh --run-tag (or pass --resume)"
+        )
     out_dir.mkdir(parents=True, exist_ok=True)
     data_dir.mkdir(parents=True, exist_ok=True)
 
+    sam_threshold = float(getattr(args, "sam_threshold", DEFAULT_SAM_THRESHOLD))
+    phrases = _split_sam_phrases(args.sam_prompt)
+    saved_prompts = _load_json_dict(data_dir / "prompts.json") if args.resume else {}
+    saved_summary = _load_json_dict(data_dir / "ab_summary.json") if args.resume else {}
+    saved_graphs: dict[str, Any] = saved_prompts.get("graphs") if isinstance(saved_prompts.get("graphs"), dict) else {}
+    saved_files_prev: dict[str, str] = (
+        saved_prompts.get("saved_files") if isinstance(saved_prompts.get("saved_files"), dict) else {}
+    )
+    saved_arms_prev: dict[str, Any] = saved_summary.get("arms") if isinstance(saved_summary.get("arms"), dict) else {}
+
     orig_prompt, edited_prompt, edit_records, graphs = build_all_graphs(args)
     queued_graphs: dict[str, Any] = {}
+    saved_arm_files: dict[str, str] = {}
+
+    def _flush_prompts_record() -> None:
+        prompts_record: dict[str, Any] = {
+            "run_tag": run_tag,
+            "seed": args.seed,
+            "width": args.width,
+            "height": args.height,
+            "length": args.length,
+            "scale": args.scale,
+            "first_step": args.first_step,
+            "last_step": args.last_step,
+            "streams": args.streams,
+            "audio_scale": args.audio_scale,
+            "blur_sigma": args.blur_sigma,
+            "sam_prompt": args.sam_prompt,
+            "sam_threshold": sam_threshold,
+            "original_prompt": orig_prompt,
+            "edits": args.edits,
+            "edited_prompt": edited_prompt,
+            "edit_records": edit_records,
+            "saved_files": saved_arm_files,
+            "graphs": queued_graphs,
+        }
+        (data_dir / "prompts.json").write_text(
+            json.dumps(_scrub_paths(prompts_record, out_root), indent=2),
+            encoding="utf-8",
+        )
+
+    def _can_reuse(name: str, graph: dict[str, Any], candidate: Path) -> bool:
+        if name == "sam_mask" and len(phrases) > 1:
+            missing = [
+                f"sam_phrase_{p_idx}_{_phrase_slug(p_idx, p)}"
+                for p_idx, p in enumerate(phrases)
+                if _find_existing_output(
+                    out_dir, f"sam_phrase_{p_idx}_{_phrase_slug(p_idx, p)}", expected_ext=".mkv", prefer_audio=False
+                ) is None
+            ]
+            if missing:
+                print(f"[resume] {name} -> ignoring {candidate.name} (missing per-phrase outputs {missing}); re-running", flush=True)
+                return False
+        if name in saved_graphs:
+            if _canonical_graph_for_resume(graph, out_root, run_tag) == _canonical_graph_for_resume(saved_graphs[name], out_root, run_tag):
+                return True
+            print(f"[resume] {name} -> ignoring stale {candidate.name} (saved graph settings differ); re-running", flush=True)
+            return False
+        if name == "scout_base" and not saved_graphs:
+            baseline_ok = (
+                orig_prompt == PROMPT_FILE.read_text(encoding="utf-8").strip()
+                and args.width == DEFAULT_WIDTH
+                and args.height == DEFAULT_HEIGHT
+                and args.length == DEFAULT_LENGTH
+                and args.seed == DEFAULT_SEED
+            )
+            if baseline_ok:
+                print(
+                    f"[resume] scout_base -> reusing copied baseline {candidate.name} "
+                    f"(matched default prompt/{args.width}x{args.height}/length={args.length}/seed={args.seed})",
+                    flush=True,
+                )
+                return True
+            print(f"[resume] scout_base -> ignoring {candidate.name} (prompt/geometry/seed differ from baseline); re-running", flush=True)
+            return False
+        print(f"[resume] {name} -> ignoring unverified {candidate.name} (no saved settings in prompts.json); re-running", flush=True)
+        return False
 
     def _submit_and_wait(
         name: str,
@@ -744,12 +1040,25 @@ def run_live_ab(args: argparse.Namespace) -> int:
     ) -> tuple[str, float, float | None, Path, dict[str, Any] | None]:
         queued_graphs[name] = graph
         if args.resume:
-            existing = _find_existing_output(
-                out_dir, file_prefix, expected_ext=expected_ext, prefer_audio=prefer_audio
-            )
-            if existing is not None:
-                print(f"[resume] {name} -> reusing {existing.name}", flush=True)
-                return "reused", 0.0, None, existing, None
+            existing: Path | None = None
+            prev_raw = saved_files_prev.get(name)
+            if isinstance(prev_raw, str) and prev_raw:
+                prev_path = _expand_output_path(prev_raw, out_root)
+                if prev_path.is_file():
+                    existing = prev_path
+            if existing is None:
+                existing = _find_existing_output(
+                    out_dir, file_prefix, expected_ext=expected_ext, prefer_audio=prefer_audio
+                )
+            if existing is not None and _can_reuse(name, graph, existing):
+                prev_arm = saved_arms_prev.get(name) if isinstance(saved_arms_prev.get(name), dict) else {}
+                prev_exec_s = prev_arm.get("execution_s")
+                prev_stamp = prev_arm.get("provenance") if has_stamp else None
+                saved_arm_files[name] = str(existing)
+                _flush_prompts_record()
+                if name in saved_graphs:
+                    print(f"[resume] {name} -> reusing verified {existing.name}", flush=True)
+                return "reused", 0.0, prev_exec_s, existing, prev_stamp
         existing_stamps = set(prov_dir.glob("stamp_*.json")) if (has_stamp and prov_dir.is_dir()) else set()
         t0 = time.monotonic()
         pid = comfy_client.submit_prompt(graph, base_url=args.url)
@@ -757,8 +1066,12 @@ def run_live_ab(args: argparse.Namespace) -> int:
         entry = comfy_client.wait_for_prompt(pid, base_url=args.url)
         elapsed = round(time.monotonic() - t0, 2)
         execution_s = comfy_client.execution_duration_s(entry)
-        saved = _pick_saved_video(entry, out_root, expected_ext=expected_ext, prefer_audio=prefer_audio)
+        saved = _pick_saved_video(
+            entry, out_root, expected_ext=expected_ext, prefer_audio=prefer_audio, file_prefix=file_prefix
+        )
         stamp = _collect_provenance_stamp(prov_dir, existing_stamps, name) if has_stamp else None
+        saved_arm_files[name] = str(saved)
+        _flush_prompts_record()
         exec_note = f" (gpu {execution_s:.2f}s)" if execution_s is not None else ""
         print(f"[done] {name} in {elapsed:.2f}s{exec_note} -> {saved.name}", flush=True)
         return pid, elapsed, execution_s, saved, stamp
@@ -776,6 +1089,7 @@ def run_live_ab(args: argparse.Namespace) -> int:
         "audio_scale": args.audio_scale,
         "blur_sigma": args.blur_sigma,
         "sam_prompt": args.sam_prompt,
+        "sam_threshold": sam_threshold,
         "arms": {},
     }
 
@@ -799,21 +1113,29 @@ def run_live_ab(args: argparse.Namespace) -> int:
         length=args.length,
         sam_prompt=args.sam_prompt,
         run_tag=run_tag,
+        detection_threshold=sam_threshold,
     )
     pid, elapsed, exec_s, sam_mkv, _ = _submit_and_wait(
         "sam_mask", sam_graph, ".mkv", file_prefix="tortoise_mask_tight", prefer_audio=False, has_stamp=False
     )
     tight_mask = _load_gray_frames(sam_mkv, (args.width, args.height), args.length)
-    mask_nonzero_frames = int(np.sum(np.max(tight_mask, axis=(1, 2)) > 0))
-    if mask_nonzero_frames == 0 or int(tight_mask.max()) == 0:
-        raise RuntimeError("SAM3_VideoTrack returned an all-zero tortoise mask; aborting before EditGuider arms")
+    mask_nonzero_frames = int(np.sum(np.max(tight_mask, axis=(1, 2)) >= 128))
+    combined_f0_px = int((tight_mask[0] >= 128).sum())
+    if mask_nonzero_frames == 0 or combined_f0_px == 0:
+        raise RuntimeError(
+            f"SAM3_VideoTrack returned an empty mask (frame0={combined_f0_px} px, nonzero_frames={mask_nonzero_frames}); "
+            "aborting before EditGuider arms"
+        )
+    phrase_stats = _verify_sam_phrases(out_dir, phrases, (args.width, args.height), args.length, sam_threshold)
     results["arms"]["sam_mask"] = {
         "prompt_id": pid,
         "elapsed_s": elapsed,
         "execution_s": exec_s,
         "file": str(sam_mkv),
+        "frame0_pixels": combined_f0_px,
         "nonzero_frames": mask_nonzero_frames,
         "mean_area_pct": round(float((tight_mask >= 128).mean() * 100.0), 3),
+        "phrases": phrase_stats,
     }
 
     scout_rgb = _load_rgb_frames(scout_mp4, (args.width, args.height), args.length)
@@ -844,6 +1166,7 @@ def run_live_ab(args: argparse.Namespace) -> int:
         arm_rgb = _load_rgb_frames(arm_mp4, (args.width, args.height), args.length)
         arm_videos[arm] = arm_rgb
         metrics = _compute_region_metrics(scout_rgb, arm_rgb, tight_mask)
+        holdback = _compute_holdback_and_pose_metrics(scout_rgb, arm_videos["eg_unmasked"], arm_rgb, tight_mask)
         audio_metrics = _measure_audio_dbfs(arm_mp4)
         results["arms"][arm] = {
             "prompt_id": pid,
@@ -852,36 +1175,19 @@ def run_live_ab(args: argparse.Namespace) -> int:
             "file": str(arm_mp4),
             "provenance": arm_stamp,
             **metrics,
+            **holdback,
             **audio_metrics,
         }
+
+    results["arms"]["scout_base"].update(
+        _compute_holdback_and_pose_metrics(scout_rgb, arm_videos["eg_unmasked"], scout_rgb, tight_mask)
+    )
 
     review_stack = _write_2x2_review_videos(out_dir, arm_videos, width=args.width, height=args.height)
     crop_sheet = _write_tortoise_crop_sheet(out_dir, arm_videos, tight_mask)
     results["review"] = {**review_stack, "crop_sheet": crop_sheet}
 
-    prompts_record: dict[str, Any] = {
-        "run_tag": run_tag,
-        "seed": args.seed,
-        "width": args.width,
-        "height": args.height,
-        "length": args.length,
-        "scale": args.scale,
-        "first_step": args.first_step,
-        "last_step": args.last_step,
-        "streams": args.streams,
-        "audio_scale": args.audio_scale,
-        "blur_sigma": args.blur_sigma,
-        "sam_prompt": args.sam_prompt,
-        "original_prompt": orig_prompt,
-        "edits": args.edits,
-        "edited_prompt": edited_prompt,
-        "edit_records": edit_records,
-        "graphs": queued_graphs,
-    }
-    (data_dir / "prompts.json").write_text(
-        json.dumps(_scrub_paths(prompts_record, out_root), indent=2),
-        encoding="utf-8",
-    )
+    _flush_prompts_record()
     (data_dir / "ab_summary.json").write_text(
         json.dumps(_scrub_paths(results, out_root), indent=2),
         encoding="utf-8",
@@ -894,7 +1200,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dry-run", action="store_true", help="Validate graphs statically (zero writes; default)")
     parser.add_argument("--run", action="store_true", help="Submit all 5 graphs to live :8188 ComfyUI")
-    parser.add_argument("--resume", action="store_true", help="Reuse existing outputs in --run-tag instead of re-running")
+    parser.add_argument("--resume", action="store_true", help="Reuse verified matching outputs in --run-tag instead of re-running")
     parser.add_argument("--run-tag", default=RUN_TAG, help="Subdirectory tag under Video/ and data/")
     parser.add_argument("--url", default=comfy_client.DEFAULT_COMFY_URL, help="ComfyUI server base URL")
     parser.add_argument("--length", type=int, default=DEFAULT_LENGTH)
@@ -908,6 +1214,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--audio-scale", type=float, default=DEFAULT_AUDIO_SCALE)
     parser.add_argument("--blur-sigma", type=float, default=DEFAULT_BLUR_SIGMA)
     parser.add_argument("--sam-prompt", default=DEFAULT_SAM_PROMPT)
+    parser.add_argument("--sam-threshold", type=float, default=DEFAULT_SAM_THRESHOLD)
     parser.add_argument("--edits", default=DEFAULT_EDITS)
     args = parser.parse_args(argv)
     if args.run:
