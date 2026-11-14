@@ -8,14 +8,14 @@ this file is only a way to find a script by what it says it does.
 
 | group | scripts |
 |---|---|
-| [`check_*`](#check) | 169 |
+| [`check_*`](#check) | 170 |
 | [`measure_*`](#measure) | 37 |
 | [`analyze_*`](#analyze) | 18 |
 | [`grade_*`](#grade) | 19 |
 | [`compare_*`](#compare) | 15 |
 | [`build_*`](#build) | 13 |
 | [`probe_*`](#probe) | 13 |
-| [the rest](#the-rest) | 198 |
+| [the rest](#the-rest) | 199 |
 
 ## check
 
@@ -77,6 +77,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_guide_latent.py`](check_guide_latent.py) | Check `MiniMaxH3GuideLatent` (`guide_latent.py`) and the shipped guide-latent graphs. |
 | [`check_h3_encoder_loader.py`](check_h3_encoder_loader.py) | Prove the guarded H3 encoder loader guards what it claims to. |
 | [`check_h3_image.py`](check_h3_image.py) | MiniMax-H3-Image: the release-to-ComfyUI layout, the size rule and the shipped graphs' chain. |
+| [`check_h3_image_vae_convert.py`](check_h3_image_vae_convert.py) | That bench/convert_h3_image_vae_from_diffusers.py writes a diffusers MiniMax-H3-Image VAE in core's layout. |
 | [`check_head_reference.py`](check_head_reference.py) | `bench/head_reference.py` against a face whose every line is known by construction, read from the files it wrote. |
 | [`check_head_tube_parts.py`](check_head_tube_parts.py) | Check head_tube_parts: SAM 3.1 head tube gating, temporal seg smoothing, and 39-point face cross-check. |
 | [`check_image_studio.py`](check_image_studio.py) | Run the standalone H3-Image Studio Tier 1 offline suite (`app/test_app.py`) under `--cpu`. |
@@ -376,6 +377,7 @@ this file is only a way to find a script by what it says it does.
 | [`control_vectors.py`](control_vectors.py) | Build, inspect, meter, and grade MiniMax H3 control vectors. |
 | [`convert_h3_bf16_encoder.py`](convert_h3_bf16_encoder.py) | Adapt a full-depth HF Qwen3-VL-32B text encoder to the ComfyUI H3 encoder. |
 | [`convert_h3_image_dit.py`](convert_h3_image_dit.py) | Write the MiniMax-H3-Image release as one bf16 file ComfyUI loads, nothing approximated. |
+| [`convert_h3_image_vae_from_diffusers.py`](convert_h3_image_vae_from_diffusers.py) | Write a diffusers MiniMax-H3-Image VAE (AutoencoderKLMiniMaxH3Image) as the file ComfyUI's VAELoader loads. |
 | [`convert_pika_lora.py`](convert_pika_lora.py) | Convert Pika H3 Flex PEFT LoRAs (`fl2va`, `ref2va`) to ComfyUI format. |
 | [`convert_sam3_checkpoint.py`](convert_sam3_checkpoint.py) | Repack Meta's SAM 3 / SAM 3.1 checkpoint as a safetensors file core loads, changing no weight. |
 | [`convert_sam3d_body_checkpoint.py`](convert_sam3d_body_checkpoint.py) | Repack Meta's SAM 3D Body checkpoint and its MHR rig as the one safetensors file core loads, from the originals. |
