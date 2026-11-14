@@ -645,15 +645,28 @@ def graphs() -> None:
         sig = [n for n in g.values() if n["class_type"] == "ManualSigmas"]
         ok = len(sig) == 1 and sig[0]["inputs"]["sigmas"] == h3_config.H3_IMAGE_MANUAL_SIGMAS
         ok &= not kinds & {"KSampler", "BasicScheduler", "CFGGuider", "ConditioningZeroOut", "CLIPTextEncode"}
-        cond = next(n for n in g.values() if n["class_type"] == "MiniMaxH3ImageConditioning")["inputs"]
+        # Text to image is core's one node. An edit's pictures go through this pack's two: the encode
+        # node holds the canvas and the pictures, the prompt node the prompt and the seed's noise.
+        core = [n["inputs"] for n in g.values() if n["class_type"] == "MiniMaxH3ImageConditioning"]
+        encode = [n["inputs"] for n in g.values() if n["class_type"] == "MiniMaxH3EncodeImageReferences"]
+        prompts = [n["inputs"] for n in g.values() if n["class_type"] == "MiniMaxH3PromptOnImageReferences"]
+        ok &= (len(core), len(encode), len(prompts)) in ((1, 0, 0), (0, 1, 1))
+        if not ok:
+            report(False, f"the shipped graph {path.name}", "neither core's conditioning node alone nor this pack's pair")
+            continue
+        sized, cond = (core[0], core[0]) if core else (encode[0], prompts[0])
         size = next(n for n in g.values() if n["class_type"] == "MiniMaxH3ImageSize")["inputs"]
-        ok &= isinstance(cond["width"], list) and isinstance(cond["height"], list)
-        pictures = [v for k, v in cond.items() if k.startswith("images.")]
+        ok &= isinstance(sized["width"], list) and isinstance(sized["height"], list)
+        pictures = [v for k, v in sized.items() if k.startswith("images.")]
         if pictures:
             ok &= all(g[src[0]]["class_type"] == "LoadImage" for src in pictures)
             ok &= size.get("picture") == pictures[0] and size["shape"] == h3_config.H3_IMAGE_ASPECT_OF_PICTURE
+            noise = [nid for nid, n in g.items() if n["class_type"] == "RandomNoise"]
+            ok &= bool(encode) and sized.get("canvas") == "explicit"
+            ok &= all(sized.get(k) == v for k, v in h3_config.H3_IMAGE_REFERENCES.items())
+            ok &= len(noise) == 1 and cond.get("noise") == [noise[0], 0]
         else:
-            ok &= size["shape"] in h3_config.H3_IMAGE_ASPECTS
+            ok &= bool(core) and size["shape"] in h3_config.H3_IMAGE_ASPECTS
         expanders = [(nid, n["inputs"]) for nid, n in g.items() if n["class_type"] == "MiniMaxH3ImagePromptExpander"]
         if expanders:
             exp_id, exp_in = expanders[0]
@@ -686,15 +699,16 @@ def graphs() -> None:
         ref_images=tuple(f"img_{i}.png" for i in range(16)),
         heylook=True,
     )
-    c16 = next(n["inputs"] for n in g16.values() if n["class_type"] == "MiniMaxH3ImageConditioning")
+    c16 = next(n["inputs"] for n in g16.values() if n["class_type"] == "MiniMaxH3EncodeImageReferences")
     e16 = next(n["inputs"] for n in g16.values() if n["class_type"] == "MiniMaxH3ImagePromptExpander")
     loads16 = [nid for nid, n in g16.items() if n["class_type"] == "LoadImage"]
     ok16 = (
         len(loads16) == 16
-        and [k for k in c16 if k.startswith("images.")] == [f"images.image_{i}" for i in range(16)]
+        and [k for k in c16 if k.startswith("images.")] == [f"images.image_{i}" for i in range(1, 17)]
+        and [c16[f"images.image_{i}"] for i in range(1, 17)] == [e16[f"images.image_{i}"] for i in range(1, 17)]
         and [k for k in e16 if k.startswith("images.")] == [f"images.image_{i}" for i in range(1, 17)]
     )
-    report(bool(ok16), "build_h3_image_api wires up to 16 reference pictures (0-based conditioning, 1-based expander)")
+    report(bool(ok16), "build_h3_image_api wires up to 16 reference pictures, in one order on the encode node and the expander")
 
     g_edit_eg = bw.build_h3_image_api(
         "h3img_edit",
@@ -714,8 +728,9 @@ def graphs() -> None:
         == [f"images.image_{i}" for i in range(1, 17)]
         and g_edit_eg["5"]["class_type"] == "MiniMaxH3PromptOnImageReferences"
         and g_edit_eg["131"]["class_type"] == "MiniMaxH3PromptOnImageReferences"
-        and g_edit_eg["5"]["inputs"] == {"encoded_references": ["132", 0], "prompt": ["133", 0]}
-        and g_edit_eg["131"]["inputs"] == {"encoded_references": ["132", 0], "prompt": ["130", 0]}
+        and all(g_edit_eg["132"]["inputs"].get(k) == v for k, v in h3_config.H3_IMAGE_REFERENCES.items())
+        and g_edit_eg["5"]["inputs"] == {"encoded_references": ["132", 0], "prompt": ["133", 0], "noise": ["6", 0]}
+        and g_edit_eg["131"]["inputs"] == {"encoded_references": ["132", 0], "prompt": ["130", 0], "noise": ["6", 0]}
         and g_edit_eg["10"]["inputs"]["latent_image"] == ["132", 1]
         and g_edit_eg["9"]["class_type"] == "MiniMaxH3EditGuider"
         and "132" not in g_t2i_eg
@@ -726,7 +741,7 @@ def graphs() -> None:
     )
     report(
         bool(ok_eg),
-        "_wire_edit_guidance splits h3_image_edit into 1x MiniMaxH3EncodeImageReferences(canvas='explicit') + 2x MiniMaxH3PromptOnImageReferences",
+        "edit guidance on h3_image_edit is 1x MiniMaxH3EncodeImageReferences (the servers' crop and draw) + 2x MiniMaxH3PromptOnImageReferences on one seed",
     )
 
 

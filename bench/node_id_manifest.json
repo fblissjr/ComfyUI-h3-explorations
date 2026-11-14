@@ -267,7 +267,8 @@
       "vae_max_short_edge",
       "in_bounds_align",
       "use_vae",
-      "canvas"
+      "canvas",
+      "reference_latent"
     ],
     "node_id": "MiniMaxH3EncodeImageReferences",
     "outputs": [
@@ -693,7 +694,8 @@
   "MiniMaxH3PromptOnImageReferences": {
     "inputs": [
       "encoded_references",
-      "prompt"
+      "prompt",
+      "noise"
     ],
     "node_id": "MiniMaxH3PromptOnImageReferences",
     "outputs": [

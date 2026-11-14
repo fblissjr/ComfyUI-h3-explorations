@@ -174,6 +174,90 @@ def small_model_cases(enc, check):
           ratios[-1] > 100 * SMALL_MODEL_TOL, f"prompt rows {ratios[-1]:.1e}")
 
 
+def release_draw(enc, check, torch) -> None:
+    """The release draw and the crop, on a stand-in for the image VAE (no weights: the arithmetic and
+    the order of the draws are what is held; the real VAE is `bench/measure`-side work)."""
+
+    class Model(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.encoder = torch.nn.Linear(1, 1)
+            self.register_buffer("latents_mean", torch.linspace(-1.0, 1.0, 24))
+            self.register_buffer("latents_std", torch.linspace(0.5, 2.0, 24))
+
+        def _normalize_pixels(self, x):
+            return x
+
+        def _adaptive_encode(self, x):          # [B, 3, 1, H, W] -> moments on H/16 x W/16 cells
+            cells = torch.nn.functional.avg_pool2d(x[:, :, 0], 16).mean(1, keepdim=True)
+            mean = cells.repeat(1, 24, 1, 1) + torch.arange(24.0).view(1, 24, 1, 1)
+            return torch.cat([mean, torch.full_like(mean, -2.0)], dim=1).unsqueeze(2)
+
+        def encode(self, x, device=None):
+            return "the sample"
+
+    class VAE:
+        def __init__(self):
+            self.first_stage_model = Model()
+
+        def encode(self, pixels):                # core's call shape: [B, H, W, C] in, the model's encode out
+            return self.first_stage_model.encode(pixels.movedim(-1, 1).unsqueeze(2))
+
+    vae = VAE()
+    model = vae.first_stage_model
+    wrapper = lambda x, device=None: "the wrapper"   # noqa: E731  (what MiniMaxH3VAEPrecision leaves on the instance)
+    model.encode = wrapper
+    picture = torch.rand(1, 1083, 1050, 3)
+    low, high = enc.H3_IMAGE_VAE_MIN_SHORT_EDGE, enc.H3_IMAGE_VAE_MAX_SHORT_EDGE
+    cut = enc._prepare_h3_image_ref(picture, low, high, in_bounds_align="crop_32", crop_grid=enc.H3_IMAGE_VAE_CELL)
+    check("crop_32 cuts the VAE's copy to its 16-pixel cell from the top left and resamples nothing",
+          torch.equal(cut, picture[:, :1072, :1040, :]), f"{tuple(cut.shape)}")
+    whole = enc._prepare_h3_image_ref(picture, low, high, in_bounds_align="crop_32")
+    check("the text encoder's copy of an in-bounds picture is left whole", torch.equal(whole, picture))
+    outside = enc._prepare_h3_image_ref(torch.rand(1, 600, 900, 3), low, high, in_bounds_align="crop_32",
+                                        crop_grid=enc.H3_IMAGE_VAE_CELL)
+    check("a picture under the bound is scaled up to it on the 32 grid, crop or not",
+          tuple(outside.shape) == (1, 1024, 1536, 3), f"{tuple(outside.shape)}")
+
+    with enc._vae_returns_moments(vae):
+        moments = vae.encode(cut)
+    check("moments come back on the uncropped cells, and the instance's own encode is put back",
+          tuple(moments.shape) == (1, 48, 1, 67, 65) and model.__dict__.get("encode") is wrapper,
+          f"{tuple(moments.shape)}")
+    del model.encode
+    with enc._vae_returns_moments(vae):
+        pass
+    check("with nothing on the instance, the class's encode is what is left", "encode" not in model.__dict__)
+    try:
+        with enc._vae_returns_moments(type("V", (), {"first_stage_model": torch.nn.Linear(1, 1)})()):
+            pass
+        refused = False
+    except ValueError:
+        refused = True
+    check("RED CONTROL: a VAE that does not expose its moments is refused", refused)
+
+    block = {"kind": "image", "moments": moments, "latent_h": 66, "latent_w": 64,
+             "latents_mean": model.latents_mean, "latents_std": model.latents_std}
+    canvas = (128, 96)
+    a = enc.sample_release_references([block], 1234, canvas)[0]
+    gen = torch.Generator("cpu").manual_seed(1234)
+    torch.randn(1, 24, 1, *canvas, generator=gen)
+    torch.randn(1, 24, 1, 66, 64, generator=gen)
+    mean, logvar = moments.chunk(2, dim=1)
+    raw = torch.addcmul(mean, torch.exp(0.5 * logvar), torch.randn(mean.shape, generator=gen))
+    shape = (1, -1, 1, 1, 1)
+    want = (raw.to(torch.float16).to(torch.float32)[..., :66, :64] - model.latents_mean.view(shape)) / model.latents_std.view(shape)
+    check("the release draw is the third draw at the seed (after target and anchor), fp16-rounded, cut even, normalized",
+          torch.equal(a["latent"], want) and (a["latent_h"], a["latent_w"]) == (66, 64))
+    unrounded = (raw[..., :66, :64] - model.latents_mean.view(shape)) / model.latents_std.view(shape)
+    check("RED CONTROL: without the fp16 rounding the latent is a different one", not torch.equal(a["latent"], unrounded))
+    check("another seed, another latent; another canvas moves the stream too",
+          not torch.equal(a["latent"], enc.sample_release_references([block], 1235, canvas)[0]["latent"])
+          and not torch.equal(a["latent"], enc.sample_release_references([block], 1234, (128, 128))[0]["latent"]))
+    two = enc.sample_release_references([block, block], 1234, canvas)
+    check("two references of one shape do not share a draw", not torch.equal(two[0]["latent"], two[1]["latent"]))
+
+
 def load_pack():
     from _lib import bootstrap
     # The ComfyUI root, which this check used to need from PYTHONPATH, and
@@ -285,6 +369,14 @@ def main() -> int:
           {"qwen_short_edge", "vae_min_short_edge", "vae_max_short_edge", "in_bounds_align", "use_vae"} <= set(ia_inputs)
           and getattr(ia_inputs["vae_max_short_edge"], "max", None) == 8192
           and list(getattr(ia_inputs["in_bounds_align"], "options", ())) == ["resize_32", "crop_32"])
+    check("reference_latent is the encode node's LAST input, the prompt node's last is the noise, and the defaults are the release's",
+          ia.inputs[-1].id == "reference_latent" and getattr(ia.inputs[-1], "default", None) == "release"
+          and getattr(ia_inputs["in_bounds_align"], "default", None) == "crop_32"
+          and list(getattr(ia.inputs[-1], "options", ())) == ["core", "release"]
+          and [i.id for i in ib.inputs] == ["encoded_references", "prompt", "noise"]
+          and bool(getattr(ib.inputs[-1], "optional", False)),
+          f"{[i.id for i in ia.inputs][-2:]}, {[i.id for i in ib.inputs]}")
+    release_draw(enc, check, torch)
 
     print()
     if failures:

@@ -62,6 +62,7 @@ the real encoder.
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import time
 from dataclasses import dataclass, field
@@ -128,6 +129,7 @@ class EncodedReferences:
     labels: list[str] | None = None
     report: list[str] = field(default_factory=list)
     picture_label: str | None = None        # None -> minimax_ref_items; "Picture %d: " -> H3-Image images=...
+    canvas_latent_hw: tuple[int, int] | None = None   # H3-Image: the output's latent grid, for the release draw order
 
     @property
     def length(self) -> int:
@@ -587,6 +589,81 @@ H3_IMAGE_QWEN_SHORT_EDGE = 1024
 H3_IMAGE_VAE_MIN_SHORT_EDGE = 1024
 H3_IMAGE_VAE_MAX_SHORT_EDGE = 2048
 H3_IMAGE_ALIGN_CHOICES = ("resize_32", "crop_32")
+#: How a reference's latent is drawn from the VAE's posterior. "core" is `vae.encode`: a fixed seed,
+#: not rounded. "release" is what sglang and vllm-omni do (`docs/wiki/image/h3_image.md`, "Edit
+#: references, point by point"): drawn from the render's seed after the target and anchor draws, and
+#: rounded to fp16 before it is normalized.
+H3_IMAGE_REFERENCE_LATENT_CHOICES = ("core", "release")
+#: The nodes' defaults are the release's (owner, 2026-11-13: these nodes exist to do what the
+#: release's servers do). Core's ways stay one choice away, for a comparison.
+H3_IMAGE_ALIGN_DEFAULT = "crop_32"
+H3_IMAGE_REFERENCE_LATENT_DEFAULT = "release"
+#: The image VAE's cell in pixels. A cropped reference is cut to this grid, as the servers cut it, and
+#: its latent to an even count of cells afterwards (the DiT patches two by two).
+H3_IMAGE_VAE_CELL = 16
+H3_IMAGE_LATENT_CHANNELS = 24
+
+
+@contextlib.contextmanager
+def _vae_returns_moments(vae):
+    """While open, `vae.encode` returns the image VAE's posterior moments instead of a sample.
+
+    Core's `H3ImageVAE.encode` computes the moments and samples them at a fixed seed in one call, so
+    a sample at another seed needs the moments themselves. Only the model's `encode` is swapped, on
+    the instance and for the length of the call: loading, placement, batching and the cast to the
+    encoder's dtype stay core's `VAE.encode`. What was there before (the class's method, or
+    `MiniMaxH3VAEPrecision`'s wrapper) is put back on the way out.
+    """
+    model = vae.first_stage_model
+    if not (hasattr(model, "_adaptive_encode") and hasattr(model, "_normalize_pixels")):
+        raise ValueError(
+            "reference_latent='release' needs the MiniMax-H3-Image or P-H3-Image VAE; "
+            f"{type(model).__name__} does not expose its posterior moments")
+    absent = object()
+    before = model.__dict__.get("encode", absent)
+
+    def moments(x, device=None, **_kwargs):
+        target = next(model.encoder.parameters(), None) if hasattr(model, "encoder") else None
+        x = x.to(device=device) if target is None else x.to(device=device, dtype=target.dtype)
+        return model._adaptive_encode(model._normalize_pixels(x)).float()
+
+    model.encode = moments
+    try:
+        yield
+    finally:
+        if before is absent:
+            del model.encode
+        else:
+            model.encode = before
+
+
+def _even_cells(z: torch.Tensor) -> torch.Tensor:
+    return z[..., : z.shape[-2] // 2 * 2, : z.shape[-1] // 2 * 2]
+
+
+def sample_release_references(blocks: list[dict], seed: int, canvas_latent_hw: tuple[int, int]) -> list[dict]:
+    """Reference latents drawn from kept moments as the release's servers draw them.
+
+    One CPU generator at the render's seed, used in their order: the target noise, each reference's
+    anchor noise, then each reference's posterior sample. The first two are drawn here only to move
+    the stream; this graph's own target and anchor noise come from `RandomNoise` and the model. Each
+    sample is rounded to fp16, cut to an even count of cells and normalized.
+    """
+    generator = torch.Generator("cpu").manual_seed(int(seed))
+    channels = H3_IMAGE_LATENT_CHANNELS
+    torch.randn(1, channels, 1, int(canvas_latent_hw[0]), int(canvas_latent_hw[1]), generator=generator)
+    for block in blocks:
+        torch.randn(1, channels, 1, int(block["latent_h"]), int(block["latent_w"]), generator=generator)
+    out = []
+    for block in blocks:
+        mean, logvar = block["moments"].float().chunk(2, dim=1)
+        noise = torch.randn(mean.shape, generator=generator, dtype=torch.float32).to(mean.device)
+        z = torch.addcmul(mean, torch.exp(0.5 * logvar.clamp(-30.0, 20.0)), noise)
+        z = _even_cells(z.to(torch.float16).to(torch.float32))
+        shape = (1, -1, 1, 1, 1)
+        z = (z - block["latents_mean"].view(shape).to(z)) / block["latents_std"].view(shape).to(z)
+        out.append({"kind": "image", "latent_h": z.shape[-2], "latent_w": z.shape[-1], "latent": z})
+    return out
 
 
 def _h3_image_ref_size(width: int, height: int, low: int, high: int, *, in_bounds_align: str, crop_grid_32: bool) -> tuple[int, int]:
@@ -609,15 +686,19 @@ def _prepare_h3_image_ref(
     *,
     in_bounds_align: str = "resize_32",
     crop_grid_32: bool = False,
+    crop_grid: int | None = None,
 ) -> torch.Tensor:
+    """`image` as one consumer sees it. A cropped picture is cut from the top left to `crop_grid`
+    pixels (`crop_grid_32` is that at 32), or left whole when neither is given."""
     import comfy.utils
 
     img = image[:1, ..., :3]
     h, w = int(img.shape[1]), int(img.shape[2])
     short = min(w, h)
+    grid = crop_grid if crop_grid is not None else (32 if crop_grid_32 else None)
     if in_bounds_align == "crop_32" and low <= short <= high:
-        if crop_grid_32:
-            cw, ch = max(32, (w // 32) * 32), max(32, (h // 32) * 32)
+        if grid is not None:
+            cw, ch = max(grid, (w // grid) * grid), max(grid, (h // grid) * grid)
             return img[:, :ch, :cw, :]
         return img
     tw, th = _h3_image_ref_size(w, h, low, high, in_bounds_align=in_bounds_align, crop_grid_32=crop_grid_32)
@@ -711,12 +792,13 @@ class MiniMaxH3EncodeImageReferences(io.ComfyNode):
                 io.Combo.Input(
                     "in_bounds_align",
                     options=list(H3_IMAGE_ALIGN_CHOICES),
-                    default="resize_32",
+                    default=H3_IMAGE_ALIGN_DEFAULT,
                     optional=True,
                     tooltip=(
-                        "How in-bounds non-32-aligned pictures are aligned: 'resize_32' rounds to 32 "
-                        "via Lanczos (ComfyUI core parity); 'crop_32' keeps interior pixels unresized "
-                        "and trims bottom/right to 32 (vLLM-Omni / release parity)."
+                        "What happens to a picture whose size is already inside the bounds but not on the grid. "
+                        "'crop_32' keeps its pixels as they are and trims the right and bottom edges, as "
+                        "MiniMax's servers do. 'resize_32' resamples the whole picture to the grid, as "
+                        "ComfyUI's own node does."
                     ),
                 ),
                 io.Boolean.Input(
@@ -733,6 +815,18 @@ class MiniMaxH3EncodeImageReferences(io.ComfyNode):
                     tooltip=(
                         "'from_image_1' derives the empty latent canvas from image_1's VAE-bounded dimensions; "
                         "'explicit' uses width and height directly."
+                    ),
+                ),
+                io.Combo.Input(
+                    "reference_latent",
+                    options=list(H3_IMAGE_REFERENCE_LATENT_CHOICES),
+                    default=H3_IMAGE_REFERENCE_LATENT_DEFAULT,
+                    optional=True,
+                    tooltip=(
+                        "How each picture's latent is drawn from the VAE. 'release' is what MiniMax's servers do: "
+                        "the draw follows the render's seed and is rounded to fp16; wire the sampler's noise into "
+                        "MiniMax H3 Prompt On Image References so it knows the seed. 'core' is ComfyUI's own: a "
+                        "fixed seed."
                     ),
                 ),
             ],
@@ -753,9 +847,10 @@ class MiniMaxH3EncodeImageReferences(io.ComfyNode):
         qwen_short_edge=H3_IMAGE_QWEN_SHORT_EDGE,
         vae_min_short_edge=H3_IMAGE_VAE_MIN_SHORT_EDGE,
         vae_max_short_edge=H3_IMAGE_VAE_MAX_SHORT_EDGE,
-        in_bounds_align="resize_32",
+        in_bounds_align=H3_IMAGE_ALIGN_DEFAULT,
         use_vae=True,
         canvas="from_image_1",
+        reference_latent=H3_IMAGE_REFERENCE_LATENT_DEFAULT,
     ):
         import comfy.model_management as mm
 
@@ -767,6 +862,9 @@ class MiniMaxH3EncodeImageReferences(io.ComfyNode):
             raise ValueError(f"in_bounds_align must be one of {H3_IMAGE_ALIGN_CHOICES}, got {in_bounds_align!r}")
         if canvas not in ("from_image_1", "explicit"):
             raise ValueError(f"canvas must be 'from_image_1' or 'explicit', got {canvas!r}")
+        if reference_latent not in H3_IMAGE_REFERENCE_LATENT_CHOICES:
+            raise ValueError(
+                f"reference_latent must be one of {H3_IMAGE_REFERENCE_LATENT_CHOICES}, got {reference_latent!r}")
         names = sorted(images or {}, key=lambda name: int(name.rsplit("_", 1)[-1]))
         raw_images = [images[name][:1] for name in names if images[name] is not None]
         if not raw_images:
@@ -784,10 +882,29 @@ class MiniMaxH3EncodeImageReferences(io.ComfyNode):
             )
             vision_images.append(v_img)
             if use_vae and vae is not None:
+                # A cropped picture is cut to the VAE's cell and its latent to an even count of cells, the
+                # servers' order: the encoder sees the last odd cell, the model does not.
                 z_img = _prepare_h3_image_ref(
-                    img, vae_min_short_edge, vae_max_short_edge, in_bounds_align=in_bounds_align, crop_grid_32=True
+                    img, vae_min_short_edge, vae_max_short_edge, in_bounds_align=in_bounds_align,
+                    crop_grid=H3_IMAGE_VAE_CELL,
                 )
-                z = vae.encode(z_img)
+                if reference_latent == "release":
+                    with _vae_returns_moments(vae):
+                        moments = vae.encode(z_img)
+                    if moments.shape[1] == 2 * H3_IMAGE_LATENT_CHANNELS:
+                        model = vae.first_stage_model
+                        refs.append({
+                            "kind": "image", "moments": moments,
+                            "latent_h": moments.shape[-2] // 2 * 2, "latent_w": moments.shape[-1] // 2 * 2,
+                            "latents_mean": model.latents_mean.detach().float().cpu(),
+                            "latents_std": model.latents_std.detach().float().cpu(),
+                        })
+                        continue
+                    # Core retried the encode tiled, through its own sampler: this picture is core's draw.
+                    logger.warning("[h3-ref] the VAE encode fell back to tiles; this reference keeps core's fixed-seed latent")
+                    z = _even_cells(moments)
+                else:
+                    z = _even_cells(vae.encode(z_img))
                 refs.append({"kind": "image", "latent_h": z.shape[-2], "latent_w": z.shape[-1], "latent": z})
 
         ref_items = [{"type": "image", "data": v_img} for v_img in vision_images]
@@ -812,6 +929,10 @@ class MiniMaxH3EncodeImageReferences(io.ComfyNode):
             if min(out_w, out_h) < 32:
                 raise ValueError(f"explicit width and height must be >= 32; got ({out_w}, {out_h})")
         latent = torch.zeros([1, 24, 1, out_h // 16, out_w // 16], device=mm.intermediate_device())
+        encoded.canvas_latent_hw = (out_h // 16, out_w // 16)
+        if any("moments" in block for block in refs):
+            encoded.report.append(
+                "reference latents: kept as posterior moments; the prompt node draws them from the render's seed")
         return io.NodeOutput(encoded, {"samples": latent}, ui=ui.PreviewText("\n".join(encoded.report)))
 
 
@@ -839,22 +960,41 @@ class MiniMaxH3PromptOnImageReferences(io.ComfyNode):
                     dynamic_prompts=True,
                     tooltip="Finished MiniMax-H3-Image edit description referencing <Picture 1>, <Picture 2>, ...",
                 ),
+                io.Noise.Input(
+                    "noise",
+                    optional=True,
+                    tooltip=(
+                        "The sampler's noise (Random Noise). Only its seed is read, and only when the pictures "
+                        "were encoded with reference_latent = 'release': their latents are then drawn from this "
+                        "seed, as MiniMax's servers draw them. Left unwired, they are drawn from ComfyUI's fixed seed."
+                    ),
+                ),
             ],
             outputs=[io.Conditioning.Output(display_name="positive")],
         )
 
     @classmethod
-    def execute(cls, encoded_references, prompt):
+    def execute(cls, encoded_references, prompt, noise=None):
         if not isinstance(encoded_references, EncodedReferences):
             raise TypeError("encoded_references must come from MiniMax H3 Encode Image References")
         if not prompt or not prompt.strip():
             raise ValueError("MiniMaxH3PromptOnImageReferences needs a non-empty prompt")
         t0 = time.perf_counter()
         conditioning = condition_prompt(encoded_references, normalize_prompt(prompt))
-        if encoded_references.ref_blocks:
-            conditioning = node_helpers.conditioning_set_values(
-                conditioning, {"minimax_refs": encoded_references.ref_blocks}
-            )
+        blocks = encoded_references.ref_blocks
+        if any("moments" in block for block in blocks):
+            from comfy.ldm.minimax.vae import IMAGE_ENCODE_SEED
+
+            seed = getattr(noise, "seed", None)
+            if seed is None:
+                logger.info("[h3-ref] no noise wired: reference latents drawn from core's fixed seed")
+                seed = IMAGE_ENCODE_SEED
+            kept = [block for block in blocks if "moments" in block]
+            canvas = encoded_references.canvas_latent_hw or (kept[0]["latent_h"], kept[0]["latent_w"])
+            drawn = iter(sample_release_references(kept, seed, canvas))
+            blocks = [next(drawn) if "moments" in block else block for block in blocks]
+        if blocks:
+            conditioning = node_helpers.conditioning_set_values(conditioning, {"minimax_refs": blocks})
         logger.info(
             "[h3-ref] image prompt on %d kept picture span(s), %d tokens ahead of it: %.1f s",
             len(encoded_references.spans),

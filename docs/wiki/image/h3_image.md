@@ -1,6 +1,6 @@
 # MiniMax-H3-Image: MiniMax's own still-image model
 
-Last updated: 2026-11-13 (the graphs load the bf16 text encoder; "Edit references, point by point" added under "What the vendor's servers do"); 2026-11-12.
+Last updated: 2026-11-13 (the edit graphs use the pack's reference nodes with the servers' crop and draw; the graphs load the bf16 text encoder; "Edit references, point by point" added under "What the vendor's servers do"); 2026-11-12.
 
 MiniMax-H3-Image makes a picture from text, or edits one or more pictures, on
 one checkpoint, in six steps with no guidance. It is a different model from
@@ -155,8 +155,11 @@ Comfy-Org's shipped templates in four places:
    the bottom of the working range without a floor guard.
 3. **A picture being edited reaches the model untouched.** The edit template
    resamples it first. The vendor's pipeline keeps a reference's own pixels
-   whenever its short side is within bounds, and core's node already does the
-   bounding. Note that core's `MiniMaxH3ImageConditioning` declares
+   whenever its short side is within bounds. Core's node does the bounding but
+   resamples such a picture to the grid; since 2026-11-13 an edit's pictures go
+   through this pack's `MiniMaxH3EncodeImageReferences`, which keeps them
+   ("Edit references, point by point" below). Note that core's
+   `MiniMaxH3ImageConditioning`, still the text-to-image node, declares
    `io.Autogrow.TemplatePrefix(prefix="image_")` (`0`-indexed `images.image_0..N-1`
    in API JSON; `1`-indexed `images.image_1` works over direct `/prompt` HTTP
    posts because `_image_refs` sorts by trailing integer, but ComfyUI's browser
@@ -269,11 +272,49 @@ The two servers agree with each other on every row.
 | encoder precision | fp32 in sglang (the same `_encode_keyframe_cond_rows`); vllm-omni's encoder weights not read | whatever the VAE was loaded as | the same; the shipped edit graphs put `MiniMaxH3VAEPrecision(encoder="fp32")` ahead of either node |
 
 So for this model core is close to the servers, which was not true of H3
-video's references. Four rows differ (bold). The pack's node closes one of
-them, the crop, and only when `in_bounds_align` is `"crop_32"`. No shipped
-graph sets that: the plain edit graphs use core's node, and
-`workflows/build_workflows.py::_wire_edit_guidance` swaps the pack's node in
-without naming `in_bounds_align`, so it runs at the default.
+video's references. Four rows differ (bold).
+
+**Since 2026-11-13 the edit graphs close three of them (the owner's
+decision).** Every `h3_image_edit` graph, plain or with edit guidance, sends
+its pictures through this pack's two nodes with the servers' values written
+out (`workflows/h3_config.py::H3_IMAGE_REFERENCES`,
+`workflows/build_workflows.py::_split_h3_image_references`); text to image has
+no pictures and keeps core's node. The pack's column above is how the node
+stood when the table was read; the same day its defaults became the servers'
+(`reference_encode.py::H3_IMAGE_ALIGN_DEFAULT`,
+`H3_IMAGE_REFERENCE_LATENT_DEFAULT`), with core's ways one choice away. What
+the edit graphs set, and the node now defaults to:
+
+1. **The crop**, `in_bounds_align="crop_32"`. The VAE's copy of a picture
+   inside the bounds is cut from the top left to the VAE's 16-pixel cell,
+   encoded, and its latent cut to an even count of cells
+   (`reference_encode.py::_prepare_h3_image_ref`, `_even_cells`), the servers'
+   order: the encoder sees the last odd cell and the model does not. Until
+   this change `crop_32` cut the pixels to 32 first, which keeps the same
+   picture area but is not the same latent at the cut edge.
+2. **The draw follows the seed**, `reference_latent="release"`. The encode
+   node keeps each picture's posterior moments, taken through core's own
+   `VAE.encode` with only the model's `encode` swapped for the length of the
+   call (`_vae_returns_moments`). The prompt node reads the seed from the
+   graph's `RandomNoise`, wired into its `noise` input, and draws from one
+   generator in the servers' order: the target noise, each reference's
+   anchor noise, then each reference's sample (`sample_release_references`).
+   The first two draws only move the stream; this graph's own target and
+   anchor noise still come from `RandomNoise` and the model. So a reference
+   changes with the seed as it does on the servers, and a same-seed render
+   still does not match theirs. The moments are kept on the encode node, so
+   a new seed or a new prompt does not encode the pictures again.
+3. **The rounding.** That sample is rounded to fp16 before it is normalized.
+
+Checked on the real image VAE, on CPU, with one random picture
+(`bench/check_reference_encode.py` holds the same arithmetic on a stand-in):
+the kept moments sampled at core's seed are core's latent exactly, and the
+release draw differs from core's by about the posterior's own width, which
+on that picture is a few hundredths of the latent's spread. Not rendered.
+
+The fourth row, the noise mixed into each reference at its conditioning
+level, is in the model's code (`_cond_video_rows`), not a node. Matching it
+means a runtime patch, and nothing here shows it is worth one.
 
 The crop row is the one a picture's own size decides. It applies when a
 picture's short edge is already inside the VAE bounds and its sides are not
@@ -282,28 +323,15 @@ core resamples the whole picture by a fraction of a grid cell, the servers
 trim the right and bottom edges and leave every remaining pixel as it was. A
 picture outside the bounds is resampled by all four.
 
-What the pack's node would need to match both servers, and where each
-change lives:
-
-1. `in_bounds_align="crop_32"`, as the default or written by the builder.
-   Nothing else in the sizing differs: trimming to the 32-pixel grid from the
-   top left is the servers' 16-pixel crop followed by their even latent grid.
-2. Sample the reference latent itself, from the render's seed, instead of
-   calling `vae.encode`: a seed input on the node, the encoder's moments, and
-   a generator at that seed. This makes the sample follow the seed as the
-   servers' does. It cannot make a same-seed render match theirs: they draw
-   target noise, anchor noise and posterior samples from one generator in that
-   order, and here the first two are drawn by `RandomNoise` and by
-   `_cond_video_rows`, outside any conditioning node.
-3. Round that sample to fp16 before normalizing. One line once the node
-   samples for itself.
-4. The anchor-noise row is in the model, not a node. Matching it means a
-   runtime patch of `_cond_video_rows`, as the pack's other model patches are
-   done; nothing here shows it is worth one.
-
-With 1 to 3 done the pack's node would differ from core's in exactly those
-three ways, plus the split it already has (pictures encoded once, any number
-of prompts put on top).
+**A lead this read turned up, not acted on.** vllm-omni's recipe says an edit
+stays best aligned with its reference when the reference is given at the
+canvas's pixel size and that same size is requested
+(`coderef/vllm-omni/recipes/MiniMaxAI/MiniMax-H3-Image-H200.md`). The edit
+graphs here do not do that: the output is `H3_IMAGE_MEGAPIXELS` at the
+picture's shape, while the model's copy of the picture is capped at
+`IMAGE_REF_VAE_MAX_SHORT_EDGE`, so the output is several times the
+reference's area. Whether that mismatch is behind edits that change a
+subject's scale has not been tested.
 
 The conditioning level itself is the same number in core and sglang
 (`comfy/ldm/minimax/model.py::VISUAL_COND_TIMESTEP`, sglang
@@ -406,12 +434,11 @@ Everything below is strictly optional and is **not** wired into the four default
   reference latents while exposing `qwen_short_edge` (`1024`), `vae_min_short_edge`
   (`1024`), `vae_max_short_edge` (`2048` default, configurable up to `8192` for
   ultra-sharp 4K edits), `in_bounds_align` (`"resize_32"` vs vendor `"crop_32"`),
-  and `use_vae` (`True` vs encoder-only `False`). When `edit_guidance` is wired onto
-  an `h3_image_edit` graph (`workflows/build_workflows.py::_wire_edit_guidance` and Studio),
-  `MiniMaxH3ImageConditioning` at node `5` automatically splits into `1x`
-  `MiniMaxH3EncodeImageReferences(canvas="explicit")` (`132`) feeding `2x`
-  `MiniMaxH3PromptOnImageReferences` (`5`, `131`), encoding vision and FP32 VAE
-  reference latents once across both edit-guidance branches.
+  and `use_vae` (`True` vs encoder-only `False`). Since 2026-11-13 every
+  `h3_image_edit` graph is built on them (`MiniMaxH3EncodeImageReferences` at `132`,
+  `MiniMaxH3PromptOnImageReferences` at `5`; "Edit references, point by point" above),
+  and edit guidance adds a second prompt node (`131`) on the same encode
+  (`workflows/build_workflows.py::_wire_edit_guidance` and Studio).
 - **Exact LoRA branch loading (`lora_branch.py::MiniMaxH3LoRABranch`):**
   `MiniMaxH3LoRABranch` supports `MiniMaxH3ImageModel` (`1`-stream, pruned `t_dim=8`
   AdaLN, `pdd_steps=6` `576`-row `final_layer.video_out`), cleanly skips audio-only

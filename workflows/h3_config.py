@@ -1736,6 +1736,14 @@ PH3_IMAGE_EDIT_MAX_NEW_TOKENS = 1536
 H3_IMAGE_UNET = "minimax_h3_image_pruned_int8_convrot.safetensors"
 H3_IMAGE_UNET_BF16 = "minimax_h3_image_bf16.safetensors"
 H3_IMAGE_ENCODER = ENCODER_BF16
+#: How an edit's pictures are prepared (`reference_encode.py::MiniMaxH3EncodeImageReferences`).
+#: **Inherited** from the release's two servers, sglang and vllm-omni, which agree
+#: (`docs/wiki/image/h3_image.md`, "Edit references, point by point"): a picture already inside
+#: the size bounds is cropped to the grid, not resampled, and its latent is drawn from the
+#: render's seed and rounded to fp16. Owner decision 2026-11-13: the edit graphs follow the
+#: servers here, where core's node resamples and draws at a fixed seed. These are also the
+#: node's own defaults; the graphs write them out so a graph says what it runs.
+H3_IMAGE_REFERENCES = {"in_bounds_align": "crop_32", "reference_latent": "release"}
 H3_IMAGE_VAE = "minimax_h3_image_vae_fp16.safetensors"
 H3_IMAGE_VAE_FP32 = "minimax_h3_image_vae_fp32.safetensors"
 H3_IMAGE_SAMPLER = "euler"

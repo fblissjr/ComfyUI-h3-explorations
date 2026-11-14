@@ -252,6 +252,13 @@ DECLARED: dict[tuple[str, str], tuple] = {
     ("MiniMaxH3Conditioning", "canvas"):
         ("ARM", "'explicit' where the arm pins width/height rather than taking "
                 "the resolution node's shape"),
+    ("MiniMaxH3EncodeImageReferences", "canvas"):
+        ("HOUSE", "'explicit' on every MiniMax-H3-Image edit graph: the canvas is "
+                  "MiniMaxH3ImageSize's (megapixels and a shape, with the vendor's "
+                  "generation floor), wired into width and height, where the node's "
+                  "default takes the first picture's size "
+                  "(build_workflows._split_h3_image_references)",
+         "explicit"),
     ("MiniMaxH3Conditioning", "width"):
         ("ARM", "the arm's canvas, set with canvas='explicit'"),
     ("MiniMaxH3Conditioning", "length"):

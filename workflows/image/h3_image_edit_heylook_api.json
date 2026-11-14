@@ -79,7 +79,7 @@
         0
       ],
       "latent_image": [
-        "5",
+        "132",
         1
       ]
     }
@@ -175,7 +175,24 @@
     }
   },
   "5": {
-    "class_type": "MiniMaxH3ImageConditioning",
+    "class_type": "MiniMaxH3PromptOnImageReferences",
+    "inputs": {
+      "encoded_references": [
+        "132",
+        0
+      ],
+      "prompt": [
+        "14",
+        0
+      ],
+      "noise": [
+        "6",
+        0
+      ]
+    }
+  },
+  "132": {
+    "class_type": "MiniMaxH3EncodeImageReferences",
     "inputs": {
       "clip": [
         "2",
@@ -183,10 +200,6 @@
       ],
       "vae": [
         "47",
-        0
-      ],
-      "prompt": [
-        "14",
         0
       ],
       "width": [
@@ -197,7 +210,10 @@
         "4",
         1
       ],
-      "images.image_0": [
+      "canvas": "explicit",
+      "in_bounds_align": "crop_32",
+      "reference_latent": "release",
+      "images.image_1": [
         "15",
         0
       ]

@@ -119,7 +119,7 @@ from h3_config import (  # noqa: E402
     PH3_IMAGE_STEPS, PH3_IMAGE_SAMPLER, PH3_IMAGE_SHIFT, PH3_IMAGE_MANUAL_SIGMAS,
     PH3_IMAGE_CANVAS_8MP,
     PH3_IMAGE_T2I_MAX_NEW_TOKENS, PH3_IMAGE_EDIT_MAX_NEW_TOKENS,
-    H3_IMAGE_UNET, H3_IMAGE_UNET_BF16, H3_IMAGE_ENCODER, H3_IMAGE_VAE, H3_IMAGE_SAMPLER, H3_IMAGE_MANUAL_SIGMAS,
+    H3_IMAGE_UNET, H3_IMAGE_UNET_BF16, H3_IMAGE_ENCODER, H3_IMAGE_REFERENCES, H3_IMAGE_VAE, H3_IMAGE_SAMPLER, H3_IMAGE_MANUAL_SIGMAS,
     H3_IMAGE_MEGAPIXELS, H3_IMAGE_ASPECT_OF_PICTURE, HEYLOOK_DEFAULT_BASE_URL,
     GUIDE_LATENT_NODE, GUIDE_CHARACTER_SWAP_LORA, GUIDE_TASK_LORAS,
     SOUND_GUIDE_ISLANDS, SOUND_GUIDE_AUDIO_RELEASE_END, SOUND_GUIDE_EDIT_GUIDANCE,
@@ -2784,6 +2784,42 @@ def _edit_guidance_text(name: str) -> str:
         encoding="utf-8").strip()
 
 
+def _split_h3_image_references(g: dict) -> None:
+    """Node 5, core's `MiniMaxH3ImageConditioning` with pictures, becomes this pack's two nodes.
+
+    Node 132 (`MiniMaxH3EncodeImageReferences`) takes node 5's encoder, VAE, canvas and pictures
+    (core's `0`-based `images.image_0..N-1` renumbered onto the node's `1`-based names) with
+    `H3_IMAGE_REFERENCES` written out, and gives the empty latent; node 5
+    (`MiniMaxH3PromptOnImageReferences`) puts the prompt on top and reads the seed from the
+    graph's `RandomNoise`, so a reference's latent follows the render's seed. Consumers of
+    `[5, 1]` read `[132, 1]`.
+    """
+    cond = g["5"]
+    img_keys = sorted((k for k in cond["inputs"] if k.startswith("images.")),
+                      key=lambda k: int(k.rsplit("_", 1)[-1]))
+    if cond["class_type"] != "MiniMaxH3ImageConditioning" or not img_keys:
+        raise SystemExit("_split_h3_image_references needs MiniMaxH3ImageConditioning with pictures at node 5")
+    noise = [nid for nid, node in g.items() if node["class_type"] == "RandomNoise"]
+    if len(noise) != 1:
+        raise SystemExit(f"_split_h3_image_references reads the seed from one RandomNoise; this graph has {len(noise)}")
+    enc_inputs: dict[str, Any] = {
+        k: v for k, v in cond["inputs"].items()
+        if k != "prompt" and not k.startswith("images.")
+    }
+    enc_inputs["canvas"] = "explicit"
+    enc_inputs.update(H3_IMAGE_REFERENCES)
+    for idx, k in enumerate(img_keys, start=1):
+        enc_inputs[f"images.image_{idx}"] = cond["inputs"][k]
+    g["132"] = {"class_type": "MiniMaxH3EncodeImageReferences", "inputs": enc_inputs}
+    g["5"] = {"class_type": "MiniMaxH3PromptOnImageReferences",
+              "inputs": {"encoded_references": ["132", 0], "prompt": cond["inputs"]["prompt"],
+                         "noise": [noise[0], 0]}}
+    for node in g.values():
+        for key, val in node["inputs"].items():
+            if val == ["5", 1]:
+                node["inputs"][key] = ["132", 1]
+
+
 def _wire_edit_guidance(g: dict, prompt: str, spec: dict) -> None:
     """Turn a one-prompt graph into an edit-guidance graph, in place.
 
@@ -2795,11 +2831,11 @@ def _wire_edit_guidance(g: dict, prompt: str, spec: dict) -> None:
 
     With `MiniMaxH3ReferenceConditioning` at node 5 the references are encoded once: node 132 takes node
     5's encoder, VAEs, reference chain, canvas and policies, node 5 and node 131 each put a prompt on top,
-    and the empty latent comes from node 132. Likewise, when `MiniMaxH3ImageConditioning` at node 5 carries
-    `images.image_0..N-1` (`h3_image_edit`), node 132 becomes `MiniMaxH3EncodeImageReferences` (`canvas="explicit"`,
-    remapping `0`-based `images.image_0..N-1` onto `1`-based `images.image_1..N`), nodes 5 and 131 become
-    `MiniMaxH3PromptOnImageReferences`, and consumers of `[5, 1]` read `[132, 1]`; when `MiniMaxH3ImageConditioning`
-    has no pictures (`h3_image_t2i`), node 5 is duplicated onto node 131 with the edited prompt.
+    and the empty latent comes from node 132. A MiniMax-H3-Image edit (`h3_image_edit`) arrives already split
+    that way by `_split_h3_image_references`: node 132 is `MiniMaxH3EncodeImageReferences`, node 5 is
+    `MiniMaxH3PromptOnImageReferences`, and node 131 is node 5 again with the edited prompt, on the same
+    pictures and the same seed. When `MiniMaxH3ImageConditioning` has no pictures (`h3_image_t2i`), node 5 is
+    duplicated onto node 131 with the edited prompt.
     """
     unknown = sorted(
         set(spec)
@@ -2864,31 +2900,14 @@ def _wire_edit_guidance(g: dict, prompt: str, spec: dict) -> None:
             for key, val in node["inputs"].items():
                 if val == ["5", 1]:
                     node["inputs"][key] = ["132", 1]
-    elif cond["class_type"] == "MiniMaxH3ImageConditioning":
-        img_keys = sorted(
-            (k for k in cond["inputs"] if k.startswith("images.")),
-            key=lambda k: int(k.rsplit("_", 1)[-1]),
-        )
-        if img_keys:
-            enc_inputs: dict[str, Any] = {
-                k: v for k, v in cond["inputs"].items()
-                if k != "prompt" and not k.startswith("images.")
-            }
-            enc_inputs["canvas"] = "explicit"
-            for idx, k in enumerate(img_keys, start=1):
-                enc_inputs[f"images.image_{idx}"] = cond["inputs"][k]
-            g["132"] = {"class_type": "MiniMaxH3EncodeImageReferences", "inputs": enc_inputs}
-            g["5"] = {"class_type": "MiniMaxH3PromptOnImageReferences",
-                      "inputs": {"encoded_references": ["132", 0], "prompt": written}}
-            g["131"] = {"class_type": "MiniMaxH3PromptOnImageReferences",
-                        "inputs": {"encoded_references": ["132", 0], "prompt": ["130", 0]}}
-            for node in g.values():
-                for key, val in node["inputs"].items():
-                    if val == ["5", 1]:
-                        node["inputs"][key] = ["132", 1]
-        else:
-            g["131"] = {"class_type": cond["class_type"], "inputs": dict(cond["inputs"], prompt=["130", 0])}
-            cond["inputs"]["prompt"] = written
+    elif cond["class_type"] in ("MiniMaxH3ImageConditioning", "MiniMaxH3PromptOnImageReferences"):
+        if any(k.startswith("images.") for k in cond["inputs"]):
+            # a graph that still carries core's node with pictures: encode them once, as the edit graphs do
+            _split_h3_image_references(g)
+            cond = g["5"]
+        # the edited prompt is encoded exactly as the written one: same node, same inputs, on the same pictures
+        g["131"] = {"class_type": cond["class_type"], "inputs": dict(cond["inputs"], prompt=["130", 0])}
+        cond["inputs"]["prompt"] = written
     elif cond["class_type"] in ("MiniMaxH3Conditioning", "MiniMaxH3ReferenceToVideo", "MiniMaxH3PH3ImageConditioning"):
         g["131"] = {"class_type": cond["class_type"], "inputs": dict(cond["inputs"], prompt=["130", 0])}
         cond["inputs"]["prompt"] = written
@@ -3165,12 +3184,16 @@ def build_h3_image_api(
       the model card recommends. An edit takes its picture's shape. Requests below 4.0 megapixels
       sample on the vendor's 4.0-megapixel DiT canvas floor (`width`, `height`) and Lanczos-downscale
       after `VAEDecode` via `MiniMaxH3ImageDownscale` (`target_width`, `target_height`).
-    - **A picture being edited reaches the conditioning node untouched.** The edit template
-      resamples it to 4 megapixels first; the model reads a reference at its own size, and core's
-      node already bounds it the way the vendor's pipeline does. Note that core's
-      `MiniMaxH3ImageConditioning` declares `io.Autogrow.TemplatePrefix(prefix="image_")`
-      (0-indexed `images.image_0..N-1`), whereas `MiniMaxH3ImagePromptExpander` declares
-      `io.Autogrow.TemplateNames` (1-indexed `images.image_1..N`).
+    - **A picture being edited reaches the conditioning nodes untouched, and they are this
+      pack's.** The edit template resamples it to 4 megapixels first; the model reads a reference
+      at its own size. An edit's pictures go through `MiniMaxH3EncodeImageReferences` (node 132)
+      and `MiniMaxH3PromptOnImageReferences` (node 5) with `H3_IMAGE_REFERENCES` written out
+      (`_split_h3_image_references`): core's `MiniMaxH3ImageConditioning` bounds a picture as the
+      vendor's servers do but resamples one already inside the bounds and draws its latent at a
+      fixed seed, where they crop it and follow the request's seed (`docs/wiki/image/h3_image.md`,
+      "Edit references, point by point"). Text to image keeps core's node. Core's node names its
+      pictures from 0 (`images.image_0..N-1`); this pack's nodes and `MiniMaxH3ImagePromptExpander`
+      name them from 1.
     - **The default VAE (`PH3_IMAGE_VAE`) pairs the identical H3 encoder with P-H3-Image's larger
       36-layer, 32-head (`dim=2048`) still-image decoder.** Both `PH3ImageVAE` and
       `MiniMaxH3ImageVAE` inherit `H3ImageVAE.encode` with bit-for-bit identical fp32 encoder +
@@ -3295,6 +3318,10 @@ def build_h3_image_api(
         cond_inputs["prompt"] = ["14", 0]
         g["4"]["inputs"]["shape_from_expander"] = ["14", 1]
     g["5"] = {"class_type": "MiniMaxH3ImageConditioning", "inputs": cond_inputs}
+    if is_edit:
+        # An edit's pictures go through this pack's nodes, prepared as the release's servers prepare
+        # them (`H3_IMAGE_REFERENCES`). Text to image has no pictures and keeps core's node.
+        _split_h3_image_references(g)
     model_src: list[Any] = ["1", 0]
     if attention is not None:
         g["58"] = {"class_type": "ModelAttentionBackend",
