@@ -242,3 +242,103 @@ What the crops show (a session's look, listed for the owner's eye, not a verdict
   large enough that no decoder broke it.)
 - The encoded-picture ranking does not carry over to DiT latents (`t1` first on Table 6, worst on the renders), so
   Tables 1 to 6 rank decoders on encoded pictures only.
+
+## 8. A bank of real latents, and every candidate decoder on it
+
+The encoded-picture tables above misranked `t1` (section 7), so the decoders were judged again on twelve real
+MiniMax-H3-Image latents: two per failure type (shadows, small lettering, fine texture, faces, smooth gradients,
+hard edges). The shipped t2i and edit graphs at 16 MP, each with its sampler's output saved by `SaveLatent` and no
+decode. Captions and seeds: `data/h3_image_vae_2026-11-14/latent_bank/prompts.json` (nine new, written to the release
+expander's rules; the food table, the bank's clockmaker and the shipped podcast edit reused). Latents: ComfyUI's output folder,
+`latents/vae_bank_2026-11-14/`.
+
+Decoded on the card (throwaways `decode_bank.py` and `decode_extra.py` beside the prompts, logs beside them):
+
+- `stock`, `p-h3`, and four in-memory merges, all in bf16. `P+a` is P-H3's decoder plus a share `a` of `t1`'s change
+  from the video decoder, run as P-H3 runs. `T+a` is the same weights run as `t1` runs. The one-frame output layer is
+  frame slice 3 of the video layout; P-H3's own output layer is that slice, fine-tuned (relative change 0.09 against
+  more than 1.1 for the other three slices). `t1` also retrained only slice 3.
+- `p-h3-int8`, `lynnreal` (`minimax_h3_lynnreal_light_vae_int8_convrot`, a 26-block pruned and distilled video
+  decoder) and `video`, at core's native dtype. `lynnreal` and `video` decode through core's still path (a clip of
+  copies).
+- `ph3LP+vidHP`, a derived column: a Gaussian low-pass (sigma 1.5 px) of `p-h3` plus the high-pass remainder of
+  `video`.
+
+There is no ground truth for a sampled latent, so Table 7 measures how far each decoder sits from `p-h3`, not
+quality. The full-resolution decodes were kept only for the session, in scratch space.
+
+### Table 7. PSNR of each decoder against p-h3 on real latents, full size / shrunk to a 1600 px long edge (dB)
+
+| latent | stock | p-h3-int8 | P+0.25 | P+0.5 | T+0.25 | T+0.5 | video | lynnreal | ph3LP+vidHP |
+|---|---|---|---|---|---|---|---|---|---|
+| `clockmaker` | 31.6 / 37.0 | 50.4 / 51.3 | 34.4 / 34.5 | 27.7 / 27.8 | 32.1 / 33.6 | 33.1 / 34.3 | 31.8 / 36.7 | 34.6 / 39.5 | 33.5 / 44.9 |
+| `edges_tiles` | 29.1 / 33.7 | 48.5 / 49.5 | 34.4 / 34.8 | 27.4 / 27.7 | 29.1 / 30.5 | 32.2 / 33.9 | 29.9 / 34.2 | 32.4 / 36.2 | 31.5 / 40.5 |
+| `face_portrait` | 31.4 / 36.4 | 50.7 / 51.5 | 34.0 / 34.1 | 27.6 / 27.8 | 33.1 / 34.6 | 32.6 / 33.6 | 32.0 / 37.0 | 34.5 / 39.2 | 33.6 / 44.9 |
+| `food_table` | 27.2 / 32.1 | 47.4 / 49.1 | 33.6 / 34.0 | 26.8 / 27.1 | 27.6 / 29.3 | 30.6 / 32.9 | 27.5 / 32.0 | 30.1 / 34.4 | 29.5 / 39.3 |
+| `gradient_dusk` | 40.6 / 44.1 | 52.5 / 52.5 | 33.6 / 33.6 | 26.6 / 26.6 | 36.8 / 37.1 | 32.5 / 32.6 | 39.2 / 41.7 | 42.6 / 46.2 | 42.9 / 53.1 |
+| `gradient_wall` | 40.1 / 44.2 | 52.4 / 52.4 | 34.0 / 34.1 | 26.8 / 26.9 | 36.6 / 37.2 | 32.4 / 32.6 | 39.3 / 42.6 | 42.6 / 47.1 | 41.9 / 51.1 |
+| `podcast_edit` | 37.2 / 40.6 | 52.0 / 52.1 | 34.5 / 34.6 | 28.8 / 28.8 | 36.2 / 36.9 | 33.8 / 34.0 | 36.6 / 38.9 | 40.3 / 43.7 | 40.0 / 47.1 |
+| `shadow_alley` | 29.6 / 34.4 | 49.3 / 50.8 | 35.3 / 35.6 | 29.5 / 29.8 | 31.6 / 33.6 | 32.5 / 34.0 | 30.2 / 34.8 | 32.8 / 37.2 | 32.2 / 42.3 |
+| `shadow_study` | 33.7 / 38.8 | 52.4 / 53.0 | 35.8 / 35.9 | 30.3 / 30.4 | 36.9 / 39.0 | 34.0 / 34.7 | 34.0 / 37.9 | 37.0 / 42.3 | 36.3 / 48.0 |
+| `text_bookshop` | 31.4 / 35.8 | 49.4 / 50.4 | 33.9 / 34.2 | 27.2 / 27.4 | 29.0 / 30.5 | 32.5 / 34.3 | 31.4 / 35.0 | 33.9 / 37.6 | 33.9 / 43.5 |
+| `text_menu` | 32.2 / 36.8 | 50.3 / 51.2 | 34.4 / 34.7 | 27.8 / 28.0 | 29.9 / 31.5 | 32.6 / 34.1 | 31.9 / 35.7 | 34.9 / 39.1 | 34.3 / 44.1 |
+| `texture_knit` | 30.1 / 35.0 | 49.4 / 50.4 | 33.7 / 33.9 | 26.5 / 26.6 | 29.3 / 30.6 | 31.6 / 33.1 | 29.6 / 33.7 | 32.8 / 37.5 | 31.7 / 41.7 |
+
+### Table 8. Mean luma shift against p-h3 on real latents (levels of 255)
+
+| latent | stock | P+0.25 | P+0.5 | T+0.25 | T+0.5 | video | lynnreal |
+|---|---|---|---|---|---|---|---|
+| `clockmaker` | -0.21 | +4.38 | +9.50 | -2.51 | +3.89 | -1.79 | +0.32 |
+| `edges_tiles` | +0.73 | +4.19 | +9.70 | -3.89 | +3.09 | -1.78 | +1.10 |
+| `face_portrait` | +0.08 | +4.73 | +9.72 | -1.45 | +4.59 | -1.56 | +0.75 |
+| `food_table` | +0.24 | +4.53 | +10.14 | -4.21 | +2.85 | -2.15 | +0.72 |
+| `gradient_dusk` | +0.01 | +5.14 | +11.62 | -2.30 | +5.58 | -1.52 | +0.02 |
+| `gradient_wall` | +0.30 | +4.81 | +11.26 | -2.30 | +5.59 | -1.20 | -0.04 |
+| `podcast_edit` | -0.65 | +4.57 | +8.83 | -0.39 | +4.58 | -1.86 | +0.42 |
+| `shadow_alley` | -0.36 | +3.96 | +7.65 | -0.60 | +3.63 | -1.90 | +0.79 |
+| `shadow_study` | -1.29 | +3.92 | +7.35 | +0.63 | +4.39 | -2.27 | +0.34 |
+| `text_bookshop` | -0.20 | +4.46 | +9.82 | -3.75 | +2.94 | -2.01 | +0.62 |
+| `text_menu` | -0.30 | +4.37 | +9.41 | -2.82 | +3.49 | -2.21 | +0.29 |
+| `texture_knit` | +0.06 | +4.72 | +11.15 | -4.36 | +3.82 | -2.30 | -0.05 |
+
+Views: `view_<latent>.jpg` (every column, whole frame, 1600 px long edge); `sheet_<latent>.png` (the first six
+columns, darkest and most detailed 512 px windows); `crop1x_<latent>.png` (`stock`, `p-h3`, `lynnreal`, `video` at
+full size); `phone_<latent>.jpg` for four latents (`stock` against `p-h3` at an iPhone's screen width, labelled A and
+B, key in `phone_key.txt`), for the owner's eye.
+
+Readings:
+
+- **`p-h3-int8` decodes the same as `p-h3`**: 47 to 53 dB at full size on every latent. This mixes int8 and fp16
+  against a bf16 cast; Gemini measured the same parity on encoded pictures.
+- **The merges shift the whole picture's brightness** (Table 8): `P+0.25` by about +4 levels, `P+0.5` by about +7 to
+  +12, `T+0.5` by about +3 to +6, `T+0.25` by up to -4, on every latent. That is why their differences from
+  `p-h3` in Table 7 do not shrink when the picture is shrunk. They are out.
+- **`lynnreal` smears real DiT output as `t1` does** (`crop1x_food_table.png`, `crop1x_texture_knit.png`,
+  `crop1x_face_portrait.png`: painterly bread, wavy knit, soft hair). On encoded pictures Gemini found it scored
+  highest of all. It is out.
+- **`video` looks like `stock`** at full size: crisp, with fine grain over texture. `p-h3` is a little softer and
+  cleaner.
+- **`ph3LP+vidHP` is within 39 to 53 dB of `p-h3` once shrunk to 1600 px**: the detail it adds from `video` is gone at
+  viewing size, for two decodes' cost.
+- **`stock` against `p-h3`** differs less once shrunk than at full size on every latent; the two are closest on
+  smooth pictures and furthest apart on fine texture (Table 7). Whether that difference is visible at the owner's viewing sizes is the phone files'
+  question.
+
+## 9. Corrections and credits
+
+- Section 6.2 said the `release` decoder matches no slice of the video decoder. That holds for its transformer
+  blocks. Its `post_quant_conv` was carried over from the video VAE (cosine 0.87 on the weight and 0.99 on the bias,
+  against about 0 for random): found by Gemini, checked here.
+- Gemini's same-day findings, checked here before use: the release image config disables audio
+  (`transformer/config.json`, `"audio_enabled": false`); the DiT's spatial positions are normalized by the picture's
+  area (`coderef/diffusers/.../minimax_h3_image/before_denoise.py::_spatial_position_grid`); `lynnreal` has 26 decoder
+  blocks. Gemini also reported, and these were not re-run here:
+  - moving the video decoder's single-latent time position to P-H3's helps a lot, but stays well behind both the
+    still path and P-H3;
+  - zero-shot pruning of P-H3's late blocks collapses it;
+  - truncating the release decoder's output layer by singular value makes it worse.
+- Training arithmetic, for the page's note on training a decoder: one P-H3 decoder block holds 67,143,680
+  parameters (from `p-h3-image_vae_bf16.safetensors`' shapes), so a 26-block decoder at width 2048 holds about 1.75 B.
+  Full fine-tuning with bf16 weights and gradients, an fp32 master copy and two fp32 Adam moments needs about 26 GiB
+  for those alone, before activations. Gemini's same-day estimate that it would fit on a 24 GB card does not hold for
+  full Adam; LoRA or an 8-bit optimizer would.

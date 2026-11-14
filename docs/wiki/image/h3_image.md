@@ -181,7 +181,8 @@ Comfy-Org's shipped templates in four places:
    keeps the release decoder available).
    The release decoder itself was inspected on 2026-11-14 (weights, config, Comfy-Org's file, core's decode against
    diffusers, vllm-omni and sglang) and nothing was found wrong; the gap is the decoder. Averaging decodes, the H3
-   video decoder and its `t1` fine-tune (which smears real DiT output) do not beat what ships
+   video decoder and its `t1` fine-tune (which smears real DiT output), LynnReal's light decoder and merges do not
+   beat what ships; `PH3_IMAGE_VAE_INT8` decodes real latents the same as `PH3_IMAGE_VAE`
    ([`../research/image/2026-11-14_h3_image_vae_inspection.md`](../research/image/2026-11-14_h3_image_vae_inspection.md)).
 
 Attention is the same as the templates': comfy-kitchen's INT8 attention, named

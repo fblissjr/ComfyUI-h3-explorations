@@ -7,8 +7,9 @@
 - **Answer:** nothing found wrong in any of the four. ComfyUI runs the release decoder the way the release's own
   servers do. What looks bad is the decoder itself, a small ViT that decodes one 256 px tile at a time; P-H3's larger
   decoder, on the same latent, is closer to the picture. Follow-ups the same day (section 8) tried the H3 video
-  decoder, its single-frame fine-tune `t1`, averaging, and real renders: nothing beats what the graphs ship, and no
-  decode node is worth making.
+  decoder, its single-frame fine-tune `t1`, averaging, and real renders; section 9 judged every candidate on twelve
+  real latents. Nothing beats P-H3's decoder, the int8 P-H3 file decodes the same as the bf16 one, and no decode node
+  or merge is worth making.
 - **Numbers:** [`bench/results/2026-11-14_h3_image_vae_tiles.md`](../../../../bench/results/2026-11-14_h3_image_vae_tiles.md).
   This page carries directions and pointers only.
 
@@ -157,6 +158,39 @@ Record section 6. In short:
 
 What would actually move the decode is a decoder trained on what the DiT samples, not on encoded pictures. That is
 training, not a node.
+
+## 9. Every candidate on twelve real latents
+
+Record section 8. Twelve MiniMax-H3-Image latents, two per failure type, sampled once at 16 MP and decoded by every
+candidate:
+
+- **The int8 P-H3 file decodes the same as the bf16 one.** It saves memory at no visible cost.
+- **Merging P-H3 with `t1`** (task arithmetic on the shared video-decoder base) **shifts the whole picture's
+  brightness**, in either way of running it. Out.
+- **LynnReal** (a pruned and distilled 26-block video decoder) **smears real output as `t1` does**, though it scored
+  highest on encoded pictures. Out.
+- **The video decoder looks like the stock image decoder**: crisp, with fine grain over texture. **P-H3 is a little
+  softer and cleaner.**
+- **Splitting the work** (P-H3's coarse layers plus the video decoder's fine detail) **disappears at viewing size**,
+  for two decodes' cost.
+- **Stock against P-H3** differs less once the picture is shrunk to screen size. Whether the difference is visible
+  where the owner looks (a phone, a preview window, the studio app) is the question of the `phone_*.jpg` files.
+
+### A rule this left
+
+**Judge a decoder only on real DiT latents, at the size the pictures are viewed.** Encoded pictures misranked two of
+the candidates: the two that scored highest there, `t1` and LynnReal, smear real output. The latent bank
+(`data/h3_image_vae_2026-11-14/latent_bank/`: the prompts, and decode scripts that read the saved latents) is the
+reusable check.
+
+### If a decoder is ever trained
+
+There is no true picture behind a sampled latent, so training against sampled latents with a teacher's decodes as
+targets can only reproduce the teacher, for example a smaller P-H3, not a better one. To beat P-H3 the targets have
+to be real pictures: encoded photos with noise added to the latents, so the decoder learns the imperfect latents the
+DiT produces. On this card, full fine-tuning of a 26-block decoder at width 2048 does not fit: its weights and
+optimizer state alone need more than the card's memory (record section 9's arithmetic, `docs/wiki/ops/hardware.md`
+for the card). LoRA or an 8-bit optimizer would fit.
 
 ## Pointers
 
