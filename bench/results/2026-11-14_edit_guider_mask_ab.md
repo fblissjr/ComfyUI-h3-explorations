@@ -2,9 +2,9 @@
 
 lane: edit_guidance
 
-Date: 2026-11-14. Code tested: `e89e1554` (`MiniMaxH3EditGuider.mask` in [`../../edit_guidance.py`](../../edit_guidance.py)) on Pika 6-step `t2va`, driven by [`../measure_edit_guider_mask_ab.py`](../measure_edit_guider_mask_ab.py) and [`../_lib/comfy_client.py`](../_lib/comfy_client.py).
+Date: 2026-11-14. Code tested: `e89e1554` (`MiniMaxH3EditGuider.mask` in [`../../edit_guidance.py`](../../edit_guidance.py)) on Pika 6-step `t2va`, driven by [`../measure_edit_guider_mask_ab.py`](../measure_edit_guider_mask_ab.py) and [`../_lib/comfy_client.py`](../_lib/comfy_client.py) (`57d511bb` for the `fs2` follow-up).
 
-*(No `verdict:` yet — generated clips await owner playback under `$H3_OUTPUT_DIR/Video/edit_guider_mask_ab_2026-11-14/`.)*
+*(No `verdict:` yet — generated clips from both `edit_guider_mask_ab_2026-11-14` (`first_step = 1`) and `edit_guider_mask_ab_fs2` (`first_step = 2`) await owner playback under `$H3_OUTPUT_DIR/Video/`.)*
 
 ---
 
@@ -20,7 +20,7 @@ Does masking [`MiniMaxH3EditGuider`](../../edit_guidance.py#L514) with an invert
 - **Mask generation (`sam_mask`):** Single-shot `MiniMaxH3SAM31Corrections` + core `SAM3_VideoTrack(max_objects=4, detect_interval=12, detection_threshold=0.45)` + `SAM3_TrackToMask` on `scout_base`: `124/124` non-zero frames, `2.85%` mean frame area (`3,647,611` foreground pixels across `124` frames vs. `121,471,535` pixels outside the `49x49`-dilated safety margin).
 - **Records:** `data/edit_guider_mask_ab_2026-11-14/ab_summary.json`, `data/edit_guider_mask_ab_2026-11-14/prompts.json`, and `data/edit_guider_mask_ab_2026-11-14/frost_gait_metrics.json` (zero media in `data/`).
 
-*(Note: After analyzing this run, [`../measure_edit_guider_mask_ab.py`](../measure_edit_guider_mask_ab.py) and [`../_lib/comfy_client.py`](../_lib/comfy_client.py) were updated for the candidate `first_step = 2` rerun (`RUN_TAG = "edit_guider_mask_ab_fs2"`, `DEFAULT_FIRST_STEP = 2`, right-hand `"including the tortoise's shell"` clause in `DEFAULT_EDITS`, `h3_prompt_edit` zero-VRAM import, execution-start timeouts, settings-checked `--resume`, multi-phrase `sam_prompt = "tortoise+candle"` with frame-0 per-phrase mask verification, `streams = "independent"`, `audio_scale = 1.0`, and `ImageBlur(..., sigma = 0.45)`); the measurements below reflect the exact `2026-11-14` run parameters above.)*
+*(Note: Subsequent runner hardening in `57d511bb` executed the `edit_guider_mask_ab_fs2` follow-up documented in §4 below; Tables 1–2 and §3 reflect the exact `2026-11-14` (`first_step = 1`) run parameters above.)*
 
 ---
 
@@ -63,12 +63,60 @@ Inspected locally at `$0` API cost via `read_file` on `$H3_OUTPUT_DIR/Video/edit
 
 ---
 
-## 4. Open Questions & Next Candidates Pending Owner Playback
+## 4. Follow-Up Run: `first_step = 2` + `tortoise+candle` + Shell-Snow Clause (`edit_guider_mask_ab_fs2`)
 
-- **Owner playback files:** `$H3_OUTPUT_DIR/Video/edit_guider_mask_ab_2026-11-14/ab_2x2_stack.mp4` (`2x2` labeled stack), `ab_tortoise_crops_f000_f040_f080_f120.png`, and individual `*-audio.mp4` renders.
-- **Hold `max`/`amax` vs. `avg` pooling in [`../../edit_guidance.py`](../../edit_guidance.py#L186-L212) open until playback and the `first_step = 2` rerun:** On this `grow24` arm, `max`/`amax` outward expansion of the edit (`1.0`) eroded `eg_mask_tight`'s rim (`14.30%` `tight_rim` frost vs. `10.57%` in `grow24`) without hurting `grow24`; switching to `avg` would restore `InvertMask` symmetry (`avg(1 - m) == 1 - avg(m)`) at the trade-off of partial edit strength on `1`-cell features and small boundary bleed into `m = 0`. Wait for playback review and the `first_step = 2` rerun before changing `edit_guidance.py`.
-- **Candidate `first_step = 2` rerun (`measure_edit_guider_mask_ab.py` defaults, prepared on disk without running GPU):**
-  - Use a **new `--run-tag`** (`edit_guider_mask_ab_fs2` — never tonight's `edit_guider_mask_ab_2026-11-14`). If passing `--resume` to skip re-rendering `scout_base`, copy **only** `scout_base_00001-audio.mp4` into `$H3_OUTPUT_DIR/Video/edit_guider_mask_ab_fs2/` (`--resume` verifies matching saved graph settings in `data/<run_tag>/prompts.json` before reusing any output, and only accepts an unindexed copied `scout_base` matching the default prompt/geometry/seed).
-  - Settings: `--first-step 2` (`sigma_video = 0.923077`), `--sam-prompt "tortoise+candle"` (checks each `+` phrase's own frame-0 mask non-emptiness and candle-over-shell geometry before uniting), `--streams independent --audio-scale 1.0`, `--blur-sigma 0.45`, and the updated right-hand edit clause `on a quiet city street on an overcast morning -> on a wind-lashed city street in a heavy blizzard with thick snow piled on every surface, including the tortoise's shell, and swirling flakes`.
-  - **Evaluation rule:** Judge mask hold-back **within the new run** (`eg_mask_grow24` against the new `eg_unmasked`, because both `blur_sigma = 0.45` and the shell-snow wording change from tonight's `first_step = 1` run), and judge whether the stride/layout holds against `scout_base`.
-- **Phase C scope ([`../../docs/wiki/next_steps.md`](../../docs/wiki/next_steps.md)):** Wait for owner playback of this `EditGuider.mask` A/B before designing `MiniMaxH3MaskedEncode` / `MiniMaxH3MaskedComposite`.
+Tests whether starting `EditGuider` at `first_step = 2` (`sigma_video = 0.923077`), adding `"candle"` to the tracked subject (`sam_prompt = "tortoise+candle"`), tapering the `GrowMask(24)` buffer with Gaussian `ImageBlur(..., sigma = 0.45)`, decoupling audio (`streams = "independent", audio_scale = 1.0`), and explicitly requesting snow on the shell on the edit side (`", including the tortoise's shell,"`) preserves `scout_base` stride and candle flame while blocking unwanted shell snow — and how much `first_step = 2` costs background blizzard strength on 6-step Pika.
+
+- **Exact run configuration (`edit_guider_mask_ab_fs2`, `57d511bb`):**
+  - Shared baseline: `prompt_bank/t2va_offpath_tortoise.txt`, `1344x768`, `length = 124`, `seed = 730451892`, 6-step Pika `lcm` (`shift = 12.0 / 3.0`), `MiniMaxH3Sol(start_percent = 0.2, dense_blocks = "49", rotate = True, n_evals = 6, n_sparse = 5)`. Reused `scout_base_00001-audio.mp4` (`prompt_id = "reused"`, validated against default prompt, geometry, and seed).
+  - Updated visual edit clause: `on a quiet city street on an overcast morning -> on a wind-lashed city street in a heavy blizzard with thick snow piled on every surface, including the tortoise's shell, and swirling flakes` (same audio clause as §1).
+  - Guidance & contour: `scale = 1.85`, `first_step = 2`, `last_step = 3`, `streams = "independent"`, `audio_scale = 1.0`, `eg_mask_tight = InvertMask(tight_mask)`, `eg_mask_grow24 = GrowMask(24, tapered_corners=True) -> MaskToImage -> ImageBlur(blur_radius=12, sigma=0.45) -> ImageToMask("red") -> InvertMask`.
+- **Multi-phrase SAM mask (`sam_prompt = "tortoise+candle"`, `detection_threshold = 0.45`):**
+  - Separate `SAM3_VideoTrack` + `SAM3_TrackToMask` runs combined via `MaskComposite(add)` (`24.01 s` GPU / `24.21 s` wall): union covers `124/124` frames (`30,930 px` on `f000`, `2.908%` mean frame area), decomposed cleanly into:
+    - `"tortoise"`: `30,358 px` on `f000`, bbox `[312, 601, 635, 759]`, `124/124` nonzero frames, `2.85%` mean frame area (`sam_phrase_0_tortoise_00001.mkv`).
+    - `"candle"`: `577 px` on `f000`, bbox `[459, 547, 472, 606]`, `124/124` nonzero frames, `0.059%` mean frame area, extending above the tortoise carapace on `124/124` frames with `0` stray background frames (`sam_phrase_1_candle_00001.mkv`).
+- **Records:** `data/edit_guider_mask_ab_fs2/ab_summary.json` and `data/edit_guider_mask_ab_fs2/prompts.json` (zero media in `data/`).
+
+### Table 3 — `fs2` Timing, Region MAE vs. `scout_base`, & Audio Levels
+
+At `first_step = 2, last_step = 3` (`edit_guidance.py:377-401`), steps `0..1` run 1-pass `[original]`, steps `2..3` run 2-pass, and steps `4..5` (`eff_v = eff_a = 1.0`) take the 1-pass `[edited]` shortcut for `eg_unmasked` (`8` DiT passes total) while masked runs keep 2 passes (`10` DiT passes total) so `m = 0` remains pinned on `[original]`.
+
+| Arm | DiT Passes | `execution_s` (s) | Wall `elapsed_s` (s) | `full_frame_mae` | `inside_tortoise_mae` | `outside_margin_mae` | Audio `rms_dbfs` | Audio `peak_dbfs` | Audio `>=2.5 kHz` (`hi_2k5_dbfs`) |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| `scout_base` (`reused`) | `—` (`6` ref) | `—` | `0.00` | `0.000` | `0.000` | `0.000` | `-28.83` | `-15.45` | `-45.51` |
+| `sam_mask` (`tortoise+candle`) | `n/a` | `24.01` | `24.21` | `—` | `—` | `—` | `—` | `—` | `—` |
+| `eg_unmasked` (`scale=1.85, fs=2`) | `8` | `99.90` | `100.62` | `18.794` | `27.922` | `18.359` | `-32.68` | `-16.97` | `-45.83` |
+| `eg_mask_tight` (`InvertMask`) | `10` | `80.10` | `81.09` | `18.270` | `20.513` | `18.034` | `-32.64` | `-17.23` | `-45.86` |
+| `eg_mask_grow24` (`GrowMask(24)+Blur(0.45)`) | `10` | `89.61` | `90.10` | `17.886` | `11.977` | `18.060` | `-32.75` | `-16.48` | `-46.06` |
+
+### Table 4 — `fs2` Within-Run Hold-Back vs. `eg_unmasked`, Stride vs. `scout_base`, & Candle Persistence
+
+Because `fs2` changes `DEFAULT_EDITS` (adding `", including the tortoise's shell,"`) and `blur_sigma` (`0.45`), mask hold-back is judged within-run against `eg_unmasked` while stride/candle fidelity is judged against `scout_base`. On the `"tortoise+candle"` union mask, `15x15` erosion (`eroded_core`) strips the thin white candle wax shaft into `tight_rim` (raising union `tight_rim` `frost >= 185` to `4.473–5.355%` across all arms including `scout_base`); on `sam_phrase_0_tortoise` alone, `tight_rim` `frost >= 185` is `0.237%` (`scout_base`), `0.604%` (`eg_unmasked`), `0.195%` (`eg_mask_tight`), and `0.444%` (`eg_mask_grow24`), with `tortoise`-only dark centroid shift `6.37 / 12.84`, `6.40 / 11.73`, and `5.78 / 9.13 px` (mean / max).
+
+| Arm | `eroded_core` Luma Mean / `p95` (`frost >=185` %) | `eroded_core` `MAE vs unmasked` / `vs scout` | Union `tight_rim` `frost` % (`tortoise`-only %) | `annulus_24px` `snow` % | `outside_49px` `snow` % | Dark Centroid Shift Mean / Max (px) | Above-Shell Candle Active (`mean warm px`) |
+|---|---|---:|---:|---:|---:|---:|---|
+| `scout_base` | `84.73` / `151.0` (`0.220%`) | `27.128` / `0.000` | `4.928%` (`0.237%`) | `0.284%` | `9.843%` | `0.00` / `0.00` | `123/124` (`36.1`) |
+| `eg_unmasked` | `77.01` / `156.0` (`0.563%`) | `0.000` / `27.128` | `4.473%` (`0.604%`) | `0.989%` | `12.493%` | `6.80` / `13.01` | `124/124` (`71.7`) |
+| `eg_mask_tight` | `80.66` / `148.0` (`0.117%`) | `20.808` / `17.604` | `4.887%` (`0.195%`) | `1.066%` | `12.143%` | `7.09` / `12.05` | `124/124` (`65.5`) |
+| `eg_mask_grow24` | `83.29` / `149.0` (`0.341%`) | `26.059` / `10.898` | `5.355%` (`0.444%`) | `0.586%` | `12.522%` | `6.09` / `9.47` | `124/124` (`37.7`) |
+
+*(In the candle ROI box directly around the tracked flame, warm pixel counts match closely: `36.1` `scout_base` `123/124`, `70.5` `eg_unmasked` `124/124`, `64.2` `eg_mask_tight` `124/124`, `37.6` `eg_mask_grow24` `124/124`.)*
+
+### Native Media & Audio Observations (`edit_guider_mask_ab_fs2`, `f000..f123`)
+
+Inspected locally at `$0` API cost via `read_file` on `$H3_OUTPUT_DIR/Video/edit_guider_mask_ab_fs2/ab_tortoise_crops_f000_f040_f080_f120.png`, `ab_2x2_stack.1fps.00000-00123.mp4`, and all three `<100 MB` `24 fps` `-audio.mp4` edited renders (`eg_unmasked`, `eg_mask_tight`, `eg_mask_grow24`):
+
+1. **`first_step = 2` locks `scout_base` stride and foot lift cleanly across all arms:** Skipping steps `0..1` keeps `scout_base`'s lifted front-right foot at `f000` and walking cadence across the clip (`dark_centroid_shift_mean_px = 6.09–7.09 px` vs. `15.92–17.75 px` at `first_step = 1`), bringing `eg_mask_grow24` down to `inside_tortoise_mae = 11.977` and `eroded_core_mae_vs_scout = 10.898` (vs. `32.49` at `first_step = 1`).
+2. **Within-run hold-back of the shell-snow clause and candle flare (`eg_mask_grow24` vs. `eg_unmasked`):** In `eg_unmasked`, the added `", including the tortoise's shell,"` clause sprinkles white snow/frost crystals onto the upper carapace around the candle base (`f040..f120`, `eroded_core_luma_mean = 77.01`, `p95 = 156.0`) and enlarges/brightens the candle flame flare (`71.7` warm px vs. `36.1` `scout_base`). `eg_mask_tight` blocks carapace snow (`eroded_core_mae_vs_unmasked = 20.808`, `p95 = 148.0`) while leaving an enlarged candle halo (`65.5` warm px), whereas `eg_mask_grow24` (`tortoise+candle` + `GrowMask(24)` + `sigma = 0.45`) maintains a matte olive-grey carapace without shell snow (`eroded_core_mae_vs_unmasked = 26.059`, `luma_mean = 83.29`, `p95 = 149.0`) and holds candle flame size at baseline (`37.7` warm px vs. `36.1` `scout_base`) with no dry-asphalt halo (`annulus_24px` snow `0.586%`).
+3. **Tradeoff — `first_step = 2` cuts background blizzard transfer by more than half:** Because steps `0..1` (`sigma_video = 1.0 -> 0.923077`) deposit coarse street albedo and lighting before `EditGuider` engages, `outside_margin_mae` falls from `46.324–47.188` (`first_step = 1`) to `18.034–18.359` (`fs2`), and `outside_49px` `snow >= 185` rises only from `9.843%` (`scout_base`) to `12.143–12.522%` (vs. `17.681–18.215%` at `first_step = 1`). Visually over `f000..f123`, the crossing stays overcast wet grey asphalt with sparse curb/crack slush rather than thick drifted blizzard snow, and audio (delayed to step `2` under `streams = "independent", audio_scale = 1.0`) retains overcast street wind, bus diesel idle, and crossing signal tones (`peak_dbfs = -16.48` to `-17.23 dBFS`, `hi_2k5_dbfs = -45.83` to `-46.06 dBFS` vs. `-15.45` / `-45.51 dBFS` `scout_base`) rather than the heavy gale wind heard at `first_step = 1`.
+
+---
+
+## 5. Open Questions & Pooling Hold Pending Owner Playback
+
+- **Owner playback files:**
+  - `first_step = 1`: `$H3_OUTPUT_DIR/Video/edit_guider_mask_ab_2026-11-14/ab_2x2_stack.mp4` (`2x2` labeled stack), `ab_tortoise_crops_f000_f040_f080_f120.png`, and individual `*-audio.mp4` renders.
+  - `first_step = 2`: `$H3_OUTPUT_DIR/Video/edit_guider_mask_ab_fs2/ab_2x2_stack.mp4` (`2x2` labeled stack), `ab_tortoise_crops_f000_f040_f080_f120.png`, `ab_2x2_stack.1fps.00000-00123.mp4`, and individual `*-audio.mp4` renders.
+- **Hold `max`/`amax` vs. `avg` pooling in [`../../edit_guidance.py`](../../edit_guidance.py#L186-L212) open until playback:** On `first_step = 1`, `max`/`amax` outward expansion of the edit (`1.0`) eroded `eg_mask_tight`'s rim (`14.30%` `tight_rim` frost vs. `10.57%` in `grow24`); on `fs2`, `eg_mask_grow24` (`GrowMask(24) + ImageBlur(sigma=0.45)`) cushioned carapace and candle (`eroded_core_mae_vs_unmasked = 26.059`, `eroded_core_mae_vs_scout = 10.898`, candle `37.7` vs. `36.1` warm px) without eroding or haloing the boundary. Switching to `avg` would restore `InvertMask` symmetry (`avg(1 - m) == 1 - avg(m)`) at the trade-off of partial edit strength on `1`-cell features and slight boundary bleed into `m = 0`; wait for owner playback across both runs before changing `edit_guidance.py`.
+- **Measured `first_step = 1` vs. `first_step = 2` design tradeoff:** Neither global `first_step` eliminates the pose-vs-weather coupling on its own (`first_step = 1` produces thick blizzard drifts while `x_t` self-attention shifts step-1 stride `~17 px`; `first_step = 2` locks stride, carapace, and candle flame while cutting `outside_margin_mae` from `46.3–47.2` to `18.0–18.4` with wet overcast asphalt). Whether `first_step = 1` with `grow24 + tortoise+candle + sigma=0.45` or another schedule split is preferable awaits owner playback review.
+- **Phase C scope ([`../../docs/wiki/next_steps.md`](../../docs/wiki/next_steps.md)):** Wait for owner playback across both `EditGuider.mask` A/B runs before designing `MiniMaxH3MaskedEncode` / `MiniMaxH3MaskedComposite`.
