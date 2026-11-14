@@ -111,6 +111,8 @@ def _parse(label):
 
 
 _RESOLUTIONS = None
+#: The shape option that takes the wired picture's shape; the same words as `MiniMaxH3ImageSize`'s.
+SAME_AS_PICTURE = "same as the picture"
 
 
 def _resolutions():
@@ -178,6 +180,9 @@ class MiniMaxH3Resolution(io.ComfyNode):
             io.Int.Input("height", default=768, min=32, max=16384, step=32,
                          tooltip="Multiple of 32, same reason as width."),
         ]))
+        # Appended last (2026-11-14): the trained resolution for the shape of the picture wired into
+        # `picture`, what an edit of that picture usually wants (core's `adapt_canvas` on its size).
+        options.append(io.DynamicCombo.Option(SAME_AS_PICTURE, []))
 
         return io.Schema(
             node_id="MiniMaxH3Resolution",
@@ -223,6 +228,10 @@ class MiniMaxH3Resolution(io.ComfyNode):
                         "-- stock ComfyUI floors these nodes at 5 frames and "
                         "this node refuses rather than degrade."
                     )),
+                io.Image.Input(
+                    "picture", optional=True, tooltip=(
+                        f"Only its shape is read, and only when shape is '{SAME_AS_PICTURE}': the "
+                        "output is the trained resolution nearest that shape. The picture is not changed.")),
             ],
             outputs=[
                 io.Int.Output(display_name="width"),
@@ -237,7 +246,7 @@ class MiniMaxH3Resolution(io.ComfyNode):
         )
 
     @classmethod
-    def execute(cls, shape, length=124) -> io.NodeOutput:
+    def execute(cls, shape, length=124, picture=None) -> io.NodeOutput:
         from comfy_extras.nodes_minimax_h3 import adapt_canvas, temporal_shape
 
         # A DynamicCombo arrives as ONE nested dict, not as flattened kwargs:
@@ -256,6 +265,12 @@ class MiniMaxH3Resolution(io.ComfyNode):
         if key == "custom":
             width = int(shape["width"])
             height = int(shape["height"])
+        elif key == SAME_AS_PICTURE:
+            if picture is None:
+                raise ValueError(
+                    f"shape is '{SAME_AS_PICTURE}' but no picture is wired into this node. "
+                    "Wire the picture being edited into 'picture', or choose a shape.")
+            width, height = adapt_canvas(int(picture.shape[2]), int(picture.shape[1]))
         else:
             width, height = _parse(shape[f"{key}_resolution"])
 

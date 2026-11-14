@@ -224,10 +224,11 @@ class MiniMaxH3ImageSize(io.ComfyNode):
             display_name="MiniMax H3 Image Size",
             category="model/conditioning/minimax",
             description=(
-                "Generation canvas and delivered size for MiniMax H3 Image. The DiT generates at "
-                "generate_megapixels (the model is best near 16) and you get back megapixels: wire width and "
-                "height into the conditioning node, and target_width / target_height into MiniMax H3 Image "
-                "Downscale, which shrinks the decode with Lanczos. The canvas is never below megapixels."
+                "Generation canvas and delivered size for MiniMax-H3-Image and P-H3-Image, from a shape and "
+                "megapixels. The DiT generates at generate_megapixels (MiniMax-H3-Image is best near 16, "
+                "P-H3-Image near 8) and you get back megapixels: wire width and height into the conditioning "
+                "node, and target_width / target_height into MiniMax H3 Image Downscale, which shrinks the "
+                "decode with Lanczos. The canvas is never below megapixels."
             ),
             inputs=[
                 io.Float.Input(
@@ -262,9 +263,10 @@ class MiniMaxH3ImageSize(io.ComfyNode):
                     "generate_megapixels", default=H3_IMAGE_MEGAPIXELS, min=0.25, max=24.0, step=0.25,
                     optional=True,
                     tooltip=(
-                        f"Size the model generates at, in megapixels. It works from {low:g} to {high:g} and is "
-                        f"best near {H3_IMAGE_MEGAPIXELS:g}; generating big and shrinking to megapixels keeps "
-                        "detail and fewer mistakes in small text. Never below megapixels.")),
+                        f"Size the model generates at, in megapixels. MiniMax-H3-Image works from {low:g} to "
+                        f"{high:g} and is best near {H3_IMAGE_MEGAPIXELS:g}; P-H3-Image works best at 4 to 8. "
+                        "Generating big and shrinking to megapixels keeps detail and fewer mistakes in small "
+                        "text. Never below megapixels.")),
             ],
             outputs=[
                 io.Int.Output(display_name="width"),

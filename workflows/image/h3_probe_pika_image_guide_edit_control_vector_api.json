@@ -94,9 +94,12 @@
   "27": {
     "class_type": "MiniMaxH3Resolution",
     "inputs": {
-      "shape": "square",
-      "shape.square_resolution": "768x768  1  576 tok/frame  0.33x",
-      "length": 362
+      "shape": "same as the picture",
+      "length": 362,
+      "picture": [
+        "16",
+        0
+      ]
     }
   },
   "5": {

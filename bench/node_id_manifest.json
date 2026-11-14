@@ -773,7 +773,8 @@
   "MiniMaxH3Resolution": {
     "inputs": [
       "shape",
-      "length"
+      "length",
+      "picture"
     ],
     "node_id": "MiniMaxH3Resolution",
     "outputs": [

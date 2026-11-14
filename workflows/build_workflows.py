@@ -117,7 +117,7 @@ from h3_config import (  # noqa: E402
     PH3_IMAGE_UNET, PH3_IMAGE_LORA, PH3_IMAGE_STRENGTH,
     PH3_IMAGE_TE, PH3_IMAGE_UPSAMPLER, IMAGE_GRAPH_VAE,
     PH3_IMAGE_STEPS, PH3_IMAGE_SAMPLER, PH3_IMAGE_SHIFT, PH3_IMAGE_MANUAL_SIGMAS,
-    PH3_IMAGE_CANVAS_8MP,
+    PH3_IMAGE_CANVAS_8MP, PH3_IMAGE_GENERATE_MEGAPIXELS, PH3_IMAGE_DELIVER_MEGAPIXELS, PH3_IMAGE_T2I_SHAPE,
     PH3_IMAGE_T2I_MAX_NEW_TOKENS, PH3_IMAGE_EDIT_MAX_NEW_TOKENS,
     H3_IMAGE_UNET, H3_IMAGE_UNET_BF16, H3_IMAGE_ENCODER, H3_IMAGE_REFERENCES, H3_IMAGE_VAE, H3_IMAGE_SAMPLER, H3_IMAGE_MANUAL_SIGMAS,
     H3_IMAGE_MEGAPIXELS, H3_IMAGE_DELIVER_MEGAPIXELS, H3_IMAGE_ASPECT_OF_PICTURE, HEYLOOK_DEFAULT_BASE_URL,
@@ -951,6 +951,10 @@ def _song_frames_read(seconds: float, window_frames: int, context_frames: int, t
     sys.modules[spec.name] = plan       # its dataclasses look their module up by name
     spec.loader.exec_module(plan)
     return plan.frames_read(int(math.ceil(float(seconds) * FPS)), int(window_frames), int(context_frames), timeline)
+
+
+#: `MiniMaxH3Resolution`'s shape option for the wired picture's shape (`resolution.py::SAME_AS_PICTURE`).
+RESOLUTION_SAME_AS_PICTURE = "same as the picture"
 
 
 def _resolution_widgets(width, height, length):
@@ -2775,6 +2779,22 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
     if edit_guidance is not None:
         _wire_edit_guidance(g, prompt, edit_guidance)
 
+    # A one-frame edit takes the edited picture's shape (owner, 2026-11-14): Resolution's "same as the
+    # picture" picks the trained resolution nearest it, the picture being the guide (slot 16) or the first
+    # reference image. Video graphs keep the resolution they ask for.
+    if single_frame and "27" in g:
+        picture = None
+        if guide_image:
+            picture = ["16", 0]
+        else:
+            firsts = [n for n in g.values()
+                      if n["class_type"] == "MiniMaxH3AppendRefImage" and "references" not in n["inputs"]]
+            if firsts:
+                picture = firsts[0]["inputs"]["image"]
+        if picture is not None:
+            g["27"]["inputs"] = {"shape": RESOLUTION_SAME_AS_PICTURE,
+                                 "length": g["27"]["inputs"]["length"], "picture": picture}
+
     return g
 
 
@@ -3023,13 +3043,12 @@ def build_ph3_image_api(
     - Wires `ModelAttentionBackend(attention="comfy kitchen attention")` for the single-
       frame dense attention floor (Sol-Attn is a 3D spatiotemporal video kernel
       and is never wired on `length=1` image graphs).
-    - Uses `MiniMaxH3PH3ImageConditioning` (node 5) with `canvas="auto"` and
-      `width=2912, height=2912` (`PH3_IMAGE_CANVAS_8MP`) by default so edit workflows
-      clamp `image_1` and the output canvas to `[4 MP, 8 MP]` at `image_1`'s aspect
-      ratio (`diffusers` `before_encoder.py:168-170`), clamp `image_2..image_8` to
-      `[1 MP, 8 MP]`, resize Qwen3-VL vision images via `size_at_area` (`~1 MP`),
-      and apply upstream float16 conditioning-latent rounding (`encoders.py:64-65`),
-      while T2I workflows render at `2912x2912`.
+    - Uses `MiniMaxH3PH3ImageConditioning` (node 5) with `canvas="explicit"`, its width and
+      height from `MiniMaxH3ImageSize` (node 4: a shape and megapixels, 8 MP by default, which is
+      `2912x2912` at 1:1; an edit takes Picture 1's shape). It clamps `image_1..image_8` to
+      `[1 MP, 8 MP]`, resizes Qwen3-VL vision images via `size_at_area` (`~1 MP`), and applies
+      upstream float16 conditioning-latent rounding (`encoders.py:64-65`). `canvas="auto"`, which
+      takes Picture 1's own size clamped to `[4 MP, 8 MP]` (`before_encoder.py:168-170`), stays on the node.
     - Supports both the standalone `p-h3-image_int8_convrot.safetensors` DiT and
       the `p-h3-image_lora_bf16.safetensors` adapter on our `unet_fl2va` base
       via `MiniMaxH3LoRABranch`.
@@ -3043,9 +3062,16 @@ def build_ph3_image_api(
     if not single_frame:
         raise SystemExit("P-H3-Image workflows are single-frame only (single_frame=True)")
     is_edit = task == "ph3_edit"
+    # The size is a shape and megapixels on `MiniMaxH3ImageSize` (node 4), as on MiniMax-H3-Image (owner,
+    # 2026-11-14): text to image at `PH3_IMAGE_T2I_SHAPE`, an edit at Picture 1's shape, both generated at
+    # `PH3_IMAGE_GENERATE_MEGAPIXELS` and shrunk to `PH3_IMAGE_DELIVER_MEGAPIXELS` by `MiniMaxH3ImageDownscale`
+    # (node 12; a passthrough while the two are equal). `canvas="explicit"` makes the conditioning node take that
+    # size on an edit too, instead of Picture 1's own size clamped to 4..8 MP. A caller passing width or
+    # height gets those literals and no size node.
+    sized = width is None and height is None
     cond_w = width if width is not None else PH3_IMAGE_CANVAS_8MP["width"]
     cond_h = height if height is not None else PH3_IMAGE_CANVAS_8MP["height"]
-    cond_canvas = "explicit" if (width is not None or height is not None) else "auto"
+    cond_canvas = "explicit"
     resolved_prompt = prompt if prompt is not None else (
         PH3_IMAGE_EDIT_PROMPT if is_edit else PH3_IMAGE_T2I_PROMPT
     )
@@ -3072,6 +3098,14 @@ def build_ph3_image_api(
         "60": {"class_type": "ManualSigmas",
                "inputs": {"sigmas": PH3_IMAGE_MANUAL_SIGMAS}},
     }
+    if sized:
+        g["4"] = {"class_type": "MiniMaxH3ImageSize",
+                  "inputs": {"megapixels": PH3_IMAGE_DELIVER_MEGAPIXELS,
+                             "shape": H3_IMAGE_ASPECT_OF_PICTURE if is_edit else PH3_IMAGE_T2I_SHAPE,
+                             "generate_megapixels": PH3_IMAGE_GENERATE_MEGAPIXELS}}
+        g["12"] = {"class_type": "MiniMaxH3ImageDownscale",
+                   "inputs": {"images": ["11", 0], "target_width": ["4", 2], "target_height": ["4", 3]}}
+        g["13"]["inputs"]["images"] = ["12", 0]
 
     if teacher_te:
         g["2"] = {"class_type": "MiniMaxH3EncoderLoader",
@@ -3087,8 +3121,8 @@ def build_ph3_image_api(
         "clip": ["2", 0],
         "vae": ["3", 0],
         "prompt": resolved_prompt,
-        "width": cond_w,
-        "height": cond_h,
+        "width": ["4", 0] if sized else cond_w,
+        "height": ["4", 1] if sized else cond_h,
         "canvas": cond_canvas,
     }
     if is_edit:
@@ -3104,6 +3138,9 @@ def build_ph3_image_api(
             g[load_id] = {"class_type": "LoadImage",
                           "inputs": {"image": img_name}}
             cond_inputs[f"images.image_{idx}"] = [load_id, 0]
+        if sized:
+            # Picture 1 gives the output its shape; only its size is read
+            g["4"]["inputs"]["picture"] = [_REF_IMAGE_NODES[0], 0]
 
     g["5"] = {"class_type": "MiniMaxH3PH3ImageConditioning",
               "inputs": cond_inputs}

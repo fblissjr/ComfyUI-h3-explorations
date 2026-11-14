@@ -1705,6 +1705,15 @@ PH3_IMAGE_MANUAL_SIGMAS = "1.0, 0.984753, 0.967905, 0.951688, 0.925372, 0.881923
 #: (`1536`) are upstream `before_encoder.py:93`'s token budgets for the
 #: `Qwen3.5-9B` prompt upsampler.
 PH3_IMAGE_CANVAS_8MP = dict(width=2912, height=2912)
+#: The P-H3-Image graphs pick their size as the MiniMax-H3-Image ones do, with `MiniMaxH3ImageSize`: a shape
+#: (a ratio, or the edited picture's) and megapixels (1024x1024 units), so nobody types a width and height (owner,
+#: 2026-11-14). **Inherited** from Pruna's pipeline (`coderef/diffusers/.../p_h3_image/before_encoder.py`): text
+#: to image "works best at 8 megapixels" and defaults to 2912x2912, which 8.0 at 1:1 reproduces
+#: (`h3_image_size`); an edit "works best at 4 or 8" with a 4 MP canvas floor, which the node's own floor
+#: matches. Delivered size equals generated size: shrinking to 4 MP is proposed, not decided.
+PH3_IMAGE_GENERATE_MEGAPIXELS = 8.0
+PH3_IMAGE_DELIVER_MEGAPIXELS = 8.0
+PH3_IMAGE_T2I_SHAPE = "1:1"
 PH3_IMAGE_T2I_MAX_NEW_TOKENS = 1024
 PH3_IMAGE_EDIT_MAX_NEW_TOKENS = 1536
 

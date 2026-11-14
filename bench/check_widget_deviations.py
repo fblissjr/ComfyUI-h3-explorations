@@ -252,6 +252,12 @@ DECLARED: dict[tuple[str, str], tuple] = {
     ("MiniMaxH3Conditioning", "canvas"):
         ("ARM", "'explicit' where the arm pins width/height rather than taking "
                 "the resolution node's shape"),
+    ("MiniMaxH3PH3ImageConditioning", "canvas"):
+        ("HOUSE", "'explicit' on every P-H3-Image graph (owner, 2026-11-14): the canvas is "
+                  "MiniMaxH3ImageSize's (megapixels and a shape, an edit at Picture 1's shape), wired "
+                  "into width and height, where the node's default takes Picture 1's own size clamped "
+                  "to 4..8 MP (build_workflows.build_ph3_image_api)",
+         "explicit"),
     ("MiniMaxH3EncodeImageReferences", "canvas"):
         ("HOUSE", "'explicit' on every MiniMax-H3-Image edit graph: the canvas is "
                   "MiniMaxH3ImageSize's (megapixels and a shape, with the vendor's "
@@ -320,6 +326,16 @@ DECLARED: dict[tuple[str, str], tuple] = {
                   "skipped, which is the only way to see it worked", True),
     # SageChainAssert's five rows went when the node left every generated
     # graph (2026-09-17); a row for a widget no graph carries is stale.
+    ("MiniMaxH3ImageSize", "megapixels"):
+        ("ARM", "the delivered size per model: the node default (4, "
+                "`H3_IMAGE_DELIVER_MEGAPIXELS`) on MiniMax-H3-Image, 8 on P-H3-Image "
+                "(`PH3_IMAGE_DELIVER_MEGAPIXELS`, delivered as generated until a 4 MP "
+                "delivery is decided). Added 2026-11-14 when P-H3-Image took the node."),
+    ("MiniMaxH3ImageSize", "generate_megapixels"):
+        ("ARM", "the generation size per model: the node default (16, "
+                "`H3_IMAGE_MEGAPIXELS`) on MiniMax-H3-Image, 8 on P-H3-Image "
+                "(`PH3_IMAGE_GENERATE_MEGAPIXELS`, Pruna's 'works best at 8', 2912x2912 at 1:1). "
+                "Added 2026-11-14 when P-H3-Image took the node."),
     ("MiniMaxH3ImageSize", "shape"):
         ("ARM", "the shape of the picture each MiniMax-H3-Image graph makes, against "
                 "the node default '1:1': 'same as the picture' on the edit graphs, "
