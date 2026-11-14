@@ -127,14 +127,13 @@ Same encoder, same latent, three decoders (record, Tables 1 and 4; crops and 3x 
   with lower PSNR on every picture, and more colour grain on some pictures and less on others. It is a style choice, not a fix
   for the stipple.
 
-## 7. What this does not settle
+## 7. What this left open, and what became of it
 
-- **DiT latents.** Everything here decodes an encoded picture. A sampled latent may sit off the encoder's manifold,
-  where the decoders could rank differently. The next step is the owner's eye on stacked decodes of the same sampled
-  latents (release, P-H3, HDR), which needs a render.
-- **Which stitching reads better.** Core's choice trades a hair of PSNR for no seam step at crossings; the eye has
-  not judged it. Leave it unless a seam is seen.
-- vllm-omni's and diffusers' issue trackers.
+- **DiT latents.** Everything in sections 1 to 6 decodes an encoded picture. *Answered by sections 8 and 9: real
+  latents rank the decoders differently, and P-H3 stays first.*
+- **Which stitching reads better.** Core's choice trades a hair of PSNR for no seam step at crossings. *Still open;
+  leave it unless a seam is seen.*
+- **vllm-omni's and diffusers' issue trackers.** *Still not searched.*
 
 ## 8. Follow-ups: averaging, the video decoder, and real renders
 
@@ -192,13 +191,90 @@ DiT produces. On this card, full fine-tuning of a 26-block decoder at width 2048
 optimizer state alone need more than the card's memory (record section 9's arithmetic, `docs/wiki/ops/hardware.md`
 for the card). LoRA or an 8-bit optimizer would fit.
 
+## 10. Additional findings
+
+- **Gemini's same-day work, checked here** (record section 9): the release image decoder's `post_quant_conv` was
+  carried over from the video VAE, though its transformer was trained on its own; the image model's config disables
+  audio, so the audio VAE plays no part in an image decode; the DiT's spatial positions are normalized by the
+  picture's area, so a 16 MP canvas spans the same coordinate range as a small one with more tokens, while the VAE
+  always decodes fixed 16 px cells; LynnReal has 26 decoder blocks. Reported by Gemini and not re-run here: moving the
+  video decoder's single-latent time position to P-H3's helps but stays well behind; zero-shot pruning of P-H3's late
+  blocks collapses it; truncating the release decoder's output layer by singular value makes it worse.
+- **Generation size against viewing size.** The model card puts the best results near 16 MP; sglang's 4 MP is only
+  its floor (`configs/pipeline_configs/minimax_h3_image.py::min_generation_area`), below which it generates bigger
+  and shrinks with Lanczos. Shrinking a 16 MP decode to a phone or preview window averages away much of the stock
+  decoder's pixel-scale speckle, and small text spans many 16 px cells at 16 MP, which is why the 16 MP renders'
+  lettering held under every decoder while the roughly 1 MP test pictures' did not.
+- **The studio app does not touch output pixels.** A read-only audit (2026-11-14, handed to the app's own session)
+  found results delivered, shown and saved as the lossless full-resolution PNG. Edit inputs are redrawn on a canvas
+  and sent as lossless PNG, which converts wide-colour photos to sRGB and flattens HDR. What a phone's browser does
+  when it scales a 16 MP picture for display is outside the app and unmeasured.
+
+## 11. Every ablation, and where to see it
+
+| what was tried | on | outcome | where |
+|---|---|---|---|
+| weights, config, Comfy-Org's fp16 cast | the release files | nothing wrong | sections 1-2; `vae_stats.txt` |
+| core's decoder against diffusers, vllm-omni, sglang | code | same decode; core stitches crossings differently | section 3 |
+| core's stitching against diffusers' | stand-in decoder; four encoded pictures | identical but at crossings; diffusers' steps there, core's does not; PSNR alike | section 4; record Table 5; `stitch_probe.txt` |
+| larger tiles, wider overlap, untiled | four encoded pictures | every larger tile and untiled worse; wider overlap no gain | section 5; record Table 2 |
+| averaging shifted tile grids | one encoded picture | no gain | record 6.1 |
+| HDR fine-tune | four encoded pictures | more detail, lower PSNR, mixed grain; a style | section 6; record Table 1 |
+| video decoder, clip path | encoded pictures; two renders; twelve latents | like the stock decoder: crisp, fine grain | sections 8-9; record Tables 6-7 |
+| video decoder fed one latent (surgery) | four encoded pictures | far worse | record Table 6 |
+| `t1` | encoded pictures; two renders | best on encoded, smears renders | section 8; record 6.3 |
+| LynnReal light decoder | twelve latents | smears renders | section 9; `crop1x_*.png` |
+| P-H3 + `t1` merges, two shares, two ways to run | twelve latents | whole-picture brightness shift | section 9; record Table 8 |
+| P-H3 low-pass + video high-pass | twelve latents | gain gone at viewing size, two decodes | section 9; record Table 7 |
+| int8 P-H3 | twelve latents | same as bf16 | section 9; record Table 7 |
+| stock against P-H3 at phone size | four latents | waiting on the owner's eye | `phone_*.jpg` |
+
+## 12. Next steps
+
+1. **The owner's eye on the four phone files.** If stock and P-H3 cannot be told apart at phone and preview sizes,
+   the decoder question stops mattering for how pictures are viewed.
+2. **Whether the graphs default to the int8 P-H3 VAE** (`workflows/h3_config.py::PH3_IMAGE_VAE_INT8`). It decodes the
+   same and is smaller, so less of the DiT moves off the card for the decode. Before switching, confirm that
+   `MiniMaxH3VAEPrecision`'s fp32 encoder promotion on the edit graphs works on the int8 file.
+3. **Any new VAE goes through the latent bank first**, decoded at the size pictures are viewed (section 9's rule).
+4. **Only if better than P-H3 is wanted: train a decoder.** Real pictures as targets (encoded photos with noise added
+   to their latents), not a teacher's decodes of sampled latents; LoRA or an 8-bit optimizer on this card. A training
+   project, not a node.
+5. Smaller, open: which stitching reads better at crossings (only if a seam is seen); vllm-omni's and diffusers'
+   issue trackers; one name for the output folder (`H3_OUTPUT_DIR` and `H3_COMFY_OUTPUT` name the same folder, as do
+   `H3_INPUT_DIR` and `H3_COMFY_INPUT`; `h3.env` sets both for now).
+
 ## Pointers
+
+**Assets** on the share, `$H3_OUTPUT_DIR/Image/vae_compare_2026-11-14/` (its `README.txt` says what each file is):
 
 | what | where |
 |---|---|
-| the follow-up probes and render crops | `data/h3_image_vae_2026-11-14/` (`ensemble_probe.py`, `video_decoder_probe.py`, `render_compare.py`, `render_*.png`) |
-| the numbers, conditions and readings | [`bench/results/2026-11-14_h3_image_vae_tiles.md`](../../../../bench/results/2026-11-14_h3_image_vae_tiles.md) |
-| the probe that made them | [`bench/probe_h3_image_vae_tiles.py`](../../../../bench/probe_h3_image_vae_tiles.py) |
-| the diffusers-to-ComfyUI converter and its check | [`bench/convert_h3_image_vae_from_diffusers.py`](../../../../bench/convert_h3_image_vae_from_diffusers.py), [`bench/check_h3_image_vae_convert.py`](../../../../bench/check_h3_image_vae_convert.py) |
-| results JSON, crops, zooms, the two throwaway probes and their outputs | `data/h3_image_vae_2026-11-14/` (untracked) |
+| two real renders (shipped t2i, seed 42; shipped edit, seed 1234), each decoded by release, p-h3, t1, video | `$H3_OUTPUT_DIR/Image/vae_compare_2026-11-14/{t2i,edit}_<decoder>_00001_.png` |
+| encoded-picture crops and zooms | `$H3_OUTPUT_DIR/Image/vae_compare_2026-11-14/comparisons/encoded_pictures/` |
+| crops of the two renders | `$H3_OUTPUT_DIR/Image/vae_compare_2026-11-14/comparisons/real_renders/` |
+| latent-bank views, sheets, full-size crops, phone A/B files and key | `$H3_OUTPUT_DIR/Image/vae_compare_2026-11-14/comparisons/latent_bank/` |
+| the 120 full-resolution latent-bank decodes | `$H3_OUTPUT_DIR/Image/vae_compare_2026-11-14/latent_bank_decodes/` |
+| the twelve saved latents | `$H3_OUTPUT_DIR/latents/vae_bank_2026-11-14/` |
+| every script, prompt file, result, log and table, for rerunning | `$H3_OUTPUT_DIR/Image/vae_compare_2026-11-14/reproduce/` |
+| early scratch images | `$H3_OUTPUT_DIR/Image/vae_compare_2026-11-14/scratch/` |
+
+**Code**, tracked:
+
+| what | where |
+|---|---|
+| the encoded-picture probe (tile disagreement, edge error, stitching, geometry) | [`bench/probe_h3_image_vae_tiles.py`](../../../../bench/probe_h3_image_vae_tiles.py) |
+| the diffusers-to-ComfyUI VAE converter and its check | [`bench/convert_h3_image_vae_from_diffusers.py`](../../../../bench/convert_h3_image_vae_from_diffusers.py), [`bench/check_h3_image_vae_convert.py`](../../../../bench/check_h3_image_vae_convert.py) |
+
+**Code**, throwaway (untracked, in the pack's `data/h3_image_vae_2026-11-14/` and copied to `reproduce/` on the
+share): `stitch_probe.py`, `vae_stats.py`, `ensemble_probe.py`, `video_decoder_probe.py`, `render_compare.py`,
+`vae_family.py`, `verify_keys.py`, `verify_decode.py`; the latent bank's `prompts.json`, `decode_bank.py`,
+`decode_extra.py`, `viewing_size.py`.
+
+**Records:**
+
+| what | where |
+|---|---|
+| the numbers, conditions, readings, corrections and credits | [`bench/results/2026-11-14_h3_image_vae_tiles.md`](../../../../bench/results/2026-11-14_h3_image_vae_tiles.md) |
 | the page that owns the MiniMax-H3-Image VAE choice | [`docs/wiki/image/h3_image.md`](../../image/h3_image.md) item 4 |
+| where `$H3_OUTPUT_DIR` comes from on this machine | the gitignored `h3.env` ([`h3.env.example`](../../../../h3.env.example), [`ops/comfy_notes.md`](../../ops/comfy_notes.md)) |
