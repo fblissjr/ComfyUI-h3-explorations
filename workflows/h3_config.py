@@ -73,8 +73,8 @@ ENCODER_INT8 = "qwen3vl_32b_minimax_h3_int8_convrot.safetensors"
 #: The release's encoder in bf16, cut after the layer H3 reads
 #: (`bench/convert_h3_bf16_encoder.py`): nothing quantized. Core's `CLIPLoader`
 #: opens it as it opens the int8 file. The MiniMax-H3-Image graphs load it
-#: (`H3_IMAGE_ENCODER`); it is larger than the card, so core places part of it
-#: off the card.
+#: (`H3_IMAGE_ENCODER`), and since 2026-11-14 every graph (`MODELS["clip"]`, owner); it is larger than
+#: the card, so core places part of it off the card.
 ENCODER_BF16 = "qwen3vl_32b_minimax_h3_bf16_pruned.safetensors"
 
 MODELS = dict(
@@ -103,7 +103,10 @@ MODELS = dict(
     # `unet_vsa`, kijai's experimental FastVideo VSA checkpoint, left with
     # `MiniMaxH3VSAAttention` and its two probe graphs in 0.173.0 (owner,
     # 2026-09-29); `docs/wiki/research/vsa/fastvideo_vsa_checkpoint.md` keeps what it was.
-    clip=ENCODER_INT8,
+    # The text encoder every graph loads. **bf16 for everything, owner decision 2026-11-14** (it had been
+    # the int8 file here since 2026-09-26, and bf16 on the MiniMax-H3-Image graphs since 2026-11-13). Larger
+    # than the card, so core places part of it off the card. `ENCODER_INT8` stays for an explicit int8 arm.
+    clip=ENCODER_BF16,
     # **The INT8 ConvRot build, by owner decision 2026-09-26** ("yes
     # switch"), after the owner could not tell it from fp16 on a 345-frame
     # clip pair. Measured: its decoder is the only quantized half, and its
@@ -1721,8 +1724,8 @@ PH3_IMAGE_EDIT_MAX_NEW_TOKENS = 1536
 #: - `H3_IMAGE_VAE` is Comfy-Org's fp16 copy of the release's fp32 VAE, a plain
 #:   cast (same record); `H3_IMAGE_VAE_FP32` is the release's own file.
 #: - The text encoder is H3's, unchanged. **Owner decision 2026-11-13:** these
-#:   graphs load it unquantized (`H3_IMAGE_ENCODER`, the bf16 file) where the
-#:   video graphs load the int8 one (`MODELS["clip"]`). What is on record is
+#:   graphs load it unquantized (`H3_IMAGE_ENCODER`, the bf16 file); since 2026-11-14 every other graph
+#:   does too (`MODELS["clip"]`, owner). What is on record is
 #:   H3 video's: the int8 file's error sits mostly on picture tokens, and on
 #:   the int8 video DiT it moved the prediction no more than matched noise
 #:   (`docs/wiki/decisions/2026-09-25_to_2026-09-29.md`,

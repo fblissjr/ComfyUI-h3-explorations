@@ -21,8 +21,8 @@ download, not kept in this repo.
   hub hashes as the H3 release's, and its tokenizer and processor files are
   byte for byte the same (checked 2026-11-11 by comparing the two downloads).
   The graphs load it unquantized since 2026-11-13 (the owner's decision):
-  `H3_IMAGE_ENCODER`, the release's bf16 weights cut after the layer H3 reads,
-  where the video graphs load the int8 file. What is on record about the int8
+  `H3_IMAGE_ENCODER`, the release's bf16 weights cut after the layer H3 reads.
+  Since 2026-11-14 every graph in the pack loads it, video included (owner). What is on record about the int8
   file is H3 video's ([`../decisions/2026-09-25_to_2026-09-29.md`](../decisions/2026-09-25_to_2026-09-29.md)):
   its error sits mostly on picture tokens. Nothing has measured it on this model.
 - **The VAE is its own file.** Its encoder weights are the H3 video VAE's
