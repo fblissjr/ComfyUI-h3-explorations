@@ -1,6 +1,6 @@
 # Embedded Image Generation & Editing in H3 Video Workflows — Plan (Phases 0–4)
 
-Status: **Phase 0B measured (`2026-11-14`, [result](../../../../bench/results/2026-11-14_embedded_image_in_video_phase0b.md)) · Phase 1 implemented (`aa943b17`, live `:8188` A/B ready post-reload)** — see [`../../working_with_the_owner.md`](../../working_with_the_owner.md). Every node contract, branch condition, and file path below was cross-checked directly against the `.py` implementations, generated [`../../image/workflows_matrix.md`](../../image/workflows_matrix.md) (`95aa4447`), ComfyUI core (`comfy/ldm/minimax/`, `comfy/sd.py`, `comfy/model_base.py`), and live `:8188` measurements.
+Status: **Phase 0B measured ([result](../../../../bench/results/2026-11-14_embedded_image_in_video_phase0b.md)) · Phase 1 implemented & live-measured on `:8188` ([result](../../../../bench/results/2026-11-14_embedded_image_in_video_phase1.md))** — see [`../../working_with_the_owner.md`](../../working_with_the_owner.md). Every node contract, branch condition, and file path below was cross-checked directly against the `.py` implementations, generated [`../../image/workflows_matrix.md`](../../image/workflows_matrix.md) (`95aa4447`), ComfyUI core (`comfy/ldm/minimax/`, `comfy/sd.py`, `comfy/model_base.py`), and live `:8188` measurements.
 
 ---
 
@@ -50,7 +50,7 @@ Phase 0 requires **zero custom-node code changes** — it enforces VAE/condition
 
 ---
 
-## 3. Phase 1 — Temporary Mid-Clip Steering (`guide_end_percent`) — **Implemented (offline tests passing)**
+## 3. Phase 1 — Temporary Mid-Clip Steering (`guide_end_percent`) — **Verified on `:8188` ([Measured `2026-11-14`](../../../../bench/results/2026-11-14_embedded_image_in_video_phase1.md))**
 
 ### Problem Statement
 
@@ -62,6 +62,7 @@ Implemented in [`control_vector_nodes.py`](../../../../control_vector_nodes.py) 
 
 - Appended optional **`guide_end_percent`** (`default=1.0`, `MiniMaxH3ImageModel` refusal when `< 1.0`) to [`MiniMaxH3ReleaseReferences`](../../../../control_vector_nodes.py), allowing mid-clip `17m` `GuideLatent` guides (`0 < resolved_frame_index < total_frames - 1`) to steer coarse motion and composition early in denoising (`0.0 -> min(end_percent, guide_end_percent)`) and drop out of `PackedLayout` for clean late-step dynamics and boundary blending while preserving `first_frame` (`0`), `last_frame` (`total_frames - 1`), `<Picture N>` / `<Video N>` refs (or slicing both simultaneously when `video_end_percent` is also lowered), and timeline `cond_audio` islands.
 - Generalized [`EditGuider.set_conds`](../../../../edit_guidance.py) (`_keyframes_extend_prefix`) so `same_text` conditionings where `edited` appends extra keyframes onto `original`'s identical prefix keyframes (including `i2va`/`fl2va` bookends) also set `_release_to_original_after = True` and hand back to 1-pass `[original]` after `last_step`.
+- **Live 6-step Pika quantization note (`PIKA_MANUAL_SIGMAS`, `n_steps = 6`):** [`_step_in_window`](../../../../control_vector_nodes.py#L1152-L1188) tests `step_idx / n_steps < end_percent`, so step `2` lands at `2 / 6 = 0.3333...`. Set `guide_end_percent = 0.33` for a `2/6`-step (`[0, 1]`) release at unshifted midpoint `b = 0.50` (`0.34` matches `0.50` at `3/6` steps `[0, 1, 2]`). Live `:8188` captures verified both `1008`-row `PackedLayout` mid-clip release on `MiniMaxH3ReleaseReferences` (`guide_end_percent = 1.00 / 0.50 / 0.33`, zero `67->68->69` seam, `4.3x` audio lift when paired with soundscape-aligned prompting) and live `EditGuider._keyframes_extend_prefix` auto-release (`scale = 1.65`, `last_step = 2`; see [`bench/results/2026-11-14_embedded_image_in_video_phase1.md`](../../../../bench/results/2026-11-14_embedded_image_in_video_phase1.md)).
 
 ### Five Mandatory Implementation Guards (`control_vector_nodes.py:1381-1715`)
 

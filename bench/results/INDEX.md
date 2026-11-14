@@ -19,6 +19,7 @@ replaces `docs/wiki/ops/evidence.md`, which says what the records established.
 | 2026-11-14 | image | [P-H3-Image: generate at 8 MP and shrink to 4, against generate at 4 (2026-11-14)](2026-11-14_p_h3_image_size_test.md) |  |
 | 2026-11-14 | image | [The MiniMax-H3-Image VAE's decode tiles, and its decoder against P-H3's (2026-11-14)](2026-11-14_h3_image_vae_tiles.md) |  |
 | 2026-11-14 | image | [MiniMax-H3-Image: generate at 16 MP and shrink, against generate at the delivered size (2026-11-14)](2026-11-14_h3_image_size_test.md) |  |
+| 2026-11-14 | embedded | [Embedded Image Generation & Editing in H3 Video Workflows — Phase 1 Live Bench, 2026-11-14](2026-11-14_embedded_image_in_video_phase1.md) |  |
 | 2026-11-14 | embedded | [Embedded Image Generation & Editing in H3 Video Workflows — Phase 0B Live Bench, 2026-11-14](2026-11-14_embedded_image_in_video_phase0b.md) |  |
 | 2026-11-12 | control | [How much of a control vector do its words point at? Experiment 2 (2026-11-12)](2026-11-12_control_vector_word_share.md) |  |
 | 2026-11-12 | control | [Control-vector readouts scored blind: J-Lens words and the rows table, old bundle and rebuilt (2026-11-12)](2026-11-12_control_vector_readout_blind_score.md) |  |
