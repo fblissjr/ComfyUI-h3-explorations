@@ -10,7 +10,7 @@ This page is the technical reference in the wiki for PrunaAI's `P-H3-Image` (`Pr
 
 ## 1. How PrunaAI Built `P-H3-Image` from `MiniMax-H3-26B`
 
-`P-H3-Image` adapts the 26B `MiniMax-H3` (`fl2va`) audio-video diffusion transformer for **single-frame (`t=1`), audio-free** image generation (`~8.48 MP`, `2912x2912` default; from 2026-11-14 the graphs pick the size with `MiniMaxH3ImageSize`, a shape and megapixels, 8 by default, an edit at Picture 1's shape, `workflows/h3_config.py::PH3_IMAGE_GENERATE_MEGAPIXELS`) and multi-reference image editing (`1..8` reference images). Across the checkpoint files and `diffusers` `src/diffusers/modular_pipelines/p_h3_image/`, five components differ from stock MiniMax-H3:
+`P-H3-Image` adapts the 26B `MiniMax-H3` (`fl2va`) audio-video diffusion transformer for **single-frame (`t=1`), audio-free** image generation (`~8.48 MP`, `2912x2912` default; from 2026-11-14 the graphs pick the size with `MiniMaxH3ImageSize`, a shape and megapixels, an edit at Picture 1's shape; generated at 8 MP and delivered at 4, shrunk with Lanczos, `workflows/h3_config.py::PH3_IMAGE_GENERATE_MEGAPIXELS`, `PH3_IMAGE_DELIVER_MEGAPIXELS`, owner decision, [`bench/results/2026-11-14_p_h3_image_size_test.md`](../../../bench/results/2026-11-14_p_h3_image_size_test.md)) and multi-reference image editing (`1..8` reference images). Across the checkpoint files and `diffusers` `src/diffusers/modular_pipelines/p_h3_image/`, five components differ from stock MiniMax-H3:
 
 | Component | Stock MiniMax-H3 Video (`fl2va` / `ref2va`) | PrunaAI `P-H3-Image` (`workflows/image/`) | ComfyUI Core & Pack Code |
 |---|---|---|---|

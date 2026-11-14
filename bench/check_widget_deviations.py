@@ -326,11 +326,6 @@ DECLARED: dict[tuple[str, str], tuple] = {
                   "skipped, which is the only way to see it worked", True),
     # SageChainAssert's five rows went when the node left every generated
     # graph (2026-09-17); a row for a widget no graph carries is stale.
-    ("MiniMaxH3ImageSize", "megapixels"):
-        ("ARM", "the delivered size per model: the node default (4, "
-                "`H3_IMAGE_DELIVER_MEGAPIXELS`) on MiniMax-H3-Image, 8 on P-H3-Image "
-                "(`PH3_IMAGE_DELIVER_MEGAPIXELS`, delivered as generated until a 4 MP "
-                "delivery is decided). Added 2026-11-14 when P-H3-Image took the node."),
     ("MiniMaxH3ImageSize", "generate_megapixels"):
         ("ARM", "the generation size per model: the node default (16, "
                 "`H3_IMAGE_MEGAPIXELS`) on MiniMax-H3-Image, 8 on P-H3-Image "

@@ -3065,7 +3065,7 @@ def build_ph3_image_api(
     # The size is a shape and megapixels on `MiniMaxH3ImageSize` (node 4), as on MiniMax-H3-Image (owner,
     # 2026-11-14): text to image at `PH3_IMAGE_T2I_SHAPE`, an edit at Picture 1's shape, both generated at
     # `PH3_IMAGE_GENERATE_MEGAPIXELS` and shrunk to `PH3_IMAGE_DELIVER_MEGAPIXELS` by `MiniMaxH3ImageDownscale`
-    # (node 12; a passthrough while the two are equal). `canvas="explicit"` makes the conditioning node take that
+    # (node 12). `canvas="explicit"` makes the conditioning node take that
     # size on an edit too, instead of Picture 1's own size clamped to 4..8 MP. A caller passing width or
     # height gets those literals and no size node.
     sized = width is None and height is None

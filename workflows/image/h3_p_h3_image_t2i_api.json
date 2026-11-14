@@ -93,7 +93,7 @@
   "4": {
     "class_type": "MiniMaxH3ImageSize",
     "inputs": {
-      "megapixels": 8.0,
+      "megapixels": 4.0,
       "shape": "1:1",
       "generate_megapixels": 8.0
     }

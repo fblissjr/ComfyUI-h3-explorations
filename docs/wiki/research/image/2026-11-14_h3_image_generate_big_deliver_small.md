@@ -68,7 +68,8 @@ despite reading the picture's size; diffusers defaults to 2048x2048. None is a q
 
 - Delivered size per use: 4 MP is the default; raise `megapixels` (up to `generate_megapixels`) when a large file is
   wanted. JPEG or WebP delivery would cut a 4 MP file several times further and needs a different save node; not done.
-- P-H3-Image graphs generate at 8.5 MP and deliver that; the same split could apply there. Not tested.
+- P-H3-Image took the same split the same day: generated at 8 MP, delivered at 4 (owner decision,
+  [`bench/results/2026-11-14_p_h3_image_size_test.md`](../../../../bench/results/2026-11-14_p_h3_image_size_test.md)).
 - The edit lead in [`../../image/h3_image.md`](../../image/h3_image.md) (references sized to the canvas) is unchanged by
   this and still untested.
 

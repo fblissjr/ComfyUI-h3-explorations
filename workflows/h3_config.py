@@ -1710,9 +1710,11 @@ PH3_IMAGE_CANVAS_8MP = dict(width=2912, height=2912)
 #: 2026-11-14). **Inherited** from Pruna's pipeline (`coderef/diffusers/.../p_h3_image/before_encoder.py`): text
 #: to image "works best at 8 megapixels" and defaults to 2912x2912, which 8.0 at 1:1 reproduces
 #: (`h3_image_size`); an edit "works best at 4 or 8" with a 4 MP canvas floor, which the node's own floor
-#: matches. Delivered size equals generated size: shrinking to 4 MP is proposed, not decided.
+#: matches. **Delivered at 4 MP, owner decision 2026-11-14**, shrunk with Lanczos as MiniMax-H3-Image is: generated
+#: at 8 and shrunk, the edits misspelled fewer plaques and hid a pitcher less often than generated at 4
+#: (`bench/results/2026-11-14_p_h3_image_size_test.md`).
 PH3_IMAGE_GENERATE_MEGAPIXELS = 8.0
-PH3_IMAGE_DELIVER_MEGAPIXELS = 8.0
+PH3_IMAGE_DELIVER_MEGAPIXELS = 4.0
 PH3_IMAGE_T2I_SHAPE = "1:1"
 PH3_IMAGE_T2I_MAX_NEW_TOKENS = 1024
 PH3_IMAGE_EDIT_MAX_NEW_TOKENS = 1536
