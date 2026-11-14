@@ -1,6 +1,6 @@
 # Edit Guidance: Steering a Render by Editing Your Own Prompt
 
-Last updated: 2026-11-12.
+Last updated: 2026-11-14.
 
 **Edit Guidance** lets you take an existing prompt, write `old wording -> new wording`, and control **when** the change kicks in (`first_step`) and **how strongly** it pulls (`scale`)—without building a control vector or training anything first.
 
@@ -70,6 +70,7 @@ You only touch three places:
 | `streams` | `"both"` | **Which streams receive edit guidance (`0` extra DiT passes).** `"both"` steers video and audio at `scale`; `"audio_only"` locks video to `[original]` (`0.0`) and steers audio at `scale`; `"video_only"` steers video at `scale` and locks audio to `[original]` (`0.0`); `"independent"` steers video at `scale` and audio at `audio_scale`. |
 | `audio_scale` | `1.0` (`0.0 .. 4.0`) | **Audio edit scale when `streams = "independent"`** (ignored in other modes). Keep at `1.0` when pushing visual `scale >= 1.65` so audio adopts your edited `soundscape:` cleanly without `+2.7..+3.0 dBFS` transient clipping, or raise to `1.5..2.0` to punch off-screen SFX past calm visuals. |
 | `align_positions` *(Advanced)* | `False` | Advanced RoPE origin toggle for prompts of unequal token length. Leave `False`. |
+| `mask` *(Optional `MASK` link)* | `None` (unmasked) | **Where the edit applies (`1` = edit at `scale`, `0` = hold `[original]`).** Spatial `[T, H, W]` masks (`H > 1` or `W > 1`) steer **video only** while `[T, 1, 1]` temporal envelopes also scale audio; `T == 1` broadcasts across `T_lat`. Wire core `InvertMask` upstream to protect a tracked subject (and `GrowMask -> MaskToImage -> ImageBlur(blur_radius=12, sigma=0.45) -> ImageToMask -> InvertMask` for a `16px x 4-frame` margin—core `FeatherMask` fades outer canvas borders, and `ImageBlur` `sigma` uses normalized `[-1, 1]` kernel units). Pair with `streams = "independent", audio_scale = 1.0` when `scale >= 1.65`, use `first_step = 2` when a `t2va` scout's stride must stay locked, and note that differing prompt text (`same_text == False`) runs `2` passes past `last_step` so `m = 0` stays on `[original]`. *(See [`bench/results/2026-11-14_edit_guider_mask_ab.md`](../../bench/results/2026-11-14_edit_guider_mask_ab.md).)* |
 
 ### `MiniMax H3 Prompt Edit` rules & shortcuts
 
@@ -231,8 +232,12 @@ For readers inspecting [`edit_guidance.py`](../../edit_guidance.py), [`h3_prompt
 - **Single-pass media encoding & `h3_edit_pass`**:
   - Reference workflows encode vision tokens and VAE latents **once** via [`MiniMaxH3EncodeReferences`](../../reference_encode.py) and feed two [`MiniMaxH3PromptOnReferences`](../../reference_encode.py) nodes; guide-latent workflows encode guide media **once** via [`MiniMaxH3GuideLatent`](../../guide_latent.py); [`MiniMaxH3Preflight`](../../preflight.py) prices peak sequence length across both branches.
   - `_prepare` tags each branch's `minimax_payload` with `h3_edit_pass = "original"` or `"edited"`, keeping layout-less `P-H3-Image` T2I passes at `B = 1` (video `extra_conds` already carry distinct `PackedLayout` objects) and letting `control_vector_nodes.py` identify each pass.
+- **Optional `[T, H, W]` spatial/temporal masking (`_prepare_masks_for_step`, [`edit_guidance.py:277-471`](../../edit_guidance.py#L277-L471))**:
+  - Normalized continuous `[0.0, 1.0]` center-crop (`_fit_crop_hw`) + `F.adaptive_max_pool2d` + `[1, 4, 4, 4, 4]` causal `amax` pooling live self-contained inside [`edit_guidance.py`](../../edit_guidance.py) (using `FRAME_PER_TOKEN` at `edit_guidance.py:37`), covering `NestedTensor`, `packed_split` 3D (reshaping `v0, v1` to `(B, *latent_shapes[0][1:])` rather than calling `pack_latents` on a 1-channel mask), and unpacked 5D (`MiniMax-H3-Image`). Spatial masks (`H > 1` or `W > 1`) gate video only; `[T, 1, 1]` envelopes gate audio too.
+  - Because `max`/`amax` rounds mixed `16px x 4-frame` boundary cells toward `1.0`, inverted subject-protection masks (`0` = protect) pull edge cells slightly inward unless buffered (`GrowMask(24) + ImageBlur`), whereas switching to `avg` would make `InvertMask` symmetric (`avg(1 - m) == 1 - avg(m)`) at the cost of partial strength on `1`-cell features and slight `m = 0` bleed. On [`2026-11-14_edit_guider_mask_ab.md`](../../bench/results/2026-11-14_edit_guider_mask_ab.md), `eg_mask_grow24` restored matte shell shading (`eroded_core luma_p95 = 137` vs `194` unmasked, `core_mae_vs_unmasked = 37.12`) with zero dry-asphalt moat (`annulus_24px` snow `22.21%` vs `22.95%` unmasked), while `first_step = 1` shifted tortoise stride `~17.4 px` via `x_t` self-attention (playback verdict and `max` vs. `avg` pooling decision open pending owner review).
 - **Verification & comparison tools**:
   ```bash
   <comfy-venv-python> bench/check_edit_guidance.py
+  <comfy-venv-python> bench/measure_edit_guider_mask_ab.py --dry-run
   <comfy-venv-python> bench/edit_guidance_arms.py --help
   ```

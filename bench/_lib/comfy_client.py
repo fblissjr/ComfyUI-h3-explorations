@@ -108,17 +108,43 @@ def _format_execution_error(prompt_id: str, status: dict[str, Any]) -> str:
     return f"prompt {prompt_id} ended with status={status!r}"
 
 
+def execution_duration_s(history_entry: dict[str, Any]) -> float | None:
+    """Return GPU execution duration in seconds from `/history` timestamps, or `None` if absent."""
+    msgs = (history_entry.get("status") or {}).get("messages") or ()
+    ts_start: int | float | None = None
+    ts_end: int | float | None = None
+    for msg in msgs:
+        if not isinstance(msg, (list, tuple)) or len(msg) < 2 or not isinstance(msg[1], dict):
+            continue
+        ts = msg[1].get("timestamp")
+        if not isinstance(ts, (int, float)):
+            continue
+        if msg[0] == "execution_start":
+            ts_start = ts
+        elif msg[0] == "execution_success":
+            ts_end = ts
+    if ts_start is None or ts_end is None:
+        return None
+    return round(max(0.0, float(ts_end) - float(ts_start)) / 1000.0, 2)
+
+
+def _queue_contains(items: Any, prompt_id: str) -> bool:
+    return any(isinstance(it, (list, tuple)) and len(it) >= 2 and str(it[1]) == prompt_id for it in (items or ()))
+
+
 def wait_for_prompt(
     prompt_id: str,
     *,
     base_url: str = DEFAULT_COMFY_URL,
     poll_interval: float = 1.5,
     timeout: float = 1800.0,
+    queue_timeout: float | None = None,
 ) -> dict[str, Any]:
-    """Poll `/history/{prompt_id}` until completion; raise on server error or timeout."""
+    """Poll `/history/{prompt_id}` until completion, starting `timeout` once execution begins."""
     root = base_url.rstrip("/")
     url = f"{root}/history/{urllib.parse.quote(prompt_id, safe='')}"
-    deadline = time.monotonic() + float(timeout)
+    submitted_at = time.monotonic()
+    running_since: float | None = None
     while True:
         hist = _get_json(url, timeout=15.0)
         entry = hist.get(prompt_id)
@@ -129,8 +155,17 @@ def wait_for_prompt(
                 raise RuntimeError(_format_execution_error(prompt_id, status))
             if status_str == "success" or (status.get("completed") and entry.get("outputs")):
                 return entry
-        if time.monotonic() >= deadline:
-            raise TimeoutError(f"Timed out waiting {timeout:.1f}s for ComfyUI prompt {prompt_id}")
+        now = time.monotonic()
+        q = get_queue(base_url=base_url, timeout=15.0)
+        in_running = _queue_contains(q.get("queue_running"), prompt_id)
+        in_pending = _queue_contains(q.get("queue_pending"), prompt_id)
+        if running_since is None and (in_running or not in_pending):
+            running_since = now
+        if running_since is None:
+            if queue_timeout is not None and (now - submitted_at) >= float(queue_timeout):
+                raise TimeoutError(f"Timed out waiting {queue_timeout:.1f}s in queue for ComfyUI prompt {prompt_id}")
+        elif (now - running_since) >= float(timeout):
+            raise TimeoutError(f"Timed out waiting {timeout:.1f}s executing ComfyUI prompt {prompt_id}")
         time.sleep(float(poll_interval))
 
 
