@@ -2,6 +2,12 @@
 
 Router index for dated studies, experiment logs, and postmortems under `docs/wiki/research/`. These records state what was measured on their date; for active rules, workflows, and current project ownership, start at [`../index.md`](../index.md), [`../projects/index.md`](../projects/index.md), and [`../ops/evidence.md`](../ops/evidence.md). Retired notes live in [`../archive/INDEX.md`](../archive/INDEX.md).
 
+## Cross-Pillar API Workflows & Perception Decoupling (`2026-11-14`)
+
+| Document | Topic |
+|---|---|
+| [`2026-11-14_cross_pillar_api_workflows_and_sam31_decoupling.md`](2026-11-14_cross_pillar_api_workflows_and_sam31_decoupling.md) | Six-pillar API composition synthesis (`P-H3-Image` + Phase 1 `guide_end_percent` + `EditGuider` + `SoundCues` + `SpriteTrajectory` + `AudioRefine` + decoupled `SAM 3.1` / `Sapiens2`), Phase 2B `H3MaskedSource -> AudioFreezeSong` boundary audit, two-phase zero-swap execution, and 3-node extraction plan off [`audio_freeze_song.py`](../../../audio_freeze_song.py) |
+
 ## Control Vectors, Readouts, Sound Cues & 2D D-Pad (`docs/wiki/research/control_vectors/`)
 
 For active nodes and recipes, start at [`../control_vectors.md`](../control_vectors.md) and [`../edit_guidance.md`](../edit_guidance.md).

@@ -10,6 +10,7 @@ Master router for `ComfyUI-h3-explorations`. Root [`../../AGENTS.md`](../../AGEN
 | :--- | :--- |
 | [`../../AGENTS.md`](../../AGENTS.md) | Mandatory session rules, H3 clock/frame/mask invariants, 65-node map |
 | [`projects/2026-11-13_repo_audit_and_atlas/index.md`](projects/2026-11-13_repo_audit_and_atlas/index.md) | **Repo Atlas (`2026-11-13`)**: 8-track status, Top 14 unfinished/forgotten ideas, code-vs-prose ledger, Nov 10–12 renders, offline HTML + `ledger.json` |
+| [`research/2026-11-14_cross_pillar_api_workflows_and_sam31_decoupling.md`](research/2026-11-14_cross_pillar_api_workflows_and_sam31_decoupling.md) | **Cross-Pillar API Unlocks & SAM 3.1 Decoupling (`2026-11-14`)**: Two-phase `:8188` perception+generation recipes, Phase 1 + `EditGuider` + `SoundCues` + `SpriteTrajectory` compound workflows, and clean extraction off `MiniMaxH3AudioFreezeSong` |
 | [`projects/index.md`](projects/index.md) | Project directory index & structured dossier standard ([`projects/AGENTS.md`](projects/AGENTS.md)) |
 | [`handover.md`](handover.md) | Current cross-track handover state (`2026-11-13`; `'fun'` parked) |
 | [`next_steps.md`](next_steps.md) | Active queues by track, ordered next experiments, and pending checks |
