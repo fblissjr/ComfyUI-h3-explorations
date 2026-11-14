@@ -1,6 +1,6 @@
 # Embedded Image Generation & Editing in H3 Video Workflows — Plan (Phases 0–4)
 
-Status: **Phase 0B ready (verified at HEAD `95aa4447`) · Phase 1 implemented (`2026-11-14`)** — see [`../../working_with_the_owner.md`](../../working_with_the_owner.md). Every node contract, branch condition, and file path below was cross-checked directly against the `.py` implementations, generated [`../../image/workflows_matrix.md`](../../image/workflows_matrix.md) (`95aa4447`), and ComfyUI core (`comfy/ldm/minimax/`, `comfy/sd.py`, `comfy/model_base.py`).
+Status: **Phase 0B measured (`2026-11-14`, [result](../../../../bench/results/2026-11-14_embedded_image_in_video_phase0b.md)) · Phase 1 implemented (`aa943b17`, live `:8188` A/B ready post-reload)** — see [`../../working_with_the_owner.md`](../../working_with_the_owner.md). Every node contract, branch condition, and file path below was cross-checked directly against the `.py` implementations, generated [`../../image/workflows_matrix.md`](../../image/workflows_matrix.md) (`95aa4447`), ComfyUI core (`comfy/ldm/minimax/`, `comfy/sd.py`, `comfy/model_base.py`), and live `:8188` measurements.
 
 ---
 
@@ -16,7 +16,7 @@ H3's single-frame image models and H3's AV video pipelines live in the same late
 
 ### Core Mechanical Laws Governing Any Embedded Image <-> Video Graph
 
-1. **Single-frame bypass vs. `17n + 5` AV windows:** `t = 1` (`SINGLE_FRAME` in [`h3_rules.py`](../../../../h3_rules.py)) bypasses `17n + 5`. Any multi-frame AV window must land on `17n + 5` (`5..362`), while chained loops (`audio_freeze`, `audio_freeze_song`, `masked_v2v`) MUST stay on dual-clock `on_both_clocks` (`39 + 51m`: `39, 90, 141, 192, 243, 294, 345`) with `24.0 fps` video and `40 Hz` audio ([`../../core/h3_frame_rules.md`](../../core/h3_frame_rules.md)).
+1. **Single-frame bypass vs. `17n + 5` AV windows:** `t = 1` (`SINGLE_FRAME` in [`h3_rules.py`](../../../../h3_rules.py)) bypasses `17n + 5`. Any multi-frame AV window must land on `17n + 5` (`5..362`), and [`MiniMaxH3Conditioning`](../../../../conditioning.py) (`keyframe_canvas.py:181-189`) enforces `duration_in_range(length)` (`124..362`, `5..15s` at `24 fps`), making **`141`** (`5.875s`) the shortest dual-clock `on_both_clocks` length (`39 + 51m`: `39, 90, 141, 192, 243, 294, 345`) for `i2va`/`fl2va`/`l2va` keyframe runs (`24.0 fps` video, `40 Hz` audio; see [`../../core/h3_frame_rules.md`](../../core/h3_frame_rules.md) and [`bench/results/2026-11-14_embedded_image_in_video_phase0b.md`](../../../../bench/results/2026-11-14_embedded_image_in_video_phase0b.md)).
 2. **Mid-clip keyframes land on `17m`:** Video VAE encodes `[1, 4, 4, 4, 4]` temporal latent spans (`comfy/ldm/minimax/model.py`), so `frame_idx = 17m` (`0, 17, 34, 51, ...`) targets `1`-frame standalone clip starts rather than smeared `4`-frame chunks.
 3. **Pixel-domain handoff across image and video stages:** Route `VAEDecode` RGB `IMAGE` tensors from the image stage into `MiniMaxH3Resolution` sizing and `MiniMaxH3Conditioning` / `MiniMaxH3EncodeReferences` / `MiniMaxH3GuideLatent`. Never pass single-frame `H3ImageVAE` latents directly into a multi-frame video decode/encode path (Phase 0A).
 
@@ -35,7 +35,7 @@ Phase 0 requires **zero custom-node code changes** — it enforces VAE/condition
   - Wire **`video_vae`** (`MODELS["video_vae"]` / `VIDEO_VAE_FP16`) strictly to `MiniMaxH3Conditioning`, `MiniMaxH3EncodeReferences`, `MiniMaxH3GuideLatent`, and final video `VAEDecode`.
   - Resize decoded `IMAGE` stills (including Pika `single_frame=True` edit graphs) with [`MiniMaxH3Resolution`](../../../../resolution.py) (`shape="same as the picture"`, `picture=...`, appended in `a61f8db7`; `1344x768` trained-family cap) and budget tokens via [`MiniMaxH3Preflight`](../../../../preflight.py) (`<= 99,864` packed tokens for signed `int32` QKV safety).
 
-### Phase 0B — Immediate Embedded-Image Workflows (Existing Nodes Only)
+### Phase 0B — Immediate Embedded-Image Workflows (Existing Nodes Only — [Measured `2026-11-14`](../../../../bench/results/2026-11-14_embedded_image_in_video_phase0b.md))
 
 1. **In-graph start / end frame synthesis (`t = 0` + `t = frame_count - 1` -> `fl2va`):**
    Generate `first_frame` (and optionally edit/synthesize `last_frame` conditioned on `first_frame` via `P-H3-Image` or Pika `t = 1`) -> `VAEDecode` -> scale to video canvas -> `MiniMaxH3Conditioning` (avoiding core's lone-`last_frame` cover-crop bug).
