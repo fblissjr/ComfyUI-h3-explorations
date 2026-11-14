@@ -154,7 +154,7 @@ Comfy-Org's shipped templates in four places:
    default) follow MiniMax's `sglang` (`image_canvas.py`) and `vllm-omni`
    (`pipeline_minimax_h3_image.py`) servers: the DiT samples on the vendor's
    `4.0`-megapixel canvas floor (`width`, `height`), and `MiniMax H3 Image Downscale`
-   (`MiniMaxH3ImageDownscale`, wired between `VAEDecode` and `SaveImage`) resizes
+   (`MiniMaxH3ImageDownscale`, wired between `VAEDecode` and `PreviewImage`; every image graph previews and none saves, owner 2026-11-14) resizes
    the decoded pixels to `(target_width, target_height)` with 8-bit PIL Lanczos
    (passing `>= 4.0`-megapixel outputs through untouched). The templates start at
    the bottom of the working range without a floor guard.

@@ -702,7 +702,9 @@ def graphs() -> None:
             ok &= isinstance(cond["prompt"], str) and bool(cond["prompt"].strip())
         vaedec = [(nid, n["inputs"]) for nid, n in g.items() if n["class_type"] == "VAEDecode"]
         down = [(nid, n["inputs"]) for nid, n in g.items() if n["class_type"] == "MiniMaxH3ImageDownscale"]
-        save = [n["inputs"] for n in g.values() if n["class_type"] == "SaveImage"]
+        # every image graph previews, none saves (owner, 2026-11-14)
+        save = [n["inputs"] for n in g.values() if n["class_type"] == "PreviewImage"]
+        ok &= not any(n["class_type"] == "SaveImage" for n in g.values())
         size_ids = [nid for nid, n in g.items() if n["class_type"] == "MiniMaxH3ImageSize"]
         ok &= len(vaedec) == 1 and len(down) == 1 and len(save) == 1 and len(size_ids) == 1
         if vaedec and down and save and size_ids:

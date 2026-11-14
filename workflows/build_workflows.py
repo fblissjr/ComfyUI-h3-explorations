@@ -3239,7 +3239,8 @@ def build_h3_image_api(
     resolved_prompt = prompt if prompt is not None else default_prompt
     resolved_shape = shape or (H3_IMAGE_ASPECT_OF_PICTURE if is_edit else H3_IMAGE_T2I_SHAPE)
     resolved_seed = seed if seed is not None else (H3_IMAGE_EDIT_SEED if is_edit else H3_IMAGE_T2I_SEED)
-    resolved_prefix = out_prefix or ("Image/h3_image_edit" if is_edit else "Image/h3_image_t2i")
+    # `out_prefix` is kept for callers and unused, as in `build_ph3_image_api`: every image graph previews
+    # (owner, 2026-11-14), so a run is kept in ComfyUI's temp folder, not saved.
 
     g: dict[str, Any] = {
         "1": {"class_type": "UNETLoader",
@@ -3265,8 +3266,8 @@ def build_h3_image_api(
                "inputs": {"samples": ["10", 0], "vae": ["3", 0]}},
         "12": {"class_type": "MiniMaxH3ImageDownscale",
                "inputs": {"images": ["11", 0], "target_width": ["4", 2], "target_height": ["4", 3]}},
-        "13": {"class_type": "SaveImage",
-               "inputs": {"images": ["12", 0], "filename_prefix": resolved_prefix}},
+        "13": {"class_type": "PreviewImage",
+               "inputs": {"images": ["12", 0]}},
         "60": {"class_type": "ManualSigmas",
                "inputs": {"sigmas": H3_IMAGE_MANUAL_SIGMAS}},
     }

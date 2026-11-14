@@ -112,13 +112,12 @@
     }
   },
   "13": {
-    "class_type": "SaveImage",
+    "class_type": "PreviewImage",
     "inputs": {
       "images": [
         "12",
         0
-      ],
-      "filename_prefix": "Image/h3_image_t2i_heylook"
+      ]
     }
   },
   "60": {
