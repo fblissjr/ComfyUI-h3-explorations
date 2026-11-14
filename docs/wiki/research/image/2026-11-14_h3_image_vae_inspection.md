@@ -201,7 +201,7 @@ for the card). LoRA or an 8-bit optimizer would fit.
   video decoder's single-latent time position to P-H3's helps but stays well behind; zero-shot pruning of P-H3's late
   blocks collapses it; truncating the release decoder's output layer by singular value makes it worse.
 - **Generation size against viewing size.** The model card puts the best results near 16 MP; sglang's 4 MP is only
-  its floor (`configs/pipeline_configs/minimax_h3_image.py::min_generation_area`), below which it generates bigger
+  its floor (sglang `python/sglang/multimodal_gen/configs/pipeline_configs/minimax_h3_image.py`, `min_generation_area`), below which it generates bigger
   and shrinks with Lanczos. Shrinking a 16 MP decode to a phone or preview window averages away much of the stock
   decoder's pixel-scale speckle, and small text spans many 16 px cells at 16 MP, which is why the 16 MP renders'
   lettering held under every decoder while the roughly 1 MP test pictures' did not.
