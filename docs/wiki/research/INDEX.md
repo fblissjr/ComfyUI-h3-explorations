@@ -96,6 +96,14 @@ For active nodes and recipes, start at [`../control_vectors.md`](../control_vect
 | [`pdd/three_pdd_implementations.html`](pdd/three_pdd_implementations.html) | Standalone diagram: three PDD implementations |
 | [`pdd/two_pdd_paths.html`](pdd/two_pdd_paths.html) | Standalone diagram: two PDD paths |
 
+## Image Models (`docs/wiki/research/image/`)
+
+For the active MiniMax-H3-Image and P-H3-Image setup, start at [`../image/h3_image.md`](../image/h3_image.md) and [`../image/p_h3_image.md`](../image/p_h3_image.md).
+
+| Document | Topic |
+|---|---|
+| [`image/2026-11-14_h3_image_vae_inspection.md`](image/2026-11-14_h3_image_vae_inspection.md) | The MiniMax-H3-Image VAE: weights, config, Comfy-Org's fp16 file and core's decoder checked against diffusers, vllm-omni and sglang (nothing wrong found); tile stitching and geometry; release vs. P-H3 vs. HDR decoders on one latent; lettering breakup is in the latent |
+
 ## Core H3, Pika, Conditioning, & Upstream Stack Studies
 
 | Document | Topic |

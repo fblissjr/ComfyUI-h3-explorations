@@ -1,6 +1,6 @@
 # MiniMax-H3-Image: MiniMax's own still-image model
 
-Last updated: 2026-11-13 (the edit graphs use the pack's reference nodes with the servers' crop and draw; the graphs load the bf16 text encoder; "Edit references, point by point" added under "What the vendor's servers do"); 2026-11-12.
+Last updated: 2026-11-14 (item 4 points at the release VAE inspection); 2026-11-13 (the edit graphs use the pack's reference nodes with the servers' crop and draw; the graphs load the bf16 text encoder; "Edit references, point by point" added under "What the vendor's servers do"); 2026-11-12.
 
 MiniMax-H3-Image makes a picture from text, or edits one or more pictures, on
 one checkpoint, in six steps with no guidance. It is a different model from
@@ -179,6 +179,10 @@ Comfy-Org's shipped templates in four places:
    `31.47 dB` (`+1.56 dB`) and cleanly removes the dark-shadow grain on live
    `MiniMax-H3-Image` DiT latents (`build_h3_image_api(..., vae=H3_IMAGE_VAE)`
    keeps the release decoder available).
+   The release decoder itself was inspected on 2026-11-14 (weights, config, Comfy-Org's file, core's decode against
+   diffusers, vllm-omni and sglang) and nothing was found wrong; the gap is the decoder, and small-text breakup is
+   shared by every decoder of the same latent
+   ([`../research/image/2026-11-14_h3_image_vae_inspection.md`](../research/image/2026-11-14_h3_image_vae_inspection.md)).
 
 Attention is the same as the templates': comfy-kitchen's INT8 attention, named
 in the graph. The vendor's pipeline computes exact attention, which is what

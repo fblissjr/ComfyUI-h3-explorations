@@ -14,7 +14,7 @@ this file is only a way to find a script by what it says it does.
 | [`grade_*`](#grade) | 19 |
 | [`compare_*`](#compare) | 15 |
 | [`build_*`](#build) | 13 |
-| [`probe_*`](#probe) | 13 |
+| [`probe_*`](#probe) | 14 |
 | [the rest](#the-rest) | 199 |
 
 ## check
@@ -327,6 +327,7 @@ this file is only a way to find a script by what it says it does.
 | [`probe_block_propagation.py`](probe_block_propagation.py) | Does Sol's error at ONE block reach the output? Measured, one block at a time. |
 | [`probe_encoder_rope_kitchen.py`](probe_encoder_rope_kitchen.py) | Did core's move of the text encoder's RoPE onto comfy-kitchen change its numbers? |
 | [`probe_grade_row_selection.py`](probe_grade_row_selection.py) | Does the video-and-audio row selector in `grade_dense_kernels_on_captures.py` select and grade the right rows? |
+| [`probe_h3_image_vae_tiles.py`](probe_h3_image_vae_tiles.py) | How the MiniMax-H3-Image VAE's 256 px decode tiles shape its pictures, measured on real pictures with no DiT. |
 | [`probe_int8_lora_requant.py`](probe_int8_lora_requant.py) | How much of a LoRA survives being baked into the int8 convrot checkpoint. |
 | [`probe_kitchen_sol_build_parity.py`](probe_kitchen_sol_build_parity.py) | Hash `sol_attn` and `sol_attn_chunked` outputs over a grid of options, so two comfy-kitchen builds can be diffed line by line. |
 | [`probe_kitchen_swiglu_and_token_overflow.py`](probe_kitchen_swiglu_and_token_overflow.py) | Two properties of the installed comfy-kitchen build on this card: fused SwiGLU against the unfused chain, and whether token routing repeats. |
@@ -730,7 +731,7 @@ Arm manifests and the like; a manifest's line is its own `what`.
 
 ### results
 
-230 tracked files: [`results/INDEX.md`](results/INDEX.md).
+231 tracked files: [`results/INDEX.md`](results/INDEX.md).
 
 ### rubrics
 
