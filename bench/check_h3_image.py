@@ -24,6 +24,12 @@ No model file and no card. What each case defends, i.e. what breaks if it is del
   delivered size does not shrink the canvas (no upscaling); the node unset generates at
   `H3_IMAGE_MEGAPIXELS` while the bare function unset keeps the old canvas; at 4:3 the canvas keeps the
   target's shape; the 4.0 MP floor still holds.
+- `delivered_size and MiniMaxH3ImageDownscale never change shape or enlarge either side` -- explicit
+  matched aspects including extreme ratios (`8480x480 -> 6016x352` from `4427x256`) pass the `±16 px`
+  same-shape test; mismatched decodes (`3360x2496` vs `1760x2368`, e.g. `P-H3-Image` `canvas="auto"`)
+  preserve the decoded shape at the target pixel budget on the `32`-px grid; both branches refuse
+  per-side enlargement (including non-`32` `1000x667` where `992x672` would grow height) via zero-copy
+  passthrough; and `<= 0` sizes raise `ValueError`.
 - `expander replies parse plain prose, trailing aspect_ratio, thinking blocks and vendor JSON` --
   `parse_expander_reply` on the release's worked captions (`revised_prompt.{t2i,edit}.txt`), an
   arbitrary edit ratio composed with `resolve_size`, `'same as the picture'` / `'adaptive'`,
@@ -143,6 +149,7 @@ def sizes() -> None:
         from h3_image_nodes import (
             MiniMaxH3ImageDownscale,
             MiniMaxH3ImageSize,
+            delivered_size,
             resolve_canvas_and_target_size,
             resolve_size,
         )
@@ -192,20 +199,61 @@ def sizes() -> None:
     same_out = MiniMaxH3ImageDownscale.execute(img_in, 128, 128)[0]
     disabled_out = MiniMaxH3ImageDownscale.execute(img_in, 64, 64, enabled=False)[0]
     down_out = MiniMaxH3ImageDownscale.execute(img_in, 64, 64)[0]
+    enlarge_img = torch.rand((1, 192, 256, 3), generator=gen, dtype=torch.float32)
+    enlarge_out = MiniMaxH3ImageDownscale.execute(enlarge_img, 384, 288)[0]
+    reshape_target = delivered_size(256, 192, 160, 224)
+    reshape_out = MiniMaxH3ImageDownscale.execute(enlarge_img, 160, 224)[0]
     refused_zero = False
     try:
         MiniMaxH3ImageDownscale.execute(img_in, 0, 0)
     except ValueError:
         refused_zero = True
+    refused_delivered_zero = False
+    try:
+        delivered_size(0, 128, 64, 64)
+    except ValueError:
+        refused_delivered_zero = True
     from PIL import Image
     import numpy as np
     u8 = (img_in[0] * 255.0).clamp(0.0, 255.0).to(torch.uint8).numpy()
     pil_ref = torch.from_numpy(
         np.asarray(Image.fromarray(u8).resize((64, 64), resample=Image.Resampling.LANCZOS), dtype=np.float32) / 255.0
     ).unsqueeze(0)
+    ru8 = (enlarge_img[0] * 255.0).clamp(0.0, 255.0).to(torch.uint8).numpy()
+    rpil_ref = torch.from_numpy(
+        np.asarray(Image.fromarray(ru8).resize(reshape_target, resample=Image.Resampling.LANCZOS), dtype=np.float32) / 255.0
+    ).unsqueeze(0)
+    extreme_ok = delivered_size(8480, 480, 6016, 352) == (6016, 352)
+    auto_reshape = delivered_size(3360, 2496, 1760, 2368)
+    auto_reshape_ok = (
+        auto_reshape[0] > auto_reshape[1]
+        and auto_reshape[0] <= 3360
+        and auto_reshape[1] <= 2496
+        and auto_reshape[0] % 32 == 0
+        and auto_reshape[1] % 32 == 0
+        and auto_reshape == h3_config.h3_image_size((1760 * 2368) / (1024 * 1024), 3360, 2496)
+    )
+    no_upscale_ok = (
+        delivered_size(2496, 1664, 3072, 2048) == (2496, 1664)
+        and delivered_size(2496, 1664, 2176, 2912) == (2496, 1664)
+        and delivered_size(1000, 667, 816, 816) == (1000, 667)
+    )
     report(
-        same_out is img_in and disabled_out is img_in and refused_zero and torch.equal(down_out, pil_ref),
-        "MiniMaxH3ImageDownscale passes matching/disabled sizes untouched, refuses <=0, and matches 8-bit PIL Lanczos",
+        same_out is img_in
+        and disabled_out is img_in
+        and enlarge_out is enlarge_img
+        and refused_zero
+        and refused_delivered_zero
+        and torch.equal(down_out, pil_ref)
+        and reshape_target[0] > reshape_target[1]
+        and reshape_target[0] <= 256
+        and reshape_target[1] <= 192
+        and reshape_target != (160, 224)
+        and torch.equal(reshape_out, rpil_ref)
+        and extreme_ok
+        and auto_reshape_ok
+        and no_upscale_ok,
+        "delivered_size and MiniMaxH3ImageDownscale preserve decoded aspect, never enlarge either side, refuse <=0, and match 8-bit PIL Lanczos",
     )
 
 

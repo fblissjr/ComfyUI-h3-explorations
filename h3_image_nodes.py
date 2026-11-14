@@ -1360,23 +1360,52 @@ def register_expander_routes() -> None:
     instance.routes.get("/h3_image/expander_catalog")(expander_catalog)
 
 
-def downscale_h3_image_output(images, target_width: int, target_height: int, enabled: bool = True):
-    """Resize decoded `[B, H, W, C]` images in `[0, 1]` to `(target_width, target_height)` via 8-bit PIL Lanczos.
+def delivered_size(
+    decoded_w: int,
+    decoded_h: int,
+    target_width: int,
+    target_height: int,
+) -> tuple[int, int]:
+    """Resolve the delivered `(width, height)` for a decoded image without cropping or upscaling.
 
-    Matches `coderef/sglang` (`minimax_h3_resize_image_output`) and `coderef/vllm-omni`
-    (`pipeline_minimax_h3_image.py`): when `enabled` is False or `(W, H) == (target_width, target_height)`,
-    returns `images` untouched (zero-copy passthrough at `>= 4.0` MP). Otherwise quantizes to `uint8`
+    - If `(target_width, target_height)` matches `(decoded_w, decoded_h)` in aspect within the 32-px grid's
+      half-step tolerance (`±16 px` on scaled axes: ``abs(dw * th - dh * tw) * 2 <= 32 * (tw + th)``),
+      use `(target_width, target_height)`.
+    - Otherwise, keep the decoded image's own shape at the target's pixel count on the 32-px grid via
+      `h3_image_size` (so `P-H3-Image` `canvas="auto"` downscales without stretching).
+    - In both branches, never enlarge either side: if `out_w > dw` or `out_h > dh`, return `(dw, dh)`.
+    """
+    dw, dh = int(decoded_w), int(decoded_h)
+    tw, th = int(target_width), int(target_height)
+    if min(dw, dh) < 1:
+        raise ValueError(f"decoded_w and decoded_h must be >= 1; got ({dw}, {dh})")
+    if min(tw, th) < 1:
+        raise ValueError(f"target_width and target_height must be >= 1; got ({tw}, {th})")
+    # Exact integer equivalent of ∃ scale > 0 with |dw - scale*tw| <= M/2 and |dh - scale*th| <= M/2.
+    if abs(dw * th - dh * tw) * 2 <= H3_IMAGE_SIZE_MULTIPLE * (tw + th):
+        out_w, out_h = tw, th
+    else:
+        out_w, out_h = h3_image_size((tw * th) / (1024 * 1024), dw, dh)
+    if out_w > dw or out_h > dh:
+        return dw, dh
+    return out_w, out_h
+
+
+def downscale_h3_image_output(images, target_width: int, target_height: int, enabled: bool = True):
+    """Resize decoded `[B, H, W, C]` images in `[0, 1]` toward `(target_width, target_height)` via 8-bit PIL Lanczos.
+
+    Resolves the output size with `delivered_size` so aspect ratios differing beyond `±16 px` keep the decoded
+    shape at the target pixel count and neither side is ever enlarged. When `enabled` is False or the resolved
+    output size equals `(W, H)`, returns `images` untouched (zero-copy passthrough). Otherwise quantizes to `uint8`
     (`(x * 255).clamp(0, 255).to(uint8)`), resizes with `Image.Resampling.LANCZOS`, and returns `uint8 / 255.0`.
     """
     import torch
 
     if not enabled or images is None:
         return images
-    tw, th = int(target_width), int(target_height)
-    if min(tw, th) < 1:
-        raise ValueError(f"target_width and target_height must be >= 1; got ({tw}, {th})")
     cur_h, cur_w = int(images.shape[1]), int(images.shape[2])
-    if (cur_w, cur_h) == (tw, th):
+    out_w, out_h = delivered_size(cur_w, cur_h, target_width, target_height)
+    if (cur_w, cur_h) == (out_w, out_h):
         return images
     channels = int(images.shape[3])
     if channels not in (3, 4):
@@ -1385,7 +1414,7 @@ def downscale_h3_image_output(images, target_width: int, target_height: int, ena
     out_frames = []
     for frame in images.detach().cpu():
         arr = (frame * 255.0).clamp(0.0, 255.0).to(torch.uint8).numpy()
-        pil = Image.fromarray(arr, mode=mode).resize((tw, th), Image.Resampling.LANCZOS)
+        pil = Image.fromarray(arr, mode=mode).resize((out_w, out_h), Image.Resampling.LANCZOS)
         out_frames.append(torch.from_numpy(np.array(pil, copy=True)))
     return torch.stack(out_frames, dim=0).to(dtype=images.dtype, device=images.device).div_(255.0)
 
@@ -1398,19 +1427,26 @@ class MiniMaxH3ImageDownscale(io.ComfyNode):
             display_name="MiniMax H3 Image Downscale",
             category="model/conditioning/minimax",
             description=(
-                "Post-decode 8-bit PIL Lanczos resize from the generation canvas to the delivered size "
-                "(MiniMax H3 Image Size's target_width / target_height; the same resize SGLang and vLLM-Omni "
-                "apply below 4 MP). Zero-copy passthrough when the two match or enabled is False."
+                "Post-decode 8-bit PIL Lanczos downscale toward MiniMax H3 Image Size's target_width / "
+                "target_height. Preserves the decoded image's aspect ratio (at the target pixel count) when "
+                "shapes differ beyond ±16 px (such as P-H3-Image canvas='auto'), and never enlarges either side "
+                "(zero-copy passthrough when no shrink is needed or enabled is False)."
             ),
             inputs=[
                 io.Image.Input("images"),
                 io.Int.Input(
                     "target_width", default=2048, min=1, max=16384, step=1,
-                    tooltip="Target output width from MiniMax H3 Image Size (matching width passes through untouched).",
+                    tooltip=(
+                        "Target delivered width from MiniMax H3 Image Size; used directly when the decoded "
+                        "aspect matches within ±16 px, else supplies target pixel budget. Never enlarges."
+                    ),
                 ),
                 io.Int.Input(
                     "target_height", default=2048, min=1, max=16384, step=1,
-                    tooltip="Target output height from MiniMax H3 Image Size (matching height passes through untouched).",
+                    tooltip=(
+                        "Target delivered height from MiniMax H3 Image Size; used directly when the decoded "
+                        "aspect matches within ±16 px, else supplies target pixel budget. Never enlarges."
+                    ),
                 ),
                 io.Boolean.Input(
                     "enabled", default=True, optional=True,

@@ -1,6 +1,6 @@
 # MiniMax-H3-Image: MiniMax's own still-image model
 
-Last updated: 2026-11-14 (generate at 16 MP, deliver 4 MP, item 2; item 4 points at the release VAE inspection); 2026-11-13 (the edit graphs use the pack's reference nodes with the servers' crop and draw; the graphs load the bf16 text encoder; "Edit references, point by point" added under "What the vendor's servers do"); 2026-11-12.
+Last updated: 2026-11-14 (`delivered_size` / `MiniMaxH3ImageDownscale` preserves decoded shape beyond ±16 px and never enlarges either side; generate at 16 MP, deliver 4 MP, item 2; item 4 points at the release VAE inspection); 2026-11-13 (the edit graphs use the pack's reference nodes with the servers' crop and draw; the graphs load the bf16 text encoder; "Edit references, point by point" added under "What the vendor's servers do"); 2026-11-12.
 
 MiniMax-H3-Image makes a picture from text, or edits one or more pictures, on
 one checkpoint, in six steps with no guidance. It is a different model from
@@ -154,9 +154,11 @@ Comfy-Org's shipped templates in four places:
    default) follow MiniMax's `sglang` (`image_canvas.py`) and `vllm-omni`
    (`pipeline_minimax_h3_image.py`) servers: the DiT samples on the vendor's
    `4.0`-megapixel canvas floor (`width`, `height`), and `MiniMax H3 Image Downscale`
-   (`MiniMaxH3ImageDownscale`, wired between `VAEDecode` and `PreviewImage`; every image graph previews and none saves, owner 2026-11-14) resizes
-   the decoded pixels to `(target_width, target_height)` with 8-bit PIL Lanczos
-   (passing `>= 4.0`-megapixel outputs through untouched). The templates start at
+   (`MiniMaxH3ImageDownscale`, wired between `VAEDecode` and `PreviewImage`; every image graph previews and none saves, owner 2026-11-14) resolves `delivered_size` and resizes
+   the decoded pixels with 8-bit PIL Lanczos: matching aspect ratios (within `±16 px` on scaled axes,
+   half of the `32`-px grid step) resize to `(target_width, target_height)`, mismatched shapes (such as
+   `P-H3-Image` `canvas="auto"`) keep the decoded shape at the target pixel budget on the `32`-px grid,
+   and neither side is ever enlarged (zero-copy passthrough when no shrink is needed). The templates start at
    the bottom of the working range without a floor guard.
 3. **A picture being edited reaches the model untouched.** The edit template
    resamples it first. The vendor's pipeline keeps a reference's own pixels
