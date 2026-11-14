@@ -323,6 +323,20 @@ core resamples the whole picture by a fraction of a grid cell, the servers
 trim the right and bottom edges and leave every remaining pixel as it was. A
 picture outside the bounds is resampled by all four.
 
+**H3 video is not cropped, by either server or by this pack (read
+2026-11-13).** The crop is the image release's alone. For a reference still
+in H3 video both servers round each side to the nearest 32 pixels and
+resample with Lanczos: sglang in every one of its resize modes
+(`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/reference_encoding.py::minimax_h3_resolve_reference_image_shape`,
+`minimax_h3_resize_reference_image`), vllm-omni in
+`coderef/vllm-omni/vllm_omni/model_executor/models/minimax_h3/preprocessing.py::resolve_minimax_h3_reference_image_shape` and the
+resize that calls it in `coderef/vllm-omni/vllm_omni/model_executor/models/minimax_h3/encoder_processing.py`. This pack's video
+reference nodes do the same (`reference_geometry.py::snap_to_multiple`, then
+core's Lanczos `_resize` from `reference_conditioning.py`), so nothing was
+changed there. Where the two servers differ from each other on video is how
+large the still is kept, which [`../core/h3_references.md`](../core/h3_references.md)
+owns.
+
 **A lead this read turned up, not acted on.** vllm-omni's recipe says an edit
 stays best aligned with its reference when the reference is given at the
 canvas's pixel size and that same size is requested
