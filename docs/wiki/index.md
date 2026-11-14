@@ -46,6 +46,7 @@ Master router for `ComfyUI-h3-explorations`. Root [`../../AGENTS.md`](../../AGEN
 | [`image/h3_image.md`](image/h3_image.md) | `h3_image_nodes.py`, `vae_precision.py`, `reference_encode.py` | `MiniMax-H3-Image`: `4.0 MP` floor + `MiniMaxH3ImageDownscale`, `PH3_IMAGE_VAE` default, `fp32` encoder precision, `MiniMaxH3ImagePromptExpander` (`heylook` SSE), 16-still split cache |
 | [`image/p_h3_image.md`](image/p_h3_image.md) | `ph3_image_nodes.py` | `P-H3-Image`: `[4 MP, 8 MP]` canvas/`image_1` clamp, `[1 MP, 8 MP]` refs, `seed = 42` latent encoding, 8-step `ManualSigmas`, lazy `Qwen3.5-9B` upsampler |
 | [`image/h3_image_editing.md`](image/h3_image_editing.md) | `conditioning.py`, `guide_latent.py`, `edit_guidance.py` | Pika `single_frame = True` (`t = 1`) generation/editing, spatial `mask` guide edits, `EditGuider` & `MiniMaxH3Steer` on stills |
+| [`image/workflows_matrix.md`](image/workflows_matrix.md) | `bench/build_index.py` (reads `workflows/image/`) | Auto-generated variant architecture, data flow, and per-graph defaults matrix across all tracked image workflows |
 | [`research/image/2026-11-14_embedded_image_in_video_plan.md`](research/image/2026-11-14_embedded_image_in_video_plan.md) | `control_vector_nodes.py`, `edit_guidance.py`, `video_mask.py`, `audio_freeze.py` | Phases 0–4 plan for embedded image gen/edit inside video pipelines: dual image/video VAE split, `guide_end_percent` mid-clip release, diff auto-masking, and anti-burnout loop hooks |
 | [`../../app/README.md`](../../app/README.md) | `app/server.py`, `app/routes.py`, `app/h3_image_tools.py` | iPhone Safari Obsidian Glass studio front end (`AGENTS.md`: managed via dedicated studio workflow) |
 
@@ -132,7 +133,7 @@ Start at [`control_vectors.md`](control_vectors.md) and [`edit_guidance.md`](edi
 
 ## 9. Generated Inventories, Research, References & Archive
 
-- **Generated repo indexes**: [`../../INDEX.md`](../../INDEX.md), [`../../workflows/INDEX.md`](../../workflows/INDEX.md), [`../../bench/INDEX.md`](../../bench/INDEX.md), [`../../bench/results/INDEX.md`](../../bench/results/INDEX.md).
+- **Generated repo indexes**: [`../../INDEX.md`](../../INDEX.md), [`../../workflows/INDEX.md`](../../workflows/INDEX.md), [`image/workflows_matrix.md`](image/workflows_matrix.md), [`../../bench/INDEX.md`](../../bench/INDEX.md), [`../../bench/results/INDEX.md`](../../bench/results/INDEX.md).
 - **Research index**: [`research/INDEX.md`](research/INDEX.md) (all dated studies, Control Vectors, Chain Lens, Masking, PDD, Sparse, VSA, and postmortems).
 - **External references**: [`references.md`](references.md) (upstream `sglang`, `FastVideo`, `LightX2V`, `vllm-omni`, `TaoMate-H3`, ComfyUI core comparisons).
 - **Archive & history**: [`decisions.md`](decisions.md) (`decisions/*.md` shards) and [`archive/INDEX.md`](archive/INDEX.md) (`37` frozen/superseded files).

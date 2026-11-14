@@ -28,7 +28,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _lib import REPO, case, finish, refused  # noqa: E402
 
 UNINDEXED_TOP_DIRS: frozenset[str] = frozenset({"changelog.d", "docs", "prompt_bank"})
-INDEX_FILES: tuple[str, ...] = ("INDEX.md", "bench/INDEX.md", "bench/results/INDEX.md", "workflows/INDEX.md")
+INDEX_FILES: tuple[str, ...] = (
+    "INDEX.md",
+    "bench/INDEX.md",
+    "bench/results/INDEX.md",
+    "workflows/INDEX.md",
+    "docs/wiki/image/workflows_matrix.md",
+)
 
 
 def _normalize_rel(path_str: str, repo: Path) -> str:
@@ -71,6 +77,8 @@ def indexes_needed_for(rel: str) -> list[str]:
         return ["INDEX.md", "bench/INDEX.md"]
     if top == "workflows":
         if rel.endswith(".json"):
+            if len(parts) >= 2 and parts[1] == "image":
+                return ["INDEX.md", "workflows/INDEX.md", "docs/wiki/image/workflows_matrix.md"]
             return ["INDEX.md", "workflows/INDEX.md"]
         return ["INDEX.md"]
     return ["INDEX.md"]
@@ -234,6 +242,14 @@ def commit_ready_self_check() -> str:
         # 7. CLI refusal exits non-zero with REFUSED: and no Python traceback
         out = refused([sys.executable, str(Path(__file__).resolve()), "--repo", str(fake), "internal/secret.md"], "REFUSED:", "is gitignored")
         assert "internal/secret.md" in out
+
+        # 8. workflows/image/*.json requires docs/wiki/image/workflows_matrix.md alongside INDEX.md and workflows/INDEX.md
+        assert indexes_needed_for("workflows/image/example_api.json") == [
+            "INDEX.md",
+            "workflows/INDEX.md",
+            "docs/wiki/image/workflows_matrix.md",
+        ]
+        assert indexes_needed_for("docs/wiki/image/workflows_matrix.md") == []
 
     return "gitignored paths, nonexistent paths, and new/deleted indexed paths without git add or build_index are refused; clean commits pass"
 

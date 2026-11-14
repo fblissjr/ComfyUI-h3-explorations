@@ -39,8 +39,14 @@ What is written, and from what:
     chain read off the graph itself (checkpoint, LoRAs, and which of this
     pack's nodes it wires).
 
-Already indexed elsewhere and only pointed at: `docs/` by the hand-written
-router `docs/wiki/index.md`, and `prompt_bank/` by `docs/wiki/prompting/prompt_bank.md`.
+`docs/wiki/image/workflows_matrix.md`
+    Image-workflow architecture, data flow by model variant, and per-graph
+    defaults table read directly off tracked `workflows/image/*.json` graphs
+    and `workflows/build_workflows.py --dump-graphs`.
+
+Already indexed elsewhere and only pointed at: `docs/` (aside from the
+generated `workflows_matrix.md` view above) by the hand-written router
+`docs/wiki/index.md`, and `prompt_bank/` by `docs/wiki/prompting/prompt_bank.md`.
 
 Every description is the file's own words (a docstring, a heading, a `what`
 key); nothing is written here about a file. All of it is generated: edit the
@@ -494,6 +500,7 @@ def build_results() -> str:
 
 # --------------------------------------------------------- workflows/INDEX.md
 
+@lru_cache(maxsize=1)
 def generator_notes() -> dict[str, dict]:
     """`build_workflows.py --dump-graphs`: relative graph path -> label, task, note.
 
@@ -544,6 +551,12 @@ def build_workflows() -> str:
     for d in sorted(by_dir, key=lambda p: (p.count("/"), p)):
         title = "workflows/ (the shipped graphs)" if d == "workflows" else d + "/"
         out += [f"## {title}", ""]
+        if d == "workflows/image":
+            out += [
+                "Architecture, data flow, and full per-workflow defaults matrix: "
+                + link("docs/wiki/image/workflows_matrix.md", "workflows", "docs/wiki/image/workflows_matrix.md") + ".",
+                "",
+            ]
         if notes:
             out += ["| graph | the generator's note | chain |", "|---|---|---|"]
         else:
@@ -562,6 +575,424 @@ def build_workflows() -> str:
     return "\n".join(out).rstrip() + "\n"
 
 
+# ------------------------------------ docs/wiki/image/workflows_matrix.md
+
+IMAGE_MATRIX_DIR = "docs/wiki/image"
+
+
+def _nodes_by_class(graph: dict, class_type: str) -> list[tuple[str, dict]]:
+    return [
+        (nid, node)
+        for nid, node in sorted(
+            graph.items(),
+            key=lambda kv: (0, int(kv[0])) if kv[0].isdigit() else (1, kv[0]),
+        )
+        if isinstance(node, dict) and node.get("class_type") == class_type
+    ]
+
+
+def _source_node(graph: dict, node: dict | None, key: str) -> tuple[str | None, dict | None]:
+    if not isinstance(node, dict):
+        return None, None
+    val = node.get("inputs", {}).get(key)
+    if isinstance(val, list) and val:
+        src_id = str(val[0])
+        return src_id, graph.get(src_id)
+    return None, None
+
+
+def _trace_vae_loader(graph: dict, node: dict | None, key: str = "vae") -> tuple[str, dict | None]:
+    """Follow a `vae`/`audio_vae` input back through `MiniMaxH3VAEPrecision` to `VAELoader`."""
+    precision: dict | None = None
+    cur = node
+    seen: set[str] = set()
+    for _ in range(4):
+        src_id, src = _source_node(graph, cur, key)
+        if src is None or src_id is None or src_id in seen:
+            break
+        seen.add(src_id)
+        ct = src.get("class_type")
+        if ct == "MiniMaxH3VAEPrecision":
+            precision = src.get("inputs", {})
+            cur = src
+            key = "vae"
+            continue
+        if ct == "VAELoader":
+            return str(src.get("inputs", {}).get("vae_name", "?")), precision
+        break
+    return "", precision
+
+
+def _fmt_num(val) -> str:
+    try:
+        return f"{float(val):g}"
+    except (TypeError, ValueError):
+        return str(val)
+
+
+def _image_variant_info(classes: set[str]) -> tuple[int, str, str]:
+    if classes & {"MiniMaxH3ImageConditioning", "MiniMaxH3EncodeImageReferences", "MiniMaxH3PromptOnImageReferences"}:
+        return (
+            0,
+            "MiniMax-H3-Image",
+            "1-stream image latent `[1, 24, 1, H//16, W//16]` (no audio stream, no `MiniMaxH3SigmaShift`, no `MiniMaxH3Preflight`)",
+        )
+    if "MiniMaxH3PH3ImageConditioning" in classes:
+        return (
+            1,
+            "P-H3-Image",
+            "2-stream AV `NestedTensor` at `t=1` via `MiniMaxH3PH3ImageConditioning` (zero-length audio, `MiniMaxH3SigmaShift`)",
+        )
+    if classes & {"MiniMaxH3Conditioning", "MiniMaxH3ReferenceConditioning"}:
+        return (
+            2,
+            "Pika H3 Flex (t=1)",
+            "2-stream AV `NestedTensor` at `t=1` via `single_frame=True` on video DiTs (`MiniMaxH3Resolution` `length` widget overridden to `t=1`; `MiniMaxH3Preflight` + `MiniMaxH3SigmaShift`)",
+        )
+    return 3, "Other", "(inspect graph)"
+
+
+def _image_size_summary(graph: dict) -> tuple[str, str]:
+    downscale = bool(_nodes_by_class(graph, "MiniMaxH3ImageDownscale"))
+    size_nodes = _nodes_by_class(graph, "MiniMaxH3ImageSize")
+    if size_nodes:
+        inp = size_nodes[0][1].get("inputs", {})
+        shape = str(inp.get("shape", "?"))
+        if isinstance(inp.get("shape_from_expander"), list):
+            shape += " (expander)"
+        gen_mp = inp.get("generate_megapixels")
+        deliv_mp = inp.get("megapixels")
+        if gen_mp is not None and deliv_mp is not None and float(gen_mp) != float(deliv_mp):
+            mp_str = f"{_fmt_num(gen_mp)} -> {_fmt_num(deliv_mp)} MP"
+        elif deliv_mp is not None:
+            mp_str = f"{_fmt_num(deliv_mp)} MP"
+        else:
+            mp_str = "? MP"
+        tail = "downscale" if downscale else "direct"
+        return f"`{shape}`: {mp_str} ({tail})", "MiniMaxH3ImageSize + MiniMaxH3ImageDownscale" if downscale else "MiniMaxH3ImageSize"
+
+    res_nodes = _nodes_by_class(graph, "MiniMaxH3Resolution")
+    if res_nodes:
+        inp = res_nodes[0][1].get("inputs", {})
+        shape = str(inp.get("shape", "?"))
+        preset = ""
+        for k, v in inp.items():
+            if k.startswith("shape.") and k.endswith("_resolution") and isinstance(v, str) and v.strip():
+                preset = v.split()[0]
+                break
+        res_part = f"`{shape}` (`{preset}`)" if preset else f"`{shape}`"
+        tail = "downscale" if downscale else "direct"
+        return f"{res_part}, {tail}", "MiniMaxH3Resolution" + (" + MiniMaxH3ImageDownscale" if downscale else "")
+    return "-", "-"
+
+
+def _extract_image_workflow(rel: str, graph: dict, notes: dict[str, dict]) -> dict:
+    classes = {n.get("class_type") for n in graph.values() if isinstance(n, dict) and n.get("class_type")}
+    variant_rank, variant_label, stream_summary = _image_variant_info(classes)
+    load_imgs = _nodes_by_class(graph, "LoadImage")
+    expanders = _nodes_by_class(graph, "MiniMaxH3ImagePromptExpander")
+    is_probe = "_probe_" in Path(rel).name
+
+    # DiT + LoRA(s)
+    unets = [str(n["inputs"].get("unet_name", "?")) for _, n in _nodes_by_class(graph, "UNETLoader")]
+    loras = [
+        f"{n['inputs'].get('lora_name', '?')} ({_fmt_num(n['inputs'].get('strength', 1.0))})"
+        for _, n in _nodes_by_class(graph, "MiniMaxH3LoRABranch")
+    ]
+    dit_str = ", ".join(unets) if unets else "-"
+    dit_lora_str = f"{dit_str} + {', '.join(loras)}" if loras else dit_str
+
+    # Text encoder
+    te_parts = [str(n["inputs"].get("encoder_name", "?")) for _, n in _nodes_by_class(graph, "MiniMaxH3EncoderLoader")]
+    te_parts += [
+        f"{n['inputs'].get('clip_name', '?')} ({n['inputs'].get('type', '?')})"
+        for _, n in _nodes_by_class(graph, "CLIPLoader")
+    ]
+    te_str = ", ".join(te_parts) if te_parts else "-"
+
+    # VAEs & precision split
+    decode_nodes = _nodes_by_class(graph, "VAEDecode")
+    decode_vae, decode_prec = _trace_vae_loader(graph, decode_nodes[0][1] if decode_nodes else None, "vae")
+    if not decode_vae:
+        vaes = _nodes_by_class(graph, "VAELoader")
+        decode_vae = str(vaes[0][1]["inputs"].get("vae_name", "?")) if vaes else "-"
+
+    cond_nodes = (
+        _nodes_by_class(graph, "MiniMaxH3EncodeImageReferences")
+        or _nodes_by_class(graph, "MiniMaxH3PH3ImageConditioning")
+        or _nodes_by_class(graph, "MiniMaxH3ReferenceConditioning")
+        or _nodes_by_class(graph, "MiniMaxH3Conditioning")
+        or _nodes_by_class(graph, "MiniMaxH3ImageConditioning")
+    )
+    enc_vae, enc_prec = _trace_vae_loader(graph, cond_nodes[0][1] if cond_nodes else None, "vae")
+    vae_notes: list[str] = []
+    if enc_prec and str(enc_prec.get("encoder", "")) not in {"", "unchanged"}:
+        dec_mode = str(decode_prec.get("decoder", "native")) if decode_prec else "native"
+        vae_notes.append(f"enc={enc_prec['encoder']}, dec={dec_mode}")
+    ref_conds = _nodes_by_class(graph, "MiniMaxH3ReferenceConditioning")
+    audio_vae = ""
+    if ref_conds:
+        audio_vae, _ = _trace_vae_loader(graph, ref_conds[0][1], "audio_vae")
+        if audio_vae:
+            vae_notes.append(f"+ audio_vae={audio_vae}")
+    vae_str = decode_vae + (f" ({'; '.join(vae_notes)})" if vae_notes else "")
+
+    # Size & downscale
+    size_str, sizing_nodes = _image_size_summary(graph)
+
+    # Sampler / steps / shift / attn / seed / output
+    samplers = [str(n["inputs"].get("sampler_name", "?")) for _, n in _nodes_by_class(graph, "KSamplerSelect")]
+    sigmas_list = _nodes_by_class(graph, "ManualSigmas")
+    steps = "-"
+    if sigmas_list:
+        raw_sigmas = str(sigmas_list[0][1].get("inputs", {}).get("sigmas", ""))
+        vals = [s for s in raw_sigmas.split(",") if s.strip()]
+        if len(vals) >= 2:
+            steps = str(len(vals) - 1)
+    shifts = _nodes_by_class(graph, "MiniMaxH3SigmaShift")
+    if shifts:
+        sinp = shifts[0][1].get("inputs", {})
+        shift_str = f"{_fmt_num(sinp.get('shift_video', '?'))} / {_fmt_num(sinp.get('shift_audio', '?'))}"
+    else:
+        shift_str = "none"
+    sampler_str = f"{'/'.join(samplers) or '?'} · {steps} · shift {shift_str}"
+
+    attns = [str(n["inputs"].get("attention", "?")) for _, n in _nodes_by_class(graph, "ModelAttentionBackend")]
+    attn_str = ", ".join(attns) if attns else "-"
+
+    steers = _nodes_by_class(graph, "MiniMaxH3Steer")
+    releases = _nodes_by_class(graph, "MiniMaxH3ReleaseReferences")
+    guides = _nodes_by_class(graph, "MiniMaxH3GuideLatent")
+    seeds = [str(n["inputs"].get("noise_seed", "?")) for _, n in _nodes_by_class(graph, "RandomNoise")]
+    outs = [n["class_type"] for n in graph.values() if isinstance(n, dict) and n.get("class_type") in {"PreviewImage", "SaveImage"}]
+
+    # Task & observed flow
+    has_ref_cond = bool(ref_conds)
+    has_enc_refs = bool(_nodes_by_class(graph, "MiniMaxH3EncodeImageReferences"))
+    has_ph3_cond = bool(_nodes_by_class(graph, "MiniMaxH3PH3ImageConditioning"))
+    if has_ph3_cond:
+        ph3_links = [k for k in _nodes_by_class(graph, "MiniMaxH3PH3ImageConditioning")[0][1].get("inputs", {}) if k.startswith("images.")]
+        is_edit = bool(load_imgs or ph3_links)
+        ref_count = len(ph3_links) or len(load_imgs)
+    else:
+        ref_count = len(load_imgs)
+        is_edit = bool(load_imgs or has_enc_refs or has_ref_cond or guides)
+
+    task_kind = "Edit" if is_edit else "T2I"
+    task_bits = [task_kind]
+    if is_edit:
+        if has_enc_refs:
+            einp = _nodes_by_class(graph, "MiniMaxH3EncodeImageReferences")[0][1].get("inputs", {})
+            task_bits.append(f"{ref_count} ref (supports 1..16, `{einp.get('in_bounds_align', '?')}`)")
+        elif has_ph3_cond:
+            task_bits.append(f"{ref_count} refs (`<Picture i>`)")
+        elif has_ref_cond:
+            app_refs = _nodes_by_class(graph, "MiniMaxH3AppendRefImage")
+            if app_refs:
+                ainp = app_refs[0][1].get("inputs", {})
+                task_bits.append(f"{ref_count} ref (`{ainp.get('size_policy', '?')}`, `{ainp.get('qwen_view', '?')}` {ainp.get('qwen_view.qwen_short_edge', '?')})")
+            else:
+                task_bits.append(f"{ref_count} ref")
+        elif guides:
+            ginp = guides[0][1].get("inputs", {})
+            task_bits.append(f"guide@frame `{ginp.get('frame_idx', 0)}`")
+    if expanders:
+        task_bits.append(f"+ `MiniMaxH3ImagePromptExpander` (`{expanders[0][1]['inputs'].get('mode', '?')}`)")
+    if loras and variant_label == "P-H3-Image":
+        task_bits.append("LoRA on `fl2va`")
+    if any(n["inputs"].get("clip_name") for _, n in _nodes_by_class(graph, "CLIPLoader")):
+        task_bits.append("4B TE")
+    if steers:
+        task_bits.append("+ CV")
+    if is_probe:
+        task_bits.append("(probe)")
+
+    extra_bits: list[str] = []
+    for _, sn in steers:
+        si = sn.get("inputs", {})
+        extra_bits.append(f"`MiniMaxH3Steer({si.get('vector')}, {_fmt_num(si.get('strength'))}, {si.get('mode')}, {si.get('target')})`")
+    for _, rn in releases:
+        ri = rn.get("inputs", {})
+        extra_bits.append(f"`MiniMaxH3ReleaseReferences(end={_fmt_num(ri.get('end_percent'))}, clean={_fmt_num(ri.get('clean_level'))})`")
+    if seeds:
+        extra_bits.append(f"seed `{', '.join(seeds)}`")
+    if outs:
+        extra_bits.append("`" + "/".join(sorted(set(outs))) + "`")
+    if attn_str and attn_str != "comfy kitchen attention":
+        extra_bits.append(f"attn `{attn_str}`")
+
+    # Flow summary derived from graph stages
+    flow_steps: list[str] = []
+    if expanders:
+        flow_steps.append("MiniMaxH3ImagePromptExpander")
+    if load_imgs:
+        flow_steps.append(f"LoadImage x{len(load_imgs)}")
+    if _nodes_by_class(graph, "MiniMaxH3ImageSize"):
+        flow_steps.append("MiniMaxH3ImageSize")
+    elif _nodes_by_class(graph, "MiniMaxH3Resolution"):
+        flow_steps.append("MiniMaxH3Resolution")
+    if has_enc_refs:
+        if enc_prec:
+            flow_steps.append(f"MiniMaxH3VAEPrecision(enc={enc_prec.get('encoder')})")
+        flow_steps.append("MiniMaxH3EncodeImageReferences")
+        flow_steps.append("MiniMaxH3PromptOnImageReferences")
+    elif _nodes_by_class(graph, "MiniMaxH3ImageConditioning"):
+        flow_steps.append("MiniMaxH3ImageConditioning")
+    elif has_ph3_cond:
+        flow_steps.append("MiniMaxH3PH3ImageConditioning")
+    elif has_ref_cond:
+        if _nodes_by_class(graph, "MiniMaxH3AppendRefImage"):
+            flow_steps.append("MiniMaxH3AppendRefImage")
+        sf = ref_conds[0][1].get("inputs", {}).get("single_frame")
+        flow_steps.append("MiniMaxH3ReferenceConditioning(single_frame=True)" if sf else "MiniMaxH3ReferenceConditioning")
+    elif _nodes_by_class(graph, "MiniMaxH3Conditioning"):
+        cond_sf = _nodes_by_class(graph, "MiniMaxH3Conditioning")[0][1].get("inputs", {}).get("single_frame")
+        flow_steps.append("MiniMaxH3Conditioning(single_frame=True)" if cond_sf else "MiniMaxH3Conditioning")
+    if guides:
+        ginp = guides[0][1].get("inputs", {})
+        g_args = f"frame={ginp.get('frame_idx', 0)}" + (", single_frame=True" if ginp.get("single_frame") else "")
+        flow_steps.append(f"MiniMaxH3GuideLatent({g_args})")
+    if _nodes_by_class(graph, "MiniMaxH3Preflight"):
+        flow_steps.append("MiniMaxH3Preflight")
+    mod_bits = []
+    if steers:
+        mod_bits.append("MiniMaxH3Steer")
+    if releases:
+        mod_bits.append("MiniMaxH3ReleaseReferences")
+    sampler_node = "SamplerCustomAdvanced" + (f" ({' + '.join(mod_bits)})" if mod_bits else "")
+    flow_steps.append(sampler_node)
+    flow_steps.append("VAEDecode")
+    if _nodes_by_class(graph, "MiniMaxH3ImageDownscale"):
+        flow_steps.append("MiniMaxH3ImageDownscale")
+    if outs:
+        flow_steps.append("/".join(sorted(set(outs))))
+
+    flow_kind = task_kind
+    if task_kind == "Edit":
+        if has_ref_cond:
+            flow_kind = "Edit (reference)"
+        elif guides:
+            flow_kind = "Edit (guide latent)"
+    if expanders:
+        flow_kind += " + heylook"
+
+    meta = notes.get(rel[len("workflows/"):]) or notes.get(Path(rel).name) or {}
+    return {
+        "rel": rel,
+        "name": Path(rel).name,
+        "label": str(meta.get("label", "")),
+        "variant_rank": variant_rank,
+        "variant": variant_label,
+        "stream_summary": stream_summary,
+        "task_kind": task_kind,
+        "flow_kind": flow_kind,
+        "task_order": 0 if task_kind == "T2I" else 1,
+        "is_probe": is_probe,
+        "task_desc": " ".join(task_bits),
+        "dit": dit_str,
+        "loras": loras,
+        "dit_lora": dit_lora_str,
+        "te": te_str,
+        "decode_vae": decode_vae,
+        "enc_prec": enc_prec,
+        "audio_vae": audio_vae,
+        "vae_spec": vae_str,
+        "size_spec": size_str,
+        "sizing_nodes": sizing_nodes,
+        "sampler_spec": sampler_str,
+        "attn": attn_str,
+        "outs": sorted(set(outs)),
+        "extra_seed_out": " · ".join(extra_bits) if extra_bits else "-",
+        "flow": " -> ".join(flow_steps),
+    }
+
+
+def _uniq(vals: list[str]) -> list[str]:
+    return list(dict.fromkeys(v for v in vals if v))
+
+
+def build_image_workflows_matrix() -> str:
+    notes = generator_notes()
+    rels = [n for n in under("workflows/image") if n.endswith(".json")]
+    specs = [
+        _extract_image_workflow(rel, json.loads(_read(rel)), notes)
+        for rel in rels
+    ]
+    specs.sort(key=lambda s: (s["variant_rank"], s["task_order"], 1 if s["is_probe"] else 0, s["name"]))
+
+    out = header("workflows/image/, by variant and defaults", [
+        "Machine-generated overview of every image workflow under `workflows/image/`: "
+        "grouped first by model variant architecture and data flow, followed by the full per-graph defaults table.",
+        "",
+        "Prose guides & companion index: "
+        f"{link('docs/wiki/image/h3_image.md', IMAGE_MATRIX_DIR, 'image/h3_image.md')}, "
+        f"{link('docs/wiki/image/p_h3_image.md', IMAGE_MATRIX_DIR, 'image/p_h3_image.md')}, "
+        f"{link('docs/wiki/image/h3_image_editing.md', IMAGE_MATRIX_DIR, 'image/h3_image_editing.md')}, "
+        f"{link('workflows/INDEX.md', IMAGE_MATRIX_DIR, 'workflows/INDEX.md')}.",
+    ])
+
+    out += ["## Architecture & Data Flow by Model Variant", ""]
+    by_variant: dict[str, list[dict]] = {}
+    for spec in specs:
+        by_variant.setdefault(spec["variant"], []).append(spec)
+
+    for variant, items in by_variant.items():
+        n_t2i = sum(1 for s in items if s["task_kind"] == "T2I")
+        n_edit = sum(1 for s in items if s["task_kind"] == "Edit")
+        dits = _uniq([s["dit"] for s in items])
+        loras = _uniq([lr for s in items for lr in s["loras"]])
+        tes = _uniq([s["te"] for s in items])
+        vaes = _uniq([s["vae_spec"] for s in items])
+        attns = _uniq([s["attn"] for s in items])
+        sizings = _uniq([s["sizing_nodes"] for s in items])
+        samplers = _uniq([s["sampler_spec"] for s in items])
+        outs = _uniq([o for s in items for o in s["outs"]])
+
+        out += [f"### {variant} ({len(items)} workflows: {n_t2i} T2I, {n_edit} Edit)", ""]
+        out.append(f"- **Latent & stream structure**: {items[0]['stream_summary']}")
+        out.append("- **DiT(s)**: " + ", ".join(f"`{d}`" for d in dits))
+        if loras:
+            out.append("- **LoRA branch(es)**: " + ", ".join(f"`{lr}`" for lr in loras))
+        out.append("- **Qwen / Text encoder(s)**: " + ", ".join(f"`{t}`" for t in tes))
+        out.append("- **VAE & precision**: " + ", ".join(f"`{v}`" for v in vaes))
+        out.append("- **Attention backend(s)**: " + ", ".join(f"`{a}`" for a in attns))
+        out.append("- **Sizing / downscale**: " + ", ".join(f"`{sz}`" for sz in sizings))
+        out.append("- **Sampler / steps / shift**: " + "; ".join(f"`{sp}`" for sp in samplers))
+        out.append("- **Output node(s)**: " + ", ".join(f"`{o}`" for o in outs))
+        seen_flows: set[tuple[str, str]] = set()
+        for s in items:
+            key = (s["flow_kind"], s["flow"])
+            if key in seen_flows:
+                continue
+            seen_flows.add(key)
+            out.append(f"- **{s['flow_kind']} data flow**: `{s['flow']}`")
+        out.append("")
+
+    out += [
+        f"## Image Workflows Matrix ({len(specs)} graphs)",
+        "",
+        "| Workflow | Variant | Task & Flow | DiT & LoRA | Qwen TE | VAE & Precision | Size / MP Defaults | Sampler · Steps · Shift | Steering / Seed / Output |",
+        "|---|---|---|---|---|---|---|---|---|",
+    ]
+    for s in specs:
+        wf_link = link(s["rel"], IMAGE_MATRIX_DIR, s["name"])
+        out.append(
+            "| " + " | ".join([
+                wf_link,
+                cell(s["variant"]),
+                cell(s["task_desc"]),
+                f"`{cell(s['dit_lora'])}`",
+                f"`{cell(s['te'])}`",
+                f"`{cell(s['vae_spec'])}`",
+                cell(s["size_spec"]),
+                f"`{cell(s['sampler_spec'])}`",
+                cell(s["extra_seed_out"]),
+            ]) + " |"
+        )
+    out.append("")
+    return "\n".join(out)
+
+
 # ---------------------------------------------------------------------- main
 
 WRITERS = {
@@ -569,6 +1000,7 @@ WRITERS = {
     "bench/INDEX.md": build_bench,
     "bench/results/INDEX.md": build_results,
     "workflows/INDEX.md": build_workflows,
+    "docs/wiki/image/workflows_matrix.md": build_image_workflows_matrix,
 }
 
 

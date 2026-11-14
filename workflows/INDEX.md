@@ -135,6 +135,8 @@ checkpoint and LoRAs, and which of this pack's nodes it wires (the
 
 ## workflows/image/
 
+Architecture, data flow, and full per-workflow defaults matrix: [`docs/wiki/image/workflows_matrix.md`](../docs/wiki/image/workflows_matrix.md).
+
 | graph | the generator's note | chain |
 |---|---|---|
 | [`h3_image_edit_api.json`](image/h3_image_edit_api.json) | picture + text -> 16 MP edited image at the picture's shape on MiniMax-H3-Image (the picture as <Picture 1>, read at its own size) | 17 nodes; checkpoint `minimax_h3_image_pruned_int8_convrot.safetensors`; pack nodes EncodeImageReferences, EncoderLoader, ImageDownscale, ImageSize, PromptOnImageReferences, VAEPrecision |
