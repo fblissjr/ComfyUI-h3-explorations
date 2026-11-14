@@ -40,7 +40,7 @@ Reference targets are the cached Phase 0B `P-H3-Image` `8 -> 4 MP` stills (`t2i_
 | **Arm 4:** `0.50` + `MIDCLIP_GUIDE_PROMPT` | `82.08` | `3,323,767` | `17.29` | `10.55` (`22.36 dB`) | **`33.88`** (**`13.19 dB`**) | `f71`: `10.50` | `1.29 / 1.31` (`1.20` / `2.09`) | `-19.49 / +0.46 / -3.82` | `-37.95 / -0.00 dBFS` (**`0.3712`**) |
 | **Arm 5:** `EditGuider` (`s=1.65`, `last=2`) | `112.08` | `3,501,598` | `17.26` | `10.22` (`22.81 dB`) | `35.31` (`12.86 dB`) | `f72`: `10.15` | `1.30 / 1.34` (`1.29` / `2.31`) | **`-15.30 / +1.65 / -2.97`** | `-40.67 / -0.69 dBFS` (`0.0729`) |
 
-*Saved videos under `$H3_OUTPUT_DIR/Video/embedded_image_video_2026-11-14/{phase1_guide_end_100,phase1_guide_end_050,phase1_guide_end_033,phase1_guide_end_050_aligned_prompt,phase1_edit_guider_scale165_last2}_00001-audio.mp4`; provenance stamps under `$H3_OUTPUT_DIR/provenance/stamp_20261114T212410+0000_5505c623.json` through `..._f25b3fae.json`; `.1fps.00000-00140.mp4` review strips in gitignored `data/embedded_image_video_2026-11-14/`.*
+*Saved videos under `$H3_OUTPUT_DIR/Video/embedded_image_video_2026-11-14/{phase1_guide_end_100,phase1_guide_end_050,phase1_guide_end_033,phase1_guide_end_050_aligned_prompt,phase1_edit_guider_scale165_last2}_00001-audio.mp4`; provenance stamps under `$H3_OUTPUT_DIR/provenance/stamp_20261114T212410+0000_5505c623.json` through `..._f25b3fae.json`; `.1fps.00000-00140.mp4` review strips alongside them under `$H3_OUTPUT_DIR/Video/embedded_image_video_2026-11-14/`.*
 
 ---
 

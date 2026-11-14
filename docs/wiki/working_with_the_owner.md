@@ -1,6 +1,6 @@
 # Working with the owner
 
-last updated: 2026-10-27 (updated for Gemini leading in the `agy` harness and local files as the sole source of truth; moved here on 2026-10-17 from the Claude sessions' private memory at the owner's word, so the Gemini and
+last updated: 2026-11-14 (added repo-wide no-media-in-data/ rule and stakes-scaled prompt-reading rule; moved here on 2026-10-17 from the Claude sessions' private memory at the owner's word, so the Gemini and
 Claude sessions read the same preferences)
 
 **How the owner likes to work, for every session of either model.** AGENTS.md holds the rules of the repo; this page
@@ -32,6 +32,7 @@ this page is corrected. Each line carries the date it was asked for; the reasons
   never a file path. Its "Start here"
   list is kept most important first. No review link goes on a hosted page or in a tracked file. (2026-10-13,
   2026-10-15)
+- **No media in `data/` at all** (2026-11-14). Videos, `.1fps` review strips, PNGs, JPGs, crops, contact sheets, and comparison grids go under `$H3_OUTPUT_DIR` (for example `$H3_OUTPUT_DIR/Video/<study>/` or `$H3_OUTPUT_DIR/Image/<study>/`), written there from the start. `data/` keeps only scripts, JSON, logs, and prompts.
 - **Name things as they hear them.** Every clip heading, page item and mention leads with the load name the sessions
   use (`second_hfp_1010j`), then the plain description; give the direct link. (2026-10-12)
 - **A clip shown to be judged shows the shot as the cut would:** every subject of the shot replaced, the day each
@@ -52,6 +53,7 @@ this page is corrected. Each line carries the date it was asked for; the reasons
 
 ## Judging
 
+- **Prompt reading scales with the stakes** (2026-11-14, refining 2026-10-15): a prompt that is read is read whole, as queued, never from a preview or paraphrase. How often to read before rendering depends on the stakes. A render that didn't work is debugged by reading its queued prompt in full first ([`bench/what_h3_got.py`](../../bench/what_h3_got.py)).
 - **Their eye on playback accepts a piece.** A reading of stills lists what to look at, with frames, in neutral words,
   and stops: no hold on a reading of likeness, eyes or mouth (a reader's verdict on a review clip goes only in its
   card, below). A total gap, or something

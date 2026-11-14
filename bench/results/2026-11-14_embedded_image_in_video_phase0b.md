@@ -54,7 +54,7 @@ An initial queue at `length = 90` (`3.750s`, the shortest video-grid `on_both_cl
 | **Arm 1:** `fl2va` T2I+Edit Bookends | `124.09` | `2,462,192` | `17.18` (`17.54 dB`) | `52.49` | **`5.11`** (**`28.98 dB`**) | **`f140` (`5.11`)** | `66.62` | **`-11.20`** (`-38.95 -> -2.52 -> +0.73`) | `0.94` (`0.14..2.45`) | `-41.81 / -0.47 dBFS` (**`0.6948`**) | `stamp_..._b1d22593.json` (`5/6`) |
 | **Arm 2:** Media CV Steer (`s=1.25`) | `96.08` | `3,329,420` | `17.35` (`17.51 dB`) | `50.64` | `65.92` (`9.03 dB`) | `f51` (`52.26`) | `94.87` | `-37.14` (`-38.06 -> -37.46 -> -36.17`) | `2.37` (`0.45..5.66`) | `-41.39 / -3.08 dBFS` (`0.0469`) | `stamp_..._9743b377.json` (`5/6`) |
 
-*Outputs under `$H3_OUTPUT_DIR`: `Video/embedded_image_video_2026-11-14/{arm0_t2i_i2va_control,arm1_t2i_edit_bookends_fl2va,arm2_t2i_edit_media_cv_steer}_00001-audio.mp4` and provenance sidecars under `$H3_OUTPUT_DIR/provenance/`. Companion `.1fps.00000-00140.mp4` review strips live in gitignored `data/embedded_image_video_2026-11-14/`.*
+*Outputs under `$H3_OUTPUT_DIR`: `Video/embedded_image_video_2026-11-14/{arm0_t2i_i2va_control,arm1_t2i_edit_bookends_fl2va,arm2_t2i_edit_media_cv_steer}_00001-audio.mp4` and provenance sidecars under `$H3_OUTPUT_DIR/provenance/`. Companion `.1fps.00000-00140.mp4` review strips live alongside them under `$H3_OUTPUT_DIR/Video/embedded_image_video_2026-11-14/`.*
 
 ### Native Media Inspection Findings (`read_file` on stills, `.1fps`, and `24 fps` audio-muxed `.mp4`s)
 
