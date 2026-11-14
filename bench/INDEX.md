@@ -9,7 +9,7 @@ this file is only a way to find a script by what it says it does.
 | group | scripts |
 |---|---|
 | [`check_*`](#check) | 171 |
-| [`measure_*`](#measure) | 37 |
+| [`measure_*`](#measure) | 38 |
 | [`analyze_*`](#analyze) | 18 |
 | [`grade_*`](#grade) | 19 |
 | [`compare_*`](#compare) | 15 |
@@ -211,6 +211,7 @@ this file is only a way to find a script by what it says it does.
 | [`measure_clip_tone.py`](measure_clip_tone.py) | The tone of a rendered clip: how bright, how contrasty, how saturated, how hazy. |
 | [`measure_dialogue_transcription.py`](measure_dialogue_transcription.py) | Does a clip say its scripted lines? Whisper transcription against the prompt's dialogue, word error rate per clip and per pair. |
 | [`measure_dit_prefix_attention.py`](measure_dit_prefix_attention.py) | What the H3 DiT reads from the encoder prefix: attention mass, by key class. |
+| [`measure_edit_guider_mask_ab.py`](measure_edit_guider_mask_ab.py) | Phase A deciding A/B benchmark: MiniMaxH3EditGuider optional spatial/temporal mask. |
 | [`measure_encoder_footprint.py`](measure_encoder_footprint.py) | How much VRAM does each H3 conditioning encoder actually need resident? |
 | [`measure_encoder_prefix_reuse.py`](measure_encoder_prefix_reuse.py) | Can the encoder's work on a reference be kept across prompt edits, exactly? |
 | [`measure_encoder_quant_dit.py`](measure_encoder_quant_dit.py) | Does the DiT's prediction move when the encoder is int8_convrot instead of bf16? |
@@ -627,6 +628,7 @@ Arm manifests and the like; a manifest's line is its own `what`.
 |---|---|
 | [`__init__.py`](_lib/__init__.py) | The things a `bench/` check kept writing for itself. |
 | [`code_stamp.py`](_lib/code_stamp.py) | Code-version stamps and upstream-mtime checks for derived lane files. |
+| [`comfy_client.py`](_lib/comfy_client.py) | Minimal stdlib HTTP client for a live ComfyUI (`:8188`) API server. |
 | [`face_lines_fixture.py`](_lib/face_lines_fixture.py) | A whole face made of points whose every line is known by construction, for the checks of the tools that draw it. |
 | [`face_points.py`](_lib/face_points.py) | What is read off the pose model's face points: one definition of each figure, for every tool that uses them. |
 | [`face_points_fixture.py`](_lib/face_points_fixture.py) | A face made of points whose every figure is known by construction, for the checks of the tools that read them. |
