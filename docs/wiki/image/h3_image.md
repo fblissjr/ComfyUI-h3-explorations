@@ -1,6 +1,6 @@
 # MiniMax-H3-Image: MiniMax's own still-image model
 
-Last updated: 2026-11-12.
+Last updated: 2026-11-13 ("Edit references, point by point" added under "What the vendor's servers do"); 2026-11-12.
 
 MiniMax-H3-Image makes a picture from text, or edits one or more pictures, on
 one checkpoint, in six steps with no guidance. It is a different model from
@@ -243,6 +243,73 @@ pipeline on everything the chain above takes from it. What they add:
   (`MiniMax-H3-Image-PE`), served as a language model; its repository's README,
   kept at [`../vendor_guides/h3_image/README.md`](../../../vendor_guides/h3_image/README.md),
   says how each request is put together and how the reply is used.
+
+### Edit references, point by point (read 2026-11-13)
+
+How a reference picture reaches the model in each implementation. A source
+read, nothing rendered: ComfyUI core `f11d16096`, `coderef/sglang`
+`084a5e9aae`, `coderef/vllm-omni` `2c148ceb1`, and this pack's working tree.
+The two servers agree with each other on every row.
+
+| what | sglang and vllm-omni | core `MiniMaxH3ImageConditioning` | this pack's `MiniMaxH3EncodeImageReferences` |
+|---|---|---|---|
+| label ahead of each picture in the text encoder | `Picture N: ` (sglang `coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/presentation.py`, vllm-omni `coderef/vllm-omni/vllm_omni/diffusion/models/minimax_h3/pipeline_minimax_h3_image.py::minimax_h3_image_presentation`) | same (`picture_label` in `comfy_extras/nodes_minimax_h3.py`) | same (`reference_encode.py::H3_IMAGE_PICTURE_LABEL`) |
+| a role for the first picture | none; references are an ordered list | none in the encode; the first sizes the canvas when width or height is unset | none in the encode; the first sizes the canvas at `canvas="from_image_1"` |
+| size bounds on the short edge, text-encoder copy and VAE copy | `edit_reference_qwen_*_short_edge`, `edit_reference_vae_*_short_edge` (sglang `coderef/sglang/python/sglang/multimodal_gen/configs/pipeline_configs/minimax_h3_image.py`); `MINIMAX_H3_IMAGE_QWEN_SHORT_EDGE`, `MINIMAX_H3_IMAGE_VAE_SHORT_EDGE` (vllm-omni) | same values (`IMAGE_REF_SHORT_EDGE`, `IMAGE_REF_VAE_MAX_SHORT_EDGE`) | same values by default (`H3_IMAGE_QWEN_SHORT_EDGE`, `H3_IMAGE_VAE_MIN_SHORT_EDGE`, `H3_IMAGE_VAE_MAX_SHORT_EDGE`), each an input |
+| a picture outside the bounds | scaled so the short edge lands on the nearer bound, each side to the nearest grid multiple, Lanczos | same (`_size_short_edge`, `_resize_to`) | same (`_h3_image_ref_size`) |
+| **a picture inside the bounds** | the original pixels; the VAE copy is cropped from the top left to the grid (sglang `coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/keyframe_encoding.py::_encode_keyframe_cond_rows`, its `encode_images` crop then `crop_to_even`; vllm-omni `coderef/vllm-omni/vllm_omni/diffusion/models/minimax_h3/image_vae.py::encode_image_latent`, `minimax_h3_image_reference_grid`) | both sides rounded to the grid and the picture **resampled** with Lanczos | resampled at `in_bounds_align="resize_32"`, the default; cropped as the servers do at `"crop_32"` |
+| **the reference latent's posterior sample** | drawn from the request's generator, after the target noise and the references' anchor noise (sglang `coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/image_noise.py`, vllm-omni `coderef/vllm-omni/vllm_omni/diffusion/models/minimax_h3/pipeline_minimax_h3_image.py`, `forward`) | a fixed seed (`comfy/ldm/minimax/vae.py::IMAGE_ENCODE_SEED`, in `H3ImageVAE.encode`) | the same fixed seed: the node calls the same `vae.encode` |
+| **the sampled latent** | rounded to fp16 before it is normalized (`use_fp16_latent`; vllm-omni `encode_image_latent`) | not rounded | not rounded |
+| **the noise mixed into each reference at its conditioning level** | one draw per reference, in order, from the request's generator | every reference restarts one stream at the sampler's seed (`comfy/ldm/minimax/model.py::_cond_video_rows`), so two references of one shape carry the same noise | the same: it is the model's code, not the node's |
+| encoder precision | fp32 in sglang (the same `_encode_keyframe_cond_rows`); vllm-omni's encoder weights not read | whatever the VAE was loaded as | the same; the shipped edit graphs put `MiniMaxH3VAEPrecision(encoder="fp32")` ahead of either node |
+
+So for this model core is close to the servers, which was not true of H3
+video's references. Four rows differ (bold). The pack's node closes one of
+them, the crop, and only when `in_bounds_align` is `"crop_32"`. No shipped
+graph sets that: the plain edit graphs use core's node, and
+`workflows/build_workflows.py::_wire_edit_guidance` swaps the pack's node in
+without naming `in_bounds_align`, so it runs at the default.
+
+The crop row is the one a picture's own size decides. It applies when a
+picture's short edge is already inside the VAE bounds and its sides are not
+grid multiples, which is the common case for a pasted or uploaded picture:
+core resamples the whole picture by a fraction of a grid cell, the servers
+trim the right and bottom edges and leave every remaining pixel as it was. A
+picture outside the bounds is resampled by all four.
+
+What the pack's node would need to match both servers, and where each
+change lives:
+
+1. `in_bounds_align="crop_32"`, as the default or written by the builder.
+   Nothing else in the sizing differs: trimming to the 32-pixel grid from the
+   top left is the servers' 16-pixel crop followed by their even latent grid.
+2. Sample the reference latent itself, from the render's seed, instead of
+   calling `vae.encode`: a seed input on the node, the encoder's moments, and
+   a generator at that seed. This makes the sample follow the seed as the
+   servers' does. It cannot make a same-seed render match theirs: they draw
+   target noise, anchor noise and posterior samples from one generator in that
+   order, and here the first two are drawn by `RandomNoise` and by
+   `_cond_video_rows`, outside any conditioning node.
+3. Round that sample to fp16 before normalizing. One line once the node
+   samples for itself.
+4. The anchor-noise row is in the model, not a node. Matching it means a
+   runtime patch of `_cond_video_rows`, as the pack's other model patches are
+   done; nothing here shows it is worth one.
+
+With 1 to 3 done the pack's node would differ from core's in exactly those
+three ways, plus the split it already has (pictures encoded once, any number
+of prompts put on top).
+
+The conditioning level itself is the same number in core and sglang
+(`comfy/ldm/minimax/model.py::VISUAL_COND_TIMESTEP`, sglang
+`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/denoise_loop.py::MINIMAX_H3_IMGVID_COND_TIMESTEP`); only where its noise
+comes from differs.
+
+Not compared: the picture preprocessing inside each text encoder's own
+processor, the servers' padding of the token ids, and vllm-omni's refusal
+of a very long reference (`MINIMAX_H3_IMAGE_MAX_REFERENCE_ASPECT`). Whether
+any row is visible in a render is not known; the fp32 encode note above is
+the only one of these that has been rendered.
 
 ## Prompts
 
