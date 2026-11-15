@@ -29,7 +29,7 @@ and agent skills for H3 prompting and character replacement.
 
 - **Base H3 defaults** are unchanged since 2026-11-04 (shifts, condition level, Qwen tap).
 - **References.** A still keeps its own size rounded to 32 and is never enlarged
-  (`model_executor/models/minimax_h3/preprocessing.py::resolve_minimax_h3_reference_image_shape`). See
+  (`coderef/vllm-omni/vllm_omni/model_executor/models/minimax_h3/preprocessing.py::resolve_minimax_h3_reference_image_shape`). See
   [`../topics/reference_sizing.md`](../topics/reference_sizing.md).
 - **Long clips (ComfyUI app).**
   - Defaults are `continuation_window_frames=311`, step 17, with overlap 39 (`apps/ComfyUI-vLLM-Omni/comfyui_vllm_omni/nodes.py`).

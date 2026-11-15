@@ -23,7 +23,7 @@ Every mode keeps the aspect ratio and rounds each axis to 32.
 
 | implementation | rank | default for a small still | where |
 |---|---|---|---|
-| sglang | 1 | **not enlarged** (`max`) since `92a6910ef2` (#47907, 2026-11-05); `diffusers` before that. FastH3 Omni keeps `diffusers` | `coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/constants.py::MINIMAX_H3_DEFAULT_REFERENCE_RESIZE_MODE`, `.../minimax_h3/reference_encoding.py::minimax_h3_resolve_reference_image_shape` |
+| sglang | 1 | **not enlarged** (`max`) since `92a6910ef2` (#47907, 2026-11-05); `diffusers` before that. FastH3 Omni keeps `diffusers` | `coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/constants.py::MINIMAX_H3_DEFAULT_REFERENCE_RESIZE_MODE`, `coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/reference_encoding.py::minimax_h3_resolve_reference_image_shape` |
 | vllm-omni | 2 | **not enlarged**: keeps the still's own size rounded to 32, shrinking only to a canvas-area cap on timeline-guided requests | `coderef/vllm-omni/vllm_omni/model_executor/models/minimax_h3/preprocessing.py::resolve_minimax_h3_reference_image_shape` |
 | diffusers | 3 | **enlarged** to a 2048 short edge ("2048 for the released checkpoint") | `coderef/diffusers/src/diffusers/modular_pipelines/minimax_h3/before_encoder.py` (`reference_image_short_edge`), `.../minimax_h3/references.py` |
 | ComfyUI core | trusted least | **not enlarged** in either `ref_image_size` mode (`match` default, `max`) | `comfy_extras/nodes_minimax_h3.py`, the reference-to-video node's `ref_image_size` and `ref_image` tooltips |

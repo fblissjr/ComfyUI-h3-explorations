@@ -39,7 +39,7 @@ for this page.
 
 ## The AdaLN time embedding
 
-DiffSynth (`minimax_h3_image_dit.py::MiniMaxH3ImageAdalnProj`) and diffusers (`transformer_minimax_h3_image.py`) run
+DiffSynth (`coderef/DiffSynth-Studio/diffsynth/models/minimax_h3_image_dit.py::MiniMaxH3ImageAdalnProj`) and diffusers (`coderef/diffusers/src/diffusers/models/transformers/transformer_minimax_h3_image.py`) run
 SiLU on the float32 time embedding and cast afterwards. Core's non-curve branch casts first
 (`comfy/ldm/minimax/model.py::_time_embedding`, `self.time_embedder(t_vals).to(dtype)`). The owner's
 `H3_IMAGE_UNET` is a pruned file on core's curve branch, so only `H3_IMAGE_UNET_BF16` would meet the difference
