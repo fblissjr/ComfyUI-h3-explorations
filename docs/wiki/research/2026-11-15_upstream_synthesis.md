@@ -9,8 +9,8 @@ carries a depth tag, so the reader can tell code that was read from a PR title t
   `bench/upstream_watch.py` ([`../upstream/sweeps/2026-11-15.md`](../upstream/sweeps/2026-11-15.md)).
 - A second pass the same day over sglang's and vllm-omni's open H3 PRs.
 - Later the same day, at the owner's question, a pass on SAM 3.1 (Meta's repo, core and MAINodes) and a dated
-  provenance ledger between this pack and `matlowai/ComfyUI-MAINodes` (sections 15 and 16), and what from this
-  pack could help MAINodes (section 17). The ledger was read from
+  provenance ledger between this pack and `matlowai/ComfyUI-MAINodes` (sections 15 and 16), and an outcome-first
+  comparison of what each side could take from the other (section 17), corrected after a Gemini review. The ledger was read from
   both git histories by a read-only subagent, with its load-bearing commits spot-checked by hand.
 - The lead session's own hand checks.
 
@@ -118,7 +118,9 @@ Figures quoted below are their authors' claims unless tagged H.
   the edge. *For us:* a middle ground between on and off, such as a smaller edge for head crops.
 - **Video reference only for the first steps** (vllm-omni #9762; **C**, body). It conditions on the reference for the
   first 5 of 20 steps, then drops it from the layout, and reports a match with baseline (NPU). *For us:* independent
-  support for `MiniMaxH3ReleaseReferences`. Dropping the rows, rather than releasing them, also saves compute.
+  support for `MiniMaxH3ReleaseReferences`, which already drops released rows from the layout
+  (`control_vector_nodes.py::_drop_cond_from_layout`). *Corrected the same day: this line said dropping rather than
+  releasing would be new.*
 - **Reference isolation** (vllm-omni #9689; **C**): reference queries read only reference K/V, captured once. Not
   lossless, by its author. **Reference-K/V refresh around cache hits** (#9728; body **H**). *For us:* both are in the
   family of `MiniMaxH3FrozenVideoCache`.
@@ -341,26 +343,38 @@ All are on [`../upstream/engines/comfyui_core.md`](../upstream/engines/comfyui_c
 
 **Ways of using SAM 3.1 that the pack does not have** (MAINodes, community research; module headers and commit
 messages read H, code not run; their figures are their claims):
-1. **An edit kept only where SAM finds the named thing** (`1bf88d9`, 2026-11-07). SAM 3.1 runs on the edit's crop
-   with the words. The mask is grown and softened, then multiplied into the paste-back's feathered mask, so only that
-   thing changes. It uses core nodes only.
-   - *For us:* a word-driven source for `MiniMaxH3EditGuider.mask` on P-H3-Image and MiniMax-H3-Image edits.
-   - Also a narrower paste for accessory and held-item restores in the masked lane.
-2. **Small parts with guards** (`snap_iris.py`).
+*Corrected the same day after a Gemini review that read the code in full, checked by hand against the files cited
+(`coderef/ComfyUI-MAINodes/snap_faces.py:1-12,156-162`; `coderef/ComfyUI-MAINodes/web/snap/edits.js:420-450`; `coderef/ComfyUI-MAINodes/snap_iris.py:62-71`; `bench/draw_face_points.py:1186-1192`):
+items 1–3 below first got the face model, the edit's mask source and the eye tool wrong.*
+
+1. **An edit kept only where SAM finds the named thing** (`1bf88d9`, 2026-11-07). SAM 3.1 runs with the words on
+   Picture 1's crop, the image *before* the edit. The mask is grown and softened, then multiplied into the
+   paste-back's feathered mask, so only that thing changes. It uses core nodes only.
+   - Because the mask comes from the before image, it suits removals and in-place recolours of something already
+     there (their case was taking a bar off a nose). An addition or shape change would be clipped by it and needs the
+     after image's mask too.
+   - *For us:* a word-driven mask source, used by two separate mechanisms. `MiniMaxH3EditGuider.mask` gates the
+     edit's velocity difference per token in a two-pass edit, and is not a pixel lock. A pixel paste-back is the
+     other. Accessory and held-item restores in the masked lane are the paste-back case.
+2. **Small parts with guards** (`coderef/ComfyUI-MAINodes/snap_iris.py`, a custom node fed by core `SAM3_Detect` masks).
    - Irises come from two phrases combined, `"eye:2"` at threshold 0.6 and `"pupil:2, iris of the eye:2"` at 0.3,
      because on stylised faces either phrase alone misses.
-   - Guards: only a side-by-side pair counts, the mask is capped by area and needs a minimum pixel count, and a frame
-     without a pair passes through untouched.
-   - The iris pixels are then shifted in Lab a/b toward the reference's median, with L untouched, so the pupil,
-     outline, highlights and shading keep their values.
-   - *For us:* a post-pass for eye-colour drift on swaps, next to the contrast-eye lane tool. The guard pattern
-     (pair, area cap, pass-through) also fits mouth and hand restores.
-3. **Face identity** (`snap_faces.py`). Each SAM 3.1 face mask gets a head crop and a DINOv3 ViT-H embedding, so faces
-   can be matched across pictures. Its separation figures are the author's. *For us:* an aid to
-   `docs/wiki/masked_v2v/who_is_who.md` and a remake identity score. DINOv3 is already in `coderef/` and is on the
-   owner's list of models to consider.
+   - Guards: a side-by-side pair (counted as two column runs across the whole frame, which a multi-person shot or a
+     glasses rim can fool), an area cap, a minimum pixel count, and pass-through when there is no pair.
+   - The iris pixels are shifted in Lab a/b toward the reference's median. A lightness weight and a guard near bright
+     pixels keep the pupil, sclera and highlights from tinting, and a grey reference skips the step.
+   - *For us:* the pack has no post-render eye-colour tool. `--iris contrast` draws irises on the grey body model
+     before generation. If eye-colour drift shows on a swap, borrow the lightness weight and halo guard, but take the
+     region from the subject mask and face points rather than full-frame runs.
+3. **Identity notes** (`coderef/ComfyUI-MAINodes/snap_faces.py`).
+   - **The face score is ArcFace** (IResNet-101, CVLface WebFace4M) on a square crop round each SAM 3.1 face mask.
+   - DINOv3 ViT-H is an optional "character" score on a 1.5x unmasked box, added because ArcFace fails on anime
+     profiles.
+   - Duplicate face boxes are dropped, keeping the first. The separation figures are the author's, on their fixtures.
+   - *For us:* ArcFace is the natural first identity metric for live-action casts (`docs/wiki/masked_v2v/who_is_who.md`,
+     post-swap scoring). DINOv3 on an unmasked box mixes in hair, collar and lighting.
 4. **A hair-lightness check**: the lightness of the lit part of SAM 3.1's hair mask, used to grade grey and silver
-   edits (`snap_faces.py`).
+   edits (`coderef/ComfyUI-MAINodes/snap_faces.py`).
 5. **Multi-person chains**: section 1 (`TheBeast-Spec/minimax-h3-multi-swap-comfyui`, **B**).
 
 ## 16. MAINodes and this pack: what came from where (a provenance ledger)
@@ -376,22 +390,22 @@ histories (`git log -S` / `-G`).
 | concept | here (commit, date) | MAINodes (commit, date) | direction and credit |
 |---|---|---|---|
 | post-refiner (`token_refiner` output) steering seam | `d5541e44` 2026-11-04 | `ace8169` 2026-10-30 (ported from their earlier ComfyUI-Dials) | theirs first, credited in our 2026-11-04 control-vector research |
-| step windows for steering | `dcbec82d` 2026-11-04 | `f8a8c9a` 2026-10-31 (`dials/envelopes.py`) | theirs first, credited ("a port of MAINodes'") |
-| within-clip time curves | not built | `d11d438` 2026-11-01 (`dials/timecurve.py`) | theirs, not adopted (planned in our 2026-11-06 comparison) |
+| step windows for steering | `dcbec82d` 2026-11-04 | `f8a8c9a` 2026-10-31 (`coderef/ComfyUI-MAINodes/dials/envelopes.py`) | theirs first, credited ("a port of MAINodes'") |
+| within-clip time curves | not built | `d11d438` 2026-11-01 (`coderef/ComfyUI-MAINodes/dials/timecurve.py`) | theirs, not adopted (planned in our 2026-11-06 comparison) |
 | separate video and audio steering strength | `ef91d35c` 2026-11-06 14:06 | `d11d438` 2026-11-01 (`audio="protect"`) | theirs first, adopted; credited in our docs, not in code or commit messages |
 | picture and video contrast vectors | `ef91d35c` 2026-11-06 | `2d160ae` / `cc00a34` 2026-10-31 | theirs first, adopted, credited in our docs |
 | soft hold (ridge on `project_out`) | `fd4f246a` 2026-11-06 | rack hold `27563ac` 2026-10-31; DeTangle 2026-10-17 | theirs first, adopted, credited in our docs |
-| size-matched placebo control | `6bb1eaad` 2026-11-04 (wording) | `b8df909` 2026-11-01 (their LESSONS) | theirs first, probably absorbed; no explicit credit found |
+| size-matched placebo control | rule since 2026-08 (`docs/wiki/archive/2026-09-05_retracted_claims_part2.md`); `6bb1eaad` 2026-11-04 | `b8df909` 2026-11-01 (their LESSONS) | both; ours predates theirs. *Corrected the same day:* `6bb1eaad`'s commit message credits ComfyUI-Dials and MAINodes |
 | `differing_span` pooling | `d5541e44` 2026-11-04; `877dc9ba` 2026-11-05 | `ee3e435` 2026-11-06 (idea); `dials_token_audit.py` | **ours first, credited**: they link our `control_vectors.py` and guide; their code is a separate reimplementation |
 | leaving vision rows alone (`mask_vision`) | `4ecaa7df` 2026-11-04 | `ee3e435` 2026-11-06 | **ours first, credited** |
 | excluding the sink token (row 0) | `bb72d811` 2026-11-05 | `ee3e435` 2026-11-06 | **ours first, credited** (they quote the owner's Discord report) |
 | J-lens word vectors | `efbef735` / `87c0d1de` 2026-11-06 (12:59 / 13:33 -0600) | `ee3e435` 2026-11-06 13:39 -0500 (idea, credited); `833c02f` word dials | **ours first via Discord, credited**. Their idea commit precedes our first J-lens commit by about 20 minutes, so priority rests on the Discord report they cite, not on git order. Both follow `anthropics/jacobian-lens` on the encoder's 50-63 tail: shared method, not shared code |
 | neutral word baseline | `87c0d1de` (`DEFAULT_NEUTRAL_WORDS`) | `833c02f` (centering on a bland list plus the mean of several lists) | unclear, possibly independent; the mechanics differ |
-| per-kind condition strength around 0.999 | `c7fcae2f` 2026-10-08 (`reference_noise.py`, one level) | `4e957e2` 2026-09-20 (`h3_cond_strength.py`, per guide, per reference, per stream) | theirs first, possibly independent (both read core and sglang); per-kind strength not adopted |
+| per-kind condition strength around 0.999 | `c7fcae2f` 2026-10-08 (`reference_noise.py`, one level) | `4e957e2` 2026-09-20 (`coderef/ComfyUI-MAINodes/h3_cond_strength.py`, per guide, per reference, per stream) | theirs first, possibly independent (both read core and sglang); per-kind strength not adopted |
 | releasing references mid-denoise | `ef91d35c` 2026-11-06; `441d46ba` 2026-11-11 (`MiniMaxH3ReleaseReferences`) | none (no step window in their H3 code) | ours, prompted by reading `h3_cond_strength` |
-| token-grid mask max-pooling | `718dd3a5` 2026-10-04 (`video_mask.py`, space and time) | `bd785d3` 2026-08-13 (`motion.py`, time only) | theirs first, possibly independent (both follow core's token clock) |
-| `NestedTensor` video and audio noise masks | `74703635` 2026-08-13; `audio_freeze.py` 2026-09-12 | `2ecdff5` 2026-08-08 (`motion.py`) | theirs first, possibly independent (both use core's API) |
-| window loops | `audio_freeze_song.py` 2026-09-12; `chain_lengths`, `on_both_clocks` 2026-10 | `window_loop.py` 2026-08-12; `h3_extend.py` 2026-08-23 | independent, different purposes (theirs re-renders to fix smear; ours chains on frozen audio along the dual clock) |
+| token-grid mask max-pooling | `718dd3a5` 2026-10-04 (`video_mask.py`, space and time) | `bd785d3` 2026-08-13 (`coderef/ComfyUI-MAINodes/motion.py`, time only) | theirs first, possibly independent (both follow core's token clock) |
+| `NestedTensor` video and audio noise masks | `74703635` 2026-08-13; `audio_freeze.py` 2026-09-12 | `2ecdff5` 2026-08-08 (`coderef/ComfyUI-MAINodes/motion.py`) | theirs first, possibly independent (both use core's API) |
+| window loops | `audio_freeze_song.py` 2026-09-12; `chain_lengths`, `on_both_clocks` 2026-10 | `window_loop.py` 2026-08-12; `coderef/ComfyUI-MAINodes/h3_extend.py` 2026-08-23 | independent, different purposes (theirs re-renders to fix smear; ours chains on frozen audio along the dual clock) |
 | SAM 3.1 | `sam31_corrections.py` 2026-10-07 | stock SAM 3.1 word masks from 2026-11-04 | independent; theirs carries none of our corrections |
 | Pika preset | `b5539d95` 2026-11-04 | `6072b60` 2026-11-01 | independent (both from the Comfy-Org template) |
 | steering on the image model | `67d1d705` 2026-11-08 (P-H3-Image); `c7c2b11b` 2026-11-12 (`J_ref_h3_image`) | `20c9114` 2026-11-12 | concurrent |
@@ -399,30 +413,13 @@ histories (`git log -S` / `-G`).
 **Exist on one side only.**
 - *Only here:* sound cues, sprite trajectories, the `old -> new` edit prompt, audio attention gain, the frozen-video
   K/V cache, subject tracking across cuts, Sapiens2, SAM 3D Body and clean-plate restore.
-- *Only there:* colour carry, retiming (`motion.py`, `H3RetimeAudio`), the block-state concept lab and the `diff_b`
+- *Only there:* colour carry, retiming (`coderef/ComfyUI-MAINodes/motion.py`, `H3RetimeAudio`), the block-state concept lab and the `diff_b`
   pre-refiner bias.
 - *Both, designed differently:* reference sockets (their `h3_refs.py` bundles core's node; ours is the typed
   `AppendRef*` set), and refiner LoRA handling (our `safe_open` runner against their loaded MODEL).
 
-**Their follow-up tests on our ideas, worth taking back** (`coderef/ComfyUI-MAINodes/dials/research/experiments/`; read
-by the subagent, the T5d table checked by hand):
-- **T1, the sink token.** After the refiner, token 0 is an ordinary row carrying a negligible share of a vector, and
-  excluding it barely moves the cosine. Our rule that every encoder pooling path excludes row 0 stands. It matters for
-  encoder-space vectors and Jacobian estimates, not for post-refiner pooling.
-- **T3, span pooling at matched size.** The "span is stronger" impression is mostly vector size. It does not refute our
-  `diff_span` default, but our docs lack this control: compare pooling modes at matched norm.
-- **T5 series, image-to-video strength.**
-  - Dials are much weaker with a first frame, and leaving vision rows alone (our `mask_vision`) does not restore them.
-    The first-frame anchor is the cause.
-  - Their fix is to weaken the guide and push the dial harder. Guide 0.3 is their working point
-    (`T5d-T5e-reference-and-weak-pin.md`, table checked by hand).
-  - That needs a per-guide strength, which our single-level `MiniMaxH3ReferenceNoise` cannot express. This is a
-    concrete case for splitting guide strength from reference strength.
-- **T6, the family check.** A vector made on fl2va and one made on ref2va nearly coincide at the same size, on base
-  weights. Our `control_vectors.py` refuses any family mismatch. The Pika LoRA changes the refiner, so this does not yet
-  show our check is too strict under Pika. One offline cosine run on our own vectors would tell.
-- **Word-dial centering.** They subtract the mean of a dozen word lists and always include a bland placebo list. It may
-  be a cleaner version of our `DEFAULT_NEUTRAL_WORDS`.
+**Their follow-up tests on our ideas** (T1, T3, T5, T6, word centering) are now read against the pack in section
+17.2 (d), with the Gemini review's corrections.
 
 **Housekeeping found, not changed.**
 - `docs/wiki/references.md:1767`, written at 12:29 on 2026-11-06, still lists `audio="protect"` and the picture and
@@ -430,57 +427,194 @@ by the subagent, the T5d table checked by hand):
 - `docs/wiki/references.md:140` names a third-party author by full name rather than by handle.
 - MAINodes' credit lines show the owner's name in their visible link text. That is their repo's text, not ours.
 
-## 17. What from this pack could help MAINodes
+## 17. Outcome first: what each side could take from the other
 
-The owner asked this the same day. Each item is mapped to a problem MAINodes states as open (its `ROADMAP.md`,
-`TESTING_ALPHA.md`, `dials/research/`; read **H**). It is a list of candidates to pass along through the owner, not a
-claim that any of it fixes their clips. Nothing was sent to them.
+*Rewritten the same day at the owner's request. The first version of this section and the end of section 16 were
+feature lists: they matched nodes to problems. This version starts from what each side is trying to achieve.*
 
-1. **Time-sensitive: core PR #17715.** Their dials depend on core refining the prompt once:
-   `coderef/ComfyUI-MAINodes/dials/core.py:43` says "extra_conds refines the prompt once", and their wrappers call
-   `preprocess_text_embeds` as a no-op (**H**). #17715 removes that call from `extra_conds` and runs the refiner inside
-   every step, which moves the seam both packs' post-refiner steering hooks. vllm-omni #5899 argues for refining once.
-   Both are on [`../upstream/horizon.md`](../upstream/horizon.md).
-2. **Audio at window seams.** Their ROADMAP §3 names this their hardest case: a boundary inside a burst gives "two
-   independent foley takes of one impact, which no crossfade width fixes".
-   - **Freezing the baseline's audio** across windows gives one take of the impact everywhere. That is the pack's
-     `MiniMaxH3FreezeAudio` / `MiniMaxH3AudioFreezeSong`, which hold the encoded PCM with a `NestedTensor(video=1,
-     audio=0)` mask.
-   - **The dual-clock grid.** Their lengths snap to 17n+5 (`motion.py`, the `(n - 5) // 17 * 5 + 2` step counts; **H**)
-     with no `% 3` rule. Window lengths off `39 + 51m` drift by a third of an audio token at each seam
-     (`h3_rules.on_both_clocks`, `chain_lengths`). It may bear on their "no clicks at both splice points" test item;
-     reasoned, not tested on their clips.
-3. **Beat duplication** (ROADMAP §4: dilated time filled with extra beats). Their planned fix is sparse pose anchors.
-   - `MiniMaxH3GuideLatent` handles mid-clip keyframes, and `guide_end_percent` releases them partway through
-     denoising.
-   - `MiniMaxH3SoundCues` places transient islands on the exact 3-frame grid, an audio-side anchor for each impact.
-     That fits their cross-modal detection idea.
-   - `MiniMaxH3BodyMeshVideo` could supply the pose ladder.
-4. **Dials.**
-   - Their T5 result (a first frame weakens dials) currently leans on their per-guide strength.
-     `MiniMaxH3ReleaseReferences` gives a second lever, a step window for releasing the guide, which their H3 code
-     lacks.
-   - The `safe_open` refiner runner builds vectors without loading the full DiT, and is aware of the Pika LoRA on the
-     refiner.
-   - `MiniMaxH3EditGuider`, `MiniMaxH3LayerNormMatch` and the `project_out` holds are points to compare against.
-5. **Snap's identity tools.** They run stock SAM 3.1.
-   - `MiniMaxH3SAM31Corrections`: the image range, exact GELU and `memory_selection` are measured against Meta's code
-     (`bench/results/2026-10-07_sam3_core_against_meta.md`).
-   - `MiniMaxH3SubjectTrack` follows one person across cuts, and `MiniMaxH3SubjectParts` gives Sapiens2 parts per
-     subject. Both are steadier sources than text-only SAM for hair and clothing.
-   - Another session had uncommitted work on `sam31_corrections.py` in a worktree on 2026-11-15. Read what it changed
-     before passing the corrections along.
-6. **Cost and precision.**
-   - `MiniMaxH3Preflight` prices exact packed-token counts and the `int32` QKV limit before sampling. They report peak
-     VRAM flat across clip lengths.
-   - `MiniMaxH3LoRABranch` applies LoRAs unmerged on int8 and w4a8 files
-     ([`merge_requantisation.md`](merge_requantisation.md)).
-   - `MiniMaxH3VAEPrecision` splits encode and decode precision.
-   - `MiniMaxH3EncodeReferences` encodes references once across prompt revisions, which suits Snap's agent loop.
-7. **Method.** Their "What would actually help" asks for same-seed before-and-after pairs and seconds per step. The
-   pack's stacked review clips, `bench/what_h3_got.py` and `bench/grade_prompt_text.py` serve that.
+**Sources.**
+- Two read-only subagents read MAINodes beyond Snap, Motion Lab, low VRAM, RelayVSR and the dials research. Their
+  load-bearing citations were checked by hand: `coderef/ComfyUI-MAINodes/dials/research/PLAN.md:26,34`, `coderef/ComfyUI-MAINodes/ALPHA.md:69,149`,
+  `coderef/ComfyUI-MAINodes/capsule_types.py:86`, `coderef/ComfyUI-MAINodes/TUNING.md:162`, `coderef/ComfyUI-MAINodes/h3_extend.py:112,183`, `coderef/ComfyUI-MAINodes/docs/snap/AGENT_START.md:202`,
+  `coderef/ComfyUI-MAINodes/web/snap/checks.js:91`, and `coderef/ComfyUI-MAINodes/docs/snap/CLOUD_HANDOFF_2026-11-08.md:30`.
+- A Gemini review the same day read MAINodes' SAM, steering and T-series code in full, and ran a cosine check on the
+  pack's own vectors. Its corrections are folded in and marked. Its measurements are its own and were not re-run here.
 
-If passed along, items 1 and 2 first: one is time-sensitive, and the other matches the problem they call hardest.
+**Labels.** Their figures are their claims. **H** means checked by hand; otherwise the line is a subagent's or Gemini's
+reading.
+
+**Whose outcomes.**
+- **The pack's** (`VISION.md`, `docs/wiki/projects/index.md`, the owner's working rules): the best quality and speed
+  one RTX 4090 can reach, as claims a later reader can re-derive. Per track:
+  - (a) masked pieces with every visible subject replaced and identity holding on the owner's playback;
+  - (b) long song videos over frozen audio;
+  - (c) image edits from the phone studio;
+  - (d) steering the owner can trust;
+  - (e) speed at quality on the card;
+  - (f) less of the owner's time spent reviewing.
+- **MAINodes'**, in their words:
+  - Motion Lab: fast motion without smear, beats that don't multiply when time is dilated, invisible seams.
+  - Dials: "more of the intended change per unit of collateral change".
+  - Snap: one person directing agents through a short film, where "consistency is data, not prompting", with the
+    person's eye as the judge.
+  - Also: running on smaller cards, and upscaling.
+
+### 17.1 The largest thing to borrow is method, not a node
+
+These practices serve every outcome above, ours and theirs.
+- **A gate written before the run.** Their `coderef/ComfyUI-MAINodes/dials/research/PLAN.md` queue has a column "gate (what decides the next
+  step)" (**H**, `:34`), filled in before an experiment runs, with one page per experiment saying what it changed in
+  the plan. The pack has dated records and controls, but no pre-registered decision column.
+- **An evidence ladder on every number.** "One seed is a hint, two seeds a finding, held-out scenes a result"
+  (**H**, `:26`). It is a compact form of the pack's evidence labels that a reader can apply at a glance.
+- **An identity setting on every node that changes the model.** Their pass-through settings reproduce stock exactly
+  (`torch.equal`): `jerk passthrough`, DyRoPE's `compact_all`, uniform condition strength. An A/B is then one widget,
+  not two graphs.
+- **Refuse rather than guess.** Their plan estimate returns `-1` "because an uncalibrated guess is worse than no
+  answer". The pack's Preflight prices exactly. The same rule fits any estimate we add later.
+- **Splices that check themselves.** Their repair splice asserts zero difference outside the spliced range.
+- **Every reviewer miss becomes a test.** Snap's critic loop:
+  - every miss the person catches is "one press from a fixture" (SNAP-R108);
+  - a critic prompt ships only if it holds a floor of caught flaws and false alarms on clean pictures (SNAP-R109);
+  - the floor is written down, and their latest blind run fell below it and stays open (**H**, `coderef/ComfyUI-MAINodes/docs/snap/CLOUD_HANDOFF_2026-11-08.md:30`).
+
+  This is the single most direct lever on outcome (f). It turns the owner's catches on playback into a measured
+  reader, instead of a reader the owner has to re-check.
+- **Stop rerolling, change the approach.** "Two or three failed seeds of one recipe stop that recipe"; only a taste
+  choice between results that work goes to the person (SNAP-R200). A rejection is kept with why and when to look again
+  (their "cemetery"). This matches the owner's ask-once rule and could stop rerolls before they reach the owner.
+- **Keep the negatives.** "Explicitly not doing, with reasons", published corrections, and an examples archive that
+  still runs.
+
+**Where the pack is ahead on method, and what it would give them.**
+- Claim labels that point at the command or constant behind a figure (`VISION.md`, `docs/wiki/ops/evidence.md`).
+  Many of their figures cite no command, are small-n on one machine, or point to LESSONS files that are not in the
+  public repo. Their own reviewer agent flagged that one critic floor mixed subset reruns with earlier results.
+- Vendor-parity numerics, and the upstream sweep machinery (`docs/wiki/upstream/`). They track the same core PRs by
+  hand.
+- Review on playback. Their critic reads stills and tiles, and their closeout says so ("sampled visual … not continuous
+  perceptual playback"). The pack's stacked review clips, read by a model that watches and listens natively, close
+  that gap.
+
+### 17.2 The pack's outcomes, and what in their world moves each
+
+- **(a) Masked pieces with identity on playback.**
+  - *Identity as data before the owner looks.* ArcFace notes per face (section 15, corrected) could list the frames
+    worth looking at per subject. That is a list, never a verdict, under the owner's rule; their thresholds were set on
+    anime fixtures and need re-measuring on live action.
+  - *Remake a few frames, not a whole load.* Their Repair Plan/Splice snaps a bad range outward to whole tokens, ends
+    at a shot cut, asserts the rest unchanged and reports the seam against the clip's own frame delta.
+  - *Their mask lesson:* "The mechanisms were fine; the mask author wasn't."
+  - *A trap for us:* on masked runs, per-step `x0` "gives you a picture of the mask", which bears on
+    `MiniMaxH3StepX0Observer` readings.
+- **(b) Long song videos.**
+  - *An answer to an open question here.* The pack lists "two ways to continue a clip … seams uncompared"
+    (`docs/wiki/core/h3_audio_freeze.md:445`, **H**). Their extension work found the masked latent prefix beat the
+    image guide "everywhere we measured" (**H**, `coderef/ComfyUI-MAINodes/ALPHA.md:69`), on two content sets.
+  - *Texture drift.* "Standard grows a mosaic texture past ~40 s; the re-anchor alone holds 2 minutes" (SNAP-R64; the
+    same author's `h3-long-video-research`). This is a check to run on the pack's longest chains.
+  - *Choosing the context window.* A 90-frame handle overlapped better than 39, which bears on the pack's context-39
+    or context-90 choice.
+  - Their colour carry likely does not apply, since the pack's context never makes a VAE round trip (reasoned).
+- **(c) Phone-studio image edits.**
+  - Snap's model-choice table and its new-view traps give edit-route defaults: region crop with paste-back, crop past
+    thin crossing objects, a new picture for a new look, and showing now and after side by side.
+  - Their conditioning banks persist to disk across workflows and restarts, where the pack's split cache lives in
+    ComfyUI's memory.
+
+  For the studio session to consider, through its own session (memory: app changes go through it).
+- **(d) Steering the owner can trust.** *Partly corrected after the Gemini review; the pack already had more of this
+  than the first version said.*
+  - *T3, span pooling at matched size:* the pack already has this control, with norm-matched arms at one target norm
+    across pooling modes (`bench/results/2026-11-05_control_vectors_pika_and_ref2va.md:117-119`, **H**). Their "no
+    clear gain" came on short one-line pairs. On the pack's long structured prompts, whole-scene pooling dilutes the
+    vector, and `MiniMaxH3Steer` already norm-matches by default.
+  - *T6, the family check:* Gemini's cosine run on the pack's own Pika fl2va and ref2va vectors found them nearly
+    coincident (its measurement, not re-run). Also, `control_vector_nodes.py::resolve_vector_file_path` already swaps
+    in the sibling family's file, and refuses only when none exists (**H**). The MiniMax-H3-Image refiner differs
+    markedly from the video ones in the same run. That supports keeping `h3_image` its own family, and may be why
+    MAINodes' image dials needed several times the video strength (Gemini's inference).
+  - *T5, a first frame weakens steering:* for plain fl2va image-to-video, the pack can already lower the first frame's
+    hold through `MiniMaxH3ReferenceNoise` or `MiniMaxH3ReleaseReferences` `clean_level`.
+    - Splitting guide strength from reference strength runs into core labelling both segments from one scalar
+      (`comfy/ldm/minimax/model.py`, `seg_t["cond"]` and `seg_t["ref_img"]` both from `vis_aug`, **H**).
+    - Their notes add that the first frame also enters the encoder as clean vision tokens.
+    - A step-scheduled release of the first frame, which they did not test, is the candidate Gemini proposes.
+  - *Word dials:* the pack's `j_lens.py` already centres across its whole word vocabulary and subtracts a neutral
+    list. Their twelve-list mean depends on the batch, as their own notes say. What to take from them is the placebo:
+    a bland list at +2 still changed the clip, so word-dial checks should include a loudness check.
+  - *Lessons that apply directly:*
+    - sum dials once in float64;
+    - a blend level outside 0–1 extrapolates rather than strengthens, which bears on `MiniMaxH3EditGuider` scale above 1;
+    - audio kept on the undialled branch still moves, because audio attends to the dialled video, which bears on
+      `audio_scale`;
+    - "a strong direction is not isolated control".
+- **(e) Speed at quality on the card.**
+  - Their streamed blocks are bit-exact by mechanism (int32 accumulate), with a first-block self-check, and four
+    ComfyUI flags cut host RAM sharply. Both fit the pack's memory-bound long renders. They were measured on a
+    machine fenced down to a smaller card.
+  - Their gate keeps a fixtures manifest with a sha256 per file and a stale-result guard, so a crashed suite prints
+    FAIL, never the last PASS.
+  - Nothing for Sol.
+- **(f) Less owner review time.**
+  - The critic loop and the reroll stop rule (17.1).
+  - Their Video Compare loops a bracket over a seam, flickers A against B, and carries a starred winner into the next
+    queue.
+  - One caveat: Snap's one-question-at-a-time Room runs against the owner's rule to batch reviews.
+
+### 17.3 Their outcomes, and what in the pack moves each
+
+- **Seams you cannot hear.** Their ambience "still steps at the cut", only a 65-tick audio prefix is carried, and they
+  write that "only a pinned master track GUARANTEES the structure". The pack's whole-slice frozen audio
+  (`MiniMaxH3AudioFreezeSong`) is that pinned track.
+  - *Corrected the same day:* they do know the dual-clock rule (`coderef/ComfyUI-MAINodes/h3_extend.py:112,183`; `coderef/ComfyUI-MAINodes/capsule_types.py:86`; **H**).
+    Their extension tool notes an off-grid length, and `coderef/ComfyUI-MAINodes/motion.py` pads to any 17k+5. The pack refuses off-grid chains
+    (`h3_rules.on_both_clocks`).
+- **Beats that don't multiply.** Their planned fix is sparse pose anchors.
+  - `MiniMaxH3GuideLatent` gives mid-clip keyframes with `guide_end_percent` release.
+  - `MiniMaxH3SoundCues` anchors impacts on the exact audio grid.
+  - `MiniMaxH3BodyMeshVideo` could supply the pose ladder.
+  - Their oracle's inability to abstain has nothing on our side.
+- **Dials that keep working.**
+  - Core PR #17715 would move the refiner into every step, under the seam their dials hook. Their wrappers rely on
+    `extra_conds` refining once (`coderef/ComfyUI-MAINodes/dials/core.py:43`, **H**). It is on `../upstream/horizon.md`.
+  - The pack's `safe_open` refiner runner builds vectors without loading the DiT.
+- **Snap's consistency.**
+  - Their checks run stock SAM 3.1 (`SAM3_Detect`, and `SAM3_VideoTrack` with one object; **H**, `coderef/ComfyUI-MAINodes/web/snap/checks.js:91`).
+    `MiniMaxH3SAM31Corrections` targets that path, though their thresholds would need re-measuring after it.
+  - Their Transform Footage reports a capability gap for frame ranges and temporal masks. The pack's
+    `MiniMaxH3MaskedSource` and `MiniMaxH3RestorePlate` are that capability.
+  - Their H3 setups don't wire a last frame (F-F20, **H**, `coderef/ComfyUI-MAINodes/docs/snap/AGENT_START.md:202`). `MiniMaxH3Conditioning` handles a
+    lone last frame.
+- **Low VRAM and big canvases.**
+  - Their token counts are video-only approximations, and nothing in their files names the `int32` QKV line. Their
+    longest runs, around 217k tokens at 1376x768, sit past that line and past the pack's trained-family area cap
+    (**H**, `coderef/ComfyUI-MAINodes/ALPHA.md:149`). `MiniMaxH3Preflight` prices exactly.
+  - Their motion and turbo LoRAs load merged on int8. Some of their motion loss may be merge requantisation, which
+    `MiniMaxH3LoRABranch` avoids (cannot tell from their files).
+- **Unscripted speech from voice references.** `MiniMaxH3ReleaseReferences` `audio_end_percent` might reduce how much
+  H3 copies a reference's words. Untested.
+
+### 17.4 If any of this is passed along
+
+**To them, in order** (through the owner; nothing has been sent):
+1. Core #17715.
+2. Whole-slice frozen audio and the refusal of off-grid chains, for their seams.
+3. The SAM 3.1 corrections, after reading what the other session's SAM 3.1 worktree changes.
+4. Last frame and temporal masks, for Snap.
+
+**For us, in order:**
+1. A gate column and the seed ladder in the pack's research plans.
+2. A critic or reader floor fed by the owner's catches.
+3. Their masked-prefix seam result, read against the song-loop handoff.
+4. ArcFace identity notes as a frames-to-look-at list.
+
+### 17.5 Not read
+
+- In Snap: most of `SNAP_RULES.md`, the director code, the suite code and most dogfood reports. The `docs/snap/`
+  DECISIONS, LESSONS and PLAN files their `AGENTS.md` points to are not in the clone.
+- Outside Snap: `flow/`, `DEROPE_ANY_MODEL.md`, `docs/WINDOW_MODE.md`, the RelayVSR and concept-lab docs beyond their
+  READMEs, and most of `coderef/ComfyUI-MAINodes/motion.py`, `h3_drift.py`, `h3_measure.py` and `video_compare.py` beyond headers.
 
 ---
 
@@ -501,9 +635,9 @@ If passed along, items 1 and 2 first: one is time-sensitive, and the other match
   - `H3_IMAGE_MANUAL_SIGMAS` against the ulp-shifted sigmas;
   - which H3-Image reference noise order the release uses;
   - the Hub-hosted H3-Image-PE blocks;
-  - MAINodes' SAM 3.1 iris, face and word-mask code beyond module headers and commit messages, and whether DINOv3
-    face embeddings separate the masked lane's cast;
-  - MAINodes' T1, T3, T5 and T6 results on our own vectors (only the T5d table was opened by hand).
+  - whether ArcFace face embeddings separate the masked lane's live-action cast (MAINodes' SAM and identity code
+    was read in full by the Gemini review, section 15);
+  - MAINodes' T-series beyond what section 17.2 (d) records.
 - **Searched, nothing found:** H3 issues in kijai's WanVideoWrapper since 11-01; arXiv for Qwen3-VL as a diffusion text
   encoder since 10-15. Hugging Face search caps at 100 results per term, so small uploads may be missing.
 - **Nothing was rendered.** The only check run was `bench/check_reference_encode.py`.
@@ -516,6 +650,7 @@ If passed along, items 1 and 2 first: one is time-sensitive, and the other match
 3. **The image lane.** The velocity-form Euler step and soft-start (section 4), one cheap render each.
 
 Added from sections 15 and 16, for whoever picks up steering or the masked lane next:
-- **Steering.** MAINodes' T5 result: a per-guide strength to restore steering under a first frame. Also the T6 cosine
-  check on our own fl2va and ref2va vectors under Pika.
-- **The masked lane and image edits.** The SAM word-gated paste and the iris colour hold, both core nodes only.
+- **Steering.** A step-scheduled first-frame release for image-to-video steering (section 17.2 (d)). The T6 check
+  is done (Gemini's run).
+- **The masked lane and image edits.** The SAM word-gated paste (core nodes only, for removals and recolours), and
+  ArcFace identity notes as a frames-to-look-at list. Section 17.4 has the fuller order.
