@@ -11,6 +11,7 @@ This pack ships two ways to steer a MiniMax H3 render without retraining weights
 **Start here** if you are new to these, or are explaining them to someone else:
 
 - [`control_vectors/which_tool_and_what_to_call_it.md`](control_vectors/which_tool_and_what_to_call_it.md): the three side by side, and what to call the word readout in public.
+- [`control_vectors/sound_cues_and_timed_masks.md`](control_vectors/sound_cues_and_timed_masks.md): sound cues and timed mask "blooms" in plain English, and what the tortoise and forge runs actually proved.
 - [`control_vectors/how_the_word_readout_works.md`](control_vectors/how_the_word_readout_works.md): the word readout step by step, in plain words, on one vector.
 - [`control_vectors/worked_examples.md`](control_vectors/worked_examples.md): five questions people run into, each with what to run and the record behind it.
 

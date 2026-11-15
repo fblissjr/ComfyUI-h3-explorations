@@ -62,6 +62,7 @@ Start at [`control_vectors.md`](control_vectors.md) and [`edit_guidance.md`](edi
 | [`control_vectors.md`](control_vectors.md) | Unified steering hub: Control Vectors vs. Edit Guidance vs. J-Lens readout, shipped workflows, `exp5` tool-choice update |
 | [`edit_guidance.md`](edit_guidance.md) | `MiniMaxH3EditGuider` + `MiniMaxH3PromptEdit` (`streams`, `audio_scale`, `first_step`, `last_step`, 3D `[B, 1, C_flat]` AV split) |
 | [`control_vectors/which_tool_and_what_to_call_it.md`](control_vectors/which_tool_and_what_to_call_it.md) | Plain-English guide comparing Prompt Edit, Control Vectors, Edit Guidance, and Word Readout (`J-Lens`) |
+| [`control_vectors/sound_cues_and_timed_masks.md`](control_vectors/sound_cues_and_timed_masks.md) | Plain-English explainer: Sound Cues (`MiniMaxH3SoundCues`), timed animated mask "blooms" (`MiniMaxH3EditGuider.mask`), and what the tortoise & forge experiments proved |
 | [`control_vectors/how_the_word_readout_works.md`](control_vectors/how_the_word_readout_works.md) | Step-by-step explainer of J-Lens cloze log-odds lexical readouts |
 | [`control_vectors/worked_examples.md`](control_vectors/worked_examples.md) | Five common steering questions, exact recipes, and verified runs |
 | [`control_vectors/building_pairs_and_vectors.md`](control_vectors/building_pairs_and_vectors.md) | Two-stage H3 text geometry, `diff_span` pooling, `[[hold]]` projections, `from-prompt`, `from-toml`, `make-media` |
