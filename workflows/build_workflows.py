@@ -1222,7 +1222,7 @@ def _parse_control_vector_entries(
         set(STEER_DEFAULTS)
         | set(CONTROL_VECTOR_DEFAULTS)
         | set(CONTROL_VECTOR_OPTIONAL_DEFAULTS)
-        | {"fields", "release_references", "hold_vector"}
+        | {"fields", "release_references", "hold_vector", "edit_pass"}
     )
     release_candidates: list[tuple[float, float]] = []
 
@@ -1292,6 +1292,13 @@ def _parse_control_vector_entries(
             fields_input = _control_vector_fields_input(raw_fields)
             if fields_input is not None:
                 steer_inputs["fields"] = fields_input
+            raw_edit_pass = str(spec.get("edit_pass") or "").strip()
+            if raw_edit_pass and raw_edit_pass != "both":
+                if raw_edit_pass not in ("edited_only", "original_only"):
+                    raise SystemExit(
+                        f"control_vector edit_pass must be 'both', 'edited_only', or 'original_only', got {raw_edit_pass!r}"
+                    )
+                steer_inputs["edit_pass"] = raw_edit_pass
 
             words_text = str(spec.get("words") or "").strip()
             word_inputs: dict[str, Any] | None = None
