@@ -9,7 +9,8 @@ carries a depth tag, so the reader can tell code that was read from a PR title t
   `bench/upstream_watch.py` ([`../upstream/sweeps/2026-11-15.md`](../upstream/sweeps/2026-11-15.md)).
 - A second pass the same day over sglang's and vllm-omni's open H3 PRs.
 - Later the same day, at the owner's question, a pass on SAM 3.1 (Meta's repo, core and MAINodes) and a dated
-  provenance ledger between this pack and `matlowai/ComfyUI-MAINodes` (sections 15 and 16). The ledger was read from
+  provenance ledger between this pack and `matlowai/ComfyUI-MAINodes` (sections 15 and 16), and what from this
+  pack could help MAINodes (section 17). The ledger was read from
   both git histories by a read-only subagent, with its load-bearing commits spot-checked by hand.
 - The lead session's own hand checks.
 
@@ -428,6 +429,58 @@ by the subagent, the T5d table checked by hand):
   video contrast dials as things this pack does not do. `ef91d35c` built both at 14:06 that day.
 - `docs/wiki/references.md:140` names a third-party author by full name rather than by handle.
 - MAINodes' credit lines show the owner's name in their visible link text. That is their repo's text, not ours.
+
+## 17. What from this pack could help MAINodes
+
+The owner asked this the same day. Each item is mapped to a problem MAINodes states as open (its `ROADMAP.md`,
+`TESTING_ALPHA.md`, `dials/research/`; read **H**). It is a list of candidates to pass along through the owner, not a
+claim that any of it fixes their clips. Nothing was sent to them.
+
+1. **Time-sensitive: core PR #17715.** Their dials depend on core refining the prompt once:
+   `coderef/ComfyUI-MAINodes/dials/core.py:43` says "extra_conds refines the prompt once", and their wrappers call
+   `preprocess_text_embeds` as a no-op (**H**). #17715 removes that call from `extra_conds` and runs the refiner inside
+   every step, which moves the seam both packs' post-refiner steering hooks. vllm-omni #5899 argues for refining once.
+   Both are on [`../upstream/horizon.md`](../upstream/horizon.md).
+2. **Audio at window seams.** Their ROADMAP §3 names this their hardest case: a boundary inside a burst gives "two
+   independent foley takes of one impact, which no crossfade width fixes".
+   - **Freezing the baseline's audio** across windows gives one take of the impact everywhere. That is the pack's
+     `MiniMaxH3FreezeAudio` / `MiniMaxH3AudioFreezeSong`, which hold the encoded PCM with a `NestedTensor(video=1,
+     audio=0)` mask.
+   - **The dual-clock grid.** Their lengths snap to 17n+5 (`motion.py`, the `(n - 5) // 17 * 5 + 2` step counts; **H**)
+     with no `% 3` rule. Window lengths off `39 + 51m` drift by a third of an audio token at each seam
+     (`h3_rules.on_both_clocks`, `chain_lengths`). It may bear on their "no clicks at both splice points" test item;
+     reasoned, not tested on their clips.
+3. **Beat duplication** (ROADMAP §4: dilated time filled with extra beats). Their planned fix is sparse pose anchors.
+   - `MiniMaxH3GuideLatent` handles mid-clip keyframes, and `guide_end_percent` releases them partway through
+     denoising.
+   - `MiniMaxH3SoundCues` places transient islands on the exact 3-frame grid, an audio-side anchor for each impact.
+     That fits their cross-modal detection idea.
+   - `MiniMaxH3BodyMeshVideo` could supply the pose ladder.
+4. **Dials.**
+   - Their T5 result (a first frame weakens dials) currently leans on their per-guide strength.
+     `MiniMaxH3ReleaseReferences` gives a second lever, a step window for releasing the guide, which their H3 code
+     lacks.
+   - The `safe_open` refiner runner builds vectors without loading the full DiT, and is aware of the Pika LoRA on the
+     refiner.
+   - `MiniMaxH3EditGuider`, `MiniMaxH3LayerNormMatch` and the `project_out` holds are points to compare against.
+5. **Snap's identity tools.** They run stock SAM 3.1.
+   - `MiniMaxH3SAM31Corrections`: the image range, exact GELU and `memory_selection` are measured against Meta's code
+     (`bench/results/2026-10-07_sam3_core_against_meta.md`).
+   - `MiniMaxH3SubjectTrack` follows one person across cuts, and `MiniMaxH3SubjectParts` gives Sapiens2 parts per
+     subject. Both are steadier sources than text-only SAM for hair and clothing.
+   - Another session had uncommitted work on `sam31_corrections.py` in a worktree on 2026-11-15. Read what it changed
+     before passing the corrections along.
+6. **Cost and precision.**
+   - `MiniMaxH3Preflight` prices exact packed-token counts and the `int32` QKV limit before sampling. They report peak
+     VRAM flat across clip lengths.
+   - `MiniMaxH3LoRABranch` applies LoRAs unmerged on int8 and w4a8 files
+     ([`merge_requantisation.md`](merge_requantisation.md)).
+   - `MiniMaxH3VAEPrecision` splits encode and decode precision.
+   - `MiniMaxH3EncodeReferences` encodes references once across prompt revisions, which suits Snap's agent loop.
+7. **Method.** Their "What would actually help" asks for same-seed before-and-after pairs and seconds per step. The
+   pack's stacked review clips, `bench/what_h3_got.py` and `bench/grade_prompt_text.py` serve that.
+
+If passed along, items 1 and 2 first: one is time-sensitive, and the other matches the problem they call hardest.
 
 ---
 
