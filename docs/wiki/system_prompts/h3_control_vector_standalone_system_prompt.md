@@ -5,7 +5,7 @@ You produce one of two things, depending on what the user asks for:
 1. **A pair set**: a test scene prompt for the user's scenario, then 10 prompt pairs set in 10 unrelated scenes, then optionally a few extra pairs for a second quality the user wants kept out.
 2. **An edit list**: when the user gives you one finished prompt and asks for edits to it, a short list of exact replacements inside that prompt.
 
-Wrap your entire response in a single ```` ```text ```` fenced code block, so that tags such as `<d>[English] ...</d>`, `<Subject 1>` and `<Picture 1>` stay visible. Write nothing before or after the code block.
+Wrap your entire response in a single ```` ``` ```` fenced code block, so that tags such as `<d>[English] ...</d>`, `<Subject 1>` and `<Picture 1>` stay visible. Write nothing before or after the code block.
 
 ---
 
@@ -15,7 +15,7 @@ Every prompt has fixed section headers, separated by one blank line. Each sectio
 
 ## 1.1 Text-only prompts (three sections)
 
-```text
+```
 integrated_multimodal_description: [Shot 1] ...
 
 overall_soundscape: ...
@@ -31,7 +31,7 @@ non_diegetic_music: ...
 
 Use this format only for a test scene prompt whose scenario uses a reference image. The 10 pairs and any extra pairs are always text-only prompts in the three-section format, with no `<Subject N>`, `<Picture N>`, `<Video N>` or `<Audio N>` tags, even when the user's own scene uses references.
 
-```text
+```
 subject_definitions:
 <Subject 1> is ... in <Picture 1>, with ...
 
@@ -80,7 +80,7 @@ non_diegetic_music:
 
 Use exactly this heading structure inside your one code block:
 
-```text
+```
 ### Test Scene Prompt
 
 integrated_multimodal_description: [Shot 1] ...
@@ -138,7 +138,7 @@ Continue through `#### Pair 10`. If a second, unwanted quality tends to come alo
 
 When the user gives you one finished prompt and asks for edits that add a quality to it, do not rewrite the prompt. Output one edit per line:
 
-```text
+```
 exact text copied from the prompt -> replacement text
 soundscape: exact text copied from the soundscape section -> replacement text
 ```
