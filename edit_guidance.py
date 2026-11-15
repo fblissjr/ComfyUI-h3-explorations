@@ -568,9 +568,9 @@ class MiniMaxH3EditGuider(io.ComfyNode):
                     tooltip="Optional regional or temporal edit weight in [0, 1]: 1 applies the edit at scale, "
                             "0 keeps the original prediction (wire InvertMask upstream to protect a tracked subject, "
                             "and GrowMask before InvertMask to add a motion margin). Accepts [H, W] or [1, H, W] "
-                            "(broadcast across frames), [F, H, W] matching the render's frame count (max-pooled over "
-                            "causal [1, 4, 4, 4, 4] video steps), or [F, 1, 1] temporal envelopes. Spatial masks "
-                            "affect video only and leave audio on its stream scale; an all-zero mask is refused.",
+                            "(video-only across frames, audio stays on its stream scale), [F, H, W] matching frame "
+                            "count (max-pooled over causal [1, 4, 4, 4, 4] video steps + 40 Hz max(H, W) audio "
+                            "gating when F > 1), or [F, 1, 1] temporal envelopes; an all-zero mask is refused.",
                 ),
             ],
             outputs=[io.Guider.Output()],

@@ -1,9 +1,14 @@
 # Handover: read this before anything else
 
-Updated `2026-11-13` after reorganizing `docs/` around the LLM Wiki (`docs/wiki/index.md`) and auditing Nov 10–13 commits, transcripts (`agy` + `ccutils` DuckDB), code, and renders.
+Updated `2026-11-15` after adding interactive 2D+time `MiniMaxH3SpatialDirector` / `MiniMaxH3DirectorHUD`, multi-frame `[F, H, W]` `40 Hz` audio envelope gating, `MiniMaxH3Steer.edit_pass` + `fl2va_base` J-Lens, and upstream subfolder tracking (`docs/wiki/upstream/index.md`); built on the `2026-11-13` LLM Wiki layout (`docs/wiki/index.md`).
 Where this page and code/verdicts disagree, the code and `bench/results/` records are right: check [`../../AGENTS.md`](../../AGENTS.md), [`index.md`](index.md), [`decisions.md`](decisions.md), and [`projects/2026-11-13_repo_audit_and_atlas/index.md`](projects/2026-11-13_repo_audit_and_atlas/index.md).
 
-## Current State (`2026-11-13`)
+## Current State (`2026-11-15`)
+
+0. **3D Semantic Velocity Steering, `MiniMaxH3SpatialDirector`, & `edit_pass` (`2026-11-14`..`2026-11-15`)**:
+   - Extended `MiniMaxH3EditGuider.mask` ([`../../edit_guidance.py`](../../edit_guidance.py)) across `[H, W]`, causal `[F, H, W]` (`[1, 4, 4, 4, 4]` video pooling + `40 Hz` `max(H, W)` temporal audio envelope gating when `F > 1`), and `[F, 1, 1]` shapes across `NestedTensor`, `packed_split` (`latent_shapes[0]`), and unpacked `MiniMax-H3-Image` latents, paired with `MiniMaxH3Steer.edit_pass` (`both | edited_only | original_only`; [`../../control_vector_nodes.py`](../../control_vector_nodes.py)) for regional vector painting, Split-World dual vectors, and `first_step = 0` regional `project_out` scrubs.
+   - Shipped `MiniMaxH3SpatialDirector` & `MiniMaxH3DirectorHUD` ([`../../spatial_director.py`](../../spatial_director.py), [`../../web/h3_spatial_director.js`](../../web/h3_spatial_director.js), `66` registered node IDs) with interactive `portal_path` (`circle`, `ellipse`, `vertical_split`) and Genie + `point_targets` workflows ([`../../workflows/h3_spatial_portal_pika_api.json`](../../workflows/h3_spatial_portal_pika_api.json), [`../../workflows/h3_world_targets_genie_pika_api.json`](../../workflows/h3_world_targets_genie_pika_api.json)). Write-up: [`research/2026-11-15_spatial_world_director_and_3d_edit_guidance.md`](research/2026-11-15_spatial_world_director_and_3d_edit_guidance.md).
+   - Aligned `MiniMaxH3AppendRefImage.allow_upscale` default to `False` (`sglang#47907`, `docs/wiki/upstream/topics/reference_sizing.md`) and rebuilt `j_lens_h3.safetensors` with `fl2va_base` (`P-H3-Image`) operators.
 
 1. **LLM-Wiki-First Documentation & Repo Audit (`2026-11-13`)**:
    - All active documentation now lives under [`index.md`](index.md) (`core/`, `image/`, `attention/`, `prompting/`, `control_vectors/`, `system_prompts/`, `masked_v2v/`, `ops/`, `projects/`, `research/`, `decisions/`, `archive/`).
@@ -30,7 +35,7 @@ Where this page and code/verdicts disagree, the code and `bench/results/` record
 
 ## Reading Order
 
-1. [`../../AGENTS.md`](../../AGENTS.md) — rules, H3 frame/clock invariants, and 64-node pack replacement map.
+1. [`../../AGENTS.md`](../../AGENTS.md) — rules, H3 frame/clock invariants, and 66-node pack replacement map.
 2. [`index.md`](index.md) — master LLM Wiki router (`docs/wiki/`).
 3. [`projects/2026-11-13_repo_audit_and_atlas/index.md`](projects/2026-11-13_repo_audit_and_atlas/index.md) — full audit of what was built, verified renders, code-vs-prose gaps, and prioritized unfinished ideas.
 4. [`next_steps.md`](next_steps.md) & [`decisions.md`](decisions.md) — active next queue and recent decisions.

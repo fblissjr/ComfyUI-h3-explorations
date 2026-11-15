@@ -1,6 +1,6 @@
 # ComfyUI Nodes, Field Masks, Step Windows, and Reference Controls
 
-Last updated: 2026-11-11.
+Last updated: 2026-11-15 (`MiniMaxH3Steer.edit_pass`, masked `EditGuider` vector painting / Split-World, `MiniMaxH3SpatialDirector`, and `MiniMaxH3DirectorHUD`).
 
 [`control_vector_nodes.py`](../../../control_vector_nodes.py) registers the composable ComfyUI V3 steering & reference-release nodes under `model/conditioning/minimax` (plus the legacy 18-input `MiniMaxH3ApplyControlVectors` under `model/conditioning/minimax/legacy` with `is_deprecated = True` for saved PNGs and API graphs) and automatically registers `<ComfyUI>/models/control_vectors/` in `folder_paths`.
 
@@ -14,7 +14,7 @@ Last updated: 2026-11-11.
 
 | Node | Inputs -> Outputs | Role |
 |---|---|---|
-| **`MiniMaxH3Steer`** | `MODEL[, custom_vector, hold_vector] -> MODEL` | **Everyday runtime steering node.** Picks a deduplicated `vector` stem (auto-resolving `fl2va` / `ref2va` and LoRA siblings at run time) or accepts a `custom_vector` wire (`MINIMAX_H3_CONTROL_VECTOR`), applies `strength` in `mode` (`add_norm_matched`, `add`, or `project_out`) onto `target` or ticked `fields` across `[start_percent, end_percent)`, isolates `streams` (`both`, `video_only`, `audio_only`) across the entire active window, and scrubs side effects via `hold_words` or a wired `hold_vector`. Chain multiple `MiniMaxH3Steer` nodes to stack vectors in `float64`. |
+| **`MiniMaxH3Steer`** | `MODEL[, custom_vector, hold_vector] -> MODEL` | **Everyday runtime steering node.** Picks a deduplicated `vector` stem (auto-resolving `fl2va` / `ref2va` and LoRA siblings at run time) or accepts a `custom_vector` wire (`MINIMAX_H3_CONTROL_VECTOR`), applies `strength` in `mode` (`add_norm_matched`, `add`, or `project_out`) onto `target` or ticked `fields` across `[start_percent, end_percent)`, isolates `streams` (`both`, `video_only`, `audio_only`), targets `edit_pass` (`both`, `edited_only`, `original_only`) when paired with `MiniMaxH3EditGuider`, and scrubs side effects via `hold_words` or a wired `hold_vector`. Chain multiple `MiniMaxH3Steer` nodes to stack vectors in `float64`. |
 | **`MiniMaxH3WordVector`** | `[, hold_vector] -> H3ControlVector` | **Zero-file `< 2 ms` CPU J-Lens word synthesizer.** Builds a family-agnostic word vector handle from `words`, `against_words` (including `@prompt_subject`), `hold_words`, and `hold_alpha`. Wire into `MiniMaxH3Steer.custom_vector` to steer or `MiniMaxH3Steer.hold_vector` to protect a concept. |
 | **`MiniMaxH3LoadControlVector`** | `[, hold_vector] -> H3ControlVector` | **Saved vector stem loader.** Emits a family-agnostic `H3ControlVector` handle from `models/control_vectors/` (with optional `hold_words` / `hold_vector`) so a saved vector can be wired into `MiniMaxH3Steer.hold_vector` (replacing fragile 2-node `mode = "hold"` chains) or `custom_vector`. |
 | **`MiniMaxH3ReleaseReferences`** | `MODEL -> MODEL` | **Standalone visual & audio guide/reference release node** (`end_percent = 1.0`, `clean_level = 0.999`, `audio_end_percent = 1.0`, `audio_clean_level = 1.0`). Controls when clean 3D Video VAE visual segments (`ref_img` / `cond`) and timeline audio-guide islands (`cond_audio`, preserving `<Audio N>` `ref_audio` speaker rows) drop from `PackedLayout`, and how cleanly they are held. Independent of control vectors: works on plain prompts, `MiniMaxH3EditGuider`, and `MiniMaxH3Steer` alike. |
@@ -118,6 +118,12 @@ On `$H3_OUTPUT_DIR/Video/edit_guidance/stacked/diner16f_subject_vector_one_input
   - `mode = "hold"` on a legacy node with no additive vector before it in the chain changes nothing (it has nothing to take its direction out of) and logs a warning.
   - `ref_vae_end_percent` and `ref_vae_aug` are settings of the picture, not of one vector: across a chain the lowest value wins on every step, whatever each node's own window.
 
+### Pass targeting under `MiniMaxH3EditGuider` (`MiniMaxH3Steer.edit_pass`)
+[`control_vector_nodes.py`](../../../control_vector_nodes.py) exposes `edit_pass` (`both`, `edited_only`, `original_only`; default `"both"`) on `MiniMaxH3Steer`, matching the `h3_edit_pass` marker stamped by `EditGuider._prepare` ([`edit_guidance.py`](../../../edit_guidance.py)):
+- **`edit_pass = "both"` *(default)***: steers both `[original]` and `[edited]` passes equally so only `MiniMaxH3PromptEdit` clause diffs scale cleanly.
+- **`edit_pass = "edited_only"` *(regional / temporal vector painting & local scrubs)***: applies the vector only to the `edited` pass while leaving `original` completely unsteered, so regions/frames where `MiniMaxH3EditGuider.mask == 0` stay locked on unsteered `v_orig`. Works both with `MiniMaxH3PromptEdit` edits and zero-edit wiring (feeding the exact same `CONDITIONING` wire into both `original` and `edited`). Set `MiniMaxH3EditGuider.first_step = 0` when running regional `mode = "project_out"` scrubs or overrides of dominant Step-0 albedo/structure.
+- **`edit_pass = "original_only"` + `edit_pass = "edited_only"` *(2-pass Split-World dual vectors)***: chain two `MiniMaxH3Steer` nodes onto one `MiniMaxH3EditGuider` (`scale = 1.0`) so `original_only` steers `mask = 0` and `edited_only` steers `mask = 1` in the same 2 DiT passes (`0` extra passes beyond the guider). Always keep `MiniMaxH3Steer.streams = "both"` whenever `MiniMaxH3EditGuider` handles `streams` splitting (`video_only`, `audio_only`, `independent`) so the model does not execute nested `4x` passes.
+
 ### Reference & keyframe VAE release (`MiniMaxH3ReleaseReferences`: `end_percent`, `clean_level`)
 On `ref2va`, `fl2va`, and guide-latent graphs, clean 3D Video VAE latents (`ref_img` / `cond`) are packed directly into the DiT token sequence alongside noisy video/audio tokens. Use **`MiniMaxH3ReleaseReferences`** on the `MODEL` line (or `ref_vae_end_percent` / `ref_vae_aug` on legacy `MiniMaxH3ApplyControlVectors`):
 - **Keep defaults (`end_percent = 1.0`, `clean_level = 0.999`)** whenever `<Subject 1>` should remain a recognizable human in the same pose/geometry (film looks, lighting grades, weather, or clothing experiments).
@@ -133,9 +139,12 @@ On `ref2va`, `fl2va`, and guide-latent graphs, clean 3D Video VAE latents (`ref_
 
 ---
 
-## 6. Timeline choreography nodes (`MiniMaxH3SoundCues` & `MiniMaxH3AppendSpriteTrajectory`)
+## 6. Timeline & spatial choreography nodes (`MiniMaxH3SpatialDirector`, `MiniMaxH3SoundCues`, & `MiniMaxH3AppendSpriteTrajectory`)
 
-Full walkthrough, failure modes, and RoPE/sigma math: **[`docs/wiki/research/control_vectors/2026-11-12_sound_cues_dpad_and_033_release_law.md`](../research/control_vectors/2026-11-12_sound_cues_dpad_and_033_release_law.md)**.
+Full walkthroughs and math: **[`docs/wiki/research/control_vectors/2026-11-12_sound_cues_dpad_and_033_release_law.md`](../research/control_vectors/2026-11-12_sound_cues_dpad_and_033_release_law.md)** (timelines & release law) and **[`docs/wiki/research/2026-11-15_spatial_world_director_and_3d_edit_guidance.md`](../research/2026-11-15_spatial_world_director_and_3d_edit_guidance.md)** (2D+time director & HUD).
+
+- **[`MiniMaxH3SpatialDirector`](../../../spatial_director.py)** & **[`MiniMaxH3DirectorHUD`](../../../spatial_director.py)** (`web/h3_spatial_director.js`):
+  - Interactive ComfyUI 2D+time canvas stage (`portal_path`: `circle`, `ellipse`, `vertical_split`; `point_targets`: clicked `(x, y, t)` eruptions + auto-compiled `3f` SoundCues + Genie D-pad `sprite_keyframes`) compiling feathered continuous `[F, H, W]` `MASK` tensors straight into `MiniMaxH3EditGuider.mask` (also driving `40 Hz` audio gating via `max(H, W)` envelope interpolation when `F > 1`), plus synchronized `MiniMaxH3DirectorHUD` reticle, Genie keycap, sequencer, and optional same-seed `baseline_images` wipe overlays (`workflows/h3_spatial_portal_pika_api.json`, `workflows/h3_world_targets_genie_pika_api.json`).
 
 - **[`MiniMaxH3SoundCues`](../../../sound_cues.py)** (`(CONDITIONING, LATENT, CONDITIONING)` + `PreviewText`):
   - Synthesizes `32 kHz` stereo percussive cue islands (`hop`/`thud`, `snap`/`yank`, `slam`/`impact`, `yank_slam`, `step`, `click`, optional `@gain`, `#` comments, frame or `s` timestamps) over a `-28 dBFS` low-frequency room floor (`floor_dbfs = -28.0`, preventing the `~53 dB` inter-event ambience collapse to `-90.90 dBFS` caused by `0.0` digital-zero `.wav` tails).
