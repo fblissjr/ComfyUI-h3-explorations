@@ -307,7 +307,7 @@ Each entry gives `symbol (Lstart-Lend, #digest)` extracted directly from the fil
 - **`workflows/masked_job_graph.py`** (1,082 lines): `preview` (`L306-L369`, `#02fd36bd`), `window_for` (`L559-L569`, `#95b12094`),
   `window_pad` (`L572-L591`, `#268213de`), `held_context` (`L624-L638`, `#bdbdc3a0`), `check_load` (`L721-L865`, `#9ba0d84d`),
   `load` (`L874-L1082`, `#f498caca`)
-- **`workflows/h3_config.py`** (2,874 lines): `output_dir` (`L2135-L2187`, `#3e389ad2`), `graph_paths` (`L2859-L2874`, `#ccdd82a2`)
+- **`workflows/h3_config.py`** (2,957 lines): `output_dir` (`L2210-L2270`, `#0d615c7f`), `graph_paths` (`L2942-L2957`, `#ccdd82a2`)
 - **`bench/inspect_mask_steps.py`** (1,357 lines): `_read_head_mask` (`L108-L120`, `#22ebfc4d`),
   `inspect_capture` (`L209-L1021`, `#d1a488ca`), `render_diagnostic_strips` (`L1024-L1173`, `#1689595a`),
   `format_report` (`L1176-L1311`, `#fc28ad34`)
@@ -324,18 +324,18 @@ Each entry gives `symbol (Lstart-Lend, #digest)` extracted directly from the fil
 - **`bench/measure_blocks.py`** (1,010 lines): `measure_luma_blocks` (`L515-L863`, `#b9def397`), `run_cli` (`L905-L1006`, `#5bc20386`)
 - **`loop_plan.py`** (535 lines): `segment_lengths` (`L215-L251`, `#3ea15269`), `plan_windows` (`L254-L284`, `#dc71a068`),
   `frames_kept` (`L325-L335`, `#f83f6e63`), `frames_written` (`L359-L387`, `#c8fd0b54`), `plan_song` (`L441-L452`, `#138fc7b2`)
-- **`h3_rules.py`** (377 lines): `on_both_clocks` (`L117-L120`, `#46887dd4`), `chain_lengths` (`L123-L129`, `#c4694462`),
-  `snap_length` (`L160-L182`, `#536ad208`)
+- **`h3_rules.py`** (468 lines): `on_both_clocks` (`L118-L121`, `#46887dd4`), `chain_lengths` (`L124-L130`, `#c4694462`),
+  `snap_length` (`L161-L183`, `#536ad208`)
 - **`subject_track.py`** (3,005 lines): `signature` (`L603-L613`, `#cced131e`), `auto_match` (`L663-L672`, `#4bce4711`),
   `parse_head_mode` (`L835-L846`, `#a76d2994`), `parse_seeds` (`L860-L901`, `#95306adc`), `_track_head_span` (`L1252-L1365`, `#6b7f35da`),
   `_span_head` (`L1368-L1397`, `#c15549fc`), `follow` (`L1400-L1735`, `#2229bd0a`), `name_drawn` (`L1956-L2019`, `#dceff782`),
   `MiniMaxH3SubjectTrack.execute` (`L2881-L2991`, `#47546530`)
 - **`sapiens2_parts.py`** (842 lines): `subject_parts` (`L373-L479`, `#b55d1d66`),
   `MiniMaxH3SubjectParts.execute` (`L797-L822`, `#af52fdb1`)
-- **`sam31_corrections.py`** (873 lines): `MemorySelectionStep` (`L285-L666`, `#eb17e453`),
-  `MiniMaxH3SAM31Corrections.execute` (`L867-L873`, `#d3b14f10`)
+- **`sam31_corrections.py`** (1,407 lines): `MemorySelectionStep` (`L447-L916`, `#6cd611c7`),
+  `MiniMaxH3SAM31Corrections.execute` (`L1386-L1407`, `#dc667f7d`)
 - **`reference_conditioning.py`** (1,316 lines): `_compile_reference_records` (`L579-L791`, `#811b47c4`),
-  `MiniMaxH3AppendRefImage.execute` (`L1017-L1089`, `#770a8ed9`), `MiniMaxH3AppendRefVideo.execute` (`L1142-L1157`, `#bd613c07`),
+  `MiniMaxH3AppendRefImage.execute` (`L1017-L1089`, `#5c95c5cf`), `MiniMaxH3AppendRefVideo.execute` (`L1142-L1157`, `#bd613c07`),
   `MiniMaxH3ReferenceConditioning.execute` (`L1246-L1316`, `#fb9dec9c`)
 - **`clip_folder.py`** (373 lines): `read_manifest` (`L195-L206`, `#b1dd8b99`), `verify` (`L262-L283`, `#a6bc8dd8`),
   `check_manifest` (`L286-L313`, `#fbb35346`)
@@ -409,12 +409,12 @@ Extracted from AST constants and record writers so line numbers and strings neve
 
 ### 2e.1 Core Masked-Lane Constants (Extracted from AST)
 
-- `h3_rules.py::FPS` (`L55`): `24`
-- `h3_rules.py::AUDIO_LATENT_RATE` (`L111`): `40`
-- `h3_rules.py::FRAME_FACTOR` (`L102`): `17`
-- `h3_rules.py::FRAME_REMAINDER` (`L103`): `5`
-- `h3_rules.py::SHORTEST_CHAINED` (`L114`): `141`
-- `h3_rules.py::MAX_LENGTH` (`L63`): `362`
+- `h3_rules.py::FPS` (`L56`): `24`
+- `h3_rules.py::AUDIO_LATENT_RATE` (`L112`): `40`
+- `h3_rules.py::FRAME_FACTOR` (`L103`): `17`
+- `h3_rules.py::FRAME_REMAINDER` (`L104`): `5`
+- `h3_rules.py::SHORTEST_CHAINED` (`L115`): `141`
+- `h3_rules.py::MAX_LENGTH` (`L64`): `362`
 - `video_mask.py::HELD_EDGE_EMPTY_RUN` (`L1494`): `max(FRAME_PER_TOKEN)`
 - `video_mask.py::HELD_EDGE_LEAST` (`L435`): `0.25`
 - `video_mask.py::ZOOM_LARGEST` (`L459`): `2.0`

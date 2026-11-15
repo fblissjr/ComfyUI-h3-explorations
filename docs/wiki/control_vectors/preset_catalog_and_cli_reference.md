@@ -1,6 +1,6 @@
 # Preset Catalog, File Contract, and CLI Reference
 
-Last updated: 2026-11-11.
+Last updated: 2026-11-15.
 
 All command-line operations live in [`bench/control_vectors.py`](../../../bench/control_vectors.py) (with implementation modules under `bench/control_vector/`). Always invoke it with the ComfyUI virtualenv Python directly—never `uv run`.
 
@@ -42,7 +42,7 @@ Example: `film_16mm_1974_neutral__ref2va__diff_span__lora_865ee189.safetensors` 
 
 ### Top-level JSON `.safetensors` metadata (`format = "h3-control-vector/1"`)
 Validated on every load by [`control_vectors.py::load_vector`](../../../control_vectors.py):
-- `format` (`"h3-control-vector/1"`), `name`, `quality`, `family` (`"fl2va"`, `"ref2va"`, `"fasth3"`, or `"custom:<12 hex chars>"`).
+- `format` (`"h3-control-vector/1"`), `name`, `quality`, `family` (`"fl2va"`, `"ref2va"`, `"fasth3"`, `"h3_image"`, or `"custom:<12 hex chars>"`).
 - `recipe` (`{checkpoint, loras, encoder}`), `measured_under` (`{mode, frame, prefix, pooling}`), `points` (`post_refiner: {unit: "mean_pair_difference", raw_norm, median_row_norm}`, plus `encoder` when saved).
 - `pairs` (`{path, sha256, n_pairs, n_holds}`, plus `differing_sections`, `a_side`, `b_side`, and per-pair `pooled_tokens` produced by `control_vectors.pairs_record`).
 - `quality_report` (`{mean_pairwise_cosine, split_half_cosine, per_pair_cosine}`), `provenance` (`{core_revision, pack_commit, created_utc, made_by}`), and optional `j_lens` (top `+`/`-` word gains, `b_side_alignment`, `refiner_transmission`, `off_target_words`).

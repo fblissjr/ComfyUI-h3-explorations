@@ -16,6 +16,7 @@ All active repository documentation lives in the **LLM Wiki** under [`wiki/index
 | `docs/wiki/masked_v2v/` | Masked V2V perception/inpaint pipeline & `lane_db` SQLite architecture (`'fun'` parked) | [`wiki/masked_v2v.md`](wiki/masked_v2v.md), [`wiki/masked_v2v/AGENTS.md`](wiki/masked_v2v/AGENTS.md) |
 | `docs/wiki/ops/` | Running ComfyUI, check suites, evidence/retraction standards, hardware, roadmap | [`wiki/ops/comfy_notes.md`](wiki/ops/comfy_notes.md), [`wiki/ops/checks.md`](wiki/ops/checks.md) |
 | `docs/wiki/projects/` | Cross-cutting project dossiers (`index.md` + machine `ledger.json` + offline `report.html`) | [`wiki/projects/index.md`](wiki/projects/index.md), [`wiki/projects/2026-11-13_repo_audit_and_atlas/index.md`](wiki/projects/2026-11-13_repo_audit_and_atlas/index.md) |
+| `docs/wiki/upstream/` | Live upstream tracking (`sglang`, `vllm-omni`, `diffusers`, `DiffSynth`), sweeps, horizon, and parity topics | [`wiki/upstream/index.md`](wiki/upstream/index.md), [`wiki/upstream/horizon.md`](wiki/upstream/horizon.md) |
 | `docs/wiki/research/` | Dated experiments, studies, postmortems, sparse/PDD/control-vector/masking memos | [`wiki/research/INDEX.md`](wiki/research/INDEX.md) |
 | `docs/wiki/decisions/` | Dated decisions/reversals sharded into `< 42 KB` files | [`wiki/decisions.md`](wiki/decisions.md) |
 | `docs/wiki/archive/` | Frozen superseded docs preserved for link/provenance continuity | [`wiki/archive/INDEX.md`](wiki/archive/INDEX.md) |

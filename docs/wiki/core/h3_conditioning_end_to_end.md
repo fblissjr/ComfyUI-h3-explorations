@@ -62,11 +62,12 @@ packing; a reference's is not, so it is decided by settings that vary per graph
 and per reference, then capped again by the encoder. The 2048 short edge is the
 *vendor serving convention*, and installed ComfyUI caps at it without ever
 upscaling to it, so a reference reaches that size here only when
-`MiniMaxH3AppendRefImage(allow_upscale=True)` is wired. Since 2026-09-13 that
-is the node's default, so a freshly dragged node does it; the generated graphs
-pin it per arm through the generator's `ref_upscale` argument
-(`workflows/build_workflows.py`), and many arms keep it off, for memory
-(`h3_config.REF_VIDEO_BUDGET`) or for comparability with earlier renders, so
+`MiniMaxH3AppendRefImage(allow_upscale=True)` is wired. From 2026-09-13 to 2026-11-15 `True`
+was the node's default; since 2026-11-15 (`2ca5f2d0`, following sglang `#47907` /
+[`../upstream/topics/reference_sizing.md`](../upstream/topics/reference_sizing.md)) the node and default graphs
+keep `allow_upscale=False` (shrink-only), while generated probe/instrument arms pin it per arm
+through the generator's `ref_upscale` argument (`workflows/build_workflows.py`) for memory
+(`h3_config.REF_VIDEO_BUDGET`) or for byte comparability with earlier renders, so
 read the graph rather than the default (until 2026-09-13 the default itself
 was off). Reference video is sized by its own separate policy again. Never
 quote a single number for reference geometry; read

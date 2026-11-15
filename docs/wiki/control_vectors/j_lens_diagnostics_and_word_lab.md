@@ -1,10 +1,10 @@
 # J-Lens: CPU X-Ray Diagnostics, Side-Effect Scrubbing, and Live Word Lab
 
-Last updated: 2026-11-12.
+Last updated: 2026-11-15.
 
 > **What to call it.** "J-Lens" is this repo's name for it. In anything written for other people, call it "a Jacobian-lens word readout for H3 control vectors, adapted from Anthropic's Jacobian lens (J-lens)": "the word readout" when it reads or scrubs, "a word vector" when it builds. Why, and what can be claimed for it, is in [`which_tool_and_what_to_call_it.md`](which_tool_and_what_to_call_it.md). A plain-words walk through the mechanism is in [`how_the_word_readout_works.md`](how_the_word_readout_works.md).
 
-[`j_lens.py`](../../../j_lens.py) (backed by `models/j_lens/j_lens_h3.safetensors`, derivation in [`../../research/control_vectors/2026-11-06_j_lens_and_refiner_jacobian.md`](../research/control_vectors/2026-11-06_j_lens_and_refiner_jacobian.md)) translates directly between H3's `5376`-d post-refiner space (`fl2va` and `ref2va`) and `24,912` single-token English words on **CPU in `< 15 ms`** (`0 GB` VRAM).
+[`j_lens.py`](../../../j_lens.py) (backed by `models/j_lens/j_lens_h3.safetensors`, derivation in [`../../research/control_vectors/2026-11-06_j_lens_and_refiner_jacobian.md`](../research/control_vectors/2026-11-06_j_lens_and_refiner_jacobian.md)) translates directly between H3's `5376`-d post-refiner space (`fl2va`, `fl2va_base`, `ref2va`, and `h3_image`) and `24,912` single-token English words on **CPU in `< 15 ms`** (`0 GB` VRAM).
 
 ---
 
@@ -16,7 +16,7 @@ J-Lens bridges both gaps analytically:
 
 1. **Upper-Qwen Jacobian ($\bar{J}_{49\to 63} \in \mathbb{R}^{5120 \times 5120}$)**:
    - Calibrated over `layers.50..63` + final RMSNorm, excluding token `0` (`||e_0|| = 15,309` vs. `292.3` median) so attention-sink geometry does not distort the linear map.
-2. **Per-family broadcast `TokenRefiner` Jacobian ($\bar{J}_{\text{ref}}^{(f)} \in \mathbb{R}^{5376 \times 5120}$ for `fl2va` and `ref2va`)**:
+2. **Per-family broadcast `TokenRefiner` Jacobian ($\bar{J}_{\text{ref}}^{(f)} \in \mathbb{R}^{5376 \times 5120}$ for `fl2va`, `fl2va_base`, `ref2va`, and `h3_image`)**:
    - Because control vectors are **broadcast across a span of tokens** rather than added to a single token in isolation, self-attention inside the 2-block `TokenRefiner` transmits the shared shift through its value/output path ($\beta W_O W_V J_{\text{RMSNorm}}$). Modeling that broadcast attention path raises forward Jacobian cosine from `0.51` to **`0.836`**.
 3. **Covariance-weighted Wiener inverse ($J_{\text{Wiener}}^{(f)} \in \mathbb{R}^{5120 \times 5376}$)**:
    - Maps any `5376`-d post-refiner vector back to `layers.49` (`5120`-d) using the empirical token covariance prior rather than isotropic Tikhonov damping (`0.878` downstream cosine vs. `0.782` isotropic).
@@ -86,4 +86,4 @@ Check that `models/j_lens/j_lens_h3.safetensors` is healthy on CPU (`< 1s`, `0` 
 ```bash
 CUDA_VISIBLE_DEVICES= /path/to/comfy-venv/bin/python bench/control_vectors.py build-j-lens --verify-only
 ```
-> **Caution before running `build-j-lens --overwrite`**: A full GPU calibration (`build-j-lens` without `--verify-only`) requires an existing `--base-bundle` holding upper-Qwen (`layers.50..63`) tensors plus both `fl2va` and `ref2va` DiTs on GPU. Back up `models/j_lens/j_lens_h3.safetensors` before passing `--overwrite`.
+> **Caution before running `build-j-lens --overwrite`**: A full calibration (`build-j-lens` without `--verify-only`) requires an existing `--base-bundle` holding upper-Qwen (`layers.50..63`) tensors plus the configured `fl2va`, `ref2va`, and `H3_IMAGE_UNET` (`h3_image`) DiT checkpoints (`fl2va_base` reuses the un-LoRA'd `fl2va` DiT). Back up `models/j_lens/j_lens_h3.safetensors` before passing `--overwrite`.

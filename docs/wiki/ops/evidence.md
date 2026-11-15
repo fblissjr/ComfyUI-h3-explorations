@@ -193,7 +193,7 @@ for each, as it stood when it was written, is in `docs/wiki/archive/rules_histor
   does not cover. The other three defaults stay at parity, and the instruments stay
   on `shared` (`workflows/h3_config.py::REF_QWEN_SHORT_EDGE`).
   `bench/refview2_arms.json` is the ablation built to settle `qwen_view` and
-  `allow_upscale`, rendered on 2026-09-13 and never scored. `MiniMaxH3ReferenceConditioning`'s preview prices both
+  `allow_upscale`, rendered on 2026-09-13 and never scored. *2026-11-15: `MiniMaxH3AppendRefImage.allow_upscale` flipped back to `False` (shrink-only) following sglang `#47907` ([`../upstream/topics/reference_sizing.md`](../upstream/topics/reference_sizing.md)).* `MiniMaxH3ReferenceConditioning`'s preview prices both
   copies of every reference before anything is encoded (the `MiniMaxH3ReferenceReport`
   node that drew them was deleted in 0.174.0).
 

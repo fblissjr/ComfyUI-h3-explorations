@@ -213,9 +213,12 @@ Every example below was rendered 3 ways (`Original` vs. `Plain Prompt Edit` vs. 
   description: young twenty-five-year-old woman with smooth youthful skin and long wavy blonde hair -> seventy-five-year-old elderly woman with deeply wrinkled weathered skin, pronounced crow's-feet, and long wavy silver-grey hair
   ```
 
-### Combining Edit Guidance with a Control Vector
-`MiniMax H3 Edit Guider` (on `SamplerCustomAdvanced`) and `MiniMax H3 Steer` (on the `MODEL` wire upstream) compose on one graph: `MiniMax H3 Steer` applies its `1x` post-refiner shift to both passes so the control vector cancels out of `(edited - original)` and stays at `1.0x`, while `scale` amplifies only your prompt edit.
-- *Cost & `@prompt_subject` notes*: Keep `MiniMax H3 Steer` on `streams = "both"` when pairing with `EditGuider`—setting `streams = "video_only"` or `"audio_only"` splits each guider pass in two (`4` DiT passes per guided step). Also note that a `MiniMax H3 Word Vector` using `against_words = "@prompt_subject"` resolves against `original` on pass `0` and `edited` on pass `1` separately.
+### Combining Edit Guidance with a Control Vector (`MiniMaxH3Steer.edit_pass`)
+`MiniMax H3 Edit Guider` (on `SamplerCustomAdvanced`) and `MiniMax H3 Steer` (on the `MODEL` wire upstream, [`control_vector_nodes.py`](../../control_vector_nodes.py)) compose on one graph using `edit_pass`:
+- **`edit_pass = "both"` *(default)***: `MiniMax H3 Steer` applies its `1x` post-refiner shift to both the `original` and `edited` passes, so the control vector cancels out of `(edited - original)` and stays at `1.0x` globally while `scale` amplifies only your prompt edit.
+- **`edit_pass = "edited_only"` *(regional / temporal vector painting or `project_out` scrub)***: steers only the `edited` pass (`h3_edit_pass == "edited"` in `edit_guidance.py`), leaving `original` unsteered. Paired with `EditGuider.mask` (`scale = 1.0`), `v_out = v0 + (v1 - v0) * (eff_v * v_m)` paints the control vector strictly inside `mask = 1` with zero Step-0 velocity leak outside `mask = 0` — even when `original` and `edited` carry the **exact same prompt** (`same_prompt`). For regional `mode = "project_out"` erasures, set `first_step = 0` so the vector subtraction acts before Step-0 structure locks in.
+- **`edit_pass = "original_only"` + `"edited_only"` *(2-pass Split-World dual vectors)***: chain two `MiniMax H3 Steer` nodes (`edit_pass = "original_only"` and `edit_pass = "edited_only"`) before one `MiniMax H3 Edit Guider(scale = 1.0)` + `mask` to hold one look/world on `mask = 0` and a contrasting look/world on `mask = 1` in a single 2-pass render.
+- *Cost & `@prompt_subject` notes*: Keep `MiniMax H3 Steer` on `streams = "both"` when pairing with `EditGuider`—setting `streams = "video_only"` or `"audio_only"` splits each guider pass in two (`4` DiT passes per guided step). Also note that a `MiniMax H3 Word Vector` using `against_words = "@prompt_subject"` resolves against `original` on pass `0` (`"original"`) and `edited` on pass `1` (`"edited"`) separately.
 
 ---
 
