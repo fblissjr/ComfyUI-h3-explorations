@@ -1,0 +1,45 @@
+# The periphery: how it differs, aligns, and what it does that others do not
+
+last updated: 2026-11-15 (page created; state as of [`sweeps/2026-11-15.md`](sweeps/2026-11-15.md))
+
+Everything outside sglang, vllm-omni, diffusers and core: the other libraries, distill releases, node packs,
+Hugging Face uploads and papers. **Periphery is never a vote** ([`index.md`](index.md), "When upstreams disagree").
+It is read for where it differs from the ranked engines, where it aligns with them, and what it does that none of
+them do. **Community custom nodes are community research:** interesting, trusted for nothing until something of ours
+checks them, and their numbers are their claims.
+
+This page holds the standing picture per source. Each sweep record has the dated detail.
+
+## Libraries and distill releases
+
+| source | aligns | differs | novel | where |
+|---|---|---|---|---|
+| DiffSynth-Studio | H3-Image bounds, labels and reference level match sglang; encoder at layer 50 pre-norm; loads Comfy-Org's pruned int8 H3-Image file | enlarges ref2va stills to 2048; H3-Image training at about 1 MP with every row, references included, at the sampled timestep; trains video at shift 2.22, not 12/3 (#1735) | **training**: full and LoRA recipes for H3 and H3-Image, including a LoRA script on the Comfy int8 H3-Image DiT (`examples/minimax_h3_image/model_training/lora/MiniMax-H3-Image-Int8-Pruned-Comfy.sh`). Open bug #1824: captions encoded as `" "` | `coderef/DiffSynth-Studio/diffsynth/`, `examples/minimax_h3*/` |
+| LightX2V | Pika six-step contract, same knots, shifts and seeds as `h3_config.PIKA_*`; H3-Image 4 MP floor and Lanczos down | enlarges ref2va stills (`diffusers` mode) | LoRA modes `merge`/`separate`/`consumer`, with updates reaching AdaLN and the final modulation; causal and streaming variants; a ComfyUI front end driving a LightX2V server | `coderef/LightX2V/configs/minimax_h3*`, `lightx2v/models/` |
+| Pika-H3-Flex | the contract the pack runs ([`topics/pika_parity.md`](topics/pika_parity.md)) | | keeps 51 of 64 encoder layers for speed | `coderef/Pika-H3-Flex/` |
+| MiniMax-H3 (release) | | | draft #91 Level-of-Token (mixed resolution, below dense quality by its author); issue #85 (unpruned brightness dips) | `coderef/MiniMax-H3/` |
+| Comfy-Org templates | H3-Image graphs on stock `KSampler` euler/simple, six steps | | `TextGenerateV2` expanders on H3-Image | `coderef/workflow_templates/` |
+
+## Node packs and community research
+
+| source | the idea | what it touches here | read |
+|---|---|---|---|
+| ComfyUI-MAINodes | dials treat `MiniMaxH3ImageModel` like video, on the seam `MiniMaxH3Steer` uses; `H3RetimeAudio`; eye-colour shift through two SAM texts; still-region edit kept inside a SAM 3.1 word mask | control vectors, audio, masked lane | code (`coderef/ComfyUI-MAINodes/`) |
+| KJNodes | an H3 prompt weight: per-token attention bias, where `(word:-1)` removes a concept; `[a|b:-2]` blending; a tiny VAE for H3-Image | prompting, control vectors, preview | commit diffs |
+| Viggle Remake (Hugging Face) | `swap` and `edit` LoRAs on the base transformer, driven by one to four painted `<Picture N>` frames and a six-section prompt, with windows inside 90–345 | masked lane | card and file list |
+| vllm-omni's character-replacement skill (rank-2 engine, community-style method) | reference-only swap with segment planning | masked lane | code |
+| multi-swap, masked-latent and AV-mask-bridge packs | SAM 3 → ref2va swap → paste-back chains; community answers to stock `SetLatentNoiseMask` on AV latents | masked lane (what `MiniMaxH3MaskedSource` solves) | READMEs |
+| Open-H3-Regenerate-2K-IC, H3Regenerate, FaceRegion | refine and upscale stages; per-token lower noise on faces | a possible refine stage | cards and READMEs |
+| Continuity Studio, h3-editor, h3-long-video-research | visual memory across shots; editor-style timelines; latent carry against decode-reencode colour creep | long clips | READMEs |
+| H3-Image Soft-Start, Conditioning Plus, Concept Sliders, Video-LoRA-for-Image | an empty picture for the first steps; neutral vision patches for t2i; concept text before the refiner; video LoRAs on the image model | image lane, control vectors | READMEs |
+| Sol-H3-VAE (`Efficient-Large-Model/Sol-H3-VAE`) and WanGP #2625 | a non-causal int8 video decoder reported faster and sharper than LightVAE | video decode | issue and listing |
+
+## Distills (outside the owner's set, listed for awareness)
+
+HyperFlow-H3-Flash, TurboH3, H3 AR few-step, FastVideo's NVFP4 Pika (Blackwell), CROWN HyperPDMD. The owner runs
+no fast distill other than Pika.
+
+## Papers (abstracts only)
+
+SolarRenderer, AnyGameRenderer, VA-TDM, TileShare (a training-free speedup of the tiled decoder), VideoGen Model 1
+(prompt expansion against formatting on a post-trained H3). The arXiv ids are in the sweep record.
