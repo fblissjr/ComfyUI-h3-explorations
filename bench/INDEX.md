@@ -15,7 +15,7 @@ this file is only a way to find a script by what it says it does.
 | [`compare_*`](#compare) | 15 |
 | [`build_*`](#build) | 13 |
 | [`probe_*`](#probe) | 14 |
-| [the rest](#the-rest) | 200 |
+| [the rest](#the-rest) | 201 |
 
 ## check
 
@@ -532,6 +532,7 @@ this file is only a way to find a script by what it says it does.
 | [`time_sol_options_on_capture.py`](time_sol_options_on_capture.py) | Time comfy_kitchen.sol_attn on a capture: plain vs qk_balance vs rotate, CUDA events, warm. |
 | [`timeline_page.py`](timeline_page.py) | Build the whole-video NLE timeline data file (`--out-json`) and interactive page (`--out-html`) from the rebuild's records. |
 | [`two_shot_load.py`](two_shot_load.py) | Two neighbouring shots as ONE load in ONE window, made from the two shots' own ordinary loads. Not a default. |
+| [`upstream_watch.py`](upstream_watch.py) | List what each watched upstream landed since its last read, and its open PRs and issues. |
 | [`verify_multistep_capture.py`](verify_multistep_capture.py) | Pre-flight verification for multi-step activation captures. |
 | [`verify_partition_delta_float64.py`](verify_partition_delta_float64.py) | FL2VA against Ref2VA, weight by weight, on a path independent of `bench/map_partition_delta.py`. |
 | [`verify_token_aug_repro_shapes.py`](verify_token_aug_repro_shapes.py) | Which shapes reproduce the `token_aug` nondeterminism IN A FRESH PROCESS? |

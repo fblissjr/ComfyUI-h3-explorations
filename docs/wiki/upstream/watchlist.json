@@ -1,0 +1,219 @@
+{
+  "about": "Upstreams watched for H3 work. Read by bench/upstream_watch.py; docs/wiki/upstream/index.md says what each is for. last_read is moved only by `bench/upstream_watch.py --mark NAME --record PATH`, after the sweep record exists. paths are git pathspecs on the remote branch; keywords feed gh pr/issue search.",
+  "entries": [
+    {
+      "name": "comfyui-core",
+      "github": "Comfy-Org/ComfyUI",
+      "clone": "../..",
+      "branch": "master",
+      "paths": [
+        "comfy/ldm/minimax",
+        "comfy_extras/nodes_minimax_h3.py",
+        "comfy/text_encoders/minimax.py",
+        "comfy/text_encoders/llama.py",
+        ":(glob)comfy/text_encoders/qwen*",
+        "comfy/sd.py",
+        "comfy/model_patcher.py",
+        "comfy/model_management.py",
+        "comfy/ldm/modules/attention.py",
+        "comfy/lora.py",
+        "comfy/ops.py",
+        "comfy/samplers.py",
+        ":(glob,icase)**/*h3*"
+      ],
+      "keywords": [
+        "MiniMax",
+        "H3"
+      ],
+      "last_read": {
+        "rev": "157db2ea2f",
+        "date": "2026-11-15",
+        "record": "docs/wiki/upstream/sweeps/2026-11-15.md"
+      }
+    },
+    {
+      "name": "sglang",
+      "github": "sgl-project/sglang",
+      "clone": "coderef/sglang",
+      "branch": "main",
+      "paths": [
+        ":(glob,icase)python/sglang/multimodal_gen/**/*minimax_h3*",
+        ":(glob,icase)python/sglang/multimodal_gen/**/*minimax_h3*/**",
+        "python/sglang/multimodal_gen/runtime/layers/attention/backends/sol_attn.py",
+        ":(glob)python/sglang/multimodal_gen/runtime/models/encoders/qwen*",
+        ":(glob)python/sglang/multimodal_gen/configs/models/encoders/qwen*",
+        "python/sglang/multimodal_gen/runtime/loader/comfyui_checkpoints",
+        ":(glob,icase)python/sglang/multimodal_gen/**/*pika*"
+      ],
+      "keywords": [
+        "MiniMax",
+        "H3 multimodal_gen",
+        "Pika",
+        "Sol attention",
+        "Qwen3-VL diffusion"
+      ],
+      "last_read": {
+        "rev": "e4c3f001d6",
+        "date": "2026-11-15",
+        "record": "docs/wiki/upstream/sweeps/2026-11-15.md"
+      }
+    },
+    {
+      "name": "vllm-omni",
+      "github": "vllm-project/vllm-omni",
+      "clone": "coderef/vllm-omni",
+      "branch": "main",
+      "paths": [
+        ":(glob,icase)**/*minimax_h3*",
+        ":(glob,icase)**/*minimax_h3*/**",
+        ":(glob,icase)**/*h3*/**",
+        ":(glob,icase)recipes/MiniMaxAI/**",
+        ":(glob,icase)recipes/models/MiniMaxAI/**",
+        ":(glob,icase)apps/ComfyUI-vLLM-Omni/**",
+        ":(glob,icase)**/*pika*"
+      ],
+      "keywords": [
+        "H3",
+        "MiniMax",
+        "Pika",
+        "ref2va",
+        "continuation"
+      ],
+      "last_read": {
+        "rev": "8ff8b02c15",
+        "date": "2026-11-15",
+        "record": "docs/wiki/upstream/sweeps/2026-11-15.md"
+      }
+    },
+    {
+      "name": "diffsynth-studio",
+      "github": "modelscope/DiffSynth-Studio",
+      "clone": "coderef/DiffSynth-Studio",
+      "branch": "main",
+      "paths": [
+        ":(glob,icase)**/*h3*",
+        ":(glob,icase)**/*h3*/**",
+        ":(glob,icase)docs/**/Model_Details/**"
+      ],
+      "keywords": [
+        "H3",
+        "MiniMax"
+      ],
+      "last_read": {
+        "rev": "28638042df",
+        "date": "2026-11-15",
+        "record": "docs/wiki/upstream/sweeps/2026-11-15.md"
+      }
+    },
+    {
+      "name": "diffusers",
+      "github": "huggingface/diffusers",
+      "clone": "coderef/diffusers",
+      "branch": "main",
+      "paths": [
+        ":(glob,icase)**/*h3*",
+        ":(glob,icase)**/*h3*/**",
+        ":(glob,icase)src/diffusers/schedulers/*minimax*"
+      ],
+      "keywords": [
+        "H3",
+        "MiniMax",
+        "Pika"
+      ],
+      "last_read": {
+        "rev": "43e30028af",
+        "date": "2026-11-15",
+        "record": "docs/wiki/upstream/sweeps/2026-11-15.md"
+      }
+    },
+    {
+      "name": "lightx2v",
+      "github": "ModelTC/LightX2V",
+      "clone": "coderef/LightX2V",
+      "branch": "main",
+      "paths": [
+        ":(glob,icase)**/*h3*",
+        ":(glob,icase)**/*h3*/**"
+      ],
+      "keywords": [
+        "H3",
+        "MiniMax"
+      ],
+      "last_read": {
+        "rev": "9cb6929d83",
+        "date": "2026-11-15",
+        "record": "docs/wiki/upstream/sweeps/2026-11-15.md"
+      }
+    },
+    {
+      "name": "minimax-h3",
+      "github": "MiniMax-AI/MiniMax-H3",
+      "clone": "coderef/MiniMax-H3",
+      "branch": "main",
+      "paths": [
+        "."
+      ],
+      "keywords": [
+        ""
+      ],
+      "last_read": {
+        "rev": "199b7d0e1f",
+        "date": "2026-11-15",
+        "record": "docs/wiki/upstream/sweeps/2026-11-15.md"
+      }
+    },
+    {
+      "name": "pika-h3-flex",
+      "github": "Pika-Labs/Pika-H3-Flex",
+      "clone": "coderef/Pika-H3-Flex",
+      "branch": "main",
+      "paths": [
+        "."
+      ],
+      "keywords": [
+        ""
+      ],
+      "last_read": {
+        "rev": "f961d7ed09",
+        "date": "2026-11-15",
+        "record": "docs/wiki/upstream/sweeps/2026-11-15.md"
+      }
+    },
+    {
+      "name": "comfyui-mainodes",
+      "github": "matlowai/ComfyUI-MAINodes",
+      "clone": "coderef/ComfyUI-MAINodes",
+      "branch": "main",
+      "paths": [
+        "."
+      ],
+      "keywords": [
+        ""
+      ],
+      "last_read": {
+        "rev": "3fe6014baa",
+        "date": "2026-11-15",
+        "record": "docs/wiki/upstream/sweeps/2026-11-15.md"
+      }
+    },
+    {
+      "name": "workflow-templates",
+      "github": "Comfy-Org/workflow_templates",
+      "clone": "coderef/workflow_templates",
+      "branch": "main",
+      "paths": [
+        ":(glob,icase)**/*h3*",
+        ":(glob,icase)**/*minimax*"
+      ],
+      "keywords": [
+        "H3",
+        "MiniMax"
+      ],
+      "last_read": {
+        "rev": "79b02f4a79",
+        "date": "2026-11-15",
+        "record": "docs/wiki/upstream/sweeps/2026-11-15.md"
+      }
+    }
+  ]
+}
