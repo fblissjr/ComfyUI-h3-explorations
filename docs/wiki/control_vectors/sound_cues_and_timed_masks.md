@@ -69,7 +69,7 @@ You can hand any ComfyUI `MASK` into `MiniMaxH3EditGuider.mask`, where **`0` (bl
    Turns an edit up and down across time for the entire frame and soundtrack together.
 3. **An animated mask "bloom"** (`[frames, height, width]` black-and-white video):  
    Combines **where** and **when** in one mask. Frames can start completely black (`0`), swell open like a soft spotlight over one prop during Beat 1 (`0 -> 1 -> 0`), close back to `0` while the actor resets, then swell open wider during Beat 2 before closing again.  
-   *(Important detail: whenever a mask has 2D screen dimensions `H > 1` or `W > 1`, the mask controls **which video regions change**, while soundtrack steering follows `streams` and `audio_scale` smoothly across the clip.)*
+   *(Important detail: a static `1`-frame 2D mask steers **video only** while soundtrack steering follows `streams` and `audio_scale` across the whole clip; a multi-frame `[frames, height, width]` (`frames > 1`) mask also gates `40 Hz` soundtrack steering by each frame's spatial peak `max(H, W)` (`edit_guidance.py:326-335`)—set `streams = "video_only"` if you want a timed visual bloom with zero soundtrack change.)*
 
 ### Pick an audio+video aligned clip length
 Whenever you use an animated multi-frame mask (`[frames, height, width]`) or audio-coupled render, keep the clip length on H3's shared audio-video grid (`39`, `90`, `141`, `192`, `243`, `294`, or `345` frames at `24 fps`; see [`h3_rules.py`](../../../h3_rules.py)). That keeps video frames, audio tokens, and mask frames ending on the exact same beat.

@@ -1,6 +1,6 @@
 # Documentation (`docs/`)
 
-All active repository documentation lives in the **LLM Wiki** under [`wiki/index.md`](wiki/index.md). Root [`../AGENTS.md`](../AGENTS.md) carries the runtime rules, H3 clock/frame invariants, and 65-node pack replacement map; `docs/wiki/` organizes deep technical ownership, operations, project atlases, dated research, decisions, and retired records into modular subtrees (`<= 45 KB` per router page).
+All active repository documentation lives in the **LLM Wiki** under [`wiki/index.md`](wiki/index.md). Root [`../AGENTS.md`](../AGENTS.md) carries the runtime rules, H3 clock/frame invariants, and 66-node pack replacement map; `docs/wiki/` organizes deep technical ownership, operations, project atlases, dated research, decisions, and retired records into modular subtrees (`<= 45 KB` per router page).
 
 ## Directory Map
 

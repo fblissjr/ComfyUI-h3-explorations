@@ -260,11 +260,12 @@ Figures quoted below are their authors' claims unless tagged H.
 
 - **Open-H3-Regenerate-2K** (sglang #47668, **C** body): a 768p draft to 2560x1440 by re-noise and three Euler steps,
   with audio held; it merges a Turbo LoRA. **Open-H3-Regenerate-2K-IC** (Hugging Face; card **B**, listing **H**): an
-  in-context LoRA that keeps the draft as a reference video and outputs up to 4K.
+  in-context LoRA that keeps the draft as a reference video and outputs up to 4K. *Owner decision (2026-11-15): skipped.*
 - **Faces from less noise** (`BennyDaBall930/ComfyUI-Open-H3-FaceRegion`; **B**): a per-token strength map that starts
   face tokens from lower noise in the regenerate pass, through H3's per-token denoise mask, with a large identity
-  claim. *For us:* our masked-source machinery already speaks per-token masks, so this is cheap to try in a remake or
-  refine pass.
+  claim. *For us:* suited to **same-person polish or refine passes only, never cast replacement** — `video_mask.py:710`
+  binarizes `tokens > 0.5` into a 1-bit keep/regenerate gate, and `comfy/samplers.py:638-643` (`KSamplerX0Inpaint`)
+  blends `(1 - m) * latent_image` every step, which ghosts the source actor's face latents on cast swaps.
 - **Other refine tools** (**B**): `JCKPIIIX/ComfyUI-MiniMaxH3-Refine` (low-denoise fl2va refine, with a denoise-to-sigma
   table at shift 12), `AnniCodex/ComfyUI-H3-FaceRefine-Plus` (an optical-flow anti-wobble lock), `bno84/ComfyUI-H3Regenerate`
   (a strict LoRA loader that fails on unmatched keys), 2D latent upscalers (`A1597404395` / `LBH-123-AI`, `SOLRICKS`),
@@ -349,7 +350,10 @@ items 1 and 2 below first got the edit's mask source and the eye tool wrong.*
 
 1. **An edit kept only where SAM finds the named thing** (`1bf88d9`, 2026-11-07). SAM 3.1 runs with the words on
    Picture 1's crop, the image *before* the edit. The mask is grown and softened, then multiplied into the
-   paste-back's feathered mask, so only that thing changes. It uses core nodes only.
+   paste-back's feathered mask, so only that thing changes. In `coderef/ComfyUI-MAINodes/web/snap/edits.js:436-474`, Stage 1
+   pairs core crop/mask/composite nodes (`ImageCropV2`, `SAM3_Detect`, `GrowMask`, `ImageCompositeMasked`) with custom
+   `MAISnapSeam` (`:446`, `coderef/ComfyUI-MAINodes/snap_bridge.py:1473`) and downscales the crop via `ImageScaleToTotalPixels` to
+   `PASTE_MP = 1.0` (`1 MP`, `:436`), while Stage 2 (`unpaste`, `:467-474`) wires custom `MAISnapKeepEdit` (`:472`).
    - Because the mask comes from the before image, it suits removals and in-place recolours of something already
      there (their case was taking a bar off a nose). An addition or shape change would be clipped by it and needs the
      after image's mask too.
@@ -541,7 +545,9 @@ These practices serve every outcome above, ours and theirs.
     - sum dials once in float64;
     - a blend level outside 0–1 extrapolates rather than strengthens, which bears on `MiniMaxH3EditGuider` scale above 1;
     - audio kept on the undialled branch still moves, because audio attends to the dialled video, which bears on
-      `audio_scale`;
+      `audio_scale`; and `MiniMaxH3EditGuider` now also gates `40 Hz` audio via `raw.amax(dim=(1, 2))` on multi-frame
+      3D `[F, H, W]` (`F > 1`) masks (`edit_guidance.py:326-335`), so silent visual region edits on `[F, H, W]` video
+      should set `streams = "video_only"`;
     - "a strong direction is not isolated control".
 - **(e) Speed at quality on the card.**
   - Their streamed blocks are bit-exact by mechanism (int32 accumulate), with a first-block self-check, and four
@@ -550,18 +556,17 @@ These practices serve every outcome above, ours and theirs.
   - Their gate keeps a fixtures manifest with a sha256 per file and a stale-result guard, so a crashed suite prints
     FAIL, never the last PASS.
   - Nothing for Sol.
-  - *Delivery:* RelayVSR (`coderef/ComfyUI-MAINodes/relayvsr/README.md`) reports that its X4 model downscaled to 2x
-    beats its own X2 on H3 clips, that a back-projection preset cuts flicker without redrawing faces, and that it fits
-    a card of the 4090's size. All their figures, on five short clips. It is a candidate final upscale for 1344x768
-    renders.
+  - No `LightX2V` or external VSR adoption (`RelayVSR` skipped by owner decision, 2026-11-15).
 - **(f) Less owner review time.**
   - The critic loop and the reroll stop rule (17.1).
   - *Triage notes, never verdicts.* Snap keeps approval with the person and adds cheap measurements as notes, so the
     person looks only where a note points (`coderef/ComfyUI-MAINodes/snap_critiques.py`,
     `coderef/ComfyUI-MAINodes/snap_cards/critic.json`):
-    - Voice QA: speaker timbre, median F0 and transcribed words with timestamps (`coderef/ComfyUI-MAINodes/snap_voice.py`).
-      It catches voice drift and unscripted speech, and partners with `bench/voice_spans.py` and `audio_end_percent`.
-    - A copy check: a DINOv3 whole-frame score that flags a take tracing `<Picture 1>` instead of moving.
+    - Acoustic drift pointer: zero-download median F0 pitch shift (`YIN`) comparing a steered take against its
+      `strength = 0.0` baseline (avoiding `WavLM` and `Whisper`/ASR, which the owner has ruled out), paired with
+      `audio_end_percent` checks and optional `bench/voice_spans.py` intervals.
+    - A copy check: a DINOv3 whole-frame score that flags a take tracing `<Picture 1>` instead of moving (strictly for
+      `<Picture 1>` copy/freeze triage, never for `who_is_who` cast identity).
     - Hair-lightness notes (section 15).
 
     This matches the owner's rule that a reading lists what to look at and holds nothing.
@@ -581,8 +586,7 @@ These practices serve every outcome above, ours and theirs.
     dilated clock. What transfers is freezing their already smeared track (their H3 Audio Smear, which today only
     seeds the audio) with the same `NestedTensor` mask across the rolling windows. Reasoned, not tested.
   - *Corrected the same day:* they do know the dual-clock rule (`coderef/ComfyUI-MAINodes/h3_extend.py:112,183`; `coderef/ComfyUI-MAINodes/capsule_types.py:86`; **H**).
-    Their extension tool notes an off-grid length, and `coderef/ComfyUI-MAINodes/motion.py` pads to any 17k+5. The pack refuses off-grid chains
-    (`h3_rules.on_both_clocks`).
+    Their extension tool notes an off-grid length, `coderef/ComfyUI-MAINodes/motion.py:5451` and `coderef/ComfyUI-MAINodes/window_expand.py:466` default `max_dilated_frames` to `209` (`209 % 3 == 2`), and `coderef/ComfyUI-MAINodes/window_loop.py:436` defaults `budget_dilated` to `124` (`124 % 3 == 1` — valid `17k+5`, off H3's `39 + 51m` dual-clock grid where audio tokens drift `±1/3` at seams). The pack refuses off-grid multi-window chains (`h3_rules.on_both_clocks`).
 - **Beats that don't multiply.** Their planned fix is sparse pose anchors.
   - Core's `MiniMaxH3AddGuide` already gives them mid-clip frames (their ROADMAP §4). What the pack adds is releasing
     them partway through denoising, through `MiniMaxH3ReleaseReferences` `guide_end_percent`
@@ -597,15 +601,19 @@ These practices serve every outcome above, ours and theirs.
     rotated well away from the video ones. That plausibly explains the strength gap; the vector norms differ too.
     The pack's `safe_open` refiner runner and J-lens re-projection (`j_lens.py`) carry one encoder-space vector into
     the image family without loading the DiT.
-  - **Core PR #17715 is a compute heads-up, not a breakage.** *Corrected the same day, after the second Gemini
-    review, checked by hand.* Their `ContextShift` calls `preprocess_text_embeds` itself
-    (`coderef/ComfyUI-MAINodes/dials/core.py:110`). Core skips the refiner when the input is already the model's width
-    (`comfy/ldm/minimax/model.py`, the `text_states.shape[-1] != self.hidden_size` branch). Their `PostShift` hook on
-    `token_refiner` is the fallback. Under #17715 the refiner would run on every step. It is on
-    `../upstream/horizon.md`.
+  - **Core PR #17715 is wider than a compute heads-up (`preprocess_text_embeds` removal).** *Corrected the same day,
+    checked by hand.* PR #17715 deletes `MiniMaxH3Model.preprocess_text_embeds`, which MAINodes calls directly in four
+    `dials/` modules (`coderef/ComfyUI-MAINodes/dials/core.py:110`, `coderef/ComfyUI-MAINodes/dials/envelopes.py:122`,
+    `coderef/ComfyUI-MAINodes/dials/timecurve.py:164`, and `coderef/ComfyUI-MAINodes/dials/research/code/dialslab_masked_node/__init__.py:26`).
+    Our `control_vector_nodes.py:630-663, 1973-1992` already guards `hasattr(dm, "preprocess_text_embeds")` and falls back
+    to `dm.token_refiner(dm.condition_proj(...))`, while under #17715 the refiner would run per step (`lora_branch.py`,
+    `nodes.py`), keeping it on `../upstream/horizon.md`.
 - **Snap's consistency.**
   - Their checks run stock SAM 3.1 (`SAM3_Detect`, and `SAM3_VideoTrack` with one object; **H**, `coderef/ComfyUI-MAINodes/web/snap/checks.js:91`).
     `MiniMaxH3SAM31Corrections` targets that path, though their thresholds would need re-measuring after it.
+  - Their region-edit graph downscales Picture 1's crop via `ImageScaleToTotalPixels` to `PASTE_MP = 1.0` (`1 MP`,
+    **H**, `coderef/ComfyUI-MAINodes/web/snap/edits.js:436-437`) before core `PH3ImageConditioning` (which only shrinks
+    above `8 MP` and does not upscale below `4 MP`), starving `P-H3-Image`'s `[4 MP, 8 MP]` floor (`ph3_image_nodes.py`).
   - Their Transform Footage reports a capability gap for frame ranges and temporal masks. The pack's
     `MiniMaxH3MaskedSource` and `MiniMaxH3RestorePlate` are that capability.
   - Their H3 setups don't wire a last frame (F-F20, **H**, `coderef/ComfyUI-MAINodes/docs/snap/AGENT_START.md:202`). `MiniMaxH3Conditioning` handles a
@@ -619,28 +627,14 @@ These practices serve every outcome above, ours and theirs.
 - **Unscripted speech from voice references.** `MiniMaxH3ReleaseReferences` `audio_end_percent` might reduce how much
   H3 copies a reference's words. Untested.
 
-### 17.4 If any of this is passed along
+### 17.4 What we take forward
 
-**To them, in order** (through the owner; nothing has been sent; reordered after the second Gemini review):
-1. The image refiner's divergence from the video ones, which bears on their image-dial strength. With it, the pack's
-   refiner runner and J-lens re-projection.
-2. The SAM 3.1 corrections, after reading what the other session's SAM 3.1 worktree changes.
-3. Frozen audio with the run-phase check, for their extension seams. For their dilated passes, freezing the smeared
-   track instead.
-4. `MiniMaxH3LoRABranch` for their merged int8 LoRAs, and the `int32` QKV line for their long dilated runs. The pack's
-   `MiniMaxH3SageAttention` fork has `int64`-safe indexing, relevant because their stack lists sage. The owner no
-   longer uses sage.
-5. Smaller items:
-   - the #17715 compute heads-up;
-   - `MiniMaxH3ReleaseReferences` (`guide_end_percent`, `audio_end_percent`);
-   - `MiniMaxH3EncodeReferences` for Snap's prompt revisions;
-   - `MiniMaxH3MaskedSource` and `MiniMaxH3Conditioning`'s lone last frame, for Transform Footage.
-
-**For us, in order:**
-1. A gate column and the seed ladder in the pack's research plans.
-2. A critic or reader floor fed by the owner's catches, with triage notes (voice, copy) feeding it.
-3. Their masked-prefix seam result, read against the song-loop handoff.
-4. RelayVSR as a candidate final upscale.
+1. A gate column and the seed ladder in the pack's research plans (`VISION.md` / [`../next_steps.md`](../next_steps.md)).
+2. A reader floor fed by the owner's catches, with clean-room triage notes (`YIN` median F0 pitch drift — no `WavLM` or
+   `Whisper`/ASR — plus DINOv3 whole-frame `<Picture 1>` copy/freeze checks, never `who_is_who`, and optional Lab iris
+   chroma / hair `L*` checks).
+3. A schedule-matched `next_sigma / current_sigma` tapered prefix-noise seam A/B on our `MiniMaxH3AudioFreezeSong`
+   song loops (keeping latent carry, without `color_carry`).
 
 ### 17.5 Not read
 
@@ -678,11 +672,13 @@ These practices serve every outcome above, ours and theirs.
 
 1. **Long clips.** The latent-carry finding (section 2) read against the song-loop handoff. It needs no render to
    read, and one pair to test.
-2. **Remakes.** Faces from less noise (section 10) in a masked remake, which our per-token masks can already express.
+2. **Remakes.** Faces from less noise (section 10) for same-person polish / refine passes only (never cast swaps),
+   which our per-token masks can already express.
 3. **The image lane.** The velocity-form Euler step and soft-start (section 4), one cheap render each.
 
 Added from sections 15 and 16, for whoever picks up steering or the masked lane next:
 - **Steering.** A step-scheduled first-frame release for image-to-video steering (section 17.2 (d)). The T6 check
   is done (Gemini's run).
-- **The masked lane and image edits.** The SAM word-gated paste (core nodes only, for removals and recolours). Section
-  17.4 has the fuller order.
+- **The masked lane and image edits.** The SAM word-gated region-edit recipe (`SAM3_Detect` + `MiniMaxH3SAM31Corrections` +
+  `GrowMask` + `MiniMaxH3EditGuider.mask` on `>= 4 MP` stills and `24 fps` `streams = "video_only"` video). Section 17.4
+  and [`../next_steps.md`](../next_steps.md) hold the active follow-up queue.
