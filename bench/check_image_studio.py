@@ -3,7 +3,7 @@
 
 The H3-Image Studio lives in a gitignored standalone directory (`app/server.py`,
 `app/routes.py`, `app/h3_image_tools.py`, `app/studio.sh`, `app/static/` with
-`index.html`, `app.js`, and `style.css`, plus `app/test_app.py`), so its
+`index.html`, `manifest.json`, `style.css`, and `js/*.js`, plus `app/test_app.py`), so its
 24 Tier 1 offline checks stay invisible to `bench/run_checks.py` unless a
 tracked wrapper invokes them. Because `app/` is optional in fresh clones (and
 omitted in `bench/break_checks.py` copies), this wrapper calls
@@ -49,8 +49,18 @@ STUDIO_FILES = (
     "app/h3_image_tools.py",
     "app/studio.sh",
     "app/static/index.html",
-    "app/static/app.js",
+    "app/static/manifest.json",
     "app/static/style.css",
+    "app/static/js/controls.js",
+    "app/static/js/core.js",
+    "app/static/js/editguide.js",
+    "app/static/js/gallery.js",
+    "app/static/js/main.js",
+    "app/static/js/paint.js",
+    "app/static/js/panel.js",
+    "app/static/js/pictures.js",
+    "app/static/js/runs.js",
+    "app/static/js/session.js",
 )
 
 
